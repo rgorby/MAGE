@@ -1,2 +1,2 @@
-# Kaiju Farm
+# The Life of Kaiju 
 
