@@ -1,0 +1,11 @@
+<?xml version="1.0"?>
+<!-- Orszag-Tang 2D -->
+<Gamera>
+    <sim runid="ot2d" doH5init="F" icType="OT2D">
+    <idir min="0" max="1" N="512">
+    <jdir min="0" max="1" N="512">
+    <kdir min="-0.5" max="0.5" N="1">
+    <time tFin="1.0">
+    <output dtOut="0.005" tsOut="100">
+    <physics doMHD="T">
+</Gamera>

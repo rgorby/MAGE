@@ -1,0 +1,960 @@
+module init
+
+    use types
+    use math
+    use gridutils
+    use gamutils
+    use mhdgroup
+    use xml_input
+    use gioH5
+    use prob
+    use output
+    use bcs
+    use quadrature
+    use background
+    use ringutils
+    use ringav
+    use recon
+    use multifluid
+
+    use step
+    
+#ifdef _OPENMP
+    use omp_lib
+#endif
+
+    implicit none
+
+    !Initialization defaults (2D Square)
+    integer :: Nc = 64
+    real(rp) :: xMin = -1.0, xMax = 1.0
+    integer :: seed0 = 31337 !Default random seed
+    character(len=strLen) :: reconMethod
+    !Max value of CFL 
+    !-Can be lower from PDMB
+    !-Can be forced lower via sim/CFL
+    real(rp) :: MaxCFL = 0.3
+
+    contains
+    
+    !Hatch Gamera
+    !Initialize main data structures
+    subroutine Hatch(Model,Grid,State,oState,endTime)
+        type(Model_T), intent(inout) :: Model
+        type(Grid_T), intent(inout) :: Grid
+        type(State_T), intent(inout) :: State,oState
+        !OMEGA can overrule what GAMERA has
+        real(rp), optional, intent(in) :: endTime 
+
+        type(XML_Input_T) :: xmlInp
+        procedure(StateIC_T), pointer :: initState => NULL()
+        integer :: i,Narg
+        character(len=strLen) :: inpXML,resStr,inH5
+        logical :: fExist, doH5g, doH5ic
+
+        !Alwasys zero for single process job
+        Grid%ijkShift(1:3) = 0
+        CellBxyz => gamCellBxyz
+
+        !Setup OMP info
+#ifdef _OPENMP
+        Model%nTh = omp_get_max_threads()
+        write(*,*) 'Running threaded'
+        write(*,*) '   # Threads = ', Model%nTh
+        write(*,*) '   # Cores   = ', omp_get_num_procs()
+#else
+        write (*,*) 'Running without threading'
+        Model%nTh = 1
+#endif
+        
+        !Find input deck
+        Narg = command_argument_count()
+        if (Narg .eq. 0) then
+            write(*,*) 'No input deck specified, defaulting to Input.xml'
+            inpXML = "Input.xml"
+        else
+            call get_command_argument(1,inpXML)
+        endif
+
+        write(*,*) 'Reading input deck from ', trim(inpXML)
+        inquire(file=inpXML,exist=fExist)
+        if (.not. fExist) then
+            write(*,*) 'Error opening input deck, exiting ...'
+            write(*,*) ''
+            stop
+        endif
+
+        !Partial inclusion of new XML reader
+        xmlInp = New_XML_Input(trim(inpXML),'Gamera',.true.)
+
+!--------------------------------------------
+        !Initalize model data structure
+        call initModel(Model,xmlInp)
+        if(present(endTime)) Model%tFin = endTime
+
+!--------------------------------------------
+        !Initialize grid data
+
+        !Prepare for Grid/IC generation, either from file or internal routines
+        call xmlInp%Set_Val(doH5g ,"sim/doH5g" ,.false.)
+        
+        !Get input H5 if necessary
+        !Restart file overwrites doH5g
+        if (doH5g) call xmlInp%Set_Val(inH5,"sim/H5Grid","gMesh.h5")
+        if (Model%isRestart) call xmlInp%Set_Val(inH5,"restart/resFile","Res.h5")
+
+        !Do grid generation
+        if (doH5g .or. Model%isRestart) then
+            !Use H5 input for Grid
+            write(*,*) 'Reading grid from file ', trim(inH5)
+            call readH5Grid(Model,Grid,inH5)
+        else
+            !Create grid (corners) from XML info
+            call genGridXML(Model,Grid,xmlInp)
+        endif 
+
+        !Set default domains (needs to be done after grid generation/reading)
+        call SetDomain(Model,Grid)
+
+        !Figure out ring avg (if using) before C2G
+        call SetRings(Model,Grid,xmlInp)
+
+        !Turn corners into grid
+        call Corners2Grid(Model,Grid)
+
+        !Set default BCs (after C2G)
+        call DefaultBCs(Model,Grid)
+
+!--------------------------------------------
+        !Initialize state data
+        !First prep state, then do restart if necessary, then finish state
+
+        call PrepState(Model,Grid,oState,State,xmlInp)
+
+        if (Model%isRestart) then
+            !If restart replace State variable w/ restart file
+            !Make sure inH5 is set to restart
+            call xmlInp%Set_Val(inH5,"restart/resFile","Res.h5")
+            call readH5Restart(Model,Grid,State,inH5)
+        endif
+
+        !Do remaining things to finish state
+        !ie add B0/Grav and do bFlux2Fld
+        call DoneState(Model,Grid,oState,State)
+
+        !Finalize setup
+        !Enforce initial BC's
+        call Tic("Halos")
+        call EnforceBCs(Model,Grid,State)
+        call Toc("Halos")
+        
+        !Setup timestep and initial previous state for predictor
+        Model%dt = CalcDT(Model,Grid,State)
+        oState = State
+        oState%time = State%time-Model%dt !Initial old state
+
+        !Setup output file
+        h5File = trim(Model%RunID) // ".h5"
+        if (.not. Model%isRestart) then
+            inquire(file=h5File,exist=fExist)
+            if (fExist) then
+                write(*,*) 'Output file already exists, deleting file.'
+                call EXECUTE_COMMAND_LINE( 'rm ' // trim(h5File) , wait=.true.)
+            endif
+    
+            !Write grid to output file
+            call writeH5GridInit(Model,Grid)
+        endif
+
+        !Initialization complete!
+        
+    end subroutine Hatch
+
+    !Finalize things for state var
+    subroutine DoneState(Model,Grid,oState,State)
+        type(Model_T), intent(inout) :: Model
+        type(Grid_T), intent(inout) :: Grid
+        type(State_T), intent(inout) :: oState,State
+
+        if (Model%doMHD) then
+            call bFlux2Fld(Model,Grid,State%magFlux,State%Bxyz)
+        endif
+
+        !Incorporate background field, B0, if necessary
+        if (Model%doBackground .and. doB0Init) then
+            call AddB0(Model,Grid,Model%B0)
+        endif
+        !Incorporate gravity if necessary
+        if (Model%doGrav .and. doG0Init) then
+            call AddGrav(Model,Grid,Model%Phi)
+        endif
+
+    end subroutine DoneState
+
+    !Prepare state and call IC
+    subroutine PrepState(Model,Grid,oState,State,xmlInp)
+        type(Model_T), intent(inout) :: Model
+        type(Grid_T), intent(inout) :: Grid
+        type(State_T), intent(inout) :: oState,State
+        type(XML_Input_T), intent(in) :: xmlInp
+
+        procedure(StateIC_T), pointer :: initState => NULL()        
+        logical :: doH5ic
+        character(len=strLen) :: icStr
+
+        call xmlInp%Set_Val(doH5ic,"sim/doH5ic",.false.)
+        !Set IC subroutine
+        if (doH5ic) then
+            !Use H5 input for ICs
+            write(*,*) 'H5 Init currently not implemented ...'
+            !initState => initH5
+            stop
+        else
+            call xmlInp%Set_Val(icStr,"sim/icType","OT2D")
+            call setIC_T(initState,icStr)            
+        endif           
+
+        !Setup ICs either from routine or file
+        !Alloc first
+        call allocState(Model,Grid,State)
+        call allocState(Model,Grid,oState)
+
+        !Call IC function
+        !Call even for restart to reset BCs, background, etc ...
+        call initState(Model,Grid,State,xmlInp)
+
+    end subroutine PrepState
+
+    !Initialize Model data structure
+    subroutine initModel(Model,xmlInp)
+        type(Model_T), intent(inout) :: Model
+        type(XML_Input_T), intent(in) :: xmlInp
+
+        real(rp) :: C0
+        integer :: nSeed, icSeed
+        integer, dimension(:), allocatable :: vSeed
+
+        !Get/set model defaults (can be overwritten)
+        Model%nSpc = 0
+        Model%nDim = 3
+        Model%nG = 4
+        Model%t = 0.0
+        Model%ts = 0
+        Model%tOut = 0
+        Model%tRes = 0.0
+
+    !Main logicals
+        !These are set by default until they're implemented
+        Model%doMultiF = .false.
+        Model%doBackground = .false.
+        Model%doHall = .false.
+        Model%doGrav = .false.
+
+        call xmlInp%Set_Val(Model%doArmor,'physics/doArmor',.false.)
+        call xmlInp%Set_Val(Model%doMHD  ,'physics/doMHD'  ,.false.)
+        call xmlInp%Set_Val(Model%do25D  ,'physics/do25D'  ,.false.)
+        call xmlInp%Set_Val(Model%useResistivity,'/physics/useResistivity',.false.)
+
+    !Misc. algorithmic/physics options
+        !Need CFL & PDMB values
+        !pdmb value used in module recon
+        !Start by reading PDMB, set CFL based on that but limit to max 0.3
+        !Set global pdmb value used in recon
+        !Set Vd0, the coefficient of the diffusive electric field
+        call xmlInp%Set_Val(pdmb,'sim/pdmb',1.0_rp)
+        C0 = min(0.5/(pdmb+0.5) ,MaxCFL) !Set CFL based on PDM
+        call xmlInp%Set_Val(dFloor,"sim/dFloor",dFloor)
+        call xmlInp%Set_Val(pFloor,"sim/pFloor",pFloor)
+
+        !Set CFL from XML
+        call xmlInp%Set_Val(Model%CFL ,'sim/CFL'  ,C0)
+        if(verbose>0) then
+           if (Model%CFL > C0) then
+               write(*,*) '-------------------------------------'
+               write(*,*) 'WARNING, CFL is above critical value!'
+               write(*,*) 'CFL/Critical/PDMB = ', Model%CFL,C0,pdmb
+               write(*,*) '-------------------------------------'
+           else
+               write(*,*) 'CFL # = ', Model%CFL
+           endif
+        endif
+        call xmlInp%Set_Val(Model%Vd0,'sim/Vd0',0.5)
+        
+        call xmlInp%Set_Val(Model%gamma,'physics/gamma',5.0_rp/3.0)
+        call xmlInp%Set_Val(Model%doHogs,'physics/doHogs',.true.)
+        
+        if (Model%doHogs) then
+            call xmlInp%Set_Val(Model%cHogH,'physics/cHogH',0.25_rp)
+            call xmlInp%Set_Val(Model%cHogM,'physics/cHogM',0.25_rp)
+        else
+            Model%cHogH = 0.0
+            Model%cHogM = 0.0
+        endif
+
+        call xmlInp%Set_Val(Model%tFin,'time/tFin',1.0_rp)
+        
+    !Output options
+        call xmlInp%Set_Val(Model%tsOut,'output/tsOut',10)
+        call xmlInp%Set_Val(Model%dtOut,'output/dtOut',0.1_rp)
+        call xmlInp%Set_Val(Model%doTimer,'output/timer',.false.)
+        call xmlInp%Set_Val(Model%doDivB ,'output/DivB' ,.true. )
+        
+    !Restart stuff
+        !Do restart outputs if dtRes>0
+        call xmlInp%Set_Val(Model%dtRes,'restart/dtRes',-1.0_rp)
+        Model%doResOut = .false.
+        if (Model%dtRes > 0) Model%doResOut = .true.
+        call xmlInp%Set_Val(Model%isRestart,'restart/doRes',.false.)
+
+    !Boris info
+        call xmlInp%Set_Val(Model%doBoris,'physics/doBoris',.false.)
+
+        if (Model%doBoris) then
+            call xmlInp%Set_Val(Model%Ca,'physics/Ca',HUGE)
+        else
+            Model%Ca = HUGE
+        endif
+
+    !Multi-fluid
+        call xmlInp%Set_Val(Model%doMultiF,'multifluid/doMF',.false.)
+        if (Model%doMultiF) then
+            call InitMultiF(Model,xmlInp)
+        endif
+
+    ! Heating info
+        call xmlInp%Set_Val(Model%doHeat,'physics/doHeat',.false.)
+        call xmlInp%Set_Val(Model%doPsphere,'physics/doPsphere',.false.)
+        if (Model%doHeat) then
+            ! if heating, always use plasmasphere regardless of xml file
+            Model%doPsphere = .True. 
+            ! heating rate in units of 1/tau where tau is the coupling constant with pressure provider
+            call xmlInp%Set_Val(Model%hRate,'physics/hRate',1.)
+            ! grab coupling time from the xml file
+            call xmlInp%Set_Val(Model%hTau,'gamera_chimp/dt',0.5)
+        endif
+
+    !Get RunID
+        call xmlInp%Set_Val(Model%RunID,'sim/runid',"Sim")
+
+    !Set function pointers for algorithm details
+        !Cen8LRs,Up7LRs 
+        GetLRs => NULL()
+        call xmlInp%Set_Val(reconMethod,"sim/rmeth","8CENT")
+        
+        select case (trim(toUpper(reconMethod)))
+        case("7UP")
+            GetLRs => Up7LRs
+            write(*,*) 'Using 7UP Reconstruction'
+        case("8CENT")
+            GetLRs => Cen8LRs
+            write(*,*) 'Using 8CENT Reconstruction'
+        case("HIGH5")
+            GetLRs => High5LRs
+            write(*,*) 'Using High-5 Reconstruction'
+        end select
+
+        RingLR => NULL()
+        call xmlInp%Set_Val(reconMethod,"ring/rngrec","PPM")
+        
+        select case (trim(toUpper(reconMethod)))
+        case("PLM")
+            RingLR => PLM_IntLR
+        case("PPM")
+            RingLR => PPM_IntLR
+        case("WENO")
+            RingLR => WENO_IntLR
+        case("PCM")
+            RingLR => PCM_IntLR
+        end select
+
+        !Get RNG seed and setup RNG
+        call xmlInp%Set_Val(icSeed,"random/seed",seed0)
+
+        !Setup random number generator
+        call random_seed(size=nSeed)
+        allocate(vSeed(nSeed))
+        vSeed(:) = seed0
+        call random_seed(put=vSeed)
+
+    end subroutine initModel
+    
+    !Set default Grid domain indices (after grid generation)
+    subroutine SetDomain(Model,Grid)
+        type(Model_T), intent(in)   :: Model
+        type(Grid_T), intent(inout) :: Grid
+
+        !Set default domain for DT calculation
+        Grid%isDT = Grid%is-1
+        Grid%ieDT = Grid%ie+1
+        Grid%jsDT = Grid%js-1
+        Grid%jeDT = Grid%je+1
+        Grid%ksDT = Grid%ks-1
+        Grid%keDT = Grid%ke+1
+
+        !Set default domain for Bxyz predictor calculation
+        Grid%isMG = Grid%isg
+        Grid%ieMG = Grid%ieg
+        Grid%jsMG = Grid%jsg
+        Grid%jeMG = Grid%jeg
+        if (Model%do25D) then
+            Grid%ksMG = Grid%ks
+            Grid%keMG = Grid%ks
+        else            
+            Grid%ksMG = Grid%ksg
+            Grid%keMG = Grid%keg
+        endif
+
+    end subroutine SetDomain
+
+    !Set default Grid domain indices (after grid generation)
+    subroutine DefaultBCs(Model,Grid)
+        type(Model_T), intent(in)   :: Model
+        type(Grid_T), intent(inout) :: Grid
+
+        integer :: i
+        !Set default BCs to triply periodic, problem IC can over-ride
+        Grid%HaloUps(INI )%ApplyBC => periodic_ibcI
+        Grid%HaloUps(OUTI)%ApplyBC => periodic_obcI
+        Grid%HaloUps(INJ )%ApplyBC => periodic_ibcJ
+        Grid%HaloUps(OUTJ)%ApplyBC => periodic_obcJ
+        Grid%HaloUps(INK )%ApplyBC => periodic_ibcK
+        Grid%HaloUps(OUTK)%ApplyBC => periodic_obcK
+        Grid%NumBC = 6
+
+        ! Overruling external BC as periodic mpi BC 
+        do i=1,MAXBC
+            Nullify( Grid%ExternalHaloUps(i)%ApplyBC )
+        end do
+    end subroutine DefaultBCs
+
+    !Figure out ring avg (if using) before C2G
+    subroutine SetRings(Model,Grid,xmlInp)
+        type(Model_T),intent(inout) :: Model
+        type(Grid_T), intent(inout) :: Grid
+        type(XML_Input_T), intent(inout) :: xmlInp
+
+        call xmlInp%Set_Val(Model%doRing,"ring/doRing",.false.)
+        
+        if (Model%doRing) then
+            call xmlInp%Set_Val(Model%Ring%GridID,"ring/gid","NONE")
+            call InitRings(Model,Grid,xmlInp)
+        endif
+    end subroutine SetRings
+
+    !Generate 3d corner arrays (xyz) from XML input
+    !For now only do uniform
+    subroutine genGridXML(Model,Grid,xmlInp,NipIN,NjpIN,NkpIN,xyzBdsIN)
+        type(Model_T), intent(inout) :: Model
+        type(Grid_T), intent(inout) :: Grid
+        type(XML_Input_T), intent(in) :: xmlInp
+
+        !If we use MPI we will send in these params else
+        ! we read them from file
+        integer, optional, intent(in) :: NipIN,NjpIN,NkpIN
+        real(rp),optional, intent(in) :: xyzBdsIN(6)
+
+    
+        logical :: doWarp, doCyl, doSph
+        real(rp) :: xyzBds(6)
+        real(rp) :: dx,dy,dz
+        integer :: i,j,k
+        !Variables for warp generation
+        real(rp) :: Lx,Ly,Lz, xp,yp,zp, Ax,Ay,Az,R,w0, dsp
+        real(rp) :: x1,x2,x3,x,y,z
+        integer :: Nw
+        
+
+        !Start with main indices
+        if(present(NipIN)) then
+            Grid%Nip  = NipIN
+        else 
+            call xmlInp%Set_Val(Grid%Nip,"idir/N",Nc)
+        end if
+        if(present(NjpIN)) then
+            Grid%Njp  = NjpIN
+        else
+            call xmlInp%Set_Val(Grid%Njp,"jdir/N",Nc) 
+        end if
+        if(present(NkpIN)) then
+            Grid%Nkp  = NkpIN
+        else 
+            call xmlInp%Set_Val(Grid%Nkp,"kdir/N",1)
+        end if
+
+
+        if (Grid%Nkp == 1) then
+            Model%do25D = .true.
+        else
+            Model%do25D = .false.
+        endif
+        
+        !Get mins/maxes
+        if(present(xyzBdsIN)) then
+            xyzBds(:) = xyzBdsIN(:)
+        else
+            call xmlInp%Set_Val(xyzBds(1),"idir/min",xMin)
+            call xmlInp%Set_Val(xyzBds(2),"idir/max",xMax)
+            call xmlInp%Set_Val(xyzBds(3),"jdir/min",xMin)
+            call xmlInp%Set_Val(xyzBds(4),"jdir/max",xMax)
+            call xmlInp%Set_Val(xyzBds(5),"kdir/min",xMin)
+            call xmlInp%Set_Val(xyzBds(6),"kdir/max",xMax)
+        end if
+
+        write(*,*) 'Grid generation ...'
+        write(*,*) '   Cells = ', Grid%Nip,Grid%Njp,Grid%Nkp
+        write(*,*) '   xMin/xMax = ', xyzBds(1),xyzBds(2)
+        write(*,*) '   yMin/yMax = ', xyzBds(3),xyzBds(4)
+        write(*,*) '   zMin/zMax = ', xyzBds(5),xyzBds(6)
+        write(*,*) ''
+
+        !Get grid geometry options
+        !Use right-handed system
+        !Cyl: x1,x2,x3 -> R,phi/2pi,z
+        !Sph: x1,x2,x3 -> r,theta/pi,phi/2pi
+
+        call xmlInp%Set_Val(doCyl,"grid/doCyl" ,.false.)
+        call xmlInp%Set_Val(doSph,"grid/doSph" ,.false.)
+
+        !Derived quantities
+        Grid%Ni = Grid%Nip + 2*Model%nG
+        Grid%Nj = Grid%Njp + 2*Model%nG
+        Grid%Nk = Grid%Nkp + 2*Model%nG
+
+        Grid%is = 1; Grid%ie = Grid%Nip
+        Grid%js = 1; Grid%je = Grid%Njp
+        Grid%ks = 1; Grid%ke = Grid%Nkp
+
+        Grid%isg = Grid%is-Model%nG
+        Grid%ieg = Grid%ie+Model%nG
+
+        Grid%jsg = Grid%js-Model%nG
+        Grid%jeg = Grid%je+Model%nG
+
+        Grid%ksg = Grid%ks-Model%nG
+        Grid%keg = Grid%ke+Model%nG
+
+        !Set dx's (uniform for now)
+        dx = (xyzBds(2)-xyzBds(1))/Grid%Nip
+        dy = (xyzBds(4)-xyzBds(3))/Grid%Njp
+        dz = (xyzBds(6)-xyzBds(5))/Grid%Nkp
+
+        !Allocate corner grid holders
+        allocate(Grid%x(Grid%isg:Grid%ieg+1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1))
+        allocate(Grid%y(Grid%isg:Grid%ieg+1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1))
+        allocate(Grid%z(Grid%isg:Grid%ieg+1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1))
+
+        ! cell corners - a part of the Grid structure
+        do k=Grid%ksg, Grid%keg+1
+            do j=Grid%jsg, Grid%jeg+1
+                do i=Grid%isg, Grid%ieg+1
+                    x1 = xyzBds(1)+(i-1)*dx
+                    x2 = xyzBds(3)+(j-1)*dy
+                    x3 = xyzBds(5)+(k-1)*dz
+                    if (doCyl) then
+                        !Treat x1,x2,x3 as R,phi/2pi,z
+                        x = x1*cos(2*pi*x2)
+                        y = x1*sin(2*pi*x2)
+                        z = x3
+                    else if (doSph) then
+                        !Sph: x1,x2,x3 -> r,theta/pi,phi/2pi
+                        x = x1*sin(pi*x2)*cos(2*pi*x3)
+                        y = x1*sin(pi*x2)*sin(2*pi*x3)
+                        z = x1*cos(pi*x2)
+                    else !Cartesian
+                        x = x1
+                        y = x2
+                        z = x3
+                    endif
+
+                    Grid%x(i,j,k) = x
+                    Grid%y(i,j,k) = y
+                    Grid%z(i,j,k) = z
+                enddo
+            enddo
+        enddo
+
+        !Do warp if necessary
+        call xmlInp%Set_Val(doWarp,"grid/doWarp" ,.false.)
+        if (doWarp) then
+            call xmlInp%Set_Val(w0,"grid/w0",0.1_rp)
+            call xmlInp%Set_Val(R ,"grid/R" ,1.0_rp)
+            call xmlInp%Set_Val(Nw,"grid/Nw",1)
+
+            Lx = (xyzBds(2)-xyzBds(1))
+            Ly = (xyzBds(4)-xyzBds(3))
+            Lz = (xyzBds(6)-xyzBds(5))
+            Ax = Nw*pi/Lx
+            Ay = Nw*pi/Ly
+            Az = Nw*pi/Lz
+
+            !Add warp factor to each corner
+            do k=Grid%ksg, Grid%keg+1
+                do j=Grid%jsg, Grid%jeg+1
+                    do i=Grid%isg, Grid%ieg+1
+                        
+                        xp = Grid%x(i,j,k) - xyzBds(1)
+                        yp = Grid%y(i,j,k) - xyzBds(3)
+                        zp = Grid%z(i,j,k) - xyzBds(5)
+
+                        dsp = w0*sin(Ax*xp)*sin(Ay*yp)
+
+                        Grid%x(i,j,k) = Grid%x(i,j,k) + dsp
+                        Grid%y(i,j,k) = Grid%y(i,j,k) - dsp
+                        if (.not. Model%do25D) then
+                            dsp = w0*sin(Az*zp)
+                            Grid%z(i,j,k) = Grid%z(i,j,k) + dsp
+                        endif
+                    enddo
+                enddo
+            enddo
+
+        endif
+
+    end subroutine genGridXML
+
+    !Calculates grid data structure from cell corner arrays (x,y,z)
+    subroutine Corners2Grid(Model,Grid)
+        type(Model_T), intent(inout) :: Model
+        type(Grid_T), intent(inout) :: Grid
+
+        integer :: i,j,k,d
+        integer :: T1,T2,dNorm
+        integer :: is,ie,js,je,ks,ke
+
+        real(rp), dimension(NDIM) :: xi,xj,xk,xip1,xjp1,xkp1, di,dj,dk
+        real(rp), dimension(NDIM) :: dT1,dT2,eT1,eT2,eN
+        real(rp), dimension(NDIM) :: dEdge, eAvg
+        real(rp), dimension(NDIM) :: xFace
+        real(rp), dimension(8,NDIM) :: xyzC
+        real(rp) :: ijkDV(NVAR)
+
+        real(rp) :: fA
+        integer :: DelI,DelJ,DelK
+        procedure(GasIC_T), pointer :: CdV
+        procedure(VectorField_T), pointer :: fCtr,fArea !Functions for surface area/area center
+        real(rp), dimension(NDIM) :: f0,f1,f2,f3, fInt,fInt2,fIntx
+        logical :: doQuadFT = .false. !Whether to do quadrature for face system
+        
+        !Set pointers needed for Gaussian integrals
+        CdV => CellDV
+        fCtr => rVec
+        fArea => IdVec
+
+        !Allocate/initialize
+        allocate(Grid%xyz  (Grid%isg:Grid%ieg+1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1,NDIM))
+        allocate(Grid%xyzcc(Grid%isg:Grid%ieg  ,Grid%jsg:Grid%jeg  ,Grid%ksg:Grid%keg  ,NDIM))
+        allocate(Grid%xfc  (Grid%isg:Grid%ieg+1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1,NDIM,NDIM))
+        allocate(Grid%Tf   (Grid%isg:Grid%ieg+1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1,NDIM*NDIM,NDIM))
+        call allocGridVec(Model,Grid,Grid%face,doP1=.true.)
+        
+        !------------------------------------------------
+        !Store x,y,z corners into 4D array
+        Grid%xyz(:,:,:,XDIR) = Grid%x
+        Grid%xyz(:,:,:,YDIR) = Grid%y
+        Grid%xyz(:,:,:,ZDIR) = Grid%z
+        
+        !------------------------------------------------
+        !Calculate face-centered coordinates
+
+        Grid%face = 1.0
+        Grid%xfc = 0.0
+        Grid%Tf = 0.0
+
+        do d=1,NDIM
+            DelI = ijkD(d,IDIR)
+            DelJ = ijkD(d,JDIR)
+            DelK = ijkD(d,KDIR)
+
+            !$OMP PARALLEL DO default(shared) collapse(2) &
+            !$OMP private(f0,f1,f2,f3,fA,fInt,fInt2,fIntX,eN,eT1,eT2) &
+            !$OMP private(dT1,dT2)
+            do k=Grid%ksg, Grid%keg+DelK
+                do j=Grid%jsg, Grid%jeg+DelJ
+                    do i=Grid%isg, Grid%ieg+DelI
+                        !Need specific ordering of corner points
+                        call faceCoords(Model,Grid,i,j,k,d,f0,f1,f2,f3)
+
+                        !Calculate face area/face center
+                        call GaussianFaceIntegral(f0,f1,f2,f3,fArea,fInt,fInt2,fIntX)
+                        fA = fInt(1)
+                        call GaussianFaceIntegral(f0,f1,f2,f3,fCtr,fInt,fInt2,fIntX)
+                        Grid%xfc(i,j,k,:,d) = fInt/fA
+                        Grid%face(i,j,k,d) = fA
+
+                        !Get face coordinate system
+                        if (doQuadFT) then
+                            call GaussianFaceSystem(f0,f1,f2,f3,eN,eT1,eT2)
+                        else
+                            select case(d)
+                            case(IDIR)
+                                !N,T1,T2 = i,j,k
+                                dT1 = 0.5*( Grid%xyz(i  ,j+1,k+1,:) - Grid%xyz(i  ,j  ,k+1,:) ) + &
+                                      0.5*( Grid%xyz(i  ,j+1,k  ,:) - Grid%xyz(i  ,j  ,k  ,:) )
+                                dT2 = 0.5*( Grid%xyz(i  ,j+1,k+1,:) - Grid%xyz(i  ,j+1,k  ,:) ) + &
+                                      0.5*( Grid%xyz(i  ,j  ,k+1,:) - Grid%xyz(i  ,j  ,k  ,:) )
+                            case(JDIR)
+                                !N,T1,T2 = j,k,i
+                                dT1 = 0.5*( Grid%xyz(i+1,j  ,k+1,:) - Grid%xyz(i+1,j  ,k  ,:) ) + &
+                                      0.5*( Grid%xyz(i  ,j  ,k+1,:) - Grid%xyz(i  ,j  ,k  ,:) )
+                                dT2 = 0.5*( Grid%xyz(i+1,j  ,k+1,:) - Grid%xyz(i  ,j  ,k+1,:) ) + &
+                                      0.5*( Grid%xyz(i+1,j  ,k  ,:) - Grid%xyz(i  ,j  ,k  ,:) )
+                            case(KDIR)
+                                !N,T1,T2 = k,i,j
+                                dT1 = 0.5*( Grid%xyz(i+1,j+1,k  ,:) - Grid%xyz(i  ,j+1,k  ,:) ) + &
+                                      0.5*( Grid%xyz(i+1,j  ,k  ,:) - Grid%xyz(i  ,j  ,k  ,:) )
+                                dT2 = 0.5*( Grid%xyz(i+1,j+1,k  ,:) - Grid%xyz(i+1,j  ,k  ,:) ) + &
+                                      0.5*( Grid%xyz(i  ,j+1,k  ,:) - Grid%xyz(i  ,j  ,k  ,:) )
+                            end select
+                            !Face normal
+                            eN = cross(dT1,dT2)/norm2(cross(dT1,dT2))
+                            eT2 = dT2/norm2(dT2)
+                            eT1 = cross(eT2,eN)/norm2(cross(eT2,eN))
+
+                        endif
+                        !Use whichever system you calculated
+                        Grid%Tf(i,j,k,NORMX:NORMZ,d) = eN
+                        Grid%Tf(i,j,k,TAN1X:TAN1Z,d) = eT1
+                        Grid%Tf(i,j,k,TAN2X:TAN2Z,d) = eT2
+
+                    enddo
+                enddo
+            enddo                        
+        enddo
+
+
+        !------------------------------------------------
+        !Calculate cell volume, grid edges
+        call allocGridVar(Model,Grid,Grid%volume)
+        call allocGridVar(Model,Grid,Grid%di)
+        call allocGridVar(Model,Grid,Grid%dj)
+        call allocGridVar(Model,Grid,Grid%dk)
+
+   
+        !$OMP PARALLEL DO default(shared) collapse(2) &
+        !$OMP private(xyzC,xi,xk,xip1,xjp1,xkp1,di,dj,dk,ijkDV)
+        do k=Grid%ksg, Grid%keg
+            do j=Grid%jsg, Grid%jeg
+                do i=Grid%isg, Grid%ieg
+                    !Get coordinates of each face center
+                    !Face centers
+                    xi = Grid%xfc(i,j,k,:,IDIR)
+                    xj = Grid%xfc(i,j,k,:,JDIR)
+                    xk = Grid%xfc(i,j,k,:,KDIR)
+                    xip1 = Grid%xfc(i+1,j,k,:,IDIR)
+                    xjp1 = Grid%xfc(i,j+1,k,:,JDIR)
+                    xkp1 = Grid%xfc(i,j,k+1,:,KDIR)
+
+                    !Get di,dj,dk vectors across cell
+                    di = xip1-xi
+                    dj = xjp1-xj
+                    dk = xkp1-xk
+
+                    !Calculate average cell length in each direction for timestep
+                    Grid%di(i,j,k) = norm2(di)
+                    Grid%dj(i,j,k) = norm2(dj)
+                    Grid%dk(i,j,k) = norm2(dk)
+
+                !Calculate volume/volume-center using quadrature
+                    !Get cell corners
+                    call cellCoords(Model,Grid,i,j,k,xyzC)
+
+                    ijkDV = GaussianVolumeIntegral(xyzC,CdV)                                        
+                    Grid%volume(i,j,k)   = ijkDV(1)
+                    Grid%xyzcc (i,j,k,:) = ijkDV(VELX:VELZ)/ijkDV(1)
+
+                    !Grid%volume(i,j,k) = dot_product(di,cross(dj,dk))
+                enddo
+            enddo
+        enddo
+
+        !Replace di,dj,dk calculations
+        !$OMP PARALLEL DO default(shared) collapse(2) &
+        !$OMP private(fA)
+        do k=Grid%ksg, Grid%keg
+            do j=Grid%jsg, Grid%jeg
+                do i=Grid%isg, Grid%ieg
+                    fA = max(Grid%face(i+1,j,k,IDIR),Grid%face(i,j,k,IDIR))
+                    Grid%di(i,j,k) = Grid%volume(i,j,k)/fA
+                    fA = max(Grid%face(i,j+1,k,JDIR),Grid%face(i,j,k,JDIR))
+                    Grid%dj(i,j,k) = Grid%volume(i,j,k)/fA
+                    fA = max(Grid%face(i,j,k+1,KDIR),Grid%face(i,j,k,KDIR))
+                    Grid%dk(i,j,k) = Grid%volume(i,j,k)/fA
+
+                enddo
+            enddo
+        enddo
+
+        !Fix transforms if necessary
+        if (Model%doRing) call RingGridFix(Model,Grid)
+
+
+        !------------------------------------------------
+        !Calculate coordinate systems at edges for magnetic field updates (velocity)
+        call allocGridVec(Model,Grid,Grid%edge)
+        allocate(Grid%Te(Grid%isg:Grid%ieg,Grid%jsg:Grid%jeg,Grid%ksg:Grid%keg,NDIM*NDIM,NDIM))
+        Grid%edge = 1.0
+        Grid%Te = 0.0
+
+        do d=1,NDIM
+            !Use maximal bounds
+            is = Grid%isg
+            ie = Grid%ieg
+            js = Grid%jsg
+            je = Grid%jeg
+            ks = Grid%ksg
+            ke = Grid%keg
+
+            !Correct bounds for direction
+            select case(d)
+            case(IDIR)
+                ks = Grid%ksg+1
+            case(JDIR)
+                is = Grid%isg+1
+            case(KDIR)
+                js = Grid%jsg+1
+            end select
+
+            !$OMP PARALLEL DO default(shared) collapse(2) &
+            !$OMP private(i,j,k,dEdge,eAvg,eN,eT1,eT2)
+            do k = ks, ke
+                do j = js, je
+                    do i = is, ie
+
+                        !Get edge vector
+                        !Get average (k,i,j) vector for (i,j,k) edge center (needed for T1 direction)
+                        select case(d)
+
+                        case (IDIR)
+                            dEdge = Grid%xyz(i+1,j,k,:) - Grid%xyz(i,j,k,:)
+                            eAvg = 0.5*(  Grid%xyz(i  ,j  ,k+1,:) - Grid%xyz(i  ,j  ,k-1,:) &
+                                         + Grid%xyz(i+1,j  ,k+1,:) - Grid%xyz(i+1,j  ,k-1,:) )
+
+                        case (JDIR)
+                            dEdge = Grid%xyz(i,j+1,k,:) - Grid%xyz(i,j,k,:)
+                            eAvg = 0.5*(  Grid%xyz(i+1,j  ,k  ,:) - Grid%xyz(i-1,j  ,k  ,:) &
+                                         + Grid%xyz(i+1,j+1,k  ,:) - Grid%xyz(i-1,j+1,k  ,:) )
+
+                        case (KDIR)
+                            dEdge = Grid%xyz(i,j,k+1,:) - Grid%xyz(i,j,k,:)
+                            eAvg = 0.5*(  Grid%xyz(i  ,j+1,k  ,:) - Grid%xyz(i  ,j-1,k  ,:) &
+                                         + Grid%xyz(i  ,j+1,k+1,:) - Grid%xyz(i  ,j-1,k+1,:) )
+
+                        end select
+
+                        !Edge vector
+                        eN = dEdge/norm2(dEdge)
+
+                        !Finish triad calculation
+                        !T1 = eAvg x eN
+                        !T2 = eNormal x eT1, right-handed
+                        eT1 = cross(eAvg,eN)/norm2(cross(eAvg,eN))
+                        eT2 = cross(eN,eT1)/norm2(cross(eN,eT1))
+
+                        !Save edge lengths and transform
+                        Grid%edge(i,j,k,d) = norm2(dEdge)
+                        Grid%Te(i,j,k,NORMX:NORMZ,d) = eN
+                        Grid%Te(i,j,k,TAN1X:TAN1Z,d) = eT1
+                        Grid%Te(i,j,k,TAN2X:TAN2Z,d) = eT2
+
+                    enddo
+                enddo
+            enddo !k loop
+        enddo !Dim loop
+
+        
+        !------------------------------------------------
+        !Calculate coordinate systems at edges for magnetic field updates (magnetic field)
+        allocate(Grid%Teb(Grid%isg:Grid%ieg,Grid%jsg:Grid%jeg,Grid%ksg:Grid%keg,4,NDIM))
+        Grid%Teb = 0.0
+        !Loop over normal direction, and get edge system for plane w/ that normal
+        do dNorm=1,NDIM
+            !Get local triad
+            select case(dNorm)
+                !TODO Replace this with Levi-Cevita?
+                case(IDIR)
+                    T1 = JDIR; T2 = KDIR
+                case(JDIR)
+                    T1 = KDIR; T2 = IDIR
+                case(KDIR)
+                    T1 = IDIR; T2 = JDIR
+            end select  
+            !xnqi,ynqi <- (dNorm,dT1,dT2)
+            !xnqj,ynqj <- (dNorm,dT2,dT1)
+
+            call ebGeom(Model,Grid,Grid%Teb(:,:,:,XNQI:YNQI,dNorm),dNorm,T1,T2)
+            call ebGeom(Model,Grid,Grid%Teb(:,:,:,XNQJ:YNQJ,dNorm),dNorm,T2,T1)
+
+        enddo    
+
+        !Nullify Halo BC pointers
+        do i=1,MAXBC
+            Grid%HaloUps(i)%ApplyBC => NULL()
+        enddo
+
+    end subroutine Corners2Grid
+
+    !Calculate one of the two normal vectors of the edge-centered mag field system
+    subroutine ebGeom(Model,Gr,nQ,dNorm,dT1,dT2)
+        type(Model_T), intent(in) :: Model
+        type(Grid_T), intent(in) :: Gr
+        real(rp), intent(inout) :: nQ(Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,2)
+        integer, intent(in) :: dNorm,dT1,dT2
+        
+        !Reconstruction stencils for Nx,Ny,Nz and face area
+        real(rp), dimension(vecLen,recLen,NDIM) :: NxyzB
+        real(rp), dimension(vecLen,recLen) :: fArB
+        integer :: i,j,k,ie
+        integer :: iG,iB,iMax
+        real(rp) :: dxT,dyT,dScl,fAi
+        real(rp) :: Nec(NDIM),Nij(2)
+
+        !Initialize all values (array is larger than necessary)
+        nQ = 1.0
+        ie = Gr%ie+1
+
+        !$OMP PARALLEL DO default(shared) collapse(2) &
+        !$OMP private(i,iB,j,k,iMax,iG) &
+        !$OMP private(fAi,Nec,Nij,dxT,dyT,dScl,NxyzB,fArB)
+        do k=Gr%ks,Gr%ke+1
+            do j=Gr%js,Gr%je+1
+                do iB=Gr%is,ie
+                    iMax = min(vecLen,ie-iB+1)
+
+                    !Get stencils in the dT2 direction
+                    call LoadBlockI(Model,Gr,fArB           ,Gr%face(:,:,:,dT1)    ,iB,j,k,iMax,dT2)
+                    call LoadBlockI(Model,Gr,NxyzB(:,:,XDIR),Gr%Tf(:,:,:,NORMX,dT1),iB,j,k,iMax,dT2)
+                    call LoadBlockI(Model,Gr,NxyzB(:,:,YDIR),Gr%Tf(:,:,:,NORMY,dT1),iB,j,k,iMax,dT2)
+                    call LoadBlockI(Model,Gr,NxyzB(:,:,ZDIR),Gr%Tf(:,:,:,NORMZ,dT1),iB,j,k,iMax,dT2)
+
+                    !Do weighted interpolation from face to corner of each component
+                    do i=1,iMax
+                        iG = iB+i-1 !Global index
+                        fAi = dot_product(interpWgt,fArB(i,:))
+                        Nec(XDIR) = dot_product(NxyzB(i,:,XDIR)*fArB(i,:),interpWgt)/fAi
+                        Nec(YDIR) = dot_product(NxyzB(i,:,YDIR)*fArB(i,:),interpWgt)/fAi
+                        Nec(ZDIR) = dot_product(NxyzB(i,:,ZDIR)*fArB(i,:),interpWgt)/fAi
+
+                        !Map xyz->1,2 with edge mapping (dNorm)
+                        Nij(1) = dot_product(Nec,Gr%Te(iG,j,k,TAN1X:TAN1Z,dNorm))
+                        Nij(2) = dot_product(Nec,Gr%Te(iG,j,k,TAN2X:TAN2Z,dNorm))
+
+                        dxT = Nij(1)
+                        dyT = Nij(2)
+                        dScl = sqrt(dxT**2.0+dyT**2.0)
+                        
+                        if (dScl <= TINY) then
+                            dScl = 1.0
+                            write(*,*) 'dScl < TINY, ijk = ', i,j,k
+                        endif
+                        nQ(iG,j,k,1) = dxT/dScl
+                        nQ(iG,j,k,2) = dyT/dScl                        
+
+                    enddo
+
+                enddo !iB
+            enddo
+        enddo !K loop
+
+    end subroutine ebGeom
+
+end module init

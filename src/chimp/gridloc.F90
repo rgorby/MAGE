@@ -1,0 +1,441 @@
+!Routines to deal with grid localization
+module gridloc
+    use chmpdefs
+    use chmpunits
+    use ebtypes
+    use math
+    use xml_input
+    use strings
+
+    implicit none
+
+    !Globals for in/out domain
+    !Simple spherical bounds for now
+    real(rp) :: DomR(2) !Rin/Rout
+    real(rp) :: DomE(3) !xSun,xTail,yMax
+
+    !Aux data for grid localization
+    type LocAux_T
+        real(rp) :: dPhi,dTh !Angular spacing
+        real(rp), allocatable :: rrI(:,:) !R-Interface centered radius
+        real(rp), allocatable :: xxC(:,:), yyC(:,:) !Cell-centered 2D cells (LFM grids)
+        real(rp), allocatable, dimension(:) :: rMin,rMax,pMin,pMax
+        logical :: isInit = .false. !Has been initialized
+    end type LocAux_T
+
+    !General function type for localiztion
+    !Locate point (xyz) in grid cell (ijk)
+    !Optionally return isIn with inDomain info
+    !ijkO (Optional): Guess as to location of xyz in grid
+    !NOTE: ijkO may not actually do anything
+    abstract interface
+        subroutine Loc_T(xyz,ijk,Model,ebGr,isInO,ijkO)
+            Import :: rp,NDIM,chmpModel_T,ebGrid_T
+            real(rp), intent(in) :: xyz(NDIM)
+            integer, intent(out) :: ijk(NDIM)
+            type(chmpModel_T), intent(in) :: Model
+            type(ebGrid_T), intent(in) :: ebGr
+            logical, intent(out), optional :: isInO
+            integer, intent(in), optional :: ijkO(NDIM)
+        end subroutine Loc_T
+    end interface
+
+    !General inDomain function
+    abstract interface
+        function inDom_T(xyz,Model,ebGr) result(inDom)
+            import :: rp,NDIM,chmpModel_T,ebGrid_T
+            real(rp), intent(in) :: xyz(NDIM)
+            type(chmpModel_T), intent(in) :: Model
+            type(ebGrid_T), intent(in) :: ebGr
+            logical :: inDom        
+        end function inDom_T
+    end interface
+
+    procedure(Loc_T)  , pointer :: locate=>NULL()
+    procedure(inDom_T), pointer :: inDomain=>inDomain_Sph
+    type(LocAux_T) :: locAux
+
+    contains
+
+
+    !Initialize various things for grid localization
+    subroutine InitLoc(Model,ebGr,inpXML)
+        type(chmpModel_T), intent(in) :: Model
+        type(ebGrid_T), intent(in)   :: ebGr
+        type(XML_Input_T), intent(in) :: inpXML
+
+        integer :: i,j
+        real(rp) :: xJ(NDIM),xJp(NDIM)
+        character(len=strLen) :: domStr
+
+        !Initialize aux grid variables for inDomain function
+        select case(ebGr%GrID)
+        case(LFMGRID,EGGGRID)
+            !Take Rin/Rout from sunward line
+            DomR(1) = ebGr%xyz(ebGr%is,ebGr%js,ebGr%ks,XDIR)
+            !DomR(2) = ebGr%xyz(ebGr%ie+1,ebGr%js,ebGr%ks,XDIR)
+            DomR(2) = ebGr%xyz(ebGr%ie,ebGr%js,ebGr%ks,XDIR)
+
+            !Find min/max r and phi along each line of constant i or j
+            allocate(locAux%rMin(ebGr%Nip+1))
+            allocate(locAux%rMax(ebGr%Nip+1))
+            allocate(locAux%pMin(ebGr%Njp+1))
+            allocate(locAux%pMax(ebGr%Njp+1))
+            do i=1,ebGr%Nip+1
+                locAux%rMin(i) = minval(norm2(ebGr%xyz(i,ebGr%js:ebGr%je,ebGr%ks,:),DIM=2))
+                locAux%rMax(i) = maxval(norm2(ebGr%xyz(i,ebGr%js:ebGr%je,ebGr%ks,:),DIM=2))
+            enddo
+            do j=1,ebGr%Njp+1
+                locAux%pMin(j) = minval(atan2(ebGr%xyz(ebGr%is:ebGr%ie,j,ebGr%ks,YDIR),ebGr%xyz(ebGr%is:ebGr%ie,j,ebGr%ks,XDIR)))
+                locAux%pMax(j) = maxval(atan2(ebGr%xyz(ebGr%is:ebGr%ie,j,ebGr%ks,YDIR),ebGr%xyz(ebGr%is:ebGr%ie,j,ebGr%ks,XDIR)))
+            enddo
+
+            if (ebGr%GrID == EGGGRID) then
+                write(*,*) 'Initializing EGG locator'
+                locate=>Loc_Egg
+                locAux%dPhi = PI/ebGr%Njp !Constant j spacing
+                locAux%dTh  = 2*PI/ebGr%Nkp !Angular spacing about x-axis
+                !Calculate i-interface centered radii
+                allocate(locAux%rrI(ebGr%Nip+1,ebGr%Njp))
+                do j=1,ebGr%Njp
+                    do i=1,ebGr%Nip
+                        !Use average of two corner points for this face
+                        !Know that ebGr%ks is first (z=0) slice
+                        xJ  = ebGr%xyz(i,j  ,ebGr%ks,:)
+                        xJp = ebGr%xyz(i,j+1,ebGr%ks,:)
+                        locAux%rrI(i,j) = 0.5*(norm2(xJ)+norm2(xJp))
+                    enddo
+                enddo
+                locAux%isInit = .true.
+            else
+                write(*,*) 'Initializing LFM locator'
+                locate=>Loc_LFM
+                locAux%dTh  = 2*PI/ebGr%Nkp !Angular spacing about x-axis
+                !Get cell centers of 2D grid
+                allocate(locAux%xxC(ebGr%Nip,ebGr%Njp))
+                allocate(locAux%yyC(ebGr%Nip,ebGr%Njp))
+                do j=1,ebGr%Njp
+                    do i=1,ebGr%Nip
+                        locAux%xxC(i,j) = 0.25*( sum(ebGr%xyz(i:i+1,j:j+1,ebGr%ks,XDIR)) )
+                        locAux%yyC(i,j) = 0.25*( sum(ebGr%xyz(i:i+1,j:j+1,ebGr%ks,YDIR)) )
+                    enddo
+                enddo                
+            endif
+
+        case(CARTGRID)
+            write(*,*) 'Cartesian not implemented'
+            stop
+        end select
+
+        !Set inDomain function here
+        call inpXML%Set_Val(DomR(1),'domain/rmin',DomR(1))
+        call inpXML%Set_Val(DomR(2),'domain/rmax',DomR(2))
+        DomE = [DomR(2),-100.0_rp,40.0_rp]        
+        call inpXML%Set_Val(domStr,'domain/dtype',"SPH")
+        select case (trim(toUpper(domStr)))
+            case("SPH")
+                write(*,*) 'Using spherical inDomain'
+                inDomain=>inDomain_Sph
+            case("LFM","LFMCYL")
+                write(*,*) 'Using LFM inDomain'
+                inDomain=>inDomain_LFM
+                !Set bounds for yz-cylinder grid
+                call inpXML%Set_Val(DomE(1),'domain/xSun' ,30.0_rp)
+                call inpXML%Set_Val(DomE(2),'domain/xTail',-100.0_rp)
+                call inpXML%Set_Val(DomE(3),'domain/yzMax',40.0_rp)
+            case("EGG")
+                write(*,*) 'Using EGG inDomain'
+                inDomain=>inDomain_Egg
+            case("ELL")
+                write(*,*) 'Using ellipse inDomain'
+                !inDomain=>inDomain_Ell
+                call inpXML%Set_Val(DomE(1),'domain/xSun' ,DomE(1))
+                call inpXML%Set_Val(DomE(2),'domain/xTail',DomE(2))
+                call inpXML%Set_Val(DomE(3),'domain/yzMax',DomE(3))
+                write(*,*) 'Elliptical inDom not yet implemented ...'
+                stop
+
+        end select
+        
+    end subroutine InitLoc
+
+!---------------------------------------
+!Locator functions
+
+    !3D localization routine for egg grid
+    subroutine Loc_Egg(xyz,ijk,Model,ebGr,isInO,ijkO)
+        real(rp), intent(in) :: xyz(NDIM)
+        integer, intent(out) :: ijk(NDIM)
+        type(chmpModel_T), intent(in) :: Model
+        type(ebGrid_T), intent(in) :: ebGr
+        logical, intent(out), optional :: isInO
+        integer, intent(in), optional :: ijkO(NDIM)
+
+        logical :: isIn
+        real(rp) :: lfmC(NDIM)
+        integer :: i0,j0,k0
+
+        ijk = 0
+        !Always check is in first
+        isIn = inDomain(xyz,Model,ebGr)
+        if (present(isInO)) isInO = isIn
+
+        if (.not. isIn) then
+            return
+        endif
+
+        !Calculate lfmCoords
+        lfmC = lfmCoords(xyz)
+
+        !Get k0/j0
+        k0 = min(floor(lfmC(KDIR)/locAux%dTh) +1,ebGr%Nkp) !Evenly spaced k
+        j0 = min(floor(lfmC(JDIR)/locAux%dPhi)+1,ebGr%Njp) !Evenly spaced j
+
+        ijk(KDIR) = k0
+        ijk(JDIR) = j0
+
+        !Test optional guess if present for i0
+        if (present(ijkO)) then
+            if (norm2(1.0*ijkO)>0) then !Trap for unset ijk
+                i0 = ijkO(IDIR)
+                if ( lfmC(IDIR) >= locAux%rrI(i0,j0) .and. lfmC(IDIR) <= locAux%rrI(i0+1,j0) ) then
+                    !Got it!
+                    ijk(IDIR) = i0
+                    return
+                endif
+            endif
+        endif !present ijkO
+
+        !If still here then guess failed
+        ijk(IDIR) = maxloc( locAux%rrI(:,j0) ,dim=1,mask=lfmC(IDIR) >= locAux%rrI(:,j0))
+
+        !write(*,*) 'Mapped xyz -> ijk ', xyz,ijk
+
+    end subroutine Loc_Egg
+
+    !3D localization routine for egg grid
+    subroutine Loc_LFM(xyz,ijk,Model,ebGr,isInO,ijkO)
+        real(rp), intent(in) :: xyz(NDIM)
+        integer, intent(out) :: ijk(NDIM)
+        type(chmpModel_T), intent(in) :: Model
+        type(ebGrid_T), intent(in) :: ebGr
+        logical, intent(out), optional :: isInO
+        integer, intent(in), optional :: ijkO(NDIM)
+
+        logical :: isIn,inCell
+        real(rp) :: xs,ys,lfmC(NDIM)
+        real(rp) :: xp(2), xCs(4,2)
+        integer :: i,j,i0,j0,k0
+        integer :: i1,i2,j1,j2
+
+        ijk = 0
+        !Always check is in first
+        isIn = inDomain(xyz,Model,ebGr)
+        if (present(isInO)) isInO = isIn
+
+
+        if (.not. isIn) then
+            return
+        endif
+
+        !Calculate lfmCoords
+        lfmC = lfmCoords(xyz)
+
+        xs = xyz(XDIR)
+        ys = sqrt(xyz(YDIR)**2.0 + xyz(ZDIR)**2.0)
+
+        !Get k0/j0
+        k0 = min(floor(lfmC(KDIR)/locAux%dTh) +1,ebGr%Nkp) !Evenly spaced k
+        ijk(KDIR) = k0
+
+        !Use provided guess if present,
+        if (present(ijkO)) then
+            xCs(1,:) = ebGr%xyz(ijkO(IDIR)  ,ijkO(JDIR)  ,ebGr%ks,XDIR:YDIR)
+            xCs(2,:) = ebGr%xyz(ijkO(IDIR)+1,ijkO(JDIR)  ,ebGr%ks,XDIR:YDIR)
+            xCs(3,:) = ebGr%xyz(ijkO(IDIR)+1,ijkO(JDIR)+1,ebGr%ks,XDIR:YDIR)
+            xCs(4,:) = ebGr%xyz(ijkO(IDIR),  ijkO(JDIR)+1,ebGr%ks,XDIR:YDIR)
+            xp = [xs,ys]
+            !Test guess
+            inCell = inCell2D(xp,xCs)
+            if (inCell) then
+                !Found it, let's get out of here
+                ijk(IDIR) = ijkO(IDIR)
+                ijk(JDIR) = ijkO(JDIR)
+                return
+            endif
+        endif
+
+        !If we're still here, do this the hard way
+        !Cut out obviously incorrect 2D indices
+        call lfmChop(Model,ebGr,[xs,ys],i1,i2,j1,j2)
+        ijk(IDIR:JDIR) = minloc( (locAux%xxC(i1:i2,j1:j2)-xs)**2.0 + (locAux%yyC(i1:i2,j1:j2)-ys)**2.0 )
+        ijk(IDIR:JDIR) = ijk(IDIR:JDIR) + [i1-1,j1-1] !Correct for offset
+        if (ijk(KDIR)<0) then
+            write(*,*) 'xyz/ijk = ',xyz,ijk
+        endif
+
+    end subroutine Loc_LFM
+
+!---------------------------------------
+!inDomain functions
+
+    !Simple spherical inDomain
+    function inDomain_Sph(xyz,Model,ebGr) result(inDom)
+        real(rp), intent(in) :: xyz(NDIM)
+        type(chmpModel_T), intent(in) :: Model
+        type(ebGrid_T), intent(in) :: ebGr
+
+        real(rp) :: r
+        logical :: inDom
+        r = norm2(xyz)
+        if (r <= DomR(1) .or. r >= DomR(2)) then
+            inDom = .false.
+            
+        else
+            inDom = .true.
+        endif
+
+    end function inDomain_Sph
+
+    function inDomain_LFM(xyz,Model,ebGr) result(inDom)
+        real(rp), intent(in) :: xyz(NDIM)
+        type(chmpModel_T), intent(in) :: Model
+        type(ebGrid_T), intent(in) :: ebGr
+
+        real(rp) :: r,x,yzR
+        logical :: inDom
+
+
+        inDom = .true.
+        r = norm2(xyz)
+
+        !Inner boundary
+        if (r <= DomR(1)) then
+            inDom = .false.
+            return
+        endif
+
+        !X-SM bounds
+        x = xyz(XDIR)
+        if ( (x>=DomE(1)) .or. (x<=DomE(2)) ) then
+            inDom = .false.
+            return
+        endif
+
+        !Y-Z cylinder bounds
+        yzR = sqrt( xyz(YDIR)**2.0 + xyz(ZDIR)**2.0 )
+        if (yzR >= DomE(3)) then
+            inDom = .false.
+            return
+        endif
+
+    end function inDomain_LFM
+
+    function inDomain_Egg(xyz,Model,ebGr) result(inDom)
+        real(rp), intent(in) :: xyz(NDIM)
+        type(chmpModel_T), intent(in) :: Model
+        type(ebGrid_T), intent(in) :: ebGr
+        logical :: inDom
+
+        real(rp) :: r,rOutJ,rOutJP
+        real(rp) :: lfmC(NDIM)
+        integer :: j0
+
+        inDom = .true.
+        r = norm2(xyz)
+        !Start w/ short circuit on radius
+        if ( (r>DomR(1)) .and. (r < DomR(2)) ) return
+        if (r <= DomR(1)) then
+            inDom = .false.
+            return
+        endif
+
+        !If we're still here, then we have to do more work
+        lfmC = lfmCoords(xyz)
+        !For egg, phi doesn't depend on r
+        !Find j cell
+        j0 = maxloc( locAux%pMin,dim=1,mask=lfmC(JDIR)>=locAux%pMin )
+        !For this j cell, check that 2d radius is inside
+        !Get min of both interface radii
+        rOutJ  = norm2(ebGr%xyz(ebGr%ie,j0+0,ebGr%ks,:))
+        rOutJP = norm2(ebGr%xyz(ebGr%ie,j0+1,ebGr%ks,:))
+
+        if (lfmC(IDIR) >= min(rOutJ,rOutJP)) then
+            inDom = .false.
+        else
+            inDom = .true.
+        endif
+
+    end function inDomain_Egg
+
+    !Lazy hard-wired function to decide if foot-point is closed
+    function isClosed(xyz,Model) result(inDom)
+        real(rp), intent(in) :: xyz(NDIM)
+        type(chmpModel_T), intent(in) :: Model
+
+        real(rp) :: r
+        logical :: inDom
+
+        r = norm2(xyz)
+        if (r <= rClosed) then
+            inDom = .true.
+        else
+            inDom = .false.
+        endif
+    end function isClosed
+
+    !Given xy (projected to upper half plane) return index bounds for 2D search space
+    subroutine lfmChop(Model,ebGr,xy,i1,i2,j1,j2)
+        type(chmpModel_T), intent(in) :: Model
+        type(ebGrid_T), intent(in) :: ebGr
+        real(rp), intent(in) :: xy(2)
+        integer, intent(out) :: i1,i2,j1,j2
+
+        real(rp) :: lfmC(NDIM)
+        real(rp) :: r,phi
+        lfmC = lfmCoords([xy(1),xy(2),0.0_rp])
+
+        r = lfmC(IDIR)
+        phi = lfmC(JDIR)
+
+        i1 = ebGr%is
+        i2 = ebGr%ie
+        j1 = ebGr%js
+        j2 = ebGr%je
+
+        i1 = maxloc( locAux%rMax,dim=1,mask=locAux%rMax<r )
+        i2 = maxloc( locAux%rMin,dim=1,mask=r>locAux%rMin )
+
+        j1 = maxloc( locAux%pMax,dim=1,mask=locAux%pMax<phi)
+        j2 = maxloc( locAux%pMin,dim=1,mask=phi>locAux%pMin)
+
+        !Finish up, add extra cell for safety
+        i1 = max(i1-1,ebGr%is)
+        i2 = min(i2+1,ebGr%ie)
+        j1 = max(j1-1,ebGr%js)
+        j2 = min(j2+1,ebGr%je)
+
+    end subroutine lfmChop
+
+
+    !Convert xyz into LFM (xs,ys,ThX) coords
+    !rs,ps are polar coords in upper half plane, ThX is angle about x axis
+    function lfmCoords(xyz) result(lfmC)
+        real(rp), intent(in) :: xyz(NDIM)
+        real(rp) :: lfmC(NDIM)
+
+        real(rp) :: xs,ys,ThX
+        xs = xyz(XDIR)
+        ys = sqrt(xyz(YDIR)**2.0 + xyz(ZDIR)**2.0)
+
+        lfmC(IDIR) = sqrt(xs**2.0+ys**2.0)
+        lfmC(JDIR) = atan2(ys,xs) !Has to be >=0 b/c y>=0
+
+        !Calculate angle about x axis
+        ThX = atan2(xyz(ZDIR),xyz(YDIR))
+        !Force to 0,2pi
+        if (ThX<0) ThX=ThX+2*PI
+        lfmC(KDIR) = ThX
+
+    end function lfmCoords
+end module gridloc
