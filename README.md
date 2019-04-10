@@ -1,4 +1,4 @@
-# Project Voltron
+# Project Kaiju
 Reorganization of Kaiju models
 
 
