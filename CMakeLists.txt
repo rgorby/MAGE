@@ -57,6 +57,11 @@ message("-------------------------\n")
 add_subdirectory(src/base)
 
 #-------------
+#Kaiju: Interfaces
+message("Adding Interfaces module ...")
+add_subdirectory(src/interfaces)
+
+#-------------
 #Kaiju: CHIMP
 message("Adding CHIMP module ...")
 add_subdirectory(src/chimp)
@@ -102,3 +107,12 @@ message("\tAdding executable gamera2remix.x")
 add_executable(gamera2remix.x src/drivers/gamera2remix.F90)
 target_link_libraries(gamera2remix.x baselib interfaceslib gamlib remixlib)
 add_dependencies(remix gamera2remix.x)
+
+#-------------
+#Kaiju: tests
+message("Adding tests module ...")
+#Add source
+add_subdirectory(tests)
+add_custom_target(tests ALL)
+add_dependencies(tests pftest_alltests)
+

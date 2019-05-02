@@ -1,0 +1,33 @@
+module test_mhd_mix_interface
+  use pfunit_mod
+  use mhd_mix_interface
+
+  implicit none
+
+
+contains
+
+  @before
+    subroutine first(this)
+      class (MpiTestMethod), intent(inout) :: this
+    end subroutine first
+
+  @after
+    subroutine last(this)
+      class (MpiTestMethod), intent(inout) :: this
+    end subroutine last
+
+  @test( npes=[1,2])
+  subroutine testPass(this)
+    class (MpiTestMethod), intent(inout) :: this
+    @assertTrue(.True.)
+  end subroutine testPass
+
+  @test( npes=[1,2])
+  subroutine testFail(this)
+    class (MpiTestMethod), intent(inout) :: this
+    @assertTrue(.False.)
+  end subroutine testFail
+
+end module test_mhd_mix_interface
+
