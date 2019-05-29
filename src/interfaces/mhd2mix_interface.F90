@@ -26,13 +26,8 @@ module mhd_mix_interface
     ! Scaling factor for remix potential [kV]
     real(rp) :: rm2g
     
-    ! Ionosphere
-    type(mixIon_T),dimension(2) :: ion  ! two ionosphere objects: north(1) and south(2)
-    integer,parameter :: hmsphrs(2) = [NORTH,SOUTH]
-
     integer, parameter :: mhd2mix_varn = 3  ! how many variables are we sending (should be consistent with the enumerator in mixdefs.F90)
     integer, parameter :: mix2mhd_varn = 1  ! for now just the potential is sent back
-    real(rp), dimension(:,:,:,:,:), allocatable :: mhdvarsin, mhdvarsout ! (i,j,k,var,hemisphere)
     
     ! Electric potential on Gamera inner shell (node-centered)
     real(rp), allocatable, dimension(:,:,:) :: gPsi

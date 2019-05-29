@@ -14,9 +14,11 @@ module mixmain
 
   contains
 
-    subroutine init_mix(I,hmsphrs)
+    subroutine init_mix(I,hmsphrs,conductance)
       type(mixIon_T),dimension(:),intent(inout) :: I ! I for ionosphere (is an array of 1 or 2 elements for north and south) or it can be artibrarily many, e.g., for different solves done in loop
       integer, dimension(:), intent(in) :: hmsphrs ! array of integers marking hemispheres for the I object array.
+      type(mixConductance_T), intent(inout) :: conductance
+
       integer :: h ! h for hemisphere
 
       ! check that hmsphs and I have the same size
@@ -30,7 +32,7 @@ module mixmain
          ! FIXME: replace with a function pointer allowing an arbitrary grid specification, e.g., init_grid=>init_uniform
          call init_uniform(I(h)%G,I(h)%P%Np,I(h)%P%Nt,I(h)%P%LowLatBoundary*pi/180._rp,.true.)
          call init_state(I(h)%G,I(h)%St) 
-         call conductance_init(I(h)%P,I(h)%G)
+         call conductance_init(conductance,I(h)%P,I(h)%G)
 
          ! copy hemisphere and tilt parameters from the xml file only
          ! if hmsphrs array sets them to -1. This allows flexibility
@@ -76,9 +78,11 @@ module mixmain
       I%St%Vars(:,:,POT) = reshape(I%S%solution,[I%G%Np,I%G%Nt])*RionE**2*1.D3 ! in kV
     end subroutine get_potential
 
-    subroutine run_mix(I,tilt)
+    subroutine run_mix(I,tilt,conductance)
       type(mixIon_T),dimension(:),intent(inout) :: I 
       real(rp),intent(in) :: tilt
+      type(mixConductance_T), intent(inout) :: conductance
+
       integer :: h
 
       do h=1,size(I)
@@ -94,7 +98,7 @@ module mixmain
             end if
          end if
 
-         call conductance_total(I(h)%G,I(h)%St)
+         call conductance_total(conductance,I(h)%G,I(h)%St)
          call run_solver(I(h)%P,I(h)%G,I(h)%St,I(h)%S)
          call get_potential(I(h))
       end do

@@ -16,18 +16,19 @@ module mix_mhd_interface
 
 contains
 
-  subroutine init_mix_mhd_interface(I,hmsphrs,mhdJGrid,mhdPsiGrid)
+  subroutine init_mix_mhd_interface(I,hmsphrs,mhdJGrid,mhdPsiGrid,conductance)
     type(mixIon_T),dimension(:),intent(inout) :: I ! I for ionosphere (is an array of 1 or 2 elements for north and south)
     real(rp), dimension(:,:,:,:,:), intent(in) :: mhdJGrid,mhdPsiGrid ! (i,j,k,x-z,hemisphere)
     integer, dimension(:), intent(in) :: hmsphrs ! array of integers marking hemispheres for the I object array.
-    integer :: l,h ! h for hemisphere
+    type(mixConductance_T), intent(inout) :: conductance
 
+    integer :: l,h ! h for hemisphere
     type(mixGrid_T) :: mhdGfpd,mhdG
     type(Map_T) :: Map
     real(rp), dimension(:,:), allocatable :: mhdt, mhdp, mhdtFpd, mhdpFpd
     real(rp) :: mhd_Rin  ! the radius of the shell given by the MHD grid
 
-    call init_mix(I,hmsphrs)
+    call init_mix(I,hmsphrs,conductance)
 
     PsiShells = size(mhdPsiGrid,1)
     JShells = size(mhdJGrid,1)
@@ -59,21 +60,6 @@ contains
     enddo
 
   end subroutine init_mix_mhd_interface
-
-
-  subroutine mix_mhd_run(ion,mhdvarsout, tilt,mhdvarsin)
-    type(mixIon_T),dimension(:),intent(inout) :: ion ! I for ionosphere (is an array of 1 or 2 elements for north and south)
-    real(rp), dimension(:,:,:,:,:),intent(inout) :: mhdvarsout,mhdvarsin
-    real(rp), intent(in) :: tilt
-
-    ! FIXME: get tilt from MHD eventually and pass on here
-    call mhd2mix(ion,mhdvarsout, tilt)  ! calls run_mix inside
-
-    ! get stuff from mix to gamera
-    call mix2mhd(ion,mhdvarsin)
-
-  end subroutine mix_mhd_run
-
 
   subroutine mix_mhd_output(ion,mhdvarsin,hmsphrs,time)
     type(mixIon_T),dimension(:),intent(inout) :: ion ! I for ionosphere (is an array of 1 or 2 elements for north and south)
@@ -133,10 +119,12 @@ contains
 
   ! assume what's coming here is mhdvars(i,j,k,var,hemisphere)
   ! thus the transposes below
-  subroutine mhd2mix(I,mhdvars,tilt)
+  subroutine mhd2mix(I,mhdvars,tilt,conductance)
     type(mixIon_T),dimension(:),intent(inout) :: I ! I for ionosphere (is an array of 1 or 2 elements for north and south)
     real(rp), dimension(:,:,:,:,:),intent(in) :: mhdvars
     real(rp),intent(in) :: tilt
+    type(mixConductance_T), intent(inout) :: conductance
+
     real(rp), dimension(:,:), allocatable :: F
     integer :: l,h ! hemisphere
     integer :: v ! mhd var
@@ -176,7 +164,7 @@ contains
        end do
     end do
 
-    call run_mix(I,tilt)
+    call run_mix(I,tilt,conductance)
   end subroutine mhd2mix
 
   subroutine mix2mhd(I,mhdvars)

@@ -24,6 +24,9 @@ program MIX
     type(Grid_T)  :: Grid
     type(State_T) :: State
 
+    ! Remix variables
+    type(mixConductance_T) :: conductance
+
     ! Input deck
     type(XML_Input_T) :: xmlInp
 
@@ -62,7 +65,7 @@ program MIX
     ! Note, remix reads the xml file on its own
     ! FIXME: should just pass the xmlInp handler to it
     call InitCMI(Model,Grid)
-    call init_mix_mhd_interface(ion,hmsphrs,mhdJGrid,mhdPsiGrid)  ! the arguments are globals in mhd_mix_interface
+    call init_mix_mhd_interface(ion,hmsphrs,mhdJGrid,mhdPsiGrid,conductance)  ! the arguments are globals in mhd_mix_interface
     call PrepRemixData(Model,Grid,State)
 
 !     !! EVERYTHING ENCLOSED IN !!!!! IS A HACK FOR TESTING IN STANDALONE MODE
