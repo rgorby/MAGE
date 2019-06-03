@@ -73,7 +73,7 @@ module mixmhdlocalinterface
         type(remixApp_T), intent(inout) :: remixApp
         type(gameraApp_T), intent(in) :: gameraApp
 
-        ! convert remix results to the "remixOutputs" variable
+        ! convert the "remixOutputs" variable to inEijk and inExyz, which are in Gamera coordinates
         integer :: i
 
          ! populate potential on gamera grid

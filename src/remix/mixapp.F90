@@ -14,11 +14,24 @@ module remixapp
         real(rp) :: tilt
     end type remixApp_T
 
+    ! global remix instance
+    type(remixApp_T) :: remixApp
+
     contains
 
     subroutine initRemix(remixApp, gameraApp)
         type(remixApp_T), intent(inout) :: remixApp
         type(gameraApp_T), intent(in) :: gameraApp
+
+        real(rp), allocatable, dimension(:,:,:,:,:) :: mhdJGrid,mhdPsiGrid
+
+        ! initialize REMIX
+        call init_remix_grids(mhdJGrid, mhdPsiGrid, gamGridXyz, Rion)
+
+        call init_mix_mhd_interface(ion,hmsphrs,mhdJGrid,mhdPsiGrid)
+
+        deallocate(mhdJGrid,mhdPsiGrid)
+
     end subroutine initRemix
 
     subroutine runRemix(remixApp)
@@ -29,6 +42,9 @@ module remixapp
 
         ! get stuff from mix to gamera
         call mix2mhd(remixApp%ion,remixApp%remixOutput)
+
+        ! output remix info
+        call mix_mhd_output(ion,remixOutputs,hmsphrs,time)
 
     end subroutine stepRemix
 

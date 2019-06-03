@@ -39,6 +39,8 @@ module mhd_mix_interface
     
     real(rp) :: tilt = -9999._rp
 
+    type(remixIC_T), pointer :: pRemixIC
+
     contains
 
     !Initialize everything necessary for CMI

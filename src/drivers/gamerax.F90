@@ -6,8 +6,6 @@ program gamerax
 
     implicit none
 
-    type(gamApp_T) :: gameraApp
-
     call initClocks()
 
     !TODO: Fix this to reset after MPI config to only output from root rank

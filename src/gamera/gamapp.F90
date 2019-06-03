@@ -14,6 +14,9 @@ module gamapp
         type(State_T) :: State, oState
     end type gamApp_T
 
+    ! global gamera instance
+    type(gamApp_T) :: gameraApp
+
     contains
 
     subroutine initGamera(gameraApp)
