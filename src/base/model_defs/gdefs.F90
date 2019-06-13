@@ -6,7 +6,7 @@ module gdefs
 
 !Constant sizes
     integer, parameter :: NVAR=5
-    integer, parameter :: MAXBC=18 !Max possible nec. halo routines
+    integer, parameter :: MAXBC=6 !Max possible nec. halo routines
     integer, parameter :: BLK=0
     !Density/pressure floors
     real(rp) :: pFloor = TINY, dFloor = TINY

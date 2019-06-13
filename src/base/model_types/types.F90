@@ -3,6 +3,7 @@
 module types
     use gdefs
     use xml_input
+
     implicit none
 
     ! larger then 0 will write out the massage
@@ -76,10 +77,9 @@ module types
 
     end type Model_T
 
-    !Collection of all BCs for a grid to be updated
-    type :: HALOS_T
-        procedure(BC_T), pointer, nopass :: ApplyBC
-    end type HALOS_T
+    type bcHolder
+        class(*), allocatable :: p
+    end type bcHolder
 
 !Overall grid information
     !Nip = # of physical cells, Ni = Nip+2*Ng
@@ -154,10 +154,7 @@ module types
 
         !Boundary conditions
         !Inner/outer i,j,k directions
-        type(HALOS_T) :: ExternalHaloUps(MAXBC)!Array holding BC functions
-        type(HALOS_T) :: HaloUps(MAXBC)!Array holding BC functions
-        !General convention is inI,outI,inJ,outJ,inK,outK (can be changed by user)
-        integer :: NumBC = 6 !How many BCs to run, ie subset of MAXBC
+        type(bcHolder) :: externalBCs(MAXBC)
 
         !Data for background field incorporation
         !fcB0(i,j,k,D,F) is the D component of the Bxyz on face F

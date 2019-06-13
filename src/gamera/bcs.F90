@@ -5,15 +5,167 @@ module bcs
     use math
     use gridutils
     use ringutils
+    use basebc
 
     implicit none
-    contains
 
+    type, extends(baseBC_T) :: lazyBC_T
+        contains
+        procedure :: doBC => lazyBC
+    end type lazyBC_T
+
+    type, extends(baseBC_T) :: periodicInnerIBC_T
+        contains
+        procedure :: doBC => periodic_ibcI
+    end type periodicInnerIBC_T
+
+    type, extends(baseBC_T) :: periodicOuterIBC_T
+        contains
+        procedure :: doBC => periodic_obcI
+    end type periodicOuterIBC_T
+
+    type, extends(baseBC_T) :: periodicInnerJBC_T
+        contains
+        procedure :: doBC => periodic_ibcJ
+    end type periodicInnerJBC_T
+
+    type, extends(baseBC_T) :: periodicOuterJBC_T
+        contains
+        procedure :: doBC => periodic_obcJ
+    end type periodicOuterJBC_T
+
+    type, extends(baseBC_T) :: periodicInnerKBC_T
+        contains
+        procedure :: doBC => periodic_ibcK
+    end type periodicInnerKBC_T
+
+    type, extends(baseBC_T) :: periodicOuterKBC_T
+        contains
+        procedure :: doBC => periodic_obcK
+    end type periodicOuterKBC_T
+
+    type, extends(baseBC_T) :: zeroExtensionInnerIBC_T
+        contains
+        procedure :: doBC => zeroExten_ibcI
+    end type zeroExtensionInnerIBC_T
+
+    type, extends(baseBC_T) :: zeroExtensionOuterIBC_T
+        contains
+        procedure :: doBC => zeroExten_obcI
+    end type zeroExtensionOuterIBC_T
+
+    type, extends(baseBC_T) :: zeroExtensionInnerJBC_T
+        contains
+        procedure :: doBC => zeroExten_ibcJ
+    end type zeroExtensionInnerJBC_T
+
+    type, extends(baseBC_T) :: zeroExtensionOuterJBC_T
+        contains
+        procedure :: doBC => zeroExten_obcJ
+    end type zeroExtensionOuterJBC_T
+
+    type, extends(baseBC_T) :: zeroExtensionInnerKBC_T
+        contains
+        procedure :: doBC => zeroExten_ibcK
+    end type zeroExtensionInnerKBC_T
+
+    type, extends(baseBC_T) :: zeroExtensionOuterKBC_T
+        contains
+        procedure :: doBC => zeroExten_obcK
+    end type zeroExtensionOuterKBC_T
+
+    type, extends(baseBC_T) :: cartesianReflectingInnerIBC_T
+        contains
+        procedure :: doBC => cartReflect_ibcI
+    end type cartesianReflectingInnerIBC_T
+
+    type, extends(baseBC_T) :: cartesianReflectingOuterIBC_T
+        contains
+        procedure :: doBC => cartReflect_obcI
+    end type cartesianReflectingOuterIBC_T
+
+    type, extends(baseBC_T) :: cartesianReflectingInnerJBC_T
+        contains
+        procedure :: doBC => cartReflect_ibcJ
+    end type cartesianReflectingInnerJBC_T
+
+    type, extends(baseBC_T) :: cartesianReflectingOuterJBC_T
+        contains
+        procedure :: doBC => cartReflect_obcJ
+    end type cartesianReflectingOuterJBC_T
+
+    type, extends(baseBC_T) :: cartesianReflectingInnerKBC_T
+        contains
+        procedure :: doBC => cartReflect_ibcK
+    end type cartesianReflectingInnerKBC_T
+
+    type, extends(baseBC_T) :: cartesianReflectingOuterKBC_T
+        contains
+        procedure :: doBC => cartReflect_obcK
+    end type cartesianReflectingOuterKBC_T
+
+    type, extends(baseBC_T) :: zeroGradientInnerIBC_T
+        contains
+        procedure :: doBC => zeroGrad_ibcI
+    end type zeroGradientInnerIBC_T
+
+    type, extends(baseBC_T) :: zeroGradientOuterIBC_T
+        contains
+        procedure :: doBC => zeroGrad_obcI
+    end type zeroGradientOuterIBC_T
+
+    type, extends(baseBC_T) :: zeroGradientInnerJBC_T
+        contains
+        procedure :: doBC => zeroGrad_ibcJ
+    end type zeroGradientInnerJBC_T
+
+    type, extends(baseBC_T) :: zeroGradientOuterJBC_T
+        contains
+        procedure :: doBC => zeroGrad_obcJ
+    end type zeroGradientOuterJBC_T
+
+    type, extends(baseBC_T) :: zeroGradientInnerKBC_T
+        contains
+        procedure :: doBC => zeroGrad_ibcK
+    end type zeroGradientInnerKBC_T
+
+    type, extends(baseBC_T) :: zeroGradientOuterKBC_T
+        contains
+        procedure :: doBC => zeroGrad_obcK
+    end type zeroGradientOuterKBC_T
+
+    type, extends(baseBC_T) :: sphereInBC_T
+        contains
+        procedure :: doBC => SphIn
+    end type sphereInBC_T
+
+    type, extends(baseBC_T) :: sphereOutBC_T
+        contains
+        procedure :: doBC => SphOut
+    end type sphereOutBC_T
+
+    type, extends(baseBC_T) :: cylindricalPoleBC_T
+        contains
+        procedure :: doBC => cylpole
+    end type cylindricalPoleBC_T
+
+    type, extends(baseBC_T) :: lfmInBC_T
+        contains
+        procedure :: doBC => lfmIn
+    end type lfmInBC_T
+
+    type, extends(baseBC_T) :: lfmOutBC_T
+        contains
+        procedure :: doBC => lfmOut
+    end type lfmOutBC_T
+
+    contains
 
     !Below here are various predefined BCs
 !--------------------------------------------
     !Lazy, do-nothing boundary
-    subroutine lazyBC(Model,Grid,State)
+    subroutine lazyBC(bc,Model,Grid,State)
+        class(lazyBC_T), intent(in) :: bc
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(inout) :: State
@@ -23,16 +175,14 @@ module bcs
 
 !--------------------------------------------    
     !Standard periodic BCs
-    subroutine periodic_ibcI(Model,Grid,State)
+    subroutine periodic_ibcI(bc,Model,Grid,State)
+        class(periodicInnerIBC_T), intent(in) :: bc
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(inout) :: State
         integer :: n,i,j,k
 
         !i-boundaries (IN)
-        if(associated(Grid%ExternalHaloUps(INI )%ApplyBC)) then
-             call Grid%ExternalHaloUps(INI )%ApplyBC(Model,Grid,State) 
-        else
             do k=Grid%ksg,Grid%keg
                 do j=Grid%jsg,Grid%jeg
                     do n=1,Model%Ng
@@ -43,20 +193,16 @@ module bcs
                     enddo
                 enddo
             enddo
-        end if
 
     end subroutine periodic_ibcI
 
-    subroutine periodic_obcI(Model,Grid,State)
+    subroutine periodic_obcI(bc,Model,Grid,State)
+        class(periodicOuterIBC_T), intent(in) :: bc
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(inout) :: State
         integer :: n,i,j,k
 
-        !i-boundaries (OUT)
-        if(associated(Grid%ExternalHaloUps(OUTI )%ApplyBC)) then
-             call Grid%ExternalHaloUps(OUTI )%ApplyBC(Model,Grid,State) 
-        else
             do k=Grid%ksg,Grid%keg
                 do j=Grid%jsg,Grid%jeg
                     do n=1,Model%Ng
@@ -67,19 +213,15 @@ module bcs
                     enddo
                 enddo
             enddo    
-        endif
     end subroutine periodic_obcI
 
-    subroutine periodic_ibcJ(Model,Grid,State)
+    subroutine periodic_ibcJ(bc,Model,Grid,State)
+        class(periodicInnerJBC_T), intent(in) :: bc
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(inout) :: State
         integer :: n,i,j,k
 
-        !j-boundaries (IN)
-        if(associated(Grid%ExternalHaloUps(INJ )%ApplyBC)) then
-             call Grid%ExternalHaloUps(INJ )%ApplyBC(Model,Grid,State) 
-        else
             do k=Grid%ksg,Grid%keg
                 do n=1,Model%Ng  
                     do i=Grid%isg,Grid%ieg
@@ -89,19 +231,15 @@ module bcs
                     enddo
                 enddo
             enddo    
-        endif
     end subroutine periodic_ibcJ
 
-    subroutine periodic_obcJ(Model,Grid,State)
+    subroutine periodic_obcJ(bc,Model,Grid,State)
+        class(periodicOuterJBC_T), intent(in) :: bc
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(inout) :: State
         integer :: n,i,j,k
 
-        !j-boundaries (OUT)
-        if(associated(Grid%ExternalHaloUps(OUTJ )%ApplyBC)) then
-             call Grid%ExternalHaloUps(OUTJ )%ApplyBC(Model,Grid,State) 
-        else
             do k=Grid%ksg,Grid%keg
                 do n=1,Model%Ng  
                     do i=Grid%isg,Grid%ieg
@@ -113,11 +251,11 @@ module bcs
                     enddo
                 enddo
             enddo
-        endif
 
     end subroutine periodic_obcJ
 
-    subroutine periodic_ibcK(Model,Grid,State)
+    subroutine periodic_ibcK(bc,Model,Grid,State)
+        class(periodicInnerKBC_T), intent(in) :: bc
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(inout) :: State
@@ -132,10 +270,6 @@ module bcs
                 State%magFlux(:,:,Grid%ks-n,:) = State%magFlux(:,:,Grid%ks,:)   
             enddo
         else
-            !k-boundaries (IN)
-            if(associated(Grid%ExternalHaloUps(INK )%ApplyBC)) then
-                 call Grid%ExternalHaloUps(INK )%ApplyBC(Model,Grid,State) 
-            else
                 !$OMP PARALLEL DO default(shared) &
                 !$OMP private(i,j,n)
                 do j=Grid%jsg,Grid%jeg
@@ -147,12 +281,12 @@ module bcs
                         enddo
                     enddo
                 enddo
-            endif
         endif
 
     end subroutine periodic_ibcK
 
-    subroutine periodic_obcK(Model,Grid,State)
+    subroutine periodic_obcK(bc,Model,Grid,State)
+        class(periodicOuterKBC_T), intent(in) :: bc
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(inout) :: State
@@ -166,10 +300,6 @@ module bcs
                 State%magFlux(:,:,Grid%ks+n,:) = State%magFlux(:,:,Grid%ks,:)  
             enddo
         else
-            !k-boundaries (OUT)
-            if(associated(Grid%ExternalHaloUps(OUTK )%ApplyBC)) then
-                 call Grid%ExternalHaloUps(OUTK )%ApplyBC(Model,Grid,State) 
-            else
                 !$OMP PARALLEL DO default(shared) &
                 !$OMP private(i,j,n)        
                 do j=Grid%jsg,Grid%jeg
@@ -183,14 +313,14 @@ module bcs
                         enddo
                     enddo
                 enddo
-            endif
         endif
 
     end subroutine periodic_obcK
 
 !--------------------------------------------
     !Zeroth extension BCs
-    subroutine zeroExten_ibcI(Model,Grid,State)
+    subroutine zeroExten_ibcI(bc,Model,Grid,State)
+        class(zeroExtensionInnerIBC_T), intent(in) :: bc
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(inout) :: State
@@ -213,7 +343,8 @@ module bcs
 
     end subroutine zeroExten_ibcI
 
-    subroutine zeroExten_obcI(Model,Grid,State)
+    subroutine zeroExten_obcI(bc,Model,Grid,State)
+        class(zeroExtensionOuterIBC_T), intent(in) :: bc
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(inout) :: State
@@ -237,7 +368,8 @@ module bcs
         enddo    
     end subroutine zeroExten_obcI
 
-    subroutine zeroExten_ibcJ(Model,Grid,State)
+    subroutine zeroExten_ibcJ(bc,Model,Grid,State)
+        class(zeroExtensionInnerJBC_T), intent(in) :: bc
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(inout) :: State
@@ -261,7 +393,8 @@ module bcs
     end subroutine zeroExten_ibcJ
 
     !Zero grad BCs
-    subroutine zeroExten_obcJ(Model,Grid,State)
+    subroutine zeroExten_obcJ(bc,Model,Grid,State)
+        class(zeroExtensionOuterJBC_T), intent(in) :: bc
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(inout) :: State
@@ -287,7 +420,8 @@ module bcs
 
     end subroutine zeroExten_obcJ
 
-    subroutine zeroExten_ibcK(Model,Grid,State)
+    subroutine zeroExten_ibcK(bc,Model,Grid,State)
+        class(zeroExtensionInnerKBC_T), intent(in) :: bc
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(inout) :: State
@@ -310,7 +444,8 @@ module bcs
 
     end subroutine zeroExten_ibcK
 
-    subroutine zeroExten_obcK(Model,Grid,State)
+    subroutine zeroExten_obcK(bc,Model,Grid,State)
+        class(ZeroExtensionOuterKBC_T), intent(in) :: bc
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(inout) :: State
@@ -337,7 +472,8 @@ module bcs
 
 !---------------------------------------------------------
 ! Reflecting boundary only works for Cartesian grids
-    subroutine cartReflect_ibcI(Model,Grid,State)
+    subroutine cartReflect_ibcI(bc,Model,Grid,State)
+        class(cartesianReflectingInnerIBC_T), intent(in) :: bc
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(inout) :: State
@@ -366,7 +502,8 @@ module bcs
 
     end subroutine cartReflect_ibcI
 
-    subroutine cartReflect_obcI(Model,Grid,State)
+    subroutine cartReflect_obcI(bc,Model,Grid,State)
+        class(cartesianReflectingOuterIBC_T), intent(in) :: bc
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(inout) :: State
@@ -393,7 +530,8 @@ module bcs
         enddo    
     end subroutine cartReflect_obcI
 
-    subroutine cartReflect_ibcJ(Model,Grid,State)
+    subroutine cartReflect_ibcJ(bc,Model,Grid,State)
+        class(cartesianReflectingInnerJBC_T), intent(in) :: bc
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(inout) :: State
@@ -425,7 +563,8 @@ module bcs
 
     end subroutine cartReflect_ibcJ
 
-    subroutine cartReflect_obcJ(Model,Grid,State)
+    subroutine cartReflect_obcJ(bc,Model,Grid,State)
+        class(cartesianReflectingOuterJBC_T), intent(in) :: bc
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(inout) :: State
@@ -457,7 +596,8 @@ module bcs
 
     end subroutine cartReflect_obcJ
 
-    subroutine cartReflect_ibcK(Model,Grid,State)
+    subroutine cartReflect_ibcK(bc,Model,Grid,State)
+        class(cartesianReflectingInnerKBC_T), intent(in) :: bc
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(inout) :: State
@@ -489,7 +629,8 @@ module bcs
 
     end subroutine cartReflect_ibcK
    
-    subroutine cartReflect_obcK(Model,Grid,State)
+    subroutine cartReflect_obcK(bc,Model,Grid,State)
+        class(cartesianReflectingOuterKBC_T), intent(in) :: bc
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(inout) :: State
@@ -523,7 +664,8 @@ module bcs
 
 !--------------------------------------------
     !Zero grad BCs
-    subroutine zeroGrad_ibcI(Model,Grid,State)
+    subroutine zeroGrad_ibcI(bc,Model,Grid,State)
+        class(zeroGradientInnerIBC_T), intent(in) :: bc
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(inout) :: State
@@ -543,7 +685,8 @@ module bcs
 
     end subroutine zeroGrad_ibcI
 
-    subroutine zeroGrad_obcI(Model,Grid,State)
+    subroutine zeroGrad_obcI(bc,Model,Grid,State)
+        class(zeroGradientOuterIBC_T), intent(in) :: bc
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(inout) :: State
@@ -567,7 +710,8 @@ module bcs
         enddo    
     end subroutine zeroGrad_obcI
 
-    subroutine zeroGrad_ibcJ(Model,Grid,State)
+    subroutine zeroGrad_ibcJ(bc,Model,Grid,State)
+        class(zeroGradientInnerJBC_T), intent(in) :: bc
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(inout) :: State
@@ -589,7 +733,8 @@ module bcs
     end subroutine zeroGrad_ibcJ
 
     !Zero grad BCs
-    subroutine zeroGrad_obcJ(Model,Grid,State)
+    subroutine zeroGrad_obcJ(bc,Model,Grid,State)
+        class(zeroGradientOuterJBC_T), intent(in) :: bc
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(inout) :: State
@@ -610,7 +755,8 @@ module bcs
 
     end subroutine zeroGrad_obcJ
 
-    subroutine zeroGrad_ibcK(Model,Grid,State)
+    subroutine zeroGrad_ibcK(bc,Model,Grid,State)
+        class(zeroGradientInnerKBC_T), intent(in) :: bc
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(inout) :: State
@@ -629,7 +775,8 @@ module bcs
 
     end subroutine zeroGrad_ibcK
 
-    subroutine zeroGrad_obcK(Model,Grid,State)
+    subroutine zeroGrad_obcK(bc,Model,Grid,State)
+        class(zeroGradientOuterKBC_T), intent(in) :: bc
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(inout) :: State
@@ -652,7 +799,8 @@ module bcs
 
 !--------------------------------------------
     !Various geometry-specific BCs
-    subroutine SphIn(Model,Grid,State)   
+    subroutine SphIn(bc,Model,Grid,State)
+        class(sphereInBC_T), intent(in) :: bc
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(inout) :: State
@@ -676,7 +824,8 @@ module bcs
 
     end subroutine SphIn
     
-    subroutine SphOut(Model,Grid,State)   
+    subroutine SphOut(bc,Model,Grid,State)   
+        class(sphereOutBC_T), intent(in) :: bc
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(inout) :: State
@@ -703,7 +852,8 @@ module bcs
 !--------------------------------------------
     !Various pole BCs
     !Inner-I BC for cylindrical geometry w/ pole
-    subroutine cylpole(Model,Grid,State)
+    subroutine cylpole(bc,Model,Grid,State)
+        class(cylindricalPoleBC_T), intent(in) :: bc
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(inout) :: State
@@ -735,7 +885,8 @@ module bcs
     end subroutine cylpole
 
     !Routines for X-axis pole on LFM grid
-    subroutine lfmIn(Model,Grid,State)
+    subroutine lfmIn(bc,Model,Grid,State)
+        class(lfmInBC_T), intent(in) :: bc
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(inout) :: State
@@ -773,7 +924,8 @@ module bcs
         
     end subroutine lfmIn
 
-    subroutine lfmOut(Model,Grid,State)
+    subroutine lfmOut(bc,Model,Grid,State)
+        class(lfmOutBC_T), intent(in) :: bc
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(inout) :: State
