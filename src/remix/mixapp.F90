@@ -14,9 +14,6 @@ module remixapp
         real(rp) :: tilt
     end type remixApp_T
 
-    ! global remix instance
-    type(remixApp_T) :: remixApp
-
     contains
 
     subroutine initRemix(remixApp, gameraApp)

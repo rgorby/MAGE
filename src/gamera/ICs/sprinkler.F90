@@ -9,32 +9,11 @@ module useric
 
     implicit none
 
-
-    type, extends(baseIC_T) :: sprinklerIC_T
-        !Various global would go here
-        real(rp) :: Rho0, P0, V0, wScl, tOrb, Cs0, B0
-
-        contains
-
-        ! functions which will be over-written by sub-classes
-        procedure :: doInit => sprinklerInit
-        procedure :: getType => sprinklerGetType
-        procedure :: doBC => sprinklerBC
-        procedure :: doAdjustE => null
-        procedure :: doAdjustStep => null
-        procedure :: doAdjustFlux => null
-
-    end type remix_gamera_couple_T
-
+    !Various global would go here
+    real(rp) :: Rho0, P0, V0, wScl, tOrb, Cs0, B0
     contains
 
-    function sprinklerGetType(sprinklerIC)
-        integer :: sprinklerGetType
-        class(sprinklerIC_T), intent(inout) :: sprinklerIC
-        sprinklerGetType = SPRINKLER_IC_ID
-    end function sprinklerGetType
-
-    subroutine sprinklerInit(Model,Grid,State,inpXML)
+    subroutine initUser(Model,Grid,State,inpXML)
         type(Model_T), intent(inout) :: Model
         type(Grid_T), intent(inout) :: Grid
         type(State_T), intent(inout) :: State
@@ -92,7 +71,7 @@ module useric
 
     !Put BCs here for global access
     !Inner-I BC for rotating inflow region
-    subroutine sprinklerBC(Model,Grid,State)
+    subroutine SprinklerBC(Model,Grid,State)
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(inout) :: State
