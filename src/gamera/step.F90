@@ -16,14 +16,14 @@ module step
     !Calls BCs for all directions
     subroutine EnforceBCs(Model,Gr,State)
         type(Model_T), intent(in) :: Model
-        type(Grid_T), intent(in) :: Gr
+        type(Grid_T), intent(inout) :: Gr ! must be inout so that BC functions can be called
         type(State_T), intent(inout) :: State
 
         integer :: n
         !Loop over BCs for this grid and call them
         do n=1,Gr%NumBC
-            if (associated(Gr%HaloUps(n)%ApplyBC)) then
-                call Gr%HaloUps(n)%ApplyBC(Model,Gr,State)
+            if (allocated(Gr%externalBCs(n)%p)) then
+                call Gr%externalBCs(n)%p%doBC(Model,Gr,State)
             endif
         enddo
 

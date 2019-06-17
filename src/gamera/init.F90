@@ -201,6 +201,7 @@ module init
         procedure(StateIC_T), pointer :: initState => NULL()        
         logical :: doH5ic
         character(len=strLen) :: icStr
+        integer :: n
 
         call xmlInp%Set_Val(doH5ic,"sim/doH5ic",.false.)
         !Set IC subroutine
@@ -222,6 +223,13 @@ module init
         !Call IC function
         !Call even for restart to reset BCs, background, etc ...
         call initState(Model,Grid,State,xmlInp)
+
+        !Initialize BC objects
+        do n=1,Grid%NumBC
+            if (allocated(Grid%externalBCs(n)%p)) then
+                call Grid%externalBCs(n)%p%doInit(Model,Grid,State,xmlInp)
+            endif
+        enddo
 
     end subroutine PrepState
 
@@ -413,18 +421,13 @@ module init
 
         integer :: i
         !Set default BCs to triply periodic, problem IC can over-ride
-        Grid%HaloUps(INI )%ApplyBC => periodic_ibcI
-        Grid%HaloUps(OUTI)%ApplyBC => periodic_obcI
-        Grid%HaloUps(INJ )%ApplyBC => periodic_ibcJ
-        Grid%HaloUps(OUTJ)%ApplyBC => periodic_obcJ
-        Grid%HaloUps(INK )%ApplyBC => periodic_ibcK
-        Grid%HaloUps(OUTK)%ApplyBC => periodic_obcK
+        allocate(periodicInnerIBC_T :: Grid%externalBCs(INI )%p)
+        allocate(periodicOuterIBC_T :: Grid%externalBCs(OUTI)%p)
+        allocate(periodicInnerJBC_T :: Grid%externalBCs(INJ )%p)
+        allocate(periodicOuterJBC_T :: Grid%externalBCs(OUTJ)%p)
+        allocate(periodicInnerKBC_T :: Grid%externalBCs(INK )%p)
+        allocate(periodicOuterKBC_T :: Grid%externalBCs(OUTK)%p)
         Grid%NumBC = 6
-
-        ! Overruling external BC as periodic mpi BC 
-        do i=1,MAXBC
-            Nullify( Grid%ExternalHaloUps(i)%ApplyBC )
-        end do
     end subroutine DefaultBCs
 
     !Figure out ring avg (if using) before C2G
@@ -885,11 +888,6 @@ module init
             call ebGeom(Model,Grid,Grid%Teb(:,:,:,XNQJ:YNQJ,dNorm),dNorm,T2,T1)
 
         enddo    
-
-        !Nullify Halo BC pointers
-        do i=1,MAXBC
-            Grid%HaloUps(i)%ApplyBC => NULL()
-        enddo
 
     end subroutine Corners2Grid
 

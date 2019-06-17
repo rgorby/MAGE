@@ -9,6 +9,22 @@ module types
     ! larger then 0 will write out the massage
     integer :: verbose = -1
 
+    type :: baseBC_T
+        contains
+
+        procedure baseInit
+        procedure :: baseFailBC
+
+        ! functions which will be over-written by sub-classes
+        procedure :: doInit => baseInit
+        procedure :: doBC => baseFailBC
+
+    end type baseBC_T
+
+    type bcHolder
+        class(baseBC_T), allocatable :: p
+    end type bcHolder
+
 !Ring information
 !Holds info for ring-averaging about singularity
 !Note, always assuming IDIR is ring direction
@@ -76,10 +92,6 @@ module types
         procedure(HackStep_T), pointer, nopass :: HackStep => NULL()
 
     end type Model_T
-
-    type bcHolder
-        class(*), allocatable :: p
-    end type bcHolder
 
 !Overall grid information
     !Nip = # of physical cells, Ni = Nip+2*Ng
@@ -155,6 +167,7 @@ module types
         !Boundary conditions
         !Inner/outer i,j,k directions
         type(bcHolder) :: externalBCs(MAXBC)
+        integer :: NumBC = 6
 
         !Data for background field incorporation
         !fcB0(i,j,k,D,F) is the D component of the Bxyz on face F
@@ -185,7 +198,6 @@ module types
         
         real(rp) :: time
     end type State_T
-
 
     !StateIC_T
     !Generic initialization routine: ICs, Grid, Model
@@ -284,5 +296,26 @@ module types
 
         end subroutine HackStep_T
     end interface
+
+    contains
+
+    !A null initialization function for BCs that don't require initialization
+    subroutine baseInit(bc,Model,Grid,State,xmlInp)
+        class(baseBC_T), intent(inout) :: bc
+        type(Model_T), intent(in) :: Model
+        type(Grid_T), intent(in) :: Grid
+        type(State_T), intent(in) :: State
+        type(XML_Input_T), intent(in) :: xmlInp
+    end subroutine baseInit
+
+    ! this should never be called
+    subroutine baseFailBC(bc,Model,Grid,State)
+        class(baseBC_T), intent(inout) :: bc
+        type(Model_T), intent(in) :: Model
+        type(Grid_T), intent(in) :: Grid
+        type(State_T), intent(inout) :: State
+        print *, "Base BC function called. This should never happen"
+        stop
+    end subroutine baseFailBC
 
 end module types

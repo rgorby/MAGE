@@ -5,7 +5,6 @@ module bcs
     use math
     use gridutils
     use ringutils
-    use basebc
 
     implicit none
 
@@ -165,7 +164,7 @@ module bcs
 !--------------------------------------------
     !Lazy, do-nothing boundary
     subroutine lazyBC(bc,Model,Grid,State)
-        class(lazyBC_T), intent(in) :: bc
+        class(lazyBC_T), intent(inout) :: bc
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(inout) :: State
@@ -176,7 +175,7 @@ module bcs
 !--------------------------------------------    
     !Standard periodic BCs
     subroutine periodic_ibcI(bc,Model,Grid,State)
-        class(periodicInnerIBC_T), intent(in) :: bc
+        class(periodicInnerIBC_T), intent(inout) :: bc
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(inout) :: State
@@ -197,7 +196,7 @@ module bcs
     end subroutine periodic_ibcI
 
     subroutine periodic_obcI(bc,Model,Grid,State)
-        class(periodicOuterIBC_T), intent(in) :: bc
+        class(periodicOuterIBC_T), intent(inout) :: bc
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(inout) :: State
@@ -216,7 +215,7 @@ module bcs
     end subroutine periodic_obcI
 
     subroutine periodic_ibcJ(bc,Model,Grid,State)
-        class(periodicInnerJBC_T), intent(in) :: bc
+        class(periodicInnerJBC_T), intent(inout) :: bc
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(inout) :: State
@@ -234,7 +233,7 @@ module bcs
     end subroutine periodic_ibcJ
 
     subroutine periodic_obcJ(bc,Model,Grid,State)
-        class(periodicOuterJBC_T), intent(in) :: bc
+        class(periodicOuterJBC_T), intent(inout) :: bc
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(inout) :: State
@@ -255,7 +254,7 @@ module bcs
     end subroutine periodic_obcJ
 
     subroutine periodic_ibcK(bc,Model,Grid,State)
-        class(periodicInnerKBC_T), intent(in) :: bc
+        class(periodicInnerKBC_T), intent(inout) :: bc
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(inout) :: State
@@ -286,7 +285,7 @@ module bcs
     end subroutine periodic_ibcK
 
     subroutine periodic_obcK(bc,Model,Grid,State)
-        class(periodicOuterKBC_T), intent(in) :: bc
+        class(periodicOuterKBC_T), intent(inout) :: bc
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(inout) :: State
@@ -320,7 +319,7 @@ module bcs
 !--------------------------------------------
     !Zeroth extension BCs
     subroutine zeroExten_ibcI(bc,Model,Grid,State)
-        class(zeroExtensionInnerIBC_T), intent(in) :: bc
+        class(zeroExtensionInnerIBC_T), intent(inout) :: bc
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(inout) :: State
@@ -344,7 +343,7 @@ module bcs
     end subroutine zeroExten_ibcI
 
     subroutine zeroExten_obcI(bc,Model,Grid,State)
-        class(zeroExtensionOuterIBC_T), intent(in) :: bc
+        class(zeroExtensionOuterIBC_T), intent(inout) :: bc
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(inout) :: State
@@ -369,7 +368,7 @@ module bcs
     end subroutine zeroExten_obcI
 
     subroutine zeroExten_ibcJ(bc,Model,Grid,State)
-        class(zeroExtensionInnerJBC_T), intent(in) :: bc
+        class(zeroExtensionInnerJBC_T), intent(inout) :: bc
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(inout) :: State
@@ -394,7 +393,7 @@ module bcs
 
     !Zero grad BCs
     subroutine zeroExten_obcJ(bc,Model,Grid,State)
-        class(zeroExtensionOuterJBC_T), intent(in) :: bc
+        class(zeroExtensionOuterJBC_T), intent(inout) :: bc
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(inout) :: State
@@ -421,7 +420,7 @@ module bcs
     end subroutine zeroExten_obcJ
 
     subroutine zeroExten_ibcK(bc,Model,Grid,State)
-        class(zeroExtensionInnerKBC_T), intent(in) :: bc
+        class(zeroExtensionInnerKBC_T), intent(inout) :: bc
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(inout) :: State
@@ -445,7 +444,7 @@ module bcs
     end subroutine zeroExten_ibcK
 
     subroutine zeroExten_obcK(bc,Model,Grid,State)
-        class(ZeroExtensionOuterKBC_T), intent(in) :: bc
+        class(ZeroExtensionOuterKBC_T), intent(inout) :: bc
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(inout) :: State
@@ -473,7 +472,7 @@ module bcs
 !---------------------------------------------------------
 ! Reflecting boundary only works for Cartesian grids
     subroutine cartReflect_ibcI(bc,Model,Grid,State)
-        class(cartesianReflectingInnerIBC_T), intent(in) :: bc
+        class(cartesianReflectingInnerIBC_T), intent(inout) :: bc
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(inout) :: State
@@ -503,7 +502,7 @@ module bcs
     end subroutine cartReflect_ibcI
 
     subroutine cartReflect_obcI(bc,Model,Grid,State)
-        class(cartesianReflectingOuterIBC_T), intent(in) :: bc
+        class(cartesianReflectingOuterIBC_T), intent(inout) :: bc
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(inout) :: State
@@ -531,7 +530,7 @@ module bcs
     end subroutine cartReflect_obcI
 
     subroutine cartReflect_ibcJ(bc,Model,Grid,State)
-        class(cartesianReflectingInnerJBC_T), intent(in) :: bc
+        class(cartesianReflectingInnerJBC_T), intent(inout) :: bc
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(inout) :: State
@@ -564,7 +563,7 @@ module bcs
     end subroutine cartReflect_ibcJ
 
     subroutine cartReflect_obcJ(bc,Model,Grid,State)
-        class(cartesianReflectingOuterJBC_T), intent(in) :: bc
+        class(cartesianReflectingOuterJBC_T), intent(inout) :: bc
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(inout) :: State
@@ -597,7 +596,7 @@ module bcs
     end subroutine cartReflect_obcJ
 
     subroutine cartReflect_ibcK(bc,Model,Grid,State)
-        class(cartesianReflectingInnerKBC_T), intent(in) :: bc
+        class(cartesianReflectingInnerKBC_T), intent(inout) :: bc
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(inout) :: State
@@ -630,7 +629,7 @@ module bcs
     end subroutine cartReflect_ibcK
    
     subroutine cartReflect_obcK(bc,Model,Grid,State)
-        class(cartesianReflectingOuterKBC_T), intent(in) :: bc
+        class(cartesianReflectingOuterKBC_T), intent(inout) :: bc
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(inout) :: State
@@ -665,7 +664,7 @@ module bcs
 !--------------------------------------------
     !Zero grad BCs
     subroutine zeroGrad_ibcI(bc,Model,Grid,State)
-        class(zeroGradientInnerIBC_T), intent(in) :: bc
+        class(zeroGradientInnerIBC_T), intent(inout) :: bc
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(inout) :: State
@@ -686,7 +685,7 @@ module bcs
     end subroutine zeroGrad_ibcI
 
     subroutine zeroGrad_obcI(bc,Model,Grid,State)
-        class(zeroGradientOuterIBC_T), intent(in) :: bc
+        class(zeroGradientOuterIBC_T), intent(inout) :: bc
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(inout) :: State
@@ -711,7 +710,7 @@ module bcs
     end subroutine zeroGrad_obcI
 
     subroutine zeroGrad_ibcJ(bc,Model,Grid,State)
-        class(zeroGradientInnerJBC_T), intent(in) :: bc
+        class(zeroGradientInnerJBC_T), intent(inout) :: bc
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(inout) :: State
@@ -734,7 +733,7 @@ module bcs
 
     !Zero grad BCs
     subroutine zeroGrad_obcJ(bc,Model,Grid,State)
-        class(zeroGradientOuterJBC_T), intent(in) :: bc
+        class(zeroGradientOuterJBC_T), intent(inout) :: bc
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(inout) :: State
@@ -756,7 +755,7 @@ module bcs
     end subroutine zeroGrad_obcJ
 
     subroutine zeroGrad_ibcK(bc,Model,Grid,State)
-        class(zeroGradientInnerKBC_T), intent(in) :: bc
+        class(zeroGradientInnerKBC_T), intent(inout) :: bc
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(inout) :: State
@@ -776,7 +775,7 @@ module bcs
     end subroutine zeroGrad_ibcK
 
     subroutine zeroGrad_obcK(bc,Model,Grid,State)
-        class(zeroGradientOuterKBC_T), intent(in) :: bc
+        class(zeroGradientOuterKBC_T), intent(inout) :: bc
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(inout) :: State
@@ -800,7 +799,7 @@ module bcs
 !--------------------------------------------
     !Various geometry-specific BCs
     subroutine SphIn(bc,Model,Grid,State)
-        class(sphereInBC_T), intent(in) :: bc
+        class(sphereInBC_T), intent(inout) :: bc
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(inout) :: State
@@ -825,7 +824,7 @@ module bcs
     end subroutine SphIn
     
     subroutine SphOut(bc,Model,Grid,State)   
-        class(sphereOutBC_T), intent(in) :: bc
+        class(sphereOutBC_T), intent(inout) :: bc
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(inout) :: State
@@ -853,7 +852,7 @@ module bcs
     !Various pole BCs
     !Inner-I BC for cylindrical geometry w/ pole
     subroutine cylpole(bc,Model,Grid,State)
-        class(cylindricalPoleBC_T), intent(in) :: bc
+        class(cylindricalPoleBC_T), intent(inout) :: bc
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(inout) :: State
@@ -886,7 +885,7 @@ module bcs
 
     !Routines for X-axis pole on LFM grid
     subroutine lfmIn(bc,Model,Grid,State)
-        class(lfmInBC_T), intent(in) :: bc
+        class(lfmInBC_T), intent(inout) :: bc
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(inout) :: State
@@ -925,7 +924,7 @@ module bcs
     end subroutine lfmIn
 
     subroutine lfmOut(bc,Model,Grid,State)
-        class(lfmOutBC_T), intent(in) :: bc
+        class(lfmOutBC_T), intent(inout) :: bc
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(inout) :: State

@@ -9,7 +9,6 @@ module wind
     use gridutils
     use msphutils
     use multifluid
-    use bcs
 
     implicit none
 
@@ -17,20 +16,10 @@ module wind
     integer, parameter :: SWSPC = 1 !SW fluid is always 1st in multifluid
     integer, parameter :: MAXWINDVARS = 20
 
-    !Type for solar wind time-series subroutine
-    abstract interface
-        subroutine WindTS_T(Model,t,Rho,Pr,V,B)
-            Import :: rp,Model_T,NDIM
-            type(Model_T), intent(in) :: Model
-            real(rp), intent(in) :: t
-            real(rp), intent(out) :: Rho,Pr
-            real(rp), dimension(NDIM), intent(out) :: V, B
-        end subroutine WindTS_T
-    end interface
-
     !Type for generic solar wind BC (from file or subroutine)
     !Either use discrete tW,Qw(NVAR) series or subroutine
-    type WindBC_T
+    type, extends(baseBC_T) :: WindBC_T
+
         character(len=strLen) :: wID !Wind ID string
         logical :: isDiscrete=.false.
 
@@ -70,57 +59,70 @@ module wind
 
     end type WindBC_T
 
+
+    !Type for solar wind time-series subroutine
+    abstract interface
+        subroutine WindTS_T(windBC,Model,t,Rho,Pr,V,B)
+            Import :: rp,Model_T,NDIM,WindBC_T
+            class(WindBC_T), intent(inout) :: windBC
+            type(Model_T), intent(in) :: Model
+            real(rp), intent(in) :: t
+            real(rp), intent(out) :: Rho,Pr
+            real(rp), dimension(NDIM), intent(out) :: V, B
+        end subroutine WindTS_T
+    end interface
+
     contains
 
-    subroutine InitWind(windBC,Model,Grid,State,xmlInp)
-        class(WindBC_T), intent(inout) :: windBC
-        type(Model_T), intent(inout) :: Model
+    subroutine InitWind(bc,Model,Grid,State,xmlInp)
+        class(WindBC_T), intent(inout) :: bc
+        type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(in) :: State
         type(XML_Input_T), intent(in) :: xmlInp
 
         !Allocate arrays
         !TODO: Fix the size of these arrays
-        call allocGridVec(Model,Grid,windBC%BxyzW)
-        call allocGridVec(Model,Grid,windBC%ExyzW)
-        call allocGridVec(Model,Grid,windBC%VxyzW)
+        call allocGridVec(Model,Grid,bc%BxyzW)
+        call allocGridVec(Model,Grid,bc%ExyzW)
+        call allocGridVec(Model,Grid,bc%VxyzW)
 
-        call allocGridVar(Model,Grid,windBC%RhoW)
-        call allocGridVar(Model,Grid,windBC%PrW)
+        call allocGridVar(Model,Grid,bc%RhoW)
+        call allocGridVar(Model,Grid,bc%PrW)
 
-        allocate(isWind(windBC%NgW,Grid%jsg:Grid%jeg,Grid%ksg:Grid%keg))
-        windBC%isWind = .false.
+        allocate(bc%isWind(bc%NgW,Grid%jsg:Grid%jeg,Grid%ksg:Grid%keg))
+        bc%isWind = .false.
 
         !Set time series reference point to Origin by default
-        windBC%xyzW = 0.0
-        call xmlInp%Set_Val(windBC%wID,"wind/tsfile","NONE")
+        bc%xyzW = 0.0
+        call xmlInp%Set_Val(bc%wID,"wind/tsfile","NONE")
 
         !---------------
-        select case (trim(toUpper(windBC%wID)))
+        select case (trim(toUpper(bc%wID)))
             case("NONE")
                 write(*,*) "No wind TS file specified, relying on user (don't mess this up)"
             case default
                 !Set discrete wind function
-                windBC%isDiscrete = .true.
-                windBC%getWind => InterpWind
+                bc%isDiscrete = .true.
+                bc%getWind => InterpWind
                 !Read data into discrete time series
-                call readWind(windBC,Model,xmlInp)
+                call readWind(bc,Model,xmlInp)
         end select
-        call xmlInp%Set_Val(windBC%doDSW,"wind/doDSW",.false.)
-        if (windBC%doDSW) then
-            call xmlInp%Set_Val(windBC%dSWAmp,"wind/dSWAmp",0.01_rp)
-            call xmlInp%Set_Val(windBC%dSWAmp,"wind/dtDSW",windBC%dtDSW)
-            windBC%tDSW = Model%t+windBC%dtDSW
-            call allocGridVar(Model,Grid,windBC%dRhoW)
-            windBC%dRhoW = 0.0
+        call xmlInp%Set_Val(bc%doDSW,"wind/doDSW",.false.)
+        if (bc%doDSW) then
+            call xmlInp%Set_Val(bc%dSWAmp,"wind/dSWAmp",0.01_rp)
+            call xmlInp%Set_Val(bc%dSWAmp,"wind/dtDSW",bc%dtDSW)
+            bc%tDSW = Model%t+bc%dtDSW
+            call allocGridVar(Model,Grid,bc%dRhoW)
+            bc%dRhoW = 0.0
         endif
 
         !Zero out initial values
-        windBC%BxyzW = 0.0
-        windBC%ExyzW = 0.0
-        windBC%VxyzW = 0.0
-        windBC%RhoW = 0.0
-        windBC%PrW = 0.0
+        bc%BxyzW = 0.0
+        bc%ExyzW = 0.0
+        bc%VxyzW = 0.0
+        bc%RhoW = 0.0
+        bc%PrW = 0.0
 
     end subroutine InitWind
 
@@ -139,7 +141,7 @@ module wind
         integer :: n,ip,j,k
 
         !Find current wind info
-        call windBC%getWind(Model,Model%t,D,P,V0,B)
+        call windBC%getWind(windBC,Model,Model%t,D,P,V0,B)
 
         !Rotate current velocity
         bcc = sqrt(windBC%ByC**2.0 + windBC%BzC**2.0)
@@ -172,10 +174,10 @@ module wind
                 do n=1,Model%Ng
                     !Calculate lag time to cell center of this ghost
                     xcc = Grid%xyzcc(ip+n,j,k,:)
-                    DelT = dot_product(xcc-xyzW,Vfr)/vMag**2.0
+                    DelT = dot_product(xcc-windBC%xyzW,Vfr)/vMag**2.0
 
                     !Set isWind, ie influenced by solar wind or not
-                    call windBC%getWind(windBC,Model,Model%t-DelT,D,P,V,B)
+                    call getWind(windBC,Model,Model%t-DelT,D,P,V,B)
                     !Note, assuming that Bx is consistent with tilted front
                     !Ie, B(XDIR) = By*ByC + Bz*BzC + Bx0
 
@@ -186,17 +188,17 @@ module wind
                         windBC%isWind(n,j,k) = .false.
                     endif
                     if (windBC%doDSW) then
-                        windBC%dSW = windBC%dRhoW(n,j,k)
+                        dSW = windBC%dRhoW(n,j,k)
                         if (Model%t>=windBC%tDSW) then
                             !Set new perturbation
                             windBC%dRhoW(n,j,k) = genRand(-windBC%dSWAmp,windBC%dSWAmp)
                         endif
                     else
-                        windBC%dSW = 0.0
+                        dSW = 0.0
                     endif
 
                     if (windBC%isWind(n,j,k)) then
-                        windBC%RhoW(n,j,k) = D*(1.0+windBC%dSW)
+                        windBC%RhoW(n,j,k) = D*(1.0+dSW)
                         windBC%PrW(n,j,k) = P
                         windBC%VxyzW(n,j,k,:) = V
                         windBC%BxyzW(n,j,k,:) = B
@@ -204,7 +206,7 @@ module wind
                     else
                         !Do nothing otherwise since values unused
                         !For now just set everything
-                        windBC%RhoW(n,j,k) = D*(1.0+windBC%dSW)
+                        windBC%RhoW(n,j,k) = D*(1.0+dSW)
                         windBC%PrW(n,j,k) = P
                         windBC%VxyzW(n,j,k,:) = V
                         windBC%BxyzW(n,j,k,:) = B
@@ -222,8 +224,8 @@ module wind
     end subroutine RefreshWind
 
     !Do outer I BC for solar wind
-    subroutine WindBC(windBC,Model,Grid,State)
-        class(WindBC_T), intent(inout) :: windBC
+    subroutine WindBC(bc,Model,Grid,State)
+        class(WindBC_T), intent(inout) :: bc
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(inout) :: State
@@ -233,7 +235,7 @@ module wind
         real(rp), dimension(NDIM) :: Bxyz
 
         !Refresh solar wind shell values
-        call RefreshWind(windBC,Model,Grid)
+        call RefreshWind(bc,Model,Grid)
 
         !$OMP PARALLEL DO default(shared) &
         !$OMP private(ig,ip,n,j,k,s) &
@@ -245,14 +247,14 @@ module wind
                     ig = Grid%ie+n
 
                     !Set gCon, conserved variables for SW species
-                    if (windBC%isWind(n,j,k)) then
+                    if (bc%isWind(n,j,k)) then
                         !Do solar wind values
-                        gW(DEN)      = windBC%RhoW (n,j,k)
-                        gW(PRESSURE) = windBC%PrW  (n,j,k)
-                        gW(VELX:VELZ)= windBC%VxyzW(n,j,k,:)
+                        gW(DEN)      = bc%RhoW (n,j,k)
+                        gW(PRESSURE) = bc%PrW  (n,j,k)
+                        gW(VELX:VELZ)= bc%VxyzW(n,j,k,:)
                         call CellP2C(Model,gW,gCon)
             
-                        Bxyz = windBC%BxyzW(n,j,k,:)
+                        Bxyz = bc%BxyzW(n,j,k,:)
                     else
                         ! !Use floating BCs from last physical cell
                         ! gCon = State%Gas(ip,j,k,:,BLK)
@@ -260,12 +262,12 @@ module wind
 
                         !Testing new option, using SW values for ghost cells but not replacing E field
                         !Do solar wind values
-                        gW(DEN)      = windBC%RhoW (n,j,k)
-                        gW(PRESSURE) = windBC%PrW  (n,j,k)
-                        gW(VELX:VELZ)= windBC%VxyzW(n,j,k,:)
+                        gW(DEN)      = bc%RhoW (n,j,k)
+                        gW(PRESSURE) = bc%PrW  (n,j,k)
+                        gW(VELX:VELZ)= bc%VxyzW(n,j,k,:)
                         call CellP2C(Model,gW,gCon)
             
-                        Bxyz = windBC%BxyzW(n,j,k,:)
+                        Bxyz = bc%BxyzW(n,j,k,:)
 
                     endif
 
@@ -303,7 +305,8 @@ module wind
     end subroutine WindBC
 
     !Fix outer shell electric fields to solar wind values
-    subroutine WindEFix(Model,Grid,State)
+    subroutine WindEFix(windBC,Model,Grid,State)
+        class(windBC_T), intent(inout) :: windBC
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(inout) :: State
@@ -313,10 +316,10 @@ module wind
 
         do k=Grid%ksg,Grid%keg
             do j=Grid%jsg,Grid%jeg
-                if (isWind(1,j,k)) then
+                if (windBC%isWind(1,j,k)) then
                     !Set front-side tangential electric fields to solar wind
                     do i=Grid%ie+1,Grid%ie+1
-                        Exyz = ExyzW(1,j,k,:)
+                        Exyz = windBC%ExyzW(1,j,k,:)
                         do n=JDIR,KDIR
                             !Get edge coordinates
                             call edgeCoords(Model,Grid,i,j,k,n,e1,e2)
@@ -376,15 +379,15 @@ module wind
         allocate(windBC%Q(N,NVAR))
         allocate(windBC%B(N,NDIM))
 
-        windBC%tW            = (1/windBC%gT0)*IOVars(1)%data
+        windBC%tW            = (1/gT0)*IOVars(1)%data
         windBC%Q(:,DEN)      = (1/1.0)*IOVars(2)%data
-        windBC%Q(:,VELX)     = (1/windBC%gv0)*IOVars(3)%data
-        windBC%Q(:,VELY)     = (1/windBC%gv0)*IOVars(4)%data
-        windBC%Q(:,VELZ)     = (1/windBC%gv0)*IOVars(5)%data
-        windBC%Q(:,PRESSURE) = (1/windBC%gP0)*IOVars(6)%data
-        windBC%B(:,XDIR)     = (1/windBC%gB0)*IOVars(7)%data
-        windBC%B(:,YDIR)     = (1/windBC%gB0)*IOVars(8)%data
-        windBC%B(:,ZDIR)     = (1/windBC%gB0)*IOVars(9)%data
+        windBC%Q(:,VELX)     = (1/gv0)*IOVars(3)%data
+        windBC%Q(:,VELY)     = (1/gv0)*IOVars(4)%data
+        windBC%Q(:,VELZ)     = (1/gv0)*IOVars(5)%data
+        windBC%Q(:,PRESSURE) = (1/gP0)*IOVars(6)%data
+        windBC%B(:,XDIR)     = (1/gB0)*IOVars(7)%data
+        windBC%B(:,YDIR)     = (1/gB0)*IOVars(8)%data
+        windBC%B(:,ZDIR)     = (1/gB0)*IOVars(9)%data
 
         windBC%tMin = minval(windBC%tW)
         windBC%tMax = maxval(windBC%tW)

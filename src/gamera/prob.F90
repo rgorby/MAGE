@@ -133,12 +133,12 @@ module prob
         endif
         call initLoop(Model,Grid,State,inpXML)
 
-        Grid%HaloUps(INI )%ApplyBC => cylpole
-        Grid%HaloUps(OUTI)%ApplyBC => zeroGrad_obcI
-        Grid%HaloUps(INJ )%ApplyBC => periodic_ibcJ
-        Grid%HaloUps(OUTJ)%ApplyBC => periodic_obcJ
-        Grid%HaloUps(INK )%ApplyBC => periodic_ibcK
-        Grid%HaloUps(OUTK)%ApplyBC => periodic_obcK
+        allocate(cylindricalPoleBC_T    :: Grid%externalBCs(INI )%p)
+        allocate(zeroGradientOuterIBC_T :: Grid%externalBCs(OUTI)%p)
+        allocate(periodicInnerJBC_T     :: Grid%externalBCs(INJ )%p)
+        allocate(periodicOuterJBC_T     :: Grid%externalBCs(OUTJ)%p)
+        allocate(periodicInnerKBC_T     :: Grid%externalBCs(INK )%p)
+        allocate(periodicOuterKBC_T     :: Grid%externalBCs(OUTK)%p)
 
         Grid%isMG = Grid%is
         Grid%jsMG = Grid%js
@@ -162,8 +162,8 @@ module prob
 
         call initBW(Model,Grid,State,inpXML)
 
-        Grid%HaloUps(INI )%ApplyBC => cylpole
-        Grid%HaloUps(OUTI)%ApplyBC => zeroGrad_obcI
+        allocate(cylindricalPoleBC_T    :: Grid%externalBCs(INI )%p)
+        allocate(zeroGradientOuterIBC_T :: Grid%externalBCs(OUTI)%p)
 
         Grid%isMG = Grid%is
         Grid%jsMG = Grid%js
@@ -219,12 +219,12 @@ module prob
 
         call initBW(Model,Grid,State,inpXML)
 
-        Grid%HaloUps(1)%ApplyBC => SphIn
-        Grid%HaloUps(2)%ApplyBC => SphOut
-        Grid%HaloUps(3)%ApplyBC => lfmIn
-        Grid%HaloUps(4)%ApplyBC => lfmOut
-        Grid%HaloUps(5)%ApplyBC => periodic_ibcK
-        Grid%HaloUps(6)%ApplyBC => periodic_obcK
+        allocate(SphereInBC_T       :: Grid%externalBCs(INI )%p)
+        allocate(SphereOutBC_T      :: Grid%externalBCs(OUTI)%p)
+        allocate(lfmInBC_T          :: Grid%externalBCs(INJ )%p)
+        allocate(lfmOutBC_T         :: Grid%externalBCs(OUTJ)%p)
+        allocate(periodicInnerKBC_T :: Grid%externalBCs(INK )%p)
+        allocate(periodicOuterKBC_T :: Grid%externalBCs(OUTK)%p)
 
         !Set MG bounds
         Grid%isMG = Grid%is
@@ -878,8 +878,8 @@ module prob
             enddo
         enddo
 
-        Grid%HaloUps(INI )%ApplyBC => zeroGrad_ibcI
-        Grid%HaloUps(OUTI)%ApplyBC => zeroGrad_obcI
+        allocate(zeroGradientInnerIBC_T :: Grid%externalBCs(INI )%p)
+        allocate(zeroGradientOuterIBC_T :: Grid%externalBCs(OUTI)%p)
 
     end subroutine initSod
 
@@ -939,12 +939,12 @@ module prob
             enddo
         enddo   
 
-        Grid%HaloUps(INI )%ApplyBC => cartReflect_ibcI
-        Grid%HaloUps(OUTI)%ApplyBC => cartReflect_obcI
-        Grid%HaloUps(INJ )%ApplyBC => cartReflect_ibcJ
-        Grid%HaloUps(OUTJ)%ApplyBC => cartReflect_obcJ
-        Grid%HaloUps(INK )%ApplyBC => zeroGrad_ibcK
-        Grid%HaloUps(OUTK)%ApplyBC => zeroGrad_obcK     
+        allocate(cartesianReflectingInnerIBC_T :: Grid%externalBCs(INI )%p)
+        allocate(cartesianReflectingOuterIBC_T :: Grid%externalBCs(OUTI)%p)
+        allocate(cartesianReflectingInnerJBC_T :: Grid%externalBCs(INJ )%p)
+        allocate(cartesianReflectingOuterJBC_T :: Grid%externalBCs(OUTJ)%p)
+        allocate(zeroGradientInnerKBC_T        :: Grid%externalBCs(INK )%p)
+        allocate(zeroGradientOuterKBC_T        :: Grid%externalBCs(OUTK)%p)
 
     end subroutine initImplosion
 
@@ -995,12 +995,12 @@ module prob
             enddo
         enddo        
 
-        Grid%HaloUps(INI )%ApplyBC => periodic_ibcI
-        Grid%HaloUps(OUTI)%ApplyBC => periodic_obcI
-        Grid%HaloUps(INJ )%ApplyBC => zeroGrad_ibcJ
-        Grid%HaloUps(OUTJ)%ApplyBC => zeroGrad_obcJ
-        Grid%HaloUps(INK )%ApplyBC => zeroExten_ibcK
-        Grid%HaloUps(OUTK)%ApplyBC => zeroExten_obcK   
+        allocate(periodicInnerIBC_T      :: Grid%externalBCs(INI )%p)
+        allocate(periodicOuterIBC_T      :: Grid%externalBCs(OUTI)%p)
+        allocate(zeroGradientInnerJBC_T  :: Grid%externalBCs(INJ )%p)
+        allocate(zeroGradientOuterJBC_T  :: Grid%externalBCs(OUTJ)%p)
+        allocate(zeroExtensionInnerKBC_T :: Grid%externalBCs(INK )%p)
+        allocate(zeroExtensionInnerKBC_T :: Grid%externalBCs(OUTK)%p)
 
         !Local functions for initBW  
         contains
