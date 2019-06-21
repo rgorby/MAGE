@@ -11,6 +11,20 @@ module mixmhdlocalinterface
 
     contains
 
+    subroutine initializeRemixFromGamera(gameraApp, remixApp)
+        type(remixApp_T), intent(inout) :: remixApp
+        type(gameraApp_T), intent(in) :: gameraApp
+
+        real(rp), allocatable, dimension(:,:,:,:,:) :: mhdJGrid,mhdPsiGrid
+
+        ! initialize REMIX
+        call init_remix_grids(mhdJGrid, mhdPsiGrid, gameraApp%gamGridXyz, gameraApp%Rion)
+
+        call remixApp%initREmix(mhdJGrid, mhdPsiGrid)
+
+        deallocate(mhdJGrid,mhdPsiGrid)
+    end subroutine initializeRemixFromGamera
+
     subroutine convertGameraToRemix(gameraApp, remixApp)
         type(remixApp_T), intent(inout) :: remixApp
         type(gameraApp_T), intent(in) :: gameraApp

@@ -57,11 +57,6 @@ message("-------------------------\n")
 add_subdirectory(src/base)
 
 #-------------
-#Kaiju: Interfaces
-message("Adding Interfaces module ...")
-add_subdirectory(src/interfaces)
-
-#-------------
 #Kaiju: CHIMP
 message("Adding CHIMP module ...")
 add_subdirectory(src/chimp)
@@ -107,6 +102,16 @@ message("\tAdding executable gamera2remix.x")
 add_executable(gamera2remix.x src/drivers/gamera2remix.F90)
 target_link_libraries(gamera2remix.x baselib interfaceslib gamlib remixlib)
 add_dependencies(remix gamera2remix.x)
+
+#-------------
+#Kaiju: Voltron
+message("Adding Voltron module ...")
+add_subdirectory(src/voltron)
+add_custom_target(voltron ALL)
+message("\tAdding executable kaiju.x")
+add_executable(kaiju.x src/drivers/kaijux.F90)
+target_link_libraries(kaiju.x baselib voltlib gamlib remixlib)
+add_dependencies(voltron kaiju.x)
 
 #-------------
 #Kaiju: tests
