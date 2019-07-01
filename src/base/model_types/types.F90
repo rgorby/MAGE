@@ -302,7 +302,7 @@ module types
     !A null initialization function for BCs that don't require initialization
     subroutine baseInit(bc,Model,Grid,State,xmlInp)
         class(baseBC_T), intent(inout) :: bc
-        type(Model_T), intent(in) :: Model
+        type(Model_T), intent(inout) :: Model
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(in) :: State
         type(XML_Input_T), intent(in) :: xmlInp

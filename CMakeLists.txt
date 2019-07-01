@@ -1,4 +1,5 @@
-cmake_minimum_required(VERSION 3.10)
+#cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.9)
 project(Kaiju Fortran)
 enable_testing()
 
@@ -20,7 +21,8 @@ option(ENABLE_MPI "Enable MPI parallelization" OFF)
 #Vector blocking
 set(bricksize 16 CACHE STRING "Vector brick size")
 set_property(CACHE bricksize PROPERTY STRINGS 8 16 32)
-add_compile_definitions(BRICKSIZE=${bricksize})
+#add_compile_definitions(BRICKSIZE=${bricksize})
+add_definitions(-DBRICKSIZE=${bricksize})
 mark_as_advanced(bricksize)
 
 #Include compile flag generator
@@ -76,7 +78,8 @@ message("Adding Gamera module ...")
 
 #Get IC files
 file(GLOB GAMICLIST src/gamera/ICs/*.F90)
-file(GLOB GAMICDEF src/gamera/ICs/null.F90)
+#file(GLOB GAMICDEF src/gamera/ICs/null.F90)
+file(GLOB GAMICDEF src/gamera/ICs/remix.F90)
 set(GAMIC ${GAMICDEF} CACHE FILEPATH "Gamera IC file")
 set_property(CACHE GAMIC PROPERTY STRINGS ${GAMICLIST})
 

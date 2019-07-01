@@ -1,6 +1,6 @@
 !Toy gamera/remix magnetosphere
 
-module remixic
+module useric
     use types
     use gamutils
     use math
@@ -13,7 +13,6 @@ module remixic
     use msphutils
     use wind
     use multifluid
-    use baseic
 
     implicit none
 !Earth scaling
@@ -25,43 +24,40 @@ module remixic
 !t0 = 63.8 second
 !M0 = -0.31*1.0e+5/B0
 
-    type, extends(baseIC_T) :: remixIC_T
-        !Various global would go here
-        real(rp) :: Rho0,P0
-        real(rp) :: RhoW0,PrW0,VxW,BzW
+    !Various global would go here
+    real(rp) :: Rho0,P0
+    real(rp) :: RhoW0,PrW0,VxW,BzW
 
-        !Running values for BCs
-        real(rp) :: T0  = 60.0
-        real(rp) :: dCS = 0.0
+    !Running values for BCs
+    real(rp) :: T0  = 60.0
+    real(rp) :: dCS = 0.0
 
-        !doHeavy = Add plasmasphere
-        logical :: doHeavy = .false.
+    !doHeavy = Add plasmasphere
+    logical :: doHeavy = .false.
 
-        !Choose between cooling functions
-        !doCool = LFM version
-        !doSuperChill = Gamera version
-        logical :: doCool       = .true.
-        logical :: doSuperChill = .false.
+    !Choose between cooling functions
+    !doCool = LFM version
+    !doSuperChill = Gamera version
+    logical :: doCool       = .true.
+    logical :: doSuperChill = .false.
 
-        logical :: newMix = .false.
+    logical :: newMix = .false.
 
-        !Global grid info
-        type(Grid_T) :: gGrid
+    !Global grid info
+    type(Grid_T) :: gGrid
+
+    ! type for remix BC
+    type, extends(baseBC_T) :: IonInnerBC_T
 
         !Main electric field structures
         real(rp), allocatable, dimension(:,:,:,:) :: inEijk,inExyz
 
         contains
 
-        ! functions which will be over-written by sub-classes
-        procedure :: doInit => remixInit
-        procedure :: getType => remixGetType
-        procedure :: doBC => remixBC
-        procedure :: doAdjustE => remixAdjustE
-        procedure :: doAdjustStep => remixAdjustStep
-        procedure :: doAdjustFlux => remixAdjustFlux
+        procedure :: doInit => InitIonInner
+        procedure :: doBC => IonInner
 
-    end type remix_gamera_couple_T
+    end type IonInnerBC_T
 
     contains
 
@@ -110,21 +106,13 @@ module remixic
         
         call inpXML%Set_Val(BzW,"prob/BzW",0.0_rp)
         
-        call InitWind(Model,Grid,inpXML)
-        if (associated(qWind%getWind)) then
-            write(*,*) 'Using solar wind BC from file ...'
-        else
-            write(*,*) 'Using solar wind BC from subroutine ...'
-            qWind%getWind => SolarWindTS
-        endif
-
         !Set BCs (spherical, RPT)
-        Grid%HaloUps(1)%ApplyBC => IonInner
-        Grid%HaloUps(2)%ApplyBC => WindBC
-        Grid%HaloUps(3)%ApplyBC => lfmIn
-        Grid%HaloUps(4)%ApplyBC => lfmOut
-        Grid%HaloUps(5)%ApplyBC => periodic_ibcK
-        Grid%HaloUps(6)%ApplyBC => periodic_obcK
+        allocate(IonInnerBC_T       :: Grid%externalBCs(INI )%p)
+        allocate(WindBC_T           :: Grid%externalBCs(OUTI)%p)
+        allocate(lfmInBC_T          :: Grid%externalBCs(INJ )%p)
+        allocate(lfmOutBC_T         :: Grid%externalBCs(OUTJ)%p)
+        allocate(periodicInnerKBC_T :: Grid%externalBCs(INK )%p)
+        allocate(periodicOuterKBC_T :: Grid%externalBCs(OUTK)%p)
 
         !Setup fields
         !Use cutoff dipole
@@ -178,18 +166,6 @@ module remixic
            Model%HackE => eHack
         end if
 
-        !Are we on the inner (REMIX) boundary
-        if (Grid%ijkShift(IDIR) == 0) then
-            !Create holders for coupling electric field
-            allocate(inExyz(1:PsiSh  ,Grid%jsg:Grid%jeg,Grid%ksg:Grid%keg,1:NDIM))
-            allocate(inEijk(1:PsiSh+1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1,1:NDIM))
-            inExyz = 0.0
-            inEijk = 0.0
-            eHack  => EFix
-            Model%HackE => eHack
-            Model%HackFlux => IonFlux
-        endif
-
         !Setup perstep function for everybody
         tsHack => PerStep
         Model%HackStep => tsHack
@@ -239,6 +215,26 @@ module remixic
 
     end subroutine initUser
 
+    subroutine postBCInitUser(Model,Grid,State)
+        type(Model_T), intent(inout) :: Model
+        type(Grid_T), intent(inout) :: Grid
+        type(State_T), intent(inout) :: State
+
+        SELECT type(pWind=>Grid%externalBCs(OUTI)%p)
+            TYPE IS (WindBC_T)
+                if (associated(pWind%getWind)) then
+                    write(*,*) 'Using solar wind BC from file ...'
+                else
+                    write(*,*) 'Using solar wind BC from subroutine ...'
+                    pWind%getWind => SolarWindTS
+                endif
+            CLASS DEFAULT
+                write(*,*) 'Could not find Wind BC in remix IC'
+                stop
+        END SELECT
+
+    end subroutine postBCInitUser
+
     subroutine JiggleState(Model,Grid,State)
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
@@ -286,22 +282,33 @@ module remixic
     !Fixes electric field before application
     subroutine EFix(Model,Gr,State)
         type(Model_T), intent(in) :: Model
-        type(Grid_T), intent(in) :: Gr
+        type(Grid_T), intent(inout) :: Gr
         type(State_T), intent(inout) :: State
 
         integer :: i,j,k,kp
         real(rp) :: MaxEjp,MaxEjm,Ei,Ej,Ek
 
         !Fix inner shells
-        if (Gr%ijkShift(IDIR) .eq. 0) then
-            call IonEFix(Model,Gr,State,inEijk)
-        endif
-
+        SELECT type(iiBC=>Gr%externalBCs(INI)%p)
+            TYPE IS (IonInnerBC_T)
+                if (Gr%ijkShift(IDIR) .eq. 0) then
+                    call IonEFix(Model,Gr,State,iiBC%inEijk)
+                endif
+            CLASS DEFAULT
+                write(*,*) 'Could not find Ion Inner BC in remix IC'
+                stop
+        END SELECT
 
         !Fix outer shells
-        if(Gr%ieg + Gr%ijkShift(IDIR) .eq. gGrid%ieg) then
-           call WindEFix(Model,Gr,State)
-        end if
+        SELECT type(pWind=>Gr%externalBCs(OUTI)%p)
+            TYPE IS (WindBC_T)
+                if(Gr%ieg + Gr%ijkShift(IDIR) .eq. gGrid%ieg) then
+                   call WindEFix(pWind,Model,Gr,State)
+                end if
+            CLASS DEFAULT
+                write(*,*) 'Could not find Wind BC in remix IC'
+                stop
+        END SELECT
 
     end subroutine EFix
 
@@ -351,7 +358,8 @@ module remixic
 
     !Put BCs here for global access
     !Solar wind values
-    subroutine SolarWindTS(Model,t,Rho,Pr,V,B)
+    subroutine SolarWindTS(windBC,Model,t,Rho,Pr,V,B)
+        class(WindBC_T), intent(inout) :: windBC
         type(Model_T), intent(in) :: Model
         real(rp), intent(in) :: t
         real(rp), intent(out) :: Rho,Pr
@@ -382,9 +390,36 @@ module remixic
 
     end subroutine SolarWindTS
 
+    !Initialization for Ion Inner BC
+    subroutine InitIonInner(bc,Model,Grid,State,xmlInp)
+        class(IonInnerBC_T), intent(inout) :: bc
+        type(Model_T), intent(inout) :: Model
+        type(Grid_T), intent(in) :: Grid
+        type(State_T), intent(in) :: State
+        type(XML_Input_T), intent(in) :: xmlInp
+
+        integer :: PsiShells
+        procedure(HackE_T), pointer :: eHack
+
+        !Are we on the inner (REMIX) boundary
+        if (Grid%ijkShift(IDIR) == 0) then
+
+            call xmlInp%Set_Val(PsiShells,"remix/PsiShells",5)
+
+            !Create holders for coupling electric field
+            allocate(bc%inExyz(1:PsiShells,Grid%jsg:Grid%jeg,Grid%ksg:Grid%keg,1:NDIM))
+            allocate(bc%inEijk(1:PsiShells+1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1,1:NDIM))
+            bc%inExyz = 0.0
+            bc%inEijk = 0.0
+            eHack  => EFix
+            Model%HackE => eHack
+            Model%HackFlux => IonFlux
+        endif
+    end subroutine InitIonInner
 
     !Inner-I BC for ionosphere
-    subroutine IonInner(Model,Grid,State)
+    subroutine IonInner(bc,Model,Grid,State)
+        class(IonInnerBC_T), intent(inout) :: bc
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(inout) :: State
@@ -445,7 +480,7 @@ module remixic
 
                     !Get velocity from i-reflected active cell
                     Vmir = State%Gas(ip,jp,kp,MOMX:MOMZ,BLK)/max(State%Gas(ip,jp,kp,DEN,BLK),dFloor)
-                    Exyz = inExyz(np,jp,kp,:)
+                    Exyz = bc%inExyz(np,jp,kp,:)
                     call Dipole(xc,yc,zc,Bd(XDIR),Bd(YDIR),Bd(ZDIR))
                     dB = State%Bxyz(ip,jp,kp,:)
                     !Using ExB everywhere

@@ -76,7 +76,7 @@ module wind
 
     subroutine InitWind(bc,Model,Grid,State,xmlInp)
         class(WindBC_T), intent(inout) :: bc
-        type(Model_T), intent(in) :: Model
+        type(Model_T), intent(inout) :: Model
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(in) :: State
         type(XML_Input_T), intent(in) :: xmlInp
@@ -177,7 +177,7 @@ module wind
                     DelT = dot_product(xcc-windBC%xyzW,Vfr)/vMag**2.0
 
                     !Set isWind, ie influenced by solar wind or not
-                    call getWind(windBC,Model,Model%t-DelT,D,P,V,B)
+                    call windBC%getWind(windBC,Model,Model%t-DelT,D,P,V,B)
                     !Note, assuming that Bx is consistent with tilted front
                     !Ie, B(XDIR) = By*ByC + Bz*BzC + Bx0
 

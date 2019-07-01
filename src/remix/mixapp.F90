@@ -1,45 +1,46 @@
 ! Main data objects and functions to perform a remix simulation
 
-module remixapp
+module mixapp
     use mixtypes
     use gamapp
     use mixconductance
+    use msphutils, ONLY: Rion ! Rion should be moved into gamapp
 
     implicit none
 
     integer,parameter :: hmsphrs(2) = [NORTH, SOUTH]
 
-    type remixApp_T
+    integer, parameter :: mhd2mix_varn = 3  ! how many variables are we sending (should be consistent with the enumerator in mixdefs.F90)
+    integer, parameter :: mix2mhd_varn = 1  ! for now just the potential is sent back
+
+    integer, parameter :: MAXMIXIOVAR = 10
+
+    type mixApp_T
         type(mixIon_T),dimension(2) :: ion  ! two ionosphere objects: north(1) and south(2)
         real(rp), dimension(:,:,:,:,:), allocatable :: mixInput,mixOutput
         real(rp) :: tilt
         type(mixConductance_T) :: conductance
-    end type remixApp_T
+
+        real(rp), dimension(:,:,:,:), allocatable :: gJ ! temporary storage
+
+        real(rp), dimension(:,:,:), allocatable :: gPsi ! output from REmix
+
+        ! Gamera normalization
+        ! Scaling factor for remix potential [kV]
+        real(rp) :: rm2g
+
+        type(Map_T), allocatable, dimension(:) :: PsiMaps,Jmaps
+        type(mixGrid_T) :: mixGfpd
+
+        integer :: PsiShells = 5
+        integer :: JShells = 1
+
+        integer :: PsiStart = -3
+        integer :: JStart = 2
+
+    end type mixApp_T
 
     contains
 
-    subroutine initRemix(remixApp, mhdJGrid, mhdPsiGrid)
-        type(remixApp_T), intent(inout) :: remixApp
-        real(rp), dimension(:,:,:,:,:), intent(in) :: mhdJGrid,mhdPsiGrid
-
-        call init_mix_mhd_interface(remixApp%ion,hmsphrs,mhdJGrid,mhdPsiGrid)
-
-    end subroutine
-
-    subroutine runRemix(remixApp, time)
-        type(remixApp_T), intent(inout) :: remixApp
-        real(rp), intent(in) :: time
-
-        ! calls run_mix inside
-        call mhd2mix(remixApp%ion,remixApp%mixInput,remixApp%tilt,remixApp%conductance)
-
-        ! get stuff from mix to gamera
-        call mix2mhd(remixApp%ion,remixApp%mixOutput)
-
-        ! output remix info
-        call mix_mhd_output(remixApp%ion,remixApp%mixOutput,hmsphrs,time)
-
-    end subroutine runRemix
-
-end module remixapp
+end module mixapp
 

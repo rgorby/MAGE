@@ -16,12 +16,17 @@ program kaijux
     verbose = 1
     
     call initGamera(gameraApp)
+    call initVoltron(voltronApp, gameraApp)
 
     do while (gameraApp%Model%t < gameraApp%Model%tFin)
         call Tic("Omega")
         !Start root timer
 
         call stepGamera(gameraApp)
+
+        if (gameraApp%Model%t >= voltronApp%fastShallowTime) then
+            call fastShallowUpdate(voltronApp, gameraApp, gameraApp%Model%t)
+        endif
 
         !Do timing info
         if (modulo(gameraApp%Model%ts,gameraApp%Model%tsOut) == 0) then

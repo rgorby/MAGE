@@ -1,4 +1,4 @@
-module mix_mhd_interface
+module mix2mhd_interface
   use mixdefs
   use mixtypes
   use mixgeom
@@ -6,21 +6,45 @@ module mix_mhd_interface
   use mixio
   use mixmain
   use ioH5
+  use mixapp
+  use gamapp
   
   implicit none
 
-  type(Map_T), allocatable, dimension(:) :: PsiMaps,Jmaps
-  integer :: PsiShells,JShells
-  type(mixGrid_T) :: mixGfpd
-  integer, parameter :: MAXMIXIOVAR = 10
-
 contains
 
-  subroutine init_mix_mhd_interface(I,hmsphrs,mhdJGrid,mhdPsiGrid,conductance)
-    type(mixIon_T),dimension(:),intent(inout) :: I ! I for ionosphere (is an array of 1 or 2 elements for north and south)
+     subroutine convertRemixToGamera(gameraApp, remixApp)
+        type(mixApp_T), intent(inout) :: remixApp
+        type(gamApp_T), intent(inout) :: gameraApp
+
+        ! convert the "remixOutputs" variable to inEijk and inExyz, which are in
+        ! Gamera coordinates
+        integer :: i
+
+         ! populate potential on gamera grid
+         remixApp%gPsi = 0.0
+         do i=1,remixApp%PsiShells+1
+            remixApp%gPsi(i,:,gameraApp%Grid%ks:gameraApp%Grid%ke/2+1)   = remixApp%mixOutput(i,:,:,MHDPSI,NORTH)
+            remixApp%gPsi(i,:,gameraApp%Grid%ke/2+1:gameraApp%Grid%ke+1) = remixApp%mixOutput(i,:,:,MHDPSI,SOUTH)
+         enddo
+
+        ! add corotation
+        call CorotationPot(gameraApp%Model, gameraApp%Grid, remixApp%gPsi)
+
+        ! find the remix BC to write data into
+        SELECT type(iiBC=>gameraApp%Grid%externalBCs(INI)%p)
+            TYPE IS (IonInnerBC_T)
+                call Ion2MHD(gameraApp%Model,gameraApp%Grid,remixApp%gPsi,iiBC%inEijk,iiBC%inExyz,remixApp%rm2g)
+            CLASS DEFAULT
+                write(*,*) 'Could not find Ion Inner BC in remix IC'
+                stop
+        END SELECT
+
+    end subroutine convertRemixToGamera
+
+  subroutine init_mix_mhd_interface(remixApp,mhdJGrid,mhdPsiGrid)
+    type(mixApp_T), intent(inout) :: remixApp
     real(rp), dimension(:,:,:,:,:), intent(in) :: mhdJGrid,mhdPsiGrid ! (i,j,k,x-z,hemisphere)
-    integer, dimension(:), intent(in) :: hmsphrs ! array of integers marking hemispheres for the I object array.
-    type(mixConductance_T), intent(inout) :: conductance
 
     integer :: l,h ! h for hemisphere
     type(mixGrid_T) :: mhdGfpd,mhdG
@@ -28,34 +52,34 @@ contains
     real(rp), dimension(:,:), allocatable :: mhdt, mhdp, mhdtFpd, mhdpFpd
     real(rp) :: mhd_Rin  ! the radius of the shell given by the MHD grid
 
-    call init_mix(I,hmsphrs,conductance)
+    call init_mix(remixApp%ion,hmsphrs,remixApp%conductance)
 
-    PsiShells = size(mhdPsiGrid,1)
-    JShells = size(mhdJGrid,1)
-    allocate(PsiMaps(PsiShells))
-    allocate(JMaps(JShells))
-    do h=1,size(I)
+    remixApp%PsiShells = size(mhdPsiGrid,1)
+    remixApp%JShells = size(mhdJGrid,1)
+    allocate(remixApp%PsiMaps(remixApp%PsiShells))
+    allocate(remixApp%JMaps(remixApp%JShells))
+    do h=1,size(remixApp%ion)
        ! set up interpolation map(s) for mhd2mix
-       do l=1,JShells
+       do l=1,remixApp%JShells
           call mix_mhd_grid(mhdJGrid(l,:,:,:,h),mhdt,mhdp,mhdtFpd,mhdpFpd,mhd_Rin)
           call init_grid_fromTP(mhdGfpd,mhdtFpd,mhdpFpd,.false.)  
-          call flip_grid(I(h)%G,mixGfpd,mhd_Rin) ! storing flipped
+          call flip_grid(remixApp%ion(h)%G,remixApp%mixGfpd,mhd_Rin) ! storing flipped
           ! grid for MIX only to
           ! use in mhd2mix
           ! below for zeroing
           ! out equatorward of
           ! MHD boundary, if
           ! necessary
-          call mix_set_map(mhdGfpd,mixGfpd,Map) 
-          JMaps(l) = Map
+          call mix_set_map(mhdGfpd,remixApp%mixGfpd,Map) 
+          remixApp%JMaps(l) = Map
        end do
 
        ! set up interpolation map(s) for mix2mhd
-       do l=1,PsiShells
+       do l=1,remixApp%PsiShells
           call mix_mhd_grid(mhdPsiGrid(l,:,:,:,h),mhdt,mhdp,mhdtFpd,mhdpFpd,mhd_Rin)
           call init_grid_fromTP(mhdG,mhdt,mhdp,.false.)
-          call mix_set_map(I(h)%G,mhdG,Map)
-          PsiMaps(l) = Map
+          call mix_set_map(remixApp%ion(h)%G,mhdG,Map)
+          remixApp%PsiMaps(l) = Map
        enddo
     enddo
 
@@ -119,71 +143,67 @@ contains
 
   ! assume what's coming here is mhdvars(i,j,k,var,hemisphere)
   ! thus the transposes below
-  subroutine mhd2mix(I,mhdvars,tilt,conductance)
-    type(mixIon_T),dimension(:),intent(inout) :: I ! I for ionosphere (is an array of 1 or 2 elements for north and south)
-    real(rp), dimension(:,:,:,:,:),intent(in) :: mhdvars
-    real(rp),intent(in) :: tilt
-    type(mixConductance_T), intent(inout) :: conductance
+  subroutine mhd2mix(remixApp)
+    type(mixApp_T), intent(inout) :: remixApp
 
     real(rp), dimension(:,:), allocatable :: F
     integer :: l,h ! hemisphere
     integer :: v ! mhd var
 
-    if (size(mhdvars,5).ne.size(I)) then
+    if (size(remixApp%mixInput,5).ne.size(remixApp%ion)) then
        write(*,*) 'The number of hemispheres in mhdvars is different from the size of the MIX ionosphere object. I am stopping.'
        stop
     end if
 
-    do h=1,size(I)
-       do v=1,size(mhdvars,4)
-          do l=1,JShells ! here we loop over Jshells but always use the last one (F)
+    do h=1,size(remixApp%ion)
+       do v=1,size(remixApp%mixInput,4)
+          do l=1,remixApp%JShells ! here we loop over Jshells but always use the last one (F)
              ! note the transpose to conform to the MIX layout (phi,theta)
-             call mix_map_grids(JMaps(l),transpose(mhdvars(l,:,:,v,h)),F)  
+             call mix_map_grids(remixApp%JMaps(l),transpose(remixApp%mixInput(l,:,:,v,h)),F)  
 
              ! note, cleaning MHD vars equatorward of the MHD boundary
              ! if the MIX boundary is equatorward of MHD boundary
              select case (v)
              case (MHDJ)
                 ! zero out the current
-                where (mixGfpd%mask.eq.-1) F=0._rp
+                where (remixApp%mixGfpd%mask.eq.-1) F=0._rp
              case (MHDD, MHDC)
                 ! set density and sound speed to min values
                 ! this helps with conductdance calculation
-                where (mixGfpd%mask.eq.-1) F=minval(mhdvars(l,:,:,v,h))
+                where (remixApp%mixGfpd%mask.eq.-1) F=minval(remixApp%mixInput(l,:,:,v,h))
              end select
           end do
 
           select case (v)
           case (MHDJ)
-             I(h)%St%Vars(:,:,FAC) = F
+             remixApp%ion(h)%St%Vars(:,:,FAC) = F
           case (MHDD)
-             I(h)%St%Vars(:,:,DENSITY) = F
+             remixApp%ion(h)%St%Vars(:,:,DENSITY) = F
           case (MHDC)
-             I(h)%St%Vars(:,:,SOUND_SPEED) = F
+             remixApp%ion(h)%St%Vars(:,:,SOUND_SPEED) = F
           end select
        end do
     end do
 
-    call run_mix(I,tilt,conductance)
+    call run_mix(remixApp%ion,remixApp%tilt,remixApp%conductance)
   end subroutine mhd2mix
 
-  subroutine mix2mhd(I,mhdvars)
-    type(mixIon_T),dimension(:),intent(in) :: I ! I for ionosphere (is an array of 1 or 2 elements for north and south)
-    real(rp), dimension(:,:,:,:,:),intent(inout) :: mhdvars
+  subroutine mix2mhd(remixApp)
+    type(mixApp_T), intent(inout) :: remixApp
     integer :: l,h ! hemisphere
     integer :: v ! mhd var
 
     real(rp), dimension(:,:), allocatable :: gPsi_tmp  ! gamera potential
 
     ! map to potential shells
-    do h=1,size(I)
-       do v=1,size(mhdvars,4)  ! mirroring mix2mhd here, but for now only one variable 
-          do l=1,PsiShells
-             call mix_map_grids(PsiMaps(l),I(h)%St%Vars(:,:,POT),gPsi_tmp)  
+    do h=1,size(remixApp%ion)
+       do v=1,size(remixApp%mixOutput,4)  ! mirroring mix2mhd here, but for now only one variable 
+          do l=1,remixApp%PsiShells
+             call mix_map_grids(remixApp%PsiMaps(l),remixApp%ion(h)%St%Vars(:,:,POT),gPsi_tmp)  
              ! this is going back to gamera
              select case (v)
              case (MHDPSI)
-                mhdvars(l,:,:,v,h) = gPsi_tmp   ! north
+                remixApp%mixOutput(l,:,:,v,h) = gPsi_tmp   ! north
              end select
           enddo
        enddo
@@ -300,4 +320,5 @@ contains
             gz(2:shells+1,2:njp1,2+(h-1)*nk2:nk2+1+(h-1)*nk2))
     enddo
   end subroutine mhd_fromFile
-end module mix_mhd_interface
+
+end module mix2mhd_interface
