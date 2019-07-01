@@ -34,10 +34,13 @@ module voltapp
         real(rp) :: time
 
         ! convert gamera data to mixInput
+        call convertGameraToRemix(gameraApp, voltronApp%remixApp)
 
+        ! run remix
         call runRemix(voltronApp%remixApp, time)
 
         ! convert mixOutput to gamera data
+        call convertRemixToGamera(gameraApp, voltronApp%remixApp)
 
         voltronApp%fastShallowTime = time + voltronApp%fastShallowDt
 
