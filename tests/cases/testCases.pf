@@ -8,24 +8,20 @@ module testCases
 contains
 
   @before
-  subroutine first(this)
-    class (MpiTestMethod), intent(inout) :: this
-  end subroutine first
+  subroutine firstSerial()
+  end subroutine firstSerial
 
   @after
-  subroutine last(this)
-    class (MpiTestMethod), intent(inout) :: this
-  end subroutine last
+  subroutine lastSerial()
+  end subroutine lastSerial
 
-  @test( npes=[1])
-  subroutine testLoop2D(this)
-    class (MpiTestMethod), intent(inout) :: this
-
+  @test
+  subroutine testLoop2D()
     type(gamApp_T) :: gameraApp
     real(rp), dimension(:,:,:), allocatable :: initialGasDensity
     real(rp) :: totalError
 
-    call initGamera(gameraApp,'loop2D.xml')
+    call initGamera(gameraApp,'../../tests/cases/loop2d.xml')
 
     ! save initial density
     allocate(initialGasDensity(gameraApp%Grid%isg:gameraApp%Grid%ieg,gameraApp%Grid%jsg:gameraApp%Grid%jeg,gameraApp%Grid%ksg:gameraApp%Grid%keg))
