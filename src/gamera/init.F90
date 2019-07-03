@@ -39,17 +39,17 @@ module init
     
     !Hatch Gamera
     !Initialize main data structures
-    subroutine Hatch(Model,Grid,State,oState,endTime)
+    subroutine Hatch(Model,Grid,State,oState,xmlInp,endTime)
         type(Model_T), intent(inout) :: Model
         type(Grid_T), intent(inout) :: Grid
         type(State_T), intent(inout) :: State,oState
         !OMEGA can overrule what GAMERA has
+        type(XML_Input_T), intent(inout) :: xmlInp
         real(rp), optional, intent(in) :: endTime 
 
-        type(XML_Input_T) :: xmlInp
         procedure(StateIC_T), pointer :: initState => NULL()
-        integer :: i,Narg
-        character(len=strLen) :: inpXML,resStr,inH5
+        integer :: i
+        character(len=strLen) :: resStr,inH5
         logical :: fExist, doH5g, doH5ic
 
         !Alwasys zero for single process job
@@ -67,26 +67,6 @@ module init
         Model%nTh = 1
 #endif
         
-        !Find input deck
-        Narg = command_argument_count()
-        if (Narg .eq. 0) then
-            write(*,*) 'No input deck specified, defaulting to Input.xml'
-            inpXML = "Input.xml"
-        else
-            call get_command_argument(1,inpXML)
-        endif
-
-        write(*,*) 'Reading input deck from ', trim(inpXML)
-        inquire(file=inpXML,exist=fExist)
-        if (.not. fExist) then
-            write(*,*) 'Error opening input deck, exiting ...'
-            write(*,*) ''
-            stop
-        endif
-
-        !Partial inclusion of new XML reader
-        xmlInp = New_XML_Input(trim(inpXML),'Gamera',.true.)
-
 !--------------------------------------------
         !Initalize model data structure
         call initModel(Model,xmlInp)

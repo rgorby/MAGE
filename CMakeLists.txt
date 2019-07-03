@@ -1,6 +1,10 @@
 #cmake_minimum_required(VERSION 3.10)
 cmake_minimum_required(VERSION 3.9)
 project(Kaiju Fortran)
+
+# add and search for pfunit
+list(APPEND CMAKE_PREFIX_PATH "./external")
+find_package(PFUNIT REQUIRED)
 enable_testing()
 
 #Set hostname & configuration defaults before going to compilers.cmake
@@ -16,13 +20,12 @@ execute_process(COMMAND git log -1 --format=%h WORKING_DIRECTORY ${CMAKE_SOURCE_
 
 #Set some configuration defaults
 option(ENABLE_OMP "Enable OMP parallelization" ON )
-option(ENABLE_MPI "Enable MPI parallelization" OFF)
+option(ENABLE_MPI "Enable MPI parallelization" ON)
 
 #Vector blocking
 set(bricksize 16 CACHE STRING "Vector brick size")
 set_property(CACHE bricksize PROPERTY STRINGS 8 16 32)
-#add_compile_definitions(BRICKSIZE=${bricksize})
-add_definitions(-DBRICKSIZE=${bricksize})
+add_compile_definitions(BRICKSIZE=${bricksize})
 mark_as_advanced(bricksize)
 
 #Include compile flag generator
@@ -93,7 +96,7 @@ add_custom_target(gamera ALL)
 message("\tAdding executable gamera.x")
 add_executable(gamera.x src/drivers/gamerax.F90)
 target_link_libraries(gamera.x baselib gamlib)
-add_dependencies(gamera gamera.x)
+add_dependencies(gamera gamera.x baselib)
 
 #-------------
 #Kaiju: ReMIX
@@ -103,8 +106,8 @@ add_subdirectory(src/remix)
 add_custom_target(remix ALL)
 message("\tAdding executable gamera2remix.x")
 add_executable(gamera2remix.x src/drivers/gamera2remix.F90)
-target_link_libraries(gamera2remix.x baselib interfaceslib gamlib remixlib)
-add_dependencies(remix gamera2remix.x)
+target_link_libraries(gamera2remix.x baselib gamlib remixlib)
+add_dependencies(remix gamera2remix.x gamlib baselib)
 
 #-------------
 #Kaiju: Voltron
@@ -113,14 +116,13 @@ add_subdirectory(src/voltron)
 add_custom_target(voltron ALL)
 message("\tAdding executable kaiju.x")
 add_executable(kaiju.x src/drivers/kaijux.F90)
-target_link_libraries(kaiju.x baselib voltlib gamlib remixlib)
-add_dependencies(voltron kaiju.x)
+target_link_libraries(kaiju.x baselib gamlib remixlib voltlib)
+add_dependencies(voltron kaiju.x remixlib gamlib baselib)
 
 #-------------
 #Kaiju: tests
 message("Adding tests module ...")
 #Add source
 add_subdirectory(tests)
-add_custom_target(tests ALL)
-add_dependencies(tests pftest_alltests)
+add_dependencies(allTests baselib gamlib remixlib voltlib)
 

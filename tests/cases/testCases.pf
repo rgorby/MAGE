@@ -1,0 +1,46 @@
+module testCases
+  use pfUnit
+  use gamapp
+
+  implicit none
+
+
+contains
+
+  @before
+  subroutine first(this)
+    class (MpiTestMethod), intent(inout) :: this
+  end subroutine first
+
+  @after
+  subroutine last(this)
+    class (MpiTestMethod), intent(inout) :: this
+  end subroutine last
+
+  @test( npes=[1])
+  subroutine testLoop2D(this)
+    class (MpiTestMethod), intent(inout) :: this
+
+    type(gamApp_T) :: gameraApp
+    real(rp), dimension(:,:,:), allocatable :: initialGasDensity
+    real(rp) :: totalError
+
+    call initGamera(gameraApp,'loop2D.xml')
+
+    ! save initial density
+    allocate(initialGasDensity(gameraApp%Grid%isg:gameraApp%Grid%ieg,gameraApp%Grid%jsg:gameraApp%Grid%jeg,gameraApp%Grid%ksg:gameraApp%Grid%keg))
+    initialGasDensity = gameraApp%State%Gas(:,:,:,DEN,1)
+
+    do while (gameraApp%Model%t < gameraApp%Model%tFin)
+        call stepGamera(gameraApp)
+    end do
+
+    ! compare final density to initial density
+    totalError = SUM(ABS(initialGasDensity - gameraApp%State%Gas(:,:,:,DEN,1)))
+    
+    @assertLessThanOrEqual(0.01_rp, totalError, 'Loop2D cumulative error too high')
+
+  end subroutine testLoop2D
+
+end module testCases
+

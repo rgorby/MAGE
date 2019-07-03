@@ -2,7 +2,6 @@
 
 module mixapp
     use mixtypes
-    use gamapp
     use mixconductance
     use msphutils, ONLY: Rion ! Rion should be moved into gamapp
 

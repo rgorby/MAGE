@@ -16,12 +16,42 @@ module gamapp
 
     contains
 
-    subroutine initGamera(gameraApp)
+    subroutine initGamera(gameraApp, optFilename)
         type(gamApp_T), intent(inout) :: gameraApp
+        character(len=*), optional, intent(in) :: optFilename
+
+        character(len=strLen) :: inpXML
+        type(XML_Input_T) :: xmlInp
+        integer :: Narg
+
+        if(present(optFilename)) then
+            ! read from the prescribed file
+            inpXML = optFilename
+        else
+            !Find input deck
+            Narg = command_argument_count()
+            if (Narg .eq. 0) then
+                write(*,*) 'No input deck specified, defaulting to Input.xml'
+                inpXML = "Input.xml"
+            else
+                call get_command_argument(1,inpXML)
+            endif
+        endif
+
+        write(*,*) 'Reading input deck from ', trim(inpXML)
+        inquire(file=inpXML,exist=fExist)
+        if (.not. fExist) then
+            write(*,*) 'Error opening input deck, exiting ...'
+            write(*,*) ''
+            stop
+        endif
+
+        !Partial inclusion of new XML reader
+        xmlInp = New_XML_Input(trim(inpXML),'Gamera',.true.)
 
         !Initialize Grid/State/Model (Hatch Gamera)
         !Will enforce 1st BCs, caculate 1st timestep, set oldState
-        call Hatch(gameraApp%Model,gameraApp%Grid,gameraApp%State,gameraApp%oState)
+        call Hatch(gameraApp%Model,gameraApp%Grid,gameraApp%State,gameraApp%oState,xmlInp)
         call cleanClocks()
 
         if (.not. gameraApp%Model%isRestart) call fOutput(gameraApp%Model,gameraApp%Grid,gameraApp%State)
