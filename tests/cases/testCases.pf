@@ -38,5 +38,51 @@ contains
 
   end subroutine testLoop2D
 
+  @test
+  subroutine testAdv2D()
+    type(gamApp_T) :: gameraApp
+    real(rp), dimension(:,:,:), allocatable :: initialGasDensity
+    real(rp) :: totalError
+
+    call initGamera(gameraApp,'../../tests/cases/adv2d.xml')
+
+    ! save initial density
+    allocate(initialGasDensity(gameraApp%Grid%isg:gameraApp%Grid%ieg,gameraApp%Grid%jsg:gameraApp%Grid%jeg,gameraApp%Grid%ksg:gameraApp%Grid%keg))
+    initialGasDensity = gameraApp%State%Gas(:,:,:,DEN,1)
+
+    do while (gameraApp%Model%t < gameraApp%Model%tFin)
+        call stepGamera(gameraApp)
+    end do
+
+    ! compare final density to initial density
+    totalError = SUM(ABS(initialGasDensity - gameraApp%State%Gas(:,:,:,DEN,1)))
+
+    @assertLessThanOrEqual(0.01_rp, totalError, 'Advection2D cumulative error too high')
+
+  end subroutine testAdv2D
+
+  @test
+  subroutine testAlfven()
+    type(gamApp_T) :: gameraApp
+    real(rp), dimension(:,:,:), allocatable :: initialGasDensity
+    real(rp) :: totalError
+
+    call initGamera(gameraApp,'../../tests/cases/alfven.xml')
+
+    ! save initial density
+    allocate(initialGasDensity(gameraApp%Grid%isg:gameraApp%Grid%ieg,gameraApp%Grid%jsg:gameraApp%Grid%jeg,gameraApp%Grid%ksg:gameraApp%Grid%keg))
+    initialGasDensity = gameraApp%State%Gas(:,:,:,DEN,1)
+
+    do while (gameraApp%Model%t < gameraApp%Model%tFin)
+        call stepGamera(gameraApp)
+    end do
+
+    ! compare final density to initial density
+    totalError = SUM(ABS(initialGasDensity - gameraApp%State%Gas(:,:,:,DEN,1)))
+
+    @assertLessThanOrEqual(0.01_rp, totalError, 'Alfven cumulative error too high')
+
+  end subroutine testAlfven
+
 end module testCases
 

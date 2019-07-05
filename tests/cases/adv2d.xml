@@ -1,13 +1,7 @@
 <?xml version="1.0"?>
-<!-- Field loop advection 2D -->
-<!--
-  Based on IC definition in prob.F90:
-    Velocity is circular, magnitude = 1.0 * radius
-    Z Mag flux decreases out to 0.3, and is then 0 beyond that
-	
--->
+<!-- Hydro advection 2D -->
 <Gamera>
-    <sim runid="loop2d" doH5init="F" icType="LOOP2D">
+    <sim runid="adv2d" doH5init="F" icType="ADV2D">
     <idir min="-1" max="1" N="256">
     <jdir min="-0.57735026" max="0.57735026" N="148">
     <kdir min="-0.5" max="0.5" N="1">
