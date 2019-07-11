@@ -2,14 +2,14 @@
 #Make video of Gamera magnetosphere run
 import argparse
 from argparse import RawTextHelpFormatter
-import magsphere as msph
+import kaipy.gamera.magsphere as msph
 import matplotlib as mpl
 mpl.use('Agg')
 import matplotlib.pyplot as plt
-import kaiViz as kv
+import kaipy.kaiViz as kv
 import matplotlib.gridspec as gridspec
 import numpy as np
-import remixpp as rmpp
+import kaipy.gamera.remixpp as rmpp
 import os
 import errno
 

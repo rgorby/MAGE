@@ -2,7 +2,7 @@
 import numpy as np
 import datetime
 import h5py
-import kaiViz as kv
+import kaipy.kaiViz as kv
 
 #Get grid from K-Cyl
 def getGrid(fIn,do4D=False):

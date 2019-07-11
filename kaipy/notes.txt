@@ -1,0 +1,5 @@
+Various installation/information notes can go here.
+
+Generate requirements.txt file w/ this
+pip install pipreqs
+pipreqs /path/to/project

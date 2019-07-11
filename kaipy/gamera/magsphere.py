@@ -1,5 +1,5 @@
 #Various tools to post-process and analyze Gamera magnetosphere runs
-from kdefs import *
+from kaipy.kdefs import *
 import gampp
 from gampp import GameraPipe
 import numpy as np

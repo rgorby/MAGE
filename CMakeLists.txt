@@ -81,8 +81,8 @@ message("Adding Gamera module ...")
 
 #Get IC files
 file(GLOB GAMICLIST src/gamera/ICs/*.F90)
-#file(GLOB GAMICDEF src/gamera/ICs/null.F90)
-file(GLOB GAMICDEF src/gamera/ICs/remix.F90)
+file(GLOB GAMICDEF src/gamera/ICs/null.F90)
+#file(GLOB GAMICDEF src/gamera/ICs/remix.F90)
 set(GAMIC ${GAMICDEF} CACHE FILEPATH "Gamera IC file")
 set_property(CACHE GAMIC PROPERTY STRINGS ${GAMICLIST})
 

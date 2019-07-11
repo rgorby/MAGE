@@ -6,8 +6,8 @@ import argparse
 import sys
 import numpy as np
 import os
-import gamGrids as gg
-import lfm2kaiju as l2k
+import kaipy.gamera.gamGrids as gg
+import kaipy.lfm2kaiju as l2k
 import h5py
 from glob import glob
 

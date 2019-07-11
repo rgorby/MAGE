@@ -1,6 +1,6 @@
 #Various routines to deal with LFM-style data
 import numpy as np
-import gamGrids as gg
+import kaipy.gamera.gamGrids as gg
 
 clight = 2.9979e+10 #Speed of light [cm/s]
 Mp = 1.6726219e-24 #g
