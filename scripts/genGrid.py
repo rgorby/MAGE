@@ -8,7 +8,7 @@
 #2: Spherical
 #3: Ellipse
 import argparse
-import gamGrids as gg
+import kaipy.gamera.gamGrids as gg
 from argparse import RawTextHelpFormatter
 import numpy as np
 if __name__ == "__main__":
