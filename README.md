@@ -6,5 +6,8 @@ Create a build folder
 From inside the build folder, call cmake on the base kaiju directory
 From inside the build folder, call "make" to build the application
 
+To use Python tools:
+Assuming $KAIJUDIR is base installation directory, add $KAIJUDUR/scripts to $PATH and $KAIJUDIR to $PYTHONPATH.  
+
 For help, see the wiki at
 https://bitbucket.org/aplkaiju/kaiju/wiki/Home

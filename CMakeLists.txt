@@ -1,4 +1,3 @@
-#cmake_minimum_required(VERSION 3.10)
 cmake_minimum_required(VERSION 3.9)
 project(Kaiju Fortran)
 
@@ -20,7 +19,7 @@ execute_process(COMMAND git log -1 --format=%h WORKING_DIRECTORY ${CMAKE_SOURCE_
 
 #Set some configuration defaults
 option(ENABLE_OMP "Enable OMP parallelization" ON )
-option(ENABLE_MPI "Enable MPI parallelization" ON)
+option(ENABLE_MPI "Enable MPI parallelization" OFF)
 
 #Vector blocking
 set(bricksize 16 CACHE STRING "Vector brick size")
