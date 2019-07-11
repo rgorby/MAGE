@@ -29,14 +29,18 @@ set_property(CACHE bricksize PROPERTY STRINGS 8 16 32)
 add_compile_definitions(BRICKSIZE=${bricksize})
 mark_as_advanced(bricksize)
 
-#Include compile flag generator
-include(cmake/compilers.cmake)
-set(CMAKE_Fortran_MODULE_DIRECTORY ${PROJECT_BINARY_DIR}/modules)
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+#Set IC file
+file(GLOB GAMICDEF src/gamera/ICs/null.F90)
+set(GAMIC ${GAMICDEF} CACHE FILEPATH "Gamera IC file")
 
 #-------------
 #Include user cmake file if present
 include(cmake/user.cmake OPTIONAL)
+
+#Include compile flag generator
+include(cmake/compilers.cmake)
+set(CMAKE_Fortran_MODULE_DIRECTORY ${PROJECT_BINARY_DIR}/modules)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 #-------------
 #Print info
@@ -79,13 +83,6 @@ endforeach()
 #-------------
 #Kaiju: Gamera
 message("Adding Gamera module ...")
-
-#Get IC files
-file(GLOB GAMICLIST src/gamera/ICs/*.F90)
-file(GLOB GAMICDEF src/gamera/ICs/null.F90)
-#file(GLOB GAMICDEF src/gamera/ICs/remix.F90)
-set(GAMIC ${GAMICDEF} CACHE FILEPATH "Gamera IC file")
-set_property(CACHE GAMIC PROPERTY STRINGS ${GAMICLIST})
 
 #Add source
 add_subdirectory(src/gamera)
