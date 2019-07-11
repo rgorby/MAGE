@@ -4,7 +4,6 @@ module useric
     use types
     use gamutils
     use math
-    use ichelper
     use gridutils
     use xml_input
     use bcs
@@ -43,8 +42,6 @@ module useric
 
     logical :: newMix = .false.
 
-    !Global grid info
-    type(Grid_T) :: gGrid
 
     ! type for remix BC
     type, extends(baseBC_T) :: IonInnerBC_T
@@ -73,7 +70,6 @@ module useric
 
         real(rp) :: M0g
         integer :: s
-        call GlobalGrid(Model,Grid,gGrid)
 
         !Set user hack functions
         !NOTE: Need silly double value for GNU
@@ -159,7 +155,7 @@ module useric
         Grid%keMG = Grid%ke
 
         !Correction to Solar Wind E
-        if(grid%ieg + Grid%ijkShift(1) .eq. gGrid%ieg) then
+        if (Model%Ri == Model%NumRi) then
            !Set user hack functions
            !NOTE: Need silly double value for GNU
            eHack  => EFix
@@ -302,7 +298,7 @@ module useric
         !Fix outer shells
         SELECT type(pWind=>Gr%externalBCs(OUTI)%p)
             TYPE IS (WindBC_T)
-                if(Gr%ieg + Gr%ijkShift(IDIR) .eq. gGrid%ieg) then
+                if (Model%Ri == Model%NumRi) then
                    call WindEFix(pWind,Model,Gr,State)
                 end if
             CLASS DEFAULT
