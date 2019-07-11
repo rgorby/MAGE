@@ -1,6 +1,7 @@
 module testCases
   use pfUnit
   use gamapp
+  use voltapp
 
   implicit none
 
@@ -17,29 +18,34 @@ contains
 
   @test
   subroutine testLoop2D()
+    ! a magnetic field should be moved along by the fluid
     type(gamApp_T) :: gameraApp
-    real(rp), dimension(:,:,:), allocatable :: initialGasDensity
+    real(rp), dimension(:,:,:,:), allocatable :: initialMagneticField
     real(rp) :: totalError
 
     call initGamera(gameraApp,'../../tests/cases/loop2d.xml')
 
-    ! save initial density
-    allocate(initialGasDensity(gameraApp%Grid%isg:gameraApp%Grid%ieg,gameraApp%Grid%jsg:gameraApp%Grid%jeg,gameraApp%Grid%ksg:gameraApp%Grid%keg))
-    initialGasDensity = gameraApp%State%Gas(:,:,:,DEN,1)
+    ! save initial magnetic field
+    allocate(initialMagneticField(gameraApp%Grid%isg:gameraApp%Grid%ieg,gameraApp%Grid%jsg:gameraApp%Grid%jeg,gameraApp%Grid%ksg:gameraApp%Grid%keg,1:NDIM))
+    initialMagneticField = gameraApp%State%magFlux(:,:,:,:)
 
     do while (gameraApp%Model%t < gameraApp%Model%tFin)
         call stepGamera(gameraApp)
     end do
 
-    ! compare final density to initial density
-    totalError = SUM(ABS(initialGasDensity - gameraApp%State%Gas(:,:,:,DEN,1)))
+    ! compare final magnetic field to initial magnetic field
+    ! the test case is designed so that at the end the fields have moved
+    !    15 indices positive X and 20 indices positive Y
+    totalError = SUM(ABS(initialMagneticField(gameraApp%Grid%isg   :gameraApp%Grid%ieg-15,gameraApp%Grid%jsg   :gameraApp%Grid%jeg-20,:,:) - &
+                      gameraApp%State%magFlux(gameraApp%Grid%isg+15:gameraApp%Grid%ieg   ,gameraApp%Grid%jsg+20:gameraApp%Grid%jeg   ,:,:)))
     
-    @assertLessThanOrEqual(0.01_rp, totalError, 'Loop2D cumulative error too high')
+    @assertLessThanOrEqual(1e-8_rp, totalError, 'Loop2D cumulative error too high')
 
   end subroutine testLoop2D
 
   @test
   subroutine testAdv2D()
+    ! density should be moved along by the fluid
     type(gamApp_T) :: gameraApp
     real(rp), dimension(:,:,:), allocatable :: initialGasDensity
     real(rp) :: totalError
@@ -55,9 +61,12 @@ contains
     end do
 
     ! compare final density to initial density
-    totalError = SUM(ABS(initialGasDensity - gameraApp%State%Gas(:,:,:,DEN,1)))
+    ! the test case is designed so that at the end the fields have moved
+    !    15 indices positive X and 20 indices positive Y
+    totalError = SUM(ABS(initialGasDensity(gameraApp%Grid%isg   :gameraApp%Grid%ieg-15,gameraApp%Grid%jsg   :gameraApp%Grid%jeg-20,:) - &
+                       gameraApp%State%Gas(gameraApp%Grid%isg+15:gameraApp%Grid%ieg   ,gameraApp%Grid%jsg+20:gameraApp%Grid%jeg   ,:,DEN,1)))
 
-    @assertLessThanOrEqual(0.01_rp, totalError, 'Advection2D cumulative error too high')
+    @assertLessThanOrEqual(1e-8_rp, totalError, 'Advection2D cumulative error too high')
 
   end subroutine testAdv2D
 
@@ -83,6 +92,23 @@ contains
     @assertLessThanOrEqual(0.01_rp, totalError, 'Alfven cumulative error too high')
 
   end subroutine testAlfven
+
+  @test
+  subroutine testRemix()
+    type(gamApp_T) :: gameraApp
+    type(voltApp_T) :: voltronApp
+
+    call initGamera(gameraApp, '../../tests/cases/remix.xml')
+    call initVoltron(voltronApp, gameraApp)
+
+    do while (gameraApp%Model%t < gameraApp%Model%tFin)
+        call stepGamera(gameraApp)
+
+        if (gameraApp%Model%t >= voltronApp%fastShallowTime) then
+            call fastShallowUpdate(voltronApp, gameraApp, gameraApp%Model%t)
+        endif
+    end do
+  end subroutine testRemix
 
 end module testCases
 

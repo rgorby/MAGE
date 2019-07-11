@@ -1,13 +1,24 @@
 <?xml version="1.0"?>
-<!-- Hydro advection 2D -->
+<!-- Density advection 2D -->
+<!--
+  Based on IC definition in prob.F90:
+    Vx = V0 * sin(alphaDegrees)
+    Vy = V0 * cos(alphaDegrees)
+    Density is 2 from the center out to 0.3 meters, than 1 everywhere else
+
+  Parameters chosen to create a 3-4-5 triangle so that after the simulation ends
+    the fields have moved 15 grid spaces in the positive X direction
+    and 20 grid spaces in the positive Y direction
+	
+-->
 <Gamera>
     <sim runid="adv2d" doH5init="F" icType="ADV2D">
-    <idir min="-1" max="1" N="256">
-    <jdir min="-0.57735026" max="0.57735026" N="148">
+    <idir min="-0.5" max="0.5" N="256">
+    <jdir min="-0.5" max="0.5" N="256">
     <kdir min="-0.5" max="0.5" N="1">
     <time tFin="0.02">
     <output dtOut="0.01" tsOut="1000000">
     <physics doMHD="T" do25D="T">
-    <prob alpha=60>
+    <prob alpha="36.8698976" V0="4.8828125"> <!-- 0.02 seconds at 4.8828125 meters per second with a grid spacing of 0.00390625 should move a total distance of 25 grid spaces  -->
 </Gamera>
 
