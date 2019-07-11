@@ -4,8 +4,10 @@ project(Kaiju Fortran)
 
 # add and search for pfunit
 list(APPEND CMAKE_PREFIX_PATH "./external")
-find_package(PFUNIT REQUIRED)
-enable_testing()
+find_package(PFUNIT)
+if(PFUNIT_FOUND)
+	enable_testing()
+endif()
 
 #Set hostname & configuration defaults before going to compilers.cmake
 cmake_host_system_information(RESULT HOST QUERY HOSTNAME)
@@ -119,10 +121,12 @@ add_executable(kaiju.x src/drivers/kaijux.F90)
 target_link_libraries(kaiju.x baselib gamlib remixlib voltlib)
 add_dependencies(voltron kaiju.x remixlib gamlib baselib)
 
-#-------------
-#Kaiju: tests
-message("Adding tests module ...")
-#Add source
-add_subdirectory(tests)
-add_dependencies(allTests baselib gamlib remixlib voltlib)
+if(PFUNIT_FOUND)
+	#-------------
+	#Kaiju: tests
+	message("Adding tests module ...")
+	#Add source
+	add_subdirectory(tests)
+	add_dependencies(allTests baselib gamlib remixlib voltlib)
+endif()
 
