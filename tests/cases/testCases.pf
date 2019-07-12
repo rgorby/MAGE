@@ -16,7 +16,7 @@ contains
   subroutine lastSerial()
   end subroutine lastSerial
 
-  @test
+  !@test
   subroutine testLoop2D()
     ! a magnetic field should be moved along by the fluid
     type(gamApp_T) :: gameraApp
@@ -72,7 +72,7 @@ contains
 
   end subroutine testAdv2D
 
-  !@test
+  @test
   subroutine testAlfven()
     type(gamApp_T) :: gameraApp
     real(rp), dimension(:,:,:), allocatable :: initialMagneticField
@@ -86,7 +86,6 @@ contains
 
     do while ((gameraApp%Model%tFin - gameraApp%Model%t) > 1e-15)
         call stepGamera(gameraApp)
-        write(*,*) 'Step time = ', gameraApp%Model%t
     end do
     write(*,*) 'End time = ', gameraApp%Model%t
 
