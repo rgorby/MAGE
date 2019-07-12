@@ -98,6 +98,11 @@ module step
 
         endif !Disaster check
 
+        !Make sure we don't overstep the end of the simulation
+        if ( (Model%t+CalcDT) > Model%tFin ) then
+            CalcDT = Model%tFin-Model%t
+        endif
+        
     end function CalcDT
 
     subroutine BlackBox(Model,Gr,State,dt0)
