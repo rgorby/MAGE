@@ -6,19 +6,21 @@
     Vy = V0 * cos(alphaDegrees)
     Density is 2 from the center out to 0.3 meters, than 1 everywhere else
 
-  Parameters chosen to create a 3-4-5 triangle so that after the simulation ends
-    the fields have moved 15 grid spaces in the positive X direction
-    and 20 grid spaces in the positive Y direction
-	
+  Parameters chosen such that the circle of density will wrap around the grid and end where it started
+
+  Diagonal distance on a grid of width 1 is sqrt(2) = 1.41421356237
+
+  With a velocity equal to that, it will take 1 second to complete a loop
+
 -->
 <Gamera>
     <sim runid="adv2d" doH5init="F" icType="ADV2D">
     <idir min="-0.5" max="0.5" N="256">
     <jdir min="-0.5" max="0.5" N="256">
     <kdir min="-0.5" max="0.5" N="1">
-    <time tFin="0.02">
-    <output dtOut="0.01" tsOut="1000000">
+    <time tFin="1.0">
+    <output dtOut="0.1" tsOut="1000000">
     <physics doMHD="T" do25D="T">
-    <prob alpha="36.8698976" V0="4.8828125"> <!-- 0.02 seconds at 4.8828125 meters per second with a grid spacing of 0.00390625 should move a total distance of 25 grid spaces  -->
+    <prob alpha="45.0" V0="1.41421356237">
 </Gamera>
 

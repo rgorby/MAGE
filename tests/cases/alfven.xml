@@ -2,12 +2,12 @@
 <!-- Nonlinear Circular Alfven -->
 <Gamera>
     <sim runid="alfven" doH5init="F" icType="ALFVEN">
-    <idir min="-1" max="1" N="256">
-    <jdir min="-1" max="1" N="256">
-    <kdir min="-1" max="1" N="256">
+    <idir min="-1" max="1" N="128">
+    <jdir min="-1" max="1" N="128">
+    <kdir min="-1" max="1" N="128">
     <time tFin="0.02">
-    <output dtOut="0.01" tsOut="1000000">
+    <output dtOut="0.001" tsOut="1000000">
     <physics doMHD="T">
-    <prob alpha=60>
+    <prob >
 </Gamera>
 
