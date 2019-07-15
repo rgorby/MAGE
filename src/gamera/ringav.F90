@@ -436,7 +436,7 @@ module ringav
                         bFlux(nS,nR,Gr%ks:Gr%ke+1,fD) = bFlux(nS,nR,Gr%ks:Gr%ke+1,fD) - tScl*sum(bFlux(nS,nR,Gr%ks:Gr%ke,fD))/Np             
                     endif
                     if (Model%Ring%doE) then
-                        nR = Gr%je+1
+                        nR = Gr%je
                         bFlux(nS,nR,Gr%ks:Gr%ke+1,fD) = bFlux(nS,nR,Gr%ks:Gr%ke+1,fD) - tScl*sum(bFlux(nS,nR,Gr%ks:Gr%ke,fD))/Np
                     endif
 

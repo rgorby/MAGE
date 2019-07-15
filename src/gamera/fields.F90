@@ -223,7 +223,7 @@ module fields
                                     vA = Model%Ca*vA/sqrt(Model%Ca**2.0 + vA**2.0)
                                 endif
                                 vDiff(i) = vDiff(i) + vA
-                                vDiff = min(vDiff,Model%CFL*Gr%edge(iG,j,k,eD)/Model%dt)
+                                vDiff(i) = min(vDiff(i),Model%CFL*Gr%edge(iG,j,k,eD)/Model%dt)
                             endif
 
                             !Final field

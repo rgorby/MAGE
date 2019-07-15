@@ -95,7 +95,6 @@ module msphutils
             Psi0 = 137.83*92 !kV
             Rion = 1.01 !Assuming
             Model%doGrav = .true.
-
         case("JUPITER")
             gx0 = RJupiterXE*REarth  ! [m]
             gv0 = 100.0e+3    ! [m/s]
@@ -104,6 +103,14 @@ module msphutils
             Psi0 = -2.5*1702.9*92.0 !kV
             Rion = 1.01 !Assuming
             Model%doGrav = .true.
+        case("Mercury","mercury","MERCURY")
+            gx0 = RMercuryXE*REarth  ! [m]
+            gv0 = 100.0e+3    ! [m/s]
+            gG0 = 0.0       ! [m/s2]
+            call xmlInp%Set_Val(M0g,"prob/M0",MercuryM0g) !Mag moment [gauss]
+            Psi0 = 0.0 !kV
+            Rion = 1.05 !Assuming
+            Model%doGrav = .false.
 
         end select
 
@@ -151,14 +158,14 @@ module msphutils
         real(rp), intent(in) :: T
         character(len=strLen), intent(out) :: tStr
 
-        if (T*gT0>1.0e-1) then
+        if (T*gT0>60.0) then
             write(tStr,'(f8.2,a)' ) T*gT0/60.0, ' [min]'
         else
             write(tStr,'(es8.2,a)') T*gT0     , ' [sec]'
         endif
 
     end subroutine magsphereTime
-
+    
     !Convert electic potential from ionosphere to E fields for inner BCs
     subroutine Ion2MHD(Model,Grid,gPsi,inEijk,inExyz,pSclO)
         type(Model_T), intent(in) :: Model
@@ -483,8 +490,6 @@ module msphutils
         real(rp), dimension(8,NDIM) :: xyzC
         real(rp) :: rI(8),rMax,rMin,MagP
 
-        logical :: doFF = .false.
-
         !Get values for initial field cutoffs
 
         !LFM values
@@ -498,10 +503,6 @@ module msphutils
         call xmlInp%Set_Val(rCut,"prob/rCut",rCut)
         call xmlInp%Set_Val(lCut,"prob/lCut",lCut)
         
-        !Choose type of cut
-        !Disabling this option
-        !call xmlInp%Set_Val(doFF,"prob/doFF",.false.)
-
         !Calculate some derived quantities/alloc arrays
         Aq = 0.5*(xSun-xTail)
         x0 = Aq - xSun
@@ -515,13 +516,9 @@ module msphutils
         !Calculate flux from B0_xyz components (cut-off dipole)
         Model%doBackground = .true.
 
-        if (doFF) then
-            Model%B0 => cutDipoleFF
-            Axyz     => cutDipoleFF
-        else
-            Model%B0 => cutDipole
-            Axyz     => cutDipole
-        endif
+        Model%B0 => cutDipole
+        Axyz     => cutDipole
+
         call AddB0(Model,Grid,Model%B0)
 
         call VectorField2Flux(Model,Grid,State,Axyz)
@@ -728,51 +725,6 @@ module msphutils
 
     end subroutine cutDipole
 
-    !New cut dipole using scalar potential
-    ! B = -grad (psi), psi = psi0 * M(r)
-    subroutine cutDipoleFF(x,y,z,Ax,Ay,Az)
-        real(rp), intent(in) :: x,y,z
-        real(rp), intent(out) :: Ax,Ay,Az
-        
-        real(rp) :: rad,Moll,rbar,Psi0,dr
-        real(rp), dimension(NDIM) :: r,m,gMoll,gPsi0, B
-
-        r = [x,y,z]
-        rad = norm2(r)
-        m = [0.0_rp,0.0_rp,M0]
-
-
-        rbar = (rad-rCut)/lCut
-
-        !Set mollifier/gradient of mollifier based on rbar
-        if (rbar <= 0.0) then
-            Moll  = 1.0
-            gMoll = 0.0
-        else if (rbar>=1.0) then
-            Moll = 0.0
-            gMoll = 0.0
-        else
-            !Moll = 1.0 - 3*(rbar**2.0) + 2*(rbar**3.0)
-            !gMoll = -(6.0*rbar/rad)*r/lCut + (6*rbar*rbar/rad)*r/lCut
-            !Moll = 1.0-rbar
-            !gMoll = -r/(rad*lCut)
-            dr = 0.0025
-            Moll = RampDown(rad,rCut,lCut)
-            gMoll = r*( RampDown(rad+dr,rCut,lCut)-RampDown(rad-dr,rCut,lCut) )/(2*dr)
-        endif
-
-        Psi0 = dot_product(m,r)/(rad**3.0)
-        gPsi0 = -3*dot_product(m,r)*r/rad**5.0 + m/rad**3.0
-
-        !B = -grad(psi)
-        B = -Moll*gPsi0 - Psi0*gMoll
-        
-
-        Ax = B(XDIR)
-        Ay = B(YDIR)
-        Az = B(ZDIR)
-
-    end subroutine cutDipoleFF
 
     !Takes i,j,k cell index and returns active cell ip,jp,kp of mirror
     !Map in i,k,j order
@@ -911,6 +863,5 @@ module msphutils
         invlat = abs(acos(sqrt(1.0/Leq)))
 
     end function InvLatitude
-
-    
+  
 end module msphutils
