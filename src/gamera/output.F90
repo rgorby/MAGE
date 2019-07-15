@@ -63,10 +63,10 @@ contains
         if (verbose > 0) then
             write(*,*) ANSICYAN
             call timeString(Model%t,tStr)
-            write(*,'(a,a)') 'Sim Time   = ', trim(tStr)
-            write (*, '(a,I8)') '        ts = ', Model%ts
+            write(*,'(a,a)')        'Sim Time   = ', trim(tStr)
+            write (*, '(a,I8)')     '        ts = ', Model%ts
             call timeString(Model%dt,tStr)
-            write (*, '(a,a)') '        dt = ', trim(tStr)
+            write (*, '(a,a)')      '        dt = ', trim(tStr)
             write (*, '(a,f8.3,a)') '    dt/dt0 = ', 100*Model%dt/dt0, '%'
             
             nTh = 0
@@ -88,9 +88,9 @@ contains
         character(len=strLen), intent(out) :: tStr
 
         if (T>1.0e-2) then
-            write(tStr,'(f8.3,a)' ) T, ' [code]'
+            write(tStr,'(f9.3,a)' ) T, ' [code]'
         else
-            write(tStr,'(es8.2,a)') T, ' [code]'
+            write(tStr,'(es9.2,a)') T, ' [code]'
         endif
     end subroutine tStr_STD
 

@@ -159,9 +159,9 @@ module msphutils
         character(len=strLen), intent(out) :: tStr
 
         if (T*gT0>60.0) then
-            write(tStr,'(f8.2,a)' ) T*gT0/60.0, ' [min]'
+            write(tStr,'(f9.3,a)' ) T*gT0/60.0, ' [min]'
         else
-            write(tStr,'(es8.2,a)') T*gT0     , ' [sec]'
+            write(tStr,'(es9.2,a)') T*gT0     , ' [sec]'
         endif
 
     end subroutine magsphereTime
@@ -322,7 +322,7 @@ module msphutils
             !Don't do bulk
             s0 = 1
             sE = Model%nSpc
-            RhoMin(1:Model%nSpc) = Spcs(:)%dFloor
+            RhoMin(1:Model%nSpc) = Spcs(:)%dVac
         else
             !Only do bulk
             s0 = BLK
@@ -384,7 +384,7 @@ module msphutils
             !Don't do bulk
             s0 = 1
             sE = Model%nSpc
-            RhoMin(1:Model%nSpc) = Spcs(:)%dFloor
+            RhoMin(1:Model%nSpc) = Spcs(:)%dVac
         else
             !Only do bulk
             s0 = BLK

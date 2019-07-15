@@ -316,7 +316,7 @@ module stress
             call BlockStateLRs(Model,VolB,ConB,PrimLRB(:,:,LEFT),PrimLRB(:,:,RIGHT))
             if (.not. isBulk) then
                 !For non-bulk species, test both sides of interface
-                doFlx(:,:) = ( PrimLRB(:,DEN,:) >= Spcs(s)%dFloor )
+                doFlx(:,:) = ( PrimLRB(:,DEN,:) >= Spcs(s)%dVac )
             endif
 
         !Reynolds stress fluxes (all species)

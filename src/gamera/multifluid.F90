@@ -10,7 +10,7 @@ module multifluid
     !Information for a given fluid species
     type FLUID_T
         character(len=strLen) :: idStr="NONE"
-        real(rp) :: dFloor = TINY
+        real(rp) :: dVac = TINY
     end type FLUID_T
 
     !Array of fluid descriptors (1-nSpc)
@@ -41,8 +41,8 @@ module multifluid
             write(sTag,'(A,I0,A)') "fluid" , n,"/id"
 
             call xmlInp%Set_Val(Spcs(n)%idStr,sTag,sID)
-            write(sTag,'(A,I0,A)') "fluid" , n,"/dFloor"            
-            call xmlInp%Set_Val(Spcs(n)%dFloor,sTag,gDFloor)
+            write(sTag,'(A,I0,A)') "fluid" , n,"/dVac"            
+            call xmlInp%Set_Val(Spcs(n)%dVac,sTag,gDFloor)
         enddo
 
     end subroutine InitMultiF
@@ -57,7 +57,7 @@ module multifluid
         real(rp), dimension(NVAR) :: pW,pCon
 
         !Which fluids in this cell are good
-        isGood = ( U(DEN,1:Model%nSpc) >= Spcs(:)%dFloor )
+        isGood = ( U(DEN,1:Model%nSpc) >= Spcs(:)%dVac )
         
         do n=1,Model%nSpc
             if (.not. isGood(n)) then
@@ -105,7 +105,7 @@ module multifluid
         real(rp) :: Csn
         logical, dimension(Model%nSpc) :: isGood
         !Which fluids in this cell are good
-        isGood = ( U(DEN,1:Model%nSpc) >= Spcs(:)%dFloor )
+        isGood = ( U(DEN,1:Model%nSpc) >= Spcs(:)%dVac )
         MaxCs = 0.0
 
         do n=1,Model%nSpc

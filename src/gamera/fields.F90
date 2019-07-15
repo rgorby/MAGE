@@ -319,9 +319,11 @@ module fields
         !DIR$ ASSUME_ALIGNED bR: ALIGN
         !DIR$ ASSUME_ALIGNED fA: ALIGN
         !DIR$ attributes align : ALIGN :: AreaB,VolB,MagB,MagLB,MagRB
-        fA = 0.0
-        bL = 0.0
-        bR = 0.0
+
+        fA   = 0.0
+        bL   = 0.0
+        bR   = 0.0
+        VolB = 0.0
 
         !Get stencils for this sweep
         !dT1 faces in dT2 direction
