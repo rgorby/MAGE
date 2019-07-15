@@ -17,6 +17,9 @@ module tpinit
     logical :: doWind = .false.
     real(rp) :: zWind = 0.0_rp
 
+    !Values to handle outflow
+    logical :: doOutflow = .false.
+
     contains
 
     !Standard TP init routine
@@ -83,10 +86,19 @@ module tpinit
         if (doWind) then
             call inpXML%Set_Val(zWind,'height/zWind',zWind)
         endif
+
+
         !Convert to code units where necessary
         phi = phi/rad2deg
         psi = psi/rad2deg
         alpha = alpha/rad2deg
+
+        !Handle outflow case
+        !NOTE: For outflow, height is treated as latitude (in deg)
+        call inpXML%Set_Val(doOutflow,'height/doOutflow',.false.)
+        if (doOutflow) then
+            hgt = hgt/rad2deg !Treating height as latitude
+        endif
 
         do n=1,Np
             !Create particles and release if not streaming
@@ -123,6 +135,12 @@ module tpinit
         prt%Q(XPOS:ZPOS) = [rad*cos(phi), rad*sin(phi), hgt]
         !Note always setting initial EQ values regardless of initial z
         prt%Qeq(EQX:EQY) = prt%Q(XPOS:YPOS)
+
+        if (doOutflow) then
+            !In this case hgt is latitude (in radians at this point)
+            prt%Q(XPOS:ZPOS) = [rad*cos(hgt)*cos(phi),rad*cos(hgt)*sin(phi),rad*sin(hgt)]
+            prt%Qeq(EQX:EQY) = prt%Q(XPOS:YPOS)
+        endif
 
         !Set particle energy
         !If GC particle set gamma

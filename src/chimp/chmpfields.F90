@@ -377,7 +377,7 @@ module chmpfields
         integer :: n
 
         if (ebTab%isMPI) then
-            n = (i-1) + (j-1)*ebTab%Ri + (k-1)*ebTab%Ri*ebTab%Rj
+            n = (j-1) + (i-1)*ebTab%Rj + (k-1)*ebTab%Ri*ebTab%Rj
             write(fHd ,'(a,a)') trim(ebTab%bStr), '_'
             write(fRn ,'(I0.4,a,I0.4,a,I0.4,a)') ebTab%Ri,'_',ebTab%Rj,'_',ebTab%Rk,'_'
             write(fijk,'(I0.4,a,I0.4,a,I0.4,a)') i-1,'_',j-1,'_',k-1,'_'
