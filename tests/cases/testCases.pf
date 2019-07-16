@@ -133,12 +133,13 @@ contains
   end subroutine testAdv1D
 
   !Use Orszag-Tang to test for maintaining symmetry
-  @test
+  !@test
   subroutine testOTSym()
     type(gamApp_T) :: gameraApp
     integer :: i,j,ip,jp
 
     real(rp) :: dG
+    real(rp), dimension(NVAR) :: Gij,Gijp
 
     call initGamera(gameraApp,'../../tests/cases/ot2d.xml')
     !Now advance for period of time specified in XML
@@ -156,7 +157,11 @@ contains
         ip = Gr%ie-i+Gr%is
         jp = Gr%je-j+Gr%js
 
-        dG = dG + norm2( Gas(i,j,Gr%ks,:,BLK) - Gas(ip,jp,Gr%ks,:,BLK) )
+        Gij  = Gas(i ,j ,Gr%ks,:,BLK)
+        Gijp = Gas(ip,jp,Gr%ks,:,BLK)
+        !Flip velocities
+        Gijp(MOMX:MOMY) = -Gijp(MOMX:MOMY)
+        dG = dG + norm2( Gij - Gijp )
 
       enddo
     enddo
