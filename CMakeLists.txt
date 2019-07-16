@@ -1,6 +1,10 @@
 cmake_minimum_required(VERSION 3.9)
 project(Kaiju Fortran)
 
+# use the new version of CMP0074, this tells cmake to use <PACKAGE>_ROOT environment
+#   variables when looking for packages
+cmake_policy(SET CMP0074 NEW)
+
 # add and search for pfunit
 list(APPEND CMAKE_PREFIX_PATH "./external")
 find_package(PFUNIT)
