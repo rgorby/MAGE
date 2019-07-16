@@ -14,11 +14,11 @@ module ringav
     implicit none
 
     integer, parameter :: Ng = 2 !Number of ghost zones for ring reconstruction
-    integer, parameter :: NFT = 2 !Number of Fourier modes (beyond 0th) to remove from signed quantities
+    integer, parameter :: NFT = 1 !Number of Fourier modes (beyond 0th) to remove from signed quantities
     
     logical :: initRingMod = .true. !Do we need to initialize ring-av workspaces
     logical, parameter :: doShift = .true. !Whether to add random circular shift to ring chunking
-    logical, parameter :: doRingH = .true. !Whether to thermalize kinetic energy destroyed by ring-avg
+    logical, parameter :: doRingH = .false. !Whether to thermalize kinetic energy destroyed by ring-avg
 
     !dE = Ring-avg E field, (Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,NDIM)
     real(rp), dimension(:,:,:,:), allocatable, private :: dE !Ring-avg E field
@@ -146,8 +146,8 @@ module ringav
 
                     !Now reconstruct ring/s
                     if (Model%doMultiF) then
-                        gWp = (rWp(:,DEN) > Spcs(s)%dFloor)
-                        gWm = (rWm(:,DEN) > Spcs(s)%dFloor)
+                        gWp = (rWp(:,DEN) > Spcs(s)%dVac)
+                        gWm = (rWm(:,DEN) > Spcs(s)%dVac)
                     else
                         gWp = .true.
                         gWm = .true.
@@ -436,7 +436,7 @@ module ringav
                         bFlux(nS,nR,Gr%ks:Gr%ke+1,fD) = bFlux(nS,nR,Gr%ks:Gr%ke+1,fD) - tScl*sum(bFlux(nS,nR,Gr%ks:Gr%ke,fD))/Np             
                     endif
                     if (Model%Ring%doE) then
-                        nR = Gr%je+1
+                        nR = Gr%je
                         bFlux(nS,nR,Gr%ks:Gr%ke+1,fD) = bFlux(nS,nR,Gr%ks:Gr%ke+1,fD) - tScl*sum(bFlux(nS,nR,Gr%ks:Gr%ke,fD))/Np
                     endif
 

@@ -77,8 +77,21 @@ module chmpunits
 
         select case (trim(toUpper(Model%uID)))
 
+        !Note, separating CODE units (during calculation) from output units (written to H5 files)
         case("EARTH")
-            !Gamera units for Earth
+            !Gamera units for Earth IO
+            !Grid: Re
+            !Velocity : 1 km/s
+            !Field : 1 nT
+            L0 = Re_cgs
+            in2cms = 1.0e+5 ! km/s -> cm/s
+            in2G   = 1.0/G2nT
+            in2s   = 1.0
+            M0g    = EarthM0g
+            inPScl = 1.0 !Converted to nPa on output
+            rClosed = 3.5
+        case("EARTHCODE")
+            !Gamera CODE units for Earth
             !Grid: Re
             !Velocity : 100 km/s
             !Field : 4.581 nT
@@ -105,6 +118,7 @@ module chmpunits
             in2s   = L0/in2cms
             M0g = SaturnM0g
             inPScl = gP0 !Gamera pressure -> nPa
+            rClosed = 5.0 !Inner boundary for Saturn
         case("LFM")
             L0 = Re_cgs !Using scaled grid
             !Rest of units are already in cgs + Gauss

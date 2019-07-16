@@ -44,13 +44,17 @@ module kdefs
     !Earth
     real(rp), parameter :: EarthM0g = 0.31 !Gauss
     real(rp), parameter :: REarth = 6.38e6 ! m
-    real(rp), parameter :: RionE  = 6.5   ! Earth Ionosphere radius in 1000 km
+    real(rp), parameter :: RionE  = 6.5    ! Earth Ionosphere radius in 1000 km
     !Saturn
     real(rp), parameter :: SaturnM0g = 0.21 !Gauss
-    real(rp), parameter :: RSaturnXE = 9.5 !Rx = X*Re
+    real(rp), parameter :: RSaturnXE = 9.5  !Rx = X*Re
     !Jupiter
     real(rp), parameter :: JupiterM0g = -4.8 !Gauss
     real(rp), parameter :: RJupiterXE = 11.0 !Rx = X*Re
+    !Mercury
+    real(rp), parameter :: MercuryM0g = 0.00345  !Gauss
+    real(rp), parameter :: RMercuryXE = 0.31397  !Rx = X*Re
+
 !Numbered accessors
     !Directions
     enum, bind(C) 

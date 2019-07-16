@@ -166,12 +166,12 @@ module step
             write(*,*) 'Bxyz = ', State%Bxyz(i,j,k,:)
             pCon = State%Gas(i,j,k,:,BLK)
             call CellC2P(Model,pCon,pW)
-            write(*,'(A,5es9.2)') 'Bulk (PRIM) = ', pW
+            write(*,'(A,5es12.2)') 'Bulk (PRIM) = ', pW
             if (Model%doMultiF) then
                 do s=1,Model%nSpc
                     pCon = State%Gas(i,j,k,:,s)
                     call CellC2P(Model,pCon,pW)
-                    write(* ,'(A,I0,A,5es9.2)') "Fluid" , s, ' = ', pW
+                    write(* ,'(A,I0,A,5es12.2)') "Fluid" , s, ' = ', pW
                 enddo
             endif
             write(*,*) '<---------------->'

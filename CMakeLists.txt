@@ -26,6 +26,7 @@ execute_process(COMMAND git log -1 --format=%h WORKING_DIRECTORY ${CMAKE_SOURCE_
 #Set some configuration defaults
 option(ENABLE_OMP "Enable OMP parallelization" ON )
 option(ENABLE_MPI "Enable MPI parallelization" OFF)
+option(ENABLE_PFU "Enable pFUnit testing"      OFF)
 
 #Vector blocking
 set(bricksize 16 CACHE STRING "Vector brick size")
@@ -33,13 +34,24 @@ set_property(CACHE bricksize PROPERTY STRINGS 8 16 32)
 add_compile_definitions(BRICKSIZE=${bricksize})
 mark_as_advanced(bricksize)
 
-#Set IC file
+#-------------
+#Set default IC files
 file(GLOB GAMICDEF src/gamera/ICs/null.F90)
 set(GAMIC ${GAMICDEF} CACHE FILEPATH "Gamera IC file")
 
 #-------------
 #Include user cmake file if present
 include(cmake/user.cmake OPTIONAL)
+
+#-------------
+#Look for pFUnit if requested
+if(ENABLE_PFU)
+	list(APPEND CMAKE_PREFIX_PATH "./external")
+	find_package(PFUNIT)
+	if(PFUNIT_FOUND)
+		enable_testing()
+	endif()
+endif()
 
 #Include compile flag generator
 include(cmake/compilers.cmake)

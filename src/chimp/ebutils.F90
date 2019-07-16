@@ -8,6 +8,8 @@ module ebutils
 
     contains
 
+    !Jacobian(ADIR,BDIR) = dF_{A}/dB
+    
     !Turn Jacobian matrix into curl vector
     function Jac2Curl(JacA) result(CurlA)
         real(rp), dimension(NDIM,NDIM), intent(in) :: JacA

@@ -1,5 +1,5 @@
 module testCases
-  use pfUnit
+  use pFUnit
   use gamapp
   use voltapp
 
@@ -98,6 +98,40 @@ contains
     @assertLessThanOrEqual(totalError/initialTotalMagneticField, 0.01_rp, 'Dissipation was more than 5% of total magnetic field')
   end subroutine testAlfven
 
+  @test
+  subroutine testAdv1D()
+    type(gamApp_T) :: gameraApp
+    real(rp), dimension(:,:,:), allocatable :: sD,eD !Initial/Final densities
+    real(rp) :: L2err,L2Tol
+
+    L2Tol = 2.5e-6
+
+    call initGamera(gameraApp,'../../tests/cases/adv1d.xml')
+
+    associate(Gr=>gameraApp%Grid,Gas=>gameraApp%State%Gas)
+    !Allocate arrays
+    allocate(sD(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke))
+    allocate(eD(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke))
+    !Save initial density
+    sD = Gas(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,DEN,BLK)
+
+    !Now advance for one full advection cycle
+    do while ( (gameraApp%Model%t < gameraApp%Model%tFin) )
+      call stepGamera(gameraApp)
+    enddo
+
+    !Save final density
+    eD = Gas(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,DEN,BLK)
+    L2err = norm2(sD-eD)/(1.0*Gr%Nip)
+
+    write(*,*) '1D Advection test'
+    write(*,*) 'Cells = ', Gr%Nip
+    write(*,*) 'L2 error = ', L2err
+    
+    end associate
+    @assertLessThanOrEqual(L2err,L2Tol,"1D Advection test failed!")
+  end subroutine testAdv1D
+  
   !@test
   subroutine testRemix()
     type(gamApp_T) :: gameraApp

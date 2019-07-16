@@ -336,7 +336,7 @@ module gioH5
 
         !------------------
         !Finalize
-        call WriteVars(IOVars,.true.,h5File,gStr)
+        call WriteVars(IOVars,.true.,h5File,trim(gStr))
 
         contains
             subroutine GameraOut(vID,uID,vScl,V)

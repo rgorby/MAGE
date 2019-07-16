@@ -292,124 +292,108 @@ module mhdgroup
 
     end subroutine CellMaxwell
 
+
     !Apply Boris update to cell over all species
     !Assuming already have updated hydro w/ dGasH
     !U = hydro-updated state, do update in place
-    !Assuming B/oB are *TOTAL* fields (ie includes background)
-    subroutine CellBoris(Model,U,oU,B,oB,dGasH,dGasM,Ca,dt)
+    !Assuming B2/B0 are *TOTAL* fields (ie includes background)
+    subroutine CellBoris(Model,U2,U0,B2,B0,dGasH,dGasM,Ca,dt)
         type(Model_T), intent(in) :: Model
-        real(rp), intent(inout) :: U(NVAR,BLK:Model%nSpc)
-        real(rp), dimension(NVAR,BLK:Model%nSpc), intent(in) :: oU,dGasH
-        real(rp), dimension(NDIM), intent(in) :: B, oB, dGasM
+        real(rp), intent(inout) :: U2(NVAR,BLK:Model%nSpc)
+        real(rp), dimension(NVAR,BLK:Model%nSpc), intent(in) :: U0,dGasH
+        real(rp), dimension(NDIM), intent(in) :: B2, B0, dGasM
         real(rp), intent(in) :: Ca,dt
 
-        real(rp) :: D,Mx,My,Mz,TotE,KinE,P,dRho
-        real(rp) :: alfnRatio,perpRatio,dvAlf,BdotV
-        real(rp) :: oD,Dblk,oDblk,spcR,dRhoS,alfStar,perpCons
-        real(rp), dimension(NDIM) :: B1,dPg,dPm,V0,Vtmp,Pnew,dPs
-        real(rp), dimension(NDIM) :: Vblk,Vpara,Vperp
-        real(rp), dimension(NDIM) :: bhat1,bhat2,Fperp
-
         integer :: s
+        real(rp) :: D0 ,D2 ,P2 ,alpha ,pCon ,dRho
+        real(rp) :: D0s,D2s,P2s,alphaS,pConS,dRhoS,Rs,Rsbar
+        real(rp), dimension(NDIM) :: B1,bhat1,bhat2,dPMag
+        real(rp), dimension(NDIM) :: V0,V2,V0s,Vtmp,Vperp
+        real(rp), dimension(NDIM) :: dPGas,dPGasS,dMom
+        real(rp), dimension(NVAR) :: W2
 
-        !Start with bulk update even in multifluid case
-        Mx = U(MOMX,BLK)
-        My = U(MOMY,BLK)
-        Mz = U(MOMZ,BLK)
-        D  = max(U(DEN,BLK),dFloor)
-        TotE  = U(ENERGY,BLK)
-        KinE = 0.5*(Mx**2.0 + My**2.0 + Mz**2.0)/D
-        P = max((Model%gamma-1)*( TotE - KinE ),pFloor)
+    !Start w/ bulk update even in multifluid case
+        !Get D, pressure from hydro update
+        call CellC2P(Model,U2(:,BLK),W2)
+        D2 = max(W2(DEN),dFloor)
+        P2 = W2(PRESSURE)
+        !Get old D/V
+        D0 = U0(DEN      ,BLK)
+        V0 = U0(MOMX:MOMZ,BLK)/max(D0,dFloor)
 
         !B0 = n, B1 = n+1/2, B2 = B
-        B1 = 0.5*(B+oB) !Half-step field
-        !Get ratios for Boris update
-        alfnRatio = dot_product(B1,B1)/(D*Ca*Ca)
-        perpRatio = 1.0/(1+alfnRatio)
+        B1 = 0.5*(B2+B0) !Half-step field
+        !Get terms for updating
+        alpha = dot_product(B1,B1)/(D2*Ca*Ca) !Ratio of magnetic/plasma mass
+        dRho  = dt*dGasH(DEN      ,BLK)
+        dPGas = dt*dGasH(MOMX:MOMZ,BLK)
+        dPMag = dt*dGasM(XDIR:ZDIR)
 
-        !Get deltas
-        dRho = dt*dGasH(DEN      ,BLK)
-        dPg  = dt*dGasH(MOMX:MOMZ,BLK)
-        dPm  = dt*dGasM(XDIR:ZDIR)
+        pCon = 1.0/(1.0+alpha) !Dg/(Db+Dg), ratio of plasma mass and total (w/ magnetic) mass
+        bhat1 = normVec(B1)
+        bhat2 = normVec(B2) !Final field direction
 
-        if (alfnRatio>TINY) then
-            !Get old velocity
-            V0 = oU(MOMX:MOMZ,BLK)/max(oU(DEN,BLK),dFloor)
-            dvAlf = alfnRatio*dRho
-            Vtmp  = alfnRatio*(dPg-dRho*V0)
-
-            !Calculate B dot V
-            BdotV = dot_product(B1,Vtmp)/dot_product(B1,B1)
-
-            !Perform FINAL momentum update, updating from state n->n+1
-            Pnew = oU(MOMX:MOMZ,BLK) + perpRatio*( dPg + dPm + dvAlf*V0 + BdotV*B1 )
-        else
+        if (alpha > TINY) then
+            !Note, only using dPMag in perp 
+            dMom = Vec2Para(dPGas,bhat1) + pCon*Vec2Perp(dPGas+dPMag,bhat1) &
+                 + alpha*pCon*dRho*Vec2Perp(V0,bhat1) 
+        else 
             !Null field region, just do Maxwell update
-            Pnew = U(MOMX:MOMZ,BLK) + dPm
-        endif
+            dMom = dPGas + dPMag
+        endif !alpha
 
-        !Apply bulk update
-        KinE = 0.5*dot_product(Pnew,Pnew)/D
-        U(DEN,      BLK) = D
-        U(MOMX:MOMZ,BLK) = Pnew
-        U(ENERGY   ,BLK) = KinE + P/(Model%gamma-1)
+        !Finish bulk fluid update using dMom, reset primitives then convert to conserved
+        V2 = (D0*V0 + dMom)/D2
+        W2(DEN      ) = D2
+        W2(VELX:VELZ) = V2
+        W2(PRESSURE ) = P2
+        call CellP2C(Model,W2,U2(:,BLK))
 
-        !Now handle multifluid case
+        !Now handle multifluid update
         if (Model%doMultiF) then
             !Do species independent things
-            !Bulk flow
-            Dblk  = max( U(DEN,BLK),dFloor)
-            oDblk = max(oU(DEN,BLK),dFloor)
-            Vblk = U(MOMX:MOMZ,BLK)/Dblk
-            !Magnetic field directions
-            bhat2 = normVec(B)
-            bhat1 = normVec(B1)
-
-            Vperp = Vblk - dot_product(Vblk,bhat2)*bhat2
-            Fperp = dPm  - dot_product(dPm ,bhat1)*bhat1
+            Vperp = Vec2Perp(V2,bhat2)
 
             !Loop over species
-            !Need species dependent V-parallel
             do s=1,Model%nSpc
-                
-                !Start by getting species state
-                D = max(U(DEN,s),dFloor)
-                Pnew = U(MOMX:MOMZ,s)
-                TotE = U(ENERGY,s)
-                KinE = 0.5*dot_product(Pnew,Pnew)/D
-                P = max((Model%gamma-1)*( TotE - KinE ),pFloor)
+                !Get D, pressure from hydro update
+                call CellC2P(Model,U2(:,s),W2)
+                D2s = max(W2(DEN),dFloor)
+                P2s = W2(PRESSURE)
+                !Get old D/V
+                D0s = U0(DEN      ,s)
+                V0s = U0(MOMX:MOMZ,s)/max(D0s,dFloor)
 
-                if (D >= Spcs(s)%dFloor) then
-                    !This is a good species, calculate Vpara
-                    oD = max(oU(DEN,s),dFloor)
-                    spcR = 0.5*( oD/oDblk + D/Dblk )
-                    dRhoS = D - oD
-                    alfStar = alfnRatio*( 1 - 0.5*dRhoS/D )
-                    perpCons = 1.0/(1+alfStar)
+                if (D2s >= Spcs(s)%dVac) then
+                    alphaS = alpha*0.5*(D2s+D0s)/D2s
+                    pConS = 1.0/(1.0+alphaS)
+                    Rs = D2s/D2
+                    Rsbar = 0.5*( D2s/D2 + D0s/D0 )
+                    dRhoS = D2s-D0s
+                    dPGasS = dt*dGasH(MOMX:MOMZ,s)
 
-                    !Rescale dRhoS to species
-                    dRhoS = dRhoS*alfStar
-                    dPs = (1+alfStar)*dt*dGasH(MOMX:MOMZ,s) - dRhoS*oU(MOMX:MOMZ,s)/oD
-                    Pnew = oU(MOMX:MOMZ,s) + perpCons*dRhoS*oU(MOMX:MOMZ,s)/oD &
-                       & + perpCons*spcR*Fperp                   &
-                       & + perpCons*dot_product(dPs,bhat1)*bhat1
-                    Vtmp = (Pnew/D) + perpRatio*dPm/Dblk
-                else
-                    !This isn't a good species, use bulk
-                    Vtmp = Vblk
+                    !Note, dPMag depends on pCon (not pConS)
+                    dMom = pCon*Rs*dPMag                          &
+                         + alphaS*pConS*dRhoS*Vec2Perp(V0s,bhat1) &
+                         + pConS*Rsbar*Vec2Perp(dPGas,bhat1)      &
+                         + Vec2Para(dPGasS,bhat1)
+                         
+                    Vtmp = (D0s*V0s + dMom)/D2
+                else 
+                    !Not a good species, just use bulk flow
+                    Vtmp = V2
                 endif
-                Vpara = dot_product(Vtmp,bhat2)*bhat2
-                !Finish species update
-                U(DEN      ,s) = D
-                U(MOMX:MOMZ,s) = D*(Vpara + Vperp)
-                KinE = 0.5*D*dot_product(Vpara + Vperp,Vpara + Vperp)
-                U(ENERGY   ,s) = KinE + P/(Model%gamma-1)
+                W2(DEN      ) = D2s
+                W2(VELX:VELZ) = Vperp + Vec2Para(Vtmp,bhat2)
+                W2(PRESSURE ) = P2s
+                call CellP2C(Model,W2,U2(:,s))
             enddo
 
             !Done calculating species conserved quantities, recalculate bulk
-            call MultiF2Bulk(Model,U)
+            call MultiF2Bulk(Model,U2)
 
         endif !Multifluid
+
     end subroutine CellBoris
 
     !Predictor on single cell, [oU,U] -> pU
@@ -429,8 +413,8 @@ module mhdgroup
 
         !Figure out which fluids/times are good
         if (Model%doMultiF) then
-            isGood1(1:Model%nSpc) = ( oU(DEN,1:Model%nSpc) >= Spcs(:)%dFloor )
-            isGood2(1:Model%nSpc) = (  U(DEN,1:Model%nSpc) >= Spcs(:)%dFloor )
+            isGood1(1:Model%nSpc) = ( oU(DEN,1:Model%nSpc) >= Spcs(:)%dVac )
+            isGood2(1:Model%nSpc) = (  U(DEN,1:Model%nSpc) >= Spcs(:)%dVac )
             isGood (1:Model%nSpc) = isGood1(1:Model%nSpc) .and. isGood2(1:Model%nSpc)
             s0 = 1
             sE = Model%nSpc            
@@ -543,7 +527,7 @@ module mhdgroup
             !Don't do bulk
             s0 = 1
             sE = Model%nSpc
-            RhoMin(1:Model%nSpc) = Spcs(:)%dFloor
+            RhoMin(1:Model%nSpc) = Spcs(:)%dVac
         else
             !Only do bulk
             s0 = BLK
