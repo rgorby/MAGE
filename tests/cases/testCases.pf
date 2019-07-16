@@ -102,6 +102,9 @@ contains
   subroutine testAdv1D()
     type(gamApp_T) :: gameraApp
     real(rp), dimension(:,:,:), allocatable :: sD,eD !Initial/Final densities
+    real(rp) :: L2err,L2Tol
+
+    L2Tol = 2.5e-6
 
     call initGamera(gameraApp,'../../tests/cases/adv1d.xml')
 
@@ -110,7 +113,7 @@ contains
     allocate(sD(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke))
     allocate(eD(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke))
     !Save initial density
-    sD = Gas(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke))
+    sD = Gas(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,DEN,BLK)
 
     !Now advance for one full advection cycle
     do while ( (gameraApp%Model%t < gameraApp%Model%tFin) )
@@ -118,15 +121,15 @@ contains
     enddo
 
     !Save final density
-    eD = Gas(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke))
+    eD = Gas(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,DEN,BLK)
+    L2err = norm2(sD-eD)/(1.0*Gr%Nip)
 
+    write(*,*) '1D Advection test'
+    write(*,*) 'Cells = ', Gr%Nip
+    write(*,*) 'L2 error = ', L2err
+    
     end associate
-
-    write(*,*) 'End time = ', gameraApp%Model%t
-    write(*,*) 'sD = ', sD(:,Gr%js,Gr%ks)
-    write(*,*) 'eD = ', eD(:,Gr%js,Gr%ks)
-    write(*,*) sD(:,Gr%js,Gr%ks)-eD(:,Gr%js,Gr%ks)
-
+    @assertLessThanOrEqual(L2err,L2Tol,"1D Advection test failed!")
   end subroutine testAdv1D
   
   !@test
