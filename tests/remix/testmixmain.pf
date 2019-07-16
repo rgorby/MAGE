@@ -1,0 +1,31 @@
+module testmixmain
+  use pfUnit
+  use mixmain
+  use mixapp
+
+  implicit none
+
+contains
+
+  @test
+  subroutine testZeroInput()
+    ! testing that an input of all zeroes gets output of all zeroes
+    type(mixApp_T) :: remixApp
+    real(rp) :: tilt
+
+    tilt = 0
+
+    call init_mix(remixApp%ion, hmsphrs, remixApp%conductance)
+
+    ! field aligned current in remixApp%ion(h)%St%Vars(:,:,FAC)
+    remixApp%ion(NORTH)%St%Vars(:,:,FAC) = 0
+    remixApp%ion(SOUTH)%St%Vars(:,:,FAC) = 0
+
+    call run_mix(remixApp%ion, tilt, remixApp%conductance)
+
+    ! potential in remixApp%ion(h)%St%Vars(:,:,POT)
+    @assertLessThanOrEqual(sum(abs(remixApp%ion(NORTH)%St%Vars(:,:,POT))), 1e-8_rp, 'Non-zero remix output in North hemisphere')
+    @assertLessThanOrEqual(sum(abs(remixApp%ion(SOUTH)%St%Vars(:,:,POT))), 1e-8_rp, 'Non-zero remix output in South hemisphere')
+  end subroutine testZeroInput
+
+end module testmixmain
