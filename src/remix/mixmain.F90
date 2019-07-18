@@ -14,10 +14,11 @@ module mixmain
 
   contains
 
-    subroutine init_mix(I,hmsphrs,conductance)
+    subroutine init_mix(I,hmsphrs,conductance,optFilename)
       type(mixIon_T),dimension(:),intent(inout) :: I ! I for ionosphere (is an array of 1 or 2 elements for north and south) or it can be artibrarily many, e.g., for different solves done in loop
       integer, dimension(:), intent(in) :: hmsphrs ! array of integers marking hemispheres for the I object array.
       type(mixConductance_T), intent(inout) :: conductance
+      character(len=*), optional, intent(in) :: optFilename
 
       integer :: h ! h for hemisphere
 
@@ -28,7 +29,11 @@ module mixmain
       end if
 
       do h=1,size(I)
-         call initMIXParams(I(h)%P)
+         if(present(optFilename)) then
+            call initMIXParams(I(h)%P, optFilename)
+         else
+            call initMIXParams(I(h)%P)
+         endif
          ! FIXME: replace with a function pointer allowing an arbitrary grid specification, e.g., init_grid=>init_uniform
          call init_uniform(I(h)%G,I(h)%P%Np,I(h)%P%Nt,I(h)%P%LowLatBoundary*pi/180._rp,.true.)
          call init_state(I(h)%G,I(h)%St) 

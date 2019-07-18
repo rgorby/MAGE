@@ -6,20 +6,27 @@ module mixparams
   implicit none
 
   contains
-    subroutine initMIXParams(Params)
+    subroutine initMIXParams(Params, optFilename)
       type(mixParams_T), intent(out) :: Params
+      character(len=*), optional, intent(in) :: optFilename
+
       character(len=strLen) :: inpXML,tmpStr
       integer :: Narg
       logical :: fExist
       type(XML_Input_T) :: xmlInp
      
-      !Find input deck
-      Narg = command_argument_count()
-      if (Narg .eq. 0) then
-         write(*,*) 'No input deck specified, defaulting to mixparams.xml'
-         inpXML = "mixparams.xml"
+      if(present(optFilename)) then
+         ! read from the prescribed file
+         inpXML = optFilename
       else
-         call get_command_argument(1,inpXML)
+         !Find input deck
+         Narg = command_argument_count()
+         if (Narg .eq. 0) then
+            write(*,*) 'No input deck specified, defaulting to mixparams.xml'
+            inpXML = "mixparams.xml"
+         else
+            call get_command_argument(1,inpXML)
+         endif
       endif
 
       !First set input deck reader

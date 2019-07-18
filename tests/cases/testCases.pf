@@ -72,7 +72,7 @@ contains
 
   end subroutine testAdv2D
 
-  @test
+  !@test
   subroutine testAlfven()
     type(gamApp_T) :: gameraApp
     real(rp), dimension(:,:,:), allocatable :: initialMagneticField
@@ -98,7 +98,7 @@ contains
     @assertLessThanOrEqual(totalError/initialTotalMagneticField, 0.01_rp, 'Dissipation was more than 5% of total magnetic field')
   end subroutine testAlfven
 
-  @test
+  !@test
   subroutine testAdv1D()
     type(gamApp_T) :: gameraApp
     real(rp), dimension(:,:,:), allocatable :: sD,eD !Initial/Final densities

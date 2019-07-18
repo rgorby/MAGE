@@ -1,0 +1,29 @@
+<?xml version="1.0"?>
+<!-- Gamera Magnetosphere -->
+<OMEGA>
+  <sim tFin="677.115987461"/>
+  <gamera_remix dt="0.1" dowait="F" dtshift="0.0"/>
+  <remix_gamera dt="0.1" dowait="F" dtshift="0.0"/>
+</OMEGA>
+<Gamera>
+  <iPdir N="1"/>
+  <jPdir N="2"/>
+  <kPdir N="1"/>
+  <ibc bc="user" jperiod="F" kperiod="T"/>
+  <jbc bc="user" iperiod="F" kperiod="T"/>
+  <kbc bc="periodic" iperiod="F" jperiod="F"/>
+  <sim runid="msphere" doH5g="T" H5Grid="lfmD.h5" icType="user" pdmb="1.0" rmeth="7UP" pFloor="1e-06" dFloor="0.0001"/>
+  <restart dtRes="14.1065830721" doRes="F" resFile="msphere.Res.XXXXX.h5"/>
+  <output dtOut="0.235109717868" tsOut="100" timer="F"/>
+  <physics doMHD="T" doBoris="T" Ca="10.0"/>
+  <prob Rho0="0.1" P0="0.001" rCut="16.0" lCut="8.0"/>
+  <ring gid="lfm" doRing="T" Nr="3" Nc1="8" Nc2="16" Nc3="32"/>
+  <wind tsfile="bcwind.h5"/>
+</Gamera>
+<!-- Remix -->
+<REMIX>
+  <grid Np="360" Nt="45" LowLatBoundary="45.0"/>
+  <conductance F107="200.0" pedmin="2.0" hallmin="1.0" sigma_ratio="3.0" const_sigma="True" ped0="10.0"/>
+  <solver maxitr="400" mr="30" tol_abs="1.0e-4" tol_rel="1.0e-4"/>
+  <output dtOut="0.235109717868"/>
+</REMIX>
