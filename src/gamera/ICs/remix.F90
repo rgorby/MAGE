@@ -154,8 +154,8 @@ module useric
         Grid%ksMG = Grid%ks
         Grid%keMG = Grid%ke
 
-        !Correction to Solar Wind E
-        if (Model%Ri == Model%NumRi) then
+        !Correction to E (from solar wind or ionosphere)        
+        if ( (Model%Ri == Model%NumRi) .or. (Model%Ri == 1) ) then
            !Set user hack functions
            !NOTE: Need silly double value for GNU
            eHack  => EFix
@@ -287,7 +287,7 @@ module useric
         !Fix inner shells
         SELECT type(iiBC=>Gr%externalBCs(INI)%p)
             TYPE IS (IonInnerBC_T)
-                if (Gr%ijkShift(IDIR) .eq. 0) then
+                if (Model%Ri == 1) then
                     call IonEFix(Model,Gr,State,iiBC%inEijk)
                 endif
             CLASS DEFAULT
@@ -398,9 +398,8 @@ module useric
         procedure(HackE_T), pointer :: eHack
 
         !Are we on the inner (REMIX) boundary
-        if (Grid%ijkShift(IDIR) == 0) then
-
-            call xmlInp%Set_Val(PsiShells,"remix/PsiShells",5)
+        if (Model%Ri == 1) then
+            call xmlInp%Set_Val(PsiShells,"/remix/grid/PsiShells",5)
 
             !Create holders for coupling electric field
             allocate(bc%inExyz(1:PsiShells,Grid%jsg:Grid%jeg,Grid%ksg:Grid%keg,1:NDIM))
