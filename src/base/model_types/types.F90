@@ -77,8 +77,8 @@ module types
         !NumRi,NumRj,NumRk = # of ranks in each dimension
         !Ri,Rj,Rj = Placement of this rank
         logical :: isMPI = .false.
-        integer :: NumRi=0,NumRj=0,NumRk=0
-        integer :: Ri=0,Rj=0,Rk=0
+        integer :: NumRi=1,NumRj=1,NumRk=1
+        integer :: Ri=1,Rj=1,Rk=1
         
         !Background field function pointer
         procedure(VectorField_T), pointer, nopass :: B0 => NULL()

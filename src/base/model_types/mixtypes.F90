@@ -26,6 +26,7 @@ module mixtypes
      integer :: mr
      real(rp) :: tol_abs
      real(rp) :: tol_rel
+     real(rp) :: llbc_value
 
      ! state
      real(rp) :: tilt

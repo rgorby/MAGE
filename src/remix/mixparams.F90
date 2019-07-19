@@ -76,6 +76,7 @@ module mixparams
         call xmlInp%Set_Val(Params%mr,"solver/mr",30)
         call xmlInp%Set_Val(Params%tol_abs,"solver/tol_abs",0.000001_rp)
         call xmlInp%Set_Val(Params%tol_rel,"solver/tol_rel",0.000001_rp)
+        call xmlInp%Set_Val(Params%llbc_value,"solver/llbc_value",0.0_rp)
         ! =========== SOLVER PARAMTERS =================== !
 
         ! =========== STATE PARAMTERS =================== ! (used when in standalone mode)

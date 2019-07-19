@@ -13,7 +13,6 @@ contains
 
   @before
   subroutine firstSerial()
-      call GETENV('KAIJU_HOME', kaijuHome)
   end subroutine firstSerial
 
   @after
@@ -41,5 +40,33 @@ contains
     @assertLessThanOrEqual(sum(abs(remixApp%ion(SOUTH)%St%Vars(:,:,POT))), 1e-8_rp, 'Non-zero remix output in South hemisphere')
 
   end subroutine testZeroInput
+
+  @test
+  subroutine testConstantSolution()
+    ! testing that an input of all zeroes gets output of all zeroes
+    type(mixApp_T) :: remixApp
+    type(gamApp_T) :: gameraApp
+
+    real(rp) :: testValue = 240.19
+
+    call initGamera(gameraApp, 'cmiD.xml')
+
+    call initializeRemixFromGamera(remixApp, gameraApp)
+
+    ! field aligned current in remixApp%ion(h)%St%Vars(:,:,FAC)
+    remixApp%ion(NORTH)%St%Vars(:,:,FAC) = 0
+    remixApp%ion(SOUTH)%St%Vars(:,:,FAC) = 0
+
+    ! modify low lat boundary condition for test
+    remixApp%ion(NORTH)%P%llbc_value = testValue
+    remixApp%ion(SOUTH)%P%llbc_value = testValue
+
+    call run_mix(remixApp%ion, remixApp%tilt, remixApp%conductance)
+
+    ! potential in remixApp%ion(h)%St%Vars(:,:,POT)
+    @assertLessThanOrEqual(sum(abs(remixApp%ion(NORTH)%St%Vars(:,:,POT) - testValue)), 1e-8_rp, 'Remix output in North hemisphere not specified value')
+    @assertLessThanOrEqual(sum(abs(remixApp%ion(SOUTH)%St%Vars(:,:,POT) - testValue)), 1e-8_rp, 'Remix output in South hemisphere not specified value')
+
+  end subroutine testConstantSolution
 
 end module testmixmain

@@ -193,8 +193,8 @@ module mixsolver
       type(mixState_T),  intent(in) :: St
       type(Solver_T),    intent(inout) :: S
 
-      ! FIXME: low latitude boundary condition
-      S%LLBC = 0.0
+      ! low latitude boundary condition
+      S%LLBC = P%llbc_value
 
       ! this uses conductdance values to set up the Poisson equation
       call set_solver_terms(P,G,St,S)

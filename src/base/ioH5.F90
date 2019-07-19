@@ -302,8 +302,8 @@ contains
     subroutine WriteVars(IOVars,doIOp,baseStr,gStrO,gStrOO)
         type(IOVAR_T), dimension(:), intent(inout) :: IOVars
         logical, intent(in) :: doIOp
-        character(len=strLen), intent(in) :: baseStr
-        character(len=strLen), intent(in), optional :: gStrO,gStrOO
+        character(len=*), intent(in) :: baseStr
+        character(len=*), intent(in), optional :: gStrO,gStrOO
 
         logical :: fExist,gExist
         integer :: herr
