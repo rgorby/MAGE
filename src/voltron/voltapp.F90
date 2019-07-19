@@ -17,14 +17,20 @@ module voltapp
 
     contains
 
-    subroutine initVoltron(voltronApp, gameraApp)
+    subroutine initVoltron(voltronApp, gameraApp,optFilename)
         type(gamApp_T), intent(inout) :: gameraApp
         type(voltApp_T), intent(inout) :: voltronApp
+        character(len=*), optional, intent(in) :: optFilename
 
         voltronApp%fastShallowTime = 0.0_rp
         voltronApp%fastShallowDt = 0.1_rp
 
-        call initializeRemixFromGamera(voltronApp%remixApp, gameraApp)
+        if(present(optFilename)) then
+            ! read from the prescribed file
+            call initializeRemixFromGamera(voltronApp%remixApp, gameraApp, optFilename)
+        else
+            call initializeRemixFromGamera(voltronApp%remixApp, gameraApp)
+        endif
 
     end subroutine initVoltron
 
@@ -46,16 +52,22 @@ module voltapp
 
     end subroutine fastShallowUpdate
 
-    subroutine initializeRemixFromGamera(remixApp, gameraApp)
+    subroutine initializeRemixFromGamera(remixApp, gameraApp, optFilename)
         type(mixApp_T), intent(inout) :: remixApp
         type(gamApp_T), intent(inout) :: gameraApp
+        character(len=*), optional, intent(in) :: optFilename
 
         real(rp), allocatable, dimension(:,:,:,:,:) :: mhdJGrid,mhdPsiGrid
 
         ! initialize REMIX
         call init_remix_grids(remixApp, gameraApp, mhdJGrid, mhdPsiGrid)
 
-        call init_mix_mhd_interface(remixApp,mhdJGrid,mhdPsiGrid)
+        if(present(optFilename)) then
+            ! read from the prescribed file
+            call init_mix_mhd_interface(remixApp,mhdJGrid,mhdPsiGrid,optFilename)
+        else
+            call init_mix_mhd_interface(remixApp,mhdJGrid,mhdPsiGrid)
+        endif
 
         deallocate(mhdJGrid,mhdPsiGrid)
     end subroutine initializeRemixFromGamera

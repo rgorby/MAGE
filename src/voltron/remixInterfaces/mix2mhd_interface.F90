@@ -42,9 +42,10 @@ contains
 
     end subroutine convertRemixToGamera
 
-  subroutine init_mix_mhd_interface(remixApp,mhdJGrid,mhdPsiGrid)
+  subroutine init_mix_mhd_interface(remixApp,mhdJGrid,mhdPsiGrid,optFilename)
     type(mixApp_T), intent(inout) :: remixApp
     real(rp), dimension(:,:,:,:,:), intent(in) :: mhdJGrid,mhdPsiGrid ! (i,j,k,x-z,hemisphere)
+    character(len=*), optional, intent(in) :: optFilename    
 
     integer :: l,h ! h for hemisphere
     type(mixGrid_T) :: mhdGfpd,mhdG
@@ -52,7 +53,12 @@ contains
     real(rp), dimension(:,:), allocatable :: mhdt, mhdp, mhdtFpd, mhdpFpd
     real(rp) :: mhd_Rin  ! the radius of the shell given by the MHD grid
 
-    call init_mix(remixApp%ion,hmsphrs,remixApp%conductance)
+    if(present(optFilename)) then
+        ! read from the prescribed file
+        call init_mix(remixApp%ion,hmsphrs,remixApp%conductance,optFilename)
+    else
+        call init_mix(remixApp%ion,hmsphrs,remixApp%conductance)
+    endif
 
     remixApp%PsiShells = size(mhdPsiGrid,1)
     remixApp%JShells = size(mhdJGrid,1)

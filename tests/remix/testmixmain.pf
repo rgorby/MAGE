@@ -25,9 +25,11 @@ contains
     type(mixApp_T) :: remixApp
     type(gamApp_T) :: gameraApp
 
-    call initGamera(gameraApp, 'cmiD.xml')
+    character(len=strLen) :: caseInput = 'cmiD.xml'
 
-    call initializeRemixFromGamera(remixApp, gameraApp)
+    call initGamera(gameraApp, caseInput)
+
+    call initializeRemixFromGamera(remixApp, gameraApp, caseInput)
 
     ! field aligned current in remixApp%ion(h)%St%Vars(:,:,FAC)
     remixApp%ion(NORTH)%St%Vars(:,:,FAC) = 0
@@ -48,10 +50,11 @@ contains
     type(gamApp_T) :: gameraApp
 
     real(rp) :: testValue = 240.19
+    character(len=strLen) :: caseInput = 'cmiD.xml'
 
-    call initGamera(gameraApp, 'cmiD.xml')
+    call initGamera(gameraApp, caseInput)
 
-    call initializeRemixFromGamera(remixApp, gameraApp)
+    call initializeRemixFromGamera(remixApp, gameraApp, caseInput)
 
     ! field aligned current in remixApp%ion(h)%St%Vars(:,:,FAC)
     remixApp%ion(NORTH)%St%Vars(:,:,FAC) = 0
@@ -68,5 +71,27 @@ contains
     @assertLessThanOrEqual(sum(abs(remixApp%ion(SOUTH)%St%Vars(:,:,POT) - testValue)), 1e-8_rp, 'Remix output in South hemisphere not specified value')
 
   end subroutine testConstantSolution
+
+  @test
+  subroutine testAzimuthallyDependentFAC()
+    ! testing that an input of all zeroes gets output of all zeroes
+    type(mixApp_T) :: remixApp
+    type(gamApp_T) :: gameraApp
+
+    character(len=strLen) :: caseInput = 'cmiD.xml'
+
+    call initGamera(gameraApp, caseInput)
+
+    call initializeRemixFromGamera(remixApp, gameraApp, caseInput)
+
+    ! field aligned current in remixApp%ion(h)%St%Vars(:,:,FAC)
+    remixApp%ion(NORTH)%St%Vars(:,:,FAC) = 0
+    remixApp%ion(SOUTH)%St%Vars(:,:,FAC) = 0
+
+    call run_mix(remixApp%ion, remixApp%tilt, remixApp%conductance)
+
+    ! potential in remixApp%ion(h)%St%Vars(:,:,POT)
+
+  end subroutine testAzimuthallyDependentFAC
 
 end module testmixmain
