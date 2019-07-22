@@ -55,7 +55,6 @@ module init
 
         !Alwasys zero for single process job
         Grid%ijkShift(1:3) = 0
-        CellBxyz => gamCellBxyz
 
         !Setup OMP info
 #ifdef _OPENMP

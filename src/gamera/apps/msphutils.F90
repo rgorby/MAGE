@@ -366,7 +366,7 @@ module msphutils
 
     end subroutine SphereWall
 
-    !Hack to remove anomalous heating
+    !Cooling function to deal with anomalous heating
     subroutine ChillOut(Model,Grid,State)
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
@@ -375,9 +375,8 @@ module msphutils
         integer :: i,j,k
         integer :: s,s0,sE
         real(rp), dimension(NVAR) :: pW, pCon
-        real(rp) :: D,PrCO,CsC
         real(rp), dimension(0:Model%nSpc) :: RhoMin
-        logical :: doChill
+        real(rp) :: D,P,CsC,Pc,Leq,tau
 
         RhoMin(BLK) = 0.0
         if (Model%doMultiF) then
@@ -392,89 +391,58 @@ module msphutils
         endif
 
         !$OMP PARALLEL DO default(shared) collapse(3) &
-        !$OMP private(s,i,j,k,pW,pCon,D,doChill)
+        !$OMP private(s,i,j,k,pW,pCon,D,P,CsC,Pc,Leq,tau)
         do s=s0,sE
             do k=Grid%ksg,Grid%keg
                 do j=Grid%jsg,Grid%jeg
                     do i=Grid%isg,Grid%ieg
 
-                        D = State%Gas(i,j,k,DEN,s)
+                        !Check species
+                        pCon = State%Gas(i,j,k,:,s)
+                        D = pCon(DEN)
+
+                        !Get sound speed
                         if (s>BLK) then
-                            !Non-bulk species
-                            doChill = ( D <= RhoCO ) .and. ( D >= RhoMin(s) )
+                            if ( D >= RhoMin(s) ) then
+                                call CellPress2Cs(Model,pCon,CsC)
+                            else
+                                CsC = 0.0 !Ignore vacuum
+                            endif
                         else
-                            doChill = ( D <= RhoCO )
+                            !Bulk fluid
+                            call CellPress2Cs(Model,pCon,CsC)
                         endif
 
-                        if (doChill) then
-                            !Chill the fuck out
-                            pCon = State%Gas(i,j,k,:,s)
+                        !If sound speed is faster than "light", chill the fuck out
+                        if ( Model%doBoris .and. (CsC>Model%Ca) ) then
                             call CellC2P(Model,pCon,pW)
-                            !Set pressure to ensure Cs = CsCO
-                            CsC = CsCO/gv0 !Cs in code units
-                            PrCO = pW(DEN)*CsC*CsC/Model%gamma
+                            P = pW(PRESSURE) !Cell pressure
 
-                            pW(PRESSURE) = max(PrCO,pFloor)
+                            !Find target pressure w/ sound speed = Ca
+                            Pc = pW(DEN)*(Model%Ca**2.0)/Model%gamma
+                            !Calculate cooling rate, L/CsC ~ lazy bounce timescale
+                            Leq = DipoleL(Grid%xyzcc(i,j,k,:))
+                            tau = Leq/CsC
+
+                            !Cool pressure to target w/ timescale tau
+                            pW(PRESSURE) = P - (Model%dt/tau)*(P-Pc)
+
+                            !Go back to conserved vars and save
                             call CellP2C(Model,pW,pCon)
-                            State%Gas(i,j,k,:,s) = pCon
-
+                            State%Gas(i,j,k,:,s) = pCon 
                         endif
 
-                    enddo
+                    enddo !i loop
                 enddo
             enddo
-        enddo
+        enddo !Species loop
 
+                    
         if (Model%doMultiF) then
             call State2Bulk(Model,Grid,State)
         endif
-        
+                    
     end subroutine ChillOut
-
-    !Different hack for cooling
-    !If Cs>Ca convert internal energy to mass using E=mc2, w/ c=Boris speed
-
-    subroutine SuperChill(Model,Grid,State)
-        type(Model_T), intent(in) :: Model
-        type(Grid_T), intent(in) :: Grid
-        type(State_T), intent(inout) :: State
-
-        integer :: i,j,k
-        real(rp), dimension(NVAR) :: pW, pCon
-        real(rp) :: Cs0,alpha,Rho0,P0,e0,dRho,dE
-        alpha = Model%gamma*(Model%gamma-1)
-
-        !$OMP PARALLEL DO default(shared) collapse(2) &
-        !$OMP private(i,j,k,pW,pCon,Cs0,Rho0,P0,e0,dRho,dE)
-        do k=Grid%ksg,Grid%keg
-            do j=Grid%jsg,Grid%jeg
-                do i=Grid%isg,Grid%ieg
-                    !Check sound speed
-                    pCon = State%Gas(i,j,k,:,BLK)
-                    call CellC2P(Model,pCon,pW)
-                    Rho0 = pW(DEN)
-                    P0 = pW(PRESSURE)
-                    Cs0 = sqrt(Model%gamma*P0/Rho0)
-                    if (Cs0 > Model%Ca) then
-                        
-                        e0 = P0/(Model%gamma-1)
-                        dRho = (alpha*e0/(1.0+alpha))*( (Cs0**2.0 - Model%Ca**2.0)/(Cs0*Model%Ca)**2.0)
-                        dE = dRho*Model%Ca**2.0
-
-                        !Set new primitive variables (modify velocity to conserve momentum)
-                        pW(DEN) = Rho0+dRho
-                        pW(VELX:VELZ) = pW(VELX:VELZ)*(Rho0/(Rho0+dRho))
-                        pW(PRESSURE) = (Model%gamma-1)*(e0-dE)
-                        !Convert back to conserved and store
-                        call CellP2C(Model,pW,pCon)
-                        State%Gas(i,j,k,:,BLK) = pCon
-                        
-                    endif
-
-                enddo
-            enddo
-        enddo
-    end subroutine SuperChill
 
     !Create a cut dipole
     subroutine genCutDipole(Model,Grid,State,xmlInp)
@@ -863,5 +831,17 @@ module msphutils
         invlat = abs(acos(sqrt(1.0/Leq)))
 
     end function InvLatitude
-  
+
+    !Calculate dipole L shell for point
+    function DipoleL(r) result(Leq)
+        real(rp), intent(in) :: r(NDIM)
+        real(rp) :: Leq
+
+        real(rp) :: z,rad,lat
+        z = r(ZDIR)
+        rad = norm2(r)
+        lat = abs( asin(z/rad) )
+        Leq = rad/( cos(lat)*cos(lat) )
+    end function DipoleL
+      
 end module msphutils

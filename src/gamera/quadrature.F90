@@ -5,7 +5,7 @@ module quadrature
     
     implicit none
     !Constants for Gaussian integration
-    integer, parameter :: gNp = 12
+    integer, parameter, private :: gNp = 12
     
 
     !Zeros of 12th order Legendre polynomial

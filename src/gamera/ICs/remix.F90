@@ -34,12 +34,9 @@ module useric
     !doHeavy = Add plasmasphere
     logical :: doHeavy = .false.
 
-    !Choose between cooling functions
-    !doCool = LFM version
-    !doSuperChill = Gamera version
+    !doCool = Apply cooling function
     logical :: doCool       = .true.
-    logical :: doSuperChill = .false.
-
+    
     logical :: newMix = .false.
 
 
@@ -85,7 +82,6 @@ module useric
         call inpXML%Set_Val(RhoW0,"prob/RhoW",5.0_rp)
         call inpXML%Set_Val(P0   ,"prob/P0"  ,0.001_rp)
         call inpXML%Set_Val(PrW0 ,"prob/PrW" ,0.48_rp)
-        call inpXML%Set_Val(dCS  ,"prob/dCS" ,0.0_rp)
 
 
         !Use plasmasphere model for initial density
@@ -140,10 +136,6 @@ module useric
             call State2Bulk(Model,Grid,State)
         else
             call GasIC2State(Model,Grid,State,Wxyz)
-        endif
-
-        if (.not. Model%doMultiF) then
-            call JiggleState(Model,Grid,State)
         endif
 
         !Set DT bounds
@@ -239,36 +231,6 @@ module useric
 
     end subroutine postBCInitUser
 
-    subroutine JiggleState(Model,Grid,State)
-        type(Model_T), intent(in) :: Model
-        type(Grid_T), intent(in) :: Grid
-        type(State_T), intent(inout) :: State
-
-        integer :: i,j,k
-        real(rp), dimension(NVAR) :: pW,pCon
-        real(rp), dimension(NDIM) :: dVel
-        real(rp) :: Cs
-
-        !$OMP PARALLEL DO default(shared) &
-        !$OMP private(i,j,k,pW,pCon,dVel,Cs)
-        do k=Grid%ks,Grid%ke
-            do j=Grid%js,Grid%je
-                do i=Grid%is,Grid%ie
-                    pCon = State%Gas(i,j,k,:,BLK)
-                    call CellC2P(Model,pCon,pW)
-                    call CellPress2Cs(Model,pCon,Cs)
-                    dVel(XDIR) = genRand(-dCS,dCS)
-                    dVel(YDIR) = genRand(-dCS,dCS)
-                    dVel(ZDIR) = genRand(-dCS,dCS)
-                    pW(VELX:VELZ) = pW(VELX:VELZ) + dVel*Cs
-                    call CellP2C(Model,pW,pCon)
-                    State%Gas(i,j,k,:,BLK) = pCon
-                enddo
-            enddo
-        enddo
-
-    end subroutine JiggleState
-
     subroutine PerStep(Model,Gr,State)
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(inout) :: Gr
@@ -278,7 +240,6 @@ module useric
 
         !Call cooling function/s
         if (doCool) call ChillOut(Model,Gr,State)
-        if (doSuperChill) call SuperChill(Model,Gr,State)
         if (Model%doHeat) call Heat(Model,Gr,State)
         
     end subroutine PerStep
@@ -341,17 +302,6 @@ module useric
 
                     !Only inward (negative) mass flux
                     gFlx(Gr%is,j,k,DEN,IDIR,BLK) = min( 0.0,gFlx(Gr%is,j,k,DEN,IDIR,BLK) )
-
-                    ! !Calculate invariant latitude for face center
-                    ! invlat = rad2deg*InvLatitude(Gr%xfc(Gr%is,j,k,XDIR:ZDIR,IDIR))
-                    ! !Split based on low or high
-                    ! if (invlat<=llBC) then
-                    !     !Near equator kill outflow but allow inflow (negative mass flux)
-                    !     gFlx(Gr%is,j,k,DEN,IDIR,0:Model%nSpc) = min( gFlx(Gr%is,j,k,DEN,IDIR,0:Model%nSpc), 0.0 )
-                    ! else
-                    !     !Near cap kill outflow but allow inflow
-                    !     gFlx(Gr%is,j,k,DEN,IDIR,0:Model%nSpc) = min( gFlx(Gr%is,j,k,DEN,IDIR,0:Model%nSpc), 0.0 )
-                    ! endif
 
                 enddo
             enddo !K loop
@@ -490,29 +440,11 @@ module useric
                     Veb = cross(Exyz,Bd)/dot_product(Bd,Bd)
                     Vxyz = Veb - rHatP*dot_product(rHatP,Veb)
 
-                    ! if (isLL) then
-                    !     !In low-lat the ExB velocity isn't informed by remix
-                    !     !Veb = 0.0
-                    !     !Velocity is non-radial component of mirror velocity
-                    !     !Vxyz = Vmir - rHat*dot_product(rHat,Vmir)
-
-                    !     !Using ExB everywhere
-                    !     Veb = cross(Exyz,Bd)/dot_product(Bd,Bd)
-                    !     Vxyz = Veb - rHat*dot_product(rHat,Veb)
-                    ! else
-                    !     !Use E field from remix                        
-                    !     !Ignore dB in ExB (dipole dominated)
-                    !     Veb = cross(Exyz,Bd)/dot_product(Bd,Bd)
-
-                    !     !Velocity is non-radial component of EB (ignoring mirror)
-                    !     Vxyz = Veb - rHat*dot_product(rHat,Veb) - 0*rHat*dot_product(rHat,Vmir)
-                    ! endif
                     
                 !-------
                 !Set ghost hydro quantities
                     !Let density float
                     call SphereWall(Model,State%Gas(ig,j,k,:,:),State%Gas(ip,jp,kp,:,:),Vxyz)
-
                     ! !Now do polar outflow if testing
                     ! if (Model%doMultiF .and. (invlat>=80) .and. (Model%nSpc>2)) then
                     !     gW(DEN) = 100.0
@@ -523,6 +455,7 @@ module useric
                     !     !Reset bulk
                     !     call MultiF2Bulk(Model,State%Gas(ig,j,k,:,:))
                     ! endif
+
                 !-------
                 !Now handle magnetic quantities
                     if (isLL) then
