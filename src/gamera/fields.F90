@@ -8,15 +8,9 @@ module fields
 
     implicit none
 
-    logical, parameter :: doVa  = .true. !Use Alfven speed in diffusive velocity
-    logical, parameter :: doRingRenorm = .false. !Do ring renormalization on faces/fluxes, pretty slow
-    logical, parameter :: doVdA = .true. !Do area scaling for velocity->corner
-    logical, parameter :: doBdA = .true. !Do area scaling for face flux->edge
-
-    logical :: initField = .true. !Do we need to initialize module workspaces
-    real(rp), dimension(:,:,:,:), allocatable, private :: Vf
-    !Vf(i,j,k,XYZ-DIR), XYZ velocities pushed to dT1 faces
-    !Vf = (Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,NDIM)
+    logical, parameter, private :: doVa  = .true. !Use Alfven speed in diffusive velocity
+    logical, parameter, private :: doVdA = .true. !Do area scaling for velocity->corner
+    logical, parameter, private :: doBdA = .true. !Do area scaling for face flux->edge
 
     contains
 
@@ -85,17 +79,18 @@ module fields
         integer :: i,iB,ieB,j,k,iG,iMax
         integer :: ie,je,ke,ksg,keg
         integer :: eD,eD0,dT1,dT2
+        !Vf(i,j,k,XYZ-DIR), XYZ velocities pushed to dT1 faces
+        !Vf = (Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,NDIM)
+        real(rp), dimension(:,:,:,:), allocatable :: Vf
 
         !DIR$ ASSUME_ALIGNED E: ALIGN
         !DIR$ ATTRIBUTES align : ALIGN :: v1,v2,b1,b2,Jd,Dc,vDiff,VelB
+        !DIR$ attributes align : ALIGN :: Vf
 
-        if (initField) then
-            !Initialize workspaces
-            !Vf(i,j,k,XYZ-DIR), XYZ velocities pushed to dT1 faces
-            allocate(Vf(Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,NDIM))
-            Vf = 0.0
-            initField = .false.
-        endif
+
+        !Initialize Vf array, Vf(i,j,k,XYZ-DIR): XYZ velocities pushed to dT1 faces
+        allocate(Vf(Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,NDIM))
+        Vf = 0.0
 
         !Prep bounds for this timestep
         eD0 = 1 !Starting direction for EMF
@@ -329,12 +324,6 @@ module fields
         !dT1 faces in dT2 direction
         call LoadBlockI(Model,Gr,AreaB      ,Gr%Face(:,:,:,dT1),iB,j,k,iMax,dT2)
         call LoadBlockI(Model,Gr,MagB(:,:,1),  bFlux(:,:,:,dT1),iB,j,k,iMax,dT2)
-
-        if (Model%doRing .and. doRingRenorm) then
-            !Note flipped dT2/dT1 for different component/stencil ordering
-            call RingRenorm(Model,Gr,AreaB      ,iB,j,k,dT2,dT1)
-            call RingRenorm(Model,Gr,MagB(:,:,1),iB,j,k,dT2,dT1)
-        endif
         
         !Split into L/Rs
         if (doBdA) then

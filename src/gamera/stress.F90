@@ -18,16 +18,7 @@ module stress
     !Signs for left/right going fluxes @ interfaces
     integer, dimension(2) :: SgnLR=[-1,1]
 
-    logical :: initStress = .true.
-    !Big local work areas to calculate fluxes
-    !gFlux = Ni x Nj x Nk x Nv x Nd x Ns
-    !mFlux = Ni x Nj x Nk x Nd x Nd
-
-    real(rp), dimension(:,:,:,:,:,:), allocatable, private :: gFlx
-    real(rp), dimension(:,:,:,:,:)  , allocatable, private :: mFlx
-
     logical, parameter, private :: doRingFlux = .true.
-    logical, parameter, private :: doRingVolRenorm = .false. !Renormalize volume around singularity
     logical, parameter, private :: doNuke = .true. !Do nuclear option, currently testing
     !For background either do cell-centered force (doB0cc=true)
     !or L/R interface stresses 
@@ -35,7 +26,7 @@ module stress
     logical, parameter, private :: doB0cc = .true. 
     !cLim: Vile magic number, when to apply nuclear option (v>cLim*Ca)
     !LFM uses 1.5
-    real(rp), parameter :: cLim = 1.5
+    real(rp), parameter, private :: cLim = 1.5
 
     contains
 
@@ -62,7 +53,13 @@ module stress
         integer :: ks,ke !For 2.5D handling
         logical :: doMaxwell
         real(rp) :: dV
-        
+        !Big local work areas to calculate fluxes
+        !gFlux = Ni x Nj x Nk x Nv x Nd x Ns
+        !mFlux = Ni x Nj x Nk x Nd x Nd
+        real(rp), dimension(:,:,:,:,:,:), allocatable :: gFlx
+        real(rp), dimension(:,:,:,:,:)  , allocatable :: mFlx
+
+        !DIR$ attributes align : ALIGN :: gFlx,mFlx
         !DIR$ ASSUME_ALIGNED dGasH: ALIGN
         !DIR$ ASSUME_ALIGNED dGasM: ALIGN
 
@@ -83,18 +80,16 @@ module stress
         doMaxwell = .false.
         if ( present(dGasM) .and. Model%doMHD  ) doMaxwell = .true.
 
-        !Initialize arrays if first call
-        if (initStress) then
-            !Hydro fluxes in all dimensions/species
-            allocate(gFlx(Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,1:NVAR,1:NDIM,BLK:Model%nSpc))
-            gFlx = 0.0
-            !Mag fluxes in all dimensions
-            if (doMaxwell) then
-                allocate(mFlx(Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,1:NDIM,1:NDIM))
-                mFlx = 0.0
-            endif
-            initStress = .false.
+        !Allocate/initialize arrays
+        !Hydro fluxes in all dimensions/species
+        allocate(gFlx(Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,1:NVAR,1:NDIM,BLK:Model%nSpc))
+        gFlx = 0.0
+        !Mag fluxes in all dimensions
+        if (doMaxwell) then
+            allocate(mFlx(Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,1:NDIM,1:NDIM))
+            mFlx = 0.0
         endif
+
         !Done initialization
 
     !Main parallel region
@@ -271,9 +266,7 @@ module stress
     !---------------------------
         !Get geometric information, Need recLen/2 radius about each i,j,k in brickette
         call LoadBlock(Model,Gr,VolB,Gr%volume,iB,j,k,iMax,dN)
-        if (Model%doRing .and. doRingVolRenorm) then
-            call RingRenorm(Model,Gr,VolB,iB,j,k,dN)
-        endif
+
         !Get relevant face transforms/area (no stencil needed)
         TfB(1:iMax,:) = Gr%Tf  (isB:ieB,j,k,:,dN)
         faB(1:iMax  ) = Gr%face(isB:ieB,j,k,  dN)
