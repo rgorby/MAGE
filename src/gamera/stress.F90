@@ -90,13 +90,10 @@ module stress
         !Done initialization
 
     !Main parallel region
+        call Tic("Fluxes")
     !Open one big parallel region, attach to individual loops
         !$OMP PARALLEL default(shared) private(i,iB,j,k,d,dV)
         
-        !$OMP SINGLE
-        call Tic("Fluxes")
-        !$OMP END SINGLE NOWAIT
-
         !Flux loop, calculate brick of fluxes for all species
         !---------------------------
         do d=1,nFlx
@@ -350,7 +347,11 @@ module stress
                         bhat = normVec(bAvg)
 
                         !Now apply mag hogs to only perp components
-                        dVeeP = Vec2Perp(dVel(i,XDIR:ZDIR),bhat)
+
+                        !TEST
+                        !dVeeP = Vec2Perp(dVel(i,XDIR:ZDIR),bhat)
+                        
+                        dVeeP = dVel(i,XDIR:ZDIR)
                         mFlxB(i,XDIR:ZDIR) = mFlxB(i,XDIR:ZDIR) - Model%cHogM*VaD(i)*bbD(i)*dVeeP/(Model%Ca**2.0)
                     enddo
                 endif !Boris HOGS

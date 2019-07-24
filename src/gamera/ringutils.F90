@@ -517,11 +517,14 @@ module ringutils
             IntE = P/(Model%gamma-1) !Internal energy
 
             B = rB(n,:)
-            if (Model%doBoris) then
-                rMom = Class2Boris(Model,D,Mom,B)
-            else
-                rMom = Mom
-            endif
+            rMom = Mom
+            
+            !TEST
+            ! if (Model%doBoris) then
+            !     rMom = Class2Boris(Model,D,Mom,B)
+            ! else
+            !     rMom = Mom
+            ! endif
 
             !Put ring variables back in (in place)
             rW(n,DEN) = D
@@ -548,12 +551,14 @@ module ringutils
             P  = max( rW(n,ENERGY)*(Model%gamma-1), pFloor )
             IntE = P/(Model%gamma-1)
             B = rB(n,:)
-            
-            if (Model%doBoris) then
-                Mom = Boris2Class(Model,D,rMom,B)
-            else
-                Mom = rMom
-            endif
+            Mom = rMom
+
+            !TEST
+            ! if (Model%doBoris) then
+            !     Mom = Boris2Class(Model,D,rMom,B)
+            ! else
+            !     Mom = rMom
+            ! endif
             KinE = 0.5*dot_product(Mom,Mom)/D
 
             !Put conserved variables back

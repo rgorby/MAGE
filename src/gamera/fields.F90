@@ -241,23 +241,24 @@ module fields
 
         !$OMP END PARALLEL
 
-        if ( Model%doRing .and. (Model%Ring%doS .or. Model%Ring%doE) ) then
-            select case (Model%Ring%GridID)
-            case ("lfm")
-                if (Model%Ring%doS) then
-                    EDiff(:,Gr%js  ,:,IDIR:KDIR) = 0.0
-                    EDiff(:,Gr%js+1,:,IDIR) = 0.0
-                    EDiff(:,Gr%js+1,:,KDIR) = 0.0
+        !TEST
+        ! if ( Model%doRing .and. (Model%Ring%doS .or. Model%Ring%doE) ) then
+        !     select case (Model%Ring%GridID)
+        !     case ("lfm")
+        !         if (Model%Ring%doS) then
+        !             EDiff(:,Gr%js  ,:,IDIR:KDIR) = 0.0
+        !             EDiff(:,Gr%js+1,:,IDIR) = 0.0
+        !             EDiff(:,Gr%js+1,:,KDIR) = 0.0
 
-                endif
-                if (Model%Ring%doE) then
-                    EDiff(:,Gr%je+1,:,IDIR:KDIR) = 0.0
-                    EDiff(:,Gr%je  ,:,IDIR) = 0.0
-                    EDiff(:,Gr%je  ,:,KDIR) = 0.0
-                endif
-            end select
+        !         endif
+        !         if (Model%Ring%doE) then
+        !             EDiff(:,Gr%je+1,:,IDIR:KDIR) = 0.0
+        !             EDiff(:,Gr%je  ,:,IDIR) = 0.0
+        !             EDiff(:,Gr%je  ,:,KDIR) = 0.0
+        !         endif
+        !     end select
 
-        endif
+        ! endif
 
         !$OMP PARALLEL WORKSHARE
         E = E + EDiff
@@ -494,9 +495,10 @@ module fields
             dSE = ccD(i2 ,j2 ,k2 )
             dSW = ccD(i12,j12,k12)
 
-            Dc(i) = (wNE*dNE + wNW*dNW + wSE*dSE + wSW*dSW)/(wNE+wNW+wSE+wSW)
+            !TEST
+            !Dc(i) = (wNE*dNE + wNW*dNW + wSE*dSE + wSW*dSW)/(wNE+wNW+wSE+wSW)
 
-            !Dc(i) = 0.25*( ccD(iG,j,k) + ccD(i1,j1,k1) + ccD(i2,j2,k2) + ccD(i12,j12,k12) )
+            Dc(i) = 0.25*( ccD(iG,j,k) + ccD(i1,j1,k1) + ccD(i2,j2,k2) + ccD(i12,j12,k12) )
         enddo
     end subroutine GetCornerD
 
