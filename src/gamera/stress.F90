@@ -227,8 +227,7 @@ module stress
 
         !Scalar holders
         real(rp) :: vL,vR,Vn
-        real(rp) :: RhoML,RhoMR
-        real(rp), dimension(NDIM) :: deeP,bAvg,bhat
+        real(rp), dimension(NDIM) :: bAvg,bhat,dVeeP
 
         !Indices
         integer :: ie,iMax,isB,ieB,iG !Vector direction indices
@@ -342,18 +341,17 @@ module stress
                 !Boris hogs (only do for bulk species)
                 if (Model%doBoris .and. isBulk) then
                     do i=1,iMax
-                        !Calculate del(rho_m v), the magnetic momentum
-                        RhoML = norm2( B0(i,XDIR:ZDIR) + MagLRB(i,XDIR:ZDIR,LEFT ) )**2.0/(Model%Ca**2.0)
-                        RhoMR = norm2( B0(i,XDIR:ZDIR) + MagLRB(i,XDIR:ZDIR,RIGHT) )**2.0/(Model%Ca**2.0)
-                        deeP = RhoMR*PrimLRB(i,VELX:VELZ,RIGHT) - RhoML*PrimLRB(i,VELX:VELZ,LEFT)
 
                         !Get average XYZ field @ interface
-                        bAvg = B0(i,XDIR:ZDIR) + 0.5*( MagLRB(i,XDIR:ZDIR,LEFT) + MagLRB(i,XDIR:ZDIR,RIGHT) )
+                        bAvg = 0.5*( MagLRB(i,XDIR:ZDIR,LEFT) + MagLRB(i,XDIR:ZDIR,RIGHT) )
+                        if (Model%doBackground) then
+                            bAvg = bAvg + B0(i,XDIR:ZDIR)
+                        endif
                         bhat = normVec(bAvg)
 
                         !Now apply mag hogs to only perp components
-                        mFlxB(i,XDIR:ZDIR) = mFlxB(i,XDIR:ZDIR) - Model%cHogM*VaD(i)*Vec2Perp(deeP,bhat)
-
+                        dVeeP = Vec2Perp(dVel(i,XDIR:ZDIR),bhat)
+                        mFlxB(i,XDIR:ZDIR) = mFlxB(i,XDIR:ZDIR) - Model%cHogM*VaD(i)*bbD(i)*dVeeP/(Model%Ca**2.0)
                     enddo
                 endif !Boris HOGS
 
