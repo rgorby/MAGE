@@ -35,7 +35,7 @@ contains
 
     call convertGameraToRemix(gameraApp, voltronApp%remixApp)
 
-    call mhd2mix(voltronApp%remixApp) ! this calls run_remix inside, should be split into its own function call
+    call mhd2mix(voltronApp%remixApp)
 
     ! verify that remix input FAC is all zeroes
     testValue = sum(abs(voltronApp%remixApp%ion(NORTH)%St%Vars(:,:,FAC))) + sum(abs(voltronApp%remixApp%ion(SOUTH)%St%Vars(:,:,FAC)))

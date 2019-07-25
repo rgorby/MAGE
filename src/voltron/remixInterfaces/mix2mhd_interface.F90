@@ -191,7 +191,6 @@ contains
        end do
     end do
 
-    call run_mix(remixApp%ion,remixApp%tilt,remixApp%conductance)
   end subroutine mhd2mix
 
   subroutine mix2mhd(remixApp)

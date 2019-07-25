@@ -94,7 +94,9 @@ program MIX
 
 
 !     ! get tilt from MHD eventually
-!     call mhd2mix(ion, mhdvars, -9999._rp) ! calls run_mix inside
+!     call mhd2mix(ion, mhdvars, -9999._rp)
+
+!     call run_mix(remixApp%ion,remixApp%tilt,remixApp%conductance)
 
 !     ! now interpolate from mix to gamera
 !     allocate (psi(4, nj + 1, nk/2 + 1, 1, 2)) ! (i,j,k,var,hemisphere)

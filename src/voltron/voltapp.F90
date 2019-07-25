@@ -76,8 +76,11 @@ module voltapp
         type(mixApp_T), intent(inout) :: remixApp
         real(rp), intent(in) :: time
 
-        ! calls run_mix inside
+        ! convert gamera inputs to remix
         call mhd2mix(remixApp)
+
+        ! solve for remix output
+        call run_mix(remixApp%ion,remixApp%tilt,remixApp%conductance)
 
         ! get stuff from mix to gamera
         call mix2mhd(remixApp)
