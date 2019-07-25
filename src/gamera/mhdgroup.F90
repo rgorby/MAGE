@@ -74,18 +74,11 @@ module mhdgroup
 
         !Ring average if necessary
         !Ring average configuration and this grid contains part of singularity
+        call Tic("Ring-Average")
         if ( Model%doRing .and. (Model%Ring%doS .or. Model%Ring%doE) ) then
-            call Tic("Ring-Average")
-            call Tic("RA-Hydro")
-            call RingAvgHydro(Model,Grid,State)
-            call Toc("RA-Hydro")
-            if (Model%doMHD) then
-                call Tic("RA-Mag")
-                call RingAvgMag(Model,Grid,State)
-                call Toc("RA-Mag")
-            endif
-            call Toc("Ring-Average")
+            call RingAverage(Model,Grid,State)
         endif
+        call Toc("Ring-Average")
 
     end subroutine AdvanceMHD
     

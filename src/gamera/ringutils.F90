@@ -7,11 +7,18 @@
 module ringutils
     use types
     use gamutils
+    use math
     use xml_input
     implicit none
 
     !Number of rings to average over, size of circumferential direction
     integer :: NumR, Np, Np2
+
+    !Enumerators for singularity sides (i.e. positive/negative axis)
+    !SPOLE is pole at xs, EPOLE is pole at xe
+    enum, bind(C)
+        enumerator :: SPOLE=1,EPOLE
+    endenum
 
     contains
 
@@ -363,46 +370,6 @@ module ringutils
 
     end subroutine lfmIJK
 
-    !Renormalization for face-area/flux/volume in stencils
-    !dC = component direction
-    !dS = stencil direction
-    subroutine RingRenorm(Model,Gr,Qb,iB,j,k,dS,dC)
-        type(Model_T), intent(in) :: Model
-        type(Grid_T), intent(in) :: Gr
-        integer, intent(in) :: iB,j,k,dS
-        integer, intent(in), optional :: dC
-        real(rp), intent(inout) :: Qb(vecLen,recLen)
-
-        real(rp) :: Scl = 3.0
-        integer :: rL
-        logical :: doRenorm
-
-        select case (Model%Ring%GridID)
-        !---------------
-        case ("lfm")
-            if (present(dC)) then
-                !Mag flux reconstruction
-                doRenorm = (dS==JDIR) .and. (dC==IDIR) .and. (Model%Ring%doE .or. Model%Ring%doS)
-            else
-                !Conserved quantity reconstruction
-                doRenorm = (dS==JDIR) .and. (Model%Ring%doE .or. Model%Ring%doS)
-            endif
-            if (doRenorm) then
-                if (j<=Model%Ng .and. Model%Ring%doS) then
-                !if ( j == Gr%js+1 .and. Model%Ring%doS ) then
-                    rL = Model%Ng-j+1
-                    Qb(:,rL:rL+1) = Scl*Qb(:,rL:rL+1)
-                elseif ( (Gr%je-j+1)< Model%Ng .and. Model%Ring%doE ) then
-                !elseif ( j == Gr%je .and. Model%Ring%doE ) then
-                    rL = Gr%je-j+1+Model%Ng
-                    Qb(:,rL:rL+1) = Scl*Qb(:,rL:rL+1)
-                endif
-            endif
-
-        end select
-
-    end subroutine RingRenorm
-
     !Ensure no flux through degenerate faces
     subroutine RingFlux(Model,Gr,gFlx,mFlx)
         type(Model_T), intent(in) :: Model
@@ -421,121 +388,243 @@ module ringutils
         end select
     end subroutine RingFlux
     
-    !Pulls out a circumferential ring/s (nR,nS)
-    !OdoM = Do magnetic fluxes
-    subroutine PullRing(Model,Gr,Q,rWm,rWp,nR,nS,NumV,OdoM)
+!-----
+!Routines for pulling/pushing and converting variables
+
+    !Push ring back into cell-centered variables
+    subroutine PushRingCC(Model,Gr,Qcc,Qr,nR,nS,NumV,XPOLE)
         type (Model_T), intent(in) :: Model
         type (Grid_T) , intent(in) :: Gr
-        real(rp)  , intent(in) :: Q(Gr%isg:,Gr%jsg:,Gr%ksg:,1:)
-        integer, intent(in) :: nR,nS,NumV
-        real(rp), dimension(Np,NumV), intent(inout) :: rWm,rWp
-        logical, intent(in), optional :: OdoM
-
-        logical :: doM
-
-        doM = .false.
-        if (present(OdoM)) then
-            doM = OdoM
-        endif
+        real(rp), intent(inout) :: Qcc(Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,NumV)
+        integer, intent(in) :: nR,nS,NumV,XPOLE
+        real(rp), dimension(Np,NumV), intent(in) :: Qr
 
         select case (Model%Ring%GridID)
         case ("cyl")
             !Cylindrical
-            if (doM) then
-                !Fluxes
-                !Start at I-flux is+1, rest @ is
-                rWp(:,IDIR) = Q(Gr%is+nR  ,Gr%js:Gr%je,nS,IDIR)
-                rWp(:,JDIR) = Q(Gr%is+nR-1,Gr%js:Gr%je,nS,JDIR)
-                rWp(:,KDIR) = Q(Gr%is+nR-1,Gr%js:Gr%je,nS,KDIR)
-            else
-                rWp = Q(Gr%is+nR-1,Gr%js:Gr%je,nS,:)
+            if (XPOLE == SPOLE) then
+                Qcc(Gr%is+nR-1,Gr%js:Gr%je,nS,:) = Qr
             endif
-            !Just set rWm to rWp (one-sided pole)
-            rWm = rWp
 
+            if (XPOLE == EPOLE) then
+                !No meaningfull data
+                return
+            endif
+        case ("lfm")        
+            !LFM-style axis
+            if (XPOLE == SPOLE) then
+                Qcc(nS,Gr%js+nR-1,Gr%ks:Gr%ke,:) = Qr
+            endif
+            if (XPOLE == EPOLE) then
+                Qcc(nS,Gr%je-nR+1,Gr%ks:Gr%ke,:) = Qr
+            endif
+
+        end select
+    end subroutine PushRingCC
+
+    !Pull ring from cell-centered variables
+    subroutine PullRingCC(Model,Gr,Qcc,Qr,nR,nS,NumV,XPOLE)
+        type (Model_T), intent(in) :: Model
+        type (Grid_T) , intent(in) :: Gr
+        real(rp), intent(in) :: Qcc(Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,NumV)
+        integer, intent(in) :: nR,nS,NumV,XPOLE
+        real(rp), dimension(Np,NumV), intent(inout) :: Qr
+
+        select case (Model%Ring%GridID)
+        case ("cyl")
+            !Cylindrical
+            if (XPOLE == SPOLE) then
+                Qr = Qcc(Gr%is+nR-1,Gr%js:Gr%je,nS,:)
+            endif
+
+            if (XPOLE == EPOLE) then
+                !No meaningfull data
+                Qr = 0.0
+            endif
+        case ("lfm")        
+            !LFM-style axis
+            if (XPOLE == SPOLE) then
+                Qr = Qcc(nS,Gr%js+nR-1,Gr%ks:Gr%ke,:)
+            endif
+            if (XPOLE == EPOLE) then
+                Qr = Qcc(nS,Gr%je-nR+1,Gr%ks:Gr%ke,:)
+            endif
+
+        end select
+    end subroutine PullRingCC
+
+    !Pull ring from interface-centered fluxes
+    subroutine PullRingI(Model,Gr,Qfc,Qr,nR,nS,XPOLE)
+        type (Model_T), intent(in) :: Model
+        type (Grid_T) , intent(in) :: Gr
+        real(rp), intent(in) :: Qfc(Gr%isg:Gr%ieg+1,Gr%jsg:Gr%jeg+1,Gr%ksg:Gr%keg+1,NDIM)
+        integer, intent(in) :: nR,nS,XPOLE
+        real(rp), dimension(Np,NDIM), intent(inout) :: Qr
+
+        select case (Model%Ring%GridID)
+        case ("cyl")
+            !Cylindrical
+            if (XPOLE == SPOLE) then
+                !Start at I-flux is+1, rest @ is
+                Qr(:,IDIR) = Qfc(Gr%is+nR  ,Gr%js:Gr%je,nS,IDIR)
+                Qr(:,JDIR) = Qfc(Gr%is+nR-1,Gr%js:Gr%je,nS,JDIR)
+                Qr(:,KDIR) = Qfc(Gr%is+nR-1,Gr%js:Gr%je,nS,KDIR)
+            endif
+
+            if (XPOLE == EPOLE) then
+                !No meaningfull data
+                Qr = 0.0
+            endif
         case ("lfm")
-            !Do LFM +/- pole
-            if (doM) then
-            !Fluxes
+            !LFM-style singularity
+            if (XPOLE == SPOLE) then
                 !For +X pole
                 !start at J-Flux js+1
                 !start at I-Flux js
-                rWp(:,JDIR) = Q(nS,Gr%js+nR  ,Gr%ks:Gr%ke,JDIR)
-                rWp(:,IDIR) = Q(nS,Gr%js+nR-1,Gr%ks:Gr%ke,IDIR)
-                rWp(:,KDIR) = Q(nS,Gr%js+nR-1,Gr%ks:Gr%ke,KDIR)
-                
+                Qr(:,IDIR) = Qfc(nS,Gr%js+nR-1,Gr%ks:Gr%ke,IDIR)
+                Qr(:,JDIR) = Qfc(nS,Gr%js+nR  ,Gr%ks:Gr%ke,JDIR)
+                Qr(:,KDIR) = Qfc(nS,Gr%js+nR-1,Gr%ks:Gr%ke,KDIR)
+            endif
+            if (XPOLE == EPOLE) then
                 !For -X pole
                 !start at J-Flux je
                 !start at I-Flux je
-                rWm(:,:)    = Q(nS,Gr%je-nR+1,Gr%ks:Gr%ke,:)
-                
-            else
-                !Cell-centers
-                rWm = Q(nS,Gr%je-nR+1,Gr%ks:Gr%ke,:)
-                rWp = Q(nS,Gr%js+nR-1,Gr%ks:Gr%ke,:)
+                Qr(:,IDIR:KDIR) = Qfc(nS,Gr%je-nR+1,Gr%ks:Gr%ke,IDIR:KDIR)
             endif
 
-        end select
+        end select        
+    end subroutine PullRingI
 
-    end subroutine PullRing
-
-    !Puts back a circumferential ring/s (nR,nS)
-    subroutine PushRing(Model,Gr,Q,rWm,rWp,nR,nS,NumV)
-        type (Model_T), intent(in) :: Model
-        type (Grid_T) , intent(in) :: Gr
-        real(rp)  , intent(inout) :: Q(Gr%isg:,Gr%jsg:,Gr%ksg:,1:)
-        integer, intent(in) :: nR,nS,NumV
-        real(rp), dimension(Np,NumV), intent(in) :: rWm,rWp
-
-        select case (Model%Ring%GridID)
-        case ("cyl")
-            !Cylindrical
-            Q(Gr%is+nR-1,Gr%js:Gr%je,nS,:) = rWp
-        case ("lfm")
-            !Do LFM +/- pole
-            if (Model%Ring%doS) Q(nS,Gr%js+nR-1,Gr%ks:Gr%ke,:) = rWp
-            if (Model%Ring%doE) Q(nS,Gr%je-nR+1,Gr%ks:Gr%ke,:) = rWm
-        end select
-
-    end subroutine PushRing
-
-    !Convert from conservative variables to variables for ring averaging
-    !Currently using mass,momentum,internal energy
-    subroutine Con2Ring(Model,rW)
+    !Convert to hydro variables to ringav variables
+    !Conserved -> ring avg
+    !density,momentum,plasma energy -> density,semi-relativistic momentum, thermal energy
+    subroutine Gas2Ring(Model,rW,rB)
         type (Model_T), intent(in) :: Model
         real(rp), intent(inout) :: rW(Np,NVAR)
+        real(rp), intent(in) :: rB(Np,NDIM)
 
         integer :: n
-        real(rp) :: D,Mx,My,Mz,E,P,KinE
-        do n=1,Np
-            D  = max( rW(n,DEN), dFloor )
-            Mx = rW(n,MOMX)
-            My = rW(n,MOMY)
-            Mz = rW(n,MOMZ)
-            E  = rW(n,ENERGY)
+        real(rp) :: D,E,P,KinE,IntE
+        real(rp), dimension(NDIM) :: Mom,rMom,B
 
-            KinE = 0.5*(Mx**2.0 + My**2.0 + Mz**2.0)/D
+        do n=1,Np
+            D = max( rW(n,DEN), dFloor )
+            Mom = rW(n,MOMX:MOMZ)
+            E = rW(n,ENERGY)
+
+            KinE = 0.5*dot_product(Mom,Mom)/D
             P = max( (Model%gamma-1)*(E-KinE) , pFloor )
-            rW(n,ENERGY) = P/(Model%gamma-1) !Internal energy
-        enddo
-    end subroutine Con2Ring
+            IntE = P/(Model%gamma-1) !Internal energy
 
-    subroutine Ring2Con(Model,rW)
+            B = rB(n,:)
+            rMom = Mom
+            
+            !TEST
+            ! if (Model%doBoris) then
+            !     rMom = Class2Boris(Model,D,Mom,B)
+            ! else
+            !     rMom = Mom
+            ! endif
+
+            !Put ring variables back in (in place)
+            rW(n,DEN) = D
+            rW(n,MOMX:MOMZ) = rMom
+            rW(n,ENERGY) = IntE
+        enddo
+
+    end subroutine Gas2Ring
+
+    !Convert ringav variables back to hydro variables
+    subroutine Ring2Gas(Model,rW,rB)
         type (Model_T), intent(in) :: Model
         real(rp), intent(inout) :: rW(Np,NVAR)
+        real(rp), intent(in) :: rB(Np,NDIM)
 
         integer :: n
-        real(rp) :: D,Mx,My,Mz,E,P,KinE
+        real(rp) :: D,E,P,KinE,IntE
+        real(rp), dimension(NDIM) :: Mom,rMom,B
+
         do n=1,Np
             D  = max( rW(n,DEN), dFloor )
-            Mx = rW(n,MOMX)
-            My = rW(n,MOMY)
-            Mz = rW(n,MOMZ)
+            rMom = rW(n,MOMX:MOMZ)
             !IntE->P & floor ->IntE
             P  = max( rW(n,ENERGY)*(Model%gamma-1), pFloor )
-            KinE = 0.5*(Mx**2.0 + My**2.0 + Mz**2.0)/D
-            rW(n,ENERGY) = KinE + P/(Model%gamma-1)
-        enddo
-        
-    end subroutine Ring2Con
+            IntE = P/(Model%gamma-1)
+            B = rB(n,:)
+            Mom = rMom
+
+            !TEST
+            ! if (Model%doBoris) then
+            !     Mom = Boris2Class(Model,D,rMom,B)
+            ! else
+            !     Mom = rMom
+            ! endif
+            KinE = 0.5*dot_product(Mom,Mom)/D
+
+            !Put conserved variables back
+            rW(n,DEN) = D
+            rW(n,MOMX:MOMZ) = Mom
+            rW(n,ENERGY) = KinE+IntE
+
+        enddo        
+    end subroutine Ring2Gas
+
+    !Boris <-> Classical momentum routines
+    function Class2Boris(Model,D,Mom,B) result(rMom)
+        type(Model_T), intent(in) :: Model
+        real(rp), intent(in) :: D
+        real(rp), dimension(NDIM), intent(in) :: Mom,B
+        real(rp), dimension(NDIM) :: rMom
+
+        real(rp) :: MagB,VoC2
+        real(rp), dimension(NDIM) :: bhat
+        real(rp), dimension(NDIM,NDIM) :: Eye3,bb,toRel
+
+        Eye3 = 0.0
+        Eye3(XDIR,XDIR) = 1.0; Eye3(YDIR,YDIR) = 1.0; Eye3(ZDIR,ZDIR) = 1.0
+        MagB = norm2(B)
+
+        if (MagB > TINY) then
+            bhat = normVec(B)
+            bb = Dyad(bhat,bhat)
+            VoC2 = dot_product(B,B)/(D*Model%Ca*Model%Ca)
+            VoC2 = min(1.0-TINY,VoC2)
+
+            toRel = Eye3 + VoC2*( Eye3 - bb )
+            rMom = VdT(Mom,toRel)
+        else
+            rMom = Mom
+        endif
+
+    end function Class2Boris
+
+    function Boris2Class(Model,D,rMom,B) result(Mom)
+        type(Model_T), intent(in) :: Model
+        real(rp), intent(in) :: D
+        real(rp), dimension(NDIM), intent(in) :: rMom,B
+        real(rp), dimension(NDIM) :: Mom
+
+        real(rp) :: MagB,VoC2,ga2
+        real(rp), dimension(NDIM) :: bhat
+        real(rp), dimension(NDIM,NDIM) :: Eye3,bb,toClass
+
+        Eye3 = 0.0
+        Eye3(XDIR,XDIR) = 1.0; Eye3(YDIR,YDIR) = 1.0; Eye3(ZDIR,ZDIR) = 1.0
+        MagB = norm2(B)
+
+        if (MagB > TINY) then
+            bhat = normVec(B)
+            bb = Dyad(bhat,bhat)
+            VoC2 = dot_product(B,B)/(D*Model%Ca*Model%Ca)
+            VoC2 = min(1.0-TINY,VoC2)
+            ga2 = 1.0/(1.0+VoC2)
+
+            !Construct transform
+            toClass = ga2*( Eye3 + VoC2*bb )
+            Mom = VdT(rMom,toClass)       
+        else
+            Mom = rMom
+        endif
+    end function Boris2Class
+
 end module ringutils

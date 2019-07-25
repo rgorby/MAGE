@@ -450,14 +450,31 @@ module gioH5
 
     end subroutine writeH5Res
     
-    subroutine readH5Restart(Model,Gr,State,inH5)
+    subroutine readH5Restart(Model,Gr,State,inH5,doResetO,tResetO)
         type(Model_T), intent(inout) :: Model
         type(Grid_T),  intent(inout) :: Gr
         type(State_T), intent(inout) :: State
         character(len=*), intent(in) :: inH5
+        logical, intent(in), optional :: doResetO
+        real(rp), intent(in), optional :: tResetO
 
+        logical :: doReset
+        real(rp) :: tReset
         integer :: wDims(5),bDims(4)
         integer :: rSpc
+
+        !Test for resetting
+        if (present(doResetO)) then
+            doReset = doResetO
+            if (present(tResetO)) then
+                tReset = tResetO
+            else
+                tReset = 0.0
+            endif
+        else
+            doReset = .false.
+            tReset = 0.0
+        endif
 
         write(*,*) 'Reading restart from ', trim(inH5)
         inquire(file=inH5,exist=fExist)
@@ -513,17 +530,22 @@ module gioH5
         State%magFlux(is:ie+1,js:je+1,ks:ke+1,:) = reshape(IOVars(2)%data,bDims)
 
         !Get main attributes
-        Model%nOut = int(IOVars(3)%data(1))
-        Model%nRes = int(IOVars(4)%data(1)) + 1
-        Model%ts   = int(IOVars(5)%data(1))
-        Model%t = IOVars(6)%data(1)
-        State%time = Model%t
-        
-        !write(*,*) 'Model values = ', Model%nOut,Model%nRes,Model%ts,Model%t
-        
+        if (doReset) then
+            Model%nOut = 0
+            Model%nRes = int(IOVars(4)%data(1)) + 1
+            Model%ts = 0
+            Model%t = tReset
+        else
+            Model%nOut = int(IOVars(3)%data(1))
+            Model%nRes = int(IOVars(4)%data(1)) + 1
+            Model%ts   = int(IOVars(5)%data(1))
+            Model%t = IOVars(6)%data(1)
+        endif        
     !Do touchup to data structures
+        State%time = Model%t
         Model%tOut = floor(Model%t/Model%dtOut)*Model%dtOut
         Model%tRes = Model%t + Model%dtRes
+
     end subroutine readH5Restart
 
     !Output black box from crash

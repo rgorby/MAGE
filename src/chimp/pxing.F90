@@ -43,7 +43,7 @@ module pxing
             endif
 
             !Get weights from Z distance for interpolation
-            if (dZ>TINY) then
+            if ( max(abs(oZp),abs(nZp)) > TINY ) then
                 dZ = abs(oZp-nZp)
                 w1 = abs(nZp)/dZ
                 w2 = abs(oZp)/dZ

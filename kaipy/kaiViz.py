@@ -94,6 +94,17 @@ def SetAxLabs(Ax,xLab,yLab,doBot=True,doLeft=True,fs="medium"):
 		Ax.yaxis.tick_right()
 		Ax.yaxis.set_label_position('right')
 
+	#Kill labels if not string is None
+	if (xLab is None):
+		Ax.xaxis.label.set_visible(False)
+		Ax.xaxis.set_visible(False)
+		plt.setp(Ax.get_xticklabels(),visible=False)
+
+	if (yLab is None):
+		Ax.yaxis.label.set_visible(False)
+		Ax.yaxis.set_visible(False)
+		plt.setp(Ax.get_yticklabels(),visible=False)
+
 #Adds 2D earth w/ dawn/dusk
 def addEarth2D(Re=1, angle=-90, ax=None):
 	from matplotlib.patches import Wedge

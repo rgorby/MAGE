@@ -13,7 +13,7 @@ module init
     use quadrature
     use background
     use ringutils
-    use ringav
+    use ringrecon
     use recon
     use multifluid
 
@@ -50,11 +50,11 @@ module init
         procedure(StateIC_T), pointer :: initState => NULL()
         integer :: i
         character(len=strLen) :: resStr,inH5
-        logical :: fExist, doH5g, doH5ic
+        logical :: fExist, doH5g, doH5ic,doReset
+        real(rp) :: tReset
 
         !Alwasys zero for single process job
         Grid%ijkShift(1:3) = 0
-        CellBxyz => gamCellBxyz
 
         !Setup OMP info
 #ifdef _OPENMP
@@ -115,7 +115,12 @@ module init
             !If restart replace State variable w/ restart file
             !Make sure inH5 is set to restart
             call xmlInp%Set_Val(inH5,"restart/resFile","Res.h5")
-            call readH5Restart(Model,Grid,State,inH5)
+            !Test for resetting time
+            call xmlInp%Set_Val(doReset ,"restart/doReset" ,.false.)
+            call xmlInp%Set_Val(tReset,"restart/tReset",0.0_rp)
+
+            !Read restart
+            call readH5Restart(Model,Grid,State,inH5,doReset,tReset)
         endif
 
         !Do remaining things to finish state
@@ -278,9 +283,11 @@ module init
             Model%cHogH = 0.0
             Model%cHogM = 0.0
         endif
-
+    !Time options
+        !Check both omega/sim/tFin & gamera/time/tFin
         call xmlInp%Set_Val(Model%tFin,'time/tFin',1.0_rp)
-        
+        call xmlInp%Set_Val(Model%tFin,'/omega/sim/tFin',Model%tFin)
+
     !Output options
         call xmlInp%Set_Val(Model%tsOut,'output/tsOut',10)
         call xmlInp%Set_Val(Model%dtOut,'output/dtOut',0.1_rp)

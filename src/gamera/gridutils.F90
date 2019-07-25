@@ -21,7 +21,7 @@ module gridutils
         end function CellBxyz_T
     end interface
     !This points to chosen routine
-    procedure(CellBxyz_T), pointer :: CellBxyz
+    procedure(CellBxyz_T), pointer :: CellBxyz => gamCellBxyz
 
     contains
 

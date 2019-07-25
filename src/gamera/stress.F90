@@ -16,26 +16,14 @@ module stress
     endenum
     
     !Signs for left/right going fluxes @ interfaces
-    integer, dimension(2) :: SgnLR=[-1,1]
-
-    logical :: initStress = .true.
-    !Big local work areas to calculate fluxes
-    !gFlux = Ni x Nj x Nk x Nv x Nd x Ns
-    !mFlux = Ni x Nj x Nk x Nd x Nd
-
-    real(rp), dimension(:,:,:,:,:,:), allocatable, private :: gFlx
-    real(rp), dimension(:,:,:,:,:)  , allocatable, private :: mFlx
+    integer, parameter, dimension(2), private :: SgnLR=[-1,1]
 
     logical, parameter, private :: doRingFlux = .true.
-    logical, parameter, private :: doRingVolRenorm = .false. !Renormalize volume around singularity
     logical, parameter, private :: doNuke = .true. !Do nuclear option, currently testing
-    !For background either do cell-centered force (doB0cc=true)
-    !or L/R interface stresses 
 
-    logical, parameter, private :: doB0cc = .true. 
     !cLim: Vile magic number, when to apply nuclear option (v>cLim*Ca)
     !LFM uses 1.5
-    real(rp), parameter :: cLim = 1.5
+    real(rp), parameter, private :: cLim = 1.5
 
     contains
 
@@ -62,7 +50,13 @@ module stress
         integer :: ks,ke !For 2.5D handling
         logical :: doMaxwell
         real(rp) :: dV
-        
+        !Big local work areas to calculate fluxes
+        !gFlux = Ni x Nj x Nk x Nv x Nd x Ns
+        !mFlux = Ni x Nj x Nk x Nd x Nd
+        real(rp), dimension(:,:,:,:,:,:), allocatable :: gFlx
+        real(rp), dimension(:,:,:,:,:)  , allocatable :: mFlx
+
+        !DIR$ attributes align : ALIGN :: gFlx,mFlx
         !DIR$ ASSUME_ALIGNED dGasH: ALIGN
         !DIR$ ASSUME_ALIGNED dGasM: ALIGN
 
@@ -83,28 +77,23 @@ module stress
         doMaxwell = .false.
         if ( present(dGasM) .and. Model%doMHD  ) doMaxwell = .true.
 
-        !Initialize arrays if first call
-        if (initStress) then
-            !Hydro fluxes in all dimensions/species
-            allocate(gFlx(Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,1:NVAR,1:NDIM,BLK:Model%nSpc))
-            gFlx = 0.0
-            !Mag fluxes in all dimensions
-            if (doMaxwell) then
-                allocate(mFlx(Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,1:NDIM,1:NDIM))
-                mFlx = 0.0
-            endif
-            initStress = .false.
+        !Allocate/initialize arrays
+        !Hydro fluxes in all dimensions/species
+        allocate(gFlx(Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,1:NVAR,1:NDIM,BLK:Model%nSpc))
+        gFlx = 0.0
+        !Mag fluxes in all dimensions
+        if (doMaxwell) then
+            allocate(mFlx(Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,1:NDIM,1:NDIM))
+            mFlx = 0.0
         endif
+
         !Done initialization
 
     !Main parallel region
+        call Tic("Fluxes")
     !Open one big parallel region, attach to individual loops
         !$OMP PARALLEL default(shared) private(i,iB,j,k,d,dV)
         
-        !$OMP SINGLE
-        call Tic("Fluxes")
-        !$OMP END SINGLE NOWAIT
-
         !Flux loop, calculate brick of fluxes for all species
         !---------------------------
         do d=1,nFlx
@@ -189,7 +178,7 @@ module stress
                                           + mFlx(i,j,k,:,JDIR) - mFlx(i,j+1,k,:,JDIR) &
                                           + mFlx(i,j,k,:,KDIR) - mFlx(i,j,k+1,:,KDIR) )/dV
                         
-                        if (Model%doBackground .and. doB0cc) then
+                        if (Model%doBackground) then
                             !Add background field force terms
                             dGasM(i,j,k,:) = dGasM(i,j,k,:) + Gr%dpB0(i,j,k,:)
                         endif
@@ -235,6 +224,7 @@ module stress
 
         !Scalar holders
         real(rp) :: vL,vR,Vn
+        real(rp), dimension(NDIM) :: bAvg,bhat,dVeeP
 
         !Indices
         integer :: ie,iMax,isB,ieB,iG !Vector direction indices
@@ -271,9 +261,7 @@ module stress
     !---------------------------
         !Get geometric information, Need recLen/2 radius about each i,j,k in brickette
         call LoadBlock(Model,Gr,VolB,Gr%volume,iB,j,k,iMax,dN)
-        if (Model%doRing .and. doRingVolRenorm) then
-            call RingRenorm(Model,Gr,VolB,iB,j,k,dN)
-        endif
+
         !Get relevant face transforms/area (no stencil needed)
         TfB(1:iMax,:) = Gr%Tf  (isB:ieB,j,k,:,dN)
         faB(1:iMax  ) = Gr%face(isB:ieB,j,k,  dN)
@@ -341,7 +329,7 @@ module stress
                 !Hydro hogs
                 do nv=1,NVAR
                     do i=1,iMax
-                        if ( doFlx(i,LEFT) .and. doFlx(i,RIGHT) ) then
+                        if ( doFlx(i,LEFT) .or. doFlx(i,RIGHT) ) then
                             gFlxB(i,nv) = gFlxB(i,nv) - Model%cHogH*VaD(i)*dW(i,nv)
                         endif
                     enddo
@@ -349,10 +337,22 @@ module stress
 
                 !Boris hogs (only do for bulk species)
                 if (Model%doBoris .and. isBulk) then
-                    do nv=1,NDIM
-                        do i=1,iMax
-                            mFlxB(i,nv) = mFlxB(i,nv) - Model%cHogM*VaD(i)*bbD(i)*dVel(i,nv)/(Model%Ca**2.0)
-                        enddo
+                    do i=1,iMax
+
+                        !Get average XYZ field @ interface
+                        bAvg = 0.5*( MagLRB(i,XDIR:ZDIR,LEFT) + MagLRB(i,XDIR:ZDIR,RIGHT) )
+                        if (Model%doBackground) then
+                            bAvg = bAvg + B0(i,XDIR:ZDIR)
+                        endif
+                        bhat = normVec(bAvg)
+
+                        !Now apply mag hogs to only perp components
+
+                        !TEST
+                        !dVeeP = Vec2Perp(dVel(i,XDIR:ZDIR),bhat)
+                        
+                        dVeeP = dVel(i,XDIR:ZDIR)
+                        mFlxB(i,XDIR:ZDIR) = mFlxB(i,XDIR:ZDIR) - Model%cHogM*VaD(i)*bbD(i)*dVeeP/(Model%Ca**2.0)
                     enddo
                 endif !Boris HOGS
 
@@ -423,6 +423,9 @@ module stress
         !DIR$ ASSUME_ALIGNED dW: ALIGN
         !DIR$ ASSUME_ALIGNED dVel: ALIGN
         !DIR$ ASSUME_ALIGNED VnB: ALIGN
+
+        !Bail out if none of these cells have "real" fluid in this species
+        if (.not. any(doFlx)) return
 
         !$OMP SIMD
         do i=1,vecLen
@@ -569,15 +572,6 @@ module stress
                 mFlxB(i,XDIR) = mFlxB(i,XDIR) + Vn0*( -B0x*Bn(i) - Bx*B0n(i) + BdB0*Nx) !+ 0.5*(- B0x*B0n(i) + Pb0(i)*Nx)
                 mFlxB(i,YDIR) = mFlxB(i,YDIR) + Vn0*( -B0y*Bn(i) - By*B0n(i) + BdB0*Ny) !+ 0.5*(- B0y*B0n(i) + Pb0(i)*Ny)
                 mFlxB(i,ZDIR) = mFlxB(i,ZDIR) + Vn0*( -B0z*Bn(i) - Bz*B0n(i) + BdB0*Nz) !+ 0.5*(- B0z*B0n(i) + Pb0(i)*Nz)
-
-                !Now add 0x0 terms if not doing cell-centered force
-                if (.not. doB0cc) then
-                    Pb0 = 0.5*(B0x**2.0 + B0y**2.0 + B0z**2.0)
-                    mFlxB(i,XDIR) = mFlxB(i,XDIR) + Vn0*( Pb0*Nx - B0x*B0n(i) )
-                    mFlxB(i,YDIR) = mFlxB(i,YDIR) + Vn0*( Pb0*Ny - B0y*B0n(i) )
-                    mFlxB(i,ZDIR) = mFlxB(i,ZDIR) + Vn0*( Pb0*Nz - B0z*B0n(i) )
-
-                endif
             endif
 
         enddo

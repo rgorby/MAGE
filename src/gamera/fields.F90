@@ -8,15 +8,9 @@ module fields
 
     implicit none
 
-    logical, parameter :: doVa  = .true. !Use Alfven speed in diffusive velocity
-    logical, parameter :: doRingRenorm = .false. !Do ring renormalization on faces/fluxes, pretty slow
-    logical, parameter :: doVdA = .true. !Do area scaling for velocity->corner
-    logical, parameter :: doBdA = .true. !Do area scaling for face flux->edge
-
-    logical :: initField = .true. !Do we need to initialize module workspaces
-    real(rp), dimension(:,:,:,:), allocatable, private :: Vf
-    !Vf(i,j,k,XYZ-DIR), XYZ velocities pushed to dT1 faces
-    !Vf = (Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,NDIM)
+    logical, parameter, private :: doVa  = .true. !Use Alfven speed in diffusive velocity
+    logical, parameter, private :: doVdA = .true. !Do area scaling for velocity->corner
+    logical, parameter, private :: doBdA = .true. !Do area scaling for face flux->edge
 
     contains
 
@@ -86,16 +80,20 @@ module fields
         integer :: ie,je,ke,ksg,keg
         integer :: eD,eD0,dT1,dT2
 
+        !Vf(i,j,k,XYZ-DIR), XYZ velocities pushed to dT1 faces
+        !Vf = (Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,NDIM)
+        real(rp), dimension(:,:,:,:), allocatable :: Vf,EDiff
+
         !DIR$ ASSUME_ALIGNED E: ALIGN
         !DIR$ ATTRIBUTES align : ALIGN :: v1,v2,b1,b2,Jd,Dc,vDiff,VelB
+        !DIR$ ATTRIBUTES align : ALIGN :: Vf,EDiff
 
-        if (initField) then
-            !Initialize workspaces
-            !Vf(i,j,k,XYZ-DIR), XYZ velocities pushed to dT1 faces
-            allocate(Vf(Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,NDIM))
-            Vf = 0.0
-            initField = .false.
-        endif
+
+        !Initialize Vf/EDiff arrays, Vf(i,j,k,XYZ-DIR): XYZ velocities pushed to dT1 faces
+        allocate(Vf   (Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,NDIM))
+        allocate(EDiff(Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,NDIM))
+        Vf    = 0.0        
+        EDiff = 0.0
 
         !Prep bounds for this timestep
         eD0 = 1 !Starting direction for EMF
@@ -226,10 +224,9 @@ module fields
                                 vDiff(i) = min(vDiff(i),Model%CFL*Gr%edge(iG,j,k,eD)/Model%dt)
                             endif
 
-                            !Final field
-                            E(iG,j,k,eD) = -( v1(i)*b2(i) - v2(i)*b1(i) ) + Model%Vd0*vDiff(i)*Jd(i)
-                            !Scale by edge length
-                            E(iG,j,k,eD) = Gr%edge(iG,j,k,eD)*E(iG,j,k,eD)
+                            !Final field (w/ edge length)
+                            E    (iG,j,k,eD) = -( v1(i)*b2(i) - v2(i)*b1(i) )*Gr%edge(iG,j,k,eD)
+                            EDiff(iG,j,k,eD) = Model%Vd0*vDiff(i)*Jd(i)      *Gr%edge(iG,j,k,eD)
                         enddo
                     enddo !iB loop
                 enddo
@@ -243,6 +240,34 @@ module fields
         enddo !eD loop, EMF direction
 
         !$OMP END PARALLEL
+
+        !TEST
+        ! if ( Model%doRing .and. (Model%Ring%doS .or. Model%Ring%doE) ) then
+        !     select case (Model%Ring%GridID)
+        !     case ("lfm")
+        !         if (Model%Ring%doS) then
+        !             EDiff(:,Gr%js  ,:,IDIR:KDIR) = 0.0
+        !             EDiff(:,Gr%js+1,:,IDIR) = 0.0
+        !             EDiff(:,Gr%js+1,:,KDIR) = 0.0
+
+        !         endif
+        !         if (Model%Ring%doE) then
+        !             EDiff(:,Gr%je+1,:,IDIR:KDIR) = 0.0
+        !             EDiff(:,Gr%je  ,:,IDIR) = 0.0
+        !             EDiff(:,Gr%je  ,:,KDIR) = 0.0
+        !         endif
+        !     end select
+
+        ! endif
+
+        !$OMP PARALLEL DO default (shared) collapse(2)
+        do k=Gr%ks, Gr%ke+1
+            do j=Gr%js, Gr%je+1
+                do i=Gr%is, Gr%ie+1
+                    E(i,j,k,:) = E(i,j,k,:) + EDiff(i,j,k,:)
+                enddo
+            enddo
+        enddo
 
         if(Model%useResistivity) call resistivity(Model,Gr,State,E)
         
@@ -329,12 +354,6 @@ module fields
         !dT1 faces in dT2 direction
         call LoadBlockI(Model,Gr,AreaB      ,Gr%Face(:,:,:,dT1),iB,j,k,iMax,dT2)
         call LoadBlockI(Model,Gr,MagB(:,:,1),  bFlux(:,:,:,dT1),iB,j,k,iMax,dT2)
-
-        if (Model%doRing .and. doRingRenorm) then
-            !Note flipped dT2/dT1 for different component/stencil ordering
-            call RingRenorm(Model,Gr,AreaB      ,iB,j,k,dT2,dT1)
-            call RingRenorm(Model,Gr,MagB(:,:,1),iB,j,k,dT2,dT1)
-        endif
         
         !Split into L/Rs
         if (doBdA) then
@@ -431,6 +450,7 @@ module fields
             b1(i) = detT*( ynj*bT1(i) - yni*bT2(i) )
             b2(i) = detT*(-xnj*bT1(i) + xni*bT2(i) )
 
+
             !Incorporate background field if necessary
             !Use edgB0(i,j,k,1/2,dN), already have mapped XYZ->1/2 system
             if (Model%doBackground) then
@@ -454,6 +474,8 @@ module fields
         integer, dimension(NDIM) :: e1,e2
         integer :: i,iG
         integer :: i1,j1,k1,i2,j2,k2,i12,j12,k12
+        real(rp) :: wNE,wNW,wSE,wSW,dNE,dNW,dSE,dSW
+
         !DIR$ ASSUME_ALIGNED ccD: ALIGN
         !DIR$ ASSUME_ALIGNED Dc: ALIGN
         !Get normal plane
@@ -467,6 +489,20 @@ module fields
             i12 = iG-e1(IDIR)-e2(IDIR)
             j12 = j -e1(JDIR)-e2(JDIR)
             k12 = k -e1(KDIR)-e2(KDIR)
+
+            wNE = Gr%volume(iG ,j  ,k  )
+            wNW = Gr%volume(i1 ,j1 ,k1 )
+            wSE = Gr%volume(i2 ,j2 ,k2 )
+            wSW = Gr%volume(i12,j12,k12)
+
+            dNE = ccD(iG ,j  ,k  )
+            dNW = ccD(i1 ,j1 ,k1 )
+            dSE = ccD(i2 ,j2 ,k2 )
+            dSW = ccD(i12,j12,k12)
+
+            !TEST
+            !Dc(i) = (wNE*dNE + wNW*dNW + wSE*dSE + wSW*dSW)/(wNE+wNW+wSE+wSW)
+
             Dc(i) = 0.25*( ccD(iG,j,k) + ccD(i1,j1,k1) + ccD(i2,j2,k2) + ccD(i12,j12,k12) )
         enddo
     end subroutine GetCornerD
