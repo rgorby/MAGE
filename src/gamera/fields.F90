@@ -260,9 +260,14 @@ module fields
 
         ! endif
 
-        !$OMP PARALLEL WORKSHARE
-        E = E + EDiff
-        !$OMP END PARALLEL WORKSHARE
+        !$OMP PARALLEL DO default (shared) collapse(2)
+        do k=Gr%ks, Gr%ke+1
+            do j=Gr%js, Gr%je+1
+                do i=Gr%is, Gr%ie+1
+                    E(i,j,k,:) = E(i,j,k,:) + EDiff(i,j,k,:)
+                enddo
+            enddo
+        enddo
 
         if(Model%useResistivity) call resistivity(Model,Gr,State,E)
         
