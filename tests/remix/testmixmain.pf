@@ -92,8 +92,8 @@ contains
     do h=1,size(remixApp%ion)
         do ip=1,remixApp%ion(h)%G%Np
             do it=1,remixApp%ion(h)%G%Nt
-                if(remixApp%ion(h)%G%t(it) .gte. thetaMin .and. remixApp%ion(h)%G%t(it) .lte. (thetaMin+thetaDelta)) then
-                    remixApp%ion(h)%St%Vars(ip,it,FAC) = sin(remixApp%ion(h)%G%t(it)) * sin(remixApp%ion(h)%G%p(ip))
+                if(remixApp%ion(h)%G%t(ip,it) .ge. thetaMin .and. remixApp%ion(h)%G%t(ip,it) .le. (thetaMin+thetaDelta)) then
+                    remixApp%ion(h)%St%Vars(ip,it,FAC) = sin(remixApp%ion(h)%G%t(ip,it)) * sin(remixApp%ion(h)%G%p(ip,it))
                 else
                     remixApp%ion(h)%St%Vars(ip,it,FAC) = 0.0_rp
                 endif

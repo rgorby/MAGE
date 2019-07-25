@@ -2,6 +2,7 @@ module testmix2mhd
   use pfUnit
   use voltapp
   use gamapp
+  use mix2mhd_interface
 
   implicit none
 
@@ -17,6 +18,30 @@ contains
 
   !@test
   subroutine corotationTest()
+    ! testing that a corotation potential from remix results in a corotation field in gamera
+    type(voltApp_T) :: voltronApp
+    type(gamApp_T) :: gameraApp
+
+    character(len=strLen) :: caseInput = 'cmiD.xml'
+
+    call initGamera(gameraApp, caseInput)
+
+    call initVoltron(voltronApp, gameraApp)
+
+    ! zero out the remix output so that only the added corotation field is sent to gamera
+    voltronApp%remixApp%mixOutput = 0.0_rp
+
+    call convertRemixToGamera(gameraApp, voltronApp%remixApp)
+
+    ! find the remix BC to verify the resulting Gamera data
+    SELECT type(iiBC=>gameraApp%Grid%externalBCs(INI)%p)
+        TYPE IS (IonInnerBC_T)
+            ! verify that the gamera field (iiBC%inEijk, iiBC%inExyz, or both) have the expected values here
+            ! ****
+        CLASS DEFAULT
+            @assertTrue(.false., 'Could not find Ion Inner BC in remix IC')
+    END SELECT
+
   end subroutine corotationTest
 
 end module testmix2mhd
