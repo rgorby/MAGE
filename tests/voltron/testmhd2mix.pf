@@ -1,0 +1,23 @@
+module testmhd2mix
+  use pfUnit
+  use voltapp
+  use gamapp
+
+  implicit none
+
+contains
+
+  @before
+  subroutine firstSerial()
+  end subroutine firstSerial
+
+  @after
+  subroutine lastSerial()
+  end subroutine lastSerial
+
+  !@test
+  subroutine dipoleTest()
+  end subroutine dipoleTest
+
+end module testmhd2mix
+

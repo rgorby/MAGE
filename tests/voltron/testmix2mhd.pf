@@ -1,0 +1,23 @@
+module testmix2mhd
+  use pfUnit
+  use voltapp
+  use gamapp
+
+  implicit none
+
+contains
+
+  @before
+  subroutine firstSerial()
+  end subroutine firstSerial
+
+  @after
+  subroutine lastSerial()
+  end subroutine lastSerial
+
+  !@test
+  subroutine corotationTest()
+  end subroutine corotationTest
+
+end module testmix2mhd
+

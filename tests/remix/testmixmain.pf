@@ -19,7 +19,7 @@ contains
   subroutine lastSerial()
   end subroutine lastSerial
 
-  @test
+  !@test
   subroutine testZeroInput()
     ! testing that an input of all zeroes gets output of all zeroes
     type(mixApp_T) :: remixApp
@@ -72,21 +72,34 @@ contains
 
   end subroutine testConstantSolution
 
-  @test
+  !@test
   subroutine testAzimuthallyDependentFAC()
     ! testing that an input of all zeroes gets output of all zeroes
     type(mixApp_T) :: remixApp
     type(gamApp_T) :: gameraApp
 
     character(len=strLen) :: caseInput = 'cmiD.xml'
+    integer :: h,ip,it
+    real(rp) :: thetaMin, thetaDelta
 
     call initGamera(gameraApp, caseInput)
 
     call initializeRemixFromGamera(remixApp, gameraApp, caseInput)
 
     ! field aligned current in remixApp%ion(h)%St%Vars(:,:,FAC)
-    remixApp%ion(NORTH)%St%Vars(:,:,FAC) = 0
-    remixApp%ion(SOUTH)%St%Vars(:,:,FAC) = 0
+    thetaMin = 22.0_rp
+    thetaDelta = 12.0_rp
+    do h=1,size(remixApp%ion)
+        do ip=1,remixApp%ion(h)%G%Np
+            do it=1,remixApp%ion(h)%G%Nt
+                if(remixApp%ion(h)%G%t(it) .gte. thetaMin .and. remixApp%ion(h)%G%t(it) .lte. (thetaMin+thetaDelta)) then
+                    remixApp%ion(h)%St%Vars(ip,it,FAC) = sin(remixApp%ion(h)%G%t(it)) * sin(remixApp%ion(h)%G%p(ip))
+                else
+                    remixApp%ion(h)%St%Vars(ip,it,FAC) = 0.0_rp
+                endif
+            end do
+        end do
+    end do
 
     call run_mix(remixApp%ion, remixApp%tilt, remixApp%conductance)
 
