@@ -48,7 +48,7 @@ contains
 
   end subroutine testZeroInput
 
-  !@test
+  @test
   subroutine testConstantSolution()
     ! testing that an input of all zeroes gets output of all zeroes
     type(mixApp_T) :: remixApp
@@ -82,7 +82,7 @@ contains
 
   end subroutine testConstantSolution
 
-  @test
+  !@test
   subroutine testAzimuthallyDependentFAC()
     ! testing that an input of all zeroes gets output of all zeroes
     type(mixApp_T) :: remixApp
