@@ -8,59 +8,31 @@ module mgmres
 
     contains
 
-! subroutine ax_cr ( n, nz_num, ia, ja, a, x, w )
+! subroutine diagonal_pointer_cr ( n, nz_num, ia, ja, ua )
 
 !   implicit none
 
 !   integer ( kind = 4 ) n
 !   integer ( kind = 4 ) nz_num
 
-!   real ( kind = 8 ) a(nz_num)
 !   integer ( kind = 4 ) i
 !   integer ( kind = 4 ) ia(n+1)
-!   integer ( kind = 4 ) ja(nz_num)
 !   integer ( kind = 4 ) k
-!   integer ( kind = 4 ) k1
-!   integer ( kind = 4 ) k2
-!   real ( kind = 8 ) w(n)
-!   real ( kind = 8 ) x(n)
+!   integer ( kind = 4 ) ja(nz_num)
+!   integer ( kind = 4 ) ua(n)
 
-!   w(1:n) = 0.0D+00
+!   ua(1:n) = -1
 
 !   do i = 1, n
-!     k1 = ia(i)
-!     k2 = ia(i+1) - 1
-!     w(i) = w(i) + dot_product ( a(k1:k2), x(ja(k1:k2)) )
+!     do k = ia(i), ia(i+1) - 1
+!       if ( ja(k) == i ) then
+!         ua(i) = k
+!       end if
+!     end do
 !   end do
 
 !   return
 ! end
-
-subroutine diagonal_pointer_cr ( n, nz_num, ia, ja, ua )
-
-  implicit none
-
-  integer ( kind = 4 ) n
-  integer ( kind = 4 ) nz_num
-
-  integer ( kind = 4 ) i
-  integer ( kind = 4 ) ia(n+1)
-  integer ( kind = 4 ) k
-  integer ( kind = 4 ) ja(nz_num)
-  integer ( kind = 4 ) ua(n)
-
-  ua(1:n) = -1
-
-  do i = 1, n
-    do k = ia(i), ia(i+1) - 1
-      if ( ja(k) == i ) then
-        ua(i) = k
-      end if
-    end do
-  end do
-
-  return
-end
 subroutine ilu_cr ( n, nz_num, ia, ja, a, ua, l )
 
   implicit none
@@ -158,24 +130,24 @@ end
             W(i) = W(i) + dot_product( A(k1:k2), x(ja(k1:k2)) )
         enddo
     end subroutine ax_cr
-! !---------------
-!     subroutine diagonal_pointer_cr(n,nz_num,ia,ja,ua)
-!         integer, intent(in) :: n,nz_num
-!         integer, intent(in) :: ia(n+1),ja(nz_num)
-!         integer, intent(out) :: ua(n)
+!---------------
+    subroutine diagonal_pointer_cr(n,nz_num,ia,ja,ua)
+        integer, intent(in) :: n,nz_num
+        integer, intent(in) :: ia(n+1),ja(nz_num)
+        integer, intent(out) :: ua(n)
 
-!         integer :: i,k
+        integer :: i,k
 
-!         ua(1:n) = -1
-!         do i=1,n
-!             do k=ia(i),ia(i+1)-1
-!                 if ( ja(k) == i ) then
-!                     ua(i) = k
-!                 endif
-!             enddo
-!         enddo
+        ua(1:n) = -1
+        do i=1,n
+            do k=ia(i),ia(i+1)-1
+                if ( ja(k) == i ) then
+                    ua(i) = k
+                endif
+            enddo
+        enddo
 
-!     end subroutine diagonal_pointer_cr
+    end subroutine diagonal_pointer_cr
 
 
 ! !---------------
@@ -331,7 +303,7 @@ end
 
 !         g(k  ) = g1
 !         g(k+1) = g2
-        
+
 !     end subroutine mult_givens
 
 ! !---------------
