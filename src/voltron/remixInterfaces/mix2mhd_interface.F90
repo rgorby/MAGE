@@ -60,8 +60,6 @@ contains
         call init_mix(remixApp%ion,hmsphrs,remixApp%conductance)
     endif
 
-    remixApp%PsiShells = size(mhdPsiGrid,1)
-    remixApp%JShells = size(mhdJGrid,1)
     allocate(remixApp%PsiMaps(remixApp%PsiShells))
     allocate(remixApp%JMaps(remixApp%JShells))
     do h=1,size(remixApp%ion)

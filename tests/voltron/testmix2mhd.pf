@@ -16,20 +16,34 @@ contains
   subroutine lastSerial()
   end subroutine lastSerial
 
-  !@test
+  @test
   subroutine corotationTest()
     ! testing that a corotation potential from remix results in a corotation field in gamera
     type(voltApp_T) :: voltronApp
     type(gamApp_T) :: gameraApp
 
     character(len=strLen) :: caseInput = 'cmiD.xml'
+    real(rp), dimension(NDIM) :: rHatP,eHat
+    real(rp) :: deltaSum, xc,yc,zc
+    integer :: i,j,k,ig,n,ip,jp,kp,np
 
     call initGamera(gameraApp, caseInput)
 
-    call initVoltron(voltronApp, gameraApp)
+    call initVoltron(voltronApp, gameraApp, caseInput)
 
     ! zero out the remix output so that only the added corotation field is sent to gamera
     voltronApp%remixApp%mixOutput = 0.0_rp
+
+    do k=gameraApp%Grid%ks,gameraApp%Grid%ke+1
+        do j=gameraApp%Grid%js,gameraApp%Grid%je+1
+            do i=1,remixApp%PsiShells+1
+                do h = 1,2
+                    mhdPsiGrid(i,j,k,:,h)
+                    voltronApp%remixApp%mixOutput(i,j,k,MHDPSI,NORTH) = cos(lambda)*cos(lambda)/r
+                end do
+            end do
+       end do
+    end do
 
     call convertRemixToGamera(gameraApp, voltronApp%remixApp)
 
@@ -37,7 +51,31 @@ contains
     SELECT type(iiBC=>gameraApp%Grid%externalBCs(INI)%p)
         TYPE IS (IonInnerBC_T)
             ! verify that the gamera field (iiBC%inEijk, iiBC%inExyz, or both) have the expected values here
-            ! ****
+            ! inExyz should be pointed exactly radially at all locations
+            deltaSum = 0.0_rp
+            do k=gameraApp%Grid%ksg,gameraApp%Grid%keg
+                do j=gameraApp%Grid%jsg,gameraApp%Grid%jeg
+
+                    !Map to active ip,jp,kp (i=Grid%is => ip=Grid%is)
+                    call lfmIJK(gameraApp%Model,gameraApp%Grid,gameraApp%Grid%is,j,k,ip,jp,kp)
+
+                    do n=1,gameraApp%Model%Ng
+                        ig = gameraApp%Grid%is-n
+                        np = gameraApp%Model%nG-n+1
+
+                        call cellCenter(gameraApp%Grid, ig,j,k,xc,yc,zc)
+                        rHatP = normVec([xc,yc,zc])
+
+                        eHat = normVec(iiBC%inExyz(np,jp,kp,:))
+
+                        deltaSum = deltaSum + abs(norm2(rHatP-eHat))
+                    end do
+                end do
+            end do
+
+            ! 16128 cells counted, reasonable error of 1e-3 per cell = 16.128
+            @assertLessThanOrEqual(deltaSum, 1e-8_rp, 'Magnetic field from remix was not pointing radially')
+
         CLASS DEFAULT
             @assertTrue(.false., 'Could not find Ion Inner BC in remix IC')
     END SELECT
