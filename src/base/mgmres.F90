@@ -86,106 +86,41 @@ module mgmres
         L(ua(1:n)) = 1.0/L(ua(1:n))
     end subroutine ilu_cr
 
-subroutine lus_cr ( n, nz_num, ia, ja, l, ua, r, z )
 
-  implicit none
+!---------------
+    subroutine lus_cr(n,nz_num,ia,ja,L,ua,R,Z)
+        integer, intent(in) :: n,nz_num
+        integer, intent(in) :: ia(n+1),ja(nz_num),ua(n)
+        real(rp), intent(inout) :: L(nz_num)
+        real(rp), intent(in) :: R(n)
+        real(rp), intent(out) :: Z(n)
 
-  integer ( kind = 4 ) n
-  integer ( kind = 4 ) nz_num
+        integer :: i,j
+        real(rp), dimension(n) :: W
 
-  integer ( kind = 4 ) i
-  integer ( kind = 4 ) ia(n+1)
-  integer ( kind = 4 ) j
-  integer ( kind = 4 ) ja(nz_num)
-  real ( kind = 8 ) l(nz_num)
-  real ( kind = 8 ) r(n)
-  integer ( kind = 4 ) ua(n)
-  real ( kind = 8 ) w(n)
-  real ( kind = 8 ) z(n)
-!
-!  Copy R in.
-!
-  w(1:n) = r(1:n)
-!
-!  Solve L * w = w where L is unit lower triangular.
-!
-  do i = 2, n
-    do j = ia(i), ua(i) - 1
-      w(i) = w(i) - l(j) * w(ja(j))
-    end do
-  end do
-!
-!  Solve U * w = w, where U is upper triangular.
-!
-  do i = n, 1, -1
-    do j = ua(i) + 1, ia(i+1) - 1
-      w(i) = w(i) - l(j) * w(ja(j))
-    end do
-    w(i) = w(i) / l(ua(i))
-  end do
-!
-!  Copy Z out.
-!
-  z(1:n) = w(1:n)
+        !Copy in
+        W(1:n) = R(1:n)
 
-  return
-end
+        !Solve L*W=W, L unit lower triangular
+        !TODO: Add OMP bindings here
+        do i=2,n
+            do j=ia(i),ua(i)-1
+                W(i) = W(i) - L(j)*W(ja(j))
+            enddo
+        enddo
 
-! !---------------
-!     subroutine lus_cr(n,nz_num,ia,ja,L,ua,R,Z)
-!         integer, intent(in) :: n,nz_num
-!         integer, intent(in) :: ia(n+1),ja(nz_num),ua(n)
-!         real(rp), intent(inout) :: L(nz_num)
-!         real(rp), intent(in) :: R(n)
-!         real(rp), intent(out) :: Z(n)
+        !Solve U*W=W, U upper triangular
+        do i=n,1,-1
+            do j=ua(i)+1,ia(i+1)-1
+                W(i) = W(i) - L(j)*W(ja(j))
+            enddo
+            W(i) = W(i)/L(ua(i))
+        enddo
 
-!         integer :: i,j
-!         real(rp), dimension(n) :: W
+        !Copy out
+        Z(1:n) = W(1:n)
 
-!         !Copy in
-!         W(1:n) = R(1:n)
-
-!         !Solve L*W=W, L unit lower triangular
-!         !TODO: Add OMP bindings here
-!         do i=2,n
-!             do j=ia(i),ua(i)-1
-!                 W(i) = W(i) - L(j)*W(ja(j))
-!             enddo
-!         enddo
-
-!         !Solve U*W=W, U upper triangular
-!         do i=n,1,-1
-!             do j=ua(i)+1,ia(i+1)-1
-!                 W(i) = W(i) - L(j)*W(ja(j))
-!             enddo
-!             W(i) = W(i)/L(ua(i))
-!         enddo
-
-!         !Copy out
-!         Z(1:n) = W(1:n)
-
-!     end subroutine lus_cr
-
-! subroutine mult_givens ( c, s, k, g )
-
-!   implicit none
-
-!   integer ( kind = 4 ) k
-
-!   real ( kind = 8 ) c
-!   real ( kind = 8 ) g(1:k+1)
-!   real ( kind = 8 ) g1
-!   real ( kind = 8 ) g2
-!   real ( kind = 8 ) s
-
-!   g1 = c * g(k) - s * g(k+1)
-!   g2 = s * g(k) + c * g(k+1)
-
-!   g(k)   = g1
-!   g(k+1) = g2
-
-!   return
-! end
+    end subroutine lus_cr
 
 !---------------
     !Givens rotation
