@@ -26,32 +26,24 @@ module mgmres
         enddo
     end subroutine ax_cr
 !---------------
+    subroutine diagonal_pointer_cr(n,nz_num,ia,ja,ua)
+        integer, intent(in) :: n,nz_num
+        integer, intent(in) :: ia(n+1),ja(nz_num)
+        integer, intent(out) :: ua(n)
 
-subroutine diagonal_pointer_cr ( n, nz_num, ia, ja, ua )
+        integer :: i,k
 
-  implicit none
+        ua(1:n) = -1
+        do i=1,n
+            do k=ia(i),ia(i+1)-1
+                if ( ja(k) == i ) then
+                    ua(i) = k
+                endif
+            enddo
+        enddo
 
-  integer ( kind = 4 ) n
-  integer ( kind = 4 ) nz_num
-
-  integer ( kind = 4 ) i
-  integer ( kind = 4 ) ia(n+1)
-  integer ( kind = 4 ) k
-  integer ( kind = 4 ) ja(nz_num)
-  integer ( kind = 4 ) ua(n)
-
-  ua(1:n) = -1
-
-  do i = 1, n
-    do k = ia(i), ia(i+1) - 1
-      if ( ja(k) == i ) then
-        ua(i) = k
-      end if
-    end do
-  end do
-
-  return
-end
+    end subroutine diagonal_pointer_cr
+    
 
 subroutine ilu_cr ( n, nz_num, ia, ja, a, ua, l )
 
