@@ -8,84 +8,368 @@ module mgmres
 
     contains
 
+subroutine ax_cr ( n, nz_num, ia, ja, a, x, w )
 
-!---------------
-    !A*x (compressed row)
-    subroutine ax_cr(n,nz_num,ia,ja,A,x,W)
-        integer , intent(in)  :: n,nz_num
-        integer , intent(in)  :: ia(n+1),ja(nz_num)
-        real(rp), intent(in)  :: A(nz_num)
-        real(rp), intent(in)  :: x(n)
-        real(rp), intent(inout) :: W(n)
+!*****************************************************************************80
+!
+!! AX_CR computes A*x for a matrix stored in sparse compressed row form.
+!
+!  Discussion:
+!
+!    The Sparse Compressed Row storage format is used.
+!
+!    The matrix A is assumed to be sparse.  To save on storage, only
+!    the nonzero entries of A are stored.  The vector JA stores the
+!    column index of the nonzero value.  The nonzero values are sorted
+!    by row, and the compressed row vector IA then has the property that
+!    the entries in A and JA that correspond to row I occur in indices
+!    IA[I] through IA[I+1]-1.
+!
+!  Licensing:
+!
+!    This code is distributed under the GNU LGPL license.
+!
+!  Modified:
+!
+!    17 July 2007
+!
+!  Author:
+!
+!    Original C version by Lili Ju.
+!    FORTRAN90 version by John Burkardt.
+!
+!  Reference:
+!
+!    Richard Barrett, Michael Berry, Tony Chan, James Demmel,
+!    June Donato, Jack Dongarra, Victor Eijkhout, Roidan Pozo,
+!    Charles Romine, Henk van der Vorst,
+!    Templates for the Solution of Linear Systems:
+!    Building Blocks for Iterative Methods,
+!    SIAM, 1994.
+!    ISBN: 0898714710,
+!    LC: QA297.8.T45.
+!
+!    Tim Kelley,
+!    Iterative Methods for Linear and Nonlinear Equations,
+!    SIAM, 2004,
+!    ISBN: 0898713528,
+!    LC: QA297.8.K45.
+!
+!    Yousef Saad,
+!    Iterative Methods for Sparse Linear Systems,
+!    Second Edition,
+!    SIAM, 2003,
+!    ISBN: 0898715342,
+!    LC: QA188.S17.
+!
+!  Parameters:
+!
+!    Input, integer ( kind = 4 ) N, the order of the system.
+!
+!    Input, integer ( kind = 4 ) NZ_NUM, the number of nonzeros.
+!
+!    Input, integer ( kind = 4 ) IA(N+1), JA(NZ_NUM), the row and column
+!    indices of the matrix values.  The row vector has been compressed.
+!
+!    Input, real ( kind = 8 ) A(NZ_NUM), the matrix values.
+!
+!    Input, real ( kind = 8 ) X(N), the vector to be multiplied by A.
+!
+!    Output, real ( kind = 8 ) W(N), the value of A*X.
+!
+  implicit none
 
-        integer :: i,k1,k2
+  integer ( kind = 4 ) n
+  integer ( kind = 4 ) nz_num
 
-        W(1:n) = 0.0
-        !TODO: Add OMP bindings here
-        do i=1,n
-            k1 = ia(i)
-            k2 = ia(i+1) - 1
-            W(i) = W(i) + dot_product( A(k1:k2), x(ja(k1:k2)) )
-        enddo
-    end subroutine ax_cr
-!---------------
-    subroutine diagonal_pointer_cr(n,nz_num,ia,ja,ua)
-        integer, intent(in) :: n,nz_num
-        integer, intent(in) :: ia(n+1),ja(nz_num)
-        integer, intent(out) :: ua(n)
+  real ( kind = 8 ) a(nz_num)
+  integer ( kind = 4 ) i
+  integer ( kind = 4 ) ia(n+1)
+  integer ( kind = 4 ) ja(nz_num)
+  integer ( kind = 4 ) k
+  integer ( kind = 4 ) k1
+  integer ( kind = 4 ) k2
+  real ( kind = 8 ) w(n)
+  real ( kind = 8 ) x(n)
 
-        integer :: i,k
+  w(1:n) = 0.0D+00
 
-        ua(1:n) = -1
-        do i=1,n
-            do k=ia(i),ia(i+1)-1
-                if ( ja(k) == i ) then
-                    ua(i) = k
-                endif
-            enddo
-        enddo
+  do i = 1, n
+    k1 = ia(i)
+    k2 = ia(i+1) - 1
+    w(i) = w(i) + dot_product ( a(k1:k2), x(ja(k1:k2)) )
+  end do
 
-    end subroutine diagonal_pointer_cr
+  return
+end
+
+subroutine diagonal_pointer_cr ( n, nz_num, ia, ja, ua )
+
+!*****************************************************************************80
+!
+!! DIAGONAL_POINTER_CR finds diagonal entries in a sparse compressed row matrix.
+!
+!  Discussion:
+!
+!    The matrix A is assumed to be stored in compressed row format.  Only
+!    the nonzero entries of A are stored.  The vector JA stores the
+!    column index of the nonzero value.  The nonzero values are sorted
+!    by row, and the compressed row vector IA then has the property that
+!    the entries in A and JA that correspond to row I occur in indices
+!    IA[I] through IA[I+1]-1.
+!
+!    The array UA can be used to locate the diagonal elements of the matrix.
+!
+!    It is assumed that every row of the matrix includes a diagonal element,
+!    and that the elements of each row have been ascending sorted.
+!
+!  Licensing:
+!
+!    This code is distributed under the GNU LGPL license.
+!
+!  Modified:
+!
+!    18 July 2007
+!
+!  Author:
+!
+!    Original C version by Lili Ju.
+!    FORTRAN90 version by John Burkardt.
+!
+!  Parameters:
+!
+!    Input, integer ( kind = 4 ) N, the order of the system.
+!
+!    Input, integer ( kind = 4 ) NZ_NUM, the number of nonzeros.
+!
+!    Input, integer ( kind = 4 ) IA(N+1), JA(NZ_NUM), the row and column
+!    indices of the matrix values.  The row vector has been compressed.
+!    On output, the order of the entries of JA may have changed because of
+!    the sorting.
+!
+!    Output, integer ( kind = 4 ) UA(N), the index of the diagonal element
+!    of each row.
+!
+  implicit none
+
+  integer ( kind = 4 ) n
+  integer ( kind = 4 ) nz_num
+
+  integer ( kind = 4 ) i
+  integer ( kind = 4 ) ia(n+1)
+  integer ( kind = 4 ) k
+  integer ( kind = 4 ) ja(nz_num)
+  integer ( kind = 4 ) ua(n)
+
+  ua(1:n) = -1
+
+  do i = 1, n
+    do k = ia(i), ia(i+1) - 1
+      if ( ja(k) == i ) then
+        ua(i) = k
+      end if
+    end do
+  end do
+
+  return
+end
+subroutine ilu_cr ( n, nz_num, ia, ja, a, ua, l )
+
+!*****************************************************************************80
+!
+!! ILU_CR computes the incomplete LU factorization of a matrix.
+!
+!  Discussion:
+!
+!    The matrix A is assumed to be stored in compressed row format.  Only
+!    the nonzero entries of A are stored.  The vector JA stores the
+!    column index of the nonzero value.  The nonzero values are sorted
+!    by row, and the compressed row vector IA then has the property that
+!    the entries in A and JA that correspond to row I occur in indices
+!    IA(I) through IA(I+1)-1.
+!
+!  Licensing:
+!
+!    This code is distributed under the GNU LGPL license.
+!
+!  Modified:
+!
+!    27 July 2007
+!
+!  Author:
+!
+!    Original C version by Lili Ju.
+!    FORTRAN90 version by John Burkardt.
+!
+!  Parameters:
+!
+!    Input, integer ( kind = 4 ) N, the order of the system.
+!
+!    Input, integer ( kind = 4 ) NZ_NUM, the number of nonzeros.
+!
+!    Input, integer ( kind = 4 ) IA(N+1), JA(NZ_NUM), the row and column
+!    indices of the matrix values.  The row vector has been compressed.
+!
+!    Input, real ( kind = 8 ) A(NZ_NUM), the matrix values.
+!
+!    Input, integer ( kind = 4 ) UA(N), the index of the diagonal element
+!    of each row.
+!
+!    Output, real ( kind = 8 ) L(NZ_NUM), the ILU factorization of A.
+!
+  implicit none
+
+  integer ( kind = 4 ) n
+  integer ( kind = 4 ) nz_num
+
+  real ( kind = 8 ) a(nz_num)
+  integer ( kind = 4 ) i
+  integer ( kind = 4 ) ia(n+1)
+  integer ( kind = 4 ) iw(n)
+  integer ( kind = 4 ) j
+  integer ( kind = 4 ) ja(nz_num)
+  integer ( kind = 4 ) jj
+  integer ( kind = 4 ) jrow
+  integer ( kind = 4 ) jw
+  integer ( kind = 4 ) k
+  real ( kind = 8 ) l(nz_num)
+  real ( kind = 8 ) tl
+  integer ( kind = 4 ) ua(n)
+!
+!  Copy A.
+!
+  l(1:nz_num) = a(1:nz_num)
+
+  do i = 1, n
+!
+!  IW points to the nonzero entries in row I.
+!
+    iw(1:n) = -1
+
+    do k = ia(i), ia(i+1) - 1
+      iw(ja(k)) = k
+    end do
+
+    do j = ia(i), ia(i+1) - 1
+      jrow = ja(j)
+      if ( i <= jrow ) then
+        exit
+      end if
+      tl = l(j) * l(ua(jrow))
+      l(j) = tl
+      do jj = ua(jrow) + 1, ia(jrow+1) - 1
+        jw = iw(ja(jj))
+        if ( jw /= -1 ) then
+          l(jw) = l(jw) - tl * l(jj)
+        end if
+      end do
+    end do
+
+    ua(i) = j
+
+    if ( jrow /= i ) then
+      write ( *, '(a)' ) ' '
+      write ( *, '(a)' ) 'ILU_CR - Fatal error!'
+      write ( *, '(a)' ) '  JROW ~= I'
+      write ( *, '(a,i8)' ) '  JROW = ', jrow
+      write ( *, '(a,i8)' ) '  I    = ', i
+      stop
+    end if
+
+    if ( l(j) == 0.0D+00 ) then
+      write ( *, '(a)' ) ' '
+      write ( *, '(a)' ) 'ILU_CR - Fatal error!'
+      write ( *, '(a,i8)' ) '  Zero pivot on step I = ', i
+      write ( *, '(a,i8,a)' ) '  L(', j, ') = 0.0'
+      stop
+    end if
+
+    l(j) = 1.0D+00 / l(j)
+
+  end do
+
+  l(ua(1:n)) = 1.0D+00 / l(ua(1:n))
+
+  return
+end
+
+! !---------------
+!     !A*x (compressed row)
+!     subroutine ax_cr(n,nz_num,ia,ja,A,x,W)
+!         integer , intent(in)  :: n,nz_num
+!         integer , intent(in)  :: ia(n+1),ja(nz_num)
+!         real(rp), intent(in)  :: A(nz_num)
+!         real(rp), intent(in)  :: x(n)
+!         real(rp), intent(inout) :: W(n)
+
+!         integer :: i,k1,k2
+
+!         W(1:n) = 0.0
+!         !TODO: Add OMP bindings here
+!         do i=1,n
+!             k1 = ia(i)
+!             k2 = ia(i+1) - 1
+!             W(i) = W(i) + dot_product( A(k1:k2), x(ja(k1:k2)) )
+!         enddo
+!     end subroutine ax_cr
+! !---------------
+!     subroutine diagonal_pointer_cr(n,nz_num,ia,ja,ua)
+!         integer, intent(in) :: n,nz_num
+!         integer, intent(in) :: ia(n+1),ja(nz_num)
+!         integer, intent(out) :: ua(n)
+
+!         integer :: i,k
+
+!         ua(1:n) = -1
+!         do i=1,n
+!             do k=ia(i),ia(i+1)-1
+!                 if ( ja(k) == i ) then
+!                     ua(i) = k
+!                 endif
+!             enddo
+!         enddo
+
+!     end subroutine diagonal_pointer_cr
 
 
-!---------------
-    !Incomplete LU factorization
-    subroutine ilu_cr(n,nz_num,ia,ja,A,ua,L)
-        integer, intent(in) :: n,nz_num
-        integer, intent(in) :: ia(n+1),ja(nz_num)
-        integer, intent(inout) :: ua(n)
-        real(rp), intent(in) :: A(nz_num)
-        real(rp), intent(out) :: L(nz_num)
+! !---------------
+!     !Incomplete LU factorization
+!     subroutine ilu_cr(n,nz_num,ia,ja,A,ua,L)
+!         integer, intent(in) :: n,nz_num
+!         integer, intent(in) :: ia(n+1),ja(nz_num)
+!         integer, intent(inout) :: ua(n)
+!         real(rp), intent(in) :: A(nz_num)
+!         real(rp), intent(out) :: L(nz_num)
 
-        integer :: i,j,jj,jrow,jw,k
-        integer :: iw(n)
-        real(rp) :: tl
+!         integer :: i,j,jj,jrow,jw,k
+!         integer :: iw(n)
+!         real(rp) :: tl
 
-        L(1:nz_num) = A(1:nz_num)
-        do i=1,n
-            iw(1:n) = -1
-            do k=ia(i),ia(i+1)-1
-                iw(ja(k)) = k
-            enddo
+!         L(1:nz_num) = A(1:nz_num)
+!         do i=1,n
+!             iw(1:n) = -1
+!             do k=ia(i),ia(i+1)-1
+!                 iw(ja(k)) = k
+!             enddo
 
-            do j=ia(i),ia(i+1)-1
-                jrow = ja(j)
-                if ( i<= jrow ) exit
-                tl = L(j)*L(ua(jrow))
-                L(j) = tl
-                do jj=ua(jrow)+1,ia(jrow+1)-1
-                    jw = iw(ja(jj))
-                    if ( jw /= -1) then
-                        L(jw) = L(jw) - tl*L(jj)
-                    endif
-                enddo
-            enddo
+!             do j=ia(i),ia(i+1)-1
+!                 jrow = ja(j)
+!                 if ( i<= jrow ) exit
+!                 tl = L(j)*L(ua(jrow))
+!                 L(j) = tl
+!                 do jj=ua(jrow)+1,ia(jrow+1)-1
+!                     jw = iw(ja(jj))
+!                     if ( jw /= -1) then
+!                         L(jw) = L(jw) - tl*L(jj)
+!                     endif
+!                 enddo
+!             enddo
 
-            ua(i) = j
-            L(j) = 1.0/L(j)
-        enddo
-        L(ua(1:n)) = 1.0/L(ua(1:n))
-    end subroutine ilu_cr
+!             ua(i) = j
+!             L(j) = 1.0/L(j)
+!         enddo
+!         L(ua(1:n)) = 1.0/L(ua(1:n))
+!     end subroutine ilu_cr
 
 !---------------
     subroutine lus_cr(n,nz_num,ia,ja,L,ua,R,Z)
