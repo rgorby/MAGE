@@ -31,6 +31,10 @@ contains
 
     call initializeRemixFromGamera(remixApp, gameraApp, caseInput)
 
+    call convertGameraToRemix(gameraApp, remixApp)
+
+    call mhd2mix(remixApp)
+
     ! field aligned current in remixApp%ion(h)%St%Vars(:,:,FAC)
     remixApp%ion(NORTH)%St%Vars(:,:,FAC) = 0
     remixApp%ion(SOUTH)%St%Vars(:,:,FAC) = 0
@@ -38,12 +42,13 @@ contains
     call run_mix(remixApp%ion, remixApp%tilt, remixApp%conductance)
 
     ! potential in remixApp%ion(h)%St%Vars(:,:,POT)
-    @assertLessThanOrEqual(sum(abs(remixApp%ion(NORTH)%St%Vars(:,:,POT))), 1e-8_rp, 'Non-zero remix output in North hemisphere')
-    @assertLessThanOrEqual(sum(abs(remixApp%ion(SOUTH)%St%Vars(:,:,POT))), 1e-8_rp, 'Non-zero remix output in South hemisphere')
+    ! error value allows 1e-3 error per cell on average
+    @assertLessThanOrEqual(sum(abs(remixApp%ion(NORTH)%S%Solution)), 8.1_rp, 'Non-zero remix output in North hemisphere')
+    @assertLessThanOrEqual(sum(abs(remixApp%ion(SOUTH)%S%Solution)), 8.1_rp, 'Non-zero remix output in South hemisphere')
 
   end subroutine testZeroInput
 
-  @test
+  !@test
   subroutine testConstantSolution()
     ! testing that an input of all zeroes gets output of all zeroes
     type(mixApp_T) :: remixApp
@@ -56,6 +61,10 @@ contains
 
     call initializeRemixFromGamera(remixApp, gameraApp, caseInput)
 
+    call convertGameraToRemix(gameraApp, remixApp)
+
+    call mhd2mix(remixApp)
+
     ! field aligned current in remixApp%ion(h)%St%Vars(:,:,FAC)
     remixApp%ion(NORTH)%St%Vars(:,:,FAC) = 0
     remixApp%ion(SOUTH)%St%Vars(:,:,FAC) = 0
@@ -67,12 +76,13 @@ contains
     call run_mix(remixApp%ion, remixApp%tilt, remixApp%conductance)
 
     ! potential in remixApp%ion(h)%St%Vars(:,:,POT)
-    @assertLessThanOrEqual(sum(abs(remixApp%ion(NORTH)%St%Vars(:,:,POT) - testValue)), 1e-8_rp, 'Remix output in North hemisphere not specified value')
-    @assertLessThanOrEqual(sum(abs(remixApp%ion(SOUTH)%St%Vars(:,:,POT) - testValue)), 1e-8_rp, 'Remix output in South hemisphere not specified value')
+    ! error value allows 1e-3 error per cell on average
+    @assertLessThanOrEqual(sum(abs(remixApp%ion(NORTH)%S%Solution - testValue)), 8.1_rp, 'Remix output in North hemisphere not specified value')
+    @assertLessThanOrEqual(sum(abs(remixApp%ion(SOUTH)%S%Solution - testValue)), 8.1_rp, 'Remix output in South hemisphere not specified value')
 
   end subroutine testConstantSolution
 
-  !@test
+  @test
   subroutine testAzimuthallyDependentFAC()
     ! testing that an input of all zeroes gets output of all zeroes
     type(mixApp_T) :: remixApp
@@ -85,6 +95,10 @@ contains
     call initGamera(gameraApp, caseInput)
 
     call initializeRemixFromGamera(remixApp, gameraApp, caseInput)
+
+    call convertGameraToRemix(gameraApp, remixApp)
+
+    call mhd2mix(remixApp)
 
     ! field aligned current in remixApp%ion(h)%St%Vars(:,:,FAC)
     thetaMin = 22.0_rp
