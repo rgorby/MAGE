@@ -331,7 +331,7 @@ end
 
         g(k  ) = g1
         g(k+1) = g2
-        print(g)
+        write(*,*) 'g = ', g
     end subroutine mult_givens
 
 ! !---------------
