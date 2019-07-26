@@ -1,6 +1,14 @@
 import h5py
 import numpy as np
 
+#Return time at step n
+def tStep(fname,nStp=0):
+	with h5py.File(fname,'r') as hf:
+		gID = "Step#%d"%(nStp)
+		grp = hf.get(gID)
+		t = grp.attrs.get("time")
+	return t
+	
 def cntSteps(fname):
 		with h5py.File(fname,'r') as hf:
 				grps = hf.values()
