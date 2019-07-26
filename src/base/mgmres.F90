@@ -8,33 +8,33 @@ module mgmres
 
     contains
 
-subroutine ax_cr ( n, nz_num, ia, ja, a, x, w )
+! subroutine ax_cr ( n, nz_num, ia, ja, a, x, w )
 
-  implicit none
+!   implicit none
 
-  integer ( kind = 4 ) n
-  integer ( kind = 4 ) nz_num
+!   integer ( kind = 4 ) n
+!   integer ( kind = 4 ) nz_num
 
-  real ( kind = 8 ) a(nz_num)
-  integer ( kind = 4 ) i
-  integer ( kind = 4 ) ia(n+1)
-  integer ( kind = 4 ) ja(nz_num)
-  integer ( kind = 4 ) k
-  integer ( kind = 4 ) k1
-  integer ( kind = 4 ) k2
-  real ( kind = 8 ) w(n)
-  real ( kind = 8 ) x(n)
+!   real ( kind = 8 ) a(nz_num)
+!   integer ( kind = 4 ) i
+!   integer ( kind = 4 ) ia(n+1)
+!   integer ( kind = 4 ) ja(nz_num)
+!   integer ( kind = 4 ) k
+!   integer ( kind = 4 ) k1
+!   integer ( kind = 4 ) k2
+!   real ( kind = 8 ) w(n)
+!   real ( kind = 8 ) x(n)
 
-  w(1:n) = 0.0D+00
+!   w(1:n) = 0.0D+00
 
-  do i = 1, n
-    k1 = ia(i)
-    k2 = ia(i+1) - 1
-    w(i) = w(i) + dot_product ( a(k1:k2), x(ja(k1:k2)) )
-  end do
+!   do i = 1, n
+!     k1 = ia(i)
+!     k2 = ia(i+1) - 1
+!     w(i) = w(i) + dot_product ( a(k1:k2), x(ja(k1:k2)) )
+!   end do
 
-  return
-end
+!   return
+! end
 
 subroutine diagonal_pointer_cr ( n, nz_num, ia, ja, ua )
 
@@ -139,25 +139,25 @@ subroutine ilu_cr ( n, nz_num, ia, ja, a, ua, l )
   return
 end
 
-! !---------------
-!     !A*x (compressed row)
-!     subroutine ax_cr(n,nz_num,ia,ja,A,x,W)
-!         integer , intent(in)  :: n,nz_num
-!         integer , intent(in)  :: ia(n+1),ja(nz_num)
-!         real(rp), intent(in)  :: A(nz_num)
-!         real(rp), intent(in)  :: x(n)
-!         real(rp), intent(inout) :: W(n)
+!---------------
+    !A*x (compressed row)
+    subroutine ax_cr(n,nz_num,ia,ja,A,x,W)
+        integer , intent(in)  :: n,nz_num
+        integer , intent(in)  :: ia(n+1),ja(nz_num)
+        real(rp), intent(in)  :: A(nz_num)
+        real(rp), intent(in)  :: x(n)
+        real(rp), intent(inout) :: W(n)
 
-!         integer :: i,k1,k2
+        integer :: i,k1,k2
 
-!         W(1:n) = 0.0
-!         !TODO: Add OMP bindings here
-!         do i=1,n
-!             k1 = ia(i)
-!             k2 = ia(i+1) - 1
-!             W(i) = W(i) + dot_product( A(k1:k2), x(ja(k1:k2)) )
-!         enddo
-!     end subroutine ax_cr
+        W(1:n) = 0.0
+        !TODO: Add OMP bindings here
+        do i=1,n
+            k1 = ia(i)
+            k2 = ia(i+1) - 1
+            W(i) = W(i) + dot_product( A(k1:k2), x(ja(k1:k2)) )
+        enddo
+    end subroutine ax_cr
 ! !---------------
 !     subroutine diagonal_pointer_cr(n,nz_num,ia,ja,ua)
 !         integer, intent(in) :: n,nz_num
@@ -297,42 +297,42 @@ end
 
 !     end subroutine lus_cr
 
-! subroutine mult_givens ( c, s, k, g )
+subroutine mult_givens ( c, s, k, g )
 
-!   implicit none
+  implicit none
 
-!   integer ( kind = 4 ) k
+  integer ( kind = 4 ) k
 
-!   real ( kind = 8 ) c
-!   real ( kind = 8 ) g(1:k+1)
-!   real ( kind = 8 ) g1
-!   real ( kind = 8 ) g2
-!   real ( kind = 8 ) s
+  real ( kind = 8 ) c
+  real ( kind = 8 ) g(1:k+1)
+  real ( kind = 8 ) g1
+  real ( kind = 8 ) g2
+  real ( kind = 8 ) s
 
-!   g1 = c * g(k) - s * g(k+1)
-!   g2 = s * g(k) + c * g(k+1)
+  g1 = c * g(k) - s * g(k+1)
+  g2 = s * g(k) + c * g(k+1)
 
-!   g(k)   = g1
-!   g(k+1) = g2
+  g(k)   = g1
+  g(k+1) = g2
 
-!   return
-! end
+  return
+end
 
-!---------------
-    !Givens rotation
-    subroutine mult_givens(c,s,k,g)
-        real(rp), intent(in) :: c,s !cos/sin of rotation
-        integer, intent(in) :: k
-        real(rp), intent(inout) :: g(1:k+1)
+! !---------------
+!     !Givens rotation
+!     subroutine mult_givens(c,s,k,g)
+!         real(rp), intent(in) :: c,s !cos/sin of rotation
+!         integer, intent(in) :: k
+!         real(rp), intent(inout) :: g(1:k+1)
 
-        real(rp) :: g1,g2
-        g1 = c*g(k) - s*g(k+1)
-        g2 = s*g(k) - c*g(k+1)
+!         real(rp) :: g1,g2
+!         g1 = c*g(k) - s*g(k+1)
+!         g2 = s*g(k) - c*g(k+1)
 
-        g(k  ) = g1
-        g(k+1) = g2
-        write(*,*) 'g = ', g
-    end subroutine mult_givens
+!         g(k  ) = g1
+!         g(k+1) = g2
+        
+!     end subroutine mult_givens
 
 ! !---------------
 !     !Preconditioned restarted GMRES
