@@ -1,7 +1,10 @@
 module mgmres
 
     use kdefs
+    
     implicit none
+
+    real(rp), parameter :: delta = 1.0e-3
 
     contains
 
@@ -240,7 +243,7 @@ module mgmres
 
         enddo !Iteration loop
     end subroutine pmgmres_ilu_cr
-    
+
 ! subroutine pmgmres_ilu_cr ( n, nz_num, ia, ja, a, x, rhs, itr_max, mr, &
 !   tol_abs, tol_rel )
 
