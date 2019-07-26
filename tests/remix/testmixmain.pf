@@ -103,8 +103,8 @@ contains
     call mhd2mix(remixApp)
 
     ! field aligned current in remixApp%ion(h)%St%Vars(:,:,FAC)
-    thetaMin = 22.0_rp
-    thetaDelta = 12.0_rp
+    thetaMin   = (PI/180.0)*22.0_rp
+    thetaDelta = (PI/180.0)*12.0_rp
     do h=1,size(remixApp%ion)
         do ip=1,remixApp%ion(h)%G%Np
             do it=1,remixApp%ion(h)%G%Nt
