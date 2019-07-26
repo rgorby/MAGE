@@ -1266,192 +1266,33 @@ subroutine r8vec_uniform_01 ( n, seed, r )
 
   return
 end
-subroutine rearrange_cr ( n, nz_num, ia, ja, a )
+!---------------
+    !Sort a compressed row matrix
+    subroutine rearrange_cr(n,nz_num,ia,ja,A)
+        integer, intent(in) :: n,nz_num
+        integer, intent(in) :: ia(n+1)
+        integer, intent(inout) :: ja(nz_num)
+        real(rp), intent(inout) :: A(nz_num)
 
-!*****************************************************************************80
-!
-!! REARRANGE_CR sorts a sparse compressed row matrix.
-!
-!  Discussion:
-!
-!    This routine guarantees that the entries in the CR matrix
-!    are properly sorted.
-!
-!    After the sorting, the entries of the matrix are rearranged in such
-!    a way that the entries of each column are listed in ascending order
-!    of their column values.
-!
-!    The matrix A is assumed to be stored in compressed row format.  Only
-!    the nonzero entries of A are stored.  The vector JA stores the
-!    column index of the nonzero value.  The nonzero values are sorted
-!    by row, and the compressed row vector IA then has the property that
-!    the entries in A and JA that correspond to row I occur in indices
-!    IA(I) through IA(I+1)-1.
-!
-!  Licensing:
-!
-!    This code is distributed under the GNU LGPL license.
-!
-!  Modified:
-!
-!    17 July 2007
-!
-!  Author:
-!
-!    Original C version by Lili Ju.
-!    FORTRAN90 version by John Burkardt.
-!
-!  Reference:
-!
-!    Richard Barrett, Michael Berry, Tony Chan, James Demmel,
-!    June Donato, Jack Dongarra, Victor Eijkhout, Roidan Pozo,
-!    Charles Romine, Henk van der Vorst,
-!    Templates for the Solution of Linear Systems:
-!    Building Blocks for Iterative Methods,
-!    SIAM, 1994.
-!    ISBN: 0898714710,
-!    LC: QA297.8.T45.
-!
-!    Tim Kelley,
-!    Iterative Methods for Linear and Nonlinear Equations,
-!    SIAM, 2004,
-!    ISBN: 0898713528,
-!    LC: QA297.8.K45.
-!
-!    Yousef Saad,
-!    Iterative Methods for Sparse Linear Systems,
-!    Second Edition,
-!    SIAM, 2003,
-!    ISBN: 0898715342,
-!    LC: QA188.S17.
-!
-!  Parameters:
-!
-!    Input, integer ( kind = 4 ) N, the order of the system.
-!
-!    Input, integer ( kind = 4 ) NZ_NUM, the number of nonzeros.
-!
-!    Input, integer ( kind = 4 ) IA(N+1), the compressed row indices.
-!
-!    Input/output, integer ( kind = 4 ) JA(NZ_NUM), the column indices.
-!    On output, these may have been rearranged by the sorting.
-!
-!    Input/output, real ( kind = 8 ) A(NZ_NUM), the matrix values.  On output,
-!    the matrix values may have been moved somewhat because of the sorting.
-!
-  implicit none
+        integer :: i,itemp,k,l
+        real(rp) :: rtemp
 
-  integer ( kind = 4 ) n
-  integer ( kind = 4 ) nz_num
+        do i=1,n
+            do k=ia(i),ia(i+1)-2
+                do l=k+1,ia(i+1)-1
+                    if ( ja(l) < ja(k) ) then
+                        itemp = ja(l)
+                        ja(l) = ja(k)
+                        ja(k) = itemp
 
-  real ( kind = 8 ) a(nz_num)
-  integer ( kind = 4 ) i
-  integer ( kind = 4 ) ia(n+1)
-  integer ( kind = 4 ) i4temp
-  integer ( kind = 4 ) ja(nz_num)
-  integer ( kind = 4 ) k
-  integer ( kind = 4 ) l
-  real ( kind = 8 ) r8temp
+                        rtemp = A(l)
+                        A(l) = A(k)
+                        A(k) = rtemp
+                    endif
+                enddo
+            enddo
+        enddo
 
-  do i = 1, n
-
-    do k = ia(i), ia(i+1) - 2
-      do l = k + 1, ia(i+1) - 1
-
-        if ( ja(l) < ja(k) ) then
-          i4temp = ja(l)
-          ja(l)  = ja(k)
-          ja(k)  = i4temp
-
-          r8temp = a(l)
-          a(l)   = a(k)
-          a(k)   = r8temp
-        end if
-
-      end do
-    end do
-
-  end do
-
-  return
-end
-subroutine timestamp ( )
-
-!*****************************************************************************80
-!
-!! TIMESTAMP prints the current YMDHMS date as a time stamp.
-!
-!  Example:
-!
-!    31 May 2001   9:45:54.872 AM
-!
-!  Licensing:
-!
-!    This code is distributed under the GNU LGPL license.
-!
-!  Modified:
-!
-!    18 May 2013
-!
-!  Author:
-!
-!    John Burkardt
-!
-!  Parameters:
-!
-!    None
-!
-  implicit none
-
-  character ( len = 8 ) ampm
-  integer ( kind = 4 ) d
-  integer ( kind = 4 ) h
-  integer ( kind = 4 ) m
-  integer ( kind = 4 ) mm
-  character ( len = 9 ), parameter, dimension(12) :: month = (/ &
-    'January  ', 'February ', 'March    ', 'April    ', &
-    'May      ', 'June     ', 'July     ', 'August   ', &
-    'September', 'October  ', 'November ', 'December ' /)
-  integer ( kind = 4 ) n
-  integer ( kind = 4 ) s
-  integer ( kind = 4 ) values(8)
-  integer ( kind = 4 ) y
-
-  call date_and_time ( values = values )
-
-  y = values(1)
-  m = values(2)
-  d = values(3)
-  h = values(5)
-  n = values(6)
-  s = values(7)
-  mm = values(8)
-
-  if ( h < 12 ) then
-    ampm = 'AM'
-  else if ( h == 12 ) then
-    if ( n == 0 .and. s == 0 ) then
-      ampm = 'Noon'
-    else
-      ampm = 'PM'
-    end if
-  else
-    h = h - 12
-    if ( h < 12 ) then
-      ampm = 'PM'
-    else if ( h == 12 ) then
-      if ( n == 0 .and. s == 0 ) then
-        ampm = 'Midnight'
-      else
-        ampm = 'AM'
-      end if
-    end if
-  end if
-
-  write ( *, '(i2.2,1x,a,1x,i4,2x,i2,a1,i2.2,a1,i2.2,a1,i3.3,1x,a)' ) &
-    d, trim ( month(m) ), y, h, ':', n, ':', s, '.', mm, trim ( ampm )
-
-  return
-end
+    end subroutine rearrange_cr
 
 end module mgmres
