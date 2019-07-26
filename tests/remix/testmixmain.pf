@@ -24,9 +24,9 @@ contains
     ! testing that an input of all zeroes gets output of all zeroes
     type(mixApp_T) :: remixApp
     type(gamApp_T) :: gameraApp
-
     character(len=strLen) :: caseInput = 'cmiD.xml'
 
+    write(*,*) 'Doing testZeroInput ...'
     call initGamera(gameraApp, caseInput)
 
     call initializeRemixFromGamera(remixApp, gameraApp, caseInput)
@@ -57,6 +57,7 @@ contains
     real(rp) :: testValue = 240.19
     character(len=strLen) :: caseInput = 'cmiD.xml'
 
+    write(*,*) 'Doing testConstantSolution ...'
     call initGamera(gameraApp, caseInput)
 
     call initializeRemixFromGamera(remixApp, gameraApp, caseInput)
@@ -92,6 +93,7 @@ contains
     integer :: h,ip,it
     real(rp) :: thetaMin, thetaDelta
 
+    write(*,*) 'Doing testAzimuthallyDependentFAC ...'
     call initGamera(gameraApp, caseInput)
 
     call initializeRemixFromGamera(remixApp, gameraApp, caseInput)

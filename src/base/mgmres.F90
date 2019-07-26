@@ -46,7 +46,6 @@ module mgmres
 
     end subroutine diagonal_pointer_cr
 
-
 !---------------
     !Incomplete LU factorization
     subroutine ilu_cr(n,nz_num,ia,ja,A,ua,L)
