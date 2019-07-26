@@ -196,7 +196,7 @@ end
 
         real(rp) :: g1,g2
         g1 = c*g(k) - s*g(k+1)
-        g2 = s*g(k) - c*g(k+1)
+        g2 = s*g(k) + c*g(k+1)
 
         g(k  ) = g1
         g(k+1) = g2
