@@ -8,108 +8,83 @@ module mgmres
 
     contains
 
-! subroutine diagonal_pointer_cr ( n, nz_num, ia, ja, ua )
+! subroutine ilu_cr ( n, nz_num, ia, ja, a, ua, l )
 
 !   implicit none
 
 !   integer ( kind = 4 ) n
 !   integer ( kind = 4 ) nz_num
 
+!   real ( kind = 8 ) a(nz_num)
 !   integer ( kind = 4 ) i
 !   integer ( kind = 4 ) ia(n+1)
-!   integer ( kind = 4 ) k
+!   integer ( kind = 4 ) iw(n)
+!   integer ( kind = 4 ) j
 !   integer ( kind = 4 ) ja(nz_num)
+!   integer ( kind = 4 ) jj
+!   integer ( kind = 4 ) jrow
+!   integer ( kind = 4 ) jw
+!   integer ( kind = 4 ) k
+!   real ( kind = 8 ) l(nz_num)
+!   real ( kind = 8 ) tl
 !   integer ( kind = 4 ) ua(n)
-
-!   ua(1:n) = -1
+! !
+! !  Copy A.
+! !
+!   l(1:nz_num) = a(1:nz_num)
 
 !   do i = 1, n
+! !
+! !  IW points to the nonzero entries in row I.
+! !
+!     iw(1:n) = -1
+
 !     do k = ia(i), ia(i+1) - 1
-!       if ( ja(k) == i ) then
-!         ua(i) = k
-!       end if
+!       iw(ja(k)) = k
 !     end do
+
+!     do j = ia(i), ia(i+1) - 1
+!       jrow = ja(j)
+!       if ( i <= jrow ) then
+!         exit
+!       end if
+!       tl = l(j) * l(ua(jrow))
+!       l(j) = tl
+!       do jj = ua(jrow) + 1, ia(jrow+1) - 1
+!         jw = iw(ja(jj))
+!         if ( jw /= -1 ) then
+!           l(jw) = l(jw) - tl * l(jj)
+!         end if
+!       end do
+!     end do
+
+!     ua(i) = j
+
+!     if ( jrow /= i ) then
+!       write ( *, '(a)' ) ' '
+!       write ( *, '(a)' ) 'ILU_CR - Fatal error!'
+!       write ( *, '(a)' ) '  JROW ~= I'
+!       write ( *, '(a,i8)' ) '  JROW = ', jrow
+!       write ( *, '(a,i8)' ) '  I    = ', i
+!       stop
+!     end if
+
+!     if ( l(j) == 0.0D+00 ) then
+!       write ( *, '(a)' ) ' '
+!       write ( *, '(a)' ) 'ILU_CR - Fatal error!'
+!       write ( *, '(a,i8)' ) '  Zero pivot on step I = ', i
+!       write ( *, '(a,i8,a)' ) '  L(', j, ') = 0.0'
+!       stop
+!     end if
+
+!     l(j) = 1.0D+00 / l(j)
+
 !   end do
+
+!   l(ua(1:n)) = 1.0D+00 / l(ua(1:n))
 
 !   return
 ! end
-subroutine ilu_cr ( n, nz_num, ia, ja, a, ua, l )
-
-  implicit none
-
-  integer ( kind = 4 ) n
-  integer ( kind = 4 ) nz_num
-
-  real ( kind = 8 ) a(nz_num)
-  integer ( kind = 4 ) i
-  integer ( kind = 4 ) ia(n+1)
-  integer ( kind = 4 ) iw(n)
-  integer ( kind = 4 ) j
-  integer ( kind = 4 ) ja(nz_num)
-  integer ( kind = 4 ) jj
-  integer ( kind = 4 ) jrow
-  integer ( kind = 4 ) jw
-  integer ( kind = 4 ) k
-  real ( kind = 8 ) l(nz_num)
-  real ( kind = 8 ) tl
-  integer ( kind = 4 ) ua(n)
-!
-!  Copy A.
-!
-  l(1:nz_num) = a(1:nz_num)
-
-  do i = 1, n
-!
-!  IW points to the nonzero entries in row I.
-!
-    iw(1:n) = -1
-
-    do k = ia(i), ia(i+1) - 1
-      iw(ja(k)) = k
-    end do
-
-    do j = ia(i), ia(i+1) - 1
-      jrow = ja(j)
-      if ( i <= jrow ) then
-        exit
-      end if
-      tl = l(j) * l(ua(jrow))
-      l(j) = tl
-      do jj = ua(jrow) + 1, ia(jrow+1) - 1
-        jw = iw(ja(jj))
-        if ( jw /= -1 ) then
-          l(jw) = l(jw) - tl * l(jj)
-        end if
-      end do
-    end do
-
-    ua(i) = j
-
-    if ( jrow /= i ) then
-      write ( *, '(a)' ) ' '
-      write ( *, '(a)' ) 'ILU_CR - Fatal error!'
-      write ( *, '(a)' ) '  JROW ~= I'
-      write ( *, '(a,i8)' ) '  JROW = ', jrow
-      write ( *, '(a,i8)' ) '  I    = ', i
-      stop
-    end if
-
-    if ( l(j) == 0.0D+00 ) then
-      write ( *, '(a)' ) ' '
-      write ( *, '(a)' ) 'ILU_CR - Fatal error!'
-      write ( *, '(a,i8)' ) '  Zero pivot on step I = ', i
-      write ( *, '(a,i8,a)' ) '  L(', j, ') = 0.0'
-      stop
-    end if
-
-    l(j) = 1.0D+00 / l(j)
-
-  end do
-
-  l(ua(1:n)) = 1.0D+00 / l(ua(1:n))
-
-  return
-end
 
 !---------------
     !A*x (compressed row)
@@ -150,44 +125,44 @@ end
     end subroutine diagonal_pointer_cr
 
 
-! !---------------
-!     !Incomplete LU factorization
-!     subroutine ilu_cr(n,nz_num,ia,ja,A,ua,L)
-!         integer, intent(in) :: n,nz_num
-!         integer, intent(in) :: ia(n+1),ja(nz_num)
-!         integer, intent(inout) :: ua(n)
-!         real(rp), intent(in) :: A(nz_num)
-!         real(rp), intent(out) :: L(nz_num)
+!---------------
+    !Incomplete LU factorization
+    subroutine ilu_cr(n,nz_num,ia,ja,A,ua,L)
+        integer, intent(in) :: n,nz_num
+        integer, intent(in) :: ia(n+1),ja(nz_num)
+        integer, intent(inout) :: ua(n)
+        real(rp), intent(in) :: A(nz_num)
+        real(rp), intent(out) :: L(nz_num)
 
-!         integer :: i,j,jj,jrow,jw,k
-!         integer :: iw(n)
-!         real(rp) :: tl
+        integer :: i,j,jj,jrow,jw,k
+        integer :: iw(n)
+        real(rp) :: tl
 
-!         L(1:nz_num) = A(1:nz_num)
-!         do i=1,n
-!             iw(1:n) = -1
-!             do k=ia(i),ia(i+1)-1
-!                 iw(ja(k)) = k
-!             enddo
+        L(1:nz_num) = A(1:nz_num)
+        do i=1,n
+            iw(1:n) = -1
+            do k=ia(i),ia(i+1)-1
+                iw(ja(k)) = k
+            enddo
 
-!             do j=ia(i),ia(i+1)-1
-!                 jrow = ja(j)
-!                 if ( i<= jrow ) exit
-!                 tl = L(j)*L(ua(jrow))
-!                 L(j) = tl
-!                 do jj=ua(jrow)+1,ia(jrow+1)-1
-!                     jw = iw(ja(jj))
-!                     if ( jw /= -1) then
-!                         L(jw) = L(jw) - tl*L(jj)
-!                     endif
-!                 enddo
-!             enddo
+            do j=ia(i),ia(i+1)-1
+                jrow = ja(j)
+                if ( i<= jrow ) exit
+                tl = L(j)*L(ua(jrow))
+                L(j) = tl
+                do jj=ua(jrow)+1,ia(jrow+1)-1
+                    jw = iw(ja(jj))
+                    if ( jw /= -1) then
+                        L(jw) = L(jw) - tl*L(jj)
+                    endif
+                enddo
+            enddo
 
-!             ua(i) = j
-!             L(j) = 1.0/L(j)
-!         enddo
-!         L(ua(1:n)) = 1.0/L(ua(1:n))
-!     end subroutine ilu_cr
+            ua(i) = j
+            L(j) = 1.0/L(j)
+        enddo
+        L(ua(1:n)) = 1.0/L(ua(1:n))
+    end subroutine ilu_cr
 
 subroutine lus_cr ( n, nz_num, ia, ja, l, ua, r, z )
 
