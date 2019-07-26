@@ -297,41 +297,41 @@ end
 
 !     end subroutine lus_cr
 
-subroutine mult_givens ( c, s, k, g )
+! subroutine mult_givens ( c, s, k, g )
 
-  implicit none
+!   implicit none
 
-  integer ( kind = 4 ) k
+!   integer ( kind = 4 ) k
 
-  real ( kind = 8 ) c
-  real ( kind = 8 ) g(1:k+1)
-  real ( kind = 8 ) g1
-  real ( kind = 8 ) g2
-  real ( kind = 8 ) s
+!   real ( kind = 8 ) c
+!   real ( kind = 8 ) g(1:k+1)
+!   real ( kind = 8 ) g1
+!   real ( kind = 8 ) g2
+!   real ( kind = 8 ) s
 
-  g1 = c * g(k) - s * g(k+1)
-  g2 = s * g(k) + c * g(k+1)
+!   g1 = c * g(k) - s * g(k+1)
+!   g2 = s * g(k) + c * g(k+1)
 
-  g(k)   = g1
-  g(k+1) = g2
+!   g(k)   = g1
+!   g(k+1) = g2
 
-  return
-end
+!   return
+! end
 
-! !---------------
-!     !Givens rotation
-!     subroutine mult_givens(c,s,k,g)
-!         real(rp), intent(in) :: c,s !cos/sin of rotation
-!         integer, intent(in) :: k
-!         real(rp), intent(inout) :: g(1:k+1)
+!---------------
+    !Givens rotation
+    subroutine mult_givens(c,s,k,g)
+        real(rp), intent(in) :: c,s !cos/sin of rotation
+        integer, intent(in) :: k
+        real(rp), intent(inout) :: g(1:k+1)
 
-!         real(rp) :: g1,g2
-!         g1 = c*g(k) - s*g(k+1)
-!         g2 = s*g(k) - c*g(k+1)
+        real(rp) :: g1,g2
+        g1 = c*g(k) - s*g(k+1)
+        g2 = s*g(k) - c*g(k+1)
 
-!         g(k  ) = g1
-!         g(k+1) = g2
-!     end subroutine mult_givens
+        g(k  ) = g1
+        g(k+1) = g2
+    end subroutine mult_givens
 
 ! !---------------
 !     !Preconditioned restarted GMRES
