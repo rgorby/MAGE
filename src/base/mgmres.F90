@@ -8,84 +8,6 @@ module mgmres
 
     contains
 
-! subroutine ilu_cr ( n, nz_num, ia, ja, a, ua, l )
-
-!   implicit none
-
-!   integer ( kind = 4 ) n
-!   integer ( kind = 4 ) nz_num
-
-!   real ( kind = 8 ) a(nz_num)
-!   integer ( kind = 4 ) i
-!   integer ( kind = 4 ) ia(n+1)
-!   integer ( kind = 4 ) iw(n)
-!   integer ( kind = 4 ) j
-!   integer ( kind = 4 ) ja(nz_num)
-!   integer ( kind = 4 ) jj
-!   integer ( kind = 4 ) jrow
-!   integer ( kind = 4 ) jw
-!   integer ( kind = 4 ) k
-!   real ( kind = 8 ) l(nz_num)
-!   real ( kind = 8 ) tl
-!   integer ( kind = 4 ) ua(n)
-! !
-! !  Copy A.
-! !
-!   l(1:nz_num) = a(1:nz_num)
-
-!   do i = 1, n
-! !
-! !  IW points to the nonzero entries in row I.
-! !
-!     iw(1:n) = -1
-
-!     do k = ia(i), ia(i+1) - 1
-!       iw(ja(k)) = k
-!     end do
-
-!     do j = ia(i), ia(i+1) - 1
-!       jrow = ja(j)
-!       if ( i <= jrow ) then
-!         exit
-!       end if
-!       tl = l(j) * l(ua(jrow))
-!       l(j) = tl
-!       do jj = ua(jrow) + 1, ia(jrow+1) - 1
-!         jw = iw(ja(jj))
-!         if ( jw /= -1 ) then
-!           l(jw) = l(jw) - tl * l(jj)
-!         end if
-!       end do
-!     end do
-
-!     ua(i) = j
-
-!     if ( jrow /= i ) then
-!       write ( *, '(a)' ) ' '
-!       write ( *, '(a)' ) 'ILU_CR - Fatal error!'
-!       write ( *, '(a)' ) '  JROW ~= I'
-!       write ( *, '(a,i8)' ) '  JROW = ', jrow
-!       write ( *, '(a,i8)' ) '  I    = ', i
-!       stop
-!     end if
-
-!     if ( l(j) == 0.0D+00 ) then
-!       write ( *, '(a)' ) ' '
-!       write ( *, '(a)' ) 'ILU_CR - Fatal error!'
-!       write ( *, '(a,i8)' ) '  Zero pivot on step I = ', i
-!       write ( *, '(a,i8,a)' ) '  L(', j, ') = 0.0'
-!       stop
-!     end if
-
-!     l(j) = 1.0D+00 / l(j)
-
-!   end do
-
-!   l(ua(1:n)) = 1.0D+00 / l(ua(1:n))
-
-!   return
-! end
-
 !---------------
     !A*x (compressed row)
     subroutine ax_cr(n,nz_num,ia,ja,A,x,W)
@@ -244,42 +166,42 @@ end
 
 !     end subroutine lus_cr
 
-subroutine mult_givens ( c, s, k, g )
+! subroutine mult_givens ( c, s, k, g )
 
-  implicit none
+!   implicit none
 
-  integer ( kind = 4 ) k
+!   integer ( kind = 4 ) k
 
-  real ( kind = 8 ) c
-  real ( kind = 8 ) g(1:k+1)
-  real ( kind = 8 ) g1
-  real ( kind = 8 ) g2
-  real ( kind = 8 ) s
+!   real ( kind = 8 ) c
+!   real ( kind = 8 ) g(1:k+1)
+!   real ( kind = 8 ) g1
+!   real ( kind = 8 ) g2
+!   real ( kind = 8 ) s
 
-  g1 = c * g(k) - s * g(k+1)
-  g2 = s * g(k) + c * g(k+1)
+!   g1 = c * g(k) - s * g(k+1)
+!   g2 = s * g(k) + c * g(k+1)
 
-  g(k)   = g1
-  g(k+1) = g2
+!   g(k)   = g1
+!   g(k+1) = g2
 
-  return
-end
+!   return
+! end
 
-! !---------------
-!     !Givens rotation
-!     subroutine mult_givens(c,s,k,g)
-!         real(rp), intent(in) :: c,s !cos/sin of rotation
-!         integer, intent(in) :: k
-!         real(rp), intent(inout) :: g(1:k+1)
+!---------------
+    !Givens rotation
+    subroutine mult_givens(c,s,k,g)
+        real(rp), intent(in) :: c,s !cos/sin of rotation
+        integer, intent(in) :: k
+        real(rp), intent(inout) :: g(1:k+1)
 
-!         real(rp) :: g1,g2
-!         g1 = c*g(k) - s*g(k+1)
-!         g2 = s*g(k) - c*g(k+1)
+        real(rp) :: g1,g2
+        g1 = c*g(k) - s*g(k+1)
+        g2 = s*g(k) - c*g(k+1)
 
-!         g(k  ) = g1
-!         g(k+1) = g2
+        g(k  ) = g1
+        g(k+1) = g2
 
-!     end subroutine mult_givens
+    end subroutine mult_givens
 
 ! !---------------
 !     !Preconditioned restarted GMRES
