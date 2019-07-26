@@ -48,7 +48,7 @@ contains
 
   end subroutine testZeroInput
 
-  @test
+  !@test
   subroutine testConstantSolution()
     ! testing that an input of all zeroes gets output of all zeroes
     type(mixApp_T) :: remixApp
@@ -83,7 +83,7 @@ contains
 
   end subroutine testConstantSolution
 
-  !@test
+  @test
   subroutine testAzimuthallyDependentFAC()
     ! testing that an input of all zeroes gets output of all zeroes
     type(mixApp_T) :: remixApp
@@ -120,6 +120,8 @@ contains
     call run_mix(remixApp%ion, remixApp%tilt, remixApp%conductance)
 
     ! potential in remixApp%ion(h)%St%Vars(:,:,POT)
+    call mix2mhd(remixApp)
+    call mix_mhd_output(remixApp%ion,remixApp%mixoutput,hmsphrs,0.0)
 
   end subroutine testAzimuthallyDependentFAC
 
