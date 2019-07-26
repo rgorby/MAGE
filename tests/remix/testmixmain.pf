@@ -121,7 +121,7 @@ contains
 
     ! potential in remixApp%ion(h)%St%Vars(:,:,POT)
     call mix2mhd(remixApp)
-    call mix_mhd_output(remixApp%ion,remixApp%mixoutput,hmsphrs,0.0)
+    call mix_mhd_output(remixApp%ion,remixApp%mixoutput,hmsphrs,0.0_rp)
 
   end subroutine testAzimuthallyDependentFAC
 
