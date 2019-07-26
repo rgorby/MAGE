@@ -118,7 +118,7 @@ module mgmres
         Z(1:n) = W(1:n)
 
     end subroutine lus_cr
-    
+
 !---------------
     !Givens rotation
     subroutine mult_givens(c,s,k,g)
@@ -134,173 +134,279 @@ module mgmres
         g(k+1) = g2
     end subroutine mult_givens
 
+!---------------
+    !Preconditioned restarted GMRES
+    subroutine pmgmres_ilu_cr(n,nz_num,ia,ja,A,x,rhs,itr_max,mr,tol_abs,tol_rel)
+        integer, intent(in) :: n,nz_num
+        integer, intent(inout) :: ia(n+1),ja(nz_num)
+        real(rp), intent(inout) :: A(nz_num)
+        real(rp), intent(inout) :: x(n)
+        real(rp), intent(in) :: rhs(n)
+        integer, intent(in) :: itr_max,mr
+        real(rp), intent(in) :: tol_abs,tol_rel
 
-subroutine pmgmres_ilu_cr ( n, nz_num, ia, ja, a, x, rhs, itr_max, mr, &
-  tol_abs, tol_rel )
+        real(rp) :: av,htmp,mu,rho,rho_tol
+        real(rp) :: r(n)
+        integer :: ua(n)
+        real(rp), dimension(mr+1) :: c,g,s,y
+        real(rp) :: H(mr+1,mr)
+        real(rp) :: L(ia(n+1)+1)
+        real(rp) :: V(n,mr+1)
+        integer :: i,itr,itr_used,j,k,k_copy
 
-  implicit none
 
-  integer ( kind = 4 ) mr
-  integer ( kind = 4 ) n
-  integer ( kind = 4 ) nz_num
+        itr_used = 0
+        call rearrange_cr(n,nz_num,ia,ja,A)
+        call diagonal_pointer_cr(n,nz_num,ia,ja,ua)
+        call ilu_cr(n,nz_num,ia,ja,A,ua,L)
 
-  real ( kind = 8 ) a(nz_num)
-  real ( kind = 8 ) av
-  real ( kind = 8 ) c(mr+1)
-  real ( kind = 8 ), parameter :: delta = 1.0D-03
-  real ( kind = 8 ) g(mr+1)
-  real ( kind = 8 ) h(mr+1,mr)
-  real ( kind = 8 ) htmp
-  integer ( kind = 4 ) i
-  integer ( kind = 4 ) ia(n+1)
-  integer ( kind = 4 ) itr
-  integer ( kind = 4 ) itr_max
-  integer ( kind = 4 ) itr_used
-  integer ( kind = 4 ) j
-  integer ( kind = 4 ) ja(nz_num)
-  integer ( kind = 4 ) k
-  integer ( kind = 4 ) k_copy
-  real ( kind = 8 ) l(ia(n+1)+1)
-  real ( kind = 8 ) mu
-  real ( kind = 8 ) r(n)
-  real ( kind = 8 ) rho
-  real ( kind = 8 ) rho_tol
-  real ( kind = 8 ) rhs(n)
-  real ( kind = 8 ) s(mr+1)
-  real ( kind = 8 ) tol_abs
-  real ( kind = 8 ) tol_rel
-  integer ( kind = 4 ) ua(n)
-  real ( kind = 8 ) v(n,mr+1);
-  logical, parameter :: verbose = .false.
-  real ( kind = 8 ) x(n)
-  real ( kind = 8 ) y(mr+1)
+        do itr=1,itr_max
+            call ax_cr(n,nz_num,ia,ja,A,x,r)
+            r(1:n) = rhs(1:n) - r(1:n)
+            call lus_cr(n,nz_num,ia,ja,L,ua,r,r)
+            rho = sqrt(dot_product(r,r))
 
-  itr_used = 0
+            if (itr == 1) then
+                rho_tol = rho*tol_rel
+            endif
 
-  call rearrange_cr ( n, nz_num, ia, ja, a )
+            V(1:n,1) = r(1:n)/rho
+            g(1) = rho
+            g(2:mr+1) = 0.0
+            H(1:mr+1,1:mr) = 0.0
 
-  call diagonal_pointer_cr ( n, nz_num, ia, ja, ua )
+            do k=1,mr
+                k_copy = k
+                call ax_cr (n,nz_num,ia,ja,A,V(1:n,k),V(1:n,k+1) )
+                call lus_cr(n,nz_num,ia,ja,L,ua,V(1:n,k+1),V(1:n,k+1) )
+                av = sqrt( dot_product( V(1:n,k+1), V(1:n,k+1) ) )
+                do j=1,k
+                    H(j,k) = dot_product ( V(1:n,k+1), V(1:n,j) )
+                    V(1:n,k+1) = V(1:n,k+1) - V(1:n,j) * H(j,k)
+                enddo
 
-  call ilu_cr ( n, nz_num, ia, ja, a, ua, l )
+                H(k+1,k) = sqrt ( dot_product ( V(1:n,k+1), V(1:n,k+1) ) )
 
-  if ( verbose ) then
-    write ( *, '(a)' ) ' '
-    write ( *, '(a)' ) 'PMGMRES_ILU_CR'
-    write ( *, '(a,i4)' ) '  Number of unknowns = ', n
-  end if
+                if ( ( av + delta * H(k+1,k)) == av ) then
+                    do j=1,k
+                        htmp = dot_product ( V(1:n,k+1), V(1:n,j) )
+                        H(j,k) = H(j,k) + htmp
+                        V(1:n,k+1) = V(1:n,k+1) - htmp * V(1:n,j)
+                    enddo
+                    H(k+1,k) = sqrt ( dot_product ( V(1:n,k+1), V(1:n,k+1) ) )
+                endif
 
-  do itr = 1, itr_max
+                if ( abs(H(k+1,k)) >= TINY ) then
+                    V(1:n,k+1) = V(1:n,k+1)/H(k+1,k)
+                endif
 
-    call ax_cr ( n, nz_num, ia, ja, a, x, r )
+                if ( 1<k ) then
+                    y(1:k+1) = H(1:k+1,k)
+                    do j=1,k-1
+                        call mult_givens(c(j),s(j),j,y)
+                    enddo
+                    H(1:k+1,k) = y(1:k+1)
+                endif
 
-    r(1:n) = rhs(1:n) - r(1:n)
+                mu = sqrt( H(k,k)**2.0 + H(k+1,k)**2.0)
+                c(k) =  H(k  ,k)/mu
+                s(k) = -H(k+1,k)/mu
+                H(k,k) = c(k)*H(k,k) - s(k)*H(k+1,k)
+                H(k+1,k) = 0.0
+                call mult_givens(c(k),s(k),k,g)
+                rho = abs(g(k+1))
 
-    call lus_cr ( n, nz_num, ia, ja, l, ua, r, r )
+                itr_used = itr_used+1
+                if ( rho <= rho_tol .and. rho <= tol_abs ) then
+                    !Exit if done
+                    exit
+                endif
+            enddo !K-loop
+            k = k_copy - 1
+            y(k+1) = g(k+1)/H(k+1,k+1)
 
-    rho = sqrt ( dot_product ( r, r ) )
+            do i=k,1,-1
+                y(i) = ( g(i) - dot_product ( H(i,i+1:k+1), y(i+1:k+1) ) ) / H(i,i)
+            enddo
 
-    if ( verbose ) then
-      write ( *, '(a,i4,a,g14.6)' ) '  ITR = ', itr, '  Residual = ', rho
-    end if
+            do i=1,n
+                x(i) = x(i) + dot_product ( V(i,1:k+1), y(1:k+1) )
+            enddo
 
-    if ( itr == 1 ) then
-      rho_tol = rho * tol_rel
-    end if
+            if ( (rho<=rho_tol) .and. (rho<=tol_abs) ) then
+                exit
+            endif
 
-    v(1:n,1) = r(1:n) / rho
 
-    g(1) = rho
-    g(2:mr+1) = 0.0D+00
+        enddo !Iteration loop
+    end subroutine pmgmres_ilu_cr
+    
+! subroutine pmgmres_ilu_cr ( n, nz_num, ia, ja, a, x, rhs, itr_max, mr, &
+!   tol_abs, tol_rel )
 
-    h(1:mr+1,1:mr) = 0.0D+00
+!   implicit none
 
-    do k = 1, mr
+!   integer ( kind = 4 ) mr
+!   integer ( kind = 4 ) n
+!   integer ( kind = 4 ) nz_num
 
-      k_copy = k
+!   real ( kind = 8 ) a(nz_num)
+!   real ( kind = 8 ) av
+!   real ( kind = 8 ) c(mr+1)
+!   real ( kind = 8 ), parameter :: delta = 1.0D-03
+!   real ( kind = 8 ) g(mr+1)
+!   real ( kind = 8 ) h(mr+1,mr)
+!   real ( kind = 8 ) htmp
+!   integer ( kind = 4 ) i
+!   integer ( kind = 4 ) ia(n+1)
+!   integer ( kind = 4 ) itr
+!   integer ( kind = 4 ) itr_max
+!   integer ( kind = 4 ) itr_used
+!   integer ( kind = 4 ) j
+!   integer ( kind = 4 ) ja(nz_num)
+!   integer ( kind = 4 ) k
+!   integer ( kind = 4 ) k_copy
+!   real ( kind = 8 ) l(ia(n+1)+1)
+!   real ( kind = 8 ) mu
+!   real ( kind = 8 ) r(n)
+!   real ( kind = 8 ) rho
+!   real ( kind = 8 ) rho_tol
+!   real ( kind = 8 ) rhs(n)
+!   real ( kind = 8 ) s(mr+1)
+!   real ( kind = 8 ) tol_abs
+!   real ( kind = 8 ) tol_rel
+!   integer ( kind = 4 ) ua(n)
+!   real ( kind = 8 ) v(n,mr+1);
+!   logical, parameter :: verbose = .false.
+!   real ( kind = 8 ) x(n)
+!   real ( kind = 8 ) y(mr+1)
 
-      call ax_cr ( n, nz_num, ia, ja, a, v(1:n,k), v(1:n,k+1) ) 
+!   itr_used = 0
 
-      call lus_cr ( n, nz_num, ia, ja, l, ua, v(1:n,k+1), v(1:n,k+1) )
+!   call rearrange_cr ( n, nz_num, ia, ja, a )
 
-      av = sqrt ( dot_product ( v(1:n,k+1), v(1:n,k+1) ) )
+!   call diagonal_pointer_cr ( n, nz_num, ia, ja, ua )
 
-      do j = 1, k
-        h(j,k) = dot_product ( v(1:n,k+1), v(1:n,j) )
-        v(1:n,k+1) = v(1:n,k+1) - v(1:n,j) * h(j,k)
-      end do
+!   call ilu_cr ( n, nz_num, ia, ja, a, ua, l )
 
-      h(k+1,k) = sqrt ( dot_product ( v(1:n,k+1), v(1:n,k+1) ) )
+!   if ( verbose ) then
+!     write ( *, '(a)' ) ' '
+!     write ( *, '(a)' ) 'PMGMRES_ILU_CR'
+!     write ( *, '(a,i4)' ) '  Number of unknowns = ', n
+!   end if
 
-      if ( ( av + delta * h(k+1,k)) == av ) then
-        do j = 1, k
-          htmp = dot_product ( v(1:n,k+1), v(1:n,j) )
-          h(j,k) = h(j,k) + htmp
-          v(1:n,k+1) = v(1:n,k+1) - htmp * v(1:n,j)
-        end do
-        h(k+1,k) = sqrt ( dot_product ( v(1:n,k+1), v(1:n,k+1) ) )
-      end if
+!   do itr = 1, itr_max
 
-      if ( h(k+1,k) /= 0.0D+00 ) then
-        v(1:n,k+1) = v(1:n,k+1) / h(k+1,k)
-      end if
+!     call ax_cr ( n, nz_num, ia, ja, a, x, r )
 
-      if ( 1 < k ) then
-        y(1:k+1) = h(1:k+1,k)
-        do j = 1, k - 1
-          call mult_givens ( c(j), s(j), j, y )
-        end do
-        h(1:k+1,k) = y(1:k+1)
-      end if
+!     r(1:n) = rhs(1:n) - r(1:n)
 
-      mu = sqrt ( h(k,k)**2 + h(k+1,k)**2 )
+!     call lus_cr ( n, nz_num, ia, ja, l, ua, r, r )
 
-      c(k) = h(k,k) / mu
-      s(k) = -h(k+1,k) / mu
-      h(k,k) = c(k) * h(k,k) - s(k) * h(k+1,k)
-      h(k+1,k) = 0.0D+00
-      call mult_givens ( c(k), s(k), k, g )
+!     rho = sqrt ( dot_product ( r, r ) )
 
-      rho = abs ( g(k+1) )
+!     if ( verbose ) then
+!       write ( *, '(a,i4,a,g14.6)' ) '  ITR = ', itr, '  Residual = ', rho
+!     end if
 
-      itr_used = itr_used + 1
+!     if ( itr == 1 ) then
+!       rho_tol = rho * tol_rel
+!     end if
 
-      if ( verbose ) then
-        write ( *, '(a,i4,a,g14.6)' ) '  K = ', k, '  Residual = ', rho
-      end if
+!     v(1:n,1) = r(1:n) / rho
 
-      if ( rho <= rho_tol .and. rho <= tol_abs ) then
-        exit
-      end if
+!     g(1) = rho
+!     g(2:mr+1) = 0.0D+00
 
-    end do
+!     h(1:mr+1,1:mr) = 0.0D+00
 
-    k = k_copy - 1
+!     do k = 1, mr
 
-    y(k+1) = g(k+1) / h(k+1,k+1)
+!       k_copy = k
 
-    do i = k, 1, -1
-      y(i) = ( g(i) - dot_product ( h(i,i+1:k+1), y(i+1:k+1) ) ) / h(i,i)
-    end do
+!       call ax_cr ( n, nz_num, ia, ja, a, v(1:n,k), v(1:n,k+1) ) 
 
-    do i = 1, n
-      x(i) = x(i) + dot_product ( v(i,1:k+1), y(1:k+1) )
-    end do
+!       call lus_cr ( n, nz_num, ia, ja, l, ua, v(1:n,k+1), v(1:n,k+1) )
 
-    if ( rho <= rho_tol .and. rho <= tol_abs ) then
-      exit
-    end if
+!       av = sqrt ( dot_product ( v(1:n,k+1), v(1:n,k+1) ) )
 
-  end do
+!       do j = 1, k
+!         h(j,k) = dot_product ( v(1:n,k+1), v(1:n,j) )
+!         v(1:n,k+1) = v(1:n,k+1) - v(1:n,j) * h(j,k)
+!       end do
 
-  if ( verbose ) then
-    write ( *, '(a)' ) ' '
-    write ( *, '(a)' ) 'PMGMRES_ILU_CR:'
-    write ( *, '(a,i6)' ) '  Iterations = ', itr_used
-    write ( *, '(a,g14.6)' ) '  Final residual = ', rho
-  end if
+!       h(k+1,k) = sqrt ( dot_product ( v(1:n,k+1), v(1:n,k+1) ) )
 
-  return
-end
+!       if ( ( av + delta * h(k+1,k)) == av ) then
+!         do j = 1, k
+!           htmp = dot_product ( v(1:n,k+1), v(1:n,j) )
+!           h(j,k) = h(j,k) + htmp
+!           v(1:n,k+1) = v(1:n,k+1) - htmp * v(1:n,j)
+!         end do
+!         h(k+1,k) = sqrt ( dot_product ( v(1:n,k+1), v(1:n,k+1) ) )
+!       end if
+
+!       if ( h(k+1,k) /= 0.0D+00 ) then
+!         v(1:n,k+1) = v(1:n,k+1) / h(k+1,k)
+!       end if
+
+!       if ( 1 < k ) then
+!         y(1:k+1) = h(1:k+1,k)
+!         do j = 1, k - 1
+!           call mult_givens ( c(j), s(j), j, y )
+!         end do
+!         h(1:k+1,k) = y(1:k+1)
+!       end if
+
+!       mu = sqrt ( h(k,k)**2 + h(k+1,k)**2 )
+
+!       c(k) = h(k,k) / mu
+!       s(k) = -h(k+1,k) / mu
+!       h(k,k) = c(k) * h(k,k) - s(k) * h(k+1,k)
+!       h(k+1,k) = 0.0D+00
+!       call mult_givens ( c(k), s(k), k, g )
+
+!       rho = abs ( g(k+1) )
+
+!       itr_used = itr_used + 1
+
+!       if ( verbose ) then
+!         write ( *, '(a,i4,a,g14.6)' ) '  K = ', k, '  Residual = ', rho
+!       end if
+
+!       if ( rho <= rho_tol .and. rho <= tol_abs ) then
+!         exit
+!       end if
+
+!     end do
+
+!     k = k_copy - 1
+
+!     y(k+1) = g(k+1) / h(k+1,k+1)
+
+!     do i = k, 1, -1
+!       y(i) = ( g(i) - dot_product ( h(i,i+1:k+1), y(i+1:k+1) ) ) / h(i,i)
+!     end do
+
+!     do i = 1, n
+!       x(i) = x(i) + dot_product ( v(i,1:k+1), y(1:k+1) )
+!     end do
+
+!     if ( rho <= rho_tol .and. rho <= tol_abs ) then
+!       exit
+!     end if
+
+!   end do
+
+!   if ( verbose ) then
+!     write ( *, '(a)' ) ' '
+!     write ( *, '(a)' ) 'PMGMRES_ILU_CR:'
+!     write ( *, '(a,i6)' ) '  Iterations = ', itr_used
+!     write ( *, '(a,g14.6)' ) '  Final residual = ', rho
+!   end if
+
+!   return
+! end
 
 
 !---------------
