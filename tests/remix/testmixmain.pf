@@ -45,6 +45,9 @@ contains
     ! error value allows 1e-3 error per cell on average
     @assertLessThanOrEqual(sum(abs(remixApp%ion(NORTH)%S%Solution)), 8.1_rp, 'Non-zero remix output in North hemisphere')
     @assertLessThanOrEqual(sum(abs(remixApp%ion(SOUTH)%S%Solution)), 8.1_rp, 'Non-zero remix output in South hemisphere')
+    call mix2mhd(remixApp)
+    call mix_mhd_output(remixApp%ion,remixApp%mixoutput,hmsphrs,0.0_rp)
+
 
   end subroutine testZeroInput
 
