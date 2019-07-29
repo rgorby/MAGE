@@ -206,9 +206,9 @@ module mixsolver
       ! there is a version of this in mix.F90 that stores the old solution
       ! and initializes the next one from that but I found that doesn't
       ! affect the convergence speed
-      if(abs(P%llbc_value) < 0.5) then
-          ! dealing with the edge case of guessing exactly a full 0 input
-          S%solution = 1.0_rp
+      if(norm2(S%RHS) < 1e-6_rp) then
+          ! dealing with the edge case of guessing exactly 0 for an exactly 0 rhs
+          S%solution = 0.01_rp
       else
           S%solution = 0.0_rp
       endif
