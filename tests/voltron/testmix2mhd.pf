@@ -23,9 +23,9 @@ contains
     type(gamApp_T) :: gameraApp
 
     character(len=strLen) :: caseInput = 'cmiD.xml'
-    real(rp), dimension(NDIM) :: rHatP,eHat
-    real(rp) :: deltaSum, xc,yc,zc
-    integer :: i,j,k,ig,n,ip,jp,kp,np
+    real(rp), dimension(NDIM) :: rHatP,eHat,xyz
+    real(rp) :: deltaSum,lambda,rval,xc,yc,zc
+    integer :: h,ip,it,k,j,jp,kp,n,np,i,ig
 
     call initGamera(gameraApp, caseInput)
 
@@ -36,14 +36,19 @@ contains
 
     do k=gameraApp%Grid%ks,gameraApp%Grid%ke+1
         do j=gameraApp%Grid%js,gameraApp%Grid%je+1
-            do i=1,remixApp%PsiShells+1
-                do h = 1,2
-                    mhdPsiGrid(i,j,k,:,h)
-                    voltronApp%remixApp%mixOutput(i,j,k,MHDPSI,NORTH) = cos(lambda)*cos(lambda)/r
-                end do
-            end do
-       end do
-    end do
+            do i=1,voltronApp%remixApp%PsiShells+1
+                !i = Grid%is+PsiSt-1
+                iG = i+voltronApp%remixApp%PsiStart-1 !Global i index for Grid access
+
+                xyz = gameraApp%Grid%xyz(iG,j,k,:)
+                rval = norm2(xyz)
+                lambda = acos(xyz(ZDIR)/rval)
+
+                voltronApp%remixApp%gPsi(i,j,k) = cos(lambda)*cos(lambda)/rval
+
+            enddo
+        enddo
+    enddo
 
     call convertRemixToGamera(gameraApp, voltronApp%remixApp)
 
