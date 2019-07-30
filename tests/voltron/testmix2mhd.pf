@@ -31,24 +31,22 @@ contains
 
     call initVoltron(voltronApp, gameraApp, caseInput)
 
-    ! zero out the remix output so that only the added corotation field is sent to gamera
-    voltronApp%remixApp%mixOutput = 0.0_rp
+    do h=1,2
+        do ip=1,voltronApp%remixApp%ion(h)%g%Np
+            do it=1,voltronApp%remixApp%ion(h)%g%Nt
+                rval = voltronApp%remixApp%ion(h)%g%r(ip,it)
+                lambda = (PI/2.0_rp) - voltronApp%remixApp%ion(h)%g%t(ip,it)
 
-    do k=gameraApp%Grid%ks,gameraApp%Grid%ke+1
-        do j=gameraApp%Grid%js,gameraApp%Grid%je+1
-            do i=1,voltronApp%remixApp%PsiShells+1
-                !i = Grid%is+PsiSt-1
-                iG = i+voltronApp%remixApp%PsiStart-1 !Global i index for Grid access
-
-                xyz = gameraApp%Grid%xyz(iG,j,k,:)
-                rval = norm2(xyz)
-                lambda = acos(xyz(ZDIR)/rval)
-
-                voltronApp%remixApp%gPsi(i,j,k) = cos(lambda)*cos(lambda)/rval
-
+                if(rval > 0) then
+                    voltronApp%remixApp%ion(h)%st%vars(ip,it,POT) = cos(lambda)*cos(lambda)/rval
+                else
+                    voltronApp%remixApp%ion(h)%st%vars(ip,it,POT) = 0
+                end if
             enddo
         enddo
     enddo
+
+    call mix2mhd(voltronApp%remixApp)
 
     call convertRemixToGamera(gameraApp, voltronApp%remixApp)
 
