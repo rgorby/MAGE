@@ -596,7 +596,7 @@ module stress
         endif
 
         if (doInit) then
-            write(*,*) 'Initializing gFlx array ...'
+            !write(*,*) 'Initializing gFlx array ...'
             allocate(gFlx(Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,1:NVAR,1:NDIM,BLK:Model%nSpc))
             gFlx = 0.0
         endif
@@ -624,7 +624,7 @@ module stress
         endif
 
         if (doInit) then
-            write(*,*) 'Initializing mFlx array ...'
+            !write(*,*) 'Initializing mFlx array ...'
             allocate(mFlx(Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,1:NDIM,1:NDIM))
             mFlx = 0.0
         endif
