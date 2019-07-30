@@ -108,10 +108,14 @@ message("Adding ReMIX module ...")
 #Add source
 add_subdirectory(src/remix)
 add_custom_target(remix ALL)
-message("\tAdding executable gamera2remix.x")
-add_executable(gamera2remix.x src/drivers/gamera2remix.F90)
-target_link_libraries(gamera2remix.x baselib gamlib remixlib)
-add_dependencies(remix gamera2remix.x gamlib baselib)
+#message("\tAdding executable gamera2remix.x")
+#add_executable(gamera2remix.x src/drivers/gamera2remix.F90)
+#target_link_libraries(gamera2remix.x baselib gamlib remixlib)
+#add_dependencies(remix gamera2remix.x gamlib baselib)
+message("\tAdding executable remix.x")
+add_executable(remix.x src/remix/mix.F90)
+target_link_libraries(remix.x baselib remixlib)
+add_dependencies(remix remix.x baselib)
 
 #-------------
 #Kaiju: Voltron

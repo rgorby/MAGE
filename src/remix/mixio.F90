@@ -78,7 +78,7 @@ module mixio
 
     subroutine writeMIX(fname,I,hmsphrs)
       type(mixIon_T),dimension(:),intent(in) :: I
-      integer,intent(in) :: hmsphrs(2)
+      integer,dimension(:),intent(in) :: hmsphrs
       character(len=*), intent(in) :: fname
       integer(HID_T) :: h5fId,h5gId
       integer :: h
