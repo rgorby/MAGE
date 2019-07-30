@@ -25,26 +25,30 @@ contains
     character(len=strLen) :: caseInput = 'cmiD.xml'
     real(rp), dimension(NDIM) :: rHatP,eHat,xyz
     real(rp) :: deltaSum,lambda,rval,xc,yc,zc
+    real(rp) :: Psi0,RIn
     integer :: h,ip,it,k,j,jp,kp,n,np,i,ig
+
+    write(*,*) 'Running corotationTest ...'
+    !Setting some values for inner shell
+    RIn  = 1.0
+    Psi0 = 1.0
 
     call initGamera(gameraApp, caseInput)
 
     call initVoltron(voltronApp, gameraApp, caseInput)
 
+    associate(rApp=>voltronApp%remixApp)
     do h=1,2
-        do ip=1,voltronApp%remixApp%ion(h)%g%Np
-            do it=1,voltronApp%remixApp%ion(h)%g%Nt
-                rval = voltronApp%remixApp%ion(h)%g%r(ip,it)
-                lambda = (PI/2.0_rp) - voltronApp%remixApp%ion(h)%g%t(ip,it)
-                write(*,*) 'h / ip / it, r/lam = ',h,ip,it,rval,lambda
-                if(rval > 0) then
-                    voltronApp%remixApp%ion(h)%st%vars(ip,it,POT) = cos(lambda)*cos(lambda)/rval
-                else
-                    voltronApp%remixApp%ion(h)%st%vars(ip,it,POT) = 0
-                end if
+        do ip=1,rApp%ion(h)%g%Np
+            do it=1,rApp%ion(h)%g%Nt
+                rval = rApp%ion(h)%g%r(ip,it)
+                lambda = (PI/2.0_rp) - rApp%ion(h)%g%t(ip,it)
+                !write(*,*) 'h / ip / it, r/lam = ',h,ip,it,rval,lambda
+                rApp%ion(h)%st%vars(ip,it,POT) = Psi0*cos(lambda)*cos(lambda)/RIn
             enddo
         enddo
     enddo
+    end associate
 
     call mix2mhd(voltronApp%remixApp)
 
