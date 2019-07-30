@@ -36,7 +36,7 @@ contains
             do it=1,voltronApp%remixApp%ion(h)%g%Nt
                 rval = voltronApp%remixApp%ion(h)%g%r(ip,it)
                 lambda = (PI/2.0_rp) - voltronApp%remixApp%ion(h)%g%t(ip,it)
-
+                write(*,*) 'h / ip / it, r/lam = ',h,ip,it,rval,lambda
                 if(rval > 0) then
                     voltronApp%remixApp%ion(h)%st%vars(ip,it,POT) = cos(lambda)*cos(lambda)/rval
                 else
