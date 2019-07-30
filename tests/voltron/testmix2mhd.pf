@@ -61,8 +61,9 @@ contains
             ! verify that the gamera field (iiBC%inEijk, iiBC%inExyz, or both) have the expected values here
             ! inExyz should be pointed exactly radially at all locations
             deltaSum = 0.0_rp
-            do k=gameraApp%Grid%ksg,gameraApp%Grid%keg
-                do j=gameraApp%Grid%jsg,gameraApp%Grid%jeg
+            !Only loop over active cells
+            do k=gameraApp%Grid%ks,gameraApp%Grid%ke
+                do j=gameraApp%Grid%js,gameraApp%Grid%je
 
                     !Map to active ip,jp,kp (i=Grid%is => ip=Grid%is)
                     call lfmIJK(gameraApp%Model,gameraApp%Grid,gameraApp%Grid%is,j,k,ip,jp,kp)
@@ -75,8 +76,8 @@ contains
                         rHatP = normVec([xc,yc,zc])
 
                         eHat = normVec(iiBC%inExyz(np,jp,kp,:))
-                        write(*,*) 'ig,j,k,np = ',ig,j,k,np
-                        write(*,*) 'eIJK / eXYZ = ', iiBC%inEijk(np,jp,kp,:), iiBC%inExyz(np,jp,kp,:)
+                        !write(*,*) 'ig,j,k,np = ',ig,j,k,np
+                        !write(*,*) 'eIJK / eXYZ = ', iiBC%inEijk(np,jp,kp,:), iiBC%inExyz(np,jp,kp,:)
 
                         deltaSum = deltaSum + abs(norm2(rHatP-eHat))
                     end do
