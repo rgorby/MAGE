@@ -31,7 +31,7 @@ contains
     write(*,*) 'Running corotationTest ...'
     !Setting some values for inner shell
     RIn  = 1.0
-    Psi0 = 1.0
+    Psi0 = 10.0
 
     call initGamera(gameraApp, caseInput)
 
@@ -50,9 +50,10 @@ contains
     enddo
     end associate
 
+    !Can add a test of the interpolation to Gamera shells here?
     call mix2mhd(voltronApp%remixApp)
 
-    call convertRemixToGamera(gameraApp, voltronApp%remixApp)
+    call convertRemixToGamera(gameraApp, voltronApp%remixApp,.false.) !Don't add corotation potential
 
     ! find the remix BC to verify the resulting Gamera data
     SELECT type(iiBC=>gameraApp%Grid%externalBCs(INI)%p)
@@ -74,6 +75,8 @@ contains
                         rHatP = normVec([xc,yc,zc])
 
                         eHat = normVec(iiBC%inExyz(np,jp,kp,:))
+                        write(*,*) 'ig,j,k,np = ',ig,j,k,np
+                        write(*,*) 'eIJK / eXYZ = ', iiBC%inEijk(np,jp,kp,:), iiBC%inExyz(np,jp,kp,:)
 
                         deltaSum = deltaSum + abs(norm2(rHatP-eHat))
                     end do
