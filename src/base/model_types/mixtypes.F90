@@ -84,6 +84,22 @@ module mixtypes
      real(rp),dimension(:),allocatable :: solution
   end type Solver_T
 
+  type mixConductance_T
+    integer :: euv_model_type, et_model_type
+    real(rp) :: alpha, beta, R, F107,pedmin,hallmin,sigma_ratio,ped0
+    logical :: const_sigma, do_ramp, apply_cap
+
+    ! auxilary variables
+    real(rp) :: PI2, ang65, ang100, pref, href, shall
+    real(rp) :: speder, pedslope, pedslope2, hallslope,sigmap65, sigmah65, sigmap100
+    real(rp), dimension(:,:), allocatable :: zenith, coszen
+    real(rp), dimension(:,:), allocatable :: euvSigmaP, euvSigmaH
+    real(rp), dimension(:,:), allocatable :: deltaSigmaP, deltaSigmaH
+    real(rp), dimension(:,:), allocatable :: E0, phi0, deltaE, aRes
+    real(rp), dimension(:,:), allocatable :: rampFactor
+    real(rp), dimension(:,:), allocatable :: engFlux
+  end type mixConductance_T
+  
   ! used to store an entire instance of MIX (e.g., one per hemisphere)
   type mixIon_T
      type(mixState_T)       :: St
@@ -91,6 +107,7 @@ module mixtypes
      type(mixParams_T)      :: P
      type(Solver_T)         :: S
      type(Map_T)            :: M, Mfpd    ! M is the map to map in MIX space; Mfpd is flipped to map in Gamera space
+     type(mixConductance_T) :: conductance
   end type mixIon_T
 
 end module mixtypes

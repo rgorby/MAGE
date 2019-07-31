@@ -4,22 +4,6 @@ module mixconductance
 
   implicit none
 
-  type mixConductance_T
-    integer :: euv_model_type, et_model_type
-    real(rp) :: alpha, beta, R, F107,pedmin,hallmin,sigma_ratio,ped0
-    logical :: const_sigma, do_ramp, apply_cap
-
-    ! auxilary variables
-    real(rp) :: PI2, ang65, ang100, pref, href, shall
-    real(rp) :: speder, pedslope, pedslope2, hallslope,sigmap65, sigmah65, sigmap100
-    real(rp), dimension(:,:), allocatable :: zenith, coszen
-    real(rp), dimension(:,:), allocatable :: euvSigmaP, euvSigmaH
-    real(rp), dimension(:,:), allocatable :: deltaSigmaP, deltaSigmaH
-    real(rp), dimension(:,:), allocatable :: E0, phi0, deltaE, aRes
-    real(rp), dimension(:,:), allocatable :: rampFactor
-    real(rp), dimension(:,:), allocatable :: engFlux
-  end type mixConductance_T
-
   contains
     subroutine conductance_init(conductance,Params,G)
       type(mixConductance_T), intent(inout) :: conductance

@@ -5,7 +5,6 @@ program MIX
   use mixtypes
   use mixdefs
   use mixmain
-  use mixconductance
   use mixio
   
   
@@ -20,7 +19,6 @@ program MIX
   integer, parameter :: MAXMIXIOVAR = 10
   
   type(mixIon_T),dimension(1) :: ion  ! just north
-  type(mixConductance_T) :: conductance
 
   ! Input deck
   Narg = command_argument_count()
@@ -39,9 +37,9 @@ program MIX
      stop
   endif
 
-  call init_mix(ion,hmsphrs,conductance,inpXML)
+  call init_mix(ion,hmsphrs,inpXML)
   call fill_fac(ion)
-  call run_mix(ion,0._rp,conductance)
+  call run_mix(ion,0._rp)
   call writeMIX('mixtest.h5',ion,hmsphrs)
 
   write(*,*) 'Min/Max potential',minval(ion(1)%St%Vars(:,:,POT)),maxval(ion(1)%St%Vars(:,:,POT))
