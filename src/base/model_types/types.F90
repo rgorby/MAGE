@@ -79,6 +79,9 @@ module types
         logical :: isMPI = .false.
         integer :: NumRi=1,NumRj=1,NumRk=1
         integer :: Ri=1,Rj=1,Rk=1
+
+        !Background variables
+        real(rp) :: bScl = 1.0, bSclz = 0.0
         
         !Background field function pointer
         procedure(VectorField_T), pointer, nopass :: B0 => NULL()
@@ -197,6 +200,10 @@ module types
         real(rp), dimension(:,:,:), allocatable :: eqDen    ! instantaneous equatorial density (for plasmasphere)
         
         real(rp) :: time
+
+        !initialization booleans
+        logical :: doB0Init = .true., doG0Init = .true.
+
     end type State_T
 
     !StateIC_T
@@ -225,8 +232,9 @@ module types
     !VectorField_T
     !Generic vector field
     abstract interface
-        subroutine VectorField_T(x,y,z,Ax,Ay,Az)
-            Import :: rp
+        subroutine VectorField_T(Model,x,y,z,Ax,Ay,Az)
+            Import :: rp,Model_T
+            type(Model_T), intent(in) :: Model
             real(rp), intent(in) :: x,y,z
             real(rp), intent(out) :: Ax,Ay,Az
         end subroutine VectorField_T

@@ -47,8 +47,8 @@ contains
     contains
 
     ! modified to hard-code M2 constant to 1.0 (therefore removed)
-    subroutine VP_Dipole(x,y,z,Ax,Ay,Az)
-
+    subroutine VP_Dipole(Model,x,y,z,Ax,Ay,Az)
+        type(Model_T), intent(in) :: Model ! unused, part of the interface
         real(rp), intent(in) :: x,y,z
         real(rp), intent(out) :: Ax,Ay,Az
 

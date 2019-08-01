@@ -103,7 +103,8 @@ module quadrature
     !TODO: Clean up these routines to remove redundant code
 
     !Calculates face flux of given vector field
-    subroutine GaussianFaceFlux(f0,f1,f2,f3,Axyz,flx)
+    subroutine GaussianFaceFlux(Model,f0,f1,f2,f3,Axyz,flx)
+        type(Model_T), intent(in) :: Model
         real(rp), dimension(NDIM), intent(in) :: f0,f1,f2,f3
         procedure(VectorField_T), pointer, intent(in) :: Axyz
         real(rp), intent(out) :: flx
@@ -130,7 +131,7 @@ module quadrature
                 yp = f0(YDIR) + dy(1)*eta + dy(2)*psi + dy(3)*eta*psi
                 zp = f0(ZDIR) + dz(1)*eta + dz(2)*psi + dz(3)*eta*psi
 
-                call Axyz(xp,yp,zp,Axp,Ayp,Azp)
+                call Axyz(Model,xp,yp,zp,Axp,Ayp,Azp)
 
                 !Calculate displacement vectors and cross for area
                 etaV(1) = dx(1) + dx(3)*psi
@@ -155,7 +156,8 @@ module quadrature
     !F = face integral of A
     !F2 = face integral of Ai*Ai
     !Fij = face integral of cross: Axy,Ayz,Azx
-    subroutine GaussianFaceIntegral(f0,f1,f2,f3,Axyz,fInt,fInt2,fIntX)
+    subroutine GaussianFaceIntegral(Model,f0,f1,f2,f3,Axyz,fInt,fInt2,fIntX)
+        type(Model_T), intent(in) :: Model
         real(rp), dimension(NDIM), intent(in) :: f0,f1,f2,f3
         procedure(VectorField_T), pointer, intent(in) :: Axyz
         real(rp), dimension(NDIM), intent(out) :: fInt,fInt2,fIntX
@@ -183,7 +185,7 @@ module quadrature
                 yp = f0(YDIR) + dy(1)*eta + dy(2)*psi + dy(3)*eta*psi
                 zp = f0(ZDIR) + dz(1)*eta + dz(2)*psi + dz(3)*eta*psi
 
-                call Axyz(xp,yp,zp,Axp,Ayp,Azp)
+                call Axyz(Model,xp,yp,zp,Axp,Ayp,Azp)
 
                 !Calculate displacement vectors and cross for area
                 etaV(1) = dx(1) + dx(3)*psi
@@ -218,7 +220,8 @@ module quadrature
 
     end subroutine GaussianFaceIntegral
 
-    subroutine GaussianFaceStress(f0,f1,f2,f3,Axyz,Mbb)
+    subroutine GaussianFaceStress(Model,f0,f1,f2,f3,Axyz,Mbb)
+        type(Model_T), intent(in) :: Model
         real(rp), dimension(NDIM), intent(in) :: f0,f1,f2,f3
         procedure(VectorField_T), pointer, intent(in) :: Axyz
         real(rp), dimension(NDIM), intent(out) :: Mbb
@@ -246,7 +249,7 @@ module quadrature
                 yp = f0(YDIR) + dy(1)*eta + dy(2)*psi + dy(3)*eta*psi
                 zp = f0(ZDIR) + dz(1)*eta + dz(2)*psi + dz(3)*eta*psi
 
-                call Axyz(xp,yp,zp,Axp,Ayp,Azp)
+                call Axyz(Model,xp,yp,zp,Axp,Ayp,Azp)
 
                 !Calculate displacement vectors and cross for area
                 etaV(1) = dx(1) + dx(3)*psi
@@ -338,7 +341,8 @@ module quadrature
     end subroutine GaussianFaceSystem
 
     !Gaussian edge integral of Axyz between e1/e2
-    function GaussianEdgeIntegral(e1,e2,Axyz) result(eInt)
+    function GaussianEdgeIntegral(Model,e1,e2,Axyz) result(eInt)
+        type(Model_T), intent(in) :: Model
         real(rp), dimension(NDIM), intent(in) :: e1,e2
         procedure(VectorField_T), pointer, intent(in) :: Axyz
         real(rp), dimension(NDIM) :: eInt
@@ -356,7 +360,7 @@ module quadrature
             xp = xBar + gA(i)*dR2
 
             !Evaluate at each point and add to total integral
-            call Axyz(xp(XDIR),xp(YDIR),xp(ZDIR),Ap(XDIR),Ap(YDIR),Ap(ZDIR))
+            call Axyz(Model,xp(XDIR),xp(YDIR),xp(ZDIR),Ap(XDIR),Ap(YDIR),Ap(ZDIR))
             eInt = eInt+0.5*gWgt(i)*Ap
 
         enddo

@@ -278,13 +278,13 @@ module prob
 
         !Set constants in background module            
         if (doBz) then
-            bScl  = B0_BW/sqrt(3.0)
-            bSclz = bScl
+            Model%bScl  = B0_BW/sqrt(3.0)
+            Model%bSclz = Model%bScl
         else
-            bScl  = B0_BW/sqrt(2.0)
-            bSclz = 0.0
+            Model%bScl  = B0_BW/sqrt(2.0)
+            Model%bSclz = 0.0
         endif
-        call inpXML%Set_Val(bSclz,"prob/Bz0",bSclz) !Allow problem file to overwrite Z component
+        call inpXML%Set_Val(Model%bSclz,"prob/Bz0",Model%bSclz) !Allow problem file to overwrite Z component
 
         !Initialize State variable analytic function
         Wxyz => GasIC_BW
@@ -305,14 +305,14 @@ module prob
 
         !Local functions for initBW  
         contains
-            subroutine VectorPot_BW(x,y,z,Ax,Ay,Az)
-                
+            subroutine VectorPot_BW(Model,x,y,z,Ax,Ay,Az)
+                type(Model_T), intent(in) :: Model
                 real(rp), intent(in) :: x,y,z
                 real(rp), intent(out) :: Ax,Ay,Az
         
                 Ax = 0.0
-                Ay = bSclz*x
-                Az = bScl*(y - x)
+                Ay = Model%bSclz*x
+                Az = Model%bScl*(y - x)
             end subroutine VectorPot_BW
 
             subroutine GasIC_BW(x,y,z,D,Vx,Vy,Vz,P)
@@ -516,8 +516,8 @@ module prob
 
         !Local functions
         contains
-            subroutine VectorPot_Loop2D(x,y,z,Ax,Ay,Az)
-                
+            subroutine VectorPot_Loop2D(Model,x,y,z,Ax,Ay,Az)
+                type(Model_T), intent(in) :: Model ! unused, part of the interface
                 real(rp), intent(in) :: x,y,z
                 real(rp), intent(out) :: Ax,Ay,Az
         
@@ -682,8 +682,8 @@ module prob
 
         !Local functions
         contains
-            subroutine VectorPot_Loop2D(x,y,z,Ax,Ay,Az)
-                
+            subroutine VectorPot_Loop2D(Model,x,y,z,Ax,Ay,Az)
+                type(Model_T), intent(in) :: Model ! unused, part of the interface
                 real (rp), intent(in) :: x,y,z
                 real (rp), intent(out) :: Ax,Ay,Az
         
@@ -1004,8 +1004,8 @@ module prob
 
         !Local functions for initBW  
         contains
-            subroutine VectorPot_GEM(x,y,z,Ax,Ay,Az)
-                
+            subroutine VectorPot_GEM(Model,x,y,z,Ax,Ay,Az)
+                type(Model_T), intent(in) :: Model ! unused, part of the interface
                 real(rp), intent(in) :: x,y,z
                 real(rp), intent(out) :: Ax,Ay,Az
                 real(rp) :: Lx, Ly
@@ -1074,7 +1074,8 @@ module prob
 
         !Local functions for initALFVEN
         contains
-            subroutine VectorPot_ALF(x,y,z,Ax,Ay,Az)
+            subroutine VectorPot_ALF(Model,x,y,z,Ax,Ay,Az)
+                type(Model_T), intent(in) :: Model ! unused, part of the interface
                 real(rp), intent(in) :: x,y,z
                 real(rp), intent(out) :: Ax,Ay,Az
 

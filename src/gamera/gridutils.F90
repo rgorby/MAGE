@@ -100,9 +100,9 @@ module gridutils
                     eJ = [Grid%x(i  ,j+1,k  ),Grid%y(i  ,j+1,k  ),Grid%z(i  ,j+1,k  )]
                     eK = [Grid%x(i  ,j  ,k+1),Grid%y(i  ,j  ,k+1),Grid%z(i  ,j  ,k+1)]
 
-                    lA(i,j,k,IDIR) = dot_product(GaussianEdgeIntegral(eI,e0,Axyz),eI-e0)
-                    lA(i,j,k,JDIR) = dot_product(GaussianEdgeIntegral(eJ,e0,Axyz),eJ-e0)
-                    lA(i,j,k,KDIR) = dot_product(GaussianEdgeIntegral(eK,e0,Axyz),eK-e0)
+                    lA(i,j,k,IDIR) = dot_product(GaussianEdgeIntegral(Model,eI,e0,Axyz),eI-e0)
+                    lA(i,j,k,JDIR) = dot_product(GaussianEdgeIntegral(Model,eJ,e0,Axyz),eJ-e0)
+                    lA(i,j,k,KDIR) = dot_product(GaussianEdgeIntegral(Model,eK,e0,Axyz),eK-e0)
 
                 enddo
             enddo
@@ -144,17 +144,17 @@ module gridutils
 
                     !I face
                     call faceCoords(Model,Grid,i,j,k,IDIR,f0,f1,f2,f3)
-                    call GaussianFaceFlux(f0,f1,f2,f3,Bxyz,mFlx)
+                    call GaussianFaceFlux(Model,f0,f1,f2,f3,Bxyz,mFlx)
                     State%magFlux(i,j,k,IDIR) = mFlx
 
                     !J face
                     call faceCoords(Model,Grid,i,j,k,JDIR,f0,f1,f2,f3)
-                    call GaussianFaceFlux(f0,f1,f2,f3,Bxyz,mFlx)
+                    call GaussianFaceFlux(Model,f0,f1,f2,f3,Bxyz,mFlx)
                     State%magFlux(i,j,k,JDIR) = mFlx
 
                     !K face
                     call faceCoords(Model,Grid,i,j,k,KDIR,f0,f1,f2,f3)
-                    call GaussianFaceFlux(f0,f1,f2,f3,Bxyz,mFlx)
+                    call GaussianFaceFlux(Model,f0,f1,f2,f3,Bxyz,mFlx)
                     State%magFlux(i,j,k,KDIR) = mFlx
 
                 enddo
