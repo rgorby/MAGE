@@ -154,8 +154,8 @@ contains
     !fStr:/vStr (if no gStrO), otherwise
     !fStr:/gStrO/vStr
     function ioExist(fStr,vStr,gStrO)
-        character(len=strLen), intent(in) :: fStr,vStr
-        character(len=strLen), intent(in), optional :: gStrO
+        character(len=*), intent(in) :: fStr,vStr
+        character(len=*), intent(in), optional :: gStrO
         logical :: ioExist
 
         logical :: fExist, gExist

@@ -53,8 +53,8 @@ module stress
         !Big local work areas to calculate fluxes
         !gFlux = Ni x Nj x Nk x Nv x Nd x Ns
         !mFlux = Ni x Nj x Nk x Nd x Nd
-        real(rp), dimension(:,:,:,:,:,:), allocatable :: gFlx
-        real(rp), dimension(:,:,:,:,:)  , allocatable :: mFlx
+        real(rp), dimension(:,:,:,:,:,:), allocatable, save :: gFlx
+        real(rp), dimension(:,:,:,:,:)  , allocatable, save :: mFlx
 
         !DIR$ attributes align : ALIGN :: gFlx,mFlx
         !DIR$ ASSUME_ALIGNED dGasH: ALIGN
@@ -78,14 +78,8 @@ module stress
         if ( present(dGasM) .and. Model%doMHD  ) doMaxwell = .true.
 
         !Allocate/initialize arrays
-        !Hydro fluxes in all dimensions/species
-        allocate(gFlx(Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,1:NVAR,1:NDIM,BLK:Model%nSpc))
-        gFlx = 0.0
-        !Mag fluxes in all dimensions
-        if (doMaxwell) then
-            allocate(mFlx(Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,1:NDIM,1:NDIM))
-            mFlx = 0.0
-        endif
+        call InitGasFlux(Model,Gr,gFlx)
+        if (doMaxwell) call InitMagFlux(Model,Gr,mFlx)
 
         !Done initialization
 
@@ -191,6 +185,7 @@ module stress
         call Toc("Flux2Deltas")
 
     end subroutine CalcStress
+
 
     !Calculate vecLen block of fluxes (iB:iB+vecLen,j,k) in direction d
     !dGasM passed but unused in hydro case
@@ -576,5 +571,63 @@ module stress
 
         enddo
     end subroutine MagKinFlux
+
+!---
+!Initialization routines
+    subroutine InitGasFlux(Model,Gr,gFlx)
+        type(Model_T), intent(in) :: Model
+        type(Grid_T), intent(in) :: Gr
+        real(rp), dimension(:,:,:,:,:,:), allocatable, intent(inout) :: gFlx
+
+        logical :: doInit
+        integer, dimension(6) :: flxDims
+        integer :: dI
+
+        if (.not. allocated(gFlx)) then
+            doInit = .true.
+        else
+            flxDims = [Gr%Ni,Gr%Nj,Gr%Nk,NVAR,NDIM,Model%nSpc+1]
+            dI = sum(abs(flxDims-shape(gFlx)))
+            if (dI>0) then
+                doInit = .true.
+            else
+                doInit = .false.
+            endif
+        endif
+
+        if (doInit) then
+            !write(*,*) 'Initializing gFlx array ...'
+            allocate(gFlx(Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,1:NVAR,1:NDIM,BLK:Model%nSpc))
+            gFlx = 0.0
+        endif
+    end subroutine InitGasFlux
+
+    subroutine InitMagFlux(Model,Gr,mFlx)
+        type(Model_T), intent(in) :: Model
+        type(Grid_T), intent(in) :: Gr
+        real(rp), dimension(:,:,:,:,:), allocatable, intent(inout) :: mFlx
+
+        logical :: doInit
+        integer, dimension(5) :: flxDims
+        integer :: dI
+
+        if (.not. allocated(mFlx)) then
+            doInit = .true.
+        else
+            flxDims = [Gr%Ni,Gr%Nj,Gr%Nk,NDIM,NDIM]
+            dI = sum(abs(flxDims-shape(mFlx)))
+            if (dI>0) then
+                doInit = .true.
+            else
+                doInit = .false.
+            endif
+        endif
+
+        if (doInit) then
+            !write(*,*) 'Initializing mFlx array ...'
+            allocate(mFlx(Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,1:NDIM,1:NDIM))
+            mFlx = 0.0
+        endif
+    end subroutine InitMagFlux
 
 end module stress
