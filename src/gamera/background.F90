@@ -34,7 +34,7 @@ module background
         procedure(GasIC_T), pointer :: Wxyz !Lazy wrapper for volume integral
 
         
-        if (.not. Model%doBackground .or. .not. State%doB0Init) then
+        if (.not. Model%doBackground .or. .not. Grid%doB0Init) then
             !Do nothing if incorrectly configured
             return
         endif
@@ -156,7 +156,7 @@ module background
             enddo
         enddo
                 
-        State%doB0Init = .false. !Don't do again
+        Grid%doB0Init = .false. !Don't do again
         
         contains
             !Wrapper (to look like GasIC_T)
@@ -182,7 +182,7 @@ module background
         real(rp) :: PhiI,PhiJ,PhiK,PhiIp,PhiJp,PhiKp
         real(rp) ::  daI, daJ, daK, daIp, daJp, daKp
         real(rp) :: dV
-        if (.not. Model%doGrav .or. .not. State%doG0Init) then
+        if (.not. Model%doGrav .or. .not. Grid%doG0Init) then
             !Do nothing if incorrectly configured
             return
         endif
@@ -231,7 +231,7 @@ module background
         enddo
 
         !Don't initialize again
-        State%doG0Init = .false.
+        Grid%doG0Init = .false.
 
         contains
             !Wrapper (to take vector)

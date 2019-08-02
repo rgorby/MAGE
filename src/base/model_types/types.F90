@@ -177,12 +177,15 @@ module types
         !edgB0(i,j,k,1:2,E) is the 1:2 component of b1/b2 on edge E
         !B0(i,j,k,d) is the d (xyz) component of B0
         !bFlux0(i,j,k,F) is the magnetic flux through face F
+        logical :: doB0Init = .true.
         real(rp), dimension(:,:,:,:,:), allocatable :: fcB0
         real(rp), dimension(:,:,:,:,:), allocatable :: edgB0
         real(rp), dimension(:,:,:,:), allocatable :: B0,bFlux0
         real(rp), dimension(:,:,:,:), allocatable :: dpB0 !Stress from background field
 
+        logical :: doG0Init = .true.
         real(rp), dimension(:,:,:,:), allocatable :: gxyz !Gravitational acceleration (cell-centered)
+
     end type Grid_T
 
 !State information
@@ -200,9 +203,6 @@ module types
         real(rp), dimension(:,:,:), allocatable :: eqDen    ! instantaneous equatorial density (for plasmasphere)
         
         real(rp) :: time
-
-        !initialization booleans
-        logical :: doB0Init = .true., doG0Init = .true.
 
     end type State_T
 

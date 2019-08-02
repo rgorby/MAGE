@@ -166,11 +166,11 @@ module init
         endif
 
         !Incorporate background field, B0, if necessary
-        if (Model%doBackground .and. State%doB0Init) then
+        if (Model%doBackground .and. Grid%doB0Init) then
             call AddB0(Model,Grid,State,Model%B0)
         endif
         !Incorporate gravity if necessary
-        if (Model%doGrav .and. State%doG0Init) then
+        if (Model%doGrav .and. Grid%doG0Init) then
             call AddGrav(Model,Grid,State,Model%Phi)
         endif
 
