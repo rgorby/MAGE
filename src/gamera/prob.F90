@@ -305,8 +305,19 @@ module prob
 
         !Local functions for initBW  
         contains
-            subroutine VectorPot_BW(Model,x,y,z,Ax,Ay,Az)
-                type(Model_T), intent(in) :: Model
+
+            !Background field for blast wave
+            subroutine BlastB0(x,y,z,Ax,Ay,Az)
+                real(rp), intent(in) :: x,y,z
+                real(rp), intent(out) :: Ax,Ay,Az
+
+                Ax = Model%bScl
+                Ay = Model%bScl
+                Az = Model%bSclz
+
+            end subroutine BlastB0
+
+            subroutine VectorPot_BW(x,y,z,Ax,Ay,Az)
                 real(rp), intent(in) :: x,y,z
                 real(rp), intent(out) :: Ax,Ay,Az
         
@@ -516,8 +527,7 @@ module prob
 
         !Local functions
         contains
-            subroutine VectorPot_Loop2D(Model,x,y,z,Ax,Ay,Az)
-                type(Model_T), intent(in) :: Model ! unused, part of the interface
+            subroutine VectorPot_Loop2D(x,y,z,Ax,Ay,Az)
                 real(rp), intent(in) :: x,y,z
                 real(rp), intent(out) :: Ax,Ay,Az
         
@@ -682,8 +692,7 @@ module prob
 
         !Local functions
         contains
-            subroutine VectorPot_Loop2D(Model,x,y,z,Ax,Ay,Az)
-                type(Model_T), intent(in) :: Model ! unused, part of the interface
+            subroutine VectorPot_Loop2D(x,y,z,Ax,Ay,Az)
                 real (rp), intent(in) :: x,y,z
                 real (rp), intent(out) :: Ax,Ay,Az
         
@@ -1004,8 +1013,7 @@ module prob
 
         !Local functions for initBW  
         contains
-            subroutine VectorPot_GEM(Model,x,y,z,Ax,Ay,Az)
-                type(Model_T), intent(in) :: Model ! unused, part of the interface
+            subroutine VectorPot_GEM(x,y,z,Ax,Ay,Az)
                 real(rp), intent(in) :: x,y,z
                 real(rp), intent(out) :: Ax,Ay,Az
                 real(rp) :: Lx, Ly
@@ -1074,8 +1082,7 @@ module prob
 
         !Local functions for initALFVEN
         contains
-            subroutine VectorPot_ALF(Model,x,y,z,Ax,Ay,Az)
-                type(Model_T), intent(in) :: Model ! unused, part of the interface
+            subroutine VectorPot_ALF(x,y,z,Ax,Ay,Az)
                 real(rp), intent(in) :: x,y,z
                 real(rp), intent(out) :: Ax,Ay,Az
 

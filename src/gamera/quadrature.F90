@@ -131,7 +131,7 @@ module quadrature
                 yp = f0(YDIR) + dy(1)*eta + dy(2)*psi + dy(3)*eta*psi
                 zp = f0(ZDIR) + dz(1)*eta + dz(2)*psi + dz(3)*eta*psi
 
-                call Axyz(Model,xp,yp,zp,Axp,Ayp,Azp)
+                call Axyz(xp,yp,zp,Axp,Ayp,Azp)
 
                 !Calculate displacement vectors and cross for area
                 etaV(1) = dx(1) + dx(3)*psi
@@ -185,7 +185,7 @@ module quadrature
                 yp = f0(YDIR) + dy(1)*eta + dy(2)*psi + dy(3)*eta*psi
                 zp = f0(ZDIR) + dz(1)*eta + dz(2)*psi + dz(3)*eta*psi
 
-                call Axyz(Model,xp,yp,zp,Axp,Ayp,Azp)
+                call Axyz(xp,yp,zp,Axp,Ayp,Azp)
 
                 !Calculate displacement vectors and cross for area
                 etaV(1) = dx(1) + dx(3)*psi
@@ -249,7 +249,7 @@ module quadrature
                 yp = f0(YDIR) + dy(1)*eta + dy(2)*psi + dy(3)*eta*psi
                 zp = f0(ZDIR) + dz(1)*eta + dz(2)*psi + dz(3)*eta*psi
 
-                call Axyz(Model,xp,yp,zp,Axp,Ayp,Azp)
+                call Axyz(xp,yp,zp,Axp,Ayp,Azp)
 
                 !Calculate displacement vectors and cross for area
                 etaV(1) = dx(1) + dx(3)*psi
@@ -360,7 +360,7 @@ module quadrature
             xp = xBar + gA(i)*dR2
 
             !Evaluate at each point and add to total integral
-            call Axyz(Model,xp(XDIR),xp(YDIR),xp(ZDIR),Ap(XDIR),Ap(YDIR),Ap(ZDIR))
+            call Axyz(xp(XDIR),xp(YDIR),xp(ZDIR),Ap(XDIR),Ap(YDIR),Ap(ZDIR))
             eInt = eInt+0.5*gWgt(i)*Ap
 
         enddo

@@ -166,7 +166,7 @@ module background
 
                 Aa = 0.0
                 Ab = 0.0
-                call B0(Model,x,y,z,Bx,By,Bz)
+                call B0(x,y,z,Bx,By,Bz)
             end subroutine B0Wrap
     end subroutine AddB0
 
@@ -243,18 +243,5 @@ module background
             end subroutine PWrap
     end subroutine AddGrav
 
-    !Background field for blast wave
-    subroutine BlastB0(Model,x,y,z,Ax,Ay,Az)
-        type(Model_T), intent(in) :: Model
-        real(rp), intent(in) :: x,y,z
-        real(rp), intent(out) :: Ax,Ay,Az
-
-        Ax = Model%bScl
-        Ay = Model%bScl
-        Az = Model%bSclz
-        
-    end subroutine BlastB0
-
-
-
 end module background
+

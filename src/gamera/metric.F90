@@ -310,8 +310,7 @@ module metric
     end subroutine CellDV
 
     !Lazy functions for surface area/face centers
-    subroutine rVec(Model,x,y,z,Ax,Ay,Az)
-        type(Model_T), intent(in) :: Model ! unused, part of the interface
+    subroutine rVec(x,y,z,Ax,Ay,Az)
         real(rp), intent(in) :: x,y,z
         real(rp), intent(out) :: Ax,Ay,Az
 
@@ -321,8 +320,7 @@ module metric
         
     end subroutine rVec
 
-    subroutine IdVec(Model,x,y,z,Ax,Ay,Az)
-        type(Model_T), intent(in) :: Model ! unused, part of the interface
+    subroutine IdVec(x,y,z,Ax,Ay,Az)
         real(rp), intent(in) :: x,y,z
         real(rp), intent(out) :: Ax,Ay,Az
 

@@ -232,9 +232,8 @@ module types
     !VectorField_T
     !Generic vector field
     abstract interface
-        subroutine VectorField_T(Model,x,y,z,Ax,Ay,Az)
-            Import :: rp,Model_T
-            type(Model_T), intent(in) :: Model
+        subroutine VectorField_T(x,y,z,Ax,Ay,Az)
+            Import :: rp
             real(rp), intent(in) :: x,y,z
             real(rp), intent(out) :: Ax,Ay,Az
         end subroutine VectorField_T

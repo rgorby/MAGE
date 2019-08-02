@@ -623,8 +623,7 @@ module msphutils
     
     !-----------------------------
     !Vector potential/vector fields for dipole/cut-dipoles
-    subroutine VP_Init(Model,x,y,z,Ax,Ay,Az)
-        type(Model_T), intent(in) :: Model ! unused, part of the interface
+    subroutine VP_Init(x,y,z,Ax,Ay,Az)
         real(rp), intent(in) :: x,y,z
         real(rp), intent(out) :: Ax,Ay,Az
 
@@ -676,8 +675,7 @@ module msphutils
 
     end subroutine Dipole
 
-    subroutine cutDipole(Model,x,y,z,Ax,Ay,Az)
-        type(Model_T), intent(in) :: Model ! unused, part of the interface
+    subroutine cutDipole(x,y,z,Ax,Ay,Az)
         real(rp), intent(in) :: x,y,z
         real(rp), intent(out) :: Ax,Ay,Az
    
