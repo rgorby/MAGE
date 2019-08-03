@@ -7,45 +7,49 @@ program MIX
   use mixmain
   use mixio
   
-  
   implicit none
 
   ! Input deck
   character(len=strLen) :: inpXML
-  integer :: Narg
-  logical :: fExist
 
-  integer,parameter :: hmsphrs(1) = [NORTH]
-  integer, parameter :: MAXMIXIOVAR = 10
-  
-  type(mixIon_T),dimension(1) :: ion  ! just north
+  integer,parameter :: hmsphrs(2) = [NORTH,SOUTH]
+  real(rp),parameter :: tilt=0.
+  type(mixIon_T),dimension(:),allocatable :: ion
 
-  ! Input deck
-  Narg = command_argument_count()
-  if (Narg .eq. 0) then
-     write(*,*) 'No input deck specified, defaulting to Input.xml'
-     inpXML = "Input.xml"
-  else
-     call get_command_argument(1,inpXML)
-  endif
-
-  write(*,*) 'Reading input deck from ', trim(inpXML)
-  inquire(file=inpXML,exist=fExist)
-  if (.not. fExist) then
-     write(*,*) 'Error opening input deck, exiting ...'
-     write(*,*) ''
-     stop
-  endif
+  call readArgs(inpXML)
 
   call init_mix(ion,hmsphrs,inpXML)
   call fill_fac(ion)
-  call run_mix(ion,0._rp)
-  call writeMIX('mixtest.h5',ion,hmsphrs)
+  call run_mix(ion,tilt)
+  call writeMIX('mixtest.h5',ion)
+  call potMinMax(ion)
 
-  write(*,*) 'Min/Max potential',minval(ion(1)%St%Vars(:,:,POT)),maxval(ion(1)%St%Vars(:,:,POT))
+  contains
 
-contains
+  subroutine readArgs(inpXML)
+    character(len=strLen),intent(inout) :: inpXML
+    integer :: Narg
+    logical :: fExist
+    
+    ! Input deck
+    Narg = command_argument_count()
+    if (Narg .eq. 0) then
+       write(*,*) 'No input deck specified, defaulting to Input.xml'
+       inpXML = "Input.xml"
+    else
+       call get_command_argument(1,inpXML)
+    endif
+    
+    write(*,*) 'Reading input deck from ', trim(inpXML)
+    inquire(file=inpXML,exist=fExist)
+    if (.not. fExist) then
+       write(*,*) 'Error opening input deck, exiting ...'
+       write(*,*) ''
+       stop
+    endif
 
+  end subroutine readArgs
+  
   subroutine fill_fac(I)
     type(mixIon_T),dimension(:),intent(inout) :: I
     
@@ -56,14 +60,14 @@ contains
     thetaMin = 22.0_rp*PI/180.
     thetaDelta = 12.0_rp*PI/180.
     
-    do h=1,size(ion)
-       do ii=1,ion(h)%G%Np
-          do jj=1,ion(h)%G%Nt
-             if(ion(h)%G%t(ii,jj) .ge. thetaMin .and. ion(h)%G%t(ii,jj) .le. (thetaMin+thetaDelta)) then
-                ion(h)%St%Vars(ii,jj,FAC) = sin(ion(h)%G%t(ii,jj)) * sin(ion(h)%G%p(ii,jj))
-!             ion(h)%St%Vars(ii,jj,FAC) = Mollify(ion(h)%G%t(ii,jj)-thetaMin-0.5*thetaDelta,thetaDelta) * sin(ion(h)%G%p(ii,jj))
+    do h=1,size(I)
+       do ii=1,I(h)%G%Np
+          do jj=1,I(h)%G%Nt
+             if(I(h)%G%t(ii,jj) .ge. thetaMin .and. I(h)%G%t(ii,jj) .le. (thetaMin+thetaDelta)) then
+                I(h)%St%Vars(ii,jj,FAC) = sin(I(h)%G%t(ii,jj)) * sin(I(h)%G%p(ii,jj))
+!             I(h)%St%Vars(ii,jj,FAC) = Mollify(I(h)%G%t(ii,jj)-thetaMin-0.5*thetaDelta,thetaDelta) * sin(I(h)%G%p(ii,jj))
              else
-                ion(h)%St%Vars(ii,jj,FAC) = 0.0_rp
+                I(h)%St%Vars(ii,jj,FAC) = 0.0_rp
              endif
           end do
        end do

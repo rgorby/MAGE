@@ -8,24 +8,37 @@ module mixmain
   use mixstate
   use mixsolver
 
-
-
   implicit none
 
   contains
 
+    ! subroutine initMixApp(mixApp,hmsphrs,inpXML)
+    !   ! see init_mix for comments
+    !   type(mixApp_T),intent(inout) :: mixApp 
+    !   integer, dimension(:), intent(in) :: hmsphrs 
+    !   character(len=*), optional, intent(in) :: inpXML
+
+    !   integer :: h,nMixObjects
+
+    !   nMixObjects = size(hmsphrs)
+    !   if (.not.allocated(mixApp%ion)) allocate(mixApp%ion(nMixObjects))
+
+    !   do h,nMixObjects
+    !      mixApp%ion%St%hemisphere = hmsphrs(h)
+    !   end do
+      
+    !   init_mix(mixApp%ion,inpXML)
+      
+    ! end subroutine initMixApp
+
     subroutine init_mix(I,hmsphrs,optFilename)
-      type(mixIon_T),dimension(:),intent(inout) :: I ! I for ionosphere (is an array of 1 or 2 elements for north and south) or it can be artibrarily many, e.g., for different solves done in loop
-      integer, dimension(:), intent(in) :: hmsphrs ! array of integers marking hemispheres for the I object array.
+      type(mixIon_T),dimension(:),allocatable,intent(inout) :: I ! I for ionosphere (is an array of 1 or 2 elements for north and south) or it can be artibrarily many, e.g., for different solves done in loop
+      integer, dimension(:), intent(in) :: hmsphrs       
       character(len=*), optional, intent(in) :: optFilename
 
-      integer :: h ! h for hemisphere
+      integer :: h
 
-      ! check that hmsphs and I have the same size
-      if (size(I).ne.size(hmsphrs)) then
-         write(*,*) "The sizes of the mixIon_T array and hemispheres array are different. Stopping..."
-         stop
-      end if
+      if (.not.allocated(I)) allocate(I(size(hmsphrs)))
 
       do h=1,size(I)
          if(present(optFilename)) then
@@ -38,31 +51,13 @@ module mixmain
          call init_state(I(h)%G,I(h)%St) 
          call conductance_init(I(h)%conductance,I(h)%P,I(h)%G)
 
-         ! copy hemisphere and tilt parameters from the xml file only
-         ! if hmsphrs array sets them to -1. This allows flexibility
-         ! in allowing the possibility to define the hemisphere in the
-         ! xml file for some applications, in which case they should
-         ! initialize the hmsphrs array to -1.
          I(h)%St%hemisphere = hmsphrs(h)
-         if (I(h)%St%hemisphere.eq.-1) I(h)%St%hemisphere = I(h)%P%hemisphere
 
-         ! check that hemisphere makes sense by now. note, mixparams
-         ! has already checked that what's read from the xml file is
-         ! either NORTH or SOUTH. So the check here is only against
-         ! hmsphrs array not set correctly (to -1 or NORTH or SOUTH)
-         ! in the calling driver program.
+         ! check that hemisphere makes sense.
          if ((I(h)%St%hemisphere.ne.NORTH).and.(I(h)%St%hemisphere.ne.SOUTH)) then
             write(*,*) 'Hemisphere is set to an unallowable value: ',I(h)%St%hemisphere
             write(*,*) 'Stopping...'
             stop
-         end if
-
-         ! tilt will be used from the param file or should be set
-         ! in calling the run_mix function.
-         if (I(h)%St%hemisphere.eq.NORTH) then
-            I(h)%St%tilt = I(h)%P%tilt
-         else 
-            I(h)%St%tilt = -I(h)%P%tilt
          end if
 
          ! initialize solver for each ionosphere instance
@@ -89,16 +84,10 @@ module mixmain
       integer :: h
 
       do h=1,size(I)
-         ! note, if tilt is set to -9999. in the calling function the
-         ! value from the param.xml file will be used.  if it is not
-         ! set in the xml file, the xml reader will have set it to default
-         ! value by now.
-         if (tilt.ne.-9999._rp) then
-            if (I(h)%St%hemisphere.eq.NORTH) then
-               I(h)%St%tilt = tilt
-            else
-               I(h)%St%tilt = -tilt
-            end if
+         if (I(h)%St%hemisphere.eq.NORTH) then
+            I(h)%St%tilt = tilt
+         else
+            I(h)%St%tilt = -tilt
          end if
 
          call conductance_total(I(h)%conductance,I(h)%G,I(h)%St)

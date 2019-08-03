@@ -76,17 +76,11 @@ module mixio
       call h5fclose_f(h5fId, herror)
     end subroutine readVar
 
-    subroutine writeMIX(fname,I,hmsphrs)
+    subroutine writeMIX(fname,I)
       type(mixIon_T),dimension(:),intent(in) :: I
-      integer,dimension(:),intent(in) :: hmsphrs
       character(len=*), intent(in) :: fname
       integer(HID_T) :: h5fId,h5gId
       integer :: h
-
-      if (size(I).ne.size(hmsphrs)) then
-         write(*,*) "writeMIX: The size of mixIon object is different from the size ofthe hemispheres array. Stopping..."
-         stop
-      end if
 
       call h5open_f(herror) !Setup H5 Fortran interface            
       call h5fcreate_f(fname,H5F_ACC_TRUNC_F, h5fId, herror) 
@@ -275,5 +269,14 @@ module mixio
       call h5fclose_f(h5fId, herror)
     end subroutine readGMHDVar
 
+    subroutine potMinMax(I)
+      type(mixIon_T),dimension(:),intent(in) :: I
 
+      integer :: h ! hemisphere counter
+      do h=1,size(I)
+         write(*,*) 'Hemisphere:',h,'; Min/Max potential',minval(I(h)%St%Vars(:,:,POT)),maxval(I(h)%St%Vars(:,:,POT))
+      end do
+      
+    end subroutine potMinMax
+    
 end module mixio

@@ -28,10 +28,6 @@ module mixtypes
      real(rp) :: tol_rel
      real(rp) :: llbc_value
 
-     ! state
-     real(rp) :: tilt
-     integer :: hemisphere
-
      ! grid
      real(rp) :: LowLatBoundary
      integer :: Np, Nt
@@ -45,8 +41,8 @@ module mixtypes
 
   type mixState_T
      real(rp), dimension(:,:,:),allocatable :: Vars
-     integer :: hemisphere=-1
-     real(rp) :: tilt
+     integer :: hemisphere=NORTH
+     real(rp) :: tilt=0.
   end type mixState_T
 
   type mixGrid_T
@@ -110,4 +106,10 @@ module mixtypes
      type(mixConductance_T) :: conductance
   end type mixIon_T
 
+  ! used to store all instances of mixIon type, i.e., all hemispheres
+!  type mixApp_T
+!     type(mixIon_T), dimension(:), allocatable :: ion  
+!  end type mixApp_T
+
 end module mixtypes
+

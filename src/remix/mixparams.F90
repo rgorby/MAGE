@@ -79,21 +79,6 @@ module mixparams
         call xmlInp%Set_Val(Params%llbc_value,"solver/llbc_value",0.0_rp)
         ! =========== SOLVER PARAMTERS =================== !
 
-        ! =========== STATE PARAMTERS =================== ! (used when in standalone mode)
-        ! HEMISPHERE
-        call xmlInp%Set_Val(tmpStr,"state/hemisphere","NORTH")
-        select case (tmpSTR)
-           case ("NORTH")
-              Params%hemisphere = NORTH
-           case ("SOUTH")
-              Params%hemisphere = SOUTH
-           case default 
-              stop "Hemisphere entered is not supported."              
-        end select
-
-        call xmlInp%Set_Val(Params%tilt,"state/tilt",0._rp)
-        ! =========== STATE PARAMTERS =================== !
-
         ! =========== GRID PARAMTERS =================== !
         call xmlInp%Set_Val(Params%Np,"grid/Np",256)
         call xmlInp%Set_Val(Params%Nt,"grid/Nt",128)
