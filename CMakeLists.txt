@@ -15,13 +15,16 @@ endif()
 #Set hostname & configuration defaults before going to compilers.cmake
 cmake_host_system_information(RESULT HOST QUERY HOSTNAME)
 
-# Get the current working branch
+#Get the current working branch
 execute_process(COMMAND git rev-parse --abbrev-ref HEAD WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
 	OUTPUT_VARIABLE GIT_BRANCH
 	OUTPUT_STRIP_TRAILING_WHITESPACE)
 execute_process(COMMAND git log -1 --format=%h WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
 	OUTPUT_VARIABLE GIT_COMMIT_HASH
 	OUTPUT_STRIP_TRAILING_WHITESPACE)
+#Add defines for commit hash/branch
+add_compile_definitions(GITCOMMITHASH=${GIT_COMMIT_HASH})
+add_compile_definitions(GITBRANCH=${GIT_BRANCH})
 
 #Set some configuration defaults
 option(ENABLE_OMP "Enable OMP parallelization" ON )

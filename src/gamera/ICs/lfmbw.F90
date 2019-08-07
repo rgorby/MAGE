@@ -14,6 +14,7 @@ module useric
     !Various global would go here
     real(rp) :: B0,D0,P0,x0,y0,z0,rC,pRat
     real(rp) :: bMag
+    logical :: doDip = .false.
 
     type, extends(baseBC_T) :: bwiIBC_T
         contains
@@ -46,6 +47,7 @@ module useric
         call inpXML%Set_Val(D0  ,"prob/D0"  ,1.0_rp  )
         call inpXML%Set_Val(rC  ,"prob/rC"  ,0.1_rp  )
         call inpXML%Set_Val(B0  ,"prob/B0",1.0_rp)
+        call inpXML%Set_Val(doDip,"prob/doDip",.false.)
 
         bMag = B0/sqrt(2.0)
 
@@ -71,7 +73,12 @@ module useric
         call GasIC2State(Model,Grid,State,Wxyz)
 
         !Map vector potential to initial field
-        Axyz => VectorPot_BW
+        if (doDip) then
+            Axyz => VP_Dipole
+        else
+            Axyz => VectorPot_BW
+        endif
+
         call VectorPot2Flux(Model,Grid,State,Axyz)
 
         !Set DT bounds
@@ -122,6 +129,23 @@ module useric
                 Ay = 0.0
                 Az = bMag*(y - x)
             end subroutine VectorPot_BW
+
+            subroutine VP_Dipole(x,y,z,Ax,Ay,Az)
+                
+                real(rp), intent(in) :: x,y,z
+                real(rp), intent(out) :: Ax,Ay,Az
+
+                real(rp), dimension(NDIM) :: A,m,r,rhat
+                m = [0,0,1]
+                r = [x,y,z]
+                rhat = r/norm2(r)
+
+                A = B0*cross(m,rhat)/(dot_product(r,r))
+                Ax = A(XDIR)
+                Ay = A(YDIR)
+                Az = A(ZDIR)
+            end subroutine VP_Dipole
+
     end subroutine initUser
 
 
@@ -135,11 +159,17 @@ module useric
         integer :: n,ig,j,k
         real(rp), dimension(NDIM) :: Bxyz
 
-        Bxyz = [bMag,bMag,0.0_rp]
+        
 
         !i-boundaries (IN)
         do k=Grid%ksg,Grid%keg
             do j=Grid%jsg,Grid%jeg
+                if (doDip) then
+                    Bxyz = State%Bxyz(Grid%is,j,k,:)
+                else
+                    Bxyz = [bMag,bMag,0.0_rp]
+                endif
+
                 do n=1,Model%Ng
                     ig = Grid%is-n
                     State%Gas(ig,j,k,DEN,:)  = D0
@@ -166,13 +196,16 @@ module useric
         integer :: n,ig,j,k
         real(rp), dimension(NDIM) :: Bxyz
 
-        Bxyz = [bMag,bMag,0.0_rp]
-
         !i-boundaries (OUT)
         do k=Grid%ksg,Grid%keg
             do j=Grid%jsg,Grid%jeg
                 !Get Cartesian field in last physical cell
-                
+                if (doDip) then
+                    Bxyz = State%Bxyz(Grid%ie,j,k,:)
+                else
+                    Bxyz = [bMag,bMag,0.0_rp]
+                endif
+
                 do n=1,Model%Ng
                     ig = Grid%ie+n
                     State%Gas(ig,j,k,DEN,:)  = D0

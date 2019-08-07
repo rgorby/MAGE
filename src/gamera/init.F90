@@ -340,9 +340,14 @@ module init
         case("7UP")
             GetLRs => Up7LRs
             write(*,*) 'Using 7UP Reconstruction'
-        case("8CENT")
+        case("8CENT","8C")
             GetLRs => Cen8LRs
             write(*,*) 'Using 8CENT Reconstruction'
+            
+        case("8CENTG","8CG")
+            GetLRs => Cen8GLRs
+            write(*,*) 'Using 8CENT-GEOM Reconstruction'
+
         case("HIGH5")
             GetLRs => High5LRs
             write(*,*) 'Using High-5 Reconstruction'
