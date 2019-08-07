@@ -11,6 +11,18 @@ module mix2mhd_interface
   
   implicit none
 
+  integer, parameter :: mix2mhd_varn = 1  ! for now just the potential is sent back
+
+  type mix2Mhd_T
+
+     ! data for remix -> gamera conversion
+     real(rp), dimension(:,:,:,:,:), allocatable :: mixOutput
+     real(rp), dimension(:,:,:), allocatable :: gPsi
+     type(Map_T), allocatable, dimension(:) :: PsiMaps
+     integer :: PsiStart = -3, PsiShells = 5
+
+  end type mix2Mhd_T
+
 contains
 
      subroutine convertRemixToGamera(gameraApp, remixApp)

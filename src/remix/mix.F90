@@ -14,20 +14,20 @@ program MIX
 
   integer,parameter :: hmsphrs(2) = [NORTH,SOUTH]
   real(rp),parameter :: tilt=0.
-  type(mixIon_T),dimension(:),allocatable :: ion
+  type(mixApp_T) :: remixApp
 
   call readArgs(inpXML)
 
-  call init_mix(ion,hmsphrs,inpXML)
-  call fill_fac(ion)
-  call run_mix(ion,tilt)
-  call writeMIX('mixtest.h5',ion)
-  call potMinMax(ion)
+  call init_mix(remixApp%ion,hmsphrs,inpXML)
+  call fill_fac(remixApp%ion)
+  call run_mix(remixApp%ion,tilt)
+  call writeMIX('mixtest.h5',remixApp%ion)
+  call potMinMax(remixApp%ion)
 
   contains
 
   subroutine readArgs(inpXML)
-    character(len=strLen),intent(inout) :: inpXML
+    character(len=*),intent(inout) :: inpXML
     integer :: Narg
     logical :: fExist
     

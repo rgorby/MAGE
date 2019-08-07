@@ -9,6 +9,7 @@ module voltapp
 
     type voltApp_T
         type(mixApp_T) :: remixApp
+        real(rp) :: rm2g
 
         real(rp) :: fastShallowTime
         real(rp) :: fastShallowDt

@@ -3,6 +3,7 @@
 
 module mhd2mix_interface
     use types
+    use mixtypes
     use gamutils
     use math
     use clocks
@@ -14,28 +15,39 @@ module mhd2mix_interface
     use hdf5
     use h5lt
     use gamapp
-    use mixapp
     
     implicit none
 
+    ! how many variables are we sending (should be consistent with the enumerator in mixdefs.F90)
+    integer, parameter :: mhd2mix_varn = 3
+
+    type mhd2Mix_T
+
+        ! data for gamera -> remix conversion
+        real(rp), dimension(:,:,:,:,:), allocatable :: mixInput
+        real(rp), dimension(:,:,:,:), allocatable :: gJ
+        type(Map_T), allocatable, dimension(:) :: Jmaps
+        integer :: JStart = 2, JShells = 1
+
+    end type mhd2mix_T
+
     contains
 
-    subroutine init_remix_grids(remixApp, gameraApp, mhdJGrid, mhdPsiGrid)
-        type(mixApp_T), intent(inout) :: remixApp
+    subroutine init_mhd2Mix(mhd2mix, gameraApp)
+        type(mhd2Mix_T), intent(inout) :: mhd2mix
         type(gamApp_T), intent(inout) :: gameraApp
-        real(rp), allocatable, dimension(:,:,:,:,:), intent(inout) :: mhdJGrid,mhdPsiGrid ! (i,j,k,x-z,hemisphere)
+
         integer :: i,j,k,iG
         real(rp) :: xc,yc,zc
+        real(rp), allocatable, dimension(:,:,:,:,:) :: mhdJGrid
 
-        remixApp%rm2g = gB0*gV0*gx0*1.0e-12 !Scaling factor for remix potential [kV]
+        mhd2Mix%rm2g = gB0*gV0*gx0*1.0e-12 !Scaling factor for remix potential [kV]
 
         ! allocate remix arrays
-        allocate(remixApp%gJ(1:remixApp%JShells, gameraApp%Grid%js:gameraApp%Grid%je, gameraApp%Grid%ks:GameraApp%Grid%ke, 1:NDIM))
-        allocate(remixApp%gPsi(1:remixApp%PsiShells+1,gameraApp%Grid%js:gameraApp%Grid%je+1,gameraApp%Grid%ks:gameraApp%Grid%ke+1))
-        allocate(mhdJGrid(1:remixApp%JShells, gameraApp%Grid%js:gameraApp%Grid%je, gameraApp%Grid%ks:gameraApp%Grid%ke/2, 1:3, 1:2))
-        allocate(mhdPsiGrid(1:remixApp%PsiShells+1, gameraApp%Grid%js:gameraApp%Grid%je+1, gameraApp%Grid%ks:gameraApp%Grid%ke/2+1, 1:3, 1:2))
-        allocate(remixApp%mixOutput(1:remixApp%PsiShells+1, gameraApp%Grid%js:gameraApp%Grid%je+1, gameraApp%Grid%ks:gameraApp%Grid%ke/2+1, 1:mix2mhd_varn, 1:2))
-        allocate(remixApp%mixInput(1:remixApp%JShells, gameraApp%Grid%js:gameraApp%Grid%je, gameraApp%Grid%ks:gameraApp%Grid%ke/2, 1:mhd2mix_varn, 1:2))
+        allocate(mhd2Mix%gJ(1:mhd2Mix%JShells, gameraApp%Grid%js:gameraApp%Grid%je, gameraApp%Grid%ks:GameraApp%Grid%ke, 1:NDIM))
+        allocate(mhdJGrid(1:mhd2Mix%JShells, gameraApp%Grid%js:gameraApp%Grid%je, gameraApp%Grid%ks:gameraApp%Grid%ke/2, 1:3, 1:2))
+        allocate(mhd2Mix%mixInput(1:mhd2Mix%JShells, gameraApp%Grid%js:gameraApp%Grid%je, gameraApp%Grid%ks:gameraApp%Grid%ke/2, 1:mhd2mix_varn, 1:2))
+        allocate(mhd2Mix%JMaps(mhd2Mix%JShells))
 
         ! get those grid coordinates (cell centers for Jp)
         do k=gameraApp%Grid%ks,gameraApp%Grid%ke
@@ -55,27 +67,26 @@ module mhd2mix_interface
             enddo
         enddo
 
-        ! get those grid coordinates (corner centers for Psi)
-        do k=gameraApp%Grid%ks,gameraApp%Grid%ke+1
-            do j=gameraApp%Grid%js,gameraApp%Grid%je+1
-                ! note, PsiShells give shell numbers based on cell centers per our
-                ! convenion
-                ! thus, no -1 below
-                do i=1,remixApp%PsiShells+1
-                    iG = remixApp%PsiStart+i-1
+        do h=1,size(remixApp%ion)
+           ! set up interpolation map(s) for mhd2mix
+           do l=1,remixApp%JShells
+               call mix_mhd_grid(mhdJGrid(l,:,:,:,h),mhdt,mhdp,mhdtFpd,mhdpFpd,mhd_Rin)
+               call init_grid_fromTP(mhdGfpd,mhdtFpd,mhdpFpd,.false.)
+               call flip_grid(remixApp%ion(h)%G,remixApp%mixGfpd,mhd_Rin) ! storing flipped
+               ! grid for MIX only to
+               ! use in mhd2mix
+               ! below for zeroing
+               ! out equatorward of
+               ! MHD boundary, if
+               ! necessary
+               call mix_set_map(mhdGfpd,remixApp%mixGfpd,Map)
+               remixApp%JMaps(l) = Map
+           end do
+        end do
 
-                    ! note conversion to Rion units which are expected on the remix
-                    ! side
-                    if (k<=gameraApp%Grid%ke/2+1) then
-                        mhdPsiGrid(i,j,k,:,NORTH) = gameraApp%Grid%xyz(iG,j,k,:)/Rion
-                    endif
-                    if (k>=gameraApp%Grid%ke/2+1) then
-                        mhdPsiGrid(i,j,k-gameraApp%Grid%ke/2,:,SOUTH) = gameraApp%Grid%xyz(iG,j,k,:)/Rion
-                    endif
-                enddo
-            enddo
-        enddo
-    end subroutine init_remix_grids
+        deallocate(mhdJGrid)
+
+    end subroutine init_mhd2Mix
 
     subroutine convertGameraToRemix(gameraApp, remixApp)
         type(mixApp_T), intent(inout) :: remixApp

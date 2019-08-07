@@ -107,9 +107,9 @@ module mixtypes
   end type mixIon_T
 
   ! used to store all instances of mixIon type, i.e., all hemispheres
-!  type mixApp_T
-!     type(mixIon_T), dimension(:), allocatable :: ion  
-!  end type mixApp_T
+  type mixApp_T
+     type(mixIon_T), dimension(:), allocatable :: ion  
+  end type mixApp_T
 
 end module mixtypes
 
