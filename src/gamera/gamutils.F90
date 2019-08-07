@@ -66,7 +66,6 @@ module gamutils
         real(rp), intent(out) :: Qb(vecLen,-Nr2:Nr2-1)
         
         integer :: l,n,l0,nSi,nSj,nSk,nSt
-        !DIR$ ASSUME_ALIGNED Qb: ALIGN
             
         !Mapping of iS,j,k to 1D (l0)
         l0 = ijk2nI(Gr,iS,j,k)
