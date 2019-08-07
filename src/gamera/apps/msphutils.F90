@@ -111,7 +111,14 @@ module msphutils
             Psi0 = 0.0 !kV
             Rion = 1.05 !Assuming
             Model%doGrav = .false.
-
+        case("Neptune","NEPTUNE")
+            gx0 = RNeptuneXE*REarth
+            gv0 = 100.0e+3    ! [m/s]
+            gG0 = 11.15       ! [m/s2]
+            call xmlInp%Set_Val(M0g,"prob/M0",NeptuneM0g) !Mag moment [gauss]
+            Psi0 = 0.0 !kV
+            Rion = 1.01 !Assuming
+            Model%doGrav = .false.
         end select
 
         gT0 = gx0/gv0 !Set time scaling

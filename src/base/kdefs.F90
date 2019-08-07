@@ -54,6 +54,9 @@ module kdefs
     !Mercury
     real(rp), parameter :: MercuryM0g = 0.00345  !Gauss
     real(rp), parameter :: RMercuryXE = 0.31397  !Rx = X*Re
+    !Neptune
+    real(rp), parameter :: NeptuneM0g = 0.142  !Gauss
+    real(rp), parameter :: RNeptuneXE = 3.860  !Rx = X*Re
 
 !Numbered accessors
     !Directions
