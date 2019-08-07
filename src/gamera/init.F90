@@ -166,12 +166,12 @@ module init
         endif
 
         !Incorporate background field, B0, if necessary
-        if (Model%doBackground .and. doB0Init) then
-            call AddB0(Model,Grid,Model%B0)
+        if (Model%doBackground .and. Grid%doB0Init) then
+            call AddB0(Model,Grid,State,Model%B0)
         endif
         !Incorporate gravity if necessary
-        if (Model%doGrav .and. doG0Init) then
-            call AddGrav(Model,Grid,Model%Phi)
+        if (Model%doGrav .and. Grid%doG0Init) then
+            call AddGrav(Model,Grid,State,Model%Phi)
         endif
 
     end subroutine DoneState
@@ -670,9 +670,9 @@ module init
                         call faceCoords(Model,Grid,i,j,k,d,f0,f1,f2,f3)
 
                         !Calculate face area/face center
-                        call GaussianFaceIntegral(f0,f1,f2,f3,fArea,fInt,fInt2,fIntX)
+                        call GaussianFaceIntegral(Model,f0,f1,f2,f3,fArea,fInt,fInt2,fIntX)
                         fA = fInt(1)
-                        call GaussianFaceIntegral(f0,f1,f2,f3,fCtr,fInt,fInt2,fIntX)
+                        call GaussianFaceIntegral(Model,f0,f1,f2,f3,fCtr,fInt,fInt2,fIntX)
                         Grid%xfc(i,j,k,:,d) = fInt/fA
                         Grid%face(i,j,k,d) = fA
 

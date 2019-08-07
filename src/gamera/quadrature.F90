@@ -103,7 +103,8 @@ module quadrature
     !TODO: Clean up these routines to remove redundant code
 
     !Calculates face flux of given vector field
-    subroutine GaussianFaceFlux(f0,f1,f2,f3,Axyz,flx)
+    subroutine GaussianFaceFlux(Model,f0,f1,f2,f3,Axyz,flx)
+        type(Model_T), intent(in) :: Model
         real(rp), dimension(NDIM), intent(in) :: f0,f1,f2,f3
         procedure(VectorField_T), pointer, intent(in) :: Axyz
         real(rp), intent(out) :: flx
@@ -155,7 +156,8 @@ module quadrature
     !F = face integral of A
     !F2 = face integral of Ai*Ai
     !Fij = face integral of cross: Axy,Ayz,Azx
-    subroutine GaussianFaceIntegral(f0,f1,f2,f3,Axyz,fInt,fInt2,fIntX)
+    subroutine GaussianFaceIntegral(Model,f0,f1,f2,f3,Axyz,fInt,fInt2,fIntX)
+        type(Model_T), intent(in) :: Model
         real(rp), dimension(NDIM), intent(in) :: f0,f1,f2,f3
         procedure(VectorField_T), pointer, intent(in) :: Axyz
         real(rp), dimension(NDIM), intent(out) :: fInt,fInt2,fIntX
@@ -218,7 +220,8 @@ module quadrature
 
     end subroutine GaussianFaceIntegral
 
-    subroutine GaussianFaceStress(f0,f1,f2,f3,Axyz,Mbb)
+    subroutine GaussianFaceStress(Model,f0,f1,f2,f3,Axyz,Mbb)
+        type(Model_T), intent(in) :: Model
         real(rp), dimension(NDIM), intent(in) :: f0,f1,f2,f3
         procedure(VectorField_T), pointer, intent(in) :: Axyz
         real(rp), dimension(NDIM), intent(out) :: Mbb
@@ -338,7 +341,8 @@ module quadrature
     end subroutine GaussianFaceSystem
 
     !Gaussian edge integral of Axyz between e1/e2
-    function GaussianEdgeIntegral(e1,e2,Axyz) result(eInt)
+    function GaussianEdgeIntegral(Model,e1,e2,Axyz) result(eInt)
+        type(Model_T), intent(in) :: Model
         real(rp), dimension(NDIM), intent(in) :: e1,e2
         procedure(VectorField_T), pointer, intent(in) :: Axyz
         real(rp), dimension(NDIM) :: eInt

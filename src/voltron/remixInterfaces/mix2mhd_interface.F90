@@ -13,23 +13,31 @@ module mix2mhd_interface
 
 contains
 
-     subroutine convertRemixToGamera(gameraApp, remixApp)
+     subroutine convertRemixToGamera(gameraApp, remixApp,doCorotO)
         type(mixApp_T), intent(inout) :: remixApp
         type(gamApp_T), intent(inout) :: gameraApp
+        logical, intent(in), optional :: doCorotO
 
         ! convert the "remixOutputs" variable to inEijk and inExyz, which are in
         ! Gamera coordinates
         integer :: i
+        logical :: doCorot
 
-         ! populate potential on gamera grid
-         remixApp%gPsi = 0.0
-         do i=1,remixApp%PsiShells+1
-            remixApp%gPsi(i,:,gameraApp%Grid%ks:gameraApp%Grid%ke/2+1)   = remixApp%mixOutput(i,:,:,MHDPSI,NORTH)
-            remixApp%gPsi(i,:,gameraApp%Grid%ke/2+1:gameraApp%Grid%ke+1) = remixApp%mixOutput(i,:,:,MHDPSI,SOUTH)
-         enddo
+        ! populate potential on gamera grid
+        remixApp%gPsi = 0.0
+        do i=1,remixApp%PsiShells+1
+          remixApp%gPsi(i,:,gameraApp%Grid%ks:gameraApp%Grid%ke/2+1)   = remixApp%mixOutput(i,:,:,MHDPSI,NORTH)
+          remixApp%gPsi(i,:,gameraApp%Grid%ke/2+1:gameraApp%Grid%ke+1) = remixApp%mixOutput(i,:,:,MHDPSI,SOUTH)
+        enddo
+
+        if (present(doCorotO)) then
+          doCorot = doCorotO
+        else
+          doCorot = .true.
+        endif
 
         ! add corotation
-        call CorotationPot(gameraApp%Model, gameraApp%Grid, remixApp%gPsi)
+        if (doCorot) call CorotationPot(gameraApp%Model, gameraApp%Grid, remixApp%gPsi)
 
         ! find the remix BC to write data into
         SELECT type(iiBC=>gameraApp%Grid%externalBCs(INI)%p)
@@ -60,8 +68,6 @@ contains
         call init_mix(remixApp%ion,hmsphrs,remixApp%conductance)
     endif
 
-    !remixApp%PsiShells = size(mhdPsiGrid,1)
-    !remixApp%JShells = size(mhdJGrid,1)
     allocate(remixApp%PsiMaps(remixApp%PsiShells))
     allocate(remixApp%JMaps(remixApp%JShells))
     do h=1,size(remixApp%ion)

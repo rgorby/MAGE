@@ -41,6 +41,9 @@ mark_as_advanced(bricksize)
 file(GLOB GAMICDEF src/gamera/ICs/null.F90)
 set(GAMIC ${GAMICDEF} CACHE FILEPATH "Gamera IC file")
 
+file(GLOB VOLTICDEF src/voltron/ICs/remix.F90)
+set(VOLTIC ${VOLTICDEF} CACHE FILEPATH "Voltron IC file")
+
 #-------------
 #Include user cmake file if present
 include(cmake/user.cmake OPTIONAL)
@@ -119,6 +122,7 @@ add_dependencies(remix gamera2remix.x gamlib baselib)
 #-------------
 #Kaiju: Voltron
 message("Adding Voltron module ...")
+message("\tIC file is ${VOLTIC}")
 add_subdirectory(src/voltron)
 add_custom_target(voltron ALL)
 message("\tAdding executable kaiju.x")
