@@ -8,6 +8,7 @@ module mix2mhd_interface
   use ioH5
   use mixapp
   use gamapp
+  use msphutils
   
   implicit none
 
@@ -21,9 +22,25 @@ module mix2mhd_interface
      type(Map_T), allocatable, dimension(:) :: PsiMaps
      integer :: PsiStart = -3, PsiShells = 5
 
+     real(rp) :: rm2g
+
   end type mix2Mhd_T
 
 contains
+
+     subroutine init_mix2Mhd(mix2mhd, gameraApp)
+        type(mix2Mhd_T), intent(inout) :: mix2mhd
+        type(gamApp_T), intent(inout) :: gameraApp
+
+        integer :: i,j,k,iG
+        real(rp) :: xc,yc,zc
+        real(rp), allocatable, dimension(:,:,:,:,:) :: mhdPsiGrid
+
+        mix2Mhd%rm2g = gB0*gV0*gx0*1.0e-12 !Scaling factor for remix potential [kV]
+
+        deallocate(mhdPsiGrid)
+
+     end subroutine init_mix2Mhd
 
      subroutine convertRemixToGamera(gameraApp, remixApp)
         type(mixApp_T), intent(inout) :: remixApp
@@ -158,52 +175,6 @@ contains
     step = step +1
 
   end subroutine mix_mhd_output
-
-  ! assume what's coming here is mhdvars(i,j,k,var,hemisphere)
-  ! thus the transposes below
-  subroutine mhd2mix(remixApp)
-    type(mixApp_T), intent(inout) :: remixApp
-
-    real(rp), dimension(:,:), allocatable :: F
-    integer :: l,h ! hemisphere
-    integer :: v ! mhd var
-
-    if (size(remixApp%mixInput,5).ne.size(remixApp%ion)) then
-       write(*,*) 'The number of hemispheres in mhdvars is different from the size of the MIX ionosphere object. I am stopping.'
-       stop
-    end if
-
-    do h=1,size(remixApp%ion)
-       do v=1,size(remixApp%mixInput,4)
-          do l=1,remixApp%JShells ! here we loop over Jshells but always use the last one (F)
-             ! note the transpose to conform to the MIX layout (phi,theta)
-             call mix_map_grids(remixApp%JMaps(l),transpose(remixApp%mixInput(l,:,:,v,h)),F)  
-
-             ! note, cleaning MHD vars equatorward of the MHD boundary
-             ! if the MIX boundary is equatorward of MHD boundary
-             select case (v)
-             case (MHDJ)
-                ! zero out the current
-                where (remixApp%mixGfpd%mask.eq.-1) F=0._rp
-             case (MHDD, MHDC)
-                ! set density and sound speed to min values
-                ! this helps with conductdance calculation
-                where (remixApp%mixGfpd%mask.eq.-1) F=minval(remixApp%mixInput(l,:,:,v,h))
-             end select
-          end do
-
-          select case (v)
-          case (MHDJ)
-             remixApp%ion(h)%St%Vars(:,:,FAC) = F
-          case (MHDD)
-             remixApp%ion(h)%St%Vars(:,:,DENSITY) = F
-          case (MHDC)
-             remixApp%ion(h)%St%Vars(:,:,SOUND_SPEED) = F
-          end select
-       end do
-    end do
-
-  end subroutine mhd2mix
 
   subroutine mix2mhd(remixApp)
     type(mixApp_T), intent(inout) :: remixApp
