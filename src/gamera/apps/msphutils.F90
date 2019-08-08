@@ -116,7 +116,7 @@ module msphutils
             gv0 = 100.0e+3    ! [m/s]
             gG0 = 11.15       ! [m/s2]
             call xmlInp%Set_Val(M0g,"prob/M0",NeptuneM0g) !Mag moment [gauss]
-            Psi0 = 0.0 !kV
+            Psi0 = 10.024*92.0 !kV
             Rion = 1.01 !Assuming
             Model%doGrav = .false.
         end select
