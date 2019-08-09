@@ -8,7 +8,6 @@ module prob
     use xml_input
     use bcs
     use background
-    use useric !User-defined initial conditions
 
     implicit none
 
@@ -20,9 +19,10 @@ module prob
     contains
 
     !Set initState function pointer based on icStr (problem id)
-    subroutine setIC_T(initState,icStr)
+    subroutine setIC_T(initState,icStr,userInitFunc)
         procedure(StateIC_T), pointer, intent(out) :: initState
-        character(len=strLen), intent(in) :: icStr
+        character(len=*), intent(in) :: icStr
+        procedure(StateIC_T), pointer, intent(in) :: userInitFunc
 
         initState => NULL()
 
@@ -63,7 +63,7 @@ module prob
         case ("MULTIFLUIDBW")
             initState => initMultiFBW
         case ("USER","user")
-            initState => initUser
+            initState => userInitFunc
 
         case default
             write(*,*) 'Unknown problem id, exiting ...'

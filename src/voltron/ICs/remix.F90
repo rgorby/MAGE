@@ -1,6 +1,6 @@
 !Toy gamera/remix magnetosphere
 
-module useric
+module uservoltic
     use types
     use gamutils
     use math
@@ -503,4 +503,5 @@ module useric
         q = f*(a1*L + b1) + (1.0-f)*(a2*L + b2)
         D = 10.**q
     end function psphD
-end module useric
+
+end module uservoltic

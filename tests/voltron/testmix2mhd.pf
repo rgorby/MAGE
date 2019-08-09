@@ -2,6 +2,7 @@ module testmix2mhd
   use pfUnit
   use voltapp
   use gamapp
+  use uservoltic
   use mix2mhd_interface
 
   implicit none
@@ -33,7 +34,7 @@ contains
     RIn  = 1.0
     Psi0 = 10.0
 
-    call initGamera(gameraApp, caseInput)
+    call initGamera(gameraApp, initUser, caseInput)
 
     call initVoltron(voltronApp, gameraApp, caseInput)
 

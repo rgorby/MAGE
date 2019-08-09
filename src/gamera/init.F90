@@ -39,12 +39,13 @@ module init
     
     !Hatch Gamera
     !Initialize main data structures
-    subroutine Hatch(Model,Grid,State,oState,xmlInp,endTime)
+    subroutine Hatch(Model,Grid,State,oState,xmlInp,userInitFunc,endTime)
         type(Model_T), intent(inout) :: Model
         type(Grid_T), intent(inout) :: Grid
         type(State_T), intent(inout) :: State,oState
         !OMEGA can overrule what GAMERA has
         type(XML_Input_T), intent(inout) :: xmlInp
+        procedure(StateIC_T), pointer, intent(in) :: userInitFunc
         real(rp), optional, intent(in) :: endTime 
 
         procedure(StateIC_T), pointer :: initState => NULL()
@@ -109,7 +110,7 @@ module init
         !Initialize state data
         !First prep state, then do restart if necessary, then finish state
 
-        call PrepState(Model,Grid,oState,State,xmlInp)
+        call PrepState(Model,Grid,oState,State,xmlInp,userInitFunc)
 
         if (Model%isRestart) then
             !If restart replace State variable w/ restart file
@@ -177,11 +178,12 @@ module init
     end subroutine DoneState
 
     !Prepare state and call IC
-    subroutine PrepState(Model,Grid,oState,State,xmlInp)
+    subroutine PrepState(Model,Grid,oState,State,xmlInp,userInitFunc)
         type(Model_T), intent(inout) :: Model
         type(Grid_T), intent(inout) :: Grid
         type(State_T), intent(inout) :: oState,State
         type(XML_Input_T), intent(in) :: xmlInp
+        procedure(StateIC_T), pointer, intent(in) :: userInitFunc
 
         procedure(StateIC_T), pointer :: initState => NULL()        
         logical :: doH5ic
@@ -197,7 +199,7 @@ module init
             stop
         else
             call xmlInp%Set_Val(icStr,"sim/icType","OT2D")
-            call setIC_T(initState,icStr)            
+            call setIC_T(initState,icStr,userInitFunc)
         endif           
 
         !Setup ICs either from routine or file

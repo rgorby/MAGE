@@ -4,6 +4,7 @@ program kaijux
     use clocks
     use gamapp
     use voltapp
+    use uservoltic
 
     implicit none
 
@@ -15,7 +16,7 @@ program kaijux
     !TODO: Fix this to reset after MPI config to only output from root rank
     verbose = 1
     
-    call initGamera(gameraApp)
+    call initGamera(gameraApp,initUser)
     call initVoltron(voltronApp, gameraApp)
 
     do while (gameraApp%Model%t < gameraApp%Model%tFin)

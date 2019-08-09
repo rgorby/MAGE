@@ -1,6 +1,6 @@
 !Setup for Neptune magnetosphere (no MI coupling)
 
-module useric
+module usergamic
     use types
     use gamutils
     use xml_input
@@ -491,4 +491,4 @@ module useric
 
     ! end subroutine CoroInner
 
-end module useric
+end module usergamic
