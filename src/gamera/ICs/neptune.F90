@@ -14,6 +14,8 @@ module useric
     real(rp) :: Rho0,P0,Om0,RhoX
     real(rp) :: ThD,CosThD,SinThD
     
+    integer :: iSh = 8
+
     !These values are taken from msphutils
     !integer, parameter :: PsiShells = 5
     !integer, parameter :: PsiSt = -3
@@ -199,7 +201,11 @@ module useric
         real(rp), intent(inout), optional :: mFlx(Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,1:NDIM,1:NDIM)
 
         if (Model%Ri == 1) then
-            gFlx(Gr%is,:,:,DEN,IDIR,BLK) = 0.0
+            !gFlx(Gr%is,:,:,DEN,IDIR,BLK) = 0.0
+            gFlx(Gr%is:Gr%is+iSh,:,:,1:NVAR,1:NDIM,:) = 0.0
+            if (present(mFlx)) then
+                mFlx(Gr%is:Gr%is+iSh,:,:,1:NDIM,1:NDIM) = 0.0
+            endif
         endif
     end subroutine InnerFlux
 !---
@@ -208,11 +214,9 @@ module useric
         type(Grid_T), intent(in) :: Gr
         type(State_T), intent(inout) :: State
 
-        integer :: iSh
         integer :: i,j,k,iG
         real(rp), dimension(NDIM) :: x0,xE,ehat,Exyz
 
-        iSh = 4
         !$OMP PARALLEL DO default(shared) collapse(2) &
         !$OMP private(i,j,k,iG,x0,xE,ehat,Exyz) 
         do i=Gr%is,Gr%is+iSh+1
