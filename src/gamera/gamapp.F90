@@ -16,8 +16,9 @@ module gamapp
 
     contains
 
-    subroutine initGamera(gameraApp, optFilename)
+    subroutine initGamera(gameraApp, userInitFunc, optFilename)
         type(gamApp_T), intent(inout) :: gameraApp
+        procedure(StateIC_T), pointer, intent(in) :: userInitFunc
         character(len=*), optional, intent(in) :: optFilename
 
         character(len=strLen) :: inpXML
@@ -51,7 +52,7 @@ module gamapp
 
         !Initialize Grid/State/Model (Hatch Gamera)
         !Will enforce 1st BCs, caculate 1st timestep, set oldState
-        call Hatch(gameraApp%Model,gameraApp%Grid,gameraApp%State,gameraApp%oState,xmlInp)
+        call Hatch(gameraApp%Model,gameraApp%Grid,gameraApp%State,gameraApp%oState,xmlInp,userInitFunc)
         call cleanClocks()
 
         if (.not. gameraApp%Model%isRestart) call fOutput(gameraApp%Model,gameraApp%Grid,gameraApp%State)

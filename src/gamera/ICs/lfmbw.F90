@@ -1,6 +1,6 @@
 !Simple test of BW on LFM grid
 
-module useric
+module usergamic
     use types
     use gamutils
     use math
@@ -222,4 +222,4 @@ module useric
 
     end subroutine bw_obcI
 
-end module useric
+end module usergamic

@@ -4,6 +4,7 @@ module testmixmain
   use mixapp
   use voltapp
   use gamapp
+  use uservoltic
 
   implicit none
 
@@ -27,7 +28,7 @@ contains
     character(len=strLen) :: caseInput = 'cmiD.xml'
 
     write(*,*) 'Doing testZeroInput ...'
-    call initGamera(gameraApp, caseInput)
+    call initGamera(gameraApp, initUser, caseInput)
 
     call initializeRemixFromGamera(remixApp, gameraApp, caseInput)
 
@@ -65,7 +66,7 @@ contains
     character(len=strLen) :: caseInput = 'cmiD.xml'
 
     write(*,*) 'Doing testConstantSolution ...'
-    call initGamera(gameraApp, caseInput)
+    call initGamera(gameraApp, initUser, caseInput)
 
     call initializeRemixFromGamera(remixApp, gameraApp, caseInput)
 
@@ -101,7 +102,7 @@ contains
     real(rp) :: thetaMin, thetaDelta
 
     write(*,*) 'Doing testAzimuthallyDependentFAC ...'
-    call initGamera(gameraApp, caseInput)
+    call initGamera(gameraApp, initUser, caseInput)
 
     call initializeRemixFromGamera(remixApp, gameraApp, caseInput)
 

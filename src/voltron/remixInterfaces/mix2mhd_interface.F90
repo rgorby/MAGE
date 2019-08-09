@@ -8,6 +8,7 @@ module mix2mhd_interface
   use ioH5
   use mixapp
   use gamapp
+  use uservoltic ! required to have IonInnerBC_T defined
   
   implicit none
 
