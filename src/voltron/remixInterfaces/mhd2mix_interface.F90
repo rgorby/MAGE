@@ -15,6 +15,8 @@ module mhd2mix_interface
     use hdf5
     use h5lt
     use gamapp
+    use mixgeom
+    use mixinterfaceutils
     
     implicit none
 

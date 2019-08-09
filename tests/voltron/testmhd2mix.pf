@@ -33,9 +33,9 @@ contains
     Axyz => VectorPot_Loop2D
     call VectorPot2Flux(gameraApp%Model,gameraApp%Grid,gameraApp%State,Axyz)
 
-    call convertGameraToRemix(gameraApp, voltronApp%remixApp)
+    call convertGameraToRemix(voltronApp%mhd2mix, gameraApp, voltronApp%remixApp)
 
-    call mhd2mix(voltronApp%remixApp)
+    call mapGameraToRemix(voltronApp%mhd2mix, voltronApp%remixApp)
 
     ! verify that remix input FAC is all zeroes
     testValue = sum(abs(voltronApp%remixApp%ion(NORTH)%St%Vars(:,:,FAC))) + sum(abs(voltronApp%remixApp%ion(SOUTH)%St%Vars(:,:,FAC)))

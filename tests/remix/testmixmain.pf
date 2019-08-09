@@ -1,7 +1,7 @@
 module testmixmain
   use pfUnit
   use mixmain
-  use mixapp
+  use mixtypes
   use voltapp
   use gamapp
 
@@ -22,36 +22,36 @@ contains
   !@test
   subroutine testZeroInput()
     ! testing that an input of all zeroes gets output of all zeroes
-    type(mixApp_T) :: remixApp
+    type(voltApp_T) :: voltronApp
     type(gamApp_T) :: gameraApp
     character(len=strLen) :: caseInput = 'cmiD.xml'
 
     write(*,*) 'Doing testZeroInput ...'
     call initGamera(gameraApp, caseInput)
 
-    call initializeRemixFromGamera(remixApp, gameraApp, caseInput)
+    call initVoltron(voltronApp, gameraApp, caseInput)
 
-    call convertGameraToRemix(gameraApp, remixApp)
+    call convertGameraToRemix(voltronApp%mhd2mix, gameraApp, voltronApp%remixApp)
 
-    call mhd2mix(remixApp)
+    call mapGameraToRemix(voltronApp%mhd2mix, voltronApp%remixApp)
 
     ! field aligned current in remixApp%ion(h)%St%Vars(:,:,FAC)
-    remixApp%ion(NORTH)%St%Vars(:,:,FAC) = 0
-    remixApp%ion(SOUTH)%St%Vars(:,:,FAC) = 0
+    voltronApp%remixApp%ion(NORTH)%St%Vars(:,:,FAC) = 0
+    voltronApp%remixApp%ion(SOUTH)%St%Vars(:,:,FAC) = 0
 
-    call run_mix(remixApp%ion, remixApp%tilt, remixApp%conductance)
+    call run_mix(voltronApp%remixApp%ion, voltronApp%tilt)
 
     ! potential in remixApp%ion(h)%St%Vars(:,:,POT)
     ! error value allows 1e-3 error per cell on average
-    @assertLessThanOrEqual(sum(abs(remixApp%ion(NORTH)%S%Solution)), 8.1_rp, 'Non-zero remix output in North hemisphere')
-    @assertLessThanOrEqual(sum(abs(remixApp%ion(SOUTH)%S%Solution)), 8.1_rp, 'Non-zero remix output in South hemisphere')
+    @assertLessThanOrEqual(sum(abs(voltronApp%remixApp%ion(NORTH)%S%Solution)), 8.1_rp, 'Non-zero remix output in North hemisphere')
+    @assertLessThanOrEqual(sum(abs(voltronApp%remixApp%ion(SOUTH)%S%Solution)), 8.1_rp, 'Non-zero remix output in South hemisphere')
 
   end subroutine testZeroInput
 
   @test
   subroutine testConstantSolution()
     ! testing that an input of all zeroes gets output of all zeroes
-    type(mixApp_T) :: remixApp
+    type(voltApp_T) :: voltronApp
     type(gamApp_T) :: gameraApp
 
     real(rp) :: testValue = 240.19
@@ -60,33 +60,33 @@ contains
     write(*,*) 'Doing testConstantSolution ...'
     call initGamera(gameraApp, caseInput)
 
-    call initializeRemixFromGamera(remixApp, gameraApp, caseInput)
+    call initVoltron(voltronApp, gameraApp, caseInput)
 
-    call convertGameraToRemix(gameraApp, remixApp)
+    call convertGameraToRemix(voltronApp%mhd2mix, gameraApp, voltronApp%remixApp)
 
-    call mhd2mix(remixApp)
+    call mapGameraToRemix(voltronApp%mhd2mix, voltronApp%remixApp)
 
     ! field aligned current in remixApp%ion(h)%St%Vars(:,:,FAC)
-    remixApp%ion(NORTH)%St%Vars(:,:,FAC) = 0
-    remixApp%ion(SOUTH)%St%Vars(:,:,FAC) = 0
+    voltronApp%remixApp%ion(NORTH)%St%Vars(:,:,FAC) = 0
+    voltronApp%remixApp%ion(SOUTH)%St%Vars(:,:,FAC) = 0
 
     ! modify low lat boundary condition for test
-    remixApp%ion(NORTH)%P%llbc_value = testValue
-    remixApp%ion(SOUTH)%P%llbc_value = testValue
+    voltronApp%remixApp%ion(NORTH)%P%llbc_value = testValue
+    voltronApp%remixApp%ion(SOUTH)%P%llbc_value = testValue
 
-    call run_mix(remixApp%ion, remixApp%tilt, remixApp%conductance)
+    call run_mix(voltronApp%remixApp%ion, voltronApp%tilt)
 
     ! potential in remixApp%ion(h)%St%Vars(:,:,POT)
     ! error value allows 1e-3 error per cell on average
-    @assertLessThanOrEqual(sum(abs(remixApp%ion(NORTH)%S%Solution - testValue)), 8.1_rp, 'Remix output in North hemisphere not specified value')
-    @assertLessThanOrEqual(sum(abs(remixApp%ion(SOUTH)%S%Solution - testValue)), 8.1_rp, 'Remix output in South hemisphere not specified value')
+    @assertLessThanOrEqual(sum(abs(voltronApp%remixApp%ion(NORTH)%S%Solution - testValue)), 8.1_rp, 'Remix output in North hemisphere not specified value')
+    @assertLessThanOrEqual(sum(abs(voltronApp%remixApp%ion(SOUTH)%S%Solution - testValue)), 8.1_rp, 'Remix output in South hemisphere not specified value')
 
   end subroutine testConstantSolution
 
   !@test
   subroutine testAzimuthallyDependentFAC()
     ! testing that an input of all zeroes gets output of all zeroes
-    type(mixApp_T) :: remixApp
+    type(voltApp_T) :: voltronApp
     type(gamApp_T) :: gameraApp
 
     character(len=strLen) :: caseInput = 'cmiD.xml'
@@ -96,28 +96,28 @@ contains
     write(*,*) 'Doing testAzimuthallyDependentFAC ...'
     call initGamera(gameraApp, caseInput)
 
-    call initializeRemixFromGamera(remixApp, gameraApp, caseInput)
+    call initVoltron(voltronApp, gameraApp, caseInput)
 
-    call convertGameraToRemix(gameraApp, remixApp)
+    call convertGameraToRemix(voltronApp%mhd2mix, gameraApp, voltronApp%remixApp)
 
-    call mhd2mix(remixApp)
+    call mapGameraToRemix(voltronApp%mhd2mix, voltronApp%remixApp)
 
     ! field aligned current in remixApp%ion(h)%St%Vars(:,:,FAC)
     thetaMin = 22.0_rp
     thetaDelta = 12.0_rp
-    do h=1,size(remixApp%ion)
-        do ip=1,remixApp%ion(h)%G%Np
-            do it=1,remixApp%ion(h)%G%Nt
-                if(remixApp%ion(h)%G%t(ip,it) .ge. thetaMin .and. remixApp%ion(h)%G%t(ip,it) .le. (thetaMin+thetaDelta)) then
-                    remixApp%ion(h)%St%Vars(ip,it,FAC) = sin(remixApp%ion(h)%G%t(ip,it)) * sin(remixApp%ion(h)%G%p(ip,it))
+    do h=1,size(voltronApp%remixApp%ion)
+        do ip=1,voltronApp%remixApp%ion(h)%G%Np
+            do it=1,voltronApp%remixApp%ion(h)%G%Nt
+                if(voltronApp%remixApp%ion(h)%G%t(ip,it) .ge. thetaMin .and. voltronApp%remixApp%ion(h)%G%t(ip,it) .le. (thetaMin+thetaDelta)) then
+                    voltronApp%remixApp%ion(h)%St%Vars(ip,it,FAC) = sin(voltronApp%remixApp%ion(h)%G%t(ip,it)) * sin(voltronApp%remixApp%ion(h)%G%p(ip,it))
                 else
-                    remixApp%ion(h)%St%Vars(ip,it,FAC) = 0.0_rp
+                    voltronApp%remixApp%ion(h)%St%Vars(ip,it,FAC) = 0.0_rp
                 endif
             end do
         end do
     end do
 
-    call run_mix(remixApp%ion, remixApp%tilt, remixApp%conductance)
+    call run_mix(voltronApp%remixApp%ion, voltronApp%tilt)
 
     ! potential in remixApp%ion(h)%St%Vars(:,:,POT)
 

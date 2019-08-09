@@ -29,9 +29,9 @@ contains
     call initVoltron(voltronApp, gameraApp)
 
     ! zero out the remix output so that only the added corotation field is sent to gamera
-    voltronApp%remixApp%mixOutput = 0.0_rp
+    voltronApp%mix2mhd%mixOutput = 0.0_rp
 
-    call convertRemixToGamera(gameraApp, voltronApp%remixApp)
+    call convertRemixToGamera(voltronApp%mix2mhd, voltronApp%remixApp, gameraApp)
 
     ! find the remix BC to verify the resulting Gamera data
     SELECT type(iiBC=>gameraApp%Grid%externalBCs(INI)%p)

@@ -99,10 +99,9 @@ module mixtypes
   ! used to store an entire instance of MIX (e.g., one per hemisphere)
   type mixIon_T
      type(mixState_T)       :: St
-     type(mixGrid_T)        :: G, Gfpd    ! G - primary MIX grid used for the solver; Mfpd -- flipped into Gamera space for interpolation
+     type(mixGrid_T)        :: G ! G - primary MIX grid used for the solver
      type(mixParams_T)      :: P
      type(Solver_T)         :: S
-     type(Map_T)            :: M, Mfpd    ! M is the map to map in MIX space; Mfpd is flipped to map in Gamera space
      type(mixConductance_T) :: conductance
   end type mixIon_T
 

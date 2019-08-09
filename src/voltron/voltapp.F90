@@ -1,7 +1,7 @@
 ! Collection of data and objects for the voltron middle man
 
 module voltapp
-    use mixapp
+    use mixtypes
     use mhd2mix_interface
     use mix2mhd_interface
 
@@ -9,9 +9,13 @@ module voltapp
 
     type voltApp_T
         type(mixApp_T) :: remixApp
+        type(mhd2Mix_T) :: mhd2mix
+        type(mix2Mhd_T) :: mix2mhd
 
         real(rp) :: fastShallowTime
         real(rp) :: fastShallowDt
+
+        real(rp) :: tilt
 
     end type voltApp_T
 
@@ -25,11 +29,13 @@ module voltapp
         voltronApp%fastShallowTime = 0.0_rp
         voltronApp%fastShallowDt = 0.1_rp
 
+        voltronApp%tilt = 0.0_rp
+
         if(present(optFilename)) then
             ! read from the prescribed file
-            call initializeRemixFromGamera(voltronApp%remixApp, gameraApp, optFilename)
+            call initializeRemixFromGamera(voltronApp, gameraApp, optFilename)
         else
-            call initializeRemixFromGamera(voltronApp%remixApp, gameraApp)
+            call initializeRemixFromGamera(voltronApp, gameraApp)
         endif
 
     end subroutine initVoltron
@@ -40,53 +46,50 @@ module voltapp
         real(rp) :: time
 
         ! convert gamera data to mixInput
-        call convertGameraToRemix(gameraApp, voltronApp%remixApp)
+        call convertGameraToRemix(voltronApp%mhd2mix, gameraApp, voltronApp%remixApp)
 
         ! run remix
-        call runRemix(voltronApp%remixApp, time)
+        call runRemix(voltronApp, time)
 
         ! convert mixOutput to gamera data
-        call convertRemixToGamera(gameraApp, voltronApp%remixApp)
+        call convertRemixToGamera(voltronApp%mix2mhd, voltronApp%remixApp, gameraApp)
 
         voltronApp%fastShallowTime = time + voltronApp%fastShallowDt
 
     end subroutine fastShallowUpdate
 
-    subroutine initializeRemixFromGamera(remixApp, gameraApp, optFilename)
-        type(mixApp_T), intent(inout) :: remixApp
+    subroutine initializeRemixFromGamera(voltronApp, gameraApp, optFilename)
+        type(voltApp_T), intent(inout) :: voltronApp
         type(gamApp_T), intent(inout) :: gameraApp
         character(len=*), optional, intent(in) :: optFilename
 
-        real(rp), allocatable, dimension(:,:,:,:,:) :: mhdJGrid,mhdPsiGrid
-
-        ! initialize REMIX
-        call init_remix_grids(remixApp, gameraApp, mhdJGrid, mhdPsiGrid)
-
         if(present(optFilename)) then
             ! read from the prescribed file
-            call init_mix_mhd_interface(remixApp,mhdJGrid,mhdPsiGrid,optFilename)
+            call init_mix(voltronApp%remixApp%ion,[NORTH, SOUTH],optFilename)
         else
-            call init_mix_mhd_interface(remixApp,mhdJGrid,mhdPsiGrid)
+            call init_mix(voltronApp%remixApp%ion,[NORTH, SOUTH])
         endif
 
-        deallocate(mhdJGrid,mhdPsiGrid)
+        call init_mhd2Mix(voltronApp%mhd2mix, gameraApp, voltronApp%remixApp)
+        call init_mix2Mhd(voltronApp%mix2mhd, voltronApp%remixApp, gameraApp)
+
     end subroutine initializeRemixFromGamera
 
-    subroutine runRemix(remixApp, time)
-        type(mixApp_T), intent(inout) :: remixApp
+    subroutine runRemix(voltronApp, time)
+        type(voltApp_T), intent(inout) :: voltronApp
         real(rp), intent(in) :: time
 
         ! convert gamera inputs to remix
-        call mhd2mix(remixApp)
+        call mapGameraToRemix(voltronApp%mhd2mix, voltronApp%remixApp)
 
         ! solve for remix output
-        call run_mix(remixApp%ion,remixApp%tilt,remixApp%conductance)
+        call run_mix(voltronApp%remixApp%ion,voltronApp%tilt)
 
         ! get stuff from mix to gamera
-        call mix2mhd(remixApp)
+        call mapRemixToGamera(voltronApp%mix2mhd, voltronApp%remixApp)
 
         ! output remix info
-        call mix_mhd_output(remixApp%ion,remixApp%mixOutput,hmsphrs,time)
+        call mix_mhd_output(voltronApp%remixApp%ion,voltronApp%mix2mhd%mixOutput,time)
 
     end subroutine runRemix
 

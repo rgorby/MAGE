@@ -6,9 +6,10 @@ module mix2mhd_interface
   use mixio
   use mixmain
   use ioH5
-  use mixapp
   use gamapp
   use msphutils
+  use useric
+  use mixinterfaceutils
   
   implicit none
 
@@ -28,21 +29,63 @@ module mix2mhd_interface
 
 contains
 
-     subroutine init_mix2Mhd(mix2mhd, gameraApp)
+     subroutine init_mix2Mhd(mix2mhd, remixApp, gameraApp)
         type(mix2Mhd_T), intent(inout) :: mix2mhd
+        type(mixApp_T), intent(inout) :: remixApp
         type(gamApp_T), intent(inout) :: gameraApp
 
-        integer :: i,j,k,iG
-        real(rp) :: xc,yc,zc
+        integer :: i,j,k,iG,h,l
+        real(rp) :: mhd_Rin
         real(rp), allocatable, dimension(:,:,:,:,:) :: mhdPsiGrid
+        real(rp), allocatable, dimension(:,:) :: mhdt, mhdp, mhdtFpd, mhdpFpd
+        type(mixGrid_T) :: mhdG
+        type(Map_T) :: Map
 
         mix2Mhd%rm2g = gB0*gV0*gx0*1.0e-12 !Scaling factor for remix potential [kV]
 
+        ! allocate remix arrays
+        allocate(mix2mhd%gPsi(1:mix2mhd%PsiShells+1,gameraApp%Grid%js:gameraApp%Grid%je+1,gameraApp%Grid%ks:gameraApp%Grid%ke+1))
+        allocate(mhdPsiGrid(1:mix2mhd%PsiShells+1, gameraApp%Grid%js:gameraApp%Grid%je+1, gameraApp%Grid%ks:gameraApp%Grid%ke/2+1, 1:3, 1:2))
+        allocate(mix2mhd%mixOutput(1:mix2mhd%PsiShells+1, gameraApp%Grid%js:gameraApp%Grid%je+1, gameraApp%Grid%ks:gameraApp%Grid%ke/2+1, 1:mix2mhd_varn, 1:2))
+        allocate(mix2mhd%PsiMaps(mix2mhd%PsiShells))
+
+        ! get those grid coordinates (corner centers for Psi)
+        do k=gameraApp%Grid%ks,gameraApp%Grid%ke+1
+            do j=gameraApp%Grid%js,gameraApp%Grid%je+1
+                ! note, PsiShells give shell numbers based on cell centers per our
+                ! convenion
+                ! thus, no -1 below
+                do i=1,mix2mhd%PsiShells+1
+                    iG = mix2mhd%PsiStart+i-1
+
+                    ! note conversion to Rion units which are expected on the remix
+                    ! side
+                    if (k<=gameraApp%Grid%ke/2+1) then
+                        mhdPsiGrid(i,j,k,:,NORTH) = gameraApp%Grid%xyz(iG,j,k,:)/Rion
+                    endif
+                    if (k>=gameraApp%Grid%ke/2+1) then
+                        mhdPsiGrid(i,j,k-gameraApp%Grid%ke/2,:,SOUTH) = gameraApp%Grid%xyz(iG,j,k,:)/Rion
+                    endif
+                enddo
+            enddo
+        enddo
+
+        do h=1,size(remixApp%ion)
+            ! set up interpolation map(s) for mix2mhd
+            do l=1,mix2mhd%PsiShells
+                call mix_mhd_grid(mhdPsiGrid(l,:,:,:,h),mhdt,mhdp,mhdtFpd,mhdpFpd,mhd_Rin)
+                call init_grid_fromTP(mhdG,mhdt,mhdp,.false.)
+                call mix_set_map(remixApp%ion(h)%G,mhdG,Map)
+                mix2mhd%PsiMaps(l) = Map
+            enddo
+        enddo
+ 
         deallocate(mhdPsiGrid)
 
      end subroutine init_mix2Mhd
 
-     subroutine convertRemixToGamera(gameraApp, remixApp)
+     subroutine convertRemixToGamera(mix2mhd, remixApp, gameraApp)
+        type(mix2Mhd_T), intent(inout) :: mix2mhd
         type(mixApp_T), intent(inout) :: remixApp
         type(gamApp_T), intent(inout) :: gameraApp
 
@@ -51,19 +94,19 @@ contains
         integer :: i
 
          ! populate potential on gamera grid
-         remixApp%gPsi = 0.0
-         do i=1,remixApp%PsiShells+1
-            remixApp%gPsi(i,:,gameraApp%Grid%ks:gameraApp%Grid%ke/2+1)   = remixApp%mixOutput(i,:,:,MHDPSI,NORTH)
-            remixApp%gPsi(i,:,gameraApp%Grid%ke/2+1:gameraApp%Grid%ke+1) = remixApp%mixOutput(i,:,:,MHDPSI,SOUTH)
+         mix2mhd%gPsi = 0.0
+         do i=1,mix2mhd%PsiShells+1
+            mix2mhd%gPsi(i,:,gameraApp%Grid%ks:gameraApp%Grid%ke/2+1)   = mix2mhd%mixOutput(i,:,:,MHDPSI,NORTH)
+            mix2mhd%gPsi(i,:,gameraApp%Grid%ke/2+1:gameraApp%Grid%ke+1) = mix2mhd%mixOutput(i,:,:,MHDPSI,SOUTH)
          enddo
 
         ! add corotation
-        call CorotationPot(gameraApp%Model, gameraApp%Grid, remixApp%gPsi)
+        call CorotationPot(gameraApp%Model, gameraApp%Grid, mix2mhd%gPsi)
 
         ! find the remix BC to write data into
         SELECT type(iiBC=>gameraApp%Grid%externalBCs(INI)%p)
             TYPE IS (IonInnerBC_T)
-                call Ion2MHD(gameraApp%Model,gameraApp%Grid,remixApp%gPsi,iiBC%inEijk,iiBC%inExyz,remixApp%rm2g)
+                call Ion2MHD(gameraApp%Model,gameraApp%Grid,mix2mhd%gPsi,iiBC%inEijk,iiBC%inExyz,mix2mhd%rm2g)
             CLASS DEFAULT
                 write(*,*) 'Could not find Ion Inner BC in remix IC'
                 stop
@@ -71,59 +114,9 @@ contains
 
     end subroutine convertRemixToGamera
 
-  subroutine init_mix_mhd_interface(remixApp,mhdJGrid,mhdPsiGrid,optFilename)
-    type(mixApp_T), intent(inout) :: remixApp
-    real(rp), dimension(:,:,:,:,:), intent(in) :: mhdJGrid,mhdPsiGrid ! (i,j,k,x-z,hemisphere)
-    character(len=*), optional, intent(in) :: optFilename    
-
-    integer :: l,h ! h for hemisphere
-    type(mixGrid_T) :: mhdGfpd,mhdG
-    type(Map_T) :: Map
-    real(rp), dimension(:,:), allocatable :: mhdt, mhdp, mhdtFpd, mhdpFpd
-    real(rp) :: mhd_Rin  ! the radius of the shell given by the MHD grid
-
-    if(present(optFilename)) then
-        ! read from the prescribed file
-        call init_mix(remixApp%ion,hmsphrs,remixApp%conductance,optFilename)
-    else
-        call init_mix(remixApp%ion,hmsphrs,remixApp%conductance)
-    endif
-
-    remixApp%PsiShells = size(mhdPsiGrid,1)
-    remixApp%JShells = size(mhdJGrid,1)
-    allocate(remixApp%PsiMaps(remixApp%PsiShells))
-    allocate(remixApp%JMaps(remixApp%JShells))
-    do h=1,size(remixApp%ion)
-       ! set up interpolation map(s) for mhd2mix
-       do l=1,remixApp%JShells
-          call mix_mhd_grid(mhdJGrid(l,:,:,:,h),mhdt,mhdp,mhdtFpd,mhdpFpd,mhd_Rin)
-          call init_grid_fromTP(mhdGfpd,mhdtFpd,mhdpFpd,.false.)  
-          call flip_grid(remixApp%ion(h)%G,remixApp%mixGfpd,mhd_Rin) ! storing flipped
-          ! grid for MIX only to
-          ! use in mhd2mix
-          ! below for zeroing
-          ! out equatorward of
-          ! MHD boundary, if
-          ! necessary
-          call mix_set_map(mhdGfpd,remixApp%mixGfpd,Map) 
-          remixApp%JMaps(l) = Map
-       end do
-
-       ! set up interpolation map(s) for mix2mhd
-       do l=1,remixApp%PsiShells
-          call mix_mhd_grid(mhdPsiGrid(l,:,:,:,h),mhdt,mhdp,mhdtFpd,mhdpFpd,mhd_Rin)
-          call init_grid_fromTP(mhdG,mhdt,mhdp,.false.)
-          call mix_set_map(remixApp%ion(h)%G,mhdG,Map)
-          remixApp%PsiMaps(l) = Map
-       enddo
-    enddo
-
-  end subroutine init_mix_mhd_interface
-
-  subroutine mix_mhd_output(ion,mhdvarsin,hmsphrs,time)
+  subroutine mix_mhd_output(ion,mhdvarsin,time)
     type(mixIon_T),dimension(:),intent(inout) :: ion ! I for ionosphere (is an array of 1 or 2 elements for north and south)
     real(rp), dimension(:,:,:,:,:),intent(in) :: mhdvarsin
-    integer, dimension(:), intent(in) :: hmsphrs ! array of integers marking hemispheres for the I object array.
     real(rp), intent(in) :: time
 
     character(strLen) :: fnstr,fname,vID
@@ -132,6 +125,7 @@ contains
     integer, save :: step = 0
     real(rp) :: cpcp(2) = 0.0 
 
+    integer, parameter :: MAXMIXIOVAR = 10
     type(IOVAR_T), dimension(MAXMIXIOVAR) :: IOVars
 
     mixOut = any(ion(:)%P%dtOut > 0.0)
@@ -151,7 +145,7 @@ contains
           inquire(file=trim(fname),exist=fExist)
           if (.not. fExist) then
             !If the file doesn't exist
-            call writeMIX(fname,ion,hmsphrs)
+            call writeMIX(fname,ion)
 
             !Add extra attribute information to output
             vID = "t"
@@ -176,7 +170,8 @@ contains
 
   end subroutine mix_mhd_output
 
-  subroutine mix2mhd(remixApp)
+  subroutine mapRemixToGamera(mix2mhd, remixApp)
+    type(mix2Mhd_T), intent(inout) :: mix2mhd
     type(mixApp_T), intent(inout) :: remixApp
     integer :: l,h ! hemisphere
     integer :: v ! mhd var
@@ -185,76 +180,18 @@ contains
 
     ! map to potential shells
     do h=1,size(remixApp%ion)
-       do v=1,size(remixApp%mixOutput,4)  ! mirroring mix2mhd here, but for now only one variable 
-          do l=1,remixApp%PsiShells
-             call mix_map_grids(remixApp%PsiMaps(l),remixApp%ion(h)%St%Vars(:,:,POT),gPsi_tmp)  
+       do v=1,size(mix2mhd%mixOutput,4)  ! mirroring mix2mhd here, but for now only one variable 
+          do l=1,mix2mhd%PsiShells
+             call mix_map_grids(mix2mhd%PsiMaps(l),remixApp%ion(h)%St%Vars(:,:,POT),gPsi_tmp)  
              ! this is going back to gamera
              select case (v)
              case (MHDPSI)
-                remixApp%mixOutput(l,:,:,v,h) = gPsi_tmp   ! north
+                mix2mhd%mixOutput(l,:,:,v,h) = gPsi_tmp   ! north
              end select
           enddo
        enddo
     enddo
-  end subroutine mix2mhd
-
-  ! This function gets the MHD grid from MHD directly
-  subroutine mix_mhd_grid(mhdg,t,p,tFpd,pFpd,Rinner)
-    real(rp), dimension(:,:,:), intent(in) :: mhdg ! MHD grid cell coords
-    real(rp), dimension(:,:), allocatable, intent(out) :: t,p,tFpd,pFpd
-    real(rp), dimension(:,:), allocatable :: r
-    real(rp), intent(out) :: Rinner
-    real(rp), dimension(:,:), allocatable :: dipRatio
-    integer :: nj, nk2
-
-    nj = size(mhdg,1); nk2 = size(mhdg,2) ! nk2+1 for Psi shells but keep the notation for brevity
-
-    ! Also define t, p variables in the gamera coordinate space (x-axis is the spherical axis)
-    ! "Fpd" suffix stands for "flipped"
-    if (.not.allocated(t)) allocate(t(nj,nk2))      
-    if (.not.allocated(p)) allocate(p(nj,nk2))      
-    if (.not.allocated(r)) allocate(r(nj,nk2))      
-    if (.not.allocated(dipRatio)) allocate(dipRatio(nj,nk2))      
-
-    if (.not.allocated(tFpd)) allocate(tFpd(nk2,nj))
-    if (.not.allocated(pFpd)) allocate(pFpd(nk2,nj))      
-
-    ! NOTE: this is already mapped to the ionosphere
-    r = sqrt(mhdg(:,:,1)**2+mhdg(:,:,2)**2+mhdg(:,:,3)**2)
-
-    ! capture for the rare (but possible!) case where the psiShell
-    ! we're mapping to is below the ionosphere
-    ! this may happen, e.g., for the bottom-most ghost cell inside the Gamera inner boundary.
-    ! In this case, we simply set theta=pi/2 so mix_map_grids (in mixinterp.F90) will simply 
-    ! extrapolate equatorward from the MIX low lat boundary
-    dipRatio = sqrt(mhdg(:,:,1)**2+mhdg(:,:,2)**2)/r**1.5
-    where( dipRatio < 1. )
-       t = asin(dipRatio)
-    elsewhere
-       t = PI/2.
-    end where
-
-    p = modulo(atan2(mhdg(:,:,2),mhdg(:,:,1)),2*pi)
-    Rinner = sum(r)/size(r)
-
-    ! NOTE, transposition is necessary to make sure the phi coordinate goes first
-    ! because all the codes, particulalry, interpolation (mixinterp) assume that
-    tFpd = transpose(acos(mhdg(:,:,1)/r))
-    pFpd = transpose(modulo(atan2(mhdg(:,:,3),mhdg(:,:,2)),2*pi))
-
-    ! Fixes for south
-    if (mhdg(nj/2,nk2/2,2).lt.0) then ! pick the pole and see if
-       ! z<0. this works even if nk2
-       ! is nk2+1 (for PsiShells)
-       ! For south, phi obtained this way goes from pi to 2pi.  so we
-       ! subtract pi because we always assume one hemisphere when
-       ! mapping
-       pFpd = pFpd-pi ! this is phi in the lfm/gamera space
-
-       ! FIXME: make sure this actually works
-       p = modulo(atan2(-mhdg(:,:,2),mhdg(:,:,1)),2*pi)
-    end if
-  end subroutine mix_mhd_grid
+  end subroutine mapRemixToGamera
 
   ! This is an ancillary function to get data from gamera dump
   ! In production, the mhd grid would be coming from gamera directly
