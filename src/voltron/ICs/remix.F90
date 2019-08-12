@@ -445,16 +445,16 @@ module uservoltic
                 !Set ghost hydro quantities
                     !Let density float
                     call SphereWall(Model,State%Gas(ig,j,k,:,:),State%Gas(ip,jp,kp,:,:),Vxyz)
-                    ! !Now do polar outflow if testing
-                    ! if (Model%doMultiF .and. (invlat>=80) .and. (Model%nSpc>2)) then
-                    !     gW(DEN) = 100.0
-                    !     gW(VELX:VELZ) = 0.2*rHat + Veb - rHat*dot_product(rHat,Veb)
-                    !     gW(PRESSURE) = 1.0e-3
-                    !     call CellP2C(Model,gW,gCon)
-                    !     State%Gas(ig,j,k,:,3) = gCon
-                    !     !Reset bulk
-                    !     call MultiF2Bulk(Model,State%Gas(ig,j,k,:,:))
-                    ! endif
+                    !Now do polar outflow if testing
+                    if (Model%doMultiF .and. (invlat>=70) .and. (Model%nSpc>2)) then
+                        gW(DEN) = 100.0
+                        gW(VELX:VELZ) = 0.2*rHatP + Veb - rHatP*dot_product(rHatP,Veb)
+                        gW(PRESSURE) = 1.0e-3
+                        call CellP2C(Model,gW,gCon)
+                        State%Gas(ig,j,k,:,3) = gCon
+                        !Reset bulk
+                        call MultiF2Bulk(Model,State%Gas(ig,j,k,:,:))
+                    endif
 
                 !-------
                 !Now handle magnetic quantities
