@@ -289,7 +289,7 @@ module msphutils
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Gr
         type(State_T), intent(inout) :: State
-        real(rp), intent(inout) :: inEijk(PsiSh+1,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,1:NDIM)
+        real(rp), intent(in) :: inEijk(PsiSh+1,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,1:NDIM)
 
         integer :: is0,j,k
 

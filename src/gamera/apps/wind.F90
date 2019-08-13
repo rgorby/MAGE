@@ -306,7 +306,7 @@ module wind
 
     !Fix outer shell electric fields to solar wind values
     subroutine WindEFix(windBC,Model,Grid,State)
-        class(windBC_T), intent(inout) :: windBC
+        class(windBC_T), intent(in) :: windBC
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(inout) :: State
