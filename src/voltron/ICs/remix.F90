@@ -247,7 +247,7 @@ module uservoltic
     !Fixes electric field before application
     subroutine EFix(Model,Gr,State)
         type(Model_T), intent(in) :: Model
-        type(Grid_T), intent(inout) :: Gr
+        type(Grid_T), intent(in) :: Gr
         type(State_T), intent(inout) :: State
 
         integer :: i,j,k,kp
