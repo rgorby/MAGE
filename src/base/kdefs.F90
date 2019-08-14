@@ -91,14 +91,14 @@ character(ANSILEN), parameter :: &
 
     contains
 
-    !Print out basic configuration info
-    subroutine printConfigStamp()
-        write(*,*) 'Kaiju configuration'
-        write(*,'(2a)') 'Compiler = ', compiler_version()
-        write(*,'(2a)') 'Compiler flags = ', compiler_options()
-        !write(*,*) 'Git hash = ', GITCOMMITHASH
-        !write(*,*) 'Git branch = ', GITBRANCH
+    ! !Print out basic configuration info
+    ! subroutine printConfigStamp()
+    !     write(*,*) 'Kaiju configuration'
+    !     write(*,'(2a)') 'Compiler = ', compiler_version()
+    !     write(*,'(2a)') 'Compiler flags = ', compiler_options()
+    !     !write(*,*) 'Git hash = ', GITCOMMITHASH
+    !     !write(*,*) 'Git branch = ', GITBRANCH
 
-    end subroutine printConfigStamp
+    ! end subroutine printConfigStamp
 
 end module kdefs
