@@ -25,7 +25,10 @@ module msphutils
 !t0 = 63.8 second
 !M0 = -0.31*1.0e+5/B0
 
-    real(rp) :: Rion ! planetary ionosphere radius
+    real(rp) :: Rion ! Planetary ionosphere radius
+    real(rp) :: M0   ! Magnetic moment
+
+    !TODO: Move these values to a units type in gamera's Model_T
     real(rp) :: gx0 ! [m]
     real(rp) :: gv0 ! [m/s]
     real(rp) :: gD0 = 1.67e-21 ! 1 AMU/cc [kg/m3]
@@ -33,29 +36,31 @@ module msphutils
     real(rp) :: gB0 ! [nT]
     real(rp) :: gT0 ! [s]
     real(rp) :: gG0=0 ! Grav acceleration [m/s2]
-    real(rp) :: M0 !Default magnetic moment [gauss]
-    real(rp) :: GM0 !Gravitational force coefficient
-    real(rp) :: Psi0=0. ! corotation potential coef
     
-    !real(rp) :: rCut=4.5, lCut=3.5 !LFM values
-    real(rp) :: rCut=4.0, lCut=5.0
-    real(rp) :: xSun,xTail,yMax
-    real(rp) :: x0,Aq,Bq,sInner
 
+    !TODO: Move these variables to something connecting remix/gamera
     integer :: JpSh = 1 !Number of cc current shells for CMI
     integer :: JpSt = 2 !First shell (i) to calculate current
     logical :: doRingFAC = .true. !Do some ring-processing on currents before sending to remix
-
-    !integer :: PsiSh = 1 !Number of *SHELLS* getting nodes at, ie PsiSh+1 = # i nodes
-    !integer :: PsiSt = 1 !Starting shell of potential
 
     !Get 5 shells, all ghosts plus first active
     integer :: PsiSh = 5 !Number of *SHELLS* getting nodes at, ie PsiSh+1 = # i nodes
     integer :: PsiSt = -3 !Starting shell of potential
 
+
+!Private module variables
     !Chill out parameters
-    real(rp) :: RhoCO = 1.0e-3 ! Number density
-    real(rp) :: CsCO  = 1.0e-2  ! Cs chillout, m/s
+    real(rp), private :: RhoCO = 1.0e-3 ! Number density
+    real(rp), private :: CsCO  = 1.0e-2  ! Cs chillout, m/s
+    !Dipole cut values
+    !real(rp) :: rCut=4.5, lCut=3.5 !LFM values
+    real(rp), private :: rCut=4.0, lCut=5.0
+    real(rp), private :: xSun,xTail,yMax
+    real(rp), private :: x0,Aq,Bq,sInner
+    !Grav/rotation values
+    
+    real(rp), private :: GM0 !Gravitational force coefficient
+    real(rp), private :: Psi0=0. ! corotation potential coef
 
     contains
 
