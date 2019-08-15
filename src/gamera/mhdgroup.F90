@@ -138,6 +138,7 @@ module mhdgroup
     !--------------------
     !Apply hydro stresses
         !State%Gas = State%Gas + dt*dGasH
+
         call Tic("Reynolds")
         !$OMP PARALLEL DO default(shared) collapse(2) &
         !$OMP private(U,dPg)
@@ -173,7 +174,7 @@ module mhdgroup
         !Calculate Bxyz's
         call bFlux2Fld(Model,Grid,State%magFlux,State%Bxyz)
         call Toc("CT-Update")
-
+        
     !--------------------
     !Apply Maxwell/Boris stresses
         !If multifluid then always do Boris (use HUGE if no value specified)

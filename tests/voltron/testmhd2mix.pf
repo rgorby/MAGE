@@ -2,6 +2,7 @@ module testmhd2mix
   use pfUnit
   use voltapp
   use gamapp
+  use uservoltic
 
   implicit none
 
@@ -25,15 +26,17 @@ contains
     character(len=strLen) :: caseInput = 'cmiD.xml'
     real(rp) testValue
 
-    call initGamera(gameraApp, caseInput)
+    call initGamera(gameraApp, initUser, caseInput)
 
-    call initVoltron(voltronApp, gameraApp)
+    call initVoltron(voltronApp, gameraApp, caseInput)
 
     ! create a dipole field in Gamera. This code is copied from prob.F90
-    Axyz => VectorPot_Loop2D
+    Axyz => VP_Dipole
     call VectorPot2Flux(gameraApp%Model,gameraApp%Grid,gameraApp%State,Axyz)
 
-    call convertGameraToRemix(voltronApp%mhd2mix, gameraApp, voltronApp%remixApp)
+    @assertGreaterThanOrEqual(sum(abs(gameraApp%State%magFlux(gameraApp%Grid%isg,:,:,:))), 20.0_rp, 'Gamera did not properly set a large magnetic field')
+
+    call convertGameraToRemix(gameraApp, voltronApp%remixApp)
 
     call mapGameraToRemix(voltronApp%mhd2mix, voltronApp%remixApp)
 
@@ -42,23 +45,24 @@ contains
 
     @assertLessThanOrEqual(testValue, 1e-8_rp, 'Remix did not get all 0 FAC from an input dipole field')
 
-    !modified to hard-code xo and y0 to 0.0
     contains
-        subroutine VectorPot_Loop2D(x,y,z,Ax,Ay,Az)
 
-            real(rp), intent(in) :: x,y,z
-            real(rp), intent(out) :: Ax,Ay,Az
+    ! modified to hard-code M2 constant to 1.0 (therefore removed)
+    subroutine VP_Dipole(x,y,z,Ax,Ay,Az)
+        real(rp), intent(in) :: x,y,z
+        real(rp), intent(out) :: Ax,Ay,Az
 
-            real(rp) :: A0_FL = 1.0e-3_rp
-            real(rp) :: R0_FL = 0.3_rp
-            real(rp) :: r
+        real(rp), dimension(NDIM) :: A,m,r,rhat
+        m = [0,0,1]
+        r = [x,y,z]
+        rhat = r/norm2(r)
 
-            Ax = 0.0
-            Ay = 0.0
-            r = sqrt( (x)**2.0 + (y)**2.0 ) ! + z**2.0)
-            Az = max( 0.0 , A0_FL*(R0_FL-r) )
+        A = cross(m,rhat)/(dot_product(r,r))
+        Ax = A(XDIR)
+        Ay = A(YDIR)
+        Az = A(ZDIR)
 
-        end subroutine VectorPot_Loop2D
+    end subroutine VP_Dipole
 
   end subroutine dipoleTest
 

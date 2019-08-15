@@ -82,18 +82,14 @@ module fields
 
         !Vf(i,j,k,XYZ-DIR), XYZ velocities pushed to dT1 faces
         !Vf = (Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,NDIM)
-        real(rp), dimension(:,:,:,:), allocatable :: Vf,EDiff
+        real(rp), dimension(:,:,:,:), allocatable, save :: Vf,EDiff
 
-        !DIR$ ASSUME_ALIGNED E: ALIGN
         !DIR$ ATTRIBUTES align : ALIGN :: v1,v2,b1,b2,Jd,Dc,vDiff,VelB
         !DIR$ ATTRIBUTES align : ALIGN :: Vf,EDiff
 
-
-        !Initialize Vf/EDiff arrays, Vf(i,j,k,XYZ-DIR): XYZ velocities pushed to dT1 faces
-        allocate(Vf   (Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,NDIM))
-        allocate(EDiff(Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,NDIM))
-        Vf    = 0.0        
-        EDiff = 0.0
+        !Initialize arrays
+        call InitMagVec(Model,Gr,Vf   )
+        call InitMagVec(Model,Gr,EDiff)
 
         !Prep bounds for this timestep
         eD0 = 1 !Starting direction for EMF
@@ -241,24 +237,6 @@ module fields
 
         !$OMP END PARALLEL
 
-        !TEST
-        ! if ( Model%doRing .and. (Model%Ring%doS .or. Model%Ring%doE) ) then
-        !     select case (Model%Ring%GridID)
-        !     case ("lfm")
-        !         if (Model%Ring%doS) then
-        !             EDiff(:,Gr%js  ,:,IDIR:KDIR) = 0.0
-        !             EDiff(:,Gr%js+1,:,IDIR) = 0.0
-        !             EDiff(:,Gr%js+1,:,KDIR) = 0.0
-
-        !         endif
-        !         if (Model%Ring%doE) then
-        !             EDiff(:,Gr%je+1,:,IDIR:KDIR) = 0.0
-        !             EDiff(:,Gr%je  ,:,IDIR) = 0.0
-        !             EDiff(:,Gr%je  ,:,KDIR) = 0.0
-        !         endif
-        !     end select
-
-        ! endif
 
         !$OMP PARALLEL DO default (shared) collapse(2)
         do k=Gr%ks, Gr%ke+1
@@ -638,4 +616,32 @@ module fields
         call TOC("Eeta")
         
     end subroutine resistivity
+
+    subroutine InitMagVec(Model,Gr,A)
+        type(Model_T), intent(in) :: Model
+        type(Grid_T), intent(in) :: Gr
+        real(rp), dimension(:,:,:,:), allocatable, intent(inout) :: A
+
+        logical :: doInit
+        integer, dimension(4) :: flxDims
+        integer :: dI
+
+        if (.not. allocated(A)) then
+            doInit = .true.
+        else
+            flxDims = [Gr%Ni,Gr%Nj,Gr%Nk,NDIM]
+            dI = sum(abs(flxDims-shape(A)))
+            if (dI>0) then
+                doInit = .true.
+            else
+                doInit = .false.
+            endif
+        endif
+
+        if (doInit) then
+            allocate(A(Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,NDIM))
+            A = 0.0
+        endif
+    end subroutine InitMagVec
+
 end module fields

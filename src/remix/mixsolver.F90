@@ -47,6 +47,9 @@ module mixsolver
       if (.not.allocated(S%LLBC)) allocate(S%LLBC(G%Np))
       ! solution storate
       if (.not. allocated(S%solution)) allocate(S%solution(G%Np*G%Nt))
+      ! assign 0s for solver initial guess
+      S%solution = 0.0_rp
+
     end subroutine init_solver
 
     subroutine set_solver_terms(P,G,St,S)
@@ -206,11 +209,9 @@ module mixsolver
       ! there is a version of this in mix.F90 that stores the old solution
       ! and initializes the next one from that but I found that doesn't
       ! affect the convergence speed
-      if(abs(P%llbc_value) < 0.5) then
-          ! dealing with the edge case of guessing exactly a full 0 input
-          S%solution = 1.0_rp
-      else
-          S%solution = 0.0_rp
+      if(norm2(S%RHS) < 1e-6_rp .and. norm2(S%solution) < 1e-6_rp) then
+          ! dealing with the edge case of guessing 0 for a rhs of 0
+          S%solution = 0.01_rp
       endif
 
       ! could drop tolerances by a factor of 100 each (from default 1.d-6)

@@ -356,6 +356,7 @@ module ringutils
         endif
 
         !Finally do j
+        jp = j ! default value
         if ( Model%Ring%doS .and. (j<Grid%js) ) then
             jp = Grid%js + (Grid%js-j) - 1
             kp = k+Np2

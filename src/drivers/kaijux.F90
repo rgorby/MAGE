@@ -4,18 +4,20 @@ program kaijux
     use clocks
     use gamapp
     use voltapp
+    use uservoltic
 
     implicit none
 
     type(gamApp_T) :: gameraApp
     type(voltApp_T) :: voltronApp
+    procedure(StateIC_T), pointer :: userInitFunc => initUser
 
     call initClocks()
 
     !TODO: Fix this to reset after MPI config to only output from root rank
     verbose = 1
     
-    call initGamera(gameraApp)
+    call initGamera(gameraApp,userInitFunc)
     call initVoltron(voltronApp, gameraApp)
 
     do while (gameraApp%Model%t < gameraApp%Model%tFin)

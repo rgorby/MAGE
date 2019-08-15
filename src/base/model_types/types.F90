@@ -79,6 +79,9 @@ module types
         logical :: isMPI = .false.
         integer :: NumRi=1,NumRj=1,NumRk=1
         integer :: Ri=1,Rj=1,Rk=1
+
+        !Background variables
+        real(rp) :: bScl = 1.0, bSclz = 0.0
         
         !Background field function pointer
         procedure(VectorField_T), pointer, nopass :: B0 => NULL()
@@ -174,12 +177,15 @@ module types
         !edgB0(i,j,k,1:2,E) is the 1:2 component of b1/b2 on edge E
         !B0(i,j,k,d) is the d (xyz) component of B0
         !bFlux0(i,j,k,F) is the magnetic flux through face F
+        logical :: doB0Init = .true.
         real(rp), dimension(:,:,:,:,:), allocatable :: fcB0
         real(rp), dimension(:,:,:,:,:), allocatable :: edgB0
         real(rp), dimension(:,:,:,:), allocatable :: B0,bFlux0
         real(rp), dimension(:,:,:,:), allocatable :: dpB0 !Stress from background field
 
+        logical :: doG0Init = .true.
         real(rp), dimension(:,:,:,:), allocatable :: gxyz !Gravitational acceleration (cell-centered)
+
     end type Grid_T
 
 !State information
@@ -197,6 +203,7 @@ module types
         real(rp), dimension(:,:,:), allocatable :: eqDen    ! instantaneous equatorial density (for plasmasphere)
         
         real(rp) :: time
+
     end type State_T
 
     !StateIC_T

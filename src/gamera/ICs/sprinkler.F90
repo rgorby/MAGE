@@ -1,4 +1,4 @@
-module useric
+module usergamic
     use types
     use gamutils
     use math
@@ -138,4 +138,4 @@ module useric
     
     end subroutine SprinklerBC
 
-end module useric
+end module usergamic

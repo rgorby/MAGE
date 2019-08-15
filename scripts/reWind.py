@@ -21,6 +21,7 @@ if __name__ == "__main__":
 	fIn = "SW-SM-DAT"
 	nSkip = 3 #Number of header lines to skip
 
+	Ts = 0.0
 	MainS = """Converts LFM-style solar wind file to Gamera format
 	LFM wind parameters (ASCII) / Gamera wind parameters (HDF5)
 	LFM   : t,D,V,Cs,B,tilt = min, AMU/cm3, km/s, km/s, nT, rad 
@@ -30,18 +31,24 @@ if __name__ == "__main__":
 	parser = argparse.ArgumentParser(description=MainS, formatter_class=RawTextHelpFormatter)
 	parser.add_argument('fIn',type=str,metavar="sw.txt",default=fIn,help="Input LFM wind file (default: %(default)s)")
 	parser.add_argument('-o',type=str,metavar="wind.h5",default=fOut,help="Output Gamera wind file (default: %(default)s)")
-
+	parser.add_argument('-TsG',type=float,metavar="TStart",default=Ts,help="Gamera start time [min] (default: %(default)s)")
+	parser.add_argument('-TsL',type=float,metavar="TStart",default=Ts,help="LFM start time [min] (default: %(default)s)")
+	parser.add_argument('-nobx', action='store_true',default=False,help="Zero out Bx (default: %(default)s)")
 	#Finalize parsing
 	args = parser.parse_args()
 
 	fIn = args.fIn
 	fOut = args.o
+	TsG = args.TsG
+	TsL = args.TsL
+	nobx = args.nobx
 
 	print("Reading LFM solar wind from %s"%(fIn))
 	lfmD = np.genfromtxt(fIn,skip_header=nSkip)
 	Nt,Nv = lfmD.shape
 	print("\tFound %d variables and %d lines"%(Nv,Nt))
-
+	if (nobx):
+		print("\tNot using Bx fields")
 	#Create holders for Gamera data
 	T  = np.zeros(Nt)
 	D  = np.zeros(Nt)
@@ -56,12 +63,17 @@ if __name__ == "__main__":
 
 	#Convert LFM time to seconds and reset to start at 0
 	T0 = lfmD[:,0].min()
-	T = (lfmD[:,0]-T0)*60
+	T = (lfmD[:,0]-TsL+TsG)*60
+
+	print("\tOffsetting from LFM start (%5.2f min) to Gamera start (%5.2f min)"%(TsL,TsG))
 
 	#Density, magnetic field, and tilt don't require scaling
 	D   = lfmD[:,1]
 	ThT = lfmD[:,10]
-	Bx  = lfmD[:,6]
+	if (nobx):
+		Bx[:] = 0.0
+	else:
+		Bx  = lfmD[:,6]
 	By  = lfmD[:,7]
 	Bz  = lfmD[:,8]
 
@@ -90,5 +102,4 @@ with h5py.File(fOut,'w') as hf:
 	hf.create_dataset("By",data=By)
 	hf.create_dataset("Bz",data=Bz)
 	hf.create_dataset("tilt",data=ThT)
-
 

@@ -8,8 +8,8 @@ module mix2mhd_interface
   use ioH5
   use gamapp
   use msphutils
-  use useric
   use mixinterfaceutils
+  use uservoltic ! required to have IonInnerBC_T defined
   
   implicit none
 
@@ -84,14 +84,16 @@ contains
 
      end subroutine init_mix2Mhd
 
-     subroutine convertRemixToGamera(mix2mhd, remixApp, gameraApp)
+     subroutine convertRemixToGamera(mix2mhd, remixApp, gameraApp, doCorot0)
         type(mix2Mhd_T), intent(inout) :: mix2mhd
         type(mixApp_T), intent(inout) :: remixApp
         type(gamApp_T), intent(inout) :: gameraApp
+        logical, intent(in), optional :: doCorotO
 
         ! convert the "remixOutputs" variable to inEijk and inExyz, which are in
         ! Gamera coordinates
         integer :: i
+        logical :: doCorot
 
          ! populate potential on gamera grid
          mix2mhd%gPsi = 0.0
@@ -101,7 +103,7 @@ contains
          enddo
 
         ! add corotation
-        call CorotationPot(gameraApp%Model, gameraApp%Grid, mix2mhd%gPsi)
+        if (doCorot) call CorotationPot(gameraApp%Model, gameraApp%Grid, mix2mhd%gPsi)
 
         ! find the remix BC to write data into
         SELECT type(iiBC=>gameraApp%Grid%externalBCs(INI)%p)

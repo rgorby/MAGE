@@ -54,6 +54,9 @@ module kdefs
     !Mercury
     real(rp), parameter :: MercuryM0g = 0.00345  !Gauss
     real(rp), parameter :: RMercuryXE = 0.31397  !Rx = X*Re
+    !Neptune
+    real(rp), parameter :: NeptuneM0g = 0.142  !Gauss
+    real(rp), parameter :: RNeptuneXE = 3.860  !Rx = X*Re
 
 !Numbered accessors
     !Directions
@@ -85,5 +88,17 @@ character(ANSILEN), parameter :: &
     ANSICYAN   = ANSIESCAPE // '[36m', &
     ANSIWHITE  = ANSIESCAPE // '[37m', &
     ANSIRESET  = ANSIESCAPE // '[0m'
+
+    contains
+
+    !Print out basic configuration info
+    subroutine printConfigStamp()
+        write(*,*) 'Kaiju configuration'
+        write(*,'(2a)') 'Compiler = ', compiler_version()
+        write(*,'(2a)') 'Compiler flags = ', compiler_options()
+        !write(*,*) 'Git hash = ', GITCOMMITHASH
+        !write(*,*) 'Git branch = ', GITBRANCH
+
+    end subroutine printConfigStamp
 
 end module kdefs

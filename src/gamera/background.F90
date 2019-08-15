@@ -13,18 +13,14 @@ module background
 
     implicit none
 
-    !Various constants for predefined background fields
-    real(rp) :: bScl = 1.0, bSclz = 0.0    
-    logical :: doB0Init = .true. !Whether or not B0->Grid still needs to be done
-    logical :: doG0Init = .true. !Whether or not Phi->Grid still needs to be done
-
     contains
 
 
     !Adds background field data to the Grid data structure
-    subroutine AddB0(Model,Grid,B0)
+    subroutine AddB0(Model,Grid,State,B0)
         type(Model_T), intent(inout) :: Model
         type(Grid_T), intent(inout) :: Grid
+        type(State_T), intent(inout) :: State
         procedure(VectorField_T), pointer, intent(in) :: B0
 
         integer :: i,j,k
@@ -38,7 +34,7 @@ module background
         procedure(GasIC_T), pointer :: Wxyz !Lazy wrapper for volume integral
 
         
-        if (.not. Model%doBackground .or. .not. doB0Init) then
+        if (.not. Model%doBackground .or. .not. Grid%doB0Init) then
             !Do nothing if incorrectly configured
             return
         endif
@@ -71,38 +67,38 @@ module background
 
                 !I face
                     call faceCoords(Model,Grid,i,j,k,IDIR,f0,f1,f2,f3)
-                    call GaussianFaceFlux(f0,f1,f2,f3,B0,Grid%bFlux0(i,j,k,IDIR))
+                    call GaussianFaceFlux(Model,f0,f1,f2,f3,B0,Grid%bFlux0(i,j,k,IDIR))
 
-                    call GaussianFaceIntegral(f0,f1,f2,f3,B0,fInt,fInt2,fIntX)
+                    call GaussianFaceIntegral(Model,f0,f1,f2,f3,B0,fInt,fInt2,fIntX)
                     Grid%fcB0(i,j,k,:,IDIR) = fInt/Grid%Face(i,j,k,IDIR)
 
                     !Get face stress
-                    call GaussianFaceStress(f0,f1,f2,f3,B0,faceStress(i,j,k,IDIR,:))
+                    call GaussianFaceStress(Model,f0,f1,f2,f3,B0,faceStress(i,j,k,IDIR,:))
 
                 !J face
                     call faceCoords(Model,Grid,i,j,k,JDIR,f0,f1,f2,f3)
-                    call GaussianFaceFlux(f0,f1,f2,f3,B0,Grid%bFlux0(i,j,k,JDIR))
+                    call GaussianFaceFlux(Model,f0,f1,f2,f3,B0,Grid%bFlux0(i,j,k,JDIR))
 
-                    call GaussianFaceIntegral(f0,f1,f2,f3,B0,fInt,fInt2,fIntX)
+                    call GaussianFaceIntegral(Model,f0,f1,f2,f3,B0,fInt,fInt2,fIntX)
                     Grid%fcB0(i,j,k,:,JDIR) = fInt/Grid%Face(i,j,k,JDIR)
 
                     !Get face stress
-                    call GaussianFaceStress(f0,f1,f2,f3,B0,faceStress(i,j,k,JDIR,:))
+                    call GaussianFaceStress(Model,f0,f1,f2,f3,B0,faceStress(i,j,k,JDIR,:))
 
                 !K face
                     call faceCoords(Model,Grid,i,j,k,KDIR,f0,f1,f2,f3)
-                    call GaussianFaceFlux(f0,f1,f2,f3,B0,Grid%bFlux0(i,j,k,KDIR))
-                    call GaussianFaceIntegral(f0,f1,f2,f3,B0,fInt,fInt2,fIntX)
+                    call GaussianFaceFlux(Model,f0,f1,f2,f3,B0,Grid%bFlux0(i,j,k,KDIR))
+                    call GaussianFaceIntegral(Model,f0,f1,f2,f3,B0,fInt,fInt2,fIntX)
                     Grid%fcB0(i,j,k,:,KDIR) = fInt/Grid%Face(i,j,k,KDIR)
 
                     !Get face stress
-                    call GaussianFaceStress(f0,f1,f2,f3,B0,faceStress(i,j,k,KDIR,:))
+                    call GaussianFaceStress(Model,f0,f1,f2,f3,B0,faceStress(i,j,k,KDIR,:))
 
                     !Calculate edge integrals and mapping to 1/2 system using velocity mapping
                     !I edge
                     call edgeCoords(Model,Grid,i,j,k,IDIR,e1,e2)
                     
-                    eInt = GaussianEdgeIntegral(e1,e2,B0)
+                    eInt = GaussianEdgeIntegral(Model,e1,e2,B0)
 
                     Grid%edgB0(i,j,k,1,IDIR) = eInt(XDIR)*Grid%Te(i,j,k,TAN1X,IDIR) + &
                                                eInt(YDIR)*Grid%Te(i,j,k,TAN1Y,IDIR) + &
@@ -112,7 +108,7 @@ module background
                                                eInt(ZDIR)*Grid%Te(i,j,k,TAN2Z,IDIR) 
                     !J edge
                     call edgeCoords(Model,Grid,i,j,k,JDIR,e1,e2)
-                    eInt = GaussianEdgeIntegral(e1,e2,B0)
+                    eInt = GaussianEdgeIntegral(Model,e1,e2,B0)
 
                     Grid%edgB0(i,j,k,1,JDIR) = eInt(XDIR)*Grid%Te(i,j,k,TAN1X,JDIR) + &
                                                eInt(YDIR)*Grid%Te(i,j,k,TAN1Y,JDIR) + &
@@ -123,7 +119,7 @@ module background
 
                     !K edge
                     call edgeCoords(Model,Grid,i,j,k,KDIR,e1,e2)
-                    eInt = GaussianEdgeIntegral(e1,e2,B0)
+                    eInt = GaussianEdgeIntegral(Model,e1,e2,B0)
 
                     Grid%edgB0(i,j,k,1,KDIR) = eInt(XDIR)*Grid%Te(i,j,k,TAN1X,KDIR) + &
                                                eInt(YDIR)*Grid%Te(i,j,k,TAN1Y,KDIR) + &
@@ -160,7 +156,7 @@ module background
             enddo
         enddo
                 
-        doB0Init = .false. !Don't do again
+        Grid%doB0Init = .false. !Don't do again
         
         contains
             !Wrapper (to look like GasIC_T)
@@ -175,9 +171,10 @@ module background
     end subroutine AddB0
 
     !Calculates accelerations from gravitational potential on grid
-    subroutine AddGrav(Model,Grid,Phi)
+    subroutine AddGrav(Model,Grid,State,Phi)
         type(Model_T), intent(inout) :: Model
         type(Grid_T), intent(inout) :: Grid
+        type(State_T), intent(inout) :: State
         procedure(ScalarFun_T), pointer, intent(in) :: Phi
 
         integer :: i,j,k
@@ -185,7 +182,7 @@ module background
         real(rp) :: PhiI,PhiJ,PhiK,PhiIp,PhiJp,PhiKp
         real(rp) ::  daI, daJ, daK, daIp, daJp, daKp
         real(rp) :: dV
-        if (.not. Model%doGrav .or. .not. doG0Init) then
+        if (.not. Model%doGrav .or. .not. Grid%doG0Init) then
             !Do nothing if incorrectly configured
             return
         endif
@@ -234,7 +231,8 @@ module background
         enddo
 
         !Don't initialize again
-        doG0Init = .false.
+        Grid%doG0Init = .false.
+
         contains
             !Wrapper (to take vector)
             subroutine PWrap(r,pot)
@@ -245,17 +243,5 @@ module background
             end subroutine PWrap
     end subroutine AddGrav
 
-    !Background field for blast wave
-    subroutine BlastB0(x,y,z,Ax,Ay,Az)
-        real(rp), intent(in) :: x,y,z
-        real(rp), intent(out) :: Ax,Ay,Az
-
-        Ax = bScl
-        Ay = bScl
-        Az = bSclz
-        
-    end subroutine BlastB0
-
-
-
 end module background
+

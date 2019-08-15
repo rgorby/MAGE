@@ -60,7 +60,7 @@ contains
 
     !Get number of groups of form "Step#XXX" and start/end
     subroutine StepInfo(fStr,s0,sE,Nstp)
-        character(len=strLen), intent(in) :: fStr
+        character(len=*), intent(in) :: fStr
         integer, intent(out) :: s0,sE,Nstp
         integer :: herr,i
         logical :: gExist,fExist,isEnd,idFirst
@@ -115,7 +115,7 @@ contains
 
     !Find step times between s0,sE and store in pre-allocated array
     subroutine StepTimes(fStr,s0,sE,Ts)
-        character(len=strLen), intent(in) :: fStr
+        character(len=*), intent(in) :: fStr
         integer, intent(in) :: s0,sE
         real(rp), intent(inout) :: Ts(1:sE-s0+1)
 
@@ -143,7 +143,7 @@ contains
 
     !Count number of groups of form "Step#XXX"
     function NumSteps(fStr) result(Nstp)
-        character(len=strLen), intent(in) :: fStr
+        character(len=*), intent(in) :: fStr
         integer :: Nstp
         integer :: s0,sE
 
@@ -154,8 +154,8 @@ contains
     !fStr:/vStr (if no gStrO), otherwise
     !fStr:/gStrO/vStr
     function ioExist(fStr,vStr,gStrO)
-        character(len=strLen), intent(in) :: fStr,vStr
-        character(len=strLen), intent(in), optional :: gStrO
+        character(len=*), intent(in) :: fStr,vStr
+        character(len=*), intent(in), optional :: gStrO
         logical :: ioExist
 
         logical :: fExist, gExist
@@ -199,7 +199,7 @@ contains
 
     !Delete file if it already exists
     subroutine CheckAndKill(fStr)
-        character(len=strLen), intent(in) :: fStr
+        character(len=*), intent(in) :: fStr
 
         logical :: fExist
 
@@ -215,8 +215,8 @@ contains
     subroutine ReadVars(IOVars,doIOp,baseStr,gStrO)
         type(IOVAR_T), dimension(:), intent(inout) :: IOVars
         logical, intent(in) :: doIOp
-        character(len=strLen), intent(in) :: baseStr
-        character(len=strLen), intent(in), optional :: gStrO
+        character(len=*), intent(in) :: baseStr
+        character(len=*), intent(in), optional :: gStrO
         character(len=strLen) :: outStr
 
         

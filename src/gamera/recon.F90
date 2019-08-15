@@ -22,6 +22,7 @@ module recon
     procedure(GetLR_T), pointer :: GetLRs
     !logical, parameter :: Smooth7Up = .true. !Use smoothness detector in 7Up method
     real(rp) :: pdmb !Set via initModel
+    real(rp), dimension(8), parameter :: Cent8C = [-3,29,-139,533,533,-139,29,-3]/840.0_rp
     real(rp), dimension(7), parameter :: Up7C = [-3,25,-101,319,214,-38,4]/420.0_rp
     real(rp), dimension(5), parameter :: High5C = [2,-13,47,27,-3]/60.0_rp
     real(rp), dimension(6), parameter :: Cent6C = [1,-8,37,37,-8,1]/60.0_rp
@@ -131,6 +132,65 @@ module recon
         call pdmLR(Q,Qi,Ql,Qr)
 
     end subroutine Cen8LRs
+
+    !Central 8/PDM LRs
+    subroutine Cen8GLRs(dV,Q,Vi,Ql,Qr)
+        real(rp), intent(in), dimension(vecLen,recLen) :: dV,Q
+        real(rp), intent(in), dimension(vecLen)  :: Vi
+        real(rp), intent(inout), dimension(vecLen) :: Ql,Qr
+
+        integer :: i,n
+        logical, dimension(vecLen) :: isLR
+        real(rp), dimension(vecLen,recLen) :: QdV !Volume-weighted quantity
+        real(rp), dimension(vecLen) :: Qi !Interpolated quantity
+
+        !DIR$ ASSUME_ALIGNED dV: ALIGN
+        !DIR$ ASSUME_ALIGNED Q : ALIGN
+        !DIR$ ASSUME_ALIGNED Vi: ALIGN
+        !DIR$ ASSUME_ALIGNED Ql: ALIGN
+        !DIR$ ASSUME_ALIGNED Qr: ALIGN
+
+        !Check for geometric LRs
+        call isDeltaLR(dV,Vi,isLR)
+        
+        !Volume-weight
+        do n=1,recLen
+            do i=1,vecLen
+                QdV(i,n) = dV(i,n)*Q(i,n)
+            enddo
+        enddo
+
+        do i=1,vecLen
+            if (isLR(i)) then
+                !Geometry is too jagged here
+                !Get <Q>
+                Qi(i) = dot_product(Q(i,:),Cent8C)
+            else
+                !Everything is fine, go nuts
+                !Get <QdV>/<dV>
+                Qi(i) = dot_product(QdV(i,:),Cent8C)/Vi(i)
+            endif
+        enddo
+
+        !Split into LRs
+        call pdmLR(Q,Qi,Ql,Qr)
+
+    end subroutine Cen8GLRs
+
+    subroutine isDeltaLR(Qb,Qi,isLR)
+        real(rp), intent(in) :: Qb(vecLen,recLen), Qi(vecLen)
+        logical, intent(out) :: isLR(vecLen)
+
+        integer :: i
+        real(rp) :: Ql(vecLen),Qr(vecLen)
+
+        call pdmLR(Qb,Qi,Ql,Qr)
+
+        do i=1,vecLen
+            isLR(i) = abs( Ql(i) - Qr(i) ) .gt. 1.0e-8
+        enddo
+
+    end subroutine isDeltaLR
 
     !Upwind 7/PDM LRs
     subroutine Up7LRs(dV,Q,Vi,Ql,Qr)

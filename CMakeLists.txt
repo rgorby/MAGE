@@ -15,13 +15,16 @@ endif()
 #Set hostname & configuration defaults before going to compilers.cmake
 cmake_host_system_information(RESULT HOST QUERY HOSTNAME)
 
-# Get the current working branch
+#Get the current working branch
 execute_process(COMMAND git rev-parse --abbrev-ref HEAD WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
 	OUTPUT_VARIABLE GIT_BRANCH
 	OUTPUT_STRIP_TRAILING_WHITESPACE)
 execute_process(COMMAND git log -1 --format=%h WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
 	OUTPUT_VARIABLE GIT_COMMIT_HASH
 	OUTPUT_STRIP_TRAILING_WHITESPACE)
+#Add defines for commit hash/branch
+add_compile_definitions(GITCOMMITHASH=${GIT_COMMIT_HASH})
+add_compile_definitions(GITBRANCH=${GIT_BRANCH})
 
 #Set some configuration defaults
 option(ENABLE_OMP "Enable OMP parallelization" ON )
@@ -37,6 +40,9 @@ mark_as_advanced(bricksize)
 #Set default IC files
 file(GLOB GAMICDEF src/gamera/ICs/null.F90)
 set(GAMIC ${GAMICDEF} CACHE FILEPATH "Gamera IC file")
+
+file(GLOB VOLTICDEF src/voltron/ICs/remix.F90)
+set(VOLTIC ${VOLTICDEF} CACHE FILEPATH "Voltron IC file")
 
 #-------------
 #Include user cmake file if present
@@ -120,6 +126,7 @@ add_dependencies(remix remix.x baselib)
 #-------------
 #Kaiju: Voltron
 message("Adding Voltron module ...")
+message("\tIC file is ${VOLTIC}")
 add_subdirectory(src/voltron)
 add_custom_target(voltron ALL)
 message("\tAdding executable kaiju.x")

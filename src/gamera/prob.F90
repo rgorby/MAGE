@@ -8,7 +8,6 @@ module prob
     use xml_input
     use bcs
     use background
-    use useric !User-defined initial conditions
 
     implicit none
 
@@ -20,9 +19,10 @@ module prob
     contains
 
     !Set initState function pointer based on icStr (problem id)
-    subroutine setIC_T(initState,icStr)
+    subroutine setIC_T(initState,icStr,userInitFunc)
         procedure(StateIC_T), pointer, intent(out) :: initState
-        character(len=strLen), intent(in) :: icStr
+        character(len=*), intent(in) :: icStr
+        procedure(StateIC_T), pointer, intent(in) :: userInitFunc
 
         initState => NULL()
 
@@ -63,7 +63,7 @@ module prob
         case ("MULTIFLUIDBW")
             initState => initMultiFBW
         case ("USER","user")
-            initState => initUser
+            initState => userInitFunc
 
         case default
             write(*,*) 'Unknown problem id, exiting ...'
@@ -278,13 +278,13 @@ module prob
 
         !Set constants in background module            
         if (doBz) then
-            bScl  = B0_BW/sqrt(3.0)
-            bSclz = bScl
+            Model%bScl  = B0_BW/sqrt(3.0)
+            Model%bSclz = Model%bScl
         else
-            bScl  = B0_BW/sqrt(2.0)
-            bSclz = 0.0
+            Model%bScl  = B0_BW/sqrt(2.0)
+            Model%bSclz = 0.0
         endif
-        call inpXML%Set_Val(bSclz,"prob/Bz0",bSclz) !Allow problem file to overwrite Z component
+        call inpXML%Set_Val(Model%bSclz,"prob/Bz0",Model%bSclz) !Allow problem file to overwrite Z component
 
         !Initialize State variable analytic function
         Wxyz => GasIC_BW
@@ -305,14 +305,25 @@ module prob
 
         !Local functions for initBW  
         contains
+
+            !Background field for blast wave
+            subroutine BlastB0(x,y,z,Ax,Ay,Az)
+                real(rp), intent(in) :: x,y,z
+                real(rp), intent(out) :: Ax,Ay,Az
+
+                Ax = Model%bScl
+                Ay = Model%bScl
+                Az = Model%bSclz
+
+            end subroutine BlastB0
+
             subroutine VectorPot_BW(x,y,z,Ax,Ay,Az)
-                
                 real(rp), intent(in) :: x,y,z
                 real(rp), intent(out) :: Ax,Ay,Az
         
                 Ax = 0.0
-                Ay = bSclz*x
-                Az = bScl*(y - x)
+                Ay = Model%bSclz*x
+                Az = Model%bScl*(y - x)
             end subroutine VectorPot_BW
 
             subroutine GasIC_BW(x,y,z,D,Vx,Vy,Vz,P)
@@ -517,7 +528,6 @@ module prob
         !Local functions
         contains
             subroutine VectorPot_Loop2D(x,y,z,Ax,Ay,Az)
-                
                 real(rp), intent(in) :: x,y,z
                 real(rp), intent(out) :: Ax,Ay,Az
         
@@ -683,7 +693,6 @@ module prob
         !Local functions
         contains
             subroutine VectorPot_Loop2D(x,y,z,Ax,Ay,Az)
-                
                 real (rp), intent(in) :: x,y,z
                 real (rp), intent(out) :: Ax,Ay,Az
         
@@ -1005,7 +1014,6 @@ module prob
         !Local functions for initBW  
         contains
             subroutine VectorPot_GEM(x,y,z,Ax,Ay,Az)
-                
                 real(rp), intent(in) :: x,y,z
                 real(rp), intent(out) :: Ax,Ay,Az
                 real(rp) :: Lx, Ly

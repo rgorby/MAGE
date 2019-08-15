@@ -3,17 +3,20 @@
 program gamerax
     use clocks
     use gamapp
+    use usergamic
 
     implicit none
 
     type(gamApp_T) :: gameraApp
+    procedure(StateIC_T), pointer :: userInitFunc => initUser
 
+    !call printConfigStamp()
     call initClocks()
 
     !TODO: Fix this to reset after MPI config to only output from root rank
     verbose = 1
     
-    call initGamera(gameraApp)
+    call initGamera(gameraApp,userInitFunc)
 
     do while (gameraApp%Model%t < gameraApp%Model%tFin)
         call Tic("Omega")

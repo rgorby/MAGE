@@ -4,6 +4,7 @@ module testmixmain
   use mixtypes
   use voltapp
   use gamapp
+  use uservoltic
 
   implicit none
 
@@ -19,7 +20,7 @@ contains
   subroutine lastSerial()
   end subroutine lastSerial
 
-  !@test
+  @test
   subroutine testZeroInput()
     ! testing that an input of all zeroes gets output of all zeroes
     type(voltApp_T) :: voltronApp
@@ -27,7 +28,7 @@ contains
     character(len=strLen) :: caseInput = 'cmiD.xml'
 
     write(*,*) 'Doing testZeroInput ...'
-    call initGamera(gameraApp, caseInput)
+    call initGamera(gameraApp, initUser, caseInput)
 
     call initVoltron(voltronApp, gameraApp, caseInput)
 
@@ -43,12 +44,19 @@ contains
 
     ! potential in remixApp%ion(h)%St%Vars(:,:,POT)
     ! error value allows 1e-3 error per cell on average
-    @assertLessThanOrEqual(sum(abs(voltronApp%remixApp%ion(NORTH)%S%Solution)), 8.1_rp, 'Non-zero remix output in North hemisphere')
-    @assertLessThanOrEqual(sum(abs(voltronApp%remixApp%ion(SOUTH)%S%Solution)), 8.1_rp, 'Non-zero remix output in South hemisphere')
+    @assertLessThanOrEqual(sum(abs(remixApp%ion(NORTH)%S%Solution)), 8.1_rp, 'Non-zero remix output in North hemisphere')
+    @assertLessThanOrEqual(sum(abs(remixApp%ion(SOUTH)%S%Solution)), 8.1_rp, 'Non-zero remix output in South hemisphere')
+    
+    write(*,*) 'Min/Max of potential (NORTH) = ', minval(remixApp%ion(NORTH)%S%Solution), maxval(remixApp%ion(NORTH)%S%Solution)
+    write(*,*) 'Min/Max of potential (SOUTH) = ', minval(remixApp%ion(SOUTH)%S%Solution), maxval(remixApp%ion(SOUTH)%S%Solution)
+    
+    call mix2mhd(remixApp)
+    call mix_mhd_output(remixApp%ion,remixApp%mixoutput,hmsphrs,0.0_rp)
+
 
   end subroutine testZeroInput
 
-  @test
+  !@test
   subroutine testConstantSolution()
     ! testing that an input of all zeroes gets output of all zeroes
     type(voltApp_T) :: voltronApp
@@ -58,7 +66,7 @@ contains
     character(len=strLen) :: caseInput = 'cmiD.xml'
 
     write(*,*) 'Doing testConstantSolution ...'
-    call initGamera(gameraApp, caseInput)
+    call initGamera(gameraApp, initUser, caseInput)
 
     call initVoltron(voltronApp, gameraApp, caseInput)
 
@@ -94,7 +102,7 @@ contains
     real(rp) :: thetaMin, thetaDelta
 
     write(*,*) 'Doing testAzimuthallyDependentFAC ...'
-    call initGamera(gameraApp, caseInput)
+    call initGamera(gameraApp, initUser, caseInput)
 
     call initVoltron(voltronApp, gameraApp, caseInput)
 
@@ -103,13 +111,13 @@ contains
     call mapGameraToRemix(voltronApp%mhd2mix, voltronApp%remixApp)
 
     ! field aligned current in remixApp%ion(h)%St%Vars(:,:,FAC)
-    thetaMin = 22.0_rp
-    thetaDelta = 12.0_rp
-    do h=1,size(voltronApp%remixApp%ion)
-        do ip=1,voltronApp%remixApp%ion(h)%G%Np
-            do it=1,voltronApp%remixApp%ion(h)%G%Nt
-                if(voltronApp%remixApp%ion(h)%G%t(ip,it) .ge. thetaMin .and. voltronApp%remixApp%ion(h)%G%t(ip,it) .le. (thetaMin+thetaDelta)) then
-                    voltronApp%remixApp%ion(h)%St%Vars(ip,it,FAC) = sin(voltronApp%remixApp%ion(h)%G%t(ip,it)) * sin(voltronApp%remixApp%ion(h)%G%p(ip,it))
+    thetaMin   = (PI/180.0)*22.0_rp
+    thetaDelta = (PI/180.0)*12.0_rp
+    do h=1,size(remixApp%ion)
+        do ip=1,remixApp%ion(h)%G%Np
+            do it=1,remixApp%ion(h)%G%Nt
+                if(remixApp%ion(h)%G%t(ip,it) .ge. thetaMin .and. remixApp%ion(h)%G%t(ip,it) .le. (thetaMin+thetaDelta)) then
+                    remixApp%ion(h)%St%Vars(ip,it,FAC) = sin(remixApp%ion(h)%G%t(ip,it)) * sin(remixApp%ion(h)%G%p(ip,it))
                 else
                     voltronApp%remixApp%ion(h)%St%Vars(ip,it,FAC) = 0.0_rp
                 endif
@@ -120,6 +128,8 @@ contains
     call run_mix(voltronApp%remixApp%ion, voltronApp%tilt)
 
     ! potential in remixApp%ion(h)%St%Vars(:,:,POT)
+    call mix2mhd(remixApp)
+    call mix_mhd_output(remixApp%ion,remixApp%mixoutput,hmsphrs,0.0_rp)
 
   end subroutine testAzimuthallyDependentFAC
 

@@ -111,7 +111,14 @@ module msphutils
             Psi0 = 0.0 !kV
             Rion = 1.05 !Assuming
             Model%doGrav = .false.
-
+        case("Neptune","NEPTUNE")
+            gx0 = RNeptuneXE*REarth
+            gv0 = 100.0e+3    ! [m/s]
+            gG0 = 11.15       ! [m/s2]
+            call xmlInp%Set_Val(M0g,"prob/M0",NeptuneM0g) !Mag moment [gauss]
+            Psi0 = 10.024*92.0 !kV
+            Rion = 1.01 !Assuming
+            Model%doGrav = .false.
         end select
 
         gT0 = gx0/gv0 !Set time scaling
@@ -282,7 +289,7 @@ module msphutils
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Gr
         type(State_T), intent(inout) :: State
-        real(rp), intent(inout) :: inEijk(PsiSh+1,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,1:NDIM)
+        real(rp), intent(in) :: inEijk(PsiSh+1,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,1:NDIM)
 
         integer :: is0,j,k
 
@@ -487,7 +494,7 @@ module msphutils
         Model%B0 => cutDipole
         Axyz     => cutDipole
 
-        call AddB0(Model,Grid,Model%B0)
+        call AddB0(Model,Grid,State,Model%B0)
 
         call VectorField2Flux(Model,Grid,State,Axyz)
         bFlux0(:,:,:,:) = State%magFlux(:,:,:,:) !bFlux0 = B0
@@ -624,7 +631,6 @@ module msphutils
     !-----------------------------
     !Vector potential/vector fields for dipole/cut-dipoles
     subroutine VP_Init(x,y,z,Ax,Ay,Az)
-        
         real(rp), intent(in) :: x,y,z
         real(rp), intent(out) :: Ax,Ay,Az
 
@@ -677,7 +683,6 @@ module msphutils
     end subroutine Dipole
 
     subroutine cutDipole(x,y,z,Ax,Ay,Az)
-        
         real(rp), intent(in) :: x,y,z
         real(rp), intent(out) :: Ax,Ay,Az
    

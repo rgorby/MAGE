@@ -39,12 +39,13 @@ module init
     
     !Hatch Gamera
     !Initialize main data structures
-    subroutine Hatch(Model,Grid,State,oState,xmlInp,endTime)
+    subroutine Hatch(Model,Grid,State,oState,xmlInp,userInitFunc,endTime)
         type(Model_T), intent(inout) :: Model
         type(Grid_T), intent(inout) :: Grid
         type(State_T), intent(inout) :: State,oState
         !OMEGA can overrule what GAMERA has
         type(XML_Input_T), intent(inout) :: xmlInp
+        procedure(StateIC_T), pointer, intent(in) :: userInitFunc
         real(rp), optional, intent(in) :: endTime 
 
         procedure(StateIC_T), pointer :: initState => NULL()
@@ -109,7 +110,7 @@ module init
         !Initialize state data
         !First prep state, then do restart if necessary, then finish state
 
-        call PrepState(Model,Grid,oState,State,xmlInp)
+        call PrepState(Model,Grid,oState,State,xmlInp,userInitFunc)
 
         if (Model%isRestart) then
             !If restart replace State variable w/ restart file
@@ -166,22 +167,23 @@ module init
         endif
 
         !Incorporate background field, B0, if necessary
-        if (Model%doBackground .and. doB0Init) then
-            call AddB0(Model,Grid,Model%B0)
+        if (Model%doBackground .and. Grid%doB0Init) then
+            call AddB0(Model,Grid,State,Model%B0)
         endif
         !Incorporate gravity if necessary
-        if (Model%doGrav .and. doG0Init) then
-            call AddGrav(Model,Grid,Model%Phi)
+        if (Model%doGrav .and. Grid%doG0Init) then
+            call AddGrav(Model,Grid,State,Model%Phi)
         endif
 
     end subroutine DoneState
 
     !Prepare state and call IC
-    subroutine PrepState(Model,Grid,oState,State,xmlInp)
+    subroutine PrepState(Model,Grid,oState,State,xmlInp,userInitFunc)
         type(Model_T), intent(inout) :: Model
         type(Grid_T), intent(inout) :: Grid
         type(State_T), intent(inout) :: oState,State
         type(XML_Input_T), intent(in) :: xmlInp
+        procedure(StateIC_T), pointer, intent(in) :: userInitFunc
 
         procedure(StateIC_T), pointer :: initState => NULL()        
         logical :: doH5ic
@@ -197,7 +199,7 @@ module init
             stop
         else
             call xmlInp%Set_Val(icStr,"sim/icType","OT2D")
-            call setIC_T(initState,icStr)            
+            call setIC_T(initState,icStr,userInitFunc)
         endif           
 
         !Setup ICs either from routine or file
@@ -340,9 +342,14 @@ module init
         case("7UP")
             GetLRs => Up7LRs
             write(*,*) 'Using 7UP Reconstruction'
-        case("8CENT")
+        case("8CENT","8C")
             GetLRs => Cen8LRs
             write(*,*) 'Using 8CENT Reconstruction'
+            
+        case("8CENTG","8CG")
+            GetLRs => Cen8GLRs
+            write(*,*) 'Using 8CENT-GEOM Reconstruction'
+
         case("HIGH5")
             GetLRs => High5LRs
             write(*,*) 'Using High-5 Reconstruction'
@@ -665,9 +672,9 @@ module init
                         call faceCoords(Model,Grid,i,j,k,d,f0,f1,f2,f3)
 
                         !Calculate face area/face center
-                        call GaussianFaceIntegral(f0,f1,f2,f3,fArea,fInt,fInt2,fIntX)
+                        call GaussianFaceIntegral(Model,f0,f1,f2,f3,fArea,fInt,fInt2,fIntX)
                         fA = fInt(1)
-                        call GaussianFaceIntegral(f0,f1,f2,f3,fCtr,fInt,fInt2,fIntX)
+                        call GaussianFaceIntegral(Model,f0,f1,f2,f3,fCtr,fInt,fInt2,fIntX)
                         Grid%xfc(i,j,k,:,d) = fInt/fA
                         Grid%face(i,j,k,d) = fA
 

@@ -4,8 +4,8 @@ module mgmres
     
     implicit none
 
-    real(rp), parameter :: delta = 1.0e-3
-
+    real(rp), private, parameter :: delta = 1.0e-3
+    logical , private, parameter :: doWarn = .true.
     contains
 
 !---------------
@@ -156,6 +156,7 @@ module mgmres
         real(rp) :: V(n,mr+1)
         integer :: i,itr,itr_used,j,k,k_copy
 
+        logical :: isConverged
 
         itr_used = 0
         call rearrange_cr(n,nz_num,ia,ja,A)
@@ -241,6 +242,21 @@ module mgmres
 
 
         enddo !Iteration loop
+
+        !Check convergence
+        isConverged = (rho<=rho_tol) .and. (rho<=tol_abs)
+
+        if ( doWarn .and. (.not. isConverged) ) then
+            write(*,*) '---'
+            write(*,*) 'WARNING: PMGMRES failed to converge'
+            write(*,*) '  Iterations        = ', itr, itr_used, itr_max
+            write(*,*) '  Final Residual    = ', rho
+            write(*,*) '  Rel/Abs Tolerance = ', rho_tol,tol_abs
+            
+            write(*,*) '---'
+
+        endif
+
     end subroutine pmgmres_ilu_cr
 
 !---------------
