@@ -17,10 +17,9 @@ module background
 
 
     !Adds background field data to the Grid data structure
-    subroutine AddB0(Model,Grid,State,B0)
+    subroutine AddB0(Model,Grid,B0)
         type(Model_T), intent(inout) :: Model
         type(Grid_T), intent(inout) :: Grid
-        type(State_T), intent(inout) :: State
         procedure(VectorField_T), pointer, intent(in) :: B0
 
         integer :: i,j,k
@@ -171,10 +170,9 @@ module background
     end subroutine AddB0
 
     !Calculates accelerations from gravitational potential on grid
-    subroutine AddGrav(Model,Grid,State,Phi)
+    subroutine AddGrav(Model,Grid,Phi)
         type(Model_T), intent(inout) :: Model
         type(Grid_T), intent(inout) :: Grid
-        type(State_T), intent(inout) :: State
         procedure(ScalarFun_T), pointer, intent(in) :: Phi
 
         integer :: i,j,k

@@ -147,7 +147,7 @@ module usergamic
         !Put z-axis dipole into background
         Model%B0 => Dipole
         Axyz     => Dipole
-        call AddB0(Model,Grid,State,Model%B0)
+        call AddB0(Model,Grid,Model%B0)
         call VectorField2Flux(Model,Grid,State,Axyz)
         !Save flux from z-axis dipole
         bFlux0(:,:,:,:) = State%magFlux(:,:,:,:) !bFlux0 = B0

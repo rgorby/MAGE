@@ -504,7 +504,7 @@ module msphutils
         Model%B0 => cutDipole
         Axyz     => cutDipole
 
-        call AddB0(Model,Grid,State,Model%B0)
+        call AddB0(Model,Grid,Model%B0)
 
         call VectorField2Flux(Model,Grid,State,Axyz)
         bFlux0(:,:,:,:) = State%magFlux(:,:,:,:) !bFlux0 = B0

@@ -235,22 +235,32 @@ module mhdgroup
         real(rp), dimension(NVAR,BLK:Model%nSpc), intent(inout) :: dGasH
         real(rp), intent(in) :: dt
 
-        integer :: s
-        if (Model%doMultiF) then
+        integer :: s,n
+        logical, dimension(Model%nSpc) :: isGood
 
+        if (Model%doMultiF) then
+            isGood = ( U(DEN,1:Model%nSpc) >= Spcs(:)%dVac )
             !Update individual species then accumulate
             do s=1,Model%nSpc
-                !Always apply update (even to cells that aren't above floor)
-                !Otherwise they'll never get above floor
-                U(:,s) = U(:,s) + dt*dGasH(:,s)
+                if (isGood(s)) then
+                    U(:,s) = U(:,s) + dt*dGasH(:,s)
+                else
+                    !Always apply update (even to cells that aren't above floor)
+                    !Otherwise they'll never get above floor
+                    !TODO: Test only updating "bad" fluids if delta-rho > 0, i.e. don't take from vacuum
+                    U(DEN,s) = U(DEN,s) + dt*dGasH(DEN,s)
+                endif
             enddo
             call MultiF2Bulk(Model,U)
             !Reset bulk delta to sum of component species
-            dGasH(:,BLK) = sum(dGasH(:,1:Model%nSpc),dim=2)
+            do n=1,NVAR
+                dGasH(n,BLK) = sum(dGasH(n,1:Model%nSpc),mask=isGood)
+            enddo
         else
             !Just do bulk flow and get outta here
             U(:,BLK) = U(:,BLK) + dt*dGasH(:,BLK)
         endif
+
     end subroutine CellReynolds
 
     !Apply Maxwell update to cell (only used in single species case)
@@ -310,7 +320,8 @@ module mhdgroup
         !Get D, pressure from hydro update
         call CellC2P(Model,U2(:,BLK),W2)
         D2 = max(W2(DEN),dFloor)
-        P2 = W2(PRESSURE)
+        P2 = max(W2(PRESSURE),pFloor)
+
         !Get old D/V
         D0 = U0(DEN      ,BLK)
         V0 = U0(MOMX:MOMZ,BLK)/max(D0,dFloor)
@@ -353,7 +364,8 @@ module mhdgroup
                 !Get D, pressure from hydro update
                 call CellC2P(Model,U2(:,s),W2)
                 D2s = max(W2(DEN),dFloor)
-                P2s = W2(PRESSURE)
+                P2s = max(W2(PRESSURE),pFloor)
+                
                 !Get old D/V
                 D0s = U0(DEN      ,s)
                 V0s = U0(MOMX:MOMZ,s)/max(D0s,dFloor)

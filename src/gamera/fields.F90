@@ -84,6 +84,7 @@ module fields
         !Vf = (Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,NDIM)
         real(rp), dimension(:,:,:,:), allocatable, save :: Vf,EDiff
 
+        !DIR$ ASSUME_ALIGNED E: ALIGN
         !DIR$ ATTRIBUTES align : ALIGN :: v1,v2,b1,b2,Jd,Dc,vDiff,VelB
         !DIR$ ATTRIBUTES align : ALIGN :: Vf,EDiff
 
