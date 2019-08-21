@@ -4,7 +4,7 @@
 !nR: Rings. Cyl (R), LFM (J)
 
 module ringav
-    use types
+    use gamtypes
     use gamutils
     use fields
     use math

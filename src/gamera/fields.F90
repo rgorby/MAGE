@@ -1,5 +1,5 @@
 module fields
-    use types
+    use gamtypes
     use clocks
     use gamutils
     use recon

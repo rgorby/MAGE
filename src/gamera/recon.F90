@@ -1,5 +1,5 @@
 module recon
-    use types
+    use gamtypes
     use gamutils
     use math
     implicit none

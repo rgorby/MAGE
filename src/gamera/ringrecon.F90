@@ -2,7 +2,7 @@
 !Ring reconstruction routines
 module ringrecon
 
-    use types
+    use gamtypes
     use math
     use ringutils
     use multifluid

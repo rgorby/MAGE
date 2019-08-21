@@ -2,7 +2,7 @@
 !General coupling consists of XXX
 
 module mhd2mix_interface
-    use types
+    use gamtypes
     use gamutils
     use math
     use clocks

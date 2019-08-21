@@ -1,6 +1,6 @@
 !Main data types
 
-module types
+module gamtypes
     use gdefs
     use xml_input
 
@@ -38,6 +38,28 @@ module types
         logical :: doS,doE !Whether to do +/- sides of singularity
     end type Ring_T
 
+!Unit information
+!Holds information about Gamera MHD scaling & how to scale input values
+    type gUnits_T
+        real(rp) :: gx0 = 1.0 ! [m]
+        real(rp) :: gv0 = 1.0 ! [m/s]
+        real(rp) :: gD0 = 1.0 ! [kg/m3]
+        real(rp) :: gP0 = 1.0 ! [Pa]
+        real(rp) :: gB0 = 1.0 ! [T]
+        real(rp) :: gT0 = 1.0 ! [s]
+        real(rp) :: gG0 = 0.0 ! Grav acceleration [m/s2]        
+    end type gUnits_T
+
+!Scaling for output data
+    type gOut_T
+        real(rp) :: tScl=1.0,dScl=1.0,vScl=1.0,pScl=1.0,bScl=1.0
+        character(len=strLen) :: uID = "CODE" !Overall units ID
+        character(len=strLen) :: tID = "CODE TIME"
+        character(len=strLen) :: dID = "CODE DEN"
+        character(len=strLen) :: vID = "CODE VEL"
+        character(len=strLen) :: pID = "CODE P"
+        character(len=strLen) :: bID = "CODE B"
+    end type gOut_T
 
 !Overall model information
     !Algorithmic/Run options
@@ -62,6 +84,10 @@ module types
         logical :: doForce=.false. !Use external force
 
         integer :: nTh=1 !Number of threads per node/group
+
+        !Unit information
+        type (gUnits_T) :: Units
+        type (gOut_T)   :: gamOut
 
         !Boris correction information
         logical :: doBoris,doHogs, doHeat,doPsphere
@@ -325,4 +351,4 @@ module types
         stop
     end subroutine baseFailBC
 
-end module types
+end module gamtypes

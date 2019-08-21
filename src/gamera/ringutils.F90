@@ -5,7 +5,7 @@
 !nR: Rings. Cyl (R), LFM (J)
 
 module ringutils
-    use types
+    use gamtypes
     use gamutils
     use math
     use xml_input

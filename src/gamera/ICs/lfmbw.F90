@@ -1,7 +1,7 @@
 !Simple test of BW on LFM grid
 
 module usergamic
-    use types
+    use gamtypes
     use gamutils
     use math
     use gridutils

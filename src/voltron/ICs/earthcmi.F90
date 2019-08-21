@@ -1,7 +1,7 @@
 !Toy gamera/remix magnetosphere
 
 module uservoltic
-    use types
+    use gamtypes
     use gamutils
     use math
     use gridutils

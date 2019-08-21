@@ -2,7 +2,7 @@
 
 module background
 
-    use types
+    use gamtypes
     use gamutils
     use math
     use gridutils

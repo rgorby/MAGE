@@ -1,7 +1,7 @@
 !Routines related to multifluid simulations
 
 module multifluid
-    use types
+    use gamtypes
     use xml_input
     use gamutils
     

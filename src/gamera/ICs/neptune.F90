@@ -1,7 +1,7 @@
 !Setup for Neptune magnetosphere (no MI coupling)
 
 module usergamic
-    use types
+    use gamtypes
     use gamutils
     use xml_input
     use bcs

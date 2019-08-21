@@ -1,6 +1,6 @@
 !Various low-level math routines
 module quadrature
-    use types
+    use gamtypes
     use math
     
     implicit none

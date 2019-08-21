@@ -1,5 +1,5 @@
 module mhdgroup
-    use types
+    use gamtypes
     use clocks
     use gamutils
     use gridutils

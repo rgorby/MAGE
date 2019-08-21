@@ -1,6 +1,6 @@
 module init
 
-    use types
+    use gamtypes
     use math
     use gridutils
     use gamutils

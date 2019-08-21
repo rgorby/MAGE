@@ -1,7 +1,7 @@
 !Routines to advance the grid
 
 module step
-    use types
+    use gamtypes
     use gamutils
     use bcs
     use prob

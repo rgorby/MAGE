@@ -2,7 +2,7 @@
 
 module msphutils
     use kdefs
-    use types
+    use gamtypes
     use gamutils
     use math, magRampDown => CubicRampDown
     use output
@@ -26,7 +26,6 @@ module msphutils
 !M0 = -0.31*1.0e+5/B0
 
     real(rp) :: Rion ! Planetary ionosphere radius
-    real(rp) :: M0   ! Magnetic moment
 
     !TODO: Move these values to a units type in gamera's Model_T
     real(rp) :: gx0 ! [m]
@@ -37,7 +36,6 @@ module msphutils
     real(rp) :: gT0 ! [s]
     real(rp) :: gG0=0 ! Grav acceleration [m/s2]
     
-
     !TODO: Move these variables to something connecting remix/gamera
     integer :: JpSh = 1 !Number of cc current shells for CMI
     integer :: JpSt = 2 !First shell (i) to calculate current
@@ -57,10 +55,11 @@ module msphutils
     real(rp), private :: rCut=4.0, lCut=5.0
     real(rp), private :: xSun,xTail,yMax
     real(rp), private :: x0,Aq,Bq,sInner
+
     !Grav/rotation values
-    
-    real(rp), private :: GM0 !Gravitational force coefficient
-    real(rp), private :: Psi0=0. ! corotation potential coef
+    real(rp), private :: GM0  = 0.0 !Gravitational force coefficient
+    real(rp), private :: Psi0 = 0.0 ! corotation potential coef
+    real(rp), private :: M0   = 0.0 !Magnetic moment
 
     contains
 
@@ -89,9 +88,9 @@ module msphutils
             gG0 = 9.807   ! [m/s2]
             call xmlInp%Set_Val(M0g,"prob/M0",EarthM0g) !Mag moment [gauss]
             !Using corotation potential for Earth
-            Psi0 = 0*92.0 !kV
+            Psi0 = 92.0 !kV
             Rion = RionE*1.e6/gx0 ! Radius of ionosphere in code units (RionE defined in kdefs in 1000km)
-            Model%doGrav = .false.
+            Model%doGrav = .true.
         case("Saturn","saturn","SATURN")
             gx0 = RSaturnXE*REarth  ! [m]
             gv0 = 100.0e+3    ! [m/s]
@@ -129,7 +128,7 @@ module msphutils
         gT0 = gx0/gv0 !Set time scaling
         gB0 = sqrt(Mu0*gD0)*gv0*1.0e+9 !T->nT
         gP0 = gD0*gv0*gv0*1.0e+9 !P->nPa
-        M0 = -M0g*1.0e+5/gB0 !Magnetic moment
+        M0  = -M0g*1.0e+5/gB0 !Magnetic moment
         GM0 = gG0*gx0/(gv0*gv0)
 
         !Add gravity if required
@@ -151,18 +150,18 @@ module msphutils
         write(*,*) '---------------'
 
         !Add normalization/labels to output slicing
-        gamOut%tScl = gT0
-        gamOut%dScl = 1.0
-        gamOut%vScl = gv0*1.0e-3 !km/s
-        gamOut%pScl = gP0
-        gamOut%bScl = gB0
+        Model%gamOut%tScl = gT0
+        Model%gamOut%dScl = 1.0
+        Model%gamOut%vScl = gv0*1.0e-3 !km/s
+        Model%gamOut%pScl = gP0
+        Model%gamOut%bScl = gB0
 
-        gamOut%uID = trim(toUpper(pID))
-        gamOut%tID = 's'
-        gamOut%dID = '#/cc'
-        gamOut%vID = 'km/s'
-        gamOut%pID = 'nPa'
-        gamOut%bID = 'nT'
+        Model%gamOut%uID = trim(toUpper(pID))
+        Model%gamOut%tID = 's'
+        Model%gamOut%dID = '#/cc'
+        Model%gamOut%vID = 'km/s'
+        Model%gamOut%pID = 'nPa'
+        Model%gamOut%bID = 'nT'
 
     end subroutine
 
@@ -178,6 +177,12 @@ module msphutils
 
     end subroutine magsphereTime
     
+    !Just return module private magnetic moment
+    function MagMoment() result(M)
+        real(rp) :: M
+        M = M0
+    end function MagMoment
+
     !Convert electic potential from ionosphere to E fields for inner BCs
     subroutine Ion2MHD(Model,Grid,gPsi,inEijk,inExyz,pSclO)
         type(Model_T), intent(in) :: Model

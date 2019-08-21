@@ -1,7 +1,7 @@
 
 !Contains initial conditions for various base problems
 module prob
-    use types
+    use gamtypes
     use gamutils
     use math
     use gridutils
