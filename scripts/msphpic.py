@@ -71,8 +71,8 @@ if __name__ == "__main__":
 	vDD = kv.genNorm(0,25)
 	vV  = kv.genNorm(5)
 	if (doLogP):
-		vP = kv.genNorm(1.0e-2,2.5,doLog=True)
-		cVals = np.logspace(np.log10(1.0e-2),np.log10(2.5),Nc)
+		vP = kv.genNorm(1.0e-2,10.0,doLog=True)
+		cVals = np.logspace(np.log10(1.0e-2),np.log10(10.0),Nc)
 	else:
 		vP = kv.genNorm(PMin,PMax)
 		cVals = np.linspace(PMin,PMax,Nc)
