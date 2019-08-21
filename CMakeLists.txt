@@ -42,7 +42,7 @@ mark_as_advanced(bricksize)
 file(GLOB GAMICDEF src/gamera/ICs/null.F90)
 set(GAMIC ${GAMICDEF} CACHE FILEPATH "Gamera IC file")
 
-file(GLOB VOLTICDEF src/voltron/ICs/remix.F90)
+file(GLOB VOLTICDEF src/voltron/ICs/earthcmi.F90)
 set(VOLTIC ${VOLTICDEF} CACHE FILEPATH "Voltron IC file")
 
 #-------------

@@ -456,7 +456,7 @@ def VizGrid(XX,YY,xxG=None,yyG=None,doGhost=False,doShow=True,xyBds=None,fOut="g
 	import matplotlib as mpl
 	import matplotlib.cm as cm
 	import matplotlib.pyplot as plt
-	import kaiViz as kv
+	import kaipy.kaiViz as kv
 
 	fSz = (10,4)
 	Alph = 0.35
@@ -545,6 +545,20 @@ def getLFM(fIn,Rin=3.0,Rout=25.0):
 	xxi = xxi[0:outCut+1,:]
 	yyi = yyi[0:outCut+1,:]
 
+	return xxi,yyi
+
+def LoadTabG(fIn="lfmG",Nc=0):
+	import os
+	__location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
+    
+	fInX = os.path.join(__location__,fIn+".X.txt")
+	fInY = os.path.join(__location__,fIn+".Y.txt")
+	xxi = np.loadtxt(fInX)
+	yyi = np.loadtxt(fInY)
+
+	if (Nc>0):
+		xxi = xxi[0:-Nc,:]
+		yyi = yyi[0:-Nc,:]
 	return xxi,yyi
 
 #Regrid xx/yy (corners) to new size
