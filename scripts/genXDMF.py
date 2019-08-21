@@ -246,48 +246,48 @@ if __name__ == "__main__":
 				AddDI(vAtt,h5F,-1,cDims,rvIds[v])
 
 			
-			#Create vectors
-			#Velocity
-			if (isHD):
-				vAtt = et.SubElement(Grid,"Attribute")
-				vAtt.set("Name","V")
-				vAtt.set("AttributeType","Vector")
-				vAtt.set("Center","Cell")
-				fDI = et.SubElement(vAtt,"DataItem")
-				fDI.set("ItemType","Function")
-				fDI.set("Dimensions",vDims)
+			# #Create vectors
+			# #Velocity
+			# if (isHD):
+			# 	vAtt = et.SubElement(Grid,"Attribute")
+			# 	vAtt.set("Name","V")
+			# 	vAtt.set("AttributeType","Vector")
+			# 	vAtt.set("Center","Cell")
+			# 	fDI = et.SubElement(vAtt,"DataItem")
+			# 	fDI.set("ItemType","Function")
+			# 	fDI.set("Dimensions",vDims)
 				
-				if (Nd == 3):
-					fDI.set("Function","JOIN($0 , $1 , $2)")
-					AddDI(fDI,h5F,nStp,cDims,"Vx")
-					AddDI(fDI,h5F,nStp,cDims,"Vy")
-					AddDI(fDI,h5F,nStp,cDims,"Vz")
-				else:
-					fDI.set("Function","JOIN($0 , $1)")
-					AddDI(fDI,h5F,nStp,cDims,"Vx")
-					AddDI(fDI,h5F,nStp,cDims,"Vy")
+			# 	if (Nd == 3):
+			# 		fDI.set("Function","JOIN($0 , $1 , $2)")
+			# 		AddDI(fDI,h5F,nStp,cDims,"Vx")
+			# 		AddDI(fDI,h5F,nStp,cDims,"Vy")
+			# 		AddDI(fDI,h5F,nStp,cDims,"Vz")
+			# 	else:
+			# 		fDI.set("Function","JOIN($0 , $1)")
+			# 		AddDI(fDI,h5F,nStp,cDims,"Vx")
+			# 		AddDI(fDI,h5F,nStp,cDims,"Vy")
 
-			#MHD stuff
-			if (isMHD):
-				#Magnetic field
-				vAtt = et.SubElement(Grid,"Attribute")
-				vAtt.set("Name","B")
-				vAtt.set("AttributeType","Vector")
-				vAtt.set("Center","Cell")
-				fDI = et.SubElement(vAtt,"DataItem")
-				fDI.set("ItemType","Function")
-				fDI.set("Dimensions",vDims)
+			# #MHD stuff
+			# if (isMHD):
+			# 	#Magnetic field
+			# 	vAtt = et.SubElement(Grid,"Attribute")
+			# 	vAtt.set("Name","B")
+			# 	vAtt.set("AttributeType","Vector")
+			# 	vAtt.set("Center","Cell")
+			# 	fDI = et.SubElement(vAtt,"DataItem")
+			# 	fDI.set("ItemType","Function")
+			# 	fDI.set("Dimensions",vDims)
 
-				if (Nd == 3):
-					fDI.set("Function","JOIN($0 , $1 , $2)")
-					AddDI(fDI,h5F,nStp,cDims,"Bx")
-					AddDI(fDI,h5F,nStp,cDims,"By")
-					AddDI(fDI,h5F,nStp,cDims,"Bz")
+			# 	if (Nd == 3):
+			# 		fDI.set("Function","JOIN($0 , $1 , $2)")
+			# 		AddDI(fDI,h5F,nStp,cDims,"Bx")
+			# 		AddDI(fDI,h5F,nStp,cDims,"By")
+			# 		AddDI(fDI,h5F,nStp,cDims,"Bz")
 
-				else:
-					fDI.set("Function","JOIN($0 , $1)")
-					AddDI(fDI,h5F,nStp,cDims,"Bx")
-					AddDI(fDI,h5F,nStp,cDims,"By")
+			# 	else:
+			# 		fDI.set("Function","JOIN($0 , $1)")
+			# 		AddDI(fDI,h5F,nStp,cDims,"Bx")
+			# 		AddDI(fDI,h5F,nStp,cDims,"By")
 
 		#Finished creating XML tree, now write
 		xmlStr = xml.dom.minidom.parseString(et.tostring(Xdmf)).toprettyxml(indent="    ")
