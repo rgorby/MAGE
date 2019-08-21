@@ -394,6 +394,7 @@ module msphutils
         real(rp), dimension(NVAR) :: pW, pCon
         real(rp), dimension(0:Model%nSpc) :: RhoMin
         real(rp) :: D,P,CsC,Pc,Leq,tau
+        logical :: doChill
 
         RhoMin(BLK) = 0.0
         if (Model%doMultiF) then
@@ -408,7 +409,7 @@ module msphutils
         endif
 
         !$OMP PARALLEL DO default(shared) collapse(3) &
-        !$OMP private(s,i,j,k,pW,pCon,D,P,CsC,Pc,Leq,tau)
+        !$OMP private(s,i,j,k,pW,pCon,D,P,CsC,Pc,Leq,tau,doChill)
         do s=s0,sE
             do k=Grid%ksg,Grid%keg
                 do j=Grid%jsg,Grid%jeg
@@ -417,6 +418,27 @@ module msphutils
                         !Check species
                         pCon = State%Gas(i,j,k,:,s)
                         D = pCon(DEN)
+
+                    !Check for low densities
+                        if (s>BLK) then
+                            doChill = ( D <= RhoCO ) .and. ( D >= RhoMin(s) )
+                        else
+                            doChill = ( D <= RhoCO )
+                        endif
+
+                        !If density is low keep things chill by setting sound speed
+                        if (doChill) then
+                            pCon = State%Gas(i,j,k,:,s)
+                            call CellC2P(Model,pCon,pW)
+                            !Set pressure to ensure Cs = CsCO
+                            CsC = CsCO/gv0 !Cs in code units
+                            P = pW(DEN)*CsC*CsC/Model%gamma
+                            pW(PRESSURE) = max(P,pFloor)
+                            call CellP2C(Model,pW,pCon)
+                            State%Gas(i,j,k,:,s) = pCon
+                        endif
+
+                    !Check for too fast sound speed
 
                         !Get sound speed
                         if (s>BLK) then
@@ -439,7 +461,8 @@ module msphutils
                             Pc = pW(DEN)*(Model%Ca**2.0)/Model%gamma
                             !Calculate cooling rate, L/CsC ~ lazy bounce timescale
                             Leq = DipoleL(Grid%xyzcc(i,j,k,:))
-                            tau = Leq/CsC
+                            !Convert to m/(m/s)/(code time)
+                            tau = (Leq*gx0)/(CsC*gv0*gT0)
 
                             !Cool pressure to target w/ timescale tau
                             pW(PRESSURE) = P - (Model%dt/tau)*(P-Pc)
