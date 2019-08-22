@@ -7,99 +7,11 @@ module ebinit
     use xml_input
     use ioH5
     use chmpfields
-
+    
     implicit none
     integer, parameter :: Ngm = 4 !Order for metric differencing
 
     contains
-    !Standard EB init routine
-    !Reads from gamera HDF5 data
-    subroutine ebInit_Std(Model,ebState,inpXML)
-        type(chmpModel_T), intent(inout) :: Model
-        type(ebState_T), intent(inout)   :: ebState
-        type(XML_Input_T), intent(inout) :: inpXML
-
-        character(len=strLen) :: ebFile
-        logical :: fExist
-        integer :: Ni,Nj,Nk
-        integer :: i1,i2
-
-        associate( ebGr=>ebState%ebGr,ebTab=>ebState%ebTab,eb1=>ebState%eb1,eb2=>ebState%eb2 )
-
-        !Get info for input data
-        call inpXML%Set_Val(ebTab%bStr,"fields/ebfile","ebdata.h5")
-        call inpXML%Set_Val(ebTab%isMPI,"fields/isMPI",.false.)
-        if (ebTab%isMPI) then
-            call inpXML%Set_Val(ebTab%Ri,"parallel/Ri",1)
-            call inpXML%Set_Val(ebTab%Rj,"parallel/Rj",1)
-            call inpXML%Set_Val(ebTab%Rk,"parallel/Rk",1)
-        else
-            ebTab%Ri = 1
-            ebTab%Rj = 1
-            ebTab%Rk = 1
-        endif
-        ebFile = genName(ebTab,1,1,1) !Get first (or only) eb file
-        
-        !Check file
-        inquire(file=ebFile,exist=fExist)
-        if (.not. fExist) then
-            write(*,*) 'Error opening ebfile, exiting ...'
-            write(*,*) 'ebfile = ', trim(ebFile)
-            write(*,*) ''
-            stop
-        endif
-
-        !Get time series/individual grid data from H5 file
-        call rdTab(ebTab,inpXML,ebFile)
-
-        !Start by getting grid from H5 file
-        call rdGrid(Model,ebGr,ebTab,inpXML)
-
-        !Allocate eb data (includes space for ghosts)
-        call allocEB(Model,ebGr,eb1)
-        call allocEB(Model,ebGr,eb2)
-
-        !Do various types of initialization
-        !ie, static, numb0, etc
-    !Numerical background, put B0 field on grid
-        if (Model%doNumB0) then
-            write(*,*) '<Setting Numerical B0>'
-        !Set eb1/eb2
-            !Zero out E fields
-            eb1%E = 0.0
-            eb2%E = 0.0
-            !Set dB's to B0 @ cell centers
-            eb1%dB = ebGr%B0cc
-            eb2%dB = ebGr%B0cc
-            call ebGhosts(Model,ebGr,eb1)
-            call ebGhosts(Model,ebGr,eb2)
-            
-        !Zero out background terms
-            ebGr%B0cc = 0.0
-            Model%B0 => NullB0
-            Model%JacB0 => NullJacB0
-            ebState%doStatic = .true.
-            return
-        endif
-    !Pure background, only use analytic form
-        if (Model%doPureB0) then
-            !Zero out all fields
-            write(*,*) '<Setting Pure B0>'
-            eb1%E  = 0.0
-            eb1%dB = 0.0
-            eb2%E  = 0.0
-            eb2%dB = 0.0
-            ebState%doStatic = .true.
-            return
-        endif
-        
-        !Initialize eb data, find time slices
-        call findSlc(ebTab,Model%T0,i1,i2)
-        call readEB(Model,ebGr,ebTab,eb1,ebTab%gStrs(i1))
-        call readEB(Model,ebGr,ebTab,eb2,ebTab%gStrs(i2))
-        if (ebTab%N == 1) ebState%doStatic = .true.
-        end associate
-    end subroutine ebInit_Std
 
     ! A version of the above
     !Reads from MHD Grid received via coupling

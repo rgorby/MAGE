@@ -45,6 +45,13 @@ set(GAMIC ${GAMICDEF} CACHE FILEPATH "Gamera IC file")
 file(GLOB VOLTICDEF src/voltron/ICs/earthcmi.F90)
 set(VOLTIC ${VOLTICDEF} CACHE FILEPATH "Voltron IC file")
 
+file(GLOB TPICDEF src/chimp/tpICs/tpICstd.F90)
+set(TPIC ${TPICDEF} CACHE FILEPATH "CHIMP TP IC file")
+
+file(GLOB EBICDEF src/chimp/ebICs/ebICstd.F90)
+set(EBIC ${EBICDEF} CACHE FILEPATH "CHIMP EB IC file")
+
+
 #-------------
 #Include user cmake file if present
 include(cmake/user.cmake OPTIONAL)
@@ -85,6 +92,8 @@ message("Adding CHIMP module ...")
 add_subdirectory(src/chimp)
 #Chimp executables, target "chimp"
 add_custom_target(chimp ALL)
+message("\tEB IC file is ${EBIC}")
+message("\tTP IC file is ${TPIC}")
 set(chimpX "project;psd;push;slice")
 foreach (EXE ${chimpX})
 	message("\tAdding executable ${EXE}.x")
