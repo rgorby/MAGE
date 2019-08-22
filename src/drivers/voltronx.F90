@@ -1,6 +1,6 @@
 !Driver for Gamera coupled with Voltron (remix only)
 
-program kaijux
+program voltronx
     use clocks
     use gamapp
     use voltapp
@@ -26,10 +26,12 @@ program kaijux
 
         call stepGamera(gameraApp)
 
+        call Tic("IonCoupling")
         if (gameraApp%Model%t >= voltronApp%fastShallowTime) then
             call fastShallowUpdate(voltronApp, gameraApp, gameraApp%Model%t)
         endif
-
+        call Toc("IonCoupling")
+        
         !Do timing info
         if (modulo(gameraApp%Model%ts,gameraApp%Model%tsOut) == 0) then
             if (gameraApp%Model%doTimer) call printClocks()
@@ -38,5 +40,5 @@ program kaijux
         call Toc("Omega")
     end do
 
-end program kaijux
+end program voltronx
 

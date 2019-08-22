@@ -159,27 +159,27 @@ module stress
         !$OMP private(i,j,k,dV)
         do k=Gr%ks,Gr%ke
             do j=Gr%js,Gr%je
+                !$OMP SIMD
                 do i=Gr%is,Gr%ie
                     dV = Gr%volume(i,j,k)
                     !Do all species here
                     !Fluxes have already been scaled by face areas!
-                    dGasH(i,j,k,:,:) = (  gFlx(i,j,k,:,IDIR,:) - gFlx(i+1,j,k,:,IDIR,:) &
-                                        + gFlx(i,j,k,:,JDIR,:) - gFlx(i,j+1,k,:,JDIR,:) &
-                                        + gFlx(i,j,k,:,KDIR,:) - gFlx(i,j,k+1,:,KDIR,:) )/dV
+                    dGasH(i,j,k,1:NVAR,:) = (  gFlx(i,j,k,1:NVAR,IDIR,:) - gFlx(i+1,j,k,1:NVAR,IDIR,:) &
+                                             + gFlx(i,j,k,1:NVAR,JDIR,:) - gFlx(i,j+1,k,1:NVAR,JDIR,:) &
+                                             + gFlx(i,j,k,1:NVAR,KDIR,:) - gFlx(i,j,k+1,1:NVAR,KDIR,:) )/dV
 
                     if (doMaxwell) then
-                        dGasM(i,j,k,:) = (  mFlx(i,j,k,:,IDIR) - mFlx(i+1,j,k,:,IDIR) &
-                                          + mFlx(i,j,k,:,JDIR) - mFlx(i,j+1,k,:,JDIR) &
-                                          + mFlx(i,j,k,:,KDIR) - mFlx(i,j,k+1,:,KDIR) )/dV
+                        dGasM(i,j,k,XDIR:ZDIR) = (  mFlx(i,j,k,XDIR:ZDIR,IDIR) - mFlx(i+1,j,k,XDIR:ZDIR,IDIR) &
+                                                  + mFlx(i,j,k,XDIR:ZDIR,JDIR) - mFlx(i,j+1,k,XDIR:ZDIR,JDIR) &
+                                                  + mFlx(i,j,k,XDIR:ZDIR,KDIR) - mFlx(i,j,k+1,XDIR:ZDIR,KDIR) )/dV
                         
                         if (Model%doBackground) then
                             !Add background field force terms
-                            dGasM(i,j,k,:) = dGasM(i,j,k,:) + Gr%dpB0(i,j,k,:)
+                            dGasM(i,j,k,XDIR:ZDIR) = dGasM(i,j,k,XDIR:ZDIR) + Gr%dpB0(i,j,k,XDIR:ZDIR)
                         endif
                     endif !doMax
-
-                enddo
-            enddo
+                enddo ! i loop
+            enddo !J loop
         enddo !K loop
         
         call Toc("Flux2Deltas")

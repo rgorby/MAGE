@@ -98,7 +98,8 @@ module mhdgroup
         real(rp), dimension(NDIM) :: B,oB,dPm
         logical :: BorisUpdate
         real(rp) :: Ca
-
+        !DIR$ ASSUME_ALIGNED dGasH: ALIGN
+        !DIR$ ASSUME_ALIGNED dGasM: ALIGN
     !--------------------
     !Copy current->old
         call Tic("Copy2Old")
@@ -474,10 +475,12 @@ module mhdgroup
         pState%time = State%time + pdt
         ht = pdt/odt
 
+        !One big // region
+        !$OMP PARALLEL default(shared) private(i,j,k,isCC)
+
         !Loop over grid and perform predictor on each cell of fluid/s
         !XYZ fields and interface fluxes
-        !$OMP PARALLEL DO default(shared) collapse(2) &
-        !$OMP private(i,j,k,isCC)
+        !$OMP DO collapse(2)
         do k=Grid%ksg,Grid%keg+1
             do j=Grid%jsg,Grid%jeg+1
                 do i=Grid%isg,Grid%ieg+1
@@ -496,12 +499,12 @@ module mhdgroup
                     endif !MHD
                 enddo !I loop
             enddo
-        enddo !K loop
+        enddo !K loop (implicit barrier)
 
         !Now do flux->field where necessary
         if (Model%doMHD) then
             !Replace Bxyz w/ flux->field calculations in xxMG region
-            !$OMP PARALLEL DO default(shared) collapse(2)
+            !$OMP DO collapse(2)
             do k=Grid%ksMG,Grid%keMG
                 do j=Grid%jsMG,Grid%jeMG
                     do i=Grid%isMG,Grid%ieMG
@@ -510,6 +513,9 @@ module mhdgroup
                 enddo
             enddo
         endif
+
+        !Close big parallel region
+        !$OMP END PARALLEL
 
     end subroutine Predictor
 
