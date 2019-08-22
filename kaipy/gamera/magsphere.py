@@ -206,7 +206,7 @@ class GamsphPipe(GameraPipe):
 			Ax.text(xy[0],xy[1],tStr,color=cLab,fontsize=fs,transform=Ax.transAxes,family=ffam,bbox=dict(boxstyle="round",fc=dBoxC))
 
 	def AddSW(self,n,Ax,xy=[0.725,0.025],cLab=dLabC,fs=dLabFS,T0=0.0,doBox=True,BoxC=dBoxC,doAll=True):
-		import kaiH5 as kh5
+		import kaipy.kaiH5 as kh5
 		#Start by getting SW data
 		vIDs = ["D","P","Vx","Bx","By","Bz"]
 		Nv = len(vIDs)
