@@ -17,7 +17,7 @@ contains
   subroutine lastSerial()
   end subroutine lastSerial
 
-  !@test
+  @test
   subroutine testLoop2D()
     ! a magnetic field should be moved along by the fluid
     type(gamApp_T) :: gameraApp
@@ -45,7 +45,7 @@ contains
 
   end subroutine testLoop2D
 
-  !@test
+  @test
   subroutine testAdv2D()
     ! density should be moved along by the fluid
     type(gamApp_T) :: gameraApp
@@ -73,7 +73,7 @@ contains
 
   end subroutine testAdv2D
 
-  !@test
+  @test
   subroutine testAlfven()
     type(gamApp_T) :: gameraApp
     real(rp), dimension(:,:,:), allocatable :: initialMagneticField
@@ -99,7 +99,7 @@ contains
     @assertLessThanOrEqual(totalError/initialTotalMagneticField, 0.01_rp, 'Dissipation was more than 5% of total magnetic field')
   end subroutine testAlfven
 
-  !@test
+  @test
   subroutine testAdv1D()
     type(gamApp_T) :: gameraApp
     real(rp), dimension(:,:,:), allocatable :: sD,eD !Initial/Final densities
@@ -134,7 +134,7 @@ contains
   end subroutine testAdv1D
 
   !Use Orszag-Tang to test for maintaining symmetry
-  !@test
+  @test
   subroutine testOTSym()
     type(gamApp_T) :: gameraApp
     integer :: i,j,ip,jp
@@ -175,7 +175,8 @@ contains
     end associate
     
   end subroutine testOTSym
-  !@test
+  
+  @test
   subroutine testRemix()
     type(gamApp_T) :: gameraApp
     type(voltApp_T) :: voltronApp

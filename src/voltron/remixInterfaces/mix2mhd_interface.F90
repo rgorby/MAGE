@@ -84,7 +84,7 @@ contains
 
      end subroutine init_mix2Mhd
 
-     subroutine convertRemixToGamera(mix2mhd, remixApp, gameraApp, doCorot0)
+     subroutine convertRemixToGamera(mix2mhd, remixApp, gameraApp, doCorotO)
         type(mix2Mhd_T), intent(inout) :: mix2mhd
         type(mixApp_T), intent(inout) :: remixApp
         type(gamApp_T), intent(inout) :: gameraApp

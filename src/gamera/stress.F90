@@ -590,6 +590,7 @@ module stress
             dI = sum(abs(flxDims-shape(gFlx)))
             if (dI>0) then
                 doInit = .true.
+                deallocate(gFlx)
             else
                 doInit = .false.
             endif
@@ -618,6 +619,7 @@ module stress
             dI = sum(abs(flxDims-shape(mFlx)))
             if (dI>0) then
                 doInit = .true.
+                deallocate(mFlx)
             else
                 doInit = .false.
             endif

@@ -16,7 +16,7 @@ contains
   subroutine lastSerial()
   end subroutine lastSerial
 
-  !@test
+  @test
   subroutine dipoleTest()
     ! testing that a dipole field from gamera results in 0 FAC in remix
     type(voltApp_T) :: voltronApp
@@ -36,7 +36,7 @@ contains
 
     @assertGreaterThanOrEqual(sum(abs(gameraApp%State%magFlux(gameraApp%Grid%isg,:,:,:))), 20.0_rp, 'Gamera did not properly set a large magnetic field')
 
-    call convertGameraToRemix(gameraApp, voltronApp%remixApp)
+    call convertGameraToRemix(voltronApp%mhd2mix, gameraApp, voltronApp%remixApp)
 
     call mapGameraToRemix(voltronApp%mhd2mix, voltronApp%remixApp)
 

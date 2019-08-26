@@ -632,6 +632,7 @@ module fields
             flxDims = [Gr%Ni,Gr%Nj,Gr%Nk,NDIM]
             dI = sum(abs(flxDims-shape(A)))
             if (dI>0) then
+                deallocate(A)
                 doInit = .true.
             else
                 doInit = .false.

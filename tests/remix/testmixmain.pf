@@ -44,19 +44,19 @@ contains
 
     ! potential in remixApp%ion(h)%St%Vars(:,:,POT)
     ! error value allows 1e-3 error per cell on average
-    @assertLessThanOrEqual(sum(abs(remixApp%ion(NORTH)%S%Solution)), 8.1_rp, 'Non-zero remix output in North hemisphere')
-    @assertLessThanOrEqual(sum(abs(remixApp%ion(SOUTH)%S%Solution)), 8.1_rp, 'Non-zero remix output in South hemisphere')
+    @assertLessThanOrEqual(sum(abs(voltronApp%remixApp%ion(NORTH)%S%Solution)), 8.1_rp, 'Non-zero remix output in North hemisphere')
+    @assertLessThanOrEqual(sum(abs(voltronApp%remixApp%ion(SOUTH)%S%Solution)), 8.1_rp, 'Non-zero remix output in South hemisphere')
     
-    write(*,*) 'Min/Max of potential (NORTH) = ', minval(remixApp%ion(NORTH)%S%Solution), maxval(remixApp%ion(NORTH)%S%Solution)
-    write(*,*) 'Min/Max of potential (SOUTH) = ', minval(remixApp%ion(SOUTH)%S%Solution), maxval(remixApp%ion(SOUTH)%S%Solution)
+    write(*,*) 'Min/Max of potential (NORTH) = ', minval(voltronApp%remixApp%ion(NORTH)%S%Solution), maxval(voltronApp%remixApp%ion(NORTH)%S%Solution)
+    write(*,*) 'Min/Max of potential (SOUTH) = ', minval(voltronApp%remixApp%ion(SOUTH)%S%Solution), maxval(voltronApp%remixApp%ion(SOUTH)%S%Solution)
     
-    call mix2mhd(remixApp)
-    call mix_mhd_output(remixApp%ion,remixApp%mixoutput,hmsphrs,0.0_rp)
+    call mapRemixToGamera(voltronApp%mix2mhd, voltronApp%remixApp)
+    call mix_mhd_output(voltronApp%remixApp%ion,voltronApp%mix2mhd%mixoutput,0.0_rp)
 
 
   end subroutine testZeroInput
 
-  !@test
+  @test
   subroutine testConstantSolution()
     ! testing that an input of all zeroes gets output of all zeroes
     type(voltApp_T) :: voltronApp
@@ -113,11 +113,11 @@ contains
     ! field aligned current in remixApp%ion(h)%St%Vars(:,:,FAC)
     thetaMin   = (PI/180.0)*22.0_rp
     thetaDelta = (PI/180.0)*12.0_rp
-    do h=1,size(remixApp%ion)
-        do ip=1,remixApp%ion(h)%G%Np
-            do it=1,remixApp%ion(h)%G%Nt
-                if(remixApp%ion(h)%G%t(ip,it) .ge. thetaMin .and. remixApp%ion(h)%G%t(ip,it) .le. (thetaMin+thetaDelta)) then
-                    remixApp%ion(h)%St%Vars(ip,it,FAC) = sin(remixApp%ion(h)%G%t(ip,it)) * sin(remixApp%ion(h)%G%p(ip,it))
+    do h=1,size(voltronApp%remixApp%ion)
+        do ip=1,voltronApp%remixApp%ion(h)%G%Np
+            do it=1,voltronApp%remixApp%ion(h)%G%Nt
+                if(voltronApp%remixApp%ion(h)%G%t(ip,it) .ge. thetaMin .and. voltronApp%remixApp%ion(h)%G%t(ip,it) .le. (thetaMin+thetaDelta)) then
+                    voltronApp%remixApp%ion(h)%St%Vars(ip,it,FAC) = sin(voltronApp%remixApp%ion(h)%G%t(ip,it)) * sin(voltronApp%remixApp%ion(h)%G%p(ip,it))
                 else
                     voltronApp%remixApp%ion(h)%St%Vars(ip,it,FAC) = 0.0_rp
                 endif
@@ -128,8 +128,8 @@ contains
     call run_mix(voltronApp%remixApp%ion, voltronApp%tilt)
 
     ! potential in remixApp%ion(h)%St%Vars(:,:,POT)
-    call mix2mhd(remixApp)
-    call mix_mhd_output(remixApp%ion,remixApp%mixoutput,hmsphrs,0.0_rp)
+    call mapRemixToGamera(voltronApp%mix2mhd, voltronApp%remixApp)
+    call mix_mhd_output(voltronAPp%remixApp%ion,voltronApp%mix2mhd%mixoutput,0.0_rp)
 
   end subroutine testAzimuthallyDependentFAC
 
