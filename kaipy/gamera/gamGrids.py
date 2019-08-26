@@ -232,21 +232,21 @@ def GenKSph(Ni=Ni0,Nj=Nj0,Nk=Nk0,Rin=5,Rout=40,tMin=0.2,tMax=0.8):
 	dx2 = (tMax-tMin)/Nj
 	dx3 = (1.0 - 0.0)/Nk
 
-        # check that ghosts don't take us across the axis
-        # need to generalize later to include the axis (do full 4pi)
-        if ((tMin-Ng*dx2)<=0) or ((tMax+Ng*dx2)>=1.):
-                sys.exit("Ghost cell region includes the spherical axis. This is not implemented yet.")
+	# check that ghosts don't take us across the axis
+	# need to generalize later to include the axis (do full 4pi)
+	if ((tMin-Ng*dx2)<=0) or ((tMax+Ng*dx2)>=1.):
+		sys.exit("Ghost cell region includes the spherical axis. This is not implemented yet.")
 
-        r = np.linspace(Rin-Ng*dx1,Rout+Ng*dx1,Ngi)
-        t = np.linspace(tMin-Ng*dx2,tMax+Ng*dx2,Ngj)*np.pi
-        p = np.linspace(-Ng*dx3,1.+Ng*dx3,Ngk)*2*np.pi
+	r = np.linspace(Rin-Ng*dx1,Rout+Ng*dx1,Ngi)
+	t = np.linspace(tMin-Ng*dx2,tMax+Ng*dx2,Ngj)*np.pi
+	p = np.linspace(-Ng*dx3,1.+Ng*dx3,Ngk)*2*np.pi
 
-        # note the indexing flag for proper ordering for writeGrid later
-        R,T,P = np.meshgrid(r,t,p,indexing='ij')
+	# note the indexing flag for proper ordering for writeGrid later
+	R,T,P = np.meshgrid(r,t,p,indexing='ij')
 
-        X3 = R*np.sin(T)*np.cos(P)
-        Y3 = R*np.sin(T)*np.sin(P)
-        Z3 = R*np.cos(T)
+	X3 = R*np.sin(T)*np.cos(P)
+	Y3 = R*np.sin(T)*np.sin(P)
+	Z3 = R*np.cos(T)
 
 	return X3,Y3,Z3
 
