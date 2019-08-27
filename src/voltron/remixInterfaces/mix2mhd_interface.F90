@@ -102,6 +102,12 @@ contains
             mix2mhd%gPsi(i,:,gameraApp%Grid%ke/2+1:gameraApp%Grid%ke+1) = mix2mhd%mixOutput(i,:,:,MHDPSI,SOUTH)
          enddo
 
+        if (present(doCorotO)) then
+          doCorot = doCorotO
+        else
+          doCorot = .true.
+        endif
+
         ! add corotation
         if (doCorot) call CorotationPot(gameraApp%Model, gameraApp%Grid, mix2mhd%gPsi)
 

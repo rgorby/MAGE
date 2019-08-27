@@ -26,10 +26,39 @@ module voltapp
         type(voltApp_T), intent(inout) :: voltronApp
         character(len=*), optional, intent(in) :: optFilename
 
-        voltronApp%fastShallowTime = 0.0_rp
-        voltronApp%fastShallowDt = 0.1_rp
+        character(len=strLen) :: inpXML
+        type(XML_Input_T) :: xmlInp
+        integer :: Narg
+
+        if(present(optFilename)) then
+            ! read from the prescribed file
+            inpXML = optFilename
+        else
+            !Find input deck
+            Narg = command_argument_count()
+            if (Narg .eq. 0) then
+                write(*,*) 'No input deck specified for voltron, defaulting to Input.xml'
+                inpXML = "Input.xml"
+            else
+                call get_command_argument(1,inpXML)
+            endif
+        endif
+
+        write(*,*) 'Reading input deck from ', trim(inpXML)
+        inquire(file=inpXML,exist=fExist)
+        if (.not. fExist) then
+            write(*,*) 'Error opening input deck, exiting ...'
+            write(*,*) ''
+            stop
+        endif
+
+        !Partial inclusion of new XML reader
+        xmlInp = New_XML_Input(trim(inpXML),'Voltron',.true.)
 
         voltronApp%tilt = 0.0_rp
+
+        voltronApp%fastShallowTime = 0.0_rp
+        call xmlInp%Set_Val(voltronApp%fastShallowDt ,"coupling/dt" , 0.1_rp)
 
         if(present(optFilename)) then
             ! read from the prescribed file

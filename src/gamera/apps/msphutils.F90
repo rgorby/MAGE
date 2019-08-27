@@ -68,7 +68,7 @@ module msphutils
     subroutine setMagsphere(Model,xmlInp,pStrO)
         type(Model_T), intent(inout) :: Model
         type(XML_Input_T), intent(in) :: xmlInp
-        character(len=strLen), intent(in), optional :: pStrO
+        character(len=*), intent(in), optional :: pStrO
 
         character(len=strLen) :: pID !Planet ID string
         real(rp) :: M0g,rScl

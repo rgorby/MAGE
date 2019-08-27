@@ -308,17 +308,6 @@ module gamutils
 
     end subroutine wipeGridVec
 
-    subroutine allocGridHydroSpc(Model,Grid,gVHs)
-        type(Model_T), intent(in) :: Model
-        type(Grid_T),  intent(in) :: Grid
-        real(rp), dimension(:,:,:,:,:), allocatable, intent(inout) :: gVHs
-
-        if ( .not. allocated(gVHs) ) then
-            allocate( gVHs(Grid%isg:Grid%ieg,Grid%jsg:Grid%jeg,Grid%ksg:Grid%keg,1:NVAR,0:Model%nSpc) )
-        endif
-
-    end subroutine allocGridHydroSpc
-
     !Converts grid of conserved quantities to primitive
     subroutine Con2Prim(Model,Grid,Con,Prim)
         type(Model_T), intent(in) :: Model

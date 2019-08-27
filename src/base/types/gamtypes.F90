@@ -232,6 +232,28 @@ module gamtypes
 
     end type State_T
 
+    ! Variables used by the solver for timestep update
+    type Solver_T
+
+        !Big local work areas to calculate fluxes
+        !gFlux = Ni x Nj x Nk x Nv x Nd x Ns
+        !mFlux = Ni x Nj x Nk x Nd x Nd
+        real(rp), dimension(:,:,:,:,:,:), allocatable :: gFlx
+        real(rp), dimension(:,:,:,:,:), allocatable :: mFlx
+
+        !Vf(i,j,k,XYZ-DIR), XYZ velocities pushed to dT1 faces
+        !Vf = (Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,NDIM)
+        real(rp), dimension(:,:,:,:), allocatable :: Vf
+
+        real(rp), dimension(:,:,:,:,:), allocatable :: dGasH
+        real(rp), dimension(:,:,:,:), allocatable :: dGasM
+        type(State_T) :: StateHf
+
+        !Ensure these arrays are aligned properly
+        !DIR$ ATTRIBUTES align : ALIGN :: gFlx, mFlx, Vf, dGasH, dGasM
+
+    end type Solver_T
+
     !StateIC_T
     !Generic initialization routine: ICs, Grid, Model
     abstract interface

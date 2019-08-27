@@ -12,6 +12,7 @@ module gamapp
         type(Model_T) :: Model
         type(Grid_T) :: Grid
         type(State_T) :: State, oState
+        type(Solver_T) :: Solver
     end type gamApp_T
 
     contains
@@ -52,7 +53,7 @@ module gamapp
 
         !Initialize Grid/State/Model (Hatch Gamera)
         !Will enforce 1st BCs, caculate 1st timestep, set oldState
-        call Hatch(gameraApp%Model,gameraApp%Grid,gameraApp%State,gameraApp%oState,xmlInp,userInitFunc)
+        call Hatch(gameraApp%Model,gameraApp%Grid,gameraApp%State,gameraApp%oState,gameraApp%Solver,xmlInp,userInitFunc)
         call cleanClocks()
 
         if (.not. gameraApp%Model%isRestart) call fOutput(gameraApp%Model,gameraApp%Grid,gameraApp%State)
@@ -65,7 +66,7 @@ module gamapp
 
         call Tic("Gamera")
         !Advance system
-        call AdvanceMHD(gameraApp%Model,gameraApp%Grid,gameraApp%State,gameraApp%oState,gameraApp%Model%dt)
+        call AdvanceMHD(gameraApp%Model,gameraApp%Grid,gameraApp%State,gameraApp%oState,gameraApp%Solver,gameraApp%Model%dt)
         call Toc("Gamera")
 
         !Enforce floors if necessary

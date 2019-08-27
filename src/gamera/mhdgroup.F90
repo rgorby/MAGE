@@ -10,40 +10,27 @@ module mhdgroup
 
     implicit none
 
-    !TODO: Look into removing half-state holder
-    type(State_T) :: StateHf
-    logical :: doInit = .true.
-    real(rp), dimension(:,:,:,:,:), allocatable :: dGasH
-    real(rp), dimension(:,:,:,:), allocatable :: dGasM
-
     contains
 
-    subroutine AdvanceMHD(Model,Grid,State,oState,dt)
+    subroutine AdvanceMHD(Model,Grid,State,oState,Solver,dt)
         type(Model_T), intent(inout) :: Model
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(inout) :: State,oState
+        type(Solver_T), intent(inout) :: Solver
         real(rp), intent(in) :: dt
 
         integer :: n
 
-        !Initialize integrator if necessary
-        if (doInit) then
-            call allocState(Model,Grid,StateHf)
-            call allocGridHydroSpc(Model,Grid,dGasH)  
-            if (Model%doMHD) call allocGridVec(Model,Grid,dGasM)       
-            doInit = .false.
-        endif
-
         !Use predictor to create half state
         call Tic("Predictor")
-        call Predictor(Model,Grid,oState,State,StateHf,0.5*dt)
+        call Predictor(Model,Grid,oState,State,Solver%StateHf,0.5*dt)
         call Toc("Predictor")
 
         !Get electric field for MHD case
         if (Model%doMHD) then
             !NOTE, CalcElecField and CalcStress are independent of each other
             call Tic("E-Field")
-            call CalcElecField(Model,Grid,StateHf,State%Efld)
+            call CalcElecField(Model,Grid,Solver%StateHf,Solver%Vf,State%Efld)
             !Call user hack function if defined
             if (associated(Model%HackE)) then
                 call Tic("HackE")
@@ -57,12 +44,12 @@ module mhdgroup
         !Send dGasM in hydro/MHD, but unallocated w/ hydro
         !Calculate stresses for all species
         call Tic("Stress")
-        call CalcStress(Model,Grid,StateHF,dGasH,dGasM)
+        call CalcStress(Model,Grid,Solver%StateHF,Solver%gFlx,Solver%mFlx,Solver%dGasH,Solver%dGasM)
         call Toc("Stress")
 
         !Finalize, apply stresses and save State->oState for next predictor step
         call Tic("Update")
-        call applyUpdate(Model,Grid,State,oState,dt,dGasH,dGasM,State%Efld)
+        call applyUpdate(Model,Grid,State,oState,dt,Solver%dGasH,Solver%dGasM,State%Efld)
         call Toc("Update")
 
         !Apply gravity if necessary (before ring avg)

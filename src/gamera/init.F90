@@ -39,10 +39,11 @@ module init
     
     !Hatch Gamera
     !Initialize main data structures
-    subroutine Hatch(Model,Grid,State,oState,xmlInp,userInitFunc,endTime)
+    subroutine Hatch(Model,Grid,State,oState,Solver,xmlInp,userInitFunc,endTime)
         type(Model_T), intent(inout) :: Model
         type(Grid_T), intent(inout) :: Grid
         type(State_T), intent(inout) :: State,oState
+        type(Solver_T), intent(inout) :: Solver
         !OMEGA can overrule what GAMERA has
         type(XML_Input_T), intent(inout) :: xmlInp
         procedure(StateIC_T), pointer, intent(in) :: userInitFunc
@@ -138,6 +139,9 @@ module init
         Model%dt = CalcDT(Model,Grid,State)
         oState = State
         oState%time = State%time-Model%dt !Initial old state
+
+        !Initialize solver data
+        call initSolver(Solver, Model, Grid)
 
         !Setup output file
         h5File = trim(Model%RunID) // ".h5"
@@ -379,6 +383,30 @@ module init
         call random_seed(put=vSeed)
 
     end subroutine initModel
+
+    subroutine initSolver(Solver, Model, Grid)
+        type(Solver_T), intent(inout) :: Solver
+        type(Model_T), intent(in)     :: Model
+        type(Grid_T), intent(in)      :: Grid
+
+        ! initialize stress variables
+        allocate(Solver%gFlx(Grid%isg:Grid%ieg,Grid%jsg:Grid%jeg,Grid%ksg:Grid%keg,1:NVAR,1:NDIM,BLK:Model%nSpc))
+        Solver%gFlx = 0.0
+        if ( Model%doMHD  ) then
+            allocate(Solver%mFlx(Grid%isg:Grid%ieg,Grid%jsg:Grid%jeg,Grid%ksg:Grid%keg,1:NDIM,1:NDIM))
+            Solver%mFlx = 0.0
+        endif
+
+        ! initialize electric field variable
+        allocate(Solver%Vf(Grid%isg:Grid%ieg,Grid%jsg:Grid%jeg,Grid%ksg:Grid%keg,NDIM))
+        Solver%Vf = 0.0
+
+        ! initialize mhd variables
+        call allocState(Model,Grid,Solver%StateHf)
+        allocate(Solver%dGasH(Grid%isg:Grid%ieg,Grid%jsg:Grid%jeg,Grid%ksg:Grid%keg,1:NVAR,0:Model%nSpc) )
+        if (Model%doMHD) call allocGridVec(Model,Grid,Solver%dGasM)
+
+    end subroutine initSolver
     
     !Set default Grid domain indices (after grid generation)
     subroutine SetDomain(Model,Grid)
