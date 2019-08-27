@@ -185,7 +185,8 @@ contains
     call initGamera(gameraApp, initUser, caseInput)
     call initVoltron(voltronApp, gameraApp, caseInput)
 
-    do while ((gameraApp%Model%tFin - gameraApp%Model%t) > 1e-15)
+    ! Manually running for just 1 second of simulation time
+    do while ((1.0 - gameraApp%Model%t) > 1e-15)
         call stepGamera(gameraApp)
 
         if (gameraApp%Model%t >= voltronApp%fastShallowTime) then
