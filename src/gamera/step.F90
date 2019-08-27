@@ -1,7 +1,7 @@
 !Routines to advance the grid
 
 module step
-    use types
+    use gamtypes
     use gamutils
     use bcs
     use prob
@@ -199,19 +199,24 @@ module step
         Vy  = State%Gas(i,j,k,MOMY,BLK)/rho
         Vz  = State%Gas(i,j,k,MOMZ,BLK)/rho
         MagV = sqrt(Vx**2.0+Vy**2.0+Vz**2.0)
-        Vfl = MagV
+        
 
         ke = 0.5*rho*(MagV**2.0)
         e = State%Gas(i,j,k,ENERGY,BLK) - ke
         P = (Model%gamma-1)*e
+
+        !Handle multifluid case for sound speed/max flow
         if (Model%doMultiF) then
             Cs = MultiFCs(Model,State%Gas(i,j,k,:,:))
+            MagV = MultiFSpeed(Model,State%Gas(i,j,k,:,:))
         else
             Cs = sqrt(Model%gamma*P/rho)
         endif
 
+        Vfl   = MagV
         Valf  = 0.0
         VDiff = 0.0
+
         if (Model%doMHD) then                                        
             Bx = State%Bxyz(i,j,k,XDIR)
             By = State%Bxyz(i,j,k,YDIR)
@@ -239,13 +244,13 @@ module step
         endif
 
         vCFL = Vfl + sqrt(Cs**2.0 + Valf**2.0) + Vdiff
-        !dtijk = Model%CFL/( (vCFL/Gr%di(i,j,k)) + (vCFL/Gr%dj(i,j,k)) + (vCFL/Gr%dk(i,j,k)) )
         
         !Use min length for timestep calculation
         dl = minval((/Gr%di(i,j,k),Gr%dj(i,j,k),Gr%dk(i,j,k)/))
         dtijk = Model%CFL*dl/vCFL
 
     end subroutine CellDT
+
 
     subroutine Armor(Model,Gr,State)
         type(Model_T), intent(in) :: Model

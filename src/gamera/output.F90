@@ -1,6 +1,6 @@
 module output
     use gdefs
-    use types
+    use gamtypes
     use clocks
     use gioH5
     use gridutils

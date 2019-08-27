@@ -1,5 +1,5 @@
 module usergamic
-    use types
+    use gamtypes
     use gamutils
     use math
     use gridutils

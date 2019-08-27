@@ -5,7 +5,7 @@
 !nR: Rings. Cyl (R), LFM (J)
 
 module ringutils
-    use types
+    use gamtypes
     use gamutils
     use math
     use xml_input
@@ -496,17 +496,17 @@ module ringutils
         end select        
     end subroutine PullRingI
 
-    !Convert to hydro variables to ringav variables
-    !Conserved -> ring avg
-    !density,momentum,plasma energy -> density,semi-relativistic momentum, thermal energy
-    subroutine Gas2Ring(Model,rW,rB)
+!-----
+!Convert to ringav variables and back
+
+    !Con -> rho,rho-V,rho-Cs2
+    subroutine Gas2Ring(Model,rW)
         type (Model_T), intent(in) :: Model
         real(rp), intent(inout) :: rW(Np,NVAR)
-        real(rp), intent(in) :: rB(Np,NDIM)
 
         integer :: n
         real(rp) :: D,E,P,KinE,IntE
-        real(rp), dimension(NDIM) :: Mom,rMom,B
+        real(rp), dimension(NDIM) :: Mom
 
         do n=1,Np
             D = max( rW(n,DEN), dFloor )
@@ -515,117 +515,45 @@ module ringutils
 
             KinE = 0.5*dot_product(Mom,Mom)/D
             P = max( (Model%gamma-1)*(E-KinE) , pFloor )
-            IntE = P/(Model%gamma-1) !Internal energy
-
-            B = rB(n,:)
-            rMom = Mom
-            
-            !TEST
-            ! if (Model%doBoris) then
-            !     rMom = Class2Boris(Model,D,Mom,B)
-            ! else
-            !     rMom = Mom
-            ! endif
-
+            IntE = P/(Model%gamma-1)
             !Put ring variables back in (in place)
             rW(n,DEN) = D
-            rW(n,MOMX:MOMZ) = rMom
+            rW(n,MOMX:MOMZ) = Mom
+            !rW(n,ENERGY) = (Model%gamma)*P
             rW(n,ENERGY) = IntE
+
         enddo
 
     end subroutine Gas2Ring
 
     !Convert ringav variables back to hydro variables
-    subroutine Ring2Gas(Model,rW,rB)
+    !rho,rho-V,rho-Cs^2 => Con
+    subroutine Ring2Gas(Model,rW)
         type (Model_T), intent(in) :: Model
         real(rp), intent(inout) :: rW(Np,NVAR)
-        real(rp), intent(in) :: rB(Np,NDIM)
 
         integer :: n
-        real(rp) :: D,E,P,KinE,IntE
-        real(rp), dimension(NDIM) :: Mom,rMom,B
+        real(rp) :: D,P,KinE,IntE,Cs2
+        real(rp), dimension(NDIM) :: Mom,V
 
         do n=1,Np
             D  = max( rW(n,DEN), dFloor )
-            rMom = rW(n,MOMX:MOMZ)
-            !IntE->P & floor ->IntE
-            P  = max( rW(n,ENERGY)*(Model%gamma-1), pFloor )
-            IntE = P/(Model%gamma-1)
-            B = rB(n,:)
-            Mom = rMom
-
-            !TEST
-            ! if (Model%doBoris) then
-            !     Mom = Boris2Class(Model,D,rMom,B)
-            ! else
-            !     Mom = rMom
-            ! endif
+            Mom = rW(n,MOMX:MOMZ)
+            IntE = rW(n,PRESSURE)
+            P = max( (Model%gamma-1)*IntE, pFloor )
             KinE = 0.5*dot_product(Mom,Mom)/D
+
+            !Cs2 = rW(n,PRESSURE)/D
+            !P = Cs2*D/Model%gamma
+            !IntE = P/(Model%gamma-1)
 
             !Put conserved variables back
             rW(n,DEN) = D
             rW(n,MOMX:MOMZ) = Mom
             rW(n,ENERGY) = KinE+IntE
 
-        enddo        
+        enddo
+
     end subroutine Ring2Gas
-
-    !Boris <-> Classical momentum routines
-    function Class2Boris(Model,D,Mom,B) result(rMom)
-        type(Model_T), intent(in) :: Model
-        real(rp), intent(in) :: D
-        real(rp), dimension(NDIM), intent(in) :: Mom,B
-        real(rp), dimension(NDIM) :: rMom
-
-        real(rp) :: MagB,VoC2
-        real(rp), dimension(NDIM) :: bhat
-        real(rp), dimension(NDIM,NDIM) :: Eye3,bb,toRel
-
-        Eye3 = 0.0
-        Eye3(XDIR,XDIR) = 1.0; Eye3(YDIR,YDIR) = 1.0; Eye3(ZDIR,ZDIR) = 1.0
-        MagB = norm2(B)
-
-        if (MagB > TINY) then
-            bhat = normVec(B)
-            bb = Dyad(bhat,bhat)
-            VoC2 = dot_product(B,B)/(D*Model%Ca*Model%Ca)
-            VoC2 = min(1.0-TINY,VoC2)
-
-            toRel = Eye3 + VoC2*( Eye3 - bb )
-            rMom = VdT(Mom,toRel)
-        else
-            rMom = Mom
-        endif
-
-    end function Class2Boris
-
-    function Boris2Class(Model,D,rMom,B) result(Mom)
-        type(Model_T), intent(in) :: Model
-        real(rp), intent(in) :: D
-        real(rp), dimension(NDIM), intent(in) :: rMom,B
-        real(rp), dimension(NDIM) :: Mom
-
-        real(rp) :: MagB,VoC2,ga2
-        real(rp), dimension(NDIM) :: bhat
-        real(rp), dimension(NDIM,NDIM) :: Eye3,bb,toClass
-
-        Eye3 = 0.0
-        Eye3(XDIR,XDIR) = 1.0; Eye3(YDIR,YDIR) = 1.0; Eye3(ZDIR,ZDIR) = 1.0
-        MagB = norm2(B)
-
-        if (MagB > TINY) then
-            bhat = normVec(B)
-            bb = Dyad(bhat,bhat)
-            VoC2 = dot_product(B,B)/(D*Model%Ca*Model%Ca)
-            VoC2 = min(1.0-TINY,VoC2)
-            ga2 = 1.0/(1.0+VoC2)
-
-            !Construct transform
-            toClass = ga2*( Eye3 + VoC2*bb )
-            Mom = VdT(rMom,toClass)       
-        else
-            Mom = rMom
-        endif
-    end function Boris2Class
 
 end module ringutils

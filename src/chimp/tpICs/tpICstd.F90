@@ -1,6 +1,6 @@
-
-!Various TP initialization routines
-module tpinit
+!Standard initialization routine for test particles
+!Must specify initParticles / addIncoming
+module usertpic
     use chmpdefs
     use tptypes
     use ebtypes
@@ -24,7 +24,7 @@ module tpinit
 
     !Standard TP init routine
     !Create equatorial particles w/ random L,phi,K,alpha
-    subroutine tpInit_Std(Model,ebState,tpState,inpXML)
+    subroutine initParticles(Model,ebState,tpState,inpXML)
         type(chmpModel_T), intent(inout) :: Model
         type(ebState_T), intent(inout)   :: ebState
         type(tpState_T), intent(inout)   :: tpState
@@ -115,7 +115,31 @@ module tpinit
 
         !Count currently in
         tpState%NpT = count(tpState%TPs(:)%isIn)
-    end subroutine tpInit_Std
+    end subroutine initParticles
+
+    !Loop over particles, find uninitialized particles past their release date and release them
+    !Uses releaseParticle defined in usertpic
+    subroutine addIncoming(Model,ebState,tpState)
+        type(chmpModel_T), intent(in) :: Model
+        type(ebState_T), intent(in)   :: ebState
+        type(tpState_T), intent(inout)   :: tpState
+
+        integer :: n
+        logical :: toDo
+
+        !$OMP PARALLEL DO &
+        !$OMP default(shared) &
+        !$OMP private(n,toDo) &
+        !$OMP schedule(guided)
+        do n=1,tpState%Np
+            toDo = (.not. tpState%TPs(n)%isInit) .and. (Model%t >= tpState%TPs(n)%T0p)
+            if (toDo) then
+                !Release particle
+                call releaseParticle(Model,ebState,tpState%TPs(n),Model%t)
+            endif
+        enddo
+
+    end subroutine addIncoming
 
     !Distinguish particle creation/particle release
 
@@ -291,26 +315,4 @@ module tpinit
 
     end subroutine releaseParticle
 
-    !Loop over particles, find uninitialized particles past their release date and release them
-    subroutine addIncoming(Model,ebState,tpState)
-        type(chmpModel_T), intent(in) :: Model
-        type(ebState_T), intent(in)   :: ebState
-        type(tpState_T), intent(inout)   :: tpState
-
-        integer :: n
-        logical :: toDo
-
-        !$OMP PARALLEL DO &
-        !$OMP default(shared) &
-        !$OMP private(n,toDo) &
-        !$OMP schedule(guided)
-        do n=1,tpState%Np
-            toDo = (.not. tpState%TPs(n)%isInit) .and. (Model%t >= tpState%TPs(n)%T0p)
-            if (toDo) then
-                !Release particle
-                call releaseParticle(Model,ebState,tpState%TPs(n),Model%t)
-            endif
-        enddo
-
-    end subroutine addIncoming
-end module tpinit
+end module usertpic

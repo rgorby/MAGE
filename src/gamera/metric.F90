@@ -1,7 +1,7 @@
 !Various routines to get cell-level metric quantities
 
 module metric
-    use types
+    use gamtypes
     use math
 
     implicit none

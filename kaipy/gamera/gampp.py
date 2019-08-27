@@ -49,7 +49,7 @@ class GameraPipe(object):
 		self.OpenPipe()
 
 	def OpenPipe(self):
-		import kaiH5 as kh5
+		import kaipy.kaiH5 as kh5
 		print("Opening pipe: %s : %s"%(self.fdir,self.ftag))
 
 		#Test for serial
@@ -132,7 +132,7 @@ class GameraPipe(object):
 	def ChunkName(self,i,j,k):
 		if (self.isMPI):
 			fIn = "blah"
-			n = i + j*self.Ri + k*self.Ri*self.Rj
+			n = j + i*self.Rj + k*self.Ri*self.Rj
 			fRn = "%04d_%04d_%04d_%04d_%04d_%04d_%012d"%(self.Ri,self.Rj,self.Rk,i,j,k,n)
 			fIn = self.fdir+"/"+self.ftag+"_"+fRn+".h5"
 		else:
@@ -140,7 +140,7 @@ class GameraPipe(object):
 		return fIn
 		#print(fIn)
 	def GetGrid(self):
-		import kaiH5 as kh5
+		import kaipy.kaiH5 as kh5
 		if (self.is2D):
 			self.X = np.zeros((self.Ni+1,self.Nj+1))
 			self.Y = np.zeros((self.Ni+1,self.Nj+1))
@@ -169,7 +169,7 @@ class GameraPipe(object):
 						self.Z[iS:iE+1,jS:jE+1,kS:kE+1] = kh5.PullVar(fIn,"Z")
 	#Get 3D variable "vID" from Step# sID
 	def GetVar(self,vID,sID,vScl=None,doVerb=True):
-		import kaiH5 as kh5
+		import kaipy.kaiH5 as kh5
 
 		if (doVerb):
 			if (sID is None):

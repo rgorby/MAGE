@@ -22,9 +22,10 @@ execute_process(COMMAND git rev-parse --abbrev-ref HEAD WORKING_DIRECTORY ${CMAK
 execute_process(COMMAND git log -1 --format=%h WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
 	OUTPUT_VARIABLE GIT_COMMIT_HASH
 	OUTPUT_STRIP_TRAILING_WHITESPACE)
+
 #Add defines for commit hash/branch
-add_compile_definitions(GITCOMMITHASH=${GIT_COMMIT_HASH})
-add_compile_definitions(GITBRANCH=${GIT_BRANCH})
+#add_compile_definitions(GITCOMMITHASH=${GIT_COMMIT_HASH})
+#add_compile_definitions(GITBRANCH=${GIT_BRANCH})
 
 #Set some configuration defaults
 option(ENABLE_OMP "Enable OMP parallelization" ON )
@@ -41,8 +42,15 @@ mark_as_advanced(bricksize)
 file(GLOB GAMICDEF src/gamera/ICs/null.F90)
 set(GAMIC ${GAMICDEF} CACHE FILEPATH "Gamera IC file")
 
-file(GLOB VOLTICDEF src/voltron/ICs/remix.F90)
+file(GLOB VOLTICDEF src/voltron/ICs/earthcmi.F90)
 set(VOLTIC ${VOLTICDEF} CACHE FILEPATH "Voltron IC file")
+
+file(GLOB TPICDEF src/chimp/tpICs/tpICstd.F90)
+set(TPIC ${TPICDEF} CACHE FILEPATH "CHIMP TP IC file")
+
+file(GLOB EBICDEF src/chimp/ebICs/ebICstd.F90)
+set(EBIC ${EBICDEF} CACHE FILEPATH "CHIMP EB IC file")
+
 
 #-------------
 #Include user cmake file if present
@@ -84,7 +92,9 @@ message("Adding CHIMP module ...")
 add_subdirectory(src/chimp)
 #Chimp executables, target "chimp"
 add_custom_target(chimp ALL)
-set(chimpX "project;psd;push;slice")
+message("\tEB IC file is ${EBIC}")
+message("\tTP IC file is ${TPIC}")
+set(chimpX "project;psd;push;slice;trace")
 foreach (EXE ${chimpX})
 	message("\tAdding executable ${EXE}.x")
 	add_executable(${EXE}.x src/drivers/${EXE}x.F90)
@@ -129,10 +139,10 @@ message("Adding Voltron module ...")
 message("\tIC file is ${VOLTIC}")
 add_subdirectory(src/voltron)
 add_custom_target(voltron ALL)
-message("\tAdding executable kaiju.x")
-add_executable(kaiju.x src/drivers/kaijux.F90)
-target_link_libraries(kaiju.x baselib gamlib remixlib voltlib)
-add_dependencies(voltron kaiju.x remixlib gamlib baselib)
+message("\tAdding executable voltron.x")
+add_executable(voltron.x src/drivers/voltronx.F90)
+target_link_libraries(voltron.x baselib gamlib remixlib voltlib)
+add_dependencies(voltron voltron.x remixlib gamlib baselib)
 
 if(PFUNIT_FOUND)
 	#-------------

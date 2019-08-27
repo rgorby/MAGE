@@ -3,7 +3,7 @@ program MIX
     use xml_input
 
     ! gamera
-    use types
+    use gamtypes
     use gioH5
     use init
 

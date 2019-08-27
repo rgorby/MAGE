@@ -1,7 +1,7 @@
 !Various routines to read/write HDF5 files
 
 module gioH5
-    use types
+    use gamtypes
     use gamutils
     use gridutils
     use ioH5
@@ -20,19 +20,6 @@ module gioH5
     integer, parameter :: maxPlotVar = 25
     integer :: is,ie,js,je,ks,ke !Variable bounds for output
     integer :: GhostCells(3,1,1)
-
-    !Units/scaling for output slices
-    type gOut_T
-        real(rp) :: tScl=1.0,dScl=1.0,vScl=1.0,pScl=1.0,bScl=1.0
-        character(len=strLen) :: uID = "CODE" !Overall units ID
-        character(len=strLen) :: tID = "CODE TIME"
-        character(len=strLen) :: dID = "CODE DEN"
-        character(len=strLen) :: vID = "CODE VEL"
-        character(len=strLen) :: pID = "CODE P"
-        character(len=strLen) :: bID = "CODE B"
-    end type gOut_T
-
-    type(gOut_T) :: gamOut
 
     contains
 
@@ -167,9 +154,9 @@ module gioH5
         endif
 
         !Add information about time scaling/units
-        call AddOutVar(IOVars,"tScl",gamOut%tScl)
-        call AddOutVar(IOVars,"timeID",gamOut%tID)
-        call AddOutVar(IOVars,"UnitsID",gamOut%uID)
+        call AddOutVar(IOVars,"tScl"   ,Model%gamOut%tScl)
+        call AddOutVar(IOVars,"timeID" ,Model%gamOut%tID)
+        call AddOutVar(IOVars,"UnitsID",Model%gamOut%uID)
         !Write out the chain
         call WriteVars(IOVars,.true.,h5File)
         
@@ -205,6 +192,8 @@ module gioH5
         !Allocate holders
         allocate(gVar(is:ie,js:je,ks:ke))
         allocate(gVec(is:ie,js:je,ks:ke,1:NDIM))
+
+        associate(gamOut=>Model%gamOut)
 
         do s=0,Model%nSpc
             if (s == 0) then
@@ -337,6 +326,8 @@ module gioH5
         !------------------
         !Finalize
         call WriteVars(IOVars,.true.,h5File,trim(gStr))
+
+        end associate
 
         contains
             subroutine GameraOut(vID,uID,vScl,V)

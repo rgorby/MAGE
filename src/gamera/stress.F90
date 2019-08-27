@@ -1,5 +1,5 @@
 module stress
-    use types
+    use gamtypes
     use clocks
     use gamutils
     use gridutils
@@ -159,27 +159,27 @@ module stress
         !$OMP private(i,j,k,dV)
         do k=Gr%ks,Gr%ke
             do j=Gr%js,Gr%je
+                !$OMP SIMD
                 do i=Gr%is,Gr%ie
                     dV = Gr%volume(i,j,k)
                     !Do all species here
                     !Fluxes have already been scaled by face areas!
-                    dGasH(i,j,k,:,:) = (  gFlx(i,j,k,:,IDIR,:) - gFlx(i+1,j,k,:,IDIR,:) &
-                                        + gFlx(i,j,k,:,JDIR,:) - gFlx(i,j+1,k,:,JDIR,:) &
-                                        + gFlx(i,j,k,:,KDIR,:) - gFlx(i,j,k+1,:,KDIR,:) )/dV
+                    dGasH(i,j,k,1:NVAR,:) = (  gFlx(i,j,k,1:NVAR,IDIR,:) - gFlx(i+1,j,k,1:NVAR,IDIR,:) &
+                                             + gFlx(i,j,k,1:NVAR,JDIR,:) - gFlx(i,j+1,k,1:NVAR,JDIR,:) &
+                                             + gFlx(i,j,k,1:NVAR,KDIR,:) - gFlx(i,j,k+1,1:NVAR,KDIR,:) )/dV
 
                     if (doMaxwell) then
-                        dGasM(i,j,k,:) = (  mFlx(i,j,k,:,IDIR) - mFlx(i+1,j,k,:,IDIR) &
-                                          + mFlx(i,j,k,:,JDIR) - mFlx(i,j+1,k,:,JDIR) &
-                                          + mFlx(i,j,k,:,KDIR) - mFlx(i,j,k+1,:,KDIR) )/dV
+                        dGasM(i,j,k,XDIR:ZDIR) = (  mFlx(i,j,k,XDIR:ZDIR,IDIR) - mFlx(i+1,j,k,XDIR:ZDIR,IDIR) &
+                                                  + mFlx(i,j,k,XDIR:ZDIR,JDIR) - mFlx(i,j+1,k,XDIR:ZDIR,JDIR) &
+                                                  + mFlx(i,j,k,XDIR:ZDIR,KDIR) - mFlx(i,j,k+1,XDIR:ZDIR,KDIR) )/dV
                         
                         if (Model%doBackground) then
                             !Add background field force terms
-                            dGasM(i,j,k,:) = dGasM(i,j,k,:) + Gr%dpB0(i,j,k,:)
+                            dGasM(i,j,k,XDIR:ZDIR) = dGasM(i,j,k,XDIR:ZDIR) + Gr%dpB0(i,j,k,XDIR:ZDIR)
                         endif
                     endif !doMax
-
-                enddo
-            enddo
+                enddo ! i loop
+            enddo !J loop
         enddo !K loop
         
         call Toc("Flux2Deltas")
@@ -219,7 +219,8 @@ module stress
 
         !Scalar holders
         real(rp) :: vL,vR,Vn
-        real(rp), dimension(NDIM) :: bAvg,bhat,dVeeP
+        real(rp) :: RhoML,RhoMR
+        real(rp), dimension(NDIM) :: deeP,bAvg,bhat
 
         !Indices
         integer :: ie,iMax,isB,ieB,iG !Vector direction indices
@@ -250,6 +251,14 @@ module stress
         VaD = 0.0
         bbD = 0.0
         dVel = 0.0
+        VolB = 0.0
+        MagB = 0.0
+        ConB = 0.0
+        TfB = 0.0
+        B0 = 0.0
+        Bn = 0.0
+        B0n = 0.0
+
 
         doFlx(:,:) = .true.
     !Load non-species data into local work arrays
@@ -302,6 +311,15 @@ module stress
                 doFlx(:,:) = ( PrimLRB(:,DEN,:) >= Spcs(s)%dVac )
             endif
 
+            !TODO: Maybe move this check up after first loadblock?
+            if (.not. isBulk) then
+                !For non-bulk species, test both sides of interface
+                doFlx(:,:) = ( PrimLRB(:,DEN,:) >= Spcs(s)%dVac )
+
+                !Bail out of this species if no good interfaces
+                if (.not. any(doFlx)) cycle
+            endif
+
         !Reynolds stress fluxes (all species)
         !---------------------------
             do q=1,2 !L/R directions
@@ -334,20 +352,20 @@ module stress
                 if (Model%doBoris .and. isBulk) then
                     do i=1,iMax
 
+                        !Calculate del(rho_m v), the magnetic momentum
+                        RhoML = norm2( B0(i,XDIR:ZDIR) + MagLRB(i,XDIR:ZDIR,LEFT ) )**2.0/(Model%Ca**2.0)
+                        RhoMR = norm2( B0(i,XDIR:ZDIR) + MagLRB(i,XDIR:ZDIR,RIGHT) )**2.0/(Model%Ca**2.0)
+                        deeP = RhoMR*PrimLRB(i,VELX:VELZ,RIGHT) - RhoML*PrimLRB(i,VELX:VELZ,LEFT)
+
                         !Get average XYZ field @ interface
-                        bAvg = 0.5*( MagLRB(i,XDIR:ZDIR,LEFT) + MagLRB(i,XDIR:ZDIR,RIGHT) )
-                        if (Model%doBackground) then
-                            bAvg = bAvg + B0(i,XDIR:ZDIR)
-                        endif
+                        bAvg = B0(i,XDIR:ZDIR) + 0.5*( MagLRB(i,XDIR:ZDIR,LEFT) + MagLRB(i,XDIR:ZDIR,RIGHT) )
                         bhat = normVec(bAvg)
 
+                        !Limit to perp component
+                        deeP = Vec2Perp(deeP,bhat)
                         !Now apply mag hogs to only perp components
+                        mFlxB(i,XDIR:ZDIR) = mFlxB(i,XDIR:ZDIR) - Model%cHogM*VaD(i)*deeP
 
-                        !TEST
-                        !dVeeP = Vec2Perp(dVel(i,XDIR:ZDIR),bhat)
-                        
-                        dVeeP = dVel(i,XDIR:ZDIR)
-                        mFlxB(i,XDIR:ZDIR) = mFlxB(i,XDIR:ZDIR) - Model%cHogM*VaD(i)*bbD(i)*dVeeP/(Model%Ca**2.0)
                     enddo
                 endif !Boris HOGS
 

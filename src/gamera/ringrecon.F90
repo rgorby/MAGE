@@ -2,7 +2,7 @@
 !Ring reconstruction routines
 module ringrecon
 
-    use types
+    use gamtypes
     use math
     use ringutils
     use multifluid
@@ -10,6 +10,7 @@ module ringrecon
     implicit none
 
     integer, parameter, private :: RingNg = 2 !Number of ghost zones for ring reconstruction
+    
     !RingLR_T
     !Generic reconstruction routine for ring-avg
     !5-point stencil -> L/R
@@ -67,8 +68,12 @@ module ringrecon
             mE = mS + dJ - 1
             if (Model%doMultiF) then
                 ngood = count( isG(mS:mE) ) !Number of good elements in chunk
-                if (ngood < dJ) then
+                if (ngood == 0) then
                     cycle !Skip this chunk 
+                else if (ngood < dJ) then
+                    !For partially good chunk just do piecewise constant
+                    rW(mS:mE) = sum(rW(mS:mE),mask=isG(mS:mE))/ngood
+                    cycle !Skip remainder
                 endif
             endif
 
@@ -96,6 +101,111 @@ module ringrecon
 
     end subroutine ReconstructRing
 
+    subroutine WgtRecostructRing(Model,rW,xW,Nc,isGO)
+        type(Model_T), intent(in) :: Model
+        real(rp), intent(inout) :: rW(Np)
+        real(rp), intent(in) :: xW(Np)
+        integer, intent(in) :: Nc !Number of chunks in ring
+        logical, intent(in), optional :: isGO(Np)
+
+        !Hold expanded ring (ie ghosts)
+        real(rp) :: chW(1-RingNg:Nc+RingNg),tMass(1-RingNg:Nc+RingNg)
+        
+        real(rp) :: fm2,fm1,f,fp1,fp2,fL,fR
+        real(rp) :: a,b,c,fI
+        integer :: dJ,m,n,nv, mS,mE,ngood
+        logical :: isG(Np)
+        real(rp) :: dwL,dwR,dwC,dwM,min1,min2
+        real(rp), allocatable, dimension(:) :: xWC,Mxc,Mxi,dMx
+        real(rp) :: xWC0
+
+        !DIR$ ASSUME_ALIGNED rW: ALIGN
+
+        if (present(isGO)) then
+            isG = isGO
+        else
+            isG = .true.
+        endif
+
+        dJ = Np/Nc
+
+        allocate(Mxc(1:dJ),dMx(1:dJ),xWC(1:dJ),Mxi(1:dJ+1))
+
+        !Loop over each chunk and get total mass
+        do n=1,Nc
+            !Indices of this chunk within 1,Np array
+            mS = 1 + (n-1)*dJ
+            mE = mS + dJ - 1
+
+            tMass(n) = sum(xW(mS:mE))
+        enddo
+
+        !Fill inner region and add ghosts
+        chW(1:Nc) = rW(1:Np:dJ)
+        do n=1,RingNg
+            chW(1-n)  = chW(Nc-n+1)
+            chW(Nc+n) = chW(n)
+
+            tMass(1-n) = tMass(Nc-n+1)
+            tMass(Nc+n)= tMass(n)
+        enddo
+
+        do n=1-RingNg,Nc+RingNg
+            chW(n) = chW(n)/(tMass(n)/dJ)
+        enddo
+
+        !Loop over each chunk, create interpolant for chunk
+        do n=1,Nc
+            !Indices of this chunk within 1,Np array
+            mS = 1 + (n-1)*dJ
+            mE = mS + dJ - 1
+            if (Model%doMultiF) then
+                ngood = count( isG(mS:mE) ) !Number of good elements in chunk
+                if (ngood == 0) then
+                    cycle !Skip this chunk
+                else if (ngood < dJ) then
+                    !Just do piecewise constant
+                    rW(mS:mE) = (tMass(n)/dJ)*chW(n)
+                    cycle
+                endif
+            endif
+
+            !Grab stencil for interval LR's
+            fm1 = chW(n-1)
+            f   = chW(n  )
+            fp1 = chW(n+1)
+            
+            dwL = f - fm1
+            dwR = fp1 - f
+            dwC = ( fp1 - fm1 )/2.0
+
+            min1 = min(2*abs(dwL),2*abs(dwR))
+            min2 = min(min1,abs(dwC))
+            !SIGN(A,B) returns the value of A with the sign of B
+            dwM = sign(min2,dwC)
+
+            !Create cell-centered mass-coordinates and Jacobian (dMx/dJ)
+            xWC = xW(mS:mE)
+            xWC0 = sum(xWC)
+
+            Mxi(1) = 0.0
+            do m=2,dJ+1
+                Mxi(m) = sum(xWC(1:m-1))/xWC0
+            enddo
+
+            do m=1,dJ
+                Mxc(m) = 0.5*(Mxi(m)+Mxi(m+1))
+                dMx(m) = Mxi(m+1)-Mxi(m)
+            enddo
+
+            !Reconstruct within this chunk
+            do m=1,dJ
+                fI = f + dwM*(Mxc(m)-0.5)*dMx(m)
+                rW(mS+m-1) = fI*xW(mS+m-1)
+            enddo
+        enddo !Chunks
+
+    end subroutine WgtRecostructRing
 
     !Lazy routine to make things equivalent to PCM
     !Both L & R are f

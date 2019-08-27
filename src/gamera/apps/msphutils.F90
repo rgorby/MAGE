@@ -2,7 +2,7 @@
 
 module msphutils
     use kdefs
-    use types
+    use gamtypes
     use gamutils
     use math, magRampDown => CubicRampDown
     use output
@@ -25,7 +25,9 @@ module msphutils
 !t0 = 63.8 second
 !M0 = -0.31*1.0e+5/B0
 
-    real(rp) :: Rion ! planetary ionosphere radius
+    real(rp) :: Rion ! Planetary ionosphere radius
+
+    !TODO: Move these values to a units type in gamera's Model_T
     real(rp) :: gx0 ! [m]
     real(rp) :: gv0 ! [m/s]
     real(rp) :: gD0 = 1.67e-21 ! 1 AMU/cc [kg/m3]
@@ -33,29 +35,31 @@ module msphutils
     real(rp) :: gB0 ! [nT]
     real(rp) :: gT0 ! [s]
     real(rp) :: gG0=0 ! Grav acceleration [m/s2]
-    real(rp) :: M0 !Default magnetic moment [gauss]
-    real(rp) :: GM0 !Gravitational force coefficient
-    real(rp) :: Psi0=0. ! corotation potential coef
     
-    !real(rp) :: rCut=4.5, lCut=3.5 !LFM values
-    real(rp) :: rCut=4.0, lCut=5.0
-    real(rp) :: xSun,xTail,yMax
-    real(rp) :: x0,Aq,Bq,sInner
-
+    !TODO: Move these variables to something connecting remix/gamera
     integer :: JpSh = 1 !Number of cc current shells for CMI
     integer :: JpSt = 2 !First shell (i) to calculate current
     logical :: doRingFAC = .true. !Do some ring-processing on currents before sending to remix
-
-    !integer :: PsiSh = 1 !Number of *SHELLS* getting nodes at, ie PsiSh+1 = # i nodes
-    !integer :: PsiSt = 1 !Starting shell of potential
 
     !Get 5 shells, all ghosts plus first active
     integer :: PsiSh = 5 !Number of *SHELLS* getting nodes at, ie PsiSh+1 = # i nodes
     integer :: PsiSt = -3 !Starting shell of potential
 
+
+!Private module variables
     !Chill out parameters
-    real(rp) :: RhoCO = 1.0e-3 ! Number density
-    real(rp) :: CsCO  = 1.0e-2  ! Cs chillout, m/s
+    real(rp), private :: RhoCO = 1.0e-3 ! Number density
+    real(rp), private :: CsCO  = 1.0e-2  ! Cs chillout, m/s
+    !Dipole cut values
+    !real(rp) :: rCut=4.5, lCut=3.5 !LFM values
+    real(rp), private :: rCut=4.0, lCut=5.0
+    real(rp), private :: xSun,xTail,yMax
+    real(rp), private :: x0,Aq,Bq,sInner
+
+    !Grav/rotation values
+    real(rp), private :: GM0  = 0.0 !Gravitational force coefficient
+    real(rp), private :: Psi0 = 0.0 ! corotation potential coef
+    real(rp), private :: M0   = 0.0 !Magnetic moment
 
     contains
 
@@ -84,9 +88,9 @@ module msphutils
             gG0 = 9.807   ! [m/s2]
             call xmlInp%Set_Val(M0g,"prob/M0",EarthM0g) !Mag moment [gauss]
             !Using corotation potential for Earth
-            Psi0 = 0*92.0 !kV
+            Psi0 = 92.0 !kV
             Rion = RionE*1.e6/gx0 ! Radius of ionosphere in code units (RionE defined in kdefs in 1000km)
-            Model%doGrav = .false.
+            Model%doGrav = .true.
         case("Saturn","saturn","SATURN")
             gx0 = RSaturnXE*REarth  ! [m]
             gv0 = 100.0e+3    ! [m/s]
@@ -124,7 +128,7 @@ module msphutils
         gT0 = gx0/gv0 !Set time scaling
         gB0 = sqrt(Mu0*gD0)*gv0*1.0e+9 !T->nT
         gP0 = gD0*gv0*gv0*1.0e+9 !P->nPa
-        M0 = -M0g*1.0e+5/gB0 !Magnetic moment
+        M0  = -M0g*1.0e+5/gB0 !Magnetic moment
         GM0 = gG0*gx0/(gv0*gv0)
 
         !Add gravity if required
@@ -146,18 +150,18 @@ module msphutils
         write(*,*) '---------------'
 
         !Add normalization/labels to output slicing
-        gamOut%tScl = gT0
-        gamOut%dScl = 1.0
-        gamOut%vScl = gv0*1.0e-3 !km/s
-        gamOut%pScl = gP0
-        gamOut%bScl = gB0
+        Model%gamOut%tScl = gT0
+        Model%gamOut%dScl = 1.0
+        Model%gamOut%vScl = gv0*1.0e-3 !km/s
+        Model%gamOut%pScl = gP0
+        Model%gamOut%bScl = gB0
 
-        gamOut%uID = trim(toUpper(pID))
-        gamOut%tID = 's'
-        gamOut%dID = '#/cc'
-        gamOut%vID = 'km/s'
-        gamOut%pID = 'nPa'
-        gamOut%bID = 'nT'
+        Model%gamOut%uID = trim(toUpper(pID))
+        Model%gamOut%tID = 's'
+        Model%gamOut%dID = '#/cc'
+        Model%gamOut%vID = 'km/s'
+        Model%gamOut%pID = 'nPa'
+        Model%gamOut%bID = 'nT'
 
     end subroutine
 
@@ -173,6 +177,12 @@ module msphutils
 
     end subroutine magsphereTime
     
+    !Just return module private magnetic moment
+    function MagMoment() result(M)
+        real(rp) :: M
+        M = M0
+    end function MagMoment
+
     !Convert electic potential from ionosphere to E fields for inner BCs
     subroutine Ion2MHD(Model,Grid,gPsi,inEijk,inExyz,pSclO)
         type(Model_T), intent(in) :: Model
@@ -384,6 +394,7 @@ module msphutils
         real(rp), dimension(NVAR) :: pW, pCon
         real(rp), dimension(0:Model%nSpc) :: RhoMin
         real(rp) :: D,P,CsC,Pc,Leq,tau
+        logical :: doChill
 
         RhoMin(BLK) = 0.0
         if (Model%doMultiF) then
@@ -398,7 +409,7 @@ module msphutils
         endif
 
         !$OMP PARALLEL DO default(shared) collapse(3) &
-        !$OMP private(s,i,j,k,pW,pCon,D,P,CsC,Pc,Leq,tau)
+        !$OMP private(s,i,j,k,pW,pCon,D,P,CsC,Pc,Leq,tau,doChill)
         do s=s0,sE
             do k=Grid%ksg,Grid%keg
                 do j=Grid%jsg,Grid%jeg
@@ -407,6 +418,27 @@ module msphutils
                         !Check species
                         pCon = State%Gas(i,j,k,:,s)
                         D = pCon(DEN)
+
+                    !Check for low densities
+                        if (s>BLK) then
+                            doChill = ( D <= RhoCO ) .and. ( D >= RhoMin(s) )
+                        else
+                            doChill = ( D <= RhoCO )
+                        endif
+
+                        !If density is low keep things chill by setting sound speed
+                        if (doChill) then
+                            pCon = State%Gas(i,j,k,:,s)
+                            call CellC2P(Model,pCon,pW)
+                            !Set pressure to ensure Cs = CsCO
+                            CsC = CsCO/gv0 !Cs in code units
+                            P = pW(DEN)*CsC*CsC/Model%gamma
+                            pW(PRESSURE) = max(P,pFloor)
+                            call CellP2C(Model,pW,pCon)
+                            State%Gas(i,j,k,:,s) = pCon
+                        endif
+
+                    !Check for too fast sound speed
 
                         !Get sound speed
                         if (s>BLK) then
@@ -429,7 +461,8 @@ module msphutils
                             Pc = pW(DEN)*(Model%Ca**2.0)/Model%gamma
                             !Calculate cooling rate, L/CsC ~ lazy bounce timescale
                             Leq = DipoleL(Grid%xyzcc(i,j,k,:))
-                            tau = Leq/CsC
+                            !Convert to m/(m/s)/(code time)
+                            tau = (Leq*gx0)/(CsC*gv0*gT0)
 
                             !Cool pressure to target w/ timescale tau
                             pW(PRESSURE) = P - (Model%dt/tau)*(P-Pc)
@@ -494,7 +527,7 @@ module msphutils
         Model%B0 => cutDipole
         Axyz     => cutDipole
 
-        call AddB0(Model,Grid,State,Model%B0)
+        call AddB0(Model,Grid,Model%B0)
 
         call VectorField2Flux(Model,Grid,State,Axyz)
         bFlux0(:,:,:,:) = State%magFlux(:,:,:,:) !bFlux0 = B0

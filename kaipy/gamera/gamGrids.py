@@ -232,21 +232,21 @@ def GenKSph(Ni=Ni0,Nj=Nj0,Nk=Nk0,Rin=5,Rout=40,tMin=0.2,tMax=0.8):
 	dx2 = (tMax-tMin)/Nj
 	dx3 = (1.0 - 0.0)/Nk
 
-        # check that ghosts don't take us across the axis
-        # need to generalize later to include the axis (do full 4pi)
-        if ((tMin-Ng*dx2)<=0) or ((tMax+Ng*dx2)>=1.):
-                sys.exit("Ghost cell region includes the spherical axis. This is not implemented yet.")
+	# check that ghosts don't take us across the axis
+	# need to generalize later to include the axis (do full 4pi)
+	if ((tMin-Ng*dx2)<=0) or ((tMax+Ng*dx2)>=1.):
+		sys.exit("Ghost cell region includes the spherical axis. This is not implemented yet.")
 
-        r = np.linspace(Rin-Ng*dx1,Rout+Ng*dx1,Ngi)
-        t = np.linspace(tMin-Ng*dx2,tMax+Ng*dx2,Ngj)*np.pi
-        p = np.linspace(-Ng*dx3,1.+Ng*dx3,Ngk)*2*np.pi
+	r = np.linspace(Rin-Ng*dx1,Rout+Ng*dx1,Ngi)
+	t = np.linspace(tMin-Ng*dx2,tMax+Ng*dx2,Ngj)*np.pi
+	p = np.linspace(-Ng*dx3,1.+Ng*dx3,Ngk)*2*np.pi
 
-        # note the indexing flag for proper ordering for writeGrid later
-        R,T,P = np.meshgrid(r,t,p,indexing='ij')
+	# note the indexing flag for proper ordering for writeGrid later
+	R,T,P = np.meshgrid(r,t,p,indexing='ij')
 
-        X3 = R*np.sin(T)*np.cos(P)
-        Y3 = R*np.sin(T)*np.sin(P)
-        Z3 = R*np.cos(T)
+	X3 = R*np.sin(T)*np.cos(P)
+	Y3 = R*np.sin(T)*np.sin(P)
+	Z3 = R*np.cos(T)
 
 	return X3,Y3,Z3
 
@@ -456,7 +456,7 @@ def VizGrid(XX,YY,xxG=None,yyG=None,doGhost=False,doShow=True,xyBds=None,fOut="g
 	import matplotlib as mpl
 	import matplotlib.cm as cm
 	import matplotlib.pyplot as plt
-	import kaiViz as kv
+	import kaipy.kaiViz as kv
 
 	fSz = (10,4)
 	Alph = 0.35
@@ -545,6 +545,20 @@ def getLFM(fIn,Rin=3.0,Rout=25.0):
 	xxi = xxi[0:outCut+1,:]
 	yyi = yyi[0:outCut+1,:]
 
+	return xxi,yyi
+
+def LoadTabG(fIn="lfmG",Nc=0):
+	import os
+	__location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
+    
+	fInX = os.path.join(__location__,fIn+".X.txt")
+	fInY = os.path.join(__location__,fIn+".Y.txt")
+	xxi = np.loadtxt(fInX)
+	yyi = np.loadtxt(fInY)
+
+	if (Nc>0):
+		xxi = xxi[0:-Nc,:]
+		yyi = yyi[0:-Nc,:]
 	return xxi,yyi
 
 #Regrid xx/yy (corners) to new size

@@ -12,13 +12,14 @@ import numpy as np
 import kaipy.gamera.remixpp as rmpp
 import kaipy.gamera.magsphere as msph
 
+
 import os
 
 if __name__ == "__main__":
 	#Defaults
 	fdir = os.getcwd()
 	ftag = "msphere"
-	nStp = 0
+	nStp = -1
 	fOut = "qkpic.png"
 	doDen = False
 	noIon = False
@@ -58,8 +59,10 @@ if __name__ == "__main__":
 
 	doDBZ = True
 	doLogP = True
-	doMPI = False
+	doMPI = True
 	xyBds = [-40,20,-30,30]
+	cLW = 0.25
+	vcLW = 0.5
 
 	PMin = 0.0 ; PMax = 2.0
 	Nc = 11
@@ -68,10 +71,13 @@ if __name__ == "__main__":
 	vDD = kv.genNorm(0,25)
 	vV  = kv.genNorm(5)
 	if (doLogP):
-		vP = kv.genNorm(1.0e-3,1.0e+1,doLog=True)
+		vP = kv.genNorm(1.0e-2,10.0,doLog=True)
+		cVals = np.logspace(np.log10(1.0e-2),np.log10(10.0),Nc)
 	else:
 		vP = kv.genNorm(PMin,PMax)
-	
+		cVals = np.linspace(PMin,PMax,Nc)
+	if (doDen):
+		cVals = np.linspace(0,25,Nc)
 
 	LW = 0.25
 	ashd = 0.25
@@ -79,7 +85,9 @@ if __name__ == "__main__":
 	#======
 	#Init data
 	gsph = msph.GamsphPipe(fdir,ftag,doFast=doFast)
-
+	if (nStp<0):
+		nStp = gsph.sFin
+		print("Using Step %d"%(nStp))
 	#======
 	#Setup figure
 	fig = plt.figure(figsize=figSz)
@@ -96,8 +104,10 @@ if __name__ == "__main__":
 		kv.genCB(AxC1,vDB,"Residual Field [nT]",cM=dbCMap,Ntk=7)
 	else:
 		kv.genCB(AxC1,vBB,"Magnetic Field [nT]",cM=bCMap)
+	rmpp.cMax = 1.00
 	kv.genCB(AxC4,kv.genNorm(rmpp.cMax),"FAC",cM=rmpp.fcMap,Ntk=5)
 	#kv.genCB(AxC3,kv.genNorm(rmpp.pMax),"Potential [kV]",cM=rmpp.pMap,Ntk=7)
+
 	rmpp.AddPotCB(AxC3)
 
 	if (doDen):
@@ -112,20 +122,24 @@ if __name__ == "__main__":
 	AxR.clear()
 	if (doDBZ):
 		dbz = gsph.DelBz(nStp)
+		Bz = gsph.EggSlice("Bz",nStp,doEq=True)
+
 	else:
 		MagB = gsph.eqMagB(nStp)
-	#Pxy = gsph.EggSlice("P",nStp,vScl=gsph.pScl,doEq=True)
 
 	if (doDen):
 		Dxz = gsph.EggSlice("D",nStp,doEq=False)
+		Dxy = gsph.EggSlice("D",nStp,doEq=True)
 	else:
 		Pxz = gsph.EggSlice("P",nStp,vScl=gsph.pScl,doEq=False)
+		Pxy = gsph.EggSlice("P",nStp,vScl=gsph.pScl,doEq=True)
 	if (doDBZ):
 		AxL.pcolormesh(gsph.xxi,gsph.yyi,dbz,cmap=dbCMap,norm=vDB)
+		AxL.contour(kv.reWrap(gsph.xxc),kv.reWrap(gsph.yyc),kv.reWrap(Bz),[0.0],colors='magenta',linewidths=cLW)
+
 	else:
 		AxL.pcolormesh(gsph.xxi,gsph.yyi,MagB,cmap=bCMap,norm=vBB)
-	# if (not doDen):
-	# 	AxL.contour(kv.reWrap(gsph.xxc),kv.reWrap(gsph.yyc),kv.reWrap(Pxy),pVals,norm=vP,cmap=pCMap)
+	
 
 	kv.addEarth2D(ax=AxL)
 	kv.SetAx(xyBds,AxL)
@@ -134,28 +148,46 @@ if __name__ == "__main__":
 	AxL.set_xlabel('SM-X [Re]')
 	AxL.set_ylabel('SM-Y [Re]')
 
+	#Add contour to equatorial plot and do right plot
 	if (doDen):
 		AxR.pcolormesh(gsph.xxi,gsph.yyi,Dxz,cmap=dCMap,norm=vDD)
+		AxL.contour(kv.reWrap(gsph.xxc),kv.reWrap(gsph.yyc),kv.reWrap(Dxy),cVals,norm=vDD,cmap=dCMap,linewidths=vcLW)
+
 	else:
 		AxR.pcolormesh(gsph.xxi,gsph.yyi,Pxz,cmap=pCMap,norm=vP)
+		AxL.contour(kv.reWrap(gsph.xxc),kv.reWrap(gsph.yyc),kv.reWrap(Pxy),cVals,norm=vP,cmap=pCMap,linewidths=vcLW)
 
 	kv.addEarth2D(ax=AxR)
 	kv.SetAx(xyBds,AxR)
 	AxR.yaxis.tick_right()
 	AxR.yaxis.set_label_position('right')
 	if (doIon):
-		gsph.AddCPCP(nStp,AxR,xy=[0.65,0.925])
+		gsph.AddCPCP(nStp,AxR,xy=[0.625,0.925])
 
 	AxR.set_xlabel('SM-X [Re]')
 	AxR.set_ylabel('SM-Z [Re]')
 
-
 	#Add MPI decomp
 	if (doMPI):
+		gCol = "slategrey"
 		for i in range(gsph.Ri):
 			i0 = i*gsph.dNi
-			AxL.plot(gsph.xxi[i0,:],gsph.yyi[i0,:],'m',linewidth=LW,alpha=ashd)
-			AxR.plot(gsph.xxi[i0,:],gsph.yyi[i0,:],'c',linewidth=LW,alpha=ashd)
+			AxL.plot(gsph.xxi[i0,:],gsph.yyi[i0,:],gCol,linewidth=LW,alpha=ashd)
+			AxR.plot(gsph.xxi[i0,:],gsph.yyi[i0,:],gCol,linewidth=LW,alpha=ashd)
+		if (gsph.Rj>1):
+			for j in range(1,gsph.Rj):
+				j0 = j*gsph.dNj
+				AxL.plot(gsph.xxi[:,j0] ,gsph.yyi[:,j0],gCol,linewidth=LW,alpha=ashd)
+				AxL.plot(gsph.xxi[:,j0],-gsph.yyi[:,j0],gCol,linewidth=LW,alpha=ashd)
+				AxR.plot(gsph.xxi[:,j0], gsph.yyi[:,j0],gCol,linewidth=LW,alpha=ashd)
+				AxR.plot(gsph.xxi[:,j0],-gsph.yyi[:,j0],gCol,linewidth=LW,alpha=ashd)
+			#X-axis (+)
+			AxL.plot(gsph.xxi[:,0], gsph.yyi[:,0],gCol,linewidth=LW,alpha=ashd)
+			AxR.plot(gsph.xxi[:,0], gsph.yyi[:,0],gCol,linewidth=LW,alpha=ashd)
+			#X-axis (-)
+			j0 = (gsph.Rj)*gsph.dNj
+			AxL.plot(gsph.xxi[:,j0], gsph.yyi[:,j0],gCol,linewidth=LW,alpha=ashd)
+			AxR.plot(gsph.xxi[:,j0], gsph.yyi[:,j0],gCol,linewidth=LW,alpha=ashd)
 
 	if (doIon):
 		fmix = gsph.Gam2Remix(nStp)

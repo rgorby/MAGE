@@ -1,7 +1,7 @@
 !Various utilities to handle solar wind BC
 
 module wind
-    use types
+    use gamtypes
     use gamutils
     use math
     use xml_input

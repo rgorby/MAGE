@@ -1,6 +1,6 @@
 module init
 
-    use types
+    use gamtypes
     use math
     use gridutils
     use gamutils
@@ -168,11 +168,11 @@ module init
 
         !Incorporate background field, B0, if necessary
         if (Model%doBackground .and. Grid%doB0Init) then
-            call AddB0(Model,Grid,State,Model%B0)
+            call AddB0(Model,Grid,Model%B0)
         endif
         !Incorporate gravity if necessary
         if (Model%doGrav .and. Grid%doG0Init) then
-            call AddGrav(Model,Grid,State,Model%Phi)
+            call AddGrav(Model,Grid,Model%Phi)
         endif
 
     end subroutine DoneState

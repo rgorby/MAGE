@@ -1,6 +1,6 @@
 module gamutils
 
-    use types
+    use gamtypes
 #ifdef _OPENMP
     use omp_lib
 #endif    

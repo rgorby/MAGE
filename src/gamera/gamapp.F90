@@ -1,7 +1,7 @@
 ! Main data objects and functions to perform a gamera simulation
 
 module gamapp
-    use types
+    use gamtypes
     use step
     use init
     use mhdgroup

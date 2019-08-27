@@ -1,5 +1,5 @@
 module fields
-    use types
+    use gamtypes
     use clocks
     use gamutils
     use recon
@@ -82,14 +82,14 @@ module fields
 
         !Vf(i,j,k,XYZ-DIR), XYZ velocities pushed to dT1 faces
         !Vf = (Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,NDIM)
-        real(rp), dimension(:,:,:,:), allocatable, save :: Vf,EDiff
+        real(rp), dimension(:,:,:,:), allocatable, save :: Vf
 
+        !DIR$ ASSUME_ALIGNED E: ALIGN
         !DIR$ ATTRIBUTES align : ALIGN :: v1,v2,b1,b2,Jd,Dc,vDiff,VelB
-        !DIR$ ATTRIBUTES align : ALIGN :: Vf,EDiff
+        !DIR$ ATTRIBUTES align : ALIGN :: Vf
 
         !Initialize arrays
         call InitMagVec(Model,Gr,Vf   )
-        call InitMagVec(Model,Gr,EDiff)
 
         !Prep bounds for this timestep
         eD0 = 1 !Starting direction for EMF
@@ -221,8 +221,8 @@ module fields
                             endif
 
                             !Final field (w/ edge length)
-                            E    (iG,j,k,eD) = -( v1(i)*b2(i) - v2(i)*b1(i) )*Gr%edge(iG,j,k,eD)
-                            EDiff(iG,j,k,eD) = Model%Vd0*vDiff(i)*Jd(i)      *Gr%edge(iG,j,k,eD)
+                            E(iG,j,k,eD) = -( v1(i)*b2(i) - v2(i)*b1(i) ) + Model%Vd0*vDiff(i)*Jd(i)
+                            E(iG,j,k,eD) = E(iG,j,k,eD)*Gr%edge(iG,j,k,eD)
                         enddo
                     enddo !iB loop
                 enddo
@@ -236,16 +236,6 @@ module fields
         enddo !eD loop, EMF direction
 
         !$OMP END PARALLEL
-
-
-        !$OMP PARALLEL DO default (shared) collapse(2)
-        do k=Gr%ks, Gr%ke+1
-            do j=Gr%js, Gr%je+1
-                do i=Gr%is, Gr%ie+1
-                    E(i,j,k,:) = E(i,j,k,:) + EDiff(i,j,k,:)
-                enddo
-            enddo
-        enddo
 
         if(Model%useResistivity) call resistivity(Model,Gr,State,E)
         

@@ -1,5 +1,5 @@
 module mhdgroup
-    use types
+    use gamtypes
     use clocks
     use gamutils
     use gridutils
@@ -98,7 +98,8 @@ module mhdgroup
         real(rp), dimension(NDIM) :: B,oB,dPm
         logical :: BorisUpdate
         real(rp) :: Ca
-
+        !DIR$ ASSUME_ALIGNED dGasH: ALIGN
+        !DIR$ ASSUME_ALIGNED dGasM: ALIGN
     !--------------------
     !Copy current->old
         call Tic("Copy2Old")
@@ -235,22 +236,32 @@ module mhdgroup
         real(rp), dimension(NVAR,BLK:Model%nSpc), intent(inout) :: dGasH
         real(rp), intent(in) :: dt
 
-        integer :: s
-        if (Model%doMultiF) then
+        integer :: s,n
+        logical, dimension(Model%nSpc) :: isGood
 
+        if (Model%doMultiF) then
+            isGood = ( U(DEN,1:Model%nSpc) >= Spcs(:)%dVac )
             !Update individual species then accumulate
             do s=1,Model%nSpc
-                !Always apply update (even to cells that aren't above floor)
-                !Otherwise they'll never get above floor
-                U(:,s) = U(:,s) + dt*dGasH(:,s)
+                if (isGood(s)) then
+                    U(:,s) = U(:,s) + dt*dGasH(:,s)
+                else
+                    !Always apply update (even to cells that aren't above floor)
+                    !Otherwise they'll never get above floor
+                    !TODO: Test only updating "bad" fluids if delta-rho > 0, i.e. don't take from vacuum
+                    U(DEN,s) = U(DEN,s) + dt*dGasH(DEN,s)
+                endif
             enddo
             call MultiF2Bulk(Model,U)
             !Reset bulk delta to sum of component species
-            dGasH(:,BLK) = sum(dGasH(:,1:Model%nSpc),dim=2)
+            do n=1,NVAR
+                dGasH(n,BLK) = sum(dGasH(n,1:Model%nSpc),mask=isGood)
+            enddo
         else
             !Just do bulk flow and get outta here
             U(:,BLK) = U(:,BLK) + dt*dGasH(:,BLK)
         endif
+
     end subroutine CellReynolds
 
     !Apply Maxwell update to cell (only used in single species case)
@@ -310,7 +321,8 @@ module mhdgroup
         !Get D, pressure from hydro update
         call CellC2P(Model,U2(:,BLK),W2)
         D2 = max(W2(DEN),dFloor)
-        P2 = W2(PRESSURE)
+        P2 = max(W2(PRESSURE),pFloor)
+
         !Get old D/V
         D0 = U0(DEN      ,BLK)
         V0 = U0(MOMX:MOMZ,BLK)/max(D0,dFloor)
@@ -353,7 +365,8 @@ module mhdgroup
                 !Get D, pressure from hydro update
                 call CellC2P(Model,U2(:,s),W2)
                 D2s = max(W2(DEN),dFloor)
-                P2s = W2(PRESSURE)
+                P2s = max(W2(PRESSURE),pFloor)
+                
                 !Get old D/V
                 D0s = U0(DEN      ,s)
                 V0s = U0(MOMX:MOMZ,s)/max(D0s,dFloor)
@@ -462,10 +475,12 @@ module mhdgroup
         pState%time = State%time + pdt
         ht = pdt/odt
 
+        !One big // region
+        !$OMP PARALLEL default(shared) private(i,j,k,isCC)
+
         !Loop over grid and perform predictor on each cell of fluid/s
         !XYZ fields and interface fluxes
-        !$OMP PARALLEL DO default(shared) collapse(2) &
-        !$OMP private(i,j,k,isCC)
+        !$OMP DO collapse(2)
         do k=Grid%ksg,Grid%keg+1
             do j=Grid%jsg,Grid%jeg+1
                 do i=Grid%isg,Grid%ieg+1
@@ -484,12 +499,12 @@ module mhdgroup
                     endif !MHD
                 enddo !I loop
             enddo
-        enddo !K loop
+        enddo !K loop (implicit barrier)
 
         !Now do flux->field where necessary
         if (Model%doMHD) then
             !Replace Bxyz w/ flux->field calculations in xxMG region
-            !$OMP PARALLEL DO default(shared) collapse(2)
+            !$OMP DO collapse(2)
             do k=Grid%ksMG,Grid%keMG
                 do j=Grid%jsMG,Grid%jeMG
                     do i=Grid%isMG,Grid%ieMG
@@ -498,6 +513,9 @@ module mhdgroup
                 enddo
             enddo
         endif
+
+        !Close big parallel region
+        !$OMP END PARALLEL
 
     end subroutine Predictor
 

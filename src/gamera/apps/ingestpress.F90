@@ -1,7 +1,7 @@
 ! routines for pressure ingestion
 
 module ingestpress
-  use types
+  use gamtypes
   use gamutils
   use ioH5
 

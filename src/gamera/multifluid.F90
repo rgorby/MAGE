@@ -1,7 +1,7 @@
 !Routines related to multifluid simulations
 
 module multifluid
-    use types
+    use gamtypes
     use xml_input
     use gamutils
     
@@ -10,7 +10,7 @@ module multifluid
     !Information for a given fluid species
     type FLUID_T
         character(len=strLen) :: idStr="NONE"
-        real(rp) :: dVac = TINY
+        real(rp) :: dVac = TINY !Threshold for "vacuum" for this species
     end type FLUID_T
 
     !Array of fluid descriptors (1-nSpc)
@@ -55,6 +55,12 @@ module multifluid
         integer :: n
         logical, dimension(Model%nSpc) :: isGood
         real(rp), dimension(NVAR) :: pW,pCon
+        real(rp), dimension(NDIM) :: Vblk
+
+        !Start by getting bulk flow speed
+        pCon = U(:,BLK)
+        call CellC2P(Model,pCon,pW)
+        Vblk = pW(VELX:VELZ)
 
         !Which fluids in this cell are good
         isGood = ( U(DEN,1:Model%nSpc) >= Spcs(:)%dVac )
@@ -66,7 +72,9 @@ module multifluid
                 call CellC2P(Model,pCon,pW)
                 pW(DEN)      = max(pW(DEN),dFloor)
                 pW(PRESSURE) = max(pW(PRESSURE),pFloor)
+                pW(VELX:VELZ) = Vblk
                 call CellP2C(Model,pW,pCon)
+                U(:,n) = pCon !Put touched up values back in
             endif
         enddo
 
@@ -116,5 +124,30 @@ module multifluid
         enddo
 
     end function MultiFCs
+
+    function MultiFSpeed(Model,U) result(MaxV)
+        type(Model_T), intent(in) :: Model
+        real(rp), intent(in) :: U(NVAR,BLK:Model%nSpc)
+        real(rp) :: MaxV
+
+        integer :: n
+        logical, dimension(Model%nSpc) :: isGood
+        real(rp), dimension(NVAR) :: pW,pCon
+        real(rp) :: Vn
+        
+        !Which fluids in this cell are good
+        isGood = ( U(DEN,1:Model%nSpc) >= Spcs(:)%dVac )
+        MaxV = 0.0
+
+        do n=1,Model%nSpc
+            if (isGood(n)) then
+                pCon = U(:,n)
+                call CellC2P(Model,pCon,pW)
+                Vn = norm2(pW(VELX:VELZ))
+                MaxV = max(MaxV,Vn)
+            endif
+        enddo
+
+    end function MultiFSpeed
 
 end module multifluid
