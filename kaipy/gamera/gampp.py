@@ -132,7 +132,7 @@ class GameraPipe(object):
 	def ChunkName(self,i,j,k):
 		if (self.isMPI):
 			fIn = "blah"
-			n = i + j*self.Ri + k*self.Ri*self.Rj
+			n = j + i*self.Rj + k*self.Ri*self.Rj
 			fRn = "%04d_%04d_%04d_%04d_%04d_%04d_%012d"%(self.Ri,self.Rj,self.Rk,i,j,k,n)
 			fIn = self.fdir+"/"+self.ftag+"_"+fRn+".h5"
 		else:
