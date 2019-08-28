@@ -24,7 +24,7 @@ contains
     real(rp), dimension(:,:,:), allocatable :: initialMagneticField
     real(rp) :: totalError, initialTotalMagneticField, finalTotalMagneticField
 
-    call initGamera(gameraApp, initUser, '../../tests/cases/loop2d.xml')
+    call initGamera(gameraApp, initUser, 'loop2d.xml')
 
     ! save initial magnetic field
     allocate(initialMagneticField(gameraApp%Grid%isg:gameraApp%Grid%ieg+1,gameraApp%Grid%jsg:gameraApp%Grid%jeg+1,gameraApp%Grid%ksg:gameraApp%Grid%keg+1))
@@ -52,7 +52,7 @@ contains
     real(rp), dimension(:,:,:), allocatable :: initialGasDensity
     real(rp) :: totalError, initialTotalDensity, finalTotalDensity
 
-    call initGamera(gameraApp, initUser, '../../tests/cases/adv2d.xml')
+    call initGamera(gameraApp, initUser, 'adv2d.xml')
 
     ! save initial density
     allocate(initialGasDensity(gameraApp%Grid%isg:gameraApp%Grid%ieg,gameraApp%Grid%jsg:gameraApp%Grid%jeg,gameraApp%Grid%ksg:gameraApp%Grid%keg))
@@ -79,7 +79,7 @@ contains
     real(rp), dimension(:,:,:), allocatable :: initialMagneticField
     real(rp) :: totalError, initialTotalMagneticField, finalTotalMagneticField
 
-    call initGamera(gameraApp, initUser, '../../tests/cases/alfven.xml')
+    call initGamera(gameraApp, initUser, 'alfven.xml')
 
     ! save initial magnetic field
     allocate(initialMagneticField(gameraApp%Grid%isg:gameraApp%Grid%ieg+1,gameraApp%Grid%jsg:gameraApp%Grid%jeg+1,gameraApp%Grid%ksg:gameraApp%Grid%keg+1))
@@ -105,9 +105,9 @@ contains
     real(rp), dimension(:,:,:), allocatable :: sD,eD !Initial/Final densities
     real(rp) :: L2err,L2Tol
 
-    L2Tol = 2.5e-6
+    L2Tol = 6.5e-3
 
-    call initGamera(gameraApp, initUser, '../../tests/cases/adv1d.xml')
+    call initGamera(gameraApp, initUser, 'adv1d.xml')
 
     associate(Gr=>gameraApp%Grid,Gas=>gameraApp%State%Gas)
     !Allocate arrays
@@ -142,7 +142,7 @@ contains
     real(rp) :: dG
     real(rp), dimension(NVAR) :: Gij,Gijp
 
-    call initGamera(gameraApp, initUser, '../../tests/cases/ot2d.xml')
+    call initGamera(gameraApp, initUser, 'ot2d.xml')
     !Now advance for period of time specified in XML
     do while ( (gameraApp%Model%t < gameraApp%Model%tFin) )
       call stepGamera(gameraApp)
