@@ -105,7 +105,7 @@ contains
     real(rp), dimension(:,:,:), allocatable :: sD,eD !Initial/Final densities
     real(rp) :: L2err,L2Tol
 
-    L2Tol = 6.5e-3
+    L2Tol = 7.0e-3
 
     call initGamera(gameraApp, initUser, 'adv1d.xml')
 
@@ -132,6 +132,40 @@ contains
     end associate
     @assertLessThanOrEqual(L2err,L2Tol,"1D Advection test failed!")
   end subroutine testAdv1D
+
+  @test
+  subroutine testAdv1D_8CENT()
+    type(gamApp_T) :: gameraApp
+    real(rp), dimension(:,:,:), allocatable :: sD,eD !Initial/Final densities
+    real(rp) :: L2err,L2Tol
+
+    L2Tol = 7.0e-3
+
+    call initGamera(gameraApp, initUser, 'adv1d_8cent.xml')
+
+    associate(Gr=>gameraApp%Grid,Gas=>gameraApp%State%Gas)
+    !Allocate arrays
+    allocate(sD(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke))
+    allocate(eD(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke))
+    !Save initial density
+    sD = Gas(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,DEN,BLK)
+
+    !Now advance for one full advection cycle
+    do while ( (gameraApp%Model%t < gameraApp%Model%tFin) )
+      call stepGamera(gameraApp)
+    enddo
+
+    !Save final density
+    eD = Gas(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,DEN,BLK)
+    L2err = norm2(sD-eD)/(1.0*Gr%Nip)
+
+    write(*,*) '1D Advection test 8CENT'
+    write(*,*) 'Cells = ', Gr%Nip
+    write(*,*) 'L2 error = ', L2err
+
+    end associate
+    @assertLessThanOrEqual(L2err,L2Tol,"1D Advection test 8CENT failed!")
+  end subroutine testAdv1D_8CENT
 
   !Use Orszag-Tang to test for maintaining symmetry
   @test

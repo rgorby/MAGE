@@ -1,0 +1,9 @@
+<Gamera>
+    <sim runid="adv1d_8cent" doH5init="F" icType="ADV1D" pdmb="4.0" rmeth="8CENT"/>
+    <idir min="-1.0" max="1.0" N="128"/>
+    <jdir min="-0.5" max="0.5" N="1"/>
+    <kdir min="-0.5" max="0.5" N="1"/>
+    <time tFin="2.0"/>
+    <output dtOut="0.5" tsOut="1000000"/>
+    <physics doMHD="F" do25D="F"/>
+</Gamera>
