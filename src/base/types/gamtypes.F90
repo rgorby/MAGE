@@ -229,7 +229,7 @@ module gamtypes
         real(rp), dimension(:,:,:), allocatable :: eqDen    ! instantaneous equatorial density (for plasmasphere)
         
         real(rp) :: time
-
+        !DIR$ attributes align : ALIGN :: Gas,Efld,Bxyz
     end type State_T
 
     !StateIC_T
