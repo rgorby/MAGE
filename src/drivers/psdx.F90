@@ -29,7 +29,7 @@ program psdx
     !----------------------------
     !Initialize
     !Model & fields
-    call getChimp(Model,ebState,iXML=inpXML)
+    call goApe(Model,ebState,iXML=inpXML)
     !Phase space
     call genPS(Model,psGr,inpXML)
     !PSD population

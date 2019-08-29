@@ -23,7 +23,7 @@ program slicex
 
     !----------------------------
     !Initialize model and fields
-    call getChimp(Model,ebState,iXML=inpXML)
+    call goApe(Model,ebState,iXML=inpXML)
     Model%doEBOut = .true.
     call initEBio(Model,ebState,inpXML)
 

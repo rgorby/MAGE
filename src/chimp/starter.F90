@@ -19,7 +19,7 @@ module starter
     contains
 
     !Initialize Model, set IC pointers for particles/fields and call them
-    subroutine getChimp(Model,ebState,tpState,iXML)
+    subroutine goApe(Model,ebState,tpState,iXML)
         type(chmpModel_T), intent(inout) :: Model
         type(ebState_T), intent(inout), optional   :: ebState
         type(tpState_T), intent(inout), optional   :: tpState
@@ -27,7 +27,7 @@ module starter
 
         character(len=strLen) :: xmlStr
         type(XML_Input_T) :: inpXML
-        write(*,*) "getChimp: Create all data structures"
+        write(*,*) "goApe: Create all data structures"
  
         CalcGC => DirectGC
        
@@ -65,7 +65,7 @@ module starter
 
             call initParticles(Model,ebState,tpState,inpXML)
         endif
-    end subroutine getChimp
+    end subroutine goApe
 
     !Initialize model variable
     !Assume time values are in input units, ie code = inTScl*input time
