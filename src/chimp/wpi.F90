@@ -18,7 +18,7 @@ module wpi
         real(rp), dimension(NDIM) :: r,p,E,B,xhat,yhat,bhat
         real(rp), dimension(NDIM) :: p11,pxy,vExB
         real(rp) :: gamma,ebGam,aNew,pNew,pMag,MagB,Mu,p11Mag
-        integer :: pSgn
+        integer :: pSgn=1
 
         !Change in pitch angle and momentum due to different waves 
         real(rp) :: dAwhistler=0.0,dPwhistler=0.0
@@ -42,18 +42,14 @@ module wpi
         call MagTriad(r,B,xhat,yhat,bhat)
         MagB = max(norm2(B),TINY)
 
-        !Update the pitch angle and momentum of the particle
+        !Update the pitch angle 
         aNew = prt%alpha + dAwhistler
-        pNew = prt%Q(PSITP) + dPwhistler
-
         prt%alpha = aNew
 
-        if (aNew <= PI/2) then
-            pSgn = +1
-        else
-            pSgn = -1
-        endif
-
+        !Updating the momentum vairables
+        !FIXME: dp should be 3 dimensional, need to update momentum/energy components
+        !This is calculating new momentum from alpha, not necessary when have dp
+        !Look into pSgn to see if it is necessary in this application
         prt%Q(PSITP) = pNew
         if (prt%isGC) then
             !Scatter GC particle
@@ -66,6 +62,7 @@ module wpi
 
             prt%Q(P11GC) = p11Mag
             prt%Q(MUGC ) = Mu 
+            prt%Q(GAMGC) = gamma
         else
             p = prt%Q(PXFO:PZFO)
             gamma = pv2Gam(p,Model%m0)
