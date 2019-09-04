@@ -138,6 +138,7 @@ module starter
         call inpXML%Set_Val(Model%epsds,'tracer/epsds',1.0e-2)
 
     !WPI
+        call inpXML%Set_Val(Model%doWPI,'wpi/doWPI',.false.)
         call inpXML%Set_Val(Model%doEQScat,'wpi/doEQScat',.false.)
         !Outer boundary of scattering
         call inpXML%Set_Val(Model%reqScat, 'wpi/reqScat' ,HUGE)

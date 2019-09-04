@@ -7,88 +7,34 @@ module wpi
     
     implicit none
 
-    real(rp) :: zEq = 0.0 !Defined Z for equator
-    real(rp) :: zEq = 0.0 !Defined Z for equator
-    
     contains
-    !Checks for equatorial crossing and saves EQX data into nPrt
-    !oPrt,oT particle data/time of previous state
-    subroutine ChkEQX(oPrt,nPrt,oT,nT,Model,ebState)
-        type(prt_t), intent(in)    :: oPrt
-        type(prt_t), intent(inout) :: nPrt
-        real(rp), intent(in) :: oT,nT
-        type(chmpModel_T), intent(in) :: Model
-        type(ebState_T), intent(in)   :: ebState
-
-        real(rp) :: oZp,nZp,dZ,w1,w2,req
-        real(rp), dimension(NDIM) :: xeq,E,B,vExB,pExB
-
-        if (Model%do2D) then
-            !Trap here and quickly grab values
-            nPrt%Qeq(EQX:EQY) = nPrt%Q(XPOS:YPOS)
-            nPrt%Qeq(EQTIME)  = nT
-            nPrt%Qeq(EQKEV)   = prt2kev(Model,nPrt)
-            nPrt%Qeq(EQALP)   = nPrt%alpha
-            nPrt%Qeq(EQKEB)   = 0.0
-            return
-        endif
-        
-        oZp = oPrt%Q(ZPOS)-zEq
-        nZp = nPrt%Q(ZPOS)-zEq
-        if (oZp*nZp <=0) then
-        !Have a crossing
-            req = 0.5*( norm2(oPrt%Q(XPOS:YPOS)) + norm2(nPrt%Q(XPOS:YPOS)) )
-            !Do PA scattering first if necessary
-            if (Model%doEQScat .and. (req <= Model%reqScat) ) then
-                call PAScat(Model,ebState,nPrt,nT)
-            endif
-
-            !Get weights from Z distance for interpolation
-            if ( max(abs(oZp),abs(nZp)) > TINY ) then
-                dZ = abs(oZp-nZp)
-                w1 = abs(nZp)/dZ
-                w2 = abs(oZp)/dZ
-            else
-                dZ = 1.0
-                w1 = 0.0
-                w2 = 1.0
-            endif
-
-            !Interpolate quantities at crossing
-            nPrt%Qeq(EQX:EQY) = w1*oPrt%Q(XPOS:YPOS) + w2*nPrt%Q(XPOS:YPOS)
-            nPrt%Qeq(EQTIME)  = w1*oT + w2*nT
-            nPrt%Qeq(EQKEV)   = w1*prt2kev(Model,oPrt) + w2*prt2kev(Model,nPrt)
-            nPrt%Qeq(EQALP)   = w1*oPrt%alpha + w2*nPrt%alpha
-
-            !Handle ExB correction to particle energy
-            !FIXME: Need to handle cases where nPrt and oPrt have different isGC
-            if (Model%imeth == IFO) then
-                !Interp exb velocity at crossing
-                xeq = [nPrt%Qeq(EQX),nPrt%Qeq(EQX),zEq]
-                call ebFields(xeq,nPrt%Qeq(EQTIME),Model,ebState,E,B,ijkO=nPrt%ijk0,vExB=vExB)
-                pExB = Model%m0*vExB
-                nPrt%Qeq(EQKEB) = w1*p2kev(Model,oPrt%Q(PXFO:PZFO)-pExB) + w2*p2kev(Model,nPrt%Q(PXFO:PZFO)-pExB)
-
-            else
-                !FIXME: For now not bothering correcting for GC electrons
-                nPrt%Qeq(EQKEB)   = nPrt%Qeq(EQKEV)
-            endif
-
-        endif !Found EQX
-        
-    end subroutine ChkEQX
-
-    !Randomly change pitch angle
-    subroutine PAScat(Model,ebState,prt,t)
-        type(chmpModel_T), intent(in) :: Model
-        type(ebState_T), intent(in)   :: ebState
+    !Main subroutine for wave particle inteactions
+    subroutine PerformWPI(prt,t,tau,Model,ebState)
         type(prt_t), intent(inout) :: prt
-        real(rp), intent(in) :: t
+        real(rp), intent(in) :: t,tau
+        type(chmpModel_T), intent(in) :: Model
+        type(ebState_T), intent(in)   :: ebState
         
         real(rp), dimension(NDIM) :: r,p,E,B,xhat,yhat,bhat
         real(rp), dimension(NDIM) :: p11,pxy,vExB
         real(rp) :: gamma,ebGam,aNew,pNew,pMag,MagB,Mu,p11Mag
         integer :: pSgn
+
+        !Change in pitch angle and momentum due to different waves 
+        real(rp) :: dAwhistler=0.0,dPwhistler=0.0
+
+        if (Model%do2D) then
+            !Trap here and quickly grab values
+            prt%Qeq(EQX:EQY) = prt%Q(XPOS:YPOS)
+            prt%Qeq(EQTIME)  = t
+            prt%Qeq(EQKEV)   = prt2kev(Model,prt)
+            prt%Qeq(EQALP)   = prt%alpha
+            prt%Qeq(EQKEB)   = 0.0
+            return
+        endif
+
+        !Check to see if waves are present
+        call ChkWhistler(Model,ebState,prt,tau,dAwhistler,dPwhistler)
 
         !Get local coordinate system
         r = prt%Q(XPOS:ZPOS)
@@ -96,9 +42,9 @@ module wpi
         call MagTriad(r,B,xhat,yhat,bhat)
         MagB = max(norm2(B),TINY)
 
-        !Get new alpha/psi
-        aNew = genRand(0.0_rp,1*PI)
-        pNew = genRand(0.0_rp,2*PI)
+        !Update the pitch angle and momentum of the particle
+        aNew = prt%alpha + dAwhistler
+        pNew = prt%Q(PSITP) + dPwhistler
 
         prt%alpha = aNew
 
@@ -134,6 +80,62 @@ module wpi
             
         endif
 
-    end subroutine PAScat
+    end subroutine PerformWPI
+
+    !Check to see if particle interacts with whistler waves
+    subroutine ChkWhistler(Model,ebState,prt,tau,dalpha,dp)
+        type(chmpModel_T), intent(in) :: Model
+        type(ebState_T), intent(in)   :: ebState
+        type(prt_t), intent(inout) :: prt
+        real(rp), intent(in) :: tau
+        real(rp), intent(inout) :: dalpha,dp
+
+        logical :: doWave = .false. !Particle is in location where waves are occurring 
+
+        !See if particle meets criteria for whistler waves
+        !FIXME: for now have waves everywhere
+        doWave = .true. 
+
+        !perform wave particle interaction
+        if (doWave) then 
+            !Determine the wave that partilce is in resonance with
+            !FIXME: need to add this when include a form for Daa
+
+            !Calculate changes to pitch angle and momentum
+            call WhistlerWPI(Model,ebState,prt,tau,dalpha,dp)
+        endif
+
+    end subroutine ChkWhistler
+
+    subroutine WhistlerWPI(Model,ebState,prt,tau,dalpha,dp)
+        type(chmpModel_T), intent(in) :: Model
+        type(ebState_T), intent(in)   :: ebState
+        type(prt_t), intent(inout) :: prt
+        real(rp), intent(in) :: tau
+        real(rp), intent(inout) :: dalpha,dp
+
+        real(rp) :: Daa,rand
+        integer :: aSgn
+
+        !Calculate Daa from the local plasma
+        Daa = 1.0
+
+        !Calculate dAlpha from Daa
+        dalpha = sqrt(2.0*tau*Daa)
+
+        !Randomly determine sign of dAlpha
+        rand=genRand(0.0_rp,1.0_rp)
+        if (rand > 0.5) then
+            aSgn = +1
+        else
+            aSgn = -1
+        endif 
+
+        dalpha = aSgn*dalpha
+
+        !Get Change in momentum
+        dp = 0.0
+
+    end subroutine WhistlerWPI
 
 end module wpi
