@@ -1,7 +1,7 @@
 #Various tools to post-process and analyze Gamera magnetosphere runs
 from kaipy.kdefs import *
-import gampp
-from gampp import GameraPipe
+import kaipy.gamera.gampp
+from kaipy.gamera.gampp import GameraPipe
 import numpy as np
 import glob
 #Object to pull from MPI/Serial magnetosphere runs (H5 data), extends base
@@ -116,8 +116,8 @@ class GamsphPipe(GameraPipe):
 		Q = self.GetVar(vID,sID,vScl,doVerb)
 
 		#For upper/lower half planes, average above/below
-		Nk2 = self.Nk/2
-		Nk4 = self.Nk/4
+		Nk2 = self.Nk//2
+		Nk4 = self.Nk//4
 		if (doEq):
 			ku = -1
 			kl = Nk2-1

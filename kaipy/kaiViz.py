@@ -1,6 +1,6 @@
 #Various scripts to support visualization of Kaiju data
 
-from kdefs import *
+from kaipy.kdefs import *
 import h5py
 import numpy as np
 import matplotlib as mpl
@@ -236,7 +236,8 @@ def genCB(AxCB,vN,cbT="Title",cM="viridis",doVert=False,cbSz="medium",Ntk=None):
 		cbOr = "vertical"
 	else:
 		cbOr = "horizontal"
-	cb = mpl.colorbar.ColorbarBase(AxCB,cmap=cM,norm=vN,orientation=cbOr)
+	cmData = plt.get_cmap(cM)
+	cb = mpl.colorbar.ColorbarBase(AxCB,cmap=cmData,norm=vN,orientation=cbOr)
 	if (Ntk is not None):
 		cb.locator = ticker.MaxNLocator(nbins=Ntk)
 		cb.update_ticks()

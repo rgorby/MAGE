@@ -2,7 +2,7 @@
 
 import h5py
 import numpy as np
-import gamGrids as gg
+import kaipy.gamera.gamGrids as gg
 import scipy
 from scipy.spatial import ConvexHull
 
