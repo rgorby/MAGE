@@ -58,7 +58,7 @@ module chmpdefs
 
     !Grid types
     enum, bind(C) 
-        enumerator :: LFMGRID,EGGGRID,CARTGRID
+        enumerator :: LFMGRID,EGGGRID,CARTGRID,SPHGRID
     endenum
 
     !Integrator types

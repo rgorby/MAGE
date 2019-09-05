@@ -119,12 +119,17 @@ module gridloc
                         locAux%xxC(i,j) = 0.25*( sum(ebGr%xyz(i:i+1,j:j+1,ebGr%ks,XDIR)) )
                         locAux%yyC(i,j) = 0.25*( sum(ebGr%xyz(i:i+1,j:j+1,ebGr%ks,YDIR)) )
                     enddo
-                enddo                
+                enddo   
+                locAux%isInit = .true.             
             endif
 
         case(CARTGRID)
             write(*,*) 'Cartesian not implemented'
             stop
+        case(SPHGRID)
+            write(*,*) 'Initializing SPH locator'
+            locate=>Loc_SPH
+            locAux%isInit = .true.
         end select
 
         !Set inDomain function here
@@ -276,6 +281,19 @@ module gridloc
 
     end subroutine Loc_LFM
 
+    !3D localization routine for spherical grid
+    subroutine Loc_SPH(xyz,ijk,Model,ebGr,isInO,ijkO)
+        real(rp), intent(in) :: xyz(NDIM)
+        integer, intent(out) :: ijk(NDIM)
+        type(chmpModel_T), intent(in) :: Model
+        type(ebGrid_T), intent(in) :: ebGr
+        logical, intent(out), optional :: isInO
+        integer, intent(in), optional :: ijkO(NDIM)
+
+        !E: Add localization routine here
+        ijk = 0
+        isInO = .false.
+    end subroutine Loc_SPH
 !---------------------------------------
 !inDomain functions
 

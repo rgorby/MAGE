@@ -119,6 +119,16 @@ module chmpunits
             M0g = SaturnM0g
             inPScl = gP0 !Gamera pressure -> nPa
             rClosed = 5.0 !Inner boundary for Saturn
+        case("HELIO")
+            !E: Add code units here
+            !Gamera units for heliosphere runs
+            L0 = 1.0
+            in2cms = 1.0
+            in2G   = 1.0
+            in2s   = 1.0
+            M0g = 0.0
+            inPScl = 1.0  !Gamera pressure -> nPa
+            rClosed = 5.0 !Radius of inner boundary in units of grid length
         case("LFM")
             L0 = Re_cgs !Using scaled grid
             !Rest of units are already in cgs + Gauss

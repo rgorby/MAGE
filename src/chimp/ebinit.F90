@@ -95,6 +95,9 @@ module ebinit
             ebGr%GrID = LFMGRID
             write(*,*) '<Grid type = LFM>'
             call FixCorners(Model,ebGr)
+        case("SPH")
+            ebGr%GrID = SPHGRID
+            write(*,*) '<Grid type = SPH>'
         case default
             ebGr%GrID = EGGGRID
             write(*,*) '<Unknown grid type, assuming EGG>'
