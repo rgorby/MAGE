@@ -149,6 +149,15 @@ module msphutils
         write(*,*) 'g  [m/s2] = ', gG0
         write(*,*) '---------------'
 
+        !Save scaling to gUnits_T structure in Model
+        Model%Units%gT0 = gT0
+        Model%Units%gx0 = gx0
+        Model%Units%gv0 = gv0
+        Model%Units%gD0 = gD0
+        Model%Units%gP0 = gP0
+        Model%Units%gB0 = gB0
+        Model%Units%gG0 = gG0
+
         !Add normalization/labels to output slicing
         Model%gamOut%tScl = gT0
         Model%gamOut%dScl = 1.0
