@@ -63,8 +63,8 @@ def getEQGrid(fIn,doCenter=False,doWrap=False):
 	if (doWrap):
 		doCenter = True
 	with h5py.File(fIn,'r') as hf:
-		xx = hf.get("X").value.T
-		yy = hf.get("Y").value.T
+		xx = hf.get("X")[()].T
+		yy = hf.get("Y")[()].T
 	if (not doCenter):
 		return xx,yy
 

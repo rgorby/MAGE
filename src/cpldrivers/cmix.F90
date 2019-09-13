@@ -1,1 +1,0 @@
-!Coupled magnetosphere/ionosphere driver
