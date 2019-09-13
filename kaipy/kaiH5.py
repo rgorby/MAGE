@@ -73,9 +73,8 @@ def getVars(fname,s0):
 def PullVar(fname,vID,s0=None):
 	with h5py.File(fname,'r') as hf:
 		if (s0 is None):
-			V = hf[vID].value.T
+			V = hf[vID][()].T
 		else:
 			gId = "/Step#%d"%(s0)
-			V = hf[gId][vID].value.T
-			#V = hf[gId][vID][:].T
+			V = hf[gId][vID][()].T
 	return V

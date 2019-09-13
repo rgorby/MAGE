@@ -134,6 +134,44 @@ module streamline
         end associate
     end function FLVol
 
+    !Averaged density/pressure
+    subroutine FLThermo(Model,ebGr,bTrc,bD,bP,dvB)
+        type(chmpModel_T), intent(in) :: Model
+        type(ebGrid_T), intent(in) :: ebGr
+        type(fLine_T), intent(in) :: bTrc
+        real(rp), intent(out) :: bD,bP,dvB
+
+        integer :: Nc,n,k
+        real(rp), dimension(:), allocatable :: bAvg,dl,eD,eP,dV
+
+        associate(Np=>bTrc%Np,Nm=>bTrc%Nm)
+
+        !Recenter to edges
+        Nc = Nm+Np+1-1 !Centers
+        allocate(bAvg(Nc)) !Edge field strength
+        allocate(dl  (Nc)) !Edge length
+        allocate(eD  (Nc)) !Edge-centered density
+        allocate(eP  (Nc)) !Edge-centered pressure
+        allocate(dV  (Nc)) !Volume element
+        n = 1
+        do k=-Nm,Np-1
+            dl(n)   = norm2(bTrc%xyz(k+1,:)-bTrc%xyz(k,:))
+            bAvg(n) = 0.5*(bTrc%lnVars(0)%V(k+1) + bTrc%lnVars(0)%V(k))
+            eD(n)   = 0.5*(bTrc%lnVars(DEN)%V(k+1) + bTrc%lnVars(DEN)%V(k))
+            eP(n)   = 0.5*(bTrc%lnVars(PRESSURE)%V(k+1) + bTrc%lnVars(PRESSURE)%V(k))
+        
+            n = n+1
+        enddo
+        
+        dV = minval(bAvg)*dl/bAvg
+        dvB = sum(dV) !Total flux-tube volume
+        
+        bD = sum(eD*dV)/dvB
+        bP = sum(eP*dV)/dvB
+
+        end associate
+    end subroutine FLThermo
+    
     !Flux tube entropy
     function FLEntropy(Model,ebGr,bTrc,GamO) result(S)
         type(chmpModel_T), intent(in) :: Model
