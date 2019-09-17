@@ -69,13 +69,6 @@ module gamapp
         call AdvanceMHD(gameraApp%Model,gameraApp%Grid,gameraApp%State,gameraApp%oState,gameraApp%Solver,gameraApp%Model%dt)
         call Toc("Gamera")
 
-        !Enforce floors if necessary
-        if (gameraApp%Model%doArmor) then
-            call Tic("Armor")
-            call Armor(gameraApp%Model,gameraApp%Grid,gameraApp%State)
-            call Toc("Armor")
-        endif
-
         !Update info
         gameraApp%Model%ts = gameraApp%Model%ts+1
         gameraApp%Model%t = gameraApp%Model%t+gameraApp%Model%dt

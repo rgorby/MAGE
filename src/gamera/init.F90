@@ -249,7 +249,6 @@ module init
         Model%doHall = .false.
         Model%doGrav = .false.
 
-        call xmlInp%Set_Val(Model%doArmor,'physics/doArmor',.false.)
         call xmlInp%Set_Val(Model%doMHD  ,'physics/doMHD'  ,.false.)
         call xmlInp%Set_Val(Model%do25D  ,'physics/do25D'  ,.false.)
         call xmlInp%Set_Val(Model%useResistivity,'/physics/useResistivity',.false.)

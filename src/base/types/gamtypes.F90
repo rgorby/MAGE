@@ -75,13 +75,13 @@ module gamtypes
         integer :: nOut=0,nRes=0 !Output numbering for H5/restarts 
         integer :: ts, tsOut !tsOut = steps between screen output
         logical :: doHall=.false., doMultiF=.false., &
-                   doBackground=.false. , doMHD=.false., doArmor=.false.
+                   doBackground=.false. , doMHD=.false.
         logical :: do25D =.false., doTimer=.false., doGrav = .false.
         logical :: doResOut = .false. !Output restarts
         logical :: isRestart=.false.
         logical :: doDivB=.false. !Output DivB
         logical :: useResistivity=.false.
-        logical :: doForce=.false. !Use external force
+        
 
         integer :: nTh=1 !Number of threads per node/group
 
@@ -90,9 +90,13 @@ module gamtypes
         type (gOut_T)   :: gamOut
 
         !Boris correction information
-        logical :: doBoris,doHogs, doHeat,doPsphere
+        logical :: doBoris,doHogs
         real(rp) :: cHogH,cHogM !Coefficients for HOGS terms
         real(rp) :: Ca !Max speed for Boris correction
+        
+
+        !Heating/plasmasphere
+        logical :: doHeat,doPsphere
         real(rp) :: hRate,hTau  ! heating rate and cadence
 
         !Ring average information
@@ -198,7 +202,7 @@ module gamtypes
         type(bcHolder) :: externalBCs(MAXBC)
         integer :: NumBC = 6
 
-        !Data for background field incorporation
+    !Background field data
         !fcB0(i,j,k,D,F) is the D component of the Bxyz on face F
         !edgB0(i,j,k,1:2,E) is the 1:2 component of b1/b2 on edge E
         !B0(i,j,k,d) is the d (xyz) component of B0
@@ -208,9 +212,11 @@ module gamtypes
         real(rp), dimension(:,:,:,:,:), allocatable :: edgB0
         real(rp), dimension(:,:,:,:), allocatable :: B0,bFlux0
         real(rp), dimension(:,:,:,:), allocatable :: dpB0 !Stress from background field
-
+    !Gravitational force
         logical :: doG0Init = .true.
         real(rp), dimension(:,:,:,:), allocatable :: gxyz !Gravitational acceleration (cell-centered)
+    !Target state
+        real(rp), dimension(:,:,:,:), allocatable :: Gas0
 
     end type Grid_T
 
@@ -221,9 +227,11 @@ module gamtypes
         !Size (local grid) Ni+1,Nj+1,Nk+1,nDim
         real(rp), dimension(:,:,:,:), allocatable :: magFlux 
         real(rp), dimension(:,:,:,:), allocatable :: Efld
-        !TODO: Does this need to be in each state variable?  
-        real(rp), dimension(:,:,:,:), allocatable :: Deta
         real(rp), dimension(:,:,:,:), allocatable :: Bxyz
+
+        !TODO: Does this need to be in each state variable?
+        real(rp), dimension(:,:,:,:), allocatable :: Deta
+        !TODO: Remove eqXXX
         real(rp), dimension(:,:,:,:), allocatable :: eqMap   ! instantaneous equatorial mapping
         real(rp), dimension(:,:,:), allocatable :: eqPres    ! instantaneous equatorial pressure
         real(rp), dimension(:,:,:), allocatable :: eqDen    ! instantaneous equatorial density (for plasmasphere)
