@@ -33,8 +33,8 @@ x,y,z = GEOtoSM(x,y,z,dateTime)   - convert from geographic to SM coordinates
 x,y,z = SMtoGEO(x,y,z,dateTime)   - convert from SM to geographic coordinates
 """
 
-import kaipy.transform
-import pylab as p
+import kaipy
+import numpy as np
 import datetime
 
 #Currently only using geopack_2008 but is also capable of using the cxform package
@@ -63,12 +63,12 @@ def SPHtoCAR(phi,theta,rho,dphi=None,dtheta=None,drho=None):
          ##        to accept array inputs, if speed is an issue. -EJR 10/2013
          ##
          #output = kaipy.transform.geopack_08.sphcar_08(rho,theta,phi,0.,0.,0., iSPHtoCAR)
-         v_gp08 = p.vectorize(kaipy.transform.geopack_08.sphcar_08)
+         v_gp08 = np.vectorize(kaipy.transform.geopack_08.sphcar_08)
          output = v_gp08(rho,theta,phi, 0.,0.,0., iSPHtoCAR)
          
          ## if scalar inputs, generate scalar outputs -EJR 10/2013
-         return (tuple(p.asscalar(otmp) for otmp in output[3:6]) if
-                 (p.isscalar(phi) and p.isscalar(theta) and p.isscalar(rho)) else
+         return (tuple(np.asscalar(otmp) for otmp in output[3:6]) if
+                 (np.isscalar(phi) and np.isscalar(theta) and np.isscalar(rho)) else
                  (output[3],output[4],output[5]) )
       else:
          raise Exception('SPHtoCAR requires exactly 3 or 6 inputs')
@@ -86,17 +86,17 @@ def SPHtoCAR(phi,theta,rho,dphi=None,dtheta=None,drho=None):
       ##
       
       #output = kaipy.transform.geopack_08.sphcar_08(rho,theta,phi,0.,0.,0., iSPHtoCAR)
-      v_gp08a = p.vectorize(kaipy.transform.geopack_08.sphcar_08)
+      v_gp08a = np.vectorize(kaipy.transform.geopack_08.sphcar_08)
       _,_,_,x,y,z,_ = v_gp08a(rho,theta,phi, 0.,0.,0., iSPHtoCAR)
       
       #dx,dy,dz = kaipy.transform.geopack_08.bspcar_08(theta,phi,drho,dtheta,dphi)
-      v_gp08b = p.vectorize(kaipy.transform.geopack_08.bspcar_08)
+      v_gp08b = np.vectorize(kaipy.transform.geopack_08.bspcar_08)
       dx,dy,dz = v_gp08b(theta,phi, drho,dtheta,dphi)
       
       ## if all scalar inputs, return scalar outputs, otherwise ndarrays -EJR 10/2013
-      return (tuple(p.asscalar(otmp) for otmp in (x,y,z,dx,dy,dz)) if 
-              (p.isscalar(phi) and p.isscalar(theta) and p.isscalar(rho) and
-               p.isscalar(dphi) and p.isscalar(dtheta) and p.isscalar(drho)) else
+      return (tuple(np.asscalar(otmp) for otmp in (x,y,z,dx,dy,dz)) if 
+              (np.isscalar(phi) and np.isscalar(theta) and np.isscalar(rho) and
+               np.isscalar(dphi) and np.isscalar(dtheta) and np.isscalar(drho)) else
               (x,y,z,dx,dy,dz) )
 
 
@@ -123,12 +123,12 @@ def CARtoSPH(x,y,z,dx=None,dy=None,dz=None):
          ##        to accept array inputs, if speed is an issue. -EJR 10/2013
          ##
          #output = kaipy.transform.geopack_08.sphcar_08(0.,0.,0.,x,y,z, iSPHtoCAR)
-         v_gp08 = p.vectorize(kaipy.transform.geopack_08.sphcar_08)
+         v_gp08 = np.vectorize(kaipy.transform.geopack_08.sphcar_08)
          output = v_gp08(0.,0.,0.,x,y,z, iSPHtoCAR)
          
          ## if scalar inputs, generate scalar outputs -EJR 10/2013
-         return (tuple(p.asscalar(otmp) for otmp in output[2::-1]) if
-                 (p.isscalar(x) and p.isscalar(y) and p.isscalar(z)) else
+         return (tuple(np.asscalar(otmp) for otmp in output[2::-1]) if
+                 (np.isscalar(x) and np.isscalar(y) and np.isscalar(z)) else
                  (output[2],output[1],output[0]) )
       else:
          raise Exception('SPHtoCAR requires exactly 3 or 6 inputs')
@@ -146,17 +146,17 @@ def CARtoSPH(x,y,z,dx=None,dy=None,dz=None):
       ##
       
       #output = kaipy.transform.geopack_08.sphcar_08(0.,0.,0.,x,y,z, iSPHtoCAR)
-      v_gp08a = p.vectorize(kaipy.transform.geopack_08.sphcar_08)
+      v_gp08a = np.vectorize(kaipy.transform.geopack_08.sphcar_08)
       rho,theta,phi,_,_,_,_ = v_gp08a(0.,0.,0.,x,y,z, iSPHtoCAR)
       
       #dx,dy,dz = kaipy.transform.geopack_08.bspcar_08(theta,phi,drho,dtheta,dphi)
-      v_gp08b = p.vectorize(kaipy.transform.geopack_08.bcarsp_08)
+      v_gp08b = np.vectorize(kaipy.transform.geopack_08.bcarsp_08)
       drho,dtheta,dphi = v_gp08b(x,y,z,dx,dy,dz)
       
       ## if scalar inputs, generate scalar outputs -EJR 10/2013
-      return (tuple(p.asscalar(otmp) for otmp in (phi,theta,rho,dphi,dtheta,drho)) if
-              (p.isscalar(x) and p.isscalar(y) and p.isscalar(z) and
-               p.isscalar(dx) and p.isscalar(dy) and p.isscalar(dz)) else
+      return (tuple(np.asscalar(otmp) for otmp in (phi,theta,rho,dphi,dtheta,drho)) if
+              (np.isscalar(x) and np.isscalar(y) and np.isscalar(z) and
+               np.isscalar(dx) and np.isscalar(dy) and np.isscalar(dz)) else
               (phi,theta,rho,dphi,dtheta,drho) )
 
 
@@ -189,12 +189,12 @@ def SMtoGSM(x,y,z, dateTime):
         ##        to accept array inputs, if speed is an issue. -EJR 10/2013
         ##
         #output = kaipy.transform.geopack_08.smgsw_08(x,y,z, 0.,0.,0., iSMtoGSM)
-        v_gp08 = p.vectorize(kaipy.transform.geopack_08.smgsw_08)
+        v_gp08 = np.vectorize(kaipy.transform.geopack_08.smgsw_08)
         output = v_gp08(x,y,z, 0.,0.,0., iSMtoGSM)
         
         ## if scalar inputs, generate scalar outputs -EJR 10/2013
-        return ((output[3],output[4],output[5]) if isinstance(x,p.ndarray) else
-                tuple(p.asscalar(otmp) for otmp in output[3:6]))
+        return ((output[3],output[4],output[5]) if isinstance(x,np.ndarray) else
+                tuple(np.asscalar(otmp) for otmp in output[3:6]))
         
     else:
         raise Exception('Coordinate system transformer undefined')
@@ -228,12 +228,12 @@ def GSMtoSM(x,y,z, dateTime):
         ##        to accept array inputs, if speed is an issue. -EJR 10/2013
         ##
         #output = kaipy.transform.geopack_08.smgsw_08(0.,0.,0., x, y, z, iSMtoGSM)
-        v_gp08 = p.vectorize(kaipy.transform.geopack_08.smgsw_08)
+        v_gp08 = np.vectorize(kaipy.transform.geopack_08.smgsw_08)
         output = v_gp08(0., 0., 0., x, y, z, iSMtoGSM)
         
         ## if scalar inputs, generate scalar outputs -EJR 10/2013
-        return ((output[0],output[1],output[2]) if isinstance(x,p.ndarray) else
-                tuple(p.asscalar(otmp) for otmp in output[0:3]))
+        return ((output[0],output[1],output[2]) if isinstance(x,np.ndarray) else
+                tuple(np.asscalar(otmp) for otmp in output[0:3]))
         
     else:
         raise Exception('Coordinate system transformer undefined')
@@ -266,12 +266,12 @@ def GSEtoGSM(x,y,z, dateTime):
         ##        to accept array inputs, if speed is an issue. -EJR 10/2013
         ##
         #output = kaipy.transform.geopack_08.gswgse_08(0.,0.,0., x,y,z, iGSEtoGSM)
-        v_gp08 = p.vectorize(kaipy.transform.geopack_08.gswgse_08)
+        v_gp08 = np.vectorize(kaipy.transform.geopack_08.gswgse_08)
         output = v_gp08(0., 0., 0., x, y, z, iGSEtoGSM)
         
         ## if scalar inputs, generate scalar outputs -EJR 10/2013
-        return ((output[0],output[1],output[2]) if isinstance(x,p.ndarray) else
-                tuple(p.asscalar(otmp) for otmp in output[0:3]))
+        return ((output[0],output[1],output[2]) if isinstance(x,np.ndarray) else
+                tuple(np.asscalar(otmp) for otmp in output[0:3]))
                 
     else:
         raise Exception('Coordinate system transformer undefined')
@@ -306,12 +306,12 @@ def GEOtoMAG(x,y,z, dateTime):
     ##        to accept array inputs, if speed is an issue. -EJR 10/2013
     ##
     #output = kaipy.transform.geopack_08.gswgse_08(x, y, z, 0.,0.,0., iGEOtoMAG)
-    v_gp08 = p.vectorize(kaipy.transform.geopack_08.geomag_08)
+    v_gp08 = np.vectorize(kaipy.transform.geopack_08.geomag_08)
     output = v_gp08(x, y, z, 0., 0., 0., iGEOtoMAG)
      
     ## if scalar inputs, generate scalar outputs -EJR 10/2013
-    return ((output[3],output[4],output[5]) if isinstance(x,p.ndarray) else
-            tuple(p.asscalar(otmp) for otmp in output[3:6]))
+    return ((output[3],output[4],output[5]) if isinstance(x,np.ndarray) else
+            tuple(np.asscalar(otmp) for otmp in output[3:6]))
     
 
 def MAGtoGEO(x,y,z, dateTime):
@@ -333,12 +333,12 @@ def MAGtoGEO(x,y,z, dateTime):
     ##        to accept array inputs, if speed is an issue. -EJR 10/2013
     ##
     #output = kaipy.transform.geopack_08.gswgse_08(0.,0.,0., x, y, z, iGEOtoMAG)
-    v_gp08 = p.vectorize(kaipy.transform.geopack_08.geomag_08)
+    v_gp08 = np.vectorize(kaipy.transform.geopack_08.geomag_08)
     output = v_gp08(0., 0., 0., x, y, z, iGEOtoMAG)
      
     ## if scalar inputs, generate scalar outputs -EJR 10/2013
-    return ((output[0],output[1],output[2]) if isinstance(x,p.ndarray) else
-            tuple(p.asscalar(otmp) for otmp in output[0:3]))
+    return ((output[0],output[1],output[2]) if isinstance(x,np.ndarray) else
+            tuple(np.asscalar(otmp) for otmp in output[0:3]))
     
 
 
@@ -358,12 +358,12 @@ def SMtoMAG(x,y,z, dateTime):
    ##        to accept array inputs, if speed is an issue. -EJR 12/2013
    ##
    
-   v_gp08 = p.vectorize(kaipy.transform.geopack_08.magsm_08)
+   v_gp08 = np.vectorize(kaipy.transform.geopack_08.magsm_08)
    output =  v_gp08(0., 0., 0., x, y, z, iSMtoMAG)
    
    ## if scalar inputs, generate scalar outputs -EJR 12/2013
-   return((output[0],output[1],output[2]) if isinstance(x,p.ndarray) else
-            tuple(p.asscalar(otmp) for otmp in output[0:3]))
+   return((output[0],output[1],output[2]) if isinstance(x,np.ndarray) else
+            tuple(np.asscalar(otmp) for otmp in output[0:3]))
    
 
 def MAGtoSM(x,y,z, dateTime):
@@ -382,12 +382,12 @@ def MAGtoSM(x,y,z, dateTime):
    ##        optimized...Geopack should be ported to Python, or re-written
    ##        to accept array inputs, if speed is an issue. -EJR 12/2013
    ##
-   v_gp08 = p.vectorize(kaipy.transform.geopack_08.magsm_08)
+   v_gp08 = np.vectorize(kaipy.transform.geopack_08.magsm_08)
    output =  v_gp08(x, y, z, 0., 0., 0., iMAGtoSM)
    
    ## if scalar inputs, generate scalar outputs -EJR 12/2013
-   return((output[3],output[4],output[5]) if isinstance(x,p.ndarray) else
-            tuple(p.asscalar(otmp) for otmp in output[3:6]))
+   return((output[3],output[4],output[5]) if isinstance(x,np.ndarray) else
+            tuple(np.asscalar(otmp) for otmp in output[3:6]))
   
 
 
@@ -407,12 +407,12 @@ def GEOtoGSM(x,y,z, dateTime):
    ##        optimized...Geopack should be ported to Python, or re-written
    ##        to accept array inputs, if speed is an issue. -EJR 12/2013
    ##
-   v_gp08 = p.vectorize(kaipy.transform.geopack_08.geogsw_08)
+   v_gp08 = np.vectorize(kaipy.transform.geopack_08.geogsw_08)
    output =  v_gp08(x, y, z, 0., 0., 0., iGEOtoGSM)
    
    ## if scalar inputs, generate scalar outputs -EJR 12/2013
-   return((output[3],output[4],output[5]) if isinstance(x,p.ndarray) else
-            tuple(p.asscalar(otmp) for otmp in output[3:6]))
+   return((output[3],output[4],output[5]) if isinstance(x,np.ndarray) else
+            tuple(np.asscalar(otmp) for otmp in output[3:6]))
   
    
 def GSMtoGEO(x,y,z, dateTime):
@@ -431,12 +431,12 @@ def GSMtoGEO(x,y,z, dateTime):
    ##        optimized...Geopack should be ported to Python, or re-written
    ##        to accept array inputs, if speed is an issue. -EJR 12/2013
    ##
-   v_gp08 = p.vectorize(kaipy.transform.geopack_08.geogsw_08)
+   v_gp08 = np.vectorize(kaipy.transform.geopack_08.geogsw_08)
    output =  v_gp08(0., 0., 0., x, y, z, iGEOtoGSM)
    
    ## if scalar inputs, generate scalar outputs -EJR 12/2013
-   return((output[0],output[1],output[2]) if isinstance(x,p.ndarray) else
-            tuple(p.asscalar(otmp) for otmp in output[0:3]))
+   return((output[0],output[1],output[2]) if isinstance(x,np.ndarray) else
+            tuple(np.asscalar(otmp) for otmp in output[0:3]))
 
 
 
@@ -457,16 +457,16 @@ def GEOtoSM(x,y,z, dateTime):
    ##        optimized...Geopack should be ported to Python, or re-written
    ##        to accept array inputs, if speed is an issue. -EJR 12/2013
    ##
-   v_gp08a = p.vectorize(kaipy.transform.geopack_08.geogsw_08)
+   v_gp08a = np.vectorize(kaipy.transform.geopack_08.geogsw_08)
    _,_,_,xgsm,ygsm,zgsm =  v_gp08a(x, y, z, 0., 0., 0., iGEOtoGSM)
    
-   v_gp08b = p.vectorize(kaipy.transform.geopack_08.smgsw_08)
+   v_gp08b = np.vectorize(kaipy.transform.geopack_08.smgsw_08)
    xsm,ysm,zsm,_,_,_ =  v_gp08b(0., 0., 0., xgsm, ygsm, zgsm, iGSMtoSM)
    
    
    ## if scalar inputs, generate scalar outputs -EJR 12/2013
-   return((xsm,ysm,zsm) if isinstance(x,p.ndarray) else
-            tuple(p.asscalar(otmp) for otmp in (xsm,ysm,zsm)))
+   return((xsm,ysm,zsm) if isinstance(x,np.ndarray) else
+            tuple(np.asscalar(otmp) for otmp in (xsm,ysm,zsm)))
   
    
 def SMtoGEO(x,y,z, dateTime):
@@ -486,14 +486,14 @@ def SMtoGEO(x,y,z, dateTime):
    ##        optimized...Geopack should be ported to Python, or re-written
    ##        to accept array inputs, if speed is an issue. -EJR 12/2013
    ##
-   v_gp08a = p.vectorize(kaipy.transform.geopack_08.smgsw_08)
+   v_gp08a = np.vectorize(kaipy.transform.geopack_08.smgsw_08)
    _,_,_,xgsm,ygsm,zgsm =  v_gp08a(x, y, z, 0., 0., 0., iSMtoGSM)
    
-   v_gp08b = p.vectorize(kaipy.transform.geopack_08.geogsw_08)
+   v_gp08b = np.vectorize(kaipy.transform.geopack_08.geogsw_08)
    xgeo,ygeo,zgeo,_,_,_ =  v_gp08b(0., 0., 0., xgsm, ygsm, zgsm, iGSMtoGEO)
    
    
    ## if scalar inputs, generate scalar outputs -EJR 12/2013
-   return((xgeo,ygeo,zgeo) if isinstance(x,p.ndarray) else
-            tuple(p.asscalar(otmp) for otmp in (xgeo,ygeo,zgeo)))
+   return((xgeo,ygeo,zgeo) if isinstance(x,np.ndarray) else
+            tuple(np.asscalar(otmp) for otmp in (xgeo,ygeo,zgeo)))
    

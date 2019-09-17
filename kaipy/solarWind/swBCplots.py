@@ -2,53 +2,54 @@
 Generate plots of 1d time series data stored as pyLTR.TimeSeries
 objects.  See examples/TimeSeriesPlots.py for usage.
 """
-import pylab as p
 from kaipy.solarWind.TimeSeries import TimeSeries
 import datetime
 from matplotlib import dates
+import numpy as np
+import matplotlib.pyplot as plt
 
 def BasicPlot(VarDict,Xname,Yname,Xlabel=True,color='b'):
     """
-    Mostly a wrapper for pylab.plot(...)
+    Mostly a wrapper for plt.plot(...)
     """
     x=VarDict[Xname]
     y=VarDict[Yname]
         
     # y may be a time series of tuples/lists of variables to plot 
     # simultaneously (e.g., vector components) using different colors
-    if (p.array(y['data'][0]).size > 1 and 
-        p.array(y['data'][0]).size == len(color) and
-        all([ylen == p.array(y['data'][0]).size for ylen in map(len,y['data'])]) ):
-       for i in range(p.array(y['data'][0]).size):
-          p.plot(x['data'], [yts[i] for yts in y['data']], color=color[i])
+    if (np.array(y['data'][0]).size > 1 and 
+        np.array(y['data'][0]).size == len(color) and
+        all([ylen == np.array(y['data'][0]).size for ylen in map(len,y['data'])]) ):
+       for i in range(np.array(y['data'][0]).size):
+          plt.plot(x['data'], [yts[i] for yts in y['data']], color=color[i])
     else:
-       p.plot(x['data'],y['data'],color=color)
+       plt.plot(x['data'],y['data'],color=color)
     
     # Xname may point to a list of datetime.datetime objects, in which case
     # pyplot must be told to plot these as datetimes
     if all([type(ts) == datetime.datetime for ts in x['data']]):
        dfmt = dates.DateFormatter('%m/%d/%y-%H:%M')
-       p.gca().xaxis.set_major_formatter(dfmt)
+       plt.gca().xaxis.set_major_formatter(dfmt)
     elif any([type(ts) == datetime.datetime for ts in x['data']]):
        raise Exception('Cannot mix datetime time-axis elements with other types')
     
     
     if Xlabel:
-        #locs,labels=p.xticks()
+        #locs,labels=plt.xticks()
         xStr = x['name']
         if len(x['units']) > 0:
             xStr += ' ['+x['units']+']'
-        p.xlabel(xStr)
+        plt.xlabel(xStr)
     else: 
-        p.xlabel(' ')
-        #locs,labels=p.xticks()
-        #p.xticks(locs,(' '))
+        plt.xlabel(' ')
+        #locs,labels=plt.xticks()
+        #plt.xticks(locs,(' '))
     
     # y['name'] may not be a scalar
-    if (p.array(y['name']).size) > 1:
-      p.ylabel('['+y['units']+']',fontsize='small')
+    if (np.array(y['name']).size) > 1:
+      plt.ylabel('['+y['units']+']',fontsize='small')
     else:
-      p.ylabel(y['name']+' ['+y['units']+']',fontsize='small')
+      plt.ylabel(y['name']+' ['+y['units']+']',fontsize='small')
   
 def SummaryPlot(VarDict,Xname):
     """
@@ -120,10 +121,10 @@ def MultiPlotN(varDicts, Xname, variables, colors = [], legendLabels=[]):
         # Sharing the x-axes applies the same zoom to all subplots when
         # user interacts with a single subplot.
         if plotIndex == 0:
-            axes = p.subplot(nSubplots, 1, plotIndex+1)
+            axes = plt.subplot(nSubplots, 1, plotIndex+1)
             ax=axes
         else:
-            ax =  p.subplot(nSubplots, 1, plotIndex+1, sharex=axes)
+            ax =  plt.subplot(nSubplots, 1, plotIndex+1, sharex=axes)
     
         # Turn off x-axis to prevent pointillism problem with upper subplots.
         #ax.xaxis.set_visible(False)
@@ -146,13 +147,13 @@ def MultiPlotN(varDicts, Xname, variables, colors = [], legendLabels=[]):
                 # remove xticklabels from all but bottom subplot...it seems like
                 # someone was attempting something similar with ax.xaxis.set_visible(False)
                 # in the past, then commented this out; might be worth asking why -EJR 2/2014
-                p.setp(ax.get_xticklabels(), visible=False)
+                plt.setp(ax.get_xticklabels(), visible=False)
             else:
                 BasicPlot(data, Xname, variable, Xlabel=True, color=colors[idx])
                 
-    p.subplots_adjust(hspace=0)
+    plt.subplots_adjust(hspace=0)
     #ax.xaxis.set_visible(True)
     
-    p.subplot(nSubplots, 1, 1)
+    plt.subplot(nSubplots, 1, 1)
     if legendLabels:
-        p.legend(legendLabels, loc='best')
+        plt.legend(legendLabels, loc='best')

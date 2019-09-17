@@ -8,6 +8,8 @@
 #Writes to HDF5 Gamera wind file
 #t,D,V,P,B = [s],[#/cm3],[m/s],[nPa],[nT]
 
+#Utilizes ai.cdas and geopack, make sure to install modules before running. For more info go to https://bitbucket.org/aplkaiju/kaiju/wiki/Gamerasphere
+
 Mp = 1.67e-27 #Proton mass [kg]
 gamma = 5/3.0
 
@@ -15,7 +17,7 @@ import argparse
 from argparse import RawTextHelpFormatter
 import numpy as np
 import h5py
-import pylab
+import matplotlib.pyplot as plt
 import os
 import kaipy.solarWind
 from  kaipy.solarWind import swBCplots
@@ -26,9 +28,9 @@ from ai import cdas
 def bxFit(sw, fileType, filename):
     def bxFitPlot(bxFit_array):
         kaipy.solarWind.swBCplots.BasicPlot(sw.data, 'time_doy', 'bx', color='k')
-        pylab.plot(sw.data.getData('time_doy'), bxFit_array, 'g')
-        pylab.title('Bx Fit Coefficients ('+fileType+'):\n$Bx_{fit}(0)$=%f      $By_{coef}$=%f      $Bz_{coef}$=%f' % (coef[0], coef[1], coef[2]) )
-        pylab.legend(('$Bx$','$Bx_{fit}$'))
+        plt.plot(sw.data.getData('time_doy'), bxFit_array, 'g')
+        plt.title('Bx Fit Coefficients ('+fileType+'):\n$Bx_{fit}(0)$=%f      $By_{coef}$=%f      $Bz_{coef}$=%f' % (coef[0], coef[1], coef[2]) )
+        plt.legend(('$Bx$','$Bx_{fit}$'))
 
     coef = sw.bxFit()
 
@@ -41,7 +43,7 @@ def bxFit(sw, fileType, filename):
     bxFitPlot(bxFit)
     bxPlotFilename = os.path.basename(filename) + '_bxFit.png'
     print('Saving "%s"' % bxPlotFilename)
-    pylab.savefig(bxPlotFilename)
+    plt.savefig(bxPlotFilename)
 
 if __name__ == "__main__":
         fOut = "bcwind.h5"
@@ -64,9 +66,9 @@ if __name__ == "__main__":
         """
 
         parser = argparse.ArgumentParser(description=MainS, formatter_class=RawTextHelpFormatter)
-        parser.add_argument('-t0',type=str,metavar="TStart",default=t0,help="Start time [MM/DD/YYY, HH:MM:SS] (default: %(default))")
-        parser.add_argument('-t1',type=str,metavar="TStop",default=t1,help="Start time [MM/DD/YYY, HH:MM:SS] (default: %(default))")
-        parser.add_argument('-obs',type=str,metavar="OMNI",default=obs,help="Select spacecraft to obtain observations from (default: %(default))")
+        parser.add_argument('-t0',type=str,metavar="TStart",default=t0,help="Start time in a string 'MM/DD/YYY, HH:MM:SS' (default: %(default)s)")
+        parser.add_argument('-t1',type=str,metavar="TStop",default=t1,help="End time in a string'MM/DD/YYY, HH:MM:SS' (default: %(default)s)")
+        parser.add_argument('-obs',type=str,metavar="OMNI",default=obs,help="Select spacecraft to obtain observations from (default: %(default)s)")
         parser.add_argument('-o',type=str,metavar="wind.h5",default=fOut,help="Output Gamera wind file (default: %(default)s)")
         parser.add_argument('-m',type=str,metavar="LFM",default=mod,help="Format to write.  Options are LFM or TIEGCM (default: %(default)s)")
         parser.add_argument('-TsG',type=float,metavar="TStart",default=Ts,help="Gamera start time [min] (default: %(default)s)")
@@ -141,10 +143,10 @@ if __name__ == "__main__":
 
             # Save a plot of the solar wind data.
             kaipy.solarWind.swBCplots.MultiPlot(sw.data, 'time_doy', ['n', 'vx','vy','vz','t','bx','by','bz'])
-            pylab.title('Solar Wind data for\n %s' % filename)
+            plt.title('Solar Wind data for\n %s' % filename)
             swPlotFilename = os.path.basename(filename) + '.png'
             print('Saving "%s"' % swPlotFilename)
-            pylab.savefig(swPlotFilename)
+            plt.savefig(swPlotFilename)
 
             print("Converting to Gamera solar wind file")
             Nt,Nv = lfmD.shape
@@ -164,10 +166,13 @@ if __name__ == "__main__":
             ThT= np.zeros(Nt) #Tilt
 
             #Convert LFM time to seconds and reset to start at 0
+            print("\tOffsetting from LFM start (%5.2f min) to Gamera start (%5.2f min)"%(TsL,TsG))
             T0 = lfmD[:,0].min()
             T = (lfmD[:,0]-TsL+TsG)*60
-
-            print("\tOffsetting from LFM start (%5.2f min) to Gamera start (%5.2f min)"%(TsL,TsG))
+            
+            #Calculating time in UT
+            UT = []
+            [UT.append(np.string_(date+datetime.timedelta(seconds=i)).strip()) for i in T]
 
             #Density, magnetic field, and tilt don't require scaling
             D   = lfmD[:,1]
@@ -195,6 +200,7 @@ if __name__ == "__main__":
             print("Writing Gamera solar wind to %s"%(fOut))
             with h5py.File(fOut,'w') as hf:
                 hf.create_dataset("T" ,data=T)
+                hf.create_dataset("UT",data=UT)
                 hf.create_dataset("D" ,data=D)
                 hf.create_dataset("P" ,data=P)
                 hf.create_dataset("Vx",data=Vx)

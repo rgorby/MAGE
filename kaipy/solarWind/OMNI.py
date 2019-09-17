@@ -66,10 +66,10 @@ class OMNI(SolarWind):
           
             startTime = time[0]
             #calculating minutes from the start time
-            min = self.__deltaMinutes(time[i],startTime)
+            nMin = self.__deltaMinutes(time[i],startTime)
 
-            data = [float(min),str(bx[i]),str(by[i]),str(bz[i]),str(vx[i]),str(vy[i]),str(vz[i]),str(n[i]),str(T[i])]
-            
+            data = [nMin,bx[i],by[i],bz[i],vx[i],vy[i],vz[i],n[i],T[i]]
+
             dates.append( time[i] )
             rows.append( data )
 
@@ -81,7 +81,7 @@ class OMNI(SolarWind):
         list) for each variable in dataStrs.
         
         data: 2d list.  Each row is a list containing:
-          [float(nMinutes), str(Bx), str(By), str(Bz), str(Vx), str(Vy), str(Vz), str(rho), str(temp)]
+          [nMinutes, Bx, By, Bz, Vx, Vy, Vz, rho, temp]
 
         Returns:
           data: interpolated floating-point numpy array
