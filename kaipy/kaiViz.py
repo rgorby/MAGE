@@ -12,10 +12,10 @@ from matplotlib.colors import Normalize
 #Create 2D equatorial grid (Ni,Nj*2+1) from lfm/egg-style
 def genEQGrid(fIn):
 	with h5py.File(fIn,'r') as hf:
-		Nk,Nj,Ni = hf.get("X").value.shape
-		X3 = hf.get("X").value.T
-		Y3 = hf.get("Y").value.T
-		Z3 = hf.get("Z").value.T
+		Nk,Nj,Ni = hf.get("X")[()].shape
+		X3 = hf.get("X")[()].T
+		Y3 = hf.get("Y")[()].T
+		Z3 = hf.get("Z")[()].T
 	print("Ni,Nj,Nk = %d,%d,%d"%(Ni,Nj,Nk))
 	#Create grid
 	Nr = Ni-1
@@ -35,7 +35,7 @@ def genEQGrid(fIn):
 def getEQVar(fIn,StpN=0,vID="D"):
 	gID = "Step#%d"%(StpN)
 	with h5py.File(fIn,'r') as hf:
-		V = hf.get(gID).get(vID).value.T
+		V = hf.get(gID).get(vID)[()].T
 		Ni,Nj,Nk = V.shape #Cell-centered (not node)
 	Nr = Ni
 	Np = 2*(Nj)

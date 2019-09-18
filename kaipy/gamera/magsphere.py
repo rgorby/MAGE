@@ -39,7 +39,6 @@ class GamsphPipe(GameraPipe):
 		
 	def OpenPipe(self):
 		GameraPipe.OpenPipe(self)
-
 		#Now do magnetosphere specific things
 		if (self.UnitsID == "EARTH"):
 			self.bScl   = 1.0  #->nT

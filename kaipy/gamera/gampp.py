@@ -126,7 +126,7 @@ class GameraPipe(object):
 		import h5py
 		with h5py.File(f0,'r') as hf:
 			uID = hf.attrs.get("UnitsID","CODE")
-		self.UnitsID = uID
+		self.UnitsID = uID.decode('utf-8')
 
 	#Chunks go from 0,Ri-1 (Python iteration)
 	def ChunkName(self,i,j,k):

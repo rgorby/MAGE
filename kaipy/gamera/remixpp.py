@@ -63,10 +63,10 @@ def CMIViz(AxM=None,fmix="mixtest000000.h5",doNorth=True,loc="upper left",dxy=[2
 		hSgn = -1.0
 
 	with h5py.File(fmix,'r') as hf:
-		X = hf[gID]['X'].value
-		Y = hf[gID]['Y'].value
-		P = hf[gID]['Potential'].value
-		C = hf[gID]['Field-aligned current'].value
+		X = hf[gID]['X'][()]
+		Y = hf[gID]['Y'][()]
+		P = hf[gID]['Potential'][()]
+		C = hf[gID]['Field-aligned current'][()]
 	vC = kv.genNorm(cMax)
 	vP = kv.genNorm(pMax)
 
