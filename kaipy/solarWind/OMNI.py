@@ -18,15 +18,13 @@ class OMNI(SolarWind):
     def __init__(self, filename = None):        
         SolarWind.__init__(self)
 
-        self.bad_data = ['-999.900', 
-                         '0E+31', 
-                         '99999.9', # V
-                         '9999.99', # B
-                         '999.990', # density
-                         '1.00000E+07' # Temperature
+        self.bad_data = [-999.900, 
+                         0E+31, 
+                         99999.9, # V
+                         9999.99, # B
+                         999.990, # density
+                         1.00000E+07 # Temperature
                          ]
-        # Match the beginning of a line with a date & time (i.e. 16-04-2008 00:00:00.000)
-        self.dateRegEx = r=re.compile(r'^\d{2}\-\d{2}-\d{4} \d{2}\:\d{2}\:\d{2}\.\d{3}')
 
         self.__read(filename)
 
@@ -60,9 +58,6 @@ class OMNI(SolarWind):
         dates = []
         rows = []
         for i in range(len(time)):
-            # Skip bad data rows
-            #if self.__isBadData(line):
-            #    continue
           
             startTime = time[0]
             #calculating minutes from the start time
@@ -258,15 +253,6 @@ class OMNI(SolarWind):
         diff = t1 - startDate
 
         return (diff.days*24.0*60.0 + diff.seconds/60.0)
-
-    def __isBadData(self, str):
-        """ Returns True if str contains bad data."""
-        # Valid data must begin with a date & time for example, the
-        # last line or two may contain strings describing metadata.
-        if not self.dateRegEx.match(str):
-            return True
-        
-        return False
 
     def __gse2gsm(self, dates, dataArray):
         """
