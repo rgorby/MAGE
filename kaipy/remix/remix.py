@@ -55,12 +55,12 @@ def plot(theta,r,variables,varname,
     cblabels.update(addlabels)
 
     # if limits are given use them, if not use the variables min/max values
-    if variables[varname].has_key('min'):
+    if ('min' in variables[varname]):
         lower = variables[varname]['min']
     else:
         lower = variables[varname]['data'].min()
 
-    if variables[varname].has_key('max'):
+    if ('max' in variables[varname]):
         upper = variables[varname]['max']
     else:
         upper = variables[varname]['data'].max()
