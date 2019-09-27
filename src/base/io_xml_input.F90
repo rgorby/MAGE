@@ -99,6 +99,12 @@ module XML_Input
 
    implicit none
 
+   !Hard-coded format strings
+   character(len=strLen), parameter, private :: realFormat = '(es12.5)'
+   character(len=strLen), parameter, private :: strFormat  =  '(a12)'
+   character(len=strLen), parameter, private :: boolFormat =  '(l12)'
+   character(len=strLen), parameter, private :: intFormat  =  '(i12)'
+
    !Global strings, for default/file messages
    character(len=*), parameter :: defXML_Str = "Using DEFAULT value for "
    integer, parameter :: MaxXML = 10000 ! HARD-CODED!! -JLD 18/03/02
@@ -198,6 +204,7 @@ module XML_Input
       logical :: vrb ! flag for debug verbosity
 
       !-------------------------------------------------------------------
+
 
    contains
 
@@ -391,93 +398,67 @@ contains
    subroutine Set_Real_RpSp(this, val, xmlp, dflt)
       class(XML_Input_T) :: this
       real(rp), intent(inout)     :: val
-      character(len=80), parameter :: formt = '(2X, a20, a1, 2X, e12.5, a10)'
       character(len=*), intent(in) :: xmlp
       real(sp), intent(in)        :: dflt
       character(len=strLen)       :: buf
+      logical :: isXML
 
       val = dflt
       call this%Get_Key_Val(xmlp, buf)
       if (len(trim(buf)) /= 0) then
+         isXML = .true.
          read (buf, *) val
-         if (this%vrb) write(*,formt) trim(xmlp), ':', val, '(XML)'
       else
-         write(*,formt) trim(xmlp), ':', val, '(DEFAULT)'
+         isXML = .false.
       endif
+
+      write(buf,realFormat) val
+      call xmlOutput(this%root,xmlp,buf,this%vrb,isXML)
+
    end subroutine Set_Real_RpSp
 
    subroutine Set_Real_RpDp(this, val, xmlp, dflt)
       class(XML_Input_T) :: this
       real(rp), intent(inout)     :: val
-      character(len=80), parameter :: formt = '(2X, a20, a1, 2X, e12.5, a10)'
       character(len=*), intent(in) :: xmlp
       real(dp), intent(in)        :: dflt
       character(len=strLen)       :: buf
+      logical :: isXML
 
       val = dflt
       call this%Get_Key_Val(xmlp, buf)
       if (len(trim(buf)) /= 0) then
+         isXML = .true.
          read (buf, *) val
-         if (this%vrb) write(*,formt) trim(xmlp), ':', val, '(XML)'
       else
-         write(*,formt) trim(xmlp), ':', val, '(DEFAULT)'
+         isXML = .false.
       endif
+
+      write(buf,realFormat) val
+      call xmlOutput(this%root,xmlp,buf,this%vrb,isXML)
+
    end subroutine Set_Real_RpDp
 
-   ! subroutine Set_Real_Sp(this, val, xmlp, dflt)
-   !    class(XML_Input_T) :: this
-   !    real(sp), intent(inout)     :: val
-   !    character(len=*), intent(in) :: xmlp
-   !    real(sp), intent(in)        :: dflt
-   !    character(len=strLen)       :: buf
-
-   !    val = dflt
-   !    call this%Get_Key_Val(xmlp, buf)
-   !    if (len(trim(buf)) /= 0) then
-   !       read (buf, *) val
-   !       if (this%vrb) write(*,*) trim(xmlp), ' : ', val, '(XML)'
-   !    else
-   !       write(*,*) trim(xmlp), ' : ', val, '(DEFAULT)'
-   !    endif
-   ! end subroutine Set_Real_Sp
-
-   !------------------------------------------------------------------
-
-   ! subroutine Set_Real_Dp(this, val, xmlp, dflt)
-   !    class(XML_Input_T) :: this
-   !    real(dp), intent(inout)     :: val
-   !    character(len=*), intent(in) :: xmlp
-   !    real(dp), intent(in)        :: dflt
-   !    character(len=strLen)       :: buf
-
-   !    val = dflt
-   !    call this%Get_Key_Val(xmlp, buf)
-   !    if (len(trim(buf)) /= 0) then
-   !       read (buf, *) val
-   !       if (this%vrb) write(*,*) trim(xmlp), ' : ', val, '(XML)'
-   !    else
-   !       write(*,*) trim(xmlp), ' : ', val, '(DEFAULT)'
-   !    endif
-   ! end subroutine Set_Real_Dp
-
-   !------------------------------------------------------------------
 
    subroutine Set_Int(this, val, xmlp, dflt)
       class(XML_Input_T) :: this
       integer, intent(inout)       :: val
-      character(len=80), parameter :: formt = '(2X, a20, a1, 2X, i12, a10)'
       character(len=*), intent(in) :: xmlp
       integer, intent(in)          :: dflt
       character(len=strLen)       :: buf
+      logical :: isXML
 
       val = dflt
       call this%Get_Key_Val(xmlp, buf)
       if (len(trim(buf)) /= 0) then
+         isXML = .true.
          read (buf, *) val
-         if (this%vrb) write(*,formt) trim(xmlp), ':', val, '(XML)'
       else
-         write(*,*) trim(xmlp), ':', val, '(DEFAULT)'
+         isXML = .false.
       endif
+      write(buf,intFormat) val
+      call xmlOutput(this%root,xmlp,buf,this%vrb,isXML)
+
    end subroutine Set_Int
 
    !------------------------------------------------------------------
@@ -485,19 +466,23 @@ contains
    subroutine Set_Bool(this, val, xmlp, dflt)
       class(XML_Input_T) :: this
       logical, intent(inout)       :: val
-      character(len=80), parameter :: formt = '(2X, a20, a1, 2X, l12, a10)'
       character(len=*), intent(in) :: xmlp
       logical, intent(in)          :: dflt
       character(len=strLen)       :: buf
+      logical :: isXML
 
       val = dflt
       call this%Get_Key_Val(xmlp, buf)
       if (len(trim(buf)) /= 0) then
+         isXML = .true.
          read (buf, *) val
-         if (this%vrb) write(*,formt) trim(xmlp), ':', val, '(XML)'
       else
-         write(*,formt) trim(xmlp), ':', val, '(DEFAULT)'
+         isXML = .false.
       endif
+
+      write(buf,boolFormat) val
+      call xmlOutput(this%root,xmlp,buf,this%vrb,isXML)
+
    end subroutine Set_Bool
 
    !------------------------------------------------------------------
@@ -505,22 +490,43 @@ contains
    subroutine Set_Str(this, val, xmlp, dflt)
       class(XML_Input_T) :: this
       character(len=*), intent(inout) :: val
-      character(len=80), parameter :: formt = '(2X, a20, a1, 2X, a12, a10)'
       character(len=*), intent(in)    :: xmlp
       character(len=*), intent(in)    :: dflt
       character(len=strLen)          :: buf
+      logical :: isXML
 
       val = dflt
       call this%Get_Key_Val(xmlp, buf)
       if (len(trim(buf)) /= 0) then
-         val = buf;
-         if (this%vrb) write(*,formt) trim(xmlp), ':', trim(val), '(XML)'
+         isXML = .true.
+         read (buf, *) val
       else
-         write(*,formt) trim(xmlp), ':', trim(val), '(DEFAULT)'
+         isXML = .false.
       endif
+      write(buf,strFormat) val
+      call xmlOutput(this%root,xmlp,buf,this%vrb,isXML)
+
    end subroutine Set_Str
 
    !------------------------------------------------------------------
+
+   subroutine xmlOutput(rStr,xStr,vStr,doVerb,isXML)
+      character(len=*), intent(in) :: rStr,xStr,vStr
+      logical, intent(in) :: doVerb,isXML
+      character(len=strLen) :: bStr,srcStr
+      character(len=80), parameter :: formt = '(2X, a25, a1, 2X, a12, a10)'
+
+      if (.not. doVerb) return
+      if (isXML) then
+         srcStr = "(XML)"
+      else
+         srcStr = "(DEFAULT)"
+      endif
+
+      bStr = trim(toUpper(rStr)) // '/' // trim(xStr)
+      write(*,formt) adjustl(bStr), ':', trim(vStr), trim(srcStr)
+
+   end subroutine xmlOutput
 
    function New_XML_Input(fname, root, verbOpt)
       type(XML_Input_T) :: New_XML_Input

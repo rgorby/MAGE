@@ -180,6 +180,7 @@ contains
             if (.not. gExist) then
                 ioExist = .false.
                 call h5fclose_f(h5fId,herr)
+                call h5close_f(herr) !Close intereface
                 return
             endif
             !Open group
@@ -245,7 +246,7 @@ contains
             !Check if group exists
             call h5lexists_f(h5fId,trim(gStrO),gExist,herr)
             if (.not. gExist) then
-                write(*,*) 'Unable to find file/group = ', trim(h5File),trim(gStrO)
+                write(*,*) 'Unable to find file/group = ', trim(h5File),'/',trim(gStrO)
                 stop
             endif
             !Open group

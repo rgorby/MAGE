@@ -32,6 +32,18 @@ module strings
 
     end subroutine getIDeckStr
 
+    subroutine CheckFileOrDie(fIn,errStr)
+        character(len=*), intent(in) :: fIn,errStr
+
+        logical :: fExist
+        inquire(file=fIn,exist=fExist)
+        if (.not. fExist) then
+            write(*,*) trim(errStr)
+            write(*,*) ''
+            stop
+        endif
+        
+    end subroutine CheckFileOrDie
     ! Adapted from http://www.star.le.ac.uk/~cgp/fortran.html 
     ! Original author: Clive Page
     function toUpper(strIn) result(strOut)
