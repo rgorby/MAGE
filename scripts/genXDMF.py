@@ -18,6 +18,7 @@ def cntSteps(fname):
 			return nSteps,sIds
 
 def getTs(fname,sIds):
+	tDef = 0.0 #Default time
 	Nt = len(sIds)
 	T = np.zeros(Nt)
 	s0 = sIds.min()
@@ -25,7 +26,7 @@ def getTs(fname,sIds):
 	with h5py.File(fname,'r') as hf:
 		for n in range(s0,sF+1):
 			gId = "/Step#%d"%(n)
-			T[n-s0] = hf[gId].attrs["time"]
+			T[n-s0] = hf[gId].attrs.get("time")
 	return T
 
 #Get shape/dimension of grid
