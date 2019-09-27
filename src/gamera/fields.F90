@@ -231,7 +231,7 @@ module fields
 
         !$OMP END PARALLEL
 
-        if(Model%useResistivity) call resistivity(Model,Gr,State,E)
+        if(Model%doResistive) call resistivity(Model,Gr,State,E)
         
     end subroutine CalcElecField
 

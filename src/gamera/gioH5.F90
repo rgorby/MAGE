@@ -294,7 +294,7 @@ module gioH5
             call AddOutVar(IOVars,"Ez",gVec(:,:,:,ZDIR))
             
 
-            if(Model%useResistivity) then
+            if(Model%doResistive) then
                 gVec(:,:,:,:) = State%Deta(is:ie,js:je,ks:ke,XDIR:ZDIR)
                 call AddOutVar(IOVars,"Etax",gVec(:,:,:,XDIR))
                 call AddOutVar(IOVars,"Etay",gVec(:,:,:,YDIR))

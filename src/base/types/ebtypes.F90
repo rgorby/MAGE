@@ -52,6 +52,12 @@ module ebtypes
         logical :: doStatic = .false.
     end type ebState_T
     
+    !Type used for tracing field lines
+    type ebTrcApp_T
+        type(chmpModel_T) :: ebModel
+        type(ebState_T)   :: ebState
+    end type ebTrcApp_T
+
     !Fields and derivatives necessary for GC update
     type gcFields_T
         real(rp), dimension(NDIM) :: DotE,DotB

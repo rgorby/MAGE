@@ -5,15 +5,10 @@ module msphutils
     use gamtypes
     use gamutils
     use math, magRampDown => CubicRampDown
-    use output
-    use gioH5
-
     use gridutils
-    use xml_input
-    use strings
+    use output
     use background
     use multifluid
-    use ingestpress
 
     implicit none
 !Earth scaling
@@ -786,42 +781,6 @@ module msphutils
         endif
 
     end subroutine ijk2Active
-
-    subroutine Heat(Model,Grid,State)
-      type(Model_T), intent(in) :: Model
-      type(Grid_T), intent(in) :: Grid
-      type(State_T), intent(inout) :: State
-
-      integer :: i,j,k
-      real(rp), dimension(NVAR) :: pW, pCon
-
-!      if (all(State%eqPres.eq.0.0))  then
-!         ! TODO pack this and the next loop together (Maybe?)
-!         call getEqPress(Model,Grid,State)
-!      endif
-      
-      !$OMP PARALLEL DO default(shared) &
-      !$OMP private(i,j,k,pW,pCon)
-      do k=Grid%ks,Grid%ke
-         do j=Grid%js,Grid%je
-            do i=Grid%is,Grid%ie
-               pCon = State%Gas(i,j,k,:,BLK)
-               call CellC2P(Model,pCon,pW)
-               ! only heat -- don't cool
-               pW(PRESSURE) = pW(PRESSURE)+Model%hRate/Model%hTau*Model%dt*max(0.,(State%eqPres(i,j,k)-pW(PRESSURE)))
-
-               ! always on if heating
-               if (Model%doPsphere) then
-!                  pW(DEN) = pW(DEN)+ State%eqDen(i,j,k)
-                  pW(DEN) = pW(DEN)+Model%hRate/Model%hTau*Model%dt*max(0.,(State%eqDen(i,j,k)-pW(DEN)))
-               end if
-
-               call CellP2C(Model,pW,pCon)
-               State%Gas(i,j,k,:,BLK) = pCon
-            enddo
-         enddo
-      enddo    
-    end subroutine Heat
 
     !Set gPsi (corotation potential)
     subroutine CorotationPot(Model,Grid,gPsi)

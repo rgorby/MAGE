@@ -26,7 +26,7 @@ def getTs(fname,sIds):
 	with h5py.File(fname,'r') as hf:
 		for n in range(s0,sF+1):
 			gId = "/Step#%d"%(n)
-			T[n-s0] = hf[gId].attrs.get("time")
+			T[n-s0] = hf[gId].attrs.get("time",tDef)
 	return T
 
 #Get shape/dimension of grid

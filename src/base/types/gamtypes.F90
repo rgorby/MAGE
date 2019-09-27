@@ -80,7 +80,7 @@ module gamtypes
         logical :: doResOut = .false. !Output restarts
         logical :: isRestart=.false.
         logical :: doDivB=.false. !Output DivB
-        logical :: useResistivity=.false.
+        logical :: doResistive=.false.
         
 
         integer :: nTh=1 !Number of threads per node/group
@@ -94,10 +94,8 @@ module gamtypes
         real(rp) :: cHogH,cHogM !Coefficients for HOGS terms
         real(rp) :: Ca !Max speed for Boris correction
         
-
-        !Heating/plasmasphere
-        logical :: doHeat,doPsphere
-        real(rp) :: hRate,hTau  ! heating rate and cadence
+        !Information for static source term
+        logical :: doSource = .false.
 
         !Ring average information
         logical :: doRing = .false.
@@ -222,6 +220,7 @@ module gamtypes
 
 !State information
     type State_T
+        real(rp) :: time
         !Size (local grid) Ni,Nj,Nk,NVAR,(nSpc+1)
         real(rp), dimension(:,:,:,:,:), allocatable :: Gas
         !Size (local grid) Ni+1,Nj+1,Nk+1,nDim
@@ -231,12 +230,7 @@ module gamtypes
 
         !TODO: Does this need to be in each state variable?
         real(rp), dimension(:,:,:,:), allocatable :: Deta
-        !TODO: Remove eqXXX
-        real(rp), dimension(:,:,:,:), allocatable :: eqMap   ! instantaneous equatorial mapping
-        real(rp), dimension(:,:,:), allocatable :: eqPres    ! instantaneous equatorial pressure
-        real(rp), dimension(:,:,:), allocatable :: eqDen    ! instantaneous equatorial density (for plasmasphere)
         
-        real(rp) :: time
         !DIR$ attributes align : ALIGN :: Gas,Efld,Bxyz
     end type State_T
 

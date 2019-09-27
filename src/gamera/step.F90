@@ -4,9 +4,8 @@ module step
     use gamtypes
     use gamutils
     use bcs
-    use prob
+    !use prob
     use output
-    use ringav
     use multifluid
 
     implicit none
@@ -234,7 +233,7 @@ module step
                 Valf = Model%Ca*Valf/sqrt(Model%Ca*Model%Ca + Valf*Valf)
             endif
             
-            if(Model%useResistivity) then
+            if(Model%doResistive) then
                ! Asume t ~ x^2/(2Diff)
                Diff = maxval((/State%Deta(i,j,k,XDIR),State%Deta(i+1,j,k,XDIR), &
                                State%Deta(i,j,k,YDIR),State%Deta(i,j+1,k,YDIR), &

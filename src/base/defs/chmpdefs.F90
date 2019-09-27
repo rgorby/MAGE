@@ -18,7 +18,7 @@ module chmpdefs
         integer :: ts,tsOut,nOut
         logical :: doTimer=.false.
         logical :: doPureB0=.false.,doNumB0=.false. !Background field options (Pure/Numerical)
-        logical :: doEBOut,doTPOut,doFLOut !slice/particle/field line output
+        logical :: doEBOut=.false.,doTPOut=.false.,doFLOut=.false. !slice/particle/field line output
         logical :: doSlim=.false.,doFat=.false. !Do slim/fat output
         logical :: do2D=.false. !Force 2D tp integration
         logical :: doMHD=.false. !Do full MHD variables instead of just E/B

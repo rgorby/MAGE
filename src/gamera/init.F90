@@ -249,9 +249,9 @@ module init
         Model%doHall = .false.
         Model%doGrav = .false.
 
-        call xmlInp%Set_Val(Model%doMHD  ,'physics/doMHD'  ,.false.)
-        call xmlInp%Set_Val(Model%do25D  ,'physics/do25D'  ,.false.)
-        call xmlInp%Set_Val(Model%useResistivity,'/physics/useResistivity',.false.)
+        call xmlInp%Set_Val(Model%doMHD        ,'physics/doMHD'        ,.false.)
+        call xmlInp%Set_Val(Model%do25D        ,'physics/do25D'        ,.false.)
+        call xmlInp%Set_Val(Model%doResistive  ,'physics/doResistive'  ,.false.)
 
     !Misc. algorithmic/physics options
         !Need CFL & PDMB values
@@ -320,18 +320,8 @@ module init
         if (Model%doMultiF) then
             call InitMultiF(Model,xmlInp)
         endif
-
-    ! Heating info
-        call xmlInp%Set_Val(Model%doHeat,'physics/doHeat',.false.)
-        call xmlInp%Set_Val(Model%doPsphere,'physics/doPsphere',.false.)
-        if (Model%doHeat) then
-            ! if heating, always use plasmasphere regardless of xml file
-            Model%doPsphere = .True. 
-            ! heating rate in units of 1/tau where tau is the coupling constant with pressure provider
-            call xmlInp%Set_Val(Model%hRate,'physics/hRate',1.)
-            ! grab coupling time from the xml file
-            call xmlInp%Set_Val(Model%hTau,'gamera_chimp/dt',0.5)
-        endif
+    !Source terms
+        call xmlInp%Set_Val(Model%doSource,'source/doSource',.false.)
 
     !Get RunID
         call xmlInp%Set_Val(Model%RunID,'sim/runid',"Sim")
@@ -910,6 +900,11 @@ module init
 
         enddo    
 
+        if (Model%doSource) then
+            allocate(Grid%Gas0(Grid%isg:Grid%ieg,Grid%jsg:Grid%jeg,Grid%ksg:Grid%keg,1:NVAR))
+            Grid%Gas0 = 0.0
+        endif
+        
     end subroutine Corners2Grid
 
     !Calculate one of the two normal vectors of the edge-centered mag field system

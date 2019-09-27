@@ -8,7 +8,6 @@ module uservoltic
     use xml_input
     use bcs
     use background
-    use clocks
     use msphutils
     use wind
     use multifluid
@@ -240,7 +239,6 @@ module uservoltic
 
         !Call cooling function/s
         if (doCool) call ChillOut(Model,Gr,State)
-        if (Model%doHeat) call Heat(Model,Gr,State)
         
     end subroutine PerStep
 

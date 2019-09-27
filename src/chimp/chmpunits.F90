@@ -165,6 +165,7 @@ module chmpunits
         oEScl = (G2T*vc_mks*V2mV)/ebScl !eb->mV/m
         oVScl = vc_cgs*1.0e-5 !eb (1/c) -> km/s
         write(*,*) '------------'
+        write(*,*) 'CHIMP Units'
         write(*,*) 'inTScl = ', inTScl
         write(*,*) 'inBScl = ', inBScl
         write(*,*) 'inVScl = ', inVScl
