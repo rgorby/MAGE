@@ -34,16 +34,16 @@ module chmpfields
         i1 = n-1
         i2 = i1+1
         i1 = max(1,i1)
-        i2 = min(ebTab%N,i2)
-
+        
         !Old code
         ! i1 = findloc(ebTab%times .le. t,.true.,dim=1,back=.true.)
         ! i2 = findloc(ebTab%times .gt. t,.true.,dim=1)
         ! i1 = max(1,i1)
         ! i2 = min(ebTab%N,i2)
         
-
         if (i2 == i1) i2=i1+1 !Possible if none of the tab slices are in range
+        i2 = min(ebTab%N,i2)
+        
         !write(*,*) 'i1 / i2 = ', i1,i2
         !write(*,*) 'T(i1) / T / T(i2) = ', oTScl*ebTab%times(i1),oTScl*t,oTScl*ebTab%times(i2)
 

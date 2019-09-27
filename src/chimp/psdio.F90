@@ -17,6 +17,7 @@ module psdio
     logical :: doInitPSIO = .false. !Has IO been initialized
     logical :: doLogKCyl = .true. !Log(K) for K-cylinders
     logical :: doPSLines = .false.
+    logical, parameter :: doEBKEQ = .true.
 
     contains
 
@@ -270,6 +271,8 @@ module psdio
 
         !Calculate step to read
         nStp = nint( (t-psPop%T0)/psPop%dtStp )
+        if (nStp<0) nStp = 0
+
         write(*,*) 'Reading H5p step ', nStp
 
         write(gStr,'(A,I0)') "Step#", nStp
@@ -284,9 +287,14 @@ module psdio
             write(fIn,'(a,a,I0.6,a)') trim(adjustl(psPop%popid)),'.',n,'.h5part'
             call AddInVar(IOVars,"xeq")
             call AddInVar(IOVars,"yeq")
-            !call AddInVar(IOVars,"Keq")
-            !Read eb kinetic energy
-            call AddInVar(IOVars,"ebKeq")
+
+            if (doEBKEQ) then
+                !Read eb kinetic energy (kin energy in ExB frame)
+                call AddInVar(IOVars,"ebKeq")
+            else
+                !Read equatorial kinetic energy
+                call AddInVar(IOVars,"Keq")
+            endif
 
             call AddInVar(IOVars,"Aeq")
             call AddInVar(IOVars,"Teq")

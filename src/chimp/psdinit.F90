@@ -62,6 +62,8 @@ module psdinit
         psGr%dimBds(PSKINE ,:) = [minval(psGr%kI),maxval(psGr%kI)]
         psGr%dimBds(PSALPHA,:) = [minval(psGr%aI),maxval(psGr%aI)]
 
+        call inpXML%Set_Val(psGr%doShape,"sim/doShape",.true.)
+
         !Output grid data
         write(*,*) '--------------'
         write(*,'(a)') 'Phase space grid (N/Min/Max)'

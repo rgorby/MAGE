@@ -40,6 +40,8 @@ module psdtypes
         real(rp), dimension(:), allocatable :: rI,pI,kI,aI
         real(rp), dimension(:), allocatable :: rD,pD,kD,aD
 
+        logical :: doShape !Use shape functions when depositing weight
+
         !Flux tube volume, dVb = |Nr,Np,Na|
         real(rp), allocatable :: dVb(:,:,:)
         logical, allocatable :: isClosed(:,:)
