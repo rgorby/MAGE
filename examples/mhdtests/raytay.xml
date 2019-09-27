@@ -1,12 +1,12 @@
 <?xml version="1.0"?>
 <!-- Rayleigh Taylor -->
 <Gamera>
-   <sim runid="rt_mhd_test" icType="user" cfl="0.1" pdmb="1.0" rmeth="8Cent">
-   <idir min="-0.25" max="0.25" N="64">
-   <jdir min="-0.375" max="0.375" N="96">
-   <kdir min="-0.5" max="0.5" N="1">
-   <time tFin="15">
-   <output dtOut="0.05" tsOut="100">
-   <physics doMHD="T">
-   	<prob Amp="0.01">
+   <sim runid="rt_mhd_test" icType="user" cfl="0.1" pdmb="1.0" rmeth="8Cent"/>
+   <idir min="-0.25" max="0.25" N="64"/>
+   <jdir min="-0.375" max="0.375" N="96"/>
+   <kdir min="-0.5" max="0.5" N="1"/>
+   <time tFin="15"/>
+   <output dtOut="0.05" tsOut="100"/>
+   <physics doMHD="T"/>
+   <prob Amp="0.01"/>
 </Gamera>
