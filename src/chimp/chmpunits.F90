@@ -47,20 +47,13 @@ module chmpunits
     !Radial value for field line endpoint to be considered closed
     real(rp) :: rClosed = 3.5
 
-    !MKS constants
-    real(rp), parameter :: vc_mks = 2.9979e+8 ![m/s], Speed of light
-    real(rp), parameter :: V2mV = 1.0e+3 !V/m -> mV/m (duh)
-
-    !Helper conversions
-    real(rp), parameter :: G2nT = 1.0E+5 !Gauss->nT
-    real(rp), parameter :: G2T = 1.0E-4 !Gauss->T
-    real(rp), parameter :: kev2J = 1.60218E-16 !keV->J
-    
+    !Constants
+    real(rp), parameter, private :: V2mV = 1.0e+3 !V/m -> mV/m (duh)    
     !Gamera magnetosphere defaults
     !These are true as long as density is in #/cc and V is in 100km/s
 
-    real(rp), parameter :: gB0 = 4.58103037171500
-    real(rp), parameter :: gP0 = 1.670000007587940E-002
+    real(rp), parameter, private :: gamB0 = 4.58103037171500
+    real(rp), parameter, private :: gamP0 = 1.670000007587940E-002
     contains
 
     !Use inpXML to set units unless uStrO is specified
@@ -97,27 +90,27 @@ module chmpunits
             !Field : 4.581 nT
             L0 = Re_cgs
             in2cms = 100*1.0e+5 ! 100 km/s -> cm/s
-            in2G   = gB0/G2nT
+            in2G   = gamB0/G2nT
             in2s   = L0/in2cms
             M0g    = EarthM0g
-            inPScl = gP0 !Gamera pressure -> nPa
+            inPScl = gamP0 !Gamera pressure -> nPa
             rClosed = 3.5
         case("JUPITER")
             !Gamera units for Jupiter
             L0 = RJupiterXE*Re_cgs
             in2cms = 100*1.0e+5 ! 100 km/s -> cm/s
-            in2G   = gB0/G2nT
+            in2G   = gamB0/G2nT
             in2s   = L0/in2cms
             M0g    = JupiterM0g
-            inPScl = gP0 !Gamera pressure -> nPa
+            inPScl = gamP0 !Gamera pressure -> nPa
             rClosed = 10.0
         case("SATURN")
             L0 = RSaturnXE*Re_cgs
             in2cms = 100*1.0e+5 ! 100 km/s -> cm/s
-            in2G   = gB0/G2nT
+            in2G   = gamB0/G2nT
             in2s   = L0/in2cms
             M0g = SaturnM0g
-            inPScl = gP0 !Gamera pressure -> nPa
+            inPScl = gamP0 !Gamera pressure -> nPa
             rClosed = 5.0 !Inner boundary for Saturn
         case("HELIO")
             !E: Add code units here
@@ -184,23 +177,28 @@ module chmpunits
     subroutine getSpecies(species,mass,charge)
         character(len=*), intent(in) :: species
         real(rp), intent(out) :: mass,charge
+
+        real(rp) :: mScl
+
+        mScl = Mp_cgs/Me_cgs
+
         !Set charge (in |e|), mass (in Me)
         select case(species)
             case ('H','H+','p','p+')
                 !Hydrogen
                 write(*,*) '<Using species H+>'
                 charge = +1
-                mass   = 1*(mp/me)
+                mass   = 1*mScl
             case ('O','Op','O+')
                 !Oxygen
                 write(*,*) '<Using species O+>'
                 charge = +1
-                mass   = 16*(mp/me)
+                mass   = 16*mScl
             case ('O6+','O6','o6','O6p')
                 !Oxygen
                 write(*,*) '<Using species O6+>'
                 charge = +6
-                mass   = 16*(mp/me)
+                mass   = 16*mScl
             case ('e','e-')
                 !Electron
                 write(*,*) '<Using species e->'
@@ -225,16 +223,16 @@ module chmpunits
                 !He+
                 write(*,*) '<Using species He+>'
                 charge  = +1
-                mass    = 4*(mp/me)
+                mass    = 4*mScl
             case ('He++','He','Hepp','hepp','He2')
                 !He++
                 write(*,*) '<Using species He++>'
                 charge  = +2
-                mass    = 4*(mp/me)
+                mass    = 4*mScl
             case default
                 write(*,*) 'Unknown species, using H'
                 charge  = +1
-                mass    = 1*(mp/me)
+                mass    = 1*mScl
         end select
 
     end subroutine getSpecies

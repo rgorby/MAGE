@@ -6,10 +6,6 @@ module chmpdefs
     use xml_input
     implicit none
 
-!CGS constants
-    real(rp), parameter :: mec2 = 0.511 ! [MeV] electron rest mass
-    real(rp), parameter :: qe   = 4.8032D-10 ! [CGS] magnitude electron charge
-
     !Algorithmic/Run options
     type chmpModel_T
         character(len=strLen) :: RunID, uID

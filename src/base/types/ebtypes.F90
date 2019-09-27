@@ -58,8 +58,32 @@ module ebtypes
         real(rp), dimension(NDIM,NDIM) :: JacE,JacB
 
     end type gcFields_T
-    
+
+    integer, parameter :: MaxFL = 5000 !Reduced for multi-threading speed
+    integer, parameter :: NumVFL = NVARMHD !Number of field line variables (other than |B|)
+
+    !Streamline variable
+    type lnVar_T
+        character(len=strLen) :: idStr !Variable name
+        real(rp), allocatable, dimension(:) :: V !Same spacing as xyz in main streamline structure (-Nm:Np)
+        real(rp) :: V0 !Value @ "equator"
+    end type lnVar_T
+    !Individual streamline
+    type fLine_T
+        integer :: Nm,Np
+        real(rp), dimension(NDIM) :: x0 !Seed point
+        real(rp), allocatable, dimension(:,:) :: xyz
+
+        !xyz(-Nm:Np,:), w/ xyz(0,:) = seed point
+        type(lnVar_T), dimension(0:NumVFL) :: lnVars
+
+        !Localization data, ie ijk of each node of field line (not set yet)
+        integer, allocatable, dimension(:,:) :: ijk
+
+    end type fLine_T
+        
     contains
+
 
     !Allocates ebField_T given ebGr
     subroutine allocEB(Model,ebGr,ebF)

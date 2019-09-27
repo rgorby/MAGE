@@ -132,8 +132,8 @@ module mixconductance
          conductance%rampFactor = 1.0D0
       end if
 
-      conductance%E0 = conductance%alpha*mp*heFrac*erg2kev*St%Vars(:,:,SOUND_SPEED)**2*conductance%RampFactor
-      conductance%phi0 = sqrt(kev2erg)/(heFrac*mp)**1.5D0*conductance%beta*St%Vars(:,:,DENSITY)*sqrt(conductance%E0)*conductance%RampFactor
+      conductance%E0 = conductance%alpha*Mp_cgs*heFrac*erg2kev*St%Vars(:,:,SOUND_SPEED)**2*conductance%RampFactor
+      conductance%phi0 = sqrt(kev2erg)/(heFrac*Mp_cgs)**1.5D0*conductance%beta*St%Vars(:,:,DENSITY)*sqrt(conductance%E0)*conductance%RampFactor
 
       ! resistence out of the ionosphere is 2*rout resistence into the
       ! ionosphere is 2*rin outward current is positive
@@ -147,7 +147,7 @@ module mixconductance
       where (St%Vars(:,:,DENSITY) < rhoFactor*conductance%euvSigmaP) 
          St%Vars(:,:,DENSITY) = rhoFactor*conductance%euvSigmaP
       end where
-      conductance%deltaE = (heFrac*mp)**1.5D0/eCharge*1.D-4*sqrt(erg2kev)*conductance%R*conductance%aRes*signOfJ*(St%Vars(:,:,FAC)*1.e-6)*sqrt(conductance%E0)/St%Vars(:,:,DENSITY)
+      conductance%deltaE = (heFrac*Mp_cgs)**1.5D0/eCharge*1.D-4*sqrt(erg2kev)*conductance%R*conductance%aRes*signOfJ*(St%Vars(:,:,FAC)*1.e-6)*sqrt(conductance%E0)/St%Vars(:,:,DENSITY)
 
       ! limit the max potential energy drop to 20 [keV]
       conductance%deltaE = min(20.D0,conductance%deltaE)

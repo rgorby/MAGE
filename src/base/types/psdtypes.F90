@@ -2,7 +2,7 @@
 
 module psdtypes
     use chmpdefs
-    use streamline
+    use ebtypes
     
     implicit none
 
