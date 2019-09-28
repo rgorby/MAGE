@@ -95,10 +95,10 @@ module gridutils
             do j=Grid%jsg,Grid%jeg-1
                 do i=Grid%isg,Grid%ieg-1
                     !Get corner points to integrate along all 3 edges
-                    e0 = [Grid%x(i  ,j  ,k  ),Grid%y(i  ,j  ,k  ),Grid%z(i  ,j  ,k  )]
-                    eI = [Grid%x(i+1,j  ,k  ),Grid%y(i+1,j  ,k  ),Grid%z(i+1,j  ,k  )]
-                    eJ = [Grid%x(i  ,j+1,k  ),Grid%y(i  ,j+1,k  ),Grid%z(i  ,j+1,k  )]
-                    eK = [Grid%x(i  ,j  ,k+1),Grid%y(i  ,j  ,k+1),Grid%z(i  ,j  ,k+1)]
+                    e0 = [Grid%xyz(i  ,j  ,k  ,XDIR),Grid%xyz(i  ,j  ,k  ,YDIR),Grid%xyz(i  ,j  ,k  ,ZDIR)]
+                    eI = [Grid%xyz(i+1,j  ,k  ,XDIR),Grid%xyz(i+1,j  ,k  ,YDIR),Grid%xyz(i+1,j  ,k  ,ZDIR)]
+                    eJ = [Grid%xyz(i  ,j+1,k  ,XDIR),Grid%xyz(i  ,j+1,k  ,YDIR),Grid%xyz(i  ,j+1,k  ,ZDIR)]
+                    eK = [Grid%xyz(i  ,j  ,k+1,XDIR),Grid%xyz(i  ,j  ,k+1,YDIR),Grid%xyz(i  ,j  ,k+1,ZDIR)]
 
                     lA(i,j,k,IDIR) = dot_product(GaussianEdgeIntegral(Model,eI,e0,Axyz),eI-e0)
                     lA(i,j,k,JDIR) = dot_product(GaussianEdgeIntegral(Model,eJ,e0,Axyz),eJ-e0)
@@ -227,18 +227,21 @@ module gridutils
             do j=Grid%jsg+1, Grid%jeg
                 do i=Grid%isg+1, Grid%ieg
 
-                   ! integrating in the i-direction along i-edges, the effective index range is is:ie, js:js+1, ks:ks+1
-                   bInt(i,j,k,IDIR) = 0.25*( Bxyz(i,j,k,XDIR) + Bxyz(i,j-1,k,XDIR) + Bxyz(i,j,k-1,XDIR) + Bxyz(i,j-1,k-1,XDIR) )*( Grid%x(i+1,j,k) - Grid%x(i,j,k) ) + &
-                                      0.25*( Bxyz(i,j,k,YDIR) + Bxyz(i,j-1,k,YDIR) + Bxyz(i,j,k-1,YDIR) + Bxyz(i,j-1,k-1,YDIR) )*( Grid%y(i+1,j,k) - Grid%y(i,j,k) ) + &
-                                      0.25*( Bxyz(i,j,k,ZDIR) + Bxyz(i,j-1,k,ZDIR) + Bxyz(i,j,k-1,ZDIR) + Bxyz(i,j-1,k-1,ZDIR) )*( Grid%z(i+1,j,k) - Grid%z(i,j,k) )
-                   ! integrating in the j-direction along j-edges, the effective index range is is:ie+1, js:je, ks:ke+1
-                   bInt(i,j,k,JDIR) = 0.25*( Bxyz(i,j,k,XDIR) + Bxyz(i,j,k-1,XDIR) + Bxyz(i-1,j,k,XDIR) + Bxyz(i-1,j,k-1,XDIR) )*( Grid%x(i,j+1,k) - Grid%x(i,j,k) ) + &
-                                      0.25*( Bxyz(i,j,k,YDIR) + Bxyz(i,j,k-1,YDIR) + Bxyz(i-1,j,k,YDIR) + Bxyz(i-1,j,k-1,YDIR) )*( Grid%y(i,j+1,k) - Grid%y(i,j,k) ) + &
-                                      0.25*( Bxyz(i,j,k,ZDIR) + Bxyz(i,j,k-1,ZDIR) + Bxyz(i-1,j,k,ZDIR) + Bxyz(i-1,j,k-1,ZDIR) )*( Grid%z(i,j+1,k) - Grid%z(i,j,k) ) 
-                   ! integrating in the k-direction along k-edges, the effective index range is is:ie+1, js:je+1, ks:ke
-                   bInt(i,j,k,KDIR) = 0.25*( Bxyz(i,j,k,XDIR) + Bxyz(i-1,j,k,XDIR) + Bxyz(i,j-1,k,XDIR) + Bxyz(i-1,j-1,k,XDIR) )*( Grid%x(i,j,k+1) - Grid%x(i,j,k) ) + &
-                                      0.25*( Bxyz(i,j,k,YDIR) + Bxyz(i-1,j,k,YDIR) + Bxyz(i,j-1,k,YDIR) + Bxyz(i-1,j-1,k,YDIR) )*( Grid%y(i,j,k+1) - Grid%y(i,j,k) ) + &
-                                      0.25*( Bxyz(i,j,k,ZDIR) + Bxyz(i-1,j,k,ZDIR) + Bxyz(i,j-1,k,ZDIR) + Bxyz(i-1,j-1,k,ZDIR) )*( Grid%z(i,j,k+1) - Grid%z(i,j,k) ) 
+                   !Integrating in the i-direction along i-edges, the effective index range is is:ie, js:js+1, ks:ks+1
+                   bInt(i,j,k,IDIR) = 0.25*( Bxyz(i,j,k,XDIR) + Bxyz(i,j-1,k,XDIR) + Bxyz(i,j,k-1,XDIR) + Bxyz(i,j-1,k-1,XDIR) )*( Grid%xyz(i+1,j,k,XDIR) - Grid%xyz(i,j,k,XDIR) ) + &
+                                      0.25*( Bxyz(i,j,k,YDIR) + Bxyz(i,j-1,k,YDIR) + Bxyz(i,j,k-1,YDIR) + Bxyz(i,j-1,k-1,YDIR) )*( Grid%xyz(i+1,j,k,YDIR) - Grid%xyz(i,j,k,YDIR) ) + &
+                                      0.25*( Bxyz(i,j,k,ZDIR) + Bxyz(i,j-1,k,ZDIR) + Bxyz(i,j,k-1,ZDIR) + Bxyz(i,j-1,k-1,ZDIR) )*( Grid%xyz(i+1,j,k,ZDIR) - Grid%xyz(i,j,k,ZDIR) )
+
+                   !Integrating in the j-direction along j-edges, the effective index range is is:ie+1, js:je, ks:ke+1
+                   bInt(i,j,k,JDIR) = 0.25*( Bxyz(i,j,k,XDIR) + Bxyz(i,j,k-1,XDIR) + Bxyz(i-1,j,k,XDIR) + Bxyz(i-1,j,k-1,XDIR) )*( Grid%xyz(i,j+1,k,XDIR) - Grid%xyz(i,j,k,XDIR) ) + &
+                                      0.25*( Bxyz(i,j,k,YDIR) + Bxyz(i,j,k-1,YDIR) + Bxyz(i-1,j,k,YDIR) + Bxyz(i-1,j,k-1,YDIR) )*( Grid%xyz(i,j+1,k,YDIR) - Grid%xyz(i,j,k,YDIR) ) + &
+                                      0.25*( Bxyz(i,j,k,ZDIR) + Bxyz(i,j,k-1,ZDIR) + Bxyz(i-1,j,k,ZDIR) + Bxyz(i-1,j,k-1,ZDIR) )*( Grid%xyz(i,j+1,k,ZDIR) - Grid%xyz(i,j,k,ZDIR) ) 
+
+                   !Integrating in the k-direction along k-edges, the effective index range is is:ie+1, js:je+1, ks:ke
+                   bInt(i,j,k,KDIR) = 0.25*( Bxyz(i,j,k,XDIR) + Bxyz(i-1,j,k,XDIR) + Bxyz(i,j-1,k,XDIR) + Bxyz(i-1,j-1,k,XDIR) )*( Grid%xyz(i,j,k+1,XDIR) - Grid%xyz(i,j,k,XDIR) ) + &
+                                      0.25*( Bxyz(i,j,k,YDIR) + Bxyz(i-1,j,k,YDIR) + Bxyz(i,j-1,k,YDIR) + Bxyz(i-1,j-1,k,YDIR) )*( Grid%xyz(i,j,k+1,YDIR) - Grid%xyz(i,j,k,YDIR) ) + &
+                                      0.25*( Bxyz(i,j,k,ZDIR) + Bxyz(i-1,j,k,ZDIR) + Bxyz(i,j-1,k,ZDIR) + Bxyz(i-1,j-1,k,ZDIR) )*( Grid%xyz(i,j,k+1,ZDIR) - Grid%xyz(i,j,k,ZDIR) ) 
+
                 enddo
             enddo
         enddo
