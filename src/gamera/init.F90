@@ -229,7 +229,7 @@ module init
         type(Model_T), intent(inout) :: Model
         type(XML_Input_T), intent(in) :: xmlInp
 
-        real(rp) :: C0
+        real(rp) :: C0,MJD0
         integer :: nSeed, icSeed
         integer, dimension(:), allocatable :: vSeed
 
@@ -292,7 +292,12 @@ module init
         !Check both omega/sim/tFin & gamera/time/tFin
         call xmlInp%Set_Val(Model%tFin,'time/tFin',1.0_rp)
         call xmlInp%Set_Val(Model%tFin,'/omega/sim/tFin',Model%tFin)
-
+        !Get possible MJD0
+        call xmlInp%Set_Val(MJD0,"time/MJD0",-1.0)
+        if (MJD0>0) then
+            Model%MJD0 = MJD0
+        endif
+        
     !Output options
         call xmlInp%Set_Val(Model%tsOut,'output/tsOut',10)
         call xmlInp%Set_Val(Model%dtOut,'output/dtOut',0.1_rp)

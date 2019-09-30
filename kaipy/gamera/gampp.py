@@ -45,6 +45,10 @@ class GameraPipe(object):
 		self.doFast = doFast
 		self.UnitsID = "NONE"
 
+		#Stubs for MJD stuff
+		self.hasMJD = False
+		self.MJDs = []
+
 		#Scrape data from directory
 		self.OpenPipe()
 
@@ -89,6 +93,12 @@ class GameraPipe(object):
 		print("Found %d timesteps\n\tTime = [%f,%f]"%(self.Nt,self.T.min(),self.T.max()))
 		print("\tSteps = [%d,%d]"%(sids.min(),sids.max()))
 		
+		#Get MJD if present
+		MJDs = kh5.getTs(f0,sids,"MJD",-np.inf)
+		if (MJDs.max()>0):
+			self.hasMJD = True
+			self.MJDs = MJDs
+
 		#Get grid stuff
 		Dims = kh5.getDims(f0)
 		Nd = len(Dims)

@@ -53,7 +53,7 @@ module voltapp
 
         character(len=strLen) :: inpXML
         type(XML_Input_T) :: xmlInp
-        
+
         if(present(optFilename)) then
             ! read from the prescribed file
             inpXML = optFilename
@@ -105,8 +105,6 @@ module voltapp
         else
             call initializeFromGamera(vApp, gApp)
         endif
-
-
 
     end subroutine initVoltron
 

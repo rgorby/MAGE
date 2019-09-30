@@ -6,7 +6,7 @@ module gioH5
     use gridutils
     use ioH5
     use multifluid
-    
+    use dates
     implicit none
 
     integer, parameter :: MAXIOVAR = 50
@@ -174,7 +174,7 @@ module gioH5
         real(rp), dimension(:,:,:),   allocatable :: gVar,DivBcc
         real(rp), dimension(:,:,:,:), allocatable :: gVec
         real (rp), dimension(:,:,:,:), allocatable :: VecA,VecB !Full-sized arrays
-        real(rp) :: totDivB
+        real(rp) :: totDivB,MJD
 
         !Check if root variables need to be written
         if (doRoot) then
@@ -313,9 +313,14 @@ module gioH5
 
         !---------------------
         !Do attributes
+
         call AddOutVar(IOVars,"time",gamOut%tScl*Model%t)
         call AddOutVar(IOVars,"timestep",Model%ts)
         call AddOutVar(IOVars,"dt",gamOut%tScl*Model%dt)
+        if (Model%MJD0>0) then
+            MJD = T2MJD(Model%t*Model%Units%gT0,Model%MJD0)
+            call AddOutVar(IOVars,"MJD",MJD)
+        endif
 
         !---------------------
         !Call user routine

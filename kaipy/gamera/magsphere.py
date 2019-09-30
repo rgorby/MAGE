@@ -28,6 +28,7 @@ class GamsphPipe(GameraPipe):
 		self.tRMScl = 63.8 #->seconds, for Remix time scaling
 
 		self.hasRemix = False #Remix data present
+		
 		self.Nrm = 0 #Number of remix outputs
 		#2D equatorial grid, stretched polar (Ni,Nj*2+1)
 		self.xxi = [] ; self.yyi = []
@@ -75,6 +76,10 @@ class GamsphPipe(GameraPipe):
 				r = np.sqrt(self.xxc[i,j]**2.0+self.yyc[i,j]**2.0)
 				rm5 = r**(-5.0)
 				self.BzD[i,j] = -r*r*self.MagM*rm5
+
+		if (self.hasMJD):
+			print("Found MJD data")
+			print("\tTime (Min/Max) = %f/%f"%(self.MJDs.min(),self.MJDs.max()))
 
 		#Do remix data things
 		rmOStr = "%s/%s*.h5"%(self.fdir,rmStr)

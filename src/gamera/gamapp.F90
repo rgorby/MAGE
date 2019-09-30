@@ -24,20 +24,15 @@ module gamapp
 
         character(len=strLen) :: inpXML
         type(XML_Input_T) :: xmlInp
-        integer :: Narg
-
+        
         if(present(optFilename)) then
             ! read from the prescribed file
             inpXML = optFilename
+            call CheckFileOrDie(inpXML,"Error opening input deck, exiting ...")
         else
             !Find input deck
-            Narg = command_argument_count()
-            if (Narg .eq. 0) then
-                write(*,*) 'No input deck specified, defaulting to Input.xml'
-                inpXML = "Input.xml"
-            else
-                call get_command_argument(1,inpXML)
-            endif
+            call getIDeckStr(inpXML)
+
         endif
 
         write(*,*) 'Reading input deck from ', trim(inpXML)
@@ -47,8 +42,8 @@ module gamapp
             write(*,*) ''
             stop
         endif
-
-        !Partial inclusion of new XML reader
+        
+        !Create XML reader
         xmlInp = New_XML_Input(trim(inpXML),'Gamera',.true.)
 
         !Initialize Grid/State/Model (Hatch Gamera)

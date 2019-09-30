@@ -88,6 +88,7 @@ module gamtypes
         !Unit information
         type (gUnits_T) :: Units
         type (gOut_T)   :: gamOut
+        real(rp) :: MJD0 = -HUGE !MJD corresponding to T=0 in Gamera time
 
         !Boris correction information
         logical :: doBoris,doHogs
