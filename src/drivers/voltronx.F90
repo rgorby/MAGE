@@ -21,14 +21,21 @@ program voltronx
     call initVoltron(voltronApp, gameraApp)
 
     do while (gameraApp%Model%t < gameraApp%Model%tFin)
-        call Tic("Omega")
         !Start root timer
-
+        call Tic("Omega")
+        
+        !Advance Gamera MHD
         call stepGamera(gameraApp)
 
+        call Tic("DeepCoupling")
+        if ( (gameraApp%Model%t >= voltronApp%DeepT) .and. voltronApp%doDeep ) then
+            call DeepUpdate(voltronApp, gameraApp, gameraApp%Model%t)
+        endif
+        call Toc("DeepCoupling")
+
         call Tic("IonCoupling")
-        if (gameraApp%Model%t >= voltronApp%fastShallowTime) then
-            call fastShallowUpdate(voltronApp, gameraApp, gameraApp%Model%t)
+        if (gameraApp%Model%t >= voltronApp%ShallowT) then
+            call ShallowUpdate(voltronApp, gameraApp, gameraApp%Model%t)
         endif
         call Toc("IonCoupling")
         

@@ -76,7 +76,6 @@ module gioH5
         Grid%ksg = Grid%ks-Model%nG
         Grid%keg = Grid%ke+Model%nG
     
-        !Allocate corner grid holders
         allocate(Grid%x(Grid%isg:Grid%ieg+1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1))
         allocate(Grid%y(Grid%isg:Grid%ieg+1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1))
         allocate(Grid%z(Grid%isg:Grid%ieg+1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1))
@@ -87,7 +86,6 @@ module gioH5
 
     
     end subroutine readH5Grid
-
 
     !Write initial grid info to root of H5 output file
     subroutine writeH5GridInit(Model,Gr)

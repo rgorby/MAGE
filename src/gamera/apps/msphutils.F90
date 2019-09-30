@@ -782,6 +782,80 @@ module msphutils
 
     end subroutine ijk2Active
 
+    !Ingest density/pressure information from Grid%Gas0
+    !Treat Gas0 as target value
+    subroutine MagsphereIngest(Model,Gr,State)
+        type(Model_T), intent(in) :: Model
+        type(Grid_T), intent(in) :: Gr
+        type(State_T), intent(inout) :: State
+
+        integer :: i,j,k
+        real(rp), dimension(NVAR) :: pW, pCon
+
+        real(rp) :: M0,Mf
+        real(rp) :: Tau,dRho,dP
+        logical :: doIngest,doInD,doInP
+
+        if (Model%doMultiF) then
+            write(*,*) 'Source ingestion not implemented for multifluid, you should do that'
+            stop
+        endif
+
+        !M0 = sum(State%Gas(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,DEN,BLK)*Gr%volume(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke))
+
+        !$OMP PARALLEL DO default(shared) collapse(2) &
+        !$OMP private(i,j,k,doInD,doInP,doIngest,pCon,pW,Tau,dRho,dP)
+        do k=Gr%ks,Gr%ke
+            do j=Gr%js,Gr%je
+                do i=Gr%is,Gr%ie
+                    doInD = (Gr%Gas0(i,j,k,DEN)>TINY)
+                    doInP = (Gr%Gas0(i,j,k,PRESSURE)>TINY)
+                    doIngest = doInD .or. doInP
+
+                    if (.not. doIngest) cycle
+
+                    pCon = State%Gas(i,j,k,:,BLK)
+                    call CellC2P(Model,pCon,pW)
+
+                    Tau = BouncePeriod(Model,Gr%xyzcc(i,j,k,:))
+                    !Tau = 60.0*5.0/Model%Units%gT0
+
+                    if (doInD) then
+                        dRho = Gr%Gas0(i,j,k,DEN) - pW(DEN)
+                        pW(DEN) = pW(DEN) + (Model%dt/Tau)*max(0.0,dRho)
+                    endif
+                    if (doInP) then
+                        dP = Gr%Gas0(i,j,k,PRESSURE) - pW(PRESSURE)
+                        pW(PRESSURE) = pW(PRESSURE) + (Model%dt/Tau)*max(0.0,dP)
+                        !pW(PRESSURE) = pW(PRESSURE) + (Model%dt/Tau)*dP
+                    endif
+
+                    !Now put back
+                    call CellP2C(Model,pW,pCon)
+                    State%Gas(i,j,k,:,BLK) = pCon
+                enddo
+            enddo
+        enddo
+                    
+        !Mf = sum(State%Gas(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,DEN,BLK)*Gr%volume(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke))
+        !write(*,*) 'Before / After / Delta = ', M0,Mf,Mf-M0
+
+    end subroutine MagsphereIngest
+
+    function BouncePeriod(Model,xyz) result(Tau)
+        type(Model_T), intent(in) :: Model
+        real(rp), dimension(NDIM), intent(in) :: xyz
+        real(rp) :: Tau
+
+        real(rp) :: Leq,V
+
+        Leq = DipoleL(xyz)
+        V = Model%Ca
+        !Convert to m/(m/s)/(code time)
+        Tau = (Leq*Model%Units%gx0)/(V*Model%Units%gv0*Model%Units%gT0)
+
+    end function BouncePeriod
+
     !Set gPsi (corotation potential)
     subroutine CorotationPot(Model,Grid,gPsi)
         type(Model_T), intent(in) :: Model

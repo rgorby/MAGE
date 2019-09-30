@@ -9,9 +9,9 @@ module gamapp
     implicit none
 
     type gamApp_T
-        type(Model_T) :: Model
-        type(Grid_T) :: Grid
-        type(State_T) :: State, oState
+        type(Model_T)  :: Model
+        type(Grid_T)   :: Grid
+        type(State_T)  :: State, oState
         type(Solver_T) :: Solver
     end type gamApp_T
 

@@ -237,6 +237,11 @@ module uservoltic
 
         integer :: i
 
+        !Call ingestion function
+        if (Model%doSource) then
+            call MagsphereIngest(Model,Gr,State)
+        endif
+
         !Call cooling function/s
         if (doCool) call ChillOut(Model,Gr,State)
         

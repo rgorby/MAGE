@@ -163,7 +163,7 @@ module gamtypes
         !Corner-centered xyz-coordinates
         real(rp), dimension(:,:,:), allocatable :: x,y,z
         real(rp), dimension(:,:,:,:), allocatable :: xyz !4D array with all corners
-        
+
         !Volume-centered xyz-coordinates (isg:ieg,jsg:jeg,ksg:keg)
         real(rp), dimension(:,:,:,:), allocatable :: xyzcc
         
