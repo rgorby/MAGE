@@ -77,11 +77,13 @@ module gioH5
         Grid%keg = Grid%ke+Model%nG
     
         !Allocate corner grid holders
-        allocate(Grid%xyz(Grid%isg:Grid%ieg+1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1,1:NDIM))
+        allocate(Grid%x(Grid%isg:Grid%ieg+1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1))
+        allocate(Grid%y(Grid%isg:Grid%ieg+1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1))
+        allocate(Grid%z(Grid%isg:Grid%ieg+1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1))
 
-        Grid%xyz(:,:,:,XDIR) = reshape(IOVars(XDIR)%data,[Grid%Ni+1,Grid%Nj+1,Grid%Nk+1])
-        Grid%xyz(:,:,:,YDIR) = reshape(IOVars(YDIR)%data,[Grid%Ni+1,Grid%Nj+1,Grid%Nk+1])
-        Grid%xyz(:,:,:,ZDIR) = reshape(IOVars(ZDIR)%data,[Grid%Ni+1,Grid%Nj+1,Grid%Nk+1])
+        Grid%x = reshape(IOVars(XDIR)%data,[Grid%Ni+1,Grid%Nj+1,Grid%Nk+1])
+        Grid%y = reshape(IOVars(YDIR)%data,[Grid%Ni+1,Grid%Nj+1,Grid%Nk+1])
+        Grid%z = reshape(IOVars(ZDIR)%data,[Grid%Ni+1,Grid%Nj+1,Grid%Nk+1])
 
     
     end subroutine readH5Grid
@@ -121,14 +123,14 @@ module gioH5
         !Fill IO chain, start with coordinates
         if (Gr%Nkp > 1) then
             !3D problem
-            call AddOutVar(IOVars,"X",Gr%xyz(is:ie+1,js:je+1,ks:ke+1,XDIR))            
-            call AddOutVar(IOVars,"Y",Gr%xyz(is:ie+1,js:je+1,ks:ke+1,YDIR))
-            call AddOutVar(IOVars,"Z",Gr%xyz(is:ie+1,js:je+1,ks:ke+1,ZDIR))
+            call AddOutVar(IOVars,"X",Gr%x(is:ie+1,js:je+1,ks:ke+1))            
+            call AddOutVar(IOVars,"Y",Gr%y(is:ie+1,js:je+1,ks:ke+1))
+            call AddOutVar(IOVars,"Z",Gr%z(is:ie+1,js:je+1,ks:ke+1))
         else
             !2D problem
             !Squash corner arrays to 2D
-            call AddOutVar(IOVars,"X",reshape(Gr%xyz(is:ie+1,js:je+1,ks:ks,XDIR),[ie-is+2,je-js+2]))
-            call AddOutVar(IOVars,"Y",reshape(Gr%xyz(is:ie+1,js:je+1,ks:ks,YDIR),[ie-is+2,je-js+2]))
+            call AddOutVar(IOVars,"X",reshape(Gr%x(is:ie+1,js:je+1,ks:ks),[ie-is+2,je-js+2]))
+            call AddOutVar(IOVars,"Y",reshape(Gr%y(is:ie+1,js:je+1,ks:ks),[ie-is+2,je-js+2]))
         endif
 
         call AddOutVar(IOVars,"dV",Gr%volume(is:ie,js:je,ks:ke))
@@ -421,9 +423,9 @@ module gioH5
         call AddOutVar(IOVars,"t"   ,Model%t)
 
         !Coordinates of corners
-        call AddOutVar(IOVars,"X",Gr%xyz(:,:,:,XDIR))
-        call AddOutVar(IOVars,"Y",Gr%xyz(:,:,:,YDIR))
-        call AddOutVar(IOVars,"Z",Gr%xyz(:,:,:,ZDIR))
+        call AddOutVar(IOVars,"X",Gr%x)
+        call AddOutVar(IOVars,"Y",Gr%y)
+        call AddOutVar(IOVars,"Z",Gr%z)
 
         !Set bounds for active cell centers
         call getBds(Gr,.false.)

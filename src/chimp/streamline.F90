@@ -427,7 +427,7 @@ module streamline
         real(rp), dimension(NDIM) :: B,E,dx
         real(rp), dimension(NDIM) :: Jb,Jb2,Jb3,F1,F2,F3,F4
         real(rp), dimension(NDIM,NDIM) :: JacB
-        real(rp) :: ds,dl,MagJb,dzSgn
+        real(rp) :: ds,dl,MagJb
         real(rp), dimension(NVARMHD) :: Q
         integer, dimension(NDIM) :: ijk,ijkG
         type(gcFields_T) :: gcF
@@ -446,27 +446,27 @@ module streamline
 
         !write(*,*) 'sgn/ds/X0 = ', sgn,ds,x0
         do while (inDom .and. Np <= MaxFL)
-        !Locate and get fields
-            !Get location in ijk using old ijk as guess
-            call locate(Xn,ijk,Model,ebState%ebGr,inDom,ijkG)
-            call ebFields(Xn,t,Model,ebState,E,B,ijk,gcFields=gcF)
-
-            ! get the jacobian
-            JacB = gcF%JacB
-
-            !Get new ds
-            MagJb = sqrt(sum(JacB**2.0))
-            if (MagJb <= TINY) then
-                !Field is constant-ish, use local grid size
-                dl = getDiag(ebState%ebGr,ijk)
-                ds = sgn*Model%epsds*dl/norm2(B)
-            else
-                ds = sgn*Model%epsds/MagJb
-            endif
+           !Locate and get fields
+           !Get location in ijk using old ijk as guess
+           call locate(Xn,ijk,Model,ebState%ebGr,inDom,ijkG)
+           call ebFields(Xn,t,Model,ebState,E,B,ijk,gcFields=gcF)
            
-        !Update position
+           ! get the jacobian
+           JacB = gcF%JacB
+
+           !Get new ds
+           MagJb = sqrt(sum(JacB**2.0))
+           if (MagJb <= TINY) then
+              !Field is constant-ish, use local grid size
+              dl = getDiag(ebState%ebGr,ijk)
+              ds = sgn*Model%epsds*dl/norm2(B)
+           else
+              ds = sgn*Model%epsds/MagJb
+           endif
+           
+           !Update position
             !Get powers of jacobian
-            Jb  = matmul(JacB,B)
+            Jb = matmul(JacB,B)
             Jb2 = matmul(JacB,Jb)
             Jb3 = matmul(JacB,Jb2)
 
@@ -480,19 +480,19 @@ module streamline
             dx = (F1+2*F2+2*F3+F4)/6.0
             Xn = Xn + dx
             
-        !Prep for next step, test exit criteria
             inDom = inDomain(xn,Model,ebState%ebGr)
             if (inDom) then
-                Np = Np+1
-                dzSgn = Xn(ZDIR)*( Xn(ZDIR)-dx(ZDIR) )
-                if (toEquator .and. (dzSgn < 0)) then
-                    ! interpolate exactly to equator
-                    Xn = Xn-dx/norm2(dx)*abs(Xn(ZDIR))
-                    return
-                endif
+               Np = Np+1
+               
+               if (toEquator) then
+                  if ( Xn(ZDIR)*(Xn(ZDIR)-dx(ZDIR) ) < 0. ) then
+                     ! interpolate exactly to equator
+                     Xn = Xn-dx/norm2(dx)*abs(Xn(ZDIR))
+                     return
+                  endif
+               endif
 
-            endif !inDom
-
+            endif
         enddo
         !write(*,*) 'Found sign/points/distance = ', sgn,Np,norm2(x0-Xn)
 
