@@ -19,12 +19,13 @@ module starter
     contains
 
     !Initialize Model, set IC pointers for particles/fields and call them
-    subroutine goApe(Model,ebState,tpState,iXML)
+    subroutine goApe(Model,ebState,tpState,iXML,optFilename)
         type(chmpModel_T), intent(inout) :: Model
-        type(ebState_T), intent(inout), optional   :: ebState
-        type(tpState_T), intent(inout), optional   :: tpState
-        type(XML_Input_T), intent(out), optional   :: iXML
-
+        type(ebState_T),   intent(inout), optional :: ebState
+        type(tpState_T),   intent(inout), optional :: tpState
+        type(XML_Input_T), intent(out),   optional :: iXML
+        character(len=*) , intent(in)   , optional   :: optFilename
+ 
         character(len=strLen) :: xmlStr
         type(XML_Input_T) :: inpXML
         write(*,*) "goApe: Create all data structures"
@@ -32,7 +33,11 @@ module starter
         CalcGC => DirectGC
        
     !Create input XML object
-        call getIDeckStr(xmlStr)
+        if (present(optFilename)) then
+            xmlStr = optFilename
+        else
+            call getIDeckStr(xmlStr)
+        endif
         inpXML = New_XML_Input(trim(xmlStr),"Chimp",.true.)
 
         !Send XML object back if optional arg present

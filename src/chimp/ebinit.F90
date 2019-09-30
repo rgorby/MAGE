@@ -327,18 +327,28 @@ module ebinit
 
     !Read times for input data slices, convert times to code units
     !Figure out grid sizes
-    subroutine rdTab(ebTab,inpXML,ebFile)
-        type(ebTab_T), intent(inout) :: ebTab
-        type(XML_Input_T), intent(inout) :: inpXML
+    subroutine rdTab(ebTab,inpXML,ebFile,doTSclO)
+        type(ebTab_T), intent(inout)      :: ebTab
+        type(XML_Input_T), intent(in)     :: inpXML
         character(len=strLen), intent(in) :: ebFile
+        logical, intent(in), optional     :: doTSclO
 
         integer :: s0,sE,Nstp,i,Nd,dims(NDIM)
         character(len=strLen) :: gStr
         real(rp), allocatable, dimension(:) :: Ts
+        logical :: doTScl
+
+        if (present(doTSclO)) then
+            doTScl = doTSclO
+        else
+            doTScl = .true.
+        endif
+
 
         call StepInfo(ebFile,s0,sE,Nstp)
 
-        write(*,'(a,I0,a,I0,a,I0,a)') '<Found ',Nstp,' timeslices: ', s0, ' to ', sE,'>'
+        write(*,'(a,a,a,I0,a,I0,a,I0,a)') '<', trim(ebFile), ': Found ',Nstp,' timeslices, ', s0, ' to ', sE,'>'
+
         ebTab%N = Nstp
         allocate(ebTab%times(Nstp))
         allocate(ebTab%gStrs(Nstp))
@@ -350,18 +360,23 @@ module ebinit
             write(gStr,'(A,I0)') "Step#", s0+i-1
 
             ebTab%gStrs(i) = gStr
-            ebTab%times(i) = inTScl*Ts(i)
-        enddo
+            if (doTScl) then
+                ebTab%times(i) = Ts(i)*inTScl
+            else
+                ebTab%times(i) = Ts(i)
+            endif
+        enddo !stp loop
         
         !Get grid size info
         call ClearIO(ebIOs)
         call AddInVar(ebIOs,"X")
         call ReadVars(ebIOs,.false.,ebFile) !Use IO precision
         Nd = ebIOs(1)%Nr
-        if (Nd < 3) then
+        if ( (Nd < 3) .and. doTScl ) then
             write(*,*) '2D grids not currently supported'
             stop
         endif
+        
         dims = ebIOs(1)%dims(1:Nd)
         ebTab%dNi = dims(IDIR)-1
         ebTab%dNj = dims(JDIR)-1
