@@ -25,6 +25,7 @@ contains
     ! testing that an input of all zeroes gets output of all zeroes
     type(voltApp_T) :: voltronApp
     type(gamApp_T) :: gameraApp
+    real(rp) :: curTilt
     character(len=strLen) :: caseInput = 'cmiD.xml'
 
     write(*,*) 'Doing testZeroInput ...'
@@ -40,7 +41,9 @@ contains
     voltronApp%remixApp%ion(NORTH)%St%Vars(:,:,FAC) = 0
     voltronApp%remixApp%ion(SOUTH)%St%Vars(:,:,FAC) = 0
 
-    call run_mix(voltronApp%remixApp%ion, voltronApp%tilt)
+    call voltronApp%tilt%getValue(voltronApp%time,curTilt)
+
+    call run_mix(voltronApp%remixApp%ion, curTilt)
 
     ! potential in remixApp%ion(h)%St%Vars(:,:,POT)
     ! error value allows 1e-3 error per cell on average
@@ -61,6 +64,7 @@ contains
     ! testing that an input of all zeroes gets output of all zeroes
     type(voltApp_T) :: voltronApp
     type(gamApp_T) :: gameraApp
+    real(rp) :: curTilt
 
     real(rp) :: testValue = 240.19
     character(len=strLen) :: caseInput = 'cmiD.xml'
@@ -82,7 +86,9 @@ contains
     voltronApp%remixApp%ion(NORTH)%P%llbc_value = testValue
     voltronApp%remixApp%ion(SOUTH)%P%llbc_value = testValue
 
-    call run_mix(voltronApp%remixApp%ion, voltronApp%tilt)
+    call voltronApp%tilt%getValue(voltronApp%time,curTilt)
+
+    call run_mix(voltronApp%remixApp%ion, curTilt)
 
     ! potential in remixApp%ion(h)%St%Vars(:,:,POT)
     ! error value allows 1e-3 error per cell on average
@@ -96,6 +102,7 @@ contains
     ! testing that an input of all zeroes gets output of all zeroes
     type(voltApp_T) :: voltronApp
     type(gamApp_T) :: gameraApp
+    real(rp) :: curTilt
 
     character(len=strLen) :: caseInput = 'cmiD.xml'
     integer :: h,ip,it
@@ -125,7 +132,9 @@ contains
         end do
     end do
 
-    call run_mix(voltronApp%remixApp%ion, voltronApp%tilt)
+    call voltronApp%tilt%getValue(voltronApp%time,curTilt)
+
+    call run_mix(voltronApp%remixApp%ion, curTilt)
 
     ! potential in remixApp%ion(h)%St%Vars(:,:,POT)
     call mapRemixToGamera(voltronApp%mix2mhd, voltronApp%remixApp)
