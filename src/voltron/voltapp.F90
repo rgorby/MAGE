@@ -10,6 +10,7 @@ module voltapp
     use mhd2chmp_interface
     use chmp2mhd_interface
     use eqmap
+    use dates
 
     implicit none
 
@@ -20,6 +21,12 @@ module voltapp
     endenum
 
     type voltApp_T
+
+        !Voltron state information
+        real(rp) :: tilt
+        real(rp) :: time, MJD
+
+        !Apps
         type(mixApp_T) :: remixApp
         type(mhd2Mix_T) :: mhd2mix
         type(mix2Mhd_T) :: mix2mhd
@@ -28,6 +35,7 @@ module voltapp
         type(mhd2Chmp_T)  :: mhd2chmp
         type(chmp2Mhd_T)  :: chmp2mhd
 
+        !Shallow coupling information
         real(rp) :: ShallowT
         real(rp) :: ShallowDT
 
@@ -39,13 +47,11 @@ module voltapp
         integer  :: iDeep = 0 !Index of max i shell containing deep coupling radius
         logical  :: doEQ = .false. !Do equatorial pressure mapping
 
-
-        real(rp) :: tilt
-
     end type voltApp_T
 
     contains
 
+    !Initialize Voltron (after Gamera has already been initialized)
     subroutine initVoltron(vApp, gApp,optFilename)
         type(gamApp_T) , intent(inout) :: gApp
         type(voltApp_T), intent(inout) :: vApp
@@ -72,10 +78,17 @@ module voltapp
             stop
         endif
 
-        !Create XML reader
+    !Create XML reader
         xmlInp = New_XML_Input(trim(inpXML),'Voltron',.true.)
 
+    !Initialize state information
         vApp%tilt = 0.0_rp
+        vApp%time = gApp%Model%t*gApp%Model%Units%gT0 !Time in seconds
+        !Check if MJD0 is set (positive), otherwise make it 0
+        if (gApp%Model%MJD0 < 0) then
+            gApp%Model%MJD0 = 0.0
+        endif
+        vApp%MJD = T2MJD(vApp%time,gApp%Model%MJD0)
 
     !Shallow coupling
         vApp%ShallowT = 0.0_rp
@@ -108,6 +121,17 @@ module voltapp
 
     end subroutine initVoltron
 
+    !Step Voltron if necessary (currently just updating state variables)
+    subroutine stepVoltron(vApp, gApp)
+        type(voltApp_T), intent(inout) :: vApp
+        type(gamApp_T) , intent(in)    :: gApp
+
+        vApp%time = gApp%Model%t*gApp%Model%Units%gT0 !Time in seconds
+        vApp%MJD = T2MJD(vApp%time,gApp%Model%MJD0)
+       
+    end subroutine stepVoltron
+    
+    !Initialize Voltron app based on Gamera data
     subroutine initializeFromGamera(vApp, gApp, optFilename)
         type(voltApp_T), intent(inout) :: vApp
         type(gamApp_T), intent(inout) :: gApp

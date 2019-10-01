@@ -27,6 +27,9 @@ program voltronx
         !Advance Gamera MHD
         call stepGamera(gameraApp)
 
+        !Do any updates to Voltron
+        call stepVoltron(voltronApp,gameraApp)
+        
         call Tic("DeepCoupling")
         if ( (gameraApp%Model%t >= voltronApp%DeepT) .and. voltronApp%doDeep ) then
             call DeepUpdate(voltronApp, gameraApp, gameraApp%Model%t)

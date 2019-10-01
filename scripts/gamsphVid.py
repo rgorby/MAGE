@@ -60,7 +60,7 @@ if __name__ == "__main__":
 	print("Writing %d outputs between minutes %d and %d"%(Nt,ts,te))
 	if (Nblk>1):
 		#Figure out work bounds
-		dI = (Nt/Nblk)
+		dI = (Nt//Nblk)
 		i0 = (nID-1)*dI
 		i1 = i0+dI
 		if (nID == Nblk):
