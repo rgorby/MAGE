@@ -11,6 +11,7 @@ module voltapp
     use chmp2mhd_interface
     use eqmap
     use dates
+    use kronos
 
     implicit none
 
@@ -23,7 +24,7 @@ module voltapp
     type voltApp_T
 
         !Voltron state information
-        real(rp) :: tilt
+        type(TimeSeries_T) :: tilt
         real(rp) :: time, MJD
 
         !Apps
@@ -82,7 +83,10 @@ module voltapp
         xmlInp = New_XML_Input(trim(inpXML),'Voltron',.true.)
 
     !Initialize state information
-        vApp%tilt = 0.0_rp
+        !Set file to read from and pass desired variable name to initTS
+        call xmlInp%Set_Val(vApp%tilt%wID,"/Gamera/wind/tsfile","NONE")
+        call vApp%tilt%initTS("tilt")
+
         vApp%time = gApp%Model%t*gApp%Model%Units%gT0 !Time in seconds
         !Check if MJD0 is set (positive), otherwise make it 0
         if (gApp%Model%MJD0 < 0) then
@@ -204,12 +208,16 @@ module voltapp
     subroutine runRemix(vApp, time)
         type(voltApp_T), intent(inout) :: vApp
         real(rp), intent(in) :: time
+        real(rp) :: curTilt
 
         ! convert gamera inputs to remix
         call mapGameraToRemix(vApp%mhd2mix, vApp%remixApp)
 
+        ! determining the current dipole tilt
+        call vApp%tilt%getValue(vApp%time,curTilt)
+
         ! solve for remix output
-        call run_mix(vApp%remixApp%ion,vApp%tilt)
+        call run_mix(vApp%remixApp%ion,curTilt)
 
         ! get stuff from mix to gamera
         call mapRemixToGamera(vApp%mix2mhd, vApp%remixApp)
