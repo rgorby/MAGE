@@ -16,7 +16,8 @@ module init
     use ringrecon
     use recon
     use multifluid
-
+    use files
+    
     use step
     
 #ifdef _OPENMP
@@ -52,7 +53,7 @@ module init
         procedure(StateIC_T), pointer :: initState => NULL()
         integer :: i
         character(len=strLen) :: resStr,inH5
-        logical :: fExist, doH5g, doH5ic,doReset
+        logical :: doH5g, doH5ic,doReset
         real(rp) :: tReset
 
         !Alwasys zero for single process job
@@ -146,12 +147,8 @@ module init
         !Setup output file
         h5File = trim(Model%RunID) // ".h5"
         if (.not. Model%isRestart) then
-            inquire(file=h5File,exist=fExist)
-            if (fExist) then
-                write(*,*) 'Output file already exists, deleting file.'
-                call EXECUTE_COMMAND_LINE( 'rm ' // trim(h5File) , wait=.true.)
-            endif
-    
+            !Kill output file if it exists
+            call CheckAndKill(h5File)    
             !Write grid to output file
             call writeH5GridInit(Model,Grid)
         endif
@@ -239,8 +236,6 @@ module init
         Model%nG = 4
         Model%t = 0.0
         Model%ts = 0
-        Model%tOut = 0
-        Model%tRes = 0.0
 
     !Main logicals
         !These are set by default until they're implemented
@@ -297,18 +292,12 @@ module init
         if (MJD0>0) then
             Model%MJD0 = MJD0
         endif
-        
-    !Output options
-        call xmlInp%Set_Val(Model%tsOut,'output/tsOut',10)
-        call xmlInp%Set_Val(Model%dtOut,'output/dtOut',0.1_rp)
-        call xmlInp%Set_Val(Model%doTimer,'output/timer',.false.)
+    
+    !Output/Restart (IOCLOCK)
+        call Model%IO%init(xmlInp,Model%t)
         call xmlInp%Set_Val(Model%doDivB ,'output/DivB' ,.true. )
-        
-    !Restart stuff
-        !Do restart outputs if dtRes>0
-        call xmlInp%Set_Val(Model%dtRes,'restart/dtRes',-1.0_rp)
-        Model%doResOut = .false.
-        if (Model%dtRes > 0) Model%doResOut = .true.
+
+        !Whether to read restart
         call xmlInp%Set_Val(Model%isRestart,'restart/doRes',.false.)
 
     !Boris info

@@ -1,4 +1,5 @@
 module mix2mhd_interface
+  use volttypes
   use mixdefs
   use mixtypes
   use mixgeom
@@ -14,18 +15,6 @@ module mix2mhd_interface
   implicit none
 
   integer, parameter :: mix2mhd_varn = 1  ! for now just the potential is sent back
-
-  type mix2Mhd_T
-
-     ! data for remix -> gamera conversion
-     real(rp), dimension(:,:,:,:,:), allocatable :: mixOutput
-     real(rp), dimension(:,:,:), allocatable :: gPsi
-     type(Map_T), allocatable, dimension(:) :: PsiMaps
-     integer :: PsiStart = -3, PsiShells = 5
-
-     real(rp) :: rm2g
-
-  end type mix2Mhd_T
 
 contains
 
@@ -121,62 +110,6 @@ contains
         END SELECT
 
     end subroutine convertRemixToGamera
-
-  subroutine mix_mhd_output(ion,mhdvarsin,time)
-    type(mixIon_T),dimension(:),intent(inout) :: ion ! I for ionosphere (is an array of 1 or 2 elements for north and south)
-    real(rp), dimension(:,:,:,:,:),intent(in) :: mhdvarsin
-    real(rp), intent(in) :: time
-
-    character(strLen) :: fnstr,fname,vID
-    real(rp), save :: next_t = 0.0
-    logical :: mixOut,isThere,fExist
-    integer, save :: step = 0
-    real(rp) :: cpcp(2) = 0.0 
-
-    integer, parameter :: MAXMIXIOVAR = 10
-    type(IOVAR_T), dimension(MAXMIXIOVAR) :: IOVars
-
-    mixOut = any(ion(:)%P%dtOut > 0.0)
-
-    !Save CPCP for diagnostics
-    cpcp(NORTH) = maxval(mhdvarsin(1,:,:,MHDPSI,NORTH))-minval(mhdvarsin(1,:,:,MHDPSI,NORTH))
-    cpcp(SOUTH) = maxval(mhdvarsin(1,:,:,MHDPSI,SOUTH))-minval(mhdvarsin(1,:,:,MHDPSI,SOUTH))
-
-    if (time >= next_t) then ! not in use jet
-        write(*,*) '----- CMI -----'
-        write(*,'(a,2f8.3)') 'N/S CPCP [kV] = ', cpcp(NORTH), cpcp(SOUTH)
-
-        if (mixOut)then
-          write(fnstr,'(I0.6)') floor(time/minval(ion(:)%P%dtOut)) !step
-          fname = 'mixtest'//trim(fnstr)//'.h5'
-
-          inquire(file=trim(fname),exist=fExist)
-          if (.not. fExist) then
-            !If the file doesn't exist
-            call writeMIX(fname,ion)
-
-            !Add extra attribute information to output
-            vID = "t"
-            isThere = ioExist(fname,trim(vID))
-            if (.not. isThere) then
-              call ClearIO(IOVars)
-              call AddOutVar(IOVars,"t"   ,time)
-              call AddOutVar(IOVars,"ts"  ,step)
-              call AddOutVar(IOVars,"nCPCP",cpcp(NORTH))
-              call AddOutVar(IOVars,"sCPCP",cpcp(SOUTH))
-              call WriteVars(IOVars,.true.,fname)
-            endif !isThere
-          endif !File exists
-          
-        end if
-
-        next_t = next_t + minval(ion(:)%P%dtOut)
-
-    end if
-
-    step = step +1
-
-  end subroutine mix_mhd_output
 
   subroutine mapRemixToGamera(mix2mhd, remixApp)
     type(mix2Mhd_T), intent(inout) :: mix2mhd

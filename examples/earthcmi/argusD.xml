@@ -1,10 +1,12 @@
+<!-- Example XML file for coupled SST+Gamera+ReMIX+CHIMP -->
 <?xml version="1.0"?>
 <!-- Magnetosphere params, Voltron times in seconds -->
 <VOLTRON>
   <time tFin="36000.0"/>
   <output dtOut="60.0" tsOut="100" timer="F"/>
   <restart dtRes="1800.0"/>
-  <coupling dt="5.0"/>
+  <coupling dt="5.0" dtDeep="60.0" rDeep="8.0"/>
+  <eqmap eqFile="JulySST.h5"/>
 </VOLTRON>
 <Gamera>
   <ibc bc="user" jperiod="F" kperiod="T"/>
@@ -16,9 +18,16 @@
   <prob Rho0="0.2" P0="0.001"/>
   <ring gid="lfm" doRing="T" Nr="4" Nc1="8" Nc2="16" Nc3="32" Nc4="32"/>
   <wind tsfile="bcwind.h5"/>
+  <source doSource="T"/>
 </Gamera>
 <!-- Remix params -->
 <REMIX>
   <grid Np="360" Nt="40" LowLatBoundary="45.0"/>
   <conductance F107="124.8" pedmin="2.0" hallmin="1.0" sigma_ratio="3.0" const_sigma="True" ped0="5.0"/>
 </REMIX>
+<!-- EB-Tracer (CHIMP) params -->
+<CHIMP>
+  <units uid="EARTHCODE"/>
+  <fields grType="LFM"/>
+  <domain dtype="SPH" rmin="2.0" rmax="25.0"/>
+</CHIMP>

@@ -17,14 +17,16 @@ module gamapp
 
     contains
 
-    subroutine initGamera(gameraApp, userInitFunc, optFilename)
+    subroutine initGamera(gameraApp, userInitFunc, optFilename,doIO)
         type(gamApp_T), intent(inout) :: gameraApp
         procedure(StateIC_T), pointer, intent(in) :: userInitFunc
         character(len=*), optional, intent(in) :: optFilename
+        logical, optional, intent(in) :: doIO
 
         character(len=strLen) :: inpXML
         type(XML_Input_T) :: xmlInp
-        
+        logical :: doIOX
+
         if(present(optFilename)) then
             ! read from the prescribed file
             inpXML = optFilename
@@ -33,6 +35,12 @@ module gamapp
             !Find input deck
             call getIDeckStr(inpXML)
 
+        endif
+
+        if (present(doIO)) then
+            doIOX = doIO
+        else
+            doIOX = .true.
         endif
 
         write(*,*) 'Reading input deck from ', trim(inpXML)
@@ -51,9 +59,11 @@ module gamapp
         call Hatch(gameraApp%Model,gameraApp%Grid,gameraApp%State,gameraApp%oState,gameraApp%Solver,xmlInp,userInitFunc)
         call cleanClocks()
 
-        if (.not. gameraApp%Model%isRestart) call fOutput(gameraApp%Model,gameraApp%Grid,gameraApp%State)
-        call consoleOutput(gameraApp%Model,gameraApp%Grid,gameraApp%State)
-
+        if (doIOX) then
+            if (.not. gameraApp%Model%isRestart) call fOutput(gameraApp%Model,gameraApp%Grid,gameraApp%State)
+            call consoleOutput(gameraApp%Model,gameraApp%Grid,gameraApp%State)
+        endif
+        
     end subroutine initGamera
 
     subroutine stepGamera(gameraApp)
@@ -84,21 +94,6 @@ module gamapp
         call Tic("Halos")
         call EnforceBCs(gameraApp%Model,gameraApp%Grid,gameraApp%State)
         call Toc("Halos")
-
-
-        !Output if necessary
-        call Tic("IO")
-        if (modulo(gameraApp%Model%ts,gameraApp%Model%tsOut) ==0) then
-            call consoleOutput(gameraApp%Model,gameraApp%Grid,gameraApp%State)
-        endif
-        if (gameraApp%Model%t >= gameraApp%Model%tOut) then
-            call fOutput(gameraApp%Model,gameraApp%Grid,gameraApp%State)
-        endif
-        if (gameraApp%Model%doResOut .and. (gameraApp%Model%t >= gameraApp%Model%tRes)) then
-            !print *,"RESTART :: ", Model%doResOut, Model%t >= Model%tRes
-            call resOutput(gameraApp%Model,gameraApp%Grid,gameraApp%State)
-        endif
-        call Toc("IO")
 
     end subroutine stepGamera
 

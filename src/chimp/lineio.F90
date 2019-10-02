@@ -5,7 +5,7 @@ module lineio
     use ebtypes
     use streamline
     use ioH5
-
+    use files
     implicit none
 
     character(len=strLen) :: flOutF

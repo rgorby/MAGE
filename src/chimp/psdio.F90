@@ -6,6 +6,7 @@ module psdio
     use psdutils
     use particleio
     use lineio
+    use files
     use pdfuns
 
     implicit none

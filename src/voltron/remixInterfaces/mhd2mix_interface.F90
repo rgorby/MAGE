@@ -4,6 +4,7 @@
 module mhd2mix_interface
     use gamtypes
     use gamutils
+    use volttypes
     use math
     use clocks
     use xml_input
@@ -21,18 +22,6 @@ module mhd2mix_interface
 
     ! how many variables are we sending (should be consistent with the enumerator in mixdefs.F90)
     integer, parameter :: mhd2mix_varn = 3
-
-    type mhd2Mix_T
-
-        ! data for gamera -> remix conversion
-        real(rp), dimension(:,:,:,:,:), allocatable :: mixInput
-        real(rp), dimension(:,:,:,:), allocatable :: gJ
-        type(Map_T), allocatable, dimension(:) :: Jmaps
-        integer :: JStart = 2, JShells = 1
-
-        type(mixGrid_T) :: mixGfpd
-
-    end type mhd2mix_T
 
     contains
 

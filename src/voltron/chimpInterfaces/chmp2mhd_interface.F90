@@ -2,23 +2,13 @@
 
 module chmp2mhd_interface
     use gamtypes
+    use volttypes
     use math
     use gamapp
     use ebtypes
     use eqmap
     
     implicit none
-
-    ! data for chimp -> gamera conversion
-    type chmp2Mhd_T
-
-        !Ni,Nj,Nk,2 array
-        !Holds mapping from cell-centered xyz => x1,x1 (projection coordinates)
-        !Projection coordinates can be R,phi (cylindrical) or lat,lon (ionospheric)
-        real(rp), dimension(:,:,:,:), allocatable :: xyzSquish
-        integer :: iMax !Possibly changing i-boundary of squish mapping
-
-    end type chmp2Mhd_T
 
     contains
 

@@ -4,7 +4,8 @@ module output
     use clocks
     use gioH5
     use gridutils
-
+    use files
+    
     implicit none
 
     logical :: primOut = .true.
@@ -55,7 +56,7 @@ contains
 
         !Calculate zone-cycles per second
         if (Model%ts > 0) then
-            ZCs = Model%tsOut*Grid%Nip*Grid%Njp*Grid%Nkp/wTime
+            ZCs = Model%IO%tsOut*Grid%Nip*Grid%Njp*Grid%Nkp/wTime
         else
             ZCs = 0.0
         endif
@@ -77,8 +78,8 @@ contains
             if (nFloors > 0) then
                 write (*, '(a,I8)') '      nFloors = ', nFloors
             endif
-            write (*, *) ANSIRESET, ''
-
+            
+            write(*,'(a)',advance="no") ANSIRESET!, ''
         endif
 
     end subroutine consoleOutput_STD
@@ -101,7 +102,7 @@ contains
 
         character(len=strLen) :: gStr,tStr
 
-        write (gStr, '(A,I0)') "Step#", Model%nOut
+        write (gStr, '(A,I0)') "Step#", Model%IO%nOut
 
         if (verbose > 0) then
             call timeString(Model%t,tStr)
@@ -112,8 +113,8 @@ contains
         call writeSlc(Model, Grid, State, gStr)
 
         !Setup for next output
-        Model%tOut = Model%tOut + Model%dtOut
-        Model%nOut = Model%nOut + 1
+        Model%IO%tOut = Model%IO%tOut + Model%IO%dtOut
+        Model%IO%nOut = Model%IO%nOut + 1
     end subroutine fOutput
 
     subroutine resOutput(Model, Grid, State)
@@ -124,16 +125,12 @@ contains
         character(len=strLen) :: ResF, lnResF !Name of restart file
         logical :: fExist
 
-        write (ResF, '(A,A,I0.5,A)') trim(Model%RunID), ".Res.", Model%nRes, ".h5"
+        write (ResF, '(A,A,I0.5,A)') trim(Model%RunID), ".Res.", Model%IO%nRes, ".h5"
+
+        call CheckAndKill(ResF)
 
         if (verbose > 0) then
             write (*, *) '-----------------------'
-            inquire (file=ResF, exist=fExist)
-            if (fExist) then
-                write (*, *) 'Restart file already exists, deleting file.'
-                call EXECUTE_COMMAND_LINE('rm '//trim(ResF), wait=.true.)
-            endif
-
             write (*, '(a,f8.3,a)') '<Writing HDF5 RESTART @ t = ', Model%t, ' >'
             write (*, *) '-----------------------'
         endif
@@ -141,8 +138,8 @@ contains
         call writeH5Res(Model, Grid, State, ResF)
 
         !Setup for next restart
-        Model%tRes = Model%tRes + Model%dtRes
-        Model%nRes = Model%nRes + 1
+        Model%IO%tRes = Model%IO%tRes + Model%IO%dtRes
+        Model%IO%nRes = Model%IO%nRes + 1
 
         write (lnResF, '(A,A,A,A)') trim(Model%RunID), ".Res.", "XXXXX", ".h5"
 

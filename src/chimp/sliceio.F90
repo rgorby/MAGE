@@ -6,7 +6,7 @@ module sliceio
     use streamline
     use ioH5
     use xml_input
-
+    use files
     implicit none
 
     character(len=strLen) :: ebOutF

@@ -197,20 +197,6 @@ contains
 
         call h5close_f(herr) !Close intereface
     end function ioExist
-
-    !Delete file if it already exists
-    subroutine CheckAndKill(fStr)
-        character(len=*), intent(in) :: fStr
-
-        logical :: fExist
-
-        inquire(file=trim(fStr),exist=fExist)
-        if (fExist) then
-            write(*,'(3a)') '<',trim(fStr),' already exists, deleting ...>'
-            call EXECUTE_COMMAND_LINE('rm ' // trim(fStr) , wait=.true.)
-            !write(*,*) ''
-        endif
-    end subroutine CheckAndKill
        
     !Read into array of IOVar from file fOut/optional group ID gStr
     subroutine ReadVars(IOVars,doIOp,baseStr,gStrO)
