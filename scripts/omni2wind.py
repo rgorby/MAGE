@@ -23,7 +23,7 @@ import kaipy.solarWind
 from  kaipy.solarWind import swBCplots
 from  kaipy.solarWind.OMNI import OMNI
 import datetime
-import julian
+from astropy.time import Time
 from ai import cdas
 
 def bxFit(sw, fileType, filename):
@@ -49,8 +49,8 @@ def bxFit(sw, fileType, filename):
 if __name__ == "__main__":
         fOut = "bcwind.h5"
         mod = "LFM"
-        t0="1/1/2010, 00:00:00"
-        t1="1/1/2010, 02:00:00"
+        t0="2010-01-01T00:00:00"
+        t1="2010-01-01T02:00:00"
         Ts = 0.0
         obs="OMNI"
         MainS = """ This script does several things:
@@ -67,8 +67,8 @@ if __name__ == "__main__":
         """
 
         parser = argparse.ArgumentParser(description=MainS, formatter_class=RawTextHelpFormatter)
-        parser.add_argument('-t0',type=str,metavar="TStart",default=t0,help="Start time in a string 'MM/DD/YYY, HH:MM:SS' (default: %(default)s)")
-        parser.add_argument('-t1',type=str,metavar="TStop",default=t1,help="End time in a string'MM/DD/YYY, HH:MM:SS' (default: %(default)s)")
+        parser.add_argument('-t0',type=str,metavar="TStart",default=t0,help="Start time in 'YYYY-MM-DDThh:mm:ss' (default: %(default)s)")
+        parser.add_argument('-t1',type=str,metavar="TStop",default=t1,help="End time in 'YYYY-MM-DDThh:mm:ss' (default: %(default)s)")
         parser.add_argument('-obs',type=str,metavar="OMNI",default=obs,help="Select spacecraft to obtain observations from (default: %(default)s)")
         parser.add_argument('-o',type=str,metavar="wind.h5",default=fOut,help="Output Gamera wind file (default: %(default)s)")
         parser.add_argument('-m',type=str,metavar="LFM",default=mod,help="Format to write.  Options are LFM or TIEGCM (default: %(default)s)")
@@ -87,7 +87,7 @@ if __name__ == "__main__":
         t0 = args.t0
         t1 = args.t1
 
-        fmt='%m/%d/%Y, %H:%M:%S'
+        fmt='%Y-%m-%dT%H:%M:%S'
 
         # calculating average F10.7 over specified time period, can be converted into a timeseries
         # pulling data from CDAWeb database
@@ -214,7 +214,7 @@ if __name__ == "__main__":
 
             #Calculating time in MJD
             MJD = []
-            mjdRef = julian.to_jd(date,fmt='mjd')
+            mjdRef=Time(date).mjd
             [MJD.append(mjdRef+i/86400.0) for i in T]
 
             #Density, magnetic field, and tilt don't require scaling
