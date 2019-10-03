@@ -8,9 +8,6 @@
   <coupling dt="5.0"/>
 </VOLTRON>
 <Gamera>
-  <ibc bc="user" jperiod="F" kperiod="T"/>
-  <jbc bc="user" iperiod="F" kperiod="T"/>
-  <kbc bc="periodic" iperiod="F" jperiod="F"/>
   <sim runid="msphere" doH5g="T" H5Grid="lfmQ.h5" icType="user" pdmb="1.0" pFloor="1.0e-8" dFloor="1.0e-6" rmeth="7UP"/>
   <restart doRes="F" resFile="XXXXX.h5"/>
   <physics doMHD="T" doBoris="T" Ca="10.0"/>
@@ -21,5 +18,5 @@
 <!-- Remix params -->
 <REMIX>
   <grid Np="360" Nt="40" LowLatBoundary="45.0"/>
-  <conductance F107="124.8" pedmin="2.0" hallmin="1.0" sigma_ratio="3.0" const_sigma="True" ped0="5.0"/>
+  <conductance pedmin="2.0" hallmin="1.0" sigma_ratio="3.0" const_sigma="True" ped0="5.0"/>
 </REMIX>

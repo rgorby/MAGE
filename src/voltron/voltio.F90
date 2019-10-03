@@ -15,16 +15,19 @@ module voltio
         type(voltApp_T), intent(in) :: vApp
         real(rp) :: cpcp(2) = 0.0
 
+        real(rp) :: dpT
+
         !Using console output from Gamera
         call consoleOutput(gApp%Model,gApp%Grid,gApp%State)
 
         !Augment Gamera console output w/ Voltron stuff
         call getCPCP(vApp%mix2mhd%mixOutput,cpcp)
-
+        dpT = vApp%tilt%evalAt(vApp%time)*180.0/PI
 
         write(*,'(a)',advance="no") ANSIBLUE
         !write (*, '(a,f8.3,a)')       '    dt/dt0 = ', 100*Model%dt/dt0, '%'
         write (*, '(a,2f8.3,a)')      '    CPCP  = ' , cpcp(NORTH), cpcp(SOUTH), ' [kV] (N/S)'
+        write (*, '(a,1f8.3,a)')      '     tilt  = ' , dpT, ' [deg]'
         write (*, *) ANSIRESET, ''
 
     end subroutine consoleOutputV

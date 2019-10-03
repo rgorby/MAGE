@@ -44,7 +44,7 @@ module volttypes
     type voltApp_T
 
         !Voltron state information
-        type(TimeSeries_T) :: tilt
+        type(TimeSeries_T) :: tilt,f107
         real(rp) :: time, MJD,tFin
         integer :: ts
 

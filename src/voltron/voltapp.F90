@@ -52,6 +52,9 @@ module voltapp
         !Set file to read from and pass desired variable name to initTS
         call xmlInp%Set_Val(vApp%tilt%wID,"/Gamera/wind/tsfile","NONE")
         call vApp%tilt%initTS("tilt")
+        !Do same for f107 time series
+        vApp%f107%wID = vApp%tilt%wID
+        call vApp%f107%initTS("f10.7")
 
         gTScl = gApp%Model%Units%gT0
         vApp%time = gApp%Model%t*gTScl !Time in seconds
@@ -133,10 +136,12 @@ module voltapp
 
         character(len=strLen) :: RunID
         logical :: isRestart
+        real(rp) :: maxF107
+        integer :: n
 
         isRestart = gApp%Model%isRestart
         RunID = trim(gApp%Model%RunID)
-
+        
     !Remix from Gamera
         if(present(optFilename)) then
             ! read from the prescribed file
@@ -144,6 +149,14 @@ module voltapp
         else
             call init_mix(vApp%remixApp%ion,[NORTH, SOUTH],RunID=RunID,isRestart=isRestart)
         endif
+
+        !Set F10.7 from time series (using max)
+        maxF107 = vApp%f107%getMax()
+        do n=1,2
+            vApp%remixApp%ion(n)%P%f107 = maxF107
+        enddo
+        write(*,*) 'Using F10.7 = ', maxF107
+
 
         call init_mhd2Mix(vApp%mhd2mix, gApp, vApp%remixApp)
         call init_mix2Mhd(vApp%mix2mhd, vApp%remixApp, gApp)
