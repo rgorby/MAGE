@@ -32,7 +32,7 @@ module voltapp
 
         character(len=strLen) :: inpXML
         type(XML_Input_T) :: xmlInp
-
+        type(TimeSeries_T) :: tsMJD
         real(rp) :: gTScl
 
         if(present(optFilename)) then
@@ -52,18 +52,21 @@ module voltapp
         !Set file to read from and pass desired variable name to initTS
         call xmlInp%Set_Val(vApp%tilt%wID,"/Gamera/wind/tsfile","NONE")
         call vApp%tilt%initTS("tilt")
-        !Do same for f107 time series
-        vApp%f107%wID = vApp%tilt%wID
-        call vApp%f107%initTS("f10.7")
 
         gTScl = gApp%Model%Units%gT0
         vApp%time = gApp%Model%t*gTScl !Time in seconds
         vApp%ts   = gApp%Model%ts !Timestep
 
-        !Check if MJD0 is set (positive), otherwise make it 0
-        if (gApp%Model%MJD0 < 0) then
-            gApp%Model%MJD0 = 0.0
-        endif
+        !Use MJD from time series
+        tsMJD%wID = vApp%tilt%wID
+        call tsMJD%initTS("MJD")
+        gApp%Model%MJD0 = tsMJD%evalAt(0.0_rp) !Evaluate at T=0
+        
+        ! !Check if MJD0 is set (positive), otherwise make it 0
+        ! if (gApp%Model%MJD0 < 0) then
+        !     gApp%Model%MJD0 = 0.0
+        ! endif
+
         vApp%MJD = T2MJD(vApp%time,gApp%Model%MJD0)
 
     !Time options
@@ -135,6 +138,8 @@ module voltapp
         character(len=*), optional, intent(in) :: optFilename
 
         character(len=strLen) :: RunID
+        type(TimeSeries_T) :: f107
+
         logical :: isRestart
         real(rp) :: maxF107
         integer :: n
@@ -151,12 +156,15 @@ module voltapp
         endif
 
         !Set F10.7 from time series (using max)
-        maxF107 = vApp%f107%getMax()
+        f107%wID = vApp%tilt%wID
+        call f107%initTS("f10.7")
+        maxF107 = f107%getMax()
+        
         do n=1,2
             vApp%remixApp%ion(n)%P%f107 = maxF107
         enddo
         write(*,*) 'Using F10.7 = ', maxF107
-
+        write(*,*) 'Using MJD0  = ', gApp%Model%MJD0
 
         call init_mhd2Mix(vApp%mhd2mix, gApp, vApp%remixApp)
         call init_mix2Mhd(vApp%mix2mhd, vApp%remixApp, gApp)

@@ -2,7 +2,7 @@
 <?xml version="1.0"?>
 <!-- Magnetosphere params, Voltron times in seconds -->
 <VOLTRON>
-  <time tFin="36000.0" MJD0="56487.4583"/>
+  <time tFin="36000.0"/>
   <output dtOut="60.0" tsOut="100" timer="F"/>
   <restart dtRes="1800.0"/>
   <coupling dt="5.0" dtDeep="60.0" rDeep="8.0"/>
