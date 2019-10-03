@@ -133,7 +133,7 @@ module msphutils
 
         !Change console output pointer
         timeString => magsphereTime
-
+        
         write(*,*) '---------------'
         write(*,*) 'Magnetosphere normalization'
         write(*,*) 'T0 [s]    = ', gT0

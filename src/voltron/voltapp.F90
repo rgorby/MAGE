@@ -45,14 +45,6 @@ module voltapp
 
         endif
 
-        write(*,*) 'Reading input deck from ', trim(inpXML)
-        inquire(file=inpXML,exist=fExist)
-        if (.not. fExist) then
-            write(*,*) 'Error opening input deck, exiting ...'
-            write(*,*) ''
-            stop
-        endif
-
     !Create XML reader
         xmlInp = New_XML_Input(trim(inpXML),'Voltron',.true.)
 

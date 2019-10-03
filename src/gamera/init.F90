@@ -287,9 +287,10 @@ module init
         !Check both omega/sim/tFin & gamera/time/tFin
         call xmlInp%Set_Val(Model%tFin,'time/tFin',1.0_rp)
         call xmlInp%Set_Val(Model%tFin,'/omega/sim/tFin',Model%tFin)
-        !Get possible MJD0
+        !Get possible MJD0, check both Gamera & Voltron
         call xmlInp%Set_Val(MJD0,"time/MJD0",-1.0)
-        if (MJD0>0) then
+        call xmlInp%Set_Val(MJD0,"/voltron/time/MJD0",MJD0)
+        if ( MJD0 >= (-TINY) ) then
             Model%MJD0 = MJD0
         endif
     

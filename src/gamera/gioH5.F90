@@ -319,7 +319,7 @@ module gioH5
         call AddOutVar(IOVars,"time",gamOut%tScl*Model%t)
         call AddOutVar(IOVars,"timestep",Model%ts)
         call AddOutVar(IOVars,"dt",gamOut%tScl*Model%dt)
-        if (Model%MJD0>0) then
+        if ( Model%MJD0 >= (-TINY) ) then
             MJD = T2MJD(Model%t*Model%Units%gT0,Model%MJD0)
             call AddOutVar(IOVars,"MJD",MJD)
         endif

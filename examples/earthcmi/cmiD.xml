@@ -1,7 +1,8 @@
 <?xml version="1.0"?>
 <!-- Magnetosphere params, Voltron times in seconds -->
+<!-- MJD0 is modified Julian date of T=0 in solar wind file -->
 <VOLTRON>
-  <time tFin="36000.0"/>
+  <time tFin="36000.0" MJD0="55197.5"/>
   <output dtOut="60.0" tsOut="100" timer="F"/>
   <restart dtRes="1800.0"/>
   <coupling dt="5.0"/>

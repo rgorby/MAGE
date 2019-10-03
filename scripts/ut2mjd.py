@@ -25,4 +25,4 @@ if __name__ == "__main__":
     ut = datetime.datetime.strptime(utStr,fmt)
     mjd = julian.to_jd(ut,fmt='mjd')
 
-    print("%15s (UT) => %10.4f (MJD)"%(utStr,mjd))
+    print("%15s (UT) => %f (MJD)"%(utStr,mjd))
