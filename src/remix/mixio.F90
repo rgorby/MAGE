@@ -177,7 +177,7 @@ contains
     enddo
 
     ! now add time
-    if (present(time)) call AddOutVar(IOVars,"Time",time)
+    if (present(time)) call AddOutVar(IOVars,"time",time)
     if (present(mjd))  call AddOutVar(IOVars,"MJD",mjd)
 
     ! add cpcp
