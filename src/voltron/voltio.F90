@@ -59,49 +59,12 @@ module voltio
         endif
 
         !Write ReMIX data
-        call qkMIXOut(vApp%remixApp%ion,vApp%mix2mhd%mixOutput,vApp%time,vApp%IO%nOut)
+        call writeMix(vApp%remixApp%ion,vApp%IO%nOut,mjd=vApp%MJD,time=vApp%time)
 
         vApp%IO%tOut = vApp%IO%tOut + vApp%IO%dtOut
         vApp%IO%nOut = vApp%IO%nOut + 1
 
     end subroutine fOutputV
-
-    !NOTE: This is a temp remix output which will get replaced by Slava's revamped version
-    subroutine qkMIXOut(ion,mhdvarsin,time,step)
-        type(mixIon_T),dimension(:),intent(inout) :: ion ! I for ionosphere (is an array of 1 or 2 elements for north and south)
-        real(rp), dimension(:,:,:,:,:),intent(in) :: mhdvarsin
-        real(rp), intent(in) :: time
-        integer, intent(in) :: step
-
-        type(IOVAR_T), dimension(MAXVOLTIOVAR) :: IOVars
-        character(len=strLen) :: fnstr,fname,vID
-        logical :: isThere
-        real(rp) :: cpcp(2) = 0.0
-
-        !Save CPCP for diagnostics
-        call getCPCP(mhdvarsin,cpcp)
-
-        !Create output name
-        write(fnstr,'(I0.6)') step
-        fname = 'mixtest'//trim(fnstr)//'.h5'
-        call CheckAndKill(fname)
-
-        !Do standard mix output
-        call writeMIX(fname,ion)
-
-        !Add extra attribute information to output
-        vID = "t"
-        isThere = ioExist(fname,trim(vID))
-        if (.not. isThere) then
-          call ClearIO(IOVars)
-          call AddOutVar(IOVars,"t"   ,time)
-          call AddOutVar(IOVars,"ts"  ,step)
-          call AddOutVar(IOVars,"nCPCP",cpcp(NORTH))
-          call AddOutVar(IOVars,"sCPCP",cpcp(SOUTH))
-          call WriteVars(IOVars,.true.,fname)
-        endif !isThere
-
-    end subroutine qkMIXOut
 
     subroutine getCPCP(mhdvarsin,cpcp)
         real(rp), dimension(:,:,:,:,:),intent(in) :: mhdvarsin

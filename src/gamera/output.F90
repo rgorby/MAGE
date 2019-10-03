@@ -106,10 +106,9 @@ contains
 
         if (verbose > 0) then
             call timeString(Model%t,tStr)
-            write (*, '(a,a,a,a,a)') ANSIPURPLE, '<Writing HDF5 output @ t = ', trim(tStr), ' >', ANSIRESET
+            write (*, '(a,a,a,a,a)') ANSIGREEN, '<Writing HDF5 DATA @ t = ', trim(tStr), ' >', ANSIRESET
         endif
 
-        !call writeH5Slc(Model,Grid,State,gStr)
         call writeSlc(Model, Grid, State, gStr)
 
         !Setup for next output
@@ -122,7 +121,7 @@ contains
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(in) :: State
 
-        character(len=strLen) :: ResF, lnResF !Name of restart file
+        character(len=strLen) :: ResF, tStr,lnResF !Name of restart file
         logical :: fExist
 
         write (ResF, '(A,A,I0.5,A)') trim(Model%RunID), ".Res.", Model%IO%nRes, ".h5"
@@ -130,9 +129,8 @@ contains
         call CheckAndKill(ResF)
 
         if (verbose > 0) then
-            write (*, *) '-----------------------'
-            write (*, '(a,f8.3,a)') '<Writing HDF5 RESTART @ t = ', Model%t, ' >'
-            write (*, *) '-----------------------'
+            call timeString(Model%t,tStr)
+            write (*, '(a,a,a,a,a)') ANSIGREEN, '<Writing HDF5 RESTART @ t = ', trim(tStr), ' >', ANSIRESET
         endif
 
         call writeH5Res(Model, Grid, State, ResF)

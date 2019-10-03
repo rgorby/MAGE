@@ -21,8 +21,8 @@ program MIX
   call init_mix(remixApp%ion,hmsphrs,inpXML)
   call fill_fac(remixApp%ion)
   call run_mix(remixApp%ion,tilt)
-  call writeMIX('mixtest.h5',remixApp%ion)
-  call potMinMax(remixApp%ion)
+  !call writeMIX('mixtest.h5',remixApp%ion)
+  !call potMinMax(remixApp%ion)
 
   contains
 

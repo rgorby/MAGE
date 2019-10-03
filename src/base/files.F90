@@ -26,9 +26,8 @@ module files
 
         inquire(file=trim(fStr),exist=fExist)
         if (fExist) then
-            write(*,'(3a)') '<',trim(fStr),' already exists, deleting ...>'
+            write(*,'(5a)') ANSIRED,'<',trim(fStr),' already exists, deleting ...>',ANSIRESET
             call EXECUTE_COMMAND_LINE('rm ' // trim(fStr) , wait=.true.)
-            !write(*,*) ''
         endif
     end subroutine CheckAndKill
 

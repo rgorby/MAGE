@@ -67,7 +67,9 @@ module voltapp
         !Check both omega/sim/tFin & voltron/time/tFin
         call xmlInp%Set_Val(vApp%tFin,'time/tFin',1.0_rp)
         call xmlInp%Set_Val(vApp%tFin,'/omega/sim/tFin',vApp%tFin)
-
+        !Sync Gamera to Voltron endtime
+        gApp%Model%tFin = vApp%tFin/gTScl
+        
     !IO/Restart options
         call vApp%IO%init(xmlInp,vApp%time)
         !Pull numbering from Gamera
@@ -129,12 +131,18 @@ module voltapp
         type(gamApp_T), intent(inout) :: gApp
         character(len=*), optional, intent(in) :: optFilename
 
+        character(len=strLen) :: RunID
+        logical :: isRestart
+
+        isRestart = gApp%Model%isRestart
+        RunID = trim(gApp%Model%RunID)
+
     !Remix from Gamera
         if(present(optFilename)) then
             ! read from the prescribed file
-            call init_mix(vApp%remixApp%ion,[NORTH, SOUTH],optFilename)
+            call init_mix(vApp%remixApp%ion,[NORTH, SOUTH],optFilename=optFilename,RunID=RunID,isRestart=isRestart)
         else
-            call init_mix(vApp%remixApp%ion,[NORTH, SOUTH])
+            call init_mix(vApp%remixApp%ion,[NORTH, SOUTH],RunID=RunID,isRestart=isRestart)
         endif
 
         call init_mhd2Mix(vApp%mhd2mix, gApp, vApp%remixApp)

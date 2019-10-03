@@ -1,282 +1,192 @@
-! Input/output for mix
+  ! meant to replace mixio.F90 by using Kareems pipeline in base/ioH5.F90
 
 module mixio
-  use hdf5
-  use mixdefs  
+  use ioH5
+  use mixdefs
   use mixtypes
-
+  use files
   implicit none
+  
+  integer, parameter :: MAXIOVAR = 50
+  type(IOVAR_T), dimension(MAXIOVAR) :: IOVars
+  character(len=strLen) :: h5File
 
-  !Necessary for HDF5 routines
-  integer :: herror
+contains
+
+  subroutine initMIXIO(I,RunID,isRestart)
+    type(mixIon_T),dimension(:),intent(in) :: I
+    character(len=*),optional, intent(in) :: RunID   ! these two things are needed when we're coupled with Gamera
+    logical,optional, intent(in) :: isRestart
+    
+    logical :: fExist
+    real(rp), dimension(:,:),allocatable :: xc,yc
+    integer :: n0
+
+    !Setup remix output file
+    h5File = trim(RunID) // ".mix.h5"
+
+    inquire(file=h5File,exist=fExist)
+
+    ! in case it's a restart, we either already have the file, in which case we don't do anything
+    ! or we need to create it because the previous one got moved
+    if ( (.not. isRestart).or.(isRestart.and.(.not.fExist)) ) then
+       call CheckAndKill(h5File)
+
+       !Reset IO chain
+       call ClearIO(IOVars)
+
+       call fixGrid(I(NORTH)%G%x,I(NORTH)%G%y,xc,yc)
+       
+       ! save grid only for north
+       call AddOutVar(IOVars,"X",xc)
+       call AddOutVar(IOVars,"Y",yc)
+
+       ! inelegantly specifying the units
+       n0 = FindIO(IOVars,"X")
+       IOVars(n0)%unitStr = "Ri"
+       n0 = FindIO(IOVars,"Y")
+       IOVars(n0)%unitStr = "Ri"
+          
+       !Write out the chain (to root)
+       call WriteVars(IOVars,.true.,h5File)
+    endif
 
   contains
+    subroutine fixGrid(x,y,xc,yc)  
+      real(rp), dimension(:,:),intent(in) :: x,y
+      real(rp), dimension(:,:),allocatable,intent(out) :: xc,yc ! with corners 1/2-cell shifted from original
+      real(rp), dimension(:,:),allocatable :: xtmp,ytmp ! temporary arrays
+      integer, dimension(2) :: dims
+      integer :: Np, Nt
 
-    ! get UT: int array (Year, Month, Day, Hr, Min, Sec)
-    subroutine getUT(fname,simtime)
-      character(len=*),intent(in) :: fname
-      integer, dimension(6), target, intent(out) :: simtime
+      dims = shape(x)
+      Np = dims(1); Nt = dims(2)
+
+      if (.not.allocated(xc)) allocate(xc(Np+1,Nt))
+      if (.not.allocated(yc)) allocate(yc(Np+1,Nt))
+      if (.not.allocated(xtmp)) allocate(xtmp(Np+2,Nt))
+      if (.not.allocated(ytmp)) allocate(ytmp(Np+2,Nt))
+
+      ! first fix up periodic
+      ! overlap two lines and roll back one
+      xtmp(2:Np+1,:) = x
+      xtmp(1,:)    = x(Np,:)
+      xtmp(Np+2,:) = x(1,:)
+      ytmp(2:Np+1,:) = y
+      ytmp(1,:)    = y(Np,:)
+      ytmp(Np+2,:) = y(1,:)
       
-      integer(HID_T) :: h5fId,attrId
-#ifdef NO2003_HDF5
-      integer(HSIZE_T), dimension(1) :: dims
-#else
-      TYPE(C_PTR) :: f_ptr
-#endif
+      ! move to cell centers
+      xc(:,1:Nt-1) = 0.25*(xtmp(2:Np+2,2:Nt)+xtmp(1:Np+1,2:Nt)+xtmp(2:Np+2,1:Nt-1)+xtmp(1:Np+1,1:Nt-1))
+      yc(:,1:Nt-1) = 0.25*(ytmp(2:Np+2,2:Nt)+ytmp(1:Np+1,2:Nt)+ytmp(2:Np+2,1:Nt-1)+ytmp(1:Np+1,1:Nt-1))
 
-      call checkFile(fname)
-      !Open file
-      call h5fopen_f(fname, H5F_ACC_RDONLY_F, h5fId, herror)
-
-      call h5aopen_f(h5fId,"SimTime",attrId,herror)
-#ifdef NO2003_HDF5
-      call h5aread_f(attrId,H5T_NATIVE_INTEGER,simtime,dims,herror)
-#else
-      f_ptr = C_LOC(simtime)
-      call h5aread_f(attrId,H5T_NATIVE_INTEGER,f_ptr,herror)
-#endif
-      
-      call h5aclose_f(attrId,herror)
-      call h5fclose_f(h5fId, herror)
-    end subroutine getUT
-
-    subroutine readVar(fname,varname,var)
-      character(len=*),intent(in) :: fname
-      character(len=*),intent(in) :: varname
-      
-      integer(HID_T) :: h5fId,dsId,dspaceId
-      integer(HSIZE_T), dimension(2) :: dims,maxdims
-
-#ifndef NO2003_HDF5
-      TYPE(C_PTR) :: f_ptr
-#endif
-
-      real, dimension(:,:), target, allocatable :: var
-
-      call checkFile(fname)
-      !Open file
-      call h5fopen_f(fname, H5F_ACC_RDONLY_F, h5fId, herror)
-
-      call h5dopen_f(h5fId,varname,dsId,herror)
-      call h5dget_space_f(dsId,dspaceId,herror);
-      call h5sget_simple_extent_dims_f(dspaceId, dims, maxdims, herror) 
-
-      if (.not. allocated(var)) then 
-         allocate(var(1:dims(1),1:dims(2)))
-      end if
-
-#ifdef NO2003_HDF5
-      call h5dread_f(dsId,H5T_NATIVE_REAL,var,dims,herror)
-#else
-      f_ptr = C_LOC(var)
-      call h5dread_f(dsId,H5T_NATIVE_REAL,f_ptr,herror)
-#endif
-      
-      call h5dclose_f(dsId,herror)
-      call h5fclose_f(h5fId, herror)
-    end subroutine readVar
-
-    subroutine writeMIX(fname,I)
-      type(mixIon_T),dimension(:),intent(in) :: I
-      character(len=*), intent(in) :: fname
-      integer(HID_T) :: h5fId,h5gId
-      integer :: h
-
-      call h5open_f(herror) !Setup H5 Fortran interface            
-      call h5fcreate_f(fname,H5F_ACC_TRUNC_F, h5fId, herror) 
-      call h5fopen_f(fname,H5F_ACC_RDWR_F, h5fId, herror)
-      do h=1,size(I)
-         if (h.eq.NORTH) then
-            call h5gcreate_f (h5fId,"NORTH",h5gId,herror)
-         else if (h.eq.SOUTH) then
-            call h5gcreate_f (h5fId,"SOUTH",h5gId,herror)
-         else
-            write(*,*) "writeMIX: Wrong hemisphere identifier. Stopping..."
-            stop
-         end if 
-         
-         call writeState(h5gId,I(h)%St)
-         call writeGrid(h5gId,I(h)%G)
-
-         call h5gclose_f (h5gId,herror)
-      end do
-
-      call h5fclose_f(h5fId, herror)
-      call h5close_f(herror)  ! Close H5 Fortran interface
-    end subroutine writeMIX
-
-
-    subroutine writeState(h5gId,St)
-      type(mixState_T), intent(in) :: St
-      integer(HID_T), intent(in) :: h5gId
-      integer :: v
-
-      do v=1,nVars
-         select case (v)
-            case (POT)
-               call writeVar(h5gId,St%Vars(:,:,v),"Potential","kV")
-            case (FAC)
-               call writeVar(h5gId,St%Vars(:,:,v),"Field-aligned current","muA/m**2")
-            case (SIGMAP)
-               call writeVar(h5gId,St%Vars(:,:,v),"Pedersen conductance","S")
-            case (SIGMAH)
-               call writeVar(h5gId,St%Vars(:,:,v),"Hall conductance","S")
-            case (AVG_ENG)
-               call writeVar(h5gId,St%Vars(:,:,v),"Average energy","keV")
-            case (NUM_FLUX)
-               call writeVar(h5gId,St%Vars(:,:,v),"Number flux","1/cm^2 s")
-         end select
-      enddo
-
-    end subroutine writeState
-
-    subroutine writeGrid(h5gId,G)
-      type(mixGrid_T), intent(in) :: G
-      integer(HID_T) :: h5gId
-
-      call writeVar(h5gId,G%x,'X',"Ri")
-      call writeVar(h5gId,G%y,'Y',"Ri")
-    end subroutine writeGrid
-
-    subroutine writeVar(gId,var,varName,units)
-      integer(HID_T), intent(in) :: gId
-      real(rp), dimension(:,:), intent(in) :: var
-      character(len=*),intent(in) :: varName
-      character(len=*),intent(in) :: units
-      
-      integer(HID_T) :: dsId,dspaceId,aspaceId,attrId,atypeId
-      integer(HSIZE_T), dimension(2) :: dims
-      integer(HSIZE_T), dimension(1) :: adims = [1]
-      integer(SIZE_T) :: attrlen
-      integer :: rank = 2, arank = 1
-
-      attrlen = len(units)      
-
-      dims = shape(var)
-      ! create data space
-      call h5screate_simple_f(rank, dims,dspaceId,herror)
-      !Create data set and write data
-      call h5dcreate_f(gId,varName,H5T_NATIVE_REAL, dspaceId,dsId, herror)
-
-      ! data set attributes
-      call h5screate_simple_f(arank, adims, aspaceId,herror)
-      call h5tcopy_f(H5T_NATIVE_CHARACTER, atypeId, herror)
-      call h5tset_size_f(atypeId,attrlen, herror)
-      call h5acreate_f (dsId,"Units",atypeId,aspaceId,attrId,herror)
-      call h5awrite_f (attrId,atypeId,trim(units),adims,herror) 
-      call h5aclose_f (attrId,herror)
-
-      ! note type conversion to io_real (single, typically)
-      call h5dwrite_f(dsId, H5T_NATIVE_REAL,real(var,iop),dims, herror)
-
-      !Close up shop
-      call h5dclose_f(dsId,herror)
-      call h5sclose_f(dspaceId,herror)
-    end subroutine writeVar
-
-    ! check H5 file existence
-    subroutine checkFile(fname)
-      character(len=*),intent(in) :: fname
-      logical :: fExist
-
-      inquire(file=fname,exist=fExist)
-      if (.not.(fExist)) then
-         write(*,"(a,a)") "Cannot read file ", fname
-         stop
-      endif
-    end subroutine checkFile
-
-    subroutine readMHDVar(fname,varname,var)
-      character(len=*),intent(in) :: fname
-      character(len=*),intent(in) :: varname
-      
-      integer(HID_T) :: h5fId,dsId,dspaceId
-      integer(HSIZE_T), dimension(3) :: dims,maxdims
-
-#ifndef NO2003_HDF5
-      TYPE(C_PTR) :: f_ptr
-#endif
-
-      real, dimension(:,:,:), target, allocatable :: var
-
-      call checkFile(fname)
-      !Open file
-      call h5fopen_f(fname, H5F_ACC_RDONLY_F, h5fId, herror)
-
-      call h5dopen_f(h5fId,varname,dsId,herror)
-      call h5dget_space_f(dsId,dspaceId,herror);
-      call h5sget_simple_extent_dims_f(dspaceId, dims, maxdims, herror) 
-
-      if (.not. allocated(var)) then 
-         allocate(var(1:dims(1),1:dims(2),1:dims(3)))
-      end if
-
-#ifdef NO2003_HDF5
-      call h5dread_f(dsId,H5T_NATIVE_REAL,var,dims,herror)
-#else
-      f_ptr = C_LOC(var)
-      call h5dread_f(dsId,H5T_NATIVE_REAL,f_ptr,herror)
-#endif
-      
-      call h5dclose_f(dsId,herror)
-      call h5fclose_f(h5fId, herror)
-    end subroutine readMHDVar
-
-    ! Version that reads variables stored under group
-    ! E.g., gamera stores X, Y, Z as higher level datasets
-    ! while physical vars are stored under groups "Step#0" etc.
-    subroutine readGMHDVar(fname,groupname,varname,var)
-      character(len=*),intent(in) :: fname
-      character(len=*),intent(in) :: groupname
-      character(len=*),intent(in) :: varname
-
-      
-      integer(HID_T) :: h5fId,dsId,dspaceId,gId
-      integer(HSIZE_T), dimension(3) :: dims,maxdims
-
-#ifndef NO2003_HDF5
-      TYPE(C_PTR) :: f_ptr
-#endif
-
-      real, dimension(:,:,:), target, allocatable :: var
-
-      call checkFile(fname)
-
-      !Open file
-      call h5fopen_f(fname, H5F_ACC_RDONLY_F, h5fId, herror)
-
-      ! Open group
-      call h5gopen_f(h5fId,trim(groupname),gId,herror)
-
-
-      call h5dopen_f(gId,varname,dsId,herror)
-      call h5dget_space_f(dsId,dspaceId,herror);
-      call h5sget_simple_extent_dims_f(dspaceId, dims, maxdims, herror) 
-
-      if (.not. allocated(var)) then 
-         allocate(var(1:dims(1),1:dims(2),1:dims(3)))
-      end if
-
-#ifdef NO2003_HDF5
-      call h5dread_f(dsId,H5T_NATIVE_REAL,var,dims,herror)
-#else
-      f_ptr = C_LOC(var)
-      call h5dread_f(dsId,H5T_NATIVE_REAL,f_ptr,herror)
-#endif
-      
-      call h5dclose_f(dsId,herror)
-      call h5gclose_f(gId,herror)
-      call h5fclose_f(h5fId, herror)
-    end subroutine readGMHDVar
-
-    subroutine potMinMax(I)
-      type(mixIon_T),dimension(:),intent(in) :: I
-
-      integer :: h ! hemisphere counter
-      do h=1,size(I)
-         write(*,*) 'Hemisphere:',h,'; Min/Max potential',minval(I(h)%St%Vars(:,:,POT)),maxval(I(h)%St%Vars(:,:,POT))
-      end do
-      
-    end subroutine potMinMax
+      ! finally extrapolate below equatorward boundary
+      xc(:,Nt) = 2*xc(:,Nt-1)-xc(:,Nt-2)
+      yc(:,Nt) = 2*yc(:,Nt-1)-yc(:,Nt-2)      
+    end subroutine fixGrid
     
+  end subroutine initMIXIO
+
+  subroutine writeMIX(I,Step,mjd,time)
+    type(mixIon_T),dimension(:),intent(in) :: I    
+    integer, intent(in) :: Step
+    real(rp), optional, intent(in) :: time, mjd
+    character(len=strLen) :: vStr
+
+    integer :: v,h,n0
+    character(len=strLen) :: gStr,uStr,hStr
+    logical :: doDump = .true.
+    real(rp) :: cpcp = 0.0
+
+    !Reset IO chain
+    call ClearIO(IOVars)
+
+    ! I don't know how to handle the IO when the I object has more than one hemisphere
+    ! because they're labeled by appending the hemisphere stirng to the data set name
+    ! so kill it for now and worry about it when a case like this actually appears
+    if (size(I)>2) then
+       write(*,*) "writeMIX: Wrong hemisphere identifier. Stopping..."
+       stop
+    end if
+    
+    do h=1,size(I)
+       ! hemisphere should be set up properly by now but still check just in case
+       if (I(h)%St%hemisphere.eq.NORTH) then
+          hStr = "NORTH"          
+       else if (I(h)%St%hemisphere.eq.SOUTH) then
+          hStr = "SOUTH"          
+       else
+          write(*,*) "writeMIX: Wrong hemisphere identifier. Stopping..."
+          stop
+       end if
+       
+       do v=1,nVars
+          select case (v)
+          case (POT)
+             vStr = "Potential"//" "//hStr
+             uStr = "kV"
+             doDump = .true.
+          case (FAC)
+             vStr = "Field-aligned current"//" "//hStr
+             uStr = "muA/m**2"
+             doDump = .true.             
+          case (SIGMAP)
+             vStr = "Pedersen conductance"//" "//hStr
+             uStr = "S"
+             doDump = .true.             
+          case (SIGMAH)
+             vStr = "Hall conductance"//" "//hStr
+             uStr = "S"
+             doDump = .true.             
+          case (SOUND_SPEED)
+             vStr = "Sound speed"//" "//hStr
+             uStr = "cm/s"
+             doDump = .true.             
+          case (DENSITY)
+             vStr = "Desity"//" "//hStr
+             uStr = "g/cm^2"
+             doDump = .true.             
+          case (AVG_ENG)
+             vStr = "Average energy"//" "//hStr
+             uStr = "keV"
+             doDump = .true.             
+          case (NUM_FLUX)
+             vStr = "Number flux"//" "//hStr
+             uStr = "1/cm^2 s"
+             doDump = .true.             
+          case (NEUTRAL_WIND) 
+             vStr = "Neutral wind"//" "//hStr
+             uStr = "cm/s"
+             doDump = .false.
+          case (EFIELD)
+             ! we never compute it
+             vStr = "Electric field"//" "//hStr
+             uStr = "mV/m" !???
+             doDump = .false.
+          case DEFAULT
+             doDump = .false. ! only dump the variables explicitely set to be dumped above
+          end select
+
+          if (doDump) then
+             call AddOutVar(IOVars,vStr,I(h)%St%Vars(:,2:,v))
+             ! inelegantly specifying the units       
+             n0 = FindIO(IOVars,vStr)
+             IOVars(n0)%unitStr = uStr
+          endif
+       enddo
+    enddo
+
+    ! now add time
+    if (present(time)) call AddOutVar(IOVars,"Time",time)
+    if (present(mjd))  call AddOutVar(IOVars,"MJD",mjd)
+
+    ! add cpcp
+    call AddOutVar(IOVars,"nCPCP",maxval(I(NORTH)%St%Vars(:,:,POT))-minval(I(NORTH)%St%Vars(:,:,POT)))
+    call AddOutVar(IOVars,"sCPCP",maxval(I(SOUTH)%St%Vars(:,:,POT))-minval(I(SOUTH)%St%Vars(:,:,POT)))    
+    
+    !Write out the chain (to root)
+    write(gStr,'(A,I0)') "Step#", Step
+    call WriteVars(IOVars,.true.,h5File,gStr)
+  end subroutine writeMIX
+
 end module mixio

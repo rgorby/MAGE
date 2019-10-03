@@ -7,34 +7,18 @@ module mixmain
   use mixconductance
   use mixstate
   use mixsolver
+  use mixio
 
   implicit none
 
   contains
 
-    ! subroutine initMixApp(mixApp,hmsphrs,inpXML)
-    !   ! see init_mix for comments
-    !   type(mixApp_T),intent(inout) :: mixApp 
-    !   integer, dimension(:), intent(in) :: hmsphrs 
-    !   character(len=*), optional, intent(in) :: inpXML
-
-    !   integer :: h,nMixObjects
-
-    !   nMixObjects = size(hmsphrs)
-    !   if (.not.allocated(mixApp%ion)) allocate(mixApp%ion(nMixObjects))
-
-    !   do h,nMixObjects
-    !      mixApp%ion%St%hemisphere = hmsphrs(h)
-    !   end do
-      
-    !   init_mix(mixApp%ion,inpXML)
-      
-    ! end subroutine initMixApp
-
-    subroutine init_mix(I,hmsphrs,optFilename)
+    subroutine init_mix(I,hmsphrs,optFilename,RunID,isRestart)
       type(mixIon_T),dimension(:),allocatable,intent(inout) :: I ! I for ionosphere (is an array of 1 or 2 elements for north and south) or it can be artibrarily many, e.g., for different solves done in loop
       integer, dimension(:), intent(in) :: hmsphrs       
       character(len=*), optional, intent(in) :: optFilename
+      character(len=*),optional, intent(in) :: RunID   ! these two things are needed when we're coupled with Gamera
+      logical,optional, intent(in) :: isRestart
 
       integer :: h
 
@@ -69,6 +53,9 @@ module mixmain
          ! the info of the entire mixIon_T object.
          if (I(h)%St%hemisphere.eq.SOUTH) I(h)%G%cosd = -I(h)%G%cosd
       end do
+
+      ! initialize the mix dump file
+      call initMIXIO(I,RunID,isRestart)
     end subroutine init_mix
 
     subroutine get_potential(I)
