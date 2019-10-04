@@ -119,7 +119,6 @@ if __name__ == "__main__":
 		kv.genCB(AxC1,vBB,"Magnetic Field [nT]",cM=bCMap)
 	rmpp.cMax = 1.00
 	kv.genCB(AxC4,kv.genNorm(rmpp.cMax),"FAC",cM=rmpp.fcMap,Ntk=5)
-	#kv.genCB(AxC3,kv.genNorm(rmpp.pMax),"Potential [kV]",cM=rmpp.pMap,Ntk=7)
 
 	rmpp.AddPotCB(AxC3)
 
@@ -156,7 +155,7 @@ if __name__ == "__main__":
 
 	kv.addEarth2D(ax=AxL)
 	kv.SetAx(xyBds,AxL)
-	gsph.AddTime(nStp,AxL,xy=[0.025,0.935],fs="x-large")
+	gsph.AddTime(nStp,AxL,xy=[0.025,0.89],fs="x-large")
 	gsph.AddSW(nStp,AxL,xy=[0.625,0.025],fs="small")
 	AxL.set_xlabel('SM-X [Re]')
 	AxL.set_ylabel('SM-Y [Re]')
@@ -175,7 +174,7 @@ if __name__ == "__main__":
 	AxR.yaxis.tick_right()
 	AxR.yaxis.set_label_position('right')
 	if (doIon):
-		gsph.AddCPCP(nStp,AxR,xy=[0.625,0.925])
+		gsph.AddCPCP(nStp,AxR,xy=[0.610,0.925])
 
 	AxR.set_xlabel('SM-X [Re]')
 	AxR.set_ylabel('SM-Z [Re]')
@@ -203,9 +202,8 @@ if __name__ == "__main__":
 			AxR.plot(gsph.xxi[:,j0], gsph.yyi[:,j0],gCol,linewidth=LW,alpha=ashd)
 
 	if (doIon):
-		fmix = gsph.Gam2Remix(nStp)
 		dxy = [32.5,32.5]
-		rmpp.CMIViz(AxR,fmix,dxy=dxy)
-		rmpp.CMIViz(AxR,fmix,dxy=dxy,loc="lower left",doNorth=False)
+		gsph.CMIViz(AxR,nStp,dxy=dxy,loc="upper left",doNorth=True)
+		gsph.CMIViz(AxR,nStp,dxy=dxy,loc="lower left",doNorth=False)
 
 	kv.savePic(fOut,bLenX=45)

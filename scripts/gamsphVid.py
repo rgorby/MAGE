@@ -142,7 +142,7 @@ if __name__ == "__main__":
 
 		kv.addEarth2D(ax=AxL)
 		kv.SetAx(xyBds,AxL)
-		gsph.AddTime(nStp,AxL,xy=[0.025,0.935],fs="x-large")
+		gsph.AddTime(nStp,AxL,xy=[0.025,0.89],fs="x-large")
 		gsph.AddSW(nStp,AxL,xy=[0.625,0.025],fs="small")
 		AxL.set_xlabel('SM-X [Re]')
 		AxL.set_ylabel('SM-Y [Re]')
@@ -167,12 +167,10 @@ if __name__ == "__main__":
 				i0 = i*gsph.dNi
 				AxL.plot(gsph.xxi[i0,:],gsph.yyi[i0,:],'m',linewidth=LW,alpha=ashd)
 				AxR.plot(gsph.xxi[i0,:],gsph.yyi[i0,:],'c',linewidth=LW,alpha=ashd)
-
-
-		fmix = gsph.Gam2Remix(nStp)
+		
 		dxy = [32.5,32.5]
-		rmpp.CMIViz(AxR,fmix,dxy=dxy)
-		rmpp.CMIViz(AxR,fmix,dxy=dxy,loc="lower left",doNorth=False)
+		gsph.CMIViz(AxR,nStp,dxy=dxy,loc="upper left",doNorth=True)
+		gsph.CMIViz(AxR,nStp,dxy=dxy,loc="lower left",doNorth=False)
 
 		fOut = oDir+"/vid.%04d.png"%(npl)
 		kv.savePic(fOut,bLenX=45)

@@ -18,7 +18,7 @@ class GameraPipe(object):
 	#Initialize GP object
 	#fdir = directory to h5 files
 	#ftag = stub of h5 files
-	def __init__(self,fdir,ftag,doFast=False):
+	def __init__(self,fdir,ftag,doFast=False,doVerbose=True):
 	
 		self.fdir = fdir
 		self.ftag = ftag
@@ -50,28 +50,41 @@ class GameraPipe(object):
 		self.MJDs = []
 
 		#Scrape data from directory
-		self.OpenPipe()
+		self.OpenPipe(doVerbose)
 
-	def OpenPipe(self):
+	def OpenPipe(self,doVerbose=True):
 		import kaipy.kaiH5 as kh5
-		print("Opening pipe: %s : %s"%(self.fdir,self.ftag))
+		if (doVerbose):
+			print("Opening pipe: %s : %s"%(self.fdir,self.ftag))
 
-		#Test for serial
-		f0 = "%s/%s.h5"%(self.fdir,self.ftag)
-		N = len(glob.glob(f0))
-		if (N == 1):
+		#Test for serial (either old or new naming convention)
+		fOld    = "%s/%s.h5"%(self.fdir,self.ftag)
+		fNew    = "%s/%s.gam.h5"%(self.fdir,self.ftag)
+		
+		if ( len(glob.glob(fOld)) == 1):
+			#Found old-style serial
 			self.isMPI = False
-
-			print("Found serial database") 
+			if (doVerbose):
+				print("Found serial database")
+			f0 = fOld
+		elif ( len(glob.glob(fNew)) == 1):
+			#Found new-style serial
+			self.isMPI = False
+			self.ftag = self.ftag + ".gam" #Add .gam to tag
+			if (doVerbose):
+				print("Found serial database")
+			f0 = fNew
 		else:
-			print("%s not found, looking for MPI database"%(f0))
+			print("%s not found, looking for MPI database"%(fOld))
 			self.isMPI = True
 			sStr = "%s/%s_*%s"%(self.fdir,self.ftag,idStr)
 			
 			fIns = glob.glob(sStr)
 			if (len(fIns)>1):
 				print("This shouldn't happen, bailing ...")
-
+			if (len(fIns) == 0):
+				print("No MPI database found, all out of options, bailing ...")
+				quit()
 			f0 = fIns[0]
 			Ns = [int(s) for s in f0.split('_') if s.isdigit()]
 
@@ -79,7 +92,8 @@ class GameraPipe(object):
 			self.Rj = Ns[1]
 			self.Rk = Ns[2]
 			self.Nr = self.Ri*self.Rj*self.Rk
-			print("\tFound %d = (%d,%d,%d) ranks"%(self.Nr,self.Ri,self.Rj,self.Rk))
+			if (doVerbose):
+				print("\tFound %d = (%d,%d,%d) ranks"%(self.Nr,self.Ri,self.Rj,self.Rk))
 		
 		#In either case, f0 is defined.  use it to get per file stuff
 		self.Nt,sids = kh5.cntSteps(f0)
@@ -90,8 +104,9 @@ class GameraPipe(object):
 
 		self.s0 = sids.min()
 		self.sFin = sids.max()
-		print("Found %d timesteps\n\tTime = [%f,%f]"%(self.Nt,self.T.min(),self.T.max()))
-		print("\tSteps = [%d,%d]"%(sids.min(),sids.max()))
+		if (doVerbose):
+			print("Found %d timesteps\n\tTime = [%f,%f]"%(self.Nt,self.T.min(),self.T.max()))
+			print("\tSteps = [%d,%d]"%(sids.min(),sids.max()))
 		
 		#Get MJD if present
 		MJDs = kh5.getTs(f0,sids,"MJD",-np.inf)
@@ -109,34 +124,44 @@ class GameraPipe(object):
 			
 		else:
 			self.dNk = 0
-			self.Rk = 0
+			self.Rk = 1
 		self.Ni = self.dNi*self.Ri
 		self.Nj = self.dNj*self.Rj
 		self.Nk = self.dNk*self.Rk
 
-		print("Grid size = (%d,%d,%d)"%(self.Ni,self.Nj,self.Nk))
-		print("\tCells = %e"%(self.Ni*self.Nj*self.Nk))
 		
 		#Variables
 		self.v0IDs = kh5.getRootVars(f0)
 		self.vIDs  = kh5.getVars(f0,sids.min())
 		self.Nv0 = len(self.v0IDs)
 		self.Nv  = len(self.vIDs)
-
-		print("Variables (Root/Step) = (%d,%d)"%(self.Nv0,self.Nv))
-		print("\tRoot: %s"%(self.v0IDs))
-		print("\tStep: %s"%(self.vIDs))
+		if (Nd>2):
+			self.is2D = False
+		else:
+			self.is2D = True
+		if (doVerbose):
+			if (Nd>2):
+				nCells = self.Ni*self.Nj*self.Nk
+			else:
+				nCells = self.Ni*self.Nj
+			print("Grid size = (%d,%d,%d)"%(self.Ni,self.Nj,self.Nk))
+			print("\tCells = %e"%(nCells))
+			print("Variables (Root/Step) = (%d,%d)"%(self.Nv0,self.Nv))
+			print("\tRoot: %s"%(self.v0IDs))
+			print("\tStep: %s"%(self.vIDs))
 		
 		self.SetUnits(f0)
-		print("Units Type = %s"%(self.UnitsID))
-		print("Pulling grid ...")
-		self.GetGrid()
+		if (doVerbose):
+			print("Units Type = %s"%(self.UnitsID))
+			print("Pulling grid ...")
+		self.GetGrid(doVerbose)
 	
 	def SetUnits(self,f0):
 		import h5py
 		with h5py.File(f0,'r') as hf:
 			uID = hf.attrs.get("UnitsID","CODE")
-		self.UnitsID = uID.decode('utf-8')
+		if (not isinstance(uID,str)):
+			self.UnitsID = uID.decode('utf-8')
 
 	#Chunks go from 0,Ri-1 (Python iteration)
 	def ChunkName(self,i,j,k):
@@ -149,7 +174,7 @@ class GameraPipe(object):
 			fIn = self.fdir+"/"+self.ftag+".h5"
 		return fIn
 		#print(fIn)
-	def GetGrid(self):
+	def GetGrid(self,doVerbose):
 		import kaipy.kaiH5 as kh5
 		if (self.is2D):
 			self.X = np.zeros((self.Ni+1,self.Nj+1))
@@ -158,7 +183,8 @@ class GameraPipe(object):
 			self.X = np.zeros((self.Ni+1,self.Nj+1,self.Nk+1))
 			self.Y = np.zeros((self.Ni+1,self.Nj+1,self.Nk+1))
 			self.Z = np.zeros((self.Ni+1,self.Nj+1,self.Nk+1))
-		print("Del = (%d,%d,%d)"%(self.dNi,self.dNj,self.dNk))
+		if (doVerbose):
+			print("Del = (%d,%d,%d)"%(self.dNi,self.dNj,self.dNk))
 		for i in range(self.Ri):
 			for j in range(self.Rj):
 				for k in range(self.Rk):
@@ -170,6 +196,7 @@ class GameraPipe(object):
 					kE = kS+self.dNk
 					#print("Bounds = (%d,%d,%d,%d,%d,%d)"%(iS,iE,jS,jE,kS,kE))
 					fIn = self.ChunkName(i,j,k)
+					print(fIn)
 					if (self.is2D):
 						self.X[iS:iE+1,jS:jE+1] = kh5.PullVar(fIn,"X")
 						self.Y[iS:iE+1,jS:jE+1] = kh5.PullVar(fIn,"Y")

@@ -36,9 +36,6 @@ cAl = 0.5 #Contour alpha
 lon0 = -90
 R0 = 6.5/6.38
 
-# uLat = 80.0 #Highest latitude marker
-# bLat = 60.0 #Lowest latitude bound for plotted domain
-
 dLon = 45.0 #Degree spacing for longitude
 dLat = 10.0 #Degree spacing for latitude
 
@@ -50,34 +47,14 @@ gLW = 0.125
 
 #Adds inset figure to axis using data from fmix
 #dxy = [width%,height%]
-def CMIViz(AxM=None,fmix="mixtest000000.h5",doNorth=True,loc="upper left",dxy=[20,20]):
-
-	#Get remix data
+def CMIPic(nLat,nLon,llBC,P,C,AxM=None,doNorth=True,loc="upper left",dxy=[20,20]):
 	if (doNorth):
-		gID = "NORTH"
 		tStr = "North"
-		hSgn = +1.0
 	else:
-		gID = "SOUTH"
 		tStr = "South"
-		hSgn = -1.0
-
-	with h5py.File(fmix,'r') as hf:
-		X = hf[gID]['X'][()]
-		Y = hf[gID]['Y'][()]
-		P = hf[gID]['Potential'][()]
-		C = hf[gID]['Field-aligned current'][()]
+		
 	vC = kv.genNorm(cMax)
 	vP = kv.genNorm(pMax)
-
-	nLat,nLon = X.shape
-	Z = hSgn*np.sqrt(R0-X**2.0-Y**2.0)
-
-	#Convert to latitudes/longitudes
-	llBC = np.arccos(X[-1,0]/R0)*r2deg
-
-	Lon2D = np.arctan2(Y,X)*r2deg
-	Lat2D = np.arcsin(Z/R0)*r2deg
 
 	#Now add inset figure to passed axis
 	wStr = "%f%%"%(dxy[0])
@@ -96,11 +73,8 @@ def CMIViz(AxM=None,fmix="mixtest000000.h5",doNorth=True,loc="upper left",dxy=[2
 	else:
 		Ax.set_title(tStr,fontsize=dfs,color=AxEC)
 
-	#bmAx = Basemap(ax=Ax,projection=pType,boundinglat=bLat,lon_0=lon0)
+	
 	bmAx = Basemap(ax=Ax,projection=pType,boundinglat=llBC,lon_0=lon0)
-	#Create cell interfaces for plotting
-	#Lat0 = np.linspace(90,bLat,nLat+0)
-	#Lat1 = np.linspace(90,bLat,nLat+1)
 
 	Lat0 = np.linspace(90,llBC,nLat+0)
 	Lat1 = np.linspace(90,llBC,nLat+1)
@@ -117,16 +91,12 @@ def CMIViz(AxM=None,fmix="mixtest000000.h5",doNorth=True,loc="upper left",dxy=[2
 	#Now do plotting, start w/ gridding
 	
 	#Set parallels
-	#gP = np.arange(uLat,0.95*bLat,-dLat)
 	gP = np.arange(90-dLat,0.95*llBC,-dLat)
-
 	bmAx.drawparallels(gP,latmax=gP.max(),dashes=gDash,linewidth=gLW,color=gC)
-	#bmAx.drawparallels(gP,latmax=gP.max(),dashes=gDash,linewidth=gLW,color=gC,labels=[True,True,True,True])
 	
 	#Set meridians
 	gM = np.arange(0,360,dLon)
 	for lon in gM:
-		#bmAx.drawgreatcircle(lon,gP.max(),lon,bLat,linewidth=gLW,color=gC)
 		bmAx.drawgreatcircle(lon,gP.max(),lon,llBC,linewidth=gLW,color=gC)
 	
 	#Plot data
@@ -136,13 +106,14 @@ def CMIViz(AxM=None,fmix="mixtest000000.h5",doNorth=True,loc="upper left",dxy=[2
 		#Do positive contours
 		vAPp = kv.genNorm(0,pMax)
 		pVals = np.arange(dpC,pMax,dpC)
-		bmAx.contour(LonC,LatC,P,pVals,latlon=True,norm=vAPp,cmap=apMap,alpha=cAl,linewidths=cLW,linestyles='solid')
+		if (P.max()>dpC):
+			bmAx.contour(LonC,LatC,P,pVals,latlon=True,norm=vAPp,cmap=apMap,alpha=cAl,linewidths=cLW,linestyles='solid')
 		#Do negative contours
 		vAPm = kv.genNorm(-pMax,0)
 		apMapm = apMap+"_r"
 		pVals = -pVals[::-1]
-		bmAx.contour(LonC,LatC,P,pVals,latlon=True,norm=vAPm,cmap=apMapm,alpha=cAl,linewidths=cLW,linestyles='dashed')
-				
+		if (P.min()<-dpC):
+			bmAx.contour(LonC,LatC,P,pVals,latlon=True,norm=vAPm,cmap=apMapm,alpha=cAl,linewidths=cLW,linestyles='dashed')
 	else:
 		bmAx.contour(LonC,LatC,P,pVals,latlon=True,norm=vP,cmap=pMap,alpha=cAl,linewidths=cLW)
 	
