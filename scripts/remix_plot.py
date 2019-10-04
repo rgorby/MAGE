@@ -29,7 +29,7 @@ import sys
 import argparse
 import numpy as np
 from astropy.time import Time
-import kaiH5
+import kaipy.kaiH5 as kaiH5
 
 parser = argparse.ArgumentParser()
 parser.add_argument('remixFile',help='REMIX file to use')

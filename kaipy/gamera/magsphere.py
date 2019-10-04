@@ -341,12 +341,11 @@ class GamsphPipe(GameraPipe):
 				C = hf[gID]['Field-aligned current'][()]
 
 		elif (self.hasRemix): #New style remix
-			P  = self.mixPipe.GetVar(pID,nStp,doVerb=False)
-			C  = self.mixPipe.GetVar(cID,nStp,doVerb=False)
-
+			P  = self.mixPipe.GetVar(pID,nStp,doVerb=False).T
+			C  = self.mixPipe.GetVar(cID,nStp,doVerb=False).T
+			
 		RIn = self.xxi[0,0]
 		llBC = np.arcsin(np.sqrt(1.0/RIn))*180.0/np.pi
-		nLon,nLat = C.shape
-
+		nLat,nLon = C.shape
 		#Now call remixpp.CMIViz
-		remixpp.CMIPic(nLat,nLon,llBC,P.T,C.T,AxM,doNorth,loc,dxy)
+		remixpp.CMIPic(nLat,nLon,llBC,P,C,AxM,doNorth,loc,dxy)
