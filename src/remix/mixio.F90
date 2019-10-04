@@ -143,8 +143,8 @@ contains
              uStr = "cm/s"
              doDump = .true.             
           case (DENSITY)
-             vStr = "Desity"//" "//hStr
-             uStr = "g/cm^2"
+             vStr = "Density"//" "//hStr
+             uStr = "g/cm^3"
              doDump = .true.             
           case (AVG_ENG)
              vStr = "Average energy"//" "//hStr
