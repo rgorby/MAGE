@@ -29,7 +29,7 @@ import sys
 import argparse
 import numpy as np
 from astropy.time import Time
-import kaipy.kaiH5 as kaiH5
+import kaiH5
 
 parser = argparse.ArgumentParser()
 parser.add_argument('remixFile',help='REMIX file to use')
@@ -42,6 +42,7 @@ T=kaiH5.getTs(args.remixFile,sIds,aID='MJD')
 
 if not(args.UniversalTime):
     for tt in T: print(Time(tt,format='mjd').iso)
+    sys.exit(0)
 else:
     t0 = Time(args.UniversalTime)
     if (t0.mjd<T.min()) or (t0.mjd>T.max()):
@@ -54,7 +55,7 @@ else:
 
 # now plotting
 
-import kaipy.remix.remix1 as remix
+import kaipy.remix.remix as remix
 import sys
 from matplotlib.pyplot import rc,figure,figtext,subplot,show,pcolormesh
 from numpy import arctan2,sqrt,pi
