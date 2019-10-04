@@ -167,9 +167,7 @@ module mixconductance
       type(mixGrid_T), intent(in) :: G
       type(mixState_T), intent(inout) :: St
 
-      ! first call fedder to fill in AVG_ENERGY and NUM_FLUX
-      call conductance_fedder95(conductance,G,St)
-
+      ! note, this assumes that fedder has been called prior
       conductance%engFlux = kev2erg*St%Vars(:,:,AVG_ENG)*St%Vars(:,:,NUM_FLUX)  ! Energy flux in ergs/cm^2/s
       conductance%deltaSigmaP = 40.D0*St%Vars(:,:,AVG_ENG)*sqrt(conductance%engFlux)/(16.D0+St%Vars(:,:,AVG_ENG)**2);
       conductance%deltaSigmaH = 0.45D0*conductance%deltaSigmaP*St%Vars(:,:,AVG_ENG)**0.85D0/(1.D0+0.0025D0*St%Vars(:,:,AVG_ENG)**2)
@@ -180,6 +178,10 @@ module mixconductance
       type(mixGrid_T), intent(in) :: G
       type(mixState_T), intent(inout) :: St
 
+      ! always call fedder to fill in AVG_ENERGY and NUM_FLUX
+      ! even if const_sigma, we still have the precip info that way
+      call conductance_fedder95(conductance,G,St)
+      
       if (conductance%const_sigma) then
          St%Vars(:,:,SIGMAP) = conductance%ped0
          St%Vars(:,:,SIGMAH) = 0.D0
