@@ -18,11 +18,10 @@ program MIX
 
   call readArgs(inpXML)
 
-  call init_mix(remixApp%ion,hmsphrs,inpXML)
+  call init_mix(remixApp%ion,hmsphrs,inpXML,'mixtest',.false.)
   call fill_fac(remixApp%ion)
   call run_mix(remixApp%ion,tilt)
-  !call writeMIX('mixtest.h5',remixApp%ion)
-  !call potMinMax(remixApp%ion)
+  call writeMIX(remixApp%ion,0,1344._rp,1555._rp)
 
   contains
 
