@@ -140,6 +140,24 @@ add_executable(voltron.x src/drivers/voltronx.F90)
 target_link_libraries(voltron.x baselib gamlib remixlib voltlib chimplib)
 add_dependencies(voltron voltron.x remixlib gamlib baselib chimplib)
 
+if(ENABLE_MPI)
+    #-------------
+    #Kaiju: Base MPI
+    message("Adding Base MPI module ...")
+    add_subdirectory(src/base/mpi)
+
+    #-------------
+    #Kaiju: Gamera MPI
+    message("Adding Gamera MPI module ...")
+    add_subdirectory(src/gamera/mpi)
+    add_custom_target(gamera_mpi ALL)
+    message("\tAdding executable gamera_mpi.x")
+    add_executable(gamera_mpi.x src/drivers/gamera_mpix.F90)
+    target_link_libraries(gamera_mpi.x baselib gamlib basempilib gammpilib)
+    add_dependencies(gamera_mpi gamera_mpi.x baselib basempilib gamlib)
+
+endif()
+
 if(PFUNIT_FOUND)
 	#-------------
 	#Kaiju: tests
