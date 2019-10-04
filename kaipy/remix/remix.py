@@ -1,34 +1,18 @@
 import h5py
 
-def get_data(h5file):
+def get_data(h5file,step):
     import numpy
     from numpy import array
 
-    f = h5py.File(h5file,'r')
-
-    ion = {}
-    # Add simtime later
-    # simtime = getattr(hdffile,'UT (Year, Month, Day, Hour, Min, Sec)')
-    ion['Sim time'] = array([1900,1,1,0,0,0])
-    for h in f.keys():
-        ion[h] = {}
-        ion[h]['x'] = add_periodic(f[h]['X'][:])
-        ion[h]['y'] = add_periodic(f[h]['Y'][:])
-        ion[h]['psi'] = add_periodic(f[h]['Potential'][:])
-        ion[h]['fac'] = add_periodic(f[h]['Field-aligned current'][:])
-        ion[h]['sigmap'] = add_periodic(f[h]['Pedersen conductance'][:])
-        ion[h]['sigmah'] = add_periodic(f[h]['Hall conductance'][:])
-        ion[h]['energy'] = add_periodic(f[h]['Average energy'][:])
-        ion[h]['flux']   = add_periodic(f[h]['Number flux'][:])
-
-    f.close()
-
+    with h5py.File(h5file,'r') as f:
+        ion = {}
+        ion['X'] = f['X'][:]
+        ion['Y'] = f['Y'][:]
+        for h in f['Step#%d'%step].keys():
+            ion[h] = f['Step#%d'%step][h][:]
+        
     return ion
 
-
-def add_periodic(A):
-    from numpy import hstack
-    return(hstack((A,A[:,[0]])))
 
 def plot(theta,r,variables,varname,
          ncontours=51,
@@ -117,7 +101,7 @@ def plot(theta,r,variables,varname,
 #    contour(theta+pi/2.,r,variable,contours,cmap=cmap)
     
 #    from pylab import asarray 
-    if (varname == 'potential'): contour(theta+pi/2.,r,variables['potential']['data'],21,colors='black')
+#    if (varname == 'potential'): contour(theta+pi/2.,r,variables['potential']['data'],21,colors='black')
     import matplotlib
 #    matplotlib.rcParams['contour.negative_linestyle'] = 'solid'
     # if (varname == 'efield' or varname == 'velocity' or varname =='joule'): 
