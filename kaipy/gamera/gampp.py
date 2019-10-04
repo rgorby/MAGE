@@ -196,7 +196,6 @@ class GameraPipe(object):
 					kE = kS+self.dNk
 					#print("Bounds = (%d,%d,%d,%d,%d,%d)"%(iS,iE,jS,jE,kS,kE))
 					fIn = self.ChunkName(i,j,k)
-					print(fIn)
 					if (self.is2D):
 						self.X[iS:iE+1,jS:jE+1] = kh5.PullVar(fIn,"X")
 						self.Y[iS:iE+1,jS:jE+1] = kh5.PullVar(fIn,"Y")
