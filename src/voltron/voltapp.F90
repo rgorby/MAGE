@@ -119,6 +119,10 @@ module voltapp
         if (vApp%doDeep) then
             call DeepUpdate(vApp,gApp,vApp%time)
         endif
+
+        !Recalculate timestep
+        gApp%Model%dt = CalcDT(gApp%Model,gApp%Grid,gApp%State)
+        
         !Finally do first output stuff
         call consoleOutputV(vApp,gApp)
         if (.not. gApp%Model%isRestart) call fOutputV(vApp,gApp)
