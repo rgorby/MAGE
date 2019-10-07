@@ -114,10 +114,16 @@ module voltapp
             call initializeFromGamera(vApp, gApp)
         endif
 
+        !Do first couplings
+        call ShallowUpdate(vApp,gApp,vApp%time)
+        if (vApp%doDeep) then
+            call DeepUpdate(vApp,gApp,vApp%time)
+        endif
         !Finally do first output stuff
         call consoleOutputV(vApp,gApp)
         if (.not. gApp%Model%isRestart) call fOutputV(vApp,gApp)
         
+
     end subroutine initVoltron
 
     !Step Voltron if necessary (currently just updating state variables)
