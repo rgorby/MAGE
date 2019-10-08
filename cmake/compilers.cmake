@@ -30,7 +30,8 @@ set(CMAKE_Fortran_FLAGS_RELWITHDEBINFO "-O3 -g")
 
 #Do compiler specific options
 if(CMAKE_Fortran_COMPILER_ID MATCHES Intel)
-	set(dialect "-free -implicitnone")
+	#set(dialect "-free -implicitnone")
+	set(dialect "-implicitnone")
 	#Base
 	string(APPEND CMAKE_Fortran_FLAGS " -fPIC")
 	#Production
