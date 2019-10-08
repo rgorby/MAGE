@@ -130,6 +130,17 @@ target_link_libraries(remix.x baselib remixlib)
 add_dependencies(remix remix.x baselib)
 
 #-------------
+#Kaiju: RCM
+message("Adding RCM module ...")
+#Add source
+add_subdirectory(src/rcm)
+add_custom_target(rcm ALL)
+message("\tAdding executable rcm.x")
+add_executable(rcm.x src/drivers/rcmx.F90)
+target_link_libraries(rcm.x baselib rcmlib)
+add_dependencies(rcm rcm.x baselib)
+
+#-------------
 #Kaiju: Voltron
 message("Adding Voltron module ...")
 message("\tIC file is ${VOLTIC}")

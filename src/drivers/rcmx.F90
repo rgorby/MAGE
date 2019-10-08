@@ -1,7 +1,7 @@
 ! dummy mhd test program to drive the rcm_mhd code
 ! assumes dipole inputs
 ! 1/19 frt
-program rcmdipx
+program rcmx
 use rcm_mhd_interfaces
 !USE Rcm_mod_subs, ONLY : iprec,rprec
 USE rcm_precision
@@ -75,7 +75,7 @@ end do
 call rcm_mhd(mhdtime,mhd_dt,RM,-1_iprec)
 
 stop
-end program rcmdipx
+end program rcmx
 
 subroutine write_2d(RM,time)
 
