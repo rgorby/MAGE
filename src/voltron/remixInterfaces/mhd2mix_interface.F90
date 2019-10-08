@@ -198,13 +198,16 @@ module mhd2mix_interface
         real(rp), intent(in) :: x,y,z
         real(rp) :: Bi2m
 
-        real(rp) :: rScl,zScl,zor2
+        real(rp) :: rMag,Rp,zor2,mZ,pZ
 
-        rScl = norm2([x,y,z])/Rion
-        zScl = z/Rion
-        zor2 = (zScl/rScl)**2.0
+        rMag = norm2([x,y,z])
+        Rp = rMag/Rion
+        zor2 = (z/rMag)**2.0
+        mZ = (1.0-zor2)/Rp
+        pZ = 1.0+3.0*zor2
 
-        Bi2m = (rScl**3.0)*sqrt(1+3*(1-zor2)/rScl)/sqrt(1+3*zor2)
+        Bi2m = (Rp**3.0)*sqrt( 1.0 + 3.0*(1.0-mZ) )/sqrt(pZ)
+
         ! bion2bmag in LFM-para/src/interfaces/MHDBoundaryInterface.C
         !Bi2m  = r**3*sqrt(1+3*(1-(1-(zc/r)**2)/r))/sqrt(1+3*(zc/r)**2) 
 
