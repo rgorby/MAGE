@@ -1,8 +1,11 @@
 module mixconductance
   use mixdefs
   use mixtypes
-
+  use earthhelper
+  
   implicit none
+
+  real(rp), dimension(:,:), allocatable :: tmpD ! used for chilling in Fedder95. Declare it here so we can allocate in init.
 
   contains
     subroutine conductance_init(conductance,Params,G)
@@ -23,7 +26,8 @@ module mixconductance
       conductance%sigma_ratio = Params%sigma_ratio
       conductance%ped0 = Params%ped0
       conductance%const_sigma = Params%const_sigma
-      conductance%do_ramp = Params%do_ramp
+      conductance%doRamp = Params%doRamp
+      conductance%doChill = Params%doChill
       conductance%apply_cap = Params%apply_cap
 
       conductance%PI2       = pi/2.0D0
@@ -53,6 +57,8 @@ module mixconductance
       if (.not. allocated(conductance%E0)) allocate(conductance%E0(G%Np,G%Nt))
       if (.not. allocated(conductance%phi0)) allocate(conductance%phi0(G%Np,G%Nt))
       if (.not. allocated(conductance%engFlux)) allocate(conductance%engFlux(G%Np,G%Nt))
+
+      if (.not. allocated(tmpD)) allocate(tmpD(G%Np,G%Nt))
 
     end subroutine conductance_init
 
@@ -126,12 +132,20 @@ module mixconductance
       endif
 
       ! fills in rampFactor
-      if (conductance%do_ramp) then
+      if (conductance%doRamp) then
          call conductance_ramp(conductance,G,20.0D0*pi/180.D0,30.0D0*pi/180.0D0,0.02D0)
       else 
          conductance%rampFactor = 1.0D0
       end if
 
+      if (conductance%doChill) then
+         ! MHD density replaced with gallagher where it's lower      
+         ! and temperature changed correspondingly
+          tmpD = max(G%D0*Mp_cgs,St%Vars(:,:,DENSITY))
+          St%Vars(:,:,SOUND_SPEED) = St%Vars(:,:,SOUND_SPEED)*sqrt(St%Vars(:,:,DENSITY)/tmpD)
+          St%Vars(:,:,DENSITY) = tmpD
+      end if
+      
       conductance%E0 = conductance%alpha*Mp_cgs*heFrac*erg2kev*St%Vars(:,:,SOUND_SPEED)**2*conductance%RampFactor
       conductance%phi0 = sqrt(kev2erg)/(heFrac*Mp_cgs)**1.5D0*conductance%beta*St%Vars(:,:,DENSITY)*sqrt(conductance%E0)*conductance%RampFactor
 
@@ -142,7 +156,7 @@ module mixconductance
       elsewhere
          conductance%aRes = 2.D0*Rin
       end where
-
+   
       ! Density floor to limit characteristic energy.  See Wiltberger et al. 2009 for details.
       where (St%Vars(:,:,DENSITY) < rhoFactor*conductance%euvSigmaP) 
          St%Vars(:,:,DENSITY) = rhoFactor*conductance%euvSigmaP
@@ -160,6 +174,7 @@ module mixconductance
       elsewhere 
          St%Vars(:,:,NUM_FLUX) = conductance%phi0*exp(conductance%deltaE/conductance%E0)
       end where
+
     end subroutine conductance_fedder95
 
     subroutine conductance_aurora(conductance,G,St)
@@ -198,7 +213,8 @@ module mixconductance
          St%Vars(:,:,SIGMAP) = max(conductance%pedmin,St%Vars(:,:,SIGMAP))
          St%Vars(:,:,SIGMAH) = min(max(conductance%hallmin,St%Vars(:,:,SIGMAH)),&
               St%Vars(:,:,SIGMAP)*conductance%sigma_ratio)
-       endif
+      endif
+
     end subroutine conductance_total
 
     subroutine conductance_ramp(conductance,G,rPolarBound,rEquatBound,rLowLimit)
@@ -214,5 +230,5 @@ module mixconductance
          conductance%rampFactor = rLowLimit
       end where
     end subroutine conductance_ramp
-    
-end module mixconductance
+
+  end module mixconductance
