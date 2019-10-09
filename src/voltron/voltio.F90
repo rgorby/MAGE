@@ -3,10 +3,13 @@ module voltio
     use gamapp
     use volttypes
     use mixio
-    
+    use clocks
+
     implicit none
 
     integer, parameter, private :: MAXVOLTIOVAR = 10
+    logical, private :: isConInit = .false.
+    real(rp), private ::  oMJD = 0.0
 
     contains
 
@@ -15,7 +18,7 @@ module voltio
         type(voltApp_T), intent(in) :: vApp
         real(rp) :: cpcp(2) = 0.0
 
-        real(rp) :: dpT
+        real(rp) :: dpT,dtWall,cMJD,dMJD,simRate
 
         !Using console output from Gamera
         call consoleOutput(gApp%Model,gApp%Grid,gApp%State)
@@ -24,10 +27,29 @@ module voltio
         call getCPCP(vApp%mix2mhd%mixOutput,cpcp)
         dpT = vApp%tilt%evalAt(vApp%time)*180.0/PI
 
+        !Figure out some perfromance info
+        cMJD = T2MJD(vApp%time,gApp%Model%MJD0) !Current MJD
+
+        
+        if (isConInit) then
+            !Console output has been initialized
+            dMJD = cMJD - oMJD !Elapsed MJD since last console output
+            dtWall = kClocks(1)%tElap
+
+            simRate = dMJD*24.0*60.0*60.0/dtWall !Model seconds per wall second
+            oMJD = cMJD
+        else
+            simRate = 0.0
+            oMJD = cMJD
+            isConInit = .true.
+        endif
+        
         write(*,'(a)',advance="no") ANSIBLUE
         !write (*, '(a,f8.3,a)')       '    dt/dt0 = ', 100*Model%dt/dt0, '%'
         write (*, '(a,2f8.3,a)')      '    CPCP  = ' , cpcp(NORTH), cpcp(SOUTH), ' [kV] (N/S)'
         write (*, '(a,1f8.3,a)')      '     tilt  = ' , dpT, ' [deg]'
+        write (*, '(a,1f7.3,a)')      '     Running @ ', simRate*100.0, '% of real-time'
+        
         write (*, *) ANSIRESET, ''
 
     end subroutine consoleOutputV

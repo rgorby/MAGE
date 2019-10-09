@@ -24,6 +24,7 @@ module fields
 
         integer :: i,j,k
         real(rp) :: dt,dfi,dfj,dfk
+        !DIR$ ASSUME_ALIGNED E: ALIGN
 
         !Use dt=1 if unspecified (ie for ring-avg)
         dt = 1.0

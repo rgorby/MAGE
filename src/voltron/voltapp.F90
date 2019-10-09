@@ -62,11 +62,6 @@ module voltapp
         call tsMJD%initTS("MJD")
         gApp%Model%MJD0 = tsMJD%evalAt(0.0_rp) !Evaluate at T=0
         
-        ! !Check if MJD0 is set (positive), otherwise make it 0
-        ! if (gApp%Model%MJD0 < 0) then
-        !     gApp%Model%MJD0 = 0.0
-        ! endif
-
         vApp%MJD = T2MJD(vApp%time,gApp%Model%MJD0)
 
     !Time options

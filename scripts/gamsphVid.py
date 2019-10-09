@@ -22,7 +22,8 @@ if __name__ == "__main__":
 	ts = 0    #[min]
 	te = 200  #[min]
 	dt = 60.0 #[sec]
-
+	doBig = False #[Use big window]
+	doMPI = False #[Add MPI tiling]
 	Nblk = 1 #Number of blocks
 	nID = 1 #Block ID of this job
 
@@ -40,6 +41,8 @@ if __name__ == "__main__":
 	parser.add_argument('-dt' ,type=int,metavar="dt"    ,default=dt,help="Cadence       [sec] (default: %(default)s)")
 	parser.add_argument('-Nblk' ,type=int,metavar="Nblk",default=Nblk,help="Number of job blocks (default: %(default)s)")
 	parser.add_argument('-nID' ,type=int,metavar="nID"  ,default=nID,help="Block ID of this job [1-Nblk] (default: %(default)s)")
+	parser.add_argument('-big', action='store_true', default=doBig,help="Use larger domain bounds (default: %(default)s)")
+	parser.add_argument('-mpi', action='store_true', default=doMPI,help="Add MPI tiling to figure (default: %(default)s)")
 
 	#Finalize parsing
 	args = parser.parse_args()
@@ -51,7 +54,9 @@ if __name__ == "__main__":
 	oSub = args.o
 	Nblk = args.Nblk
 	nID = args.nID
-
+	doBig = args.big
+	doMPI = args.mpi
+	
 	#Setup timing info
 	tOut = np.arange(ts*60.0,te*60.0,dt)
 	Nt = len(tOut)
@@ -92,15 +97,20 @@ if __name__ == "__main__":
 	bCMap = "inferno"
 	pCMap = "viridis"
 	
+	if (doBig):
+		xTail = -100.0
+		xSun = 20.0
+	else:
+		xTail = -40.0
+		xSun = 20.0
 
-	doMPI = False
-	xyBds = [-40,20,-30,30]
+	yMax = (xSun-xTail)/2.0
+	xyBds = [xTail,xSun,-yMax,yMax]
 
-	PMin = 0.0 ; PMax = 2.0
-	Nc = 11
+	PMin = 1.0e-2 ; PMax = 10.0
+
 	vDB = kv.genNorm(25)
-	vP = kv.genNorm(PMin,PMax)
-	pVals = np.linspace(PMin,PMax,Nc)
+	vP = kv.genNorm(PMin,PMax,doLog=True)
 
 	#======
 	#Init data
@@ -122,7 +132,7 @@ if __name__ == "__main__":
 	kv.genCB(AxC1,vDB,"Residual Field [nT]",cM=dbCMap,Ntk=7)
 	kv.genCB(AxC4,kv.genNorm(rmpp.cMax),"FAC",cM=rmpp.fcMap,Ntk=5)
 	rmpp.AddPotCB(AxC3)
-	kv.genCB(AxC2,vP,"Pressure",cM=pCMap,Ntk=6)
+	kv.genCB(AxC2,vP,"Pressure",cM=pCMap)#,Ntk=6)
 
 	#Loop over sub-range
 	for i in range(i0,i1):
@@ -153,7 +163,7 @@ if __name__ == "__main__":
 		kv.SetAx(xyBds,AxR)
 		AxR.yaxis.tick_right()
 		AxR.yaxis.set_label_position('right')
-		gsph.AddCPCP(nStp,AxR,xy=[0.65,0.925])
+		gsph.AddCPCP(nStp,AxR,xy=[0.610,0.925])
 
 		AxR.set_xlabel('SM-X [Re]')
 		AxR.set_ylabel('SM-Z [Re]')
