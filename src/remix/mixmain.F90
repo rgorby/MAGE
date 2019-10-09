@@ -32,6 +32,7 @@ module mixmain
          endif
          ! FIXME: replace with a function pointer allowing an arbitrary grid specification, e.g., init_grid=>init_uniform
          call init_uniform(I(h)%G,I(h)%P%Np,I(h)%P%Nt,I(h)%P%LowLatBoundary*pi/180._rp,.true.)
+         call setD0(I(h)%G)  ! should be moved inside init_uniform (but only after that function is generalized to arbitrary grid spec
          call init_state(I(h)%G,I(h)%St) 
          call conductance_init(I(h)%conductance,I(h)%P,I(h)%G)
 

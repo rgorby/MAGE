@@ -67,7 +67,8 @@ module mixparams
         call xmlInp%Set_Val(Params%sigma_ratio,"conductance/sigma_ratio",3.0_rp)
         call xmlInp%Set_Val(Params%ped0,"conductance/ped0",10.0_rp)
         call xmlInp%Set_Val(Params%const_sigma,"conductance/const_sigma",.false.)
-        call xmlInp%Set_Val(Params%do_ramp,"conductance/do_ramp",.true.)
+        call xmlInp%Set_Val(Params%doRamp,"conductance/doRamp",.true.)
+        call xmlInp%Set_Val(Params%doChill,"conductance/doChill",.false.)        
         call xmlInp%Set_Val(Params%apply_cap,"conductance/apply_cap",.true.)
         ! =========== CONDUCTANCE MODEL PARAMTERS =================== !
 
