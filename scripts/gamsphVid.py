@@ -133,7 +133,7 @@ if __name__ == "__main__":
 	
 	kv.genCB(AxC1,vDB,"Residual Field [nT]",cM=dbCMap,Ntk=7)
 	rmpp.cMax = 1.00
-	kv.genCB(AxC4,kv.genNorm(rmpp.cMax),"FAC",cM=rmpp.fcMap,Ntk=5)
+	kv.genCB(AxC4,kv.genNorm(rmpp.cMax),"FAC",cM=rmpp.fcMap,Ntk=4)
 	rmpp.AddPotCB(AxC3)
 	kv.genCB(AxC2,vP,"Pressure",cM=pCMap)#,Ntk=6)
 

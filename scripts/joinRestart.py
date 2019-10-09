@@ -30,7 +30,7 @@ if __name__ == "__main__":
 	"""
 
 	parser = argparse.ArgumentParser(description=MainS, formatter_class=RawTextHelpFormatter)
-	parser.add_argument('-i',metavar='inid',help="Input Run ID string")
+	parser.add_argument('-i',metavar='inid',default=inid,help="Input Run ID string (default: %(default)s)")
 	parser.add_argument('-n',type=int,metavar="nres",default=0,help="Restart number (default: %(default)s)")
 	parser.add_argument('-Ri',type=int,metavar="Ri",default=Ri,help="i-Ranks (default: %(default)s)")
 	parser.add_argument('-Rj',type=int,metavar="Rj",default=Rj,help="j-Ranks (default: %(default)s)")
@@ -41,7 +41,7 @@ if __name__ == "__main__":
 
 	#Finalize parsing
 	args = parser.parse_args()
-	bStr = args.inid
+	bStr = args.i
 	nRes = args.n
 	outid = args.o
 	Ri = args.Ri
@@ -74,7 +74,7 @@ if __name__ == "__main__":
 					M = np.zeros((3,Nk+1,Nj+1,Ni+1))
 					for ka in iH5.attrs.keys():
 						aStr = str(ka)
-						print(aStr)
+						#print(aStr)
 						oH5.attrs.create(ka,iH5.attrs[aStr])
 					doInit = False
 				iS = i*Nip
