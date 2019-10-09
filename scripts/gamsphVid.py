@@ -13,6 +13,8 @@ import kaipy.gamera.remixpp as rmpp
 import os
 import errno
 
+cLW = 0.25
+
 if __name__ == "__main__":
 	#Defaults
 	fdir = os.getcwd()
@@ -130,6 +132,7 @@ if __name__ == "__main__":
 
 	
 	kv.genCB(AxC1,vDB,"Residual Field [nT]",cM=dbCMap,Ntk=7)
+	rmpp.cMax = 1.00
 	kv.genCB(AxC4,kv.genNorm(rmpp.cMax),"FAC",cM=rmpp.fcMap,Ntk=5)
 	rmpp.AddPotCB(AxC3)
 	kv.genCB(AxC2,vP,"Pressure",cM=pCMap)#,Ntk=6)
@@ -145,10 +148,12 @@ if __name__ == "__main__":
 		AxR.clear()
 		
 		dbz = gsph.DelBz(nStp)
+		Bz = gsph.EggSlice("Bz",nStp,doEq=True)
 		Pxz = gsph.EggSlice("P",nStp,vScl=gsph.pScl,doEq=False)
 
 		#Start plotting
 		AxL.pcolormesh(gsph.xxi,gsph.yyi,dbz,cmap=dbCMap,norm=vDB)
+		AxL.contour(kv.reWrap(gsph.xxc),kv.reWrap(gsph.yyc),kv.reWrap(Bz),[0.0],colors='magenta',linewidths=cLW)
 
 		kv.addEarth2D(ax=AxL)
 		kv.SetAx(xyBds,AxL)

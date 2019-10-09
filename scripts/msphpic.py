@@ -11,8 +11,6 @@ import matplotlib.gridspec as gridspec
 import numpy as np
 import kaipy.gamera.remixpp as rmpp
 import kaipy.gamera.magsphere as msph
-
-
 import os
 
 if __name__ == "__main__":
