@@ -35,7 +35,7 @@ contains
        !Reset IO chain
        call ClearIO(IOVars)
 
-       call fixGrid(I(NORTH)%G%x,I(NORTH)%G%y,xc,yc)
+       call genOutGrid(I(NORTH)%G%x,I(NORTH)%G%y,xc,yc)
        
        ! save grid only for north
        call AddOutVar(IOVars,"X",xc)
@@ -52,7 +52,7 @@ contains
     endif
 
   contains
-    subroutine fixGrid(x,y,xc,yc)  
+    subroutine genOutGrid(x,y,xc,yc)  
       real(rp), dimension(:,:),intent(in) :: x,y
       real(rp), dimension(:,:),allocatable,intent(out) :: xc,yc ! with corners 1/2-cell shifted from original
       real(rp), dimension(:,:),allocatable :: xtmp,ytmp ! temporary arrays
@@ -83,7 +83,7 @@ contains
       ! finally extrapolate below equatorward boundary
       xc(:,Nt) = 2*xc(:,Nt-1)-xc(:,Nt-2)
       yc(:,Nt) = 2*yc(:,Nt-1)-yc(:,Nt-2)      
-    end subroutine fixGrid
+    end subroutine genOutGrid
     
   end subroutine initMIXIO
 
