@@ -234,7 +234,7 @@ class GamsphPipe(GameraPipe):
 			minMJD = -HUGE
 		if (self.hasMJD and minMJD>TINY):
 			from astropy.time import Time
-			dtObj = Time(self.MJDs[n],format='mjd').datetime
+			dtObj = Time(self.MJDs[n-self.s0],format='mjd').datetime
 			tStr = "  " + dtObj.strftime("%H:%M:%S") + "\n" + dtObj.strftime("%m/%d/%Y")
 
 		else:	
