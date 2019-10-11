@@ -41,7 +41,8 @@ nsteps,sIds=kaiH5.cntSteps(args.remixFile)
 T=kaiH5.getTs(args.remixFile,sIds,aID='MJD')
 
 if not(args.UniversalTime):
-    for tt in T: print(Time(tt,format='mjd').iso)
+    for i,tt in enumerate(T):
+        print('Step#%06d: '%sorted(sIds)[i],Time(tt,format='mjd').iso)
     sys.exit(0)
 else:
     t0 = Time(args.UniversalTime)
