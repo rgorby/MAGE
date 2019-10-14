@@ -49,62 +49,48 @@ module gamapp_mpi
 
         !Initialize Grid/State/Model (Hatch Gamera)
         !Will enforce 1st BCs, caculate 1st timestep, set oldState
-        call Hatch_mpi(gameraApp%Model,gameraApp%Grid,gameraApp%State,gameraApp%oState,gameraApp%Solver,xmlInp,userInitFunc)
+        call Hatch_mpi(gamAppMpi,xmlInp,userInitFunc)
         call cleanClocks()
 
-        if (.not. gameraApp%Model%isRestart) call fOutput(gameraApp%Model,gameraApp%Grid,gameraApp%State)
-        call consoleOutput(gameraApp%Model,gameraApp%Grid,gameraApp%State)
+        if (.not. gamAppMpi%Model%isRestart) call fOutput(gamAppMpi%Model,gamAppMpi%Grid,gamAppMpi%State)
+        call consoleOutput(gamAppMpi%Model,gamAppMpi%Grid,gamAppMpi%State)
 
     end subroutine initGamera_mpi
 
-    subroutine stepGamera_mpi(gameraApp)
-        type(gamApp_T), intent(inout) :: gameraApp
+    subroutine Hatch_mpi(gamAppMpi,xmlInp,userInitFunc,endTime)
+        type(gamAppMpi_T), intent(inout) :: gamAppMpi
+        type(XML_Input_T), intent(inout) :: xmlInp
+        procedure(StateIC_T), pointer, intent(in) :: userInitFunc
+        real(rp), optional, intent(in) :: endTime
 
-        call Tic("Gamera")
-        !Advance system
-        call AdvanceMHD(gameraApp%Model,gameraApp%Grid,gameraApp%State,gameraApp%oState,gameraApp%Solver,gameraApp%Model%dt)
-        call Toc("Gamera")
+        !Alwasys zero for single process job
+        Grid%ijkShift(1:3) = 0
 
-        !Update info
-        gameraApp%Model%ts = gameraApp%Model%ts+1
-        gameraApp%Model%t = gameraApp%Model%t+gameraApp%Model%dt
+        ! call appropriate subroutines to read corner info and mesh size data
+        call ReadCorners(gamAppMpi%Model,gamAppMpi%Grid,xmlInp,endTime)
 
-        !Call user-defined per-step function
-        if (associated(gameraApp%Model%HackStep)) then
-            call Tic("HackStep")
-            call gameraApp%Model%HackStep(gameraApp%Model,gameraApp%Grid,gameraApp%State)
-            call Toc("HackStep")
-        endif
+        ! adjust corner information to reflect this individual node's grid data
+
+        ! call appropriate subroutines to calculate all appropriate grid data from the corner data
+        call CalcGridInfo(gamAppMpi%Model,gamAppMpi%Grid,gamAppMpi%State,gamAppMpi%oState,gamAppMpi%Solver,xmlInp,userInitFunc)
+
+        ! check MPI values to assign responsibility for ring averaging
+
+    end subroutine Hatch_mpi
+
+    subroutine stepGamera_mpi(gamAppMpi)
+        type(gamAppMpi_T), intent(inout) :: gamAppMpi
+
+        !update the state variables to the next timestep
+        call UpdateStateData(gamAppMpi)
 
         !Update ghost cells
         call Tic("Halos")
-        call HaloUpdate(gameraApp)
+        call HaloUpdate(gamAppMpi)
         call Toc("Halos")
 
-        !Calculate new timestep
-        call Tic("DT")
-        gameraApp%Model%dt = CalcDT(gameraApp%Model,gameraApp%Grid,gameraApp%State)
-        call Toc("DT")
-
-        !Enforce BCs
-        call Tic("Halos")
-        call EnforceBCs(gameraApp%Model,gameraApp%Grid,gameraApp%State)
-        call Toc("Halos")
-
-
-        !Output if necessary
-        call Tic("IO")
-        if (modulo(gameraApp%Model%ts,gameraApp%Model%tsOut) ==0) then
-            call consoleOutput(gameraApp%Model,gameraApp%Grid,gameraApp%State)
-        endif
-        if (gameraApp%Model%t >= gameraApp%Model%tOut) then
-            call fOutput(gameraApp%Model,gameraApp%Grid,gameraApp%State)
-        endif
-        if (gameraApp%Model%doResOut .and. (gameraApp%Model%t >= gameraApp%Model%tRes)) then
-            !print *,"RESTART :: ", Model%doResOut, Model%t >= Model%tRes
-            call resOutput(gameraApp%Model,gameraApp%Grid,gameraApp%State)
-        endif
-        call Toc("IO")
+        ! calculate new DT, update BCs, write output data, etc...
+        call FinishStep(gamAppMpi)
 
     end subroutine stepGamera_mpi
 
