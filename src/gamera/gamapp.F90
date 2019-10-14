@@ -59,6 +59,17 @@ module gamapp
     subroutine stepGamera(gameraApp)
         type(gamApp_T), intent(inout) :: gameraApp
 
+        !update the state variables to the next timestep
+        call UpdateStateData(gameraApp)
+
+        ! calculate new DT, update BCs, write output data, etc...
+        call FinishStep(gameraApp)
+
+    end subroutine stepGamera
+
+    subroutine UpdateStateData(gameraApp)
+        type(gamApp_T), intent(inout) :: gameraApp
+
         call Tic("Gamera")
         !Advance system
         call AdvanceMHD(gameraApp%Model,gameraApp%Grid,gameraApp%State,gameraApp%oState,gameraApp%Solver,gameraApp%Model%dt)
@@ -74,6 +85,11 @@ module gamapp
             call gameraApp%Model%HackStep(gameraApp%Model,gameraApp%Grid,gameraApp%State)
             call Toc("HackStep")
         endif
+
+    end subroutine UpdateStateData
+
+    subroutine FinishStep(gameraApp)
+        type(gamApp_T), intent(inout) :: gameraApp
 
         !Calculate new timestep
         call Tic("DT")
@@ -100,7 +116,7 @@ module gamapp
         endif
         call Toc("IO")
 
-    end subroutine stepGamera
+    end subroutine FinishStep
 
 end module gamapp
 

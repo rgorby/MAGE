@@ -102,13 +102,6 @@ module gamtypes
         logical :: doRing = .false.
         type (Ring_T) :: Ring
         
-        !MPI information
-        !NumRi,NumRj,NumRk = # of ranks in each dimension
-        !Ri,Rj,Rj = Placement of this rank
-        logical :: isMPI = .false.
-        integer :: NumRi=1,NumRj=1,NumRk=1
-        integer :: Ri=1,Rj=1,Rk=1
-
         !Background variables
         real(rp) :: bScl = 1.0, bSclz = 0.0
         

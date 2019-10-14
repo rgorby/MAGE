@@ -38,19 +38,9 @@ module ringutils
         Nx = [Grid%Nip,Grid%Njp,Grid%Nkp]
         Model%Ring%NumR = 1 !Fake value for now
 
-        Model%Ring%doS = .false.
-        Model%Ring%doE = .false.
-
-        !Whether or not to do xs/xe sides of singularity
-        if (Model%isMPI) then
-            !If we're MPI we need to figure out if we own either singularity
-            if (Model%Rj ==           1) Model%Ring%doS = .true.
-            if (Model%Rj == Model%NumRj) Model%Ring%doE = .true.
-        else
-            !Assume we have both singularities
-            Model%Ring%doS = .true.
-            Model%Ring%doE = .true.
-        endif
+        ! this is non-MPI by default so assume we have both singularities
+        Model%Ring%doS = .true.
+        Model%Ring%doE = .true.
 
         !Set singularity information and default ring configurations
         select case (Model%Ring%GridID)

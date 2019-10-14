@@ -49,14 +49,28 @@ module init
         procedure(StateIC_T), pointer, intent(in) :: userInitFunc
         real(rp), optional, intent(in) :: endTime 
 
-        procedure(StateIC_T), pointer :: initState => NULL()
-        integer :: i
-        character(len=strLen) :: resStr,inH5
-        logical :: fExist, doH5g, doH5ic,doReset
-        real(rp) :: tReset
-
         !Alwasys zero for single process job
         Grid%ijkShift(1:3) = 0
+
+        ! call appropriate subroutines to read corner info and mesh size data
+        call ReadCorners(Model,Grid,xmlInp,endTime)
+
+        ! call appropriate subroutines to calculate all appropriate grid data from the corner data
+        call CalcGridInfo(Model,Grid,State,oState,Solver,xmlInp,userInitFunc)
+
+        !Initialization complete!
+        
+    end subroutine Hatch
+
+    ! Read corner data for the mesh and set grid size variables
+    subroutine ReadCorners(Model,Grid,xmlInp,endTime)
+        type(Model_T), intent(inout) :: Model
+        type(Grid_T), intent(inout) :: Grid
+        type(XML_Input_T), intent(inout) :: xmlInp
+        real(rp), optional, intent(in) :: endTime
+
+        logical :: doH5g
+        character(len=strLen) :: inH5
 
         !Setup OMP info
 #ifdef _OPENMP
@@ -68,7 +82,7 @@ module init
         write (*,*) 'Running without threading'
         Model%nTh = 1
 #endif
-        
+
 !--------------------------------------------
         !Initalize model data structure
         call initModel(Model,xmlInp)
@@ -79,7 +93,7 @@ module init
 
         !Prepare for Grid/IC generation, either from file or internal routines
         call xmlInp%Set_Val(doH5g ,"sim/doH5g" ,.false.)
-        
+
         !Get input H5 if necessary
         !Restart file overwrites doH5g
         if (doH5g) call xmlInp%Set_Val(inH5,"sim/H5Grid","gMesh.h5")
@@ -93,7 +107,20 @@ module init
         else
             !Create grid (corners) from XML info
             call genGridXML(Model,Grid,xmlInp)
-        endif 
+        endif
+    end subroutine ReadCorners
+
+    subroutine CalcGridInfo(Model,Grid,State,oState,Solver,xmlInp,userInitFunc)
+        type(Model_T), intent(inout) :: Model
+        type(Grid_T), intent(inout) :: Grid
+        type(State_T), intent(inout) :: State,oState
+        type(Solver_T), intent(inout) :: Solver
+        type(XML_Input_T), intent(inout) :: xmlInp
+        procedure(StateIC_T), pointer, intent(in) :: userInitFunc
+
+        character(len=strLen) :: inH5
+        logical :: fExist, doReset
+        real(rp) :: tReset
 
         !Set default domains (needs to be done after grid generation/reading)
         call SetDomain(Model,Grid)
@@ -134,7 +161,7 @@ module init
         call Tic("Halos")
         call EnforceBCs(Model,Grid,State)
         call Toc("Halos")
-        
+
         !Setup timestep and initial previous state for predictor
         Model%dt = CalcDT(Model,Grid,State)
         oState = State
@@ -151,14 +178,12 @@ module init
                 write(*,*) 'Output file already exists, deleting file.'
                 call EXECUTE_COMMAND_LINE( 'rm ' // trim(h5File) , wait=.true.)
             endif
-    
+
             !Write grid to output file
             call writeH5GridInit(Model,Grid)
         endif
 
-        !Initialization complete!
-        
-    end subroutine Hatch
+    end subroutine CalcGridInfo
 
     !Finalize things for state var
     subroutine DoneState(Model,Grid,oState,State)

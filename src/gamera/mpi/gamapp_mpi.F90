@@ -6,13 +6,20 @@ module gamapp_mpi
     use init
     use mhdgroup
     use gamapp
+    use mpi
 
     implicit none
 
+    type gamAppMpi_T extends gamApp_T
+        integer :: NumRi=1,NumRj=1,NumRk=1
+        integer :: Ri=1,Rj=1,Rk=1
+        type(MPI_Comm) :: gamMpiComm
+    end type gamAppMpi_T
+
     contains
 
-    subroutine initGamera_mpi(gameraApp, userInitFunc, optFilename)
-        type(gamApp_T), intent(inout) :: gameraApp
+    subroutine initGamera_mpi(gamAppMpi, userInitFunc, optFilename)
+        type(gamAppMpi_T), intent(inout) :: gamAppMpi
         procedure(StateIC_T), pointer, intent(in) :: userInitFunc
         character(len=*), optional, intent(in) :: optFilename
 
@@ -101,8 +108,8 @@ module gamapp_mpi
 
     end subroutine stepGamera_mpi
 
-    subroutine haloUpdate(gameraApp)
-        type(gamApp_T), intent(inout) :: gameraApp
+    subroutine haloUpdate(gamAppMpi)
+        type(gamAppMpi_T), intent(inout) :: gamAppMpi
     end subroutine haloUpdate
 
 end module gamapp_mpi
