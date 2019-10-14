@@ -6,7 +6,7 @@ module sliceio
     use streamline
     use ioH5
     use xml_input
-
+    use files
     implicit none
 
     character(len=strLen) :: ebOutF
@@ -16,10 +16,13 @@ module sliceio
     integer  :: Nx1 = 128, Nx2 = 256
     real(rp) :: xSun = 12.5,xTail=-20.0,yM=20.0 !Default Cartesian slice
     real(rp) :: dx0=0.05
-    real(rp) :: z0=0.05
+    
     real(rp), dimension(:,:), allocatable :: xxi,yyi,xxc,yyc
     real(rp), dimension(:,:,:), allocatable :: B02D
-    logical :: doXY = .true. !Do XY or XZ slice
+    logical , private :: doXY = .true. !Do XY or XZ slice
+    real(rp), private :: z0=0.0 !Default XY slice
+    real(rp), private :: y0=0.0 !Default XZ slice
+    real(rp), private :: dSlc=0.05 !Spacing for slice averaging
 
     !Data holder for doing field line tracing at point
     type ebTrc_T
@@ -55,6 +58,13 @@ module sliceio
         call inpXML%Set_Val(doXY,'slice/doXY',.true.)
         call inpXML%Set_Val(idStr,'slice/grType',"XY")
         call inpXML%Set_Val(Npow,'slice/Npow',0) !Number of times to double
+        call inpXML%Set_Val(dSlc,'slice/dSlc',dSlc)
+
+        if (doXY) then
+            call inpXML%Set_Val(z0,'slice/z0',z0)
+        else
+            call inpXML%Set_Val(y0,'slice/y0',y0)
+        endif
 
         select case(trim(toUpper(idStr)))
             case("XY")
@@ -170,11 +180,11 @@ module sliceio
                 if (doXY) then
                     xcc(XDIR) = xxc(i,j)
                     xcc(YDIR) = yyc(i,j)
-                    xcc(ZDIR) = 0.0
+                    xcc(ZDIR) = z0
                 else
                     !Assuming XZ, x->x and y->z
                     xcc(XDIR) = xxc(i,j)
-                    xcc(YDIR) = 0.0
+                    xcc(YDIR) = y0
                     xcc(ZDIR) = yyc(i,j)
                 endif
                 
@@ -262,11 +272,11 @@ module sliceio
                 !Straddle slice plane
                 !Get fields at x,y,z0
                 if (doXY) then
-                    xp = [xxc(i,j),yyc(i,j), z0]
-                    xm = [xxc(i,j),yyc(i,j),-z0]
+                    xp = [xxc(i,j),yyc(i,j),z0+dSlc]
+                    xm = [xxc(i,j),yyc(i,j),z0-dSlc]
                 else
-                    xp = [xxc(i,j), z0,yyc(i,j)]
-                    xm = [xxc(i,j),-z0,yyc(i,j)]
+                    xp = [xxc(i,j),y0+dSlc,yyc(i,j)]
+                    xm = [xxc(i,j),y0-dSlc,yyc(i,j)]
                 endif
 
                 call ebFields(xp,Model%t,Model,ebState,Ep,Bp,gcFields=gcFieldsP)

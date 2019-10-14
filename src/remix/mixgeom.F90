@@ -2,6 +2,7 @@ module mixgeom
   use mixdefs
   use mixtypes
   use mixinterp
+  use earthhelper
 
   implicit none
   
@@ -75,6 +76,26 @@ module mixgeom
       call init_grid_fromTP(G,t,p,SOLVER_GRID)
     end subroutine init_uniform
 
+    subroutine setD0(G)
+      ! pay attention: if the functional form is not axisymmetric, should make sure north and south are treated correctly.
+      type(mixGrid_T),intent(inout) :: G
+      integer :: i,j
+      real(rp) :: r,L
+      
+      ! allocate space for background density
+      if (.not.allocated(G%D0)) allocate(G%D0(G%Np,G%Nt))
+      
+      do i=1,G%Nt
+         do j=1,G%Np
+            ! compute invariant latitude
+            r = sqrt(G%x(j,i)**2+G%y(j,i)**2)  ! =cos(lambda)
+            L = 1./r**2   ! neglecting the Ri/Re difference here
+            G%D0(j,i) = psphD(L)  ! use Gallagher from earthhelper
+         enddo
+      enddo
+      
+    end subroutine setD0
+    
 
     ! NOTE, periodic boundary already cut out in mix2h5.py
     subroutine init_grid_fromXY(G,x,y,SOLVER_GRID)

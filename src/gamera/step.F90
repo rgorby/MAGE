@@ -98,7 +98,7 @@ module step
 
         !Make sure we don't overstep the end of the simulation
         if ( (Model%t+CalcDT) > Model%tFin ) then
-            CalcDT = Model%tFin-Model%t
+            CalcDT = max(Model%tFin-Model%t,TINY)
         endif
         
     end function CalcDT

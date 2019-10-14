@@ -158,7 +158,7 @@ contains
         character(len=*), intent(in), optional :: gStrO
         logical :: ioExist
 
-        logical :: fExist, gExist
+        logical :: fExist, gExist, dsExist,atExist
         integer(HID_T) :: h5fId, gId
         integer :: herr
 
@@ -185,32 +185,22 @@ contains
             endif
             !Open group
             call h5gopen_f(h5fId,trim(gStrO),gId,herr)
-            call h5lexists_f(gId,trim(vStr),ioExist,herr)
+            !Check both dataset/attribute
+            call h5lexists_f(gId,trim(vStr),dsExist,herr)
+            call h5aexists_f(gId,trim(vStr),atExist,herr)
             !Close up group
             call h5gclose_f(gId,herr)
         else
             !Read from root
-            call h5lexists_f(h5fId,trim(vStr),ioExist,herr)
+            call h5lexists_f(h5fId,trim(vStr),dsExist,herr)
+            call h5aexists_f(h5fId,trim(vStr),atExist,herr)
         endif !gStrO
+        
         !Close rest
         call h5fclose_f(h5fId,herr)
-
         call h5close_f(herr) !Close intereface
+        ioExist = dsExist .or. atExist
     end function ioExist
-
-    !Delete file if it already exists
-    subroutine CheckAndKill(fStr)
-        character(len=*), intent(in) :: fStr
-
-        logical :: fExist
-
-        inquire(file=trim(fStr),exist=fExist)
-        if (fExist) then
-            write(*,'(3a)') '<',trim(fStr),' already exists, deleting ...>'
-            call EXECUTE_COMMAND_LINE('rm ' // trim(fStr) , wait=.true.)
-            !write(*,*) ''
-        endif
-    end subroutine CheckAndKill
        
     !Read into array of IOVar from file fOut/optional group ID gStr
     subroutine ReadVars(IOVars,doIOp,baseStr,gStrO)

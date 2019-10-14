@@ -249,6 +249,8 @@ module prob
         real(rp) :: Vx0,Vy0,Vz0, KinE, IntE, Rho
         integer :: i,j,k
         logical :: doB0, doBz
+        real(rp) :: bScl,bSclz
+
         procedure(VectorField_T), pointer :: Axyz
         procedure(GasIC_T), pointer :: Wxyz
 
@@ -276,15 +278,15 @@ module prob
         !Do field via background or raw
         call inpXML%Set_Val(doBz,"prob/doBack",.false.)
 
-        !Set constants in background module            
         if (doBz) then
-            Model%bScl  = B0_BW/sqrt(3.0)
-            Model%bSclz = Model%bScl
+            bScl  = B0_BW/sqrt(3.0)
+            bSclz = bScl
         else
-            Model%bScl  = B0_BW/sqrt(2.0)
-            Model%bSclz = 0.0
+            bScl  = B0_BW/sqrt(2.0)
+            bSclz = 0.0
         endif
-        call inpXML%Set_Val(Model%bSclz,"prob/Bz0",Model%bSclz) !Allow problem file to overwrite Z component
+
+        call inpXML%Set_Val(bSclz,"prob/Bz0",bSclz) !Allow problem file to overwrite Z component
 
         !Initialize State variable analytic function
         Wxyz => GasIC_BW
@@ -311,9 +313,9 @@ module prob
                 real(rp), intent(in) :: x,y,z
                 real(rp), intent(out) :: Ax,Ay,Az
 
-                Ax = Model%bScl
-                Ay = Model%bScl
-                Az = Model%bSclz
+                Ax = bScl
+                Ay = bScl
+                Az = bSclz
 
             end subroutine BlastB0
 
@@ -322,8 +324,8 @@ module prob
                 real(rp), intent(out) :: Ax,Ay,Az
         
                 Ax = 0.0
-                Ay = Model%bSclz*x
-                Az = Model%bScl*(y - x)
+                Ay = bSclz*x
+                Az = bScl*(y - x)
             end subroutine VectorPot_BW
 
             subroutine GasIC_BW(x,y,z,D,Vx,Vy,Vz,P)

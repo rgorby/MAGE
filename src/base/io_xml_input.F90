@@ -514,18 +514,20 @@ contains
       character(len=*), intent(in) :: rStr,xStr,vStr
       logical, intent(in) :: doVerb,isXML
       character(len=strLen) :: bStr,srcStr
-      character(len=80), parameter :: formt = '(2X, a25, a1, 2X, a12, a10)'
+      character(len=*), parameter :: formt  = '(2X, a25, a1, 2X, a12, a10)'
+      character(len=*), parameter :: formtC = '(2X, a25, a1, 2X, a12, a,a10,a)'
 
       if (.not. doVerb) return
+      bStr = trim(toUpper(rStr)) // '/' // trim(xStr)
+      
       if (isXML) then
          srcStr = "(XML)"
+         write(*,formtC) adjustl(bStr), ':', trim(vStr), ANSIBLUE, trim(srcStr), ANSIRESET
       else
          srcStr = "(DEFAULT)"
+         write(*,formtC) adjustl(bStr), ':', trim(vStr), ANSIGREEN, trim(srcStr), ANSIRESET
       endif
-
-      bStr = trim(toUpper(rStr)) // '/' // trim(xStr)
-      write(*,formt) adjustl(bStr), ':', trim(vStr), trim(srcStr)
-
+      !write(*,formt) adjustl(bStr), ':', trim(vStr), trim(srcStr)
    end subroutine xmlOutput
 
    function New_XML_Input(fname, root, verbOpt)
@@ -766,128 +768,6 @@ contains
      endif
 
   end function Read_File
-
-   !------------------------------------------------------------------
-
-!   logical function Read_File(this)
-!      class(XML_Input_T) :: this
-!      integer          :: pos
-!      integer          :: ctr
-!      integer          :: nxml
-!      character(len=strLen) :: rt, sub
-!      type(XML_Data_T), dimension(MaxXML) :: xmld
-!
-!      ! First, check to see if the following characters are present
-!      ! (in sequence):
-!      ! "<!" , "<?".  These characters are to be considered comments
-!      ! Second, Check to see if the line has *no* spaces, and *no*
-!      ! '/' characters. Indicating the beginning of a root section.
-!      ! THen, read the next sets of lines, setting values by sub,
-!      ! then key=value pairs, until a line with no spaces and a '/'
-!      ! character is found, indicating the end of the root section
-!
-!      ctr = 0
-!      nxml = 0
-!      ! For each line,
-!      do while (this%Read_Line())
-!
-!         ! Skip this loop if we've encountered an empty line (ie, whitespace)
-!         if(len_trim(this%buf)==0) then
-!           cycle
-!         endif
-!
-!         ! Check for Comments
-!         if (index(trim(this%buf), '<!') /= 0 .or. &
-!           & index(trim(this%buf), '<?') /= 0) then
-!            cycle ! simply skip if a comment line is found
-!         endif
-!
-!         ! Check for the Root of a section
-!         if (index(trim(this%buf), ' ') == 0 .and. &
-!           & index(trim(this%buf), '</') == 0) then
-!            ctr = ctr + 1 ! Adding new xml section
-!
-!            ! remove '<'
-!            this%buf = adjustl(trim(this%buf))
-!            pos = scan(this%buf, '<')
-!            this%buf = this%buf(pos + 1:)
-!
-!            ! remove '>'
-!            pos = scan(this%buf, '>')
-!            this%buf = this%buf(1:pos - 1)
-!
-!            ! Now set temp string to have this root name
-!            rt = trim(this%buf)
-!            cycle
-!         endif
-!
-!         ! check for the end of the section
-!         if (index(trim(this%buf), ' ') == 0 .and. &
-!           & index(trim(this%buf), '</') /= 0) then
-!            ctr = ctr - 1 ! End of new section, this is
-!            ! a rudimentary check if there are
-!            ! any problems with the input file's
-!            ! format
-!            cycle
-!         endif
-!
-!         ! Everything else needs to be parsed
-!         if (index(trim(this%buf), ' ') /= 0) then
-!
-!            ! First, get the tag of the string
-!            ! (remove leading <)
-!            pos = scan(this%buf, '<')
-!            this%buf = this%buf(pos + 1:)
-!
-!            ! set pos to first whitespace, 1:pos is tag
-!            pos = scan(this%buf, ' ')
-!            sub = trim(this%buf(1:pos))
-!            this%buf = this%buf(pos + 1:) ! remove the tag
-!
-!            ! now, parse the rest of the string, obtaining
-!            ! key/value pairs
-!            pos = 1 ! Initialize position value
-!            do
-!
-!               pos = scan(this%buf, '=')
-!               if (pos == 0) then
-!                  exit
-!               endif
-!
-!               nxml = nxml + 1
-!
-!               ! Throw an error and quit if nxml > size(xmld)
-!               ! because xmld is hard-coded to a limited size
-!               if (nxml > size(xmld)) then
-!                  write (*, *) "!!!ERROR!!! Total no. of input values exceeds temp xml data array size"
-!                  stop
-!               endif
-!
-!               xmld(nxml)%root = trim(rt) ! set root
-!               xmld(nxml)%sub = trim(sub) ! set sub
-!               xmld(nxml)%key = this%buf(1:pos - 1) ! set key
-!               this%buf = this%buf(pos + 1:)
-!               pos = scan(this%buf, '"') ! remove first "
-!               this%buf = this%buf(pos + 1:)
-!               pos = scan(this%buf, '"') ! get pos of second "
-!               xmld(nxml)%val = this%buf(1:pos - 1) ! set value
-!               this%buf = this%buf(pos + 2:) ! remove value"_
-!            end do
-!
-!         endif
-!      end do
-!
-!      ! Finally, check if ctr = 0 (meaning all sections properly read)
-!      ! if ctr /= 0, something went wrong
-!      if (ctr /= 0) then
-!         write (*, *) "WARNING: Encountered non-closed XML section"
-!         Read_File = .false.
-!      else
-!         ! allocate and set this%xmld
-!         allocate (this%xmld, source=xmld(1:nxml))
-!         Read_File = .true.
-!      endif
-!   end function Read_File
 
    !------------------------------------------------------------------
 

@@ -19,11 +19,11 @@ class OMNI(SolarWind):
         SolarWind.__init__(self)
 
         self.bad_data = [-999.900, 
-                         0E+31, 
                          99999.9, # V
                          9999.99, # B
                          999.990, # density
-                         1.00000E+07 # Temperature
+                         1.00000E+07, # Temperature
+                         99999 # Activity indices 
                          ]
 
         self.__read(filename)
@@ -54,6 +54,10 @@ class OMNI(SolarWind):
         vz=fh.get('VZ_VELOCITY,_GSE')
         n=fh.get('PROTON_DENSITY')
         T=fh.get('TEMPERATURE')
+        ae=fh.get('1-M_AE')
+        al=fh.get('1-M_AL-INDEX')
+        au=fh.get('AU-INDEX')
+        symh=fh.get('SYM/H_INDEX')
 
         dates = []
         rows = []
@@ -63,7 +67,7 @@ class OMNI(SolarWind):
             #calculating minutes from the start time
             nMin = self.__deltaMinutes(time[i],startTime)
 
-            data = [nMin,bx[i],by[i],bz[i],vx[i],vy[i],vz[i],n[i],T[i]]
+            data = [nMin,bx[i],by[i],bz[i],vx[i],vy[i],vz[i],n[i],T[i],ae[i],al[i],au[i],symh[i]]
 
             dates.append( time[i] )
             rows.append( data )
@@ -76,7 +80,7 @@ class OMNI(SolarWind):
         list) for each variable in dataStrs.
         
         data: 2d list.  Each row is a list containing:
-          [nMinutes, Bx, By, Bz, Vx, Vy, Vz, rho, temp]
+          [nMinutes, Bx, By, Bz, Vx, Vy, Vz, rho, temp, ae, al, au, symh]
 
         Returns:
           data: interpolated floating-point numpy array
@@ -85,12 +89,12 @@ class OMNI(SolarWind):
         NOTE: This is remarkably similar to __coarseFilter!
           Refactoring to keep it DRY wouldn't be a bad idea. . .
         """
-        assert( len(data[0]) == 9 )
+        assert( len(data[0]) == 13 )
 
-        hasBeenInterpolated = numpy.empty((len(data), 8))
+        hasBeenInterpolated = numpy.empty((len(data), 12))
         hasBeenInterpolated.fill(False)
 
-        for varIdx in range(1,9):
+        for varIdx in range(1,13):
 
             lastValidIndex = -1
             for curIndex,row in enumerate(data):
@@ -98,10 +102,13 @@ class OMNI(SolarWind):
                     # This item has bad data.
                     hasBeenInterpolated[curIndex, varIdx-1] = True
                     if (lastValidIndex == -1) & (curIndex == len(data)-1):
-                        # Data must have at least one valid element!
-                        raise Exception("First & Last datapoint(s) in OMNI "+
-                                          "solar wind file are invalid.  Not sure "+
-                                          "how to interpolate across bad data.")
+                        # Data does not have at least one valid element!
+                        # Setting all values to 0 so that file can still be made
+                        print("No good elements, setting all values to 0 for variable ID: ", varIdx)
+                        data[curIndex][varIdx] = 0.
+                        #raise Exception("First & Last datapoint(s) in OMNI "+
+                        #                  "solar wind file are invalid.  Not sure "+
+                        #                  "how to interpolate across bad data.")
                     elif (curIndex == len(data)-1):
                         # Clamp last bad data to previous known good data.
                         data[curIndex][varIdx] = data[lastValidIndex][varIdx]
@@ -140,7 +147,7 @@ class OMNI(SolarWind):
          Parameters:
 
            dataArray: 2d numpy array.  Each row is a list
-             containing [nMinutes, Bx, By, Bz, Vx, Vy, Vz, rho, temp]
+             containing [nMinutes, Bx, By, Bz, Vx, Vy, Vz, rho, temp, ae, al, au, symh]
 
            hasBeenInterpolated: 2d boolean list.  Each row is a list
              of boolean values denoting whether dataArray[:,1:9] was
@@ -157,7 +164,7 @@ class OMNI(SolarWind):
         
         stds = []
         means = []
-        for varIdx in range(1,9):
+        for varIdx in range(1,13):
             stds.append( dataArray[:,varIdx].std() )
             means.append( dataArray[:,varIdx].mean() )
             
@@ -229,6 +236,18 @@ class OMNI(SolarWind):
         self.data.append('t', 'Temperature', r'$\mathrm{kK}$', dataArray[:,8]*1e-3)
         self.data.append('isTInterped', 'Is index i of T interpolated from bad data?', r'$\mathrm{boolean}$', hasBeenInterpolated[:,7])
 
+        # Activity Indices
+        self.data.append('ae', 'AE-Index', r'$\mathrm{nT}$', dataArray[:,9])
+        self.data.append('isAeInterped', 'Is index i of N interpolated from bad data?', r'$\mathrm{boolean}$', hasBeenInterpolated[:,8])
+
+        self.data.append('al', 'AL-Index', r'$\mathrm{nT}$', dataArray[:,10])
+        self.data.append('isAlInterped', 'Is index i of N interpolated from bad data?', r'$\mathrm{boolean}$', hasBeenInterpolated[:,9])
+
+        self.data.append('au', 'AU-Index', r'$\mathrm{nT}$', dataArray[:,11])
+        self.data.append('isAuInterped', 'Is index i of N interpolated from bad data?', r'$\mathrm{boolean}$', hasBeenInterpolated[:,10])
+
+        self.data.append('symh', 'SYM/H', r'$\mathrm{nT}$', dataArray[:,12])
+        self.data.append('isSymHInterped', 'Is index i of N interpolated from bad data?', r'$\mathrm{boolean}$', hasBeenInterpolated[:,11])
         
     def __appendMetaData(self, date, filename):
         """

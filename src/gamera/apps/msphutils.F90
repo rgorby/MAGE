@@ -9,6 +9,7 @@ module msphutils
     use output
     use background
     use multifluid
+    use earthhelper
 
     implicit none
 !Earth scaling
@@ -133,7 +134,7 @@ module msphutils
 
         !Change console output pointer
         timeString => magsphereTime
-
+        
         write(*,*) '---------------'
         write(*,*) 'Magnetosphere normalization'
         write(*,*) 'T0 [s]    = ', gT0
@@ -895,33 +896,5 @@ module msphutils
         rad = sqrt(x**2.0 + y**2.0 + z**2.0)
         pot = -GM0/rad
     end subroutine PhiGrav
-
-    !Calculate invariant latitude (RADIANS) for x,y,z vector (in Rx)
-    function InvLatitude(r) result(invlat)
-        real(rp), intent(in) :: r(NDIM)
-        real(rp) :: invlat
-
-        real(rp) :: z,rad,lat,Leq
-
-        z = r(ZDIR)
-        rad = norm2(r)
-
-        lat = abs( asin(z/rad) )
-        Leq = rad/( cos(lat)*cos(lat) )
-        invlat = abs(acos(sqrt(1.0/Leq)))
-
-    end function InvLatitude
-
-    !Calculate dipole L shell for point
-    function DipoleL(r) result(Leq)
-        real(rp), intent(in) :: r(NDIM)
-        real(rp) :: Leq
-
-        real(rp) :: z,rad,lat
-        z = r(ZDIR)
-        rad = norm2(r)
-        lat = abs( asin(z/rad) )
-        Leq = rad/( cos(lat)*cos(lat) )
-    end function DipoleL
       
 end module msphutils

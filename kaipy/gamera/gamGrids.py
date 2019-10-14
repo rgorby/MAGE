@@ -421,10 +421,10 @@ def Aug3D(xxG,yyG,Nk=32,TINY=1.0e-8):
 	#Force points to plane
 	Z3[:,:,Ng] = 0.0
 	Z3[:,:,-Ng-1] = 0.0
-	Z3[:,:,Ng+Nk/2] = 0.0
+	Z3[:,:,Ng+Nk//2] = 0.0
 
-	Y3[:,:,Ng+Nk/4]
-	Y3[:,:,-Ng-Nk/4-1] = 0.0
+	Y3[:,:,Ng+Nk//4]
+	Y3[:,:,-Ng-Nk//4-1] = 0.0
 	
 	x0 = X3[:,Ng,Ng]
 	if (x0.min() <= TINY):

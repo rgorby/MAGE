@@ -2,6 +2,7 @@
 
 module mhd2chmp_interface
     use gamtypes
+    use volttypes
     use math
     use clocks
     use gamapp
@@ -10,12 +11,6 @@ module mhd2chmp_interface
     use chmpfields
 
     implicit none
-
-    type mhd2Chmp_T
-
-        ! data for gamera -> chimp conversion
-
-    end type mhd2Chmp_T
 
     contains
 

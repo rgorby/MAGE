@@ -7,6 +7,8 @@ module gioH5
     use ioH5
     use multifluid
     use dates
+    use files
+    
     implicit none
 
     integer, parameter :: MAXIOVAR = 50
@@ -317,7 +319,7 @@ module gioH5
         call AddOutVar(IOVars,"time",gamOut%tScl*Model%t)
         call AddOutVar(IOVars,"timestep",Model%ts)
         call AddOutVar(IOVars,"dt",gamOut%tScl*Model%dt)
-        if (Model%MJD0>0) then
+        if ( Model%MJD0 >= (-TINY) ) then
             MJD = T2MJD(Model%t*Model%Units%gT0,Model%MJD0)
             call AddOutVar(IOVars,"MJD",MJD)
         endif
@@ -420,8 +422,8 @@ module gioH5
         call ClearIO(IOVars)
 
         !Main attributes
-        call AddOutVar(IOVars,"nOut",Model%nOut)
-        call AddOutVar(IOVars,"nRes",Model%nRes)
+        call AddOutVar(IOVars,"nOut",Model%IO%nOut)
+        call AddOutVar(IOVars,"nRes",Model%IO%nRes)
         call AddOutVar(IOVars,"ts"  ,Model%ts)
         call AddOutVar(IOVars,"t"   ,Model%t)
 
@@ -525,20 +527,20 @@ module gioH5
 
         !Get main attributes
         if (doReset) then
-            Model%nOut = 0
-            Model%nRes = int(IOVars(4)%data(1)) + 1
+            Model%IO%nOut = 0
+            Model%IO%nRes = int(IOVars(4)%data(1)) + 1
             Model%ts = 0
             Model%t = tReset
         else
-            Model%nOut = int(IOVars(3)%data(1))
-            Model%nRes = int(IOVars(4)%data(1)) + 1
+            Model%IO%nOut = int(IOVars(3)%data(1))
+            Model%IO%nRes = int(IOVars(4)%data(1)) + 1
             Model%ts   = int(IOVars(5)%data(1))
             Model%t = IOVars(6)%data(1)
         endif        
     !Do touchup to data structures
         State%time = Model%t
-        Model%tOut = floor(Model%t/Model%dtOut)*Model%dtOut
-        Model%tRes = Model%t + Model%dtRes
+        Model%IO%tOut = floor(Model%t/Model%IO%dtOut)*Model%IO%dtOut
+        Model%IO%tRes = Model%t + Model%IO%dtRes
 
     end subroutine readH5Restart
 

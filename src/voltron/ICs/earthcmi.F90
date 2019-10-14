@@ -476,27 +476,4 @@ module uservoltic
 
     end subroutine IonInner
     
-    !Gallagher plasmasphere density model
-    !Yoinked from Slava's code
-    function psphD(L) result(D)
-        ! approx based on gallagher et al, figure 1
-        ! JOURNAL OF GEOPHYSICAL RESEARCH, VOL. 105, NO. A8, PAGES 18,819-18,833, AUGUST 1, 2000
-        ! returns values in ples/cc
-
-        implicit none
-        real(rp),intent(in) :: L
-        real(rp)  :: D
-        real(rp), parameter :: L0 = 4.5
-        real(rp), parameter :: alpha = 10.
-        real(rp), parameter :: a1 = -0.25
-        real(rp), parameter :: b1 = 2.4
-        real(rp), parameter :: a2 = -0.5
-        real(rp), parameter :: b2 = 4.5
-        real ::f,q
-
-        f = 0.5*(1.0+tanh(alpha*(L-L0)))
-        q = f*(a1*L + b1) + (1.0-f)*(a2*L + b2)
-        D = 10.**q
-    end function psphD
-
 end module uservoltic

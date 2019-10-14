@@ -87,6 +87,7 @@ module mhdgroup
         real(rp) :: Ca
         !DIR$ ASSUME_ALIGNED dGasH: ALIGN
         !DIR$ ASSUME_ALIGNED dGasM: ALIGN
+        !DIR$ ASSUME_ALIGNED E: ALIGN
     !--------------------
     !Copy current->old
         call Tic("Copy2Old")

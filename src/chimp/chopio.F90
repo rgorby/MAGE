@@ -6,6 +6,7 @@ module chopio
     use ioH5
     use xml_input
     use ebinterp
+    use files
     
     implicit none
 

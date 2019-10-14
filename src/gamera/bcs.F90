@@ -160,6 +160,26 @@ module bcs
 
     contains
 
+!--------------------------------------------
+    !Simple helper functions for setting/resetting BCs
+    subroutine WipeBCs(Model,Grid)
+        type(Model_T), intent(in)    :: Model
+        type(Grid_T) , intent(inout) :: Grid
+        !Deallocate current BCs
+
+        associate(ExternalBCs=>Grid%ExternalBCs)
+
+        if (allocated(ExternalBCs(INI )%p)) deallocate(ExternalBCs(INI )%p)
+        if (allocated(ExternalBCs(OUTI)%p)) deallocate(ExternalBCs(OUTI)%p)
+        if (allocated(ExternalBCs(INJ )%p)) deallocate(ExternalBCs(INJ )%p)
+        if (allocated(ExternalBCs(OUTJ)%p)) deallocate(ExternalBCs(OUTJ)%p)
+        if (allocated(ExternalBCs(INK )%p)) deallocate(ExternalBCs(INK )%p)
+        if (allocated(ExternalBCs(OUTK)%p)) deallocate(ExternalBCs(OUTK)%p)
+
+        end associate
+        
+    end subroutine WipeBCs
+
     !Below here are various predefined BCs
 !--------------------------------------------
     !Lazy, do-nothing boundary

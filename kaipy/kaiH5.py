@@ -1,8 +1,20 @@
 import h5py
 import numpy as np
 
+#Quick check and exit routine
+def CheckOrDie(fname):
+	import os.path
+	isExist = os.path.exists(fname)
+	if (not isExist):
+		if (len(fname) == 0):
+			fname = "<EMPTY>"
+		print("Unable to find file: %s"%(fname))
+		print("!!Exiting!!")
+		quit()
+		
 #Return time at step n
 def tStep(fname,nStp=0):
+	CheckOrDie(fname)
 	with h5py.File(fname,'r') as hf:
 		gID = "Step#%d"%(nStp)
 		grp = hf.get(gID)
@@ -10,21 +22,25 @@ def tStep(fname,nStp=0):
 	return t
 	
 def cntSteps(fname):
-		with h5py.File(fname,'r') as hf:
-				grps = hf.values()
-				grpNames = [str(grp.name) for grp in grps]
-				#Steps = [stp if "/Step#" in stp for stp in grpNames]
-				Steps = [stp for stp in grpNames if "/Step#" in stp]
-				nSteps = len(Steps)
-				
-				sIds = np.array([str.split(s,"#")[-1] for s in Steps],dtype=np.int)
-				return nSteps,sIds
+	CheckOrDie(fname)
+	with h5py.File(fname,'r') as hf:
+		grps = hf.values()
+		grpNames = [str(grp.name) for grp in grps]
+		#Steps = [stp if "/Step#" in stp for stp in grpNames]
+		Steps = [stp for stp in grpNames if "/Step#" in stp]
+		nSteps = len(Steps)
 
-def getTs(fname,sIds,aID="time",aDef=0.0):
+		sIds = np.array([str.split(s,"#")[-1] for s in Steps],dtype=np.int)
+		return nSteps,sIds
+
+def getTs(fname,sIds=None,aID="time",aDef=0.0):
+	if (sIds is None):
+		nSteps,sIds = cntSteps(fname)
 	Nt = len(sIds)
 	T = np.zeros(Nt)
 	i0 = sIds.min()
 	i1 = sIds.max()
+	CheckOrDie(fname)
 	with h5py.File(fname,'r') as hf:
 		for n in range(i0,i1+1):
 			gId = "/Step#%d"%(n)
@@ -33,6 +49,7 @@ def getTs(fname,sIds,aID="time",aDef=0.0):
 
 #Get shape/dimension of grid
 def getDims(fname,doFlip=True):
+	CheckOrDie(fname)
 	with h5py.File(fname,'r') as hf:
 		Dims = hf["/"]["X"].shape
 	Ds = np.array(Dims,dtype=np.int)
@@ -42,6 +59,7 @@ def getDims(fname,doFlip=True):
 
 #Get root variables
 def getRootVars(fname):
+	CheckOrDie(fname)
 	with h5py.File(fname,'r') as hf:
 		vIds = []
 		for k in hf.keys():
@@ -57,6 +75,7 @@ def getRootVars(fname):
 
 #Get variables in initial Step
 def getVars(fname,s0):
+	CheckOrDie(fname)
 	with h5py.File(fname,'r') as hf:
 		gId = "/Step#%d"%(s0)
 		stp0 = hf[gId]
@@ -68,6 +87,7 @@ def getVars(fname,s0):
 
 #Get variable data
 def PullVar(fname,vID,s0=None):
+	CheckOrDie(fname)
 	with h5py.File(fname,'r') as hf:
 		if (s0 is None):
 			V = hf[vID][()].T

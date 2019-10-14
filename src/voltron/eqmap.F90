@@ -2,7 +2,8 @@ module eqmap
     use ebtypes
     use ebinit
     use ioh5
-
+    use files
+    
     implicit none
 
     integer, parameter :: NVAREQMAP = 1

@@ -16,7 +16,8 @@ module init
     use ringrecon
     use recon
     use multifluid
-
+    use files
+    
     use step
     
 #ifdef _OPENMP
@@ -171,13 +172,10 @@ module init
         call initSolver(Solver, Model, Grid)
 
         !Setup output file
-        h5File = trim(Model%RunID) // ".h5"
+        h5File = trim(Model%RunID) // ".gam.h5"
         if (.not. Model%isRestart) then
-            inquire(file=h5File,exist=fExist)
-            if (fExist) then
-                write(*,*) 'Output file already exists, deleting file.'
-                call EXECUTE_COMMAND_LINE( 'rm ' // trim(h5File) , wait=.true.)
-            endif
+            !Kill output file if it exists
+            call CheckAndKill(h5File)    
 
             !Write grid to output file
             call writeH5GridInit(Model,Grid)
@@ -264,8 +262,6 @@ module init
         Model%nG = 4
         Model%t = 0.0
         Model%ts = 0
-        Model%tOut = 0
-        Model%tRes = 0.0
 
     !Main logicals
         !These are set by default until they're implemented
@@ -317,23 +313,18 @@ module init
         !Check both omega/sim/tFin & gamera/time/tFin
         call xmlInp%Set_Val(Model%tFin,'time/tFin',1.0_rp)
         call xmlInp%Set_Val(Model%tFin,'/omega/sim/tFin',Model%tFin)
-        !Get possible MJD0
+        !Get possible MJD0, check both Gamera & Voltron
         call xmlInp%Set_Val(MJD0,"time/MJD0",-1.0)
-        if (MJD0>0) then
+        call xmlInp%Set_Val(MJD0,"/voltron/time/MJD0",MJD0)
+        if ( MJD0 >= (-TINY) ) then
             Model%MJD0 = MJD0
         endif
-        
-    !Output options
-        call xmlInp%Set_Val(Model%tsOut,'output/tsOut',10)
-        call xmlInp%Set_Val(Model%dtOut,'output/dtOut',0.1_rp)
-        call xmlInp%Set_Val(Model%doTimer,'output/timer',.false.)
+    
+    !Output/Restart (IOCLOCK)
+        call Model%IO%init(xmlInp,Model%t)
         call xmlInp%Set_Val(Model%doDivB ,'output/DivB' ,.true. )
-        
-    !Restart stuff
-        !Do restart outputs if dtRes>0
-        call xmlInp%Set_Val(Model%dtRes,'restart/dtRes',-1.0_rp)
-        Model%doResOut = .false.
-        if (Model%dtRes > 0) Model%doResOut = .true.
+
+        !Whether to read restart
         call xmlInp%Set_Val(Model%isRestart,'restart/doRes',.false.)
 
     !Boris info

@@ -2,7 +2,7 @@
 
 module gamtypes
     use gdefs
-    use xml_input
+    use ioclock
 
     implicit none
 
@@ -70,20 +70,20 @@ module gamtypes
         real(rp) :: CFL, gamma
         real(rp) :: Vd0=0.5 !Coefficient for diffusive electric field, generally 0.5
         real(rp) :: t, tFin, dt
-        real(rp) :: dtOut,tOut !Time between file outputs, time of next file output
-        real(rp) :: dtRes,tRes !Same for restarts
-        integer :: nOut=0,nRes=0 !Output numbering for H5/restarts 
-        integer :: ts, tsOut !tsOut = steps between screen output
+        integer :: ts
+
         logical :: doHall=.false., doMultiF=.false., &
                    doBackground=.false. , doMHD=.false.
-        logical :: do25D =.false., doTimer=.false., doGrav = .false.
-        logical :: doResOut = .false. !Output restarts
+        logical :: do25D =.false., doGrav = .false.
+        
         logical :: isRestart=.false.
         logical :: doDivB=.false. !Output DivB
         logical :: doResistive=.false.
         
-
         integer :: nTh=1 !Number of threads per node/group
+
+        !Output info
+        type (IOClock_T) :: IO
 
         !Unit information
         type (gUnits_T) :: Units
@@ -101,9 +101,6 @@ module gamtypes
         !Ring average information
         logical :: doRing = .false.
         type (Ring_T) :: Ring
-        
-        !Background variables
-        real(rp) :: bScl = 1.0, bSclz = 0.0
         
         !Background field function pointer
         procedure(VectorField_T), pointer, nopass :: B0 => NULL()

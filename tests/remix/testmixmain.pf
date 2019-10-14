@@ -54,7 +54,6 @@ contains
     write(*,*) 'Min/Max of potential (SOUTH) = ', minval(voltronApp%remixApp%ion(SOUTH)%S%Solution), maxval(voltronApp%remixApp%ion(SOUTH)%S%Solution)
     
     call mapRemixToGamera(voltronApp%mix2mhd, voltronApp%remixApp)
-    call mix_mhd_output(voltronApp%remixApp%ion,voltronApp%mix2mhd%mixoutput,0.0_rp)
 
 
   end subroutine testZeroInput
@@ -138,7 +137,6 @@ contains
 
     ! potential in remixApp%ion(h)%St%Vars(:,:,POT)
     call mapRemixToGamera(voltronApp%mix2mhd, voltronApp%remixApp)
-    call mix_mhd_output(voltronAPp%remixApp%ion,voltronApp%mix2mhd%mixoutput,0.0_rp)
 
   end subroutine testAzimuthallyDependentFAC
 

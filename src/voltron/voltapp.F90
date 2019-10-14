@@ -12,7 +12,8 @@ module voltapp
     use eqmap
     use dates
     use kronos
-
+    use voltio
+    
     implicit none
 
     !Projection types
@@ -20,35 +21,6 @@ module voltapp
         !L-phi (equatorial), Lat-Lon (northern ionospheric)
         enumerator :: LPPROJ,LLPROJ
     endenum
-
-    type voltApp_T
-
-        !Voltron state information
-        type(TimeSeries_T) :: tilt
-        real(rp) :: time, MJD
-
-        !Apps
-        type(mixApp_T) :: remixApp
-        type(mhd2Mix_T) :: mhd2mix
-        type(mix2Mhd_T) :: mix2mhd
-
-        type(ebTrcApp_T)  :: ebTrcApp
-        type(mhd2Chmp_T)  :: mhd2chmp
-        type(chmp2Mhd_T)  :: chmp2mhd
-
-        !Shallow coupling information
-        real(rp) :: ShallowT
-        real(rp) :: ShallowDT
-
-        !Deep coupling information
-        real(rp) :: DeepT
-        real(rp) :: DeepDT
-        logical  :: doDeep = .false. !Whether to do deep coupling
-        real(rp) :: rDeep !Radius (in code units) to do deep coupling
-        integer  :: iDeep = 0 !Index of max i shell containing deep coupling radius
-        logical  :: doEQ = .false. !Do equatorial pressure mapping
-
-    end type voltApp_T
 
     contains
 
@@ -60,6 +32,8 @@ module voltapp
 
         character(len=strLen) :: inpXML
         type(XML_Input_T) :: xmlInp
+        type(TimeSeries_T) :: tsMJD
+        real(rp) :: gTScl
 
         if(present(optFilename)) then
             ! read from the prescribed file
@@ -71,14 +45,6 @@ module voltapp
 
         endif
 
-        write(*,*) 'Reading input deck from ', trim(inpXML)
-        inquire(file=inpXML,exist=fExist)
-        if (.not. fExist) then
-            write(*,*) 'Error opening input deck, exiting ...'
-            write(*,*) ''
-            stop
-        endif
-
     !Create XML reader
         xmlInp = New_XML_Input(trim(inpXML),'Voltron',.true.)
 
@@ -87,12 +53,32 @@ module voltapp
         call xmlInp%Set_Val(vApp%tilt%wID,"/Gamera/wind/tsfile","NONE")
         call vApp%tilt%initTS("tilt")
 
-        vApp%time = gApp%Model%t*gApp%Model%Units%gT0 !Time in seconds
-        !Check if MJD0 is set (positive), otherwise make it 0
-        if (gApp%Model%MJD0 < 0) then
-            gApp%Model%MJD0 = 0.0
-        endif
+        gTScl = gApp%Model%Units%gT0
+        vApp%time = gApp%Model%t*gTScl !Time in seconds
+        vApp%ts   = gApp%Model%ts !Timestep
+
+        !Use MJD from time series
+        tsMJD%wID = vApp%tilt%wID
+        call tsMJD%initTS("MJD")
+        gApp%Model%MJD0 = tsMJD%evalAt(0.0_rp) !Evaluate at T=0
+        
         vApp%MJD = T2MJD(vApp%time,gApp%Model%MJD0)
+
+    !Time options
+        !Check both omega/sim/tFin & voltron/time/tFin
+        call xmlInp%Set_Val(vApp%tFin,'time/tFin',1.0_rp)
+        call xmlInp%Set_Val(vApp%tFin,'/omega/sim/tFin',vApp%tFin)
+        !Sync Gamera to Voltron endtime
+        gApp%Model%tFin = vApp%tFin/gTScl
+        
+    !IO/Restart options
+        call vApp%IO%init(xmlInp,vApp%time)
+        !Pull numbering from Gamera
+        vApp%IO%nRes = gApp%Model%IO%nRes
+        vApp%IO%nOut = gApp%Model%IO%nOut
+        !Force Gamera IO times to match Voltron IO
+        call IOSync(vApp%IO,gApp%Model%IO,1.0/gTScl)        
+        
 
     !Shallow coupling
         vApp%ShallowT = 0.0_rp
@@ -123,6 +109,20 @@ module voltapp
             call initializeFromGamera(vApp, gApp)
         endif
 
+        !Do first couplings
+        call ShallowUpdate(vApp,gApp,vApp%time)
+        if (vApp%doDeep) then
+            call DeepUpdate(vApp,gApp,vApp%time)
+        endif
+
+        !Recalculate timestep
+        gApp%Model%dt = CalcDT(gApp%Model,gApp%Grid,gApp%State)
+        
+        !Finally do first output stuff
+        call consoleOutputV(vApp,gApp)
+        if (.not. gApp%Model%isRestart) call fOutputV(vApp,gApp)
+        
+
     end subroutine initVoltron
 
     !Step Voltron if necessary (currently just updating state variables)
@@ -132,7 +132,8 @@ module voltapp
 
         vApp%time = gApp%Model%t*gApp%Model%Units%gT0 !Time in seconds
         vApp%MJD = T2MJD(vApp%time,gApp%Model%MJD0)
-       
+        vApp%ts = gApp%Model%ts
+
     end subroutine stepVoltron
     
     !Initialize Voltron app based on Gamera data
@@ -141,17 +142,39 @@ module voltapp
         type(gamApp_T), intent(inout) :: gApp
         character(len=*), optional, intent(in) :: optFilename
 
+        character(len=strLen) :: RunID
+        type(TimeSeries_T) :: f107
+
+        logical :: isRestart
+        real(rp) :: maxF107
+        integer :: n
+
+        isRestart = gApp%Model%isRestart
+        RunID = trim(gApp%Model%RunID)
+        
     !Remix from Gamera
         if(present(optFilename)) then
             ! read from the prescribed file
-            call init_mix(vApp%remixApp%ion,[NORTH, SOUTH],optFilename)
+            call init_mix(vApp%remixApp%ion,[NORTH, SOUTH],optFilename=optFilename,RunID=RunID,isRestart=isRestart)
         else
-            call init_mix(vApp%remixApp%ion,[NORTH, SOUTH])
+            call init_mix(vApp%remixApp%ion,[NORTH, SOUTH],RunID=RunID,isRestart=isRestart)
         endif
+
+        !Set F10.7 from time series (using max)
+        f107%wID = vApp%tilt%wID
+        call f107%initTS("f10.7")
+        maxF107 = f107%getMax()
+        
+        do n=1,2
+            vApp%remixApp%ion(n)%P%f107 = maxF107
+        enddo
+        write(*,*) 'Using F10.7 = ', maxF107
+        write(*,*) 'Using MJD0  = ', gApp%Model%MJD0
 
         call init_mhd2Mix(vApp%mhd2mix, gApp, vApp%remixApp)
         call init_mix2Mhd(vApp%mix2mhd, vApp%remixApp, gApp)
-
+        vApp%mix2mhd%mixOutput = 0.0
+        
     !CHIMP (TRC) from Gamera
         if (vApp%doDeep) then
             !Verify that there's some place to put deep coupling info
@@ -222,21 +245,15 @@ module voltapp
         ! get stuff from mix to gamera
         call mapRemixToGamera(vApp%mix2mhd, vApp%remixApp)
 
-        ! output remix info
-        call mix_mhd_output(vApp%remixApp%ion,vApp%mix2mhd%mixOutput,time)
-
     end subroutine runRemix
 
 !----------
-!Deep coupling stuff
+!Deep coupling stuff (time coming from vApp%time, so in seconds)
     subroutine DeepUpdate(vApp, gApp, time)
         type(gamApp_T) , intent(inout) :: gApp
         type(voltApp_T), intent(inout) :: vApp
         real(rp), intent(in) :: time
 
-        real(rp) :: t
-
-        t = time*gApp%Model%Units%gT0 !Time scaled back to seconds
 
         if (.not. vApp%doDeep) then
             !Why are you even here?
@@ -244,7 +261,7 @@ module voltapp
         endif
         
         if (vApp%doEQ) then
-            call updateEQMap(t)
+            call updateEQMap(time)
         endif
         
         ! convert gamera data to chimp
