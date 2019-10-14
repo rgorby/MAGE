@@ -28,11 +28,29 @@ program gamera_mpix
 
         call stepGamera_mpi(gameraAppMpi)
 
-        !Do timing info
-        if (modulo(gameraAppMpi%Model%ts,gameraAppMpi%Model%tsOut) == 0) then
-            if (gameraAppMpi%Model%doTimer) call printClocks()
+        !Output if necessary
+        call Tic("IO")
+        
+        if (gameraAppMpi%Model%IO%doConsole(gameraAppMpi%Model%ts)) then
+            call consoleOutput(gameraAppMpi%Model,gameraAppMpi%Grid,gameraAppMpi%State)
+        endif
+
+        if (gameraAppMpi%Model%IO%doOutput(gameraAppMpi%Model%t)) then
+            call fOutput(gameraAppMpi%Model,gameraAppMpi%Grid,gameraAppMpi%State)
+        endif
+
+        if (gameraAppMpi%Model%IO%doRestart(gameraAppMpi%Model%t)) then
+            call resOutput(gameraAppMpi%Model,gameraAppMpi%Grid,gameraAppMpi%State)
+        endif
+
+        call Toc("IO")
+
+    !Do timing info
+        if (gameraAppMpi%Model%IO%doTimer(gameraAppMpi%Model%ts)) then
+            if (gameraAppMpi%Model%IO%doTimerOut) call printClocks()
             call cleanClocks()
         endif
+
         call Toc("Omega")
     end do
 
