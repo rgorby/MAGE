@@ -10,7 +10,7 @@ module gamapp_mpi
 
     implicit none
 
-    type gamAppMpi_T extends gamApp_T
+    type, extends(GamApp_T) :: gamAppMpi_T
         integer :: NumRi=1,NumRj=1,NumRk=1
         integer :: Ri=1,Rj=1,Rk=1
         type(MPI_Comm) :: gamMpiComm
@@ -63,18 +63,18 @@ module gamapp_mpi
         procedure(StateIC_T), pointer, intent(in) :: userInitFunc
         real(rp), optional, intent(in) :: endTime
 
-        !Alwasys zero for single process job
-        Grid%ijkShift(1:3) = 0
-
         ! call appropriate subroutines to read corner info and mesh size data
         call ReadCorners(gamAppMpi%Model,gamAppMpi%Grid,xmlInp,endTime)
 
         ! adjust corner information to reflect this individual node's grid data
+        gamAppMpi%Grid%ijkShift(1:3) = 0
 
         ! call appropriate subroutines to calculate all appropriate grid data from the corner data
         call CalcGridInfo(gamAppMpi%Model,gamAppMpi%Grid,gamAppMpi%State,gamAppMpi%oState,gamAppMpi%Solver,xmlInp,userInitFunc)
 
         ! check MPI values to assign responsibility for ring averaging
+        if (gamAppMpi%Rj ==               1) gamAppMpi%Model%Ring%doS = .true.
+        if (gamAppMpi%Rj == gamAppMpi%NumRj) gamAppMpi%Model%Ring%doE = .true.
 
     end subroutine Hatch_mpi
 

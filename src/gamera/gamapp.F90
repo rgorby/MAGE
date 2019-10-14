@@ -68,7 +68,7 @@ module gamapp
     end subroutine stepGamera
 
     subroutine UpdateStateData(gameraApp)
-        type(gamApp_T), intent(inout) :: gameraApp
+        class(gamApp_T), intent(inout) :: gameraApp
 
         call Tic("Gamera")
         !Advance system
@@ -89,7 +89,7 @@ module gamapp
     end subroutine UpdateStateData
 
     subroutine FinishStep(gameraApp)
-        type(gamApp_T), intent(inout) :: gameraApp
+        class(gamApp_T), intent(inout) :: gameraApp
 
         !Calculate new timestep
         call Tic("DT")
