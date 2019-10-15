@@ -119,7 +119,7 @@ module streamline
         real(rp), intent(out) :: bD,bP,dvB
 
         integer :: Nc,n,k
-        real(rp), dimension(:), allocatable :: bAvg,dl,eD,eP,dV
+        real(rp), dimension(:), allocatable :: bAvg,dl,eD,eP
 
         associate(Np=>bTrc%Np,Nm=>bTrc%Nm)
 
@@ -129,7 +129,7 @@ module streamline
         allocate(dl  (Nc)) !Edge length
         allocate(eD  (Nc)) !Edge-centered density
         allocate(eP  (Nc)) !Edge-centered pressure
-        allocate(dV  (Nc)) !Volume element
+        
         n = 1
         do k=-Nm,Np-1
             dl(n)   = norm2(bTrc%xyz(k+1,:)-bTrc%xyz(k,:))
@@ -140,11 +140,9 @@ module streamline
             n = n+1
         enddo
         
-        dV = minval(bAvg)*dl/bAvg
-        dvB = sum(dV) !Total flux-tube volume
-        
-        bD = sum(eD*dV)/dvB
-        bP = sum(eP*dV)/dvB
+        dvB = sum(dl/bAvg) !Total flux-tube volume
+        bD = sum(eD*dl/bAvg)
+        bP = sum(eP*dl/bAvg)
 
         end associate
     end subroutine FLThermo
