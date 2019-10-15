@@ -126,8 +126,10 @@ add_subdirectory(src/remix)
 add_custom_target(remix ALL)
 message("\tAdding executable remix.x")
 add_executable(remix.x src/drivers/remix.F90)
+add_executable(remix2remix.x src/drivers/remix2remix.F90)
 target_link_libraries(remix.x baselib remixlib)
-add_dependencies(remix remix.x baselib)
+target_link_libraries(remix2remix.x baselib remixlib)
+add_dependencies(remix remix.x remix2remix.x baselib)
 
 #-------------
 #Kaiju: Voltron
