@@ -122,7 +122,7 @@ module wind
         type(Grid_T), intent(in) :: Grid
 
         real(rp) :: D,P,DelT
-        real(rp), dimension(NDIM) :: nHat,V,B,V0,Vfr,xcc
+        real(rp), dimension(NDIM) :: nHat,vHat,V,B,V0,Vfr,xcc
         real(rp) :: CosF,SinF,CosBp,SinBp
         real(rp) :: bcc,btt, vMag
         integer :: n,ip,j,k
@@ -157,7 +157,7 @@ module wind
         vMag = norm2(Vfr)
 
         !$OMP PARALLEL DO default(shared) &
-        !$OMP private(n,j,k,ip,nHat,xcc,DelT,D,P,V,B)
+        !$OMP private(n,j,k,ip,nHat,vHat,xcc,DelT,D,P,V,B)
         do k=Grid%ksg,Grid%keg
             do j=Grid%jsg,Grid%jeg
                 ip = Grid%ie
@@ -167,13 +167,16 @@ module wind
                     xcc = Grid%xyzcc(ip+n,j,k,:)
                     DelT = dot_product(xcc-windBC%xyzW,Vfr)/vMag**2.0
 
+                    vHat = normVec(V) !Normalized velocity direction
+
                     !Set isWind, ie influenced by solar wind or not
                     call windBC%getWind(windBC,Model,Model%t-DelT,D,P,V,B)
                     !Note, assuming that Bx is consistent with tilted front
                     !Ie, B(XDIR) = By*ByC + Bz*BzC + Bx0
 
                     !Check direction
-                    if ( dot_product(nHat,V)<=0 ) then
+                    !if ( dot_product(nHat,V)<=0 ) then
+                    if ( dot_product(nHat,-vHat)>=0.7071067811 ) then
                         windBC%isWind(n,j,k) = .true.
                     else
                         windBC%isWind(n,j,k) = .false.
@@ -295,16 +298,26 @@ module wind
         do k=Grid%ksg,Grid%keg
             do j=Grid%jsg,Grid%jeg
                 if (windBC%isWind(1,j,k)) then
-                    !Set front-side tangential electric fields to solar wind
-                    do i=Grid%ie+1,Grid%ie+1
+                    !Go big on setting fields
+
+                    do i=Grid%ie,Grid%ie+1
                         Exyz = windBC%ExyzW(1,j,k,:)
-                        do n=JDIR,KDIR
+                        do n=IDIR,KDIR
                             !Get edge coordinates
                             call edgeCoords(Model,Grid,i,j,k,n,e1,e2)
                             State%Efld(i,j,k,n) = dot_product(Exyz,e2-e1)
                         enddo
-
                     enddo
+
+                    ! !Set front-side tangential electric fields to solar wind
+                    ! do i=Grid%ie+1,Grid%ie+1
+                    !     Exyz = windBC%ExyzW(1,j,k,:)
+                    !     do n=JDIR,KDIR
+                    !         !Get edge coordinates
+                    !         call edgeCoords(Model,Grid,i,j,k,n,e1,e2)
+                    !         State%Efld(i,j,k,n) = dot_product(Exyz,e2-e1)
+                    !     enddo
+                    ! enddo
 
                 endif
             enddo
@@ -442,6 +455,9 @@ module wind
         V   = w0*windBC%Q(i0,VELX:VELZ) + w1*windBC%Q(i1,VELX:VELZ)
         B   = w0*windBC%B(i0,:        ) + w1*windBC%B(i1,:        )
 
+        !Replace Bx w/ coefficient expansion
+        B(XDIR) = windBC%Bx0 + windBC%ByC*B(YDIR) + windBC%BzC*B(ZDIR)
+        
     end subroutine InterpWind
 
 end module wind
