@@ -20,12 +20,18 @@ module mixstate
       St%Vars(:,:,SOUND_SPEED) = cs_in
     end subroutine init_state_fromfile
 
-    subroutine init_state(G,St)
+    subroutine init_state(G,St,mixIOVars)
       type(mixGrid_T), intent(in) :: G
       type(mixState_T), intent(inout) :: St
-
+      real(rp),dimension(:,:,:),optional, intent(in) :: mixIOVars
+      
       ! set up variable state
       if (.not.allocated(St%Vars)) allocate(St%Vars(G%Np,G%Nt,nVars))
-      St%Vars(:,:,:) = 0.0D0
+
+      if (present(mixIOVars)) then
+         St%Vars = mixIOvars
+      else 
+         St%Vars(:,:,:) = 0.0D0
+      endif
     end subroutine init_state
 end module mixstate
