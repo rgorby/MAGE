@@ -79,13 +79,13 @@ contains
           
        !Write out the chain (to root)
        call WriteVars(IOVars,.true.,h5File)
-
-       ! Finally, set var and unit names
-       ! for use by all subsequent functions
-       ! NOTE: this assumes that initMIXIO ALWAYS gets called in the beginning
-       ! e.g., as part of MIX initialization
-       call initMIXNames()
     endif
+
+    ! Finally, set var and unit names
+    ! for use by all subsequent functions
+    ! NOTE: this assumes that initMIXIO ALWAYS gets called in the beginning
+    ! e.g., as part of MIX initialization
+    call initMIXNames()
 
   end subroutine initMIXIO
 
@@ -152,6 +152,7 @@ contains
           ! NOTE: assuming initMIXNames got called before
           vStr = trim(mixVarNames(v)) // " "//trim(hStr)
           uStr = trim(mixUnitNames(v))
+          
           if (doDump) then
              call AddOutVar(IOVars,vStr,I(h)%St%Vars(:,2:,v))
              ! inelegantly specifying the units       
