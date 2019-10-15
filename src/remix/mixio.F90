@@ -251,7 +251,14 @@ contains
     ! time & mjd
     mixIOobj%time = IOVars(1)%data(1)
     mixIOobj%mjd  = IOVars(2)%data(1)
-    mixIOobj%tilt  = IOVars(3)%data(1)        
+
+    ! allow for no tilt in the restart file
+    ! for backward compatibility
+    if (IOVars(3)%isDone) then
+       mixIOobj%tilt  = IOVars(3)%data(1)
+    else
+       mixIOobj%tilt  = 0
+    end if
 
     ! allocate as necessary
     ! NOTE: we're assuming readMIX is not called in a loop
