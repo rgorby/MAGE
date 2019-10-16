@@ -3,7 +3,7 @@
 <!-- MJD0 is modified Julian date of T=0 in solar wind file -->
 <VOLTRON>
   <time tFin="36000.0"/>
-  <output dtOut="60.0" tsOut="100" timer="F"/>
+  <output dtOut="60.0" tsOut="100" doTimer="F"/>
   <restart dtRes="1800.0"/>
   <coupling dt="5.0"/>
 </VOLTRON>

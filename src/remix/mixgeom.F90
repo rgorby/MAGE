@@ -2,6 +2,7 @@ module mixgeom
   use mixdefs
   use mixtypes
   use mixinterp
+  use earthhelper
 
   implicit none
   
@@ -64,6 +65,19 @@ module mixgeom
       if (SOLVER_GRID) call set_grid(G)
     end subroutine init_grid_fromTP
 
+    subroutine init_grid(I,mixIOobj)
+      type(mixIon_T),intent(inout) :: I
+      type(mixIO_T),optional,intent(in) :: mixIOobj
+
+      if (present(mixIOobj)) then
+         call init_grid_fromXY(I%G,mixIOobj%x,mixIOobj%y,.true.)
+      else
+         ! for now always do uniform if grid not passed via mixIOobj
+         call init_uniform(I%G,I%P%Np,I%P%Nt,I%P%LowLatBoundary*pi/180._rp,.true.)
+      endif
+      call setD0(I%G)  ! pay attention: if the functional form is not axisymmetric, should make sure north and south are treated correctly.      
+    end subroutine init_grid
+    
     subroutine init_uniform(G,Np,Nt,LowLatBoundary,SOLVER_GRID)
       type(mixGrid_T),intent(inout) :: G
       integer, intent(in) :: Np, Nt
@@ -75,9 +89,66 @@ module mixgeom
       call init_grid_fromTP(G,t,p,SOLVER_GRID)
     end subroutine init_uniform
 
+    subroutine init_grid_fromXY(G,x,y,SOLVER_GRID)
+      type(mixGrid_T),intent(inout) :: G
+      real(rp), dimension(:,:), intent(in) :: x,y
+      logical, intent(in) :: SOLVER_GRID
+      integer, dimension(2) :: dims
+
+      ! set grid size
+      dims = shape(x); G%Nt = dims(2); G%Np = dims(1)
+
+      if (.not.allocated(G%x)) allocate(G%x(G%Np,G%Nt))
+      if (.not.allocated(G%y)) allocate(G%y(G%Np,G%Nt))
+
+      G%x = x  
+      G%y = y
+
+      if (.not.allocated(G%t)) allocate(G%t(G%Np,G%Nt))
+      if (.not.allocated(G%p)) allocate(G%p(G%Np,G%Nt))
+
+      ! interpolant
+      if (.not.allocated(G%Interpolant)) allocate(G%Interpolant(G%Np,G%Nt,4,4)) ! True size (Np,Nt-1) (note, we include the cell between Np and 1)
+
+      ! define spherical angular coordinates
+      G%t = asin(sqrt(G%x**2+G%y**2))
+      G%p = modulo((atan2(G%y,G%x)+2*pi),(2*pi)) 
+      ! note, this mangles phi at theta=0; Fix it, although we don't
+      ! need it, since pole coordinates are never used
+      G%p(:,1)=G%p(:,2)
+
+      ! calculate interpolant
+      call mix_interpolant(G)
+
+      if (SOLVER_GRID) call set_grid(G)
+    end subroutine init_grid_fromXY
+
+    
+    subroutine setD0(G)
+      ! pay attention: if the functional form is not axisymmetric, should make sure north and south are treated correctly.
+      type(mixGrid_T),intent(inout) :: G
+      integer :: i,j
+      real(rp) :: r,L
+      
+      ! allocate space for background density
+      if (.not.allocated(G%D0)) allocate(G%D0(G%Np,G%Nt))
+      
+      do i=1,G%Nt
+         do j=1,G%Np
+            ! compute invariant latitude
+            r = sqrt(G%x(j,i)**2+G%y(j,i)**2)  ! =cos(lambda)
+            L = 1./r**2   ! neglecting the Ri/Re difference here
+            G%D0(j,i) = psphD(L)  ! use Gallagher from earthhelper
+         enddo
+      enddo
+      
+    end subroutine setD0
+    
 
     ! NOTE, periodic boundary already cut out in mix2h5.py
-    subroutine init_grid_fromXY(G,x,y,SOLVER_GRID)
+    ! VGM 10142019: deprecating and renaming this function
+    ! reserving the name for initializing grid from x,y arrays in remix convention (above)
+    subroutine init_grid_fromXY_oldMIX(G,x,y,SOLVER_GRID)
       type(mixGrid_T),intent(inout) :: G
       real(rp), dimension(:,:), intent(in) :: x,y
       logical, intent(in) :: SOLVER_GRID
@@ -109,7 +180,7 @@ module mixgeom
       call mix_interpolant(G)
 
       if (SOLVER_GRID) call set_grid(G)
-    end subroutine init_grid_fromXY
+    end subroutine init_grid_fromXY_oldMIX
 
     subroutine set_grid(G)
       type(mixGrid_T),intent(inout) :: G

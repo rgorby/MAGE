@@ -13,12 +13,13 @@ module mixmain
 
   contains
 
-    subroutine init_mix(I,hmsphrs,optFilename,RunID,isRestart)
+    subroutine init_mix(I,hmsphrs,optFilename,RunID,isRestart,mixIOobj)
       type(mixIon_T),dimension(:),allocatable,intent(inout) :: I ! I for ionosphere (is an array of 1 or 2 elements for north and south) or it can be artibrarily many, e.g., for different solves done in loop
       integer, dimension(:), intent(in) :: hmsphrs       
       character(len=*), optional, intent(in) :: optFilename
       character(len=*),optional, intent(in) :: RunID   ! these two things are needed when we're coupled with Gamera
       logical,optional, intent(in) :: isRestart
+      type(mixIO_T),optional, intent(in) :: mixIOobj      
 
       integer :: h
 
@@ -30,9 +31,15 @@ module mixmain
          else
             call initMIXParams(I(h)%P)
          endif
-         ! FIXME: replace with a function pointer allowing an arbitrary grid specification, e.g., init_grid=>init_uniform
-         call init_uniform(I(h)%G,I(h)%P%Np,I(h)%P%Nt,I(h)%P%LowLatBoundary*pi/180._rp,.true.)
-         call init_state(I(h)%G,I(h)%St) 
+
+         if (present(mixIOobj)) then
+            call init_grid(I(h),mixIOobj)
+            call init_state(I(h)%G,I(h)%St,mixIOobj%vars(:,:,:,h)) ! passing only the hemisphere variables            
+         else
+            call init_grid(I(h))
+            call init_state(I(h)%G,I(h)%St)            
+         end if
+         
          call conductance_init(I(h)%conductance,I(h)%P,I(h)%G)
 
          I(h)%St%hemisphere = hmsphrs(h)

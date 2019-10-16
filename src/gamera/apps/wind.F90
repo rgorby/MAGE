@@ -32,12 +32,7 @@ module wind
         integer :: NumT
 
         !Coefficients for solar wind geometry
-        real(rp) :: ByC = 0.0, BzC = 0.0
-
-        logical :: doDSW = .false. !Density perturbations in SW
-        real(rp) :: dSWAmp = 0.0 !Magnitude of density perturbations (0,1)
-        real(rp) :: dtDSW = 0.125 !Period of perturbations
-        real(rp) :: tDSW = 0.0 !Next re-perturbation
+        real(rp) :: Bx0 = 0.0, ByC = 0.0, BzC = 0.0
 
         integer :: NgW = 4 !Number of solar wind ghost cells
         real(rp), dimension(NDIM) :: xyzW !Position of solar wind time-series (ie L1)
@@ -108,14 +103,6 @@ module wind
                 !Read data into discrete time series
                 call readWind(bc,Model,xmlInp)
         end select
-        call xmlInp%Set_Val(bc%doDSW,"wind/doDSW",.false.)
-        if (bc%doDSW) then
-            call xmlInp%Set_Val(bc%dSWAmp,"wind/dSWAmp",0.01_rp)
-            call xmlInp%Set_Val(bc%dSWAmp,"wind/dtDSW",bc%dtDSW)
-            bc%tDSW = Model%t+bc%dtDSW
-            call allocGridVar(Model,Grid,bc%dRhoW)
-            bc%dRhoW = 0.0
-        endif
 
         !Zero out initial values
         bc%BxyzW = 0.0
@@ -137,7 +124,7 @@ module wind
         real(rp) :: D,P,DelT
         real(rp), dimension(NDIM) :: nHat,V,B,V0,Vfr,xcc
         real(rp) :: CosF,SinF,CosBp,SinBp
-        real(rp) :: bcc,btt, vMag, dSW
+        real(rp) :: bcc,btt, vMag
         integer :: n,ip,j,k
 
         !Find current wind info
@@ -145,28 +132,32 @@ module wind
 
         !Rotate current velocity
         bcc = sqrt(windBC%ByC**2.0 + windBC%BzC**2.0)
-        btt = sqrt(1+bcc*2.0)
+        btt = sqrt(1+bcc**2.0)
 
-        CosBp = windBC%ByC/bcc
-        SinBp = windBC%BzC/bcc
+        !Guard against div by 0
+        if (bcc > TINY) then
 
-        CosF = 1.0/btt
-        SinF = bcc/btt
+            CosBp = windBC%ByC/bcc
+            SinBp = windBC%BzC/bcc
 
-        !Now calculate front velocity
-        !Simplifying out terms to avoid 0/0
-        ! Vfr(XDIR) =  V0(XDIR)*(CosF**2.0)
-        ! Vfr(YDIR) = -V0(XDIR)*CosF*SinF*CosBp
-        ! Vfr(ZDIR) = -V0(XDIR)*CosF*SinF*SinBp
-        Vfr(XDIR) =  V0(XDIR)*(CosF**2.0)
-        Vfr(YDIR) = -V0(XDIR)*windBC%ByC/(btt**2.0)
-        Vfr(ZDIR) = -V0(XDIR)*windBC%BzC/(btt**2.0)
+            CosF = 1.0/btt
+            SinF = bcc/btt
 
+            !Calculate front velocity
+            Vfr(XDIR) =  V0(XDIR)*(CosF**2.0)
+            Vfr(YDIR) = -V0(XDIR)*CosF*SinF*CosBp
+            Vfr(ZDIR) = -V0(XDIR)*CosF*SinF*SinBp
+        else
+            !ByC and BzC are both nearly zero
+            Vfr(XDIR) = V0(XDIR)
+            Vfr(YDIR) = 0.0
+            Vfr(ZDIR) = 0.0
+        endif
 
         vMag = norm2(Vfr)
 
         !$OMP PARALLEL DO default(shared) &
-        !$OMP private(n,j,k,ip,nHat,xcc,DelT,D,P,V,B,dSW)
+        !$OMP private(n,j,k,ip,nHat,xcc,DelT,D,P,V,B)
         do k=Grid%ksg,Grid%keg
             do j=Grid%jsg,Grid%jeg
                 ip = Grid%ie
@@ -187,18 +178,9 @@ module wind
                     else
                         windBC%isWind(n,j,k) = .false.
                     endif
-                    if (windBC%doDSW) then
-                        dSW = windBC%dRhoW(n,j,k)
-                        if (Model%t>=windBC%tDSW) then
-                            !Set new perturbation
-                            windBC%dRhoW(n,j,k) = genRand(-windBC%dSWAmp,windBC%dSWAmp)
-                        endif
-                    else
-                        dSW = 0.0
-                    endif
 
                     if (windBC%isWind(n,j,k)) then
-                        windBC%RhoW(n,j,k) = D*(1.0+dSW)
+                        windBC%RhoW(n,j,k) = D
                         windBC%PrW(n,j,k) = P
                         windBC%VxyzW(n,j,k,:) = V
                         windBC%BxyzW(n,j,k,:) = B
@@ -206,7 +188,7 @@ module wind
                     else
                         !Do nothing otherwise since values unused
                         !For now just set everything
-                        windBC%RhoW(n,j,k) = D*(1.0+dSW)
+                        windBC%RhoW(n,j,k) = D
                         windBC%PrW(n,j,k) = P
                         windBC%VxyzW(n,j,k,:) = V
                         windBC%BxyzW(n,j,k,:) = B
@@ -216,10 +198,6 @@ module wind
                 enddo
             enddo
         enddo
-        if (Model%t>=windBC%tDSW) then
-            !Set next perturbation time
-            windBC%tDSW = windBC%tDSW+windBC%dtDSW
-        endif
 
     end subroutine RefreshWind
 
@@ -341,20 +319,19 @@ module wind
         type(Model_T), intent(in) :: Model
         type(XML_Input_T), intent(in) :: inpXML
 
-        integer :: N
-        logical :: fExist
+        integer :: i,N
+        logical :: isByC,isBzC
+        real(rp) :: BCoef(3)
+
         type(IOVAR_T), dimension(MAXWINDVARS) :: IOVars
 
         write(*,*) "---------------"
         write(*,*) "Solar wind data"
         write(*,*) "Reading wind data from ", trim(windBC%wID)
         write(*,*) "Assuming input units: t,D,V,P,B = [s],[#/cm3],[m/s],[nPa],[nT]"
-        !Check file
-        inquire(file=trim(windBC%wID),exist=fExist)
-        if (.not. fExist) then
-            write(*,*) "Error reading ", trim(windBC%wID), " exiting ..."
-            stop
-        endif
+        
+        !Make sure file exists
+        call CheckFileOrDie(windBC%wID, "Error opening wind file, exiting ...")
 
         !Setup input chain
         call ClearIO(IOVars)
@@ -392,9 +369,38 @@ module wind
         windBC%tMin = minval(windBC%tW)
         windBC%tMax = maxval(windBC%tW)
 
+    !Now go back in to get coefficients
+        !Try to grab all three from file
+        call ClearIO(IOVars)
+        call AddInVar(IOVars,"ByC",vTypeO=IOREAL)
+        call AddInVar(IOVars,"BzC",vTypeO=IOREAL)
+        call AddInVar(IOVars,"Bx0",vTypeO=IOREAL)
+        !Read data, don't use IO precision
+        call ReadVars(IOVars,.false.,windBC%wID)
+
+        BCoef(1:3) = 0.0
+        do i=1,3
+            if (IOVars(i)%isDone) then
+                !This coefficient is present, so grab it
+                BCoef(i) = IOVars(i)%data(1)
+            endif
+        enddo
+
+        !Don't need to scale coefficients, but need to convert Bx0 to code units
+        windBC%ByC = BCoef(1)
+        windBC%BzC = BCoef(2)
+        windBC%Bx0 = BCoef(3)*(1/gB0)
+
+        !Now redo Bx to be consistent with tilted front
+        !Bx = Bx0 + ByC*By + BzC*Bz
+
+        windBC%B(:,XDIR) = windBC%Bx0 + windBC%ByC*windBC%B(:,YDIR) + windBC%BzC*windBC%B(:,ZDIR) 
+
+        write(*,'(a,3f8.3)') ' SW Coefficients (Bx0,ByC,BzC) = ', BCoef(3),BCoef(1),BCoef(2)
+
         write(*,*) "Finished reading solar wind data"
         write(*,*) "---------------"
-
+        
     end subroutine readWind
 
     !Interpolate from qWind data to provide wind BC

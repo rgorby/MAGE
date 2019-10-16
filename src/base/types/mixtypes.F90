@@ -18,7 +18,8 @@ module mixtypes
      real(rp) :: sigma_ratio
      real(rp) :: ped0
      logical  :: const_sigma
-     logical  :: do_ramp
+     logical  :: doRamp
+     logical  :: doChill     
      logical  :: apply_cap 
 
      ! solver
@@ -52,7 +53,8 @@ module mixtypes
      real(rp), dimension(:,:), allocatable :: dt,dp
      real(rp), dimension(:,:), allocatable :: ft,fp
      real(rp), dimension(:,:), allocatable :: dtdt,dpdp
-     real(rp), dimension(:,:), allocatable :: cosd      
+     real(rp), dimension(:,:), allocatable :: cosd
+     real(rp), dimension(:,:), allocatable :: D0  ! background density, usually plasmasphere, to apply to precipitation
      real(rp), dimension(:,:,:,:), allocatable :: Interpolant
      integer, dimension(:,:), allocatable :: mask
   end type mixGrid_T
@@ -83,7 +85,7 @@ module mixtypes
   type mixConductance_T
     integer :: euv_model_type, et_model_type
     real(rp) :: alpha, beta, R, F107,pedmin,hallmin,sigma_ratio,ped0
-    logical :: const_sigma, do_ramp, apply_cap
+    logical :: const_sigma, doRamp, doChill, apply_cap
 
     ! auxilary variables
     real(rp) :: PI2, ang65, ang100, pref, href, shall
@@ -109,6 +111,13 @@ module mixtypes
   type mixApp_T
      type(mixIon_T), dimension(:), allocatable :: ion  
   end type mixApp_T
+
+  ! use this as a container to store the variables read from a previous H5 file
+  type mixIO_T
+     real(rp) :: time, mjd, tilt
+     real(rp), dimension(:,:), allocatable :: x,y
+     real(rp), dimension(:,:,:,:), allocatable :: vars !(Np,Nt,Nvars,Nhemispheres)
+  end type mixIO_T
 
 end module mixtypes
 

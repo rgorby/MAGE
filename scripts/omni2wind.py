@@ -46,6 +46,8 @@ def bxFit(sw, fileType, filename):
     print('Saving "%s"' % bxPlotFilename)
     plt.savefig(bxPlotFilename)
 
+    return coef
+
 if __name__ == "__main__":
         fOut = "bcwind.h5"
         mod = "LFM"
@@ -144,8 +146,10 @@ if __name__ == "__main__":
             raise Exception('Error:  Cannot currently produce TIEGCM output.')
         elif (mod == 'LFM'):
             # Bx Fit 
-            bxFit( sw, fileType, filename)
-        
+            bCoef=bxFit( sw, fileType, filename)
+            # Setting Bx0 to zero to enforce a planar front with no Bx offset 
+            bCoef[0]=0.0
+
             # Interpolate to one minute:
             time_1minute = range(int(sw.data.getData('time_min').min()),
                                  int(sw.data.getData('time_min').max()) )
@@ -266,6 +270,9 @@ if __name__ == "__main__":
                 hf.create_dataset("au",data=AU)
                 hf.create_dataset("symh",data=SYMH)
                 hf.create_dataset("f10.7",data=f107min)
+                hf.create_dataset("Bx0",data=bCoef[0])
+                hf.create_dataset("ByC",data=bCoef[1])
+                hf.create_dataset("BzC",data=bCoef[2])
                 
         else:
             raise Exception('Error:  Misunderstood output file format.')

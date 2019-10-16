@@ -18,7 +18,6 @@ cMax = 2.0 #Max current density
 dfs = "medium"
 fcMap = "bwr" #Colormap for current
 
-
 #Potential plots
 pMax = 60.0 #Max potential [kV]
 doAPC = True #Do solid/dash for potential contours

@@ -54,9 +54,9 @@ if __name__ == "__main__":
 	Z = iH5['Z'][:]
 
 	#Now create output files
-	Nkp = Nk/Rk
-	Njp = Nj/Rj
-	Nip = Ni/Ri
+	Nkp = Nk//Rk
+	Njp = Nj//Rj
+	Nip = Ni//Ri
 
 	NumG = upscl.NumG
 	print("Splitting (%d,%d,%d) cells into (%d,%d,%d) x (%d,%d,%d) [Cells,MPI]"%(Ni,Nj,Nk,Nip,Njp,Nkp,Ri,Rj,Rk))

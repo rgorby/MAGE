@@ -11,8 +11,6 @@ import matplotlib.gridspec as gridspec
 import numpy as np
 import kaipy.gamera.remixpp as rmpp
 import kaipy.gamera.magsphere as msph
-
-
 import os
 
 if __name__ == "__main__":
@@ -118,7 +116,7 @@ if __name__ == "__main__":
 	else:
 		kv.genCB(AxC1,vBB,"Magnetic Field [nT]",cM=bCMap)
 	rmpp.cMax = 1.00
-	kv.genCB(AxC4,kv.genNorm(rmpp.cMax),"FAC",cM=rmpp.fcMap,Ntk=5)
+	kv.genCB(AxC4,kv.genNorm(rmpp.cMax),"FAC",cM=rmpp.fcMap,Ntk=4)
 
 	rmpp.AddPotCB(AxC3)
 
