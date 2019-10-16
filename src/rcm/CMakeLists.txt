@@ -1,5 +1,5 @@
 file(GLOB rcm_srcs_f90 *.f90)
 file(GLOB rcm_srcs_f *.F)
-set_source_files_properties(${rcm_srcs_f} PROPERTIES COMPILE_FLAGS "-fixed")
+set_source_files_properties(${rcm_srcs_f} PROPERTIES COMPILE_FLAGS "-fixed -nowarn")
 add_library(rcmlib ${rcm_srcs_f90} ${rcm_srcs_f})
 target_link_libraries(rcmlib baselib)
