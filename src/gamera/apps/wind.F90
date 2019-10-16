@@ -292,15 +292,11 @@ module wind
                     
                     !Set flux/fields based on Bxyz
                     State%Bxyz(ig,j,k,:) = Bxyz
-                    ! !NOTE: Using geometry from active grid to ensure smoother stencil
-                    State%magFlux(ig+1,j,k,IDIR) = Grid%face(ip+1,j,k,IDIR)*dot_product(Grid%Tf(ip+1,j,k,NORMX:NORMZ,IDIR),Bxyz)
-                    State%magFlux(ig  ,j,k,JDIR) = Grid%face(ip  ,j,k,JDIR)*dot_product(Grid%Tf(ip  ,j,k,NORMX:NORMZ,JDIR),Bxyz)
-                    State%magFlux(ig  ,j,k,KDIR) = Grid%face(ip  ,j,k,KDIR)*dot_product(Grid%Tf(ip  ,j,k,NORMX:NORMZ,KDIR),Bxyz)
 
-                    ! State%magFlux(ig+1,j,k,IDIR) = Grid%face(ig+1,j,k,IDIR)*dot_product(Grid%Tf(ig+1,j,k,NORMX:NORMZ,IDIR),Bxyz)
-                    ! State%magFlux(ig  ,j,k,JDIR) = Grid%face(ig  ,j,k,JDIR)*dot_product(Grid%Tf(ig  ,j,k,NORMX:NORMZ,JDIR),Bxyz)
-                    ! State%magFlux(ig  ,j,k,KDIR) = Grid%face(ig  ,j,k,KDIR)*dot_product(Grid%Tf(ig  ,j,k,NORMX:NORMZ,KDIR),Bxyz)
-
+                    !Now set face fluxes
+                    State%magFlux(ig+1,j,k,IDIR) = Grid%face(ig+1,j,k,IDIR)*dot_product(Grid%Tf(ig+1,j,k,NORMX:NORMZ,IDIR),Bxyz)
+                    State%magFlux(ig  ,j,k,JDIR) = Grid%face(ig  ,j,k,JDIR)*dot_product(Grid%Tf(ig  ,j,k,NORMX:NORMZ,JDIR),Bxyz)
+                    State%magFlux(ig  ,j,k,KDIR) = Grid%face(ig  ,j,k,KDIR)*dot_product(Grid%Tf(ig  ,j,k,NORMX:NORMZ,KDIR),Bxyz)
                     
                 enddo
             enddo
