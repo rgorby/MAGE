@@ -59,12 +59,7 @@ module voltio
         type(voltApp_T), intent(inout) :: vApp
 
         !Write Gamera restart
-        !NOTE: This shouldn't be done in MPI!
-        if (.not. gApp%Model%isMPI) then
-            call resOutput(gApp%Model,gApp%Grid,gApp%State)
-        else
-            write(*,*) 'Need to handle Voltron restart case for MPI!'
-        endif
+        call resOutput(gApp%Model,gApp%Grid,gApp%State)
 
         vApp%IO%tRes = vApp%IO%tRes + vApp%IO%dtRes
         vApp%IO%nRes = vApp%IO%nRes + 1            
@@ -76,12 +71,7 @@ module voltio
         type(voltApp_T), intent(inout) :: vApp
 
         !Write gamera data
-        !NOTE: This shouldn't be done in MPI!
-        if (.not. gApp%Model%isMPI) then
-            call fOutput(gApp%Model,gApp%Grid,gApp%State) !Gamera
-        else
-            write(*,*) 'Need to handle Voltron output case for MPI!'
-        endif
+        call fOutput(gApp%Model,gApp%Grid,gApp%State) !Gamera
 
         !Write ReMIX data
         call writeMix(vApp%remixApp%ion,vApp%IO%nOut,mjd=vApp%MJD,time=vApp%time)
