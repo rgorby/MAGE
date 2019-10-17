@@ -26,9 +26,10 @@ module sstimag
     contains
 
     !Initialize EQ Map data
-    subroutine initSST(iXML)
+    subroutine initSST(iXML,isRestart)
         type(XML_Input_T), intent(in) :: iXML
-        
+        logical, intent(in) :: isRestart !Do you even care?
+
         character(len=strLen) :: eqFile
         integer :: i,j,n1,n2
         integer :: dims(2)

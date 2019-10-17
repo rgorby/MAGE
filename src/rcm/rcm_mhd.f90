@@ -78,7 +78,7 @@ subroutine rcm_mhd(mhdtime,mhdtimedt,RM,iflag)
            return
    end if
 
-
+   
 ! initialize
   if(iflag ==0)then
     CALL Read_rcm_mhd_params

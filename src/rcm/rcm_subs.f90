@@ -1,6 +1,7 @@
 !
     MODULE Rcm_mod_subs
     use rcm_precision
+    
     IMPLICIT NONE
     SAVE
 !
@@ -38,7 +39,6 @@
                                machine_eps2 = machine_eps1*10_rprec, &
                                machine_tiny = TINY (one),&
                                machine_huge = HUGE (one),&
-                               pi           = 3.141592654_rprec, &
                                pi_two       = two * pi, &
                                pi_by_two    = pi / two, &
                                rtd          = 180.0_rprec/pi, &

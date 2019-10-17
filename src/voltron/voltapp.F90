@@ -92,7 +92,7 @@ module voltapp
 
         if (vApp%doDeep) then
             !Initialize deep coupling type/inner magnetosphere model
-            call InitInnerMag(vApp,xmlInp)
+            call InitInnerMag(vApp,gApp%Model%isRestart,xmlInp)
         endif
 
         if(present(optFilename)) then
@@ -254,7 +254,7 @@ module voltapp
             return
         endif
 
-        tAdv = time !For now just advance model to current time
+        tAdv = time + vApp%DeepDT !Advance inner magnetosphere through full coupling time 
     !Pull in updated fields to CHIMP
         call Tic("G2C")
         call convertGameraToChimp(vApp%mhd2chmp,gApp,vApp%ebTrcApp)

@@ -492,7 +492,7 @@ module streamline
         !write(*,*) 'Found sign/points/distance = ', sgn,Np,norm2(x0-Xn)
 
     end subroutine project
-
+    
     function getDiag(ebGr,ijk) result (dl)
         type(ebGrid_T), intent(in)   :: ebGr
         integer, intent(in) :: ijk(NDIM)

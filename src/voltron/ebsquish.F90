@@ -5,6 +5,7 @@ module ebsquish
     use ebtypes
     use volttypes
     use streamline
+    use earthhelper
     
     implicit none
 
@@ -119,7 +120,25 @@ module ebsquish
         real(rp), intent(in) :: t
         real(rp), intent(out) :: x1,x2
 
+        real(rp), dimension(NDIM) :: xE,xIon
+
         x1 = 0.0
         x2 = 0.0
+        !Use one-sided projection routine from chimp
+        !Trace along field line (i.e. to northern hemisphere)
+        call project(ebModel,ebState,xyz,t,xE,+1,toEquator=.false.)
+
+        if ( norm2(xE) <= 3.0 .and. (xE(ZDIR)>0) ) then
+            !Endpoint is close-ish to earth and in northern hemisphere, this is closed
+            x1 = InvLatitude(xE) !Invariant latitude 
+            x2 = atan2(xE(YDIR),xE(XDIR))
+            if (x2 < 0) x2 = x2 + 2*PI
+        else
+            !Endpoint is far, this is probably open line
+            x1 = 0.0
+            x2 = 0.0
+        endif
+
     end subroutine Proj2LL
+
 end module ebsquish

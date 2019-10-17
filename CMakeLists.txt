@@ -150,8 +150,8 @@ add_subdirectory(src/voltron)
 add_custom_target(voltron ALL)
 message("\tAdding executable voltron.x")
 add_executable(voltron.x src/drivers/voltronx.F90)
-target_link_libraries(voltron.x baselib gamlib remixlib voltlib chimplib)
-add_dependencies(voltron voltron.x remixlib gamlib baselib chimplib)
+target_link_libraries(voltron.x baselib gamlib remixlib chimplib rcmlib voltlib)
+add_dependencies(voltron voltron.x rcmlib chimplib remixlib gamlib baselib)
 
 if(PFUNIT_FOUND)
 	#-------------

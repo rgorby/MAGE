@@ -23,8 +23,9 @@ module innermagsphere
     contains
 
     !Figure out which inner magnetosphere model we're using and initialize it
-    subroutine InitInnerMag(vApp,iXML)
+    subroutine InitInnerMag(vApp,isRestart,iXML)
         type(voltApp_T)  , intent(inout) :: vApp
+        logical, intent(in) :: isRestart
         type(XML_Input_T), intent(inout) :: iXML
         
         character(len=strLen) :: imStr
@@ -37,11 +38,11 @@ module innermagsphere
         case("SST","TS07")
             vApp%imType = IMAGSST
             vApp%prType = LPPROJ !R-phi
-            call InitSST(iXML)
+            call InitSST(iXML,isRestart)
         case("RCM")
             vApp%imType = IMAGRCM
             vApp%prType = LLPROJ !Lat-lon
-            call InitRCM(iXML)
+            call InitRCM(iXML,isRestart,vApp%time,vApp%DeepDT)
         case DEFAULT
             write(*,*) 'Unkown imType, bailing ...'
             stop
@@ -57,13 +58,11 @@ module innermagsphere
 
         if (.not. vApp%doDeep) return !Why are you even here?
 
-
         select case (vApp%imType)
         case(IMAGSST)
             call AdvanceSST(tAdv)            
         case(IMAGRCM)
-            write(*,*) 'Not implemented yet, bailing ...'
-            stop
+            call AdvanceRCM(vApp,tAdv)
         case DEFAULT
             write(*,*) 'Unkown imType, bailing ...'
             stop
@@ -89,8 +88,6 @@ module innermagsphere
             IMagEval => EvalSST
         case(IMAGRCM)
             IMagEval => EvalRCM
-            write(*,*) 'Not implemented yet, bailing ...'
-            stop
         case DEFAULT
             write(*,*) 'Unkown imType, bailing ...'
             stop
