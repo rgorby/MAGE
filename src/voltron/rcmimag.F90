@@ -15,6 +15,7 @@ module rcmimag
     real(rp), private :: rcmPScl = 1.0e+9 !Convert Pa->nPa
     real(rp), private :: rcmNScl = 1.0 !Convert xxx => #/cc
 
+    character(len=strLen), private :: h5File
     !Do I need this stuff?
     real(rp), private :: rcm_boundary_s =35,rcm_boundary_e =2
     real(rp), private :: colat_boundary
@@ -35,6 +36,9 @@ module rcmimag
         logical, intent(in) :: isRestart
         real(rp), intent(in) :: t0,dtCpl
 
+        character(len=strLen) :: RunID
+        logical :: fExist
+
         if (isRestart) then
             write(*,*) 'What do I do here?'
             stop
@@ -44,7 +48,20 @@ module rcmimag
         endif
 
         call iXML%Set_Val(ddt,"rcm/ddt",15.0) !RCM substep [s]
+        call iXML%Set_Val(RunID,"/gamera/sim/runid","sillysim")
 
+        h5File = trim(RunID) // ".rcm.h5"
+
+        fExist = CheckFile(h5File)
+        write(*,*) 'RCM outputting to ',trim(h5File)
+        if ( (.not. isRestart) .or. (isRestart .and. (.not.fExist)) ) then
+            !Not a restart or it is a restart and no file
+            call CheckAndKill(h5File) !For non-restart but file exists
+
+            !Create base file
+            call initRCMIO()
+        endif
+        stop
     end subroutine initRCM
 
     !Advance RCM from Voltron data
@@ -157,4 +174,15 @@ module rcmimag
         endif
 
     end subroutine DipoleTube
+
+    subroutine initRCMIO()
+        write(*,*) RCMApp%nLat_ion,RCMApp%nLon_ion
+        write(*,*) RCMApp%gcolat
+        write(*,*) RCMApp%glong
+
+        write(*,*) 'lat/lon shape = ',shape(RCMApp%gcolat),shape(RCMApp%glong)
+        write(*,*) 'Var shape = ', shape(RCMApp%Prcm)
+        stop
+    end subroutine initRCMIO
+
 end module rcmimag
