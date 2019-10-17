@@ -116,4 +116,20 @@ module innermagsphere
         end associate
 
     end subroutine InnerMag2Gamera
+
+    subroutine InnerMagIO(vApp,nOut)
+        type(voltApp_T), intent(inout) :: vApp
+        integer, intent(in) :: nOut
+
+        select case (vApp%imType)
+        case(IMAGSST)
+            
+        case(IMAGRCM)
+            call WriteRCM(nOut,vApp%MJD,vApp%time)
+        case DEFAULT
+            write(*,*) 'Unkown imType, bailing ...'
+            stop
+        end select
+
+    end subroutine InnerMagIO
 end module innermagsphere

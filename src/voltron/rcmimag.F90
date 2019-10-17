@@ -63,7 +63,7 @@ module rcmimag
             !Create base file
             call initRCMIO()
         endif
-        stop
+        
     end subroutine initRCM
 
     !Advance RCM from Voltron data
@@ -203,6 +203,9 @@ module rcmimag
             enddo
         enddo
 
+        iLat = 90.0-iLat*180.0/PI
+        iLon = iLon*180.0/PI
+
         !Reset IO chain
         call ClearIO(IOVars)
         
@@ -210,8 +213,30 @@ module rcmimag
         call AddOutVar(IOVars,"Y",iLon)                
 
         call WriteVars(IOVars,.true.,h5File)
-        stop
 
     end subroutine initRCMIO
+
+
+    subroutine WriteRCM(nOut,MJD,time)
+        integer, intent(in) :: nOut
+        real(rp), intent(in) :: MJD,time
+
+        type(IOVAR_T), dimension(MAXRCMIOVAR) :: IOVars
+        character(len=strLen) :: gStr
+
+        !Reset IO chain
+        call ClearIO(IOVars)
+
+        call AddOutVar(IOVars,"N",RCMApp%Nrcm*rcmNScl)
+        call AddOutVar(IOVars,"P",RCMApp%Prcm*rcmPScl)
+
+        !Add attributes
+        call AddOutVar(IOVars,"time",time)
+        call AddOutVar(IOVars,"MJD",MJD)
+
+        write(gStr,'(A,I0)') "Step#", nOut
+        call WriteVars(IOVars,.true.,h5File,gStr)
+
+    end subroutine WriteRCM
 
 end module rcmimag

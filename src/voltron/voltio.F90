@@ -4,7 +4,8 @@ module voltio
     use volttypes
     use mixio
     use clocks
-
+    use innermagsphere
+    
     implicit none
 
     integer, parameter, private :: MAXVOLTIOVAR = 10
@@ -85,6 +86,11 @@ module voltio
 
         !Write ReMIX data
         call writeMix(vApp%remixApp%ion,vApp%IO%nOut,mjd=vApp%MJD,time=vApp%time)
+
+        !Write inner mag IO if needed
+        if (vApp%doDeep) then
+            call InnerMagIO(vApp,vApp%IO%nOut)
+        endif
 
         vApp%IO%tOut = vApp%IO%tOut + vApp%IO%dtOut
         vApp%IO%nOut = vApp%IO%nOut + 1
