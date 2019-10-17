@@ -15,7 +15,9 @@ module rcmimag
     real(rp), private :: rcmPScl = 1.0e+9 !Convert Pa->nPa
     real(rp), private :: rcmNScl = 1.0 !Convert xxx => #/cc
 
+    integer, parameter :: MAXRCMIOVAR = 10
     character(len=strLen), private :: h5File
+
     !Do I need this stuff?
     real(rp), private :: rcm_boundary_s =35,rcm_boundary_e =2
     real(rp), private :: colat_boundary
@@ -176,13 +178,40 @@ module rcmimag
     end subroutine DipoleTube
 
     subroutine initRCMIO()
-        write(*,*) RCMApp%nLat_ion,RCMApp%nLon_ion
-        write(*,*) RCMApp%gcolat
-        write(*,*) RCMApp%glong
+        type(IOVAR_T), dimension(MAXRCMIOVAR) :: IOVars
 
-        write(*,*) 'lat/lon shape = ',shape(RCMApp%gcolat),shape(RCMApp%glong)
-        write(*,*) 'Var shape = ', shape(RCMApp%Prcm)
+        real(rp), dimension(:,:), allocatable :: iLat,iLon
+
+        integer :: i,j,NLat,NLon
+        real(rp) :: dLat,dLon,clMin,clMax
+
+        NLat = RCMApp%nLat_ion
+        NLon = RCMApp%nLon_ion
+
+        clMin = RCMApp%gcolat(1)
+        clMax = RCMApp%gcolat(NLat)
+        dLat = (clMax-clMin)/NLat
+        dLon = (2*PI-0.0)/NLon
+
+        allocate(iLat(NLat+1,NLon+1))
+        allocate(iLon(NLat+1,NLon+1))
+
+        do i=1,NLat+1
+            do j=1,NLon+1
+                iLat(i,j) = clMin + (i-1)*dLat
+                iLon(i,j) = 0.0 + (j-1)*dLon
+            enddo
+        enddo
+
+        !Reset IO chain
+        call ClearIO(IOVars)
+        
+        call AddOutVar(IOVars,"X",iLat)
+        call AddOutVar(IOVars,"Y",iLon)                
+
+        call WriteVars(IOVars,.true.,h5File)
         stop
+
     end subroutine initRCMIO
 
 end module rcmimag
