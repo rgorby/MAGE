@@ -9,18 +9,13 @@ module voltapp
     use mix2mhd_interface
     use mhd2chmp_interface
     use chmp2mhd_interface
-    use eqmap
+    use ebsquish
+    use innermagsphere
     use dates
     use kronos
     use voltio
     
     implicit none
-
-    !Projection types
-    enum, bind(C) 
-        !L-phi (equatorial), Lat-Lon (northern ionospheric)
-        enumerator :: LPPROJ,LLPROJ
-    endenum
 
     contains
 
@@ -96,10 +91,8 @@ module voltapp
         endif
 
         if (vApp%doDeep) then
-            !Initialize deep coupling type
-            !For now just assuming we're doing empirical equatorial pressure
-            call initEQMap(xmlInp)
-            vApp%doEQ = .true.
+            !Initialize deep coupling type/inner magnetosphere model
+            call InitInnerMag(vApp,xmlInp)
         endif
 
         if(present(optFilename)) then
@@ -254,125 +247,40 @@ module voltapp
         type(voltApp_T), intent(inout) :: vApp
         real(rp), intent(in) :: time
 
+        real(rp) :: tAdv
 
         if (.not. vApp%doDeep) then
             !Why are you even here?
             return
         endif
-        
-        if (vApp%doEQ) then
-            call updateEQMap(time)
-        endif
-        
-        ! convert gamera data to chimp
+
+        tAdv = time !For now just advance model to current time
+    !Pull in updated fields to CHIMP
         call Tic("G2C")
         call convertGameraToChimp(vApp%mhd2chmp,gApp,vApp%ebTrcApp)
         call Toc("G2C")
-        ! run chimp
 
-        call Tic("CHIMP")
-        call runChimp(vApp, time)
-        call Toc("CHIMP")
+    !Advance inner magnetosphere model to tAdv
+        call Tic("InnerMag")
+        call AdvanceInnerMag(vApp,tAdv)
+        call Toc("InnerMag")
 
-        ! convert chimp to gamera data
-        call Tic("C2G")
-        call convertChimpToGamera(vApp%chmp2mhd,vApp%ebTrcApp,gApp)
-        call Toc("C2G")
+    !Squish 3D data to 2D IMAG grid (either RP or lat-lon)
+        !Doing field projection at current time
+        call Tic("Squish")
+        call Squish(vApp)
+        call Toc("Squish")
+
+    !Now use imag model and squished coordinates to fill Gamera source terms
+        call Tic("IM2G")
+        call InnerMag2Gamera(vApp,gApp)
+        call Toc("IM2G")
         
-        !Setup next coupling
+    !Setup next coupling
         vApp%DeepT = time + vApp%DeepDT
 
     end subroutine DeepUpdate
 
-    subroutine runChimp(vApp, time)
-        type(voltApp_T), intent(inout) :: vApp
-        real(rp), intent(in) :: time
-
-        integer :: projType
-        projType = LPPROJ
-
-        call Squish(vApp,projType)
-
-        !Create 2D mapping to stretch from x1,x2=>xyz
-
-    end subroutine runChimp
-
-    !Find i-index of outer boundary of coupling domain
-    function ShellBoundary(gModel,Gr,R) result(iMax)
-        type(Model_T), intent(in) :: gModel
-        type(Grid_T), intent(in) :: Gr
-        real(rp), intent(in) :: R
-        integer :: iMax
-        integer :: i
-        !Just using dayside line
-        !Avoiding findloc because it's not well supported by GNU
-        do i=Gr%is,Gr%ie
-            iMax = i
-            if (Gr%xyz(i,Gr%js,Gr%ks,XDIR)>=R) exit
-        enddo
-
-    end function ShellBoundary
-
-    subroutine Squish(vApp,projType)
-        type(voltApp_T), intent(inout) :: vApp
-        integer, intent(in) :: projType
-        
-        integer :: i,j,k
-        real(rp) :: t,x1,x2
-        real(rp), dimension(NDIM) :: xyz,xy0
-        
-        associate(ebModel=>vApp%ebTrcApp%ebModel,ebGr=>vApp%ebTrcApp%ebState%ebGr,ebState=>vApp%ebTrcApp%ebState)
-        t = ebState%eb1%time
-        
-        !$OMP PARALLEL DO default(shared) collapse(2) &
-        !$OMP private(i,j,k,xyz,x1,x2)
-        do k=ebGr%ks,ebGr%ke
-            do j=ebGr%js,ebGr%je
-                do i=ebGr%is,ebGr%is+vApp%iDeep
-                    xyz = ebGr%xyzcc(i,j,k,:)
-                    call Proj2LP(ebModel,ebState,xyz,t,x1,x2)
-
-                    vApp%chmp2mhd%xyzSquish(i,j,k,1) = x1
-                    vApp%chmp2mhd%xyzSquish(i,j,k,2) = x2
-
-                enddo
-            enddo
-        enddo
-
-        vApp%chmp2mhd%iMax = vApp%iDeep
-
-        end associate
-
-        contains
-            subroutine Proj2LP(ebModel,ebState,xyz,t,x1,x2)
-                type(chmpModel_T), intent(in) :: ebModel
-                type(ebState_T)  , intent(in) :: ebState
-                real(rp), dimension(NDIM), intent(in) :: xyz
-                real(rp), intent(in) :: t
-                real(rp), intent(out) :: x1,x2
-
-                real(rp) :: L,phi,z
-                real(rp), dimension(NDIM) :: xy0
-
-                call getProjection(ebModel,ebState,xyz,t,xy0)
-                !Map projection to L,phi
-
-                z = abs(xy0(ZDIR))
-                L = sqrt(xy0(XDIR)**2.0+xy0(YDIR)**2.0)
-                phi = atan2(xy0(YDIR),xy0(XDIR))
-                if (phi<0) phi = phi+2*PI
-
-                if (z/L > 1.0e-3) then
-                    !Probably failed to get to equator, set L=0
-                    x1 = 0.0
-                    x2 = phi
-                else
-                    x1 = L
-                    x2 = phi
-                endif
-            end subroutine Proj2LP
-
-    end subroutine Squish
 
     !Initialize CHIMP data structure
     subroutine init_volt2Chmp(ebTrcApp,gApp,optFilename)
