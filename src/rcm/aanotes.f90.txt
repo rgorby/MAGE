@@ -1,0 +1,32 @@
+Rcm_mix(Bsm,Psi, Wsm, jpara_rcm,Eave,Fnum)
+! all parameters are defined on 2D RCM grid in SM coordinates (theta,phi)
+Intent(in):: Bsm ! mag. field  vector (x,y,z) components in SM coordinates [T]
+                      Psi    ! potential [V]
+                     
+Intent(out):: Wsm ! 2D SM coordinates of the RCM grid (theta,phi) in radians
+                         Jpara_rcm ! RCM field aligned current [A/m^2]
+                         Eave[fluid] ! 3D array (theta,phi,fluid) including electron and potentially multiple ion fluids [J]
+                         Fnum[fluid] ! 3D array (theta,phi,fluid) including electron and potential multiple ion fluids [#/m^2]
+==============
+ 
+==============
+Rcm_mhd(V,Pave,Nave,x_bmin,Bmin,mask,gamma,Prcm,Nrcm)
+! all parameters are defined on 2D RCM grid in SM coordinates (theta,phi)
+Intent(in):: V  ! MHD flux tube volume [(Pa^1/gamma)*m/T]
+                      Pave ! MHD pressure average over flux tube [Pa]
+                      Nave ! MHD number density [#/m^3]
+                      X_bmin ! location vector of the Bmin surface [m]
+                      Bmin ! minimum magnetic field [T]
+                      Mask ! open/closed field line (-1: closed; 1: open; 0: everything else)
+                      Gamma ! polytropic index
+Intent(out) :: Prcm ! RCM pressure including electron and potential multiple ion fluids [Pa]
+                          Nrcm ! RCM density [#/m^3]
+==============
+ 
+For defining types, include kdefs module and then equate your types to the following
+ 
+    !Define variable precisions                                                                                                                                                              
+    integer, parameter :: sp = REAL32
+    integer, parameter :: dp = REAL64
+    integer, parameter :: ip = INT64
+ 

@@ -112,14 +112,15 @@ module streamline
     end function FLVol
 
     !Averaged density/pressure
-    subroutine FLThermo(Model,ebGr,bTrc,bD,bP,dvB)
+    subroutine FLThermo(Model,ebGr,bTrc,bD,bP,dvB,bBeta)
         type(chmpModel_T), intent(in) :: Model
         type(ebGrid_T), intent(in) :: ebGr
         type(fLine_T), intent(in) :: bTrc
         real(rp), intent(out) :: bD,bP,dvB
+        real(rp), intent(out), optional :: bBeta
 
         integer :: Nc,n,k
-        real(rp), dimension(:), allocatable :: bAvg,dl,eD,eP,dV
+        real(rp), dimension(:), allocatable :: bAvg,dl,eD,eP,ePb
 
         associate(Np=>bTrc%Np,Nm=>bTrc%Nm)
 
@@ -129,7 +130,7 @@ module streamline
         allocate(dl  (Nc)) !Edge length
         allocate(eD  (Nc)) !Edge-centered density
         allocate(eP  (Nc)) !Edge-centered pressure
-        allocate(dV  (Nc)) !Volume element
+        
         n = 1
         do k=-Nm,Np-1
             dl(n)   = norm2(bTrc%xyz(k+1,:)-bTrc%xyz(k,:))
@@ -140,11 +141,17 @@ module streamline
             n = n+1
         enddo
         
-        dV = minval(bAvg)*dl/bAvg
-        dvB = sum(dV) !Total flux-tube volume
-        
-        bD = sum(eD*dV)/dvB
-        bP = sum(eP*dV)/dvB
+        dvB = sum(dl/bAvg) !Total flux-tube volume
+        bD = sum(eD*dl/bAvg)/dvB
+        bP = sum(eP*dl/bAvg)/dvB
+
+        if (present(bBeta)) then
+            allocate(ePb(Nc)) !Edge-centered mag pressure
+            !Get integrated beta
+            !Using Pb [nPa] = 1.0e+14 x ( B[T]/0.501 )^2
+            ePb = 1.0e+14*(bAvg*oBScl*1.0e-9/0.501)**2.0 !Edge mag pressure in nPa
+            bBeta = sum( (eP/ePb)*dl/bAvg )/dvB
+        endif
 
         end associate
     end subroutine FLThermo
@@ -225,6 +232,7 @@ module streamline
         endif
         end associate
     end function FLTop
+
     !Get minimum field strength and location
     subroutine FLEq(Model,bTrc,xeq,Beq)
         type(chmpModel_T), intent(in) :: Model
@@ -494,7 +502,7 @@ module streamline
         !write(*,*) 'Found sign/points/distance = ', sgn,Np,norm2(x0-Xn)
 
     end subroutine project
-
+    
     function getDiag(ebGr,ijk) result (dl)
         type(ebGrid_T), intent(in)   :: ebGr
         integer, intent(in) :: ijk(NDIM)

@@ -13,7 +13,7 @@ program MIX
   character(len=strLen) :: inpXML
 
   integer,parameter :: hmsphrs(2) = [NORTH,SOUTH]
-  real(rp),parameter :: tilt=0.
+  real(rp),parameter :: tilt=0.23456
   type(mixApp_T) :: remixApp
 
   call readArgs(inpXML)

@@ -58,4 +58,28 @@ module earthhelper
         Leq = rad/( cos(lat)*cos(lat) )
     end function DipoleL
     
+    !Take point xyz0 and push along dipole to point with radius r
+    function DipoleShift(xyz0,r) result(xyz)
+        real(rp), intent(in) :: xyz0(NDIM), r
+        real(rp), dimension(NDIM) :: xyz
+
+        real(rp) :: L,mlat,mlon
+        !Find L of this point
+        L = DipoleL(xyz0)
+
+        !Avoid bad values if L<r, push as far as possible
+        L = max(L,r)
+
+        !Use r = L*cos^2(latitude)
+        mlat = abs(acos(sqrt(r/L)))
+        mlon = atan2(xyz0(YDIR),xyz0(XDIR)) !No change in longitude
+        if (mlon<0) mlon = mlon+2*PI
+
+        !Get cartesian coordinates
+        xyz(XDIR) = r*cos(mlat)*cos(mlon)
+        xyz(YDIR) = r*cos(mlat)*sin(mlon)
+        xyz(ZDIR) = r*sin(mlat)
+
+    end function DipoleShift
+
 end module earthhelper

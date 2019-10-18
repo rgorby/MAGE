@@ -47,6 +47,8 @@ module wind
         !Boolean values on outer shell for solar wind influence
         logical, dimension(:,:,:), allocatable :: isWind
 
+        real(rp), dimension(NDIM) :: vFr !Front velocity @ current time
+
         contains
 
         procedure :: doInit => InitWind
@@ -90,6 +92,8 @@ module wind
 
         !Set time series reference point to Origin by default
         bc%xyzW = 0.0
+        bc%vFr = [-1.0,0.0,0.0] !Initial front velocity
+
         call xmlInp%Set_Val(bc%wID,"wind/tsfile","NONE")
 
         !---------------
@@ -122,7 +126,7 @@ module wind
         type(Grid_T), intent(in) :: Grid
 
         real(rp) :: D,P,DelT
-        real(rp), dimension(NDIM) :: nHat,V,B,V0,Vfr,xcc
+        real(rp), dimension(NDIM) :: nHat,vHat,V,B,V0,xcc
         real(rp) :: CosF,SinF,CosBp,SinBp
         real(rp) :: bcc,btt, vMag
         integer :: n,ip,j,k
@@ -144,20 +148,20 @@ module wind
             SinF = bcc/btt
 
             !Calculate front velocity
-            Vfr(XDIR) =  V0(XDIR)*(CosF**2.0)
-            Vfr(YDIR) = -V0(XDIR)*CosF*SinF*CosBp
-            Vfr(ZDIR) = -V0(XDIR)*CosF*SinF*SinBp
+            windBC%vFr(XDIR) =  V0(XDIR)*(CosF**2.0)
+            windBC%vFr(YDIR) = -V0(XDIR)*CosF*SinF*CosBp
+            windBC%vFr(ZDIR) = -V0(XDIR)*CosF*SinF*SinBp
         else
             !ByC and BzC are both nearly zero
-            Vfr(XDIR) = V0(XDIR)
-            Vfr(YDIR) = 0.0
-            Vfr(ZDIR) = 0.0
+            windBC%vFr(XDIR) = V0(XDIR)
+            windBC%vFr(YDIR) = 0.0
+            windBC%vFr(ZDIR) = 0.0
         endif
 
-        vMag = norm2(Vfr)
+        vMag = norm2(windBC%vFr)
 
         !$OMP PARALLEL DO default(shared) &
-        !$OMP private(n,j,k,ip,nHat,xcc,DelT,D,P,V,B)
+        !$OMP private(n,j,k,ip,nHat,vHat,xcc,DelT,D,P,V,B)
         do k=Grid%ksg,Grid%keg
             do j=Grid%jsg,Grid%jeg
                 ip = Grid%ie
@@ -165,7 +169,9 @@ module wind
                 do n=1,Model%Ng
                     !Calculate lag time to cell center of this ghost
                     xcc = Grid%xyzcc(ip+n,j,k,:)
-                    DelT = dot_product(xcc-windBC%xyzW,Vfr)/vMag**2.0
+                    DelT = dot_product(xcc-windBC%xyzW,windBC%vFr)/vMag**2.0
+
+                    vHat = normVec(V) !Normalized velocity direction
 
                     !Set isWind, ie influenced by solar wind or not
                     call windBC%getWind(windBC,Model,Model%t-DelT,D,P,V,B)
@@ -173,7 +179,8 @@ module wind
                     !Ie, B(XDIR) = By*ByC + Bz*BzC + Bx0
 
                     !Check direction
-                    if ( dot_product(nHat,V)<=0 ) then
+                    !if ( dot_product(nHat,V)<=0 ) then
+                    if ( dot_product(nHat,-vHat)>=-0.7071067811 ) then
                         windBC%isWind(n,j,k) = .true.
                     else
                         windBC%isWind(n,j,k) = .false.
@@ -200,6 +207,25 @@ module wind
         enddo
 
     end subroutine RefreshWind
+
+    !Get solar wind at point in space-time
+    subroutine GetWindAt(windBC,Model,xyz,t,Rho,Pr,V,B)
+        class(WindBC_T), intent(inout) :: windBC
+        type(Model_T), intent(in) :: Model
+        real(rp), intent(in) :: t
+        real(rp), intent(in) :: xyz(NDIM)
+        real(rp), intent(out) :: Rho,Pr
+        real(rp), dimension(NDIM), intent(out) :: V, B
+
+        real(rp) :: vMag,DelT
+        vMag = norm2(windBC%vFr)
+
+        !Calculate lag time to this cell
+        DelT = dot_product(xyz-windBC%xyzW,windBC%vFr)/vMag**2.0
+        !Rewind by lag time
+        call windBC%getWind(windBC,Model,t-DelT,Rho,Pr,V,B)
+
+    end subroutine GetWindAt
 
     !Do outer I BC for solar wind
     subroutine WindBC(bc,Model,Grid,State)
@@ -266,15 +292,11 @@ module wind
                     
                     !Set flux/fields based on Bxyz
                     State%Bxyz(ig,j,k,:) = Bxyz
-                    ! !NOTE: Using geometry from active grid to ensure smoother stencil
-                    State%magFlux(ig+1,j,k,IDIR) = Grid%face(ip+1,j,k,IDIR)*dot_product(Grid%Tf(ip+1,j,k,NORMX:NORMZ,IDIR),Bxyz)
-                    State%magFlux(ig  ,j,k,JDIR) = Grid%face(ip  ,j,k,JDIR)*dot_product(Grid%Tf(ip  ,j,k,NORMX:NORMZ,JDIR),Bxyz)
-                    State%magFlux(ig  ,j,k,KDIR) = Grid%face(ip  ,j,k,KDIR)*dot_product(Grid%Tf(ip  ,j,k,NORMX:NORMZ,KDIR),Bxyz)
 
-                    ! State%magFlux(ig+1,j,k,IDIR) = Grid%face(ig+1,j,k,IDIR)*dot_product(Grid%Tf(ig+1,j,k,NORMX:NORMZ,IDIR),Bxyz)
-                    ! State%magFlux(ig  ,j,k,JDIR) = Grid%face(ig  ,j,k,JDIR)*dot_product(Grid%Tf(ig  ,j,k,NORMX:NORMZ,JDIR),Bxyz)
-                    ! State%magFlux(ig  ,j,k,KDIR) = Grid%face(ig  ,j,k,KDIR)*dot_product(Grid%Tf(ig  ,j,k,NORMX:NORMZ,KDIR),Bxyz)
-
+                    !Now set face fluxes
+                    State%magFlux(ig+1,j,k,IDIR) = Grid%face(ig+1,j,k,IDIR)*dot_product(Grid%Tf(ig+1,j,k,NORMX:NORMZ,IDIR),Bxyz)
+                    State%magFlux(ig  ,j,k,JDIR) = Grid%face(ig  ,j,k,JDIR)*dot_product(Grid%Tf(ig  ,j,k,NORMX:NORMZ,JDIR),Bxyz)
+                    State%magFlux(ig  ,j,k,KDIR) = Grid%face(ig  ,j,k,KDIR)*dot_product(Grid%Tf(ig  ,j,k,NORMX:NORMZ,KDIR),Bxyz)
                     
                 enddo
             enddo
@@ -284,27 +306,46 @@ module wind
 
     !Fix outer shell electric fields to solar wind values
     subroutine WindEFix(windBC,Model,Grid,State)
-        class(windBC_T), intent(in) :: windBC
+        class(windBC_T), intent(inout) :: windBC
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(inout) :: State
 
         integer :: i,j,k,n
-        real(rp), dimension(NDIM) :: Exyz, e1,e2
+        real(rp), dimension(NDIM) :: Exyz, e1,e2,ecc,Vxyz,Bxyz
+        real(rp) :: D,P
 
+        
+        !$OMP PARALLEL DO default(shared) &
+        !$OMP private(i,j,k,n,Exyz,e1,e2,ecc,Vxyz,Bxyz,D,P)
         do k=Grid%ksg,Grid%keg
             do j=Grid%jsg,Grid%jeg
                 if (windBC%isWind(1,j,k)) then
-                    !Set front-side tangential electric fields to solar wind
-                    do i=Grid%ie+1,Grid%ie+1
-                        Exyz = windBC%ExyzW(1,j,k,:)
-                        do n=JDIR,KDIR
+                    !Go big on setting fields
+
+                    do i=Grid%ie,Grid%ie+1
+                        !Exyz = windBC%ExyzW(1,j,k,:)
+                        do n=IDIR,KDIR
                             !Get edge coordinates
                             call edgeCoords(Model,Grid,i,j,k,n,e1,e2)
+                            ecc = 0.5*(e1+e2)
+                            !Evaluate wind at edge center
+                            call GetWindAt(windBC,Model,ecc,State%time,D,P,Vxyz,Bxyz)
+                            !Calculate solar wind e field
+                            Exyz = -cross(Vxyz,Bxyz)
                             State%Efld(i,j,k,n) = dot_product(Exyz,e2-e1)
                         enddo
-
                     enddo
+
+                    ! !Set front-side tangential electric fields to solar wind
+                    ! do i=Grid%ie+1,Grid%ie+1
+                    !     Exyz = windBC%ExyzW(1,j,k,:)
+                    !     do n=JDIR,KDIR
+                    !         !Get edge coordinates
+                    !         call edgeCoords(Model,Grid,i,j,k,n,e1,e2)
+                    !         State%Efld(i,j,k,n) = dot_product(Exyz,e2-e1)
+                    !     enddo
+                    ! enddo
 
                 endif
             enddo
@@ -442,6 +483,9 @@ module wind
         V   = w0*windBC%Q(i0,VELX:VELZ) + w1*windBC%Q(i1,VELX:VELZ)
         B   = w0*windBC%B(i0,:        ) + w1*windBC%B(i1,:        )
 
+        !Replace Bx w/ coefficient expansion
+        B(XDIR) = windBC%Bx0 + windBC%ByC*B(YDIR) + windBC%BzC*B(ZDIR)
+        
     end subroutine InterpWind
 
 end module wind

@@ -1,12 +1,13 @@
-module eqmap
+!Routines to handle SST inner magnetosphere model
+module sstimag
+    use volttypes
     use ebtypes
     use ebinit
     use ioh5
     use files
-    
-    implicit none
+    use earthhelper
 
-    integer, parameter :: NVAREQMAP = 1
+    implicit none
 
     type eqData_T
         type(ebTab_T)   :: ebTab
@@ -25,9 +26,10 @@ module eqmap
     contains
 
     !Initialize EQ Map data
-    subroutine initEQMap(iXML)
+    subroutine initSST(iXML,isRestart)
         type(XML_Input_T), intent(in) :: iXML
-        
+        logical, intent(in) :: isRestart !Do you even care?
+
         character(len=strLen) :: eqFile
         integer :: i,j,n1,n2
         integer :: dims(2)
@@ -51,8 +53,8 @@ module eqmap
         allocate(eqData%X(1:eqData%Nr+1,1:eqData%Np+1))
         allocate(eqData%Y(1:eqData%Nr+1,1:eqData%Np+1))
 
-        allocate(eqData%eqW1(1:eqData%Nr,1:eqData%Np,NVAREQMAP))
-        allocate(eqData%eqW2(1:eqData%Nr,1:eqData%Np,NVAREQMAP))
+        allocate(eqData%eqW1(1:eqData%Nr,1:eqData%Np,NVARIMAG))
+        allocate(eqData%eqW2(1:eqData%Nr,1:eqData%Np,NVARIMAG))
 
     !Read grid
         call ClearIO(IOVars)
@@ -89,29 +91,10 @@ module eqmap
         eqData%eqN2 = n2
         eqData%eqT2 = eqData%ebTab%times(n2)
 
-    end subroutine initEQMap
-
-    subroutine rdEQMap(ebTab,n,W)
-        type(ebTab_T), intent(in) :: ebTab
-        integer, intent(in) :: n
-        real(rp), dimension(:,:,:), intent(inout) :: W
-
-        integer, parameter :: NIOVAR = 2
-        type(IOVAR_T), dimension(NIOVAR) :: IOVars
-        integer :: dims(2)
-
-        write(*,*) 'Reading file/group = ', trim(ebtab%bStr),'/',trim(ebTab%gStrs(n))
-        call ClearIO(IOVars)
-        call AddInVar(IOVars,"P")
-
-        call ReadVars(IOVars,.false.,ebTab%bStr,ebTab%gStrs(n))
-
-        dims = [eqData%Nr,eqData%Np]
-        W(:,:,1) = reshape(IOVars(1)%data,dims)
-    end subroutine rdEQMap
+    end subroutine initSST
 
     !Update eq map state for current time
-    subroutine updateEQMap(t)
+    subroutine AdvanceSST(t)
         real(rp), intent(in) :: t
 
         integer :: n1,n2
@@ -136,15 +119,34 @@ module eqmap
             eqData%eqT2 = eqData%ebTab%times(n2)
         endif
 
-    end subroutine updateEQMap
+    end subroutine AdvanceSST
+
+    subroutine rdEQMap(ebTab,n,W)
+        type(ebTab_T), intent(in) :: ebTab
+        integer, intent(in) :: n
+        real(rp), dimension(:,:,:), intent(inout) :: W
+
+        integer, parameter :: NIOVAR = 2
+        type(IOVAR_T), dimension(NIOVAR) :: IOVars
+        integer :: dims(2)
+
+        write(*,*) 'Reading file/group = ', trim(ebtab%bStr),'/',trim(ebTab%gStrs(n))
+        call ClearIO(IOVars)
+        call AddInVar(IOVars,"P")
+
+        call ReadVars(IOVars,.false.,ebTab%bStr,ebTab%gStrs(n))
+
+        dims = [eqData%Nr,eqData%Np]
+        W(:,:,1) = reshape(IOVars(1)%data,dims)
+    end subroutine rdEQMap
 
     !Evaluate eq map at a given point
     !Returns density (#/cc) and pressure (nPa)
-    subroutine evalEQMap(r,phi,t,D,P)
+    subroutine EvalSST(r,phi,t,imW)
         real(rp), intent(in) :: r,phi,t
-        real(rp), intent(out) :: D,P
+        real(rp), intent(out) :: imW(NVARIMAG)
 
-        real(rp) :: x0,y0
+        real(rp) :: D,P,x0,y0
         integer :: ij0(2),i0,j0
         real(rp) :: w1,w2
 
@@ -152,14 +154,17 @@ module eqmap
         y0 = r*sin(phi)
 
         ij0 = minloc( (eqData%xxc-x0)**2.0 + (eqData%yyc-y0)**2.0 )
+        
+        D = psphD(r) !Gallagher plasmasphere
 
-        D = gallagherD(r)
         i0 = ij0(IDIR)
         j0 = ij0(JDIR)
 
         call tWeights(t,w1,w2)
         P = w1*eqData%eqW1(i0,j0,1) + w2*eqData%eqW2(i0,j0,1)
-    end subroutine evalEQMap
+        imW(IMDEN) = D
+        imW(IMPR)  = P
+    end subroutine EvalSST
 
     !Get weights for given time
     subroutine tWeights(t,w1,w2)
@@ -190,33 +195,4 @@ module eqmap
         endif !Weights
     end subroutine
 
-    ! VGM stole from LTR-para/RCM/src/tomhd.F90
-    ! originally written by Frank Toffoletto for LFM-RCM coupling
-    function gallagherD(L) result(density)
-    ! approx based on gallagher et al, figure 1
-    ! JOURNAL OF GEOPHYSICAL RESEARCH, VOL. 105, NO. A8, PAGES 18,819-18,833, AUGUST 1, 2000
-    ! returns values in ples/cc
-        real(rp),intent(in) :: L
-        real(rp)  :: density
-        real(rp), parameter :: L0 = 4.5
-        real(rp), parameter :: alpha = 10.
-        real(rp), parameter :: a1 = -0.25
-        real(rp), parameter :: b1 = 2.4
-        real(rp), parameter :: a2 = -0.5
-        real(rp), parameter :: b2 = 4.5
-        real ::f,q
-
-        if (L<TINY) then
-            !Deal with L=0 (projection failed) case
-            density = 0.0
-        else
-            f = 0.5*(1.0+tanh(alpha*(L-L0)))
-            q = f*(a1*L + b1) + (1.0-f)*(a2*L + b2)
-            density = 10.**q
-        endif
-
-    end function gallagherD
-
-
-end module eqmap
-
+end module sstimag

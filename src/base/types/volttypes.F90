@@ -9,6 +9,22 @@ module volttypes
 
     implicit none
 
+    enum, bind(C)
+        enumerator :: IMAGRCM=1,IMAGSST
+    endenum
+
+    !Projection types
+    enum, bind(C) 
+        !L-phi (equatorial), Lat-Lon (northern ionospheric)
+        enumerator :: LPPROJ=1,LLPROJ
+    endenum
+
+    !Data for inner mag => gamera variables
+    enum, bind(C)
+        enumerator :: IMDEN=1,IMPR
+    endenum
+    integer, parameter :: NVARIMAG = 2
+
     ! data for remix -> gamera conversion
     type mix2Mhd_T
         real(rp), dimension(:,:,:,:,:), allocatable :: mixOutput
@@ -69,9 +85,9 @@ module volttypes
         real(rp) :: DeepDT
         logical  :: doDeep = .false. !Whether to do deep coupling
         real(rp) :: rDeep !Radius (in code units) to do deep coupling
-        integer  :: iDeep = 0 !Index of max i shell containing deep coupling radius
-        logical  :: doEQ = .false. !Do equatorial pressure mapping
-
+        integer  :: iDeep  = 0 !Index of max i shell containing deep coupling radius
+        integer  :: imType = 0 !Type of inner magnetosphere model (0 = None)
+        integer  :: prType = 0 !Type of projection for coupling   (0 = None)
     end type voltApp_T
 
 end module volttypes

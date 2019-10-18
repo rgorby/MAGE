@@ -5,6 +5,13 @@ module files
 
     contains
 
+    function CheckFile(fIn)
+        character(len=*), intent(in) :: fIn
+        logical :: CheckFile
+
+        inquire(file=fIn,exist=CheckFile)
+    end function CheckFile
+
     subroutine CheckFileOrDie(fIn,errStr)
         character(len=*), intent(in) :: fIn,errStr
 

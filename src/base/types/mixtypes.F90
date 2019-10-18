@@ -112,5 +112,12 @@ module mixtypes
      type(mixIon_T), dimension(:), allocatable :: ion  
   end type mixApp_T
 
+  ! use this as a container to store the variables read from a previous H5 file
+  type mixIO_T
+     real(rp) :: time, mjd, tilt
+     real(rp), dimension(:,:), allocatable :: x,y
+     real(rp), dimension(:,:,:,:), allocatable :: vars !(Np,Nt,Nvars,Nhemispheres)
+  end type mixIO_T
+
 end module mixtypes
 

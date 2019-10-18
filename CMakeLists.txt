@@ -126,8 +126,21 @@ add_subdirectory(src/remix)
 add_custom_target(remix ALL)
 message("\tAdding executable remix.x")
 add_executable(remix.x src/drivers/remix.F90)
+add_executable(remix2remix.x src/drivers/remix2remix.F90)
 target_link_libraries(remix.x baselib remixlib)
-add_dependencies(remix remix.x baselib)
+target_link_libraries(remix2remix.x baselib remixlib)
+add_dependencies(remix remix.x remix2remix.x baselib)
+
+#-------------
+#Kaiju: RCM
+message("Adding RCM module ...")
+#Add source
+add_subdirectory(src/rcm)
+add_custom_target(rcm ALL)
+message("\tAdding executable rcm.x")
+add_executable(rcm.x src/drivers/rcmx.F90)
+target_link_libraries(rcm.x baselib rcmlib)
+add_dependencies(rcm rcm.x baselib)
 
 #-------------
 #Kaiju: Voltron
@@ -137,8 +150,8 @@ add_subdirectory(src/voltron)
 add_custom_target(voltron ALL)
 message("\tAdding executable voltron.x")
 add_executable(voltron.x src/drivers/voltronx.F90)
-target_link_libraries(voltron.x baselib gamlib remixlib voltlib chimplib)
-add_dependencies(voltron voltron.x remixlib gamlib baselib chimplib)
+target_link_libraries(voltron.x baselib gamlib remixlib chimplib rcmlib voltlib)
+add_dependencies(voltron voltron.x rcmlib chimplib remixlib gamlib baselib)
 
 if(ENABLE_MPI)
     #-------------
