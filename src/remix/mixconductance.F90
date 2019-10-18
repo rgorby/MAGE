@@ -5,7 +5,7 @@ module mixconductance
   
   implicit none
 
-  real(rp), dimension(:,:), allocatable :: tmpD ! used for chilling in Fedder95. Declare it here so we can allocate in init.
+  real(rp), dimension(:,:), allocatable :: tmpD,tmpC ! used for chilling in Fedder95. Declare it here so we can allocate in init.
 
   contains
     subroutine conductance_init(conductance,Params,G)
@@ -59,6 +59,7 @@ module mixconductance
       if (.not. allocated(conductance%engFlux)) allocate(conductance%engFlux(G%Np,G%Nt))
 
       if (.not. allocated(tmpD)) allocate(tmpD(G%Np,G%Nt))
+      if (.not. allocated(tmpC)) allocate(tmpC(G%Np,G%Nt))      
 
     end subroutine conductance_init
 
@@ -142,13 +143,14 @@ module mixconductance
          ! MHD density replaced with gallagher where it's lower      
          ! and temperature changed correspondingly
           tmpD = max(G%D0*Mp_cgs,St%Vars(:,:,DENSITY))
-          St%Vars(:,:,SOUND_SPEED) = St%Vars(:,:,SOUND_SPEED)*sqrt(St%Vars(:,:,DENSITY)/tmpD)
-          St%Vars(:,:,DENSITY) = tmpD
+          tmpC = St%Vars(:,:,SOUND_SPEED)*sqrt(St%Vars(:,:,DENSITY)/tmpD)
+       else
+          tmpD = St%Vars(:,:,DENSITY)
+          tmpC = St%Vars(:,:,SOUND_SPEED)
       end if
       
-      conductance%E0 = conductance%alpha*Mp_cgs*heFrac*erg2kev*St%Vars(:,:,SOUND_SPEED)**2*conductance%RampFactor
-      conductance%phi0 = sqrt(kev2erg)/(heFrac*Mp_cgs)**1.5D0*conductance%beta*St%Vars(:,:,DENSITY)*sqrt(conductance%E0)*conductance%RampFactor
-
+      conductance%E0 = conductance%alpha*Mp_cgs*heFrac*erg2kev*tmpC**2*conductance%RampFactor
+      conductance%phi0 = sqrt(kev2erg)/(heFrac*Mp_cgs)**1.5D0*conductance%beta*tmpD*sqrt(conductance%E0)*conductance%RampFactor
       ! resistence out of the ionosphere is 2*rout resistence into the
       ! ionosphere is 2*rin outward current is positive
       where ( signOfJ*St%Vars(:,:,FAC) >=0. ) 
@@ -158,10 +160,10 @@ module mixconductance
       end where
    
       ! Density floor to limit characteristic energy.  See Wiltberger et al. 2009 for details.
-      where (St%Vars(:,:,DENSITY) < rhoFactor*conductance%euvSigmaP) 
-         St%Vars(:,:,DENSITY) = rhoFactor*conductance%euvSigmaP
+      where (tmpD < rhoFactor*conductance%euvSigmaP) 
+         tmpD = rhoFactor*conductance%euvSigmaP
       end where
-      conductance%deltaE = (heFrac*Mp_cgs)**1.5D0/eCharge*1.D-4*sqrt(erg2kev)*conductance%R*conductance%aRes*signOfJ*(St%Vars(:,:,FAC)*1.e-6)*sqrt(conductance%E0)/St%Vars(:,:,DENSITY)
+      conductance%deltaE = (heFrac*Mp_cgs)**1.5D0/eCharge*1.D-4*sqrt(erg2kev)*conductance%R*conductance%aRes*signOfJ*(St%Vars(:,:,FAC)*1.e-6)*sqrt(conductance%E0)/tmpD
 
       ! limit the max potential energy drop to 20 [keV]
       conductance%deltaE = min(20.D0,conductance%deltaE)
@@ -195,13 +197,15 @@ module mixconductance
 
       ! always call fedder to fill in AVG_ENERGY and NUM_FLUX
       ! even if const_sigma, we still have the precip info that way
+
+      ! compute EUV though because it's used in fedder
+      call conductance_euv(conductance,G,St)
       call conductance_fedder95(conductance,G,St)
       
       if (conductance%const_sigma) then
          St%Vars(:,:,SIGMAP) = conductance%ped0
          St%Vars(:,:,SIGMAH) = 0.D0
       else
-         call conductance_euv(conductance,G,St)
          call conductance_aurora(conductance,G,St)
       
          St%Vars(:,:,SIGMAP) = sqrt( conductance%euvSigmaP**2 + conductance%deltaSigmaP**2) 

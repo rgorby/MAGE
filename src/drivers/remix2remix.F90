@@ -15,20 +15,19 @@ program remix2remix
   character(len=strLen) :: inpXML,inH5,outH5
   type(mixIO_T) :: mixIOobj
   type(mixIon_T),dimension(:),allocatable :: I
-  real(rp) :: time, mjd
   ! assume the file has both hemispheres
   ! if not change it here and recompile
   ! could put in logic to figure it out from data set names in inH5
   ! but feels like too much trouble for a fairly specific application
-  integer,parameter :: hmsphrs(2) = [NORTH,SOUTH]  
+  integer,parameter :: hmsphrs(2) = [NORTH,SOUTH]
+  integer :: Step = 0  ! read from xml eventually
   
 
   call readArgs(inpXML,inH5,outH5)
-!  call init_mix(remixApp%ion,hmsphrs,inpXML,'mixtest',.false.)  
-  call readMIX(trim(inH5),0,mixIOobj)
+  call readMIX(trim(inH5),Step,mixIOobj)
   call init_mix(I,hmsphrs,inpXML,outH5,.false.,mixIOobj)
   call run_mix(I,mixIOobj%tilt)
-  call writeMIX(I,0,1344._rp,1555._rp)
+  call writeMIX(I,0,mixIOobj%mjd,mixIOobj%time)
 
 contains
   
