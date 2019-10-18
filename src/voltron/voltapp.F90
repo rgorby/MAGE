@@ -28,7 +28,8 @@ module voltapp
         character(len=strLen) :: inpXML
         type(XML_Input_T) :: xmlInp
         type(TimeSeries_T) :: tsMJD
-        real(rp) :: gTScl
+        real(rp) :: gTScl,tSpin,tIO
+        logical :: doSpin,doDelayIO
 
         if(present(optFilename)) then
             ! read from the prescribed file
@@ -49,6 +50,19 @@ module voltapp
         call vApp%tilt%initTS("tilt")
 
         gTScl = gApp%Model%Units%gT0
+
+        !Check for spinup info
+        call xmlInp%Set_Val(doSpin,"spinup/doSpin",.true.)
+        tIO = 0.0
+        doDelayIO = .false.
+        if (doSpin .and. (.not. gApp%Model%isRestart)) then
+            !Doing spinup and not a restart
+            call xmlInp%Set_Val(tSpin,"spinup/tSpin",7200.0) !Default two hours
+            gApp%Model%t = -tSpin/gTScl !Rewind Gamera time to negative tSpin (seconds)
+            doDelayIO = .true.
+            call xmlInp%Set_Val(tIO,"spinup/tIO",0.0) !Time of first restart
+        endif
+
         vApp%time = gApp%Model%t*gTScl !Time in seconds
         vApp%ts   = gApp%Model%ts !Timestep
 
@@ -67,16 +81,21 @@ module voltapp
         gApp%Model%tFin = vApp%tFin/gTScl
         
     !IO/Restart options
-        call vApp%IO%init(xmlInp,vApp%time)
+        if (doDelayIO) then
+            call vApp%IO%init(xmlInp,tIO)
+        else
+            call vApp%IO%init(xmlInp,vApp%time)
+        endif
+
         !Pull numbering from Gamera
         vApp%IO%nRes = gApp%Model%IO%nRes
         vApp%IO%nOut = gApp%Model%IO%nOut
         !Force Gamera IO times to match Voltron IO
-        call IOSync(vApp%IO,gApp%Model%IO,1.0/gTScl)        
-        
+        call IOSync(vApp%IO,gApp%Model%IO,1.0/gTScl)
 
     !Shallow coupling
-        vApp%ShallowT = 0.0_rp
+        !Start shallow coupling immediately
+        vApp%ShallowT = vApp%time
         call xmlInp%Set_Val(vApp%ShallowDT ,"coupling/dt" , 0.1_rp)
 
     !Deep coupling
@@ -91,6 +110,8 @@ module voltapp
         endif
 
         if (vApp%doDeep) then
+            !Set first deep coupling (defaulting to 0)
+            call xmlInp%Set_Val(vApp%DeepT, "coupling/tDeep", 0.0_rp)
             !Initialize deep coupling type/inner magnetosphere model
             call InitInnerMag(vApp,gApp%Model%isRestart,xmlInp)
         endif
@@ -104,7 +125,7 @@ module voltapp
 
         !Do first couplings
         call ShallowUpdate(vApp,gApp,vApp%time)
-        if (vApp%doDeep) then
+        if (vApp%doDeep .and. (vApp%time>=vApp%DeepT)) then
             call DeepUpdate(vApp,gApp,vApp%time)
         endif
 
@@ -115,7 +136,6 @@ module voltapp
         call consoleOutputV(vApp,gApp)
         if (.not. gApp%Model%isRestart) call fOutputV(vApp,gApp)
         
-
     end subroutine initVoltron
 
     !Step Voltron if necessary (currently just updating state variables)
