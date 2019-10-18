@@ -213,9 +213,10 @@
       imin_j     = CEILING(bndloc)
       imin_j_old = CEILING(bndloc_old)
 
-      write(*,*)'imin_j',imin_j
-      write(*,*)'imin_j_old',imin_j_old
-      write(*,*)'rec =',rec
+      !K: Suppressing output
+      !write(*,*)'imin_j',imin_j
+      !write(*,*)'imin_j_old',imin_j_old
+      !write(*,*)'rec =',rec
     
    ! Set boundary conditions on plasma (EETA) for all MLT's and energy levels:
    DO k=1,kdim

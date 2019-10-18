@@ -1,10 +1,18 @@
 !Routines to handle RCM inner magnetosphere model
+!NOTES: 
+!-Figure out flux-tube volume units
+!-add ReMIX potential to MHD=>RCM tubes
+!-Work on upating legacy Fortran
+!-Work on OMP bindings
+!-Streamline console noise
+
 module rcmimag
     use volttypes
     use ioh5
     use files
     use earthhelper
     use rcm_mhd_interfaces
+    use streamline
 
     implicit none
 
@@ -13,7 +21,7 @@ module rcmimag
 
     !Scaling parameters
     real(rp), private :: rcmPScl = 1.0e+9 !Convert Pa->nPa
-    real(rp), private :: rcmNScl = 1.0 !Convert xxx => #/cc
+    real(rp), private :: rcmNScl = 1.0e-6 !Convert #/m3 => #/cc
 
     integer, parameter :: MAXRCMIOVAR = 10
     character(len=strLen), private :: h5File
@@ -23,7 +31,19 @@ module rcmimag
     real(rp), private :: colat_boundary
     real(rp), private :: ddt
 
+    !Information taken from MHD flux tubes
+    !TODO: Figure out -volume for open flux tubes?
+    !TODO: Figure out iopen values
+    !TODO: Figure out units for potential
 
+    !Pave = Average pressure [Pa]
+    !Nave = Average density [#/m3]
+    !Vol  = Flux-tube volume [XXX?] (seems like it is Re/T)
+    !bmin = Min field strength [T]
+    !X_bmin = Location of Bmin [m]
+    !beta_average = Average plasma beta
+    !Potential = MIX potential [XXX?]
+    !iopen = Field line topology (-1: Closed, 1: Open, 1: Else????)
     type RCMTube_T
         real(rp) :: Vol,bmin,beta_average,Pave,Nave,pot
         real(rp) :: X_bmin(NDIM)
@@ -80,16 +100,18 @@ module rcmimag
     !Load RCM tubes
         rcmbndy = 30 !I don't know where this is coming from
         colat_boundary = sin(RCMApp%gcolat(rcmbndy))
-        write(*,*) RCMApp%nLat_ion,RCMApp%nLon_ion
 
+
+       !$OMP PARALLEL DO default(shared) collapse(2) &
+       !$OMP private(i,j,colat,lat,lon,ijTube)
         do i=1,RCMApp%nLat_ion
             do j=1,RCMApp%nLon_ion
                 colat = RCMApp%gcolat(i)
                 lat = PI/2 - colat
                 lon = RCMApp%glong(j)
-
-                !Load a dipole-ish tube
-                call DipoleTube(lat,lon,ijTube)
+                
+                !call DipoleTube(vApp,lat,lon,ijTube)
+                call MHDTube(vApp,lat,lon,ijTube)
 
                 !Pull data into RCMApp
                 RCMApp%Vol(i,j)          = ijTube%Vol
@@ -140,9 +162,98 @@ module rcmimag
         imW(IMPR ) = RCMApp%Prcm(i0,j0)*rcmPScl
 
     end subroutine EvalRCM
+!--------------
+!MHD=>RCM routines
+    !MHD flux-tube
+    subroutine MHDTube(vApp,lat,lon,ijTube)
+        type(voltApp_T), intent(in) :: vApp
+        real(rp), intent(in) :: lat,lon
+        type(RCMTube_T), intent(out) :: ijTube
+
+        type(fLine_T) :: bTrc
+        real(rp) :: t, bMin
+        real(rp), dimension(NDIM) :: x0, bEq, xyzIon
+        type(RCMTube_T) :: dpTube
+        integer :: OCb
+        real(rp) :: bD,bP,dvB,bBeta
+    !First get seed for trace
+        !Assume lat/lon @ Earth, dipole push to R=2.5
+        xyzIon(XDIR) = 1.0*cos(lat)*cos(lon)
+        xyzIon(YDIR) = 1.0*cos(lat)*sin(lon)
+        xyzIon(ZDIR) = 1.0*sin(lat)
+        x0 = DipoleShift(xyzIon,2.05_rp)
+        
+    !Now do field line trace
+        associate(ebModel=>vApp%ebTrcApp%ebModel,ebGr=>vApp%ebTrcApp%ebState%ebGr,ebState=>vApp%ebTrcApp%ebState)
+
+        t = ebState%eb1%time !Time in CHIMP units
+        call genStream(ebModel,ebState,x0,t,bTrc)
+
+    !Get diagnostics from field line
+        !Minimal surface (bEq in Re, bMin in EB)
+        call FLEq(ebModel,bTrc,bEq,bMin)
+        bMin = bMin*oBScl*1.0e-9 !EB=>Tesla
+        bEq = bEq*Re_cgs*1.0e-2 !Re=>meters
+
+        !Plasma quantities
+        !dvB = Flux-tube volume (Re/EB)
+        call FLThermo(ebModel,ebGr,bTrc,bD,bP,dvB,bBeta)
+        !This converts Re/EB => m/T (seems wrong)
+        !dvB = dvB*(Re_cgs*1.0e-2)/(oBScl*1.0e-9)
+        !Converts Re/EB => Re/T
+        dvB = dvB/(oBScl*1.0e-9)
+        bP = bP*1.0e-9 !nPa=>Pa
+        bD = bD*1.0e+6 !#/cc => #/m3
+        !Topology
+        !OCB =  0 (solar wind), 1 (half-closed), 2 (both ends closed)
+        OCb = FLTop(ebModel,ebGr,bTrc)
+
+        end associate
+
+        !Get dipole tube to test against
+        call DipoleTube(vApp,lat,lon,dpTube)
+
+    !Scale and store information
+        ijTube%X_bmin = bEq
+        ijTube%bmin = bMin
+        select case(OCb)
+        case(0)
+            !Solar wind (weird)
+            ijTube%iopen = 1
+            ijTube%Vol = -dvB
+        case(1)
+            !Open field
+            ijTube%iopen = 1
+            ijTube%Vol = -dvB
+        case(2)
+            !Closed field
+            ijTube%iopen = -1
+            ijTube%Vol = dvB
+        end select
+
+        ijTube%Pave = bP
+        ijTube%Nave = bD
+        ijTube%beta_average = bBeta
+        ijTube%pot = dpTube%pot
+
+        ! write(*,*) '---'
+        ! write(*,*) 'Lat/Lon = ', lat*180.0/PI,lon*180.0/PI
+        ! write(*,*) 'x0 = ', x0
+        ! write(*,'(a,2es9.2)') 'Vol = ', ijTube%Vol,dpTube%Vol
+        ! write(*,*) 'Den = ', ijTube%Nave,dpTube%Nave
+        ! write(*,*) 'Pre = ', ijTube%Pave,dpTube%Pave
+        ! write(*,*) 'iop = ', ijTube%iopen,dpTube%iopen
+        ! write(*,*) 'bmin = ', ijTube%bmin,dpTube%bmin
+        ! write(*,*) 'xEq = ', ijTube%X_bmin,dpTube%X_bmin
+        ! write(*,*) 'beta = ', ijTube%beta_average,dpTube%beta_average
+        ! write(*,*) 'pot = ', ijTube%pot, dpTube%pot
+        ! write(*,*) '---'
+
+    end subroutine MHDTube
 
     !Lazy test flux tube
-    subroutine DipoleTube(lat,lon,ijTube)
+    subroutine DipoleTube(vApp,lat,lon,ijTube)
+        type(voltApp_T), intent(in) :: vApp
         real(rp), intent(in) :: lat,lon
         type(RCMTube_T), intent(out) :: ijTube
 
@@ -177,6 +288,8 @@ module rcmimag
 
     end subroutine DipoleTube
 
+!--------------
+!Kaiju RCM IO Routines
     subroutine initRCMIO()
         type(IOVAR_T), dimension(MAXRCMIOVAR) :: IOVars
 
@@ -203,14 +316,16 @@ module rcmimag
             enddo
         enddo
 
-        iLat = 90.0-iLat*180.0/PI
+        iLat = 90.0-iLat*180.0/PI !Turn colat into lat
         iLon = iLon*180.0/PI
 
         !Reset IO chain
         call ClearIO(IOVars)
         
-        call AddOutVar(IOVars,"X",iLat)
-        call AddOutVar(IOVars,"Y",iLon)                
+        !Flipping lat/lon
+        call AddOutVar(IOVars,"X",iLon)
+        call AddOutVar(IOVars,"Y",iLat)
+                        
 
         call WriteVars(IOVars,.true.,h5File)
 

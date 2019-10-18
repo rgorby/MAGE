@@ -112,14 +112,15 @@ module streamline
     end function FLVol
 
     !Averaged density/pressure
-    subroutine FLThermo(Model,ebGr,bTrc,bD,bP,dvB)
+    subroutine FLThermo(Model,ebGr,bTrc,bD,bP,dvB,bBeta)
         type(chmpModel_T), intent(in) :: Model
         type(ebGrid_T), intent(in) :: ebGr
         type(fLine_T), intent(in) :: bTrc
         real(rp), intent(out) :: bD,bP,dvB
+        real(rp), intent(out), optional :: bBeta
 
         integer :: Nc,n,k
-        real(rp), dimension(:), allocatable :: bAvg,dl,eD,eP
+        real(rp), dimension(:), allocatable :: bAvg,dl,eD,eP,ePb
 
         associate(Np=>bTrc%Np,Nm=>bTrc%Nm)
 
@@ -141,8 +142,16 @@ module streamline
         enddo
         
         dvB = sum(dl/bAvg) !Total flux-tube volume
-        bD = sum(eD*dl/bAvg)
-        bP = sum(eP*dl/bAvg)
+        bD = sum(eD*dl/bAvg)/dvB
+        bP = sum(eP*dl/bAvg)/dvB
+
+        if (present(bBeta)) then
+            allocate(ePb(Nc)) !Edge-centered mag pressure
+            !Get integrated beta
+            !Using Pb [nPa] = 1.0e+14 x ( B[T]/0.501 )^2
+            ePb = 1.0e+14*(bAvg*oBScl*1.0e-9/0.501)**2.0 !Edge mag pressure in nPa
+            bBeta = sum( (eP/ePb)*dl/bAvg )/dvB
+        endif
 
         end associate
     end subroutine FLThermo
@@ -223,6 +232,7 @@ module streamline
         endif
         end associate
     end function FLTop
+
     !Get minimum field strength and location
     subroutine FLEq(Model,bTrc,xeq,Beq)
         type(chmpModel_T), intent(in) :: Model

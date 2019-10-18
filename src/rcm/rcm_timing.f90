@@ -32,8 +32,9 @@
               list(1) = element
           end if
 
-          write(*,*)' addtolist adding t=',element
-          write(*,*)' rcm_time=',list
+          !K: Commenting out output
+          !write(*,*)' addtolist adding t=',element
+          !write(*,*)' rcm_time=',list
       return
 
       end subroutine AddToList

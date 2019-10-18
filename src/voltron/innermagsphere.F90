@@ -104,7 +104,12 @@ module innermagsphere
                 do i=Gr%is,Gr%is+chmp2mhd%iMax
                     x1 = chmp2mhd%xyzSquish(i,j,k,1) 
                     x2 = chmp2mhd%xyzSquish(i,j,k,2)
-                    call IMagEval(x1,x2,t,imW)
+                    if (norm2([x1,x2])>TINY) then
+                        call IMagEval(x1,x2,t,imW)
+                    else
+                        !Both x1/x2 are 0, projection failure
+                        imW = 0.0
+                    endif
                     !Assuming density/pressure coming in #/cc and nPa
                     Gr%Gas0(i,j,k,DEN)       = imW(IMDEN)
                     Gr%Gas0(i,j,k,PRESSURE)  = imW(IMPR)/gApp%Model%Units%gP0
