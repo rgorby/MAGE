@@ -153,11 +153,13 @@ module uservoltic
         Grid%ksMG = Grid%ks
         Grid%keMG = Grid%ke
 
-        !This is a non-mpi IC, so this rank always has the corrections
-        !Set user hack functions
-        !NOTE: Need silly double value for GNU
-        eHack  => EFix
-        Model%HackE => eHack
+        !Correction to E (from solar wind or ionosphere)        
+        if (Grid%hasLowerBC(1) .or. Grid%hasUpperBC(1)) then
+           !Set user hack functions
+           !NOTE: Need silly double value for GNU
+           eHack  => EFix
+           Model%HackE => eHack
+        end if
 
         !Setup perstep function for everybody
         tsHack => PerStep
@@ -257,7 +259,9 @@ module uservoltic
         !Fix inner shells
         SELECT type(iiBC=>Gr%externalBCs(INI)%p)
             TYPE IS (IonInnerBC_T)
-                call IonEFix(Model,Gr,State,iiBC%inEijk)
+                if (Grid%hasLowerBC(1)) then
+                    call IonEFix(Model,Gr,State,iiBC%inEijk)
+                endif
             CLASS DEFAULT
                 write(*,*) 'Could not find Ion Inner BC in remix IC'
                 stop
@@ -266,7 +270,9 @@ module uservoltic
         !Fix outer shells
         SELECT type(pWind=>Gr%externalBCs(OUTI)%p)
             TYPE IS (WindBC_T)
-                call WindEFix(pWind,Model,Gr,State)
+                if (Grid%hasUpperBC(1)) then
+                   call WindEFix(pWind,Model,Gr,State)
+                end if
             CLASS DEFAULT
                 write(*,*) 'Could not find Wind BC in remix IC'
                 stop
@@ -286,7 +292,7 @@ module uservoltic
         real(rp) :: Rin,llBC,invlat
 
         !This is inner-most I tile
-        if ( .not. Model%doMultiF ) then
+        if ( Grid%hasLowerBC(1) .and. (.not. Model%doMultiF) ) then
             !Get inner radius and low-latitude
             Rin = norm2(Gr%xyz(Gr%is,Gr%js,Gr%ks,:))
             llBC = 90.0 - rad2deg*asin(sqrt(Rion/Rin)) !co-lat -> lat
@@ -353,16 +359,18 @@ module uservoltic
         procedure(HackE_T), pointer :: eHack
 
         !Are we on the inner (REMIX) boundary
-        call xmlInp%Set_Val(PsiShells,"/remix/grid/PsiShells",5)
+        if (Grid%hasLowerBC(1)) then
+            call xmlInp%Set_Val(PsiShells,"/remix/grid/PsiShells",5)
 
-        !Create holders for coupling electric field
-        allocate(bc%inExyz(1:PsiShells,Grid%jsg:Grid%jeg,Grid%ksg:Grid%keg,1:NDIM))
-        allocate(bc%inEijk(1:PsiShells+1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1,1:NDIM))
-        bc%inExyz = 0.0
-        bc%inEijk = 0.0
-        eHack  => EFix
-        Model%HackE => eHack
-        Model%HackFlux => IonFlux
+            !Create holders for coupling electric field
+            allocate(bc%inExyz(1:PsiShells,Grid%jsg:Grid%jeg,Grid%ksg:Grid%keg,1:NDIM))
+            allocate(bc%inEijk(1:PsiShells+1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1,1:NDIM))
+            bc%inExyz = 0.0
+            bc%inEijk = 0.0
+            eHack  => EFix
+            Model%HackE => eHack
+            Model%HackFlux => IonFlux
+        endif
     end subroutine InitIonInner
 
     !Inner-I BC for ionosphere

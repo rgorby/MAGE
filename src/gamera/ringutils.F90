@@ -38,9 +38,19 @@ module ringutils
         Nx = [Grid%Nip,Grid%Njp,Grid%Nkp]
         Model%Ring%NumR = 1 !Fake value for now
 
-        ! this is non-MPI by default so assume we have both singularities
-        Model%Ring%doS = .true.
-        Model%Ring%doE = .true.
+        Model%Ring%doS = .false.
+        Model%Ring%doE = .false.
+
+        !Whether or not to do xs/xe sides of singularity
+        if (Grid%isTiled) then
+            !If we're tiled we need to figure out if we own either singularity
+            if (Grid%hasLowerBC(2)) Model%Ring%doS = .true.
+            if (Grod%hasUpperBC(2)) Model%Ring%doE = .true.
+        else
+            !Assume we have both singularities
+            Model%Ring%doS = .true.
+            Model%Ring%doE = .true.
+        endif
 
         !Set singularity information and default ring configurations
         select case (Model%Ring%GridID)

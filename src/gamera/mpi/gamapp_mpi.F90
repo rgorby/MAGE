@@ -75,7 +75,7 @@ module gamapp_mpi
         real(rp), optional, intent(in) :: endTime
 
         integer :: numNeighbors, ierr, length, commSize, rank, ic, jc, kc, rankOffset
-        integer, dimension(26), allocatable :: sourceRanks, sourceData, destRanks, destData
+        integer, dimension(26), allocatable :: sourceRanks, sourceData
         logical :: reorder,periodicI,periodicJ,periodicK
         character(len=strLen) :: message
         real(rp), dimension(:,:,:), allocatable :: tempX,tempY,tempZ
@@ -163,13 +163,6 @@ mber of MPI ranks in that dimension, which was ',gamAppMpi%NumRk
         call move_alloc(tempY, gamAppMpi%Grid%y)
         call move_alloc(tempZ, gamAppMpi%Grid%z)
 
-        ! call appropriate subroutines to calculate all appropriate grid data from the corner data
-        call CalcGridInfo(gamAppMpi%Model,gamAppMpi%Grid,gamAppMpi%State,gamAppMpi%oState,gamAppMpi%Solver,xmlInp,userInitFunc)
-
-        ! check MPI values to assign responsibility for ring averaging
-        if (gamAppMpi%Rj ==               0) gamAppMpi%Model%Ring%doS = .true.
-        if (gamAppMpi%Rj == (gamAppMpi%NumRj-1)) gamAppMpi%Model%Ring%doE = .true.
-
         ! check which dimensions are using MPI for periodicity
         SELECT type(iiBC=>gamAppMpi%Grid%externalBCs(INI)%p)
             TYPE IS (periodicInnerIBCMpi_T)
@@ -201,13 +194,14 @@ mber of MPI ranks in that dimension, which was ',gamAppMpi%NumRk
                         do kc=-1,1
                             if((gamAppMpi%Rk+kc >= 0 .and. gamAppMpi%Rk+kc < GamAppMpi%NumRk) .or. periodicK)then
                                 rankOffset = abs(ic)+abs(jc)+abs(kc)
+                                targetRank = ...
+                                listIndex = findloc(sourceRanks,targetRank)
+                                
                                 if(rankOffset == 0) then ! don't talk to yourself
                                 elseif (rankOffset == 3) then ! corner
                                     numNeighbors=numNeighbors+1
                                     sourceRanks(numNeighbors) = ...
-                                    destRanks(numNeighbors) = ...
                                     sourceData(numNeibhors) = ...
-                                    destData(num
                                 elseif (rankOffset == 2) then ! edge
                                     numNeighbors=numNeighbors+1
                                 else ! face
@@ -223,13 +217,16 @@ mber of MPI ranks in that dimension, which was ',gamAppMpi%NumRk
         reorder = .false. ! DO NOT allow MPI to reorder the ranks
         call mpi_dist_graph_create_adjacent(gamComm,
             numNeighbors,sourceRanks,sourceData,
-            numNeighbors,destRanks,destData,
+            numNeighbors,sourceRanks,sourceData, ! comms symmetrical
             mpiInfo, reorder, gamAppMpi%gamMpiComm, ierr)
         if(ierr /= MPI_Success) then
             call MPI_Error_string( ierr, message, length, ierr)
             print *,message(1:length)
             call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
         end if
+
+         ! call appropriate subroutines to calculate all appropriate grid data from the corner data
+        call CalcGridInfo(gamAppMpi%Model,gamAppMpi%Grid,gamAppMpi%State,gamAppMpi%oState,gamAppMpi%Solver,xmlInp,userInitFunc)
 
     end subroutine Hatch_mpi
 

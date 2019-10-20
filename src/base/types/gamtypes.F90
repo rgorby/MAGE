@@ -146,10 +146,19 @@ module gamtypes
         !Can be trimmed to set own Bxyz's
         integer :: isMG,jsMG,ksMG
         integer :: ieMG,jeMG,keMG
-        
-        !Shift between global and local indexes, always zero for
-        !single process job
-        integer ::ijkShift(3)
+
+        !Information about decomposed/tiled cases
+        logical :: isTiled = .false.
+        ! Number of ranks in each dimension
+        integer :: NumRi=1,NumRj=1,NumRk=1
+        ! Placement of this rank, 0-based
+        integer :: Ri=0,Rj=0,Rk=0
+        ! Offset between global and local indices
+        integer :: ijkShift(3)
+        ! Whether this rank has the lower end external boundary for each axis
+        logical :: hasLowerBC(3)
+        ! Whether this rank has the upper end external boundary for each axis
+        logical :: hasUpperBC(3)
 
         !Corner-centered xyz-coordinates
         real(rp), dimension(:,:,:), allocatable :: x,y,z
