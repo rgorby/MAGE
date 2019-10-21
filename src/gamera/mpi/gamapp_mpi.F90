@@ -14,6 +14,9 @@ module gamapp_mpi
         integer :: NumRi=1,NumRj=1,NumRk=1
         integer :: Ri=1,Rj=1,Rk=1
         type(MPI_Comm) :: gamMpiComm
+        integer :: sendRanks(:), recvRanks(:)
+        integer :: sendCountsGas(:), sendDisplsGas(:), sendTypesGas(:)
+        integer :: recvCountsGas(:), recvDisplsGas(:), recvTypesGas(:)
     end type gamAppMpi_T
 
     contains
@@ -74,10 +77,10 @@ module gamapp_mpi
         integer, intent(in) :: gamComm
         real(rp), optional, intent(in) :: endTime
 
-        integer :: numNeighbors, ierr, length, commSize, rank, ic, jc, kc, rankOffset
-        integer, dimension(26), allocatable :: sourceRanks, sourceData
-        logical :: reorder,periodicI,periodicJ,periodicK
-        character(len=strLen) :: message
+        integer :: numNeighbors, ierr, length, commSize, rank, ic, jc, kc, targetRank, sendNumber, numInNeighbors, numOutNeighbors, localIndex
+        integer, dimension(27), allocatable :: sourceRanks, sourceData, destRanks, destData
+        logical :: reorder,periodicI,periodicJ,periodicK,wasWeighted
+        character(len=strLen) :: message, bcType
         real(rp), dimension(:,:,:), allocatable :: tempX,tempY,tempZ
 
         ! call appropriate subroutines to read corner info and mesh size data
@@ -122,13 +125,98 @@ mber of MPI ranks in that dimension, which was ',gamAppMpi%NumRk
         gamAppMpi%Grid%Njp = gamAppMpi%Grid%Njp/gamAppMpi%NumRj
         gamAppMpi%Grid%Nkp = gamAppMpi%Grid%Nkp/gamAppMpi%NumRk
 
-        gamAppMpi%Grid%ijkShift(1) = gamAppMpi%Grid%Nip*gamAppMpi%Ri
-        gamAppMpi%Grid%ijkShift(2) = gamAppMpi%Grid%Njp*gamAppMpi%Rj
-        gamAppMpi%Grid%ijkShift(3) = gamAppMpi%Grid%Nkp*gamAppMpi%Rk
-
         gamAppMpi%Grid%Ni = gamAppMpi%Grid%Nip + 2*gamAppMpi%Model%nG
         gamAppMpi%Grid%Nj = gamAppMpi%Grid%Njp + 2*gamAppMpi%Model%nG
         gamAppMpi%Grid%Nk = gamAppMpi%Grid%Nkp + 2*gamAppMpi%Model%nG
+
+        ! check which dimensions are using MPI for periodicity
+        call xmlInp%Set_Val(bcType,'ibc/bc')
+        if (bcType == 'periodic') then
+            periodicI = .true.
+        else
+            periodicI = .false.
+        endif
+        call xmlInp%Set_Val(bcType,'jbc/bc')
+        if (bcType == 'periodic') then
+            periodicJ = .true.
+        else
+            periodicJ = .false.
+        endif
+        call xmlInp%Set_Val(bcType,'kbc/bc')
+        if (bcType == 'periodic') then
+            periodicK = .true.
+        else
+            periodicK = .false.
+        endif
+
+        ! create MPI topology
+        numNeighbors = 0
+        do ic=-1,1
+            if((gamAppMpi%Ri+ic >= 0 .and. gamAppMpi%Ri+ic < GamAppMpi%NumRi) .or. periodicI) then
+                do jc=-1,1
+                    if((gamAppMpi%Rj+jc >= 0 .and. gamAppMpi%Rj+jc < GamAppMpi%NumRj) .or. periodicJ) then
+                        do kc=-1,1
+                            if((gamAppMpi%Rk+kc >= 0 .and. gamAppMpi%Rk+kc < GamAppMpi%NumRk) .or. periodicK)then
+                                if(ic /= 0 .or. jc /= 0 .or. kc /= 0) then ! ensure I'm not talking to myself
+                                    targetRank = modulo(gamAppMpi%Ri+ic,gamAppMpi%NumRi)*gamAppMpi%NumRk*gamAppMpi%NumRj + 
+                                                 modulo(gamAppMpi%Rj+jc,gamAppMpi%NumRj)*gamAppMpi%NumRk +
+                                                 modulo(gamAppMpi%Rk+kc,gamAppMpi%NumRk)
+                                    listIndex = findloc(sourceRanks, targetRank)
+                                    if(listIndex == 0) then ! this rank not in the list yet
+                                        numNeighbors = numNeighbors+1
+                                        listIndex = numNeighbors
+                                        sourceRanks(listIndex) = targetRank
+                                    endif
+                                    ! calculate the size of this region that will be transmitted
+                                    sendNumber = 1
+                                    if (ic == 0) then
+                                        sendNumber = sendNumber * gamAppMpi%Grid%Nip
+                                    else
+                                        sendNumber = sendNumber * gamAppMpi%Model%nG
+                                    endif
+                                    if (jc == 0) then
+                                        sendNumber = sendNumber * gamAppMpi%Grid%Njp
+                                    else
+                                        sendNumber = sendNumber * gamAppMpi%Model%nG
+                                    endif
+                                    if (kc == 0) then
+                                        sendNumber = sendNumber * gamAppMpi%Grid%Nkp
+                                    else
+                                        sendNumber = sendNumber * gamAppMpi%Model%nG
+                                    endif
+                                    ! add these cells to whatever we are already sending to that rank
+                                    sourceData(listIndex) = sourceData(listIndex) + sendNumber
+                                endif
+                            endif
+                        enddo
+                    endif
+                enddo
+            endif
+        enddo
+
+        reorder = .true. ! allow MPI to reorder the ranks
+        call mpi_dist_graph_create_adjacent(gamComm,
+            numNeighbors,sourceRanks,sourceData,
+            numNeighbors,sourceRanks,sourceData, ! comms symmetrical
+            mpiInfo, reorder, gamAppMpi%gamMpiComm, ierr)
+        if(ierr /= MPI_Success) then
+            call MPI_Error_string( ierr, message, length, ierr)
+            print *,message(1:length)
+            call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+        end if
+
+        ! get our final ranks from the new MPI topology
+        call mpi_comm_rank(gamAppMpi%gamMpiComm, rank, ierr)
+        gamAppMpi%Rk = modulo(rank, gamAppMpi%NumRk)
+        rank = (rank-gamAppMpi%Rk)/gamAppMpi%NumRk
+        gamAppMpi%Rj = modulo(rank, gamAppMpi%NumRj)
+        rank = (rank-gamAppMpi%Rj)/gamAppMpi%NumRj
+        gamAppMpi%Ri = rank
+
+        ! adjust grid info for these ranks
+        gamAppMpi%Grid%ijkShift(1) = gamAppMpi%Grid%Nip*gamAppMpi%Ri
+        gamAppMpi%Grid%ijkShift(2) = gamAppMpi%Grid%Njp*gamAppMpi%Rj
+        gamAppMpi%Grid%ijkShift(3) = gamAppMpi%Grid%Nkp*gamAppMpi%Rk
 
         gamAppMpi%Grid%is = 1; gamAppMpi%Grid%ie = gamAppMpi%Grid%Nip
         gamAppMpi%Grid%js = 1; gamAppMpi%Grid%je = gamAppMpi%Grid%Njp
@@ -158,54 +246,85 @@ mber of MPI ranks in that dimension, which was ',gamAppMpi%NumRk
         deallocate(gamAppMpi%Grid%y)
         deallocate(gamAppMpi%Grid%z)
 
-        ! move the new arryas to the grid corner arrays
+        ! move the new arrays to the grid corner arrays
         call move_alloc(tempX, gamAppMpi%Grid%x)
         call move_alloc(tempY, gamAppMpi%Grid%y)
         call move_alloc(tempZ, gamAppMpi%Grid%z)
 
-        ! check which dimensions are using MPI for periodicity
-        SELECT type(iiBC=>gamAppMpi%Grid%externalBCs(INI)%p)
-            TYPE IS (periodicInnerIBCMpi_T)
-                periodicI = .true.
-            CLASS DEFAULT
-                periodicI = .false.
-        END SELECT
+        ! now create the arrays that MPI will use to send and receive the data
+        call mpi_dist_graph_neighbors_count(gamAppMpi%gamMpiComm, numInNeighbors, numOutNeighbors, wasWeighted, ierr)
+        if(ierr /= MPI_Success) then
+            call MPI_Error_string( ierr, message, length, ierr)
+            print *,message(1:length)
+            call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+        end if
+        if (numInNeighbors /= numOutNeighbors) then
+            print *,'Number of in edges and out edges did not match for rank ', rank
+            call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+        endif
 
-        SELECT type(iiBC=>gamAppMpi%Grid%externalBCs(INJ)%p)
-            TYPE IS (periodicInnerJBCMpi_T)
-                periodicJ = .true.
-            CLASS DEFAULT
-                periodicJ = .false.
-        END SELECT
+        allocate(gamAppMpi%sendRanks(numOutNeighbors))
+        allocate(gamAppMpi%recvRanks(numInNeighbors))
+        ! don't care about the weights, dump them into an existing array
+        call mpi_dist_graph_neighbors(gamAppMpi%gamMpiComm, numInNeighbors, gamAppMpi%recvRanks, sendData, numOutNeighbors, gamAppMpi%sendRanks, sendData, ierr)
+        if(ierr /= MPI_Success) then
+            call MPI_Error_string( ierr, message, length, ierr)
+            print *,message(1:length)
+            call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+        end if
 
-        SELECT type(iiBC=>gamAppMpi%Grid%externalBCs(INK)%p)
-            TYPE IS (periodicInnerKBCMpi_T)
-                periodicK = .true.
-            CLASS DEFAULT
-                periodicK = .false.
-        END SELECT
+        allocate(gamAppMpi%sendCountsGas(numOutNeighbors))
+        allocate(gamAppMpi%sendDisplsGas(numOutNeighbors))
+        allocate(gamAppMpi%sendTypesGas(numOutNeighbors))
+        allocate(gamAppMpi$recvCountsGas(numInNeighbors))
+        allocate(gamAppMpi%recvDisplsGas(numInNeighbors))
+        allocate(gamAppMpi%recvTypesgas(numInNeighbors))
 
-        ! create MPI topology
-        numNeighbors = 0
+        sourceRanks(:) = 0
+        sourceData(:) = 0
+        destRanks(:) = 0
+        destData(:) = 0
+        ! figure out exactly what data needs to be sent to (and received from) each neighbor, and create custom MPI datatypes to perform these transfers
         do ic=-1,1
             if((gamAppMpi%Ri+ic >= 0 .and. gamAppMpi%Ri+ic < GamAppMpi%NumRi) .or. periodicI) then
                 do jc=-1,1
                     if((gamAppMpi%Rj+jc >= 0 .and. gamAppMpi%Rj+jc < GamAppMpi%NumRj) .or. periodicJ) then
                         do kc=-1,1
                             if((gamAppMpi%Rk+kc >= 0 .and. gamAppMpi%Rk+kc < GamAppMpi%NumRk) .or. periodicK)then
-                                rankOffset = abs(ic)+abs(jc)+abs(kc)
-                                targetRank = ...
-                                listIndex = findloc(sourceRanks,targetRank)
-                                
-                                if(rankOffset == 0) then ! don't talk to yourself
-                                elseif (rankOffset == 3) then ! corner
-                                    numNeighbors=numNeighbors+1
-                                    sourceRanks(numNeighbors) = ...
-                                    sourceData(numNeibhors) = ...
-                                elseif (rankOffset == 2) then ! edge
-                                    numNeighbors=numNeighbors+1
-                                else ! face
-                                    numNeighbors=numNeighbors+1
+                                if(ic /= 0 .or. jc /= 0 .or. kc /= 0) then ! ensure I'm not talking to myself
+                                    targetRank = modulo(gamAppMpi%Ri+ic,gamAppMpi%NumRi)*gamAppMpi%NumRk*gamAppMpi%NumRj +
+                                                 modulo(gamAppMpi%Rj+jc,gamAppMpi%NumRj)*gamAppMpi%NumRk +
+                                                 modulo(gamAppMpi%Rk+kc,gamAppMpi%NumRk)
+
+                                    localIndex = 1 + (ic+1)*9 + (jc+1)*3 + (kc+1)
+                                    sourceRanks(localIndex) = targetRank
+                                    destRanks(localIndex) = targetRank
+
+                                    ! create the datatype to send this data
+                                    sourceData(localIndex) = ...
+
+                                    ! create the datatype to receive this data
+                                    destData(localIndex) = ...
+
+                                    ! calculate the size of this region that will be transmitted
+                                    sendNumber = 1
+                                    if (ic == 0) then
+                                        sendNumber = sendNumber * gamAppMpi%Grid%Nip
+                                    else
+                                        sendNumber = sendNumber * gamAppMpi%Model%nG
+                                    endif
+                                    if (jc == 0) then
+                                        sendNumber = sendNumber * gamAppMpi%Grid%Njp
+                                    else
+                                        sendNumber = sendNumber * gamAppMpi%Model%nG
+                                    endif
+                                    if (kc == 0) then
+                                        sendNumber = sendNumber * gamAppMpi%Grid%Nkp
+                                    else
+                                        sendNumber = sendNumber * gamAppMpi%Model%nG
+                                    endif
+                                    ! add these cells to whatever we are already sending to that rank
+                                    sourceData(listIndex) = sourceData(listIndex) + sendNumber
                                 endif
                             endif
                         enddo
@@ -214,19 +333,14 @@ mber of MPI ranks in that dimension, which was ',gamAppMpi%NumRk
             endif
         enddo
 
-        reorder = .false. ! DO NOT allow MPI to reorder the ranks
-        call mpi_dist_graph_create_adjacent(gamComm,
-            numNeighbors,sourceRanks,sourceData,
-            numNeighbors,sourceRanks,sourceData, ! comms symmetrical
-            mpiInfo, reorder, gamAppMpi%gamMpiComm, ierr)
-        if(ierr /= MPI_Success) then
-            call MPI_Error_string( ierr, message, length, ierr)
-            print *,message(1:length)
-            call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
-        end if
+        ! assemble the different datatypes for each rank, and then save the resulting final datatype
+        ...
 
-         ! call appropriate subroutines to calculate all appropriate grid data from the corner data
+        ! call appropriate subroutines to calculate all appropriate grid data from the corner data
         call CalcGridInfo(gamAppMpi%Model,gamAppMpi%Grid,gamAppMpi%State,gamAppMpi%oState,gamAppMpi%Solver,xmlInp,userInitFunc)
+
+        ! correct boundary conditions if necessary
+        ...
 
     end subroutine Hatch_mpi
 
@@ -248,6 +362,21 @@ mber of MPI ranks in that dimension, which was ',gamAppMpi%NumRk
 
     subroutine haloUpdate(gamAppMpi)
         type(gamAppMpi_T), intent(inout) :: gamAppMpi
+
+        integer :: ierr
+
+        ! just tell MPI to use the arrays we defined during initialization to send and receive data!
+
+        ! GAS data
+        call mpi_neighbor_alltoallw(gamAppMpi%State%Gas, gamAppMpi%sendCountsGas, gamAppMpi%sendDisplsGas, gamAppMpi%sendTypesGas,
+                                    gamAppMpi%State%Gas, gamAppMpi%recvCountsGas, gamAppMpi%recvDisplsGas, gamAppMpi%recvTypesGas,
+                                    gamAppMpi%gamMpiComm, ierr)
+        if(ierr /= MPI_Success) then
+            call MPI_Error_string( ierr, message, length, ierr)
+            print *,message(1:length)
+            call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+        end if
+
     end subroutine haloUpdate
 
 end module gamapp_mpi
