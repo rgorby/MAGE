@@ -16,7 +16,7 @@ module innermagsphere
         subroutine IMagEval_T(x1,x2,t,imW)
             Import :: rp,NVARIMAG
             real(rp), intent(in) :: x1,x2,t
-            real(rp), dimension(NVARIMAG) :: imW
+            real(rp), dimension(NVARIMAG), intent(out) :: imW
         end subroutine IMagEval_T
     end interface
 

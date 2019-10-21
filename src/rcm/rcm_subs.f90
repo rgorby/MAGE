@@ -804,7 +804,7 @@ END IF
        b = REAL (one, rprec)
        DO
          c = half * (a+b)
-         f_c = Gntrp_2d_ang (rmin, c, REAL(jind(n),rprec),0)-fstoff*fdist(n)
+         f_c = Gntrp_2d_ang (rmin, c, REAL(jind(n),rprec),0_iprec)-fstoff*fdist(n)
          IF (ABS (f_c) < machine_eps2) EXIT
          IF (f_c < zero) THEN
             a = c
@@ -812,7 +812,7 @@ END IF
             b = c
          END IF
        END DO
-       theta (n) = Gntrp_2d_ang (colat, c, REAL(j,rprec), 0)
+       theta (n) = Gntrp_2d_ang (colat, c, REAL(j,rprec), 0_iprec)
     END DO
 !
 !   3. Compute parameters of ellipse:
@@ -832,7 +832,7 @@ END IF
        b = REAL (idim,rprec)
        DO
          c = half * (a+b)
-         f_c = Gntrp_2d_ang (colat, c, REAL(j,rprec), 0) - colat_bnd
+         f_c = Gntrp_2d_ang (colat, c, REAL(j,rprec), 0_iprec) - colat_bnd
          IF (ABS (f_c) < machine_eps2) EXIT
          IF (f_c < zero) THEN
            a = c
@@ -874,8 +874,8 @@ END IF
       REAL (KIND=rprec), INTENT (IN) :: bi, bj
       REAL (KIND=rprec) :: Fequat_of_x
       REAL (KIND=rprec) :: xx, yy
-      xx  = Gntrp_2d_ang (xmin, bi, bj, 0)
-      yy  = Gntrp_2d_ang (ymin, bi, bj, 0)
+      xx  = Gntrp_2d_ang (xmin, bi, bj, 0_iprec)
+      yy  = Gntrp_2d_ang (ymin, bi, bj, 0_iprec)
       Fequat_of_x = (xx-boundary(1)%xx)**2 / boundary(1)%aa**2 + &
                     (yy-boundary(1)%yy)**2 / boundary(1)%bb**2 - one
       RETURN
@@ -1281,11 +1281,11 @@ END IF
 !
             hardy_eflux_int = zero
             DO i = 2, isize-1
-               CALL Elemod (ICASE = 1, IKP = ikp_low, &
+               CALL Elemod (ICASE = 1_iprec, IKP = ikp_low, &
                             GLAT = 90.0-colat(i,j)*RTD, &
                             AMLT = MODULO (12.0+aloct(i,j)*RTH,24.0), &
                             VALUE = value_l)
-               CALL Elemod (ICASE = 1, IKP = ikp_high, &
+               CALL Elemod (ICASE = 1_iprec, IKP = ikp_high, &
                             GLAT = 90.0-colat(i,j)*RTD, &
                             AMLT = MODULO (12.0+aloct(i,j)*RTH,24.0), &
                             VALUE = value_h)
@@ -1344,15 +1344,15 @@ END IF
       factor = (kp-kp_low)/(kp_high-kp_low)
       DO i = 1, isize
       DO j = 1, jsize
-         CALL Elemod (ICASE = 3, IKP = kp_low, GLAT = 90.0-colat(i,j)*RTD, &
+         CALL Elemod (ICASE = 3_iprec, IKP = kp_low, GLAT = 90.0-colat(i,j)*RTD, &
                       AMLT = MODULO(12.+aloct(i,j)*RTH,24.0), VALUE = value_low)
-         CALL Elemod (ICASE = 3, IKP = kp_high, GLAT = 90.0-colat(i,j)*RTD, &
+         CALL Elemod (ICASE = 3_iprec, IKP = kp_high, GLAT = 90.0-colat(i,j)*RTD, &
                       AMLT = MODULO(12.+aloct(i,j)*RTH,24.0), VALUE = value_high)
          value = value_low*(one-factor)+value_high*factor
          hall (i,j) = qthall(i,j) + two*value / sini(i,j)
-         CALL Elemod (ICASE = 4, IKP = kp_low, GLAT = 90.0-colat(i,j)*RTD, &
+         CALL Elemod (ICASE = 4_iprec, IKP = kp_low, GLAT = 90.0-colat(i,j)*RTD, &
                       AMLT = MODULO(12.+aloct(i,j)*RTH,24.0), VALUE = value_low)
-         CALL Elemod (ICASE = 4, IKP = kp_high, GLAT = 90.0-colat(i,j)*RTD, &
+         CALL Elemod (ICASE = 4_iprec, IKP = kp_high, GLAT = 90.0-colat(i,j)*RTD, &
                       AMLT = MODULO(12.+aloct(i,j)*RTH,24.0), VALUE = value_high)
          value = value_low*(one-factor)+value_high*factor
          pedpsi(i,j) = qtped(i,j) + two*value
@@ -3746,8 +3746,8 @@ END IF
 !
   IF (L_move_plasma_grid) THEN
     IF (i_advect == 1) THEN
-       CALL Move_plasma_grid  (dt, 1, isize, j1, j2, 1)
-       CALL Move_plasma_grid  (dt, 1, isize, j1, j2, 2)
+       CALL Move_plasma_grid  (dt, 1_iprec, isize, j1, j2, 1_iprec)
+       CALL Move_plasma_grid  (dt, 1_iprec, isize, j1, j2, 2_iprec)
     ELSE IF (i_advect == 2) THEN
 !      CALL Move_plasma_grid (dt, 1, isize, j1, j2, 1)
        STOP 'This option is no longer available, aborting RCM'

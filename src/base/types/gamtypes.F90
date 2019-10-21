@@ -333,7 +333,7 @@ module gamtypes
         subroutine HackE_T(Model,Grid,State)
             Import :: Model_T, Grid_T, State_T
             type(Model_T), intent(in) :: Model
-            type(Grid_T), intent(in) :: Grid
+            type(Grid_T), intent(inout) :: Grid
             type(State_T), intent(inout) :: State
 
         end subroutine HackE_T

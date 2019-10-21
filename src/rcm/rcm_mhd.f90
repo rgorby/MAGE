@@ -84,7 +84,7 @@ subroutine rcm_mhd(mhdtime,mhdtimedt,RM,iflag)
     CALL Read_rcm_mhd_params
 
     ! setup rcm
-    CALL Rcm (itimei, itimef, irdr, irdw, idt, idt1, idt2,icontrol=0)
+    CALL Rcm (itimei, itimef, irdr, irdw, idt, idt1, idt2,icontrol=0_iprec)
 
     call allocate_conversion_arrays (isize,jsize,kcsize)
 
@@ -291,14 +291,14 @@ subroutine rcm_mhd(mhdtime,mhdtimedt,RM,iflag)
 
      call cpu_time(t1)
      write(6,'(a,i5,a,i5,a,i5,a)')'RCM: call rcm at itimei =',itimei,' to itimef =',itimef,' dt=',ircm_dt, ' sec'
-     call print_date_time(6)
+     call print_date_time(6_iprec)
      ! now run the rcm
      call rcm (itimei, itimef, irdr, irdw, idt, idt1, idt2, icontrol=4_iprec)
      rec = rec + 1 ! update record after rcm has run
 
      call cpu_time(t2)
      write(*,'(a,g14.4,a)')'RCM_MHD:   rcm cpu time= ',t2-t1,' seconds'
-     call print_date_time(6)
+     call print_date_time(6_iprec)
 
     ! Do not export data if this is both the first & last exchange.
      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -309,7 +309,7 @@ subroutine rcm_mhd(mhdtime,mhdtimedt,RM,iflag)
      call Tomhd (RM,rec, ierr)
 
      call cpu_time(t2)
-     call print_date_time(6)
+     call print_date_time(6_iprec)
      write(*,*)'RCM: tomhd cpu time= ',t2-t1,' seconds'
      if (ierr > 0 )then
         stop 'RCM: error in tomhd '
@@ -320,7 +320,7 @@ subroutine rcm_mhd(mhdtime,mhdtimedt,RM,iflag)
   end if
 
   if(iflag==2)then ! stop
-  call rcm (itimei,itimef,irdr,irdw,idt,idt1,idt2,icontrol=5)
+  call rcm (itimei,itimef,irdr,irdw,idt,idt1,idt2,icontrol=5_iprec)
 !  call Finalize()    ! Matches Initialize() above
   call tearDownIon(RM) ! Matches setupIon() above
   end if
