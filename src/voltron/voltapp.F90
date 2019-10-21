@@ -110,6 +110,12 @@ module voltapp
         endif
 
         if (vApp%doDeep) then
+            !Verify that Gamera has location to hold source info
+            if (.not. gApp%Model%doSource) then
+                write(*,*) 'Must have GAMERA/source/doSource="T" when running inner magnetosphere model'
+                stop
+            endif
+            
             !Set first deep coupling (defaulting to 0)
             call xmlInp%Set_Val(vApp%DeepT, "coupling/tDeep", 0.0_rp)
             !Initialize deep coupling type/inner magnetosphere model
