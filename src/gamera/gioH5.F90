@@ -20,7 +20,7 @@ module gioH5
     logical :: fExist
     logical :: doWriteGhost  = .false.
     integer, parameter :: maxPlotVar = 25
-    integer :: is,ie,js,je,ks,ke !Variable bounds for output
+    integer, private :: is,ie,js,je,ks,ke !Variable bounds for output
     integer :: GhostCells(3,1,1)
 
     contains

@@ -5,15 +5,7 @@ module mhd2mix_interface
     use gamtypes
     use gamutils
     use volttypes
-    use math
-    use clocks
-    use xml_input
-    use gridutils
-    use msphutils !Get scaling values
-    !Debugging stuff
-    use ioH5
-    use hdf5
-    use h5lt
+    use msphutils, only : GetShellJ,Rion,gx0,gB0,gv0,gT0 !Get scaling values
     use gamapp
     use mixgeom
     use mixinterfaceutils
@@ -55,7 +47,7 @@ module mhd2mix_interface
                     if (k<=gameraApp%Grid%ke/2) then
                         mhdJGrid(i,j,k,:,NORTH) = [xc,yc,zc]/Rion
                     else
-                        mhdJGrid(i,j,k-ke/2,:,SOUTH) = [xc,yc,zc]/Rion
+                        mhdJGrid(i,j,k-gameraApp%Grid%ke/2,:,SOUTH) = [xc,yc,zc]/Rion
                     endif
                 enddo
             enddo
@@ -133,7 +125,7 @@ module mhd2mix_interface
                         ! get sound speed first
                         Con = gameraApp%State%Gas(iG,j,k,:,BLK)
                         call CellPress2Cs(gameraApp%Model,Con,Cs)
-                        mhd2mix%mixInput(i,j,k-ke/2,MHDC,SOUTH) = Cs*gv0*1.e2
+                        mhd2mix%mixInput(i,j,k-gameraApp%Grid%ke/2,MHDC,SOUTH) = Cs*gv0*1.e2
                     endif
                 enddo
             enddo

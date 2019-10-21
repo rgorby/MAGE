@@ -20,6 +20,40 @@ module innermagsphere
         end subroutine IMagEval_T
     end interface
 
+    ! !K: This part is draft class for polymorphic approach to inner magnetosphere
+    ! type, abstract :: InnerMag_T
+    ! contains
+    !     procedure(InitInnerMag_T), deferred :: InitIM
+    !     procedure(AdvInnerMag_T) , deferred :: AdvIM
+    !     procedure(IMagEval_T)    , deferred :: EvalIM
+    !     procedure(IOInnerMag_T)  , deferred :: WriteIM
+    ! end type InnerMag_T
+
+    ! abstract interface
+    !     subroutine InitInnerMag_T(vApp,isRestart,iXML)
+    !         Import :: voltApp_T,XML_Input_T
+    !         type(voltApp_T)  , intent(inout) :: vApp
+    !         logical, intent(in) :: isRestart
+    !         type(XML_Input_T), intent(inout) :: iXML
+    !     end subroutine InitInnerMag_T
+    ! end interface
+
+    ! abstract interface
+    !     subroutine AdvInnerMag_T(vApp,tAdv)
+    !         Import :: rp,voltApp_T
+    !         type(voltApp_T), intent(inout) :: vApp
+    !         real(rp), intent(in) :: tAdv
+    !     end subroutine AdvInnerMag_T
+    ! end interface
+
+    ! abstract interface
+    !     subroutine IOInnerMag_T(vApp,nOut)
+    !         Import :: voltApp_T
+    !     type(voltApp_T), intent(inout) :: vApp
+    !     integer, intent(in) :: nOut
+    !     end subroutine IOInnerMag_T
+    ! end interface
+
     contains
 
     !Figure out which inner magnetosphere model we're using and initialize it
