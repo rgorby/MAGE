@@ -145,10 +145,10 @@ module init
         call initSolver(Solver, Model, Grid)
 
         !Setup output file
-        h5File = trim(Model%RunID) // ".gam.h5"
+        GamH5File = trim(Model%RunID) // ".gam.h5"
         if (.not. Model%isRestart) then
             !Kill output file if it exists
-            call CheckAndKill(h5File)    
+            call CheckAndKill(GamH5File)    
             !Write grid to output file
             call writeH5GridInit(Model,Grid)
         endif

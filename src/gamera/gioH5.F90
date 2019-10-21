@@ -479,9 +479,6 @@ module gioH5
         !Get data
         call ReadVars(IOVars,.false.,inH5)
 
-        !Set sizes/bounds
-        call getBds(Gr,.false.)
-
         !Find number of species in restart
         rSpc = IOVars(1)%dims(5)-1
 
