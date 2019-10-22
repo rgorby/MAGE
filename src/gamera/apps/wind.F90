@@ -485,7 +485,9 @@ module wind
 
         !Replace Bx w/ coefficient expansion
         B(XDIR) = windBC%Bx0 + windBC%ByC*B(YDIR) + windBC%BzC*B(ZDIR)
-        
+        if (t <= windBC%tMin) then
+            B(:) = 0.0
+        endif
     end subroutine InterpWind
 
 end module wind
