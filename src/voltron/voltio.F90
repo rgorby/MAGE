@@ -5,7 +5,8 @@ module voltio
     use mixio
     use clocks
     use innermagsphere
-    
+    use wind
+
     implicit none
 
     integer, parameter, private :: MAXVOLTIOVAR = 10
@@ -15,11 +16,13 @@ module voltio
     contains
 
     subroutine consoleOutputV(vApp,gApp)
-        type(gamApp_T) , intent(in) :: gApp
+        type(gamApp_T) , intent(inout) :: gApp
         type(voltApp_T), intent(in) :: vApp
         real(rp) :: cpcp(2) = 0.0
 
         real(rp) :: dpT,dtWall,cMJD,dMJD,simRate
+        real(rp) :: dSW,pSW,clkAng,conAng
+        real(rp), dimension(NDIM) :: xW,bSW,vSW
 
         !Using console output from Gamera
         call consoleOutput(gApp%Model,gApp%Grid,gApp%State)
@@ -45,12 +48,30 @@ module voltio
             isConInit = .true.
         endif
         
+        !Pull solar wind info @ Earth
+        xW = 0.0
+        select type(pWind=>gApp%Grid%externalBCs(OUTI)%p)
+            type is (WindBC_T)
+                if (gApp%Model%Ri == gApp%Model%NumRi) then
+                    call GetWindAt(pWind,gApp%Model,xW,gApp%Model%t,dSW,pSW,vSW,bSW)
+                endif
+        end select
+        !dSW = dSW*gApp%Model%Units%gD0
+        pSW = pSW*gApp%Model%Units%gP0
+        vSW = vSW*gApp%Model%Units%gV0
+        bSW = vSW*gApp%Model%Units%gB0
+        clkAng = atan2(bSW(YDIR),bSW(ZDIR) )*180.0/PI
+        conAng = acos (bSW(XDIR)/norm2(bSW))*180.0/PI
+
         write(*,'(a)',advance="no") ANSIBLUE
         !write (*, '(a,f8.3,a)')       '    dt/dt0 = ', 100*Model%dt/dt0, '%'
+        write (*, '(a,2f8.3,a)')      '    Solar = ' , dSW,pSW, ' [#/cc] [nPa]'
+        write (*, '(a,3f8.3,a)')      '     Wind = ' , vSW, ' [km/s]'
+        write (*, '(a,2f8.3,a)')      '     IMF = ' , clkAng,conAng, ' Clock/Cone [deg]'
         write (*, '(a,2f8.3,a)')      '    CPCP  = ' , cpcp(NORTH), cpcp(SOUTH), ' [kV] (N/S)'
         write (*, '(a,1f8.3,a)')      '     tilt  = ' , dpT, ' [deg]'
         write (*, '(a,1f7.3,a)')      '     Running @ ', simRate*100.0, '% of real-time'
-        
+        write(*,*) 'blah = ',dSW,bSW
         write (*, *) ANSIRESET, ''
 
     end subroutine consoleOutputV
