@@ -307,7 +307,7 @@ module wind
         real(rp), dimension(NDIM) :: xcc,nHat,e1,e2,ecc,Vxyz,Bxyz,swExyz
         real(rp) :: wSW,D,P,mhdExyz
         
-        !$OMP PARALLEL DO default(shared) &
+        !$OMP PARALLEL DO default(shared) collapse(2) &
         !$OMP private(i,j,k,n,xcc,nHat,e1,e2,ecc,Vxyz,Bxyz,swExyz,wSW,D,P,mhdExyz)
         do k=Grid%ksg,Grid%keg
             do j=Grid%jsg,Grid%jeg

@@ -21,8 +21,8 @@ module voltio
         real(rp) :: cpcp(2) = 0.0
 
         real(rp) :: dpT,dtWall,cMJD,dMJD,simRate
-        real(rp) :: dSW,pSW,clkAng,conAng
-        real(rp), dimension(NDIM) :: xW,bSW,vSW
+        real(rp) :: dSW,pSW
+        real(rp), dimension(NDIM) :: xW,bSW,vSW,bAng
 
         !Using console output from Gamera
         call consoleOutput(gApp%Model,gApp%Grid,gApp%State)
@@ -55,26 +55,44 @@ module voltio
                 if (gApp%Model%Ri == gApp%Model%NumRi) then
                     call GetWindAt(pWind,gApp%Model,xW,gApp%Model%t,dSW,pSW,vSW,bSW)
                 endif
+            class default
+                write(*,*) 'WTF?'
         end select
         !dSW = dSW*gApp%Model%Units%gD0
-        pSW = pSW*gApp%Model%Units%gP0
-        vSW = vSW*gApp%Model%Units%gV0
-        bSW = vSW*gApp%Model%Units%gB0
-        clkAng = atan2(bSW(YDIR),bSW(ZDIR) )*180.0/PI
-        conAng = acos (bSW(XDIR)/norm2(bSW))*180.0/PI
+        !pSW = pSW*gApp%Model%Units%gP0
+        vSW = vSW*1.0e+2
+        bSW = bSW*gApp%Model%Units%gB0
+        bAng = ClockConeMag(bSW)
 
+        
         write(*,'(a)',advance="no") ANSIBLUE
         !write (*, '(a,f8.3,a)')       '    dt/dt0 = ', 100*Model%dt/dt0, '%'
-        write (*, '(a,2f8.3,a)')      '    Solar = ' , dSW,pSW, ' [#/cc] [nPa]'
-        write (*, '(a,3f8.3,a)')      '     Wind = ' , vSW, ' [km/s]'
-        write (*, '(a,2f8.3,a)')      '     IMF = ' , clkAng,conAng, ' Clock/Cone [deg]'
-        write (*, '(a,2f8.3,a)')      '    CPCP  = ' , cpcp(NORTH), cpcp(SOUTH), ' [kV] (N/S)'
-        write (*, '(a,1f8.3,a)')      '     tilt  = ' , dpT, ' [deg]'
+        write (*, '(a,f7.2,a,3f8.2,a)')      '     Wind = ' , dSW,     ' [#/cc] / ',vSW,' [km/s, XYZ]'
+        write (*, '(a,f7.2,a,2f7.2,a)')      '       IMF = ' , bAng(1), '   [nT] / ',bAng(2),bAng(3),' [deg, Clock/Cone]'
+        write (*, '(a,2f8.3,a)')      '     CPCP = ' , cpcp(NORTH), cpcp(SOUTH), ' [kV, N/S]'
+        write (*, '(a,1f8.3,a)')      '     tilt = ' , dpT, ' [deg]'
         write (*, '(a,1f7.3,a)')      '     Running @ ', simRate*100.0, '% of real-time'
-        write(*,*) 'blah = ',dSW,bSW
+        
+        
         write (*, *) ANSIRESET, ''
 
     end subroutine consoleOutputV
+
+    !Given vector, get clock/cone angle and magnitude
+    function ClockConeMag(V) result(aVec)
+        real(rp), dimension(NDIM), intent(in) :: V
+        real(rp), dimension(NDIM) :: aVec
+
+        real(rp) :: MagV
+        MagV = norm2(V)
+        aVec(2) = atan2(V(YDIR),V(ZDIR) )*180.0/PI !Clock angle
+        if (MagV>TINY) then
+            aVec(3) = acos (V(XDIR)/MagV)*180.0/PI
+        else
+            aVec(3) = 0.0
+        endif
+        aVec(1) = MagV
+    end function ClockConeMag
 
     subroutine resOutputV(vApp,gApp)
         type(gamApp_T) , intent(inout) :: gApp
