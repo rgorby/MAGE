@@ -71,13 +71,16 @@ module mixmain
       I%St%Vars(:,:,POT) = reshape(I%S%solution,[I%G%Np,I%G%Nt])*RionE**2*1.D3 ! in kV
     end subroutine get_potential
 
-    subroutine run_mix(I,tilt,doModel)
+    subroutine run_mix(I,tilt,doModelOpt)
       type(mixIon_T),dimension(:),intent(inout) :: I 
       real(rp),intent(in) :: tilt
-      logical, optional, intent(in) :: doModel  ! allow to change on the fly whether we use conductance model
+      logical, optional, intent(in) :: doModelOpt  ! allow to change on the fly whether we use conductance model
 
+      logical :: doModel=.true.   ! always default to xml input deck unless doModelOpt is present and on
       integer :: h
 
+      if (present(doModelOpt)) doModel = doModelOpt
+      
       do h=1,size(I)
          if (I(h)%St%hemisphere.eq.NORTH) then
             I(h)%St%tilt = tilt
