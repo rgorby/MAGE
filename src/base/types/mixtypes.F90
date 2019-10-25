@@ -19,7 +19,9 @@ module mixtypes
      real(rp) :: ped0
      logical  :: const_sigma
      logical  :: doRamp
-     logical  :: doChill     
+     logical  :: doChill
+     logical  :: doStarlight
+     logical  :: doMR
      logical  :: apply_cap 
 
      ! solver
@@ -85,7 +87,7 @@ module mixtypes
   type mixConductance_T
     integer :: euv_model_type, et_model_type
     real(rp) :: alpha, beta, R, F107,pedmin,hallmin,sigma_ratio,ped0
-    logical :: const_sigma, doRamp, doChill, apply_cap
+    logical :: const_sigma, doRamp, doChill, doStarlight, apply_cap, doMR
 
     ! auxilary variables
     real(rp) :: PI2, ang65, ang100, pref, href, shall
