@@ -246,12 +246,26 @@ module wind
                         State%Gas(ig,j,k,:,BLK) = gCon
                     endif !Multifluid
 
-                    !Set flux and fields
-                    State%Bxyz(ig,j,k,:) = B
-                    State%magFlux(ig+1,j,k,IDIR) = Grid%face(ig+1,j,k,IDIR)*dot_product(Grid%Tf(ig+1,j,k,NORMX:NORMZ,IDIR),B)
-                    State%magFlux(ig  ,j,k,JDIR) = Grid%face(ig  ,j,k,JDIR)*dot_product(Grid%Tf(ig  ,j,k,NORMX:NORMZ,JDIR),B)
-                    State%magFlux(ig  ,j,k,KDIR) = Grid%face(ig  ,j,k,KDIR)*dot_product(Grid%Tf(ig  ,j,k,NORMX:NORMZ,KDIR),B)
+                !Set flux and fields
+                    State%Bxyz(ig,j,k,:) = B !Cell-center field
 
+                    !Set i-face
+                    xcc = Grid%xfc(ig+1,j,k,:,IDIR)
+                    call GetWindAt(bc,Model,xcc,State%time,D,P,V,gB_sw)
+                    B  = wSW*gB_sw + wMHD*gB_mhd
+                    State%magFlux(ig+1,j,k,IDIR) = Grid%face(ig+1,j,k,IDIR)*dot_product(Grid%Tf(ig+1,j,k,NORMX:NORMZ,IDIR),B)
+
+                    !Set j-face
+                    xcc = Grid%xfc(ig  ,j,k,:,JDIR)
+                    call GetWindAt(bc,Model,xcc,State%time,D,P,V,gB_sw)
+                    B  = wSW*gB_sw + wMHD*gB_mhd
+                    State%magFlux(ig  ,j,k,JDIR) = Grid%face(ig  ,j,k,JDIR)*dot_product(Grid%Tf(ig  ,j,k,NORMX:NORMZ,JDIR),B)
+
+                    !Set k-face
+                    xcc = Grid%xfc(ig  ,j,k,:,KDIR)
+                    call GetWindAt(bc,Model,xcc,State%time,D,P,V,gB_sw)
+                    B  = wSW*gB_sw + wMHD*gB_mhd
+                    State%magFlux(ig  ,j,k,KDIR) = Grid%face(ig  ,j,k,KDIR)*dot_product(Grid%Tf(ig  ,j,k,NORMX:NORMZ,KDIR),B)
 
                 enddo !ighost loop
 

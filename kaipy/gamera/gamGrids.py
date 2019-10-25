@@ -3,6 +3,7 @@ import numpy as np
 from scipy import interpolate
 import sys
 import os
+from scipy.ndimage import gaussian_filter
 
 #Use routine to generate xx,yy = corners of active upper half plane
 #Use Aug2D to add ghosts in 2D: xx,yy -> xxG,yyG
@@ -301,17 +302,33 @@ def Aug2D(XX,YY,doEps=False,TINY=1.0e-8,KeepOut=True,Rpx=1.15):
 	#Do outer I, active J
 	Dx = XX[-1,:]-XX[-2,:]
 	Dy = YY[-1,:]-YY[-2,:]
+	Dp = PP[-1,:]-PP[-2,:]
+	Dr = RR[-1,:]-RR[-2,:]
+
 	nD = np.sqrt(Dx**2.0+Dy**2.0)
 	dBar = nD.mean()
-	#dO = np.minimum(nD,dBar)
-	dO = nD
+	dO = np.minimum(nD,dBar)
+	#dO = nD
 
+	J4 = Nj//4
 	xOut = XX[-1,:]
 	yOut = YY[-1,:]
+	sig = 1.5
+	jSigS = J4
+	jSigE = 3*J4
+
+	Dx[jSigS:jSigE] = gaussian_filter(Dx[jSigS:jSigE],sigma=sig,mode='nearest')
+	Dy[jSigS:jSigE] = gaussian_filter(Dy[jSigS:jSigE],sigma=sig,mode='nearest')
+	xS = xOut[0]+Ng*Dr[0]
+	xT = xOut[-1]-Ng*Dr[-1]
 	
+	#Dx[0:J4] = (xS-xOut[0:J4])/Ng
+
 	for i in range(0,Ng):
-		xxG[iE+i,jS:jE] = xOut+(i+1)* dO*Dx/nD
-		yyG[iE+i,jS:jE] = yOut+(i+1)* dO*Dy/nD
+		xxG[iE+i,jS:jE] = xOut+(i+1)*dO*Dx/nD
+		yyG[iE+i,jS:jE] = yOut+(i+1)*dO*Dy/nD
+
+
 
 	#Now finish by doing all J boundaries
 	#Just reflect about X-axis
