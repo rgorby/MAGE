@@ -256,7 +256,8 @@ class GamsphPipe(GameraPipe):
 		Nv = len(vIDs)
 		qSW = np.zeros(Nv)
 
-		fSW = self.ChunkName(self.Ri-1,0,0)
+		fSW = self.fdir + "/" + kh5.genName(self.ftag,self.Ri-1,0,0,self.Ri,self.Rj,self.Rk)
+
 		for i in range(Nv):
 			Q = kh5.PullVar(fSW,vIDs[i],n)
 			qSW[i] = Q[-1,0,0]
