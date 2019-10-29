@@ -130,7 +130,7 @@ def genFatEgg(Ni=Ni0,Nj=Nj0,Rin=3.0,Rout=30.0,xtail=250,NumSph=5,TINY=1.0e-8,A=0
 			Ai = A - (A-AScl)*RampUp(xTi,xSun,xBack)
 			thTail = L*eta + Ai*(xC-L*eta)*(1-eta)*eta
 			#Only use back half (past half-way)
-			theta[Nj/2:] = thTail[Nj/2:]
+			theta[Nj//2:] = thTail[Nj//2:]
 
 		for j in range(Nj+1):
 			th = theta[j]
@@ -363,7 +363,7 @@ def genRing(XX,YY,Nk=64,Tol=1.0,doVerb=False):
 			dI[i,j] = dR
 			dJ[i,j] = Rc*dP
 			dK[i,j] = Yc*dTh
-	Nrng = Nj/2
+	Nrng = Nj//2
 
 	
 	NChs = np.zeros(Nrng,dtype=np.int)

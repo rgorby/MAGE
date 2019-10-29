@@ -16,6 +16,8 @@ module wind
     integer, parameter :: SWSPC = 1 !SW fluid is always 1st in multifluid
     integer, parameter :: MAXWINDVARS = 20
 
+    logical :: doWindInterp = .false.
+
     !Type for generic solar wind BC (from file or subroutine)
     !Either use discrete tW,Qw(NVAR) series or subroutine
     type, extends(baseBC_T) :: WindBC_T
@@ -170,7 +172,6 @@ module wind
         !wgt = 1, dTh<=90
         !wgt->0 as dTh=>180
         wgt = RampDown(dTh,90.0_rp,90.0_rp)
-
     end function wgtWind
 
     !Do outer I BC for solar wind
@@ -325,11 +326,15 @@ module wind
         !$OMP private(i,j,k,n,xcc,nHat,e1,e2,ecc,Vxyz,Bxyz,swExyz,wSW,D,P,mhdExyz)
         do k=Grid%ksg,Grid%keg
             do j=Grid%jsg,Grid%jeg
-                do i=Grid%ie,Grid%ie+1
+                do i=Grid%ie-2,Grid%ie+1
                     xcc = Grid%xyzcc(i,j,k,:)
                     nHat = Grid%Tf(ip+1,j,k,NORMX:NORMZ,IDIR)
                     wSW = wgtWind(windBC,Model,xcc,State%time,nHat)
 
+                    if (i <= Grid%ie) then
+                        !Use full weight only for outer-most shell
+                        wSW = wSW/(1.0 + Grid%ie+1 - i)
+                    endif
                     do n=IDIR,KDIR
                         !Get edge coordinates
                         call edgeCoords(Model,Grid,i,j,k,n,e1,e2)
@@ -342,12 +347,48 @@ module wind
                         mhdExyz = State%Efld(i,j,k,n)
                         State%Efld(i,j,k,n) = (1.0-wSW)*mhdExyz + wSW*dot_product(swExyz,e2-e1)
                     enddo !E dirs
+                    if (i == Grid%ie+1) then
+                        swExyz = DiffuseOuter(Model,Grid,State,i,j,k)
+                        State%Efld(i,j,k,:) = State%Efld(i,j,k,:) + swExyz
+                    endif
                 enddo !i cells
             enddo
         enddo
 
     end subroutine WindEFix
 
+    !Calculate diffusive electric field
+    function DiffuseOuter(Model,Grid,State,i,j,k) result(Ed)
+        type(Model_T), intent(in) :: Model
+        type(Grid_T), intent(in) :: Grid
+        type(State_T), intent(in) :: State
+        integer, intent(in) :: i,j,k
+        real(rp), dimension(NDIM) :: Ed,Jd
+        real(rp) :: Vd,db2,db1,dl
+
+        Ed = 0.0
+        Jd = 0.0
+        !Calculate current
+        !Jk = d_i (Bj) - d_j (Bi), db2 - db1 (see fields.F90)
+        
+        db2 = State%magFlux(i,j,k,JDIR)/Grid%face(i,j,k,JDIR) - State%magFlux(i-1,j,k,JDIR)/Grid%face(i-1,j,k,JDIR)
+        db1 = State%magFlux(i,j,k,IDIR)/Grid%face(i,j,k,IDIR) - State%magFlux(i,j-1,k,IDIR)/Grid%face(i,j-1,k,IDIR)
+        Jd(KDIR) = db2 - db1
+
+        !Jj = d_k (Bi) - d_i (Bk)
+        db2 = State%magFlux(i,j,k,IDIR)/Grid%face(i,j,k,IDIR) - State%magFlux(i,j,k-1,IDIR)/Grid%face(i,j,k-1,IDIR)
+        db1 = State%magFlux(i,j,k,KDIR)/Grid%face(i,j,k,KDIR) - State%magFlux(i-1,j,k,KDIR)/Grid%face(i-1,j,k,KDIR)
+        Jd(JDIR) = db2 - db1
+
+        Vd = Model%Ca
+        dl = Grid%volume(i,j,k)**(1.0/3.0)
+        Vd = min(Vd,Model%CFL*dl/Model%dt)
+
+        Ed(IDIR) = 0.0
+        Ed(JDIR) = Vd*Jd(JDIR)*Grid%edge(i,j,k,JDIR)
+        Ed(KDIR) = Vd*Jd(KDIR)*Grid%edge(i,j,k,KDIR)
+
+    end function DiffuseOuter
 
     !Read solar wind data from file and initialize WindBC_T (qWind)
     subroutine readWind(windBC,Model,inpXML)
@@ -471,6 +512,12 @@ module wind
             dT = windBC%tW(i1)-windBC%tW(i0)
             w0 = (windBC%tW(i1)-t)/dT
             w1 = (t-windBC%tW(i0))/dT
+        endif
+
+        if (.not. doWindInterp) then
+            !Use discrete walls
+            w0 = 1.0
+            w1 = 0.0
         endif
 
         Rho = w0*windBC%Q(i0,DEN      ) + w1*windBC%Q(i1,DEN      )

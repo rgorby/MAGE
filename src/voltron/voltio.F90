@@ -86,6 +86,10 @@ module voltio
         real(rp) :: MagV
         MagV = norm2(V)
         aVec(2) = atan2(V(YDIR),V(ZDIR) )*180.0/PI !Clock angle
+        if (aVec(2) < 0) then
+            aVec(2) = aVec(2) + 360.0
+        endif
+        
         if (MagV>TINY) then
             aVec(3) = acos (V(XDIR)/MagV)*180.0/PI
         else
