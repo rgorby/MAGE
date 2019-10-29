@@ -259,8 +259,11 @@ module voltapp
         call vApp%tilt%getValue(vApp%time,curTilt)
 
         ! solve for remix output
-        call run_mix(vApp%remixApp%ion,curTilt)
-
+        if (time<=0) then
+            call run_mix(vApp%remixApp%ion,curTilt,doModelOpt=.false.)
+        else
+            call run_mix(vApp%remixApp%ion,curTilt,doModelOpt=.true.)
+        endif
         ! get stuff from mix to gamera
         call mapRemixToGamera(vApp%mix2mhd, vApp%remixApp)
 

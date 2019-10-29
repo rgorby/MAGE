@@ -162,18 +162,7 @@ class GameraPipe(object):
 			uID = hf.attrs.get("UnitsID","CODE")
 		if (not isinstance(uID,str)):
 			self.UnitsID = uID.decode('utf-8')
-
-	#Chunks go from 0,Ri-1 (Python iteration)
-	def ChunkName(self,i,j,k):
-		if (self.isMPI):
-			fIn = "blah"
-			n = j + i*self.Rj + k*self.Ri*self.Rj
-			fRn = "%04d_%04d_%04d_%04d_%04d_%04d_%012d"%(self.Ri,self.Rj,self.Rk,i,j,k,n)
-			fIn = self.fdir+"/"+self.ftag+"_"+fRn+".h5"
-		else:
-			fIn = self.fdir+"/"+self.ftag+".h5"
-		return fIn
-		#print(fIn)
+		
 	def GetGrid(self,doVerbose):
 		import kaipy.kaiH5 as kh5
 		if (self.is2D):
@@ -195,7 +184,8 @@ class GameraPipe(object):
 					jE = jS+self.dNj
 					kE = kS+self.dNk
 					#print("Bounds = (%d,%d,%d,%d,%d,%d)"%(iS,iE,jS,jE,kS,kE))
-					fIn = self.ChunkName(i,j,k)
+					fIn = self.fdir + "/" + kh5.genName(self.ftag,i,j,k,self.Ri,self.Rj,self.Rk)
+					
 					if (self.is2D):
 						self.X[iS:iE+1,jS:jE+1] = kh5.PullVar(fIn,"X")
 						self.Y[iS:iE+1,jS:jE+1] = kh5.PullVar(fIn,"Y")
@@ -228,7 +218,8 @@ class GameraPipe(object):
 					jE = jS+self.dNj
 					kE = kS+self.dNk
 					#print("Bounds = (%d,%d,%d,%d,%d,%d)"%(iS,iE,jS,jE,kS,kE))
-					fIn = self.ChunkName(i,j,k)
+					fIn = self.fdir + "/" + kh5.genName(self.ftag,i,j,k,self.Ri,self.Rj,self.Rk)
+					
 					if (self.is2D):
 						V[iS:iE,jS:jE] = kh5.PullVar(fIn,vID,sID)
 						

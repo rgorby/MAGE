@@ -162,8 +162,13 @@ module sstimag
 
         call tWeights(t,w1,w2)
         P = w1*eqData%eqW1(i0,j0,1) + w2*eqData%eqW2(i0,j0,1)
+        if (t<=0) then
+            D = 0.0
+            P = 0.0
+        endif
         imW(IMDEN) = D
         imW(IMPR)  = P
+        
     end subroutine EvalSST
 
     !Get weights for given time

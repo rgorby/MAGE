@@ -12,12 +12,6 @@ IDIR = 0
 JDIR = 1
 KDIR = 2
 
-#Generate name of restart file
-def genName(bStr,i,j,k,Ri,Rj,Rk,nRes):
-	n = j + i*Rj + k*Ri*Rj
-	fID = bStr + "_%04d_%04d_%04d_%04d_%04d_%04d_%012d"%(Ri,Rj,Rk,i,j,k,n)+".Res.%05d.h5"%(nRes)
-	return fID
-
 #Downscale a grid (with ghosts, k-j-i order)
 def downGrid(X,Y,Z):
 	Ngk,Ngj,Ngi = X.shape

@@ -6,13 +6,9 @@ from argparse import RawTextHelpFormatter
 import numpy as np
 import kaipy.gamera.gampp as gampp
 import lxml.etree as et
+import kaipy.kaiH5 as kh5
 
 import os
-#Generate name of restart file
-def genName(bStr,i,j,k,Ri,Rj,Rk):
-	n = j + i*Rj + k*Ri*Rj
-	fID = bStr + "_%04d_%04d_%04d_%04d_%04d_%04d_%012d.h5"%(Ri,Rj,Rk,i,j,k,n)
-	return fID
 
 if __name__ == "__main__":
 	#Defaults
@@ -36,8 +32,9 @@ if __name__ == "__main__":
 
 	#---------------------
 	#Init data
+	
 	gamData = gampp.GameraPipe(fdir,ftag)
-
+	
 	#---------------------
 	#Do work
 	Ri = gamData.Ri
@@ -87,7 +84,7 @@ if __name__ == "__main__":
 			for j in range(Rj):
 				for k in range(Rk):
 					nMPI = j + i*Rj + k*Ri*Rj
-					h5F = genName(ftag,i,j,k,Ri,Rj,Rk)
+					h5F = kh5.genName(ftag,i,j,k,Ri,Rj,Rk)
 
 					#Create new subgrid
 					gName = "gMesh%d"%(nMPI)

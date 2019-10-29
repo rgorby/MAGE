@@ -7,6 +7,7 @@ from argparse import RawTextHelpFormatter
 import numpy as np
 import h5py
 import os
+import kaipy.kaiH5 as kh5
 
 if __name__ == "__main__":
 	dIn = os.getcwd()
@@ -58,7 +59,7 @@ if __name__ == "__main__":
 	for i in range(Ri):
 		for j in range(Rj):
 			for k in range(Rk):
-				fID = upscl.genName(bStr,i,j,k,Ri,Rj,Rk,nRes)
+				fID = kh5.genName(bStr,i,j,k,Ri,Rj,Rk,nRes)
 				print("Reading from %s"%(fID))
 
 				#Start with input data

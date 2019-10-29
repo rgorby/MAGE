@@ -797,12 +797,14 @@ module msphutils
 
         real(rp) :: M0,Mf
         real(rp) :: Tau,dRho,dP
-        logical :: doIngest,doInD,doInP
+        logical  :: doIngest,doInD,doInP
 
         if (Model%doMultiF) then
             write(*,*) 'Source ingestion not implemented for multifluid, you should do that'
             stop
         endif
+
+        if (Model%t<=0) return
 
         !M0 = sum(State%Gas(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,DEN,BLK)*Gr%volume(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke))
 
