@@ -3,7 +3,7 @@ subroutine rcm_mhd(mhdtime,mhdtimedt,RM,iflag)
 ! units are assumed to mks, except for distances which are in Re.
 ! iflag = 0 - setup arrays, read in parameters
 ! iflag = 1 - run rcm
-! iflag = =1 - stop, write out timing information
+! iflag = -1 - stop, write out timing information
 ! 2/19 frt
   use rcm_precision
   use Rcm_mod_subs
@@ -74,6 +74,7 @@ subroutine rcm_mhd(mhdtime,mhdtimedt,RM,iflag)
     ircm_dt = itimef - itimei
 ! finish up
    if(iflag==-1)then
+    
            call write_rcm_timing(rcm_timing)
            return
    end if

@@ -65,7 +65,7 @@
       INTEGER(iprec), PARAMETER :: n_smooth = 5
       LOGICAL,PARAMETER :: use_ellipse = .true.
       LOGICAL,PARAMETER :: set_boundary_with_mach = .false.
-      LOGICAL,PARAMETER :: set_boundary_with_beta = .true.
+      LOGICAL,PARAMETER :: set_boundary_with_beta = .false.
       REAL(rprec), PARAMETER :: max_beta = 1.0 ! max averaged beta to set the boundary
 
       ierr = 0

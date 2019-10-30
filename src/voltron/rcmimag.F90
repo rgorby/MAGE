@@ -27,8 +27,6 @@ module rcmimag
     integer, parameter :: MAXRCMIOVAR = 20
     character(len=strLen), private :: h5File
 
-    !Do I need this stuff?
-    real(rp), private :: ddt
 
     !Information taken from MHD flux tubes
     !TODO: Figure out -volume for open flux tubes?
@@ -73,7 +71,6 @@ module rcmimag
             call init_rcm_mix(RCMApp)
         endif
 
-        call iXML%Set_Val(ddt,"rcm/ddt",15.0) !RCM substep [s]
         call iXML%Set_Val(RunID,"/gamera/sim/runid","sim")
 
         h5File = trim(RunID) // ".rcm.h5"
@@ -123,23 +120,14 @@ module rcmimag
                 RCMApp%Pave(i,j)         = ijTube%Pave
                 RCMApp%Nave(i,j)         = ijTube%Nave
                 !RCMApp%pot(i,j)          = ijTube%pot
-                RCMApp%pot(i,j)          = mixPot(j,i)   ! mix variables are stored in this order (longitude,colatitude), hence the index flip
+                ! mix variables are stored in this order (longitude,colatitude), hence the index flip
+                RCMApp%pot(i,j)          = mixPot(j,i)   
                 RCMApp%X_bmin(i,j,:)     = ijTube%X_bmin
             enddo
         enddo
 
-
     !Advance from vApp%time to tAdv
-        !Substep until done
-        !NOTE: Weird use of real(iprec) on RCM side
-        dtCum = 0.0
-        nStp = int( (tAdv-vApp%time)/ddt )
-        do n=1,nStp
-            call rcm_mhd(vApp%time+dtCum,ddt,RCMApp,RCMADVANCE)
-            dtCum = dtCum+ddt
-        enddo
-
-        !Add some diagnostic stuff here?
+        call rcm_mhd(vApp%time,ceiling(tAdv),RCMApp,RCMADVANCE)
 
     end subroutine AdvanceRCM
 
@@ -357,6 +345,7 @@ module rcmimag
         call AddOutVar(IOVars,"zMin",RCMApp%X_bmin(:,:,ZDIR)/REarth)
         call AddOutVar(IOVars,"bMin",RCMApp%Bmin)
         call AddOutVar(IOVars,"S",RCMApp%Prcm*(RCMApp%Vol**(5.0/3.0)) )
+        call AddOutVar(IOVars,"beta",RCMApp%beta_average)
 
         !Add attributes
         call AddOutVar(IOVars,"time",time)
@@ -370,7 +359,8 @@ module rcmimag
     subroutine WriteRCMRestart(nRes,MJD,time)
         integer, intent(in) :: nRes
         real(rp), intent(in) :: MJD, time
-        call rcm_mhd(time,ddt,RCMApp,RCMRESTARTOUT)
+
+        call rcm_mhd(time,0,RCMApp,RCMRESTARTOUT)
 
     end subroutine WriteRCMRestart
 end module rcmimag
