@@ -184,8 +184,10 @@ class GameraPipe(object):
 					jE = jS+self.dNj
 					kE = kS+self.dNk
 					#print("Bounds = (%d,%d,%d,%d,%d,%d)"%(iS,iE,jS,jE,kS,kE))
-					fIn = self.fdir + "/" + kh5.genName(self.ftag,i,j,k,self.Ri,self.Rj,self.Rk)
-					
+					if (self.isMPI):
+						fIn = self.fdir + "/" + kh5.genName(self.ftag,i,j,k,self.Ri,self.Rj,self.Rk)
+					else:
+						fIn = self.fdir + "/" + self.ftag + ".h5"
 					if (self.is2D):
 						self.X[iS:iE+1,jS:jE+1] = kh5.PullVar(fIn,"X")
 						self.Y[iS:iE+1,jS:jE+1] = kh5.PullVar(fIn,"Y")
@@ -218,7 +220,10 @@ class GameraPipe(object):
 					jE = jS+self.dNj
 					kE = kS+self.dNk
 					#print("Bounds = (%d,%d,%d,%d,%d,%d)"%(iS,iE,jS,jE,kS,kE))
-					fIn = self.fdir + "/" + kh5.genName(self.ftag,i,j,k,self.Ri,self.Rj,self.Rk)
+					if (self.isMPI):
+						fIn = self.fdir + "/" + kh5.genName(self.ftag,i,j,k,self.Ri,self.Rj,self.Rk)
+					else:
+						fIn = self.fdir + "/" + self.ftag + ".h5"
 					
 					if (self.is2D):
 						V[iS:iE,jS:jE] = kh5.PullVar(fIn,vID,sID)

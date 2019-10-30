@@ -22,28 +22,27 @@ module rcmimag
     !Scaling parameters
     real(rp), private :: rcmPScl = 1.0e+9 !Convert Pa->nPa
     real(rp), private :: rcmNScl = 1.0e-6 !Convert #/m3 => #/cc
-
+    real(rp), parameter :: RIonRCM = (RionE/REarth)*1.0e+6
     integer, parameter :: MAXRCMIOVAR = 10
     character(len=strLen), private :: h5File
 
     !Do I need this stuff?
-    real(rp), private :: rcm_boundary_s =35,rcm_boundary_e =2
-    real(rp), private :: colat_boundary
     real(rp), private :: ddt
 
     !Information taken from MHD flux tubes
     !TODO: Figure out -volume for open flux tubes?
+    !TODO: Figure out RCM boundaries
     !TODO: Figure out iopen values
     !TODO: Figure out units for potential
 
     !Pave = Average pressure [Pa]
     !Nave = Average density [#/m3]
-    !Vol  = Flux-tube volume [XXX?] (seems like it is Re/T)
+    !Vol  = Flux-tube volume [Re/T]
     !bmin = Min field strength [T]
     !X_bmin = Location of Bmin [m]
     !beta_average = Average plasma beta
-    !Potential = MIX potential [XXX?]
-    !iopen = Field line topology (-1: Closed, 1: Open, 1: Else????)
+    !Potential = MIX potential [Volts]
+    !iopen = Field line topology (-1: Closed, 1: Open)
     type RCMTube_T
         real(rp) :: Vol,bmin,beta_average,Pave,Nave,pot
         real(rp) :: X_bmin(NDIM)
@@ -67,10 +66,11 @@ module rcmimag
         else
             write(*,*) 'Initializing RCM ...'
             call rcm_mhd(t0,dtCpl,RCMApp,RCMINIT)
+            !call init_rcm_mix(with information)
         endif
 
         call iXML%Set_Val(ddt,"rcm/ddt",15.0) !RCM substep [s]
-        call iXML%Set_Val(RunID,"/gamera/sim/runid","sillysim")
+        call iXML%Set_Val(RunID,"/gamera/sim/runid","sim")
 
         h5File = trim(RunID) // ".rcm.h5"
 
@@ -91,17 +91,24 @@ module rcmimag
         type(voltApp_T), intent(inout) :: vApp
         real(rp), intent(in) :: tAdv
 
-        integer :: i,j,n,rcmbndy,nStp
+        integer :: i,j,n,nStp
         real(rp) :: colat,lat,lon
         real(rp) :: dtCum
-
+        real(rp), dimension(:,:), allocatable :: mixPot
         type(RCMTube_T) :: ijTube
 
+    !Get potential from mix
+        write(*,*) 'JWrap = ', jwrap
+        allocate(mixPot(RCMApp%nLat_ion,RCMApp%nLon_ion-jwrap))
+        mixPot = 0.0
+        !call MixDoesStuffButNotPeriodic(mixPot)
+
+        RCMApp%pot(:,1:RCMApp%nLon_ion-jwrap) = mixPot
+        do j=1,jwrap
+            RCMApp%pot(:,RCMApp%nLon_ion-jwrap+j) = mixPot(:,j)
+        enddo
+
     !Load RCM tubes
-        rcmbndy = 30 !I don't know where this is coming from
-        colat_boundary = sin(RCMApp%gcolat(rcmbndy))
-
-
        !$OMP PARALLEL DO default(shared) collapse(2) &
        !$OMP private(i,j,colat,lat,lon,ijTube)
         do i=1,RCMApp%nLat_ion
@@ -125,9 +132,6 @@ module rcmimag
             enddo
         enddo
 
-        !Set RCM boundary
-        RCMApp%Vol(1:rcmbndy,:) = -1.0
-        RCMApp%iopen(1:rcmbndy,:) = 1 !Open
 
     !Advance from vApp%time to tAdv
         !Substep until done
@@ -177,10 +181,10 @@ module rcmimag
         integer :: OCb
         real(rp) :: bD,bP,dvB,bBeta
     !First get seed for trace
-        !Assume lat/lon @ Earth, dipole push to R=2.5
-        xyzIon(XDIR) = 1.0*cos(lat)*cos(lon)
-        xyzIon(YDIR) = 1.0*cos(lat)*sin(lon)
-        xyzIon(ZDIR) = 1.0*sin(lat)
+        !Assume lat/lon @ Earth, dipole push
+        xyzIon(XDIR) = RIonRCM*cos(lat)*cos(lon)
+        xyzIon(YDIR) = RIonRCM*cos(lat)*sin(lon)
+        xyzIon(ZDIR) = RIonRCM*sin(lat)
         x0 = DipoleShift(xyzIon,2.05_rp)
         
     !Now do field line trace
@@ -198,8 +202,6 @@ module rcmimag
         !Plasma quantities
         !dvB = Flux-tube volume (Re/EB)
         call FLThermo(ebModel,ebGr,bTrc,bD,bP,dvB,bBeta)
-        !This converts Re/EB => m/T (seems wrong)
-        !dvB = dvB*(Re_cgs*1.0e-2)/(oBScl*1.0e-9)
         !Converts Re/EB => Re/T
         dvB = dvB/(oBScl*1.0e-9)
         bP = bP*1.0e-9 !nPa=>Pa
@@ -218,7 +220,7 @@ module rcmimag
         ijTube%bmin = bMin
         select case(OCb)
         case(0)
-            !Solar wind (weird)
+            !Solar wind (is this right?)
             ijTube%iopen = 1
             ijTube%Vol = -dvB
         case(1)
@@ -229,6 +231,10 @@ module rcmimag
             !Closed field
             ijTube%iopen = -1
             ijTube%Vol = dvB
+        case default
+            !WTF?
+            ijTube%iopen = -999
+            ijTube%Vol = -999
         end select
 
         ijTube%Pave = bP
@@ -267,6 +273,7 @@ module rcmimag
         real(rp) :: nmin = 1.0e4 ! min dens in ple/m^3
         real(rp) :: potmax = 5.0e4 ! potential max
         real(rp) :: re = 6380.e3
+        real(rp) :: colat_boundary
 
         colat = PI/2 - lat
         L = 1.0/(sin(colat)**2.0)
@@ -279,7 +286,7 @@ module rcmimag
         ijTube%beta_average = 0.1
         ijTube%Pave = pmax*exp(-(L-Lmax)**2.0) + pmin
         ijTube%Nave = nmax*exp(-(L-Lmax)**2.0) + nmin
-
+        colat_boundary = PI/4.0
         if (colat < colat_boundary) then
             ijTube%pot = -potmax/2.0*sin(lon)*sin(colat)
         else
@@ -344,6 +351,9 @@ module rcmimag
 
         call AddOutVar(IOVars,"N",RCMApp%Nrcm*rcmNScl)
         call AddOutVar(IOVars,"P",RCMApp%Prcm*rcmPScl)
+        call AddOutVar(IOVars,"IOpen",RCMApp%iopen*1.0_rp)
+        call AddOutVar(IOVars,"bVol",RCMApp%Vol)
+        call AddOutVar(IOVars,"pot",RCMApp%pot)
 
         !Add attributes
         call AddOutVar(IOVars,"time",time)
