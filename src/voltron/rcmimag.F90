@@ -12,6 +12,7 @@ module rcmimag
     use files
     use earthhelper
     use rcm_mhd_interfaces
+    use rcm_mix_interface
     use streamline
 
     implicit none
@@ -68,7 +69,7 @@ module rcmimag
             call rcm_mhd(t0,dtCpl,RCMApp,RCMINIT)
             !RCMApp%glong(1:nLon_ion-jwrap)
             !RCMApp%gcolat(1:nLat_ion)
-            !call init_rcm_mix(with information)
+            call init_rcm_mix(RCMApp)
         endif
 
         call iXML%Set_Val(ddt,"rcm/ddt",15.0) !RCM substep [s]
@@ -103,7 +104,7 @@ module rcmimag
         write(*,*) 'JWrap = ', jwrap
         allocate(mixPot(RCMApp%nLat_ion,RCMApp%nLon_ion-jwrap))
         mixPot = 0.0
-        !call MixDoesStuffButNotPeriodic(mixPot)
+        call map_rcm_mix(vApp,mixPot)
 
         RCMApp%pot(:,1:RCMApp%nLon_ion-jwrap) = mixPot
         do j=1,jwrap
