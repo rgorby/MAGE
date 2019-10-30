@@ -42,6 +42,9 @@ contains
     ! do mapping here since in geo the RCM grid will be moving
     call mix_set_map(voltApp%remixApp%ion(NORTH)%G,rcmG,rcmMap)
     call mix_map_grids(rcmMap,voltApp%remixApp%ion(NORTH)%St%Vars(:,:,POT),rcmPot)
+    !Convert from kV to V
+    rcmPot = (1.0e+3)*rcmPot
+
   end subroutine map_rcm_mix
   
 end module  rcm_mix_interface
