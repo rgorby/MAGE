@@ -50,6 +50,7 @@ module rcmimag
         integer(ip) :: iopen
     end type RCMTube_T
 
+    real(rp), dimension(:,:), allocatable, private :: mixPot
     contains
 
     !Initialize RCM inner magnetosphere model
@@ -63,12 +64,13 @@ module rcmimag
 
         if (isRestart) then
             write(*,*) 'What do I do here?'
-            stop
+            write(*,*) 'Initializing RCM ...'
+            call rcm_mhd(t0,dtCpl,RCMApp,RCMINIT)
+            call init_rcm_mix(RCMApp)
+            !stop
         else
             write(*,*) 'Initializing RCM ...'
             call rcm_mhd(t0,dtCpl,RCMApp,RCMINIT)
-            !RCMApp%glong(1:nLon_ion-jwrap)
-            !RCMApp%gcolat(1:nLat_ion)
             call init_rcm_mix(RCMApp)
         endif
 
@@ -97,19 +99,10 @@ module rcmimag
         integer :: i,j,n,nStp
         real(rp) :: colat,lat,lon
         real(rp) :: dtCum
-        real(rp), dimension(:,:), allocatable :: mixPot
         type(RCMTube_T) :: ijTube
 
     !Get potential from mix
-        write(*,*) 'JWrap = ', jwrap
-        allocate(mixPot(RCMApp%nLat_ion,RCMApp%nLon_ion-jwrap))
-        mixPot = 0.0
         call map_rcm_mix(vApp,mixPot)
-
-        RCMApp%pot(:,1:RCMApp%nLon_ion-jwrap) = mixPot
-        do j=1,jwrap
-            RCMApp%pot(:,RCMApp%nLon_ion-jwrap+j) = mixPot(:,j)
-        enddo
 
     !Load RCM tubes
        !$OMP PARALLEL DO default(shared) collapse(2) &
@@ -130,7 +123,8 @@ module rcmimag
                 RCMApp%beta_average(i,j) = ijTube%beta_average
                 RCMApp%Pave(i,j)         = ijTube%Pave
                 RCMApp%Nave(i,j)         = ijTube%Nave
-                RCMApp%pot(i,j)          = ijTube%pot
+                !RCMApp%pot(i,j)          = ijTube%pot
+                RCMApp%pot(i,j)          = mixPot(i,j)
                 RCMApp%X_bmin(i,j,:)     = ijTube%X_bmin
             enddo
         enddo
@@ -180,7 +174,7 @@ module rcmimag
         type(fLine_T) :: bTrc
         real(rp) :: t, bMin
         real(rp), dimension(NDIM) :: x0, bEq, xyzIon
-        type(RCMTube_T) :: dpTube
+        !type(RCMTube_T) :: dpTube
         integer :: OCb
         real(rp) :: bD,bP,dvB,bBeta
     !First get seed for trace
@@ -215,8 +209,8 @@ module rcmimag
 
         end associate
 
-        !Get dipole tube to test against
-        call DipoleTube(vApp,lat,lon,dpTube)
+        ! !Get dipole tube to test against
+        ! call DipoleTube(vApp,lat,lon,dpTube)
 
     !Scale and store information
         ijTube%X_bmin = bEq
@@ -243,7 +237,9 @@ module rcmimag
         ijTube%Pave = bP
         ijTube%Nave = bD
         ijTube%beta_average = bBeta
-        ijTube%pot = dpTube%pot
+        
+
+        !ijTube%pot = dpTube%pot
 
         ! write(*,*) '---'
         ! write(*,*) 'Lat/Lon = ', lat*180.0/PI,lon*180.0/PI
