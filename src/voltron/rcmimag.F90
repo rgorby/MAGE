@@ -123,7 +123,7 @@ module rcmimag
                 RCMApp%Pave(i,j)         = ijTube%Pave
                 RCMApp%Nave(i,j)         = ijTube%Nave
                 !RCMApp%pot(i,j)          = ijTube%pot
-                RCMApp%pot(i,j)          = mixPot(i,j)
+                RCMApp%pot(i,j)          = mixPot(j,i)   ! mix variables are stored in this order (longitude,colatitude), hence the index flip
                 RCMApp%X_bmin(i,j,:)     = ijTube%X_bmin
             enddo
         enddo
