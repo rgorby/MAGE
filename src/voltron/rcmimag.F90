@@ -66,6 +66,8 @@ module rcmimag
         else
             write(*,*) 'Initializing RCM ...'
             call rcm_mhd(t0,dtCpl,RCMApp,RCMINIT)
+            !RCMApp%glong(1:nLon_ion-jwrap)
+            !RCMApp%gcolat(1:nLat_ion)
             !call init_rcm_mix(with information)
         endif
 
