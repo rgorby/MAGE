@@ -171,4 +171,20 @@ module innermagsphere
         end select
 
     end subroutine InnerMagIO
+
+    subroutine InnerMagRestart(vApp,nRes)
+        type(voltApp_T), intent(inout) :: vApp
+        integer, intent(in) :: nRes
+
+        select case (vApp%imType)
+        case(IMAGSST)
+            
+        case(IMAGRCM)
+            call WriteRCMRestart(nRes,vApp%MJD,vApp%time)
+        case DEFAULT
+            write(*,*) 'Unkown imType, bailing ...'
+            stop
+        end select
+
+    end subroutine InnerMagRestart
 end module innermagsphere

@@ -17,14 +17,14 @@ module rcmimag
 
     implicit none
 
-    integer(ip), parameter,private :: RCMINIT=0,RCMADVANCE=1,RCMFINISH=-1
+    integer(ip), parameter,private :: RCMINIT=0,RCMADVANCE=1,RCMRESTARTOUT=-1
     type(rcm_mhd_T), private :: RCMApp
 
     !Scaling parameters
     real(rp), private :: rcmPScl = 1.0e+9 !Convert Pa->nPa
     real(rp), private :: rcmNScl = 1.0e-6 !Convert #/m3 => #/cc
     real(rp), parameter :: RIonRCM = (RionE/REarth)*1.0e+6
-    integer, parameter :: MAXRCMIOVAR = 10
+    integer, parameter :: MAXRCMIOVAR = 20
     character(len=strLen), private :: h5File
 
     !Do I need this stuff?
@@ -63,11 +63,10 @@ module rcmimag
         logical :: fExist
 
         if (isRestart) then
-            write(*,*) 'What do I do here?'
-            write(*,*) 'Initializing RCM ...'
+            write(*,*) 'This should be a restart'
+            write(*,*) 'Restarting RCM ...'
             call rcm_mhd(t0,dtCpl,RCMApp,RCMINIT)
             call init_rcm_mix(RCMApp)
-            !stop
         else
             write(*,*) 'Initializing RCM ...'
             call rcm_mhd(t0,dtCpl,RCMApp,RCMINIT)
@@ -353,6 +352,11 @@ module rcmimag
         call AddOutVar(IOVars,"IOpen",RCMApp%iopen*1.0_rp)
         call AddOutVar(IOVars,"bVol",RCMApp%Vol)
         call AddOutVar(IOVars,"pot",RCMApp%pot)
+        call AddOutVar(IOVars,"xMin",RCMApp%X_bmin(:,:,XDIR)/REarth)
+        call AddOutVar(IOVars,"yMin",RCMApp%X_bmin(:,:,YDIR)/REarth)
+        call AddOutVar(IOVars,"zMin",RCMApp%X_bmin(:,:,ZDIR)/REarth)
+        call AddOutVar(IOVars,"bMin",RCMApp%Bmin)
+        call AddOutVar(IOVars,"S",RCMApp%Prcm*(RCMApp%Vol**(5.0/3.0)) )
 
         !Add attributes
         call AddOutVar(IOVars,"time",time)
@@ -363,4 +367,10 @@ module rcmimag
 
     end subroutine WriteRCM
 
+    subroutine WriteRCMRestart(nRes,MJD,time)
+        integer, intent(in) :: nRes
+        real(rp), intent(in) :: MJD, time
+        call rcm_mhd(time,ddt,RCMApp,RCMRESTARTOUT)
+
+    end subroutine WriteRCMRestart
 end module rcmimag

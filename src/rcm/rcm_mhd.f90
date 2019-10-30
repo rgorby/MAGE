@@ -15,7 +15,7 @@ subroutine rcm_mhd(mhdtime,mhdtimedt,RM,iflag)
 
   implicit none
   type(rcm_mhd_T),intent(inout) :: RM
-  real(iprec), intent(in) :: mhdtime,mhdtimedt
+  real(rprec), intent(in) :: mhdtime,mhdtimedt
   integer(iprec) :: dayOfYear 
 !  integer(iprec) :: idim,jdim
 !  real(rprec), intent(in) :: v(:,:),pave(:,:),xion(:,:),yion(:,:),zion(:,:)

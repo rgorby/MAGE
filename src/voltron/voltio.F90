@@ -67,6 +67,11 @@ module voltio
             write(*,*) 'Need to handle Voltron restart case for MPI!'
         endif
 
+        !Write inner mag restart
+        if (vApp%doDeep) then
+            call InnerMagRestart(vApp,vApp%IO%nRes)
+        endif
+
         vApp%IO%tRes = vApp%IO%tRes + vApp%IO%dtRes
         vApp%IO%nRes = vApp%IO%nRes + 1            
 
