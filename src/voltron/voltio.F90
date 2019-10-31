@@ -71,8 +71,9 @@ module voltio
         if (vApp%doDeep) then
             call InnerMagRestart(vApp,vApp%IO%nRes)
         endif
-
-        vApp%IO%tRes = vApp%IO%tRes + vApp%IO%dtRes
+        if (vApp%time>vApp%IO%tRes) then
+            vApp%IO%tRes = vApp%IO%tRes + vApp%IO%dtRes
+        endif
         vApp%IO%nRes = vApp%IO%nRes + 1            
 
     end subroutine resOutputV
@@ -97,7 +98,9 @@ module voltio
             call InnerMagIO(vApp,vApp%IO%nOut)
         endif
 
-        vApp%IO%tOut = vApp%IO%tOut + vApp%IO%dtOut
+        if (vApp%time>vApp%IO%tOut) then
+            vApp%IO%tOut = vApp%IO%tOut + vApp%IO%dtOut
+        endif
         vApp%IO%nOut = vApp%IO%nOut + 1
 
     end subroutine fOutputV

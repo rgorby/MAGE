@@ -7242,6 +7242,15 @@ bjmod_real = MODULO(bj-REAL(jwrap),REAL(jsize-jwrap-1)) + REAL(jwrap)
        idt2   = idt2_in
       END IF
 
+      IF (icontrol == 5) then  ! write a restart record to RCM
+         write(6,*)'Writing RCM arrays for restart at t=', i_time
+         CALL Disk_write_arrays ()
+         call AddToList(i_time,rcm_timing)  
+         irdw   = irdw + 1
+         return
+      END IF
+
+
    IF (icontrol == 0) then  ! initialize RCM size params and go back:
 
       IF (.NOT.Check_logical_units ( ) ) STOP 'LUNs NOT AVAILABLE'

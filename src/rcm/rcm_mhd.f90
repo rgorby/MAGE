@@ -4,6 +4,7 @@ subroutine rcm_mhd(mhdtime,mhdtimedt,RM,iflag)
 ! iflag = 0 - setup arrays, read in parameters
 ! iflag = 1 - run rcm
 ! iflag = -1 - stop, write out timing information
+! iflag = -2 - Force record output like now
 ! 2/19 frt
   use rcm_precision
   use Rcm_mod_subs
@@ -79,7 +80,11 @@ subroutine rcm_mhd(mhdtime,mhdtimedt,RM,iflag)
            return
    end if
 
-   
+! Force record output
+   if (iflag==-2) then
+      CALL Rcm (itimei, itimef, irdr, irdw, idt, idt1, idt2,icontrol=5_iprec)
+   endif
+
 ! initialize
   if(iflag ==0)then
     !CALL Read_rcm_mhd_params

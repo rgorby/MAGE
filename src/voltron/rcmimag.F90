@@ -17,7 +17,7 @@ module rcmimag
 
     implicit none
 
-    integer(ip), parameter,private :: RCMINIT=0,RCMADVANCE=1,RCMRESTARTOUT=-1
+    integer(ip), parameter,private :: RCMINIT=0,RCMADVANCE=1,RCMWRITEREC=-2,RCMWRITEINDEX=-1
     type(rcm_mhd_T), private :: RCMApp
 
     !Scaling parameters
@@ -361,7 +361,9 @@ module rcmimag
         integer, intent(in) :: nRes
         real(rp), intent(in) :: MJD, time
 
-        call rcm_mhd(time,TINY,RCMApp,RCMRESTARTOUT)
-
+        !Do two things, force a record output and output time index
+        !call rcm_mhd(time,TINY,RCMApp,RCMWRITEREC)
+        !call rcm_mhd(time,TINY,RCMApp,RCMWRITEINDEX)
+        write(*,*) 'I should do an RCM restart here ...'
     end subroutine WriteRCMRestart
 end module rcmimag
