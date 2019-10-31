@@ -24,6 +24,9 @@ END MODULE CONSTANTS
 MODULE rice_housekeeping_module
 !  USE Rcm_mod_subs, ONLY : rprec,iprec
   USE rcm_precision
+  use xml_input
+  use strings
+
   IMPLICIT NONE
   LOGICAL :: L_write_rcmu          = .false., &
              L_write_rcmu_torcm    = .false., &
@@ -67,6 +70,27 @@ MODULE rice_housekeeping_module
 
       RETURN
       END SUBROUTINE Read_rcm_mhd_params
+
+      !Get RCM params from Kaiju-style XML file
+      subroutine RCM_MHD_Params_XML()
+        character(len=strLen) :: inpXML
+        type(XML_Input_T) :: xmlInp
+
+        !Find input deck filename
+        call getIDeckStr(inpXML)
+
+        !Create XML reader
+        xmlInp = New_XML_Input(trim(inpXML),'RCM',.true.)
+
+        !Read various parameters
+        call xmlInp%Set_Val(L_write_rcmu_torcm,"output/toRCM",L_write_rcmu_torcm)
+        call xmlInp%Set_Val(L_write_rcmu,"output/toMHD",L_write_rcmu)
+        call xmlInp%Set_Val(L_write_vars_debug,"output/debug",L_write_vars_debug)
+        call xmlInp%Set_Val(rcm_tilted,"tilt/isTilt",rcm_tilted)
+
+        !For now just using default Idt_overwrite
+
+      end subroutine RCM_MHD_Params_XML
 
 END MODULE rice_housekeeping_module
 

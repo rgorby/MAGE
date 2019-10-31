@@ -94,7 +94,7 @@ module rcmimag
 
         integer :: i,j,n,nStp
         real(rp) :: colat,lat,lon
-        real(rp) :: dtCum
+        real(rp) :: dtAdv
         type(RCMTube_T) :: ijTube
 
     !Get potential from mix
@@ -127,7 +127,8 @@ module rcmimag
         enddo
 
     !Advance from vApp%time to tAdv
-        call rcm_mhd(vApp%time,ceiling(tAdv),RCMApp,RCMADVANCE)
+        dtAdv = tAdv-vApp%time !RCM-DT
+        call rcm_mhd(vApp%time,dtAdv,RCMApp,RCMADVANCE)
 
     end subroutine AdvanceRCM
 
@@ -360,7 +361,7 @@ module rcmimag
         integer, intent(in) :: nRes
         real(rp), intent(in) :: MJD, time
 
-        call rcm_mhd(time,0,RCMApp,RCMRESTARTOUT)
+        call rcm_mhd(time,TINY,RCMApp,RCMRESTARTOUT)
 
     end subroutine WriteRCMRestart
 end module rcmimag

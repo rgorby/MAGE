@@ -82,7 +82,8 @@ subroutine rcm_mhd(mhdtime,mhdtimedt,RM,iflag)
    
 ! initialize
   if(iflag ==0)then
-    CALL Read_rcm_mhd_params
+    !CALL Read_rcm_mhd_params
+    CALL RCM_MHD_Params_XML
 
     ! setup rcm
     CALL Rcm (itimei, itimef, irdr, irdw, idt, idt1, idt2,icontrol=0_iprec)
