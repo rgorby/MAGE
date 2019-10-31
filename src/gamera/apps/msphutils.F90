@@ -84,7 +84,7 @@ module msphutils
             gG0 = 9.807   ! [m/s2]
             call xmlInp%Set_Val(M0g,"prob/M0",EarthM0g) !Mag moment [gauss]
             !Using corotation potential for Earth
-            Psi0 = 92.0 !kV
+            Psi0 = EarthPsi0 !kV
             Rion = RionE*1.e6/gx0 ! Radius of ionosphere in code units (RionE defined in kdefs in 1000km)
             Model%doGrav = .true.
         case("Saturn","saturn","SATURN")

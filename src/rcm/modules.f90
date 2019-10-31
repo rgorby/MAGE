@@ -2,6 +2,7 @@
 
 MODULE CONSTANTS
   USE rcm_precision
+  USE kdefs, ONLY : EarthPsi0
   USE Rcm_mod_subs, ONLY : isize,jsize,jwrap
   REAL(rprec),PARAMETER :: radius_earth_m = 6380.e3 ! Earth's radius in meters
   REAL(rprec),PARAMETER :: radius_iono_m  = 6380.e3 + 100.e3 + 20.e3 ! ionosphere radius in meters
@@ -17,6 +18,7 @@ MODULE CONSTANTS
   REAL(rprec),PARAMETER :: tiote = 7.8
   REAL(rprec),PARAMETER :: pressure_factor = 2./3.*ev/radius_earth_m*nt
   REAL(rprec),PARAMETER :: density_factor = nt/radius_earth_m
+  REAL(rprec),PARAMETER :: RCMCorot = EarthPsi0*1.0e+3 ! Convert corotation to V
 END MODULE CONSTANTS
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
