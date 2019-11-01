@@ -20,5 +20,5 @@ module mhd_scalars
   integer(iprec), parameter, public :: KILL_SIGNAL_SHUTDOWN = 111
   integer(iprec), parameter, public :: KILL_SIGNAL_LAST_EXCHANGE = 222
    integer(iprec), public :: iaScalars(NUMBER_OF_SCALARS)      !> Status scalars sent from MHD
-
+  
  end module mhd_scalars

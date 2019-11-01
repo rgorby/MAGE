@@ -25,11 +25,12 @@ END MODULE CONSTANTS
 
 MODULE rice_housekeeping_module
 !  USE Rcm_mod_subs, ONLY : rprec,iprec
-  USE rcm_precision
+  USE rcm_precision, only : iprec,rprec,strLen
   use xml_input
   use strings
 
   IMPLICIT NONE
+  
   LOGICAL :: L_write_rcmu          = .false., &
              L_write_rcmu_torcm    = .false., &
              L_write_tracing_debug = .false., &
@@ -37,8 +38,12 @@ MODULE rice_housekeeping_module
              L_write_int_grid_debug= .true.
   INTEGER(iprec) :: Idt_overwrite         = 1
   INTEGER(iprec) :: rcm_record
+
 ! set this to true to tilt the dipole, must turn off corotation also
-  LOGICAL :: rcm_tilted = .false. 
+  LOGICAL :: rcm_tilted = .false.
+
+  !
+
   CONTAINS
   
       SUBROUTINE Read_rcm_mhd_params

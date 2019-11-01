@@ -17,7 +17,7 @@ module rcmimag
 
     implicit none
 
-    integer(ip), parameter,private :: RCMINIT=0,RCMADVANCE=1,RCMWRITEREC=-2,RCMWRITEINDEX=-1
+    integer(ip), parameter,private :: RCMINIT=0,RCMADVANCE=1,RCMWRITERESTART=-2,RCMWRITEOUTPUT=-3
     type(rcm_mhd_T), private :: RCMApp
 
     !Scaling parameters
@@ -57,7 +57,7 @@ module rcmimag
         logical, intent(in) :: isRestart
         real(rp), intent(in) :: t0,dtCpl
 
-        character(len=strLen) :: RunID
+        character(len=strLen) :: RunID,RCMH5
         logical :: fExist
 
         if (isRestart) then
@@ -72,14 +72,16 @@ module rcmimag
         endif
 
         call iXML%Set_Val(RunID,"/gamera/sim/runid","sim")
-
-        h5File = trim(RunID) // ".rcm.h5"
+        RCMApp%rcm_runid = trim(RunID)
+        h5File = trim(RunID) // ".mhdrcm.h5" !MHD-RCM coupling data
+        RCMH5  = trim(RunID) // ".rcm.h5" !RCM data
 
         fExist = CheckFile(h5File)
         write(*,*) 'RCM outputting to ',trim(h5File)
         if ( (.not. isRestart) .or. (isRestart .and. (.not.fExist)) ) then
             !Not a restart or it is a restart and no file
             call CheckAndKill(h5File) !For non-restart but file exists
+            call CheckAndKill(RCMH5)
 
             !Create base file
             call initRCMIO()
@@ -218,8 +220,8 @@ module rcmimag
             ijTube%Vol = dvB
         case default
             !WTF?
-            ijTube%iopen = -999
-            ijTube%Vol = -999
+            ijTube%iopen = 1
+            ijTube%Vol = -1
         end select
 
         ijTube%Pave = bP
@@ -347,6 +349,8 @@ module rcmimag
         call AddOutVar(IOVars,"bMin",RCMApp%Bmin)
         call AddOutVar(IOVars,"S",RCMApp%Prcm*(RCMApp%Vol**(5.0/3.0)) )
         call AddOutVar(IOVars,"beta",RCMApp%beta_average)
+        call AddOutVar(IOVars,"Pmhd",RCMApp%Pave*rcmPScl)
+        call AddOutVar(IOVars,"Nmhd",RCMApp%Nave*rcmNScl)
 
         !Add attributes
         call AddOutVar(IOVars,"time",time)
@@ -355,15 +359,18 @@ module rcmimag
         write(gStr,'(A,I0)') "Step#", nOut
         call WriteVars(IOVars,.true.,h5File,gStr)
 
+        !Call RCM output
+        RCMApp%rcm_nOut = nOut
+        call rcm_mhd(time,TINY,RCMApp,RCMWRITEOUTPUT)
     end subroutine WriteRCM
 
     subroutine WriteRCMRestart(nRes,MJD,time)
+        
         integer, intent(in) :: nRes
         real(rp), intent(in) :: MJD, time
 
-        !Do two things, force a record output and output time index
-        !call rcm_mhd(time,TINY,RCMApp,RCMWRITEREC)
-        !call rcm_mhd(time,TINY,RCMApp,RCMWRITEINDEX)
-        write(*,*) 'I should do an RCM restart here ...'
+        RCMApp%rcm_nRes = nRes
+        call rcm_mhd(time,TINY,RCMApp,RCMWRITERESTART)
+        
     end subroutine WriteRCMRestart
 end module rcmimag

@@ -4,7 +4,8 @@ subroutine rcm_mhd(mhdtime,mhdtimedt,RM,iflag)
 ! iflag = 0 - setup arrays, read in parameters
 ! iflag = 1 - run rcm
 ! iflag = -1 - stop, write out timing information
-! iflag = -2 - Force record output like now
+! iflag = -2 - Write restart (icontrol = 31337)
+! iflag = -3 - Write H5 output (icontrol = 31338)
 ! 2/19 frt
   use rcm_precision
   use Rcm_mod_subs
@@ -80,9 +81,13 @@ subroutine rcm_mhd(mhdtime,mhdtimedt,RM,iflag)
            return
    end if
 
-! Force record output
+! Write restart file
    if (iflag==-2) then
-      CALL Rcm (itimei, itimef, irdr, irdw, idt, idt1, idt2,icontrol=5_iprec)
+      CALL Rcm (itimei, itimef, irdr, irdw, idt, idt1, idt2,icontrol=31337_iprec,stropt=RM%rcm_runid,nslcopt=RM%RCM_nRes)
+   endif
+! Write output slice
+   if (iflag==-3) then
+      CALL Rcm (itimei, itimef, irdr, irdw, idt, idt1, idt2,icontrol=31338_iprec,stropt=RM%rcm_runid,nslcopt=RM%RCM_nOut)
    endif
 
 ! initialize

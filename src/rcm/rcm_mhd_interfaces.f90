@@ -30,5 +30,7 @@ module rcm_mhd_interfaces
   real(rprec),allocatable :: sigmap(:,:)
   real(rprec),allocatable :: sigmah(:,:)
 
+  integer(iprec) :: rcm_nOut,rcm_nRes !Indices for output/restart
+  character(len=strLen) :: rcm_runid
   end type rcm_mhd_T
 end module rcm_mhd_interfaces
