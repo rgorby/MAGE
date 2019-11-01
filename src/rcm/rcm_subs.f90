@@ -7252,7 +7252,11 @@ bjmod_real = MODULO(bj-REAL(jwrap),REAL(jsize-jwrap-1)) + REAL(jwrap)
         call WriteRCMH5(stropt,nslcopt,isRestart=.false.)
         return
       ENDIF
-
+      IF (icontrol == 31336) then
+        !Read HDF5 restart
+        call ReadRCMRestart(stropt,nslcopt)
+        return
+      ENDIF
    IF (icontrol == 0) then  ! initialize RCM size params and go back:
 
       IF (.NOT.Check_logical_units ( ) ) STOP 'LUNs NOT AVAILABLE'
@@ -7781,6 +7785,8 @@ bjmod_real = MODULO(bj-REAL(jwrap),REAL(jsize-jwrap-1)) + REAL(jwrap)
           v = reshape(IOVars(nvar)%data,[IOVars(nvar)%dims(1),IOVars(nvar)%dims(2)])
 
           !(Add rest of arrays here)
+
+          write(*,*) 'RCM restart not finished ...'
         end subroutine ReadRCMRestart
 
         !HDF5 output routine 

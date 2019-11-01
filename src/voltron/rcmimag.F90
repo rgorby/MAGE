@@ -17,7 +17,7 @@ module rcmimag
 
     implicit none
 
-    integer(ip), parameter,private :: RCMINIT=0,RCMADVANCE=1,RCMWRITERESTART=-2,RCMWRITEOUTPUT=-3
+    integer(ip), parameter,private :: RCMINIT=0,RCMADVANCE=1,RCMRESTART=2,RCMWRITERESTART=-2,RCMWRITEOUTPUT=-3
     type(rcm_mhd_T), private :: RCMApp
 
     !Scaling parameters
@@ -52,18 +52,19 @@ module rcmimag
     contains
 
     !Initialize RCM inner magnetosphere model
-    subroutine initRCM(iXML,isRestart,t0,dtCpl)
+    subroutine initRCM(iXML,isRestart,t0,dtCpl,nRes)
         type(XML_Input_T), intent(in) :: iXML
         logical, intent(in) :: isRestart
         real(rp), intent(in) :: t0,dtCpl
+        integer, intent(in), optional :: nRes
 
         character(len=strLen) :: RunID,RCMH5
         logical :: fExist
 
         if (isRestart) then
-            write(*,*) 'This should be a restart'
+            RCMApp%rcm_nRes = nRes
             write(*,*) 'Restarting RCM ...'
-            call rcm_mhd(t0,dtCpl,RCMApp,RCMINIT)
+            call rcm_mhd(t0,dtCpl,RCMApp,RCMRESTART)
             call init_rcm_mix(RCMApp)
         else
             write(*,*) 'Initializing RCM ...'

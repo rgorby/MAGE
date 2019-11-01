@@ -76,7 +76,7 @@ module innermagsphere
         case("RCM")
             vApp%imType = IMAGRCM
             vApp%prType = LLPROJ !Lat-lon
-            call InitRCM(iXML,isRestart,vApp%time,vApp%DeepDT)
+            call InitRCM(iXML,isRestart,vApp%time,vApp%DeepDT,vApp%IO%nRes)
         case DEFAULT
             write(*,*) 'Unkown imType, bailing ...'
             stop
