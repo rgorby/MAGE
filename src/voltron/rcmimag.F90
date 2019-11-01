@@ -1,7 +1,6 @@
 !Routines to handle RCM inner magnetosphere model
 !NOTES: 
 !-Figure out flux-tube volume units
-!-add ReMIX potential to MHD=>RCM tubes
 !-Work on upating legacy Fortran
 !-Work on OMP bindings
 !-Streamline console noise
@@ -29,10 +28,8 @@ module rcmimag
 
 
     !Information taken from MHD flux tubes
-    !TODO: Figure out -volume for open flux tubes?
     !TODO: Figure out RCM boundaries
     !TODO: Figure out iopen values
-    !TODO: Figure out units for potential
 
     !Pave = Average pressure [Pa]
     !Nave = Average density [#/m3]
