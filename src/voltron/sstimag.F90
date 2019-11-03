@@ -149,23 +149,28 @@ module sstimag
         real(rp) :: D,P,x0,y0
         integer :: ij0(2),i0,j0
         real(rp) :: w1,w2
+        logical :: isGood
 
         x0 = r*cos(phi)
         y0 = r*sin(phi)
 
         ij0 = minloc( (eqData%xxc-x0)**2.0 + (eqData%yyc-y0)**2.0 )
         
-        D = psphD(r) !Gallagher plasmasphere
+        
 
         i0 = ij0(IDIR)
         j0 = ij0(JDIR)
 
-        call tWeights(t,w1,w2)
-        P = w1*eqData%eqW1(i0,j0,1) + w2*eqData%eqW2(i0,j0,1)
-        if (t<=0) then
+        isGood = (t>0) .and. (r>TINY)
+        if (isGood) then
+            call tWeights(t,w1,w2)
+            D = psphD(r) !Gallagher plasmasphere
+            P = w1*eqData%eqW1(i0,j0,1) + w2*eqData%eqW2(i0,j0,1)
+        else
             D = 0.0
             P = 0.0
         endif
+
         imW(IMDEN) = D
         imW(IMPR)  = P
         
