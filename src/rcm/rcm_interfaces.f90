@@ -5,7 +5,7 @@
       USE Rcm_mod_subs, imin_rcm=>imin
       USE conversion_module, ONLY: idim,jdim,kdim,x0,y0,z0
       USE rice_housekeeping_module, ONLY: rcm_tilted
-
+      USE constants, ONLY : RCMCorot
       IMPLICIT NONE
 
       REAL(rprec), INTENT (IN) :: high_lat, low_lat, offseti, Re_external, Ri_external
@@ -110,7 +110,7 @@
        sini   = 0.0
        bir    = 0.0
       else
-       vcorot = -92400.0_rprec*(Re / Ri)*SIN(colat)**2
+       vcorot = -RCMCorot*(Re / Ri)*SIN(colat)**2
        sini   = two*COS(colat)/SQRT(one+three*COS(colat)**2)
        bir    = two*(Re / Ri)**3*besu*COS(colat)
       end if

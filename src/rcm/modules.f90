@@ -2,6 +2,7 @@
 
 MODULE CONSTANTS
   USE rcm_precision
+  USE kdefs, ONLY : EarthPsi0
   USE Rcm_mod_subs, ONLY : isize,jsize,jwrap
   REAL(rprec),PARAMETER :: radius_earth_m = 6380.e3 ! Earth's radius in meters
   REAL(rprec),PARAMETER :: radius_iono_m  = 6380.e3 + 100.e3 + 20.e3 ! ionosphere radius in meters
@@ -17,14 +18,19 @@ MODULE CONSTANTS
   REAL(rprec),PARAMETER :: tiote = 7.8
   REAL(rprec),PARAMETER :: pressure_factor = 2./3.*ev/radius_earth_m*nt
   REAL(rprec),PARAMETER :: density_factor = nt/radius_earth_m
+  REAL(rprec),PARAMETER :: RCMCorot = EarthPsi0*1.0e+3 ! Convert corotation to V
 END MODULE CONSTANTS
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 MODULE rice_housekeeping_module
 !  USE Rcm_mod_subs, ONLY : rprec,iprec
-  USE rcm_precision
+  USE rcm_precision, only : iprec,rprec,strLen
+  use xml_input
+  use strings
+
   IMPLICIT NONE
+  
   LOGICAL :: L_write_rcmu          = .false., &
              L_write_rcmu_torcm    = .false., &
              L_write_tracing_debug = .false., &
@@ -32,8 +38,12 @@ MODULE rice_housekeeping_module
              L_write_int_grid_debug= .true.
   INTEGER(iprec) :: Idt_overwrite         = 1
   INTEGER(iprec) :: rcm_record
+
 ! set this to true to tilt the dipole, must turn off corotation also
-  LOGICAL :: rcm_tilted = .false. 
+  LOGICAL :: rcm_tilted = .false.
+
+  !
+
   CONTAINS
   
       SUBROUTINE Read_rcm_mhd_params
@@ -67,6 +77,27 @@ MODULE rice_housekeeping_module
 
       RETURN
       END SUBROUTINE Read_rcm_mhd_params
+
+      !Get RCM params from Kaiju-style XML file
+      subroutine RCM_MHD_Params_XML()
+        character(len=strLen) :: inpXML
+        type(XML_Input_T) :: xmlInp
+
+        !Find input deck filename
+        call getIDeckStr(inpXML)
+
+        !Create XML reader
+        xmlInp = New_XML_Input(trim(inpXML),'RCM',.true.)
+
+        !Read various parameters
+        call xmlInp%Set_Val(L_write_rcmu_torcm,"output/toRCM",L_write_rcmu_torcm)
+        call xmlInp%Set_Val(L_write_rcmu,"output/toMHD",L_write_rcmu)
+        call xmlInp%Set_Val(L_write_vars_debug,"output/debug",L_write_vars_debug)
+        call xmlInp%Set_Val(rcm_tilted,"tilt/isTilt",rcm_tilted)
+
+        !For now just using default Idt_overwrite
+
+      end subroutine RCM_MHD_Params_XML
 
 END MODULE rice_housekeeping_module
 

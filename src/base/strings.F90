@@ -1,5 +1,5 @@
 module strings
-    use kdefs
+    use kdefs, ONLY: strLen
 
     implicit none
 

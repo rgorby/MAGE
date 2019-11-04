@@ -3,7 +3,10 @@ subroutine rcm_mhd(mhdtime,mhdtimedt,RM,iflag)
 ! units are assumed to mks, except for distances which are in Re.
 ! iflag = 0 - setup arrays, read in parameters
 ! iflag = 1 - run rcm
-! iflag = =1 - stop, write out timing information
+! iflag = 2 - Resart RCM
+! iflag = -1 - stop, write out timing information
+! iflag = -2 - Write restart (icontrol = 31337)
+! iflag = -3 - Write H5 output (icontrol = 31338)
 ! 2/19 frt
   use rcm_precision
   use Rcm_mod_subs
@@ -15,7 +18,7 @@ subroutine rcm_mhd(mhdtime,mhdtimedt,RM,iflag)
 
   implicit none
   type(rcm_mhd_T),intent(inout) :: RM
-  real(iprec), intent(in) :: mhdtime,mhdtimedt
+  real(rprec), intent(in) :: mhdtime,mhdtimedt
   integer(iprec) :: dayOfYear 
 !  integer(iprec) :: idim,jdim
 !  real(rprec), intent(in) :: v(:,:),pave(:,:),xion(:,:),yion(:,:),zion(:,:)
@@ -74,14 +77,26 @@ subroutine rcm_mhd(mhdtime,mhdtimedt,RM,iflag)
     ircm_dt = itimef - itimei
 ! finish up
    if(iflag==-1)then
+    
            call write_rcm_timing(rcm_timing)
            return
    end if
 
-   
+! Write restart file
+   if (iflag==-2) then
+      CALL Rcm (itimei, itimef, irdr, irdw, idt, idt1, idt2,icontrol=31337_iprec,stropt=RM%rcm_runid,nslcopt=RM%RCM_nRes)
+      return
+   endif
+! Write output slice
+   if (iflag==-3) then
+      CALL Rcm (itimei, itimef, irdr, irdw, idt, idt1, idt2,icontrol=31338_iprec,stropt=RM%rcm_runid,nslcopt=RM%RCM_nOut)
+      return
+   endif
+
 ! initialize
-  if(iflag ==0)then
-    CALL Read_rcm_mhd_params
+  if( (iflag ==0) .or. (iflag == 2) ) then !Do this for initialization and restart?
+    !CALL Read_rcm_mhd_params
+    CALL RCM_MHD_Params_XML
 
     ! setup rcm
     CALL Rcm (itimei, itimef, irdr, irdw, idt, idt1, idt2,icontrol=0_iprec)
@@ -104,6 +119,11 @@ subroutine rcm_mhd(mhdtime,mhdtimedt,RM,iflag)
   CALL Rcm (itimei, itimef, irdr, irdw, idt, idt1, idt2, icontrol=2_iprec)
 
   ! restart
+  if (iflag ==2) then
+    !HDF5 RESTART
+    CALL Rcm (itimei, itimef, irdr, irdw, idt, idt1, idt2,icontrol=31336_iprec,stropt=RM%rcm_runid,nslcopt=RM%RCM_nRes)
+    return
+  endif
 
   if(itimei>0)then
 

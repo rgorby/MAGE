@@ -255,8 +255,10 @@ class GamsphPipe(GameraPipe):
 		vIDs = ["D","P","Vx","Bx","By","Bz"]
 		Nv = len(vIDs)
 		qSW = np.zeros(Nv)
-
-		fSW = self.fdir + "/" + kh5.genName(self.ftag,self.Ri-1,0,0,self.Ri,self.Rj,self.Rk)
+		if (self.isMPI):
+			fSW = self.fdir + "/" + kh5.genName(self.ftag,self.Ri-1,0,0,self.Ri,self.Rj,self.Rk)
+		else:
+			fSW = self.fdir + "/" + self.ftag + ".h5"
 
 		for i in range(Nv):
 			Q = kh5.PullVar(fSW,vIDs[i],n)

@@ -12,7 +12,7 @@ module rcm_mhd_interfaces
   real(rprec),allocatable :: gcolat(:) !> RCM Latitude grid points
   real(rprec),allocatable :: glong(:)  !> RCM Longitude grid points
 
-  real(rprec),allocatable :: pot(:,:)     !> Potential; received from MHD
+  real(rprec),allocatable :: pot(:,:)     !> Potential; received from MHD [Volts]
   real(rprec),allocatable :: eng_avg(:,:) !> Average Energy (sent to MIX Coupler/Solver)
   real(rprec),allocatable :: flux(:,:)    !> Energy Flux (sent to MIX Coupler/Solver)
   real(rprec),allocatable :: fac(:,:)     !> Total FAC density (sent to MIX Coupler/Solver)A
@@ -30,5 +30,7 @@ module rcm_mhd_interfaces
   real(rprec),allocatable :: sigmap(:,:)
   real(rprec),allocatable :: sigmah(:,:)
 
+  integer(iprec) :: rcm_nOut,rcm_nRes !Indices for output/restart
+  character(len=strLen) :: rcm_runid
   end type rcm_mhd_T
 end module rcm_mhd_interfaces
