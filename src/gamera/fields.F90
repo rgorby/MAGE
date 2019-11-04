@@ -9,8 +9,8 @@ module fields
     implicit none
 
     logical, parameter, private :: doVa  = .true. !Use Alfven speed in diffusive velocity
-    logical, parameter, private :: doVdA = .false. !Do area scaling for velocity->corner
-    logical, parameter, private :: doBdA = .false. !Do area scaling for face flux->edge
+    logical, parameter, private :: doVdA = .true. !Do area scaling for velocity->corner
+    logical, parameter, private :: doBdA = .true. !Do area scaling for face flux->edge
 
     contains
 
