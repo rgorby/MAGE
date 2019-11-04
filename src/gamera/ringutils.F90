@@ -45,7 +45,7 @@ module ringutils
         if (Grid%isTiled) then
             !If we're tiled we need to figure out if we own either singularity
             if (Grid%hasLowerBC(2)) Model%Ring%doS = .true.
-            if (Grod%hasUpperBC(2)) Model%Ring%doE = .true.
+            if (Grid%hasUpperBC(2)) Model%Ring%doE = .true.
         else
             !Assume we have both singularities
             Model%Ring%doS = .true.
