@@ -23,7 +23,7 @@ module rcmimag
     real(rp), private :: rcmPScl = 1.0e+9 !Convert Pa->nPa
     real(rp), private :: rcmNScl = 1.0e-6 !Convert #/m3 => #/cc
     real(rp), parameter :: RIonRCM = (RionE/REarth)*1.0e+6
-    integer, parameter :: MAXRCMIOVAR = 20
+    integer, parameter :: MAXRCMIOVAR = 30
     character(len=strLen), private :: h5File
 
 
@@ -350,6 +350,8 @@ module rcmimag
         call AddOutVar(IOVars,"Pmhd",RCMApp%Pave*rcmPScl)
         call AddOutVar(IOVars,"Nmhd",RCMApp%Nave*rcmNScl)
 
+        call AddOutVar(IOVars,"colat",colat)
+        call AddOutVar(IOVars,"aloct",aloct)
         !Add attributes
         call AddOutVar(IOVars,"time",time)
         call AddOutVar(IOVars,"MJD",MJD)
