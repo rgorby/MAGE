@@ -7,12 +7,13 @@ module gamapp_mpi
     use mhdgroup
     use gamapp
     use bcs_mpi
+    use mpidefs
     use mpi
 
     implicit none
 
     type, extends(GamApp_T) :: gamAppMpi_T
-        type(MPI_Comm) :: gamMpiComm
+        integer :: gamMpiComm
         integer, dimension(:), allocatable :: sendRanks, recvRanks
         integer, dimension(:), allocatable :: sendCountsGas, sendDisplsGas, sendTypesGas
         integer, dimension(:), allocatable :: recvCountsGas, recvDisplsGas, recvTypesGas
@@ -76,7 +77,7 @@ module gamapp_mpi
         integer, intent(in) :: gamComm
         real(rp), optional, intent(in) :: endTime
 
-        integer :: numNeighbors, ierr, length, commSize, rank, ic, jc, kc, targetRank, sendNumber, numInNeighbors, numOutNeighbors, localIndexIn, localIndexOut, sendDataOffset, recvDataOffset
+        integer :: numNeighbors, ierr, length, commSize, rank, ic, jc, kc, targetRank, sendNumber, numInNeighbors, numOutNeighbors, listIndex, localIndexIn, localIndexOut, sendDataOffset, recvDataOffset
         integer, dimension(27) :: sourceRanks, sourceData
         logical :: reorder,periodicI,periodicJ,periodicK,wasWeighted
         character(len=strLen) :: message, bcType
@@ -85,6 +86,7 @@ module gamapp_mpi
         integer :: cornerMpiType,iEdgeMpiType,jEdgeMpiType,kEdgeMpiType,iFaceMpiType,jFaceMpiType,kFaceMpiType
         integer :: corner4MpiType,iEdge4MpiType,jEdge4MpiType,kEdge4MpiType,iFace4MpiType,jFace4MpiType,kFace4MpiType
         integer :: corner5MpiType,iEdge5MpiType,jEdge5MpiType,kEdge5MpiType,iFace5MpiType,jFace5MpiType,kFace5MpiType
+        integer(kind=MPI_ADDRESS_KIND) :: tempOffsets(2)
 
         associate(Grid=>gamAppMpi%Grid,Model=>gamAppMpi%Model)
 
@@ -137,19 +139,19 @@ module gamapp_mpi
         Grid%Nk = Grid%Nkp + 2*Model%nG
 
         ! check which dimensions are using MPI for periodicity
-        call xmlInp%Set_Val(bcType,'ibc/bc')
+        call xmlInp%Set_Val(bcType,'ibc/bc','')
         if (bcType == 'periodic') then
             periodicI = .true.
         else
             periodicI = .false.
         endif
-        call xmlInp%Set_Val(bcType,'jbc/bc')
+        call xmlInp%Set_Val(bcType,'jbc/bc','')
         if (bcType == 'periodic') then
             periodicJ = .true.
         else
             periodicJ = .false.
         endif
-        call xmlInp%Set_Val(bcType,'kbc/bc')
+        call xmlInp%Set_Val(bcType,'kbc/bc','')
         if (bcType == 'periodic') then
             periodicK = .true.
         else
@@ -170,7 +172,7 @@ module gamapp_mpi
                                     targetRank = modulo(Grid%Ri+ic,Grid%NumRi)*Grid%NumRk*Grid%NumRj + &
                                                  modulo(Grid%Rj+jc,Grid%NumRj)*Grid%NumRk + &
                                                  modulo(Grid%Rk+kc,Grid%NumRk)
-                                    listIndex = findloc(sourceRanks, targetRank)
+                                    listIndex = findloc(sourceRanks, targetRank, 1)
                                     if(listIndex == 0) then ! this rank not in the list yet
                                         numNeighbors = numNeighbors+1
                                         listIndex = numNeighbors
@@ -207,7 +209,7 @@ module gamapp_mpi
         call mpi_dist_graph_create_adjacent(gamComm, &
             numNeighbors,sourceRanks,sourceData, &
             numNeighbors,sourceRanks,sourceData, & ! comms symmetrical
-            mpiInfo, reorder, gamAppMpi%gamMpiComm, ierr)
+            MPI_INFO_NULL, reorder, gamAppMpi%gamMpiComm, ierr)
         if(ierr /= MPI_Success) then
             call MPI_Error_string( ierr, message, length, ierr)
             print *,message(1:length)
@@ -231,7 +233,7 @@ module gamapp_mpi
         Grid%hasUpperBC(3) = Grid%Rk == (Grid%NumRk-1)
 
         ! adjust grid info for these ranks
-        Grid%ijkShift(2) = Grid%Nip*Grid%Ri
+        Grid%ijkShift(1) = Grid%Nip*Grid%Ri
         Grid%ijkShift(2) = Grid%Njp*Grid%Rj
         Grid%ijkShift(3) = Grid%Nkp*Grid%Rk
 
@@ -289,7 +291,7 @@ module gamapp_mpi
         allocate(gamAppMpi%sendRanks(numOutNeighbors))
         allocate(gamAppMpi%recvRanks(numInNeighbors))
         ! don't care about the weights, dump them into an existing array
-        call mpi_dist_graph_neighbors(gamAppMpi%gamMpiComm, numInNeighbors, gamAppMpi%recvRanks, sendData, numOutNeighbors, gamAppMpi%sendRanks, sendData, ierr)
+        call mpi_dist_graph_neighbors(gamAppMpi%gamMpiComm, numInNeighbors, gamAppMpi%recvRanks, sourceData, numOutNeighbors, gamAppMpi%sendRanks, sourceData, ierr)
         if(ierr /= MPI_Success) then
             call MPI_Error_string( ierr, message, length, ierr)
             print *,message(1:length)
@@ -299,7 +301,7 @@ module gamapp_mpi
         allocate(gamAppMpi%sendCountsGas(numOutNeighbors))
         allocate(gamAppMpi%sendDisplsGas(numOutNeighbors))
         allocate(gamAppMpi%sendTypesGas(numOutNeighbors))
-        allocate(gamAppMpi$recvCountsGas(numInNeighbors))
+        allocate(gamAppMpi%recvCountsGas(numInNeighbors))
         allocate(gamAppMpi%recvDisplsGas(numInNeighbors))
         allocate(gamAppMpi%recvTypesgas(numInNeighbors))
 
@@ -368,8 +370,8 @@ module gamapp_mpi
                                                  modulo(Grid%Rj+jc,Grid%NumRj)*Grid%NumRk + &
                                                  modulo(Grid%Rk+kc,Grid%NumRk)
 
-                                    localIndexOut = findloc(gamAppMpi%sendRanks, targetRank)
-                                    localIndexIn = findloc(gamAppMpi%recvRanks, targetRank)
+                                    localIndexOut = findloc(gamAppMpi%sendRanks, targetRank, 1)
+                                    localIndexIn = findloc(gamAppMpi%recvRanks, targetRank, 1)
 
                                     sendDataOffset = 0
                                     recvDataOffset = 0
@@ -446,7 +448,7 @@ module gamapp_mpi
                                                 transDataType = kEdge5MpiType
                                             endif
                                         case (3) ! corner
-                                            transDataType = corner
+                                            transDataType = corner5MpiType
                                         CASE DEFAULT
                                             print *, 'Sum of ic+jc+kc is nonsense'
                                             call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
@@ -454,13 +456,16 @@ module gamapp_mpi
 
                                     if(gamAppMpi%sendTypesGas(localIndexOut) == MPI_DATATYPE_NULL) then
                                         ! not sending any data to this rank yet, just add this datatype
-                                        call mpi_type_hindexed(1, 1, sendDataOffset*dataSize, transDataType, gamAppMpi%sendTypesGas(localIndexOut), ierr)
-                                        call mpi_type_hindexed(1, 1, recvDataOffset*dataSize, transDataType, gamAppMpi%recvTypesGas(localIndexIn), ierr)
+                                        call mpi_type_hindexed(1, (/ 1 /), sendDataOffset*dataSize, transDataType, gamAppMpi%sendTypesGas(localIndexOut), ierr)
+                                        call mpi_type_hindexed(1, (/ 1 /), recvDataOffset*dataSize, transDataType, gamAppMpi%recvTypesGas(localIndexIn), ierr)
                                     else
                                         ! we're already sending other data to this rank
                                         !  merge the datatypes into a struct
-                                        call mpi_type_create_struct(2, (/ 1, 1 /), (/ 0, sendDataOffset*dataSize /), (/ gamAppMpi%sendTypesGas(localIndexOut), transDataType /), gamAppMpi%sendTypesGas(localIndexOut), ierr)
-                                        call mpi_type_create_struct(2, (/ 1, 1 /), (/ 0, recvDataOffset*dataSize /), (/ gamAppMpi%recvTypesGas(localIndexIn), transDataType /),  gamAppMpi$recvTypesGas(localIndexIn),  ierr)
+                                        ! need to use a temporary array so that the ints are of type MPI_ADDRESS_KIND
+                                        tempOffsets = (/ 0, sendDataOffset*dataSize /)
+                                        call mpi_type_create_struct(2, (/ 1, 1 /), tempOffsets, (/ gamAppMpi%sendTypesGas(localIndexOut), transDataType /), gamAppMpi%sendTypesGas(localIndexOut), ierr)
+                                        tempOffsets = (/ 0, recvDataOffset*dataSize /)
+                                        call mpi_type_create_struct(2, (/ 1, 1 /), tempOffsets, (/ gamAppMpi%recvTypesGas(localIndexIn), transDataType /),  gamAppMpi%recvTypesGas(localIndexIn),  ierr)
                                     endif
                                 endif
                             endif
@@ -591,6 +596,7 @@ module gamapp_mpi
 
         endif
 
+        end associate
     end subroutine Hatch_mpi
 
     subroutine stepGamera_mpi(gamAppMpi)
@@ -612,7 +618,8 @@ module gamapp_mpi
     subroutine haloUpdate(gamAppMpi)
         type(gamAppMpi_T), intent(inout) :: gamAppMpi
 
-        integer :: ierr
+        integer :: ierr, length
+        character(len=strLen) :: message
 
         ! just tell MPI to use the arrays we defined during initialization to send and receive data!
 

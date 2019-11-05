@@ -5,7 +5,6 @@ program gamera_mpix
     use gamapp_mpi
     use usergamic
     use mpidefs
-    use mpi_init
 
     implicit none
 
