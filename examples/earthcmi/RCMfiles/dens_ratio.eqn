@@ -1,0 +1,3 @@
+#!MC 1410
+$!AlterData 
+  Equation = '{dens ratio}={mhd density (cc)}/max(0.00001,{ion density(cc)})'
