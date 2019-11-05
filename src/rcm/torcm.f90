@@ -65,7 +65,7 @@
       INTEGER(iprec), PARAMETER :: n_smooth = 5
       LOGICAL,PARAMETER :: use_ellipse = .true.
       LOGICAL,PARAMETER :: set_boundary_with_mach = .false.
-      LOGICAL,PARAMETER :: set_boundary_with_beta = .true.
+      LOGICAL,PARAMETER :: set_boundary_with_beta = .false.
       REAL(rprec), PARAMETER :: max_beta = 1.0 ! max averaged beta to set the boundary
 
       ierr = 0
@@ -151,7 +151,8 @@
 
       ! smooth boundary location 
       do ns=1,n_smooth
-         write(6,*)' smoothing rcm boundary, ns =', ns
+         !K: Commented out by Kareem
+         !write(6,*)' smoothing rcm boundary, ns =', ns
          call smooth_boundary_location(idim,jdim,jwrap,bndloc)
          call reset_rcm_vm(idim,jdim,bndloc,big_vm,imin_j,vm,iopen) ! adjust Imin_j
       end do

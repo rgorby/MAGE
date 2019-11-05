@@ -1,6 +1,17 @@
 import h5py
 import numpy as np
 
+
+#Generate MPI-style name
+def genName(bStr,i,j,k,Ri,Rj,Rk,nRes=None):
+	#n = j + i*Rj + k*Ri*Rj
+	n = k + j*Rk + i*Rj*Rk
+	if (nRes is None):
+		fID = bStr + "_%04d_%04d_%04d_%04d_%04d_%04d_%012d.h5"%(Ri,Rj,Rk,i,j,k,n)
+	else:
+		fID = bStr + "_%04d_%04d_%04d_%04d_%04d_%04d_%012d"%(Ri,Rj,Rk,i,j,k,n)+".Res.%05d.h5"%(nRes)
+	return fID
+	
 #Quick check and exit routine
 def CheckOrDie(fname):
 	import os.path
@@ -44,7 +55,10 @@ def getTs(fname,sIds=None,aID="time",aDef=0.0):
 	with h5py.File(fname,'r') as hf:
 		for n in range(i0,i1+1):
 			gId = "/Step#%d"%(n)
-			T[n-i0] = hf[gId].attrs.get(aID,aDef)
+			if (aID in hf[gId].attrs.keys()):
+				T[n-i0] = hf[gId].attrs.get(aID,aDef)
+			else:
+				T[n-i0] = -np.inf
 	return T
 
 #Get shape/dimension of grid

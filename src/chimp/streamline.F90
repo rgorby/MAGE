@@ -112,45 +112,49 @@ module streamline
     end function FLVol
 
     !Averaged density/pressure
-    subroutine FLThermo(Model,ebGr,bTrc,bD,bP,dvB,bBeta)
+    subroutine FLThermo(Model,ebGr,bTrc,bD,bP,dvB,bBetaO)
         type(chmpModel_T), intent(in) :: Model
         type(ebGrid_T), intent(in) :: ebGr
         type(fLine_T), intent(in) :: bTrc
         real(rp), intent(out) :: bD,bP,dvB
-        real(rp), intent(out), optional :: bBeta
+        real(rp), intent(out), optional :: bBetaO
 
-        integer :: Nc,n,k
-        real(rp), dimension(:), allocatable :: bAvg,dl,eD,eP,ePb
+        integer :: k
+        real(rp) :: bMag,dl,eD,eP,ePb !Edge-centered values
+        real(rp) :: bBeta
+        
 
         associate(Np=>bTrc%Np,Nm=>bTrc%Nm)
+        !Zero out accumulators
+        bD = 0.0
+        bP = 0.0
+        dvB = 0.0
+        bBeta = 0.0
 
-        !Recenter to edges
-        Nc = Nm+Np+1-1 !Centers
-        allocate(bAvg(Nc)) !Edge field strength
-        allocate(dl  (Nc)) !Edge length
-        allocate(eD  (Nc)) !Edge-centered density
-        allocate(eP  (Nc)) !Edge-centered pressure
-        
-        n = 1
+        !Loop over edges
         do k=-Nm,Np-1
-            dl(n)   = norm2(bTrc%xyz(k+1,:)-bTrc%xyz(k,:))
-            bAvg(n) = 0.5*(bTrc%lnVars(0)%V(k+1) + bTrc%lnVars(0)%V(k))
-            eD(n)   = 0.5*(bTrc%lnVars(DEN)%V(k+1) + bTrc%lnVars(DEN)%V(k))
-            eP(n)   = 0.5*(bTrc%lnVars(PRESSURE)%V(k+1) + bTrc%lnVars(PRESSURE)%V(k))
-        
-            n = n+1
-        enddo
-        
-        dvB = sum(dl/bAvg) !Total flux-tube volume
-        bD = sum(eD*dl/bAvg)/dvB
-        bP = sum(eP*dl/bAvg)/dvB
+            !Get edge-centered quantities
+            dl = norm2(bTrc%xyz(k+1,:) - bTrc%xyz(k,:)) !Edge length
+            bMag = 0.5*(bTrc%lnVars(0)%V(k+1) + bTrc%lnVars(0)%V(k))
+            eD = 0.5*(bTrc%lnVars(DEN)%V(k+1) + bTrc%lnVars(DEN)%V(k))
+            eP = 0.5*(bTrc%lnVars(PRESSURE)%V(k+1) + bTrc%lnVars(PRESSURE)%V(k))
+            !Get edge mag pressure, using Pb [nPa] = 1.0e+14 x ( B[T]/0.501 )^2
+            ePb = 1.0e+14*(bMag*oBScl*1.0e-9/0.501)**2.0 !Edge mag pressure in nPa
 
-        if (present(bBeta)) then
-            allocate(ePb(Nc)) !Edge-centered mag pressure
-            !Get integrated beta
-            !Using Pb [nPa] = 1.0e+14 x ( B[T]/0.501 )^2
-            ePb = 1.0e+14*(bAvg*oBScl*1.0e-9/0.501)**2.0 !Edge mag pressure in nPa
-            bBeta = sum( (eP/ePb)*dl/bAvg )/dvB
+            !Now accumulate into flux-tube integrals
+            dvB = dvB + dl/bMag
+            bD  = bD + eD*dl/bMag
+            bP  = bP + eP*dl/bMag
+            bBeta = bBeta + (eP/ePb)*dl/bMag
+        enddo
+
+        !Now turn flux-tube integrals of quantities into flux-tube averages
+        bD = bD/dvB
+        bP = bP/dvB
+        bBeta = bBeta/dvB
+
+        if (present(bBetaO)) then
+            bBetaO = bBeta
         endif
 
         end associate

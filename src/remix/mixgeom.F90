@@ -12,9 +12,9 @@ module mixgeom
       cosDipAngle = -2._rp*cos(t)/sqrt(1._rp+3._rp*cos(t)**2)
     end function cosDipAngle
 
-    subroutine generate_uniformTP(Np,Nt,LowLatBoundary,t,p)
+    subroutine generate_uniformTP(Np,Nt,LowLatBoundary,HighLatBoundary,t,p)
       integer, intent(in) :: Np, Nt
-      real(rp), intent(in) :: LowLatBoundary ! in degrees
+      real(rp), intent(in) :: LowLatBoundary,HighLatBoundary ! in degrees
       integer :: i,j
       real(rp), dimension(:,:), allocatable, intent(out) :: t,p
 
@@ -29,7 +29,7 @@ module mixgeom
       end do
 
       do i=1,Nt
-         t(:,i) = LowLatBoundary/(Nt-1)*(i-1)
+         t(:,i) = (LowLatBoundary-HighLatBoundary)/(Nt-1)*(i-1) + HighLatBoundary
       end do
     end subroutine generate_uniformTP
 
@@ -69,23 +69,25 @@ module mixgeom
       type(mixIon_T),intent(inout) :: I
       type(mixIO_T),optional,intent(in) :: mixIOobj
 
+      real(rp) :: highLatBoundary = 0.  ! always default the remix grid to start at the pole: that's the only thing that it knows how to do
+
       if (present(mixIOobj)) then
          call init_grid_fromXY(I%G,mixIOobj%x,mixIOobj%y,.true.)
       else
          ! for now always do uniform if grid not passed via mixIOobj
-         call init_uniform(I%G,I%P%Np,I%P%Nt,I%P%LowLatBoundary*pi/180._rp,.true.)
+         call init_uniform(I%G,I%P%Np,I%P%Nt,I%P%LowLatBoundary*pi/180._rp,highLatBoundary*pi/180._rp,.true.)
       endif
       call setD0(I%G)  ! pay attention: if the functional form is not axisymmetric, should make sure north and south are treated correctly.      
     end subroutine init_grid
     
-    subroutine init_uniform(G,Np,Nt,LowLatBoundary,SOLVER_GRID)
+    subroutine init_uniform(G,Np,Nt,LowLatBoundary,HighLatBoundary,SOLVER_GRID)
       type(mixGrid_T),intent(inout) :: G
       integer, intent(in) :: Np, Nt
-      real(rp), intent(in) :: LowLatBoundary ! in degree
+      real(rp), intent(in) :: LowLatBoundary,HighLatBoundary ! in degrees
       logical, intent(in) :: SOLVER_GRID
       real(rp), dimension(:,:), allocatable :: t,p
 
-      call generate_uniformTP(Np,Nt,LowLatBoundary,t,p)
+      call generate_uniformTP(Np,Nt,LowLatBoundary,HighLatBoundary,t,p)
       call init_grid_fromTP(G,t,p,SOLVER_GRID)
     end subroutine init_uniform
 

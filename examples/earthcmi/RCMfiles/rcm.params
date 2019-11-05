@@ -1,0 +1,30 @@
+MHD code run
+    0     idebug  |if 0 then disk output, othersiwe no writing to disk
+    1     imin    | i-value of poleward bndy, useful only if ipot==1                           |
+   -1     ipot    | choice of potential solver (3 is non-intg. grid, -1 use lfm pot) |
+    0     iwind   | wind control parameter (0 is no wind)            |
+    4     ibnd    | will be passed externally via module association
+    13    ipcp_type |  type of bndy (1-eq.p, 2-iono)
+    0     nsmthi  ! How much to smooth cond in I
+    0     nsmthj  | How much to smooth cond in J
+    3     icond   | 1 is active conductances, 2 is Hardy with kp, 3 is input    |
+    T     ifloor  ! if true, install a floor for EFLUX
+    T     icorrect| if true, make lat. correction to EFLUX
+ 3.0      cmax    | in rcm_mod_balgn
+ 0.05     eeta_cutoff | as a fraction
+ 1.E-5    tol_gmres | should be 1e-5
+ 3        itype_bf  | 2--friction code from a file
+ 3        i_advect  | advection scheme, 1--old interp.-based, 2-clawpack/interp
+ 2        i_eta_bc  | type of B.C. on EETA; 2 means it is set by external driver/interface
+ .FALSE.  kill_fudge | .true. means no loss
+ 1        i_birk     | birk calculation 1=default 3 = new
+ .TRUE.   | L_dktime  | charge exchange off/of
+ 96                 |(charge exchange is on/off) and sunspot_number for rates
+ .TRUE.     L _move_plasma_grid
+   000     itimei   | start time (sec)     
+345600     itimef   | stop time (sec)
+    1      irdr     | record # to read starting fluxes from
+    2      irdw     | record # to begin writing direct access output
+    2     idt       | basic time step                                  |
+  600     idt1      | time step to change disk write record            |
+  600     idt2      | time step for output to channel 6                |

@@ -84,7 +84,7 @@ module msphutils
             gG0 = 9.807   ! [m/s2]
             call xmlInp%Set_Val(M0g,"prob/M0",EarthM0g) !Mag moment [gauss]
             !Using corotation potential for Earth
-            Psi0 = 92.0 !kV
+            Psi0 = EarthPsi0 !kV
             Rion = RionE*1.e6/gx0 ! Radius of ionosphere in code units (RionE defined in kdefs in 1000km)
             Model%doGrav = .true.
         case("Saturn","saturn","SATURN")
@@ -506,10 +506,12 @@ module msphutils
         !Get values for initial field cutoffs
 
         !LFM values
-        !call xmlInp%Set_Val(xSun  ,"prob/xMax",20.0_rp  )
-        call xmlInp%Set_Val(xSun  ,"prob/xMax",25.0_rp  )
+        call xmlInp%Set_Val(xSun  ,"prob/xMax",20.0_rp  )
+        call xmlInp%Set_Val(yMax  ,"prob/yMax",75.0_rp  )
+        !call xmlInp%Set_Val(xSun  ,"prob/xMax",25.0_rp  )
+        !call xmlInp%Set_Val(yMax  ,"prob/yMax",80.0_rp  )
         call xmlInp%Set_Val(xTail ,"prob/xMin",-185.0_rp)
-        call xmlInp%Set_Val(yMax  ,"prob/yMax",80.0_rp  )
+        
         call xmlInp%Set_Val(sInner,"prob/sIn" ,0.96_rp  )
 
         !Get cut dipole values
@@ -795,12 +797,14 @@ module msphutils
 
         real(rp) :: M0,Mf
         real(rp) :: Tau,dRho,dP
-        logical :: doIngest,doInD,doInP
+        logical  :: doIngest,doInD,doInP
 
         if (Model%doMultiF) then
             write(*,*) 'Source ingestion not implemented for multifluid, you should do that'
             stop
         endif
+
+        if (Model%t<=0) return
 
         !M0 = sum(State%Gas(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,DEN,BLK)*Gr%volume(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke))
 

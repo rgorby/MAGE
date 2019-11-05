@@ -1,7 +1,6 @@
 !Routines to handle RCM inner magnetosphere model
 !NOTES: 
 !-Figure out flux-tube volume units
-!-add ReMIX potential to MHD=>RCM tubes
 !-Work on upating legacy Fortran
 !-Work on OMP bindings
 !-Streamline console noise
@@ -12,73 +11,75 @@ module rcmimag
     use files
     use earthhelper
     use rcm_mhd_interfaces
+    use rcm_mix_interface
     use streamline
 
     implicit none
 
-    integer(ip), parameter,private :: RCMINIT=0,RCMADVANCE=1,RCMFINISH=-1
+    integer(ip), parameter,private :: RCMINIT=0,RCMADVANCE=1,RCMRESTART=2,RCMWRITERESTART=-2,RCMWRITEOUTPUT=-3
     type(rcm_mhd_T), private :: RCMApp
 
     !Scaling parameters
     real(rp), private :: rcmPScl = 1.0e+9 !Convert Pa->nPa
     real(rp), private :: rcmNScl = 1.0e-6 !Convert #/m3 => #/cc
-
-    integer, parameter :: MAXRCMIOVAR = 10
+    real(rp), parameter :: RIonRCM = (RionE/REarth)*1.0e+6
+    integer, parameter :: MAXRCMIOVAR = 30
     character(len=strLen), private :: h5File
 
-    !Do I need this stuff?
-    real(rp), private :: rcm_boundary_s =35,rcm_boundary_e =2
-    real(rp), private :: colat_boundary
-    real(rp), private :: ddt
 
     !Information taken from MHD flux tubes
-    !TODO: Figure out -volume for open flux tubes?
+    !TODO: Figure out RCM boundaries
     !TODO: Figure out iopen values
-    !TODO: Figure out units for potential
 
     !Pave = Average pressure [Pa]
     !Nave = Average density [#/m3]
-    !Vol  = Flux-tube volume [XXX?] (seems like it is Re/T)
+    !Vol  = Flux-tube volume [Re/T]
     !bmin = Min field strength [T]
     !X_bmin = Location of Bmin [m]
     !beta_average = Average plasma beta
-    !Potential = MIX potential [XXX?]
-    !iopen = Field line topology (-1: Closed, 1: Open, 1: Else????)
+    !Potential = MIX potential [Volts]
+    !iopen = Field line topology (-1: Closed, 1: Open)
     type RCMTube_T
         real(rp) :: Vol,bmin,beta_average,Pave,Nave,pot
         real(rp) :: X_bmin(NDIM)
         integer(ip) :: iopen
     end type RCMTube_T
 
+    real(rp), dimension(:,:), allocatable, private :: mixPot
     contains
 
     !Initialize RCM inner magnetosphere model
-    subroutine initRCM(iXML,isRestart,t0,dtCpl)
+    subroutine initRCM(iXML,isRestart,t0,dtCpl,nRes)
         type(XML_Input_T), intent(in) :: iXML
         logical, intent(in) :: isRestart
         real(rp), intent(in) :: t0,dtCpl
+        integer, intent(in), optional :: nRes
 
-        character(len=strLen) :: RunID
+        character(len=strLen) :: RunID,RCMH5
         logical :: fExist
 
         if (isRestart) then
-            write(*,*) 'What do I do here?'
-            stop
+            RCMApp%rcm_nRes = nRes
+            write(*,*) 'Restarting RCM ...'
+            call rcm_mhd(t0,dtCpl,RCMApp,RCMRESTART)
+            call init_rcm_mix(RCMApp)
         else
             write(*,*) 'Initializing RCM ...'
             call rcm_mhd(t0,dtCpl,RCMApp,RCMINIT)
+            call init_rcm_mix(RCMApp)
         endif
 
-        call iXML%Set_Val(ddt,"rcm/ddt",15.0) !RCM substep [s]
-        call iXML%Set_Val(RunID,"/gamera/sim/runid","sillysim")
-
-        h5File = trim(RunID) // ".rcm.h5"
+        call iXML%Set_Val(RunID,"/gamera/sim/runid","sim")
+        RCMApp%rcm_runid = trim(RunID)
+        h5File = trim(RunID) // ".mhdrcm.h5" !MHD-RCM coupling data
+        RCMH5  = trim(RunID) // ".rcm.h5" !RCM data
 
         fExist = CheckFile(h5File)
         write(*,*) 'RCM outputting to ',trim(h5File)
         if ( (.not. isRestart) .or. (isRestart .and. (.not.fExist)) ) then
             !Not a restart or it is a restart and no file
             call CheckAndKill(h5File) !For non-restart but file exists
+            call CheckAndKill(RCMH5)
 
             !Create base file
             call initRCMIO()
@@ -91,17 +92,15 @@ module rcmimag
         type(voltApp_T), intent(inout) :: vApp
         real(rp), intent(in) :: tAdv
 
-        integer :: i,j,n,rcmbndy,nStp
+        integer :: i,j,n,nStp
         real(rp) :: colat,lat,lon
-        real(rp) :: dtCum
-
+        real(rp) :: dtAdv
         type(RCMTube_T) :: ijTube
 
+    !Get potential from mix
+        call map_rcm_mix(vApp,mixPot)
+
     !Load RCM tubes
-        rcmbndy = 30 !I don't know where this is coming from
-        colat_boundary = sin(RCMApp%gcolat(rcmbndy))
-
-
        !$OMP PARALLEL DO default(shared) collapse(2) &
        !$OMP private(i,j,colat,lat,lon,ijTube)
         do i=1,RCMApp%nLat_ion
@@ -120,26 +119,16 @@ module rcmimag
                 RCMApp%beta_average(i,j) = ijTube%beta_average
                 RCMApp%Pave(i,j)         = ijTube%Pave
                 RCMApp%Nave(i,j)         = ijTube%Nave
-                RCMApp%pot(i,j)          = ijTube%pot
+                !RCMApp%pot(i,j)          = ijTube%pot
+                ! mix variables are stored in this order (longitude,colatitude), hence the index flip
+                RCMApp%pot(i,j)          = mixPot(j,i)   
                 RCMApp%X_bmin(i,j,:)     = ijTube%X_bmin
             enddo
         enddo
 
-        !Set RCM boundary
-        RCMApp%Vol(1:rcmbndy,:) = -1.0
-        RCMApp%iopen(1:rcmbndy,:) = 1 !Open
-
     !Advance from vApp%time to tAdv
-        !Substep until done
-        !NOTE: Weird use of real(iprec) on RCM side
-        dtCum = 0.0
-        nStp = int( (tAdv-vApp%time)/ddt )
-        do n=1,nStp
-            call rcm_mhd(vApp%time+dtCum,ddt,RCMApp,RCMADVANCE)
-            dtCum = dtCum+ddt
-        enddo
-
-        !Add some diagnostic stuff here?
+        dtAdv = tAdv-vApp%time !RCM-DT
+        call rcm_mhd(vApp%time,dtAdv,RCMApp,RCMADVANCE)
 
     end subroutine AdvanceRCM
 
@@ -151,16 +140,27 @@ module rcmimag
 
         real(rp) :: colat
         integer :: i0,j0
+        logical :: isGood
 
         colat = PI/2 - lat
-
         !Just find closest cell
         i0 = minloc( abs(colat-RCMApp%gcolat),dim=1 )
         j0 = minloc( abs(lon  -RCMApp%glong ),dim=1 )
 
-        imW(IMDEN) = RCMApp%Nrcm(i0,j0)*rcmNScl
-        imW(IMPR ) = RCMApp%Prcm(i0,j0)*rcmPScl
+        !Test for good cell
+        isGood = (colat >= minval(RCMApp%gcolat)) .and. (colat <= maxval(RCMApp%gcolat)) &
+                 & .and. (RCMApp%iopen(i0,j0) == -1)
 
+        imW = 0.0
+
+        if (isGood) then
+            imW(IMDEN) = RCMApp%Nrcm(i0,j0)*rcmNScl
+            imW(IMPR ) = RCMApp%Prcm(i0,j0)*rcmPScl
+        else
+            imW(IMDEN) = 0.0
+            imW(IMPR ) = 0.0
+        endif
+        
     end subroutine EvalRCM
 !--------------
 !MHD=>RCM routines
@@ -173,14 +173,13 @@ module rcmimag
         type(fLine_T) :: bTrc
         real(rp) :: t, bMin
         real(rp), dimension(NDIM) :: x0, bEq, xyzIon
-        type(RCMTube_T) :: dpTube
         integer :: OCb
         real(rp) :: bD,bP,dvB,bBeta
     !First get seed for trace
-        !Assume lat/lon @ Earth, dipole push to R=2.5
-        xyzIon(XDIR) = 1.0*cos(lat)*cos(lon)
-        xyzIon(YDIR) = 1.0*cos(lat)*sin(lon)
-        xyzIon(ZDIR) = 1.0*sin(lat)
+        !Assume lat/lon @ Earth, dipole push
+        xyzIon(XDIR) = RIonRCM*cos(lat)*cos(lon)
+        xyzIon(YDIR) = RIonRCM*cos(lat)*sin(lon)
+        xyzIon(ZDIR) = RIonRCM*sin(lat)
         x0 = DipoleShift(xyzIon,2.05_rp)
         
     !Now do field line trace
@@ -198,8 +197,6 @@ module rcmimag
         !Plasma quantities
         !dvB = Flux-tube volume (Re/EB)
         call FLThermo(ebModel,ebGr,bTrc,bD,bP,dvB,bBeta)
-        !This converts Re/EB => m/T (seems wrong)
-        !dvB = dvB*(Re_cgs*1.0e-2)/(oBScl*1.0e-9)
         !Converts Re/EB => Re/T
         dvB = dvB/(oBScl*1.0e-9)
         bP = bP*1.0e-9 !nPa=>Pa
@@ -210,15 +207,13 @@ module rcmimag
 
         end associate
 
-        !Get dipole tube to test against
-        call DipoleTube(vApp,lat,lon,dpTube)
 
     !Scale and store information
         ijTube%X_bmin = bEq
         ijTube%bmin = bMin
         select case(OCb)
         case(0)
-            !Solar wind (weird)
+            !Solar wind (is this right?)
             ijTube%iopen = 1
             ijTube%Vol = -dvB
         case(1)
@@ -229,26 +224,16 @@ module rcmimag
             !Closed field
             ijTube%iopen = -1
             ijTube%Vol = dvB
+        case default
+            !WTF?
+            ijTube%iopen = 1
+            ijTube%Vol = -1
         end select
 
         ijTube%Pave = bP
         ijTube%Nave = bD
         ijTube%beta_average = bBeta
-        ijTube%pot = dpTube%pot
-
-        ! write(*,*) '---'
-        ! write(*,*) 'Lat/Lon = ', lat*180.0/PI,lon*180.0/PI
-        ! write(*,*) 'x0 = ', x0
-        ! write(*,'(a,2es9.2)') 'Vol = ', ijTube%Vol,dpTube%Vol
-        ! write(*,*) 'Den = ', ijTube%Nave,dpTube%Nave
-        ! write(*,*) 'Pre = ', ijTube%Pave,dpTube%Pave
-        ! write(*,*) 'iop = ', ijTube%iopen,dpTube%iopen
-        ! write(*,*) 'bmin = ', ijTube%bmin,dpTube%bmin
-        ! write(*,*) 'xEq = ', ijTube%X_bmin,dpTube%X_bmin
-        ! write(*,*) 'beta = ', ijTube%beta_average,dpTube%beta_average
-        ! write(*,*) 'pot = ', ijTube%pot, dpTube%pot
-        ! write(*,*) '---'
-
+        
     end subroutine MHDTube
 
     !Lazy test flux tube
@@ -267,6 +252,7 @@ module rcmimag
         real(rp) :: nmin = 1.0e4 ! min dens in ple/m^3
         real(rp) :: potmax = 5.0e4 ! potential max
         real(rp) :: re = 6380.e3
+        real(rp) :: colat_boundary
 
         colat = PI/2 - lat
         L = 1.0/(sin(colat)**2.0)
@@ -279,7 +265,7 @@ module rcmimag
         ijTube%beta_average = 0.1
         ijTube%Pave = pmax*exp(-(L-Lmax)**2.0) + pmin
         ijTube%Nave = nmax*exp(-(L-Lmax)**2.0) + nmin
-
+        colat_boundary = PI/4.0
         if (colat < colat_boundary) then
             ijTube%pot = -potmax/2.0*sin(lon)*sin(colat)
         else
@@ -344,7 +330,20 @@ module rcmimag
 
         call AddOutVar(IOVars,"N",RCMApp%Nrcm*rcmNScl)
         call AddOutVar(IOVars,"P",RCMApp%Prcm*rcmPScl)
+        call AddOutVar(IOVars,"IOpen",RCMApp%iopen*1.0_rp)
+        call AddOutVar(IOVars,"bVol",RCMApp%Vol)
+        call AddOutVar(IOVars,"pot",RCMApp%pot)
+        call AddOutVar(IOVars,"xMin",RCMApp%X_bmin(:,:,XDIR)/REarth)
+        call AddOutVar(IOVars,"yMin",RCMApp%X_bmin(:,:,YDIR)/REarth)
+        call AddOutVar(IOVars,"zMin",RCMApp%X_bmin(:,:,ZDIR)/REarth)
+        call AddOutVar(IOVars,"bMin",RCMApp%Bmin)
+        call AddOutVar(IOVars,"S",RCMApp%Prcm*(RCMApp%Vol**(5.0/3.0)) )
+        call AddOutVar(IOVars,"beta",RCMApp%beta_average)
+        call AddOutVar(IOVars,"Pmhd",RCMApp%Pave*rcmPScl)
+        call AddOutVar(IOVars,"Nmhd",RCMApp%Nave*rcmNScl)
 
+        call AddOutVar(IOVars,"colat",colat)
+        call AddOutVar(IOVars,"aloct",aloct)
         !Add attributes
         call AddOutVar(IOVars,"time",time)
         call AddOutVar(IOVars,"MJD",MJD)
@@ -352,6 +351,18 @@ module rcmimag
         write(gStr,'(A,I0)') "Step#", nOut
         call WriteVars(IOVars,.true.,h5File,gStr)
 
+        !Call RCM output
+        RCMApp%rcm_nOut = nOut
+        call rcm_mhd(time,TINY,RCMApp,RCMWRITEOUTPUT)
     end subroutine WriteRCM
 
+    subroutine WriteRCMRestart(nRes,MJD,time)
+        
+        integer, intent(in) :: nRes
+        real(rp), intent(in) :: MJD, time
+
+        RCMApp%rcm_nRes = nRes
+        call rcm_mhd(time,TINY,RCMApp,RCMWRITERESTART)
+        
+    end subroutine WriteRCMRestart
 end module rcmimag

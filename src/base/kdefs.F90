@@ -6,7 +6,8 @@ module kdefs
     !Define variable precisions
     integer, parameter :: sp = REAL32
     integer, parameter :: dp = REAL64
-    integer, parameter :: ip = INT64
+    !integer, parameter :: ip = INT64
+    integer, parameter :: ip = INT32
     
     !Compute precision, IO precision
     integer, parameter :: rp = dp
@@ -55,6 +56,8 @@ module kdefs
     real(rp), parameter :: EarthM0g = 0.31 !Gauss
     real(rp), parameter :: REarth = 6.38e6 ! m
     real(rp), parameter :: RionE  = 6.5    ! Earth Ionosphere radius in 1000 km
+    real(rp), parameter :: EarthPsi0 = 92.4 ! Corotation potential [kV]
+    
     !Saturn
     real(rp), parameter :: SaturnM0g = 0.21 !Gauss
     real(rp), parameter :: RSaturnXE = 9.5  !Rx = X*Re

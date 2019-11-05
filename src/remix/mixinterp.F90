@@ -52,9 +52,9 @@ module mixinterp
       integer :: i1,j1,i2,j2,j,i
       real(rp), dimension(4) :: x  ! (1,p,t,pt) for point to which we interpolate
 
-      allocate(Map%M(G2%Np,G2%Nt,4))
-      allocate(Map%I1(G2%Np,G2%Nt))
-      allocate(Map%J1(G2%Np,G2%Nt))
+      if (.not.allocated(Map%M)) allocate(Map%M(G2%Np,G2%Nt,4))
+      if (.not.allocated(Map%I1)) allocate(Map%I1(G2%Np,G2%Nt))
+      if (.not.allocated(Map%J1)) allocate(Map%J1(G2%Np,G2%Nt))
 
       ! loop over points onto which we're interpolating
       do i2=1,G2%Nt
@@ -110,7 +110,7 @@ module mixinterp
       ! get grid size from Map so we don't have to pass the grid itself
       dims = shape(Map%M); G2Nt = dims(2); G2Np = dims(1)
       
-      allocate(F2(G2Np,G2Nt))
+      if (.not.allocated(F2)) allocate(F2(G2Np,G2Nt))
       ! loop over points onto which we're interpolating
       do i2=1,G2Nt
          do j2=1,G2Np

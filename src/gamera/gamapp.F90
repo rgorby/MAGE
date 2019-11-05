@@ -30,12 +30,11 @@ module gamapp
         if(present(optFilename)) then
             ! read from the prescribed file
             inpXML = optFilename
-            call CheckFileOrDie(inpXML,"Error opening input deck, exiting ...")
         else
             !Find input deck
             call getIDeckStr(inpXML)
-
         endif
+        call CheckFileOrDie(inpXML,"Error opening input deck, exiting ...")
 
         if (present(doIO)) then
             doIOX = doIO
@@ -43,15 +42,8 @@ module gamapp
             doIOX = .true.
         endif
 
-        write(*,*) 'Reading input deck from ', trim(inpXML)
-        inquire(file=inpXML,exist=fExist)
-        if (.not. fExist) then
-            write(*,*) 'Error opening input deck, exiting ...'
-            write(*,*) ''
-            stop
-        endif
-        
         !Create XML reader
+        write(*,*) 'Reading input deck from ', trim(inpXML)
         xmlInp = New_XML_Input(trim(inpXML),'Gamera',.true.)
 
         !Initialize Grid/State/Model (Hatch Gamera)

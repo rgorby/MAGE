@@ -804,7 +804,7 @@ END IF
        b = REAL (one, rprec)
        DO
          c = half * (a+b)
-         f_c = Gntrp_2d_ang (rmin, c, REAL(jind(n),rprec),0)-fstoff*fdist(n)
+         f_c = Gntrp_2d_ang (rmin, c, REAL(jind(n),rprec),0_iprec)-fstoff*fdist(n)
          IF (ABS (f_c) < machine_eps2) EXIT
          IF (f_c < zero) THEN
             a = c
@@ -812,7 +812,7 @@ END IF
             b = c
          END IF
        END DO
-       theta (n) = Gntrp_2d_ang (colat, c, REAL(j,rprec), 0)
+       theta (n) = Gntrp_2d_ang (colat, c, REAL(j,rprec), 0_iprec)
     END DO
 !
 !   3. Compute parameters of ellipse:
@@ -832,7 +832,7 @@ END IF
        b = REAL (idim,rprec)
        DO
          c = half * (a+b)
-         f_c = Gntrp_2d_ang (colat, c, REAL(j,rprec), 0) - colat_bnd
+         f_c = Gntrp_2d_ang (colat, c, REAL(j,rprec), 0_iprec) - colat_bnd
          IF (ABS (f_c) < machine_eps2) EXIT
          IF (f_c < zero) THEN
            a = c
@@ -874,8 +874,8 @@ END IF
       REAL (KIND=rprec), INTENT (IN) :: bi, bj
       REAL (KIND=rprec) :: Fequat_of_x
       REAL (KIND=rprec) :: xx, yy
-      xx  = Gntrp_2d_ang (xmin, bi, bj, 0)
-      yy  = Gntrp_2d_ang (ymin, bi, bj, 0)
+      xx  = Gntrp_2d_ang (xmin, bi, bj, 0_iprec)
+      yy  = Gntrp_2d_ang (ymin, bi, bj, 0_iprec)
       Fequat_of_x = (xx-boundary(1)%xx)**2 / boundary(1)%aa**2 + &
                     (yy-boundary(1)%yy)**2 / boundary(1)%bb**2 - one
       RETURN
@@ -1281,11 +1281,11 @@ END IF
 !
             hardy_eflux_int = zero
             DO i = 2, isize-1
-               CALL Elemod (ICASE = 1, IKP = ikp_low, &
+               CALL Elemod (ICASE = 1_iprec, IKP = ikp_low, &
                             GLAT = 90.0-colat(i,j)*RTD, &
                             AMLT = MODULO (12.0+aloct(i,j)*RTH,24.0), &
                             VALUE = value_l)
-               CALL Elemod (ICASE = 1, IKP = ikp_high, &
+               CALL Elemod (ICASE = 1_iprec, IKP = ikp_high, &
                             GLAT = 90.0-colat(i,j)*RTD, &
                             AMLT = MODULO (12.0+aloct(i,j)*RTH,24.0), &
                             VALUE = value_h)
@@ -1344,15 +1344,15 @@ END IF
       factor = (kp-kp_low)/(kp_high-kp_low)
       DO i = 1, isize
       DO j = 1, jsize
-         CALL Elemod (ICASE = 3, IKP = kp_low, GLAT = 90.0-colat(i,j)*RTD, &
+         CALL Elemod (ICASE = 3_iprec, IKP = kp_low, GLAT = 90.0-colat(i,j)*RTD, &
                       AMLT = MODULO(12.+aloct(i,j)*RTH,24.0), VALUE = value_low)
-         CALL Elemod (ICASE = 3, IKP = kp_high, GLAT = 90.0-colat(i,j)*RTD, &
+         CALL Elemod (ICASE = 3_iprec, IKP = kp_high, GLAT = 90.0-colat(i,j)*RTD, &
                       AMLT = MODULO(12.+aloct(i,j)*RTH,24.0), VALUE = value_high)
          value = value_low*(one-factor)+value_high*factor
          hall (i,j) = qthall(i,j) + two*value / sini(i,j)
-         CALL Elemod (ICASE = 4, IKP = kp_low, GLAT = 90.0-colat(i,j)*RTD, &
+         CALL Elemod (ICASE = 4_iprec, IKP = kp_low, GLAT = 90.0-colat(i,j)*RTD, &
                       AMLT = MODULO(12.+aloct(i,j)*RTH,24.0), VALUE = value_low)
-         CALL Elemod (ICASE = 4, IKP = kp_high, GLAT = 90.0-colat(i,j)*RTD, &
+         CALL Elemod (ICASE = 4_iprec, IKP = kp_high, GLAT = 90.0-colat(i,j)*RTD, &
                       AMLT = MODULO(12.+aloct(i,j)*RTH,24.0), VALUE = value_high)
          value = value_low*(one-factor)+value_high*factor
          pedpsi(i,j) = qtped(i,j) + two*value
@@ -3746,8 +3746,8 @@ END IF
 !
   IF (L_move_plasma_grid) THEN
     IF (i_advect == 1) THEN
-       CALL Move_plasma_grid  (dt, 1, isize, j1, j2, 1)
-       CALL Move_plasma_grid  (dt, 1, isize, j1, j2, 2)
+       CALL Move_plasma_grid  (dt, 1_iprec, isize, j1, j2, 1_iprec)
+       CALL Move_plasma_grid  (dt, 1_iprec, isize, j1, j2, 2_iprec)
     ELSE IF (i_advect == 2) THEN
 !      CALL Move_plasma_grid (dt, 1, isize, j1, j2, 1)
        STOP 'This option is no longer available, aborting RCM'
@@ -7209,13 +7209,15 @@ bjmod_real = MODULO(bj-REAL(jwrap),REAL(jsize-jwrap-1)) + REAL(jwrap)
 !
 !
       SUBROUTINE Rcm (itimei_in, itimef_in, irdr_in, irdw_in, &
-                      idt_in, idt1_in, idt2_in, icontrol)
+                      idt_in, idt1_in, idt2_in, icontrol,stropt,nslcopt)
       USE rcm_timing_module
       IMPLICIT NONE
 !
       INTEGER (iprec), INTENT (IN) :: itimei_in, itimef_in, &
                                       irdr_in, irdw_in, idt_in, idt1_in,& 
                                       idt2_in, icontrol
+      character(len=*), intent(in), optional :: stropt
+      integer(iprec)  , intent(in), optional :: nslcopt
       CHARACTER(LEN=8) :: real_date
       CHARACTER (LEN=8) :: time_char
       CHARACTER(LEN=10) ::real_time
@@ -7242,6 +7244,19 @@ bjmod_real = MODULO(bj-REAL(jwrap),REAL(jsize-jwrap-1)) + REAL(jwrap)
        idt2   = idt2_in
       END IF
 
+      IF (icontrol == 31337) then  ! write a restart record to RCM
+         call WriteRCMH5(stropt,nslcopt,isRestart=.true.)
+         return
+      ENDIF
+      IF (icontrol == 31338) then  ! write an HDF5 output
+        call WriteRCMH5(stropt,nslcopt,isRestart=.false.)
+        return
+      ENDIF
+      IF (icontrol == 31336) then
+        !Read HDF5 restart
+        call ReadRCMRestart(stropt,nslcopt)
+        return
+      ENDIF
    IF (icontrol == 0) then  ! initialize RCM size params and go back:
 
       IF (.NOT.Check_logical_units ( ) ) STOP 'LUNs NOT AVAILABLE'
@@ -7718,7 +7733,143 @@ bjmod_real = MODULO(bj-REAL(jwrap),REAL(jsize-jwrap-1)) + REAL(jwrap)
          END SUBROUTINE Disk_write_arrays
 !
 !
-!
+        !HDF5 Restart reader
+
+        subroutine ReadRCMRestart(runid,nStp)
+          use ioh5
+          use files
+          implicit none
+          character(len=*), intent(in) :: runid
+          integer(iprec), intent(in) :: nStp
+          logical :: doSP !Do single precision
+          character(len=strLen) :: H5File
+          type(IOVAR_T), dimension(50) :: IOVars !Lazy hard-coding max variables
+          integer(iprec) :: nvar
+
+        !Prepare for reading
+          doSP = .false. !Restarts are always double precision
+          write (H5File, '(A,A,I0.5,A)') trim(runid), ".RCM.Res.", nStp, ".h5"
+          call ClearIO(IOVars) !Reset IO chain
+
+        !List variables to read
+          !Scalars
+          !(Need to specify integers)
+          call AddInVar(IOVars,"irdw",vTypeO=IOINT)
+          call AddInVar(IOVars,"itimei",vTypeO=IOINT)
+          call AddInVar(IOVars,"isize",vTypeO=IOINT)
+          call AddInVar(IOVars,"jsize",vTypeO=IOINT)
+          !(Add rest of scalars here)
+
+          !Arrays
+          call AddInVar(IOVars,"rcmetac")
+          call AddInVar(IOVars,"rcmeeta")
+          call AddInVar(IOVars,"rcmeetaavg")
+          !(Add rest of arrays here)
+
+        !Now do actual reading
+          call ReadVars(IOVars,doSP,H5File)
+
+        !Parse data and put it where it goes
+          !Data is stored as 1D array, for multi-d arrays need to be reshaped
+
+          !etac (1D)
+          nvar = FindIO(IOVars,"rcmetac")
+          etac = IOVars(nvar)%data
+
+          !eeta (3D), need to reshape 1D data into 3D array
+          nvar = FindIO(IOVars,"rcmeeta")
+          eeta = reshape(IOVars(nvar)%data,[IOVars(nvar)%dims(1),IOVars(nvar)%dims(2),IOVars(nvar)%dims(3)])
+
+          !rcmv (2D)
+          nvar = FindIO(IOVars,"rcmv")
+          v = reshape(IOVars(nvar)%data,[IOVars(nvar)%dims(1),IOVars(nvar)%dims(2)])
+
+          !(Add rest of arrays here)
+
+          write(*,*) 'RCM restart not finished ...'
+        end subroutine ReadRCMRestart
+
+        !HDF5 output routine 
+        subroutine WriteRCMH5(runid,nStp,isRestart)
+          use ioh5
+          use files
+          implicit none
+          character(len=*), intent(in) :: runid
+          integer(iprec), intent(in) :: nStp
+          logical, intent(in) :: isRestart
+
+          type(IOVAR_T), dimension(50) :: IOVars !Lazy hard-coding max variables
+          logical :: doSP !Do single precision output
+          character(len=strLen) :: H5File,gStr,lnResF
+
+        !Prepare for output
+          !Reset IO chain
+          call ClearIO(IOVars)
+          !Distinguish output slices vs restarts
+          if (isRestart) then
+            doSP = .false. !Double precision restarts
+            write (H5File, '(A,A,I0.5,A)') trim(runid), ".RCM.Res.", nStp, ".h5"
+            !write(*,*) 'RCM: Writing restart to ', trim(H5File)
+          else
+            !Regular output
+            doSP = .true.
+            H5File = trim(runid) // ".rcm.h5"
+            write (gStr, '(A,I0)') "Step#", nStp
+            !write(*,*) 'RCM: Writing output to ', trim(H5File), '/',trim(gStr)
+          endif
+
+
+        !Attributes
+          call AddOutVar(IOVars,"time",1.0_rp*itimei)
+          call AddOutVar(IOVars,"itimei",itimei)
+          call AddOutVar(IOVars,"irdw"  ,irdw  )
+          call AddOutVar(IOVars,"isize" ,isize )
+          call AddOutVar(IOVars,"jsize" ,jsize )
+          call AddOutVar(IOVars,"ksize" ,ksize )
+          call AddOutVar(IOVars,"cmax"  ,cmax  )
+          call AddOutVar(IOVars,"fmeb"  ,fmeb  )
+          call AddOutVar(IOVars,"fstoff",fstoff)
+          call AddOutVar(IOVars,"fdst"  ,fdst  )
+          call AddOutVar(IOVars,"fclps" ,fclps )
+          call AddOutVar(IOVars,"vdrop" ,vdrop )
+          call AddOutVar(IOVars,"kp"    ,kp    )
+
+        !Arrays
+          call AddOutVar(IOVars,"rcmxmin",xmin)
+          call AddOutVar(IOVars,"rcmymin",ymin)
+          call AddOutVar(IOVars,"rcmzmin",zmin)
+          call AddOutVar(IOVars,"rcmvm"  ,vm  )
+          call AddOutVar(IOVars,"rcmbmin",bmin)
+          call AddOutVar(IOVars,"rcmbndloc",bndloc)
+
+          call AddOutVar(IOVars,"rcmetac"   ,etac)
+          call AddOutVar(IOVars,"rcmeeta"   ,eeta)
+          call AddOutVar(IOVars,"rcmeetaavg",eeta_avg)
+
+          call AddOutVar(IOVars,"rcmpedlam" ,pedlam  )
+          call AddOutVar(IOVars,"rcmpedpsi" ,pedpsi  )
+          call AddOutVar(IOVars,"rcmhall"   ,hall    )
+          call AddOutVar(IOVars,"rcmeavg"   ,eavg    )
+          call AddOutVar(IOVars,"rcmeflux"  ,eflux   )
+          call AddOutVar(IOVars,"rcmbirk"   ,birk    )
+          call AddOutVar(IOVars,"rcmbirkavg",birk_avg)
+
+
+          call AddOutVar(IOVars,"rcmv",v)
+          call AddOutVar(IOVars,"rcmvavg",v_avg)
+
+        !Done staging output, now let er rip
+          if (isRestart) then
+            call CheckAndKill(H5File) !Always overwrite restarts
+            call WriteVars(IOVars,doSP,H5File)
+            !Create link to latest restart
+            write (lnResF, '(A,A,A,A)') trim(runid), ".RCM.Res.", "XXXXX", ".h5"
+            call EXECUTE_COMMAND_LINE('ln -sf '//trim(H5File)//' '//trim(lnResF), wait=.false.)
+          else
+            call WriteVars(IOVars,doSP,H5File,gStr)
+          endif
+        end subroutine WriteRCMH5
+
          SUBROUTINE Formatted_output ()
       write(*,*) "L10019, rcm.printout", LUN_2, ST, PS
          OPEN  (LUN_2, FILE = rcmdir//'rcm.printout', STATUS = 'OLD', POSITION = 'append')
@@ -8049,15 +8200,15 @@ SUBROUTINE Move_plasma_grid_NEW (dt)
  fac = 1.0E-3*signbe*bir*alpha*beta*dlam*dpsi*ri**2
 
 !K: Commenting out this OMP block because "fudge" isn't found, is the correct variable fudgec?
-! $OMP PARALLEL PRIVATE (eeta2, veff, dvefdi, dvefdj, didt, djdt, &
-! $OMP                  & mass_factor, loc_didt, loc_djdt,loc_Eta,loc_rate, &
-! $OMP                  & ie, icut, j, i, r_dist, FirstTime, max_eeta) &
-! $OMP        & SHARED (alamc, eeta, v, vcorot, vpar, vm, imin_j, j1, j2, joff, &
-! $OMP                  xmin, ymin, fac, fudge, bir, sini, L_dktime, dktime, sunspot_number, &                
-! $OMP                  T1, T2, xlower, ylower, xupper, yupper, CLAWiter, eps) &
-! $OMP        & DEFAULT (NONE)
+!$OMP PARALLEL PRIVATE (eeta2, veff, dvefdi, dvefdj, didt, djdt, &
+!$OMP                  & mass_factor, loc_didt, loc_djdt,loc_Eta,loc_rate, &
+!$OMP                  & ie, icut, j, i, r_dist, FirstTime, max_eeta) &
+!$OMP        & SHARED (alamc, eeta, v, vcorot, vpar, vm, imin_j, j1, j2, joff, &
+!$OMP                  xmin, ymin, fac, fudgec, bir, sini, L_dktime, dktime, sunspot_number, &                
+!$OMP                  T1, T2, xlower, ylower, xupper, yupper, CLAWiter, eps) &
+!$OMP        & DEFAULT (NONE)
+!$OMP DO SCHEDULE (dynamic)
 
-! $OMP DO SCHEDULE (STATIC,1)
   DO kc = 1, kcsize
 !
 !    If oxygen is to be added, must change this!
@@ -8199,8 +8350,8 @@ SUBROUTINE Move_plasma_grid_NEW (dt)
      CALL Circle (eeta(:,:,kc))
 !
   END DO
-!!$OMP END DO
-!!$OMP END PARALLEL
+!$OMP END DO
+!$OMP END PARALLEL
 
 
   RETURN

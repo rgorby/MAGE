@@ -6,6 +6,7 @@ import kaipy.gamera.magsphereRescale as upscl
 from argparse import RawTextHelpFormatter
 import numpy as np
 import h5py
+import kaipy.kaiH5 as kh5
 
 if __name__ == "__main__":
 	Ri = 3
@@ -64,7 +65,7 @@ if __name__ == "__main__":
 	for i in range(Ri):
 		for j in range(Rj):
 			for k in range(Rk):
-				fOut = upscl.genName(outid,i,j,k,Ri,Rj,Rk,nRes)
+				fOut = kh5.genName(outid,i,j,k,Ri,Rj,Rk,nRes)
 				
 				#Open output file
 				oH5 = h5py.File(fOut,'w')

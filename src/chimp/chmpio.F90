@@ -11,7 +11,7 @@ module chmpio
     use sliceio
     implicit none
 
-    logical :: InitOut = .false. !Has IO been initialized
+    logical, private :: InitOut = .false. !Has IO been initialized
 
     contains
     

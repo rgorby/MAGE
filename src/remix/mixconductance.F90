@@ -28,6 +28,8 @@ module mixconductance
       conductance%const_sigma = Params%const_sigma
       conductance%doRamp = Params%doRamp
       conductance%doChill = Params%doChill
+      conductance%doStarlight = Params%doStarlight      
+      conductance%doMR = Params%doMR      
       conductance%apply_cap = Params%apply_cap
 
       conductance%PI2       = pi/2.0D0
@@ -101,10 +103,22 @@ module mixconductance
             stop "The EUV model type entered is not supported."
       end select
 
-!      where (euvSigmaP<pedmin) euvSigmaP=pedmin
-!      where (euvSigmaH<hallmin) euvSigmaH=hallmin
-      conductance%euvSigmaP = max(conductance%euvSigmaP,conductance%pedmin)
-      conductance%euvSigmaH = max(conductance%euvSigmaH,conductance%hallmin)
+      if (conductance%doStarlight) then ! Makes sense to turn off apply_cap if this is on
+         ! add background conductance quadratically instead of a sharp cutoff
+         ! first need to remove negative conductances resulting form AMIE for strong tilt
+         ! otherwise, the quadratic addition results in conductances growing toward nightside.
+         conductance%euvSigmaP = max(conductance%euvSigmaP,0.)
+         conductance%euvSigmaH = max(conductance%euvSigmaH,0.)
+         
+         conductance%euvSigmaP = sqrt(conductance%euvSigmaP**2 + conductance%pedmin**2)
+         conductance%euvSigmaH = sqrt(conductance%euvSigmaH**2 + conductance%hallmin**2)
+      else
+         ! otherwise, default to the standard way of applying the floor
+         ! I'll leave it as default for now (doStarlight=.false.) but we can reconsider later
+         conductance%euvSigmaP = max(conductance%euvSigmaP,conductance%pedmin)
+         conductance%euvSigmaH = max(conductance%euvSigmaH,conductance%hallmin)
+      end if
+      
     end subroutine conductance_euv
 
 
@@ -188,7 +202,19 @@ module mixconductance
       conductance%engFlux = kev2erg*St%Vars(:,:,AVG_ENG)*St%Vars(:,:,NUM_FLUX)  ! Energy flux in ergs/cm^2/s
       conductance%deltaSigmaP = 40.D0*St%Vars(:,:,AVG_ENG)*sqrt(conductance%engFlux)/(16.D0+St%Vars(:,:,AVG_ENG)**2);
       conductance%deltaSigmaH = 0.45D0*conductance%deltaSigmaP*St%Vars(:,:,AVG_ENG)**0.85D0/(1.D0+0.0025D0*St%Vars(:,:,AVG_ENG)**2)
+
+      ! correct for multiple reflections if you're so inclined
+      if (conductance%doMR) call conductance_mr(conductance,St)
     end subroutine conductance_aurora
+
+    ! George Khazanov's multiple reflection(MR) corrections
+    subroutine conductance_mr(conductance,St)
+      type(mixConductance_T), intent(inout) :: conductance
+      type(mixState_T), intent(in) :: St
+
+      conductance%deltaSigmaP = (2.16-0.87*exp(-0.16*St%Vars(:,:,AVG_ENG)))*conductance%deltaSigmaP
+      conductance%deltaSigmaH = (1.87-0.54*exp(-0.16*St%Vars(:,:,AVG_ENG)))*conductance%deltaSigmaH
+    end subroutine conductance_mr
 
     subroutine conductance_total(conductance,G,St)
       type(mixConductance_T), intent(inout) :: conductance
