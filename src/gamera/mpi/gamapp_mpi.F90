@@ -35,11 +35,11 @@ module gamapp_mpi
         if(present(optFilename)) then
             ! read from the prescribed file
             inpXML = optFilename
-            call CheckFileOrDie(inpXML,"Error opening input deck, exiting ...")
         else
             !Find input deck
             call getIDeckStr(inpXML)
         endif
+        call CheckFileOrDie(inpXML,"Error opening input deck, exiting ...")
 
         if (present(doIO)) then
             doIOX = doIO
@@ -47,15 +47,8 @@ module gamapp_mpi
             doIOX = .true.
         endif
 
-        write(*,*) 'Reading input deck from ', trim(inpXML)
-        inquire(file=inpXML,exist=fExist)
-        if (.not. fExist) then
-            write(*,*) 'Error opening input deck, exiting ...'
-            write(*,*) ''
-            stop
-        endif
-        
         !Create XML reader
+        write(*,*) 'Reading input deck from ', trim(inpXML)
         xmlInp = New_XML_Input(trim(inpXML),'Gamera',.true.)
 
         !Initialize Grid/State/Model (Hatch Gamera)
@@ -225,17 +218,17 @@ module gamapp_mpi
         Grid%Ri = rank
 
         ! whether this rank has external BCs
-        Grid%hasLowerBC(1) = Grid%Ri == 0
-        Grid%hasLowerBC(2) = Grid%Rj == 0
-        Grid%hasLowerBC(3) = Grid%Rk == 0
-        Grid%hasUpperBC(1) = Grid%Ri == (Grid%NumRi-1)
-        Grid%hasUpperBC(2) = Grid%Rj == (Grid%NumRj-1)
-        Grid%hasUpperBC(3) = Grid%Rk == (Grid%NumRk-1)
+        Grid%hasLowerBC(IDIR) = Grid%Ri == 0
+        Grid%hasLowerBC(JDIR) = Grid%Rj == 0
+        Grid%hasLowerBC(KDIR) = Grid%Rk == 0
+        Grid%hasUpperBC(IDIR) = Grid%Ri == (Grid%NumRi-1)
+        Grid%hasUpperBC(JDIR) = Grid%Rj == (Grid%NumRj-1)
+        Grid%hasUpperBC(KDIR) = Grid%Rk == (Grid%NumRk-1)
 
         ! adjust grid info for these ranks
-        Grid%ijkShift(1) = Grid%Nip*Grid%Ri
-        Grid%ijkShift(2) = Grid%Njp*Grid%Rj
-        Grid%ijkShift(3) = Grid%Nkp*Grid%Rk
+        Grid%ijkShift(IDIR) = Grid%Nip*Grid%Ri
+        Grid%ijkShift(JDIR) = Grid%Njp*Grid%Rj
+        Grid%ijkShift(KDIR) = Grid%Nkp*Grid%Rk
 
         Grid%is = 1; Grid%ie = Grid%Nip
         Grid%js = 1; Grid%je = Grid%Njp
@@ -256,15 +249,15 @@ module gamapp_mpi
         allocate(tempZ(Grid%isg:Grid%ieg+1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1))
 
         ! pull out this rank's relevant corner info
-        tempX = Grid%x(Grid%isg+Grid%ijkShift(1):Grid%ieg+Grid%ijkShift(1), &
-                       Grid%jsg+Grid%ijkShift(2):Grid%jeg+Grid%ijkShift(2), &
-                       Grid%ksg+Grid%ijkShift(3):Grid%keg+Grid%ijkShift(3))
-        tempY = Grid%y(Grid%isg+Grid%ijkShift(1):Grid%ieg+Grid%ijkShift(1), &
-                       Grid%jsg+Grid%ijkShift(2):Grid%jeg+Grid%ijkShift(2), &
-                       Grid%ksg+Grid%ijkShift(3):Grid%keg+Grid%ijkShift(3))
-        tempZ = Grid%z(Grid%isg+Grid%ijkShift(1):Grid%ieg+Grid%ijkShift(1), &
-                       Grid%jsg+Grid%ijkShift(2):Grid%jeg+Grid%ijkShift(2), &
-                       Grid%ksg+Grid%ijkShift(3):Grid%keg+Grid%ijkShift(3))
+        tempX = Grid%x(Grid%isg+Grid%ijkShift(IDIR):Grid%ieg+Grid%ijkShift(IDIR), &
+                       Grid%jsg+Grid%ijkShift(JDIR):Grid%jeg+Grid%ijkShift(JDIR), &
+                       Grid%ksg+Grid%ijkShift(KDIR):Grid%keg+Grid%ijkShift(KDIR))
+        tempY = Grid%y(Grid%isg+Grid%ijkShift(IDIR):Grid%ieg+Grid%ijkShift(IDIR), &
+                       Grid%jsg+Grid%ijkShift(JDIR):Grid%jeg+Grid%ijkShift(JDIR), &
+                       Grid%ksg+Grid%ijkShift(KDIR):Grid%keg+Grid%ijkShift(KDIR))
+        tempZ = Grid%z(Grid%isg+Grid%ijkShift(IDIR):Grid%ieg+Grid%ijkShift(IDIR), &
+                       Grid%jsg+Grid%ijkShift(JDIR):Grid%jeg+Grid%ijkShift(JDIR), &
+                       Grid%ksg+Grid%ijkShift(KDIR):Grid%keg+Grid%ijkShift(KDIR))
 
         ! delete the old corner arrays
         deallocate(Grid%x)
@@ -486,13 +479,13 @@ module gamapp_mpi
             SELECT type(iiBC=>Grid%externalBCs(INI)%p)
                 TYPE IS (mpiNullBc_T)
                     ! this BC is already an MPI BC
-                    if(Grid%hasLowerBC(1) .and. .not. periodicI) then
+                    if(Grid%hasLowerBC(IDIR) .and. .not. periodicI) then
                         print *, 'Min I BC was set to be an MPI BC by the user, but this is not an MPI periodic case'
                         stop
                     endif
                 CLASS DEFAULT
                     ! this BC is something other than an MPI BC
-                    if(.not. Grid%hasLowerBC(1) .or. periodicI) then
+                    if(.not. Grid%hasLowerBC(IDIR) .or. periodicI) then
                         print *, 'Over-writing min I BC to be an MPI BC'
                         deallocate(Grid%externalBCs(INI)%p)
                         allocate(mpiNullBc_T :: Grid%externalBCs(INI)%p)
@@ -503,13 +496,13 @@ module gamapp_mpi
             SELECT type(iiBC=>Grid%externalBCs(OUTI)%p)
                 TYPE IS (mpiNullBc_T)
                     ! this BC is already an MPI BC
-                    if(Grid%hasUpperBC(1) .and. .not. periodicI) then
+                    if(Grid%hasUpperBC(IDIR) .and. .not. periodicI) then
                         print *, 'Max I BC was set to be an MPI BC by the user, but this is not an MPI periodic case'
                         stop
                     endif
                 CLASS DEFAULT
                     ! this BC is something other than an MPI BC
-                    if(.not. Grid%hasUpperBC(1) .or. periodicI) then
+                    if(.not. Grid%hasUpperBC(IDIR) .or. periodicI) then
                         print *, 'Over-writing max I BC to be an MPI BC'
                         deallocate(Grid%externalBCs(OUTI)%p)
                         allocate(mpiNullBc_T :: Grid%externalBCs(OUTI)%p)
@@ -525,13 +518,13 @@ module gamapp_mpi
             SELECT type(iiBC=>Grid%externalBCs(INJ)%p)
                 TYPE IS (mpiNullBc_T)
                     ! this BC is already an MPI BC
-                    if(Grid%hasLowerBC(2) .and. .not. periodicJ) then
+                    if(Grid%hasLowerBC(JDIR) .and. .not. periodicJ) then
                         print *, 'Min J BC was set to be an MPI BC by the user, but this is not an MPI periodic case'
                         stop
                     endif
                 CLASS DEFAULT
                     ! this BC is something other than an MPI BC
-                    if(.not. Grid%hasLowerBC(2) .or. periodicJ) then
+                    if(.not. Grid%hasLowerBC(JDIR) .or. periodicJ) then
                         print *, 'Over-writing min J BC to be an MPI BC'
                         deallocate(Grid%externalBCs(INJ)%p)
                         allocate(mpiNullBc_T :: Grid%externalBCs(INJ)%p)
@@ -542,13 +535,13 @@ module gamapp_mpi
             SELECT type(iiBC=>Grid%externalBCs(OUTJ)%p)
                 TYPE IS (mpiNullBc_T)
                     ! this BC is already an MPI BC
-                    if(Grid%hasUpperBC(2) .and. .not. periodicJ) then
+                    if(Grid%hasUpperBC(JDIR) .and. .not. periodicJ) then
                         print *, 'Max J BC was set to be an MPI BC by the user, but this is not an MPI periodic case'
                         stop
                     endif
                 CLASS DEFAULT
                     ! this BC is something other than an MPI BC
-                    if(.not. Grid%hasUpperBC(2) .or. periodicJ) then
+                    if(.not. Grid%hasUpperBC(JDIR) .or. periodicJ) then
                         print *, 'Over-writing max J BC to be an MPI BC'
                         deallocate(Grid%externalBCs(OUTJ)%p)
                         allocate(mpiNullBc_T :: Grid%externalBCs(OUTJ)%p)
@@ -564,13 +557,13 @@ module gamapp_mpi
             SELECT type(iiBC=>Grid%externalBCs(INK)%p)
                 TYPE IS (mpiNullBc_T)
                     ! this BC is already an MPI BC
-                    if(Grid%hasLowerBC(3) .and. .not. periodicK) then
+                    if(Grid%hasLowerBC(KDIR) .and. .not. periodicK) then
                         print *, 'Min K BC was set to be an MPI BC by the user, but this is not an MPI periodic case'
                         stop
                     endif
                 CLASS DEFAULT
                     ! this BC is something other than an MPI BC
-                    if(.not. Grid%hasLowerBC(3) .or. periodicK) then
+                    if(.not. Grid%hasLowerBC(KDIR) .or. periodicK) then
                         print *, 'Over-writing min K BC to be an MPI BC'
                         deallocate(Grid%externalBCs(INK)%p)
                         allocate(mpiNullBc_T :: Grid%externalBCs(INK)%p)
@@ -581,13 +574,13 @@ module gamapp_mpi
             SELECT type(iiBC=>Grid%externalBCs(OUTK)%p)
                 TYPE IS (mpiNullBc_T)
                     ! this BC is already an MPI BC
-                    if(Grid%hasUpperBC(3) .and. .not. periodicK) then
+                    if(Grid%hasUpperBC(KDIR) .and. .not. periodicK) then
                         print *, 'Max K BC was set to be an MPI BC by the user, but this is not an MPI periodic case'
                         stop
                     endif
                 CLASS DEFAULT
                     ! this BC is something other than an MPI BC
-                    if(.not. Grid%hasUpperBC(3) .or. periodicK) then
+                    if(.not. Grid%hasUpperBC(KDIR) .or. periodicK) then
                         print *, 'Over-writing max K BC to be an MPI BC'
                         deallocate(Grid%externalBCs(OUTK)%p)
                         allocate(mpiNullBc_T :: Grid%externalBCs(OUTK)%p)
