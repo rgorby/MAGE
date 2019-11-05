@@ -140,16 +140,27 @@ module rcmimag
 
         real(rp) :: colat
         integer :: i0,j0
+        logical :: isGood
 
         colat = PI/2 - lat
-
         !Just find closest cell
         i0 = minloc( abs(colat-RCMApp%gcolat),dim=1 )
         j0 = minloc( abs(lon  -RCMApp%glong ),dim=1 )
 
-        imW(IMDEN) = RCMApp%Nrcm(i0,j0)*rcmNScl
-        imW(IMPR ) = RCMApp%Prcm(i0,j0)*rcmPScl
+        !Test for good cell
+        isGood = (colat >= minval(RCMApp%gcolat)) .and. (colat <= maxval(RCMApp%gcolat)) &
+                 & .and. (RCMApp%iopen(i0,j0) == -1)
 
+        imW = 0.0
+
+        if (isGood) then
+            imW(IMDEN) = RCMApp%Nrcm(i0,j0)*rcmNScl
+            imW(IMPR ) = RCMApp%Prcm(i0,j0)*rcmPScl
+        else
+            imW(IMDEN) = 0.0
+            imW(IMPR ) = 0.0
+        endif
+        
     end subroutine EvalRCM
 !--------------
 !MHD=>RCM routines
@@ -162,7 +173,6 @@ module rcmimag
         type(fLine_T) :: bTrc
         real(rp) :: t, bMin
         real(rp), dimension(NDIM) :: x0, bEq, xyzIon
-        !type(RCMTube_T) :: dpTube
         integer :: OCb
         real(rp) :: bD,bP,dvB,bBeta
     !First get seed for trace
@@ -197,8 +207,6 @@ module rcmimag
 
         end associate
 
-        ! !Get dipole tube to test against
-        ! call DipoleTube(vApp,lat,lon,dpTube)
 
     !Scale and store information
         ijTube%X_bmin = bEq
@@ -226,22 +234,6 @@ module rcmimag
         ijTube%Nave = bD
         ijTube%beta_average = bBeta
         
-
-        !ijTube%pot = dpTube%pot
-
-        ! write(*,*) '---'
-        ! write(*,*) 'Lat/Lon = ', lat*180.0/PI,lon*180.0/PI
-        ! write(*,*) 'x0 = ', x0
-        ! write(*,'(a,2es9.2)') 'Vol = ', ijTube%Vol,dpTube%Vol
-        ! write(*,*) 'Den = ', ijTube%Nave,dpTube%Nave
-        ! write(*,*) 'Pre = ', ijTube%Pave,dpTube%Pave
-        ! write(*,*) 'iop = ', ijTube%iopen,dpTube%iopen
-        ! write(*,*) 'bmin = ', ijTube%bmin,dpTube%bmin
-        ! write(*,*) 'xEq = ', ijTube%X_bmin,dpTube%X_bmin
-        ! write(*,*) 'beta = ', ijTube%beta_average,dpTube%beta_average
-        ! write(*,*) 'pot = ', ijTube%pot, dpTube%pot
-        ! write(*,*) '---'
-
     end subroutine MHDTube
 
     !Lazy test flux tube
