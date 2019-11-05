@@ -1,6 +1,22 @@
-file(GLOB_RECURSE testFiles "${CMAKE_CURRENT_SOURCE_DIR}/*.pf")
-set(testLibs baselib gamlib remixlib voltlib)
-add_pfunit_ctest (allTests TEST_SOURCES ${testFiles} LINK_LIBRARIES ${testLibs} MAX_PES 1)
+file(GLOB caseTestFiles "${CMAKE_CURRENT_SOURCE_DIR}/cases/*.pf")
+set(caseTestLibs baselib gamlib remixlib voltlib)
+add_pfunit_ctest (caseTests TEST_SOURCES ${caseTestFiles} LINK_LIBRARIES ${caseTestLibs} MAX_PES 1)
+
+file(GLOB gamTestFiles "${CMAKE_CURRENT_SOURCE_DIR}/gamera/*.pf")
+set(gamTestLibs baselib gamlib)
+add_pfunit_ctest (gamTests TEST_SOURCES ${gamTestFiles} LINK_LIBRARIES ${gamTestLibs} MAX_PES 1)
+
+file(GLOB mixTestFiles "${CMAKE_CURRENT_SOURCE_DIR}/remix/*.pf")
+set(mixTestLibs baselib gamlib remixlib voltlib)
+add_pfunit_ctest (mixTests TEST_SOURCES ${mixTestFiles} LINK_LIBRARIES ${mixTestLibs} MAX_PES 1)
+
+file(GLOB voltTestFiles "${CMAKE_CURRENT_SOURCE_DIR}/voltron/*.pf")
+set(voltTestLibs baselib gamlib remixlib voltlib)
+add_pfunit_ctest (voltTests TEST_SOURCES ${voltTestFiles} LINK_LIBRARIES ${voltTestLibs} MAX_PES 1)
+
+file(GLOB gamMpiTestFiles "${CMAKE_CURRENT_SOURCE_DIR}/gamera_mpi/*.pf")
+set(gamMpiTestLibs baselib gamlib basempilib gammpilib)
+add_pfunit_ctest (gamMpiTests TEST_SOURCES ${gamMpiTestFiles} LINK_LIBRARIES ${gamMpiTestLibs} MAX_PES 27)
 
 # copy input xml files and grid h5 files to binary folder for running
 file(GLOB_RECURSE inputFiles "${CMAKE_CURRENT_SOURCE_DIR}/*.xml")
@@ -31,4 +47,9 @@ foreach(gridFile ${gridFiles})
 endforeach(gridFile)
 add_custom_target(CopyGrids DEPENDS ${gridFilesDest})
 
-add_dependencies(allTests CopyInputs CopyGrids)
+# all tests in one
+file(GLOB_RECURSE allTestFiles "${CMAKE_CURRENT_SOURCE_DIR}/*.pf")
+set(allTestLibs baselib gamlib remixlib voltlib basempilib gammpilib)
+add_pfunit_ctest (allTests TEST_SOURCES ${allTestFiles} LINK_LIBRARIES ${allTestLibs} MAX_PES 27)
+
+add_dependencies(allTests CopyInputs CopyGrids caseTests gamTests mixTests voltTests gamMpiTests)
