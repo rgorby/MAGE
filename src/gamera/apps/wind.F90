@@ -399,16 +399,24 @@ module wind
         integer :: i,N
         logical :: isByC,isBzC
         real(rp) :: BCoef(3)
+        real(rp), parameter :: ergcc2nPa = 1.0e8
 
         type(IOVAR_T), dimension(MAXWINDVARS) :: IOVars
 
         write(*,*) "---------------"
         write(*,*) "Solar wind data"
         write(*,*) "Reading wind data from ", trim(windBC%wID)
-        write(*,*) "Assuming input units: t,D,V,P,B = [s],[#/cm3],[m/s],[nPa],[nT]"
+        write(*,*) "Assuming input units: t,D,V,T,B = [s],[#/cm3],[m/s],[K],[nT]"
         
         !Make sure file exists
         call CheckFileOrDie(windBC%wID, "Error opening wind file, exiting ...")
+
+        if (.not.(ioExist(trim(windBC%wID),"Temp"))) then
+           write(*,*) 'As of 5 October 2019 solar wind temperature, rather than thermal pressure,'
+           write(*,*) 'is stored in the solar wind h5 file by the omni2wind script.'
+           write(*,*) 'The solar wind file used in this run does not have the "Temp" variable. Quitting...'
+           stop
+        endif
 
         !Setup input chain
         call ClearIO(IOVars)
@@ -417,7 +425,7 @@ module wind
         call AddInVar(IOVars,"Vx")
         call AddInVar(IOVars,"Vy")
         call AddInVar(IOVars,"Vz")
-        call AddInVar(IOVars,"P")
+        call AddInVar(IOVars,"Temp")
         call AddInVar(IOVars,"Bx")
         call AddInVar(IOVars,"By")
         call AddInVar(IOVars,"Bz")
@@ -438,7 +446,10 @@ module wind
         windBC%Q(:,VELX)     = (1/gv0)*IOVars(3)%data
         windBC%Q(:,VELY)     = (1/gv0)*IOVars(4)%data
         windBC%Q(:,VELZ)     = (1/gv0)*IOVars(5)%data
-        windBC%Q(:,PRESSURE) = (1/gP0)*IOVars(6)%data
+        ! compute pressure from density and temperature
+        ! note, assuming density in /cc and temperature in K
+        ! Kbltz is defined in kdefs in erg/K, so convert to nPa
+        windBC%Q(:,PRESSURE) = (1/gP0)*windBC%Q(:,DEN)*Kbltz*IOVars(6)%data*ergcc2nPa
         windBC%B(:,XDIR)     = (1/gB0)*IOVars(7)%data
         windBC%B(:,YDIR)     = (1/gB0)*IOVars(8)%data
         windBC%B(:,ZDIR)     = (1/gB0)*IOVars(9)%data
