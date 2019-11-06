@@ -5,7 +5,7 @@ module testMpi
 
   implicit none
 
-  type(gamAppMpi_T) :: gamAppMpi
+  type(gamAppMpi_T), allocatable :: gamAppMpi
 
 contains
 
@@ -18,27 +18,97 @@ contains
 
       write(caseFile,'(A,I0,A)') 'blast3d_', this%getNumProcesses(), '.xml'
 
+      allocate(gamAppMpi)
       call initGamera_mpi(gamAppMpi, initUser, this%getMpiCommunicator(), caseFile, .false.)
+
   end subroutine setup
 
   @after
   subroutine teardown(this)
       class (MpiTestMethod), intent(inout) :: this
+
+      deallocate(gamAppMpi)
+
   end subroutine teardown
 
   @test(npes=[1,3,9,27])
   subroutine testTiling(this)
       class (MpiTestMethod), intent(inout) :: this
 
+      integer :: i,j,k
+      real(rp) :: checkVal
+      character(len=strLen) :: checkMessage
+
       SELECT CASE(this%getNumProcesses())
           CASE (1)
               @assertFalse(gamAppMpi%Grid%isTiled, '1 processor isTiled wrong')
+
               @assertEqual(gamAppMpi%Grid%NumRi, 1, '1 processor NumRi wrong')
-              @assertEqual(gamAppMpi%Grid%NumRi, 1, '1 processor NumRj wrong')
-              @assertEqual(gamAppMpi%Grid%NumRi, 1, '1 processor NumRk wrong')
+              @assertEqual(gamAppMpi%Grid%NumRj, 1, '1 processor NumRj wrong')
+              @assertEqual(gamAppMpi%Grid%NumRk, 1, '1 processor NumRk wrong')
+
+              @assertEqual(gamAppMpi%Grid%Ri, 0, '1 processor Ri wrong')
+              @assertEqual(gamAppMpi%Grid%Rj, 0, '1 processor Rj wrong')
+              @assertEqual(gamAppMpi%Grid%Rk, 0, '1 processor Rk wrong')
+
+              @assertEqual(gamAppMpi%Grid%ijkShift, (/0,0,0/), '1 processor ijkShift wrong')
+              @assertTrue(gamAppMpi%Grid%hasLowerBC(IDIR), '1 processor hasLowerBC(IDIR) wrong')
+              @assertTrue(gamAppMpi%Grid%hasLowerBC(JDIR), '1 processor hasLowerBC(JDIR) wrong')
+              @assertTrue(gamAppMpi%Grid%hasLowerBC(KDIR), '1 processor hasLowerBC(KDIR) wrong')
+              @assertTrue(gamAppMpi%Grid%hasUpperBC(IDIR), '1 processor hasUpperBC(IDIR) wrong')
+              @assertTrue(gamAppMpi%Grid%hasUpperBC(JDIR), '1 processor hasUpperBC(JDIR) wrong')
+              @assertTrue(gamAppMpi%Grid%hasUpperBC(KDIR), '1 processor hasUpperBC(KDIR) wrong')
+
+              @assertEqual(gamAppMpi%Model%Ng, 4, '1 processor Ng wrong')
+              @assertEqual(gamAppMpi%Grid%Nip, 12, '1 processor Nip wrong')
+              @assertEqual(gamAppMpi%Grid%Njp, 12, '1 processor Njp wrong')
+              @assertEqual(gamAppMpi%Grid%Nkp, 12, '1 processor Nkp wrong')
+              @assertEqual(gamAppMpi%Grid%Ni, 20, '1 processor Ni wrong')
+              @assertEqual(gamAppMpi%Grid%Nj, 20, '1 processor Nj wrong')
+              @assertEqual(gamAppMpi%Grid%Nk, 20, '1 processor Nk wrong')
+              @assertEqual(gamAppMpi%Grid%is, 1,  '1 processor is wrong')
+              @assertEqual(gamAppMpi%Grid%ie, 12, '1 processor ie wrong')
+              @assertEqual(gamAppMpi%Grid%js, 1,  '1 processor js wrong')
+              @assertEqual(gamAppMpi%Grid%je, 12, '1 processor je wrong')
+              @assertEqual(gamAppMpi%Grid%ks, 1,  '1 processor ks wrong')
+              @assertEqual(gamAppMpi%Grid%ke, 12, '1 processor ke wrong')
+              @assertEqual(gamAppMpi%Grid%isg, -3,  '1 processor isg wrong')
+              @assertEqual(gamAppMpi%Grid%ieg, 16, '1 processor ieg wrong')
+              @assertEqual(gamAppMpi%Grid%jsg, -3,  '1 processor jsg wrong')
+              @assertEqual(gamAppMpi%Grid%jeg, 16, '1 processor jeg wrong')
+              @assertEqual(gamAppMpi%Grid%ksg, -3,  '1 processor ksg wrong')
+              @assertEqual(gamAppMpi%Grid%keg, 16, '1 processor keg wrong')
+
+              do i=gamAppMpi%Grid%isg,gamAppMpi%Grid%ieg+1
+                  do j=gamAppMpi%Grid%jsg,gamAppMpi%Grid%jeg+1
+                      do k=gamAppMpi%Grid%ksg,gamAppMpi%Grid%keg+1
+                          checkVal = -0.5+(i-1)*(1/12)
+                          write (checkMessage,'(A,I0,A,I0,A,I0,A)') '1 processor x wrong at (',i,',',j,',',k,')'
+                          @assertEqual(checkVal, gamAppMpi%Grid%x(i,j,k), trim(checkMessage))
+                          checkVal = -0.5+(j-1)*(1/12)
+                          write (checkMessage,'(A,I0,A,I0,A,I0,A)') '1 processor y wrong at (',i,',',j,',',k,')'
+                          @assertEqual(checkVal, gamAppMpi%Grid%y(i,j,k), trim(checkMessage))
+                          checkVal = -0.5+(k-1)*(1/12)
+                          write (checkMessage,'(A,I0,A,I0,A,I0,A)') '1 processor z wrong at (',i,',',j,',',k,')'
+                          @assertEqual(checkVal, gamAppMpi%Grid%z(i,j,k), trim(checkMessage))
+                      enddo
+                  enddo
+              enddo
           CASE (3)
+              @assertTrue(gamAppMpi%Grid%isTiled, '3 processor isTiled wrong')
+              @assertEqual(gamAppMpi%Grid%NumRi, 3, '3 processor NumRi wrong')
+              @assertEqual(gamAppMpi%Grid%NumRj, 1, '3 processor NumRj wrong')
+              @assertEqual(gamAppMpi%Grid%NumRk, 1, '3 processor NumRk wrong')
           CASE (9)
+              @assertTrue(gamAppMpi%Grid%isTiled, '9 processor isTiled wrong')
+              @assertEqual(gamAppMpi%Grid%NumRi, 3, '9 processor NumRi wrong')
+              @assertEqual(gamAppMpi%Grid%NumRj, 3, '9 processor NumRj wrong')
+              @assertEqual(gamAppMpi%Grid%NumRk, 1, '9 processor NumRk wrong')
           CASE (27)
+              @assertTrue(gamAppMpi%Grid%isTiled, '27 processor isTiled wrong')
+              @assertEqual(gamAppMpi%Grid%NumRi, 3, '27 processor NumRi wrong')
+              @assertEqual(gamAppMpi%Grid%NumRj, 3, '27 processor NumRj wrong')
+              @assertEqual(gamAppMpi%Grid%NumRk, 3, '27 processor NumRk wrong')
           CASE DEFAULT
               @assertEqual(0, 1, 'Unexpected number of MPI processes')
       END SELECT

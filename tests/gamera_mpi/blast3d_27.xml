@@ -7,9 +7,9 @@
     <ibc bc="periodic"/>
     <jbc bc="periodic"/>
     <kbc bc="periodic"/>
-    <iPdir N="1"/>
-    <jPdir N="1"/>
-    <kPdir N="1"/>
+    <iPdir N="3"/>
+    <jPdir N="3"/>
+    <kPdir N="3"/>
     <time tFin="1.0"/>
     <output dtOut="0.1" tsOut="1000000"/>
     <physics doMHD="T" do25D="T"/>

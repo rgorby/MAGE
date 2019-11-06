@@ -249,15 +249,15 @@ module gamapp_mpi
         allocate(tempZ(Grid%isg:Grid%ieg+1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1))
 
         ! pull out this rank's relevant corner info
-        tempX = Grid%x(Grid%isg+Grid%ijkShift(IDIR):Grid%ieg+Grid%ijkShift(IDIR), &
-                       Grid%jsg+Grid%ijkShift(JDIR):Grid%jeg+Grid%ijkShift(JDIR), &
-                       Grid%ksg+Grid%ijkShift(KDIR):Grid%keg+Grid%ijkShift(KDIR))
-        tempY = Grid%y(Grid%isg+Grid%ijkShift(IDIR):Grid%ieg+Grid%ijkShift(IDIR), &
-                       Grid%jsg+Grid%ijkShift(JDIR):Grid%jeg+Grid%ijkShift(JDIR), &
-                       Grid%ksg+Grid%ijkShift(KDIR):Grid%keg+Grid%ijkShift(KDIR))
-        tempZ = Grid%z(Grid%isg+Grid%ijkShift(IDIR):Grid%ieg+Grid%ijkShift(IDIR), &
-                       Grid%jsg+Grid%ijkShift(JDIR):Grid%jeg+Grid%ijkShift(JDIR), &
-                       Grid%ksg+Grid%ijkShift(KDIR):Grid%keg+Grid%ijkShift(KDIR))
+        tempX = Grid%x(Grid%isg+Grid%ijkShift(IDIR):Grid%ieg+1+Grid%ijkShift(IDIR), &
+                       Grid%jsg+Grid%ijkShift(JDIR):Grid%jeg+1+Grid%ijkShift(JDIR), &
+                       Grid%ksg+Grid%ijkShift(KDIR):Grid%keg+1+Grid%ijkShift(KDIR))
+        tempY = Grid%y(Grid%isg+Grid%ijkShift(IDIR):Grid%ieg+1+Grid%ijkShift(IDIR), &
+                       Grid%jsg+Grid%ijkShift(JDIR):Grid%jeg+1+Grid%ijkShift(JDIR), &
+                       Grid%ksg+Grid%ijkShift(KDIR):Grid%keg+1+Grid%ijkShift(KDIR))
+        tempZ = Grid%z(Grid%isg+Grid%ijkShift(IDIR):Grid%ieg+1+Grid%ijkShift(IDIR), &
+                       Grid%jsg+Grid%ijkShift(JDIR):Grid%jeg+1+Grid%ijkShift(JDIR), &
+                       Grid%ksg+Grid%ijkShift(KDIR):Grid%keg+1+Grid%ijkShift(KDIR))
 
         ! delete the old corner arrays
         deallocate(Grid%x)

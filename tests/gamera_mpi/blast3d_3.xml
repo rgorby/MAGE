@@ -7,7 +7,7 @@
     <ibc bc="periodic"/>
     <jbc bc="periodic"/>
     <kbc bc="periodic"/>
-    <iPdir N="1"/>
+    <iPdir N="3"/>
     <jPdir N="1"/>
     <kPdir N="1"/>
     <time tFin="1.0"/>
