@@ -400,11 +400,12 @@
       subroutine min2hr(time,hours)
 ! returns a string of hr:min:sec from an input in minutes
 ! 2/04 frt
+      USE Rcm_mod_subs, ONLY : rprec
       implicit none
-      real :: time
-      real :: time_hours
-      real :: time_minutes
-      real :: time_seconds
+      real(rprec) :: time
+      real(rprec) :: time_hours
+      real(rprec) :: time_minutes
+      real(rprec) :: time_seconds
       character (len=*) :: hours
       character (len=3) :: char_time_hours
       character (len=2) :: char_time_minutes,char_time_seconds
