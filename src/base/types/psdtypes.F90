@@ -19,10 +19,11 @@ module psdtypes
     !Returns PDF in (keV*s)^(-3)
 
     abstract interface
-        function PDFun_T(Model,n0,kT0,K,alpha) result(fD)
+        function PDFun_T(Model,L,phi,K,alpha,n0,kT0) result(fD)
             import :: rp,chmpModel_T
             type(chmpModel_T), intent(in) :: Model
-            real(rp), intent(in) :: n0,kT0,K,alpha
+            real(rp), intent(in) :: L,phi,K,alpha
+            real(rp), intent(in), optional :: n0,kT0
             real(rp) :: fD
         end function PDFun_T
     end interface
