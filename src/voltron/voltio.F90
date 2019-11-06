@@ -56,7 +56,7 @@ module voltio
         xW = 0.0
         select type(pWind=>gApp%Grid%externalBCs(OUTI)%p)
             type is (WindBC_T)
-                if (gApp%Model%Ri == gApp%Model%NumRi) then
+                if (gApp%Grid%hasupperBC(IDIR)) then
                     call GetWindAt(pWind,gApp%Model,xW,gApp%Model%t,dSW,pSW,vSW,bSW)
                 endif
             class default

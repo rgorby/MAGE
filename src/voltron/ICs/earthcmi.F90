@@ -259,7 +259,7 @@ module uservoltic
         !Fix inner shells
         SELECT type(iiBC=>Gr%externalBCs(INI)%p)
             TYPE IS (IonInnerBC_T)
-                if (Grid%hasLowerBC(1)) then
+                if (Gr%hasLowerBC(IDIR)) then
                     call IonEFix(Model,Gr,State,iiBC%inEijk)
                 endif
             CLASS DEFAULT
@@ -270,7 +270,7 @@ module uservoltic
         !Fix outer shells
         SELECT type(pWind=>Gr%externalBCs(OUTI)%p)
             TYPE IS (WindBC_T)
-                if (Grid%hasUpperBC(1)) then
+                if (Gr%hasUpperBC(IDIR)) then
                    call WindEFix(pWind,Model,Gr,State)
                 end if
             CLASS DEFAULT
@@ -292,7 +292,7 @@ module uservoltic
         real(rp) :: Rin,llBC,invlat
 
         !This is inner-most I tile
-        if ( Grid%hasLowerBC(1) .and. (.not. Model%doMultiF) ) then
+        if ( Gr%hasLowerBC(IDIR) .and. (.not. Model%doMultiF) ) then
             !Get inner radius and low-latitude
             Rin = norm2(Gr%xyz(Gr%is,Gr%js,Gr%ks,:))
             llBC = 90.0 - rad2deg*asin(sqrt(Rion/Rin)) !co-lat -> lat
