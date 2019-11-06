@@ -172,6 +172,7 @@ module wind
         !wgt = 1, dTh<=90
         !wgt->0 as dTh=>180
         wgt = RampDown(dTh,90.0_rp,90.0_rp)
+        
     end function wgtWind
 
     !Do outer I BC for solar wind
@@ -200,6 +201,12 @@ module wind
             do j=Grid%jsg,Grid%jeg
                 ip = Grid%ie
                 do n=1,Model%Ng
+                    !Zero out sw/mhd contributions
+                    gW_sw  = 0.0
+                    gW_mhd = 0.0
+                    gB_sw  = 0.0
+                    gB_mhd = 0.0
+
                     ig = Grid%ie+n
                     xcc = Grid%xyzcc(ig,j,k,:)
                     nHat = Grid%Tf(ig+1,j,k,NORMX:NORMZ,IDIR) !Outward normal of GHOST
@@ -208,25 +215,28 @@ module wind
                     wMHD = 1.0-wSW
 
                 !Do solar wind ghost
-                    call GetWindAt(bc,Model,xcc,State%time,D,P,V,B)
-                    gW_sw(DEN) = D
-                    gW_sw(PRESSURE) = P
-                    gW_sw(VELX:VELZ) = V
-                    gB_sw = B
+                    if (wSW>TINY) then
+                        call GetWindAt(bc,Model,xcc,State%time,D,P,V,B)
+                        gW_sw(DEN) = D
+                        gW_sw(PRESSURE) = P
+                        gW_sw(VELX:VELZ) = V
+                        gB_sw = B
+                    endif
 
                 !Do MHD outflow ghost
-                    !Get values from last physical
-                    gCon = State%Gas(ip,j,k,:,BLK)
-                    call CellC2P(Model,gCon,gW_mhd)
-                    gB_mhd = CellBxyz(Model,Grid,State%magFlux,ip,j,k)
-                    !Make sure normal flow is outward
-                    V = gW_mhd(VELX:VELZ)
-                    if (dot_product(V,nHat)<0) then
-                        !Inward flow, zero out normal
-                        V = V - Vec2Para(V,nHat)
-                    endif
-                    gW_mhd(VELX:VELZ) = V
-                    
+                    if (wMHD>TINY) then
+                        !Get values from last physical
+                        gCon = State%Gas(ip,j,k,:,BLK)
+                        call CellC2P(Model,gCon,gW_mhd)
+                        gB_mhd = CellBxyz(Model,Grid,State%magFlux,ip,j,k)
+                        !Make sure normal flow is outward
+                        V = gW_mhd(VELX:VELZ)
+                        if (dot_product(V,nHat)<0) then
+                            !Inward flow, zero out normal
+                            V = V - Vec2Para(V,nHat)
+                        endif
+                        gW_mhd(VELX:VELZ) = V
+                    endif                    
                 !Mix BCs and set final ghost values
                     gW = wSW*gW_sw + wMHD*gW_mhd
                     B  = wSW*gB_sw + wMHD*gB_mhd
@@ -249,23 +259,9 @@ module wind
 
                 !Set flux and fields
                     State%Bxyz(ig,j,k,:) = B !Cell-center field
-
-                    !Set i-face
-                    xcc = Grid%xfc(ig+1,j,k,:,IDIR)
-                    call GetWindAt(bc,Model,xcc,State%time,D,P,V,gB_sw)
-                    B  = wSW*gB_sw + wMHD*gB_mhd
+                    !Set face fluxes
                     State%magFlux(ig+1,j,k,IDIR) = Grid%face(ig+1,j,k,IDIR)*dot_product(Grid%Tf(ig+1,j,k,NORMX:NORMZ,IDIR),B)
-
-                    !Set j-face
-                    xcc = Grid%xfc(ig  ,j,k,:,JDIR)
-                    call GetWindAt(bc,Model,xcc,State%time,D,P,V,gB_sw)
-                    B  = wSW*gB_sw + wMHD*gB_mhd
                     State%magFlux(ig  ,j,k,JDIR) = Grid%face(ig  ,j,k,JDIR)*dot_product(Grid%Tf(ig  ,j,k,NORMX:NORMZ,JDIR),B)
-
-                    !Set k-face
-                    xcc = Grid%xfc(ig  ,j,k,:,KDIR)
-                    call GetWindAt(bc,Model,xcc,State%time,D,P,V,gB_sw)
-                    B  = wSW*gB_sw + wMHD*gB_mhd
                     State%magFlux(ig  ,j,k,KDIR) = Grid%face(ig  ,j,k,KDIR)*dot_product(Grid%Tf(ig  ,j,k,NORMX:NORMZ,KDIR),B)
 
                 enddo !ighost loop
@@ -335,18 +331,22 @@ module wind
                         !Use full weight only for outer-most shell
                         wSW = wSW/(1.0 + Grid%ie+1 - i)
                     endif
-                    do n=IDIR,KDIR
-                        !Get edge coordinates
-                        call edgeCoords(Model,Grid,i,j,k,n,e1,e2)
-                        ecc = 0.5*(e1+e2)
-                        !Evaluate wind at edge center
-                        call GetWindAt(windBC,Model,ecc,State%time,D,P,Vxyz,Bxyz)
-                        !Calculate solar wind E field (not yet projected to edge)
-                        swExyz  = -cross(Vxyz,Bxyz)
-                        !Get MHD EMF
-                        mhdExyz = State%Efld(i,j,k,n)
-                        State%Efld(i,j,k,n) = (1.0-wSW)*mhdExyz + wSW*dot_product(swExyz,e2-e1)
-                    enddo !E dirs
+                    
+                    if (wSW>TINY) then
+                        do n=IDIR,KDIR
+                            !Get edge coordinates
+                            call edgeCoords(Model,Grid,i,j,k,n,e1,e2)
+                            ecc = 0.5*(e1+e2)
+                            !Evaluate wind at edge center
+                            call GetWindAt(windBC,Model,ecc,State%time,D,P,Vxyz,Bxyz)
+                            !Calculate solar wind E field (not yet projected to edge)
+                            swExyz  = -cross(Vxyz,Bxyz)
+                            !Get MHD EMF
+                            mhdExyz = State%Efld(i,j,k,n)
+                            State%Efld(i,j,k,n) = (1.0-wSW)*mhdExyz + wSW*dot_product(swExyz,e2-e1)
+                        enddo !E dirs
+                    endif
+
                     if (i == Grid%ie+1) then
                         swExyz = DiffuseOuter(Model,Grid,State,i,j,k)
                         State%Efld(i,j,k,:) = State%Efld(i,j,k,:) + swExyz
