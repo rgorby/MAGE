@@ -16,7 +16,7 @@ add_pfunit_ctest (voltTests TEST_SOURCES ${voltTestFiles} LINK_LIBRARIES ${voltT
 
 file(GLOB gamMpiTestFiles "${CMAKE_CURRENT_SOURCE_DIR}/gamera_mpi/*.pf")
 set(gamMpiTestLibs baselib gamlib basempilib gammpilib)
-add_pfunit_ctest (gamMpiTests TEST_SOURCES ${gamMpiTestFiles} LINK_LIBRARIES ${gamMpiTestLibs} MAX_PES 27)
+add_pfunit_ctest (gamMpiTests TEST_SOURCES ${gamMpiTestFiles} LINK_LIBRARIES ${gamMpiTestLibs} MAX_PES 64)
 
 # copy input xml files and grid h5 files to binary folder for running
 file(GLOB_RECURSE inputFiles "${CMAKE_CURRENT_SOURCE_DIR}/*.xml")
