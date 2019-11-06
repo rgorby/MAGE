@@ -102,6 +102,7 @@ module rcmimag
 
     !Load RCM tubes
        !$OMP PARALLEL DO default(shared) collapse(2) &
+       !$OMP schedule(dynamic) &
        !$OMP private(i,j,colat,lat,lon,ijTube)
         do i=1,RCMApp%nLat_ion
             do j=1,RCMApp%nLon_ion
@@ -149,7 +150,7 @@ module rcmimag
 
         !Test for good cell
         isGood = (colat >= minval(RCMApp%gcolat)) .and. (colat <= maxval(RCMApp%gcolat)) &
-                 & .and. (RCMApp%iopen(i0,j0) == -1)
+                 & .and. (RCMApp%iopen(i0,j0) == -1) .and. (lat>0.0)
 
         imW = 0.0
 
@@ -225,7 +226,7 @@ module rcmimag
             ijTube%iopen = -1
             ijTube%Vol = dvB
         case default
-            !WTF?
+            !WTF? (timeout)
             ijTube%iopen = 1
             ijTube%Vol = -1
         end select
