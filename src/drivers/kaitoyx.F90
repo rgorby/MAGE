@@ -29,7 +29,7 @@ program kaitoyx
 
     !$OMP PARALLEL DO
     do i=1,N
-        X(i) = REarth*i*erfc(i*i*1.0)
+        X(i) = REarth*i*sin(i*i*1.0)
     enddo
     call Toc("GenData")
 
