@@ -32,7 +32,7 @@ module psdcalc
         integer, dimension(:,:,:,:), allocatable :: nPS
         integer :: NumW, n,ir,ip,ik,ia, NumOut
         integer, dimension(NVARPS) :: idx
-        real(rp) :: n0,kT0,fC,kev,alpha,iScl
+        real(rp) :: n0,kT0,fC,kev,alpha,iScl,R,phi
 
         !Find how many particles need weighting
         NumW = count( (.not. psPop%isWgt) .and. (psPop%isIn) )
@@ -89,7 +89,7 @@ module psdcalc
         !write(*,*) 'Doing weighting loop ...'
         !$OMP PARALLEL DO default(shared) &
         !$OMP private(n,idx,ir,ip,ik,ia)  &
-        !$OMP private(n0,kT0,kev,alpha,fC,iScl)
+        !$OMP private(n0,kT0,kev,alpha,fC,iScl,R,phi)
         do n=1,psPop%NumTP
             if ( (.not. psPop%isIn(n)) .or. (psPop%isWgt(n)) ) then
                 !Don't bother if particle isn't in or has already been weighted
@@ -110,14 +110,19 @@ module psdcalc
             ik = idx(PSKINE)
             ia = idx(PSALPHA)
 
+            !Get TP location
+            R     = psGr%rC(ir)
+            phi   = psGr%pC(ip)
+            kev   = psGr%kC(ik)
+            alpha = psGr%aC(ia)
+
             !Get flow density/temperature
             n0  = psGr%Qrp (ir,ip,DEN)
             kT0 = psGr%kTeq(ir,ip)*psPop%kTScl
-            kev = psGr%kC(ik)
-            alpha = psGr%aC(ia)
 
             !Calculate PSD IC
-            fC = fPSD0(Model,n0,kT0,kev,alpha)
+            fC = fPSD0(Model,R,phi,kev,alpha,n0,kT0)
+            
             !Rescale PSD IC if doing injection over time
             if (Model%doStream) then
                 !Injection scaling, (tau*u)/dWr

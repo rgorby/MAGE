@@ -210,12 +210,12 @@ if __name__ == "__main__":
 			#--------------------------------
 			#Step variables
 			for v in range(Nv):
-				vAtt = et.SubElement(Grid,"Attribute")
-				vAtt.set("Name",vIds[v])
-				vAtt.set("AttributeType","Scalar")
-				vAtt.set("Center",vLocs[v])
-				
-				AddDI(vAtt,h5F,nStp,cDims,vIds[v])
+				if (vLocs[v] != 'Other'):
+					vAtt = et.SubElement(Grid,"Attribute")
+					vAtt.set("Name",vIds[v])
+					vAtt.set("AttributeType","Scalar")
+					vAtt.set("Center",vLocs[v])
+					AddDI(vAtt,h5F,nStp,cDims,vIds[v])
 
 			#--------------------------------
 			#Add base grid stuff

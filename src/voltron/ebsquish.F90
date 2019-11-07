@@ -64,6 +64,7 @@ module ebsquish
         t = ebState%eb1%time
         
         !$OMP PARALLEL DO default(shared) collapse(2) &
+        !$OMP schedule(dynamic) &
         !$OMP private(i,j,k,xyz,x1,x2)
         do k=ebGr%ks,ebGr%ke
             do j=ebGr%js,ebGr%je
@@ -128,14 +129,15 @@ module ebsquish
         !Trace along field line (i.e. to northern hemisphere)
         call project(ebModel,ebState,xyz,t,xE,+1,toEquator=.false.)
 
-        if ( norm2(xE) <= 3.0 .and. (xE(ZDIR)>0) ) then
+        if ( norm2(xE) <= 2.25 .and. (xE(ZDIR)>0) ) then
             !Endpoint is close-ish to earth and in northern hemisphere, this is closed
             x1 = InvLatitude(xE) !Invariant latitude 
             x2 = atan2(xE(YDIR),xE(XDIR))
             if (x2 < 0) x2 = x2 + 2*PI
         else
             !Endpoint is far, this is probably open line
-            x1 = 0.0
+            !Set to south pole for projection failure
+            x1 = -PI/2.0
             x2 = 0.0
         endif
 
