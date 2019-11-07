@@ -140,8 +140,9 @@ module voltapp
         
         !Finally do first output stuff
         call consoleOutputV(vApp,gApp)
-        if (.not. gApp%Model%isRestart) call fOutputV(vApp,gApp)
-        
+        if (.not. gApp%Model%isRestart) then
+            call fOutputV(vApp,gApp)
+        endif
     end subroutine initVoltron
 
     !Step Voltron if necessary (currently just updating state variables)

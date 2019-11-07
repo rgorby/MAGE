@@ -110,7 +110,7 @@ if __name__ == "__main__":
         f107min = np.zeros(len(f107)*60)
         if (f107[0] == np.nan):
             f107[0] = avgF107
-            print('Warning: f10.7 starts with a bad value, setting to average value: ', avgF107)
+            print('!!!!!!!!!! Warning: f10.7 starts with a bad value, setting to average value: %d !!!!!!!!!!'%(avgF107))
 
         for i in range(len(f107)*60):
             if (f107[int(i/60.)] == np.nan):
@@ -154,10 +154,12 @@ if __name__ == "__main__":
             time_1minute = range(int(sw.data.getData('time_min').min()),
                                  int(sw.data.getData('time_min').max()) )
             n    = np.interp(time_1minute, sw.data.getData('time_min'), sw.data.getData('n'))
+            tp   = np.interp(time_1minute, sw.data.getData('time_min'), sw.data.getData('t'))
             vx   = np.interp(time_1minute, sw.data.getData('time_min'), sw.data.getData('vx'))
             vy   = np.interp(time_1minute, sw.data.getData('time_min'), sw.data.getData('vy'))
             vz   = np.interp(time_1minute, sw.data.getData('time_min'), sw.data.getData('vz'))
             cs   = np.interp(time_1minute, sw.data.getData('time_min'), sw.data.getData('cs'))
+            va   = np.interp(time_1minute, sw.data.getData('time_min'), sw.data.getData('va'))
             bx   = np.interp(time_1minute, sw.data.getData('time_min'), sw.data.getData('bx'))
             by   = np.interp(time_1minute, sw.data.getData('time_min'), sw.data.getData('by'))
             bz   = np.interp(time_1minute, sw.data.getData('time_min'), sw.data.getData('bz'))
@@ -167,17 +169,31 @@ if __name__ == "__main__":
             au    = np.interp(time_1minute, sw.data.getData('time_min'), sw.data.getData('au'))
             symh    = np.interp(time_1minute, sw.data.getData('time_min'), sw.data.getData('symh'))
 
+            # calculating fast magnetosonic mach number
+            mfast = np.sqrt((vx**2+vy**2+vz**2)/(cs**2+va**2))
+
             #initalize matrix to hold solar wind data
-            lfmD = np.zeros((n.shape[0],15))
+            lfmD = np.zeros((n.shape[0],18))
 
             date = sw.data.getData('meta')['Start date']
+
+            nSub = 0
+
             for i,time in enumerate(time_1minute):
                 # Convert relevant quantities to SM Coordinates
                 v_sm = sw._gsm2sm(date+datetime.timedelta(minutes=time), vx[i],vy[i],vz[i])
                 b_sm = sw._gsm2sm(date+datetime.timedelta(minutes=time), bx[i],by[i],bz[i])
                 tilt = sw._getTiltAngle(date+datetime.timedelta(minutes=time))
 
-                lfmD[i] = [time,n[i],v_sm[0],v_sm[1],v_sm[2],cs[i],b_sm[0],b_sm[1],b_sm[2],b[i],tilt,ae[i],al[i],au[i],symh[i]]
+                lfmD[i] = [time,n[i],v_sm[0],v_sm[1],v_sm[2],cs[i],b_sm[0],b_sm[1],b_sm[2],b[i],tilt,ae[i],al[i],au[i],symh[i],tp[i],va[i],mfast[i]]
+                
+                if mfast[i] < 2:
+                    nSub += 1
+
+            if nSub > 0:
+                print()
+                print("!!!!!!!!!! WARNING LOW MACH NUMBER:  Mfast < 2 for %d minutes !!!!!!!!!!"%(nSub))
+                print()
 
             # Save a plot of the solar wind data.
             kaipy.solarWind.swBCplots.MultiPlot(sw.data, 'time_doy', ['n', 'vx','vy','vz','t','bx','by','bz','symh'])
@@ -206,6 +222,10 @@ if __name__ == "__main__":
             AL = np.zeros(Nt)
             AU = np.zeros(Nt)
             SYMH = np.zeros(Nt)
+            Mfast = np.zeros(Nt)
+            Va = np.zeros(Nt)
+            Temp = np.zeros(Nt)
+            Cs = np.zeros(Nt)
 
             #Convert LFM time to seconds and reset to start at 0
             print("\tOffsetting from LFM start (%5.2f min) to Gamera start (%5.2f min)"%(TsL,TsG))
@@ -221,7 +241,7 @@ if __name__ == "__main__":
             mjdRef=Time(date).mjd
             [MJD.append(mjdRef+i/86400.0) for i in T]
 
-            #Density, magnetic field, and tilt don't require scaling
+            #Density, temperature, magnetic field, and tilt don't require scaling
             D   = lfmD[:,1]
             ThT = lfmD[:,10]
             if (nobx):
@@ -237,6 +257,8 @@ if __name__ == "__main__":
             AU = lfmD[:,13]
             SYMH = lfmD[:,14]
             
+            # scaling Temperature from kK->K
+            Temp = lfmD[:,15]*1.0e+3
 
             #Velocity
             vScl = 1.0e+3 #km/s->m/s
@@ -244,12 +266,10 @@ if __name__ == "__main__":
             Vy  = vScl*lfmD[:,3]
             Vz  = vScl*lfmD[:,4]
 
-            #Now get pressure (nPa) from sound speed (km/s)
-            #Convert density: AMU/cm3 -> kg/m3
-            Cs = lfmD[:,5]
-            Dmks = (D*Mp)*( (1.0e+2)**3.0 ) #kg/m3
-            Cmks = Cs*1.0e+3 #m/s
-            P = (1.0e+9)*Dmks*Cmks*Cmks/gamma #nPa
+            Cs = vScl*lfmD[:,5] #km/s->m/s
+            Va = vScl*lfmD[:,16]
+
+            Mfast = lfmD[:,17] 
 
             print("Writing Gamera solar wind to %s"%(fOut))
             with h5py.File(fOut,'w') as hf:
@@ -257,7 +277,7 @@ if __name__ == "__main__":
                 hf.create_dataset("UT",data=UT)
                 hf.create_dataset("MJD",data=MJD)
                 hf.create_dataset("D" ,data=D)
-                hf.create_dataset("P" ,data=P)
+                hf.create_dataset("Temp" ,data=Temp)
                 hf.create_dataset("Vx",data=Vx)
                 hf.create_dataset("Vy",data=Vy)
                 hf.create_dataset("Vz",data=Vz)
@@ -273,6 +293,9 @@ if __name__ == "__main__":
                 hf.create_dataset("Bx0",data=bCoef[0])
                 hf.create_dataset("ByC",data=bCoef[1])
                 hf.create_dataset("BzC",data=bCoef[2])
+                hf.create_dataset("Va",data=Va)
+                hf.create_dataset("Cs",data=Cs)
+                hf.create_dataset("Magnetosonic Mach",data=Mfast)
                 
         else:
             raise Exception('Error:  Misunderstood output file format.')

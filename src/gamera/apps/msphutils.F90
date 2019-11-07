@@ -506,10 +506,12 @@ module msphutils
         !Get values for initial field cutoffs
 
         !LFM values
-        !call xmlInp%Set_Val(xSun  ,"prob/xMax",20.0_rp  )
-        call xmlInp%Set_Val(xSun  ,"prob/xMax",25.0_rp  )
+        call xmlInp%Set_Val(xSun  ,"prob/xMax",20.0_rp  )
+        call xmlInp%Set_Val(yMax  ,"prob/yMax",75.0_rp  )
+        !call xmlInp%Set_Val(xSun  ,"prob/xMax",25.0_rp  )
+        !call xmlInp%Set_Val(yMax  ,"prob/yMax",80.0_rp  )
         call xmlInp%Set_Val(xTail ,"prob/xMin",-185.0_rp)
-        call xmlInp%Set_Val(yMax  ,"prob/yMax",80.0_rp  )
+        
         call xmlInp%Set_Val(sInner,"prob/sIn" ,0.96_rp  )
 
         !Get cut dipole values

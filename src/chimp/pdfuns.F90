@@ -1,5 +1,5 @@
 !PSD initial condition routines
-
+!Returns PDF in (keV*s)^(-3)
 module pdfuns
     use chmpdefs
     use chmpunits
@@ -37,9 +37,10 @@ module pdfuns
 
     end subroutine SetPSD0
 
-    function fMaxwellian(Model,n0,kT0,K,alpha) result(fD)
+    function fMaxwellian(Model,L,phi,K,alpha,n0,kT0) result(fD)
         type(chmpModel_T), intent(in) :: Model
-        real(rp), intent(in) :: n0,kT0,K,alpha
+        real(rp), intent(in) :: L,phi,K,alpha
+        real(rp), intent(in), optional :: n0,kT0
         real(rp) :: fD
 
         real(rp) :: e0,fScl
@@ -50,9 +51,10 @@ module pdfuns
 
     end function fMaxwellian
 
-    function fKappa(Model,n0,kT0,K,alpha) result(fD)
+    function fKappa(Model,L,phi,K,alpha,n0,kT0) result(fD)
         type(chmpModel_T), intent(in) :: Model
-        real(rp), intent(in) :: n0,kT0,K,alpha
+        real(rp), intent(in) :: L,phi,K,alpha
+        real(rp), intent(in), optional :: n0,kT0
         real(rp) :: fD
 
         real(rp) :: e0,K0,gScl,kScl,Ak,fPow

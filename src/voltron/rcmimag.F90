@@ -23,7 +23,7 @@ module rcmimag
     real(rp), private :: rcmPScl = 1.0e+9 !Convert Pa->nPa
     real(rp), private :: rcmNScl = 1.0e-6 !Convert #/m3 => #/cc
     real(rp), parameter :: RIonRCM = (RionE/REarth)*1.0e+6
-    integer, parameter :: MAXRCMIOVAR = 20
+    integer, parameter :: MAXRCMIOVAR = 30
     character(len=strLen), private :: h5File
 
 
@@ -102,6 +102,7 @@ module rcmimag
 
     !Load RCM tubes
        !$OMP PARALLEL DO default(shared) collapse(2) &
+       !$OMP schedule(dynamic) &
        !$OMP private(i,j,colat,lat,lon,ijTube)
         do i=1,RCMApp%nLat_ion
             do j=1,RCMApp%nLon_ion
@@ -140,16 +141,27 @@ module rcmimag
 
         real(rp) :: colat
         integer :: i0,j0
+        logical :: isGood
 
         colat = PI/2 - lat
-
         !Just find closest cell
         i0 = minloc( abs(colat-RCMApp%gcolat),dim=1 )
         j0 = minloc( abs(lon  -RCMApp%glong ),dim=1 )
 
-        imW(IMDEN) = RCMApp%Nrcm(i0,j0)*rcmNScl
-        imW(IMPR ) = RCMApp%Prcm(i0,j0)*rcmPScl
+        !Test for good cell
+        isGood = (colat >= minval(RCMApp%gcolat)) .and. (colat <= maxval(RCMApp%gcolat)) &
+                 & .and. (RCMApp%iopen(i0,j0) == -1) .and. (lat>0.0)
 
+        imW = 0.0
+
+        if (isGood) then
+            imW(IMDEN) = RCMApp%Nrcm(i0,j0)*rcmNScl
+            imW(IMPR ) = RCMApp%Prcm(i0,j0)*rcmPScl
+        else
+            imW(IMDEN) = 0.0
+            imW(IMPR ) = 0.0
+        endif
+        
     end subroutine EvalRCM
 !--------------
 !MHD=>RCM routines
@@ -162,7 +174,6 @@ module rcmimag
         type(fLine_T) :: bTrc
         real(rp) :: t, bMin
         real(rp), dimension(NDIM) :: x0, bEq, xyzIon
-        !type(RCMTube_T) :: dpTube
         integer :: OCb
         real(rp) :: bD,bP,dvB,bBeta
     !First get seed for trace
@@ -197,8 +208,6 @@ module rcmimag
 
         end associate
 
-        ! !Get dipole tube to test against
-        ! call DipoleTube(vApp,lat,lon,dpTube)
 
     !Scale and store information
         ijTube%X_bmin = bEq
@@ -217,7 +226,7 @@ module rcmimag
             ijTube%iopen = -1
             ijTube%Vol = dvB
         case default
-            !WTF?
+            !WTF? (timeout)
             ijTube%iopen = 1
             ijTube%Vol = -1
         end select
@@ -226,22 +235,6 @@ module rcmimag
         ijTube%Nave = bD
         ijTube%beta_average = bBeta
         
-
-        !ijTube%pot = dpTube%pot
-
-        ! write(*,*) '---'
-        ! write(*,*) 'Lat/Lon = ', lat*180.0/PI,lon*180.0/PI
-        ! write(*,*) 'x0 = ', x0
-        ! write(*,'(a,2es9.2)') 'Vol = ', ijTube%Vol,dpTube%Vol
-        ! write(*,*) 'Den = ', ijTube%Nave,dpTube%Nave
-        ! write(*,*) 'Pre = ', ijTube%Pave,dpTube%Pave
-        ! write(*,*) 'iop = ', ijTube%iopen,dpTube%iopen
-        ! write(*,*) 'bmin = ', ijTube%bmin,dpTube%bmin
-        ! write(*,*) 'xEq = ', ijTube%X_bmin,dpTube%X_bmin
-        ! write(*,*) 'beta = ', ijTube%beta_average,dpTube%beta_average
-        ! write(*,*) 'pot = ', ijTube%pot, dpTube%pot
-        ! write(*,*) '---'
-
     end subroutine MHDTube
 
     !Lazy test flux tube
@@ -350,6 +343,8 @@ module rcmimag
         call AddOutVar(IOVars,"Pmhd",RCMApp%Pave*rcmPScl)
         call AddOutVar(IOVars,"Nmhd",RCMApp%Nave*rcmNScl)
 
+        call AddOutVar(IOVars,"colat",colat)
+        call AddOutVar(IOVars,"aloct",aloct)
         !Add attributes
         call AddOutVar(IOVars,"time",time)
         call AddOutVar(IOVars,"MJD",MJD)
