@@ -85,6 +85,10 @@ message("-------------------------\n")
 
 #Start w/ base
 add_subdirectory(src/base)
+add_custom_target(base ALL)
+add_executable(kaitoy.x src/drivers/kaitoyx.F90)
+target_link_libraries(kaitoy.x baselib)
+add_dependencies(base kaitoy.x)
 
 #-------------
 #Kaiju: CHIMP
