@@ -76,7 +76,7 @@ if __name__ == "__main__":
         parser.add_argument('-m',type=str,metavar="LFM",default=mod,help="Format to write.  Options are LFM or TIEGCM (default: %(default)s)")
         parser.add_argument('-TsG',type=float,metavar="TStart",default=Ts,help="Gamera start time [min] (default: %(default)s)")
         parser.add_argument('-TsL',type=float,metavar="TStart",default=Ts,help="LFM start time [min] (default: %(default)s)")
-        parser.add_argument('-nobx', action='store_true',default=False,help="Zero out Bx (default: %(default)s)")
+        parser.add_argument('-bx', action='store_true',default=False,help="Include Bx through ByC and BzC fit coefficients(default: %(default)s)")
         #Finalize parsing
         args = parser.parse_args()
 
@@ -84,7 +84,7 @@ if __name__ == "__main__":
         mod = args.m
         TsG = args.TsG
         TsL = args.TsL
-        nobx = args.nobx
+        includeBx = args.bx
 
         t0 = args.t0
         t1 = args.t1
@@ -145,10 +145,16 @@ if __name__ == "__main__":
             #FIXME: need to update when want to include, example code in pyLTR.SolarWind.Writer.TIEGCM
             raise Exception('Error:  Cannot currently produce TIEGCM output.')
         elif (mod == 'LFM'):
-            # Bx Fit 
-            bCoef=bxFit( sw, fileType, filename)
-            # Setting Bx0 to zero to enforce a planar front with no Bx offset 
-            bCoef[0]=0.0
+            
+            if (includeBx):
+                print("\tUsing Bx fields")
+                # Bx Fit 
+                bCoef=bxFit( sw, fileType, filename)
+                # Setting Bx0 to zero to enforce a planar front with no Bx offset 
+                bCoef[0] = 0.0
+            else:
+                print("\tNot using Bx fields")
+                bCoef = [0.0, 0.0, 0.0]
 
             # Interpolate to one minute:
             time_1minute = range(int(sw.data.getData('time_min').min()),
@@ -205,8 +211,7 @@ if __name__ == "__main__":
             print("Converting to Gamera solar wind file")
             Nt,Nv = lfmD.shape
             print("\tFound %d variables and %d lines"%(Nv,Nt))
-            if (nobx):
-                print("\tNot using Bx fields")
+            
             #Create holders for Gamera data
             T  = np.zeros(Nt)
             D  = np.zeros(Nt)
@@ -244,10 +249,7 @@ if __name__ == "__main__":
             #Density, temperature, magnetic field, and tilt don't require scaling
             D   = lfmD[:,1]
             ThT = lfmD[:,10]
-            if (nobx):
-                Bx[:] = 0.0
-            else:
-                Bx  = lfmD[:,6]
+            Bx  = lfmD[:,6] # overwritten by Gamera using the coefficients 
             By  = lfmD[:,7]
             Bz  = lfmD[:,8]
 
