@@ -31,9 +31,11 @@ import numpy as np
 from astropy.time import Time
 import kaipy.kaiH5 as kaiH5
 
+TINY = 1.   # tolerance (in s) on time bounds to acount for the case where there's only one time slice
+
 parser = argparse.ArgumentParser()
 parser.add_argument('remixFile',help='REMIX file to use')
-parser.add_argument('-UT',"--UniversalTime",help="UT to plot in the format YYYY:MM:DDThh:mm:ss'")
+parser.add_argument('-UT',"--UniversalTime",help="UT to plot in the format YYYY-MM-DDThh:mm:ss'")
 #Finalize parsing
 args = parser.parse_args()
  
@@ -46,7 +48,7 @@ if not(args.UniversalTime):
 	sys.exit(0)
 else:
 	t0 = Time(args.UniversalTime)
-	if (t0.mjd<T.min()) or (t0.mjd>T.max()):
+	if (t0.mjd<T.min()-TINY) or (t0.mjd>T.max()+TINY):
 		sys.exit('Time outside bounds. Stopping. ')
 		
 	# find closest time
