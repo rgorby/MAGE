@@ -31,7 +31,7 @@ contains
 
   end subroutine teardown
 
-  @test(npes=[1,4,16,64])
+  !@test(npes=[1,4,16,64])
   subroutine testTiling(this)
       class (MpiTestMethod), intent(inout) :: this
 
@@ -337,19 +337,192 @@ contains
       END SELECT
   end subroutine testTiling
 
-  @test(npes=[1,4,16,64])
+  !@test(npes=[1,4,16,64])
+  @test(npes=[4])
+  subroutine testMpiDataTypes(this)
+      class (MpiTestMethod), intent(inout) :: this
+
+      integer :: dataSize,ierr
+      integer(MPI_ADDRESS_KIND) :: lb,extent
+
+      call mpi_type_extent(MPI_MYFLOAT, dataSize, ierr) ! number of bytes per array entry
+
+      SELECT CASE(this%getNumProcesses())
+          CASE (1)
+              @assertEqual(MPI_COMM_NULL, gamAppMpi%gamMpiComm, 'gamMpiComm should be null with no decomp')
+              @assertFalse(allocated(gamAppMpi%sendRanks),'sendRanks should not be allocated with no decomp')
+              @assertFalse(allocated(gamAppMpi%recvRanks),'recvRanks should not be allocated with no decomp')
+              @assertFalse(allocated(gamAppMpi%sendCountsGas),'sendCountsGas should not be allocated with no decomp')
+              @assertFalse(allocated(gamAppMpi%recvCountsGas),'recvCountsGas should not be allocated with no decomp')
+              @assertFalse(allocated(gamAppMpi%sendDisplsGas),'sendDisplsGas should not be allocated with no decomp')
+              @assertFalse(allocated(gamAppMpi%recvDisplsGas),'recvDisplsGas should not be allocated with no decomp')
+              @assertFalse(allocated(gamAppMpi%sendTypesGas),'sendTypesGas should not be allocated with no decomp')
+              @assertFalse(allocated(gamAppMpi%recvTypesGas),'recvTypesGas should not be allocated with no decomp')
+          CASE (4)
+              @assertTrue(MPI_COMM_NULL /= gamAppMpi%gamMpiComm, '4 processes gamMpiComm wrong')
+              @assertEqual((/modulo(gamAppMpi%Grid%Ri-1,gamAppMpi%Grid%NumRi), modulo(gamAppMpi%Grid%Ri+1,gamAppMpi%Grid%NumRi)/), gamAppMpi%sendRanks, '4 processes sendRanks wrong')
+              @assertEqual((/modulo(gamAppMpi%Grid%Ri-1,gamAppMpi%Grid%NumRi), modulo(gamAppMpi%Grid%Ri+1,gamAppMpi%Grid%NumRi)/), gamAppMpi%recvRanks, '4 processes recvRanks wrong')
+              @assertEqual((/1,1/),gamAppMpi%sendCountsGas,'4 processes sendCountsGas wrong')
+              @assertEqual((/1,1/),gamAppMpi%recvCountsGas,'4 processes recvCountsGas wrong')
+              @assertEqual((/0,0/),gamAppMpi%sendDisplsGas,'4 processes sendDisplsGas wrong')
+              @assertEqual((/0,0/),gamAppMpi%recvDisplsGas,'4 processes recvDisplsGas wrong')
+
+
+              ! basic checks of the datatype
+              call mpi_type_get_extent(gamAppMpi%sendTypesGas(1),lb,extent,ierr)
+              @assertEqual(MPI_SUCCESS, ierr, '4 processes minI send get extent failed')
+              ! (1,1,1,1,0)
+              @assertEqual(dataSize*1204, lb, '4 processes minI send lb wrong')
+              ! (4,16,16,5,0) - (1,1,1,1,0) + 1 for extent
+              @assertEqual(dataSize*32152, extent, '4 processes minI send extent wrong')
+
+              call mpi_type_get_extent(gamAppMpi%sendTypesGas(2),lb,extent,ierr)
+              @assertEqual(MPI_SUCCESS, ierr, '4 processes maxI send get extent failed')
+              ! (1,1,1,1,0)
+              @assertEqual(dataSize*1204, lb, '4 processes maxI send lb wrong')
+              ! (4,16,16,5,0) - (1,1,1,1,0) + 1 for exteax
+              @assertEqual(dataSize*32152, extent, '4 processes minI send extent wrong')
+
+              call mpi_type_get_extent(gamAppMpi%recvTypesGas(1),lb,extent,ierr)
+              @assertEqual(MPI_SUCCESS, ierr, '4 processes minI recv get extent failed')
+              ! (-3,-3,-3,1,0)
+              @assertEqual(0, lb, '4 processes minI recv lb wrong')
+              ! (0,20,20,5,0) - (-3,-3,-3,1,0) + 1 for extent
+              @assertEqual(dataSize*34552, extent, '4 processes minI recv extent wrong')
+
+              call mpi_type_get_extent(gamAppMpi%recvTypesGas(2),lb,extent,ierr)
+              @assertEqual(MPI_SUCCESS, ierr, '4 processes maxI recv get extent failed')
+              ! (5,-3,-3,1,0)
+              @assertEqual(dataSize*8, lb, '4 processes maxI recv lb wrong')
+              ! (8,20,20,5,0) - (5,-3,-3,1,0) + 1 for extent
+              @assertEqual(dataSize*34552, extent, '4 processes minI send extent wrong')
+
+          CASE (16)
+          CASE (64)
+          CASE DEFAULT
+              @assertEqual(0,1,'Unexpected number of MPI processes')
+      END SELECT
+  end subroutine testMpiDatatypes
+
+  !@test(npes=[1,4,16,64])
+  @test(npes=[4])
   subroutine testHaloUpdate(this)
       class (MpiTestMethod), intent(inout) :: this
+
+      integer :: i,j,k,l,m
+      real(rp) :: checkVal
+      character(len=strLen) :: checkMessage
 
       ! clear all cells
       gamAppMpi%State%Gas(:,:,:,:,:) = 0
 
       ! set values in physical cells only
+      do i=gamAppMpi%Grid%is,gamAppMpi%Grid%ie
+          do j=gamAppMpi%Grid%js,gamAppMpi%Grid%je
+              do k=gamAppMpi%Grid%ks,gamAppMpi%Grid%ke
+                  do l=1,NVAR
+                      do m=0,gamAppMpi%Model%nSpc
+                          ! randomly chosen coefficients of roughly the same order of magnitude as each other
+                          gamAppMpi%State%Gas(i,j,k,l,m) = &
+                              1.766_rp*m + &
+                              7.235_rp*l + &
+                              0.256_rp*(k+gamAppMpi%Grid%ijkShift(KDIR)) + &
+                              5.279_rp*(j+gamAppMpi%Grid%ijkShift(JDIR)) + &
+                              5.248_rp*(i + gamAppMpi%Grid%ijkShift(IDIR))
+                      enddo
+                  enddo
+              enddo
+          enddo
+      enddo
 
       ! halo update
-      !call haloUpdate(gamAppMpi)
+      call haloUpdate(gamAppMpi)
 
-      ! check values in ghost cells
+      ! check values in all updated cells
+      SELECT CASE(this%getNumProcesses())
+          CASE (1)
+              ! degenerate MPI case doesn't update any ghost cells, only check physical for no modifications
+              do i=gamAppMpi%Grid%is,gamAppMpi%Grid%ie
+                  do j=gamAppMpi%Grid%js,gamAppMpi%Grid%je
+                      do k=gamAppMpi%Grid%ks,gamAppMpi%Grid%ke
+                          do l=1,NVAR
+                              do m=0,gamAppMpi%Model%nSpc
+                                  ! same coefficients as above
+                                  checkVal = 1.766_rp*m + &
+                                      7.235_rp*l + &
+                                      0.256_rp*(k+gamAppMpi%Grid%ijkShift(KDIR)) + &
+                                      5.279_rp*(j+gamAppMpi%Grid%ijkShift(JDIR)) + &
+                                      5.248_rp*(i + gamAppMpi%Grid%ijkShift(IDIR))
+                                  write (checkMessage,'(I0,A,I0,A,I0,A,I0,A,I0,A,I0,A)') this%getNumProcesses(),' processor wrong at (',i,',',j,',',k,',',l,',',m,')'
+                                  @assertEqual(checkVal, gamAppMpi%State%Gas(i,j,k,l,m), trim(checkMessage))
+                              enddo
+                          enddo
+                      enddo
+                  enddo
+              enddo
+          CASE (4)
+              ! decomposed in I, check I ghosts
+              do i=gamAppMpi%Grid%isg,gamAppMpi%Grid%ieg
+                  do j=gamAppMpi%Grid%js,gamAppMpi%Grid%je
+                      do k=gamAppMpi%Grid%ks,gamAppMpi%Grid%ke
+                          do l=1,NVAR
+                              do m=0,gamAppMpi%Model%nSpc
+                                  ! same coefficients as above
+                                  checkVal = 1.766_rp*m + &
+                                      7.235_rp*l + &
+                                      0.256_rp*(k+gamAppMpi%Grid%ijkShift(KDIR)) + &
+                                      5.279_rp*(j+gamAppMpi%Grid%ijkShift(JDIR)) + &
+                                      5.248_rp*(i + gamAppMpi%Grid%ijkShift(IDIR))
+                                  write (checkMessage,'(I0,A,I0,A,I0,A,I0,A,I0,A,I0,A)') this%getNumProcesses(),' processor wrong at (',i,',',j,',',k,',',l,',',m,')'
+                                  @assertEqual(checkVal, gamAppMpi%State%Gas(i,j,k,l,m), trim(checkMessage))
+                              enddo
+                          enddo
+                      enddo
+                  enddo
+              enddo
+          CASE (16)
+              ! decomposed in I and J, check ghosts in both dimensions
+              do i=gamAppMpi%Grid%isg,gamAppMpi%Grid%ieg
+                  do j=gamAppMpi%Grid%jsg,gamAppMpi%Grid%jeg
+                      do k=gamAppMpi%Grid%ks,gamAppMpi%Grid%ke
+                          do l=1,NVAR
+                              do m=0,gamAppMpi%Model%nSpc
+                                  ! same coefficients as above
+                                  checkVal = 1.766_rp*m + &
+                                      7.235_rp*l + &
+                                      0.256_rp*(k+gamAppMpi%Grid%ijkShift(KDIR)) + &
+                                      5.279_rp*(j+gamAppMpi%Grid%ijkShift(JDIR)) + &
+                                      5.248_rp*(i + gamAppMpi%Grid%ijkShift(IDIR))
+                                  write (checkMessage,'(I0,A,I0,A,I0,A,I0,A,I0,A,I0,A)') this%getNumProcesses(),' processor wrong at (',i,',',j,',',k,',',l,',',m,')'
+                                  @assertEqual(checkVal, gamAppMpi%State%Gas(i,j,k,l,m), trim(checkMessage))
+                              enddo
+                          enddo
+                      enddo
+                  enddo
+              enddo
+          CASE (64)
+              ! fully decomposed, check all ghost cells for all ranks
+              do i=gamAppMpi%Grid%isg,gamAppMpi%Grid%ieg
+                  do j=gamAppMpi%Grid%jsg,gamAppMpi%Grid%jeg
+                      do k=gamAppMpi%Grid%ksg,gamAppMpi%Grid%keg
+                          do l=1,NVAR
+                              do m=0,gamAppMpi%Model%nSpc
+                                  ! same coefficients as above
+                                  checkVal = 1.766_rp*m + &
+                                      7.235_rp*l + &
+                                      0.256_rp*(k+gamAppMpi%Grid%ijkShift(KDIR)) + &
+                                      5.279_rp*(j+gamAppMpi%Grid%ijkShift(JDIR)) + &
+                                      5.248_rp*(i + gamAppMpi%Grid%ijkShift(IDIR))
+                                  write (checkMessage,'(I0,A,I0,A,I0,A,I0,A,I0,A,I0,A)') this%getNumProcesses(),' processor wrong at (',i,',',j,',',k,',',l,',',m,')'
+                                  @assertEqual(checkVal, gamAppMpi%State%Gas(i,j,k,l,m), trim(checkMessage))
+                              enddo
+                          enddo
+                      enddo
+                  enddo
+              enddo
+          CASE DEFAULT
+              @assertEqual(0,1,'Unexpected number of processes')
+      ENDSELECT
 
   end subroutine testHaloUpdate
 
