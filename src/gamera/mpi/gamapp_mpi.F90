@@ -433,6 +433,7 @@ module gamapp_mpi
                                             END SELECT
 
                                             ! determine which of the previously created datatypes is the correct one
+                                            transDataType = MPI_DATATYPE_NULL
                                             SELECT CASE (abs(ic)+abs(jc)+abs(kc))
                                                 case (1) ! face
                                                     if(ic /= 0) then
@@ -457,18 +458,20 @@ module gamapp_mpi
                                                     call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
                                             END SELECT
 
-                                            if(gamAppMpi%sendTypesGas(localIndexOut) == MPI_DATATYPE_NULL) then
-                                                ! not sending any data to this rank yet, just add this datatype
-                                                call mpi_type_hindexed(1, (/ 1 /), sendDataOffset*dataSize, transDataType, gamAppMpi%sendTypesGas(localIndexOut), ierr)
-                                                call mpi_type_hindexed(1, (/ 1 /), recvDataOffset*dataSize, transDataType, gamAppMpi%recvTypesGas(localIndexIn), ierr)
-                                            else
-                                                ! we're already sending other data to this rank
-                                                !  merge the datatypes into a struct
-                                                ! need to use a temporary array so that the ints are of type MPI_ADDRESS_KIND
-                                                tempOffsets = (/ 0, sendDataOffset*dataSize /)
-                                                call mpi_type_create_struct(2, (/ 1, 1 /), tempOffsets, (/ gamAppMpi%sendTypesGas(localIndexOut), transDataType /), gamAppMpi%sendTypesGas(localIndexOut), ierr)
-                                                tempOffsets = (/ 0, recvDataOffset*dataSize /)
-                                                call mpi_type_create_struct(2, (/ 1, 1 /), tempOffsets, (/ gamAppMpi%recvTypesGas(localIndexIn), transDataType /),  gamAppMpi%recvTypesGas(localIndexIn),  ierr)
+                                            if(transDataType /= MPI_DATATYPE_NULL) then
+                                                if(gamAppMpi%sendTypesGas(localIndexOut) == MPI_DATATYPE_NULL) then
+                                                    ! not sending any data to this rank yet, just add this datatype
+                                                    call mpi_type_hindexed(1, (/ 1 /), sendDataOffset*dataSize, transDataType, gamAppMpi%sendTypesGas(localIndexOut), ierr)
+                                                    call mpi_type_hindexed(1, (/ 1 /), recvDataOffset*dataSize, transDataType, gamAppMpi%recvTypesGas(localIndexIn), ierr)
+                                                else
+                                                    ! we're already sending other data to this rank
+                                                    !  merge the datatypes into a struct
+                                                    ! need to use a temporary array so that the ints are of type MPI_ADDRESS_KIND
+                                                    tempOffsets = (/ 0, sendDataOffset*dataSize /)
+                                                    call mpi_type_create_struct(2, (/ 1, 1 /), tempOffsets, (/ gamAppMpi%sendTypesGas(localIndexOut), transDataType /), gamAppMpi%sendTypesGas(localIndexOut), ierr)
+                                                    tempOffsets = (/ 0, recvDataOffset*dataSize /)
+                                                    call mpi_type_create_struct(2, (/ 1, 1 /), tempOffsets, (/ gamAppMpi%recvTypesGas(localIndexIn), transDataType /),  gamAppMpi%recvTypesGas(localIndexIn),  ierr)
+                                                endif
                                             endif
                                         endif
                                     endif
@@ -478,6 +481,11 @@ module gamapp_mpi
                     endif
                 enddo
         endif
+        ! debugging
+        gamAppMpi%sendTypesGas = (/MPI_DOUBLE,MPI_DOUBLE/)
+        gamAppMpi%recvTypesGas = (/MPI_DOUBLE,MPI_DOUBLE/)
+        gamAppMpi%sendDisplsGas = (/0, 8/)
+        gamAppMpi%recvDisplsGas = (/16, 24/)
 
         ! call appropriate subroutines to calculate all appropriate grid data from the corner data
         call CalcGridInfo(Model,Grid,gamAppMpi%State,gamAppMpi%oState,gamAppMpi%Solver,xmlInp,userInitFunc)

@@ -409,8 +409,9 @@ contains
   subroutine testHaloUpdate(this)
       class (MpiTestMethod), intent(inout) :: this
 
-      integer :: i,j,k,l,m
+      integer :: i,j,k,l,m,ierr
       real(rp) :: checkVal
+      logical :: weighted
       character(len=strLen) :: checkMessage
 
       ! clear all cells
@@ -434,6 +435,21 @@ contains
               enddo
           enddo
       enddo
+
+      ! debugging
+      call mpi_dist_graph_neighbors_count(gamAppMpi%gamMpiComm, i, j, weighted, ierr)
+      write (*,*) 'inNeighbors = ',i
+      write (*,*) 'outNeighbors = ',j
+      write (*,*) 'sendCounts = ',gamAppMpi%sendCountsGas
+      write (*,*) 'recvCounts = ',gamAppMpi%recvCountsGas
+      write (*,*) 'sendDispls = ',gamAppMpi%sendDisplsGas
+      write (*,*) 'recvDispls = ',gamAppMpi%recvDisplsGas
+      write (*,*) 'sendTypes = ',gamAppMpi%sendTypesGas
+      write (*,*) 'recvTypes = ',gamAppMpi%recvTypesGas
+      write (*,*) 'MPI_MYFLOAT = ',MPI_MYFLOAT
+      write (*,*) 'MPI_DOUBLE = ',MPI_DOUBLE
+      write (*,*) 'gas shape - ',SHAPE(gamAppMpi%State%Gas)
+      write (*,*) 'gas size = ',SIZE(gamAppMpi%State%Gas)
 
       ! halo update
       call haloUpdate(gamAppMpi)
