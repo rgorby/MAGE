@@ -15,8 +15,9 @@ module gamapp_mpi
     type, extends(GamApp_T) :: gamAppMpi_T
         integer :: gamMpiComm = MPI_COMM_NULL
         integer, dimension(:), allocatable :: sendRanks, recvRanks
-        integer, dimension(:), allocatable :: sendCountsGas, sendDisplsGas, sendTypesGas
-        integer, dimension(:), allocatable :: recvCountsGas, recvDisplsGas, recvTypesGas
+        integer, dimension(:), allocatable :: sendCountsGas, sendTypesGas
+        integer, dimension(:), allocatable :: recvCountsGas, recvTypesGas
+        integer(MPI_ADDRESS_KIND), dimension(:), allocatable :: sendDisplsGas, recvDisplsGas
     end type gamAppMpi_T
 
     contains
@@ -340,14 +341,6 @@ module gamapp_mpi
                 call mpi_type_hvector(Model%nSpc+1, 1, NVAR*Grid%Ni*Grid%Nj*Grid%Nk*dataSize, jFace4MpiType,  jFace5MpiType,  ierr)
                 call mpi_type_hvector(Model%nSpc+1, 1, NVAR*Grid%Ni*Grid%Nj*Grid%Nk*dataSize, kFace4MpiType,  kFace5MpiType,  ierr)
 
-                call mpi_type_commit(corner5MpiType, ierr)
-                call mpi_type_commit(iEdge5MpiType, ierr)
-                call mpi_type_commit(jEdge5MpiType, ierr)
-                call mpi_type_commit(kEdge5MpiType, ierr)
-                call mpi_type_commit(iFace5MpiType, ierr)
-                call mpi_type_commit(jFace5MpiType, ierr)
-                call mpi_type_commit(kFace5MpiType, ierr)
-
                 ! counts are always 1 because we're sending a single (complicated) mpi datatype
                 gamAppMpi%sendCountsGas(:) = 1
                 gamAppMpi%recvCountsGas(:) = 1
@@ -480,12 +473,15 @@ module gamapp_mpi
                         enddo
                     endif
                 enddo
+            ! commit the created MPI datatypes
+            do localIndexOut=1,numOutNeighbors
+                call mpi_type_commit(gamAppMpi%sendTypesGas(localIndexOut), ierr)
+            enddo
+            do localIndexIn=1,numInNeighbors
+                call mpi_type_commit(gamAppMpi%recvTypesGas(localIndexIn), ierr)
+            enddo
+
         endif
-        ! debugging
-        gamAppMpi%sendTypesGas = (/MPI_DOUBLE,MPI_DOUBLE/)
-        gamAppMpi%recvTypesGas = (/MPI_DOUBLE,MPI_DOUBLE/)
-        gamAppMpi%sendDisplsGas = (/0, 8/)
-        gamAppMpi%recvDisplsGas = (/16, 24/)
 
         ! call appropriate subroutines to calculate all appropriate grid data from the corner data
         call CalcGridInfo(Model,Grid,gamAppMpi%State,gamAppMpi%oState,gamAppMpi%Solver,xmlInp,userInitFunc)

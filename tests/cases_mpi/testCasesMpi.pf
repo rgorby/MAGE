@@ -1,0 +1,41 @@
+module testCasesMpi
+  use pFUnit
+  use gamapp_mpi
+  use usergamic
+
+  implicit none
+
+
+contains
+
+  @before
+  subroutine firstSerial(this)
+      class (MpiTestMethod), intent(inout) :: this
+
+  end subroutine firstSerial
+
+  @after
+  subroutine lastSerial(this)
+      class (MpiTestMethod), intent(inout) :: this
+
+  end subroutine lastSerial
+
+  @test(npes=[64])
+  subroutine testBlast3D(this)
+      class (MpiTestMethod), intent(inout) :: this
+
+      type(gamAppMpi_T) :: gameraAppMpi
+
+      call setMpiReal()
+
+      call initGamera_mpi(gameraAppMpi, initUser, this%getMpiCommunicator(), 'blast3d_large.xml')
+
+      do while ((gameraAppMpi%Model%tFin - gameraAppMpi%Model%t) > 1e-15)
+        call stepGamera_mpi(gameraAppMpi)
+      end do
+      write(*,*) 'End time = ', gameraAppMpi%Model%t
+
+  end subroutine testBlast3D
+
+end module testCasesMpi
+
