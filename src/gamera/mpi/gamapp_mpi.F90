@@ -610,6 +610,9 @@ module gamapp_mpi
     subroutine stepGamera_mpi(gamAppMpi)
         type(gamAppMpi_T), intent(inout) :: gamAppMpi
 
+        integer :: ierr
+        real(rp) :: tmp
+
         !update the state variables to the next timestep
         call UpdateStateData(gamAppMpi)
 
@@ -618,8 +621,23 @@ module gamapp_mpi
         call HaloUpdate(gamAppMpi)
         call Toc("Halos")
 
-        ! calculate new DT, update BCs, write output data, etc...
-        call FinishStep(gamAppMpi)
+        !Calculate new timestep
+        call Tic("DT")
+        gamAppMpi%Model%dt = CalcDT(gamAppMpi%Model,gamAppMpi%Grid,gamAppMpi%State)
+
+        !All MPI ranks take the lowest dt
+        call Tic("mpiDT")
+        tmp = gamAppMpi%Model%dt
+        call MPI_AllReduce(MPI_IN_PLACE, tmp, 1, MPI_MYFLOAT, MPI_MIN, gamAppMpi%gamMpiComm,ierr)
+        gamAppMpi%Model%dt = tmp
+        call Toc("mpiDT")
+
+        call Toc("DT")
+
+        !Enforce BCs
+        call Tic("Halos")
+        call EnforceBCs(gamAppMpi%Model,gamAppMpi%Grid,gamAppMpi%State)
+        call Toc("Halos")
 
     end subroutine stepGamera_mpi
 

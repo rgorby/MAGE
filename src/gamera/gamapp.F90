@@ -64,8 +64,15 @@ module gamapp
         !update the state variables to the next timestep
         call UpdateStateData(gameraApp)
 
-        ! calculate new DT, update BCs, write output data, etc...
-        call FinishStep(gameraApp)
+        !Calculate new timestep
+        call Tic("DT")
+        gameraApp%Model%dt = CalcDT(gameraApp%Model,gameraApp%Grid,gameraApp%State)
+        call Toc("DT")
+
+        !Enforce BCs
+        call Tic("Halos")
+        call EnforceBCs(gameraApp%Model,gameraApp%Grid,gameraApp%State)
+        call Toc("Halos")
 
     end subroutine stepGamera
 
@@ -89,21 +96,6 @@ module gamapp
         endif
 
     end subroutine UpdateStateData
-
-    subroutine FinishStep(gameraApp)
-        class(gamApp_T), intent(inout) :: gameraApp
-
-        !Calculate new timestep
-        call Tic("DT")
-        gameraApp%Model%dt = CalcDT(gameraApp%Model,gameraApp%Grid,gameraApp%State)
-        call Toc("DT")
-
-        !Enforce BCs
-        call Tic("Halos")
-        call EnforceBCs(gameraApp%Model,gameraApp%Grid,gameraApp%State)
-        call Toc("Halos")
-
-    end subroutine FinishStep
 
 end module gamapp
 
