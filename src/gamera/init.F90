@@ -119,7 +119,7 @@ module init
         type(XML_Input_T), intent(inout) :: xmlInp
         procedure(StateIC_T), pointer, intent(in) :: userInitFunc
 
-        character(len=strLen) :: inH5
+        character(len=strLen) :: inH5, FileCode
         logical :: fExist, doReset
         real(rp) :: tReset
 
@@ -172,7 +172,14 @@ module init
         call initSolver(Solver, Model, Grid)
 
         !Setup output file
+        if (Grid%isTiled) then
+            ! tiling info and individual process index
+            write (FileCode,"(6(A1,I0.4))") '_',Grid%NumRi,'_',Grid%NumRj,'_',Grid%NumRk, &
+                                            '_',Grid%Ri,'_',Grid%Rj,'_',Grid%Rk
+            Model%RunID = trim(Model%RunID) // trim(FileCode)
+        endif
         GamH5File = trim(Model%RunID) // ".gam.h5"
+
         if (.not. Model%isRestart) then
             !Kill output file if it exists
             call CheckAndKill(GamH5File)    

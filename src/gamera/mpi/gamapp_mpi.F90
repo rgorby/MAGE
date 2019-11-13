@@ -99,7 +99,7 @@ module gamapp_mpi
         if(Grid%isTiled) then
             call mpi_comm_size(gamComm, commSize, ierr)
             if(commSize /= Grid%NumRi*Grid%NumRj*Grid%NumRk) then
-                print *,'Expected ',Grid%NumRi*Grid%NumRj*Grid%NumRk,' ranks, but this job only has ',commSize,' gamera ranks'
+                print *,'Expected ',Grid%NumRi*Grid%NumRj*Grid%NumRk,' ranks, but this job has ',commSize,' gamera ranks'
                 call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
             endif
 

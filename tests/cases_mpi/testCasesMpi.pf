@@ -20,7 +20,7 @@ contains
 
   end subroutine lastSerial
 
-  @test(npes=[64])
+  @test(npes=[8])
   subroutine testBlast3D(this)
       class (MpiTestMethod), intent(inout) :: this
 
@@ -32,6 +32,15 @@ contains
 
       do while ((gameraAppMpi%Model%tFin - gameraAppMpi%Model%t) > 1e-15)
         call stepGamera_mpi(gameraAppMpi)
+
+        if (gameraAppMpi%Model%IO%doConsole(gameraAppMpi%Model%ts)) then
+            call consoleOutput(gameraAppMpi%Model,gameraAppMpi%Grid,gameraAppMpi%State)
+        endif
+
+        if (gameraAppMpi%Model%IO%doOutput(gameraAppMpi%Model%t)) then
+            call fOutput(gameraAppMpi%Model,gameraAppMpi%Grid,gameraAppMpi%State)
+        endif
+
       end do
       write(*,*) 'End time = ', gameraAppMpi%Model%t
 
