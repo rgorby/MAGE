@@ -173,306 +173,401 @@ module gamapp_mpi
                                             numNeighbors = numNeighbors+1
                                             listIndex = numNeighbors
                                             sourceRanks(listIndex) = targetRank
-                                            endif
-                                            ! calculate the size of this region that will be transmitted
-                                            sendNumber = 1
-                                            if (ic == 0) then
-                                                sendNumber = sendNumber * Grid%Nip
-                                            else
-                                                sendNumber = sendNumber * Model%nG
-                                            endif
-                                            if (jc == 0) then
-                                                sendNumber = sendNumber * Grid%Njp
-                                            else
-                                                sendNumber = sendNumber * Model%nG
-                                            endif
-                                            if (kc == 0) then
-                                                sendNumber = sendNumber * Grid%Nkp
-                                            else
-                                                sendNumber = sendNumber * Model%nG
-                                            endif
-                                            ! add these cells to whatever we are already sending to that rank
-                                            sourceData(listIndex) = sourceData(listIndex) + sendNumber
                                         endif
+                                        ! calculate the size of this region that will be transmitted
+                                        sendNumber = 1
+                                        if (ic == 0) then
+                                            sendNumber = sendNumber * Grid%Nip
+                                        else
+                                            sendNumber = sendNumber * Model%nG
+                                        endif
+                                        if (jc == 0) then
+                                            sendNumber = sendNumber * Grid%Njp
+                                        else
+                                            sendNumber = sendNumber * Model%nG
+                                        endif
+                                        if (kc == 0) then
+                                            sendNumber = sendNumber * Grid%Nkp
+                                        else
+                                            sendNumber = sendNumber * Model%nG
+                                        endif
+                                        ! add these cells to whatever we are already sending to that rank
+                                        sourceData(listIndex) = sourceData(listIndex) + sendNumber
                                     endif
-                                enddo
-                            endif
-                        enddo
-                    endif
-                enddo
-
-                reorder = .true. ! allow MPI to reorder the ranks
-                call mpi_dist_graph_create_adjacent(gamComm, &
-                    numNeighbors,sourceRanks,sourceData, &
-                    numNeighbors,sourceRanks,sourceData, & ! comms symmetrical
-                    MPI_INFO_NULL, reorder, gamAppMpi%gamMpiComm, ierr)
-                if(ierr /= MPI_Success) then
-                    call MPI_Error_string( ierr, message, length, ierr)
-                    print *,message(1:length)
-                    call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
-                end if
-
-                ! get our final ranks from the new MPI topology
-                call mpi_comm_rank(gamAppMpi%gamMpiComm, rank, ierr)
-                Grid%Rk = modulo(rank, Grid%NumRk)
-                rank = (rank-Grid%Rk)/Grid%NumRk
-                Grid%Rj = modulo(rank, Grid%NumRj)
-                rank = (rank-Grid%Rj)/Grid%NumRj
-                Grid%Ri = rank
-
-                ! whether this rank has external BCs
-                Grid%hasLowerBC(IDIR) = Grid%Ri == 0
-                Grid%hasLowerBC(JDIR) = Grid%Rj == 0
-                Grid%hasLowerBC(KDIR) = Grid%Rk == 0
-                Grid%hasUpperBC(IDIR) = Grid%Ri == (Grid%NumRi-1)
-                Grid%hasUpperBC(JDIR) = Grid%Rj == (Grid%NumRj-1)
-                Grid%hasUpperBC(KDIR) = Grid%Rk == (Grid%NumRk-1)
-
-                ! adjust grid info for these ranks
-                Grid%ijkShift(IDIR) = Grid%Nip*Grid%Ri
-                Grid%ijkShift(JDIR) = Grid%Njp*Grid%Rj
-                Grid%ijkShift(KDIR) = Grid%Nkp*Grid%Rk
-
-                Grid%is = 1; Grid%ie = Grid%Nip
-                Grid%js = 1; Grid%je = Grid%Njp
-                Grid%ks = 1; Grid%ke = Grid%Nkp
-
-                Grid%isg = Grid%is-Model%nG
-                Grid%ieg = Grid%ie+Model%nG
-
-                Grid%jsg = Grid%js-Model%nG
-                Grid%jeg = Grid%je+Model%nG
-
-                Grid%ksg = Grid%ks-Model%nG
-                Grid%keg = Grid%ke+Model%nG
-
-                ! create temporary arrays to hold this rank's subset of the full corner array
-                allocate(tempX(Grid%isg:Grid%ieg+1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1))
-                allocate(tempY(Grid%isg:Grid%ieg+1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1))
-                allocate(tempZ(Grid%isg:Grid%ieg+1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1))
-
-                ! pull out this rank's relevant corner info
-                tempX = Grid%x(Grid%isg+Grid%ijkShift(IDIR):Grid%ieg+1+Grid%ijkShift(IDIR), &
-                               Grid%jsg+Grid%ijkShift(JDIR):Grid%jeg+1+Grid%ijkShift(JDIR), &
-                               Grid%ksg+Grid%ijkShift(KDIR):Grid%keg+1+Grid%ijkShift(KDIR))
-                tempY = Grid%y(Grid%isg+Grid%ijkShift(IDIR):Grid%ieg+1+Grid%ijkShift(IDIR), &
-                               Grid%jsg+Grid%ijkShift(JDIR):Grid%jeg+1+Grid%ijkShift(JDIR), &
-                               Grid%ksg+Grid%ijkShift(KDIR):Grid%keg+1+Grid%ijkShift(KDIR))
-                tempZ = Grid%z(Grid%isg+Grid%ijkShift(IDIR):Grid%ieg+1+Grid%ijkShift(IDIR), &
-                               Grid%jsg+Grid%ijkShift(JDIR):Grid%jeg+1+Grid%ijkShift(JDIR), &
-                               Grid%ksg+Grid%ijkShift(KDIR):Grid%keg+1+Grid%ijkShift(KDIR))
-
-                ! delete the old corner arrays
-                deallocate(Grid%x)
-                deallocate(Grid%y)
-                deallocate(Grid%z)
-
-                ! move the new arrays to the grid corner arrays
-                call move_alloc(tempX, Grid%x)
-                call move_alloc(tempY, Grid%y)
-                call move_alloc(tempZ, Grid%z)
-
-                ! now create the arrays that MPI will use to send and receive the data
-                call mpi_dist_graph_neighbors_count(gamAppMpi%gamMpiComm,numInNeighbors,numOutNeighbors,wasWeighted,ierr)
-                if(ierr /= MPI_Success) then
-                    call MPI_Error_string( ierr, message, length, ierr)
-                    print *,message(1:length)
-                    call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
-                end if
-                if (numInNeighbors /= numOutNeighbors) then
-                    print *,'Number of in edges and out edges did not match for rank ', rank
-                    call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+                                endif
+                            enddo
+                        endif
+                    enddo
                 endif
+            enddo
 
-                allocate(gamAppMpi%sendRanks(numOutNeighbors))
-                allocate(gamAppMpi%recvRanks(numInNeighbors))
-                ! don't care about the weights, dump them into an existing array
-                call mpi_dist_graph_neighbors(gamAppMpi%gamMpiComm, numInNeighbors, gamAppMpi%recvRanks, sourceData, numOutNeighbors, gamAppMpi%sendRanks, sourceData, ierr)
-                if(ierr /= MPI_Success) then
-                    call MPI_Error_string( ierr, message, length, ierr)
-                    print *,message(1:length)
-                    call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
-                end if
+            reorder = .true. ! allow MPI to reorder the ranks
+            call mpi_dist_graph_create_adjacent(gamComm, &
+                numNeighbors,sourceRanks,sourceData, &
+                numNeighbors,sourceRanks,sourceData, & ! comms symmetrical
+                MPI_INFO_NULL, reorder, gamAppMpi%gamMpiComm, ierr)
+            if(ierr /= MPI_Success) then
+                call MPI_Error_string( ierr, message, length, ierr)
+                print *,message(1:length)
+                call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+            end if
 
-                allocate(gamAppMpi%sendCountsGas(numOutNeighbors))
-                allocate(gamAppMpi%sendDisplsGas(numOutNeighbors))
-                allocate(gamAppMpi%sendTypesGas(numOutNeighbors))
-                allocate(gamAppMpi%recvCountsGas(numInNeighbors))
-                allocate(gamAppMpi%recvDisplsGas(numInNeighbors))
-                allocate(gamAppMpi%recvTypesgas(numInNeighbors))
+            ! get our final ranks from the new MPI topology
+            call mpi_comm_rank(gamAppMpi%gamMpiComm, rank, ierr)
+            Grid%Rk = modulo(rank, Grid%NumRk)
+            rank = (rank-Grid%Rk)/Grid%NumRk
+            Grid%Rj = modulo(rank, Grid%NumRj)
+            rank = (rank-Grid%Rj)/Grid%NumRj
+            Grid%Ri = rank
 
-                ! assemble the different datatypes
-                call mpi_type_extent(MPI_MYFLOAT, dataSize, ierr) ! number of bytes per array entry
+            ! whether this rank has external BCs
+            Grid%hasLowerBC(IDIR) = Grid%Ri == 0
+            Grid%hasLowerBC(JDIR) = Grid%Rj == 0
+            Grid%hasLowerBC(KDIR) = Grid%Rk == 0
+            Grid%hasUpperBC(IDIR) = Grid%Ri == (Grid%NumRi-1)
+            Grid%hasUpperBC(JDIR) = Grid%Rj == (Grid%NumRj-1)
+            Grid%hasUpperBC(KDIR) = Grid%Rk == (Grid%NumRk-1)
 
-                ! I dimension
-                call mpi_type_contiguous(Model%nG, MPI_MYFLOAT, iG, ierr) ! ghosts i
-                call mpi_type_contiguous(Grid%Nip, MPI_MYFLOAT, iP, ierr) ! physical i
+            ! adjust grid info for these ranks
+            Grid%ijkShift(IDIR) = Grid%Nip*Grid%Ri
+            Grid%ijkShift(JDIR) = Grid%Njp*Grid%Rj
+            Grid%ijkShift(KDIR) = Grid%Nkp*Grid%Rk
 
-                ! J dimension
-                call mpi_type_hvector(Model%nG, 1, Grid%Ni*dataSize, iG, iGjG, ierr) ! ghosts i   - ghosts j
-                call mpi_type_hvector(Grid%Njp, 1, Grid%Ni*dataSize, iG, iGjP, ierr) ! ghosts i   - physical j
-                call mpi_type_hvector(Model%nG, 1, Grid%Ni*dataSize, iP, iPjG, ierr) ! physical i - ghosts j
-                call mpi_type_hvector(Grid%Njp, 1, Grid%Ni*dataSize, iP, iPjP, ierr) ! physical i - physical j
+            Grid%is = 1; Grid%ie = Grid%Nip
+            Grid%js = 1; Grid%je = Grid%Njp
+            Grid%ks = 1; Grid%ke = Grid%Nkp
 
-                ! K dimension
-                call mpi_type_hvector(Model%nG, 1, Grid%Ni*Grid%Nj*dataSize, iGjG, cornerMpiType, ierr) ! ghosts i   - ghosts j   - ghosts k
-                call mpi_type_hvector(Model%nG, 1, Grid%Ni*Grid%Nj*dataSize, iGjP, jEdgeMpiType,  ierr) ! ghosts i   - physical j - ghosts k
-                call mpi_type_hvector(Model%nG, 1, Grid%Ni*Grid%Nj*dataSize, iPjG, iEdgeMpiType,  ierr) ! physical i - ghosts j   - ghosts k
-                call mpi_type_hvector(Grid%Nkp, 1, Grid%Ni*Grid%Nj*dataSize, iGjG, kEdgeMpiType,  ierr) ! ghosts i   - ghosts j   - physical k
-                call mpi_type_hvector(Model%nG, 1, Grid%Ni*Grid%Nj*dataSize, iPjP, kFaceMpiType,  ierr) ! physical i - physical j - ghosts k
-                call mpi_type_hvector(Grid%Nkp, 1, Grid%Ni*Grid%Nj*dataSize, iGjP, iFaceMpiType,  ierr) ! ghosts i   - physical j - physical k
-                call mpi_type_hvector(Grid%Nkp, 1, Grid%Ni*Grid%Nj*dataSize, iPjG, jFaceMpiType,  ierr) ! physical i - ghosts j   - physical k
+            Grid%isg = Grid%is-Model%nG
+            Grid%ieg = Grid%ie+Model%nG
 
-                ! 4th dimension
-                call mpi_type_hvector(NVAR, 1, Grid%Ni*Grid%Nj*Grid%Nk*dataSize, cornerMpiType, corner4MpiType, ierr)
-                call mpi_type_hvector(NVAR, 1, Grid%Ni*Grid%Nj*Grid%Nk*dataSize, iEdgeMpiType,  iEdge4MpiType,  ierr)
-                call mpi_type_hvector(NVAR, 1, Grid%Ni*Grid%Nj*Grid%Nk*dataSize, jEdgeMpiType,  jEdge4MpiType,  ierr)
-                call mpi_type_hvector(NVAR, 1, Grid%Ni*Grid%Nj*Grid%Nk*dataSize, kEdgeMpiType,  kEdge4MpiType,  ierr)
-                call mpi_type_hvector(NVAR, 1, Grid%Ni*Grid%Nj*Grid%Nk*dataSize, iFaceMpiType,  iFace4MpiType,  ierr)
-                call mpi_type_hvector(NVAR, 1, Grid%Ni*Grid%Nj*Grid%Nk*dataSize, jFaceMpiType,  jFace4MpiType,  ierr)
-                call mpi_type_hvector(NVAR, 1, Grid%Ni*Grid%Nj*Grid%Nk*dataSize, kFaceMpiType,  kFace4MpiType,  ierr)
+            Grid%jsg = Grid%js-Model%nG
+            Grid%jeg = Grid%je+Model%nG
 
-                ! 5th dimension
-                call mpi_type_hvector(Model%nSpc+1, 1, NVAR*Grid%Ni*Grid%Nj*Grid%Nk*dataSize, corner4MpiType, corner5MpiType, ierr)
-                call mpi_type_hvector(Model%nSpc+1, 1, NVAR*Grid%Ni*Grid%Nj*Grid%Nk*dataSize, iEdge4MpiType,  iEdge5MpiType,  ierr)
-                call mpi_type_hvector(Model%nSpc+1, 1, NVAR*Grid%Ni*Grid%Nj*Grid%Nk*dataSize, jEdge4MpiType,  jEdge5MpiType,  ierr)
-                call mpi_type_hvector(Model%nSpc+1, 1, NVAR*Grid%Ni*Grid%Nj*Grid%Nk*dataSize, kEdge4MpiType,  kEdge5MpiType,  ierr)
-                call mpi_type_hvector(Model%nSpc+1, 1, NVAR*Grid%Ni*Grid%Nj*Grid%Nk*dataSize, iFace4MpiType,  iFace5MpiType,  ierr)
-                call mpi_type_hvector(Model%nSpc+1, 1, NVAR*Grid%Ni*Grid%Nj*Grid%Nk*dataSize, jFace4MpiType,  jFace5MpiType,  ierr)
-                call mpi_type_hvector(Model%nSpc+1, 1, NVAR*Grid%Ni*Grid%Nj*Grid%Nk*dataSize, kFace4MpiType,  kFace5MpiType,  ierr)
+            Grid%ksg = Grid%ks-Model%nG
+            Grid%keg = Grid%ke+Model%nG
 
-                ! counts are always 1 because we're sending a single (complicated) mpi datatype
-                gamAppMpi%sendCountsGas(:) = 1
-                gamAppMpi%recvCountsGas(:) = 1
+            ! create temporary arrays to hold this rank's subset of the full corner array
+            allocate(tempX(Grid%isg:Grid%ieg+1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1))
+            allocate(tempY(Grid%isg:Grid%ieg+1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1))
+            allocate(tempZ(Grid%isg:Grid%ieg+1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1))
 
-                ! displacements are always 0 because the displacements are baked into each mpi datatype
-                gamAppMpi%sendDisplsGas(:) = 0
-                gamAppMpi%recvDisplsGas(:) = 0
+            ! pull out this rank's relevant corner info
+            tempX = Grid%x(Grid%isg+Grid%ijkShift(IDIR):Grid%ieg+1+Grid%ijkShift(IDIR), &
+                           Grid%jsg+Grid%ijkShift(JDIR):Grid%jeg+1+Grid%ijkShift(JDIR), &
+                           Grid%ksg+Grid%ijkShift(KDIR):Grid%keg+1+Grid%ijkShift(KDIR))
+            tempY = Grid%y(Grid%isg+Grid%ijkShift(IDIR):Grid%ieg+1+Grid%ijkShift(IDIR), &
+                           Grid%jsg+Grid%ijkShift(JDIR):Grid%jeg+1+Grid%ijkShift(JDIR), &
+                           Grid%ksg+Grid%ijkShift(KDIR):Grid%keg+1+Grid%ijkShift(KDIR))
+            tempZ = Grid%z(Grid%isg+Grid%ijkShift(IDIR):Grid%ieg+1+Grid%ijkShift(IDIR), &
+                           Grid%jsg+Grid%ijkShift(JDIR):Grid%jeg+1+Grid%ijkShift(JDIR), &
+                           Grid%ksg+Grid%ijkShift(KDIR):Grid%keg+1+Grid%ijkShift(KDIR))
 
-                ! set all datatypes to null by default
-                gamAppMpi%sendTypesGas(:) = MPI_DATATYPE_NULL
-                gamAppMpi%recvTypesGas(:) = MPI_DATATYPE_NULL
+            ! delete the old corner arrays
+            deallocate(Grid%x)
+            deallocate(Grid%y)
+            deallocate(Grid%z)
 
-                ! figure out exactly what data needs to be sent to (and received from) each neighbor
-                ! create custom MPI datatypes to perform these transfers
-                call mpi_comm_rank(gamAppMpi%gamMpiComm, rank, ierr)
-                do ic=-1,1
-                    if((Grid%Ri+ic >= 0 .and. Grid%Ri+ic < Grid%NumRi) .or. periodicI) then
-                        do jc=-1,1
-                            if((Grid%Rj+jc >= 0 .and. Grid%Rj+jc < Grid%NumRj) .or. periodicJ) then
-                                do kc=-1,1
-                                    if((Grid%Rk+kc >= 0 .and. Grid%Rk+kc < Grid%NumRk) .or. periodicK)then
-                                        targetRank = modulo(Grid%Ri+ic,Grid%NumRi)*Grid%NumRk*Grid%NumRj + &
-                                                     modulo(Grid%Rj+jc,Grid%NumRj)*Grid%NumRk + &
-                                                     modulo(Grid%Rk+kc,Grid%NumRk)
-                                        if(targetRank /= rank) then ! ensure I'm not talking to myself
-                                            localIndexOut = findloc(gamAppMpi%sendRanks, targetRank, 1)
-                                            localIndexIn = findloc(gamAppMpi%recvRanks, targetRank, 1)
+            ! move the new arrays to the grid corner arrays
+            call move_alloc(tempX, Grid%x)
+            call move_alloc(tempY, Grid%y)
+            call move_alloc(tempZ, Grid%z)
 
-                                            sendDataOffset = 0
-                                            recvDataOffset = 0
-                                            SELECT CASE (ic)
-                                                case (-1)
-                                                    ! min i side
-                                                    ! no change to recvDataOffset
-                                                    sendDataOffset = sendDataOffset + Model%nG
-                                                case (0)
-                                                    ! central in i dimension
-                                                    recvDataOffset = recvDataOffset + Model%nG
-                                                    sendDataOffset = sendDataOffset + Model%nG
-                                                case (1)
-                                                    ! max i side
-                                                    recvDataOffset = recvDataOffset + Model%nG + Grid%Nip
-                                                    sendDataOffset = sendDataOffset + Grid%Nip ! ghosts+physical-ghosts
-                                                CASE DEFAULT
-                                                    print *, 'Unexpected ic direction'
-                                                    call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
-                                            END SELECT
+            ! now create the arrays that MPI will use to send and receive the data
+            call mpi_dist_graph_neighbors_count(gamAppMpi%gamMpiComm,numInNeighbors,numOutNeighbors,wasWeighted,ierr)
+            if(ierr /= MPI_Success) then
+                call MPI_Error_string( ierr, message, length, ierr)
+                print *,message(1:length)
+                call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+            end if
+            if (numInNeighbors /= numOutNeighbors) then
+                print *,'Number of in edges and out edges did not match for rank ', rank
+                call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+            endif
 
-                                            SELECT CASE (jc)
-                                                case (-1)
-                                                    ! min j side
-                                                    ! no change to recvDataOffset
-                                                    sendDataOffset = sendDataOffset + Model%nG*Grid%Ni
-                                                case (0)
-                                                    ! central in j dimension
-                                                    recvDataOffset = recvDataOffset + Model%nG*Grid%Ni
-                                                    sendDataOffset = sendDataOffset + Model%nG*Grid%Ni
-                                                case (1)
-                                                    ! max j side
-                                                    recvDataOffset = recvDataOffset + (Model%nG + Grid%Njp)*Grid%Ni
-                                                    sendDataOffset = sendDataOffset + Grid%Njp*Grid%Ni
-                                                CASE DEFAULT
-                                                    print *, 'Unexpected jc direction'
-                                                    call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
-                                            END SELECT
+            allocate(gamAppMpi%sendRanks(numOutNeighbors))
+            allocate(gamAppMpi%recvRanks(numInNeighbors))
+            ! don't care about the weights, dump them into an existing array
+            call mpi_dist_graph_neighbors(gamAppMpi%gamMpiComm, numInNeighbors, gamAppMpi%recvRanks, sourceData, numOutNeighbors, gamAppMpi%sendRanks, sourceData, ierr)
+            if(ierr /= MPI_Success) then
+                call MPI_Error_string( ierr, message, length, ierr)
+                print *,message(1:length)
+                call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+            end if
 
-                                            SELECT CASE (kc)
-                                                case (-1)
-                                                    ! min k side
-                                                    ! no change to recvDataOffset
-                                                    sendDataOffset = sendDataOffset + Model%nG*Grid%Ni*Grid%Nj
-                                                case (0)
-                                                    ! central in k dimension
-                                                    recvDataOffset = recvDataOffset + Model%nG*Grid%Ni*Grid%Nj
-                                                    sendDataOffset = sendDataOffset + Model%nG*Grid%Ni*Grid%Nj
-                                                case (1)
-                                                    ! max k side
-                                                    recvDataOffset = recvDataOffset + (Model%nG+Grid%Nkp)*Grid%Ni*Grid%Nj
-                                                    sendDataOffset = sendDataOffset + Grid%Nkp*Grid%Ni*Grid%Nj
-                                                CASE DEFAULT
-                                                    print *, 'Unexpected kc direction'
-                                                    call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
-                                            END SELECT
+            allocate(gamAppMpi%sendCountsGas(numOutNeighbors))
+            allocate(gamAppMpi%sendDisplsGas(numOutNeighbors))
+            allocate(gamAppMpi%sendTypesGas(numOutNeighbors))
+            allocate(gamAppMpi%recvCountsGas(numInNeighbors))
+            allocate(gamAppMpi%recvDisplsGas(numInNeighbors))
+            allocate(gamAppMpi%recvTypesgas(numInNeighbors))
 
-                                            ! determine which of the previously created datatypes is the correct one
-                                            transDataType = MPI_DATATYPE_NULL
-                                            SELECT CASE (abs(ic)+abs(jc)+abs(kc))
-                                                case (1) ! face
-                                                    if(ic /= 0) then
-                                                        transDataType = iFace5MpiType
-                                                    elseif(jc /= 0) then
-                                                        transDataType = jFace5MpiType
-                                                    else
-                                                        transDataType = kFace5MpiType
-                                                    endif
-                                                case (2) ! edge
-                                                    if(ic == 0) then
-                                                        transDataType = iEdge5MpiType
-                                                    elseif(jc == 0) then
-                                                        transDataType = jEdge5MpiType
-                                                    else
-                                                        transDataType = kEdge5MpiType
-                                                    endif
-                                                case (3) ! corner
-                                                    transDataType = corner5MpiType
-                                                CASE DEFAULT
-                                                    print *, 'Sum of ic+jc+kc is nonsense'
-                                                    call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
-                                            END SELECT
+            ! assemble the different datatypes
+            call mpi_type_extent(MPI_MYFLOAT, dataSize, ierr) ! number of bytes per array entry
 
-                                            if(transDataType /= MPI_DATATYPE_NULL) then
-                                                if(gamAppMpi%sendTypesGas(localIndexOut) == MPI_DATATYPE_NULL) then
-                                                    ! not sending any data to this rank yet, just add this datatype
-                                                    call mpi_type_hindexed(1, (/ 1 /), sendDataOffset*dataSize, transDataType, gamAppMpi%sendTypesGas(localIndexOut), ierr)
-                                                    call mpi_type_hindexed(1, (/ 1 /), recvDataOffset*dataSize, transDataType, gamAppMpi%recvTypesGas(localIndexIn), ierr)
+            ! I dimension
+            call mpi_type_contiguous(Model%nG, MPI_MYFLOAT, iG, ierr) ! ghosts i
+            call mpi_type_contiguous(Grid%Nip, MPI_MYFLOAT, iP, ierr) ! physical i
+
+            ! J dimension
+            call mpi_type_hvector(Model%nG, 1, Grid%Ni*dataSize, iG, iGjG, ierr) ! ghosts i   - ghosts j
+            call mpi_type_hvector(Grid%Njp, 1, Grid%Ni*dataSize, iG, iGjP, ierr) ! ghosts i   - physical j
+            call mpi_type_hvector(Model%nG, 1, Grid%Ni*dataSize, iP, iPjG, ierr) ! physical i - ghosts j
+            call mpi_type_hvector(Grid%Njp, 1, Grid%Ni*dataSize, iP, iPjP, ierr) ! physical i - physical j
+
+            ! K dimension
+            call mpi_type_hvector(Model%nG, 1, Grid%Ni*Grid%Nj*dataSize, iGjG, cornerMpiType, ierr) ! ghosts i   - ghosts j   - ghosts k
+            call mpi_type_hvector(Model%nG, 1, Grid%Ni*Grid%Nj*dataSize, iGjP, jEdgeMpiType,  ierr) ! ghosts i   - physical j - ghosts k
+            call mpi_type_hvector(Model%nG, 1, Grid%Ni*Grid%Nj*dataSize, iPjG, iEdgeMpiType,  ierr) ! physical i - ghosts j   - ghosts k
+            call mpi_type_hvector(Grid%Nkp, 1, Grid%Ni*Grid%Nj*dataSize, iGjG, kEdgeMpiType,  ierr) ! ghosts i   - ghosts j   - physical k
+            call mpi_type_hvector(Model%nG, 1, Grid%Ni*Grid%Nj*dataSize, iPjP, kFaceMpiType,  ierr) ! physical i - physical j - ghosts k
+            call mpi_type_hvector(Grid%Nkp, 1, Grid%Ni*Grid%Nj*dataSize, iGjP, iFaceMpiType,  ierr) ! ghosts i   - physical j - physical k
+            call mpi_type_hvector(Grid%Nkp, 1, Grid%Ni*Grid%Nj*dataSize, iPjG, jFaceMpiType,  ierr) ! physical i - ghosts j   - physical k
+
+            ! 4th dimension
+            call mpi_type_hvector(NVAR, 1, Grid%Ni*Grid%Nj*Grid%Nk*dataSize, cornerMpiType, corner4MpiType, ierr)
+            call mpi_type_hvector(NVAR, 1, Grid%Ni*Grid%Nj*Grid%Nk*dataSize, iEdgeMpiType,  iEdge4MpiType,  ierr)
+            call mpi_type_hvector(NVAR, 1, Grid%Ni*Grid%Nj*Grid%Nk*dataSize, jEdgeMpiType,  jEdge4MpiType,  ierr)
+            call mpi_type_hvector(NVAR, 1, Grid%Ni*Grid%Nj*Grid%Nk*dataSize, kEdgeMpiType,  kEdge4MpiType,  ierr)
+            call mpi_type_hvector(NVAR, 1, Grid%Ni*Grid%Nj*Grid%Nk*dataSize, iFaceMpiType,  iFace4MpiType,  ierr)
+            call mpi_type_hvector(NVAR, 1, Grid%Ni*Grid%Nj*Grid%Nk*dataSize, jFaceMpiType,  jFace4MpiType,  ierr)
+            call mpi_type_hvector(NVAR, 1, Grid%Ni*Grid%Nj*Grid%Nk*dataSize, kFaceMpiType,  kFace4MpiType,  ierr)
+
+            ! 5th dimension
+            call mpi_type_hvector(Model%nSpc+1, 1, NVAR*Grid%Ni*Grid%Nj*Grid%Nk*dataSize, corner4MpiType, corner5MpiType, ierr)
+            call mpi_type_hvector(Model%nSpc+1, 1, NVAR*Grid%Ni*Grid%Nj*Grid%Nk*dataSize, iEdge4MpiType,  iEdge5MpiType,  ierr)
+            call mpi_type_hvector(Model%nSpc+1, 1, NVAR*Grid%Ni*Grid%Nj*Grid%Nk*dataSize, jEdge4MpiType,  jEdge5MpiType,  ierr)
+            call mpi_type_hvector(Model%nSpc+1, 1, NVAR*Grid%Ni*Grid%Nj*Grid%Nk*dataSize, kEdge4MpiType,  kEdge5MpiType,  ierr)
+            call mpi_type_hvector(Model%nSpc+1, 1, NVAR*Grid%Ni*Grid%Nj*Grid%Nk*dataSize, iFace4MpiType,  iFace5MpiType,  ierr)
+            call mpi_type_hvector(Model%nSpc+1, 1, NVAR*Grid%Ni*Grid%Nj*Grid%Nk*dataSize, jFace4MpiType,  jFace5MpiType,  ierr)
+            call mpi_type_hvector(Model%nSpc+1, 1, NVAR*Grid%Ni*Grid%Nj*Grid%Nk*dataSize, kFace4MpiType,  kFace5MpiType,  ierr)
+
+            ! counts are always 1 because we're sending a single (complicated) mpi datatype
+            gamAppMpi%sendCountsGas(:) = 1
+            gamAppMpi%recvCountsGas(:) = 1
+
+            ! displacements are always 0 because the displacements are baked into each mpi datatype
+            gamAppMpi%sendDisplsGas(:) = 0
+            gamAppMpi%recvDisplsGas(:) = 0
+
+            ! set all datatypes to null by default
+            gamAppMpi%sendTypesGas(:) = MPI_DATATYPE_NULL
+            gamAppMpi%recvTypesGas(:) = MPI_DATATYPE_NULL
+
+            ! figure out exactly what data needs to be sent to (and received from) each neighbor
+            ! create custom MPI datatypes to perform these transfers
+            call mpi_comm_rank(gamAppMpi%gamMpiComm, rank, ierr)
+
+            ! calculate receive types
+            do ic=-1,1
+                if((Grid%Ri+ic >= 0 .and. Grid%Ri+ic < Grid%NumRi) .or. periodicI) then
+                    do jc=-1,1
+                        if((Grid%Rj+jc >= 0 .and. Grid%Rj+jc < Grid%NumRj) .or. periodicJ) then
+                            do kc=-1,1
+                                if((Grid%Rk+kc >= 0 .and. Grid%Rk+kc < Grid%NumRk) .or. periodicK)then
+                                    targetRank = modulo(Grid%Ri+ic,Grid%NumRi)*Grid%NumRk*Grid%NumRj + &
+                                                 modulo(Grid%Rj+jc,Grid%NumRj)*Grid%NumRk + &
+                                                 modulo(Grid%Rk+kc,Grid%NumRk)
+                                    if(targetRank /= rank) then ! ensure I'm not talking to myself
+                                        localIndexIn = findloc(gamAppMpi%recvRanks, targetRank, 1)
+
+                                        recvDataOffset = 0
+                                        SELECT CASE (ic)
+                                            case (-1)
+                                                ! min i side
+                                                ! no change to recvDataOffset
+                                            case (0)
+                                                ! central in i dimension
+                                                recvDataOffset = recvDataOffset + Model%nG
+                                            case (1)
+                                                ! max i side
+                                                recvDataOffset = recvDataOffset + Model%nG + Grid%Nip
+                                            CASE DEFAULT
+                                                print *, 'Unexpected ic direction'
+                                                call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+                                        END SELECT
+
+                                        SELECT CASE (jc)
+                                            case (-1)
+                                                ! min j side
+                                                ! no change to recvDataOffset
+                                            case (0)
+                                                ! central in j dimension
+                                                recvDataOffset = recvDataOffset + Model%nG*Grid%Ni
+                                            case (1)
+                                                ! max j side
+                                                recvDataOffset = recvDataOffset + (Model%nG + Grid%Njp)*Grid%Ni
+                                            CASE DEFAULT
+                                                print *, 'Unexpected jc direction'
+                                                call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+                                        END SELECT
+
+                                        SELECT CASE (kc)
+                                            case (-1)
+                                                ! min k side
+                                                ! no change to recvDataOffset
+                                            case (0)
+                                                ! central in k dimension
+                                                recvDataOffset = recvDataOffset + Model%nG*Grid%Ni*Grid%Nj
+                                            case (1)
+                                                ! max k side
+                                                recvDataOffset = recvDataOffset + (Model%nG+Grid%Nkp)*Grid%Ni*Grid%Nj
+                                            CASE DEFAULT
+                                                print *, 'Unexpected kc direction'
+                                                call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+                                        END SELECT
+
+                                        ! determine which of the previously created datatypes is the correct one
+                                        transDataType = MPI_DATATYPE_NULL
+                                        SELECT CASE (abs(ic)+abs(jc)+abs(kc))
+                                            case (1) ! face
+                                                if(ic /= 0) then
+                                                    transDataType = iFace5MpiType
+                                                elseif(jc /= 0) then
+                                                    transDataType = jFace5MpiType
                                                 else
-                                                    ! we're already sending other data to this rank
-                                                    !  merge the datatypes into a struct
-                                                    ! need to use a temporary array so that the ints are of type MPI_ADDRESS_KIND
-                                                    tempOffsets = (/ 0, sendDataOffset*dataSize /)
-                                                    call mpi_type_create_struct(2, (/ 1, 1 /), tempOffsets, (/ gamAppMpi%sendTypesGas(localIndexOut), transDataType /), gamAppMpi%sendTypesGas(localIndexOut), ierr)
-                                                    tempOffsets = (/ 0, recvDataOffset*dataSize /)
-                                                    call mpi_type_create_struct(2, (/ 1, 1 /), tempOffsets, (/ gamAppMpi%recvTypesGas(localIndexIn), transDataType /),  gamAppMpi%recvTypesGas(localIndexIn),  ierr)
+                                                    transDataType = kFace5MpiType
                                                 endif
+                                            case (2) ! edge
+                                                if(ic == 0) then
+                                                    transDataType = iEdge5MpiType
+                                                elseif(jc == 0) then
+                                                    transDataType = jEdge5MpiType
+                                                else
+                                                    transDataType = kEdge5MpiType
+                                                endif
+                                            case (3) ! corner
+                                                transDataType = corner5MpiType
+                                            CASE DEFAULT
+                                                print *, 'Sum of ic+jc+kc is nonsense'
+                                                call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+                                        END SELECT
+
+                                        if(transDataType /= MPI_DATATYPE_NULL) then
+                                            if(gamAppMpi%recvTypesGas(localIndexIn) == MPI_DATATYPE_NULL) then
+                                                ! not receiving any data from this rank yet, just add this datatype
+                                                call mpi_type_hindexed(1, (/ 1 /), recvDataOffset*dataSize, transDataType, gamAppMpi%recvTypesGas(localIndexIn), ierr)
+                                            else
+                                                ! we're already receivng other data from this rank
+                                                !  merge the datatypes into a struct
+                                                ! need to use a temporary array so that the ints are of type MPI_ADDRESS_KIND
+                                                tempOffsets = (/ 0, recvDataOffset*dataSize /)
+                                                call mpi_type_create_struct(2, (/ 1, 1 /), tempOffsets, (/ gamAppMpi%recvTypesGas(localIndexIn), transDataType /),  gamAppMpi%recvTypesGas(localIndexIn),  ierr)
                                             endif
                                         endif
                                     endif
-                                enddo
-                            endif
-                        enddo
-                    endif
-                enddo
+                                endif
+                            enddo
+                        endif
+                    enddo
+                endif
+            enddo
+
+            ! now calculate the send types
+            ! split into separate loops because the order of iterating must be inverted
+            do ic=1,-1,-1
+                if((Grid%Ri+ic >= 0 .and. Grid%Ri+ic < Grid%NumRi) .or. periodicI) then
+                    do jc=1,-1,-1
+                        if((Grid%Rj+jc >= 0 .and. Grid%Rj+jc < Grid%NumRj) .or. periodicJ) then
+                            do kc=1,-1,-1
+                                if((Grid%Rk+kc >= 0 .and. Grid%Rk+kc < Grid%NumRk) .or. periodicK)then
+                                    targetRank = modulo(Grid%Ri+ic,Grid%NumRi)*Grid%NumRk*Grid%NumRj + &
+                                                 modulo(Grid%Rj+jc,Grid%NumRj)*Grid%NumRk + &
+                                                 modulo(Grid%Rk+kc,Grid%NumRk)
+                                    if(targetRank /= rank) then ! ensure I'm not talking to myself
+                                        localIndexOut = findloc(gamAppMpi%sendRanks, targetRank, 1)
+
+                                        sendDataOffset = 0
+                                        SELECT CASE (ic)
+                                            case (-1)
+                                                ! min i side
+                                                sendDataOffset = sendDataOffset + Model%nG
+                                            case (0)
+                                                ! central in i dimension
+                                                sendDataOffset = sendDataOffset + Model%nG
+                                            case (1)
+                                                ! max i side
+                                                sendDataOffset = sendDataOffset + Grid%Nip ! ghosts+physical-ghosts
+                                            CASE DEFAULT
+                                                print *, 'Unexpected ic direction'
+                                                call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+                                        END SELECT
+
+                                        SELECT CASE (jc)
+                                            case (-1)
+                                                ! min j side
+                                                sendDataOffset = sendDataOffset + Model%nG*Grid%Ni
+                                            case (0)
+                                                ! central in j dimension
+                                                sendDataOffset = sendDataOffset + Model%nG*Grid%Ni
+                                            case (1)
+                                                ! max j side
+                                                sendDataOffset = sendDataOffset + Grid%Njp*Grid%Ni
+                                            CASE DEFAULT
+                                                print *, 'Unexpected jc direction'
+                                                call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+                                        END SELECT
+
+                                        SELECT CASE (kc)
+                                            case (-1)
+                                                ! min k side
+                                                sendDataOffset = sendDataOffset + Model%nG*Grid%Ni*Grid%Nj
+                                            case (0)
+                                                ! central in k dimension
+                                                sendDataOffset = sendDataOffset + Model%nG*Grid%Ni*Grid%Nj
+                                            case (1)
+                                                ! max k side
+                                                sendDataOffset = sendDataOffset + Grid%Nkp*Grid%Ni*Grid%Nj
+                                            CASE DEFAULT
+                                                print *, 'Unexpected kc direction'
+                                                call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+                                        END SELECT
+
+                                        ! determine which of the previously created datatypes is the correct one
+                                        transDataType = MPI_DATATYPE_NULL
+                                        SELECT CASE (abs(ic)+abs(jc)+abs(kc))
+                                            case (1) ! face
+                                                if(ic /= 0) then
+                                                    transDataType = iFace5MpiType
+                                                elseif(jc /= 0) then
+                                                    transDataType = jFace5MpiType
+                                                else
+                                                    transDataType = kFace5MpiType
+                                                endif
+                                            case (2) ! edge
+                                                if(ic == 0) then
+                                                    transDataType = iEdge5MpiType
+                                                elseif(jc == 0) then
+                                                    transDataType = jEdge5MpiType
+                                                else
+                                                    transDataType = kEdge5MpiType
+                                                endif
+                                            case (3) ! corner
+                                                transDataType = corner5MpiType
+                                            CASE DEFAULT
+                                                print *, 'Sum of ic+jc+kc is nonsense'
+                                                call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+                                        END SELECT
+
+                                        if(transDataType /= MPI_DATATYPE_NULL) then
+                                            if(gamAppMpi%sendTypesGas(localIndexOut) == MPI_DATATYPE_NULL) then
+                                                ! not sending any data to this rank yet, just add this datatype
+                                                call mpi_type_hindexed(1, (/ 1 /), sendDataOffset*dataSize, transDataType, gamAppMpi%sendTypesGas(localIndexOut), ierr)
+                                            else
+                                                ! we're already sending other data to this rank
+                                                !  merge the datatypes into a struct
+                                                ! need to use a temporary array so that the ints are of type MPI_ADDRESS_KIND
+                                                tempOffsets = (/ 0, sendDataOffset*dataSize /)
+                                                call mpi_type_create_struct(2, (/ 1, 1 /), tempOffsets, (/ gamAppMpi%sendTypesGas(localIndexOut), transDataType /), gamAppMpi%sendTypesGas(localIndexOut), ierr)
+                                            endif
+                                        endif
+                                    endif
+                                endif
+                            enddo
+                        endif
+                    enddo
+                endif
+            enddo
+
             ! commit the created MPI datatypes
             do localIndexOut=1,numOutNeighbors
                 call mpi_type_commit(gamAppMpi%sendTypesGas(localIndexOut), ierr)
