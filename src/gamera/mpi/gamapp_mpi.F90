@@ -76,6 +76,7 @@ module gamapp_mpi
         logical :: reorder,periodicI,periodicJ,periodicK,wasWeighted
         character(len=strLen) :: message, bcType
         real(rp), dimension(:,:,:), allocatable :: tempX,tempY,tempZ
+        real(rp) :: tmpDT
         integer :: dataSize, iG, iP, iGjG, iGjP, iPjG, iPjP, transDataType
         integer :: cornerMpiType,iEdgeMpiType,jEdgeMpiType,kEdgeMpiType,iFaceMpiType,jFaceMpiType,kFaceMpiType
         integer :: corner4MpiType,iEdge4MpiType,jEdge4MpiType,kEdge4MpiType,iFace4MpiType,jFace4MpiType,kFace4MpiType
@@ -581,6 +582,12 @@ module gamapp_mpi
         ! call appropriate subroutines to calculate all appropriate grid data from the corner data
         call CalcGridInfo(Model,Grid,gamAppMpi%State,gamAppMpi%oState,gamAppMpi%Solver,xmlInp,userInitFunc)
 
+        !Ensure all processes have the same starting timestep
+        tmpDT = Model%dt
+        call MPI_AllReduce(MPI_IN_PLACE, tmpDT, 1, MPI_MYFLOAT, MPI_MIN, gamAppMpi%gamMpiComm,ierr)
+        Model%dt = tmpDT
+        gamAppMpi%oState%time = gamAppMpi%State%time-Model%dt !Initial old state
+
         ! correct boundary conditions if necessary
         if(Grid%NumRi > 1) then
             ! MPI decomposed in I dimension
@@ -696,6 +703,9 @@ module gamapp_mpi
                         allocate(mpiNullBc_T :: Grid%externalBCs(OUTK)%p)
                     endif
             END SELECT
+
+            ! perform a halo update before the sim starts to ensure that the ghost cells have correct values
+            call haloUpdate(gamAppMpi)
 
         endif
 

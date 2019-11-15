@@ -5,7 +5,8 @@ import argparse
 from argparse import RawTextHelpFormatter
 import numpy as np
 import kaipy.gamera.gampp as gampp
-import lxml.etree as et
+import xml.etree.ElementTree as et
+import xml.dom.minidom
 import kaipy.kaiH5 as kh5
 
 import os
@@ -140,8 +141,11 @@ if __name__ == "__main__":
 		#Write output
 		fOut = "%s/%s.%06d.xmf"%(fdir,outid,tOut)
 		print("Writing %s"%(fOut))
-		xTree = et.ElementTree(Xdmf)
-		xTree.write(fOut,pretty_print=True,xml_declaration=True,encoding='UTF-8')
+		#xTree = et.ElementTree(Xdmf)
+		#xTree.write(fOut,pretty_print=True,xml_declaration=True,encoding='UTF-8')
+                xmlStr = xml.dom.minidom.parseString(et.tostring(Xdmf)).toprettyxml(indent="    ")
+		with open(fOut,"w") as f:
+			f.write(xmlStr)
 
 		#Prep for next step
 		tOut = tOut+1

@@ -11,7 +11,7 @@ import numpy as np
 #gIn.GetGrid()
 #V = gIn.GetVar("D",stepnum)
 #doFast=True skips various data scraping
-idStr = "_0000_0000_0000_000000000000.h5"
+idStr = "_0000_0000_0000.gam.h5"
 
 class GameraPipe(object):
 
@@ -88,9 +88,9 @@ class GameraPipe(object):
 			f0 = fIns[0]
 			Ns = [int(s) for s in f0.split('_') if s.isdigit()]
 
-			self.Ri = Ns[0]
-			self.Rj = Ns[1]
-			self.Rk = Ns[2]
+			self.Ri = Ns[-5]
+			self.Rj = Ns[-4]
+			self.Rk = Ns[-3]
 			self.Nr = self.Ri*self.Rj*self.Rk
 			if (doVerbose):
 				print("\tFound %d = (%d,%d,%d) ranks"%(self.Nr,self.Ri,self.Rj,self.Rk))
