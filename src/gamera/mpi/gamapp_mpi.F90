@@ -582,130 +582,136 @@ module gamapp_mpi
         ! call appropriate subroutines to calculate all appropriate grid data from the corner data
         call CalcGridInfo(Model,Grid,gamAppMpi%State,gamAppMpi%oState,gamAppMpi%Solver,xmlInp,userInitFunc)
 
-        !Ensure all processes have the same starting timestep
-        tmpDT = Model%dt
-        call MPI_AllReduce(MPI_IN_PLACE, tmpDT, 1, MPI_MYFLOAT, MPI_MIN, gamAppMpi%gamMpiComm,ierr)
-        Model%dt = tmpDT
-        gamAppMpi%oState%time = gamAppMpi%State%time-Model%dt !Initial old state
+        if(Grid%isTiled) then
+            ! correct boundary conditions if necessary
+            if(Grid%NumRi > 1) then
+                ! MPI decomposed in I dimension
 
-        ! correct boundary conditions if necessary
-        if(Grid%NumRi > 1) then
-            ! MPI decomposed in I dimension
+                ! check min I BC
+                SELECT type(iiBC=>Grid%externalBCs(INI)%p)
+                    TYPE IS (mpiNullBc_T)
+                        ! this BC is already an MPI BC
+                        if(Grid%hasLowerBC(IDIR) .and. .not. periodicI) then
+                            print *, 'Min I BC was set to be an MPI BC by the user, but this is not an MPI periodic case'
+                            stop
+                        endif
+                    CLASS DEFAULT
+                        ! this BC is something other than an MPI BC
+                        if(.not. Grid%hasLowerBC(IDIR) .or. periodicI) then
+                            print *, 'Over-writing min I BC to be an MPI BC'
+                            deallocate(Grid%externalBCs(INI)%p)
+                            allocate(mpiNullBc_T :: Grid%externalBCs(INI)%p)
+                        endif
+                END SELECT
 
-            ! check min I BC
-            SELECT type(iiBC=>Grid%externalBCs(INI)%p)
-                TYPE IS (mpiNullBc_T)
-                    ! this BC is already an MPI BC
-                    if(Grid%hasLowerBC(IDIR) .and. .not. periodicI) then
-                        print *, 'Min I BC was set to be an MPI BC by the user, but this is not an MPI periodic case'
-                        stop
-                    endif
-                CLASS DEFAULT
-                    ! this BC is something other than an MPI BC
-                    if(.not. Grid%hasLowerBC(IDIR) .or. periodicI) then
-                        print *, 'Over-writing min I BC to be an MPI BC'
-                        deallocate(Grid%externalBCs(INI)%p)
-                        allocate(mpiNullBc_T :: Grid%externalBCs(INI)%p)
-                    endif
-            END SELECT
+                ! check max I BC
+                SELECT type(iiBC=>Grid%externalBCs(OUTI)%p)
+                    TYPE IS (mpiNullBc_T)
+                        ! this BC is already an MPI BC
+                        if(Grid%hasUpperBC(IDIR) .and. .not. periodicI) then
+                            print *, 'Max I BC was set to be an MPI BC by the user, but this is not an MPI periodic case'
+                            stop
+                        endif
+                    CLASS DEFAULT
+                        ! this BC is something other than an MPI BC
+                        if(.not. Grid%hasUpperBC(IDIR) .or. periodicI) then
+                            print *, 'Over-writing max I BC to be an MPI BC'
+                            deallocate(Grid%externalBCs(OUTI)%p)
+                            allocate(mpiNullBc_T :: Grid%externalBCs(OUTI)%p)
+                        endif
+                END SELECT
 
-            ! check max I BC
-            SELECT type(iiBC=>Grid%externalBCs(OUTI)%p)
-                TYPE IS (mpiNullBc_T)
-                    ! this BC is already an MPI BC
-                    if(Grid%hasUpperBC(IDIR) .and. .not. periodicI) then
-                        print *, 'Max I BC was set to be an MPI BC by the user, but this is not an MPI periodic case'
-                        stop
-                    endif
-                CLASS DEFAULT
-                    ! this BC is something other than an MPI BC
-                    if(.not. Grid%hasUpperBC(IDIR) .or. periodicI) then
-                        print *, 'Over-writing max I BC to be an MPI BC'
-                        deallocate(Grid%externalBCs(OUTI)%p)
-                        allocate(mpiNullBc_T :: Grid%externalBCs(OUTI)%p)
-                    endif
-            END SELECT
+            endif
 
-        endif
+            if(Grid%NumRj > 1) then
+                ! MPI decomposed in J dimension
 
-        if(Grid%NumRj > 1) then
-            ! MPI decomposed in J dimension
+                ! check min J BC
+                SELECT type(iiBC=>Grid%externalBCs(INJ)%p)
+                    TYPE IS (mpiNullBc_T)
+                        ! this BC is already an MPI BC
+                        if(Grid%hasLowerBC(JDIR) .and. .not. periodicJ) then
+                            print *, 'Min J BC was set to be an MPI BC by the user, but this is not an MPI periodic case'
+                            stop
+                        endif
+                    CLASS DEFAULT
+                        ! this BC is something other than an MPI BC
+                        if(.not. Grid%hasLowerBC(JDIR) .or. periodicJ) then
+                            print *, 'Over-writing min J BC to be an MPI BC'
+                            deallocate(Grid%externalBCs(INJ)%p)
+                            allocate(mpiNullBc_T :: Grid%externalBCs(INJ)%p)
+                        endif
+                END SELECT
 
-            ! check min J BC
-            SELECT type(iiBC=>Grid%externalBCs(INJ)%p)
-                TYPE IS (mpiNullBc_T)
-                    ! this BC is already an MPI BC
-                    if(Grid%hasLowerBC(JDIR) .and. .not. periodicJ) then
-                        print *, 'Min J BC was set to be an MPI BC by the user, but this is not an MPI periodic case'
-                        stop
-                    endif
-                CLASS DEFAULT
-                    ! this BC is something other than an MPI BC
-                    if(.not. Grid%hasLowerBC(JDIR) .or. periodicJ) then
-                        print *, 'Over-writing min J BC to be an MPI BC'
-                        deallocate(Grid%externalBCs(INJ)%p)
-                        allocate(mpiNullBc_T :: Grid%externalBCs(INJ)%p)
-                    endif
-            END SELECT
+                ! check max J BC
+                SELECT type(iiBC=>Grid%externalBCs(OUTJ)%p)
+                    TYPE IS (mpiNullBc_T)
+                        ! this BC is already an MPI BC
+                        if(Grid%hasUpperBC(JDIR) .and. .not. periodicJ) then
+                            print *, 'Max J BC was set to be an MPI BC by the user, but this is not an MPI periodic case'
+                            stop
+                        endif
+                    CLASS DEFAULT
+                        ! this BC is something other than an MPI BC
+                        if(.not. Grid%hasUpperBC(JDIR) .or. periodicJ) then
+                            print *, 'Over-writing max J BC to be an MPI BC'
+                            deallocate(Grid%externalBCs(OUTJ)%p)
+                            allocate(mpiNullBc_T :: Grid%externalBCs(OUTJ)%p)
+                        endif
+                END SELECT
 
-            ! check max J BC
-            SELECT type(iiBC=>Grid%externalBCs(OUTJ)%p)
-                TYPE IS (mpiNullBc_T)
-                    ! this BC is already an MPI BC
-                    if(Grid%hasUpperBC(JDIR) .and. .not. periodicJ) then
-                        print *, 'Max J BC was set to be an MPI BC by the user, but this is not an MPI periodic case'
-                        stop
-                    endif
-                CLASS DEFAULT
-                    ! this BC is something other than an MPI BC
-                    if(.not. Grid%hasUpperBC(JDIR) .or. periodicJ) then
-                        print *, 'Over-writing max J BC to be an MPI BC'
-                        deallocate(Grid%externalBCs(OUTJ)%p)
-                        allocate(mpiNullBc_T :: Grid%externalBCs(OUTJ)%p)
-                    endif
-            END SELECT
+            endif
 
-        endif
+            if(Grid%NumRk > 1) then
+                ! MPI decomposed in K dimension
 
-        if(Grid%NumRk > 1) then
-            ! MPI decomposed in K dimension
+                ! check min K BC
+                SELECT type(iiBC=>Grid%externalBCs(INK)%p)
+                    TYPE IS (mpiNullBc_T)
+                        ! this BC is already an MPI BC
+                        if(Grid%hasLowerBC(KDIR) .and. .not. periodicK) then
+                            print *, 'Min K BC was set to be an MPI BC by the user, but this is not an MPI periodic case'
+                            stop
+                        endif
+                    CLASS DEFAULT
+                        ! this BC is something other than an MPI BC
+                        if(.not. Grid%hasLowerBC(KDIR) .or. periodicK) then
+                            print *, 'Over-writing min K BC to be an MPI BC'
+                            deallocate(Grid%externalBCs(INK)%p)
+                            allocate(mpiNullBc_T :: Grid%externalBCs(INK)%p)
+                        endif
+                END SELECT
 
-            ! check min K BC
-            SELECT type(iiBC=>Grid%externalBCs(INK)%p)
-                TYPE IS (mpiNullBc_T)
-                    ! this BC is already an MPI BC
-                    if(Grid%hasLowerBC(KDIR) .and. .not. periodicK) then
-                        print *, 'Min K BC was set to be an MPI BC by the user, but this is not an MPI periodic case'
-                        stop
-                    endif
-                CLASS DEFAULT
-                    ! this BC is something other than an MPI BC
-                    if(.not. Grid%hasLowerBC(KDIR) .or. periodicK) then
-                        print *, 'Over-writing min K BC to be an MPI BC'
-                        deallocate(Grid%externalBCs(INK)%p)
-                        allocate(mpiNullBc_T :: Grid%externalBCs(INK)%p)
-                    endif
-            END SELECT
+                ! check max K BC
+                SELECT type(iiBC=>Grid%externalBCs(OUTK)%p)
+                    TYPE IS (mpiNullBc_T)
+                        ! this BC is already an MPI BC
+                        if(Grid%hasUpperBC(KDIR) .and. .not. periodicK) then
+                            print *, 'Max K BC was set to be an MPI BC by the user, but this is not an MPI periodic case'
+                            stop
+                        endif
+                    CLASS DEFAULT
+                        ! this BC is something other than an MPI BC
+                        if(.not. Grid%hasUpperBC(KDIR) .or. periodicK) then
+                            print *, 'Over-writing max K BC to be an MPI BC'
+                            deallocate(Grid%externalBCs(OUTK)%p)
+                            allocate(mpiNullBc_T :: Grid%externalBCs(OUTK)%p)
+                        endif
+                END SELECT
 
-            ! check max K BC
-            SELECT type(iiBC=>Grid%externalBCs(OUTK)%p)
-                TYPE IS (mpiNullBc_T)
-                    ! this BC is already an MPI BC
-                    if(Grid%hasUpperBC(KDIR) .and. .not. periodicK) then
-                        print *, 'Max K BC was set to be an MPI BC by the user, but this is not an MPI periodic case'
-                        stop
-                    endif
-                CLASS DEFAULT
-                    ! this BC is something other than an MPI BC
-                    if(.not. Grid%hasUpperBC(KDIR) .or. periodicK) then
-                        print *, 'Over-writing max K BC to be an MPI BC'
-                        deallocate(Grid%externalBCs(OUTK)%p)
-                        allocate(mpiNullBc_T :: Grid%externalBCs(OUTK)%p)
-                    endif
-            END SELECT
+            endif
 
             ! perform a halo update before the sim starts to ensure that the ghost cells have correct values
             call haloUpdate(gamAppMpi)
+
+            !Update the old state
+            gamAppMpi%oState = gamAppMpi%State
+
+            !Ensure all processes have the same starting timestep
+            tmpDT = Model%dt
+            call MPI_AllReduce(MPI_IN_PLACE, tmpDT, 1, MPI_MYFLOAT, MPI_MIN, gamAppMpi%gamMpiComm,ierr)
+            Model%dt = tmpDT
+            gamAppMpi%oState%time = gamAppMpi%State%time-Model%dt !Initial old state
 
         endif
 
