@@ -70,9 +70,9 @@ module gamapp
         call Toc("DT")
 
         !Enforce BCs
-        call Tic("Halos")
+        call Tic("BCs")
         call EnforceBCs(gameraApp%Model,gameraApp%Grid,gameraApp%State)
-        call Toc("Halos")
+        call Toc("BCs")
 
     end subroutine stepGamera
 

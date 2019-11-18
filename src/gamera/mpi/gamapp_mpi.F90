@@ -708,6 +708,7 @@ module gamapp_mpi
             gamAppMpi%oState = gamAppMpi%State
 
             !Ensure all processes have the same starting timestep
+            Model%dt = CalcDT(Model,Grid,gamAppMpi%State)
             tmpDT = Model%dt
             call MPI_AllReduce(MPI_IN_PLACE, tmpDT, 1, MPI_MYFLOAT, MPI_MIN, gamAppMpi%gamMpiComm,ierr)
             Model%dt = tmpDT
@@ -746,9 +747,9 @@ module gamapp_mpi
         call Toc("DT")
 
         !Enforce BCs
-        call Tic("Halos")
+        call Tic("BCs")
         call EnforceBCs(gamAppMpi%Model,gamAppMpi%Grid,gamAppMpi%State)
-        call Toc("Halos")
+        call Toc("BCs")
 
     end subroutine stepGamera_mpi
 
