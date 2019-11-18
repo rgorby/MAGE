@@ -9,7 +9,7 @@ module fields
     implicit none
 
     logical, parameter, private :: doVa  = .true. !Use Alfven speed in diffusive velocity
-    logical, parameter, private :: doVdA = .true. !Do area scaling for velocity->corner
+    logical, parameter, private :: doVdA = .false. !Do area scaling for velocity->corner
     logical, parameter, private :: doBdA = .true. !Do area scaling for face flux->edge
 
     contains
@@ -246,45 +246,34 @@ module fields
         real(rp), intent(out) :: VfB(vecLen,NDIM)
 
         integer :: i,n,d
-        real(rp), dimension(vecLen,recLen,NDIM) :: MomB,VelB
-        real(rp), dimension(vecLen,recLen) :: DenB,VolB
-        real(rp), dimension(vecLen) :: dV
+        real(rp), dimension(vecLen,recLen,NDIM) :: MomB
+        real(rp), dimension(vecLen,recLen) :: DenB
+        real(rp), dimension(vecLen) :: Di
 
         !DIR$ ASSUME_ALIGNED W: ALIGN
         !DIR$ ASSUME_ALIGNED VfB: ALIGN
-        !DIR$ attributes align : ALIGN :: MomB,VelB,DenB,VolB,dV
+        !DIR$ attributes align : ALIGN :: MomB,DenB,Di
 
         MomB = 0.0
         DenB = 0.0
         VfB  = 0.0
-        VolB = 0.0
+        Di   = 0.0
 
         !Get stencils
-        call LoadBlock(Model,Gr,VolB          ,Gr%volume    ,iB,j,k,iMax,dT)
         call LoadBlock(Model,Gr,DenB          ,W(:,:,:,DEN ),iB,j,k,iMax,dT)
         call LoadBlock(Model,Gr,MomB(:,:,XDIR),W(:,:,:,MOMX),iB,j,k,iMax,dT)
         call LoadBlock(Model,Gr,MomB(:,:,YDIR),W(:,:,:,MOMY),iB,j,k,iMax,dT)
         call LoadBlock(Model,Gr,MomB(:,:,ZDIR),W(:,:,:,MOMZ),iB,j,k,iMax,dT)
 
-        !Get stencil for VdV
-        do n=1,recLen
-            do i=1,iMax
-                VelB(i,n,XDIR) = VolB(i,n)*MomB(i,n,XDIR)/max( DenB(i,n),dFloor )
-                VelB(i,n,YDIR) = VolB(i,n)*MomB(i,n,YDIR)/max( DenB(i,n),dFloor )
-                VelB(i,n,ZDIR) = VolB(i,n)*MomB(i,n,ZDIR)/max( DenB(i,n),dFloor )
-            enddo
-        enddo
-
-        !Interpolate dV to corner
+        !Interpolate D to corner
         do i=1,iMax
-            dV(i) = dot_product(interpWgt,VolB(i,:))
+            Di(i) = dot_product(interpWgt,DenB(i,:))
         enddo
 
-        !Now interpolate, <VdV>/<dV>
+        !Now interpolate <D*V>/<D>
         do d=1,NDIM
             do i=1,iMax
-                !VfB(i,d) = dot_product(interpWgt,MomB(i,:,d)/DenB(i,:))
-                Vfb(i,d) = dot_product(interpWgt,VelB(i,:,d))/dV(i)
+                VfB(i,d) = dot_product(interpWgt,MomB(i,:,d))/Di(i)
             enddo
         enddo
 

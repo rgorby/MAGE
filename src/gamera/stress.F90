@@ -20,6 +20,7 @@ module stress
 
     logical, parameter, private :: doRingFlux = .true.
     logical, parameter, private :: doNuke = .true. !Do nuclear option, currently testing
+    logical, parameter, private :: doHogs11 = .true. !Do // magnetic hogs diffusion
 
     !cLim: Vile magic number, when to apply nuclear option (v>cLim*Ca)
     !LFM uses 1.5
@@ -345,6 +346,10 @@ module stress
                     do i=1,iMax
 
                         !Calculate del(rho_m v), the magnetic momentum
+                        !Two choices here: 
+                        !1) Delta mag momentum or Magmass x delta-vee
+                        !2) Total direction or perp to field
+
                         RhoML = norm2( B0(i,XDIR:ZDIR) + MagLRB(i,XDIR:ZDIR,LEFT ) )**2.0/(Model%Ca**2.0)
                         RhoMR = norm2( B0(i,XDIR:ZDIR) + MagLRB(i,XDIR:ZDIR,RIGHT) )**2.0/(Model%Ca**2.0)
                         deeP = RhoMR*PrimLRB(i,VELX:VELZ,RIGHT) - RhoML*PrimLRB(i,VELX:VELZ,LEFT)
@@ -353,9 +358,12 @@ module stress
                         bAvg = B0(i,XDIR:ZDIR) + 0.5*( MagLRB(i,XDIR:ZDIR,LEFT) + MagLRB(i,XDIR:ZDIR,RIGHT) )
                         bhat = normVec(bAvg)
 
-                        !Limit to perp component
-                        deeP = Vec2Perp(deeP,bhat)
-                        !Now apply mag hogs to only perp components
+                        if (.not. doHogs11) then
+                            !Limit to perp component
+                            deeP = Vec2Perp(deeP,bhat)
+                        endif
+
+                        !Now apply mag hogs
                         mFlxB(i,XDIR:ZDIR) = mFlxB(i,XDIR:ZDIR) - Model%cHogM*VaD(i)*deeP
 
                     enddo
