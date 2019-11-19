@@ -9,7 +9,7 @@ module fields
     implicit none
 
     logical, parameter, private :: doVa  = .true. !Use Alfven speed in diffusive velocity
-    logical, parameter, private :: doVdA = .false. !Do area scaling for velocity->corner
+    logical, parameter, private :: doVdA = .true. !Do area scaling for velocity->corner
     logical, parameter, private :: doBdA = .true. !Do area scaling for face flux->edge
 
     contains
@@ -283,8 +283,8 @@ module fields
         !Now interpolate, <VdV>/<dV>
         do d=1,NDIM
             do i=1,iMax
-                VfB(i,d) = dot_product(interpWgt,MomB(i,:,d)/DenB(i,:))
-                !Vfb(i,d) = dot_product(interpWgt,VelB(i,:,d))/dV(i)
+                !VfB(i,d) = dot_product(interpWgt,MomB(i,:,d)/DenB(i,:))
+                Vfb(i,d) = dot_product(interpWgt,VelB(i,:,d))/dV(i)
             enddo
         enddo
 
