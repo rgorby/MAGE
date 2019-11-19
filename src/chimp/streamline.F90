@@ -231,8 +231,9 @@ module streamline
             endif
         else
         !At least one side ended badly
-            if ( (Np<MaxFL-1) ) OCb = OCb-1
-            if ( (Nm<MaxFL-1) ) OCb = OCb-1
+            OCb = -1 !Just set timeout flag
+            !if ( (Np<MaxFL-1) ) OCb = OCb-1
+            !if ( (Nm<MaxFL-1) ) OCb = OCb-1
         endif
         end associate
     end function FLTop

@@ -94,7 +94,7 @@ module chmpunits
             in2s   = L0/in2cms
             M0g    = EarthM0g
             inPScl = gamP0 !Gamera pressure -> nPa
-            rClosed = 3.5
+            rClosed = 2.25
         case("JUPITER")
             !Gamera units for Jupiter
             L0 = RJupiterXE*Re_cgs

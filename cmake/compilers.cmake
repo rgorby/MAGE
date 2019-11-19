@@ -23,6 +23,20 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 #-------------
+#Set minimum compiler versions
+if(CMAKE_Fortran_COMPILER_ID MATCHES Intel)
+	if(CMAKE_Fortran_COMPILER_VERSION VERSION_LESS 18.0)
+		message("Fortran compiler too old!  What, were you gonna use punch cards?")
+		message(FATAL_ERROR "ifort > 18.0 required")
+	endif()
+elseif(CMAKE_Fortran_COMPILER_ID MATCHES GNU)
+	if(CMAKE_Fortran_COMPILER_VERSION VERSION_LESS 8.0)
+		message("Fortran compiler too old!  What, were you gonna use punch cards?")
+		message(FATAL_ERROR "gfortran > 8.0 required")
+	endif()
+endif()
+
+#-------------
 #Set base release options
 set(CMAKE_Fortran_FLAGS_DEBUG "-g")
 set(CMAKE_Fortran_FLAGS_RELEASE "-O3")
