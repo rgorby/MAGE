@@ -345,26 +345,33 @@ module stress
                 if (Model%doBoris .and. isBulk) then
                     do i=1,iMax
 
-                        !Calculate del(rho_m v), the magnetic momentum
-                        !Two choices here: 
-                        !1) Delta mag momentum or Magmass x delta-vee
-                        !2) Total direction or perp to field
-
-                        RhoML = norm2( B0(i,XDIR:ZDIR) + MagLRB(i,XDIR:ZDIR,LEFT ) )**2.0/(Model%Ca**2.0)
-                        RhoMR = norm2( B0(i,XDIR:ZDIR) + MagLRB(i,XDIR:ZDIR,RIGHT) )**2.0/(Model%Ca**2.0)
-                        deeP = RhoMR*PrimLRB(i,VELX:VELZ,RIGHT) - RhoML*PrimLRB(i,VELX:VELZ,LEFT)
-
-                        !Get average XYZ field @ interface
-                        bAvg = B0(i,XDIR:ZDIR) + 0.5*( MagLRB(i,XDIR:ZDIR,LEFT) + MagLRB(i,XDIR:ZDIR,RIGHT) )
-                        bhat = normVec(bAvg)
+                        deeP = bbD(i)*dVel(i,XDIR:ZDIR)/(Model%Ca**2.0)
 
                         if (.not. doHogs11) then
-                            !Limit to perp component
+                        !Limit to perp component
+                            !Get average XYZ field @ interface
+                            bAvg = B0(i,XDIR:ZDIR) + 0.5*( MagLRB(i,XDIR:ZDIR,LEFT) + MagLRB(i,XDIR:ZDIR,RIGHT) )
+                            bhat = normVec(bAvg)
+                            !Pull out parallel component
                             deeP = Vec2Perp(deeP,bhat)
                         endif
 
                         !Now apply mag hogs
                         mFlxB(i,XDIR:ZDIR) = mFlxB(i,XDIR:ZDIR) - Model%cHogM*VaD(i)*deeP
+
+                        ! !Calculate del(rho_m v), the magnetic momentum
+                        ! !Two choices here: 
+                        ! !1) Delta mag momentum or Magmass x delta-vee
+                        ! !2) Total direction or perp to field
+
+                        ! RhoML = norm2( B0(i,XDIR:ZDIR) + MagLRB(i,XDIR:ZDIR,LEFT ) )**2.0/(Model%Ca**2.0)
+                        ! RhoMR = norm2( B0(i,XDIR:ZDIR) + MagLRB(i,XDIR:ZDIR,RIGHT) )**2.0/(Model%Ca**2.0)
+                        ! deeP = RhoMR*PrimLRB(i,VELX:VELZ,RIGHT) - RhoML*PrimLRB(i,VELX:VELZ,LEFT)
+
+
+
+                        ! !Now apply mag hogs
+                        ! mFlxB(i,XDIR:ZDIR) = mFlxB(i,XDIR:ZDIR) - Model%cHogM*VaD(i)*deeP
 
                     enddo
                 endif !Boris HOGS
