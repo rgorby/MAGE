@@ -1,0 +1,220 @@
+module testMpiBc
+  use pFUnit
+  use gamapp_mpi
+  use usergamic
+
+  implicit none
+
+  type(gamAppMpi_T), allocatable :: gamAppMpi
+
+contains
+
+  @before
+  subroutine setup(this)
+      class (MpiTestMethod), intent(inout) :: this
+      character(len=strLen) :: caseFile
+
+      call setMpiReal()
+
+      write(caseFile,'(A,I0,A)') 'blast3d_bc_', this%getNumProcesses(), '.xml'
+
+      allocate(gamAppMpi)
+      call initGamera_mpi(gamAppMpi, initUser, this%getMpiCommunicator(), caseFile, .false.)
+
+  end subroutine setup
+
+  @after
+  subroutine teardown(this)
+      class (MpiTestMethod), intent(inout) :: this
+
+      deallocate(gamAppMpi)
+
+  end subroutine teardown
+
+  @test(npes=[4])
+  subroutine testHaloExtBC1D(this)
+      class (MpiTestMethod), intent(inout) :: this
+
+      integer :: i,j,k,l,m,iIndex,jIndex,kIndex
+      real(rp) :: checkVal
+      character(len=strLen) :: checkMsg
+      real(rp) :: iVal, jVal, kVal, lVal, mVal
+
+      ! coefficients chosen to allow easy interpretation of final values
+      iVal = 1
+      jVal = 20
+      kVal = 400
+      lVal = 8000
+      mVal = 160000
+
+      ! clear all cells
+      gamAppMpi%State%Gas(:,:,:,:,:) = 0
+
+      ! this case is only MPI periodic along the I axis
+      ! set external BC values along the J and K boundaries, and ensure
+      !    that these are properly transmitted between adjacent ranks during halo update
+
+
+      ! set values in the external BC ghost cells that this rank is responsible for
+      ! this means ghost cells adjacent to physical cells
+      do l=1,NVAR
+          do m=0,gamAppMpi%Model%nSpc
+              do i=gamAppMpi%Grid%is,gamAppMpi%Grid%ie
+                  iIndex = i+gamAppMpi%Grid%ijkShift(IDIR)
+                  do j=gamAppMpi%Grid%jsg,gamAppMpi%Grid%jeg
+                      jIndex=j
+                      do k=0,gamAppMpi%Model%Ng-1
+                          ! min K
+                          kIndex = gamAppMpi%Grid%ksg+k
+                          checkVal = mVal*m + lVal*l + iVal*iIndex + jVal*jIndex + kVal*kIndex
+                          gamAppMpi%State%gas(i,j,kIndex,l,m) = checkVal
+
+                          ! max K
+                          kIndex = gamAppMpi%Grid%keg-k
+                          checkVal = mVal*m + lVal*l + iVal*iIndex + jVal*jIndex + kVal*kIndex
+                          gamAppMpi%State%gas(i,j,kIndex,l,m) = checkVal
+                      enddo
+                  enddo
+                  do k=gamAppMpi%Grid%ksg,gamAppMpi%Grid%keg
+                      kIndex = k
+                      do j=0,gamAppMpi%Model%Ng-1
+                          ! min J
+                          jIndex = gamAppMpi%Grid%jsg+j
+                          checkVal = mVal*m + lVal*l + iVal*iIndex + jVal*jIndex + kVal*kIndex
+                          gamAppMpi%State%gas(i,jIndex,k,l,m) = checkVal
+
+                          ! max J
+                          jIndex = gamAppMpi%Grid%jeg-j
+                          checkVal = mVal*m + lVal*l + iVal*iIndex + jVal*jIndex + kVal*kIndex
+                          gamAppMpi%State%gas(i,jIndex,k,l,m) = checkVal
+                      enddo
+                  enddo
+              enddo
+          enddo
+      enddo
+
+      ! halo update
+      call haloUpdate(gamAppMpi)
+
+      ! now check all ghost cells along j/k external BCs for correct values
+      do l=1,NVAR
+          do m=0,gamAppMpi%Model%nSpc
+              do i=gamAppMpi%Grid%isg,gamAppMpi%Grid%ieg
+                  iIndex = 1+modulo(i+gamAppMpi%Grid%ijkShift(IDIR)-1, gamAppMpi%Grid%Nip*gamAppMpi%Grid%NumRi)
+                  do j=gamAppMpi%Grid%jsg,gamAppMpi%Grid%jeg
+                      jIndex = j
+                      do k=0,gamAppMpi%Model%Ng-1
+                          ! min K
+                          kIndex = gamAppMpi%Grid%ksg+k
+                          checkVal = mVal*m + lVal*l + iVal*iIndex + jVal*jIndex + kVal*kIndex
+                          write (checkMsg,'(I0,A,I0,A,I0,A,I0,A,I0,A,I0,A)') this%getNumProcesses(),' processor wrong at (',i,',',j,',',kIndex,',',l,',',m,')'
+                          @assertEqual(checkVal,gamAppMpi%State%gas(i,j,kIndex,l,m),trim(checkMsg))
+
+                          ! max K
+                          kIndex = gamAppMpi%Grid%keg-k
+                          checkVal = mVal*m + lVal*l + iVal*iIndex + jVal*jIndex + kVal*kIndex
+                          write (checkMsg,'(I0,A,I0,A,I0,A,I0,A,I0,A,I0,A)') this%getNumProcesses(),' processor wrong at (',i,',',j,',',kIndex,',',l,',',m,')'
+                          @assertEqual(checkVal,gamAppMpi%State%gas(i,j,kIndex,l,m),trim(checkMsg))
+                      enddo
+                  enddo
+                  do k=gamAppMpi%Grid%ksg,gamAppMpi%Grid%keg
+                      kIndex = k
+                      do j=0,gamAppMpi%Model%Ng-1
+                          ! min J
+                          jIndex = gamAppMpi%Grid%jsg+j
+                          checkVal = mVal*m + lVal*l + iVal*iIndex + jVal*jIndex + kVal*kIndex
+                          write (checkMsg,'(I0,A,I0,A,I0,A,I0,A,I0,A,I0,A)') this%getNumProcesses(),' processor wrong at (',i,',',jIndex,',',k,',',l,',',m,')'
+                          @assertEqual(checkVal,gamAppMpi%State%gas(i,jIndex,k,l,m),trim(checkMsg))
+
+                          ! max J
+                          jIndex = gamAppMpi%Grid%jeg-j
+                          checkVal = mVal*m + lVal*l + iVal*iIndex + jVal*jIndex + kVal*kIndex
+                          write (checkMsg,'(I0,A,I0,A,I0,A,I0,A,I0,A,I0,A)') this%getNumProcesses(),' processor wrong at (',i,',',jIndex,',',k,',',l,',',m,')'
+                          @assertEqual(checkVal,gamAppMpi%State%gas(i,jIndex,k,l,m),trim(checkMsg))
+                      enddo
+                  enddo
+              enddo
+          enddo
+      enddo
+  end subroutine testHaloExtBC1D
+
+  @test(npes=[16])
+  subroutine testHaloExtBC2D(this)
+      class (MpiTestMethod), intent(inout) :: this
+
+      integer :: i,j,k,l,m,iIndex,jIndex,kIndex
+      real(rp) :: checkVal
+      character(len=strLen) :: checkMsg
+      real(rp) :: iVal, jVal, kVal, lVal, mVal
+
+      ! coefficients chosen to allow easy interpretation of final values
+      iVal = 1
+      jVal = 20
+      kVal = 400
+      lVal = 8000
+      mVal = 160000
+
+      ! clear all cells
+      gamAppMpi%State%Gas(:,:,:,:,:) = 0
+
+      ! this case is MPI periodic along the I and J axes
+      ! set external BC values along the K boundaries, and ensure
+      !    that these are properly transmitted between adjacent ranks during halo update
+
+
+      ! set values in the external BC ghost cells that this rank is responsible for
+      ! this means physical cells
+      do l=1,NVAR
+          do m=0,gamAppMpi%Model%nSpc
+              do i=gamAppMpi%Grid%is,gamAppMpi%Grid%ie
+                  iIndex = i+gamAppMpi%Grid%ijkShift(IDIR)
+                  do j=gamAppMpi%Grid%js,gamAppMpi%Grid%je
+                      jIndex = j+gamAppMpi%Grid%ijkShift(JDIR)
+                      do k=0,gamAppMpi%Model%Ng-1
+                          ! min K
+                          kIndex = gamAppMpi%Grid%ksg+k
+                          checkVal = mVal*m + lVal*l + iVal*iIndex + jVal*jIndex + kVal*kIndex
+                          gamAppMpi%State%gas(i,j,kIndex,l,m) = checkVal
+
+                          ! max K
+                          kIndex = gamAppMpi%Grid%keg-k
+                          checkVal = mVal*m + lVal*l + iVal*iIndex + jVal*jIndex + kVal*kIndex
+                          gamAppMpi%State%gas(i,j,kIndex,l,m) = checkVal
+                      enddo
+                  enddo
+              enddo
+          enddo
+      enddo
+
+      ! halo update
+      call haloUpdate(gamAppMpi)
+
+      ! now check all ghost cells along k external BCs for correct values
+      do l=1,NVAR
+          do m=0,gamAppMpi%Model%nSpc
+              do i=gamAppMpi%Grid%isg,gamAppMpi%Grid%ieg
+                  iIndex = 1+modulo(i+gamAppMpi%Grid%ijkShift(IDIR)-1, gamAppMpi%Grid%Nip*gamAppMpi%Grid%NumRi)
+                  do j=gamAppMpi%Grid%jsg,gamAppMpi%Grid%jeg
+                      jIndex = 1+modulo(j+gamAppMpi%Grid%ijkShift(JDIR)-1, &
+                                          gamAppMpi%Grid%Njp*gamAppMpi%Grid%NumRj)
+                      do k=0,gamAppMpi%Model%Ng-1
+                          ! min K
+                          kIndex = gamAppMpi%Grid%ksg+k
+                          checkVal = mVal*m + lVal*l + iVal*iIndex + jVal*jIndex + kVal*kIndex
+                          write (checkMsg,'(I0,A,I0,A,I0,A,I0,A,I0,A,I0,A)') this%getNumProcesses(),' processor wrong at (',i,',',j,',',kIndex,',',l,',',m,')'
+                          @assertEqual(checkVal,gamAppMpi%State%gas(i,j,kIndex,l,m),trim(checkMsg))
+
+                          ! max K
+                          kIndex = gamAppMpi%Grid%keg-k
+                          checkVal = mVal*m + lVal*l + iVal*iIndex + jVal*jIndex + kVal*kIndex
+                          write (checkMsg,'(I0,A,I0,A,I0,A,I0,A,I0,A,I0,A)') this%getNumProcesses(),' processor wrong at (',i,',',j,',',kIndex,',',l,',',m,')'
+                          @assertEqual(checkVal,gamAppMpi%State%gas(i,j,kIndex,l,m),trim(checkMsg))
+                      enddo
+                  enddo
+              enddo
+          enddo
+      enddo
+  end subroutine testHaloExtBC2D
+
+end module testMpiBc
+

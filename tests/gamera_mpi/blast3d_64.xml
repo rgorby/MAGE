@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <Gamera>
-    <sim runid="blast3d_1" doH5init="F" icType="BW" pdmb="4.0"/>
+    <sim runid="blast3d_64" doH5init="F" icType="BW" pdmb="4.0"/>
     <idir min="-0.5" max="0.5" N="16"/>
     <jdir min="-0.5" max="0.5" N="16"/>
     <kdir min="-0.5" max="0.5" N="16"/>
@@ -12,7 +12,7 @@
     <kPdir N="4"/>
     <time tFin="1.0"/>
     <output dtOut="0.1" tsOut="1000000"/>
-    <physics doMHD="T" do25D="T"/>
+    <physics doMHD="F" do25D="F"/>
     <prob alpha="45.0" V0="1.41421356237"/>
 </Gamera>
 
