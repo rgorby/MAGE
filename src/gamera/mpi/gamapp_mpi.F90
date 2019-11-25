@@ -562,11 +562,12 @@ module gamapp_mpi
         logical, intent(in) :: periodicI, periodicJ, periodicK
 
         integer :: ierr, rank, ic, jc, kc, localIndexIn, localIndexOut, sendDataOffset, recvDataOffset
-        integer :: dataSize, iG, iP, iGjG, iGjP, iPjG, iPjP, targetSendRank, targetRecvRank, gasType, fluxType
+        integer :: dataSize, iG, iP, iGjG, iGjP, iPjG, iPjP, targetSendRank, targetRecvRank, gasType, BxyzType
         integer :: cornerMpiType,iEdgeMpiType,jEdgeMpiType,kEdgeMpiType,iFaceMpiType,jFaceMpiType,kFaceMpiType
         integer :: corner4Gas,iEdge4Gas,jEdge4Gas,kEdge4Gas,iFace4Gas,jFace4Gas,kFace4Gas
         integer :: corner5Gas,iEdge5Gas,jEdge5Gas,kEdge5Gas,iFace5Gas,jFace5Gas,kFace5Gas
         integer(kind=MPI_ADDRESS_KIND) :: tempOffsets(2)
+        integer :: corner4B, iEdge4B, jEdge4B, kEdge4B, iFace4B, jFace4B, kFace4B
 
         associate(Grid=>gamAppMpi%Grid,Model=>gamAppMpi%Model)
 
@@ -588,6 +589,28 @@ module gamapp_mpi
         ! set all datatypes to null by default
         gamAppMpi%sendTypesGas(:) = MPI_DATATYPE_NULL
         gamAppMpi%recvTypesGas(:) = MPI_DATATYPE_NULL
+
+        if(Model%doMHD) then
+            ! do setup for mpi transfer of MHD data
+            allocate(gamAppMpi%sendCountsBxyz(1:SIZE(gamAppMpi%sendRanks)))
+            allocate(gamAppMpi%sendDisplsBxyz(1:SIZE(gamAppMpi%sendRanks)))
+            allocate(gamAppMpi%sendTypesBxyz(1:SIZE(gamAppMpi%sendRanks)))
+            allocate(gamAppMpi%recvCountsBxyz(1:SIZE(gamAppMpi%recvRanks)))
+            allocate(gamAppMpi%recvDisplsBxyz(1:SIZE(gamAppMpi%recvRanks)))
+            allocate(gamAppMpi%recvTypesBxyz(1:SIZE(gamAppMpi%recvRanks)))
+
+            ! counts are always 1 because we're sending a single (complicated) mpi datatype
+            gamAppMpi%sendCountsBxyz(:) = 1
+            gamAppMpi%recvCountsBxyz(:) = 1
+
+            ! displacements are always 0 because the displacements are baked into each mpi datatype
+            gamAppMpi%sendDisplsBxyz(:) = 0
+            gamAppMpi%recvDisplsBxyz(:) = 0
+
+            ! set all datatypes to null by default
+            gamAppMpi%sendTypesBxyz(:) = MPI_DATATYPE_NULL
+            gamAppMpi%recvTypesBxyz(:) = MPI_DATATYPE_NULL
+        endif
 
         ! get my rank
         call mpi_comm_rank(gamAppMpi%gamMpiComm, rank, ierr)
@@ -638,6 +661,15 @@ module gamapp_mpi
         call mpi_type_hvector(Model%nSpc+1,1,NVAR*Grid%Ni*Grid%Nj*Grid%Nk*dataSize, iFace4Gas,  iFace5Gas,  ierr)
         call mpi_type_hvector(Model%nSpc+1,1,NVAR*Grid%Ni*Grid%Nj*Grid%Nk*dataSize, jFace4Gas,  jFace5Gas,  ierr)
         call mpi_type_hvector(Model%nSpc+1,1,NVAR*Grid%Ni*Grid%Nj*Grid%Nk*dataSize, kFace4Gas,  kFace5Gas,  ierr)
+
+        ! 4th dimension for Bxyz
+        call mpi_type_hvector(NDIM, 1, Grid%Ni*Grid%Nj*Grid%Nk*dataSize, cornerMpiType, corner4B, ierr)
+        call mpi_type_hvector(NDIM, 1, Grid%Ni*Grid%Nj*Grid%Nk*dataSize, iEdgeMpiType,  iEdge4B,  ierr)
+        call mpi_type_hvector(NDIM, 1, Grid%Ni*Grid%Nj*Grid%Nk*dataSize, jEdgeMpiType,  jEdge4B,  ierr)
+        call mpi_type_hvector(NDIM, 1, Grid%Ni*Grid%Nj*Grid%Nk*dataSize, kEdgeMpiType,  kEdge4B,  ierr)
+        call mpi_type_hvector(NDIM, 1, Grid%Ni*Grid%Nj*Grid%Nk*dataSize, iFaceMpiType,  iFace4B,  ierr)
+        call mpi_type_hvector(NDIM, 1, Grid%Ni*Grid%Nj*Grid%Nk*dataSize, jFaceMpiType,  jFace4B,  ierr)
+        call mpi_type_hvector(NDIM, 1, Grid%Ni*Grid%Nj*Grid%Nk*dataSize, kFaceMpiType,  kFace4B,  ierr)
 
         ! figure out exactly what data needs to be sent to (and received from) each neighbor
         ! create custom MPI datatypes to perform these transfers
@@ -794,27 +826,35 @@ module gamapp_mpi
 
                     ! determine which of the previously created datatypes is the correct one
                     gasType = MPI_DATATYPE_NULL
+                    BxyzType = MPI_DATATYPE_NULL
                     SELECT CASE (abs(ic)+abs(jc)+abs(kc))
                         case (0) ! all physical cells. this is never actually copied
                             ! do nothing
                         case (1) ! face
                             if(ic /= 0) then
                                 gasType = iFace5Gas
+                                BxyzType = iFace4B
                             elseif(jc /= 0) then
                                 gasType = jFace5Gas
+                                BxyzType = jFace4B
                             else
                                 gasType = kFace5Gas
+                                BxyzType = kFace4B
                             endif
                         case (2) ! edge
                             if(ic == 0) then
                                 gasType = iEdge5Gas
+                                BxyzType = iEdge4B
                             elseif(jc == 0) then
                                 gasType = jEdge5Gas
+                                BxyzType = jEdge4B
                             else
                                 gasType = kEdge5Gas
+                                BxyzType = kEdge4B
                             endif
                         case (3) ! corner
                             gasType = corner5Gas
+                            BxyzType = corner4B
                         CASE DEFAULT
                             print *, 'Sum of ic+jc+kc is nonsense'
                             call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
@@ -836,6 +876,21 @@ module gamapp_mpi
                                                         (/ gamAppMpi%recvTypesGas(localIndexIn), gasType /), &
                                                         gamAppMpi%recvTypesGas(localIndexIn),  ierr)
                         endif
+                        if(Model%doMHD) then
+                            if(gamAppMpi%recvTypesBxyz(localIndexIn) == MPI_DATATYPE_NULL) then
+                                ! not receiving any data from this rank yet, just add this datatype
+                                call mpi_type_hindexed(1, (/ 1 /), recvDataOffset*dataSize, BxyzType, &
+                                                       gamAppMpi%recvTypesBxyz(localIndexIn), ierr)
+                            else
+                                ! we're already receivng other data from this rank
+                                !  merge the datatypes into a struct
+                                ! need to use a temporary array so that the ints are of type MPI_ADDRESS_KIND
+                                tempOffsets = (/ 0, recvDataOffset*dataSize /)
+                                call mpi_type_create_struct(2, (/ 1, 1 /), tempOffsets, &
+                                                            (/ gamAppMpi%recvTypesBxyz(localIndexIn), BxyzType /), &
+                                                            gamAppMpi%recvTypesBxyz(localIndexIn),  ierr)
+                            endif
+                        endif
                     endif
                     if(targetSendRank /= rank) then
                         ! make sure I'm not talking to myself
@@ -853,6 +908,21 @@ module gamapp_mpi
                                                         (/ gamAppMpi%sendTypesGas(localIndexOut), gasType /), &
                                                         gamAppMpi%sendTypesGas(localIndexOut), ierr)
                         endif
+                        if(Model%doMHD) then
+                            if(gamAppMpi%sendTypesBxyz(localIndexOut) == MPI_DATATYPE_NULL) then
+                                ! not sending any data to this rank yet, just add this datatype
+                                call mpi_type_hindexed(1, (/ 1 /), sendDataOffset*dataSize, BxyzType, &
+                                                       gamAppMpi%sendTypesBxyz(localIndexOut), ierr)
+                            else
+                                ! we're already sending other data to this rank
+                                !  merge the datatypes into a struct
+                                ! need to use a temporary array so that the ints are of type MPI_ADDRESS_KIND
+                                tempOffsets = (/ 0, sendDataOffset*dataSize /)
+                                call mpi_type_create_struct(2, (/ 1, 1 /), tempOffsets, &
+                                                            (/ gamAppMpi%sendTypesBxyz(localIndexOut), BxyzType /), &
+                                                            gamAppMpi%sendTypesBxyz(localIndexOut),  ierr)
+                            endif
+                        endif
                     endif
                 enddo
             enddo
@@ -866,6 +936,15 @@ module gamapp_mpi
             call mpi_type_commit(gamAppMpi%recvTypesGas(localIndexIn), ierr)
         enddo
 
+        if(Model%doMHD) then
+            do localIndexOut=1,SIZE(gamAppMpi%sendTypesBxyz)
+                call mpi_type_commit(gamAppMpi%sendTypesBxyz(localIndexOut), ierr)
+            enddo
+            do localIndexIn=1,SIZE(gamAppMpi%recvTypesBxyz)
+                call mpi_type_commit(gamAppMpi%recvTypesBxyz(localIndexIn), ierr)
+            enddo
+        endif
+
         end associate
 
     end subroutine createCellCenteredDatatypes
@@ -873,6 +952,116 @@ module gamapp_mpi
     subroutine createFaceCenteredDatatypes(gamAppMpi, periodicI, periodicJ, periodicK)
         type(gamAppMpi_T), intent(inout) :: gamAppMpi
         logical, intent(in) :: periodicI, periodicJ, periodicK
+
+        associate(Grid=>gamAppMpi%Grid,Model=>gamAppMpi%Model)
+
+        if(.not. Model%doMHD) then
+            return ! only mhd variables being transferred with face data
+        endif
+
+        allocate(gamAppMpi%sendCountsMagFlux(1:SIZE(gamAppMpi%sendRanks)))
+        allocate(gamAppMpi%sendDisplsMagFlux(1:SIZE(gamAppMpi%sendRanks)))
+        allocate(gamAppMpi%sendTypesMagFlux(1:SIZE(gamAppMpi%sendRanks)))
+        allocate(gamAppMpi%recvCountsMagFlux(1:SIZE(gamAppMpi%recvRanks)))
+        allocate(gamAppMpi%recvDisplsMagFlux(1:SIZE(gamAppMpi%recvRanks)))
+        allocate(gamAppMpi%recvTypesMagFlux(1:SIZE(gamAppMpi%recvRanks)))
+
+        ! counts are always 1 because we're sending a single (complicated) mpi datatype
+        gamAppMpi%sendCountsMagFlux(:) = 1
+        gamAppMpi%recvCountsMagFlux(:) = 1
+
+        ! displacements are always 0 because the displacements are baked into each mpi datatype
+        gamAppMpi%sendDisplsMagFlux(:) = 0
+        gamAppMpi%recvDisplsMagFlux(:) = 0
+
+        ! set all datatypes to null by default
+        gamAppMpi%sendTypesMagFlux(:) = MPI_DATATYPE_NULL
+        gamAppMpi%recvTypesMagFlux(:) = MPI_DATATYPE_NULL
+
+        ! get my rank
+        call mpi_comm_rank(gamAppMpi%gamMpiComm, rank, ierr)
+
+        ! assemble the different datatypes
+        call mpi_type_extent(MPI_MYFLOAT, dataSize, ierr) ! number of bytes per array entry
+
+        ! I dimension
+        call mpi_type_contiguous(Model%nG  , MPI_MYFLOAT, iG,  ierr) ! ghosts i
+        call mpi_type_contiguous(Model%nG+1, MPI_MYFLOAT, iG1, ierr) ! ghosts i + 1
+        call mpi_type_contiguous(Grid%Nip,   MPI_MYFLOAT, iP,  ierr) ! physical i
+        call mpi_type_contiguous(Grid%Nip+1, MPI_MYFLOAT, iP1, ierr) ! physical i + 1
+
+        ! J dimension
+        call mpi_type_hvector(Model%nG, 1, Grid%Ni*dataSize, iG, iGjG, ierr) ! ghosts i   - ghosts j
+        call mpi_type_hvector(Grid%Njp, 1, Grid%Ni*dataSize, iG, iGjP, ierr) ! ghosts i   - physical j
+        call mpi_type_hvector(Model%nG, 1, Grid%Ni*dataSize, iP, iPjG, ierr) ! physical i - ghosts j
+        call mpi_type_hvector(Grid%Njp, 1, Grid%Ni*dataSize, iP, iPjP, ierr) ! physical i - physical j
+
+        ! K dimension
+       call mpi_type_hvector(Model%nG, 1, Grid%Ni*Grid%Nj*dataSize, &
+                             iG1jG, iG1jGkG, ierr) ! ghosts+1 - ghosts - ghosts
+iG1jGkG
+iGjG1kG
+iGjGkG1
+iP1jGkG
+iPjG1kG
+iPjGkG1
+iG1jPkG
+iGjP1kG
+iGjPkG1
+iG1jGkP
+iGjG1kP
+iGjGkP1
+iGjPkP
+iGjP1kP
+iGjPkP1
+iP1jGkP
+iPjGkP
+iPjGkP1
+iP1jPkG
+iPjP1kG
+iPjPkG
+
+        ! actual face datatypes need weird numbers of different dimensions. assemble them
+        ! call mpi_type_create_struct(count,[lengths],[displacements],[types],newtype,ierr)
+        ijkBytes = dataSize*Grid%Ni*Grid%Nj*Grid%Nk
+        tempDispls3 = (/ 0, ijkBytes, 2*ijkBytes /)
+        call mpi_type_create_struct(3, (/1,1,1/),tempDispls3, &
+                                    (/ iG1jGkG, iGjG1kG, iGjGkG1 /), &
+                                    cornerMpiMagFlux, ierr)
+        call mpi_type_create_struct(3, (/1,1,1/),tempDispls3, &
+                                    (/ iP1jGkG, iPjG1kG, iPjGkG1 /), &
+                                    iEdgeMpiMagFlux, ierr)
+        call mpi_type_create_struct(3, (/1,1,1/),tempDispls3, &
+                                    (/ iG1jPkG, iGjP1kG, iGjPkG1 /), &
+                                    jEdgeMpiMagFlux, ierr)
+        call mpi_type_create_struct(3, (/1,1,1/),tempDispls3, &
+                                    (/ iG1jGkP, iGjG1kP, iGjGkP1 /), &
+                                    kEdgeMpiMagFlux, ierr)
+        call mpi_type_create_struct(3, (/1,1,1/),tempDispls3, &
+                                    (/ iGjPkP, iGjP1kP, iGjPkP1 /), &
+                                    minIFaceMpiMagFlux, ierr)
+        call mpi_type_create_struct(3, (/1,1,1/),tempDispls3, &
+                                    (/ iP1jGkP, iPjGkP, iPjGkP1 /), &
+                                    minJFaceMpiMagFlux, ierr)
+        call mpi_type_create_struct(3, (/1,1,1/),tempDispls3, &
+                                    (/ iP1jPkG, iPjP1kG, iPjPkG /), &
+                                    minKFaceMpiMagFlux, ierr)
+
+        ! need to offset displacements
+        tempDispls3 = (/ 1, ijkBytes, 2*ijkBytes /)
+        call mpi_type_create_struct(3, (/1,1,1/),tempDispls3, &
+                                    (/ iGjPkP, iGjP1kP, iGjPkP1 /), &
+                                    maxIFaceMpiMagFlux, ierr)
+        tempDispls3 = (/ 0, dataSize*Grid%Ni + ijkBytes, 2*ijkBytes /)
+        call mpi_type_create_struct(3, (/1,1,1/),tempDispls3, &
+                                    (/ iP1jGkP, iPjGkP, iPjGkP1 /), &
+                                    maxJFaceMpiMagFlux, ierr)
+        tempDispls3 = (/ 0, ijkBytes, dataSize*Grid%Ni*Grid%Nj + 2*ijkBytes /)
+        call mpi_type_create_struct(3, (/1,1,1/),tempDispls3, &
+                                    (/ iP1jPkG, iPjP1kG, iPjPkG /), &
+                                    maxKFaceMpiMagFlux, ierr)
+
+        end associate
 
     end subroutine createFaceCenteredDatatypes
 
