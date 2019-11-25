@@ -7,6 +7,9 @@ import datetime
 from matplotlib import dates
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
+import kaipy.kaiViz as kv
+import datetime
 
 def BasicPlot(VarDict,Xname,Yname,Xlabel=True,color='b'):
     """
@@ -20,18 +23,18 @@ def BasicPlot(VarDict,Xname,Yname,Xlabel=True,color='b'):
     if (np.array(y['data'][0]).size > 1 and 
         np.array(y['data'][0]).size == len(color) and
         all([ylen == np.array(y['data'][0]).size for ylen in map(len,y['data'])]) ):
-       for i in range(np.array(y['data'][0]).size):
-          plt.plot(x['data'], [yts[i] for yts in y['data']], color=color[i])
+        for i in range(np.array(y['data'][0]).size):
+            plt.plot(x['data'], [yts[i] for yts in y['data']], color=color[i])
     else:
-       plt.plot(x['data'],y['data'],color=color)
-    
+        plt.plot(x['data'],y['data'],color=color)
+            
     # Xname may point to a list of datetime.datetime objects, in which case
     # pyplot must be told to plot these as datetimes
     if all([type(ts) == datetime.datetime for ts in x['data']]):
-       dfmt = dates.DateFormatter('%m/%d/%y-%H:%M')
-       plt.gca().xaxis.set_major_formatter(dfmt)
+        dfmt = dates.DateFormatter('%m/%d/%y-%H:%M')
+        plt.gca().xaxis.set_major_formatter(dfmt)
     elif any([type(ts) == datetime.datetime for ts in x['data']]):
-       raise Exception('Cannot mix datetime time-axis elements with other types')
+        raise Exception('Cannot mix datetime time-axis elements with other types')
     
     
     if Xlabel:
@@ -47,9 +50,9 @@ def BasicPlot(VarDict,Xname,Yname,Xlabel=True,color='b'):
     
     # y['name'] may not be a scalar
     if (np.array(y['name']).size) > 1:
-      plt.ylabel('['+y['units']+']',fontsize='small')
+        plt.ylabel('['+y['units']+']',fontsize='small')
     else:
-      plt.ylabel(y['name']+' ['+y['units']+']',fontsize='small')
+        plt.ylabel(y['name']+' ['+y['units']+']',fontsize='small')
   
 def SummaryPlot(VarDict,Xname):
     """
@@ -64,7 +67,7 @@ def SummaryPlot(VarDict,Xname):
     for var in VarDict.keys():
         if isinstance(VarDict[var], dict):
             if 'data' in VarDict[var]:
-               plotVariables.append(var)
+                plotVariables.append(var)
 
     MultiPlotN([VarDict], Xname, plotVariables)
 
@@ -157,3 +160,95 @@ def MultiPlotN(varDicts, Xname, variables, colors = [], legendLabels=[]):
     plt.subplot(nSubplots, 1, 1)
     if legendLabels:
         plt.legend(legendLabels, loc='best')
+
+def swQuickPlot(UT,D,Temp,Vx,Vy,Vz,Bx,By,Bz,SYMH,fname):
+    """
+    Plot solar wind n,T, dyn p, V, B and sym/h over time period specified by the user.
+
+    """
+    ## UT formats for plotting
+    t0fmt = '%Y-%m-%d %H:%M:%S'
+    utfmt='%H:%M \n%Y-%m-%d'
+
+    utall = []
+    for n in range(len(UT)):
+        utall.append(datetime.datetime.strptime(UT[n].decode('utf-8'),t0fmt))
+
+    # constants
+    gamma = 5/3.0
+    mp = 1.67e-27 #Proton mass [kg]
+    
+    # calculating the solar wind dynamic pressure 
+    Vmag = np.sqrt(Vx**2+Vy**2+Vz**2)
+    Pram = mp*D*Vmag**2*1.0e15 # nPa
+
+    #Setup figure
+    fSz = (10,14)
+    Nr = 6
+    Nc = 1
+    clrs = ['#7570b3','#1b9e77','#d95f02','black'] # from colorbrewer2.org for colorblind safe
+
+    fig = plt.figure(figsize=fSz)
+
+    gs = gridspec.GridSpec(Nr,Nc,hspace=0.05,wspace=0.05)
+
+    ax11 = fig.add_subplot(gs[0,0])
+    ax12 = fig.add_subplot(gs[3,0])
+    ax21 = fig.add_subplot(gs[1,0])
+    ax22 = fig.add_subplot(gs[4,0])
+    ax31 = fig.add_subplot(gs[2,0])
+    ax32 = fig.add_subplot(gs[5,0])
+    
+    smlabel = ['SM-X','SM-Y','SM-Z']
+    xvec = np.zeros((len(D),3))+1e9
+
+    fig.suptitle("Solar Wind",y=0.92,fontsize=14)
+    Dlim=np.max(D)-np.min(D)
+    ax11.plot(utall,D,color=clrs[3])
+    for i in range(3):
+        ax11.plot(utall,xvec[:,i],linewidth=4,label=smlabel[i],color=clrs[i])
+    kv.SetAxLabs(ax11,"","n [cm^-3]",doBot=True,doLeft=True)
+    ax11.set_ylim(np.min(D)-0.05*Dlim,np.max(D)+0.05*Dlim)
+    ax11.tick_params(axis="x",direction="in")
+    plt.setp(ax11.get_xticklabels(),visible=False)
+    ax11.legend(ncol=len(smlabel), bbox_to_anchor=(0.5,1),loc='lower center', fontsize='small')
+    
+    TScl = 1.0e-6
+    ax21.plot(utall,Temp*TScl,color=clrs[3])
+    kv.SetAxLabs(ax21,"","T [MK]",doBot=True,doLeft=False)
+    ax21.tick_params(axis="x",direction="in")
+    plt.setp(ax21.get_xticklabels(),visible=False)
+    
+    ax31.plot(utall,Pram,color=clrs[3])
+    ax31.xaxis_date()
+    kv.SetAxLabs(ax31,"","Dynamic P [nPa]",doBot=True,doLeft=True)
+    ax31.tick_params(axis="x",direction="in")
+    plt.setp(ax31.get_xticklabels(),visible=False)
+    
+    vScl = 1.0e-3
+    secax12 = ax12.twinx()
+    ax12.plot(utall,Vx*vScl,color=clrs[0],linewidth=0.95)
+    secax12.plot(utall,Vy*vScl,color=clrs[1],linewidth=0.95)
+    secax12.plot(utall,Vz*vScl,color=clrs[2],linewidth=0.95)
+    secax12.set_ylabel('Vy,z [km/s]')
+    kv.SetAxLabs(ax12,"","Vx [km/s]",doBot=True,doLeft=True)
+    ax12.tick_params(axis="x",direction="in")
+    plt.setp(ax12.get_xticklabels(),visible=False)
+    
+    ax22.plot(utall,Bx,color=clrs[0],linewidth=0.95)
+    ax22.plot(utall,By,color=clrs[1],linewidth=0.95)
+    ax22.plot(utall,Bz,color=clrs[2],linewidth=0.95)
+    ax22.axhline(y=0.0, color='black', linestyle='--',alpha=0.6,linewidth=0.9)
+    kv.SetAxLabs(ax22,"","B [nT]",doBot=True,doLeft=False)
+    ax22.tick_params(axis="x",direction="in")
+    plt.setp(ax22.get_xticklabels(),visible=False)
+    
+    ax32.plot(utall,SYMH,color=clrs[3])
+    ax32.axhline(y=0.0, color='black', linestyle='--',alpha=0.6,linewidth=0.9)
+    ax32.xaxis_date()
+    xfmt = dates.DateFormatter(utfmt)
+    ax32.xaxis.set_major_formatter(xfmt)
+    kv.SetAxLabs(ax32,"UT","SYM/H [nT]",doBot=True,doLeft=True)
+    kv.savePic(fname)
+    plt.close('all')
+
