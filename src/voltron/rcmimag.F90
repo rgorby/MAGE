@@ -326,6 +326,9 @@ module rcmimag
         type(IOVAR_T), dimension(MAXRCMIOVAR) :: IOVars
         character(len=strLen) :: gStr
 
+        integer, dimension(2) :: DimLL
+        integer :: Ni,Nj
+
         !Reset IO chain
         call ClearIO(IOVars)
 
@@ -343,8 +346,13 @@ module rcmimag
         call AddOutVar(IOVars,"Pmhd",RCMApp%Pave*rcmPScl)
         call AddOutVar(IOVars,"Nmhd",RCMApp%Nave*rcmNScl)
 
-        call AddOutVar(IOVars,"colat",colat)
-        call AddOutVar(IOVars,"aloct",aloct)
+        !Trim output for colat/aloct to remove wrapping
+        DimLL = shape(colat)
+        Ni = DimLL(1)
+        Nj = DimLL(2)
+
+        call AddOutVar(IOVars,"colat",colat(:,3:Nj))
+        call AddOutVar(IOVars,"aloct",aloct(:,3:Nj))
         !Add attributes
         call AddOutVar(IOVars,"time",time)
         call AddOutVar(IOVars,"MJD",MJD)
@@ -355,6 +363,7 @@ module rcmimag
         !Call RCM output
         RCMApp%rcm_nOut = nOut
         call rcm_mhd(time,TINY,RCMApp,RCMWRITEOUTPUT)
+        
     end subroutine WriteRCM
 
     subroutine WriteRCMRestart(nRes,MJD,time)
