@@ -182,15 +182,22 @@ contains
       gamAppMpi%State%magFlux(:,:,:,:) = 0
 
       ! set values in physical faces only
+      ! because the case is triply periodic is=ie+1, and the same for j and k
       l=IDIR
       do i=gamAppMpi%Grid%is,gamAppMpi%Grid%ie+1
           do j=gamAppMpi%Grid%js,gamAppMpi%Grid%je
               do k=gamAppMpi%Grid%ks,gamAppMpi%Grid%ke
+                  iIndex = 1+modulo(i+gamAppMpi%Grid%ijkShift(IDIR)-1, &
+                           gamAppMpi%Grid%Nip*gamAppMpi%Grid%NumRi)
+                  jIndex = 1+modulo(j+gamAppMpi%Grid%ijkShift(JDIR)-1, &
+                           gamAppMpi%Grid%Njp*gamAppMpi%Grid%NumRj)
+                  kIndex = 1+modulo(k+gamAppMpi%Grid%ijkShift(KDIR)-1, &
+                           gamAppMpi%Grid%Nkp*gamAppMpi%Grid%NumRk)
                   gamAppMpi%State%magFlux(i,j,k,l) = &
                       lVal*l + &
-                      kVal*(k+gamAppMpi%Grid%ijkShift(KDIR)) + &
-                      jVal*(j+gamAppMpi%Grid%ijkShift(JDIR)) + &
-                      iVal*(i+gamAppMpi%Grid%ijkShift(IDIR))
+                      kVal*(kIndex) + &
+                      jVal*(jIndex) + &
+                      iVal*(iIndex)
               enddo
           enddo
       enddo
@@ -198,11 +205,17 @@ contains
       do i=gamAppMpi%Grid%is,gamAppMpi%Grid%ie
           do j=gamAppMpi%Grid%js,gamAppMpi%Grid%je+1
               do k=gamAppMpi%Grid%ks,gamAppMpi%Grid%ke
+                  iIndex = 1+modulo(i+gamAppMpi%Grid%ijkShift(IDIR)-1, &
+                           gamAppMpi%Grid%Nip*gamAppMpi%Grid%NumRi)
+                  jIndex = 1+modulo(j+gamAppMpi%Grid%ijkShift(JDIR)-1, &
+                           gamAppMpi%Grid%Njp*gamAppMpi%Grid%NumRj)
+                  kIndex = 1+modulo(k+gamAppMpi%Grid%ijkShift(KDIR)-1, &
+                           gamAppMpi%Grid%Nkp*gamAppMpi%Grid%NumRk)
                   gamAppMpi%State%magFlux(i,j,k,l) = &
                       lVal*l + &
-                      kVal*(k+gamAppMpi%Grid%ijkShift(KDIR)) + &
-                      jVal*(j+gamAppMpi%Grid%ijkShift(JDIR)) + &
-                      iVal*(i+gamAppMpi%Grid%ijkShift(IDIR))
+                      kVal*(kIndex) + &
+                      jVal*(jIndex) + &
+                      iVal*(iIndex)
               enddo
           enddo
       enddo
@@ -210,11 +223,17 @@ contains
       do i=gamAppMpi%Grid%is,gamAppMpi%Grid%ie
           do j=gamAppMpi%Grid%js,gamAppMpi%Grid%je
               do k=gamAppMpi%Grid%ks,gamAppMpi%Grid%ke+1
+                  iIndex = 1+modulo(i+gamAppMpi%Grid%ijkShift(IDIR)-1, &
+                           gamAppMpi%Grid%Nip*gamAppMpi%Grid%NumRi)
+                  jIndex = 1+modulo(j+gamAppMpi%Grid%ijkShift(JDIR)-1, &
+                           gamAppMpi%Grid%Njp*gamAppMpi%Grid%NumRj)
+                  kIndex = 1+modulo(k+gamAppMpi%Grid%ijkShift(KDIR)-1, &
+                           gamAppMpi%Grid%Nkp*gamAppMpi%Grid%NumRk)
                   gamAppMpi%State%magFlux(i,j,k,l) = &
                       lVal*l + &
-                      kVal*(k+gamAppMpi%Grid%ijkShift(KDIR)) + &
-                      jVal*(j+gamAppMpi%Grid%ijkShift(JDIR)) + &
-                      iVal*(i+gamAppMpi%Grid%ijkShift(IDIR))
+                      kVal*(kIndex) + &
+                      jVal*(jIndex) + &
+                      iVal*(iIndex)
               enddo
           enddo
       enddo
@@ -284,8 +303,182 @@ contains
                   enddo
               enddo
           CASE (4)
+              ! also check I-dimension ghosts
+              l=IDIR
+              do i=gamAppMpi%Grid%isg,gamAppMpi%Grid%ieg+1
+                  do j=gamAppMpi%Grid%js,gamAppMpi%Grid%je
+                      do k=gamAppMpi%Grid%ks,gamAppMpi%Grid%ke
+                          iIndex = 1+modulo(i+gamAppMpi%Grid%ijkShift(IDIR)-1, &
+                                   gamAppMpi%Grid%Nip*gamAppMpi%Grid%NumRi)
+                          jIndex = 1+modulo(j+gamAppMpi%Grid%ijkShift(JDIR)-1, &
+                                   gamAppMpi%Grid%Njp*gamAppMpi%Grid%NumRj)
+                          kIndex = 1+modulo(k+gamAppMpi%Grid%ijkShift(KDIR)-1, &
+                                   gamAppMpi%Grid%Nkp*gamAppMpi%Grid%NumRk)
+                          checkVal = lVal*l + &
+                              iVal*iIndex + &
+                              jVal*jIndex + &
+                              kVal*kIndex
+                              write (checkMessage,'(I0,A,I0,A,I0,A,I0,A,I0,A)') this%getNumProcesses(),' processor wrong at (',i,',',j,',',k,',',l,')'
+                              @assertEqual(checkVal, gamAppMpi%State%magFlux(i,j,k,l), trim(checkMessage))
+                      enddo
+                  enddo
+              enddo
+              l=JDIR
+              do i=gamAppMpi%Grid%isg,gamAppMpi%Grid%ieg
+                  do j=gamAppMpi%Grid%js,gamAppMpi%Grid%je+1
+                      do k=gamAppMpi%Grid%ks,gamAppMpi%Grid%ke
+                          iIndex = 1+modulo(i+gamAppMpi%Grid%ijkShift(IDIR)-1, &
+                                   gamAppMpi%Grid%Nip*gamAppMpi%Grid%NumRi)
+                          jIndex = 1+modulo(j+gamAppMpi%Grid%ijkShift(JDIR)-1, &
+                                   gamAppMpi%Grid%Njp*gamAppMpi%Grid%NumRj)
+                          kIndex = 1+modulo(k+gamAppMpi%Grid%ijkShift(KDIR)-1, &
+                                   gamAppMpi%Grid%Nkp*gamAppMpi%Grid%NumRk)
+                          checkVal = lVal*l + &
+                              iVal*iIndex + &
+                              jVal*jIndex + &
+                              kVal*kIndex
+                              write (checkMessage,'(I0,A,I0,A,I0,A,I0,A,I0,A)') this%getNumProcesses(),' processor wrong at (',i,',',j,',',k,',',l,')'
+                              @assertEqual(checkVal, gamAppMpi%State%magFlux(i,j,k,l), trim(checkMessage))
+                      enddo
+                  enddo
+              enddo
+              l=KDIR
+              do i=gamAppMpi%Grid%isg,gamAppMpi%Grid%ieg
+                  do j=gamAppMpi%Grid%js,gamAppMpi%Grid%je
+                      do k=gamAppMpi%Grid%ks,gamAppMpi%Grid%ke+1
+                          iIndex = 1+modulo(i+gamAppMpi%Grid%ijkShift(IDIR)-1, &
+                                   gamAppMpi%Grid%Nip*gamAppMpi%Grid%NumRi)
+                          jIndex = 1+modulo(j+gamAppMpi%Grid%ijkShift(JDIR)-1, &
+                                   gamAppMpi%Grid%Njp*gamAppMpi%Grid%NumRj)
+                          kIndex = 1+modulo(k+gamAppMpi%Grid%ijkShift(KDIR)-1, &
+                                   gamAppMpi%Grid%Nkp*gamAppMpi%Grid%NumRk)
+                          checkVal = lVal*l + &
+                              iVal*iIndex + &
+                              jVal*jIndex + &
+                              kVal*kIndex
+                              write (checkMessage,'(I0,A,I0,A,I0,A,I0,A,I0,A)') this%getNumProcesses(),' processor wrong at (',i,',',j,',',k,',',l,')'
+                              @assertEqual(checkVal, gamAppMpi%State%magFlux(i,j,k,l), trim(checkMessage))
+                      enddo
+                  enddo
+              enddo
           CASE (16)
+              ! also check I and J dimension ghosts
+              l=IDIR
+              do i=gamAppMpi%Grid%isg,gamAppMpi%Grid%ieg+1
+                  do j=gamAppMpi%Grid%jsg,gamAppMpi%Grid%jeg
+                      do k=gamAppMpi%Grid%ks,gamAppMpi%Grid%ke
+                          iIndex = 1+modulo(i+gamAppMpi%Grid%ijkShift(IDIR)-1, &
+                                   gamAppMpi%Grid%Nip*gamAppMpi%Grid%NumRi)
+                          jIndex = 1+modulo(j+gamAppMpi%Grid%ijkShift(JDIR)-1, &
+                                   gamAppMpi%Grid%Njp*gamAppMpi%Grid%NumRj)
+                          kIndex = 1+modulo(k+gamAppMpi%Grid%ijkShift(KDIR)-1, &
+                                   gamAppMpi%Grid%Nkp*gamAppMpi%Grid%NumRk)
+                          checkVal = lVal*l + &
+                              iVal*iIndex + &
+                              jVal*jIndex + &
+                              kVal*kIndex
+                              write (checkMessage,'(I0,A,I0,A,I0,A,I0,A,I0,A)') this%getNumProcesses(),' processor wrong at (',i,',',j,',',k,',',l,')'
+                              @assertEqual(checkVal, gamAppMpi%State%magFlux(i,j,k,l), trim(checkMessage))
+                      enddo
+                  enddo
+              enddo
+              l=JDIR
+              do i=gamAppMpi%Grid%isg,gamAppMpi%Grid%ieg
+                  do j=gamAppMpi%Grid%jsg,gamAppMpi%Grid%jeg+1
+                      do k=gamAppMpi%Grid%ks,gamAppMpi%Grid%ke
+                          iIndex = 1+modulo(i+gamAppMpi%Grid%ijkShift(IDIR)-1, &
+                                   gamAppMpi%Grid%Nip*gamAppMpi%Grid%NumRi)
+                          jIndex = 1+modulo(j+gamAppMpi%Grid%ijkShift(JDIR)-1, &
+                                   gamAppMpi%Grid%Njp*gamAppMpi%Grid%NumRj)
+                          kIndex = 1+modulo(k+gamAppMpi%Grid%ijkShift(KDIR)-1, &
+                                   gamAppMpi%Grid%Nkp*gamAppMpi%Grid%NumRk)
+                          checkVal = lVal*l + &
+                              iVal*iIndex + &
+                              jVal*jIndex + &
+                              kVal*kIndex
+                              write (checkMessage,'(I0,A,I0,A,I0,A,I0,A,I0,A)') this%getNumProcesses(),' processor wrong at (',i,',',j,',',k,',',l,')'
+                              @assertEqual(checkVal, gamAppMpi%State%magFlux(i,j,k,l), trim(checkMessage))
+                      enddo
+                  enddo
+              enddo
+              l=KDIR
+              do i=gamAppMpi%Grid%isg,gamAppMpi%Grid%ieg
+                  do j=gamAppMpi%Grid%jsg,gamAppMpi%Grid%jeg
+                      do k=gamAppMpi%Grid%ks,gamAppMpi%Grid%ke+1
+                          iIndex = 1+modulo(i+gamAppMpi%Grid%ijkShift(IDIR)-1, &
+                                   gamAppMpi%Grid%Nip*gamAppMpi%Grid%NumRi)
+                          jIndex = 1+modulo(j+gamAppMpi%Grid%ijkShift(JDIR)-1, &
+                                   gamAppMpi%Grid%Njp*gamAppMpi%Grid%NumRj)
+                          kIndex = 1+modulo(k+gamAppMpi%Grid%ijkShift(KDIR)-1, &
+                                   gamAppMpi%Grid%Nkp*gamAppMpi%Grid%NumRk)
+                          checkVal = lVal*l + &
+                              iVal*iIndex + &
+                              jVal*jIndex + &
+                              kVal*kIndex
+                              write (checkMessage,'(I0,A,I0,A,I0,A,I0,A,I0,A)') this%getNumProcesses(),' processor wrong at (',i,',',j,',',k,',',l,')'
+                              @assertEqual(checkVal, gamAppMpi%State%magFlux(i,j,k,l), trim(checkMessage))
+                      enddo
+                  enddo
+              enddo
           CASE (64)
+              ! check all ghosts
+              l=IDIR
+              do i=gamAppMpi%Grid%isg,gamAppMpi%Grid%ieg+1
+                  do j=gamAppMpi%Grid%jsg,gamAppMpi%Grid%jeg
+                      do k=gamAppMpi%Grid%ksg,gamAppMpi%Grid%keg
+                          iIndex = 1+modulo(i+gamAppMpi%Grid%ijkShift(IDIR)-1, &
+                                   gamAppMpi%Grid%Nip*gamAppMpi%Grid%NumRi)
+                          jIndex = 1+modulo(j+gamAppMpi%Grid%ijkShift(JDIR)-1, &
+                                   gamAppMpi%Grid%Njp*gamAppMpi%Grid%NumRj)
+                          kIndex = 1+modulo(k+gamAppMpi%Grid%ijkShift(KDIR)-1, &
+                                   gamAppMpi%Grid%Nkp*gamAppMpi%Grid%NumRk)
+                          checkVal = lVal*l + &
+                              iVal*iIndex + &
+                              jVal*jIndex + &
+                              kVal*kIndex
+                              write (checkMessage,'(I0,A,I0,A,I0,A,I0,A,I0,A)') this%getNumProcesses(),' processor wrong at (',i,',',j,',',k,',',l,')'
+                              @assertEqual(checkVal, gamAppMpi%State%magFlux(i,j,k,l), trim(checkMessage))
+                      enddo
+                  enddo
+              enddo
+              l=JDIR
+              do i=gamAppMpi%Grid%isg,gamAppMpi%Grid%ieg
+                  do j=gamAppMpi%Grid%jsg,gamAppMpi%Grid%jeg+1
+                      do k=gamAppMpi%Grid%ksg,gamAppMpi%Grid%keg
+                          iIndex = 1+modulo(i+gamAppMpi%Grid%ijkShift(IDIR)-1, &
+                                   gamAppMpi%Grid%Nip*gamAppMpi%Grid%NumRi)
+                          jIndex = 1+modulo(j+gamAppMpi%Grid%ijkShift(JDIR)-1, &
+                                   gamAppMpi%Grid%Njp*gamAppMpi%Grid%NumRj)
+                          kIndex = 1+modulo(k+gamAppMpi%Grid%ijkShift(KDIR)-1, &
+                                   gamAppMpi%Grid%Nkp*gamAppMpi%Grid%NumRk)
+                          checkVal = lVal*l + &
+                              iVal*iIndex + &
+                              jVal*jIndex + &
+                              kVal*kIndex
+                              write (checkMessage,'(I0,A,I0,A,I0,A,I0,A,I0,A)') this%getNumProcesses(),' processor wrong at (',i,',',j,',',k,',',l,')'
+                              @assertEqual(checkVal, gamAppMpi%State%magFlux(i,j,k,l), trim(checkMessage))
+                      enddo
+                  enddo
+              enddo
+              l=KDIR
+              do i=gamAppMpi%Grid%isg,gamAppMpi%Grid%ieg
+                  do j=gamAppMpi%Grid%jsg,gamAppMpi%Grid%jeg
+                      do k=gamAppMpi%Grid%ksg,gamAppMpi%Grid%keg+1
+                          iIndex = 1+modulo(i+gamAppMpi%Grid%ijkShift(IDIR)-1, &
+                                   gamAppMpi%Grid%Nip*gamAppMpi%Grid%NumRi)
+                          jIndex = 1+modulo(j+gamAppMpi%Grid%ijkShift(JDIR)-1, &
+                                   gamAppMpi%Grid%Njp*gamAppMpi%Grid%NumRj)
+                          kIndex = 1+modulo(k+gamAppMpi%Grid%ijkShift(KDIR)-1, &
+                                   gamAppMpi%Grid%Nkp*gamAppMpi%Grid%NumRk)
+                          checkVal = lVal*l + &
+                              iVal*iIndex + &
+                              jVal*jIndex + &
+                              kVal*kIndex
+                              write (checkMessage,'(I0,A,I0,A,I0,A,I0,A,I0,A)') this%getNumProcesses(),' processor wrong at (',i,',',j,',',k,',',l,')'
+                              @assertEqual(checkVal, gamAppMpi%State%magFlux(i,j,k,l), trim(checkMessage))
+                      enddo
+                  enddo
+              enddo
           CASE DEFAULT
               @assertEqual(0,1,'Unexpected number of processes')
       ENDSELECT
