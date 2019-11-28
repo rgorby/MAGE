@@ -43,7 +43,7 @@ program gamera_mpix
     call initClocks()
 
     !TODO: Fix this to reset after MPI config to only output from root rank
-    verbose = 1
+    verbose = .true.
     
     ! this is a gamera-only application so all MPI ranks are gamera-only processes
     call initGamera_mpi(gameraAppMpi,userInitFunc,MPI_COMM_WORLD)

@@ -16,7 +16,7 @@ program voltronx
     call initClocks()
 
     !TODO: Fix this to reset after MPI config to only output from root rank
-    verbose = 1
+    verbose = .true.
     
     call initGamera(gApp,userInitFunc,doIO=.false.)
     call initVoltron(vApp, gApp)

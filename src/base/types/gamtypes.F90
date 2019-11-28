@@ -6,8 +6,10 @@ module gamtypes
 
     implicit none
 
-    ! larger then 0 will write out the massage
-    integer :: verbose = -1
+    ! debug settings
+    logical :: verbose = .false.
+    logical :: writeGhosts = .false.
+    logical :: writeMagFlux = .false.
 
     type :: baseBC_T
         contains
@@ -65,7 +67,6 @@ module gamtypes
     !Algorithmic/Run options
     type Model_T
         character(len=strLen) :: RunID
-        integer :: verbose = -1
         integer :: nSpc, nDim, nG !Number of species, dimensions, ghosts
         real(rp) :: CFL, gamma
         real(rp) :: Vd0=0.5 !Coefficient for diffusive electric field, generally 0.5

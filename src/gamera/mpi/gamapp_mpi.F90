@@ -65,6 +65,10 @@ module gamapp_mpi
         write(*,*) 'Reading input deck from ', trim(inpXML)
         xmlInp = New_XML_Input(trim(inpXML),'Gamera',.true.)
 
+        ! read debug flags
+        call xmlInp%Set_Val(writeGhosts,"debug/writeGhosts",.false.)
+        call xmlInp%Set_Val(writeMagFlux,"debug/writeMagFlux",.false.)
+
         !Initialize Grid/State/Model (Hatch Gamera)
         !Will enforce 1st BCs, caculate 1st timestep, set oldState
         call Hatch_mpi(gamAppMpi,xmlInp,userInitFunc,gamComm)
@@ -456,6 +460,10 @@ module gamapp_mpi
 
             ! perform a halo update before the sim starts to ensure that the ghost cells have correct values
             call haloUpdate(gamAppMpi)
+
+            if (Model%doMHD) then
+                call bFlux2Fld(Model,Grid,gamAppMpi%State%magFlux,gamAppMpi%State%Bxyz)
+            endif
 
             !Update the old state
             gamAppMpi%oState = gamAppMpi%State

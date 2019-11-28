@@ -46,6 +46,10 @@ module gamapp
         write(*,*) 'Reading input deck from ', trim(inpXML)
         xmlInp = New_XML_Input(trim(inpXML),'Gamera',.true.)
 
+        ! read debug flags
+        call xmlInp%Set_Val(writeGhosts,"debug/writeGhosts",.false.)
+        call xmlInp%Set_Val(writeMagFlux,"debug/writeMagFlux",.false.)
+
         !Initialize Grid/State/Model (Hatch Gamera)
         !Will enforce 1st BCs, caculate 1st timestep, set oldState
         call Hatch(gameraApp%Model,gameraApp%Grid,gameraApp%State,gameraApp%oState,gameraApp%Solver,xmlInp,userInitFunc)

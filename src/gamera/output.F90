@@ -61,7 +61,7 @@ contains
             ZCs = 0.0
         endif
 
-        if (verbose > 0) then
+        if (verbose) then
             write(*,*) ANSICYAN
             call timeString(Model%t,tStr)
             write(*,'(a,a)')        'Sim Time   = ', trim(tStr)
@@ -104,7 +104,7 @@ contains
 
         write (gStr, '(A,I0)') "Step#", Model%IO%nOut
 
-        if (verbose > 0) then
+        if (verbose) then
             call timeString(Model%t,tStr)
             write (*, '(a,a,a,a,a)') ANSIGREEN, '<Writing HDF5 DATA @ t = ', trim(tStr), ' >', ANSIRESET
         endif
@@ -128,7 +128,7 @@ contains
 
         call CheckAndKill(ResF)
 
-        if (verbose > 0) then
+        if (verbose) then
             call timeString(Model%t,tStr)
             write (*, '(a,a,a,a,a)') ANSIGREEN, '<Writing HDF5 RESTART @ t = ', trim(tStr), ' >', ANSIRESET
         endif

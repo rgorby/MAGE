@@ -293,7 +293,7 @@ module init
 
         !Set CFL from XML
         call xmlInp%Set_Val(Model%CFL ,'sim/CFL'  ,C0)
-        if(verbose>0) then
+        if(verbose) then
            if (Model%CFL > C0) then
                write(*,*) '-------------------------------------'
                write(*,*) 'WARNING, CFL is above critical value!'

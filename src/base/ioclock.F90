@@ -12,7 +12,7 @@ module ioclock
         integer :: nOut=0,nRes=0 !Output numbering for output/restarts
 
         logical :: doResOut,doConOut,doDataOut,doTimerOut !Logical flags to do various outputs
-        logical :: doFat,doSlim,doVerbose !Not yet used generically
+        logical :: doFat,doSlim !Not yet used generically
         logical :: isTop = .true. !Not used yet
 
         contains
@@ -41,7 +41,6 @@ module ioclock
         call iXML%Set_Val(this%doTimerOut,   'output/doTimer'   ,.false.)
         call iXML%Set_Val(this%doFat,        'output/doFat'     ,.false.)
         call iXML%Set_Val(this%doSlim,       'output/doSlim'    ,.false.)
-        call iXML%Set_Val(this%doVerbose,    'output/doVerbose' ,.false.)
 
         if (this%tsOut<0) then
             this%doConOut = .false.
