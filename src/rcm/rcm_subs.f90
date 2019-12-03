@@ -7292,7 +7292,7 @@ bjmod_real = MODULO(bj-REAL(jwrap),REAL(jsize-jwrap-1)) + REAL(jwrap)
 
 
    IF (icontrol == 2) then ! read in inputs, quit:
-
+      !K: Replace RCM params file with XML data
       OPEN (UNIT = LUN, FILE = rcmdir//'rcm.params', STATUS = 'OLD', &
                ACTION = 'READ', FORM = 'FORMATTED')
 
@@ -7869,6 +7869,21 @@ bjmod_real = MODULO(bj-REAL(jwrap),REAL(jsize-jwrap-1)) + REAL(jwrap)
             call WriteVars(IOVars,doSP,H5File,gStr)
           endif
         end subroutine WriteRCMH5
+
+        subroutine RCM_Params_XML()
+          use xml_input
+          use strings
+
+          character(len=strLen) :: inpXML
+          type(XML_Input_T) :: xmlInp
+
+          !Find input deck filename
+          call getIDeckStr(inpXML)
+
+          !Create XML reader
+          xmlInp = New_XML_Input(trim(inpXML),'RCM',.true.)
+
+        end subroutine RCM_Params_XML
 
          SUBROUTINE Formatted_output ()
       write(*,*) "L10019, rcm.printout", LUN_2, ST, PS
