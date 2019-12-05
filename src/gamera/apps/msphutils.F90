@@ -48,7 +48,8 @@ module msphutils
     real(rp), private :: CsCO  = 1.0e-2  ! Cs chillout, m/s
     !Dipole cut values
     !real(rp) :: rCut=4.5, lCut=3.5 !LFM values
-    real(rp), private :: rCut=4.0, lCut=5.0
+    !real(rp), private :: rCut=4.0, lCut=5.0
+    real(rp), private :: rCut=16.0,lCut=8.0
     real(rp), private :: xSun,xTail,yMax
     real(rp), private :: x0,Aq,Bq,sInner
 

@@ -201,13 +201,6 @@ if __name__ == "__main__":
                 print("!!!!!!!!!! WARNING LOW MACH NUMBER:  Mfast < 2 for %d minutes !!!!!!!!!!"%(nSub))
                 print()
 
-            # Save a plot of the solar wind data.
-            kaipy.solarWind.swBCplots.MultiPlot(sw.data, 'time_doy', ['n', 'vx','vy','vz','t','bx','by','bz','symh'])
-            plt.title('Solar Wind data for\n %s' % filename)
-            swPlotFilename = os.path.basename(filename) + '.png'
-            print('Saving "%s"' % swPlotFilename)
-            plt.savefig(swPlotFilename)
-
             print("Converting to Gamera solar wind file")
             Nt,Nv = lfmD.shape
             print("\tFound %d variables and %d lines"%(Nv,Nt))
@@ -272,6 +265,11 @@ if __name__ == "__main__":
             Va = vScl*lfmD[:,16]
 
             Mfast = lfmD[:,17] 
+
+            # Save a plot of the solar wind data.
+            swPlotFilename = os.path.basename(filename) + '.png'
+            print('Saving "%s"' % swPlotFilename)
+            kaipy.solarWind.swBCplots.swQuickPlot(UT,D,Temp,Vx,Vy,Vz,Bx,By,Bz,SYMH,swPlotFilename)
 
             print("Writing Gamera solar wind to %s"%(fOut))
             with h5py.File(fOut,'w') as hf:

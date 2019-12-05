@@ -276,7 +276,7 @@ module prob
         !Do Z field or not
         call inpXML%Set_Val(doBz,"prob/doBz",.false.)
         !Do field via background or raw
-        call inpXML%Set_Val(doBz,"prob/doBack",.false.)
+        call inpXML%Set_Val(doB0,"prob/doBack",.false.)
 
         if (doBz) then
             bScl  = B0_BW/sqrt(3.0)

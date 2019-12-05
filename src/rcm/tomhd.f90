@@ -305,7 +305,7 @@
      close(LUN)                                          
                                                            
      return                                                          
-     end subroutine write_rcmu 
+     end subroutine write_rcmu
  !------------------------------------------
          subroutine gallagher(L,density)
 ! approx based on gallagher et al, figure 1
