@@ -39,6 +39,11 @@ module step
         integer :: is,ie,js,je,ks,ke
         logical :: isDisaster
 
+        if(Model%fixedTimestep) then
+            CalcDT = Model%dt
+            return
+        endif
+
         dtOld = Model%dt
  
         dtMin = HUGE

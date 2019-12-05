@@ -319,6 +319,12 @@ module init
         !Check both omega/sim/tFin & gamera/time/tFin
         call xmlInp%Set_Val(Model%tFin,'time/tFin',1.0_rp)
         call xmlInp%Set_Val(Model%tFin,'/omega/sim/tFin',Model%tFin)
+        call xmlInp%Set_Val(Model%dt,'time/fixedTimestep', -1.0_rp)
+        if(Model%dt > 0) then
+            Model%fixedTimestep = .true.
+        else
+            Model%fixedTimestep = .false.
+        endif
         !Get possible MJD0, check both Gamera & Voltron
         call xmlInp%Set_Val(MJD0,"time/MJD0",-1.0)
         call xmlInp%Set_Val(MJD0,"/voltron/time/MJD0",MJD0)

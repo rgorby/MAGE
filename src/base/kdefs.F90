@@ -114,4 +114,60 @@ character(ANSILEN), parameter :: &
 
     ! end subroutine printConfigStamp
 
+    !Generate name of output file based on tiling
+    function genName(caseName,Ri,Rj,Rk,i,j,k,useOldStyle) result(fName)
+        character(len=*), intent(in) :: caseName
+        integer, intent(in) :: Ri,Rj,Rk,i,j,k
+        logical, optional, intent(in) :: useOldStyle
+        character(len=strLen) :: fName
+
+        character(len=strLen) :: fHd,fRn,fijk
+
+        if(present(useOldStyle) .and. useOldStyle) then
+            fName = genName_old(caseName,Ri,Rj,Rk,i,j,k)
+            return
+        endif
+
+        if (Ri > 1 .or. Rj > 1 .or. Rk > 1) then
+            write(fHd ,'(a,a)') trim(caseName), '_'
+            write(fRn ,'(I0.4,a,I0.4,a,I0.4,a)') Ri,'_',Rj,'_',Rk,'_'
+            write(fijk,'(I0.4,a,I0.4,a,I0.4,a)') i-1,'_',j-1,'_',k-1,'.gam.h5'
+
+            fName = trim(fHd) // trim(fRn) // trim(fijk)
+        else
+            if(index(caseName,'.h5') == 0) then
+                ! assume does not have extension
+                write(fHd ,'(a,a)') trim(caseName), '.gam.h5'
+                fName = trim(fHd)
+            else
+                ! already has extension
+                fName = trim(caseName)
+            endif
+        endif
+        !write(*,*) 'ijk / file = ',i,j,k,trim(fName)
+    end function genName
+
+    ! Generate old omega format name based on tiling
+    function genName_old(caseName,Ri,Rj,Rk,i,j,k) result(fName)
+        character(len=*), intent(in) :: caseName
+        integer, intent(in) :: Ri,Rj,Rk,i,j,k
+        character(len=strLen) :: fName
+
+        character(len=strLen) :: fHd,fRn,fijk,fTl
+        integer :: n
+
+        if (Ri > 1 .or. Rj > 1 .or. Rk > 1) then
+            n = (j-1) + (i-1)*Rj + (k-1)*Ri*Rj
+            write(fHd ,'(a,a)') trim(caseName), '_'
+            write(fRn ,'(I0.4,a,I0.4,a,I0.4,a)') Ri,'_',Rj,'_',Rk,'_'
+            write(fijk,'(I0.4,a,I0.4,a,I0.4,a)') i-1,'_',j-1,'_',k-1,'_'
+            write(fTl ,'(I0.12,a)') n,'.h5'
+
+            fName = trim(fHd) // trim(fRn) // trim(fijk) // trim(fTl)
+        else
+            fName = caseName
+        endif
+        !write(*,*) 'ijk / file = ',i,j,k,trim(fName)
+    end function genName_old
+
 end module kdefs

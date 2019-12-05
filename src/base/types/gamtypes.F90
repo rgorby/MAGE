@@ -71,6 +71,7 @@ module gamtypes
         real(rp) :: CFL, gamma
         real(rp) :: Vd0=0.5 !Coefficient for diffusive electric field, generally 0.5
         real(rp) :: t, tFin, dt
+        logical :: fixedTimestep
         integer :: ts
 
         logical :: doHall=.false., doMultiF=.false., &
