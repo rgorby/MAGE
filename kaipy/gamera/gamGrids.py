@@ -341,6 +341,35 @@ def Aug2D(XX,YY,doEps=False,TINY=1.0e-8,KeepOut=True,Rpx=1.15):
 
 	return xxG,yyG
 
+# vgm: add a version of the above function to extend the grid in the i-direction
+# this never worked; keeping for completeness.
+# what's worked, though, is the scale option in regrid at the bottom of this file
+def Aug2Dext(XX,YY,Nadd): #Nadd -- how many points to add in the i-direction
+	Ni = XX.shape[0]
+	Nj = XX.shape[1]
+
+	xxG = np.zeros((Ni+Nadd,Nj))
+	yyG = np.zeros((Ni+Nadd,Nj))
+
+	xxG[:-Nadd,:] = XX
+	yyG[:-Nadd,:] = YY
+	
+	#Do outer I, active J
+	Dx = XX[-1,:]-XX[-2,:]
+	Dy = YY[-1,:]-YY[-2,:]
+	nD = np.sqrt(Dx**2.0+Dy**2.0)
+	dBar = nD.mean()
+	#dO = np.minimum(nD,dBar)
+	dO = nD
+
+	for i in np.arange(Nadd):
+#		xxG[-Nadd+i:,:] = XX[-1,:] + (i+1)*dO*Dx/nD
+#		yyG[-Nadd+i:,:] = YY[-1,:] + (i+1)*dO*Dy/nD
+		xxG[-Nadd+i:,:] = 2*xxG[-Nadd+i-1,:]-xxG[-Nadd+i-2,:] 
+		yyG[-Nadd+i:,:] = 2*yyG[-Nadd+i-1,:]-yyG[-Nadd+i-2,:]  
+	
+	return xxG,yyG
+
 #Do ring recommendations
 def genRing(XX,YY,Nk=64,Tol=1.0,doVerb=False):
 	
@@ -579,7 +608,7 @@ def LoadTabG(fIn="lfmG",Nc=0):
 	return xxi,yyi
 
 #Regrid xx/yy (corners) to new size
-def regrid(xxi,yyi,Ni,Nj,TINY=1.0e-8):
+def regrid(xxi,yyi,Ni,Nj,TINY=1.0e-8,scale=False):
 	Ni0 = xxi.shape[0]-1
 	Nj0 = xxi.shape[1]-1
 	rr0 = np.sqrt(xxi**2.0 + yyi**2.0)
@@ -608,5 +637,19 @@ def regrid(xxi,yyi,Ni,Nj,TINY=1.0e-8):
 
 			XXi[i,j] = r*np.cos(phi)
 			YYi[i,j] = r*np.sin(phi)
+
+	# vgm: added scaling option to extend the grid for low Mach numbers
+	# needs playing around with the numbers below
+	if scale:
+		dx = (XXi[1:,:]-XXi[:-1,:])
+		dy = (YYi[1:,:]-YYi[:-1,:])
+		nscl = dx.shape[0]
+		scale = np.ones(nscl)
+		scale[nscl//2:]=1.25 #1.5
+		scale[3*nscl//4:]=1.5 #2.
+		scale[-4:]=2. #4.
+		for i in np.arange(1,Ni+1):
+			XXi[i,:] = XXi[i-1,:] + scale[i-1]*dx[i-1,:]
+			YYi[i,:] = YYi[i-1,:] + scale[i-1]*dy[i-1,:]
 
 	return XXi,YYi
