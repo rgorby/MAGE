@@ -461,9 +461,9 @@ module gamapp_mpi
             ! perform a halo update before the sim starts to ensure that the ghost cells have correct values
             call haloUpdate(gamAppMpi)
 
-            if (Model%doMHD) then
-                call bFlux2Fld(Model,Grid,gamAppMpi%State%magFlux,gamAppMpi%State%Bxyz)
-            endif
+            !if (Model%doMHD) then
+            !    call bFlux2Fld(Model,Grid,gamAppMpi%State%magFlux,gamAppMpi%State%Bxyz)
+            !endif
 
             !Update the old state
             gamAppMpi%oState = gamAppMpi%State
@@ -499,11 +499,13 @@ module gamapp_mpi
         gamAppMpi%Model%dt = CalcDT(gamAppMpi%Model,gamAppMpi%Grid,gamAppMpi%State)
 
         !All MPI ranks take the lowest dt
-        call Tic("mpiDT")
-        tmp = gamAppMpi%Model%dt
-        call MPI_AllReduce(MPI_IN_PLACE, tmp, 1, MPI_MYFLOAT, MPI_MIN, gamAppMpi%gamMpiComm,ierr)
-        gamAppMpi%Model%dt = tmp
-        call Toc("mpiDT")
+        if(gamAppMpi%gamMpiComm /= MPI_COMM_NULL) then
+            call Tic("mpiDT")
+            tmp = gamAppMpi%Model%dt
+            call MPI_AllReduce(MPI_IN_PLACE, tmp, 1, MPI_MYFLOAT, MPI_MIN, gamAppMpi%gamMpiComm,ierr)
+            gamAppMpi%Model%dt = tmp
+            call Toc("mpiDT")
+        endif
 
         call Toc("DT")
 
