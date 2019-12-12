@@ -52,7 +52,7 @@ module mixinterfaceutils
     pFpd = transpose(modulo(atan2(mhdg(:,:,3),mhdg(:,:,2)),2*pi))
 
     ! Fixes for south
-    if (mhdg(nj/2,nk2/2,2).lt.0) then ! pick the pole and see if
+    if (mhdg(nj/2,nk2/2,3).lt.0) then ! pick the pole and see if
        ! z<0. this works even if nk2
        ! is nk2+1 (for PsiShells)
        ! For south, phi obtained this way goes from pi to 2pi.  so we
