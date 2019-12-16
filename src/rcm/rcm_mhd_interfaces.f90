@@ -24,7 +24,7 @@ module rcm_mhd_interfaces
   real(rprec),allocatable :: beta_average(:,:)    ! MHD field line averaged plasma beta (\int 2mu0P/B^3ds/B/\int ds/B)
   integer(iprec),allocatable :: iopen(:,:) ! MHD supplied mask open/closed field line (-1: closed; 1: open; 1: else)
   
-  real(rprec),allocatable :: Prcm(:,:)    ! RCM supplied pressure on Pa
+  real(rprec),allocatable :: Prcm(:,:)    ! RCM supplied pressure in Pa
   real(rprec),allocatable :: Nrcm(:,:)    ! RCM supplied density in #/m^3
 
   real(rprec),allocatable :: sigmap(:,:)

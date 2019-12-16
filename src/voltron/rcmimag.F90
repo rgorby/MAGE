@@ -23,6 +23,8 @@ module rcmimag
     real(rp), private :: rcmPScl = 1.0e+9 !Convert Pa->nPa
     real(rp), private :: rcmNScl = 1.0e-6 !Convert #/m3 => #/cc
     real(rp), parameter :: RIonRCM = (RionE/REarth)*1.0e+6
+    real(rp), parameter, private :: IMGAMMA = 5.0/3.0
+
     integer, parameter :: MAXRCMIOVAR = 30
     character(len=strLen), private :: h5File
 
@@ -139,7 +141,7 @@ module rcmimag
         real(rp), intent(in) :: lat,lon,t
         real(rp), intent(out) :: imW(NVARIMAG)
 
-        real(rp) :: colat
+        real(rp) :: colat, alpha, beta, LScl
         integer :: i0,j0
         logical :: isGood
 
@@ -155,11 +157,17 @@ module rcmimag
         imW = 0.0
 
         if (isGood) then
-            imW(IMDEN) = RCMApp%Nrcm(i0,j0)*rcmNScl
-            imW(IMPR ) = RCMApp%Prcm(i0,j0)*rcmPScl
+            beta = RCMApp%beta_average(i0,j0)
+            alpha = 1.0/(1.0 + beta*IMGAMMA/2.0)
+            LScl = RCMApp%Vol(i0,j0)*RCMApp%bmin(i0,j0) !Lengthscale
+
+            imW(IMDEN ) = RCMApp%Nrcm(i0,j0)*rcmNScl
+            imW(IMPR  ) = RCMApp%Prcm(i0,j0)*rcmPScl*alpha
+            imW(IMLSCL) = LScl
         else
-            imW(IMDEN) = 0.0
-            imW(IMPR ) = 0.0
+            imW(IMDEN ) = 0.0
+            imW(IMPR  ) = 0.0
+            imW(IMLSCL) = 0.0
         endif
         
     end subroutine EvalRCM

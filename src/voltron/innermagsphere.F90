@@ -145,12 +145,18 @@ module innermagsphere
                         imW = 0.0
                     endif
                     !Assuming density/pressure coming in #/cc and nPa
-                    Gr%Gas0(i,j,k,DEN)       = imW(IMDEN)
-                    Gr%Gas0(i,j,k,PRESSURE)  = imW(IMPR)/gApp%Model%Units%gP0
-                    Gr%Gas0(i,j,k,VELX:VELZ) = 0.0
+                    !Lengthscale is in Rx
+                    Gr%Gas0(i,j,k,:) = 0.0
+
+                    Gr%Gas0(i,j,k,IMDEN ) = imW(IMDEN)
+                    Gr%Gas0(i,j,k,IMPR  ) = imW(IMPR)/gApp%Model%Units%gP0
+                    Gr%Gas0(i,j,k,IMLSCL) = imW(IMLSCL)
+                    !Setting all time multipliers to 1 for now
+                    Gr%Gas0(i,j,k,IMTSCL) = 1.0
                 enddo
             enddo
         enddo
+
 
         end associate
 

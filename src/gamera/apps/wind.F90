@@ -14,7 +14,6 @@ module wind
 
     ! Global Parameters
     integer, parameter :: SWSPC = 1 !SW fluid is always 1st in multifluid
-    integer, parameter :: MAXWINDVARS = 20
 
     logical :: doWindInterp = .false.
 

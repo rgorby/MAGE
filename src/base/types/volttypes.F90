@@ -21,9 +21,9 @@ module volttypes
 
     !Data for inner mag => gamera variables
     enum, bind(C)
-        enumerator :: IMDEN=1,IMPR
+        enumerator :: IMDEN=1,IMLSCL,IMTSCL,IMVAR1,IMPR
     endenum
-    integer, parameter :: NVARIMAG = 2
+    integer, parameter :: NVARIMAG = 5
 
     ! data for remix -> gamera conversion
     type mix2Mhd_T
