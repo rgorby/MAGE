@@ -291,6 +291,9 @@ module uservoltic
         real(rp) :: igFlx(NVAR,2), imFlx(NDIM,2)
         real(rp) :: Rin,llBC,invlat
 
+        !Ignore everything else
+        return
+
         !This is inner-most I tile
         if ( (Model%Ri == 1) .and. (.not. Model%doMultiF) ) then
             !Get inner radius and low-latitude
@@ -441,7 +444,8 @@ module uservoltic
                     dB = State%Bxyz(ip,jp,kp,:)
                     !Using ExB everywhere
                     Veb = cross(Exyz,Bd)/dot_product(Bd,Bd)
-                    Vxyz = Veb - rHatP*dot_product(rHatP,Veb)
+                    !Use ExB (w/o radial) and mirror
+                    Vxyz = Veb - rHatP*dot_product(rHatP,Veb) - rHatP*dot_product(rHatP,Vmir)
 
                     
                 !-------
@@ -463,15 +467,11 @@ module uservoltic
                 !Now handle magnetic quantities
                     if (isLL) then
                         !In low-lat enforce full dipole
-                        !State%Bxyz   (ig,j,k,:) = 0.0
-                        !State%magFlux(ig,j,k,:) = 0.0
+                        State%Bxyz   (ig,j,k,:) = 0.0
+                        State%magFlux(ig,j,k,:) = 0.0
 
-                        !Mirror fluxes to minimize gradient
-                        State%Bxyz(ig,j,k,:) = dB
-                        State%magFlux(ig,j,k,IDIR) = State%magFlux(ip,jp,kp,IDIR)
-                        State%magFlux(ig,j,k,JDIR) = State%magFlux(ip,jp,kp,JDIR)
-                        State%magFlux(ig,j,k,KDIR) = State%magFlux(ip,jp,kp,KDIR)
                     else
+                        !Mirror fluxes to minimize gradient
                         State%Bxyz(ig,j,k,:) = dB
                         State%magFlux(ig,j,k,IDIR) = State%magFlux(ip,jp,kp,IDIR)
                         State%magFlux(ig,j,k,JDIR) = State%magFlux(ip,jp,kp,JDIR)
