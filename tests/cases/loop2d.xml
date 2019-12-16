@@ -14,7 +14,7 @@
 
 -->
 <Gamera>
-    <sim runid="loop2d" doH5init="F" icType="LOOP2D"/>
+    <sim runid="loop2d" doH5init="F" icType="LOOP2D" pdmb="4.0"/>
     <idir min="-0.5" max="0.5" N="256"/>
     <jdir min="-0.5" max="0.5" N="256"/>
     <kdir min="-0.5" max="0.5" N="1"/>

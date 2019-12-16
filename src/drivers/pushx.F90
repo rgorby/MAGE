@@ -26,7 +26,7 @@ program pushx
     call initClocks()
 
     !Initialize main data structures
-    call getChimp(Model,ebState,tpState)
+    call goApe(Model,ebState,tpState)
     Model%doTPOut = .true.
     
     !Prepare for main loop, do first output

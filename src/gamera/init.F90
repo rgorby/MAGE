@@ -1,6 +1,6 @@
 module init
 
-    use types
+    use gamtypes
     use math
     use gridutils
     use gamutils
@@ -16,7 +16,8 @@ module init
     use ringrecon
     use recon
     use multifluid
-
+    use files
+    
     use step
     
 #ifdef _OPENMP
@@ -39,10 +40,11 @@ module init
     
     !Hatch Gamera
     !Initialize main data structures
-    subroutine Hatch(Model,Grid,State,oState,xmlInp,userInitFunc,endTime)
+    subroutine Hatch(Model,Grid,State,oState,Solver,xmlInp,userInitFunc,endTime)
         type(Model_T), intent(inout) :: Model
         type(Grid_T), intent(inout) :: Grid
         type(State_T), intent(inout) :: State,oState
+        type(Solver_T), intent(inout) :: Solver
         !OMEGA can overrule what GAMERA has
         type(XML_Input_T), intent(inout) :: xmlInp
         procedure(StateIC_T), pointer, intent(in) :: userInitFunc
@@ -51,7 +53,7 @@ module init
         procedure(StateIC_T), pointer :: initState => NULL()
         integer :: i
         character(len=strLen) :: resStr,inH5
-        logical :: fExist, doH5g, doH5ic,doReset
+        logical :: doH5g, doH5ic,doReset
         real(rp) :: tReset
 
         !Alwasys zero for single process job
@@ -139,15 +141,14 @@ module init
         oState = State
         oState%time = State%time-Model%dt !Initial old state
 
+        !Initialize solver data
+        call initSolver(Solver, Model, Grid)
+
         !Setup output file
-        h5File = trim(Model%RunID) // ".h5"
+        GamH5File = trim(Model%RunID) // ".gam.h5"
         if (.not. Model%isRestart) then
-            inquire(file=h5File,exist=fExist)
-            if (fExist) then
-                write(*,*) 'Output file already exists, deleting file.'
-                call EXECUTE_COMMAND_LINE( 'rm ' // trim(h5File) , wait=.true.)
-            endif
-    
+            !Kill output file if it exists
+            call CheckAndKill(GamH5File)    
             !Write grid to output file
             call writeH5GridInit(Model,Grid)
         endif
@@ -168,11 +169,11 @@ module init
 
         !Incorporate background field, B0, if necessary
         if (Model%doBackground .and. Grid%doB0Init) then
-            call AddB0(Model,Grid,State,Model%B0)
+            call AddB0(Model,Grid,Model%B0)
         endif
         !Incorporate gravity if necessary
         if (Model%doGrav .and. Grid%doG0Init) then
-            call AddGrav(Model,Grid,State,Model%Phi)
+            call AddGrav(Model,Grid,Model%Phi)
         endif
 
     end subroutine DoneState
@@ -225,7 +226,7 @@ module init
         type(Model_T), intent(inout) :: Model
         type(XML_Input_T), intent(in) :: xmlInp
 
-        real(rp) :: C0
+        real(rp) :: C0,MJD0
         integer :: nSeed, icSeed
         integer, dimension(:), allocatable :: vSeed
 
@@ -235,8 +236,6 @@ module init
         Model%nG = 4
         Model%t = 0.0
         Model%ts = 0
-        Model%tOut = 0
-        Model%tRes = 0.0
 
     !Main logicals
         !These are set by default until they're implemented
@@ -245,10 +244,9 @@ module init
         Model%doHall = .false.
         Model%doGrav = .false.
 
-        call xmlInp%Set_Val(Model%doArmor,'physics/doArmor',.false.)
-        call xmlInp%Set_Val(Model%doMHD  ,'physics/doMHD'  ,.false.)
-        call xmlInp%Set_Val(Model%do25D  ,'physics/do25D'  ,.false.)
-        call xmlInp%Set_Val(Model%useResistivity,'/physics/useResistivity',.false.)
+        call xmlInp%Set_Val(Model%doMHD        ,'physics/doMHD'        ,.false.)
+        call xmlInp%Set_Val(Model%do25D        ,'physics/do25D'        ,.false.)
+        call xmlInp%Set_Val(Model%doResistive  ,'physics/doResistive'  ,.false.)
 
     !Misc. algorithmic/physics options
         !Need CFL & PDMB values
@@ -289,18 +287,18 @@ module init
         !Check both omega/sim/tFin & gamera/time/tFin
         call xmlInp%Set_Val(Model%tFin,'time/tFin',1.0_rp)
         call xmlInp%Set_Val(Model%tFin,'/omega/sim/tFin',Model%tFin)
-
-    !Output options
-        call xmlInp%Set_Val(Model%tsOut,'output/tsOut',10)
-        call xmlInp%Set_Val(Model%dtOut,'output/dtOut',0.1_rp)
-        call xmlInp%Set_Val(Model%doTimer,'output/timer',.false.)
+        !Get possible MJD0, check both Gamera & Voltron
+        call xmlInp%Set_Val(MJD0,"time/MJD0",-1.0)
+        call xmlInp%Set_Val(MJD0,"/voltron/time/MJD0",MJD0)
+        if ( MJD0 >= (-TINY) ) then
+            Model%MJD0 = MJD0
+        endif
+    
+    !Output/Restart (IOCLOCK)
+        call Model%IO%init(xmlInp,Model%t)
         call xmlInp%Set_Val(Model%doDivB ,'output/DivB' ,.true. )
-        
-    !Restart stuff
-        !Do restart outputs if dtRes>0
-        call xmlInp%Set_Val(Model%dtRes,'restart/dtRes',-1.0_rp)
-        Model%doResOut = .false.
-        if (Model%dtRes > 0) Model%doResOut = .true.
+
+        !Whether to read restart
         call xmlInp%Set_Val(Model%isRestart,'restart/doRes',.false.)
 
     !Boris info
@@ -317,18 +315,8 @@ module init
         if (Model%doMultiF) then
             call InitMultiF(Model,xmlInp)
         endif
-
-    ! Heating info
-        call xmlInp%Set_Val(Model%doHeat,'physics/doHeat',.false.)
-        call xmlInp%Set_Val(Model%doPsphere,'physics/doPsphere',.false.)
-        if (Model%doHeat) then
-            ! if heating, always use plasmasphere regardless of xml file
-            Model%doPsphere = .True. 
-            ! heating rate in units of 1/tau where tau is the coupling constant with pressure provider
-            call xmlInp%Set_Val(Model%hRate,'physics/hRate',1.)
-            ! grab coupling time from the xml file
-            call xmlInp%Set_Val(Model%hTau,'gamera_chimp/dt',0.5)
-        endif
+    !Source terms
+        call xmlInp%Set_Val(Model%doSource,'source/doSource',.false.)
 
     !Get RunID
         call xmlInp%Set_Val(Model%RunID,'sim/runid',"Sim")
@@ -379,6 +367,30 @@ module init
         call random_seed(put=vSeed)
 
     end subroutine initModel
+
+    subroutine initSolver(Solver, Model, Grid)
+        type(Solver_T), intent(inout) :: Solver
+        type(Model_T), intent(in)     :: Model
+        type(Grid_T), intent(in)      :: Grid
+
+        ! initialize stress variables
+        allocate(Solver%gFlx(Grid%isg:Grid%ieg,Grid%jsg:Grid%jeg,Grid%ksg:Grid%keg,1:NVAR,1:NDIM,BLK:Model%nSpc))
+        Solver%gFlx = 0.0
+        if ( Model%doMHD  ) then
+            allocate(Solver%mFlx(Grid%isg:Grid%ieg,Grid%jsg:Grid%jeg,Grid%ksg:Grid%keg,1:NDIM,1:NDIM))
+            Solver%mFlx = 0.0
+        endif
+
+        ! initialize electric field variable
+        allocate(Solver%Vf(Grid%isg:Grid%ieg,Grid%jsg:Grid%jeg,Grid%ksg:Grid%keg,NDIM))
+        Solver%Vf = 0.0
+
+        ! initialize mhd variables
+        call allocState(Model,Grid,Solver%StateHf)
+        allocate(Solver%dGasH(Grid%isg:Grid%ieg,Grid%jsg:Grid%jeg,Grid%ksg:Grid%keg,1:NVAR,0:Model%nSpc) )
+        if (Model%doMHD) call allocGridVec(Model,Grid,Solver%dGasM)
+
+    end subroutine initSolver
     
     !Set default Grid domain indices (after grid generation)
     subroutine SetDomain(Model,Grid)
@@ -883,6 +895,11 @@ module init
 
         enddo    
 
+        if (Model%doSource) then
+            allocate(Grid%Gas0(Grid%isg:Grid%ieg,Grid%jsg:Grid%jeg,Grid%ksg:Grid%keg,1:NVAR))
+            Grid%Gas0 = 0.0
+        endif
+        
     end subroutine Corners2Grid
 
     !Calculate one of the two normal vectors of the edge-centered mag field system

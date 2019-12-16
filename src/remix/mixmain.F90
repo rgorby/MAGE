@@ -7,26 +7,23 @@ module mixmain
   use mixconductance
   use mixstate
   use mixsolver
-
-
+  use mixio
 
   implicit none
 
   contains
 
-    subroutine init_mix(I,hmsphrs,conductance,optFilename)
-      type(mixIon_T),dimension(:),intent(inout) :: I ! I for ionosphere (is an array of 1 or 2 elements for north and south) or it can be artibrarily many, e.g., for different solves done in loop
-      integer, dimension(:), intent(in) :: hmsphrs ! array of integers marking hemispheres for the I object array.
-      type(mixConductance_T), intent(inout) :: conductance
+    subroutine init_mix(I,hmsphrs,optFilename,RunID,isRestart,mixIOobj)
+      type(mixIon_T),dimension(:),allocatable,intent(inout) :: I ! I for ionosphere (is an array of 1 or 2 elements for north and south) or it can be artibrarily many, e.g., for different solves done in loop
+      integer, dimension(:), intent(in) :: hmsphrs       
       character(len=*), optional, intent(in) :: optFilename
+      character(len=*),optional, intent(in) :: RunID   ! these two things are needed when we're coupled with Gamera
+      logical,optional, intent(in) :: isRestart
+      type(mixIO_T),optional, intent(in) :: mixIOobj      
 
-      integer :: h ! h for hemisphere
+      integer :: h
 
-      ! check that hmsphs and I have the same size
-      if (size(I).ne.size(hmsphrs)) then
-         write(*,*) "The sizes of the mixIon_T array and hemispheres array are different. Stopping..."
-         stop
-      end if
+      if (.not.allocated(I)) allocate(I(size(hmsphrs)))
 
       do h=1,size(I)
          if(present(optFilename)) then
@@ -34,36 +31,24 @@ module mixmain
          else
             call initMIXParams(I(h)%P)
          endif
-         ! FIXME: replace with a function pointer allowing an arbitrary grid specification, e.g., init_grid=>init_uniform
-         call init_uniform(I(h)%G,I(h)%P%Np,I(h)%P%Nt,I(h)%P%LowLatBoundary*pi/180._rp,.true.)
-         call init_state(I(h)%G,I(h)%St) 
-         call conductance_init(conductance,I(h)%P,I(h)%G)
 
-         ! copy hemisphere and tilt parameters from the xml file only
-         ! if hmsphrs array sets them to -1. This allows flexibility
-         ! in allowing the possibility to define the hemisphere in the
-         ! xml file for some applications, in which case they should
-         ! initialize the hmsphrs array to -1.
+         if (present(mixIOobj)) then
+            call init_grid(I(h),mixIOobj)
+            call init_state(I(h)%G,I(h)%St,mixIOobj%vars(:,:,:,h)) ! passing only the hemisphere variables            
+         else
+            call init_grid(I(h))
+            call init_state(I(h)%G,I(h)%St)            
+         end if
+         
+         call conductance_init(I(h)%conductance,I(h)%P,I(h)%G)
+
          I(h)%St%hemisphere = hmsphrs(h)
-         if (I(h)%St%hemisphere.eq.-1) I(h)%St%hemisphere = I(h)%P%hemisphere
 
-         ! check that hemisphere makes sense by now. note, mixparams
-         ! has already checked that what's read from the xml file is
-         ! either NORTH or SOUTH. So the check here is only against
-         ! hmsphrs array not set correctly (to -1 or NORTH or SOUTH)
-         ! in the calling driver program.
+         ! check that hemisphere makes sense.
          if ((I(h)%St%hemisphere.ne.NORTH).and.(I(h)%St%hemisphere.ne.SOUTH)) then
             write(*,*) 'Hemisphere is set to an unallowable value: ',I(h)%St%hemisphere
             write(*,*) 'Stopping...'
             stop
-         end if
-
-         ! tilt will be used from the param file or should be set
-         ! in calling the run_mix function.
-         if (I(h)%St%hemisphere.eq.NORTH) then
-            I(h)%St%tilt = I(h)%P%tilt
-         else 
-            I(h)%St%tilt = -I(h)%P%tilt
          end if
 
          ! initialize solver for each ionosphere instance
@@ -75,6 +60,9 @@ module mixmain
          ! the info of the entire mixIon_T object.
          if (I(h)%St%hemisphere.eq.SOUTH) I(h)%G%cosd = -I(h)%G%cosd
       end do
+
+      ! initialize the mix dump file
+      call initMIXIO(I,RunID,isRestart)
     end subroutine init_mix
 
     subroutine get_potential(I)
@@ -83,27 +71,30 @@ module mixmain
       I%St%Vars(:,:,POT) = reshape(I%S%solution,[I%G%Np,I%G%Nt])*RionE**2*1.D3 ! in kV
     end subroutine get_potential
 
-    subroutine run_mix(I,tilt,conductance)
+    subroutine run_mix(I,tilt,doModelOpt)
       type(mixIon_T),dimension(:),intent(inout) :: I 
       real(rp),intent(in) :: tilt
-      type(mixConductance_T), intent(inout) :: conductance
+      logical, optional, intent(in) :: doModelOpt  ! allow to change on the fly whether we use conductance model
 
+      logical :: doModel=.true.   ! always default to xml input deck unless doModelOpt is present and on
       integer :: h
 
+      if (present(doModelOpt)) doModel = doModelOpt
+      
       do h=1,size(I)
-         ! note, if tilt is set to -9999. in the calling function the
-         ! value from the param.xml file will be used.  if it is not
-         ! set in the xml file, the xml reader will have set it to default
-         ! value by now.
-         if (tilt.ne.-9999._rp) then
-            if (I(h)%St%hemisphere.eq.NORTH) then
-               I(h)%St%tilt = tilt
-            else
-               I(h)%St%tilt = -tilt
-            end if
+         if (I(h)%St%hemisphere.eq.NORTH) then
+            I(h)%St%tilt = tilt
+         else
+            I(h)%St%tilt = -tilt
          end if
 
-         call conductance_total(conductance,I(h)%G,I(h)%St)
+         if (doModel) then
+            I(h)%conductance%const_sigma = I(h)%P%const_sigma         
+         else
+            I(h)%conductance%const_sigma = .true.            
+         end if
+         
+         call conductance_total(I(h)%conductance,I(h)%G,I(h)%St)
          call run_solver(I(h)%P,I(h)%G,I(h)%St,I(h)%S)
          call get_potential(I(h))
       end do

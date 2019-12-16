@@ -6,65 +6,38 @@ module starter
     use strings
     use xml_input
     use ebinit
-    use tpinit
     use gridloc
     use chmpdbz
     use gridinterp
+    use usertpic
+    use userebic
 
     implicit none
-
-!----------------------------------------
-!Generic interfaces for field/tp initializaton routines
-    !ebIC_T
-    !Generic field initialization routine
-    abstract interface
-        subroutine ebIC_T(Model,ebState,inpXML)
-            Import :: chmpModel_T,ebState_T,XML_Input_T
-            type(chmpModel_T), intent(inout) :: Model
-            type(ebState_T), intent(inout)   :: ebState
-            type(XML_Input_T), intent(inout) :: inpXML           
-        end subroutine ebIC_T
-    end interface
-
-    !ebIC_T
-    !Generic field initialization routine
-    abstract interface
-        subroutine tpIC_T(Model,ebState,tpState,inpXML)
-            Import :: chmpModel_T,ebState_T,tpState_T,XML_Input_T
-            type(chmpModel_T), intent(inout) :: Model
-            type(ebState_T), intent(inout)   :: ebState
-            type(tpState_T), intent(inout)   :: tpState
-            type(XML_Input_T), intent(inout) :: inpXML
-        end subroutine tpIC_T
-    end interface
-
-!----------------------------------------
-!Actual routines to get called
-    procedure(ebIC_T), pointer :: initFields    => ebInit_Std
-    procedure(tpIC_T), pointer :: initParticles => NULL()
 
 !----------------------------------------
 !Initialization routines
     contains
 
     !Initialize Model, set IC pointers for particles/fields and call them
-    subroutine getChimp(Model,ebState,tpState,iXML)
+    subroutine goApe(Model,ebState,tpState,iXML,optFilename)
         type(chmpModel_T), intent(inout) :: Model
-        type(ebState_T), intent(inout), optional   :: ebState
-        type(tpState_T), intent(inout), optional   :: tpState
-        type(XML_Input_T), intent(out), optional   :: iXML
-
+        type(ebState_T),   intent(inout), optional :: ebState
+        type(tpState_T),   intent(inout), optional :: tpState
+        type(XML_Input_T), intent(out),   optional :: iXML
+        character(len=*) , intent(in)   , optional   :: optFilename
+ 
         character(len=strLen) :: xmlStr
         type(XML_Input_T) :: inpXML
-        write(*,*) "getChimp: Create all data structures"
+        write(*,*) "goApe: Create all data structures"
  
-        updateFields => ebUpdate
         CalcGC => DirectGC
-        !CalcGC => TestGC
-        !CalcGC => ChimpGC 
        
     !Create input XML object
-        call getIDeckStr(xmlStr)
+        if (present(optFilename)) then
+            xmlStr = optFilename
+        else
+            call getIDeckStr(xmlStr)
+        endif
         inpXML = New_XML_Input(trim(xmlStr),"Chimp",.true.)
 
         !Send XML object back if optional arg present
@@ -84,8 +57,6 @@ module starter
             write(*,*) '----------------------------'
             write(*,*) 'Initializing fields ...'
         
-            !initFields => ebInit_Std
-            !call ebInit_Std(Model,ebState,inpXML)
             call initFields(Model,ebState,inpXML)
             
             !Also do localization init
@@ -97,10 +68,9 @@ module starter
             write(*,*) '----------------------------'
             write(*,*) 'Initializing particles ...'
 
-            initParticles => tpInit_Std
-            call tpInit_Std(Model,ebState,tpState,inpXML)
+            call initParticles(Model,ebState,tpState,inpXML)
         endif
-    end subroutine getChimp
+    end subroutine goApe
 
     !Initialize model variable
     !Assume time values are in input units, ie code = inTScl*input time

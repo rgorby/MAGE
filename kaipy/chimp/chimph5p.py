@@ -34,7 +34,10 @@ def locPID(fname,pid):
 		ids = grp.get("id").value
 		#print(ids.shape)
 		isP = (ids == pid)
-		loc = isP.argmax()	
+		loc = isP.argmax()
+		if (ids[loc] != pid):
+			print("Didn't find particle %d ..."%(pid))
+			loc = None
 	return loc
 		
 #Given an h5part file, create a time series for a single particle w/ ID = pid

@@ -1,6 +1,6 @@
 module gamutils
 
-    use types
+    use gamtypes
 #ifdef _OPENMP
     use omp_lib
 #endif    
@@ -165,7 +165,7 @@ module gamutils
             State%Efld = 0.0
         endif
 
-        if ( Model%useResistivity .and. .not. allocated(State%Deta) ) then
+        if ( Model%doResistive .and. .not. allocated(State%Deta) ) then
             call allocGridVec(Model,Grid,State%Deta,.true.,NDIM)
             State%Deta = 0.0
         endif
@@ -174,17 +174,6 @@ module gamutils
             call allocGridVec(Model,Grid,State%Bxyz,.false.,NDIM)
             State%Bxyz = 0.0
         endif
-
-        ! for the lack of a better place to do it, allocate vars for additional heating here
-        if ( Model%doHeat ) then
-           if (.not. allocated(State%eqMap)) allocate(State%eqMap(Grid%is:Grid%ie,Grid%js:Grid%je,Grid%ks:Grid%ke,1:NDIM))
-           if (.not. allocated(State%eqPres)) allocate(State%eqPres(Grid%is:Grid%ie,Grid%js:Grid%je,Grid%ks:Grid%ke))
-           if (Model%doPsphere ) then
-              if (.not. allocated(State%eqDen)) allocate(State%eqDen(Grid%is:Grid%ie,Grid%js:Grid%je,Grid%ks:Grid%ke))
-           end if
-           State%eqPres = 0.0
-           State%eqDen = 0.0
-        end if
 
         State%time = Model%t
 
@@ -307,17 +296,6 @@ module gamutils
         enddo
 
     end subroutine wipeGridVec
-
-    subroutine allocGridHydroSpc(Model,Grid,gVHs)
-        type(Model_T), intent(in) :: Model
-        type(Grid_T),  intent(in) :: Grid
-        real(rp), dimension(:,:,:,:,:), allocatable, intent(inout) :: gVHs
-
-        if ( .not. allocated(gVHs) ) then
-            allocate( gVHs(Grid%isg:Grid%ieg,Grid%jsg:Grid%jeg,Grid%ksg:Grid%keg,1:NVAR,0:Model%nSpc) )
-        endif
-
-    end subroutine allocGridHydroSpc
 
     !Converts grid of conserved quantities to primitive
     subroutine Con2Prim(Model,Grid,Con,Prim)

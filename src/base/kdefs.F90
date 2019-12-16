@@ -6,7 +6,8 @@ module kdefs
     !Define variable precisions
     integer, parameter :: sp = REAL32
     integer, parameter :: dp = REAL64
-    integer, parameter :: ip = INT64
+    !integer, parameter :: ip = INT64
+    integer, parameter :: ip = INT32
     
     !Compute precision, IO precision
     integer, parameter :: rp = dp
@@ -26,25 +27,37 @@ module kdefs
     
 !Physical constants
     real(rp), parameter :: Mu0 = 4*PI*1.0e-7 ! Tm/A
-    real(rp), parameter :: mp   = 1.6726D-24     ![g]    proton mass
-    real(rp), parameter :: me   = 9.1094D-28     ![g]    electron mass
     real(rp), parameter :: Kbltz = 1.38e-16      ![cm^2 g /s^2/K=erg/K] Boltzmann constant
-    
+    real(rp), parameter :: mec2 = 0.511 ! [MeV] electron rest mass
+
     real(rp), parameter :: heFrac= 1.16D0       ! Accounts for 4% helium
     real(rp), parameter :: kev2erg= 1.602D-9   ! 1 keV = 1.602e-9 ergs
     real(rp), parameter :: erg2kev= 1.0D0/kev2erg 
     real(rp), parameter :: eCharge= 1.602D-19  ! Charge of electron
+    
     !CGS Constants
-    real(rp), parameter :: vc_cgs = 2.9979E10  ![cm/s], speed of light
+    real(rp), parameter :: vc_cgs = 2.9979E+10 ![cm/s], speed of light
     real(rp), parameter :: qe_cgs = 4.8032E-10 ![CGS], electron charge
     real(rp), parameter :: Re_cgs = 6.38E8     ![cm]    Earth's radius
     real(rp), parameter :: Me_cgs = 9.1094E-28 ![g] Electron mass
+    real(rp), parameter :: Mp_cgs = 1.6726D-24 ![g] Proton mass
+
+    !MKS Constants
+    real(rp), parameter :: vc_mks = 2.9979e+8 ![m/s], Speed of light
+
+    !Helper conversions
+    real(rp), parameter :: G2nT = 1.0E+5 !Gauss->nT
+    real(rp), parameter :: G2T = 1.0E-4 !Gauss->T
+    real(rp), parameter :: kev2J = 1.60218E-16 !keV->J
+
 
 !Planetary constants
     !Earth
     real(rp), parameter :: EarthM0g = 0.31 !Gauss
     real(rp), parameter :: REarth = 6.38e6 ! m
     real(rp), parameter :: RionE  = 6.5    ! Earth Ionosphere radius in 1000 km
+    real(rp), parameter :: EarthPsi0 = 92.4 ! Corotation potential [kV]
+    
     !Saturn
     real(rp), parameter :: SaturnM0g = 0.21 !Gauss
     real(rp), parameter :: RSaturnXE = 9.5  !Rx = X*Re
@@ -91,14 +104,14 @@ character(ANSILEN), parameter :: &
 
     contains
 
-    !Print out basic configuration info
-    subroutine printConfigStamp()
-        write(*,*) 'Kaiju configuration'
-        write(*,'(2a)') 'Compiler = ', compiler_version()
-        write(*,'(2a)') 'Compiler flags = ', compiler_options()
-        !write(*,*) 'Git hash = ', GITCOMMITHASH
-        !write(*,*) 'Git branch = ', GITBRANCH
+    ! !Print out basic configuration info
+    ! subroutine printConfigStamp()
+    !     write(*,*) 'Kaiju configuration'
+    !     write(*,'(2a)') 'Compiler = ', compiler_version()
+    !     write(*,'(2a)') 'Compiler flags = ', compiler_options()
+    !     !write(*,*) 'Git hash = ', GITCOMMITHASH
+    !     !write(*,*) 'Git branch = ', GITBRANCH
 
-    end subroutine printConfigStamp
+    ! end subroutine printConfigStamp
 
 end module kdefs

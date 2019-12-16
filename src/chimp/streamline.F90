@@ -6,29 +6,6 @@ module streamline
 
     implicit none
 
-    integer, parameter :: MaxFL = 5000 !Reduced for multi-threading speed
-    integer, parameter :: NumVFL = NVARMHD !Number of field line variables (other than |B|)
-
-    !Streamline variable
-    type lnVar_T
-        character(len=strLen) :: idStr !Variable name
-        real(rp), allocatable, dimension(:) :: V !Same spacing as xyz in main streamline structure (-Nm:Np)
-        real(rp) :: V0 !Value @ "equator"
-    end type lnVar_T
-    !Individual streamline
-    type fLine_T
-        integer :: Nm,Np
-        real(rp), dimension(NDIM) :: x0 !Seed point
-        real(rp), allocatable, dimension(:,:) :: xyz
-
-        !xyz(-Nm:Np,:), w/ xyz(0,:) = seed point
-        type(lnVar_T), dimension(0:NumVFL) :: lnVars
-
-        !Localization data, ie ijk of each node of field line (not set yet)
-        integer, allocatable, dimension(:,:) :: ijk
-
-    end type fLine_T
-
     contains
 
     subroutine genStream(Model,ebState,x0,t,fL)
@@ -134,6 +111,55 @@ module streamline
         end associate
     end function FLVol
 
+    !Averaged density/pressure
+    subroutine FLThermo(Model,ebGr,bTrc,bD,bP,dvB,bBetaO)
+        type(chmpModel_T), intent(in) :: Model
+        type(ebGrid_T), intent(in) :: ebGr
+        type(fLine_T), intent(in) :: bTrc
+        real(rp), intent(out) :: bD,bP,dvB
+        real(rp), intent(out), optional :: bBetaO
+
+        integer :: k
+        real(rp) :: bMag,dl,eD,eP,ePb !Edge-centered values
+        real(rp) :: bBeta
+        
+
+        associate(Np=>bTrc%Np,Nm=>bTrc%Nm)
+        !Zero out accumulators
+        bD = 0.0
+        bP = 0.0
+        dvB = 0.0
+        bBeta = 0.0
+
+        !Loop over edges
+        do k=-Nm,Np-1
+            !Get edge-centered quantities
+            dl = norm2(bTrc%xyz(k+1,:) - bTrc%xyz(k,:)) !Edge length
+            bMag = 0.5*(bTrc%lnVars(0)%V(k+1) + bTrc%lnVars(0)%V(k))
+            eD = 0.5*(bTrc%lnVars(DEN)%V(k+1) + bTrc%lnVars(DEN)%V(k))
+            eP = 0.5*(bTrc%lnVars(PRESSURE)%V(k+1) + bTrc%lnVars(PRESSURE)%V(k))
+            !Get edge mag pressure, using Pb [nPa] = 1.0e+14 x ( B[T]/0.501 )^2
+            ePb = 1.0e+14*(bMag*oBScl*1.0e-9/0.501)**2.0 !Edge mag pressure in nPa
+
+            !Now accumulate into flux-tube integrals
+            dvB = dvB + dl/bMag
+            bD  = bD + eD*dl/bMag
+            bP  = bP + eP*dl/bMag
+            bBeta = bBeta + (eP/ePb)*dl/bMag
+        enddo
+
+        !Now turn flux-tube integrals of quantities into flux-tube averages
+        bD = bD/dvB
+        bP = bP/dvB
+        bBeta = bBeta/dvB
+
+        if (present(bBetaO)) then
+            bBetaO = bBeta
+        endif
+
+        end associate
+    end subroutine FLThermo
+    
     !Flux tube entropy
     function FLEntropy(Model,ebGr,bTrc,GamO) result(S)
         type(chmpModel_T), intent(in) :: Model
@@ -205,11 +231,13 @@ module streamline
             endif
         else
         !At least one side ended badly
-            if ( (Np<MaxFL-1) ) OCb = OCb-1
-            if ( (Nm<MaxFL-1) ) OCb = OCb-1
+            OCb = -1 !Just set timeout flag
+            !if ( (Np<MaxFL-1) ) OCb = OCb-1
+            !if ( (Nm<MaxFL-1) ) OCb = OCb-1
         endif
         end associate
     end function FLTop
+
     !Get minimum field strength and location
     subroutine FLEq(Model,bTrc,xeq,Beq)
         type(chmpModel_T), intent(in) :: Model
@@ -412,7 +440,7 @@ module streamline
         real(rp), dimension(NDIM) :: B,E,dx
         real(rp), dimension(NDIM) :: Jb,Jb2,Jb3,F1,F2,F3,F4
         real(rp), dimension(NDIM,NDIM) :: JacB
-        real(rp) :: ds,dl,MagJb
+        real(rp) :: ds,dl,MagJb,dzSgn
         real(rp), dimension(NVARMHD) :: Q
         integer, dimension(NDIM) :: ijk,ijkG
         type(gcFields_T) :: gcF
@@ -431,28 +459,27 @@ module streamline
 
         !write(*,*) 'sgn/ds/X0 = ', sgn,ds,x0
         do while (inDom .and. Np <= MaxFL)
-           !Locate and get fields
-           !Get location in ijk using old ijk as guess
-           call locate(Xn,ijk,Model,ebState%ebGr,inDom,ijkG)
-           call ebFields(Xn,t,Model,ebState,E,B,ijk,gcFields=gcF)
-           
-           ! get the jacobian
-           JacB = gcF%JacB
+        !Locate and get fields
+            !Get location in ijk using old ijk as guess
+            call locate(Xn,ijk,Model,ebState%ebGr,inDom,ijkG)
+            call ebFields(Xn,t,Model,ebState,E,B,ijk,gcFields=gcF)
 
-           !Get new ds
-           MagJb = sqrt(sum(JacB**2.0))
-           if (MagJb <= TINY) then
-              !Field is constant-ish, use local grid size
-              dl = getDiag(ebState%ebGr,ijk)
-              ds = sgn*Model%epsds*dl/norm2(B)
-           else
-              ds = sgn*Model%epsds/MagJb
-           endif
-           
-           !Update position
+            ! get the jacobian
+            JacB = gcF%JacB
+
+            !Get new ds
+            MagJb = sqrt(sum(JacB**2.0))
+            if (MagJb <= TINY) then
+                !Field is constant-ish, use local grid size
+                dl = getDiag(ebState%ebGr,ijk)
+                ds = sgn*Model%epsds*dl/norm2(B)
+            else
+                ds = sgn*Model%epsds/MagJb
+            endif           
+        !Update position
             !Get powers of jacobian
-            Jb = matmul(JacB,B)
-            Jb2 = matmul(JacB,Jb)
+            Jb  = matmul(JacB,B  )
+            Jb2 = matmul(JacB,Jb )
             Jb3 = matmul(JacB,Jb2)
 
             !Calculate steps
@@ -464,25 +491,23 @@ module streamline
             !Advance
             dx = (F1+2*F2+2*F3+F4)/6.0
             Xn = Xn + dx
-            
+        !Prep for next step, test exit criteria
             inDom = inDomain(xn,Model,ebState%ebGr)
             if (inDom) then
-               Np = Np+1
-               
-               if (toEquator) then
-                  if ( Xn(ZDIR)*(Xn(ZDIR)-dx(ZDIR) ) < 0. ) then
-                     ! interpolate exactly to equator
-                     Xn = Xn-dx/norm2(dx)*abs(Xn(ZDIR))
-                     return
-                  endif
-               endif
-
-            endif
+                Np = Np+1
+                dzSgn = Xn(ZDIR)*( Xn(ZDIR)-dx(ZDIR) )
+                if (toEquator .and. (dzSgn < 0)) then
+                    ! interpolate exactly to equator
+                    Xn = Xn-dx/norm2(dx)*abs(Xn(ZDIR))
+                    return
+                endif
+            endif !inDom
+ 
         enddo
         !write(*,*) 'Found sign/points/distance = ', sgn,Np,norm2(x0-Xn)
 
     end subroutine project
-
+    
     function getDiag(ebGr,ijk) result (dl)
         type(ebGrid_T), intent(in)   :: ebGr
         integer, intent(in) :: ijk(NDIM)

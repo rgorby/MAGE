@@ -1,6 +1,6 @@
 !Various routines to map to/calculate on a Grid
 module gridutils
-    use types
+    use gamtypes
     use math
     use gamutils
     use quadrature

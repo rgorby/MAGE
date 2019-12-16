@@ -15,77 +15,7 @@ module chmpfields
 
     logical :: chkStatic = .false. !Whether to check for static->time interval switch
 
-    !Generic field initialization routine
-    !Update ebState to time t
-    abstract interface
-        subroutine updateField_T(Model,ebState,t)
-            Import :: rp,chmpModel_T,ebState_T
-            type(chmpModel_T), intent(in)    :: Model
-            type(ebState_T), intent(inout)   :: ebState 
-            real(rp), intent(in) :: t    
-
-        end subroutine updateField_T
-
-    end interface
-
-    procedure(updateField_T), pointer :: updateFields !=> ebUpdate
-
     contains
-
-    !Standard eb update
-    subroutine ebUpdate(Model,ebState,t)
-        type(chmpModel_T), intent(in)    :: Model
-        type(ebState_T), intent(inout)   :: ebState 
-        real(rp), intent(in) :: t
-
-        logical :: skipUpdate
-        integer :: i1,i2
-        !Check if doStatic should be flipped
-        if (chkStatic .and. (t >= ebState%eb1%time) ) then            
-            ebState%doStatic = .false.
-            chkStatic = .false.
-        endif
-        !write(*,*) 'Updating to ', t
-        associate( ebGr=>ebState%ebGr,ebTab=>ebState%ebTab,eb1=>ebState%eb1,eb2=>ebState%eb2 )
-
-        skipUpdate = (t >= ebState%eb1%time .and. t <= ebState%eb2%time) .or. ebState%doStatic
-        if (t < ebState%eb1%time) then
-            !Set to static until time is within interval
-            ebState%doStatic = .true.
-            skipUpdate = .true.
-            chkStatic = .true.
-        endif
-
-        if (skipUpdate) return
-
-        !Test for out of time
-        if (t>=maxval(ebTab%times(:))) then
-            write(*,*) 'Out of time data, switching to static fields ...'
-            ebState%doStatic = .true.
-
-            !Copy eb2->eb1
-            eb1%time = eb2%time
-            eb1%dB   = eb2%dB
-            eb1%E    = eb2%E
-            if (Model%doMHD) eb1%W = eb2%W
-
-            !Bail out
-            return        
-        endif
-
-        !Do work if still here
-        !Go ahead and reread both (lazy way of avoiding corner cases)
-        call findSlc(ebState%ebTab,t,i1,i2)
-
-        !Read eb1
-        call readEB(Model,ebGr,ebTab,eb1,ebTab%gStrs(i1))
-
-        !Read eb2
-        call readEB(Model,ebGr,ebTab,eb2,ebTab%gStrs(i2))
-
-        end associate
-
-    end subroutine ebUpdate
 
     !Finds bounding slices from ebTab file
     !NOTE: findloc isn't supported by most gfortran versions, so this is a lazy workaround
@@ -104,16 +34,16 @@ module chmpfields
         i1 = n-1
         i2 = i1+1
         i1 = max(1,i1)
-        i2 = min(ebTab%N,i2)
-
+        
         !Old code
         ! i1 = findloc(ebTab%times .le. t,.true.,dim=1,back=.true.)
         ! i2 = findloc(ebTab%times .gt. t,.true.,dim=1)
         ! i1 = max(1,i1)
         ! i2 = min(ebTab%N,i2)
         
-
         if (i2 == i1) i2=i1+1 !Possible if none of the tab slices are in range
+        i2 = min(ebTab%N,i2)
+        
         !write(*,*) 'i1 / i2 = ', i1,i2
         !write(*,*) 'T(i1) / T / T(i2) = ', oTScl*ebTab%times(i1),oTScl*t,oTScl*ebTab%times(i2)
 

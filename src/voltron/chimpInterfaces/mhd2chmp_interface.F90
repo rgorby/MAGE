@@ -1,0 +1,79 @@
+! Converting gamera data to chimp data
+
+module mhd2chmp_interface
+    use gamtypes
+    use volttypes
+    use math
+    use clocks
+    use gamapp
+    use ebtypes
+    use chmpunits
+    use chmpfields
+
+    implicit none
+
+    contains
+
+    subroutine init_mhd2Chmp(mhd2chmp, gamApp, ebTrcApp)
+        type(mhd2Chmp_T), intent(inout) :: mhd2chmp
+        type(gamApp_T)  , intent(in)    :: gamApp
+        type(ebTrcApp_T), intent(inout) :: ebTrcApp
+
+
+    end subroutine init_mhd2Chmp
+
+    subroutine convertGameraToChimp(mhd2chmp,gamApp,ebTrcApp)
+        type(mhd2Chmp_T), intent(inout) :: mhd2chmp
+        type(gamApp_T)  , intent(in)    :: gamApp
+        type(ebTrcApp_T), intent(inout) :: ebTrcApp
+
+        real(rp), dimension(NVAR) :: pW, pCon
+        real(rp), dimension(NDIM) :: Bxyz,Vxyz
+        integer :: i,j,k
+
+    
+        associate(Gr=>gamApp%Grid,State=>gamApp%State,ebGr=>ebTrcApp%ebState%ebGr,ebF=>ebTrcApp%ebState%eb1)
+        
+        !Scrape Gamera MHD data into CHIMP structure
+        !NOTE: Chimp and Gamera both have background fields that are not equal
+        !Gamera uses a cutdipole background, CHIMP uses a pure dipole background
+        !$OMP PARALLEL DO default(shared) collapse(2) &
+        !$OMP private(i,j,k,pW,pCon,Bxyz,Vxyz)
+        do k=Gr%ks,Gr%ke
+            do j=Gr%js,Gr%je
+                do i=Gr%is,Gr%ie
+                    !Get conserved state from Gamera, convert to prim, scale and load into Chimp
+                    pCon = State%Gas(i,j,k,:,BLK)
+                    call CellC2P(gamApp%Model,pCon,pW)
+                    !Add Gamera field + Gamera background, scale to CHIMP
+                    Bxyz = inBScl*State%Bxyz(i,j,k,:)
+                    if (gamApp%Model%doBackground) then
+                        Bxyz = Bxyz + inBScl*Gr%B0(i,j,k,:)
+                    endif
+                    Vxyz = inVScl*pW(VELX:VELZ)
+                    
+                    !Now store data, subtract CHIMP background
+                    ebF%dB(i,j,k,:) = Bxyz - ebGr%B0cc(i,j,k,:)
+                    ebF%E(i,j,k,:)  = -cross(Vxyz,Bxyz)
+
+                    if (ebTrcApp%ebModel%doMHD) then
+                        ebF%W(i,j,k,DEN)      = inDScl*State%Gas(i,j,k,DEN     ,BLK)
+                        ebF%W(i,j,k,PRESSURE) = inPScl*State%Gas(i,j,k,PRESSURE,BLK)
+                        ebF%W(i,j,k,VELX:VELZ) = Vxyz
+                    endif
+                enddo
+            enddo
+        enddo
+
+        !Impose some ghost conditions
+        call ebGhosts(ebTrcApp%ebModel,ebGr,ebF)
+
+        end associate
+        ebTrcApp%ebState%eb1%time = 0.0
+        ebTrcApp%ebState%eb2%time = 1.0
+        ebTrcApp%ebState%doStatic = .true.
+        
+    end subroutine convertGameraToChimp
+
+end module mhd2chmp_interface
+

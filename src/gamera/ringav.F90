@@ -4,7 +4,7 @@
 !nR: Rings. Cyl (R), LFM (J)
 
 module ringav
-    use types
+    use gamtypes
     use gamutils
     use fields
     use math
@@ -31,7 +31,7 @@ module ringav
         type(Grid_T), intent(in) :: Gr
         type(State_T), target, intent(inout) :: State
 
-        real(rp), dimension(:,:,:,:), allocatable :: SmoothE !Smoothing electric field
+        real(rp), dimension(:,:,:,:), allocatable, save :: SmoothE !Smoothing electric field
         
         !DIR$ attributes align : ALIGN :: SmoothE
     !----
@@ -42,8 +42,8 @@ module ringav
         endif
         call Tic("Ring-Init")
         !Initialize array for smoothing field
-        allocate(SmoothE(Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,NDIM))
-        SmoothE = 0.0
+        call InitRAVec(Model,Gr,SmoothE)
+
         call Toc("Ring-Init")
     !----
     !Magnetic fields
@@ -87,11 +87,9 @@ module ringav
         integer :: s,s0,sE
         
         real(rp), dimension(Np,NVAR) :: rW,raW
-        real(rp), dimension(Np,NDIM) :: rdB,rB0,rB
-        real(rp), dimension(0:NFT,FTCOS:FTSIN,NDIM) :: cFT !Holds Fourier coefficients
         logical, dimension(Np) :: gW
 
-        !DIR$ attributes align : ALIGN :: rW,raW,rdB,rB0,rB,gW
+        !DIR$ attributes align : ALIGN :: rW,raW,gW
 
         s0 = BLK
         if (Model%doMultiF) then
@@ -107,7 +105,7 @@ module ringav
             !Do OMP on slices
             !$OMP PARALLEL DO default(shared) &
             !$OMP private(nR,nv,n,lRs,lRe,NumCh,dC) &
-            !$OMP private(rW,raW,rdB,rB0,rB,gW,cFT)
+            !$OMP private(rW,raW,gW)
             do nS=Model%Ring%nSi,Model%Ring%nSe
                 do nR=1,Model%Ring%NumR
                     NumCh = Model%Ring%Nch(nR) !Number of total chunks for this ring
@@ -116,29 +114,8 @@ module ringav
                     !Pull ring hydro vars
                     call PullRingCC(Model,Gr,State%Gas(:,:,:,1:NVAR,s),rW,nR,nS,NVAR,XPOLE)
 
-                    !Pull ring cell-centered fields
-                    if (Model%doMHD) then
-                        call PullRingCC(Model,Gr,State%Bxyz(:,:,:,1:NDIM),rdB,nR,nS,NDIM,XPOLE)
-                        if (Model%doBackground) then
-                            call PullRingCC(Model,Gr,Gr%B0(:,:,:,1:NDIM),rB0,nR,nS,NDIM,XPOLE)
-                        else
-                            rB0 = 0.0
-                        endif
-                    else
-                        !Just zero out fields
-                        rdB = 0.0
-                        rB0 = 0.0
-                    endif
-                    rB = rdB+rB0
-
                     !Convert to ring variables
-                    call Gas2Ring(Model,rW,rB)
-
-                    !Clean (subtract modes) momentum (xyz) over ring
-                    do nv=1,NDIM
-                        n = MOMX+nv-1 !Index in nvar, MOMX:MOMZ
-                        call CleanRing(rW(:,n),cFT(:,:,nv))
-                    enddo !nv loop
+                    call Gas2Ring(Model,rW)
 
                 !Create chunk averaged array
                     !Loop over chunks, pull average over each chunk
@@ -155,25 +132,25 @@ module ringav
                     !Decide on good cells
                     if (Model%doMultiF) then
                         gW = (rW(:,DEN) > Spcs(s)%dVac)
+                        if (.not. any(gW)) cycle
                     else
                         gW = .true.
                     endif
 
-                    do nv=1,NVAR
-                        call ReconstructRing(Model,raW(:,nv),NumCh,gW)
-                    enddo !nv loop
+                !Reconstruct mass first, then remaining variables wrt mass coords
 
-                !Dirty rings and put back
-                    do nv=1,NDIM
-                        n = MOMX+nv-1
-                        call DirtyRing(raW(:,n),cFT(:,:,nv))
+                    call ReconstructRing(Model,raW(:,DEN),NumCh,gW)
+                    do nv=2,NVAR-1
+                        call WgtRecostructRing(Model,raW(:,nv),raW(:,DEN),NumCh,gW)
                     enddo
-
+                    call ReconstructRing(Model,raW(:,PRESSURE),NumCh,gW)
+                    
                     !Convert back to gas variables
-                    call Ring2Gas(Model,raW,rB)
+                    call Ring2Gas(Model,raW)
 
                     !Push ring back
                     call PushRingCC(Model,Gr,State%Gas(:,:,:,1:NVAR,s),raW,nR,nS,NVAR,XPOLE)
+
                 enddo !Ring loop
             enddo !Slice loop
 
@@ -185,7 +162,7 @@ module ringav
         endif
 
     end subroutine SmoothGas
-
+    
     subroutine CalcSmoothE(Model,Gr,State,SmoothE,XPOLE)
         type(Model_T), intent(in) :: Model
         type(Grid_T) , intent(in) :: Gr
@@ -442,5 +419,33 @@ module ringav
         enddo !Loop over cells
 
     end subroutine DirtyRing
-    
+
+    subroutine InitRAVec(Model,Gr,A)
+        type(Model_T), intent(in) :: Model
+        type(Grid_T), intent(in) :: Gr
+        real(rp), dimension(:,:,:,:), allocatable, intent(inout) :: A
+
+        logical :: doInit
+        integer, dimension(4) :: flxDims
+        integer :: dI
+
+        if (.not. allocated(A)) then
+            doInit = .true.
+        else
+            flxDims = [Gr%Ni,Gr%Nj,Gr%Nk,NDIM]
+            dI = sum(abs(flxDims-shape(A)))
+            if (dI>0) then
+                doInit = .true.
+            else
+                doInit = .false.
+            endif
+        endif
+
+        if (doInit) then
+            allocate(A(Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,NDIM))
+            A = 0.0
+        endif
+
+    end subroutine InitRAVec
+
 end module ringav

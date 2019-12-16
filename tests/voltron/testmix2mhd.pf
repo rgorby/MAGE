@@ -17,7 +17,7 @@ contains
   subroutine lastSerial()
   end subroutine lastSerial
 
-  @test
+  !@test
   subroutine corotationTest()
     ! testing that a corotation potential from remix results in a corotation field in gamera
     type(voltApp_T) :: voltronApp
@@ -52,9 +52,9 @@ contains
     end associate
 
     !Can add a test of the interpolation to Gamera shells here?
-    call mix2mhd(voltronApp%remixApp)
+    call mapRemixToGamera(voltronApp%mix2mhd, voltronApp%remixApp)
 
-    call convertRemixToGamera(gameraApp, voltronApp%remixApp,.false.) !Don't add corotation potential
+    call convertRemixToGamera(voltronApp%mix2mhd, voltronApp%remixApp, gameraApp, .false.) !Don't add corotation potential
 
     ! find the remix BC to verify the resulting Gamera data
     SELECT type(iiBC=>gameraApp%Grid%externalBCs(INI)%p)

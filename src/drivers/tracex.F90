@@ -33,7 +33,7 @@ program tracex
 
     !----------------------------
     !Initialize model and fields
-    call getChimp(Model,ebState,iXML=inpXML)
+    call goApe(Model,ebState,iXML=inpXML)
     Model%doFLOut = .true.
     
     !Get tracing points and field line holders

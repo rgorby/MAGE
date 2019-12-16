@@ -2,18 +2,14 @@
 
 module msphutils
     use kdefs
-    use types
+    use gamtypes
     use gamutils
     use math, magRampDown => CubicRampDown
-    use output
-    use gioH5
-
     use gridutils
-    use xml_input
-    use strings
+    use output
     use background
     use multifluid
-    use ingestpress
+    use earthhelper
 
     implicit none
 !Earth scaling
@@ -25,7 +21,9 @@ module msphutils
 !t0 = 63.8 second
 !M0 = -0.31*1.0e+5/B0
 
-    real(rp) :: Rion ! planetary ionosphere radius
+    real(rp) :: Rion ! Planetary ionosphere radius
+
+    !TODO: Move these values to a units type in gamera's Model_T
     real(rp) :: gx0 ! [m]
     real(rp) :: gv0 ! [m/s]
     real(rp) :: gD0 = 1.67e-21 ! 1 AMU/cc [kg/m3]
@@ -33,29 +31,32 @@ module msphutils
     real(rp) :: gB0 ! [nT]
     real(rp) :: gT0 ! [s]
     real(rp) :: gG0=0 ! Grav acceleration [m/s2]
-    real(rp) :: M0 !Default magnetic moment [gauss]
-    real(rp) :: GM0 !Gravitational force coefficient
-    real(rp) :: Psi0=0. ! corotation potential coef
     
-    !real(rp) :: rCut=4.5, lCut=3.5 !LFM values
-    real(rp) :: rCut=4.0, lCut=5.0
-    real(rp) :: xSun,xTail,yMax
-    real(rp) :: x0,Aq,Bq,sInner
-
+    !TODO: Move these variables to something connecting remix/gamera
     integer :: JpSh = 1 !Number of cc current shells for CMI
     integer :: JpSt = 2 !First shell (i) to calculate current
     logical :: doRingFAC = .true. !Do some ring-processing on currents before sending to remix
-
-    !integer :: PsiSh = 1 !Number of *SHELLS* getting nodes at, ie PsiSh+1 = # i nodes
-    !integer :: PsiSt = 1 !Starting shell of potential
 
     !Get 5 shells, all ghosts plus first active
     integer :: PsiSh = 5 !Number of *SHELLS* getting nodes at, ie PsiSh+1 = # i nodes
     integer :: PsiSt = -3 !Starting shell of potential
 
+
+!Private module variables
     !Chill out parameters
-    real(rp) :: RhoCO = 1.0e-3 ! Number density
-    real(rp) :: CsCO  = 1.0e-2  ! Cs chillout, m/s
+    real(rp), private :: RhoCO = 1.0e-3 ! Number density
+    real(rp), private :: CsCO  = 1.0e-2  ! Cs chillout, m/s
+    !Dipole cut values
+    !real(rp) :: rCut=4.5, lCut=3.5 !LFM values
+    !real(rp), private :: rCut=4.0, lCut=5.0
+    real(rp), private :: rCut=16.0,lCut=8.0
+    real(rp), private :: xSun,xTail,yMax
+    real(rp), private :: x0,Aq,Bq,sInner
+
+    !Grav/rotation values
+    real(rp), private :: GM0  = 0.0 !Gravitational force coefficient
+    real(rp), private :: Psi0 = 0.0 ! corotation potential coef
+    real(rp), private :: M0   = 0.0 !Magnetic moment
 
     contains
 
@@ -64,7 +65,7 @@ module msphutils
     subroutine setMagsphere(Model,xmlInp,pStrO)
         type(Model_T), intent(inout) :: Model
         type(XML_Input_T), intent(in) :: xmlInp
-        character(len=strLen), intent(in), optional :: pStrO
+        character(len=*), intent(in), optional :: pStrO
 
         character(len=strLen) :: pID !Planet ID string
         real(rp) :: M0g,rScl
@@ -84,9 +85,9 @@ module msphutils
             gG0 = 9.807   ! [m/s2]
             call xmlInp%Set_Val(M0g,"prob/M0",EarthM0g) !Mag moment [gauss]
             !Using corotation potential for Earth
-            Psi0 = 0*92.0 !kV
+            Psi0 = EarthPsi0 !kV
             Rion = RionE*1.e6/gx0 ! Radius of ionosphere in code units (RionE defined in kdefs in 1000km)
-            Model%doGrav = .false.
+            Model%doGrav = .true.
         case("Saturn","saturn","SATURN")
             gx0 = RSaturnXE*REarth  ! [m]
             gv0 = 100.0e+3    ! [m/s]
@@ -124,7 +125,7 @@ module msphutils
         gT0 = gx0/gv0 !Set time scaling
         gB0 = sqrt(Mu0*gD0)*gv0*1.0e+9 !T->nT
         gP0 = gD0*gv0*gv0*1.0e+9 !P->nPa
-        M0 = -M0g*1.0e+5/gB0 !Magnetic moment
+        M0  = -M0g*1.0e+5/gB0 !Magnetic moment
         GM0 = gG0*gx0/(gv0*gv0)
 
         !Add gravity if required
@@ -134,7 +135,7 @@ module msphutils
 
         !Change console output pointer
         timeString => magsphereTime
-
+        
         write(*,*) '---------------'
         write(*,*) 'Magnetosphere normalization'
         write(*,*) 'T0 [s]    = ', gT0
@@ -145,19 +146,28 @@ module msphutils
         write(*,*) 'g  [m/s2] = ', gG0
         write(*,*) '---------------'
 
-        !Add normalization/labels to output slicing
-        gamOut%tScl = gT0
-        gamOut%dScl = 1.0
-        gamOut%vScl = gv0*1.0e-3 !km/s
-        gamOut%pScl = gP0
-        gamOut%bScl = gB0
+        !Save scaling to gUnits_T structure in Model
+        Model%Units%gT0 = gT0
+        Model%Units%gx0 = gx0
+        Model%Units%gv0 = gv0
+        Model%Units%gD0 = gD0
+        Model%Units%gP0 = gP0
+        Model%Units%gB0 = gB0
+        Model%Units%gG0 = gG0
 
-        gamOut%uID = trim(toUpper(pID))
-        gamOut%tID = 's'
-        gamOut%dID = '#/cc'
-        gamOut%vID = 'km/s'
-        gamOut%pID = 'nPa'
-        gamOut%bID = 'nT'
+        !Add normalization/labels to output slicing
+        Model%gamOut%tScl = gT0
+        Model%gamOut%dScl = 1.0
+        Model%gamOut%vScl = gv0*1.0e-3 !km/s
+        Model%gamOut%pScl = gP0
+        Model%gamOut%bScl = gB0
+
+        Model%gamOut%uID = trim(toUpper(pID))
+        Model%gamOut%tID = 's'
+        Model%gamOut%dID = '#/cc'
+        Model%gamOut%vID = 'km/s'
+        Model%gamOut%pID = 'nPa'
+        Model%gamOut%bID = 'nT'
 
     end subroutine
 
@@ -173,6 +183,12 @@ module msphutils
 
     end subroutine magsphereTime
     
+    !Just return module private magnetic moment
+    function MagMoment() result(M)
+        real(rp) :: M
+        M = M0
+    end function MagMoment
+
     !Convert electic potential from ionosphere to E fields for inner BCs
     subroutine Ion2MHD(Model,Grid,gPsi,inEijk,inExyz,pSclO)
         type(Model_T), intent(in) :: Model
@@ -289,7 +305,7 @@ module msphutils
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Gr
         type(State_T), intent(inout) :: State
-        real(rp), intent(inout) :: inEijk(PsiSh+1,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,1:NDIM)
+        real(rp), intent(in) :: inEijk(PsiSh+1,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,1:NDIM)
 
         integer :: is0,j,k
 
@@ -384,6 +400,7 @@ module msphutils
         real(rp), dimension(NVAR) :: pW, pCon
         real(rp), dimension(0:Model%nSpc) :: RhoMin
         real(rp) :: D,P,CsC,Pc,Leq,tau
+        logical :: doChill
 
         RhoMin(BLK) = 0.0
         if (Model%doMultiF) then
@@ -398,7 +415,7 @@ module msphutils
         endif
 
         !$OMP PARALLEL DO default(shared) collapse(3) &
-        !$OMP private(s,i,j,k,pW,pCon,D,P,CsC,Pc,Leq,tau)
+        !$OMP private(s,i,j,k,pW,pCon,D,P,CsC,Pc,Leq,tau,doChill)
         do s=s0,sE
             do k=Grid%ksg,Grid%keg
                 do j=Grid%jsg,Grid%jeg
@@ -407,6 +424,27 @@ module msphutils
                         !Check species
                         pCon = State%Gas(i,j,k,:,s)
                         D = pCon(DEN)
+
+                    !Check for low densities
+                        if (s>BLK) then
+                            doChill = ( D <= RhoCO ) .and. ( D >= RhoMin(s) )
+                        else
+                            doChill = ( D <= RhoCO )
+                        endif
+
+                        !If density is low keep things chill by setting sound speed
+                        if (doChill) then
+                            pCon = State%Gas(i,j,k,:,s)
+                            call CellC2P(Model,pCon,pW)
+                            !Set pressure to ensure Cs = CsCO
+                            CsC = CsCO/gv0 !Cs in code units
+                            P = pW(DEN)*CsC*CsC/Model%gamma
+                            pW(PRESSURE) = max(P,pFloor)
+                            call CellP2C(Model,pW,pCon)
+                            State%Gas(i,j,k,:,s) = pCon
+                        endif
+
+                    !Check for too fast sound speed
 
                         !Get sound speed
                         if (s>BLK) then
@@ -429,7 +467,8 @@ module msphutils
                             Pc = pW(DEN)*(Model%Ca**2.0)/Model%gamma
                             !Calculate cooling rate, L/CsC ~ lazy bounce timescale
                             Leq = DipoleL(Grid%xyzcc(i,j,k,:))
-                            tau = Leq/CsC
+                            !Convert to m/(m/s)/(code time)
+                            tau = (Leq*gx0)/(CsC*gv0*gT0)
 
                             !Cool pressure to target w/ timescale tau
                             pW(PRESSURE) = P - (Model%dt/tau)*(P-Pc)
@@ -468,10 +507,12 @@ module msphutils
         !Get values for initial field cutoffs
 
         !LFM values
-        !call xmlInp%Set_Val(xSun  ,"prob/xMax",20.0_rp  )
-        call xmlInp%Set_Val(xSun  ,"prob/xMax",25.0_rp  )
+        call xmlInp%Set_Val(xSun  ,"prob/xMax",20.0_rp  )
+        call xmlInp%Set_Val(yMax  ,"prob/yMax",75.0_rp  )
+        !call xmlInp%Set_Val(xSun  ,"prob/xMax",25.0_rp  )
+        !call xmlInp%Set_Val(yMax  ,"prob/yMax",80.0_rp  )
         call xmlInp%Set_Val(xTail ,"prob/xMin",-185.0_rp)
-        call xmlInp%Set_Val(yMax  ,"prob/yMax",80.0_rp  )
+        
         call xmlInp%Set_Val(sInner,"prob/sIn" ,0.96_rp  )
 
         !Get cut dipole values
@@ -494,7 +535,7 @@ module msphutils
         Model%B0 => cutDipole
         Axyz     => cutDipole
 
-        call AddB0(Model,Grid,State,Model%B0)
+        call AddB0(Model,Grid,Model%B0)
 
         call VectorField2Flux(Model,Grid,State,Axyz)
         bFlux0(:,:,:,:) = State%magFlux(:,:,:,:) !bFlux0 = B0
@@ -745,41 +786,81 @@ module msphutils
 
     end subroutine ijk2Active
 
-    subroutine Heat(Model,Grid,State)
-      type(Model_T), intent(in) :: Model
-      type(Grid_T), intent(in) :: Grid
-      type(State_T), intent(inout) :: State
+    !Ingest density/pressure information from Grid%Gas0
+    !Treat Gas0 as target value
+    subroutine MagsphereIngest(Model,Gr,State)
+        type(Model_T), intent(in) :: Model
+        type(Grid_T), intent(in) :: Gr
+        type(State_T), intent(inout) :: State
 
-      integer :: i,j,k
-      real(rp), dimension(NVAR) :: pW, pCon
+        integer :: i,j,k
+        real(rp), dimension(NVAR) :: pW, pCon
 
-!      if (all(State%eqPres.eq.0.0))  then
-!         ! TODO pack this and the next loop together (Maybe?)
-!         call getEqPress(Model,Grid,State)
-!      endif
-      
-      !$OMP PARALLEL DO default(shared) &
-      !$OMP private(i,j,k,pW,pCon)
-      do k=Grid%ks,Grid%ke
-         do j=Grid%js,Grid%je
-            do i=Grid%is,Grid%ie
-               pCon = State%Gas(i,j,k,:,BLK)
-               call CellC2P(Model,pCon,pW)
-               ! only heat -- don't cool
-               pW(PRESSURE) = pW(PRESSURE)+Model%hRate/Model%hTau*Model%dt*max(0.,(State%eqPres(i,j,k)-pW(PRESSURE)))
+        real(rp) :: M0,Mf
+        real(rp) :: Tau,dRho,dP
+        logical  :: doIngest,doInD,doInP
 
-               ! always on if heating
-               if (Model%doPsphere) then
-!                  pW(DEN) = pW(DEN)+ State%eqDen(i,j,k)
-                  pW(DEN) = pW(DEN)+Model%hRate/Model%hTau*Model%dt*max(0.,(State%eqDen(i,j,k)-pW(DEN)))
-               end if
+        if (Model%doMultiF) then
+            write(*,*) 'Source ingestion not implemented for multifluid, you should do that'
+            stop
+        endif
 
-               call CellP2C(Model,pW,pCon)
-               State%Gas(i,j,k,:,BLK) = pCon
+        if (Model%t<=0) return
+
+        !M0 = sum(State%Gas(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,DEN,BLK)*Gr%volume(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke))
+
+        !$OMP PARALLEL DO default(shared) collapse(2) &
+        !$OMP private(i,j,k,doInD,doInP,doIngest,pCon,pW,Tau,dRho,dP)
+        do k=Gr%ks,Gr%ke
+            do j=Gr%js,Gr%je
+                do i=Gr%is,Gr%ie
+                    doInD = (Gr%Gas0(i,j,k,DEN)>TINY)
+                    doInP = (Gr%Gas0(i,j,k,PRESSURE)>TINY)
+                    doIngest = doInD .or. doInP
+
+                    if (.not. doIngest) cycle
+
+                    pCon = State%Gas(i,j,k,:,BLK)
+                    call CellC2P(Model,pCon,pW)
+
+                    Tau = BouncePeriod(Model,Gr%xyzcc(i,j,k,:))
+                    !Tau = 60.0*5.0/Model%Units%gT0
+
+                    if (doInD) then
+                        dRho = Gr%Gas0(i,j,k,DEN) - pW(DEN)
+                        pW(DEN) = pW(DEN) + (Model%dt/Tau)*max(0.0,dRho)
+                    endif
+                    if (doInP) then
+                        dP = Gr%Gas0(i,j,k,PRESSURE) - pW(PRESSURE)
+                        pW(PRESSURE) = pW(PRESSURE) + (Model%dt/Tau)*max(0.0,dP)
+                        !pW(PRESSURE) = pW(PRESSURE) + (Model%dt/Tau)*dP
+                    endif
+
+                    !Now put back
+                    call CellP2C(Model,pW,pCon)
+                    State%Gas(i,j,k,:,BLK) = pCon
+                enddo
             enddo
-         enddo
-      enddo    
-    end subroutine Heat
+        enddo
+                    
+        !Mf = sum(State%Gas(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,DEN,BLK)*Gr%volume(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke))
+        !write(*,*) 'Before / After / Delta = ', M0,Mf,Mf-M0
+
+    end subroutine MagsphereIngest
+
+    function BouncePeriod(Model,xyz) result(Tau)
+        type(Model_T), intent(in) :: Model
+        real(rp), dimension(NDIM), intent(in) :: xyz
+        real(rp) :: Tau
+
+        real(rp) :: Leq,V
+
+        Leq = DipoleL(xyz)
+        V = Model%Ca
+        !Convert to m/(m/s)/(code time)
+        Tau = (Leq*Model%Units%gx0)/(V*Model%Units%gv0*Model%Units%gT0)
+
+    end function BouncePeriod
 
     !Set gPsi (corotation potential)
     subroutine CorotationPot(Model,Grid,gPsi)
@@ -820,33 +901,5 @@ module msphutils
         rad = sqrt(x**2.0 + y**2.0 + z**2.0)
         pot = -GM0/rad
     end subroutine PhiGrav
-
-    !Calculate invariant latitude (RADIANS) for x,y,z vector (in Rx)
-    function InvLatitude(r) result(invlat)
-        real(rp), intent(in) :: r(NDIM)
-        real(rp) :: invlat
-
-        real(rp) :: z,rad,lat,Leq
-
-        z = r(ZDIR)
-        rad = norm2(r)
-
-        lat = abs( asin(z/rad) )
-        Leq = rad/( cos(lat)*cos(lat) )
-        invlat = abs(acos(sqrt(1.0/Leq)))
-
-    end function InvLatitude
-
-    !Calculate dipole L shell for point
-    function DipoleL(r) result(Leq)
-        real(rp), intent(in) :: r(NDIM)
-        real(rp) :: Leq
-
-        real(rp) :: z,rad,lat
-        z = r(ZDIR)
-        rad = norm2(r)
-        lat = abs( asin(z/rad) )
-        Leq = rad/( cos(lat)*cos(lat) )
-    end function DipoleL
       
 end module msphutils

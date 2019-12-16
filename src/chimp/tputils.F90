@@ -22,8 +22,9 @@ module tputils
         module procedure eGC_Mu,eGC_p
     end interface
 
-    logical :: doGyroDT = .true. !Use fraction of gyrofrequency for FO timesteps
-    logical :: doLoudKill = .false. !Output when killing TP
+    logical, private :: doGyroDT = .true. !Use fraction of gyrofrequency for FO timesteps
+    logical, private :: doLoudKill = .false. !Output when killing TP
+    
     contains
 
 

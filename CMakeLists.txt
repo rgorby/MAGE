@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.9)
+cmake_minimum_required(VERSION 3.12)
 project(Kaiju Fortran)
 
 # use the new version of CMP0074, this tells cmake to use <PACKAGE>_ROOT environment
@@ -22,9 +22,10 @@ execute_process(COMMAND git rev-parse --abbrev-ref HEAD WORKING_DIRECTORY ${CMAK
 execute_process(COMMAND git log -1 --format=%h WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
 	OUTPUT_VARIABLE GIT_COMMIT_HASH
 	OUTPUT_STRIP_TRAILING_WHITESPACE)
+
 #Add defines for commit hash/branch
-add_compile_definitions(GITCOMMITHASH=${GIT_COMMIT_HASH})
-add_compile_definitions(GITBRANCH=${GIT_BRANCH})
+#add_compile_definitions(GITCOMMITHASH=${GIT_COMMIT_HASH})
+#add_compile_definitions(GITBRANCH=${GIT_BRANCH})
 
 #Set some configuration defaults
 option(ENABLE_OMP "Enable OMP parallelization" ON )
@@ -41,8 +42,15 @@ mark_as_advanced(bricksize)
 file(GLOB GAMICDEF src/gamera/ICs/null.F90)
 set(GAMIC ${GAMICDEF} CACHE FILEPATH "Gamera IC file")
 
-file(GLOB VOLTICDEF src/voltron/ICs/remix.F90)
+file(GLOB VOLTICDEF src/voltron/ICs/earthcmi.F90)
 set(VOLTIC ${VOLTICDEF} CACHE FILEPATH "Voltron IC file")
+
+file(GLOB TPICDEF src/chimp/tpICs/tpICstd.F90)
+set(TPIC ${TPICDEF} CACHE FILEPATH "CHIMP TP IC file")
+
+file(GLOB EBICDEF src/chimp/ebICs/ebICstd.F90)
+set(EBIC ${EBICDEF} CACHE FILEPATH "CHIMP EB IC file")
+
 
 #-------------
 #Include user cmake file if present
@@ -63,7 +71,7 @@ message("Configuration summary ...")
 message("System: ${HOST}")
 message("OS: ${CMAKE_SYSTEM_NAME}")
 message("Processor: ${CMAKE_HOST_SYSTEM_PROCESSOR}")
-message("Compiler: ${CMAKE_Fortran_COMPILER_ID}")
+message("Compiler: ${CMAKE_Fortran_COMPILER_ID} / ${CMAKE_Fortran_COMPILER_VERSION}")
 message("HDF5 Wrapper: ${HDF5_Fortran_COMPILER_EXECUTABLE}")
 message("Version: ${GIT_COMMIT_HASH} / ${GIT_BRANCH}")
 message("Build Type: ${CMAKE_BUILD_TYPE}")
@@ -77,6 +85,10 @@ message("-------------------------\n")
 
 #Start w/ base
 add_subdirectory(src/base)
+add_custom_target(base ALL)
+add_executable(kaitoy.x src/drivers/kaitoyx.F90)
+target_link_libraries(kaitoy.x baselib)
+add_dependencies(base kaitoy.x)
 
 #-------------
 #Kaiju: CHIMP
@@ -84,11 +96,13 @@ message("Adding CHIMP module ...")
 add_subdirectory(src/chimp)
 #Chimp executables, target "chimp"
 add_custom_target(chimp ALL)
-set(chimpX "project;psd;push;slice")
+message("\tEB IC file is ${EBIC}")
+message("\tTP IC file is ${TPIC}")
+set(chimpX "project;psd;push;slice;chop;trace")
 foreach (EXE ${chimpX})
 	message("\tAdding executable ${EXE}.x")
 	add_executable(${EXE}.x src/drivers/${EXE}x.F90)
-	target_link_libraries(${EXE}.x baselib chimplib)
+	target_link_libraries(${EXE}.x chimplib baselib)
 	add_dependencies(chimp ${EXE}.x)
 endforeach()
 
@@ -105,7 +119,7 @@ message("\tIC file is ${GAMIC}")
 add_custom_target(gamera ALL)
 message("\tAdding executable gamera.x")
 add_executable(gamera.x src/drivers/gamerax.F90)
-target_link_libraries(gamera.x baselib gamlib)
+target_link_libraries(gamera.x gamlib baselib)
 add_dependencies(gamera gamera.x baselib)
 
 #-------------
@@ -114,10 +128,25 @@ message("Adding ReMIX module ...")
 #Add source
 add_subdirectory(src/remix)
 add_custom_target(remix ALL)
-message("\tAdding executable gamera2remix.x")
-add_executable(gamera2remix.x src/drivers/gamera2remix.F90)
-target_link_libraries(gamera2remix.x baselib gamlib remixlib)
-add_dependencies(remix gamera2remix.x gamlib baselib)
+message("\tAdding executable remix.x")
+add_executable(remix.x src/drivers/remix.F90)
+add_executable(remix2remix.x src/drivers/remix2remix.F90)
+add_executable(remix2rcm.x src/drivers/remix2rcm.F90)
+target_link_libraries(remix.x       remixlib baselib)
+target_link_libraries(remix2remix.x remixlib baselib)
+target_link_libraries(remix2rcm.x   remixlib baselib)
+add_dependencies(remix remix.x remix2remix.x remix2rcm.x baselib)
+
+#-------------
+#Kaiju: RCM
+message("Adding RCM module ...")
+#Add source
+add_subdirectory(src/rcm)
+add_custom_target(rcm ALL)
+message("\tAdding executable rcm.x")
+add_executable(rcm.x src/drivers/rcmx.F90)
+target_link_libraries(rcm.x rcmlib baselib)
+add_dependencies(rcm rcm.x baselib)
 
 #-------------
 #Kaiju: Voltron
@@ -125,10 +154,10 @@ message("Adding Voltron module ...")
 message("\tIC file is ${VOLTIC}")
 add_subdirectory(src/voltron)
 add_custom_target(voltron ALL)
-message("\tAdding executable kaiju.x")
-add_executable(kaiju.x src/drivers/kaijux.F90)
-target_link_libraries(kaiju.x baselib gamlib remixlib voltlib)
-add_dependencies(voltron kaiju.x remixlib gamlib baselib)
+message("\tAdding executable voltron.x")
+add_executable(voltron.x src/drivers/voltronx.F90)
+target_link_libraries(voltron.x voltlib gamlib remixlib chimplib rcmlib baselib)
+add_dependencies(voltron voltron.x rcmlib chimplib remixlib gamlib baselib)
 
 if(PFUNIT_FOUND)
 	#-------------
@@ -136,6 +165,6 @@ if(PFUNIT_FOUND)
 	message("Adding tests module ...")
 	#Add source
 	add_subdirectory(tests)
-	add_dependencies(allTests baselib gamlib remixlib voltlib)
+	add_dependencies(allTests baselib gamlib remixlib chimplib voltlib)
 endif()
 

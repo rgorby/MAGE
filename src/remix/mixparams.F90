@@ -67,7 +67,10 @@ module mixparams
         call xmlInp%Set_Val(Params%sigma_ratio,"conductance/sigma_ratio",3.0_rp)
         call xmlInp%Set_Val(Params%ped0,"conductance/ped0",10.0_rp)
         call xmlInp%Set_Val(Params%const_sigma,"conductance/const_sigma",.false.)
-        call xmlInp%Set_Val(Params%do_ramp,"conductance/do_ramp",.true.)
+        call xmlInp%Set_Val(Params%doRamp,"conductance/doRamp",.true.)
+        call xmlInp%Set_Val(Params%doChill,"conductance/doChill",.false.)
+        call xmlInp%Set_Val(Params%doStarlight,"conductance/doStarlight",.false.)        
+        call xmlInp%Set_Val(Params%doMR,"conductance/doMR",.false.)        
         call xmlInp%Set_Val(Params%apply_cap,"conductance/apply_cap",.true.)
         ! =========== CONDUCTANCE MODEL PARAMTERS =================== !
 
@@ -78,21 +81,6 @@ module mixparams
         call xmlInp%Set_Val(Params%tol_rel,"solver/tol_rel",0.000001_rp)
         call xmlInp%Set_Val(Params%llbc_value,"solver/llbc_value",0.0_rp)
         ! =========== SOLVER PARAMTERS =================== !
-
-        ! =========== STATE PARAMTERS =================== ! (used when in standalone mode)
-        ! HEMISPHERE
-        call xmlInp%Set_Val(tmpStr,"state/hemisphere","NORTH")
-        select case (tmpSTR)
-           case ("NORTH")
-              Params%hemisphere = NORTH
-           case ("SOUTH")
-              Params%hemisphere = SOUTH
-           case default 
-              stop "Hemisphere entered is not supported."              
-        end select
-
-        call xmlInp%Set_Val(Params%tilt,"state/tilt",0._rp)
-        ! =========== STATE PARAMTERS =================== !
 
         ! =========== GRID PARAMTERS =================== !
         call xmlInp%Set_Val(Params%Np,"grid/Np",256)

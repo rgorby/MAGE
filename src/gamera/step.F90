@@ -1,12 +1,10 @@
 !Routines to advance the grid
 
 module step
-    use types
+    use gamtypes
     use gamutils
     use bcs
-    use prob
     use output
-    use ringav
     use multifluid
 
     implicit none
@@ -100,7 +98,7 @@ module step
 
         !Make sure we don't overstep the end of the simulation
         if ( (Model%t+CalcDT) > Model%tFin ) then
-            CalcDT = Model%tFin-Model%t
+            CalcDT = max(Model%tFin-Model%t,TINY)
         endif
         
     end function CalcDT
@@ -199,19 +197,24 @@ module step
         Vy  = State%Gas(i,j,k,MOMY,BLK)/rho
         Vz  = State%Gas(i,j,k,MOMZ,BLK)/rho
         MagV = sqrt(Vx**2.0+Vy**2.0+Vz**2.0)
-        Vfl = MagV
+        
 
         ke = 0.5*rho*(MagV**2.0)
         e = State%Gas(i,j,k,ENERGY,BLK) - ke
         P = (Model%gamma-1)*e
+
+        !Handle multifluid case for sound speed/max flow
         if (Model%doMultiF) then
             Cs = MultiFCs(Model,State%Gas(i,j,k,:,:))
+            MagV = MultiFSpeed(Model,State%Gas(i,j,k,:,:))
         else
             Cs = sqrt(Model%gamma*P/rho)
         endif
 
+        Vfl   = MagV
         Valf  = 0.0
         VDiff = 0.0
+
         if (Model%doMHD) then                                        
             Bx = State%Bxyz(i,j,k,XDIR)
             By = State%Bxyz(i,j,k,YDIR)
@@ -229,7 +232,7 @@ module step
                 Valf = Model%Ca*Valf/sqrt(Model%Ca*Model%Ca + Valf*Valf)
             endif
             
-            if(Model%useResistivity) then
+            if(Model%doResistive) then
                ! Asume t ~ x^2/(2Diff)
                Diff = maxval((/State%Deta(i,j,k,XDIR),State%Deta(i+1,j,k,XDIR), &
                                State%Deta(i,j,k,YDIR),State%Deta(i,j+1,k,YDIR), &
@@ -239,60 +242,11 @@ module step
         endif
 
         vCFL = Vfl + sqrt(Cs**2.0 + Valf**2.0) + Vdiff
-        !dtijk = Model%CFL/( (vCFL/Gr%di(i,j,k)) + (vCFL/Gr%dj(i,j,k)) + (vCFL/Gr%dk(i,j,k)) )
         
         !Use min length for timestep calculation
         dl = minval((/Gr%di(i,j,k),Gr%dj(i,j,k),Gr%dk(i,j,k)/))
         dtijk = Model%CFL*dl/vCFL
 
     end subroutine CellDT
-
-    subroutine Armor(Model,Gr,State)
-        type(Model_T), intent(in) :: Model
-        type(Grid_T), intent(in) :: Gr
-        type(State_T), intent(inout) :: State
-        
-
-        integer :: i,j,k
-        real(rp) :: Vx,Vy,Vz,rho,E,P,KinE
-
-        !Loop over active cells
-        do k=Gr%ks, Gr%ke
-            do j=Gr%js, Gr%je
-                do i=Gr%is, Gr%ie
-                    rho = State%Gas(i,j,k,DEN,BLK)
-                    if (rho < dFloor) then
-                        nFloors = nFloors + 1
-                        rho = max(dFloor,rho)
-                        !write(*,*) 'D Fix @ ijk = ', i,j,k
-                        !write(*,*) 'Con = ', State%Gas(i,j,k,:,BLK)
-                    endif
-                    Vx  = State%Gas(i,j,k,MOMX,BLK)/rho
-                    Vy  = State%Gas(i,j,k,MOMY,BLK)/rho
-                    Vz  = State%Gas(i,j,k,MOMZ,BLK)/rho
-                    E   = State%Gas(i,j,k,ENERGY,BLK)
-
-                    KinE = 0.5*rho*(Vx**2.0+Vy**2.0+Vz**2.0) 
-                    P = (Model%gamma-1)*(E-KinE)
-                    if (P < pFloor) then            
-                        nFloors = nFloors + 1
-                        P = max(pFloor,P)
-                        !write(*,*) 'P Fix @ ijk = ', i,j,k
-                        !write(*,*) 'Con = ', State%Gas(i,j,k,:,BLK)
-                    endif
-                    
-                    !Put back
-                    State%Gas(i,j,k,DEN   ,BLK) = rho 
-                    State%Gas(i,j,k,MOMX  ,BLK) = Vx*rho
-                    State%Gas(i,j,k,MOMY  ,BLK) = Vy*rho
-                    State%Gas(i,j,k,MOMZ  ,BLK) = Vz*rho
-                    State%Gas(i,j,k,ENERGY,BLK) = KinE + P/(Model%gamma-1)
-
-                enddo
-            enddo
-        enddo
-
-
-    end subroutine Armor
 
 end module step

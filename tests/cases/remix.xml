@@ -1,9 +1,0 @@
-<?xml version="1.0"?>
-<!-- Remix test -->
-<REMIX>
-  <init init_from_file="T"/>
-  <grid Np="360" Nt="45" LowLatBoundary="45.0"/>
-  <conductance F107="124.8" pedmin="2.0" hallmin="1.0" sigma_ratio="3.0" const_sigma="True" ped0="8.0"/>
-  <solver maxitr="400" mr="30" tol_abs="1.0e-4" tol_rel="1.0e-4"/>
-  <state hemisphere="NORTH" tilt="0.101"/>
-</REMIX>

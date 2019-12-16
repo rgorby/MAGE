@@ -3,6 +3,7 @@ import numpy as np
 from scipy import interpolate
 import sys
 import os
+from scipy.ndimage import gaussian_filter
 
 #Use routine to generate xx,yy = corners of active upper half plane
 #Use Aug2D to add ghosts in 2D: xx,yy -> xxG,yyG
@@ -129,7 +130,7 @@ def genFatEgg(Ni=Ni0,Nj=Nj0,Rin=3.0,Rout=30.0,xtail=250,NumSph=5,TINY=1.0e-8,A=0
 			Ai = A - (A-AScl)*RampUp(xTi,xSun,xBack)
 			thTail = L*eta + Ai*(xC-L*eta)*(1-eta)*eta
 			#Only use back half (past half-way)
-			theta[Nj/2:] = thTail[Nj/2:]
+			theta[Nj//2:] = thTail[Nj//2:]
 
 		for j in range(Nj+1):
 			th = theta[j]
@@ -232,21 +233,21 @@ def GenKSph(Ni=Ni0,Nj=Nj0,Nk=Nk0,Rin=5,Rout=40,tMin=0.2,tMax=0.8):
 	dx2 = (tMax-tMin)/Nj
 	dx3 = (1.0 - 0.0)/Nk
 
-        # check that ghosts don't take us across the axis
-        # need to generalize later to include the axis (do full 4pi)
-        if ((tMin-Ng*dx2)<=0) or ((tMax+Ng*dx2)>=1.):
-                sys.exit("Ghost cell region includes the spherical axis. This is not implemented yet.")
+	# check that ghosts don't take us across the axis
+	# need to generalize later to include the axis (do full 4pi)
+	if ((tMin-Ng*dx2)<=0) or ((tMax+Ng*dx2)>=1.):
+		sys.exit("Ghost cell region includes the spherical axis. This is not implemented yet.")
 
-        r = np.linspace(Rin-Ng*dx1,Rout+Ng*dx1,Ngi)
-        t = np.linspace(tMin-Ng*dx2,tMax+Ng*dx2,Ngj)*np.pi
-        p = np.linspace(-Ng*dx3,1.+Ng*dx3,Ngk)*2*np.pi
+	r = np.linspace(Rin-Ng*dx1,Rout+Ng*dx1,Ngi)
+	t = np.linspace(tMin-Ng*dx2,tMax+Ng*dx2,Ngj)*np.pi
+	p = np.linspace(-Ng*dx3,1.+Ng*dx3,Ngk)*2*np.pi
 
-        # note the indexing flag for proper ordering for writeGrid later
-        R,T,P = np.meshgrid(r,t,p,indexing='ij')
+	# note the indexing flag for proper ordering for writeGrid later
+	R,T,P = np.meshgrid(r,t,p,indexing='ij')
 
-        X3 = R*np.sin(T)*np.cos(P)
-        Y3 = R*np.sin(T)*np.sin(P)
-        Z3 = R*np.cos(T)
+	X3 = R*np.sin(T)*np.cos(P)
+	Y3 = R*np.sin(T)*np.sin(P)
+	Z3 = R*np.cos(T)
 
 	return X3,Y3,Z3
 
@@ -301,17 +302,33 @@ def Aug2D(XX,YY,doEps=False,TINY=1.0e-8,KeepOut=True,Rpx=1.15):
 	#Do outer I, active J
 	Dx = XX[-1,:]-XX[-2,:]
 	Dy = YY[-1,:]-YY[-2,:]
+	Dp = PP[-1,:]-PP[-2,:]
+	Dr = RR[-1,:]-RR[-2,:]
+
 	nD = np.sqrt(Dx**2.0+Dy**2.0)
 	dBar = nD.mean()
-	#dO = np.minimum(nD,dBar)
-	dO = nD
+	dO = np.minimum(nD,dBar)
+	#dO = nD
 
+	J4 = Nj//4
 	xOut = XX[-1,:]
 	yOut = YY[-1,:]
+	sig = 1.5
+	jSigS = J4
+	jSigE = 3*J4
+
+	Dx[jSigS:jSigE] = gaussian_filter(Dx[jSigS:jSigE],sigma=sig,mode='nearest')
+	Dy[jSigS:jSigE] = gaussian_filter(Dy[jSigS:jSigE],sigma=sig,mode='nearest')
+	xS = xOut[0]+Ng*Dr[0]
+	xT = xOut[-1]-Ng*Dr[-1]
 	
+	#Dx[0:J4] = (xS-xOut[0:J4])/Ng
+
 	for i in range(0,Ng):
-		xxG[iE+i,jS:jE] = xOut+(i+1)* dO*Dx/nD
-		yyG[iE+i,jS:jE] = yOut+(i+1)* dO*Dy/nD
+		xxG[iE+i,jS:jE] = xOut+(i+1)*dO*Dx/nD
+		yyG[iE+i,jS:jE] = yOut+(i+1)*dO*Dy/nD
+
+
 
 	#Now finish by doing all J boundaries
 	#Just reflect about X-axis
@@ -322,6 +339,35 @@ def Aug2D(XX,YY,doEps=False,TINY=1.0e-8,KeepOut=True,Rpx=1.15):
 		xxG[:,jE+i]  =  xxG[:,jE-i-2]
 		yyG[:,jE+i]  = -yyG[:,jE-i-2]
 
+	return xxG,yyG
+
+# vgm: add a version of the above function to extend the grid in the i-direction
+# this never worked; keeping for completeness.
+# what's worked, though, is the scale option in regrid at the bottom of this file
+def Aug2Dext(XX,YY,Nadd): #Nadd -- how many points to add in the i-direction
+	Ni = XX.shape[0]
+	Nj = XX.shape[1]
+
+	xxG = np.zeros((Ni+Nadd,Nj))
+	yyG = np.zeros((Ni+Nadd,Nj))
+
+	xxG[:-Nadd,:] = XX
+	yyG[:-Nadd,:] = YY
+	
+	#Do outer I, active J
+	Dx = XX[-1,:]-XX[-2,:]
+	Dy = YY[-1,:]-YY[-2,:]
+	nD = np.sqrt(Dx**2.0+Dy**2.0)
+	dBar = nD.mean()
+	#dO = np.minimum(nD,dBar)
+	dO = nD
+
+	for i in np.arange(Nadd):
+#		xxG[-Nadd+i:,:] = XX[-1,:] + (i+1)*dO*Dx/nD
+#		yyG[-Nadd+i:,:] = YY[-1,:] + (i+1)*dO*Dy/nD
+		xxG[-Nadd+i:,:] = 2*xxG[-Nadd+i-1,:]-xxG[-Nadd+i-2,:] 
+		yyG[-Nadd+i:,:] = 2*yyG[-Nadd+i-1,:]-yyG[-Nadd+i-2,:]  
+	
 	return xxG,yyG
 
 #Do ring recommendations
@@ -346,7 +392,7 @@ def genRing(XX,YY,Nk=64,Tol=1.0,doVerb=False):
 			dI[i,j] = dR
 			dJ[i,j] = Rc*dP
 			dK[i,j] = Yc*dTh
-	Nrng = Nj/2
+	Nrng = Nj//2
 
 	
 	NChs = np.zeros(Nrng,dtype=np.int)
@@ -421,10 +467,10 @@ def Aug3D(xxG,yyG,Nk=32,TINY=1.0e-8):
 	#Force points to plane
 	Z3[:,:,Ng] = 0.0
 	Z3[:,:,-Ng-1] = 0.0
-	Z3[:,:,Ng+Nk/2] = 0.0
+	Z3[:,:,Ng+Nk//2] = 0.0
 
-	Y3[:,:,Ng+Nk/4]
-	Y3[:,:,-Ng-Nk/4-1] = 0.0
+	Y3[:,:,Ng+Nk//4]
+	Y3[:,:,-Ng-Nk//4-1] = 0.0
 	
 	x0 = X3[:,Ng,Ng]
 	if (x0.min() <= TINY):
@@ -456,7 +502,7 @@ def VizGrid(XX,YY,xxG=None,yyG=None,doGhost=False,doShow=True,xyBds=None,fOut="g
 	import matplotlib as mpl
 	import matplotlib.cm as cm
 	import matplotlib.pyplot as plt
-	import kaiViz as kv
+	import kaipy.kaiViz as kv
 
 	fSz = (10,4)
 	Alph = 0.35
@@ -547,8 +593,22 @@ def getLFM(fIn,Rin=3.0,Rout=25.0):
 
 	return xxi,yyi
 
+def LoadTabG(fIn="lfmG",Nc=0):
+	import os
+	__location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
+    
+	fInX = os.path.join(__location__,fIn+".X.txt")
+	fInY = os.path.join(__location__,fIn+".Y.txt")
+	xxi = np.loadtxt(fInX)
+	yyi = np.loadtxt(fInY)
+
+	if (Nc>0):
+		xxi = xxi[0:-Nc,:]
+		yyi = yyi[0:-Nc,:]
+	return xxi,yyi
+
 #Regrid xx/yy (corners) to new size
-def regrid(xxi,yyi,Ni,Nj,TINY=1.0e-8):
+def regrid(xxi,yyi,Ni,Nj,TINY=1.0e-8,scale=False):
 	Ni0 = xxi.shape[0]-1
 	Nj0 = xxi.shape[1]-1
 	rr0 = np.sqrt(xxi**2.0 + yyi**2.0)
@@ -577,5 +637,19 @@ def regrid(xxi,yyi,Ni,Nj,TINY=1.0e-8):
 
 			XXi[i,j] = r*np.cos(phi)
 			YYi[i,j] = r*np.sin(phi)
+
+	# vgm: added scaling option to extend the grid for low Mach numbers
+	# needs playing around with the numbers below
+	if scale:
+		dx = (XXi[1:,:]-XXi[:-1,:])
+		dy = (YYi[1:,:]-YYi[:-1,:])
+		nscl = dx.shape[0]
+		scale = np.ones(nscl)
+		scale[nscl//2:]=1.25 #1.5
+		scale[3*nscl//4:]=1.5 #2.
+		scale[-4:]=2. #4.
+		for i in np.arange(1,Ni+1):
+			XXi[i,:] = XXi[i-1,:] + scale[i-1]*dx[i-1,:]
+			YYi[i,:] = YYi[i-1,:] + scale[i-1]*dy[i-1,:]
 
 	return XXi,YYi

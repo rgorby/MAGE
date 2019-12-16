@@ -129,12 +129,6 @@ if __name__ == "__main__":
 
 	xxG,yyG = gg.Aug2D(XX,YY,doEps=doEpsY)
 	X3,Y3,Z3 = gg.Aug3D(xxG,yyG,Nk=Nk,TINY=TINY)
-
-	#Debugging stuff
-	# rr0 = np.sqrt(xxG**2.0 + yyG**2.0)
-	# pp0 = np.arctan2(yyG,xxG)
-	# print(pp0[1,:])
-	# print(pp0[8,:])
 	
 	if (doChimp):
 		gg.WriteChimp(X3,Y3,Z3,fOut=fOut)

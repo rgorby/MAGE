@@ -7,7 +7,8 @@ program gamerax
 
     implicit none
 
-    type(gamApp_T) :: gameraApp
+    type(gamApp_T) :: gApp
+    procedure(StateIC_T), pointer :: userInitFunc => initUser
 
     !call printConfigStamp()
     call initClocks()
@@ -15,19 +16,37 @@ program gamerax
     !TODO: Fix this to reset after MPI config to only output from root rank
     verbose = 1
     
-    call initGamera(gameraApp,initUser)
+    call initGamera(gApp,userInitFunc)
 
-    do while (gameraApp%Model%t < gameraApp%Model%tFin)
-        call Tic("Omega")
-        !Start root timer
+    do while (gApp%Model%t < gApp%Model%tFin)
+        call Tic("Omega") !Start root timer
+    
+    !Step model/s    
+        call stepGamera(gApp)
 
-        call stepGamera(gameraApp)
+    !Output if necessary
+        call Tic("IO")
+        
+        if (gApp%Model%IO%doConsole(gApp%Model%ts)) then
+            call consoleOutput(gApp%Model,gApp%Grid,gApp%State)
+        endif
 
-        !Do timing info
-        if (modulo(gameraApp%Model%ts,gameraApp%Model%tsOut) == 0) then
-            if (gameraApp%Model%doTimer) call printClocks()
+        if (gApp%Model%IO%doOutput(gApp%Model%t)) then
+            call fOutput(gApp%Model,gApp%Grid,gApp%State)
+        endif
+
+        if (gApp%Model%IO%doRestart(gApp%Model%t)) then
+            call resOutput(gApp%Model,gApp%Grid,gApp%State)
+        endif
+
+        call Toc("IO")
+
+    !Do timing info
+        if (gApp%Model%IO%doTimer(gApp%Model%ts)) then
+            if (gApp%Model%IO%doTimerOut) call printClocks()
             call cleanClocks()
         endif
+
         call Toc("Omega")
     end do
 

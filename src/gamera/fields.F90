@@ -1,5 +1,5 @@
 module fields
-    use types
+    use gamtypes
     use clocks
     use gamutils
     use recon
@@ -24,6 +24,7 @@ module fields
 
         integer :: i,j,k
         real(rp) :: dt,dfi,dfj,dfk
+        !DIR$ ASSUME_ALIGNED E: ALIGN
 
         !Use dt=1 if unspecified (ie for ring-avg)
         dt = 1.0
@@ -66,10 +67,11 @@ module fields
     !----Calculate diffusive velocity and finish EMF calculation, scale w/ edge length
     !Finally, do any other E field relevant calculations, ie resistivity
 
-    subroutine CalcElecField(Model,Gr,State,E)
+    subroutine CalcElecField(Model,Gr,State,Vf,E)
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Gr
         type(State_T), intent(in) :: State
+        real(rp), dimension(Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,NDIM), intent(inout) :: Vf
         real(rp), dimension(Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,NDIM), intent(inout) :: E
 
         !Vector buffers
@@ -80,16 +82,9 @@ module fields
         integer :: ie,je,ke,ksg,keg
         integer :: eD,eD0,dT1,dT2
 
-        !Vf(i,j,k,XYZ-DIR), XYZ velocities pushed to dT1 faces
-        !Vf = (Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,NDIM)
-        real(rp), dimension(:,:,:,:), allocatable, save :: Vf,EDiff
-
+        !DIR$ ASSUME_ALIGNED E: ALIGN
+        !DIR$ ASSUME_ALIGNED Vf: ALIGN
         !DIR$ ATTRIBUTES align : ALIGN :: v1,v2,b1,b2,Jd,Dc,vDiff,VelB
-        !DIR$ ATTRIBUTES align : ALIGN :: Vf,EDiff
-
-        !Initialize arrays
-        call InitMagVec(Model,Gr,Vf   )
-        call InitMagVec(Model,Gr,EDiff)
 
         !Prep bounds for this timestep
         eD0 = 1 !Starting direction for EMF
@@ -221,8 +216,8 @@ module fields
                             endif
 
                             !Final field (w/ edge length)
-                            E    (iG,j,k,eD) = -( v1(i)*b2(i) - v2(i)*b1(i) )*Gr%edge(iG,j,k,eD)
-                            EDiff(iG,j,k,eD) = Model%Vd0*vDiff(i)*Jd(i)      *Gr%edge(iG,j,k,eD)
+                            E(iG,j,k,eD) = -( v1(i)*b2(i) - v2(i)*b1(i) ) + Model%Vd0*vDiff(i)*Jd(i)
+                            E(iG,j,k,eD) = E(iG,j,k,eD)*Gr%edge(iG,j,k,eD)
                         enddo
                     enddo !iB loop
                 enddo
@@ -237,17 +232,7 @@ module fields
 
         !$OMP END PARALLEL
 
-
-        !$OMP PARALLEL DO default (shared) collapse(2)
-        do k=Gr%ks, Gr%ke+1
-            do j=Gr%js, Gr%je+1
-                do i=Gr%is, Gr%ie+1
-                    E(i,j,k,:) = E(i,j,k,:) + EDiff(i,j,k,:)
-                enddo
-            enddo
-        enddo
-
-        if(Model%useResistivity) call resistivity(Model,Gr,State,E)
+        if(Model%doResistive) call resistivity(Model,Gr,State,E)
         
     end subroutine CalcElecField
 
@@ -616,32 +601,5 @@ module fields
         call TOC("Eeta")
         
     end subroutine resistivity
-
-    subroutine InitMagVec(Model,Gr,A)
-        type(Model_T), intent(in) :: Model
-        type(Grid_T), intent(in) :: Gr
-        real(rp), dimension(:,:,:,:), allocatable, intent(inout) :: A
-
-        logical :: doInit
-        integer, dimension(4) :: flxDims
-        integer :: dI
-
-        if (.not. allocated(A)) then
-            doInit = .true.
-        else
-            flxDims = [Gr%Ni,Gr%Nj,Gr%Nk,NDIM]
-            dI = sum(abs(flxDims-shape(A)))
-            if (dI>0) then
-                doInit = .true.
-            else
-                doInit = .false.
-            endif
-        endif
-
-        if (doInit) then
-            allocate(A(Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,NDIM))
-            A = 0.0
-        endif
-    end subroutine InitMagVec
 
 end module fields

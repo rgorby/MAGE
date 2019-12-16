@@ -18,6 +18,7 @@ def cntSteps(fname):
 			return nSteps,sIds
 
 def getTs(fname,sIds):
+	tDef = 0.0 #Default time
 	Nt = len(sIds)
 	T = np.zeros(Nt)
 	s0 = sIds.min()
@@ -25,7 +26,7 @@ def getTs(fname,sIds):
 	with h5py.File(fname,'r') as hf:
 		for n in range(s0,sF+1):
 			gId = "/Step#%d"%(n)
-			T[n-s0] = hf[gId].attrs["time"]
+			T[n-s0] = hf[gId].attrs.get("time",tDef)
 	return T
 
 #Get shape/dimension of grid
@@ -51,14 +52,29 @@ def getRootVars(fname):
 
 #Get variables in initial Step
 def getVars(fname,s0):
+	Dims = getDims(fname,s0)
+	Ni = Dims[0]-1
+	Nj = Dims[1]-1
+
 	with h5py.File(fname,'r') as hf:
 		gId = "/Step#%d"%(s0)
 		stp0 = hf[gId]
 		vIds = []
+		vLocs = []
 		for k in stp0.keys():
-			L = stp0[k].shape[0]
+			Nvi = stp0[k].shape[0]
+			#Add variable
 			vIds.append(str(k))
-	return vIds
+			#Decide if variable is cell-centered or node centered
+			#Just using first dimension
+			if (Nvi == Ni):
+				vLocs.append("Cell")
+			elif (Nvi == (Ni+1)):
+				vLocs.append("Node")
+			else:
+				vLocs.append("Other")
+			
+	return vIds,vLocs
 
 
 #Add data item to passed element
@@ -92,7 +108,7 @@ if __name__ == "__main__":
 
 	#Finished getting arguments, parse and move on
 	args = parser.parse_args()
-	#h5F = args.h5F
+	
 	for idx, h5F in enumerate(args.h5F):
 		pre,ext = os.path.splitext(h5F)
 		fOutXML = pre + ".xmf"
@@ -103,7 +119,7 @@ if __name__ == "__main__":
 	
 		T = getTs(h5F,sIds)
 		Nt = len(T)
-		vIds = getVars(h5F,s0)
+		vIds,vLocs = getVars(h5F,s0)
 		rvIds = getRootVars(h5F)
 
 		Nv = len(vIds)
@@ -113,46 +129,13 @@ if __name__ == "__main__":
 		Dims = Dims-1 #Correct for interface vs. cell-centered
 		Nd = len(Dims)
 
-		hStr = None
-		
-		isPSD = False
-		if ("Bx0" in rvIds):
-			isB0 = True
-		else:
-			isB0 = False
-		if ("Bx" in vIds or "dBx" in vIds):
-			isHD = False
-			#Either MHD (gamera) or EB (chimp)
-			if ("P" in vIds):
-				isMHD = True
-				isEB = False
-				hStr = "MHD"
-			else:
-				isMHD = False
-				isEB = True
-				hStr = "EB"
-		elif ("Ntp" in vIds):
-			#PSD output grid (K-Cylinder) or eq grid
-			isPSD = True
-			isHD = False
-			isEB = False
-			isMHD = False
-		else:
-			#Hydro (gamera)
-			isHD = True
-			isEB = False
-			isMHD = False
-			hStr = "HYDRO"
 
-		print("Generating %s-XDMF from %s"%(hStr,h5F))
+		print("Generating XDMF from %s"%(h5F))
 		print("Writing to %s"%(fOutXML))
 		print("\t%d Time Slices / %d Variables"%(nSteps,len(vIds)))
 		print("\tGrid: %s"%str(Dims))
 		print("\tSlices: %d -> %d"%(sIds.min(),sIds.max()))
 		print("\tTime: %3.3f -> %3.3f"%(T.min(),T.max()))
-		#print("\tMHD: %s"%(str(isMHD)))
-		#print("\tEB: %s"%(str(isEB)))
-		#print("\tB0: %s"%(str(isB0)))
 		
 		#Prepare for XDMF file
 		Nx = Dims[0]
@@ -172,6 +155,7 @@ if __name__ == "__main__":
 			vDims = "%d %d %d"%(Nx,Ny,Nd)
 			topoStr = "2DSMesh"
 			geoStr = "X_Y"
+
 		#Construct XDMF XML file
 		#-----------------------
 		Xdmf = et.Element("Xdmf")
@@ -223,16 +207,15 @@ if __name__ == "__main__":
 			Time = et.SubElement(Grid,"Time")
 			Time.set("Value","%f"%T[n])    
 	
-			#Grid done, now do variables
-			#Assuming all cell-centered for now
+			#--------------------------------
+			#Step variables
 			for v in range(Nv):
-				vAtt = et.SubElement(Grid,"Attribute")
-				vAtt.set("Name",vIds[v])
-				vAtt.set("AttributeType","Scalar")
-				vAtt.set("Center","Cell")
-				
-				AddDI(vAtt,h5F,nStp,cDims,vIds[v])
-
+				if (vLocs[v] != 'Other'):
+					vAtt = et.SubElement(Grid,"Attribute")
+					vAtt.set("Name",vIds[v])
+					vAtt.set("AttributeType","Scalar")
+					vAtt.set("Center",vLocs[v])
+					AddDI(vAtt,h5F,nStp,cDims,vIds[v])
 
 			#--------------------------------
 			#Add base grid stuff
@@ -245,49 +228,61 @@ if __name__ == "__main__":
 				
 				AddDI(vAtt,h5F,-1,cDims,rvIds[v])
 
+			#--------------------------------
+			#Add some extra aliases
 			
-			#Create vectors
-			#Velocity
-			if (isHD):
+			#Velocity (2D)
+			if ( (Nd == 2) and ("Vx" in vIds) and ("Vy" in vIds) ):
 				vAtt = et.SubElement(Grid,"Attribute")
-				vAtt.set("Name","V")
+				vAtt.set("Name","VecV")
 				vAtt.set("AttributeType","Vector")
 				vAtt.set("Center","Cell")
 				fDI = et.SubElement(vAtt,"DataItem")
 				fDI.set("ItemType","Function")
 				fDI.set("Dimensions",vDims)
-				
-				if (Nd == 3):
-					fDI.set("Function","JOIN($0 , $1 , $2)")
-					AddDI(fDI,h5F,nStp,cDims,"Vx")
-					AddDI(fDI,h5F,nStp,cDims,"Vy")
-					AddDI(fDI,h5F,nStp,cDims,"Vz")
-				else:
-					fDI.set("Function","JOIN($0 , $1)")
-					AddDI(fDI,h5F,nStp,cDims,"Vx")
-					AddDI(fDI,h5F,nStp,cDims,"Vy")
+				fDI.set("Function","JOIN($0 , $1)")
+				AddDI(fDI,h5F,nStp,cDims,"Vx")
+				AddDI(fDI,h5F,nStp,cDims,"Vy")
 
-			#MHD stuff
-			if (isMHD):
-				#Magnetic field
+			#Velocity (3D)
+			if ( (Nd == 3) and ("Vx" in vIds) and ("Vy" in vIds) and ("Vz" in vIds)):
 				vAtt = et.SubElement(Grid,"Attribute")
-				vAtt.set("Name","B")
+				vAtt.set("Name","VecV")
 				vAtt.set("AttributeType","Vector")
 				vAtt.set("Center","Cell")
 				fDI = et.SubElement(vAtt,"DataItem")
 				fDI.set("ItemType","Function")
 				fDI.set("Dimensions",vDims)
+				fDI.set("Function","JOIN($0 , $1 , $2)")
+				AddDI(fDI,h5F,nStp,cDims,"Vx")
+				AddDI(fDI,h5F,nStp,cDims,"Vy")
+				AddDI(fDI,h5F,nStp,cDims,"Vz")
 
-				if (Nd == 3):
-					fDI.set("Function","JOIN($0 , $1 , $2)")
-					AddDI(fDI,h5F,nStp,cDims,"Bx")
-					AddDI(fDI,h5F,nStp,cDims,"By")
-					AddDI(fDI,h5F,nStp,cDims,"Bz")
+			#Magnetic field (2D)
+			if ( (Nd == 2) and ("Bx" in vIds) and ("By" in vIds) ):
+				vAtt = et.SubElement(Grid,"Attribute")
+				vAtt.set("Name","VecB")
+				vAtt.set("AttributeType","Vector")
+				vAtt.set("Center","Cell")
+				fDI = et.SubElement(vAtt,"DataItem")
+				fDI.set("ItemType","Function")
+				fDI.set("Dimensions",vDims)
+				fDI.set("Function","JOIN($0 , $1)")
+				AddDI(fDI,h5F,nStp,cDims,"Bx")
+				AddDI(fDI,h5F,nStp,cDims,"By")
 
-				else:
-					fDI.set("Function","JOIN($0 , $1)")
-					AddDI(fDI,h5F,nStp,cDims,"Bx")
-					AddDI(fDI,h5F,nStp,cDims,"By")
+			if ( (Nd == 3) and ("Bx" in vIds) and ("By" in vIds) and ("Bz" in vIds)):
+				vAtt = et.SubElement(Grid,"Attribute")
+				vAtt.set("Name","VecB")
+				vAtt.set("AttributeType","Vector")
+				vAtt.set("Center","Cell")
+				fDI = et.SubElement(vAtt,"DataItem")
+				fDI.set("ItemType","Function")
+				fDI.set("Dimensions",vDims)
+				fDI.set("Function","JOIN($0 , $1 , $2)")
+				AddDI(fDI,h5F,nStp,cDims,"Bx")
+				AddDI(fDI,h5F,nStp,cDims,"By")
+				AddDI(fDI,h5F,nStp,cDims,"Bz")
 
 		#Finished creating XML tree, now write
 		xmlStr = xml.dom.minidom.parseString(et.tostring(Xdmf)).toprettyxml(indent="    ")
