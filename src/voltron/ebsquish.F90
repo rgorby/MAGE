@@ -29,6 +29,7 @@ module ebsquish
         real(rp), intent(in) :: R
         integer :: iMax
         integer :: i
+
         !Just using dayside line
         !Avoiding findloc because it's not well supported by GNU
         do i=Gr%is,Gr%ie
@@ -69,8 +70,15 @@ module ebsquish
             do j=ebGr%js,ebGr%je
                 do i=ebGr%is,ebGr%is+vApp%iDeep
                     xyz = ebGr%xyzcc(i,j,k,:)
-                    call ProjectXYZ(ebModel,ebState,xyz,t,x1,x2)
-
+                    if (norm2(xyz) <= vApp%rDeep) then
+                        !Do projection
+                        call ProjectXYZ(ebModel,ebState,xyz,t,x1,x2)
+                    else
+                        !Set null projection because outside radius
+                        x1 = 0.0
+                        x2 = 0.0
+                    endif
+                    
                     vApp%chmp2mhd%xyzSquish(i,j,k,1) = x1
                     vApp%chmp2mhd%xyzSquish(i,j,k,2) = x2
 
