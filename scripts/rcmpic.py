@@ -1,0 +1,129 @@
+#!/usr/bin/env python
+#Make a quick figure of a Gamera magnetosphere run
+
+import argparse
+from argparse import RawTextHelpFormatter
+import matplotlib as mpl
+mpl.use('Agg')
+import matplotlib.pyplot as plt
+import kaipy.kaiViz as kv
+import matplotlib.gridspec as gridspec
+import numpy as np
+import kaipy.gamera.gampp as gampp
+import os
+import numpy.ma as ma
+
+if __name__ == "__main__":
+	#Defaults
+	fdir = os.getcwd()
+	ftag = "msphere"
+	nStp = -1
+	fOut = "qkrcmpic.png"
+	MainS = """Creates simple multi-panel figure for RCM magnetosphere run
+	Top Panel - XXX
+	Bottom Panel - XXX
+	"""
+
+	parser = argparse.ArgumentParser(description=MainS, formatter_class=RawTextHelpFormatter)
+	parser.add_argument('-d',type=str,metavar="directory",default=fdir,help="Directory to read from (default: %(default)s)")
+	parser.add_argument('-id',type=str,metavar="runid",default=ftag,help="RunID of data (default: %(default)s)")
+	parser.add_argument('-n' ,type=int,metavar="step" ,default=nStp,help="Time slice to plot (default: %(default)s)")
+
+	#Finalize parsing
+	args = parser.parse_args()
+	fdir = args.d
+	ftag = args.id + ".mhdrcm"
+	nStp = args.n
+
+	#---------
+	#Figure parameters
+	xTail = -20.0
+	xSun = 10.0
+
+	yMax = 15.0
+	xyBds = [xTail,xSun,-yMax,yMax]
+
+	figSz = (12,6)
+	eCol = "slategrey"
+	eLW = 0.15
+	vP = kv.genNorm(1.0e-1,1.0e+1,doLog=True)
+	vDV = kv.genNorm(1.0e+6,1.0e+10,doLog=True)
+	pCMap = "viridis"
+	dvCMap = "terrain"
+
+	#======
+	#Init data
+	rcmdata = gampp.GameraPipe(fdir,ftag)
+	if (nStp<0):
+		nStp = rcmdata.sFin
+		print("Using Step %d"%(nStp))
+
+	#======
+	#Setup figure
+	fig = plt.figure(figsize=figSz)
+	gs = gridspec.GridSpec(3,3,height_ratios=[20,1.0,1.0],hspace=0.025)
+
+	AxL = fig.add_subplot(gs[0,0])
+	AxM = fig.add_subplot(gs[0,1])
+	AxR = fig.add_subplot(gs[0,-1])
+
+	AxC1 = fig.add_subplot(gs[-1,0])
+	AxC3 = fig.add_subplot(gs[-1,-1])
+	kv.genCB(AxC1,vP,"Pressure [nPa]",cM=pCMap)
+	kv.genCB(AxC3,vDV,"Flux-Tube Entropy",cM=dvCMap)
+
+	AxL.clear()
+	AxM.clear()
+	AxR.clear()
+
+	bmX = rcmdata.GetVar("xMin",nStp)
+	bmY = rcmdata.GetVar("yMin",nStp)
+	Prcm = rcmdata.GetVar("P",nStp)
+	Pmhd = rcmdata.GetVar("Pmhd",nStp)
+	IOpen = rcmdata.GetVar("IOpen",nStp)
+	bVol = rcmdata.GetVar("bVol",nStp)
+	
+	I = (IOpen > -0.5)
+
+	bmX = ma.masked_array(bmX,mask=I)
+	bmY = ma.masked_array(bmY,mask=I)
+	Prcm = ma.masked_array(Prcm,mask=I)
+	Pmhd = ma.masked_array(Pmhd,mask=I)
+	bVol = ma.masked_array(bVol,mask=I)
+	AxL.set_title("RCM Pressure")
+
+	AxL.pcolor(bmX,bmY,Prcm,norm=vP,cmap=pCMap)
+	AxL.plot(bmX,bmY,color=eCol,linewidth=eLW)
+	AxL.plot(bmX.T,bmY.T,color=eCol,linewidth=eLW)
+	kv.addEarth2D(ax=AxL)
+	kv.SetAx(xyBds,AxL)
+
+	#Handle left
+	AxM.set_title("MHD Pressure")
+	AxM.pcolor(bmX,bmY,Pmhd,norm=vP,cmap=pCMap)
+	
+	AxM.plot(bmX,bmY,color=eCol,linewidth=eLW)
+	AxM.plot(bmX.T,bmY.T,color=eCol,linewidth=eLW)
+	kv.addEarth2D(ax=AxM)
+	kv.SetAx(xyBds,AxM)
+
+	#Handle right
+	AxR.set_title("Flux-Tube Entropy")
+	AxR.pcolor(bmX,bmY,bVol,norm=vDV,cmap=dvCMap)
+	
+	AxR.plot(bmX,bmY,color=eCol,linewidth=eLW)
+	AxR.plot(bmX.T,bmY.T,color=eCol,linewidth=eLW)
+	kv.addEarth2D(ax=AxR)
+	kv.SetAx(xyBds,AxR)
+
+
+	plt.suptitle("Step#%d"%(nStp),fontsize="x-large")
+
+	fOut = "qkrcmpic.png"
+	kv.savePic(fOut)
+	
+	#AxC1 = fig.add_subplot(gs[2,0])
+	#AxC2 = fig.add_subplot(gs[2,3])
+	#AxC3 = fig.add_subplot(gs[2,1])
+	#AxC4 = fig.add_subplot(gs[2,2])
+
