@@ -99,33 +99,48 @@ module rcmimag
         real(rp) :: dtAdv
         type(RCMTube_T) :: ijTube
 
+        real(rp) :: llBC
+        logical :: isLL
+
+        llBC = vApp%mhd2chmp%lowlatBC
+
     !Get potential from mix
         call map_rcm_mix(vApp,mixPot)
 
     !Load RCM tubes
        !$OMP PARALLEL DO default(shared) collapse(2) &
        !$OMP schedule(dynamic) &
-       !$OMP private(i,j,colat,lat,lon,ijTube)
+       !$OMP private(i,j,colat,lat,lon,isLL,ijTube)
         do i=1,RCMApp%nLat_ion
             do j=1,RCMApp%nLon_ion
                 colat = RCMApp%gcolat(i)
                 lat = PI/2 - colat
                 lon = RCMApp%glong(j)
                 
-                !call DipoleTube(vApp,lat,lon,ijTube)
-                call MHDTube(vApp,lat,lon,ijTube)
+                !Decide if we're below low-lat BC or not
+                isLL = (lat <= llBC)
 
-                !Pull data into RCMApp
+                if (isLL) then
+                    !Use mocked up values
+                    call DipoleTube(vApp,lat,lon,ijTube)
+                else
+                    !Trace through MHD
+                    call MHDTube(vApp,lat,lon,ijTube)
+                endif
+
+                !Stuff data into RCM
                 RCMApp%Vol(i,j)          = ijTube%Vol
                 RCMApp%bmin(i,j)         = ijTube%bmin
                 RCMApp%iopen(i,j)        = ijTube%iopen
                 RCMApp%beta_average(i,j) = ijTube%beta_average
                 RCMApp%Pave(i,j)         = ijTube%Pave
                 RCMApp%Nave(i,j)         = ijTube%Nave
-                !RCMApp%pot(i,j)          = ijTube%pot
-                ! mix variables are stored in this order (longitude,colatitude), hence the index flip
-                RCMApp%pot(i,j)          = mixPot(j,i)   
                 RCMApp%X_bmin(i,j,:)     = ijTube%X_bmin
+
+
+                !mix variables are stored in this order (longitude,colatitude), hence the index flip
+                RCMApp%pot(i,j)          = mixPot(j,i)
+                
             enddo
         enddo
 
@@ -189,7 +204,7 @@ module rcmimag
         xyzIon(XDIR) = RIonRCM*cos(lat)*cos(lon)
         xyzIon(YDIR) = RIonRCM*cos(lat)*sin(lon)
         xyzIon(ZDIR) = RIonRCM*sin(lat)
-        x0 = DipoleShift(xyzIon,2.05_rp)
+        x0 = DipoleShift(xyzIon,vApp%mhd2chmp%Rin)
         
     !Now do field line trace
         associate(ebModel=>vApp%ebTrcApp%ebModel,ebGr=>vApp%ebTrcApp%ebState%ebGr,ebState=>vApp%ebTrcApp%ebState)
@@ -245,8 +260,36 @@ module rcmimag
         
     end subroutine MHDTube
 
-    !Lazy test flux tube
+    !Dipole flux tube info
     subroutine DipoleTube(vApp,lat,lon,ijTube)
+        type(voltApp_T), intent(in) :: vApp
+        real(rp), intent(in) :: lat,lon
+        type(RCMTube_T), intent(out) :: ijTube
+
+        real(rp) :: L,colat,re
+        real(rp) :: mdipole = 3.0e-5 ! dipole moment in T
+        
+        re = REarth*1.0e-3 !Radius in km
+
+        colat = PI/2 - lat
+        L = 1.0/(sin(colat)**2.0)
+        ijTube%Vol = 32./35.*L**4.0/mdipole
+        ijTube%X_bmin(XDIR) = L*cos(lon)*re
+        ijTube%X_bmin(YDIR) = L*sin(lon)*re
+        ijTube%X_bmin(ZDIR) = 0.0
+        ijTube%bmin = mdipole/L**3.0
+        ijTube%iopen = -1
+        ijTube%pot = 0.0
+
+        ijTube%beta_average = TINY
+        ijTube%Pave = TINY
+
+        ijTube%Nave = psphD(L)*1.0e+6 !#/cc => #/m3
+
+    end subroutine DipoleTube
+
+    !Lazy test flux tube
+    subroutine oDipoleTube(vApp,lat,lon,ijTube)
         type(voltApp_T), intent(in) :: vApp
         real(rp), intent(in) :: lat,lon
         type(RCMTube_T), intent(out) :: ijTube
@@ -281,7 +324,7 @@ module rcmimag
             ijTube%pot = -potmax/2.0*sin(lon)*sin(colat_boundary)/sin(colat)
         endif
 
-    end subroutine DipoleTube
+    end subroutine oDipoleTube
 
 !--------------
 !Kaiju RCM IO Routines

@@ -386,6 +386,7 @@ module uservoltic
         integer :: i,j,k,ip,jp,kp,ig,n,np
         logical :: isLL
         real(rp) :: rc,xc,yc,zc,Vr,invlat
+        real(rp) :: xcg,ycg,zcg
         real(rp) :: Rin,llBC !Shared
         real(rp), dimension(NDIM) :: Exyz,Veb,dB,Bd,rHatG,rHatP,Vxyz,Vmir
         real(rp), dimension(NVAR) :: pW,pCon,gW,gCon
@@ -400,6 +401,7 @@ module uservoltic
         !$OMP PARALLEL DO default(shared) &
         !$OMP private(i,j,k,ip,jp,kp,ig,n,np,isLL) &
         !$OMP private(rc,xc,yc,zc,Vr,invlat) &
+        !$OMP private(xcg,ycg,zcg) &
         !$OMP private(Exyz,Veb,Bd,dB,rHatG,rHatP,Vxyz,Vmir) &
         !$OMP private(pW,pCon,gW,gCon)
         do k=Grid%ksg,Grid%keg
@@ -418,15 +420,18 @@ module uservoltic
                 !-------
                 !Get geometry for this ghost and matching physical
 
-                    !call cellCenter(Grid,ig,jp,kp,xc,yc,zc)
                     !NOTE: Using j/k instead of jp/kp to deal with double-corner sign flip
-                    call cellCenter(Grid,ig,j ,k ,xc,yc,zc)
-                    rHatG = normVec([xc,yc,zc])
+                    !call cellCenter(Grid,ig,j ,k ,xcg,ycg,zcg)
+
+                    !Trying regular ghost instead
+                    call cellCenter(Grid,ig,jp,kp,xcg,ycg,zcg)
+
+                    rHatG = normVec([xcg,ycg,zcg])
 
                     call cellCenter(Grid,ip,jp,kp,xc,yc,zc)
                     rHatP = normVec([xc,yc,zc])
 
-                    invlat = rad2deg*InvLatitude([xc,yc,zc]) !Convert to degrees
+                    invlat = rad2deg*InvLatitude([xcg,ycg,zcg]) !Convert to degrees
 
                     if (invlat<=llBC) then
                         isLL = .true.
@@ -440,12 +445,17 @@ module uservoltic
                     !Get velocity from i-reflected active cell
                     Vmir = State%Gas(ip,jp,kp,MOMX:MOMZ,BLK)/max(State%Gas(ip,jp,kp,DEN,BLK),dFloor)
                     Exyz = bc%inExyz(np,jp,kp,:)
-                    call Dipole(xc,yc,zc,Bd(XDIR),Bd(YDIR),Bd(ZDIR))
+
+                    !call Dipole(xc,yc,zc,Bd(XDIR),Bd(YDIR),Bd(ZDIR))
+                    call Dipole(xcg,ycg,zcg,Bd(XDIR),Bd(YDIR),Bd(ZDIR))
+                    
                     dB = State%Bxyz(ip,jp,kp,:)
-                    !Using ExB everywhere
+
+                    !ExB velocity
                     Veb = cross(Exyz,Bd)/dot_product(Bd,Bd)
+
                     !Use ExB (w/o radial) and mirror
-                    Vxyz = Veb - rHatP*dot_product(rHatP,Veb) - rHatP*dot_product(rHatP,Vmir)
+                    Vxyz = Veb - rHatP*dot_product(rHatP,Veb) !- rHatP*dot_product(rHatP,Vmir)
 
                     
                 !-------
@@ -471,7 +481,7 @@ module uservoltic
                         State%magFlux(ig,j,k,:) = 0.0
 
                     else
-                        !Mirror fluxes to minimize gradient
+                        !Mirror fluxes to minimize gradient (these are perturbation quantities)
                         State%Bxyz(ig,j,k,:) = dB
                         State%magFlux(ig,j,k,IDIR) = State%magFlux(ip,jp,kp,IDIR)
                         State%magFlux(ig,j,k,JDIR) = State%magFlux(ip,jp,kp,JDIR)

@@ -55,6 +55,9 @@ module volttypes
     ! data for gamera -> chimp conversion
     type mhd2Chmp_T
         logical :: isLonely = .true.
+        real(rp) :: Rin
+        real(rp) :: lowlatBC
+
     end type mhd2Chmp_T
 
     type voltApp_T
