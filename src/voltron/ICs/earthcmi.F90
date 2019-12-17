@@ -421,10 +421,10 @@ module uservoltic
                 !Get geometry for this ghost and matching physical
 
                     !NOTE: Using j/k instead of jp/kp to deal with double-corner sign flip
-                    !call cellCenter(Grid,ig,j ,k ,xcg,ycg,zcg)
+                    call cellCenter(Grid,ig,j ,k ,xcg,ycg,zcg)
 
                     !Trying regular ghost instead
-                    call cellCenter(Grid,ig,jp,kp,xcg,ycg,zcg)
+                    !call cellCenter(Grid,ig,jp,kp,xcg,ycg,zcg)
 
                     rHatG = normVec([xcg,ycg,zcg])
 
@@ -479,7 +479,6 @@ module uservoltic
                         !In low-lat enforce full dipole
                         State%Bxyz   (ig,j,k,:) = 0.0
                         State%magFlux(ig,j,k,:) = 0.0
-
                     else
                         !Mirror fluxes to minimize gradient (these are perturbation quantities)
                         State%Bxyz(ig,j,k,:) = dB

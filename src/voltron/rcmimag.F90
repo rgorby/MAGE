@@ -137,7 +137,6 @@ module rcmimag
                 RCMApp%Nave(i,j)         = ijTube%Nave
                 RCMApp%X_bmin(i,j,:)     = ijTube%X_bmin
 
-
                 !mix variables are stored in this order (longitude,colatitude), hence the index flip
                 RCMApp%pot(i,j)          = mixPot(j,i)
                 
@@ -167,7 +166,7 @@ module rcmimag
 
         !Test for good cell
         isGood = (colat >= minval(RCMApp%gcolat)) .and. (colat <= maxval(RCMApp%gcolat)) &
-                 & .and. (RCMApp%iopen(i0,j0) == -1) .and. (lat>0.0)
+                 & .and. (RCMApp%iopen(i0,j0) == -1) .and. (lat>TINY)
 
         imW = 0.0
 
@@ -199,8 +198,9 @@ module rcmimag
         real(rp), dimension(NDIM) :: x0, bEq, xyzIon
         integer :: OCb
         real(rp) :: bD,bP,dvB,bBeta
+
     !First get seed for trace
-        !Assume lat/lon @ Earth, dipole push
+        !Assume lat/lon @ Earth, dipole push to first cell
         xyzIon(XDIR) = RIonRCM*cos(lat)*cos(lon)
         xyzIon(YDIR) = RIonRCM*cos(lat)*sin(lon)
         xyzIon(ZDIR) = RIonRCM*sin(lat)
@@ -266,25 +266,26 @@ module rcmimag
         real(rp), intent(in) :: lat,lon
         type(RCMTube_T), intent(out) :: ijTube
 
-        real(rp) :: L,colat,re
-        real(rp) :: mdipole = 3.0e-5 ! dipole moment in T
-        
-        re = REarth*1.0e-3 !Radius in km
+        real(rp) :: L,colat
+        real(rp) :: mdipole
+
+        mdipole = EarthM0g*G2T ! dipole moment in T
 
         colat = PI/2 - lat
         L = 1.0/(sin(colat)**2.0)
         ijTube%Vol = 32./35.*L**4.0/mdipole
-        ijTube%X_bmin(XDIR) = L*cos(lon)*re
-        ijTube%X_bmin(YDIR) = L*sin(lon)*re
+        ijTube%X_bmin(XDIR) = L*cos(lon)*Re_cgs*1.0e-2 !Re=>meters
+        ijTube%X_bmin(YDIR) = L*sin(lon)*Re_cgs*1.0e-2 !Re=>meters
         ijTube%X_bmin(ZDIR) = 0.0
         ijTube%bmin = mdipole/L**3.0
         ijTube%iopen = -1
         ijTube%pot = 0.0
 
-        ijTube%beta_average = TINY
-        ijTube%Pave = TINY
+        ijTube%beta_average = 0.0
+        ijTube%Pave = 0.0
+        ijTube%Nave = 0.0
 
-        ijTube%Nave = psphD(L)*1.0e+6 !#/cc => #/m3
+        !ijTube%Nave = psphD(L)*1.0e+6 !#/cc => #/m3
 
     end subroutine DipoleTube
 

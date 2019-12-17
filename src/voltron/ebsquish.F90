@@ -20,7 +20,6 @@ module ebsquish
         end subroutine Projection_T
     end interface
 
-
     contains
 
     !Find i-index of outer boundary of coupling domain
@@ -122,6 +121,8 @@ module ebsquish
         real(rp), intent(out) :: x1,x2
 
         real(rp), dimension(NDIM) :: xE,xIon
+        real(rp) :: dX
+        logical :: isGood
 
         x1 = 0.0
         x2 = 0.0
@@ -129,15 +130,17 @@ module ebsquish
         !Trace along field line (i.e. to northern hemisphere)
         call project(ebModel,ebState,xyz,t,xE,+1,toEquator=.false.)
 
-        if ( norm2(xE) <= 2.25 .and. (xE(ZDIR)>0) ) then
-            !Endpoint is close-ish to earth and in northern hemisphere, this is closed
-            x1 = InvLatitude(xE) !Invariant latitude 
+        dX = norm2(xyz-xE)
+        isGood = (dX>TINY) .and. (norm2(xE) <= 2.25) .and. (xE(ZDIR) > 0)
+
+        if (isGood) then
+            !Get invariant lat/lon
+            x1 = InvLatitude(xE)
             x2 = atan2(xE(YDIR),xE(XDIR))
             if (x2 < 0) x2 = x2 + 2*PI
         else
-            !Endpoint is far, this is probably open line
-            !Set to south pole for projection failure
-            x1 = -PI/2.0
+            !Set 0/0 for projection failure
+            x1 = 0.0
             x2 = 0.0
         endif
 

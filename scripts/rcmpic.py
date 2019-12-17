@@ -84,6 +84,12 @@ if __name__ == "__main__":
 	bVol = rcmdata.GetVar("bVol",nStp)
 	
 	I = (IOpen > -0.5)
+	Ni = (~I).sum()
+	
+	if (Ni == 0):
+		print("No closed field region in RCM, exiting ...")
+		exit()
+	
 
 	bmX = ma.masked_array(bmX,mask=I)
 	bmY = ma.masked_array(bmY,mask=I)

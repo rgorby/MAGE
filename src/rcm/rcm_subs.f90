@@ -8214,7 +8214,7 @@ SUBROUTINE Move_plasma_grid_NEW (dt)
 
  fac = 1.0E-3*signbe*bir*alpha*beta*dlam*dpsi*ri**2
 
-!K: Commenting out this OMP block because "fudge" isn't found, is the correct variable fudgec?
+!K: Experiment OMP binding on RCM calculation
 !$OMP PARALLEL PRIVATE (eeta2, veff, dvefdi, dvefdj, didt, djdt, &
 !$OMP                  & mass_factor, loc_didt, loc_djdt,loc_Eta,loc_rate, &
 !$OMP                  & ie, icut, j, i, r_dist, FirstTime, max_eeta) &
