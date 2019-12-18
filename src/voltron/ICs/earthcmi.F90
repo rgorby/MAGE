@@ -289,26 +289,17 @@ module uservoltic
 
         integer :: n,s,j,k
         real(rp) :: igFlx(NVAR,2), imFlx(NDIM,2)
-        real(rp) :: Rin,llBC,invlat
-
-        !Ignore everything else
-        return
 
         !This is inner-most I tile
         if ( (Model%Ri == 1) .and. (.not. Model%doMultiF) ) then
-            !Get inner radius and low-latitude
-            Rin = norm2(Gr%xyz(Gr%is,Gr%js,Gr%ks,:))
-            llBC = 90.0 - rad2deg*asin(sqrt(Rion/Rin)) !co-lat -> lat
 
             !Now loop over inner sphere (only need active since we're only touching I fluxes)
             !$OMP PARALLEL DO default(shared) &
-            !$OMP private(j,k,invlat)
+            !$OMP private(j,k)
             do k=Gr%ks,Gr%ke
                 do j=Gr%js,Gr%je
-
                     !Only inward (negative) mass flux
                     gFlx(Gr%is,j,k,DEN,IDIR,BLK) = min( 0.0,gFlx(Gr%is,j,k,DEN,IDIR,BLK) )
-
                 enddo
             enddo !K loop
 
@@ -448,16 +439,12 @@ module uservoltic
 
                     !call Dipole(xc,yc,zc,Bd(XDIR),Bd(YDIR),Bd(ZDIR))
                     call Dipole(xcg,ycg,zcg,Bd(XDIR),Bd(YDIR),Bd(ZDIR))
-                    
                     dB = State%Bxyz(ip,jp,kp,:)
-
                     !ExB velocity
                     Veb = cross(Exyz,Bd)/dot_product(Bd,Bd)
 
                     !Use ExB (w/o radial) and mirror
                     Vxyz = Veb - rHatP*dot_product(rHatP,Veb) !- rHatP*dot_product(rHatP,Vmir)
-
-                    
                 !-------
                 !Set ghost hydro quantities
                     !Let density float
@@ -476,9 +463,11 @@ module uservoltic
                 !-------
                 !Now handle magnetic quantities
                     if (isLL) then
-                        !In low-lat enforce full dipole
-                        State%Bxyz   (ig,j,k,:) = 0.0
-                        State%magFlux(ig,j,k,:) = 0.0
+                        !Mirror fluxes to minimize gradient (these are perturbation quantities)
+                        State%Bxyz(ig,j,k,:) = dB
+                        State%magFlux(ig,j,k,IDIR) = State%magFlux(ip,jp,kp,IDIR)
+                        State%magFlux(ig,j,k,JDIR) = State%magFlux(ip,jp,kp,JDIR)
+                        State%magFlux(ig,j,k,KDIR) = State%magFlux(ip,jp,kp,KDIR)
                     else
                         !Mirror fluxes to minimize gradient (these are perturbation quantities)
                         State%Bxyz(ig,j,k,:) = dB
