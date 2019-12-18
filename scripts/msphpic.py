@@ -81,7 +81,7 @@ if __name__ == "__main__":
 	if (doDen):
 		cVals = np.linspace(0,25,Nc)
 	else:
-		cVals = np.logspace(np.log10(1.0e-2),np.log10(10.0),Nc)
+		cVals = np.logspace(np.log10(1.0),np.log10(10.0),Nc)
 	LW = 0.25
 	ashd = 0.25
 
