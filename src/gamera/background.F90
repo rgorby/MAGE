@@ -177,6 +177,7 @@ module background
 
         integer :: i,j,k
         real(rp), dimension(NDIM) :: nI,nJ,nK,nIp,nJp,nKp
+        real(rp), dimension(NDIM) :: g,rHat
         real(rp) :: PhiI,PhiJ,PhiK,PhiIp,PhiJp,PhiKp
         real(rp) ::  daI, daJ, daK, daIp, daJp, daKp
         real(rp) :: dV
@@ -189,7 +190,12 @@ module background
         allocate(Grid%gxyz(Grid%isg:Grid%ieg,Grid%jsg:Grid%jeg,Grid%ksg:Grid%keg,NDIM))
         Grid%gxyz = 0.0
 
-        
+
+        !$OMP PARALLEL DO default(shared) collapse(2) &
+        !$OMP private(nI,nJ,nK,nIp,nJp,nKp) &
+        !$OMP private(PhiI,PhiJ,PhiK,PhiIp,PhiJp,PhiKp) &
+        !$OMP private(daI,daJ,daK,daIp,daJp,daKp) &
+        !$OMP private(dV,g,rHat)
         do k=Grid%ks, Grid%ke
             do j=Grid%js, Grid%je
                 do i=Grid%is, Grid%ie
@@ -221,9 +227,16 @@ module background
                     daKp = Grid%face(i,j,k+1,KDIR)
 
                     !Finally calculate g = -grad Phi
-                    Grid%gxyz(i,j,k,:) = -(  PhiIp*daIp*nIp - PhiI*daI*nI &
-                                           + PhiJp*daJp*nJp - PhiJ*daJ*nJ &
-                                           + PhiKp*daKp*nKp - PhiK*daK*nK )/dV
+                    g = -(  PhiIp*daIp*nIp - PhiI*daI*nI &
+                          + PhiJp*daJp*nJp - PhiJ*daJ*nJ &
+                          + PhiKp*daKp*nKp - PhiK*daK*nK )/dV
+                    rHat = normVec(Grid%xyzcc(i,j,k,:))
+                    if (Model%doSphGrav) then
+                        !Only radial component
+                        Grid%gxyz(i,j,k,:) = Vec2Para(g,rHat)
+                    else
+                        Grid%gxyz(i,j,k,:) = g
+                    endif
                 enddo
             enddo
         enddo

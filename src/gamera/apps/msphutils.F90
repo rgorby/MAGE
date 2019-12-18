@@ -131,6 +131,8 @@ module msphutils
 
         !Add gravity if required
         if (Model%doGrav) then
+            !Force spherical gravity (zap non-radial components)
+            Model%doSphGrav = .true.
             Model%Phi => PhiGrav
         endif
 
