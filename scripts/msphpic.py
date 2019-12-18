@@ -7,10 +7,13 @@ import matplotlib as mpl
 mpl.use('Agg')
 import matplotlib.pyplot as plt
 import kaipy.kaiViz as kv
+from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 import matplotlib.gridspec as gridspec
 import numpy as np
 import kaipy.gamera.remixpp as rmpp
 import kaipy.gamera.magsphere as msph
+import kaipy.gamera.gampp as gampp
+import kaipy.gamera.rcmpp as rcmpp
 import os
 
 if __name__ == "__main__":
@@ -53,10 +56,9 @@ if __name__ == "__main__":
 	#Figure parameters
 	figSz = (12,7.5)
 	dbCMap = "RdGy_r"
-	bCMap = "inferno"
 	pCMap = "viridis"
 	dCMap = "viridis"
-	vCMap = "bwr"
+	
 
 	if (doBig):
 		xTail = -100.0
@@ -68,34 +70,32 @@ if __name__ == "__main__":
 	yMax = (xSun-xTail)/2.0
 	xyBds = [xTail,xSun,-yMax,yMax]
 
-	doDBZ = True
-	doLogP = True
 	doMPI = True
 
 	cLW = 0.25
 	vcLW = 0.5
-
-	PMin = 0.0 ; PMax = 2.0
-	Nc = 11
+	vP = kv.genNorm(1.0e-2,10.0,doLog=True)
 	vDB = kv.genNorm(25)
-	vBB = kv.genNorm(1,250,doLog=True)
 	vDD = kv.genNorm(0,25)
-	vV  = kv.genNorm(5)
-	if (doLogP):
-		vP = kv.genNorm(1.0e-2,10.0,doLog=True)
-		cVals = np.logspace(np.log10(1.0e-2),np.log10(10.0),Nc)
-	else:
-		vP = kv.genNorm(PMin,PMax)
-		cVals = np.linspace(PMin,PMax,Nc)
+	Nc = 11
 	if (doDen):
 		cVals = np.linspace(0,25,Nc)
-
+	else:
+		cVals = np.logspace(np.log10(1.0e-2),np.log10(10.0),Nc)
 	LW = 0.25
 	ashd = 0.25
 
 	#======
 	#Init data
 	gsph = msph.GamsphPipe(fdir,ftag,doFast=doFast)
+
+	#Check for remix
+	rcmChk = fdir + "/%s.mhdrcm.h5"%(ftag)
+	doRCM = os.path.exists(rcmChk)
+	if (doRCM):
+		print("Found RCM data")
+		rcmdata = gampp.GameraPipe(fdir,ftag+".mhdrcm")
+
 	if (nStp<0):
 		nStp = gsph.sFin
 		print("Using Step %d"%(nStp))
@@ -111,31 +111,26 @@ if __name__ == "__main__":
 	AxC3 = fig.add_subplot(gs[2,1])
 	AxC4 = fig.add_subplot(gs[2,2])
 
-	if (doDBZ):
-		kv.genCB(AxC1,vDB,"Residual Field [nT]",cM=dbCMap,Ntk=7)
-	else:
-		kv.genCB(AxC1,vBB,"Magnetic Field [nT]",cM=bCMap)
+	kv.genCB(AxC1,vDB,"Residual Field [nT]",cM=dbCMap,Ntk=7)
 	rmpp.cMax = 1.00
 	kv.genCB(AxC4,kv.genNorm(rmpp.cMax),"FAC",cM=rmpp.fcMap,Ntk=4)
-
 	rmpp.AddPotCB(AxC3)
+	kv.genCB(AxC2,vP,"Pressure",cM=pCMap)#,Ntk=6)
 
 	if (doDen):
 		kv.genCB(AxC2,vDD,"Density [#/cc]",cM=dCMap,Ntk=7)
 	else:
-		if (doLogP):
-			kv.genCB(AxC2,vP,"Pressure [nPa]",cM=pCMap)
-		else:	
-			kv.genCB(AxC2,vP,"Pressure [nPa]",cM=pCMap,Ntk=6)
+		kv.genCB(AxC2,vP,"Pressure [nPa]",cM=pCMap)
 
 	AxL.clear()
 	AxR.clear()
-	if (doDBZ):
-		dbz = gsph.DelBz(nStp)
-		Bz = gsph.EggSlice("Bz",nStp,doEq=True)
 
-	else:
-		MagB = gsph.eqMagB(nStp)
+	dbz = gsph.DelBz(nStp)
+	Bz = gsph.EggSlice("Bz",nStp,doEq=True)
+
+	#Plot left
+	AxL.pcolormesh(gsph.xxi,gsph.yyi,dbz,cmap=dbCMap,norm=vDB)
+	AxL.contour(kv.reWrap(gsph.xxc),kv.reWrap(gsph.yyc),kv.reWrap(Bz),[0.0],colors='magenta',linewidths=cLW)
 
 	if (doDen):
 		Dxz = gsph.EggSlice("D",nStp,doEq=False)
@@ -143,20 +138,19 @@ if __name__ == "__main__":
 	else:
 		Pxz = gsph.EggSlice("P",nStp,vScl=gsph.pScl,doEq=False)
 		Pxy = gsph.EggSlice("P",nStp,vScl=gsph.pScl,doEq=True)
-	if (doDBZ):
-		AxL.pcolormesh(gsph.xxi,gsph.yyi,dbz,cmap=dbCMap,norm=vDB)
-		AxL.contour(kv.reWrap(gsph.xxc),kv.reWrap(gsph.yyc),kv.reWrap(Bz),[0.0],colors='magenta',linewidths=cLW)
-
-	else:
-		AxL.pcolormesh(gsph.xxi,gsph.yyi,MagB,cmap=bCMap,norm=vBB)
 	
-
 	kv.addEarth2D(ax=AxL)
 	kv.SetAx(xyBds,AxL)
 	gsph.AddTime(nStp,AxL,xy=[0.025,0.89],fs="x-large")
 	gsph.AddSW(nStp,AxL,xy=[0.625,0.025],fs="small")
 	AxL.set_xlabel('SM-X [Re]')
 	AxL.set_ylabel('SM-Y [Re]')
+
+	#Add inset RCM plot
+	if (doRCM):
+		AxRCM = inset_axes(AxL,width="30%",height="30%",loc=3)
+		rcmpp.RCMInset(AxRCM,rcmdata,nStp,vP)
+		rcmpp.AddRCMBox(AxL)
 
 	#Add contour to equatorial plot and do right plot
 	if (doDen):
@@ -176,6 +170,11 @@ if __name__ == "__main__":
 
 	AxR.set_xlabel('SM-X [Re]')
 	AxR.set_ylabel('SM-Z [Re]')
+
+	if (doIon):
+		dxy = [32.5,32.5]
+		gsph.CMIViz(AxR,nStp,dxy=dxy,loc="upper left",doNorth=True)
+		gsph.CMIViz(AxR,nStp,dxy=dxy,loc="lower left",doNorth=False)
 
 	#Add MPI decomp
 	if (doMPI):
@@ -199,9 +198,6 @@ if __name__ == "__main__":
 			AxL.plot(gsph.xxi[:,j0], gsph.yyi[:,j0],gCol,linewidth=LW,alpha=ashd)
 			AxR.plot(gsph.xxi[:,j0], gsph.yyi[:,j0],gCol,linewidth=LW,alpha=ashd)
 
-	if (doIon):
-		dxy = [32.5,32.5]
-		gsph.CMIViz(AxR,nStp,dxy=dxy,loc="upper left",doNorth=True)
-		gsph.CMIViz(AxR,nStp,dxy=dxy,loc="lower left",doNorth=False)
+
 
 	kv.savePic(fOut,bLenX=45)
