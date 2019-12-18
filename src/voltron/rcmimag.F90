@@ -20,10 +20,12 @@ module rcmimag
     type(rcm_mhd_T), private :: RCMApp
 
     !Scaling parameters
-    real(rp), private :: rcmPScl = 1.0e+9 !Convert Pa->nPa
-    real(rp), private :: rcmNScl = 1.0e-6 !Convert #/m3 => #/cc
-    real(rp), parameter :: RIonRCM = (RionE/REarth)*1.0e+6
+    real(rp), parameter, private :: rcmPScl = 1.0e+9 !Convert Pa->nPa
+    real(rp), parameter, private :: rcmNScl = 1.0e-6 !Convert #/m3 => #/cc
     real(rp), parameter, private :: IMGAMMA = 5.0/3.0
+
+    real(rp), parameter :: RIonRCM = (RionE/REarth)*1.0e+6
+    
 
     integer, parameter :: MAXRCMIOVAR = 30
     character(len=strLen), private :: h5File
@@ -370,7 +372,6 @@ module rcmimag
 
     end subroutine initRCMIO
 
-
     subroutine WriteRCM(nOut,MJD,time)
         integer, intent(in) :: nOut
         real(rp), intent(in) :: MJD,time
@@ -378,9 +379,12 @@ module rcmimag
         type(IOVAR_T), dimension(MAXRCMIOVAR) :: IOVars
         character(len=strLen) :: gStr
 
+        real(rp) :: rcm2Wolf
         integer, dimension(2) :: DimLL
         integer :: Ni,Nj
-
+        
+        rcm2Wolf = (1.0e-9)**(IMGAMMA-1.0) !Convert to Wolf units, RCM: Pa (Re/T)^gam => nPa (Re/nT)^gam
+        
         !Reset IO chain
         call ClearIO(IOVars)
 
@@ -393,7 +397,8 @@ module rcmimag
         call AddOutVar(IOVars,"yMin",RCMApp%X_bmin(:,:,YDIR)/REarth)
         call AddOutVar(IOVars,"zMin",RCMApp%X_bmin(:,:,ZDIR)/REarth)
         call AddOutVar(IOVars,"bMin",RCMApp%Bmin)
-        call AddOutVar(IOVars,"S",RCMApp%Prcm*(RCMApp%Vol**(5.0/3.0)) )
+        
+        call AddOutVar(IOVars,"S",rcm2Wolf*RCMApp%Prcm*(RCMApp%Vol**IMGAMMA) )
         call AddOutVar(IOVars,"beta",RCMApp%beta_average)
         call AddOutVar(IOVars,"Pmhd",RCMApp%Pave*rcmPScl)
         call AddOutVar(IOVars,"Nmhd",RCMApp%Nave*rcmNScl)
