@@ -826,9 +826,9 @@ module msphutils
                     pCon = State%Gas(i,j,k,:,BLK)
                     call CellC2P(Model,pCon,pW)
 
-                    !Get timescale
-                    Tau = Gr%Gas0(i,j,k,IMLSCL)*Gr%Gas0(i,j,k,IMTSCL)/Model%Ca
-
+                    !Get timescale, taking directly from Gas0
+                    !Tau = Gr%Gas0(i,j,k,IMLSCL)*Gr%Gas0(i,j,k,IMTSCL)/Model%Ca
+                    Tau = Gr%Gas0(i,j,k,IMTSCL)
                     if (doInD) then
                         dRho = Gr%Gas0(i,j,k,IMDEN) - pW(DEN)
                         pW(DEN) = pW(DEN) + (Model%dt/Tau)*max(0.0,dRho)

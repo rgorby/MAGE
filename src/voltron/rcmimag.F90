@@ -180,10 +180,12 @@ module rcmimag
             imW(IMDEN ) = RCMApp%Nrcm(i0,j0)*rcmNScl
             imW(IMPR  ) = RCMApp%Prcm(i0,j0)*rcmPScl*alpha
             imW(IMLSCL) = LScl
+            imW(IMTSCL) = 1.0
         else
             imW(IMDEN ) = 0.0
             imW(IMPR  ) = 0.0
             imW(IMLSCL) = 0.0
+            imW(IMTSCL) = 1.0
         endif
         
     end subroutine EvalRCM

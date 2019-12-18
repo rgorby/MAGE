@@ -151,12 +151,11 @@ module innermagsphere
                     Gr%Gas0(i,j,k,IMDEN ) = imW(IMDEN)
                     Gr%Gas0(i,j,k,IMPR  ) = imW(IMPR)/gApp%Model%Units%gP0
                     Gr%Gas0(i,j,k,IMLSCL) = imW(IMLSCL)
-                    !Setting all time multipliers to 1 for now
-                    Gr%Gas0(i,j,k,IMTSCL) = 1.0
+                    !Interpreting IMTSCL as units of coupling timescale
+                    Gr%Gas0(i,j,k,IMTSCL) = vApp%DeepDT*imW(IMTSCL)/gApp%Model%Units%gT0
                 enddo
             enddo
         enddo
-
 
         end associate
 
