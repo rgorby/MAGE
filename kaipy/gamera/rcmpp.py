@@ -14,7 +14,7 @@ import matplotlib.patches as patches
 rcBds = [-15,10.0,-12.5,12.5]
 pCMap = "viridis"
 eCol = "slategrey"
-rcmCol = "darkcyan"
+rcmCol = "dodgerblue"
 eLW = 0.05
 
 #Take axis and rcmdata object and add pressure plot
