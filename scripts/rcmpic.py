@@ -47,9 +47,9 @@ if __name__ == "__main__":
 	eCol = "slategrey"
 	eLW = 0.15
 	vP = kv.genNorm(1.0e-1,1.0e+1,doLog=True)
-	vDV = kv.genNorm(1.0e+6,1.0e+10,doLog=True)
+	vS = kv.genNorm(0.0,0.25)
 	pCMap = "viridis"
-	dvCMap = "terrain"
+	sCMap = "terrain"
 
 	#======
 	#Init data
@@ -70,7 +70,7 @@ if __name__ == "__main__":
 	AxC1 = fig.add_subplot(gs[-1,0])
 	AxC3 = fig.add_subplot(gs[-1,-1])
 	kv.genCB(AxC1,vP,"Pressure [nPa]",cM=pCMap)
-	kv.genCB(AxC3,vDV,"Flux-Tube Entropy",cM=dvCMap)
+	kv.genCB(AxC3,vS,r"Flux-Tube Entropy [nPa (R$_{E}$/nT)$^{\gamma}$]",cM=sCMap)
 
 	AxL.clear()
 	AxM.clear()
@@ -81,7 +81,7 @@ if __name__ == "__main__":
 	Prcm = rcmdata.GetVar("P",nStp)
 	Pmhd = rcmdata.GetVar("Pmhd",nStp)
 	IOpen = rcmdata.GetVar("IOpen",nStp)
-	bVol = rcmdata.GetVar("bVol",nStp)
+	S = rcmdata.GetVar("S",nStp)
 	
 	I = (IOpen > -0.5)
 	Ni = (~I).sum()
@@ -95,7 +95,7 @@ if __name__ == "__main__":
 	bmY = ma.masked_array(bmY,mask=I)
 	Prcm = ma.masked_array(Prcm,mask=I)
 	Pmhd = ma.masked_array(Pmhd,mask=I)
-	bVol = ma.masked_array(bVol,mask=I)
+	S = ma.masked_array(S,mask=I)
 	AxL.set_title("RCM Pressure")
 
 	AxL.pcolor(bmX,bmY,Prcm,norm=vP,cmap=pCMap)
@@ -115,7 +115,7 @@ if __name__ == "__main__":
 
 	#Handle right
 	AxR.set_title("Flux-Tube Entropy")
-	AxR.pcolor(bmX,bmY,bVol,norm=vDV,cmap=dvCMap)
+	AxR.pcolor(bmX,bmY,S,norm=vS,cmap=sCMap)
 	
 	AxR.plot(bmX,bmY,color=eCol,linewidth=eLW)
 	AxR.plot(bmX.T,bmY.T,color=eCol,linewidth=eLW)
