@@ -10,6 +10,7 @@ import kaipy.kaiViz as kv
 import matplotlib.gridspec as gridspec
 import numpy as np
 import kaipy.gamera.gampp as gampp
+import palettable
 import os
 import numpy.ma as ma
 
@@ -46,11 +47,20 @@ if __name__ == "__main__":
 	figSz = (12,6)
 	eCol = "slategrey"
 	eLW = 0.15
-	vP = kv.genNorm(1.0e-1,1.0e+1,doLog=True)
+	cLW = 0.5
+	vP = kv.genNorm(1.0e-1,1.0e+2,doLog=True)
 	vS = kv.genNorm(0.0,0.25)
-	pCMap = "viridis"
-	sCMap = "terrain"
+	Nc = 10
+	nMin = 1.0
+	nMax = 1.0e+3
+	vD = kv.genNorm(nMin,nMax,doLog=True)
+	cVals = np.logspace(1.0,3.0,Nc)
+	print(cVals)
 
+	pCMap = "plasma"
+	sCMap = "terrain"
+	dCMap = "cool"
+	dCMap = palettable.cmocean.sequential.Algae_20_r.mpl_colormap
 	#======
 	#Init data
 	rcmdata = gampp.GameraPipe(fdir,ftag)
@@ -68,8 +78,10 @@ if __name__ == "__main__":
 	AxR = fig.add_subplot(gs[0,-1])
 
 	AxC1 = fig.add_subplot(gs[-1,0])
+	AxC2 = fig.add_subplot(gs[-1,1])
 	AxC3 = fig.add_subplot(gs[-1,-1])
 	kv.genCB(AxC1,vP,"Pressure [nPa]",cM=pCMap)
+	kv.genCB(AxC2,vD,"Density [#/cc]",cM=dCMap)
 	kv.genCB(AxC3,vS,r"Flux-Tube Entropy [nPa (R$_{E}$/nT)$^{\gamma}$]",cM=sCMap)
 
 	AxL.clear()
@@ -80,6 +92,10 @@ if __name__ == "__main__":
 	bmY = rcmdata.GetVar("yMin",nStp)
 	Prcm = rcmdata.GetVar("P",nStp)
 	Pmhd = rcmdata.GetVar("Pmhd",nStp)
+	Nmhd = rcmdata.GetVar("Nmhd",nStp)
+
+	bmin = rcmdata.GetVar("bMin",nStp)
+
 	IOpen = rcmdata.GetVar("IOpen",nStp)
 	S = rcmdata.GetVar("S",nStp)
 	
@@ -95,6 +111,7 @@ if __name__ == "__main__":
 	bmY = ma.masked_array(bmY,mask=I)
 	Prcm = ma.masked_array(Prcm,mask=I)
 	Pmhd = ma.masked_array(Pmhd,mask=I)
+	Nmhd = ma.masked_array(Nmhd,mask=I)
 	S = ma.masked_array(S,mask=I)
 	AxL.set_title("RCM Pressure")
 
@@ -108,8 +125,9 @@ if __name__ == "__main__":
 	AxM.set_title("MHD Pressure")
 	AxM.pcolor(bmX,bmY,Pmhd,norm=vP,cmap=pCMap)
 	
-	AxM.plot(bmX,bmY,color=eCol,linewidth=eLW)
-	AxM.plot(bmX.T,bmY.T,color=eCol,linewidth=eLW)
+	#AxM.plot(bmX,bmY,color=eCol,linewidth=eLW)
+	#AxM.plot(bmX.T,bmY.T,color=eCol,linewidth=eLW)
+	AxM.contour(bmX,bmY,Nmhd,cVals,norm=vD,cmap=dCMap,linewidths=cLW)
 	kv.addEarth2D(ax=AxM)
 	kv.SetAx(xyBds,AxM)
 
