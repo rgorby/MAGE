@@ -413,10 +413,6 @@ module uservoltic
 
                     !NOTE: Using j/k instead of jp/kp to deal with double-corner sign flip
                     call cellCenter(Grid,ig,j ,k ,xcg,ycg,zcg)
-
-                    !Trying regular ghost instead
-                    !call cellCenter(Grid,ig,jp,kp,xcg,ycg,zcg)
-
                     rHatG = normVec([xcg,ycg,zcg])
 
                     call cellCenter(Grid,ip,jp,kp,xc,yc,zc)
@@ -437,8 +433,13 @@ module uservoltic
                     Vmir = State%Gas(ip,jp,kp,MOMX:MOMZ,BLK)/max(State%Gas(ip,jp,kp,DEN,BLK),dFloor)
                     Exyz = bc%inExyz(np,jp,kp,:)
 
+                    !Choose which dipole ExB speed to use, true ghost value is much faster
+                    !Use B0xyz?
                     !call Dipole(xc,yc,zc,Bd(XDIR),Bd(YDIR),Bd(ZDIR))
-                    call Dipole(xcg,ycg,zcg,Bd(XDIR),Bd(YDIR),Bd(ZDIR))
+                    Bd = Grid%B0(Grid%is-1,j,k,XDIR:ZDIR)
+
+                    !call Dipole(xcg,ycg,zcg,Bd(XDIR),Bd(YDIR),Bd(ZDIR))
+
                     dB = State%Bxyz(ip,jp,kp,:)
                     !ExB velocity
                     Veb = cross(Exyz,Bd)/dot_product(Bd,Bd)
