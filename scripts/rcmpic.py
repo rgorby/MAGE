@@ -57,10 +57,11 @@ if __name__ == "__main__":
 	cVals = np.logspace(1.0,3.0,Nc)
 	print(cVals)
 
-	pCMap = "plasma"
+	pCMap = "viridis"
 	sCMap = "terrain"
 	dCMap = "cool"
-	dCMap = palettable.cmocean.sequential.Algae_20_r.mpl_colormap
+	#dCMap = palettable.cmocean.sequential.Algae_20_r.mpl_colormap
+	
 	#======
 	#Init data
 	rcmdata = gampp.GameraPipe(fdir,ftag)
