@@ -45,7 +45,7 @@ class remix:
 	# TODO: check for variable names passed to plot
 	def init_vars(self,hemisphere):
 		h = hemisphere # for shortness
-		
+
 		if (h.lower()=='north'):
 			self.variables['potential']['data'] = self.ion['Potential '+h]
 			self.variables['current']['data']   =-self.ion['Field-aligned current '+h]  # note, converting to common convention (upward=positive)
@@ -129,6 +129,8 @@ class remix:
 		# define red/blue colortable for potential and current
 		if (varname == 'potential') or (varname == 'current'):
 			cmap=cm.RdBu_r
+		elif (varname == 'flux') or (varname == 'energy'): 
+			cmap=cm.inferno			
 		elif (varname == 'velocity'): 
 			cmap=cm.YlOrRd
 		elif (varname == 'efield'): 
