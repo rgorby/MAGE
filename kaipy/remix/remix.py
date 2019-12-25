@@ -2,12 +2,14 @@ import h5py
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import numpy as np
+import sys
 
 class remix:
 
 	def __init__(self,h5file,step):
 		# create the ion object to store data and coordinates
 		self.ion = self.get_data(h5file,step)
+		self.Initialized=True
 
 		# DEFINE DATA LIMITS
 		self.variables = { 'potential' : {'min':-100,
@@ -63,16 +65,18 @@ class remix:
 			self.variables['energy']['data']    = self.ion['Average energy '+h][:,::-1]
 			self.variables['flux']['data']      = self.ion['Number flux '+h][:,::-1]
 
+		self.Initialized=True
+
 
 	def get_spherical(self,x,y):
 		# note, because of how the grid is set up in the h5 file,
 		# the code below produces the first theta that's just shy of 2pi.
 		# this is because the original grid is staggered at half-cells from data.
 		# empirically, this is OK for pcolormesh plots under remix.plot.
-		# however, contour plots have issues across the periodic boundary. 
-		# still working on it as of 24 Dec 2019
+		# but I still fix it manually.
 		theta=np.arctan2(y,x)
 		theta[theta<0]=theta[theta<0]+2*np.pi
+		theta[:,0] -= 2*np.pi  # fixing the first theta point to just below 0
 		r=np.sqrt(x**2+y**2)
 
 		return(r,theta)
@@ -172,22 +176,79 @@ class remix:
 			potmax = np.max(abs(self.variables['potential']['data']))
 			levels = np.linspace(-potmax,potmax,16)
 
-			# this trick seems to avoid problems with contours across periodic boundary (noon)
-			xc = 0.25*(x[:-1,:-1]+x[1:,:-1]+x[:-1,1:]+x[1:,1:])
-			yc = 0.25*(y[:-1,:-1]+y[1:,:-1]+y[:-1,1:]+y[1:,1:])		
+			tc = 0.25*(theta[:-1,:-1]+theta[1:,:-1]+theta[:-1,1:]+theta[1:,1:])
+			rc = 0.25*(r[:-1,:-1]+r[1:,:-1]+r[:-1,1:]+r[1:,1:])		
+			ax.contour(tc+np.pi/2.,rc,self.variables['potential']['data'],levels=levels,colors='black',linewidths=0.5)
 
-			fig = plt.gcf()
-			new_axis = fig.add_axes(ax.get_position(), frameon = False)
+			# this is another trick  to avoid problems with contours across periodic boundary (noon)
+			# above seems to work
+#			xc = 0.25*(x[:-1,:-1]+x[1:,:-1]+x[:-1,1:]+x[1:,1:])
+#			yc = 0.25*(y[:-1,:-1]+y[1:,:-1]+y[:-1,1:]+y[1:,1:])		
+#			fig = plt.gcf()
+#			new_axis = fig.add_axes(ax.get_position(), frameon = False)
 	#		new_axis.plot()
-			new_axis.set_axis_off()
-			new_axis.contour(-yc,xc,self.variables['potential']['data'],levels=levels,colors='black',linewidths=0.5)
-
-#		ax.contour(tc+np.pi/2.,rc,tmp,levels=levels,colors='black',linewidths=0.5)
+#			new_axis.set_axis_off()
+#			new_axis.contour(-yc,xc,self.variables['potential']['data'],levels=levels,colors='black',linewidths=0.5)
 	
 	# mpl.rcParams['contour.negative_linestyle'] = 'solid'
 	# if (varname == 'efield' or varname == 'velocity' or varname =='joule'): 
 	#     contour(theta+pi/2.,r,variables['potential']['data'][:,2:-1],21,colors='black')
 #                                      arange(variables['potential']['min'],variables['potential']['max'],21.),colors='purple')
+
+	def efield(self): 
+		if not self.Initialized:
+			sys.exit("Variables should be initialized for the specific hemisphere (call init_var) prior to efield calculation.")
+
+		Nr,Nt = self.variables['potential']['data'].shape  # note, these are numbers of cells. self.ion['X'].shape = Nr+1,Nt+1
+
+		# Aliases to keep things short
+		x = self.ion['X']
+		y = self.ion['Y']
+		r = self.ion['R']
+		theta = self.ion['THETA']
+
+		# dtheta=theta[0,1:]-theta[0,:-1]
+		# dphi=phi[1:,1]-phi[:-1,1]
+
+
+		# get deltas
+
+		# phi=p.arctan2(y,x)
+		# phi[phi<0]=phi[phi<0]+2*p.pi
+	   
+		# # Fix phi at pole just in case
+		# phi[:,0]=phi[:,1]
+
+		# theta=p.arcsin(p.sqrt(x**2+y**2))
+
+
+		# ephi   = p.zeros(x.shape)
+		# etheta = p.zeros(x.shape)
+
+		# phi_mid   = p.zeros(x.shape)
+		# theta_mid = p.zeros(x.shape)
+
+		# nphi   = x.shape[0]
+		# ntheta = x.shape[1]
+
+		# for j in range(nphi-1): # loop over phi
+		# 	theta_mid[j,:-1] = (theta[j,1:]+theta[j,:-1])/2.
+		# 	etheta[j,:-1] =( (psi[j,1:]-psi[j,:-1])+(psi[j+1,1:]-psi[j+1,:-1]))/2./dtheta/ri*1.e6
+
+		# for i in range(ntheta-1): # loop over theta
+		# 	phi_mid[:-1,i] = ( phi[1:,i]+phi[:-1,i] )/2.
+		# 	ephi[:-1,i] = 1./p.sin(theta_mid[0,i])*( (psi[1:,i]-psi[:-1,i])+(psi[1:,i+1]-psi[:-1,i+1]) )/2./dphi/ri*1.e6
+
+		# # fixup the periodic axis
+		# phi_mid[nphi-1,:]   = phi_mid[0,:]+2.*p.pi
+		# theta_mid[nphi-1,:]   = theta_mid[0,:]
+		# ephi[nphi-1,:] = ephi[0,:]
+		# etheta[nphi-1,:] = etheta[0,:]
+
+		# # return the angular coordinates at cell centers (first tuple) and
+		# # electric field in mV/m (second tuple)
+		# return (phi_mid,theta_mid),(ephi,etheta)
+
 
 
 # Code below is from old mix scripts.
@@ -298,46 +359,6 @@ class remix:
 
 
 
-# def efield(x,y,psi,ri): #Radius of ionosphere in m
-# 	import pylab as p
-
-# 	phi=p.arctan2(y,x)
-# 	phi[phi<0]=phi[phi<0]+2*p.pi
-   
-# 	# Fix phi at pole just in case
-# 	phi[:,0]=phi[:,1]
-
-# 	theta=p.arcsin(p.sqrt(x**2+y**2))
-
-# 	dtheta=theta[0,1:]-theta[0,:-1]
-# 	dphi=phi[1:,1]-phi[:-1,1]
-
-# 	ephi   = p.zeros(x.shape)
-# 	etheta = p.zeros(x.shape)
-
-# 	phi_mid   = p.zeros(x.shape)
-# 	theta_mid = p.zeros(x.shape)
-
-# 	nphi   = x.shape[0]
-# 	ntheta = x.shape[1]
-
-# 	for j in range(nphi-1): # loop over phi
-# 		theta_mid[j,:-1] = (theta[j,1:]+theta[j,:-1])/2.
-# 		etheta[j,:-1] =( (psi[j,1:]-psi[j,:-1])+(psi[j+1,1:]-psi[j+1,:-1]))/2./dtheta/ri*1.e6
-
-# 	for i in range(ntheta-1): # loop over theta
-# 		phi_mid[:-1,i] = ( phi[1:,i]+phi[:-1,i] )/2.
-# 		ephi[:-1,i] = 1./p.sin(theta_mid[0,i])*( (psi[1:,i]-psi[:-1,i])+(psi[1:,i+1]-psi[:-1,i+1]) )/2./dphi/ri*1.e6
-
-# 	# fixup the periodic axis
-# 	phi_mid[nphi-1,:]   = phi_mid[0,:]+2.*p.pi
-# 	theta_mid[nphi-1,:]   = theta_mid[0,:]
-# 	ephi[nphi-1,:] = ephi[0,:]
-# 	etheta[nphi-1,:] = etheta[0,:]
-
-# 	# return the angular coordinates at cell centers (first tuple) and
-# 	# electric field in mV/m (second tuple)
-# 	return (phi_mid,theta_mid),(ephi,etheta)
 
 # def joule(efield,sigmap):
 # 	from pylab import zeros
