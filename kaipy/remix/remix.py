@@ -21,9 +21,11 @@ class remix:
 						 'sigmah'    : {'min':2,
 										'max':20},
 						 'energy'    : {'min':0,
-										'max':100},
+										'max':10},
 						 'flux'      : {'min':0,
-										'max':3.e8},
+										'max':1.e9},
+						 'eflux'     : {'min':0,
+										'max':1.},
 						 'efield'    : {'min':-1,
 										'max':1},
 						  'joule'    : {'min':0,
@@ -65,6 +67,8 @@ class remix:
 			self.variables['energy']['data']    = self.ion['Average energy '+h][:,::-1]
 			self.variables['flux']['data']      = self.ion['Number flux '+h][:,::-1]
 
+		# convert energy flux to erg/cm2/s to conform to Newell++, doi:10.1029/2009JA014326, 2009
+		self.variables['eflux']['data'] = self.variables['energy']['data']*self.variables['flux']['data']*1.6e-9 
 		self.Initialized=True
 
 
@@ -86,7 +90,10 @@ class remix:
 			 ncontours=51,
 			 nticks=11,
 			 addlabels={},
-			 ax=None):
+			 gs=None):
+
+		if not self.Initialized:
+			sys.exit("Variables should be initialized for the specific hemisphere (call init_var) prior to plotting.")
 
 		# Aliases to keep things short
 		x = self.ion['X']
@@ -96,16 +103,17 @@ class remix:
 
 		# List all possible variable names here, add more from the input parameter if needed
 		cblabels = {'potential' : r'Potential [kV]',
-					'current'   : r'Current density [$\mu\mathrm{A/m^2}$]',
+					'current'   : r'Current density [$\mu$A/m$^2$]',
 					'sigmap'    : r'Pedersen conductance [S]',
 					'sigmah'    : r'Hall conductance [S]',
 					'energy'    : r'Energy [keV]',
-					'flux'      : r'Flux [$\mathrm{1/cm^2s}$]',
+					'flux'      : r'Flux [1/cm$^2$s]',
+					'eflux'     : r'Energy flux [erg/cm$^2$s]',
 					'ephi'      : r'$E_\phi$ [mV/m]',
 					'etheta'    : r'$E_\theta$ [mV/m]',
 					'efield'    : r'|E| [mV/m]',
 					'joule'     : r'Joule heating [mW/m$^2$]',
-					'jped'      : r'Pedersen current [$\mu\mathrm{A/m^2}$]',
+					'jped'      : r'Pedersen current [$\mu$A/m]',
 					'magpert'   : r'Magnetic perturbation [nT]',
 					}
 		cblabels.update(addlabels)
@@ -122,7 +130,7 @@ class remix:
 			upper = self.variables[varname]['data'].max()
 
 		# define number format string for min/max labels
-		if varname != 'flux': 
+		if varname !='flux': 
 			if varname == 'jped':
 				format_str = '%.2f'
 			else:
@@ -131,10 +139,12 @@ class remix:
 			format_str = '%.1e'
 
 		# define red/blue colortable for potential and current
+		latlblclr = 'black'
 		if (varname == 'potential') or (varname == 'current'):
 			cmap=cm.RdBu_r
-		elif (varname == 'flux') or (varname == 'energy'): 
+		elif (varname == 'flux') or (varname == 'energy') or (varname == 'eflux'): 
 			cmap=cm.inferno			
+			latlblclr = 'white'
 		elif (varname == 'velocity'): 
 			cmap=cm.YlOrRd
 		elif (varname == 'efield'): 
@@ -158,11 +168,18 @@ class remix:
 
 		variable = self.variables[varname]['data']
 
+		fig = plt.gcf()
+		# Now plotting
+		if gs != None:
+			ax=fig.add_subplot(gs,polar=True)
+		else:
+			ax=fig.add_subplot(polar=True) 
+
 		p=ax.pcolormesh(theta+np.pi/2.,r,variable,cmap=cmap,vmin=lower,vmax=upper)
 		cb=plt.colorbar(p,ax=ax,pad=0.1,ticks=ticks,shrink=0.85)
 		cb.set_label(cblabels[varname])
 
-		lines, labels = plt.rgrids(circles,lbls,fontsize=8)
+		lines, labels = plt.rgrids(circles,lbls,fontsize=8,color=latlblclr)
 		lines, labels = plt.thetagrids((0.,90.,180.,270.),hour_labels)
 		ax.axis([0,2*np.pi,0,r.max()],'tight')
 		ax.text(-75.*np.pi/180.,1.2*r.max(),('min: '+format_str+'\nmax: ' +format_str) % 
@@ -170,26 +187,26 @@ class remix:
 		ax.grid(True)
 
 		if varname=='current': 
-			# use this trick to define contour levels.
-			# if you just use number of levels as an argument for contour,
-			# matplotlib plots a bad contour near pole (apparently a bug)
-			potmax = np.max(abs(self.variables['potential']['data']))
-			levels = np.linspace(-potmax,potmax,16)
-
 			tc = 0.25*(theta[:-1,:-1]+theta[1:,:-1]+theta[:-1,1:]+theta[1:,1:])
-			rc = 0.25*(r[:-1,:-1]+r[1:,:-1]+r[:-1,1:]+r[1:,1:])		
-			ax.contour(tc+np.pi/2.,rc,self.variables['potential']['data'],levels=levels,colors='black',linewidths=0.5)
+			rc = 0.25*(r[:-1,:-1]+r[1:,:-1]+r[:-1,1:]+r[1:,1:])
 
-			# this is another trick  to avoid problems with contours across periodic boundary (noon)
-			# above seems to work
-#			xc = 0.25*(x[:-1,:-1]+x[1:,:-1]+x[:-1,1:]+x[1:,1:])
-#			yc = 0.25*(y[:-1,:-1]+y[1:,:-1]+y[:-1,1:]+y[1:,1:])		
-#			fig = plt.gcf()
-#			new_axis = fig.add_axes(ax.get_position(), frameon = False)
-	#		new_axis.plot()
-#			new_axis.set_axis_off()
-#			new_axis.contour(-yc,xc,self.variables['potential']['data'],levels=levels,colors='black',linewidths=0.5)
-	
+			# trick to plot contours smoothly across the periodic boundary:
+			# wrap around: note, careful with theta -- need to add 2*pi to keep it ascending
+			# otherwise, contours mess up
+			tc = np.hstack([tc,2.*np.pi+tc[:,[0]]])
+			rc = np.hstack([rc,rc[:,[0]]])
+			tmp=self.variables['potential']['data']
+			tmp = np.hstack([tmp,tmp[:,[0]]])
+
+			# similar trick to make contours go through the pole
+			# add pole
+			tc = np.vstack([tc[[0],:],tc])
+			rc = np.vstack([0.*rc[[0],:],rc])			
+			tmp = np.vstack([tmp[0,:].mean()*np.ones_like(tmp[[0],:]),tmp])						
+
+			# finally, plot
+			ax.contour(tc+np.pi/2.,rc,tmp,15,colors='black',linewidths=0.5)
+
 	# mpl.rcParams['contour.negative_linestyle'] = 'solid'
 	# if (varname == 'efield' or varname == 'velocity' or varname =='joule'): 
 	#     contour(theta+pi/2.,r,variables['potential']['data'][:,2:-1],21,colors='black')
