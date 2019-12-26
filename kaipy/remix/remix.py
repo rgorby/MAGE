@@ -9,7 +9,7 @@ class remix:
 	def __init__(self,h5file,step):
 		# create the ion object to store data and coordinates
 		self.ion = self.get_data(h5file,step)
-		self.Initialized=True
+		self.Initialized=False
 
 		# DEFINE DATA LIMITS
 		self.variables = { 'potential' : {'min':-100,
@@ -28,8 +28,8 @@ class remix:
 										'max':1.},
 						 'efield'    : {'min':-1,
 										'max':1},
-						  'joule'    : {'min':0,
-										'max':50},
+						 'joule'     : {'min':0,
+										'max':10},
 						 }
 
 	def get_data(self,h5file,step):
@@ -87,10 +87,37 @@ class remix:
 
 	# TODO: define and consolidate allowed variable names
 	def plot(self,varname,
-			 ncontours=51,
-			 nticks=11,
+			 ncontours=16,   # default number of potential contours
 			 addlabels={},
 			 gs=None):
+
+		# define function for potential contour overplotting
+		# to keep code below clean and compact
+		def potential_overplot():
+			tc = 0.25*(theta[:-1,:-1]+theta[1:,:-1]+theta[:-1,1:]+theta[1:,1:])
+			rc = 0.25*(r[:-1,:-1]+r[1:,:-1]+r[:-1,1:]+r[1:,1:])
+
+			# trick to plot contours smoothly across the periodic boundary:
+			# wrap around: note, careful with theta -- need to add 2*pi to keep it ascending
+			# otherwise, contours mess up
+			tc = np.hstack([tc,2.*np.pi+tc[:,[0]]])
+			rc = np.hstack([rc,rc[:,[0]]])
+			tmp=self.variables['potential']['data']
+			tmp = np.hstack([tmp,tmp[:,[0]]])
+
+			# similar trick to make contours go through the pole
+			# add pole
+			tc = np.vstack([tc[[0],:],tc])
+			rc = np.vstack([0.*rc[[0],:],rc])			
+			tmp = np.vstack([tmp[0,:].mean()*np.ones_like(tmp[[0],:]),tmp])						
+
+			# finally, plot
+			ax.contour(tc+np.pi/2.,rc,tmp,15,colors='black',linewidths=0.5)
+
+			# also, print min/max values of the potential
+			ax.text(73.*np.pi/180.,1.03*r.max(),('min: '+format_str+'\nmax: ' +format_str) % 
+				  (tmp.min() ,tmp.max()))
+
 
 		if not self.Initialized:
 			sys.exit("Variables should be initialized for the specific hemisphere (call init_var) prior to plotting.")
@@ -116,7 +143,7 @@ class remix:
 					'jped'      : r'Pedersen current [$\mu$A/m]',
 					'magpert'   : r'Magnetic perturbation [nT]',
 					}
-		cblabels.update(addlabels)
+		cblabels.update(addlabels)  # a way to add cb labels directly through function arguments (e.g., for new variables)
 
 		# if limits are given use them, if not use the variables min/max values
 		if ('min' in self.variables[varname]):
@@ -142,7 +169,7 @@ class remix:
 		latlblclr = 'black'
 		if (varname == 'potential') or (varname == 'current'):
 			cmap=cm.RdBu_r
-		elif (varname == 'flux') or (varname == 'energy') or (varname == 'eflux'): 
+		elif varname in ['flux','energy','eflux','joule']:
 			cmap=cm.inferno			
 			latlblclr = 'white'
 		elif (varname == 'velocity'): 
@@ -163,8 +190,8 @@ class remix:
 		
 		hour_labels = ['06','12','18','00']
 
-		contours = np.linspace(lower,upper,ncontours)
-		ticks = np.linspace(lower,upper,nticks)
+		if varname == 'joule':
+			self.variables[varname]['data'] = self.joule()*1.e3  # convert to mW/m^2
 
 		variable = self.variables[varname]['data']
 
@@ -176,7 +203,7 @@ class remix:
 			ax=fig.add_subplot(polar=True) 
 
 		p=ax.pcolormesh(theta+np.pi/2.,r,variable,cmap=cmap,vmin=lower,vmax=upper)
-		cb=plt.colorbar(p,ax=ax,pad=0.1,ticks=ticks,shrink=0.85)
+		cb=plt.colorbar(p,ax=ax,pad=0.1,shrink=0.85)  
 		cb.set_label(cblabels[varname])
 
 		lines, labels = plt.rgrids(circles,lbls,fontsize=8,color=latlblclr)
@@ -187,36 +214,19 @@ class remix:
 		ax.grid(True)
 
 		if varname=='current': 
-			tc = 0.25*(theta[:-1,:-1]+theta[1:,:-1]+theta[:-1,1:]+theta[1:,1:])
-			rc = 0.25*(r[:-1,:-1]+r[1:,:-1]+r[:-1,1:]+r[1:,1:])
-
-			# trick to plot contours smoothly across the periodic boundary:
-			# wrap around: note, careful with theta -- need to add 2*pi to keep it ascending
-			# otherwise, contours mess up
-			tc = np.hstack([tc,2.*np.pi+tc[:,[0]]])
-			rc = np.hstack([rc,rc[:,[0]]])
-			tmp=self.variables['potential']['data']
-			tmp = np.hstack([tmp,tmp[:,[0]]])
-
-			# similar trick to make contours go through the pole
-			# add pole
-			tc = np.vstack([tc[[0],:],tc])
-			rc = np.vstack([0.*rc[[0],:],rc])			
-			tmp = np.vstack([tmp[0,:].mean()*np.ones_like(tmp[[0],:]),tmp])						
-
-			# finally, plot
-			ax.contour(tc+np.pi/2.,rc,tmp,15,colors='black',linewidths=0.5)
+			potential_overplot()
 
 	# mpl.rcParams['contour.negative_linestyle'] = 'solid'
 	# if (varname == 'efield' or varname == 'velocity' or varname =='joule'): 
 	#     contour(theta+pi/2.,r,variables['potential']['data'][:,2:-1],21,colors='black')
 #                                      arange(variables['potential']['min'],variables['potential']['max'],21.),colors='purple')
 
-	def efield(self): 
+	def efield(self,ri=6.5e3): 
 		if not self.Initialized:
 			sys.exit("Variables should be initialized for the specific hemisphere (call init_var) prior to efield calculation.")
 
-		Nr,Nt = self.variables['potential']['data'].shape  # note, these are numbers of cells. self.ion['X'].shape = Nr+1,Nt+1
+		Psi = self.variables['potential']['data']  # note, these are numbers of cells. self.ion['X'].shape = Nr+1,Nt+1
+		Nt,Np = Psi.shape
 
 		# Aliases to keep things short
 		x = self.ion['X']
@@ -229,52 +239,53 @@ class remix:
 		theta = np.arcsin(self.ion['R'])
 		phi   = self.ion['THETA']
 
-#		dtheta=theta[0,1:]-theta[0,:-1]
-#		dphi=phi[1:,1]-phi[:-1,1]
+		# interpolate Psi to corners
+		Psi_c = np.zeros(x.shape)
+		Psi_c[1:-1,1:-1] = 0.25*(Psi[1:,1:]+Psi[:-1,1:]+Psi[1:,:-1]+Psi[:-1,:-1])
 
-		print(theta[:,0])
-		print(phi[0,:])		
+		# fix up periodic
+		Psi_c[1:-1,0]  = 0.25*(Psi[1:,0]+Psi[:-1,0]+Psi[1:,-1]+Psi[:-1,-1])
+		Psi_c[1:-1,-1] = Psi_c[1:-1,0]
 
+		# fix up pole
+		Psi_pole = Psi[0,:].mean()
+		Psi_c[0,1:-1] = 0.25*(2.*Psi_pole + Psi[0,:-1]+Psi[0,1:])
+		Psi_c[0,0]    = 0.25*(2.*Psi_pole + Psi[0,-1]+Psi[0,0])		
+		Psi_c[0,-1]   = 0.25*(2.*Psi_pole + Psi[0,-1]+Psi[0,0])				
 
-		# get deltas
+		# fix up low lat boundary
+		# extrapolate linearly just like we did for the coordinates
+		# (see genOutGrid in src/remix/mixio.F90)
+		# note, neglecting the possibly non-uniform spacing (don't care)
+		Psi_c[-1,:] = 2*Psi_c[-2,:]-Psi_c[-3,:]
 
-		# phi=p.arctan2(y,x)
-		# phi[phi<0]=phi[phi<0]+2*p.pi
-	   
-		# # Fix phi at pole just in case
-		# phi[:,0]=phi[:,1]
+		# now, do the differencing
+		# for each cell corner on the original grid, I have the coordinates and Psi_c
+		# need to find the gradient at cell center
+		# the result is the same size as Psi
 
-		# theta=p.arcsin(p.sqrt(x**2+y**2))
+		# first etheta
+		tmp    = 0.5*(Psi_c[:,1:]+Psi_c[:,:-1])  # move to edge center
+		dPsi   = tmp[1:,:]-tmp[:-1,:]
+		tmp    = 0.5*(theta[:,1:]+theta[:,:-1])
+		dtheta = tmp[1:,:]-tmp[:-1,:]
+		etheta = dPsi/dtheta/ri  # this is in V/m
 
+		# now ephi
+		tmp    = 0.5*(Psi_c[1:,:]+Psi_c[:-1,:])  # move to edge center
+		dPsi   = tmp[:,1:]-tmp[:,:-1]
+		tmp    = 0.5*(phi[1:,:]+phi[:-1,:])
+		dphi   = tmp[:,1:]-tmp[:,:-1]
+		tc = 0.25*(theta[:-1,:-1]+theta[1:,:-1]+theta[:-1,1:]+theta[1:,1:]) # need this additionally 
+		ephi = dPsi/dphi/np.sin(tc)/ri  # this is in V/m
 
-		# ephi   = p.zeros(x.shape)
-		# etheta = p.zeros(x.shape)
+		return (etheta,ephi)
 
-		# phi_mid   = p.zeros(x.shape)
-		# theta_mid = p.zeros(x.shape)
-
-		# nphi   = x.shape[0]
-		# ntheta = x.shape[1]
-
-		# for j in range(nphi-1): # loop over phi
-		# 	theta_mid[j,:-1] = (theta[j,1:]+theta[j,:-1])/2.
-		# 	etheta[j,:-1] =( (psi[j,1:]-psi[j,:-1])+(psi[j+1,1:]-psi[j+1,:-1]))/2./dtheta/ri*1.e6
-
-		# for i in range(ntheta-1): # loop over theta
-		# 	phi_mid[:-1,i] = ( phi[1:,i]+phi[:-1,i] )/2.
-		# 	ephi[:-1,i] = 1./p.sin(theta_mid[0,i])*( (psi[1:,i]-psi[:-1,i])+(psi[1:,i+1]-psi[:-1,i+1]) )/2./dphi/ri*1.e6
-
-		# # fixup the periodic axis
-		# phi_mid[nphi-1,:]   = phi_mid[0,:]+2.*p.pi
-		# theta_mid[nphi-1,:]   = theta_mid[0,:]
-		# ephi[nphi-1,:] = ephi[0,:]
-		# etheta[nphi-1,:] = etheta[0,:]
-
-		# # return the angular coordinates at cell centers (first tuple) and
-		# # electric field in mV/m (second tuple)
-		# return (phi_mid,theta_mid),(ephi,etheta)
-
-
+	def joule(self):
+		etheta,ephi = self.efield()
+		SigmaP = self.variables['sigmap']['data']
+		J = SigmaP*(etheta**2+ephi**2)  # this is in W/m^2
+		return(J)
 
 # Code below is from old mix scripts.
 # Keeping for further development but commenting out for now.
@@ -385,26 +396,5 @@ class remix:
 
 
 
-# def joule(efield,sigmap):
-# 	from pylab import zeros
-# 	# Average conductance
-# 	sigp_mid = zeros(efield[0].shape)
-# 	sigp_mid[:-1,:-1] = 0.25*(sigmap[:-1,:-1]+sigmap[:-1,1:]+sigmap[1:,:-1]+sigmap[1:,1:])
-
-# 	# fixup the periodic axis
-# 	sigp_mid[-1,:]   = sigp_mid[0,:]
-
-# 	return (sigp_mid*(efield[0]**2+efield[1]**2)*1.e-3)  # Joule heating in mW/m^2
-
-# def jped(efield,sigmap):
-# 	from pylab import zeros,sqrt
-# 	# Average conductance
-# 	sigp_mid = zeros(efield[0].shape)
-# 	sigp_mid[:-1,:-1] = 0.25*(sigmap[:-1,:-1]+sigmap[:-1,1:]+sigmap[1:,:-1]+sigmap[1:,1:])
-
-# 	# fixup the periodic axis
-# 	sigp_mid[-1,:]   = sigp_mid[0,:]
-
-# 	return (sigp_mid*sqrt(efield[0]**2+efield[1]**2)*1.e-3)  # should be in microA/m
 
 
