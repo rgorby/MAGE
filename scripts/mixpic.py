@@ -15,19 +15,20 @@ import kaipy.kaiH5 as kaiH5
 import kaipy.remix.remix as remix
 
 # Defaults
-nStp = 0
+nStp = -1
 ftag = "msphere"
-doNflux = False	
+doNflux = False
+printAll = False
 
 MainS = """Creates simple multi-panel REMIX figure for a GAMERA magnetosphere run.
-If run without arguments, prints all steps and UT labels found in the file.
-Top Row - TBD
-Bottom Row - TBD
+Top Row - FAC (with potential contours overplotted), Pedersen and Hall Conductances
+Bottom Row - Joule heating rate, particle energy and energy flux
 """
 
 parser = argparse.ArgumentParser(description=MainS, formatter_class=RawTextHelpFormatter)
 parser.add_argument('-id',type=str,metavar="runid",default=ftag,help="RunID of data (default: %(default)s)")
 parser.add_argument('-n' ,type=int,metavar="step" ,default=nStp,help="Time slice to plot, similar to msphpic.py (default: %(default)s)")
+parser.add_argument('-print', action='store_true', default=printAll,help="Print list of all steps and time labels (default: %(default)s)")
 parser.add_argument('-nflux', action='store_true', default=doNflux,help="Show number flux instead of energy flux (default: %(default)s)")
 
 # also, optional min/max values for plotting
@@ -56,15 +57,16 @@ remixFile = args.id+'.mix.h5'
 nsteps,sIds=kaiH5.cntSteps(remixFile)
 T=kaiH5.getTs(remixFile,sIds,aID='MJD')
 
-if not(args.n):
+if args.print:    # if no arguments provided
 	for i,tt in enumerate(T):
 		print('Step#%06d: '%sorted(sIds)[i],Time(tt,format='mjd').iso)
 	sys.exit(0)
 else:
+	if args.n == -1: args.n = sorted(sIds)[-1]    # take last step by default
 	if args.n not in sIds:
 			sys.exit("Time step not in the h5 file.")
 
-	print('Found time:',Time(T[args.n],format='mjd').iso)
+	print('Found time:',Time(T[args.n],format='mjd').iso)	
 ################################################################
 
 # Now plotting
@@ -75,6 +77,7 @@ mpl.rc('font',size=10)
 
 # Initialize the remix class
 ion = remix.remix(remixFile,args.n)
+
 
 # if only plotting one variable, could just do this:
 # ion.init_vars(h)
