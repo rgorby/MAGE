@@ -68,7 +68,8 @@ for h in ['NORTH','SOUTH']:
 			fontsize=12,multialignment='center',horizontalalignment='center')
 
 	ion.init_vars(h)
-#	ion.efield()
+	ion.efield()
+	sys.exit(0)
 	
 	gs = gridspec.GridSpec(2,3,figure=fig,left=0.03,right=0.97, top=0.9,bottom=0.03)
 

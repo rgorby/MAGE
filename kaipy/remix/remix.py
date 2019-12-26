@@ -221,11 +221,19 @@ class remix:
 		# Aliases to keep things short
 		x = self.ion['X']
 		y = self.ion['Y']
-		r = self.ion['R']
-		theta = self.ion['THETA']
 
-		# dtheta=theta[0,1:]-theta[0,:-1]
-		# dphi=phi[1:,1]-phi[:-1,1]
+		# note the change in naming convention from above
+		# i.e., theta is now the polar angle
+		# and phi is the azimuthal (what was theta)
+		# TODO: make consistent throughout
+		theta = np.arcsin(self.ion['R'])
+		phi   = self.ion['THETA']
+
+#		dtheta=theta[0,1:]-theta[0,:-1]
+#		dphi=phi[1:,1]-phi[:-1,1]
+
+		print(theta[:,0])
+		print(phi[0,:])		
 
 
 		# get deltas
