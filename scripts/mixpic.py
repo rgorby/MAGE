@@ -66,7 +66,8 @@ else:
 	if args.n not in sIds:
 			sys.exit("Time step not in the h5 file.")
 
-	print('Found time:',Time(T[args.n],format='mjd').iso)	
+	foundT = T[sorted(sIds).index(args.n)]
+	print('Found time:',Time(foundT,format='mjd').iso)	
 ################################################################
 
 # Now plotting
@@ -85,7 +86,7 @@ ion = remix.remix(remixFile,args.n)
 
 for h in ['NORTH','SOUTH']:
 	fig = plt.figure(figsize=(12,7.5))
-	plt.figtext(0.5,0.94,'MIX ('+h+')\n'+Time(T[args.n],format='mjd').iso,
+	plt.figtext(0.5,0.94,'MIX ('+h+')\n'+Time(foundT,format='mjd').iso,
 			fontsize=12,multialignment='center',horizontalalignment='center')
 
 	ion.init_vars(h)
