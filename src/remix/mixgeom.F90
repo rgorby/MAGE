@@ -257,8 +257,8 @@ module mixgeom
          xout = 0._rp
          yout = 0._rp
       elsewhere
-         xout = sin(sqrt(Rinner)*sin(G%t))*cos(G%p)
-         yout = sin(sqrt(Rinner)*sin(G%t))*sin(G%p)
+         xout = sqrt(Rinner)*sin(G%t)*cos(G%p)
+         yout = sqrt(Rinner)*sin(G%t)*sin(G%p)
       end where
 
       ! note, the grid G that was created from gamera coordinates assumed R=1
