@@ -12,6 +12,25 @@ module files
         inquire(file=fIn,exist=CheckFile)
     end function CheckFile
 
+    function CheckDir(fIn)
+        character(len=*), intent(in) :: fIn
+        logical :: CheckDir
+
+        inquire(directory=fIn,exist=CheckDir)
+    end function CheckDir
+
+    subroutine CheckDirOrMake(fIn)
+        character(len=*), intent(in) :: fIn
+        logical :: isDir
+
+        isDir = CheckDir(fIn)
+        if (.not. isDir) then
+            write(*,'(5a)') ANSIRED,'<',trim(fIn),' does not exist, creating ...>',ANSIRESET
+            call EXECUTE_COMMAND_LINE('mkdir ' // trim(fIn) , wait=.true.)
+        endif
+        
+    end subroutine CheckDirOrMake
+
     subroutine CheckFileOrDie(fIn,errStr)
         character(len=*), intent(in) :: fIn,errStr
 

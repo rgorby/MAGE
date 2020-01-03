@@ -6926,6 +6926,34 @@ bjmod_real = MODULO(bj-REAL(jwrap),REAL(jsize-jwrap-1)) + REAL(jwrap)
 !
       RETURN
       END SUBROUTINE Read_plasma
+
+      !K: Replacing Read_plasma w/ HDF5 version
+      SUBROUTINE Read_plasma_H5
+        use ioh5
+        use files
+        implicit none
+        logical :: doSP
+        type(IOVAR_T), dimension(RCMIOVARS) :: IOVars !Lazy hard-coding max variables
+        integer :: nvar
+
+
+        doSP = .false.
+        call ClearIO(IOVars) !Reset IO chain
+        call AddInVar(IOVars,"alamc")
+        call AddInVar(IOVars,"etac")
+        call AddInVar(IOVars,"ikflavc")
+        call AddInVar(IOVars,"fudgec")
+
+        call ReadVars(IOVars,doSP,RCMGAMConfig)
+
+        !Store data
+        alamc(:)   = IOVars(1)%data
+        etac(:)    = IOVars(2)%data
+        ikflavc(:) = IOVars(3)%data
+        fudgec(:)  = IOVars(4)%data
+
+      END SUBROUTINE Read_plasma_H5
+
 !
 !
 !
@@ -7244,17 +7272,19 @@ bjmod_real = MODULO(bj-REAL(jwrap),REAL(jsize-jwrap-1)) + REAL(jwrap)
        idt2   = idt2_in
       END IF
 
-      IF (icontrol == 31337) then  ! write a restart record to RCM
+      IF (icontrol == ICONWRITERESTART) then  ! write a restart record to RCM
          call WriteRCMH5(stropt,nslcopt,isRestart=.true.)
          return
       ENDIF
-      IF (icontrol == 31338) then  ! write an HDF5 output
+      IF (icontrol == ICONWRITEOUTPUT) then  ! write an HDF5 output
         call WriteRCMH5(stropt,nslcopt,isRestart=.false.)
         return
       ENDIF
-      IF (icontrol == 31336) then
+      IF (icontrol == ICONRESTART) then
         !Read HDF5 restart
+        write(*,*) "Reading RCM restart (RCM side)"
         call ReadRCMRestart(stropt,nslcopt)
+        write(*,*) "Done reading RCM restart (RCM side)"
         return
       ENDIF
    IF (icontrol == 0) then  ! initialize RCM size params and go back:
@@ -7281,8 +7311,12 @@ bjmod_real = MODULO(bj-REAL(jwrap),REAL(jsize-jwrap-1)) + REAL(jwrap)
 
    IF (icontrol == 1) then   ! initialize RCM grid, energy channels, quit:
       CALL Read_grid ()
-      CALL Read_plasma ()
-
+      if (isGAMRCM) then
+        CALL Read_plasma_H5()
+      else
+        CALL Read_plasma ()
+      endif
+      
       CALL SYSTEM_CLOCK (timer_stop(1), count_rate)      
       timer_values (1) = (timer_stop (1) - timer_start (1))/count_rate + timer_values(1)
 
@@ -7292,61 +7326,70 @@ bjmod_real = MODULO(bj-REAL(jwrap),REAL(jsize-jwrap-1)) + REAL(jwrap)
 
 
    IF (icontrol == 2) then ! read in inputs, quit:
-      !K: Replace RCM params file with XML data
-      OPEN (UNIT = LUN, FILE = rcmdir//'rcm.params', STATUS = 'OLD', &
-               ACTION = 'READ', FORM = 'FORMATTED')
+      !K: Splitting based on whether running coupled to Gamera
+      if (isGAMRCM) then
+        call RCM_Params_XML()
+        !K: Are kp/bfield necessary?
+        CALL Read_kp   
+        CALL Read_bfield
+        CALL Read_dktime_H5(L_dktime)
+      else
 
-!
-       READ (LUN, '(a80)') label%char! 5.  text label
-       READ (LUN,*) idebug   ! 6.  0 <=> do disk printout
-       READ (LUN,*) imin  !  5.  i-value of poleward bndy
-       READ (LUN,*) ipot  !  6.  which potential solver to use
-       READ (LUN,*) iwind !  9.  0 is no neutral winds
-       READ (LUN,*) ibnd_type  ! 14.  type of bndy (1-eq.p, 2-iono)
-       READ (LUN,*) ipcp_type  ! 14.  type of bndy (1-eq.p, 2-iono)
-       READ (LUN,*) nsmthi! 15.  How much to smooth cond in I
-       READ (LUN,*) nsmthj! 16.  How much to smooth cond in J
-       READ (LUN,*) icond ! 17. 1 is active conductances, 2 is Hardy with kp  
-       READ (LUN,*) ifloor! 18. if true, install a floor for EFLUX
-       READ (LUN,*) icorrect! 19. if true, make lat. correction to EFLUX
-!
-       READ (LUN,*) cmax    ! in rcm_mod_balgn
-       READ (LUN,*) eeta_cutoff ! as a fraction
-       READ (LUN,*) tol_gmres ! should be 1e-5
-       READ (LUN,*) itype_bf  ! 1 is interpolate for HV, 2--MHD code, 3--receive through module
-       READ (LUN,*) i_advect  ! 1-interpolate, 2rCLAWPACK/inter, 3-CLAWPACK
-       READ (LUN,*) i_eta_bc  ! 1-time-dep. from file, 2-constant for run
-       READ (LUN,*) kill_fudge ! .true. means no loss
-          if (kill_fudge) then; fudgec = 0.0; end if
-       READ (LUN,*) i_birk  ! birk calculation 1=default 3 = new
-       READ (LUN,*) L_dktime
-       READ (LUN,*) sunspot_number
-       READ (LUN,*) L_move_plasma_grid
+        OPEN (UNIT = LUN, FILE = rcmdir//'rcm.params', STATUS = 'OLD', &
+                 ACTION = 'READ', FORM = 'FORMATTED')
+
+  !
+         READ (LUN, '(a80)') label%char! 5.  text label
+         READ (LUN,*) idebug   ! 6.  0 <=> do disk printout
+         READ (LUN,*) imin  !  5.  i-value of poleward bndy
+         READ (LUN,*) ipot  !  6.  which potential solver to use
+         READ (LUN,*) iwind !  9.  0 is no neutral winds
+         READ (LUN,*) ibnd_type  ! 14.  type of bndy (1-eq.p, 2-iono)
+         READ (LUN,*) ipcp_type  ! 14.  type of bndy (1-eq.p, 2-iono)
+         READ (LUN,*) nsmthi! 15.  How much to smooth cond in I
+         READ (LUN,*) nsmthj! 16.  How much to smooth cond in J
+         READ (LUN,*) icond ! 17. 1 is active conductances, 2 is Hardy with kp  
+         READ (LUN,*) ifloor! 18. if true, install a floor for EFLUX
+         READ (LUN,*) icorrect! 19. if true, make lat. correction to EFLUX
+  !
+         READ (LUN,*) cmax    ! in rcm_mod_balgn
+         READ (LUN,*) eeta_cutoff ! as a fraction
+         READ (LUN,*) tol_gmres ! should be 1e-5
+         READ (LUN,*) itype_bf  ! 1 is interpolate for HV, 2--MHD code, 3--receive through module
+         READ (LUN,*) i_advect  ! 1-interpolate, 2rCLAWPACK/inter, 3-CLAWPACK
+         READ (LUN,*) i_eta_bc  ! 1-time-dep. from file, 2-constant for run
+         READ (LUN,*) kill_fudge ! .true. means no loss
+            if (kill_fudge) then; fudgec = 0.0; end if
+         READ (LUN,*) i_birk  ! birk calculation 1=default 3 = new
+         READ (LUN,*) L_dktime
+         READ (LUN,*) sunspot_number
+         READ (LUN,*) L_move_plasma_grid
 
 
-      ! now run parameters (bypassed via arguments if coupled):
-      IF (.NOT.IsCoupledExternally) then
-       READ (LUN,*) itimei   ! 1.  start time
-       READ (LUN,*) itimef   ! 2.  end time
-       READ (LUN,*) irdr     ! 3.  record # to read in
-       READ (LUN,*) irdw     ! 4.  record # to write out
-       READ (LUN,*) idt   !  1.  basic time step in program
-       READ (LUN,*) idt1  !  2.  t-step for changing disk write rcds
-       READ (LUN,*) idt2  !  3.  t-step for writing formatted output
-      END IF
+        ! now run parameters (bypassed via arguments if coupled):
+        IF (.NOT.IsCoupledExternally) then
+         READ (LUN,*) itimei   ! 1.  start time
+         READ (LUN,*) itimef   ! 2.  end time
+         READ (LUN,*) irdr     ! 3.  record # to read in
+         READ (LUN,*) irdw     ! 4.  record # to write out
+         READ (LUN,*) idt   !  1.  basic time step in program
+         READ (LUN,*) idt1  !  2.  t-step for changing disk write rcds
+         READ (LUN,*) idt2  !  3.  t-step for writing formatted output
+        END IF
 
-      CLOSE (UNIT = LUN)
-      
+        CLOSE (UNIT = LUN)
+          !  Read in other inputs, both constant and run-specific:
+          
+          IF (.NOT.IsCoupledExternally) CALL Read_vdrop  
+          CALL Read_kp   
+          CALL Read_bfield
+          IF (.NOT.IsCoupledExternally) CALL Read_eta_on_bndy
+          IF (.NOT.IsCoupledExternally) CALL Read_qtcond
+          IF (.NOT.IsCoupledExternally) CALL Read_winds (iwind)
+          CALL Read_dktime (L_dktime)
 
-      !  Read in other inputs, both constant and run-specific:
+      endif !isGAMRCM
 
-      IF (.NOT.IsCoupledExternally) CALL Read_vdrop  
-      CALL Read_kp   
-      CALL Read_bfield
-      IF (.NOT.IsCoupledExternally) CALL Read_eta_on_bndy
-      IF (.NOT.IsCoupledExternally) CALL Read_qtcond
-      IF (.NOT.IsCoupledExternally) CALL Read_winds (iwind)
-      CALL Read_dktime (L_dktime)
 
 
       CALL SYSTEM_CLOCK (timer_stop(1), count_rate)      
@@ -7371,7 +7414,9 @@ bjmod_real = MODULO(bj-REAL(jwrap),REAL(jsize-jwrap-1)) + REAL(jwrap)
          PS = 'APPEND'
          HD = 'CONTINUE SAME RUN'
       END IF
-      write(*,*) "L9604, rcm.printout", LUN_2, ST, PS
+      !K: Commenting out output
+      !write(*,*) "L9604, rcm.printout", LUN_2, ST, PS
+
       OPEN  (LUN_2, FILE = rcmdir//'rcm.printout', STATUS = ST, POSITION = PS)
       OPEN  (LUN_3, FILE = rcmdir//'rcm.index',  STATUS = ST, POSITION = PS)
       CALL Initial_printout ()
@@ -7391,16 +7436,19 @@ bjmod_real = MODULO(bj-REAL(jwrap),REAL(jsize-jwrap-1)) + REAL(jwrap)
          END IF
 
       ELSE
-
-         CALL Read_array (rcmdir//'rcmbndloc', irdr, label, ARRAY_1D = bndloc)
-         imin_j = CEILING (bndloc)
-         CALL Read_array (rcmdir//'rcmeeta',   irdr, label, ARRAY_3D = eeta)
+        if (isGAMRCM) then
+          imin_j = CEILING (bndloc)
+        else  
+          CALL Read_array (rcmdir//'rcmbndloc', irdr, label, ARRAY_1D = bndloc)
+          imin_j = CEILING (bndloc)
+          CALL Read_array (rcmdir//'rcmeeta',   irdr, label, ARRAY_3D = eeta)
 !         IF (label%intg(6) /= itimei-idt )THEN
-         IF (label%intg(6) /= itimei )THEN
-!            WRITE (*,*)' label%intg(6) =',label%intg(6),' itimei-idt =',itimei-idt
+          IF (label%intg(6) /= itimei )THEN
             WRITE (*,*)' label%intg(6) =',label%intg(6),' itimei =',itimei
+            !write(*,*) 'T in file /=  ITIMEI for EETA, RESTART IS CORRUPTED'
             STOP 'T in file /=  ITIMEI for EETA, RESTART IS CORRUPTED'
-         END IF
+          END IF
+        endif !isGAMRCM
       END IF
 
 
@@ -7681,7 +7729,7 @@ bjmod_real = MODULO(bj-REAL(jwrap),REAL(jsize-jwrap-1)) + REAL(jwrap)
          WRITE (time_char,'(I2.2,A1,I2.2,A1,I2.2)') &
                label%intg(3), ':', label%intg(4), ':', label%intg(5)
          WRITE (*,'(T2,A21,I5.5,A10,TR4)') &
-                '-->TIME_STEP, T=', i_time,'('//time_char//')'
+                'RCM:-->TIME_STEP, T=', i_time,'('//time_char//')'
 !                                                                       
 !        IF (i_time == itout1 .OR. i_time == itimef) THEN
             WRITE (lun_3,901) time_char, &
@@ -7701,7 +7749,8 @@ bjmod_real = MODULO(bj-REAL(jwrap),REAL(jsize-jwrap-1)) + REAL(jwrap)
             CALL Write_array (rcmdir//'rcmzmin', irdw, label, ARRAY_2D = zmin, SETUP = FD)
             CALL Write_array (rcmdir//'rcmvm',   irdw, label, ARRAY_2D = vm,   SETUP = FD)
             CALL Write_array (rcmdir//'rcmbmin', irdw, label, ARRAY_2D = bmin, SETUP = FD)
-            write(*,*)'writing rcmbndloc at rec=',irdw
+            !K: Commenting out output
+            !write(*,*)'writing rcmbndloc at rec=',irdw
             CALL Write_array (rcmdir//'rcmbndloc', irdw, label, ARRAY_1D = bndloc, SETUP = FD)
 !
 !
@@ -7743,51 +7792,110 @@ bjmod_real = MODULO(bj-REAL(jwrap),REAL(jsize-jwrap-1)) + REAL(jwrap)
           integer(iprec), intent(in) :: nStp
           logical :: doSP !Do single precision
           character(len=strLen) :: H5File
-          type(IOVAR_T), dimension(50) :: IOVars !Lazy hard-coding max variables
-          integer(iprec) :: nvar
+          type(IOVAR_T), dimension(RCMIOVARS) :: IOVars !Lazy hard-coding max variables
+          integer(iprec) :: nvar,nres
 
         !Prepare for reading
           doSP = .false. !Restarts are always double precision
-          write (H5File, '(A,A,I0.5,A)') trim(runid), ".RCM.Res.", nStp, ".h5"
+          nres = nStp-1 !nStp holds number for *NEXT* restart output
+
+          write (H5File, '(A,A,I0.5,A)') trim(runid), ".RCM.Res.", nres, ".h5"
+
+          write(*,*) 'Restarting with file, ', trim(H5File)
           call ClearIO(IOVars) !Reset IO chain
 
         !List variables to read
-          !Scalars
-          !(Need to specify integers)
-          call AddInVar(IOVars,"irdw",vTypeO=IOINT)
-          call AddInVar(IOVars,"itimei",vTypeO=IOINT)
-          call AddInVar(IOVars,"isize",vTypeO=IOINT)
-          call AddInVar(IOVars,"jsize",vTypeO=IOINT)
-          !(Add rest of scalars here)
+          !Scalars (need to specify integers), order doesn't matter
+
+          call AddInVar(IOVars,"itimei",vTypeO=IOINT )
+          call AddInVar(IOVars,"irdw"  ,vTypeO=IOINT )
+          call AddInVar(IOVars,"isize" ,vTypeO=IOINT )
+          call AddInVar(IOVars,"jsize" ,vTypeO=IOINT )
+          call AddInVar(IOVars,"ksize" ,vTypeO=IOINT )
+          call AddInVar(IOVars,"cmax"  ,vTypeO=IOREAL)
+          call AddInVar(IOVars,"fmeb"  ,vTypeO=IOREAL)
+          call AddInVar(IOVars,"fstoff",vTypeO=IOREAL)
+          call AddInVar(IOVars,"fdst"  ,vTypeO=IOREAL)
+          call AddInVar(IOVars,"fclps" ,vTypeO=IOREAL)
+          call AddInVar(IOVars,"vdrop" ,vTypeO=IOREAL)
+          call AddInVar(IOVars,"kp"    ,vTypeO=IOREAL)
 
           !Arrays
+          call AddInVar(IOVars,"rcmxmin"  )
+          call AddInVar(IOVars,"rcmymin"  )
+          call AddInVar(IOVars,"rcmzmin"  )
+          call AddInVar(IOVars,"rcmvm"    )
+          call AddInVar(IOVars,"rcmbmin"  )
+          call AddInVar(IOVars,"rcmbndloc")
+
+          call AddInVar(IOVars,"rcmetac"   )
+          call AddInVar(IOVars,"rcmeeta"   )
+          call AddInVar(IOVars,"rcmeetaavg")
+
+          call AddInVar(IOVars,"rcmpedlam" )
+          call AddInVar(IOVars,"rcmpedpsi" )
+          call AddInVar(IOVars,"rcmhall"   )
+          call AddInVar(IOVars,"rcmeavg"   )
+          call AddInVar(IOVars,"rcmeflux"  )
+          call AddInVar(IOVars,"rcmbirk"   )
+          call AddInVar(IOVars,"rcmbirkavg")
+
           call AddInVar(IOVars,"rcmetac")
           call AddInVar(IOVars,"rcmeeta")
           call AddInVar(IOVars,"rcmeetaavg")
-          !(Add rest of arrays here)
 
+          call AddInVar(IOVars,"rcmv")
+          call AddInVar(IOVars,"rcmvavg")
+
+
+          write(*,*) 'Reading data ...'
         !Now do actual reading
           call ReadVars(IOVars,doSP,H5File)
 
-        !Parse data and put it where it goes
-          !Data is stored as 1D array, for multi-d arrays need to be reshaped
+          write(*,*) 'Done reading data ...'
+        !Parse data and put it where it goes, need to do each variable
+          !Scalars
+          itimei = GetIOInt(IOVars,"itimei")
+          irdw   = GetIOInt(IOVars,"irdw")
+          
+          cmax   = GetIOReal(IOVars,"cmax")
+          fmeb   = GetIOReal(IOVars,"fmeb")
+          fstoff = GetIOReal(IOVars,"fstoff")
+          fdst   = GetIOReal(IOVars,"fdst")
+          fclps  = GetIOReal(IOVars,"fclps")
+          vdrop  = GetIOReal(IOVars,"vdrop")
+          kp     = GetIOReal(IOVars,"kp")
 
-          !etac (1D)
-          nvar = FindIO(IOVars,"rcmetac")
-          etac = IOVars(nvar)%data
+          !Pull 2D arrays
+          call IOArray2DFill(IOVars,"rcmxmin",xmin)
+          call IOArray2DFill(IOVars,"rcmymin",ymin)
+          call IOArray2DFill(IOVars,"rcmzmin",zmin)
+          call IOArray2DFill(IOVars,"rcmbmin",bmin)
+          
+          call IOArray2DFill(IOVars,"rcmv",v)
+          call IOArray2DFill(IOVars,"rcmvavg",v_avg)
+          call IOArray2DFill(IOVars,"rcmvm",vm)
 
-          !eeta (3D), need to reshape 1D data into 3D array
-          nvar = FindIO(IOVars,"rcmeeta")
-          eeta = reshape(IOVars(nvar)%data,[IOVars(nvar)%dims(1),IOVars(nvar)%dims(2),IOVars(nvar)%dims(3)])
+          call IOArray2DFill(IOVars,"rcmbirk",birk)
+          call IOArray2DFill(IOVars,"rcmbirkavg",birk_avg)
 
-          !rcmv (2D)
-          nvar = FindIO(IOVars,"rcmv")
-          v = reshape(IOVars(nvar)%data,[IOVars(nvar)%dims(1),IOVars(nvar)%dims(2)])
+          call IOArray2DFill(IOVars,"rcmhall",hall)
+          call IOArray2DFill(IOVars,"rcmpedlam",pedlam)
+          call IOArray2DFill(IOVars,"rcmpedpsi",pedpsi)
 
-          !(Add rest of arrays here)
+          !Pull 1D arrays
+          call IOArray1DFill(IOVars,"rcmetac",etac)
+          call IOArray1DFill(IOVars,"rcmbndloc",bndloc)
 
-          write(*,*) 'RCM restart not finished ...'
+          !Pull 3D arrays
+          call IOArray3DFill(IOVars,"rcmeavg",eavg)
+          call IOArray3DFill(IOVars,"rcmeeta",eeta)
+          call IOArray3DFill(IOVars,"rcmeetaavg",eeta_avg)
+          call IOArray3DFill(IOVars,"rcmeflux",eflux)
+
         end subroutine ReadRCMRestart
+
+
 
         !HDF5 output routine 
         subroutine WriteRCMH5(runid,nStp,isRestart)
@@ -7798,7 +7906,7 @@ bjmod_real = MODULO(bj-REAL(jwrap),REAL(jsize-jwrap-1)) + REAL(jwrap)
           integer(iprec), intent(in) :: nStp
           logical, intent(in) :: isRestart
 
-          type(IOVAR_T), dimension(50) :: IOVars !Lazy hard-coding max variables
+          type(IOVAR_T), dimension(RCMIOVARS) :: IOVars !Lazy hard-coding max variables
           logical :: doSP !Do single precision output
           character(len=strLen) :: H5File,gStr,lnResF
 
@@ -7882,11 +7990,50 @@ bjmod_real = MODULO(bj-REAL(jwrap),REAL(jsize-jwrap-1)) + REAL(jwrap)
 
           !Create XML reader
           xmlInp = New_XML_Input(trim(inpXML),'RCM',.true.)
+          call xmlInp%Set_Val(label%char,"sim/runid","MHD code run")
 
+          !Output
+          call xmlInp%Set_Val(idebug,"output/idebug",0) ! 6.  0 <=> do disk printout
+
+          !eflux
+          call xmlInp%Set_Val(ifloor,"eflux/ifloor",.true.) ! 18. if true, install a floor for EFLUX
+          call xmlInp%Set_Val(icorrect,"eflux/icorrect",.true.) ! 19. if true, make lat. correction to EFLUX
+
+          !Grid
+          call xmlInp%Set_Val(imin,"grid/imin",1)
+          call xmlInp%Set_Val(ibnd_type,"grid/ibnd_type",4) ! 14.  type of bndy (1-eq.p, 2-iono)
+          call xmlInp%Set_Val(ipcp_type,"grid/ipcp_type",13) ! 14.  type of bndy (1-eq.p, 2-iono)
+          call xmlInp%Set_Val(nsmthi,"grid/nsmthi",0) ! 15.  How much to smooth cond in I
+          call xmlInp%Set_Val(nsmthj,"grid/nsmthj",0) ! 16.  How much to smooth cond in J
+          call xmlInp%Set_Val(L_move_plasma_grid,"grid/L_move_plasma_grid",.true.)
+
+          !Catch-all params
+          call xmlInp%Set_Val(ipot,"params/ipot",-1) !  6.  which potential solver to use
+          call xmlInp%Set_Val(iwind,"params/iwind",0) !  9.  0 is no neutral winds
+          call xmlInp%Set_Val(icond,"params/icond",3) ! 1 is active conductances, 2 is Hardy with kp, 3 is input
+
+          call xmlInp%Set_Val(cmax,"params/cmax",3.0) ! in rcm_mod_balgn
+          call xmlInp%Set_Val(eeta_cutoff,"params/eeta_cutoff",0.05) ! as a fraction
+
+          !Charge exchange
+          call xmlInp%Set_Val(kill_fudge,"chargex/kill_fudge",.false.) ! .true. means no loss
+          if (kill_fudge) then
+            fudgec = 0.0
+          endif
+          call xmlInp%Set_Val(L_dktime,"chargex/L_dktime",.true.)
+          call xmlInp%Set_Val(sunspot_number,"chargex/sunspot_number",96.0)
+
+          !Some values just setting
+          tol_gmres = 1.0e-5
+          itype_bf = 3 ! 1 is interpolate for HV, 2--MHD code, 3--receive through module
+          i_advect = 3  ! 1-interpolate, 2rCLAWPACK/inter, 3-CLAWPACK
+          i_eta_bc = 2! 1-time-dep. from file, 2-constant for run
+          i_birk  = 1 ! birk calculation 1=default 3 = new
         end subroutine RCM_Params_XML
 
          SUBROUTINE Formatted_output ()
-      write(*,*) "L10019, rcm.printout", LUN_2, ST, PS
+          !K: Suppressing output
+          !write(*,*) "L10019, rcm.printout", LUN_2, ST, PS
          OPEN  (LUN_2, FILE = rcmdir//'rcm.printout', STATUS = 'OLD', POSITION = 'append')
          WRITE (LUN_2,'(T1,I10,T16,I10,T31,F10.2,T46,F10.2)')  &
         &  i_time, irdw, timer_values(2), timer_values(1) 
@@ -7968,6 +8115,36 @@ bjmod_real = MODULO(bj-REAL(jwrap),REAL(jsize-jwrap-1)) + REAL(jwrap)
     END IF
     RETURN
     END SUBROUTINE Read_dktime
+
+    !K: HDF5 version of lifetime reader
+    SUBROUTINE Read_dktime_H5(L_dktime)
+      use ioh5
+      use files
+      IMPLICIT NONE
+      LOGICAL, INTENT (IN) :: L_dktime
+      logical :: doSP
+      type(IOVAR_T), dimension(RCMIOVARS) :: IOVars !Lazy hard-coding max variables
+      
+      !real(rprec) :: dktime2(irdk,inrgdk,isodk, iondk)
+
+      if (L_dktime) then
+        !Read from HDF5
+        doSP = .false.
+        call ClearIO(IOVars) !Reset IO chain
+        call AddInVar(IOVars,"dktable")
+        call ReadVars(IOVars,doSP,RCMGAMConfig)
+
+        dktime = reshape(IOVars(1)%data,[irdk,inrgdk,isodk, iondk])
+        
+        ! !Debugging
+        ! dktime2 = reshape(IOVars(1)%data,[irdk,inrgdk,isodk, iondk])
+        ! call Read_dktime(L_dktime)
+        ! write(*,*) 'dktime1 = ', dktime
+        ! write(*,*) 'dktime2 = ', dktime2
+        ! write(*,*) 'Del = ', sum(abs(dktime-dktime2))
+      endif
+    END SUBROUTINE Read_dktime_H5
+
 !
 !
 !

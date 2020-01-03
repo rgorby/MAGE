@@ -16,7 +16,6 @@ module rcmimag
 
     implicit none
 
-    integer(ip), parameter,private :: RCMINIT=0,RCMADVANCE=1,RCMRESTART=2,RCMWRITERESTART=-2,RCMWRITEOUTPUT=-3
     type(rcm_mhd_T), private :: RCMApp
 
     !Scaling parameters
@@ -62,10 +61,15 @@ module rcmimag
         character(len=strLen) :: RunID,RCMH5
         logical :: fExist
 
+        call iXML%Set_Val(RunID,"/gamera/sim/runid","sim")
+        RCMApp%rcm_runid = trim(RunID)
+
         if (isRestart) then
+            write(*,*) 't0 = ',t0
             RCMApp%rcm_nRes = nRes
             write(*,*) 'Restarting RCM ...'
             call rcm_mhd(t0,dtCpl,RCMApp,RCMRESTART)
+            write(*,*) 'Finished RCM restart ...'
             call init_rcm_mix(RCMApp)
         else
             write(*,*) 'Initializing RCM ...'
@@ -73,8 +77,6 @@ module rcmimag
             call init_rcm_mix(RCMApp)
         endif
 
-        call iXML%Set_Val(RunID,"/gamera/sim/runid","sim")
-        RCMApp%rcm_runid = trim(RunID)
         h5File = trim(RunID) // ".mhdrcm.h5" !MHD-RCM coupling data
         RCMH5  = trim(RunID) // ".rcm.h5" !RCM data
 
@@ -148,7 +150,8 @@ module rcmimag
     !Advance from vApp%time to tAdv
         dtAdv = tAdv-vApp%time !RCM-DT
         call rcm_mhd(vApp%time,dtAdv,RCMApp,RCMADVANCE)
-
+        !Update timming data
+        call rcm_mhd(vApp%time,0.0,RCMApp,RCMWRITETIMING)
     end subroutine AdvanceRCM
 
     !Evaluate eq map at a given point

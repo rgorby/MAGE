@@ -6,57 +6,49 @@ module ioH5
     use strings
     use hdf5
     use h5lt
-    
+    use ioH5Types
+    use ioH5Overload
 
     !Useful user routines
     !AddOutVar, AddInVar, WriteVars,ReadVars
     !FindIO: Example, call FindIO(IOVars,"Toy",n), IOVars(n) = Toy data/metadata
     implicit none
 
-    integer, parameter :: MAXIODIM = 5 !Max rank for an IO array
-    !Simple IO types
-    enum, bind(C)
-        enumerator :: IONULL=0,IOREAL,IOINT,IOLOGICAL,IOSTR
-    endenum
-    !Silly hard-coded value of how far to look for first Step#XXX before giving up 
-    integer, parameter :: MAXSTEP0 = 10000
-    logical :: doSkipG = .false. !Whether to skip (vs overwrite) existing groups
-
-    !--------------
-    !IO array type
-    !Holds information for heavy input/output
-    !idStr/unitStr: String description of variable and its units
-    !Nr is number of ranks, and dims is size in each dimension (unused are 0)
-    !data holds the information as a 1D array
-    !scale is multiplier prior to output
-    !vType: holds info about variable type, only partially implemented
-
-    type IOVAR_T
-        character(len=strLen) :: idStr="NONE",unitStr="CODE"
-        integer :: dims(MAXIODIM) = 0 !Dimension information
-        integer :: Nr = 0 !Number of ranks
-        integer :: N = 0 !Total number of elements
-        real(rp), dimension(:), allocatable :: data !1D holder for data
-        real(rp) :: scale=1.0, renorm=0.0
-        logical :: toWrite=.false.,toRead=.false. !Read or write this variable
-        logical :: isDone=.false. !Whether or not variable has been successfully read/written
-        integer :: vType
-        character(len=strLen) :: dStr !Optional string data
-    end type IOVAR_T
-
     !Overloader to add data (array or scalar/string) to output chain
     interface AddOutVar
         module procedure AddOut_5D,AddOut_4D,AddOut_3D,AddOut_2D,AddOut_1D,AddOut_Int,AddOut_DP,AddOut_SP,AddOut_Str
     end interface
-    !Overloader for function to copy N-rank data into 1D buffer
-    interface LoadIO
-        module procedure LoadIO_5D,LoadIO_4D,LoadIO_3D,LoadIO_2D,LoadIO_1D,LoadIO_0D
-    end interface
 
-  !Necessary for HDF5 routines
-  integer :: herror
-  
+    !Overloader to fill array from already read IO chain
+    !TODO: Add more rank/datatype options
+    !TODO: Add bounds checking
+    interface IOArrayFill
+        module procedure IOArray1DFill,IOArray2DFill,IOArray3DFill
+    end interface IOArrayFill
+
 contains
+!-------------------------------------------   
+!Various routines to quickly pull scalars from IOVar_T
+    function GetIOInt(IOVars,vID) result(vOut)
+        type(IOVAR_T), dimension(:), intent(in) :: IOVars
+        character(len=*), intent(in) :: vID
+        integer :: nvar
+        integer :: vOut
+        nvar = FindIO(IOVars,vID)
+        vOut = IOVars(nvar)%data(1)
+    end function GetIOInt
+
+    function GetIOReal(IOVars,vID) result(vOut)
+        type(IOVAR_T), dimension(:), intent(in) :: IOVars
+        character(len=*), intent(in) :: vID
+        integer :: nvar
+
+        real(rp) :: vOut
+        nvar = FindIO(IOVars,vID)
+        vOut = IOVars(nvar)%data(1)
+    end function GetIOReal
+!-------------------------------------------   
+!Various routines to get information about step structure of H5 file
 
     !Get number of groups of form "Step#XXX" and start/end
     subroutine StepInfo(fStr,s0,sE,Nstp)
@@ -335,7 +327,7 @@ contains
                     return
                 else
                     !Kill group
-                    write(*,*) 'Overwriting group ', trim(gStrO)
+                    write(*,*) 'Overwriting group ', trim(h5File), '/', trim(gStrO)
                     call h5ldelete_f(h5fId,trim(gStrO),herr)
                     !Reset gExist and let next block of code recreate it
                     gExist = .false.
@@ -571,158 +563,6 @@ contains
         endif
 
     end subroutine AddInVar
-!-------------------------------------------
-!These routines add data for output to IO chain
-!All routines find first unused link and add there
-
-    subroutine AddOut_5D(IOVars,idStr,Q)
-        type(IOVAR_T), dimension(:), intent(inout) :: IOVars
-        character(len=*), intent(in) :: idStr
-        real(rp), intent(in), dimension(:,:,:,:,:) :: Q
-
-        integer :: n
-
-        !Find first unused
-        n = NextIO(IOVars)
-
-        IOVars(n)%toWrite = .true.
-        IOVars(n)%idStr = trim(idStr)
-
-        call LoadIO(IOVars(n),Q)
-
-    end subroutine AddOut_5D
-
-    subroutine AddOut_4D(IOVars,idStr,Q)
-        type(IOVAR_T), dimension(:), intent(inout) :: IOVars
-        character(len=*), intent(in) :: idStr
-        real(rp), intent(in), dimension(:,:,:,:) :: Q
-
-        integer :: n
-
-        !Find first unused
-        n = NextIO(IOVars)
-
-        IOVars(n)%toWrite = .true.
-        IOVars(n)%idStr = trim(idStr)
-
-        call LoadIO(IOVars(n),Q)
-
-    end subroutine AddOut_4D
-
-    subroutine AddOut_3D(IOVars,idStr,Q)
-        type(IOVAR_T), dimension(:), intent(inout) :: IOVars
-        character(len=*), intent(in) :: idStr
-        real(rp), intent(in), dimension(:,:,:) :: Q
-
-        integer :: n
-
-        !Find first unused
-        n = NextIO(IOVars)
-
-        IOVars(n)%toWrite = .true.
-        IOVars(n)%idStr = trim(idStr)
-
-        call LoadIO(IOVars(n),Q)
-
-        !Catch for fake 3D (ie nk=1)
-        if (IOVars(n)%dims(3) == 1) then
-            IOVars(n)%Nr = 2
-            IOVars(n)%dims(3) = 0
-        endif
-
-    end subroutine AddOut_3D
-
-    subroutine AddOut_2D(IOVars,idStr,Q)
-        type(IOVAR_T), dimension(:), intent(inout) :: IOVars
-        character(len=*), intent(in) :: idStr
-        real(rp), intent(in), dimension(:,:) :: Q
-
-        integer :: n
-
-        !Find first unused
-        n = NextIO(IOVars)
-
-        IOVars(n)%toWrite = .true.
-        IOVars(n)%idStr = trim(idStr)
-
-        call LoadIO(IOVars(n),Q)
-    end subroutine AddOut_2D
-
-    subroutine AddOut_1D(IOVars,idStr,Q)
-        type(IOVAR_T), dimension(:), intent(inout) :: IOVars
-        character(len=*), intent(in) :: idStr
-        real(rp), intent(in), dimension(:) :: Q
-
-        integer :: n
-
-        !Find first unused
-        n = NextIO(IOVars)
-
-        IOVars(n)%toWrite = .true.
-        IOVars(n)%idStr = trim(idStr)
-
-        call LoadIO(IOVars(n),Q)
-    end subroutine AddOut_1D
-
-    subroutine AddOut_DP(IOVars,idStr,X)
-        type(IOVAR_T), dimension(:), intent(inout) :: IOVars
-        character(len=*), intent(in) :: idStr
-        real(dp), intent(in) :: X
-        
-        integer :: n
-        !Find first unused
-        n = NextIO(IOVars)
-
-        IOVars(n)%toWrite = .true.
-        IOVars(n)%idStr = trim(idStr)
-        IOVars(n)%vType = IOREAL
-        call LoadIO(IOVars(n),real(X,rp))
-    end subroutine AddOut_DP
-
-    subroutine AddOut_SP(IOVars,idStr,X)
-        type(IOVAR_T), dimension(:), intent(inout) :: IOVars
-        character(len=*), intent(in) :: idStr
-        real(sp), intent(in) :: X
-        
-        integer :: n
-        !Find first unused
-        n = NextIO(IOVars)
-
-        IOVars(n)%toWrite = .true.
-        IOVars(n)%idStr = trim(idStr)
-        IOVars(n)%vType = IOREAL
-        call LoadIO(IOVars(n),real(X,rp))
-    end subroutine AddOut_SP
-
-    subroutine AddOut_Int(IOVars,idStr,X)
-        type(IOVAR_T), dimension(:), intent(inout) :: IOVars
-        character(len=*), intent(in) :: idStr
-        integer, intent(in) :: X
-        
-        integer :: n
-        !Find first unused
-        n = NextIO(IOVars)
-
-        IOVars(n)%toWrite = .true.
-        IOVars(n)%idStr = trim(idStr)
-        IOVars(n)%vType = IOINT
-        call LoadIO(IOVars(n),real(X,rp))
-    end subroutine AddOut_Int
-
-    subroutine AddOut_Str(IOVars,idStr,X)
-        type(IOVAR_T), dimension(:), intent(inout) :: IOVars
-        character(len=*), intent(in) :: idStr, X
-        
-        integer :: n
-        !Find first unused
-        n = NextIO(IOVars)
-
-        IOVars(n)%toWrite = .true.
-        IOVars(n)%idStr = trim(idStr)
-        IOVars(n)%vType = IOSTR
-        IOVars(n)%dStr = trim(X)
-
-    end subroutine AddOut_Str
 
 !Clears info/memory from an IO chain
     subroutine ClearIO(IOVars)
@@ -744,7 +584,6 @@ contains
         IOVars(:)%isDone  = .false.
         
         
-
         do i=1,Nv
             if (allocated(IOVars(i)%data)) then
                 deallocate(IOVars(i)%data)
@@ -752,150 +591,6 @@ contains
         enddo
     end subroutine ClearIO
 
-!Finds element of IO chain matching input id-string
-    function FindIO(IOVars,inStr) result(nOut)
-        type(IOVAR_T), dimension(:), intent(in) :: IOVars
-        character(len=*), intent(in) :: inStr
-
-        integer :: nOut, Nv,i
-        nOut = -1
-        Nv = size(IOVars)
-        do i=1,Nv
-            if (trim(toUpper(IOVars(i)%idStr)) == trim(toUpper(inStr))) then
-                nOut = i
-            endif
-        enddo
-    end function FindIO
-
-!Finds first unused element of IO chain
-    !FIXME: Probably a cleaner way with minloc (but maybe not standard?)
-    function NextIO(IOVars) result(nOut)
-        type(IOVAR_T), dimension(:), intent(in) :: IOVars
-
-        integer :: nOut, Nv,i
-        nOut = -1
-        Nv = size(IOVars)
-        do i=1,Nv
-            if ( (.not. IOVars(i)%toRead) .and. (.not. IOVars(i)%toWrite) ) then
-                nOut = i
-                exit !Break out of loop
-            endif
-        enddo
-
-    end function NextIO
-!---------------------------
-!Loads structured data into buffers
-
-    subroutine LoadIO_5D(IOVar,Q)
-        type(IOVAR_T), intent(inout) :: IOVar
-        real(rp), intent(in), dimension(:,:,:,:,:) :: Q
-        
-        IOVar%Nr = 5
-        IOVar%dims = 0
-        
-        !Find size/shape of Q
-        IOVar%dims(1:IOVar%Nr) = shape(Q)
-        IOVar%N = product(IOVar%dims(1:IOVar%Nr))
-
-        !Store data into 1D array in IOVar type
-        call CopyIO(IOVar%data,Q,IOVar%N)
-
-    end subroutine LoadIO_5D
-
-    subroutine LoadIO_4D(IOVar,Q)
-        type(IOVAR_T), intent(inout) :: IOVar
-        real(rp), intent(in), dimension(:,:,:,:) :: Q
-        
-        IOVar%Nr = 4
-        IOVar%dims = 0
-        
-        !Find size/shape of Q
-        IOVar%dims(1:IOVar%Nr) = shape(Q)
-        IOVar%N = product(IOVar%dims(1:IOVar%Nr))
-
-        !Store data into 1D array in IOVar type
-        call CopyIO(IOVar%data,Q,IOVar%N)
-
-    end subroutine LoadIO_4D
-
-    subroutine LoadIO_3D(IOVar,Q)
-        type(IOVAR_T), intent(inout) :: IOVar
-        real(rp), intent(in), dimension(:,:,:) :: Q
-        
-        IOVar%Nr = 3
-        IOVar%dims = 0
-        
-        !Find size/shape of Q
-        IOVar%dims(1:IOVar%Nr) = shape(Q)
-        IOVar%N = product(IOVar%dims(1:IOVar%Nr))
-
-        !Store data into 1D array in IOVar type
-        call CopyIO(IOVar%data,Q,IOVar%N)
-
-    end subroutine LoadIO_3D
-
-    subroutine LoadIO_2D(IOVar,Q)
-        type(IOVAR_T), intent(inout) :: IOVar
-        real(rp), intent(in), dimension(:,:) :: Q
-        
-        IOVar%Nr = 2
-        IOVar%dims = 0
-        
-        !Find size/shape of Q
-        IOVar%dims(1:IOVar%Nr) = shape(Q)
-        IOVar%N = product(IOVar%dims(1:IOVar%Nr))
-
-        !Store data into 1D array in IOVar type
-        call CopyIO(IOVar%data,Q,IOVar%N)
-
-    end subroutine LoadIO_2D
-
-    subroutine LoadIO_1D(IOVar,Q)
-        type(IOVAR_T), intent(inout) :: IOVar
-        real(rp), intent(in), dimension(:) :: Q
-        
-        IOVar%Nr = 1
-        IOVar%dims = 0
-        
-        !Find size/shape of Q
-        IOVar%dims(1:IOVar%Nr) = shape(Q)
-        IOVar%N = product(IOVar%dims(1:IOVar%Nr))
-
-        !Store data into 1D array in IOVar type
-        call CopyIO(IOVar%data,Q,IOVar%N)
-
-    end subroutine LoadIO_1D
-
-    !Handle scalar data, always use rp precision real
-    subroutine LoadIO_0D(IOVar,X)
-        type(IOVAR_T), intent(inout) :: IOVar
-        real(rp), intent(in) :: X
-
-        IOVar%Nr = 0
-        IOVar%dims = 0
-        IOVar%N = 1
-
-        call CopyIO(IOVar%data,[X],IOVar%N)
-
-    end subroutine LoadIO_0D
-
-    !Workhorse routine to do copies from LoadIO
-    !N is size (1D) of data
-    subroutine CopyIO(IOBuffer,IOSource,N)
-        integer, intent(in) :: N
-        real(rp), dimension(:), allocatable, intent(inout) :: IOBuffer
-        real(rp), intent(in) :: IOSource(N)
-
-        !For now, always realloc
-        !FIXME: Replace with check of current data and realloc only if necessary
-        if (allocated(IOBuffer)) deallocate(IOBuffer)
-
-        allocate(IOBuffer(N))
-
-        !Copy data
-        IOBuffer = IOSource
-        !write(*,*) 'Copying N elements, N = ', N
-    end subroutine CopyIO
 
 !-----------------------------
 !HDF 5 helper routines
@@ -924,6 +619,7 @@ contains
         
         integer(HID_T) :: dspcId, atId
         integer(HSIZE_T), dimension(1) :: dims
+        integer :: herror
 
         dims(1) = 0
         !Create data space
@@ -951,7 +647,7 @@ contains
         integer(HID_T) :: dspcId, atId
         integer(HID_T):: h5gReal
         integer(HSIZE_T), dimension(1) :: dims
-    
+        integer :: herror
 
         h5gReal = H5Precision(rp)
         dims(1) = 0
@@ -976,6 +672,7 @@ contains
         character(len=*), intent(in) :: data        
         integer(HID_T) :: dspcId, atId, strId
         integer(HSIZE_T), dimension(1) :: dims
+        integer :: herror
 
         dims(1) = len(trim(data))
 
@@ -1008,6 +705,7 @@ contains
         integer :: vDef
         integer(HSIZE_T), dimension(1) :: dims
         integer(HID_T) :: attrId
+        integer :: herror
 
         if (present(vDefOpt)) then
             vDef = vDefOpt
@@ -1034,6 +732,7 @@ contains
         real(rp) :: vOut,vDef
         integer(HSIZE_T), dimension(1) :: dims
         integer(HID_T) :: attrId, h5gReal
+        integer :: herror
 
         if (present(vDefOpt)) then
             vDef = vDefOpt

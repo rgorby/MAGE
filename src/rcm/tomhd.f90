@@ -96,7 +96,7 @@
 
       ! Logic of this thing is such that rec must be >= 2 (RCM had to run at least once):
 
-      write(6,*)'tomhd, rec=',rec
+      if (doRCMVerbose) write(6,*)'tomhd, rec=',rec
       IF (rec < 2) STOP ' tomhd called before RCM was called, aborting...'
 
       ! At this point, we assume that RCM arrays are all populated
