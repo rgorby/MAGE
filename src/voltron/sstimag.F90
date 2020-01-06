@@ -164,7 +164,9 @@ module sstimag
         isGood = (t>0) .and. (r>TINY)
         if (isGood) then
             call tWeights(t,w1,w2)
-            D = psphD(r) !Gallagher plasmasphere
+            !D = psphD(r) !Gallagher plasmasphere
+            D = GallagherRP(r,phi)
+
             P = w1*eqData%eqW1(i0,j0,1) + w2*eqData%eqW2(i0,j0,1)
         else
             D = 0.0

@@ -1,11 +1,176 @@
   ! various help functions for earth
 
 module earthhelper
-  use kdefs
+    use kdefs
 
-  implicit none
+    implicit none
   
-  contains
+
+    !Magic numbers for Gallagher 2D
+        ! the basic structure of these coefficients is as follows: 
+        ! xn,yn are for nightside, and xd,yd dayside
+        ! for the first index it is for kp=1,3 and 5
+        ! for the second index:
+        !       the numbers 1-6 are the parameters for the linear fit to
+        !       the outer, middle and inner regions of the curve
+        !       x numbers 7-8 are the x-centers where the curves are blended 
+        !       y numbers 7-8 are the slopes of the blend
+
+    real(rp), dimension(8), parameter, private :: xn1  = [ 8.35, 0.0 , 8.0 , 0.0 , 1.0 , 1.75, 5.85, 1.1]
+    real(rp), dimension(8), parameter, private :: xn2  = [ 7.5 , 1.8 , 8.0 , 0.0 , 1.0 , 1.75, 4.1 , 1.1]
+    real(rp), dimension(8), parameter, private :: xn3  = [ 7.5 , 1.8 , 8.0 , 0.0 , 1.0 , 1.75, 3.2 , 1.1]
+    real(rp), dimension(8), parameter, private :: yn1  = [ 0.0 , 2.2 , 0.0 , 4.8 , 5.3 ,-1.0 , 0.1 , 0.1]
+    real(rp), dimension(8), parameter, private :: yn2  = [-1.0 , 1.0 , 0.0 , 4.8 , 5.3 ,-1.0 , 0.1 , 0.1]
+    real(rp), dimension(8), parameter, private :: yn3  = [-1.0 , 1.0 , 0.0 , 4.8 , 5.3 ,-1.0 , 0.1 , 0.1]
+    real(rp), dimension(8), parameter, private :: xd1  = [ 8.0 , 3.4 , 8.0 , 0.0 , 1.0 , 2.1 , 5.5 , 1.1]
+    real(rp), dimension(8), parameter, private :: xd2  = [ 8.0 , 3.4 , 8.0 , 0.0 , 1.0 , 2.1,  4.5 , 1.1]
+    real(rp), dimension(8), parameter, private :: xd3  = [ 8.0 , 3.4 , 8.0 , 0.0 , 1.0 , 2.1 , 4.0 , 1.1]
+    real(rp), dimension(8), parameter, private :: yd1  = [ 0.3 , 1.8 , 0.0 , 4.9 , 5.8 ,-1.0 , 0.1 , 0.1]
+    real(rp), dimension(8), parameter, private :: yd2  = [ 0.3 , 1.8 , 0.0 , 4.9 , 5.8 ,-1.0 , 0.1 , 0.1]
+    real(rp), dimension(8), parameter, private :: yd3  = [ 0.3 , 1.8 , 0.0 , 4.9 , 5.8 ,-1.0 , 0.1 , 0.1]
+
+    real(rp), parameter, private :: GLMin = 1.0
+    real(rp), parameter, private :: GLMax = 8.0
+
+    integer, parameter, private :: kpDefault = 4
+    contains
+
+!Adapted by Kareem from FRT's original code
+    !----------------------------------------
+    ! Simple fit to Gallagher et al plasmasphere model, based on figure 2 from:
+    ! Side note: In the figure from the paper, the x-axis is reversed
+    ! Gallagher, D., Craven, P., & Comfort, R. (2000). Global core plasma model, JGR, 105, 18819–18833.
+    ! PLEASE NOTE: It returns log10(n/cc) as a function of x,y in the equatorial plane and kp (1,3,5)
+    ! it blends the dayside and nightside values from the model as a linear interpolation in x 
+    ! to produce a crude 2d fit
+    !
+    ! v 1.1 1/16 frt
+    !----------------------------------------
+
+    !Return 2D gallagher density afa r,phi (rad)
+    function GallagherRP(r,phi,kpO) result(D)
+        real(rp), intent(in) :: r,phi
+        integer, intent(in), optional :: kpO
+        real(rp) :: D
+        real(rp) :: x,y
+        x = r*cos(phi)
+        y = r*sin(phi)
+        if (present(kpO)) then
+            D = GallagherXY(x,y,kpO)
+        else
+            D = GallagherXY(x,y)
+        endif
+
+    end function GallagherRP
+
+    !Return 2D gallagher density
+    function GallagherXY(x,y,kpO) result(D)
+        real(rp), intent(in) :: x,y
+        integer, intent(in), optional :: kpO
+        real(rp) :: D
+
+        real(rp), dimension(8) :: xfn,yfn,xfd,yfd
+        real(rp) :: nout,nin,ninner,r,nd,nn,nfin
+        integer :: kp
+
+        D = 0.0
+
+        if (present(kpO)) then
+            kp = kpO
+        else
+            kp = kpDefault
+        endif
+
+        select case(kp)
+            case(1)
+                xfn = xn1
+                yfn = yn1
+                xfd = xd1
+                yfd = yd1
+            case(2)
+                xfn = 0.5*( xn1 + xn2 ) 
+                yfn = 0.5*( yn1 + yn2 ) 
+                xfd = 0.5*( xd1 + xd2 ) 
+                yfd = 0.5*( yd1 + yd2 ) 
+
+            case(3)
+                xfn = xn2
+                yfn = yn2
+                xfd = xd2
+                yfd = yd2
+
+            case(4)
+                xfn = 0.5*( xn2 + xn3 ) 
+                yfn = 0.5*( yn2 + yn3 ) 
+                xfd = 0.5*( xd2 + xd3 ) 
+                yfd = 0.5*( yd2 + yd3 ) 
+
+            case(5)
+                xfn = xn3
+                yfn = yn3
+                xfd = xd3
+                yfd = yd3
+        end select
+
+        r = sqrt(x**2.0 + y**2.0)
+        if ( (r>=GLMin) .and. (r<=GLMax) ) then
+        !Night side
+            nout   = linfunc(r,xfn(1),xfn(2),yfn(1),yfn(2))
+            nin    = linfunc(r,xfn(3),xfn(4),yfn(3),yfn(4))
+            ninner = linfunc(r,xfn(5),xfn(6),yfn(5),yfn(6))
+
+            !Blend arrays
+            nn = blend(r,nout,nin,xfn(7),yfn(7))
+            !Now add inner spike
+            nn = blend(r,nn,ninner,xfn(8),yfn(8))
+        !Day side
+            nout   = linfunc(r,xfd(1),xfd(2),yfd(1),yfd(2))
+            nin    = linfunc(r,xfd(3),xfd(4),yfd(3),yfd(4))
+            ninner = linfunc(r,xfd(5),xfd(6),yfd(5),yfd(6))
+
+            !Blend arrays
+            nd = blend(r,nout,nin,xfd(7),yfd(7))
+            !Now add inner spike
+            nd = blend(r,nd,ninner,xfd(8),yfd(8))
+
+        !Mix day/night
+            nfin = ((nd*(r+x)+(r-x)*nn)/(2*r))
+            D = 10.0**nfin
+        endif
+
+        contains
+
+        function linfunc(x,xi1,xi2,yi1,yi2)
+            real(rp),intent(in) :: x,xi1,xi2,yi1,yi2
+            real(rp) :: linfunc
+
+            linfunc = yi1*(x-xi2)/(xi1-xi2)+yi2*(x-xi1)/(xi2-xi1)
+        end function linfunc
+
+        function tanhout(x,x0,h)
+            real(rp), intent(in) :: x,x0,h
+            real(rp) :: tanhout
+
+            tanhout = 0.5*(tanh((x-x0)/h)+1.)
+        end function tanhout
+
+        function tanhin(x,x0,h)
+            real(rp), intent(in) :: x,x0,h
+            real(rp) :: tanhin
+            tanhin = 0.5*(-tanh((x-x0)/h)+1.)
+        end function tanhin
+
+        ! blends values from functions inner and outer using tanh 
+        ! centred at x0 with rate h
+        function blend(x,youter,yinner,x0,h)
+            real(rp), intent(in) :: x,youter,yinner,x0,h
+            real(rp) :: blend
+
+            blend = youter*0.5*(tanh((x-x0)/h)+1.)+yinner*0.5*(1.-tanh((x-x0)/h))
+        end function blend
+
+    end function GallagherXY
+
     !Gallagher plasmasphere density model
     !Yoinked from Slava's code
     function psphD(L) result(D)

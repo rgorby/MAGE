@@ -239,15 +239,54 @@ module usergamic
 
         integer :: i
         if (Model%Ri == 1) then
-            i = 0
             !gFlx(Gr%is,:,:,DEN,IDIR,BLK) = 0.0
-            ! gFlx(Gr%is:Gr%is+iSh,:,:,1:NVAR,1:NDIM,:) = 0.0
-            ! if (present(mFlx)) then
-            !     mFlx(Gr%is:Gr%is+iSh,:,:,1:NDIM,1:NDIM) = 0.0
-            ! endif
+            gFlx(Gr%is:Gr%is+iSh,:,:,1:NVAR,1:NDIM,:) = 0.0
+            if (present(mFlx)) then
+                mFlx(Gr%is:Gr%is+iSh,:,:,1:NDIM,1:NDIM) = 0.0
+            endif
         endif
+
     end subroutine InnerFlux
 !---
+    subroutine CoroEFix(Model,Gr,State)
+        type(Model_T), intent(in) :: Model
+        type(Grid_T), intent(in) :: Gr
+        type(State_T), intent(inout) :: State
+
+        integer :: i,j,k,iG
+        real(rp), dimension(NDIM) :: x0,xE,ehat,Exyz
+
+        !$OMP PARALLEL DO default(shared) collapse(2) &
+        !$OMP private(i,j,k,iG,x0,xE,ehat,Exyz) 
+        do i=Gr%is,Gr%is+iSh+1
+            do k=Gr%ks,Gr%keg-1
+                do j=Gr%js,Gr%jeg-1
+
+                    x0 = Gr%xyz(i,j,k,:)
+
+                    !IDIR
+                    xE = Gr%xyz(i+1,j,k,:)
+                    ehat = normVec(xE-x0)
+                    Exyz = CorotationE(0.5*(x0+xE),Model%t)
+                    State%Efld(i,j,k,IDIR) = Gr%edge(i,j,k,IDIR)*dot_product(ehat,Exyz)
+
+                    !JDIR
+                    xE = Gr%xyz(i,j+1,k,:)
+                    ehat = normVec(xE-x0)
+                    Exyz = CorotationE(0.5*(x0+xE),Model%t)
+                    State%Efld(i,j,k,JDIR) = Gr%edge(i,j,k,JDIR)*dot_product(ehat,Exyz)
+
+                    !KDIR
+                    xE = Gr%xyz(i,j,k+1,:)
+                    ehat = normVec(xE-x0)
+                    Exyz = CorotationE(0.5*(x0+xE),Model%t)
+                    State%Efld(i,j,k,KDIR) = Gr%edge(i,j,k,KDIR)*dot_product(ehat,Exyz)
+                enddo
+            enddo
+        enddo
+
+    end subroutine CoroEFix
+
     subroutine PerStep(Model,Gr,State)
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(inout) :: Gr

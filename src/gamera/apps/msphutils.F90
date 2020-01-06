@@ -3,6 +3,7 @@
 module msphutils
     use kdefs
     use gamtypes
+    use volttypes
     use gamutils
     use math, magRampDown => CubicRampDown
     use gridutils
@@ -130,6 +131,8 @@ module msphutils
 
         !Add gravity if required
         if (Model%doGrav) then
+            !Force spherical gravity (zap non-radial components)
+            Model%doSphGrav = .true.
             Model%Phi => PhiGrav
         endif
 
@@ -814,8 +817,8 @@ module msphutils
         do k=Gr%ks,Gr%ke
             do j=Gr%js,Gr%je
                 do i=Gr%is,Gr%ie
-                    doInD = (Gr%Gas0(i,j,k,DEN)>TINY)
-                    doInP = (Gr%Gas0(i,j,k,PRESSURE)>TINY)
+                    doInD = (Gr%Gas0(i,j,k,IMDEN)>TINY)
+                    doInP = (Gr%Gas0(i,j,k,IMPR )>TINY)
                     doIngest = doInD .or. doInP
 
                     if (.not. doIngest) cycle
@@ -823,17 +826,18 @@ module msphutils
                     pCon = State%Gas(i,j,k,:,BLK)
                     call CellC2P(Model,pCon,pW)
 
-                    Tau = BouncePeriod(Model,Gr%xyzcc(i,j,k,:))
-                    !Tau = 60.0*5.0/Model%Units%gT0
-
+                    !Get timescale, taking directly from Gas0
+                    !Tau = Gr%Gas0(i,j,k,IMLSCL)*Gr%Gas0(i,j,k,IMTSCL)/Model%Ca
+                    Tau = Gr%Gas0(i,j,k,IMTSCL)
                     if (doInD) then
-                        dRho = Gr%Gas0(i,j,k,DEN) - pW(DEN)
+                        dRho = Gr%Gas0(i,j,k,IMDEN) - pW(DEN)
                         pW(DEN) = pW(DEN) + (Model%dt/Tau)*max(0.0,dRho)
                     endif
                     if (doInP) then
-                        dP = Gr%Gas0(i,j,k,PRESSURE) - pW(PRESSURE)
-                        pW(PRESSURE) = pW(PRESSURE) + (Model%dt/Tau)*max(0.0,dP)
-                        !pW(PRESSURE) = pW(PRESSURE) + (Model%dt/Tau)*dP
+                        dP = Gr%Gas0(i,j,k,IMPR) - pW(PRESSURE)
+                        pW(PRESSURE) = pW(PRESSURE) + (Model%dt/Tau)*dP
+                        !pW(PRESSURE) = pW(PRESSURE) + (Model%dt/Tau)*max(0.0,dP)
+                        
                     endif
 
                     !Now put back

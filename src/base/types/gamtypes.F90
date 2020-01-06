@@ -76,7 +76,7 @@ module gamtypes
 
         logical :: doHall=.false., doMultiF=.false., &
                    doBackground=.false. , doMHD=.false.
-        logical :: do25D =.false., doGrav = .false.
+        logical :: do25D =.false., doGrav = .false., doSphGrav = .false.
         
         logical :: isRestart=.false.
         logical :: doDivB=.false. !Output DivB

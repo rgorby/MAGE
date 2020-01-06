@@ -1,4 +1,5 @@
       SUBROUTINE tomhd (RM,rec, ierr)
+      USE earthhelper, ONLY : GallagherXY
       USE rcm_precision
       USE Rcm_mod_subs, ONLY : isize, jsize, kcsize,jwrap, nptmax, &
                               colat, aloct, v, birk, &
@@ -215,7 +216,9 @@
          if(use_plasmasphere)then
 ! add a simple plasmasphere model based on carpenter 1992 or gallagher 2002 in ples/cc
 !           call carpenter(rmin(i,j),dens_plasmasphere)
-            call gallagher(rmin(i,j),dens_plasmasphere)
+            dens_plasmasphere = GallagherXY(xmin(i,j),ymin(i,j))
+
+            !call gallagher(rmin(i,j),dens_plasmasphere)
             densrcm(i,j) = densrcm(i,j) + dens_plasmasphere*1.0e6
          end if
       END DO

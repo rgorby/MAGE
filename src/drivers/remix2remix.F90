@@ -36,10 +36,6 @@ program remix2remix
   ! get time step
   call xmlInp%Set_Val(Step,"remix2remix/Step",0)
 
-  write(*,*) trim(inH5)
-  write(*,*) trim(outH5)
-  write(*,*) Step
-
   call CheckFileOrDie(inH5,"Couldn't find input h5 file. Exiting...")
   call CheckAndKill(outH5)
 
@@ -59,7 +55,7 @@ contains
     Narg = command_argument_count()
 
     if (.not.(Narg .eq. 1)) then
-       write(*,*) 'Usage: remix2remix <input deck file> <input hdf file> <output hdf file>'
+       write(*,*) 'Usage: remix2remix <input deck file>'
        stop
     else
        call get_command_argument(1,inpXML)

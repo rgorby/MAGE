@@ -19,7 +19,19 @@ module mhd2chmp_interface
         type(gamApp_T)  , intent(in)    :: gamApp
         type(ebTrcApp_T), intent(inout) :: ebTrcApp
 
+        real(rp) :: rIon
 
+        !Set lowlat BC
+        rIon = (RionE*1.0e+6)/REarth
+
+        !Get radius of second cell
+        associate(Gr=>gamApp%Grid)
+        mhd2chmp%Rin = norm2(Gr%xyz(Gr%is+1,Gr%js,Gr%ks,:))
+
+        end associate
+        mhd2chmp%lowlatBC = 90.0 - rad2deg*asin(sqrt(rIon/mhd2chmp%Rin)) !co-lat -> lat
+        mhd2chmp%lowlatBC = mhd2chmp%lowlatBC/rad2deg
+        
     end subroutine init_mhd2Chmp
 
     subroutine convertGameraToChimp(mhd2chmp,gamApp,ebTrcApp)
