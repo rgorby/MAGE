@@ -178,7 +178,7 @@ module msphutils
         real(rp), intent(in) :: T
         character(len=strLen), intent(out) :: tStr
 
-        if (T*gT0>60.0) then
+        if (abs(T*gT0)>60.0) then
             write(tStr,'(f9.3,a)' ) T*gT0/60.0, ' [min]'
         else
             write(tStr,'(es9.2,a)') T*gT0     , ' [sec]'

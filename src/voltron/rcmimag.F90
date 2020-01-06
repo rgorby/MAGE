@@ -25,7 +25,7 @@ module rcmimag
 
     real(rp), parameter :: RIonRCM = (RionE/REarth)*1.0e+6
     
-
+    real(rp), private :: rEqMin = 0.0
     integer, parameter :: MAXRCMIOVAR = 30
     character(len=strLen), private :: h5File
 
@@ -106,6 +106,9 @@ module rcmimag
         real(rp) :: llBC
         logical :: isLL
 
+        !Lazily grabbing rDeep here
+        rEqMin = vApp%rDeep
+
         llBC = vApp%mhd2chmp%lowlatBC
 
     !Get potential from mix
@@ -161,6 +164,7 @@ module rcmimag
         real(rp), intent(out) :: imW(NVARIMAG)
 
         real(rp) :: colat, alpha, beta, LScl
+        real(rp) :: rEq
         integer :: i0,j0,nLat,nLon
         logical :: isGood
 
@@ -183,10 +187,14 @@ module rcmimag
         nLon = RCMApp%nLon_ion
         if ( (i0 == 1) .or. (i0 == NLat) ) return !Ignore if too close to grid edge
 
+        rEq = norm2(RCMApp%X_bmin(i0,j0,:))
+
         !Now test that this cell is "comfortably" in the closed field region
         isGood = all( RCMApp%iopen(i0-1,1:nLon) == RCMTOPCLOSED ) .and. &
                  all( RCMApp%iopen(i0  ,1:nLon) == RCMTOPCLOSED ) .and. &
                  all( RCMApp%iopen(i0+1,1:nLon) == RCMTOPCLOSED )
+        isGood = isGood .and. (rEq <= rEqMin)
+
         if (isGood) then
             beta = RCMApp%beta_average(i0,j0)
             alpha = 1.0/(1.0 + beta*IMGAMMA/2.0)
@@ -197,7 +205,16 @@ module rcmimag
             imW(IMLSCL) = LScl
             imW(IMTSCL) = 1.0
         endif
+
+        ! !$OMP CRITICAL
+        ! write(*,*) '---'
+        ! write(*,*) 'MHD: lat/lon = ', lat*rad2deg,lon*rad2deg
+        ! write(*,*) 'MAP: lat/lon = ', rad2deg*(PI/2-RCMApp%gcolat(i0)),rad2deg*RCMApp%glong(j0)
+        ! write(*,*) 'i0/j0 = ',i0,j0
+        ! write(*,*) '---'
         
+        ! !$OMP END CRITICAL
+
     end subroutine EvalRCM
 !--------------
 !MHD=>RCM routines
@@ -291,7 +308,7 @@ module rcmimag
         ijTube%X_bmin(YDIR) = L*sin(lon)*Re_cgs*1.0e-2 !Re=>meters
         ijTube%X_bmin(ZDIR) = 0.0
         ijTube%bmin = mdipole/L**3.0
-        ijTube%iopen = -1
+        ijTube%iopen = RCMTOPCLOSED
         ijTube%pot = 0.0
 
         ijTube%beta_average = 0.0
