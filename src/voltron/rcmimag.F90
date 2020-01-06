@@ -161,20 +161,32 @@ module rcmimag
         real(rp), intent(out) :: imW(NVARIMAG)
 
         real(rp) :: colat, alpha, beta, LScl
-        integer :: i0,j0
+        integer :: i0,j0,nLat,nLon
         logical :: isGood
 
+        !Set defaults
+        imW(IMDEN ) = 0.0
+        imW(IMPR  ) = 0.0
+        imW(IMLSCL) = 0.0
+        imW(IMTSCL) = 1.0
+
         colat = PI/2 - lat
-        !Just find closest cell
+
+        !Do short cut tests
+        isGood = (colat >= minval(RCMApp%gcolat)) .and. (colat <= maxval(RCMApp%gcolat)) .and. (lat>TINY)
+        if (.not. isGood) return
+
+        !If still here now find closest cell
         i0 = minloc( abs(colat-RCMApp%gcolat),dim=1 )
         j0 = minloc( abs(lon  -RCMApp%glong ),dim=1 )
+        nLat = RCMApp%nLat_ion
+        nLon = RCMApp%nLon_ion
+        if ( (i0 == 1) .or. (i0 == NLat) ) return !Ignore if too close to grid edge
 
-        !Test for good cell
-        isGood = (colat >= minval(RCMApp%gcolat)) .and. (colat <= maxval(RCMApp%gcolat)) &
-                 & .and. (RCMApp%iopen(i0,j0) == -1) .and. (lat>TINY)
-
-        imW = 0.0
-
+        !Now test that this cell is "comfortably" in the closed field region
+        isGood = all( RCMApp%iopen(i0-1,1:nLon) == RCMTOPCLOSED ) .and. &
+                 all( RCMApp%iopen(i0  ,1:nLon) == RCMTOPCLOSED ) .and. &
+                 all( RCMApp%iopen(i0+1,1:nLon) == RCMTOPCLOSED )
         if (isGood) then
             beta = RCMApp%beta_average(i0,j0)
             alpha = 1.0/(1.0 + beta*IMGAMMA/2.0)
@@ -183,11 +195,6 @@ module rcmimag
             imW(IMDEN ) = RCMApp%Nrcm(i0,j0)*rcmNScl
             imW(IMPR  ) = RCMApp%Prcm(i0,j0)*rcmPScl*alpha
             imW(IMLSCL) = LScl
-            imW(IMTSCL) = 1.0
-        else
-            imW(IMDEN ) = 0.0
-            imW(IMPR  ) = 0.0
-            imW(IMLSCL) = 0.0
             imW(IMTSCL) = 1.0
         endif
         
@@ -238,26 +245,25 @@ module rcmimag
 
         end associate
 
-
     !Scale and store information
         ijTube%X_bmin = bEq
         ijTube%bmin = bMin
         select case(OCb)
         case(0)
             !Solar wind (is this right?)
-            ijTube%iopen = 1
+            ijTube%iopen = RCMTOPOPEN
             ijTube%Vol = -dvB
         case(1)
             !Open field
-            ijTube%iopen = 1
+            ijTube%iopen = RCMTOPOPEN
             ijTube%Vol = -dvB
         case(2)
             !Closed field
-            ijTube%iopen = -1
+            ijTube%iopen = RCMTOPCLOSED
             ijTube%Vol = dvB
         case default
             !WTF? (timeout)
-            ijTube%iopen = 1
+            ijTube%iopen = RCMTOPOPEN
             ijTube%Vol = -1
         end select
 
@@ -296,43 +302,6 @@ module rcmimag
 
     end subroutine DipoleTube
 
-    !Lazy test flux tube
-    subroutine oDipoleTube(vApp,lat,lon,ijTube)
-        type(voltApp_T), intent(in) :: vApp
-        real(rp), intent(in) :: lat,lon
-        type(RCMTube_T), intent(out) :: ijTube
-
-        real(rp) :: L,colat
-
-        real(rp) :: mdipole = 3.0e-5 ! dipole moment in T
-        real(rp) :: Lmax = 4.0 ! location of Pressure max
-        real(rp) :: pmax = 5.0e-8 ! pressure max in Pa
-        real(rp) :: pmin = 1.0e-11 ! min BG pressure in Pa
-        real(rp) :: nmax = 1.0e7 ! dens in ple/m^3
-        real(rp) :: nmin = 1.0e4 ! min dens in ple/m^3
-        real(rp) :: potmax = 5.0e4 ! potential max
-        real(rp) :: re = 6380.e3
-        real(rp) :: colat_boundary
-
-        colat = PI/2 - lat
-        L = 1.0/(sin(colat)**2.0)
-        ijTube%Vol =32./35.*L**4.0/mdipole
-        ijTube%X_bmin(XDIR) = L*cos(lon)*re
-        ijTube%X_bmin(YDIR) = L*sin(lon)*re
-        ijTube%X_bmin(ZDIR) = 0.0
-        ijTube%bmin = mdipole/L**3.0
-        ijTube%iopen = -1
-        ijTube%beta_average = 0.1
-        ijTube%Pave = pmax*exp(-(L-Lmax)**2.0) + pmin
-        ijTube%Nave = nmax*exp(-(L-Lmax)**2.0) + nmin
-        colat_boundary = PI/4.0
-        if (colat < colat_boundary) then
-            ijTube%pot = -potmax/2.0*sin(lon)*sin(colat)
-        else
-            ijTube%pot = -potmax/2.0*sin(lon)*sin(colat_boundary)/sin(colat)
-        endif
-
-    end subroutine oDipoleTube
 
 !--------------
 !Kaiju RCM IO Routines

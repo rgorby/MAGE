@@ -7451,12 +7451,7 @@ bjmod_real = MODULO(bj-REAL(jwrap),REAL(jsize-jwrap-1)) + REAL(jwrap)
         endif !isGAMRCM
       END IF
 
-
-
-
-
       ! IF hot restart, read V and check the time label:
-
       IF (.NOT.IsCoupledExternally) THEN
 !        IF (itimei /= 0) THEN
          IF (irdr /= 1) THEN
@@ -7886,7 +7881,8 @@ bjmod_real = MODULO(bj-REAL(jwrap),REAL(jsize-jwrap-1)) + REAL(jwrap)
           !Pull 1D arrays
           call IOArray1DFill(IOVars,"rcmetac",etac)
           call IOArray1DFill(IOVars,"rcmbndloc",bndloc)
-
+          call IOArray1DFill(IOVars,"alamc",alamc)
+          
           !Pull 3D arrays
           call IOArray3DFill(IOVars,"rcmeavg",eavg)
           call IOArray3DFill(IOVars,"rcmeeta",eeta)
@@ -7965,6 +7961,9 @@ bjmod_real = MODULO(bj-REAL(jwrap),REAL(jsize-jwrap-1)) + REAL(jwrap)
 
           call AddOutVar(IOVars,"rcmv",v)
           call AddOutVar(IOVars,"rcmvavg",v_avg)
+
+        !Extra stuff not in write_array
+          call AddOutVar(IOVars,"alamc",alamc)
 
         !Done staging output, now let er rip
           if (isRestart) then

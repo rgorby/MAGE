@@ -8,6 +8,7 @@ module rcm_mhd_interfaces
   implicit none
   integer(ip), parameter :: RCMINIT=0,RCMADVANCE=1,RCMRESTART=2,RCMWRITERESTART=-2,RCMWRITEOUTPUT=-3,RCMWRITETIMING=-1
   logical :: doRCMVerbose = .false.
+  integer(ip), parameter :: RCMTOPCLOSED=-1,RCMTOPOPEN=+1
 
   type rcm_mhd_T
   integer(iprec) :: nLat_ion 
@@ -35,5 +36,6 @@ module rcm_mhd_interfaces
 
   integer(iprec) :: rcm_nOut,rcm_nRes !Indices for output/restart
   character(len=strLen) :: rcm_runid
+  
   end type rcm_mhd_T
 end module rcm_mhd_interfaces
