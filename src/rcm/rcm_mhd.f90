@@ -121,7 +121,7 @@ subroutine rcm_mhd(mhdtime,mhdtimedt,RM,iflag)
     ! restart
     if (iflag == RCMRESTART) then
       !HDF5 RESTART
-      write(*,*) 'RCM-ICONRES'
+      write(*,*) 'RCM-ICONRES (MHD-RCM)'
       !Read in HDF5 restart data
       CALL Rcm (itimei, itimef, irdr, irdw, idt, idt1, idt2,icontrol=ICONRESTART,stropt=RM%rcm_runid,nslcopt=RM%RCM_nRes)
       !Reset timing for record business
@@ -129,7 +129,7 @@ subroutine rcm_mhd(mhdtime,mhdtimedt,RM,iflag)
       call find_record(itimei,rcm_timing,rec)
       irdr = rec
       irdw = rec
-      write(*,*) 'Done RCM-ICONRES'
+      write(*,*) 'Done RCM-ICONRES (MHD-RCM)'
       return
     endif
 

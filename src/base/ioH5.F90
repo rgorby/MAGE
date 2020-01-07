@@ -34,7 +34,7 @@ contains
         character(len=*), intent(in) :: vID
         integer :: nvar
         integer :: vOut
-        nvar = FindIO(IOVars,vID)
+        nvar = FindIO(IOVars,vID,.true.)
         vOut = IOVars(nvar)%data(1)
     end function GetIOInt
 
@@ -44,7 +44,7 @@ contains
         integer :: nvar
 
         real(rp) :: vOut
-        nvar = FindIO(IOVars,vID)
+        nvar = FindIO(IOVars,vID,.true.)
         vOut = IOVars(nvar)%data(1)
     end function GetIOReal
 !-------------------------------------------   

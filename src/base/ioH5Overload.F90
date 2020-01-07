@@ -18,11 +18,19 @@ module ioH5Overload
 !-------------------------------------------
 !Simple helper functions for navigating IOVars_T
     !Finds element of IO chain matching input id-string
-    function FindIO(IOVars,inStr) result(nOut)
+    function FindIO(IOVars,inStr,doFailO) result(nOut)
         type(IOVAR_T), dimension(:), intent(in) :: IOVars
         character(len=*), intent(in) :: inStr
+        logical, intent(in), optional :: doFailO
 
         integer :: nOut, Nv,i
+        logical :: doFail
+
+        if (present(doFailO)) then
+            doFail = doFailO
+        else
+            doFail = .false.
+        endif
         nOut = -1
         Nv = size(IOVars)
         do i=1,Nv
@@ -30,6 +38,13 @@ module ioH5Overload
                 nOut = i
             endif
         enddo
+
+        if ( (nOut == 1) .and. doFail ) then
+            !Failed to find variable, blow this thing up
+            write(*,*) 'Failed to find variable: ', trim(inStr)
+            write(*,*) 'Exiting ...'
+            stop
+        endif
     end function FindIO
 
     !Finds first unused element of IO chain
@@ -58,7 +73,7 @@ module ioH5Overload
         real(rp), dimension(:), intent(inout) :: Q
 
         integer :: nvar
-        nvar = FindIO(IOVars,vID)
+        nvar = FindIO(IOVars,vID,.true.)
         Q = IOVars(nvar)%data
     end subroutine IOArray1DFill
 
@@ -69,7 +84,7 @@ module ioH5Overload
         real(rp), dimension(:,:), intent(inout) :: Q
 
         integer :: nvar
-        nvar = FindIO(IOVars,vID)
+        nvar = FindIO(IOVars,vID,.true.)
         Q = reshape(IOVars(nvar)%data,[IOVars(nvar)%dims(1),IOVars(nvar)%dims(2)])
     end subroutine IOArray2DFill
 
@@ -80,7 +95,7 @@ module ioH5Overload
         real(rp), dimension(:,:,:), intent(inout) :: Q
 
         integer :: nvar
-        nvar = FindIO(IOVars,vID)
+        nvar = FindIO(IOVars,vID,.true.)
         Q = reshape(IOVars(nvar)%data,[IOVars(nvar)%dims(1),IOVars(nvar)%dims(2),IOVars(nvar)%dims(3)])
     end subroutine IOArray3DFill
 

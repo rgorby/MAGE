@@ -65,9 +65,8 @@ module rcmimag
         RCMApp%rcm_runid = trim(RunID)
 
         if (isRestart) then
-            write(*,*) 't0 = ',t0
             RCMApp%rcm_nRes = nRes
-            write(*,*) 'Restarting RCM ...'
+            write(*,*) 'Restarting RCM @ t = ', t0
             call rcm_mhd(t0,dtCpl,RCMApp,RCMRESTART)
             write(*,*) 'Finished RCM restart ...'
             call init_rcm_mix(RCMApp)

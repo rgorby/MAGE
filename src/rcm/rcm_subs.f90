@@ -7843,13 +7843,14 @@ bjmod_real = MODULO(bj-REAL(jwrap),REAL(jsize-jwrap-1)) + REAL(jwrap)
           call AddInVar(IOVars,"rcmvavg")
 
 
-          write(*,*) 'Reading data ...'
+          write(*,*) 'Reading RCM restart data ...'
         !Now do actual reading
           call ReadVars(IOVars,doSP,H5File)
 
-          write(*,*) 'Done reading data ...'
+          write(*,*) 'Done reading RCM restart data ...'
         !Parse data and put it where it goes, need to do each variable
           !Scalars
+          write(*,*) '-- Reading scalars ...'
           itimei = GetIOInt(IOVars,"itimei")
           irdw   = GetIOInt(IOVars,"irdw")
           
@@ -7862,6 +7863,7 @@ bjmod_real = MODULO(bj-REAL(jwrap),REAL(jsize-jwrap-1)) + REAL(jwrap)
           kp     = GetIOReal(IOVars,"kp")
 
           !Pull 2D arrays
+          write(*,*) '-- Reading 2D arrays ...'
           call IOArray2DFill(IOVars,"rcmxmin",xmin)
           call IOArray2DFill(IOVars,"rcmymin",ymin)
           call IOArray2DFill(IOVars,"rcmzmin",zmin)
@@ -7879,16 +7881,18 @@ bjmod_real = MODULO(bj-REAL(jwrap),REAL(jsize-jwrap-1)) + REAL(jwrap)
           call IOArray2DFill(IOVars,"rcmpedpsi",pedpsi)
 
           !Pull 1D arrays
+          write(*,*) '-- Reading 1D arrays ...'
           call IOArray1DFill(IOVars,"rcmetac",etac)
           call IOArray1DFill(IOVars,"rcmbndloc",bndloc)
           call IOArray1DFill(IOVars,"alamc",alamc)
           
           !Pull 3D arrays
+          write(*,*) '-- Reading 3D arrays ...'
           call IOArray3DFill(IOVars,"rcmeavg",eavg)
           call IOArray3DFill(IOVars,"rcmeeta",eeta)
           call IOArray3DFill(IOVars,"rcmeetaavg",eeta_avg)
           call IOArray3DFill(IOVars,"rcmeflux",eflux)
-
+          write(*,*) '-- Done Reading 3D arrays ...'
         end subroutine ReadRCMRestart
 
 
