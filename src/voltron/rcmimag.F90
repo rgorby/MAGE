@@ -205,15 +205,6 @@ module rcmimag
             imW(IMTSCL) = 1.0
         endif
 
-        ! !$OMP CRITICAL
-        ! write(*,*) '---'
-        ! write(*,*) 'MHD: lat/lon = ', lat*rad2deg,lon*rad2deg
-        ! write(*,*) 'MAP: lat/lon = ', rad2deg*(PI/2-RCMApp%gcolat(i0)),rad2deg*RCMApp%glong(j0)
-        ! write(*,*) 'i0/j0 = ',i0,j0
-        ! write(*,*) '---'
-        
-        ! !$OMP END CRITICAL
-
     end subroutine EvalRCM
 !--------------
 !MHD=>RCM routines

@@ -42,6 +42,10 @@ module ioH5Overload
         if ( (nOut == 1) .and. doFail ) then
             !Failed to find variable, blow this thing up
             write(*,*) 'Failed to find variable: ', trim(inStr)
+            write(*,*) 'Variables present: '
+            do i=1,Nv
+                write(*,*) '-- ', trim(toUpper(IOVars(i)%idStr))
+            enddo
             write(*,*) 'Exiting ...'
             stop
         endif
