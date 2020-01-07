@@ -7282,11 +7282,10 @@ bjmod_real = MODULO(bj-REAL(jwrap),REAL(jsize-jwrap-1)) + REAL(jwrap)
       ENDIF
       IF (icontrol == ICONRESTART) then
         !Read HDF5 restart
-        write(*,*) "Reading RCM restart (RCM side)"
         call ReadRCMRestart(stropt,nslcopt)
-        write(*,*) "Done reading RCM restart (RCM side)"
         return
       ENDIF
+
    IF (icontrol == 0) then  ! initialize RCM size params and go back:
 
       IF (.NOT.Check_logical_units ( ) ) STOP 'LUNs NOT AVAILABLE'
@@ -7306,8 +7305,6 @@ bjmod_real = MODULO(bj-REAL(jwrap),REAL(jsize-jwrap-1)) + REAL(jwrap)
       RETURN
 
    END IF
-
-
 
    IF (icontrol == 1) then   ! initialize RCM grid, energy channels, quit:
       CALL Read_grid ()
@@ -7390,8 +7387,6 @@ bjmod_real = MODULO(bj-REAL(jwrap),REAL(jsize-jwrap-1)) + REAL(jwrap)
 
       endif !isGAMRCM
 
-
-
       CALL SYSTEM_CLOCK (timer_stop(1), count_rate)      
       timer_values (1) = (timer_stop (1) - timer_start (1))/count_rate + timer_values(1)
 
@@ -7438,6 +7433,9 @@ bjmod_real = MODULO(bj-REAL(jwrap),REAL(jsize-jwrap-1)) + REAL(jwrap)
       ELSE
         if (isGAMRCM) then
           imin_j = CEILING (bndloc)
+          !If on first record, create fresh binary files
+          if (irdr == 1) CALL Disk_write_arrays ()
+
         else  
           CALL Read_array (rcmdir//'rcmbndloc', irdr, label, ARRAY_1D = bndloc)
           imin_j = CEILING (bndloc)
@@ -7796,7 +7794,7 @@ bjmod_real = MODULO(bj-REAL(jwrap),REAL(jsize-jwrap-1)) + REAL(jwrap)
 
           write (H5File, '(A,A,I0.5,A)') trim(runid), ".RCM.Res.", nres, ".h5"
 
-          write(*,*) 'Restarting with file, ', trim(H5File)
+          write(*,*) 'Restarting RCM with file, ', trim(H5File)
           call ClearIO(IOVars) !Reset IO chain
 
         !List variables to read
@@ -7842,15 +7840,14 @@ bjmod_real = MODULO(bj-REAL(jwrap),REAL(jsize-jwrap-1)) + REAL(jwrap)
           call AddInVar(IOVars,"rcmv")
           call AddInVar(IOVars,"rcmvavg")
 
-
-          write(*,*) 'Reading RCM restart data ...'
+          !Extra stuff (not in write arrays)
+          call AddInVar(IOVars,"alamc")
+          
         !Now do actual reading
           call ReadVars(IOVars,doSP,H5File)
 
-          write(*,*) 'Done reading RCM restart data ...'
         !Parse data and put it where it goes, need to do each variable
           !Scalars
-          write(*,*) '-- Reading scalars ...'
           itimei = GetIOInt(IOVars,"itimei")
           irdw   = GetIOInt(IOVars,"irdw")
           
@@ -7863,7 +7860,6 @@ bjmod_real = MODULO(bj-REAL(jwrap),REAL(jsize-jwrap-1)) + REAL(jwrap)
           kp     = GetIOReal(IOVars,"kp")
 
           !Pull 2D arrays
-          write(*,*) '-- Reading 2D arrays ...'
           call IOArray2DFill(IOVars,"rcmxmin",xmin)
           call IOArray2DFill(IOVars,"rcmymin",ymin)
           call IOArray2DFill(IOVars,"rcmzmin",zmin)
@@ -7881,21 +7877,17 @@ bjmod_real = MODULO(bj-REAL(jwrap),REAL(jsize-jwrap-1)) + REAL(jwrap)
           call IOArray2DFill(IOVars,"rcmpedpsi",pedpsi)
 
           !Pull 1D arrays
-          write(*,*) '-- Reading 1D arrays ...'
           call IOArray1DFill(IOVars,"rcmetac",etac)
           call IOArray1DFill(IOVars,"rcmbndloc",bndloc)
           call IOArray1DFill(IOVars,"alamc",alamc)
           
           !Pull 3D arrays
-          write(*,*) '-- Reading 3D arrays ...'
           call IOArray3DFill(IOVars,"rcmeavg",eavg)
           call IOArray3DFill(IOVars,"rcmeeta",eeta)
           call IOArray3DFill(IOVars,"rcmeetaavg",eeta_avg)
           call IOArray3DFill(IOVars,"rcmeflux",eflux)
-          write(*,*) '-- Done Reading 3D arrays ...'
+          
         end subroutine ReadRCMRestart
-
-
 
         !HDF5 output routine 
         subroutine WriteRCMH5(runid,nStp,isRestart)

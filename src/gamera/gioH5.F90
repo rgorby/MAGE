@@ -282,10 +282,10 @@ module gioH5
             call AddOutVar(IOVars,"Ez",gVec(:,:,:,ZDIR))
             
             if (Model%doSource) then
-                call GameraOut("SrcD","CODE",1.0,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,DEN))
-                call GameraOut("SrcP","CODE",1.0,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,PRESSURE))
+                call GameraOut("SrcD","CODE",1.0_rp,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,DEN))
+                call GameraOut("SrcP","CODE",1.0_rp,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,PRESSURE))
             endif
-            
+
             if(Model%doResistive) then
                 gVec(:,:,:,:) = State%Deta(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,XDIR:ZDIR)
                 call AddOutVar(IOVars,"Etax",gVec(:,:,:,XDIR))

@@ -121,16 +121,28 @@ subroutine rcm_mhd(mhdtime,mhdtimedt,RM,iflag)
     ! restart
     if (iflag == RCMRESTART) then
       !HDF5 RESTART
-      write(*,*) 'RCM-ICONRES (MHD-RCM)'
-      !Read in HDF5 restart data
-      CALL Rcm (itimei, itimef, irdr, irdw, idt, idt1, idt2,icontrol=ICONRESTART,stropt=RM%rcm_runid,nslcopt=RM%RCM_nRes)
-      !Reset timing for record business
-      call read_rcm_timing(rcm_timing)
-      call find_record(itimei,rcm_timing,rec)
+      
+      !Check if timing file exists
+      if ( CheckFile(Rcmdir//"rcm_timing.dat") ) then
+        !Reset timing for record business
+        call read_rcm_timing(rcm_timing)
+        call find_record(itimei,rcm_timing,rec)
+      else
+        !Create basic setup
+        rec = 1
+        call  AddToList(itimei,rcm_timing )
+        !Write null timing data
+        call write_rcm_timing(rcm_timing)
+      endif
+      
       irdr = rec
       irdw = rec
-      write(*,*) 'Done RCM-ICONRES (MHD-RCM)'
+
+      !Read in HDF5 restart data
+      CALL Rcm (itimei, itimef, irdr, irdw, idt, idt1, idt2,icontrol=ICONRESTART,stropt=RM%rcm_runid,nslcopt=RM%RCM_nRes)
+
       return
+
     endif
 
     if(itimei>0)then

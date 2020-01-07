@@ -105,8 +105,8 @@ module rcmimag
         real(rp) :: llBC
         logical :: isLL
 
-        !Lazily grabbing rDeep here
-        rEqMin = vApp%rDeep
+        !Lazily grabbing rDeep here, convert to RCM units
+        rEqMin = vApp%rDeep*Re_cgs*1.0e-2 !Re=>meters
 
         llBC = vApp%mhd2chmp%lowlatBC
 
@@ -193,7 +193,7 @@ module rcmimag
                  all( RCMApp%iopen(i0  ,1:nLon) == RCMTOPCLOSED ) .and. &
                  all( RCMApp%iopen(i0+1,1:nLon) == RCMTOPCLOSED )
         isGood = isGood .and. (rEq <= rEqMin)
-
+        
         if (isGood) then
             beta = RCMApp%beta_average(i0,j0)
             alpha = 1.0/(1.0 + beta*IMGAMMA/2.0)

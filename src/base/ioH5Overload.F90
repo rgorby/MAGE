@@ -39,11 +39,12 @@ module ioH5Overload
             endif
         enddo
 
-        if ( (nOut == 1) .and. doFail ) then
+        if ( (nOut == -1) .and. doFail ) then
             !Failed to find variable, blow this thing up
+            Nv = NextIO(IOVars)
             write(*,*) 'Failed to find variable: ', trim(inStr)
             write(*,*) 'Variables present: '
-            do i=1,Nv
+            do i=1,Nv-1
                 write(*,*) '-- ', trim(toUpper(IOVars(i)%idStr))
             enddo
             write(*,*) 'Exiting ...'
@@ -66,6 +67,11 @@ module ioH5Overload
             endif
         enddo
 
+        if (nOut == Nv) then
+            !No more room left
+            write(*,*) 'ERROR: Overflow on IO Chain, exiting ...'
+            stop
+        endif
     end function NextIO
 
 !-------------------------------------------
