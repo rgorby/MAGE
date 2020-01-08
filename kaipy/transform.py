@@ -33,7 +33,6 @@ x,y,z = GEOtoSM(x,y,z,dateTime)   - convert from geographic to SM coordinates
 x,y,z = SMtoGEO(x,y,z,dateTime)   - convert from SM to geographic coordinates
 """
 
-import kaipy
 import numpy as np
 import datetime
 
@@ -62,8 +61,8 @@ def SPHtoCAR(phi,theta,rho,dphi=None,dtheta=None,drho=None):
          ##        optimized...Geopack should be ported to Python, or re-written
          ##        to accept array inputs, if speed is an issue. -EJR 10/2013
          ##
-         #output = kaipy.transform.geopack_08.sphcar_08(rho,theta,phi,0.,0.,0., iSPHtoCAR)
-         v_gp08 = np.vectorize(kaipy.transform.geopack_08.sphcar_08)
+         #output = geopack_08.sphcar_08(rho,theta,phi,0.,0.,0., iSPHtoCAR)
+         v_gp08 = np.vectorize(geopack_08.sphcar_08)
          output = v_gp08(rho,theta,phi, 0.,0.,0., iSPHtoCAR)
          
          ## if scalar inputs, generate scalar outputs -EJR 10/2013
@@ -85,12 +84,12 @@ def SPHtoCAR(phi,theta,rho,dphi=None,dtheta=None,drho=None):
       ##        to accept array inputs, if speed is an issue. -EJR 10/2013
       ##
       
-      #output = kaipy.transform.geopack_08.sphcar_08(rho,theta,phi,0.,0.,0., iSPHtoCAR)
-      v_gp08a = np.vectorize(kaipy.transform.geopack_08.sphcar_08)
+      #output = geopack_08.sphcar_08(rho,theta,phi,0.,0.,0., iSPHtoCAR)
+      v_gp08a = np.vectorize(geopack_08.sphcar_08)
       _,_,_,x,y,z,_ = v_gp08a(rho,theta,phi, 0.,0.,0., iSPHtoCAR)
       
-      #dx,dy,dz = kaipy.transform.geopack_08.bspcar_08(theta,phi,drho,dtheta,dphi)
-      v_gp08b = np.vectorize(kaipy.transform.geopack_08.bspcar_08)
+      #dx,dy,dz = geopack_08.bspcar_08(theta,phi,drho,dtheta,dphi)
+      v_gp08b = np.vectorize(geopack_08.bspcar_08)
       dx,dy,dz = v_gp08b(theta,phi, drho,dtheta,dphi)
       
       ## if all scalar inputs, return scalar outputs, otherwise ndarrays -EJR 10/2013
@@ -122,8 +121,8 @@ def CARtoSPH(x,y,z,dx=None,dy=None,dz=None):
          ##        optimized...Geopack should be ported to Python, or re-written
          ##        to accept array inputs, if speed is an issue. -EJR 10/2013
          ##
-         #output = kaipy.transform.geopack_08.sphcar_08(0.,0.,0.,x,y,z, iSPHtoCAR)
-         v_gp08 = np.vectorize(kaipy.transform.geopack_08.sphcar_08)
+         #output = geopack_08.sphcar_08(0.,0.,0.,x,y,z, iSPHtoCAR)
+         v_gp08 = np.vectorize(geopack_08.sphcar_08)
          output = v_gp08(0.,0.,0.,x,y,z, iSPHtoCAR)
          
          ## if scalar inputs, generate scalar outputs -EJR 10/2013
@@ -145,12 +144,12 @@ def CARtoSPH(x,y,z,dx=None,dy=None,dz=None):
       ##        to accept array inputs, if speed is an issue. -EJR 10/2013
       ##
       
-      #output = kaipy.transform.geopack_08.sphcar_08(0.,0.,0.,x,y,z, iSPHtoCAR)
-      v_gp08a = np.vectorize(kaipy.transform.geopack_08.sphcar_08)
+      #output = geopack_08.sphcar_08(0.,0.,0.,x,y,z, iSPHtoCAR)
+      v_gp08a = np.vectorize(geopack_08.sphcar_08)
       rho,theta,phi,_,_,_,_ = v_gp08a(0.,0.,0.,x,y,z, iSPHtoCAR)
       
-      #dx,dy,dz = kaipy.transform.geopack_08.bspcar_08(theta,phi,drho,dtheta,dphi)
-      v_gp08b = np.vectorize(kaipy.transform.geopack_08.bcarsp_08)
+      #dx,dy,dz = geopack_08.bspcar_08(theta,phi,drho,dtheta,dphi)
+      v_gp08b = np.vectorize(geopack_08.bcarsp_08)
       drho,dtheta,dphi = v_gp08b(x,y,z,dx,dy,dz)
       
       ## if scalar inputs, generate scalar outputs -EJR 10/2013
@@ -165,20 +164,20 @@ def SMtoGSM(x,y,z, dateTime):
     >>> SMtoGSM(1,2,3, datetime.datetime(2009,1,27,0,0,0)) # doctest:+ELLIPSIS
     (-0.126..., 2.0, 3.159...)
     """
-    if kaipy.transform.transformer == 'CXFORM':
-        (xGSM,yGSM,zGSM) = kaipy.transform.cxform.transform('SM','GSM',x,y,z,
+    if transformer == 'CXFORM':
+        (xGSM,yGSM,zGSM) = cxform.transform('SM','GSM',x,y,z,
                                                             dateTime.year, dateTime.month, dateTime.day,
                                                             dateTime.hour, dateTime.minute, dateTime.second)
         
         return (xGSM,yGSM,zGSM)
-    elif kaipy.transform.transformer == 'GEOPACK':
-        kaipy.transform.geopack.recalc(dateTime.year, dateTime.timetuple().tm_yday,
+    elif transformer == 'GEOPACK':
+        geopack.recalc(dateTime.year, dateTime.timetuple().tm_yday,
                                        dateTime.hour, dateTime.minute, dateTime.second)
         iSMtoGSM = 1
-        output = kaipy.transform.geopack.smgsm(x,y,z, 0.,0.,0., iSMtoGSM)
+        output = geopack.smgsm(x,y,z, 0.,0.,0., iSMtoGSM)
         return (output[3],output[4],output[5])
-    elif kaipy.transform.transformer == 'GEOPACK_08':
-        kaipy.transform.geopack_08.recalc_08(dateTime.year, dateTime.timetuple().tm_yday,
+    elif transformer == 'GEOPACK_08':
+        geopack_08.recalc_08(dateTime.year, dateTime.timetuple().tm_yday,
                                              dateTime.hour, dateTime.minute, dateTime.second,
                                              -400.0, 0.0, 0.0)
         iSMtoGSM = 1
@@ -188,8 +187,8 @@ def SMtoGSM(x,y,z, dateTime):
         ##        optimized...Geopack should be ported to Python, or re-written
         ##        to accept array inputs, if speed is an issue. -EJR 10/2013
         ##
-        #output = kaipy.transform.geopack_08.smgsw_08(x,y,z, 0.,0.,0., iSMtoGSM)
-        v_gp08 = np.vectorize(kaipy.transform.geopack_08.smgsw_08)
+        #output = geopack_08.smgsw_08(x,y,z, 0.,0.,0., iSMtoGSM)
+        v_gp08 = np.vectorize(geopack_08.smgsw_08)
         output = v_gp08(x,y,z, 0.,0.,0., iSMtoGSM)
         
         ## if scalar inputs, generate scalar outputs -EJR 10/2013
@@ -204,20 +203,20 @@ def GSMtoSM(x,y,z, dateTime):
     >>> GSMtoSM(1,2,3, datetime.datetime(2009,1,27,0,0,0)) # doctest:+ELLIPSIS
     (1.997..., 2.0, 2.451...)
     """
-    if kaipy.transform.transformer == 'CXFORM':
-        (xSM,ySM,zSM) = kaipy.transform.cxform.transform('GSM','SM',x,y,z,
+    if transformer == 'CXFORM':
+        (xSM,ySM,zSM) = cxform.transform('GSM','SM',x,y,z,
                                                          dateTime.year, dateTime.month, dateTime.day,
                                                          dateTime.hour, dateTime.minute, dateTime.second)
         
         return (xSM,ySM,zSM)
-    elif kaipy.transform.transformer == 'GEOPACK':
-        kaipy.transform.geopack.recalc(dateTime.year, dateTime.timetuple().tm_yday,
+    elif transformer == 'GEOPACK':
+        geopack.recalc(dateTime.year, dateTime.timetuple().tm_yday,
                                        dateTime.hour, dateTime.minute, dateTime.second)
         iSMtoGSM = -1
-        output = kaipy.transform.geopack.smgsm(0.,0.,0., x,y,z, iSMtoGSM)
+        output = geopack.smgsm(0.,0.,0., x,y,z, iSMtoGSM)
         return (output[0],output[1],output[2])
-    elif kaipy.transform.transformer == 'GEOPACK_08':
-        kaipy.transform.geopack_08.recalc_08(dateTime.year, dateTime.timetuple().tm_yday,
+    elif transformer == 'GEOPACK_08':
+        geopack_08.recalc_08(dateTime.year, dateTime.timetuple().tm_yday,
                                              dateTime.hour, dateTime.minute, dateTime.second,
                                              -400.0, 0.0, 0.0)
         iSMtoGSM = -1
@@ -227,8 +226,8 @@ def GSMtoSM(x,y,z, dateTime):
         ##        optimized...Geopack should be ported to Python, or re-written
         ##        to accept array inputs, if speed is an issue. -EJR 10/2013
         ##
-        #output = kaipy.transform.geopack_08.smgsw_08(0.,0.,0., x, y, z, iSMtoGSM)
-        v_gp08 = np.vectorize(kaipy.transform.geopack_08.smgsw_08)
+        #output = geopack_08.smgsw_08(0.,0.,0., x, y, z, iSMtoGSM)
+        v_gp08 = np.vectorize(geopack_08.smgsw_08)
         output = v_gp08(0., 0., 0., x, y, z, iSMtoGSM)
         
         ## if scalar inputs, generate scalar outputs -EJR 10/2013
@@ -243,19 +242,19 @@ def GSEtoGSM(x,y,z, dateTime):
     >>> GSEtoGSM(1,2,3, datetime.datetime(2009,1,27,0,0,0)) # doctest:+ELLIPSIS
     (0.99..., 0.540..., 3.564...)
     """
-    if kaipy.transform.transformer == 'CXFORM':
-        (xGSM,yGSM,zGSM) = kaipy.transform.cxform.transform('GSE','GSM', x,y,z,
+    if transformer == 'CXFORM':
+        (xGSM,yGSM,zGSM) = cxform.transform('GSE','GSM', x,y,z,
                                                             dateTime.year, dateTime.month, dateTime.day,
                                                             dateTime.hour, dateTime.minute, dateTime.second)
         return (xGSM,yGSM,zGSM)
-    elif kaipy.transform.transformer == 'GEOPACK':
-        kaipy.transform.geopack.recalc(dateTime.year, dateTime.timetuple().tm_yday,
+    elif transformer == 'GEOPACK':
+        geopack.recalc(dateTime.year, dateTime.timetuple().tm_yday,
                                        dateTime.hour, dateTime.minute, dateTime.second)
         iGSEtoGSM = -1
-        output = kaipy.transform.geopack.gsmgse(0.,0.,0., x,y,z, iGSEtoGSM)
+        output = geopack.gsmgse(0.,0.,0., x,y,z, iGSEtoGSM)
         return (output[0],output[1],output[2])
-    elif kaipy.transform.transformer == 'GEOPACK_08':
-        kaipy.transform.geopack_08.recalc_08(dateTime.year, dateTime.timetuple().tm_yday,
+    elif transformer == 'GEOPACK_08':
+        geopack_08.recalc_08(dateTime.year, dateTime.timetuple().tm_yday,
                                              dateTime.hour, dateTime.minute, dateTime.second,
                                              -400.0, 0.0, 0.0)
         iGSEtoGSM = -1
@@ -265,8 +264,8 @@ def GSEtoGSM(x,y,z, dateTime):
         ##        optimized...Geopack should be ported to Python, or re-written
         ##        to accept array inputs, if speed is an issue. -EJR 10/2013
         ##
-        #output = kaipy.transform.geopack_08.gswgse_08(0.,0.,0., x,y,z, iGSEtoGSM)
-        v_gp08 = np.vectorize(kaipy.transform.geopack_08.gswgse_08)
+        #output = geopack_08.gswgse_08(0.,0.,0., x,y,z, iGSEtoGSM)
+        v_gp08 = np.vectorize(geopack_08.gswgse_08)
         output = v_gp08(0., 0., 0., x, y, z, iGSEtoGSM)
         
         ## if scalar inputs, generate scalar outputs -EJR 10/2013
@@ -281,7 +280,7 @@ def HEEQtoGSM(x,y,z, dateTime):
     >>> HEEQtoGSM(1,2,3, datetime.datetime(2009,1,27,0,0,0)) # doctest:+ELLIPSIS
     (-0.69972..., -2.95..., 2.18...)
     """
-    (xGSM,yGSM,zGSM) = kaipy.transform.cxform.transform('HEEQ', 'GSM', x,y,z,
+    (xGSM,yGSM,zGSM) = cxform.transform('HEEQ', 'GSM', x,y,z,
                                                         dateTime.year, dateTime.month, dateTime.day,
                                                         dateTime.hour, dateTime.minute, dateTime.second)
     return (xGSM,yGSM,zGSM)
@@ -294,7 +293,7 @@ def GEOtoMAG(x,y,z, dateTime):
     >>> GEOtoMAG(-0.780, -0.613, 0.128, datetime.datetime(2009,1,27,0,0,0)) # doctest:+ELLIPSIS
     ()
     """
-    kaipy.transform.geopack_08.recalc_08(dateTime.year, dateTime.timetuple().tm_yday,
+    geopack_08.recalc_08(dateTime.year, dateTime.timetuple().tm_yday,
                                              dateTime.hour, dateTime.minute, dateTime.second,
                                              -400.0, 0.0, 0.0)
     
@@ -305,8 +304,8 @@ def GEOtoMAG(x,y,z, dateTime):
     ##        optimized...Geopack should be ported to Python, or re-written
     ##        to accept array inputs, if speed is an issue. -EJR 10/2013
     ##
-    #output = kaipy.transform.geopack_08.gswgse_08(x, y, z, 0.,0.,0., iGEOtoMAG)
-    v_gp08 = np.vectorize(kaipy.transform.geopack_08.geomag_08)
+    #output = geopack_08.gswgse_08(x, y, z, 0.,0.,0., iGEOtoMAG)
+    v_gp08 = np.vectorize(geopack_08.geomag_08)
     output = v_gp08(x, y, z, 0., 0., 0., iGEOtoMAG)
      
     ## if scalar inputs, generate scalar outputs -EJR 10/2013
@@ -321,7 +320,7 @@ def MAGtoGEO(x,y,z, dateTime):
     >>> MAGtoGEO(0.3133, -0.9313, 0.1857, datetime.datetime(2009,1,27,0,0,0)) # doctest:+ELLIPSIS
     ()
     """
-    kaipy.transform.geopack_08.recalc_08(dateTime.year, dateTime.timetuple().tm_yday,
+    geopack_08.recalc_08(dateTime.year, dateTime.timetuple().tm_yday,
                                              dateTime.hour, dateTime.minute, dateTime.second,
                                              -400.0, 0.0, 0.0)
     
@@ -332,8 +331,8 @@ def MAGtoGEO(x,y,z, dateTime):
     ##        optimized...Geopack should be ported to Python, or re-written
     ##        to accept array inputs, if speed is an issue. -EJR 10/2013
     ##
-    #output = kaipy.transform.geopack_08.gswgse_08(0.,0.,0., x, y, z, iGEOtoMAG)
-    v_gp08 = np.vectorize(kaipy.transform.geopack_08.geomag_08)
+    #output = geopack_08.gswgse_08(0.,0.,0., x, y, z, iGEOtoMAG)
+    v_gp08 = np.vectorize(geopack_08.geomag_08)
     output = v_gp08(0., 0., 0., x, y, z, iGEOtoMAG)
      
     ## if scalar inputs, generate scalar outputs -EJR 10/2013
@@ -346,7 +345,7 @@ def SMtoMAG(x,y,z, dateTime):
    """
    Converts solar magnetic coordinates to dipole magnetic coordinates
    """
-   kaipy.transform.geopack_08.recalc_08(dateTime.year, dateTime.timetuple().tm_yday,
+   geopack_08.recalc_08(dateTime.year, dateTime.timetuple().tm_yday,
                                              dateTime.hour, dateTime.minute, dateTime.second,
                                              -400.0, 0.0, 0.0)
    
@@ -358,7 +357,7 @@ def SMtoMAG(x,y,z, dateTime):
    ##        to accept array inputs, if speed is an issue. -EJR 12/2013
    ##
    
-   v_gp08 = np.vectorize(kaipy.transform.geopack_08.magsm_08)
+   v_gp08 = np.vectorize(geopack_08.magsm_08)
    output =  v_gp08(0., 0., 0., x, y, z, iSMtoMAG)
    
    ## if scalar inputs, generate scalar outputs -EJR 12/2013
@@ -370,7 +369,7 @@ def MAGtoSM(x,y,z, dateTime):
    """
    Converts dipole magnetic to solar magnetic coordinates
    """
-   kaipy.transform.geopack_08.recalc_08(dateTime.year, dateTime.timetuple().tm_yday,
+   geopack_08.recalc_08(dateTime.year, dateTime.timetuple().tm_yday,
                                              dateTime.hour, dateTime.minute, dateTime.second,
                                              -400.0, 0.0, 0.0)
    
@@ -382,7 +381,7 @@ def MAGtoSM(x,y,z, dateTime):
    ##        optimized...Geopack should be ported to Python, or re-written
    ##        to accept array inputs, if speed is an issue. -EJR 12/2013
    ##
-   v_gp08 = np.vectorize(kaipy.transform.geopack_08.magsm_08)
+   v_gp08 = np.vectorize(geopack_08.magsm_08)
    output =  v_gp08(x, y, z, 0., 0., 0., iMAGtoSM)
    
    ## if scalar inputs, generate scalar outputs -EJR 12/2013
@@ -395,7 +394,7 @@ def GEOtoGSM(x,y,z, dateTime):
    """
    Converts geographic to Geocentric Solar Magnetic coordinates
    """
-   kaipy.transform.geopack_08.recalc_08(dateTime.year, dateTime.timetuple().tm_yday,
+   geopack_08.recalc_08(dateTime.year, dateTime.timetuple().tm_yday,
                                              dateTime.hour, dateTime.minute, dateTime.second,
                                              -400.0, 0.0, 0.0)
    
@@ -407,7 +406,7 @@ def GEOtoGSM(x,y,z, dateTime):
    ##        optimized...Geopack should be ported to Python, or re-written
    ##        to accept array inputs, if speed is an issue. -EJR 12/2013
    ##
-   v_gp08 = np.vectorize(kaipy.transform.geopack_08.geogsw_08)
+   v_gp08 = np.vectorize(geopack_08.geogsw_08)
    output =  v_gp08(x, y, z, 0., 0., 0., iGEOtoGSM)
    
    ## if scalar inputs, generate scalar outputs -EJR 12/2013
@@ -419,7 +418,7 @@ def GSMtoGEO(x,y,z, dateTime):
    """
    Converts Geocentric Solar Magnetic to geographic coordinates
    """
-   kaipy.transform.geopack_08.recalc_08(dateTime.year, dateTime.timetuple().tm_yday,
+   geopack_08.recalc_08(dateTime.year, dateTime.timetuple().tm_yday,
                                              dateTime.hour, dateTime.minute, dateTime.second,
                                              -400.0, 0.0, 0.0)
    
@@ -431,7 +430,7 @@ def GSMtoGEO(x,y,z, dateTime):
    ##        optimized...Geopack should be ported to Python, or re-written
    ##        to accept array inputs, if speed is an issue. -EJR 12/2013
    ##
-   v_gp08 = np.vectorize(kaipy.transform.geopack_08.geogsw_08)
+   v_gp08 = np.vectorize(geopack_08.geogsw_08)
    output =  v_gp08(0., 0., 0., x, y, z, iGEOtoGSM)
    
    ## if scalar inputs, generate scalar outputs -EJR 12/2013
@@ -445,7 +444,7 @@ def GEOtoSM(x,y,z, dateTime):
    """
    Converts geographic to Solar Magnetic coordinates
    """
-   kaipy.transform.geopack_08.recalc_08(dateTime.year, dateTime.timetuple().tm_yday,
+   geopack_08.recalc_08(dateTime.year, dateTime.timetuple().tm_yday,
                                              dateTime.hour, dateTime.minute, dateTime.second,
                                              -400.0, 0.0, 0.0)
    
@@ -457,10 +456,10 @@ def GEOtoSM(x,y,z, dateTime):
    ##        optimized...Geopack should be ported to Python, or re-written
    ##        to accept array inputs, if speed is an issue. -EJR 12/2013
    ##
-   v_gp08a = np.vectorize(kaipy.transform.geopack_08.geogsw_08)
+   v_gp08a = np.vectorize(geopack_08.geogsw_08)
    _,_,_,xgsm,ygsm,zgsm =  v_gp08a(x, y, z, 0., 0., 0., iGEOtoGSM)
    
-   v_gp08b = np.vectorize(kaipy.transform.geopack_08.smgsw_08)
+   v_gp08b = np.vectorize(geopack_08.smgsw_08)
    xsm,ysm,zsm,_,_,_ =  v_gp08b(0., 0., 0., xgsm, ygsm, zgsm, iGSMtoSM)
    
    
@@ -473,7 +472,7 @@ def SMtoGEO(x,y,z, dateTime):
    """
    Converts Solar Magnetic to geographic coordinates
    """
-   kaipy.transform.geopack_08.recalc_08(dateTime.year, dateTime.timetuple().tm_yday,
+   geopack_08.recalc_08(dateTime.year, dateTime.timetuple().tm_yday,
                                              dateTime.hour, dateTime.minute, dateTime.second,
                                              -400.0, 0.0, 0.0)
    
@@ -486,10 +485,10 @@ def SMtoGEO(x,y,z, dateTime):
    ##        optimized...Geopack should be ported to Python, or re-written
    ##        to accept array inputs, if speed is an issue. -EJR 12/2013
    ##
-   v_gp08a = np.vectorize(kaipy.transform.geopack_08.smgsw_08)
+   v_gp08a = np.vectorize(geopack_08.smgsw_08)
    _,_,_,xgsm,ygsm,zgsm =  v_gp08a(x, y, z, 0., 0., 0., iSMtoGSM)
    
-   v_gp08b = np.vectorize(kaipy.transform.geopack_08.geogsw_08)
+   v_gp08b = np.vectorize(geopack_08.geogsw_08)
    xgeo,ygeo,zgeo,_,_,_ =  v_gp08b(0., 0., 0., xgsm, ygsm, zgsm, iGSMtoGEO)
    
    
