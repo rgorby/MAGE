@@ -146,13 +146,13 @@ module innermagsphere
                     endif
                     !Assuming density/pressure coming in #/cc and nPa
                     !Lengthscale is in Rx
-                    Gr%Gas0(i,j,k,:) = 0.0
+                    Gr%Gas0(i,j,k,:,:) = 0.0
 
-                    Gr%Gas0(i,j,k,IMDEN ) = imW(IMDEN)
-                    Gr%Gas0(i,j,k,IMPR  ) = imW(IMPR)/gApp%Model%Units%gP0
-                    Gr%Gas0(i,j,k,IMLSCL) = imW(IMLSCL)
+                    Gr%Gas0(i,j,k,IMDEN ,BLK) = imW(IMDEN)
+                    Gr%Gas0(i,j,k,IMPR  ,BLK) = imW(IMPR)/gApp%Model%Units%gP0
+                    Gr%Gas0(i,j,k,IMLSCL,BLK) = imW(IMLSCL)
                     !Interpreting IMTSCL as units of coupling timescale
-                    Gr%Gas0(i,j,k,IMTSCL) = vApp%DeepDT*imW(IMTSCL)/gApp%Model%Units%gT0
+                    Gr%Gas0(i,j,k,IMTSCL,BLK) = vApp%DeepDT*imW(IMTSCL)/gApp%Model%Units%gT0
                 enddo
             enddo
         enddo

@@ -817,8 +817,8 @@ module msphutils
         do k=Gr%ks,Gr%ke
             do j=Gr%js,Gr%je
                 do i=Gr%is,Gr%ie
-                    doInD = (Gr%Gas0(i,j,k,IMDEN)>TINY)
-                    doInP = (Gr%Gas0(i,j,k,IMPR )>TINY)
+                    doInD = (Gr%Gas0(i,j,k,IMDEN,BLK)>TINY)
+                    doInP = (Gr%Gas0(i,j,k,IMPR ,BLK)>TINY)
                     doIngest = doInD .or. doInP
 
                     if (.not. doIngest) cycle
@@ -828,15 +828,15 @@ module msphutils
 
                     !Get timescale, taking directly from Gas0
                     !Tau = Gr%Gas0(i,j,k,IMLSCL)*Gr%Gas0(i,j,k,IMTSCL)/Model%Ca
-                    Tau = Gr%Gas0(i,j,k,IMTSCL)
+                    Tau = Gr%Gas0(i,j,k,IMTSCL,BLK)
                     if (doInD) then
-                        dRho = Gr%Gas0(i,j,k,IMDEN) - pW(DEN)
+                        dRho = Gr%Gas0(i,j,k,IMDEN,BLK) - pW(DEN)
                         !pW(DEN) = pW(DEN) + (Model%dt/Tau)*max(0.0,dRho)
                         pW(DEN) = pW(DEN) + (Model%dt/Tau)*dRho
 
                     endif
                     if (doInP) then
-                        dP = Gr%Gas0(i,j,k,IMPR) - pW(PRESSURE)
+                        dP = Gr%Gas0(i,j,k,IMPR,BLK) - pW(PRESSURE)
                         pW(PRESSURE) = pW(PRESSURE) + (Model%dt/Tau)*dP
                         !pW(PRESSURE) = pW(PRESSURE) + (Model%dt/Tau)*max(0.0,dP)
                         
