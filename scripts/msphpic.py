@@ -95,6 +95,9 @@ if __name__ == "__main__":
 	if (doRCM):
 		print("Found RCM data")
 		rcmdata = gampp.GameraPipe(fdir,ftag+".mhdrcm")
+		vDD = kv.genNorm(1.0,1.0e+3,doLog=True)
+		if (doDen):
+			cVals = np.logspace(0.0,3.0,Nc)
 
 	if (nStp<0):
 		nStp = gsph.sFin
@@ -115,10 +118,13 @@ if __name__ == "__main__":
 	rmpp.cMax = 1.00
 	kv.genCB(AxC4,kv.genNorm(rmpp.cMax),"FAC",cM=rmpp.fcMap,Ntk=4)
 	rmpp.AddPotCB(AxC3)
-	kv.genCB(AxC2,vP,"Pressure",cM=pCMap)#,Ntk=6)
-
+	
 	if (doDen):
-		kv.genCB(AxC2,vDD,"Density [#/cc]",cM=dCMap,Ntk=7)
+		if (doRCM):
+			kv.genCB(AxC2,vDD,"Density [#/cc]",cM=dCMap)
+		else:
+			kv.genCB(AxC2,vDD,"Density [#/cc]",cM=dCMap,Ntk=7)
+		
 	else:
 		kv.genCB(AxC2,vP,"Pressure [nPa]",cM=pCMap)
 

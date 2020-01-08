@@ -831,7 +831,9 @@ module msphutils
                     Tau = Gr%Gas0(i,j,k,IMTSCL)
                     if (doInD) then
                         dRho = Gr%Gas0(i,j,k,IMDEN) - pW(DEN)
-                        pW(DEN) = pW(DEN) + (Model%dt/Tau)*max(0.0,dRho)
+                        !pW(DEN) = pW(DEN) + (Model%dt/Tau)*max(0.0,dRho)
+                        pW(DEN) = pW(DEN) + (Model%dt/Tau)*dRho
+
                     endif
                     if (doInP) then
                         dP = Gr%Gas0(i,j,k,IMPR) - pW(PRESSURE)
