@@ -199,7 +199,7 @@ module rcmimag
             alpha = 1.0/(1.0 + beta*IMGAMMA/2.0)
             LScl = RCMApp%Vol(i0,j0)*RCMApp%bmin(i0,j0) !Lengthscale
 
-            imW(IMDEN ) = RCMApp%Nrcm(i0,j0)*rcmNScl
+            imW(IMDEN ) = rcmNScl*( RCMApp%Nrcm(i0,j0) + RCMApp%Npsph(i0,j0) )
             imW(IMPR  ) = RCMApp%Prcm(i0,j0)*rcmPScl*alpha
             imW(IMLSCL) = LScl
             imW(IMTSCL) = 1.0
@@ -370,6 +370,7 @@ module rcmimag
         call ClearIO(IOVars)
 
         call AddOutVar(IOVars,"N",RCMApp%Nrcm*rcmNScl)
+        call AddOutVar(IOVars,"Npsph",RCMApp%Npsph*rcmNScl)
         call AddOutVar(IOVars,"P",RCMApp%Prcm*rcmPScl)
         call AddOutVar(IOVars,"IOpen",RCMApp%iopen*1.0_rp)
         call AddOutVar(IOVars,"bVol",RCMApp%Vol)

@@ -30,7 +30,7 @@ module rcm_mhd_interfaces
   
   real(rprec),allocatable :: Prcm(:,:)    ! RCM supplied pressure in Pa
   real(rprec),allocatable :: Nrcm(:,:)    ! RCM supplied density in #/m^3
-
+  real(rprec),allocatable :: Npsph(:,:)   ! RCM supplied plasmasphere density in #/m^3
   real(rprec),allocatable :: sigmap(:,:)
   real(rprec),allocatable :: sigmah(:,:)
 

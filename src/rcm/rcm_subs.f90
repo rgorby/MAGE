@@ -144,7 +144,7 @@
                     birk (isize,jsize), pvgamma (isize,jsize,iesize), &
                     pressrcm (isize,jsize), &
                     v_avg (isize,jsize), birk_avg (isize,jsize), &
-                    densrcm(isize,jsize)
+                    densrcm(isize,jsize),denspsph(isize,jsize)
     INTEGER (iprec) :: ipcp_type, ipot
 !
 !

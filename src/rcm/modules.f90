@@ -133,12 +133,13 @@ MODULE ionosphere_exchange
       ALLOCATE( rm%X_bmin(rm%nLat_ion, rm%nLon_ion, 3) )
       ALLOCATE( rm%iopen(rm%nLat_ion, rm%nLon_ion) )
       ALLOCATE( rm%Prcm(rm%nLat_ion, rm%nLon_ion) )
+      ALLOCATE( rm%Npsph(rm%nLat_ion, rm%nLon_ion) )
       ALLOCATE( rm%Nrcm(rm%nLat_ion, rm%nLon_ion) )
       ALLOCATE( rm%beta_average(rm%nLat_ion, rm%nLon_ion))
       ALLOCATE( rm%sigmap(rm%nLat_ion, rm%nLon_ion) )
       ALLOCATE( rm%sigmah(rm%nLat_ion, rm%nLon_ion) )
 
-
+      
       rm%gcolat (:) = colat (:,1)
       rm%glong  (:) = aloct (1,jwrap:jsize)
       if (rm%glong(rm%nLon_ion) < pi) rm%glong(rm%nLon_ion) = rm%glong(rm%nLon_ion) + 2*pi
@@ -162,6 +163,7 @@ MODULE ionosphere_exchange
       if (ALLOCATED(rm%X_bmin)) DEALLOCATE(rm%X_bmin)
       if (ALLOCATED(rm%iopen)) DEALLOCATE(rm%iopen)
       if (ALLOCATED(rm%Prcm)) DEALLOCATE(rm%Prcm)
+      if (ALLOCATED(rm%Npsph)) DEALLOCATE(rm%Npsph)
       if (ALLOCATED(rm%Nrcm)) DEALLOCATE(rm%Nrcm)
       if (ALLOCATED(rm%beta_average)) DEALLOCATE(rm%beta_average)
     END SUBROUTINE tearDownIon
