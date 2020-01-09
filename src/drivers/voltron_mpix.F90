@@ -79,7 +79,9 @@ program voltron_mpix
         !Console output
         if (vApp%IO%doConsole(vApp%ts)) then
             !Using console output from Gamera
-            call consoleOutputV(vApp,gApp)
+            if(gApp%Grid%Ri==0 .and. gApp%Grid%Rj==0 .and. gApp%Grid%Rk==0) then
+                call consoleOutputV(vApp,gApp)
+            endif
         endif
         !Restart output
         if (vApp%IO%doRestart(vApp%time)) then
@@ -94,7 +96,10 @@ program voltron_mpix
 
     !Do timing info
         if (vApp%IO%doTimer(vApp%ts)) then
-            if (vApp%IO%doTimerOut) call printClocks()
+            if (vApp%IO%doTimerOut .and. \
+              gApp%Grid%Ri==0 .and. gApp%Grid%Rj==0 .and. gApp%Grid%Rk==0) then
+                call printClocks()
+            endif
             call cleanClocks()
         endif
 

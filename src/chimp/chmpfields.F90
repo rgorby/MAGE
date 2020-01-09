@@ -93,7 +93,7 @@ module chmpfields
         do k=1,ebTab%Rk
             do j=1,ebTab%Rj
                 do i=1,ebTab%Ri
-                    ebFile = genName(ebTab,i,j,k)
+                    ebFile = genName(ebTab%bStr,ebTab%Ri,ebTab%Rj,ebTab%Rk,i,j,k)
 
                     !Get piece from file
                     call ClearIO(ebIOs)
@@ -297,26 +297,4 @@ module chmpfields
         endif
     end subroutine ijk2Active
 
-    !Generate name of output file based on tiling
-    function genName(ebTab,i,j,k) result(fName)
-        type(ebTab_T), intent(in) :: ebTab
-        integer, intent(in) :: i,j,k
-        character(len=strLen) :: fName
-
-        character(len=strLen) :: fHd,fRn,fijk,fTl
-        integer :: n
-
-        if (ebTab%isMPI) then
-            n = (j-1) + (i-1)*ebTab%Rj + (k-1)*ebTab%Ri*ebTab%Rj
-            write(fHd ,'(a,a)') trim(ebTab%bStr), '_'
-            write(fRn ,'(I0.4,a,I0.4,a,I0.4,a)') ebTab%Ri,'_',ebTab%Rj,'_',ebTab%Rk,'_'
-            write(fijk,'(I0.4,a,I0.4,a,I0.4,a)') i-1,'_',j-1,'_',k-1,'_'
-            write(fTl ,'(I0.12,a)') n,'.h5'
-            
-            fName = trim(fHd) // trim(fRn) // trim(fijk) // trim(fTl)
-        else
-            fName = ebTab%bStr
-        endif
-        !write(*,*) 'ijk / file = ',i,j,k,trim(fName)
-    end function genName
 end module chmpfields

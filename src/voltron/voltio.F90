@@ -16,8 +16,8 @@ module voltio
     contains
 
     subroutine consoleOutputV(vApp,gApp)
-        type(gamApp_T) , intent(inout) :: gApp
-        type(voltApp_T), intent(in) :: vApp
+        class(gamApp_T) , intent(inout) :: gApp
+        class(voltApp_T), intent(in) :: vApp
         real(rp) :: cpcp(2) = 0.0
 
         real(rp) :: dpT,dtWall,cMJD,dMJD,simRate
@@ -105,8 +105,8 @@ module voltio
     end function ClockConeMag
 
     subroutine resOutputV(vApp,gApp)
-        type(gamApp_T) , intent(inout) :: gApp
-        type(voltApp_T), intent(inout) :: vApp
+        class(gamApp_T) , intent(inout) :: gApp
+        class(voltApp_T), intent(inout) :: vApp
 
         !Write Gamera restart
         call resOutput(gApp%Model,gApp%Grid,gApp%State)
@@ -123,8 +123,8 @@ module voltio
     end subroutine resOutputV
 
     subroutine fOutputV(vApp,gApp)
-        type(gamApp_T) , intent(inout) :: gApp
-        type(voltApp_T), intent(inout) :: vApp
+        class(gamApp_T) , intent(inout) :: gApp
+        class(voltApp_T), intent(inout) :: vApp
 
         !Write gamera data
         call fOutput(gApp%Model,gApp%Grid,gApp%State) !Gamera

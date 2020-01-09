@@ -58,7 +58,9 @@ program gamera_mpix
         call Tic("IO")
         
         if (gameraAppMpi%Model%IO%doConsole(gameraAppMpi%Model%ts)) then
-            call consoleOutput(gameraAppMpi%Model,gameraAppMpi%Grid,gameraAppMpi%State)
+            if(gameraAppMpi%Grid%Ri==0 .and. gameraAppMpi%Grid%Rj==0 .and. gameraAppMpi%Grid%Rk==0) then
+                call consoleOutput(gameraAppMpi%Model,gameraAppMpi%Grid,gameraAppMpi%State)
+            endif
         endif
 
         if (gameraAppMpi%Model%IO%doOutput(gameraAppMpi%Model%t)) then
@@ -73,7 +75,10 @@ program gamera_mpix
 
     !Do timing info
         if (gameraAppMpi%Model%IO%doTimer(gameraAppMpi%Model%ts)) then
-            if (gameraAppMpi%Model%IO%doTimerOut) call printClocks()
+            if(gameraAppMpi%Model%IO%doTimerOut .and. \
+               gameraAppMpi%Grid%Ri==0 .and. gameraAppMpi%Grid%Rj==0 .and. gameraAppMpi%Grid%Rk==0) then
+                call printClocks()
+            endif
             call cleanClocks()
         endif
 

@@ -22,7 +22,7 @@ module voltapp
     !Initialize Voltron (after Gamera has already been initialized)
     subroutine initVoltron(vApp, gApp,optFilename)
         type(gamApp_T) , intent(inout) :: gApp
-        type(voltApp_T), intent(inout) :: vApp
+        class(voltApp_T), intent(inout) :: vApp
         character(len=*), optional, intent(in) :: optFilename
 
         character(len=strLen) :: inpXML
@@ -147,8 +147,8 @@ module voltapp
 
     !Step Voltron if necessary (currently just updating state variables)
     subroutine stepVoltron(vApp, gApp)
-        type(voltApp_T), intent(inout) :: vApp
-        type(gamApp_T) , intent(in)    :: gApp
+        class(voltApp_T), intent(inout) :: vApp
+        class(gamApp_T) , intent(in)    :: gApp
 
         vApp%time = gApp%Model%t*gApp%Model%Units%gT0 !Time in seconds
         vApp%MJD = T2MJD(vApp%time,gApp%Model%MJD0)
@@ -226,7 +226,7 @@ module voltapp
 !Shallow coupling stuff
     subroutine ShallowUpdate(vApp, gApp, time)
         type(gamApp_T), intent(inout) :: gApp
-        type(voltApp_T), intent(inout) :: vApp
+        class(voltApp_T), intent(inout) :: vApp
         real(rp) :: time
 
         ! convert gamera data to mixInput
@@ -274,7 +274,7 @@ module voltapp
 !Deep coupling stuff (time coming from vApp%time, so in seconds)
     subroutine DeepUpdate(vApp, gApp, time)
         type(gamApp_T) , intent(inout) :: gApp
-        type(voltApp_T), intent(inout) :: vApp
+        class(voltApp_T), intent(inout) :: vApp
         real(rp), intent(in) :: time
 
         real(rp) :: tAdv

@@ -40,7 +40,7 @@ module userebic
             ebTab%Rj = 1
             ebTab%Rk = 1
         endif
-        ebFile = genName(ebTab,1,1,1) !Get first (or only) eb file
+        ebFile = genName(ebTab%bStr,ebTab%Ri,ebTab%Rj,ebTab%Rk,1,1,1) !Get first (or only) eb file
         
         !Check file
         inquire(file=ebFile,exist=fExist)

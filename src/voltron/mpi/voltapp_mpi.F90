@@ -48,7 +48,7 @@ module voltapp_mpi
         ! remix uses State%Gas(:,:,:,:,BLK)
 
         ! call base update function with local data
-        call ShallowUpdate(vApp%gAppLocal, vApp, time)
+        call ShallowUpdate(vApp, vApp%gAppLocal, time)
 
         ! send updated data to Gamera ranks
         ! remix updates inEijk and inExyz in the IonInnerBC_T
@@ -74,7 +74,7 @@ module voltapp_mpi
         ! chimp uses State%Bxyz(:,:,:,:)
 
         ! call base update function with local data
-        call DeepUpdate(vApp%gAppLocal, vApp, time)
+        call DeepUpdate(vApp, vApp%gAppLocal, time)
 
         ! send updated data to Gamera ranks
 
