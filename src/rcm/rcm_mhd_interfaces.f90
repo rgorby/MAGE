@@ -34,6 +34,10 @@ module rcm_mhd_interfaces
   real(rprec),allocatable :: sigmap(:,:)
   real(rprec),allocatable :: sigmah(:,:)
 
+  !Conjugate mapping, lat/lon of conjugate point mapped
+  real(rprec),allocatable :: latc(:,:)
+  real(rprec),allocatable :: lonc(:,:)
+
   integer(iprec) :: rcm_nOut,rcm_nRes !Indices for output/restart
   character(len=strLen) :: rcm_runid
   

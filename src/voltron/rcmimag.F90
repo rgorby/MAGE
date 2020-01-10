@@ -23,12 +23,13 @@ module rcmimag
     real(rp), parameter, private :: rcmNScl = 1.0e-6 !Convert #/m3 => #/cc
     real(rp), parameter, private :: IMGAMMA = 5.0/3.0
 
-    real(rp), parameter :: RIonRCM = (RionE/REarth)*1.0e+6
+    real(rp), parameter :: RIonRCM = (RionE/REarth)*1.0e+6 !Units of Re
     
     real(rp), private :: rEqMin = 0.0
     integer, parameter :: MAXRCMIOVAR = 30
     character(len=strLen), private :: h5File
 
+    logical, parameter :: doWolfLimit = .true.
 
     !Information taken from MHD flux tubes
     !TODO: Figure out RCM boundaries
@@ -46,6 +47,7 @@ module rcmimag
         real(rp) :: Vol,bmin,beta_average,Pave,Nave,pot
         real(rp) :: X_bmin(NDIM)
         integer(ip) :: iopen
+        real(rp) :: latc,lonc !Conjugate lat/lon
     end type RCMTube_T
 
     real(rp), dimension(:,:), allocatable, private :: mixPot
@@ -143,6 +145,9 @@ module rcmimag
                 RCMApp%Nave(i,j)         = ijTube%Nave
                 RCMApp%X_bmin(i,j,:)     = ijTube%X_bmin
 
+                RCMApp%latc(i,j)         = ijTube%latc
+                RCMApp%lonc(i,j)         = ijTube%lonc
+
                 !mix variables are stored in this order (longitude,colatitude), hence the index flip
                 RCMApp%pot(i,j)          = mixPot(j,i)
                 
@@ -196,7 +201,11 @@ module rcmimag
         
         if (isGood) then
             beta = RCMApp%beta_average(i0,j0)
-            alpha = 1.0/(1.0 + beta*IMGAMMA/2.0)
+            if (doWolfLimit) then
+                alpha = 1.0/(1.0 + beta*IMGAMMA/2.0)
+            else
+                alpha = 1.0
+            endif
             LScl = RCMApp%Vol(i0,j0)*RCMApp%bmin(i0,j0) !Lengthscale
 
             imW(IMDEN ) = rcmNScl*( RCMApp%Nrcm(i0,j0) + RCMApp%Npsph(i0,j0) )
@@ -217,6 +226,7 @@ module rcmimag
         type(fLine_T) :: bTrc
         real(rp) :: t, bMin
         real(rp), dimension(NDIM) :: x0, bEq, xyzIon
+        real(rp), dimension(NDIM) :: xyzC,xyzIonC
         integer :: OCb
         real(rp) :: bD,bP,dvB,bBeta
 
@@ -250,8 +260,7 @@ module rcmimag
         !OCB =  0 (solar wind), 1 (half-closed), 2 (both ends closed)
         OCb = FLTop(ebModel,ebGr,bTrc)
 
-        end associate
-
+        
     !Scale and store information
         ijTube%X_bmin = bEq
         ijTube%bmin = bMin
@@ -278,6 +287,19 @@ module rcmimag
         ijTube%Nave = bD
         ijTube%beta_average = bBeta
         
+        ijTube%latc = 0.0
+        ijTube%lonc = 0.0
+
+        if (ijTube%iopen == RCMTOPCLOSED) then
+            !Find conjugate lat/lon @ RIonRCM
+            call FLConj(ebModel,ebGr,bTrc,xyzC)
+            xyzIonC = DipoleShift(xyzC,RIonRCM)
+            !xyzIonC(ZDIR) uses abs(mlat), so make negative
+            ijTube%latc = asin(-xyzIonC(ZDIR)/norm2(xyzIonC))
+            ijTube%lonc = modulo( atan2(xyzIonC(YDIR),xyzIonC(XDIR)),2*PI )
+        endif
+
+        end associate
     end subroutine MHDTube
 
     !Dipole flux tube info
@@ -305,6 +327,8 @@ module rcmimag
         ijTube%Pave = 0.0
         ijTube%Nave = 0.0
 
+        ijTube%latc = -lat
+        ijTube%lonc = lon
         !ijTube%Nave = psphD(L)*1.0e+6 !#/cc => #/m3
 
     end subroutine DipoleTube
@@ -384,6 +408,8 @@ module rcmimag
         call AddOutVar(IOVars,"beta",RCMApp%beta_average)
         call AddOutVar(IOVars,"Pmhd",RCMApp%Pave*rcmPScl)
         call AddOutVar(IOVars,"Nmhd",RCMApp%Nave*rcmNScl)
+        call AddOutVar(IOVars,"latc",RCMApp%latc*180.0/PI)
+        call AddOutVar(IOVars,"lonc",RCMApp%lonc*180.0/PI)
 
         !Trim output for colat/aloct to remove wrapping
         DimLL = shape(colat)
