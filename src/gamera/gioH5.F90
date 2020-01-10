@@ -237,7 +237,6 @@ module gioH5
             endif
 
             !Density
-            
             call GameraOut(dID,gamOut%dID,gamOut%dScl,State%Gas(iMin:iMax,jMin:jMax,kMin:kMax,DEN,s))
 
             !---------------------
@@ -326,6 +325,10 @@ module gioH5
             call AddOutVar(IOVars,"Ey",gVec(:,:,:,YDIR))
             call AddOutVar(IOVars,"Ez",gVec(:,:,:,ZDIR))
             
+            if (Model%doSource) then
+                call GameraOut("SrcD","CODE",1.0_rp,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,DEN     ,BLK))
+                call GameraOut("SrcP","CODE",1.0_rp,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,PRESSURE,BLK))
+            endif
 
             if(Model%doResistive) then
                 gVec(:,:,:,:) = State%Deta(iMin:iMax,jMin:jMax,kMin:kMax,XDIR:ZDIR)

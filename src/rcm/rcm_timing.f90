@@ -75,7 +75,7 @@
         integer(iprec) :: i, idim
         integer(iprec), dimension(:),intent(in) :: list
 
-        write(*,*)' writing rcm timing '
+        !write(*,*)' writing rcm timing '
 
          open(unit=20,file=rcmdir//'rcm_timing.dat',status='replace',err=21)
          idim = size(list)
@@ -91,29 +91,33 @@
 
          end subroutine write_rcm_timing
 
-      subroutine find_record(itime,list,record)
 
-       IMPLICIT NONE
-       integer(iprec), dimension(:), intent(in) :: list
-       integer(iprec), intent(in) :: itime
-       integer(iprec), intent(out) :: record
-       integer(iprec) :: idim,i
+    subroutine find_record(itime,list,record)
+      IMPLICIT NONE
+      integer(iprec), dimension(:), intent(in) :: list
+      integer(iprec), intent(in) :: itime
+      integer(iprec), intent(out) :: record
+      integer(iprec) :: idim,i
 
-       idim = size(list)
+      idim = size(list)
 
-       do i=1,idim
-           if(itime == list(i))then
-                record = i
-                write(*,'(2(a,i5))')' At t=',itime,' record =',record
-                return
+      do i=1,idim
+        if(itime == list(i))then
+          record = i
+          write(*,'(2(a,i5))')' At t=',itime,' record =',record
+          return
         end if
-        end do
+      end do
+      !Didn't find exact match, now just use closest
+      record = minloc(abs(list-itime),dim=1)
+      write(*,*) 'find_record: error in find record, for itime=',itime
+      write(*,*) 'itimei/nearest = ',itime,list(record)
+      
+      !record = -1
 
-        write(*,*) 'find_record: error in find record, for itime=',itime
-        record = -1
-        return
+      return
 
-       end subroutine find_record
+    end subroutine find_record
 
 
   end module rcm_timing_module

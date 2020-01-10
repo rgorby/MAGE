@@ -7,6 +7,7 @@ subroutine rcm_mhd(mhdtime,mhdtimedt,RM,iflag)
 ! iflag = -1 - stop, write out timing information
 ! iflag = -2 - Write restart (icontrol = 31337)
 ! iflag = -3 - Write H5 output (icontrol = 31338)
+
 ! 2/19 frt
   use rcm_precision
   use Rcm_mod_subs
@@ -15,6 +16,7 @@ subroutine rcm_mhd(mhdtime,mhdtimedt,RM,iflag)
   use constants, ONLY : radius_earth_m, radius_iono_m
   use rice_housekeeping_module
   use rcm_timing_module
+  use files
 
   implicit none
   type(rcm_mhd_T),intent(inout) :: RM
@@ -70,32 +72,35 @@ subroutine rcm_mhd(mhdtime,mhdtimedt,RM,iflag)
 
   IsCoupledExternally = .TRUE.  ! switch RCM to "coupled" mode before doing anything else
 
-  write (*,'(TR1,A,L7)') 'Welcome to the RCM, IsCoupledExternally=', IsCoupledExternally
+  if (doRCMVerbose) write (*,'(TR1,A,L7)') 'Welcome to the RCM, IsCoupledExternally=', IsCoupledExternally
 ! setup rcm,time in integer format
-    itimei = nint(mhdtime-time0,iprec)
-    itimef = nint(mhdtime + mhdtimedt-time0,iprec)
-    ircm_dt = itimef - itimei
+  itimei = nint(mhdtime-time0,iprec)
+  itimef = nint(mhdtime + mhdtimedt-time0,iprec)
+  ircm_dt = itimef - itimei
+  
 ! finish up
-   if(iflag==-1)then
-    
-           call write_rcm_timing(rcm_timing)
-           return
-   end if
+  if(iflag==RCMWRITETIMING)then
+    call write_rcm_timing(rcm_timing)
+    return
+  end if
 
 ! Write restart file
-   if (iflag==-2) then
-      CALL Rcm (itimei, itimef, irdr, irdw, idt, idt1, idt2,icontrol=31337_iprec,stropt=RM%rcm_runid,nslcopt=RM%RCM_nRes)
+   if (iflag==RCMWRITERESTART) then
+      CALL Rcm (itimei, itimef, irdr, irdw, idt, idt1, idt2,icontrol=ICONWRITERESTART,stropt=RM%rcm_runid,nslcopt=RM%RCM_nRes)
       return
    endif
 ! Write output slice
-   if (iflag==-3) then
-      CALL Rcm (itimei, itimef, irdr, irdw, idt, idt1, idt2,icontrol=31338_iprec,stropt=RM%rcm_runid,nslcopt=RM%RCM_nOut)
+   if (iflag==RCMWRITEOUTPUT) then
+      CALL Rcm (itimei, itimef, irdr, irdw, idt, idt1, idt2,icontrol=ICONWRITEOUTPUT,stropt=RM%rcm_runid,nslcopt=RM%RCM_nOut)
       return
    endif
 
 ! initialize
-  if( (iflag ==0) .or. (iflag == 2) ) then !Do this for initialization and restart?
-    !CALL Read_rcm_mhd_params
+  if( (iflag == RCMINIT) .or. (iflag == RCMRESTART) ) then !Do this for initialization and restart?
+    !Make sure RCM directory exists
+    CALL CheckDirOrMake(Rcmdir)
+
+    !Read RCM/MHD params from XML
     CALL RCM_MHD_Params_XML
 
     ! setup rcm
@@ -108,122 +113,63 @@ subroutine rcm_mhd(mhdtime,mhdtimedt,RM,iflag)
 
    ! Setup Ionosphere intermediate Grid by equating it to the RCM grid, without angular overlap:
     call setupIon(RM)
+  
+    CALL Rcm (itimei, itimef, irdr, irdw, idt, idt1, idt2, icontrol=1_iprec)
+    CALL Rcm (itimei, itimef, irdr, irdw, idt, idt1, idt2, icontrol=2_iprec)
+    
 
-    ! Setup initial RCM plasma edges
-!    call plasma_rcm_setup
+    ! restart
+    if (iflag == RCMRESTART) then
+      !HDF5 RESTART
+      
+      !Check if timing file exists
+      if ( CheckFile(Rcmdir//"rcm_timing.dat") ) then
+        !Reset timing for record business
+        call read_rcm_timing(rcm_timing)
+        call find_record(itimei,rcm_timing,rec)
+      else
+        !Create basic setup
+        rec = 1
+        call  AddToList(itimei,rcm_timing )
+        !Write null timing data
+        call write_rcm_timing(rcm_timing)
+      endif
+      
+      irdr = rec
+      irdw = rec
 
-  ! Setup Ionosphere intermediate Grid by equating it to the RCM grid, without angular overlap:
-!  call setupIon()
+      !Read in HDF5 restart data
+      CALL Rcm (itimei, itimef, irdr, irdw, idt, idt1, idt2,icontrol=ICONRESTART,stropt=RM%rcm_runid,nslcopt=RM%RCM_nRes)
 
-  CALL Rcm (itimei, itimef, irdr, irdw, idt, idt1, idt2, icontrol=1_iprec)
-  CALL Rcm (itimei, itimef, irdr, irdw, idt, idt1, idt2, icontrol=2_iprec)
+      return
 
-  ! restart
-  if (iflag ==2) then
-    !HDF5 RESTART
-    CALL Rcm (itimei, itimef, irdr, irdw, idt, idt1, idt2,icontrol=31336_iprec,stropt=RM%rcm_runid,nslcopt=RM%RCM_nRes)
+    endif
+
+    if(itimei>0)then
+      !OLD RESTART CODE
+      write(*,*) 'Ths code should not get called ...'
+      stop
+
+      write(*,*) 'I am here in itime>0!!!'
+      write(*,*)' RCM RESTART at t=',itimei
+
+      call read_rcm_timing(rcm_timing)
+      call find_record(itimei,rcm_timing,rec)
+
+      irdr = rec
+      irdw = rec
+
+      CALL Rcm (itimei, itimef, irdr, irdw, idt, idt1, idt2, icontrol=3_iprec)
+
+    end if
+
     return
-  endif
 
-  if(itimei>0)then
+  end if !RCMINIT or RCMRESTART
 
-    write(*,*)' RCM RESTART at t=',itimei
 
-    call read_rcm_timing(rcm_timing) 
-    call find_record(itimei,rcm_timing,rec)
 
-    irdr = rec
-    irdw = rec
-
-    CALL Rcm (itimei, itimef, irdr, irdw, idt, idt1, idt2, icontrol=3_iprec)
-
-  end if
-  return
-
-  end if
-
-  ! Initialize() receives the date & time to start coupling
-  ! Get day of year for converting to MJD.  
-  !FIXME:  Do we really n eed day of year to get modified julian date?
-!  call date_doy(0, &
-!       iaUtRcmStart(1), &
-!       months(iaUtRcmStart(2)), &
-!       iaUtRcmStart(2), &
-!       iaUtRcmStart(3), &
-!       dayOfYear)       
-  ! Convert to modified Julian Date (MJD) since RCM requires MJD's.
-!  call ut2mjd(time0, &    ! Modified Julian Date/time (MJD)
-!       iaUtRcmStart(1), & ! Year
-!       dayOfYear, &       ! Day of Year
-!       iaUtRcmStart(2), & ! Month
-!       iaUtRcmStart(3), & ! Day
-!       iaUtRcmStart(4), & ! Hour
-!       iaUtRcmStart(5), & ! Minute
-!       DBLE(iaUtRcmStart(6)))    ! Second
-!  dt = iRcmDelta
-
-!  couplingTimeLoop: DO  ! exit the loop only by stopping
-     if(iflag==1)then ! run the rcm
-
-     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-     ! Receive & process scalars
-     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-     
-     ! receives data into intercomm.f90 module data "iaScalars"
-     ! call ReceiveScalars("mhd-im_scalars")
-
-     ! Is there any more work to do?
-     ! if (iaScalars(KILL_SIGNAL) == KILL_SIGNAL_SHUTDOWN) then
-     !    write(*,*) "RCM: Received the KILL_SIGNAL from MHD. Exiting."
-     !    exit couplingTimeLoop
-     ! end if
-
-     ! Is this the first exchange? (Import only)
-!     isFirstExchange = (exchangeNum == 0)
-     ! Is this the last exchange? (Export only)
-!     isLastExchange = (iaScalars(KILL_SIGNAL) == KILL_SIGNAL_LAST_EXCHANGE)
-
-     ! Print status info
-!     if (isFirstExchange) then
-!        write(*,*) "RCM: First LTR exchange #", exchangeNum
-!     end if 
-!     if (isLastExchange) then
-!        write(*,*) "RCM: Last LTR exchange #.  Skipping time loop. Waiting for kill signal.", exchangeNum
-!        cycle
-!     end if 
-!     if (isFirstExchange .and. isLastExchange) then
-!        write(*,*) "RCM: First LTR exchange is final LTR exchange.  Skipping time loop.  Waiting for kill signal."
-!        cycle
-!     else
-!        if ( .not. (isFirstExchange .or. isLastExchange) ) then
-!          write(*,*) "RCM: Intermediate LTR exchange # ", exchangeNum
-!        end if
-!     end if
-
-     ! Get the current Modified Julian Date (MJD) from time array
-     ! First get the day of year (required for calculating MJD)
-     !FIXME:  Do we really n eed day of year to get modified julian date?
-!     call date_doy(0, &
-!          iaScalars(YEAR), &
-!          months(iaScalars(MONTH)), &
-!          iaScalars(MONTH), &
-!          iaScalars(DAY), &
-!          dayOfYear)       
-     ! Convert to modified Julian Date (MJD) since RCM requires MJD's.
-!     call ut2mjd(time, & ! Modified Julian Date/time (MJD)
-!          iaScalars(YEAR), &
-!          dayOfYear, &  ! Day of year (unecessary)
-!          iaScalars(MONTH), &
-!          iaScalars(DAY), &
-!          iaScalars(HOUR), &
-!          iaScalars(MINUTE), &
-!          DBLE(iaScalars(SECOND))) 
-
-!     ! Kind of redundant to set delta_t, but maybe we'll use variable time steps in the future?
-!     dt = iaScalars(DELTA_T)
-     ! Convert dt from # of seconds into % of a day:
-!     dt = dt / 86400.0 ! 86400 = 60*60*24 = # of seconds in day
-
+     if(iflag==RCMADVANCE)then ! run the rcm
 
      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
      ! Determine exchange times...
@@ -237,41 +183,37 @@ subroutine rcm_mhd(mhdtime,mhdtimedt,RM,iflag)
 
       else
 
-!     call find_record(itimei,rcm_timing,rec)
-!     rec = nint(2.0*(mhdtime-time0)/mhdtimedt + 1,iprec)
+      !K: uncommented to try to help with making restarts work
+      !call find_record(itimei,rcm_timing,rec)
+      !rec = nint(2.0*(mhdtime-time0)/mhdtimedt + 1,iprec)
 
      ! now move to the next record
        rec = rec + 1
       end if
 
-     write(*,*)'-----------rcm_mhd: rec=',rec
+    isFirstExchange = (exchangeNum==0)
 
-     isFirstExchange = (exchangeNum==0)
+    if (doRCMVerbose) then
+      write(*,*)'-----------rcm_mhd: rec=',rec
 
-     WRITE (*,'(//)')
-!     write (*,*) 'RCM: time[mjd]=',time,'  time0[mjd]=',time0, '  Delta_t[s]=',(time-time0)*86400.0
-     write (*,'(a,i4,a,g12.4,a,i4)') 'RCM: time=',itimei,'  time0=',time0, '  Delta_t[s]=',ircm_dt
-     write (*,'(a,i4,a,i3,a,g12.4)') 'RCM: ____T_rcm[s] =', itimei,'  rec=',rec,'  T_MHD=',mhdtime
-     WRITE (*,'(//)')
+      write(*,*) 'itimei = ', itimei
+      write(*,*) 'exchangeNum = ', exchangeNum
+      WRITE (*,'(//)')
+      write (*,'(a,i4,a,g12.4,a,i4)') 'RCM: time=',itimei,'  time0=',time0, '  Delta_t[s]=',ircm_dt
+      write (*,'(a,i4,a,i3,a,g12.4)') 'RCM: ____T_rcm[s] =', itimei,'  rec=',rec,'  T_MHD=',mhdtime
+      WRITE (*,'(//)')
 
-!     if (itimef_old < 0 )then
-!        itimei = timercm
-!     else
-!        itimei = itimef
-!     end if
+    endif
+     
+    idt = Idt_overwrite ! RCM internal time step in seconds
+    ! Frequency (in seconds) to change disk & write records
+    idt1 = itimef - itimei
+    ! Frequency (in seconds) to write formatted output
+    idt2 = idt1
 
-!     itimef = nint((time-time0+dt)*86400.0D00)
-!     itimef = nint((time-time0+dt),iprec)
-
-     idt = Idt_overwrite ! RCM internal time step in seconds
-     ! Frequency (in seconds) to change disk & write records
-     idt1 = itimef - itimei
-     ! Frequency (in seconds) to write formatted output
-     idt2 = idt1
-
-     ! now round to to fit the correct number rcm timesteps
-     itimef = itimei + idt *((itimef-itimei)/idt)
-     itimef_old = itimef
+    ! now round to to fit the correct number rcm timesteps
+    itimef = itimei + idt *((itimef-itimei)/idt)
+    itimef_old = itimef
 
      IF (isFirstExchange .AND. itimei == 0) then 
         !special case. Tell RCM to start from rec=1, but most initial
@@ -292,10 +234,12 @@ subroutine rcm_mhd(mhdtime,mhdtimedt,RM,iflag)
      ! Import data from MIX
      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-     call cpu_time(t1)
-     write(6,'(2(a,i4))')'RCM: calling torcm with rec =',rec,' itimei=',itimei
-     call print_date_time(6_iprec)
-!     call Ionosphere_toRCM(RM)
+    call cpu_time(t1)
+    if (doRCMVerbose) then
+      write(6,'(2(a,i4))')'RCM: calling torcm with rec =',rec,' itimei=',itimei
+      call print_date_time(6_iprec)
+    endif
+
      call torcm(RM,rec,itimei,ierr)
      if (ierr > 0 )then
         stop 'RCM: error in torcm '
@@ -303,34 +247,42 @@ subroutine rcm_mhd(mhdtime,mhdtimedt,RM,iflag)
      exchangeNum = exchangeNum + 1
      call cpu_time(t2)
 
-     write(*,'(a,g14.4,a)')'RCM: torcm cpu time= ',t2-t1,' seconds'
+     if (doRCMVerbose) write(*,'(a,g14.4,a)')'RCM: torcm cpu time= ',t2-t1,' seconds'
 
      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
      ! Advance RCM
      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
      call cpu_time(t1)
-     write(6,'(a,i5,a,i5,a,i5,a)')'RCM: call rcm at itimei =',itimei,' to itimef =',itimef,' dt=',ircm_dt, ' sec'
-     call print_date_time(6_iprec)
+    if (doRCMVerbose) then 
+      write(6,'(a,i5,a,i5,a,i5,a)')'RCM: call rcm at itimei =',itimei,' to itimef =',itimef,' dt=',ircm_dt, ' sec'
+      call print_date_time(6_iprec)
+    endif
+
      ! now run the rcm
      call rcm (itimei, itimef, irdr, irdw, idt, idt1, idt2, icontrol=4_iprec)
      rec = rec + 1 ! update record after rcm has run
 
      call cpu_time(t2)
-     write(*,'(a,g14.4,a)')'RCM_MHD:   rcm cpu time= ',t2-t1,' seconds'
-     call print_date_time(6_iprec)
+    if (doRCMVerbose) then
+      write(*,'(a,g14.4,a)')'RCM_MHD:   rcm cpu time= ',t2-t1,' seconds'
+      call print_date_time(6_iprec)
+    endif
 
     ! Do not export data if this is both the first & last exchange.
      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
      ! Export data to MHD code
      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-     write(6,'(a,i5.5)')'RCM_MHD: calling tomhd with rec =',rec
+     if (doRCMVerbose) write(6,'(a,i5.5)')'RCM_MHD: calling tomhd with rec =',rec
      call cpu_time(t1)
      call Tomhd (RM,rec, ierr)
 
      call cpu_time(t2)
-     call print_date_time(6_iprec)
-     write(*,*)'RCM: tomhd cpu time= ',t2-t1,' seconds'
+    if (doRCMVerbose) then
+      call print_date_time(6_iprec)
+      write(*,*)'RCM: tomhd cpu time= ',t2-t1,' seconds'
+   endif
+
      if (ierr > 0 )then
         stop 'RCM: error in tomhd '
      end if

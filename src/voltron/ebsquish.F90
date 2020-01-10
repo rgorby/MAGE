@@ -68,9 +68,9 @@ module ebsquish
         !$OMP private(i,j,k,xyz,x1,x2)
         do k=ebGr%ks,ebGr%ke
             do j=ebGr%js,ebGr%je
-                do i=ebGr%is,ebGr%is+vApp%iDeep
+                do i=ebGr%is,vApp%iDeep
                     xyz = ebGr%xyzcc(i,j,k,:)
-                    if (norm2(xyz) <= vApp%rDeep) then
+                    if (norm2(xyz) <= vApp%rTrc) then
                         !Do projection
                         call ProjectXYZ(ebModel,ebState,xyz,t,x1,x2)
                     else

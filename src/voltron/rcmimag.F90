@@ -16,7 +16,6 @@ module rcmimag
 
     implicit none
 
-    integer(ip), parameter,private :: RCMINIT=0,RCMADVANCE=1,RCMRESTART=2,RCMWRITERESTART=-2,RCMWRITEOUTPUT=-3
     type(rcm_mhd_T), private :: RCMApp
 
     !Scaling parameters
@@ -26,7 +25,7 @@ module rcmimag
 
     real(rp), parameter :: RIonRCM = (RionE/REarth)*1.0e+6
     
-
+    real(rp), private :: rEqMin = 0.0
     integer, parameter :: MAXRCMIOVAR = 30
     character(len=strLen), private :: h5File
 
@@ -62,10 +61,14 @@ module rcmimag
         character(len=strLen) :: RunID,RCMH5
         logical :: fExist
 
+        call iXML%Set_Val(RunID,"/gamera/sim/runid","sim")
+        RCMApp%rcm_runid = trim(RunID)
+
         if (isRestart) then
             RCMApp%rcm_nRes = nRes
-            write(*,*) 'Restarting RCM ...'
+            write(*,*) 'Restarting RCM @ t = ', t0
             call rcm_mhd(t0,dtCpl,RCMApp,RCMRESTART)
+            write(*,*) 'Finished RCM restart ...'
             call init_rcm_mix(RCMApp)
         else
             write(*,*) 'Initializing RCM ...'
@@ -73,8 +76,6 @@ module rcmimag
             call init_rcm_mix(RCMApp)
         endif
 
-        call iXML%Set_Val(RunID,"/gamera/sim/runid","sim")
-        RCMApp%rcm_runid = trim(RunID)
         h5File = trim(RunID) // ".mhdrcm.h5" !MHD-RCM coupling data
         RCMH5  = trim(RunID) // ".rcm.h5" !RCM data
 
@@ -103,6 +104,9 @@ module rcmimag
 
         real(rp) :: llBC
         logical :: isLL
+
+        !Lazily grabbing rDeep here, convert to RCM units
+        rEqMin = vApp%rDeep*Re_cgs*1.0e-2 !Re=>meters
 
         llBC = vApp%mhd2chmp%lowlatBC
 
@@ -148,7 +152,8 @@ module rcmimag
     !Advance from vApp%time to tAdv
         dtAdv = tAdv-vApp%time !RCM-DT
         call rcm_mhd(vApp%time,dtAdv,RCMApp,RCMADVANCE)
-
+        !Update timming data
+        call rcm_mhd(vApp%time,0.0,RCMApp,RCMWRITETIMING)
     end subroutine AdvanceRCM
 
     !Evaluate eq map at a given point
@@ -158,36 +163,48 @@ module rcmimag
         real(rp), intent(out) :: imW(NVARIMAG)
 
         real(rp) :: colat, alpha, beta, LScl
-        integer :: i0,j0
+        real(rp) :: rEq
+        integer :: i0,j0,nLat,nLon
         logical :: isGood
 
+        !Set defaults
+        imW(IMDEN ) = 0.0
+        imW(IMPR  ) = 0.0
+        imW(IMLSCL) = 0.0
+        imW(IMTSCL) = 1.0
+
         colat = PI/2 - lat
-        !Just find closest cell
+
+        !Do short cut tests
+        isGood = (colat >= minval(RCMApp%gcolat)) .and. (colat <= maxval(RCMApp%gcolat)) .and. (lat>TINY)
+        if (.not. isGood) return
+
+        !If still here now find closest cell
         i0 = minloc( abs(colat-RCMApp%gcolat),dim=1 )
         j0 = minloc( abs(lon  -RCMApp%glong ),dim=1 )
+        nLat = RCMApp%nLat_ion
+        nLon = RCMApp%nLon_ion
+        if ( (i0 == 1) .or. (i0 == NLat) ) return !Ignore if too close to grid edge
 
-        !Test for good cell
-        isGood = (colat >= minval(RCMApp%gcolat)) .and. (colat <= maxval(RCMApp%gcolat)) &
-                 & .and. (RCMApp%iopen(i0,j0) == -1) .and. (lat>TINY)
+        rEq = norm2(RCMApp%X_bmin(i0,j0,:))
 
-        imW = 0.0
-
+        !Now test that this cell is "comfortably" in the closed field region
+        isGood = all( RCMApp%iopen(i0-1,1:nLon) == RCMTOPCLOSED ) .and. &
+                 all( RCMApp%iopen(i0  ,1:nLon) == RCMTOPCLOSED ) .and. &
+                 all( RCMApp%iopen(i0+1,1:nLon) == RCMTOPCLOSED )
+        isGood = isGood .and. (rEq <= rEqMin)
+        
         if (isGood) then
             beta = RCMApp%beta_average(i0,j0)
             alpha = 1.0/(1.0 + beta*IMGAMMA/2.0)
             LScl = RCMApp%Vol(i0,j0)*RCMApp%bmin(i0,j0) !Lengthscale
 
-            imW(IMDEN ) = RCMApp%Nrcm(i0,j0)*rcmNScl
+            imW(IMDEN ) = rcmNScl*( RCMApp%Nrcm(i0,j0) + RCMApp%Npsph(i0,j0) )
             imW(IMPR  ) = RCMApp%Prcm(i0,j0)*rcmPScl*alpha
             imW(IMLSCL) = LScl
             imW(IMTSCL) = 1.0
-        else
-            imW(IMDEN ) = 0.0
-            imW(IMPR  ) = 0.0
-            imW(IMLSCL) = 0.0
-            imW(IMTSCL) = 1.0
         endif
-        
+
     end subroutine EvalRCM
 !--------------
 !MHD=>RCM routines
@@ -235,26 +252,25 @@ module rcmimag
 
         end associate
 
-
     !Scale and store information
         ijTube%X_bmin = bEq
         ijTube%bmin = bMin
         select case(OCb)
         case(0)
             !Solar wind (is this right?)
-            ijTube%iopen = 1
+            ijTube%iopen = RCMTOPOPEN
             ijTube%Vol = -dvB
         case(1)
             !Open field
-            ijTube%iopen = 1
+            ijTube%iopen = RCMTOPOPEN
             ijTube%Vol = -dvB
         case(2)
             !Closed field
-            ijTube%iopen = -1
+            ijTube%iopen = RCMTOPCLOSED
             ijTube%Vol = dvB
         case default
             !WTF? (timeout)
-            ijTube%iopen = 1
+            ijTube%iopen = RCMTOPOPEN
             ijTube%Vol = -1
         end select
 
@@ -282,7 +298,7 @@ module rcmimag
         ijTube%X_bmin(YDIR) = L*sin(lon)*Re_cgs*1.0e-2 !Re=>meters
         ijTube%X_bmin(ZDIR) = 0.0
         ijTube%bmin = mdipole/L**3.0
-        ijTube%iopen = -1
+        ijTube%iopen = RCMTOPCLOSED
         ijTube%pot = 0.0
 
         ijTube%beta_average = 0.0
@@ -293,43 +309,6 @@ module rcmimag
 
     end subroutine DipoleTube
 
-    !Lazy test flux tube
-    subroutine oDipoleTube(vApp,lat,lon,ijTube)
-        type(voltApp_T), intent(in) :: vApp
-        real(rp), intent(in) :: lat,lon
-        type(RCMTube_T), intent(out) :: ijTube
-
-        real(rp) :: L,colat
-
-        real(rp) :: mdipole = 3.0e-5 ! dipole moment in T
-        real(rp) :: Lmax = 4.0 ! location of Pressure max
-        real(rp) :: pmax = 5.0e-8 ! pressure max in Pa
-        real(rp) :: pmin = 1.0e-11 ! min BG pressure in Pa
-        real(rp) :: nmax = 1.0e7 ! dens in ple/m^3
-        real(rp) :: nmin = 1.0e4 ! min dens in ple/m^3
-        real(rp) :: potmax = 5.0e4 ! potential max
-        real(rp) :: re = 6380.e3
-        real(rp) :: colat_boundary
-
-        colat = PI/2 - lat
-        L = 1.0/(sin(colat)**2.0)
-        ijTube%Vol =32./35.*L**4.0/mdipole
-        ijTube%X_bmin(XDIR) = L*cos(lon)*re
-        ijTube%X_bmin(YDIR) = L*sin(lon)*re
-        ijTube%X_bmin(ZDIR) = 0.0
-        ijTube%bmin = mdipole/L**3.0
-        ijTube%iopen = -1
-        ijTube%beta_average = 0.1
-        ijTube%Pave = pmax*exp(-(L-Lmax)**2.0) + pmin
-        ijTube%Nave = nmax*exp(-(L-Lmax)**2.0) + nmin
-        colat_boundary = PI/4.0
-        if (colat < colat_boundary) then
-            ijTube%pot = -potmax/2.0*sin(lon)*sin(colat)
-        else
-            ijTube%pot = -potmax/2.0*sin(lon)*sin(colat_boundary)/sin(colat)
-        endif
-
-    end subroutine oDipoleTube
 
 !--------------
 !Kaiju RCM IO Routines
@@ -391,6 +370,7 @@ module rcmimag
         call ClearIO(IOVars)
 
         call AddOutVar(IOVars,"N",RCMApp%Nrcm*rcmNScl)
+        call AddOutVar(IOVars,"Npsph",RCMApp%Npsph*rcmNScl)
         call AddOutVar(IOVars,"P",RCMApp%Prcm*rcmPScl)
         call AddOutVar(IOVars,"IOpen",RCMApp%iopen*1.0_rp)
         call AddOutVar(IOVars,"bVol",RCMApp%Vol)

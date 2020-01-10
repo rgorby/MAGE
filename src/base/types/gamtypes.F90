@@ -215,8 +215,8 @@ module gamtypes
     !Gravitational force
         logical :: doG0Init = .true.
         real(rp), dimension(:,:,:,:), allocatable :: gxyz !Gravitational acceleration (cell-centered)
-    !Target state
-        real(rp), dimension(:,:,:,:), allocatable :: Gas0
+    !Target state (Ni,Nj,Nk,1:NVAR,0:nSpc+1)
+        real(rp), dimension(:,:,:,:,:), allocatable :: Gas0
 
     end type Grid_T
 

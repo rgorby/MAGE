@@ -161,6 +161,8 @@
     
 
 ! reset mapping points on open field lines
+       !$OMP PARALLEL DO default(shared) &
+       !$OMP private(i,j)
        do j=1,jdim
         do i=1,imin_j(j)-1
           rmin(i,j) = 0.0
@@ -220,6 +222,9 @@
       !write(*,*)'rec =',rec
     
    ! Set boundary conditions on plasma (EETA) for all MLT's and energy levels:
+   !$OMP PARALLEL DO default(shared) &
+   !$OMP schedule(dynamic) &
+   !$OMP private(j,k,inew,iold)
    DO k=1,kdim
    DO j=1,jdim
 

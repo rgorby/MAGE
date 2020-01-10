@@ -102,6 +102,7 @@ module voltapp
         vApp%DeepT = 0.0_rp
         call xmlInp%Set_Val(vApp%DeepDT, "coupling/dtDeep", -1.0_rp)
         call xmlInp%Set_Val(vApp%rDeep,  "coupling/rDeep" , 10.0_rp)
+        call xmlInp%Set_Val(vApp%rTrc,   "coupling/rTrc"  , 2.0*vApp%rDeep)
 
         if (vApp%DeepDT>0) then
             vApp%doDeep = .true.
@@ -216,7 +217,7 @@ module voltapp
             call init_chmp2Mhd(vApp%chmp2mhd, ebTrcApp, gApp)
 
             end associate
-            vApp%iDeep = ShellBoundary(gApp%Model,gApp%Grid,vApp%rDeep)
+            vApp%iDeep = ShellBoundary(gApp%Model,gApp%Grid,vApp%rTrc)
         endif !doDeep
 
     end subroutine initializeFromGamera

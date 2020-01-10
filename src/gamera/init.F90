@@ -934,7 +934,7 @@ module init
         enddo    
 
         if (Model%doSource) then
-            allocate(Grid%Gas0(Grid%isg:Grid%ieg,Grid%jsg:Grid%jeg,Grid%ksg:Grid%keg,1:NVAR))
+            allocate(Grid%Gas0(Grid%isg:Grid%ieg,Grid%jsg:Grid%jeg,Grid%ksg:Grid%keg,1:NVAR,0:Model%nSpc))
             Grid%Gas0 = 0.0
         endif
         

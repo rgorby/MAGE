@@ -6,6 +6,7 @@ import numpy as np
 import glob
 import kaipy.kaiH5 as kh5
 import kaipy.gamera.remixpp as remixpp
+import timeit
 
 #Object to pull from MPI/Serial magnetosphere runs (H5 data), extends base
 
@@ -65,26 +66,28 @@ class GamsphPipe(GameraPipe):
 		Np = 2*(self.Nj)
 		self.xxi = np.zeros((Nr+1,Np+1))
 		self.yyi = np.zeros((Nr+1,Np+1))
+
 		self.xxc = np.zeros((Nr  ,Np  ))
 		self.yyc = np.zeros((Nr  ,Np  ))
 		self.BzD = np.zeros((Nr  ,Np  ))
-		#Create corners for stretched polar grid
-		for i in range(Nr+1):
-			for j in range(self.Nj):
-				self.xxi[i,j] = self.X[i,j,0]
-				self.yyi[i,j] = self.Y[i,j,0]
-			for j in range(self.Nj,Np+1):
-				jp = Np-j
-				self.xxi[i,j] =  self.X[i,jp,0]
-				self.yyi[i,j] = -self.Y[i,jp,0]
+
+	#Create corners for stretched polar grid
+		#Upper half plane
+		for j in range(self.Nj):
+			self.xxi[:,j] = self.X[:,j,0]
+			self.yyi[:,j] = self.Y[:,j,0]
+		#Lower half plane
+		for j in range(self.Nj,Np+1):
+			jp = Np-j
+			self.xxi[:,j] =  self.X[:,jp,0]
+			self.yyi[:,j] = -self.Y[:,jp,0]
+
 		#Get centers for stretched polar grid & BzD
-		for i in range(Nr):
-			for j in range(Np):
-				self.xxc[i,j] = 0.25*(self.xxi[i,j]+self.xxi[i+1,j]+self.xxi[i,j+1]+self.xxi[i+1,j+1])
-				self.yyc[i,j] = 0.25*(self.yyi[i,j]+self.yyi[i+1,j]+self.yyi[i,j+1]+self.yyi[i+1,j+1])
-				r = np.sqrt(self.xxc[i,j]**2.0+self.yyc[i,j]**2.0)
-				rm5 = r**(-5.0)
-				self.BzD[i,j] = -r*r*self.MagM*rm5
+		self.xxc = 0.25*(self.xxi[:-1,:-1] + self.xxi[1:,:-1] + self.xxi[:-1,1:] + self.xxi[1:,1:])
+		self.yyc = 0.25*(self.yyi[:-1,:-1] + self.yyi[1:,:-1] + self.yyi[:-1,1:] + self.yyi[1:,1:])
+		r = np.sqrt(self.xxc**2.0 + self.yyc**2.0)
+		rm5 = r**(-5.0)
+		self.BzD = -r*r*self.MagM*rm5
 
 		if (self.hasMJD):
 			print("Found MJD data")

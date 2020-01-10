@@ -8,7 +8,7 @@
                               pi, read_array, label, LUN, &
                               boundary, bndloc, pressrcm,&
                               Read_grid, Read_plasma,Get_boundary, &
-                              xmass, densrcm,imin_j,rcmdir
+                              xmass, densrcm,denspsph,imin_j,rcmdir
       USE constants, ONLY : mass_proton,radius_earth_m,nt,ev,pressure_factor,density_factor
       USE rice_housekeeping_module
       Use rcm_mhd_interfaces
@@ -96,7 +96,7 @@
 
       ! Logic of this thing is such that rec must be >= 2 (RCM had to run at least once):
 
-      write(6,*)'tomhd, rec=',rec
+      if (doRCMVerbose) write(6,*)'tomhd, rec=',rec
       IF (rec < 2) STOP ' tomhd called before RCM was called, aborting...'
 
       ! At this point, we assume that RCM arrays are all populated
@@ -196,31 +196,34 @@
 
 !     Compute rcm pressure and density (on the ionospheric RCM grid):
 !
+      !$OMP PARALLEL DO default(shared) &
+      !$OMP schedule(dynamic) &
+      !$OMP private(i,j,k,dens_plasmasphere)
       DO j = 1, jdim
       DO i = 1, idim
-         pressrcm (i,j) = 0.0
-         densrcm (i,j)  = 0.0
-         IF (vm(i,j) < 0.0) CYCLE
-         DO k = 1, kcsize
-            pressrcm(i,j) = pressrcm(i,j) + &
+        pressrcm (i,j) = 0.0
+        densrcm  (i,j) = 0.0
+        denspsph (i,j) = 0.0
+
+        IF (vm(i,j) < 0.0) CYCLE
+        DO k = 1, kcsize
+          pressrcm(i,j) = pressrcm(i,j) + &
                  pressure_factor*ABS(alamc(k))*eeta_avg(i,j,k)*vm(i,j)**2.5 ! in pascals
 
 !           normalize everything to the mass_proton, otherwise answer is below
 !           floating point minimum answer and gets zero in ples/m^3
 !           FIXME: This version is mass weighted, not sure why.
-           if(alamc(k) >0.0)then ! only add the ion contribution
+          if(alamc(k) >0.0)then ! only add the ion contribution
             densrcm(i,j) = densrcm(i,j) + &
                density_factor/mass_proton*xmass(ikflavc(k))*eeta_avg(i,j,k)*vm(i,j)**1.5
-           end if
-         END DO
-         if(use_plasmasphere)then
-! add a simple plasmasphere model based on carpenter 1992 or gallagher 2002 in ples/cc
-!           call carpenter(rmin(i,j),dens_plasmasphere)
-            dens_plasmasphere = GallagherXY(xmin(i,j),ymin(i,j))
+          end if
+        END DO
+        if (use_plasmasphere) then
+          ! add a simple plasmasphere model based on carpenter 1992 or gallagher 2002 in ples/cc
+          dens_plasmasphere = GallagherXY(xmin(i,j),ymin(i,j))
+          denspsph(i,j) = dens_plasmasphere*1.0e6
+        endif
 
-            !call gallagher(rmin(i,j),dens_plasmasphere)
-            densrcm(i,j) = densrcm(i,j) + dens_plasmasphere*1.0e6
-         end if
       END DO
       END DO
  
@@ -234,6 +237,7 @@
 
       RM%Prcm = pressrcm(:,jwrap:jdim)
       RM%Nrcm   = densrcm(:,jwrap:jdim)
+      RM%Npsph  = denspsph(:,jwrap:jdim)
 
 ! if the locations are within 1 grid point of the boundary, then set the mask to zero
 
@@ -309,29 +313,4 @@
                                                            
      return                                                          
      end subroutine write_rcmu
- !------------------------------------------
-         subroutine gallagher(L,density)
-! approx based on gallagher et al, figure 1
-! JOURNAL OF GEOPHYSICAL RESEARCH, VOL. 105, NO. A8, PAGES 18,819-18,833, AUGUST 1, 2000
-! returns values in ples/cc
-!         USE Rcm_mod_subs, ONLY : rprec
-         USE rcm_precision, ONLY : rprec
-         implicit none
-         real(rprec),intent(in) :: L
-         real(rprec),intent(out) :: density
-         real(rprec), parameter :: L0 = 4.5
-         real(rprec), parameter :: alpha = 10.
-         real(rprec), parameter :: a1 = -0.25
-         real(rprec), parameter :: b1 = 2.4
-         real(rprec), parameter :: a2 = -0.5
-         real(rprec), parameter :: b2 = 4.5
-         real ::f,q
-
-         f = 0.5*(1.0+tanh(alpha*(L-L0)))
-         q = f*(a1*L + b1) + (1.0-f)*(a2*L + b2)
-         density = 10.**q
-
-         return
-         end subroutine gallagher
-
 
