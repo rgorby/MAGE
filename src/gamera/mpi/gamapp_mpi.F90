@@ -92,7 +92,7 @@ module gamapp_mpi
         integer :: targetRank, sendNumber, numInNeighbors, numOutNeighbors, listIndex
         integer, dimension(27) :: sourceRanks, sourceData
         logical :: reorder,periodicI,periodicJ,periodicK,wasWeighted
-        character(len=strLen) :: message, bcType
+        character(len=strLen) :: message
         real(rp), dimension(:,:,:), allocatable :: tempX,tempY,tempZ
         real(rp) :: tmpDT
 
@@ -105,6 +105,9 @@ module gamapp_mpi
         call xmlInp%Set_Val(Grid%NumRi,'iPdir/N',1)
         call xmlInp%Set_Val(Grid%NumRj,'jPdir/N',1)
         call xmlInp%Set_Val(Grid%NumRk,'kPdir/N',1)
+        call xmlInp%Set_Val(periodicI,'iPdir/bcPeriodic',.false.)
+        call xmlInp%Set_Val(periodicJ,'jPdir/bcPeriodic',.false.)
+        call xmlInp%Set_Val(periodicK,'kPdir/bcPeriodic',.false.)
 
         if(Grid%NumRi*Grid%NumRj*Grid%NumRk > 1) then
             Grid%isTiled = .true.
@@ -146,26 +149,6 @@ module gamapp_mpi
             Grid%Ni = Grid%Nip + 2*Model%nG
             Grid%Nj = Grid%Njp + 2*Model%nG
             Grid%Nk = Grid%Nkp + 2*Model%nG
-
-            ! check which dimensions are using MPI for periodicity
-            call xmlInp%Set_Val(bcType,'ibc/bc','')
-            if (bcType == 'periodic') then
-                periodicI = .true.
-            else
-                periodicI = .false.
-            endif
-            call xmlInp%Set_Val(bcType,'jbc/bc','')
-            if (bcType == 'periodic') then
-                periodicJ = .true.
-            else
-                periodicJ = .false.
-            endif
-            call xmlInp%Set_Val(bcType,'kbc/bc','')
-            if (bcType == 'periodic') then
-                periodicK = .true.
-            else
-                periodicK = .false.
-            endif
 
             ! create MPI topology
             sourceRanks(:) = -1
@@ -355,7 +338,7 @@ module gamapp_mpi
                     CLASS DEFAULT
                         ! this BC is something other than an MPI BC
                         if(.not. Grid%hasLowerBC(IDIR) .or. periodicI) then
-                            print *, 'Over-writing min I BC to be an MPI BC'
+                            ! print *, 'Over-writing min I BC to be an MPI BC'
                             deallocate(Grid%externalBCs(INI)%p)
                             allocate(mpiNullBc_T :: Grid%externalBCs(INI)%p)
                         endif
@@ -372,7 +355,7 @@ module gamapp_mpi
                     CLASS DEFAULT
                         ! this BC is something other than an MPI BC
                         if(.not. Grid%hasUpperBC(IDIR) .or. periodicI) then
-                            print *, 'Over-writing max I BC to be an MPI BC'
+                            ! print *, 'Over-writing max I BC to be an MPI BC'
                             deallocate(Grid%externalBCs(OUTI)%p)
                             allocate(mpiNullBc_T :: Grid%externalBCs(OUTI)%p)
                         endif
@@ -394,7 +377,7 @@ module gamapp_mpi
                     CLASS DEFAULT
                         ! this BC is something other than an MPI BC
                         if(.not. Grid%hasLowerBC(JDIR) .or. periodicJ) then
-                            print *, 'Over-writing min J BC to be an MPI BC'
+                            ! print *, 'Over-writing min J BC to be an MPI BC'
                             deallocate(Grid%externalBCs(INJ)%p)
                             allocate(mpiNullBc_T :: Grid%externalBCs(INJ)%p)
                         endif
@@ -411,7 +394,7 @@ module gamapp_mpi
                     CLASS DEFAULT
                         ! this BC is something other than an MPI BC
                         if(.not. Grid%hasUpperBC(JDIR) .or. periodicJ) then
-                            print *, 'Over-writing max J BC to be an MPI BC'
+                            ! print *, 'Over-writing max J BC to be an MPI BC'
                             deallocate(Grid%externalBCs(OUTJ)%p)
                             allocate(mpiNullBc_T :: Grid%externalBCs(OUTJ)%p)
                         endif
@@ -433,7 +416,7 @@ module gamapp_mpi
                     CLASS DEFAULT
                         ! this BC is something other than an MPI BC
                         if(.not. Grid%hasLowerBC(KDIR) .or. periodicK) then
-                            print *, 'Over-writing min K BC to be an MPI BC'
+                            ! print *, 'Over-writing min K BC to be an MPI BC'
                             deallocate(Grid%externalBCs(INK)%p)
                             allocate(mpiNullBc_T :: Grid%externalBCs(INK)%p)
                         endif
@@ -450,7 +433,7 @@ module gamapp_mpi
                     CLASS DEFAULT
                         ! this BC is something other than an MPI BC
                         if(.not. Grid%hasUpperBC(KDIR) .or. periodicK) then
-                            print *, 'Over-writing max K BC to be an MPI BC'
+                            ! print *, 'Over-writing max K BC to be an MPI BC'
                             deallocate(Grid%externalBCs(OUTK)%p)
                             allocate(mpiNullBc_T :: Grid%externalBCs(OUTK)%p)
                         endif

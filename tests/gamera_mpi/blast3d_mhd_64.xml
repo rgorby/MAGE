@@ -4,12 +4,9 @@
     <idir min="-0.5" max="0.5" N="16"/>
     <jdir min="-0.5" max="0.5" N="16"/>
     <kdir min="-0.5" max="0.5" N="16"/>
-    <ibc bc="periodic"/>
-    <jbc bc="periodic"/>
-    <kbc bc="periodic"/>
-    <iPdir N="4"/>
-    <jPdir N="4"/>
-    <kPdir N="4"/>
+    <iPdir N="4" bcPeriodic="T"/>
+    <jPdir N="4" bcPeriodic="T"/>
+    <kPdir N="4" bcPeriodic="T"/>
     <time tFin="1.0"/>
     <output dtOut="0.1" tsOut="1000000"/>
     <physics doMHD="T" do25D="F"/>
