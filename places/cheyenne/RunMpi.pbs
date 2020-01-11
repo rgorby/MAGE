@@ -1,0 +1,32 @@
+#!/bin/bash
+#Example Kaiju MPI PBS script
+#Expects an input file named blast3D.xml
+
+#PBS -A UJHB0015
+#PBS -N blast3D_mhd_mpi
+
+#PBS -l walltime=4:00:00
+#PBS -q regular
+#PBS -j oe
+#PBS -l select=4:ncpus=36:mpiprocs=2:ompthreads=72
+
+export TAG="blast3D"
+export EXE="./gamera_mpi.x"
+export INPDECK="$TAG.xml"
+export OUTFILE="$TAG.out"
+
+#Optional stuff to load an environment
+source ~/.bashrc
+module restore mpikaiju
+
+setomp 36
+export I_MPI_PIN_DOMAIN="omp"
+export OMP_STACKSIZE=64M
+
+module list
+echo "Running on host `hostname` on `date`"
+echo "PWD = $PWD"
+
+mpirun $EXE $INPDECK > $OUTFILE
+
+echo "Finished run on `date`"
