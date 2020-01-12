@@ -138,6 +138,8 @@ MODULE ionosphere_exchange
       ALLOCATE( rm%beta_average(rm%nLat_ion, rm%nLon_ion))
       ALLOCATE( rm%sigmap(rm%nLat_ion, rm%nLon_ion) )
       ALLOCATE( rm%sigmah(rm%nLat_ion, rm%nLon_ion) )
+      ALLOCATE( rm%latc(rm%nLat_ion, rm%nLon_ion) )
+      ALLOCATE( rm%lonc(rm%nLat_ion, rm%nLon_ion) )
 
       
       rm%gcolat (:) = colat (:,1)
@@ -166,6 +168,9 @@ MODULE ionosphere_exchange
       if (ALLOCATED(rm%Npsph)) DEALLOCATE(rm%Npsph)
       if (ALLOCATED(rm%Nrcm)) DEALLOCATE(rm%Nrcm)
       if (ALLOCATED(rm%beta_average)) DEALLOCATE(rm%beta_average)
+      if (ALLOCATED(rm%latc)) DEALLOCATE(rm%latc)
+      if (ALLOCATED(rm%lonc)) DEALLOCATE(rm%lonc)
+      
     END SUBROUTINE tearDownIon
 
   END MODULE ionosphere_exchange

@@ -238,6 +238,33 @@ module streamline
         end associate
     end function FLTop
 
+    !Get conjugate point from field line, assuming looking for southern hemisphere
+    subroutine FLConj(Model,ebGr,bTrc,xyzC)
+        type(chmpModel_T), intent(in) :: Model
+        type(ebGrid_T), intent(in) :: ebGr
+        type(fLine_T), intent(in) :: bTrc
+        real(rp), intent(out) :: xyzC(NDIM)
+
+        real(rp), dimension(NDIM) :: xP,xM
+
+        associate(Np=>bTrc%Np,Nm=>bTrc%Nm)
+            
+        !Get endpoints of field line
+        xP = bTrc%xyz(+Np,:)
+        xM = bTrc%xyz(-Nm,:)
+
+        if (xP(ZDIR)<0.0) then
+            xyzC = xP
+        else if (xM(ZDIR)<0.0) then
+            xyzC = xM
+        else
+            xyzC = 0.0
+        endif
+
+        end associate
+
+    end subroutine FLConj
+
     !Get minimum field strength and location
     subroutine FLEq(Model,bTrc,xeq,Beq)
         type(chmpModel_T), intent(in) :: Model

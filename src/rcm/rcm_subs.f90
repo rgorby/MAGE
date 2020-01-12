@@ -7960,7 +7960,13 @@ bjmod_real = MODULO(bj-REAL(jwrap),REAL(jsize-jwrap-1)) + REAL(jwrap)
 
         !Extra stuff not in write_array
           call AddOutVar(IOVars,"alamc",alamc)
-
+          call AddOutVar(IOVars,"aloct",aloct)
+          call AddOutVar(IOVars,"colat",colat)
+          call AddOutVar(IOVars,"alpha",alpha)
+          call AddOutVar(IOVars,"beta" ,beta )
+          call AddOutVar(IOVars,"bir"  ,bir  )
+          call AddOutVar(IOVars,"sini" ,sini )
+          
         !Done staging output, now let er rip
           if (isRestart) then
             call CheckAndKill(H5File) !Always overwrite restarts

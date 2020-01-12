@@ -9,44 +9,72 @@ module metric
     contains
 
     !Given (i,j,k) return cell centered coordinates (xc,yc,zc) of cell i,j,k
-    subroutine cellCenter(Gr,i,j,k,xc,yc,zc)
+    subroutine cellCenter(Gr,i,j,k,xc,yc,zc,doBaryO)
         integer, intent(in) :: i,j,k
         type(Grid_T), intent(in) :: Gr
         real(rp), intent(out) :: xc,yc,zc
+        logical, intent(in), optional :: doBaryO
 
-        xc = 0.125*( Gr%x(i,j,k)   + Gr%x(i+1,j,k)   + Gr%x(i+1,j+1,k)   + Gr%x(i,j+1,k) + &
-                     Gr%x(i,j,k+1) + Gr%x(i+1,j,k+1) + Gr%x(i+1,j+1,k+1) + Gr%x(i,j+1,k+1) )
+        logical :: doBary
 
-        yc = 0.125*( Gr%y(i,j,k)   + Gr%y(i+1,j,k)   + Gr%y(i+1,j+1,k)   + Gr%y(i,j+1,k) + &
-                     Gr%y(i,j,k+1) + Gr%y(i+1,j,k+1) + Gr%y(i+1,j+1,k+1) + Gr%y(i,j+1,k+1) )
+        if (present(doBaryO)) then
+            doBary = doBaryO
+        else
+            doBary = .true.
+        endif
 
-        zc = 0.125*( Gr%z(i,j,k)   + Gr%z(i+1,j,k)   + Gr%z(i+1,j+1,k)   + Gr%z(i,j+1,k) + &
-                     Gr%z(i,j,k+1) + Gr%z(i+1,j,k+1) + Gr%z(i+1,j+1,k+1) + Gr%z(i,j+1,k+1) )
+        if (doBary) then
+            xc = Gr%xyzcc(i,j,k,XDIR)
+            yc = Gr%xyzcc(i,j,k,YDIR)
+            zc = Gr%xyzcc(i,j,k,ZDIR)
+        else
+            xc = 0.125*( Gr%x(i,j,k)   + Gr%x(i+1,j,k)   + Gr%x(i+1,j+1,k)   + Gr%x(i,j+1,k) + &
+                         Gr%x(i,j,k+1) + Gr%x(i+1,j,k+1) + Gr%x(i+1,j+1,k+1) + Gr%x(i,j+1,k+1) )
 
+            yc = 0.125*( Gr%y(i,j,k)   + Gr%y(i+1,j,k)   + Gr%y(i+1,j+1,k)   + Gr%y(i,j+1,k) + &
+                         Gr%y(i,j,k+1) + Gr%y(i+1,j,k+1) + Gr%y(i+1,j+1,k+1) + Gr%y(i,j+1,k+1) )
+
+            zc = 0.125*( Gr%z(i,j,k)   + Gr%z(i+1,j,k)   + Gr%z(i+1,j+1,k)   + Gr%z(i,j+1,k) + &
+                         Gr%z(i,j,k+1) + Gr%z(i+1,j,k+1) + Gr%z(i+1,j+1,k+1) + Gr%z(i,j+1,k+1) )
+        endif
     end subroutine cellCenter
 
     !Calculate face center (in direction d, shifted down) of cell i,j,k
-    subroutine faceCenter(Gr,i,j,k,xfc,yfc,zfc,d)
+    subroutine faceCenter(Gr,i,j,k,xfc,yfc,zfc,d,doBaryO)
         integer, intent(in) :: i,j,k,d
         type(Grid_T), intent(in) :: Gr
         real(rp), intent(out) :: xfc,yfc,zfc
+        logical, intent(in), optional :: doBaryO
 
-        ! select direction
-        select case(d)
-            case(IDIR)
-                xfc = 0.25*( Gr%x(i,j,k) + Gr%x(i,j+1,k) + Gr%x(i,j+1,k+1) + Gr%x(i,j,k+1) )
-                yfc = 0.25*( Gr%y(i,j,k) + Gr%y(i,j+1,k) + Gr%y(i,j+1,k+1) + Gr%y(i,j,k+1) )
-                zfc = 0.25*( Gr%z(i,j,k) + Gr%z(i,j+1,k) + Gr%z(i,j+1,k+1) + Gr%z(i,j,k+1) )
-            case(JDIR)
-                xfc = 0.25*( Gr%x(i,j,k) + Gr%x(i+1,j,k) + Gr%x(i+1,j,k+1) + Gr%x(i,j,k+1) )
-                yfc = 0.25*( Gr%y(i,j,k) + Gr%y(i+1,j,k) + Gr%y(i+1,j,k+1) + Gr%y(i,j,k+1) )
-                zfc = 0.25*( Gr%z(i,j,k) + Gr%z(i+1,j,k) + Gr%z(i+1,j,k+1) + Gr%z(i,j,k+1) )
-            case(KDIR)
-                xfc = 0.25*( Gr%x(i,j,k) + Gr%x(i+1,j,k) + Gr%x(i+1,j+1,k) + Gr%x(i,j+1,k) )
-                yfc = 0.25*( Gr%y(i,j,k) + Gr%y(i+1,j,k) + Gr%y(i+1,j+1,k) + Gr%y(i,j+1,k) )
-                zfc = 0.25*( Gr%z(i,j,k) + Gr%z(i+1,j,k) + Gr%z(i+1,j+1,k) + Gr%z(i,j+1,k) )
-        end select
+        logical :: doBary
 
+        if (present(doBaryO)) then
+            doBary = doBaryO
+        else
+            doBary = .true.
+        endif
+
+        if (doBary) then
+            xfc = Gr%xfc(i,j,k,XDIR,d)
+            yfc = Gr%xfc(i,j,k,YDIR,d)
+            zfc = Gr%xfc(i,j,k,ZDIR,d)
+        else
+            ! select direction
+            select case(d)
+                case(IDIR)
+                    xfc = 0.25*( Gr%x(i,j,k) + Gr%x(i,j+1,k) + Gr%x(i,j+1,k+1) + Gr%x(i,j,k+1) )
+                    yfc = 0.25*( Gr%y(i,j,k) + Gr%y(i,j+1,k) + Gr%y(i,j+1,k+1) + Gr%y(i,j,k+1) )
+                    zfc = 0.25*( Gr%z(i,j,k) + Gr%z(i,j+1,k) + Gr%z(i,j+1,k+1) + Gr%z(i,j,k+1) )
+                case(JDIR)
+                    xfc = 0.25*( Gr%x(i,j,k) + Gr%x(i+1,j,k) + Gr%x(i+1,j,k+1) + Gr%x(i,j,k+1) )
+                    yfc = 0.25*( Gr%y(i,j,k) + Gr%y(i+1,j,k) + Gr%y(i+1,j,k+1) + Gr%y(i,j,k+1) )
+                    zfc = 0.25*( Gr%z(i,j,k) + Gr%z(i+1,j,k) + Gr%z(i+1,j,k+1) + Gr%z(i,j,k+1) )
+                case(KDIR)
+                    xfc = 0.25*( Gr%x(i,j,k) + Gr%x(i+1,j,k) + Gr%x(i+1,j+1,k) + Gr%x(i,j+1,k) )
+                    yfc = 0.25*( Gr%y(i,j,k) + Gr%y(i+1,j,k) + Gr%y(i+1,j+1,k) + Gr%y(i,j+1,k) )
+                    zfc = 0.25*( Gr%z(i,j,k) + Gr%z(i+1,j,k) + Gr%z(i+1,j+1,k) + Gr%z(i,j+1,k) )
+            end select
+        endif
     end subroutine faceCenter
 
     !d-Face coordinates in order f0=SW,f1=SE,f2=NW,f3=NE
