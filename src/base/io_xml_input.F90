@@ -99,6 +99,8 @@ module XML_Input
 
    implicit none
 
+   logical, private :: doQuiet = .false.
+
    !Hard-coded format strings
    character(len=strLen), parameter, private :: realFormat = '(es12.5)'
    character(len=strLen), parameter, private :: strFormat  =  '(a12)'
@@ -395,6 +397,11 @@ module XML_Input
    end type XML_Input_T
 
 contains
+   !Set all XML reading to quiet on this rank
+   subroutine SetXML2Quiet()
+      doQuiet = .true.
+   end subroutine SetXML2Quiet
+
    subroutine Set_Real_RpSp(this, val, xmlp, dflt)
       class(XML_Input_T) :: this
       real(rp), intent(inout)     :: val
@@ -517,7 +524,7 @@ contains
       character(len=*), parameter :: formt  = '(2X, a25, a1, 2X, a12, a10)'
       character(len=*), parameter :: formtC = '(2X, a25, a1, 2X, a12, a,a10,a)'
 
-      if (.not. doVerb) return
+      if ( (.not. doVerb) .or. (doQuiet) ) return
       bStr = trim(toUpper(rStr)) // '/' // trim(xStr)
       
       if (isXML) then
@@ -855,7 +862,7 @@ contains
          return
        endif
      end do
-   end function Exists 
+   end function Exists
 
    !------------------------------------------------------------------
 
