@@ -64,7 +64,7 @@ module ebsquish
         t = ebState%eb1%time
         
         !$OMP PARALLEL DO default(shared) collapse(2) &
-        !$OMP schedule(dynamic) &
+        !$OMP schedule(guided) &
         !$OMP private(i,j,k,xyz,x1,x2)
         do k=ebGr%ks,ebGr%ke
             do j=ebGr%js,ebGr%je
@@ -121,6 +121,7 @@ module ebsquish
     end subroutine Proj2LP
 
     !Project XYZ to lat-lon on ionosphere
+    !TODO: Define cutoff radius within which we just dipole map for speed
     subroutine Proj2LL(ebModel,ebState,xyz,t,x1,x2)
         type(chmpModel_T), intent(in) :: ebModel
         type(ebState_T)  , intent(in) :: ebState

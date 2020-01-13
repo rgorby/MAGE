@@ -98,12 +98,7 @@ module uservoltic
         call inpXML%Set_Val(BzW,"prob/BzW",0.0_rp)
         
         ! deallocate default BCs
-        deallocate(Grid%ExternalBCs(INI )%p)
-        deallocate(Grid%ExternalBCs(OUTI)%p)
-        deallocate(Grid%ExternalBCs(INJ )%p)
-        deallocate(Grid%ExternalBCs(OUTJ)%p)
-        deallocate(Grid%ExternalBCs(INK )%p)
-        deallocate(Grid%ExternalBCs(OUTK)%p)
+        call WipeBCs(Model,Grid)
 
         !Set BCs (spherical, RPT)
         allocate(IonInnerBC_T       :: Grid%externalBCs(INI )%p)

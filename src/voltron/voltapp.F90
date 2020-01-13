@@ -131,9 +131,14 @@ module voltapp
         endif
 
         !Do first couplings
+        call Tic("IonCoupling")
         call ShallowUpdate(vApp,gApp,vApp%time)
+        call Toc("IonCoupling")
+        
         if (vApp%doDeep .and. (vApp%time>=vApp%DeepT)) then
+            call Tic("DeepCoupling")
             call DeepUpdate(vApp,gApp,vApp%time)
+            call Toc("DeepCoupling")
         endif
 
         !Recalculate timestep

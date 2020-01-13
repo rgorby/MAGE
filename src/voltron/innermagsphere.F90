@@ -132,6 +132,7 @@ module innermagsphere
 
         associate(Gr=>gApp%Grid,chmp2mhd=>vApp%chmp2mhd)
         !$OMP PARALLEL DO default(shared) collapse(2) &
+        !$OMP schedule(dynamic) &
         !$OMP private(i,j,k,x1,x2,imW)
         do k=Gr%ks,Gr%ke
             do j=Gr%js,Gr%je

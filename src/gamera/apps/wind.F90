@@ -194,6 +194,7 @@ module wind
 
         !Loop over grid cells and calculate a outflow and SW condition
         !$OMP PARALLEL DO default(shared) collapse(2) &
+        !$OMP schedule(guided) &
         !$OMP private(s,n,ip,ig,j,k,D,P,wSW,wMHD,dtSW) &
         !$OMP private(xcc,nHat,V,B,gB_mhd,gB_sw,gW,gCon,gW_mhd,gW_sw)
         do k=Grid%ksg,Grid%keg

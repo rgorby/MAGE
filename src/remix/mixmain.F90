@@ -77,11 +77,14 @@ module mixmain
       logical, optional, intent(in) :: doModelOpt  ! allow to change on the fly whether we use conductance model
 
       logical :: doModel=.true.   ! always default to xml input deck unless doModelOpt is present and on
-      integer :: h
+      integer :: h,NumH
 
       if (present(doModelOpt)) doModel = doModelOpt
-      
-      do h=1,size(I)
+
+      NumH = size(I)
+
+      !Removing OMP loop due to weird runtime errors
+      do h=1,NumH
          if (I(h)%St%hemisphere.eq.NORTH) then
             I(h)%St%tilt = tilt
          else

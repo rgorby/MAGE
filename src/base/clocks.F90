@@ -6,7 +6,7 @@ module clocks
     implicit none
 
     !Global clock parameters
-    integer, parameter :: maxClocks = 40
+    integer, parameter :: maxClocks = 80
     integer :: clockRate=0,clockMax=0
 
     !Clock output (min/max depth)
@@ -90,6 +90,12 @@ module clocks
     subroutine newClock(cID)
         character(len=*), intent(in) :: cID
         integer :: Npa(1),Np,Nl
+
+        if (nclk == maxClocks-1) then
+            write(*,*) 'Ran out of clocks, increse maxClocks ...'
+            stop
+        endif
+
         !Find parent of this clock, ie on clock w/ largest level
         kClocks(nclk+1)%cID = trim(cID)
         Npa = maxloc(kClocks(1:nclk)%level,mask=kClocks(1:nclk)%isOn)

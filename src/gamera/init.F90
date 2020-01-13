@@ -159,9 +159,9 @@ module init
 
         !Finalize setup
         !Enforce initial BC's
-        call Tic("InitialBCs")
+        call Tic("BCs")
         call EnforceBCs(Model,Grid,State)
-        call Toc("InitialBCs")
+        call Toc("BCs")
 
         !Setup timestep and initial previous state for predictor
         Model%dt = CalcDT(Model,Grid,State)

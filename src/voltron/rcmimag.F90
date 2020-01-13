@@ -13,6 +13,7 @@ module rcmimag
     use rcm_mhd_interfaces
     use rcm_mix_interface
     use streamline
+    use clocks
 
     implicit none
 
@@ -70,13 +71,11 @@ module rcmimag
             RCMApp%rcm_nRes = nRes
             write(*,*) 'Restarting RCM @ t = ', t0
             call rcm_mhd(t0,dtCpl,RCMApp,RCMRESTART)
-            write(*,*) 'Finished RCM restart ...'
-            call init_rcm_mix(RCMApp)
         else
             write(*,*) 'Initializing RCM ...'
             call rcm_mhd(t0,dtCpl,RCMApp,RCMINIT)
-            call init_rcm_mix(RCMApp)
         endif
+        call init_rcm_mix(RCMApp)
 
         h5File = trim(RunID) // ".mhdrcm.h5" !MHD-RCM coupling data
         RCMH5  = trim(RunID) // ".rcm.h5" !RCM data
@@ -112,12 +111,15 @@ module rcmimag
 
         llBC = vApp%mhd2chmp%lowlatBC
 
+        call Tic("MAP_RCMMIX")
     !Get potential from mix
         call map_rcm_mix(vApp,mixPot)
+        call Toc("MAP_RCMMIX")
 
+        call Tic("RCM_TUBES")
     !Load RCM tubes
        !$OMP PARALLEL DO default(shared) collapse(2) &
-       !$OMP schedule(dynamic) &
+       !$OMP schedule(guided) &
        !$OMP private(i,j,colat,lat,lon,isLL,ijTube)
         do i=1,RCMApp%nLat_ion
             do j=1,RCMApp%nLon_ion
@@ -153,12 +155,15 @@ module rcmimag
                 
             enddo
         enddo
+        call Toc("RCM_TUBES")
 
+        call Tic("AdvRCM")
     !Advance from vApp%time to tAdv
         dtAdv = tAdv-vApp%time !RCM-DT
         call rcm_mhd(vApp%time,dtAdv,RCMApp,RCMADVANCE)
         !Update timming data
-        call rcm_mhd(vApp%time,0.0,RCMApp,RCMWRITETIMING)
+        call rcm_mhd(vApp%time,0.0_rp,RCMApp,RCMWRITETIMING)
+        call Toc("AdvRCM")
     end subroutine AdvanceRCM
 
     !Evaluate eq map at a given point
@@ -411,7 +416,7 @@ module rcmimag
         call AddOutVar(IOVars,"latc",RCMApp%latc*180.0/PI)
         call AddOutVar(IOVars,"lonc",RCMApp%lonc*180.0/PI)
 
-        call AddOutVar(IOVars,"eavg",RCMApp%eng_avg)
+        call AddOutVar(IOVars,"eavg",RCMApp%eng_avg*1.0e-3) !ev->keV
         call AddOutVar(IOVars,"eflux",RCMApp%flux)
 
         !Trim output for colat/aloct to remove wrapping
