@@ -5,6 +5,7 @@ module voltapp_mpi
     use voltapp
     use gamapp_mpi
     use gamapp
+    use mpi
     
     implicit none
 
@@ -16,16 +17,17 @@ module voltapp_mpi
     contains
 
     !Initialize Voltron (after Gamera has already been initialized)
-    subroutine initVoltron_mpi(vApp, gApp, voltComm, optFilename)
-        type(gamAppMpi_T) , intent(inout) :: gApp
+    subroutine initVoltron_mpi(vApp, voltComm, optFilename)
         type(voltAppMpi_T), intent(inout) :: vApp
         integer, intent(in) :: voltComm
         character(len=*), optional, intent(in) :: optFilename
+        integer :: commSize, ierr
 
-        ! create a voltron 
+        ! create a new communicator using MPI Topology
 
         ! create a stripped down gamApp object which will be used locally
         ! voltron uses Grid%is,js,ks,ie,je,ke - Grid%xyz - Grid%B0
+        
 
         ! use standard voltron with local gamApp object
         if(present(optFilename)) then
@@ -36,10 +38,15 @@ module voltapp_mpi
 
     end subroutine initVoltron_mpi
 
+    ! MPI version of updating voltron variables
+    subroutine stepVoltron_mpi(vApp)
+        type(voltAppMpi_T), intent(inout) :: vApp
+
+    end subroutine stepVoltron_mpi
+
 !----------
 !Shallow coupling stuff
-    subroutine ShallowUpdate_mpi(vApp, gApp, time)
-        type(gamAppMpi_T), intent(inout) :: gApp
+    subroutine ShallowUpdate_mpi(vApp, time)
         type(voltAppMpi_T), intent(inout) :: vApp
         real(rp) :: time
 
@@ -57,8 +64,7 @@ module voltapp_mpi
 
 !----------
 !Deep coupling stuff (time coming from vApp%time, so in seconds)
-    subroutine DeepUpdate_mpi(vApp, gApp, time)
-        type(gamAppMpi_T) , intent(inout) :: gApp
+    subroutine DeepUpdate_mpi(vApp, time)
         type(voltAppMpi_T), intent(inout) :: vApp
         real(rp), intent(in) :: time
 

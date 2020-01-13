@@ -18,27 +18,36 @@ module voltio
     subroutine consoleOutputV(vApp,gApp)
         class(gamApp_T) , intent(inout) :: gApp
         class(voltApp_T), intent(in) :: vApp
+
+        !Using console output from Gamera
+        call consoleOutput(gApp%Model,gApp%Grid,gApp%State)
+
+        !Using console output from Voltron
+        call consoleOutputVOnly(vApp,gApp%Model%MJD0)
+
+    end subroutine consoleOutputV
+
+    subroutine consoleOutputVOnly(vApp,MJD0)
+        class(voltApp_T), intent(in) :: vApp
+        real(rp), intent(in) :: MJD0
+
         real(rp) :: cpcp(2) = 0.0
 
         real(rp) :: dpT,dtWall,cMJD,dMJD,simRate
-        real(rp) :: dSW,pSW
-        real(rp), dimension(NDIM) :: xW,bSW,vSW,bAng
 
         integer :: iYr,iDoY,iMon,iDay,iHr,iMin
         real(rp) :: rSec
         character(len=strLen) :: utStr
 
-        !Using console output from Gamera
-        call consoleOutput(gApp%Model,gApp%Grid,gApp%State)
-
         !Augment Gamera console output w/ Voltron stuff
         call getCPCP(vApp%mix2mhd%mixOutput,cpcp)
+
         dpT = vApp%tilt%evalAt(vApp%time)*180.0/PI
 
         !Figure out some perfromance info
-        cMJD = T2MJD(vApp%time,gApp%Model%MJD0) !Current MJD
+        cMJD = T2MJD(vApp%time,MJD0) !Current MJD
 
-        
+
         if (isConInit) then
             !Console output has been initialized
             dMJD = cMJD - oMJD !Elapsed MJD since last console output
@@ -51,38 +60,20 @@ module voltio
             oMJD = cMJD
             isConInit = .true.
         endif
-        
-    !Pull solar wind info @ Earth
-        xW = 0.0
-        select type(pWind=>gApp%Grid%externalBCs(OUTI)%p)
-            type is (WindBC_T)
-                if (gApp%Grid%hasupperBC(IDIR)) then
-                    call GetWindAt(pWind,gApp%Model,xW,gApp%Model%t,dSW,pSW,vSW,bSW)
-                endif
-            class default
-                write(*,*) 'WTF?'
-        end select
-        vSW = vSW*1.0e+2
-        bSW = bSW*gApp%Model%Units%gB0
-        bAng = ClockConeMag(bSW)
 
-    !Get MJD info
+        !Get MJD info
         call mjd2ut(cMJD,iYr,iDoY,iMon,iDay,iHr,iMin,rSec)
         write(utStr,'(I0.4,a,I0.2,a,I0.2,a,I0.2,a,I0.2,a,I0.2)') iYr,'-',iMon,'-',iDay,' ',iHr,':',iMin,':',nint(rSec)
 
         write(*,'(a)',advance="no") ANSIBLUE
-        !write (*, '(a,f8.3,a)')       '    dt/dt0 = ', 100*Model%dt/dt0, '%'
-        write (*, '(a,f7.2,a,3f8.2,a)')      '     Wind = ' , dSW,     ' [#/cc] / ',vSW,' [km/s, XYZ]'
-        write (*, '(a,f7.2,a,2f7.2,a)')      '       IMF = ' , bAng(1), '   [nT] / ',bAng(2),bAng(3),' [deg, Clock/Cone]'
         write (*, '(a,2f8.3,a)')             '      CPCP = ' , cpcp(NORTH), cpcp(SOUTH), ' [kV, N/S]'
         write (*, '(a,1f8.3,a)')             '      tilt = ' , dpT, ' [deg]'
         write (*,'(a,a)')                    '      UT   = ', trim(utStr)
         write (*, '(a,1f7.3,a)')             '      Running @ ', simRate*100.0, '% of real-time'
-        
-        
+
         write (*, *) ANSIRESET, ''
 
-    end subroutine consoleOutputV
+    end subroutine consoleOutputVOnly
 
     !Given vector, get clock/cone angle and magnitude
     function ClockConeMag(V) result(aVec)
@@ -111,6 +102,14 @@ module voltio
         !Write Gamera restart
         call resOutput(gApp%Model,gApp%Grid,gApp%State)
 
+        !Write Voltron restart data
+        call resOutputVOnly(vApp)
+
+    end subroutine resOutputV
+
+    subroutine resOutputVOnly(vApp)
+        class(voltApp_T), intent(inout) :: vApp
+
         !Write inner mag restart
         if (vApp%doDeep) then
             call InnerMagRestart(vApp,vApp%IO%nRes)
@@ -118,9 +117,9 @@ module voltio
         if (vApp%time>vApp%IO%tRes) then
             vApp%IO%tRes = vApp%IO%tRes + vApp%IO%dtRes
         endif
-        vApp%IO%nRes = vApp%IO%nRes + 1            
+        vApp%IO%nRes = vApp%IO%nRes + 1
 
-    end subroutine resOutputV
+    end subroutine resOutputVOnly
 
     subroutine fOutputV(vApp,gApp)
         class(gamApp_T) , intent(inout) :: gApp
@@ -128,6 +127,14 @@ module voltio
 
         !Write gamera data
         call fOutput(gApp%Model,gApp%Grid,gApp%State) !Gamera
+
+        !Write voltron data
+        call fOutputVOnly(vApp)
+
+    end subroutine fOutputV
+
+    subroutine fOutputVOnly(vApp)
+        class(voltApp_T), intent(inout) :: vApp
 
         !Write ReMIX data
         call writeMix(vApp%remixApp%ion,vApp%IO%nOut,mjd=vApp%MJD,time=vApp%time)
@@ -142,7 +149,7 @@ module voltio
         endif
         vApp%IO%nOut = vApp%IO%nOut + 1
 
-    end subroutine fOutputV
+    end subroutine fOutputVOnly
 
     subroutine getCPCP(mhdvarsin,cpcp)
         real(rp), dimension(:,:,:,:,:),intent(in) :: mhdvarsin
