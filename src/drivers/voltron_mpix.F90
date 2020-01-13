@@ -114,39 +114,39 @@ program voltron_mpix
             !Coupling    
             call Tic("DeepCoupling")
             if ( (g2vComm%time >= g2vComm%DeepT) .and. g2vComm%doDeep ) then
-                call performDeepUpdate(g2vComm, gApp, vApp%time)
+                call performDeepUpdate(g2vComm, gApp)
             endif
             call Toc("DeepCoupling")
 
             call Tic("IonCoupling")
             if (g2vComm%time >= g2vComm%ShallowT) then
-                call performShallowUpdate(g2vComm, gApp, vApp%time)
+                call performShallowUpdate(g2vComm, gApp)
             endif
             call Toc("IonCoupling")
         
             !IO checks
             call Tic("IO")
             !Console output
-            if (g2vComm%IO%doConsole(g2vComm%ts)) then
+            if (gApp%Model%IO%doConsole(g2vComm%ts)) then
                 !Using console output from Gamera
                 if(gApp%Grid%Ri==0 .and. gApp%Grid%Rj==0 .and. gApp%Grid%Rk==0) then
                     call consoleOutput(gApp%Model, gApp%Grid, gApp%State)
                 endif
             endif
             !Restart output
-            if (g2vComm%IO%doRestart(g2vComm%time)) then
+            if (gApp%Model%IO%doRestart(g2vComm%time)) then
                 call resOutput(gApp%Model, gApp%Grid, gApp%State)
             endif
             !Data output
-            if (g2vComm%IO%doOutput(g2vComm%time)) then
+            if (gApp%Model%IO%doOutput(g2vComm%time)) then
                 call fOutput(gApp%Model, gApp%Grid, gApp%State)
             endif
 
             call Toc("IO")
 
             !Do timing info
-            if (g2vComm%IO%doTimer(g2vComm%ts)) then
-                if (g2vComm%IO%doTimerOut .and. \
+            if (gApp%Model%IO%doTimer(g2vComm%ts)) then
+                if (gApp%Model%IO%doTimerOut .and. \
                   gApp%Grid%Ri==0 .and. gApp%Grid%Rj==0 .and. gApp%Grid%Rk==0) then
                     call printClocks()
                 endif
