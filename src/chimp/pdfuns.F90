@@ -10,7 +10,7 @@ module pdfuns
     implicit none
 
     procedure(PDFun_T), pointer :: fPSD0 => NULL()
-    real(rp) :: kappa=3.0
+    real(rp), private :: kappa=3.0
 
     contains
 

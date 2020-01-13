@@ -411,6 +411,9 @@ module rcmimag
         call AddOutVar(IOVars,"latc",RCMApp%latc*180.0/PI)
         call AddOutVar(IOVars,"lonc",RCMApp%lonc*180.0/PI)
 
+        call AddOutVar(IOVars,"eavg",RCMApp%eng_avg)
+        call AddOutVar(IOVars,"eflux",RCMApp%flux)
+
         !Trim output for colat/aloct to remove wrapping
         DimLL = shape(colat)
         Ni = DimLL(1)
