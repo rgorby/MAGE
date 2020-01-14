@@ -23,7 +23,7 @@ module ringutils
     !Which ring vars
     !doRAVarE = T: rho,mom,inte
     !doRAVarE = F: rho,mom,rho*Cs^2
-    logical, parameter :: doRAVarE = .true.
+    logical, parameter :: doRAVarE = .false.
 
     contains
 

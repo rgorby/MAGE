@@ -320,8 +320,8 @@ module wind
         
         !$OMP PARALLEL DO default(shared) collapse(2) &
         !$OMP private(i,j,k,n,xcc,nHat,e1,e2,ecc,Vxyz,Bxyz,swExyz,wSW,D,P,mhdExyz)
-        do k=Grid%ksg,Grid%keg
-            do j=Grid%jsg,Grid%jeg
+        do k=Grid%ks,Grid%ke+1
+            do j=Grid%js,Grid%je+1
                 do i=Grid%ie-2,Grid%ie+1
                     xcc = Grid%xyzcc(i,j,k,:)
                     nHat = Grid%Tf(ip+1,j,k,NORMX:NORMZ,IDIR)

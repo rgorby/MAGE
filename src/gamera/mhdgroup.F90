@@ -38,6 +38,7 @@ module mhdgroup
                 call Toc("HackE")
             endif
             call Toc("E-Field")
+            
         endif
         
         !Get plasma stresses

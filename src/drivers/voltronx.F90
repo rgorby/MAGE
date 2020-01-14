@@ -31,7 +31,7 @@ program voltronx
     !Do any updates to Voltron
         call stepVoltron(vApp,gApp)
         
-    !Coupling    
+    !Coupling
         call Tic("DeepCoupling")
         if ( (vApp%time >= vApp%DeepT) .and. vApp%doDeep ) then
             call DeepUpdate(vApp, gApp, vApp%time)

@@ -229,7 +229,7 @@ module gridloc
 
         logical :: isIn,inCell
         real(rp) :: xs,ys,lfmC(NDIM)
-        real(rp) :: xp(2), xCs(4,2)
+        real(rp) :: xp(2)
         integer :: i,j,i0,j0,k0
         integer :: i1,i2,j1,j2
 
@@ -253,26 +253,52 @@ module gridloc
         k0 = min(floor(lfmC(KDIR)/locAux%dTh) +1,ebGr%Nkp) !Evenly spaced k
         ijk(KDIR) = k0
 
+        xp = [xs,ys]
         !Use provided guess if present,
         if (present(ijkO)) then
-            xCs(1,:) = ebGr%xyz(ijkO(IDIR)  ,ijkO(JDIR)  ,ebGr%ks,XDIR:YDIR)
-            xCs(2,:) = ebGr%xyz(ijkO(IDIR)+1,ijkO(JDIR)  ,ebGr%ks,XDIR:YDIR)
-            xCs(3,:) = ebGr%xyz(ijkO(IDIR)+1,ijkO(JDIR)+1,ebGr%ks,XDIR:YDIR)
-            xCs(4,:) = ebGr%xyz(ijkO(IDIR),  ijkO(JDIR)+1,ebGr%ks,XDIR:YDIR)
-            xp = [xs,ys]
             !Test guess
-            inCell = inCell2D(xp,xCs)
-            if (inCell) then
-                !Found it, let's get out of here
-                ijk(IDIR) = ijkO(IDIR)
-                ijk(JDIR) = ijkO(JDIR)
+            inCell = CheckIJ(xp,ijkO(IDIR:JDIR),Model,ebGr)
+            if (inCell) then !Found it, let's get out of here
+                ijk(IDIR:JDIR) = ijkO(IDIR:JDIR)
+                !write(*,*) 'Found guess!'
                 return
             endif
-        endif
+            !Wasn't in original guess, check adjacent cells
+            i1 = max(ijkO(IDIR)-1,ebGr%is)
+            i2 = min(ijkO(IDIR)+1,ebGr%ie)
+            j1 = max(ijkO(JDIR)-1,ebGr%js)
+            j2 = min(ijkO(JDIR)+1,ebGr%je)
+
+            do i=i1,i2
+                do j=j1,j2
+                    inCell = CheckIJ(xp,[i,j],Model,ebGr)
+                    if (inCell) then !Found it, let's get out of here
+                        ijk(IDIR:JDIR) = [i,j]
+                        !write(*,*) 'Found 1st halo!'
+                        return
+                    endif
+                enddo
+            enddo
+
+        endif !Using guess
 
         !If we're still here, do this the hard way
         !Cut out obviously incorrect 2D indices
         call lfmChop(Model,ebGr,[xs,ys],i1,i2,j1,j2)
+
+        ! !Start by looping
+        ! do i=i1,i2
+        !     do j=j1,j2
+        !         inCell = CheckIJ(xp,[i,j],Model,ebGr)
+        !         if (inCell) then !Found it, let's get out of here
+        !             ijk(IDIR:JDIR) = [i,j]
+        !             !write(*,*) 'Found in chop halo!'
+        !             return
+        !         endif
+        !     enddo
+        ! enddo
+
+        !If still here, just pick the closest one
         ijk(IDIR:JDIR) = minloc( (locAux%xxC(i1:i2,j1:j2)-xs)**2.0 + (locAux%yyC(i1:i2,j1:j2)-ys)**2.0 )
         ijk(IDIR:JDIR) = ijk(IDIR:JDIR) + [i1-1,j1-1] !Correct for offset
         if (ijk(KDIR)<0) then
@@ -281,6 +307,26 @@ module gridloc
 
     end subroutine Loc_LFM
 
+    !Check whether 2D point xy is in LFM cell ijG
+    function CheckIJ(xy,ijG,Model,ebGr) result(isIn)
+        real(rp), intent(in) :: xy (NDIM-1)
+        integer, intent(in)  :: ijG(NDIM-1)
+        type(chmpModel_T), intent(in) :: Model
+        type(ebGrid_T), intent(in) :: ebGr
+
+        logical :: isIn
+
+        real(rp) :: xCs(4,2)
+
+        xCs(1,:) = ebGr%xyz(ijG(IDIR)  ,ijG(JDIR)  ,ebGr%ks,XDIR:YDIR)
+        xCs(2,:) = ebGr%xyz(ijG(IDIR)+1,ijG(JDIR)  ,ebGr%ks,XDIR:YDIR)
+        xCs(3,:) = ebGr%xyz(ijG(IDIR)+1,ijG(JDIR)+1,ebGr%ks,XDIR:YDIR)
+        xCs(4,:) = ebGr%xyz(ijG(IDIR),  ijG(JDIR)+1,ebGr%ks,XDIR:YDIR)
+
+        !Test guess
+        isIn = inCell2D(xy,xCs)
+     
+    end function CheckIJ
     !3D localization routine for spherical grid
     subroutine Loc_SPH(xyz,ijk,Model,ebGr,isInO,ijkO)
         real(rp), intent(in) :: xyz(NDIM)
@@ -433,6 +479,7 @@ module gridloc
         j1 = max(j1-1,ebGr%js)
         j2 = min(j2+1,ebGr%je)
 
+        !write(*,*) 'Chop down to i1,i2,j1,j2 = ', i1,i2,j1,j2
     end subroutine lfmChop
 
 
