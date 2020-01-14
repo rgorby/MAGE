@@ -21,7 +21,7 @@ module volttypes
 
     !Data for inner mag => gamera variables
     enum, bind(C)
-        enumerator :: IMDEN=1,IMLSCL,IMTSCL,IMVAR1,IMPR
+        enumerator :: IMDEN=1,IMX1,IMX2,IMTSCL,IMPR
     endenum
     integer, parameter :: NVARIMAG = 5
 

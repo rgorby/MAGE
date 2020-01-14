@@ -185,7 +185,7 @@ module gioH5
         integer iMin,iMax,jMin,jMax,kMin,kMax
 
         !Fill base data
-        real(rp), dimension(:,:,:),   allocatable :: gVar,DivBcc
+        real(rp), dimension(:,:,:),   allocatable :: gVar,DivBcc,gVar1
         real(rp), dimension(:,:,:,:), allocatable :: gVec
         real (rp), dimension(:,:,:,:), allocatable :: VecA,VecB !Full-sized arrays
         real(rp) :: totDivB,MJD
@@ -216,13 +216,14 @@ module gioH5
         call ClearIO(IOVars)
 
         !Allocate holders
-        allocate(gVar(iMin:iMax,jMin:jMax,kMin:kMax))
-        allocate(gVec(iMin:iMax,jMin:jMax,kMin:kMax,1:NDIM))
+        allocate(gVar (iMin:iMax,jMin:jMax,kMin:kMax))
+        allocate(gVar1(iMin:iMax,jMin:jMax,kMin:kMax))
+        allocate(gVec (iMin:iMax,jMin:jMax,kMin:kMax,1:NDIM))
 
         associate(gamOut=>Model%gamOut)
 
         do s=0,Model%nSpc
-            if (s == 0) then
+            if (s == BLK) then
                 dID = "D"
                 VxID = "Vx"
                 VyID = "Vy"
@@ -256,17 +257,22 @@ module gioH5
                             gVec(i,j,k,:) = 0.0
                             gVar(i,j,k)   = 0.0
                         endif
+                        if (s == BLK) then
+                            call CellPress2Cs(Model,State%Gas(i,j,k,:,s),gVar1(i,j,k))
+                        endif
+
                     enddo
                 enddo
             enddo
-
 
             !Add V/P to chain
             call GameraOut(VxID,gamOut%vID,gamOut%vScl,gVec(iMin:iMax,jMin:jMax,kMin:kMax,XDIR))
             call GameraOut(VyID,gamOut%vID,gamOut%vScl,gVec(iMin:iMax,jMin:jMax,kMin:kMax,YDIR))
             call GameraOut(VzID,gamOut%vID,gamOut%vScl,gVec(iMin:iMax,jMin:jMax,kMin:kMax,ZDIR))
             call GameraOut(PID ,gamOut%pID,gamOut%pScl,gVar(iMin:iMax,jMin:jMax,kMin:kMax))
-
+            if (s == BLK) then
+                call GameraOut("Cs",gamOut%vID,gamOut%vScl,gVar1(iMin:iMax,jMin:jMax,kMin:kMax))
+            endif
         enddo !Species loop
         !---------------------
         !Write MHD variables
@@ -326,8 +332,11 @@ module gioH5
             call AddOutVar(IOVars,"Ez",gVec(:,:,:,ZDIR))
             
             if (Model%doSource) then
-                call GameraOut("SrcD","CODE",1.0_rp,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,DEN     ,BLK))
-                call GameraOut("SrcP","CODE",1.0_rp,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,PRESSURE,BLK))
+                call GameraOut("SrcD" ,gamOut%dID,gamOut%dScl,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,DEN     ,BLK))
+                call GameraOut("SrcVx","CODE"    ,1.0_rp     ,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,VELX    ,BLK))
+                call GameraOut("SrcVy","CODE"    ,1.0_rp     ,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,VELY    ,BLK))
+                call GameraOut("SrcVz","CODE"    ,1.0_rp     ,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,VELZ    ,BLK))
+                call GameraOut("SrcP" ,gamOut%pID,gamOut%pScl,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,PRESSURE,BLK))
             endif
 
             if(Model%doResistive) then

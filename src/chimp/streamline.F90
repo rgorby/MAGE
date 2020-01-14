@@ -522,12 +522,17 @@ module streamline
             inDom = inDomain(xn,Model,ebState%ebGr)
             if (inDom) then
                 Np = Np+1
-                dzSgn = Xn(ZDIR)*( Xn(ZDIR)-dx(ZDIR) )
-                if (toEquator .and. (dzSgn < 0)) then
-                    ! interpolate exactly to equator
-                    Xn = Xn-dx/norm2(dx)*abs(Xn(ZDIR))
-                    return
-                endif
+
+                if (toEquator) then
+                    !Check for x'ing
+                    dzSgn = Xn(ZDIR)*( Xn(ZDIR)-dx(ZDIR) )
+                    if (dzSgn < 0) then
+                        ! interpolate exactly to equator
+                        Xn = Xn-dx/norm2(dx)*abs(Xn(ZDIR))
+                        return
+                    endif !dzSgn
+                endif !toEquator
+
             endif !inDom
  
         enddo

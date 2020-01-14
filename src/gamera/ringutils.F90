@@ -20,7 +20,13 @@ module ringutils
         enumerator :: SPOLE=1,EPOLE
     endenum
 
+    !Which ring vars
+    !doRAVarE = T: rho,mom,inte
+    !doRAVarE = F: rho,mom,rho*Cs^2
+    logical, parameter :: doRAVarE = .true.
+
     contains
+
 
     !Init ring averager, change edge length used in timestep calculation
     subroutine InitRings(Model,Grid,xmlInp)
@@ -44,8 +50,8 @@ module ringutils
         !Whether or not to do xs/xe sides of singularity
         if (Grid%isTiled) then
             !If we're tiled we need to figure out if we own either singularity
-            if (Grid%hasLowerBC(2)) Model%Ring%doS = .true.
-            if (Grid%hasUpperBC(2)) Model%Ring%doE = .true.
+            if (Grid%hasLowerBC(JDIR)) Model%Ring%doS = .true.
+            if (Grid%hasUpperBC(JDIR)) Model%Ring%doE = .true.
         else
             !Assume we have both singularities
             Model%Ring%doS = .true.
@@ -498,8 +504,11 @@ module ringutils
 
 !-----
 !Convert to ringav variables and back
+    !Convert ringav variables back to hydro variables
+    !doRAVarE = T: rho,rho*V,inte
+    !doRAVarE = F: rho,rho*V,rho*Cs^2
 
-    !Con -> rho,rho-V,rho-Cs2
+    !Con -> RAVars
     subroutine Gas2Ring(Model,rW)
         type (Model_T), intent(in) :: Model
         real(rp), intent(inout) :: rW(Np,NVAR)
@@ -519,15 +528,17 @@ module ringutils
             !Put ring variables back in (in place)
             rW(n,DEN) = D
             rW(n,MOMX:MOMZ) = Mom
-            !rW(n,ENERGY) = (Model%gamma)*P
-            rW(n,ENERGY) = IntE
+            if (doRAVarE) then
+                rW(n,ENERGY) = IntE
+            else
+                rW(n,ENERGY) = (Model%gamma)*P
+            endif
 
         enddo
 
     end subroutine Gas2Ring
 
-    !Convert ringav variables back to hydro variables
-    !rho,rho-V,rho-Cs^2 => Con
+    !RAVars => Con
     subroutine Ring2Gas(Model,rW)
         type (Model_T), intent(in) :: Model
         real(rp), intent(inout) :: rW(Np,NVAR)
@@ -539,14 +550,17 @@ module ringutils
         do n=1,Np
             D  = max( rW(n,DEN), dFloor )
             Mom = rW(n,MOMX:MOMZ)
-            IntE = rW(n,PRESSURE)
-            P = max( (Model%gamma-1)*IntE, pFloor )
+            if (doRAVarE) then
+                IntE = rW(n,PRESSURE)
+                P = (Model%gamma-1)*IntE
+            else
+                Cs2 = rW(n,PRESSURE)/D
+                P = Cs2*D/Model%gamma
+            endif
+            P = max(P,pFloor)
             KinE = 0.5*dot_product(Mom,Mom)/D
-
-            !Cs2 = rW(n,PRESSURE)/D
-            !P = Cs2*D/Model%gamma
-            !IntE = P/(Model%gamma-1)
-
+            !Recalculate IntE w/ floored pressure
+            IntE = P/(Model%gamma-1)
             !Put conserved variables back
             rW(n,DEN) = D
             rW(n,MOMX:MOMZ) = Mom

@@ -47,6 +47,8 @@ module msphutils
     !Chill out parameters
     real(rp), private :: RhoCO = 1.0e-3 ! Number density
     real(rp), private :: CsCO  = 1.0e-2  ! Cs chillout, m/s
+    real(rp), parameter, private :: cLim = 1.5 ! Cool when sound speed is above cLim*Ca
+
     !Dipole cut values
     !real(rp) :: rCut=4.5, lCut=3.5 !LFM values
     !real(rp), private :: rCut=4.0, lCut=5.0
@@ -462,12 +464,12 @@ module msphutils
                         endif
 
                         !If sound speed is faster than "light", chill the fuck out
-                        if ( Model%doBoris .and. (CsC>Model%Ca) ) then
+                        if ( Model%doBoris .and. (CsC>cLim*Model%Ca) ) then
                             call CellC2P(Model,pCon,pW)
                             P = pW(PRESSURE) !Cell pressure
 
-                            !Find target pressure w/ sound speed = Ca
-                            Pc = pW(DEN)*(Model%Ca**2.0)/Model%gamma
+                            !Find target pressure w/ sound speed = cLim*Ca
+                            Pc = pW(DEN)*(cLim*Model%Ca)**2.0/Model%gamma
                             !Calculate cooling rate, L/CsC ~ lazy bounce timescale
                             Leq = DipoleL(Grid%xyzcc(i,j,k,:))
                             !Convert to m/(m/s)/(code time)
@@ -827,7 +829,6 @@ module msphutils
                     call CellC2P(Model,pCon,pW)
 
                     !Get timescale, taking directly from Gas0
-                    !Tau = Gr%Gas0(i,j,k,IMLSCL)*Gr%Gas0(i,j,k,IMTSCL)/Model%Ca
                     Tau = Gr%Gas0(i,j,k,IMTSCL,BLK)
                     if (doInD) then
                         dRho = Gr%Gas0(i,j,k,IMDEN,BLK) - pW(DEN)

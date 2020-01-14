@@ -138,13 +138,19 @@ module ringav
                     endif
 
                 !Reconstruct mass first, then remaining variables wrt mass coords
-
                     call ReconstructRing(Model,raW(:,DEN),NumCh,gW)
+                    !Loop over momentum
                     do nv=2,NVAR-1
-                        call WgtRecostructRing(Model,raW(:,nv),raW(:,DEN),NumCh,gW)
+                        call WgtReconstructRing(Model,raW(:,nv),raW(:,DEN),NumCh,gW)
                     enddo
-                    call ReconstructRing(Model,raW(:,PRESSURE),NumCh,gW)
-                    
+
+                    if (doRAVarE) then
+                        !Reconstruct internal energy w/o mass coord
+                        call ReconstructRing(Model,raW(:,PRESSURE),NumCh,gW)
+                    else
+                        call WgtReconstructRing(Model,raW(:,PRESSURE),raW(:,DEN),NumCh,gW)
+                    endif
+
                     !Convert back to gas variables
                     call Ring2Gas(Model,raW)
 

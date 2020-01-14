@@ -178,9 +178,9 @@ module rcmimag
         logical :: isGood
 
         !Set defaults
+        imW(:) = 0.0
         imW(IMDEN ) = 0.0
         imW(IMPR  ) = 0.0
-        imW(IMLSCL) = 0.0
         imW(IMTSCL) = 1.0
 
         colat = PI/2 - lat
@@ -215,7 +215,7 @@ module rcmimag
 
             imW(IMDEN ) = rcmNScl*( RCMApp%Nrcm(i0,j0) + RCMApp%Npsph(i0,j0) )
             imW(IMPR  ) = RCMApp%Prcm(i0,j0)*rcmPScl*alpha
-            imW(IMLSCL) = LScl
+            !imW(IMLSCL) = LScl
             imW(IMTSCL) = 1.0
         endif
 

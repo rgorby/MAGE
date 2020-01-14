@@ -101,7 +101,7 @@ module ringrecon
 
     end subroutine ReconstructRing
 
-    subroutine WgtRecostructRing(Model,rW,xW,Nc,isGO)
+    subroutine WgtReconstructRing(Model,rW,xW,Nc,isGO)
         type(Model_T), intent(in) :: Model
         real(rp), intent(inout) :: rW(Np)
         real(rp), intent(in) :: xW(Np)
@@ -205,7 +205,7 @@ module ringrecon
             enddo
         enddo !Chunks
 
-    end subroutine WgtRecostructRing
+    end subroutine WgtReconstructRing
 
     !Lazy routine to make things equivalent to PCM
     !Both L & R are f
