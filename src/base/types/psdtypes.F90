@@ -17,7 +17,6 @@ module psdtypes
     !Particle distribution function type
     !Background density and temperature (n0,kT0) in [#/cc] and [keV]
     !Returns PDF in (keV*s)^(-3)
-
     abstract interface
         function PDFun_T(Model,L,phi,K,alpha,n0,kT0) result(fD)
             import :: rp,chmpModel_T
