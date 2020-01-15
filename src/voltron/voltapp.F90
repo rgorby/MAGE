@@ -260,6 +260,10 @@ module voltapp
         real(rp) :: curTilt
 
         ! convert gamera inputs to remix
+        if (vApp%doDeep) then
+            !call mapIMagToRemix(vApp%imag2mix,vApp%remixApp)
+            vApp%imag2mix%isDefined = .false.
+        endif
         call mapGameraToRemix(vApp%mhd2mix, vApp%remixApp)
 
         ! determining the current dipole tilt
@@ -291,6 +295,7 @@ module voltapp
         endif
 
         tAdv = time + vApp%DeepDT !Advance inner magnetosphere through full coupling time 
+    
     !Pull in updated fields to CHIMP
         call Tic("G2C")
         call convertGameraToChimp(vApp%mhd2chmp,gApp,vApp%ebTrcApp)

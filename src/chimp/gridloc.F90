@@ -55,8 +55,18 @@ module gridloc
     procedure(inDom_T), pointer :: inDomain=>inDomain_Sph
     type(LocAux_T) :: locAux
 
+    integer, parameter :: NSnake = 25
+    !Snake search
+    !GFEDC
+    !H432B
+    !I501A
+    !J6789
+    !KLMNO
+    !                                                            1  2  3  4  5  6  7  8  9  A  B  C  D  E  F  G  H  I  J  K  L  M  N  O
+    integer, dimension(NSnake), parameter, private :: dsI = [ 0,+1,+1, 0,-1,-1,-1, 0,+1,+2,+2,+2,+2,+1, 0,-1,-2,-2,-2,-2,-2,-1, 0,+1,+2]
+    integer, dimension(NSnake), parameter, private :: dsJ = [ 0, 0,+1,+1,+1,-1,-1,-1,-1,-1, 0,+1,+2,+2,+2,+2,+2,+1, 0,-1,-2,-2,-2,-2,-2]
+    
     contains
-
 
     !Initialize various things for grid localization
     subroutine InitLoc(Model,ebGr,inpXML)
@@ -230,7 +240,7 @@ module gridloc
         logical :: isIn,inCell
         real(rp) :: xs,ys,lfmC(NDIM)
         real(rp) :: xp(2)
-        integer :: i,j,i0,j0,k0
+        integer :: i,j,i0,j0,k0,n
         integer :: i1,i2,j1,j2
 
         ijk = 0
@@ -256,28 +266,21 @@ module gridloc
         xp = [xs,ys]
         !Use provided guess if present,
         if (present(ijkO)) then
-            !Test guess
-            inCell = CheckIJ(xp,ijkO(IDIR:JDIR),Model,ebGr)
-            if (inCell) then !Found it, let's get out of here
-                ijk(IDIR:JDIR) = ijkO(IDIR:JDIR)
-                !write(*,*) 'Found guess!'
-                return
-            endif
-            !Wasn't in original guess, check adjacent cells
-            i1 = max(ijkO(IDIR)-1,ebGr%is)
-            i2 = min(ijkO(IDIR)+1,ebGr%ie)
-            j1 = max(ijkO(JDIR)-1,ebGr%js)
-            j2 = min(ijkO(JDIR)+1,ebGr%je)
+            !Do snake search around guess
+            do n=1,NSnake
+                i = ijkO(IDIR) + dsI(n)
+                j = ijkO(JDIR) + dsJ(n)
+                !Check if point is valid
+                isIn = (i>=ebGr%is) .and. (i<=ebGr%ie) .and. (j>=ebGr%js) .and. (j<=ebGr%je)
 
-            do i=i1,i2
-                do j=j1,j2
-                    inCell = CheckIJ(xp,[i,j],Model,ebGr)
-                    if (inCell) then !Found it, let's get out of here
-                        ijk(IDIR:JDIR) = [i,j]
-                        !write(*,*) 'Found 1st halo!'
-                        return
-                    endif
-                enddo
+                if (.not. isIn) cycle
+                !Otherwise check if this is the right cell
+                inCell = CheckIJ(xp,[i,j],Model,ebGr)
+                if (inCell) then !Found it, let's get the hell out of here
+                    ijk(IDIR:JDIR) = [i,j]
+                    !write(*,*) 'Found 1st halo!'
+                    return
+                endif
             enddo
 
         endif !Using guess
@@ -285,18 +288,6 @@ module gridloc
         !If we're still here, do this the hard way
         !Cut out obviously incorrect 2D indices
         call lfmChop(Model,ebGr,[xs,ys],i1,i2,j1,j2)
-
-        ! !Start by looping
-        ! do i=i1,i2
-        !     do j=j1,j2
-        !         inCell = CheckIJ(xp,[i,j],Model,ebGr)
-        !         if (inCell) then !Found it, let's get out of here
-        !             ijk(IDIR:JDIR) = [i,j]
-        !             !write(*,*) 'Found in chop halo!'
-        !             return
-        !         endif
-        !     enddo
-        ! enddo
 
         !If still here, just pick the closest one
         ijk(IDIR:JDIR) = minloc( (locAux%xxC(i1:i2,j1:j2)-xs)**2.0 + (locAux%yyC(i1:i2,j1:j2)-ys)**2.0 )
@@ -327,6 +318,7 @@ module gridloc
         isIn = inCell2D(xy,xCs)
      
     end function CheckIJ
+
     !3D localization routine for spherical grid
     subroutine Loc_SPH(xyz,ijk,Model,ebGr,isInO,ijkO)
         real(rp), intent(in) :: xyz(NDIM)

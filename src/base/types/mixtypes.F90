@@ -46,6 +46,7 @@ module mixtypes
      real(rp), dimension(:,:,:),allocatable :: Vars
      integer :: hemisphere=NORTH
      real(rp) :: tilt=0.
+     logical :: isIMAG = .false.
   end type mixState_T
 
   type mixGrid_T
