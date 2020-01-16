@@ -382,6 +382,11 @@ module uservoltic
         real(rp), dimension(NDIM) :: Exyz,Veb,dB,Bd,rHatG,rHatP,Vxyz,Vmir
         real(rp), dimension(NVAR) :: pW,pCon,gW,gCon
 
+        !Are we on the inner (REMIX) boundary
+        if (.not. Grid%hasLowerBC(1)) then
+            return
+        endif
+
         !Get inner radius and low-latitude
         Rin = norm2(Grid%xyz(Grid%is,Grid%js,Grid%ks,:))
         llBC = 90.0 - rad2deg*asin(sqrt(Rion/Rin)) !co-lat -> lat

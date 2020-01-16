@@ -158,7 +158,7 @@ module rcmimag
         dtAdv = tAdv-vApp%time !RCM-DT
         call rcm_mhd(vApp%time,dtAdv,RCMApp,RCMADVANCE)
         !Update timming data
-        call rcm_mhd(vApp%time,0.0,RCMApp,RCMWRITETIMING)
+        call rcm_mhd(vApp%time,0.0_rp,RCMApp,RCMWRITETIMING)
     end subroutine AdvanceRCM
 
     !Evaluate eq map at a given point

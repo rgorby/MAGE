@@ -45,8 +45,9 @@ module voltapp_mpi
     contains
 
     !Initialize Voltron (after Gamera has already been initialized)
-    subroutine initVoltron_mpi(vApp, voltComm, optFilename)
+    subroutine initVoltron_mpi(vApp, userInitFunc, voltComm, optFilename)
         type(voltAppMpi_T), intent(inout) :: vApp
+        procedure(StateIC_T), pointer, intent(in) :: userInitFunc
         integer, intent(in) :: voltComm
         character(len=*), optional, intent(in) :: optFilename
 
@@ -55,8 +56,6 @@ module voltapp_mpi
         logical :: reorder
         integer, allocatable, dimension(:) :: neighborRanks, inData, outData
         integer, allocatable, dimension(:) :: iRanks, jRanks, kRanks
-
-        procedure(StateIC_T), pointer :: userInitFunc => null()
 
         ! create a new communicator using MPI Topology
         call MPI_Comm_Size(voltComm, commSize, ierr)
@@ -86,7 +85,7 @@ module voltapp_mpi
         call mpi_gather(MPI_IN_PLACE, 0, 0, kRanks, commSize-1, MPI_INT, commSize-1, voltComm, ierr)
 
         ! get the number of physical cells from rank 0
-        call mpi_recv(numCells, 1, MPI_INT, 0, 97500, voltComm, ierr)
+        call mpi_recv(numCells, 1, MPI_INT, 0, 97500, voltComm, MPI_STATUS_IGNORE, ierr)
 
         do ic=1,commSize-1
             neighborRanks(ic) = ic-1
@@ -125,7 +124,11 @@ module voltapp_mpi
         call createVoltDataTypes(vApp)
 
         ! create a local Gamera object which contains the entire domain
-        call initGamera(vApp%gAppLocal,userInitFunc,doIO=.false.)
+        if(present(optFilename)) then
+            call initGamera(vApp%gAppLocal,userInitFunc,optFilename,doIO=.false.)
+        else
+            call initGamera(vApp%gAppLocal,userInitFunc,doIO=.false.)
+        endif
 
         ! use standard voltron with local gamApp object
         if(present(optFilename)) then
@@ -133,6 +136,16 @@ module voltapp_mpi
         else
             call initVoltron(vApp, vApp%gAppLocal)
         endif
+
+        ! send all of the initial voltron parameters to the gamera ranks
+        call mpi_bcast(vApp%time, 1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
+        call mpi_bcast(vApp%tFin, 1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
+        call mpi_bcast(vApp%DeepT, 1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
+        call mpi_bcast(vApp%ShallowT, 1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
+        call mpi_bcast(vApp%MJD, 1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
+        call mpi_bcast(vApp%ts, 1, MPI_INT, vApp%myRank, vApp%voltMpiComm, ierr)
+        call mpi_bcast(vApp%doDeep, 1, MPI_LOGICAL, vApp%myRank, vApp%voltMpiComm, ierr)
+        call mpi_bcast(vApp%gAppLocal%Model%MJD0, 1, MPI_MYFLOAT, vAPp%myRank, vApp%voltMpiComm, ierr)
 
         deallocate(neighborRanks, inData, outData, iRanks, jRanks, kRanks)
 
@@ -146,8 +159,8 @@ module voltapp_mpi
         integer :: g_ts, ierr
 
         ! get gApp%Model%t,ts from gamera. All ranks have the same, just receive from one of them
-        call mpi_recv(g_t, 1, MPI_MYFLOAT, MPI_ANY_SOURCE, 97600, vApp%voltMpiComm, ierr)
-        call mpi_recv(g_ts, 1, MPI_INT, MPI_ANY_SOURCE, 97700, vApp%voltMpiComm, ierr)
+        call mpi_recv(g_t, 1, MPI_MYFLOAT, MPI_ANY_SOURCE, 97600, vApp%voltMpiComm, MPI_STATUS_IGNORE, ierr)
+        call mpi_recv(g_ts, 1, MPI_INT, MPI_ANY_SOURCE, 97700, vApp%voltMpiComm, MPI_STATUS_IGNORE, ierr)
 
         vApp%gAppLocal%Model%t = g_t
         vApp%gAppLocal%Model%ts = g_ts
