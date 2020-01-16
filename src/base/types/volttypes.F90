@@ -37,9 +37,10 @@ module volttypes
     ! data for imag => remix for conductance
     type imag2Mix_T
         !Assuming IMag data is coming on northern hemisphere
-        logical :: isDefined = .false.
+        logical :: isFresh = .false.
+        logical :: isInit = .false.
         !Working on logically Cartesian grid w/ lat, lon 
-        real(rp), dimension(:), allocatable :: gcolat,glon
+        real(rp), dimension(:), allocatable :: gcolat,glong
         real(rp), dimension(:,:), allocatable :: eflux,eavg
         real(rp), dimension(:,:), allocatable :: iflux,iavg
         !latc/lonc are the mappings to the southern hemisphere

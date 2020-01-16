@@ -293,8 +293,7 @@ contains
         inT1 = inTri(xp, xCs(1, :), xCs(2, :), xCs(3, :))
         inT2 = inTri(xp, xCs(3, :), xCs(4, :), xCs(1, :))
         inCell = inT1 .or. inT2
-        !write(*,*) 'xCs = ',xCs
-        !write(*,*) 'InCell = ',inT1,inT2
+
     end function inCell2D
 
     !Check if 2D point xp is in triangle formed by p0,p1,p2

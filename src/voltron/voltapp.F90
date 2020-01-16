@@ -261,8 +261,7 @@ module voltapp
 
         ! convert gamera inputs to remix
         if (vApp%doDeep) then
-            !call mapIMagToRemix(vApp%imag2mix,vApp%remixApp)
-            vApp%imag2mix%isDefined = .false.
+            call mapIMagToRemix(vApp%imag2mix,vApp%remixApp)
         endif
         call mapGameraToRemix(vApp%mhd2mix, vApp%remixApp)
 
@@ -316,7 +315,8 @@ module voltapp
         call Tic("IM2G")
         call InnerMag2Gamera(vApp,gApp)
         call Toc("IM2G")
-        
+    
+
     !Setup next coupling
         vApp%DeepT = time + vApp%DeepDT
 

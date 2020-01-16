@@ -55,9 +55,10 @@ module rcmimag
     contains
 
     !Initialize RCM inner magnetosphere model
-    subroutine initRCM(iXML,isRestart,t0,dtCpl,nRes)
+    subroutine initRCM(iXML,isRestart,imag2mix,t0,dtCpl,nRes)
         type(XML_Input_T), intent(in) :: iXML
         logical, intent(in) :: isRestart
+        type(imag2Mix_T), intent(inout) :: imag2mix
         real(rp), intent(in) :: t0,dtCpl
         integer, intent(in), optional :: nRes
 
@@ -75,7 +76,7 @@ module rcmimag
             write(*,*) 'Initializing RCM ...'
             call rcm_mhd(t0,dtCpl,RCMApp,RCMINIT)
         endif
-        call init_rcm_mix(RCMApp)
+        call init_rcm_mix(RCMApp,imag2mix)
 
         h5File = trim(RunID) // ".mhdrcm.h5" !MHD-RCM coupling data
         RCMH5  = trim(RunID) // ".rcm.h5" !RCM data
@@ -103,7 +104,7 @@ module rcmimag
         real(rp) :: dtAdv
         type(RCMTube_T) :: ijTube
 
-        real(rp) :: llBC
+        real(rp) :: llBC,maxRad
         logical :: isLL
 
         !Lazily grabbing rDeep here, convert to RCM units
@@ -164,6 +165,23 @@ module rcmimag
         !Update timming data
         call rcm_mhd(vApp%time,0.0_rp,RCMApp,RCMWRITETIMING)
         call Toc("AdvRCM")
+
+    !Pull data from RCM state for conductance calculations
+        vApp%imag2mix%isClosed = (RCMApp%iopen == RCMTOPCLOSED)
+        vApp%imag2mix%latc = RCMApp%latc
+        vApp%imag2mix%lonc = RCMApp%lonc
+        vApp%imag2mix%eflux = RCMApp%flux
+        vApp%imag2mix%eavg  = RCMApp%eng_avg
+
+        vApp%imag2mix%iflux = 0.0
+        vApp%imag2mix%iavg  = 0.0
+
+        vApp%imag2mix%isFresh = .true.
+    !Find maximum extent of closed field region
+        maxRad = maxval(norm2(RCMApp%X_bmin,dim=3),mask=vApp%imag2mix%isClosed)
+        maxRad = maxRad/(Re_cgs*1.0e-2)
+        vApp%rTrc = 1.05*maxRad
+        
     end subroutine AdvanceRCM
 
     !Evaluate eq map at a given point

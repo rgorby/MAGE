@@ -278,12 +278,12 @@ module gridloc
                 inCell = CheckIJ(xp,[i,j],Model,ebGr)
                 if (inCell) then !Found it, let's get the hell out of here
                     ijk(IDIR:JDIR) = [i,j]
-                    !write(*,*) 'Found 1st halo!'
                     return
                 endif
             enddo
 
         endif !Using guess
+        
 
         !If we're still here, do this the hard way
         !Cut out obviously incorrect 2D indices

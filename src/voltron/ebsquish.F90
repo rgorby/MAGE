@@ -63,7 +63,7 @@ module ebsquish
         associate(ebModel=>vApp%ebTrcApp%ebModel,ebGr=>vApp%ebTrcApp%ebState%ebGr,ebState=>vApp%ebTrcApp%ebState)
         t = ebState%eb1%time
         
-        !$OMP PARALLEL DO default(shared) collapse(2) &
+        !$OMP PARALLEL DO default(shared) collapse(3) &
         !$OMP schedule(guided) &
         !$OMP private(i,j,k,xyz,x1,x2)
         do k=ebGr%ks,ebGr%ke
