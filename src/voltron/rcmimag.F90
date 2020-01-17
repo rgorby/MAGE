@@ -25,7 +25,7 @@ module rcmimag
     real(rp), parameter, private :: IMGAMMA = 5.0/3.0
 
     real(rp), parameter :: RIonRCM = (RionE/REarth)*1.0e+6 !Units of Re
-    
+    integer, private :: NBuff = 15
     real(rp), private :: rEqMin = 0.0
     integer, parameter :: MAXRCMIOVAR = 30
     character(len=strLen), private :: h5File
@@ -155,6 +155,10 @@ module rcmimag
                 
             enddo
         enddo
+
+        !Set ingestion region
+        call SetIngestion()
+
         call Toc("RCM_TUBES")
 
         call Tic("AdvRCM")
@@ -183,6 +187,31 @@ module rcmimag
         
     end subroutine AdvanceRCM
 
+    !Set region of RCM grid that's "good" for MHD ingestion
+    subroutine SetIngestion()
+        integer :: i,j,i0
+
+        RCMApp%toMHD = .false.
+
+        do j=1,RCMApp%nLon_ion
+            !Loop from bottom (high colat) and find first open cell
+            do i=RCMApp%nLat_ion,1,-1
+                if (RCMApp%iopen(i,j) == RCMTOPOPEN) exit !Break loop
+            enddo !Lat
+            if (i > 1) then
+                !Hit open-closed boundary
+                i0 = i + 1 + NBuff
+                i0 = min(i0,RCMApp%nLat_ion)
+                RCMApp%toMHD(i0:,j) = .true.
+            else
+                !All closed lines here
+                RCMApp%toMHD(:,j) = .true.
+            endif
+
+        enddo
+        
+    end subroutine SetIngestion
+
     !Evaluate eq map at a given point
     !Returns density (#/cc) and pressure (nPa)
     subroutine EvalRCM(lat,lon,t,imW)
@@ -191,7 +220,7 @@ module rcmimag
 
         real(rp) :: colat, alpha, beta, LScl
         real(rp) :: rEq
-        integer :: i0,j0,nLat,nLon
+        integer :: i0,j0
         logical :: isGood
 
         !Set defaults
@@ -203,23 +232,15 @@ module rcmimag
         colat = PI/2 - lat
 
         !Do short cut tests
-        isGood = (colat >= minval(RCMApp%gcolat)) .and. (colat <= maxval(RCMApp%gcolat)) .and. (lat>TINY)
+        isGood = (colat >= RCMApp%gcolat(1)) .and. (colat <= RCMApp%gcolat(RCMApp%nLat_ion)) .and. (lat>TINY)
         if (.not. isGood) return
 
         !If still here now find closest cell
         i0 = minloc( abs(colat-RCMApp%gcolat),dim=1 )
         j0 = minloc( abs(lon  -RCMApp%glong ),dim=1 )
-        nLat = RCMApp%nLat_ion
-        nLon = RCMApp%nLon_ion
-        if ( (i0 == 1) .or. (i0 == NLat) ) return !Ignore if too close to grid edge
 
         rEq = norm2(RCMApp%X_bmin(i0,j0,:))
-
-        !Now test that this cell is "comfortably" in the closed field region
-        isGood = all( RCMApp%iopen(i0-1,1:nLon) == RCMTOPCLOSED ) .and. &
-                 all( RCMApp%iopen(i0  ,1:nLon) == RCMTOPCLOSED ) .and. &
-                 all( RCMApp%iopen(i0+1,1:nLon) == RCMTOPCLOSED )
-        isGood = isGood .and. (rEq <= rEqMin)
+        isGood = (rEq <= rEqMin) .and. RCMApp%toMHD(i0,j0)
         
         if (isGood) then
             beta = RCMApp%beta_average(i0,j0)
@@ -284,41 +305,32 @@ module rcmimag
 
         
     !Scale and store information
-        ijTube%X_bmin = bEq
-        ijTube%bmin = bMin
-        select case(OCb)
-        case(0)
-            !Solar wind (is this right?)
-            ijTube%iopen = RCMTOPOPEN
-            ijTube%Vol = -dvB
-        case(1)
-            !Open field
-            ijTube%iopen = RCMTOPOPEN
-            ijTube%Vol = -dvB
-        case(2)
-            !Closed field
+        if (OCb == 2) then
+            !Closed field line
+            ijTube%X_bmin = bEq
+            ijTube%bmin = bMin
             ijTube%iopen = RCMTOPCLOSED
             ijTube%Vol = dvB
-        case default
-            !WTF? (timeout)
-            ijTube%iopen = RCMTOPOPEN
-            ijTube%Vol = -1
-        end select
+            ijTube%Pave = bP
+            ijTube%Nave = bD
+            ijTube%beta_average = bBeta
 
-        ijTube%Pave = bP
-        ijTube%Nave = bD
-        ijTube%beta_average = bBeta
-        
-        ijTube%latc = 0.0
-        ijTube%lonc = 0.0
-
-        if (ijTube%iopen == RCMTOPCLOSED) then
             !Find conjugate lat/lon @ RIonRCM
             call FLConj(ebModel,ebGr,bTrc,xyzC)
             xyzIonC = DipoleShift(xyzC,RIonRCM)
             !xyzIonC(ZDIR) uses abs(mlat), so make negative
             ijTube%latc = asin(-xyzIonC(ZDIR)/norm2(xyzIonC))
             ijTube%lonc = modulo( atan2(xyzIonC(YDIR),xyzIonC(XDIR)),2*PI )
+        else
+            ijTube%X_bmin = 0.0
+            ijTube%bmin = 0.0
+            ijTube%iopen = RCMTOPOPEN
+            ijTube%Vol = -1.0
+            ijTube%Pave = 0.0
+            ijTube%Nave = 0.0
+            ijTube%beta_average = 0.0
+            ijTube%latc = 0.0
+            ijTube%lonc = 0.0
         endif
 
         end associate
@@ -342,7 +354,9 @@ module rcmimag
         ijTube%X_bmin(YDIR) = L*sin(lon)*Re_cgs*1.0e-2 !Re=>meters
         ijTube%X_bmin(ZDIR) = 0.0
         ijTube%bmin = mdipole/L**3.0
+
         ijTube%iopen = RCMTOPCLOSED
+        
         ijTube%pot = 0.0
 
         ijTube%beta_average = 0.0
@@ -435,6 +449,8 @@ module rcmimag
 
         call AddOutVar(IOVars,"eavg",RCMApp%eng_avg*1.0e-3) !ev->keV
         call AddOutVar(IOVars,"eflux",RCMApp%flux)
+
+        call AddOutVar(IOVars,"toMHD",merge(1.0_rp,0.0_rp,RCMApp%toMHD))
 
         !Trim output for colat/aloct to remove wrapping
         DimLL = shape(colat)

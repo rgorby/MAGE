@@ -444,9 +444,9 @@ module uservoltic
                     Exyz = bc%inExyz(np,jp,kp,:)
 
                     !Choose which dipole ExB speed to use, true ghost value is much faster
-                    xcd = Grid%xyzcc(Grid%is-1,j,k,XDIR)
-                    ycd = Grid%xyzcc(Grid%is-1,j,k,YDIR)
-                    zcd = Grid%xyzcc(Grid%is-1,j,k,ZDIR)
+                    xcd = Grid%xyzcc(Grid%is,j,k,XDIR)
+                    ycd = Grid%xyzcc(Grid%is,j,k,YDIR)
+                    zcd = Grid%xyzcc(Grid%is,j,k,ZDIR)
                     call Dipole(xcd,ycd,zcd,Bd(XDIR),Bd(YDIR),Bd(ZDIR))
                     
                     dB = State%Bxyz(ip,jp,kp,:)
@@ -474,10 +474,10 @@ module uservoltic
                 !Now handle magnetic quantities
                     if (isLL) then
                         !Mirror fluxes to minimize gradient (these are perturbation quantities)
-                        State%Bxyz(ig,j,k,:) = dB
-                        State%magFlux(ig,j,k,IDIR) = State%magFlux(ip,jp,kp,IDIR)
-                        State%magFlux(ig,j,k,JDIR) = State%magFlux(ip,jp,kp,JDIR)
-                        State%magFlux(ig,j,k,KDIR) = State%magFlux(ip,jp,kp,KDIR)
+                        State%Bxyz(ig,j,k,:)       = 0.0
+                        State%magFlux(ig,j,k,IDIR) = 0.0
+                        State%magFlux(ig,j,k,JDIR) = 0.0
+                        State%magFlux(ig,j,k,KDIR) = 0.0
                     else
                         !Mirror fluxes to minimize gradient (these are perturbation quantities)
                         State%Bxyz(ig,j,k,:) = dB
