@@ -34,7 +34,6 @@ module rcmimag
 
     !Information taken from MHD flux tubes
     !TODO: Figure out RCM boundaries
-    !TODO: Figure out iopen values
 
     !Pave = Average pressure [Pa]
     !Nave = Average density [#/m3]

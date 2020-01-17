@@ -283,18 +283,33 @@ module uservoltic
         real(rp), intent(inout), optional :: mFlx(Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,1:NDIM,1:NDIM)
 
         integer :: n,s,j,k
-        real(rp) :: igFlx(NVAR,2), imFlx(NDIM,2)
+        real(rp) :: igFlx(NVAR), imFlx(NDIM)
 
         !This is inner-most I tile
         if ( Gr%hasLowerBC(IDIR) .and. (.not. Model%doMultiF) ) then
+
+            if (Model%doRing) then
+                if (Model%Ring%doE) then
+                    igFlx = sum(gFlx(Gr%is,Gr%je,Gr%ks:Gr%ke,1:NVAR,IDIR,BLK),dim=1)/Model%Ring%Np
+                    imFlx = sum(mFlx(Gr%is,Gr%je,Gr%ks:Gr%ke,1:NDIM,IDIR    ),dim=1)/Model%Ring%Np
+                    do k=Gr%ks,Gr%ke
+                        gFlx(Gr%is,Gr%je,k,:,IDIR,BLK) = igFlx
+                        mFlx(Gr%is,Gr%je,k,:,IDIR    ) = imFlx
+                    enddo
+                endif !doE
+            endif !doRing
 
             !Now loop over inner sphere (only need active since we're only touching I fluxes)
             !$OMP PARALLEL DO default(shared) &
             !$OMP private(j,k)
             do k=Gr%ks,Gr%ke
                 do j=Gr%js,Gr%je
-                    !Only inward (negative) mass flux
-                    gFlx(Gr%is,j,k,DEN,IDIR,BLK) = min( 0.0,gFlx(Gr%is,j,k,DEN,IDIR,BLK) )
+                    !Trap for outward mass flux
+                    if (gFlx(Gr%is,j,k,DEN,IDIR,BLK) > 0) then
+                        gFlx(Gr%is,j,k,DEN   ,IDIR,BLK) = min( 0.0,gFlx(Gr%is,j,k,DEN   ,IDIR,BLK) )
+                        gFlx(Gr%is,j,k,ENERGY,IDIR,BLK) = min( 0.0,gFlx(Gr%is,j,k,ENERGY,IDIR,BLK) )
+                    endif
+                    
                 enddo
             enddo !K loop
 
@@ -372,7 +387,7 @@ module uservoltic
         integer :: i,j,k,ip,jp,kp,ig,n,np
         logical :: isLL
         real(rp) :: rc,xc,yc,zc,Vr,invlat
-        real(rp) :: xcg,ycg,zcg
+        real(rp) :: xcg,ycg,zcg,xcd,ycd,zcd
         real(rp) :: Rin,llBC !Shared
         real(rp), dimension(NDIM) :: Exyz,Veb,dB,Bd,rHatG,rHatP,Vxyz,Vmir
         real(rp), dimension(NVAR) :: pW,pCon,gW,gCon
@@ -387,7 +402,7 @@ module uservoltic
         !$OMP PARALLEL DO default(shared) &
         !$OMP private(i,j,k,ip,jp,kp,ig,n,np,isLL) &
         !$OMP private(rc,xc,yc,zc,Vr,invlat) &
-        !$OMP private(xcg,ycg,zcg) &
+        !$OMP private(xcg,ycg,zcg,xcd,ycd,zcd) &
         !$OMP private(Exyz,Veb,Bd,dB,rHatG,rHatP,Vxyz,Vmir) &
         !$OMP private(pW,pCon,gW,gCon)
         do k=Grid%ksg,Grid%keg
@@ -429,12 +444,11 @@ module uservoltic
                     Exyz = bc%inExyz(np,jp,kp,:)
 
                     !Choose which dipole ExB speed to use, true ghost value is much faster
-                    !Use B0xyz?
-                    !call Dipole(xc,yc,zc,Bd(XDIR),Bd(YDIR),Bd(ZDIR))
-                    Bd = Grid%B0(Grid%is-1,j,k,XDIR:ZDIR)
-
-                    !call Dipole(xcg,ycg,zcg,Bd(XDIR),Bd(YDIR),Bd(ZDIR))
-
+                    xcd = Grid%xyzcc(Grid%is-1,j,k,XDIR)
+                    ycd = Grid%xyzcc(Grid%is-1,j,k,YDIR)
+                    zcd = Grid%xyzcc(Grid%is-1,j,k,ZDIR)
+                    call Dipole(xcd,ycd,zcd,Bd(XDIR),Bd(YDIR),Bd(ZDIR))
+                    
                     dB = State%Bxyz(ip,jp,kp,:)
                     !ExB velocity
                     Veb = cross(Exyz,Bd)/dot_product(Bd,Bd)

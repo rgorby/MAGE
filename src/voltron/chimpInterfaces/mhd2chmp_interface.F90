@@ -24,9 +24,9 @@ module mhd2chmp_interface
         !Set lowlat BC
         rIon = (RionE*1.0e+6)/REarth
 
-        !Get radius of second cell
         associate(Gr=>gamApp%Grid)
-        mhd2chmp%Rin = norm2(Gr%xyz(Gr%is+1,Gr%js,Gr%ks,:))
+        !mhd2chmp%Rin = norm2(Gr%xyz(Gr%is+1,Gr%js,Gr%ks,:))
+        mhd2chmp%Rin = norm2(Gr%xyz(Gr%is,Gr%js,Gr%ks,:))
 
         end associate
         mhd2chmp%lowlatBC = 90.0 - rad2deg*asin(sqrt(rIon/mhd2chmp%Rin)) !co-lat -> lat
