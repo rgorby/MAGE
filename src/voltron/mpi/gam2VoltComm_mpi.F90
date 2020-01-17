@@ -11,7 +11,7 @@ module gam2VoltComm_mpi
         integer :: myRank, voltRank
 
         real(rp) :: time, tFin, DeepT, ShallowT, MJD
-        integer :: ts
+        integer :: ts, JpSt, JpSh, PsiSt, PsiSh
         logical :: doDeep
 
         ! array of all zeroes to simplify various send/receive calls
@@ -114,9 +114,6 @@ module gam2VoltComm_mpi
         call mpi_gather(gApp%Grid%Rj, 1, MPI_INT, 0, 0, 0, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
         call mpi_gather(gApp%Grid%Rk, 1, MPI_INT, 0, 0, 0, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
 
-        ! create the MPI datatypes for communicating state data with voltron
-        call createG2VDataTypes(g2vComm)
-
         ! initialize all of the starting parameters from the voltron rank
         call mpi_bcast(g2vComm%time, 1, MPI_MYFLOAT, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
         call mpi_bcast(g2vComm%tFin, 1, MPI_MYFLOAT, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
@@ -126,6 +123,13 @@ module gam2VoltComm_mpi
         call mpi_bcast(g2vComm%ts, 1, MPI_INT, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
         call mpi_bcast(g2vComm%doDeep, 1, MPI_LOGICAL, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
         call mpi_bcast(gApp%Model%MJD0, 1, MPI_MYFLOAT, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
+        call mpi_bcast(g2vComm%JpSt, 1, MPI_INT, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
+        call mpi_bcast(g2vComm%JpSh, 1, MPI_INT, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
+        call mpi_bcast(g2vComm%PsiSt, 1, MPI_INT, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
+        call mpi_bcast(g2vComm%PsiSh, 1, MPI_INT, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
+
+        ! create the MPI datatypes for communicating state data with voltron
+        call createG2VDataTypes(g2vComm, gApp)
 
     end subroutine initGam2Volt
 
@@ -154,6 +158,19 @@ module gam2VoltComm_mpi
         type(gam2VoltCommMpi_T), intent(inout) :: g2vComm
         type(gamAppMpi_T), intent(inout) :: gApp
 
+        ! send shallow data
+        call sendShallowData(g2vComm, gApp)
+
+        ! receive new shallow data
+        call recvShallowData(g2vComm, gApp)
+
+    end subroutine performShallowUpdate
+
+    ! send shallow state data to voltron over MPI
+    subroutine sendShallowData(g2vComm, gApp)
+        type(gam2VoltCommMpi_T), intent(in) :: g2vComm
+        type(gamAppMpi_T), intent(in) :: gApp
+
         integer :: ierr
 
         ! send state data to voltron
@@ -167,6 +184,15 @@ module gam2VoltComm_mpi
                                     g2vComm%sendDisplsBxyzShallow, g2vComm%sendTypesBxyzShallow, &
                                     0, g2vComm%zeroArray, g2vComm%zeroArray, g2vComm%zeroArray, &
                                     g2vComm%voltMpiComm, ierr)
+
+    end subroutine sendShallowData
+
+    ! receive shallow state data from voltron over MPI
+    subroutine recvShallowData(g2vComm, gApp)
+        type(gam2VoltCommMpi_T), intent(inout) :: g2vComm
+        type(gamAppMpi_T), intent(inout) :: gApp
+
+        integer :: ierr
 
         ! Receive updated data from voltron
         ! The data goes into inEijk and inExyz in the IonInnerBC_T
@@ -192,20 +218,32 @@ module gam2VoltComm_mpi
         ! receive next time for shallow calculation
         call mpi_bcast(g2vComm%ShallowT, 1, MPI_MYFLOAT, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
 
-
-    end subroutine performShallowUpdate
+    end subroutine recvShallowData
 
     ! transmit state data to voltron over MPI and receive new data
     subroutine performDeepUpdate(g2vComm, gApp)
         type(gam2VoltCommMpi_T), intent(inout) :: g2vComm
         type(gamAppMpi_T), intent(inout) :: gApp
 
-        integer :: ierr
-
         if (.not. g2vComm%doDeep) then
             !Why are you even here?
             return
+        else
+            ! send deep data
+            call sendDeepData(g2vComm, gApp)
+
+            ! receive deep data
+            call recvDeepData(g2vComm, gApp)
         endif
+
+    end subroutine performDeepUpdate
+
+    ! send deep state data to voltron over MPI
+    subroutine sendDeepData(g2vComm, gApp)
+        type(gam2VoltCommMpi_T), intent(in) :: g2vComm
+        type(gamAppMpi_T), intent(in) :: gApp
+
+        integer :: ierr
 
         ! send state data to voltron
         ! Send Deep Gas Data
@@ -219,6 +257,15 @@ module gam2VoltComm_mpi
                                     0, g2vComm%zeroArray, g2vComm%zeroArray, g2vComm%zeroArray, &
                                     g2vComm%voltMpiComm, ierr)
 
+    end subroutine sendDeepData
+
+    ! receive deep state data from voltron over MPI
+    subroutine recvDeepData(g2vComm, gApp)
+        type(gam2VoltCommMpi_T), intent(inout) :: g2vComm
+        type(gamAppMpi_T), intent(inout) :: gApp
+
+        integer :: ierr
+
         ! Receive updated data from Voltron
         ! Receive Deep Gas0 Data
         call mpi_neighbor_alltoallw(0, g2vComm%zeroArray, g2vComm%zeroArray, g2vComm%zeroArray, &
@@ -229,10 +276,136 @@ module gam2VoltComm_mpi
         ! receive next time for deep calculation
         call mpi_bcast(g2vComm%DeepT, 1, MPI_MYFLOAT, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
 
-    end subroutine performDeepUpdate
+    end subroutine recvDeepData
 
-    subroutine createG2VDataTypes(g2vComm)
+    subroutine createG2VDataTypes(g2vComm, gApp)
         type(gam2VoltCommMpi_T), intent(inout) :: g2vComm
+        type(gamAppMpi_T), intent(in) :: gApp
+
+        integer :: ierr, dataSize, sendDataOffset, recvDataOffset
+        integer :: iJP, iJPjP, iJPjPkP, iJPjPkP4Gas, iJpjPkP5Gas, iJP3, iPSI, iPSI1
+        integer :: Bxyz2, Bxyz3, Bxyz4, Eijk2, EIjk3, Eijk4, Exyz2, Exyz3, Exyz4
+
+        associate(Grid=>gApp%Grid,Model=>gApp%Model, &
+                  JpSt=>g2vComm%JpSt,JpSh=>g2vComm%JpSh, &
+                  PsiSt=>g2vComm%PsiSt,PsiSh=>g2vComm%PsiSh)
+
+        ! no need to allocate, all arrays are fixed size (1) since we only talk to voltron
+
+        ! counts always 1
+        g2vComm%sendCountsGasShallow = 1
+        g2vComm%sendCountsBxyzShallow = 1
+        g2vComm%recvCountsInexyzShallow = 1
+        g2vComm%recvCountsIneijkShallow = 1
+
+        ! displacements always 0
+        g2vComm%sendDisplsGasShallow = 0
+        g2vComm%sendDisplsBxyzShallow = 0
+        g2vComm%recvDisplsInexyzShallow = 0
+        g2vComm%recvDisplsIneijkShallow = 0
+
+        ! datatypes to null by default
+        g2vComm%sendTypesGasShallow = MPI_DATATYPE_NULL
+        g2vComm%sendTypesBxyzShallow = MPI_DATATYPE_NULL
+        g2vComm%recvTypesInexyzShallow = MPI_DATATYPE_NULL
+        g2vComm%recvTypesIneijkShallow = MPI_DATATYPE_NULL
+
+        ! assemble datatypes
+        call mpi_type_extent(MPI_MYFLOAT, dataSize, ierr) ! number of bytes per value
+
+        ! I dimension
+        call mpi_type_contiguous(JpSh, MPI_MYFLOAT, iJP, ierr) ! JpSh i
+        call mpi_type_contiguous(JpSh+3, MPI_MYFLOAT, iJP3, ierr) ! JpSh+3 i
+        call mpi_type_contiguous(PsiSh, MPI_MYFLOAT, iPSI, ierr) ! PsiSh i
+        call mpi_type_contiguous(PsiSh+1, MPI_MYFLOAT, iPSI1, ierr) ! PsiSh+1 i
+
+        ! J dimension
+        call mpi_type_hvector(Grid%Njp, 1, Grid%Ni*dataSize, iJP, iJPjP, ierr) ! JpSh i - physical j
+        if(Grid%NumRj == 1) then
+            ! only one J rank, ghosts on both sides
+            call mpi_type_hvector(Grid%Nj, 1, Grid%Ni*dataSize, iJP3, Bxyz2, ierr) ! JpSh+3 i - p+2g j
+        elseif(Grid%hasLowerBC(JDIR) .or. Grid%hasUpperBC(JDIR)) then
+            ! ghost cells on one side
+            call mpi_type_hvector(Model%nG+Grid%Njp, 1, Grid%Ni*dataSize, iJP3, Bxyz2, ierr) ! JpSh+3 i - p+g j
+        else
+            ! no ghost cells
+            call mpi_type_hvector(Grid%Njp, 1, Grid%Ni*dataSize, iJP3, Bxyz2, ierr) ! JpSh+3 i - physical j
+        endif
+        call mpi_type_hvector(Grid%Nj, 1, PsiSh*dataSize, iPSI, Exyz2, ierr) ! PsiSh i - p+2g j
+        call mpi_type_hvector(Grid%Nj+1, 1, (PsiSh+1)*dataSize, iPSI1, Eijk2, ierr) ! PsiSh+1 i - p+2g+1 j
+
+        ! K dimension
+        call mpi_type_hvector(Grid%Nkp, 1, Grid%Ni*Grid%Nj*dataSize, &
+                              iJPjP, iJPjPkP, ierr) ! JpSh i - physical j - physical k
+        if(Grid%NumRk == 1) then
+            ! double ghosts
+            call mpi_type_hvector(Grid%Nk, 1, Grid%Ni*Grid%Nj*dataSize, &
+                              Bxyz2, Bxyz3, ierr)
+        elseif(Grid%hasLowerBC(KDIR) .or. Grid%hasUpperBC(KDIR)) then
+            ! single ghosts
+            call mpi_type_hvector(Model%nG+Grid%Nkp, 1, Grid%Ni*Grid%Nj*dataSize, &
+                              Bxyz2, Bxyz3, ierr)
+        else
+            ! no ghosts
+            call mpi_type_hvector(Grid%Nkp, 1, Grid%Ni*Grid%Nj*dataSize, &
+                              Bxyz2, Bxyz3, ierr)
+        endif
+        call mpi_type_hvector(Grid%Nk, 1, Grid%Nj*PsiSh*dataSize, &
+                              Exyz2, Exyz3, ierr) ! PsiSh i - p+2g j - p+2g k
+        call mpi_type_hvector(Grid%Nk+1, 1, (Grid%Nj+1)*(PsiSh+1)*dataSize,&
+                              Eijk2, Eijk3, ierr) ! PsiSh+1 i - p+2g+1 j - p+2g+1 k
+        ! 4th dimension
+        call mpi_type_hvector(NVAR, 1, Grid%Ni*Grid%Nj*Grid%Nk*dataSize, iJPjPkP, iJPjPkP4Gas, ierr)
+        call mpi_type_hvector(NDIM, 1, Grid%Ni*Grid%Nj*Grid%Nk*dataSize, Bxyz3, Bxyz4, ierr)
+        call mpi_type_hvector(NDIM, 1, PsiSh*Grid%Nj*Grid%Nk*dataSize, Exyz3, Exyz4, ierr)
+        call mpi_type_hvector(NDIM, 1, (PsiSh+1)*(Grid%Nj+1)*(Grid%Nk+1)*dataSize, Eijk3, Eijk4, ierr)
+
+        ! 5th dimension
+        call mpi_type_hvector(Model%nSpc+1,1,NVAR*Grid%Ni*Grid%Nj*Grid%Nk*dataSize,iJPjPkP4Gas,iJPjPkP5Gas,ierr)
+
+        ! create appropriate MPI Datatypes
+        if(.not. Grid%hasLowerBC(IDIR)) then
+            ! only gamera ranks with lower I boundary participate in shallow updates
+            g2vComm%sendCountsGasShallow = 0
+            g2vComm%sendCountsBxyzShallow = 0
+            g2vComm%recvCountsInexyzShallow = 0
+            g2vComm%recvCountsIneijkShallow = 0
+        else
+            ! Gas
+            sendDataOffset = Model%nG*Grid%Nj*Grid%Ni + &
+                             Model%nG*Grid%Ni + &
+                             (Model%nG + JpSt - 1) ! turning JpSt into an offset
+
+            call mpi_type_hindexed(1, (/1/), sendDataOffset*dataSize, iJPjPkP5Gas, &
+                                   g2vComm%sendTypesGasShallow(1), ierr)
+
+            ! Bxyz
+            sendDataOffset = Model%nG + JpSt - 2 ! JpSt-1
+            if(.not. Grid%hasLowerBC(JDIR)) then
+                ! don't own the lower BC, so don't send lower ghosts
+                sendDataOffset = sendDataOffset + Model%nG*Grid%Ni
+            endif
+            if(.not. Grid%hasLowerBC(KDIR)) then
+                ! don't own the lower bc, so don't send the lower ghosts
+                sendDataOffset = sendDataOffset + Model%nG*Grid%Nj*Grid%Ni
+            endif
+
+            call mpi_type_hindexed(1, (/1/), sendDataOffset*dataSize, Bxyz4, &
+                                   g2vComm%sendTypesBxyzShallow(1), ierr)
+
+            !Inexyz
+            recvDataOffset = 0
+            call mpi_type_hindexed(1, (/1/), recvDataOffset*dataSize, Exyz4, &
+                                   g2vComm%recvTypesInexyzShallow(1), ierr)
+
+            !Ineijk
+            recvDataOffset = 0
+            call mpi_type_hindexed(1, (/1/), recvDataOffset*dataSize, Eijk4, &
+                                   g2vComm%recvTypesIneijkShallow(1), ierr)
+        endif
+
+        end associate
+
     end subroutine createG2VDataTypes
 
 end module gam2VoltComm_mpi

@@ -58,7 +58,7 @@ contains
 
   end subroutine teardown
 
-  @test(npes=[2,5,17])
+  !@test(npes=[2,5,17])
   subroutine testStepUpdate(this)
       class (MpiTestMethod), intent(inout) :: this
 
@@ -99,31 +99,110 @@ contains
 
   end subroutine testStepUpdate
 
+  @test(npes=[2,5,17])
+  subroutine testMhd2VoltShallowCopy(this)
+      class (MpiTestMethod), intent(inout) :: this
+
+      integer :: i,j,k,l,m
+      real(rp) :: checkVal
+      character(len=strLen) :: checkMessage
+      real(rp) :: iVal, jVal, kVal, lVal, mVal
+
+      ! coefficients chosen to allow easy interpretation of final values
+      iVal = 1
+      jVal = 20
+      kVal = 400
+      lVal = 8000
+      mVal = 160000
+
+      if(isGamera) then
+          ! clear all cells
+          gamAppMpi%State%Gas(:,:,:,:,:) = 0
+
+          ! set values in physical and ghost cells
+          do i=gamAppMpi%Grid%isg,gamAppMpi%Grid%ieg
+              do j=gamAppMpi%Grid%jsg,gamAppMpi%Grid%jeg
+                  do k=gamAppMpi%Grid%ksg,gamAppMpi%Grid%keg
+                      do l=1,NVAR
+                          do m=0,gamAppMpi%Model%nSpc
+                              gamAppMpi%State%Gas(i,j,k,l,m) = &
+                                  mVal*m + &
+                                  lVal*l + &
+                                  kVal*(k+gamAppMpi%Grid%ijkShift(KDIR)) + &
+                                  jVal*(j+gamAppMpi%Grid%ijkShift(JDIR)) + &
+                                  iVal*(i+gamAppMpi%Grid%ijkShift(IDIR))
+                          enddo
+                      enddo
+                  enddo
+              enddo
+          enddo
+
+          ! send the data to voltron
+          call sendShallowData(g2vCommMpi, gamAppMpi)
+      else
+          ! clear all cells
+          voltAppMpi%gAppLocal%State%Gas(:,:,:,:,:) = 0
+
+          ! receive the data from gamera
+          call recvShallowData_mpi(voltAppMpi)
+
+          ! check values in all cells
+          do i=voltAppMpi%gAppLocal%Grid%isg,voltAppMpi%gAppLocal%Grid%ieg
+              do j=voltAppMpi%gAppLocal%Grid%jsg,voltAppMpi%gAppLocal%Grid%jeg
+                  do k=voltAppMpi%gAppLocal%Grid%ksg,voltAppMpi%gAppLocal%Grid%keg
+                      do l=1,NVAR
+                          do m=0,voltAppMpi%gAppLocal%Model%nSpc
+                              checkVal = mVal*m + &
+                                  lVal*l + &
+                                  iVal*i + &
+                                  jVal*j + &
+                                  kVal*k
+                              write (checkMessage,'(A,I0,A,I0,A,I0,A,I0,A,I0,A)') 'voltron wrong at (',i,',',j,',',k,',',l,',',m,')'
+                              @assertEqual(checkVal, voltAppMpi%gAppLocal%State%Gas(i,j,k,l,m), trim(checkMessage))
+                          enddo
+                      enddo
+                  enddo
+              enddo
+          enddo
+      endif
+
+  end subroutine testMhd2VoltShallowCopy
+
+  !@test(npes=[2,5,17])
+  subroutine testVolt2MhdShallowCopy(this)
+      class (MpiTestMethod), intent(inout) :: this
+
+      character(len=strLen) :: checkMessage
+
+  end subroutine testVolt2MhdShallowCopy
+
   !@test(npes=[2,5,17])
   subroutine testShallowUpdate(this)
       class (MpiTestMethod), intent(inout) :: this
 
-      SELECT CASE(this%getNumProcesses())
-          CASE (2)
-          CASE (5)
-          CASE (17)
-          CASE DEFAULT
-              @assertEqual(0, 1, 'Unexpected number of MPI processes')
-      END SELECT
+      character(len=strLen) :: checkMessage
 
   end subroutine testShallowUpdate
 
   !@test(npes=[2,5,17])
-  subroutine testDeepUpdate(this)
+  subroutine testMhd2VoltDeepCopy(this)
       class (MpiTestMethod), intent(inout) :: this
 
-      SELECT CASE(this%getNumProcesses())
-          CASE (2)
-          CASE (5)
-          CASE (17)
-          CASE DEFAULT
-              @assertEqual(0, 1, 'Unexpected number of MPI processes')
-      END SELECT
+      character(len=strLen) :: checkMessage
+
+  end subroutine testMhd2VoltDeepCopy
+
+  !@test(npes=[2,5,17])
+  subroutine testVolt2MhdDeepCopy(this)
+      class (MpiTestMethod), intent(inout) :: this
+
+      character(len=strLen) :: checkMessage
+
+  end subroutine testVolt2MhdDeepCopy
+
+  !@test(npes=[2,5,17])
+  subroutine testDeepUpdate(this)
+      class (MpiTestMethod), intent(inout) :: this
 
   end subroutine testDeepUpdate
 
