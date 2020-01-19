@@ -347,7 +347,7 @@ module wind
                     endif
 
                     if (i == Grid%ie+1) then
-                        swExyz = DiffuseOuter(Model,Grid,State,i,j,k)
+                        swExyz = DiffuseOuter(Model,Grid,State,i+1,j+1,k+1)
                         State%Efld(i,j,k,:) = State%Efld(i,j,k,:) + swExyz
                     endif
                 enddo !i cells
