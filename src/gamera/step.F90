@@ -224,7 +224,7 @@ module step
         Valf  = 0.0
         VDiff = 0.0
 
-        if (Model%doMHD) then                                        
+        if (Model%doMHD) then
             Bx = State%Bxyz(i,j,k,XDIR)
             By = State%Bxyz(i,j,k,YDIR)
             Bz = State%Bxyz(i,j,k,ZDIR)

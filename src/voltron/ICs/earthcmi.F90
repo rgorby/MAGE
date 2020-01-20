@@ -149,7 +149,7 @@ module uservoltic
         Grid%keMG = Grid%ke
 
         !Correction to E (from solar wind or ionosphere)        
-        if (Grid%hasLowerBC(1) .or. Grid%hasUpperBC(1)) then
+        if (Grid%hasLowerBC(IDIR) .or. Grid%hasUpperBC(IDIR)) then
            !Set user hack functions
            !NOTE: Need silly double value for GNU
            eHack  => EFix
@@ -444,9 +444,9 @@ module uservoltic
                     Exyz = bc%inExyz(np,jp,kp,:)
 
                     !Choose which dipole ExB speed to use, true ghost value is much faster
-                    xcd = Grid%xyzcc(Grid%is,j,k,XDIR)
-                    ycd = Grid%xyzcc(Grid%is,j,k,YDIR)
-                    zcd = Grid%xyzcc(Grid%is,j,k,ZDIR)
+                    xcd = Grid%xyzcc(ip,jp,kp,XDIR)
+                    ycd = Grid%xyzcc(ip,jp,kp,YDIR)
+                    zcd = Grid%xyzcc(ip,jp,kp,ZDIR)
                     call Dipole(xcd,ycd,zcd,Bd(XDIR),Bd(YDIR),Bd(ZDIR))
                     
                     dB = State%Bxyz(ip,jp,kp,:)
