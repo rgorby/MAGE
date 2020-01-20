@@ -474,13 +474,13 @@ module uservoltic
                 !Now handle magnetic quantities
                     if (isLL) then
                         !Mirror fluxes to minimize gradient (these are perturbation quantities)
-                        State%Bxyz(ig,j,k,:)       = 0.0
-                        State%magFlux(ig,j,k,IDIR) = 0.0
-                        State%magFlux(ig,j,k,JDIR) = 0.0
-                        State%magFlux(ig,j,k,KDIR) = 0.0
+                        State%Bxyz(ig,j,k,:)       = dB
+                        State%magFlux(ig,j,k,IDIR) = State%magFlux(ip,jp,kp,IDIR)
+                        State%magFlux(ig,j,k,JDIR) = State%magFlux(ip,jp,kp,JDIR)
+                        State%magFlux(ig,j,k,KDIR) = State%magFlux(ip,jp,kp,KDIR)
                     else
                         !Mirror fluxes to minimize gradient (these are perturbation quantities)
-                        State%Bxyz(ig,j,k,:) = dB
+                        State%Bxyz(ig,j,k,:)       = dB
                         State%magFlux(ig,j,k,IDIR) = State%magFlux(ip,jp,kp,IDIR)
                         State%magFlux(ig,j,k,JDIR) = State%magFlux(ip,jp,kp,JDIR)
                         State%magFlux(ig,j,k,KDIR) = State%magFlux(ip,jp,kp,KDIR)

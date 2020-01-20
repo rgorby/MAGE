@@ -27,6 +27,7 @@ module rcmimag
     real(rp), parameter :: RIonRCM = (RionE/REarth)*1.0e+6 !Units of Re
     integer, private :: NBuff = 15
     real(rp), private :: rEqMin = 0.0
+    real(rp), private :: PPDen = 50.0 !Plasmapause density
     integer, parameter :: MAXRCMIOVAR = 30
     character(len=strLen), private :: h5File
 
@@ -219,7 +220,7 @@ module rcmimag
         real(rp), intent(out) :: imW(NVARIMAG)
 
         real(rp) :: colat, alpha, beta, LScl
-        real(rp) :: rEq
+        real(rp) :: rEq,nrcm,prcm
         integer :: i0,j0
         logical :: isGood
 
@@ -250,10 +251,16 @@ module rcmimag
                 alpha = 1.0
             endif
             LScl = RCMApp%Vol(i0,j0)*RCMApp%bmin(i0,j0) !Lengthscale
+            prcm = RCMApp%Prcm(i0,j0)*rcmPScl*alpha
+            !Include plasmasphere if above cutoff density and there is RCM density
+            if ( (RCMApp%Npsph(i0,j0) > PPDen) .and. (prcm > TINY) ) then
+                nrcm = RCMApp%Nrcm(i0,j0) + RCMApp%Npsph(i0,j0)
+            else
+                nrcm = RCMApp%Nrcm(i0,j0)
+            endif
 
-            imW(IMDEN ) = rcmNScl*( RCMApp%Nrcm(i0,j0) + RCMApp%Npsph(i0,j0) )
-            imW(IMPR  ) = RCMApp%Prcm(i0,j0)*rcmPScl*alpha
-            !imW(IMLSCL) = LScl
+            imW(IMDEN ) = rcmNScl*nrcm
+            imW(IMPR  ) = prcm
             imW(IMTSCL) = 1.0
         endif
 

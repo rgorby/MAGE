@@ -160,7 +160,11 @@ module innermagsphere
             enddo
         enddo
 
+        !Test of cutting out inner shell ingestion
+        Gr%Gas0(Gr%is,:,:,IMPR,BLK) = 0.0
+        
         end associate
+        
 
     end subroutine InnerMag2Gamera
 
