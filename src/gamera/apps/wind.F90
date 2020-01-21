@@ -347,7 +347,7 @@ module wind
                     endif
 
                     if (i == Grid%ie+1) then
-                        swExyz = DiffuseOuter(Model,Grid,State,i+1,j+1,k+1)
+                        swExyz = DiffuseOuter(Model,Grid,State,i,j,k)
                         State%Efld(i,j,k,:) = State%Efld(i,j,k,:) + swExyz
                     endif
                 enddo !i cells
@@ -370,13 +370,13 @@ module wind
         !Calculate current
         !Jk = d_i (Bj) - d_j (Bi), db2 - db1 (see fields.F90)
         
-        db2 = State%magFlux(i,j,k,JDIR)/Grid%face(i,j,k,JDIR) - State%magFlux(i-1,j,k,JDIR)/Grid%face(i-1,j,k,JDIR)
-        db1 = State%magFlux(i,j,k,IDIR)/Grid%face(i,j,k,IDIR) - State%magFlux(i,j-1,k,IDIR)/Grid%face(i,j-1,k,IDIR)
+        db2 = State%magFlux(i+1,j,k,JDIR)/Grid%face(i+1,j,k,JDIR) - State%magFlux(i,j,k,JDIR)/Grid%face(i,j,k,JDIR)
+        db1 = State%magFlux(i,j+1,k,IDIR)/Grid%face(i,j+1,k,IDIR) - State%magFlux(i,j,k,IDIR)/Grid%face(i,j,k,IDIR)
         Jd(KDIR) = db2 - db1
 
         !Jj = d_k (Bi) - d_i (Bk)
-        db2 = State%magFlux(i,j,k,IDIR)/Grid%face(i,j,k,IDIR) - State%magFlux(i,j,k-1,IDIR)/Grid%face(i,j,k-1,IDIR)
-        db1 = State%magFlux(i,j,k,KDIR)/Grid%face(i,j,k,KDIR) - State%magFlux(i-1,j,k,KDIR)/Grid%face(i-1,j,k,KDIR)
+        db2 = State%magFlux(i,j,k+1,IDIR)/Grid%face(i,j,k+1,IDIR) - State%magFlux(i,j,k,IDIR)/Grid%face(i,j,k,IDIR)
+        db1 = State%magFlux(i+1,j,k,KDIR)/Grid%face(i+1,j,k,KDIR) - State%magFlux(i,j,k,KDIR)/Grid%face(i,j,k,KDIR)
         Jd(JDIR) = db2 - db1
 
         Vd = Model%Ca
