@@ -15,7 +15,8 @@ module voltapp_mpi
         type(gamApp_T) :: gAppLocal
 
         ! array of all zeroes to simplify various send/receive calls
-        integer, dimension(:), allocatable :: zeroArray
+        integer, dimension(:), allocatable :: zeroArrayCounts, zeroArrayTypes
+        integer(MPI_ADDRESS_KIND), dimension(:), allocatable ::  zeroArrayDispls
 
         ! list of gamera ranks to communicate with
         integer, dimension(:), allocatable :: sendRanks, recvRanks
@@ -54,7 +55,7 @@ module voltapp_mpi
         integer, intent(in) :: voltComm
         character(len=*), optional, intent(in) :: optFilename
 
-        integer :: commSize, ierr, numNeighbors, numCells, length, ic, numInNeighbors, numOutNeighbors
+        integer :: commSize, ierr, numCells, length, ic, numInNeighbors, numOutNeighbors
         character( len = MPI_MAX_ERROR_STRING) :: message
         logical :: reorder, wasWeighted
         integer, allocatable, dimension(:) :: neighborRanks, inData, outData
@@ -75,8 +76,12 @@ module voltapp_mpi
         allocate(jRanks(1:commSize))
         allocate(kRanks(1:commSize))
 
-        allocate(vApp%zeroArray(1:commSize-1))
-        vApp%zeroArray(:) = 0
+        allocate(vApp%zeroArrayCounts(1:commSize-1))
+        allocate(vApp%zeroArrayTypes(1:commSize-1))
+        allocate(vAPp%zeroArrayDispls(1:commSize-1))
+        vApp%zeroArrayCounts(:) = 0
+        vApp%zeroArrayTypes(:) = MPI_INT ! MPI_DATATYPE_NULL
+        vApp%zeroArrayDispls(:) = 0
 
         ! doing a very very rough approximation of data transferred to help MPI reorder
         ! for deep updates, assume each rank sends data equal to its # physical cells
@@ -107,8 +112,8 @@ module voltapp_mpi
 
         reorder = .true. ! allow MPI to reorder the ranks
         call mpi_dist_graph_create_adjacent(voltComm, &
-            numNeighbors,neighborRanks,inData, &
-            numNeighbors,neighborRanks,outData, &
+            commSize-1,neighborRanks,inData, &
+            commSize-1,neighborRanks,outData, &
             MPI_INFO_NULL, reorder, vApp%voltMpiComm, ierr)
         if(ierr /= MPI_Success) then
             call MPI_Error_string( ierr, message, length, ierr)
@@ -146,9 +151,9 @@ module voltapp_mpi
         call mpi_gather(MPI_IN_PLACE, 0, 0, jRanks, commSize, MPI_INT, vApp%myRank, vApp%voltMpiComm, ierr)
         call mpi_gather(MPI_IN_PLACE, 0, 0, kRanks, commSize, MPI_INT, vApp%myRank, vApp%voltMpiComm, ierr)
         ! set my rank to -1 so it's a known value
-        iRanks(vApp%myRank) = -1
-        jRanks(vApp%myRank) = -1
-        kRanks(vApp%myRank) = -1
+        iRanks(vApp%myRank+1) = -1
+        jRanks(vApp%myRank+1) = -1
+        kRanks(vApp%myRank+1) = -1
 
         ! create a local Gamera object which contains the entire domain
         if(present(optFilename)) then
@@ -210,12 +215,17 @@ module voltapp_mpi
 
 !----------
 !Shallow coupling stuff
-    subroutine ShallowUpdate_mpi(vApp, time)
+    subroutine ShallowUpdate_mpi(vApp, time, skipUpdateGamera)
         type(voltAppMpi_T), intent(inout) :: vApp
         real(rp), intent(in) :: time
+        logical, optional, intent(in) :: skipUpdateGamera
 
-        ! fetch data from Gamera ranks
-        call recvShallowData_mpi(vApp)
+        if(present(skipUpdateGamera) .and. skipUpdateGamera) then
+            ! do nothing here, do not update the incoming gamera data
+        else
+            ! fetch data from Gamera ranks
+            call recvShallowData_mpi(vApp)
+        endif
 
         ! call base update function with local data
         call ShallowUpdate(vApp, vApp%gAppLocal, time)
@@ -231,14 +241,15 @@ module voltapp_mpi
         integer :: ierr
 
         ! Receive Shallow Gas Data
-        call mpi_neighbor_alltoallw(0, vApp%zeroArray, &
-                                    vApp%zeroArray, vApp%zeroArray, &
+        call mpi_neighbor_alltoallw(0, vApp%zeroArrayCounts, &
+                                    vApp%zeroArrayDispls, vApp%zeroArrayTypes, &
                                     vApp%gAppLocal%State%Gas, vApp%recvCountsGasShallow, &
                                     vApp%recvDisplsGasShallow, vApp%recvTypesGasShallow, &
                                     vApp%voltMpiComm, ierr)
+
         ! Receive Shallow Bxyz Data
-        call mpi_neighbor_alltoallw(0, vApp%zeroArray, &
-                                    vApp%zeroArray, vApp%zeroArray, &
+        call mpi_neighbor_alltoallw(0, vApp%zeroArrayCounts, &
+                                    vApp%zeroArrayDispls, vApp%zeroArrayTypes, &
                                     vApp%gAppLocal%State%Bxyz, vApp%recvCountsBxyzShallow, &
                                     vApp%recvDisplsBxyzShallow, vApp%recvTypesBxyzShallow, &
                                     vApp%voltMpiComm, ierr)
@@ -258,13 +269,15 @@ module voltapp_mpi
                 ! Send Shallow inEijk Data
                 call mpi_neighbor_alltoallw(iiBC%inEijk, vApp%sendCountsIneijkShallow, &
                                             vApp%sendDisplsIneijkShallow, vApp%sendTypesIneijkShallow, &
-                                            0, vApp%zeroArray, vApp%zeroArray, vApp%zeroArray, &
+                                            0, vApp%zeroArrayCounts, &
+                                            vApp%zeroArrayDispls, vApp%zeroArrayTypes, &
                                             vApp%voltMpiComm, ierr)
 
                 ! Send Shallow inExyz Data
                 call mpi_neighbor_alltoallw(iiBC%inExyz, vApp%sendCountsInexyzShallow, &
                                             vApp%sendDisplsInexyzShallow, vApp%sendTypesInexyzShallow, &
-                                            0, vApp%zeroArray, vApp%zeroArray, vApp%zeroArray, &
+                                            0, vApp%zeroArrayCounts, &
+                                            vApp%zeroArrayDispls, vApp%zeroArrayTypes, &
                                             vApp%voltMpiComm, ierr)
             CLASS DEFAULT
                 write(*,*) 'Could not find Ion Inner BC in Voltron MPI ShallowUpdate_mpi'
@@ -307,12 +320,14 @@ module voltapp_mpi
         integer :: ierr
 
         ! Receive Deep Gas Data
-        call mpi_neighbor_alltoallw(0, vApp%zeroArray, vApp%zeroArray, vApp%zeroArray, &
+        call mpi_neighbor_alltoallw(vApp%gAppLocal%State%Gas, vApp%zeroArrayCounts, &
+                                    vApp%zeroArrayDispls, vApp%zeroArrayTypes, &
                                     vApp%gAppLocal%State%Gas, vApp%recvCountsGasDeep, &
                                     vApp%recvDisplsGasDeep, vApp%recvTypesGasDeep, &
                                     vApp%voltMpiComm, ierr)
         ! Receive Deep Bxyz Data
-        call mpi_neighbor_alltoallw(0, vApp%zeroArray, vApp%zeroArray, vApp%zeroArray, &
+        call mpi_neighbor_alltoallw(vApp%gAppLocal%State%Bxyz, vApp%zeroArrayCounts, &
+                                    vApp%zeroArrayDispls, vApp%zeroArrayTypes, &
                                     vApp%gAppLocal%State%Bxyz, vApp%recvCountsBxyzDeep, &
                                     vApp%recvDisplsBxyzDeep, vApp%recvTypesBxyzDeep, &
                                     vApp%voltMpiComm, ierr)
@@ -327,7 +342,8 @@ module voltapp_mpi
         ! Send Deep Gas0 Data
         call mpi_neighbor_alltoallw(vApp%gAppLocal%Grid%Gas0, vApp%sendCountsGas0Deep, &
                                     vApp%sendDisplsGas0Deep, vApp%sendTypesGas0Deep, &
-                                    0, vApp%zeroArray, vApp%zeroArray, vApp%zeroArray, &
+                                    vApp%gAppLocal%Grid%Gas0, vApp%zeroArrayCounts, &
+                                    vApp%zeroArrayDispls, vApp%zeroArrayTypes, &
                                     vApp%voltMpiComm, ierr)
 
         ! send next time for deep calculation to all gamera ranks
@@ -432,12 +448,15 @@ module voltapp_mpi
         ! figure out exactly what data needs to be sent to (and received from) each gamera rank
         ! create custom MPI datatypes to perform these transfers
         do r=1,SIZE(vApp%recvRanks)
-            rRank = vApp%recvRanks(r)
+            rRank = vApp%recvRanks(r)+1
 
             if(iRanks(rRank) .gt. 0) then
                 ! never get shallow data from any rank but minimum i
                 vApp%recvCountsGasShallow(r) = 0
                 vApp%recvCountsBxyzShallow(r) = 0
+                ! set these types to non null because MPI complains
+                vApp%recvTypesGasShallow(r) = MPI_INT
+                vApp%recvTypesBxyzShallow(r) = MPI_INT
             else
                 ! calculate the byte offset to the start of the data
 
@@ -476,29 +495,39 @@ module voltapp_mpi
         enddo
 
         do r=1,SIZE(vApp%sendRanks)
-            sRank = vApp%sendRanks(r)
+            sRank = vApp%sendRanks(r)+1
 
             if(iRanks(sRank) .gt. 0) then
                 ! never send shallow data to any rank but minimum i
                 vApp%sendCountsInexyzShallow(r) = 0
                 vApp%sendCountsIneijkShallow(r) = 0
+                ! set these types to non null because MPI complains
+                vApp%sendTypesInexyzShallow(r) = MPI_INT
+                vApp%sendTypesIneijkShallow(r) = MPI_INT
             else
                 ! calculate the byte offset to the start of the data
 
                 ! Inexyz
-                sendDataOffset = kRanks(rRank)*NkpT*Grid%Nj*PsiSh + &
-                                 jRanks(rRank)*NjpT*PsiSh
+                sendDataOffset = kRanks(sRank)*NkpT*Grid%Nj*PsiSh + &
+                                 jRanks(sRank)*NjpT*PsiSh
 
                 call mpi_type_hindexed(1, (/1/), sendDataOffset*dataSize, Exyz4, &
                                        vApp%sendTypesInexyzShallow(r), ierr)
 
                 !Ineijk
-                sendDataOffset = kRanks(rRank)*NkpT*(Grid%Nj+1)*(PsiSh+1) + &
-                                 jRanks(rRank)*NjpT*(PsiSh+1)
+                sendDataOffset = kRanks(sRank)*NkpT*(Grid%Nj+1)*(PsiSh+1) + &
+                                 jRanks(sRank)*NjpT*(PsiSh+1)
 
                 call mpi_type_hindexed(1, (/1/), sendDataOffset*dataSize, Eijk4, &
                                        vApp%sendTypesIneijkShallow(r), ierr)
             endif
+        enddo
+
+        do r=1,size(vApp%recvTypesGasShallow)
+            call mpi_type_commit(vApp%recvTypesGasShallow(r), ierr)
+            call mpi_type_commit(vApp%recvTypesBxyzShallow(r), ierr)
+            call mpi_type_commit(vApp%sendTypesInexyzShallow(r), ierr)
+            call mpi_type_commit(vApp%sendTypesIneijkShallow(r), ierr)
         enddo
 
         end associate

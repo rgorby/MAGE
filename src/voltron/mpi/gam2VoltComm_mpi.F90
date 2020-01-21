@@ -3,6 +3,8 @@
 module gam2VoltComm_mpi
     use gamapp_mpi
     use uservoltic
+    use mpidefs
+    use mpi
 
     implicit none
 
@@ -15,7 +17,8 @@ module gam2VoltComm_mpi
         logical :: doDeep
 
         ! array of all zeroes to simplify various send/receive calls
-        integer, dimension(1) :: zeroArray = (/ 0 /)
+        integer, dimension(1) :: zeroArrayCounts = (/ 0 /), zeroArrayTypes = (/ MPI_INT /)
+        integer(MPI_ADDRESS_KIND), dimension(1) :: zeroArrayDispls = (/ 0 /)
 
         ! Shallow Gas Data Send Variables
         integer, dimension(1) :: sendCountsGasShallow, sendTypesGasShallow
@@ -154,12 +157,17 @@ module gam2VoltComm_mpi
     end subroutine performStepVoltron
 
     ! transmit state data to voltron over MPI and receive new data
-    subroutine performShallowUpdate(g2vComm, gApp)
+    subroutine performShallowUpdate(g2vComm, gApp, skipUpdateGamera)
         type(gam2VoltCommMpi_T), intent(inout) :: g2vComm
         type(gamAppMpi_T), intent(inout) :: gApp
+        logical, optional, intent(in) :: skipUpdateGamera
 
-        ! send shallow data
-        call sendShallowData(g2vComm, gApp)
+        if(present(skipUpdateGamera) .and. skipUpdateGamera) then
+            ! do nothing, don't update gamera's data on voltron
+        else
+            ! send shallow data
+            call sendShallowData(g2vComm, gApp)
+        endif
 
         ! receive new shallow data
         call recvShallowData(g2vComm, gApp)
@@ -177,12 +185,15 @@ module gam2VoltComm_mpi
         ! Send Shallow Gas Data
         call mpi_neighbor_alltoallw(gApp%State%Gas, g2vComm%sendCountsGasShallow, &
                                     g2vComm%sendDisplsGasShallow, g2vComm%sendTypesGasShallow, &
-                                    0, g2vComm%zeroArray, g2vComm%zeroArray, g2vComm%zeroArray, &
+                                    0, g2vComm%zeroArrayCounts, &
+                                    g2vComm%zeroArrayDispls, g2vComm%zeroArrayTypes, &
                                     g2vComm%voltMpiComm, ierr)
+
         ! Send Shallow Bxyz Data
         call mpi_neighbor_alltoallw(gApp%State%Bxyz, g2vComm%sendCountsBxyzShallow, &
                                     g2vComm%sendDisplsBxyzShallow, g2vComm%sendTypesBxyzShallow, &
-                                    0, g2vComm%zeroArray, g2vComm%zeroArray, g2vComm%zeroArray, &
+                                    0, g2vComm%zeroArrayCounts, &
+                                    g2vComm%zeroArrayDispls, g2vComm%zeroArrayTypes, &
                                     g2vComm%voltMpiComm, ierr)
 
     end subroutine sendShallowData
@@ -200,13 +211,15 @@ module gam2VoltComm_mpi
         SELECT type(iiBC=>gApp%Grid%externalBCs(INI)%p)
             TYPE IS (IonInnerBC_T)
                 ! Recv Shallow inEijk Data
-                call mpi_neighbor_alltoallw(0, g2vComm%zeroArray, g2vComm%zeroArray, g2vComm%zeroArray, &
+                call mpi_neighbor_alltoallw(0, g2vComm%zeroArrayCounts, &
+                                            g2vComm%zeroArrayDispls, g2vComm%zeroArrayTypes, &
                                             iiBC%inEijk, g2vComm%recvCountsIneijkShallow, &
                                             g2vComm%recvDisplsIneijkShallow, g2vComm%recvTypesIneijkShallow, &
                                             g2vComm%voltMpiComm, ierr)
 
                 ! Recv Shallow inExyz Data
-                call mpi_neighbor_alltoallw(0, g2vComm%zeroArray, g2vComm%zeroArray, g2vComm%zeroArray, &
+                call mpi_neighbor_alltoallw(0, g2vComm%zeroArrayCounts, &
+                                            g2vComm%zeroArrayDispls, g2vComm%zeroArrayTypes, &
                                             iiBC%inExyz, g2vComm%recvCountsInexyzShallow, &
                                             g2vComm%recvDisplsInexyzShallow, g2vComm%recvTypesInexyzShallow, &
                                             g2vComm%voltMpiComm, ierr)
@@ -249,12 +262,14 @@ module gam2VoltComm_mpi
         ! Send Deep Gas Data
         call mpi_neighbor_alltoallw(gApp%State%Gas, g2vComm%sendCountsGasDeep, &
                                     g2vComm%sendDisplsGasDeep, g2vComm%sendTypesGasDeep, &
-                                    0, g2vComm%zeroArray, g2vComm%zeroArray, g2vComm%zeroArray, &
+                                    gApp%State%Gas, g2vComm%zeroArrayCounts, &
+                                    g2vComm%zeroArrayDispls, g2vComm%zeroArrayTypes, &
                                     g2vComm%voltMpiComm, ierr)
         ! Send Deep Bxyz Data
         call mpi_neighbor_alltoallw(gApp%State%Bxyz, g2vComm%sendCountsBxyzDeep, &
                                     g2vComm%sendDisplsBxyzDeep, g2vComm%sendTypesBxyzDeep, &
-                                    0, g2vComm%zeroArray, g2vComm%zeroArray, g2vComm%zeroArray, &
+                                    gApp%State%Bxyz, g2vComm%zeroArrayCounts, &
+                                    g2vComm%zeroArrayDispls, g2vComm%zeroArrayTypes, &
                                     g2vComm%voltMpiComm, ierr)
 
     end subroutine sendDeepData
@@ -268,7 +283,8 @@ module gam2VoltComm_mpi
 
         ! Receive updated data from Voltron
         ! Receive Deep Gas0 Data
-        call mpi_neighbor_alltoallw(0, g2vComm%zeroArray, g2vComm%zeroArray, g2vComm%zeroArray, &
+        call mpi_neighbor_alltoallw(gApp%Grid%Gas0, g2vComm%zeroArrayCounts, &
+                                    g2vComm%zeroArrayDispls, g2vComm%zeroArrayTypes, &
                                     gApp%Grid%Gas0, g2vComm%recvCountsGas0Deep, &
                                     g2vComm%recvDisplsGas0Deep, g2vComm%recvTypesGas0Deep, &
                                     g2vComm%voltMpiComm, ierr)
@@ -370,6 +386,11 @@ module gam2VoltComm_mpi
             g2vComm%sendCountsBxyzShallow = 0
             g2vComm%recvCountsInexyzShallow = 0
             g2vComm%recvCountsIneijkShallow = 0
+            ! set these types to non null because MPI complains
+            g2vComm%sendTypesGasShallow = MPI_INT
+            g2vComm%sendTypesBxyzShallow = MPI_INT
+            g2vComm%recvTypesInexyzShallow = MPI_INT
+            g2vComm%recvTypesIneijkShallow = MPI_INT
         else
             ! Gas
             sendDataOffset = Model%nG*Grid%Nj*Grid%Ni + &
@@ -403,6 +424,12 @@ module gam2VoltComm_mpi
             call mpi_type_hindexed(1, (/1/), recvDataOffset*dataSize, Eijk4, &
                                    g2vComm%recvTypesIneijkShallow(1), ierr)
         endif
+
+        ! commit new mpi datatypes
+        call mpi_type_commit(g2vComm%sendTypesGasShallow(1), ierr)
+        call mpi_type_commit(g2vComm%sendTypesBxyzShallow(1), ierr)
+        call mpi_type_commit(g2vComm%recvTypesIneijkShallow(1), ierr)
+        call mpi_type_commit(g2vComm%recvTypesInexyzShallow(1), ierr)
 
         end associate
 

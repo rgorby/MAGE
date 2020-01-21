@@ -27,6 +27,7 @@ program voltron_mpix
     integer :: ierror, length, provided, worldSize, worldRank, gamComm
     integer :: required=MPI_THREAD_MULTIPLE
     character( len = MPI_MAX_ERROR_STRING) :: message
+    logical :: deepPerformed
 
     ! initialize MPI
     !Set up MPI with or without thread support
@@ -112,15 +113,17 @@ program voltron_mpix
             call performStepVoltron(g2vComm,gApp)
         
             !Coupling    
+            deepPerformed = .false.
             call Tic("DeepCoupling")
             if ( (g2vComm%time >= g2vComm%DeepT) .and. g2vComm%doDeep ) then
                 call performDeepUpdate(g2vComm, gApp)
+                deepPerformed = .true.
             endif
             call Toc("DeepCoupling")
 
             call Tic("IonCoupling")
             if (g2vComm%time >= g2vComm%ShallowT) then
-                call performShallowUpdate(g2vComm, gApp)
+                call performShallowUpdate(g2vComm, gApp, deepPerformed)
             endif
             call Toc("IonCoupling")
         
@@ -158,7 +161,7 @@ program voltron_mpix
         end do
 
     else
-        call initVoltron_mpi(vApp, MPI_COMM_WORLD)
+        call initVoltron_mpi(vApp, userInitFunc, MPI_COMM_WORLD)
 
         ! voltron run loop
         do while (vApp%time < vApp%tFin)
@@ -169,15 +172,17 @@ program voltron_mpix
             call stepVoltron_mpi(vApp)
 
             !Coupling
+            deepPerformed = .false.
             call Tic("DeepCoupling")
             if ( (vApp%time >= vApp%DeepT) .and. vApp%doDeep ) then
                 call DeepUpdate_mpi(vApp, vApp%time)
+                deepPerformed = .true.
             endif
             call Toc("DeepCoupling")
 
             call Tic("IonCoupling")
             if (vApp%time >= vApp%ShallowT) then
-                call ShallowUpdate_mpi(vApp, vApp%time)
+                call ShallowUpdate_mpi(vApp, vApp%time, deepPerformed)
             endif
             call Toc("IonCoupling")
 
