@@ -398,12 +398,17 @@ module rcmimag
         allocate(iLat(NLat+1,NLon+1))
         allocate(iLon(NLat+1,NLon+1))
 
-        do i=1,NLat+1
-            do j=1,NLon+1
-                iLat(i,j) = clMin + (i-1)*dLat
-                iLon(i,j) = 0.0 + (j-1)*dLon
-            enddo
+        do j=1,NLon+1
+            iLon(:,j) = 0.0 + (j-1)*dLon
         enddo
+        dLat = (RCMApp%gcolat(2)-RCMApp%gcolat(1))
+        iLat(1,:) = clMin-0.5*dLat
+        do i=2,NLat
+            dLat = (RCMApp%gcolat(i)-RCMApp%gcolat(i-1))
+            iLat(i,:) = iLat(i-1,:) + dLat
+        enddo
+        !Replicate last dlat
+        iLat(NLat+1,:) = iLat(NLat,:) + dLat
 
         iLat = 90.0-iLat*180.0/PI !Turn colat into lat
         iLon = iLon*180.0/PI
