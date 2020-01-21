@@ -156,8 +156,6 @@ module sstimag
 
         ij0 = minloc( (eqData%xxc-x0)**2.0 + (eqData%yyc-y0)**2.0 )
         
-        
-
         i0 = ij0(IDIR)
         j0 = ij0(JDIR)
 
@@ -175,6 +173,8 @@ module sstimag
 
         imW(IMDEN) = D
         imW(IMPR)  = P
+        imW(IMX1)  = r
+        imW(IMX2)  = (180.0/PI)*phi
         
     end subroutine EvalSST
 

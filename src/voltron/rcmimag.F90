@@ -228,7 +228,7 @@ module rcmimag
         imW(:) = 0.0
         imW(IMDEN ) = 0.0
         imW(IMPR  ) = 0.0
-        imW(IMTSCL) = 1.0
+        imW(IMTSCL) = 0.0
 
         colat = PI/2 - lat
 
@@ -262,6 +262,9 @@ module rcmimag
             imW(IMDEN ) = rcmNScl*nrcm
             imW(IMPR  ) = prcm
             imW(IMTSCL) = 1.0
+            imW(IMX1) = (180.0/PI)*lat
+            imW(IMX2) = (180.0/PI)*lon
+
         endif
 
     end subroutine EvalRCM

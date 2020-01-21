@@ -20,6 +20,8 @@ module ebsquish
         end subroutine Projection_T
     end interface
 
+    real(rp), parameter, private :: RDipole = 3.0
+
     contains
 
     !Find i-index of outer boundary of coupling domain
@@ -135,6 +137,14 @@ module ebsquish
 
         x1 = 0.0
         x2 = 0.0
+        if (norm2(xyz) <= RDipole) then
+            !Just assume dipole here
+            x1 = InvLatitude(xyz) 
+            x2 = atan2(xyz(YDIR),xyz(XDIR))
+            if (x2 < 0) x2 = x2 + 2*PI
+            return
+        endif
+        
         !Use one-sided projection routine from chimp
         !Trace along field line (i.e. to northern hemisphere)
         call project(ebModel,ebState,xyz,t,xE,+1,toEquator=.false.)
