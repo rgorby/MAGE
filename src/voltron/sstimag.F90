@@ -142,8 +142,9 @@ module sstimag
 
     !Evaluate eq map at a given point
     !Returns density (#/cc) and pressure (nPa)
-    subroutine EvalSST(r,phi,t,imW)
+    subroutine EvalSST(r,phi,rpC,t,imW)
         real(rp), intent(in) :: r,phi,t
+        real(rp), intent(in) :: rpC(2,2,2,2)
         real(rp), intent(out) :: imW(NVARIMAG)
 
         real(rp) :: D,P,x0,y0

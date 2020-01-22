@@ -181,6 +181,7 @@ module rcmimag
         vApp%imag2mix%iavg  = 0.0
 
         vApp%imag2mix%isFresh = .true.
+
     !Find maximum extent of closed field region
         maxRad = maxval(norm2(RCMApp%X_bmin,dim=3),mask=vApp%imag2mix%isClosed)
         maxRad = maxRad/(Re_cgs*1.0e-2)
@@ -190,39 +191,71 @@ module rcmimag
 
     !Set region of RCM grid that's "good" for MHD ingestion
     subroutine SetIngestion()
-        integer :: i,j,i0
+        integer :: i,j,iC
+        logical :: jClosed
 
+        real(rp) :: xSun,xTail,yDD,x0,a,b,ell
+        real(rp) :: ellScl
         RCMApp%toMHD = .false.
 
-        do j=1,RCMApp%nLon_ion
-            !Loop from bottom (high colat) and find first open cell
-            do i=RCMApp%nLat_ion,1,-1
-                if (RCMApp%iopen(i,j) == RCMTOPOPEN) exit !Break loop
-            enddo !Lat
-            if (i > 1) then
-                !Hit open-closed boundary
-                i0 = i + 1 + NBuff
-                i0 = min(i0,RCMApp%nLat_ion)
-                RCMApp%toMHD(i0:,j) = .true.
-            else
-                !All closed lines here
-                RCMApp%toMHD(:,j) = .true.
-            endif
-
+        !Start by looping from high-lat downwards until we find full ring of closed lines
+        do i = 1,RCMApp%nLat_ion
+            jClosed = all(RCMApp%iopen(i,:) == RCMTOPCLOSED)
+            if (jClosed) exit
         enddo
-        
+        !Push down in lat (up in colat) by buffer cells
+        iC = i + 0*NBuff
+
+        !Now find maximum sunward point on this ring
+        xSun  = maxval(RCMApp%X_bmin(iC,:,XDIR))
+        xTail = minval(RCMApp%X_bmin(iC,:,XDIR))
+        yDD   = maxval(abs(RCMApp%X_bmin(iC,:,YDIR)))
+
+        !Rescale to give some breathing room
+        ellScl = 0.8
+        xSun = ellScl*xSun
+        yDD  = ellScl*yDD
+
+        !Constrain ellipse parameters by reqmin
+        !TODO: Test unconstrained tail
+        if (xSun       >= rEqMin) xSun  =  rEqMin
+        if (abs(xTail) >= rEqMin) xTail = -rEqMin
+        if (yDD        >= rEqMin) yDD   =  rEqMin
+
+        x0 = (xSun + xTail)/2
+        a  = (xSun - xTail)/2
+        b  = yDD
+
+        ! write(*,*) 'iC = ', iC
+        ! write(*,*) 'xSun  = ', xSun/REarth
+        ! write(*,*) 'xTail = ', xTail/REarth
+        ! write(*,*) 'yDD   = ', yDD/REarth
+
+       !$OMP PARALLEL DO default(shared) &
+       !$OMP private(ell)
+        do i=iC,RCMApp%nLat_ion
+            do j=1,RCMApp%nLon_ion
+                ell = ((RCMApp%X_bmin(i,j,XDIR)-x0)/a)**2.0 + (RCMApp%X_bmin(i,j,YDIR)/b)**2.0
+                if (ell <= 1) RCMApp%toMHD(i,j) = .true.
+
+            enddo
+        enddo
+
     end subroutine SetIngestion
 
     !Evaluate eq map at a given point
     !Returns density (#/cc) and pressure (nPa)
-    subroutine EvalRCM(lat,lon,t,imW)
+    subroutine EvalRCM(lat,lon,llC,t,imW)
         real(rp), intent(in) :: lat,lon,t
+        real(rp), intent(in) :: llC(2,2,2,2)
         real(rp), intent(out) :: imW(NVARIMAG)
 
-        real(rp) :: colat, alpha, beta, LScl
-        real(rp) :: rEq,nrcm,prcm
-        integer :: i0,j0
-        logical :: isGood
+        real(rp) :: alpha, beta
+        real(rp) :: nrcm,prcm,npp,ntot
+        integer  :: n
+        logical  :: isGood,isGoods(8)
+        real(rp) :: lls(8,2),colats(8)
+        integer  :: ijs(8,2)
 
         !Set defaults
         imW(:) = 0.0
@@ -232,40 +265,87 @@ module rcmimag
 
         colat = PI/2 - lat
 
-        !Do short cut tests
-        isGood = (colat >= RCMApp%gcolat(1)) .and. (colat <= RCMApp%gcolat(RCMApp%nLat_ion)) .and. (lat>TINY)
+        !Repack
+        lls(:,1) = reshape(llC(:,:,:,1),[8])
+        lls(:,2) = reshape(llC(:,:,:,2),[8])
+        colats = PI/2 - lls(:,1)
+
+        !Do 1st short cut tests
+        isGood = all(colats >= RCMApp%gcolat(1)) .and. all(colats <= RCMApp%gcolat(RCMApp%nLat_ion)) &
+                 .and. all(lls(:,1) > TINY)
         if (.not. isGood) return
 
-        !If still here now find closest cell
-        i0 = minloc( abs(colat-RCMApp%gcolat),dim=1 )
-        j0 = minloc( abs(lon  -RCMApp%glong ),dim=1 )
+        !If still here, find mapping (i,j) on RCM grid of each corner
+        call CornerLocs(lls,ijs)
 
-        rEq = norm2(RCMApp%X_bmin(i0,j0,:))
-        isGood = (rEq <= rEqMin) .and. RCMApp%toMHD(i0,j0)
-        
-        if (isGood) then
-            beta = RCMApp%beta_average(i0,j0)
-            if (doWolfLimit) then
-                alpha = 1.0/(1.0 + beta*IMGAMMA/2.0)
-            else
-                alpha = 1.0
-            endif
-            LScl = RCMApp%Vol(i0,j0)*RCMApp%bmin(i0,j0) !Lengthscale
-            prcm = RCMApp%Prcm(i0,j0)*rcmPScl*alpha
-            !Include plasmasphere if above cutoff density and there is RCM density
-            if ( (RCMApp%Npsph(i0,j0) > PPDen) .and. (prcm > TINY) ) then
-                nrcm = RCMApp%Nrcm(i0,j0) + RCMApp%Npsph(i0,j0)
-            else
-                nrcm = RCMApp%Nrcm(i0,j0)
-            endif
+        !Do second short cut tests
+        do n=1,8
+            isGoods(n) = RCMApp%toMHD(ijs(n,1),ijs(n,2))
+        enddo
+        isGood = all(isGoods)
 
-            imW(IMDEN ) = rcmNScl*nrcm
-            imW(IMPR  ) = prcm
-            imW(IMTSCL) = 1.0
-            imW(IMX1) = (180.0/PI)*lat
-            imW(IMX2) = (180.0/PI)*lon
+        if (.not. isGood) return
 
+        !If still here let's get to work
+        beta = CornerAvg(ijs,RCMApp%beta_average)
+        if (doWolfLimit) then
+            alpha = 1.0/(1.0 + beta*IMGAMMA/2.0)
+        else
+            alpha = 1.0
         endif
+        prcm = CornerAvg(ijs,RCMApp%Prcm )*rcmPScl*alpha
+        npp  = CornerAvg(ijs,RCMApp%Npsph)*rcmNScl
+        nrcm = CornerAvg(ijs,RCMApp%Nrcm )*rcmNScl
+
+        if ( (npp >= PPDen) .and. (prcm > TINY) ) then
+            ntot = npp + nrcm
+        else
+            ntot = nrcm
+        endif
+
+        !Store data
+        imW(IMDEN)  = ntot
+        imW(IMPR)   = prcm
+        imW(IMTSCL) = 1.0/sqrt(alpha)
+        imW(IMX1)   = (180.0/PI)*lat
+        imW(IMX2)   = (180.0/PI)*lon
+
+        contains
+
+            !Get RCM cells for corner lat/lons
+            subroutine CornerLocs(lls,ijs)
+                real(rp), intent(in) :: lls(8,2)
+                integer, intent(out) :: ijs(8,2)
+
+                integer :: n,i0,j0
+                real(rp) :: colat,lon
+                do n=1,8
+                    colat = PI/2 - lls(n,1)
+                    lon   = lls(n,2)
+
+                    i0 = minloc( abs(colat-RCMApp%gcolat),dim=1 )
+                    j0 = minloc( abs(lon  -RCMApp%glong ),dim=1 )
+                    ijs(n,:) = [i0,j0]
+                enddo
+
+            end subroutine CornerLocs
+
+            !Average a quantity over the corners
+            function CornerAvg(ijs,Q) result(Qavg)
+                integer, intent(in) :: ijs(8,2)
+                real(rp), intent(in) :: Q(RCMApp%nLat_ion,RCMApp%nLon_ion)
+                real(rp) :: Qavg
+
+                integer :: n,i0,j0
+
+                Qavg = 0.0
+                do n=1,8
+                    i0 = ijs(n,1)
+                    j0 = ijs(n,2)
+                    Qavg = Qavg + Q(i0,j0)
+                enddo
+                Qavg = Qavg/8.0
+            end function CornerAvg
 
     end subroutine EvalRCM
 !--------------

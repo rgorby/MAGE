@@ -15,8 +15,9 @@ rcBds = [-15,10.0,-12.5,12.5]
 pCMap = "viridis"
 eCol = "slategrey"
 rcmCol = "dodgerblue"
+MHDCol = "red"
 eLW = 0.05
-
+MHDLW = 0.5
 #Take axis and rcmdata object and add pressure plot
 def RCMInset(AxRCM,rcmdata,nStp,vP):
 	if (AxRCM is None):
@@ -26,12 +27,14 @@ def RCMInset(AxRCM,rcmdata,nStp,vP):
 	bmY = rcmdata.GetVar("yMin",nStp)
 	Prcm = rcmdata.GetVar("P",nStp)
 	IOpen = rcmdata.GetVar("IOpen",nStp)
+	toMHD = rcmdata.GetVar("toMHD",nStp)
 	I = (IOpen > -0.5)
 	Ni = (~I).sum()
 
 	if (Ni == 0):
 		return
 	#If still here we got something to show
+
 
 	#Do masks
 	bmX = ma.masked_array(bmX,mask=I)
@@ -42,6 +45,14 @@ def RCMInset(AxRCM,rcmdata,nStp,vP):
 	AxRCM.pcolor(bmX,bmY,Prcm,norm=vP,cmap=pCMap)
 	AxRCM.plot(bmX,bmY,color=eCol,linewidth=eLW)
 	AxRCM.plot(bmX.T,bmY.T,color=eCol,linewidth=eLW)
+
+	CS1 = AxRCM.contour(bmX,bmY,toMHD,[0.5],colors=MHDCol,linewidths=MHDLW)
+	manloc = [(0.0,8.0)]
+
+	fmt = {}
+	fmt[0.5] = 'MHD'
+	AxRCM.clabel(CS1,CS1.levels[::2],inline=True,fmt=fmt,fontsize=5,inline_spacing=25,manual=manloc)
+
 	kv.addEarth2D(ax=AxRCM)
 	kv.SetAx(rcBds,AxRCM)
 	kv.SetAxLabs(AxRCM,xLab=None,yLab=None)

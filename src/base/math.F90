@@ -244,6 +244,19 @@ contains
 
     end function cross
 
+    function CircMean(alpha) result(alphabar)
+        real(rp), intent(in) :: alpha(:)
+        real(rp) :: alphabar
+        integer :: N
+        real(rp) :: X,Y
+        
+        N = size(alpha)
+        Y = sum(sin(alpha))/N
+        X = sum(cos(alpha))/N
+
+        alphabar = modulo( atan2(Y,X),2*PI )
+    end function CircMean
+
     function normVec(a)
         real(rp), dimension(NDIM) :: a, normVec
         real(rp) :: normA

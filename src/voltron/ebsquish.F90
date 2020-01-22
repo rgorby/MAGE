@@ -45,7 +45,7 @@ module ebsquish
     subroutine Squish(vApp)
         type(voltApp_T), intent(inout) :: vApp
         
-        integer :: i,j,k
+        integer :: i,j,k,Nk
         real(rp) :: t,x1,x2
         real(rp), dimension(NDIM) :: xyz,xy0
         procedure(Projection_T), pointer :: ProjectXYZ
@@ -62,16 +62,16 @@ module ebsquish
             stop
         end select
 
-        associate(ebModel=>vApp%ebTrcApp%ebModel,ebGr=>vApp%ebTrcApp%ebState%ebGr,ebState=>vApp%ebTrcApp%ebState)
+        associate(ebModel=>vApp%ebTrcApp%ebModel,ebGr=>vApp%ebTrcApp%ebState%ebGr,ebState=>vApp%ebTrcApp%ebState,xyzSquish=>vApp%chmp2mhd%xyzSquish)
         t = ebState%eb1%time
         
         !$OMP PARALLEL DO default(shared) collapse(3) &
         !$OMP schedule(guided) &
         !$OMP private(i,j,k,xyz,x1,x2)
-        do k=ebGr%ks,ebGr%ke
-            do j=ebGr%js,ebGr%je
-                do i=ebGr%is,vApp%iDeep
-                    xyz = ebGr%xyzcc(i,j,k,:)
+        do k=ebGr%ks,ebGr%ke+1
+            do j=ebGr%js,ebGr%je+1
+                do i=ebGr%is,vApp%iDeep+1
+                    xyz = ebGr%xyz(i,j,k,XDIR:ZDIR)
                     if (norm2(xyz) <= vApp%rTrc) then
                         !Do projection
                         call ProjectXYZ(ebModel,ebState,xyz,t,x1,x2)
@@ -81,11 +81,25 @@ module ebsquish
                         x2 = 0.0
                     endif
                     
-                    vApp%chmp2mhd%xyzSquish(i,j,k,1) = x1
-                    vApp%chmp2mhd%xyzSquish(i,j,k,2) = x2
+                    xyzSquish(i,j,k,1) = x1
+                    xyzSquish(i,j,k,2) = x2
 
                 enddo
             enddo
+        enddo
+
+        Nk = ebGr%ke-ebGr%ks+1
+
+        !Ensure same value for degenerate axis points
+        !$OMP PARALLEL DO default(shared) &
+        !$OMP private(i)
+        do i=ebGr%is,vApp%iDeep+1
+            !x1 (regular average)
+            xyzSquish(i,ebGr%js  ,:,1) = sum(xyzSquish(i,ebGr%js  ,ebGr%ks:ebGr%ke,1))/Nk
+            xyzSquish(i,ebGr%je+1,:,1) = sum(xyzSquish(i,ebGr%je+1,ebGr%ks:ebGr%ke,1))/Nk
+            !x2 (circular average)
+            xyzSquish(i,ebGr%js  ,:,2) = CircMean(xyzSquish(i,ebGr%js  ,ebGr%ks:ebGr%ke,2))
+            xyzSquish(i,ebGr%je+1,:,2) = CircMean(xyzSquish(i,ebGr%je+1,ebGr%ks:ebGr%ke,2))
         enddo
 
         vApp%chmp2mhd%iMax = vApp%iDeep
@@ -144,7 +158,7 @@ module ebsquish
             if (x2 < 0) x2 = x2 + 2*PI
             return
         endif
-        
+
         !Use one-sided projection routine from chimp
         !Trace along field line (i.e. to northern hemisphere)
         call project(ebModel,ebState,xyz,t,xE,+1,toEquator=.false.)
