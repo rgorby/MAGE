@@ -194,6 +194,7 @@ module wind
 
         !Loop over grid cells and calculate a outflow and SW condition
         !$OMP PARALLEL DO default(shared) collapse(2) &
+        !$OMP schedule(guided) &
         !$OMP private(s,n,ip,ig,j,k,D,P,wSW,wMHD,dtSW) &
         !$OMP private(xcc,nHat,V,B,gB_mhd,gB_sw,gW,gCon,gW_mhd,gW_sw)
         do k=Grid%ksg,Grid%keg
@@ -319,8 +320,8 @@ module wind
         
         !$OMP PARALLEL DO default(shared) collapse(2) &
         !$OMP private(i,j,k,n,xcc,nHat,e1,e2,ecc,Vxyz,Bxyz,swExyz,wSW,D,P,mhdExyz)
-        do k=Grid%ksg,Grid%keg
-            do j=Grid%jsg,Grid%jeg
+        do k=Grid%ks,Grid%ke+1
+            do j=Grid%js,Grid%je+1
                 do i=Grid%ie-2,Grid%ie+1
                     xcc = Grid%xyzcc(i,j,k,:)
                     nHat = Grid%Tf(ip+1,j,k,NORMX:NORMZ,IDIR)
@@ -370,13 +371,13 @@ module wind
         !Calculate current
         !Jk = d_i (Bj) - d_j (Bi), db2 - db1 (see fields.F90)
         
-        db2 = State%magFlux(i+1,j,k,JDIR)/Grid%face(i+1,j,k,JDIR) - State%magFlux(i,j,k,JDIR)/Grid%face(i,j,k,JDIR)
-        db1 = State%magFlux(i,j+1,k,IDIR)/Grid%face(i,j+1,k,IDIR) - State%magFlux(i,j,k,IDIR)/Grid%face(i,j,k,IDIR)
+        db2 = State%magFlux(i,j,k,JDIR)/Grid%face(i,j,k,JDIR) - State%magFlux(i-1,j,k,JDIR)/Grid%face(i-1,j,k,JDIR)
+        db1 = State%magFlux(i,j,k,IDIR)/Grid%face(i,j,k,IDIR) - State%magFlux(i,j-1,k,IDIR)/Grid%face(i,j-1,k,IDIR)
         Jd(KDIR) = db2 - db1
 
         !Jj = d_k (Bi) - d_i (Bk)
-        db2 = State%magFlux(i,j,k+1,IDIR)/Grid%face(i,j,k+1,IDIR) - State%magFlux(i,j,k,IDIR)/Grid%face(i,j,k,IDIR)
-        db1 = State%magFlux(i+1,j,k,KDIR)/Grid%face(i+1,j,k,KDIR) - State%magFlux(i,j,k,KDIR)/Grid%face(i,j,k,KDIR)
+        db2 = State%magFlux(i,j,k,IDIR)/Grid%face(i,j,k,IDIR) - State%magFlux(i,j,k-1,IDIR)/Grid%face(i,j,k-1,IDIR)
+        db1 = State%magFlux(i,j,k,KDIR)/Grid%face(i,j,k,KDIR) - State%magFlux(i-1,j,k,KDIR)/Grid%face(i-1,j,k,KDIR)
         Jd(JDIR) = db2 - db1
 
         Vd = Model%Ca
