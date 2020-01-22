@@ -10,11 +10,15 @@ import kaipy.gamera.gampp as gampp
 import os
 import numpy.ma as ma
 import matplotlib.patches as patches
+import matplotlib.ticker as plticker
 
 rcBds = [-15,10.0,-12.5,12.5]
 pCMap = "viridis"
 eCol = "slategrey"
 rcmCol = "dodgerblue"
+gCol = "cyan"
+gLW = 0.15
+
 MHDCol = "red"
 eLW = 0.05
 MHDLW = 0.5
@@ -35,7 +39,6 @@ def RCMInset(AxRCM,rcmdata,nStp,vP):
 		return
 	#If still here we got something to show
 
-
 	#Do masks
 	bmX = ma.masked_array(bmX,mask=I)
 	bmY = ma.masked_array(bmY,mask=I)
@@ -46,12 +49,22 @@ def RCMInset(AxRCM,rcmdata,nStp,vP):
 	AxRCM.plot(bmX,bmY,color=eCol,linewidth=eLW)
 	AxRCM.plot(bmX.T,bmY.T,color=eCol,linewidth=eLW)
 
-	CS1 = AxRCM.contour(bmX,bmY,toMHD,[0.5],colors=MHDCol,linewidths=MHDLW)
-	manloc = [(0.0,8.0)]
+	#Add MHD ingestion contour
+	if (nStp>0):
+		CS1 = AxRCM.contour(bmX,bmY,toMHD,[0.5],colors=MHDCol,linewidths=MHDLW)
+		manloc = [(0.0,8.0)]
 
-	fmt = {}
-	fmt[0.5] = 'MHD'
-	AxRCM.clabel(CS1,CS1.levels[::2],inline=True,fmt=fmt,fontsize=5,inline_spacing=25,manual=manloc)
+		fmt = {}
+		fmt[0.5] = 'MHD'
+		AxRCM.clabel(CS1,CS1.levels[::2],inline=True,fmt=fmt,fontsize=5,inline_spacing=25,manual=manloc)
+
+	#Add grid
+	xS = [-10,-5,0,5]
+	yS = [-10,-5,0,5,10]
+	for x in xS:
+		AxRCM.axvline(x,linewidth=gLW,color=gCol)
+	for y in yS:
+		AxRCM.axhline(y,linewidth=gLW,color=gCol)
 
 	kv.addEarth2D(ax=AxRCM)
 	kv.SetAx(rcBds,AxRCM)
