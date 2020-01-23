@@ -99,11 +99,11 @@ contains
 
   end subroutine testStepUpdate
 
-  !@test(npes=[2])
+  !@test(npes=[2,5,17])
   subroutine testDTypesGasShallow(this)
       class (MpiTestMethod), intent(inout) :: this
 
-      integer :: dataSize,ierr
+      integer :: dataSize,ierr,i,j
       integer(MPI_ADDRESS_KIND) :: lb,extent
 
       call mpi_type_extent(MPI_MYFLOAT, dataSize, ierr) ! number of bytes per array entry
@@ -133,13 +133,71 @@ contains
                   ! (2,48,64,5,0) - (2,1,1,1,0) + 1 for extent
                   @assertEqual(dataSize*1103369, extent, '2 processes recv gas shallow extent wrong')
               endif
+          CASE(5)
+              if(isGamera) then
+                  @assertTrue(MPI_COMM_NULL /= g2vCommMpi%voltMpiComm, '5 processes g2v MPI Comm wrong')
+                  @assertEqual((/1/),g2vCommMpi%sendCountsGasShallow, '5 processes g2v countsGasShallow wrong')
+                  @assertEqual((/0/),g2vCommMpi%sendDisplsGasShallow, '5 processes g2v displsGasShallow wrong')
+
+                  call mpi_type_get_extent(g2vCommMpi%sendTypesGasShallow(1),lb,extent,ierr)
+                  @assertEqual(MPI_SUCCESS, ierr, '5 processes send gas shallow get extent failed')
+                  ! (2,1,1,1,0)
+                  @assertEqual(dataSize*4709, lb, '5 processes send gas shallow lb wrong')
+                  ! (2,12,64,5,0) - (2,1,1,1,0) + 1 for extent
+                  @assertEqual(dataSize*393737, extent, '5 processes send gas shallow extent wrong')
+              else
+                  @assertTrue(MPI_COMM_NULL /= voltAppMpi%voltMpiComm, '5 processes volt MPI Comm wrong')
+                  @assertEqual((/1,1,1,1/),voltAppMpi%recvCountsGasShallow, '5 processes volt countsGasShallow wrong')
+                  @assertEqual((/0,0,0,0/),voltAppMpi%recvDisplsGasShallow, '5 processes volt displsGasShallow wrong')
+
+                  do j=1,4
+                      call mpi_type_get_extent(voltAppMpi%recvTypesGasShallow(j),lb,extent,ierr)
+                      @assertEqual(MPI_SUCCESS, ierr, '5 processes recv gas shallow get extent failed')
+                      ! (2,1,1,1,0)
+                      @assertEqual(dataSize*(12773+(j-1)*672), lb, '5 processes recv gas shallow lb wrong')
+                      ! (2,12,64,5,0) - (2,1,1,1,0) + 1 for extent
+                      @assertEqual(dataSize*1101353, extent, '5 processes recv gas shallow extent wrong')
+                  enddo
+              endif
+          CASE(17)
+              if(isGamera) then
+                  @assertTrue(MPI_COMM_NULL /= g2vCommMpi%voltMpiComm, '17 processes g2v MPI Comm wrong')
+
+                  if(gamAppMpi%Grid%hasLowerBC(IDIR)) then
+                      @assertEqual((/1/),g2vCommMpi%sendCountsGasShallow, '17 processes g2v countsGasShallow wrong')
+                      @assertEqual((/0/),g2vCommMpi%sendDisplsGasShallow, '17 processes g2v displsGasShallow wrong')
+
+                      call mpi_type_get_extent(g2vCommMpi%sendTypesGasShallow(1),lb,extent,ierr)
+                      @assertEqual(MPI_SUCCESS, ierr, '17 processes send gas shallow get extent failed')
+                      ! (2,1,1,1,0)
+                      @assertEqual(dataSize*1685, lb, '17 processes send gas shallow lb wrong')
+                      ! (2,12,64,5,0) - (2,1,1,1,0) + 1 for extent
+                      @assertEqual(dataSize*140621, extent, '17 processes send gas shallow extent wrong')
+                  else
+                      @assertEqual((/0/),g2vCommMpi%sendCountsGasShallow, '17 processes g2v countsGasShallow wrong')
+                      @assertEqual((/0/),g2vCommMpi%sendDisplsGasShallow, '17 processes g2v displsGasShallow wrong')
+                  endif
+              else
+                  @assertTrue(MPI_COMM_NULL /= voltAppMpi%voltMpiComm, '17 processes volt MPI Comm wrong')
+                  @assertEqual((/1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0/), voltAppMpi%recvCountsGasShallow, '17 processes volt countsGasShallow wrong')
+                  @assertEqual((/0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0/), voltAppMpi%recvDisplsGasShallow, '17 processes volt displsGasShallow wrong')
+
+                  do j=1,4
+                      call mpi_type_get_extent(voltAppMpi%recvTypesGasShallow(j),lb,extent,ierr)
+                      @assertEqual(MPI_SUCCESS, ierr, '17 processes recv gas shallow get extent failed')
+                      ! (2,1,1,1,0)
+                      @assertEqual(dataSize*(12773+(j-1)*672), lb, '17 processes recv gas shallow lb wrong')
+                      ! (2,12,64,5,0) - (2,1,1,1,0) + 1 for extent
+                      @assertEqual(dataSize*1101353, extent, '17 processes recv gas shallow extent wrong')
+                  enddo
+              endif
           CASE DEFAULT
               @assertEqual(0,1,'Unexpected number of MPI processes')
       END SELECT
 
   end subroutine
 
-  @test(npes=[2,5,17])
+  !@test(npes=[2,5,17])
   subroutine testMhd2VoltShallowCopy(this)
       class (MpiTestMethod), intent(inout) :: this
 
@@ -253,11 +311,109 @@ contains
 
   end subroutine testMhd2VoltShallowCopy
 
-  !@test(npes=[2,5,17])
+  @test(npes=[2,5,17])
   subroutine testVolt2MhdShallowCopy(this)
       class (MpiTestMethod), intent(inout) :: this
 
+      integer :: i,j,k,l,jIndexStart,jIndexEnd
+      real(rp) :: checkVal
       character(len=strLen) :: checkMessage
+      real(rp) :: iVal, jVal, kVal, lVal
+
+      ! coefficients chosen to allow easy interpretation of final values
+      iVal = 1
+      jVal = 20
+      kVal = 400
+      lVal = 8000
+
+      if(isGamera) then
+          if(gamAppMpi%Grid%hasLowerBC(IDIR)) then
+              SELECT type(iiBC=>gamAppMpi%Grid%externalBCs(INI)%p)
+                  TYPE IS (IonInnerBC_T)
+
+                      ! clear all cells
+                      iiBC%inEijk(:,:,:,:) = 0
+                      iiBC%inExyz(:,:,:,:) = 0
+
+                      ! receive the data from voltron
+                      call recvShallowData(g2vCommMpi, gamAppMpi)
+
+                      ! check inExyz values
+                      do i=1,g2vCommMpi%PsiSh
+                          do j=gamAppMpi%Grid%jsg,gamAppMpi%Grid%jeg
+                              do k=gamAppMpi%Grid%ksg,gamAppMpi%Grid%keg
+                                  do l=1,NDIM
+                                      checkVal = lVal*l + &
+                                          kVal*(k+gamAppMpi%Grid%ijkShift(KDIR)) + &
+                                          jVal*(j+gamAppMpi%Grid%ijkShift(JDIR)) + &
+                                          iVal*(i+gamAppMpi%Grid%ijkShift(IDIR))
+                                      write (checkMessage,'(A,I0,A,I0,A,I0,A,I0,A)') 'gamera inExyz wrong at (',i,',',j,',',k,',',l,')'
+                                      @assertEqual(checkVal, iiBC%inExyz(i,j,k,l), trim(checkMessage))
+                                  enddo
+                              enddo
+                          enddo
+                      enddo
+
+                      ! check inEijk values
+                      do i=1,g2vCommMpi%PsiSh+1
+                          do j=gamAppMpi%Grid%jsg,gamAppMpi%Grid%jeg+1
+                              do k=gamAppMpi%Grid%ksg,gamAppMpi%Grid%keg+1
+                                  do l=1,NDIM
+                                      checkVal = lVal*l + &
+                                          kVal*(k+gamAppMpi%Grid%ijkShift(KDIR)) + &
+                                          jVal*(j+gamAppMpi%Grid%ijkShift(JDIR)) + &
+                                          iVal*(i+gamAppMpi%Grid%ijkShift(IDIR))
+                                      write (checkMessage,'(A,I0,A,I0,A,I0,A,I0,A)') 'gamera inEijk wrong at (',i,',',j,',',k,',',l,')'
+                                      @assertEqual(checkVal, iiBC%inEijk(i,j,k,l), trim(checkMessage))
+                                  enddo
+                              enddo
+                          enddo
+                      enddo
+                  CLASS DEFAULT
+                      @assertEqual(0,1,'No Remix BC on Gamera')
+              END SELECT
+          endif
+      else
+          SELECT type(iiBC=>voltAppMpi%gAppLocal%Grid%externalBCs(INI)%p)
+              TYPE IS (IonInnerBC_T)
+                  ! clear all cells
+                  iiBC%inExyz(:,:,:,:) = 0
+                  iiBC%inEijk(:,:,:,:) = 0
+
+                  ! set inExyz
+                  do i=1,voltAppMpi%mix2mhd%PsiShells
+                      do j=voltAppMpi%gAppLocal%Grid%jsg,voltAppMpi%gAppLocal%Grid%jeg
+                          do k=voltAppMpi%gAppLocal%Grid%ksg,voltAppMpi%gAppLocal%Grid%keg
+                              do l=1,NDIM
+                                  iiBC%inExyz(i,j,k,l) = lVal*l + &
+                                      iVal*i + &
+                                      jVal*j + &
+                                      kVal*k
+                              enddo
+                          enddo
+                      enddo
+                  enddo
+
+                  ! set inEijk
+                  do i=1,voltAppMpi%mix2mhd%PsiShells+1
+                      do j=voltAppMpi%gAppLocal%Grid%jsg,voltAppMpi%gAppLocal%Grid%jeg+2
+                          do k=voltAppMpi%gAppLocal%Grid%ksg,voltAppMpi%gAppLocal%Grid%keg+2
+                              do l=1,NDIM
+                                  iiBC%inExyz(i,j,k,l) = lVal*l + &
+                                      iVal*i + &
+                                      jVal*j + &
+                                      kVal*k
+                              enddo
+                          enddo
+                      enddo
+                  enddo
+
+                  ! send the data to gamera
+                  call sendShallowData_mpi(voltAppMpi)
+              CLASS DEFAULT
+                  @assertEqual(0,1,'No Remix BC on Voltron')
+          END SELECT
+      endif
 
   end subroutine testVolt2MhdShallowCopy
 

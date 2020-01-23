@@ -88,9 +88,9 @@ module voltapp_mpi
         ! for shallow updates, i=0 ranks send that much data again
 
         ! get i/j/k ranks from each Gamera mpi rank
-        call mpi_gather(MPI_IN_PLACE, 0, 0, iRanks, commSize, MPI_INT, commSize-1, voltComm, ierr)
-        call mpi_gather(MPI_IN_PLACE, 0, 0, jRanks, commSize, MPI_INT, commSize-1, voltComm, ierr)
-        call mpi_gather(MPI_IN_PLACE, 0, 0, kRanks, commSize, MPI_INT, commSize-1, voltComm, ierr)
+        call mpi_gather(-1, 1, MPI_INT, iRanks, 1, MPI_INT, commSize-1, voltComm, ierr)
+        call mpi_gather(-1, 1, MPI_INT, jRanks, 1, MPI_INT, commSize-1, voltComm, ierr)
+        call mpi_gather(-1, 1, MPI_INT, kRanks, 1, MPI_INT, commSize-1, voltComm, ierr)
 
         ! get the number of physical cells from rank 0
         call mpi_recv(numCells, 1, MPI_INT, 0, 97500, voltComm, MPI_STATUS_IGNORE, ierr)
@@ -147,13 +147,9 @@ module voltapp_mpi
         end if
 
         ! get i/j/k ranks again in case MPI ranks were reordered in the new communicator
-        call mpi_gather(MPI_IN_PLACE, 0, 0, iRanks, commSize, MPI_INT, vApp%myRank, vApp%voltMpiComm, ierr)
-        call mpi_gather(MPI_IN_PLACE, 0, 0, jRanks, commSize, MPI_INT, vApp%myRank, vApp%voltMpiComm, ierr)
-        call mpi_gather(MPI_IN_PLACE, 0, 0, kRanks, commSize, MPI_INT, vApp%myRank, vApp%voltMpiComm, ierr)
-        ! set my rank to -1 so it's a known value
-        iRanks(vApp%myRank+1) = -1
-        jRanks(vApp%myRank+1) = -1
-        kRanks(vApp%myRank+1) = -1
+        call mpi_gather(-1, 1, MPI_INT, iRanks, 1, MPI_INT, vApp%myRank, vApp%voltMpiComm, ierr)
+        call mpi_gather(-1, 1, MPI_INT, jRanks, 1, MPI_INT, vApp%myRank, vApp%voltMpiComm, ierr)
+        call mpi_gather(-1, 1, MPI_INT, kRanks, 1, MPI_INT, vApp%myRank, vApp%voltMpiComm, ierr)
 
         ! create a local Gamera object which contains the entire domain
         if(present(optFilename)) then
