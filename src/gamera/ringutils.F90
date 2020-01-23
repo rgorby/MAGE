@@ -20,10 +20,12 @@ module ringutils
         enumerator :: SPOLE=1,EPOLE
     endenum
 
-    !Which ring vars
-    !doRAVarE = T: rho,mom,inte
-    !doRAVarE = F: rho,mom,rho*Cs^2
-    logical, parameter :: doRAVarE = .false.
+    !Whether to do mass ring-avg
+    !Which ring variables
+    !doMassRA = T => rho,rho*v,rho*Cs^2
+    !doMassRA = F => rho,mom  ,inte
+
+    logical, parameter :: doMassRA = .false.
 
     contains
 
@@ -505,8 +507,9 @@ module ringutils
 !-----
 !Convert to ringav variables and back
     !Convert ringav variables back to hydro variables
-    !doRAVarE = T: rho,rho*V,inte
-    !doRAVarE = F: rho,rho*V,rho*Cs^2
+    !Which ring variables
+    !doMassRA = T => rho,rho*v,rho*Cs^2
+    !doMassRA = F => rho,mom  ,inte
 
     !Con -> RAVars
     subroutine Gas2Ring(Model,rW)
@@ -528,7 +531,7 @@ module ringutils
             !Put ring variables back in (in place)
             rW(n,DEN) = D
             rW(n,MOMX:MOMZ) = Mom
-            if (doRAVarE) then
+            if (.not. doMassRA) then
                 rW(n,ENERGY) = IntE
             else
                 rW(n,ENERGY) = (Model%gamma)*P
@@ -550,7 +553,7 @@ module ringutils
         do n=1,Np
             D  = max( rW(n,DEN), dFloor )
             Mom = rW(n,MOMX:MOMZ)
-            if (doRAVarE) then
+            if (.not. doMassRA) then
                 IntE = rW(n,PRESSURE)
                 P = (Model%gamma-1)*IntE
             else

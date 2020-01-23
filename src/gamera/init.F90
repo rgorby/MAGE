@@ -161,11 +161,11 @@ module init
         !Enforce initial BC's
         call Tic("BCs")
         call EnforceBCs(Model,Grid,State)
+        oState = State
         call Toc("BCs")
 
         !Setup timestep and initial previous state for predictor
         Model%dt = CalcDT(Model,Grid,State)
-        oState = State
         oState%time = State%time-Model%dt !Initial old state
 
         !Initialize solver data
@@ -197,6 +197,8 @@ module init
 
         if (Model%doMHD) then
             call bFlux2Fld(Model,Grid,State%magFlux,State%Bxyz)
+            oState%magFlux = State%magFlux
+            oState%Bxyz    = State%Bxyz
         endif
 
         !Incorporate background field, B0, if necessary
@@ -243,6 +245,7 @@ module init
         !Call IC function
         !Call even for restart to reset BCs, background, etc ...
         call initState(Model,Grid,State,xmlInp)
+        oState = State
 
         !Initialize BC objects
         do n=1,Grid%NumBC

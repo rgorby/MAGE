@@ -87,7 +87,6 @@ module ringrecon
             call RingLR(fm2,fm1,f,fp1,fp2,fL,fR)
             
             !Calculate coefficients for parabolic interpolant
-            !TODO: Check this against equation 2 of Bin's ring avg paper
             a = 3*(fL + fR - 2*f)
             b = 2*(3*f - fR - 2*fL)
             c = fL

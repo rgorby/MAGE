@@ -212,7 +212,7 @@ module rcmimag
         yDD   = maxval(abs(RCMApp%X_bmin(iC,:,YDIR)))
 
         !Rescale to give some breathing room
-        ellScl = 0.8
+        ellScl = 0.65
         xSun = ellScl*xSun
         yDD  = ellScl*yDD
 

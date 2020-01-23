@@ -507,15 +507,13 @@ module msphutils
 
         integer :: i,j,k
         real(rp), dimension(8,NDIM) :: xyzC
-        real(rp) :: rI(8),rMax,rMin,MagP
+        real(rp) :: rI(8),rMax,rMin,MagP,rCC
 
         !Get values for initial field cutoffs
 
         !LFM values
         call xmlInp%Set_Val(xSun  ,"prob/xMax",20.0_rp  )
         call xmlInp%Set_Val(yMax  ,"prob/yMax",75.0_rp  )
-        !call xmlInp%Set_Val(xSun  ,"prob/xMax",25.0_rp  )
-        !call xmlInp%Set_Val(yMax  ,"prob/yMax",80.0_rp  )
         call xmlInp%Set_Val(xTail ,"prob/xMin",-185.0_rp)
         
         call xmlInp%Set_Val(sInner,"prob/sIn" ,0.96_rp  )
@@ -541,6 +539,21 @@ module msphutils
         Axyz     => cutDipole
 
         call AddB0(Model,Grid,Model%B0)
+
+        !Be careful and forcibly zero out cut dipole forces near Earth
+        !$OMP PARALLEL DO default(shared) collapse(2) &
+        !$OMP private(i,j,k,rCC)
+        do k=Grid%ks, Grid%ke
+            do j=Grid%js, Grid%je
+                do i=Grid%is, Grid%ie
+                    rCC = norm2(Grid%xyzcc(i,j,k,:))
+                    if (rCC <= 0.75*rCut) then
+                        !Force hard zero
+                        Grid%dpB0(i,j,k,:) = 0.0
+                    endif
+                enddo
+            enddo
+        enddo
 
         call VectorField2Flux(Model,Grid,State,Axyz)
         bFlux0(:,:,:,:) = State%magFlux(:,:,:,:) !bFlux0 = B0
