@@ -172,10 +172,11 @@ module sstimag
             P = 0.0
         endif
 
-        imW(IMDEN) = D
-        imW(IMPR)  = P
-        imW(IMX1)  = r
-        imW(IMX2)  = (180.0/PI)*phi
+        imW(IMDEN)  = D
+        imW(IMPR)   = P
+        imW(IMTSCL) = 1.0
+        imW(IMX1)   = r
+        imW(IMX2)   = (180.0/PI)*phi
         
     end subroutine EvalSST
 

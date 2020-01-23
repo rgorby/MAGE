@@ -19,7 +19,7 @@ module stress
     integer, parameter, dimension(2), private :: SgnLR=[-1,1]
 
     logical, parameter, private :: doRingFlux = .true.
-    logical, parameter, private :: doNuke = .true. !Do nuclear option, currently testing
+    logical, parameter, private :: doNuke = .true. !Do nuclear option
     logical, parameter, private :: doHogs11 = .true. !Do // magnetic hogs diffusion
 
     !cLim: Vile magic number, when to apply nuclear option (v>cLim*Ca)
