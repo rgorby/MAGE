@@ -172,13 +172,8 @@ module init
         call initSolver(Solver, Model, Grid)
 
         !Setup output file
-        if (Grid%isTiled) then
-            ! tiling info and individual process index
-            write (FileCode,"(6(A1,I0.4))") '_',Grid%NumRi,'_',Grid%NumRj,'_',Grid%NumRk, &
-                                            '_',Grid%Ri,'_',Grid%Rj,'_',Grid%Rk
-            Model%RunID = trim(Model%RunID) // trim(FileCode)
-        endif
-        GamH5File = trim(Model%RunID) // ".gam.h5"
+        GamH5File = genName(Model%RunID, Grid%NumRi, Grid%NumRj, Grid%NumRk, Grid%Ri, Grid%Rj, Grid%Rk)
+        Model%RunID = genRunId(Model%RunID, Grid%NumRi, Grid%NumRj, Grid%NumRk, Grid%Ri, Grid%Rj, Grid%Rk)
 
         if (.not. Model%isRestart) then
             !Kill output file if it exists
