@@ -25,13 +25,12 @@ module rcmimag
     real(rp), parameter, private :: IMGAMMA = 5.0/3.0
 
     real(rp), parameter :: RIonRCM = (RionE/REarth)*1.0e+6 !Units of Re
-    integer, private :: NBuff = 15
     real(rp), private :: rEqMin = 0.0
     real(rp), private :: PPDen = 50.0 !Plasmapause density
     integer, parameter :: MAXRCMIOVAR = 30
     character(len=strLen), private :: h5File
 
-    logical, parameter :: doWolfLimit = .true.
+    logical :: doWolfLimit = .true.
 
     !Information taken from MHD flux tubes
     !TODO: Figure out RCM boundaries
@@ -51,7 +50,17 @@ module rcmimag
         real(rp) :: latc,lonc !Conjugate lat/lon
     end type RCMTube_T
 
+    type RCMEllipse_T
+        !Ellipse parameters (in m)
+        real(rp) :: xSun,xTail,yDD
+        !Safety parameters
+        real(rp) :: xSScl,xTScl,yScl
+        logical  :: isDynamic !Whether to update parameters
+    end type RCMEllipse_T
+
     real(rp), dimension(:,:), allocatable, private :: mixPot
+    type(RCMEllipse_T) :: RCMEll
+
     contains
 
     !Initialize RCM inner magnetosphere model
@@ -92,6 +101,24 @@ module rcmimag
             call initRCMIO()
         endif
         
+    !Set physics options
+        call iXML%Set_Val(doWolfLimit,"/RCM/physics/doWolfLimit",.true.)
+
+    !Get ellipse quantities
+        !Get values in Re, then convert to meters
+        call iXML%Set_Val(RCMEll%xSun ,"/RCM/ellipse/xSun" ,8.0)
+        call iXML%Set_Val(RCMEll%xTail,"/RCM/ellipse/xTail",8.0)
+        call iXML%Set_Val(RCMEll%yDD  ,"/RCM/ellipse/yDD"  ,8.0)
+        !Scale
+        RCMEll%xSun  = REarth*RCMEll%xSun
+        RCMEll%xTail = REarth*RCMEll%xTail
+        RCMEll%yDD   = REarth*RCMEll%yDD
+        call iXML%Set_Val(RCMEll%isDynamic,"/RCM/ellipse/isDynamic"  ,.true.)
+        !Get safety parameters (only for dynamic ellipse)
+        call iXML%Set_Val(RCMEll%xSScl ,"/RCM/ellipse/xSScl" ,0.65)
+        call iXML%Set_Val(RCMEll%xTScl ,"/RCM/ellipse/xTScl" ,1.0 )
+        call iXML%Set_Val(RCMEll%yScl  ,"/RCM/ellipse/yScl"  ,0.65)
+
     end subroutine initRCM
 
     !Advance RCM from Voltron data
@@ -194,8 +221,8 @@ module rcmimag
         integer :: i,j,iC
         logical :: jClosed
 
-        real(rp) :: xSun,xTail,yDD,x0,a,b,ell
-        real(rp) :: ellScl
+        real(rp) :: x0,a,b,ell
+
         RCMApp%toMHD = .false.
 
         !Start by looping from high-lat downwards until we find full ring of closed lines
@@ -203,33 +230,36 @@ module rcmimag
             jClosed = all(RCMApp%iopen(i,:) == RCMTOPCLOSED)
             if (jClosed) exit
         enddo
-        !Push down in lat (up in colat) by buffer cells
-        iC = i + 0*NBuff
+        iC = i
 
-        !Now find maximum sunward point on this ring
-        xSun  = maxval(RCMApp%X_bmin(iC,:,XDIR))
-        xTail = minval(RCMApp%X_bmin(iC,:,XDIR))
-        yDD   = maxval(abs(RCMApp%X_bmin(iC,:,YDIR)))
+        !Construct new ellipse if we're doing dynamic
+        if (RCMEll%isDynamic) then
+            !Now find maximum sunward point on this ring
+            RCMEll%xSun  = maxval(RCMApp%X_bmin(iC,:,XDIR))
+            RCMEll%xTail = minval(RCMApp%X_bmin(iC,:,XDIR))
+            RCMEll%yDD   = maxval(abs(RCMApp%X_bmin(iC,:,YDIR)))
 
-        !Rescale to give some breathing room
-        ellScl = 0.65
-        xSun = ellScl*xSun
-        yDD  = ellScl*yDD
+            !Rescale to give some breathing room
+            RCMEll%xSun  = RCMEll%xSScl*RCMEll%xSun 
+            RCMEll%xTail = RCMEll%xTScl*RCMEll%xTail
+            RCMEll%yDD   = RCMEll%yScl *RCMEll%yDD  
 
-        !Constrain ellipse parameters by reqmin
-        !TODO: Test unconstrained tail
-        if (xSun       >= rEqMin) xSun  =  rEqMin
-        if (abs(xTail) >= rEqMin) xTail = -rEqMin
-        if (yDD        >= rEqMin) yDD   =  rEqMin
+            !Constrain ellipse parameters by reqmin
+            !TODO: Test unconstrained tail
+            if (    RCMEll%xSun   >= rEqMin) RCMEll%xSun  =  rEqMin
+            if (abs(RCMEll%xTail) >= rEqMin) RCMEll%xTail = -rEqMin
+            if (    RCMEll%yDD    >= rEqMin) RCMEll%yDD   =  rEqMin
+            ! write(*,*) 'iC = ', iC
+            ! write(*,*) 'xSun  = ', xSun/REarth
+            ! write(*,*) 'xTail = ', xTail/REarth
+            ! write(*,*) 'yDD   = ', yDD/REarth
+        endif
 
-        x0 = (xSun + xTail)/2
-        a  = (xSun - xTail)/2
-        b  = yDD
+        !Set derived quantities
+        x0 = (RCMEll%xSun + RCMEll%xTail)/2
+        a  = (RCMEll%xSun - RCMEll%xTail)/2
+        b  =  RCMEll%yDD
 
-        ! write(*,*) 'iC = ', iC
-        ! write(*,*) 'xSun  = ', xSun/REarth
-        ! write(*,*) 'xTail = ', xTail/REarth
-        ! write(*,*) 'yDD   = ', yDD/REarth
 
        !$OMP PARALLEL DO default(shared) &
        !$OMP private(ell)
@@ -237,7 +267,6 @@ module rcmimag
             do j=1,RCMApp%nLon_ion
                 ell = ((RCMApp%X_bmin(i,j,XDIR)-x0)/a)**2.0 + (RCMApp%X_bmin(i,j,YDIR)/b)**2.0
                 if (ell <= 1) RCMApp%toMHD(i,j) = .true.
-
             enddo
         enddo
 
