@@ -172,8 +172,8 @@ module init
         call initSolver(Solver, Model, Grid)
 
         !Setup output file
-        GamH5File = genName(Model%RunID, Grid%NumRi, Grid%NumRj, Grid%NumRk, Grid%Ri, Grid%Rj, Grid%Rk)
-        Model%RunID = genRunId(Model%RunID, Grid%NumRi, Grid%NumRj, Grid%NumRk, Grid%Ri, Grid%Rj, Grid%Rk)
+        GamH5File = genName(Model%RunID, Grid%NumRi, Grid%NumRj, Grid%NumRk, Grid%Ri+1, Grid%Rj+1, Grid%Rk+1)
+        Model%RunID = genRunId(Model%RunID, Grid%NumRi, Grid%NumRj, Grid%NumRk, Grid%Ri+1, Grid%Rj+1, Grid%Rk+1)
 
         if (.not. Model%isRestart) then
             !Kill output file if it exists

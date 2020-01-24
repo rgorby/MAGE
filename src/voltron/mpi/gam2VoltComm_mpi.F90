@@ -208,25 +208,42 @@ module gam2VoltComm_mpi
         ! Receive updated data from voltron
         ! The data goes into inEijk and inExyz in the IonInnerBC_T
         ! find the remix BC to write data to
-        SELECT type(iiBC=>gApp%Grid%externalBCs(INI)%p)
-            TYPE IS (IonInnerBC_T)
-                ! Recv Shallow inEijk Data
-                call mpi_neighbor_alltoallw(0, g2vComm%zeroArrayCounts, &
-                                            g2vComm%zeroArrayDispls, g2vComm%zeroArrayTypes, &
-                                            iiBC%inEijk, g2vComm%recvCountsIneijkShallow, &
-                                            g2vComm%recvDisplsIneijkShallow, g2vComm%recvTypesIneijkShallow, &
-                                            g2vComm%voltMpiComm, ierr)
+        if(gApp%Grid%hasLowerBC(IDIR)) then
+            SELECT type(iiBC=>gApp%Grid%externalBCs(INI)%p)
+                TYPE IS (IonInnerBC_T)
+                    ! Recv Shallow inEijk Data
+                    call mpi_neighbor_alltoallw(0, g2vComm%zeroArrayCounts, &
+                                                g2vComm%zeroArrayDispls, g2vComm%zeroArrayTypes, &
+                                                iiBC%inEijk, g2vComm%recvCountsIneijkShallow, &
+                                                g2vComm%recvDisplsIneijkShallow, g2vComm%recvTypesIneijkShallow, &
+                                                g2vComm%voltMpiComm, ierr)
 
-                ! Recv Shallow inExyz Data
-                call mpi_neighbor_alltoallw(0, g2vComm%zeroArrayCounts, &
-                                            g2vComm%zeroArrayDispls, g2vComm%zeroArrayTypes, &
-                                            iiBC%inExyz, g2vComm%recvCountsInexyzShallow, &
-                                            g2vComm%recvDisplsInexyzShallow, g2vComm%recvTypesInexyzShallow, &
-                                            g2vComm%voltMpiComm, ierr)
-            CLASS DEFAULT
-                write(*,*) 'Could not find Ion Inner BC in Voltron MPI ShallowUpdate_mpi'
-                stop
-        END SELECT
+                    ! Recv Shallow inExyz Data
+                    call mpi_neighbor_alltoallw(0, g2vComm%zeroArrayCounts, &
+                                                g2vComm%zeroArrayDispls, g2vComm%zeroArrayTypes, &
+                                                iiBC%inExyz, g2vComm%recvCountsInexyzShallow, &
+                                                g2vComm%recvDisplsInexyzShallow, g2vComm%recvTypesInexyzShallow, &
+                                                g2vComm%voltMpiComm, ierr)
+                CLASS DEFAULT
+                    write(*,*) 'Could not find Ion Inner BC in Voltron MPI performShallowUpdate'
+                    stop
+            END SELECT
+        else
+            ! not a rank with remix BC, but still need to call mpi_neighbor_alltoallw
+            ! Recv nothing step 1
+            call mpi_neighbor_alltoallw(0, g2vComm%zeroArrayCounts, &
+                                        g2vComm%zeroArrayDispls, g2vComm%zeroArrayTypes, &
+                                        0, g2vComm%zeroArrayCounts, &
+                                        g2vComm%zeroArrayDispls, g2vComm%zeroArrayTypes, &
+                                        g2vComm%voltMpiComm, ierr)
+
+            ! Recv nothing step 2
+            call mpi_neighbor_alltoallw(0, g2vComm%zeroArrayCounts, &
+                                        g2vComm%zeroArrayDispls, g2vComm%zeroArrayTypes, &
+                                        0, g2vComm%zeroArrayCounts, &
+                                        g2vComm%zeroArrayDispls, g2vComm%zeroArrayTypes, &
+                                        g2vComm%voltMpiComm, ierr)
+        endif
 
         ! receive next time for shallow calculation
         call mpi_bcast(g2vComm%ShallowT, 1, MPI_MYFLOAT, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)

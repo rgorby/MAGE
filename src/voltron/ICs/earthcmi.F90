@@ -257,26 +257,26 @@ module uservoltic
         real(rp) :: MaxEjp,MaxEjm,Ei,Ej,Ek
 
         !Fix inner shells
-        SELECT type(iiBC=>Gr%externalBCs(INI)%p)
-            TYPE IS (IonInnerBC_T)
-                if (Gr%hasLowerBC(IDIR)) then
+        if (Gr%hasLowerBC(IDIR)) then
+            SELECT type(iiBC=>Gr%externalBCs(INI)%p)
+                TYPE IS (IonInnerBC_T)
                     call IonEFix(Model,Gr,State,iiBC%inEijk)
-                endif
-            CLASS DEFAULT
-                write(*,*) 'Could not find Ion Inner BC in remix IC'
-                stop
-        END SELECT
+                CLASS DEFAULT
+                    write(*,*) 'Could not find Ion Inner BC in remix IC'
+                    stop
+            END SELECT
+        endif
 
         !Fix outer shells
-        SELECT type(pWind=>Gr%externalBCs(OUTI)%p)
-            TYPE IS (WindBC_T)
-                if (Gr%hasUpperBC(IDIR)) then
+        if (Gr%hasUpperBC(IDIR)) then
+            SELECT type(pWind=>Gr%externalBCs(OUTI)%p)
+                TYPE IS (WindBC_T)
                    call WindEFix(pWind,Model,Gr,State)
-                end if
-            CLASS DEFAULT
-                write(*,*) 'Could not find Wind BC in remix IC'
-                stop
-        END SELECT
+                CLASS DEFAULT
+                    write(*,*) 'Could not find Wind BC in remix IC'
+                    stop
+            END SELECT
+        endif
 
     end subroutine EFix
 
