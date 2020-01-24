@@ -304,7 +304,6 @@ module gioH5
             !Write current
             call bFld2Jxyz(Model,Gr,VecA,VecB)
             gVec(:,:,:,:) = VecB(iMin:iMax,jMin:jMax,kMin:kMax,XDIR:ZDIR)
-            call FixRAVec(gVec(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,1:NDIM))
 
             call AddOutVar(IOVars,"Jx",gVec(:,:,:,XDIR))
             call AddOutVar(IOVars,"Jy",gVec(:,:,:,YDIR))
