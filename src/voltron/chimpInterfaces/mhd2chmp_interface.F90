@@ -69,9 +69,9 @@ module mhd2chmp_interface
                     ebF%E(i,j,k,:)  = -cross(Vxyz,Bxyz)
 
                     if (ebTrcApp%ebModel%doMHD) then
-                        ebF%W(i,j,k,DEN)      = inDScl*State%Gas(i,j,k,DEN     ,BLK)
-                        ebF%W(i,j,k,PRESSURE) = inPScl*State%Gas(i,j,k,PRESSURE,BLK)
-                        ebF%W(i,j,k,VELX:VELZ) = Vxyz
+                        ebF%W(i,j,k,DEN)       = inDScl*pW(DEN)
+                        ebF%W(i,j,k,PRESSURE)  = inPScl*pW(PRESSURE)
+                        ebF%W(i,j,k,VELX:VELZ) = Vxyz !Already scaled
                     endif
                 enddo
             enddo
@@ -81,6 +81,7 @@ module mhd2chmp_interface
         call ebGhosts(ebTrcApp%ebModel,ebGr,ebF)
 
         end associate
+        
         ebTrcApp%ebState%eb1%time = 0.0
         ebTrcApp%ebState%eb2%time = 1.0
         ebTrcApp%ebState%doStatic = .true.

@@ -120,15 +120,15 @@ module streamline
         real(rp), intent(out), optional :: bBetaO
 
         integer :: k
-        real(rp) :: bMag,dl,eD,eP,ePb !Edge-centered values
-        real(rp) :: bBeta
+        real(rp) :: bMag,dl,eP,eD,ePb !Edge-centered values
+        real(rp) :: bPb,bBeta
         
-
         associate(Np=>bTrc%Np,Nm=>bTrc%Nm)
         !Zero out accumulators
         bD = 0.0
         bP = 0.0
         dvB = 0.0
+        bPb = 0.0
         bBeta = 0.0
 
         !Loop over edges
@@ -136,22 +136,41 @@ module streamline
             !Get edge-centered quantities
             dl = norm2(bTrc%xyz(k+1,:) - bTrc%xyz(k,:)) !Edge length
             bMag = 0.5*(bTrc%lnVars(0)%V(k+1) + bTrc%lnVars(0)%V(k))
+
             eD = 0.5*(bTrc%lnVars(DEN)%V(k+1) + bTrc%lnVars(DEN)%V(k))
             eP = 0.5*(bTrc%lnVars(PRESSURE)%V(k+1) + bTrc%lnVars(PRESSURE)%V(k))
-            !Get edge mag pressure, using Pb [nPa] = 1.0e+14 x ( B[T]/0.501 )^2
+
+            !Get edge mag pressure, bmag=>nT(oBScl)=>T
+            !(NRL Plasma formulary):
+            !3.98x10^6 * (B/B0)^2 = Pb [dynes/cm2] = 0.1 Pa, x10^8 0.1 Pa => nPa
+            !ePb = (1.0e+8)*(3.98*1.0e+6)*(bMag*oBScl*1.0e-9)**2.0
             ePb = 1.0e+14*(bMag*oBScl*1.0e-9/0.501)**2.0 !Edge mag pressure in nPa
 
             !Now accumulate into flux-tube integrals
-            dvB = dvB + dl/bMag
-            bD  = bD + eD*dl/bMag
-            bP  = bP + eP*dl/bMag
+            dvB = dvB +     dl/bMag
+            bD  = bD  +  eD*dl/bMag
+            bP  = bP  +  eP*dl/bMag
+            bPb = bPb + ePb*dl/bMag
             bBeta = bBeta + (eP/ePb)*dl/bMag
         enddo
 
         !Now turn flux-tube integrals of quantities into flux-tube averages
-        bD = bD/dvB
-        bP = bP/dvB
+        bD  = bD/dvB
+        bP  = bP/dvB
+        bPb = bPb/dvB
+
+        ! !$OMP CRITICAL
+        ! write(*,*) '---'
+        ! write(*,*) 'dvB = ', dvB
+        ! write(*,*) 'bP/bPb = ', bP,bPb
+
+        ! write(*,*) 'Beta (avg,int) = ', bP/bPb,bBeta/dvB
+        ! write(*,*) '---'
+        ! !$OMP END CRITICAL
+
+        !bBeta = bP/bPb
         bBeta = bBeta/dvB
+
 
         if (present(bBetaO)) then
             bBetaO = bBeta
@@ -351,7 +370,7 @@ module streamline
         real(rp), dimension(NDIM) :: Xn,B,E,dx
         real(rp), dimension(NDIM) :: Jb,Jb2,Jb3,F1,F2,F3,F4
         real(rp), dimension(NDIM,NDIM) :: JacB
-        real(rp) :: ds,dl,MagJb
+        real(rp) :: ds,dl,MagJb,dsmag
         real(rp), dimension(NVARMHD) :: Q
         integer, dimension(NDIM) :: ijk,ijkG
         type(gcFields_T) :: gcF
@@ -380,7 +399,8 @@ module streamline
         Np = 0
         Xn = x0
         dl = getDiag(ebState%ebGr,ijk)
-        ds = sgn*Model%epsds*dl/norm2(B)
+        !Note: ds gets multipled by mag(B)
+        ds = sgn*min( Model%epsds*dl/norm2(B), dl )
         
         ijkG = ijk
 
@@ -440,16 +460,13 @@ module streamline
                 if (MagJb <= TINY) then
                     !Field is constant-ish, use local grid size
                     dl = getDiag(ebState%ebGr,ijk)
-                    ds = sgn*Model%epsds*dl/norm2(B)
+                    dsmag = Model%epsds*dl/norm2(B)
                 else
-                    ds = sgn*Model%epsds/MagJb
+                    dsmag = Model%epsds/MagJb
                 endif
+                ds = sgn*min(dl,dsmag)
             endif
         enddo
-
-        ! if (Np >= MaxFL) then
-        !     write(*,*) 'Field trace overrun @ (x,t,sgn) = ', x0,t,sgn
-        ! endif
 
     end subroutine genTrace
 
@@ -467,7 +484,7 @@ module streamline
         real(rp), dimension(NDIM) :: B,E,dx
         real(rp), dimension(NDIM) :: Jb,Jb2,Jb3,F1,F2,F3,F4
         real(rp), dimension(NDIM,NDIM) :: JacB
-        real(rp) :: ds,dl,MagJb,dzSgn
+        real(rp) :: ds,dsmag,dl,MagJb,dzSgn
         real(rp), dimension(NVARMHD) :: Q
         integer, dimension(NDIM) :: ijk,ijkG
         type(gcFields_T) :: gcF
@@ -480,8 +497,7 @@ module streamline
         Np = 0
         Xn = x0
         dl = getDiag(ebState%ebGr,ijk)
-        ds = sgn*Model%epsds*dl/norm2(B)
-        
+        ds = sgn*min( Model%epsds*dl/norm2(B), dl )
         ijkG = ijk
 
         !write(*,*) 'sgn/ds/X0 = ', sgn,ds,x0
@@ -499,10 +515,11 @@ module streamline
             if (MagJb <= TINY) then
                 !Field is constant-ish, use local grid size
                 dl = getDiag(ebState%ebGr,ijk)
-                ds = sgn*Model%epsds*dl/norm2(B)
+                dsmag = Model%epsds*dl/norm2(B)
             else
-                ds = sgn*Model%epsds/MagJb
-            endif           
+                dsmag = Model%epsds/MagJb
+            endif
+            ds = sgn*min(dl,dsmag)     
         !Update position
             !Get powers of jacobian
             Jb  = matmul(JacB,B  )

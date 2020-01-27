@@ -274,6 +274,7 @@ module gioH5
                 call GameraOut("Cs",gamOut%vID,gamOut%vScl,gVar1(iMin:iMax,jMin:jMax,kMin:kMax))
             endif
         enddo !Species loop
+
         !---------------------
         !Write MHD variables
         if (Model%doMHD) then
@@ -300,6 +301,10 @@ module gioH5
             call GameraOut("Bx",gamOut%bID,gamOut%bScl,gVec(iMin:iMax,jMin:jMax,kMin:kMax,XDIR))
             call GameraOut("By",gamOut%bID,gamOut%bScl,gVec(iMin:iMax,jMin:jMax,kMin:kMax,YDIR))
             call GameraOut("Bz",gamOut%bID,gamOut%bScl,gVec(iMin:iMax,jMin:jMax,kMin:kMax,ZDIR))
+
+            !Add mag pressure
+            gVar = 0.5*(gVec(:,:,:,XDIR)**2.0 + gVec(:,:,:,YDIR)**2.0 + gVec(:,:,:,ZDIR)**2.0)
+            call GameraOut("Pb",gamOut%pID,gamOut%pScl,gVar(iMin:iMax,jMin:jMax,kMin:kMax))
 
             !Write current
             call bFld2Jxyz(Model,Gr,VecA,VecB)

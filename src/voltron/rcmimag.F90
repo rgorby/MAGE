@@ -576,6 +576,12 @@ module rcmimag
 
         call AddOutVar(IOVars,"toMHD",merge(1.0_rp,0.0_rp,RCMApp%toMHD))
 
+        if (doWolfLimit) then
+            call AddOutVar(IOVars,"PLim",RCMApp%Prcm*rcmPScl/(1.0+0.5*RCMApp%beta_average*IMGAMMA))
+        else
+            call AddOutVar(IOVars,"PLim",RCMApp%Prcm*rcmPScl)
+        endif
+
         !Trim output for colat/aloct to remove wrapping
         DimLL = shape(colat)
         Ni = DimLL(1)
