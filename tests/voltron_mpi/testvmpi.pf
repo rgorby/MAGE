@@ -197,7 +197,7 @@ contains
 
   end subroutine
 
-  @test(npes=[2,5,17])
+  !@test(npes=[2,5,17])
   subroutine testMhd2VoltShallowCopy(this)
       class (MpiTestMethod), intent(inout) :: this
 
@@ -311,7 +311,7 @@ contains
 
   end subroutine testMhd2VoltShallowCopy
 
-  @test(npes=[2,5,17])
+  !@test(npes=[2,5,17])
   subroutine testVolt2MhdShallowCopy(this)
       class (MpiTestMethod), intent(inout) :: this
 
@@ -420,19 +420,21 @@ contains
 
   end subroutine testVolt2MhdShallowCopy
 
-  !@test(npes=[2,5,17])
+  @test(npes=[2,5,17])
   subroutine testShallowUpdate(this)
       class (MpiTestMethod), intent(inout) :: this
 
+      procedure(VectorField_T), pointer :: Axyz
       character(len=strLen) :: checkMessage
+      real(rp) :: testValue
 
       if(isGamera) then
           ! create a dipole field in Gamera. This code is copied from prob.F90
           Axyz => VP_Dipole
-          call VectorPot2Flux(gameraApp%Model,gameraApp%Grid,gameraApp%State,Axyz)
+          call VectorPot2Flux(gamAppMpi%Model,gamAppMpi%Grid,gamAppMpi%State,Axyz)
 
           if(gamAppMpi%Grid%hasLowerBC(IDIR)) then
-              @assertGreaterThanOrEqual(sum(abs(gameraApp%State%magFlux(gameraApp%Grid%isg,:,:,:))), 20.0_rp/(this%getNumProcesses()-1), 'Gamera did not properly set a large magnetic field')
+              @assertGreaterThanOrEqual(sum(abs(gamAppMpi%State%magFlux(gamAppMpi%Grid%isg,:,:,:))), 20.0_rp/(this%getNumProcesses()-1), 'Gamera did not properly set a large magnetic field')
           endif
 
           call sendShallowData(g2vCommMpi, gamAppMpi)
