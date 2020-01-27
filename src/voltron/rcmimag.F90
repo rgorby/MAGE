@@ -322,6 +322,8 @@ module rcmimag
         else
             alpha = 1.0
         endif
+        
+        !K: Temporarily always setting alpha=1
         prcm = CornerAvg(ijs,RCMApp%Prcm )*rcmPScl*alpha
         npp  = CornerAvg(ijs,RCMApp%Npsph)*rcmNScl
         nrcm = CornerAvg(ijs,RCMApp%Nrcm )*rcmNScl

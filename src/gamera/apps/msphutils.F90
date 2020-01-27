@@ -813,9 +813,10 @@ module msphutils
 
         integer :: i,j,k
         real(rp), dimension(NVAR) :: pW, pCon
+        real(rp), dimension(NDIM) :: Bxyz
 
         real(rp) :: M0,Mf
-        real(rp) :: Tau,dRho,dP
+        real(rp) :: Tau,dRho,dP,beta,Pb,PLim,Pmhd,Prcm
         logical  :: doIngest,doInD,doInP
 
         if (Model%doMultiF) then
@@ -828,7 +829,8 @@ module msphutils
         !M0 = sum(State%Gas(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,DEN,BLK)*Gr%volume(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke))
 
         !$OMP PARALLEL DO default(shared) collapse(2) &
-        !$OMP private(i,j,k,doInD,doInP,doIngest,pCon,pW,Tau,dRho,dP)
+        !$OMP private(i,j,k,doInD,doInP,doIngest,pCon,pW,Tau,dRho,dP) &
+        !$OMP private(beta,Bxyz,Pb,PLim,Pmhd,Prcm)
         do k=Gr%ks,Gr%ke
             do j=Gr%js,Gr%je
                 do i=Gr%is,Gr%ie
@@ -840,6 +842,13 @@ module msphutils
 
                     pCon = State%Gas(i,j,k,:,BLK)
                     call CellC2P(Model,pCon,pW)
+                    Bxyz = State%Bxyz(i,j,k,:)
+                    if (Model%doBackground) then
+                        Bxyz = Bxyz + Gr%B0(i,j,k,:)
+                    endif
+                    Pmhd = pW(PRESSURE)
+                    Pb = 0.5*dot_product(Bxyz,Bxyz)
+                    beta = Pmhd/Pb
 
                     !Get timescale, taking directly from Gas0
                     Tau = Gr%Gas0(i,j,k,IMTSCL,BLK)
@@ -850,7 +859,17 @@ module msphutils
 
                     endif
                     if (doInP) then
-                        dP = Gr%Gas0(i,j,k,IMPR,BLK) - pW(PRESSURE)
+                        Prcm = Gr%Gas0(i,j,k,IMPR,BLK)
+                        PLim = Prcm/(1.0+beta*5.0/6.0)
+                        if (Pmhd <= PLim) then
+                            dP = PLim - Pmhd
+                        else if (Pmhd >= Prcm) then
+                            dP = Prcm - Pmhd
+                        else
+                            dP = 0.0
+                        endif
+
+                        !dP = Gr%Gas0(i,j,k,IMPR,BLK) - pW(PRESSURE)
                         pW(PRESSURE) = pW(PRESSURE) + (Model%dt/Tau)*dP
                         !pW(PRESSURE) = pW(PRESSURE) + (Model%dt/Tau)*max(0.0,dP)
                         
