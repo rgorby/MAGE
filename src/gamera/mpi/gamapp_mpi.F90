@@ -311,11 +311,8 @@ module gamapp_mpi
                 call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
             end if
 
-            ! Create MPI datatypes for cell centered arrays
-            call createCellCenteredDatatypes(gamAppMpi, periodicI, periodicJ, periodicK)
-
-            ! Create MPI datatypes for face centered arrays
-            call createFaceCenteredDatatypes(gamAppMpi, periodicI, periodicJ, periodicK)
+            ! Create MPI datatypes
+            call createDatatypes(gamAppMpi, periodicI, periodicJ, periodicK)
 
         endif
 
@@ -554,6 +551,9 @@ module gamapp_mpi
         type(gamAppMpi_T), intent(inout) :: gamAppMpi
         logical, intent(in) :: periodicI, periodicJ, periodicK
 
+        integer :: iData,jData,kData,rankIndex,dType,offset,dataSize,ierr
+        integer :: dtGas4,dtGas5,dtBxyz4,dtBxyz5
+
         associate(Grid=>gamAppMpi%Grid,Model=>gamAppMpi%Model)
 
         allocate(gamAppMpi%sendCountsGas(1:SIZE(gamAppMpi%sendRanks)))
@@ -609,11 +609,9 @@ module gamapp_mpi
             gamAppMpi%recvTypesMagFlux(:) = MPI_DATATYPE_NULL
         endif
 
-        ! get my rank
-        call mpi_comm_rank(gamAppMpi%gamMpiComm, myRank, ierr)
-
         ! figure out exactly what data needs to be sent to (and received from) each neighbor
         ! create custom MPI datatypes to perform these transfers
+        call mpi_type_extent(MPI_MYFLOAT, dataSize, ierr)
         do iData = -1,1
             do jData=-1,1
                 do kData=-1,1
@@ -621,7 +619,7 @@ module gamapp_mpi
                         ! for each possibly adjacent rank
 
                         ! Start cell centered
-                        call calcRecvDatatypeCC(gamAppMpi,gamAppMpi%recvRanks(rankIndex),iData,jData,kData,&
+                        call calcRecvDatatypeOffsetCC(gamAppMpi,gamAppMpi%recvRanks(rankIndex),iData,jData,kData,&
                                                 periodicI,periodicJ,periodicK,dType,offset)
                         if(dType /= MPI_DATATYPE_NULL) then
                             ! add 4th and 5th dimensions for cell centered Gas
@@ -637,7 +635,7 @@ module gamapp_mpi
                             endif
                         endif
 
-                        call calcSendDatatypeCC(gamAppMpi,gamAppmpi%sendRanks(rankIndex),iData,jData,kData,&
+                        call calcSendDatatypeOffsetCC(gamAppMpi,gamAppmpi%sendRanks(rankIndex),iData,jData,kData,&
                                                 periodicI,periodicJ,periodicK,dType,offset)
                         if(dType /= MPI_DATATYPE_NULL) then
                             ! add 4th and 5th dimensions for cell centered Gas
@@ -656,15 +654,15 @@ module gamapp_mpi
 
                         ! Start face centered
                         if(Model%doMHD) then
-                            call calcRecvDatatypeFC(gamAppMpi,gamAppMpi%recvRanks(rankIndex),iData,jData,kData,&
-                                                    periodicI,periodicJ,periodicK,dType,offset)
+                            call calcRecvDatatypeOffsetFC(gamAppMpi,gamAppMpi%recvRanks(rankIndex),iData,&
+                                                          jData,kData,periodicI,periodicJ,periodicK,dType,offset)
                             if(dType /= MPI_DATATYPE_NULL) then
                                 ! face centered datatype already has all 4 dimensions
                                 call appendDatatype(gamAppMpi%recvTypesMagFlux(rankIndex),dType,offset)
                             endif
 
-                            call calcSendDatatypeFC(gamAppMpi,gamAppmpi%sendRanks(rankIndex),iData,jData,kData,&
-                                                    periodicI,periodicJ,periodicK,dType,offset)
+                            call calcSendDatatypeOffsetFC(gamAppMpi,gamAppmpi%sendRanks(rankIndex),iData,&
+                                                    jData,kData,periodicI,periodicJ,periodicK,dType,offset)
                             if(dType /= MPI_DATATYPE_NULL) then
                                 ! face centered datatype already has all 4 dimensions
                                 call appendDatatype(gamAppMpi%sendTypesMagFlux(rankIndex),dType,offset)
@@ -680,14 +678,14 @@ module gamapp_mpi
 
     end subroutine createDatatypes
 
-    subroutine calcRecvDatatypeCC(gamAppMpi,recvFromRank,iData,jData,kData,&
+    subroutine calcRecvDatatypeOffsetCC(gamAppMpi,recvFromRank,iData,jData,kData,&
                                   periodicI,periodicJ,periodicK,dType,offset)
         type(gamAppMpi_T), intent(in) :: gamAppMpi
         integer, intent(in) :: recvFromRank,iData,jData,kData
         logical, intent(in) :: periodicI, periodicJ, periodicK
         integer, intent(out) :: dType, offset
 
-        integer :: tgtRank, dType1D, dType2D, dType3D, calcOffset, ierr
+        integer :: tgtRank, calcOffset, ierr, dataSize
 
         associate(Grid=>gamAppMpi%Grid,Model=>gamAppMpi%Model)
 
@@ -723,47 +721,39 @@ module gamapp_mpi
         endif
 
         ! assemble the datatype, and calculate the array offset
+        call calcDatatypeCC(gamAppMpi,iData,jData,kData,dType)
         call mpi_type_extent(MPI_MYFLOAT, dataSize, ierr) ! number of bytes per array entry
-        SELECT(iData)
+        SELECT CASE (iData)
             CASE (-1)
                 calcOffset = 0
-                call mpi_type_contiguous(Model%nG, MPI_MYFLOAT, dType1D, ierr)
             CASE (0)
                 calcOffset = Model%nG
-                call mpi_type_contiguous(Grid%Nip, MPI_MYFLOAT, dType1D, ierr)
             CASE (1)
                 calcOffset = Model%nG+Grid%Nip
-                call mpi_type_contiguous(Model%nG, MPI_MYFLOAT, dType1D, ierr)
             CASE DEFAULT
                 write (*,*) 'Unrecognized iData type in calcRecvDatatypeCC'
                 call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
         ENDSELECT
 
-        SELECT(jData)
+        SELECT CASE (jData)
             CASE (-1)
                 ! no change to calcOffset
-                call mpi_type_hvector(Model%nG, 1, Grid%Ni*dataSize, dType1D, dType2D, ierr)
             CASE (0)
                 calcOffset = calcOffset + Model%nG*Grid%Ni
-                call mpi_type_hvector(Grid%Njp, 1, Grid%Ni*dataSize, dType1D, dType2D, ierr)
             CASE (1)
                 calcOffset = calcOffset + (Model%nG + Grid%Njp)*Grid%Ni
-                call mpi_type_hvector(Model%nG, 1, Grid%Ni*dataSize, dType1D, dType2D, ierr)
             CASE DEFAULT
                 write (*,*) 'Unrecognized jData type in calcRecvDatatypeCC'
                 call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
         ENDSELECT
 
-        SELECT(kData)
+        SELECT CASE (kData)
             CASE (-1)
                 ! no change to calcOffset
-                call mpi_type_hvector(Model%nG, 1, Grid%Ni*Grid%Nj*dataSize, dType2D, dType3D, ierr)
             CASE (0)
                 calcOffset = calcOffset + Model%nG*Grid%Ni*Grid%Nj
-                call mpi_type_hvector(Grid%Nkp, 1, Grid%Ni*Grid%Nj*dataSize, dType2D, dType3D, ierr)
             CASE (1)
                 calcOffset = calcOffset + (Model%nG + Grid%Nkp)*Grid%Ni*Grid%Nj
-                call mpi_type_hvector(Model%nG, 1, Grid%Ni*Grid%Nj*dataSize, dType2D, dType3D, ierr)
             CASE DEFAULT
                 write (*,*) 'Unrecognized kData type in calcRecvDatatypeCC'
                 call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
@@ -771,28 +761,23 @@ module gamapp_mpi
 
         ! return calculated results
         offset = calcOffset*dataSize
-        dtype = dType3D
 
         end associate
 
-    end subroutine calcRecvDatatypeCC
+    end subroutine calcRecvDatatypeOffsetCC
 
-    subroutine calcSendDatatypeCC(gamAppMpi,sendToRank,iData,jData,kData,&
+    subroutine calcSendDatatypeOffsetCC(gamAppMpi,sendToRank,iData,jData,kData,&
                                   periodicI,periodicJ,periodicK,dType,offset)
         type(gamAppMpi_T), intent(in) :: gamAppMpi
-        integer, intent(in) :: recvFromRank,iData,jData,kData
+        integer, intent(in) :: sendToRank,iData,jData,kData
         logical, intent(in) :: periodicI, periodicJ, periodicK
         integer, intent(out) :: dType, offset
 
         integer :: myRank, tempRank, sendToI, sendToJ, sendToK
         logical :: wrapI, wrapJ, wrapK
-        integer :: tgtRank, dType1D, dType2D, dType3D, calcOffset, ierr
+        integer :: tgtRank, calcOffset, ierr, dataSize
 
         associate(Grid=>gamAppMpi%Grid,Model=>gamAppMpi%Model)
-
-        ! return calculated results
-        offset = calcOffset*dataSize
-        dtype = dType3D
 
         ! this function calculates the 3D offset and datatype for this rank to SEND data to the
         !   iData,jData,kData position in sendToRank (if that rank receives that data from this rank)
@@ -836,8 +821,9 @@ module gamapp_mpi
         endif
 
         ! assemble the datatype, and calculate the array offset
+        call calcDatatypeCC(gamAppMpi,iData,jData,kData,dType)
         call mpi_type_extent(MPI_MYFLOAT, dataSize, ierr) ! number of bytes per array entry
-        SELECT(iData)
+        SELECT CASE (iData)
             CASE (-1)
                 if(wrapI) then
                     ! sending upper physical data to lower receiver
@@ -846,66 +832,57 @@ module gamapp_mpi
                     ! sending lower ghost data to lower receiver
                     calcOffset = 0
                 endif
-                call mpi_type_contiguous(Model%nG, MPI_MYFLOAT, dType1D, ierr)
             CASE (0)
                 ! this is always full physical data
                 calcOffset = Model%nG
-                call mpi_type_contiguous(Grid%Nip, MPI_MYFLOAT, dType1D, ierr)
             CASE (1)
                 if(wrapI) then
                     ! sending lower physical data to upper receiver
                     calcOffset = Model%nG
                 else
                     ! sending upper ghosts to upper receiver
-                    calcOffset = Model%nG + Model%Nip
+                    calcOffset = Model%nG + Grid%Nip
                 endif
-                call mpi_type_contiguous(Model%nG, MPI_MYFLOAT, dType1D, ierr)
             CASE DEFAULT
                 write (*,*) 'Unrecognized iData type in calcSendDatatypeCC'
                 call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
         ENDSELECT
 
-        SELECT(jData)
+        SELECT CASE (jData)
             CASE (-1)
                 if(wrapJ) then
                     calcOffset = calcOffset + Grid%Njp*Grid%Ni
                 else
                     ! no change to calcOffset
                 endif
-                call mpi_type_hvector(Model%nG, 1, Grid%Ni*dataSize, dType1D, dType2D, ierr)
             CASE (0)
                 calcOffset = calcOffset + Model%nG*Grid%Ni
-                call mpi_type_hvector(Grid%Njp, 1, Grid%Ni*dataSize, dType1D, dType2D, ierr)
             CASE (1)
                 if(wrapJ) then
                     calcOffset = calcOffset + Model%nG*Grid%Ni
                 else
-                    calcOffset = calcOffset + (Model%nG+Model%Njp)*Grid%Ni
+                    calcOffset = calcOffset + (Model%nG+Grid%Njp)*Grid%Ni
                 endif
-                call mpi_type_hvector(Model%nG, 1, Grid%Ni*dataSize, dType1D, dType2D, ierr)
             CASE DEFAULT
                 write (*,*) 'Unrecognized jData type in calcSendDatatypeCC'
                 call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
         ENDSELECT
 
-        SELECT(kData)
+        SELECT CASE (kData)
             CASE (-1)
                 if(wrapK) then
                     calcOffset = calcOffset + Grid%Nkp*Grid%Ni*Grid%Nj
                 else
                     ! no change to calcOffset
                 endif
-                call mpi_type_hvector(Model%nG, 1, Grid%Ni*Grid%Nj*dataSize, dType2D, dType3D, ierr)
             CASE (0)
                 calcOffset = calcOffset + Model%nG*Grid%Ni*Grid%Nj
-                call mpi_type_hvector(Grid%Nkp, 1, Grid%Ni*Grid%Nj*dataSize, dType2D, dType3D, ierr)
             CASE (1)
                 if(wrapK) then
                     calcOffset = calcOffset + Model%nG*Grid%Ni*Grid%Nj
                 else
-                    calcOffset = calcOffset + (Model%nG+Model%Nkp)*Grid%Ni*Grid%Nj
+                    calcOffset = calcOffset + (Model%nG+Grid%Nkp)*Grid%Ni*Grid%Nj
                 endif
-                call mpi_type_hvector(Model%nG, 1, Grid%Ni*Grid%Nj*dataSize, dType2D, dType3D, ierr)
             CASE DEFAULT
                 write (*,*) 'Unrecognized kData type in calcSendDatatypeCC'
                 call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
@@ -913,11 +890,373 @@ module gamapp_mpi
 
         ! return calculated results
         offset = calcOffset*dataSize
-        dtype = dType3D
 
         end associate
 
-    end subroutine calcSendDatatypeCC
+    end subroutine calcSendDatatypeOffsetCC
+
+    subroutine calcDatatypeCC(gamAppMpi,iData,jData,kData,dType)
+        type(gamAppMpi_T), intent(in) :: gamAppMpi
+        integer, intent(in) :: iData, jData, kData
+        integer, intent(out) :: dType
+
+        integer dType1D,dType2D,dType3D,dataSize,ierr
+
+        associate(Grid=>gamAppMpi%Grid,Model=>gamAppMpi%Model)
+
+        call mpi_type_extent(MPI_MYFLOAT, dataSize, ierr) ! number of bytes per array entry
+        SELECT CASE (iData)
+            CASE (-1)
+                call mpi_type_contiguous(Model%nG, MPI_MYFLOAT, dType1D, ierr)
+            CASE (0)
+                call mpi_type_contiguous(Grid%Nip, MPI_MYFLOAT, dType1D, ierr)
+            CASE (1)
+                call mpi_type_contiguous(Model%nG, MPI_MYFLOAT, dType1D, ierr)
+            CASE DEFAULT
+                write (*,*) 'Unrecognized iData type in calcDatatypeCC'
+                call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+        ENDSELECT
+
+        SELECT CASE (jData)
+            CASE (-1)
+                call mpi_type_hvector(Model%nG, 1, Grid%Ni*dataSize, dType1D, dType2D, ierr)
+            CASE (0)
+                call mpi_type_hvector(Grid%Njp, 1, Grid%Ni*dataSize, dType1D, dType2D, ierr)
+            CASE (1)
+                call mpi_type_hvector(Model%nG, 1, Grid%Ni*dataSize, dType1D, dType2D, ierr)
+            CASE DEFAULT
+                write (*,*) 'Unrecognized jData type in calcDatatypeCC'
+                call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+        ENDSELECT
+
+        SELECT CASE (kData)
+            CASE (-1)
+                call mpi_type_hvector(Model%nG, 1, Grid%Ni*Grid%Nj*dataSize, dType2D, dType3D, ierr)
+            CASE (0)
+                call mpi_type_hvector(Grid%Nkp, 1, Grid%Ni*Grid%Nj*dataSize, dType2D, dType3D, ierr)
+            CASE (1)
+                call mpi_type_hvector(Model%nG, 1, Grid%Ni*Grid%Nj*dataSize, dType2D, dType3D, ierr)
+            CASE DEFAULT
+                write (*,*) 'Unrecognized kData type in calcDatatypeCC'
+                call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+        ENDSELECT
+
+        end associate
+
+        dType = dType3D
+
+    end subroutine calcDatatypeCC
+
+    subroutine calcRecvDatatypeOffsetFC(gamAppMpi,recvFromRank,iData,jData,kData,&
+                                  periodicI,periodicJ,periodicK,dType,offset)
+        type(gamAppMpi_T), intent(in) :: gamAppMpi
+        integer, intent(in) :: recvFromRank,iData,jData,kData
+        logical, intent(in) :: periodicI, periodicJ, periodicK
+        integer, intent(out) :: dType, offset
+
+        integer :: tgtRank, calcOffset, ierr, dataSize
+
+        associate(Grid=>gamAppMpi%Grid,Model=>gamAppMpi%Model)
+
+        ! this function calculates the 3D offset and datatype for this rank to receive data in the
+        !   iData,jData,kData position from recvFromRank (if that rank sends that data to this rank)
+        if((Grid%Ri+iData >= 0 .and. Grid%Ri+iData < Grid%NumRi) .or. periodicI) then
+            ! talking to a neighbor, or wrapping around periodic MPI boundaries
+            tgtRank = modulo(Grid%Ri+iData,Grid%NumRi)*Grid%NumRk*Grid%NumRj
+        else
+            ! talking to a non-periodic boundary, so this is my own I rank
+            tgtRank = Grid%Ri*Grid%NumRk*Grid%NumRj
+        endif
+        if((Grid%Rj+jData >= 0 .and. Grid%Rj+jData < Grid%NumRj) .or. periodicJ) then
+            ! talking to a neighbor, or wrapping around periodic MPI boundaries
+            tgtRank = tgtRank + modulo(Grid%Rj+jData,Grid%NumRj)*Grid%NumRk
+        else
+            ! talking to a non-periodic boundary, so this is my own J rank
+            tgtRank = tgtRank + Grid%Rj*Grid%NumRk
+        endif
+        if((Grid%Rk+kData >= 0 .and. Grid%Rk+kData < Grid%NumRk) .or. periodicK) then
+            ! talking to a neighbor, or wrapping around periodic MPI boundaries
+            tgtRank = tgtRank + modulo(Grid%Rk+kData,Grid%NumRk)
+        else
+            ! talking to a non-periodic boundary, so this is my own K rank
+            tgtRank = tgtRank + Grid%Rk
+        endif
+
+        if(tgtRank /= recvFromRank) then
+            ! this rank does not receive this data from the specified other rank
+            dType = MPI_DATATYPE_NULL
+            offset = -1
+            return
+        endif
+
+        ! assemble the datatype, and calculate the array offset
+        call calcDatatypeFC(gamAppMpi,iData,jData,kData,dType)
+        call mpi_type_extent(MPI_MYFLOAT, dataSize, ierr) ! number of bytes per array entry
+        SELECT CASE (iData)
+            CASE (-1)
+                ! overall offset of the final struct from the start of the data array
+                calcOffset = 0
+            CASE (0)
+                calcOffset = Model%nG
+            CASE (1)
+                calcOffset = Model%nG+Grid%Nip
+            CASE DEFAULT
+                write (*,*) 'Unrecognized iData type in calcRecvDatatypeFC'
+                call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+        ENDSELECT
+
+        SELECT CASE (jData)
+            CASE (-1)
+                ! no change to overall offset, calcOffset
+            CASE (0)
+                calcOffset = calcOffset + Model%nG*(Grid%Ni+1)
+            CASE (1)
+                calcOffset = calcOffset + (Model%nG+Grid%Njp)*(Grid%Ni+1)
+            CASE DEFAULT
+                write (*,*) 'Unrecognized jData type in calcRecvDatatypeFC'
+                call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+        ENDSELECT
+
+        SELECT CASE (kData)
+            CASE (-1)
+                ! no change to overall offset, calcOffset
+            CASE (0)
+                calcOffset = calcOffset + Model%nG*(Grid%Ni+1)*(Grid%Nj+1)
+            CASE (1)
+                calcOffset = calcOffset + (Model%nG+Grid%Nkp)*(Grid%Ni+1)*(Grid%Nj+1)
+            CASE DEFAULT
+                write (*,*) 'Unrecognized kData type in calcRecvDatatypeFC'
+                call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+        ENDSELECT
+
+        ! return calculated results
+        offset = calcOffset*dataSize
+
+        end associate
+
+    end subroutine calcRecvDatatypeOffsetFC
+
+    subroutine calcSendDatatypeOffsetFC(gamAppMpi,sendToRank,iData,jData,kData,&
+                                  periodicI,periodicJ,periodicK,dType,offset)
+        type(gamAppMpi_T), intent(in) :: gamAppMpi
+        integer, intent(in) :: sendToRank,iData,jData,kData
+        logical, intent(in) :: periodicI, periodicJ, periodicK
+        integer, intent(out) :: dType, offset
+
+        integer :: myRank, tempRank, sendToI, sendToJ, sendToK
+        logical :: wrapI, wrapJ, wrapK
+        integer :: tgtRank, calcOffset, ierr, dataSize
+
+        associate(Grid=>gamAppMpi%Grid,Model=>gamAppMpi%Model)
+
+        ! this function calculates the 3D offset and datatype for this rank to SEND data to the
+        !   iData,jData,kData position in sendToRank (if that rank receives that data from this rank)
+
+        ! calculate which rank the target rank receives the specified data from
+        tempRank = sendToRank
+        sendToK = modulo(tempRank, Grid%NumRk)
+        tempRank = (tempRank-sendToK)/Grid%NumRk
+        sendToJ = modulo(tempRank, Grid%NumRj)
+        tempRank = (tempRank-sendToJ)/Grid%NumRj
+        sendToI = tempRank
+        if((sendToI+iData >= 0 .and. sendToI+iData < Grid%NumRi) .or. periodicI) then
+            tgtRank = modulo(sendToI+iData,Grid%NumRi)*Grid%NumRk*Grid%NumRj
+            wrapI = .true.
+        else
+            tgtRank = sendToI*Grid%NumRk*Grid%NumRj
+            wrapI = .false.
+        endif
+        if((sendToJ+jData >= 0 .and. sendToJ+jData < Grid%NumRj) .or. periodicJ) then
+            tgtRank = tgtRank + modulo(sendToJ+jData,Grid%NumRj)*Grid%NumRk
+            wrapJ = .true.
+        else
+            tgtRank = tgtRank + sendToJ*Grid%NumRk
+            wrapJ = .false.
+        endif
+        if((sendToK+kData >= 0 .and. sendToK+kData < Grid%NumRk) .or. periodicK) then
+            tgtRank = tgtRank + modulo(sendToK+kData,Grid%NumRk)
+            wrapK = .true.
+        else
+            tgtRank = tgtRank + sendToK
+            wrapK = .false.
+        endif
+
+        call mpi_comm_rank(gamAppMpi%gamMpiComm, myRank, ierr)
+
+        if(tgtRank /= myRank) then
+            ! this rank does not send data to the specified position on the other rank
+            dType = MPI_DATATYPE_NULL
+            offset = -1
+            return
+        endif
+
+        ! assemble the datatype, and calculate the array offset
+        call calcDatatypeFC(gamAppMpi,iData,jData,kData,dType)
+        call mpi_type_extent(MPI_MYFLOAT, dataSize, ierr) ! number of bytes per array entry
+        SELECT CASE (iData)
+            CASE (-1)
+                if(wrapI) then
+                    ! sending upper physical data to lower receiver
+                    calcOffset = Grid%Nip
+                else
+                    ! sending lower ghost data to lower receiver
+                    calcOffset = 0
+                endif
+            CASE (0)
+                ! this is always full physical data
+                calcOffset = Model%nG
+            CASE (1)
+                if(wrapI) then
+                    ! sending lower physical data to upper receiver
+                    calcOffset = Model%nG
+                else
+                    ! sending upper ghosts to upper receiver
+                    calcOffset = Model%nG + Grid%Nip
+                endif
+            CASE DEFAULT
+                write (*,*) 'Unrecognized iData type in calcSendDatatypeFC'
+                call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+        ENDSELECT
+
+        SELECT CASE (jData)
+            CASE (-1)
+                if(wrapJ) then
+                    calcOffset = calcOffset + Grid%Njp*(Grid%Ni+1)
+                else
+                    ! no change to calcOffset
+                endif
+            CASE (0)
+                calcOffset = calcOffset + Model%nG*(Grid%Ni+1)
+            CASE (1)
+                if(wrapJ) then
+                    calcOffset = calcOffset + Model%nG*(Grid%Ni+1)
+                else
+                    calcOffset = calcOffset + (Model%nG+Grid%Njp)*(Grid%Ni+1)
+                endif
+            CASE DEFAULT
+                write (*,*) 'Unrecognized jData type in calcSendDatatypeFC'
+                call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+        ENDSELECT
+
+        SELECT CASE (kData)
+            CASE (-1)
+                if(wrapK) then
+                    calcOffset = calcOffset + Grid%Nkp*(Grid%Ni+1)*(Grid%Nj+1)
+                else
+                    ! no change to calcOffset
+                endif
+            CASE (0)
+                calcOffset = calcOffset + Model%nG*(Grid%Ni+1)*(Grid%Nj+1)
+            CASE (1)
+                if(wrapK) then
+                    calcOffset = calcOffset + Model%nG*(Grid%Ni+1)*(Grid%Nj+1)
+                else
+                    calcOffset = calcOffset + (Model%nG+Grid%Nkp)*(Grid%Ni+1)*(Grid%Nj+1)
+                endif
+            CASE DEFAULT
+                write (*,*) 'Unrecognized kData type in calcSendDatatypeFC'
+                call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+        ENDSELECT
+
+        ! return calculated results
+        offset = calcOffset*dataSize
+
+        end associate
+
+    end subroutine calcSendDatatypeOffsetFC
+
+    subroutine calcDatatypeFC(gamAppMpi,iData,jData,kData,dType)
+        type(gamAppMpi_T), intent(in) :: gamAppMpi
+        integer, intent(in) :: iData, jData, kData
+        integer, intent(out) :: dType
+
+        integer :: dType1DI,dType1DJ,dType1DK,dType2DI,dType2DJ,dType2DK,dType3DI,dType3DJ,dType3DK
+        integer :: offsetI, offsetJ, offsetK, dataSum, ierr, dataSize
+
+        associate(Grid=>gamAppMpi%Grid,Model=>gamAppMpi%Model)
+
+        ! assemble the datatype, and calculate the array offset
+        dataSum = abs(iData)+abs(jData)+abs(kData)
+        call mpi_type_extent(MPI_MYFLOAT, dataSize, ierr) ! number of bytes per array entry
+        SELECT CASE (iData)
+            CASE (-1,1)
+                ! offset of the I direction face data from the start of the final struct
+                offsetI = 0
+                if(dataSum == 1) then
+                    ! receiving a face
+                    call mpi_type_contiguous(Model%nG, MPI_MYFLOAT, dType1DI, ierr)
+                    if(iData == 1) offsetI = dataSize ! specific case for max I face
+                else
+                    ! receiving a corner or J/K edge
+                    call mpi_type_contiguous(Model%nG+1, MPI_MYFLOAT, dType1DI, ierr)
+                endif
+
+                call mpi_type_contiguous(Model%nG, MPI_MYFLOAT, dType1DJ, ierr)
+
+                call mpi_type_contiguous(Model%nG, MPI_MYFLOAT, dType1DK, ierr)
+            CASE (0)
+                offsetI = dataSize
+                call mpi_type_contiguous(Grid%Nip-1, MPI_MYFLOAT, dType1DI, ierr)
+                call mpi_type_contiguous(Grid%Nip,   MPI_MYFLOAT, dType1DJ, ierr)
+                call mpi_type_contiguous(Grid%Nip,   MPI_MYFLOAT, dType1DK, ierr)
+            CASE DEFAULT
+                write (*,*) 'Unrecognized iData type in calcDatatypeFC'
+                call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+        ENDSELECT
+
+        SELECT CASE (jData)
+            CASE (-1,1)
+                offsetJ = 0
+                call mpi_type_hvector(Model%nG, 1, dataSize*(Grid%Ni+1), dType1DI, dType2DI, ierr)
+                if(dataSum == 1) then
+                    call mpi_type_hvector(Model%nG, 1, dataSize*(Grid%Ni+1), dType1DJ, dType2DJ, ierr)
+                    if(jData == 1) offsetJ = dataSize*(Grid%Ni+1)
+                else
+                    call mpi_type_hvector(Model%nG+1, 1, dataSize*(Grid%Ni+1), dType1DJ, dType2DJ, ierr)
+                endif
+                call mpi_type_hvector(Model%nG, 1, dataSize*(Grid%Ni+1), dType1DK, dType2DK, ierr)
+            CASE (0)
+                offsetJ = dataSize*(Grid%Ni+1)
+                call mpi_type_hvector(Grid%Njp,   1, dataSize*(Grid%Ni+1), dType1DI, dType2DI, ierr)
+                call mpi_type_hvector(Grid%Njp-1, 1, dataSize*(Grid%Ni+1), dType1DJ, dType2DJ, ierr)
+                call mpi_type_hvector(Grid%Njp,   1, dataSize*(Grid%Ni+1), dType1DK, dType2DK, ierr)
+            CASE DEFAULT
+                write (*,*) 'Unrecognized jData type in calcDatatypeFC'
+                call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+        ENDSELECT
+
+        SELECT CASE (kData)
+            CASE (-1,1)
+                offsetK = 0
+                call mpi_type_hvector(Model%nG, 1, dataSize*(Grid%Ni+1)*(Grid%Nj+1), dType2DI, dType3DI, ierr)
+                call mpi_type_hvector(Model%nG, 1, dataSize*(Grid%Ni+1)*(Grid%Nj+1), dType2DJ, dType3DJ, ierr)
+                if(dataSum == 1) then
+                    call mpi_type_hvector(Model%nG,1,dataSize*(Grid%Ni+1)*(Grid%Nj+1),dType2DK,dType3DK,ierr)
+                    if(kData == 1) offsetK = dataSize*(Grid%Ni+1)*(Grid%Nj+1)
+                else
+                    call mpi_type_hvector(Model%nG+1,1,dataSize*(Grid%Ni+1)*(Grid%Nj+1),dType2DK,dType3DK,ierr)
+                endif
+            CASE (0)
+                offsetK = dataSize*(Grid%Ni+1)*(Grid%Nj+1)
+                call mpi_type_hvector(Grid%Nkp,   1, dataSize*(Grid%Ni+1)*(Grid%Nj+1), dType2DI, dType3DI, ierr)
+                call mpi_type_hvector(Grid%Nkp,   1, dataSize*(Grid%Ni+1)*(Grid%Nj+1), dType2DJ, dType3DJ, ierr)
+                call mpi_type_hvector(Grid%Nkp-1, 1, dataSize*(Grid%Ni+1)*(Grid%Nj+1), dType2DK, dType3DK, ierr)
+            CASE DEFAULT
+                write (*,*) 'Unrecognized kData type in calcDatatypeFC'
+                call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+        ENDSELECT
+
+        ! move J offset into the 2nd index of the 4th dimension
+        offsetJ = offsetJ + dataSize*(Grid%Ni+1)*(Grid%Nj+1)*(Grid%Nk+1)
+        ! move K offset into the 3rd index of the 4th dimension
+        offsetK = offsetK + 2*dataSize*(Grid%Ni+1)*(Grid%Nj+1)*(Grid%Nk+1)
+
+        call mpi_type_create_struct(3,(/1,1,1/),(/integer(MPI_ADDRESS_KIND):: offsetI, offsetJ, offsetK /), &
+                                      (/ dType3DI, dType3DJ, dType3DK /), dType, ierr)
+
+        end associate
+
+    end subroutine calcDatatypeFC
 
     subroutine appendDatatype(appendType,dType,offset)
         integer, intent(inout) :: appendType
@@ -928,7 +1267,7 @@ module gamapp_mpi
 
         if(appendType == MPI_DATATYPE_NULL) then
             ! the root datatype is empty, just add the new type and offset
-            call mpi_type_hindexed(1, (/ 1 /), offset, dType, appendType, ierr)
+            call mpi_type_hindexed(1, (/ 1 /), (/ offset /), dType, appendType, ierr)
         else
             ! the root datatype already has defined structure, so merge with the new one into a struct
             ! need to use a temporary array so that the ints are of type MPI_ADDRESS_KIND
