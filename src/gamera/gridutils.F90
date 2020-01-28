@@ -303,6 +303,7 @@ module gridutils
                     endif
                 enddo !i loop
 
+                
             ! !Now handle inner shell by extrapolating i=2,i=3 => i=1
             !     if (Grid%hasLowerBC(IDIR)) then
             !         !$OMP PARALLEL DO default(shared) &

@@ -151,5 +151,6 @@ module voltio
         cpcp(SOUTH) = maxval(mhdvarsin(1,:,:,MHDPSI,SOUTH))-minval(mhdvarsin(1,:,:,MHDPSI,SOUTH))
 
     end subroutine getCPCP
+
 end module voltio
 

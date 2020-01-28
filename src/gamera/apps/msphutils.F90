@@ -134,6 +134,9 @@ module msphutils
         M0  = -M0g*1.0e+5/gB0 !Magnetic moment
         GM0 = gG0*gx0/(gv0*gv0)
 
+        Model%isMagsphere = .true.
+        Model%MagM0 = M0
+        
         !Add gravity if required
         if (Model%doGrav) then
             !Force spherical gravity (zap non-radial components)
@@ -865,7 +868,7 @@ module msphutils
                         pW(DEN) = pW(DEN) + (Model%dt/Tau)*dRho
 
                     endif
-                    
+
                     if (doInP) then
                         Prcm = Gr%Gas0(i,j,k,IMPR,BLK)
                         if (doWolfLim) then

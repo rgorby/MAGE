@@ -445,9 +445,9 @@ module uservoltic
                     Exyz = bc%inExyz(np,jp,kp,:)
 
                     !Choose which dipole ExB speed to use, true ghost value is much faster
-                    xcd = Grid%xyzcc(ip,jp,kp,XDIR)
-                    ycd = Grid%xyzcc(ip,jp,kp,YDIR)
-                    zcd = Grid%xyzcc(ip,jp,kp,ZDIR)
+                    xcd = Grid%xyzcc(Grid%is-1,jp,kp,XDIR)
+                    ycd = Grid%xyzcc(Grid%is-1,jp,kp,YDIR)
+                    zcd = Grid%xyzcc(Grid%is-1,jp,kp,ZDIR)
                     call Dipole(xcd,ycd,zcd,Bd(XDIR),Bd(YDIR),Bd(ZDIR))
                     
                     dB = State%Bxyz(ip,jp,kp,:)

@@ -104,6 +104,10 @@ module gamtypes
         logical :: doRing = .false.
         type (Ring_T) :: Ring
         
+        !Some specific info for magsphere runs
+        logical :: isMagsphere = .false.
+        real(rp) :: MagM0 = 0.0
+        
         !Background field function pointer
         procedure(VectorField_T), pointer, nopass :: B0 => NULL()
 

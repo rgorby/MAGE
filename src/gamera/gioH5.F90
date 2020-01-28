@@ -283,8 +283,8 @@ module gioH5
 
             !For current, use VecA to hold total Bxyz, VecB for Jxyz
             if (Model%doBackground) then
+                VecA = State%Bxyz + Gr%B0 !Full size
                 gVec(:,:,:,:) = Gr%B0(iMin:iMax,jMin:jMax,kMin:kMax,XDIR:ZDIR) + State%Bxyz(iMin:iMax,jMin:jMax,kMin:kMax,XDIR:ZDIR)
-                VecA = State%Bxyz + Gr%B0
             else
                 gVec(:,:,:,:) = State%Bxyz(iMin:iMax,jMin:jMax,kMin:kMax,XDIR:ZDIR)
                 VecA = State%Bxyz
@@ -307,12 +307,33 @@ module gioH5
             call GameraOut("Pb",gamOut%pID,gamOut%pScl,gVar(iMin:iMax,jMin:jMax,kMin:kMax))
 
             !Write current
-            call bFld2Jxyz(Model,Gr,VecA,VecB)
-            gVec(:,:,:,:) = VecB(iMin:iMax,jMin:jMax,kMin:kMax,XDIR:ZDIR)
+            if (Model%isMagsphere) then
+                !Subtract dipole before calculating current
+                !$OMP PARALLEL DO default(shared) collapse(2)
+                do k=Gr%ksg,Gr%keg
+                    do j=Gr%jsg,Gr%jeg
+                        do i=Gr%isg,Gr%ieg
+                            VecA(i,j,k,:) = State%Bxyz(i,j,k,:) + Gr%B0(i,j,k,:) - MagsphereDipole(Gr%xyzcc(i,j,k,:),Model%MagM0)
+                        enddo
+                    enddo
+                enddo
 
-            call AddOutVar(IOVars,"Jx",gVec(:,:,:,XDIR))
-            call AddOutVar(IOVars,"Jy",gVec(:,:,:,YDIR))
-            call AddOutVar(IOVars,"Jz",gVec(:,:,:,ZDIR))
+                call bFld2Jxyz(Model,Gr,VecA,VecB)
+                gVec(:,:,:,:) = VecB(iMin:iMax,jMin:jMax,kMin:kMax,XDIR:ZDIR)
+
+                call AddOutVar(IOVars,"Jx",gVec(:,:,:,XDIR))
+                call AddOutVar(IOVars,"Jy",gVec(:,:,:,YDIR))
+                call AddOutVar(IOVars,"Jz",gVec(:,:,:,ZDIR))
+            else
+                !Do full current
+                call bFld2Jxyz(Model,Gr,VecA,VecB)
+                gVec(:,:,:,:) = VecB(iMin:iMax,jMin:jMax,kMin:kMax,XDIR:ZDIR)
+
+                call AddOutVar(IOVars,"Jx",gVec(:,:,:,XDIR))
+                call AddOutVar(IOVars,"Jy",gVec(:,:,:,YDIR))
+                call AddOutVar(IOVars,"Jz",gVec(:,:,:,ZDIR))
+            endif
+
 
             !Calculate/Write xyz electric fields
             !Divide by edge-length to go from potential to field
@@ -384,6 +405,19 @@ module gioH5
         end associate
 
         contains
+            function MagsphereDipole(xyz,M0) result(Bd)
+                real(rp), intent(in) :: xyz(NDIM), M0
+                real(rp) :: Bd(NDIM)
+
+                real(rp) :: rad
+                real(rp), dimension(NDIM) :: m
+
+                rad = norm2(xyz)
+                m = [0.0_rp,0.0_rp,M0]
+                Bd = 3*dot_product(m,xyz)*xyz/rad**5.0 - m/rad**3.0
+
+            end function MagsphereDipole
+
             subroutine GameraOut(vID,uID,vScl,V)
                 character(len=*), intent(in) :: vID,uID
                 real(rp), intent(in) :: vScl
