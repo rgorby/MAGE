@@ -61,6 +61,9 @@ module msphutils
     real(rp), private :: Psi0 = 0.0 ! corotation potential coef
     real(rp), private :: M0   = 0.0 !Magnetic moment
 
+    !Ingestion
+    logical, private :: doWolfLim = .true.
+
     contains
 
     !Set magnetosphere parameters
@@ -173,6 +176,10 @@ module msphutils
         Model%gamOut%vID = 'km/s'
         Model%gamOut%pID = 'nPa'
         Model%gamOut%bID = 'nT'
+
+        if (Model%doSource) then
+            call xmlInp%Set_Val(doWolfLim,"source/doWolfLim",doWolfLim)
+        endif
 
     end subroutine
 
@@ -858,9 +865,15 @@ module msphutils
                         pW(DEN) = pW(DEN) + (Model%dt/Tau)*dRho
 
                     endif
+                    
                     if (doInP) then
                         Prcm = Gr%Gas0(i,j,k,IMPR,BLK)
-                        PLim = Prcm/(1.0+beta*5.0/6.0)
+                        if (doWolfLim) then
+                            PLim = Prcm/(1.0+beta*5.0/6.0)
+                        else
+                            PLim = Prcm
+                        endif
+
                         if (Pmhd <= PLim) then
                             dP = PLim - Pmhd
                         else if (Pmhd >= Prcm) then
@@ -868,8 +881,6 @@ module msphutils
                         else
                             dP = 0.0
                         endif
-
-                        !dP = Gr%Gas0(i,j,k,IMPR,BLK) - pW(PRESSURE)
                         pW(PRESSURE) = pW(PRESSURE) + (Model%dt/Tau)*dP
                         !pW(PRESSURE) = pW(PRESSURE) + (Model%dt/Tau)*max(0.0,dP)
                         

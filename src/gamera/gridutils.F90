@@ -261,9 +261,7 @@ module gridutils
         do k=Grid%ks-1, Grid%ke+1
             do j=Grid%js-1, Grid%je+1
                 do i=Grid%is-1, Grid%ie+1
-
                     Jxyz(i,j,k,:) = CellBxyz(Model,Grid,JdS,i,j,k)
-
                 enddo
             enddo
         enddo
@@ -304,18 +302,19 @@ module gridutils
                         enddo
                     endif
                 enddo !i loop
-            !Now handle inner shell by extrapolating i=2,i=3 => i=1
-                if (Grid%hasLowerBC(IDIR)) then
-                    !$OMP PARALLEL DO default(shared) &
-                    !$OMP private(k,j,J2,J3)
-                    do k=Grid%ks,Grid%ke
-                        do j=Grid%js,Grid%je
-                            J3 = Jxyz(Grid%is+2,j,k,:)
-                            J2 = Jxyz(Grid%is+1,j,k,:)
-                            Jxyz(Grid%is,j,k,:) = J3 + 2.0*( J2 - J3 )
-                        enddo
-                    enddo
-                endif !Inner i shell
+
+            ! !Now handle inner shell by extrapolating i=2,i=3 => i=1
+            !     if (Grid%hasLowerBC(IDIR)) then
+            !         !$OMP PARALLEL DO default(shared) &
+            !         !$OMP private(k,j,J2,J3)
+            !         do k=Grid%ks,Grid%ke
+            !             do j=Grid%js,Grid%je
+            !                 J3 = Jxyz(Grid%is+2,j,k,:)
+            !                 J2 = Jxyz(Grid%is+1,j,k,:)
+            !                 Jxyz(Grid%is,j,k,:) = J3 + 2.0*( J2 - J3 )
+            !             enddo
+            !         enddo
+            !     endif !Inner i shell
 
             end select
         endif

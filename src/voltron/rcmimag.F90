@@ -30,7 +30,6 @@ module rcmimag
     integer, parameter :: MAXRCMIOVAR = 30
     character(len=strLen), private :: h5File
 
-    logical :: doWolfLimit = .true.
 
     !Information taken from MHD flux tubes
     !TODO: Figure out RCM boundaries
@@ -101,9 +100,6 @@ module rcmimag
             call initRCMIO()
         endif
         
-    !Set physics options
-        call iXML%Set_Val(doWolfLimit,"/RCM/physics/doWolfLimit",.true.)
-
     !Get ellipse quantities
         !Get values in Re, then convert to meters
         call iXML%Set_Val(RCMEll%xSun ,"/RCM/ellipse/xSun" ,8.0)
@@ -279,7 +275,6 @@ module rcmimag
         real(rp), intent(in) :: llC(2,2,2,2)
         real(rp), intent(out) :: imW(NVARIMAG)
 
-        real(rp) :: alpha, beta
         real(rp) :: nrcm,prcm,npp,ntot
         integer  :: n
         logical  :: isGood,isGoods(8)
@@ -314,17 +309,8 @@ module rcmimag
         isGood = all(isGoods)
 
         if (.not. isGood) return
-
-        !If still here let's get to work
-        beta = CornerAvg(ijs,RCMApp%beta_average)
-        if (doWolfLimit) then
-            alpha = 1.0/(1.0 + beta*IMGAMMA/2.0)
-        else
-            alpha = 1.0
-        endif
         
-        !K: Temporarily always setting alpha=1
-        prcm = CornerAvg(ijs,RCMApp%Prcm )*rcmPScl*alpha
+        prcm = CornerAvg(ijs,RCMApp%Prcm )*rcmPScl
         npp  = CornerAvg(ijs,RCMApp%Npsph)*rcmNScl
         nrcm = CornerAvg(ijs,RCMApp%Nrcm )*rcmNScl
 
@@ -337,7 +323,7 @@ module rcmimag
         !Store data
         imW(IMDEN)  = ntot
         imW(IMPR)   = prcm
-        imW(IMTSCL) = 1.0/sqrt(alpha)
+        imW(IMTSCL) = 1.0
         imW(IMX1)   = (180.0/PI)*lat
         imW(IMX2)   = (180.0/PI)*lon
 
@@ -577,12 +563,6 @@ module rcmimag
         call AddOutVar(IOVars,"eflux",RCMApp%flux)
 
         call AddOutVar(IOVars,"toMHD",merge(1.0_rp,0.0_rp,RCMApp%toMHD))
-
-        if (doWolfLimit) then
-            call AddOutVar(IOVars,"PLim",RCMApp%Prcm*rcmPScl/(1.0+0.5*RCMApp%beta_average*IMGAMMA))
-        else
-            call AddOutVar(IOVars,"PLim",RCMApp%Prcm*rcmPScl)
-        endif
 
         !Trim output for colat/aloct to remove wrapping
         DimLL = shape(colat)
