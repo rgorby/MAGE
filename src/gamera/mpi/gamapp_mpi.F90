@@ -674,6 +674,18 @@ module gamapp_mpi
             enddo
         enddo
 
+        ! commit the created MPI datatypes
+        do rankIndex=1,SIZE(gamAppMpi%sendRanks)
+            call mpi_type_commit(gamAppMpi%sendTypesGas(rankIndex), ierr)
+            call mpi_type_commit(gamAppMpi%recvTypesGas(rankIndex), ierr)
+            if(Model%doMHD) then
+                call mpi_type_commit(gamAppMpi%sendTypesBxyz(rankIndex), ierr)
+                call mpi_type_commit(gamAppMpi%recvTypesBxyz(rankIndex), ierr)
+                call mpi_type_commit(gamAppMpi%sendTypesMagFlux(rankIndex), ierr)
+                call mpi_type_commit(gamAppMpi%recvTypesMagFlux(rankIndex), ierr)
+            endif
+        enddo
+
         end associate
 
     end subroutine createDatatypes
