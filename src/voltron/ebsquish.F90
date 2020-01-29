@@ -146,7 +146,7 @@ module ebsquish
         real(rp), intent(out) :: x1,x2
 
         real(rp), dimension(NDIM) :: xE,xIon
-        real(rp) :: dX
+        real(rp) :: dX,rC
         logical :: isGood
 
         x1 = 0.0
@@ -164,7 +164,8 @@ module ebsquish
         call project(ebModel,ebState,xyz,t,xE,+1,toEquator=.false.)
 
         dX = norm2(xyz-xE)
-        isGood = (dX>TINY) .and. (norm2(xE) <= 2.25) .and. (xE(ZDIR) > 0)
+        rC = norm2(ebState%ebGr%xyz(3,1,1,:))
+        isGood = (dX>TINY) .and. (norm2(xE) <= rC) .and. (xE(ZDIR) > 0)
 
         if (isGood) then
             !Get invariant lat/lon

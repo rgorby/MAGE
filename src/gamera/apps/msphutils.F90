@@ -474,7 +474,12 @@ module msphutils
                         endif
 
                         !If sound speed is faster than "light", chill the fuck out
-                        if ( Model%doBoris .and. (CsC>cLim*Model%Ca) ) then
+                        doChill = Model%doBoris .and. (CsC>cLim*Model%Ca)
+                        if (doChill .and. Model%doSource) then
+                            !If this is a pressure ingestion region, then let the pressure go wild
+                            if (Grid%Gas0(i,j,k,IMPR ,BLK)>TINY) doChill = .false.
+                        endif !doChill and doSource check
+                        if (doChill) then
                             call CellC2P(Model,pCon,pW)
                             P = pW(PRESSURE) !Cell pressure
 
