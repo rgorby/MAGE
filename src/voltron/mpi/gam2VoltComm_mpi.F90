@@ -125,11 +125,22 @@ module gam2VoltComm_mpi
         call mpi_bcast(g2vComm%MJD, 1, MPI_MYFLOAT, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
         call mpi_bcast(g2vComm%ts, 1, MPI_INT, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
         call mpi_bcast(g2vComm%doDeep, 1, MPI_LOGICAL, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
-        call mpi_bcast(gApp%Model%MJD0, 1, MPI_MYFLOAT, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
         call mpi_bcast(g2vComm%JpSt, 1, MPI_INT, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
         call mpi_bcast(g2vComm%JpSh, 1, MPI_INT, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
         call mpi_bcast(g2vComm%PsiSt, 1, MPI_INT, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
         call mpi_bcast(g2vComm%PsiSh, 1, MPI_INT, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
+
+        ! get updated Gamera parameters from the voltron rank
+        call mpi_bcast(gApp%Model%t, 1, MPI_MYFLOAT, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
+        call mpi_bcast(gApp%Model%MJD0, 1, MPI_MYFLOAT, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
+        call mpi_bcast(gApp%Model%tFin, 1, MPI_MYFLOAT, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
+        call mpi_bcast(gApp%Model%dt, 1, MPI_MYFLOAT, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
+
+        ! send updated gamera parameter to the voltron rank
+        ! only the rank with Ri/Rj/Rk==0 should send the values to voltron
+        if(gApp%Grid%Ri==0 .and. gApp%Grid%Rj==0 .and. gApp%Grid%Rk==0) then
+            call mpi_send(dt0, 1, MPI_MYFLOAT, g2vComm%voltRank, 97510, g2vComm%voltMpiComm, ierr)
+        endif
 
         ! create the MPI datatypes for communicating state data with voltron
         call createG2VDataTypes(g2vComm, gApp)

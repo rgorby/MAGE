@@ -61,8 +61,8 @@ if __name__ == "__main__":
 	
 
 	if (doBig):
-		xTail = -100.0
-		xSun = 20.0
+		xTail = -350.0
+		xSun = 40.0
 	else:
 		xTail = -40.0
 		xSun = 20.0

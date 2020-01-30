@@ -168,6 +168,9 @@ module init
         oState = State
         oState%time = State%time-Model%dt !Initial old state
 
+        ! save the initial dt
+        dt0 = Model%dt
+
         !Initialize solver data
         call initSolver(Solver, Model, Grid)
 

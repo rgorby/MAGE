@@ -51,7 +51,6 @@ contains
         real(rp) :: ZCs, wTime
         integer :: nTh
         character(len=strLen) :: tStr
-        if (dt0 < TINY) dt0 = Model%dt
         wTime = readClock(zcsClk)
 
         !Calculate zone-cycles per second
