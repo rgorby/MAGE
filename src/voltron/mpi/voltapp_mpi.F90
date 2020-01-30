@@ -187,6 +187,17 @@ module voltapp_mpi
         ! receive updated gamera parameters from gamera rank
         call mpi_recv(dt0, 1, MPI_MYFLOAT, MPI_ANY_SOURCE, 97510, vApp%voltMpiComm, MPI_STATUS_IGNORE, ierr)
 
+        ! synchronize IO timing
+        call mpi_bcast(vApp%IO%tOut/vApp%gAppLocal%Model%Units%gT0, &
+                       1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
+        call mpi_bcast(vApp%IO%tRes/vApp%gAppLocal%Model%Units%gT0, &
+                       1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
+        call mpi_bcast(vApp%IO%dtOut/vApp%gAppLocal%Model%Units%gT0, &
+                       1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
+        call mpi_bcast(vApp%IO%dtRes/vApp%gAppLocal%Model%Units%gT0, &
+                       1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
+        call mpi_bcast(vApp%IO%tsOut, 1, MPI_INT, vApp%myRank, vApp%voltMpiComm, ierr)
+
         ! create the MPI datatypes needed to transfer state data
         call createVoltDataTypes(vApp, iRanks, jRanks, kRanks)
 
