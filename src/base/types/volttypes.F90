@@ -106,7 +106,7 @@ module volttypes
         logical  :: doDeep = .false. !Whether to do deep coupling
         real(rp) :: rDeep !Radius (in code units) to do deep coupling
         real(rp) :: rTrc  !Radius to do tracing (ebSquish) inside of
-        integer  :: iDeep  = 0 !Index of max i shell containing deep coupling radius
+        integer  :: iTrc  = 0 !Index of max i shell containing tracing region
         integer  :: imType = 0 !Type of inner magnetosphere model (0 = None)
         integer  :: prType = 0 !Type of projection for coupling   (0 = None)
     end type voltApp_T

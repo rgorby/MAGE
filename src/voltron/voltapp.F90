@@ -222,7 +222,7 @@ module voltapp
             call init_chmp2Mhd(vApp%chmp2mhd, ebTrcApp, gApp)
 
             end associate
-            vApp%iDeep = ShellBoundary(gApp%Model,gApp%Grid,vApp%rTrc)
+            vApp%iTrc = ShellBoundary(gApp%Model,gApp%Grid,vApp%rTrc)
         endif !doDeep
 
     end subroutine initializeFromGamera
