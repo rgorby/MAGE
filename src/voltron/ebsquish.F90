@@ -47,7 +47,6 @@ module ebsquish
         
         integer :: i,j,k,Nk
         real(rp) :: t,x1,x2
-        real(rp) :: xMagS,xMagE
         real(rp), dimension(NDIM) :: xyz,xy0
         procedure(Projection_T), pointer :: ProjectXYZ
         
@@ -71,7 +70,7 @@ module ebsquish
         !$OMP private(i,j,k,xyz,x1,x2)
         do k=ebGr%ks,ebGr%ke+1
             do j=ebGr%js,ebGr%je+1
-                do i=ebGr%is,vApp%iTrc+1
+                do i=ebGr%is,vApp%iDeep+1
                     xyz = ebGr%xyz(i,j,k,XDIR:ZDIR)
                     if (norm2(xyz) <= vApp%rTrc) then
                         !Do projection
@@ -93,24 +92,17 @@ module ebsquish
 
         !Ensure same value for degenerate axis points
         !$OMP PARALLEL DO default(shared) &
-        !$OMP private(i,xMagS,xMagE)
-        do i=ebGr%is,vApp%iTrc+1
-            !Make sure all points on ring are good
-            xMagS = minval( norm2(xyzSquish(i,ebGr%js  ,ebGr%ks:ebGr%ke,1:2),dim=1 ) )
-            xMagE = minval( norm2(xyzSquish(i,ebGr%je+1,ebGr%ks:ebGr%ke,1:2),dim=1 ) )
-
-            !x1 (regular average) / x2 (circular average)
-            if (xMagS>TINY) then
-                xyzSquish(i,ebGr%js  ,:,1) = sum(xyzSquish(i,ebGr%js  ,ebGr%ks:ebGr%ke,1))/Nk
-                xyzSquish(i,ebGr%js  ,:,2) = CircMean(xyzSquish(i,ebGr%js  ,ebGr%ks:ebGr%ke,2))
-            endif
-            if (xMagE>TINY) then
-                xyzSquish(i,ebGr%je+1,:,1) = sum(xyzSquish(i,ebGr%je+1,ebGr%ks:ebGr%ke,1))/Nk
-                xyzSquish(i,ebGr%je+1,:,2) = CircMean(xyzSquish(i,ebGr%je+1,ebGr%ks:ebGr%ke,2))
-            endif
+        !$OMP private(i)
+        do i=ebGr%is,vApp%iDeep+1
+            !x1 (regular average)
+            xyzSquish(i,ebGr%js  ,:,1) = sum(xyzSquish(i,ebGr%js  ,ebGr%ks:ebGr%ke,1))/Nk
+            xyzSquish(i,ebGr%je+1,:,1) = sum(xyzSquish(i,ebGr%je+1,ebGr%ks:ebGr%ke,1))/Nk
+            !x2 (circular average)
+            xyzSquish(i,ebGr%js  ,:,2) = CircMean(xyzSquish(i,ebGr%js  ,ebGr%ks:ebGr%ke,2))
+            xyzSquish(i,ebGr%je+1,:,2) = CircMean(xyzSquish(i,ebGr%je+1,ebGr%ks:ebGr%ke,2))
         enddo
 
-        vApp%chmp2mhd%iMax = vApp%iTrc
+        vApp%chmp2mhd%iMax = vApp%iDeep
 
         end associate
     end subroutine Squish
