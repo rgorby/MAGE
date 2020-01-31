@@ -217,5 +217,8 @@ program voltron_mpix
 
     endif
 
+    call MPI_FINALIZE(ierror)
+    print *,"This is the END!"
+
 end program voltron_mpix
 
