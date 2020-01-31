@@ -313,11 +313,14 @@ module streamline
 
         if (.not. inDomain(x0,Model,ebState%ebGr)) return
         
-        if (x0(ZDIR)>=0.) then
+        if (x0(ZDIR)>=TINY) then
            ! assume first that northern hemisphere is always traced in -B direction
            call project(Model,ebState,x0,t,xe,-1,.true.)
-        else
+        else if (x0(ZDIR)<=-TINY) then 
            call project(Model,ebState,x0,t,xe,+1,.true.)
+        else
+           ! if we're for some reason at equator don't do anything.
+           xe = x0
         endif
       end subroutine getProjection
 
@@ -542,8 +545,14 @@ module streamline
 
                 if (toEquator) then
                     !Check for x'ing
+
+                   ! (trap for a rare weird case)
+                   ! if we happened to be just at the equator before making the step, don't do anything
+                   ! this can happen if we start tracing exactly from z=0
+                   ! the calling getProjection function should capture this case
+                   ! but still add this trap here, just in case
                     dzSgn = Xn(ZDIR)*( Xn(ZDIR)-dx(ZDIR) )
-                    if (dzSgn < 0) then
+                    if ((dzSgn < 0).or.(Xn(ZDIR)-dx(ZDIR).eq.0.)) then
                         ! interpolate exactly to equator
                         Xn = Xn-dx/norm2(dx)*abs(Xn(ZDIR))
                         return
