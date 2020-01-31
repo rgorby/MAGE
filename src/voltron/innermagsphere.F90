@@ -44,7 +44,7 @@ module innermagsphere
         case("SST","TS07")
             vApp%imType = IMAGSST
             vApp%prType = LPPROJ !R-phi
-            call InitSST(iXML,isRestart)
+            call InitSST(iXML,isRestart,vApp%rDeep)
         case("RCM")
             vApp%imType = IMAGRCM
             vApp%prType = LLPROJ !Lat-lon

@@ -17,7 +17,7 @@ module sstimag
         real(rp) :: eqT1,eqT2 !Times of two data slices
         integer  :: eqN1,eqN2 !Indices of two data slices
         real(rp), dimension(:,:,:), allocatable :: eqW1,eqW2
-        
+        real(rp) :: rDeep   ! where we're ingesting
 
     end type eqData_T
     
@@ -26,9 +26,10 @@ module sstimag
     contains
 
     !Initialize EQ Map data
-    subroutine initSST(iXML,isRestart)
+    subroutine initSST(iXML,isRestart,rDeep)
         type(XML_Input_T), intent(in) :: iXML
         logical, intent(in) :: isRestart !Do you even care?
+        real(rp), intent(in) :: rDeep
 
         character(len=strLen) :: eqFile
         integer :: i,j,n1,n2
@@ -49,6 +50,8 @@ module sstimag
 
         eqData%Nr = eqData%ebTab%dNi
         eqData%Np = eqData%ebTab%dNj
+        
+        eqData%rDeep = rDeep
 
         allocate(eqData%X(1:eqData%Nr+1,1:eqData%Np+1))
         allocate(eqData%Y(1:eqData%Nr+1,1:eqData%Np+1))
@@ -151,6 +154,11 @@ module sstimag
         integer :: ij0(2),i0,j0
         real(rp) :: w1,w2
         logical :: isGood
+
+        if (r>eqData%rDeep) then 
+           imW = 0.0
+           return
+        end if
 
         x0 = r*cos(phi)
         y0 = r*sin(phi)
