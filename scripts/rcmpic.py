@@ -16,6 +16,8 @@ import numpy.ma as ma
 
 if __name__ == "__main__":
 	#Defaults
+	MHDCol = "red"
+	MHDLW = 0.5
 	fdir = os.getcwd()
 	ftag = "msphere"
 	nStp = -1
@@ -97,6 +99,7 @@ if __name__ == "__main__":
 	bmin = rcmdata.GetVar("bMin",nStp)
 
 	IOpen = rcmdata.GetVar("IOpen",nStp)
+	toMHD = rcmdata.GetVar("toMHD",nStp)
 	S = rcmdata.GetVar("S",nStp)
 	
 	I = (IOpen > -0.5)
@@ -130,6 +133,14 @@ if __name__ == "__main__":
 	AxM.contour(bmX,bmY,Nmhd,cVals,norm=vD,cmap=dCMap,linewidths=cLW)
 	kv.addEarth2D(ax=AxM)
 	kv.SetAx(xyBds,AxM)
+	if (nStp>0):
+		CS1 = AxM.contour(bmX,bmY,toMHD,[0.5],colors=MHDCol,linewidths=MHDLW)
+		manloc = [(0.0,8.0)]
+
+		fmt = {}
+		fmt[0.5] = 'MHD'
+		AxM.clabel(CS1,CS1.levels[::2],inline=True,fmt=fmt,fontsize=5,inline_spacing=25,manual=manloc)
+
 
 	#Handle right
 	AxR.set_title("Flux-Tube Entropy")

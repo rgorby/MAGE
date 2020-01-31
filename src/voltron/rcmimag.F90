@@ -52,6 +52,7 @@ module rcmimag
     type RCMEllipse_T
         !Ellipse parameters (in m)
         real(rp) :: xSun,xTail,yDD
+
         !Safety parameters
         real(rp) :: xSScl,xTScl,yScl
         logical  :: isDynamic !Whether to update parameters
@@ -111,9 +112,9 @@ module rcmimag
         RCMEll%yDD   = REarth*RCMEll%yDD
         call iXML%Set_Val(RCMEll%isDynamic,"/RCM/ellipse/isDynamic"  ,.true.)
         !Get safety parameters (only for dynamic ellipse)
-        call iXML%Set_Val(RCMEll%xSScl ,"/RCM/ellipse/xSScl" ,0.65)
-        call iXML%Set_Val(RCMEll%xTScl ,"/RCM/ellipse/xTScl" ,1.0 )
-        call iXML%Set_Val(RCMEll%yScl  ,"/RCM/ellipse/yScl"  ,0.65)
+        call iXML%Set_Val(RCMEll%xSScl ,"/RCM/ellipse/xSScl" ,0.70)
+        call iXML%Set_Val(RCMEll%xTScl ,"/RCM/ellipse/xTScl" ,0.90)
+        call iXML%Set_Val(RCMEll%yScl  ,"/RCM/ellipse/yScl"  ,0.70)
 
     end subroutine initRCM
 
@@ -215,11 +216,9 @@ module rcmimag
     !Set region of RCM grid that's "good" for MHD ingestion
     subroutine SetIngestion()
         integer :: i,j,iC
+        
+        real(rp) :: x0,ell,a,b
         logical :: jClosed
-
-        real(rp) :: x0,a,b,ell
-
-        RCMApp%toMHD = .false.
 
         !Start by looping from high-lat downwards until we find full ring of closed lines
         do i = 1,RCMApp%nLat_ion
@@ -231,9 +230,13 @@ module rcmimag
         !Construct new ellipse if we're doing dynamic
         if (RCMEll%isDynamic) then
             !Now find maximum sunward point on this ring
-            RCMEll%xSun  = maxval(RCMApp%X_bmin(iC,:,XDIR))
-            RCMEll%xTail = minval(RCMApp%X_bmin(iC,:,XDIR))
-            RCMEll%yDD   = maxval(abs(RCMApp%X_bmin(iC,:,YDIR)))
+            ! RCMEll%xSun  = maxval(RCMApp%X_bmin(iC,:,XDIR))
+            ! RCMEll%xTail = minval(RCMApp%X_bmin(iC,:,XDIR))
+            ! RCMEll%yDD   = maxval(abs(RCMApp%X_bmin(iC,:,YDIR)))
+
+            RCMEll%xSun  = maxval(    RCMApp%X_bmin(:,:,XDIR) ,mask=(RCMApp%iopen(:,:) == RCMTOPCLOSED) )
+            RCMEll%xTail = minval(    RCMApp%X_bmin(:,:,XDIR) ,mask=(RCMApp%iopen(:,:) == RCMTOPCLOSED) )
+            RCMEll%yDD   = maxval(abs(RCMApp%X_bmin(:,:,YDIR)),mask=(RCMApp%iopen(:,:) == RCMTOPCLOSED) )
 
             !Rescale to give some breathing room
             RCMEll%xSun  = RCMEll%xSScl*RCMEll%xSun 
@@ -246,9 +249,10 @@ module rcmimag
             if (abs(RCMEll%xTail) >= rEqMin) RCMEll%xTail = -rEqMin
             if (    RCMEll%yDD    >= rEqMin) RCMEll%yDD   =  rEqMin
             ! write(*,*) 'iC = ', iC
-            ! write(*,*) 'xSun  = ', xSun/REarth
-            ! write(*,*) 'xTail = ', xTail/REarth
-            ! write(*,*) 'yDD   = ', yDD/REarth
+            ! write(*,*) 'xSun  = ', RCMEll%xSun/REarth
+            ! write(*,*) 'xTail = ', RCMEll%xTail/REarth
+            ! write(*,*) 'yDD   = ', RCMEll%yDD/REarth
+
         endif
 
         !Set derived quantities
@@ -259,14 +263,84 @@ module rcmimag
 
        !$OMP PARALLEL DO default(shared) &
        !$OMP private(ell)
-        do i=iC,RCMApp%nLat_ion
+        !do i=iC,RCMApp%nLat_ion
+        do i=1,RCMApp%nLat_ion
             do j=1,RCMApp%nLon_ion
                 ell = ((RCMApp%X_bmin(i,j,XDIR)-x0)/a)**2.0 + (RCMApp%X_bmin(i,j,YDIR)/b)**2.0
-                if (ell <= 1) RCMApp%toMHD(i,j) = .true.
+                if ( (ell <= 1) .and. (RCMApp%iopen(i,j) == RCMTOPCLOSED) ) RCMApp%toMHD(i,j) = .true.
             enddo
         enddo
 
+
     end subroutine SetIngestion
+
+    ! !Set region of RCM grid that's "good" for MHD ingestion
+    ! subroutine SetIngestion()
+    !     integer :: i,j
+    !     real(rp) :: dY,dX,ell
+    !     real(rp) :: x0,xM,y0,yM,x,y
+    !     real(rp) :: a,b,k,gam,alpha,xp,Tx
+    !     logical, allocatable, dimension(:,:) :: IMask
+
+    !     allocate(IMask(RCMApp%nLat_ion,RCMApp%nLon_ion))
+
+    !     RCMApp%toMHD = (RCMApp%iopen(:,:) == RCMTOPCLOSED)
+    !     dY = 5.0*REarth
+    !     dX = 0.5*REarth
+
+    !     !Identify sun/tail points
+    !     IMask = RCMApp%toMHD .and. (abs(RCMApp%X_bmin(:,:,YDIR)) <= dY)
+
+    !     RCMEll%xSun  = maxval(RCMApp%X_bmin(:,:,XDIR),mask=IMask)
+    !     RCMEll%xTail = minval(RCMApp%X_bmin(:,:,XDIR),mask=IMask)
+
+    !     !Rescale to give some breathing room
+    !     RCMEll%xSun  = RCMEll%xSScl*RCMEll%xSun 
+    !     RCMEll%xTail = RCMEll%xTScl*RCMEll%xTail
+
+    !     !Set derived quantities
+    !     x0 = (RCMEll%xSun + RCMEll%xTail)/2
+    !     a  = (RCMEll%xSun - RCMEll%xTail)/2
+    !     xM = (x0 + RCMEll%xTail)/2
+
+    !     !Get y @ x0 and xM
+    !     IMask = RCMApp%toMHD .and. (abs(RCMApp%X_bmin(:,:,XDIR)-x0) <= dX)
+    !     y0 = maxval(abs(RCMApp%X_bmin(:,:,YDIR)),mask=IMask)
+    !     IMask = RCMApp%toMHD .and. (abs(RCMApp%X_bmin(:,:,XDIR)-xM) <= dX)
+    !     yM = maxval(abs(RCMApp%X_bmin(:,:,YDIR)),mask=IMask)
+
+    !     y0 = RCMEll%yScl*y0
+    !     yM = RCMEll%yScl*yM
+
+    !     !More derived quantities
+    !     b = y0
+    !     gam = xM-x0
+    !     alpha = (b**2.0/yM**2.0)*( 1 - (gam**2.0/a**2.0))
+    !     k = (alpha-1)/(gam+gam*alpha)
+
+    !     write(*,*) 'xSun  = ', RCMEll%xSun/REarth
+    !     write(*,*) 'xTail = ', RCMEll%xTail/REarth
+    !     write(*,*) 'y0    = ', y0/REarth
+    !     write(*,*) 'xM    = ', xM/REarth
+    !     write(*,*) 'yM    = ', yM/REarth
+    !     write(*,*) 'k = ', k
+    !     do i=1,RCMApp%nLat_ion
+    !         do j=1,RCMApp%nLon_ion
+    !             x = RCMApp%X_bmin(i,j,XDIR)
+    !             y = RCMApp%X_bmin(i,j,YDIR)
+
+    !             xp = x-x0
+    !             Tx = (1+k*xp)/(1-k*xp)  
+    !             ell = (xp/a)**2.0 + ((y/b)**2.0)*Tx
+    !             if ( (ell <= 1) .and. (RCMApp%iopen(i,j) == RCMTOPCLOSED) ) then
+    !                 RCMApp%toMHD(i,j) = .true.
+    !             else
+    !                 RCMApp%toMHD(i,j) = .false.
+    !             endif
+    !         enddo
+    !     enddo
+
+    ! end subroutine SetIngestion
 
     !Evaluate eq map at a given point
     !Returns density (#/cc) and pressure (nPa)
