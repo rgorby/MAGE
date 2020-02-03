@@ -142,7 +142,11 @@ module voltapp
         !Finally do first output stuff
         call consoleOutputV(vApp,gApp)
         if (.not. gApp%Model%isRestart) then
-            call fOutputVOnly(vApp)
+            if (gApp%Grid%isTiled) then
+                call fOutputVOnly(vApp)
+            else
+                call fOutputV(vApp, gApp)
+            endif
         endif
     end subroutine initVoltron
 
