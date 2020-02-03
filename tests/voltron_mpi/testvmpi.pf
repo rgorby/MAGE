@@ -420,7 +420,7 @@ contains
 
   end subroutine testVolt2MhdShallowCopy
 
-  @test(npes=[2,5,17])
+  !@test(npes=[2,5,17])
   subroutine testShallowUpdate(this)
       class (MpiTestMethod), intent(inout) :: this
 
@@ -498,6 +498,115 @@ contains
 
   end subroutine testDeepUpdate
 
+  @test(npes=[2,5,17])
+  subroutine VMPIcorotationTest(this)
+      class (MpiTestMethod), intent(inout) :: this
+
+      integer :: j,k,n,ip,it,jp,kp,h,ig
+      real(rp) :: xc,yc,zc,deltaSum,rval,lambda,Psi0,RIn,errorThresh
+      real(rp), dimension(NDIM) :: rHatP,eHat,xyz,Exyz,ccEijk
+
+      !Setting some values for inner shell
+      RIn  = 1.0
+      Psi0 = 10.0
+
+      if(isGamera) then
+          if(gamAppMpi%Grid%hasLowerBC(IDIR)) then
+              SELECT type(iiBC=>gamAppMpi%Grid%externalBCs(INI)%p)
+                  TYPE IS (IonInnerBC_T)
+
+                      ! clear all cells
+                      iiBC%inEijk(:,:,:,:) = 0
+                      iiBC%inExyz(:,:,:,:) = 0
+
+                      ! receive the data from voltron
+                      call recvShallowData(g2vCommMpi, gamAppMpi)
+
+                      ! verify that the gamera field (iiBC%inEijk, iiBC%inExyz, or both) have the expected values here
+                      ! inExyz should be pointed exactly radially at all locations
+                      deltaSum = 0.0_rp
+                      !Only loop over active cells
+                      do k=gamAppMpi%Grid%ks,gamAppMpi%Grid%ke
+                          do j=gamAppMpi%Grid%js,gamAppMpi%Grid%je
+
+                              !Map to active ip,jp,kp (i=Grid%is => ip=Grid%is)
+                              call lfmIJK(gamAppMpi%Model,gamAppMpi%Grid,gamAppMpi%Grid%is,j,k,ip,jp,kp)
+
+                              do n=1,gamAppMpi%Model%Ng
+                                      ig = gamAppMpi%Grid%is-n
+                                      np = gamAppMpi%Model%nG-n+1
+
+                                      call cellCenter(gamAppMpi%Grid, ig,j,k,xc,yc,zc)
+                                      rHatP = normVec([xc,yc,zc])
+
+                                      eHat = normVec(iiBC%inExyz(np,jp,kp,:))
+                                      !write(*,*) 'ig,j,k,np = ',ig,j,k,np
+                                      !write(*,*) 'eIJK / eXYZ = ', iiBC%inEijk(np,jp,kp,:), iiBC%inExyz(np,jp,kp,:)
+
+                                      deltaSum = deltaSum + abs(norm2(rHatP-eHat))
+                              end do
+                          end do
+                      end do
+
+                      ! reasonable error of 1e-3 per cell
+                      errorThresh = 1e-3*(1+gamAppMpi%Grid%ke-gamAppMpi%Grid%ks)*(1+gamappMpi%Grid%je-gamAppMpi%Grid%js)*gamappMpi%Model%Ng
+                      @assertLessThanOrEqual(deltaSum, errorThresh, 'Magnetic field from remix was not pointing radially')
+
+                      !Now test Eijk fields
+                      deltaSum = 0.0
+                      !Only loop over active cells
+                      do k=gamAppMpi%Grid%ks,gamAppMpi%Grid%ke
+                          do j=gamAppMpi%Grid%js,gamAppMpi%Grid%je
+                              !Map to active ip,jp,kp (i=Grid%is => ip=Grid%is)
+                              call lfmIJK(gamAppMpi%Model,gamAppMpi%Grid,gamAppMpi%Grid%is,j,k,ip,jp,kp)
+                              do n=1,gamAppMpi%Model%Ng
+                                  ig = gamAppMpi%Grid%is-n
+                                  np = gamAppMpi%Model%nG-n+1
+                                  !Convert Eijk (edges) to cc-Eijk
+                                  ccEijk(IDIR) = 0.25*(iiBC%inEijk(ig,j,k,IDIR)+iiBC%inEijk(ig,j,k+1,IDIR)+iiBC%inEijk(ig,j+1,k,IDIR)+iiBC%inEijk(ig,j+1,k+1,IDIR))
+                                  ccEijk(JDIR) = 0.25*(iiBC%inEijk(ig,j,k,JDIR)+iiBC%inEijk(ig,j,k+1,JDIR)+iiBC%inEijk(ig+1,j,k,JDIR)+iiBC%inEijk(ig+1,j,k+1,JDIR))
+                                  ccEijk(KDIR) = 0.25*(iiBC%inEijk(ig,j,k,KDIR)+iiBC%inEijk(ig+1,j,k,KDIR)+iiBC%inEijk(ig,j+1,k,KDIR)+iiBC%inEijk(ig+1,j+1,k,KDIR))
+                                  !Now convert cc-Eijk to Exyz
+                                  Exyz = ccEijk2Exyz(gamAppMpi%Model,gamAppMpi%Grid,ccEijk,ig,j,k)
+                                  !Exyz above is approximation to inExyz, ie testing whether or not Eijk and Exyz are consistent
+                                  deltaSum = deltaSum + norm2(Exyz-iiBC%inExyz(np,jp,kp,:))
+                              enddo
+                          enddo
+                    enddo
+
+                    @assertLessThanOrEqual(deltaSum, errorThresh, 'inEijk values did not match inExyz values')
+
+                  CLASS DEFAULT
+                      @assertEqual(0,1,'No Remix BC on Gamera')
+              END SELECT
+          else
+              ! everyone has to call to receive the data from voltron
+              call recvShallowData(g2vCommMpi, gamAppMpi)
+          endif
+      else
+          associate(rApp=>voltAppMpi%remixApp)
+          do h=1,2
+              do ip=1,rApp%ion(h)%g%Np
+                  do it=1,rApp%ion(h)%g%Nt
+                      rval = rApp%ion(h)%g%r(ip,it)
+                      lambda = (PI/2.0_rp) - rApp%ion(h)%g%t(ip,it)
+                      !write(*,*) 'h / ip / it, r/lam = ',h,ip,it,rval,lambda
+                      rApp%ion(h)%st%vars(ip,it,POT) = Psi0*cos(lambda)*cos(lambda)/RIn
+                  enddo
+              enddo
+          enddo
+          end associate
+
+          !Can add a test of the interpolation to Gamera shells here?
+          call mapRemixToGamera(voltAppMpi%mix2mhd, voltAppMpi%remixApp)
+
+          call convertRemixToGamera(voltAppMpi%mix2mhd, voltAppMpi%remixApp, voltAppMpi%gAppLocal, .false.) !Don't add corotation potential          
+
+          ! send the data to gamera
+          call sendShallowData_mpi(voltAppMpi)
+
+      endif
+  end subroutine VMPIcorotationTest
 
 end module testVMpi
 

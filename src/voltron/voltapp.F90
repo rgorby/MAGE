@@ -142,7 +142,7 @@ module voltapp
         !Finally do first output stuff
         call consoleOutputV(vApp,gApp)
         if (.not. gApp%Model%isRestart) then
-            call fOutputV(vApp,gApp)
+            call fOutputVOnly(vApp)
         endif
     end subroutine initVoltron
 

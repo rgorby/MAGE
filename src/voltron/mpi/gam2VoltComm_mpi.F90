@@ -5,6 +5,7 @@ module gam2VoltComm_mpi
     use uservoltic
     use mpidefs
     use mpi
+    use, intrinsic :: ieee_arithmetic, only: IEEE_VALUE, IEEE_SIGNALING_NAN, IEEE_QUIET_NAN
 
     implicit none
 
@@ -222,6 +223,7 @@ module gam2VoltComm_mpi
         type(gamAppMpi_T), intent(inout) :: gApp
 
         integer :: ierr
+        real(rp) :: nanValue
 
         ! Receive updated data from voltron
         ! The data goes into inEijk and inExyz in the IonInnerBC_T
@@ -229,6 +231,10 @@ module gam2VoltComm_mpi
         if(gApp%Grid%hasLowerBC(IDIR)) then
             SELECT type(iiBC=>gApp%Grid%externalBCs(INI)%p)
                 TYPE IS (IonInnerBC_T)
+
+                    iiBC%inEijk(:,:,:,:) = IEEE_VALUE(nanValue, IEEE_SIGNALING_NAN)
+                    iiBC%inExyz(:,:,:,:) = IEEE_VALUE(nanValue, IEEE_SIGNALING_NAN)
+
                     ! Recv Shallow inEijk Data
                     call mpi_neighbor_alltoallw(0, g2vComm%zeroArrayCounts, &
                                                 g2vComm%zeroArrayDispls, g2vComm%zeroArrayTypes, &

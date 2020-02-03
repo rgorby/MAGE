@@ -6,6 +6,7 @@ module voltapp_mpi
     use gamapp_mpi
     use gamapp
     use mpi
+    use, intrinsic :: ieee_arithmetic, only: IEEE_VALUE, IEEE_SIGNALING_NAN, IEEE_QUIET_NAN
     
     implicit none
 
@@ -254,6 +255,10 @@ module voltapp_mpi
         type(voltAppMpi_T), intent(inout) :: vApp
 
         integer :: ierr
+        real(rp) :: nanValue
+
+        vApp%gAppLocal%State%Gas(:,:,:,:,:) = IEEE_VALUE(nanValue, IEEE_SIGNALING_NAN)
+        vApp%gAppLocal%State%Bxyz(:,:,:,:) = IEEE_VALUE(nanValue, IEEE_SIGNALING_NAN)
 
         ! Receive Shallow Gas Data
         call mpi_neighbor_alltoallw(0, vApp%zeroArrayCounts, &
