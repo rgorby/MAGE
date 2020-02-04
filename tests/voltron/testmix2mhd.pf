@@ -4,6 +4,7 @@ module testmix2mhd
   use gamapp
   use uservoltic
   use mix2mhd_interface
+  use ioH5
 
   implicit none
 
@@ -28,6 +29,8 @@ contains
     real(rp) :: deltaSum,lambda,rval,xc,yc,zc
     real(rp) :: Psi0,RIn,errorThresh
     integer :: h,ip,it,k,j,jp,kp,n,np,i,ig
+
+    type(IOVAR_T), dimension(MAXIOVAR) :: debugHDF
 
     write(*,*) 'Running corotationTest ...'
     !Setting some values for inner shell
@@ -59,6 +62,16 @@ contains
     ! find the remix BC to verify the resulting Gamera data
     SELECT type(iiBC=>gameraApp%Grid%externalBCs(INI)%p)
         TYPE IS (IonInnerBC_T)
+
+            call CheckAndKill('voltrontestS.h5')
+            call AddOutVar(debugHDF,'remixN',voltronApp%remixApp%ion(1)%st%vars(:,:,POT))
+            call AddOutVar(debugHDF,'remixS',voltronApp%remixApp%ion(2)%st%vars(:,:,POT))
+            call AddOutVar(debugHDF,'mixOutput',voltronApp%mix2mhd%mixOutput)
+            call AddOutVar(debugHDF,'gPsi',voltronApp%mix2mhd%gPsi)
+            call AddOutVar(debugHDF,'inExyz',iiBC%inExyz)
+            call AddOutVar(debugHDF,'inEijk',iiBC%inEijk)
+            call WriteVars(debugHDF,.false.,'voltrontestS.h5')
+
             ! verify that the gamera field (iiBC%inEijk, iiBC%inExyz, or both) have the expected values here
             ! inExyz should be pointed exactly radially at all locations
             deltaSum = 0.0_rp
@@ -87,7 +100,7 @@ contains
 
             ! reasonable error of 1e-3 per cell
             errorThresh = 1e-3*(1+gameraApp%Grid%ke-gameraApp%Grid%ks)*(1+gameraApp%Grid%je-gameraApp%Grid%js)*gameraApp%Model%Ng
-            !@assertLessThanOrEqual(deltaSum, errorThresh, 'Magnetic field from remix was not pointing radially')
+            @assertLessThanOrEqual(deltaSum, errorThresh, 'Magnetic field from remix was not pointing radially')
 
              !Now test Eijk fields
             deltaSum = 0.0
