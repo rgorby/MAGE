@@ -21,6 +21,9 @@ module ebsquish
     end interface
 
     real(rp), parameter, private :: RDipole = 3.0
+    real(rp), parameter, private :: startEps = 0.05
+    real(rp), parameter, private :: rEps = 0.125
+    real(rp), private :: Rinner
 
     contains
 
@@ -64,7 +67,9 @@ module ebsquish
 
         associate(ebModel=>vApp%ebTrcApp%ebModel,ebGr=>vApp%ebTrcApp%ebState%ebGr,ebState=>vApp%ebTrcApp%ebState,xyzSquish=>vApp%chmp2mhd%xyzSquish)
         t = ebState%eb1%time
-        
+
+        Rinner = norm2(ebGr%xyz(ebGr%is,ebGr%js,ebGr%ks,XDIR:ZDIR))
+
         !$OMP PARALLEL DO default(shared) collapse(3) &
         !$OMP schedule(guided) &
         !$OMP private(i,j,k,xyz,x1,x2)
@@ -116,24 +121,28 @@ module ebsquish
         real(rp), intent(out) :: x1,x2
 
         real(rp) :: L,phi,z
-        real(rp), dimension(NDIM) :: xy0
+        real(rp), dimension(NDIM) :: xyzSeed,xy0
 
-        call getProjection(ebModel,ebState,xyz,t,xy0)
+        ! trap for when we're within epsilon of the inner boundary
+        ! (really, it's probably only the first shell of nodes at R=Rinner_boundary that doesn't trace correctly)
+        if ( (norm2(xyz)-Rinner)/Rinner < startEps ) then
+           ! dipole-shift to startEps
+           xyzSeed = DipoleShift(xyz,norm2(xyz)+startEps)
+        else
+           xyzSeed = xyz
+        end if
+
+        ! note, this assumes internally tracing along -B for z>0 and along B for z<0
+        ! if that fails, it returns xy0=HUGE
+        call getEquatorProjection(ebModel,ebState,xyzSeed,t,xy0)
+
         !Map projection to L,phi
-
-        z = abs(xy0(ZDIR))
         L = sqrt(xy0(XDIR)**2.0+xy0(YDIR)**2.0)
         phi = atan2(xy0(YDIR),xy0(XDIR))
         if (phi<0) phi = phi+2*PI
-
-        if (z/L > 1.0e-3) then
-            !Probably failed to get to equator, set L=0
-            x1 = 0.0
-            x2 = phi
-        else
-            x1 = L
-            x2 = phi
-        endif
+        
+        x1 = L
+        x2 = phi
     end subroutine Proj2LP
 
     !Project XYZ to lat-lon on ionosphere
@@ -164,7 +173,7 @@ module ebsquish
         call project(ebModel,ebState,xyz,t,xE,+1,toEquator=.false.)
 
         dX = norm2(xyz-xE)
-        rC = norm2(ebState%ebGr%xyz(3,1,1,:))
+        rC = Rinner*(1.+rEps)
         isGood = (dX>TINY) .and. (norm2(xE) <= rC) .and. (xE(ZDIR) > 0)
 
         if (isGood) then

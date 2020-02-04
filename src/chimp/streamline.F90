@@ -305,24 +305,38 @@ module streamline
 !---------------------------------
 !Projection routines
     !Project to SM EQ (Z=0)
-    subroutine getProjection(Model,ebState,x0,t,xe)
+    subroutine getEquatorProjection(Model,ebState,x0,t,xe)
         real(rp), intent(in) :: x0(NDIM),t
         type(chmpModel_T), intent(in) :: Model
         type(ebState_T), intent(in)   :: ebState
         real(rp), intent(out) :: xe(NDIM) ! end point
+        logical :: failEquator
 
-        if (.not. inDomain(x0,Model,ebState%ebGr)) return
+        if (.not. inDomain(x0,Model,ebState%ebGr)) then
+           xe = HUGE
+           return
+        endif
         
         if (x0(ZDIR)>=TINY) then
            ! assume first that northern hemisphere is always traced in -B direction
-           call project(Model,ebState,x0,t,xe,-1,.true.)
+           call project(Model,ebState,x0,t,xe,-1,.true.,failEquator)
         else if (x0(ZDIR)<=-TINY) then 
-           call project(Model,ebState,x0,t,xe,+1,.true.)
+           call project(Model,ebState,x0,t,xe,+1,.true.,failEquator)
         else
            ! if we're for some reason at equator don't do anything.
            xe = x0
+           return
         endif
-      end subroutine getProjection
+
+        ! at this point, we have either gotten to equator
+        ! or to the domain boundary
+        ! because we trace along -B for z>0 and along B for z<0
+        ! can get to weird places on non-closed field lines or 
+        ! even on closed if strongly tilted
+        ! trap for those points here 
+        if (failEquator) xe = HUGE
+
+      end subroutine getEquatorProjection
 
     !Project to magnetic equator (min along field line)
     subroutine getMagEQ(Model,ebState,x0,t,xeq,Beq,tOpt)
@@ -474,7 +488,7 @@ module streamline
     end subroutine genTrace
 
     !Calculate one-sided projection (in sgn direction)
-    subroutine project(Model,ebState,x0,t,xn,sgn,toEquator)
+    subroutine project(Model,ebState,x0,t,xn,sgn,toEquator,failEquator)
         type(chmpModel_T), intent(in) :: Model
         type(ebState_T), intent(in)   :: ebState
         real(rp), intent(in) :: x0(NDIM),t
@@ -482,6 +496,7 @@ module streamline
         integer, intent(in) :: sgn
         real(rp), intent(inout) :: xn(NDIM)
         logical, optional, intent(in) :: toEquator
+        logical, optional, intent(out) :: failEquator
 
         logical :: inDom
         real(rp), dimension(NDIM) :: B,E,dx
@@ -502,6 +517,15 @@ module streamline
         dl = getDiag(ebState%ebGr,ijk)
         ds = sgn*min( Model%epsds*dl/norm2(B), dl )
         ijkG = ijk
+
+        if (present(toEquator)) then
+           if ((toEquator).and.(.not.(present(failEquator)))) then
+              write(*,*) 'Project operator called incorrectly.'
+              stop
+           endif
+        end if
+
+        if (present(failEquator)) failEquator = .true.
 
         !write(*,*) 'sgn/ds/X0 = ', sgn,ds,x0
         do while (inDom .and. Np <= MaxFL)
@@ -549,16 +573,17 @@ module streamline
                    ! (trap for a rare weird case)
                    ! if we happened to be just at the equator before making the step, don't do anything
                    ! this can happen if we start tracing exactly from z=0
-                   ! the calling getProjection function should capture this case
+                   ! the calling getEquatorProjection function should capture this case
                    ! but still add this trap here, just in case
                     dzSgn = Xn(ZDIR)*( Xn(ZDIR)-dx(ZDIR) )
                     if ((dzSgn < 0).or.(Xn(ZDIR)-dx(ZDIR).eq.0.)) then
                         ! interpolate exactly to equator
-                        Xn = Xn-dx/norm2(dx)*abs(Xn(ZDIR))
+                        Xn = Xn-dx*abs(Xn(ZDIR))/abs(dx(ZDIR))
+
+                        failEquator = .false.
                         return
                     endif !dzSgn
-                endif !toEquator
-
+                 end if
             endif !inDom
  
         enddo
