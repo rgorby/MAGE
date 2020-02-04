@@ -16,7 +16,7 @@ contains
   subroutine lastSerial()
   end subroutine lastSerial
 
-  @test
+  !@test
   subroutine dipoleTest()
     ! testing that a dipole field from gamera results in 0 FAC in remix
     type(voltApp_T) :: voltronApp

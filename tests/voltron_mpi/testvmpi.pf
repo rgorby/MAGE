@@ -4,6 +4,7 @@ module testVMpi
   use voltapp_mpi
   use gam2voltcomm_mpi
   use uservoltic
+  use ioH5
 
   implicit none
 
@@ -506,6 +507,8 @@ contains
       real(rp) :: xc,yc,zc,deltaSum,rval,lambda,Psi0,RIn,errorThresh
       real(rp), dimension(NDIM) :: rHatP,eHat,xyz,Exyz,ccEijk
 
+      type(IOVAR_T), dimension(MAXIOVAR) :: debugHDF
+
       !Setting some values for inner shell
       RIn  = 1.0
       Psi0 = 10.0
@@ -605,8 +608,126 @@ contains
           ! send the data to gamera
           call sendShallowData_mpi(voltAppMpi)
 
+          SELECT type(iiBC=>voltAppMpi%gAppLocal%Grid%externalBCs(INI)%p)
+              TYPE IS (IonInnerBC_T)
+
+                  call AddOutVar(debugHDF,'remixN',voltAppMpi%remixApp%ion(1)%st%vars(:,:,POT))
+                  call AddOutVar(debugHDF,'remixS',voltAppMpi%remixApp%ion(2)%st%vars(:,:,POT))
+                  call AddOutVar(debugHDF,'mixOutput',voltAppMpi%mix2mhd%mixOutput)
+                  call AddOutVar(debugHDF,'gPsi',voltAppMpi%mix2mhd%gPsi)
+                  call AddOutVar(debugHDF,'inExyz',iiBC%inExyz)
+                  call WriteVars(debugHDF,.false.,'voltrontest.h5')
+
+                  ! check that inExyz is pointed exactly radially at all locations
+                  deltaSum = 0.0_rp
+                  !Only loop over active cells
+                  do k=voltAppMpi%gAppLocal%Grid%ks,voltAppMpi%gAppLocal%Grid%ke
+                      do j=voltAppMpi%gAppLocal%Grid%js,voltAppMpi%gAppLocal%Grid%je
+
+                          !Map to active ip,jp,kp (i=Grid%is => ip=Grid%is)
+                          call lfmIJK(voltAppMpi%gAppLocal%Model,voltAppMpi%gAppLocal%Grid,voltAppMpi%gAppLocal%Grid%is,j,k,ip,jp,kp)
+
+                          do n=1,voltAppMpi%gAppLocal%Model%Ng
+                              ig = voltAppMpi%gAppLocal%Grid%is-n
+                              np = voltAppMpi%gAppLocal%Model%nG-n+1
+
+                              call cellCenter(voltAppMpi%gAppLocal%Grid, ig,j,k,xc,yc,zc)
+                              rHatP = normVec([xc,yc,zc])
+
+                              eHat = normVec(iiBC%inExyz(np,jp,kp,:))
+                              !write(*,*) 'ig,j,k,np = ',ig,j,k,np
+                              !write(*,*) 'eIJK / eXYZ = ', iiBC%inEijk(np,jp,kp,:), iiBC%inExyz(np,jp,kp,:)
+
+                              deltaSum = deltaSum + abs(norm2(rHatP-eHat))
+                          end do
+                      end do
+                  end do
+
+                  ! reasonable error of 1e-3 per cell
+                  errorThresh = 1e-3*(1+voltAppMpi%gAppLocal%Grid%ke-voltAppMpi%gAppLocal%Grid%ks)*(1+voltAppMpi%gAppLocal%Grid%je-voltAppMpi%gAppLocal%Grid%js)*voltAppMpi%gAppLocal%Model%Ng
+                  @assertLessThanOrEqual(deltaSum, errorThresh, 'VOLTRON Magnetic field from remix was not pointing radially')
+
+                  !Now test Eijk fields
+                  deltaSum = 0.0
+                  !Only loop over active cells
+                  do k=voltAppMpi%gAppLocal%Grid%ks,voltAppMpi%gAppLocal%Grid%ke
+                      do j=voltAppMpi%gAppLocal%Grid%js,voltAppMpi%gAppLocal%Grid%je
+                          !Map to active ip,jp,kp (i=Grid%is => ip=Grid%is)
+                          call lfmIJK(voltAppMpi%gAppLocal%Model,voltAppMpi%gAppLocal%Grid,voltAppMpi%gAppLocal%Grid%is,j,k,ip,jp,kp)
+                          do n=1,voltAppMpi%gAppLocal%Model%Ng
+                              ig = voltAppMpi%gAppLocal%Grid%is-n
+                              np = voltAppMpi%gAppLocal%Model%nG-n+1
+                              !Convert Eijk (edges) to cc-Eijk
+                              ccEijk(IDIR) = 0.25*(iiBC%inEijk(ig,j,k,IDIR)+iiBC%inEijk(ig,j,k+1,IDIR)+iiBC%inEijk(ig,j+1,k,IDIR)+iiBC%inEijk(ig,j+1,k+1,IDIR))
+                              ccEijk(JDIR) = 0.25*(iiBC%inEijk(ig,j,k,JDIR)+iiBC%inEijk(ig,j,k+1,JDIR)+iiBC%inEijk(ig+1,j,k,JDIR)+iiBC%inEijk(ig+1,j,k+1,JDIR))
+                              ccEijk(KDIR) = 0.25*(iiBC%inEijk(ig,j,k,KDIR)+iiBC%inEijk(ig+1,j,k,KDIR)+iiBC%inEijk(ig,j+1,k,KDIR)+iiBC%inEijk(ig+1,j+1,k,KDIR))
+                              !Now convert cc-Eijk to Exyz
+                              Exyz = ccEijk2Exyz(voltAppMpi%gAppLocal%Model,voltAppMpi%gAppLocal%Grid,ccEijk,ig,j,k)
+                              !Exyz above is approximation to inExyz, ie testing whether or not Eijk and Exyz are consistent
+                              deltaSum = deltaSum + norm2(Exyz-iiBC%inExyz(np,jp,kp,:))
+                          enddo
+                      enddo
+                  enddo
+
+                  @assertLessThanOrEqual(deltaSum, errorThresh, 'VOLTRON inEijk values did not match inExyz values')
+              CLASS DEFAULT
+                  @assertEqual(0,1,'No Remix BC on Voltron')
+          END SELECT
+
       endif
   end subroutine VMPIcorotationTest
+
+  @test(npes=[2,5,17])
+  subroutine VMPIdipoleTest(this)
+    class (MpiTestMethod), intent(inout) :: this
+
+    ! testing that a dipole field from gamera results in 0 FAC in remix
+    procedure(VectorField_T), pointer :: Axyz
+    real(rp) testValue
+
+    if(isGamera) then
+        ! create a dipole field in Gamera. This code is copied from prob.F90
+        Axyz => VP_Dipole
+        call VectorPot2Flux(gamAppMpi%Model,gamAppMpi%Grid,gamAppMpi%State,Axyz)
+
+        @assertGreaterThanOrEqual(sum(abs(gamAppMpi%State%magFlux(gamAppMpi%Grid%isg,:,:,:))), 20.0_rp, 'Gamera did not properly set a large magnetic field')
+
+        call bFlux2Fld(gamAppMpi%Model, gamAppMpi%Grid, gamAppMpi%State%magFlux, gamAppMpi%State%Bxyz)
+
+        call sendShallowData(g2vCommMpi, gamAppMpi)
+    else
+        call recvShallowData_mpi(voltAppMpi)
+
+        call convertGameraToRemix(voltAppMpi%mhd2mix, voltAppMpi%gAppLocal, voltAppMpi%remixApp)
+
+        call mapGameraToRemix(voltAppMpi%mhd2mix, voltAppMpi%remixApp)
+
+        ! verify that remix input FAC is all zeroes
+        testValue = sum(abs(voltAppMpi%remixApp%ion(NORTH)%St%Vars(:,:,FAC))) + sum(abs(voltAppMpi%remixApp%ion(SOUTH)%St%Vars(:,:,FAC)))
+
+        @assertLessThanOrEqual(testValue, 1e-1_rp, 'Remix did not get all 0 FAC from an input dipole field')
+    endif
+
+    contains
+
+    ! modified to hard-code M2 constant to 1.0 (therefore removed)
+    subroutine VP_Dipole(x,y,z,Ax,Ay,Az)
+        real(rp), intent(in) :: x,y,z
+        real(rp), intent(out) :: Ax,Ay,Az
+
+        real(rp), dimension(NDIM) :: A,m,r,rhat
+        m = [0,0,1]
+        r = [x,y,z]
+        rhat = r/norm2(r)
+
+        A = cross(m,rhat)/(dot_product(r,r))
+        Ax = A(XDIR)
+        Ay = A(YDIR)
+        Az = A(ZDIR)
+
+    end subroutine VP_Dipole
+
+  end subroutine VMPIdipoleTest
 
 end module testVMpi
 
