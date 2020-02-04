@@ -41,6 +41,7 @@ module rcm_mhd_interfaces
   !Information about MHD ingestion
   logical, allocatable :: toMHD(:,:)
   
+  !Information to sync restarts w/ MHD
   integer(iprec) :: rcm_nOut,rcm_nRes !Indices for output/restart
   character(len=strLen) :: rcm_runid
   
