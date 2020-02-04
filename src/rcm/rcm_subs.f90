@@ -1178,7 +1178,7 @@ END IF
 !
             DO ie = 1, iedim_local 
 !                                                                       
-               IF (sum1 (ie) > zero) THEN
+               IF (sum1 (ie) > 10.*machine_tiny) THEN  ! zero  sbao 07/2019
 !
 !                compute thermal electron current, field-aligned
 !                potential drop, electron energy flux,
@@ -1209,6 +1209,13 @@ END IF
                                  ( ekt + vpar(i,j) + half*vpar(i,j)**2/ekt)
                   eavg(i,j,ie) = two*(ekt+vpar(i,j)+half*vpar(i,j)**2 /ekt) / &
                                  (one + vpar (i, j) / ekt)
+                  ! sbao 6/19 detect Nan 
+                  if (ISNAN(eflux(i,j,ie)))then
+                       write(*,*)'eflux,i,j,therm,ekt,vpar,sum1,sum2,vm',eflux(i,j,ie),i,j,therm,ekt,vpar(i,j),sum1(ie),sum2(ie),vm(i,j)
+                       eflux(i,j,ie) = 0.0
+                       eavg(i,j,ie) = 0.0
+                  end if
+
                ELSE 
 !                                                                       
 !                 Case fudge=0: we want eflux=0 and eavg=0 for no precipitation.
@@ -1217,6 +1224,9 @@ END IF
                   eavg  (i, j, ie) = zero
 !
                END IF 
+               ! corrections to eavg at eflux(i,j) == 0.0     sbao 07/2019 
+               IF (eflux(i,j,ie) == 0.0) eavg(i,j,ie) = 0.0
+
 !                                                                       
             END DO
 !
@@ -8360,7 +8370,7 @@ SUBROUTINE Move_plasma_grid_NEW (dt)
   REAL (rprec) :: eeta2 (isize,jsize), veff  (isize,jsize),  &
                   dvefdi(isize,jsize), dvefdj(isize,jsize), &
                   didt, djdt, mass_factor
-  REAL (rprec) :: eps=1.0e-8, max_eeta
+  REAL (rprec) :: max_eeta, eps = 0.0 !sbao 07/2019
   INTEGER (iprec) :: i, j, kc, ie
 !\\\
   integer(iprec) :: CLAWiter, joff, icut
