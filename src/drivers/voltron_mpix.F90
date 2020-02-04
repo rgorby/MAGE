@@ -123,7 +123,7 @@ program voltron_mpix
 
             call Tic("IonCoupling")
             if (g2vComm%time >= g2vComm%ShallowT) then
-                write (*,*) "Gamera performing shallow update at ",g2vComm%time
+                !write (*,*) "Gamera performing shallow update at ",g2vComm%time
                 call performShallowUpdate(g2vComm, gApp, deepPerformed)
             endif
             call Toc("IonCoupling")
@@ -183,7 +183,7 @@ program voltron_mpix
 
             call Tic("IonCoupling")
             if (vApp%time >= vApp%ShallowT) then
-                write (*,*) "Voltron performing shallow update at ",vApp%time
+                !write (*,*) "Voltron performing shallow update at ",vApp%time
                 call ShallowUpdate_mpi(vApp, vApp%time, deepPerformed)
             endif
             call Toc("IonCoupling")
