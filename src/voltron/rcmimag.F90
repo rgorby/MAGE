@@ -549,26 +549,26 @@ module rcmimag
         !Reset IO chain
         call ClearIO(IOVars)
 
-        call AddOutVar(IOVars,"N",RCMApp%Nrcm*rcmNScl)
-        call AddOutVar(IOVars,"Npsph",RCMApp%Npsph*rcmNScl)
-        call AddOutVar(IOVars,"P",RCMApp%Prcm*rcmPScl)
+        call AddOutVar(IOVars,"N",RCMApp%Nrcm*rcmNScl,uStr="#/cc")
+        call AddOutVar(IOVars,"Npsph",RCMApp%Npsph*rcmNScl,uStr="#/cc")
+        call AddOutVar(IOVars,"P",RCMApp%Prcm*rcmPScl,uStr="nPa")
         call AddOutVar(IOVars,"IOpen",RCMApp%iopen*1.0_rp)
-        call AddOutVar(IOVars,"bVol",RCMApp%Vol)
-        call AddOutVar(IOVars,"pot",RCMApp%pot)
-        call AddOutVar(IOVars,"xMin",RCMApp%X_bmin(:,:,XDIR)/REarth)
-        call AddOutVar(IOVars,"yMin",RCMApp%X_bmin(:,:,YDIR)/REarth)
-        call AddOutVar(IOVars,"zMin",RCMApp%X_bmin(:,:,ZDIR)/REarth)
-        call AddOutVar(IOVars,"bMin",RCMApp%Bmin)
+        call AddOutVar(IOVars,"bVol",RCMApp%Vol,uStr="Re/T")
+        call AddOutVar(IOVars,"pot",RCMApp%pot,uStr="V")
+        call AddOutVar(IOVars,"xMin",RCMApp%X_bmin(:,:,XDIR)/REarth,uStr="Re")
+        call AddOutVar(IOVars,"yMin",RCMApp%X_bmin(:,:,YDIR)/REarth,uStr="Re")
+        call AddOutVar(IOVars,"zMin",RCMApp%X_bmin(:,:,ZDIR)/REarth,uStr="Re")
+        call AddOutVar(IOVars,"bMin",RCMApp%Bmin,uStr="T")
         
-        call AddOutVar(IOVars,"S",rcm2Wolf*RCMApp%Prcm*(RCMApp%Vol**IMGAMMA) )
+        call AddOutVar(IOVars,"S",rcm2Wolf*RCMApp%Prcm*(RCMApp%Vol**IMGAMMA),uStr="Wolf")
         call AddOutVar(IOVars,"beta",RCMApp%beta_average)
-        call AddOutVar(IOVars,"Pmhd",RCMApp%Pave*rcmPScl)
-        call AddOutVar(IOVars,"Nmhd",RCMApp%Nave*rcmNScl)
-        call AddOutVar(IOVars,"latc",RCMApp%latc*180.0/PI)
-        call AddOutVar(IOVars,"lonc",RCMApp%lonc*180.0/PI)
+        call AddOutVar(IOVars,"Pmhd",RCMApp%Pave*rcmPScl,uStr="nPa")
+        call AddOutVar(IOVars,"Nmhd",RCMApp%Nave*rcmNScl,uStr="#/cc")
+        call AddOutVar(IOVars,"latc",RCMApp%latc*180.0/PI,uStr="deg")
+        call AddOutVar(IOVars,"lonc",RCMApp%lonc*180.0/PI,uStr="deg")
 
-        call AddOutVar(IOVars,"eavg",RCMApp%eng_avg*1.0e-3) !ev->keV
-        call AddOutVar(IOVars,"eflux",RCMApp%flux)
+        call AddOutVar(IOVars,"eavg",RCMApp%eng_avg*1.0e-3,uStr="keV") !ev->keV
+        call AddOutVar(IOVars,"eflux",RCMApp%flux,uStr="ergs/cm2")
 
         call AddOutVar(IOVars,"toMHD",merge(1.0_rp,0.0_rp,RCMApp%toMHD))
 
