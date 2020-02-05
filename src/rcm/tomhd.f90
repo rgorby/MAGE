@@ -241,7 +241,8 @@
       RM%Npsph   = denspsph(:,jwrap:jdim)
       RM%flux    = eflux   (:,jwrap:jdim,ie_el)
       RM%eng_avg = eavg    (:,jwrap:jdim,ie_el)
-
+      RM%fac     = birk    (:,jwrap:jdim)
+      
 ! if the locations are within 1 grid point of the boundary, then set the mask to zero
 
 

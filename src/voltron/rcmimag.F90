@@ -569,6 +569,7 @@ module rcmimag
 
         call AddOutVar(IOVars,"eavg",RCMApp%eng_avg*1.0e-3,uStr="keV") !ev->keV
         call AddOutVar(IOVars,"eflux",RCMApp%flux,uStr="ergs/cm2")
+        call AddOutVar(IOVars,"birk",RCMApp%fac,uStr="uA/m2")
 
         call AddOutVar(IOVars,"toMHD",merge(1.0_rp,0.0_rp,RCMApp%toMHD))
 
