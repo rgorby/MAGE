@@ -453,8 +453,8 @@
       vbnd(2) = vbnd(jsize-1)
 
       ! compute rmin,pmin
-      !rmin = sqrt(xmin**2 + ymin**2 + zmin**2)
-      rmin = sqrt(xmin**2 + ymin**2)
+      rmin = sqrt(xmin**2 + ymin**2 + zmin**2)
+      !rmin = sqrt(xmin**2 + ymin**2)
 
       pmin = atan2(ymin,xmin)
 

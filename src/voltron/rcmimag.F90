@@ -296,7 +296,8 @@ module rcmimag
         if ( (npp >= PPDen) .and. (prcm > TINY) ) then
             ntot = npp + nrcm
         else
-            ntot = nrcm
+            !ntot = nrcm
+            ntot = 0.0
         endif
 
         !Store data

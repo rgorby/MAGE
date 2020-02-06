@@ -209,7 +209,7 @@ module msphutils
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
         real(rp), intent(inout) :: gPsi  (1:PsiSh+1,Grid%js:Grid%je+1,Grid%ks:Grid%ke+1)
-        real(rp), intent(inout) :: inEijk(1:PsiSh+1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1,1:NDIM)
+        real(rp), intent(inout) :: inEijk(1:PsiSh+1,Grid%jsg:Grid%jeg,Grid%ksg:Grid%keg,1:NDIM)
         real(rp), intent(inout) :: inExyz(1:PsiSh,Grid%jsg:Grid%jeg,Grid%ksg:Grid%keg,1:NDIM)
         real(rp), intent(in), optional :: pSclO
         integer :: i,j,k,iG
