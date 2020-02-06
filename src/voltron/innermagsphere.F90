@@ -81,7 +81,7 @@ module innermagsphere
         type(voltApp_T), intent(inout) :: vApp
         type(gamApp_T) , intent(inout) :: gApp
 
-        integer :: i,j,k
+        integer :: i,j,k,Nk
         real(rp) :: x1,x2,t
         real(rp) :: imW(NVARIMAG)
         real(rp) :: x12C(2,2,2,2)
@@ -141,6 +141,50 @@ module innermagsphere
             enddo
         enddo
 
+        !Do averaging for first cell next to singularity
+        Nk = Gr%ke-Gr%ks+1
+        do i=Gr%is,Gr%is+chmp2mhd%iMax
+        !+X pole
+            !Density
+            if (all( Gr%Gas0(i,Gr%js,Gr%ks:Gr%ke,IMDEN,BLK) > TINY )) then
+                !All values are good on inner ring
+                imW(IMDEN) = sum(Gr%Gas0(i,Gr%js,Gr%ks:Gr%ke,IMDEN,BLK))/Nk
+            else
+                !Not all values are good so don't use any
+                imW(IMDEN) = 0.0
+            endif
+            !Pressure
+            if (all( Gr%Gas0(i,Gr%js,Gr%ks:Gr%ke,IMPR ,BLK) > TINY )) then
+                !All values are good on inner ring
+                imW(IMPR ) = sum(Gr%Gas0(i,Gr%js,Gr%ks:Gr%ke,IMPR ,BLK))/Nk
+            else
+                !Not all values are good so don't use any
+                imW(IMPR ) = 0.0
+            endif
+            Gr%Gas0(i,Gr%js,Gr%ks:Gr%ke,IMDEN,BLK) = imW(IMDEN)
+            Gr%Gas0(i,Gr%js,Gr%ks:Gr%ke,IMPR ,BLK) = imW(IMPR )
+
+        !-X pole
+            !Density
+            if (all( Gr%Gas0(i,Gr%je,Gr%ks:Gr%ke,IMDEN,BLK) > TINY )) then
+                !All values are good on inner ring
+                imW(IMDEN) = sum(Gr%Gas0(i,Gr%je,Gr%ks:Gr%ke,IMDEN,BLK))/Nk
+            else
+                !Not all values are good so don't use any
+                imW(IMDEN) = 0.0
+            endif
+            !Pressure
+            if (all( Gr%Gas0(i,Gr%je,Gr%ks:Gr%ke,IMPR ,BLK) > TINY )) then
+                !All values are good on inner ring
+                imW(IMPR ) = sum(Gr%Gas0(i,Gr%je,Gr%ks:Gr%ke,IMPR ,BLK))/Nk
+            else
+                !Not all values are good so don't use any
+                imW(IMPR ) = 0.0
+            endif
+            Gr%Gas0(i,Gr%je,Gr%ks:Gr%ke,IMDEN,BLK) = imW(IMDEN)
+            Gr%Gas0(i,Gr%je,Gr%ks:Gr%ke,IMPR ,BLK) = imW(IMPR )
+
+        enddo
 
         end associate
 

@@ -245,7 +245,7 @@
       RM%fac     = birk    (:,jwrap:jdim)
       
       RM%toMHD = .false.
-      dRad = 0.5*radius_earth_m
+      dRad = 1.0*radius_earth_m
 
       do j=jwrap,jdim
         jp = j-jwrap+1
@@ -261,7 +261,6 @@
 
         RM%toMHD(i:,jp) = .true.
       enddo
-! if the locations are within 1 grid point of the boundary, then set the mask to zero
       
       RETURN
       END SUBROUTINE tomhd
