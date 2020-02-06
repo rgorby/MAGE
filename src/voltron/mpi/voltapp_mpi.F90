@@ -161,9 +161,9 @@ module voltapp_mpi
 
         ! use standard voltron with local gamApp object
         if(present(optFilename)) then
-            call initVoltron(vApp, vApp%gAppLocal, optFilename)
+            call initVoltron(vApp, vApp%gAppLocal, optFilename, writeGameraState=.false.)
         else
-            call initVoltron(vApp, vApp%gAppLocal)
+            call initVoltron(vApp, vApp%gAppLocal, writeGameraState=.false.)
         endif
 
         ! send all of the initial voltron parameters to the gamera ranks
