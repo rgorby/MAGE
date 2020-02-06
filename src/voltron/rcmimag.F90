@@ -181,9 +181,6 @@ module rcmimag
             enddo
         enddo
 
-        !Set ingestion region
-        call SetIngestion()
-
         call Toc("RCM_TUBES")
 
         call Tic("AdvRCM")
@@ -193,6 +190,9 @@ module rcmimag
         !Update timming data
         call rcm_mhd(vApp%time,0.0_rp,RCMApp,RCMWRITETIMING)
         call Toc("AdvRCM")
+
+        !Set ingestion region
+        call SetIngestion()
 
     !Pull data from RCM state for conductance calculations
         vApp%imag2mix%isClosed = (RCMApp%iopen == RCMTOPCLOSED)
@@ -215,66 +215,37 @@ module rcmimag
 
     !Set region of RCM grid that's "good" for MHD ingestion
     subroutine SetIngestion()
-        integer :: i,j,iC
+        integer :: n,i,j,iC
+        integer , dimension(:), allocatable :: jBnd,jBndG
         
-        real(rp) :: x0,ell,a,b
-        logical :: jClosed
+        allocate(jBnd (  RCMApp%nLon_ion  ))
+        allocate(jBndG(0:RCMApp%nLon_ion+1))
 
-        !Start by looping from high-lat downwards until we find full ring of closed lines
-        do i = 1,RCMApp%nLat_ion
-            jClosed = all(RCMApp%iopen(i,:) == RCMTOPCLOSED)
-            if (jClosed) exit
-        enddo
-        iC = i
-
-        !Construct new ellipse if we're doing dynamic
-        if (RCMEll%isDynamic) then
-            !Now find maximum sunward point on this ring
-            RCMEll%xSun  = maxval(RCMApp%X_bmin(iC,:,XDIR))
-            RCMEll%xTail = minval(RCMApp%X_bmin(iC,:,XDIR))
-            RCMEll%yDD   = maxval(abs(RCMApp%X_bmin(iC,:,YDIR)))
-
-            ! RCMEll%xSun  = maxval(    RCMApp%X_bmin(:,:,XDIR) ,mask=(RCMApp%iopen(:,:) == RCMTOPCLOSED) )
-            ! RCMEll%xTail = minval(    RCMApp%X_bmin(:,:,XDIR) ,mask=(RCMApp%iopen(:,:) == RCMTOPCLOSED) )
-            ! RCMEll%yDD   = maxval(abs(RCMApp%X_bmin(:,:,YDIR)),mask=(RCMApp%iopen(:,:) == RCMTOPCLOSED) )
-
-            !Rescale to give some breathing room
-            RCMEll%xSun  = RCMEll%xSScl*RCMEll%xSun 
-            RCMEll%xTail = RCMEll%xTScl*RCMEll%xTail
-            RCMEll%yDD   = RCMEll%yScl *RCMEll%yDD  
-
-            !Constrain ellipse parameters by reqmin
-            !TODO: Test unconstrained tail
-            if (    RCMEll%xSun   >= rEqMin) RCMEll%xSun  =  rEqMin
-            if (abs(RCMEll%xTail) >= rEqMin) RCMEll%xTail = -rEqMin
-            if (    RCMEll%yDD    >= rEqMin) RCMEll%yDD   =  rEqMin
-            ! write(*,*) 'iC = ', iC
-            ! write(*,*) 'xSun  = ', RCMEll%xSun/REarth
-            ! write(*,*) 'xTail = ', RCMEll%xTail/REarth
-            ! write(*,*) 'yDD   = ', RCMEll%yDD/REarth
-
-        endif
-
-        !Set derived quantities
-        x0 = (RCMEll%xSun + RCMEll%xTail)/2
-        a  = (RCMEll%xSun - RCMEll%xTail)/2
-        b  =  RCMEll%yDD
-
-
-       !$OMP PARALLEL DO default(shared) &
-       !$OMP private(ell)
-        !do i=iC,RCMApp%nLat_ion
-        do i=1,RCMApp%nLat_ion
-            do j=1,RCMApp%nLon_ion
-                ell = ((RCMApp%X_bmin(i,j,XDIR)-x0)/a)**2.0 + (RCMApp%X_bmin(i,j,YDIR)/b)**2.0
-                if ( (ell <= 1) .and. (RCMApp%iopen(i,j) == RCMTOPCLOSED) ) RCMApp%toMHD(i,j) = .true.
+        do j=1,RCMApp%nLon_ion
+            do i = 1,RCMApp%nLat_ion
+                if (RCMApp%toMHD(i,j)) exit
             enddo
+            jBnd(j) = min(i+1,RCMApp%nLat_ion)
         enddo
 
+        do n=1,4
+            jBndG(1:RCMApp%nLon_ion) = jBnd
+            jBndG(0) = jBnd(RCMApp%nLon_ion)
+            jBndG(RCMApp%nLon_ion+1) = jBnd(1)
+
+            do j=1,RCMApp%nLon_ion
+                jBnd(j) = maxval(jBndG(j-1:j+1))
+
+            enddo
+
+        enddo
+
+        RCMApp%toMHD = .false.
+        do j=1,RCMApp%nLon_ion
+            RCMApp%toMHD(jBnd(j):,j) = .true.
+        enddo
 
     end subroutine SetIngestion
-
-
 
     !Evaluate eq map at a given point
     !Returns density (#/cc) and pressure (nPa)

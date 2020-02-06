@@ -126,7 +126,7 @@
 
       ! fits an ellipse to the boundary
       if (use_ellipse)then
-               CALL Set_ellipse(idim,jdim,rmin,pmin,vm,big_vm,bndloc,iopen)
+        CALL Set_ellipse(idim,jdim,rmin,pmin,vm,big_vm,bndloc,iopen)
       end if
 
 !      IF(set_boundary_with_mach)then
@@ -416,6 +416,10 @@
       ymin (:,          1) = ymin (:,jsize-2)
       ymin (:,          2) = ymin (:,jsize-1)
 
+      zmin (:,jwrap:jsize) = RM%x_bmin (:,      :,3)/radius_earth_m
+      zmin (:,          1) = zmin (:,jsize-2)
+      zmin (:,          2) = zmin (:,jsize-1)
+
       bmin (:,jwrap:jsize) = RM%bmin (:,      :)/nt ! in nT
       bmin (:,          1) = bmin (:,jsize-2)
       bmin (:,          2) = bmin (:,jsize-1)
@@ -449,7 +453,7 @@
       vbnd(2) = vbnd(jsize-1)
 
       ! compute rmin,pmin
-      rmin = sqrt(xmin**2+ymin**2)
+      rmin = sqrt(xmin**2 + ymin**2 + zmin**2)
       pmin = atan2(ymin,xmin)
 
       ierr = 0

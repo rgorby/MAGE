@@ -8428,7 +8428,8 @@ SUBROUTINE Move_plasma_grid_NEW (dt)
      mass_factor = SQRT (xmass(1)/xmass(ie))
 !
 !    1. Compute the effective potential for the kc energy channel:
-!
+! 
+    !K: Here we're adding corotation to total effective potential
      veff = v +vcorot - vpar + vm*alamc(kc)
 !!!  CALL V_eff_polar_cap (veff)
 !

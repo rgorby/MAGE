@@ -390,17 +390,18 @@ module ringav
                 if (Model%Ring%doS) then
                     E(nS,Gr%js,:,KDIR) = 0.0
                     E(nS,Gr%js,:,IDIR) = sum(E(nS,Gr%js,Gr%ks:Gr%ke,IDIR))/Np
-                    do nR=1,Model%Ring%NumR+1
-                        E(nS,Gr%js+nR-1,Gr%ke+1,:) = E(nS,Gr%js+nR-1,Gr%ks,:)
-                    enddo
+                    ! do nR=1,Model%Ring%NumR+1
+                    !     E(nS,Gr%js+nR-1,Gr%ke+1,:) = E(nS,Gr%js+nR-1,Gr%ks,:)
+                    ! enddo
                 endif
                 if (Model%Ring%doE) then                
                     !E pole
                     E(nS,Gr%je+1,:,KDIR) = 0.0
                     E(nS,Gr%je+1,:,IDIR) = sum(E(nS,Gr%je+1,Gr%ks:Gr%ke,IDIR))/Np
-                    do nR=1,Model%Ring%NumR+1
-                        E(nS,Gr%je+2-nR,Gr%ke+1,:) = E(nS,Gr%je+2-nR,Gr%ks,:)
-                    enddo
+                    ! do nR=1,Model%Ring%NumR+1
+                    !     E(nS,Gr%je+2-nR,Gr%ke+1,:) = E(nS,Gr%je+2-nR,Gr%ks,:)
+                    ! enddo
+                    
                 endif
             enddo
         end select
