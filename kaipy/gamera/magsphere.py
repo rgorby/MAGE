@@ -212,6 +212,7 @@ class GamsphPipe(GameraPipe):
 		else:
 			fMix = None
 		return fMix
+		
 	#Get CPCP @ gamera step #n
 	def GetCPCP(self,n):
 		n0 = n-self.s0

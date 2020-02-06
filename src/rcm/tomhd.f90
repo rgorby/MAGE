@@ -8,7 +8,8 @@
                               pi, read_array, label, LUN, &
                               boundary, bndloc, pressrcm,&
                               Read_grid, Read_plasma,Get_boundary, &
-                              xmass, densrcm,denspsph,imin_j,rcmdir
+                              xmass, densrcm,denspsph,imin_j,rcmdir, &
+                              eflux,eavg,ie_el
       USE constants, ONLY : mass_proton,radius_earth_m,nt,ev,pressure_factor,density_factor
       USE rice_housekeeping_module
       Use rcm_mhd_interfaces
@@ -235,9 +236,11 @@
 !     now update the pressure and density in the mhd code
 ! use the lfm grid to transfer the rcm information       
 
-      RM%Prcm = pressrcm(:,jwrap:jdim)
-      RM%Nrcm   = densrcm(:,jwrap:jdim)
-      RM%Npsph  = denspsph(:,jwrap:jdim)
+      RM%Prcm    = pressrcm(:,jwrap:jdim)
+      RM%Nrcm    = densrcm (:,jwrap:jdim)
+      RM%Npsph   = denspsph(:,jwrap:jdim)
+      RM%flux    = eflux   (:,jwrap:jdim,ie_el)
+      RM%eng_avg = eavg    (:,jwrap:jdim,ie_el)
 
 ! if the locations are within 1 grid point of the boundary, then set the mask to zero
 

@@ -18,10 +18,14 @@ module step
         type(State_T), intent(inout) :: State
 
         integer :: n
+        character(len=strLen) :: BCID
         !Loop over BCs for this grid and call them
         do n=1,Gr%NumBC
             if (allocated(Gr%externalBCs(n)%p)) then
+                write (BCID, '(A,I0)') "BC#", n
+                call Tic(BCID)
                 call Gr%externalBCs(n)%p%doBC(Model,Gr,State)
+                call Toc(BCID)
             endif
         enddo
 
@@ -220,7 +224,7 @@ module step
         Valf  = 0.0
         VDiff = 0.0
 
-        if (Model%doMHD) then                                        
+        if (Model%doMHD) then
             Bx = State%Bxyz(i,j,k,XDIR)
             By = State%Bxyz(i,j,k,YDIR)
             Bz = State%Bxyz(i,j,k,ZDIR)

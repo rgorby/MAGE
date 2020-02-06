@@ -9,7 +9,10 @@ import matplotlib.pyplot as plt
 import kaipy.kaiViz as kv
 import matplotlib.gridspec as gridspec
 import numpy as np
+import kaipy.gamera.gampp as gampp
 import kaipy.gamera.remixpp as rmpp
+import kaipy.gamera.rcmpp as rcmpp
+from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 import os
 import errno
 
@@ -98,7 +101,9 @@ if __name__ == "__main__":
 	dbCMap = "RdGy_r"
 	bCMap = "inferno"
 	pCMap = "viridis"
-	
+	ppCol = "orange"
+	ppVal = 100.0
+
 	if (doBig):
 		xTail = -100.0
 		xSun = 20.0
@@ -118,6 +123,14 @@ if __name__ == "__main__":
 	#Init data
 	gsph = msph.GamsphPipe(fdir,ftag)
 
+	#Check for RCM
+	rcmChk = fdir + "/%s.mhdrcm.h5"%(ftag)
+	doRCM = os.path.exists(rcmChk)
+	if (doRCM):
+		print("Found RCM data")
+		rcmdata = gampp.GameraPipe(fdir,ftag+".mhdrcm")
+		vP = kv.genNorm(PMin,10*PMax,doLog=True)
+		
 	#======
 	#Setup figure
 	fig = plt.figure(figsize=figSz)
@@ -173,6 +186,11 @@ if __name__ == "__main__":
 		AxR.set_xlabel('SM-X [Re]')
 		AxR.set_ylabel('SM-Z [Re]')
 
+		#Add inset RCM plot
+		if (doRCM):
+			AxRCM = inset_axes(AxL,width="30%",height="30%",loc=3)
+			rcmpp.RCMInset(AxRCM,rcmdata,nStp,vP)
+			rcmpp.AddRCMBox(AxL)
 
 		#Add MPI decomp
 		LW = 0.25

@@ -132,9 +132,14 @@ module voltapp
         endif
 
         !Do first couplings
+        call Tic("IonCoupling")
         call ShallowUpdate(vApp,gApp,vApp%time)
+        call Toc("IonCoupling")
+        
         if (vApp%doDeep .and. (vApp%time>=vApp%DeepT)) then
+            call Tic("DeepCoupling")
             call DeepUpdate(vApp,gApp,vApp%time)
+            call Toc("DeepCoupling")
         endif
 
         !Recalculate timestep
@@ -260,6 +265,9 @@ module voltapp
         real(rp) :: curTilt
 
         ! convert gamera inputs to remix
+        if (vApp%doDeep) then
+            call mapIMagToRemix(vApp%imag2mix,vApp%remixApp)
+        endif
         call mapGameraToRemix(vApp%mhd2mix, vApp%remixApp)
 
         ! determining the current dipole tilt
@@ -291,6 +299,7 @@ module voltapp
         endif
 
         tAdv = time + vApp%DeepDT !Advance inner magnetosphere through full coupling time 
+    
     !Pull in updated fields to CHIMP
         call Tic("G2C")
         call convertGameraToChimp(vApp%mhd2chmp,gApp,vApp%ebTrcApp)
@@ -311,7 +320,8 @@ module voltapp
         call Tic("IM2G")
         call InnerMag2Gamera(vApp,gApp)
         call Toc("IM2G")
-        
+    
+
     !Setup next coupling
         vApp%DeepT = time + vApp%DeepDT
 

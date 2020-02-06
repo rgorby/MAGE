@@ -55,8 +55,18 @@ module gridloc
     procedure(inDom_T), pointer :: inDomain=>inDomain_Sph
     type(LocAux_T) :: locAux
 
+    integer, parameter :: NSnake = 25
+    !Snake search
+    !GFEDC
+    !H432B
+    !I501A
+    !J6789
+    !KLMNO
+    !                                                            1  2  3  4  5  6  7  8  9  A  B  C  D  E  F  G  H  I  J  K  L  M  N  O
+    integer, dimension(NSnake), parameter, private :: dsI = [ 0,+1,+1, 0,-1,-1,-1, 0,+1,+2,+2,+2,+2,+1, 0,-1,-2,-2,-2,-2,-2,-1, 0,+1,+2]
+    integer, dimension(NSnake), parameter, private :: dsJ = [ 0, 0,+1,+1,+1,-1,-1,-1,-1,-1, 0,+1,+2,+2,+2,+2,+2,+1, 0,-1,-2,-2,-2,-2,-2]
+    
     contains
-
 
     !Initialize various things for grid localization
     subroutine InitLoc(Model,ebGr,inpXML)
@@ -229,8 +239,8 @@ module gridloc
 
         logical :: isIn,inCell
         real(rp) :: xs,ys,lfmC(NDIM)
-        real(rp) :: xp(2), xCs(4,2)
-        integer :: i,j,i0,j0,k0
+        real(rp) :: xp(2)
+        integer :: i,j,i0,j0,k0,n
         integer :: i1,i2,j1,j2
 
         ijk = 0
@@ -253,26 +263,33 @@ module gridloc
         k0 = min(floor(lfmC(KDIR)/locAux%dTh) +1,ebGr%Nkp) !Evenly spaced k
         ijk(KDIR) = k0
 
+        xp = [xs,ys]
         !Use provided guess if present,
         if (present(ijkO)) then
-            xCs(1,:) = ebGr%xyz(ijkO(IDIR)  ,ijkO(JDIR)  ,ebGr%ks,XDIR:YDIR)
-            xCs(2,:) = ebGr%xyz(ijkO(IDIR)+1,ijkO(JDIR)  ,ebGr%ks,XDIR:YDIR)
-            xCs(3,:) = ebGr%xyz(ijkO(IDIR)+1,ijkO(JDIR)+1,ebGr%ks,XDIR:YDIR)
-            xCs(4,:) = ebGr%xyz(ijkO(IDIR),  ijkO(JDIR)+1,ebGr%ks,XDIR:YDIR)
-            xp = [xs,ys]
-            !Test guess
-            inCell = inCell2D(xp,xCs)
-            if (inCell) then
-                !Found it, let's get out of here
-                ijk(IDIR) = ijkO(IDIR)
-                ijk(JDIR) = ijkO(JDIR)
-                return
-            endif
-        endif
+            !Do snake search around guess
+            do n=1,NSnake
+                i = ijkO(IDIR) + dsI(n)
+                j = ijkO(JDIR) + dsJ(n)
+                !Check if point is valid
+                isIn = (i>=ebGr%is) .and. (i<=ebGr%ie) .and. (j>=ebGr%js) .and. (j<=ebGr%je)
+
+                if (.not. isIn) cycle
+                !Otherwise check if this is the right cell
+                inCell = CheckIJ(xp,[i,j],Model,ebGr)
+                if (inCell) then !Found it, let's get the hell out of here
+                    ijk(IDIR:JDIR) = [i,j]
+                    return
+                endif
+            enddo
+
+        endif !Using guess
+        
 
         !If we're still here, do this the hard way
         !Cut out obviously incorrect 2D indices
         call lfmChop(Model,ebGr,[xs,ys],i1,i2,j1,j2)
+
+        !If still here, just pick the closest one
         ijk(IDIR:JDIR) = minloc( (locAux%xxC(i1:i2,j1:j2)-xs)**2.0 + (locAux%yyC(i1:i2,j1:j2)-ys)**2.0 )
         ijk(IDIR:JDIR) = ijk(IDIR:JDIR) + [i1-1,j1-1] !Correct for offset
         if (ijk(KDIR)<0) then
@@ -280,6 +297,27 @@ module gridloc
         endif
 
     end subroutine Loc_LFM
+
+    !Check whether 2D point xy is in LFM cell ijG
+    function CheckIJ(xy,ijG,Model,ebGr) result(isIn)
+        real(rp), intent(in) :: xy (NDIM-1)
+        integer, intent(in)  :: ijG(NDIM-1)
+        type(chmpModel_T), intent(in) :: Model
+        type(ebGrid_T), intent(in) :: ebGr
+
+        logical :: isIn
+
+        real(rp) :: xCs(4,2)
+
+        xCs(1,:) = ebGr%xyz(ijG(IDIR)  ,ijG(JDIR)  ,ebGr%ks,XDIR:YDIR)
+        xCs(2,:) = ebGr%xyz(ijG(IDIR)+1,ijG(JDIR)  ,ebGr%ks,XDIR:YDIR)
+        xCs(3,:) = ebGr%xyz(ijG(IDIR)+1,ijG(JDIR)+1,ebGr%ks,XDIR:YDIR)
+        xCs(4,:) = ebGr%xyz(ijG(IDIR),  ijG(JDIR)+1,ebGr%ks,XDIR:YDIR)
+
+        !Test guess
+        isIn = inCell2D(xy,xCs)
+     
+    end function CheckIJ
 
     !3D localization routine for spherical grid
     subroutine Loc_SPH(xyz,ijk,Model,ebGr,isInO,ijkO)
@@ -433,6 +471,7 @@ module gridloc
         j1 = max(j1-1,ebGr%js)
         j2 = min(j2+1,ebGr%je)
 
+        !write(*,*) 'Chop down to i1,i2,j1,j2 = ', i1,i2,j1,j2
     end subroutine lfmChop
 
 

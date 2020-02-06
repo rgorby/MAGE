@@ -17,7 +17,8 @@ module ringav
     logical, parameter, private :: doCleanLoop = .true. !Whether to remove magnetic field loops
     !Information for Fourier reductions
     integer, parameter, private :: NFT = 1 !Number of Fourier modes (beyond 0th) to remove from signed quantities
-    
+    logical, parameter, private :: doShift = .true. !Whether to add random circular shift to ring chunking
+
     !Enumerators for Fourier reduction coefficients
     enum, bind(C)
         enumerator :: FTCOS=1, FTSIN
@@ -30,10 +31,10 @@ module ringav
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Gr
         type(State_T), target, intent(inout) :: State
-
         real(rp), dimension(:,:,:,:), allocatable, save :: SmoothE !Smoothing electric field
         
         !DIR$ attributes align : ALIGN :: SmoothE
+
     !----
     !Initialization
         !Start by making sure we should be here
@@ -85,11 +86,20 @@ module ringav
         integer :: nR,nS,nv,n
         integer :: NumCh, dC, lRs,lRe
         integer :: s,s0,sE
-        
+        integer :: jshift,jPhase(Model%Ring%NumR)
+
         real(rp), dimension(Np,NVAR) :: rW,raW
         logical, dimension(Np) :: gW
 
         !DIR$ attributes align : ALIGN :: rW,raW,gW
+
+        jPhase = 0
+        if (doShift) then
+            !Get random shift to apply to rings before chunking
+            do n=1,Model%Ring%NumR
+                jPhase(n) = nint( genRand(0.0_rp,1.0_rp*Np) )
+            enddo
+        endif
 
         s0 = BLK
         if (Model%doMultiF) then
@@ -105,7 +115,7 @@ module ringav
             !Do OMP on slices
             !$OMP PARALLEL DO default(shared) &
             !$OMP private(nR,nv,n,lRs,lRe,NumCh,dC) &
-            !$OMP private(rW,raW,gW)
+            !$OMP private(rW,raW,gW,jshift)
             do nS=Model%Ring%nSi,Model%Ring%nSe
                 do nR=1,Model%Ring%NumR
                     NumCh = Model%Ring%Nch(nR) !Number of total chunks for this ring
@@ -113,6 +123,14 @@ module ringav
 
                     !Pull ring hydro vars
                     call PullRingCC(Model,Gr,State%Gas(:,:,:,1:NVAR,s),rW,nR,nS,NVAR,XPOLE)
+
+                    !Shift if necessary
+                    if (doShift) then
+                        !Do positive shifts on pulled rings
+                        !Different phase on each radius
+                        jshift = jPhase(nR)
+                        rW = cshift(rW,+jshift,dim=1)
+                    endif
 
                     !Convert to ring variables
                     call Gas2Ring(Model,rW)
@@ -137,16 +155,28 @@ module ringav
                         gW = .true.
                     endif
 
-                !Reconstruct mass first, then remaining variables wrt mass coords
-
+                !Reconstruct mass first w/ standard reconstruction
                     call ReconstructRing(Model,raW(:,DEN),NumCh,gW)
-                    do nv=2,NVAR-1
-                        call WgtRecostructRing(Model,raW(:,nv),raW(:,DEN),NumCh,gW)
+                    !Loop over remaining variables and either do pure recon or mass-recon
+                    do nv=2,NVAR
+                        if (doMassRA) then
+                           call WgtReconstructRing(Model,raW(:,nv),raW(:,DEN),NumCh,gW)
+                        else
+                           call ReconstructRing(Model,raW(:,nv),NumCh,gW)
+                        endif  
                     enddo
-                    call ReconstructRing(Model,raW(:,PRESSURE),NumCh,gW)
-                    
+
                     !Convert back to gas variables
                     call Ring2Gas(Model,raW)
+
+                    !Unshift if necessary
+                    if (doShift) then
+                        !Unshift before pushing back into state
+                        !Doing negative of original shift
+                        !Working on raW not rW
+                        jshift = jPhase(nR)
+                        raW = cshift(raW,-jshift,dim=1)
+                    endif
 
                     !Push ring back
                     call PushRingCC(Model,Gr,State%Gas(:,:,:,1:NVAR,s),raW,nR,nS,NVAR,XPOLE)
@@ -273,13 +303,21 @@ module ringav
                     !LFM-style singularity
 
                     if (XPOLE == SPOLE) then !+X pole
+                        !Ei starts at js+1, rest at js (K-field is 0)
                         SmoothE(nS,Gr%js+nR  ,Gr%ks:Gr%ke,IDIR) = dEr(:,IDIR)
                         SmoothE(nS,Gr%js+nR-1,Gr%ks:gr%ke,JDIR) = dEr(:,JDIR)
                         SmoothE(nS,Gr%js+nR-1,Gr%ks:gr%ke,KDIR) = dEr(:,KDIR)
+
+                        !Replicate for ke+1
+                        SmoothE(nS,Gr%js+nR  ,Gr%ke+1,IDIR) = SmoothE(nS,Gr%js+nR  ,Gr%ks,IDIR)
+                        SmoothE(nS,Gr%js+nR-1,Gr%ke+1,JDIR) = SmoothE(nS,Gr%js+nR-1,Gr%ks,JDIR)
                     endif
 
                     if (XPOLE == EPOLE) then !-X pole
                         SmoothE(nS,Gr%je-nR+1,Gr%ks:Gr%ke,IDIR:KDIR) = dEr(:,IDIR:KDIR)
+                        !Replicate for ke+1
+                        SmoothE(nS,Gr%je-nR+1,Gr%ke+1,IDIR) = SmoothE(nS,Gr%je-nR+1,Gr%ks,IDIR)
+                        SmoothE(nS,Gr%je-nR+1,Gr%ke+1,JDIR) = SmoothE(nS,Gr%je-nR+1,Gr%ks,JDIR)
                     endif
 
                 end select
@@ -332,7 +370,7 @@ module ringav
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Gr
         real(rp), dimension(Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,NDIM), intent(inout) :: E
-        integer :: nS
+        integer :: nS,nR
 
         select case (Model%Ring%GridID)
         case ("cyl")
@@ -346,18 +384,24 @@ module ringav
         case ("lfm")
             !Do LFM +/- pole
             !$OMP PARALLEL DO default(shared) &
-            !$OMP private(nS)
+            !$OMP private(nS,nR)
             do nS=Model%Ring%nSi,Model%Ring%nSe+1
                 !S pole
                 if (Model%Ring%doS) then
                     E(nS,Gr%js,:,KDIR) = 0.0
                     E(nS,Gr%js,:,IDIR) = sum(E(nS,Gr%js,Gr%ks:Gr%ke,IDIR))/Np
+                    do nR=1,Model%Ring%NumR+1
+                        E(nS,Gr%js+nR-1,Gr%ke+1,:) = E(nS,Gr%js+nR-1,Gr%ks,:)
+                    enddo
                 endif
                 if (Model%Ring%doE) then                
                     !E pole
                     E(nS,Gr%je+1,:,KDIR) = 0.0
                     E(nS,Gr%je+1,:,IDIR) = sum(E(nS,Gr%je+1,Gr%ks:Gr%ke,IDIR))/Np
-                endif                
+                    do nR=1,Model%Ring%NumR+1
+                        E(nS,Gr%je+2-nR,Gr%ke+1,:) = E(nS,Gr%je+2-nR,Gr%ks,:)
+                    enddo
+                endif
             enddo
         end select
         

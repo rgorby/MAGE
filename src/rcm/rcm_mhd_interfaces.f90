@@ -38,6 +38,9 @@ module rcm_mhd_interfaces
   real(rprec),allocatable :: latc(:,:)
   real(rprec),allocatable :: lonc(:,:)
 
+  !Information about MHD ingestion
+  logical, allocatable :: toMHD(:,:)
+  
   integer(iprec) :: rcm_nOut,rcm_nRes !Indices for output/restart
   character(len=strLen) :: rcm_runid
   

@@ -161,8 +161,6 @@
     
 
 ! reset mapping points on open field lines
-       !$OMP PARALLEL DO default(shared) &
-       !$OMP private(i,j)
        do j=1,jdim
         do i=1,imin_j(j)-1
           rmin(i,j) = 0.0
@@ -821,7 +819,7 @@
          end do      
         end do      
        return
-END SUBROUTINE Smooth_eta_at_boundary 
+END SUBROUTINE Smooth_eta_at_boundary
 
       SUBROUTINE Smooth_boundary_location(idim,jdim,jwrap,bndloc)
 !      USE Rcm_mod_subs, ONLY : iprec,rprec

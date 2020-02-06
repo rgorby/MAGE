@@ -77,7 +77,7 @@ module gamapp
         call Tic("BCs")
         call EnforceBCs(gameraApp%Model,gameraApp%Grid,gameraApp%State)
         call Toc("BCs")
-
+        
     end subroutine stepGamera
 
     subroutine UpdateStateData(gameraApp)

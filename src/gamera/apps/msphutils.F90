@@ -47,6 +47,8 @@ module msphutils
     !Chill out parameters
     real(rp), private :: RhoCO = 1.0e-3 ! Number density
     real(rp), private :: CsCO  = 1.0e-2  ! Cs chillout, m/s
+    real(rp), parameter, private :: cLim = 1.5 ! Cool when sound speed is above cLim*Ca
+
     !Dipole cut values
     !real(rp) :: rCut=4.5, lCut=3.5 !LFM values
     !real(rp), private :: rCut=4.0, lCut=5.0
@@ -58,6 +60,9 @@ module msphutils
     real(rp), private :: GM0  = 0.0 !Gravitational force coefficient
     real(rp), private :: Psi0 = 0.0 ! corotation potential coef
     real(rp), private :: M0   = 0.0 !Magnetic moment
+
+    !Ingestion
+    logical, private :: doWolfLim = .true.
 
     contains
 
@@ -129,6 +134,9 @@ module msphutils
         M0  = -M0g*1.0e+5/gB0 !Magnetic moment
         GM0 = gG0*gx0/(gv0*gv0)
 
+        Model%isMagsphere = .true.
+        Model%MagM0 = M0
+        
         !Add gravity if required
         if (Model%doGrav) then
             !Force spherical gravity (zap non-radial components)
@@ -171,6 +179,10 @@ module msphutils
         Model%gamOut%vID = 'km/s'
         Model%gamOut%pID = 'nPa'
         Model%gamOut%bID = 'nT'
+
+        if (Model%doSource) then
+            call xmlInp%Set_Val(doWolfLim,"source/doWolfLim",doWolfLim)
+        endif
 
     end subroutine
 
@@ -462,12 +474,12 @@ module msphutils
                         endif
 
                         !If sound speed is faster than "light", chill the fuck out
-                        if ( Model%doBoris .and. (CsC>Model%Ca) ) then
+                        if ( Model%doBoris .and. (CsC>cLim*Model%Ca) ) then
                             call CellC2P(Model,pCon,pW)
                             P = pW(PRESSURE) !Cell pressure
 
-                            !Find target pressure w/ sound speed = Ca
-                            Pc = pW(DEN)*(Model%Ca**2.0)/Model%gamma
+                            !Find target pressure w/ sound speed = cLim*Ca
+                            Pc = pW(DEN)*(cLim*Model%Ca)**2.0/Model%gamma
                             !Calculate cooling rate, L/CsC ~ lazy bounce timescale
                             Leq = DipoleL(Grid%xyzcc(i,j,k,:))
                             !Convert to m/(m/s)/(code time)
@@ -505,15 +517,13 @@ module msphutils
 
         integer :: i,j,k
         real(rp), dimension(8,NDIM) :: xyzC
-        real(rp) :: rI(8),rMax,rMin,MagP
+        real(rp) :: rI(8),rMax,rMin,MagP,rCC
 
         !Get values for initial field cutoffs
 
         !LFM values
         call xmlInp%Set_Val(xSun  ,"prob/xMax",20.0_rp  )
         call xmlInp%Set_Val(yMax  ,"prob/yMax",75.0_rp  )
-        !call xmlInp%Set_Val(xSun  ,"prob/xMax",25.0_rp  )
-        !call xmlInp%Set_Val(yMax  ,"prob/yMax",80.0_rp  )
         call xmlInp%Set_Val(xTail ,"prob/xMin",-185.0_rp)
         
         call xmlInp%Set_Val(sInner,"prob/sIn" ,0.96_rp  )
@@ -539,6 +549,21 @@ module msphutils
         Axyz     => cutDipole
 
         call AddB0(Model,Grid,Model%B0)
+
+        !Be careful and forcibly zero out cut dipole forces near Earth
+        !$OMP PARALLEL DO default(shared) collapse(2) &
+        !$OMP private(i,j,k,rCC)
+        do k=Grid%ks, Grid%ke
+            do j=Grid%js, Grid%je
+                do i=Grid%is, Grid%ie
+                    rCC = norm2(Grid%xyzcc(i,j,k,:))
+                    if (rCC <= 0.75*rCut) then
+                        !Force hard zero
+                        Grid%dpB0(i,j,k,:) = 0.0
+                    endif
+                enddo
+            enddo
+        enddo
 
         call VectorField2Flux(Model,Grid,State,Axyz)
         bFlux0(:,:,:,:) = State%magFlux(:,:,:,:) !bFlux0 = B0
@@ -798,9 +823,10 @@ module msphutils
 
         integer :: i,j,k
         real(rp), dimension(NVAR) :: pW, pCon
+        real(rp), dimension(NDIM) :: Bxyz
 
         real(rp) :: M0,Mf
-        real(rp) :: Tau,dRho,dP
+        real(rp) :: Tau,dRho,dP,beta,Pb,PLim,Pmhd,Prcm
         logical  :: doIngest,doInD,doInP
 
         if (Model%doMultiF) then
@@ -813,7 +839,8 @@ module msphutils
         !M0 = sum(State%Gas(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,DEN,BLK)*Gr%volume(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke))
 
         !$OMP PARALLEL DO default(shared) collapse(2) &
-        !$OMP private(i,j,k,doInD,doInP,doIngest,pCon,pW,Tau,dRho,dP)
+        !$OMP private(i,j,k,doInD,doInP,doIngest,pCon,pW,Tau,dRho,dP) &
+        !$OMP private(beta,Bxyz,Pb,PLim,Pmhd,Prcm)
         do k=Gr%ks,Gr%ke
             do j=Gr%js,Gr%je
                 do i=Gr%is,Gr%ie
@@ -825,9 +852,15 @@ module msphutils
 
                     pCon = State%Gas(i,j,k,:,BLK)
                     call CellC2P(Model,pCon,pW)
+                    Bxyz = State%Bxyz(i,j,k,:)
+                    if (Model%doBackground) then
+                        Bxyz = Bxyz + Gr%B0(i,j,k,:)
+                    endif
+                    Pmhd = pW(PRESSURE)
+                    Pb = 0.5*dot_product(Bxyz,Bxyz)
+                    beta = Pmhd/Pb
 
                     !Get timescale, taking directly from Gas0
-                    !Tau = Gr%Gas0(i,j,k,IMLSCL)*Gr%Gas0(i,j,k,IMTSCL)/Model%Ca
                     Tau = Gr%Gas0(i,j,k,IMTSCL,BLK)
                     if (doInD) then
                         dRho = Gr%Gas0(i,j,k,IMDEN,BLK) - pW(DEN)
@@ -835,8 +868,22 @@ module msphutils
                         pW(DEN) = pW(DEN) + (Model%dt/Tau)*dRho
 
                     endif
+
                     if (doInP) then
-                        dP = Gr%Gas0(i,j,k,IMPR,BLK) - pW(PRESSURE)
+                        Prcm = Gr%Gas0(i,j,k,IMPR,BLK)
+                        if (doWolfLim) then
+                            PLim = Prcm/(1.0+beta*5.0/6.0)
+                        else
+                            PLim = Prcm
+                        endif
+
+                        if (Pmhd <= PLim) then
+                            dP = PLim - Pmhd
+                        else if (Pmhd >= Prcm) then
+                            dP = Prcm - Pmhd
+                        else
+                            dP = 0.0
+                        endif
                         pW(PRESSURE) = pW(PRESSURE) + (Model%dt/Tau)*dP
                         !pW(PRESSURE) = pW(PRESSURE) + (Model%dt/Tau)*max(0.0,dP)
                         

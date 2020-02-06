@@ -104,6 +104,10 @@ module gamtypes
         logical :: doRing = .false.
         type (Ring_T) :: Ring
         
+        !Some specific info for magsphere runs
+        logical :: isMagsphere = .false.
+        real(rp) :: MagM0 = 0.0
+        
         !Background field function pointer
         procedure(VectorField_T), pointer, nopass :: B0 => NULL()
 
@@ -156,11 +160,11 @@ module gamtypes
         ! Placement of this rank, 0-based
         integer :: Ri=0,Rj=0,Rk=0
         ! Offset between global and local indices
-        integer :: ijkShift(3) = (/0,0,0/)
+        integer :: ijkShift(NDIM) = (/0,0,0/)
         ! Whether this rank has the lower end external boundary for each axis
-        logical :: hasLowerBC(3) = (/.true.,.true.,.true./)
+        logical :: hasLowerBC(NDIM) = (/.true.,.true.,.true./)
         ! Whether this rank has the upper end external boundary for each axis
-        logical :: hasUpperBC(3) = (/.true.,.true.,.true./)
+        logical :: hasUpperBC(NDIM) = (/.true.,.true.,.true./)
 
         !Corner-centered xyz-coordinates
         real(rp), dimension(:,:,:), allocatable :: x,y,z

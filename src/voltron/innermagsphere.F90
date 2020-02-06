@@ -13,46 +13,17 @@ module innermagsphere
 
     !IMag eval type
     abstract interface
-        subroutine IMagEval_T(x1,x2,t,imW)
+        !Mapping of cell corners
+        !x12C = chmp2mhd%xyzSquish(i:i+1,j:j+1,k:k+1,1:2) 
+        subroutine IMagEval_T(x1,x2,x12C,t,imW)
             Import :: rp,NVARIMAG
             real(rp), intent(in) :: x1,x2,t
+            real(rp), intent(in) :: x12C(2,2,2,2)
             real(rp), dimension(NVARIMAG), intent(out) :: imW
         end subroutine IMagEval_T
+
     end interface
 
-    ! !K: This part is draft class for polymorphic approach to inner magnetosphere
-    ! type, abstract :: InnerMag_T
-    ! contains
-    !     procedure(InitInnerMag_T), deferred :: InitIM
-    !     procedure(AdvInnerMag_T) , deferred :: AdvIM
-    !     procedure(IMagEval_T)    , deferred :: EvalIM
-    !     procedure(IOInnerMag_T)  , deferred :: WriteIM
-    ! end type InnerMag_T
-
-    ! abstract interface
-    !     subroutine InitInnerMag_T(vApp,isRestart,iXML)
-    !         Import :: voltApp_T,XML_Input_T
-    !         type(voltApp_T)  , intent(inout) :: vApp
-    !         logical, intent(in) :: isRestart
-    !         type(XML_Input_T), intent(inout) :: iXML
-    !     end subroutine InitInnerMag_T
-    ! end interface
-
-    ! abstract interface
-    !     subroutine AdvInnerMag_T(vApp,tAdv)
-    !         Import :: rp,voltApp_T
-    !         type(voltApp_T), intent(inout) :: vApp
-    !         real(rp), intent(in) :: tAdv
-    !     end subroutine AdvInnerMag_T
-    ! end interface
-
-    ! abstract interface
-    !     subroutine IOInnerMag_T(vApp,nOut)
-    !         Import :: voltApp_T
-    !     type(voltApp_T), intent(inout) :: vApp
-    !     integer, intent(in) :: nOut
-    !     end subroutine IOInnerMag_T
-    ! end interface
 
     contains
 
@@ -68,15 +39,16 @@ module innermagsphere
 
         call iXML%Set_Val(imStr,"coupling/imType","SST")
 
+        !NOTE: Using the fact that x2 is longitude and 2P periodic for both inner mag models
         select case (trim(toUpper(imStr)))
         case("SST","TS07")
             vApp%imType = IMAGSST
             vApp%prType = LPPROJ !R-phi
-            call InitSST(iXML,isRestart)
+            call InitSST(iXML,isRestart,vApp%rDeep)
         case("RCM")
             vApp%imType = IMAGRCM
             vApp%prType = LLPROJ !Lat-lon
-            call InitRCM(iXML,isRestart,vApp%time,vApp%DeepDT,vApp%IO%nRes)
+            call InitRCM(iXML,isRestart,vApp%imag2mix,vApp%time,vApp%DeepDT,vApp%IO%nRes)
         case DEFAULT
             write(*,*) 'Unkown imType, bailing ...'
             stop
@@ -112,6 +84,10 @@ module innermagsphere
         integer :: i,j,k
         real(rp) :: x1,x2,t
         real(rp) :: imW(NVARIMAG)
+        real(rp) :: x12C(2,2,2,2)
+        real(rp) :: xAng(8)
+        real(rp) :: xMag
+
         procedure(IMagEval_T), pointer :: IMagEval
 
         !Set evaluation routine
@@ -132,30 +108,39 @@ module innermagsphere
 
         associate(Gr=>gApp%Grid,chmp2mhd=>vApp%chmp2mhd)
         !$OMP PARALLEL DO default(shared) collapse(2) &
-        !$OMP private(i,j,k,x1,x2,imW)
+        !$OMP schedule(dynamic) &
+        !$OMP private(i,j,k,x1,x2,imW,x12C,xMag,xAng)
         do k=Gr%ks,Gr%ke
             do j=Gr%js,Gr%je
                 do i=Gr%is,Gr%is+chmp2mhd%iMax
-                    x1 = chmp2mhd%xyzSquish(i,j,k,1) 
-                    x2 = chmp2mhd%xyzSquish(i,j,k,2)
-                    if (norm2([x1,x2])>TINY) then
-                        call IMagEval(x1,x2,t,imW)
+                    x12C = chmp2mhd%xyzSquish(i:i+1,j:j+1,k:k+1,1:2)
+                    xMag = minval( norm2(x12C,dim=4) )
+                    if (xMag > TINY) then
+                        !All projected corners are good
+                        x1 = sum(x12C(:,:,:,1))/8.0
+                        xAng = reshape( x12C(1:2,1:2,1:2,2), [8] )
+                        x2 = CircMean(xAng)
+                        call IMagEval(x1,x2,x12C,t,imW)
                     else
                         !Both x1/x2 are 0, projection failure
                         imW = 0.0
                     endif
+
                     !Assuming density/pressure coming in #/cc and nPa
                     !Lengthscale is in Rx
                     Gr%Gas0(i,j,k,:,:) = 0.0
 
                     Gr%Gas0(i,j,k,IMDEN ,BLK) = imW(IMDEN)
                     Gr%Gas0(i,j,k,IMPR  ,BLK) = imW(IMPR)/gApp%Model%Units%gP0
-                    Gr%Gas0(i,j,k,IMLSCL,BLK) = imW(IMLSCL)
+                    Gr%Gas0(i,j,k,IMX1  ,BLK) = imW(IMX1)
+                    Gr%Gas0(i,j,k,IMX2  ,BLK) = imW(IMX2)
+
                     !Interpreting IMTSCL as units of coupling timescale
                     Gr%Gas0(i,j,k,IMTSCL,BLK) = vApp%DeepDT*imW(IMTSCL)/gApp%Model%Units%gT0
                 enddo
             enddo
         enddo
+
 
         end associate
 
@@ -192,4 +177,39 @@ module innermagsphere
         end select
 
     end subroutine InnerMagRestart
+
+    ! !K: This part is draft class for polymorphic approach to inner magnetosphere
+    ! type, abstract :: InnerMag_T
+    ! contains
+    !     procedure(InitInnerMag_T), deferred :: InitIM
+    !     procedure(AdvInnerMag_T) , deferred :: AdvIM
+    !     procedure(IMagEval_T)    , deferred :: EvalIM
+    !     procedure(IOInnerMag_T)  , deferred :: WriteIM
+    ! end type InnerMag_T
+
+    ! abstract interface
+    !     subroutine InitInnerMag_T(vApp,isRestart,iXML)
+    !         Import :: voltApp_T,XML_Input_T
+    !         type(voltApp_T)  , intent(inout) :: vApp
+    !         logical, intent(in) :: isRestart
+    !         type(XML_Input_T), intent(inout) :: iXML
+    !     end subroutine InitInnerMag_T
+    ! end interface
+
+    ! abstract interface
+    !     subroutine AdvInnerMag_T(vApp,tAdv)
+    !         Import :: rp,voltApp_T
+    !         type(voltApp_T), intent(inout) :: vApp
+    !         real(rp), intent(in) :: tAdv
+    !     end subroutine AdvInnerMag_T
+    ! end interface
+
+    ! abstract interface
+    !     subroutine IOInnerMag_T(vApp,nOut)
+    !         Import :: voltApp_T
+    !     type(voltApp_T), intent(inout) :: vApp
+    !     integer, intent(in) :: nOut
+    !     end subroutine IOInnerMag_T
+    ! end interface
+
 end module innermagsphere

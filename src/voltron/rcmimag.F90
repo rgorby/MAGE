@@ -13,6 +13,7 @@ module rcmimag
     use rcm_mhd_interfaces
     use rcm_mix_interface
     use streamline
+    use clocks
 
     implicit none
 
@@ -24,16 +25,14 @@ module rcmimag
     real(rp), parameter, private :: IMGAMMA = 5.0/3.0
 
     real(rp), parameter :: RIonRCM = (RionE/REarth)*1.0e+6 !Units of Re
-    
     real(rp), private :: rEqMin = 0.0
+    real(rp), private :: PPDen = 50.0 !Plasmapause density
     integer, parameter :: MAXRCMIOVAR = 30
     character(len=strLen), private :: h5File
 
-    logical, parameter :: doWolfLimit = .true.
 
     !Information taken from MHD flux tubes
     !TODO: Figure out RCM boundaries
-    !TODO: Figure out iopen values
 
     !Pave = Average pressure [Pa]
     !Nave = Average density [#/m3]
@@ -50,13 +49,24 @@ module rcmimag
         real(rp) :: latc,lonc !Conjugate lat/lon
     end type RCMTube_T
 
+    type RCMEllipse_T
+        !Ellipse parameters (in m)
+        real(rp) :: xSun,xTail,yDD
+        !Safety parameters
+        real(rp) :: xSScl,xTScl,yScl
+        logical  :: isDynamic !Whether to update parameters
+    end type RCMEllipse_T
+
     real(rp), dimension(:,:), allocatable, private :: mixPot
+    type(RCMEllipse_T) :: RCMEll
+
     contains
 
     !Initialize RCM inner magnetosphere model
-    subroutine initRCM(iXML,isRestart,t0,dtCpl,nRes)
+    subroutine initRCM(iXML,isRestart,imag2mix,t0,dtCpl,nRes)
         type(XML_Input_T), intent(in) :: iXML
         logical, intent(in) :: isRestart
+        type(imag2Mix_T), intent(inout) :: imag2mix
         real(rp), intent(in) :: t0,dtCpl
         integer, intent(in), optional :: nRes
 
@@ -70,13 +80,11 @@ module rcmimag
             RCMApp%rcm_nRes = nRes
             write(*,*) 'Restarting RCM @ t = ', t0
             call rcm_mhd(t0,dtCpl,RCMApp,RCMRESTART)
-            write(*,*) 'Finished RCM restart ...'
-            call init_rcm_mix(RCMApp)
         else
             write(*,*) 'Initializing RCM ...'
             call rcm_mhd(t0,dtCpl,RCMApp,RCMINIT)
-            call init_rcm_mix(RCMApp)
         endif
+        call init_rcm_mix(RCMApp,imag2mix)
 
         h5File = trim(RunID) // ".mhdrcm.h5" !MHD-RCM coupling data
         RCMH5  = trim(RunID) // ".rcm.h5" !RCM data
@@ -92,6 +100,21 @@ module rcmimag
             call initRCMIO()
         endif
         
+    !Get ellipse quantities
+        !Get values in Re, then convert to meters
+        call iXML%Set_Val(RCMEll%xSun ,"/RCM/ellipse/xSun" ,8.0)
+        call iXML%Set_Val(RCMEll%xTail,"/RCM/ellipse/xTail",8.0)
+        call iXML%Set_Val(RCMEll%yDD  ,"/RCM/ellipse/yDD"  ,8.0)
+        !Scale
+        RCMEll%xSun  = REarth*RCMEll%xSun
+        RCMEll%xTail = REarth*RCMEll%xTail
+        RCMEll%yDD   = REarth*RCMEll%yDD
+        call iXML%Set_Val(RCMEll%isDynamic,"/RCM/ellipse/isDynamic"  ,.true.)
+        !Get safety parameters (only for dynamic ellipse)
+        call iXML%Set_Val(RCMEll%xSScl ,"/RCM/ellipse/xSScl" ,0.65)
+        call iXML%Set_Val(RCMEll%xTScl ,"/RCM/ellipse/xTScl" ,1.0 )
+        call iXML%Set_Val(RCMEll%yScl  ,"/RCM/ellipse/yScl"  ,0.65)
+
     end subroutine initRCM
 
     !Advance RCM from Voltron data
@@ -104,7 +127,7 @@ module rcmimag
         real(rp) :: dtAdv
         type(RCMTube_T) :: ijTube
 
-        real(rp) :: llBC
+        real(rp) :: llBC,maxRad
         logical :: isLL
 
         !Lazily grabbing rDeep here, convert to RCM units
@@ -112,12 +135,15 @@ module rcmimag
 
         llBC = vApp%mhd2chmp%lowlatBC
 
+        call Tic("MAP_RCMMIX")
     !Get potential from mix
         call map_rcm_mix(vApp,mixPot)
+        call Toc("MAP_RCMMIX")
 
+        call Tic("RCM_TUBES")
     !Load RCM tubes
        !$OMP PARALLEL DO default(shared) collapse(2) &
-       !$OMP schedule(dynamic) &
+       !$OMP schedule(guided) &
        !$OMP private(i,j,colat,lat,lon,isLL,ijTube)
         do i=1,RCMApp%nLat_ion
             do j=1,RCMApp%nLon_ion
@@ -154,65 +180,189 @@ module rcmimag
             enddo
         enddo
 
+        !Set ingestion region
+        call SetIngestion()
+
+        call Toc("RCM_TUBES")
+
+        call Tic("AdvRCM")
     !Advance from vApp%time to tAdv
         dtAdv = tAdv-vApp%time !RCM-DT
         call rcm_mhd(vApp%time,dtAdv,RCMApp,RCMADVANCE)
         !Update timming data
         call rcm_mhd(vApp%time,0.0_rp,RCMApp,RCMWRITETIMING)
+        call Toc("AdvRCM")
+
+    !Pull data from RCM state for conductance calculations
+        vApp%imag2mix%isClosed = (RCMApp%iopen == RCMTOPCLOSED)
+        vApp%imag2mix%latc = RCMApp%latc
+        vApp%imag2mix%lonc = RCMApp%lonc
+        vApp%imag2mix%eflux = RCMApp%flux
+        vApp%imag2mix%eavg  = RCMApp%eng_avg
+
+        vApp%imag2mix%iflux = 0.0
+        vApp%imag2mix%iavg  = 0.0
+
+        vApp%imag2mix%isFresh = .true.
+
+    !Find maximum extent of closed field region
+        maxRad = maxval(norm2(RCMApp%X_bmin,dim=3),mask=vApp%imag2mix%isClosed)
+        maxRad = maxRad/(Re_cgs*1.0e-2)
+        vApp%rTrc = 1.05*maxRad
+        
     end subroutine AdvanceRCM
+
+    !Set region of RCM grid that's "good" for MHD ingestion
+    subroutine SetIngestion()
+        integer :: i,j,iC
+        logical :: jClosed
+
+        real(rp) :: x0,a,b,ell
+
+        RCMApp%toMHD = .false.
+
+        !Start by looping from high-lat downwards until we find full ring of closed lines
+        do i = 1,RCMApp%nLat_ion
+            jClosed = all(RCMApp%iopen(i,:) == RCMTOPCLOSED)
+            if (jClosed) exit
+        enddo
+        iC = i
+
+        !Construct new ellipse if we're doing dynamic
+        if (RCMEll%isDynamic) then
+            !Now find maximum sunward point on this ring
+            RCMEll%xSun  = maxval(RCMApp%X_bmin(iC,:,XDIR))
+            RCMEll%xTail = minval(RCMApp%X_bmin(iC,:,XDIR))
+            RCMEll%yDD   = maxval(abs(RCMApp%X_bmin(iC,:,YDIR)))
+
+            !Rescale to give some breathing room
+            RCMEll%xSun  = RCMEll%xSScl*RCMEll%xSun 
+            RCMEll%xTail = RCMEll%xTScl*RCMEll%xTail
+            RCMEll%yDD   = RCMEll%yScl *RCMEll%yDD  
+
+            !Constrain ellipse parameters by reqmin
+            !TODO: Test unconstrained tail
+            if (    RCMEll%xSun   >= rEqMin) RCMEll%xSun  =  rEqMin
+            if (abs(RCMEll%xTail) >= rEqMin) RCMEll%xTail = -rEqMin
+            if (    RCMEll%yDD    >= rEqMin) RCMEll%yDD   =  rEqMin
+            ! write(*,*) 'iC = ', iC
+            ! write(*,*) 'xSun  = ', xSun/REarth
+            ! write(*,*) 'xTail = ', xTail/REarth
+            ! write(*,*) 'yDD   = ', yDD/REarth
+        endif
+
+        !Set derived quantities
+        x0 = (RCMEll%xSun + RCMEll%xTail)/2
+        a  = (RCMEll%xSun - RCMEll%xTail)/2
+        b  =  RCMEll%yDD
+
+
+       !$OMP PARALLEL DO default(shared) &
+       !$OMP private(ell)
+        do i=iC,RCMApp%nLat_ion
+            do j=1,RCMApp%nLon_ion
+                ell = ((RCMApp%X_bmin(i,j,XDIR)-x0)/a)**2.0 + (RCMApp%X_bmin(i,j,YDIR)/b)**2.0
+                if (ell <= 1) RCMApp%toMHD(i,j) = .true.
+            enddo
+        enddo
+
+    end subroutine SetIngestion
 
     !Evaluate eq map at a given point
     !Returns density (#/cc) and pressure (nPa)
-    subroutine EvalRCM(lat,lon,t,imW)
+    subroutine EvalRCM(lat,lon,llC,t,imW)
         real(rp), intent(in) :: lat,lon,t
+        real(rp), intent(in) :: llC(2,2,2,2)
         real(rp), intent(out) :: imW(NVARIMAG)
 
-        real(rp) :: colat, alpha, beta, LScl
-        real(rp) :: rEq
-        integer :: i0,j0,nLat,nLon
-        logical :: isGood
+        real(rp) :: nrcm,prcm,npp,ntot
+        integer  :: n
+        logical  :: isGood,isGoods(8)
+        real(rp) :: lls(8,2),colats(8)
+        integer  :: ijs(8,2)
 
         !Set defaults
+        imW(:) = 0.0
         imW(IMDEN ) = 0.0
         imW(IMPR  ) = 0.0
-        imW(IMLSCL) = 0.0
-        imW(IMTSCL) = 1.0
+        imW(IMTSCL) = 0.0
 
         colat = PI/2 - lat
 
-        !Do short cut tests
-        isGood = (colat >= minval(RCMApp%gcolat)) .and. (colat <= maxval(RCMApp%gcolat)) .and. (lat>TINY)
+        !Repack
+        lls(:,1) = reshape(llC(:,:,:,1),[8])
+        lls(:,2) = reshape(llC(:,:,:,2),[8])
+        colats = PI/2 - lls(:,1)
+
+        !Do 1st short cut tests
+        isGood = all(colats >= RCMApp%gcolat(1)) .and. all(colats <= RCMApp%gcolat(RCMApp%nLat_ion)) &
+                 .and. all(lls(:,1) > TINY)
         if (.not. isGood) return
 
-        !If still here now find closest cell
-        i0 = minloc( abs(colat-RCMApp%gcolat),dim=1 )
-        j0 = minloc( abs(lon  -RCMApp%glong ),dim=1 )
-        nLat = RCMApp%nLat_ion
-        nLon = RCMApp%nLon_ion
-        if ( (i0 == 1) .or. (i0 == NLat) ) return !Ignore if too close to grid edge
+        !If still here, find mapping (i,j) on RCM grid of each corner
+        call CornerLocs(lls,ijs)
 
-        rEq = norm2(RCMApp%X_bmin(i0,j0,:))
+        !Do second short cut tests
+        do n=1,8
+            isGoods(n) = RCMApp%toMHD(ijs(n,1),ijs(n,2))
+        enddo
+        isGood = all(isGoods)
 
-        !Now test that this cell is "comfortably" in the closed field region
-        isGood = all( RCMApp%iopen(i0-1,1:nLon) == RCMTOPCLOSED ) .and. &
-                 all( RCMApp%iopen(i0  ,1:nLon) == RCMTOPCLOSED ) .and. &
-                 all( RCMApp%iopen(i0+1,1:nLon) == RCMTOPCLOSED )
-        isGood = isGood .and. (rEq <= rEqMin)
+        if (.not. isGood) return
         
-        if (isGood) then
-            beta = RCMApp%beta_average(i0,j0)
-            if (doWolfLimit) then
-                alpha = 1.0/(1.0 + beta*IMGAMMA/2.0)
-            else
-                alpha = 1.0
-            endif
-            LScl = RCMApp%Vol(i0,j0)*RCMApp%bmin(i0,j0) !Lengthscale
+        prcm = CornerAvg(ijs,RCMApp%Prcm )*rcmPScl
+        npp  = CornerAvg(ijs,RCMApp%Npsph)*rcmNScl
+        nrcm = CornerAvg(ijs,RCMApp%Nrcm )*rcmNScl
 
-            imW(IMDEN ) = rcmNScl*( RCMApp%Nrcm(i0,j0) + RCMApp%Npsph(i0,j0) )
-            imW(IMPR  ) = RCMApp%Prcm(i0,j0)*rcmPScl*alpha
-            imW(IMLSCL) = LScl
-            imW(IMTSCL) = 1.0
+        if ( (npp >= PPDen) .and. (prcm > TINY) ) then
+            ntot = npp + nrcm
+        else
+            ntot = nrcm
         endif
+
+        !Store data
+        imW(IMDEN)  = ntot
+        imW(IMPR)   = prcm
+        imW(IMTSCL) = 1.0
+        imW(IMX1)   = (180.0/PI)*lat
+        imW(IMX2)   = (180.0/PI)*lon
+
+        contains
+
+            !Get RCM cells for corner lat/lons
+            subroutine CornerLocs(lls,ijs)
+                real(rp), intent(in) :: lls(8,2)
+                integer, intent(out) :: ijs(8,2)
+
+                integer :: n,i0,j0
+                real(rp) :: colat,lon
+                do n=1,8
+                    colat = PI/2 - lls(n,1)
+                    lon   = lls(n,2)
+
+                    i0 = minloc( abs(colat-RCMApp%gcolat),dim=1 )
+                    j0 = minloc( abs(lon  -RCMApp%glong ),dim=1 )
+                    ijs(n,:) = [i0,j0]
+                enddo
+
+            end subroutine CornerLocs
+
+            !Average a quantity over the corners
+            function CornerAvg(ijs,Q) result(Qavg)
+                integer, intent(in) :: ijs(8,2)
+                real(rp), intent(in) :: Q(RCMApp%nLat_ion,RCMApp%nLon_ion)
+                real(rp) :: Qavg
+
+                integer :: n,i0,j0
+
+                Qavg = 0.0
+                do n=1,8
+                    i0 = ijs(n,1)
+                    j0 = ijs(n,2)
+                    Qavg = Qavg + Q(i0,j0)
+                enddo
+                Qavg = Qavg/8.0
+            end function CornerAvg
 
     end subroutine EvalRCM
 !--------------
@@ -262,41 +412,32 @@ module rcmimag
 
         
     !Scale and store information
-        ijTube%X_bmin = bEq
-        ijTube%bmin = bMin
-        select case(OCb)
-        case(0)
-            !Solar wind (is this right?)
-            ijTube%iopen = RCMTOPOPEN
-            ijTube%Vol = -dvB
-        case(1)
-            !Open field
-            ijTube%iopen = RCMTOPOPEN
-            ijTube%Vol = -dvB
-        case(2)
-            !Closed field
+        if (OCb == 2) then
+            !Closed field line
+            ijTube%X_bmin = bEq
+            ijTube%bmin = bMin
             ijTube%iopen = RCMTOPCLOSED
             ijTube%Vol = dvB
-        case default
-            !WTF? (timeout)
-            ijTube%iopen = RCMTOPOPEN
-            ijTube%Vol = -1
-        end select
+            ijTube%Pave = bP
+            ijTube%Nave = bD
+            ijTube%beta_average = bBeta
 
-        ijTube%Pave = bP
-        ijTube%Nave = bD
-        ijTube%beta_average = bBeta
-        
-        ijTube%latc = 0.0
-        ijTube%lonc = 0.0
-
-        if (ijTube%iopen == RCMTOPCLOSED) then
             !Find conjugate lat/lon @ RIonRCM
             call FLConj(ebModel,ebGr,bTrc,xyzC)
             xyzIonC = DipoleShift(xyzC,RIonRCM)
             !xyzIonC(ZDIR) uses abs(mlat), so make negative
             ijTube%latc = asin(-xyzIonC(ZDIR)/norm2(xyzIonC))
             ijTube%lonc = modulo( atan2(xyzIonC(YDIR),xyzIonC(XDIR)),2*PI )
+        else
+            ijTube%X_bmin = 0.0
+            ijTube%bmin = 0.0
+            ijTube%iopen = RCMTOPOPEN
+            ijTube%Vol = -1.0
+            ijTube%Pave = 0.0
+            ijTube%Nave = 0.0
+            ijTube%beta_average = 0.0
+            ijTube%latc = 0.0
+            ijTube%lonc = 0.0
         endif
 
         end associate
@@ -320,7 +461,9 @@ module rcmimag
         ijTube%X_bmin(YDIR) = L*sin(lon)*Re_cgs*1.0e-2 !Re=>meters
         ijTube%X_bmin(ZDIR) = 0.0
         ijTube%bmin = mdipole/L**3.0
+
         ijTube%iopen = RCMTOPCLOSED
+        
         ijTube%pot = 0.0
 
         ijTube%beta_average = 0.0
@@ -355,12 +498,17 @@ module rcmimag
         allocate(iLat(NLat+1,NLon+1))
         allocate(iLon(NLat+1,NLon+1))
 
-        do i=1,NLat+1
-            do j=1,NLon+1
-                iLat(i,j) = clMin + (i-1)*dLat
-                iLon(i,j) = 0.0 + (j-1)*dLon
-            enddo
+        do j=1,NLon+1
+            iLon(:,j) = 0.0 + (j-1)*dLon
         enddo
+        dLat = (RCMApp%gcolat(2)-RCMApp%gcolat(1))
+        iLat(1,:) = clMin-0.5*dLat
+        do i=2,NLat
+            dLat = (RCMApp%gcolat(i)-RCMApp%gcolat(i-1))
+            iLat(i,:) = iLat(i-1,:) + dLat
+        enddo
+        !Replicate last dlat
+        iLat(NLat+1,:) = iLat(NLat,:) + dLat
 
         iLat = 90.0-iLat*180.0/PI !Turn colat into lat
         iLon = iLon*180.0/PI
@@ -410,6 +558,11 @@ module rcmimag
         call AddOutVar(IOVars,"Nmhd",RCMApp%Nave*rcmNScl)
         call AddOutVar(IOVars,"latc",RCMApp%latc*180.0/PI)
         call AddOutVar(IOVars,"lonc",RCMApp%lonc*180.0/PI)
+
+        call AddOutVar(IOVars,"eavg",RCMApp%eng_avg*1.0e-3) !ev->keV
+        call AddOutVar(IOVars,"eflux",RCMApp%flux)
+
+        call AddOutVar(IOVars,"toMHD",merge(1.0_rp,0.0_rp,RCMApp%toMHD))
 
         !Trim output for colat/aloct to remove wrapping
         DimLL = shape(colat)

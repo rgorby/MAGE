@@ -7889,7 +7889,7 @@ bjmod_real = MODULO(bj-REAL(jwrap),REAL(jsize-jwrap-1)) + REAL(jwrap)
           
         end subroutine ReadRCMRestart
 
-        !HDF5 output routine 
+        !HDF5 output routine
         subroutine WriteRCMH5(runid,nStp,isRestart)
           use ioh5
           use files

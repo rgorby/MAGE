@@ -16,7 +16,8 @@ module chmp2mhd_interface
         type(gamApp_T)  , intent(in)    :: gamApp
 
         associate(Gr=>gamApp%Grid)
-        allocate(chmp2mhd%xyzSquish(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,2))
+        !Changing squish to do nodes
+        allocate(chmp2mhd%xyzSquish(Gr%is:Gr%ie+1,Gr%js:Gr%je+1,Gr%ks:Gr%ke+1,2))
         chmp2mhd%xyzSquish = 0.0
         
         end associate

@@ -19,7 +19,7 @@ module stress
     integer, parameter, dimension(2), private :: SgnLR=[-1,1]
 
     logical, parameter, private :: doRingFlux = .true.
-    logical, parameter, private :: doNuke = .true. !Do nuclear option, currently testing
+    logical, parameter, private :: doNuke = .true. !Do nuclear option
     logical, parameter, private :: doHogs11 = .true. !Do // magnetic hogs diffusion
 
     !cLim: Vile magic number, when to apply nuclear option (v>cLim*Ca)
@@ -549,14 +549,14 @@ module stress
             By = MagLRB(i,YDIR)
             Bz = MagLRB(i,ZDIR)
 
+            B0x = B0(i,XDIR)
+            B0y = B0(i,YDIR)
+            B0z = B0(i,ZDIR)
+
             dPb = 0.5*(Bx**2.0 + By**2.0 + Bz**2.0) !Pressure in residual field
             if (Model%doBackground) then
-                B0x = B0(i,XDIR)
-                B0y = B0(i,YDIR)
-                B0z = B0(i,ZDIR)
-                Va2 = ( (Bx+B0x)**2.0 + (By+B0y)**2.0 + (Bz+B0z)**2.0)/D
+                Va2 = ( (Bx+B0x)**2.0 + (By+B0y)**2.0 + (Bz+B0z)**2.0 )/D
                 bbD(i) = bbD(i) + 0.5*( (Bx+B0x)**2.0 + (By+B0y)**2.0 + (Bz+B0z)**2.0)
-
             else
                 Va2 = 2*dPb/D
                 bbD(i) = bbD(i) + 0.5*(Bx**2.0 + By**2.0 + Bz**2.0)

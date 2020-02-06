@@ -21,7 +21,7 @@ module volttypes
 
     !Data for inner mag => gamera variables
     enum, bind(C)
-        enumerator :: IMDEN=1,IMLSCL,IMTSCL,IMVAR1,IMPR
+        enumerator :: IMDEN=1,IMX1,IMX2,IMTSCL,IMPR
     endenum
     integer, parameter :: NVARIMAG = 5
 
@@ -33,6 +33,22 @@ module volttypes
         integer :: PsiStart = -3, PsiShells = 5
         real(rp) :: rm2g
     end type mix2Mhd_T
+
+    ! data for imag => remix for conductance
+    type imag2Mix_T
+        !Assuming IMag data is coming on northern hemisphere
+        logical :: isFresh = .false.
+        logical :: isInit = .false.
+        !Working on logically Cartesian grid w/ lat, lon 
+        real(rp), dimension(:), allocatable :: gcolat,glong
+        real(rp), dimension(:,:), allocatable :: eflux,eavg
+        real(rp), dimension(:,:), allocatable :: iflux,iavg
+        !latc/lonc are the mappings to the southern hemisphere
+        real(rp), dimension(:,:), allocatable :: latc,lonc
+        real(rp), dimension(:,:), allocatable :: fac
+        
+        logical, dimension(:,:), allocatable :: isClosed
+    end type imag2Mix_T
 
     ! data for gamera -> remix conversion
     type mhd2Mix_T
@@ -78,6 +94,7 @@ module volttypes
         type(ebTrcApp_T)  :: ebTrcApp
         type(mhd2Chmp_T)  :: mhd2chmp
         type(chmp2Mhd_T)  :: chmp2mhd
+        type(imag2Mix_T)  :: imag2mix
 
         !Shallow coupling information
         real(rp) :: ShallowT

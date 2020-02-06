@@ -17,7 +17,7 @@ module sstimag
         real(rp) :: eqT1,eqT2 !Times of two data slices
         integer  :: eqN1,eqN2 !Indices of two data slices
         real(rp), dimension(:,:,:), allocatable :: eqW1,eqW2
-        
+        real(rp) :: rDeep   ! where we're ingesting
 
     end type eqData_T
     
@@ -26,9 +26,10 @@ module sstimag
     contains
 
     !Initialize EQ Map data
-    subroutine initSST(iXML,isRestart)
+    subroutine initSST(iXML,isRestart,rDeep)
         type(XML_Input_T), intent(in) :: iXML
         logical, intent(in) :: isRestart !Do you even care?
+        real(rp), intent(in) :: rDeep
 
         character(len=strLen) :: eqFile
         integer :: i,j,n1,n2
@@ -49,6 +50,8 @@ module sstimag
 
         eqData%Nr = eqData%ebTab%dNi
         eqData%Np = eqData%ebTab%dNj
+        
+        eqData%rDeep = rDeep
 
         allocate(eqData%X(1:eqData%Nr+1,1:eqData%Np+1))
         allocate(eqData%Y(1:eqData%Nr+1,1:eqData%Np+1))
@@ -142,8 +145,9 @@ module sstimag
 
     !Evaluate eq map at a given point
     !Returns density (#/cc) and pressure (nPa)
-    subroutine EvalSST(r,phi,t,imW)
+    subroutine EvalSST(r,phi,rpC,t,imW)
         real(rp), intent(in) :: r,phi,t
+        real(rp), intent(in) :: rpC(2,2,2,2)
         real(rp), intent(out) :: imW(NVARIMAG)
 
         real(rp) :: D,P,x0,y0
@@ -151,13 +155,16 @@ module sstimag
         real(rp) :: w1,w2
         logical :: isGood
 
+        if (r>eqData%rDeep) then 
+           imW = 0.0
+           return
+        end if
+
         x0 = r*cos(phi)
         y0 = r*sin(phi)
 
         ij0 = minloc( (eqData%xxc-x0)**2.0 + (eqData%yyc-y0)**2.0 )
         
-        
-
         i0 = ij0(IDIR)
         j0 = ij0(JDIR)
 
@@ -173,8 +180,11 @@ module sstimag
             P = 0.0
         endif
 
-        imW(IMDEN) = D
-        imW(IMPR)  = P
+        imW(IMDEN)  = D
+        imW(IMPR)   = P
+        imW(IMTSCL) = 1.0
+        imW(IMX1)   = r
+        imW(IMX2)   = (180.0/PI)*phi
         
     end subroutine EvalSST
 

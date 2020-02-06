@@ -55,7 +55,6 @@ if __name__ == "__main__":
 	nMax = 1.0e+3
 	vD = kv.genNorm(nMin,nMax,doLog=True)
 	cVals = np.logspace(1.0,3.0,Nc)
-	print(cVals)
 
 	pCMap = "viridis"
 	sCMap = "terrain"
@@ -147,8 +146,4 @@ if __name__ == "__main__":
 	fOut = "qkrcmpic.png"
 	kv.savePic(fOut)
 	
-	#AxC1 = fig.add_subplot(gs[2,0])
-	#AxC2 = fig.add_subplot(gs[2,3])
-	#AxC3 = fig.add_subplot(gs[2,1])
-	#AxC4 = fig.add_subplot(gs[2,2])
 

@@ -10,8 +10,17 @@ module pdfuns
     implicit none
 
     procedure(PDFun_T), pointer :: fPSD0 => NULL()
-    real(rp) :: kappa=3.0
+    real(rp), private :: kappa=3.0
 
+    !See src/voltron/sstimag.F90 for example on reading HDF5
+    type PSDIN_T
+        integer :: Nr,Np,Nk,Na
+        real(rp), dimension(:,:), allocatable :: X,Y,xxc,yyc
+        real(rp), dimension(:,:,:,:), allocatable :: Fpsd
+        character(len=strLen) :: filename
+    end type PSDIN_T
+    
+    type(PSDIN_T), private :: PSDInput
     contains
 
     !Set f0 information
@@ -30,6 +39,13 @@ module pdfuns
         case("KAPPA","KAP")
             fPSD0 => fKappa
             call inpXML%Set_Val(kappa,"population/k0",3.0_rp)
+        case("HDF5IN")
+            fPSD0 => fHDF5
+            !Read filename of hdf5 from XML
+            call inpXML%Set_Val(PSDInput%filename,"population/f0data","psd.h5")
+            !Initialize data object
+            !call InitPSDIn()
+
         case default
             write(*,*) '<Unknown f0, using Maxwellian>'
             fPSD0 => fMaxwellian
@@ -67,5 +83,14 @@ module pdfuns
         fD = Ak*fPow
         
     end function fKappa
-    
+
+    function fHDF5(Model,L,phi,K,alpha,n0,kT0) result(fD)
+        type(chmpModel_T), intent(in) :: Model
+        real(rp), intent(in) :: L,phi,K,alpha
+        real(rp), intent(in), optional :: n0,kT0
+        real(rp) :: fD
+
+        fD = 0.0
+
+    end function fHDF5
 end module pdfuns

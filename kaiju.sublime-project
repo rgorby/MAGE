@@ -1,0 +1,40 @@
+{
+	"build_systems":
+	[
+		{
+			"file_regex": "/([^/:]+):(\\d+):(\\d+): ",
+			"name": "kaijucmake",
+			"shell_cmd": "echo $PWD;make -C build"
+		},
+		{
+			"file_regex": "^[ ]*File \"(...*?)\", line ([0-9]*)",
+			"name": "Anaconda Python Builder",
+			"selector": "source.python",
+			"shell_cmd": "\"python\" -u \"$file\""
+		}
+	],
+	"folders":
+	[
+		{
+			"path": "src"
+		},
+		{
+			"folder_include_patterns":
+			[
+				"*.py"
+			],
+			"path": "scripts"
+		},
+		{
+			"file_exclude_patterns":
+			[
+				"__init__.py"
+			],
+			"folder_exclude_patterns":
+			[
+				"__pycache__"
+			],
+			"path": "kaipy"
+		}
+	]
+}
