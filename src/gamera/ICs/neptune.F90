@@ -304,7 +304,7 @@ module usergamic
     subroutine SetInnerFields(Model,Gr,inEijk,inExyz)
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(inout) :: Gr
-        real(rp), intent(inout) :: inEijk(1:PsiSh+1,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,1:NDIM)
+        real(rp), intent(inout) :: inEijk(1:PsiSh+1,Gr%jsg:Gr%jeg+1,Gr%ksg:Gr%keg+1,1:NDIM)
         real(rp), intent(inout) :: inExyz(1:PsiSh  ,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,1:NDIM)
 
         integer :: i,j,k,iG
