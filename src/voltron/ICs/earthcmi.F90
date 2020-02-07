@@ -140,14 +140,6 @@ module uservoltic
         Grid%ksDT = Grid%ks
         Grid%keDT = Grid%ke
 
-        !Set MG bounds
-        Grid%isMG = Grid%is
-        Grid%ieMG = Grid%ie
-        Grid%jsMG = Grid%js
-        Grid%jeMG = Grid%je
-        Grid%ksMG = Grid%ks
-        Grid%keMG = Grid%ke
-
         !Correction to E (from solar wind or ionosphere)        
         if (Grid%hasLowerBC(IDIR) .or. Grid%hasUpperBC(IDIR)) then
            !Set user hack functions

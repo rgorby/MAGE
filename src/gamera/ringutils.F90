@@ -79,9 +79,6 @@ module ringutils
                     NCr(iR) = NCh0*2**(iR-1)
                 enddo
 
-                !Switch flux->field bounds (rely on cross-pole BC)
-                Grid%isMG = Grid%is
-
             !------------------
             case ("lfm")
                 Model%Ring%PLDIR = KDIR
@@ -89,10 +86,6 @@ module ringutils
                 Model%Ring%nSi = Grid%is
                 Model%Ring%nSe = Grid%ie
                 
-                !Switch flux->field bounds (rely on cross-pole BC)
-                Grid%jsMG = Grid%js
-                Grid%jeMG = Grid%je
-
                 !Set chunk/ring info
                 select case(Model%Ring%Np)
                 case(8)

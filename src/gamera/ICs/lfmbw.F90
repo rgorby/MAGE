@@ -88,15 +88,6 @@ module usergamic
         Grid%jeDT = Grid%je
         Grid%ksDT = Grid%ks
         Grid%keDT = Grid%ke
-
-        !Set MG bounds
-        Grid%isMG = Grid%is
-        Grid%ieMG = Grid%ie
-        Grid%jsMG = Grid%js
-        Grid%jeMG = Grid%je
-        Grid%ksMG = Grid%ks
-        Grid%keMG = Grid%ke
-
         
         !Local functions
         !NOTE: Don't put BCs here as they won't be visible after the initialization call
