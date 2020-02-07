@@ -248,13 +248,14 @@
       do j=1,jsize
        do k=1,kcsize
         eetabnd(j,k) = eeta(imin_j(j),j,k)
-        if(eetabnd(j,k) <= 0.0)then
+        if (eetabnd(j,k) <= 0.0 .and. doRCMVerbose) then
           write(6,*)' warning: eetabnd <= 0 at j,k =',j,k
           write(6,*)' eetabnd(',i,',',j,')=',eetabnd(j,k)
           write(6,*)' vm(',i,',',j,')=',vm(i,j)
         end if
        end do
       end do
+      
 ! this is off for now
 ! set eeta to start with and empty magnetosphere
 !     if(rec == 1)then

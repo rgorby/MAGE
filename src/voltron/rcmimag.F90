@@ -293,11 +293,13 @@ module rcmimag
         npp  = CornerAvg(ijs,RCMApp%Npsph)*rcmNScl
         nrcm = CornerAvg(ijs,RCMApp%Nrcm )*rcmNScl
 
-        if ( (npp >= PPDen) .and. (prcm > TINY) ) then
-            ntot = npp + nrcm
-        else
-            !ntot = nrcm
-            ntot = 0.0
+        ntot = 0.0
+        !Decide which densities to include
+        if (npp >= PPDen) then
+            ntot = ntot + npp
+        endif
+        if ( (nrcm>TINY) .and. (prcm>TINY) ) then
+            ntot = ntot + nrcm
         endif
 
         !Store data

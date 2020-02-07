@@ -1211,7 +1211,7 @@ END IF
                                  (one + vpar (i, j) / ekt)
                   ! sbao 6/19 detect Nan 
                   if (ISNAN(eflux(i,j,ie)))then
-                       write(*,*)'eflux,i,j,therm,ekt,vpar,sum1,sum2,vm',eflux(i,j,ie),i,j,therm,ekt,vpar(i,j),sum1(ie),sum2(ie),vm(i,j)
+                       if (.not. doQuietRCM) write(*,*)'eflux,i,j,therm,ekt,vpar,sum1,sum2,vm',eflux(i,j,ie),i,j,therm,ekt,vpar(i,j),sum1(ie),sum2(ie),vm(i,j)
                        eflux(i,j,ie) = 0.0
                        eavg(i,j,ie) = 0.0
                   end if
