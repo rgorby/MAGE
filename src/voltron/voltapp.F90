@@ -20,11 +20,10 @@ module voltapp
     contains
 
     !Initialize Voltron (after Gamera has already been initialized)
-    subroutine initVoltron(vApp,gApp,optFilename,writeGameraState)
+    subroutine initVoltron(vApp,gApp,optFilename)
         type(gamApp_T) , intent(inout) :: gApp
         class(voltApp_T), intent(inout) :: vApp
         character(len=*), optional, intent(in) :: optFilename
-        logical, optional, intent(in) :: writeGameraState
 
         character(len=strLen) :: inpXML
         type(XML_Input_T) :: xmlInp
@@ -148,7 +147,7 @@ module voltapp
         !Finally do first output stuff
         call consoleOutputV(vApp,gApp)
         if (.not. gApp%Model%isRestart) then
-            if(present(writeGameraState) .and. .not. writeGameraState) then
+            if(vApp%isSeparate) then
                 call fOutputVOnly(vApp)
             else
                 call fOutputV(vApp, gApp)

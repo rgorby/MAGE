@@ -82,6 +82,7 @@ module volttypes
         type(TimeSeries_T) :: tilt
         real(rp) :: time, MJD,tFin
         integer :: ts
+        logical :: isSeparate = .false. ! whether Voltron is running in a separate application from gamera
 
         !Voltron output/restart info
         type (IOClock_T) :: IO

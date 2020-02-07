@@ -59,7 +59,7 @@ contains
 
   end subroutine teardown
 
-  !@test(npes=[2,5,17])
+  @test(npes=[2,5,17])
   subroutine testStepUpdate(this)
       class (MpiTestMethod), intent(inout) :: this
 
@@ -100,7 +100,7 @@ contains
 
   end subroutine testStepUpdate
 
-  !@test(npes=[2,5,17])
+  @test(npes=[2,5,17])
   subroutine testDTypesGasShallow(this)
       class (MpiTestMethod), intent(inout) :: this
 
@@ -198,7 +198,7 @@ contains
 
   end subroutine
 
-  !@test(npes=[2,5,17])
+  @test(npes=[2,5,17])
   subroutine testMhd2VoltShallowCopy(this)
       class (MpiTestMethod), intent(inout) :: this
 
@@ -312,7 +312,7 @@ contains
 
   end subroutine testMhd2VoltShallowCopy
 
-  !@test(npes=[2,5,17])
+  @test(npes=[2,5,17])
   subroutine testVolt2MhdShallowCopy(this)
       class (MpiTestMethod), intent(inout) :: this
 
@@ -551,9 +551,9 @@ contains
                           end do
                       end do
 
-                      ! reasonable error of 1e-3 per cell
-                      errorThresh = 1e-3*(1+gamAppMpi%Grid%ke-gamAppMpi%Grid%ks)*(1+gamappMpi%Grid%je-gamAppMpi%Grid%js)*gamappMpi%Model%Ng
-                      !@assertLessThanOrEqual(deltaSum, errorThresh, 'Magnetic field from remix was not pointing radially')
+                       ! remix doesn't go below a certain lat, causing discontinuity. high error
+                       errorThresh = 2*(1+gamAppMpi%Grid%ke-gamAppMpi%Grid%ks)*(1+gamAppMpi%Grid%je-gamAppMpi%Grid%js)*gamAppMpi%Model%Ng
+                      @assertLessThanOrEqual(deltaSum, errorThresh, 'Magnetic field from remix was not pointing radially')
 
                       !Now test Eijk fields
                       deltaSum = 0.0
@@ -577,6 +577,8 @@ contains
                           enddo
                     enddo
 
+                    ! remix doesn't go below a certain lat, causing discontinuity. high error
+                    errorThresh = 2e-2*(1+gamAppMpi%Grid%ke-gamAppMpi%Grid%ks)*(1+gamAppMpi%Grid%je-gamAppMpi%Grid%js)*gamAppMpi%Model%Ng
                     @assertLessThanOrEqual(deltaSum, errorThresh, 'inEijk values did not match inExyz values')
 
                   CLASS DEFAULT
@@ -611,15 +613,6 @@ contains
           SELECT type(iiBC=>voltAppMpi%gAppLocal%Grid%externalBCs(INI)%p)
               TYPE IS (IonInnerBC_T)
 
-                  call CheckAndKill('voltrontest.h5')
-                  call AddOutVar(debugHDF,'remixN',voltAppMpi%remixApp%ion(1)%st%vars(:,:,POT))
-                  call AddOutVar(debugHDF,'remixS',voltAppMpi%remixApp%ion(2)%st%vars(:,:,POT))
-                  call AddOutVar(debugHDF,'mixOutput',voltAppMpi%mix2mhd%mixOutput)
-                  call AddOutVar(debugHDF,'gPsi',voltAppMpi%mix2mhd%gPsi)
-                  call AddOutVar(debugHDF,'inExyz',iiBC%inExyz)
-                  call AddOutVar(debugHDF,'inEijk',iiBC%inEijk)
-                  call WriteVars(debugHDF,.false.,'voltrontest.h5')
-
                   ! check that inExyz is pointed exactly radially at all locations
                   deltaSum = 0.0_rp
                   !Only loop over active cells
@@ -645,9 +638,9 @@ contains
                       end do
                   end do
 
-                  ! reasonable error of 1e-3 per cell
-                  errorThresh = 1e-3*(1+voltAppMpi%gAppLocal%Grid%ke-voltAppMpi%gAppLocal%Grid%ks)*(1+voltAppMpi%gAppLocal%Grid%je-voltAppMpi%gAppLocal%Grid%js)*voltAppMpi%gAppLocal%Model%Ng
-                  !@assertLessThanOrEqual(deltaSum, errorThresh, 'VOLTRON Magnetic field from remix was not pointing radially')
+                  ! remix doesn't go below a certain lat, causing discontinuity. high error
+                  errorThresh = 2*(1+voltAppMpi%gAppLocal%Grid%ke-voltAppMpi%gAppLocal%Grid%ks)*(1+voltAppMpi%gAppLocal%Grid%je-voltAppMpi%gAppLocal%Grid%js)*voltAppMpi%gAppLocal%Model%Ng
+                  @assertLessThanOrEqual(deltaSum, errorThresh, 'VOLTRON Magnetic field from remix was not pointing radially')
 
                   !Now test Eijk fields
                   deltaSum = 0.0
@@ -671,6 +664,8 @@ contains
                       enddo
                   enddo
 
+                  ! remix doesn't go below a certain lat, causing discontinuity. high error
+                  errorThresh = 2e-2*(1+voltAppMpi%gAppLocal%Grid%ke-voltAppMpi%gAppLocal%Grid%ks)*(1+voltAppMpi%gAppLocal%Grid%je-voltAppMpi%gAppLocal%Grid%js)*voltAppMpi%gAppLocal%Model%Ng
                   @assertLessThanOrEqual(deltaSum, errorThresh, 'VOLTRON inEijk values did not match inExyz values')
               CLASS DEFAULT
                   @assertEqual(0,1,'No Remix BC on Voltron')

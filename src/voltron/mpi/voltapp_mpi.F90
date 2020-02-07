@@ -62,6 +62,8 @@ module voltapp_mpi
         integer, allocatable, dimension(:) :: neighborRanks, inData, outData
         integer, allocatable, dimension(:) :: iRanks, jRanks, kRanks
 
+        vApp%isSeparate = .true. ! running on a different process from the actual gamera ranks
+
         ! create a new communicator using MPI Topology
         call MPI_Comm_Size(voltComm, commSize, ierr)
         if(ierr /= MPI_Success) then
@@ -161,9 +163,9 @@ module voltapp_mpi
 
         ! use standard voltron with local gamApp object
         if(present(optFilename)) then
-            call initVoltron(vApp, vApp%gAppLocal, optFilename, writeGameraState=.false.)
+            call initVoltron(vApp, vApp%gAppLocal, optFilename)
         else
-            call initVoltron(vApp, vApp%gAppLocal, writeGameraState=.false.)
+            call initVoltron(vApp, vApp%gAppLocal)
         endif
 
         ! send all of the initial voltron parameters to the gamera ranks
