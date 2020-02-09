@@ -613,6 +613,15 @@ contains
           SELECT type(iiBC=>voltAppMpi%gAppLocal%Grid%externalBCs(INI)%p)
               TYPE IS (IonInnerBC_T)
 
+                  call CheckAndKill('voltrontest.h5')
+                  call AddOutVar(debugHDF,'remixN',voltAppMpi%remixApp%ion(1)%st%vars(:,:,POT))
+                  call AddOutVar(debugHDF,'remixS',voltAppMpi%remixApp%ion(2)%st%vars(:,:,POT))
+                  call AddOutVar(debugHDF,'mixOutput',voltAppMpi%mix2mhd%mixOutput)
+                  call AddOutVar(debugHDF,'gPsi',voltAppMpi%mix2mhd%gPsi)
+                  call AddOutVar(debugHDF,'inExyz',iiBC%inExyz)
+                  call AddOutVar(debugHDF,'inEijk',iiBC%inEijk)
+                  call WriteVars(debugHDF,.false.,'voltrontest.h5')
+
                   ! check that inExyz is pointed exactly radially at all locations
                   deltaSum = 0.0_rp
                   !Only loop over active cells
