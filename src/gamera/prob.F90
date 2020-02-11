@@ -218,7 +218,7 @@ module prob
         endif
 
         call initBW(Model,Grid,State,inpXML)
-
+        call WipeBCs(Model,Grid)
         allocate(SphereInBC_T       :: Grid%externalBCs(INI )%p)
         allocate(SphereOutBC_T      :: Grid%externalBCs(OUTI)%p)
         allocate(lfmInBC_T          :: Grid%externalBCs(INJ )%p)
