@@ -220,12 +220,16 @@ module rcmimag
         
         allocate(jBnd (  RCMApp%nLon_ion  ))
         allocate(jBndG(0:RCMApp%nLon_ion+1))
+        
+
+        !Sneaky reset toMHD
+        RCMApp%toMHD = (RCMApp%iopen == RCMTOPCLOSED)
 
         do j=1,RCMApp%nLon_ion
             do i = 1,RCMApp%nLat_ion
                 if (RCMApp%toMHD(i,j)) exit
             enddo
-            jBnd(j) = min(i+1,RCMApp%nLat_ion)
+            jBnd(j) = min(i+4,RCMApp%nLat_ion)
         enddo
 
         do n=1,4

@@ -247,21 +247,29 @@
       RM%toMHD = .false.
       dRad = 1.0*radius_earth_m
 
+      ! do j=jwrap,jdim
+      !   jp = j-jwrap+1
+      !   iC = imin_j(j)
+      !   dRadJ = dRad*(1.25 + cos(RM%glong(jp)))
+      !   RadC = norm2(RM%X_bmin(iC,jp,1:2))-dRadJ
+      !   do i=iC+1,idim
+      !     rIJ = norm2(RM%X_bmin(i,jp,1:2))
+      !     !write(*,*) 'RadC/rIJ = ',RadC/radius_earth_m,rIj/radius_earth_m
+      !     if (rIJ<=RadC) exit
+      !   enddo
+      !   !write(*,*) 'i/iC = ',i,iC
+
+      !   RM%toMHD(i:,jp) = .true.
+      ! enddo
+      
+      !Just use RCM boundary
+      RM%toMHD = .false.
       do j=jwrap,jdim
         jp = j-jwrap+1
-        iC = imin_j(j)
-        dRadJ = dRad*(1.25 + cos(RM%glong(jp)))
-        RadC = norm2(RM%X_bmin(iC,jp,1:2))-dRadJ
-        do i=iC+1,idim
-          rIJ = norm2(RM%X_bmin(i,jp,1:2))
-          !write(*,*) 'RadC/rIJ = ',RadC/radius_earth_m,rIj/radius_earth_m
-          if (rIJ<=RadC) exit
-        enddo
-        !write(*,*) 'i/iC = ',i,iC
-
-        RM%toMHD(i:,jp) = .true.
+        iC = bndloc(j)
+        RM%toMHD(iC+1:,jp) = .true.
       enddo
-      
+
       RETURN
       END SUBROUTINE tomhd
 !
