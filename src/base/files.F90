@@ -16,12 +16,12 @@ module files
         character(len=*), intent(in) :: fIn
         logical :: CheckDir
 
-#IFDEF __INTEL_COMPILER
+#ifdef __INTEL_COMPILER
         inquire(directory=fIn,exist=CheckDir) !Intel only
-#ELSE
+#else
         !Might work for gfortran
         inquire(file=trim(fIn)//'/.',exist=CheckDir)
-#ENDIF
+#endif
     end function CheckDir
 
     subroutine CheckDirOrMake(fIn)
