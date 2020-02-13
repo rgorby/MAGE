@@ -209,7 +209,7 @@ module rcmimag
     !Find maximum extent of closed field region
         maxRad = maxval(norm2(RCMApp%X_bmin,dim=3),mask=vApp%imag2mix%isClosed)
         maxRad = maxRad/(Re_cgs*1.0e-2)
-        vApp%rTrc = 1.05*maxRad
+        vApp%rTrc = 1.25*maxRad
         
     end subroutine AdvanceRCM
 
@@ -221,15 +221,13 @@ module rcmimag
         allocate(jBnd (  RCMApp%nLon_ion  ))
         allocate(jBndG(0:RCMApp%nLon_ion+1))
         
-
-        !Sneaky reset toMHD
-        RCMApp%toMHD = (RCMApp%iopen == RCMTOPCLOSED)
-
         do j=1,RCMApp%nLon_ion
             do i = 1,RCMApp%nLat_ion
-                if (RCMApp%toMHD(i,j)) exit
+                if (RCMApp%toMHD(i,j) .and. (RCMApp%iopen(i,j) == RCMTOPCLOSED)) then
+                    exit
+                endif
             enddo
-            jBnd(j) = min(i+4,RCMApp%nLat_ion)
+            jBnd(j) = min(i+1,RCMApp%nLat_ion)
         enddo
 
         do n=1,4

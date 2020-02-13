@@ -731,6 +731,7 @@
       integer(iprec) :: iopen(idim,jdim)
       real(rprec) :: bndloc(jdim)
       real(rprec) :: big_vm,a1,a2,a,b,x0,ell
+      real(rprec) :: xP,xM,yMax
       integer(iprec) :: i,j
 !  x0 = (a1 + a2)/2
 !   a = (a1 - a2)/2
@@ -754,11 +755,18 @@
       a1 =  8.
       a2 = -15.0 ! -35.0 !-20.0 !-25.
       b = 10. ! 12.
-      !K: Trying new test values
-      a1 =  10.0
+    !K: Trying new test values
+      a1 =  7.5
       a2 = -20.0
       b  =  12.5
+      xP = maxval(xe)
+      xM = minval(xe)
+      yMax = maxval(abs(ye))
 
+      a1 = min(a1,xP)
+      a2 = max(a2,xM)
+      b  = max(b ,yMax)
+      
       x0 = (a1 + a2)/2.
       a  = (a1 - a2)/2.
 

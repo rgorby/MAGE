@@ -133,13 +133,16 @@ if __name__ == "__main__":
 	AxM.contour(bmX,bmY,Nmhd,cVals,norm=vD,cmap=dCMap,linewidths=cLW)
 	kv.addEarth2D(ax=AxM)
 	kv.SetAx(xyBds,AxM)
+	Axs = [AxL,AxM,AxR]
 	if (nStp>0):
-		CS1 = AxM.contour(bmX,bmY,toMHD,[0.5],colors=MHDCol,linewidths=MHDLW)
-		manloc = [(0.0,8.0)]
+		for n in range(3):
+			Ax = Axs[n]
+			CS1 = Ax.contour(bmX,bmY,toMHD,[0.5],colors=MHDCol,linewidths=MHDLW)
+			manloc = [(0.0,8.0)]
 
-		fmt = {}
-		fmt[0.5] = 'MHD'
-		AxM.clabel(CS1,CS1.levels[::2],inline=True,fmt=fmt,fontsize=5,inline_spacing=25,manual=manloc)
+			fmt = {}
+			fmt[0.5] = 'MHD'
+			Ax.clabel(CS1,CS1.levels[::2],inline=True,fmt=fmt,fontsize=5,inline_spacing=25,manual=manloc)
 
 
 	#Handle right

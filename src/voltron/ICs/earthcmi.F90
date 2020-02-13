@@ -239,7 +239,8 @@ module uservoltic
         type(Grid_T), intent(inout) :: Gr
         type(State_T), intent(inout) :: State
 
-        integer :: i
+        integer :: i,j,k
+        real(rp) :: dF
 
         !Call ingestion function
         if (Model%doSource) then
@@ -248,7 +249,7 @@ module uservoltic
 
         !Call cooling function/s
         if (doCool) call ChillOut(Model,Gr,State)
-        
+
     end subroutine PerStep
 
     !Fixes electric field before application
@@ -282,7 +283,20 @@ module uservoltic
                 stop
         END SELECT
 
-        
+        !Lazy forcing on E field
+        do i=Gr%is,Gr%ie
+            do j=Gr%js,Gr%je
+                Ei = 0.5*(State%Efld(i,j,Gr%ks,IDIR) + State%Efld(i,j,Gr%ke+1,IDIR))
+                Ej = 0.5*(State%Efld(i,j,Gr%ks,JDIR) + State%Efld(i,j,Gr%ke+1,JDIR))
+                
+                State%Efld(i,j,Gr%ks  ,IDIR) = Ei
+                State%Efld(i,j,Gr%ke+1,IDIR) = Ei
+                State%Efld(i,j,Gr%ks  ,JDIR) = Ej
+                State%Efld(i,j,Gr%ke+1,JDIR) = Ej
+
+            enddo
+        enddo
+                        
     end subroutine EFix
 
     !Ensure no flux through degenerate faces
