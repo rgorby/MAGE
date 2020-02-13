@@ -246,7 +246,8 @@ module rcmimag
         do j=1,RCMApp%nLon_ion
             RCMApp%toMHD(jBnd(j):,j) = .true.
         enddo
-
+        RCMApp%toMHD = RCMApp%toMHD .and. (RCMApp%iopen(i,j) == RCMTOPCLOSED)
+        
     end subroutine SetIngestion
 
     !Evaluate eq map at a given point

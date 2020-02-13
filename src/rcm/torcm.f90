@@ -757,15 +757,15 @@
       b = 10. ! 12.
     !K: Trying new test values
       a1 =  7.5
-      a2 = -20.0
-      b  =  12.5
+      a2 = -15.0
+      b  =  10.0
       xP = maxval(xe)
       xM = minval(xe)
       yMax = maxval(abs(ye))
 
       a1 = min(a1,xP)
       a2 = max(a2,xM)
-      b  = max(b ,yMax)
+      b  = min(b ,yMax)
       
       x0 = (a1 + a2)/2.
       a  = (a1 - a2)/2.
