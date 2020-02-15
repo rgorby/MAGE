@@ -68,7 +68,7 @@ contains
 
     write(*,*) 'Doing testCellCenter ...'
 
-    call cellCenter(testGrid, 1, 1, 1, xc, yc, zc)
+    call cellCenter(testGrid, 1, 1, 1, xc, yc, zc, .false.)
     @assertLessThanOrEqual(xc - 1.5, 0.0_rp, 'cellCenter failed on xc')
     @assertLessThanOrEqual(yc - 2,   0.0_rp, 'cellCenter failed on yc')
     @assertLessThanOrEqual(zc - 2.5, 0.0_rp, 'cellCenter failed on zc')
@@ -81,17 +81,17 @@ contains
 
     write(*,*) 'Doing testFaceCenter ...'
 
-    call faceCenter(testGrid, 1, 1, 1, xfc, yfc, zfc, IDIR)
+    call faceCenter(testGrid, 1, 1, 1, xfc, yfc, zfc, IDIR, .false.)
     @assertLessThanOrEqual(xfc - 1,   0.0_rp, 'faceCenter IDIR failed on xfc')
     @assertLessThanOrEqual(yfc - 2,   0.0_rp, 'faceCenter IDIR failed on yfc')
     @assertLessThanOrEqual(zfc - 2.5, 0.0_rp, 'faceCenter IDIR failed on zfc')
 
-    call faceCenter(testGrid, 1, 1, 1, xfc, yfc, zfc, JDIR)
+    call faceCenter(testGrid, 1, 1, 1, xfc, yfc, zfc, JDIR, .false.)
     @assertLessThanOrEqual(xfc - 1.5, 0.0_rp, 'faceCenter JDIR failed on xfc')
     @assertLessThanOrEqual(yfc - 1,   0.0_rp, 'faceCenter JDIR failed on yfc')
     @assertLessThanOrEqual(zfc - 2.5, 0.0_rp, 'faceCenter JDIR failed on zfc')
 
-    call faceCenter(testGrid, 1, 1, 1, xfc, yfc, zfc, KDIR)
+    call faceCenter(testGrid, 1, 1, 1, xfc, yfc, zfc, KDIR, .false.)
     @assertLessThanOrEqual(xfc - 1.5, 0.0_rp, 'faceCenter KDIR failed on xfc')
     @assertLessThanOrEqual(yfc - 2,   0.0_rp, 'faceCenter KDIR failed on yfc')
     @assertLessThanOrEqual(zfc - 1,   0.0_rp, 'faceCenter KDIR failed on zfc')

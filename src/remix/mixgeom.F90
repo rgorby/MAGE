@@ -49,6 +49,8 @@ module mixgeom
       ! interpolant
       if (.not.allocated(G%Interpolant)) allocate(G%Interpolant(G%Np,G%Nt,4,4)) ! True size (Np,Nt-1) (note, we include the cell between Np and 1)
 
+      G%Interpolant = 0.0
+
       G%t = t 
       G%p = p
 
@@ -112,6 +114,8 @@ module mixgeom
       ! interpolant
       if (.not.allocated(G%Interpolant)) allocate(G%Interpolant(G%Np,G%Nt,4,4)) ! True size (Np,Nt-1) (note, we include the cell between Np and 1)
 
+      G%Interpolant = 0.0
+
       ! define spherical angular coordinates
       G%t = asin(sqrt(G%x**2+G%y**2))
       G%p = modulo((atan2(G%y,G%x)+2*pi),(2*pi)) 
@@ -170,6 +174,8 @@ module mixgeom
 
       ! interpolant
       if (.not.allocated(G%Interpolant)) allocate(G%Interpolant(G%Np,G%Nt,4,4)) ! True size (Np,Nt-1) (note, we include the cell between Np and 1)
+
+      G%Interpolant = 0.0
 
       ! define spherical angular coordinates
       G%t = asin(sqrt(G%x**2+G%y**2))
