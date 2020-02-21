@@ -224,8 +224,8 @@ module uservoltic
                 if (associated(pWind%getWind)) then
                     write(*,*) 'Using solar wind BC from file ...'
                 else
-                    write(*,*) 'Using solar wind BC from subroutine ...'
-                    pWind%getWind => SolarWindTS
+                    write(*,*) 'No solar wind file provided/found ...'
+                    stop
                 endif
             CLASS DEFAULT
                 write(*,*) 'Could not find Wind BC in remix IC'
@@ -241,6 +241,8 @@ module uservoltic
 
         integer :: i,j,k
         real(rp) :: dF
+
+        !call ChkMetricLFM(Model,Gr)
 
         !Call ingestion function
         if (Model%doSource) then
@@ -341,39 +343,6 @@ module uservoltic
 
     end subroutine IonFlux
 
-    !Put BCs here for global access
-    !Solar wind values
-    subroutine SolarWindTS(windBC,Model,t,Rho,Pr,V,B)
-        class(WindBC_T), intent(inout) :: windBC
-        type(Model_T), intent(in) :: Model
-        real(rp), intent(in) :: t
-        real(rp), intent(out) :: Rho,Pr
-        real(rp), dimension(NDIM), intent(out) :: V, B
-
-        integer :: imfNS
-        real(rp) :: vScl
-
-        if (t <= T0) then
-            imfNS = 0.0
-        else if (t <= 3*T0) then
-            imfNS = -1
-        else if (t <= 6*T0) then
-            imfNS =  1
-        else
-            imfNS = -1
-        endif
-
-        Rho = RhoW0
-        Pr = PrW0
-
-        V = 0
-        B = 0
-        vScl = 1.0
-        B(ZDIR) = imfNS*BzW
-        V(XDIR) = -vScl*VxW
-
-
-    end subroutine SolarWindTS
 
     !Initialization for Ion Inner BC
     subroutine InitIonInner(bc,Model,Grid,State,xmlInp)
