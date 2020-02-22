@@ -109,7 +109,12 @@ module step
         if ( (Model%t+CalcDT) > Model%tFin ) then
             CalcDT = max(Model%tFin-Model%t,TINY)
         endif
-        
+
+        !Apply a limit of 10x the initial timestep in case it starts static
+        if (dt0>TINY .and. CalcDT>(10.0*dt0)) then
+            CalcDT = 10.0 * dt0
+        endif
+
     end function CalcDT
 
     subroutine BlackBox(Model,Gr,State,dt0)
