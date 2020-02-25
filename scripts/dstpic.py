@@ -26,7 +26,7 @@ if __name__ == "__main__":
 
 	parser = argparse.ArgumentParser(description=MainS, formatter_class=RawTextHelpFormatter)
 	parser.add_argument('-d',type=str,metavar="directory",default=Dir,help="Directory to read from (default: %(default)s)")
-	parser.add_argument('-nsk',type=int,metavar="directory",default=nSk,help="Directory to read from (default: %(default)s)")
+	parser.add_argument('-nsk',type=int,metavar="step stride",default=nSk,help="Stride between steps used to calculate Dst (default: %(default)s)")
 
 	#Finalizing parsing
 	args = parser.parse_args()
