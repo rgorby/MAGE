@@ -396,7 +396,6 @@ module ringav
                     !E pole
                     E(nS,Gr%je+1,:,KDIR) = 0.0
                     E(nS,Gr%je+1,:,IDIR) = sum(E(nS,Gr%je+1,Gr%ks:Gr%ke,IDIR))/Np
-                    
                 endif
             enddo
         end select

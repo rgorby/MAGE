@@ -7424,7 +7424,7 @@ bjmod_real = MODULO(bj-REAL(jwrap),REAL(jsize-jwrap-1)) + REAL(jwrap)
 
       OPEN  (LUN_2, FILE = rcmdir//'rcm.printout', STATUS = ST, POSITION = PS)
       OPEN  (LUN_3, FILE = rcmdir//'rcm.index',  STATUS = ST, POSITION = PS)
-      CALL Initial_printout ()
+      ! CALL Initial_printout ()
       CLOSE (LUN_3)
       CLOSE (LUN_2)
 
@@ -8403,14 +8403,14 @@ SUBROUTINE Move_plasma_grid_NEW (dt)
  fac = 1.0E-3*signbe*bir*alpha*beta*dlam*dpsi*ri**2
 
 !K: Experiment OMP binding on RCM calculation
-!$OMP PARALLEL PRIVATE (eeta2, veff, dvefdi, dvefdj, didt, djdt, &
-!$OMP                  & mass_factor, loc_didt, loc_djdt,loc_Eta,loc_rate, &
-!$OMP                  & ie, icut, j, i, r_dist, FirstTime, max_eeta) &
-!$OMP        & SHARED (alamc, eeta, v, vcorot, vpar, vm, imin_j, j1, j2, joff, &
-!$OMP                  xmin, ymin, fac, fudgec, bir, sini, L_dktime, dktime, sunspot_number, &                
-!$OMP                  T1, T2, xlower, ylower, xupper, yupper, CLAWiter, eps) &
-!$OMP        & DEFAULT (NONE)
-!$OMP DO SCHEDULE (dynamic)
+!!$OMP PARALLEL DO schedule(dynamic) &
+!!$PRIVATE (eeta2, veff, dvefdi, dvefdj, didt, djdt, &
+!!$OMP                  & mass_factor, loc_didt, loc_djdt,loc_Eta,loc_rate, &
+!!$OMP                  & ie, icut, j, i, r_dist, FirstTime, max_eeta) &
+!!$OMP        & SHARED (alamc, eeta, v, vcorot, vpar, vm, imin_j, j1, j2, joff, &
+!!$OMP                  xmin, ymin, fac, fudgec, bir, sini, L_dktime, dktime, sunspot_number, &                
+!!$OMP                  T1, T2, xlower, ylower, xupper, yupper, CLAWiter, eps) &
+!!$OMP        & DEFAULT (NONE)
 
   DO kc = 1, kcsize
 !
@@ -8554,8 +8554,6 @@ SUBROUTINE Move_plasma_grid_NEW (dt)
      CALL Circle (eeta(:,:,kc))
 !
   END DO
-!$OMP END DO
-!$OMP END PARALLEL
 
 
   RETURN
