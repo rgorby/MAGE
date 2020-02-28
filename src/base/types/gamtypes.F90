@@ -148,11 +148,6 @@ module gamtypes
         integer :: isDT,jsDT,ksDT
         integer :: ieDT,jeDT,keDT
 
-        !Local indices to set domain for Bxyz half-step calculation
-        !Can be trimmed to set own Bxyz's
-        integer :: isMG,jsMG,ksMG
-        integer :: ieMG,jeMG,keMG
-
         !Information about decomposed/tiled cases
         logical :: isTiled = .false.
         ! Number of ranks in each dimension
