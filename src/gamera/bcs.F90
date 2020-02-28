@@ -180,6 +180,19 @@ module bcs
         
     end subroutine WipeBCs
 
+    !Checks ijk is in CC bounds
+    function isCellCenterG(Model,Grid,i,j,k) result(isCC)
+        type(Model_T), intent(in)    :: Model
+        type(Grid_T) , intent(in)    :: Grid
+        logical :: isCC
+
+        integer, intent(in) :: i,j,k
+
+        isCC = (k<=Grid%keg) .and. (j<=Grid%jeg) .and. (i<=Grid%ieg) &
+         .and. (k>=Grid%ksg) .and. (j>=Grid%jsg) .and. (i>=Grid%isg) 
+
+    end function isCellCenterG
+
     !Below here are various predefined BCs
 !--------------------------------------------
     !Lazy, do-nothing boundary
@@ -278,7 +291,7 @@ module bcs
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(inout) :: State
-        integer :: n,i,j,k
+        integer :: n,i,j,k,kg
 
         if (Model%do25D) then
             !Just replicate ks slice
@@ -290,13 +303,18 @@ module bcs
             enddo
         else
                 !$OMP PARALLEL DO default(shared) &
-                !$OMP private(i,j,n)
-                do j=Grid%jsg,Grid%jeg
-                    do i=Grid%isg,Grid%ieg
-                        do n=1,Model%Ng          
-                            State%Gas (i,j,Grid%ks-n,:,:)  = State%Gas (i,j,Grid%ke-n+1,:,:)
-                            State%Bxyz(i,j,Grid%ks-n,:)    = State%Bxyz(i,j,Grid%ke-n+1,:)
-                            State%magFlux(i,j,Grid%ks-n,:) = State%magFlux(i,j,Grid%ke-n+1,:)                
+                !$OMP private(i,j,n,kg)
+                do j=Grid%jsg,Grid%jeg+1
+                    do i=Grid%isg,Grid%ieg+1
+                        do n=1,Model%Ng
+
+                            kg = Grid%ks-n
+                            if (isCellCenterG(Model,Grid,i,j,kg)) then
+                                State%Gas (i,j,kg,:,:)  = State%Gas (i,j,Grid%ke-n+1,:,:)
+                                State%Bxyz(i,j,kg,:)    = State%Bxyz(i,j,Grid%ke-n+1,:)
+                            endif
+                            !Always do flux
+                            State%magFlux(i,j,kg,:) = State%magFlux(i,j,Grid%ke-n+1,:)                
                         enddo
                     enddo
                 enddo
@@ -309,7 +327,7 @@ module bcs
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(inout) :: State
-        integer :: n,i,j,k
+        integer :: n,i,j,k,kg
 
         if (Model%do25D) then
             !Just replicate ks slice
@@ -320,14 +338,18 @@ module bcs
             enddo
         else
                 !$OMP PARALLEL DO default(shared) &
-                !$OMP private(i,j,n)        
-                do j=Grid%jsg,Grid%jeg
-                    do i=Grid%isg,Grid%ieg  
-                        do n=1,Model%Ng         
-                            State%Gas(i,j,Grid%ke+n,:,:)  = State%Gas(i,j,Grid%ks+n-1,:,:)
-                            State%Bxyz(i,j,Grid%ke+n,:)  = State%Bxyz(i,j,Grid%ks+n-1,:)
-                            State%magFlux(i,j,Grid%ke+n,XDIR:YDIR)  = State%magFlux(i,j,Grid%ks+n-1,XDIR:YDIR)
-                            State%magFlux(i,j,Grid%ke+n+1,ZDIR)  = State%magFlux(i,j,Grid%ks+n,ZDIR)
+                !$OMP private(i,j,n,kg)        
+                do j=Grid%jsg,Grid%jeg+1
+                    do i=Grid%isg,Grid%ieg+1
+                        do n=1,Model%Ng
+                            kg = Grid%ke+n
+                            if (isCellCenterG(Model,Grid,i,j,kg)) then
+                                State%Gas (i,j,kg,:,:)  = State%Gas (i,j,Grid%ks+n-1,:,:)
+                                State%Bxyz(i,j,kg,:)    = State%Bxyz(i,j,Grid%ks+n-1,:)
+
+                            endif
+                            State%magFlux(i,j,kg,IDIR:JDIR) = State%magFlux(i,j,Grid%ks+n-1,IDIR:JDIR)
+                            State%magFlux(i,j,kg+1,KDIR)    = State%magFlux(i,j,Grid%ks+n,KDIR)
             
                         enddo
                     enddo
@@ -922,8 +944,8 @@ module bcs
         !j-boundaries (IN)
         !$OMP PARALLEL DO default(shared) &
         !$OMP private(n,i,k,ig,jg,kg,ip,jp,kp)
-        do k=Grid%ksg,Grid%keg
-            do i=Grid%isg,Grid%ieg
+        do k=Grid%ksg,Grid%keg+1
+            do i=Grid%isg,Grid%ieg+1
                 do n=1,Model%Ng
                     !Set ghost cells
                     ig = i
@@ -931,8 +953,10 @@ module bcs
                     kg = k
                     call lfmIJK(Model,Grid,ig,jg,kg,ip,jp,kp)
 
-                    State%Gas    (ig,jg,kg,:,:)  =  State%Gas    (ip,jp  ,kp,:,:)
-                    State%Bxyz   (ig,jg,kg,:)    =  State%Bxyz   (ip,jp  ,kp,:)
+                    if (isCellCenterG(Model,Grid,ig,jg,kg)) then
+                        State%Gas    (ig,jg,kg,:,:)  =  State%Gas    (ip,jp  ,kp,:,:)
+                        State%Bxyz   (ig,jg,kg,:)    =  State%Bxyz   (ip,jp  ,kp,:)
+                    endif
                     State%magFlux(ig,jg,kg,IDIR) =  State%magFlux(ip,jp  ,kp,IDIR)
                     State%magFlux(ig,jg,kg,JDIR) = -State%magFlux(ip,jp+1,kp,JDIR)
                     State%magFlux(ig,jg,kg,KDIR) = -State%magFlux(ip,jp  ,kp,KDIR)
@@ -962,17 +986,18 @@ module bcs
         !j-boundaries (OUT)
         !$OMP PARALLEL DO default(shared) &
         !$OMP private(n,i,k,ig,jg,kg,ip,jp,kp)
-        do k=Grid%ksg,Grid%keg
-            do i=Grid%isg,Grid%ieg
+        do k=Grid%ksg,Grid%keg+1
+            do i=Grid%isg,Grid%ieg+1
                 do n=1,Model%Ng
                     !Set ghost cells
                     ig = i
                     jg = Grid%je+n
                     kg = k
                     call lfmIJK(Model,Grid,ig,jg,kg,ip,jp,kp)
-
-                    State%Gas    (ig,jg  ,kg,:,:)  = State%Gas     (ip,jp,kp,:,:)
-                    State%Bxyz   (ig,jg  ,kg,:)    = State%Bxyz    (ip,jp,kp,:)
+                    if (isCellCenterG(Model,Grid,ig,jg,kg)) then
+                        State%Gas    (ig,jg  ,kg,:,:)  = State%Gas     (ip,jp,kp,:,:)
+                        State%Bxyz   (ig,jg  ,kg,:)    = State%Bxyz    (ip,jp,kp,:)
+                    endif
                     State%magFlux(ig,jg  ,kg,IDIR) =  State%magFlux(ip,jp,kp,IDIR)
                     State%magFlux(ig,jg+1,kg,JDIR) = -State%magFlux(ip,jp,kp,JDIR)
                     State%magFlux(ig,jg  ,kg,KDIR) = -State%magFlux(ip,jp,kp,KDIR)

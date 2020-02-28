@@ -2,6 +2,7 @@
 
 module uservoltic
     use gamtypes
+    use gamdebug
     use gamutils
     use math
     use gridutils
@@ -220,7 +221,7 @@ module uservoltic
                     stop
                 endif
             CLASS DEFAULT
-                write(*,*) 'Could not find Wind BC in remix IC'
+                write(*,*) 'Could not find Wind BC in IC'
                 stop
         END SELECT
 
@@ -235,6 +236,10 @@ module uservoltic
         real(rp) :: dF
 
         !call ChkMetricLFM(Model,Gr)
+        !call ChkFluxLFM(Model,Gr,State)
+
+        !write(*,*) 'Fixing fluxes ...'
+        !call FixFluxLFM(Model,Gr,State)
 
         !Call ingestion function
         if (Model%doSource) then
@@ -244,6 +249,14 @@ module uservoltic
         !Call cooling function/s
         if (doCool) call ChillOut(Model,Gr,State)
 
+        !Do some nudging at the outermost cells to hit solar wind
+        SELECT type(pWind=>Gr%externalBCs(OUTI)%p)
+            TYPE IS (WindBC_T)
+                if (Gr%hasUpperBC(IDIR)) then
+                   call NudgeSW(pWind,Model,Gr,State)
+                endif
+        END SELECT
+
     end subroutine PerStep
 
     !Fixes electric field before application
@@ -252,9 +265,8 @@ module uservoltic
         type(Grid_T), intent(inout) :: Gr
         type(State_T), intent(inout) :: State
 
-        integer :: i,j,k,kp
-        real(rp) :: MaxEjp,MaxEjm,Ei,Ej,Ek
-
+        !call ChkEFieldLFM(Model,Gr,State)
+        
         !Fix inner shells
         SELECT type(iiBC=>Gr%externalBCs(INI)%p)
             TYPE IS (IonInnerBC_T)
@@ -276,21 +288,8 @@ module uservoltic
                 write(*,*) 'Could not find Wind BC in remix IC'
                 stop
         END SELECT
-
-        !Lazy forcing on E field
-        do i=Gr%is,Gr%ie
-            do j=Gr%js,Gr%je
-                Ei = 0.5*(State%Efld(i,j,Gr%ks,IDIR) + State%Efld(i,j,Gr%ke+1,IDIR))
-                Ej = 0.5*(State%Efld(i,j,Gr%ks,JDIR) + State%Efld(i,j,Gr%ke+1,JDIR))
-                
-                State%Efld(i,j,Gr%ks  ,IDIR) = Ei
-                State%Efld(i,j,Gr%ke+1,IDIR) = Ei
-                State%Efld(i,j,Gr%ks  ,JDIR) = Ej
-                State%Efld(i,j,Gr%ke+1,JDIR) = Ej
-
-            enddo
-        enddo
-                        
+        
+        !call FixEFieldLFM(Model,Gr,State)             
     end subroutine EFix
 
     !Ensure no flux through degenerate faces
@@ -348,7 +347,7 @@ module uservoltic
         procedure(HackE_T), pointer :: eHack
 
         !Are we on the inner (REMIX) boundary
-        if (Grid%hasLowerBC(1)) then
+        if (Grid%hasLowerBC(IDIR)) then
             call xmlInp%Set_Val(PsiShells,"/remix/grid/PsiShells",5)
 
             !Create holders for coupling electric field
