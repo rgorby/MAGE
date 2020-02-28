@@ -342,6 +342,8 @@ module gam2VoltComm_mpi
         integer :: ierr, dataSize, sendDataOffset, recvDataOffset
         integer :: iJP, iJPjP, iJPjPkP, iJPjPkP4Gas, iJpjPkP5Gas, iJP3, iPSI, iPSI1
         integer :: Bxyz2, Bxyz3, Bxyz4, Eijk2, EIjk3, Eijk4, Exyz2, Exyz3, Exyz4
+        integer :: iP,iPjP,iPjPkP,iPjPkP4Gas,iPjPkP4Bxyz,iPjPkP5Gas
+        integer :: iPG2,iPG2jPG2,iPG2jPG2kPG2,iPG2jPG2kPG24Gas,iPG2jPG2kPG25Gas
 
         associate(Grid=>gApp%Grid,Model=>gApp%Model, &
                   JpSt=>g2vComm%JpSt,JpSh=>g2vComm%JpSh, &
@@ -367,6 +369,18 @@ module gam2VoltComm_mpi
         g2vComm%recvTypesInexyzShallow = MPI_DATATYPE_NULL
         g2vComm%recvTypesIneijkShallow = MPI_DATATYPE_NULL
 
+        if(g2vComm%doDeep) then
+            g2vComm%sendCountsGasDeep = 1
+            g2vComm%sendCountsBxyzDeep = 1
+            g2vComm%recvCountsGas0Deep = 1
+            g2vComm%sendDisplsGasDeep = 0
+            g2vComm%sendDisplsBxyzDeep = 0
+            g2vComm%recvDisplsGas0Deep = 0
+            g2vComm%sendTypesGasDeep = MPI_DATATYPE_NULL
+            g2vComm%sendTypesBxyzDeep = MPI_DATATYPE_NULL
+            g2vComm%recvTypesGas0Deep = MPI_DATATYPE_NULL
+        endif
+
         ! assemble datatypes
         call mpi_type_extent(MPI_MYFLOAT, dataSize, ierr) ! number of bytes per value
 
@@ -375,6 +389,8 @@ module gam2VoltComm_mpi
         call mpi_type_contiguous(JpSh+3, MPI_MYFLOAT, iJP3, ierr) ! JpSh+3 i
         call mpi_type_contiguous(PsiSh, MPI_MYFLOAT, iPSI, ierr) ! PsiSh i
         call mpi_type_contiguous(PsiSh+1, MPI_MYFLOAT, iPSI1, ierr) ! PsiSh+1 i
+        call mpi_type_contiguous(Grid%Nip, MPI_MYFLOAT, iP, ierr)
+        call mpi_type_contiguous(Grid%Ni, MPI_MYFLOAT, iPG2, ierr)
 
         ! J dimension
         call mpi_type_hvector(Grid%Njp, 1, Grid%Ni*dataSize, iJP, iJPjP, ierr) ! JpSh i - physical j
@@ -390,6 +406,8 @@ module gam2VoltComm_mpi
         endif
         call mpi_type_hvector(Grid%Nj, 1, PsiSh*dataSize, iPSI, Exyz2, ierr) ! PsiSh i - p+2g j
         call mpi_type_hvector(Grid%Nj+1, 1, (PsiSh+1)*dataSize, iPSI1, Eijk2, ierr) ! PsiSh+1 i - p+2g+1 j
+        call mpi_type_hvector(Grid%Njp, 1, Grid%Ni*datasize, iP, iPjP, ierr)
+        call mpi_type_hvector(Grid%Nj, 1, Grid%Ni*datasize, iPG2, iPG2jPG2, ierr)
 
         ! K dimension
         call mpi_type_hvector(Grid%Nkp, 1, Grid%Ni*Grid%Nj*dataSize, &
@@ -411,14 +429,23 @@ module gam2VoltComm_mpi
                               Exyz2, Exyz3, ierr) ! PsiSh i - p+2g j - p+2g k
         call mpi_type_hvector(Grid%Nk+1, 1, (Grid%Nj+1)*(PsiSh+1)*dataSize,&
                               Eijk2, Eijk3, ierr) ! PsiSh+1 i - p+2g+1 j - p+2g+1 k
+        call mpi_type_hvector(Grid%Nkp, 1, Grid%Ni*Grid%Nj*datasize, iPjP, iPjPkP, ierr)
+        call mpi_type_hvector(Grid%Nk, 1, Grid%Ni*Grid%Nj*datasize, iPG2jPG2, iPG2jPG2kPG2, ierr)
+
         ! 4th dimension
         call mpi_type_hvector(NVAR, 1, Grid%Ni*Grid%Nj*Grid%Nk*dataSize, iJPjPkP, iJPjPkP4Gas, ierr)
         call mpi_type_hvector(NDIM, 1, Grid%Ni*Grid%Nj*Grid%Nk*dataSize, Bxyz3, Bxyz4, ierr)
         call mpi_type_hvector(NDIM, 1, PsiSh*Grid%Nj*Grid%Nk*dataSize, Exyz3, Exyz4, ierr)
         call mpi_type_hvector(NDIM, 1, (PsiSh+1)*(Grid%Nj+1)*(Grid%Nk+1)*dataSize, Eijk3, Eijk4, ierr)
+        call mpi_type_hvector(NVAR, 1, Grid%Ni*Grid%Nj*Grid%Nk*datasize, iPjPkP, iPjPkP4Gas, ierr)
+        call mpi_type_hvector(NDIM, 1, Grid%Ni*Grid%Nj*Grid%Nk*datasize, iPjPkP, iPjPkP4Bxyz, ierr)
+        call mpi_type_hvector(NVAR, 1, Grid%Ni*Grid%Nj*Grid%Nk*datasize, iPG2jPG2kPG2, iPG2jPG2kPG24Gas, ierr)
 
         ! 5th dimension
         call mpi_type_hvector(Model%nSpc+1,1,NVAR*Grid%Ni*Grid%Nj*Grid%Nk*dataSize,iJPjPkP4Gas,iJPjPkP5Gas,ierr)
+        call mpi_type_hvector(Model%nSpc+1,1,NVAR*Grid%Ni*Grid%Nj*Grid%Nk*dataSize,iPjPkP4Gas,iPjPkP5Gas,ierr)
+        call mpi_type_hvector(Model%nSpc+1,1,NVAR*Grid%Ni*Grid%Nj*Grid%Nk*dataSize,iPG2jPG2kPG24Gas, &
+                              iPG2jPG2kPG25Gas,ierr)
 
         ! create appropriate MPI Datatypes
         if(.not. Grid%hasLowerBC(IDIR)) then
@@ -465,12 +492,32 @@ module gam2VoltComm_mpi
             call mpi_type_hindexed(1, (/1/), recvDataOffset*dataSize, Eijk4, &
                                    g2vComm%recvTypesIneijkShallow(1), ierr)
         endif
+        if(g2vComm%doDeep) then
+            ! Gas
+            sendDataOffset = Model%nG*Grid%Nj*Grid%Ni + &
+                             Model%nG*Grid%Ni + &
+                             Model%nG
+            call mpi_type_hindexed(1,(/1/),sendDataOffset*dataSize,iPjPkP5Gas,g2vComm%sendTypesGasDeep(1),ierr)
+
+            ! Bxyz
+            call mpi_type_hindexed(1,(/1/),sendDataOffset*dataSize,iPjPkP4Bxyz,g2vComm%sendTypesBxyzDeep(1),ierr)
+
+            ! Gas0
+            recvDataOffset = 0
+            call mpi_type_hindexed(1,(/1/),recvDataOffset*dataSize,iPG2jPG2kPG25Gas, &
+                                   g2vComm%recvTypesGas0Deep(1),ierr)
+        endif
 
         ! commit new mpi datatypes
         call mpi_type_commit(g2vComm%sendTypesGasShallow(1), ierr)
         call mpi_type_commit(g2vComm%sendTypesBxyzShallow(1), ierr)
         call mpi_type_commit(g2vComm%recvTypesIneijkShallow(1), ierr)
         call mpi_type_commit(g2vComm%recvTypesInexyzShallow(1), ierr)
+        if(g2vComm%doDeep) then
+            call mpi_type_commit(g2vComm%sendTypesGasDeep(1), ierr)
+            call mpi_type_commit(g2vComm%sendTypesBxyzDeep(1), ierr)
+            call mpi_type_commit(g2vComm%recvTypesGas0Deep(1), ierr)
+        endif
 
         end associate
 

@@ -383,6 +383,8 @@ module voltapp_mpi
         integer :: iJP3, iJP3jP, iJP3jPG, iJP3jPG2, iJP3jPkPG2, iJP3jPGkPG2, iJP3jPG2kPG2
         integer :: iJP3jPkPG24Bxyz, iJP3jPGkPG24Bxyz, iJP3jPG2kPG24Bxyz
         integer :: sRank,sendDataOffset,iPSI,iPSI1,Exyz2,Eijk2,Exyz3,Eijk3,Exyz4,Eijk4
+        integer :: iP,iPjP,iPjPkP,iPjPkP4Bxyz,iPjPkP4Gas,iPjPkP5Gas
+        integer :: iPG2,iPG2jPG2,iPG2jPG2kPG2,iPG2jPG2kPG24Gas,iPG2jPG2kPG25Gas
 
         associate(Grid=>vApp%gAppLocal%Grid,Model=>vApp%gAppLocal%Model, &
                   JpSt=>vApp%mhd2mix%JStart,JpSh=>vApp%mhd2mix%JShells, &
@@ -400,6 +402,18 @@ module voltapp_mpi
         allocate(vApp%sendCountsIneijkShallow(1:SIZE(vApp%sendRanks)))
         allocate(vApp%sendDisplsIneijkShallow(1:SIZE(vApp%sendRanks)))
         allocate(vApp%sendTypesIneijkShallow(1:SIZE(vApp%sendRanks)))
+
+        if(vApp%doDeep) then
+            allocate(vApp%recvCountsGasDeep(1:SIZE(vApp%recvRanks)))
+            allocate(vApp%recvDisplsGasDeep(1:SIZE(vApp%recvRanks)))
+            allocate(vApp%recvTypesGasDeep(1:SIZE(vApp%recvRanks)))
+            allocate(vApp%recvCountsBxyzDeep(1:SIZE(vApp%recvRanks)))
+            allocate(vApp%recvDisplsBxyzDeep(1:SIZE(vApp%recvRanks)))
+            allocate(vApp%recvTypesBxyzDeep(1:SIZE(vApp%recvRanks)))
+            allocate(vApp%sendCountsGas0Deep(1:SIZE(vApp%sendRanks)))
+            allocate(vApp%sendDisplsGas0Deep(1:SIZE(vApp%sendRanks)))
+            allocate(vApp%sendTypesGas0Deep(1:SIZE(vApp%sendRanks)))
+        endif
 
         ! counts are always 1 because we're sending a single (complicated) mpi datatype
         vApp%recvCountsGasShallow(:) = 1
@@ -419,6 +433,20 @@ module voltapp_mpi
         vApp%sendTypesInexyzShallow(:) = MPI_DATATYPE_NULL
         vApp%sendTypesIneijkShallow(:) = MPI_DATATYPE_NULL
 
+        if(vApp%doDeep) then
+            vApp%recvCountsGasDeep(:) = 1
+            vApp%recvCountsBxyzDeep(:) = 1
+            vApp%sendCountsGas0Deep(:) = 1
+
+            vApp%recvDisplsGasDeep(:) = 0
+            vApp%recvDisplsBxyzDeep(:) = 0
+            vApp%sendDisplsGas0Deep(:) = 0
+
+            vApp%recvTypesGasDeep(:) = MPI_DATATYPE_NULL
+            vApp%recvTypesBxyzDeep(:) = MPI_DATATYPE_NULL
+            vApp%sendTypesGas0Deep(:) = MPI_DATATYPE_NULL
+        endif
+
         ! assemble the different datatypes
         call mpi_type_extent(MPI_MYFLOAT, dataSize, ierr) ! number of bytes per array entry
         NiRanks = maxval(iRanks)+1 ! gamera i decomposition
@@ -433,6 +461,8 @@ module voltapp_mpi
         call mpi_type_contiguous(JpSh+3, MPI_MYFLOAT, iJP3, ierr) ! JpSh+3 i
         call mpi_type_contiguous(PsiSh, MPI_MYFLOAT, iPSI, ierr) ! PsiSh i
         call mpi_type_contiguous(PsiSh+1, MPI_MYFLOAT, iPSI1, ierr) ! PsiSh+1 i
+        call mpi_type_contiguous(NipT, MPI_MYFLOAT, iP, ierr) ! physical i
+        call mpi_type_contiguous(2*Model%nG+NipT, MPI_MYFLOAT, iPG2 ierr) ! physical + 2*ghosts i
 
         ! J dimension
         call mpi_type_hvector(NjpT, 1, Grid%Ni*dataSize, iJP, iJPjP, ierr) ! JpSh i - physical j
@@ -441,6 +471,8 @@ module voltapp_mpi
         call mpi_type_hvector(2*Model%nG+NjpT, 1, Grid%Ni*dataSize, iJP3, iJP3jPG2, ierr) ! JpSh+3 i - p+2g j
         call mpi_type_hvector(2*Model%nG+NjpT, 1, PsiSh*dataSize, iPSI, Exyz2, ierr) ! PsiSh i - p+2g j
         call mpi_type_hvector(2*Model%nG+NjpT+1, 1, (PsiSh+1)*dataSize, iPSI1, Eijk2, ierr) ! PsiSh+1 i - p+2g+1 j
+        call mpi_type_hvector(NjpT, 1, Grid%Ni*dataSize, iP, iPjP, ierr) ! physical i - physical j
+        call mpi_type_hvector(2*Model%nG+NjpT, 1, Grid%Ni*dataSize, iPG2, iPG2jPG2, ierr) ! p+2g i - p+2g j
 
         ! K dimension - currently assume NO k decomposition
         call mpi_type_hvector(NkpT, 1, Grid%Ni*Grid%Nj*dataSize, &
@@ -455,6 +487,8 @@ module voltapp_mpi
                               Exyz2, Exyz3, ierr) ! PsiSh i - p+2g j - p+2g k
         call mpi_type_hvector(2*Model%ng+NkpT+1, 1, (Grid%Nj+1)*(PsiSh+1)*dataSize,&
                               Eijk2, Eijk3, ierr) ! PsiSh+1 i - p+2g+1 j - p+2g+1 k
+        call mpi_type_hvector(NkpT, 1, Grid%Ni*Grid%Nj*dataSize, iPjP, iPjPkP, ierr)
+        call mpi_type_hvector(2*Model%nG+NkpT, 1, Grid%Ni*Grid%Nj*dataSize, iPG2jPG2, iPG2jPG2kPG2, ierr)
 
         ! 4th dimension
         call mpi_type_hvector(NVAR, 1, Grid%Ni*Grid%Nj*Grid%Nk*dataSize, iJPjPkP, iJPjPkP4Gas, ierr)
@@ -463,9 +497,15 @@ module voltapp_mpi
         call mpi_type_hvector(NDIM, 1, Grid%Ni*Grid%Nj*Grid%Nk*dataSize, iJP3jPG2kPG2, iJP3jPG2kPG24Bxyz, ierr)
         call mpi_type_hvector(NDIM, 1, PsiSh*Grid%Nj*Grid%Nk*dataSize, Exyz3, Exyz4, ierr)
         call mpi_type_hvector(NDIM, 1, (PsiSh+1)*(Grid%Nj+1)*(Grid%Nk+1)*dataSize, Eijk3, Eijk4, ierr)
+        call mpi_type_hvector(NDIM, 1, Grid%Ni*Grid%Nj*Grid%Nk*dataSize, iPjPkP, iPjPkP4Bxyz, ierr)
+        call mpi_type_hvector(NVAR, 1, Grid%Ni*Grid%Nj*Grid%Nk*dataSize, iPjPkP, iPjPkP4Gas, ierr)
+        call mpi_type_hvector(NVAR, 1, Grid%Ni*Grid%Nj*Grid%Nk*dataSize, iPG2jPG2kPG2, iPG2jPG2kPG24Gas, ierr)
 
         ! 5th dimension
         call mpi_type_hvector(Model%nSpc+1,1,NVAR*Grid%Ni*Grid%Nj*Grid%Nk*dataSize,iJPjPkP4Gas,iJPjPkP5Gas,ierr)
+        call mpi_type_hvector(Model%nSpc+1,1,NVAR*Grid%Ni*Grid%Nj*Grid%Nk*dataSize,iPjPkP4Gas,iPjPkP5Gas,ierr)
+        call mpi_type_hvector(Model%nSpc+1,1,NVAR*Grid%Ni*Grid%Nj*Grid%Nk*dataSize, &
+                              iPG2jPG2kPG24Gas, iPG2jPG2kPG25Gas, ierr)
 
         ! figure out exactly what data needs to be sent to (and received from) each gamera rank
         ! create custom MPI datatypes to perform these transfers
@@ -514,6 +554,18 @@ module voltapp_mpi
                 call mpi_type_hindexed(1, (/1/), recvDataOffset*dataSize, recvDatatype, &
                                        vApp%recvTypesBxyzShallow(r), ierr)
             endif
+
+            if(vApp%doDeep) then
+                ! gas
+                recvDataOffset = (Model%nG + kRanks(rRank)*NkpT)*Grid%Nj*Grid%Ni + &
+                                 (Model%nG + jRanks(rRank)*NjpT)*Grid%Ni + &
+                                 (Model%nG + iRanks(rRank)*NipT)
+                call mpi_type_hindexed(1, (/1/), recvDataOffset*dataSize, iPjPkP5Gas, &
+                                       vApp%recvTypesGasDeep(r), ierr)
+                ! Bxyz
+                call mpi_type_hindexed(1, (/1/), recvDataOffset*dataSize, iPjPkP4Bxyz, &
+                                       vApp%recvTypesBxyzDeep(r), ierr)
+            endif
         enddo
 
         do r=1,SIZE(vApp%sendRanks)
@@ -543,6 +595,15 @@ module voltapp_mpi
                 call mpi_type_hindexed(1, (/1/), sendDataOffset*dataSize, Eijk4, &
                                        vApp%sendTypesIneijkShallow(r), ierr)
             endif
+
+            if(vApp%doDeep) then
+                ! gas0
+                sendDataOffset = kRanks(sRank)*NkpT*Grid%Nj*Grid%Ni + &
+                                 jRanks(sRank)*NjpT*Grid%Ni + &
+                                 iRanks(sRank)*NipT
+                call mpi_type_hindexed(1, (/1/), sendDataOffset*dataSize, iPG2jPG2kPG25Gas, &
+                                       vApp%sendTypesGas0Deep(r), ierr)
+            endif
         enddo
 
         do r=1,size(vApp%recvTypesGasShallow)
@@ -550,6 +611,12 @@ module voltapp_mpi
             call mpi_type_commit(vApp%recvTypesBxyzShallow(r), ierr)
             call mpi_type_commit(vApp%sendTypesInexyzShallow(r), ierr)
             call mpi_type_commit(vApp%sendTypesIneijkShallow(r), ierr)
+
+            if(vApp%doDeep) then
+                call mpi_type_commit(vApp%recvTypesGasDeep(r), ierr)
+                call mpi_type_commit(vApp%recvTypesBxyzDeep(r), ierr)
+                call mpi_type_commit(vApp%sendTypesGas0Deep(r), ierr)
+            endif
         enddo
 
         end associate
