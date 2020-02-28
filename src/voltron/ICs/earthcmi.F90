@@ -470,9 +470,17 @@ module uservoltic
                         State%magFlux(ig,j,k,KDIR) = State%magFlux(ip,jp,kp,KDIR)
                     endif
 
+                    if (j == Grid%jeg) then
+                        State%magFlux(ig,j+1,k,IDIR:KDIR) = 0.0
+                        State%magFlux(ig,j+1,k,JDIR) = State%magFlux(ip,jp+1,kp,JDIR)
+                    endif
+
                 enddo !n
             enddo
         enddo
+        !NOTE: Currently just assuming we have full K
+        State%magFlux(Grid%is-Model%Ng:Grid%is-1,:,Grid%ke+1,IDIR:KDIR) = 0.0
+        State%magFlux(Grid%is-Model%Ng:Grid%is-1,:,Grid%ke+1,KDIR) = State%magFlux(Grid%is-Model%Ng:Grid%is-1,:,Grid%ks,KDIR)
 
     end subroutine IonInner
     
