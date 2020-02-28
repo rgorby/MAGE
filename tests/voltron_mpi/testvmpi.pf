@@ -477,20 +477,175 @@ contains
 
   end subroutine testShallowUpdate
 
-  !@test(npes=[2,5,17])
+  @test(npes=[2,5,17])
   subroutine testMhd2VoltDeepCopy(this)
       class (MpiTestMethod), intent(inout) :: this
 
+      integer :: i,j,k,l,m
+      real(rp) :: checkVal
       character(len=strLen) :: checkMessage
+      real(rp) :: iVal, jVal, kVal, lVal, mVal
+
+      ! coefficients chosen to allow easy interpretation of final values
+      iVal = 1
+      jVal = 20
+      kVal = 400
+      lVal = 8000
+      mVal = 160000
+
+      if(isGamera) then
+          ! clear all cells
+          gamAppMpi%State%Gas(:,:,:,:,:) = 0
+          gamAppMpi%State%Bxyz(:,:,:,:) = 0
+
+          ! set values for gas
+          do i=gamAppMpi%Grid%is,gamAppMpi%Grid%ie
+              do j=gamAppMpi%Grid%js,gamAppMpi%Grid%je
+                  do k=gamAppMpi%Grid%ks,gamAppMpi%Grid%ke
+                      do l=1,NVAR
+                          do m=0,gamAppMpi%Model%nSpc
+                              gamAppMpi%State%Gas(i,j,k,l,m) = &
+                                  mVal*m + &
+                                  lVal*l + &
+                                  kVal*(k+gamAppMpi%Grid%ijkShift(KDIR)) + &
+                                  jVal*(j+gamAppMpi%Grid%ijkShift(JDIR)) + &
+                                  iVal*(i+gamAppMpi%Grid%ijkShift(IDIR))
+                          enddo
+                      enddo
+                  enddo
+              enddo
+          enddo
+
+          ! set values for bxyz
+          do i=gamAppMpi%Grid%is,gamAppMpi%Grid%ie
+              do j=gamAppMpi%Grid%js,gamAppMpi%Grid%je
+                  do k=gamAppMpi%Grid%ks,gamAppMpi%Grid%ke
+                      do l=1,NDIM
+                          gamAppMpi%State%Bxyz(i,j,k,l) = &
+                              lVal*l + &
+                              kVal*(k+gamAppMpi%Grid%ijkShift(KDIR)) + &
+                              jVal*(j+gamAppMpi%Grid%ijkShift(JDIR)) + &
+                              iVal*(i+gamAppMpi%Grid%ijkShift(IDIR))
+                      enddo
+                  enddo
+              enddo
+          enddo
+
+          ! send the data to voltron
+          call sendDeepData(g2vCommMpi, gamAppMpi)
+      else
+          ! clear all cells
+          voltAppMpi%gAppLocal%State%Gas(:,:,:,:,:) = 0
+          voltAppMpi%gAppLocal%State%Bxyz(:,:,:,:) = 0
+
+          ! receive the data from gamera
+          call recvDeepData_mpi(voltAppMpi)
+
+          ! check gas values
+          do i=voltAppMpi%gAppLocal%Grid%is,voltAppMpi%gAppLocal%Grid%ie
+              do j=voltAppMpi%gAppLocal%Grid%js,voltAppMpi%gAppLocal%Grid%je
+                  do k=voltAppMpi%gAppLocal%Grid%ks,voltAppMpi%gAppLocal%Grid%ke
+                      do l=1,NVAR
+                          do m=0,voltAppMpi%gAppLocal%Model%nSpc
+                              checkVal = mVal*m + &
+                                  lVal*l + &
+                                  iVal*i + &
+                                  jVal*j + &
+                                  kVal*k
+                              write (checkMessage,'(A,I0,A,I0,A,I0,A,I0,A,I0,A)') 'voltron gas wrong at (',i,',',j,',',k,',',l,',',m,')'
+                              @assertEqual(checkVal,voltAppMpi%gAppLocal%State%Gas(i,j,k,l,m), trim(checkMessage))
+                          enddo
+                      enddo
+                  enddo
+              enddo
+          enddo
+
+          ! check bxyz values
+          do i=voltAppMpi%gAppLocal%Grid%is,voltAppMpi%gAppLocal%Grid%ie
+              do j=voltAppMpi%gAppLocal%Grid%js,voltAppMpi%gAppLocal%Grid%je
+                  do k=voltAppMpi%gAppLocal%Grid%ks,voltAppMpi%gAppLocal%Grid%ke
+                      do l=1,NDIM
+                          checkVal = lVal*l + &
+                              iVal*i + &
+                              jVal*j + &
+                              kVal*k
+                          write (checkMessage,'(A,I0,A,I0,A,I0,A,I0,A)') 'voltron bxyz wrong at (',i,',',j,',',k,',',l,')'
+                          @assertEqual(checkVal, voltAppMpi%gAppLocal%State%Bxyz(i,j,k,l), trim(checkMessage))
+                      enddo
+                  enddo
+              enddo
+          enddo
+
+      endif
 
   end subroutine testMhd2VoltDeepCopy
 
-  !@test(npes=[2,5,17])
+  @test(npes=[2,5,17])
   subroutine testVolt2MhdDeepCopy(this)
       class (MpiTestMethod), intent(inout) :: this
 
+      integer :: i,j,k,l,m
+      real(rp) :: checkVal
       character(len=strLen) :: checkMessage
+      real(rp) :: iVal, jVal, kVal, lVal, mVal
 
+      ! coefficients chosen to allow easy interpretation of final values
+      iVal = 1
+      jVal = 20
+      kVal = 400
+      lVal = 8000
+      mVal = 160000
+
+      if(isGamera) then
+          ! clear all cells
+          gamAppMpi%State%Gas0(:,:,:,:,:) = 0
+
+          ! receive the data from voltron
+          call recvDeepData(g2vCommMpi, gamAppMpi)
+
+          ! check gas0 values
+          do i=gamAppMpi%Grid%isg,gamAppMpi%Grid%ieg
+              do j=gamAppMpi%Grid%jsg,gamAppMpi%Grid%jeg
+                  do k=gamAppMpi%Grid%ksg,gamAppMpi%Grid%keg
+                      do l=1,NVAR
+                          do m=0,gamAppMpi%Model%nSpc
+                              checkVal = mVal*m + &
+                                  lVal*l + &
+                                  kVal*(k+gamAppMpi%Grid%ijkShift(KDIR)) + &
+                                  jVal*(j+gamAppMpi%Grid%ijkShift(JDIR)) + &
+                                  iVal*(i+gamAppMpi%Grid%ijkShift(IDIR))
+                              write (checkMessage,'(A,I0,A,I0,A,I0,A,I0,A,I0,A)') 'gamera gas0 wrong at (',i,',',j,',',k,',',l,',',m,')'
+                              @assertEqual(checkVal,gamAppMpi%State%Gas0(i,j,k,l,m), trim(checkMessage))
+                          enddo
+                      enddo
+                  enddo
+              enddo
+          enddo
+      else
+          ! clear all cells
+          voltAppMpi%gAppLocal%State%Gas0(:,:,:,:,:) = 0
+
+          ! set gas0 values
+          do i=voltAppMpi%gAppLocal%Grid%isg,voltAppMpi%gAppLocal%Grid%ieg
+              do j=voltAppMpi%gAppLocal%Grid%jsg,voltAppMpi%gAppLocal%Grid%jeg
+                  do k=voltAppMpi%gAppLocal%Grid%ksg,voltAppMpi%gAppLocal%Grid%keg
+                      do l=1,NVAR
+                          do m=0,voltAppMpi%gAppLocal%Model%nSpc
+                              voltAppMpi%gAppLocal%State%Gas0(i,j,k,l,m) = mVal*m + &
+                                  lVal*l + &
+                                  iVal*i + &
+                                  jVal*j + &
+                                  kVal*k
+                          enddo
+                      enddo
+                  enddo
+              enddo
+          enddo
+
+          ! send the data to gamera
+          call sendDeepData_mpi(voltAppMpi)
+
+      endif
   end subroutine testVolt2MhdDeepCopy
 
   !@test(npes=[2,5,17])
