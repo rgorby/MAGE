@@ -462,7 +462,7 @@ module voltapp_mpi
         call mpi_type_contiguous(PsiSh, MPI_MYFLOAT, iPSI, ierr) ! PsiSh i
         call mpi_type_contiguous(PsiSh+1, MPI_MYFLOAT, iPSI1, ierr) ! PsiSh+1 i
         call mpi_type_contiguous(NipT, MPI_MYFLOAT, iP, ierr) ! physical i
-        call mpi_type_contiguous(2*Model%nG+NipT, MPI_MYFLOAT, iPG2 ierr) ! physical + 2*ghosts i
+        call mpi_type_contiguous(2*Model%nG+NipT, MPI_MYFLOAT, iPG2, ierr) ! physical + 2*ghosts i
 
         ! J dimension
         call mpi_type_hvector(NjpT, 1, Grid%Ni*dataSize, iJP, iJPjP, ierr) ! JpSh i - physical j

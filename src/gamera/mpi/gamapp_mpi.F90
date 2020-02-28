@@ -466,16 +466,62 @@ module gamapp_mpi
     subroutine stepGamera_mpi(gamAppMpi)
         type(gamAppMpi_T), intent(inout) :: gamAppMpi
 
-        integer :: ierr
+        integer :: ierr,i
         real(rp) :: tmp
+        character(len=strLen) :: BCID
 
         !update the state variables to the next timestep
         call UpdateStateData(gamAppMpi)
+
+        !Enforce BCs
+        call Tic("BCs")
+        call EnforceBCs(gamAppMpi%Model,gamAppMpi%Grid,gamAppMpi%State)
+        call Toc("BCs")
 
         !Update ghost cells
         call Tic("Halos")
         call HaloUpdate(gamAppMpi)
         call Toc("Halos")
+
+        ! Re-apply periodic BCs last
+        do i=1,gamAppMpi%Grid%NumBC
+            if(allocated(gamAppMpi%Grid%externalBCs(i)%p)) then
+                SELECT type(bc=>gamAppMpi%Grid%externalBCs(i)%p)
+                    TYPE IS (periodicInnerIBC_T)
+                        write (BCID, '(A,I0)') "BC#", i
+                        call Tic(BCID)
+                        call bc%doBC(gamAppMpi%Model,gamAppMpi%Grid,gamAppMpi%State)
+                        call Toc(BCID)
+                    TYPE IS (periodicOuterIBC_T)
+                        write (BCID, '(A,I0)') "BC#", i
+                        call Tic(BCID)
+                        call bc%doBC(gamAppMpi%Model,gamAppMpi%Grid,gamAppMpi%State)
+                        call Toc(BCID)
+                    TYPE IS (periodicInnerJBC_T)
+                        write (BCID, '(A,I0)') "BC#", i
+                        call Tic(BCID)
+                        call bc%doBC(gamAppMpi%Model,gamAppMpi%Grid,gamAppMpi%State)
+                        call Toc(BCID)
+                    TYPE IS (periodicOuterJBC_T)
+                        write (BCID, '(A,I0)') "BC#", i
+                        call Tic(BCID)
+                        call bc%doBC(gamAppMpi%Model,gamAppMpi%Grid,gamAppMpi%State)
+                        call Toc(BCID)
+                    TYPE IS (periodicInnerKBC_T)
+                        write (BCID, '(A,I0)') "BC#", i
+                        call Tic(BCID)
+                        call bc%doBC(gamAppMpi%Model,gamAppMpi%Grid,gamAppMpi%State)
+                        call Toc(BCID)
+                    TYPE IS (periodicOuterKBC_T)
+                        write (BCID, '(A,I0)') "BC#", i
+                        call Tic(BCID)
+                        call bc%doBC(gamAppMpi%Model,gamAppMpi%Grid,gamAppMpi%State)
+                        call Toc(BCID)
+                    CLASS DEFAULT
+                        ! do nothing, not a periodic BC
+                endselect
+            endif
+        enddo
 
         !Calculate new timestep
         call Tic("DT")
@@ -491,11 +537,6 @@ module gamapp_mpi
         endif
 
         call Toc("DT")
-
-        !Enforce BCs
-        call Tic("BCs")
-        call EnforceBCs(gamAppMpi%Model,gamAppMpi%Grid,gamAppMpi%State)
-        call Toc("BCs")
 
     end subroutine stepGamera_mpi
 
