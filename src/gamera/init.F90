@@ -444,19 +444,6 @@ module init
         Grid%ksDT = Grid%ks-1
         Grid%keDT = Grid%ke+1
 
-        !Set default domain for Bxyz predictor calculation
-        Grid%isMG = Grid%isg
-        Grid%ieMG = Grid%ieg
-        Grid%jsMG = Grid%jsg
-        Grid%jeMG = Grid%jeg
-        if (Model%do25D) then
-            Grid%ksMG = Grid%ks
-            Grid%keMG = Grid%ks
-        else            
-            Grid%ksMG = Grid%ksg
-            Grid%keMG = Grid%keg
-        endif
-
     end subroutine SetDomain
 
     !Set default Grid domain indices (after grid generation)

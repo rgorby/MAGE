@@ -492,11 +492,23 @@ module mhdgroup
 
         !Now do flux->field where necessary
         if (Model%doMHD) then
-            !Replace Bxyz w/ flux->field calculations in xxMG region
+            !Loop through grid and replace Bxyz w/ flux-> field 
+            !EXCEPT IN EXTERNAL BC REGION
             !$OMP DO collapse(2)
-            do k=Grid%ksMG,Grid%keMG
-                do j=Grid%jsMG,Grid%jeMG
-                    do i=Grid%isMG,Grid%ieMG
+            do k=Grid%ksg,Grid%keg
+                do j=Grid%jsg,Grid%jeg
+                    do i=Grid%isg,Grid%ieg
+                        if ( (i < Grid%is) .and. Grid%hasLowerBC(IDIR) ) cycle
+                        if ( (j < Grid%js) .and. Grid%hasLowerBC(JDIR) ) cycle
+                        if ( (k < Grid%ks) .and. Grid%hasLowerBC(KDIR) ) cycle
+
+                        if ( (i > Grid%ie) .and. Grid%hasUpperBC(IDIR) ) cycle
+                        if ( (j > Grid%je) .and. Grid%hasUpperBC(JDIR) ) cycle
+                        if ( (k > Grid%ke) .and. Grid%hasUpperBC(KDIR) ) cycle
+
+                        !If you're still here then either:
+                        !You're in your own active region OR you're in the active region of someone else
+                        !In any event, the face fluxes here are great so use them
                         pState%Bxyz(i,j,k,:) = CellBxyz(Model,Grid,pState%magFlux,i,j,k)
                     enddo
                 enddo

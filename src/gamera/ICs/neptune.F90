@@ -88,13 +88,6 @@ module usergamic
         Grid%ksDT = Grid%ks
         Grid%keDT = Grid%ke
 
-        !Set MG bounds
-        Grid%isMG = Grid%is
-        Grid%ieMG = Grid%ie
-        Grid%jsMG = Grid%js
-        Grid%jeMG = Grid%je
-        Grid%ksMG = Grid%ks
-        Grid%keMG = Grid%ke
     !Set hack functions
         if ( (Model%Ri == Model%NumRi) .or. (Model%Ri == 1) ) then
             Model%HackE => EFix
