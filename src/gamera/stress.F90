@@ -152,7 +152,6 @@ module stress
         !$OMP private(i,j,k,dV)
         do k=Gr%ks,Gr%ke
             do j=Gr%js,Gr%je
-                !$OMP SIMD
                 do i=Gr%is,Gr%ie
                     dV = Gr%volume(i,j,k)
                     !Do all species here
@@ -447,7 +446,6 @@ module stress
         !Bail out if none of these cells have "real" fluid in this species
         if (.not. any(doFlx)) return
 
-        !$OMP SIMD
         do i=1,vecLen
             if ( doFlx(i) ) then
                 !Get primitive values, calculate lambda
@@ -540,7 +538,6 @@ module stress
         !DIR$ ASSUME_ALIGNED bbD: ALIGN
         !DIR$ ASSUME_ALIGNED VaD: ALIGN
         
-        !$OMP SIMD
         do i=1,vecLen
             !Calculate lambda
             D = PrimLRB(i,DEN)

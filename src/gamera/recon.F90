@@ -337,10 +337,7 @@ module recon
     end subroutine pdmLR
 
     !PDM Left
-    function PDM(q0,q1,q2,qI) 
-#ifdef __INTEL_COMPILER
-        !$omp declare simd(PDM)
-#endif
+    function PDM(q0,q1,q2,qI)
         real(rp), intent(in) :: q0,q1,q2,qI
         real(rp) :: PDM
         real(rp) :: maxQ,minQ, qN, dq0,dq1,dqL
@@ -369,9 +366,6 @@ module recon
     end function PDM
 
     function Up7(q0,q1,q2,q3,q4,q5,q6) 
-#ifdef __INTEL_COMPILER
-        !$omp declare simd(Up7)
-#endif
         real(rp), intent(in) :: q0,q1,q2,q3,q4,q5,q6
         real(rp) :: Up7
 
