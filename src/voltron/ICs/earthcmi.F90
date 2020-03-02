@@ -30,14 +30,15 @@ module uservoltic
     real(rp) :: T0  = 60.0
     real(rp) :: dCS = 0.0
 
-    !doHeavy = Add plasmasphere
-    logical :: doHeavy = .false.
-
     !doCool = Apply cooling function
     logical :: doCool       = .true.
     
     logical :: newMix = .false.
 
+    !Some knobs for initialization
+    real(rp) :: Lc = 22.5
+    real(rp) :: DInner = 30.0
+    real(rp) :: DInCut = 10.0
 
     ! type for remix BC
     type, extends(baseBC_T) :: IonInnerBC_T
@@ -81,10 +82,6 @@ module uservoltic
         call inpXML%Set_Val(RhoW0,"prob/RhoW",5.0_rp)
         call inpXML%Set_Val(P0   ,"prob/P0"  ,0.001_rp)
         call inpXML%Set_Val(PrW0 ,"prob/PrW" ,0.48_rp)
-
-
-        !Use plasmasphere model for initial density
-        call inpXML%Set_Val(doHeavy,"prob/doHeavy",doHeavy)
 
         !Set magnetosphere parameters
         call setMagsphere(Model,inpXML)
@@ -168,19 +165,31 @@ module uservoltic
                 real(rp), intent(in) :: x,y,z
                 real(rp), intent(out) :: D,Vx,Vy,Vz,P
 
-                real(rp) :: r,lambda,cL,L
+                real(rp) :: r,lambda,cL
+                real(rp) :: phi,L,Lx,Ly
+                real(rp) :: M
 
                 r = sqrt(x**2.0+y**2.0+z**2.0)
                 lambda = asin(z/r)
                 cL = cos(lambda)
                 L = r/(cL*cL)
-                if (doHeavy) then
-                    D = max(Rho0,psphD(L))
+
+                phi = atan2(y,x)
+                Lx = L*cos(phi)
+                Ly = L*sin(phi)
+
+                !P = P0
+                if (L <= Lc) then
+                    !P = max( Psk(Lx,Ly),P0 )
+                    P = max( pwolf(L),P0 )/gP0
+                    D = DInner
+                    M = RampDown(L,Lc-DInCut,DInCut)
+                    D = max(DInner,Rho0)
                 else
+                    P = P0
                     D = Rho0
                 endif
 
-                P = P0
                 Vx = 0.0
                 Vy = 0.0
                 Vz = 0.0
@@ -215,8 +224,8 @@ module uservoltic
                 if (associated(pWind%getWind)) then
                     write(*,*) 'Using solar wind BC from file ...'
                 else
-                    write(*,*) 'Using solar wind BC from subroutine ...'
-                    pWind%getWind => SolarWindTS
+                    write(*,*) 'No solar wind file provided/found ...'
+                    stop
                 endif
             CLASS DEFAULT
                 write(*,*) 'Could not find Wind BC in remix IC'
@@ -230,7 +239,10 @@ module uservoltic
         type(Grid_T), intent(inout) :: Gr
         type(State_T), intent(inout) :: State
 
-        integer :: i
+        integer :: i,j,k
+        real(rp) :: dF
+
+        !call ChkMetricLFM(Model,Gr)
 
         !Call ingestion function
         if (Model%doSource) then
@@ -239,7 +251,7 @@ module uservoltic
 
         !Call cooling function/s
         if (doCool) call ChillOut(Model,Gr,State)
-        
+
     end subroutine PerStep
 
     !Fixes electric field before application
@@ -273,7 +285,20 @@ module uservoltic
                 stop
         END SELECT
 
-        
+        !Lazy forcing on E field
+        do i=Gr%is,Gr%ie
+            do j=Gr%js,Gr%je
+                Ei = 0.5*(State%Efld(i,j,Gr%ks,IDIR) + State%Efld(i,j,Gr%ke+1,IDIR))
+                Ej = 0.5*(State%Efld(i,j,Gr%ks,JDIR) + State%Efld(i,j,Gr%ke+1,JDIR))
+                
+                State%Efld(i,j,Gr%ks  ,IDIR) = Ei
+                State%Efld(i,j,Gr%ke+1,IDIR) = Ei
+                State%Efld(i,j,Gr%ks  ,JDIR) = Ej
+                State%Efld(i,j,Gr%ke+1,JDIR) = Ej
+
+            enddo
+        enddo
+                        
     end subroutine EFix
 
     !Ensure no flux through degenerate faces
@@ -318,39 +343,6 @@ module uservoltic
 
     end subroutine IonFlux
 
-    !Put BCs here for global access
-    !Solar wind values
-    subroutine SolarWindTS(windBC,Model,t,Rho,Pr,V,B)
-        class(WindBC_T), intent(inout) :: windBC
-        type(Model_T), intent(in) :: Model
-        real(rp), intent(in) :: t
-        real(rp), intent(out) :: Rho,Pr
-        real(rp), dimension(NDIM), intent(out) :: V, B
-
-        integer :: imfNS
-        real(rp) :: vScl
-
-        if (t <= T0) then
-            imfNS = 0.0
-        else if (t <= 3*T0) then
-            imfNS = -1
-        else if (t <= 6*T0) then
-            imfNS =  1
-        else
-            imfNS = -1
-        endif
-
-        Rho = RhoW0
-        Pr = PrW0
-
-        V = 0
-        B = 0
-        vScl = 1.0
-        B(ZDIR) = imfNS*BzW
-        V(XDIR) = -vScl*VxW
-
-
-    end subroutine SolarWindTS
 
     !Initialization for Ion Inner BC
     subroutine InitIonInner(bc,Model,Grid,State,xmlInp)

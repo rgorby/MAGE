@@ -83,10 +83,11 @@
       save xn,yn,zn,xtrans,ytrans,ztrans
       save ifound,mask
 
-      INTEGER (iprec) :: itime0
+      INTEGER (iprec) :: itime0,jp,iC
       REAL (rprec), ALLOCATABLE :: v0(:,:), birk0(:,:), vm0(:,:), bmin0(:,:),&
                     xmin0(:,:), ymin0(:,:), rmin0(:,:), pmin0(:,:), eeta0(:,:,:),&
                     bi0(:),bj0(:),etab0(:),v_avg0(:,:),birk_avg0(:,:),eeta_avg0(:,:,:)
+      real(rp) :: dRad,RadC,rIJ,dRadJ
 
       LOGICAL,PARAMETER :: avoid_boundaries = .false.
       INTEGER(iprec) :: im,ipl,jm,jpl,km,kpl
@@ -138,7 +139,7 @@
          CALL Read_array (rcmdir//'rcmxmin', L, label, ARRAY_2D = xmin)
          CALL Read_array (rcmdir//'rcmymin', L, label, ARRAY_2D = ymin)
          CALL Read_array (rcmdir//'rcmzmin', L, label, ARRAY_2D = zmin)
-         rmin = SQRT (xmin**2+ymin**2)
+         rmin = SQRT (xmin**2+ymin**2+zmin**2)
          WHERE (xmin == 0.0 .AND. ymin == 0.0)
              pmin = 0.0
          ELSEWHERE
@@ -241,9 +242,26 @@
       RM%Npsph   = denspsph(:,jwrap:jdim)
       RM%flux    = eflux   (:,jwrap:jdim,ie_el)
       RM%eng_avg = eavg    (:,jwrap:jdim,ie_el)
+      RM%fac     = birk    (:,jwrap:jdim)
+      
+      RM%toMHD = .false.
+      dRad = 1.0*radius_earth_m
 
-! if the locations are within 1 grid point of the boundary, then set the mask to zero
+      do j=jwrap,jdim
+        jp = j-jwrap+1
+        iC = imin_j(j)
+        dRadJ = dRad*(1.25 + cos(RM%glong(jp)))
+        RadC = norm2(RM%X_bmin(iC,jp,1:2))-dRadJ
+        do i=iC+1,idim
+          rIJ = norm2(RM%X_bmin(i,jp,1:3))
+          !write(*,*) 'RadC/rIJ = ',RadC/radius_earth_m,rIj/radius_earth_m
+          if (rIJ<=RadC) exit
+        enddo
+        !write(*,*) 'i/iC = ',i,iC
 
+        RM%toMHD(i:,jp) = .true.
+      enddo
+      
 
       RETURN
       END SUBROUTINE tomhd

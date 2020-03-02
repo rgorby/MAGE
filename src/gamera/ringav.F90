@@ -371,7 +371,7 @@ module ringav
         type(Grid_T), intent(in) :: Gr
         real(rp), dimension(Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,NDIM), intent(inout) :: E
         integer :: nS,nR
-
+        
         select case (Model%Ring%GridID)
         case ("cyl")
             !Cylindrical
@@ -396,7 +396,6 @@ module ringav
                     !E pole
                     E(nS,Gr%je+1,:,KDIR) = 0.0
                     E(nS,Gr%je+1,:,IDIR) = sum(E(nS,Gr%je+1,Gr%ks:Gr%ke,IDIR))/Np
-
                 endif
             enddo
         end select

@@ -126,7 +126,7 @@
 
       ! fits an ellipse to the boundary
       if (use_ellipse)then
-               CALL Set_ellipse(idim,jdim,rmin,pmin,vm,big_vm,bndloc,iopen)
+        CALL Set_ellipse(idim,jdim,rmin,pmin,vm,big_vm,bndloc,iopen)
       end if
 
 !      IF(set_boundary_with_mach)then
@@ -248,13 +248,14 @@
       do j=1,jsize
        do k=1,kcsize
         eetabnd(j,k) = eeta(imin_j(j),j,k)
-        if(eetabnd(j,k) <= 0.0)then
+        if (eetabnd(j,k) <= 0.0 .and. doRCMVerbose) then
           write(6,*)' warning: eetabnd <= 0 at j,k =',j,k
           write(6,*)' eetabnd(',i,',',j,')=',eetabnd(j,k)
           write(6,*)' vm(',i,',',j,')=',vm(i,j)
         end if
        end do
       end do
+      
 ! this is off for now
 ! set eeta to start with and empty magnetosphere
 !     if(rec == 1)then
@@ -416,6 +417,10 @@
       ymin (:,          1) = ymin (:,jsize-2)
       ymin (:,          2) = ymin (:,jsize-1)
 
+      zmin (:,jwrap:jsize) = RM%x_bmin (:,      :,3)/radius_earth_m
+      zmin (:,          1) = zmin (:,jsize-2)
+      zmin (:,          2) = zmin (:,jsize-1)
+
       bmin (:,jwrap:jsize) = RM%bmin (:,      :)/nt ! in nT
       bmin (:,          1) = bmin (:,jsize-2)
       bmin (:,          2) = bmin (:,jsize-1)
@@ -449,7 +454,9 @@
       vbnd(2) = vbnd(jsize-1)
 
       ! compute rmin,pmin
-      rmin = sqrt(xmin**2+ymin**2)
+      rmin = sqrt(xmin**2 + ymin**2 + zmin**2)
+      !rmin = sqrt(xmin**2 + ymin**2)
+
       pmin = atan2(ymin,xmin)
 
       ierr = 0
@@ -724,6 +731,7 @@
       integer(iprec) :: iopen(idim,jdim)
       real(rprec) :: bndloc(jdim)
       real(rprec) :: big_vm,a1,a2,a,b,x0,ell
+      real(rprec) :: xP,xM,yMax
       integer(iprec) :: i,j
 !  x0 = (a1 + a2)/2
 !   a = (a1 - a2)/2
@@ -747,6 +755,18 @@
       a1 =  8.
       a2 = -15.0 ! -35.0 !-20.0 !-25.
       b = 10. ! 12.
+    !K: Trying new test values
+      a1 =  7.5
+      a2 = -15.0
+      b  =  10.0
+      xP = maxval(xe)
+      xM = minval(xe)
+      yMax = maxval(abs(ye))
+
+      a1 = min(a1,xP)
+      a2 = max(a2,xM)
+      b  = min(b ,yMax)
+      
       x0 = (a1 + a2)/2.
       a  = (a1 - a2)/2.
 
