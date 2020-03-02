@@ -30,6 +30,8 @@ class remix:
 										'max':1},
 						 'joule'     : {'min':0,
 										'max':10},
+						 'jhall'	 : {'min':-2,
+						 				'max':2}
 						 }
 
 	def get_data(self,h5file,step):
@@ -221,6 +223,7 @@ class remix:
 	#     contour(theta+pi/2.,r,variables['potential']['data'][:,2:-1],21,colors='black')
 #                                      arange(variables['potential']['min'],variables['potential']['max'],21.),colors='purple')
 
+	# FIXME: MAKE WORK FOR SOUTH (I THINK IT DOES BUT MAKE SURE)
 	def efield(self,ri=6.5e3): 
 		if not self.Initialized:
 			sys.exit("Variables should be initialized for the specific hemisphere (call init_var) prior to efield calculation.")
@@ -279,13 +282,100 @@ class remix:
 		tc = 0.25*(theta[:-1,:-1]+theta[1:,:-1]+theta[:-1,1:]+theta[1:,1:]) # need this additionally 
 		ephi = dPsi/dphi/np.sin(tc)/ri  # this is in V/m
 
-		return (etheta,ephi)
+		return (-etheta,-ephi)  # E = -grad Psi
 
 	def joule(self):
 		etheta,ephi = self.efield()
 		SigmaP = self.variables['sigmap']['data']
 		J = SigmaP*(etheta**2+ephi**2)  # this is in W/m^2
 		return(J)
+
+	# FIXME: MAKE WORK FOR SOUTH
+	def jHall(self):
+		etheta,ephi = self.efield()
+		SigmaH = self.variables['sigmah']['data']
+
+		# Aliases to keep things short
+		x = self.ion['X']
+		y = self.ion['Y']
+
+		xc = 0.25*(x[:-1,:-1]+x[1:,:-1]+x[:-1,1:]+x[1:,1:])
+		yc = 0.25*(y[:-1,:-1]+y[1:,:-1]+y[:-1,1:]+y[1:,1:])		
+
+		r,phi = self.get_spherical(xc,yc)
+
+		theta = np.arcsin(r)
+
+		cosDipAngle = -2.*np.cos(theta)/np.sqrt(1.+3.*np.cos(theta)**2)
+		Jh_theta = -SigmaH*ephi/cosDipAngle
+		Jh_phi   =  SigmaH*etheta/cosDipAngle
+
+		return(xc,yc,theta,phi,Jh_theta,Jh_phi)
+
+	def dB(self,xyz):
+		# xyz = array of points where to compute dB
+		# xyz.shape should be (N,3), where N is the number of points
+		# xyz = (x,y,z) in units of Ri
+
+		mu2pi = 1. # FIXME: change to real values
+
+		if len(xyz.shape)!=2:
+			sys.exit("dB input assumes the array of points of (N,3) size.")			
+		if xyz.shape[1]!=3: 
+			sys.exit("dB input assumes the array of points of (N,3) size.")
+
+		nPoints = xyz.shape[0]
+
+		self.init_vars('NORTH')
+		x,y,theta,phi,jht,jhp = self.jHall()
+		z =  np.sqrt(1.-x**2-y**2)  # ASSUME NORTH
+#		z = -np.sqrt(1.-x**2-y**2)	# ASSUME SOUTH
+
+		# fake dimensions for numpy broadcasting
+		xSource = x[:,:,np.newaxis]		
+		ySource = y[:,:,np.newaxis]		
+		zSource = z[:,:,np.newaxis]						
+
+		tSource = theta[:,:,np.newaxis]
+		pSource = phi[:,:,np.newaxis]
+		jhTheta = jht[:,:,np.newaxis]
+		jhPhi   = jhp[:,:,np.newaxis]		
+
+		# x,y,z are size (ntheta,nphi)
+		# make array of destination points on the mix grid
+		# add fake dimension for numpy broadcasting
+		xDest = xyz[np.newaxis,np.newaxis,:,0]
+		yDest = xyz[np.newaxis,np.newaxis,:,1]
+		zDest = xyz[np.newaxis,np.newaxis,:,2]				
+
+		# up to here things are fast (checked for both source and destination 90x720 grids)
+		# the operations below are slow and kill the memory becase (90x720)^2 (the size of each array below) is ~30GB
+		# solution: break the destination grid up into pieces before passing here
+
+		# vector between destination and source
+		Rx = xDest - xSource
+		Ry = yDest - ySource
+		Rz = zDest - zSource
+		R  = np.sqrt(Rx**2+Ry**2+Rz**2)
+
+		# convert R to spherical to compute the vector product with the current
+		# since the current is in spherical and we want output in spherical
+		Rr     = Rx*np.sin(tSource)*np.cos(pSource) + Ry*np.sin(tSource)*np.sin(pSource) + Rz*np.cos(pSource)
+		Rtheta = Rx*np.cos(tSource)*np.cos(pSource) + Ry*np.cos(tSource)*np.sin(pSource) - Rz*np.sin(pSource)	
+		Rphi   =-Rx*np.sin(pSource) + Ry*np.cos(pSource)
+		
+		# vector product with the current
+		dBphi   = np.sum(-jhTheta*Rr/R**3,axis=(0,1))
+		dBtheta = np.sum(jhPhi*Rr/R**3   ,axis=(0,1))
+		dBr     = np.sum( (jhTheta*Rphi - jhPhi*Rtheta)/R**3,axis=(0,1))
+
+		# FIXME: change to real values
+		dtheta = 1.
+		dphi   = 1. 
+
+		return(dBr,dBtheta,dBphi)
+
+
 
 # Code below is from old mix scripts.
 # Keeping for further development but commenting out for now.
