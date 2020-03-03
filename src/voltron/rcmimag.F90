@@ -216,11 +216,20 @@ module rcmimag
     !Set region of RCM grid that's "good" for MHD ingestion
     subroutine SetIngestion()
         integer :: n,i,j,iC
-        integer , dimension(:), allocatable :: jBnd,jBndG
-        
+
+        integer , dimension(:), allocatable :: jBnd
+        real, dimension(:), allocatable :: jRad,jRadG
+        integer :: NSmth,NRad
+        real(rp) :: RadC,rIJ
+
+        NSmth = 4
+        NRad  = 8
+
         allocate(jBnd (  RCMApp%nLon_ion  ))
-        allocate(jBndG(0:RCMApp%nLon_ion+1))
         
+        allocate(jRad (  RCMApp%nLon_ion  ))
+        allocate(jRadG(1-NRad:RCMApp%nLon_ion+NRad))
+
         do j=1,RCMApp%nLon_ion
             do i = 1,RCMApp%nLat_ion
                 if (RCMApp%toMHD(i,j) .and. (RCMApp%iopen(i,j) == RCMTOPCLOSED)) then
@@ -228,27 +237,34 @@ module rcmimag
                 endif
             enddo
             jBnd(j) = min(i+1,RCMApp%nLat_ion)
+            jRad(j) = norm2( RCMApp%X_bmin(jBnd(j),j,XDIR:YDIR) )
         enddo
 
-        do n=1,4
-            jBndG(1:RCMApp%nLon_ion) = jBnd
-            jBndG(0) = jBnd(RCMApp%nLon_ion)
-            jBndG(RCMApp%nLon_ion+1) = jBnd(1)
-
+        do n=1,NSmth
+            jRadG(1:RCMApp%nLon_ion) = jRad
+            jRadG(1-NRad:0) = jRad(RCMApp%nLon_ion-NRad+1:RCMApp%nLon_ion)
+            jRadG(RCMApp%nLon_ion+1:RCMApp%nLon_ion+NRad) = jRad(1:NRad)
             do j=1,RCMApp%nLon_ion
-                jBnd(j) = maxval(jBndG(j-1:j+1))
-
+                !Take mean over range
+                !jRad(j) = sum(jRadG(j-NRad:j+NRad))/(2.0*NRad+1)
+                jRad(j) = (product(jRadG(j-NRad:j+NRad)))**(1.0/(2.0*NRad+1))
+                !jRad(j) = minval(jRadG(j-NRad:j+NRad))
             enddo
-
         enddo
 
         RCMApp%toMHD = .false.
         do j=1,RCMApp%nLon_ion
-            RCMApp%toMHD(jBnd(j):,j) = .true.
+            RadC = jRad(j)
+            do i = jBnd(j),RCMApp%nLat_ion
+                rIJ = norm2(RCMApp%X_bmin(i,j,XDIR:YDIR))
+                if ( (rIJ <= RadC) .and. (RCMApp%iopen(i,j) == RCMTOPCLOSED) ) then
+                    RCMApp%toMHD(i,j) = .true.
+                else
+                    RCMApp%toMHD(i,j) = .false.
+                endif
+            enddo
         enddo
 
-        RCMApp%toMHD = RCMApp%toMHD .and. (RCMApp%iopen == RCMTOPCLOSED)
-        
     end subroutine SetIngestion
 
     !Evaluate eq map at a given point

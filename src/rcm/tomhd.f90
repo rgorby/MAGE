@@ -250,7 +250,8 @@
       do j=jwrap,jdim
         jp = j-jwrap+1
         iC = imin_j(j)
-        dRadJ = dRad*(1.25 + cos(RM%glong(jp)))
+        !dRadJ = dRad*(1.25 + cos(RM%glong(jp)))
+        dRadJ = dRad
         RadC = norm2(RM%X_bmin(iC,jp,1:2))-dRadJ
         do i=iC+1,idim
           rIJ = norm2(RM%X_bmin(i,jp,1:3))

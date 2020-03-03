@@ -24,6 +24,7 @@ if __name__ == "__main__":
 	fOut = "qkpic.png"
 	doDen = False
 	doBig = False
+	doBigger = False
 	noIon = False
 	MainS = """Creates simple multi-panel figure for Gamera magnetosphere run
 	Top Panel - Residual vertical magnetic field
@@ -37,6 +38,7 @@ if __name__ == "__main__":
 	parser.add_argument('-den', action='store_true', default=doDen,help="Show density instead of pressure (default: %(default)s)")
 	parser.add_argument('-noion', action='store_true', default=noIon,help="Don't show ReMIX data (default: %(default)s)")
 	parser.add_argument('-big', action='store_true', default=doBig,help="Use larger domain bounds (default: %(default)s)")
+	parser.add_argument('-bigger', action='store_true', default=doBigger,help="Use larger domain bounds (default: %(default)s)")
 
 	#Finalize parsing
 	args = parser.parse_args()
@@ -46,6 +48,7 @@ if __name__ == "__main__":
 	doDen = args.den
 	noIon = args.noion
 	doBig = args.big
+	doBigger = args.bigger
 
 	#---------------------
 	#Do work
@@ -60,7 +63,10 @@ if __name__ == "__main__":
 	dCMap = "viridis"
 	
 
-	if (doBig):
+	if (doBigger):
+		xTail = -200.0
+		xSun = 25.0
+	elif (doBig):
 		xTail = -100.0
 		xSun = 20.0
 	else:
