@@ -17,6 +17,8 @@ module wind
 
     logical :: doWindInterp = .false.
 
+    !TODO: Remove WindTS_T pointer and call interpwind
+
     !Type for generic solar wind BC (from file or subroutine)
     !Either use discrete tW,Qw(NVAR) series or subroutine
     type, extends(baseBC_T) :: WindBC_T
@@ -51,7 +53,7 @@ module wind
     abstract interface
         subroutine WindTS_T(windBC,Model,t,Rho,Pr,V,B)
             Import :: rp,Model_T,NDIM,WindBC_T
-            class(WindBC_T), intent(inout) :: windBC
+            class(WindBC_T), intent(in) :: windBC
             type(Model_T), intent(in) :: Model
             real(rp), intent(in) :: t
             real(rp), intent(out) :: Rho,Pr
@@ -134,7 +136,7 @@ module wind
 
     !Get solar wind at point in space-time
     subroutine GetWindAt(windBC,Model,xyz,t,Rho,Pr,V,B)
-        class(WindBC_T), intent(inout) :: windBC
+        class(WindBC_T), intent(in) :: windBC
         type(Model_T), intent(in) :: Model
         real(rp), intent(in) :: t
         real(rp), intent(in) :: xyz(NDIM)
@@ -153,7 +155,7 @@ module wind
 
     !Given face normal, decide how important solar wind is [0,1]
     function wgtWind(windBC,Model,xyz,t,nHat) result(wgt)
-        class(WindBC_T), intent(inout) :: windBC
+        class(WindBC_T), intent(in) :: windBC
         type(Model_T), intent(in) :: Model
         real(rp), intent(in) :: t
         real(rp), intent(in) :: xyz(NDIM),nHat(NDIM)
@@ -192,6 +194,8 @@ module wind
         !Refresh solar wind shell values
         call RefreshWind(bc,Model,Grid)
 
+        !TODO: Handle wgtWind at each face/cell-center separately
+        
         !Loop over grid cells and calculate a outflow and SW condition
         !$OMP PARALLEL DO default(shared) collapse(2) &
         !$OMP schedule(guided) &
@@ -266,16 +270,45 @@ module wind
 
                 enddo !ighost loop
 
-            !Now sneak into the physical domain and do some nudgin'
+            enddo !j loop
+        enddo !k loop         
+
+    end subroutine WindBC
+
+    !Nudge outer-most physical cell
+    subroutine NudgeSW(windBC,Model,Grid,State)
+        class(windBC_T), intent(in) :: windBC
+        type(Model_T), intent(in) :: Model
+        type(Grid_T), intent(in) :: Grid
+        type(State_T), intent(inout) :: State
+
+        integer :: i,j,k,ip
+        real(rp) :: dtSW0,dtSW,wSW,D,P
+        real(rp), dimension(NDIM) :: xcc,nHat,V,B
+        real(rp), dimension(NVAR) :: gCon,gW,gW_sw,gW_mhd
+
+        if (.not. Grid%hasUpperBC(IDIR)) return
+
+        dtSW0 = 60.0/Model%Units%gT0 !One minute from SW time series
+
+        ip = Grid%ie !Only doing outer-most cell
+
+        !$OMP PARALLEL DO default(shared) collapse(2) &
+        !$OMP schedule(guided) &
+        !$OMP private(j,k,D,P,wSW,dtSW) &
+        !$OMP private(xcc,nHat,V,B,gW,gCon,gW_mhd,gW_sw)
+        do k=Grid%ks,Grid%ke
+            do j=Grid%js,Grid%je
+
                 xcc = Grid%xyzcc(ip,j,k,:)
                 nHat = Grid%Tf(ip+1,j,k,NORMX:NORMZ,IDIR) !Outward normal of last physical
-                wSW = wgtWind(bc,Model,xcc,State%time,nHat) !SW weight of last physical cell
+                wSW = wgtWind(windBC,Model,xcc,State%time,nHat) !SW weight of last physical cell
                 if (wSW>TINY) then
                     !Use nudge timescale (dtSW0) over weight
                     dtSW = max(dtSW0/wSW,Model%dt)
 
                 !Get solar wind state in this cell
-                    call GetWindAt(bc,Model,xcc,State%time,D,P,V,B)
+                    call GetWindAt(windBC,Model,xcc,State%time,D,P,V,B)
                     gW_sw(DEN) = D
                     gW_sw(PRESSURE) = P
                     gW_sw(VELX:VELZ) = V
@@ -295,17 +328,17 @@ module wind
                     call CellP2C(Model,gW,gCon)
                     if (Model%doMultiF) then
                         State%Gas(ip,j,k,:,SWSPC) = gCon
-                        call MultiF2Bulk(Model,State%Gas(ig,j,k,:,:))
+                        call MultiF2Bulk(Model,State%Gas(ip,j,k,:,:))
                     else
                         State%Gas(ip,j,k,:,BLK) = gCon
                     endif !Multifluid
 
                 endif !wSW nudge
 
-            enddo !j loop
-        enddo !k loop         
-
-    end subroutine WindBC
+            enddo
+        enddo
+        
+    end subroutine NudgeSW
 
     !Fix outer shell electric fields to solar wind values
     subroutine WindEFix(windBC,Model,Grid,State)
@@ -356,6 +389,7 @@ module wind
         enddo
 
     end subroutine WindEFix
+
 
     !Calculate diffusive electric field
     function DiffuseOuter(Model,Grid,State,i,j,k) result(Ed)
@@ -493,7 +527,7 @@ module wind
 
     !Interpolate from qWind data to provide wind BC
     subroutine InterpWind(windBC,Model,t,Rho,Pr,V,B)
-        class(WindBC_T), intent(inout) :: windBC
+        class(WindBC_T), intent(in) :: windBC
         type(Model_T), intent(in) :: Model
         real(rp), intent(in) :: t
         real(rp), intent(out) :: Rho,Pr

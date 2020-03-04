@@ -62,7 +62,8 @@ module msphutils
     real(rp), private :: M0   = 0.0 !Magnetic moment
 
     !Ingestion
-    logical, private :: doWolfLim = .true.
+    logical, private :: doWolfLim  = .true.
+    logical, private :: doIngestDT = .false.
 
     contains
 
@@ -181,7 +182,8 @@ module msphutils
         Model%gamOut%bID = 'nT'
 
         if (Model%doSource) then
-            call xmlInp%Set_Val(doWolfLim,"source/doWolfLim",doWolfLim)
+            call xmlInp%Set_Val(doWolfLim ,"source/doWolfLim" ,doWolfLim)
+            call xmlInp%Set_Val(doIngestDT,"source/doIngestDT",doIngestDT)
         endif
 
     end subroutine
@@ -474,7 +476,12 @@ module msphutils
                         endif
 
                         !If sound speed is faster than "light", chill the fuck out
-                        if ( Model%doBoris .and. (CsC>cLim*Model%Ca) ) then
+                        doChill = Model%doBoris .and. (CsC>cLim*Model%Ca)
+                        if (doChill .and. Model%doSource) then
+                            !If this is a pressure ingestion region, then let the pressure go wild
+                            if (Grid%Gas0(i,j,k,IMPR ,BLK)>TINY) doChill = .false.
+                        endif !doChill and doSource check
+                        if (doChill) then
                             call CellC2P(Model,pCon,pW)
                             P = pW(PRESSURE) !Cell pressure
 
@@ -826,7 +833,7 @@ module msphutils
         real(rp), dimension(NDIM) :: Bxyz
 
         real(rp) :: M0,Mf
-        real(rp) :: Tau,dRho,dP,beta,Pb,PLim,Pmhd,Prcm
+        real(rp) :: Tau,dRho,dP,beta,Pb,PLim,Pmhd,Prcm,wIMag
         logical  :: doIngest,doInD,doInP
 
         if (Model%doMultiF) then
@@ -840,7 +847,7 @@ module msphutils
 
         !$OMP PARALLEL DO default(shared) collapse(2) &
         !$OMP private(i,j,k,doInD,doInP,doIngest,pCon,pW,Tau,dRho,dP) &
-        !$OMP private(beta,Bxyz,Pb,PLim,Pmhd,Prcm)
+        !$OMP private(beta,Bxyz,Pb,PLim,Pmhd,Prcm,wIMag)
         do k=Gr%ks,Gr%ke
             do j=Gr%js,Gr%je
                 do i=Gr%is,Gr%ie
@@ -862,6 +869,15 @@ module msphutils
 
                     !Get timescale, taking directly from Gas0
                     Tau = Gr%Gas0(i,j,k,IMTSCL,BLK)
+                    if (doIngestDT) then
+                        !Scale tau, wIMag = [0,1] (less to more inner magnetospheric)
+                        wIMag = IMagWgt(Model,pW,Bxyz)
+                        wIMag = max(wIMag,TINY) !Avoid div by 0
+                    else
+                        wIMag = 1.0
+                    endif
+                    Tau = Tau/wIMag
+
                     if (doInD) then
                         dRho = Gr%Gas0(i,j,k,IMDEN,BLK) - pW(DEN)
                         !pW(DEN) = pW(DEN) + (Model%dt/Tau)*max(0.0,dRho)
@@ -900,6 +916,32 @@ module msphutils
         !write(*,*) 'Before / After / Delta = ', M0,Mf,Mf-M0
 
     end subroutine MagsphereIngest
+
+    !Calculate weight for imag ingestion, Va/Vfast
+    function IMagWgt(Model,pW,Bxyz) result(w)
+        type(Model_T), intent(in) :: Model
+        real(rp), dimension(NVAR), intent(in) :: pW
+        real(rp), dimension(NDIM), intent(in) :: Bxyz
+        real(rp) :: w
+
+        real(rp) :: D,P,MagV,MagB,Va,Cs,Vf
+
+        D = pW(DEN)
+        P = pW(PRESSURE)
+
+        MagV = norm2(pW(VELX:VELZ))
+        MagB = norm2(Bxyz)
+        !Alfven speed
+        Va = MagB/sqrt(D)
+        if (Model%doBoris) then
+            Va = Model%Ca*Va/sqrt(Model%Ca*Model%Ca + Va*Va)
+        endif
+        !Fastest signal
+        Cs = sqrt(Model%gamma*P/D)
+        Vf = MagV + sqrt(Cs**2.0 + Va**2.0)
+
+        w = Va/Vf
+    end function IMagWgt
 
     function BouncePeriod(Model,xyz) result(Tau)
         type(Model_T), intent(in) :: Model

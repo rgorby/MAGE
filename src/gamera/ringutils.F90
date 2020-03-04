@@ -264,7 +264,7 @@ module ringutils
         !---------------
         case ("lfm")
             do k=Gr%ksg,Gr%keg+1
-            !do k=Gr%ks,Gr%ke
+            !do k=Gr%ks,Gr%ke+1
                 do i=Gr%isg,Gr%ieg+1
                     do n=1,Model%Ng                   
                         !j-boundaries (IN)

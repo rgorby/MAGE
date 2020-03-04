@@ -2,6 +2,7 @@
 
 module uservoltic
     use gamtypes
+    use gamdebug
     use gamutils
     use math
     use gridutils
@@ -30,14 +31,15 @@ module uservoltic
     real(rp) :: T0  = 60.0
     real(rp) :: dCS = 0.0
 
-    !doHeavy = Add plasmasphere
-    logical :: doHeavy = .false.
-
     !doCool = Apply cooling function
     logical :: doCool       = .true.
     
     logical :: newMix = .false.
 
+    !Some knobs for initialization
+    real(rp) :: Lc = 22.5
+    real(rp) :: DInner = 30.0
+    real(rp) :: DInCut = 10.0
 
     ! type for remix BC
     type, extends(baseBC_T) :: IonInnerBC_T
@@ -81,10 +83,6 @@ module uservoltic
         call inpXML%Set_Val(RhoW0,"prob/RhoW",5.0_rp)
         call inpXML%Set_Val(P0   ,"prob/P0"  ,0.001_rp)
         call inpXML%Set_Val(PrW0 ,"prob/PrW" ,0.48_rp)
-
-
-        !Use plasmasphere model for initial density
-        call inpXML%Set_Val(doHeavy,"prob/doHeavy",doHeavy)
 
         !Set magnetosphere parameters
         call setMagsphere(Model,inpXML)
@@ -160,19 +158,31 @@ module uservoltic
                 real(rp), intent(in) :: x,y,z
                 real(rp), intent(out) :: D,Vx,Vy,Vz,P
 
-                real(rp) :: r,lambda,cL,L
+                real(rp) :: r,lambda,cL
+                real(rp) :: phi,L,Lx,Ly
+                real(rp) :: M
 
                 r = sqrt(x**2.0+y**2.0+z**2.0)
                 lambda = asin(z/r)
                 cL = cos(lambda)
                 L = r/(cL*cL)
-                if (doHeavy) then
-                    D = max(Rho0,psphD(L))
+
+                phi = atan2(y,x)
+                Lx = L*cos(phi)
+                Ly = L*sin(phi)
+
+                !P = P0
+                if (L <= Lc) then
+                    !P = max( Psk(Lx,Ly),P0 )
+                    P = max( pwolf(L),P0 )/gP0
+                    D = DInner
+                    M = RampDown(L,Lc-DInCut,DInCut)
+                    D = max(DInner,Rho0)
                 else
+                    P = P0
                     D = Rho0
                 endif
 
-                P = P0
                 Vx = 0.0
                 Vy = 0.0
                 Vz = 0.0
@@ -207,11 +217,11 @@ module uservoltic
                 if (associated(pWind%getWind)) then
                     write(*,*) 'Using solar wind BC from file ...'
                 else
-                    write(*,*) 'Using solar wind BC from subroutine ...'
-                    pWind%getWind => SolarWindTS
+                    write(*,*) 'No solar wind file provided/found ...'
+                    stop
                 endif
             CLASS DEFAULT
-                write(*,*) 'Could not find Wind BC in remix IC'
+                write(*,*) 'Could not find Wind BC in IC'
                 stop
         END SELECT
 
@@ -222,7 +232,14 @@ module uservoltic
         type(Grid_T), intent(inout) :: Gr
         type(State_T), intent(inout) :: State
 
-        integer :: i
+        integer :: i,j,k
+        real(rp) :: dF
+
+        !call ChkMetricLFM(Model,Gr)
+        !call ChkFluxLFM(Model,Gr,State)
+
+        !write(*,*) 'Fixing fluxes ...'
+        !call FixFluxLFM(Model,Gr,State)
 
         !Call ingestion function
         if (Model%doSource) then
@@ -231,7 +248,15 @@ module uservoltic
 
         !Call cooling function/s
         if (doCool) call ChillOut(Model,Gr,State)
-        
+
+        !Do some nudging at the outermost cells to hit solar wind
+        SELECT type(pWind=>Gr%externalBCs(OUTI)%p)
+            TYPE IS (WindBC_T)
+                if (Gr%hasUpperBC(IDIR)) then
+                   call NudgeSW(pWind,Model,Gr,State)
+                endif
+        END SELECT
+
     end subroutine PerStep
 
     !Fixes electric field before application
@@ -240,9 +265,8 @@ module uservoltic
         type(Grid_T), intent(inout) :: Gr
         type(State_T), intent(inout) :: State
 
-        integer :: i,j,k,kp
-        real(rp) :: MaxEjp,MaxEjm,Ei,Ej,Ek
-
+        !call ChkEFieldLFM(Model,Gr,State)
+        
         !Fix inner shells
         if (Gr%hasLowerBC(IDIR)) then
             SELECT type(iiBC=>Gr%externalBCs(INI)%p)
@@ -265,7 +289,7 @@ module uservoltic
             END SELECT
         endif
 
-        
+        !call FixEFieldLFM(Model,Gr,State)             
     end subroutine EFix
 
     !Ensure no flux through degenerate faces
@@ -310,39 +334,6 @@ module uservoltic
 
     end subroutine IonFlux
 
-    !Put BCs here for global access
-    !Solar wind values
-    subroutine SolarWindTS(windBC,Model,t,Rho,Pr,V,B)
-        class(WindBC_T), intent(inout) :: windBC
-        type(Model_T), intent(in) :: Model
-        real(rp), intent(in) :: t
-        real(rp), intent(out) :: Rho,Pr
-        real(rp), dimension(NDIM), intent(out) :: V, B
-
-        integer :: imfNS
-        real(rp) :: vScl
-
-        if (t <= T0) then
-            imfNS = 0.0
-        else if (t <= 3*T0) then
-            imfNS = -1
-        else if (t <= 6*T0) then
-            imfNS =  1
-        else
-            imfNS = -1
-        endif
-
-        Rho = RhoW0
-        Pr = PrW0
-
-        V = 0
-        B = 0
-        vScl = 1.0
-        B(ZDIR) = imfNS*BzW
-        V(XDIR) = -vScl*VxW
-
-
-    end subroutine SolarWindTS
 
     !Initialization for Ion Inner BC
     subroutine InitIonInner(bc,Model,Grid,State,xmlInp)
@@ -356,7 +347,7 @@ module uservoltic
         procedure(HackE_T), pointer :: eHack
 
         !Are we on the inner (REMIX) boundary
-        if (Grid%hasLowerBC(1)) then
+        if (Grid%hasLowerBC(IDIR)) then
             call xmlInp%Set_Val(PsiShells,"/remix/grid/PsiShells",5)
 
             !Create holders for coupling electric field
@@ -484,9 +475,17 @@ module uservoltic
                         State%magFlux(ig,j,k,KDIR) = State%magFlux(ip,jp,kp,KDIR)
                     endif
 
+                    if (j == Grid%jeg) then
+                        State%magFlux(ig,j+1,k,IDIR:KDIR) = 0.0
+                        State%magFlux(ig,j+1,k,JDIR) = State%magFlux(ip,jp+1,kp,JDIR)
+                    endif
+
                 enddo !n
             enddo
         enddo
+        !NOTE: Currently just assuming we have full K
+        State%magFlux(Grid%is-Model%Ng:Grid%is-1,:,Grid%ke+1,IDIR:KDIR) = 0.0
+        State%magFlux(Grid%is-Model%Ng:Grid%is-1,:,Grid%ke+1,KDIR) = State%magFlux(Grid%is-Model%Ng:Grid%is-1,:,Grid%ks,KDIR)
 
     end subroutine IonInner
     

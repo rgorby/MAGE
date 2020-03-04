@@ -113,10 +113,11 @@ module ioH5Overload
 !-------------------------------------------
 !These routines add data for output to IO chain
 !All routines find first unused link and add there
-    subroutine AddOut_5D(IOVars,idStr,Q)
+    subroutine AddOut_5D(IOVars,idStr,Q,uStr)
         type(IOVAR_T), dimension(:), intent(inout) :: IOVars
         character(len=*), intent(in) :: idStr
         real(rp), intent(in), dimension(:,:,:,:,:) :: Q
+        character(len=*), intent(in), optional :: uStr
 
         integer :: n
 
@@ -125,15 +126,17 @@ module ioH5Overload
 
         IOVars(n)%toWrite = .true.
         IOVars(n)%idStr = trim(idStr)
+        if (present(uStr)) IOVars(n)%unitStr = trim(uStr)
 
         call LoadIO(IOVars(n),Q)
 
     end subroutine AddOut_5D
 
-    subroutine AddOut_4D(IOVars,idStr,Q)
+    subroutine AddOut_4D(IOVars,idStr,Q,uStr)
         type(IOVAR_T), dimension(:), intent(inout) :: IOVars
         character(len=*), intent(in) :: idStr
         real(rp), intent(in), dimension(:,:,:,:) :: Q
+        character(len=*), intent(in), optional :: uStr
 
         integer :: n
 
@@ -142,15 +145,18 @@ module ioH5Overload
 
         IOVars(n)%toWrite = .true.
         IOVars(n)%idStr = trim(idStr)
+
+        if (present(uStr)) IOVars(n)%unitStr = trim(uStr)
 
         call LoadIO(IOVars(n),Q)
 
     end subroutine AddOut_4D
 
-    subroutine AddOut_3D(IOVars,idStr,Q)
+    subroutine AddOut_3D(IOVars,idStr,Q,uStr)
         type(IOVAR_T), dimension(:), intent(inout) :: IOVars
         character(len=*), intent(in) :: idStr
         real(rp), intent(in), dimension(:,:,:) :: Q
+        character(len=*), intent(in), optional :: uStr
 
         integer :: n
 
@@ -159,6 +165,8 @@ module ioH5Overload
 
         IOVars(n)%toWrite = .true.
         IOVars(n)%idStr = trim(idStr)
+
+        if (present(uStr)) IOVars(n)%unitStr = trim(uStr)
 
         call LoadIO(IOVars(n),Q)
 
@@ -170,10 +178,11 @@ module ioH5Overload
 
     end subroutine AddOut_3D
 
-    subroutine AddOut_2D(IOVars,idStr,Q)
+    subroutine AddOut_2D(IOVars,idStr,Q,uStr)
         type(IOVAR_T), dimension(:), intent(inout) :: IOVars
         character(len=*), intent(in) :: idStr
         real(rp), intent(in), dimension(:,:) :: Q
+        character(len=*), intent(in), optional :: uStr
 
         integer :: n
 
@@ -182,14 +191,17 @@ module ioH5Overload
 
         IOVars(n)%toWrite = .true.
         IOVars(n)%idStr = trim(idStr)
+
+        if (present(uStr)) IOVars(n)%unitStr = trim(uStr)
 
         call LoadIO(IOVars(n),Q)
     end subroutine AddOut_2D
 
-    subroutine AddOut_1D(IOVars,idStr,Q)
+    subroutine AddOut_1D(IOVars,idStr,Q,uStr)
         type(IOVAR_T), dimension(:), intent(inout) :: IOVars
         character(len=*), intent(in) :: idStr
         real(rp), intent(in), dimension(:) :: Q
+        character(len=*), intent(in), optional :: uStr
 
         integer :: n
 
@@ -198,15 +210,18 @@ module ioH5Overload
 
         IOVars(n)%toWrite = .true.
         IOVars(n)%idStr = trim(idStr)
+
+        if (present(uStr)) IOVars(n)%unitStr = trim(uStr)
 
         call LoadIO(IOVars(n),Q)
     end subroutine AddOut_1D
 
-    subroutine AddOut_DP(IOVars,idStr,X)
+    subroutine AddOut_DP(IOVars,idStr,X,uStr)
         type(IOVAR_T), dimension(:), intent(inout) :: IOVars
         character(len=*), intent(in) :: idStr
         real(dp), intent(in) :: X
-        
+        character(len=*), intent(in), optional :: uStr
+
         integer :: n
         !Find first unused
         n = NextIO(IOVars)
@@ -214,13 +229,16 @@ module ioH5Overload
         IOVars(n)%toWrite = .true.
         IOVars(n)%idStr = trim(idStr)
         IOVars(n)%vType = IOREAL
+        if (present(uStr)) IOVars(n)%unitStr = trim(uStr)
+
         call LoadIO(IOVars(n),real(X,rp))
     end subroutine AddOut_DP
 
-    subroutine AddOut_SP(IOVars,idStr,X)
+    subroutine AddOut_SP(IOVars,idStr,X,uStr)
         type(IOVAR_T), dimension(:), intent(inout) :: IOVars
         character(len=*), intent(in) :: idStr
         real(sp), intent(in) :: X
+        character(len=*), intent(in), optional :: uStr
         
         integer :: n
         !Find first unused
@@ -229,14 +247,17 @@ module ioH5Overload
         IOVars(n)%toWrite = .true.
         IOVars(n)%idStr = trim(idStr)
         IOVars(n)%vType = IOREAL
+        if (present(uStr)) IOVars(n)%unitStr = trim(uStr)
+
         call LoadIO(IOVars(n),real(X,rp))
     end subroutine AddOut_SP
 
-    subroutine AddOut_Int(IOVars,idStr,X)
+    subroutine AddOut_Int(IOVars,idStr,X,uStr)
         type(IOVAR_T), dimension(:), intent(inout) :: IOVars
         character(len=*), intent(in) :: idStr
         integer, intent(in) :: X
-        
+        character(len=*), intent(in), optional :: uStr
+
         integer :: n
         !Find first unused
         n = NextIO(IOVars)
@@ -244,13 +265,16 @@ module ioH5Overload
         IOVars(n)%toWrite = .true.
         IOVars(n)%idStr = trim(idStr)
         IOVars(n)%vType = IOINT
+        if (present(uStr)) IOVars(n)%unitStr = trim(uStr)
+
         call LoadIO(IOVars(n),real(X,rp))
     end subroutine AddOut_Int
 
-    subroutine AddOut_Str(IOVars,idStr,X)
+    subroutine AddOut_Str(IOVars,idStr,X,uStr)
         type(IOVAR_T), dimension(:), intent(inout) :: IOVars
         character(len=*), intent(in) :: idStr, X
-        
+        character(len=*), intent(in), optional :: uStr
+
         integer :: n
         !Find first unused
         n = NextIO(IOVars)
@@ -259,7 +283,8 @@ module ioH5Overload
         IOVars(n)%idStr = trim(idStr)
         IOVars(n)%vType = IOSTR
         IOVars(n)%dStr = trim(X)
-
+        if (present(uStr)) IOVars(n)%unitStr = trim(uStr)
+        
     end subroutine AddOut_Str
 !---------------------------
 !Loads structured data into buffers

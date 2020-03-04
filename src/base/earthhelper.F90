@@ -171,6 +171,67 @@ module earthhelper
 
     end function GallagherXY
 
+    function pwolf(r)
+          implicit none
+          real(rp), intent(in) :: r
+          real(rp) :: pwolf
+          ! fit coefficients
+          real(rp), parameter :: rmax = 3.2015
+          real(rp), parameter :: a1 = 1.1315
+          real(rp), parameter :: b1 = 0.943
+          real(rp), parameter :: c1 = 3.0
+          real(rp), parameter :: a2 = 2.31
+          real(rp), parameter :: b2 = 0.38
+          real(rp), parameter :: d1 = 0.141
+          real(rp), parameter :: d2 = 0.0412
+          real(rp), parameter :: d3 = 3.0
+          real(rp), parameter :: d4 = 0.3
+                
+          ! inner ring current pressure
+          if(r <rmax)then
+               pwolf = 10**(a1-b1*(r-c1)**2)
+          else
+               pwolf = 10**(a2-b2*r)
+          end if
+    ! outer pressure
+          pwolf = pwolf + 10**(d1-d2*r)/(1.0+exp((d3-r)/d4))
+    end function pwolf
+
+    function psk(x,y,kpO)
+
+    ! from the lui et al paper jgr 99, Jan 1, 1994, pp155 eqn 10.
+    ! and from spence and kilveson jgr 98 sept 93 pp15490
+    ! based on a spence and kivelson equation
+    ! depending on the value of the kp input, it will use a
+    ! pressure curve to match a kp 0, 3, or 5 level of disturbance
+        INTEGER, intent(in), optional :: kpO
+        REAL(rp), intent(in) :: x,y
+        REAL(rp) :: p1,p2,a,b,rho,phi
+        REAL(rp) :: factor = 1.0
+        REAL(rp) :: Psk
+        INTEGER :: kp
+
+        if (present(kpO)) then
+            kp = kpO
+        else
+            kp = kpDefault
+        endif
+
+        rho = sqrt(x*x+y*y); phi = - atan2(y,x)
+
+        if (kp >= 5) then
+           p1 = 1.9239e-7; p2 = 3.4201e-7; a = -0.8492; b = -2.2153
+        else if (kp >= 2) then
+           p1 = 3.1486e-7; p2 = 1.0802e-7; a = -0.9672; b = -1.9637
+        else
+           p1 = 2.9676e-7; p2 = 0.2958e-7; a = -0.9432; b = -1.7005
+        endif
+        psk = factor*(p1*exp(a*abs(rho))+p2*abs(rho)**(b))
+        !Scale from P => nPa
+        psk = (1.0e+9)*psk
+
+    end function psk
+
     !Gallagher plasmasphere density model
     !Yoinked from Slava's code
     function psphD(L) result(D)

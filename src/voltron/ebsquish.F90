@@ -22,7 +22,7 @@ module ebsquish
 
     real(rp), parameter, private :: RDipole = 3.0
     real(rp), parameter, private :: startEps = 0.05
-    real(rp), parameter, private :: kareemEps = 0.125
+    real(rp), parameter, private :: rEps = 0.125
     real(rp), private :: Rinner
 
     contains
@@ -155,7 +155,7 @@ module ebsquish
         real(rp), intent(out) :: x1,x2
 
         real(rp), dimension(NDIM) :: xE,xIon
-        real(rp) :: dX
+        real(rp) :: dX,rC
         logical :: isGood
 
         x1 = 0.0
@@ -173,7 +173,8 @@ module ebsquish
         call project(ebModel,ebState,xyz,t,xE,+1,toEquator=.false.)
 
         dX = norm2(xyz-xE)
-        isGood = (dX>TINY) .and. (norm2(xE) <= Rinner*(1.+kareemEps)) .and. (xE(ZDIR) > 0)
+        rC = Rinner*(1.+rEps)
+        isGood = (dX>TINY) .and. (norm2(xE) <= rC) .and. (xE(ZDIR) > 0)
 
         if (isGood) then
             !Get invariant lat/lon

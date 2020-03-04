@@ -12,7 +12,10 @@ rParams = {
 	"Q": '<ring gid="lfm" doRing="T" Nr="8" Nc1="8" Nc2="16" Nc3="32" Nc4="32" Nc5="64" Nc6="64" Nc7="64" Nc8="64"/>',
 	"O": '<ring gid="lfm" doRing="T" Nr="12" Nc1="8" Nc2="16" Nc3="32" Nc4="32" Nc5="64" Nc6="64" Nc7="64" Nc8="64" Nc9="128" Nc10="128" Nc11="128" Nc12="128"/>',
 	"H": '<ring gid="lfm" doRing="T" Nr="10" Nc1="16" Nc2="32" Nc3="64" Nc4="64" Nc5="128" Nc6="128" Nc7="128" Nc8="256" Nc9="256" Nc10="256"/>'
+
 }
+
+#"H": '<ring gid="lfm" doRing="T" Nr="16" Nc1="8" Nc2="16" Nc3="32" Nc4="32" Nc5="64" Nc6="64" Nc7="64" Nc8="64" Nc9="128" Nc10="128" Nc11="128" Nc12="128" Nc13="256" Nc14="256" Nc15="256" Nc16="256"/>'
 
 
 if __name__ == "__main__":

@@ -49,16 +49,14 @@ module rcmimag
         real(rp) :: latc,lonc !Conjugate lat/lon
     end type RCMTube_T
 
-    type RCMEllipse_T
-        !Ellipse parameters (in m)
-        real(rp) :: xSun,xTail,yDD
-        !Safety parameters
-        real(rp) :: xSScl,xTScl,yScl
-        logical  :: isDynamic !Whether to update parameters
-    end type RCMEllipse_T
-
     real(rp), dimension(:,:), allocatable, private :: mixPot
-    type(RCMEllipse_T) :: RCMEll
+
+    !Parameters for smoothing toMHD boundary
+    type SmoothOperator_T
+        integer :: nIter,nRad
+    end type SmoothOperator_T
+
+    type(SmoothOperator_T) :: SmoothOp
 
     contains
 
@@ -99,21 +97,8 @@ module rcmimag
             !Create base file
             call initRCMIO()
         endif
-        
-    !Get ellipse quantities
-        !Get values in Re, then convert to meters
-        call iXML%Set_Val(RCMEll%xSun ,"/RCM/ellipse/xSun" ,8.0)
-        call iXML%Set_Val(RCMEll%xTail,"/RCM/ellipse/xTail",8.0)
-        call iXML%Set_Val(RCMEll%yDD  ,"/RCM/ellipse/yDD"  ,8.0)
-        !Scale
-        RCMEll%xSun  = REarth*RCMEll%xSun
-        RCMEll%xTail = REarth*RCMEll%xTail
-        RCMEll%yDD   = REarth*RCMEll%yDD
-        call iXML%Set_Val(RCMEll%isDynamic,"/RCM/ellipse/isDynamic"  ,.true.)
-        !Get safety parameters (only for dynamic ellipse)
-        call iXML%Set_Val(RCMEll%xSScl ,"/RCM/ellipse/xSScl" ,0.65)
-        call iXML%Set_Val(RCMEll%xTScl ,"/RCM/ellipse/xTScl" ,1.0 )
-        call iXML%Set_Val(RCMEll%yScl  ,"/RCM/ellipse/yScl"  ,0.65)
+        call iXML%Set_Val(SmoothOp%nIter,"imag/nIter",4)
+        call iXML%Set_Val(SmoothOp%nRad ,"imag/nRad" ,8)
 
     end subroutine initRCM
 
@@ -180,9 +165,6 @@ module rcmimag
             enddo
         enddo
 
-        !Set ingestion region
-        call SetIngestion()
-
         call Toc("RCM_TUBES")
 
         call Tic("AdvRCM")
@@ -192,6 +174,9 @@ module rcmimag
         !Update timming data
         call rcm_mhd(vApp%time,0.0_rp,RCMApp,RCMWRITETIMING)
         call Toc("AdvRCM")
+
+        !Set ingestion region
+        call SetIngestion()
 
     !Pull data from RCM state for conductance calculations
         vApp%imag2mix%isClosed = (RCMApp%iopen == RCMTOPCLOSED)
@@ -208,61 +193,59 @@ module rcmimag
     !Find maximum extent of closed field region
         maxRad = maxval(norm2(RCMApp%X_bmin,dim=3),mask=vApp%imag2mix%isClosed)
         maxRad = maxRad/(Re_cgs*1.0e-2)
-        vApp%rTrc = 1.05*maxRad
+        vApp%rTrc = 1.25*maxRad
         
     end subroutine AdvanceRCM
 
     !Set region of RCM grid that's "good" for MHD ingestion
     subroutine SetIngestion()
-        integer :: i,j,iC
-        logical :: jClosed
+        integer :: n,i,j,iC
 
-        real(rp) :: x0,a,b,ell
+        integer , dimension(:), allocatable :: jBnd
+        real, dimension(:), allocatable :: jRad,jRadG
+        integer :: NSmth,NRad
+        real(rp) :: RadC,rIJ
+
+        NSmth = SmoothOp%nIter
+        NRad  = SmoothOp%nRad
+
+        allocate(jBnd (  RCMApp%nLon_ion  ))
+        
+        allocate(jRad (  RCMApp%nLon_ion  ))
+        allocate(jRadG(1-NRad:RCMApp%nLon_ion+NRad))
+
+        do j=1,RCMApp%nLon_ion
+            do i = 1,RCMApp%nLat_ion
+                if (RCMApp%toMHD(i,j) .and. (RCMApp%iopen(i,j) == RCMTOPCLOSED)) then
+                    exit
+                endif
+            enddo
+            jBnd(j) = min(i+1,RCMApp%nLat_ion)
+            jRad(j) = norm2( RCMApp%X_bmin(jBnd(j),j,XDIR:YDIR) )
+        enddo
+
+        do n=1,NSmth
+            jRadG(1:RCMApp%nLon_ion) = jRad
+            jRadG(1-NRad:0) = jRad(RCMApp%nLon_ion-NRad+1:RCMApp%nLon_ion)
+            jRadG(RCMApp%nLon_ion+1:RCMApp%nLon_ion+NRad) = jRad(1:NRad)
+            do j=1,RCMApp%nLon_ion
+                !Take mean over range
+                !jRad(j) = sum(jRadG(j-NRad:j+NRad))/(2.0*NRad+1)
+                jRad(j) = (product(jRadG(j-NRad:j+NRad)))**(1.0/(2.0*NRad+1))
+                !jRad(j) = minval(jRadG(j-NRad:j+NRad))
+            enddo
+        enddo
 
         RCMApp%toMHD = .false.
-
-        !Start by looping from high-lat downwards until we find full ring of closed lines
-        do i = 1,RCMApp%nLat_ion
-            jClosed = all(RCMApp%iopen(i,:) == RCMTOPCLOSED)
-            if (jClosed) exit
-        enddo
-        iC = i
-
-        !Construct new ellipse if we're doing dynamic
-        if (RCMEll%isDynamic) then
-            !Now find maximum sunward point on this ring
-            RCMEll%xSun  = maxval(RCMApp%X_bmin(iC,:,XDIR))
-            RCMEll%xTail = minval(RCMApp%X_bmin(iC,:,XDIR))
-            RCMEll%yDD   = maxval(abs(RCMApp%X_bmin(iC,:,YDIR)))
-
-            !Rescale to give some breathing room
-            RCMEll%xSun  = RCMEll%xSScl*RCMEll%xSun 
-            RCMEll%xTail = RCMEll%xTScl*RCMEll%xTail
-            RCMEll%yDD   = RCMEll%yScl *RCMEll%yDD  
-
-            !Constrain ellipse parameters by reqmin
-            !TODO: Test unconstrained tail
-            if (    RCMEll%xSun   >= rEqMin) RCMEll%xSun  =  rEqMin
-            if (abs(RCMEll%xTail) >= rEqMin) RCMEll%xTail = -rEqMin
-            if (    RCMEll%yDD    >= rEqMin) RCMEll%yDD   =  rEqMin
-            ! write(*,*) 'iC = ', iC
-            ! write(*,*) 'xSun  = ', xSun/REarth
-            ! write(*,*) 'xTail = ', xTail/REarth
-            ! write(*,*) 'yDD   = ', yDD/REarth
-        endif
-
-        !Set derived quantities
-        x0 = (RCMEll%xSun + RCMEll%xTail)/2
-        a  = (RCMEll%xSun - RCMEll%xTail)/2
-        b  =  RCMEll%yDD
-
-
-       !$OMP PARALLEL DO default(shared) &
-       !$OMP private(ell)
-        do i=iC,RCMApp%nLat_ion
-            do j=1,RCMApp%nLon_ion
-                ell = ((RCMApp%X_bmin(i,j,XDIR)-x0)/a)**2.0 + (RCMApp%X_bmin(i,j,YDIR)/b)**2.0
-                if (ell <= 1) RCMApp%toMHD(i,j) = .true.
+        do j=1,RCMApp%nLon_ion
+            RadC = jRad(j)
+            do i = jBnd(j),RCMApp%nLat_ion
+                rIJ = norm2(RCMApp%X_bmin(i,j,XDIR:YDIR))
+                if ( (rIJ <= RadC) .and. (RCMApp%iopen(i,j) == RCMTOPCLOSED) ) then
+                    RCMApp%toMHD(i,j) = .true.
+                else
+                    RCMApp%toMHD(i,j) = .false.
+                endif
             enddo
         enddo
 
@@ -314,10 +297,13 @@ module rcmimag
         npp  = CornerAvg(ijs,RCMApp%Npsph)*rcmNScl
         nrcm = CornerAvg(ijs,RCMApp%Nrcm )*rcmNScl
 
-        if ( (npp >= PPDen) .and. (prcm > TINY) ) then
-            ntot = npp + nrcm
-        else
-            ntot = nrcm
+        ntot = 0.0
+        !Decide which densities to include
+        if (npp >= PPDen) then
+            ntot = ntot + npp
+        endif
+        if ( (nrcm>TINY) .and. (prcm>TINY) ) then
+            ntot = ntot + nrcm
         endif
 
         !Store data
@@ -541,26 +527,27 @@ module rcmimag
         !Reset IO chain
         call ClearIO(IOVars)
 
-        call AddOutVar(IOVars,"N",RCMApp%Nrcm*rcmNScl)
-        call AddOutVar(IOVars,"Npsph",RCMApp%Npsph*rcmNScl)
-        call AddOutVar(IOVars,"P",RCMApp%Prcm*rcmPScl)
+        call AddOutVar(IOVars,"N",RCMApp%Nrcm*rcmNScl,uStr="#/cc")
+        call AddOutVar(IOVars,"Npsph",RCMApp%Npsph*rcmNScl,uStr="#/cc")
+        call AddOutVar(IOVars,"P",RCMApp%Prcm*rcmPScl,uStr="nPa")
         call AddOutVar(IOVars,"IOpen",RCMApp%iopen*1.0_rp)
-        call AddOutVar(IOVars,"bVol",RCMApp%Vol)
-        call AddOutVar(IOVars,"pot",RCMApp%pot)
-        call AddOutVar(IOVars,"xMin",RCMApp%X_bmin(:,:,XDIR)/REarth)
-        call AddOutVar(IOVars,"yMin",RCMApp%X_bmin(:,:,YDIR)/REarth)
-        call AddOutVar(IOVars,"zMin",RCMApp%X_bmin(:,:,ZDIR)/REarth)
-        call AddOutVar(IOVars,"bMin",RCMApp%Bmin)
+        call AddOutVar(IOVars,"bVol",RCMApp%Vol,uStr="Re/T")
+        call AddOutVar(IOVars,"pot",RCMApp%pot,uStr="V")
+        call AddOutVar(IOVars,"xMin",RCMApp%X_bmin(:,:,XDIR)/REarth,uStr="Re")
+        call AddOutVar(IOVars,"yMin",RCMApp%X_bmin(:,:,YDIR)/REarth,uStr="Re")
+        call AddOutVar(IOVars,"zMin",RCMApp%X_bmin(:,:,ZDIR)/REarth,uStr="Re")
+        call AddOutVar(IOVars,"bMin",RCMApp%Bmin,uStr="T")
         
-        call AddOutVar(IOVars,"S",rcm2Wolf*RCMApp%Prcm*(RCMApp%Vol**IMGAMMA) )
+        call AddOutVar(IOVars,"S",rcm2Wolf*RCMApp%Prcm*(RCMApp%Vol**IMGAMMA),uStr="Wolf")
         call AddOutVar(IOVars,"beta",RCMApp%beta_average)
-        call AddOutVar(IOVars,"Pmhd",RCMApp%Pave*rcmPScl)
-        call AddOutVar(IOVars,"Nmhd",RCMApp%Nave*rcmNScl)
-        call AddOutVar(IOVars,"latc",RCMApp%latc*180.0/PI)
-        call AddOutVar(IOVars,"lonc",RCMApp%lonc*180.0/PI)
+        call AddOutVar(IOVars,"Pmhd",RCMApp%Pave*rcmPScl,uStr="nPa")
+        call AddOutVar(IOVars,"Nmhd",RCMApp%Nave*rcmNScl,uStr="#/cc")
+        call AddOutVar(IOVars,"latc",RCMApp%latc*180.0/PI,uStr="deg")
+        call AddOutVar(IOVars,"lonc",RCMApp%lonc*180.0/PI,uStr="deg")
 
-        call AddOutVar(IOVars,"eavg",RCMApp%eng_avg*1.0e-3) !ev->keV
-        call AddOutVar(IOVars,"eflux",RCMApp%flux)
+        call AddOutVar(IOVars,"eavg",RCMApp%eng_avg*1.0e-3,uStr="keV") !ev->keV
+        call AddOutVar(IOVars,"eflux",RCMApp%flux,uStr="ergs/cm2")
+        call AddOutVar(IOVars,"birk",RCMApp%fac,uStr="uA/m2")
 
         call AddOutVar(IOVars,"toMHD",merge(1.0_rp,0.0_rp,RCMApp%toMHD))
 

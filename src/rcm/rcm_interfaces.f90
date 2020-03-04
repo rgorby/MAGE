@@ -105,6 +105,12 @@
 !
 ! only add corotation in the non-tilted world
 ! all the other quantities have to be calculated
+
+!K: Notes for tilting
+!vcorot = 0.0 (or RCMCorot=0)
+!sini = two*COS(colat)/SQRT(one+three*COS(colat)**2)
+!bir = two*(Re / Ri)**3*besu*COS(colat)
+
       if(rcm_tilted)then
        vcorot = 0.0
        sini   = 0.0
