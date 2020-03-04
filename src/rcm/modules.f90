@@ -38,11 +38,18 @@ MODULE rice_housekeeping_module
              L_write_int_grid_debug= .true.
   INTEGER(iprec) :: Idt_overwrite         = 1
   INTEGER(iprec) :: rcm_record
-
+  REAL(rprec) :: HighLatBD,LowLatBD
+  
 ! set this to true to tilt the dipole, must turn off corotation also
   LOGICAL :: rcm_tilted = .false.
 
-  !
+    type RCMEllipse_T
+        !Ellipse parameters
+        real(rprec) :: xSun=7.5,xTail=-15.0,yDD=10.0
+        logical  :: isDynamic=.false. !Whether to update parameters
+        real(rprec) :: dRadMHD = 2.0
+    end type RCMEllipse_T
+    type(RCMEllipse_T) :: ellBdry
 
   CONTAINS
   
@@ -95,6 +102,18 @@ MODULE rice_housekeeping_module
         call xmlInp%Set_Val(L_write_vars_debug,"output/debug",L_write_vars_debug)
         call xmlInp%Set_Val(rcm_tilted,"tilt/isTilt",rcm_tilted)
 
+        !Grid bounds
+        call xmlInp%Set_Val(HighLatBD,"grid/HiLat" ,75.0_rprec)
+        call xmlInp%Set_Val(LowLatBD ,"grid/LowLat",15.0_rprec)
+
+        !Ellipse parameters
+        call xmlInp%Set_Val(ellBdry%xSun ,"ellipse/xSun" ,7.5_rprec)
+        call xmlInp%Set_Val(ellBdry%xTail,"ellipse/xTail",-15.0_rprec)
+        call xmlInp%Set_Val(ellBdry%yDD  ,"ellipse/yDD"  ,10.0_rprec)
+        call xmlInp%Set_Val(ellBdry%isDynamic,"ellipse/isDynamic"  ,.true.)
+
+        call xmlInp%Set_Val(ellBdry%dRadMHD ,"ellipse/dRadMHD" ,ellBdry%dRadMHD)
+        
         !For now just using default Idt_overwrite
 
       end subroutine RCM_MHD_Params_XML

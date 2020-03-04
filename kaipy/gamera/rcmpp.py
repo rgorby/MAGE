@@ -19,6 +19,9 @@ rcmCol = "dodgerblue"
 gCol = "cyan"
 gLW = 0.15
 
+doXYZ = False
+doCut = True
+pCut = 1.0e-8
 MHDCol = "red"
 eLW = 0.05
 MHDLW = 0.5
@@ -29,16 +32,26 @@ def RCMInset(AxRCM,rcmdata,nStp,vP):
 
 	bmX = rcmdata.GetVar("xMin",nStp)
 	bmY = rcmdata.GetVar("yMin",nStp)
+	bmZ = rcmdata.GetVar("zMin",nStp)
 	Prcm = rcmdata.GetVar("P",nStp)
 	IOpen = rcmdata.GetVar("IOpen",nStp)
 	toMHD = rcmdata.GetVar("toMHD",nStp)
-	I = (IOpen > -0.5)
+	if (doCut):
+		I = (IOpen > -0.5) | (Prcm<pCut)
+	else:
+		I = (IOpen > -0.5)
 	Ni = (~I).sum()
 
 	if (Ni == 0):
 		return
 	#If still here we got something to show
+	if (doXYZ):
+		bmP = np.arctan2(bmY,bmX)
+		bmR = np.sqrt(bmX*bmX + bmY*bmY + bmZ*bmZ)
 
+		bmX = bmR*np.cos(bmP)
+		bmY = bmR*np.sin(bmP)
+	
 	#Do masks
 	bmX = ma.masked_array(bmX,mask=I)
 	bmY = ma.masked_array(bmY,mask=I)

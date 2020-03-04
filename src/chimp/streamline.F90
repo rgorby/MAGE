@@ -221,8 +221,7 @@ module streamline
         type(fLine_T), intent(in) :: bTrc
         integer :: OCb
 
-        
-        logical :: isCP,isCM
+        logical :: isCP,isCM,isFin,isStart
         associate(Np=>bTrc%Np,Nm=>bTrc%Nm)
 
         !Test topology
@@ -233,8 +232,12 @@ module streamline
         isCM  = isClosed(bTrc%xyz(-Nm,:),Model)
 
         
+        isFin = (Np<MaxFL-1) .and. (Nm<MaxFL-1) !Check if finished
+        isStart = (Np>0) .and. (Nm>0) !Check if both sides went somewhere
+
         OCb = 0
-        if ( (Np<MaxFL-1) .and. (Nm<MaxFL-1) ) then
+
+        if ( isFin ) then
         !Both sides ended normally
             if (isCP .or. isCM) then
                 !At least one side is closed

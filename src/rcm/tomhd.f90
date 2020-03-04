@@ -87,7 +87,7 @@
       REAL (rprec), ALLOCATABLE :: v0(:,:), birk0(:,:), vm0(:,:), bmin0(:,:),&
                     xmin0(:,:), ymin0(:,:), rmin0(:,:), pmin0(:,:), eeta0(:,:,:),&
                     bi0(:),bj0(:),etab0(:),v_avg0(:,:),birk_avg0(:,:),eeta_avg0(:,:,:)
-      real(rp) :: dRad,RadC,rIJ,dRadJ
+      real(rp) :: dRad,RadC,rIJ
 
       LOGICAL,PARAMETER :: avoid_boundaries = .false.
       INTEGER(iprec) :: im,ipl,jm,jpl,km,kpl
@@ -234,8 +234,7 @@
       min_xmin = minval(xmin)
       min_ymin = minval(ymin)
  
-!     now update the pressure and density in the mhd code
-! use the lfm grid to transfer the rcm information       
+!     now update the pressure and density in the mhd code  
 
       RM%Prcm    = pressrcm(:,jwrap:jdim)
       RM%Nrcm    = densrcm (:,jwrap:jdim)
@@ -245,14 +244,12 @@
       RM%fac     = birk    (:,jwrap:jdim)
       
       RM%toMHD = .false.
-      dRad = 1.0*radius_earth_m
+      dRad = ellBdry%dRadMHD*radius_earth_m
 
       do j=jwrap,jdim
         jp = j-jwrap+1
         iC = imin_j(j)
-        !dRadJ = dRad*(1.25 + cos(RM%glong(jp)))
-        dRadJ = dRad
-        RadC = norm2(RM%X_bmin(iC,jp,1:2))-dRadJ
+        RadC = norm2(RM%X_bmin(iC,jp,1:2))-dRad
         do i=iC+1,idim
           rIJ = norm2(RM%X_bmin(i,jp,1:3))
           !write(*,*) 'RadC/rIJ = ',RadC/radius_earth_m,rIj/radius_earth_m

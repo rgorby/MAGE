@@ -49,17 +49,14 @@ module rcmimag
         real(rp) :: latc,lonc !Conjugate lat/lon
     end type RCMTube_T
 
-    type RCMEllipse_T
-        !Ellipse parameters (in m)
-        real(rp) :: xSun,xTail,yDD
-
-        !Safety parameters
-        real(rp) :: xSScl,xTScl,yScl
-        logical  :: isDynamic !Whether to update parameters
-    end type RCMEllipse_T
-
     real(rp), dimension(:,:), allocatable, private :: mixPot
-    type(RCMEllipse_T) :: RCMEll
+
+    !Parameters for smoothing toMHD boundary
+    type SmoothOperator_T
+        integer :: nIter,nRad
+    end type SmoothOperator_T
+
+    type(SmoothOperator_T) :: SmoothOp
 
     contains
 
@@ -100,21 +97,8 @@ module rcmimag
             !Create base file
             call initRCMIO()
         endif
-        
-    !Get ellipse quantities
-        !Get values in Re, then convert to meters
-        call iXML%Set_Val(RCMEll%xSun ,"/RCM/ellipse/xSun" ,8.0)
-        call iXML%Set_Val(RCMEll%xTail,"/RCM/ellipse/xTail",8.0)
-        call iXML%Set_Val(RCMEll%yDD  ,"/RCM/ellipse/yDD"  ,8.0)
-        !Scale
-        RCMEll%xSun  = REarth*RCMEll%xSun
-        RCMEll%xTail = REarth*RCMEll%xTail
-        RCMEll%yDD   = REarth*RCMEll%yDD
-        call iXML%Set_Val(RCMEll%isDynamic,"/RCM/ellipse/isDynamic"  ,.true.)
-        !Get safety parameters (only for dynamic ellipse)
-        call iXML%Set_Val(RCMEll%xSScl ,"/RCM/ellipse/xSScl" ,0.70)
-        call iXML%Set_Val(RCMEll%xTScl ,"/RCM/ellipse/xTScl" ,0.90)
-        call iXML%Set_Val(RCMEll%yScl  ,"/RCM/ellipse/yScl"  ,0.70)
+        call iXML%Set_Val(SmoothOp%nIter,"imag/nIter",4)
+        call iXML%Set_Val(SmoothOp%nRad ,"imag/nRad" ,8)
 
     end subroutine initRCM
 
@@ -222,8 +206,8 @@ module rcmimag
         integer :: NSmth,NRad
         real(rp) :: RadC,rIJ
 
-        NSmth = 4
-        NRad  = 8
+        NSmth = SmoothOp%nIter
+        NRad  = SmoothOp%nRad
 
         allocate(jBnd (  RCMApp%nLon_ion  ))
         

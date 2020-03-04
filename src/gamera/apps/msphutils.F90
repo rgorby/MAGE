@@ -63,7 +63,7 @@ module msphutils
 
     !Ingestion
     logical, private :: doWolfLim  = .true.
-    logical, private :: doIngestDT = .true.
+    logical, private :: doIngestDT = .false.
 
     contains
 
@@ -182,7 +182,8 @@ module msphutils
         Model%gamOut%bID = 'nT'
 
         if (Model%doSource) then
-            call xmlInp%Set_Val(doWolfLim,"source/doWolfLim",doWolfLim)
+            call xmlInp%Set_Val(doWolfLim ,"source/doWolfLim" ,doWolfLim)
+            call xmlInp%Set_Val(doIngestDT,"source/doIngestDT",doIngestDT)
         endif
 
     end subroutine
