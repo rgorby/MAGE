@@ -23,23 +23,14 @@ module uservoltic
 !t0 = 63.8 second
 !M0 = -0.31*1.0e+5/B0
 
-    !Various global would go here
-    real(rp) :: Rho0,P0
-    real(rp) :: RhoW0,PrW0,VxW,BzW
-
-    !Running values for BCs
-    real(rp) :: T0  = 60.0
-    real(rp) :: dCS = 0.0
-
-    !doCool = Apply cooling function
-    logical :: doCool       = .true.
-    
-    logical :: newMix = .false.
+    !Various module variables
+    real(rp),private :: Rho0,P0
 
     !Some knobs for initialization
-    real(rp) :: Lc = 22.5
-    real(rp) :: DInner = 30.0
-    real(rp) :: DInCut = 10.0
+    logical , private :: doNewIC = .true.
+    real(rp), private :: Lc  = 8.0
+    real(rp), private :: dLc = 4.0
+    real(rp), private :: DInner = 10.0
 
     ! type for remix BC
     type, extends(baseBC_T) :: IonInnerBC_T
@@ -80,21 +71,12 @@ module uservoltic
 
         !Density for magnetosphere/wind
         call inpXML%Set_Val(Rho0 ,"prob/Rho0",1.0_rp)
-        call inpXML%Set_Val(RhoW0,"prob/RhoW",5.0_rp)
         call inpXML%Set_Val(P0   ,"prob/P0"  ,0.001_rp)
-        call inpXML%Set_Val(PrW0 ,"prob/PrW" ,0.48_rp)
-
+        
         !Set magnetosphere parameters
         call setMagsphere(Model,inpXML)
+        P0 = P0/gP0 !Scale to magsphere units
 
-
-        !Solar wind
-        call inpXML%Set_Val(VxW,"prob/Vx",4.0_rp)
-        VxW = abs(VxW) !Assume positive value
-
-        
-        call inpXML%Set_Val(BzW,"prob/BzW",0.0_rp)
-        
         ! deallocate default BCs
         call WipeBCs(Model,Grid)
 
@@ -171,13 +153,13 @@ module uservoltic
                 Lx = L*cos(phi)
                 Ly = L*sin(phi)
 
-                !P = P0
-                if (L <= Lc) then
+                
+                if ( (L <= Lc) .and. doNewIC ) then
                     !P = max( Psk(Lx,Ly),P0 )
-                    P = max( pwolf(L),P0 )/gP0
-                    D = DInner
-                    M = RampDown(L,Lc-DInCut,DInCut)
-                    D = max(DInner,Rho0)
+                    !P = max( pwolf(L),P0 )/gP0
+                    M = RampDown(L,Lc-dLc,Lc)
+                    D = max(M*DInner,Rho0)
+                    P = P0
                 else
                     P = P0
                     D = Rho0
@@ -235,19 +217,13 @@ module uservoltic
         integer :: i,j,k
         real(rp) :: dF
 
-        !call ChkMetricLFM(Model,Gr)
-        !call ChkFluxLFM(Model,Gr,State)
-
-        !write(*,*) 'Fixing fluxes ...'
-        !call FixFluxLFM(Model,Gr,State)
-
         !Call ingestion function
         if (Model%doSource) then
             call MagsphereIngest(Model,Gr,State)
         endif
 
         !Call cooling function/s
-        if (doCool) call ChillOut(Model,Gr,State)
+        call ChillOut(Model,Gr,State)
 
         !Do some nudging at the outermost cells to hit solar wind
         SELECT type(pWind=>Gr%externalBCs(OUTI)%p)
