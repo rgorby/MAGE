@@ -115,9 +115,10 @@ module gamtypes
         procedure(ScalarFun_T), pointer, nopass :: Phi => NULL()
 
         !User hack function pointers
-        procedure(HackFlux_T), pointer, nopass :: HackFlux => NULL()
-        procedure(HackE_T)   , pointer, nopass :: HackE    => NULL()
-        procedure(HackStep_T), pointer, nopass :: HackStep => NULL()
+        procedure(HackFlux_T)     , pointer, nopass :: HackFlux => NULL()
+        procedure(HackE_T)        , pointer, nopass :: HackE    => NULL()
+        procedure(HackStep_T)     , pointer, nopass :: HackStep => NULL()
+        procedure(HackPredictor_T), pointer, nopass :: HackPredictor => NULL()
 
     end type Model_T
 
@@ -353,6 +354,19 @@ module gamtypes
             type(State_T), intent(inout) :: State
 
         end subroutine HackStep_T
+    end interface
+
+    !HackPredictor_T
+    !User-defined function to be called after Predictor to alter half-timestep state
+    !Contained by model structure, takes Model/Grid/State and can edit State
+    abstract interface
+        subroutine HackPredictor_T(Model,Grid,State)
+            Import :: Model_T, Grid_T, State_T
+            type(Model_T), intent(in) :: Model
+            type(Grid_T), intent(in) :: Grid
+            type(State_T), intent(inout) :: State
+
+        end subroutine HackPredictor_T
     end interface
 
     contains

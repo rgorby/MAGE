@@ -949,6 +949,7 @@ module init
         nQ = 1.0
         ie = Gr%ie+1
 
+        !K: Testing restricted interpolation (6Cent)
         !$OMP PARALLEL DO default(shared) collapse(2) &
         !$OMP private(i,iB,j,k,iMax,iG) &
         !$OMP private(fAi,Nec,Nij,dxT,dyT,dScl,NxyzB,fArB)
@@ -966,10 +967,10 @@ module init
                     !Do weighted interpolation from face to corner of each component
                     do i=1,iMax
                         iG = iB+i-1 !Global index
-                        fAi = dot_product(interpWgt,fArB(i,:))
-                        Nec(XDIR) = dot_product(NxyzB(i,:,XDIR)*fArB(i,:),interpWgt)/fAi
-                        Nec(YDIR) = dot_product(NxyzB(i,:,YDIR)*fArB(i,:),interpWgt)/fAi
-                        Nec(ZDIR) = dot_product(NxyzB(i,:,ZDIR)*fArB(i,:),interpWgt)/fAi
+                        fAi = dot_product(interpWgt6,fArB(i,:))
+                        Nec(XDIR) = dot_product(NxyzB(i,:,XDIR)*fArB(i,:),interpWgt6)/fAi
+                        Nec(YDIR) = dot_product(NxyzB(i,:,YDIR)*fArB(i,:),interpWgt6)/fAi
+                        Nec(ZDIR) = dot_product(NxyzB(i,:,ZDIR)*fArB(i,:),interpWgt6)/fAi
 
                         !Map xyz->1,2 with edge mapping (dNorm)
                         Nij(1) = dot_product(Nec,Gr%Te(iG,j,k,TAN1X:TAN1Z,dNorm))
