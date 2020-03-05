@@ -955,7 +955,7 @@ module init
         !$OMP private(fAi,Nec,Nij,dxT,dyT,dScl,NxyzB,fArB)
         do k=Gr%ks,Gr%ke+1
             do j=Gr%js,Gr%je+1
-                do iB=Gr%is,ie
+                do iB=Gr%is,ie,vecLen
                     iMax = min(vecLen,ie-iB+1)
 
                     !Get stencils in the dT2 direction
