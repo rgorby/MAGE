@@ -328,9 +328,45 @@ module ringutils
                 enddo
             enddo
 
+            Model%HackPredictor => HackLFMPredictor
+
         end select
 
     end subroutine RingGridFix
+
+    !Replace Bxyz's inside singular region with their conjugate cell value
+    subroutine HackLFMPredictor(Model,Grid,State)
+        type(Model_T), intent(in) :: Model
+        type(Grid_T), intent(in) :: Grid
+        type(State_T), intent(inout) :: State
+
+        integer :: n,i,k,ig,jg,kg,ip,jp,kp
+        if ( (.not. Model%Ring%doE) .and. (.not. Model%Ring%doS) ) return
+
+        !$OMP PARALLEL DO default(shared) &
+        !$OMP private(n,i,k,ig,jg,kg,ip,jp,kp)
+        do k=Grid%ksg,Grid%keg+1
+            do i=Grid%isg,Grid%ieg+1
+                do n=1,Model%Ng
+                    if (Model%Ring%doS) then
+                        ig = i
+                        kg = k
+                        jg = Grid%js-n
+                        call lfmIJK(Model,Grid,ig,jg,kg,ip,jp,kp)
+                        State%Bxyz(ig,jg,kg,:) = State%Bxyz(ip,jp,kp,:)
+                    endif
+
+                    if (Model%Ring%doE) then
+                        ig = i
+                        kg = k
+                        jg = Grid%je+n
+                        call lfmIJK(Model,Grid,ig,jg,kg,ip,jp,kp)
+                        State%Bxyz(ig,jg,kg,:) = State%Bxyz(ip,jp,kp,:)
+                    endif
+                enddo
+            enddo
+        enddo
+    end subroutine HackLFMPredictor
 
     !Takes i,j,k cell index and returns active cell ip,jp,kp of active point
     !Unlike ijk2Active in apps/msphere this only does j/k (not i)

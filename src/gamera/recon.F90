@@ -16,7 +16,8 @@ module recon
     end interface
 
     !Note, be careful how interpWgt is initialized to ensure sum(:) = 1 exactly
-    real(rp), dimension(recLen), parameter :: interpWgt = [-3,29,-139,533,533,-139,29,-3]/840.0_rp
+    real(rp), dimension(recLen), parameter :: interpWgt  = [-3,29,-139,533,533,-139,29,-3]/840.0_rp
+    real(rp), dimension(recLen), parameter :: interpWgt6 = [ 0, 1,  -8, 37, 37,  -8, 1, 0]/60.0_rp
 
     !Set choice of LR method in init
     procedure(GetLR_T), pointer :: GetLRs

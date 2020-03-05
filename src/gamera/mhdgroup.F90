@@ -477,10 +477,6 @@ module mhdgroup
                     isCC = (k<=Grid%keg) .and. (j<=Grid%jeg) .and. (i<=Grid%ieg)
                     if (isCC) then
                         call CellPredictor(Model,ht,oState%Gas(i,j,k,:,:),State%Gas(i,j,k,:,:),pState%Gas(i,j,k,:,:))
-                        !Do XYZ fields
-                        if (Model%doMHD) then
-                            pState%Bxyz(i,j,k,:) = State%Bxyz(i,j,k,:) + (pdt/odt)*(State%Bxyz(i,j,k,:) - oState%Bxyz(i,j,k,:))
-                        endif !MHD
                     endif
                     if (Model%doMHD) then
                         !Do interface fluxes
@@ -493,26 +489,10 @@ module mhdgroup
         !Now do flux->field where necessary
         if (Model%doMHD) then
             !Loop through grid and replace Bxyz w/ flux-> field 
-            !EXCEPT IN EXTERNAL BC REGION
             !$OMP DO collapse(2)
             do k=Grid%ksg,Grid%keg
                 do j=Grid%jsg,Grid%jeg
-                    do i=Grid%isg,Grid%ieg
-
-                        !Fuck Bxyz, it's stupid and garbage and i hate it
-                        !TODO: Test and remove this junk
-                        ! if ( (i < Grid%is) .and. Grid%hasLowerBC(IDIR) ) cycle
-                        ! if ( (j < Grid%js) .and. Grid%hasLowerBC(JDIR) ) cycle
-                        ! if ( (k < Grid%ks) .and. Grid%hasLowerBC(KDIR) ) cycle
-
-                        ! if ( (i > Grid%ie) .and. Grid%hasUpperBC(IDIR) ) cycle
-                        ! if ( (j > Grid%je) .and. Grid%hasUpperBC(JDIR) ) cycle
-                        ! if ( (k > Grid%ke) .and. Grid%hasUpperBC(KDIR) ) cycle
-
-                        !If you're still here then either:
-                        !You're in your own active region OR you're in the active region of someone else
-                        !In any event, the face fluxes here are great so use them
-                        
+                    do i=Grid%isg,Grid%ieg                        
                         pState%Bxyz(i,j,k,:) = CellBxyz(Model,Grid,pState%magFlux,i,j,k)
                     enddo
                 enddo
@@ -521,6 +501,10 @@ module mhdgroup
 
         !Close big parallel region
         !$OMP END PARALLEL
+
+        if (associated(Model%HackPredictor)) then
+            call Model%HackPredictor(Model,Grid,pState)
+        endif
 
     end subroutine Predictor
 
