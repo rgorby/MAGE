@@ -88,16 +88,17 @@ module gamapp
         call AdvanceMHD(gameraApp%Model,gameraApp%Grid,gameraApp%State,gameraApp%oState,gameraApp%Solver,gameraApp%Model%dt)
         call Toc("Gamera")
 
-        !Update info
-        gameraApp%Model%ts = gameraApp%Model%ts+1
-        gameraApp%Model%t = gameraApp%Model%t+gameraApp%Model%dt
-
         !Call user-defined per-step function
+        !NOTE: Do this before updating time
         if (associated(gameraApp%Model%HackStep)) then
             call Tic("HackStep")
             call gameraApp%Model%HackStep(gameraApp%Model,gameraApp%Grid,gameraApp%State)
             call Toc("HackStep")
         endif
+
+        !Update info
+        gameraApp%Model%ts = gameraApp%Model%ts+1
+        gameraApp%Model%t = gameraApp%Model%t+gameraApp%Model%dt
 
     end subroutine UpdateStateData
 

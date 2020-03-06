@@ -758,6 +758,14 @@ module msphutils
 
     end subroutine Dipole
 
+    !Silly vector wrapper to make a dipole function
+    function VecDipole(xyz) result(Bd)
+        real(rp), intent(in) :: xyz(NDIM)
+        real(rp), dimension(NDIM) :: Bd
+        call Dipole(xyz(XDIR),xyz(YDIR),xyz(ZDIR),Bd(XDIR),Bd(YDIR),Bd(ZDIR))
+
+    end function VecDipole
+
     subroutine cutDipole(x,y,z,Ax,Ay,Az)
         real(rp), intent(in) :: x,y,z
         real(rp), intent(out) :: Ax,Ay,Az
