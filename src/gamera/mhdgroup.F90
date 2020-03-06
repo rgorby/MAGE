@@ -502,6 +502,8 @@ module mhdgroup
         !Close big parallel region
         !$OMP END PARALLEL
 
+        if (Model%doRing) call RingPredictorFix(Model,Grid,pState)
+        
         if (associated(Model%HackPredictor)) then
             call Model%HackPredictor(Model,Grid,pState)
         endif

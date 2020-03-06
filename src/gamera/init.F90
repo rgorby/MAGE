@@ -824,7 +824,6 @@ module init
         !Fix transforms if necessary
         if (Model%doRing) call RingGridFix(Model,Grid)
 
-
         !------------------------------------------------
         !Calculate coordinate systems at edges for magnetic field updates (velocity)
         call allocGridVec(Model,Grid,Grid%edge)
@@ -863,18 +862,18 @@ module init
 
                         case (IDIR)
                             dEdge = Grid%xyz(i+1,j,k,:) - Grid%xyz(i,j,k,:)
-                            eAvg = 0.5*(  Grid%xyz(i  ,j  ,k+1,:) - Grid%xyz(i  ,j  ,k-1,:) &
-                                         + Grid%xyz(i+1,j  ,k+1,:) - Grid%xyz(i+1,j  ,k-1,:) )
+                            eAvg = 0.5*( Grid%xyz(i  ,j  ,k+1,:) - Grid%xyz(i  ,j  ,k-1,:) &
+                                       + Grid%xyz(i+1,j  ,k+1,:) - Grid%xyz(i+1,j  ,k-1,:) )
 
                         case (JDIR)
                             dEdge = Grid%xyz(i,j+1,k,:) - Grid%xyz(i,j,k,:)
-                            eAvg = 0.5*(  Grid%xyz(i+1,j  ,k  ,:) - Grid%xyz(i-1,j  ,k  ,:) &
-                                         + Grid%xyz(i+1,j+1,k  ,:) - Grid%xyz(i-1,j+1,k  ,:) )
+                            eAvg = 0.5*( Grid%xyz(i+1,j  ,k  ,:) - Grid%xyz(i-1,j  ,k  ,:) &
+                                       + Grid%xyz(i+1,j+1,k  ,:) - Grid%xyz(i-1,j+1,k  ,:) )
 
                         case (KDIR)
                             dEdge = Grid%xyz(i,j,k+1,:) - Grid%xyz(i,j,k,:)
-                            eAvg = 0.5*(  Grid%xyz(i  ,j+1,k  ,:) - Grid%xyz(i  ,j-1,k  ,:) &
-                                         + Grid%xyz(i  ,j+1,k+1,:) - Grid%xyz(i  ,j-1,k+1,:) )
+                            eAvg = 0.5*( Grid%xyz(i  ,j+1,k  ,:) - Grid%xyz(i  ,j-1,k  ,:) &
+                                       + Grid%xyz(i  ,j+1,k+1,:) - Grid%xyz(i  ,j-1,k+1,:) )
 
                         end select
 
