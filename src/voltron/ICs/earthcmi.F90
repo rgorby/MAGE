@@ -433,52 +433,22 @@ module uservoltic
                 !-------
                 !Now handle magnetic quantities (perturbation field)
 
-                    !Lazy code
-                    State%magFlux(ig,j,k,IDIR) = 0.0
-                    State%magFlux(ig,j,k,JDIR) = 0.0
-                    State%magFlux(ig,j,k,KDIR) = 0.0
+                    !Using rHatP to hold coefficients for singularity geometry
+                    rHatP = 1.0
+                    if ( (Model%Ring%doS) .and. (j < Grid%js) ) then
+                        rHatP(JDIR:KDIR) = -1.0
+                    endif
+                    if ( (Model%Ring%doE) .and. (j >= Grid%je+1) ) then
+                        rHatP(JDIR:KDIR) = -1.0
+                    endif
 
-                    ! !Newish code
-                    ! !Using rHatP to hold coefficients for singularity geometry
-                    ! rHatP = 1.0
-                    ! if ( (Model%Ring%doS) .and. (j < Grid%js) ) then
-                    !     rHatP(JDIR:KDIR) = -1.0
-                    ! endif
-                    ! if ( (Model%Ring%doE) .and. (j >= Grid%je+1) ) then
-                    !     rHatP(JDIR:KDIR) = -1.0
-                    ! endif
-
-                    ! State%magFlux(ig,j,k,IDIR) = rHatP(IDIR)*Grid%face(ig,j,k,IDIR)*dot_product(dB,Grid%Tf(ig,j,k,NORMX:NORMZ,IDIR))
-                    ! State%magFlux(ig,j,k,JDIR) = rHatP(JDIR)*Grid%face(ig,j,k,JDIR)*dot_product(dB,Grid%Tf(ig,j,k,NORMX:NORMZ,JDIR))
-                    ! State%magFlux(ig,j,k,KDIR) = rHatP(KDIR)*Grid%face(ig,j,k,KDIR)*dot_product(dB,Grid%Tf(ig,j,k,NORMX:NORMZ,KDIR))
-                    ! if (j == Grid%jeg) then
-                    !     State%magFlux(ig,j+1,k,IDIR:KDIR) = 0.0
-                    !     State%magFlux(ig,j+1,k,JDIR)      = Grid%face(ig,j+1,k,JDIR)*dot_product(dB,Grid%Tf(ig,j+1,k,NORMX:NORMZ,JDIR))
-                    ! endif
-
-                    !Old code
-                    ! if (isLL) then
-                    !     !Mirror fluxes to minimize gradient (these are perturbation quantities)
-                    !     State%Bxyz(ig,j,k,:)       = dB
-                    !     State%magFlux(ig,j,k,IDIR) = State%magFlux(ip,jp,kp,IDIR)
-                    !     State%magFlux(ig,j,k,JDIR) = State%magFlux(ip,jp,kp,JDIR)
-                    !     State%magFlux(ig,j,k,KDIR) = State%magFlux(ip,jp,kp,KDIR)
-                    ! else
-                    !     !Mirror fluxes to minimize gradient (these are perturbation quantities)
-                    !     State%Bxyz(ig,j,k,:)       = dB
-                    !     State%magFlux(ig,j,k,IDIR) = State%magFlux(ip,jp,kp,IDIR)
-                    !     State%magFlux(ig,j,k,JDIR) = State%magFlux(ip,jp,kp,JDIR)
-                    !     State%magFlux(ig,j,k,KDIR) = State%magFlux(ip,jp,kp,KDIR)
-                    ! endif
-                    ! State%magFlux(ig,j,k,IDIR) = Grid%face(ig,j,k,IDIR)*dot_product(dB,Grid%Tf(ig,j,k,NORMX:NORMZ,IDIR))
-                    ! State%magFlux(ig,j,k,JDIR) = Grid%face(ig,j,k,JDIR)*dot_product(dB,Grid%Tf(ig,j,k,NORMX:NORMZ,JDIR))
-                    ! State%magFlux(ig,j,k,KDIR) = Grid%face(ig,j,k,KDIR)*dot_product(dB,Grid%Tf(ig,j,k,NORMX:NORMZ,KDIR))
-
-
-                    ! if (j == Grid%jeg) then
-                    !     State%magFlux(ig,j+1,k,IDIR:KDIR) = 0.0
-                    !     State%magFlux(ig,j+1,k,JDIR) = State%magFlux(ip,jp+1,kp,JDIR)
-                    ! endif
+                    State%magFlux(ig,j,k,IDIR) = rHatP(IDIR)*Grid%face(ig,j,k,IDIR)*dot_product(dB,Grid%Tf(ig,j,k,NORMX:NORMZ,IDIR))
+                    State%magFlux(ig,j,k,JDIR) = rHatP(JDIR)*Grid%face(ig,j,k,JDIR)*dot_product(dB,Grid%Tf(ig,j,k,NORMX:NORMZ,JDIR))
+                    State%magFlux(ig,j,k,KDIR) = rHatP(KDIR)*Grid%face(ig,j,k,KDIR)*dot_product(dB,Grid%Tf(ig,j,k,NORMX:NORMZ,KDIR))
+                    if (j == Grid%jeg) then
+                        State%magFlux(ig,j+1,k,IDIR:KDIR) = 0.0
+                        State%magFlux(ig,j+1,k,JDIR)      = Grid%face(ig,j+1,k,JDIR)*dot_product(dB,Grid%Tf(ig,j+1,k,NORMX:NORMZ,JDIR))
+                    endif
 
                 enddo !n
             enddo
@@ -491,38 +461,7 @@ module uservoltic
         else
             write(*,*) 'IonInner not implemented for K decomposition'
             stop
-        endif
-
-        ! do k=Grid%ksg,Grid%keg
-        !     do j=Grid%jsg,Grid%jeg
-        !         call lfmIJK(Model,Grid,Grid%is,j,k,ip,jp,kp)
-        !         do n=1,Model%Ng
-        !             ip = Grid%is+n-1
-        !             ig = Grid%is-n
-        !             dB = State%Bxyz(ip,jp,kp,:)
-        !             !K: Testing
-        !             Vxyz = CellBxyz(Model,Grid,State%magFlux,ig,j,k)
-        !             xcd = Grid%xyzcc(ig,j,k,XDIR)
-        !             ycd = Grid%xyzcc(ig,j,k,YDIR)
-        !             zcd = Grid%xyzcc(ig,j,k,ZDIR)
-        !             call Dipole(xcd,ycd,zcd,Bd(XDIR),Bd(YDIR),Bd(ZDIR))
-        !             invlat = norm2(Vxyz-dB)/norm2(Bd)
-        !             !if ( norm2(Vxyz-dB) > TINY ) then
-        !             if ( invlat > 1.0e-1 ) then
-        !                 !!$OMP CRITICAL
-        !                 write(*,*) '---'
-        !                 write(*,*) 'ijk = ',ig,j,k
-        !                 write(*,*) 'dB  = ', dB
-        !                 write(*,*) 'f2f = ', Vxyz
-        !                 write(*,*) 'L2  = ', norm2(Vxyz-dB)
-        !                 write(*,*) 'rL2 = ', norm2(Vxyz-dB)/norm2(dB)
-        !                 write(*,*) 'bL2 = ', norm2(Vxyz-dB)/norm2(Bd)
-        !                 write(*,*) '---'
-        !                 !!$OMP END CRITICAL
-        !             endif
-        !         enddo
-        !     enddo
-        ! enddo                    
+        endif                  
 
     end subroutine IonInner
     
