@@ -188,7 +188,7 @@ module wind
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(inout) :: State
 
-        real(rp) :: t,D,P,wSW,wMHD,swFlx,inFlx
+        real(rp) :: t,D,P,wSW,wMHD,swFlx,inFlx,Cs
         integer :: ip,ig,j,k,n,s
         real(rp), dimension(NDIM) :: xcc,V,B,nHat
         real(rp), dimension(NVAR) :: gW,gW_sw,gW_in,gCon
@@ -202,7 +202,7 @@ module wind
         !$OMP schedule(dynamic) &
         !$OMP private(ip,ig,j,k,n,s) &
         !$OMP private(D,P,wSW,wMHD,swFlx,inFlx) &
-        !$OMP private(xcc,V,B,nHat,gW,gW_sw,gW_in,gCon)
+        !$OMP private(xcc,V,B,nHat,gW,gW_sw,gW_in,gCon,Cs)
         do k=Grid%ksg,Grid%keg+1
             do j=Grid%jsg,Grid%jeg+1
                 ip = Grid%ie
@@ -233,14 +233,16 @@ module wind
                             !Get values from last physical
                             gCon = State%Gas(ip,j,k,:,BLK)
                             call CellC2P(Model,gCon,gW_in)
+                            call CellPress2Cs(Model,gCon,Cs)
+
                             !Do some work on the flow velocity
                             V = gW_in(VELX:VELZ)
                             nHat = Grid%Tf(ip+1,j,k,NORMX:NORMZ,IDIR)
-                            !Only use radial velocity
-                            V = Vec2Para(V,nHat)
-                            !Enforce diode, i.e. zero out if inward flow
-                            if (dot_product(V,nHat)<0) V=0.0
 
+                            !Enforce diode, should be leaving at Mach 1
+                            if (dot_product(V,nHat) < Cs) then
+                                V = V - Vec2Para(V,nHat) + Cs*nHat
+                            endif
                             gW_in(VELX:VELZ) = V
                         endif !MHD outflow
 
@@ -338,7 +340,7 @@ module wind
             do j=Grid%js,Grid%je
 
                 xcc = Grid%xyzcc(ip,j,k,:)
-                wSW = wgtWind(windBC,Model,xcc,State%time) !SW weight of last physical cell
+                wSW = wgtWind(windBC,Model,xcc,t) !SW weight of last physical cell
                 if (wSW>TINY) then
                     !Use nudge timescale (dtSW0) over weight
                     dtSW = max(dtSW0/wSW,Model%dt)
@@ -406,16 +408,18 @@ module wind
 
                         !Get weight and wind at edge center
                         wSW = wgtWind(windBC,Model,ecc,t)
-                        call GetWindAt(windBC,Model,ecc,t,D,P,Vxyz,Bxyz)
-                        if (i <= Grid%ie) then
-                            !Use full weight only for outer-most shell
-                            wSW = wSW/(1.0 + Grid%ie+1 - i)
+                        if (wSW > TINY) then
+                            call GetWindAt(windBC,Model,ecc,t,D,P,Vxyz,Bxyz)
+                            if (i <= Grid%ie) then
+                                !Use full weight only for outer-most shell
+                                wSW = wSW/(1.0 + Grid%ie+1 - i)
+                            endif
+                            !Calculate solar wind E field (not yet projected to edge)
+                            swExyz  = -cross(Vxyz,Bxyz)
+                            !Get MHD EMF
+                            mhdExyz = State%Efld(i,j,k,n)
+                            State%Efld(i,j,k,n) = (1.0-wSW)*mhdExyz + wSW*dot_product(swExyz,e2-e1)
                         endif
-                        !Calculate solar wind E field (not yet projected to edge)
-                        swExyz  = -cross(Vxyz,Bxyz)
-                        !Get MHD EMF
-                        mhdExyz = State%Efld(i,j,k,n)
-                        State%Efld(i,j,k,n) = (1.0-wSW)*mhdExyz + wSW*dot_product(swExyz,e2-e1)
                     enddo !Edge loop
 
                     !Add diffusive electric field
