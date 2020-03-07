@@ -849,31 +849,37 @@ module init
         !Fix transforms if necessary
         if (Model%doRing) call RingGridFix(Model,Grid)
 
-
         !------------------------------------------------
         !Calculate coordinate systems at edges for magnetic field updates (velocity)
-        call allocGridVec(Model,Grid,Grid%edge)
-        allocate(Grid%Te(Grid%isg:Grid%ieg,Grid%jsg:Grid%jeg,Grid%ksg:Grid%keg,NDIM*NDIM,NDIM))
+        call allocGridVec(Model,Grid,Grid%edge,doP1=.true.)
+        
+        allocate(Grid%Te(Grid%isg:Grid%ieg+1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1,NDIM*NDIM,NDIM))
         Grid%edge = 1.0
         Grid%Te = 0.0
 
         do d=1,NDIM
             !Use maximal bounds
             is = Grid%isg
-            ie = Grid%ieg
+            ie = Grid%ieg+1
             js = Grid%jsg
-            je = Grid%jeg
+            je = Grid%jeg+1
             ks = Grid%ksg
-            ke = Grid%keg
+            ke = Grid%keg+1
 
-            !Correct bounds for direction
+            !Correct bounds for direction (go maximal)
             select case(d)
             case(IDIR)
+                ie = Grid%ieg
                 ks = Grid%ksg+1
+                ke = Grid%keg
             case(JDIR)
+                je = Grid%jeg
                 is = Grid%isg+1
+                ie = Grid%ieg
             case(KDIR)
+                ke = Grid%keg
                 js = Grid%jsg+1
+                je = Grid%jeg
             end select
 
             !$OMP PARALLEL DO default(shared) collapse(2) &
@@ -888,18 +894,18 @@ module init
 
                         case (IDIR)
                             dEdge = Grid%xyz(i+1,j,k,:) - Grid%xyz(i,j,k,:)
-                            eAvg = 0.5*(  Grid%xyz(i  ,j  ,k+1,:) - Grid%xyz(i  ,j  ,k-1,:) &
-                                         + Grid%xyz(i+1,j  ,k+1,:) - Grid%xyz(i+1,j  ,k-1,:) )
+                            eAvg = 0.5*( Grid%xyz(i  ,j  ,k+1,:) - Grid%xyz(i  ,j  ,k-1,:) &
+                                       + Grid%xyz(i+1,j  ,k+1,:) - Grid%xyz(i+1,j  ,k-1,:) )
 
                         case (JDIR)
                             dEdge = Grid%xyz(i,j+1,k,:) - Grid%xyz(i,j,k,:)
-                            eAvg = 0.5*(  Grid%xyz(i+1,j  ,k  ,:) - Grid%xyz(i-1,j  ,k  ,:) &
-                                         + Grid%xyz(i+1,j+1,k  ,:) - Grid%xyz(i-1,j+1,k  ,:) )
+                            eAvg = 0.5*( Grid%xyz(i+1,j  ,k  ,:) - Grid%xyz(i-1,j  ,k  ,:) &
+                                       + Grid%xyz(i+1,j+1,k  ,:) - Grid%xyz(i-1,j+1,k  ,:) )
 
                         case (KDIR)
                             dEdge = Grid%xyz(i,j,k+1,:) - Grid%xyz(i,j,k,:)
-                            eAvg = 0.5*(  Grid%xyz(i  ,j+1,k  ,:) - Grid%xyz(i  ,j-1,k  ,:) &
-                                         + Grid%xyz(i  ,j+1,k+1,:) - Grid%xyz(i  ,j-1,k+1,:) )
+                            eAvg = 0.5*( Grid%xyz(i  ,j+1,k  ,:) - Grid%xyz(i  ,j-1,k  ,:) &
+                                       + Grid%xyz(i  ,j+1,k+1,:) - Grid%xyz(i  ,j-1,k+1,:) )
 
                         end select
 
@@ -926,7 +932,7 @@ module init
         
         !------------------------------------------------
         !Calculate coordinate systems at edges for magnetic field updates (magnetic field)
-        allocate(Grid%Teb(Grid%isg:Grid%ieg,Grid%jsg:Grid%jeg,Grid%ksg:Grid%keg,4,NDIM))
+        allocate(Grid%Teb(Grid%isg:Grid%ieg+1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1,4,NDIM))
         Grid%Teb = 0.0
         !Loop over normal direction, and get edge system for plane w/ that normal
         do dNorm=1,NDIM
@@ -959,7 +965,7 @@ module init
     subroutine ebGeom(Model,Gr,nQ,dNorm,dT1,dT2)
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Gr
-        real(rp), intent(inout) :: nQ(Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,2)
+        real(rp), intent(inout) :: nQ(Gr%isg:Gr%ieg+1,Gr%jsg:Gr%jeg+1,Gr%ksg:Gr%keg+1,2)
         integer, intent(in) :: dNorm,dT1,dT2
         
         !Reconstruction stencils for Nx,Ny,Nz and face area

@@ -71,7 +71,7 @@ module ebsquish
         Rinner = norm2(ebGr%xyz(ebGr%is,ebGr%js,ebGr%ks,XDIR:ZDIR))
 
         !$OMP PARALLEL DO default(shared) collapse(3) &
-        !$OMP schedule(guided) &
+        !$OMP schedule(dynamic) &
         !$OMP private(i,j,k,xyz,x1,x2)
         do k=ebGr%ks,ebGr%ke+1
             do j=ebGr%js,ebGr%je+1

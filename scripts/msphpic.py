@@ -104,7 +104,7 @@ if __name__ == "__main__":
 	else:
 		cVals = np.logspace(np.log10(1.0),np.log10(10.0),Nc)
 	LW = 0.25
-	ashd = 0.25
+	ashd = 0.5
 
 	#======
 	#Init data
@@ -205,7 +205,7 @@ if __name__ == "__main__":
 
 	#Add MPI decomp
 	if (doMPI):
-		gCol = "slategrey"
+		gCol = "deepskyblue"
 		for i in range(gsph.Ri):
 			i0 = i*gsph.dNi
 			AxL.plot(gsph.xxi[i0,:],gsph.yyi[i0,:],gCol,linewidth=LW,alpha=ashd)

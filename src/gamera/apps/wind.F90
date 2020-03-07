@@ -9,6 +9,7 @@ module wind
     use gridutils
     use msphutils
     use multifluid
+    use bcs
 
     implicit none
 
@@ -154,15 +155,19 @@ module wind
     end subroutine GetWindAt
 
     !Given face normal, decide how important solar wind is [0,1]
-    function wgtWind(windBC,Model,xyz,t,nHat) result(wgt)
+    !Given point, decide how important solar wind is [0,1]
+    function wgtWind(windBC,Model,xyz,t) result(wgt)
         class(WindBC_T), intent(in) :: windBC
         type(Model_T), intent(in) :: Model
         real(rp), intent(in) :: t
-        real(rp), intent(in) :: xyz(NDIM),nHat(NDIM)
+        real(rp), intent(in) :: xyz(NDIM)
         real(rp) :: wgt
 
         real(rp) :: Rho,P,dTh
-        real(rp), dimension(NDIM) :: V,B,vHat
+        real(rp), dimension(NDIM) :: V,B,vHat,nHat
+
+        !Get radial vector to this point
+        nHat = normVec(xyz)
         !Start by getting wind
         call GetWindAt(windBC,Model,xyz,t,Rho,P,V,B)
         vHat = normVec(V) !Normalized velocity direction
@@ -183,132 +188,206 @@ module wind
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(inout) :: State
 
-        integer :: s,n,ip,ig,j,k
-        real(rp) :: D,P,wSW,wMHD,dtSW0,dtSW
-        real(rp), dimension(NDIM) :: xcc,nHat,V,B,gB_mhd,gB_sw
-
-        real(rp), dimension(NVAR) :: gW,gCon,gW_mhd,gW_sw
+        real(rp) :: t,D,P,wSW,wMHD,swFlx,inFlx,Cs
+        integer :: ip,ig,j,k,n,s
+        real(rp), dimension(NDIM) :: xcc,V,B,nHat
+        real(rp), dimension(NVAR) :: gW,gW_sw,gW_in,gCon
         
-        dtSW0 = 60.0/Model%Units%gT0 !One minute from SW time series
+        if (.not. Grid%hasUpperBC(IDIR)) return
 
         !Refresh solar wind shell values
         call RefreshWind(bc,Model,Grid)
-
-        !TODO: Handle wgtWind at each face/cell-center separately
         
-        !Loop over grid cells and calculate a outflow and SW condition
+        t = Model%t
+
         !$OMP PARALLEL DO default(shared) collapse(2) &
-        !$OMP schedule(guided) &
-        !$OMP private(s,n,ip,ig,j,k,D,P,wSW,wMHD,dtSW) &
-        !$OMP private(xcc,nHat,V,B,gB_mhd,gB_sw,gW,gCon,gW_mhd,gW_sw)
-        do k=Grid%ksg,Grid%keg
-            do j=Grid%jsg,Grid%jeg
+        !$OMP schedule(dynamic) &
+        !$OMP private(ip,ig,j,k,n,s) &
+        !$OMP private(D,P,wSW,wMHD,swFlx,inFlx) &
+        !$OMP private(xcc,V,B,nHat,gW,gW_sw,gW_in,gCon,Cs)
+        do k=Grid%ksg,Grid%keg+1
+            do j=Grid%jsg,Grid%jeg+1
                 ip = Grid%ie
                 do n=1,Model%Ng
-                    !Zero out sw/mhd contributions
-                    gW_sw  = 0.0
-                    gW_mhd = 0.0
-                    gB_sw  = 0.0
-                    gB_mhd = 0.0
-
                     ig = Grid%ie+n
-                    xcc = Grid%xyzcc(ig,j,k,:)
-                    nHat = Grid%Tf(ig+1,j,k,NORMX:NORMZ,IDIR) !Outward normal of GHOST
+
+                    gW_sw = 0.0
+                    gW_in = 0.0
+
+                    !Do cell-centered stuff
+                    if (isCellCenterG(Model,Grid,ig,j,k)) then
                     
-                    wSW = wgtWind(bc,Model,xcc,State%time,nHat)
-                    wMHD = 1.0-wSW
+                        !Get weight from cell center
+                        xcc = Grid%xyzcc(ig,j,k,:)
+                        wSW = wgtWind(bc,Model,xcc,t)
+                        wMHD = 1.0-wSW
+                        !Do SW cell centered
+                        if (wSW > TINY) then
+                            call GetWindAt(bc,Model,xcc,t,D,P,V,B)
+                            gW_sw(DEN) = D
+                            gW_sw(PRESSURE) = P
+                            gW_sw(VELX:VELZ) = V
 
-                !Do solar wind ghost
-                    if (wSW>TINY) then
-                        call GetWindAt(bc,Model,xcc,State%time,D,P,V,B)
-                        gW_sw(DEN) = D
-                        gW_sw(PRESSURE) = P
-                        gW_sw(VELX:VELZ) = V
-                        gB_sw = B
-                    endif
+                        endif !SW inflow
 
-                !Do MHD outflow ghost
-                    if (wMHD>TINY) then
-                        !Get values from last physical
-                        gCon = State%Gas(ip,j,k,:,BLK)
-                        call CellC2P(Model,gCon,gW_mhd)
-                        gB_mhd = CellBxyz(Model,Grid,State%magFlux,ip,j,k)
-                        !Make sure normal flow is outward
-                        V = gW_mhd(VELX:VELZ)
-                        if (dot_product(V,nHat)<0) then
-                            !Inward flow, zero out normal
-                            V = V - Vec2Para(V,nHat)
-                        endif
-                        gW_mhd(VELX:VELZ) = V
-                    endif                    
-                !Mix BCs and set final ghost values
-                    gW = wSW*gW_sw + wMHD*gW_mhd
-                    B  = wSW*gB_sw + wMHD*gB_mhd
-                    call CellP2C(Model,gW,gCon)
+                        !Do MHD outflow cell-centered
+                        if (wMHD>TINY) then
+                            !Get values from last physical
+                            gCon = State%Gas(ip,j,k,:,BLK)
+                            call CellC2P(Model,gCon,gW_in)
+                            call CellPress2Cs(Model,gCon,Cs)
 
-                    !FIXME: Handle multi-fluid better
-                    if (Model%doMultiF) then
-                        !Use calculated values for SW fluid
-                        State%Gas(ig,j,k,:,SWSPC) = gCon
-                        do s=SWSPC+1,Model%nSpc
-                            !Lazy zero grad for rest
-                            State%Gas(ig,j,k,:,s) = State%Gas(ip,j,k,:,s)
-                        enddo !Fluid loop
-                        !Now accumulate
-                        call MultiF2Bulk(Model,State%Gas(ig,j,k,:,:))
-                    else
-                        !Just set bulk
-                        State%Gas(ig,j,k,:,BLK) = gCon
-                    endif !Multifluid
+                            !Do some work on the flow velocity
+                            V = gW_in(VELX:VELZ)
+                            nHat = Grid%Tf(ip+1,j,k,NORMX:NORMZ,IDIR)
 
-                !Set flux and fields
-                    State%Bxyz(ig,j,k,:) = B !Cell-center field
-                    !Set face fluxes
-                    State%magFlux(ig+1,j,k,IDIR) = Grid%face(ig+1,j,k,IDIR)*dot_product(Grid%Tf(ig+1,j,k,NORMX:NORMZ,IDIR),B)
-                    State%magFlux(ig  ,j,k,JDIR) = Grid%face(ig  ,j,k,JDIR)*dot_product(Grid%Tf(ig  ,j,k,NORMX:NORMZ,JDIR),B)
-                    State%magFlux(ig  ,j,k,KDIR) = Grid%face(ig  ,j,k,KDIR)*dot_product(Grid%Tf(ig  ,j,k,NORMX:NORMZ,KDIR),B)
+                            !Enforce diode, should be leaving at Mach 1
+                            if (dot_product(V,nHat) < Cs) then
+                                V = V - Vec2Para(V,nHat) + Cs*nHat
+                            endif
+                            gW_in(VELX:VELZ) = V
+                        endif !MHD outflow
 
-                enddo !ighost loop
+                        !Mix BCs and set final ghost values
+                        gW = wSW*gW_sw + wMHD*gW_in
+                        call CellP2C(Model,gW,gCon)
 
-            enddo !j loop
-        enddo !k loop         
+                        !FIXME: Handle multi-fluid better
+                        if (Model%doMultiF) then
+                            !Use calculated values for SW fluid
+                            State%Gas(ig,j,k,:,SWSPC) = gCon
+                            do s=SWSPC+1,Model%nSpc
+                                !Lazy zero grad for rest
+                                State%Gas(ig,j,k,:,s) = State%Gas(ip,j,k,:,s)
+                            enddo !Fluid loop
+                            !Now accumulate
+                            call MultiF2Bulk(Model,State%Gas(ig,j,k,:,:))
+                        else
+                            !Just set bulk
+                            State%Gas(ig,j,k,:,BLK) = gCon
+                        endif !Multifluid
+
+                    endif !Cell-centered ghosts
+
+                !Now do fluxes
+                    !I flux (start at +1)
+                    wSW = wgtWind(bc,Model,Grid%xfc(ig+1,j,k,:,IDIR),t)
+                    swFlx = WindMagFlux(bc,Model,Grid,t,IDIR,ig+1,j,k)
+                    inFlx = State%magFlux(ip+1,j,k,IDIR)
+
+                    !State%magFlux(ig+1,j,k,IDIR) = wSW*swFlx + (1-wSW)*inFlx
+                    State%magFlux(ig+1,j,k,IDIR) = swFlx
+
+                    !J flux
+                    wSW = wgtWind(bc,Model,Grid%xfc(ig,j,k,:,JDIR),t)
+                    swFlx = WindMagFlux(bc,Model,Grid,t,JDIR,ig,j,k)
+                    inFlx = State%magFlux(ip,j,k,JDIR)
+
+                    !State%magFlux(ig,j,k,JDIR) = wSW*swFlx + (1-wSW)*inFlx
+                    State%magFlux(ig,j,k,JDIR) = swFlx
+
+                    !K flux
+                    wSW = wgtWind(bc,Model,Grid%xfc(ig,j,k,:,KDIR),t)
+                    swFlx = WindMagFlux(bc,Model,Grid,t,KDIR,ig,j,k)
+                    inFlx = State%magFlux(ip,j,k,KDIR)
+
+                    !State%magFlux(ig,j,k,KDIR) = wSW*swFlx + (1-wSW)*inFlx
+                    State%magFlux(ig,j,k,KDIR) = swFlx
+
+                enddo !n
+            enddo !j
+        enddo !k
 
     end subroutine WindBC
 
+
+    !Calculate solar wind magnetic flux at ijkdir-face of cell i,j,k
+    function WindMagFlux(bc,Model,Grid,t,ijkdir,i,j,k) result(swFlux)
+        class(windBC_T), intent(in) :: bc
+        type(Model_T)  , intent(in) :: Model
+        type(Grid_T)   , intent(in) :: Grid
+        real(rp)       , intent(in) :: t
+        integer        , intent(in) :: i,j,k,ijkdir
+
+        real(rp) :: swFlux,D,P
+        real(rp), dimension(NDIM) :: xyz,V,B
+        xyz = Grid%xfc(i,j,k,:,ijkdir)
+        call GetWindAt(bc,Model,xyz,t,D,P,V,B)
+        swFlux = Project2Face(Model,Grid,B,ijkdir,i,j,k)
+
+    end function WindMagFlux
+
+    !Correct predictor Bxyz
+    subroutine WindPredFix(bc,Model,Grid,State) 
+        class(windBC_T), intent(inout) :: bc
+        type(Model_T), intent(in) :: Model
+        type(Grid_T), intent(in) :: Grid
+        type(State_T), intent(inout) :: State
+
+        integer :: ig,j,k,n
+        real(rp), dimension(NDIM) :: xcc,V,B
+        real(rp) :: t,D,P
+
+        if (.not. Grid%hasUpperBC(IDIR)) return
+
+        !Refresh solar wind shell values
+        call RefreshWind(bc,Model,Grid)
+        
+        t = Model%t
+
+        !$OMP PARALLEL DO default(shared) collapse(2) &
+        !$OMP private(j,k,n,ig,xcc,D,P,V,B)
+        do k=Grid%ksg,Grid%keg
+            do j=Grid%js,Grid%je
+                do n=1,Model%Ng
+                    ig = Grid%ie+n
+                    xcc = Grid%xyzcc(ig,j,k,:)
+                    call GetWindAt(bc,Model,xcc,t,D,P,V,B)
+
+                    State%Bxyz(ig,j,k,:) = B
+                enddo !n loop
+            enddo !j loop
+        enddo !k loop
+
+    end subroutine WindPredFix
+
     !Nudge outer-most physical cell
     subroutine NudgeSW(windBC,Model,Grid,State)
-        class(windBC_T), intent(in) :: windBC
+        class(windBC_T), intent(inout) :: windBC
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(inout) :: State
 
         integer :: i,j,k,ip
-        real(rp) :: dtSW0,dtSW,wSW,D,P
-        real(rp), dimension(NDIM) :: xcc,nHat,V,B
+        real(rp) :: t,dtSW0,dtSW,wSW,D,P
+        real(rp), dimension(NDIM) :: xcc,V,B
         real(rp), dimension(NVAR) :: gCon,gW,gW_sw,gW_mhd
 
         if (.not. Grid%hasUpperBC(IDIR)) return
 
+        !Refresh solar wind shell values
+        call RefreshWind(windBC,Model,Grid)
+
         dtSW0 = 60.0/Model%Units%gT0 !One minute from SW time series
 
         ip = Grid%ie !Only doing outer-most cell
+        t = Model%t
 
         !$OMP PARALLEL DO default(shared) collapse(2) &
-        !$OMP schedule(guided) &
+        !$OMP schedule(dynamic) &
         !$OMP private(j,k,D,P,wSW,dtSW) &
-        !$OMP private(xcc,nHat,V,B,gW,gCon,gW_mhd,gW_sw)
+        !$OMP private(xcc,V,B,gW,gCon,gW_mhd,gW_sw)
         do k=Grid%ks,Grid%ke
             do j=Grid%js,Grid%je
 
                 xcc = Grid%xyzcc(ip,j,k,:)
-                nHat = Grid%Tf(ip+1,j,k,NORMX:NORMZ,IDIR) !Outward normal of last physical
-                wSW = wgtWind(windBC,Model,xcc,State%time,nHat) !SW weight of last physical cell
+                wSW = wgtWind(windBC,Model,xcc,t) !SW weight of last physical cell
                 if (wSW>TINY) then
                     !Use nudge timescale (dtSW0) over weight
                     dtSW = max(dtSW0/wSW,Model%dt)
 
                 !Get solar wind state in this cell
-                    call GetWindAt(windBC,Model,xcc,State%time,D,P,V,B)
+                    call GetWindAt(windBC,Model,xcc,t,D,P,V,B)
                     gW_sw(DEN) = D
                     gW_sw(PRESSURE) = P
                     gW_sw(VELX:VELZ) = V
@@ -349,41 +428,47 @@ module wind
 
         integer :: i,j,k,n
         real(rp), dimension(NDIM) :: xcc,nHat,e1,e2,ecc,Vxyz,Bxyz,swExyz
-        real(rp) :: wSW,D,P,mhdExyz
-        
+        real(rp) :: wSW,D,P,mhdExyz,t
+
+        if (.not. Grid%hasUpperBC(IDIR)) return
+
+        !Refresh solar wind shell values
+        call RefreshWind(windBC,Model,Grid)
+
+        t = Model%t
         !$OMP PARALLEL DO default(shared) collapse(2) &
-        !$OMP private(i,j,k,n,xcc,nHat,e1,e2,ecc,Vxyz,Bxyz,swExyz,wSW,D,P,mhdExyz)
+        !$OMP private(i,j,k,n,e1,e2,ecc,Vxyz,Bxyz,swExyz,wSW,D,P,mhdExyz)
         do k=Grid%ks,Grid%ke+1
             do j=Grid%js,Grid%je+1
                 do i=Grid%ie-2,Grid%ie+1
-                    xcc = Grid%xyzcc(i,j,k,:)
-                    nHat = Grid%Tf(ip+1,j,k,NORMX:NORMZ,IDIR)
-                    wSW = wgtWind(windBC,Model,xcc,State%time,nHat)
 
-                    if (i <= Grid%ie) then
-                        !Use full weight only for outer-most shell
-                        wSW = wSW/(1.0 + Grid%ie+1 - i)
-                    endif
-                    
-                    if (wSW>TINY) then
-                        do n=IDIR,KDIR
-                            !Get edge coordinates
-                            call edgeCoords(Model,Grid,i,j,k,n,e1,e2)
-                            ecc = 0.5*(e1+e2)
-                            !Evaluate wind at edge center
-                            call GetWindAt(windBC,Model,ecc,State%time,D,P,Vxyz,Bxyz)
+                    do n=IDIR,KDIR
+                        !Get edge coordinates
+                        call edgeCoords(Model,Grid,i,j,k,n,e1,e2)
+                        ecc = 0.5*(e1+e2)
+
+                        !Get weight and wind at edge center
+                        wSW = wgtWind(windBC,Model,ecc,t)
+                        if (wSW > TINY) then
+                            call GetWindAt(windBC,Model,ecc,t,D,P,Vxyz,Bxyz)
+                            if (i <= Grid%ie) then
+                                !Use full weight only for outer-most shell
+                                wSW = wSW/(1.0 + Grid%ie+1 - i)
+                            endif
                             !Calculate solar wind E field (not yet projected to edge)
                             swExyz  = -cross(Vxyz,Bxyz)
                             !Get MHD EMF
                             mhdExyz = State%Efld(i,j,k,n)
                             State%Efld(i,j,k,n) = (1.0-wSW)*mhdExyz + wSW*dot_product(swExyz,e2-e1)
-                        enddo !E dirs
-                    endif
+                        endif
+                    enddo !Edge loop
 
+                    !Add diffusive electric field
                     if (i == Grid%ie+1) then
                         swExyz = DiffuseOuter(Model,Grid,State,i,j,k)
                         State%Efld(i,j,k,:) = State%Efld(i,j,k,:) + swExyz
                     endif
+
                 enddo !i cells
             enddo
         enddo

@@ -328,11 +328,31 @@ module ringutils
                 enddo
             enddo
 
-            Model%HackPredictor => HackLFMPredictor
-
         end select
 
     end subroutine RingGridFix
+
+    subroutine RingPredictorFix(Model,Grid,State)
+        type(Model_T), intent(in) :: Model
+        type(Grid_T), intent(in) :: Grid
+        type(State_T), intent(inout) :: State
+
+        !Set singularity information and default ring configurations
+        select case (Model%Ring%GridID)
+            !------------------
+            case ("cyl")
+                return
+
+            !------------------
+            case ("lfm")
+                call HackLFMPredictor(Model,Grid,State)
+                
+            !------------------
+            case default
+                write(*,*) 'Unknown ring type, bailing ...'
+                stop                
+        end select
+    end subroutine RingPredictorFix
 
     !Replace Bxyz's inside singular region with their conjugate cell value
     subroutine HackLFMPredictor(Model,Grid,State)
@@ -341,12 +361,13 @@ module ringutils
         type(State_T), intent(inout) :: State
 
         integer :: n,i,k,ig,jg,kg,ip,jp,kp
+
         if ( (.not. Model%Ring%doE) .and. (.not. Model%Ring%doS) ) return
 
         !$OMP PARALLEL DO default(shared) &
         !$OMP private(n,i,k,ig,jg,kg,ip,jp,kp)
-        do k=Grid%ksg,Grid%keg+1
-            do i=Grid%isg,Grid%ieg+1
+        do k=Grid%ksg,Grid%keg
+            do i=Grid%isg,Grid%ieg
                 do n=1,Model%Ng
                     if (Model%Ring%doS) then
                         ig = i

@@ -193,6 +193,22 @@ module bcs
 
     end function isCellCenterG
 
+    !Project vector to face flux on face d of cell i,j,k
+    function Project2Face(Model,Grid,V,ijkdir,i,j,k) result(flux)
+        type(Model_T), intent(in)    :: Model
+        type(Grid_T) , intent(in)    :: Grid
+        real(rp), dimension(NDIM), intent(in) :: V
+        integer, intent(in) :: i,j,k,ijkdir
+        real(rp) :: flux
+
+        real(rp) :: dA,nHat(NDIM)
+        
+        dA = Grid%face(i,j,k,ijkdir)
+        nHat = Grid%Tf(i,j,k,NORMX:NORMZ,ijkdir)
+        flux = dA*dot_product(nHat,V)
+
+    end function Project2Face
+
     !Below here are various predefined BCs
 !--------------------------------------------
     !Lazy, do-nothing boundary
