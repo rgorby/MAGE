@@ -6,7 +6,7 @@
   <remix_gamera dt="0.1" dowait="F" dtshift="0.0"/>
 </OMEGA>
 <VOLTRON>
-  <coupling dtDeep="5.0"/>
+  <coupling dtDeep="5.0" imType="RCM"/>
 </VOLTRON>
 <Gamera>
   <source doSource="T"/>

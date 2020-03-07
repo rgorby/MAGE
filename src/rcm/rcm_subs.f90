@@ -7247,10 +7247,12 @@ bjmod_real = MODULO(bj-REAL(jwrap),REAL(jsize-jwrap-1)) + REAL(jwrap)
 !
 !
       SUBROUTINE Rcm (itimei_in, itimef_in, irdr_in, irdw_in, &
-                      idt_in, idt1_in, idt2_in, icontrol,stropt,nslcopt)
+                      idt_in, idt1_in, idt2_in, icontrol,stropt,nslcopt,iXML)
+      USE xml_input
       USE rcm_timing_module
       IMPLICIT NONE
 !
+      type(XML_Input_T), intent(in), optional :: iXML
       INTEGER (iprec), INTENT (IN) :: itimei_in, itimef_in, &
                                       irdr_in, irdw_in, idt_in, idt1_in,& 
                                       idt2_in, icontrol
@@ -7335,7 +7337,11 @@ bjmod_real = MODULO(bj-REAL(jwrap),REAL(jsize-jwrap-1)) + REAL(jwrap)
    IF (icontrol == 2) then ! read in inputs, quit:
       !K: Splitting based on whether running coupled to Gamera
       if (isGAMRCM) then
-        call RCM_Params_XML()
+        if(present(iXML)) then
+          call RCM_Params_XML(iXML)
+        else
+          call RCM_Params_XML()
+        endif
         !K: Are kp/bfield necessary?
         CALL Read_kp   
         CALL Read_bfield
@@ -7989,18 +7995,24 @@ bjmod_real = MODULO(bj-REAL(jwrap),REAL(jsize-jwrap-1)) + REAL(jwrap)
           endif
         end subroutine WriteRCMH5
 
-        subroutine RCM_Params_XML()
+        subroutine RCM_Params_XML(iXML)
           use xml_input
           use strings
 
+          type(XML_Input_T), intent(in), optional :: iXML
           character(len=strLen) :: inpXML
           type(XML_Input_T) :: xmlInp
 
-          !Find input deck filename
-          call getIDeckStr(inpXML)
+          if(present(iXML)) then
+            xmlInp = iXML
+          else
+            !Find input deck filename
+            call getIDeckStr(inpXML)
 
-          !Create XML reader
-          xmlInp = New_XML_Input(trim(inpXML),'RCM',.true.)
+            !Create XML reader
+            xmlInp = New_XML_Input(trim(inpXML),'RCM',.true.)
+          endif
+
           call xmlInp%Set_Val(label%char,"sim/runid","MHD code run")
 
           !Output

@@ -95,11 +95,12 @@ module gamapp_mpi
         character(len=strLen) :: message
         real(rp), dimension(:,:,:), allocatable :: tempX,tempY,tempZ
         real(rp) :: tmpDT
+        character(len=strLen) :: inH5
+        integer :: Nd
+        logical :: fExist
+        integer, dimension(NDIM) :: dims
 
         associate(Grid=>gamAppMpi%Grid,Model=>gamAppMpi%Model)
-
-        ! call appropriate subroutines to read corner info and mesh size data
-        call ReadCorners(Model,Grid,xmlInp,endTime)
 
         ! setup the distributed graph topology communicator for future MPI work
         call xmlInp%Set_Val(Grid%NumRi,'iPdir/N',1)
@@ -140,6 +141,36 @@ module gamapp_mpi
             Grid%Rj = modulo(rank, Grid%NumRj)
             rank = (rank-Grid%Rj)/Grid%NumRj
             Grid%Ri = rank
+
+            ! Read basic grid size info from full grid file
+            call xmlInp%Set_Val(inH5,"sim/H5Grid","gMesh.h5")
+
+            call ClearIO(IOVars)
+
+            inquire(file=inH5,exist=fExist)
+            if (.not. fExist) then
+                !Error out and leave
+                write(*,*) 'Unable to open input mesh, exiting'
+                stop
+            endif
+
+            !Setup input chain
+            call AddInVar(IOVars,"X")
+            call AddInVar(IOVars,"Y")
+            call AddInVar(IOVars,"Z")
+
+            call ReadVars(IOVars,.false.,inH5) !Don't use io precision
+
+            Nd = IOVars(1)%Nr !Dimension
+            if (Nd <3) then
+                write(*,*) "Number of dimensions not supported"
+                stop
+            endif
+            dims = IOVars(1)%dims(1:Nd)
+
+            Grid%Nip = dims(1) - 2*Model%nG - 1
+            Grid%Njp = dims(2) - 2*Model%nG - 1
+            Grid%Nkp = dims(3) - 2*Model%nG - 1
 
             ! adjust corner information to reflect this individual node's grid data
             Grid%Nip = Grid%Nip/Grid%NumRi
@@ -250,6 +281,21 @@ module gamapp_mpi
             Grid%ijkShift(JDIR) = Grid%Njp*Grid%Rj
             Grid%ijkShift(KDIR) = Grid%Nkp*Grid%Rk
 
+        endif
+
+        ! call appropriate subroutines to read corner info and mesh size data
+        call ReadCorners(Model,Grid,xmlInp,endTime)
+
+        if(Grid%isTiled .and. .not. Model%isRestart) then
+            !if we're tiled and read the entire grid file, subdivide ita
+            Grid%Nip = Grid%Nip/Grid%NumRi
+            Grid%Njp = Grid%Njp/Grid%NumRj
+            Grid%Nkp = Grid%Nkp/Grid%NumRk
+
+            Grid%Ni = Grid%Nip + 2*Model%nG
+            Grid%Nj = Grid%Njp + 2*Model%nG
+            Grid%Nk = Grid%Nkp + 2*Model%nG
+
             Grid%is = 1; Grid%ie = Grid%Nip
             Grid%js = 1; Grid%je = Grid%Njp
             Grid%ks = 1; Grid%ke = Grid%Nkp
@@ -288,7 +334,9 @@ module gamapp_mpi
             call move_alloc(tempX, Grid%x)
             call move_alloc(tempY, Grid%y)
             call move_alloc(tempZ, Grid%z)
+        endif
 
+        if(Grid%isTiled) then
             ! now create the arrays that MPI will use to send and receive the data
             call mpi_dist_graph_neighbors_count(gamAppMpi%gamMpiComm,numInNeighbors,numOutNeighbors,wasWeighted,ierr)
             if(ierr /= MPI_Success) then

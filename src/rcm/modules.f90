@@ -86,15 +86,21 @@ MODULE rice_housekeeping_module
       END SUBROUTINE Read_rcm_mhd_params
 
       !Get RCM params from Kaiju-style XML file
-      subroutine RCM_MHD_Params_XML()
+      subroutine RCM_MHD_Params_XML(iXML)
+        type(XML_Input_T), intent(in), optional :: iXML
+
         character(len=strLen) :: inpXML
         type(XML_Input_T) :: xmlInp
 
-        !Find input deck filename
-        call getIDeckStr(inpXML)
+        if(present(iXML)) then
+          xmlInp = iXML
+        else
+          !Find input deck filename
+          call getIDeckStr(inpXML)
 
-        !Create XML reader
-        xmlInp = New_XML_Input(trim(inpXML),'RCM',.true.)
+          !Create XML reader
+          xmlInp = New_XML_Input(trim(inpXML),'RCM',.true.)
+        endif
 
         !Read various parameters
         call xmlInp%Set_Val(L_write_rcmu_torcm,"output/toRCM",L_write_rcmu_torcm)

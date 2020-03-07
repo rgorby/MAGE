@@ -97,8 +97,22 @@ module init
 
         !Get input H5 if necessary
         !Restart file overwrites doH5g
+        !Always read the full mesh file
         if (doH5g) call xmlInp%Set_Val(inH5,"sim/H5Grid","gMesh.h5")
-        if (Model%isRestart) call xmlInp%Set_Val(inH5,"restart/resFile","Res.h5")
+        if (Model%isRestart) then
+            call xmlInp%Set_Val(inH5,"restart/resFile","Res.h5")
+
+            !If case is tiled, adjust the h5 filename for each rank
+            if(Grid%isTiled) then
+                ! location of the third-to-last period to extract the requested end of the restart
+                dotLoc = INDEX(inH5,".Res.")
+
+                write (inH5, '(A,A)') &
+                    trim(genRunId(Model%RunID,Grid%NumRi,Grid%NumRj,Grid%NumRk,Grid%Ri+1,Grid%Rj+1,Grid%Rk+1)), &
+                    trim(inH5(dotLoc:))
+                write (*,*) 'Tiled case, adjusting restart file to ',trim(inH5)
+            endif
+        endif
 
         !Do grid generation
         if (doH5g .or. Model%isRestart) then
@@ -122,6 +136,7 @@ module init
         character(len=strLen) :: inH5, FileCode
         logical :: fExist, doReset
         real(rp) :: tReset
+        integer :: dotLoc
 
         !Set default domains (needs to be done after grid generation/reading)
         call SetDomain(Model,Grid)
@@ -145,6 +160,18 @@ module init
             !If restart replace State variable w/ restart file
             !Make sure inH5 is set to restart
             call xmlInp%Set_Val(inH5,"restart/resFile","Res.h5")
+
+            !If case is tiled, adjust the h5 filename for each rank
+            if(Grid%isTiled) then
+                ! location of the third-to-last period to extract the requested end of the restart
+                dotLoc = INDEX(inH5,".Res.")
+
+                write (inH5, '(A,A)') &
+                    trim(genRunId(Model%RunID,Grid%NumRi,Grid%NumRj,Grid%NumRk,Grid%Ri+1,Grid%Rj+1,Grid%Rk+1)), &
+                    trim(inH5(dotLoc:))
+                write (*,*) 'Tiled case, adjusting restart file to ',trim(inH5)
+            endif
+
             !Test for resetting time
             call xmlInp%Set_Val(doReset ,"restart/doReset" ,.false.)
             call xmlInp%Set_Val(tReset,"restart/tReset",0.0_rp)

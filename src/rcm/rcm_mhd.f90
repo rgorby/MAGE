@@ -1,4 +1,4 @@
-subroutine rcm_mhd(mhdtime,mhdtimedt,RM,iflag)
+subroutine rcm_mhd(mhdtime,mhdtimedt,RM,iflag,iXML)
 ! version to couple to gamera
 ! units are assumed to mks, except for distances which are in Re.
 ! iflag = 0 - setup arrays, read in parameters
@@ -19,6 +19,7 @@ subroutine rcm_mhd(mhdtime,mhdtimedt,RM,iflag)
   use files
 
   implicit none
+  type(XML_Input_T), intent(in), optional :: iXML
   type(rcm_mhd_T),intent(inout) :: RM
   real(rprec), intent(in) :: mhdtime,mhdtimedt
   integer(iprec) :: dayOfYear 
@@ -101,7 +102,11 @@ subroutine rcm_mhd(mhdtime,mhdtimedt,RM,iflag)
     CALL CheckDirOrMake(Rcmdir)
 
     !Read RCM/MHD params from XML
-    CALL RCM_MHD_Params_XML
+    if(present(iXML)) then
+      CALL RCM_MHD_Params_XML(iXML)
+    else
+      CALL RCM_MHD_Params_XML
+    endif
 
     ! setup rcm
     CALL Rcm (itimei, itimef, irdr, irdw, idt, idt1, idt2,icontrol=0_iprec)
@@ -116,7 +121,9 @@ subroutine rcm_mhd(mhdtime,mhdtimedt,RM,iflag)
     call setupIon(RM)
   
     CALL Rcm (itimei, itimef, irdr, irdw, idt, idt1, idt2, icontrol=1_iprec)
-    CALL Rcm (itimei, itimef, irdr, irdw, idt, idt1, idt2, icontrol=2_iprec)
+
+    ! icontrol of 2 also needs the input xml file
+    CALL Rcm (itimei, itimef, irdr, irdw, idt, idt1, idt2, icontrol=2_iprec, iXML=iXML)
     
 
     ! restart

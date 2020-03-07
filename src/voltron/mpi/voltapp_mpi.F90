@@ -56,6 +56,8 @@ module voltapp_mpi
         integer, intent(in) :: voltComm
         character(len=*), optional, intent(in) :: optFilename
 
+        character(len=strLen) :: inpXML
+        type(XML_Input_T) :: xmlInp
         integer :: commSize, ierr, numCells, length, ic, numInNeighbors, numOutNeighbors
         character( len = MPI_MAX_ERROR_STRING) :: message
         logical :: reorder, wasWeighted
@@ -154,14 +156,19 @@ module voltapp_mpi
         call mpi_gather(-1, 1, MPI_INT, jRanks, 1, MPI_INT, vApp%myRank, vApp%voltMpiComm, ierr)
         call mpi_gather(-1, 1, MPI_INT, kRanks, 1, MPI_INT, vApp%myRank, vApp%voltMpiComm, ierr)
 
-        ! create a local Gamera object which contains the entire domain
-        if(present(optFilename)) then
-            call initGamera(vApp%gAppLocal,userInitFunc,optFilename,doIO=.false.)
-        else
-            call initGamera(vApp%gAppLocal,userInitFunc,doIO=.false.)
-        endif
-
         ! use standard voltron with local gamApp object
+        if(present(optFilename)) then
+            inpXML = optFilename
+        else
+            call getIDeckStr(inpXML)
+        endif
+        call CheckFileOrDie(inpXML,"Error opening input deck in initVoltron_mpi, exiting ...")
+        xmlInp = New_XML_Input(trim(inpXML),'Gamera',.true.)
+        vApp%gAppLocal%Grid%ijkShift(1:3) = 0
+        call ReadCorners(vApp%gAppLocal%Model,vApp%gAppLocal%Grid,xmlInp)
+        call allocState(vApp%gAppLocal%Model,vApp%gAppLocal%Grid,vApp%gAppLocal%State)
+
+        ! now initialize basic voltron structures from gamera data
         if(present(optFilename)) then
             call initVoltron(vApp, vApp%gAppLocal, optFilename)
         else

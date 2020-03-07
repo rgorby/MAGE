@@ -77,10 +77,10 @@ module rcmimag
         if (isRestart) then
             RCMApp%rcm_nRes = nRes
             write(*,*) 'Restarting RCM @ t = ', t0
-            call rcm_mhd(t0,dtCpl,RCMApp,RCMRESTART)
+            call rcm_mhd(t0,dtCpl,RCMApp,RCMRESTART,iXML)
         else
             write(*,*) 'Initializing RCM ...'
-            call rcm_mhd(t0,dtCpl,RCMApp,RCMINIT)
+            call rcm_mhd(t0,dtCpl,RCMApp,RCMINIT,iXML)
         endif
         call init_rcm_mix(RCMApp,imag2mix)
 
