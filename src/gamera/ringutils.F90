@@ -361,12 +361,13 @@ module ringutils
         type(State_T), intent(inout) :: State
 
         integer :: n,i,k,ig,jg,kg,ip,jp,kp
+
         if ( (.not. Model%Ring%doE) .and. (.not. Model%Ring%doS) ) return
 
         !$OMP PARALLEL DO default(shared) &
         !$OMP private(n,i,k,ig,jg,kg,ip,jp,kp)
-        do k=Grid%ksg,Grid%keg+1
-            do i=Grid%isg,Grid%ieg+1
+        do k=Grid%ksg,Grid%keg
+            do i=Grid%isg,Grid%ieg
                 do n=1,Model%Ng
                     if (Model%Ring%doS) then
                         ig = i

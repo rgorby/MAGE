@@ -450,7 +450,7 @@ module mhdgroup
 
     subroutine Predictor(Model,Grid,oState,State,pState,pdt)
         type(Model_T), intent(in) :: Model
-        type(Grid_T), intent(in) :: Grid
+        type(Grid_T), intent(inout) :: Grid
         type(State_T), intent(in) :: State, oState
         type(State_T), intent(inout) :: pState
         real(rp), intent(in) :: pdt

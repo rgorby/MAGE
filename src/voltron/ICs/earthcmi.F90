@@ -126,6 +126,7 @@ module uservoltic
            !NOTE: Need silly double value for GNU
            eHack  => EFix
            Model%HackE => eHack
+           Model%HackPredictor => PredFix
         end if
 
         !Setup perstep function for everybody
@@ -268,6 +269,37 @@ module uservoltic
         !call FixEFieldLFM(Model,Gr,State)             
     end subroutine EFix
 
+    !Fixes cell-centered fields in the predictor
+
+    subroutine PredFix(Model,Gr,State)
+        type(Model_T), intent(in) :: Model
+        type(Grid_T), intent(inout) :: Gr
+        type(State_T), intent(inout) :: State
+
+        !Fix inner shells
+        SELECT type(iiBC=>Gr%externalBCs(INI)%p)
+            TYPE IS (IonInnerBC_T)
+                if (Gr%hasLowerBC(IDIR)) then
+                    call IonPredFix(Model,Gr,State)
+                endif
+            CLASS DEFAULT
+                write(*,*) 'Could not find Ion Inner BC in remix IC'
+                stop
+        END SELECT
+
+        !Fix outer shells
+        SELECT type(pWind=>Gr%externalBCs(OUTI)%p)
+            TYPE IS (WindBC_T)
+                if (Gr%hasUpperBC(IDIR)) then
+                   call WindPredFix(pWind,Model,Gr,State)
+                end if
+            CLASS DEFAULT
+                write(*,*) 'Could not find Wind BC in remix IC'
+                stop
+        END SELECT
+
+    end subroutine PredFix
+
     !Ensure no flux through degenerate faces
     subroutine IonFlux(Model,Gr,gFlx,mFlx)
         type(Model_T), intent(in) :: Model
@@ -290,6 +322,16 @@ module uservoltic
                         mFlx(Gr%is,Gr%je,k,:,IDIR    ) = imFlx
                     enddo
                 endif !doE
+
+                if (Model%Ring%doS) then
+                    igFlx = sum(gFlx(Gr%is,Gr%js,Gr%ks:Gr%ke,1:NVAR,IDIR,BLK),dim=1)/Model%Ring%Np
+                    imFlx = sum(mFlx(Gr%is,Gr%js,Gr%ks:Gr%ke,1:NDIM,IDIR    ),dim=1)/Model%Ring%Np
+                    do k=Gr%ks,Gr%ke
+                        gFlx(Gr%is,Gr%js,k,:,IDIR,BLK) = igFlx
+                        mFlx(Gr%is,Gr%js,k,:,IDIR    ) = imFlx
+                    enddo
+                endif !doE
+
             endif !doRing
 
             !Now loop over inner sphere (only need active since we're only touching I fluxes)
@@ -344,7 +386,7 @@ module uservoltic
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(inout) :: State
 
-        real(rp) :: Rin,llBC
+        real(rp) :: Rin,llBC,dA
         real(rp), dimension(NDIM) :: Bd,Exyz,Veb,rHat
         integer :: ig,ip,idip,j,k,jp,kp,n,np,d
 
@@ -355,7 +397,7 @@ module uservoltic
 
         !$OMP PARALLEL DO default(shared) &
         !$OMP private(ig,ip,idip,j,k,jp,kp,n,np,d) &
-        !$OMP private(Bd,Exyz,Veb,rHat)
+        !$OMP private(Bd,Exyz,Veb,rHat,dA)
         do k=Grid%ksg,Grid%keg+1
             do j=Grid%jsg,Grid%jeg+1
 
@@ -396,7 +438,8 @@ module uservoltic
                             State%magFlux(ig,j,k,d) = 0.0
                         else
                             call lfmIJK(Model,Grid,ig,j,k,ip,jp,kp)
-                            State%magFlux(ig,j,k,d) = State%magFlux(Grid%is,jp,kp,d)
+                            dA = Grid%face(ig,j,k,d)/Grid%face(Grid%is,jp,kp,d)
+                            State%magFlux(ig,j,k,d) = dA*State%magFlux(Grid%is,jp,kp,d)
                         endif
                     enddo
                 enddo !n loop (ig)
@@ -416,6 +459,31 @@ module uservoltic
             end function isLowLat
 
     end subroutine IonInner
+
+    !Correct predictor Bxyz
+    subroutine IonPredFix(Model,Grid,State)
+        type(Model_T), intent(in) :: Model
+        type(Grid_T), intent(in) :: Grid
+        type(State_T), intent(inout) :: State
+
+        integer :: n,ip,ig,ix,jp,kp,j,k
+
+        !$OMP PARALLEL DO default(shared) &
+        !$OMP private(n,ip,ig,ix,j,k)        
+        do k=Grid%ksg,Grid%keg
+            do j=Grid%js,Grid%je
+                do n=1,Model%Ng
+                    ip = Grid%is
+                    ig = Grid%is-n
+
+                    call lfmIJK(Model,Grid,ig,j,k,ix,jp,kp)
+                    State%Bxyz(ig,j,k,:) = State%Bxyz(ip,jp,kp,:)
+
+                enddo !n loop
+            enddo !j loop
+        enddo !k loop
+
+    end subroutine IonPredFix
 
     ! !Inner-I BC for ionosphere
     ! subroutine IonInner(bc,Model,Grid,State)

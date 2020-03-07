@@ -193,6 +193,8 @@ module wind
         real(rp), dimension(NDIM) :: xcc,V,B,nHat
         real(rp), dimension(NVAR) :: gW,gW_sw,gW_in,gCon
         
+        if (.not. Grid%hasUpperBC(IDIR)) return
+
         !Refresh solar wind shell values
         call RefreshWind(bc,Model,Grid)
         
@@ -273,26 +275,31 @@ module wind
                     swFlx = WindMagFlux(bc,Model,Grid,t,IDIR,ig+1,j,k)
                     inFlx = State%magFlux(ip+1,j,k,IDIR)
 
-                    State%magFlux(ig+1,j,k,IDIR) = wSW*swFlx + (1-wSW)*inFlx
+                    !State%magFlux(ig+1,j,k,IDIR) = wSW*swFlx + (1-wSW)*inFlx
+                    State%magFlux(ig+1,j,k,IDIR) = swFlx
+
                     !J flux
                     wSW = wgtWind(bc,Model,Grid%xfc(ig,j,k,:,JDIR),t)
                     swFlx = WindMagFlux(bc,Model,Grid,t,JDIR,ig,j,k)
                     inFlx = State%magFlux(ip,j,k,JDIR)
 
-                    State%magFlux(ig,j,k,JDIR) = wSW*swFlx + (1-wSW)*inFlx
+                    !State%magFlux(ig,j,k,JDIR) = wSW*swFlx + (1-wSW)*inFlx
+                    State%magFlux(ig,j,k,JDIR) = swFlx
 
                     !K flux
                     wSW = wgtWind(bc,Model,Grid%xfc(ig,j,k,:,KDIR),t)
                     swFlx = WindMagFlux(bc,Model,Grid,t,KDIR,ig,j,k)
                     inFlx = State%magFlux(ip,j,k,KDIR)
 
-                    State%magFlux(ig,j,k,KDIR) = wSW*swFlx + (1-wSW)*inFlx
+                    !State%magFlux(ig,j,k,KDIR) = wSW*swFlx + (1-wSW)*inFlx
+                    State%magFlux(ig,j,k,KDIR) = swFlx
 
                 enddo !n
             enddo !j
         enddo !k
 
     end subroutine WindBC
+
 
     !Calculate solar wind magnetic flux at ijkdir-face of cell i,j,k
     function WindMagFlux(bc,Model,Grid,t,ijkdir,i,j,k) result(swFlux)
@@ -309,6 +316,40 @@ module wind
         swFlux = Project2Face(Model,Grid,B,ijkdir,i,j,k)
 
     end function WindMagFlux
+
+    !Correct predictor Bxyz
+    subroutine WindPredFix(bc,Model,Grid,State) 
+        class(windBC_T), intent(inout) :: bc
+        type(Model_T), intent(in) :: Model
+        type(Grid_T), intent(in) :: Grid
+        type(State_T), intent(inout) :: State
+
+        integer :: ig,j,k,n
+        real(rp), dimension(NDIM) :: xcc,V,B
+        real(rp) :: t,D,P
+
+        if (.not. Grid%hasUpperBC(IDIR)) return
+
+        !Refresh solar wind shell values
+        call RefreshWind(bc,Model,Grid)
+        
+        t = Model%t
+
+        !$OMP PARALLEL DO default(shared) collapse(2) &
+        !$OMP private(j,k,n,ig,xcc,D,P,V,B)
+        do k=Grid%ksg,Grid%keg
+            do j=Grid%js,Grid%je
+                do n=1,Model%Ng
+                    ig = Grid%ie+n
+                    xcc = Grid%xyzcc(ig,j,k,:)
+                    call GetWindAt(bc,Model,xcc,t,D,P,V,B)
+
+                    State%Bxyz(ig,j,k,:) = B
+                enddo !n loop
+            enddo !j loop
+        enddo !k loop
+
+    end subroutine WindPredFix
 
     !Nudge outer-most physical cell
     subroutine NudgeSW(windBC,Model,Grid,State)
@@ -333,7 +374,7 @@ module wind
         t = Model%t
 
         !$OMP PARALLEL DO default(shared) collapse(2) &
-        !$OMP schedule(guided) &
+        !$OMP schedule(dynamic) &
         !$OMP private(j,k,D,P,wSW,dtSW) &
         !$OMP private(xcc,V,B,gW,gCon,gW_mhd,gW_sw)
         do k=Grid%ks,Grid%ke
