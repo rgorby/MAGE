@@ -334,20 +334,19 @@ module uservoltic
 
             endif !doRing
 
-            !Now loop over inner sphere (only need active since we're only touching I fluxes)
-            !$OMP PARALLEL DO default(shared) &
-            !$OMP private(j,k)
-            do k=Gr%ks,Gr%ke
-                do j=Gr%js,Gr%je
-                    !Trap for outward mass flux
-                    if (gFlx(Gr%is,j,k,DEN,IDIR,BLK) > 0) then
-                        gFlx(Gr%is,j,k,DEN   ,IDIR,BLK) = min( 0.0,gFlx(Gr%is,j,k,DEN   ,IDIR,BLK) )
-                        gFlx(Gr%is,j,k,ENERGY,IDIR,BLK) = min( 0.0,gFlx(Gr%is,j,k,ENERGY,IDIR,BLK) )
-                    endif
+            ! !Now loop over inner sphere (only need active since we're only touching I fluxes)
+            ! !$OMP PARALLEL DO default(shared) &
+            ! !$OMP private(j,k)
+            ! do k=Gr%ks,Gr%ke
+            !     do j=Gr%js,Gr%je
+            !         !Trap for outward mass flux
+            !         if (gFlx(Gr%is,j,k,DEN,IDIR,BLK) > 0) then
+            !             gFlx(Gr%is,j,k,DEN   ,IDIR,BLK) = min( 0.0,gFlx(Gr%is,j,k,DEN   ,IDIR,BLK) )
+            !             gFlx(Gr%is,j,k,ENERGY,IDIR,BLK) = min( 0.0,gFlx(Gr%is,j,k,ENERGY,IDIR,BLK) )
+            !         endif
                     
-                enddo
-            enddo !K loop
-
+            !     enddo
+            ! enddo !K loop
         endif !Inner i-tile and not MF
 
     end subroutine IonFlux
@@ -389,6 +388,7 @@ module uservoltic
         real(rp) :: Rin,llBC,dA
         real(rp), dimension(NDIM) :: Bd,Exyz,Veb,rHat
         integer :: ig,ip,idip,j,k,jp,kp,n,np,d
+        integer, dimension(NDIM) :: dApm
 
         !Get inner radius and low-latitude
         Rin = norm2(Grid%xyz(Grid%is,Grid%js,Grid%ks,:))
@@ -397,7 +397,7 @@ module uservoltic
 
         !$OMP PARALLEL DO default(shared) &
         !$OMP private(ig,ip,idip,j,k,jp,kp,n,np,d) &
-        !$OMP private(Bd,Exyz,Veb,rHat,dA)
+        !$OMP private(Bd,Exyz,Veb,rHat,dA,dApm)
         do k=Grid%ksg,Grid%keg+1
             do j=Grid%jsg,Grid%jeg+1
 
@@ -432,17 +432,24 @@ module uservoltic
                     endif !Cell-centered
 
                 !Now do face fluxes
+                    call lfmIJK(Model,Grid,ig,j,k,ip,jp,kp)
+                    dApm(IDIR:KDIR) = 1 !Use this to hold coefficients for singularity geometry
+
+                    if ( (Model%Ring%doS) .and. (j < Grid%js) ) then
+                        dApm(JDIR:KDIR) = -1
+                    endif
+                    if ( (Model%Ring%doE) .and. (j >= Grid%je+1) ) then
+                        dApm(JDIR:KDIR) = -1
+                    endif
+
                     !Loop over face directions
                     do d=IDIR,KDIR
+                        dA = Grid%face(ig,j,k,d)/Grid%face(Grid%is,jp,kp,d)
                         if ( isLowLat(Grid%xfc(ig,j,k,:,d),llBC) ) then
                             !State%magFlux(ig,j,k,d) = 0.0
-                            call lfmIJK(Model,Grid,ig,j,k,ip,jp,kp)
-                            dA = Grid%face(ig,j,k,d)/Grid%face(Grid%is,jp,kp,d)
-                            State%magFlux(ig,j,k,d) = dA*State%magFlux(Grid%is,jp,kp,d)
+                            State%magFlux(ig,j,k,d) = dApm(d)*dA*State%magFlux(Grid%is,jp,kp,d)
                         else
-                            call lfmIJK(Model,Grid,ig,j,k,ip,jp,kp)
-                            dA = Grid%face(ig,j,k,d)/Grid%face(Grid%is,jp,kp,d)
-                            State%magFlux(ig,j,k,d) = dA*State%magFlux(Grid%is,jp,kp,d)
+                            State%magFlux(ig,j,k,d) = dApm(d)*dA*State%magFlux(Grid%is,jp,kp,d)
                         endif
                     enddo
                 enddo !n loop (ig)
