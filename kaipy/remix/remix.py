@@ -317,7 +317,7 @@ class remix:
 		# xyz.shape should be (N,3), where N is the number of points
 		# xyz = (x,y,z) in units of Ri
 
-		mu2pi = 1. # FIXME: change to real values
+		mu4pi = 1. # FIXME: change to real values
 
 		if len(xyz.shape)!=2:
 			sys.exit("dB input assumes the array of points of (N,3) size.")			
@@ -360,14 +360,15 @@ class remix:
 
 		# convert R to spherical to compute the vector product with the current
 		# since the current is in spherical and we want output in spherical
-		Rr     = Rx*np.sin(tSource)*np.cos(pSource) + Ry*np.sin(tSource)*np.sin(pSource) + Rz*np.cos(pSource)
-		Rtheta = Rx*np.cos(tSource)*np.cos(pSource) + Ry*np.cos(tSource)*np.sin(pSource) - Rz*np.sin(pSource)	
+		Rr     = Rx*np.sin(tSource)*np.cos(pSource) + Ry*np.sin(tSource)*np.sin(pSource) + Rz*np.cos(tSource)
+		Rtheta = Rx*np.cos(tSource)*np.cos(pSource) + Ry*np.cos(tSource)*np.sin(pSource) - Rz*np.sin(tSource)	
 		Rphi   =-Rx*np.sin(pSource) + Ry*np.cos(pSource)
 		
 		# vector product with the current
-		dBphi   = np.sum(-jhTheta*Rr/R**3,axis=(0,1))
-		dBtheta = np.sum(jhPhi*Rr/R**3   ,axis=(0,1))
-		dBr     = np.sum( (jhTheta*Rphi - jhPhi*Rtheta)/R**3,axis=(0,1))
+		# note the multiplication by sin(tSource) -- it's the area of the surface element
+		dBphi   = np.sum(-jhTheta*np.sin(tSource)*Rr/R**3,axis=(0,1))
+		dBtheta = np.sum(jhPhi*np.sin(tSource)*Rr/R**3   ,axis=(0,1))
+		dBr     = np.sum( (jhTheta*Rphi - jhPhi*Rtheta)*np.sin(tSource)/R**3,axis=(0,1))
 
 		# FIXME: change to real values
 		dtheta = 1.

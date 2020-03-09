@@ -8,6 +8,7 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from   astropy.time import Time
+import pickle
 
 import kaipy.kaiH5 as kaiH5
 import kaipy.remix.remix as remix
@@ -24,11 +25,18 @@ step = 0
 
 # Initialize the remix class
 #ion = remix.remix(remixFile,args.n)
+
+# just temporary
+phiStart = float(sys.argv[1])
+phiEnd   = float(sys.argv[2])
+altitude = float(sys.argv[3])
+phiStep  = 0.5  # 0.5 degree resolution in phi
+
 ion = remix.remix(remixFile,step)
 
-p = np.arange(90)*np.pi/180.   # 0.5 degree resolution in phi
-t = np.arange(90)*np.pi/180.    # 0.5 degree resolution in theta down to 45 colat
-R = (6380.+85.)/6500.           # altitude in units of Rion. Note the definitions of Re and Ri
+p = np.arange(phiStart,phiEnd,phiStep)*np.pi/180. 
+t = (np.arange(0,45,0.5)+0.5)*np.pi/180.    # 0.5 degree resolution in theta down to 45 colat, omitting pole
+R = (6380.+altitude)/6500.           # altitude in units of Rion. Note the definitions of Re and Ri
 
 phi,theta = np.meshgrid(p,t)
 x = R*np.sin(theta)*np.cos(phi)
@@ -39,4 +47,5 @@ xyz = np.array([x.ravel(),y.ravel(),z.ravel()]).T
 
 dBr,dBtheta,dBphi = ion.dB(xyz)
 
-print(dBr.shape)
+print("Done computing. Saving pickles.")
+pickle.dump([p,t,R,dBr,dBtheta,dBphi],open('db_%03d_%03d_%03d.pkl'%(phiStart,phiEnd,altitude),'wb'))
