@@ -435,7 +435,10 @@ module uservoltic
                     !Loop over face directions
                     do d=IDIR,KDIR
                         if ( isLowLat(Grid%xfc(ig,j,k,:,d),llBC) ) then
-                            State%magFlux(ig,j,k,d) = 0.0
+                            !State%magFlux(ig,j,k,d) = 0.0
+                            call lfmIJK(Model,Grid,ig,j,k,ip,jp,kp)
+                            dA = Grid%face(ig,j,k,d)/Grid%face(Grid%is,jp,kp,d)
+                            State%magFlux(ig,j,k,d) = dA*State%magFlux(Grid%is,jp,kp,d)
                         else
                             call lfmIJK(Model,Grid,ig,j,k,ip,jp,kp)
                             dA = Grid%face(ig,j,k,d)/Grid%face(Grid%is,jp,kp,d)
