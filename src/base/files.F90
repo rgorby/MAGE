@@ -40,9 +40,10 @@ module files
         character(len=*), intent(in) :: fIn,errStr
 
         logical :: fExist
-        inquire(file=fIn,exist=fExist)
+        inquire(file=trim(fIn),exist=fExist)
         if (.not. fExist) then
             write(*,*) trim(errStr)
+            write(*,*) "File: ", trim(fIn)
             write(*,*) ''
             stop
         endif

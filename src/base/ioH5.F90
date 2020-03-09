@@ -8,6 +8,7 @@ module ioH5
     use h5lt
     use ioH5Types
     use ioH5Overload
+    use files
 
     !Useful user routines
     !AddOutVar, AddInVar, WriteVars,ReadVars
@@ -50,6 +51,46 @@ contains
 !-------------------------------------------   
 !Various routines to get information about step structure of H5 file
 
+    function GridSizeH5(fIn) result(Nijk)
+        character(len=*), intent(in) :: fIn
+        integer, dimension(NDIM) :: Nijk
+
+        integer :: herr, Nr
+        integer(HID_T) :: h5fId
+        integer(HSIZE_T), allocatable, dimension(:) :: dims
+        integer :: typeClass
+        integer(SIZE_T) :: typeSize
+
+        Nijk = 0
+
+        call CheckFileOrDie(fIn,"Grid file not found ...")
+
+        if ( ioExist(fIn,"X") ) then
+            !Found grid variable, get size from it
+
+            call h5open_f(herr) !Setup Fortran interface
+            !Open file
+            call h5fopen_f(trim(fIn), H5F_ACC_RDONLY_F, h5fId, herr)
+
+            !Start by getting rank, dimensions and total size
+            call h5ltget_dataset_ndims_f(h5fId,"X",Nr,herr)
+            if (Nr > NDIM) then
+                write(*,*) 'Grid X too big, rank > 3! What kinda nonsense are you trying to pull?'
+                stop
+            endif
+            allocate(dims(Nr))
+            call h5ltget_dataset_info_f(h5fId,"X", dims, typeClass, typeSize, herr)
+            Nijk(1:Nr) = dims(1:Nr)
+            
+            !Close up shop
+            call h5fclose_f(h5fId,herr) !Close file
+            call h5close_f(herr) !Close intereface
+        else
+            write(*,*) 'Unable to find X in grid file, ', trim(fIn)
+            stop
+        endif
+    end function GridSizeH5
+
     !Get number of groups of form "Step#XXX" and start/end
     subroutine StepInfo(fStr,s0,sE,Nstp)
         character(len=*), intent(in) :: fStr
@@ -59,6 +100,7 @@ contains
         integer(HID_T) :: h5fId
         character(len=strLen) :: gStr
 
+        call CheckFileOrDie(fStr,"Unable to open file")
         call h5open_f(herr) !Setup Fortran interface
         !Open file
         call h5fopen_f(trim(fStr), H5F_ACC_RDONLY_F, h5fId, herr)
@@ -118,6 +160,7 @@ contains
         Ts = 0.0
         Nstp = sE-s0+1
 
+        call CheckFileOrDie(fStr,"Unable to open file")
         !Do HDF5 prep
         call h5open_f(herr) !Setup Fortran interface
         !Open file
@@ -139,6 +182,7 @@ contains
         integer :: Nstp
         integer :: s0,sE
 
+        call CheckFileOrDie(fStr,"Unable to open file")
         call StepInfo(fStr,s0,sE,Nstp)
     end function NumSteps
     
