@@ -224,7 +224,7 @@ class remix:
 #                                      arange(variables['potential']['min'],variables['potential']['max'],21.),colors='purple')
 
 	# FIXME: MAKE WORK FOR SOUTH (I THINK IT DOES BUT MAKE SURE)
-	def efield(self,ri=6.5e3): 
+	def efield(self,returnDeltas=False,ri=6.5e3): 
 		if not self.Initialized:
 			sys.exit("Variables should be initialized for the specific hemisphere (call init_var) prior to efield calculation.")
 
@@ -282,7 +282,10 @@ class remix:
 		tc = 0.25*(theta[:-1,:-1]+theta[1:,:-1]+theta[:-1,1:]+theta[1:,1:]) # need this additionally 
 		ephi = dPsi/dphi/np.sin(tc)/ri  # this is in V/m
 
-		return (-etheta,-ephi)  # E = -grad Psi
+		if returnDeltas:
+			return (-etheta,-ephi,dtheta,dphi)  # E = -grad Psi
+		else:	
+			return (-etheta,-ephi)  # E = -grad Psi			
 
 	def joule(self):
 		etheta,ephi = self.efield()
@@ -291,9 +294,10 @@ class remix:
 		return(J)
 
 	# FIXME: MAKE WORK FOR SOUTH
-	def jHall(self):
-		etheta,ephi = self.efield()
+	def hCurrents(self): # horizontal currents
+		etheta,ephi,dtheta,dphi = self.efield(returnDeltas=True)
 		SigmaH = self.variables['sigmah']['data']
+		SigmaP = self.variables['sigmap']['data']		
 
 		# Aliases to keep things short
 		x = self.ion['X']
@@ -309,15 +313,19 @@ class remix:
 		cosDipAngle = -2.*np.cos(theta)/np.sqrt(1.+3.*np.cos(theta)**2)
 		Jh_theta = -SigmaH*ephi/cosDipAngle
 		Jh_phi   =  SigmaH*etheta/cosDipAngle
+		Jp_theta =  SigmaP*etheta/cosDipAngle**2
+		Jp_phi   =  SigmaP*ephi
 
-		return(xc,yc,theta,phi,Jh_theta,Jh_phi)
+		# current above is in SI units [A/m]
+		# i.e., height-integrated current density
+		return(xc,yc,theta,phi,dtheta,dphi,Jh_theta,Jh_phi,Jp_theta,Jp_phi)
 
 	def dB(self,xyz):
 		# xyz = array of points where to compute dB
 		# xyz.shape should be (N,3), where N is the number of points
 		# xyz = (x,y,z) in units of Ri
 
-		mu4pi = 1. # FIXME: change to real values
+		mu0o4pi = 1.e-7 # mu0=4pi*10^-7 => mu0/4pi=10^-7
 
 		if len(xyz.shape)!=2:
 			sys.exit("dB input assumes the array of points of (N,3) size.")			
@@ -327,7 +335,7 @@ class remix:
 		nPoints = xyz.shape[0]
 
 		self.init_vars('NORTH')
-		x,y,theta,phi,jht,jhp = self.jHall()
+		x,y,theta,phi,dtheta,dphi,jht,jhp,jpt,jpp = self.hCurrents()
 		z =  np.sqrt(1.-x**2-y**2)  # ASSUME NORTH
 #		z = -np.sqrt(1.-x**2-y**2)	# ASSUME SOUTH
 
@@ -338,8 +346,12 @@ class remix:
 
 		tSource = theta[:,:,np.newaxis]
 		pSource = phi[:,:,np.newaxis]
+		dtSource = dtheta[:,:,np.newaxis]
+		dpSource = dphi[:,:,np.newaxis]		
+
+
 		jhTheta = jht[:,:,np.newaxis]
-		jhPhi   = jhp[:,:,np.newaxis]		
+		jhPhi   = jhp[:,:,np.newaxis]
 
 		# x,y,z are size (ntheta,nphi)
 		# make array of destination points on the mix grid
@@ -365,15 +377,21 @@ class remix:
 		Rphi   =-Rx*np.sin(pSource) + Ry*np.cos(pSource)
 		
 		# vector product with the current
-		# note the multiplication by sin(tSource) -- it's the area of the surface element
-		dBphi   = np.sum(-jhTheta*np.sin(tSource)*Rr/R**3,axis=(0,1))
-		dBtheta = np.sum(jhPhi*np.sin(tSource)*Rr/R**3   ,axis=(0,1))
-		dBr     = np.sum( (jhTheta*Rphi - jhPhi*Rtheta)*np.sin(tSource)/R**3,axis=(0,1))
+		# note the multiplication by sin(tSource)*dtSource*dpSource -- area of the surface element
+		dBphi   = mu0o4pi*np.sum(-jhTheta*np.sin(tSource)*dtSource*dpSource*Rr/R**3,axis=(0,1))
+		dBtheta = mu0o4pi*np.sum(jhPhi*np.sin(tSource)*dtSource*dpSource*Rr/R**3   ,axis=(0,1))
+		dBr     = mu0o4pi*np.sum( (jhTheta*Rphi - jhPhi*Rtheta)*np.sin(tSource)*dtSource*dpSource/R**3,axis=(0,1))
 
-		# FIXME: change to real values
-		dtheta = 1.
-		dphi   = 1. 
-
+		# note on normalization
+		# Efield is computed in V/m, sigma is also in SI units
+		# Current coming out of hCurrents() should be in SI units [A/m] (height integrated).
+		# The Biot-Savart law is mu0/4pi*Int( j x r' dV/|r'|^3 ) = 
+		# mu0/4pi Int( j x r'hat r^2 dr sin(theta) dtheta dphi /|r'|^2) = 
+		# mu0/4pi Int( (j dr) x r'hat (r/Ri)^2 sin(theta) dtheta dphi /(|r'|/Ri)^2)
+		# where we have combined j and dr (= j dr) which is what is coming out of hCurrents in SI units
+		# and normalized everything else to Ri, which it already is in the code above
+		# 
+		# in other words the fields below should be in [T]
 		return(dBr,dBtheta,dBphi)
 
 

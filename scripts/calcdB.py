@@ -48,4 +48,5 @@ xyz = np.array([x.ravel(),y.ravel(),z.ravel()]).T
 dBr,dBtheta,dBphi = ion.dB(xyz)
 
 print("Done computing. Saving pickles.")
+print(dBr,dBtheta,dBphi)
 pickle.dump([p,t,R,dBr,dBtheta,dBphi],open('db_%03d_%03d_%03d.pkl'%(phiStart,phiEnd,altitude),'wb'))
