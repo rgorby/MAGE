@@ -1,3 +1,18 @@
+module rcm_mhd_mod
+
+use rcm_precision
+use Rcm_mod_subs
+use rcm_mhd_interfaces
+use ionosphere_exchange, only : setupIon, tearDownIon
+use constants, ONLY : radius_earth_m, radius_iono_m
+use rice_housekeeping_module
+use rcm_timing_module
+use files
+
+implicit none
+
+contains
+
 subroutine rcm_mhd(mhdtime,mhdtimedt,RM,iflag,iXML)
 ! version to couple to gamera
 ! units are assumed to mks, except for distances which are in Re.
@@ -9,14 +24,6 @@ subroutine rcm_mhd(mhdtime,mhdtimedt,RM,iflag,iXML)
 ! iflag = -3 - Write H5 output (icontrol = 31338)
 
 ! 2/19 frt
-  use rcm_precision
-  use Rcm_mod_subs
-  use rcm_mhd_interfaces
-  use ionosphere_exchange, only : setupIon, tearDownIon
-  use constants, ONLY : radius_earth_m, radius_iono_m
-  use rice_housekeeping_module
-  use rcm_timing_module
-  use files
 
   implicit none
   type(XML_Input_T), intent(in), optional :: iXML
@@ -368,5 +375,5 @@ end subroutine rcm_mhd
       return
       end subroutine print_date_time
 
-
+end module rcm_mhd_mod
 

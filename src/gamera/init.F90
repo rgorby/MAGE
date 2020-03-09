@@ -72,6 +72,7 @@ module init
 
         logical :: doH5g
         character(len=strLen) :: inH5
+        integer :: dotLoc
 
         !Setup OMP info
 #ifdef _OPENMP

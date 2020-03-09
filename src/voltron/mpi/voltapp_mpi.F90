@@ -166,7 +166,10 @@ module voltapp_mpi
         xmlInp = New_XML_Input(trim(inpXML),'Gamera',.true.)
         vApp%gAppLocal%Grid%ijkShift(1:3) = 0
         call ReadCorners(vApp%gAppLocal%Model,vApp%gAppLocal%Grid,xmlInp)
-        call allocState(vApp%gAppLocal%Model,vApp%gAppLocal%Grid,vApp%gAppLocal%State)
+        call Corners2Grid(vApp%gAppLocal%Model,vApp%gAppLocal%Grid)
+        call DefaultBCs(vApp%gAppLocal%Model,vApp%gAppLocal%Grid)
+        call PrepState(vApp%gAppLocal%Model,vApp%gAppLocal%Grid,&
+            vApp%gAppLocal%oState,vAPp%gApplocal%State,xmlInp,userInitFunc)
 
         ! now initialize basic voltron structures from gamera data
         if(present(optFilename)) then

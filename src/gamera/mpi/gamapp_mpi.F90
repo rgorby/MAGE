@@ -96,8 +96,7 @@ module gamapp_mpi
         real(rp), dimension(:,:,:), allocatable :: tempX,tempY,tempZ
         real(rp) :: tmpDT
         character(len=strLen) :: inH5
-        integer :: Nd
-        logical :: fExist
+        logical :: doH5g
         integer, dimension(NDIM) :: dims
 
         associate(Grid=>gamAppMpi%Grid,Model=>gamAppMpi%Model)
@@ -110,9 +109,13 @@ module gamapp_mpi
         call xmlInp%Set_Val(periodicJ,'jPdir/bcPeriodic',.false.)
         call xmlInp%Set_Val(periodicK,'kPdir/bcPeriodic',.false.)
 
+        call xmlInp%Set_Val(doH5g ,"sim/doH5g" ,.false.)
+
         if(Grid%NumRi*Grid%NumRj*Grid%NumRk > 1) then
             Grid%isTiled = .true.
         endif
+
+        Grid%ijkShift(:) = 0
 
         if(Grid%isTiled) then
             call mpi_comm_size(gamComm, commSize, ierr)
@@ -142,35 +145,20 @@ module gamapp_mpi
             rank = (rank-Grid%Rj)/Grid%NumRj
             Grid%Ri = rank
 
-            ! Read basic grid size info from full grid file
-            call xmlInp%Set_Val(inH5,"sim/H5Grid","gMesh.h5")
+            if(doH5g .or. Model%isRestart) then
+                ! Read basic grid size info from full grid file
+                call xmlInp%Set_Val(inH5,"sim/H5Grid","gMesh.h5")
 
-            call ClearIO(IOVars)
+                dims = GridSizeH5(inH5)
 
-            inquire(file=inH5,exist=fExist)
-            if (.not. fExist) then
-                !Error out and leave
-                write(*,*) 'Unable to open input mesh, exiting'
-                stop
+                Grid%Nip = dims(1) - 2*Model%nG - 1
+                Grid%Njp = dims(2) - 2*Model%nG - 1
+                Grid%Nkp = dims(3) - 2*Model%nG - 1
+            else
+                call xmlInp%Set_Val(Grid%Nip,"idir/N",1)
+                call xmlInp%Set_Val(Grid%Njp,"jdir/N",1)
+                call xmlInp%Set_Val(Grid%Nkp,"kdir/N",1)
             endif
-
-            !Setup input chain
-            call AddInVar(IOVars,"X")
-            call AddInVar(IOVars,"Y")
-            call AddInVar(IOVars,"Z")
-
-            call ReadVars(IOVars,.false.,inH5) !Don't use io precision
-
-            Nd = IOVars(1)%Nr !Dimension
-            if (Nd <3) then
-                write(*,*) "Number of dimensions not supported"
-                stop
-            endif
-            dims = IOVars(1)%dims(1:Nd)
-
-            Grid%Nip = dims(1) - 2*Model%nG - 1
-            Grid%Njp = dims(2) - 2*Model%nG - 1
-            Grid%Nkp = dims(3) - 2*Model%nG - 1
 
             ! adjust corner information to reflect this individual node's grid data
             Grid%Nip = Grid%Nip/Grid%NumRi
@@ -286,7 +274,7 @@ module gamapp_mpi
         ! call appropriate subroutines to read corner info and mesh size data
         call ReadCorners(Model,Grid,xmlInp,endTime)
 
-        if(Grid%isTiled .and. .not. Model%isRestart) then
+        if(Grid%isTiled .and. (.not. Model%isRestart .or. .not. doH5g)) then
             !if we're tiled and read the entire grid file, subdivide ita
             Grid%Nip = Grid%Nip/Grid%NumRi
             Grid%Njp = Grid%Njp/Grid%NumRj
