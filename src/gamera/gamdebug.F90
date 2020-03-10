@@ -21,6 +21,7 @@ module gamdebug
 
         if (.not. firstFix) return
         
+        if (doVerboseDB) write(*,*) 'Checking E field ...'
         do i=Grid%is,Grid%ie+1
             do j=Grid%js,Grid%je+1
                 dEi = abs(State%Efld(i,j,Grid%ks,IDIR) - State%Efld(i,j,Grid%ke+1,IDIR))
@@ -45,7 +46,7 @@ module gamdebug
         real(rp) :: dB
 
         if (.not. firstFix) return
-
+        if (doVerboseDB) write(*,*) 'Checking Bk ...'
         do i=Grid%is,Grid%ie
             do j=Grid%js,Grid%je
                 dB = abs(State%magFlux(i,j,Grid%ks,KDIR)-State%magFlux(i,j,Grid%ke+1,KDIR))
@@ -69,7 +70,8 @@ module gamdebug
         real(rp) :: dFg,dFm,dB
 
         if (.not. firstFix) return
-        
+
+        if (doVerboseDB) write(*,*) 'Checking stresses ...'
         do i=Grid%is,Grid%ie
             do j=Grid%js,Grid%je
                 dFg = norm2( gFlx(i,j,Grid%ks,:,KDIR,:) - gFlx(i,j,Grid%ke+1,:,KDIR,:) )
@@ -78,6 +80,7 @@ module gamdebug
                 dB = dFg+dFm
                 if ( dB > TINY ) then
                     if (doVerboseDB) write(*,*) 'Fluxes: i/j, dFg,dFm = ',i,j,dFg,dFm
+
                 endif
             enddo
         enddo

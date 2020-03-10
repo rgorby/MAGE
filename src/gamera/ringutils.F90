@@ -26,7 +26,7 @@ module ringutils
     !doMassRA = T => rho,rho*v,rho*Cs^2
     !doMassRA = F => rho,mom  ,inte
 
-    logical, parameter :: doMassRA = .false.
+    logical, parameter :: doMassRA = .true.
 
     contains
 
@@ -170,62 +170,6 @@ module ringutils
         integer :: i,j,k,ig,jg,kg,ip,jp,kp
         integer :: iR,dJ
         integer :: n,dNorm,T1,T2
-        !Stuff for LFM ring testing
-        real(rp) :: dkoIJ(4) !Positive dk/di,dk/dj, negative
-        integer :: jxP,jxM
-        logical :: getOut
-
-        getOut = .false.
-
-        !Increase the size of the edge length
-        select case (Model%Ring%GridID)
-
-            case ("cyl")
-                do iR=1,NumR
-                    dJ = Np/Model%Ring%NCh(iR)
-                    Gr%dj(iR,:,:) = dJ*Gr%dj(iR,:,:)
-                enddo
-            case ("lfm")
-                !Before scaling, calculate maximum chunk sizes
-                
-
-                !write(*,*) '---------------'
-                !write(*,*) 'Ring edge ratios ...'
-                do iR=1,NumR
-                    dJ = Np/Model%Ring%NCh(iR)
-
-                    if (Model%Ring%doS) then
-                        jxP = Gr%js+iR-1
-                        Gr%dk(:,jxP,:) = dJ*Gr%dk(:,jxP,:)
-   
-                        dkoIJ(1) = maxval(Gr%dk(Gr%is:Gr%ie,jxP,:)/Gr%di(Gr%is:Gr%ie,jxP,:))
-                        dkoIJ(2) = maxval(Gr%dk(Gr%is:Gr%ie,jxP,:)/Gr%dj(Gr%is:Gr%ie,jxP,:))
-
-                    endif
-
-                    if (Model%Ring%doE) then
-                        jxM = Gr%je-iR+1
-                        Gr%dk(:,jxM,:) = dJ*Gr%dk(:,jxM,:)
-
-                        dkoIJ(3) = maxval(Gr%dk(Gr%is:Gr%ie,jxM,:)/Gr%di(Gr%is:Gr%ie,jxM,:))
-                        dkoIJ(4) = maxval(Gr%dk(Gr%is:Gr%ie,jxM,:)/Gr%dj(Gr%is:Gr%ie,jxM,:))
-    
-                    endif
-                    
-                    
-                    if (maxval(dkoIJ) > 1) then
-                        !write(*,*) 'Bad edge ratio!'
-
-                        ! if (dkoIJ(1) > 1) write(*,*) '   +X, Max dk/di = ', Gr%dk(Gr%is:Gr%ie,jxP,Gr%ks)/Gr%di(Gr%is:Gr%ie,jxP,Gr%ks)
-                        ! if (dkoIJ(2) > 1) write(*,*) '   +X, Max dk/dj = ', Gr%dk(Gr%is:Gr%ie,jxP,Gr%ks)/Gr%dj(Gr%is:Gr%ie,jxP,Gr%ks)
-                        ! if (dkoIJ(3) > 1) write(*,*) '   -X, Max dk/di = ', Gr%dk(Gr%is:Gr%ie,jxM,Gr%ks)/Gr%di(Gr%is:Gr%ie,jxM,Gr%ks)
-                        ! if (dkoIJ(4) > 1) write(*,*) '   -X, Max dk/dj = ', Gr%dk(Gr%is:Gr%ie,jxM,Gr%ks)/Gr%dj(Gr%is:Gr%ie,jxM,Gr%ks)
-                        !getOut = .true.
-                    endif    
-                enddo
-
-                !write(*,*) '---------------'
-        end select
 
         !ig,jg,kg = ghost cell
         !ip,jp,kp = opposite cell
@@ -273,28 +217,30 @@ module ringutils
                             ig = i
                             kg = k
                             jg = Gr%js-n
-                            call lfmIJK(Model,Gr,ig,jg,kg,ip,jp,kp)
-
+                            
                             !Do cell-centered stuff
                             if ( (kg<=Gr%keg) .and. (ig<=Gr%ieg) ) then
+                                call lfmIJKcc(Model,Gr,ig,jg,kg,ip,jp,kp)
                                 Gr%volume(ig,jg,kg) = Gr%volume(ip,jp,kp)
                                 Gr%di(ig,jg,kg) = Gr%di(ip,jp,kp)
                                 Gr%dj(ig,jg,kg) = Gr%dj(ip,jp,kp)
                                 Gr%dk(ig,jg,kg) = Gr%dk(ip,jp,kp)
                             endif
 
-                            !Trap for J boundary
-                            if (jp <= Gr%jeg) then
-                                Gr%Tf(ig,jg,kg,NORMX:NORMZ,JDIR) = -1*Gr%Tf(ip,jp+1,kp,NORMX:NORMZ,JDIR)
-                                Gr%face(ig,jg,kg,JDIR) = Gr%face(ip,jp+1,kp,JDIR)
-                            endif
+                            !Do faces
+                            !I face (+ signature)
+                            call lfmIJKfc(Model,Gr,IDIR,ig,jg,kg,ip,jp,kp)
+                            Gr%Tf  (ig,jg,kg,NORMX:NORMZ,IDIR) = Gr%Tf  (ip,jp,kp,NORMX:NORMZ,IDIR)
+                            Gr%face(ig,jg,kg,            IDIR) = Gr%face(ip,jp,kp,            IDIR)
+                            !J face (- signature)
+                            call lfmIJKfc(Model,Gr,JDIR,ig,jg,kg,ip,jp,kp)
+                            Gr%Tf  (ig,jg,kg,NORMX:NORMZ,JDIR) = -Gr%Tf  (ip,jp,kp,NORMX:NORMZ,JDIR)
+                            Gr%face(ig,jg,kg,            JDIR) =  Gr%face(ip,jp,kp,            JDIR)
 
-                            !I + J edges/faces
-                            Gr%Tf(ig,jg,kg,NORMX:NORMZ,IDIR) =    Gr%Tf(ip,jp  ,kp,NORMX:NORMZ,IDIR)
-                            Gr%Tf(ig,jg,kg,NORMX:NORMZ,KDIR) = -1*Gr%Tf(ip,jp  ,kp,NORMX:NORMZ,KDIR)
-                            Gr%face(ig,jg,kg,IDIR) = Gr%face(ip,jp  ,kp,IDIR)
-                            Gr%face(ig,jg,kg,KDIR) = Gr%face(ip,jp  ,kp,KDIR)                        
-
+                            !K face (- signature)
+                            call lfmIJKfc(Model,Gr,KDIR,ig,jg,kg,ip,jp,kp)
+                            Gr%Tf  (ig,jg,kg,NORMX:NORMZ,KDIR) = -Gr%Tf  (ip,jp,kp,NORMX:NORMZ,KDIR)
+                            Gr%face(ig,jg,kg,            KDIR) =  Gr%face(ip,jp,kp,            KDIR)
 
                         endif !doS
 
@@ -303,26 +249,30 @@ module ringutils
                             ig = i
                             kg = k
                             jg = Gr%je+n
-                            call lfmIJK(Model,Gr,ig,jg,kg,ip,jp,kp)
+                            
                             !Do cell-centered stuff
                             if ( (kg<=Gr%keg) .and. (ig<=Gr%ieg) ) then
+                                call lfmIJKcc(Model,Gr,ig,jg,kg,ip,jp,kp)
                                 Gr%volume(ig,jg,kg) = Gr%volume(ip,jp,kp)
                                 Gr%di(ig,jg,kg) = Gr%di(ip,jp,kp)
                                 Gr%dj(ig,jg,kg) = Gr%dj(ip,jp,kp)
                                 Gr%dk(ig,jg,kg) = Gr%dk(ip,jp,kp)
                             endif
+                            !Do faces
+                            !I face (+ signature)
+                            call lfmIJKfc(Model,Gr,IDIR,ig,jg,kg,ip,jp,kp)
+                            Gr%Tf  (ig,jg,kg,NORMX:NORMZ,IDIR) = Gr%Tf  (ip,jp,kp,NORMX:NORMZ,IDIR)
+                            Gr%face(ig,jg,kg,            IDIR) = Gr%face(ip,jp,kp,            IDIR)
 
-                            !Trap for J boundary
-                            if (jg <= Gr%jeg) then
-                                Gr%Tf(ig,jg+1,kg,NORMX:NORMZ,JDIR) = -Gr%Tf(ip,jp,kp,NORMX:NORMZ,JDIR)
-                                Gr%face(ig,jg+1,kg,JDIR) = Gr%face(ip,jp,kp,JDIR)    
-                            endif
-                            !I + J edges/faces
-                            Gr%Tf(ig,jg  ,kg,NORMX:NORMZ,IDIR) =  Gr%Tf(ip,jp,kp,NORMX:NORMZ,IDIR)
-                            Gr%Tf(ig,jg  ,kg,NORMX:NORMZ,KDIR) = -Gr%Tf(ip,jp,kp,NORMX:NORMZ,KDIR)
-                            Gr%face(ig,jg  ,kg,IDIR) = Gr%face(ip,jp,kp,IDIR)
-                            Gr%face(ig,jg  ,kg,KDIR) = Gr%face(ip,jp,kp,KDIR)
+                            !J face (- signature), first active is je+1+1
+                            call lfmIJKfc(Model,Gr,JDIR,ig,jg+1,kg,ip,jp,kp)
+                            Gr%Tf  (ig,jg+1,kg,NORMX:NORMZ,JDIR) = -Gr%Tf  (ip,jp,kp,NORMX:NORMZ,JDIR)
+                            Gr%face(ig,jg+1,kg,            JDIR) =  Gr%face(ip,jp,kp,            JDIR)
 
+                            !K face (- signature)
+                            call lfmIJKfc(Model,Gr,KDIR,ig,jg,kg,ip,jp,kp)
+                            Gr%Tf  (ig,jg,kg,NORMX:NORMZ,KDIR) = -Gr%Tf  (ip,jp,kp,NORMX:NORMZ,KDIR)
+                            Gr%face(ig,jg,kg,            KDIR) =  Gr%face(ip,jp,kp,            KDIR)
                         endif !doE
 
                     enddo !n (ghost) loop
@@ -374,7 +324,7 @@ module ringutils
                         ig = i
                         kg = k
                         jg = Grid%js-n
-                        call lfmIJK(Model,Grid,ig,jg,kg,ip,jp,kp)
+                        call lfmIJKcc(Model,Grid,ig,jg,kg,ip,jp,kp)
                         State%Bxyz(ig,jg,kg,:) = State%Bxyz(ip,jp,kp,:)
                     endif
 
@@ -382,53 +332,13 @@ module ringutils
                         ig = i
                         kg = k
                         jg = Grid%je+n
-                        call lfmIJK(Model,Grid,ig,jg,kg,ip,jp,kp)
+                        call lfmIJKcc(Model,Grid,ig,jg,kg,ip,jp,kp)
                         State%Bxyz(ig,jg,kg,:) = State%Bxyz(ip,jp,kp,:)
                     endif
                 enddo
             enddo
         enddo
     end subroutine HackLFMPredictor
-
-    !Takes i,j,k cell index and returns active cell ip,jp,kp of active point
-    !Unlike ijk2Active in apps/msphere this only does j/k (not i)
-    !Map in k,j order
-    subroutine lfmIJK(Model,Grid,i,j,k,ip,jp,kp)
-        type(Model_T), intent(in) :: Model
-        type(Grid_T), intent(in) :: Grid
-        integer, intent(in) :: i,j,k
-        integer, intent(out) :: ip,jp,kp
-        integer :: Np,Np2
-
-        Np  = Grid%Nkp
-        Np2 = Grid%Nkp/2
-
-        !Map i to itself (ie, i-ghosts)
-        ip = i
-        !Next do k, map via periodicity
-        if (k < Grid%ks) then
-            kp = Grid%ke - (Grid%ks-k) + 1
-        elseif (k > Grid%ke) then
-            kp = Grid%ks + (k-Grid%ke) - 1
-        else
-            kp = k
-        endif
-
-        !Finally do j
-        jp = j ! default value
-        if ( Model%Ring%doS .and. (j<Grid%js) ) then
-            jp = Grid%js + (Grid%js-j) - 1
-            kp = k+Np2
-            if (kp>Np) kp = kp-Np
-        endif
-
-        if ( Model%Ring%doE .and. (j>Grid%je) ) then
-            jp = Grid%je - (j-Grid%je) + 1
-            kp = k+Np2
-            if (kp>Np) kp = kp-Np
-        endif
-
-    end subroutine lfmIJK
 
     !Cell-centered conjugate mapping
     subroutine lfmIJKcc(Model,Grid,i,j,k,ip,jp,kp)
@@ -559,7 +469,7 @@ module ringutils
 
         select case (Model%Ring%GridID)
         case("lfm")
-            call ChkGasFluxLFM(Model,Gr,gFlx,mFlx)
+            !call ChkGasFluxLFM(Model,Gr,gFlx,mFlx)
 
             if (Model%Ring%doS) gFlx(:,Gr%js  ,:,:,JDIR,:) = 0.0
             if (Model%Ring%doE) gFlx(:,Gr%je+1,:,:,JDIR,:) = 0.0

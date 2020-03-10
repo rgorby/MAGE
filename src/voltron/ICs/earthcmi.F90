@@ -218,8 +218,8 @@ module uservoltic
         integer :: i,j,k
         real(rp) :: dF
 
-        call FixFluxLFM(Model,Gr,State)
-        call ChkFluxLFM(Model,Gr,State)
+        !call FixFluxLFM(Model,Gr,State)
+        !call ChkFluxLFM(Model,Gr,State)
         !call ChkMetricLFM(Model,Gr)
 
         !Call ingestion function
@@ -246,7 +246,7 @@ module uservoltic
         type(Grid_T), intent(inout) :: Gr
         type(State_T), intent(inout) :: State
 
-        call ChkEFieldLFM(Model,Gr,State)
+        
         
         !Fix inner shells
         SELECT type(iiBC=>Gr%externalBCs(INI)%p)
@@ -269,7 +269,9 @@ module uservoltic
                 write(*,*) 'Could not find Wind BC in remix IC'
                 stop
         END SELECT
-        call FixEFieldLFM(Model,Gr,State)
+
+        !call ChkEFieldLFM(Model,Gr,State)
+        !call FixEFieldLFM(Model,Gr,State)
 
     end subroutine EFix
 
@@ -417,7 +419,7 @@ module uservoltic
                     !Do cell-centered stuff
                     if (isCellCenterG(Model,Grid,ig,j,k)) then
                         !Map to active ip,jp,kp (i=Grid%is => ip=Grid%is)
-                        call lfmIJK(Model,Grid,Grid%is-1,j,k,idip,jp,kp)
+                        call lfmIJKcc(Model,Grid,Grid%is-1,j,k,idip,jp,kp)
 
                         !Get dipole value
                         Bd = VecDipole(Grid%xyzcc(idip,jp,kp,:))
@@ -436,7 +438,7 @@ module uservoltic
                     endif !Cell-centered
 
                 !Now do face fluxes
-                    call lfmIJK(Model,Grid,ig,j,k,ip,jp,kp)
+                    
                     dApm(IDIR:KDIR) = 1 !Use this to hold coefficients for singularity geometry
 
                     if ( (Model%Ring%doS) .and. (j < Grid%js) ) then
@@ -448,6 +450,8 @@ module uservoltic
 
                     !Loop over face directions
                     do d=IDIR,KDIR
+                        call lfmIJKfc(Model,Grid,d,ig,j,k,ip,jp,kp)
+
                         dA = Grid%face(ig,j,k,d)/Grid%face(Grid%is,jp,kp,d)
                         if ( isLowLat(Grid%xfc(ig,j,k,:,d),llBC) ) then
                             !State%magFlux(ig,j,k,d) = 0.0
@@ -490,7 +494,7 @@ module uservoltic
                     ip = Grid%is
                     ig = Grid%is-n
 
-                    call lfmIJK(Model,Grid,ig,j,k,ix,jp,kp)
+                    call lfmIJKcc(Model,Grid,ig,j,k,ix,jp,kp)
                     State%Bxyz(ig,j,k,:) = State%Bxyz(ip,jp,kp,:)
 
                 enddo !n loop
