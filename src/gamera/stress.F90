@@ -147,7 +147,7 @@ module stress
     !Turn fluxes into deltas
     !---------------------------
         call Tic("Flux2Deltas")
-                
+
         !$OMP PARALLEL DO default(shared) collapse (2) &
         !$OMP private(i,j,k,dV)
         do k=Gr%ks,Gr%ke

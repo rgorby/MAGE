@@ -424,7 +424,7 @@ module uservoltic
                         Veb = cross(Exyz,Bd)/dot_product(Bd,Bd)
                         !Remove radial component of velocity
                         rHat = normVec(Grid%xyzcc(idip,jp,kp,:))
-                        Veb = Vec2Para(Veb,rHat)
+                        Veb = Vec2Perp(Veb,rHat)
 
                         !Now do spherical wall BC
                         call SphereWall(Model,State%Gas(ig,j,k,:,:),State%Gas(ip,jp,kp,:,:),Veb)
