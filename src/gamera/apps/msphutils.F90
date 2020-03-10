@@ -150,12 +150,13 @@ module msphutils
         
         write(*,*) '---------------'
         write(*,*) 'Magnetosphere normalization'
-        write(*,*) 'T0 [s]    = ', gT0
-        write(*,*) 'x0 [m]    = ', gx0
-        write(*,*) 'v0 [m/s]  = ', gv0
-        write(*,*) 'P0 [nPa]  = ', gP0
-        write(*,*) 'B0 [nT]   = ', gB0
-        write(*,*) 'g  [m/s2] = ', gG0
+        write(*,*) 'T0   [s]    = ', gT0
+        write(*,*) 'x0   [m]    = ', gx0
+        write(*,*) 'v0   [m/s]  = ', gv0
+        write(*,*) 'P0   [nPa]  = ', gP0
+        write(*,*) 'B0   [nT]   = ', gB0
+        write(*,*) 'g    [m/s2] = ', gG0
+        write(*,*) 'psi0 [kV]   = ', Psi0
         write(*,*) '---------------'
 
         !Save scaling to gUnits_T structure in Model

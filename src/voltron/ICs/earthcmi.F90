@@ -218,6 +218,10 @@ module uservoltic
         integer :: i,j,k
         real(rp) :: dF
 
+        call FixFluxLFM(Model,Gr,State)
+        call ChkFluxLFM(Model,Gr,State)
+        !call ChkMetricLFM(Model,Gr)
+
         !Call ingestion function
         if (Model%doSource) then
             call MagsphereIngest(Model,Gr,State)
@@ -242,7 +246,7 @@ module uservoltic
         type(Grid_T), intent(inout) :: Gr
         type(State_T), intent(inout) :: State
 
-        !call ChkEFieldLFM(Model,Gr,State)
+        call ChkEFieldLFM(Model,Gr,State)
         
         !Fix inner shells
         SELECT type(iiBC=>Gr%externalBCs(INI)%p)
@@ -265,8 +269,8 @@ module uservoltic
                 write(*,*) 'Could not find Wind BC in remix IC'
                 stop
         END SELECT
-        
-        !call FixEFieldLFM(Model,Gr,State)             
+        call FixEFieldLFM(Model,Gr,State)
+
     end subroutine EFix
 
     !Fixes cell-centered fields in the predictor

@@ -7,6 +7,7 @@
 module ringutils
     use gamtypes
     use gamutils
+    use gamdebug
     use math
     use xml_input
     implicit none
@@ -429,6 +430,126 @@ module ringutils
 
     end subroutine lfmIJK
 
+    !Cell-centered conjugate mapping
+    subroutine lfmIJKcc(Model,Grid,i,j,k,ip,jp,kp)
+        type(Model_T), intent(in) :: Model
+        type(Grid_T), intent(in) :: Grid
+        integer, intent(in) :: i,j,k
+        integer, intent(out) :: ip,jp,kp
+
+        integer :: Np
+        Np  = Grid%Nkp
+
+        !Map i to itself
+        ip = i
+
+        !Next do k, map via periodicity
+        !NOTE: This is assuming you have all
+        if (k < Grid%ks) then
+            kp = Grid%ke - (Grid%ks-k) + 1
+        elseif (k > Grid%ke) then
+            kp = Grid%ks + (k-Grid%ke) - 1
+        else
+            kp = k
+        endif
+
+        !Finally do j
+        jp = j ! default value
+        if ( Model%Ring%doS .and. (j<Grid%js) ) then
+            jp = Grid%js + (Grid%js-j) - 1
+            kp = WrapK(k,Np)
+        endif
+
+        if ( Model%Ring%doE .and. (j>Grid%je) ) then
+            jp = Grid%je - (j-Grid%je) + 1
+            kp = WrapK(k,Np)
+        endif
+
+    end subroutine lfmIJKcc
+
+    !d Face-centered conjugate mapping
+    subroutine lfmIJKfc(Model,Grid,d,i,j,k,ip,jp,kp)
+        type(Model_T), intent(in) :: Model
+        type(Grid_T), intent(in) :: Grid
+        integer, intent(in) :: i,j,k,d
+        integer, intent(out) :: ip,jp,kp
+
+        integer :: Np
+        Np  = Grid%Nkp
+
+        if (d == IDIR) then
+            !In i direction just use cell-centered
+            call lfmIJKcc(Model,Grid,i,j,k,ip,jp,kp)
+            return
+        endif
+
+        !Now do k via periodicity
+        !NOTE: This is assuming you have all
+        if (d == JDIR) then
+            !J faces wrap in k like cell centers
+            if (k < Grid%ks) then
+                kp = Grid%ke - (Grid%ks-k) + 1
+            elseif (k > Grid%ke) then
+                kp = Grid%ks + (k-Grid%ke) - 1
+            else
+                kp = k
+            endif            
+        else !KDIR
+            !K faces wrap differently
+            if (k < Grid%ks) then
+                kp = Grid%ke - (Grid%ks-k) + 1
+            elseif (k > Grid%ke+1) then
+                kp = Grid%ks + (k-Grid%ke) - 1
+            else
+                kp = k
+            endif
+        endif
+
+        !Finally do j
+        jp = j ! default value
+        if (d == JDIR) then
+            !Wraps differently
+            !For j you offset so you only see the singularity once
+            !js-1 => js+1 & wrap K
+            !js-2 => js+2 & wrap K
+            !For cell center, js-1 => js & wrap K
+            if ( Model%Ring%doS .and. (j<Grid%js) ) then
+                jp = Grid%js + (Grid%js-j)
+                kp = WrapK(k,Np)
+            endif
+            if ( Model%Ring%doE .and. (j>Grid%je+1) ) then
+                !je+1 => je+1
+                !je+2 => je
+                !je+3 => je-1
+                jp = Grid%je + 1 - (j-Grid%je) + 1
+                kp = WrapK(k,Np)
+            endif
+        else !KDIR
+            !Wrapping like cell-center
+            if ( Model%Ring%doS .and. (j<Grid%js) ) then
+                jp = Grid%js + (Grid%js-j) - 1
+                kp = WrapK(k,Np)
+            endif
+
+            if ( Model%Ring%doE .and. (j>Grid%je) ) then
+                jp = Grid%je - (j-Grid%je) + 1
+                kp = WrapK(k,Np)
+            endif
+        endif
+
+    end subroutine lfmIJKfc
+
+    function WrapK(k,Np) result(kp)
+        integer, intent(in) :: k,Np
+        integer :: kp
+        integer :: Np2
+
+        Np2 = Np/2
+        kp = k + Np2
+        if (kp>Np) kp = kp-Np
+
+    end function WrapK
+
     !Ensure no flux through degenerate faces
     subroutine RingFlux(Model,Gr,gFlx,mFlx)
         type(Model_T), intent(in) :: Model
@@ -438,6 +559,8 @@ module ringutils
 
         select case (Model%Ring%GridID)
         case("lfm")
+            call ChkGasFluxLFM(Model,Gr,gFlx,mFlx)
+
             if (Model%Ring%doS) gFlx(:,Gr%js  ,:,:,JDIR,:) = 0.0
             if (Model%Ring%doE) gFlx(:,Gr%je+1,:,:,JDIR,:) = 0.0
             if (Model%doMHD .and. present(mFlx)) then

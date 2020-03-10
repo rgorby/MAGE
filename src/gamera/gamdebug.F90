@@ -6,6 +6,7 @@ module gamdebug
 
     logical, private :: doVerboseDB = .true.
     logical, private :: didFix = .false.
+    logical, private :: firstFix = .false.
     contains
 
 
@@ -18,7 +19,7 @@ module gamdebug
         integer :: i,j,k
         real(rp) :: dEi,dEj
 
-        if (.not. didFix) return
+        if (.not. firstFix) return
         
         do i=Grid%is,Grid%ie+1
             do j=Grid%js,Grid%je+1
@@ -43,7 +44,7 @@ module gamdebug
         integer :: i,j,k
         real(rp) :: dB
 
-        if (.not. didFix) return
+        if (.not. firstFix) return
 
         do i=Grid%is,Grid%ie
             do j=Grid%js,Grid%je
@@ -56,6 +57,33 @@ module gamdebug
 
     end subroutine ChkFluxLFM
 
+    !Checks magfluxes on K-periodic boundary
+    subroutine ChkGasFluxLFM(Model,Grid,gFlx,mFlx)
+        type(Model_T), intent(in) :: Model
+        type(Grid_T), intent(in) :: Grid
+        real(rp), intent(inout)           :: gFlx(Grid%isg:Grid%ieg,Grid%jsg:Grid%jeg,Grid%ksg:Grid%keg,1:NVAR,1:NDIM,BLK:Model%nSpc)
+        real(rp), intent(inout), optional :: mFlx(Grid%isg:Grid%ieg,Grid%jsg:Grid%jeg,Grid%ksg:Grid%keg,1:NDIM,1:NDIM)
+        
+
+        integer :: i,j,k
+        real(rp) :: dFg,dFm,dB
+
+        if (.not. firstFix) return
+        
+        do i=Grid%is,Grid%ie
+            do j=Grid%js,Grid%je
+                dFg = norm2( gFlx(i,j,Grid%ks,:,KDIR,:) - gFlx(i,j,Grid%ke+1,:,KDIR,:) )
+                dFm = norm2( mFlx(i,j,Grid%ks,:,KDIR  ) - mFlx(i,j,Grid%ke+1,:,KDIR  ) )
+
+                dB = dFg+dFm
+                if ( dB > TINY ) then
+                    if (doVerboseDB) write(*,*) 'Fluxes: i/j, dFg,dFm = ',i,j,dFg,dFm
+                endif
+            enddo
+        enddo
+
+    end subroutine ChkGasFluxLFM
+
     !Fixes magfluxes on K-periodic boundary
     subroutine FixFluxLFM(Model,Grid,State)
         type(Model_T), intent(in) :: Model
@@ -65,7 +93,7 @@ module gamdebug
         integer :: i,j,k
         real(rp) :: dB
 
-        !if (didFix) return
+        if (firstFix) return
 
         do i=Grid%is,Grid%ie
             do j=Grid%js,Grid%je
@@ -75,7 +103,7 @@ module gamdebug
 
              enddo
         enddo
-        didFix = .true.
+        firstFix = .true.
 
     end subroutine FixFluxLFM
 
@@ -88,18 +116,20 @@ module gamdebug
         integer :: i,j,k
         real(rp) :: Ei,Ej
 
-        do i=Grid%is,Grid%ie+1
-            do j=Grid%js,Grid%je+1
-                Ei = 0.5*(State%Efld(i,j,Grid%ks,IDIR) + State%Efld(i,j,Grid%ke+1,IDIR))
-                Ej = 0.5*(State%Efld(i,j,Grid%ks,JDIR) + State%Efld(i,j,Grid%ke+1,JDIR))
-                
-                State%Efld(i,j,Grid%ks  ,IDIR) = Ei
-                State%Efld(i,j,Grid%ke+1,IDIR) = Ei
-                State%Efld(i,j,Grid%ks  ,JDIR) = Ej
-                State%Efld(i,j,Grid%ke+1,JDIR) = Ej
+        if ( Grid%hasLowerBC(KDIR) .and. Grid%hasUpperBC(KDIR) ) then
+            do i=Grid%is,Grid%ie+1
+                do j=Grid%js,Grid%je+1
+                    Ei = 0.5*(State%Efld(i,j,Grid%ks,IDIR) + State%Efld(i,j,Grid%ke+1,IDIR))
+                    Ej = 0.5*(State%Efld(i,j,Grid%ks,JDIR) + State%Efld(i,j,Grid%ke+1,JDIR))
+                    
+                    State%Efld(i,j,Grid%ks  ,IDIR) = Ei
+                    State%Efld(i,j,Grid%ke+1,IDIR) = Ei
+                    State%Efld(i,j,Grid%ks  ,JDIR) = Ej
+                    State%Efld(i,j,Grid%ke+1,JDIR) = Ej
 
+                enddo
             enddo
-        enddo
+        endif
 
     end subroutine FixEFieldLFM
 
