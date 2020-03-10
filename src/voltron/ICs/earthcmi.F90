@@ -246,8 +246,6 @@ module uservoltic
         type(Grid_T), intent(inout) :: Gr
         type(State_T), intent(inout) :: State
 
-        
-        
         !Fix inner shells
         SELECT type(iiBC=>Gr%externalBCs(INI)%p)
             TYPE IS (IonInnerBC_T)

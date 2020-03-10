@@ -11,6 +11,7 @@ module clocks
 
     !Clock output (min/max depth)
     integer :: clkMinD = 1, clkMaxD = 5
+
     real(rp) :: clkMinT = 0.0 !Minimum time (in %) to display in clock output
 
     !Timer construct
@@ -186,6 +187,7 @@ module clocks
         !Start w/ Omega
         tScl = kClocks(1)%tElap
         write(tStr,'(f8.3)') kClocks(1)%tElap
+
         write(*,'(a)') 'Timing Data (' // trim(adjustl(tStr)) // 's)'
         do n=1,maxClocks
             !Loop until find clock at min depth

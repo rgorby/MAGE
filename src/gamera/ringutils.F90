@@ -170,6 +170,31 @@ module ringutils
         integer :: i,j,k,ig,jg,kg,ip,jp,kp
         integer :: iR,dJ
         integer :: n,dNorm,T1,T2
+        integer :: jxP,jxM
+
+        !Increase the size of the edge length
+        select case (Model%Ring%GridID)
+            case ("cyl")
+                do iR=1,NumR
+                    dJ = Np/Model%Ring%NCh(iR)
+                    Gr%dj(iR,:,:) = dJ*Gr%dj(iR,:,:)
+                enddo
+            case ("lfm")
+                do iR=1,NumR
+                    dJ = Np/Model%Ring%NCh(iR)
+
+                    if (Model%Ring%doS) then
+                        jxP = Gr%js+iR-1
+                        Gr%dk(:,jxP,:) = dJ*Gr%dk(:,jxP,:)   
+                    endif
+                    
+                    if (Model%Ring%doE) then
+                        jxM = Gr%je-iR+1
+                        Gr%dk(:,jxM,:) = dJ*Gr%dk(:,jxM,:)
+    
+                    endif
+                enddo
+        end select
 
         !ig,jg,kg = ghost cell
         !ip,jp,kp = opposite cell
