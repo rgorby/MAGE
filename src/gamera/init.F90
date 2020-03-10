@@ -768,23 +768,14 @@ module init
 
    
         !$OMP PARALLEL DO default(shared) collapse(2) &
-        !$OMP private(xyzC,xi,xk,xip1,xjp1,xkp1,di,dj,dk,ijkDV)
+        !$OMP private(i,j,k,xyzC,di,dj,dk,ijkDV)
         do k=Grid%ksg, Grid%keg
             do j=Grid%jsg, Grid%jeg
                 do i=Grid%isg, Grid%ieg
-                    !Get coordinates of each face center
-                    !Face centers
-                    xi = Grid%xfc(i,j,k,:,IDIR)
-                    xj = Grid%xfc(i,j,k,:,JDIR)
-                    xk = Grid%xfc(i,j,k,:,KDIR)
-                    xip1 = Grid%xfc(i+1,j,k,:,IDIR)
-                    xjp1 = Grid%xfc(i,j+1,k,:,JDIR)
-                    xkp1 = Grid%xfc(i,j,k+1,:,KDIR)
-
                     !Get di,dj,dk vectors across cell
-                    di = xip1-xi
-                    dj = xjp1-xj
-                    dk = xkp1-xk
+                    di = Grid%xfc(i+1,j,k,:,IDIR) - Grid%xfc(i,j,k,:,IDIR)
+                    dj = Grid%xfc(i,j+1,k,:,JDIR) - Grid%xfc(i,j,k,:,JDIR)
+                    dk = Grid%xfc(i,j,k+1,:,KDIR) - Grid%xfc(i,j,k,:,KDIR)
 
                     !Calculate average cell length in each direction for timestep
                     Grid%di(i,j,k) = norm2(di)
