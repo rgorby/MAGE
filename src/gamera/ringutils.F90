@@ -13,7 +13,7 @@ module ringutils
     implicit none
 
     !Number of rings to average over, size of circumferential direction
-    integer :: NumR, Np, Np2
+    !integer :: NumR, Np, Np2
 
     !Enumerators for singularity sides (i.e. positive/negative axis)
     !SPOLE is pole at xs, EPOLE is pole at xe
@@ -21,15 +21,7 @@ module ringutils
         enumerator :: SPOLE=1,EPOLE
     endenum
 
-    !Whether to do mass ring-avg
-    !Which ring variables
-    !doMassRA = T => rho,rho*v,rho*Cs^2
-    !doMassRA = F => rho,mom  ,inte
-
-    logical, parameter :: doMassRA = .true.
-
     contains
-
 
     !Init ring averager, change edge length used in timestep calculation
     subroutine InitRings(Model,Grid,xmlInp)
@@ -60,6 +52,9 @@ module ringutils
             Model%Ring%doS = .true.
             Model%Ring%doE = .true.
         endif
+
+        !Choice of ring coordinates
+        call xmlInp%Set_Val(Model%Ring%doMassRA,"ring/doMassRA",.false.)
 
         !Set singularity information and default ring configurations
         select case (Model%Ring%GridID)
@@ -142,17 +137,18 @@ module ringutils
             call xmlInp%Set_Val(Model%Ring%Nch(iR),trim(ChunkID),dJ)
         enddo
         
-        !Set local copies for ringav module
-        Np = Model%Ring%Np !Local copy to ringavg
-        NumR = Model%Ring%NumR
-        Np2 = Np/2 !Halfway about pole
-
-        !Test that we haven't over-refined past ring avg chunks
+        !Do some sanity checks
         select case (Model%Ring%GridID)
             !------------------
             case ("lfm")
+                !Test that we haven't over-refined past ring avg chunks
                 if (Model%Ring%NumR>Grid%Njp) then
                     write(*,*) 'Number of rings is larger than J cells per grid!'
+                    stop
+                endif
+                if (.not. (Grid%hasUpperBC(KDIR) .and. Grid%hasLowerBC(KDIR)) ) then
+                    write(*,*) 'Ring averaging does not work with tiling in K'
+                    write(*,*) 'Somebody (else) should fix that ...'
                     stop
                 endif
         end select
@@ -168,9 +164,14 @@ module ringutils
 
         real(rp), dimension(NDIM) :: iHatO,jHatO,kHatO,iHatG,jHatG,kHatG
         integer :: i,j,k,ig,jg,kg,ip,jp,kp
-        integer :: iR,dJ
+        integer :: iR,dJ,Np2
         integer :: n,dNorm,T1,T2
         integer :: jxP,jxM
+
+
+        associate(NumR=>Model%Ring%NumR,Np=>Model%Ring%Np)
+
+        Np2 = Model%Ring%Np/2
 
         !Increase the size of the edge length
         select case (Model%Ring%GridID)
@@ -306,6 +307,7 @@ module ringutils
 
         end select
 
+        end associate
     end subroutine RingGridFix
 
     subroutine RingPredictorFix(Model,Grid,State)
@@ -381,9 +383,9 @@ module ringutils
         !Next do k, map via periodicity
         !NOTE: This is assuming you have all
         if (k < Grid%ks) then
-            kp = Grid%ke - (Grid%ks-k) + 1
+            kp = k + Np
         elseif (k > Grid%ke) then
-            kp = Grid%ks + (k-Grid%ke) - 1
+            kp = k - Np
         else
             kp = k
         endif
@@ -420,24 +422,17 @@ module ringutils
 
         !Now do k via periodicity
         !NOTE: This is assuming you have all
-        if (d == JDIR) then
-            !J faces wrap in k like cell centers
-            if (k < Grid%ks) then
-                kp = Grid%ke - (Grid%ks-k) + 1
-            elseif (k > Grid%ke) then
-                kp = Grid%ks + (k-Grid%ke) - 1
-            else
-                kp = k
-            endif            
-        else !KDIR
-            !K faces wrap differently
-            if (k < Grid%ks) then
-                kp = Grid%ke - (Grid%ks-k) + 1
-            elseif (k > Grid%ke+1) then
-                kp = Grid%ks + (k-Grid%ke) - 1
-            else
-                kp = k
-            endif
+        kp = k
+        !k<ks same for both J/K
+        !k>ke (J), k>ke+1 (K)
+        if (k < Grid%ks) then
+            kp = k + Np
+        endif
+        if ( (d == JDIR) .and. (k > Grid%ke) ) then
+            kp = k - Np
+        endif
+        if ( (d == KDIR) .and. (k > Grid%ke+1) ) then
+            kp = k - Np
         endif
 
         !Finally do j
@@ -494,13 +489,12 @@ module ringutils
 
         select case (Model%Ring%GridID)
         case("lfm")
-            !call ChkGasFluxLFM(Model,Gr,gFlx,mFlx)
-
             if (Model%Ring%doS) gFlx(:,Gr%js  ,:,:,JDIR,:) = 0.0
             if (Model%Ring%doE) gFlx(:,Gr%je+1,:,:,JDIR,:) = 0.0
             if (Model%doMHD .and. present(mFlx)) then
                 if (Model%Ring%doS) mFlx(:,Gr%js  ,:,:,JDIR) = 0.0
                 if (Model%Ring%doE) mFlx(:,Gr%je+1,:,:,JDIR) = 0.0
+                call FixGasFluxLFM(Model,Gr,gFlx,mFlx)
             endif
         end select
     end subroutine RingFlux
@@ -514,7 +508,7 @@ module ringutils
         type (Grid_T) , intent(in) :: Gr
         real(rp), intent(inout) :: Qcc(Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,NumV)
         integer, intent(in) :: nR,nS,NumV,XPOLE
-        real(rp), dimension(Np,NumV), intent(in) :: Qr
+        real(rp), dimension(Model%Ring%Np,NumV), intent(in) :: Qr
 
         select case (Model%Ring%GridID)
         case ("cyl")
@@ -545,7 +539,7 @@ module ringutils
         type (Grid_T) , intent(in) :: Gr
         real(rp), intent(in) :: Qcc(Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,NumV)
         integer, intent(in) :: nR,nS,NumV,XPOLE
-        real(rp), dimension(Np,NumV), intent(inout) :: Qr
+        real(rp), dimension(Model%Ring%Np,NumV), intent(inout) :: Qr
 
         select case (Model%Ring%GridID)
         case ("cyl")
@@ -576,7 +570,7 @@ module ringutils
         type (Grid_T) , intent(in) :: Gr
         real(rp), intent(in) :: Qfc(Gr%isg:Gr%ieg+1,Gr%jsg:Gr%jeg+1,Gr%ksg:Gr%keg+1,NDIM)
         integer, intent(in) :: nR,nS,XPOLE
-        real(rp), dimension(Np,NDIM), intent(inout) :: Qr
+        real(rp), dimension(Model%Ring%Np,NDIM), intent(inout) :: Qr
 
         select case (Model%Ring%GridID)
         case ("cyl")
@@ -622,13 +616,13 @@ module ringutils
     !Con -> RAVars
     subroutine Gas2Ring(Model,rW)
         type (Model_T), intent(in) :: Model
-        real(rp), intent(inout) :: rW(Np,NVAR)
+        real(rp), intent(inout) :: rW(Model%Ring%Np,NVAR)
 
         integer :: n
         real(rp) :: D,E,P,KinE,IntE
         real(rp), dimension(NDIM) :: Mom
 
-        do n=1,Np
+        do n=1,Model%Ring%Np
             D = max( rW(n,DEN), dFloor )
             Mom = rW(n,MOMX:MOMZ)
             E = rW(n,ENERGY)
@@ -639,7 +633,7 @@ module ringutils
             !Put ring variables back in (in place)
             rW(n,DEN) = D
             rW(n,MOMX:MOMZ) = Mom
-            if (.not. doMassRA) then
+            if (.not. Model%Ring%doMassRA) then
                 rW(n,ENERGY) = IntE
             else
                 rW(n,ENERGY) = (Model%gamma)*P
@@ -652,16 +646,16 @@ module ringutils
     !RAVars => Con
     subroutine Ring2Gas(Model,rW)
         type (Model_T), intent(in) :: Model
-        real(rp), intent(inout) :: rW(Np,NVAR)
+        real(rp), intent(inout) :: rW(Model%Ring%Np,NVAR)
 
         integer :: n
         real(rp) :: D,P,KinE,IntE,Cs2
         real(rp), dimension(NDIM) :: Mom,V
 
-        do n=1,Np
+        do n=1,Model%Ring%Np
             D  = max( rW(n,DEN), dFloor )
             Mom = rW(n,MOMX:MOMZ)
-            if (.not. doMassRA) then
+            if (.not. Model%Ring%doMassRA) then
                 IntE = rW(n,PRESSURE)
                 P = (Model%gamma-1)*IntE
             else

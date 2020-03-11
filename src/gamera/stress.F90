@@ -17,8 +17,6 @@ module stress
     
     !Signs for left/right going fluxes @ interfaces
     integer, parameter, dimension(2), private :: SgnLR=[-1,1]
-
-    logical, parameter, private :: doRingFlux = .true.
     logical, parameter, private :: doNuke = .true. !Do nuclear option
     logical, parameter, private :: doHogs11 = .true. !Do // magnetic hogs diffusion
 
@@ -134,13 +132,15 @@ module stress
 
         !Do various hacks to fluxes before conversion to deltas
         !Fix fluxes on ring if necessary
-        if (doRingFlux) call RingFlux(Model,Gr,gFlx,mFlx)
-
-        if (associated(Model%HackFlux)) then
-            call Tic("HackFlux")
-            call Model%HackFlux(Model,Gr,gFlx,mFlx)
-            call Toc("HackFlux")
+        call Tic("HackFlux")
+        if (Model%doRing) then
+            call RingFlux(Model,Gr,gFlx,mFlx)
         endif
+
+        if (associated(Model%HackFlux)) then            
+            call Model%HackFlux(Model,Gr,gFlx,mFlx)
+        endif
+        call Toc("HackFlux")
 
         call Toc("Fluxes")
 

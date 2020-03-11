@@ -27,7 +27,7 @@ module uservoltic
     real(rp),private :: Rho0,P0
 
     !Some knobs for initialization
-    logical , private :: doNewIC = .true.
+    logical , private :: doNewIC = .false.
     real(rp), private :: Lc  = 8.0
     real(rp), private :: dLc = 4.0
     real(rp), private :: DInner = 10.0
@@ -215,13 +215,6 @@ module uservoltic
         type(Grid_T), intent(inout) :: Gr
         type(State_T), intent(inout) :: State
 
-        integer :: i,j,k
-        real(rp) :: dF
-
-        !call FixFluxLFM(Model,Gr,State)
-        !call ChkFluxLFM(Model,Gr,State)
-        !call ChkMetricLFM(Model,Gr)
-
         !Call ingestion function
         if (Model%doSource) then
             call MagsphereIngest(Model,Gr,State)
@@ -268,13 +261,11 @@ module uservoltic
                 stop
         END SELECT
 
-        !call ChkEFieldLFM(Model,Gr,State)
-        !call FixEFieldLFM(Model,Gr,State)
-
+        call FixEFieldLFM(Model,Gr,State%Efld)
+        
     end subroutine EFix
 
     !Fixes cell-centered fields in the predictor
-
     subroutine PredFix(Model,Gr,State)
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(inout) :: Gr
@@ -487,7 +478,7 @@ module uservoltic
         !$OMP PARALLEL DO default(shared) &
         !$OMP private(n,ip,ig,ix,jp,kp,j,k)  
         do k=Grid%ksg,Grid%keg
-            do j=Grid%js,Grid%je
+            do j=Grid%jsg,Grid%jeg
                 do n=1,Model%Ng
                     ip = Grid%is
                     ig = Grid%is-n

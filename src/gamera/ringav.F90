@@ -88,11 +88,12 @@ module ringav
         integer :: s,s0,sE
         integer :: jshift,jPhase(Model%Ring%NumR)
 
-        real(rp), dimension(Np,NVAR) :: rW,raW
-        logical, dimension(Np) :: gW
+        real(rp), dimension(Model%Ring%Np,NVAR) :: rW,raW
+        logical , dimension(Model%Ring%Np)      :: gW
 
         !DIR$ attributes align : ALIGN :: rW,raW,gW
 
+        associate(Np=>Model%Ring%Np)
         jPhase = 0
         if (doShift) then
             !Get random shift to apply to rings before chunking
@@ -159,7 +160,7 @@ module ringav
                     call ReconstructRing(Model,raW(:,DEN),NumCh,gW)
                     !Loop over remaining variables and either do pure recon or mass-recon
                     do nv=2,NVAR
-                        if (doMassRA) then
+                        if (Model%Ring%doMassRA) then
                            call WgtReconstructRing(Model,raW(:,nv),raW(:,DEN),NumCh,gW)
                         else
                            call ReconstructRing(Model,raW(:,nv),NumCh,gW)
@@ -191,6 +192,7 @@ module ringav
             call State2Bulk(Model,Gr,State)
         endif
 
+        end associate
     end subroutine SmoothGas
     
     subroutine CalcSmoothE(Model,Gr,State,SmoothE,XPOLE)
@@ -207,8 +209,8 @@ module ringav
         real(rp), dimension(2) :: eScls
         real(rp) :: eScl, cumFlx
 
-        real(rp), dimension(Np,NDIM) :: bFlx,dEr
-        real(rp), dimension(Np) :: rFlx,raFlx,dFlx
+        real(rp), dimension(Model%Ring%Np,NDIM) :: bFlx,dEr
+        real(rp), dimension(Model%Ring%Np) :: rFlx,raFlx,dFlx
         real(rp), dimension(0:NFT,FTCOS:FTSIN) :: cFT !Coefficients for Fourier reduction
 
         !DIR$ attributes align : ALIGN :: bFlx,dEr,rFlx,raFlx,dFlx
@@ -237,7 +239,7 @@ module ringav
         do nS=Model%Ring%nSi,Model%Ring%nSe+1
             do nR=1,Model%Ring%NumR
                 NumCh = Model%Ring%Nch(nR) !Number of total chunks for this ring
-                dC = Np/NumCh !# of cells per chunk for this ring
+                dC = Model%Ring%Np/NumCh !# of cells per chunk for this ring
 
                 !Pull ring/s about pole, all flux components
                 call PullRingI(Model,Gr,State%magFlux,bFlx,nR,nS,XPOLE)
@@ -253,7 +255,7 @@ module ringav
                     rFlx = bFlx(:,fD)
 
                     !Clean ring and then chunk-average
-                    call CleanRing(rFlx,cFT)
+                    call CleanRing(Model,rFlx,cFT)
 
                     do n=1,NumCh
                         !Find indices for this chunk in the global ring
@@ -268,7 +270,7 @@ module ringav
                     call ReconstructRing(Model,raFlx,NumCh)
 
                     !Add back in Fourier modes
-                    call DirtyRing(raFlx,cFT)
+                    call DirtyRing(Model,raFlx,cFT)
 
                     !Calculate changes in flux
                     dFlx = raFlx - bFlx(:,fD)
@@ -348,16 +350,16 @@ module ringav
                 !Cylindrical
                 fD = JDIR
                 nR = 1
-                bFlux(Gr%is,Gr%js:Gr%je+1,nS,fD) = bFlux(Gr%is,Gr%js:Gr%je+1,nS,fD) - sum(bFlux(Gr%is,Gr%js:Gr%je,nS,fD))/Np
+                bFlux(Gr%is,Gr%js:Gr%je+1,nS,fD) = bFlux(Gr%is,Gr%js:Gr%je+1,nS,fD) - sum(bFlux(Gr%is,Gr%js:Gr%je,nS,fD))/Model%Ring%Np
             case ("lfm")
                 fD = KDIR
                 if (Model%Ring%doS) then
                     nR = Gr%js
-                    bFlux(nS,nR,Gr%ks:Gr%ke+1,fD) = bFlux(nS,nR,Gr%ks:Gr%ke+1,fD) - tScl*sum(bFlux(nS,nR,Gr%ks:Gr%ke,fD))/Np
+                    bFlux(nS,nR,Gr%ks:Gr%ke+1,fD) = bFlux(nS,nR,Gr%ks:Gr%ke+1,fD) - tScl*sum(bFlux(nS,nR,Gr%ks:Gr%ke,fD))/Model%Ring%Np
                 endif
                 if (Model%Ring%doE) then
                     nR = Gr%je
-                    bFlux(nS,nR,Gr%ks:Gr%ke+1,fD) = bFlux(nS,nR,Gr%ks:Gr%ke+1,fD) - tScl*sum(bFlux(nS,nR,Gr%ks:Gr%ke,fD))/Np
+                    bFlux(nS,nR,Gr%ks:Gr%ke+1,fD) = bFlux(nS,nR,Gr%ks:Gr%ke+1,fD) - tScl*sum(bFlux(nS,nR,Gr%ks:Gr%ke,fD))/Model%Ring%Np
                 endif
             end select
         enddo
@@ -378,7 +380,7 @@ module ringav
             !$OMP PARALLEL DO default(shared)
             do nS=Model%Ring%nSi,Model%Ring%nSe+1
                 E(Gr%is,:,nS,JDIR) = 0.0 !Pole direction
-                E(Gr%is,:,nS,KDIR) = sum(E(Gr%is,Gr%js:Gr%je,nS,KDIR))/Np
+                E(Gr%is,:,nS,KDIR) = sum(E(Gr%is,Gr%js:Gr%je,nS,KDIR))/Model%Ring%Np
                 
             enddo
         case ("lfm")
@@ -389,22 +391,25 @@ module ringav
                 !S pole
                 if (Model%Ring%doS) then
                     E(nS,Gr%js,:,KDIR) = 0.0
-                    E(nS,Gr%js,:,IDIR) = sum(E(nS,Gr%js,Gr%ks:Gr%ke,IDIR))/Np
+                    E(nS,Gr%js,:,IDIR) = sum(E(nS,Gr%js,Gr%ks:Gr%ke,IDIR))/Model%Ring%Np
 
                 endif
                 if (Model%Ring%doE) then                
                     !E pole
                     E(nS,Gr%je+1,:,KDIR) = 0.0
-                    E(nS,Gr%je+1,:,IDIR) = sum(E(nS,Gr%je+1,Gr%ks:Gr%ke,IDIR))/Np
+                    E(nS,Gr%je+1,:,IDIR) = sum(E(nS,Gr%je+1,Gr%ks:Gr%ke,IDIR))/Model%Ring%Np
                 endif
+
             enddo
+            call FixEFieldLFM(Model,Gr,E)
         end select
         
     end subroutine PoleE
 
     !Given variaable defined over ring, remove 0-NFT modes and save coefficients
-    subroutine CleanRing(Q,cFT)
-        real(rp), intent(inout) :: Q(Np)
+    subroutine CleanRing(Model,Q,cFT)
+        type(Model_T), intent(in) :: Model
+        real(rp), intent(inout) :: Q(Model%Ring%Np)
         real(rp), intent(out) :: cFT(0:NFT,FTCOS:FTSIN)
 
         integer :: n,m
@@ -413,11 +418,11 @@ module ringav
         !DIR$ ASSUME_ALIGNED Q: ALIGN
 
         cFT = 0.0
-        aScl = 2.0/Np
+        aScl = 2.0/Model%Ring%Np
 
         !Calculate coefficients
-        dp = 2.0*pi/Np
-        do n=1,Np
+        dp = 2.0*pi/Model%Ring%Np
+        do n=1,Model%Ring%Np
             phi = dp*n-0.5*dp
             do m=0,NFT
                 cFT(m,FTCOS) = cFT(m,FTCOS) + Q(n)*cos(1.0*m*phi)
@@ -430,7 +435,7 @@ module ringav
         cFT(1:NFT,:) = 1.0*aScl*cFT(1:NFT,:)
 
         !Subtract modes
-        do n=1,Np
+        do n=1,Model%Ring%Np
             phi = dp*n-0.5*dp
             do m=0,NFT
                 Q(n) = Q(n) - cFT(m,FTCOS)*cos(1.0*m*phi) - cFT(m,FTSIN)*sin(1.0*m*phi)
@@ -440,8 +445,9 @@ module ringav
     end subroutine CleanRing
 
     !Given variaable defined over ring, return 0-NFT modes
-    subroutine DirtyRing(Q,cFT)
-        real(rp), intent(inout) :: Q(Np)
+    subroutine DirtyRing(Model,Q,cFT)
+        type(Model_T), intent(in) :: Model
+        real(rp), intent(inout) :: Q(Model%Ring%Np)
         real(rp), intent(in) :: cFT(0:NFT,FTCOS:FTSIN)
 
         integer :: n,m
@@ -449,8 +455,8 @@ module ringav
 
         !DIR$ ASSUME_ALIGNED Q: ALIGN
 
-        dp = 2.0*pi/Np
-        do n=1,Np
+        dp = 2.0*pi/Model%Ring%Np
+        do n=1,Model%Ring%Np
             phi = dp*n-0.5*dp
             do m=0,NFT
                 Q(n) = Q(n) + cFT(m,FTCOS)*cos(1.0*m*phi) + cFT(m,FTSIN)*sin(1.0*m*phi)

@@ -21,7 +21,7 @@ module voltio
         real(rp) :: cpcp(2) = 0.0
 
         real(rp) :: dpT,dtWall,cMJD,dMJD,simRate
-        real(rp) :: dSW,pSW
+        real(rp) :: dSW,pSW,Dst
         real(rp), dimension(NDIM) :: xW,bSW,vSW,bAng
 
         integer :: iYr,iDoY,iMon,iDay,iHr,iMin
@@ -70,15 +70,18 @@ module voltio
         call mjd2ut(cMJD,iYr,iDoY,iMon,iDay,iHr,iMin,rSec)
         write(utStr,'(I0.4,a,I0.2,a,I0.2,a,I0.2,a,I0.2,a,I0.2)') iYr,'-',iMon,'-',iDay,' ',iHr,':',iMin,':',nint(rSec)
 
+    !Get Dst estimate
+        call EstDST(gApp%Model,gApp%Grid,gApp%State,Dst)
+
         write(*,'(a)',advance="no") ANSIBLUE
         !write (*, '(a,f8.3,a)')       '    dt/dt0 = ', 100*Model%dt/dt0, '%'
         write (*, '(a,f7.2,a,3f8.2,a)')      '     Wind = ' , dSW,     ' [#/cc] / ',vSW,' [km/s, XYZ]'
         write (*, '(a,f7.2,a,2f7.2,a)')      '       IMF = ' , bAng(1), '   [nT] / ',bAng(2),bAng(3),' [deg, Clock/Cone]'
-        write (*, '(a,2f8.3,a)')             '      CPCP = ' , cpcp(NORTH), cpcp(SOUTH), ' [kV, N/S]'
         write (*, '(a,1f8.3,a)')             '      tilt = ' , dpT, ' [deg]'
+        write (*, '(a,2f8.3,a)')             '      CPCP = ' , cpcp(NORTH), cpcp(SOUTH), ' [kV, N/S]'
+        write (*, '(a, f8.3,a)')             '    BSDst  ~ ' , Dst, ' [nT]'
         write (*,'(a,a)')                    '      UT   = ', trim(utStr)
         write (*, '(a,1f7.3,a)')             '      Running @ ', simRate*100.0, '% of real-time'
-        
         
         write (*, *) ANSIRESET, ''
 
@@ -151,6 +154,72 @@ module voltio
         cpcp(SOUTH) = maxval(mhdvarsin(1,:,:,MHDPSI,SOUTH))-minval(mhdvarsin(1,:,:,MHDPSI,SOUTH))
 
     end subroutine getCPCP
+
+    !Use Gamera data to estimate DST
+    !(Move this to msphutils?)
+    subroutine EstDST(Model,Gr,State,Dst)
+        type(Model_T), intent(in)  :: Model
+        type(Grid_T) , intent(in)  :: Gr
+        type(State_T), intent(in)  :: State
+        real(rp)     , intent(out) :: Dst
+
+        integer :: i,j,k
+        real (rp), dimension(:,:,:,:), allocatable :: dB,Jxyz !Full-sized arrays
+
+        real(rp), dimension(NDIM) :: xyz,xyz0
+        integer :: iMax,iMin
+
+        real(rp) :: dV,r,bs1,bs2,bScl,dBz
+        real(rp) :: mu0,d0,u0,B0
+
+        !Very lazy scaling
+        mu0 = 4*PI*1.0e-7
+        d0 = (1.67e-27)*1.0e+6
+        u0 = 1.0e+5
+        B0 = sqrt(mu0*d0*u0*u0)*1.0e+9 !nT
+
+        call allocGridVec(Model,Gr,dB  )
+        call allocGridVec(Model,Gr,Jxyz)
+        
+        !Subtract dipole before calculating current
+        !$OMP PARALLEL DO default(shared) collapse(2)
+        do k=Gr%ksg,Gr%keg
+            do j=Gr%jsg,Gr%jeg
+                do i=Gr%isg,Gr%ieg
+                    dB(i,j,k,:) = State%Bxyz(i,j,k,:) + Gr%B0(i,j,k,:) - MagsphereDipole(Gr%xyzcc(i,j,k,:),Model%MagM0)
+                enddo
+            enddo
+        enddo
+        !Calculate current
+        call bFld2Jxyz(Model,Gr,dB,Jxyz)
+
+        !Set some lazy config
+        xyz0 = 0.0 !Measure at center of Earth
+        iMin = Gr%is+4
+        iMax = Gr%ie
+
+        !Now do accumulation
+        Dst = 0.0
+        !$OMP PARALLEL DO default(shared) collapse(2) &
+        !$OMP private(i,j,k,xyz,dV,r,bs1,bs2,bScl,dBz) &
+        !$OMP reduction(+:Dst)
+        do k=Gr%ksg,Gr%keg
+            do j=Gr%jsg,Gr%jeg
+                do i=iMin,iMax
+                    xyz = Gr%xyzcc (i,j,k,:)
+                    dV  = Gr%volume(i,j,k)
+                    r = norm2(xyz-xyz0)
+                    bs1 = Jxyz(i,j,k,XDIR)*(xyz(YDIR)-xyz0(YDIR))
+                    bs2 = Jxyz(i,j,k,YDIR)*(xyz(XDIR)-xyz0(XDIR))
+                    bScl = B0*dV/(4*PI)
+
+                    dBz = -(bs1 - bs2)/(r**3.0)
+                    Dst = Dst + bScl*dBz
+                enddo ! i loop
+            enddo
+        enddo !k loop
+
+    end subroutine EstDST
 
 end module voltio
 
