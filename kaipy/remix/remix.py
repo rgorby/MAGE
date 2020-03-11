@@ -30,6 +30,8 @@ class remix:
 										'max':1},
 						 'joule'     : {'min':0,
 										'max':10},
+						 'jhall'	 : {'min':-2,
+						 				'max':2}
 						 }
 
 	def get_data(self,h5file,step):
@@ -221,7 +223,8 @@ class remix:
 	#     contour(theta+pi/2.,r,variables['potential']['data'][:,2:-1],21,colors='black')
 #                                      arange(variables['potential']['min'],variables['potential']['max'],21.),colors='purple')
 
-	def efield(self,ri=6.5e3): 
+	# FIXME: MAKE WORK FOR SOUTH (I THINK IT DOES BUT MAKE SURE)
+	def efield(self,returnDeltas=False,ri=6.5e3): 
 		if not self.Initialized:
 			sys.exit("Variables should be initialized for the specific hemisphere (call init_var) prior to efield calculation.")
 
@@ -279,13 +282,119 @@ class remix:
 		tc = 0.25*(theta[:-1,:-1]+theta[1:,:-1]+theta[:-1,1:]+theta[1:,1:]) # need this additionally 
 		ephi = dPsi/dphi/np.sin(tc)/ri  # this is in V/m
 
-		return (etheta,ephi)
+		if returnDeltas:
+			return (-etheta,-ephi,dtheta,dphi)  # E = -grad Psi
+		else:	
+			return (-etheta,-ephi)  # E = -grad Psi			
 
 	def joule(self):
 		etheta,ephi = self.efield()
 		SigmaP = self.variables['sigmap']['data']
 		J = SigmaP*(etheta**2+ephi**2)  # this is in W/m^2
 		return(J)
+
+	# FIXME: MAKE WORK FOR SOUTH
+	def hCurrents(self): # horizontal currents
+		etheta,ephi,dtheta,dphi = self.efield(returnDeltas=True)
+		SigmaH = self.variables['sigmah']['data']
+		SigmaP = self.variables['sigmap']['data']		
+
+		# Aliases to keep things short
+		x = self.ion['X']
+		y = self.ion['Y']
+
+		xc = 0.25*(x[:-1,:-1]+x[1:,:-1]+x[:-1,1:]+x[1:,1:])
+		yc = 0.25*(y[:-1,:-1]+y[1:,:-1]+y[:-1,1:]+y[1:,1:])		
+
+		r,phi = self.get_spherical(xc,yc)
+
+		theta = np.arcsin(r)
+
+		cosDipAngle = -2.*np.cos(theta)/np.sqrt(1.+3.*np.cos(theta)**2)
+		Jh_theta = -SigmaH*ephi/cosDipAngle
+		Jh_phi   =  SigmaH*etheta/cosDipAngle
+		Jp_theta =  SigmaP*etheta/cosDipAngle**2
+		Jp_phi   =  SigmaP*ephi
+
+		# current above is in SI units [A/m]
+		# i.e., height-integrated current density
+		return(xc,yc,theta,phi,dtheta,dphi,Jh_theta,Jh_phi,Jp_theta,Jp_phi)
+
+	def dB(self,xyz):
+		# xyz = array of points where to compute dB
+		# xyz.shape should be (N,3), where N is the number of points
+		# xyz = (x,y,z) in units of Ri
+
+		mu0o4pi = 1.e-7 # mu0=4pi*10^-7 => mu0/4pi=10^-7
+
+		if len(xyz.shape)!=2:
+			sys.exit("dB input assumes the array of points of (N,3) size.")			
+		if xyz.shape[1]!=3: 
+			sys.exit("dB input assumes the array of points of (N,3) size.")
+
+		nPoints = xyz.shape[0]
+
+		self.init_vars('NORTH')
+		x,y,theta,phi,dtheta,dphi,jht,jhp,jpt,jpp = self.hCurrents()
+		z =  np.sqrt(1.-x**2-y**2)  # ASSUME NORTH
+#		z = -np.sqrt(1.-x**2-y**2)	# ASSUME SOUTH
+
+		# fake dimensions for numpy broadcasting
+		xSource = x[:,:,np.newaxis]		
+		ySource = y[:,:,np.newaxis]		
+		zSource = z[:,:,np.newaxis]						
+
+		tSource = theta[:,:,np.newaxis]
+		pSource = phi[:,:,np.newaxis]
+		dtSource = dtheta[:,:,np.newaxis]
+		dpSource = dphi[:,:,np.newaxis]		
+
+
+		jhTheta = jht[:,:,np.newaxis]
+		jhPhi   = jhp[:,:,np.newaxis]
+
+		# x,y,z are size (ntheta,nphi)
+		# make array of destination points on the mix grid
+		# add fake dimension for numpy broadcasting
+		xDest = xyz[np.newaxis,np.newaxis,:,0]
+		yDest = xyz[np.newaxis,np.newaxis,:,1]
+		zDest = xyz[np.newaxis,np.newaxis,:,2]				
+
+		# up to here things are fast (checked for both source and destination 90x720 grids)
+		# the operations below are slow and kill the memory becase (90x720)^2 (the size of each array below) is ~30GB
+		# solution: break the destination grid up into pieces before passing here
+
+		# vector between destination and source
+		Rx = xDest - xSource
+		Ry = yDest - ySource
+		Rz = zDest - zSource
+		R  = np.sqrt(Rx**2+Ry**2+Rz**2)
+
+		# convert R to spherical to compute the vector product with the current
+		# since the current is in spherical and we want output in spherical
+		Rr     = Rx*np.sin(tSource)*np.cos(pSource) + Ry*np.sin(tSource)*np.sin(pSource) + Rz*np.cos(tSource)
+		Rtheta = Rx*np.cos(tSource)*np.cos(pSource) + Ry*np.cos(tSource)*np.sin(pSource) - Rz*np.sin(tSource)	
+		Rphi   =-Rx*np.sin(pSource) + Ry*np.cos(pSource)
+		
+		# vector product with the current
+		# note the multiplication by sin(tSource)*dtSource*dpSource -- area of the surface element
+		dBphi   = mu0o4pi*np.sum(-jhTheta*np.sin(tSource)*dtSource*dpSource*Rr/R**3,axis=(0,1))
+		dBtheta = mu0o4pi*np.sum(jhPhi*np.sin(tSource)*dtSource*dpSource*Rr/R**3   ,axis=(0,1))
+		dBr     = mu0o4pi*np.sum( (jhTheta*Rphi - jhPhi*Rtheta)*np.sin(tSource)*dtSource*dpSource/R**3,axis=(0,1))
+
+		# note on normalization
+		# Efield is computed in V/m, sigma is also in SI units
+		# Current coming out of hCurrents() should be in SI units [A/m] (height integrated).
+		# The Biot-Savart law is mu0/4pi*Int( j x r' dV/|r'|^3 ) = 
+		# mu0/4pi Int( j x r'hat r^2 dr sin(theta) dtheta dphi /|r'|^2) = 
+		# mu0/4pi Int( (j dr) x r'hat (r/Ri)^2 sin(theta) dtheta dphi /(|r'|/Ri)^2)
+		# where we have combined j and dr (= j dr) which is what is coming out of hCurrents in SI units
+		# and normalized everything else to Ri, which it already is in the code above
+		# 
+		# in other words the fields below should be in [T]
+		return(dBr,dBtheta,dBphi)
+
+
 
 # Code below is from old mix scripts.
 # Keeping for further development but commenting out for now.
