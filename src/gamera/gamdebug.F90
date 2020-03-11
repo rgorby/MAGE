@@ -104,9 +104,9 @@ module gamdebug
         if ( Grid%hasLowerBC(KDIR) .and. Grid%hasUpperBC(KDIR) ) then
 
             !$OMP PARALLEL DO default(shared) &
-            !$OMP private(i,j,mF,gF)            
-            do i=Grid%is,Grid%ie
-                do j=Grid%js,Grid%je
+            !$OMP private(i,j,mF,gF)
+            do j=Grid%js,Grid%je          
+                do i=Grid%is,Grid%ie
                     !Gas fluxes
                     gF = 0.5*( gFlx(i,j,Grid%ks,:,KDIR,:) + gFlx(i,j,Grid%ke+1,:,KDIR,:) )
                     gFlx(i,j,Grid%ks  ,:,KDIR,:) = gF
@@ -117,7 +117,6 @@ module gamdebug
                         mFlx(i,j,Grid%ks  ,:,KDIR) = mF
                         mFlx(i,j,Grid%ke+1,:,KDIR) = mF
                     endif
-
                 enddo
             enddo
         endif !Both low-K and hi-K
@@ -140,7 +139,6 @@ module gamdebug
                 dB = 0.5*(State%magFlux(i,j,Grid%ks,KDIR) + State%magFlux(i,j,Grid%ke+1,KDIR))
                 State%magFlux(i,j,Grid%ks  ,KDIR) = dB
                 State%magFlux(i,j,Grid%ke+1,KDIR) = dB
-
              enddo
         enddo
         firstFix = .true.
@@ -159,9 +157,9 @@ module gamdebug
         if ( Gr%hasLowerBC(KDIR) .and. Gr%hasUpperBC(KDIR) ) then
 
             !$OMP PARALLEL DO default(shared) &
-            !$OMP private(i,j,Ei,Ej)            
-            do i=Gr%is,Gr%ie+1
-                do j=Gr%js,Gr%je+1
+            !$OMP private(i,j,Ei,Ej)
+            do j=Gr%js,Gr%je+1          
+                do i=Gr%is,Gr%ie+1
                     Ei = 0.5*(E(i,j,Gr%ks,IDIR) + E(i,j,Gr%ke+1,IDIR))
                     Ej = 0.5*(E(i,j,Gr%ks,JDIR) + E(i,j,Gr%ke+1,JDIR))
                     
