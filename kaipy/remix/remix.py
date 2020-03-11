@@ -4,8 +4,10 @@ import matplotlib.cm as cm
 import numpy as np
 import sys
 
-class remix:
+Ri = 6.5  # radius of ionosphere in 1000km
+Re = 6.38 # radius of Earth in 1000km
 
+class remix:
 	def __init__(self,h5file,step):
 		# create the ion object to store data and coordinates
 		self.ion = self.get_data(h5file,step)
@@ -224,7 +226,7 @@ class remix:
 #                                      arange(variables['potential']['min'],variables['potential']['max'],21.),colors='purple')
 
 	# FIXME: MAKE WORK FOR SOUTH (I THINK IT DOES BUT MAKE SURE)
-	def efield(self,returnDeltas=False,ri=6.5e3): 
+	def efield(self,returnDeltas=False,ri=Ri*1e3): 
 		if not self.Initialized:
 			sys.exit("Variables should be initialized for the specific hemisphere (call init_var) prior to efield calculation.")
 
@@ -318,9 +320,9 @@ class remix:
 
 		# current above is in SI units [A/m]
 		# i.e., height-integrated current density
-		return(xc,yc,theta,phi,dtheta,dphi,Jh_theta,Jh_phi,Jp_theta,Jp_phi)
+		return(xc,yc,theta,phi,dtheta,dphi,Jh_theta,Jh_phi,Jp_theta,Jp_phi,cosDipAngle)
 
-	def dB(self,xyz):
+	def dB(self,xyz,hallOnly=True):
 		# xyz = array of points where to compute dB
 		# xyz.shape should be (N,3), where N is the number of points
 		# xyz = (x,y,z) in units of Ri
@@ -332,10 +334,8 @@ class remix:
 		if xyz.shape[1]!=3: 
 			sys.exit("dB input assumes the array of points of (N,3) size.")
 
-		nPoints = xyz.shape[0]
-
 		self.init_vars('NORTH')
-		x,y,theta,phi,dtheta,dphi,jht,jhp,jpt,jpp = self.hCurrents()
+		x,y,theta,phi,dtheta,dphi,jht,jhp,jpt,jpp,cosDipAngle = self.hCurrents()
 		z =  np.sqrt(1.-x**2-y**2)  # ASSUME NORTH
 #		z = -np.sqrt(1.-x**2-y**2)	# ASSUME SOUTH
 
@@ -349,9 +349,26 @@ class remix:
 		dtSource = dtheta[:,:,np.newaxis]
 		dpSource = dphi[:,:,np.newaxis]		
 
-
+		# Hall
 		jhTheta = jht[:,:,np.newaxis]
 		jhPhi   = jhp[:,:,np.newaxis]
+		# Pedersen
+		jpTheta = jpt[:,:,np.newaxis]
+		jpPhi   = jpp[:,:,np.newaxis]
+
+		if not hallOnly:
+			jTheta = jpTheta + jhTheta
+			jPhi   = jpPhi   + jhPhi
+		else:
+			jTheta = jhTheta
+			jPhi   = jhPhi
+
+		# convert to Cartesian for the Biot-Savart summation
+		# otherwise, spherical coordinates get mixed up betwen the source and destination grids
+		# theta_unit and phi_unit vectors rotate from point to point and are different on the two grids
+		jx = jTheta*np.cos(tSource)*np.cos(pSource) - jPhi*np.sin(pSource)
+		jy = jTheta*np.cos(tSource)*np.sin(pSource) + jPhi*np.cos(pSource)
+		jz =-jTheta*np.sin(tSource)
 
 		# x,y,z are size (ntheta,nphi)
 		# make array of destination points on the mix grid
@@ -370,18 +387,9 @@ class remix:
 		Rz = zDest - zSource
 		R  = np.sqrt(Rx**2+Ry**2+Rz**2)
 
-		# convert R to spherical to compute the vector product with the current
-		# since the current is in spherical and we want output in spherical
-		Rr     = Rx*np.sin(tSource)*np.cos(pSource) + Ry*np.sin(tSource)*np.sin(pSource) + Rz*np.cos(tSource)
-		Rtheta = Rx*np.cos(tSource)*np.cos(pSource) + Ry*np.cos(tSource)*np.sin(pSource) - Rz*np.sin(tSource)	
-		Rphi   =-Rx*np.sin(pSource) + Ry*np.cos(pSource)
-		
 		# vector product with the current
 		# note the multiplication by sin(tSource)*dtSource*dpSource -- area of the surface element
-		dBphi   = mu0o4pi*np.sum(-jhTheta*np.sin(tSource)*dtSource*dpSource*Rr/R**3,axis=(0,1))
-		dBtheta = mu0o4pi*np.sum(jhPhi*np.sin(tSource)*dtSource*dpSource*Rr/R**3   ,axis=(0,1))
-		dBr     = mu0o4pi*np.sum( (jhTheta*Rphi - jhPhi*Rtheta)*np.sin(tSource)*dtSource*dpSource/R**3,axis=(0,1))
-
+		#
 		# note on normalization
 		# Efield is computed in V/m, sigma is also in SI units
 		# Current coming out of hCurrents() should be in SI units [A/m] (height integrated).
@@ -389,10 +397,135 @@ class remix:
 		# mu0/4pi Int( j x r'hat r^2 dr sin(theta) dtheta dphi /|r'|^2) = 
 		# mu0/4pi Int( (j dr) x r'hat (r/Ri)^2 sin(theta) dtheta dphi /(|r'|/Ri)^2)
 		# where we have combined j and dr (= j dr) which is what is coming out of hCurrents in SI units
-		# and normalized everything else to Ri, which it already is in the code above
-		# 
-		# in other words the fields below should be in [T]
+		# and normalized everything else to Ri, which it already is in the code below
+		# in other words the fields below should be in [T]		
+		dA = np.sin(tSource)*dtSource*dpSource
+		dBx = mu0o4pi*np.sum( (jy*Rz - jz*Ry)*dA/R**3,axis=(0,1))
+		dBy = mu0o4pi*np.sum( (jz*Rx - jx*Rz)*dA/R**3,axis=(0,1))
+		dBz = mu0o4pi*np.sum( (jx*Ry - jy*Rx)*dA/R**3,axis=(0,1))
+
+		if not hallOnly:
+			intx,inty,intz = self.BSFluxTubeInt(xyz)
+			jpara = -self.variables['current']['data'] # note, the sign was inverted by the reader, put it back to recover true FAC
+			jpara = jpara[:,:,np.newaxis]
+			cosd  = abs(cosDipAngle[:,:,np.newaxis])  # note, only need abs value of cosd regardless of hemisphere
+
+			# note on normalization
+			# jpara is in microA/m^2 -- convert to A (1.e-6)
+			# further, after all is said and done and all distance-like variables are accounted for
+			# the answer below should be multiplied by Ri in m (6.5e6)
+			# factors of 1.e6 cancel out and we only have Ri
+			dBx += Ri*mu0o4pi*np.sum(jpara*dA*cosd*intx,axis=(0,1))
+			dBy += Ri*mu0o4pi*np.sum(jpara*dA*cosd*inty,axis=(0,1))
+			dBz += Ri*mu0o4pi*np.sum(jpara*dA*cosd*intz,axis=(0,1))
+
+
+		# finally, convert to spherical *at the destination*
+		# note, this is ugly because we specified the spherical grid before passing to this function (in calcdB.py)
+		# FIXME: think about how to make it less ugly
+		rDest = np.sqrt(xDest**2+yDest**2+zDest**2)
+		tDest = np.arccos(zDest/rDest)
+		pDest = np.arctan2(yDest,xDest)
+
+		dBr     = dBx*np.sin(tDest)*np.cos(pDest) + dBy*np.sin(tDest)*np.sin(pDest) + dBz*np.cos(tDest)
+		dBtheta = dBx*np.cos(tDest)*np.cos(pDest) + dBy*np.cos(tDest)*np.sin(pDest) - dBz*np.sin(tDest)	
+		dBphi   =-dBx*np.sin(pDest) + dBy*np.cos(pDest)
+		
+
 		return(dBr,dBtheta,dBphi)
+
+	# FIXME: Make work for SOUTH
+	# Flux-tube Biot-Savart integral \int dl bhat x r'/|r'|^3
+	def BSFluxTubeInt(self,xyz,Rinner=2.*Re/Ri,rsegments = 10):
+		# xyz = array of points where to compute dB  (same as above in dB)
+		# xyz.shape should be (N,3), where N is the number of points
+		# xyz = (x,y,z) in units of Ri
+		#
+		# Rinner is the radius of the inner boundary of the MHD domain
+		# expressed in Ri
+		#
+		# rsegments: how many segments to break the fluxtube into between ionosphere and Rinner
+
+		if len(xyz.shape)!=2:
+			sys.exit("dB input assumes the array of points of (N,3) size.")			
+		if xyz.shape[1]!=3: 
+			sys.exit("dB input assumes the array of points of (N,3) size.")
+
+		####################################
+		# SOURCE POINTS
+		#
+		# TODO: I keep reusing the following lines -- pack them into a function for god's sake
+		# Aliases to keep things short
+		x = self.ion['X']
+		y = self.ion['Y']
+
+		xc = 0.25*(x[:-1,:-1]+x[1:,:-1]+x[:-1,1:]+x[1:,1:])
+		yc = 0.25*(y[:-1,:-1]+y[1:,:-1]+y[:-1,1:]+y[1:,1:])		
+
+		r,phi = self.get_spherical(xc,yc)
+
+		theta = np.arcsin(r)
+		####################################
+
+		# radii of centers of segments of the flux tube
+		Rs = np.linspace(1.,Rinner,rsegments+1)
+		Rcenters = 0.5*(Rs[:-1]+Rs[1:])
+		dR = Rs[1:]-Rs[:-1]
+
+		# add fake dims to conform to theta & phi size
+		Rcenters = Rcenters[:,np.newaxis,np.newaxis]
+		dR = dR[:,np.newaxis,np.newaxis]		
+
+		# theta on the field line (m for magnetosphere)
+		thetam = np.arcsin(np.sqrt(Rcenters)*np.sin(theta))
+
+		# note order: R, theta, phi
+		x = Rcenters*np.sin(thetam)*np.cos(phi)
+		y = Rcenters*np.sin(thetam)*np.sin(phi)
+		z = np.sqrt(Rcenters**2-x**2-y**2)
+
+		# distance along flux tube for given dR
+#		dl = dR*np.sqrt(1.+Rcenters*np.sin(theta)**2/4./(1.-Rcenters*np.sin(theta)**2))
+		dl = dR*np.sqrt(1.+3.*np.cos(thetam)**2)/2./np.cos(thetam)
+
+		# unit vector in B-direction (e.g., Baumjohann Eq. 3.1 -- note their use of latitude vs colatitude)
+#		br = -2.*np.sqrt(1-Rcenters*np.sin(theta)**2)/np.sqrt(4.-3.*Rcenters*np.sin(theta)**2)
+#		bt = -np.sqrt(Rcenters)*np.sin(theta)/np.sqrt(4.-3.*Rcenters*np.sin(theta)**2)
+		br = -2.*np.cos(thetam)/np.sqrt(np.sin(thetam)**2+4.*np.cos(thetam)**2)
+		bt = -np.sin(thetam)/np.sqrt(np.sin(thetam)**2+4.*np.cos(thetam)**2)
+
+		# now the same in cartesian
+		bx = br*np.sin(thetam)*np.cos(phi) + bt*np.cos(thetam)*np.cos(phi)
+		by = br*np.sin(thetam)*np.sin(phi) + bt*np.cos(thetam)*np.sin(phi)
+		bz = br*np.cos(thetam) - bt*np.sin(thetam)
+
+		# fake dimensions for numpy broadcasting
+		# remember dimenstions: R,t,p along field line + adding the destination point number
+		xSource = x[:,:,:,np.newaxis]
+		ySource = y[:,:,:,np.newaxis]
+		zSource = z[:,:,:,np.newaxis]
+
+		bx = bx[:,:,:,np.newaxis]
+		by = by[:,:,:,np.newaxis]
+		bz = bz[:,:,:,np.newaxis]
+		dl = dl[:,:,:,np.newaxis]
+
+		xDest = xyz[np.newaxis,np.newaxis,np.newaxis,:,0]
+		yDest = xyz[np.newaxis,np.newaxis,np.newaxis,:,1]
+		zDest = xyz[np.newaxis,np.newaxis,np.newaxis,:,2]				
+
+		# vector between destination and source
+		Rx = xDest - xSource
+		Ry = yDest - ySource
+		Rz = zDest - zSource
+		R  = np.sqrt(Rx**2+Ry**2+Rz**2)
+
+		# vector product with the current
+		intx = np.sum( dl*(by*Rz - bz*Ry)/R**3,axis=0)
+		inty = np.sum( dl*(bz*Rx - bx*Rz)/R**3,axis=0)
+		intz = np.sum( dl*(bx*Ry - by*Rx)/R**3,axis=0)
+
+		return(intx,inty,intz)
 
 
 

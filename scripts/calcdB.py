@@ -45,7 +45,7 @@ z = R*np.cos(theta)
 
 xyz = np.array([x.ravel(),y.ravel(),z.ravel()]).T
 
-dBr,dBtheta,dBphi = ion.dB(xyz)
+dBr,dBtheta,dBphi = ion.dB(xyz,hallOnly=False)
 
 print("Done computing. Saving pickles.")
 print(dBr,dBtheta,dBphi)
