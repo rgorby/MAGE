@@ -82,7 +82,7 @@ if __name__ == "__main__":
 	ax = Axes3D(fig)
 
 	addEarth(ax)
-	sct3d = ax.scatter(x,y,z,c=K,cmap=plt.get_cmap("cool"),s=20,vmin=vMin,vmax=vMax,ec="k")
+	sct3d = ax.scatter(x,y,z,c=K,cmap=plt.get_cmap("cool"),s=20,vmin=vMin,vmax=vMax)
 	ax.plot(x,y,z,'k',linewidth=LW)
 	plt.colorbar(sct3d,label=cbLab,shrink=0.8)
 
