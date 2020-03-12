@@ -115,6 +115,11 @@ module usertpic
 
         !Count currently in
         tpState%NpT = count(tpState%TPs(:)%isIn)
+
+        if (doOutflow .and. doWind) then
+            write(*,*) "You can't have both wind and outflow, WTF?"
+            stop
+        endif
     end subroutine initParticles
 
     !Loop over particles, find uninitialized particles past their release date and release them

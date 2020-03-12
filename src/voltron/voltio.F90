@@ -74,7 +74,6 @@ module voltio
         call EstDST(gApp%Model,gApp%Grid,gApp%State,Dst)
 
         write(*,'(a)',advance="no") ANSIBLUE
-        !write (*, '(a,f8.3,a)')       '    dt/dt0 = ', 100*Model%dt/dt0, '%'
         write (*, '(a,f7.2,a,3f8.2,a)')      '     Wind = ' , dSW,     ' [#/cc] / ',vSW,' [km/s, XYZ]'
         write (*, '(a,f7.2,a,2f7.2,a)')      '       IMF = ' , bAng(1), '   [nT] / ',bAng(2),bAng(3),' [deg, Clock/Cone]'
         write (*, '(a,1f8.3,a)')             '      tilt = ' , dpT, ' [deg]'

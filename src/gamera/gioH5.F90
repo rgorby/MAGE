@@ -485,10 +485,12 @@ module gioH5
 
     !Write restart dump to "ResF" output file
     subroutine writeH5Res(Model,Gr,State,ResF)
-        type(Model_T), intent(in) :: Model
+        type(Model_T), intent(inout) :: Model
         type(Grid_T),  intent(in) :: Gr
         type(State_T), intent(in) :: State
         character(len=*), intent(in) :: ResF
+
+        if (Model%dt0 < TINY) Model%dt0 = Model%dt
 
         !Reset IO chain
         call ClearIO(IOVars)
@@ -498,6 +500,7 @@ module gioH5
         call AddOutVar(IOVars,"nRes",Model%IO%nRes)
         call AddOutVar(IOVars,"ts"  ,Model%ts)
         call AddOutVar(IOVars,"t"   ,Model%t)
+        call AddOutVar(IOVars,"dt0"   ,Model%dt0)
 
         !Coordinates of corners
         call AddOutVar(IOVars,"X",Gr%x)
@@ -602,6 +605,12 @@ module gioH5
             Model%IO%nRes = int(IOVars(4)%data(1)) + 1
             Model%ts   = int(IOVars(5)%data(1))
             Model%t = IOVars(6)%data(1)
+            !Set back to old dt0 if possible
+            if (ioExist(inH5,"dt0")) then
+                Model%dt0 = IOVars(7)%data(1)
+            else
+                Model%dt0 =0.0
+            endif
         endif        
     !Do touchup to data structures
         State%time = Model%t

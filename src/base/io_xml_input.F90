@@ -109,7 +109,7 @@ module XML_Input
 
    !Global strings, for default/file messages
    character(len=*), parameter :: defXML_Str = "Using DEFAULT value for "
-   integer, parameter :: MaxXML = 10000 ! HARD-CODED!! -JLD 18/03/02
+   integer, parameter :: MaxXML = 1000 ! HARD-CODED!!
    private
 
    public :: XML_Input_T
@@ -723,7 +723,7 @@ contains
            endif
 
            nxml = nxml+1
-           if (nxml > size(xmld)) then
+           if (nxml > size(xmld)-1) then
              write (*, *) "!!!ERROR!!! Total no. of input values exceeds temp xml data array size"
              stop
            endif
