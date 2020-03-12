@@ -113,9 +113,7 @@ if __name__ == "__main__":
 		xMax = min(xMaxS+datetime.timedelta(hours=tpad),xMaxD)
 	else:
 		xMax = xMaxS
-	if (xMinD<xMinS):
-		xMin = max(xMinS-datetime.timedelta(hours=tpad),xMinD)
-	else:
-		xMin = xMinS
+	xMin = xMinD
+
 	ax.set_xlim(xMin,xMax)
 	kv.savePic("qkdstpic.png")
