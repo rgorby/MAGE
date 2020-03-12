@@ -24,20 +24,30 @@ def cntSteps(fname):
 def cntTPs(fname):
 	with h5py.File(fname,'r') as hf:
 		grp = hf.get("Step#0")
-		Np = grp.get("id").value.shape[0]
+		ids = (grp.get("id")[()])
+		Np = ids.shape[0]
 	return Np
+
+def bndTPs(fname):
+	with h5py.File(fname,'r') as hf:
+		grp = hf.get("Step#0")
+		ids = (grp.get("id")[()])
+		Np = ids.shape[0]
+		nS = ids.min()
+		nE = ids.max()
+	return Np,nS,nE
 
 #Find array index for a given particle ID (ie if block doesn't start at 1)
 def locPID(fname,pid):
 	with h5py.File(fname,'r') as hf:
 		grp = hf.get("Step#0")
-		ids = grp.get("id").value
-		#print(ids.shape)
+		ids = grp.get("id")[()]
 		isP = (ids == pid)
 		loc = isP.argmax()
 		if (ids[loc] != pid):
 			print("Didn't find particle %d ..."%(pid))
 			loc = None
+			quit()
 	return loc
 		
 #Given an h5part file, create a time series for a single particle w/ ID = pid
@@ -53,7 +63,7 @@ def getH5pid(fname,vId,pid):
 			gId = "Step#%d"%(n)
 			grp = hf.get(gId)
 			t[n] = grp.attrs.get("time")
-			V[n] = grp.get(vId).value[p0]
+			V[n] = (grp.get(vId)[()])[p0]
 	return t,V
 
 #Given an h5part file, create a time series from an input string
@@ -68,7 +78,7 @@ def getH5p(fname,vId,Mask=None):
 			gId = "Step#%d"%(n)
 			grp = hf.get(gId)
 			t[n] = grp.attrs.get("time")
-			V[n,:] = grp.get(vId).value
+			V[n,:] = grp.get(vId)[()]
 	if (Mask is None):
 		return t,V
 
@@ -78,7 +88,7 @@ def getH5p(fname,vId,Mask=None):
 def getH5pT(fname,vID="isIn",nStp=0,cutIn=False):
 	with h5py.File(fname,'r') as hf:
 		gID = "Step#%d"%(nStp)
-		V = hf.get(gID).get(vID).value
+		V = hf.get(gID).get(vID)[()]
 
 	return V
 	

@@ -6,6 +6,7 @@ from argparse import RawTextHelpFormatter
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import kaipy.kaiViz as kv
+import kaipy.kaiH5 as kh5
 import kaipy.chimp.chimph5p as ch5p
 import numpy as np
 from mpl_toolkits.mplot3d import axes3d, Axes3D
@@ -61,7 +62,11 @@ if __name__ == "__main__":
 	fIn = args.h5p
 	id0 = args.id
 
-	print("Reading from %s and showing particle %d\n"%(fIn,id0))
+	print("Reading from %s and looking for particle %d"%(fIn,id0))
+	kh5.CheckOrDie(fIn)
+
+	Ntp,nS,nE = ch5p.bndTPs(fIn)
+	print("\tFound %d TPs, IDs %d to %d"%(Ntp,nS,nE))
 
 	t,x = ch5p.getH5pid(fIn,"x",id0)
 	t,y = ch5p.getH5pid(fIn,"y",id0)
@@ -77,7 +82,7 @@ if __name__ == "__main__":
 	ax = Axes3D(fig)
 
 	addEarth(ax)
-	sct3d = ax.scatter(x,y,z,c=K,cmap=plt.get_cmap("cool"),s=20,vmin=vMin,vmax=vMax)
+	sct3d = ax.scatter(x,y,z,c=K,cmap=plt.get_cmap("cool"),s=20,vmin=vMin,vmax=vMax,ec="k")
 	ax.plot(x,y,z,'k',linewidth=LW)
 	plt.colorbar(sct3d,label=cbLab,shrink=0.8)
 

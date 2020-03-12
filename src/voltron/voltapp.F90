@@ -148,6 +148,7 @@ module voltapp
 
         !Recalculate timestep
         gApp%Model%dt = CalcDT(gApp%Model,gApp%Grid,gApp%State)
+        if (gApp%Model%dt0<TINY) gApp%Model%dt0 = gApp%Model%dt
         
         !Finally do first output stuff
         call consoleOutputV(vApp,gApp)
