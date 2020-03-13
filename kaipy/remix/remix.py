@@ -6,6 +6,7 @@ import sys
 
 Ri = 6.5  # radius of ionosphere in 1000km
 Re = 6.38 # radius of Earth in 1000km
+mu0o4pi = 1.e-7 # mu0=4pi*10^-7 => mu0/4pi=10^-7
 
 class remix:
 	def __init__(self,h5file,step):
@@ -295,12 +296,15 @@ class remix:
 		J = SigmaP*(etheta**2+ephi**2)  # this is in W/m^2
 		return(J)
 
-	# FIXME: MAKE WORK FOR SOUTH
-	def hCurrents(self): # horizontal currents
-		etheta,ephi,dtheta,dphi = self.efield(returnDeltas=True)
-		SigmaH = self.variables['sigmah']['data']
-		SigmaP = self.variables['sigmap']['data']		
-
+	# note, here we're taking the Cartesian average for cell centers
+	# this is less accurate than the angular averages that are used in efield above
+	# furthermore, I'm lazily mixing this with dtheta,dphi that came from efield in hCurrents
+	# TODO: this should be fixed by pulling out the cell-centered tc,pc, and dtheta,dphi
+	# from the efield calculation and using throughout.
+	# note, however, that the staggered grid for storage is currently create in the remix Fortran code
+	# by Cartesian averaging, so if we go to angular in this python postprocessing code, 
+	# we should probably start with going angular in the Fortran code.
+	def cartesianCellCenters(self):
 		# Aliases to keep things short
 		x = self.ion['X']
 		y = self.ion['Y']
@@ -312,6 +316,20 @@ class remix:
 
 		theta = np.arcsin(r)
 
+		return(xc,yc,theta,phi)
+		
+	# FIXME: MAKE WORK FOR SOUTH
+	# TODO: write a separate geom function to define cell-centered coords, deltas, and even cosDipAngle (see comment above cartesianCellCenters)
+	# right now, it's just ugly below where I take dtheta,phi from efield
+	# and the coordinates separately from cartesianCellCenters.
+	# it was a lazy solution
+	def hCurrents(self): # horizontal currents
+		etheta,ephi,dtheta,dphi = self.efield(returnDeltas=True)
+		SigmaH = self.variables['sigmah']['data']
+		SigmaP = self.variables['sigmap']['data']		
+
+		xc,yc,theta,phi = self.cartesianCellCenters()
+
 		cosDipAngle = -2.*np.cos(theta)/np.sqrt(1.+3.*np.cos(theta)**2)
 		Jh_theta = -SigmaH*ephi/cosDipAngle
 		Jh_phi   =  SigmaH*etheta/cosDipAngle
@@ -322,12 +340,12 @@ class remix:
 		# i.e., height-integrated current density
 		return(xc,yc,theta,phi,dtheta,dphi,Jh_theta,Jh_phi,Jp_theta,Jp_phi,cosDipAngle)
 
+	# Main function to compute magnetic perturbations using the Biot-Savart integration
+	# This includes Hall, Pedersen and FAC with the option to do Hall only 
 	def dB(self,xyz,hallOnly=True):
 		# xyz = array of points where to compute dB
 		# xyz.shape should be (N,3), where N is the number of points
 		# xyz = (x,y,z) in units of Ri
-
-		mu0o4pi = 1.e-7 # mu0=4pi*10^-7 => mu0/4pi=10^-7
 
 		if len(xyz.shape)!=2:
 			sys.exit("dB input assumes the array of points of (N,3) size.")			
@@ -406,7 +424,8 @@ class remix:
 
 		if not hallOnly:
 			intx,inty,intz = self.BSFluxTubeInt(xyz)
-			jpara = -self.variables['current']['data'] # note, the sign was inverted by the reader, put it back to recover true FAC
+			# FIXME: don't fix sign for south
+			jpara = -self.variables['current']['data'] # note, the sign was inverted by the reader for north, put it back to recover true FAC 
 			jpara = jpara[:,:,np.newaxis]
 			cosd  = abs(cosDipAngle[:,:,np.newaxis])  # note, only need abs value of cosd regardless of hemisphere
 
@@ -451,21 +470,7 @@ class remix:
 		if xyz.shape[1]!=3: 
 			sys.exit("dB input assumes the array of points of (N,3) size.")
 
-		####################################
-		# SOURCE POINTS
-		#
-		# TODO: I keep reusing the following lines -- pack them into a function for god's sake
-		# Aliases to keep things short
-		x = self.ion['X']
-		y = self.ion['Y']
-
-		xc = 0.25*(x[:-1,:-1]+x[1:,:-1]+x[:-1,1:]+x[1:,1:])
-		yc = 0.25*(y[:-1,:-1]+y[1:,:-1]+y[:-1,1:]+y[1:,1:])		
-
-		r,phi = self.get_spherical(xc,yc)
-
-		theta = np.arcsin(r)
-		####################################
+		xc,yc,theta,phi = self.cartesianCellCenters()
 
 		# radii of centers of segments of the flux tube
 		Rs = np.linspace(1.,Rinner,rsegments+1)
@@ -477,7 +482,12 @@ class remix:
 		dR = dR[:,np.newaxis,np.newaxis]		
 
 		# theta on the field line (m for magnetosphere)
-		thetam = np.arcsin(np.sqrt(Rcenters)*np.sin(theta))
+		# note, since theta is in [0,45] deg range or so,
+		# Rcenters is in the range [1,2] or so, and
+		# arsin is in the range [-pi/2,pi/2]
+		# the result below is >0, i.e., we only take the part of the field line
+		# that lies in the same hemisphere as the ionospheric footpoint
+		thetam = np.arcsin(np.sqrt(Rcenters)*np.sin(theta))   
 
 		# note order: R, theta, phi
 		x = Rcenters*np.sin(thetam)*np.cos(phi)
