@@ -101,9 +101,7 @@ if __name__ == "__main__":
 	xfmt = dates.DateFormatter(utfmt)
 	ax.set_ylabel("Dst [nT]")
 	ax.xaxis.set_major_formatter(xfmt)
-
-	#print(ut_symh)
-	#print(ut)
+	
 	xMinD = np.array(ut_symh).min()
 	xMaxD = np.array(ut_symh).max()
 	xMinS = np.array(ut).min()

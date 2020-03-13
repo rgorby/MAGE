@@ -594,6 +594,7 @@ module gioH5
         !Should use FindIO routine
         State%magFlux(Gr%is:Gr%ie+1,Gr%js:Gr%je+1,Gr%ks:Gr%ke+1,:) = reshape(IOVars(2)%data,bDims)
 
+
         !Get main attributes
         if (doReset) then
             Model%IO%nOut = 0
@@ -605,13 +606,17 @@ module gioH5
             Model%IO%nRes = int(IOVars(4)%data(1)) + 1
             Model%ts   = int(IOVars(5)%data(1))
             Model%t = IOVars(6)%data(1)
-            !Set back to old dt0 if possible
-            if (ioExist(inH5,"dt0")) then
-                Model%dt0 = IOVars(7)%data(1)
-            else
-                Model%dt0 =0.0
-            endif
-        endif        
+        endif
+        
+        !Set back to old dt0 if possible
+        Model%dt0 =0.0
+        if (ioExist(inH5,"dt0")) then
+            call ClearIO(IOVars)
+            call AddInVar(IOVars,"dt0")
+            call ReadVars(IOVars,.false.,inH5)
+            Model%dt0 = IOVars(1)%data(1)
+        endif
+
     !Do touchup to data structures
         State%time = Model%t
         Model%IO%tOut = floor(Model%t/Model%IO%dtOut)*Model%IO%dtOut
