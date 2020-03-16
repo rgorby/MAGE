@@ -159,6 +159,9 @@ MODULE ionosphere_exchange
       ALLOCATE( rm%sigmah(rm%nLat_ion, rm%nLon_ion) )
       ALLOCATE( rm%latc(rm%nLat_ion, rm%nLon_ion) )
       ALLOCATE( rm%lonc(rm%nLat_ion, rm%nLon_ion) )
+      ALLOCATE( rm%Lb  (rm%nLat_ion, rm%nLon_ion) )
+      ALLOCATE( rm%Tb  (rm%nLat_ion, rm%nLon_ion) )
+
       ALLOCATE( rm%toMHD(rm%nLat_ion, rm%nLon_ion) )
       
       rm%gcolat (:) = colat (:,1)

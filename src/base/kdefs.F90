@@ -43,18 +43,18 @@ module kdefs
     real(rp), parameter :: Mp_cgs = 1.6726D-24 ![g] Proton mass
 
     !MKS Constants
-    real(rp), parameter :: vc_mks = 2.9979e+8 ![m/s], Speed of light
-
+    real(rp), parameter :: vc_mks = vc_cgs*(1.0e-2) ![m/s], Speed of light
     !Helper conversions
     real(rp), parameter :: G2nT = 1.0E+5 !Gauss->nT
     real(rp), parameter :: G2T = 1.0E-4 !Gauss->T
     real(rp), parameter :: kev2J = 1.60218E-16 !keV->J
-
+    real(rp), parameter :: Re_km = Re_cgs*(1.0e-2)*(1.0e-3) !km
 
 !Planetary constants
     !Earth
     real(rp), parameter :: EarthM0g = 0.31 !Gauss
-    real(rp), parameter :: REarth = 6.38e6 ! m
+    real(rp), parameter :: REarth = Re_cgs*1.0e-2 !m
+
     real(rp), parameter :: RionE  = 6.5    ! Earth Ionosphere radius in 1000 km
     real(rp), parameter :: EarthPsi0 = 92.4 ! Corotation potential [kV]
     

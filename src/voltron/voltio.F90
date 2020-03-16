@@ -27,6 +27,7 @@ module voltio
         integer :: iYr,iDoY,iMon,iDay,iHr,iMin
         real(rp) :: rSec
         character(len=strLen) :: utStr
+        real(rp) :: dD,dP
 
         !Using console output from Gamera
         call consoleOutput(gApp%Model,gApp%Grid,gApp%State)
@@ -52,6 +53,9 @@ module voltio
             isConInit = .true.
         endif
         
+        if (vApp%doDeep) then
+            call IMagDelta(gApp%Model,gApp%Grid,gApp%State,dD,dP)
+        endif
     !Pull solar wind info @ Earth
         xW = 0.0
         select type(pWind=>gApp%Grid%externalBCs(OUTI)%p)
@@ -74,13 +78,17 @@ module voltio
         call EstDST(gApp%Model,gApp%Grid,gApp%State,Dst)
 
         write(*,'(a)',advance="no") ANSIBLUE
-        write (*, '(a,f7.2,a,3f8.2,a)')      '     Wind = ' , dSW,     ' [#/cc] / ',vSW,' [km/s, XYZ]'
+        write (*,'(a,a)')                    '      UT  = ', trim(utStr)
+        write (*, '(a,f7.2,a,3f8.2,a)')      '     Wind  = ' , dSW,     ' [#/cc] / ',vSW,' [km/s, XYZ]'
         write (*, '(a,f7.2,a,2f7.2,a)')      '       IMF = ' , bAng(1), '   [nT] / ',bAng(2),bAng(3),' [deg, Clock/Cone]'
         write (*, '(a,1f8.3,a)')             '      tilt = ' , dpT, ' [deg]'
         write (*, '(a,2f8.3,a)')             '      CPCP = ' , cpcp(NORTH), cpcp(SOUTH), ' [kV, N/S]'
         write (*, '(a, f8.3,a)')             '    BSDst  ~ ' , Dst, ' [nT]'
-        write (*,'(a,a)')                    '      UT   = ', trim(utStr)
-        write (*, '(a,1f7.3,a)')             '      Running @ ', simRate*100.0, '% of real-time'
+        if (vApp%doDeep) then
+            write (*, '(a,f7.3,a,f7.3,a)')   '    Ingestion (D/P) = ', 100.0*dD, '% / ', 100.0*dP,'%'
+        endif
+        
+        write (*, '(a,1f7.3,a)')             '    Running @ ', simRate*100.0, '% of real-time'
         
         write (*, *) ANSIRESET, ''
 
@@ -202,8 +210,8 @@ module voltio
         !$OMP PARALLEL DO default(shared) collapse(2) &
         !$OMP private(i,j,k,xyz,dV,r,bs1,bs2,bScl,dBz) &
         !$OMP reduction(+:Dst)
-        do k=Gr%ksg,Gr%keg
-            do j=Gr%jsg,Gr%jeg
+        do k=Gr%ks,Gr%ke
+            do j=Gr%js,Gr%je
                 do i=iMin,iMax
                     xyz = Gr%xyzcc (i,j,k,:)
                     dV  = Gr%volume(i,j,k)
@@ -219,6 +227,58 @@ module voltio
         enddo !k loop
 
     end subroutine EstDST
+
+    !Calculate relative difference between source/MHD
+    subroutine IMagDelta(Model,Gr,State,dD,dP)
+        type(Model_T), intent(in)  :: Model
+        type(Grid_T) , intent(in)  :: Gr
+        type(State_T), intent(in)  :: State
+        real(rp)     , intent(out) :: dD,dP
+
+        real(rp) :: Dsrc,Dmhd,Psrc,Pmhd
+        real(rp) :: dV
+        real(rp), dimension(NVAR) :: pCon,pW
+        logical :: doInD,doInP,doIngest
+        integer :: i,j,k
+
+        dD = 0.0
+        dP = 0.0
+        if (.not. Model%doSource) return
+
+        !Zero out accumulators
+        Dsrc = 0.0
+        Dmhd = 0.0
+        Psrc = 0.0
+        Pmhd = 0.0
+        do k=Gr%ks,Gr%ke
+            do j=Gr%js,Gr%je
+                do i=Gr%is,Gr%ie
+                    dV  = Gr%volume(i,j,k)
+                    doInD = (Gr%Gas0(i,j,k,IMDEN,BLK)>TINY)
+                    doInP = (Gr%Gas0(i,j,k,IMPR ,BLK)>TINY)
+                    doIngest = doInD .or. doInP
+                    
+                    if (.not. doIngest) cycle
+                    pCon = State%Gas(i,j,k,:,BLK)
+                    call CellC2P(Model,pCon,pW)
+
+                    if (doInD) then
+                        Dsrc = Dsrc + dV*Gr%Gas0(i,j,k,IMDEN,BLK)
+                        Dmhd = Dmhd + dV*pW(DEN)
+                    endif
+
+                    if (doInP) then
+                        Psrc = Psrc + dV*Gr%Gas0(i,j,k,IMPR,BLK)
+                        Pmhd = Pmhd + dV*pW(PRESSURE)
+                    endif
+                    
+                enddo
+            enddo
+        enddo
+        if (Dsrc>TINY) dD = Dmhd/Dsrc
+        if (Psrc>TINY) dP = Pmhd/Psrc
+        
+    end subroutine IMagDelta
 
 end module voltio
 

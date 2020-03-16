@@ -135,58 +135,54 @@ module innermagsphere
                     Gr%Gas0(i,j,k,IMX1  ,BLK) = imW(IMX1)
                     Gr%Gas0(i,j,k,IMX2  ,BLK) = imW(IMX2)
 
-                    !Interpreting IMTSCL as units of coupling timescale
-                    Gr%Gas0(i,j,k,IMTSCL,BLK) = vApp%DeepDT*imW(IMTSCL)/gApp%Model%Units%gT0
+                    !Use IMTSCL if set, otherwise set to coupling timescale
+                    if (imW(IMTSCL) > TINY) then
+                        Gr%Gas0(i,j,k,IMTSCL,BLK) = imW(IMTSCL)/gApp%Model%Units%gT0
+                    else
+                        Gr%Gas0(i,j,k,IMTSCL,BLK) = vApp%DeepDT/gApp%Model%Units%gT0
+                    endif
+                    
                 enddo
             enddo
         enddo
 
         !Do averaging for first cell next to singularity
+        !Do for +/- X pole and density/pressure
         Nk = Gr%ke-Gr%ks+1
+        !$OMP PARALLEL DO default(shared) &
+        !$OMP private(i,imW)
         do i=Gr%is,Gr%is+chmp2mhd%iMax
-        !+X pole
-            !Density
-            if (all( Gr%Gas0(i,Gr%js,Gr%ks:Gr%ke,IMDEN,BLK) > TINY )) then
-                !All values are good on inner ring
-                imW(IMDEN) = sum(Gr%Gas0(i,Gr%js,Gr%ks:Gr%ke,IMDEN,BLK))/Nk
-            else
-                !Not all values are good so don't use any
-                imW(IMDEN) = 0.0
-            endif
-            !Pressure
-            if (all( Gr%Gas0(i,Gr%js,Gr%ks:Gr%ke,IMPR ,BLK) > TINY )) then
-                !All values are good on inner ring
-                imW(IMPR ) = sum(Gr%Gas0(i,Gr%js,Gr%ks:Gr%ke,IMPR ,BLK))/Nk
-            else
-                !Not all values are good so don't use any
-                imW(IMPR ) = 0.0
-            endif
+            !+X pole
+            imW(IMDEN) = AvgOverGood(Gr%Gas0(i,Gr%js,Gr%ks:Gr%ke,IMDEN,BLK),Nk)
+            imW(IMPR ) = AvgOverGood(Gr%Gas0(i,Gr%js,Gr%ks:Gr%ke,IMPR ,BLK),Nk)
             Gr%Gas0(i,Gr%js,Gr%ks:Gr%ke,IMDEN,BLK) = imW(IMDEN)
             Gr%Gas0(i,Gr%js,Gr%ks:Gr%ke,IMPR ,BLK) = imW(IMPR )
 
-        !-X pole
-            !Density
-            if (all( Gr%Gas0(i,Gr%je,Gr%ks:Gr%ke,IMDEN,BLK) > TINY )) then
-                !All values are good on inner ring
-                imW(IMDEN) = sum(Gr%Gas0(i,Gr%je,Gr%ks:Gr%ke,IMDEN,BLK))/Nk
-            else
-                !Not all values are good so don't use any
-                imW(IMDEN) = 0.0
-            endif
-            !Pressure
-            if (all( Gr%Gas0(i,Gr%je,Gr%ks:Gr%ke,IMPR ,BLK) > TINY )) then
-                !All values are good on inner ring
-                imW(IMPR ) = sum(Gr%Gas0(i,Gr%je,Gr%ks:Gr%ke,IMPR ,BLK))/Nk
-            else
-                !Not all values are good so don't use any
-                imW(IMPR ) = 0.0
-            endif
+            !-X pole
+            imW(IMDEN) = AvgOverGood(Gr%Gas0(i,Gr%je,Gr%ks:Gr%ke,IMDEN,BLK),Nk)
+            imW(IMPR ) = AvgOverGood(Gr%Gas0(i,Gr%je,Gr%ks:Gr%ke,IMPR ,BLK),Nk)
             Gr%Gas0(i,Gr%je,Gr%ks:Gr%ke,IMDEN,BLK) = imW(IMDEN)
             Gr%Gas0(i,Gr%je,Gr%ks:Gr%ke,IMPR ,BLK) = imW(IMPR )
-
         enddo
 
         end associate
+
+        contains
+            function AvgOverGood(Q,Nk) result(Qavg)
+                real(rp), intent(in), dimension(Nk) :: Q
+                integer , intent(in) :: Nk
+
+                real(rp) :: Qavg
+                integer :: Nkg
+
+                if ( any(Q>TINY) ) then
+                    Nkg = count(Q>TINY)
+                    Qavg = sum(Q,mask=(Q>TINY))/Nkg
+                else
+                    Qavg = 0.0
+                endif
+
+            end function AvgOverGood
 
     end subroutine InnerMag2Gamera
 

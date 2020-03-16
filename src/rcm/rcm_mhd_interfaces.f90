@@ -38,6 +38,11 @@ module rcm_mhd_interfaces
   real(rprec),allocatable :: latc(:,:)
   real(rprec),allocatable :: lonc(:,:)
 
+  !Field line arc length [Re]
+  real(rprec),allocatable :: Lb(:,:)
+  !Alfven Bounce timescale [s]
+  real(rprec),allocatable :: Tb(:,:)
+
   !Information about MHD ingestion
   logical, allocatable :: toMHD(:,:)
   
