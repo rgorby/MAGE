@@ -20,7 +20,6 @@ module ebsquish
         end subroutine Projection_T
     end interface
 
-    real(rp), parameter, private :: RDipole = 3.0
     real(rp), parameter, private :: startEps = 0.05
     real(rp), parameter, private :: rEps = 0.125
     real(rp), private :: Rinner
@@ -160,13 +159,6 @@ module ebsquish
 
         x1 = 0.0
         x2 = 0.0
-        if (norm2(xyz) <= RDipole) then
-            !Just assume dipole here
-            x1 = InvLatitude(xyz) 
-            x2 = atan2(xyz(YDIR),xyz(XDIR))
-            if (x2 < 0) x2 = x2 + 2*PI
-            return
-        endif
 
         !Use one-sided projection routine from chimp
         !Trace along field line (i.e. to northern hemisphere)
