@@ -301,6 +301,10 @@ module earthhelper
         mlon = atan2(xyz0(YDIR),xyz0(XDIR)) !No change in longitude
         if (mlon<0) mlon = mlon+2*PI
 
+        if (xyz0(ZDIR)<0) then
+            mlat = -abs(mlat)
+        endif
+        
         !Get cartesian coordinates
         xyz(XDIR) = r*cos(mlat)*cos(mlon)
         xyz(YDIR) = r*cos(mlat)*sin(mlon)

@@ -137,7 +137,7 @@ module innermagsphere
 
                     !Use IMTSCL if set, otherwise set to coupling timescale
                     if (imW(IMTSCL) > TINY) then
-                        Gr%Gas0(i,j,k,IMTSCL,BLK) = imW(IMTSCL)/gApp%Model%Units%gT0
+                        Gr%Gas0(i,j,k,IMTSCL,BLK) = max(imW(IMTSCL),vApp%DeepDT)/gApp%Model%Units%gT0
                     else
                         Gr%Gas0(i,j,k,IMTSCL,BLK) = vApp%DeepDT/gApp%Model%Units%gT0
                     endif

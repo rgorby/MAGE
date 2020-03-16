@@ -429,8 +429,7 @@ module rcmimag
             !Find conjugate lat/lon @ RIonRCM
             call FLConj(ebModel,ebGr,bTrc,xyzC)
             xyzIonC = DipoleShift(xyzC,RIonRCM)
-            !xyzIonC(ZDIR) uses abs(mlat), so make negative
-            ijTube%latc = asin(-xyzIonC(ZDIR)/norm2(xyzIonC))
+            ijTube%latc = asin(xyzIonC(ZDIR)/norm2(xyzIonC))
             ijTube%lonc = modulo( atan2(xyzIonC(YDIR),xyzIonC(XDIR)),2*PI )
             ijTube%Lb = FLArc(ebModel,ebGr,bTrc)
         else
