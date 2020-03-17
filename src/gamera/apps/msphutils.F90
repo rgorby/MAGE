@@ -127,6 +127,14 @@ module msphutils
             Psi0 = 10.024*92.0 !kV
             Rion = 1.01 !Assuming
             Model%doGrav = .false.
+        case("Other","other","OTHER") ! Defaults to Earth values
+            call xmlInp%Set_Val(gx0,"prob/x0",REarth)            ! [m]
+            call xmlInp%Set_Val(gv0,"prob/v0",100.e3)            ! [m/s]
+            call xmlInp%Set_Val(gG0,"prob/G0",9.807)             ! [m/s2] 
+            call xmlInp%Set_Val(M0g,"prob/M0",EarthM0g)          ! [gauss]
+            call xmlInp%Set_Val(Psi0,"prob/Psi0",EarthPsi0)      ! [kV]
+            call xmlInp%Set_Val(Rion,"prob/Rion",RionE*1.e6/gx0) 
+            call xmlInp%Set_Val(Model%doGrav,"prob/doGrav",.true.)
         end select
 
         gT0 = gx0/gv0 !Set time scaling
