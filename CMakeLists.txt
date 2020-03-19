@@ -24,12 +24,16 @@ execute_process(COMMAND git log -1 --format=%h WORKING_DIRECTORY ${CMAKE_SOURCE_
 	OUTPUT_STRIP_TRAILING_WHITESPACE)
 
 #Add defines for commit hash/branch
-#add_compile_definitions(GITCOMMITHASH=${GIT_COMMIT_HASH})
-#add_compile_definitions(GITBRANCH=${GIT_BRANCH})
+add_compile_definitions(GITCOMMITHASH=${GIT_COMMIT_HASH})
+add_compile_definitions(GITBRANCH=${GIT_BRANCH})
 
 #Set some configuration defaults
 option(ENABLE_OMP "Enable OMP parallelization" ON )
 option(ENABLE_MPI "Enable MPI parallelization" OFF)
+option(ENABLE_MKL "Enable Intel MKL usage" OFF)
+if(ENABLE_MKL)
+    add_compile_definitions(USEMKL)
+endif()
 
 #Vector blocking
 set(bricksize 16 CACHE STRING "Vector brick size")

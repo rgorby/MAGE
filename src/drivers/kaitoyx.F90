@@ -80,5 +80,10 @@ program kaitoyx
 
     call Toc("OMEGA")
     call printClocks()
+#ifdef USEMKL
+    write(*,*) 'USEMKL is set ...'
+#else
+    write(*,*) 'USEMKL is not set ...'
+#endif
 
 end program kaitoyx
