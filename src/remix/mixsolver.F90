@@ -242,7 +242,7 @@ module mixsolver
     end subroutine run_solver
 
 #ifdef USEMKL
-    subroutine MKLSolve
+    subroutine MKLSolve(P,G,St,S)
       type(mixParams_T), intent(in) :: P
       type(mixGrid_T),   intent(in) :: G
       type(mixState_T),  intent(in) :: St
