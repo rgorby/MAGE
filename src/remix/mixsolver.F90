@@ -264,17 +264,17 @@ module mixsolver
 
       mtype = 11 ! real nonsymmetric matrix
 
-      if (.not. isSolverInit) then
-        !Initialize solver
-        call pardisoinit(pt,mtype,iparm)
-        isSolverInit = .true.
-      endif
+      !Always initialize/tear-down
+      call pardisoinit(pt,mtype,iparm)
 
       Npt = G%Np*G%Nt
       allocate(perm(Npt))
 
       iparm(1)  = 0  ! all default parameters
       iparm(27) = 0  ! Matrix checker
+      !Options added by K
+      iparm(2)  = 3
+      iparm(24) = 1
       !iparm(28) =0; iparm (6) =0;
       maxfct = 1
       mnum   = 1
@@ -293,12 +293,12 @@ module mixsolver
         stop
       endif
 
-      ! !Release memory
-      ! phase =-1  ! release
-      ! call pardiso(pt,maxfct,mnum,mtype,phase,Npt, &
-      !              S%data,S%rowI,S%JJ,perm, &
-      !              nrhs,iparm,msglvl, &
-      !              S%RHS,S%solution,error)
+      !Release memory
+      phase =-1  ! release
+      call pardiso(pt,maxfct,mnum,mtype,phase,Npt, &
+                   S%data,S%rowI,S%JJ,perm, &
+                   nrhs,iparm,msglvl, &
+                   S%RHS,S%solution,error)
 
     end subroutine MKLSolve
 
