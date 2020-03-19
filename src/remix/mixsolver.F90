@@ -12,8 +12,6 @@ module mixsolver
 
   implicit none
 
-  !NOTE: Not currently using isSolverInit
-  !TODO: Handle the initialization/tear-down better
   logical, private :: isSolverInit=.false.
   integer, private :: MKLMSGLVL=0
 
@@ -266,8 +264,11 @@ module mixsolver
 
       mtype = 11 ! real nonsymmetric matrix
 
-      !Always initializing
-      call pardisoinit(pt,mtype,iparm)
+      if (.not. isSolverInit) then
+        !Initialize solver
+        call pardisoinit(pt,mtype,iparm)
+        isSolverInit = .true.
+      endif
 
       Npt = G%Np*G%Nt
       allocate(perm(Npt))
@@ -292,12 +293,12 @@ module mixsolver
         stop
       endif
 
-      !Release memory
-      phase =-1  ! release
-      call pardiso(pt,maxfct,mnum,mtype,phase,Npt, &
-                   S%data,S%rowI,S%JJ,perm, &
-                   nrhs,iparm,msglvl, &
-                   S%RHS,S%solution,error)
+      ! !Release memory
+      ! phase =-1  ! release
+      ! call pardiso(pt,maxfct,mnum,mtype,phase,Npt, &
+      !              S%data,S%rowI,S%JJ,perm, &
+      !              nrhs,iparm,msglvl, &
+      !              S%RHS,S%solution,error)
 
     end subroutine MKLSolve
 
