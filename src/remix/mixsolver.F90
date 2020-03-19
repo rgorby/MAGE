@@ -1,4 +1,7 @@
 ! sets up and solves the stencil matrix
+#ifdef USEMKL
+  include 'mkl_pardiso.f90'
+#endif
 module mixsolver
   use mixdefs
   use mixtypes
@@ -9,8 +12,10 @@ module mixsolver
 
   implicit none
 
+  !NOTE: Not currently using isSolverInit
+  !TODO: Handle the initialization/tear-down better
   logical, private :: isSolverInit=.false.
-  integer, private :: MKLMSGLVL=1
+  integer, private :: MKLMSGLVL=0
 
   contains
     ! running index
@@ -261,11 +266,8 @@ module mixsolver
 
       mtype = 11 ! real nonsymmetric matrix
 
-      !Initialize if needed
-      if (.not. isSolverInit) then
-        call pardisoinit(pt,mtype,iparm)
-        isSolverInit = .true.
-      endif
+      !Always initializing
+      call pardisoinit(pt,mtype,iparm)
 
       Npt = G%Np*G%Nt
       allocate(perm(Npt))
