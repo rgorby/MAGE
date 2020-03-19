@@ -258,7 +258,7 @@ module mixsolver
       if (MKLMSGLVL > 0) then
         write(*,*) 'Running MKL-Pardiso'
       endif
-      
+
       mtype = 11 ! real nonsymmetric matrix
 
       !Initialize if needed
@@ -282,7 +282,7 @@ module mixsolver
       !Call solver
       call pardiso(pt,maxfct,mnum,mtype,phase,Npt, &
                    S%data,S%rowI,S%JJ,perm, &
-                   nrhs,iparm,msglvl,
+                   nrhs,iparm,msglvl, &
                    S%RHS,S%solution,error)
 
       if (error < 0) then
@@ -294,7 +294,7 @@ module mixsolver
       phase =-1  ! release
       call pardiso(pt,maxfct,mnum,mtype,phase,Npt, &
                    S%data,S%rowI,S%JJ,perm, &
-                   nrhs,iparm,msglvl,
+                   nrhs,iparm,msglvl, &
                    S%RHS,S%solution,error)
 
     end subroutine MKLSolve
