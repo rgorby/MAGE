@@ -151,9 +151,10 @@ module gamapp_mpi
 
                 dims = GridSizeH5(inH5)
 
-                Grid%Nip = dims(1) - 2*Model%nG - 1
-                Grid%Njp = dims(2) - 2*Model%nG - 1
-                Grid%Nkp = dims(3) - 2*Model%nG - 1
+                ! These assume Model%nG is 4
+                Grid%Nip = dims(1) - 9
+                Grid%Njp = dims(2) - 9
+                Grid%Nkp = dims(3) - 9
             else
                 call xmlInp%Set_Val(Grid%Nip,"idir/N",1)
                 call xmlInp%Set_Val(Grid%Njp,"jdir/N",1)
@@ -165,9 +166,10 @@ module gamapp_mpi
             Grid%Njp = Grid%Njp/Grid%NumRj
             Grid%Nkp = Grid%Nkp/Grid%NumRk
 
-            Grid%Ni = Grid%Nip + 2*Model%nG
-            Grid%Nj = Grid%Njp + 2*Model%nG
-            Grid%Nk = Grid%Nkp + 2*Model%nG
+            ! assume Model%nG is 4
+            Grid%Ni = Grid%Nip + 8
+            Grid%Nj = Grid%Njp + 8
+            Grid%Nk = Grid%Nkp + 8
 
             ! create MPI topology
             sourceRanks(:) = -1
@@ -264,21 +266,20 @@ module gamapp_mpi
             Grid%hasUpperBC(JDIR) = Grid%Rj == (Grid%NumRj-1)
             Grid%hasUpperBC(KDIR) = Grid%Rk == (Grid%NumRk-1)
 
-            ! adjust grid info for these ranks
-            Grid%ijkShift(IDIR) = Grid%Nip*Grid%Ri
-            Grid%ijkShift(JDIR) = Grid%Njp*Grid%Rj
-            Grid%ijkShift(KDIR) = Grid%Nkp*Grid%Rk
-
         endif
 
         ! call appropriate subroutines to read corner info and mesh size data
         call ReadCorners(Model,Grid,xmlInp,endTime)
 
-        if(Grid%isTiled .and. (.not. Model%isRestart .or. .not. doH5g)) then
+        if(Grid%isTiled .and. .not. Model%isRestart ) then
             !if we're tiled and read the entire grid file, subdivide ita
             Grid%Nip = Grid%Nip/Grid%NumRi
             Grid%Njp = Grid%Njp/Grid%NumRj
             Grid%Nkp = Grid%Nkp/Grid%NumRk
+
+            Grid%ijkShift(IDIR) = Grid%Nip*Grid%Ri
+            Grid%ijkShift(JDIR) = Grid%Njp*Grid%Rj
+            Grid%ijkShift(KDIR) = Grid%Nkp*Grid%Rk
 
             Grid%Ni = Grid%Nip + 2*Model%nG
             Grid%Nj = Grid%Njp + 2*Model%nG
@@ -322,6 +323,11 @@ module gamapp_mpi
             call move_alloc(tempX, Grid%x)
             call move_alloc(tempY, Grid%y)
             call move_alloc(tempZ, Grid%z)
+        else
+            ! adjust grid info for these ranks
+            Grid%ijkShift(IDIR) = Grid%Nip*Grid%Ri
+            Grid%ijkShift(JDIR) = Grid%Njp*Grid%Rj
+            Grid%ijkShift(KDIR) = Grid%Nkp*Grid%Rk
         endif
 
         if(Grid%isTiled) then

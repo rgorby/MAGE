@@ -204,7 +204,7 @@ module uservoltic
                     stop
                 endif
             CLASS DEFAULT
-                write(*,*) 'Could not find Wind BC in IC'
+                write(*,*) 'Could not find Wind BC in postBCInitUser'
                 stop
         END SELECT
 
@@ -250,7 +250,7 @@ module uservoltic
                 TYPE IS (IonInnerBC_T)
                     call IonEFix(Model,Gr,State,iiBC%inEijk)
                 CLASS DEFAULT
-                    write(*,*) 'Could not find Ion Inner BC in remix IC'
+                    write(*,*) 'Could not find Ion Inner BC in EFix'
                     stop
             END SELECT
         endif
@@ -261,7 +261,7 @@ module uservoltic
                 TYPE IS (WindBC_T)
                    call WindEFix(pWind,Model,Gr,State)
                 CLASS DEFAULT
-                    write(*,*) 'Could not find Wind BC in remix IC'
+                    write(*,*) 'Could not find Wind BC in EFix'
                     stop
             END SELECT
         endif
@@ -283,7 +283,7 @@ module uservoltic
                     call IonPredFix(Model,Gr,State)
                 endif
             CLASS DEFAULT
-                write(*,*) 'Could not find Ion Inner BC in remix IC'
+                write(*,*) 'Could not find Ion Inner BC in PredFix'
                 stop
         END SELECT
 
@@ -294,7 +294,7 @@ module uservoltic
                    call WindPredFix(pWind,Model,Gr,State)
                 end if
             CLASS DEFAULT
-                write(*,*) 'Could not find Wind BC in remix IC'
+                write(*,*) 'Could not find Wind BC in PredFix'
                 stop
         END SELECT
 

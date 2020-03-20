@@ -64,11 +64,12 @@ module init
     end subroutine Hatch
 
     ! Read corner data for the mesh and set grid size variables
-    subroutine ReadCorners(Model,Grid,xmlInp,endTime)
+    subroutine ReadCorners(Model,Grid,xmlInp,endTime,noRestart)
         type(Model_T), intent(inout) :: Model
         type(Grid_T), intent(inout) :: Grid
         type(XML_Input_T), intent(inout) :: xmlInp
         real(rp), optional, intent(in) :: endTime
+        logical, optional, intent(in) :: noRestart
 
         logical :: doH5g
         character(len=strLen) :: inH5
@@ -100,7 +101,7 @@ module init
         !Restart file overwrites doH5g
         !Always read the full mesh file
         if (doH5g) call xmlInp%Set_Val(inH5,"sim/H5Grid","gMesh.h5")
-        if (Model%isRestart) then
+        if (Model%isRestart .and. (.not. present(noRestart) .or. .not. noRestart)) then
             call xmlInp%Set_Val(inH5,"restart/resFile","Res.h5")
 
             !If case is tiled, adjust the h5 filename for each rank

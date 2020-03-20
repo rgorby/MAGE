@@ -306,7 +306,7 @@ subroutine rcm_mhd(mhdtime,mhdtimedt,RM,iflag,iXML)
 ! end do couplingTimeLoop
   end if
 
-  if(iflag==2)then ! stop
+  if(iflag==RCMRESTART)then ! stop
   call rcm (itimei,itimef,irdr,irdw,idt,idt1,idt2,icontrol=5_iprec)
 !  call Finalize()    ! Matches Initialize() above
   call tearDownIon(RM) ! Matches setupIon() above
