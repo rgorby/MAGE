@@ -38,6 +38,10 @@ module gamtypes
         integer :: nSi,nSe !Start/End of slicing index
         character(len=strLen) :: GridID = "NONE" !Grid type: lfm,cyl,sph
         logical :: doS,doE !Whether to do +/- sides of singularity
+        logical :: doMassRA = .false.
+        !Whether to do mass ring-avg, which ring variables
+        !doMassRA = T => rho,rho*v,rho*Cs^2
+        !doMassRA = F => rho,mom  ,inte
     end type Ring_T
 
 !Unit information

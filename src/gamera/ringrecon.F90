@@ -33,16 +33,16 @@ module ringrecon
     !isGO (optional), which cells are good
     subroutine ReconstructRing(Model,rW,Nc,isGO)
         type(Model_T), intent(in) :: Model
-        real(rp), intent(inout) :: rW(Np)
+        real(rp), intent(inout) :: rW(Model%Ring%Np)
         integer, intent(in) :: Nc !Number of chunks in ring
-        logical, intent(in), optional :: isGO(Np)
+        logical, intent(in), optional :: isGO(Model%Ring%Np)
 
         !Hold expanded ring (ie ghosts)
         real(rp) :: chW(1-RingNg:Nc+RingNg)
         real(rp) :: fm2,fm1,f,fp1,fp2,fL,fR
         real(rp) :: a,b,c,fI
         integer :: dJ,m,n,nv, mS,mE,ngood
-        logical :: isG(Np)
+        logical :: isG(Model%Ring%Np)
 
         !DIR$ ASSUME_ALIGNED rW: ALIGN
 
@@ -52,6 +52,7 @@ module ringrecon
             isG = .true.
         endif
 
+        associate(Np=>Model%Ring%Np)
         dJ = Np/Nc
 
         !Fill inner region and add ghosts
@@ -98,14 +99,16 @@ module ringrecon
             enddo
         enddo !Chunks
 
+        end associate
+
     end subroutine ReconstructRing
 
     subroutine WgtReconstructRing(Model,rW,xW,Nc,isGO)
         type(Model_T), intent(in) :: Model
-        real(rp), intent(inout) :: rW(Np)
-        real(rp), intent(in) :: xW(Np)
+        real(rp), intent(inout) :: rW(Model%Ring%Np)
+        real(rp), intent(in) :: xW(Model%Ring%Np)
         integer, intent(in) :: Nc !Number of chunks in ring
-        logical, intent(in), optional :: isGO(Np)
+        logical, intent(in), optional :: isGO(Model%Ring%Np)
 
         !Hold expanded ring (ie ghosts)
         real(rp) :: chW(1-RingNg:Nc+RingNg),tMass(1-RingNg:Nc+RingNg)
@@ -113,7 +116,7 @@ module ringrecon
         real(rp) :: fm2,fm1,f,fp1,fp2,fL,fR
         real(rp) :: a,b,c,fI
         integer :: dJ,m,n,nv, mS,mE,ngood
-        logical :: isG(Np)
+        logical :: isG(Model%Ring%Np)
         real(rp) :: dwL,dwR,dwC,dwM,min1,min2
         real(rp), allocatable, dimension(:) :: xWC,Mxc,Mxi,dMx
         real(rp) :: xWC0
@@ -126,6 +129,7 @@ module ringrecon
             isG = .true.
         endif
 
+        associate(Np=>Model%Ring%Np)
         dJ = Np/Nc
 
         allocate(Mxc(1:dJ),dMx(1:dJ),xWC(1:dJ),Mxi(1:dJ+1))
@@ -203,7 +207,7 @@ module ringrecon
                 rW(mS+m-1) = fI*xW(mS+m-1)
             enddo
         enddo !Chunks
-
+        end associate
     end subroutine WgtReconstructRing
 
     !Lazy routine to make things equivalent to PCM

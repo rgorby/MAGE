@@ -950,12 +950,10 @@ module bcs
 
         integer :: n,i,k
         integer :: ig,jg,kg,ip,jp,kp
-        integer :: Np,Np2
+        
 
         !i,jg,k = ghost cell
-        !i,jp,kp = opposite cell
-        Np = Model%Ring%Np
-        Np2 = Np/2 !Halfway about pole
+        !i,jp,kp = conjugate cell
         
         !j-boundaries (IN)
         !$OMP PARALLEL DO default(shared) &
@@ -967,15 +965,21 @@ module bcs
                     ig = i
                     jg = Grid%js-n
                     kg = k
-                    call lfmIJK(Model,Grid,ig,jg,kg,ip,jp,kp)
-
+                    
                     if (isCellCenterG(Model,Grid,ig,jg,kg)) then
+                        call lfmIJKcc(Model,Grid,ig,jg,kg,ip,jp,kp)
                         State%Gas    (ig,jg,kg,:,:)  =  State%Gas    (ip,jp  ,kp,:,:)
                         State%Bxyz   (ig,jg,kg,:)    =  State%Bxyz   (ip,jp  ,kp,:)
                     endif
-                    State%magFlux(ig,jg,kg,IDIR) =  State%magFlux(ip,jp  ,kp,IDIR)
-                    State%magFlux(ig,jg,kg,JDIR) = -State%magFlux(ip,jp+1,kp,JDIR)
-                    State%magFlux(ig,jg,kg,KDIR) = -State%magFlux(ip,jp  ,kp,KDIR)
+                    !I face
+                    call lfmIJKfc(Model,Grid,IDIR,ig,jg,kg,ip,jp,kp)
+                    State%magFlux(ig,jg,kg,IDIR) =  State%magFlux(ip,jp,kp,IDIR)
+                    !J face
+                    call lfmIJKfc(Model,Grid,JDIR,ig,jg,kg,ip,jp,kp)
+                    State%magFlux(ig,jg,kg,JDIR) = -State%magFlux(ip,jp,kp,JDIR)
+                    !K face
+                    call lfmIJKfc(Model,Grid,KDIR,ig,jg,kg,ip,jp,kp)
+                    State%magFlux(ig,jg,kg,KDIR) = -State%magFlux(ip,jp,kp,KDIR)
 
                 enddo
             enddo
@@ -991,13 +995,9 @@ module bcs
 
         integer :: n,i,k
         integer :: ig,jg,kg,ip,jp,kp
-        integer :: Np,Np2
 
         !i,jg,k = ghost cell
-        !i,jp,kp = opposite cell
-
-        Np = Model%Ring%Np
-        Np2 = Np/2 !Halfway about pole
+        !i,jp,kp = conjugate cell
 
         !j-boundaries (OUT)
         !$OMP PARALLEL DO default(shared) &
@@ -1009,15 +1009,21 @@ module bcs
                     ig = i
                     jg = Grid%je+n
                     kg = k
-                    call lfmIJK(Model,Grid,ig,jg,kg,ip,jp,kp)
                     if (isCellCenterG(Model,Grid,ig,jg,kg)) then
+                        call lfmIJKcc(Model,Grid,ig,jg,kg,ip,jp,kp)
                         State%Gas    (ig,jg  ,kg,:,:)  = State%Gas     (ip,jp,kp,:,:)
                         State%Bxyz   (ig,jg  ,kg,:)    = State%Bxyz    (ip,jp,kp,:)
                     endif
-                    State%magFlux(ig,jg  ,kg,IDIR) =  State%magFlux(ip,jp,kp,IDIR)
+                    !I face
+                    call lfmIJKfc(Model,Grid,IDIR,ig,jg,kg,ip,jp,kp)
+                    State%magFlux(ig,jg,kg,IDIR) =  State%magFlux(ip,jp,kp,IDIR)
+                    
+                    !J face (first ghost is je+2)
+                    call lfmIJKfc(Model,Grid,JDIR,ig,jg+1,kg,ip,jp,kp)
                     State%magFlux(ig,jg+1,kg,JDIR) = -State%magFlux(ip,jp,kp,JDIR)
-                    State%magFlux(ig,jg  ,kg,KDIR) = -State%magFlux(ip,jp,kp,KDIR)
-
+                    !K face
+                    call lfmIJKfc(Model,Grid,KDIR,ig,jg,kg,ip,jp,kp)
+                    State%magFlux(ig,jg,kg,KDIR) = -State%magFlux(ip,jp,kp,KDIR)
                 enddo
             enddo
         enddo

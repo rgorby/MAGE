@@ -6,6 +6,7 @@ module gamdebug
 
     logical, private :: doVerboseDB = .true.
     logical, private :: didFix = .false.
+    logical, private :: firstFix = .false.
     contains
 
 
@@ -18,8 +19,9 @@ module gamdebug
         integer :: i,j,k
         real(rp) :: dEi,dEj
 
-        if (.not. didFix) return
+        if (.not. firstFix) return
         
+        if (doVerboseDB) write(*,*) 'Checking E field ...'
         do i=Grid%is,Grid%ie+1
             do j=Grid%js,Grid%je+1
                 dEi = abs(State%Efld(i,j,Grid%ks,IDIR) - State%Efld(i,j,Grid%ke+1,IDIR))
@@ -43,8 +45,8 @@ module gamdebug
         integer :: i,j,k
         real(rp) :: dB
 
-        if (.not. didFix) return
-
+        if (.not. firstFix) return
+        if (doVerboseDB) write(*,*) 'Checking Bk ...'
         do i=Grid%is,Grid%ie
             do j=Grid%js,Grid%je
                 dB = abs(State%magFlux(i,j,Grid%ks,KDIR)-State%magFlux(i,j,Grid%ke+1,KDIR))
@@ -56,6 +58,71 @@ module gamdebug
 
     end subroutine ChkFluxLFM
 
+    !Checks magfluxes on K-periodic boundary
+    subroutine ChkGasFluxLFM(Model,Grid,gFlx,mFlx)
+        type(Model_T), intent(in) :: Model
+        type(Grid_T), intent(in) :: Grid
+        real(rp), intent(inout)           :: gFlx(Grid%isg:Grid%ieg,Grid%jsg:Grid%jeg,Grid%ksg:Grid%keg,1:NVAR,1:NDIM,BLK:Model%nSpc)
+        real(rp), intent(inout), optional :: mFlx(Grid%isg:Grid%ieg,Grid%jsg:Grid%jeg,Grid%ksg:Grid%keg,1:NDIM,1:NDIM)
+        
+
+        integer :: i,j,k
+        real(rp) :: dFg,dFm,dB
+
+        if (.not. firstFix) return
+
+        if (doVerboseDB) write(*,*) 'Checking stresses ...'
+        do i=Grid%is,Grid%ie
+            do j=Grid%js,Grid%je
+                dFg = norm2( gFlx(i,j,Grid%ks,:,KDIR,:) - gFlx(i,j,Grid%ke+1,:,KDIR,:) )
+                dFm = norm2( mFlx(i,j,Grid%ks,:,KDIR  ) - mFlx(i,j,Grid%ke+1,:,KDIR  ) )
+
+                dB = dFg+dFm
+                if ( dB > TINY ) then
+                    if (doVerboseDB) write(*,*) 'Fluxes: i/j, dFg,dFm = ',i,j,dFg,dFm
+
+                endif
+            enddo
+        enddo
+
+    end subroutine ChkGasFluxLFM
+
+    !Fixes gas fluxes on K-periodic boundary
+    subroutine FixGasFluxLFM(Model,Grid,gFlx,mFlx)
+        type(Model_T), intent(in) :: Model
+        type(Grid_T), intent(in) :: Grid
+        real(rp), intent(inout)           :: gFlx(Grid%isg:Grid%ieg,Grid%jsg:Grid%jeg,Grid%ksg:Grid%keg,1:NVAR,1:NDIM,BLK:Model%nSpc)
+        real(rp), intent(inout), optional :: mFlx(Grid%isg:Grid%ieg,Grid%jsg:Grid%jeg,Grid%ksg:Grid%keg,1:NDIM,1:NDIM)
+
+        integer :: i,j,k
+        real(rp), dimension(NDIM) :: mF
+        real(rp), dimension(NVAR,BLK:Model%nSpc) :: gF
+        logical :: doMaxwell
+
+        if (present(mFlx)) doMaxwell = .true.
+
+        if ( Grid%hasLowerBC(KDIR) .and. Grid%hasUpperBC(KDIR) ) then
+
+            !$OMP PARALLEL DO default(shared) &
+            !$OMP private(i,j,mF,gF)
+            do j=Grid%js,Grid%je          
+                do i=Grid%is,Grid%ie
+                    !Gas fluxes
+                    gF = 0.5*( gFlx(i,j,Grid%ks,:,KDIR,:) + gFlx(i,j,Grid%ke+1,:,KDIR,:) )
+                    gFlx(i,j,Grid%ks  ,:,KDIR,:) = gF
+                    gFlx(i,j,Grid%ke+1,:,KDIR,:) = gF
+                    
+                    if (doMaxwell) then
+                        mF = 0.5*( mFlx(i,j,Grid%ks,:,KDIR) + mFlx(i,j,Grid%ke+1,:,KDIR) )
+                        mFlx(i,j,Grid%ks  ,:,KDIR) = mF
+                        mFlx(i,j,Grid%ke+1,:,KDIR) = mF
+                    endif
+                enddo
+            enddo
+        endif !Both low-K and hi-K
+
+    end subroutine FixGasFluxLFM
+
     !Fixes magfluxes on K-periodic boundary
     subroutine FixFluxLFM(Model,Grid,State)
         type(Model_T), intent(in) :: Model
@@ -65,41 +132,45 @@ module gamdebug
         integer :: i,j,k
         real(rp) :: dB
 
-        !if (didFix) return
+        if (firstFix) return
 
         do i=Grid%is,Grid%ie
             do j=Grid%js,Grid%je
                 dB = 0.5*(State%magFlux(i,j,Grid%ks,KDIR) + State%magFlux(i,j,Grid%ke+1,KDIR))
                 State%magFlux(i,j,Grid%ks  ,KDIR) = dB
                 State%magFlux(i,j,Grid%ke+1,KDIR) = dB
-
              enddo
         enddo
-        didFix = .true.
+        firstFix = .true.
 
     end subroutine FixFluxLFM
 
     !Force agreement of E fields across K-periodic boundary
-    subroutine FixEFieldLFM(Model,Grid,State)
-        type(Model_T), intent(in) :: Model
-        type(Grid_T), intent(in) :: Grid
-        type(State_T), intent(inout) :: State
+    subroutine FixEFieldLFM(Model,Gr,E)
+        type(Model_T), intent(in)    :: Model
+        type(Grid_T) , intent(in)    :: Gr
+        real(rp)     , intent(inout) :: E(Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,NDIM)
 
         integer :: i,j,k
         real(rp) :: Ei,Ej
 
-        do i=Grid%is,Grid%ie+1
-            do j=Grid%js,Grid%je+1
-                Ei = 0.5*(State%Efld(i,j,Grid%ks,IDIR) + State%Efld(i,j,Grid%ke+1,IDIR))
-                Ej = 0.5*(State%Efld(i,j,Grid%ks,JDIR) + State%Efld(i,j,Grid%ke+1,JDIR))
-                
-                State%Efld(i,j,Grid%ks  ,IDIR) = Ei
-                State%Efld(i,j,Grid%ke+1,IDIR) = Ei
-                State%Efld(i,j,Grid%ks  ,JDIR) = Ej
-                State%Efld(i,j,Grid%ke+1,JDIR) = Ej
+        if ( Gr%hasLowerBC(KDIR) .and. Gr%hasUpperBC(KDIR) ) then
 
+            !$OMP PARALLEL DO default(shared) &
+            !$OMP private(i,j,Ei,Ej)
+            do j=Gr%js,Gr%je+1          
+                do i=Gr%is,Gr%ie+1
+                    Ei = 0.5*(E(i,j,Gr%ks,IDIR) + E(i,j,Gr%ke+1,IDIR))
+                    Ej = 0.5*(E(i,j,Gr%ks,JDIR) + E(i,j,Gr%ke+1,JDIR))
+                    
+                    E(i,j,Gr%ks  ,IDIR) = Ei
+                    E(i,j,Gr%ke+1,IDIR) = Ei
+                    E(i,j,Gr%ks  ,JDIR) = Ej
+                    E(i,j,Gr%ke+1,JDIR) = Ej
+                enddo
             enddo
-        enddo
+
+        endif !Both low-K and hi-K
 
     end subroutine FixEFieldLFM
 

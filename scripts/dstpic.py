@@ -80,7 +80,7 @@ if __name__ == "__main__":
 		mp = mp + 1
 
 	tScl = 1.0/(60.0*60)
-	UT = Time(MJD+0.04166666666,format='mjd').isot #time shifting by an hour
+	UT = Time(MJD,format='mjd').isot #time shifting by an hour
 	ut = [datetime.datetime.strptime(UT[n],isotfmt) for n in range(len(UT))]
 
 	LW = 0.75

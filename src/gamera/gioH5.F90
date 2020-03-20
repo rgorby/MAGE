@@ -6,6 +6,7 @@ module gioH5
     use gridutils
     use ioH5
     use multifluid
+    use earthhelper
     use dates
     use files
     
@@ -405,18 +406,6 @@ module gioH5
         end associate
 
         contains
-            function MagsphereDipole(xyz,M0) result(Bd)
-                real(rp), intent(in) :: xyz(NDIM), M0
-                real(rp) :: Bd(NDIM)
-
-                real(rp) :: rad
-                real(rp), dimension(NDIM) :: m
-
-                rad = norm2(xyz)
-                m = [0.0_rp,0.0_rp,M0]
-                Bd = 3*dot_product(m,xyz)*xyz/rad**5.0 - m/rad**3.0
-
-            end function MagsphereDipole
 
             subroutine GameraOut(vID,uID,vScl,V)
                 character(len=*), intent(in) :: vID,uID

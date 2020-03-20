@@ -27,7 +27,7 @@ module uservoltic
     real(rp),private :: Rho0,P0
 
     !Some knobs for initialization
-    logical , private :: doNewIC = .true.
+    logical , private :: doNewIC = .false.
     real(rp), private :: Lc  = 8.0
     real(rp), private :: dLc = 4.0
     real(rp), private :: DInner = 10.0
@@ -215,9 +215,6 @@ module uservoltic
         type(Grid_T), intent(inout) :: Gr
         type(State_T), intent(inout) :: State
 
-        integer :: i,j,k
-        real(rp) :: dF
-
         !Call ingestion function
         if (Model%doSource) then
             call MagsphereIngest(Model,Gr,State)
@@ -242,8 +239,6 @@ module uservoltic
         type(Grid_T), intent(inout) :: Gr
         type(State_T), intent(inout) :: State
 
-        !call ChkEFieldLFM(Model,Gr,State)
-        
         !Fix inner shells
         if (Gr%hasLowerBC(IDIR)) then
             SELECT type(iiBC=>Gr%externalBCs(INI)%p)
@@ -260,43 +255,44 @@ module uservoltic
             SELECT type(pWind=>Gr%externalBCs(OUTI)%p)
                 TYPE IS (WindBC_T)
                    call WindEFix(pWind,Model,Gr,State)
-                CLASS DEFAULT
-                    write(*,*) 'Could not find Wind BC in EFix'
-                    stop
+            CLASS DEFAULT
+                write(*,*) 'Could not find Wind BC in EFix'
+                stop
             END SELECT
+
+            call FixEFieldLFM(Model,Gr,State%Efld)
         endif
 
-        !call FixEFieldLFM(Model,Gr,State)             
+        
     end subroutine EFix
 
     !Fixes cell-centered fields in the predictor
-
     subroutine PredFix(Model,Gr,State)
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(inout) :: Gr
         type(State_T), intent(inout) :: State
 
         !Fix inner shells
-        SELECT type(iiBC=>Gr%externalBCs(INI)%p)
-            TYPE IS (IonInnerBC_T)
-                if (Gr%hasLowerBC(IDIR)) then
+        if (Gr%hasLowerBC(IDIR)) then
+            SELECT type(iiBC=>Gr%externalBCs(INI)%p)
+                TYPE IS (IonInnerBC_T)
                     call IonPredFix(Model,Gr,State)
-                endif
-            CLASS DEFAULT
-                write(*,*) 'Could not find Ion Inner BC in PredFix'
-                stop
-        END SELECT
+                CLASS DEFAULT
+                    write(*,*) 'Could not find Ion Inner BC in PredFix'
+                    stop
+            END SELECT
+        endif
 
         !Fix outer shells
-        SELECT type(pWind=>Gr%externalBCs(OUTI)%p)
-            TYPE IS (WindBC_T)
-                if (Gr%hasUpperBC(IDIR)) then
+        if (Gr%hasUpperBC(IDIR)) then
+            SELECT type(pWind=>Gr%externalBCs(OUTI)%p)
+                TYPE IS (WindBC_T)
                    call WindPredFix(pWind,Model,Gr,State)
-                end if
-            CLASS DEFAULT
-                write(*,*) 'Could not find Wind BC in PredFix'
-                stop
-        END SELECT
+                CLASS DEFAULT
+                    write(*,*) 'Could not find Wind BC in PredFix'
+                    stop
+            END SELECT
+        endif
 
     end subroutine PredFix
 
@@ -418,7 +414,7 @@ module uservoltic
                     !Do cell-centered stuff
                     if (isCellCenterG(Model,Grid,ig,j,k)) then
                         !Map to active ip,jp,kp (i=Grid%is => ip=Grid%is)
-                        call lfmIJK(Model,Grid,Grid%is-1,j,k,idip,jp,kp)
+                        call lfmIJKcc(Model,Grid,Grid%is-1,j,k,idip,jp,kp)
 
                         !Get dipole value
                         Bd = VecDipole(Grid%xyzcc(idip,jp,kp,:))
@@ -429,7 +425,7 @@ module uservoltic
                         Veb = cross(Exyz,Bd)/dot_product(Bd,Bd)
                         !Remove radial component of velocity
                         rHat = normVec(Grid%xyzcc(idip,jp,kp,:))
-                        Veb = Vec2Para(Veb,rHat)
+                        Veb = Vec2Perp(Veb,rHat)
 
                         !Now do spherical wall BC
                         call SphereWall(Model,State%Gas(ig,j,k,:,:),State%Gas(ip,jp,kp,:,:),Veb)
@@ -437,7 +433,7 @@ module uservoltic
                     endif !Cell-centered
 
                 !Now do face fluxes
-                    call lfmIJK(Model,Grid,ig,j,k,ip,jp,kp)
+                    
                     dApm(IDIR:KDIR) = 1 !Use this to hold coefficients for singularity geometry
 
                     if ( (Model%Ring%doS) .and. (j < Grid%js) ) then
@@ -449,6 +445,8 @@ module uservoltic
 
                     !Loop over face directions
                     do d=IDIR,KDIR
+                        call lfmIJKfc(Model,Grid,d,ig,j,k,ip,jp,kp)
+
                         dA = Grid%face(ig,j,k,d)/Grid%face(Grid%is,jp,kp,d)
                         if ( isLowLat(Grid%xfc(ig,j,k,:,d),llBC) ) then
                             !State%magFlux(ig,j,k,d) = 0.0
@@ -484,14 +482,14 @@ module uservoltic
         integer :: n,ip,ig,ix,jp,kp,j,k
 
         !$OMP PARALLEL DO default(shared) &
-        !$OMP private(n,ip,ig,ix,j,k)        
+        !$OMP private(n,ip,ig,ix,jp,kp,j,k)  
         do k=Grid%ksg,Grid%keg
-            do j=Grid%js,Grid%je
+            do j=Grid%jsg,Grid%jeg
                 do n=1,Model%Ng
                     ip = Grid%is
                     ig = Grid%is-n
 
-                    call lfmIJK(Model,Grid,ig,j,k,ix,jp,kp)
+                    call lfmIJKcc(Model,Grid,ig,j,k,ix,jp,kp)
                     State%Bxyz(ig,j,k,:) = State%Bxyz(ip,jp,kp,:)
 
                 enddo !n loop
@@ -499,133 +497,5 @@ module uservoltic
         enddo !k loop
 
     end subroutine IonPredFix
-
-    ! !Inner-I BC for ionosphere
-    ! subroutine IonInner(bc,Model,Grid,State)
-    !     class(IonInnerBC_T), intent(inout) :: bc
-    !     type(Model_T), intent(in) :: Model
-    !     type(Grid_T), intent(in) :: Grid
-    !     type(State_T), intent(inout) :: State
-
-    !     integer :: i,j,k,ip,jp,kp,ig,n,np
-    !     logical :: isLL
-    !     real(rp) :: rc,xc,yc,zc,Vr,invlat
-    !     real(rp) :: xcg,ycg,zcg,xcd,ycd,zcd
-    !     real(rp) :: Rin,llBC !Shared
-    !     real(rp), dimension(NDIM) :: Exyz,Veb,dB,Bd,rHatG,rHatP,Vxyz,Vmir
-    !     real(rp), dimension(NVAR) :: pW,pCon,gW,gCon
-
-    !     !Get inner radius and low-latitude
-    !     Rin = norm2(Grid%xyz(Grid%is,Grid%js,Grid%ks,:))
-    !     llBC = 90.0 - rad2deg*asin(sqrt(Rion/Rin)) !co-lat -> lat
-
-    !     !write(*,*) 'Rin / llbc = ',Rin,llBC
-
-    !     !i-boundaries (IN)
-    !     !$OMP PARALLEL DO default(shared) &
-    !     !$OMP private(i,j,k,ip,jp,kp,ig,n,np,isLL) &
-    !     !$OMP private(rc,xc,yc,zc,Vr,invlat) &
-    !     !$OMP private(xcg,ycg,zcg,xcd,ycd,zcd) &
-    !     !$OMP private(Exyz,Veb,Bd,dB,rHatG,rHatP,Vxyz,Vmir) &
-    !     !$OMP private(pW,pCon,gW,gCon)
-    !     do k=Grid%ksg,Grid%keg
-    !         do j=Grid%jsg,Grid%jeg
-    !             !Map to active ip,jp,kp (i=Grid%is => ip=Grid%is)
-    !             call lfmIJK(Model,Grid,Grid%is,j,k,ip,jp,kp)
-
-    !             !Loop inward over ghosts
-    !             do n=1,Model%Ng
-    !                 ig = Grid%is-n
-    !                 ip = Grid%is+n-1
-    !                 !Map n=[1,ng] -> inExyz
-    !                 !ASSUMING PsiSt=-3 if you're nudging, so n=[1,ng]->[4,...,1]
-    !                 np = Model%nG-n+1 !Mapping into 1,4 of inExyz
-
-    !             !-------
-    !             !Get geometry for this ghost and matching physical
-
-    !                 !NOTE: Using j/k instead of jp/kp to deal with double-corner sign flip
-    !                 call cellCenter(Grid,ig,j ,k ,xcg,ycg,zcg)
-    !                 rHatG = normVec([xcg,ycg,zcg])
-
-    !                 call cellCenter(Grid,ip,jp,kp,xc,yc,zc)
-    !                 rHatP = normVec([xc,yc,zc])
-
-    !                 invlat = rad2deg*InvLatitude([xcg,ycg,zcg]) !Convert to degrees
-
-    !                 if (invlat<=llBC) then
-    !                     isLL = .true.
-    !                 else
-    !                     isLL = .false.
-    !                 endif
-
-    !             !-------
-    !             !Get E, dipole/perturbation and ExB velocity/Mirror velocity
-
-    !                 !Get velocity from i-reflected active cell
-    !                 Vmir = State%Gas(ip,jp,kp,MOMX:MOMZ,BLK)/max(State%Gas(ip,jp,kp,DEN,BLK),dFloor)
-    !                 Exyz = bc%inExyz(np,jp,kp,:)
-
-    !                 !Choose which dipole ExB speed to use, true ghost value is much faster
-    !                 xcd = Grid%xyzcc(Grid%is-1,jp,kp,XDIR)
-    !                 ycd = Grid%xyzcc(Grid%is-1,jp,kp,YDIR)
-    !                 zcd = Grid%xyzcc(Grid%is-1,jp,kp,ZDIR)
-    !                 call Dipole(xcd,ycd,zcd,Bd(XDIR),Bd(YDIR),Bd(ZDIR))
-                    
-    !                 dB = State%Bxyz(ip,jp,kp,:)
-    !                 !ExB velocity
-    !                 Veb = cross(Exyz,Bd)/dot_product(Bd,Bd)
-
-    !                 !Use ExB (w/o radial) and mirror
-    !                 Vxyz = Veb - rHatP*dot_product(rHatP,Veb) !- rHatP*dot_product(rHatP,Vmir)
-    !             !-------
-    !             !Set ghost hydro quantities
-    !                 !Let density float
-    !                 call SphereWall(Model,State%Gas(ig,j,k,:,:),State%Gas(ip,jp,kp,:,:),Vxyz)
-    !                 !Now do polar outflow if testing
-    !                 if (Model%doMultiF .and. (invlat>=70) .and. (Model%nSpc>2)) then
-    !                     gW(DEN) = 100.0
-    !                     gW(VELX:VELZ) = 0.2*rHatP + Veb - rHatP*dot_product(rHatP,Veb)
-    !                     gW(PRESSURE) = 1.0e-3
-    !                     call CellP2C(Model,gW,gCon)
-    !                     State%Gas(ig,j,k,:,3) = gCon
-    !                     !Reset bulk
-    !                     call MultiF2Bulk(Model,State%Gas(ig,j,k,:,:))
-    !                 endif
-
-    !             !-------
-    !             !Now handle magnetic quantities (perturbation field)
-
-    !                 !Using rHatP to hold coefficients for singularity geometry
-    !                 rHatP = 1.0
-    !                 if ( (Model%Ring%doS) .and. (j < Grid%js) ) then
-    !                     rHatP(JDIR:KDIR) = -1.0
-    !                 endif
-    !                 if ( (Model%Ring%doE) .and. (j >= Grid%je+1) ) then
-    !                     rHatP(JDIR:KDIR) = -1.0
-    !                 endif
-
-    !                 State%magFlux(ig,j,k,IDIR) = rHatP(IDIR)*Grid%face(ig,j,k,IDIR)*dot_product(dB,Grid%Tf(ig,j,k,NORMX:NORMZ,IDIR))
-    !                 State%magFlux(ig,j,k,JDIR) = rHatP(JDIR)*Grid%face(ig,j,k,JDIR)*dot_product(dB,Grid%Tf(ig,j,k,NORMX:NORMZ,JDIR))
-    !                 State%magFlux(ig,j,k,KDIR) = rHatP(KDIR)*Grid%face(ig,j,k,KDIR)*dot_product(dB,Grid%Tf(ig,j,k,NORMX:NORMZ,KDIR))
-    !                 if (j == Grid%jeg) then
-    !                     State%magFlux(ig,j+1,k,IDIR:KDIR) = 0.0
-    !                     State%magFlux(ig,j+1,k,JDIR)      = Grid%face(ig,j+1,k,JDIR)*dot_product(dB,Grid%Tf(ig,j+1,k,NORMX:NORMZ,JDIR))
-    !                 endif
-
-    !             enddo !n
-    !         enddo
-    !     enddo
-
-    !     !NOTE: Currently just assuming we have full K
-    !     if ( Grid%hasLowerBC(KDIR) .and. Grid%hasUpperBC(KDIR) ) then
-    !         State%magFlux(Grid%is-Model%Ng:Grid%is-1,:,Grid%ke+1,IDIR:KDIR) = 0.0
-    !         State%magFlux(Grid%is-Model%Ng:Grid%is-1,:,Grid%ke+1,KDIR) = State%magFlux(Grid%is-Model%Ng:Grid%is-1,:,Grid%ks,KDIR)
-    !     else
-    !         write(*,*) 'IonInner not implemented for K decomposition'
-    !         stop
-    !     endif                  
-
-    ! end subroutine IonInner
     
 end module uservoltic
