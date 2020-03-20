@@ -259,10 +259,9 @@ module uservoltic
                 write(*,*) 'Could not find Wind BC in EFix'
                 stop
             END SELECT
-
-            call FixEFieldLFM(Model,Gr,State%Efld)
         endif
 
+        call FixEFieldLFM(Model,Gr,State%Efld)
         
     end subroutine EFix
 
