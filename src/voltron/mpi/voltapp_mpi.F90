@@ -178,6 +178,17 @@ module voltapp_mpi
             call initVoltron(vApp, vApp%gAppLocal)
         endif
 
+        ! receive current time information in case of a restart
+        call mpi_recv(vApp%IO%nOut, 1, MPI_INT, MPI_ANY_SOURCE, 97520, vApp%voltMpiComm, MPI_STATUS_IGNORE, ierr)
+        call mpi_recv(vApp%IO%nRes, 1, MPI_INT, MPI_ANY_SOURCE, 97530, vApp%voltMpiComm, MPI_STATUS_IGNORE, ierr)
+        call mpi_recv(vApp%gAppLocal%Model%t, 1, MPI_MYFLOAT, MPI_ANY_SOURCE, 97540, vApp%voltMpiComm, MPI_STATUS_IGNORE, ierr)
+        call mpi_recv(vApp%gAppLocal%Model%ts, 1, MPI_INT, MPI_ANY_SOURCE, 97550, vApp%voltMpiComm, MPI_STATUS_IGNORE, ierr)
+
+        ! update voltron app time, MJD and ts values
+        call stepVoltron(vApp, vApp%gAppLocal)
+        print *,'Voltron MPI has gamera  time = ',vApp%gAppLocal%Model%t
+        print *,'Voltron MPI has voltron time = ',vApp%time
+
         ! send all of the initial voltron parameters to the gamera ranks
         call mpi_bcast(vApp%time, 1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
         call mpi_bcast(vApp%tFin, 1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)

@@ -34,8 +34,6 @@ module voltio
         real(rp) :: cpcp(2) = 0.0
 
         real(rp) :: dpT,dtWall,cMJD,dMJD,simRate
-        real(rp) :: dSW,pSW,Dst
-        real(rp), dimension(NDIM) :: xW,bSW,vSW,bAng
 
         integer :: iYr,iDoY,iMon,iDay,iHr,iMin
         real(rp) :: rSec
@@ -67,16 +65,14 @@ module voltio
         call mjd2ut(cMJD,iYr,iDoY,iMon,iDay,iHr,iMin,rSec)
         write(utStr,'(I0.4,a,I0.2,a,I0.2,a,I0.2,a,I0.2,a,I0.2)') iYr,'-',iMon,'-',iDay,' ',iHr,':',iMin,':',nint(rSec)
 
-    !Get Dst estimate
-        call EstDST(gApp%Model,gApp%Grid,gApp%State,Dst)
+        !Get Dst estimate
+        !call EstDST(vApp%gApp%Model,gApp%Grid,gApp%State,Dst)
 
         write(*,'(a)',advance="no") ANSIBLUE
         !write (*, '(a,f8.3,a)')       '    dt/dt0 = ', 100*Model%dt/dt0, '%'
-        write (*, '(a,f7.2,a,3f8.2,a)')      '     Wind = ' , dSW,     ' [#/cc] / ',vSW,' [km/s, XYZ]'
-        write (*, '(a,f7.2,a,2f7.2,a)')      '       IMF = ' , bAng(1), '   [nT] / ',bAng(2),bAng(3),' [deg, Clock/Cone]'
         write (*, '(a,1f8.3,a)')             '      tilt = ' , dpT, ' [deg]'
         write (*, '(a,2f8.3,a)')             '      CPCP = ' , cpcp(NORTH), cpcp(SOUTH), ' [kV, N/S]'
-        write (*, '(a, f8.3,a)')             '    BSDst  ~ ' , Dst, ' [nT]'
+        !write (*, '(a, f8.3,a)')             '    BSDst  ~ ' , Dst, ' [nT]'
         write (*,'(a,a)')                    '      UT   = ', trim(utStr)
         write (*, '(a,1f7.3,a)')             '      Running @ ', simRate*100.0, '% of real-time'
         
