@@ -148,7 +148,7 @@ module gam2VoltComm_mpi
         ! send updated gamera parameter to the voltron rank
         ! only the rank with Ri/Rj/Rk==0 should send the values to voltron
         if(gApp%Grid%Ri==0 .and. gApp%Grid%Rj==0 .and. gApp%Grid%Rk==0) then
-            call mpi_send(dt0, 1, MPI_MYFLOAT, g2vComm%voltRank, 97510, g2vComm%voltMpiComm, ierr)
+            call mpi_send(gApp%Model%dt0, 1, MPI_MYFLOAT, g2vComm%voltRank, 97510, g2vComm%voltMpiComm, ierr)
         endif
 
         ! synchronize IO timing

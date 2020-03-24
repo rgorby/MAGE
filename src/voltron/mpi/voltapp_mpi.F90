@@ -209,7 +209,7 @@ module voltapp_mpi
         call mpi_bcast(vApp%gAppLocal%Model%dt, 1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
 
         ! receive updated gamera parameters from gamera rank
-        call mpi_recv(dt0, 1, MPI_MYFLOAT, MPI_ANY_SOURCE, 97510, vApp%voltMpiComm, MPI_STATUS_IGNORE, ierr)
+        call mpi_recv(vAPp%gAppLocal%Model%dt0, 1, MPI_MYFLOAT, MPI_ANY_SOURCE, 97510, vApp%voltMpiComm, MPI_STATUS_IGNORE, ierr)
 
         ! calculate what the next output and restart timing should be for gamera
         vApp%IO%tOut = floor(vApp%time/vApp%IO%dtOut)*vApp%IO%dtOut

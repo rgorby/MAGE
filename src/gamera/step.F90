@@ -111,8 +111,8 @@ module step
         endif
 
         !Apply a limit of 10x the initial timestep in case it starts static
-        if (dt0>TINY .and. CalcDT>(10.0*dt0)) then
-            CalcDT = 10.0 * dt0
+        if (Model%dt0>TINY .and. CalcDT>(10.0*Model%dt0)) then
+            CalcDT = 10.0 * Model%dt0
         endif
 
     end function CalcDT

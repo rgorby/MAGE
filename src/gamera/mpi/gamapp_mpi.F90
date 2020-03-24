@@ -498,7 +498,7 @@ module gamapp_mpi
             gamAppMpi%oState%time = gamAppMpi%State%time-Model%dt !Initial old state
 
             ! save the initial dt
-            dt0 = Model%dt
+            Model%dt0 = Model%dt
 
         endif
 
