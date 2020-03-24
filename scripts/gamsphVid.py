@@ -195,6 +195,8 @@ if __name__ == "__main__":
 	#Add MPI decomp
 	if (doMPI):
 		gCol = "deepskyblue"
+		LW = 0.25
+		ashd = 0.5
 		for i in range(gsph.Ri):
 			i0 = i*gsph.dNi
 			AxL.plot(gsph.xxi[i0,:],gsph.yyi[i0,:],gCol,linewidth=LW,alpha=ashd)
