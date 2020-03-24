@@ -17,7 +17,7 @@ module ringav
     logical, parameter, private :: doCleanLoop = .true. !Whether to remove magnetic field loops
     !Information for Fourier reductions
     integer, parameter, private :: NFT = 1 !Number of Fourier modes (beyond 0th) to remove from signed quantities
-    logical, parameter, private :: doShift = .true. !Whether to add random circular shift to ring chunking
+    logical, parameter, private :: doShift = .false. !Whether to add random circular shift to ring chunking
 
     !Enumerators for Fourier reduction coefficients
     enum, bind(C)

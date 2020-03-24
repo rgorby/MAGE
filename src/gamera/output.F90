@@ -8,11 +8,6 @@ module output
     
     implicit none
 
-    logical :: primOut = .true.
-    integer :: nFloors = 0
-    real(rp) :: dt0 = 0
-
-    character :: TAB = char(9)
     character(len=strLen) :: zcsClk = "Gamera" !Clock ID to use for ZCS calculation
 
     !ConOut_T
@@ -48,9 +43,16 @@ contains
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(in) :: State
 
-        real(rp) :: ZCs, wTime
+        real(rp) :: ZCs, wTime,dt0
         integer :: nTh
         character(len=strLen) :: tStr
+
+        if (Model%dt0 < TINY) then
+            dt0 = Model%dt
+        else
+            dt0 = Model%dt0
+        endif
+
         wTime = readClock(zcsClk)
 
         !Calculate zone-cycles per second
@@ -73,11 +75,7 @@ contains
 #ifdef _OPENMP
             nTh = Model%nTh
 #endif
-            write (*, '(a,f9.2,a,I0,a)') '      kZCs = ', ZCs/1000.0, ' (',nTh,' threads)'
-            if (nFloors > 0) then
-                write (*, '(a,I8)') '      nFloors = ', nFloors
-            endif
-            
+            write (*, '(a,f9.2,a,I0,a)') '      kZCs = ', ZCs/1000.0, ' (',nTh,' threads)'            
             write(*,'(a)',advance="no") ANSIRESET!, ''
         endif
 

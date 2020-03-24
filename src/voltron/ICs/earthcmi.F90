@@ -329,19 +329,20 @@ module uservoltic
 
             endif !doRing
 
-            ! !Now loop over inner sphere (only need active since we're only touching I fluxes)
-            ! !$OMP PARALLEL DO default(shared) &
-            ! !$OMP private(j,k)
-            ! do k=Gr%ks,Gr%ke
-            !     do j=Gr%js,Gr%je
-            !         !Trap for outward mass flux
-            !         if (gFlx(Gr%is,j,k,DEN,IDIR,BLK) > 0) then
-            !             gFlx(Gr%is,j,k,DEN   ,IDIR,BLK) = min( 0.0,gFlx(Gr%is,j,k,DEN   ,IDIR,BLK) )
-            !             gFlx(Gr%is,j,k,ENERGY,IDIR,BLK) = min( 0.0,gFlx(Gr%is,j,k,ENERGY,IDIR,BLK) )
-            !         endif
+            !Now loop over inner sphere (only need active since we're only touching I fluxes)
+            !$OMP PARALLEL DO default(shared) &
+            !$OMP private(j,k)
+            do k=Gr%ks,Gr%ke
+                do j=Gr%js,Gr%je
+                    !Trap for outward mass flux
+                    if (gFlx(Gr%is,j,k,DEN,IDIR,BLK) > 0) then
+                        gFlx(Gr%is,j,k,DEN   ,IDIR,BLK) = min( 0.0,gFlx(Gr%is,j,k,DEN   ,IDIR,BLK) )
+                        gFlx(Gr%is,j,k,ENERGY,IDIR,BLK) = min( 0.0,gFlx(Gr%is,j,k,ENERGY,IDIR,BLK) )
+                    endif
                     
-            !     enddo
-            ! enddo !K loop
+                enddo
+            enddo !K loop
+            
         endif !Inner i-tile and not MF
 
     end subroutine IonFlux

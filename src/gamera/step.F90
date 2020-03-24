@@ -89,7 +89,7 @@ module step
             endif
 
             !Check for slower but significant timestep drop
-            if ( (dt0>TINY) .and. (dt0/dtMin >=100) ) then
+            if ( (Model%dt0>TINY) .and. (Model%dt0/dtMin >=100) ) then
                 write(*,*) "<Timestep less than 1% of initial, exiting ...>"
                 isDisaster = .true.
             endif

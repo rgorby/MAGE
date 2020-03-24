@@ -43,11 +43,13 @@ module rcmimag
     !beta_average = Average plasma beta
     !Potential = MIX potential [Volts]
     !iopen = Field line topology (-1: Closed, 1: Open)
+    !Lb = Field line length [Re]
     type RCMTube_T
         real(rp) :: Vol,bmin,beta_average,Pave,Nave,pot
         real(rp) :: X_bmin(NDIM)
         integer(ip) :: iopen
         real(rp) :: latc,lonc !Conjugate lat/lon
+        real(rp) :: Lb
     end type RCMTube_T
 
     real(rp), dimension(:,:), allocatable, private :: mixPot
@@ -159,10 +161,10 @@ module rcmimag
 
                 RCMApp%latc(i,j)         = ijTube%latc
                 RCMApp%lonc(i,j)         = ijTube%lonc
-
+                RCMApp%Lb(i,j)           = ijTube%Lb
+                RCMApp%Tb(i,j)           = AlfvenBounce(ijTube%Nave,ijTube%bmin,ijTube%Lb)
                 !mix variables are stored in this order (longitude,colatitude), hence the index flip
                 RCMApp%pot(i,j)          = mixPot(j,i)
-                
             enddo
         enddo
 
@@ -196,6 +198,24 @@ module rcmimag
         maxRad = maxRad/(Re_cgs*1.0e-2)
         vApp%rTrc = 1.25*maxRad
         
+        contains
+            !Calculate Alfven bounce timescale
+            !D = #/m3, B = T, L = Re
+            function AlfvenBounce(D,B,L) result(dTb)
+                real(rp), intent(in) :: D,B,L
+                real(rp) :: dTb
+
+                real(rp) :: Va,nCC,bNT
+
+                if ( (D<TINY) .or. (L<TINY) ) then
+                    dTb = 0.0
+                    return
+                endif
+                nCC = D*rcmNScl !Get n in #/cc
+                bNT = B*1.0e+9 !Convert B to nT
+                Va = 22.0*bNT/sqrt(nCC) !km/s, from NRL plasma formulary
+                dTb = (L*Re_km)/Va
+            end function AlfvenBounce
     end subroutine AdvanceRCM
 
     !Set region of RCM grid that's "good" for MHD ingestion
@@ -231,8 +251,8 @@ module rcmimag
             jRadG(RCMApp%nLon_ion+1:RCMApp%nLon_ion+NRad) = jRad(1:NRad)
             do j=1,RCMApp%nLon_ion
                 !Take mean over range
-                !jRad(j) = sum(jRadG(j-NRad:j+NRad))/(2.0*NRad+1)
-                jRad(j) = (product(jRadG(j-NRad:j+NRad)))**(1.0/(2.0*NRad+1))
+                jRad(j) = sum(jRadG(j-NRad:j+NRad))/(2.0*NRad+1)
+                !jRad(j) = (product(jRadG(j-NRad:j+NRad)))**(1.0/(2.0*NRad+1))
                 !jRad(j) = minval(jRadG(j-NRad:j+NRad))
             enddo
         enddo
@@ -310,7 +330,7 @@ module rcmimag
         !Store data
         imW(IMDEN)  = ntot
         imW(IMPR)   = prcm
-        imW(IMTSCL) = 1.0
+        imW(IMTSCL) = CornerAvg(ijs,RCMApp%Tb)
         imW(IMX1)   = (180.0/PI)*lat
         imW(IMX2)   = (180.0/PI)*lon
 
@@ -331,7 +351,6 @@ module rcmimag
                     j0 = minloc( abs(lon  -RCMApp%glong ),dim=1 )
                     ijs(n,:) = [i0,j0]
                 enddo
-
             end subroutine CornerLocs
 
             !Average a quantity over the corners
@@ -396,8 +415,7 @@ module rcmimag
         !Topology
         !OCB =  0 (solar wind), 1 (half-closed), 2 (both ends closed)
         OCb = FLTop(ebModel,ebGr,bTrc)
-
-        
+  
     !Scale and store information
         if (OCb == 2) then
             !Closed field line
@@ -412,9 +430,9 @@ module rcmimag
             !Find conjugate lat/lon @ RIonRCM
             call FLConj(ebModel,ebGr,bTrc,xyzC)
             xyzIonC = DipoleShift(xyzC,RIonRCM)
-            !xyzIonC(ZDIR) uses abs(mlat), so make negative
-            ijTube%latc = asin(-xyzIonC(ZDIR)/norm2(xyzIonC))
+            ijTube%latc = asin(xyzIonC(ZDIR)/norm2(xyzIonC))
             ijTube%lonc = modulo( atan2(xyzIonC(YDIR),xyzIonC(XDIR)),2*PI )
+            ijTube%Lb = FLArc(ebModel,ebGr,bTrc)
         else
             ijTube%X_bmin = 0.0
             ijTube%bmin = 0.0
@@ -425,6 +443,7 @@ module rcmimag
             ijTube%beta_average = 0.0
             ijTube%latc = 0.0
             ijTube%lonc = 0.0
+            ijTube%Lb   = 0.0
         endif
 
         end associate
@@ -459,6 +478,8 @@ module rcmimag
 
         ijTube%latc = -lat
         ijTube%lonc = lon
+        ijTube%Lb   = L !Just lazily using L shell
+
         !ijTube%Nave = psphD(L)*1.0e+6 !#/cc => #/m3
 
     end subroutine DipoleTube
@@ -545,6 +566,8 @@ module rcmimag
         call AddOutVar(IOVars,"Nmhd",RCMApp%Nave*rcmNScl,uStr="#/cc")
         call AddOutVar(IOVars,"latc",RCMApp%latc*180.0/PI,uStr="deg")
         call AddOutVar(IOVars,"lonc",RCMApp%lonc*180.0/PI,uStr="deg")
+        call AddOutVar(IOVars,"Lb"  ,RCMApp%Lb,uStr="Re")
+        call AddOutVar(IOVars,"Tb"  ,RCMApp%Tb,uStr="s")
 
         call AddOutVar(IOVars,"eavg",RCMApp%eng_avg*1.0e-3,uStr="keV") !ev->keV
         call AddOutVar(IOVars,"eflux",RCMApp%flux,uStr="ergs/cm2")

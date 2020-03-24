@@ -111,6 +111,24 @@ module streamline
         end associate
     end function FLVol
 
+
+    !Calculate arc length of field line
+    function FLArc(Model,ebGr,bTrc) result(L)
+        type(chmpModel_T), intent(in) :: Model
+        type(ebGrid_T), intent(in) :: ebGr
+        type(fLine_T), intent(in) :: bTrc
+        real(rp) :: L
+        real(rp) :: dL
+        integer :: k
+
+        L = 0.0
+        do k=-bTrc%Nm,bTrc%Np-1
+            dL = norm2(bTrc%xyz(k+1,:)-bTrc%xyz(k,:))
+            L = L + dL
+        enddo
+
+    end function FLArc
+
     !Averaged density/pressure
     subroutine FLThermo(Model,ebGr,bTrc,bD,bP,dvB,bBetaO)
         type(chmpModel_T), intent(in) :: Model

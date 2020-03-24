@@ -182,7 +182,7 @@ module sstimag
 
         imW(IMDEN)  = D
         imW(IMPR)   = P
-        imW(IMTSCL) = 1.0
+        imW(IMTSCL) = 0.0 !Rely on coupling timescalee
         imW(IMX1)   = r
         imW(IMX2)   = (180.0/PI)*phi
         

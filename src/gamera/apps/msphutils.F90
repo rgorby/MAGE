@@ -890,16 +890,14 @@ module msphutils
                         !Scale tau, wIMag = [0,1] (less to more inner magnetospheric)
                         wIMag = IMagWgt(Model,pW,Bxyz)
                         wIMag = max(wIMag,TINY) !Avoid div by 0
-                    else
-                        wIMag = 1.0
+                        Tau = Tau/wIMag
                     endif
-                    Tau = Tau/wIMag
+                                        
+                    if (Tau<Model%dt) Tau = Model%dt !Unlikely to happen
 
                     if (doInD) then
                         dRho = Gr%Gas0(i,j,k,IMDEN,BLK) - pW(DEN)
-                        !pW(DEN) = pW(DEN) + (Model%dt/Tau)*max(0.0,dRho)
                         pW(DEN) = pW(DEN) + (Model%dt/Tau)*dRho
-
                     endif
 
                     if (doInP) then
@@ -918,8 +916,6 @@ module msphutils
                             dP = 0.0
                         endif
                         pW(PRESSURE) = pW(PRESSURE) + (Model%dt/Tau)*dP
-                        !pW(PRESSURE) = pW(PRESSURE) + (Model%dt/Tau)*max(0.0,dP)
-                        
                     endif
 
                     !Now put back

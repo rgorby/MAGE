@@ -359,10 +359,10 @@ module gioH5
             
             if (Model%doSource) then
                 call GameraOut("SrcD" ,gamOut%dID,gamOut%dScl,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,DEN     ,BLK))
+                call GameraOut("SrcP" ,gamOut%pID,gamOut%pScl,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,PRESSURE,BLK))
                 call GameraOut("SrcVx","CODE"    ,1.0_rp     ,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,VELX    ,BLK))
                 call GameraOut("SrcVy","CODE"    ,1.0_rp     ,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,VELY    ,BLK))
                 call GameraOut("SrcVz","CODE"    ,1.0_rp     ,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,VELZ    ,BLK))
-                call GameraOut("SrcP" ,gamOut%pID,gamOut%pScl,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,PRESSURE,BLK))
             endif
 
             if(Model%doResistive) then
@@ -485,10 +485,12 @@ module gioH5
 
     !Write restart dump to "ResF" output file
     subroutine writeH5Res(Model,Gr,State,ResF)
-        type(Model_T), intent(in) :: Model
+        type(Model_T), intent(inout) :: Model
         type(Grid_T),  intent(in) :: Gr
         type(State_T), intent(in) :: State
         character(len=*), intent(in) :: ResF
+
+        if (Model%dt0 < TINY) Model%dt0 = Model%dt
 
         !Reset IO chain
         call ClearIO(IOVars)
@@ -498,6 +500,7 @@ module gioH5
         call AddOutVar(IOVars,"nRes",Model%IO%nRes)
         call AddOutVar(IOVars,"ts"  ,Model%ts)
         call AddOutVar(IOVars,"t"   ,Model%t)
+        call AddOutVar(IOVars,"dt0"   ,Model%dt0)
 
         !Coordinates of corners
         call AddOutVar(IOVars,"X",Gr%x)
@@ -591,6 +594,7 @@ module gioH5
         !Should use FindIO routine
         State%magFlux(Gr%is:Gr%ie+1,Gr%js:Gr%je+1,Gr%ks:Gr%ke+1,:) = reshape(IOVars(2)%data,bDims)
 
+
         !Get main attributes
         if (doReset) then
             Model%IO%nOut = 0
@@ -602,7 +606,17 @@ module gioH5
             Model%IO%nRes = int(IOVars(4)%data(1)) + 1
             Model%ts   = int(IOVars(5)%data(1))
             Model%t = IOVars(6)%data(1)
-        endif        
+        endif
+        
+        !Set back to old dt0 if possible
+        Model%dt0 =0.0
+        if (ioExist(inH5,"dt0")) then
+            call ClearIO(IOVars)
+            call AddInVar(IOVars,"dt0")
+            call ReadVars(IOVars,.false.,inH5)
+            Model%dt0 = IOVars(1)%data(1)
+        endif
+
     !Do touchup to data structures
         State%time = Model%t
         Model%IO%tOut = floor(Model%t/Model%IO%dtOut)*Model%IO%dtOut

@@ -20,7 +20,6 @@ module ebsquish
         end subroutine Projection_T
     end interface
 
-    real(rp), parameter, private :: RDipole = 3.0
     real(rp), parameter, private :: startEps = 0.05
     real(rp), parameter, private :: rEps = 0.125
     real(rp), private :: Rinner
@@ -154,25 +153,27 @@ module ebsquish
         real(rp), intent(in) :: t
         real(rp), intent(out) :: x1,x2
 
-        real(rp), dimension(NDIM) :: xE,xIon
+        real(rp), dimension(NDIM) :: xE,xIon,xyz0
         real(rp) :: dX,rC
         logical :: isGood
 
         x1 = 0.0
         x2 = 0.0
-        if (norm2(xyz) <= RDipole) then
-            !Just assume dipole here
-            x1 = InvLatitude(xyz) 
-            x2 = atan2(xyz(YDIR),xyz(XDIR))
-            if (x2 < 0) x2 = x2 + 2*PI
-            return
-        endif
+
+        ! trap for when we're within epsilon of the inner boundary
+        ! (really, it's probably only the first shell of nodes at R=Rinner_boundary that doesn't trace correctly)
+        if ( (norm2(xyz)-Rinner)/Rinner < startEps ) then
+           ! dipole-shift to startEps
+           xyz0 = DipoleShift(xyz,norm2(xyz)+startEps)
+        else
+           xyz0 = xyz
+        end if
 
         !Use one-sided projection routine from chimp
         !Trace along field line (i.e. to northern hemisphere)
-        call project(ebModel,ebState,xyz,t,xE,+1,toEquator=.false.)
+        call project(ebModel,ebState,xyz0,t,xE,+1,toEquator=.false.)
 
-        dX = norm2(xyz-xE)
+        dX = norm2(xyz0-xE)
         rC = Rinner*(1.+rEps)
         isGood = (dX>TINY) .and. (norm2(xE) <= rC) .and. (xE(ZDIR) > 0)
 

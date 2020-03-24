@@ -19,7 +19,7 @@ if __name__ == "__main__":
 	#Defaults
 	Dir = os.getcwd()
 	nSk = 4	 #stride of time steps to calculate Dst
-
+	tpad = 8 #Number of hours beyond MHD to plot
 	MainS = """Creates simple plot comparing SYM-H from OMNI dataset to Gamera-RCM.
 	Need to run or point to directory that has the bcwind and msphere.gam files of interest
 	"""
@@ -27,18 +27,20 @@ if __name__ == "__main__":
 	parser = argparse.ArgumentParser(description=MainS, formatter_class=RawTextHelpFormatter)
 	parser.add_argument('-d',type=str,metavar="directory",default=Dir,help="Directory to read from (default: %(default)s)")
 	parser.add_argument('-nsk',type=int,metavar="step stride",default=nSk,help="Stride between steps used to calculate Dst (default: %(default)s)")
-
+	parser.add_argument('-tpad',type=float,metavar="time padding",default=tpad,help="Time beyond MHD data (in hours) to plot (default: %(default)s)")
+	
 	#Finalizing parsing
 	args = parser.parse_args()
 	Dir = args.d
 	nSk = args.nsk
+	tpad = args.tpad
 
 	#UT formats for plotting
 	isotfmt = '%Y-%m-%dT%H:%M:%S.%f'
 	t0fmt = '%Y-%m-%d %H:%M:%S'
 	utfmt='%H:%M \n%Y-%m-%d'
 
-	iS = [0,1,3,5,7]#,3]#,5,7]
+	iS = [0,1,3,5,7]
 	X0 = 0.0
 	Y0 = 0.0
 	Z0 = 0.0
@@ -80,7 +82,8 @@ if __name__ == "__main__":
 		mp = mp + 1
 
 	tScl = 1.0/(60.0*60)
-	UT = Time(MJD,format='mjd').isot #time shifting by an hour
+	UT = Time(MJD,format='mjd').isot
+	
 	ut = [datetime.datetime.strptime(UT[n],isotfmt) for n in range(len(UT))]
 
 	LW = 0.75
@@ -92,10 +95,23 @@ if __name__ == "__main__":
 	for i in range(NumI):
 		iStr = "GameRCM (i>=%d)"%(iS[i]+1)
 		ax.plot(ut,Dst[i,:],label=iStr,linewidth=LW)
-	ax.legend(loc='lower left',fontsize="small",ncol=2)
-	ax.axhline(color='magenta',linewidth=2*LW)
+	ax.legend(loc='upper right',fontsize="small",ncol=2)
+	ax.axhline(color='magenta',linewidth=0.5*LW)
 	ax.xaxis_date()
 	xfmt = dates.DateFormatter(utfmt)
 	ax.set_ylabel("Dst [nT]")
 	ax.xaxis.set_major_formatter(xfmt)
+	
+	xMinD = np.array(ut_symh).min()
+	xMaxD = np.array(ut_symh).max()
+	xMinS = np.array(ut).min()
+	xMaxS = np.array(ut).max()
+	
+	if (xMaxD>xMaxS):
+		xMax = min(xMaxS+datetime.timedelta(hours=tpad),xMaxD)
+	else:
+		xMax = xMaxS
+	xMin = xMinD
+
+	ax.set_xlim(xMin,xMax)
 	kv.savePic("qkdstpic.png")

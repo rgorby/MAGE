@@ -38,6 +38,7 @@ module voltio
         integer :: iYr,iDoY,iMon,iDay,iHr,iMin
         real(rp) :: rSec
         character(len=strLen) :: utStr
+        real(rp) :: dD,dP
 
         !Augment Gamera console output w/ Voltron stuff
         call getCPCP(vApp%mix2mhd%mixOutput,cpcp)
@@ -60,7 +61,6 @@ module voltio
             oMJD = cMJD
             isConInit = .true.
         endif
-
         !Get MJD info
         call mjd2ut(cMJD,iYr,iDoY,iMon,iDay,iHr,iMin,rSec)
         write(utStr,'(I0.4,a,I0.2,a,I0.2,a,I0.2,a,I0.2,a,I0.2)') iYr,'-',iMon,'-',iDay,' ',iHr,':',iMin,':',nint(rSec)
@@ -212,8 +212,8 @@ module voltio
         !$OMP PARALLEL DO default(shared) collapse(2) &
         !$OMP private(i,j,k,xyz,dV,r,bs1,bs2,bScl,dBz) &
         !$OMP reduction(+:Dst)
-        do k=Gr%ksg,Gr%keg
-            do j=Gr%jsg,Gr%jeg
+        do k=Gr%ks,Gr%ke
+            do j=Gr%js,Gr%je
                 do i=iMin,iMax
                     xyz = Gr%xyzcc (i,j,k,:)
                     dV  = Gr%volume(i,j,k)
@@ -229,6 +229,58 @@ module voltio
         enddo !k loop
 
     end subroutine EstDST
+
+    !Calculate relative difference between source/MHD
+    subroutine IMagDelta(Model,Gr,State,dD,dP)
+        type(Model_T), intent(in)  :: Model
+        type(Grid_T) , intent(in)  :: Gr
+        type(State_T), intent(in)  :: State
+        real(rp)     , intent(out) :: dD,dP
+
+        real(rp) :: Dsrc,Dmhd,Psrc,Pmhd
+        real(rp) :: dV
+        real(rp), dimension(NVAR) :: pCon,pW
+        logical :: doInD,doInP,doIngest
+        integer :: i,j,k
+
+        dD = 0.0
+        dP = 0.0
+        if (.not. Model%doSource) return
+
+        !Zero out accumulators
+        Dsrc = 0.0
+        Dmhd = 0.0
+        Psrc = 0.0
+        Pmhd = 0.0
+        do k=Gr%ks,Gr%ke
+            do j=Gr%js,Gr%je
+                do i=Gr%is,Gr%ie
+                    dV  = Gr%volume(i,j,k)
+                    doInD = (Gr%Gas0(i,j,k,IMDEN,BLK)>TINY)
+                    doInP = (Gr%Gas0(i,j,k,IMPR ,BLK)>TINY)
+                    doIngest = doInD .or. doInP
+                    
+                    if (.not. doIngest) cycle
+                    pCon = State%Gas(i,j,k,:,BLK)
+                    call CellC2P(Model,pCon,pW)
+
+                    if (doInD) then
+                        Dsrc = Dsrc + dV*Gr%Gas0(i,j,k,IMDEN,BLK)
+                        Dmhd = Dmhd + dV*pW(DEN)
+                    endif
+
+                    if (doInP) then
+                        Psrc = Psrc + dV*Gr%Gas0(i,j,k,IMPR,BLK)
+                        Pmhd = Pmhd + dV*pW(PRESSURE)
+                    endif
+                    
+                enddo
+            enddo
+        enddo
+        if (Dsrc>TINY) dD = Dmhd/Dsrc
+        if (Psrc>TINY) dP = Pmhd/Psrc
+        
+    end subroutine IMagDelta
 
 end module voltio
 
