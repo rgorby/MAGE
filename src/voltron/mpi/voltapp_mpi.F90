@@ -179,10 +179,14 @@ module voltapp_mpi
         endif
 
         ! receive current time information in case of a restart
-        call mpi_recv(vApp%IO%nOut, 1, MPI_INT, MPI_ANY_SOURCE, 97520, vApp%voltMpiComm, MPI_STATUS_IGNORE, ierr)
-        call mpi_recv(vApp%IO%nRes, 1, MPI_INT, MPI_ANY_SOURCE, 97530, vApp%voltMpiComm, MPI_STATUS_IGNORE, ierr)
-        call mpi_recv(vApp%gAppLocal%Model%t, 1, MPI_MYFLOAT, MPI_ANY_SOURCE, 97540, vApp%voltMpiComm, MPI_STATUS_IGNORE, ierr)
-        call mpi_recv(vApp%gAppLocal%Model%ts, 1, MPI_INT, MPI_ANY_SOURCE, 97550, vApp%voltMpiComm, MPI_STATUS_IGNORE, ierr)
+        if(vApp%gAppLocal%model%isRestart) then
+            call mpi_recv(vApp%IO%nOut, 1, MPI_INT, MPI_ANY_SOURCE, 97520, vApp%voltMpiComm, MPI_STATUS_IGNORE, ierr)
+            call mpi_recv(vApp%IO%nRes, 1, MPI_INT, MPI_ANY_SOURCE, 97530, vApp%voltMpiComm, MPI_STATUS_IGNORE, ierr)
+            call mpi_recv(vApp%gAppLocal%Model%t, 1, MPI_MYFLOAT, MPI_ANY_SOURCE, 97540, vApp%voltMpiComm, MPI_STATUS_IGNORE, ierr)
+            call mpi_recv(vApp%gAppLocal%Model%ts, 1, MPI_INT, MPI_ANY_SOURCE, 97550, vApp%voltMpiComm, MPI_STATUS_IGNORE, ierr)
+            call mpi_recv(vApp%IO%tOut, 1, MPI_MYFLOAT, MPI_ANY_SOURCE, 97560, vApp%voltMpiComm, MPI_STATUS_IGNORE, ierr)
+            call mpi_recv(vApp%IO%tRes, 1, MPI_MYFLOAT, MPI_ANY_SOURCE, 97570, vApp%voltMpiComm, MPI_STATUS_IGNORE, ierr)
+        endif
 
         ! update voltron app time, MJD and ts values
         call stepVoltron(vApp, vApp%gAppLocal)
