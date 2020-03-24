@@ -82,8 +82,8 @@ if __name__ == "__main__":
 		mp = mp + 1
 
 	tScl = 1.0/(60.0*60)
-	
 	UT = Time(MJD,format='mjd').isot
+	
 	ut = [datetime.datetime.strptime(UT[n],isotfmt) for n in range(len(UT))]
 
 	LW = 0.75
