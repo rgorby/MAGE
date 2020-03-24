@@ -192,15 +192,28 @@ if __name__ == "__main__":
 			rcmpp.RCMInset(AxRCM,rcmdata,nStp,vP)
 			rcmpp.AddRCMBox(AxL)
 
-		#Add MPI decomp
-		LW = 0.25
-		ashd = 0.25
-		if (doMPI):
-			for i in range(gsph.Ri):
-				i0 = i*gsph.dNi
-				AxL.plot(gsph.xxi[i0,:],gsph.yyi[i0,:],'m',linewidth=LW,alpha=ashd)
-				AxR.plot(gsph.xxi[i0,:],gsph.yyi[i0,:],'c',linewidth=LW,alpha=ashd)
-		
+	#Add MPI decomp
+	if (doMPI):
+		gCol = "deepskyblue"
+		for i in range(gsph.Ri):
+			i0 = i*gsph.dNi
+			AxL.plot(gsph.xxi[i0,:],gsph.yyi[i0,:],gCol,linewidth=LW,alpha=ashd)
+			AxR.plot(gsph.xxi[i0,:],gsph.yyi[i0,:],gCol,linewidth=LW,alpha=ashd)
+		if (gsph.Rj>1):
+			for j in range(1,gsph.Rj):
+				j0 = j*gsph.dNj
+				AxL.plot(gsph.xxi[:,j0] ,gsph.yyi[:,j0],gCol,linewidth=LW,alpha=ashd)
+				AxL.plot(gsph.xxi[:,j0],-gsph.yyi[:,j0],gCol,linewidth=LW,alpha=ashd)
+				AxR.plot(gsph.xxi[:,j0], gsph.yyi[:,j0],gCol,linewidth=LW,alpha=ashd)
+				AxR.plot(gsph.xxi[:,j0],-gsph.yyi[:,j0],gCol,linewidth=LW,alpha=ashd)
+			#X-axis (+)
+			AxL.plot(gsph.xxi[:,0], gsph.yyi[:,0],gCol,linewidth=LW,alpha=ashd)
+			AxR.plot(gsph.xxi[:,0], gsph.yyi[:,0],gCol,linewidth=LW,alpha=ashd)
+			#X-axis (-)
+			j0 = (gsph.Rj)*gsph.dNj
+			AxL.plot(gsph.xxi[:,j0], gsph.yyi[:,j0],gCol,linewidth=LW,alpha=ashd)
+			AxR.plot(gsph.xxi[:,j0], gsph.yyi[:,j0],gCol,linewidth=LW,alpha=ashd)
+
 		dxy = [32.5,32.5]
 		gsph.CMIViz(AxR,nStp,dxy=dxy,loc="upper left",doNorth=True)
 		gsph.CMIViz(AxR,nStp,dxy=dxy,loc="lower left",doNorth=False)
