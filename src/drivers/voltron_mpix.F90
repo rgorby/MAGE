@@ -43,9 +43,7 @@ program voltron_mpix
 
     call initClocks()
 
-    !TODO: Fix this to reset after MPI config to only output from root rank
-    verbose = .true.
-    
+    gApp%Model%isLoud = .true.    
     ! initial stab at this. rank 0 will be both a Gamera rank and the Voltron rank
 
     call initGamera_mpi(gApp,userInitFunc,MPI_COMM_WORLD,doIO=.false.)

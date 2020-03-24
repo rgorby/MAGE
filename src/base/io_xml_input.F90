@@ -110,9 +110,10 @@ module XML_Input
    !Global strings, for default/file messages
    character(len=*), parameter :: defXML_Str = "Using DEFAULT value for "
    integer, parameter :: MaxXML = 1000 ! HARD-CODED!!
+
    private
 
-   public :: XML_Input_T
+   public :: XML_Input_T,SetAllXML2Quiet
 
    ! Description:
    !   The XML_Input_T "class". This "class" is designed to handle
@@ -209,7 +210,6 @@ module XML_Input
 
 
    contains
-
       procedure :: Open_File
 
       ! Private (internal) function. This function opens the file
@@ -393,14 +393,15 @@ module XML_Input
       !   This subroutine should be the most widely used for users as
       !   it does not care about the type the user wishes to set.
       !   Errors will be thrown should a problem arise in dectecting the type
-
+      procedure :: BeQuiet
    end type XML_Input_T
 
 contains
-   !Set all XML reading to quiet on this rank
-   subroutine SetXML2Quiet()
-      doQuiet = .true.
-   end subroutine SetXML2Quiet
+
+   subroutine BeQuiet(this)
+      class(XML_Input_T) :: this
+      this%vrb = .false.
+   end subroutine BeQuiet
 
    subroutine Set_Real_RpSp(this, val, xmlp, dflt)
       class(XML_Input_T) :: this
@@ -865,6 +866,11 @@ contains
    end function Exists
 
    !------------------------------------------------------------------
+   
+   !Set all XML reading to quiet on this rank
+   subroutine SetAllXML2Quiet()
+      doQuiet = .true.
+   end subroutine SetAllXML2Quiet
 
 end module XML_Input
 

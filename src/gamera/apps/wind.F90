@@ -522,11 +522,12 @@ module wind
 
         type(IOVAR_T), dimension(MAXWINDVARS) :: IOVars
 
-        write(*,*) "---------------"
-        write(*,*) "Solar wind data"
-        write(*,*) "Reading wind data from ", trim(windBC%wID)
-        write(*,*) "Assuming input units: t,D,V,T,B = [s],[#/cm3],[m/s],[K],[nT]"
-        
+        if (Model%isLoud) then
+            write(*,*) "---------------"
+            write(*,*) "Solar wind data"
+            write(*,*) "Reading wind data from ", trim(windBC%wID)
+            write(*,*) "Assuming input units: t,D,V,T,B = [s],[#/cm3],[m/s],[K],[nT]"
+        endif        
         !Make sure file exists
         call CheckFileOrDie(windBC%wID, "Error opening wind file, exiting ...")
 
@@ -603,11 +604,12 @@ module wind
 
         windBC%B(:,XDIR) = windBC%Bx0 + windBC%ByC*windBC%B(:,YDIR) + windBC%BzC*windBC%B(:,ZDIR) 
 
-        write(*,'(a,3f8.3)') ' SW Coefficients (Bx0,ByC,BzC) = ', BCoef(3),BCoef(1),BCoef(2)
+        if (Model%isLoud) then
+            write(*,'(a,3f8.3)') ' SW Coefficients (Bx0,ByC,BzC) = ', BCoef(3),BCoef(1),BCoef(2)
 
-        write(*,*) "Finished reading solar wind data"
-        write(*,*) "---------------"
-        
+            write(*,*) "Finished reading solar wind data"
+            write(*,*) "---------------"
+        endif        
     end subroutine readWind
 
     !Interpolate from qWind data to provide wind BC

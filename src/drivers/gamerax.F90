@@ -13,8 +13,7 @@ program gamerax
     !call printConfigStamp()
     call initClocks()
 
-    !TODO: Fix this to reset after MPI config to only output from root rank
-    verbose = .true.
+    gApp%Model%isLoud = .true.
     
     call initGamera(gApp,userInitFunc)
 

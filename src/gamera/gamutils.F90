@@ -405,5 +405,4 @@ module gamutils
 #endif
     end function gID
 
-
 end module gamutils
