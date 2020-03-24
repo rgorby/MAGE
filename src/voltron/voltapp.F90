@@ -145,7 +145,13 @@ module voltapp
         gApp%Model%dt = CalcDT(gApp%Model,gApp%Grid,gApp%State)
         
         !Finally do first output stuff
-        call consoleOutputV(vApp,gApp)
+        !console output
+        if(vApp%isSeparate) then
+            call consoleOutputVOnly(vApp,gApp%Model%MJD0)
+        else
+            call consoleOutputV(vApp,gApp)
+        endif
+        !file output
         if (.not. gApp%Model%isRestart) then
             if(vApp%isSeparate) then
                 call fOutputVOnly(vApp)

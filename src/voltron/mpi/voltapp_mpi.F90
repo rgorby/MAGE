@@ -184,14 +184,10 @@ module voltapp_mpi
             call mpi_recv(vApp%IO%nRes, 1, MPI_INT, MPI_ANY_SOURCE, 97530, vApp%voltMpiComm, MPI_STATUS_IGNORE, ierr)
             call mpi_recv(vApp%gAppLocal%Model%t, 1, MPI_MYFLOAT, MPI_ANY_SOURCE, 97540, vApp%voltMpiComm, MPI_STATUS_IGNORE, ierr)
             call mpi_recv(vApp%gAppLocal%Model%ts, 1, MPI_INT, MPI_ANY_SOURCE, 97550, vApp%voltMpiComm, MPI_STATUS_IGNORE, ierr)
-            call mpi_recv(vApp%IO%tOut, 1, MPI_MYFLOAT, MPI_ANY_SOURCE, 97560, vApp%voltMpiComm, MPI_STATUS_IGNORE, ierr)
-            call mpi_recv(vApp%IO%tRes, 1, MPI_MYFLOAT, MPI_ANY_SOURCE, 97570, vApp%voltMpiComm, MPI_STATUS_IGNORE, ierr)
         endif
 
         ! update voltron app time, MJD and ts values
         call stepVoltron(vApp, vApp%gAppLocal)
-        print *,'Voltron MPI has gamera  time = ',vApp%gAppLocal%Model%t
-        print *,'Voltron MPI has voltron time = ',vApp%time
 
         ! send all of the initial voltron parameters to the gamera ranks
         call mpi_bcast(vApp%time, 1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
@@ -215,6 +211,9 @@ module voltapp_mpi
         ! receive updated gamera parameters from gamera rank
         call mpi_recv(dt0, 1, MPI_MYFLOAT, MPI_ANY_SOURCE, 97510, vApp%voltMpiComm, MPI_STATUS_IGNORE, ierr)
 
+        ! calculate what the next output and restart timing should be for gamera
+        vApp%IO%tOut = floor(vApp%time/vApp%IO%dtOut)*vApp%IO%dtOut
+        vApp%IO%tRes = vApp%time + vApp%IO%dtRes
         ! synchronize IO timing
         call mpi_bcast(vApp%IO%tOut/vApp%gAppLocal%Model%Units%gT0, &
                        1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)

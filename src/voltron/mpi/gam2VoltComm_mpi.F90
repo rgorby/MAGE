@@ -124,8 +124,6 @@ module gam2VoltComm_mpi
             call mpi_send(gApp%Model%IO%nRes, 1, MPI_INT, g2vComm%voltRank, 97530, g2vComm%voltMpiComm, ierr)
             call mpi_send(gApp%Model%t, 1, MPI_MYFLOAT, g2vComm%voltRank, 97540, g2vComm%voltMpiComm, ierr)
             call mpi_send(gApp%Model%ts, 1, MPI_INT, g2vComm%voltRank, 97550, g2vComm%voltMpiComm, ierr)
-            call mpi_send(gApp%Model%IO%tOut*gApp%Model%Units%gT0, 1, MPI_MYFLOAT, g2vComm%voltRank, 97560, g2vComm%voltMpiComm, ierr)
-            call mpi_send(gApp%Model%IO%tRes*gApp%Model%Units%gT0, 1, MPI_MYFLOAT, g2vComm%voltRank, 97570, g2vComm%voltMpiComm, ierr)
         endif
 
         ! initialize all of the starting parameters from the voltron rank
