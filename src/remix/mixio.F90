@@ -68,15 +68,11 @@ contains
        call genOutGrid(I(NORTH)%G%x,I(NORTH)%G%y,xc,yc)
        
        ! save grid only for north
-       call AddOutVar(IOVars,"X",xc)
-       call AddOutVar(IOVars,"Y",yc)
+       call AddOutVar(IOVars,"X",xc,uStr="Ri")
+       call AddOutVar(IOVars,"Y",yc,uStr="Ri")
 
-       ! inelegantly specifying the units
-       n0 = FindIO(IOVars,"X")
-       IOVars(n0)%unitStr = "Ri"
-       n0 = FindIO(IOVars,"Y")
-       IOVars(n0)%unitStr = "Ri"
-          
+       call AddOutVar(IOVars,"UnitsID","ReMIX")
+                
        !Write out the chain (to root)
        call WriteVars(IOVars,.true.,h5File)
     endif
