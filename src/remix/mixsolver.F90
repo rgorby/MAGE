@@ -276,6 +276,7 @@ module mixsolver
       iparm(2)  = 3
       iparm(24) = 1
       !iparm(28) =0; iparm (6) =0;
+      
       maxfct = 1
       mnum   = 1
       nrhs   = 1
