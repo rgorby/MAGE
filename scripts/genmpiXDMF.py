@@ -143,7 +143,7 @@ if __name__ == "__main__":
 		print("Writing %s"%(fOut))
 		#xTree = et.ElementTree(Xdmf)
 		#xTree.write(fOut,pretty_print=True,xml_declaration=True,encoding='UTF-8')
-                xmlStr = xml.dom.minidom.parseString(et.tostring(Xdmf)).toprettyxml(indent="    ")
+		xmlStr = xml.dom.minidom.parseString(et.tostring(Xdmf)).toprettyxml(indent="    ")
 		with open(fOut,"w") as f:
 			f.write(xmlStr)
 
