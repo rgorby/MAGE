@@ -6,6 +6,7 @@ module volttypes
     use ioclock
     use mixtypes
     use ebtypes
+    use rcmtypes
 
     implicit none
 
@@ -96,6 +97,8 @@ module volttypes
         type(mhd2Chmp_T)  :: mhd2chmp
         type(chmp2Mhd_T)  :: chmp2mhd
         type(imag2Mix_T)  :: imag2mix
+
+        type(rcm_mhd_T) :: rcmApp
 
         !Shallow coupling information
         real(rp) :: ShallowT

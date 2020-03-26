@@ -179,7 +179,7 @@ module voltapp_mpi
         endif
 
         ! receive current time information in case of a restart
-        if(vApp%gAppLocal%model%isRestart) then
+        if(vApp%gAppLocal%Model%isRestart) then
             call mpi_recv(vApp%IO%nOut, 1, MPI_INT, MPI_ANY_SOURCE, 97520, vApp%voltMpiComm, MPI_STATUS_IGNORE, ierr)
             call mpi_recv(vApp%IO%nRes, 1, MPI_INT, MPI_ANY_SOURCE, 97530, vApp%voltMpiComm, MPI_STATUS_IGNORE, ierr)
             call mpi_recv(vApp%gAppLocal%Model%t, 1, MPI_MYFLOAT, MPI_ANY_SOURCE, 97540, vApp%voltMpiComm, MPI_STATUS_IGNORE, ierr)
@@ -209,11 +209,13 @@ module voltapp_mpi
         call mpi_bcast(vApp%gAppLocal%Model%dt, 1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
 
         ! receive updated gamera parameters from gamera rank
-        call mpi_recv(vAPp%gAppLocal%Model%dt0, 1, MPI_MYFLOAT, MPI_ANY_SOURCE, 97510, vApp%voltMpiComm, MPI_STATUS_IGNORE, ierr)
+        call mpi_recv(vApp%gAppLocal%Model%dt0, 1, MPI_MYFLOAT, MPI_ANY_SOURCE, 97510, vApp%voltMpiComm, MPI_STATUS_IGNORE, ierr)
 
         ! calculate what the next output and restart timing should be for gamera
-        vApp%IO%tOut = floor(vApp%time/vApp%IO%dtOut)*vApp%IO%dtOut
-        vApp%IO%tRes = vApp%time + vApp%IO%dtRes
+        if(vApp%gAppLocal%Model%isRestart) then
+            vApp%IO%tOut = floor(vApp%time/vApp%IO%dtOut)*vApp%IO%dtOut
+            vApp%IO%tRes = vApp%time + vApp%IO%dtRes
+        endif
         ! synchronize IO timing
         call mpi_bcast(vApp%IO%tOut/vApp%gAppLocal%Model%Units%gT0, &
                        1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)

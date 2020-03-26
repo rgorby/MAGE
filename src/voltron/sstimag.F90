@@ -145,7 +145,12 @@ module sstimag
 
     !Evaluate eq map at a given point
     !Returns density (#/cc) and pressure (nPa)
-    subroutine EvalSST(r,phi,rpC,t,imW)
+    subroutine EvalSST(ignore,r,phi,rpC,t,imW)
+        ! the ignore argument is required to compile alongside RCM
+        !  this is a crime, but should allow RCM and SST to temporarily coexist
+        !  until SST can also be added to voltron
+        !  in otherwords, FIX ME
+        class(*), intent(inout) :: ignore
         real(rp), intent(in) :: r,phi,t
         real(rp), intent(in) :: rpC(2,2,2,2)
         real(rp), intent(out) :: imW(NVARIMAG)

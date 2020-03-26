@@ -94,7 +94,7 @@ contains
           @assertEqual(1.23, voltAppMpi%gAppLocal%Model%t, 'gamera time value wrong on voltron')
           @assertEqual(178, voltAppMpi%gAppLocal%Model%ts, 'gamera ts value wrong on voltron')
           @assertEqual(1.23*voltAppMpi%gAppLocal%Model%Units%gT0, voltAppMpi%time, 'voltron time value wrong on voltron')
-          @assertEqual(voltAppMpi%gAppLocal%Model%MJD0 + voltAppMpi%time/(60.0*60.0*24.0), voltAppMpi%MJD, 'MJD value wrong on voltron')
+          @assertLessThanOrEqual(abs(voltAppMpi%gAppLocal%Model%MJD0 + voltAppMpi%time/(60.0*60.0*24.0) - voltAppMpi%MJD), 1e-5_rp, 'MJD value wrong on voltron')
           @assertEqual(178, voltAppMpi%ts, 'voltron ts value wrong on voltron')
       endif
 
@@ -481,7 +481,7 @@ contains
   subroutine VMPIcorotationTest(this)
       class (MpiTestMethod), intent(inout) :: this
 
-      integer :: j,k,n,ip,it,jp,kp,h,ig
+      integer :: j,k,n,ip,it,jp,kp,h,ig,np
       real(rp) :: xc,yc,zc,deltaSum,rval,lambda,Psi0,RIn,errorThresh
       real(rp), dimension(NDIM) :: rHatP,eHat,xyz,Exyz,ccEijk
 
@@ -511,7 +511,7 @@ contains
                           do j=gamAppMpi%Grid%js,gamAppMpi%Grid%je
 
                               !Map to active ip,jp,kp (i=Grid%is => ip=Grid%is)
-                              call lfmIJK(gamAppMpi%Model,gamAppMpi%Grid,gamAppMpi%Grid%is,j,k,ip,jp,kp)
+                              call lfmIJKcc(gamAppMpi%Model,gamAppMpi%Grid,gamAppMpi%Grid%is,j,k,ip,jp,kp)
 
                               do n=1,gamAppMpi%Model%Ng
                                       ig = gamAppMpi%Grid%is-n
@@ -539,7 +539,7 @@ contains
                       do k=gamAppMpi%Grid%ks,gamAppMpi%Grid%ke
                           do j=gamAppMpi%Grid%js,gamAppMpi%Grid%je
                               !Map to active ip,jp,kp (i=Grid%is => ip=Grid%is)
-                              call lfmIJK(gamAppMpi%Model,gamAppMpi%Grid,gamAppMpi%Grid%is,j,k,ip,jp,kp)
+                              call lfmIJKcc(gamAppMpi%Model,gamAppMpi%Grid,gamAppMpi%Grid%is,j,k,ip,jp,kp)
                               do n=1,gamAppMpi%Model%Ng
                                   ig = gamAppMpi%Grid%is-n
                                   np = gamAppMpi%Model%nG-n+1
@@ -607,7 +607,7 @@ contains
                       do j=voltAppMpi%gAppLocal%Grid%js,voltAppMpi%gAppLocal%Grid%je
 
                           !Map to active ip,jp,kp (i=Grid%is => ip=Grid%is)
-                          call lfmIJK(voltAppMpi%gAppLocal%Model,voltAppMpi%gAppLocal%Grid,voltAppMpi%gAppLocal%Grid%is,j,k,ip,jp,kp)
+                          call lfmIJKcc(voltAppMpi%gAppLocal%Model,voltAppMpi%gAppLocal%Grid,voltAppMpi%gAppLocal%Grid%is,j,k,ip,jp,kp)
 
                           do n=1,voltAppMpi%gAppLocal%Model%Ng
                               ig = voltAppMpi%gAppLocal%Grid%is-n
@@ -635,7 +635,7 @@ contains
                   do k=voltAppMpi%gAppLocal%Grid%ks,voltAppMpi%gAppLocal%Grid%ke
                       do j=voltAppMpi%gAppLocal%Grid%js,voltAppMpi%gAppLocal%Grid%je
                           !Map to active ip,jp,kp (i=Grid%is => ip=Grid%is)
-                          call lfmIJK(voltAppMpi%gAppLocal%Model,voltAppMpi%gAppLocal%Grid,voltAppMpi%gAppLocal%Grid%is,j,k,ip,jp,kp)
+                          call lfmIJKcc(voltAppMpi%gAppLocal%Model,voltAppMpi%gAppLocal%Grid,voltAppMpi%gAppLocal%Grid%is,j,k,ip,jp,kp)
                           do n=1,voltAppMpi%gAppLocal%Model%Ng
                               ig = voltAppMpi%gAppLocal%Grid%is-n
                               np = voltAppMpi%gAppLocal%Model%nG-n+1

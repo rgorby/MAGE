@@ -130,7 +130,8 @@ END MODULE rice_housekeeping_module
 
 
 MODULE ionosphere_exchange
-  use rcm_mhd_interfaces
+  use rcmtypes
+  use rcm_mod_subs, ONLY: isize, jsize, jwrap, colat, aloct
   
   contains 
     

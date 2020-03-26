@@ -10,15 +10,14 @@ module rcmimag
     use ioh5
     use files
     use earthhelper
-    use rcm_mhd_interfaces
+    use rcmtypes
     use rcm_mix_interface
     use streamline
     use clocks
     use rcm_mhd_mod, ONLY : rcm_mhd
+    use rcm_mod_subs, ONLY : colat, aloct
 
     implicit none
-
-    type(rcm_mhd_T), private :: RCMApp
 
     !Scaling parameters
     real(rp), parameter, private :: rcmPScl = 1.0e+9 !Convert Pa->nPa
@@ -64,7 +63,8 @@ module rcmimag
     contains
 
     !Initialize RCM inner magnetosphere model
-    subroutine initRCM(iXML,isRestart,imag2mix,t0,dtCpl,nRes)
+    subroutine initRCM(RCMApp,iXML,isRestart,imag2mix,t0,dtCpl,nRes)
+        type(rcm_mhd_T), intent(inout) :: RCMApp
         type(XML_Input_T), intent(in) :: iXML
         logical, intent(in) :: isRestart
         type(imag2Mix_T), intent(inout) :: imag2mix
@@ -98,7 +98,7 @@ module rcmimag
             call CheckAndKill(RCMH5)
 
             !Create base file
-            call initRCMIO()
+            call initRCMIO(RCMApp)
         endif
         call iXML%Set_Val(SmoothOp%nIter,"imag/nIter",4)
         call iXML%Set_Val(SmoothOp%nRad ,"imag/nRad" ,8)
@@ -117,6 +117,8 @@ module rcmimag
 
         real(rp) :: llBC,maxRad
         logical :: isLL
+
+        associate(RCMApp=>vApp%rcmApp)
 
         !Lazily grabbing rDeep here, convert to RCM units
         rEqMin = vApp%rDeep*Re_cgs*1.0e-2 !Re=>meters
@@ -179,7 +181,7 @@ module rcmimag
         call Toc("AdvRCM")
 
         !Set ingestion region
-        call SetIngestion()
+        call SetIngestion(RCMApp)
 
     !Pull data from RCM state for conductance calculations
         vApp%imag2mix%isClosed = (RCMApp%iopen == RCMTOPCLOSED)
@@ -198,6 +200,8 @@ module rcmimag
         maxRad = maxRad/(Re_cgs*1.0e-2)
         vApp%rTrc = 1.25*maxRad
         
+        end associate
+
         contains
             !Calculate Alfven bounce timescale
             !D = #/m3, B = T, L = Re
@@ -219,7 +223,8 @@ module rcmimag
     end subroutine AdvanceRCM
 
     !Set region of RCM grid that's "good" for MHD ingestion
-    subroutine SetIngestion()
+    subroutine SetIngestion(RCMApp)
+        type(rcm_mhd_T), intent(inout) :: RCMApp
         integer :: n,i,j,iC
 
         integer , dimension(:), allocatable :: jBnd
@@ -274,7 +279,8 @@ module rcmimag
 
     !Evaluate eq map at a given point
     !Returns density (#/cc) and pressure (nPa)
-    subroutine EvalRCM(lat,lon,llC,t,imW)
+    subroutine EvalRCM(RCMApp,lat,lon,llC,t,imW)
+        type(rcm_mhd_T), intent(inout) :: RCMApp
         real(rp), intent(in) :: lat,lon,t
         real(rp), intent(in) :: llC(2,2,2,2)
         real(rp), intent(out) :: imW(NVARIMAG)
@@ -487,7 +493,8 @@ module rcmimag
 
 !--------------
 !Kaiju RCM IO Routines
-    subroutine initRCMIO()
+    subroutine initRCMIO(RCMApp)
+        type(rcm_mhd_t), intent(inout) :: RCMApp
         type(IOVAR_T), dimension(MAXRCMIOVAR) :: IOVars
 
         real(rp), dimension(:,:), allocatable :: iLat,iLon
@@ -533,7 +540,8 @@ module rcmimag
 
     end subroutine initRCMIO
 
-    subroutine WriteRCM(nOut,MJD,time)
+    subroutine WriteRCM(RCMApp,nOut,MJD,time)
+        type(rcm_mhd_T), intent(inout) :: RCMApp
         integer, intent(in) :: nOut
         real(rp), intent(in) :: MJD,time
 
@@ -595,8 +603,8 @@ module rcmimag
         
     end subroutine WriteRCM
 
-    subroutine WriteRCMRestart(nRes,MJD,time)
-        
+    subroutine WriteRCMRestart(RCMApp,nRes,MJD,time)
+        type(rcm_mhd_T), intent(inout) :: RCMApp
         integer, intent(in) :: nRes
         real(rp), intent(in) :: MJD, time
 

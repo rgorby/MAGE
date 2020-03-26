@@ -15,7 +15,7 @@
      USE conversion_module
      USE rice_housekeeping_module
      USE constants, only: big_vm,tiote
-     Use rcm_mhd_interfaces
+     Use rcmtypes
 
 
 ! NOTE: This version fixes the rcm boundary condition at rec=1
@@ -323,9 +323,9 @@
       USE rcm_precision
       USE constants, ONLY : mass_proton,gamma,one_over_gamma,mu0,radius_earth_m,nt
       USE RCM_mod_subs,ONLY : isize,jsize,kcsize,bmin, vm, bir,sini,rmin,pmin,&
-                              xmin,ymin,zmin,vbnd,pi
+                              xmin,ymin,zmin,vbnd,pi,jwrap
       USE rice_housekeeping_module
-      use rcm_mhd_interfaces
+      use rcmtypes
 
       IMPLICIT NONE
       type(rcm_mhd_T),intent(in) :: RM

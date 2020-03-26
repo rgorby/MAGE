@@ -68,6 +68,17 @@ module gridloc
     
     contains
 
+    !If necessary, deallocate arrays in locAux
+    subroutine CleanupLoc()
+        if(allocated(locAux%rMin)) deallocate(locAux%rMin)
+        if(allocated(locAux%rMax)) deallocate(locAux%rMax)
+        if(allocated(locAux%pMin)) deallocate(locAux%pMin)
+        if(allocated(locAux%pMax)) deallocate(locAux%pMax)
+        if(allocated(locAux%rrI)) deallocate(locAux%rrI)
+        if(allocated(locAux%xxC)) deallocate(locAux%xxC)
+        if(allocated(locAux%yyC)) deallocate(locAux%yyC)
+    end subroutine CleanupLoc
+
     !Initialize various things for grid localization
     subroutine InitLoc(Model,ebGr,inpXML)
         type(chmpModel_T), intent(in) :: Model
@@ -77,6 +88,8 @@ module gridloc
         integer :: i,j
         real(rp) :: xJ(NDIM),xJp(NDIM)
         character(len=strLen) :: domStr
+
+        call cleanupLoc()
 
         !Initialize aux grid variables for inDomain function
         select case(ebGr%GrID)

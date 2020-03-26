@@ -2,7 +2,7 @@ module rcm_mix_interface
   use mixdefs
   use mixgeom
   use volttypes
-  use rcm_mhd_interfaces
+  use rcmtypes
   
   implicit none
 

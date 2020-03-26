@@ -71,7 +71,7 @@ contains
                 do j=gameraApp%Grid%js,gameraApp%Grid%je
 
                     !Map to active ip,jp,kp (i=Grid%is => ip=Grid%is)
-                    call lfmIJK(gameraApp%Model,gameraApp%Grid,gameraApp%Grid%is,j,k,ip,jp,kp)
+                    call lfmIJKcc(gameraApp%Model,gameraApp%Grid,gameraApp%Grid%is,j,k,ip,jp,kp)
 
                     do n=1,gameraApp%Model%Ng
                         ig = gameraApp%Grid%is-n
@@ -99,7 +99,7 @@ contains
             do k=gameraApp%Grid%ks,gameraApp%Grid%ke
                 do j=gameraApp%Grid%js,gameraApp%Grid%je
                     !Map to active ip,jp,kp (i=Grid%is => ip=Grid%is)
-                    call lfmIJK(gameraApp%Model,gameraApp%Grid,gameraApp%Grid%is,j,k,ip,jp,kp)
+                    call lfmIJKcc(gameraApp%Model,gameraApp%Grid,gameraApp%Grid%is,j,k,ip,jp,kp)
                     do n=1,gameraApp%Model%Ng
                         ig = gameraApp%Grid%is-n
                         np = gameraApp%Model%nG-n+1

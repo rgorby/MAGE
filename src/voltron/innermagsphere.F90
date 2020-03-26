@@ -15,8 +15,9 @@ module innermagsphere
     abstract interface
         !Mapping of cell corners
         !x12C = chmp2mhd%xyzSquish(i:i+1,j:j+1,k:k+1,1:2) 
-        subroutine IMagEval_T(x1,x2,x12C,t,imW)
+        subroutine IMagEval_T(imagApp,x1,x2,x12C,t,imW)
             Import :: rp,NVARIMAG
+            class(*), intent(inout) :: imagApp
             real(rp), intent(in) :: x1,x2,t
             real(rp), intent(in) :: x12C(2,2,2,2)
             real(rp), dimension(NVARIMAG), intent(out) :: imW
@@ -48,7 +49,8 @@ module innermagsphere
         case("RCM")
             vApp%imType = IMAGRCM
             vApp%prType = LLPROJ !Lat-lon
-            call InitRCM(iXML,isRestart,vApp%imag2mix,vApp%time,vApp%DeepDT,vApp%IO%nRes)
+            call InitRCM(vApp%rcmApp,iXML,isRestart,vApp%imag2mix,&
+                vApp%time,vApp%DeepDT,vApp%IO%nRes)
         case DEFAULT
             write(*,*) 'Unkown imType, bailing ...'
             stop
@@ -120,7 +122,7 @@ module innermagsphere
                         x1 = sum(x12C(:,:,:,1))/8.0
                         xAng = reshape( x12C(1:2,1:2,1:2,2), [8] )
                         x2 = CircMean(xAng)
-                        call IMagEval(x1,x2,x12C,t,imW)
+                        call IMagEval(vApp%rcmApp,x1,x2,x12C,t,imW)
                     else
                         !Both x1/x2 are 0, projection failure
                         imW = 0.0
@@ -194,7 +196,7 @@ module innermagsphere
         case(IMAGSST)
             
         case(IMAGRCM)
-            call WriteRCM(nOut,vApp%MJD,vApp%time)
+            call WriteRCM(vApp%rcmApp,nOut,vApp%MJD,vApp%time)
         case DEFAULT
             write(*,*) 'Unkown imType, bailing ...'
             stop
@@ -210,7 +212,7 @@ module innermagsphere
         case(IMAGSST)
             
         case(IMAGRCM)
-            call WriteRCMRestart(nRes,vApp%MJD,vApp%time)
+            call WriteRCMRestart(vApp%rcmApp,nRes,vApp%MJD,vApp%time)
         case DEFAULT
             write(*,*) 'Unkown imType, bailing ...'
             stop
