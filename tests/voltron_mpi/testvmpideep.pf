@@ -230,7 +230,7 @@ contains
       endif
   end subroutine testVolt2MhdDeepCopy
 
-  @test(npes=[2,5,17])
+  !@test(npes=[2,5,17])
   subroutine testDeepUpdate(this)
       class (MpiTestMethod), intent(inout) :: this
 

@@ -78,7 +78,7 @@ contains
           write (checkMessage,'(A,I0)') 'voltron time wrong on gamera rank ',this%getProcessRank()
           @assertEqual(1.23*gamAppMpi%Model%Units%gT0, g2vCommMpi%time, trim(checkMessage))
           write (checkMessage,'(A,I0)') 'MJD wrong on gamera rank ',this%getProcessRank()
-          @assertEqual(gamAppMpi%Model%MJD0 + g2vCommMpi%time/(60.0*60.0*24.0), g2vCommMpi%MJD, trim(checkMessage))
+          @assertLessThanOrEqual(abs(gamAppMpi%Model%MJD0 + g2vCommMpi%time/(60.0*60.0*24.0) - g2vCommMpi%MJD), 1e-5_rp, trim(checkMessage))
           write (checkMessage,'(A,I0)') 'voltron ts wrong on gamera rank ',this%getProcessRank()
           @assertEqual(178, g2vCommMpi%ts, trim(checkMessage))
       else
