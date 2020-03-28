@@ -45,16 +45,17 @@ module innermagsphere
         case("SST","TS07")
             vApp%imType = IMAGSST
             vApp%prType = LPPROJ !R-phi
-            call InitSST(iXML,isRestart,vApp%rDeep)
+            allocate(eqData_T :: vApp%imagApp)
         case("RCM")
             vApp%imType = IMAGRCM
             vApp%prType = LLPROJ !Lat-lon
-            call InitRCM(vApp%rcmApp,iXML,isRestart,vApp%imag2mix,&
-                vApp%time,vApp%DeepDT,vApp%IO%nRes)
+            allocate(rcmIMAG_T :: vApp%imagApp)
         case DEFAULT
             write(*,*) 'Unkown imType, bailing ...'
             stop
         end select
+
+        call vApp%imagApp%doInit(iXML,isRestart,vApp)
 
     end subroutine InitInnerMag
 
@@ -66,15 +67,7 @@ module innermagsphere
 
         if (.not. vApp%doDeep) return !Why are you even here?
 
-        select case (vApp%imType)
-        case(IMAGSST)
-            call AdvanceSST(tAdv)            
-        case(IMAGRCM)
-            call AdvanceRCM(vApp,tAdv)
-        case DEFAULT
-            write(*,*) 'Unkown imType, bailing ...'
-            stop
-        end select
+        call vApp%imagApp%doAdvance(vApp,tAdv)
 
     end subroutine AdvanceInnerMag
 
@@ -89,21 +82,6 @@ module innermagsphere
         real(rp) :: x12C(2,2,2,2)
         real(rp) :: xAng(8)
         real(rp) :: xMag
-
-        procedure(IMagEval_T), pointer :: IMagEval
-
-        !Set evaluation routine
-        IMagEval => NULL()
-
-        select case (vApp%imType)
-        case(IMAGSST)
-            IMagEval => EvalSST
-        case(IMAGRCM)
-            IMagEval => EvalRCM
-        case DEFAULT
-            write(*,*) 'Unkown imType, bailing ...'
-            stop
-        end select
 
         !TODO: Think about what time to evaluate at
         t = gApp%Model%t*gApp%Model%Units%gT0
@@ -122,7 +100,7 @@ module innermagsphere
                         x1 = sum(x12C(:,:,:,1))/8.0
                         xAng = reshape( x12C(1:2,1:2,1:2,2), [8] )
                         x2 = CircMean(xAng)
-                        call IMagEval(vApp%rcmApp,x1,x2,x12C,t,imW)
+                        call vApp%imagApp%doEval(x1,x2,x12C,t,imW)
                     else
                         !Both x1/x2 are 0, projection failure
                         imW = 0.0
@@ -192,15 +170,7 @@ module innermagsphere
         type(voltApp_T), intent(inout) :: vApp
         integer, intent(in) :: nOut
 
-        select case (vApp%imType)
-        case(IMAGSST)
-            
-        case(IMAGRCM)
-            call WriteRCM(vApp%rcmApp,nOut,vApp%MJD,vApp%time)
-        case DEFAULT
-            write(*,*) 'Unkown imType, bailing ...'
-            stop
-        end select
+        call vApp%imagApp%doIO(nOut,vApp%MJD,vApp%time)
 
     end subroutine InnerMagIO
 
@@ -208,15 +178,7 @@ module innermagsphere
         type(voltApp_T), intent(inout) :: vApp
         integer, intent(in) :: nRes
 
-        select case (vApp%imType)
-        case(IMAGSST)
-            
-        case(IMAGRCM)
-            call WriteRCMRestart(vApp%rcmApp,nRes,vApp%MJD,vApp%time)
-        case DEFAULT
-            write(*,*) 'Unkown imType, bailing ...'
-            stop
-        end select
+        call vApp%imagApp%doRestart(nRes,vApp%MJD,vApp%time)
 
     end subroutine InnerMagRestart
 

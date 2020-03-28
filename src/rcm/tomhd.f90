@@ -12,7 +12,7 @@
                               eflux,eavg,ie_el
       USE constants, ONLY : mass_proton,radius_earth_m,nt,ev,pressure_factor,density_factor
       USE rice_housekeeping_module
-      Use rcmtypes
+      Use rcm_mhd_interfaces
 ! 
 !==============================================================
 ! purpose:

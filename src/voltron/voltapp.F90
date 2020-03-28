@@ -41,6 +41,14 @@ module voltapp
 
         endif
 
+#ifdef _OPENMP
+        write(*,*) 'Voltron running threaded'
+        write(*,*) '   # Threads = ', omp_get_max_threads()
+        write(*,*) '   # Cores   = ', omp_get_num_procs()
+#else
+        write (*,*) 'Voltron running without threading'
+#endif
+
     !Create XML reader
         xmlInp = New_XML_Input(trim(inpXML),'Voltron',.true.)
 

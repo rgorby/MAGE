@@ -285,9 +285,6 @@ module voltapp_mpi
         integer :: ierr
         real(rp) :: nanValue
 
-        vApp%gAppLocal%State%Gas(:,:,:,:,:) = IEEE_VALUE(nanValue, IEEE_SIGNALING_NAN)
-        vApp%gAppLocal%State%Bxyz(:,:,:,:) = IEEE_VALUE(nanValue, IEEE_SIGNALING_NAN)
-
         ! Receive Shallow Gas Data
         call mpi_neighbor_alltoallw(0, vApp%zeroArrayCounts, &
                                     vApp%zeroArrayDispls, vApp%zeroArrayTypes, &

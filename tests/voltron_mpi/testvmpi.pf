@@ -59,7 +59,7 @@ contains
 
   end subroutine teardown
 
-  @test(npes=[2,5,17])
+  @test(npes=[2,5,9,17])
   subroutine testStepUpdate(this)
       class (MpiTestMethod), intent(inout) :: this
 
@@ -100,7 +100,7 @@ contains
 
   end subroutine testStepUpdate
 
-  @test(npes=[2,5,17])
+  @test(npes=[2,5,9,17])
   subroutine testDTypesGasShallow(this)
       class (MpiTestMethod), intent(inout) :: this
 
@@ -198,7 +198,7 @@ contains
 
   end subroutine
 
-  @test(npes=[2,5,17])
+  @test(npes=[2,5,9,17])
   subroutine testMhd2VoltShallowCopy(this)
       class (MpiTestMethod), intent(inout) :: this
 
@@ -312,7 +312,7 @@ contains
 
   end subroutine testMhd2VoltShallowCopy
 
-  @test(npes=[2,5,17])
+  @test(npes=[2,5,9,17])
   subroutine testVolt2MhdShallowCopy(this)
       class (MpiTestMethod), intent(inout) :: this
 
@@ -477,7 +477,7 @@ contains
 
   end subroutine testShallowUpdate
 
-  @test(npes=[2,5,17])
+  @test(npes=[2,5,9,17])
   subroutine VMPIcorotationTest(this)
       class (MpiTestMethod), intent(inout) :: this
 
@@ -661,7 +661,7 @@ contains
       endif
   end subroutine VMPIcorotationTest
 
-  @test(npes=[2,5,17])
+  @test(npes=[2,5,9,17])
   subroutine VMPIdipoleTest(this)
     class (MpiTestMethod), intent(inout) :: this
 

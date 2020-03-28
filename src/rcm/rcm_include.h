@@ -8,4 +8,4 @@
        ncoeff =   5
     LOGICAL :: asci_flag = .FALSE.
     LOGICAL :: isGAMRCM = .TRUE. !Whether running coupled to Gamera
-    logical :: doQuietRCM = .TRUE.
+    logical :: doQuietRCM = .FALSE.

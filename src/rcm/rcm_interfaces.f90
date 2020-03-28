@@ -172,7 +172,7 @@
       USE Rcm_mod_subs
       USE Ionosphere_exchange
       USE rice_housekeeping_module
-      use rcmtypes
+      use rcm_mhd_interfaces
 
       IMPLICIT NONE
       type(rcm_mhd_T),intent(inout) :: RM

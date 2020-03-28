@@ -10,7 +10,7 @@ module rcmimag
     use ioh5
     use files
     use earthhelper
-    use rcmtypes
+    use rcm_mhd_interfaces
     use rcm_mix_interface
     use streamline
     use clocks
@@ -60,19 +60,40 @@ module rcmimag
 
     type(SmoothOperator_T) :: SmoothOp
 
+    type, extends(innerMagBase_T) :: rcmIMAG_T
+
+        ! internal storage of actual RCM datatype
+        ! this way we do not have to modify the RCM code
+        type(rcm_mhd_T) :: internalRCM
+
+        contains
+
+        ! over-ride the base functions with RCM versions
+        procedure :: doInit => initRCM
+        procedure :: doAdvance => advanceRCM
+        procedure :: doEval => evalRCM
+        procedure :: doIO => writeRCM
+        procedure :: doRestart => writeRCMrestart
+
+    end type
+
     contains
 
     !Initialize RCM inner magnetosphere model
-    subroutine initRCM(RCMApp,iXML,isRestart,imag2mix,t0,dtCpl,nRes)
-        type(rcm_mhd_T), intent(inout) :: RCMApp
+    subroutine initRCM(imag,iXML,isRestart,vApp)
+        class(rcmIMAG_T), intent(inout) :: imag
         type(XML_Input_T), intent(in) :: iXML
         logical, intent(in) :: isRestart
-        type(imag2Mix_T), intent(inout) :: imag2mix
-        real(rp), intent(in) :: t0,dtCpl
-        integer, intent(in), optional :: nRes
+        type(voltApp_T), intent(inout) :: vApp
 
         character(len=strLen) :: RunID,RCMH5
         logical :: fExist
+
+        associate(RCMApp => imag%internalRCM, &
+                  imag2mix => vApp%imag2mix, &
+                  t0 => vApp%time, &
+                  dtCpl => vApp%DeepDT, &
+                  nRes => vApp%IO%nRes)
 
         call iXML%Set_Val(RunID,"/gamera/sim/runid","sim")
         RCMApp%rcm_runid = trim(RunID)
@@ -103,10 +124,13 @@ module rcmimag
         call iXML%Set_Val(SmoothOp%nIter,"imag/nIter",4)
         call iXML%Set_Val(SmoothOp%nRad ,"imag/nRad" ,8)
 
+        end associate
+
     end subroutine initRCM
 
     !Advance RCM from Voltron data
-    subroutine AdvanceRCM(vApp,tAdv)
+    subroutine AdvanceRCM(imag,vApp,tAdv)
+        class(rcmIMAG_T), intent(inout) :: imag
         type(voltApp_T), intent(inout) :: vApp
         real(rp), intent(in) :: tAdv
 
@@ -118,7 +142,7 @@ module rcmimag
         real(rp) :: llBC,maxRad
         logical :: isLL
 
-        associate(RCMApp=>vApp%rcmApp)
+        associate(RCMApp => imag%internalRCM)
 
         !Lazily grabbing rDeep here, convert to RCM units
         rEqMin = vApp%rDeep*Re_cgs*1.0e-2 !Re=>meters
@@ -199,8 +223,8 @@ module rcmimag
         maxRad = maxval(norm2(RCMApp%X_bmin,dim=3),mask=vApp%imag2mix%isClosed)
         maxRad = maxRad/(Re_cgs*1.0e-2)
         vApp%rTrc = 1.25*maxRad
-        
-        end associate
+
+        end associate        
 
         contains
             !Calculate Alfven bounce timescale
@@ -279,10 +303,10 @@ module rcmimag
 
     !Evaluate eq map at a given point
     !Returns density (#/cc) and pressure (nPa)
-    subroutine EvalRCM(RCMApp,lat,lon,llC,t,imW)
-        type(rcm_mhd_T), intent(inout) :: RCMApp
-        real(rp), intent(in) :: lat,lon,t
-        real(rp), intent(in) :: llC(2,2,2,2)
+    subroutine EvalRCM(imag,x1,x2,x12C,t,imW)
+        class(rcmIMAG_T), intent(inout) :: imag
+        real(rp), intent(in) :: x1,x2,t
+        real(rp), intent(in) :: x12C(2,2,2,2)
         real(rp), intent(out) :: imW(NVARIMAG)
 
         real(rp) :: nrcm,prcm,npp,ntot
@@ -290,6 +314,8 @@ module rcmimag
         logical  :: isGood,isGoods(8)
         real(rp) :: lls(8,2),colats(8)
         integer  :: ijs(8,2)
+
+        associate(RCMApp => imag%internalRCM, lat => x1, lon => x2, llc => x12C)
 
         !Set defaults
         imW(:) = 0.0
@@ -340,6 +366,8 @@ module rcmimag
         imW(IMX1)   = (180.0/PI)*lat
         imW(IMX2)   = (180.0/PI)*lon
 
+        end associate
+
         contains
 
             !Get RCM cells for corner lat/lons
@@ -353,8 +381,8 @@ module rcmimag
                     colat = PI/2 - lls(n,1)
                     lon   = lls(n,2)
 
-                    i0 = minloc( abs(colat-RCMApp%gcolat),dim=1 )
-                    j0 = minloc( abs(lon  -RCMApp%glong ),dim=1 )
+                    i0 = minloc( abs(colat-imag%internalRCM%gcolat),dim=1 )
+                    j0 = minloc( abs(lon  -imag%internalRCM%glong ),dim=1 )
                     ijs(n,:) = [i0,j0]
                 enddo
             end subroutine CornerLocs
@@ -362,7 +390,8 @@ module rcmimag
             !Average a quantity over the corners
             function CornerAvg(ijs,Q) result(Qavg)
                 integer, intent(in) :: ijs(8,2)
-                real(rp), intent(in) :: Q(RCMApp%nLat_ion,RCMApp%nLon_ion)
+                real(rp), intent(in) :: Q(imag%internalRCM%nLat_ion, &
+                                          imag%internalRCM%nLon_ion)
                 real(rp) :: Qavg
 
                 integer :: n,i0,j0
@@ -540,8 +569,8 @@ module rcmimag
 
     end subroutine initRCMIO
 
-    subroutine WriteRCM(RCMApp,nOut,MJD,time)
-        type(rcm_mhd_T), intent(inout) :: RCMApp
+    subroutine WriteRCM(imag,nOut,MJD,time)
+        class(rcmIMAG_T), intent(inout) :: imag
         integer, intent(in) :: nOut
         real(rp), intent(in) :: MJD,time
 
@@ -552,6 +581,8 @@ module rcmimag
         integer, dimension(2) :: DimLL
         integer :: Ni,Nj
         
+        associate(RCMApp => imag%internalRCM)
+
         rcm2Wolf = (1.0e-9)**(IMGAMMA-1.0) !Convert to Wolf units, RCM: Pa (Re/T)^gam => nPa (Re/nT)^gam
         
         !Reset IO chain
@@ -601,15 +632,18 @@ module rcmimag
         RCMApp%rcm_nOut = nOut
         call rcm_mhd(time,TINY,RCMApp,RCMWRITEOUTPUT)
         
+        end associate
+
     end subroutine WriteRCM
 
-    subroutine WriteRCMRestart(RCMApp,nRes,MJD,time)
-        type(rcm_mhd_T), intent(inout) :: RCMApp
+    subroutine WriteRCMRestart(imag,nRes,MJD,time)
+        class(rcmIMAG_T), intent(inout) :: imag
         integer, intent(in) :: nRes
         real(rp), intent(in) :: MJD, time
 
-        RCMApp%rcm_nRes = nRes
-        call rcm_mhd(time,TINY,RCMApp,RCMWRITERESTART)
+        imag%internalRCM%rcm_nRes = nRes
+        call rcm_mhd(time,TINY,imag%internalRCM,RCMWRITERESTART)
         
     end subroutine WriteRCMRestart
+
 end module rcmimag

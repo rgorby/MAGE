@@ -6,7 +6,6 @@ module volttypes
     use ioclock
     use mixtypes
     use ebtypes
-    use rcmtypes
 
     implicit none
 
@@ -77,6 +76,24 @@ module volttypes
 
     end type mhd2Chmp_T
 
+    type innerMagBase_T
+        contains
+
+        procedure baseInit
+        procedure baseAdvance
+        procedure baseEval
+        procedure baseIO
+        procedure baseRestart
+
+        ! functions to be over-written by specific inner magnetosphere implementations
+        procedure :: doInit => baseinit
+        procedure :: doAdvance => baseAdvance
+        procedure :: doEval => baseEval
+        procedure :: doIO => baseIO
+        procedure :: doRestart => baseRestart
+
+    end type innerMagBase_T
+
     type voltApp_T
 
         !Voltron state information
@@ -98,7 +115,7 @@ module volttypes
         type(chmp2Mhd_T)  :: chmp2mhd
         type(imag2Mix_T)  :: imag2mix
 
-        type(rcm_mhd_T) :: rcmApp
+        class(innerMagBase_T), allocatable :: imagApp
 
         !Shallow coupling information
         real(rp) :: ShallowT
@@ -115,4 +132,41 @@ module volttypes
         integer  :: prType = 0 !Type of projection for coupling   (0 = None)
     end type voltApp_T
 
+    contains
+
+    ! null default subroutines for inner mag base type
+    subroutine baseInit(imag,iXML,isRestart,vApp)
+        class(innerMagBase_T), intent(inout) :: imag
+        type(XML_Input_T), intent(in) :: iXML
+        logical, intent(in) :: isRestart
+        type(voltApp_T), intent(inout) :: vApp
+    end subroutine
+
+    subroutine baseAdvance(imag,vApp,tAdv)
+        class(innerMagBase_T), intent(inout) :: imag
+        type(voltApp_T), intent(inout) :: vApp
+        real(rp), intent(in) :: tAdv
+    end subroutine
+
+    subroutine baseEval(imag,x1,x2,x12c,t,imW)
+        class(innerMagBase_T), intent(inout) :: imag
+        real(rp), intent(in) :: x1,x2,t
+        real(rp), intent(in) :: x12C(2,2,2,2)
+        real(rp), intent(out) :: imW(NVARIMAG)
+        imW = 0.0_rp
+    end subroutine
+
+    subroutine baseIO(imag,nOut,MJD,time)
+        class(innerMagBase_T), intent(inout) :: imag
+        integer, intent(in) :: nOut
+        real(rp), intent(in) :: MJD,time
+    end subroutine
+
+    subroutine baseRestart(imag,nRes,MJD,time)
+        class(innerMagBase_T), intent(inout) :: imag
+        integer, intent(in) :: nRes
+        real(rp), intent(in) :: MJD, time
+    end subroutine
+
 end module volttypes
+
