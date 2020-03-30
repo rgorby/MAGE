@@ -9,7 +9,7 @@ module voltio
 
     implicit none
 
-    integer, parameter, private :: MAXVOLTIOVAR = 10
+    integer, parameter, private :: MAXVOLTIOVAR = 20
     logical, private :: isConInit = .false.
     real(rp), private ::  oMJD = 0.0
     character(len=strLen), private :: vh5File
@@ -177,8 +177,9 @@ module voltio
         type(IOVAR_T), dimension(MAXVOLTIOVAR) :: IOVars
         real(rp) :: cpcp(2)
 
-        real(rp), dimension(:,:,:,:), allocatable :: inEijk,inExyz
+        real(rp), dimension(:,:,:,:), allocatable :: inEijk,inExyz,gJ,Veb
         real(rp), dimension(:,:,:), allocatable :: psi
+        real(rp), dimension(NDIM) :: Exyz,Bdip,xcc
 
         !Get data
         call getCPCP(vApp%mix2mhd%mixOutput,cpcp)
@@ -193,16 +194,15 @@ module voltio
 
         allocate(inEijk(Ni+1,Nj+1,Nk+1,NDIM))
         allocate(inExyz(Ni  ,Nj  ,Nk  ,NDIM))
-        write(*,*) 'inEijk = ',shape(inEijk)
-        write(*,*) 'inExyz = ',shape(inExyz)
-        write(*,*) 'gPsi = ',shape(vApp%mix2mhd%gPsi)
+        allocate(gJ    (Ni  ,Njp ,Nkp ,NDIM))
+        allocate(Veb   (Ni  ,Njp ,Nkp ,NDIM))
+        allocate(psi   (Ni  ,Njp ,Nkp)) !Cell-centered potential
 
         call Ion2MHD(gApp%Model,gApp%Grid,vApp%mix2mhd%gPsi,inEijk,inExyz,vApp%mix2mhd%rm2g)
 
-        allocate(psi(Ni,Njp,Nkp)) !Cell-centered potential
-
         !Subtract dipole before calculating current
-        !$OMP PARALLEL DO default(shared) collapse(2)
+        !$OMP PARALLEL DO default(shared) collapse(2) &
+        !$OMP private(i,j,k,Bdip,xcc,Exyz)
         do k=1,Nkp
             do j=1,Njp
                 do i=1,Ni
@@ -210,6 +210,11 @@ module voltio
                                        + vApp%mix2mhd%gPsi(i  ,j+1,k) + vApp%mix2mhd%gPsi(i  ,j+1,k+1) &
                                        + vApp%mix2mhd%gPsi(i+1,j+1,k) + vApp%mix2mhd%gPsi(i+1,j+1,k+1) &
                                        + vApp%mix2mhd%gPsi(i  ,j  ,k) + vApp%mix2mhd%gPsi(i  ,j  ,k+1) )
+                    xcc = gApp%Grid%xyzcc(i,j,k,:)
+                    Bdip = MagsphereDipole(xcc,gApp%Model%MagM0)
+                    Exyz = inExyz(i,j,k,:)
+                    Veb(i,j,k,:) = cross(Exyz,Bdip)/dot_product(Bdip,Bdip)
+
                 enddo
             enddo
         enddo
@@ -221,6 +226,17 @@ module voltio
         call AddOutVar(IOVars,"Ex",inExyz(:,1:Njp,1:Nkp,XDIR))
         call AddOutVar(IOVars,"Ey",inExyz(:,1:Njp,1:Nkp,YDIR))
         call AddOutVar(IOVars,"Ez",inExyz(:,1:Njp,1:Nkp,ZDIR))
+
+        !Add inner currents
+        gJ = 0.0
+        gJ(Ni,:,:,XDIR:ZDIR) =  vApp%mhd2mix%gJ(1,:,:,XDIR:ZDIR) !Just assuming 1 shell
+        call AddOutVar(IOVars,"Jx",gJ(:,:,:,XDIR))
+        call AddOutVar(IOVars,"Jy",gJ(:,:,:,YDIR))
+        call AddOutVar(IOVars,"Jz",gJ(:,:,:,ZDIR))
+
+        call AddOutVar(IOVars,"Vx",Veb(:,:,:,XDIR))
+        call AddOutVar(IOVars,"Vy",Veb(:,:,:,YDIR))
+        call AddOutVar(IOVars,"Vz",Veb(:,:,:,ZDIR))
 
         call AddOutVar(IOVars,"psi",psi)
         call AddOutVar(IOVars,"cpcpN",cpcp(1))
