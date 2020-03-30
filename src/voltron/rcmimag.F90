@@ -62,9 +62,8 @@ module rcmimag
 
     type, extends(innerMagBase_T) :: rcmIMAG_T
 
-        ! internal storage of actual RCM datatype
-        ! this way we do not have to modify the RCM code
-        type(rcm_mhd_T) :: internalRCM
+        ! rcm coupling variable
+        type(rcm_mhd_T) :: rcmCpl
 
         contains
 
@@ -89,7 +88,7 @@ module rcmimag
         character(len=strLen) :: RunID,RCMH5
         logical :: fExist
 
-        associate(RCMApp => imag%internalRCM, &
+        associate(RCMApp => imag%rcmCpl, &
                   imag2mix => vApp%imag2mix, &
                   t0 => vApp%time, &
                   dtCpl => vApp%DeepDT, &
@@ -103,6 +102,7 @@ module rcmimag
             write(*,*) 'Restarting RCM @ t = ', t0
             call rcm_mhd(t0,dtCpl,RCMApp,RCMRESTART,iXML=iXML)
         else
+            CALL SYSTEM("rm -rf RCMFiles > /dev/null 2>&1")
             write(*,*) 'Initializing RCM ...'
             call rcm_mhd(t0,dtCpl,RCMApp,RCMINIT,iXML=iXML)
         endif
@@ -142,7 +142,7 @@ module rcmimag
         real(rp) :: llBC,maxRad
         logical :: isLL
 
-        associate(RCMApp => imag%internalRCM)
+        associate(RCMApp => imag%rcmCpl)
 
         !Lazily grabbing rDeep here, convert to RCM units
         rEqMin = vApp%rDeep*Re_cgs*1.0e-2 !Re=>meters
@@ -315,7 +315,7 @@ module rcmimag
         real(rp) :: lls(8,2),colats(8)
         integer  :: ijs(8,2)
 
-        associate(RCMApp => imag%internalRCM, lat => x1, lon => x2, llc => x12C)
+        associate(RCMApp => imag%rcmCpl, lat => x1, lon => x2, llc => x12C)
 
         !Set defaults
         imW(:) = 0.0
@@ -381,8 +381,8 @@ module rcmimag
                     colat = PI/2 - lls(n,1)
                     lon   = lls(n,2)
 
-                    i0 = minloc( abs(colat-imag%internalRCM%gcolat),dim=1 )
-                    j0 = minloc( abs(lon  -imag%internalRCM%glong ),dim=1 )
+                    i0 = minloc( abs(colat-imag%rcmCpl%gcolat),dim=1 )
+                    j0 = minloc( abs(lon  -imag%rcmCpl%glong ),dim=1 )
                     ijs(n,:) = [i0,j0]
                 enddo
             end subroutine CornerLocs
@@ -390,8 +390,8 @@ module rcmimag
             !Average a quantity over the corners
             function CornerAvg(ijs,Q) result(Qavg)
                 integer, intent(in) :: ijs(8,2)
-                real(rp), intent(in) :: Q(imag%internalRCM%nLat_ion, &
-                                          imag%internalRCM%nLon_ion)
+                real(rp), intent(in) :: Q(imag%rcmCpl%nLat_ion, &
+                                          imag%rcmCpl%nLon_ion)
                 real(rp) :: Qavg
 
                 integer :: n,i0,j0
@@ -581,7 +581,7 @@ module rcmimag
         integer, dimension(2) :: DimLL
         integer :: Ni,Nj
         
-        associate(RCMApp => imag%internalRCM)
+        associate(RCMApp => imag%rcmCpl)
 
         rcm2Wolf = (1.0e-9)**(IMGAMMA-1.0) !Convert to Wolf units, RCM: Pa (Re/T)^gam => nPa (Re/nT)^gam
         
@@ -641,8 +641,8 @@ module rcmimag
         integer, intent(in) :: nRes
         real(rp), intent(in) :: MJD, time
 
-        imag%internalRCM%rcm_nRes = nRes
-        call rcm_mhd(time,TINY,imag%internalRCM,RCMWRITERESTART)
+        imag%rcmCpl%rcm_nRes = nRes
+        call rcm_mhd(time,TINY,imag%rcmCpl,RCMWRITERESTART)
         
     end subroutine WriteRCMRestart
 
