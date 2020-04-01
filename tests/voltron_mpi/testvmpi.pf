@@ -160,6 +160,32 @@ contains
                       @assertEqual(dataSize*1101353, extent, '5 processes recv gas shallow extent wrong')
                   enddo
               endif
+          CASE(9)
+              if(isGamera) then
+                  @assertTrue(MPI_COMM_NULL /= g2vCommMpi%voltMpiComm, '9 processes g2v MPI Comm wrong')
+                  @assertEqual((/1/),g2vCommMpi%sendCountsGasShallow, '9 processes g2v countsGasShallow wrong')
+                  @assertEqual((/0/),g2vCommMpi%sendDisplsGasShallow, '9 processes g2v displsGasShallow wrong')
+
+                  call mpi_type_get_extent(g2vCommMpi%sendTypesGasShallow(1),lb,extent,ierr)
+                  @assertEqual(MPI_SUCCESS, ierr, '9 processes send gas shallow get extent failed')
+                  ! (2,1,1,1,0)
+                  @assertEqual(dataSize*2693, lb, '9 processes send gas shallow lb wrong')
+                  ! (2,12,64,5,0) - (2,1,1,1,0) + 1 for extent
+                  @assertEqual(dataSize*224993, extent, '9 processes send gas shallow extent wrong')
+              else
+                  @assertTrue(MPI_COMM_NULL /= voltAppMpi%voltMpiComm, '9 processes volt MPI Comm wrong')
+                  @assertEqual((/1,1,1,1,1,1,1,1/),voltAppMpi%recvCountsGasShallow, '9 processes volt countsGasShallow wrong')
+                  @assertEqual((/0,0,0,0,0,0,0,0/),voltAppMpi%recvDisplsGasShallow, '9 processes volt displsGasShallow wrong')
+
+                  do j=1,4
+                      call mpi_type_get_extent(voltAppMpi%recvTypesGasShallow(j),lb,extent,ierr)
+                      @assertEqual(MPI_SUCCESS, ierr, '9 processes recv gas shallow get extent failed')
+                      ! (2,1,1,1,0)
+                      @assertEqual(dataSize*(12773+(j-1)*672), lb, '9 processes recv gas shallow lb wrong')
+                      ! (2,12,64,5,0) - (2,1,1,1,0) + 1 for extent
+                      @assertEqual(dataSize*1101353, extent, '9 processes recv gas shallow extent wrong')
+                  enddo
+              endif
           CASE(17)
               if(isGamera) then
                   @assertTrue(MPI_COMM_NULL /= g2vCommMpi%voltMpiComm, '17 processes g2v MPI Comm wrong')

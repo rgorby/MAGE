@@ -78,19 +78,20 @@ module step
 
             !Check for sudden drop in dt
             if (dtOld/dtMin >= 10) then
-                write(*,*) "<Drop in timestep by 10x, exiting ...>"
+                write(*,*) "<Drop in timestep by 10x (",dtOld,"=>",dtMin,"), exiting ...>"
                 isDisaster = .true.
             endif
 
             !Check for too small dt
             if (dtMin <= TINY) then
-                write(*,*) "<Timestep too small, exiting ...>"
+                write(*,*) "<Timestep too small (",dtMin,"), exiting ...>"
                 isDisaster = .true.
             endif
 
             !Check for slower but significant timestep drop
             if ( (Model%dt0>TINY) .and. (Model%dt0/dtMin >=100) ) then
-                write(*,*) "<Timestep less than 1% of initial, exiting ...>"
+                write(*,*) "<Timestep less than 1% of initial (",Model%dt0,"=>",&
+                    dtMin,"), exiting ...>"
                 isDisaster = .true.
             endif
 
