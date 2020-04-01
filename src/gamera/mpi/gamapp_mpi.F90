@@ -258,6 +258,13 @@ module gamapp_mpi
             rank = (rank-Grid%Rj)/Grid%NumRj
             Grid%Ri = rank
 
+            ! only rank 0 should be loud
+            if(Grid%Ri==0 .and. Grid%Rj==0 .and. Grid%Rk==0) then
+                Model%isLoud = .true.
+            else
+                Model%isLoud = .false.
+            endif
+
             ! whether this rank has external BCs
             Grid%hasLowerBC(IDIR) = Grid%Ri == 0
             Grid%hasLowerBC(JDIR) = Grid%Rj == 0

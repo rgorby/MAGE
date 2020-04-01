@@ -55,7 +55,6 @@ program voltron_mpix
     call initClocks()
 
     gApp%Model%isLoud = .true.    
-    ! initial stab at this. rank 0 will be both a Gamera rank and the Voltron rank
 
     ! create a new MPI communicator for just Gamera
     !    for now this is always all ranks excep the last one (which is reserved for voltron)
