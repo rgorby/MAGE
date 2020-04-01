@@ -7,7 +7,7 @@ module gamtypes
     implicit none
 
     ! debug settings
-    logical :: verbose = .false.
+    !logical :: verbose = .false.
     logical :: writeGhosts = .false.
     logical :: writeMagFlux = .false.
 
@@ -87,6 +87,7 @@ module gamtypes
         logical :: doDivB=.false. !Output DivB
         logical :: doResistive=.false.
         
+        logical :: isLoud = .false. !Whether you can write to console
         integer :: nTh=1 !Number of threads per node/group
 
         !Output info

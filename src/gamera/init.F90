@@ -78,12 +78,16 @@ module init
         !Setup OMP info
 #ifdef _OPENMP
         Model%nTh = omp_get_max_threads()
-        write(*,*) 'Running threaded'
-        write(*,*) '   # Threads = ', Model%nTh
-        write(*,*) '   # Cores   = ', omp_get_num_procs()
+        if (Model%isLoud) then
+            write(*,*) 'Running threaded'
+            write(*,*) '   # Threads = ', Model%nTh
+            write(*,*) '   # Cores   = ', omp_get_num_procs()
+        endif
 #else
-        write (*,*) 'Running without threading'
-        Model%nTh = 1
+        if (Model%isLoud) then
+            write (*,*) 'Running without threading'
+            Model%nTh = 1
+        endif
 #endif
 
 !--------------------------------------------
@@ -119,7 +123,7 @@ module init
         !Do grid generation
         if (doH5g .or. Model%isRestart) then
             !Use H5 input for Grid
-            write(*,*) 'Reading grid from file ', trim(inH5)
+            if (Model%isLoud) write(*,*) 'Reading grid from file ', trim(inH5)
             call readH5Grid(Model,Grid,inH5)
         else
             !Create grid (corners) from XML info
@@ -286,11 +290,14 @@ module init
     !Initialize Model data structure
     subroutine initModel(Model,xmlInp)
         type(Model_T), intent(inout) :: Model
-        type(XML_Input_T), intent(in) :: xmlInp
+        type(XML_Input_T), intent(inout) :: xmlInp
 
         real(rp) :: C0,MJD0
         integer :: nSeed, icSeed
         integer, dimension(:), allocatable :: vSeed
+
+        !Start by shutting up extra ranks
+        if (.not. Model%isLoud) call xmlInp%BeQuiet()
 
         !Get/set model defaults (can be overwritten)
         Model%nSpc = 0
@@ -323,7 +330,7 @@ module init
 
         !Set CFL from XML
         call xmlInp%Set_Val(Model%CFL ,'sim/CFL'  ,C0)
-        if(verbose) then
+        if (Model%isLoud) then
            if (Model%CFL > C0) then
                write(*,*) '-------------------------------------'
                write(*,*) 'WARNING, CFL is above critical value!'
@@ -397,18 +404,18 @@ module init
         select case (trim(toUpper(reconMethod)))
         case("7UP")
             GetLRs => Up7LRs
-            write(*,*) 'Using 7UP Reconstruction'
+            if (Model%isLoud) write(*,*) 'Using 7UP Reconstruction'
         case("8CENT","8C")
             GetLRs => Cen8LRs
-            write(*,*) 'Using 8CENT Reconstruction'
+            if (Model%isLoud) write(*,*) 'Using 8CENT Reconstruction'
             
         case("8CENTG","8CG")
             GetLRs => Cen8GLRs
-            write(*,*) 'Using 8CENT-GEOM Reconstruction'
+            if (Model%isLoud) write(*,*) 'Using 8CENT-GEOM Reconstruction'
 
         case("HIGH5")
             GetLRs => High5LRs
-            write(*,*) 'Using High-5 Reconstruction'
+            if (Model%isLoud) write(*,*) 'Using High-5 Reconstruction'
         end select
 
         RingLR => NULL()
@@ -564,13 +571,15 @@ module init
             call xmlInp%Set_Val(xyzBds(6),"kdir/max",xMax)
         end if
 
-        write(*,*) 'Grid generation ...'
-        write(*,*) '   Cells = ', Grid%Nip,Grid%Njp,Grid%Nkp
-        write(*,*) '   xMin/xMax = ', xyzBds(1),xyzBds(2)
-        write(*,*) '   yMin/yMax = ', xyzBds(3),xyzBds(4)
-        write(*,*) '   zMin/zMax = ', xyzBds(5),xyzBds(6)
-        write(*,*) ''
-
+        if (Model%isLoud) then
+            write(*,*) 'Grid generation ...'
+            write(*,*) '   Cells = ', Grid%Nip,Grid%Njp,Grid%Nkp
+            write(*,*) '   xMin/xMax = ', xyzBds(1),xyzBds(2)
+            write(*,*) '   yMin/yMax = ', xyzBds(3),xyzBds(4)
+            write(*,*) '   zMin/zMax = ', xyzBds(5),xyzBds(6)
+            write(*,*) ''
+        endif
+        
         !Get grid geometry options
         !Use right-handed system
         !Cyl: x1,x2,x3 -> R,phi/2pi,z

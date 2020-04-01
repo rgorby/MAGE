@@ -274,26 +274,21 @@ module wind
                     wSW = wgtWind(bc,Model,Grid%xfc(ig+1,j,k,:,IDIR),t)
                     swFlx = WindMagFlux(bc,Model,Grid,t,IDIR,ig+1,j,k)
                     inFlx = State%magFlux(ip+1,j,k,IDIR)
-
-                    !State%magFlux(ig+1,j,k,IDIR) = wSW*swFlx + (1-wSW)*inFlx
-                    State%magFlux(ig+1,j,k,IDIR) = swFlx
-
+                    State%magFlux(ig+1,j,k,IDIR) = wSW*swFlx + (1-wSW)*inFlx
+                    
                     !J flux
                     wSW = wgtWind(bc,Model,Grid%xfc(ig,j,k,:,JDIR),t)
                     swFlx = WindMagFlux(bc,Model,Grid,t,JDIR,ig,j,k)
                     inFlx = State%magFlux(ip,j,k,JDIR)
-
-                    !State%magFlux(ig,j,k,JDIR) = wSW*swFlx + (1-wSW)*inFlx
-                    State%magFlux(ig,j,k,JDIR) = swFlx
+                    State%magFlux(ig,j,k,JDIR) = wSW*swFlx + (1-wSW)*inFlx
+                    
 
                     !K flux
                     wSW = wgtWind(bc,Model,Grid%xfc(ig,j,k,:,KDIR),t)
                     swFlx = WindMagFlux(bc,Model,Grid,t,KDIR,ig,j,k)
                     inFlx = State%magFlux(ip,j,k,KDIR)
-
-                    !State%magFlux(ig,j,k,KDIR) = wSW*swFlx + (1-wSW)*inFlx
-                    State%magFlux(ig,j,k,KDIR) = swFlx
-
+                    State%magFlux(ig,j,k,KDIR) = wSW*swFlx + (1-wSW)*inFlx
+                    
                 enddo !n
             enddo !j
         enddo !k
@@ -324,9 +319,9 @@ module wind
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(inout) :: State
 
-        integer :: ig,j,k,n
-        real(rp), dimension(NDIM) :: xcc,V,B
-        real(rp) :: t,D,P
+        integer :: ig,j,k,n,ip
+        real(rp), dimension(NDIM) :: xcc,V,swB,inB
+        real(rp) :: t,D,P,wSW
 
         if (.not. Grid%hasUpperBC(IDIR)) return
 
@@ -336,15 +331,19 @@ module wind
         t = Model%t
 
         !$OMP PARALLEL DO default(shared) collapse(2) &
-        !$OMP private(j,k,n,ig,xcc,D,P,V,B)
+        !$OMP private(j,k,n,ig,ip,xcc,D,P,V,wSW,swB,inB)
         do k=Grid%ksg,Grid%keg
             do j=Grid%js,Grid%je
+                ip = Grid%ie
                 do n=1,Model%Ng
                     ig = Grid%ie+n
                     xcc = Grid%xyzcc(ig,j,k,:)
-                    call GetWindAt(bc,Model,xcc,t,D,P,V,B)
+                    wSW = wgtWind(bc,Model,xcc,t)
 
-                    State%Bxyz(ig,j,k,:) = B
+                    call GetWindAt(bc,Model,xcc,t,D,P,V,swB)
+                    inB = State%Bxyz(ip,j,k,:)
+
+                    State%Bxyz(ig,j,k,:) = wSW*swB + (1-wSW)*inB
                 enddo !n loop
             enddo !j loop
         enddo !k loop
@@ -522,11 +521,12 @@ module wind
 
         type(IOVAR_T), dimension(MAXWINDVARS) :: IOVars
 
-        write(*,*) "---------------"
-        write(*,*) "Solar wind data"
-        write(*,*) "Reading wind data from ", trim(windBC%wID)
-        write(*,*) "Assuming input units: t,D,V,T,B = [s],[#/cm3],[m/s],[K],[nT]"
-        
+        if (Model%isLoud) then
+            write(*,*) "---------------"
+            write(*,*) "Solar wind data"
+            write(*,*) "Reading wind data from ", trim(windBC%wID)
+            write(*,*) "Assuming input units: t,D,V,T,B = [s],[#/cm3],[m/s],[K],[nT]"
+        endif        
         !Make sure file exists
         call CheckFileOrDie(windBC%wID, "Error opening wind file, exiting ...")
 
@@ -603,11 +603,12 @@ module wind
 
         windBC%B(:,XDIR) = windBC%Bx0 + windBC%ByC*windBC%B(:,YDIR) + windBC%BzC*windBC%B(:,ZDIR) 
 
-        write(*,'(a,3f8.3)') ' SW Coefficients (Bx0,ByC,BzC) = ', BCoef(3),BCoef(1),BCoef(2)
+        if (Model%isLoud) then
+            write(*,'(a,3f8.3)') ' SW Coefficients (Bx0,ByC,BzC) = ', BCoef(3),BCoef(1),BCoef(2)
 
-        write(*,*) "Finished reading solar wind data"
-        write(*,*) "---------------"
-        
+            write(*,*) "Finished reading solar wind data"
+            write(*,*) "---------------"
+        endif        
     end subroutine readWind
 
     !Interpolate from qWind data to provide wind BC

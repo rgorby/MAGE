@@ -54,11 +54,8 @@ program voltron_mpix
 
     call initClocks()
 
-    !TODO: Fix this to reset after MPI config to only output from root rank
-    verbose = .true.
-    
-    ! initial stab at this. Voltron MUST have its own MPI rank. For simplicity, this is always
-    !    the last MPI rank for now
+    gApp%Model%isLoud = .true.    
+    ! initial stab at this. rank 0 will be both a Gamera rank and the Voltron rank
 
     ! create a new MPI communicator for just Gamera
     !    for now this is always all ranks excep the last one (which is reserved for voltron)

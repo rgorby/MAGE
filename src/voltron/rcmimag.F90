@@ -563,7 +563,7 @@ module rcmimag
         !Flipping lat/lon
         call AddOutVar(IOVars,"X",iLon)
         call AddOutVar(IOVars,"Y",iLat)
-                        
+        call AddOutVar(IOVars,"UnitsID","RCMMHD")
 
         call WriteVars(IOVars,.true.,h5File)
 

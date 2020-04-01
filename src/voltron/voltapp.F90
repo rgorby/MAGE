@@ -202,6 +202,8 @@ module voltapp
         isRestart = gApp%Model%isRestart
         RunID = trim(gApp%Model%RunID)
         
+        call InitVoltIO(vApp,gApp)
+        
     !Remix from Gamera
         if(present(optFilename)) then
             ! read from the prescribed file

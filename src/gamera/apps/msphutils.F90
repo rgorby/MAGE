@@ -156,17 +156,19 @@ module msphutils
         !Change console output pointer
         timeString => magsphereTime
         
-        write(*,*) '---------------'
-        write(*,*) 'Magnetosphere normalization'
-        write(*,*) 'T0   [s]    = ', gT0
-        write(*,*) 'x0   [m]    = ', gx0
-        write(*,*) 'v0   [m/s]  = ', gv0
-        write(*,*) 'P0   [nPa]  = ', gP0
-        write(*,*) 'B0   [nT]   = ', gB0
-        write(*,*) 'g    [m/s2] = ', gG0
-        write(*,*) 'psi0 [kV]   = ', Psi0
-        write(*,*) '---------------'
-
+        if (Model%isLoud) then
+            write(*,*) '---------------'
+            write(*,*) 'Magnetosphere normalization'
+            write(*,*) 'T0   [s]    = ', gT0
+            write(*,*) 'x0   [m]    = ', gx0
+            write(*,*) 'v0   [m/s]  = ', gv0
+            write(*,*) 'P0   [nPa]  = ', gP0
+            write(*,*) 'B0   [nT]   = ', gB0
+            write(*,*) 'g    [m/s2] = ', gG0
+            write(*,*) 'psi0 [kV]   = ', Psi0
+            write(*,*) '---------------'
+        endif
+        
         !Save scaling to gUnits_T structure in Model
         Model%Units%gT0 = gT0
         Model%Units%gx0 = gx0
@@ -219,9 +221,9 @@ module msphutils
     subroutine Ion2MHD(Model,Grid,gPsi,inEijk,inExyz,pSclO)
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
-        real(rp), intent(inout) :: gPsi  (1:PsiSh+1,Grid%js:Grid%je+1,Grid%ks:Grid%ke+1)
+        real(rp), intent(inout) :: gPsi  (1:PsiSh+1,Grid%js:Grid%je+1  ,Grid%ks:Grid%ke+1)
         real(rp), intent(inout) :: inEijk(1:PsiSh+1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1,1:NDIM)
-        real(rp), intent(inout) :: inExyz(1:PsiSh,Grid%jsg:Grid%jeg,Grid%ksg:Grid%keg,1:NDIM)
+        real(rp), intent(inout) :: inExyz(1:PsiSh  ,Grid%jsg:Grid%jeg  ,Grid%ksg:Grid%keg,1:NDIM)
         real(rp), intent(in), optional :: pSclO
         integer :: i,j,k,iG
         integer :: NumP
@@ -597,98 +599,133 @@ module msphutils
     !-----------------------------
     !Calculate currents on inner-most active radial shells
     !NOTE: Only using perturbation field as we are assuming B0 is curl-free in inner region
-    !Using IonG inner shells
     !See gridutils/bFld2Jxyz for full commented calculation
     !TODO: Better wrap this in routines to avoid replicated code
+    !NOTE: Assuming this is being called on Voltron w/ full J/K bounds 
     subroutine GetShellJ(Model,Grid,Bxyz,Jxyz)
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
         real(rp), intent(in)  :: Bxyz(Grid%isg:Grid%ieg,Grid%jsg:Grid%jeg,Grid%ksg:Grid%keg,1:NDIM)
         real(rp), intent(inout) :: Jxyz(1:JpSh,Grid%js:Grid%je,Grid%ks:Grid%ke,1:NDIM)
 
-        integer :: ip0,ip1,ip2,ip3
-        integer :: jp0,jp1,jp2,jp3
-        integer :: kp0,kp1,kp2,kp3
-        integer :: j,k,n,d,iG
-        real(rp), dimension(NDIM) :: dl,bEdge !Edge vectors
-        real(rp) :: bInt(1:JpSh+2,Grid%jsg:Grid%jeg,Grid%ksg:Grid%keg,1:NDIM)
-        real(rp) :: JdS (1:JpSh+1,Grid%jsg:Grid%jeg,Grid%ksg:Grid%keg,1:NDIM)
-        integer :: iR,NumP,jm,jp
-        real(rp) :: Jbar
+        real(rp), dimension(:,:,:,:), allocatable :: bInt,JdS
+        integer :: iG,j,k,n,NumP
+        real(rp), dimension(NDIM) :: dl,bEdg,xcc,JdV
+        real(rp) :: fI,fJ,fK,fIp,fJp,fKp,dV,Div
+        real(rp), dimension(NDIM) :: xfI,xfIp,xfJ,xfJp,xfK,xfKp
 
-        Jxyz = 0.0
-
-        !Start by integrating B.dl along cell edges
+    !bInt = edge-integrated magnetic field
+        allocate(bInt(1:JpSh+1,Grid%js:Grid%je+1,Grid%ks:Grid%ke+1,1:NDIM))
+        bInt = 0.0
         !$OMP PARALLEL DO default(shared) collapse(2) &
-        !$OMP private(iG,n,j,k,d,dl,bEdge) &
-        !$OMP private(ip0,ip1,ip2,ip3,jp0,jp1,jp2,jp3,kp0,kp1,kp2,kp3)
-        do d=1,NDIM
-            do k=Grid%ksg,Grid%keg
-                do j=Grid%jsg,Grid%jeg
-                    do n=1,JpSh+2
-                        iG = JpSt+n-1
-
-                        !Set edge vector
-                        !Use ghost->active mapping to get ijk's for each 4-point average
-                        select case(d)
-                        case(IDIR)
-                            dl = Grid%xyz(iG+1,j,k,:) - Grid%xyz(iG,j,k,:)
-                            call ijk2Active(Model,Grid,iG  ,j  ,k  ,ip0,jp0,kp0)
-                            call ijk2Active(Model,Grid,iG  ,j-1,k  ,ip1,jp1,kp1)
-                            call ijk2Active(Model,Grid,iG  ,j  ,k-1,ip2,jp2,kp2)
-                            call ijk2Active(Model,Grid,iG  ,j-1,k-1,ip3,jp3,kp3)
-                        case(JDIR)
-                            dl = Grid%xyz(iG,j+1,k,:) - Grid%xyz(iG,j,k,:)
-                            call ijk2Active(Model,Grid,iG  ,j  ,k  ,ip0,jp0,kp0)
-                            call ijk2Active(Model,Grid,iG-1,j  ,k  ,ip1,jp1,kp1)
-                            call ijk2Active(Model,Grid,iG  ,j  ,k-1,ip2,jp2,kp2)
-                            call ijk2Active(Model,Grid,iG-1,j  ,k-1,ip3,jp3,kp3)
-
-                        case(KDIR)
-                            dl = Grid%xyz(iG,j,k+1,:) - Grid%xyz(iG,j,k,:)
-                            call ijk2Active(Model,Grid,iG  ,j  ,k  ,ip0,jp0,kp0)
-                            call ijk2Active(Model,Grid,iG-1,j  ,k  ,ip1,jp1,kp1)
-                            call ijk2Active(Model,Grid,iG  ,j-1,k  ,ip2,jp2,kp2)
-                            call ijk2Active(Model,Grid,iG-1,j-1,k  ,ip3,jp3,kp3)
-                        end select
-                        
-                        bEdge = 0.25*( Bxyz(ip0,jp0,kp0,:) + Bxyz(ip1,jp1,kp1,:) &
-                                     +Bxyz(ip2,jp2,kp2,:) + Bxyz(ip3,jp3,kp3,:) )
-                        bInt(n,j,k,d) = dot_product(bEdge,dl)
-
-                    enddo
-                enddo
-            enddo
-        enddo !IJK loop
-
-        JdS = 0.0
-        !Turn edge integrals into current flux through cell faces
-        !$OMP PARALLEL DO default(shared) &
-        !$OMP private(n,j,k)
-        do k=Grid%ksg,Grid%keg-1
-            do j=Grid%jsg,Grid%jeg-1
+        !$OMP private(n,j,k,iG,dl,bEdg)
+        do k=Grid%ks,Grid%ke+1
+            do j=Grid%js,Grid%je+1
                 do n=1,JpSh+1
-                    JdS(n,j,k,IDIR) = bInt(n,j,k,JDIR) + bInt(n,j+1,k,KDIR) - bInt(n,j,k+1,JDIR) - bInt(n,j,k,KDIR)
-                    JdS(n,j,k,JDIR) = bInt(n,j,k,KDIR) + bInt(n,j,k+1,IDIR) - bInt(n+1,j,k,KDIR) - bInt(n,j,k,IDIR)
-                    JdS(n,j,k,KDIR) = bInt(n,j,k,IDIR) + bInt(n+1,j,k,JDIR) - bInt(n,j+1,k,IDIR) - bInt(n,j,k,JDIR)
+                    iG = JpSt+n-1
+
+                    !Calculate I-dir
+                    dl = Grid%xyz(iG+1,j,k,:) - Grid%xyz(iG,j,k,:)
+                    bEdg = 0.25*( Bxyz(iG  ,j  ,k  ,:) + Bxyz(iG  ,j-1,k  ,:) &
+                                + Bxyz(iG  ,j  ,k-1,:) + Bxyz(iG  ,j-1,k-1,:) )
+                    bInt(n,j,k,IDIR) = dot_product(bEdg,dl)  
+                    
+                    !Calculate J-dir
+                    dl = Grid%xyz(iG,j+1,k,:) - Grid%xyz(iG,j,k,:)
+                    bEdg = 0.25*( Bxyz(iG  ,j  ,k  ,:) + Bxyz(iG-1,j  ,k  ,:) &
+                                + Bxyz(iG  ,j  ,k-1,:) + Bxyz(iG-1,j  ,k-1,:) )
+                    bInt(n,j,k,JDIR) = dot_product(bEdg,dl)  
+
+                    !Calculate K-dir
+                    dl = Grid%xyz(iG,j,k+1,:) - Grid%xyz(iG,j,k,:)
+                    bEdg = 0.25*( Bxyz(iG  ,j  ,k  ,:) + Bxyz(iG-1,j  ,k  ,:) &
+                                + Bxyz(iG  ,j-1,k  ,:) + Bxyz(iG-1,j-1,k  ,:) )
+                    bInt(n,j,k,KDIR) = dot_product(bEdg,dl)  
+
                 enddo
             enddo
         enddo
 
-        Jxyz = 0.0
-        !Now turn surface fluxes into cell-centered XYZ using flux2field
-        !$OMP PARALLEL DO default(shared) &
+        !Now enforce matching edges
+        do n=1,JpSh+1
+            !K-seam
+            bInt(n,:,Grid%ke+1,IDIR) = bInt(n,:,Grid%ks,IDIR)
+            bInt(n,:,Grid%ke+1,JDIR) = bInt(n,:,Grid%ks,JDIR)
+            !Ring (js)
+            bInt(n,Grid%js  ,Grid%ks:Grid%ke+1,KDIR) = sum(bInt(n,Grid%js  ,Grid%ks:Grid%ke,KDIR))/Grid%Nkp
+            bInt(n,Grid%js  ,Grid%ks:Grid%ke+1,IDIR) = sum(bInt(n,Grid%js  ,Grid%ks:Grid%ke,IDIR))/Grid%Nkp
+
+            !Ring (je+1)
+            bInt(n,Grid%je+1,Grid%ks:Grid%ke+1,KDIR) = sum(bInt(n,Grid%je+1,Grid%ks:Grid%ke,KDIR))/Grid%Nkp
+            bInt(n,Grid%je+1,Grid%ks:Grid%ke+1,IDIR) = sum(bInt(n,Grid%je+1,Grid%ks:Grid%ke,IDIR))/Grid%Nkp
+
+        enddo
+
+    !JdS = face-integrated current flux
+        allocate(JdS(1:JpSh+1,Grid%js:Grid%je+1,Grid%ks:Grid%ke+1,1:NDIM))
+        JdS = 0.0
+        !$OMP PARALLEL DO default(shared) collapse(2) &
         !$OMP private(n,j,k,iG)
+        do k=Grid%ks,Grid%ke+1
+            do j=Grid%js,Grid%je+1
+                do n=1,JpSh+1
+                    iG = JpSt+n-1
+                    !Do i-face
+                    if ( (k<=Grid%ke) .and. (j<=Grid%je) ) then
+                        JdS(n,j,k,IDIR) = bInt(n,j,k,JDIR) + bInt(n,j+1,k,KDIR) - bInt(n,j,k+1,JDIR) - bInt(n,j,k,KDIR)
+                    endif
+                    !Do j-face
+                    if ( (n<=JpSh) .and. (k<=Grid%ke) ) then
+                        JdS(n,j,k,JDIR) = bInt(n,j,k,KDIR) + bInt(n,j,k+1,IDIR) - bInt(n+1,j,k,KDIR) - bInt(n,j,k,IDIR)
+                    endif
+                    !Do k-face
+                    if ( (n<=JpSh) .and. (j<=Grid%je) ) then
+                        JdS(n,j,k,KDIR) = bInt(n,j,k,IDIR) + bInt(n+1,j,k,JDIR) - bInt(n,j+1,k,IDIR) - bInt(n,j,k,JDIR)
+                    endif
+                enddo
+            enddo
+        enddo
+
+        !Now handle ring stuff
+        do n=1,JpSh+1
+            !Zero out degenerate faces
+            JdS(n,Grid%js  ,:,JDIR) = 0.0
+            JdS(n,Grid%je+1,:,JDIR) = 0.0
+            !Match k fluxes at seam
+            JdS(n,:,Grid%ke+1,KDIR) = JdS(n,:,Grid%ks,KDIR)
+        enddo
+
+    !Now handle Jxyz
+        Jxyz = 0.0
+        !$OMP PARALLEL DO default(shared) collapse(2) &
+        !$OMP private(n,j,k,iG,dV,fI,fJ,fK,fIp,fJp,fKp) &
+        !$OMP private(xfI,xfJ,xfK,xfIp,xfJp,xfKp,Div,xcc,JdV)
         do k=Grid%ks,Grid%ke
             do j=Grid%js,Grid%je
                 do n=1,JpSh
                     iG = JpSt+n-1
-                    Jxyz(n,j,k,XDIR:ZDIR) = ( JdS(n+1,j  ,k  ,IDIR)*Grid%xfc(iG+1,j  ,k  ,:,IDIR) &
-                                             +JdS(n  ,j+1,k  ,JDIR)*Grid%xfc(iG  ,j+1,k  ,:,JDIR) &
-                                             +JdS(n  ,j  ,k+1,KDIR)*Grid%xfc(iG  ,j  ,k+1,:,KDIR) &
-                                             -JdS(n  ,j  ,k  ,IDIR)*Grid%xfc(iG  ,j  ,k  ,:,IDIR) &
-                                             -JdS(n  ,j  ,k  ,JDIR)*Grid%xfc(iG  ,j  ,k  ,:,JDIR) &
-                                             -JdS(n  ,j  ,k  ,KDIR)*Grid%xfc(iG  ,j  ,k  ,:,KDIR) )/Grid%volume(iG,j,k)
+
+                    !Grab values
+                    dV = Grid%volume(iG,j,k)
+                    fI  = JdS(n  ,j  ,k  ,IDIR)
+                    fJ  = JdS(n  ,j  ,k  ,JDIR)
+                    fK  = JdS(n  ,j  ,k  ,KDIR)
+                    fIp = JdS(n+1,j  ,k  ,IDIR)
+                    fJp = JdS(n  ,j+1,k  ,JDIR)
+                    fKp = JdS(n  ,j  ,k+1,KDIR)
+
+                    xfI  = Grid%xfc(iG  ,j  ,k  ,:,IDIR)
+                    xfJ  = Grid%xfc(iG  ,j  ,k  ,:,JDIR)
+                    xfK  = Grid%xfc(iG  ,j  ,k  ,:,KDIR)
+                    xfIp = Grid%xfc(iG+1,j  ,k  ,:,IDIR)
+                    xfJp = Grid%xfc(iG  ,j+1,k  ,:,JDIR)
+                    xfKp = Grid%xfc(iG  ,j  ,k+1,:,KDIR)
+
+                    Div = fIp - fI + fJp - fJ + fKp - fK
+                    xcc = Grid%xyzcc(iG,j,k,:)
+                    JdV = (fIp*xfIp + fJp*xfJp + fKp*xfKp - fI*xfI - fJ*xfJ - fK*xfK) - Div*xcc
+
+                    Jxyz(n,j,k,XDIR:ZDIR) = JdV/dV
 
                 enddo
             enddo

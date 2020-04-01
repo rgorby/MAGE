@@ -2,13 +2,13 @@
 #Make video of Gamera magnetosphere run
 import argparse
 from argparse import RawTextHelpFormatter
-import kaipy.gamera.magsphere as msph
 import matplotlib as mpl
 mpl.use('Agg')
 import matplotlib.pyplot as plt
 import kaipy.kaiViz as kv
 import matplotlib.gridspec as gridspec
 import numpy as np
+import kaipy.gamera.magsphere as msph
 import kaipy.gamera.gampp as gampp
 import kaipy.gamera.remixpp as rmpp
 import kaipy.gamera.rcmpp as rcmpp
@@ -193,17 +193,32 @@ if __name__ == "__main__":
 			rcmpp.AddRCMBox(AxL)
 
 		#Add MPI decomp
-		LW = 0.25
-		ashd = 0.25
 		if (doMPI):
+			gCol = "deepskyblue"
+			LW = 0.25
+			ashd = 0.5
 			for i in range(gsph.Ri):
 				i0 = i*gsph.dNi
-				AxL.plot(gsph.xxi[i0,:],gsph.yyi[i0,:],'m',linewidth=LW,alpha=ashd)
-				AxR.plot(gsph.xxi[i0,:],gsph.yyi[i0,:],'c',linewidth=LW,alpha=ashd)
-		
-		dxy = [32.5,32.5]
-		gsph.CMIViz(AxR,nStp,dxy=dxy,loc="upper left",doNorth=True)
-		gsph.CMIViz(AxR,nStp,dxy=dxy,loc="lower left",doNorth=False)
+				AxL.plot(gsph.xxi[i0,:],gsph.yyi[i0,:],gCol,linewidth=LW,alpha=ashd)
+				AxR.plot(gsph.xxi[i0,:],gsph.yyi[i0,:],gCol,linewidth=LW,alpha=ashd)
+			if (gsph.Rj>1):
+				for j in range(1,gsph.Rj):
+					j0 = j*gsph.dNj
+					AxL.plot(gsph.xxi[:,j0] ,gsph.yyi[:,j0],gCol,linewidth=LW,alpha=ashd)
+					AxL.plot(gsph.xxi[:,j0],-gsph.yyi[:,j0],gCol,linewidth=LW,alpha=ashd)
+					AxR.plot(gsph.xxi[:,j0], gsph.yyi[:,j0],gCol,linewidth=LW,alpha=ashd)
+					AxR.plot(gsph.xxi[:,j0],-gsph.yyi[:,j0],gCol,linewidth=LW,alpha=ashd)
+				#X-axis (+)
+				AxL.plot(gsph.xxi[:,0], gsph.yyi[:,0],gCol,linewidth=LW,alpha=ashd)
+				AxR.plot(gsph.xxi[:,0], gsph.yyi[:,0],gCol,linewidth=LW,alpha=ashd)
+				#X-axis (-)
+				j0 = (gsph.Rj)*gsph.dNj
+				AxL.plot(gsph.xxi[:,j0], gsph.yyi[:,j0],gCol,linewidth=LW,alpha=ashd)
+				AxR.plot(gsph.xxi[:,j0], gsph.yyi[:,j0],gCol,linewidth=LW,alpha=ashd)
 
-		fOut = oDir+"/vid.%04d.png"%(npl)
-		kv.savePic(fOut,bLenX=45)
+			dxy = [32.5,32.5]
+			gsph.CMIViz(AxR,nStp,dxy=dxy,loc="upper left",doNorth=True)
+			gsph.CMIViz(AxR,nStp,dxy=dxy,loc="lower left",doNorth=False)
+
+			fOut = oDir+"/vid.%04d.png"%(npl)
+			kv.savePic(fOut,bLenX=45)
