@@ -487,12 +487,8 @@ module gamapp_mpi
 
             endif
 
-            ! perform a halo update before the sim starts to ensure that the ghost cells have correct values
-            call haloUpdate(gamAppMpi)
-
-            !if (Model%doMHD) then
-            !    call bFlux2Fld(Model,Grid,gamAppMpi%State%magFlux,gamAppMpi%State%Bxyz)
-            !endif
+            ! update all ghost values
+            call updateMpiBCs(gamAppMpi)
 
             !Update the old state
             gamAppMpi%oState = gamAppMpi%State
@@ -512,15 +508,11 @@ module gamapp_mpi
         end associate
     end subroutine Hatch_mpi
 
-    subroutine stepGamera_mpi(gamAppMpi)
+    subroutine updateMpiBCs(gamAppMpi)
         type(gamAppMpi_T), intent(inout) :: gamAppMpi
 
-        integer :: ierr,i
-        real(rp) :: tmp
+        integer :: i
         character(len=strLen) :: BCID
-
-        !update the state variables to the next timestep
-        call UpdateStateData(gamAppMpi)
 
         !Enforce BCs
         call Tic("BCs")
@@ -571,6 +563,19 @@ module gamapp_mpi
                 endselect
             endif
         enddo
+    end subroutine updateMpiBCs
+
+    subroutine stepGamera_mpi(gamAppMpi)
+        type(gamAppMpi_T), intent(inout) :: gamAppMpi
+
+        integer :: ierr,i
+        real(rp) :: tmp
+
+        !update the state variables to the next timestep
+        call UpdateStateData(gamAppMpi)
+
+        !Update BCs MPI style
+        call updateMpiBCs(gamAppMpi)
 
         !Calculate new timestep
         call Tic("DT")
