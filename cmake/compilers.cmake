@@ -51,7 +51,7 @@ if(CMAKE_Fortran_COMPILER_ID MATCHES Intel)
 	set(PROD "-align array64byte -align rec32byte -no-prec-div -fast-transcendentals")
 	#Debug
 	set(DEBUG "-g -traceback -check bounds -check uninit -debug all -gen-interfaces -warn interfaces -fp-stack-check")
-        set(PRODWITHDEBUGINFO "-O3 -g -traceback -debug all -align array64byte -align rec32byte -no-prec-div -fast-transcendentals")
+	set(PRODWITHDEBUGINFO "-O3 -g -traceback -debug all -align array64byte -align rec32byte -no-prec-div -fast-transcendentals")
 
 	#Now do OS-dep options
 	if (CMAKE_SYSTEM_NAME MATCHES Darwin)
@@ -59,15 +59,16 @@ if(CMAKE_Fortran_COMPILER_ID MATCHES Intel)
 	else()
 		#If we're not doing Mac, then add IPO
 		string(APPEND PROD " -ipo")
-                string(APPEND PRODWITHDEBUGINFO " -ipo")
+		string(APPEND PRODWITHDEBUGINFO " -ipo")
 	endif()
 
 	#Handle individual hosts
 	if (HOST MATCHES cheyenne)
 		string(APPEND PROD " -march=corei7 -axCORE-AVX2")
-                string(APPEND PRODWITHDEBUGINFO " -march=corei7 -axCORE-AVX2")
+		string(APPEND PRODWITHDEBUGINFO " -march=corei7 -axCORE-AVX2")
 	endif()
 	
+
 elseif(CMAKE_Fortran_COMPILER_ID MATCHES GNU)
 	set(dialect "-ffree-form -ffree-line-length-none -fimplicit-none")
 	#Base

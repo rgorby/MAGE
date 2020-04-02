@@ -1,6 +1,6 @@
 module mixmain
   use xml_input
-
+  use clocks
   use mixtypes
   use mixparams
   use mixgeom
@@ -77,27 +77,38 @@ module mixmain
       logical, optional, intent(in) :: doModelOpt  ! allow to change on the fly whether we use conductance model
 
       logical :: doModel=.true.   ! always default to xml input deck unless doModelOpt is present and on
-      integer :: h
+      integer :: h,NumH
 
       if (present(doModelOpt)) doModel = doModelOpt
-      
-      do h=1,size(I)
-         if (I(h)%St%hemisphere.eq.NORTH) then
-            I(h)%St%tilt = tilt
-         else
-            I(h)%St%tilt = -tilt
-         end if
 
-         if (doModel) then
-            I(h)%conductance%const_sigma = I(h)%P%const_sigma         
-         else
-            I(h)%conductance%const_sigma = .true.            
-         end if
-         
-         call conductance_total(I(h)%conductance,I(h)%G,I(h)%St)
-         call run_solver(I(h)%P,I(h)%G,I(h)%St,I(h)%S)
-         call get_potential(I(h))
+      NumH = size(I)
+
+      !Removing OMP loop due to weird runtime errors
+      do h=1,NumH
+        if (I(h)%St%hemisphere.eq.NORTH) then
+          I(h)%St%tilt = tilt
+        else
+          I(h)%St%tilt = -tilt
+        end if
+
+        if (doModel) then
+          I(h)%conductance%const_sigma = I(h)%P%const_sigma         
+        else
+          I(h)%conductance%const_sigma = .true.            
+        end if
+
+        call Tic("MIX-COND")
+        call conductance_total(I(h)%conductance,I(h)%G,I(h)%St)
+        call Toc("MIX-COND")
+        call Tic("MIX-SOLVE")
+        call run_solver(I(h)%P,I(h)%G,I(h)%St,I(h)%S)
+        call Toc("MIX-SOLVE")
+        call Tic("MIX-POT")
+        call get_potential(I(h))
+        call Toc("MIX-POT")
       end do
     end subroutine run_mix
+
+
 
 end module mixmain

@@ -1,0 +1,185 @@
+module testFields
+  use pFUnit
+  use gamapp
+  use usergamic
+
+  implicit none
+
+  type(gamApp_T), allocatable :: gApp
+  procedure(StateIC_T), pointer :: userInitFunc => initUser
+
+contains
+
+  @before
+  subroutine setup()
+      allocate(gApp)
+
+      call initGamera(gApp,userInitFunc,'lfmbw.xml')
+
+      do while (gApp%Model%t < gApp%Model%tFin)
+        call stepGamera(gApp)
+      end do
+
+  end subroutine setup
+
+  @after
+  subroutine teardown()
+      deallocate(gApp)
+  end subroutine teardown
+
+  subroutine verifyFaces4(var,varName,is,ie,js,je,ks,ke)
+      integer, intent(in) :: is,ie,js,je,ks,ke
+      real(rp), intent(in) :: var(is:ie,js:je,ks:ke,NDIM)
+      character(len=*), intent(in) :: varName
+
+      integer :: i,j
+      character(len=strLen) :: checkMessage
+      real(rp) :: checkValue
+
+      ! min/max K faces
+      do i=gApp%Grid%is,gApp%Grid%ie
+          do j=gApp%Grid%js,gApp%Grid%je
+              write (checkMessage,'(A,A,A,I0,A,I0,A,I0,A)') 'Bad K face value in ',trim(varName),' at (',i,',',j,',',gApp%Grid%ks,')'
+              checkValue = abs(var(i,j,gApp%Grid%ks,KDIR) - var(i,j,gApp%Grid%ke+1,KDIR))
+              @assertLessThanOrEqual(checkValue, 1e-8_rp,trim(checkMessage))
+          enddo
+      enddo
+
+  end subroutine verifyFaces4
+
+  subroutine verifyFaces5(var,varName,is,ie,js,je,ks,ke,dn)
+      integer, intent(in) :: is,ie,js,je,ks,ke,dn
+      real(rp), intent(in) :: var(is:ie,js:je,ks:ke,dn,NDIM)
+      character(len=*), intent(in) :: varName
+
+      integer :: i,j
+      character(len=strLen) :: checkMessage
+      real(rp) :: checkValue
+
+      ! min/max K faces
+      do i=gApp%Grid%is,gApp%Grid%ie
+          do j=gApp%Grid%js,gApp%Grid%je
+              write (checkMessage,'(A,A,A,I0,A,I0,A,I0,A)') 'Bad K face value in ',trim(varName),' at (',i,',',j,',',gApp%Grid%ks,')'
+              checkValue = sum(abs(var(i,j,gApp%Grid%ks,:,KDIR) - var(i,j,gApp%Grid%ke+1,:,KDIR)))
+              @assertLessThanOrEqual(checkValue, 1e-8_rp,trim(checkMessage))
+          enddo
+      enddo
+
+  end subroutine verifyFaces5
+
+  subroutine verifyEdges4(var,varName,is,ie,js,je,ks,ke)
+      integer, intent(in) :: is,ie,js,je,ks,ke
+      real(rp), intent(in) :: var(is:ie,js:je,ks:ke,NDIM)
+      character(len=*), intent(in) :: varName
+
+      integer :: i,j
+      character(len=strLen) :: checkMessage
+      real(rp) :: checkValue
+
+      ! I edges
+      do i=gApp%Grid%is,gApp%Grid%ie
+          do j=gApp%Grid%js,gApp%Grid%je+1
+              write (checkMessage,'(A,A,A,I0,A,I0,A,I0,A)') 'Bad I edge value in ',trim(varName),' at (',i,',',j,',',gApp%Grid%ks,')'
+              checkValue = abs(var(i,j,gApp%Grid%ks,IDIR) - var(i,j,gApp%Grid%ke+1,IDIR))
+              @assertLessThanOrEqual(checkValue, 1e-8_rp,trim(checkMessage))
+          enddo
+      enddo
+
+      ! min/max J edges
+      do i=gApp%Grid%is,gApp%Grid%ie+1
+          do j=gApp%Grid%js,gApp%Grid%je
+              write (checkMessage,'(A,A,A,I0,A,I0,A,I0,A)') 'Bad J edge value in ',trim(varName),' at (',i,',',j,',',gApp%Grid%ks,')'
+              checkValue = abs(var(i,j,gApp%Grid%ks,JDIR) - var(i,j,gApp%Grid%ke+1,JDIR))
+              @assertLessThanOrEqual(checkValue, 1e-8_rp,trim(checkMessage))
+          enddo
+      enddo
+
+  end subroutine verifyEdges4
+
+  subroutine verifyEdges5(var,varName,is,ie,js,je,ks,ke,dn)
+      integer, intent(in) :: is,ie,js,je,ks,ke,dn
+      real(rp), intent(in) :: var(is:ie,js:je,ks:ke,dn,NDIM)
+      character(len=*), intent(in) :: varName
+
+      integer :: i,j
+      character(len=strLen) :: checkMessage
+      real(rp) :: checkValue
+
+      ! I edges
+      do i=gApp%Grid%is,gApp%Grid%ie
+          do j=gApp%Grid%js,gApp%Grid%je+1
+              write (checkMessage,'(A,A,A,I0,A,I0,A,I0,A)') 'Bad I edge value in ',trim(varName),' at (',i,',',j,',',gApp%Grid%ks,')'
+              checkValue = sum(abs(var(i,j,gApp%Grid%ks,:,IDIR) - var(i,j,gApp%Grid%ke+1,:,IDIR)))
+              @assertLessThanOrEqual(checkValue, 1e-8_rp,trim(checkMessage))
+          enddo
+      enddo
+
+      ! min/max J edges
+      do i=gApp%Grid%is,gApp%Grid%ie+1
+          do j=gApp%Grid%js,gApp%Grid%je
+              write (checkMessage,'(A,A,A,I0,A,I0,A,I0,A)') 'Bad J edge value in ',trim(varName),' at (',i,',',j,',',gApp%Grid%ks,')'
+              checkValue = sum(abs(var(i,j,gApp%Grid%ks,:,JDIR) - var(i,j,gApp%Grid%ke+1,:,JDIR)))
+              @assertLessThanOrEqual(checkValue, 1e-8_rp,trim(checkMessage))
+          enddo
+      enddo
+
+  end subroutine verifyEdges5
+
+  @test
+  subroutine testFaceMetricFields()
+      call verifyFaces5(gApp%Grid%Tf,'Tf',&
+          gApp%Grid%isg,gApp%Grid%ieg+1,&
+          gApp%Grid%jsg,gApp%Grid%jeg+1,&
+          gApp%Grid%ksg,gAPp%Grid%keg+1, NDIM*NDIM) ! g+1,g+1,g+1,DIM*DIM,DIM
+      call verifyFaces4(gApp%Grid%Face,'Face',&
+          gApp%Grid%isg,gApp%Grid%ieg+1,&
+          gApp%Grid%jsg,gApp%Grid%jeg+1,&
+          gApp%Grid%ksg,gAPp%Grid%keg+1) ! g+1,g+1,g+1,DIM
+!      call verifyFaces5(gApp%Grid%fcB0,'fcB0',&
+!          gApp%Grid%isg,gApp%Grid%ieg,&
+!          gApp%Grid%jsg,gApp%Grid%jeg,&
+!          gApp%Grid%ksg,gAPp%Grid%keg, NDIM) ! g,g,g,NDIM,NDIM
+!      call verifyFaces4(gApp%Grid%bFlux0,'bFlux0',&
+!          gApp%Grid%isg,gApp%Grid%ieg,&
+!          gApp%Grid%jsg,gApp%Grid%jeg,&
+!          gApp%Grid%ksg,gAPp%Grid%keg) ! g,g,g,NDIM
+  end subroutine testFaceMetricFields
+
+  @test
+  subroutine testEdgeMetricFields()
+      call verifyEdges5(gApp%Grid%Te,'Te',&
+          gApp%Grid%isg,gApp%Grid%ieg,&
+          gApp%Grid%jsg,gApp%Grid%jeg,&
+          gApp%Grid%ksg,gAPp%Grid%keg, NDIM*NDIM) ! g,g,g,DIM*DIM,DIM
+      call verifyEdges5(gApp%Grid%Teb,'Teb',&
+          gApp%Grid%isg,gApp%Grid%ieg,&
+          gApp%Grid%jsg,gApp%Grid%jeg,&
+          gApp%Grid%ksg,gAPp%Grid%keg, 4) ! g,g,g,4,DIM
+      call verifyEdges4(gApp%Grid%Edge,'Edge',&
+          gApp%Grid%isg,gApp%Grid%ieg,&
+          gApp%Grid%jsg,gApp%Grid%jeg,&
+          gApp%Grid%ksg,gAPp%Grid%keg) ! g,g,g,DIM
+!      call verifyEdges5(gApp%Grid%edgB0,'edgB0',&
+!          gApp%Grid%isg,gApp%Grid%ieg,&
+!          gApp%Grid%jsg,gApp%Grid%jeg,&
+!          gApp%Grid%ksg,gAPp%Grid%keg, 2) ! g,g,g,2,NDIM
+  end subroutine testEdgeMetricFields
+
+  @test
+  subroutine testFaceDataFields()
+      call verifyFaces4(gAPp%State%magFlux,'magFlux',&
+          gApp%Grid%isg,gApp%Grid%ieg+1,&
+          gApp%Grid%jsg,gApp%Grid%jeg+1,&
+          gApp%Grid%ksg,gAPp%Grid%keg+1) ! g+1,g+1,g+1,NDIM
+  end subroutine testFaceDataFields
+
+  @test
+  subroutine testEdgeDataFields()
+      call verifyEdges4(gApp%State%Efld,'Efld',&
+          gApp%Grid%isg,gApp%Grid%ieg,&
+          gApp%Grid%jsg,gApp%Grid%jeg,&
+          gApp%Grid%ksg,gAPp%Grid%keg) ! g,g,g,NDIM
+  end subroutine testEdgeDataFields
+
+end module testFields
+

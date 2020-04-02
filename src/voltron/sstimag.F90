@@ -9,7 +9,8 @@ module sstimag
 
     implicit none
 
-    type eqData_T
+    type, extends(innerMagBase_T) :: eqData_T
+
         type(ebTab_T)   :: ebTab
         logical :: doStatic = .true.
         integer :: Nr,Np
@@ -17,24 +18,35 @@ module sstimag
         real(rp) :: eqT1,eqT2 !Times of two data slices
         integer  :: eqN1,eqN2 !Indices of two data slices
         real(rp), dimension(:,:,:), allocatable :: eqW1,eqW2
-        
+        real(rp) :: rDeep   ! where we're ingesting
+
+        contains
+
+        ! over-ride base functions
+        procedure :: doInit => initSST
+        procedure :: doAdvance=> advanceSST
+        procedure :: doEval => evalSST
+        !procedure :: doIO => 
+        !procedure :: doRestart => 
 
     end type eqData_T
-    
-    type(eqData_T), private :: eqData
 
     contains
 
     !Initialize EQ Map data
-    subroutine initSST(iXML,isRestart)
+    subroutine initSST(imag,iXML,isRestart,vApp)
+        class(eqData_T), intent(inout) :: imag
         type(XML_Input_T), intent(in) :: iXML
         logical, intent(in) :: isRestart !Do you even care?
+        type(voltApp_T), intent(inout) :: vApp
 
         character(len=strLen) :: eqFile
         integer :: i,j,n1,n2
         integer :: dims(2)
         integer, parameter :: NIOVAR = 3
         type(IOVAR_T), dimension(NIOVAR) :: IOVars
+
+        associate(eqData => imag)
 
         !Get name of file holding eq data
         call iXML%Set_Val(eqFile,"eqmap/eqFile","ts07.h5")
@@ -49,6 +61,8 @@ module sstimag
 
         eqData%Nr = eqData%ebTab%dNi
         eqData%Np = eqData%ebTab%dNj
+        
+        eqData%rDeep = vApp%rDeep
 
         allocate(eqData%X(1:eqData%Nr+1,1:eqData%Np+1))
         allocate(eqData%Y(1:eqData%Nr+1,1:eqData%Np+1))
@@ -83,46 +97,55 @@ module sstimag
         n2 = 2
         if (eqData%doStatic) n2 = 1
 
-        call rdEQMap(eqData%ebTab,n1,eqData%eqW1)
+        call rdEQMap(eqData,n1,eqData%eqW1)
         eqData%eqN1 = n1
         eqData%eqT1 = eqData%ebTab%times(n1)
 
-        call rdEQMap(eqData%ebTab,n2,eqData%eqW2)
+        call rdEQMap(eqData,n2,eqData%eqW2)
         eqData%eqN2 = n2
         eqData%eqT2 = eqData%ebTab%times(n2)
+
+        end associate
 
     end subroutine initSST
 
     !Update eq map state for current time
-    subroutine AdvanceSST(t)
-        real(rp), intent(in) :: t
+    subroutine AdvanceSST(imag,vApp,tAdv)
+        class(eqData_T), intent(inout) :: imag
+        type(voltApp_T), intent(inout) :: vApp
+        real(rp), intent(in) :: tAdv
 
         integer :: n1,n2
-        if ( (t >= eqData%eqT1) .and. (t <= eqData%eqT2) ) then
+
+        associate(eqData => imag)
+
+        if ( (tAdv >= eqData%eqT1) .and. (tAdv <= eqData%eqT2) ) then
             !Nothing to do here
             return
         endif
 
         !Otherwise we need to update
-        call findSlc(eqData%ebTab,t,n1,n2)
+        call findSlc(eqData%ebTab,tAdv,n1,n2)
         if (eqData%eqN1 /= n1) then
             !Read slice
-            call rdEQMap(eqData%ebTab,n1,eqData%eqW1)
+            call rdEQMap(eqData,n1,eqData%eqW1)
             eqData%eqN1 = n1
             eqData%eqT1 = eqData%ebTab%times(n1)
         endif
 
         if (eqData%eqN2 /= n2) then
             !Read slice
-            call rdEQMap(eqData%ebTab,n2,eqData%eqW2)
+            call rdEQMap(eqData,n2,eqData%eqW2)
             eqData%eqN2 = n2
             eqData%eqT2 = eqData%ebTab%times(n2)
         endif
 
+        end associate
+
     end subroutine AdvanceSST
 
-    subroutine rdEQMap(ebTab,n,W)
-        type(ebTab_T), intent(in) :: ebTab
+    subroutine rdEQMap(eqData,n,W)
+        type(eqData_T), intent(inout) :: eqData
         integer, intent(in) :: n
         real(rp), dimension(:,:,:), intent(inout) :: W
 
@@ -130,11 +153,13 @@ module sstimag
         type(IOVAR_T), dimension(NIOVAR) :: IOVars
         integer :: dims(2)
 
-        write(*,*) 'Reading file/group = ', trim(ebtab%bStr),'/',trim(ebTab%gStrs(n))
+        write(*,*) 'Reading file/group = ', &
+             trim(eqData%ebtab%bStr),'/',trim(eqData%ebTab%gStrs(n))
+
         call ClearIO(IOVars)
         call AddInVar(IOVars,"P")
 
-        call ReadVars(IOVars,.false.,ebTab%bStr,ebTab%gStrs(n))
+        call ReadVars(IOVars,.false.,eqData%ebTab%bStr,eqData%ebTab%gStrs(n))
 
         dims = [eqData%Nr,eqData%Np]
         W(:,:,1) = reshape(IOVars(1)%data,dims)
@@ -142,8 +167,10 @@ module sstimag
 
     !Evaluate eq map at a given point
     !Returns density (#/cc) and pressure (nPa)
-    subroutine EvalSST(r,phi,t,imW)
-        real(rp), intent(in) :: r,phi,t
+    subroutine EvalSST(imag,x1,x2,x12C,t,imW)
+        class(eqData_T), intent(inout) :: imag
+        real(rp), intent(in) :: x1,x2,t
+        real(rp), intent(in) :: x12C(2,2,2,2)
         real(rp), intent(out) :: imW(NVARIMAG)
 
         real(rp) :: D,P,x0,y0
@@ -151,19 +178,24 @@ module sstimag
         real(rp) :: w1,w2
         logical :: isGood
 
+        associate(eqData => imag, r=>x1, phi=>x2, rpC=>x12C)
+
+        if (r>eqData%rDeep) then 
+           imW = 0.0
+           return
+        end if
+
         x0 = r*cos(phi)
         y0 = r*sin(phi)
 
         ij0 = minloc( (eqData%xxc-x0)**2.0 + (eqData%yyc-y0)**2.0 )
         
-        
-
         i0 = ij0(IDIR)
         j0 = ij0(JDIR)
 
         isGood = (t>0) .and. (r>TINY)
         if (isGood) then
-            call tWeights(t,w1,w2)
+            call tWeights(eqData,t,w1,w2)
             !D = psphD(r) !Gallagher plasmasphere
             D = GallagherRP(r,phi)
 
@@ -173,13 +205,19 @@ module sstimag
             P = 0.0
         endif
 
-        imW(IMDEN) = D
-        imW(IMPR)  = P
+        imW(IMDEN)  = D
+        imW(IMPR)   = P
+        imW(IMTSCL) = 0.0 !Rely on coupling timescalee
+        imW(IMX1)   = r
+        imW(IMX2)   = (180.0/PI)*phi
         
+        end associate
+
     end subroutine EvalSST
 
     !Get weights for given time
-    subroutine tWeights(t,w1,w2)
+    subroutine tWeights(eqdata,t,w1,w2)
+        type(eqData_T), intent(inout) :: eqData
         real(rp), intent(in)  :: t
         real(rp), intent(out) :: w1,w2
         real(rp) :: dt

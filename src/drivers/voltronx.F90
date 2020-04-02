@@ -15,9 +15,8 @@ program voltronx
 
     call initClocks()
 
-    !TODO: Fix this to reset after MPI config to only output from root rank
-    verbose = .true.
-    
+    gApp%Model%isLoud = .true.
+
     call initGamera(gApp,userInitFunc,doIO=.false.)
     call initVoltron(vApp, gApp)
 
@@ -31,7 +30,7 @@ program voltronx
     !Do any updates to Voltron
         call stepVoltron(vApp,gApp)
         
-    !Coupling    
+    !Coupling
         call Tic("DeepCoupling")
         if ( (vApp%time >= vApp%DeepT) .and. vApp%doDeep ) then
             call DeepUpdate(vApp, gApp, vApp%time)

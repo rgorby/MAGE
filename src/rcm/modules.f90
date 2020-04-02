@@ -38,11 +38,18 @@ MODULE rice_housekeeping_module
              L_write_int_grid_debug= .true.
   INTEGER(iprec) :: Idt_overwrite         = 1
   INTEGER(iprec) :: rcm_record
-
+  REAL(rprec) :: HighLatBD,LowLatBD
+  
 ! set this to true to tilt the dipole, must turn off corotation also
   LOGICAL :: rcm_tilted = .false.
 
-  !
+    type RCMEllipse_T
+        !Ellipse parameters
+        real(rprec) :: xSun=7.5,xTail=-15.0,yDD=10.0
+        logical  :: isDynamic=.false. !Whether to update parameters
+        real(rprec) :: dRadMHD = 2.0
+    end type RCMEllipse_T
+    type(RCMEllipse_T) :: ellBdry
 
   CONTAINS
   
@@ -79,15 +86,21 @@ MODULE rice_housekeeping_module
       END SUBROUTINE Read_rcm_mhd_params
 
       !Get RCM params from Kaiju-style XML file
-      subroutine RCM_MHD_Params_XML()
+      subroutine RCM_MHD_Params_XML(iXML)
+        type(XML_Input_T), intent(in), optional :: iXML
+
         character(len=strLen) :: inpXML
         type(XML_Input_T) :: xmlInp
 
-        !Find input deck filename
-        call getIDeckStr(inpXML)
+        if(present(iXML)) then
+          xmlInp = iXML
+        else
+          !Find input deck filename
+          call getIDeckStr(inpXML)
 
-        !Create XML reader
-        xmlInp = New_XML_Input(trim(inpXML),'RCM',.true.)
+          !Create XML reader
+          xmlInp = New_XML_Input(trim(inpXML),'RCM',.true.)
+        endif
 
         !Read various parameters
         call xmlInp%Set_Val(L_write_rcmu_torcm,"output/toRCM",L_write_rcmu_torcm)
@@ -95,6 +108,18 @@ MODULE rice_housekeeping_module
         call xmlInp%Set_Val(L_write_vars_debug,"output/debug",L_write_vars_debug)
         call xmlInp%Set_Val(rcm_tilted,"tilt/isTilt",rcm_tilted)
 
+        !Grid bounds
+        call xmlInp%Set_Val(HighLatBD,"grid/HiLat" ,75.0_rprec)
+        call xmlInp%Set_Val(LowLatBD ,"grid/LowLat",15.0_rprec)
+
+        !Ellipse parameters
+        call xmlInp%Set_Val(ellBdry%xSun ,"ellipse/xSun" ,7.5_rprec)
+        call xmlInp%Set_Val(ellBdry%xTail,"ellipse/xTail",-15.0_rprec)
+        call xmlInp%Set_Val(ellBdry%yDD  ,"ellipse/yDD"  ,10.0_rprec)
+        call xmlInp%Set_Val(ellBdry%isDynamic,"ellipse/isDynamic"  ,.true.)
+
+        call xmlInp%Set_Val(ellBdry%dRadMHD ,"ellipse/dRadMHD" ,ellBdry%dRadMHD)
+        
         !For now just using default Idt_overwrite
 
       end subroutine RCM_MHD_Params_XML
@@ -106,6 +131,7 @@ END MODULE rice_housekeeping_module
 
 MODULE ionosphere_exchange
   use rcm_mhd_interfaces
+  use rcm_mod_subs, ONLY: isize, jsize, jwrap, colat, aloct
   
   contains 
     
@@ -140,7 +166,10 @@ MODULE ionosphere_exchange
       ALLOCATE( rm%sigmah(rm%nLat_ion, rm%nLon_ion) )
       ALLOCATE( rm%latc(rm%nLat_ion, rm%nLon_ion) )
       ALLOCATE( rm%lonc(rm%nLat_ion, rm%nLon_ion) )
+      ALLOCATE( rm%Lb  (rm%nLat_ion, rm%nLon_ion) )
+      ALLOCATE( rm%Tb  (rm%nLat_ion, rm%nLon_ion) )
 
+      ALLOCATE( rm%toMHD(rm%nLat_ion, rm%nLon_ion) )
       
       rm%gcolat (:) = colat (:,1)
       rm%glong  (:) = aloct (1,jwrap:jsize)
@@ -170,7 +199,8 @@ MODULE ionosphere_exchange
       if (ALLOCATED(rm%beta_average)) DEALLOCATE(rm%beta_average)
       if (ALLOCATED(rm%latc)) DEALLOCATE(rm%latc)
       if (ALLOCATED(rm%lonc)) DEALLOCATE(rm%lonc)
-      
+      if (ALLOCATED(rm%toMHD)) DEALLOCATE(rm%toMHD)
+
     END SUBROUTINE tearDownIon
 
   END MODULE ionosphere_exchange

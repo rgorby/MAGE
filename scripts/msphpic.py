@@ -24,6 +24,9 @@ if __name__ == "__main__":
 	fOut = "qkpic.png"
 	doDen = False
 	doBig = False
+	doSmall = False
+	doHuge = False
+	doBigger = False
 	noIon = False
 	MainS = """Creates simple multi-panel figure for Gamera magnetosphere run
 	Top Panel - Residual vertical magnetic field
@@ -37,6 +40,9 @@ if __name__ == "__main__":
 	parser.add_argument('-den', action='store_true', default=doDen,help="Show density instead of pressure (default: %(default)s)")
 	parser.add_argument('-noion', action='store_true', default=noIon,help="Don't show ReMIX data (default: %(default)s)")
 	parser.add_argument('-big', action='store_true', default=doBig,help="Use larger domain bounds (default: %(default)s)")
+	parser.add_argument('-small', action='store_true', default=doSmall,help="Use smaller domain bounds (default: %(default)s)")
+	parser.add_argument('-huge', action='store_true', default=doHuge,help="Show full domain (default: %(default)s)")
+	parser.add_argument('-bigger', action='store_true', default=doBigger,help="Use larger domain bounds (default: %(default)s)")
 
 	#Finalize parsing
 	args = parser.parse_args()
@@ -46,6 +52,9 @@ if __name__ == "__main__":
 	doDen = args.den
 	noIon = args.noion
 	doBig = args.big
+	doSmall = args.small
+	doHuge = args.huge
+	doBigger = args.bigger
 
 	#---------------------
 	#Do work
@@ -61,6 +70,18 @@ if __name__ == "__main__":
 	
 
 	if (doBig):
+		xTail = -350.0
+		xSun = 40.0
+	elif(doSmall):
+		xTail = -10.0
+		xSun = 5.0
+	elif(doHuge):
+		xTail = -410.0
+		xSun = 50.0
+	elif (doBigger):
+		xTail = -200.0
+		xSun = 25.0
+	elif (doBig):
 		xTail = -100.0
 		xSun = 20.0
 	else:
@@ -83,7 +104,7 @@ if __name__ == "__main__":
 	else:
 		cVals = np.logspace(np.log10(1.0),np.log10(10.0),Nc)
 	LW = 0.25
-	ashd = 0.25
+	ashd = 0.5
 
 	#======
 	#Init data
@@ -184,7 +205,7 @@ if __name__ == "__main__":
 
 	#Add MPI decomp
 	if (doMPI):
-		gCol = "slategrey"
+		gCol = "deepskyblue"
 		for i in range(gsph.Ri):
 			i0 = i*gsph.dNi
 			AxL.plot(gsph.xxi[i0,:],gsph.yyi[i0,:],gCol,linewidth=LW,alpha=ashd)

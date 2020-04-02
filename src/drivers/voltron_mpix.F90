@@ -27,6 +27,7 @@ program voltron_mpix
     integer :: ierror, length, provided, worldSize, worldRank, gamComm
     integer :: required=MPI_THREAD_MULTIPLE
     character( len = MPI_MAX_ERROR_STRING) :: message
+    logical :: deepPerformed
 
     ! initialize MPI
     !Set up MPI with or without thread support
@@ -53,11 +54,7 @@ program voltron_mpix
 
     call initClocks()
 
-    !TODO: Fix this to reset after MPI config to only output from root rank
-    verbose = .true.
-    
-    ! initial stab at this. Voltron MUST have its own MPI rank. For simplicity, this is always
-    !    the last MPI rank for now
+    gApp%Model%isLoud = .true.    
 
     ! create a new MPI communicator for just Gamera
     !    for now this is always all ranks excep the last one (which is reserved for voltron)
@@ -98,7 +95,7 @@ program voltron_mpix
     endif
 
     if(isGamera) then
-        call initGamera_mpi(gApp,userInitFunc,gamComm,doIO=.false.)
+        call initGamera_mpi(gApp,userInitFunc,gamComm,doIO=.true.)
         call initGam2Volt(g2vComm,gApp,MPI_COMM_WORLD)
 
         do while (g2vComm%time < g2vComm%tFin)
@@ -112,15 +109,18 @@ program voltron_mpix
             call performStepVoltron(g2vComm,gApp)
         
             !Coupling    
+            deepPerformed = .false.
             call Tic("DeepCoupling")
             if ( (g2vComm%time >= g2vComm%DeepT) .and. g2vComm%doDeep ) then
                 call performDeepUpdate(g2vComm, gApp)
+                deepPerformed = .true.
             endif
             call Toc("DeepCoupling")
 
             call Tic("IonCoupling")
             if (g2vComm%time >= g2vComm%ShallowT) then
-                call performShallowUpdate(g2vComm, gApp)
+                !write (*,*) "Gamera performing shallow update at ",g2vComm%time
+                call performShallowUpdate(g2vComm, gApp, deepPerformed)
             endif
             call Toc("IonCoupling")
         
@@ -134,11 +134,11 @@ program voltron_mpix
                 endif
             endif
             !Restart output
-            if (gApp%Model%IO%doRestart(g2vComm%time)) then
+            if (gApp%Model%IO%doRestart(gApp%Model%t)) then
                 call resOutput(gApp%Model, gApp%Grid, gApp%State)
             endif
             !Data output
-            if (gApp%Model%IO%doOutput(g2vComm%time)) then
+            if (gApp%Model%IO%doOutput(gApp%Model%t)) then
                 call fOutput(gApp%Model, gApp%Grid, gApp%State)
             endif
 
@@ -158,7 +158,7 @@ program voltron_mpix
         end do
 
     else
-        call initVoltron_mpi(vApp, MPI_COMM_WORLD)
+        call initVoltron_mpi(vApp, userInitFunc, MPI_COMM_WORLD)
 
         ! voltron run loop
         do while (vApp%time < vApp%tFin)
@@ -169,15 +169,18 @@ program voltron_mpix
             call stepVoltron_mpi(vApp)
 
             !Coupling
+            deepPerformed = .false.
             call Tic("DeepCoupling")
             if ( (vApp%time >= vApp%DeepT) .and. vApp%doDeep ) then
                 call DeepUpdate_mpi(vApp, vApp%time)
+                deepPerformed = .true.
             endif
             call Toc("DeepCoupling")
 
             call Tic("IonCoupling")
             if (vApp%time >= vApp%ShallowT) then
-                call ShallowUpdate_mpi(vApp, vApp%time)
+                !write (*,*) "Voltron performing shallow update at ",vApp%time
+                call ShallowUpdate_mpi(vApp, vApp%time, deepPerformed)
             endif
             call Toc("IonCoupling")
 
@@ -211,6 +214,9 @@ program voltron_mpix
         end do
 
     endif
+
+    call MPI_FINALIZE(ierror)
+    print *,"This is the END!"
 
 end program voltron_mpix
 

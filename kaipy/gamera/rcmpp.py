@@ -10,13 +10,21 @@ import kaipy.gamera.gampp as gampp
 import os
 import numpy.ma as ma
 import matplotlib.patches as patches
+import matplotlib.ticker as plticker
 
 rcBds = [-15,10.0,-12.5,12.5]
 pCMap = "viridis"
 eCol = "slategrey"
 rcmCol = "dodgerblue"
-eLW = 0.05
+gCol = "cyan"
+gLW = 0.15
 
+doXYZ = False
+doCut = True
+pCut = 1.0e-8
+MHDCol = "red"
+eLW = 0.05
+MHDLW = 0.5
 #Take axis and rcmdata object and add pressure plot
 def RCMInset(AxRCM,rcmdata,nStp,vP):
 	if (AxRCM is None):
@@ -24,15 +32,26 @@ def RCMInset(AxRCM,rcmdata,nStp,vP):
 
 	bmX = rcmdata.GetVar("xMin",nStp)
 	bmY = rcmdata.GetVar("yMin",nStp)
+	bmZ = rcmdata.GetVar("zMin",nStp)
 	Prcm = rcmdata.GetVar("P",nStp)
 	IOpen = rcmdata.GetVar("IOpen",nStp)
-	I = (IOpen > -0.5)
+	toMHD = rcmdata.GetVar("toMHD",nStp)
+	if (doCut):
+		I = (IOpen > -0.5) | (Prcm<pCut)
+	else:
+		I = (IOpen > -0.5)
 	Ni = (~I).sum()
 
 	if (Ni == 0):
 		return
 	#If still here we got something to show
+	if (doXYZ):
+		bmP = np.arctan2(bmY,bmX)
+		bmR = np.sqrt(bmX*bmX + bmY*bmY + bmZ*bmZ)
 
+		bmX = bmR*np.cos(bmP)
+		bmY = bmR*np.sin(bmP)
+	
 	#Do masks
 	bmX = ma.masked_array(bmX,mask=I)
 	bmY = ma.masked_array(bmY,mask=I)
@@ -42,6 +61,24 @@ def RCMInset(AxRCM,rcmdata,nStp,vP):
 	AxRCM.pcolor(bmX,bmY,Prcm,norm=vP,cmap=pCMap)
 	AxRCM.plot(bmX,bmY,color=eCol,linewidth=eLW)
 	AxRCM.plot(bmX.T,bmY.T,color=eCol,linewidth=eLW)
+
+	#Add MHD ingestion contour
+	if (nStp>0):
+		CS1 = AxRCM.contour(bmX,bmY,toMHD,[0.5],colors=MHDCol,linewidths=MHDLW)
+		manloc = [(0.0,8.0)]
+
+		fmt = {}
+		fmt[0.5] = 'MHD'
+		AxRCM.clabel(CS1,CS1.levels[::2],inline=True,fmt=fmt,fontsize=5,inline_spacing=25,manual=manloc)
+
+	#Add grid
+	xS = [-10,-5,0,5]
+	yS = [-10,-5,0,5,10]
+	for x in xS:
+		AxRCM.axvline(x,linewidth=gLW,color=gCol)
+	for y in yS:
+		AxRCM.axhline(y,linewidth=gLW,color=gCol)
+
 	kv.addEarth2D(ax=AxRCM)
 	kv.SetAx(rcBds,AxRCM)
 	kv.SetAxLabs(AxRCM,xLab=None,yLab=None)

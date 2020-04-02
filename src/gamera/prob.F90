@@ -140,12 +140,6 @@ module prob
         allocate(periodicInnerKBC_T     :: Grid%externalBCs(INK )%p)
         allocate(periodicOuterKBC_T     :: Grid%externalBCs(OUTK)%p)
 
-        Grid%isMG = Grid%is
-        Grid%jsMG = Grid%js
-        Grid%jeMG = Grid%je
-        Grid%ksMG = Grid%ks
-        Grid%keMG = Grid%ke        
-
     end subroutine ringLoop
 
     !Initialize blast wave w/ cylindrical singularity
@@ -164,12 +158,6 @@ module prob
 
         allocate(cylindricalPoleBC_T    :: Grid%externalBCs(INI )%p)
         allocate(zeroGradientOuterIBC_T :: Grid%externalBCs(OUTI)%p)
-
-        Grid%isMG = Grid%is
-        Grid%jsMG = Grid%js
-        Grid%jeMG = Grid%je
-        Grid%ksMG = Grid%ks
-        Grid%keMG = Grid%ke        
         
     end subroutine ringBW
 
@@ -188,12 +176,6 @@ module prob
         endif
 
         call initBW(Model,Grid,State,inpXML)
-
-        Grid%isMG = Grid%is
-        Grid%jsMG = Grid%js
-        Grid%jeMG = Grid%je
-        Grid%ksMG = Grid%ks
-        Grid%keMG = Grid%ke        
 
         !Setup fluid species
         dScl = 0.8
@@ -219,6 +201,7 @@ module prob
 
         call initBW(Model,Grid,State,inpXML)
 
+        call WipeBCs(Model,Grid)
         allocate(SphereInBC_T       :: Grid%externalBCs(INI )%p)
         allocate(SphereOutBC_T      :: Grid%externalBCs(OUTI)%p)
         allocate(lfmInBC_T          :: Grid%externalBCs(INJ )%p)
@@ -226,13 +209,6 @@ module prob
         allocate(periodicInnerKBC_T :: Grid%externalBCs(INK )%p)
         allocate(periodicOuterKBC_T :: Grid%externalBCs(OUTK)%p)
 
-        !Set MG bounds
-        Grid%isMG = Grid%is
-        grid%ieMG = Grid%ie
-        Grid%jsMG = Grid%js
-        Grid%jeMG = Grid%je
-        Grid%ksMG = Grid%ks
-        Grid%keMG = Grid%ke     
     end subroutine lfmBW
 
     !Initialize all blast wave variants here
@@ -680,10 +656,6 @@ module prob
 
                     State%Gas(i,j,k,ENERGY,BLK) = KinE + P/(Model%gamma-1)
 
-                    !!Initialize fields
-                    !State%magFlux(i,j,k,IDIR) = B0*Grid%Face(i,j,k,IDIR)
-                    !State%magFlux(i,j,k,JDIR) = 0.0
-                    !State%magFlux(i,j,k,KDIR) = 0.0
                 enddo
             enddo
         enddo  
@@ -1006,6 +978,7 @@ module prob
             enddo
         enddo        
 
+        call WipeBCs(Model,Grid)
         allocate(periodicInnerIBC_T      :: Grid%externalBCs(INI )%p)
         allocate(periodicOuterIBC_T      :: Grid%externalBCs(OUTI)%p)
         allocate(zeroGradientInnerJBC_T  :: Grid%externalBCs(INJ )%p)

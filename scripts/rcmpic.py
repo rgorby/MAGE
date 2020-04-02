@@ -16,6 +16,8 @@ import numpy.ma as ma
 
 if __name__ == "__main__":
 	#Defaults
+	MHDCol = "red"
+	MHDLW = 0.5
 	fdir = os.getcwd()
 	ftag = "msphere"
 	nStp = -1
@@ -55,7 +57,6 @@ if __name__ == "__main__":
 	nMax = 1.0e+3
 	vD = kv.genNorm(nMin,nMax,doLog=True)
 	cVals = np.logspace(1.0,3.0,Nc)
-	print(cVals)
 
 	pCMap = "viridis"
 	sCMap = "terrain"
@@ -98,6 +99,7 @@ if __name__ == "__main__":
 	bmin = rcmdata.GetVar("bMin",nStp)
 
 	IOpen = rcmdata.GetVar("IOpen",nStp)
+	toMHD = rcmdata.GetVar("toMHD",nStp)
 	S = rcmdata.GetVar("S",nStp)
 	
 	I = (IOpen > -0.5)
@@ -131,6 +133,17 @@ if __name__ == "__main__":
 	AxM.contour(bmX,bmY,Nmhd,cVals,norm=vD,cmap=dCMap,linewidths=cLW)
 	kv.addEarth2D(ax=AxM)
 	kv.SetAx(xyBds,AxM)
+	Axs = [AxL,AxM,AxR]
+	if (nStp>0):
+		for n in range(3):
+			Ax = Axs[n]
+			CS1 = Ax.contour(bmX,bmY,toMHD,[0.5],colors=MHDCol,linewidths=MHDLW)
+			manloc = [(0.0,8.0)]
+
+			fmt = {}
+			fmt[0.5] = 'MHD'
+			Ax.clabel(CS1,CS1.levels[::2],inline=True,fmt=fmt,fontsize=5,inline_spacing=25,manual=manloc)
+
 
 	#Handle right
 	AxR.set_title("Flux-Tube Entropy")
@@ -147,8 +160,4 @@ if __name__ == "__main__":
 	fOut = "qkrcmpic.png"
 	kv.savePic(fOut)
 	
-	#AxC1 = fig.add_subplot(gs[2,0])
-	#AxC2 = fig.add_subplot(gs[2,3])
-	#AxC3 = fig.add_subplot(gs[2,1])
-	#AxC4 = fig.add_subplot(gs[2,2])
 

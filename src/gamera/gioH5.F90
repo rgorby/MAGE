@@ -6,6 +6,7 @@ module gioH5
     use gridutils
     use ioH5
     use multifluid
+    use earthhelper
     use dates
     use files
     
@@ -185,7 +186,7 @@ module gioH5
         integer iMin,iMax,jMin,jMax,kMin,kMax
 
         !Fill base data
-        real(rp), dimension(:,:,:),   allocatable :: gVar,DivBcc
+        real(rp), dimension(:,:,:),   allocatable :: gVar,DivBcc,gVar1
         real(rp), dimension(:,:,:,:), allocatable :: gVec
         real (rp), dimension(:,:,:,:), allocatable :: VecA,VecB !Full-sized arrays
         real(rp) :: totDivB,MJD
@@ -216,13 +217,14 @@ module gioH5
         call ClearIO(IOVars)
 
         !Allocate holders
-        allocate(gVar(iMin:iMax,jMin:jMax,kMin:kMax))
-        allocate(gVec(iMin:iMax,jMin:jMax,kMin:kMax,1:NDIM))
+        allocate(gVar (iMin:iMax,jMin:jMax,kMin:kMax))
+        allocate(gVar1(iMin:iMax,jMin:jMax,kMin:kMax))
+        allocate(gVec (iMin:iMax,jMin:jMax,kMin:kMax,1:NDIM))
 
         associate(gamOut=>Model%gamOut)
 
         do s=0,Model%nSpc
-            if (s == 0) then
+            if (s == BLK) then
                 dID = "D"
                 VxID = "Vx"
                 VyID = "Vy"
@@ -256,18 +258,24 @@ module gioH5
                             gVec(i,j,k,:) = 0.0
                             gVar(i,j,k)   = 0.0
                         endif
+                        if (s == BLK) then
+                            call CellPress2Cs(Model,State%Gas(i,j,k,:,s),gVar1(i,j,k))
+                        endif
+
                     enddo
                 enddo
             enddo
-
 
             !Add V/P to chain
             call GameraOut(VxID,gamOut%vID,gamOut%vScl,gVec(iMin:iMax,jMin:jMax,kMin:kMax,XDIR))
             call GameraOut(VyID,gamOut%vID,gamOut%vScl,gVec(iMin:iMax,jMin:jMax,kMin:kMax,YDIR))
             call GameraOut(VzID,gamOut%vID,gamOut%vScl,gVec(iMin:iMax,jMin:jMax,kMin:kMax,ZDIR))
             call GameraOut(PID ,gamOut%pID,gamOut%pScl,gVar(iMin:iMax,jMin:jMax,kMin:kMax))
-
+            if (s == BLK) then
+                call GameraOut("Cs",gamOut%vID,gamOut%vScl,gVar1(iMin:iMax,jMin:jMax,kMin:kMax))
+            endif
         enddo !Species loop
+
         !---------------------
         !Write MHD variables
         if (Model%doMHD) then
@@ -276,8 +284,8 @@ module gioH5
 
             !For current, use VecA to hold total Bxyz, VecB for Jxyz
             if (Model%doBackground) then
+                VecA = State%Bxyz + Gr%B0 !Full size
                 gVec(:,:,:,:) = Gr%B0(iMin:iMax,jMin:jMax,kMin:kMax,XDIR:ZDIR) + State%Bxyz(iMin:iMax,jMin:jMax,kMin:kMax,XDIR:ZDIR)
-                VecA = State%Bxyz + Gr%B0
             else
                 gVec(:,:,:,:) = State%Bxyz(iMin:iMax,jMin:jMax,kMin:kMax,XDIR:ZDIR)
                 VecA = State%Bxyz
@@ -295,14 +303,38 @@ module gioH5
             call GameraOut("By",gamOut%bID,gamOut%bScl,gVec(iMin:iMax,jMin:jMax,kMin:kMax,YDIR))
             call GameraOut("Bz",gamOut%bID,gamOut%bScl,gVec(iMin:iMax,jMin:jMax,kMin:kMax,ZDIR))
 
-            !Write current
-            call bFld2Jxyz(Model,Gr,VecA,VecB)
-            gVec(:,:,:,:) = VecB(iMin:iMax,jMin:jMax,kMin:kMax,XDIR:ZDIR)
-            call FixRAVec(gVec(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,1:NDIM))
+            !Add mag pressure
+            gVar = 0.5*(gVec(:,:,:,XDIR)**2.0 + gVec(:,:,:,YDIR)**2.0 + gVec(:,:,:,ZDIR)**2.0)
+            call GameraOut("Pb",gamOut%pID,gamOut%pScl,gVar(iMin:iMax,jMin:jMax,kMin:kMax))
 
-            call AddOutVar(IOVars,"Jx",gVec(:,:,:,XDIR))
-            call AddOutVar(IOVars,"Jy",gVec(:,:,:,YDIR))
-            call AddOutVar(IOVars,"Jz",gVec(:,:,:,ZDIR))
+            !Write current
+            if (Model%isMagsphere) then
+                !Subtract dipole before calculating current
+                !$OMP PARALLEL DO default(shared) collapse(2)
+                do k=Gr%ksg,Gr%keg
+                    do j=Gr%jsg,Gr%jeg
+                        do i=Gr%isg,Gr%ieg
+                            VecA(i,j,k,:) = State%Bxyz(i,j,k,:) + Gr%B0(i,j,k,:) - MagsphereDipole(Gr%xyzcc(i,j,k,:),Model%MagM0)
+                        enddo
+                    enddo
+                enddo
+
+                call bFld2Jxyz(Model,Gr,VecA,VecB)
+                gVec(:,:,:,:) = VecB(iMin:iMax,jMin:jMax,kMin:kMax,XDIR:ZDIR)
+
+                call AddOutVar(IOVars,"Jx",gVec(:,:,:,XDIR))
+                call AddOutVar(IOVars,"Jy",gVec(:,:,:,YDIR))
+                call AddOutVar(IOVars,"Jz",gVec(:,:,:,ZDIR))
+            else
+                !Do full current
+                call bFld2Jxyz(Model,Gr,VecA,VecB)
+                gVec(:,:,:,:) = VecB(iMin:iMax,jMin:jMax,kMin:kMax,XDIR:ZDIR)
+
+                call AddOutVar(IOVars,"Jx",gVec(:,:,:,XDIR))
+                call AddOutVar(IOVars,"Jy",gVec(:,:,:,YDIR))
+                call AddOutVar(IOVars,"Jz",gVec(:,:,:,ZDIR))
+            endif
+
 
             !Calculate/Write xyz electric fields
             !Divide by edge-length to go from potential to field
@@ -326,8 +358,11 @@ module gioH5
             call AddOutVar(IOVars,"Ez",gVec(:,:,:,ZDIR))
             
             if (Model%doSource) then
-                call GameraOut("SrcD","CODE",1.0_rp,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,DEN     ,BLK))
-                call GameraOut("SrcP","CODE",1.0_rp,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,PRESSURE,BLK))
+                call GameraOut("SrcD" ,gamOut%dID,gamOut%dScl,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,DEN     ,BLK))
+                call GameraOut("SrcP" ,gamOut%pID,gamOut%pScl,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,PRESSURE,BLK))
+                call GameraOut("SrcVx","CODE"    ,1.0_rp     ,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,VELX    ,BLK))
+                call GameraOut("SrcVy","CODE"    ,1.0_rp     ,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,VELY    ,BLK))
+                call GameraOut("SrcVz","CODE"    ,1.0_rp     ,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,VELZ    ,BLK))
             endif
 
             if(Model%doResistive) then
@@ -371,6 +406,7 @@ module gioH5
         end associate
 
         contains
+
             subroutine GameraOut(vID,uID,vScl,V)
                 character(len=*), intent(in) :: vID,uID
                 real(rp), intent(in) :: vScl
@@ -449,10 +485,12 @@ module gioH5
 
     !Write restart dump to "ResF" output file
     subroutine writeH5Res(Model,Gr,State,ResF)
-        type(Model_T), intent(in) :: Model
+        type(Model_T), intent(inout) :: Model
         type(Grid_T),  intent(in) :: Gr
         type(State_T), intent(in) :: State
         character(len=*), intent(in) :: ResF
+
+        if (Model%dt0 < TINY) Model%dt0 = Model%dt
 
         !Reset IO chain
         call ClearIO(IOVars)
@@ -462,6 +500,7 @@ module gioH5
         call AddOutVar(IOVars,"nRes",Model%IO%nRes)
         call AddOutVar(IOVars,"ts"  ,Model%ts)
         call AddOutVar(IOVars,"t"   ,Model%t)
+        call AddOutVar(IOVars,"dt0"   ,Model%dt0)
 
         !Coordinates of corners
         call AddOutVar(IOVars,"X",Gr%x)
@@ -555,6 +594,7 @@ module gioH5
         !Should use FindIO routine
         State%magFlux(Gr%is:Gr%ie+1,Gr%js:Gr%je+1,Gr%ks:Gr%ke+1,:) = reshape(IOVars(2)%data,bDims)
 
+
         !Get main attributes
         if (doReset) then
             Model%IO%nOut = 0
@@ -566,7 +606,17 @@ module gioH5
             Model%IO%nRes = int(IOVars(4)%data(1)) + 1
             Model%ts   = int(IOVars(5)%data(1))
             Model%t = IOVars(6)%data(1)
-        endif        
+        endif
+        
+        !Set back to old dt0 if possible
+        Model%dt0 =0.0
+        if (ioExist(inH5,"dt0")) then
+            call ClearIO(IOVars)
+            call AddInVar(IOVars,"dt0")
+            call ReadVars(IOVars,.false.,inH5)
+            Model%dt0 = IOVars(1)%data(1)
+        endif
+
     !Do touchup to data structures
         State%time = Model%t
         Model%IO%tOut = floor(Model%t/Model%IO%dtOut)*Model%IO%dtOut

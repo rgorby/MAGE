@@ -70,10 +70,9 @@ program projectx
         !$OMP& private(xout) &
         !$OMP& schedule(dynamic)
         do n=1,NumP
-!            call genProjection(Model,ebState,Xs(n,:),Model%t,fLs(n))
            ! trace only below certain colatitude
            if ( abs(acos(Xs(n,ZDIR)/norm2(Xs(n,:)))*180./pi) >= 30.  ) then
-              call getProjection(Model,ebState,Xs(n,:),Model%t,xout)
+              call getEquatorProjection(Model,ebState,Xs(n,:),Model%t,xout)
               Xe(n,:) = xout
            else
               Xe(n,:) = [-999.,-999.,-999.]

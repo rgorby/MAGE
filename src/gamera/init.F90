@@ -64,24 +64,30 @@ module init
     end subroutine Hatch
 
     ! Read corner data for the mesh and set grid size variables
-    subroutine ReadCorners(Model,Grid,xmlInp,endTime)
+    subroutine ReadCorners(Model,Grid,xmlInp,endTime,noRestart)
         type(Model_T), intent(inout) :: Model
         type(Grid_T), intent(inout) :: Grid
         type(XML_Input_T), intent(inout) :: xmlInp
         real(rp), optional, intent(in) :: endTime
+        logical, optional, intent(in) :: noRestart
 
         logical :: doH5g
         character(len=strLen) :: inH5
+        integer :: dotLoc
 
         !Setup OMP info
 #ifdef _OPENMP
         Model%nTh = omp_get_max_threads()
-        write(*,*) 'Running threaded'
-        write(*,*) '   # Threads = ', Model%nTh
-        write(*,*) '   # Cores   = ', omp_get_num_procs()
+        if (Model%isLoud) then
+            write(*,*) 'Running threaded'
+            write(*,*) '   # Threads = ', Model%nTh
+            write(*,*) '   # Cores   = ', omp_get_num_procs()
+        endif
 #else
-        write (*,*) 'Running without threading'
-        Model%nTh = 1
+        if (Model%isLoud) then
+            write (*,*) 'Running without threading'
+            Model%nTh = 1
+        endif
 #endif
 
 !--------------------------------------------
@@ -97,13 +103,27 @@ module init
 
         !Get input H5 if necessary
         !Restart file overwrites doH5g
+        !Always read the full mesh file
         if (doH5g) call xmlInp%Set_Val(inH5,"sim/H5Grid","gMesh.h5")
-        if (Model%isRestart) call xmlInp%Set_Val(inH5,"restart/resFile","Res.h5")
+        if (Model%isRestart .and. (.not. present(noRestart) .or. .not. noRestart)) then
+            call xmlInp%Set_Val(inH5,"restart/resFile","Res.h5")
+
+            !If case is tiled, adjust the h5 filename for each rank
+            if(Grid%isTiled) then
+                ! location of the third-to-last period to extract the requested end of the restart
+                dotLoc = INDEX(inH5,".Res.")
+
+                write (inH5, '(A,A)') &
+                    trim(genRunId(Model%RunID,Grid%NumRi,Grid%NumRj,Grid%NumRk,Grid%Ri+1,Grid%Rj+1,Grid%Rk+1)), &
+                    trim(inH5(dotLoc:))
+                write (*,*) 'Tiled case, adjusting restart file to ',trim(inH5)
+            endif
+        endif
 
         !Do grid generation
         if (doH5g .or. Model%isRestart) then
             !Use H5 input for Grid
-            write(*,*) 'Reading grid from file ', trim(inH5)
+            if (Model%isLoud) write(*,*) 'Reading grid from file ', trim(inH5)
             call readH5Grid(Model,Grid,inH5)
         else
             !Create grid (corners) from XML info
@@ -122,6 +142,7 @@ module init
         character(len=strLen) :: inH5, FileCode
         logical :: fExist, doReset
         real(rp) :: tReset
+        integer :: dotLoc
 
         !Set default domains (needs to be done after grid generation/reading)
         call SetDomain(Model,Grid)
@@ -145,6 +166,18 @@ module init
             !If restart replace State variable w/ restart file
             !Make sure inH5 is set to restart
             call xmlInp%Set_Val(inH5,"restart/resFile","Res.h5")
+
+            !If case is tiled, adjust the h5 filename for each rank
+            if(Grid%isTiled) then
+                ! location of the third-to-last period to extract the requested end of the restart
+                dotLoc = INDEX(inH5,".Res.")
+
+                write (inH5, '(A,A)') &
+                    trim(genRunId(Model%RunID,Grid%NumRi,Grid%NumRj,Grid%NumRk,Grid%Ri+1,Grid%Rj+1,Grid%Rk+1)), &
+                    trim(inH5(dotLoc:))
+                write (*,*) 'Tiled case, adjusting restart file to ',trim(inH5)
+            endif
+
             !Test for resetting time
             call xmlInp%Set_Val(doReset ,"restart/doReset" ,.false.)
             call xmlInp%Set_Val(tReset,"restart/tReset",0.0_rp)
@@ -159,26 +192,24 @@ module init
 
         !Finalize setup
         !Enforce initial BC's
-        call Tic("InitialBCs")
+        call Tic("BCs")
         call EnforceBCs(Model,Grid,State)
-        call Toc("InitialBCs")
+        oState = State
+        call Toc("BCs")
 
         !Setup timestep and initial previous state for predictor
         Model%dt = CalcDT(Model,Grid,State)
-        oState = State
         oState%time = State%time-Model%dt !Initial old state
+
+        ! set initial dt0 to 0, it will be set once the case settles
+        Model%dt0 = 0
 
         !Initialize solver data
         call initSolver(Solver, Model, Grid)
 
         !Setup output file
-        if (Grid%isTiled) then
-            ! tiling info and individual process index
-            write (FileCode,"(6(A1,I0.4))") '_',Grid%NumRi,'_',Grid%NumRj,'_',Grid%NumRk, &
-                                            '_',Grid%Ri,'_',Grid%Rj,'_',Grid%Rk
-            Model%RunID = trim(Model%RunID) // trim(FileCode)
-        endif
-        GamH5File = trim(Model%RunID) // ".gam.h5"
+        GamH5File = genName(Model%RunID, Grid%NumRi, Grid%NumRj, Grid%NumRk, Grid%Ri+1, Grid%Rj+1, Grid%Rk+1)
+        Model%RunID = genRunId(Model%RunID, Grid%NumRi, Grid%NumRj, Grid%NumRk, Grid%Ri+1, Grid%Rj+1, Grid%Rk+1)
 
         if (.not. Model%isRestart) then
             !Kill output file if it exists
@@ -197,6 +228,8 @@ module init
 
         if (Model%doMHD) then
             call bFlux2Fld(Model,Grid,State%magFlux,State%Bxyz)
+            oState%magFlux = State%magFlux
+            oState%Bxyz    = State%Bxyz
         endif
 
         !Incorporate background field, B0, if necessary
@@ -243,6 +276,7 @@ module init
         !Call IC function
         !Call even for restart to reset BCs, background, etc ...
         call initState(Model,Grid,State,xmlInp)
+        oState = State
 
         !Initialize BC objects
         do n=1,Grid%NumBC
@@ -256,11 +290,14 @@ module init
     !Initialize Model data structure
     subroutine initModel(Model,xmlInp)
         type(Model_T), intent(inout) :: Model
-        type(XML_Input_T), intent(in) :: xmlInp
+        type(XML_Input_T), intent(inout) :: xmlInp
 
         real(rp) :: C0,MJD0
         integer :: nSeed, icSeed
         integer, dimension(:), allocatable :: vSeed
+
+        !Start by shutting up extra ranks
+        if (.not. Model%isLoud) call xmlInp%BeQuiet()
 
         !Get/set model defaults (can be overwritten)
         Model%nSpc = 0
@@ -293,7 +330,7 @@ module init
 
         !Set CFL from XML
         call xmlInp%Set_Val(Model%CFL ,'sim/CFL'  ,C0)
-        if(verbose) then
+        if (Model%isLoud) then
            if (Model%CFL > C0) then
                write(*,*) '-------------------------------------'
                write(*,*) 'WARNING, CFL is above critical value!'
@@ -367,18 +404,18 @@ module init
         select case (trim(toUpper(reconMethod)))
         case("7UP")
             GetLRs => Up7LRs
-            write(*,*) 'Using 7UP Reconstruction'
+            if (Model%isLoud) write(*,*) 'Using 7UP Reconstruction'
         case("8CENT","8C")
             GetLRs => Cen8LRs
-            write(*,*) 'Using 8CENT Reconstruction'
+            if (Model%isLoud) write(*,*) 'Using 8CENT Reconstruction'
             
         case("8CENTG","8CG")
             GetLRs => Cen8GLRs
-            write(*,*) 'Using 8CENT-GEOM Reconstruction'
+            if (Model%isLoud) write(*,*) 'Using 8CENT-GEOM Reconstruction'
 
         case("HIGH5")
             GetLRs => High5LRs
-            write(*,*) 'Using High-5 Reconstruction'
+            if (Model%isLoud) write(*,*) 'Using High-5 Reconstruction'
         end select
 
         RingLR => NULL()
@@ -442,19 +479,6 @@ module init
         Grid%jeDT = Grid%je+1
         Grid%ksDT = Grid%ks-1
         Grid%keDT = Grid%ke+1
-
-        !Set default domain for Bxyz predictor calculation
-        Grid%isMG = Grid%isg
-        Grid%ieMG = Grid%ieg
-        Grid%jsMG = Grid%jsg
-        Grid%jeMG = Grid%jeg
-        if (Model%do25D) then
-            Grid%ksMG = Grid%ks
-            Grid%keMG = Grid%ks
-        else            
-            Grid%ksMG = Grid%ksg
-            Grid%keMG = Grid%keg
-        endif
 
     end subroutine SetDomain
 
@@ -547,13 +571,15 @@ module init
             call xmlInp%Set_Val(xyzBds(6),"kdir/max",xMax)
         end if
 
-        write(*,*) 'Grid generation ...'
-        write(*,*) '   Cells = ', Grid%Nip,Grid%Njp,Grid%Nkp
-        write(*,*) '   xMin/xMax = ', xyzBds(1),xyzBds(2)
-        write(*,*) '   yMin/yMax = ', xyzBds(3),xyzBds(4)
-        write(*,*) '   zMin/zMax = ', xyzBds(5),xyzBds(6)
-        write(*,*) ''
-
+        if (Model%isLoud) then
+            write(*,*) 'Grid generation ...'
+            write(*,*) '   Cells = ', Grid%Nip,Grid%Njp,Grid%Nkp
+            write(*,*) '   xMin/xMax = ', xyzBds(1),xyzBds(2)
+            write(*,*) '   yMin/yMax = ', xyzBds(3),xyzBds(4)
+            write(*,*) '   zMin/zMax = ', xyzBds(5),xyzBds(6)
+            write(*,*) ''
+        endif
+        
         !Get grid geometry options
         !Use right-handed system
         !Cyl: x1,x2,x3 -> R,phi/2pi,z
@@ -778,23 +804,14 @@ module init
 
    
         !$OMP PARALLEL DO default(shared) collapse(2) &
-        !$OMP private(xyzC,xi,xk,xip1,xjp1,xkp1,di,dj,dk,ijkDV)
+        !$OMP private(i,j,k,xyzC,di,dj,dk,ijkDV)
         do k=Grid%ksg, Grid%keg
             do j=Grid%jsg, Grid%jeg
                 do i=Grid%isg, Grid%ieg
-                    !Get coordinates of each face center
-                    !Face centers
-                    xi = Grid%xfc(i,j,k,:,IDIR)
-                    xj = Grid%xfc(i,j,k,:,JDIR)
-                    xk = Grid%xfc(i,j,k,:,KDIR)
-                    xip1 = Grid%xfc(i+1,j,k,:,IDIR)
-                    xjp1 = Grid%xfc(i,j+1,k,:,JDIR)
-                    xkp1 = Grid%xfc(i,j,k+1,:,KDIR)
-
                     !Get di,dj,dk vectors across cell
-                    di = xip1-xi
-                    dj = xjp1-xj
-                    dk = xkp1-xk
+                    di = Grid%xfc(i+1,j,k,:,IDIR) - Grid%xfc(i,j,k,:,IDIR)
+                    dj = Grid%xfc(i,j+1,k,:,JDIR) - Grid%xfc(i,j,k,:,JDIR)
+                    dk = Grid%xfc(i,j,k+1,:,KDIR) - Grid%xfc(i,j,k,:,KDIR)
 
                     !Calculate average cell length in each direction for timestep
                     Grid%di(i,j,k) = norm2(di)
@@ -834,31 +851,37 @@ module init
         !Fix transforms if necessary
         if (Model%doRing) call RingGridFix(Model,Grid)
 
-
         !------------------------------------------------
         !Calculate coordinate systems at edges for magnetic field updates (velocity)
-        call allocGridVec(Model,Grid,Grid%edge)
-        allocate(Grid%Te(Grid%isg:Grid%ieg,Grid%jsg:Grid%jeg,Grid%ksg:Grid%keg,NDIM*NDIM,NDIM))
+        call allocGridVec(Model,Grid,Grid%edge,doP1=.true.)
+        
+        allocate(Grid%Te(Grid%isg:Grid%ieg+1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1,NDIM*NDIM,NDIM))
         Grid%edge = 1.0
         Grid%Te = 0.0
 
         do d=1,NDIM
             !Use maximal bounds
             is = Grid%isg
-            ie = Grid%ieg
+            ie = Grid%ieg+1
             js = Grid%jsg
-            je = Grid%jeg
+            je = Grid%jeg+1
             ks = Grid%ksg
-            ke = Grid%keg
+            ke = Grid%keg+1
 
-            !Correct bounds for direction
+            !Correct bounds for direction (go maximal)
             select case(d)
             case(IDIR)
+                ie = Grid%ieg
                 ks = Grid%ksg+1
+                ke = Grid%keg
             case(JDIR)
+                je = Grid%jeg
                 is = Grid%isg+1
+                ie = Grid%ieg
             case(KDIR)
+                ke = Grid%keg
                 js = Grid%jsg+1
+                je = Grid%jeg
             end select
 
             !$OMP PARALLEL DO default(shared) collapse(2) &
@@ -873,18 +896,18 @@ module init
 
                         case (IDIR)
                             dEdge = Grid%xyz(i+1,j,k,:) - Grid%xyz(i,j,k,:)
-                            eAvg = 0.5*(  Grid%xyz(i  ,j  ,k+1,:) - Grid%xyz(i  ,j  ,k-1,:) &
-                                         + Grid%xyz(i+1,j  ,k+1,:) - Grid%xyz(i+1,j  ,k-1,:) )
+                            eAvg = 0.5*( Grid%xyz(i  ,j  ,k+1,:) - Grid%xyz(i  ,j  ,k-1,:) &
+                                       + Grid%xyz(i+1,j  ,k+1,:) - Grid%xyz(i+1,j  ,k-1,:) )
 
                         case (JDIR)
                             dEdge = Grid%xyz(i,j+1,k,:) - Grid%xyz(i,j,k,:)
-                            eAvg = 0.5*(  Grid%xyz(i+1,j  ,k  ,:) - Grid%xyz(i-1,j  ,k  ,:) &
-                                         + Grid%xyz(i+1,j+1,k  ,:) - Grid%xyz(i-1,j+1,k  ,:) )
+                            eAvg = 0.5*( Grid%xyz(i+1,j  ,k  ,:) - Grid%xyz(i-1,j  ,k  ,:) &
+                                       + Grid%xyz(i+1,j+1,k  ,:) - Grid%xyz(i-1,j+1,k  ,:) )
 
                         case (KDIR)
                             dEdge = Grid%xyz(i,j,k+1,:) - Grid%xyz(i,j,k,:)
-                            eAvg = 0.5*(  Grid%xyz(i  ,j+1,k  ,:) - Grid%xyz(i  ,j-1,k  ,:) &
-                                         + Grid%xyz(i  ,j+1,k+1,:) - Grid%xyz(i  ,j-1,k+1,:) )
+                            eAvg = 0.5*( Grid%xyz(i  ,j+1,k  ,:) - Grid%xyz(i  ,j-1,k  ,:) &
+                                       + Grid%xyz(i  ,j+1,k+1,:) - Grid%xyz(i  ,j-1,k+1,:) )
 
                         end select
 
@@ -911,7 +934,7 @@ module init
         
         !------------------------------------------------
         !Calculate coordinate systems at edges for magnetic field updates (magnetic field)
-        allocate(Grid%Teb(Grid%isg:Grid%ieg,Grid%jsg:Grid%jeg,Grid%ksg:Grid%keg,4,NDIM))
+        allocate(Grid%Teb(Grid%isg:Grid%ieg+1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1,4,NDIM))
         Grid%Teb = 0.0
         !Loop over normal direction, and get edge system for plane w/ that normal
         do dNorm=1,NDIM
@@ -944,7 +967,7 @@ module init
     subroutine ebGeom(Model,Gr,nQ,dNorm,dT1,dT2)
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Gr
-        real(rp), intent(inout) :: nQ(Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,2)
+        real(rp), intent(inout) :: nQ(Gr%isg:Gr%ieg+1,Gr%jsg:Gr%jeg+1,Gr%ksg:Gr%keg+1,2)
         integer, intent(in) :: dNorm,dT1,dT2
         
         !Reconstruction stencils for Nx,Ny,Nz and face area
@@ -959,12 +982,13 @@ module init
         nQ = 1.0
         ie = Gr%ie+1
 
+        !K: Testing restricted interpolation (6Cent)
         !$OMP PARALLEL DO default(shared) collapse(2) &
         !$OMP private(i,iB,j,k,iMax,iG) &
         !$OMP private(fAi,Nec,Nij,dxT,dyT,dScl,NxyzB,fArB)
         do k=Gr%ks,Gr%ke+1
             do j=Gr%js,Gr%je+1
-                do iB=Gr%is,ie
+                do iB=Gr%is,ie,vecLen
                     iMax = min(vecLen,ie-iB+1)
 
                     !Get stencils in the dT2 direction
@@ -976,10 +1000,10 @@ module init
                     !Do weighted interpolation from face to corner of each component
                     do i=1,iMax
                         iG = iB+i-1 !Global index
-                        fAi = dot_product(interpWgt,fArB(i,:))
-                        Nec(XDIR) = dot_product(NxyzB(i,:,XDIR)*fArB(i,:),interpWgt)/fAi
-                        Nec(YDIR) = dot_product(NxyzB(i,:,YDIR)*fArB(i,:),interpWgt)/fAi
-                        Nec(ZDIR) = dot_product(NxyzB(i,:,ZDIR)*fArB(i,:),interpWgt)/fAi
+                        fAi = dot_product(interpWgt6,fArB(i,:))
+                        Nec(XDIR) = dot_product(NxyzB(i,:,XDIR)*fArB(i,:),interpWgt6)/fAi
+                        Nec(YDIR) = dot_product(NxyzB(i,:,YDIR)*fArB(i,:),interpWgt6)/fAi
+                        Nec(ZDIR) = dot_product(NxyzB(i,:,ZDIR)*fArB(i,:),interpWgt6)/fAi
 
                         !Map xyz->1,2 with edge mapping (dNorm)
                         Nij(1) = dot_product(Nec,Gr%Te(iG,j,k,TAN1X:TAN1Z,dNorm))

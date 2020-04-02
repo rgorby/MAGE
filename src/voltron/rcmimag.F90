@@ -13,10 +13,11 @@ module rcmimag
     use rcm_mhd_interfaces
     use rcm_mix_interface
     use streamline
+    use clocks
+    use rcm_mhd_mod, ONLY : rcm_mhd
+    use rcm_mod_subs, ONLY : colat, aloct
 
     implicit none
-
-    type(rcm_mhd_T), private :: RCMApp
 
     !Scaling parameters
     real(rp), parameter, private :: rcmPScl = 1.0e+9 !Convert Pa->nPa
@@ -24,16 +25,14 @@ module rcmimag
     real(rp), parameter, private :: IMGAMMA = 5.0/3.0
 
     real(rp), parameter :: RIonRCM = (RionE/REarth)*1.0e+6 !Units of Re
-    
     real(rp), private :: rEqMin = 0.0
+    real(rp), private :: PPDen = 50.0 !Plasmapause density
     integer, parameter :: MAXRCMIOVAR = 30
     character(len=strLen), private :: h5File
 
-    logical, parameter :: doWolfLimit = .true.
 
     !Information taken from MHD flux tubes
     !TODO: Figure out RCM boundaries
-    !TODO: Figure out iopen values
 
     !Pave = Average pressure [Pa]
     !Nave = Average density [#/m3]
@@ -43,25 +42,57 @@ module rcmimag
     !beta_average = Average plasma beta
     !Potential = MIX potential [Volts]
     !iopen = Field line topology (-1: Closed, 1: Open)
+    !Lb = Field line length [Re]
     type RCMTube_T
         real(rp) :: Vol,bmin,beta_average,Pave,Nave,pot
         real(rp) :: X_bmin(NDIM)
         integer(ip) :: iopen
         real(rp) :: latc,lonc !Conjugate lat/lon
+        real(rp) :: Lb
     end type RCMTube_T
 
     real(rp), dimension(:,:), allocatable, private :: mixPot
+
+    !Parameters for smoothing toMHD boundary
+    type SmoothOperator_T
+        integer :: nIter,nRad
+    end type SmoothOperator_T
+
+    type(SmoothOperator_T) :: SmoothOp
+
+    type, extends(innerMagBase_T) :: rcmIMAG_T
+
+        ! rcm coupling variable
+        type(rcm_mhd_T) :: rcmCpl
+
+        contains
+
+        ! over-ride the base functions with RCM versions
+        procedure :: doInit => initRCM
+        procedure :: doAdvance => advanceRCM
+        procedure :: doEval => evalRCM
+        procedure :: doIO => writeRCM
+        procedure :: doRestart => writeRCMrestart
+
+    end type
+
     contains
 
     !Initialize RCM inner magnetosphere model
-    subroutine initRCM(iXML,isRestart,t0,dtCpl,nRes)
+    subroutine initRCM(imag,iXML,isRestart,vApp)
+        class(rcmIMAG_T), intent(inout) :: imag
         type(XML_Input_T), intent(in) :: iXML
         logical, intent(in) :: isRestart
-        real(rp), intent(in) :: t0,dtCpl
-        integer, intent(in), optional :: nRes
+        type(voltApp_T), intent(inout) :: vApp
 
         character(len=strLen) :: RunID,RCMH5
         logical :: fExist
+
+        associate(RCMApp => imag%rcmCpl, &
+                  imag2mix => vApp%imag2mix, &
+                  t0 => vApp%time, &
+                  dtCpl => vApp%DeepDT, &
+                  nRes => vApp%IO%nRes)
 
         call iXML%Set_Val(RunID,"/gamera/sim/runid","sim")
         RCMApp%rcm_runid = trim(RunID)
@@ -69,14 +100,13 @@ module rcmimag
         if (isRestart) then
             RCMApp%rcm_nRes = nRes
             write(*,*) 'Restarting RCM @ t = ', t0
-            call rcm_mhd(t0,dtCpl,RCMApp,RCMRESTART)
-            write(*,*) 'Finished RCM restart ...'
-            call init_rcm_mix(RCMApp)
+            call rcm_mhd(t0,dtCpl,RCMApp,RCMRESTART,iXML=iXML)
         else
+            CALL SYSTEM("rm -rf RCMFiles > /dev/null 2>&1")
             write(*,*) 'Initializing RCM ...'
-            call rcm_mhd(t0,dtCpl,RCMApp,RCMINIT)
-            call init_rcm_mix(RCMApp)
+            call rcm_mhd(t0,dtCpl,RCMApp,RCMINIT,iXML=iXML)
         endif
+        call init_rcm_mix(RCMApp,imag2mix)
 
         h5File = trim(RunID) // ".mhdrcm.h5" !MHD-RCM coupling data
         RCMH5  = trim(RunID) // ".rcm.h5" !RCM data
@@ -89,13 +119,18 @@ module rcmimag
             call CheckAndKill(RCMH5)
 
             !Create base file
-            call initRCMIO()
+            call initRCMIO(RCMApp)
         endif
-        
+        call iXML%Set_Val(SmoothOp%nIter,"imag/nIter",4)
+        call iXML%Set_Val(SmoothOp%nRad ,"imag/nRad" ,8)
+
+        end associate
+
     end subroutine initRCM
 
     !Advance RCM from Voltron data
-    subroutine AdvanceRCM(vApp,tAdv)
+    subroutine AdvanceRCM(imag,vApp,tAdv)
+        class(rcmIMAG_T), intent(inout) :: imag
         type(voltApp_T), intent(inout) :: vApp
         real(rp), intent(in) :: tAdv
 
@@ -104,20 +139,25 @@ module rcmimag
         real(rp) :: dtAdv
         type(RCMTube_T) :: ijTube
 
-        real(rp) :: llBC
+        real(rp) :: llBC,maxRad
         logical :: isLL
+
+        associate(RCMApp => imag%rcmCpl)
 
         !Lazily grabbing rDeep here, convert to RCM units
         rEqMin = vApp%rDeep*Re_cgs*1.0e-2 !Re=>meters
 
         llBC = vApp%mhd2chmp%lowlatBC
 
+        call Tic("MAP_RCMMIX")
     !Get potential from mix
         call map_rcm_mix(vApp,mixPot)
+        call Toc("MAP_RCMMIX")
 
+        call Tic("RCM_TUBES")
     !Load RCM tubes
        !$OMP PARALLEL DO default(shared) collapse(2) &
-       !$OMP schedule(dynamic) &
+       !$OMP schedule(guided) &
        !$OMP private(i,j,colat,lat,lon,isLL,ijTube)
         do i=1,RCMApp%nLat_ion
             do j=1,RCMApp%nLon_ion
@@ -147,72 +187,223 @@ module rcmimag
 
                 RCMApp%latc(i,j)         = ijTube%latc
                 RCMApp%lonc(i,j)         = ijTube%lonc
-
+                RCMApp%Lb(i,j)           = ijTube%Lb
+                RCMApp%Tb(i,j)           = AlfvenBounce(ijTube%Nave,ijTube%bmin,ijTube%Lb)
                 !mix variables are stored in this order (longitude,colatitude), hence the index flip
                 RCMApp%pot(i,j)          = mixPot(j,i)
-                
             enddo
         enddo
 
+        call Toc("RCM_TUBES")
+
+        call Tic("AdvRCM")
     !Advance from vApp%time to tAdv
         dtAdv = tAdv-vApp%time !RCM-DT
         call rcm_mhd(vApp%time,dtAdv,RCMApp,RCMADVANCE)
         !Update timming data
         call rcm_mhd(vApp%time,0.0_rp,RCMApp,RCMWRITETIMING)
+        call Toc("AdvRCM")
+
+        !Set ingestion region
+        call SetIngestion(RCMApp)
+
+    !Pull data from RCM state for conductance calculations
+        vApp%imag2mix%isClosed = (RCMApp%iopen == RCMTOPCLOSED)
+        vApp%imag2mix%latc = RCMApp%latc
+        vApp%imag2mix%lonc = RCMApp%lonc
+        vApp%imag2mix%eflux = RCMApp%flux
+        vApp%imag2mix%eavg  = RCMApp%eng_avg
+
+        vApp%imag2mix%iflux = 0.0
+        vApp%imag2mix%iavg  = 0.0
+
+        vApp%imag2mix%isFresh = .true.
+
+    !Find maximum extent of closed field region
+        maxRad = maxval(norm2(RCMApp%X_bmin,dim=3),mask=vApp%imag2mix%isClosed)
+        maxRad = maxRad/(Re_cgs*1.0e-2)
+        vApp%rTrc = 1.25*maxRad
+
+        end associate        
+
+        contains
+            !Calculate Alfven bounce timescale
+            !D = #/m3, B = T, L = Re
+            function AlfvenBounce(D,B,L) result(dTb)
+                real(rp), intent(in) :: D,B,L
+                real(rp) :: dTb
+
+                real(rp) :: Va,nCC,bNT
+
+                if ( (D<TINY) .or. (L<TINY) ) then
+                    dTb = 0.0
+                    return
+                endif
+                nCC = D*rcmNScl !Get n in #/cc
+                bNT = B*1.0e+9 !Convert B to nT
+                Va = 22.0*bNT/sqrt(nCC) !km/s, from NRL plasma formulary
+                dTb = (L*Re_km)/Va
+            end function AlfvenBounce
     end subroutine AdvanceRCM
+
+    !Set region of RCM grid that's "good" for MHD ingestion
+    subroutine SetIngestion(RCMApp)
+        type(rcm_mhd_T), intent(inout) :: RCMApp
+        integer :: n,i,j,iC
+
+        integer , dimension(:), allocatable :: jBnd
+        real, dimension(:), allocatable :: jRad,jRadG
+        integer :: NSmth,NRad
+        real(rp) :: RadC,rIJ
+
+        NSmth = SmoothOp%nIter
+        NRad  = SmoothOp%nRad
+
+        allocate(jBnd (  RCMApp%nLon_ion  ))
+        
+        allocate(jRad (  RCMApp%nLon_ion  ))
+        allocate(jRadG(1-NRad:RCMApp%nLon_ion+NRad))
+
+        do j=1,RCMApp%nLon_ion
+            do i = 1,RCMApp%nLat_ion
+                if (RCMApp%toMHD(i,j) .and. (RCMApp%iopen(i,j) == RCMTOPCLOSED)) then
+                    exit
+                endif
+            enddo
+            jBnd(j) = min(i+1,RCMApp%nLat_ion)
+            jRad(j) = norm2( RCMApp%X_bmin(jBnd(j),j,XDIR:YDIR) )
+        enddo
+
+        do n=1,NSmth
+            jRadG(1:RCMApp%nLon_ion) = jRad
+            jRadG(1-NRad:0) = jRad(RCMApp%nLon_ion-NRad+1:RCMApp%nLon_ion)
+            jRadG(RCMApp%nLon_ion+1:RCMApp%nLon_ion+NRad) = jRad(1:NRad)
+            do j=1,RCMApp%nLon_ion
+                !Take mean over range
+                jRad(j) = sum(jRadG(j-NRad:j+NRad))/(2.0*NRad+1)
+                !jRad(j) = (product(jRadG(j-NRad:j+NRad)))**(1.0/(2.0*NRad+1))
+                !jRad(j) = minval(jRadG(j-NRad:j+NRad))
+            enddo
+        enddo
+
+        RCMApp%toMHD = .false.
+        do j=1,RCMApp%nLon_ion
+            RadC = jRad(j)
+            do i = jBnd(j),RCMApp%nLat_ion
+                rIJ = norm2(RCMApp%X_bmin(i,j,XDIR:YDIR))
+                if ( (rIJ <= RadC) .and. (RCMApp%iopen(i,j) == RCMTOPCLOSED) ) then
+                    RCMApp%toMHD(i,j) = .true.
+                else
+                    RCMApp%toMHD(i,j) = .false.
+                endif
+            enddo
+        enddo
+
+    end subroutine SetIngestion
 
     !Evaluate eq map at a given point
     !Returns density (#/cc) and pressure (nPa)
-    subroutine EvalRCM(lat,lon,t,imW)
-        real(rp), intent(in) :: lat,lon,t
+    subroutine EvalRCM(imag,x1,x2,x12C,t,imW)
+        class(rcmIMAG_T), intent(inout) :: imag
+        real(rp), intent(in) :: x1,x2,t
+        real(rp), intent(in) :: x12C(2,2,2,2)
         real(rp), intent(out) :: imW(NVARIMAG)
 
-        real(rp) :: colat, alpha, beta, LScl
-        real(rp) :: rEq
-        integer :: i0,j0,nLat,nLon
-        logical :: isGood
+        real(rp) :: nrcm,prcm,npp,ntot
+        integer  :: n
+        logical  :: isGood,isGoods(8)
+        real(rp) :: lls(8,2),colats(8)
+        integer  :: ijs(8,2)
+
+        associate(RCMApp => imag%rcmCpl, lat => x1, lon => x2, llc => x12C)
 
         !Set defaults
+        imW(:) = 0.0
         imW(IMDEN ) = 0.0
         imW(IMPR  ) = 0.0
-        imW(IMLSCL) = 0.0
-        imW(IMTSCL) = 1.0
+        imW(IMTSCL) = 0.0
 
         colat = PI/2 - lat
 
-        !Do short cut tests
-        isGood = (colat >= minval(RCMApp%gcolat)) .and. (colat <= maxval(RCMApp%gcolat)) .and. (lat>TINY)
+        !Repack
+        lls(:,1) = reshape(llC(:,:,:,1),[8])
+        lls(:,2) = reshape(llC(:,:,:,2),[8])
+        colats = PI/2 - lls(:,1)
+
+        !Do 1st short cut tests
+        isGood = all(colats >= RCMApp%gcolat(1)) .and. all(colats <= RCMApp%gcolat(RCMApp%nLat_ion)) &
+                 .and. all(lls(:,1) > TINY)
         if (.not. isGood) return
 
-        !If still here now find closest cell
-        i0 = minloc( abs(colat-RCMApp%gcolat),dim=1 )
-        j0 = minloc( abs(lon  -RCMApp%glong ),dim=1 )
-        nLat = RCMApp%nLat_ion
-        nLon = RCMApp%nLon_ion
-        if ( (i0 == 1) .or. (i0 == NLat) ) return !Ignore if too close to grid edge
+        !If still here, find mapping (i,j) on RCM grid of each corner
+        call CornerLocs(lls,ijs)
 
-        rEq = norm2(RCMApp%X_bmin(i0,j0,:))
+        !Do second short cut tests
+        do n=1,8
+            isGoods(n) = RCMApp%toMHD(ijs(n,1),ijs(n,2))
+        enddo
+        isGood = all(isGoods)
 
-        !Now test that this cell is "comfortably" in the closed field region
-        isGood = all( RCMApp%iopen(i0-1,1:nLon) == RCMTOPCLOSED ) .and. &
-                 all( RCMApp%iopen(i0  ,1:nLon) == RCMTOPCLOSED ) .and. &
-                 all( RCMApp%iopen(i0+1,1:nLon) == RCMTOPCLOSED )
-        isGood = isGood .and. (rEq <= rEqMin)
+        if (.not. isGood) return
         
-        if (isGood) then
-            beta = RCMApp%beta_average(i0,j0)
-            if (doWolfLimit) then
-                alpha = 1.0/(1.0 + beta*IMGAMMA/2.0)
-            else
-                alpha = 1.0
-            endif
-            LScl = RCMApp%Vol(i0,j0)*RCMApp%bmin(i0,j0) !Lengthscale
+        prcm = CornerAvg(ijs,RCMApp%Prcm )*rcmPScl
+        npp  = CornerAvg(ijs,RCMApp%Npsph)*rcmNScl
+        nrcm = CornerAvg(ijs,RCMApp%Nrcm )*rcmNScl
 
-            imW(IMDEN ) = rcmNScl*( RCMApp%Nrcm(i0,j0) + RCMApp%Npsph(i0,j0) )
-            imW(IMPR  ) = RCMApp%Prcm(i0,j0)*rcmPScl*alpha
-            imW(IMLSCL) = LScl
-            imW(IMTSCL) = 1.0
+        ntot = 0.0
+        !Decide which densities to include
+        if (npp >= PPDen) then
+            ntot = ntot + npp
         endif
+        if ( (nrcm>TINY) .and. (prcm>TINY) ) then
+            ntot = ntot + nrcm
+        endif
+
+        !Store data
+        imW(IMDEN)  = ntot
+        imW(IMPR)   = prcm
+        imW(IMTSCL) = CornerAvg(ijs,RCMApp%Tb)
+        imW(IMX1)   = (180.0/PI)*lat
+        imW(IMX2)   = (180.0/PI)*lon
+
+        end associate
+
+        contains
+
+            !Get RCM cells for corner lat/lons
+            subroutine CornerLocs(lls,ijs)
+                real(rp), intent(in) :: lls(8,2)
+                integer, intent(out) :: ijs(8,2)
+
+                integer :: n,i0,j0
+                real(rp) :: colat,lon
+                do n=1,8
+                    colat = PI/2 - lls(n,1)
+                    lon   = lls(n,2)
+
+                    i0 = minloc( abs(colat-imag%rcmCpl%gcolat),dim=1 )
+                    j0 = minloc( abs(lon  -imag%rcmCpl%glong ),dim=1 )
+                    ijs(n,:) = [i0,j0]
+                enddo
+            end subroutine CornerLocs
+
+            !Average a quantity over the corners
+            function CornerAvg(ijs,Q) result(Qavg)
+                integer, intent(in) :: ijs(8,2)
+                real(rp), intent(in) :: Q(imag%rcmCpl%nLat_ion, &
+                                          imag%rcmCpl%nLon_ion)
+                real(rp) :: Qavg
+
+                integer :: n,i0,j0
+
+                Qavg = 0.0
+                do n=1,8
+                    i0 = ijs(n,1)
+                    j0 = ijs(n,2)
+                    Qavg = Qavg + Q(i0,j0)
+                enddo
+                Qavg = Qavg/8.0
+            end function CornerAvg
 
     end subroutine EvalRCM
 !--------------
@@ -259,44 +450,35 @@ module rcmimag
         !Topology
         !OCB =  0 (solar wind), 1 (half-closed), 2 (both ends closed)
         OCb = FLTop(ebModel,ebGr,bTrc)
-
-        
+  
     !Scale and store information
-        ijTube%X_bmin = bEq
-        ijTube%bmin = bMin
-        select case(OCb)
-        case(0)
-            !Solar wind (is this right?)
-            ijTube%iopen = RCMTOPOPEN
-            ijTube%Vol = -dvB
-        case(1)
-            !Open field
-            ijTube%iopen = RCMTOPOPEN
-            ijTube%Vol = -dvB
-        case(2)
-            !Closed field
+        if (OCb == 2) then
+            !Closed field line
+            ijTube%X_bmin = bEq
+            ijTube%bmin = bMin
             ijTube%iopen = RCMTOPCLOSED
             ijTube%Vol = dvB
-        case default
-            !WTF? (timeout)
-            ijTube%iopen = RCMTOPOPEN
-            ijTube%Vol = -1
-        end select
+            ijTube%Pave = bP
+            ijTube%Nave = bD
+            ijTube%beta_average = bBeta
 
-        ijTube%Pave = bP
-        ijTube%Nave = bD
-        ijTube%beta_average = bBeta
-        
-        ijTube%latc = 0.0
-        ijTube%lonc = 0.0
-
-        if (ijTube%iopen == RCMTOPCLOSED) then
             !Find conjugate lat/lon @ RIonRCM
             call FLConj(ebModel,ebGr,bTrc,xyzC)
             xyzIonC = DipoleShift(xyzC,RIonRCM)
-            !xyzIonC(ZDIR) uses abs(mlat), so make negative
-            ijTube%latc = asin(-xyzIonC(ZDIR)/norm2(xyzIonC))
+            ijTube%latc = asin(xyzIonC(ZDIR)/norm2(xyzIonC))
             ijTube%lonc = modulo( atan2(xyzIonC(YDIR),xyzIonC(XDIR)),2*PI )
+            ijTube%Lb = FLArc(ebModel,ebGr,bTrc)
+        else
+            ijTube%X_bmin = 0.0
+            ijTube%bmin = 0.0
+            ijTube%iopen = RCMTOPOPEN
+            ijTube%Vol = -1.0
+            ijTube%Pave = 0.0
+            ijTube%Nave = 0.0
+            ijTube%beta_average = 0.0
+            ijTube%latc = 0.0
+            ijTube%lonc = 0.0
+            ijTube%Lb   = 0.0
         endif
 
         end associate
@@ -320,7 +502,9 @@ module rcmimag
         ijTube%X_bmin(YDIR) = L*sin(lon)*Re_cgs*1.0e-2 !Re=>meters
         ijTube%X_bmin(ZDIR) = 0.0
         ijTube%bmin = mdipole/L**3.0
+
         ijTube%iopen = RCMTOPCLOSED
+        
         ijTube%pot = 0.0
 
         ijTube%beta_average = 0.0
@@ -329,6 +513,8 @@ module rcmimag
 
         ijTube%latc = -lat
         ijTube%lonc = lon
+        ijTube%Lb   = L !Just lazily using L shell
+
         !ijTube%Nave = psphD(L)*1.0e+6 !#/cc => #/m3
 
     end subroutine DipoleTube
@@ -336,7 +522,8 @@ module rcmimag
 
 !--------------
 !Kaiju RCM IO Routines
-    subroutine initRCMIO()
+    subroutine initRCMIO(RCMApp)
+        type(rcm_mhd_t), intent(inout) :: RCMApp
         type(IOVAR_T), dimension(MAXRCMIOVAR) :: IOVars
 
         real(rp), dimension(:,:), allocatable :: iLat,iLon
@@ -355,12 +542,17 @@ module rcmimag
         allocate(iLat(NLat+1,NLon+1))
         allocate(iLon(NLat+1,NLon+1))
 
-        do i=1,NLat+1
-            do j=1,NLon+1
-                iLat(i,j) = clMin + (i-1)*dLat
-                iLon(i,j) = 0.0 + (j-1)*dLon
-            enddo
+        do j=1,NLon+1
+            iLon(:,j) = 0.0 + (j-1)*dLon
         enddo
+        dLat = (RCMApp%gcolat(2)-RCMApp%gcolat(1))
+        iLat(1,:) = clMin-0.5*dLat
+        do i=2,NLat
+            dLat = (RCMApp%gcolat(i)-RCMApp%gcolat(i-1))
+            iLat(i,:) = iLat(i-1,:) + dLat
+        enddo
+        !Replicate last dlat
+        iLat(NLat+1,:) = iLat(NLat,:) + dLat
 
         iLat = 90.0-iLat*180.0/PI !Turn colat into lat
         iLon = iLon*180.0/PI
@@ -371,13 +563,14 @@ module rcmimag
         !Flipping lat/lon
         call AddOutVar(IOVars,"X",iLon)
         call AddOutVar(IOVars,"Y",iLat)
-                        
+        call AddOutVar(IOVars,"UnitsID","RCMMHD")
 
         call WriteVars(IOVars,.true.,h5File)
 
     end subroutine initRCMIO
 
-    subroutine WriteRCM(nOut,MJD,time)
+    subroutine WriteRCM(imag,nOut,MJD,time)
+        class(rcmIMAG_T), intent(inout) :: imag
         integer, intent(in) :: nOut
         real(rp), intent(in) :: MJD,time
 
@@ -388,28 +581,38 @@ module rcmimag
         integer, dimension(2) :: DimLL
         integer :: Ni,Nj
         
+        associate(RCMApp => imag%rcmCpl)
+
         rcm2Wolf = (1.0e-9)**(IMGAMMA-1.0) !Convert to Wolf units, RCM: Pa (Re/T)^gam => nPa (Re/nT)^gam
         
         !Reset IO chain
         call ClearIO(IOVars)
 
-        call AddOutVar(IOVars,"N",RCMApp%Nrcm*rcmNScl)
-        call AddOutVar(IOVars,"Npsph",RCMApp%Npsph*rcmNScl)
-        call AddOutVar(IOVars,"P",RCMApp%Prcm*rcmPScl)
+        call AddOutVar(IOVars,"N",RCMApp%Nrcm*rcmNScl,uStr="#/cc")
+        call AddOutVar(IOVars,"Npsph",RCMApp%Npsph*rcmNScl,uStr="#/cc")
+        call AddOutVar(IOVars,"P",RCMApp%Prcm*rcmPScl,uStr="nPa")
         call AddOutVar(IOVars,"IOpen",RCMApp%iopen*1.0_rp)
-        call AddOutVar(IOVars,"bVol",RCMApp%Vol)
-        call AddOutVar(IOVars,"pot",RCMApp%pot)
-        call AddOutVar(IOVars,"xMin",RCMApp%X_bmin(:,:,XDIR)/REarth)
-        call AddOutVar(IOVars,"yMin",RCMApp%X_bmin(:,:,YDIR)/REarth)
-        call AddOutVar(IOVars,"zMin",RCMApp%X_bmin(:,:,ZDIR)/REarth)
-        call AddOutVar(IOVars,"bMin",RCMApp%Bmin)
+        call AddOutVar(IOVars,"bVol",RCMApp%Vol,uStr="Re/T")
+        call AddOutVar(IOVars,"pot",RCMApp%pot,uStr="V")
+        call AddOutVar(IOVars,"xMin",RCMApp%X_bmin(:,:,XDIR)/REarth,uStr="Re")
+        call AddOutVar(IOVars,"yMin",RCMApp%X_bmin(:,:,YDIR)/REarth,uStr="Re")
+        call AddOutVar(IOVars,"zMin",RCMApp%X_bmin(:,:,ZDIR)/REarth,uStr="Re")
+        call AddOutVar(IOVars,"bMin",RCMApp%Bmin,uStr="T")
         
-        call AddOutVar(IOVars,"S",rcm2Wolf*RCMApp%Prcm*(RCMApp%Vol**IMGAMMA) )
+        call AddOutVar(IOVars,"S",rcm2Wolf*RCMApp%Prcm*(RCMApp%Vol**IMGAMMA),uStr="Wolf")
         call AddOutVar(IOVars,"beta",RCMApp%beta_average)
-        call AddOutVar(IOVars,"Pmhd",RCMApp%Pave*rcmPScl)
-        call AddOutVar(IOVars,"Nmhd",RCMApp%Nave*rcmNScl)
-        call AddOutVar(IOVars,"latc",RCMApp%latc*180.0/PI)
-        call AddOutVar(IOVars,"lonc",RCMApp%lonc*180.0/PI)
+        call AddOutVar(IOVars,"Pmhd",RCMApp%Pave*rcmPScl,uStr="nPa")
+        call AddOutVar(IOVars,"Nmhd",RCMApp%Nave*rcmNScl,uStr="#/cc")
+        call AddOutVar(IOVars,"latc",RCMApp%latc*180.0/PI,uStr="deg")
+        call AddOutVar(IOVars,"lonc",RCMApp%lonc*180.0/PI,uStr="deg")
+        call AddOutVar(IOVars,"Lb"  ,RCMApp%Lb,uStr="Re")
+        call AddOutVar(IOVars,"Tb"  ,RCMApp%Tb,uStr="s")
+
+        call AddOutVar(IOVars,"eavg",RCMApp%eng_avg*1.0e-3,uStr="keV") !ev->keV
+        call AddOutVar(IOVars,"eflux",RCMApp%flux,uStr="ergs/cm2")
+        call AddOutVar(IOVars,"birk",RCMApp%fac,uStr="uA/m2")
+
+        call AddOutVar(IOVars,"toMHD",merge(1.0_rp,0.0_rp,RCMApp%toMHD))
 
         !Trim output for colat/aloct to remove wrapping
         DimLL = shape(colat)
@@ -429,15 +632,18 @@ module rcmimag
         RCMApp%rcm_nOut = nOut
         call rcm_mhd(time,TINY,RCMApp,RCMWRITEOUTPUT)
         
+        end associate
+
     end subroutine WriteRCM
 
-    subroutine WriteRCMRestart(nRes,MJD,time)
-        
+    subroutine WriteRCMRestart(imag,nRes,MJD,time)
+        class(rcmIMAG_T), intent(inout) :: imag
         integer, intent(in) :: nRes
         real(rp), intent(in) :: MJD, time
 
-        RCMApp%rcm_nRes = nRes
-        call rcm_mhd(time,TINY,RCMApp,RCMWRITERESTART)
+        imag%rcmCpl%rcm_nRes = nRes
+        call rcm_mhd(time,TINY,imag%rcmCpl,RCMWRITERESTART)
         
     end subroutine WriteRCMRestart
+
 end module rcmimag

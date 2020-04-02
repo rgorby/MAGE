@@ -32,7 +32,7 @@ module tptypes
     !Goal is to keep this as slim as possible
     !q is the evolved variables for each particle
     !Full orbit (FO): x,y,z,px,py,pz
-    !Guiding center (GC): x,y,z (of GC in ExB frame), p11,K,psi
+    !Guiding center (GC): x,y,z (of GC in ExB frame), p11,gamma,psi
     type prt_T
         real(rp) :: Q(NVARTP),Qeq(NVAREQ)
         logical :: isGC=.false., isIn=.false.,isInit=.false.

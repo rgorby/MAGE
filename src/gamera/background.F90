@@ -144,13 +144,11 @@ module background
             do j=Grid%js, Grid%je
                 do i=Grid%is, Grid%ie
                     Grid%dpB0(i,j,k,:) = -(faceStress(i+1,j,k,IDIR,:) &
-                                         -faceStress(i  ,j,k,IDIR,:) &
-                                         +faceStress(i,j+1,k,JDIR,:) &
-                                         -faceStress(i,j  ,k,JDIR,:) &
-                                         +faceStress(i,j,k+1,KDIR,:) &
-                                         -faceStress(i,j,k  ,KDIR,:) )/Grid%volume(i,j,k)
-
-
+                                          -faceStress(i  ,j,k,IDIR,:) &
+                                          +faceStress(i,j+1,k,JDIR,:) &
+                                          -faceStress(i,j  ,k,JDIR,:) &
+                                          +faceStress(i,j,k+1,KDIR,:) &
+                                          -faceStress(i,j,k  ,KDIR,:) )/Grid%volume(i,j,k)
                enddo
             enddo
         enddo

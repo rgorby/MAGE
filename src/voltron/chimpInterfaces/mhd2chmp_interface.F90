@@ -24,9 +24,9 @@ module mhd2chmp_interface
         !Set lowlat BC
         rIon = (RionE*1.0e+6)/REarth
 
-        !Get radius of second cell
         associate(Gr=>gamApp%Grid)
-        mhd2chmp%Rin = norm2(Gr%xyz(Gr%is+1,Gr%js,Gr%ks,:))
+        !mhd2chmp%Rin = norm2(Gr%xyz(Gr%is+1,Gr%js,Gr%ks,:))
+        mhd2chmp%Rin = norm2(Gr%xyz(Gr%is,Gr%js,Gr%ks,:))
 
         end associate
         mhd2chmp%lowlatBC = 90.0 - rad2deg*asin(sqrt(rIon/mhd2chmp%Rin)) !co-lat -> lat
@@ -69,9 +69,9 @@ module mhd2chmp_interface
                     ebF%E(i,j,k,:)  = -cross(Vxyz,Bxyz)
 
                     if (ebTrcApp%ebModel%doMHD) then
-                        ebF%W(i,j,k,DEN)      = inDScl*State%Gas(i,j,k,DEN     ,BLK)
-                        ebF%W(i,j,k,PRESSURE) = inPScl*State%Gas(i,j,k,PRESSURE,BLK)
-                        ebF%W(i,j,k,VELX:VELZ) = Vxyz
+                        ebF%W(i,j,k,DEN)       = inDScl*pW(DEN)
+                        ebF%W(i,j,k,PRESSURE)  = inPScl*pW(PRESSURE)
+                        ebF%W(i,j,k,VELX:VELZ) = Vxyz !Already scaled
                     endif
                 enddo
             enddo
@@ -81,6 +81,7 @@ module mhd2chmp_interface
         call ebGhosts(ebTrcApp%ebModel,ebGr,ebF)
 
         end associate
+        
         ebTrcApp%ebState%eb1%time = 0.0
         ebTrcApp%ebState%eb2%time = 1.0
         ebTrcApp%ebState%doStatic = .true.

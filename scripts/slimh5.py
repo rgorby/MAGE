@@ -29,6 +29,7 @@ if __name__ == "__main__":
 	parser.add_argument('-s',type=int,metavar="start",default=ns,help="Starting slice (default: %(default)s)")
 	parser.add_argument('-e',type=int,metavar="end",default=-1,help="Ending slice (default: N)")
 	parser.add_argument('-sk',type=int,metavar="nsk",default=1,help="Stride (default: %(default)s)")
+	parser.add_argument('-p', action='store_true',default=False,help="Preserve step numbers (default: %(default)s)")
 
 	#Finalize parsing
 	args = parser.parse_args()
@@ -38,6 +39,7 @@ if __name__ == "__main__":
 	Nsk = args.sk
 	fIn = args.inH5
 	fOut = args.outH5
+	p = args.p
 
 	N,sIds = cntSteps(fIn)
 	if (Ne == -1):
@@ -62,9 +64,10 @@ if __name__ == "__main__":
 #Now loop through steps and do same thing
 	nOut = 0
 	for n in range(Ns,Ne,Nsk):
+		if (p):
+			nOut = n
 		gIn = "Step#%d"%(n)
 		gOut = "Step#%d"%(nOut)
-		nOut = nOut+1
 
 		print("Copying %s to %s"%(gIn,gOut))
 
@@ -78,6 +81,9 @@ if __name__ == "__main__":
 			sQ = str(Q)
 			#print("\tCopying %s"%(sQ))
 			oH5[gOut].create_dataset(sQ,data=iH5[gIn][sQ])
+
+		if (not p):
+			nOut = nOut+1
 				
 
 	#Close up

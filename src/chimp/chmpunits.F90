@@ -18,6 +18,9 @@
 !For now, output scaling is fixed to
 !E-Field [mV/m], B-Field [nT], Time [s]
 
+!Code units
+!CGS w/ following normalization
+!c = 1, Me (electron mass) = 1, L0 = 1, Qe (electron charge) = 1
 module chmpunits
     use chmpdefs
     use xml_input

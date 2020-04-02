@@ -7,7 +7,7 @@ module gamtypes
     implicit none
 
     ! debug settings
-    logical :: verbose = .false.
+    !logical :: verbose = .false.
     logical :: writeGhosts = .false.
     logical :: writeMagFlux = .false.
 
@@ -38,6 +38,10 @@ module gamtypes
         integer :: nSi,nSe !Start/End of slicing index
         character(len=strLen) :: GridID = "NONE" !Grid type: lfm,cyl,sph
         logical :: doS,doE !Whether to do +/- sides of singularity
+        logical :: doMassRA = .false.
+        !Whether to do mass ring-avg, which ring variables
+        !doMassRA = T => rho,rho*v,rho*Cs^2
+        !doMassRA = F => rho,mom  ,inte
     end type Ring_T
 
 !Unit information
@@ -71,6 +75,7 @@ module gamtypes
         real(rp) :: CFL, gamma
         real(rp) :: Vd0=0.5 !Coefficient for diffusive electric field, generally 0.5
         real(rp) :: t, tFin, dt
+        real(rp) :: dt0 = 0.0
         logical :: fixedTimestep
         integer :: ts
 
@@ -82,6 +87,7 @@ module gamtypes
         logical :: doDivB=.false. !Output DivB
         logical :: doResistive=.false.
         
+        logical :: isLoud = .true. !Whether you can write to console
         integer :: nTh=1 !Number of threads per node/group
 
         !Output info
@@ -104,6 +110,10 @@ module gamtypes
         logical :: doRing = .false.
         type (Ring_T) :: Ring
         
+        !Some specific info for magsphere runs
+        logical :: isMagsphere = .false.
+        real(rp) :: MagM0 = 0.0
+        
         !Background field function pointer
         procedure(VectorField_T), pointer, nopass :: B0 => NULL()
 
@@ -111,9 +121,10 @@ module gamtypes
         procedure(ScalarFun_T), pointer, nopass :: Phi => NULL()
 
         !User hack function pointers
-        procedure(HackFlux_T), pointer, nopass :: HackFlux => NULL()
-        procedure(HackE_T)   , pointer, nopass :: HackE    => NULL()
-        procedure(HackStep_T), pointer, nopass :: HackStep => NULL()
+        procedure(HackFlux_T)     , pointer, nopass :: HackFlux => NULL()
+        procedure(HackE_T)        , pointer, nopass :: HackE    => NULL()
+        procedure(HackStep_T)     , pointer, nopass :: HackStep => NULL()
+        procedure(HackPredictor_T), pointer, nopass :: HackPredictor => NULL()
 
     end type Model_T
 
@@ -144,11 +155,6 @@ module gamtypes
         integer :: isDT,jsDT,ksDT
         integer :: ieDT,jeDT,keDT
 
-        !Local indices to set domain for Bxyz half-step calculation
-        !Can be trimmed to set own Bxyz's
-        integer :: isMG,jsMG,ksMG
-        integer :: ieMG,jeMG,keMG
-
         !Information about decomposed/tiled cases
         logical :: isTiled = .false.
         ! Number of ranks in each dimension
@@ -156,11 +162,11 @@ module gamtypes
         ! Placement of this rank, 0-based
         integer :: Ri=0,Rj=0,Rk=0
         ! Offset between global and local indices
-        integer :: ijkShift(3) = (/0,0,0/)
+        integer :: ijkShift(NDIM) = (/0,0,0/)
         ! Whether this rank has the lower end external boundary for each axis
-        logical :: hasLowerBC(3) = (/.true.,.true.,.true./)
+        logical :: hasLowerBC(NDIM) = (/.true.,.true.,.true./)
         ! Whether this rank has the upper end external boundary for each axis
-        logical :: hasUpperBC(3) = (/.true.,.true.,.true./)
+        logical :: hasUpperBC(NDIM) = (/.true.,.true.,.true./)
 
         !Corner-centered xyz-coordinates
         real(rp), dimension(:,:,:), allocatable :: x,y,z
@@ -354,6 +360,19 @@ module gamtypes
             type(State_T), intent(inout) :: State
 
         end subroutine HackStep_T
+    end interface
+
+    !HackPredictor_T
+    !User-defined function to be called after Predictor to alter half-timestep state
+    !Contained by model structure, takes Model/Grid/State and can edit State
+    abstract interface
+        subroutine HackPredictor_T(Model,Grid,State)
+            Import :: Model_T, Grid_T, State_T
+            type(Model_T), intent(in)    :: Model
+            type(Grid_T) , intent(inout) :: Grid
+            type(State_T), intent(inout) :: State
+
+        end subroutine HackPredictor_T
     end interface
 
     contains

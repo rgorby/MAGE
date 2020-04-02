@@ -17,9 +17,7 @@ module stress
     
     !Signs for left/right going fluxes @ interfaces
     integer, parameter, dimension(2), private :: SgnLR=[-1,1]
-
-    logical, parameter, private :: doRingFlux = .true.
-    logical, parameter, private :: doNuke = .true. !Do nuclear option, currently testing
+    logical, parameter, private :: doNuke = .true. !Do nuclear option
     logical, parameter, private :: doHogs11 = .true. !Do // magnetic hogs diffusion
 
     !cLim: Vile magic number, when to apply nuclear option (v>cLim*Ca)
@@ -134,25 +132,26 @@ module stress
 
         !Do various hacks to fluxes before conversion to deltas
         !Fix fluxes on ring if necessary
-        if (doRingFlux) call RingFlux(Model,Gr,gFlx,mFlx)
-
-        if (associated(Model%HackFlux)) then
-            call Tic("HackFlux")
-            call Model%HackFlux(Model,Gr,gFlx,mFlx)
-            call Toc("HackFlux")
+        call Tic("HackFlux")
+        if (Model%doRing) then
+            call RingFlux(Model,Gr,gFlx,mFlx)
         endif
+
+        if (associated(Model%HackFlux)) then            
+            call Model%HackFlux(Model,Gr,gFlx,mFlx)
+        endif
+        call Toc("HackFlux")
 
         call Toc("Fluxes")
 
     !Turn fluxes into deltas
     !---------------------------
         call Tic("Flux2Deltas")
-                
+
         !$OMP PARALLEL DO default(shared) collapse (2) &
         !$OMP private(i,j,k,dV)
         do k=Gr%ks,Gr%ke
             do j=Gr%js,Gr%je
-                !$OMP SIMD
                 do i=Gr%is,Gr%ie
                     dV = Gr%volume(i,j,k)
                     !Do all species here
@@ -447,7 +446,6 @@ module stress
         !Bail out if none of these cells have "real" fluid in this species
         if (.not. any(doFlx)) return
 
-        !$OMP SIMD
         do i=1,vecLen
             if ( doFlx(i) ) then
                 !Get primitive values, calculate lambda
@@ -540,7 +538,6 @@ module stress
         !DIR$ ASSUME_ALIGNED bbD: ALIGN
         !DIR$ ASSUME_ALIGNED VaD: ALIGN
         
-        !$OMP SIMD
         do i=1,vecLen
             !Calculate lambda
             D = PrimLRB(i,DEN)
@@ -549,14 +546,14 @@ module stress
             By = MagLRB(i,YDIR)
             Bz = MagLRB(i,ZDIR)
 
+            B0x = B0(i,XDIR)
+            B0y = B0(i,YDIR)
+            B0z = B0(i,ZDIR)
+
             dPb = 0.5*(Bx**2.0 + By**2.0 + Bz**2.0) !Pressure in residual field
             if (Model%doBackground) then
-                B0x = B0(i,XDIR)
-                B0y = B0(i,YDIR)
-                B0z = B0(i,ZDIR)
-                Va2 = ( (Bx+B0x)**2.0 + (By+B0y)**2.0 + (Bz+B0z)**2.0)/D
+                Va2 = ( (Bx+B0x)**2.0 + (By+B0y)**2.0 + (Bz+B0z)**2.0 )/D
                 bbD(i) = bbD(i) + 0.5*( (Bx+B0x)**2.0 + (By+B0y)**2.0 + (Bz+B0z)**2.0)
-
             else
                 Va2 = 2*dPb/D
                 bbD(i) = bbD(i) + 0.5*(Bx**2.0 + By**2.0 + Bz**2.0)

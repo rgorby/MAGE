@@ -329,10 +329,6 @@ module gamutils
     end subroutine Con2Prim
 
     subroutine CellC2P(Model,Con,Prim)
-#ifdef __INTEL_COMPILER        
-        !$omp declare simd(CellC2P)
-#endif
-
         type(Model_T), intent(in) :: Model
         real(rp), intent(in)  :: Con(NVAR)
         real(rp), intent(out) :: Prim(NVAR)
@@ -355,10 +351,6 @@ module gamutils
     end subroutine CellC2P
 
     subroutine CellPress2Cs(Model,Con,Cs)
-#ifdef __INTEL_COMPILER        
-        !$omp declare simd(CellPress2Cs)
-#endif
-
         type(Model_T), intent(in) :: Model
         real(rp), intent(in)  :: Con(NVAR)
         real(rp), intent(out) :: Cs
@@ -378,10 +370,6 @@ module gamutils
       end subroutine CellPress2Cs
 
     subroutine CellP2C(Model,Prim,Con)
-#ifdef __INTEL_COMPILER        
-        !$omp declare simd(CellP2C)
-#endif
-
         type(Model_T), intent(in) :: Model
         real(rp), intent(out) :: Con(NVAR)
         real(rp), intent(in)  :: Prim(NVAR)
@@ -416,6 +404,5 @@ module gamutils
         gID = 1
 #endif
     end function gID
-
 
 end module gamutils

@@ -9,9 +9,10 @@ module voltio
 
     implicit none
 
-    integer, parameter, private :: MAXVOLTIOVAR = 10
+    integer, parameter, private :: MAXVOLTIOVAR = 20
     logical, private :: isConInit = .false.
     real(rp), private ::  oMJD = 0.0
+    character(len=strLen), private :: vh5File
 
     contains
 
@@ -38,6 +39,7 @@ module voltio
         integer :: iYr,iDoY,iMon,iDay,iHr,iMin
         real(rp) :: rSec
         character(len=strLen) :: utStr
+        real(rp) :: dD,dP
 
         !Augment Gamera console output w/ Voltron stuff
         call getCPCP(vApp%mix2mhd%mixOutput,cpcp)
@@ -60,17 +62,21 @@ module voltio
             oMJD = cMJD
             isConInit = .true.
         endif
-
         !Get MJD info
         call mjd2ut(cMJD,iYr,iDoY,iMon,iDay,iHr,iMin,rSec)
         write(utStr,'(I0.4,a,I0.2,a,I0.2,a,I0.2,a,I0.2,a,I0.2)') iYr,'-',iMon,'-',iDay,' ',iHr,':',iMin,':',nint(rSec)
 
+        !Get Dst estimate
+        !call EstDST(vApp%gApp%Model,gApp%Grid,gApp%State,Dst)
+
         write(*,'(a)',advance="no") ANSIBLUE
-        write (*, '(a,2f8.3,a)')             '      CPCP = ' , cpcp(NORTH), cpcp(SOUTH), ' [kV, N/S]'
+        !write (*, '(a,f8.3,a)')       '    dt/dt0 = ', 100*Model%dt/dt0, '%'
         write (*, '(a,1f8.3,a)')             '      tilt = ' , dpT, ' [deg]'
+        write (*, '(a,2f8.3,a)')             '      CPCP = ' , cpcp(NORTH), cpcp(SOUTH), ' [kV, N/S]'
+        !write (*, '(a, f8.3,a)')             '    BSDst  ~ ' , Dst, ' [nT]'
         write (*,'(a,a)')                    '      UT   = ', trim(utStr)
         write (*, '(a,1f7.3,a)')             '      Running @ ', simRate*100.0, '% of real-time'
-
+        
         write (*, *) ANSIRESET, ''
 
     end subroutine consoleOutputVOnly
@@ -144,6 +150,8 @@ module voltio
             call InnerMagIO(vApp,vApp%IO%nOut)
         endif
 
+        call WriteVolt(vApp,gApp,vApp%IO%nOut)
+
         if (vApp%time>vApp%IO%tOut) then
             vApp%IO%tOut = vApp%IO%tOut + vApp%IO%dtOut
         endif
@@ -158,5 +166,247 @@ module voltio
         cpcp(SOUTH) = maxval(mhdvarsin(1,:,:,MHDPSI,SOUTH))-minval(mhdvarsin(1,:,:,MHDPSI,SOUTH))
 
     end subroutine getCPCP
+
+    !Output voltron data
+    subroutine WriteVolt(vApp,gApp,nOut)
+        class(voltApp_T), intent(inout) :: vApp
+        type(gamApp_T)  , intent(inout) :: gApp
+        integer, intent(in) :: nOut
+
+        integer :: Ni,Nj,Nk,Njp,Nkp
+        integer :: i,j,k
+        character(len=strLen) :: gStr
+        type(IOVAR_T), dimension(MAXVOLTIOVAR) :: IOVars
+        real(rp) :: cpcp(2)
+
+        real(rp), dimension(:,:,:,:), allocatable :: inEijk,inExyz,gJ,Veb
+        real(rp), dimension(:,:,:), allocatable :: psi
+        real(rp), dimension(NDIM) :: Exyz,Bdip,xcc
+
+        !Get data
+        call getCPCP(vApp%mix2mhd%mixOutput,cpcp)
+        !Cell-centers w/ ghosts
+        Nj = gApp%Grid%Nj
+        Nk = gApp%Grid%Nk
+        Ni = vApp%mix2mhd%PsiShells
+
+        !Cell centers
+        Njp = gApp%Grid%Njp
+        Nkp = gApp%Grid%Nkp
+
+        allocate(inEijk(Ni+1,Nj+1,Nk+1,NDIM))
+        allocate(inExyz(Ni  ,Nj  ,Nk  ,NDIM))
+        allocate(gJ    (Ni  ,Njp ,Nkp ,NDIM))
+        allocate(Veb   (Ni  ,Njp ,Nkp ,NDIM))
+        allocate(psi   (Ni  ,Njp ,Nkp)) !Cell-centered potential
+
+        call Ion2MHD(gApp%Model,gApp%Grid,vApp%mix2mhd%gPsi,inEijk,inExyz,vApp%mix2mhd%rm2g)
+
+        !Subtract dipole before calculating current
+        !$OMP PARALLEL DO default(shared) collapse(2) &
+        !$OMP private(i,j,k,Bdip,xcc,Exyz)
+        do k=1,Nkp
+            do j=1,Njp
+                do i=1,Ni
+                    psi(i,j,k) = 0.125*( vApp%mix2mhd%gPsi(i+1,j  ,k) + vApp%mix2mhd%gPsi(i+1,j  ,k+1) &
+                                       + vApp%mix2mhd%gPsi(i  ,j+1,k) + vApp%mix2mhd%gPsi(i  ,j+1,k+1) &
+                                       + vApp%mix2mhd%gPsi(i+1,j+1,k) + vApp%mix2mhd%gPsi(i+1,j+1,k+1) &
+                                       + vApp%mix2mhd%gPsi(i  ,j  ,k) + vApp%mix2mhd%gPsi(i  ,j  ,k+1) )
+                    xcc = gApp%Grid%xyzcc(i,j,k,:)
+                    Bdip = MagsphereDipole(xcc,gApp%Model%MagM0)
+                    Exyz = inExyz(i,j,k,:)
+                    Veb(i,j,k,:) = cross(Exyz,Bdip)/dot_product(Bdip,Bdip)
+
+                enddo
+            enddo
+        enddo
+
+        write(gStr,'(A,I0)') "Step#", nOut
+        !Reset IO chain
+        call ClearIO(IOVars)
+
+        call AddOutVar(IOVars,"Ex",inExyz(:,1:Njp,1:Nkp,XDIR))
+        call AddOutVar(IOVars,"Ey",inExyz(:,1:Njp,1:Nkp,YDIR))
+        call AddOutVar(IOVars,"Ez",inExyz(:,1:Njp,1:Nkp,ZDIR))
+
+        !Add inner currents
+        gJ = 0.0
+        gJ(Ni,:,:,XDIR:ZDIR) =  vApp%mhd2mix%gJ(1,:,:,XDIR:ZDIR) !Just assuming 1 shell
+        call AddOutVar(IOVars,"Jx",gJ(:,:,:,XDIR))
+        call AddOutVar(IOVars,"Jy",gJ(:,:,:,YDIR))
+        call AddOutVar(IOVars,"Jz",gJ(:,:,:,ZDIR))
+
+        call AddOutVar(IOVars,"Vx",Veb(:,:,:,XDIR))
+        call AddOutVar(IOVars,"Vy",Veb(:,:,:,YDIR))
+        call AddOutVar(IOVars,"Vz",Veb(:,:,:,ZDIR))
+
+        call AddOutVar(IOVars,"psi",psi)
+        call AddOutVar(IOVars,"cpcpN",cpcp(1))
+        call AddOutVar(IOVars,"cpcpS",cpcp(2))
+
+        call WriteVars(IOVars,.true.,vh5File,gStr)
+
+    end subroutine WriteVolt
+
+    !Initialize Voltron-unique IO
+    subroutine InitVoltIO(vApp,gApp)
+        class(voltApp_T), intent(inout) :: vApp
+        type(gamApp_T)  , intent(inout) :: gApp
+
+        character(len=strLen) :: RunID
+        type(IOVAR_T), dimension(MAXVOLTIOVAR) :: IOVars
+        logical :: fExist, isRestart
+
+        integer :: Ni,Nj,Nk,Ng
+
+        isRestart = gApp%Model%isRestart
+        RunID = trim(gApp%Model%RunID)
+
+        !Create filename
+        vh5File = trim(RunID) // ".volt.h5" !Voltron output
+        fExist = CheckFile(vh5File)
+        write(*,*) 'Voltron outputting to ',trim(vh5File)
+
+        if ( (.not. isRestart) .or. (isRestart .and. (.not. fExist)) ) then
+            !Not a restart or it is a restart and no file
+            call CheckAndKill(vh5File) !For non-restart but file exists
+
+            !Reset IO chain
+            call ClearIO(IOVars)
+
+            !Identify part of grid that we want
+            Nj = gApp%Grid%Njp+1
+            Nk = gApp%Grid%Nkp+1
+            Ni = vApp%mix2mhd%PsiShells+1
+            Ng = 4 !Number of ghosts
+
+            call AddOutVar(IOVars,"X",gApp%Grid%xyz(1-Ng:Ni-Ng,1:Nj,1:Nk,XDIR))
+            call AddOutVar(IOVars,"Y",gApp%Grid%xyz(1-Ng:Ni-Ng,1:Nj,1:Nk,YDIR))
+            call AddOutVar(IOVars,"Z",gApp%Grid%xyz(1-Ng:Ni-Ng,1:Nj,1:Nk,ZDIR))
+
+            call AddOutVar(IOVars,"UnitsID","VOLTRON")
+            call WriteVars(IOVars,.true.,vh5File)
+        endif
+
+    end subroutine InitVoltIO
+
+    !Use Gamera data to estimate DST
+    !(Move this to msphutils?)
+    subroutine EstDST(Model,Gr,State,Dst)
+        type(Model_T), intent(in)  :: Model
+        type(Grid_T) , intent(in)  :: Gr
+        type(State_T), intent(in)  :: State
+        real(rp)     , intent(out) :: Dst
+
+        integer :: i,j,k
+        real (rp), dimension(:,:,:,:), allocatable :: dB,Jxyz !Full-sized arrays
+
+        real(rp), dimension(NDIM) :: xyz,xyz0
+        integer :: iMax,iMin
+
+        real(rp) :: dV,r,bs1,bs2,bScl,dBz
+        real(rp) :: mu0,d0,u0,B0
+
+        !Very lazy scaling
+        mu0 = 4*PI*1.0e-7
+        d0 = (1.67e-27)*1.0e+6
+        u0 = 1.0e+5
+        B0 = sqrt(mu0*d0*u0*u0)*1.0e+9 !nT
+
+        call allocGridVec(Model,Gr,dB  )
+        call allocGridVec(Model,Gr,Jxyz)
+        
+        !Subtract dipole before calculating current
+        !$OMP PARALLEL DO default(shared) collapse(2)
+        do k=Gr%ksg,Gr%keg
+            do j=Gr%jsg,Gr%jeg
+                do i=Gr%isg,Gr%ieg
+                    dB(i,j,k,:) = State%Bxyz(i,j,k,:) + Gr%B0(i,j,k,:) - MagsphereDipole(Gr%xyzcc(i,j,k,:),Model%MagM0)
+                enddo
+            enddo
+        enddo
+        !Calculate current
+        call bFld2Jxyz(Model,Gr,dB,Jxyz)
+
+        !Set some lazy config
+        xyz0 = 0.0 !Measure at center of Earth
+        iMin = Gr%is+4
+        iMax = Gr%ie
+
+        !Now do accumulation
+        Dst = 0.0
+        !$OMP PARALLEL DO default(shared) collapse(2) &
+        !$OMP private(i,j,k,xyz,dV,r,bs1,bs2,bScl,dBz) &
+        !$OMP reduction(+:Dst)
+        do k=Gr%ks,Gr%ke
+            do j=Gr%js,Gr%je
+                do i=iMin,iMax
+                    xyz = Gr%xyzcc (i,j,k,:)
+                    dV  = Gr%volume(i,j,k)
+                    r = norm2(xyz-xyz0)
+                    bs1 = Jxyz(i,j,k,XDIR)*(xyz(YDIR)-xyz0(YDIR))
+                    bs2 = Jxyz(i,j,k,YDIR)*(xyz(XDIR)-xyz0(XDIR))
+                    bScl = B0*dV/(4*PI)
+
+                    dBz = -(bs1 - bs2)/(r**3.0)
+                    Dst = Dst + bScl*dBz
+                enddo ! i loop
+            enddo
+        enddo !k loop
+
+    end subroutine EstDST
+
+    !Calculate relative difference between source/MHD
+    subroutine IMagDelta(Model,Gr,State,dD,dP)
+        type(Model_T), intent(in)  :: Model
+        type(Grid_T) , intent(in)  :: Gr
+        type(State_T), intent(in)  :: State
+        real(rp)     , intent(out) :: dD,dP
+
+        real(rp) :: Dsrc,Dmhd,Psrc,Pmhd
+        real(rp) :: dV
+        real(rp), dimension(NVAR) :: pCon,pW
+        logical :: doInD,doInP,doIngest
+        integer :: i,j,k
+
+        dD = 0.0
+        dP = 0.0
+        if (.not. Model%doSource) return
+
+        !Zero out accumulators
+        Dsrc = 0.0
+        Dmhd = 0.0
+        Psrc = 0.0
+        Pmhd = 0.0
+        do k=Gr%ks,Gr%ke
+            do j=Gr%js,Gr%je
+                do i=Gr%is,Gr%ie
+                    dV  = Gr%volume(i,j,k)
+                    doInD = (Gr%Gas0(i,j,k,IMDEN,BLK)>TINY)
+                    doInP = (Gr%Gas0(i,j,k,IMPR ,BLK)>TINY)
+                    doIngest = doInD .or. doInP
+                    
+                    if (.not. doIngest) cycle
+                    pCon = State%Gas(i,j,k,:,BLK)
+                    call CellC2P(Model,pCon,pW)
+
+                    if (doInD) then
+                        Dsrc = Dsrc + dV*Gr%Gas0(i,j,k,IMDEN,BLK)
+                        Dmhd = Dmhd + dV*pW(DEN)
+                    endif
+
+                    if (doInP) then
+                        Psrc = Psrc + dV*Gr%Gas0(i,j,k,IMPR,BLK)
+                        Pmhd = Pmhd + dV*pW(PRESSURE)
+                    endif
+                    
+                enddo
+            enddo
+        enddo
+        if (Dsrc>TINY) dD = Dmhd/Dsrc
+        if (Psrc>TINY) dP = Pmhd/Psrc
+        
+    end subroutine IMagDelta
+
 end module voltio
 

@@ -126,7 +126,7 @@
 
       ! fits an ellipse to the boundary
       if (use_ellipse)then
-               CALL Set_ellipse(idim,jdim,rmin,pmin,vm,big_vm,bndloc,iopen)
+        CALL Set_ellipse(idim,jdim,rmin,pmin,vm,big_vm,bndloc,iopen)
       end if
 
 !      IF(set_boundary_with_mach)then
@@ -151,8 +151,7 @@
 
       ! smooth boundary location 
       do ns=1,n_smooth
-         !K: Commented out by Kareem
-         !write(6,*)' smoothing rcm boundary, ns =', ns
+         if (doRCMVerbose) write(6,*)' smoothing rcm boundary, ns =', ns
          call smooth_boundary_location(idim,jdim,jwrap,bndloc)
          call reset_rcm_vm(idim,jdim,bndloc,big_vm,imin_j,vm,iopen) ! adjust Imin_j
       end do
@@ -161,8 +160,6 @@
     
 
 ! reset mapping points on open field lines
-       !$OMP PARALLEL DO default(shared) &
-       !$OMP private(i,j)
        do j=1,jdim
         do i=1,imin_j(j)-1
           rmin(i,j) = 0.0
@@ -216,47 +213,49 @@
       imin_j     = CEILING(bndloc)
       imin_j_old = CEILING(bndloc_old)
 
-      !K: Suppressing output
-      !write(*,*)'imin_j',imin_j
-      !write(*,*)'imin_j_old',imin_j_old
-      !write(*,*)'rec =',rec
-    
+      if (doRCMVerbose) then
+        write(*,*)'imin_j',imin_j
+        write(*,*)'imin_j_old',imin_j_old
+        write(*,*)'rec =',rec
+      endif
+
    ! Set boundary conditions on plasma (EETA) for all MLT's and energy levels:
    !$OMP PARALLEL DO default(shared) &
    !$OMP schedule(dynamic) &
    !$OMP private(j,k,inew,iold)
-   DO k=1,kdim
-   DO j=1,jdim
+    DO k=1,kdim
+      DO j=1,jdim
 
-      inew = imin_j(j)
-      iold = imin_j_old(j)
+        inew = imin_j(j)
+        iold = imin_j_old(j)
 
-      ! values on the (new) boundary and outside are from MHD:
+        ! values on the (new) boundary and outside are from MHD:
 
-      IF (inew < iold) then
+        IF (inew < iold) then
 
           ! There are newly-acquired points inside the modeling region,
           ! assign MHD-produced values to them:
 
-         eeta (inew+1:iold,j,k) = eeta_new(inew+1:iold,j,k)
+          eeta (inew+1:iold,j,k) = eeta_new(inew+1:iold,j,k)
 
-      END IF
+        END IF
 
-   END DO
-   END DO
+      END DO
+    END DO
 
 
 ! get the inner boundary eeta local time
       do j=1,jsize
-       do k=1,kcsize
-        eetabnd(j,k) = eeta(imin_j(j),j,k)
-        if(eetabnd(j,k) <= 0.0)then
-          write(6,*)' warning: eetabnd <= 0 at j,k =',j,k
-          write(6,*)' eetabnd(',i,',',j,')=',eetabnd(j,k)
-          write(6,*)' vm(',i,',',j,')=',vm(i,j)
-        end if
-       end do
+        do k=1,kcsize
+          eetabnd(j,k) = eeta(imin_j(j),j,k)
+          if (eetabnd(j,k) <= 0.0 .and. doRCMVerbose) then
+            write(6,*)' warning: eetabnd <= 0 at j,k =',j,k
+            write(6,*)' eetabnd(',i,',',j,')=',eetabnd(j,k)
+            write(6,*)' vm(',i,',',j,')=',vm(i,j)
+          end if
+        end do
       end do
+      
 ! this is off for now
 ! set eeta to start with and empty magnetosphere
 !     if(rec == 1)then
@@ -275,9 +274,9 @@
 
 ! now reset eeta outside the rcm to be eeta at the boundary
       do j=1,jdim
-       do i=1,imin_j(j)-1
-         eeta(i,j,:) = eeta(imin_j(j),j,:)
-       end do
+        do i=1,imin_j(j)-1
+          eeta(i,j,:) = eeta(imin_j(j),j,:)
+        end do
       end do
 ! import ionosphere
    call Ionosphere_toRCM(RM)
@@ -310,9 +309,11 @@
         ymin(1:imin_j(j)-1,j) = ymin(imin_j(j),j) 
       END DO
 
-      DO j = 1, jsize; DO i = imin_j(j),isize
-         IF (vm(i,j) <= 0.0) STOP 'vm problem in TORCM'
-      END DO; END DO
+      DO j = 1, jsize
+        DO i = imin_j(j),isize
+          IF (vm(i,j) <= 0.0) STOP 'vm problem in TORCM'
+        END DO
+      END DO
 
       RETURN
       END SUBROUTINE Torcm
@@ -322,7 +323,7 @@
       USE rcm_precision
       USE constants, ONLY : mass_proton,gamma,one_over_gamma,mu0,radius_earth_m,nt
       USE RCM_mod_subs,ONLY : isize,jsize,kcsize,bmin, vm, bir,sini,rmin,pmin,&
-                              xmin,ymin,zmin,vbnd,pi
+                              xmin,ymin,zmin,vbnd,pi,jwrap
       USE rice_housekeeping_module
       use rcm_mhd_interfaces
 
@@ -418,6 +419,10 @@
       ymin (:,          1) = ymin (:,jsize-2)
       ymin (:,          2) = ymin (:,jsize-1)
 
+      zmin (:,jwrap:jsize) = RM%x_bmin (:,      :,3)/radius_earth_m
+      zmin (:,          1) = zmin (:,jsize-2)
+      zmin (:,          2) = zmin (:,jsize-1)
+
       bmin (:,jwrap:jsize) = RM%bmin (:,      :)/nt ! in nT
       bmin (:,          1) = bmin (:,jsize-2)
       bmin (:,          2) = bmin (:,jsize-1)
@@ -451,7 +456,9 @@
       vbnd(2) = vbnd(jsize-1)
 
       ! compute rmin,pmin
-      rmin = sqrt(xmin**2+ymin**2)
+      rmin = sqrt(xmin**2 + ymin**2 + zmin**2)
+      !rmin = sqrt(xmin**2 + ymin**2)
+
       pmin = atan2(ymin,xmin)
 
       ierr = 0
@@ -701,7 +708,7 @@
       end
 
 !===================================================================
-      SUBROUTINE Set_ellipse(idim,jdim,rmin,pmin,vm,big_vm,bndloc,iopen)
+    SUBROUTINE Set_ellipse(idim,jdim,rmin,pmin,vm,big_vm,bndloc,iopen)
 
 ! routine that fits an ellipse and resets the modeling
 ! boundary to be inside the ellipse
@@ -718,6 +725,7 @@
 
 !      USE Rcm_mod_subs, ONLY : iprec,rprec
       USE rcm_precision
+      USE rice_housekeeping_module, ONLY : ellBdry
       implicit none
       integer(iprec) :: idim,jdim
       real(rprec) :: rmin(idim,jdim), pmin(idim,jdim)
@@ -726,6 +734,7 @@
       integer(iprec) :: iopen(idim,jdim)
       real(rprec) :: bndloc(jdim)
       real(rprec) :: big_vm,a1,a2,a,b,x0,ell
+      real(rprec) :: xP,xM,yMax
       integer(iprec) :: i,j
 !  x0 = (a1 + a2)/2
 !   a = (a1 - a2)/2
@@ -741,32 +750,39 @@
 
       xe = rmin * cos(pmin)
       ye = rmin * sin(pmin)
-! uses computed boundary
-!     a1 = maxval(xe)
-!     a2 = minval(xe)
-!      b = maxval(abs(ye))
-! uses set boundary
-      a1 =  8.
-      a2 = -15.0 ! -35.0 !-20.0 !-25.
-      b = 10. ! 12.
+
+!K: Replacing these hard-coded values with ellipse type set by XML file
+      a1 = ellBdry%xSun
+      a2 = ellBdry%xTail
+      b  = ellBdry%yDD
+
+      if (ellBdry%isDynamic) then
+        !Tune to current equatorial bounds
+        xP = maxval(xe)
+        xM = minval(xe)
+        yMax = maxval(abs(ye))
+        a1 = min(a1,xP)
+        a2 = max(a2,xM)
+        b  = min(b ,yMax)        
+      endif
+      
       x0 = (a1 + a2)/2.
       a  = (a1 - a2)/2.
 
-       do j=1,jdim
+      do j=1,jdim
         do i=ceiling(bndloc(j)),idim-1
 ! now check to see if the point is outside the ellipse, if so
 ! reset open and bndloc        
-         ell = ((xe(i,j)-x0)/a)**2+(ye(i,j)/b)**2
-         if(ell > 1.) then
-          bndloc(j) = i+1
-          iopen(i,j) = 0
-          vm(i,j) = big_vm
-         end if
+          ell = ((xe(i,j)-x0)/a)**2+(ye(i,j)/b)**2
+          if(ell > 1.) then
+            bndloc(j) = i+1
+            iopen(i,j) = 0
+            vm(i,j) = big_vm
+          end if
         end do
-       end do 
+      end do 
 
-      return
-      end subroutine Set_ellipse
+    end subroutine Set_ellipse
 
 
 !------------------------------------
@@ -821,7 +837,7 @@
          end do      
         end do      
        return
-END SUBROUTINE Smooth_eta_at_boundary 
+END SUBROUTINE Smooth_eta_at_boundary
 
       SUBROUTINE Smooth_boundary_location(idim,jdim,jwrap,bndloc)
 !      USE Rcm_mod_subs, ONLY : iprec,rprec

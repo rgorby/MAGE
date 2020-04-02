@@ -47,6 +47,8 @@ module msphutils
     !Chill out parameters
     real(rp), private :: RhoCO = 1.0e-3 ! Number density
     real(rp), private :: CsCO  = 1.0e-2  ! Cs chillout, m/s
+    real(rp), parameter, private :: cLim = 1.5 ! Cool when sound speed is above cLim*Ca
+
     !Dipole cut values
     !real(rp) :: rCut=4.5, lCut=3.5 !LFM values
     !real(rp), private :: rCut=4.0, lCut=5.0
@@ -58,6 +60,10 @@ module msphutils
     real(rp), private :: GM0  = 0.0 !Gravitational force coefficient
     real(rp), private :: Psi0 = 0.0 ! corotation potential coef
     real(rp), private :: M0   = 0.0 !Magnetic moment
+
+    !Ingestion
+    logical, private :: doWolfLim  = .true.
+    logical, private :: doIngestDT = .false.
 
     contains
 
@@ -121,6 +127,14 @@ module msphutils
             Psi0 = 10.024*92.0 !kV
             Rion = 1.01 !Assuming
             Model%doGrav = .false.
+        case("Other","other","OTHER") ! Defaults to Earth values
+            call xmlInp%Set_Val(gx0,"prob/x0",REarth)            ! [m]
+            call xmlInp%Set_Val(gv0,"prob/v0",100.e3)            ! [m/s]
+            call xmlInp%Set_Val(gG0,"prob/G0",9.807)             ! [m/s2] 
+            call xmlInp%Set_Val(M0g,"prob/M0",EarthM0g)          ! [gauss]
+            call xmlInp%Set_Val(Psi0,"prob/Psi0",EarthPsi0)      ! [kV]
+            call xmlInp%Set_Val(Rion,"prob/Rion",RionE*1.e6/gx0) 
+            call xmlInp%Set_Val(Model%doGrav,"prob/doGrav",.true.)
         end select
 
         gT0 = gx0/gv0 !Set time scaling
@@ -129,6 +143,9 @@ module msphutils
         M0  = -M0g*1.0e+5/gB0 !Magnetic moment
         GM0 = gG0*gx0/(gv0*gv0)
 
+        Model%isMagsphere = .true.
+        Model%MagM0 = M0
+        
         !Add gravity if required
         if (Model%doGrav) then
             !Force spherical gravity (zap non-radial components)
@@ -139,16 +156,19 @@ module msphutils
         !Change console output pointer
         timeString => magsphereTime
         
-        write(*,*) '---------------'
-        write(*,*) 'Magnetosphere normalization'
-        write(*,*) 'T0 [s]    = ', gT0
-        write(*,*) 'x0 [m]    = ', gx0
-        write(*,*) 'v0 [m/s]  = ', gv0
-        write(*,*) 'P0 [nPa]  = ', gP0
-        write(*,*) 'B0 [nT]   = ', gB0
-        write(*,*) 'g  [m/s2] = ', gG0
-        write(*,*) '---------------'
-
+        if (Model%isLoud) then
+            write(*,*) '---------------'
+            write(*,*) 'Magnetosphere normalization'
+            write(*,*) 'T0   [s]    = ', gT0
+            write(*,*) 'x0   [m]    = ', gx0
+            write(*,*) 'v0   [m/s]  = ', gv0
+            write(*,*) 'P0   [nPa]  = ', gP0
+            write(*,*) 'B0   [nT]   = ', gB0
+            write(*,*) 'g    [m/s2] = ', gG0
+            write(*,*) 'psi0 [kV]   = ', Psi0
+            write(*,*) '---------------'
+        endif
+        
         !Save scaling to gUnits_T structure in Model
         Model%Units%gT0 = gT0
         Model%Units%gx0 = gx0
@@ -171,6 +191,11 @@ module msphutils
         Model%gamOut%vID = 'km/s'
         Model%gamOut%pID = 'nPa'
         Model%gamOut%bID = 'nT'
+
+        if (Model%doSource) then
+            call xmlInp%Set_Val(doWolfLim ,"source/doWolfLim" ,doWolfLim)
+            call xmlInp%Set_Val(doIngestDT,"source/doIngestDT",doIngestDT)
+        endif
 
     end subroutine
 
@@ -196,9 +221,9 @@ module msphutils
     subroutine Ion2MHD(Model,Grid,gPsi,inEijk,inExyz,pSclO)
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
-        real(rp), intent(inout) :: gPsi  (1:PsiSh+1,Grid%js:Grid%je+1,Grid%ks:Grid%ke+1)
-        real(rp), intent(inout) :: inEijk(1:PsiSh+1,Grid%jsg:Grid%jeg,Grid%ksg:Grid%keg,1:NDIM)
-        real(rp), intent(inout) :: inExyz(1:PsiSh,Grid%jsg:Grid%jeg,Grid%ksg:Grid%keg,1:NDIM)
+        real(rp), intent(inout) :: gPsi  (1:PsiSh+1,Grid%js:Grid%je+1  ,Grid%ks:Grid%ke+1)
+        real(rp), intent(inout) :: inEijk(1:PsiSh+1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1,1:NDIM)
+        real(rp), intent(inout) :: inExyz(1:PsiSh  ,Grid%jsg:Grid%jeg  ,Grid%ksg:Grid%keg,1:NDIM)
         real(rp), intent(in), optional :: pSclO
         integer :: i,j,k,iG
         integer :: NumP
@@ -308,7 +333,7 @@ module msphutils
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Gr
         type(State_T), intent(inout) :: State
-        real(rp), intent(in) :: inEijk(PsiSh+1,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,1:NDIM)
+        real(rp), intent(in) :: inEijk(PsiSh+1,Gr%jsg:Gr%jeg+1,Gr%ksg:Gr%keg+1,1:NDIM)
 
         integer :: is0,j,k
 
@@ -462,12 +487,17 @@ module msphutils
                         endif
 
                         !If sound speed is faster than "light", chill the fuck out
-                        if ( Model%doBoris .and. (CsC>Model%Ca) ) then
+                        doChill = Model%doBoris .and. (CsC>cLim*Model%Ca)
+                        if (doChill .and. Model%doSource) then
+                            !If this is a pressure ingestion region, then let the pressure go wild
+                            if (Grid%Gas0(i,j,k,IMPR ,BLK)>TINY) doChill = .false.
+                        endif !doChill and doSource check
+                        if (doChill) then
                             call CellC2P(Model,pCon,pW)
                             P = pW(PRESSURE) !Cell pressure
 
-                            !Find target pressure w/ sound speed = Ca
-                            Pc = pW(DEN)*(Model%Ca**2.0)/Model%gamma
+                            !Find target pressure w/ sound speed = cLim*Ca
+                            Pc = pW(DEN)*(cLim*Model%Ca)**2.0/Model%gamma
                             !Calculate cooling rate, L/CsC ~ lazy bounce timescale
                             Leq = DipoleL(Grid%xyzcc(i,j,k,:))
                             !Convert to m/(m/s)/(code time)
@@ -505,15 +535,13 @@ module msphutils
 
         integer :: i,j,k
         real(rp), dimension(8,NDIM) :: xyzC
-        real(rp) :: rI(8),rMax,rMin,MagP
+        real(rp) :: rI(8),rMax,rMin,MagP,rCC
 
         !Get values for initial field cutoffs
 
         !LFM values
         call xmlInp%Set_Val(xSun  ,"prob/xMax",20.0_rp  )
         call xmlInp%Set_Val(yMax  ,"prob/yMax",75.0_rp  )
-        !call xmlInp%Set_Val(xSun  ,"prob/xMax",25.0_rp  )
-        !call xmlInp%Set_Val(yMax  ,"prob/yMax",80.0_rp  )
         call xmlInp%Set_Val(xTail ,"prob/xMin",-185.0_rp)
         
         call xmlInp%Set_Val(sInner,"prob/sIn" ,0.96_rp  )
@@ -540,6 +568,21 @@ module msphutils
 
         call AddB0(Model,Grid,Model%B0)
 
+        !Be careful and forcibly zero out cut dipole forces near Earth
+        !$OMP PARALLEL DO default(shared) collapse(2) &
+        !$OMP private(i,j,k,rCC)
+        do k=Grid%ks, Grid%ke
+            do j=Grid%js, Grid%je
+                do i=Grid%is, Grid%ie
+                    rCC = norm2(Grid%xyzcc(i,j,k,:))
+                    if (rCC <= 0.75*rCut) then
+                        !Force hard zero
+                        Grid%dpB0(i,j,k,:) = 0.0
+                    endif
+                enddo
+            enddo
+        enddo
+
         call VectorField2Flux(Model,Grid,State,Axyz)
         bFlux0(:,:,:,:) = State%magFlux(:,:,:,:) !bFlux0 = B0
 
@@ -556,98 +599,133 @@ module msphutils
     !-----------------------------
     !Calculate currents on inner-most active radial shells
     !NOTE: Only using perturbation field as we are assuming B0 is curl-free in inner region
-    !Using IonG inner shells
     !See gridutils/bFld2Jxyz for full commented calculation
     !TODO: Better wrap this in routines to avoid replicated code
+    !NOTE: Assuming this is being called on Voltron w/ full J/K bounds 
     subroutine GetShellJ(Model,Grid,Bxyz,Jxyz)
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
         real(rp), intent(in)  :: Bxyz(Grid%isg:Grid%ieg,Grid%jsg:Grid%jeg,Grid%ksg:Grid%keg,1:NDIM)
         real(rp), intent(inout) :: Jxyz(1:JpSh,Grid%js:Grid%je,Grid%ks:Grid%ke,1:NDIM)
 
-        integer :: ip0,ip1,ip2,ip3
-        integer :: jp0,jp1,jp2,jp3
-        integer :: kp0,kp1,kp2,kp3
-        integer :: j,k,n,d,iG
-        real(rp), dimension(NDIM) :: dl,bEdge !Edge vectors
-        real(rp) :: bInt(1:JpSh+2,Grid%jsg:Grid%jeg,Grid%ksg:Grid%keg,1:NDIM)
-        real(rp) :: JdS (1:JpSh+1,Grid%jsg:Grid%jeg,Grid%ksg:Grid%keg,1:NDIM)
-        integer :: iR,NumP,jm,jp
-        real(rp) :: Jbar
+        real(rp), dimension(:,:,:,:), allocatable :: bInt,JdS
+        integer :: iG,j,k,n,NumP
+        real(rp), dimension(NDIM) :: dl,bEdg,xcc,JdV
+        real(rp) :: fI,fJ,fK,fIp,fJp,fKp,dV,Div
+        real(rp), dimension(NDIM) :: xfI,xfIp,xfJ,xfJp,xfK,xfKp
 
-        Jxyz = 0.0
-
-        !Start by integrating B.dl along cell edges
+    !bInt = edge-integrated magnetic field
+        allocate(bInt(1:JpSh+1,Grid%js:Grid%je+1,Grid%ks:Grid%ke+1,1:NDIM))
+        bInt = 0.0
         !$OMP PARALLEL DO default(shared) collapse(2) &
-        !$OMP private(iG,n,j,k,d,dl,bEdge) &
-        !$OMP private(ip0,ip1,ip2,ip3,jp0,jp1,jp2,jp3,kp0,kp1,kp2,kp3)
-        do d=1,NDIM
-            do k=Grid%ksg,Grid%keg
-                do j=Grid%jsg,Grid%jeg
-                    do n=1,JpSh+2
-                        iG = JpSt+n-1
-
-                        !Set edge vector
-                        !Use ghost->active mapping to get ijk's for each 4-point average
-                        select case(d)
-                        case(IDIR)
-                            dl = Grid%xyz(iG+1,j,k,:) - Grid%xyz(iG,j,k,:)
-                            call ijk2Active(Model,Grid,iG  ,j  ,k  ,ip0,jp0,kp0)
-                            call ijk2Active(Model,Grid,iG  ,j-1,k  ,ip1,jp1,kp1)
-                            call ijk2Active(Model,Grid,iG  ,j  ,k-1,ip2,jp2,kp2)
-                            call ijk2Active(Model,Grid,iG  ,j-1,k-1,ip3,jp3,kp3)
-                        case(JDIR)
-                            dl = Grid%xyz(iG,j+1,k,:) - Grid%xyz(iG,j,k,:)
-                            call ijk2Active(Model,Grid,iG  ,j  ,k  ,ip0,jp0,kp0)
-                            call ijk2Active(Model,Grid,iG-1,j  ,k  ,ip1,jp1,kp1)
-                            call ijk2Active(Model,Grid,iG  ,j  ,k-1,ip2,jp2,kp2)
-                            call ijk2Active(Model,Grid,iG-1,j  ,k-1,ip3,jp3,kp3)
-
-                        case(KDIR)
-                            dl = Grid%xyz(iG,j,k+1,:) - Grid%xyz(iG,j,k,:)
-                            call ijk2Active(Model,Grid,iG  ,j  ,k  ,ip0,jp0,kp0)
-                            call ijk2Active(Model,Grid,iG-1,j  ,k  ,ip1,jp1,kp1)
-                            call ijk2Active(Model,Grid,iG  ,j-1,k  ,ip2,jp2,kp2)
-                            call ijk2Active(Model,Grid,iG-1,j-1,k  ,ip3,jp3,kp3)
-                        end select
-                        
-                        bEdge = 0.25*( Bxyz(ip0,jp0,kp0,:) + Bxyz(ip1,jp1,kp1,:) &
-                                     +Bxyz(ip2,jp2,kp2,:) + Bxyz(ip3,jp3,kp3,:) )
-                        bInt(n,j,k,d) = dot_product(bEdge,dl)
-
-                    enddo
-                enddo
-            enddo
-        enddo !IJK loop
-
-        JdS = 0.0
-        !Turn edge integrals into current flux through cell faces
-        !$OMP PARALLEL DO default(shared) &
-        !$OMP private(n,j,k)
-        do k=Grid%ksg,Grid%keg-1
-            do j=Grid%jsg,Grid%jeg-1
+        !$OMP private(n,j,k,iG,dl,bEdg)
+        do k=Grid%ks,Grid%ke+1
+            do j=Grid%js,Grid%je+1
                 do n=1,JpSh+1
-                    JdS(n,j,k,IDIR) = bInt(n,j,k,JDIR) + bInt(n,j+1,k,KDIR) - bInt(n,j,k+1,JDIR) - bInt(n,j,k,KDIR)
-                    JdS(n,j,k,JDIR) = bInt(n,j,k,KDIR) + bInt(n,j,k+1,IDIR) - bInt(n+1,j,k,KDIR) - bInt(n,j,k,IDIR)
-                    JdS(n,j,k,KDIR) = bInt(n,j,k,IDIR) + bInt(n+1,j,k,JDIR) - bInt(n,j+1,k,IDIR) - bInt(n,j,k,JDIR)
+                    iG = JpSt+n-1
+
+                    !Calculate I-dir
+                    dl = Grid%xyz(iG+1,j,k,:) - Grid%xyz(iG,j,k,:)
+                    bEdg = 0.25*( Bxyz(iG  ,j  ,k  ,:) + Bxyz(iG  ,j-1,k  ,:) &
+                                + Bxyz(iG  ,j  ,k-1,:) + Bxyz(iG  ,j-1,k-1,:) )
+                    bInt(n,j,k,IDIR) = dot_product(bEdg,dl)  
+                    
+                    !Calculate J-dir
+                    dl = Grid%xyz(iG,j+1,k,:) - Grid%xyz(iG,j,k,:)
+                    bEdg = 0.25*( Bxyz(iG  ,j  ,k  ,:) + Bxyz(iG-1,j  ,k  ,:) &
+                                + Bxyz(iG  ,j  ,k-1,:) + Bxyz(iG-1,j  ,k-1,:) )
+                    bInt(n,j,k,JDIR) = dot_product(bEdg,dl)  
+
+                    !Calculate K-dir
+                    dl = Grid%xyz(iG,j,k+1,:) - Grid%xyz(iG,j,k,:)
+                    bEdg = 0.25*( Bxyz(iG  ,j  ,k  ,:) + Bxyz(iG-1,j  ,k  ,:) &
+                                + Bxyz(iG  ,j-1,k  ,:) + Bxyz(iG-1,j-1,k  ,:) )
+                    bInt(n,j,k,KDIR) = dot_product(bEdg,dl)  
+
                 enddo
             enddo
         enddo
 
-        Jxyz = 0.0
-        !Now turn surface fluxes into cell-centered XYZ using flux2field
-        !$OMP PARALLEL DO default(shared) &
+        !Now enforce matching edges
+        do n=1,JpSh+1
+            !K-seam
+            bInt(n,:,Grid%ke+1,IDIR) = bInt(n,:,Grid%ks,IDIR)
+            bInt(n,:,Grid%ke+1,JDIR) = bInt(n,:,Grid%ks,JDIR)
+            !Ring (js)
+            bInt(n,Grid%js  ,Grid%ks:Grid%ke+1,KDIR) = sum(bInt(n,Grid%js  ,Grid%ks:Grid%ke,KDIR))/Grid%Nkp
+            bInt(n,Grid%js  ,Grid%ks:Grid%ke+1,IDIR) = sum(bInt(n,Grid%js  ,Grid%ks:Grid%ke,IDIR))/Grid%Nkp
+
+            !Ring (je+1)
+            bInt(n,Grid%je+1,Grid%ks:Grid%ke+1,KDIR) = sum(bInt(n,Grid%je+1,Grid%ks:Grid%ke,KDIR))/Grid%Nkp
+            bInt(n,Grid%je+1,Grid%ks:Grid%ke+1,IDIR) = sum(bInt(n,Grid%je+1,Grid%ks:Grid%ke,IDIR))/Grid%Nkp
+
+        enddo
+
+    !JdS = face-integrated current flux
+        allocate(JdS(1:JpSh+1,Grid%js:Grid%je+1,Grid%ks:Grid%ke+1,1:NDIM))
+        JdS = 0.0
+        !$OMP PARALLEL DO default(shared) collapse(2) &
         !$OMP private(n,j,k,iG)
+        do k=Grid%ks,Grid%ke+1
+            do j=Grid%js,Grid%je+1
+                do n=1,JpSh+1
+                    iG = JpSt+n-1
+                    !Do i-face
+                    if ( (k<=Grid%ke) .and. (j<=Grid%je) ) then
+                        JdS(n,j,k,IDIR) = bInt(n,j,k,JDIR) + bInt(n,j+1,k,KDIR) - bInt(n,j,k+1,JDIR) - bInt(n,j,k,KDIR)
+                    endif
+                    !Do j-face
+                    if ( (n<=JpSh) .and. (k<=Grid%ke) ) then
+                        JdS(n,j,k,JDIR) = bInt(n,j,k,KDIR) + bInt(n,j,k+1,IDIR) - bInt(n+1,j,k,KDIR) - bInt(n,j,k,IDIR)
+                    endif
+                    !Do k-face
+                    if ( (n<=JpSh) .and. (j<=Grid%je) ) then
+                        JdS(n,j,k,KDIR) = bInt(n,j,k,IDIR) + bInt(n+1,j,k,JDIR) - bInt(n,j+1,k,IDIR) - bInt(n,j,k,JDIR)
+                    endif
+                enddo
+            enddo
+        enddo
+
+        !Now handle ring stuff
+        do n=1,JpSh+1
+            !Zero out degenerate faces
+            JdS(n,Grid%js  ,:,JDIR) = 0.0
+            JdS(n,Grid%je+1,:,JDIR) = 0.0
+            !Match k fluxes at seam
+            JdS(n,:,Grid%ke+1,KDIR) = JdS(n,:,Grid%ks,KDIR)
+        enddo
+
+    !Now handle Jxyz
+        Jxyz = 0.0
+        !$OMP PARALLEL DO default(shared) collapse(2) &
+        !$OMP private(n,j,k,iG,dV,fI,fJ,fK,fIp,fJp,fKp) &
+        !$OMP private(xfI,xfJ,xfK,xfIp,xfJp,xfKp,Div,xcc,JdV)
         do k=Grid%ks,Grid%ke
             do j=Grid%js,Grid%je
                 do n=1,JpSh
                     iG = JpSt+n-1
-                    Jxyz(n,j,k,XDIR:ZDIR) = ( JdS(n+1,j  ,k  ,IDIR)*Grid%xfc(iG+1,j  ,k  ,:,IDIR) &
-                                             +JdS(n  ,j+1,k  ,JDIR)*Grid%xfc(iG  ,j+1,k  ,:,JDIR) &
-                                             +JdS(n  ,j  ,k+1,KDIR)*Grid%xfc(iG  ,j  ,k+1,:,KDIR) &
-                                             -JdS(n  ,j  ,k  ,IDIR)*Grid%xfc(iG  ,j  ,k  ,:,IDIR) &
-                                             -JdS(n  ,j  ,k  ,JDIR)*Grid%xfc(iG  ,j  ,k  ,:,JDIR) &
-                                             -JdS(n  ,j  ,k  ,KDIR)*Grid%xfc(iG  ,j  ,k  ,:,KDIR) )/Grid%volume(iG,j,k)
+
+                    !Grab values
+                    dV = Grid%volume(iG,j,k)
+                    fI  = JdS(n  ,j  ,k  ,IDIR)
+                    fJ  = JdS(n  ,j  ,k  ,JDIR)
+                    fK  = JdS(n  ,j  ,k  ,KDIR)
+                    fIp = JdS(n+1,j  ,k  ,IDIR)
+                    fJp = JdS(n  ,j+1,k  ,JDIR)
+                    fKp = JdS(n  ,j  ,k+1,KDIR)
+
+                    xfI  = Grid%xfc(iG  ,j  ,k  ,:,IDIR)
+                    xfJ  = Grid%xfc(iG  ,j  ,k  ,:,JDIR)
+                    xfK  = Grid%xfc(iG  ,j  ,k  ,:,KDIR)
+                    xfIp = Grid%xfc(iG+1,j  ,k  ,:,IDIR)
+                    xfJp = Grid%xfc(iG  ,j+1,k  ,:,JDIR)
+                    xfKp = Grid%xfc(iG  ,j  ,k+1,:,KDIR)
+
+                    Div = fIp - fI + fJp - fJ + fKp - fK
+                    xcc = Grid%xyzcc(iG,j,k,:)
+                    JdV = (fIp*xfIp + fJp*xfJp + fKp*xfKp - fI*xfI - fJ*xfJ - fK*xfK) - Div*xcc
+
+                    Jxyz(n,j,k,XDIR:ZDIR) = JdV/dV
 
                 enddo
             enddo
@@ -726,6 +804,14 @@ module msphutils
 
     end subroutine Dipole
 
+    !Silly vector wrapper to make a dipole function
+    function VecDipole(xyz) result(Bd)
+        real(rp), intent(in) :: xyz(NDIM)
+        real(rp), dimension(NDIM) :: Bd
+        call Dipole(xyz(XDIR),xyz(YDIR),xyz(ZDIR),Bd(XDIR),Bd(YDIR),Bd(ZDIR))
+
+    end function VecDipole
+
     subroutine cutDipole(x,y,z,Ax,Ay,Az)
         real(rp), intent(in) :: x,y,z
         real(rp), intent(out) :: Ax,Ay,Az
@@ -798,9 +884,10 @@ module msphutils
 
         integer :: i,j,k
         real(rp), dimension(NVAR) :: pW, pCon
+        real(rp), dimension(NDIM) :: Bxyz
 
         real(rp) :: M0,Mf
-        real(rp) :: Tau,dRho,dP
+        real(rp) :: Tau,dRho,dP,beta,Pb,PLim,Pmhd,Prcm,wIMag
         logical  :: doIngest,doInD,doInP
 
         if (Model%doMultiF) then
@@ -813,7 +900,8 @@ module msphutils
         !M0 = sum(State%Gas(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,DEN,BLK)*Gr%volume(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke))
 
         !$OMP PARALLEL DO default(shared) collapse(2) &
-        !$OMP private(i,j,k,doInD,doInP,doIngest,pCon,pW,Tau,dRho,dP)
+        !$OMP private(i,j,k,doInD,doInP,doIngest,pCon,pW,Tau,dRho,dP) &
+        !$OMP private(beta,Bxyz,Pb,PLim,Pmhd,Prcm,wIMag)
         do k=Gr%ks,Gr%ke
             do j=Gr%js,Gr%je
                 do i=Gr%is,Gr%ie
@@ -825,21 +913,46 @@ module msphutils
 
                     pCon = State%Gas(i,j,k,:,BLK)
                     call CellC2P(Model,pCon,pW)
+                    Bxyz = State%Bxyz(i,j,k,:)
+                    if (Model%doBackground) then
+                        Bxyz = Bxyz + Gr%B0(i,j,k,:)
+                    endif
+                    Pmhd = pW(PRESSURE)
+                    Pb = 0.5*dot_product(Bxyz,Bxyz)
+                    beta = Pmhd/Pb
 
                     !Get timescale, taking directly from Gas0
-                    !Tau = Gr%Gas0(i,j,k,IMLSCL)*Gr%Gas0(i,j,k,IMTSCL)/Model%Ca
                     Tau = Gr%Gas0(i,j,k,IMTSCL,BLK)
+                    if (doIngestDT) then
+                        !Scale tau, wIMag = [0,1] (less to more inner magnetospheric)
+                        wIMag = IMagWgt(Model,pW,Bxyz)
+                        wIMag = max(wIMag,TINY) !Avoid div by 0
+                        Tau = Tau/wIMag
+                    endif
+                                        
+                    if (Tau<Model%dt) Tau = Model%dt !Unlikely to happen
+
                     if (doInD) then
                         dRho = Gr%Gas0(i,j,k,IMDEN,BLK) - pW(DEN)
-                        !pW(DEN) = pW(DEN) + (Model%dt/Tau)*max(0.0,dRho)
                         pW(DEN) = pW(DEN) + (Model%dt/Tau)*dRho
-
                     endif
+
                     if (doInP) then
-                        dP = Gr%Gas0(i,j,k,IMPR,BLK) - pW(PRESSURE)
+                        Prcm = Gr%Gas0(i,j,k,IMPR,BLK)
+                        if (doWolfLim) then
+                            PLim = Prcm/(1.0+beta*5.0/6.0)
+                        else
+                            PLim = Prcm
+                        endif
+
+                        if (Pmhd <= PLim) then
+                            dP = PLim - Pmhd
+                        else if (Pmhd >= Prcm) then
+                            dP = Prcm - Pmhd
+                        else
+                            dP = 0.0
+                        endif
                         pW(PRESSURE) = pW(PRESSURE) + (Model%dt/Tau)*dP
-                        !pW(PRESSURE) = pW(PRESSURE) + (Model%dt/Tau)*max(0.0,dP)
-                        
                     endif
 
                     !Now put back
@@ -853,6 +966,32 @@ module msphutils
         !write(*,*) 'Before / After / Delta = ', M0,Mf,Mf-M0
 
     end subroutine MagsphereIngest
+
+    !Calculate weight for imag ingestion, Va/Vfast
+    function IMagWgt(Model,pW,Bxyz) result(w)
+        type(Model_T), intent(in) :: Model
+        real(rp), dimension(NVAR), intent(in) :: pW
+        real(rp), dimension(NDIM), intent(in) :: Bxyz
+        real(rp) :: w
+
+        real(rp) :: D,P,MagV,MagB,Va,Cs,Vf
+
+        D = pW(DEN)
+        P = pW(PRESSURE)
+
+        MagV = norm2(pW(VELX:VELZ))
+        MagB = norm2(Bxyz)
+        !Alfven speed
+        Va = MagB/sqrt(D)
+        if (Model%doBoris) then
+            Va = Model%Ca*Va/sqrt(Model%Ca*Model%Ca + Va*Va)
+        endif
+        !Fastest signal
+        Cs = sqrt(Model%gamma*P/D)
+        Vf = MagV + sqrt(Cs**2.0 + Va**2.0)
+
+        w = Va/Vf
+    end function IMagWgt
 
     function BouncePeriod(Model,xyz) result(Tau)
         type(Model_T), intent(in) :: Model

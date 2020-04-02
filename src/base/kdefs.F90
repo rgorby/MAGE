@@ -43,18 +43,18 @@ module kdefs
     real(rp), parameter :: Mp_cgs = 1.6726D-24 ![g] Proton mass
 
     !MKS Constants
-    real(rp), parameter :: vc_mks = 2.9979e+8 ![m/s], Speed of light
-
+    real(rp), parameter :: vc_mks = vc_cgs*(1.0e-2) ![m/s], Speed of light
     !Helper conversions
     real(rp), parameter :: G2nT = 1.0E+5 !Gauss->nT
     real(rp), parameter :: G2T = 1.0E-4 !Gauss->T
     real(rp), parameter :: kev2J = 1.60218E-16 !keV->J
-
+    real(rp), parameter :: Re_km = Re_cgs*(1.0e-2)*(1.0e-3) !km
 
 !Planetary constants
     !Earth
     real(rp), parameter :: EarthM0g = 0.31 !Gauss
-    real(rp), parameter :: REarth = 6.38e6 ! m
+    real(rp), parameter :: REarth = Re_cgs*1.0e-2 !m
+
     real(rp), parameter :: RionE  = 6.5    ! Earth Ionosphere radius in 1000 km
     real(rp), parameter :: EarthPsi0 = 92.4 ! Corotation potential [kV]
     
@@ -121,31 +121,38 @@ character(ANSILEN), parameter :: &
         logical, optional, intent(in) :: useOldStyle
         character(len=strLen) :: fName
 
-        character(len=strLen) :: fHd,fRn,fijk
+        character(len=strLen) :: fId,fHd
 
         if(present(useOldStyle) .and. useOldStyle) then
             fName = genName_old(caseName,Ri,Rj,Rk,i,j,k)
             return
         endif
 
+        fId = genRunId(caseName,Ri,Rj,Rk,i,j,k)
+
+        write(fHd ,'(a,a)') trim(fId), '.gam.h5'
+        fName = trim(fHd)
+        !write(*,*) 'ijk / file = ',i,j,k,trim(fName)
+    end function genName
+
+    ! Generate runID based on tiling (output file without extension)
+    function genRunId(caseName, Ri, Rj, Rk, i, j, k) result(fName)
+        character(len=*), intent(in) :: caseName
+        integer, intent(in) :: Ri,Rj,Rk,i,j,k
+        character(len=strLen) :: fName
+
+        character(len=strLen) :: fHd,fRn,fijk
+
         if (Ri > 1 .or. Rj > 1 .or. Rk > 1) then
             write(fHd ,'(a,a)') trim(caseName), '_'
             write(fRn ,'(I0.4,a,I0.4,a,I0.4,a)') Ri,'_',Rj,'_',Rk,'_'
-            write(fijk,'(I0.4,a,I0.4,a,I0.4,a)') i-1,'_',j-1,'_',k-1,'.gam.h5'
+            write(fijk,'(I0.4,a,I0.4,a,I0.4)') i-1,'_',j-1,'_',k-1
 
             fName = trim(fHd) // trim(fRn) // trim(fijk)
         else
-            if(index(caseName,'.h5') == 0) then
-                ! assume does not have extension
-                write(fHd ,'(a,a)') trim(caseName), '.gam.h5'
-                fName = trim(fHd)
-            else
-                ! already has extension
-                fName = trim(caseName)
-            endif
+            fName = trim(caseName)
         endif
-        !write(*,*) 'ijk / file = ',i,j,k,trim(fName)
-    end function genName
+    end function genRunId
 
     ! Generate old omega format name based on tiling
     function genName_old(caseName,Ri,Rj,Rk,i,j,k) result(fName)

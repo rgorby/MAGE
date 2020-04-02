@@ -1178,7 +1178,7 @@ END IF
 !
             DO ie = 1, iedim_local 
 !                                                                       
-               IF (sum1 (ie) > zero) THEN
+               IF (sum1 (ie) > 10.*machine_tiny) THEN  ! zero  sbao 07/2019
 !
 !                compute thermal electron current, field-aligned
 !                potential drop, electron energy flux,
@@ -1209,6 +1209,13 @@ END IF
                                  ( ekt + vpar(i,j) + half*vpar(i,j)**2/ekt)
                   eavg(i,j,ie) = two*(ekt+vpar(i,j)+half*vpar(i,j)**2 /ekt) / &
                                  (one + vpar (i, j) / ekt)
+                  ! sbao 6/19 detect Nan 
+                  if (ISNAN(eflux(i,j,ie)))then
+                       if (.not. doQuietRCM) write(*,*)'eflux,i,j,therm,ekt,vpar,sum1,sum2,vm',eflux(i,j,ie),i,j,therm,ekt,vpar(i,j),sum1(ie),sum2(ie),vm(i,j)
+                       eflux(i,j,ie) = 0.0
+                       eavg(i,j,ie) = 0.0
+                  end if
+
                ELSE 
 !                                                                       
 !                 Case fudge=0: we want eflux=0 and eavg=0 for no precipitation.
@@ -1217,6 +1224,9 @@ END IF
                   eavg  (i, j, ie) = zero
 !
                END IF 
+               ! corrections to eavg at eflux(i,j) == 0.0     sbao 07/2019 
+               IF (eflux(i,j,ie) == 0.0) eavg(i,j,ie) = 0.0
+
 !                                                                       
             END DO
 !
@@ -7237,10 +7247,12 @@ bjmod_real = MODULO(bj-REAL(jwrap),REAL(jsize-jwrap-1)) + REAL(jwrap)
 !
 !
       SUBROUTINE Rcm (itimei_in, itimef_in, irdr_in, irdw_in, &
-                      idt_in, idt1_in, idt2_in, icontrol,stropt,nslcopt)
+                      idt_in, idt1_in, idt2_in, icontrol,stropt,nslcopt,iXML)
+      USE xml_input
       USE rcm_timing_module
       IMPLICIT NONE
 !
+      type(XML_Input_T), intent(in), optional :: iXML
       INTEGER (iprec), INTENT (IN) :: itimei_in, itimef_in, &
                                       irdr_in, irdw_in, idt_in, idt1_in,& 
                                       idt2_in, icontrol
@@ -7325,7 +7337,11 @@ bjmod_real = MODULO(bj-REAL(jwrap),REAL(jsize-jwrap-1)) + REAL(jwrap)
    IF (icontrol == 2) then ! read in inputs, quit:
       !K: Splitting based on whether running coupled to Gamera
       if (isGAMRCM) then
-        call RCM_Params_XML()
+        if(present(iXML)) then
+          call RCM_Params_XML(iXML)
+        else
+          call RCM_Params_XML()
+        endif
         !K: Are kp/bfield necessary?
         CALL Read_kp   
         CALL Read_bfield
@@ -7414,7 +7430,7 @@ bjmod_real = MODULO(bj-REAL(jwrap),REAL(jsize-jwrap-1)) + REAL(jwrap)
 
       OPEN  (LUN_2, FILE = rcmdir//'rcm.printout', STATUS = ST, POSITION = PS)
       OPEN  (LUN_3, FILE = rcmdir//'rcm.index',  STATUS = ST, POSITION = PS)
-      CALL Initial_printout ()
+      ! CALL Initial_printout ()
       CLOSE (LUN_3)
       CLOSE (LUN_2)
 
@@ -7889,7 +7905,7 @@ bjmod_real = MODULO(bj-REAL(jwrap),REAL(jsize-jwrap-1)) + REAL(jwrap)
           
         end subroutine ReadRCMRestart
 
-        !HDF5 output routine 
+        !HDF5 output routine
         subroutine WriteRCMH5(runid,nStp,isRestart)
           use ioh5
           use files
@@ -7979,18 +7995,24 @@ bjmod_real = MODULO(bj-REAL(jwrap),REAL(jsize-jwrap-1)) + REAL(jwrap)
           endif
         end subroutine WriteRCMH5
 
-        subroutine RCM_Params_XML()
+        subroutine RCM_Params_XML(iXML)
           use xml_input
           use strings
 
+          type(XML_Input_T), intent(in), optional :: iXML
           character(len=strLen) :: inpXML
           type(XML_Input_T) :: xmlInp
 
-          !Find input deck filename
-          call getIDeckStr(inpXML)
+          if(present(iXML)) then
+            xmlInp = iXML
+          else
+            !Find input deck filename
+            call getIDeckStr(inpXML)
 
-          !Create XML reader
-          xmlInp = New_XML_Input(trim(inpXML),'RCM',.true.)
+            !Create XML reader
+            xmlInp = New_XML_Input(trim(inpXML),'RCM',.true.)
+          endif
+
           call xmlInp%Set_Val(label%char,"sim/runid","MHD code run")
 
           !Output
@@ -8360,7 +8382,7 @@ SUBROUTINE Move_plasma_grid_NEW (dt)
   REAL (rprec) :: eeta2 (isize,jsize), veff  (isize,jsize),  &
                   dvefdi(isize,jsize), dvefdj(isize,jsize), &
                   didt, djdt, mass_factor
-  REAL (rprec) :: eps=1.0e-8, max_eeta
+  REAL (rprec) :: max_eeta, eps = 0.0 !sbao 07/2019
   INTEGER (iprec) :: i, j, kc, ie
 !\\\
   integer(iprec) :: CLAWiter, joff, icut
@@ -8393,14 +8415,14 @@ SUBROUTINE Move_plasma_grid_NEW (dt)
  fac = 1.0E-3*signbe*bir*alpha*beta*dlam*dpsi*ri**2
 
 !K: Experiment OMP binding on RCM calculation
-!$OMP PARALLEL PRIVATE (eeta2, veff, dvefdi, dvefdj, didt, djdt, &
-!$OMP                  & mass_factor, loc_didt, loc_djdt,loc_Eta,loc_rate, &
-!$OMP                  & ie, icut, j, i, r_dist, FirstTime, max_eeta) &
-!$OMP        & SHARED (alamc, eeta, v, vcorot, vpar, vm, imin_j, j1, j2, joff, &
-!$OMP                  xmin, ymin, fac, fudgec, bir, sini, L_dktime, dktime, sunspot_number, &                
-!$OMP                  T1, T2, xlower, ylower, xupper, yupper, CLAWiter, eps) &
-!$OMP        & DEFAULT (NONE)
-!$OMP DO SCHEDULE (dynamic)
+!!$OMP PARALLEL DO schedule(dynamic) &
+!!$PRIVATE (eeta2, veff, dvefdi, dvefdj, didt, djdt, &
+!!$OMP                  & mass_factor, loc_didt, loc_djdt,loc_Eta,loc_rate, &
+!!$OMP                  & ie, icut, j, i, r_dist, FirstTime, max_eeta) &
+!!$OMP        & SHARED (alamc, eeta, v, vcorot, vpar, vm, imin_j, j1, j2, joff, &
+!!$OMP                  xmin, ymin, fac, fudgec, bir, sini, L_dktime, dktime, sunspot_number, &                
+!!$OMP                  T1, T2, xlower, ylower, xupper, yupper, CLAWiter, eps) &
+!!$OMP        & DEFAULT (NONE)
 
   DO kc = 1, kcsize
 !
@@ -8418,7 +8440,8 @@ SUBROUTINE Move_plasma_grid_NEW (dt)
      mass_factor = SQRT (xmass(1)/xmass(ie))
 !
 !    1. Compute the effective potential for the kc energy channel:
-!
+! 
+    !K: Here we're adding corotation to total effective potential
      veff = v +vcorot - vpar + vm*alamc(kc)
 !!!  CALL V_eff_polar_cap (veff)
 !
@@ -8543,8 +8566,6 @@ SUBROUTINE Move_plasma_grid_NEW (dt)
      CALL Circle (eeta(:,:,kc))
 !
   END DO
-!$OMP END DO
-!$OMP END PARALLEL
 
 
   RETURN

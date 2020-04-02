@@ -8,11 +8,6 @@ module output
     
     implicit none
 
-    logical :: primOut = .true.
-    integer :: nFloors = 0
-    real(rp) :: dt0 = 0
-
-    character :: TAB = char(9)
     character(len=strLen) :: zcsClk = "Gamera" !Clock ID to use for ZCS calculation
 
     !ConOut_T
@@ -20,7 +15,7 @@ module output
     abstract interface
         subroutine ConsoleOut_T(Model,Grid,State)
             Import :: Model_T, Grid_T, State_T
-            type(Model_T), intent(in) :: Model
+            type(Model_T), intent(inout) :: Model
             type(Grid_T), intent(in) :: Grid
             type(State_T), intent(in) :: State
         end subroutine ConsoleOut_T
@@ -44,14 +39,25 @@ module output
 contains
 
     subroutine consoleOutput_STD(Model, Grid, State)
-        type(Model_T), intent(in) :: Model
+        type(Model_T), intent(inout) :: Model
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(in) :: State
 
-        real(rp) :: ZCs, wTime
+        real(rp) :: ZCs, wTime,dt0
         integer :: nTh
         character(len=strLen) :: tStr
-        if (dt0 < TINY) dt0 = Model%dt
+
+        ! grab the first reasonable dt after the sim has been running for a bit as dt0
+        if (Model%ts > 0 .and. Model%dt0 < TINY) then
+            Model%dt0 = Model%dt
+        endif
+
+        if(Model%dt0 > TINY) then
+            dt0 = Model%dt0
+        else
+            dt0 = Model%dt
+        endif
+
         wTime = readClock(zcsClk)
 
         !Calculate zone-cycles per second
@@ -61,7 +67,7 @@ contains
             ZCs = 0.0
         endif
 
-        if (verbose) then
+        if (Model%isLoud) then
             write(*,*) ANSICYAN
             call timeString(Model%t,tStr)
             write(*,'(a,a)')        'Sim Time   = ', trim(tStr)
@@ -74,11 +80,7 @@ contains
 #ifdef _OPENMP
             nTh = Model%nTh
 #endif
-            write (*, '(a,f9.2,a,I0,a)') '      kZCs = ', ZCs/1000.0, ' (',nTh,' threads)'
-            if (nFloors > 0) then
-                write (*, '(a,I8)') '      nFloors = ', nFloors
-            endif
-            
+            write (*, '(a,f9.2,a,I0,a)') '      kZCs = ', ZCs/1000.0, ' (',nTh,' threads)'            
             write(*,'(a)',advance="no") ANSIRESET!, ''
         endif
 
@@ -104,7 +106,7 @@ contains
 
         write (gStr, '(A,I0)') "Step#", Model%IO%nOut
 
-        if (verbose) then
+        if (Model%isLoud) then
             call timeString(Model%t,tStr)
             write (*, '(a,a,a,a,a)') ANSIGREEN, '<Writing HDF5 DATA @ t = ', trim(tStr), ' >', ANSIRESET
         endif
@@ -128,7 +130,7 @@ contains
 
         call CheckAndKill(ResF)
 
-        if (verbose) then
+        if (Model%isLoud) then
             call timeString(Model%t,tStr)
             write (*, '(a,a,a,a,a)') ANSIGREEN, '<Writing HDF5 RESTART @ t = ', trim(tStr), ' >', ANSIRESET
         endif

@@ -16,7 +16,8 @@ module recon
     end interface
 
     !Note, be careful how interpWgt is initialized to ensure sum(:) = 1 exactly
-    real(rp), dimension(recLen), parameter :: interpWgt = [-3,29,-139,533,533,-139,29,-3]/840.0_rp
+    real(rp), dimension(recLen), parameter :: interpWgt  = [-3,29,-139,533,533,-139,29,-3]/840.0_rp
+    real(rp), dimension(recLen), parameter :: interpWgt6 = [ 0, 1,  -8, 37, 37,  -8, 1, 0]/60.0_rp
 
     !Set choice of LR method in init
     procedure(GetLR_T), pointer :: GetLRs
@@ -337,10 +338,7 @@ module recon
     end subroutine pdmLR
 
     !PDM Left
-    function PDM(q0,q1,q2,qI) 
-#ifdef __INTEL_COMPILER
-        !$omp declare simd(PDM)
-#endif
+    function PDM(q0,q1,q2,qI)
         real(rp), intent(in) :: q0,q1,q2,qI
         real(rp) :: PDM
         real(rp) :: maxQ,minQ, qN, dq0,dq1,dqL
@@ -369,9 +367,6 @@ module recon
     end function PDM
 
     function Up7(q0,q1,q2,q3,q4,q5,q6) 
-#ifdef __INTEL_COMPILER
-        !$omp declare simd(Up7)
-#endif
         real(rp), intent(in) :: q0,q1,q2,q3,q4,q5,q6
         real(rp) :: Up7
 

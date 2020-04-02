@@ -38,6 +38,15 @@ module rcm_mhd_interfaces
   real(rprec),allocatable :: latc(:,:)
   real(rprec),allocatable :: lonc(:,:)
 
+  !Field line arc length [Re]
+  real(rprec),allocatable :: Lb(:,:)
+  !Alfven Bounce timescale [s]
+  real(rprec),allocatable :: Tb(:,:)
+
+  !Information about MHD ingestion
+  logical, allocatable :: toMHD(:,:)
+  
+  !Information to sync restarts w/ MHD
   integer(iprec) :: rcm_nOut,rcm_nRes !Indices for output/restart
   character(len=strLen) :: rcm_runid
   

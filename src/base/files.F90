@@ -16,7 +16,12 @@ module files
         character(len=*), intent(in) :: fIn
         logical :: CheckDir
 
-        inquire(directory=fIn,exist=CheckDir)
+#ifdef __INTEL_COMPILER
+        inquire(directory=fIn,exist=CheckDir) !Intel only
+#else
+        !Might work for gfortran
+        inquire(file=trim(fIn)//'/.',exist=CheckDir)
+#endif
     end function CheckDir
 
     subroutine CheckDirOrMake(fIn)
@@ -35,9 +40,10 @@ module files
         character(len=*), intent(in) :: fIn,errStr
 
         logical :: fExist
-        inquire(file=fIn,exist=fExist)
+        inquire(file=trim(fIn),exist=fExist)
         if (.not. fExist) then
             write(*,*) trim(errStr)
+            write(*,*) "File: ", trim(fIn)
             write(*,*) ''
             stop
         endif

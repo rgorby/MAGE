@@ -18,10 +18,14 @@ module step
         type(State_T), intent(inout) :: State
 
         integer :: n
+        character(len=strLen) :: BCID
         !Loop over BCs for this grid and call them
         do n=1,Gr%NumBC
             if (allocated(Gr%externalBCs(n)%p)) then
+                write (BCID, '(A,I0)') "BC#", n
+                call Tic(BCID)
                 call Gr%externalBCs(n)%p%doBC(Model,Gr,State)
+                call Toc(BCID)
             endif
         enddo
 
@@ -74,19 +78,20 @@ module step
 
             !Check for sudden drop in dt
             if (dtOld/dtMin >= 10) then
-                write(*,*) "<Drop in timestep by 10x, exiting ...>"
+                write(*,*) "<Drop in timestep by 10x (",dtOld,"=>",dtMin,"), exiting ...>"
                 isDisaster = .true.
             endif
 
             !Check for too small dt
             if (dtMin <= TINY) then
-                write(*,*) "<Timestep too small, exiting ...>"
+                write(*,*) "<Timestep too small (",dtMin,"), exiting ...>"
                 isDisaster = .true.
             endif
 
             !Check for slower but significant timestep drop
-            if ( (dt0>TINY) .and. (dt0/dtMin >=100) ) then
-                write(*,*) "<Timestep less than 1% of initial, exiting ...>"
+            if ( (Model%dt0>TINY) .and. (Model%dt0/dtMin >=100) ) then
+                write(*,*) "<Timestep less than 1% of initial (",Model%dt0,"=>",&
+                    dtMin,"), exiting ...>"
                 isDisaster = .true.
             endif
 
@@ -105,7 +110,12 @@ module step
         if ( (Model%t+CalcDT) > Model%tFin ) then
             CalcDT = max(Model%tFin-Model%t,TINY)
         endif
-        
+
+        !Apply a limit of 10x the initial timestep in case it starts static
+        if (Model%dt0>TINY .and. CalcDT>(10.0*Model%dt0)) then
+            CalcDT = 10.0 * Model%dt0
+        endif
+
     end function CalcDT
 
     subroutine BlackBox(Model,Gr,State,dt0)
@@ -220,7 +230,7 @@ module step
         Valf  = 0.0
         VDiff = 0.0
 
-        if (Model%doMHD) then                                        
+        if (Model%doMHD) then
             Bx = State%Bxyz(i,j,k,XDIR)
             By = State%Bxyz(i,j,k,YDIR)
             Bz = State%Bxyz(i,j,k,ZDIR)

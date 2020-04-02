@@ -1,4 +1,19 @@
-subroutine rcm_mhd(mhdtime,mhdtimedt,RM,iflag)
+module rcm_mhd_mod
+
+use rcm_precision
+use Rcm_mod_subs
+use rcm_mhd_interfaces
+use ionosphere_exchange, only : setupIon, tearDownIon
+use constants, ONLY : radius_earth_m, radius_iono_m
+use rice_housekeeping_module
+use rcm_timing_module
+use files
+
+implicit none
+
+contains
+
+subroutine rcm_mhd(mhdtime,mhdtimedt,RM,iflag,iXML)
 ! version to couple to gamera
 ! units are assumed to mks, except for distances which are in Re.
 ! iflag = 0 - setup arrays, read in parameters
@@ -9,16 +24,9 @@ subroutine rcm_mhd(mhdtime,mhdtimedt,RM,iflag)
 ! iflag = -3 - Write H5 output (icontrol = 31338)
 
 ! 2/19 frt
-  use rcm_precision
-  use Rcm_mod_subs
-  use rcm_mhd_interfaces
-  use ionosphere_exchange, only : setupIon, tearDownIon
-  use constants, ONLY : radius_earth_m, radius_iono_m
-  use rice_housekeeping_module
-  use rcm_timing_module
-  use files
 
   implicit none
+  type(XML_Input_T), intent(in), optional :: iXML
   type(rcm_mhd_T),intent(inout) :: RM
   real(rprec), intent(in) :: mhdtime,mhdtimedt
   integer(iprec) :: dayOfYear 
@@ -101,7 +109,11 @@ subroutine rcm_mhd(mhdtime,mhdtimedt,RM,iflag)
     CALL CheckDirOrMake(Rcmdir)
 
     !Read RCM/MHD params from XML
-    CALL RCM_MHD_Params_XML
+    if(present(iXML)) then
+      CALL RCM_MHD_Params_XML(iXML)
+    else
+      CALL RCM_MHD_Params_XML
+    endif
 
     ! setup rcm
     CALL Rcm (itimei, itimef, irdr, irdw, idt, idt1, idt2,icontrol=0_iprec)
@@ -109,13 +121,16 @@ subroutine rcm_mhd(mhdtime,mhdtimedt,RM,iflag)
     call allocate_conversion_arrays (isize,jsize,kcsize)
 
     ! Set up RCM ionospheric grid:
-    call Grid_torcm (75.0_rprec, 15.0_rprec, 0.0_rprec, radius_earth_m, radius_iono_m)  ! set up RCM ionospheric grid here
+    !call Grid_torcm (75.0_rprec, 15.0_rprec, 0.0_rprec, radius_earth_m, radius_iono_m)  ! set up RCM ionospheric grid here
+    call Grid_torcm (HighLatBD,LowLatBD, 0.0_rprec, radius_earth_m, radius_iono_m)  ! set up RCM ionospheric grid here
 
    ! Setup Ionosphere intermediate Grid by equating it to the RCM grid, without angular overlap:
     call setupIon(RM)
   
     CALL Rcm (itimei, itimef, irdr, irdw, idt, idt1, idt2, icontrol=1_iprec)
-    CALL Rcm (itimei, itimef, irdr, irdw, idt, idt1, idt2, icontrol=2_iprec)
+
+    ! icontrol of 2 also needs the input xml file
+    CALL Rcm (itimei, itimef, irdr, irdw, idt, idt1, idt2, icontrol=2_iprec, iXML=iXML)
     
 
     ! restart
@@ -291,7 +306,7 @@ subroutine rcm_mhd(mhdtime,mhdtimedt,RM,iflag)
 ! end do couplingTimeLoop
   end if
 
-  if(iflag==2)then ! stop
+  if(iflag==RCMRESTART)then ! stop
   call rcm (itimei,itimef,irdr,irdw,idt,idt1,idt2,icontrol=5_iprec)
 !  call Finalize()    ! Matches Initialize() above
   call tearDownIon(RM) ! Matches setupIon() above
@@ -360,5 +375,5 @@ end subroutine rcm_mhd
       return
       end subroutine print_date_time
 
-
+end module rcm_mhd_mod
 

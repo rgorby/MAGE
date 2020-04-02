@@ -20,7 +20,7 @@ module voltapp
     contains
 
     !Initialize Voltron (after Gamera has already been initialized)
-    subroutine initVoltron(vApp, gApp,optFilename)
+    subroutine initVoltron(vApp,gApp,optFilename)
         type(gamApp_T) , intent(inout) :: gApp
         class(voltApp_T), intent(inout) :: vApp
         character(len=*), optional, intent(in) :: optFilename
@@ -41,6 +41,14 @@ module voltapp
 
         endif
 
+#ifdef _OPENMP
+        write(*,*) 'Voltron running threaded'
+        write(*,*) '   # Threads = ', omp_get_max_threads()
+        write(*,*) '   # Cores   = ', omp_get_num_procs()
+#else
+        write (*,*) 'Voltron running without threading'
+#endif
+
     !Create XML reader
         xmlInp = New_XML_Input(trim(inpXML),'Voltron',.true.)
 
@@ -58,7 +66,12 @@ module voltapp
         if (doSpin .and. (.not. gApp%Model%isRestart)) then
             !Doing spinup and not a restart
             call xmlInp%Set_Val(tSpin,"spinup/tSpin",3600.0) !Default two hours
-            gApp%Model%t = -tSpin/gTScl !Rewind Gamera time to negative tSpin (seconds)
+            !Rewind Gamera time to negative tSpin (seconds)
+            gApp%Model%t = -tSpin/gTScl 
+            !Reset State/oState
+            gApp% State%time  = gApp%Model%t
+            gApp%oState%time  = gApp%Model%t-gApp%Model%dt
+
             doDelayIO = .true.
             call xmlInp%Set_Val(tIO,"spinup/tIO",0.0) !Time of first restart
         endif
@@ -131,18 +144,34 @@ module voltapp
         endif
 
         !Do first couplings
+        call Tic("IonCoupling")
         call ShallowUpdate(vApp,gApp,vApp%time)
+        call Toc("IonCoupling")
+        
         if (vApp%doDeep .and. (vApp%time>=vApp%DeepT)) then
+            call Tic("DeepCoupling")
             call DeepUpdate(vApp,gApp,vApp%time)
+            call Toc("DeepCoupling")
         endif
 
         !Recalculate timestep
         gApp%Model%dt = CalcDT(gApp%Model,gApp%Grid,gApp%State)
+        if (gApp%Model%dt0<TINY) gApp%Model%dt0 = gApp%Model%dt
         
         !Finally do first output stuff
-        call consoleOutputV(vApp,gApp)
+        !console output
+        if(vApp%isSeparate) then
+            call consoleOutputVOnly(vApp,gApp%Model%MJD0)
+        else
+            call consoleOutputV(vApp,gApp)
+        endif
+        !file output
         if (.not. gApp%Model%isRestart) then
-            call fOutputV(vApp,gApp)
+            if(vApp%isSeparate) then
+                call fOutputVOnly(vApp)
+            else
+                call fOutputV(vApp, gApp)
+            endif
         endif
     end subroutine initVoltron
 
@@ -172,6 +201,8 @@ module voltapp
 
         isRestart = gApp%Model%isRestart
         RunID = trim(gApp%Model%RunID)
+        
+        call InitVoltIO(vApp,gApp)
         
     !Remix from Gamera
         if(present(optFilename)) then
@@ -255,6 +286,9 @@ module voltapp
         real(rp) :: curTilt
 
         ! convert gamera inputs to remix
+        if (vApp%doDeep) then
+            call mapIMagToRemix(vApp%imag2mix,vApp%remixApp)
+        endif
         call mapGameraToRemix(vApp%mhd2mix, vApp%remixApp)
 
         ! determining the current dipole tilt
@@ -286,6 +320,7 @@ module voltapp
         endif
 
         tAdv = time + vApp%DeepDT !Advance inner magnetosphere through full coupling time 
+    
     !Pull in updated fields to CHIMP
         call Tic("G2C")
         call convertGameraToChimp(vApp%mhd2chmp,gApp,vApp%ebTrcApp)
@@ -306,7 +341,8 @@ module voltapp
         call Tic("IM2G")
         call InnerMag2Gamera(vApp,gApp)
         call Toc("IM2G")
-        
+    
+
     !Setup next coupling
         vApp%DeepT = time + vApp%DeepDT
 

@@ -20,6 +20,10 @@ module ebsquish
         end subroutine Projection_T
     end interface
 
+    real(rp), parameter, private :: startEps = 0.05
+    real(rp), parameter, private :: rEps = 0.125
+    real(rp), private :: Rinner
+
     contains
 
     !Find i-index of outer boundary of coupling domain
@@ -43,7 +47,7 @@ module ebsquish
     subroutine Squish(vApp)
         type(voltApp_T), intent(inout) :: vApp
         
-        integer :: i,j,k
+        integer :: i,j,k,Nk
         real(rp) :: t,x1,x2
         real(rp), dimension(NDIM) :: xyz,xy0
         procedure(Projection_T), pointer :: ProjectXYZ
@@ -60,16 +64,18 @@ module ebsquish
             stop
         end select
 
-        associate(ebModel=>vApp%ebTrcApp%ebModel,ebGr=>vApp%ebTrcApp%ebState%ebGr,ebState=>vApp%ebTrcApp%ebState)
+        associate(ebModel=>vApp%ebTrcApp%ebModel,ebGr=>vApp%ebTrcApp%ebState%ebGr,ebState=>vApp%ebTrcApp%ebState,xyzSquish=>vApp%chmp2mhd%xyzSquish)
         t = ebState%eb1%time
-        
-        !$OMP PARALLEL DO default(shared) collapse(2) &
+
+        Rinner = norm2(ebGr%xyz(ebGr%is,ebGr%js,ebGr%ks,XDIR:ZDIR))
+
+        !$OMP PARALLEL DO default(shared) collapse(3) &
         !$OMP schedule(dynamic) &
         !$OMP private(i,j,k,xyz,x1,x2)
-        do k=ebGr%ks,ebGr%ke
-            do j=ebGr%js,ebGr%je
-                do i=ebGr%is,vApp%iDeep
-                    xyz = ebGr%xyzcc(i,j,k,:)
+        do k=ebGr%ks,ebGr%ke+1
+            do j=ebGr%js,ebGr%je+1
+                do i=ebGr%is,vApp%iDeep+1
+                    xyz = ebGr%xyz(i,j,k,XDIR:ZDIR)
                     if (norm2(xyz) <= vApp%rTrc) then
                         !Do projection
                         call ProjectXYZ(ebModel,ebState,xyz,t,x1,x2)
@@ -79,11 +85,25 @@ module ebsquish
                         x2 = 0.0
                     endif
                     
-                    vApp%chmp2mhd%xyzSquish(i,j,k,1) = x1
-                    vApp%chmp2mhd%xyzSquish(i,j,k,2) = x2
+                    xyzSquish(i,j,k,1) = x1
+                    xyzSquish(i,j,k,2) = x2
 
                 enddo
             enddo
+        enddo
+
+        Nk = ebGr%ke-ebGr%ks+1
+
+        !Ensure same value for degenerate axis points
+        !$OMP PARALLEL DO default(shared) &
+        !$OMP private(i)
+        do i=ebGr%is,vApp%iDeep+1
+            !x1 (regular average)
+            xyzSquish(i,ebGr%js  ,:,1) = sum(xyzSquish(i,ebGr%js  ,ebGr%ks:ebGr%ke,1))/Nk
+            xyzSquish(i,ebGr%je+1,:,1) = sum(xyzSquish(i,ebGr%je+1,ebGr%ks:ebGr%ke,1))/Nk
+            !x2 (circular average)
+            xyzSquish(i,ebGr%js  ,:,2) = CircMean(xyzSquish(i,ebGr%js  ,ebGr%ks:ebGr%ke,2))
+            xyzSquish(i,ebGr%je+1,:,2) = CircMean(xyzSquish(i,ebGr%je+1,ebGr%ks:ebGr%ke,2))
         enddo
 
         vApp%chmp2mhd%iMax = vApp%iDeep
@@ -100,27 +120,32 @@ module ebsquish
         real(rp), intent(out) :: x1,x2
 
         real(rp) :: L,phi,z
-        real(rp), dimension(NDIM) :: xy0
+        real(rp), dimension(NDIM) :: xyzSeed,xy0
 
-        call getProjection(ebModel,ebState,xyz,t,xy0)
+        ! trap for when we're within epsilon of the inner boundary
+        ! (really, it's probably only the first shell of nodes at R=Rinner_boundary that doesn't trace correctly)
+        if ( (norm2(xyz)-Rinner)/Rinner < startEps ) then
+           ! dipole-shift to startEps
+           xyzSeed = DipoleShift(xyz,norm2(xyz)+startEps)
+        else
+           xyzSeed = xyz
+        end if
+
+        ! note, this assumes internally tracing along -B for z>0 and along B for z<0
+        ! if that fails, it returns xy0=HUGE
+        call getEquatorProjection(ebModel,ebState,xyzSeed,t,xy0)
+
         !Map projection to L,phi
-
-        z = abs(xy0(ZDIR))
         L = sqrt(xy0(XDIR)**2.0+xy0(YDIR)**2.0)
         phi = atan2(xy0(YDIR),xy0(XDIR))
         if (phi<0) phi = phi+2*PI
-
-        if (z/L > 1.0e-3) then
-            !Probably failed to get to equator, set L=0
-            x1 = 0.0
-            x2 = phi
-        else
-            x1 = L
-            x2 = phi
-        endif
+        
+        x1 = L
+        x2 = phi
     end subroutine Proj2LP
 
     !Project XYZ to lat-lon on ionosphere
+    !TODO: Define cutoff radius within which we just dipole map for speed
     subroutine Proj2LL(ebModel,ebState,xyz,t,x1,x2)
         type(chmpModel_T), intent(in) :: ebModel
         type(ebState_T)  , intent(in) :: ebState
@@ -128,18 +153,29 @@ module ebsquish
         real(rp), intent(in) :: t
         real(rp), intent(out) :: x1,x2
 
-        real(rp), dimension(NDIM) :: xE,xIon
-        real(rp) :: dX
+        real(rp), dimension(NDIM) :: xE,xIon,xyz0
+        real(rp) :: dX,rC
         logical :: isGood
 
         x1 = 0.0
         x2 = 0.0
+
+        ! trap for when we're within epsilon of the inner boundary
+        ! (really, it's probably only the first shell of nodes at R=Rinner_boundary that doesn't trace correctly)
+        if ( (norm2(xyz)-Rinner)/Rinner < startEps ) then
+           ! dipole-shift to startEps
+           xyz0 = DipoleShift(xyz,norm2(xyz)+startEps)
+        else
+           xyz0 = xyz
+        end if
+
         !Use one-sided projection routine from chimp
         !Trace along field line (i.e. to northern hemisphere)
-        call project(ebModel,ebState,xyz,t,xE,+1,toEquator=.false.)
+        call project(ebModel,ebState,xyz0,t,xE,+1,toEquator=.false.)
 
-        dX = norm2(xyz-xE)
-        isGood = (dX>TINY) .and. (norm2(xE) <= 2.25) .and. (xE(ZDIR) > 0)
+        dX = norm2(xyz0-xE)
+        rC = Rinner*(1.+rEps)
+        isGood = (dX>TINY) .and. (norm2(xE) <= rC) .and. (xE(ZDIR) > 0)
 
         if (isGood) then
             !Get invariant lat/lon
