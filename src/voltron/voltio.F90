@@ -24,12 +24,13 @@ module voltio
         call consoleOutput(gApp%Model,gApp%Grid,gApp%State)
 
         !Using console output from Voltron
-        call consoleOutputVOnly(vApp,gApp%Model%MJD0)
+        call consoleOutputVOnly(vApp,gApp,gApp%Model%MJD0)
 
     end subroutine consoleOutputV
 
-    subroutine consoleOutputVOnly(vApp,MJD0)
+    subroutine consoleOutputVOnly(vApp,gApp,MJD0)
         class(voltApp_T), intent(in) :: vApp
+        class(gamApp_T) , intent(in) :: gApp
         real(rp), intent(in) :: MJD0
 
         real(rp) :: cpcp(2) = 0.0
@@ -39,7 +40,7 @@ module voltio
         integer :: iYr,iDoY,iMon,iDay,iHr,iMin
         real(rp) :: rSec
         character(len=strLen) :: utStr
-        real(rp) :: dD,dP
+        real(rp) :: dD,dP,Dst
 
         !Augment Gamera console output w/ Voltron stuff
         call getCPCP(vApp%mix2mhd%mixOutput,cpcp)
@@ -67,17 +68,19 @@ module voltio
         write(utStr,'(I0.4,a,I0.2,a,I0.2,a,I0.2,a,I0.2,a,I0.2)') iYr,'-',iMon,'-',iDay,' ',iHr,':',iMin,':',nint(rSec)
 
         !Get Dst estimate
-        !call EstDST(vApp%gApp%Model,gApp%Grid,gApp%State,Dst)
+        call EstDST(gApp%Model,gApp%Grid,gApp%State,Dst)
 
-        write(*,'(a)',advance="no") ANSIBLUE
-        !write (*, '(a,f8.3,a)')       '    dt/dt0 = ', 100*Model%dt/dt0, '%'
-        write (*, '(a,1f8.3,a)')             '      tilt = ' , dpT, ' [deg]'
-        write (*, '(a,2f8.3,a)')             '      CPCP = ' , cpcp(NORTH), cpcp(SOUTH), ' [kV, N/S]'
-        !write (*, '(a, f8.3,a)')             '    BSDst  ~ ' , Dst, ' [nT]'
-        write (*,'(a,a)')                    '      UT   = ', trim(utStr)
-        write (*, '(a,1f7.3,a)')             '      Running @ ', simRate*100.0, '% of real-time'
-        
-        write (*, *) ANSIRESET, ''
+        if (vApp%isLoud) then
+            write(*,*) ANSIBLUE
+            write(*,*) 'VOLTRON'
+            write (*,'(a,a)')                    '      UT   = ', trim(utStr)
+            write (*, '(a,1f8.3,a)')             '      tilt = ' , dpT, ' [deg]'
+            write (*, '(a,2f8.3,a)')             '      CPCP = ' , cpcp(NORTH), cpcp(SOUTH), ' [kV, N/S]'
+            write (*, '(a, f8.3,a)')             '    BSDst  ~ ' , Dst, ' [nT]'
+            write (*, '(a,1f7.3,a)')             '      Running @ ', simRate*100.0, '% of real-time'
+            
+            write (*, *) ANSIRESET, ''
+        endif
 
     end subroutine consoleOutputVOnly
 
@@ -135,12 +138,13 @@ module voltio
         call fOutput(gApp%Model,gApp%Grid,gApp%State) !Gamera
 
         !Write voltron data
-        call fOutputVOnly(vApp)
+        call fOutputVOnly(vApp,gApp)
 
     end subroutine fOutputV
 
-    subroutine fOutputVOnly(vApp)
+    subroutine fOutputVOnly(vApp,gApp)
         class(voltApp_T), intent(inout) :: vApp
+        class(gamApp_T) , intent(inout) :: gApp
 
         !Write ReMIX data
         call writeMix(vApp%remixApp%ion,vApp%IO%nOut,mjd=vApp%MJD,time=vApp%time)

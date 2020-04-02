@@ -43,15 +43,9 @@ contains
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(in) :: State
 
-        real(rp) :: ZCs, wTime,dt0
+        real(rp) :: ZCs, wTime
         integer :: nTh
         character(len=strLen) :: tStr
-
-        if (Model%dt0 < TINY) then
-            dt0 = Model%dt
-        else
-            dt0 = Model%dt0
-        endif
 
         wTime = readClock(zcsClk)
 
@@ -63,19 +57,24 @@ contains
         endif
 
         if (Model%isLoud) then
-            write(*,*) ANSICYAN
-            call timeString(Model%t,tStr)
-            write(*,'(a,a)')        'Sim Time   = ', trim(tStr)
-            write (*, '(a,I8)')     '        ts = ', Model%ts
-            call timeString(Model%dt,tStr)
-            write (*, '(a,a)')      '        dt = ', trim(tStr)
-            write (*, '(a,f8.3,a)') '    dt/dt0 = ', 100*Model%dt/dt0, '%'
-            
             nTh = 0
 #ifdef _OPENMP
             nTh = Model%nTh
 #endif
-            write (*, '(a,f9.2,a,I0,a)') '      kZCs = ', ZCs/1000.0, ' (',nTh,' threads)'            
+            write(*,*) ANSICYAN
+            write(*,*) 'GAMERA'
+            call timeString(Model%t,tStr)
+            write(*,'(a,a)')        '      Time = ', trim(tStr)
+            write (*, '(a,I8)')     '        ts = ', Model%ts
+            call timeString(Model%dt,tStr)
+            write (*, '(a,a)')      '        dt = ', trim(tStr)
+            if (Model%dt0 > TINY) then
+                write (*, '(a,f8.3,a)')      '    dt/dt0 = ', 100*Model%dt/Model%dt0, '%'
+                write (*, '(a,f9.2,a,I0,a)') '      kZCs = ', ZCs/1000.0, ' (',nTh,' threads)'            
+            endif
+
+
+            
             write(*,'(a)',advance="no") ANSIRESET!, ''
         endif
 

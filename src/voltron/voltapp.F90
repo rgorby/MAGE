@@ -40,13 +40,19 @@ module voltapp
             call getIDeckStr(inpXML)
 
         endif
+        !Start by shutting up extra ranks
+        if (.not. vApp%isLoud) call xmlInp%BeQuiet()
 
 #ifdef _OPENMP
-        write(*,*) 'Voltron running threaded'
-        write(*,*) '   # Threads = ', omp_get_max_threads()
-        write(*,*) '   # Cores   = ', omp_get_num_procs()
+        if (vApp%isLoud) then
+            write(*,*) 'Voltron running threaded'
+            write(*,*) '   # Threads = ', omp_get_max_threads()
+            write(*,*) '   # Cores   = ', omp_get_num_procs()
+        endif
 #else
-        write (*,*) 'Voltron running without threading'
+        if (vApp%isLoud) then
+            write (*,*) 'Voltron running without threading'
+        endif
 #endif
 
     !Create XML reader
@@ -161,14 +167,14 @@ module voltapp
         !Finally do first output stuff
         !console output
         if(vApp%isSeparate) then
-            call consoleOutputVOnly(vApp,gApp%Model%MJD0)
+            call consoleOutputVOnly(vApp,gApp,gApp%Model%MJD0)
         else
             call consoleOutputV(vApp,gApp)
         endif
         !file output
         if (.not. gApp%Model%isRestart) then
             if(vApp%isSeparate) then
-                call fOutputVOnly(vApp)
+                call fOutputVOnly(vApp,gApp)
             else
                 call fOutputV(vApp, gApp)
             endif
