@@ -18,6 +18,15 @@ contains
 
       do while (gApp%Model%t < gApp%Model%tFin)
         call stepGamera(gApp)
+
+        if (gApp%Model%IO%doConsole(gApp%Model%ts)) then
+            call consoleOutput(gApp%Model,gApp%Grid,gApp%State)
+        endif
+
+        if (gApp%Model%IO%doOutput(gApp%Model%t)) then
+            call fOutput(gApp%Model,gApp%Grid,gApp%State)
+        endif
+
       end do
 
   end subroutine setup
