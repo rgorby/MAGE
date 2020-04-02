@@ -15,7 +15,7 @@ module output
     abstract interface
         subroutine ConsoleOut_T(Model,Grid,State)
             Import :: Model_T, Grid_T, State_T
-            type(Model_T), intent(in) :: Model
+            type(Model_T), intent(inout) :: Model
             type(Grid_T), intent(in) :: Grid
             type(State_T), intent(in) :: State
         end subroutine ConsoleOut_T
@@ -39,13 +39,18 @@ module output
 contains
 
     subroutine consoleOutput_STD(Model, Grid, State)
-        type(Model_T), intent(in) :: Model
+        type(Model_T), intent(inout) :: Model
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(in) :: State
 
         real(rp) :: ZCs, wTime
         integer :: nTh
         character(len=strLen) :: tStr
+
+        ! grab the first reasonable dt after the sim has been running for a bit as dt0
+        if (Model%ts > 0 .and. Model%dt0 < TINY) then
+            Model%dt0 = Model%dt
+        endif
 
         wTime = readClock(zcsClk)
 
@@ -71,10 +76,7 @@ contains
             if (Model%dt0 > TINY) then
                 write (*, '(a,f8.3,a)')      '    dt/dt0 = ', 100*Model%dt/Model%dt0, '%'
                 write (*, '(a,f9.2,a,I0,a)') '      kZCs = ', ZCs/1000.0, ' (',nTh,' threads)'            
-            endif
-
-
-            
+            endif            
             write(*,'(a)',advance="no") ANSIRESET!, ''
         endif
 

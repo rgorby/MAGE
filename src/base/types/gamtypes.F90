@@ -5,9 +5,8 @@ module gamtypes
     use ioclock
 
     implicit none
-
-    ! debug settings
-    !logical :: verbose = .false.
+    
+    !TODO: Incorporate these into something else
     logical :: writeGhosts = .false.
     logical :: writeMagFlux = .false.
 
@@ -87,7 +86,7 @@ module gamtypes
         logical :: doDivB=.false. !Output DivB
         logical :: doResistive=.false.
         
-        logical :: isLoud = .false. !Whether you can write to console
+        logical :: isLoud = .true. !Whether you can write to console
         integer :: nTh=1 !Number of threads per node/group
 
         !Output info
