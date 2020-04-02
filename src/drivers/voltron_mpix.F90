@@ -188,7 +188,7 @@ program voltron_mpix
             call Tic("IO")
             !Console output
             if (vApp%IO%doConsole(vApp%ts)) then
-                call consoleOutputVOnly(vApp,vApp%gAppLocal%Model%MJD0)
+                call consoleOutputVOnly(vApp,vApp%gAppLocal,vApp%gAppLocal%Model%MJD0)
             endif
             !Restart output
             if (vApp%IO%doRestart(vApp%time)) then
@@ -196,7 +196,7 @@ program voltron_mpix
             endif
             !Data output
             if (vApp%IO%doOutput(vApp%time)) then
-                call fOutputVOnly(vApp)
+                call fOutputVOnly(vApp,vApp%gAppLocal)
             endif
 
             call Toc("IO")
