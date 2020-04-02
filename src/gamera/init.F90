@@ -201,8 +201,8 @@ module init
         Model%dt = CalcDT(Model,Grid,State)
         oState%time = State%time-Model%dt !Initial old state
 
-        ! save the initial dt
-        Model%dt0 = Model%dt
+        ! set initial dt0 to 0, it will be set once the case settles
+        Model%dt0 = 0
 
         !Initialize solver data
         call initSolver(Solver, Model, Grid)
