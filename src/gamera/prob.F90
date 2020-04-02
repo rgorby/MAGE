@@ -42,8 +42,6 @@ module prob
             initState => ringBW
         case ("RINGLOOP") 
             initState => ringLoop
-        case ("LFMBW")
-            initState => lfmBW
         case ("SOD")
             initState => initSod
         case ("KH_McNally")
@@ -186,30 +184,6 @@ module prob
         State%Gas(:,:,:,ENERGY,2) = (1-pScl)*State%Gas(:,:,:,ENERGY,BLK)
 
     end subroutine initMultiFBW
-
-    !Initialize blast wave w/ LFM singularity
-    subroutine lfmBW(Model,Grid,State,inpXML)
-        type(Model_T), intent(inout) :: Model
-        type(Grid_T), intent(inout) :: Grid
-        type(State_T), intent(inout) :: State
-        type(XML_Input_T), intent(in) :: inpXML
-
-        if (.not. Model%doRing) then
-            write(*,*) 'Need ring-avg'
-            stop
-        endif
-
-        call initBW(Model,Grid,State,inpXML)
-
-        call WipeBCs(Model,Grid)
-        allocate(SphereInBC_T       :: Grid%externalBCs(INI )%p)
-        allocate(SphereOutBC_T      :: Grid%externalBCs(OUTI)%p)
-        allocate(lfmInBC_T          :: Grid%externalBCs(INJ )%p)
-        allocate(lfmOutBC_T         :: Grid%externalBCs(OUTJ)%p)
-        allocate(periodicInnerKBC_T :: Grid%externalBCs(INK )%p)
-        allocate(periodicOuterKBC_T :: Grid%externalBCs(OUTK)%p)
-
-    end subroutine lfmBW
 
     !Initialize all blast wave variants here
     !MHD/Hydro, 2D/3D
