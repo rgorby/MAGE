@@ -5,9 +5,8 @@ module gamtypes
     use ioclock
 
     implicit none
-
-    ! debug settings
-    !logical :: verbose = .false.
+    
+    !TODO: Incorporate these into something else
     logical :: writeGhosts = .false.
     logical :: writeMagFlux = .false.
 

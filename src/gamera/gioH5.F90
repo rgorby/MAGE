@@ -609,7 +609,7 @@ module gioH5
         endif
         
         !Set back to old dt0 if possible
-        Model%dt0 =0.0
+        Model%dt0 = 0.0
         if (ioExist(inH5,"dt0")) then
             call ClearIO(IOVars)
             call AddInVar(IOVars,"dt0")
