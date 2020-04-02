@@ -42,7 +42,7 @@ program gamera_mpix
     !call printConfigStamp()
     call initClocks()
 
-    gApp%Model%isLoud = .true.
+    gameraAppMpi%Model%isLoud = .true.
     
     ! this is a gamera-only application so all MPI ranks are gamera-only processes
     call initGamera_mpi(gameraAppMpi,userInitFunc,MPI_COMM_WORLD)
