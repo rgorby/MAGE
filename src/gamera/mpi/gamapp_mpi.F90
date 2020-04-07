@@ -386,7 +386,7 @@ module gamapp_mpi
                         if(.not. Grid%hasLowerBC(IDIR) .or. periodicI) then
                             ! print *, 'Over-writing min I BC to be an MPI BC'
                             deallocate(Grid%externalBCs(INI)%p)
-                            allocate(mpiNullBc_T :: Grid%externalBCs(INI)%p)
+                            allocate(Grid%externalBCs(INI)%p,source=mpiNullBc_T(INI))
                         endif
                 END SELECT
 
@@ -403,7 +403,7 @@ module gamapp_mpi
                         if(.not. Grid%hasUpperBC(IDIR) .or. periodicI) then
                             ! print *, 'Over-writing max I BC to be an MPI BC'
                             deallocate(Grid%externalBCs(OUTI)%p)
-                            allocate(mpiNullBc_T :: Grid%externalBCs(OUTI)%p)
+                            allocate(Grid%externalBCs(OUTI)%p,source=mpiNullBc_T(OUTI))
                         endif
                 END SELECT
 
@@ -425,7 +425,7 @@ module gamapp_mpi
                         if(.not. Grid%hasLowerBC(JDIR) .or. periodicJ) then
                             ! print *, 'Over-writing min J BC to be an MPI BC'
                             deallocate(Grid%externalBCs(INJ)%p)
-                            allocate(mpiNullBc_T :: Grid%externalBCs(INJ)%p)
+                            allocate(Grid%externalBCs(INJ)%p,source=mpiNullBc_T(INJ))
                         endif
                 END SELECT
 
@@ -442,7 +442,7 @@ module gamapp_mpi
                         if(.not. Grid%hasUpperBC(JDIR) .or. periodicJ) then
                             ! print *, 'Over-writing max J BC to be an MPI BC'
                             deallocate(Grid%externalBCs(OUTJ)%p)
-                            allocate(mpiNullBc_T :: Grid%externalBCs(OUTJ)%p)
+                            allocate(Grid%externalBCs(OUTJ)%p,source=mpiNullBc_T(OUTJ))
                         endif
                 END SELECT
 
@@ -464,7 +464,7 @@ module gamapp_mpi
                         if(.not. Grid%hasLowerBC(KDIR) .or. periodicK) then
                             ! print *, 'Over-writing min K BC to be an MPI BC'
                             deallocate(Grid%externalBCs(INK)%p)
-                            allocate(mpiNullBc_T :: Grid%externalBCs(INK)%p)
+                            allocate(Grid%externalBCs(INK)%p,source=mpiNullBc_T(INK))
                         endif
                 END SELECT
 
@@ -481,11 +481,14 @@ module gamapp_mpi
                         if(.not. Grid%hasUpperBC(KDIR) .or. periodicK) then
                             ! print *, 'Over-writing max K BC to be an MPI BC'
                             deallocate(Grid%externalBCs(OUTK)%p)
-                            allocate(mpiNullBc_T :: Grid%externalBCs(OUTK)%p)
+                            allocate(Grid%externalBCs(OUTK)%p,source=mpiNullBc_T(OUTK))
                         endif
                 END SELECT
 
             endif
+
+            ! Make sure BCs are valid and setup for correct directions
+            call ValidateBCs(gamAppMpi%Model, gamAppMpi%Grid)
 
             ! update all ghost values
             call updateMpiBCs(gamAppMpi)

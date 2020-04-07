@@ -8,7 +8,7 @@ module bcs_mpi
 
     implicit none
 
-    type, extends(baseBC_T) :: mpiNullBc_T
+    type, extends(multiBC_T) :: mpiNullBc_T
         contains
         procedure :: doBC => mpi_null_bc
     end type mpiNullBc_T

@@ -33,7 +33,7 @@ module uservoltic
     real(rp), private :: DInner = 10.0
 
     ! type for remix BC
-    type, extends(baseBC_T) :: IonInnerBC_T
+    type, extends(innerIBC_T) :: IonInnerBC_T
 
         !Main electric field structures
         real(rp), allocatable, dimension(:,:,:,:) :: inEijk,inExyz

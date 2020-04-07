@@ -8,152 +8,153 @@ module bcs
 
     implicit none
 
-    type, extends(baseBC_T) :: lazyBC_T
+    ! this BC requires special initialization because it can apply to any direction
+    type, extends(multiBC_T) :: lazyBC_T
         contains
         procedure :: doBC => lazyBC
     end type lazyBC_T
 
-    type, extends(baseBC_T) :: periodicInnerIBC_T
+    type, extends(innerIBC_T) :: periodicInnerIBC_T
         contains
         procedure :: doBC => periodic_ibcI
     end type periodicInnerIBC_T
 
-    type, extends(baseBC_T) :: periodicOuterIBC_T
+    type, extends(outerIBC_T) :: periodicOuterIBC_T
         contains
         procedure :: doBC => periodic_obcI
     end type periodicOuterIBC_T
 
-    type, extends(baseBC_T) :: periodicInnerJBC_T
+    type, extends(innerJBC_T) :: periodicInnerJBC_T
         contains
         procedure :: doBC => periodic_ibcJ
     end type periodicInnerJBC_T
 
-    type, extends(baseBC_T) :: periodicOuterJBC_T
+    type, extends(outerJBC_T) :: periodicOuterJBC_T
         contains
         procedure :: doBC => periodic_obcJ
     end type periodicOuterJBC_T
 
-    type, extends(baseBC_T) :: periodicInnerKBC_T
+    type, extends(innerKBC_T) :: periodicInnerKBC_T
         contains
         procedure :: doBC => periodic_ibcK
     end type periodicInnerKBC_T
 
-    type, extends(baseBC_T) :: periodicOuterKBC_T
+    type, extends(outerKBC_T) :: periodicOuterKBC_T
         contains
         procedure :: doBC => periodic_obcK
     end type periodicOuterKBC_T
 
-    type, extends(baseBC_T) :: zeroExtensionInnerIBC_T
+    type, extends(innerIBC_T) :: zeroExtensionInnerIBC_T
         contains
         procedure :: doBC => zeroExten_ibcI
     end type zeroExtensionInnerIBC_T
 
-    type, extends(baseBC_T) :: zeroExtensionOuterIBC_T
+    type, extends(outerIBC_T) :: zeroExtensionOuterIBC_T
         contains
         procedure :: doBC => zeroExten_obcI
     end type zeroExtensionOuterIBC_T
 
-    type, extends(baseBC_T) :: zeroExtensionInnerJBC_T
+    type, extends(innerJBC_T) :: zeroExtensionInnerJBC_T
         contains
         procedure :: doBC => zeroExten_ibcJ
     end type zeroExtensionInnerJBC_T
 
-    type, extends(baseBC_T) :: zeroExtensionOuterJBC_T
+    type, extends(outerJBC_T) :: zeroExtensionOuterJBC_T
         contains
         procedure :: doBC => zeroExten_obcJ
     end type zeroExtensionOuterJBC_T
 
-    type, extends(baseBC_T) :: zeroExtensionInnerKBC_T
+    type, extends(innerKBC_T) :: zeroExtensionInnerKBC_T
         contains
         procedure :: doBC => zeroExten_ibcK
     end type zeroExtensionInnerKBC_T
 
-    type, extends(baseBC_T) :: zeroExtensionOuterKBC_T
+    type, extends(outerKBC_T) :: zeroExtensionOuterKBC_T
         contains
         procedure :: doBC => zeroExten_obcK
     end type zeroExtensionOuterKBC_T
 
-    type, extends(baseBC_T) :: cartesianReflectingInnerIBC_T
+    type, extends(innerIBC_T) :: cartesianReflectingInnerIBC_T
         contains
         procedure :: doBC => cartReflect_ibcI
     end type cartesianReflectingInnerIBC_T
 
-    type, extends(baseBC_T) :: cartesianReflectingOuterIBC_T
+    type, extends(outerIBC_T) :: cartesianReflectingOuterIBC_T
         contains
         procedure :: doBC => cartReflect_obcI
     end type cartesianReflectingOuterIBC_T
 
-    type, extends(baseBC_T) :: cartesianReflectingInnerJBC_T
+    type, extends(innerJBC_T) :: cartesianReflectingInnerJBC_T
         contains
         procedure :: doBC => cartReflect_ibcJ
     end type cartesianReflectingInnerJBC_T
 
-    type, extends(baseBC_T) :: cartesianReflectingOuterJBC_T
+    type, extends(outerJBC_T) :: cartesianReflectingOuterJBC_T
         contains
         procedure :: doBC => cartReflect_obcJ
     end type cartesianReflectingOuterJBC_T
 
-    type, extends(baseBC_T) :: cartesianReflectingInnerKBC_T
+    type, extends(innerKBC_T) :: cartesianReflectingInnerKBC_T
         contains
         procedure :: doBC => cartReflect_ibcK
     end type cartesianReflectingInnerKBC_T
 
-    type, extends(baseBC_T) :: cartesianReflectingOuterKBC_T
+    type, extends(outerKBC_T) :: cartesianReflectingOuterKBC_T
         contains
         procedure :: doBC => cartReflect_obcK
     end type cartesianReflectingOuterKBC_T
 
-    type, extends(baseBC_T) :: zeroGradientInnerIBC_T
+    type, extends(innerIBC_T) :: zeroGradientInnerIBC_T
         contains
         procedure :: doBC => zeroGrad_ibcI
     end type zeroGradientInnerIBC_T
 
-    type, extends(baseBC_T) :: zeroGradientOuterIBC_T
+    type, extends(outerIBC_T) :: zeroGradientOuterIBC_T
         contains
         procedure :: doBC => zeroGrad_obcI
     end type zeroGradientOuterIBC_T
 
-    type, extends(baseBC_T) :: zeroGradientInnerJBC_T
+    type, extends(innerJBC_T) :: zeroGradientInnerJBC_T
         contains
         procedure :: doBC => zeroGrad_ibcJ
     end type zeroGradientInnerJBC_T
 
-    type, extends(baseBC_T) :: zeroGradientOuterJBC_T
+    type, extends(outerJBC_T) :: zeroGradientOuterJBC_T
         contains
         procedure :: doBC => zeroGrad_obcJ
     end type zeroGradientOuterJBC_T
 
-    type, extends(baseBC_T) :: zeroGradientInnerKBC_T
+    type, extends(innerKBC_T) :: zeroGradientInnerKBC_T
         contains
         procedure :: doBC => zeroGrad_ibcK
     end type zeroGradientInnerKBC_T
 
-    type, extends(baseBC_T) :: zeroGradientOuterKBC_T
+    type, extends(outerKBC_T) :: zeroGradientOuterKBC_T
         contains
         procedure :: doBC => zeroGrad_obcK
     end type zeroGradientOuterKBC_T
 
-    type, extends(baseBC_T) :: sphereInBC_T
+    type, extends(innerIBC_T) :: sphereInBC_T
         contains
         procedure :: doBC => SphIn
     end type sphereInBC_T
 
-    type, extends(baseBC_T) :: sphereOutBC_T
+    type, extends(outerIBC_T) :: sphereOutBC_T
         contains
         procedure :: doBC => SphOut
     end type sphereOutBC_T
 
-    type, extends(baseBC_T) :: cylindricalPoleBC_T
+    type, extends(innerIBC_T) :: cylindricalPoleBC_T
         contains
         procedure :: doBC => cylpole
     end type cylindricalPoleBC_T
 
-    type, extends(baseBC_T) :: lfmInBC_T
+    type, extends(innerJBC_T) :: lfmInBC_T
         contains
         procedure :: doBC => lfmIn
     end type lfmInBC_T
 
-    type, extends(baseBC_T) :: lfmOutBC_T
+    type, extends(outerJBC_T) :: lfmOutBC_T
         contains
         procedure :: doBC => lfmOut
     end type lfmOutBC_T
@@ -179,6 +180,36 @@ module bcs
         end associate
         
     end subroutine WipeBCs
+
+    !Ensure no direction is taken by more than one BC
+    !And ensure that each BC has a valid direction
+    subroutine ValidateBCs(Model,Grid)
+        type(Model_T), intent(in)    :: Model
+        type(Grid_T) , intent(inout) :: Grid
+
+        ! store whether a direction has been used
+        logical :: dirArray(INI:OUTK)
+        integer :: i
+
+        dirArray = .false.
+        do i=1,Grid%NumBC
+            if(allocated(Grid%externalBCs(i)%p)) then
+                if(Grid%externalBCs(i)%p%bcDir() < INI .or. \
+                   Grid%externalBCs(i)%p%bcDir() > OUTK) then
+                    write (*,*) 'BC ',i,' has an invalid direction of ', \
+                        Grid%externalBCs(i)%p%bcDir(),'. Exiting.'
+                    stop
+                endif
+                if(dirArray(Grid%externalBCs(i)%p%bcDir())) then
+                    write (*,*) 'BC ',i,' is in the direction of ', \
+                        Grid%externalBCs(i)%p%bcDir(),', which already has a BC. Exiting.'
+                    stop
+                endif
+                dirArray(Grid%externalBCs(i)%p%bcDir()) = .true.
+            endif
+        enddo
+
+    end subroutine ValidateBCs
 
     !Checks ijk is in CC bounds
     function isCellCenterG(Model,Grid,i,j,k) result(isCC)

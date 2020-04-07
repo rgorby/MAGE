@@ -3,6 +3,7 @@
 ! 1/19 frt
 program rcmx
     use rcm_mhd_interfaces
+    use rcm_mhd_mod, ONLY: rcm_mhd
     !USE Rcm_mod_subs, ONLY : iprec,rprec
     USE rcm_precision
 
@@ -80,6 +81,7 @@ end program rcmx
 subroutine write_2d(RM,time)
 
     use rcm_mhd_interfaces
+    use rcm_mhd_mod, ONLY: rcm_mhd
     USE Rcm_mod_subs, ONLY : iprec,rprec
     type(rcm_mhd_T),intent(in) :: RM
     real(rprec),intent(in) :: time

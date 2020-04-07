@@ -22,7 +22,7 @@ module wind
 
     !Type for generic solar wind BC (from file or subroutine)
     !Either use discrete tW,Qw(NVAR) series or subroutine
-    type, extends(baseBC_T) :: WindBC_T
+    type, extends(outerIBC_T) :: WindBC_T
 
         character(len=strLen) :: wID !Wind ID string
         logical :: isDiscrete=.false.
