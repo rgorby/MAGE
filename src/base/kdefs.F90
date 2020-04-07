@@ -71,6 +71,9 @@ module kdefs
     real(rp), parameter :: NeptuneM0g = 0.142  !Gauss
     real(rp), parameter :: RNeptuneXE = 3.860  !Rx = X*Re
 
+!Helio constants
+    real(rp), parameter :: Rsolar = 6.956e5 ! [km] Solar radius
+
 !Numbered accessors
     !Directions
     enum, bind(C) 
