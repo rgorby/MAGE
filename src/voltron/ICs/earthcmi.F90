@@ -81,12 +81,12 @@ module uservoltic
         call WipeBCs(Model,Grid)
 
         !Set BCs (spherical, RPT)
-        allocate(IonInnerBC_T       :: Grid%externalBCs(INI )%p)
-        allocate(WindBC_T           :: Grid%externalBCs(OUTI)%p)
-        allocate(lfmInBC_T          :: Grid%externalBCs(INJ )%p)
-        allocate(lfmOutBC_T         :: Grid%externalBCs(OUTJ)%p)
-        allocate(periodicInnerKBC_T :: Grid%externalBCs(INK )%p)
-        allocate(periodicOuterKBC_T :: Grid%externalBCs(OUTK)%p)
+        allocate(IonInnerBC_T       :: Grid%externalBCs(1)%p)
+        allocate(WindBC_T           :: Grid%externalBCs(2)%p)
+        allocate(lfmInBC_T          :: Grid%externalBCs(3)%p)
+        allocate(lfmOutBC_T         :: Grid%externalBCs(4)%p)
+        allocate(periodicInnerKBC_T :: Grid%externalBCs(5)%p)
+        allocate(periodicOuterKBC_T :: Grid%externalBCs(6)%p)
 
         !Setup fields
         !Use cutoff dipole
