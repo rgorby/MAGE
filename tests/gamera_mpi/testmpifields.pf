@@ -575,30 +575,30 @@ contains
       class (MpiTestMethod), intent(inout) :: this
 
       call copyEdges5(gamAppMpi%Grid%Te,&
-          gamAppMpi%Grid%isg,gamAppMpi%Grid%ieg,&
-          gamAppMpi%Grid%jsg,gamAppMpi%Grid%jeg,&
-          gamAppMpi%Grid%ksg,gamAPpMpi%Grid%keg, NDIM*NDIM)
+          gamAppMpi%Grid%isg,gamAppMpi%Grid%ieg+1,&
+          gamAppMpi%Grid%jsg,gamAppMpi%Grid%jeg+1,&
+          gamAppMpi%Grid%ksg,gamAPpMpi%Grid%keg+1, NDIM*NDIM)
       call copyEdges5(gamAppMpi%Grid%Teb,&
-          gamAppMpi%Grid%isg,gamAppMpi%Grid%ieg,&
-          gamAppMpi%Grid%jsg,gamAppMpi%Grid%jeg,&
-          gamAppMpi%Grid%ksg,gamAPpMpi%Grid%keg, 4)
+          gamAppMpi%Grid%isg,gamAppMpi%Grid%ieg+1,&
+          gamAppMpi%Grid%jsg,gamAppMpi%Grid%jeg+1,&
+          gamAppMpi%Grid%ksg,gamAPpMpi%Grid%keg+1, 4)
       call copyEdges4(gamAppMpi%Grid%Edge,&
-          gamAppMpi%Grid%isg,gamAppMpi%Grid%ieg,&
-          gamAppMpi%Grid%jsg,gamAppMpi%Grid%jeg,&
-          gamAppMpi%Grid%ksg,gamAPpMpi%Grid%keg)
+          gamAppMpi%Grid%isg,gamAppMpi%Grid%ieg+1,&
+          gamAppMpi%Grid%jsg,gamAppMpi%Grid%jeg+1,&
+          gamAppMpi%Grid%ksg,gamAPpMpi%Grid%keg+1)
 
       call verifyEdges5(gamAppMpi%Grid%Te,'Te',&
-          gamAppMpi%Grid%isg,gamAppMpi%Grid%ieg,&
-          gamAppMpi%Grid%jsg,gamAppMpi%Grid%jeg,&
-          gamAppMpi%Grid%ksg,gamAPpMpi%Grid%keg, NDIM*NDIM) ! g,g,g,DIM*DIM,DIM
+          gamAppMpi%Grid%isg,gamAppMpi%Grid%ieg+1,&
+          gamAppMpi%Grid%jsg,gamAppMpi%Grid%jeg+1,&
+          gamAppMpi%Grid%ksg,gamAPpMpi%Grid%keg+1, NDIM*NDIM) ! g,g,g,DIM*DIM,DIM
       call verifyEdges5(gamAppMpi%Grid%Teb,'Teb',&
-          gamAppMpi%Grid%isg,gamAppMpi%Grid%ieg,&
-          gamAppMpi%Grid%jsg,gamAppMpi%Grid%jeg,&
-          gamAppMpi%Grid%ksg,gamAPpMpi%Grid%keg, 4) ! g,g,g,4,DIM
+          gamAppMpi%Grid%isg,gamAppMpi%Grid%ieg+1,&
+          gamAppMpi%Grid%jsg,gamAppMpi%Grid%jeg+1,&
+          gamAppMpi%Grid%ksg,gamAPpMpi%Grid%keg+1, 4) ! g,g,g,4,DIM
       call verifyEdges4(gamAppMpi%Grid%Edge,'Edge',&
-          gamAppMpi%Grid%isg,gamAppMpi%Grid%ieg,&
-          gamAppMpi%Grid%jsg,gamAppMpi%Grid%jeg,&
-          gamAppMpi%Grid%ksg,gamAPpMpi%Grid%keg) ! g,g,g,DIM
+          gamAppMpi%Grid%isg,gamAppMpi%Grid%ieg+1,&
+          gamAppMpi%Grid%jsg,gamAppMpi%Grid%jeg+1,&
+          gamAppMpi%Grid%ksg,gamAPpMpi%Grid%keg+1) ! g,g,g,DIM
   end subroutine testEdgeMetricFields
 
   @test(npes=[16])

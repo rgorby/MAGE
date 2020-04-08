@@ -21,7 +21,7 @@ module usergamic
     !integer, parameter :: PsiSt = -3
 
     ! type for remix BC
-    type, extends(baseBC_T) :: CoroInnerBC_T
+    type, extends(innerIBC_T) :: CoroInnerBC_T
 
         !Main electric field structures
         real(rp), allocatable, dimension(:,:,:,:) :: inEijk,inExyz

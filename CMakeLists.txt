@@ -122,9 +122,9 @@ message("\tBricksize is ${bricksize}")
 message("\tIC file is ${GAMIC}")
 add_custom_target(gamera ALL)
 message("\tAdding executable gamera.x")
-add_executable(gamera.x src/drivers/gamerax.F90)
+add_executable(gamera.x src/drivers/gamerax.F90 ${GAMIC})
 target_link_libraries(gamera.x gamlib baselib)
-add_dependencies(gamera gamera.x baselib)
+add_dependencies(gamera gamera.x)
 
 #-------------
 #Kaiju: ReMIX
@@ -161,7 +161,7 @@ add_custom_target(voltron ALL)
 message("\tAdding executable voltron.x")
 add_executable(voltron.x src/drivers/voltronx.F90)
 target_link_libraries(voltron.x voltlib gamlib remixlib chimplib rcmlib baselib)
-add_dependencies(voltron voltron.x rcmlib chimplib remixlib gamlib baselib)
+add_dependencies(voltron voltron.x)
 
 if(ENABLE_MPI)
     #-------------
@@ -175,9 +175,9 @@ if(ENABLE_MPI)
     add_subdirectory(src/gamera/mpi)
     add_custom_target(gamera_mpi ALL)
     message("\tAdding executable gamera_mpi.x")
-    add_executable(gamera_mpi.x src/drivers/gamera_mpix.F90)
+    add_executable(gamera_mpi.x src/drivers/gamera_mpix.F90 ${GAMIC})
     target_link_libraries(gamera_mpi.x baselib gamlib basempilib gammpilib)
-    add_dependencies(gamera_mpi gamera_mpi.x baselib basempilib gamlib gammpilib)
+    add_dependencies(gamera_mpi gamera_mpi.x)
 
     #-------------
     #Kaiju: Voltron MPI
@@ -187,7 +187,7 @@ if(ENABLE_MPI)
     message("\tAdding executable voltron_mpi.x")
     add_executable(voltron_mpi.x src/drivers/voltron_mpix.F90)
     target_link_libraries(voltron_mpi.x voltmpilib voltlib gammpilib gamlib remixlib chimplib rcmlib basempilib baselib)
-    add_dependencies(voltron_mpi voltron_mpi.x voltmpilib voltlib gammpilib gamlib remixlib chimplib rcmlib basempilib baselib)
+    add_dependencies(voltron_mpi voltron_mpi.x)
 
 endif()
 

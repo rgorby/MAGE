@@ -277,6 +277,9 @@ module init
         call initState(Model,Grid,State,xmlInp)
         oState = State
 
+        !Ensure the BC objects are OK
+        call ValidateBCs(Model,Grid)
+
         !Initialize BC objects
         do n=1,Grid%NumBC
             if (allocated(Grid%externalBCs(n)%p)) then

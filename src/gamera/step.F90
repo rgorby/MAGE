@@ -4,6 +4,7 @@ module step
     use gamtypes
     use gamutils
     use bcs
+    use gdefs
     use output
     use multifluid
 
@@ -19,13 +20,34 @@ module step
 
         integer :: n
         character(len=strLen) :: BCID
+        logical :: ownBC
+
         !Loop over BCs for this grid and call them
         do n=1,Gr%NumBC
             if (allocated(Gr%externalBCs(n)%p)) then
-                write (BCID, '(A,I0)') "BC#", n
-                call Tic(BCID)
-                call Gr%externalBCs(n)%p%doBC(Model,Gr,State)
-                call Toc(BCID)
+                SELECT CASE(Gr%externalBCs(n)%p%bcDir())
+                    CASE(INI)
+                        ownBC = Gr%hasLowerBC(IDIR)
+                    CASE(OUTI)
+                        ownBC = Gr%hasUpperBC(IDIR)
+                    CASE(INJ)
+                        ownBC = Gr%hasLowerBC(JDIR)
+                    CASE(OUTJ)
+                        ownBC = Gr%hasUpperBC(JDIR)
+                    CASE(INK)
+                        ownBC = Gr%hasLowerBC(KDIR)
+                    CASE(OUTK)
+                        ownBC = Gr%hasUpperBC(KDIR)
+                    CASE DEFAULT
+                        write (*,*) 'Warning, BC ignored for unowned boundary'
+                        ownBC = .false.
+                END SELECT
+                if(ownBC) then
+                    write (BCID, '(A,I0)') "BC#", n
+                    call Tic(BCID)
+                    call Gr%externalBCs(n)%p%doBC(Model,Gr,State)
+                    call Toc(BCID)
+                endif
             endif
         enddo
 

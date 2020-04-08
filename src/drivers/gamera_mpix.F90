@@ -84,5 +84,8 @@ program gamera_mpix
         call Toc("Omega")
     end do
 
+    call MPI_FINALIZE(ierror)
+    print *,"This is the END!"
+
 end program gamera_mpix
 

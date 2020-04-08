@@ -157,17 +157,17 @@ contains
   @test
   subroutine testEdgeMetricFields()
       call verifyEdges5(gApp%Grid%Te,'Te',&
-          gApp%Grid%isg,gApp%Grid%ieg,&
-          gApp%Grid%jsg,gApp%Grid%jeg,&
-          gApp%Grid%ksg,gAPp%Grid%keg, NDIM*NDIM) ! g,g,g,DIM*DIM,DIM
+          gApp%Grid%isg,gApp%Grid%ieg+1,&
+          gApp%Grid%jsg,gApp%Grid%jeg+1,&
+          gApp%Grid%ksg,gAPp%Grid%keg+1, NDIM*NDIM) ! g,g,g,DIM*DIM,DIM
       call verifyEdges5(gApp%Grid%Teb,'Teb',&
-          gApp%Grid%isg,gApp%Grid%ieg,&
-          gApp%Grid%jsg,gApp%Grid%jeg,&
-          gApp%Grid%ksg,gAPp%Grid%keg, 4) ! g,g,g,4,DIM
+          gApp%Grid%isg,gApp%Grid%ieg+1,&
+          gApp%Grid%jsg,gApp%Grid%jeg+1,&
+          gApp%Grid%ksg,gAPp%Grid%keg+1, 4) ! g,g,g,4,DIM
       call verifyEdges4(gApp%Grid%Edge,'Edge',&
-          gApp%Grid%isg,gApp%Grid%ieg,&
-          gApp%Grid%jsg,gApp%Grid%jeg,&
-          gApp%Grid%ksg,gAPp%Grid%keg) ! g,g,g,DIM
+          gApp%Grid%isg,gApp%Grid%ieg+1,&
+          gApp%Grid%jsg,gApp%Grid%jeg+1,&
+          gApp%Grid%ksg,gAPp%Grid%keg+1) ! g,g,g,DIM
 !      call verifyEdges5(gApp%Grid%edgB0,'edgB0',&
 !          gApp%Grid%isg,gApp%Grid%ieg,&
 !          gApp%Grid%jsg,gApp%Grid%jeg,&

@@ -16,12 +16,12 @@ module usergamic
     real(rp) :: bMag
     logical :: doDip = .false.
 
-    type, extends(baseBC_T) :: bwiIBC_T
+    type, extends(innerIBC_T) :: bwiIBC_T
         contains
         procedure :: doBC => bw_ibcI
     end type bwiIBC_T
 
-    type, extends(baseBC_T) :: bwoIBC_T
+    type, extends(outerIBC_T) :: bwoIBC_T
         contains
         procedure :: doBC => bw_obcI
     end type bwoIBC_T
