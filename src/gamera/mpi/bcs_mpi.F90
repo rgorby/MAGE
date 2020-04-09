@@ -1,6 +1,7 @@
 !MPI specific boundary conditions
 module bcs_mpi
     use gamtypes
+    use gambctypes
     use gamutils
     use math
     use gridutils
