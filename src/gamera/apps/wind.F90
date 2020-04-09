@@ -427,13 +427,15 @@ module wind
 
         integer :: i,j,k,n
         real(rp), dimension(NDIM) :: xcc,nHat,e1,e2,ecc,Vxyz,Bxyz,swExyz
-        real(rp) :: wSW,D,P,mhdExyz,t
+        real(rp) :: wSW,D,P,mhdExyz,t,vSW
 
         if (.not. Grid%hasUpperBC(IDIR)) return
 
         !Refresh solar wind shell values
         call RefreshWind(windBC,Model,Grid)
 
+        vSW = min( norm2(windBC%vFr), Model%Ca )
+        
         t = Model%t
         !$OMP PARALLEL DO default(shared) collapse(2) &
         !$OMP private(i,j,k,n,e1,e2,ecc,Vxyz,Bxyz,swExyz,wSW,D,P,mhdExyz)
@@ -464,7 +466,8 @@ module wind
 
                     !Add diffusive electric field
                     if (i == Grid%ie+1) then
-                        swExyz = DiffuseOuter(Model,Grid,State,i,j,k)
+                        
+                        swExyz = DiffuseOuter(Model,Grid,State,i,j,k,vSW)
                         State%Efld(i,j,k,:) = State%Efld(i,j,k,:) + swExyz
                     endif
 
@@ -476,13 +479,15 @@ module wind
 
 
     !Calculate diffusive electric field
-    function DiffuseOuter(Model,Grid,State,i,j,k) result(Ed)
+    function DiffuseOuter(Model,Grid,State,i,j,k,vSW) result(Ed)
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(in) :: State
         integer, intent(in) :: i,j,k
+        real(rp), intent(in) :: vSW
+
         real(rp), dimension(NDIM) :: Ed,Jd
-        real(rp) :: Vd,db2,db1,dl
+        real(rp) :: db2,db1,dlj,dlk,Vdj,Vdk
 
         Ed = 0.0
         Jd = 0.0
@@ -498,13 +503,16 @@ module wind
         db1 = State%magFlux(i,j,k,KDIR)/Grid%face(i,j,k,KDIR) - State%magFlux(i-1,j,k,KDIR)/Grid%face(i-1,j,k,KDIR)
         Jd(JDIR) = db2 - db1
 
-        Vd = Model%Ca
-        dl = Grid%volume(i,j,k)**(1.0/3.0)
-        Vd = min(Vd,Model%CFL*dl/Model%dt)
+        !Calculate signal speeds, limited by edge sizes
+        dlj = Grid%edge(i,j,k,JDIR)
+        dlk = Grid%edge(i,j,k,KDIR)
+
+        Vdj = min(vSW,Model%CFL*dlj/Model%dt)
+        Vdk = min(vSW,Model%CFL*dlk/Model%dt)
 
         Ed(IDIR) = 0.0
-        Ed(JDIR) = Vd*Jd(JDIR)*Grid%edge(i,j,k,JDIR)
-        Ed(KDIR) = Vd*Jd(KDIR)*Grid%edge(i,j,k,KDIR)
+        Ed(JDIR) = Vdj*Jd(JDIR)*dlj
+        Ed(KDIR) = Vdk*Jd(KDIR)*dlk
 
     end function DiffuseOuter
 
