@@ -1,6 +1,7 @@
 !Routines for boundary conditions
 module bcs
     use gamtypes
+    use gambctypes
     use gamutils
     use math
     use gridutils
