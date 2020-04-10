@@ -339,20 +339,32 @@ module fields
             VolB = 1.0 
         endif !doBdA
 
-        call BlockLRs(VolB,MagB,MagLB,MagRB,1)
+        if (do6C) then
+            call BlockLRs6(VolB,MagB,MagLB,MagRB,1)
+        else
+            call BlockLRs(VolB,MagB,MagLB,MagRB,1)
+        endif
         bL = MagLB(:,1)
         bR = MagRB(:,1)
 
         !Interpolate (no need to split) face areas
         if (doBdA) then
             do i=1,iMax
-                fA(i) = dot_product(interpWgt,AreaB(i,:))
+                if (do6C) then
+                    fA(i) = dot_product(interpWgt6,AreaB(i,:))
+                else
+                    fA(i) = dot_product(interpWgt,AreaB(i,:))
+                endif
                 bL(i) = bL(i)*fA(i)
                 bR(i) = bR(i)*fA(i)
             enddo
         else
             do i=1,iMax
-                fA(i) = dot_product(interpWgt,AreaB(i,:))
+                if (do6C) then
+                    fA(i) = dot_product(interpWgt6,AreaB(i,:))
+                else
+                    fA(i) = dot_product(interpWgt,AreaB(i,:))
+                endif
             enddo
         endif !doBdA            
 

@@ -100,6 +100,34 @@ module recon
 
     end subroutine BlockLRs
 
+    !Computes LR's using volume-weighted interpolation and splitting
+    subroutine BlockLRs6(VolB,Qb,Ql,Qr,NumV)
+        integer, intent(in) :: NumV
+        real(rp), intent(in), dimension(vecLen,recLen,NumV) :: Qb
+        real(rp), intent(in), dimension(vecLen,recLen) :: VolB
+        real(rp), intent(out),dimension(vecLen,NumV) :: Ql,Qr
+
+        integer :: i,nv
+        real(rp), dimension(vecLen) :: Vi !Volume interpolant
+        !DIR$ attributes align : ALIGN :: Vi
+        !DIR$ ASSUME_ALIGNED Qb: ALIGN
+        !DIR$ ASSUME_ALIGNED VolB: ALIGN
+        !DIR$ ASSUME_ALIGNED Ql: ALIGN
+        !DIR$ ASSUME_ALIGNED Qr: ALIGN
+        
+
+        !Calculate volume interpolants
+        !Use 6th order central for volume always
+        call Central6(VolB,Vi)
+
+        !Get LRs for each variable
+        do nv=1,NumV
+            !For each variable pass Qb,VolB,Vi
+            call Cen6LRs(VolB,Qb(:,:,nv),Vi,Ql(:,nv),Qr(:,nv))
+        enddo
+
+    end subroutine BlockLRs6
+
     !Central 8/PDM LRs
     subroutine Cen8LRs(dV,Q,Vi,Ql,Qr)
         real(rp), intent(in), dimension(vecLen,recLen) :: dV,Q
@@ -133,6 +161,40 @@ module recon
         call pdmLR(Q,Qi,Ql,Qr)
 
     end subroutine Cen8LRs
+
+    !Central 6/PDM LRs
+    subroutine Cen6LRs(dV,Q,Vi,Ql,Qr)
+        real(rp), intent(in), dimension(vecLen,recLen) :: dV,Q
+        real(rp), intent(in), dimension(vecLen)  :: Vi
+        real(rp), intent(inout), dimension(vecLen) :: Ql,Qr
+
+        integer :: i,n
+        real(rp), dimension(vecLen,recLen) :: QdV !Volume-weighted quantity
+        real(rp), dimension(vecLen) :: Qi !Interpolated quantity
+
+        !DIR$ ASSUME_ALIGNED dV: ALIGN
+        !DIR$ ASSUME_ALIGNED Q : ALIGN
+        !DIR$ ASSUME_ALIGNED Vi: ALIGN
+        !DIR$ ASSUME_ALIGNED Ql: ALIGN
+        !DIR$ ASSUME_ALIGNED Qr: ALIGN
+
+        !Volume-weight
+        do n=1,recLen
+            do i=1,vecLen
+                QdV(i,n) = dV(i,n)*Q(i,n)
+            enddo
+        enddo
+
+        !Reconstruct and unweight
+        call Central6(QdV,Qi)
+        do i=1,vecLen
+            Qi(i) = Qi(i)/Vi(i)
+        enddo
+
+        !Split into LRs
+        call pdmLR(Q,Qi,Ql,Qr)
+
+    end subroutine Cen6LRs
 
     !Central 8/PDM LRs
     subroutine Cen8GLRs(dV,Q,Vi,Ql,Qr)
@@ -293,6 +355,21 @@ module recon
         enddo
 
     end subroutine Central8
+
+    !6th order central interpolation
+    subroutine Central6(Qb,Qi)
+        real(rp), intent(in) :: Qb(vecLen,recLen)
+        real(rp), intent(out) :: Qi(vecLen)
+
+        integer :: i,n
+        !DIR$ ASSUME_ALIGNED Qb: ALIGN
+        !DIR$ ASSUME_ALIGNED Qi : ALIGN
+
+        do i=1,vecLen
+            Qi(i) = dot_product(interpWgt6,Qb(i,1:recLen))
+        enddo
+
+    end subroutine Central6
 
     subroutine pdmLR(Qb,Qi,Ql,Qr)
         real(rp), intent(in) :: Qb(vecLen,recLen), Qi(vecLen)
