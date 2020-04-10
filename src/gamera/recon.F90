@@ -100,34 +100,6 @@ module recon
 
     end subroutine BlockLRs
 
-    !Computes LR's using volume-weighted interpolation and splitting
-    subroutine BlockLRs6(VolB,Qb,Ql,Qr,NumV)
-        integer, intent(in) :: NumV
-        real(rp), intent(in), dimension(vecLen,recLen,NumV) :: Qb
-        real(rp), intent(in), dimension(vecLen,recLen) :: VolB
-        real(rp), intent(out),dimension(vecLen,NumV) :: Ql,Qr
-
-        integer :: i,nv
-        real(rp), dimension(vecLen) :: Vi !Volume interpolant
-        !DIR$ attributes align : ALIGN :: Vi
-        !DIR$ ASSUME_ALIGNED Qb: ALIGN
-        !DIR$ ASSUME_ALIGNED VolB: ALIGN
-        !DIR$ ASSUME_ALIGNED Ql: ALIGN
-        !DIR$ ASSUME_ALIGNED Qr: ALIGN
-        
-
-        !Calculate volume interpolants
-        !Use 6th order central for volume always
-        call Central6(VolB,Vi)
-
-        !Get LRs for each variable
-        do nv=1,NumV
-            !For each variable pass Qb,VolB,Vi
-            call Cen6LRs(VolB,Qb(:,:,nv),Vi,Ql(:,nv),Qr(:,nv))
-        enddo
-
-    end subroutine BlockLRs6
-
     !Central 8/PDM LRs
     subroutine Cen8LRs(dV,Q,Vi,Ql,Qr)
         real(rp), intent(in), dimension(vecLen,recLen) :: dV,Q
@@ -526,37 +498,5 @@ module recon
         endif
 
     end function isExtreme
-
-    ! !Smoothness detector for length-7 stencil
-    ! function isSmooth(Q)
-    !     real(rp), intent(in) :: Q(0:6)
-    !     logical :: isSmooth
-
-    !     real(rp) :: D1,D2,D3,D4,D5,D6
-    !     logical :: SmL,SmC,SmR
-
-    !     D1 = Q(1)-Q(0)
-    !     D2 = Q(2)-Q(1)
-    !     D3 = Q(3)-Q(2)
-    !     D4 = Q(4)-Q(3)
-    !     D5 = Q(5)-Q(4)
-    !     D6 = Q(6)-Q(5)
-
-    !     SmL = (D1>0) .and. (D2>0) .and. (D3<0) .and. (D4<0)
-    !     SmC = (D2>0) .and. (D3>0) .and. (D4<0) .and. (D5<0)
-    !     SmR = (D3>0) .and. (D4>0) .and. (D5<0) .and. (D6<0)
-
-    !     if (SmL .and. (abs(D2)<abs(D1)) .and. (abs(D3)<abs(D4))) then
-    !         isSmooth = .true.
-    !     else if (SmC .and. (abs(D3)<abs(D2)) .and. (abs(D4)<abs(D5))) then
-    !         isSmooth = .true.
-    !     else if (SmR .and. (abs(D4)<abs(D3)) .and. (abs(D5)<abs(D6))) then
-    !         isSmooth = .true.
-    !     else
-    !         isSmooth = .false.
-    !     endif
-        
-    ! end function isSmooth
     
-
 end module recon

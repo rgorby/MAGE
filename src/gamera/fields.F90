@@ -11,7 +11,7 @@ module fields
     logical, parameter, private :: doVa  = .true. !Use Alfven speed in diffusive velocity
     logical, parameter, private :: doVdA = .true. !Do area scaling for velocity->corner
     logical, parameter, private :: doBdA = .true. !Do area scaling for face flux->edge
-    logical, parameter, private :: do6C = .true. !Do 3 ghost stencil
+    
     contains
 
     !Use electric field to update face fluxes
@@ -278,22 +278,13 @@ module fields
 
         !Interpolate dV to corner
         do i=1,iMax
-            if (do6C) then
-                dV(i) = dot_product(interpWgt6,VolB(i,:))
-            else
-                dV(i) = dot_product(interpWgt,VolB(i,:))
-            endif
+            dV(i) = dot_product(interpWgt,VolB(i,:))
         enddo
 
         !Now interpolate, <VdV>/<dV>
         do d=1,NDIM
             do i=1,iMax
-                !VfB(i,d) = dot_product(interpWgt,MomB(i,:,d)/DenB(i,:))
-                if (do6C) then
-                    Vfb(i,d) = dot_product(interpWgt6,VelB(i,:,d))/dV(i)
-                else
-                    Vfb(i,d) = dot_product(interpWgt,VelB(i,:,d))/dV(i)
-                endif
+                Vfb(i,d) = dot_product(interpWgt,VelB(i,:,d))/dV(i)
             enddo
         enddo
 
@@ -338,33 +329,22 @@ module fields
             !Fake volume-weighting for BlockLR routine
             VolB = 1.0 
         endif !doBdA
+        call BlockLRs(VolB,MagB,MagLB,MagRB,1)
 
-        if (do6C) then
-            call BlockLRs6(VolB,MagB,MagLB,MagRB,1)
-        else
-            call BlockLRs(VolB,MagB,MagLB,MagRB,1)
-        endif
         bL = MagLB(:,1)
         bR = MagRB(:,1)
 
         !Interpolate (no need to split) face areas
         if (doBdA) then
             do i=1,iMax
-                if (do6C) then
-                    fA(i) = dot_product(interpWgt6,AreaB(i,:))
-                else
-                    fA(i) = dot_product(interpWgt,AreaB(i,:))
-                endif
+                fA(i) = dot_product(interpWgt,AreaB(i,:))
+
                 bL(i) = bL(i)*fA(i)
                 bR(i) = bR(i)*fA(i)
             enddo
         else
             do i=1,iMax
-                if (do6C) then
-                    fA(i) = dot_product(interpWgt6,AreaB(i,:))
-                else
-                    fA(i) = dot_product(interpWgt,AreaB(i,:))
-                endif
+                fA(i) = dot_product(interpWgt,AreaB(i,:))
             enddo
         endif !doBdA            
 
@@ -406,22 +386,6 @@ module fields
             ynj = Gr%Teb(iG,j,k,YNQJ,dN)
             detT = 1.0/(xni*ynj - xnj*yni)
 
-            !Pre-transform version
-            ! b1L = detT*( ynj*bT1L(i)/fA1(i) - yni*bT2L(i)/fA2(i) )
-            ! b1R = detT*( ynj*bT1R(i)/fA1(i) - yni*bT2R(i)/fA2(i) )
-
-            ! b2L = detT*(-xnj*bT1L(i)/fA1(i) + xni*bT2L(i)/fA2(i) )
-            ! b2R = detT*(-xnj*bT1R(i)/fA1(i) + xni*bT2R(i)/fA2(i) )
-
-            ! b1(i) = 0.5*(b1L + b1R)/fA1(i)
-            ! b2(i) = 0.5*(b2L + b2R)/fA2(i)
-
-            ! db1 = b1R-b1L
-            ! db2 = b2R-b2L
-            ! Jd(i) = db2 - db1
-
-            !TODO: Consider transforming to b1/b2 before calculating diffusive current
-
             !Post-transform version
             bT1(i) = 0.5*( bT1L(i) + bT1R(i) )/fA1(i)
             bT2(i) = 0.5*( bT2L(i) + bT2R(i) )/fA2(i)
@@ -458,7 +422,6 @@ module fields
         integer, dimension(NDIM) :: e1,e2
         integer :: i,iG
         integer :: i1,j1,k1,i2,j2,k2,i12,j12,k12
-        real(rp) :: wNE,wNW,wSE,wSW,dNE,dNW,dSE,dSW
 
         !DIR$ ASSUME_ALIGNED ccD: ALIGN
         !DIR$ ASSUME_ALIGNED Dc: ALIGN
@@ -473,19 +436,6 @@ module fields
             i12 = iG-e1(IDIR)-e2(IDIR)
             j12 = j -e1(JDIR)-e2(JDIR)
             k12 = k -e1(KDIR)-e2(KDIR)
-
-            wNE = Gr%volume(iG ,j  ,k  )
-            wNW = Gr%volume(i1 ,j1 ,k1 )
-            wSE = Gr%volume(i2 ,j2 ,k2 )
-            wSW = Gr%volume(i12,j12,k12)
-
-            dNE = ccD(iG ,j  ,k  )
-            dNW = ccD(i1 ,j1 ,k1 )
-            dSE = ccD(i2 ,j2 ,k2 )
-            dSW = ccD(i12,j12,k12)
-
-            !TEST
-            !Dc(i) = (wNE*dNE + wNW*dNW + wSE*dSE + wSW*dSW)/(wNE+wNW+wSE+wSW)
 
             Dc(i) = 0.25*( ccD(iG,j,k) + ccD(i1,j1,k1) + ccD(i2,j2,k2) + ccD(i12,j12,k12) )
         enddo
@@ -522,21 +472,13 @@ module fields
             call LoadBlockI(Model,Gr,AreaB      ,Gr%Face(:,:,:,dT1),iB,j,k,iMax,dT2)
             !Interpolate first
             do i=1,iMax
-                if (do6C) then
-                    dA(i) = dot_product(interpWgt6,AreaB(i,:))
-                else
-                    dA(i) = dot_product(interpWgt,AreaB(i,:))
-                endif
+                dA(i) = dot_product(interpWgt,AreaB(i,:))
             enddo
             !Loop over face Vxyz
             do d=1,NDIM
                 call LoadBlock(Model,Gr,VelB(:,:,d),Vf(:,:,:,d),iB,j,k,iMax,dT2)
                 do i=1,iMax
-                    if (do6C) then
-                        VxyzC(i,d) = dot_product(interpWgt6,AreaB(i,:)*VelB(i,:,d))/dA(i)
-                    else
-                        VxyzC(i,d) = dot_product(interpWgt,AreaB(i,:)*VelB(i,:,d))/dA(i)
-                    endif
+                    VxyzC(i,d) = dot_product(interpWgt,AreaB(i,:)*VelB(i,:,d))/dA(i)
                 enddo
             enddo            
         else
@@ -544,11 +486,7 @@ module fields
             do d=1,NDIM
                 call LoadBlock(Model,Gr,VelB(:,:,d),Vf(:,:,:,d),iB,j,k,iMax,dT2)
                 do i=1,iMax
-                    if (do6C) then
-                        VxyzC(i,d) = dot_product(interpWgt6,VelB(i,:,d))
-                    else
-                        VxyzC(i,d) = dot_product(interpWgt,VelB(i,:,d))
-                    endif
+                    VxyzC(i,d) = dot_product(interpWgt,VelB(i,:,d))
                 enddo
             enddo   
         endif !do VdA scaling

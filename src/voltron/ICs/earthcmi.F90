@@ -120,22 +120,22 @@ module uservoltic
         Grid%ksDT = Grid%ks
         Grid%keDT = Grid%ke
 
-        !Correction to E (from solar wind or ionosphere)        
+    !Set user hack functions
+    !NOTE: Need silly double value for GNU
+
+        !For everybody
+        eHack  => EFix
+        Model%HackE => eHack
+        tsHack => PerStep
+        Model%HackStep => tsHack
+
+        !Corrections from solar wind or ionosphere      
         if (Grid%hasLowerBC(IDIR) .or. Grid%hasUpperBC(IDIR)) then
-           !Set user hack functions
-           !NOTE: Need silly double value for GNU
-           eHack  => EFix
-           Model%HackE => eHack
            Model%HackPredictor => PredFix
         end if
 
-        !Setup perstep function for everybody
-        tsHack => PerStep
-        Model%HackStep => tsHack
-        
         !Local functions
         !NOTE: Don't put BCs here as they won't be visible after the initialization call
-
         contains
             subroutine GasIC(x,y,z,D,Vx,Vy,Vz,P)
                 real(rp), intent(in) :: x,y,z
@@ -235,8 +235,8 @@ module uservoltic
 
     !Fixes electric field before application
     subroutine EFix(Model,Gr,State)
-        type(Model_T), intent(in) :: Model
-        type(Grid_T), intent(inout) :: Gr
+        type(Model_T), intent(in)    :: Model
+        type(Grid_T) , intent(inout) :: Gr
         type(State_T), intent(inout) :: State
 
         !Fix inner shells
@@ -480,6 +480,8 @@ module uservoltic
         type(State_T), intent(inout) :: State
 
         integer :: n,ip,ig,ix,jp,kp,j,k
+
+        if (.not. Grid%hasLowerBC(IDIR)) return
 
         !$OMP PARALLEL DO default(shared) &
         !$OMP private(n,ip,ig,ix,jp,kp,j,k)  
