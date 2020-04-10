@@ -11,7 +11,7 @@ module fields
     logical, parameter, private :: doVa  = .true. !Use Alfven speed in diffusive velocity
     logical, parameter, private :: doVdA = .true. !Do area scaling for velocity->corner
     logical, parameter, private :: doBdA = .true. !Do area scaling for face flux->edge
-
+    logical, parameter, private :: do6C = .true. !Do 3 ghost stencil
     contains
 
     !Use electric field to update face fluxes
@@ -112,11 +112,7 @@ module fields
             call Tic("Mom2Face")
             !$OMP END SINGLE NOWAIT
 
-            !Set last active edges in IJK
-            !TODO: Modify per direction
-            ie = Gr%ie+1
-            je = Gr%je+1
-            ke = Gr%ke+1
+
             
             !Use edge normal direction to calculate local triad
             !Push cell-centered velocities along dT1 to face
@@ -125,7 +121,9 @@ module fields
             select case(eD)
                 !Ei fields
                 case(IDIR)
-                    dT1 = JDIR; dT2 = KDIR
+                    dT1 = JDIR; dT2 = KDIR !Sweep directions
+                    ie = Gr%ie; je = Gr%je+1; ke = Gr%ke+1 !Set last active edges in IJK
+
                     !$OMP DO collapse(2)
                     do k=ksg,keg
                         do iB=Gr%isg,Gr%ieg,vecLen !Block loop
@@ -143,7 +141,9 @@ module fields
 
                 case(JDIR)
                     !Ej fields
-                    dT1 = KDIR; dT2 = IDIR
+                    dT1 = KDIR; dT2 = IDIR !Sweep directions
+                    ie = Gr%ie+1; je = Gr%je; ke = Gr%ke+1 !Set last active edges in IJK
+
                     !$OMP DO collapse(2)
                     do j=Gr%jsg,Gr%jeg
                         do iB=Gr%isg,Gr%ieg,vecLen !Block loop
@@ -161,7 +161,9 @@ module fields
 
                 case(KDIR)
                     !Ek fields
-                    dT1 = IDIR; dT2 = JDIR
+                    dT1 = IDIR; dT2 = JDIR !Sweep directions
+                    ie = Gr%ie+1; je = Gr%je+1; ke = Gr%ke !Set last active edges in IJK
+
                     !$OMP DO collapse(2)
                     do k=ksg,keg
                         do j=Gr%jsg,Gr%jeg
@@ -203,7 +205,6 @@ module fields
                         do i=1,iMax
                             iG =iB+i-1
                             
-                            !vDiff = 0.0
                             if (doVa) then
                                 !Add Alfven speed to diffusive speed
                                 vA = sqrt(b1(i)**2.0 + b2(i)**2.0)/sqrt(Dc(i))
@@ -277,14 +278,22 @@ module fields
 
         !Interpolate dV to corner
         do i=1,iMax
-            dV(i) = dot_product(interpWgt,VolB(i,:))
+            if (do6C) then
+                dV(i) = dot_product(interpWgt6,VolB(i,:))
+            else
+                dV(i) = dot_product(interpWgt,VolB(i,:))
+            endif
         enddo
 
         !Now interpolate, <VdV>/<dV>
         do d=1,NDIM
             do i=1,iMax
                 !VfB(i,d) = dot_product(interpWgt,MomB(i,:,d)/DenB(i,:))
-                Vfb(i,d) = dot_product(interpWgt,VelB(i,:,d))/dV(i)
+                if (do6C) then
+                    Vfb(i,d) = dot_product(interpWgt6,VelB(i,:,d))/dV(i)
+                else
+                    Vfb(i,d) = dot_product(interpWgt,VelB(i,:,d))/dV(i)
+                endif
             enddo
         enddo
 
@@ -501,13 +510,21 @@ module fields
             call LoadBlockI(Model,Gr,AreaB      ,Gr%Face(:,:,:,dT1),iB,j,k,iMax,dT2)
             !Interpolate first
             do i=1,iMax
-                dA(i) = dot_product(interpWgt,AreaB(i,:))
+                if (do6C) then
+                    dA(i) = dot_product(interpWgt6,AreaB(i,:))
+                else
+                    dA(i) = dot_product(interpWgt,AreaB(i,:))
+                endif
             enddo
             !Loop over face Vxyz
             do d=1,NDIM
                 call LoadBlock(Model,Gr,VelB(:,:,d),Vf(:,:,:,d),iB,j,k,iMax,dT2)
                 do i=1,iMax
-                    VxyzC(i,d) = dot_product(interpWgt,AreaB(i,:)*VelB(i,:,d))/dA(i)
+                    if (do6C) then
+                        VxyzC(i,d) = dot_product(interpWgt6,AreaB(i,:)*VelB(i,:,d))/dA(i)
+                    else
+                        VxyzC(i,d) = dot_product(interpWgt,AreaB(i,:)*VelB(i,:,d))/dA(i)
+                    endif
                 enddo
             enddo            
         else
@@ -515,7 +532,11 @@ module fields
             do d=1,NDIM
                 call LoadBlock(Model,Gr,VelB(:,:,d),Vf(:,:,:,d),iB,j,k,iMax,dT2)
                 do i=1,iMax
-                    VxyzC(i,d) = dot_product(interpWgt,VelB(i,:,d))
+                    if (do6C) then
+                        VxyzC(i,d) = dot_product(interpWgt6,VelB(i,:,d))
+                    else
+                        VxyzC(i,d) = dot_product(interpWgt,VelB(i,:,d))
+                    endif
                 enddo
             enddo   
         endif !do VdA scaling
