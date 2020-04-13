@@ -1,6 +1,7 @@
 module usergamic
     use kdefs
     use gamtypes
+    use gambctypes
     use gamutils
     use math
     use gridutils
