@@ -74,7 +74,7 @@ program gamera_mpix
 
     !Do timing info
         if (gameraAppMpi%Model%IO%doTimer(gameraAppMpi%Model%ts)) then
-            if(gameraAppMpi%Model%IO%doTimerOut .and. \
+            if(gameraAppMpi%Model%IO%doTimerOut .and. &
                gameraAppMpi%Grid%Ri==0 .and. gameraAppMpi%Grid%Rj==0 .and. gameraAppMpi%Grid%Rk==0) then
                 call printClocks()
             endif

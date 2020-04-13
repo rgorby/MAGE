@@ -193,14 +193,14 @@ module bcs
         dirArray = .false.
         do i=1,Grid%NumBC
             if(allocated(Grid%externalBCs(i)%p)) then
-                if(Grid%externalBCs(i)%p%bcDir() < INI .or. \
+                if(Grid%externalBCs(i)%p%bcDir() < INI .or. &
                    Grid%externalBCs(i)%p%bcDir() > OUTK) then
-                    write (*,*) 'BC ',i,' has an invalid direction of ', \
+                    write (*,*) 'BC ',i,' has an invalid direction of ', &
                         Grid%externalBCs(i)%p%bcDir(),'. Exiting.'
                     stop
                 endif
                 if(dirArray(Grid%externalBCs(i)%p%bcDir())) then
-                    write (*,*) 'BC ',i,' is in the direction of ', \
+                    write (*,*) 'BC ',i,' is in the direction of ', &
                         Grid%externalBCs(i)%p%bcDir(),', which already has a BC. Exiting.'
                     stop
                 endif

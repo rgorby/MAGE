@@ -146,7 +146,7 @@ program voltron_mpix
 
             !Do timing info
             if (gApp%Model%IO%doTimer(g2vComm%ts)) then
-                if (gApp%Model%IO%doTimerOut .and. \
+                if (gApp%Model%IO%doTimerOut .and. &
                   gApp%Grid%Ri==0 .and. gApp%Grid%Rj==0 .and. gApp%Grid%Rk==0) then
                     call printClocks()
                 endif
