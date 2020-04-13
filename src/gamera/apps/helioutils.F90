@@ -12,17 +12,17 @@ module helioutils
     ! normalization
     real(rp), private :: gD0, gB0, gx0, gT0, gv0, gP0
 
-    type, extends(baseBC_T) :: helioInnerJBC_T
+    type, extends(innerJBC_T) :: helioInnerJBC_T
         contains
         procedure :: doBC => helio_ibcJ
     end type helioInnerJBC_T
 
-    type, extends(baseBC_T) :: helioOuterJBC_T
+    type, extends(outerJBC_T) :: helioOuterJBC_T
         contains
         procedure :: doBC => helio_obcJ
     end type helioOuterJBC_T
 
-    type, extends(baseBC_T) :: helioOuterIBC_T
+    type, extends(outerIBC_T) :: helioOuterIBC_T
         contains
         procedure :: doBC => helio_obcI
     end type helioOuterIBC_T
