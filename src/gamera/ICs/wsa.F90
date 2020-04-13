@@ -44,7 +44,7 @@ module usergamic
 !    real(rp), allocatable :: inEijk(:,:,:,:)
 
     ! type for solar wind BC
-    type, extends(baseBC_T) :: SWInnerBC_T
+    type, extends(innerIBC_T) :: SWInnerBC_T
 
         !Main electric field structures
         real(rp), allocatable, dimension(:,:,:,:) :: inEijk,inExyz
