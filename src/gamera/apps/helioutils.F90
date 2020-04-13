@@ -2,6 +2,7 @@
 
 module helioutils
     use gamtypes
+    use gambctypes
     use gamutils
     use math
     use gridutils
