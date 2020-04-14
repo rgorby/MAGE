@@ -40,13 +40,14 @@ module sliceio
         type(XML_Input_T), intent(in) :: inpXML
 
         type(IOVAR_T), dimension(MAXEBVS) :: IOVars
-        real(rp) :: dx1,dx2,Rin,Rout,x1,x2
+        real(rp) :: dx1,dx2,Rin,Rout,Pin,Pout,x1,x2
         integer :: i,j,ijk(NDIM)
         integer :: iS,iE,n,Npow
         real(rp) :: xcc(NDIM)
         real(rp), dimension(:,:,:), allocatable :: ijkXY
         character(len=strLen) :: idStr
-        
+        logical :: doLog
+
         write(ebOutF,'(2a)') trim(adjustl(Model%RunID)),'.eb.h5'
 
         associate( ebGr=>ebState%ebGr )
@@ -88,6 +89,10 @@ module sliceio
                 call inpXML%Set_Val(Rin,'slice/Rin',Rin)
                 call inpXML%Set_Val(Rout,'slice/Rout',Rout)
                 write(*,*) 'Radial grid bounds = ', Rin,Rout
+                call inpXML%Set_Val(doLog,'slice/doLog',.true.)
+                !Get phi bounds (deg)
+                call inpXML%Set_Val(Pin ,'slice/Pin' ,0.0  )
+                call inpXML%Set_Val(Pout,'slice/Pout',360.0)
 
             case("LFM2D")
                 !Create 2D LFM slice (w/ full 2pi)
@@ -128,16 +133,24 @@ module sliceio
                 enddo
             enddo
         !---------
-        case("RP")            
-            dx1 = ( log10(Rout)-log10(Rin) )/Nx1
-            dx2 = (2*PI-  0)/Nx2
+        case("RP")
+            if (doLog) then 
+                dx1 = ( log10(Rout)-log10(Rin) )/Nx1
+            else
+                dx1 = (Rout-Rin)/Nx1
+            endif
+            dx2 = (Pout-Pin)/Nx2
             do j=1,Nx2+1
                 do i=1,Nx1+1
-                    !x1 = Rin + (i-1)*dx1
-                    x1 = 10**( log10(Rin) + (i-1)*dx1 )
-                    x2 = 0.0 + (j-1)*dx2
-                    xxi(i,j) = x1*cos(x2)
-                    yyi(i,j) = x1*sin(x2)
+                    if (doLog) then
+                        x1 = 10**( log10(Rin) + (i-1)*dx1 )
+                    else
+                        x1 = Rin + (i-1)*dx1
+                    endif
+
+                    x2 = Pin + (j-1)*dx2 !Degrees
+                    xxi(i,j) = x1*cos(x2*PI/180.0)
+                    yyi(i,j) = x1*sin(x2*PI/180.0)
                 enddo
             enddo
         !---------
