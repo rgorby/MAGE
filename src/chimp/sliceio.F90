@@ -435,7 +435,6 @@ module sliceio
 
         endif
 
-        !write(*,*) 'FL size = ', bTrc%Nm+bTrc%Np+1
     end subroutine SliceFL
 
     !Double grid from corners
