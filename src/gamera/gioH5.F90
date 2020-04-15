@@ -375,9 +375,17 @@ module gioH5
             !Write divergence if necessary
             if (Model%doDivB) then
                 call allocGridVar(Model,Gr,DivBcc)
-                call DivB(Model,Gr,State,totDivB,DivBcc)
+                call DivB(Model,Gr,State,totDivB,DivBcc,doTotO=.true.)
                 gVar = DivBcc(iMin:iMax,jMin:jMax,kMin:kMax)
                 call AddOutVar(IOVars,"DivB",gVar)
+
+                if (Model%doBackground) then
+                    !Also calculate divergence of perturbation field
+                    call DivB(Model,Gr,State,totDivB,DivBcc,doTotO=.false.)
+                    gVar = DivBcc(iMin:iMax,jMin:jMax,kMin:kMax)
+                    call AddOutVar(IOVars,"DivdB",gVar)
+                endif !B0
+                
                 deallocate(DivBcc)
             endif
             deallocate(VecA,VecB)

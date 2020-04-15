@@ -16,7 +16,8 @@ module wind
     ! Global Parameters
     integer, parameter :: SWSPC = 1 !SW fluid is always 1st in multifluid
 
-    logical :: doWindInterp = .false.
+    logical, parameter, private :: doWindInterp = .false.
+    logical, parameter, private :: doSWDiffuse  = .false.
 
     !TODO: Remove WindTS_T pointer and call interpwind
 
@@ -466,8 +467,11 @@ module wind
 
                     !Add diffusive electric field
                     if (i == Grid%ie+1) then
-                        
-                        swExyz = DiffuseOuter(Model,Grid,State,i,j,k,vSW)
+                        if (doSWDiffuse) then
+                            swExyz = DiffuseOuter(Model,Grid,State,i,j,k,vSW)
+                        else
+                            swExyz = 0.0
+                        endif
                         State%Efld(i,j,k,:) = State%Efld(i,j,k,:) + swExyz
                     endif
 
