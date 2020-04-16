@@ -18,6 +18,7 @@ module ringav
     !Information for Fourier reductions
     integer, parameter, private :: NFT = 1 !Number of Fourier modes (beyond 0th) to remove from signed quantities
     logical, parameter, private :: doShift = .false. !Whether to add random circular shift to ring chunking
+    logical, parameter, private :: doVClean = .true. !Whether to clean velocity/momentum Fourier components before reconstruction
 
     !Enumerators for Fourier reduction coefficients
     enum, bind(C)
@@ -87,7 +88,7 @@ module ringav
         integer :: NumCh, dC, lRs,lRe
         integer :: s,s0,sE
         integer :: jshift,jPhase(Model%Ring%NumR)
-
+        real(rp), dimension(0:NFT,FTCOS:FTSIN,NVAR) :: cFTxyz !Coefficients for Fourier reduction
         real(rp), dimension(Model%Ring%Np,NVAR) :: rW,raW
         logical , dimension(Model%Ring%Np)      :: gW
 
@@ -116,13 +117,13 @@ module ringav
             !Do OMP on slices
             !$OMP PARALLEL DO default(shared) &
             !$OMP private(nR,nv,n,lRs,lRe,NumCh,dC) &
-            !$OMP private(rW,raW,gW,jshift)
+            !$OMP private(rW,raW,gW,jshift,cFTxyz)
             do nS=Model%Ring%nSi,Model%Ring%nSe
                 do nR=1,Model%Ring%NumR
                     NumCh = Model%Ring%Nch(nR) !Number of total chunks for this ring
                     dC = Np/NumCh !# of cells per chunk for this ring
 
-                    !Pull ring hydro vars
+                !Pull ring hydro vars and convert to ring vars
                     call PullRingCC(Model,Gr,State%Gas(:,:,:,1:NVAR,s),rW,nR,nS,NVAR,XPOLE)
 
                     !Shift if necessary
@@ -136,7 +137,23 @@ module ringav
                     !Convert to ring variables
                     call Gas2Ring(Model,rW)
 
+                    !Decide on good cells
+                    if (Model%doMultiF) then
+                        gW = (rW(:,DEN) > Spcs(s)%dVac)
+                        if (.not. any(gW)) cycle
+                    else
+                        gW = .true.
+                    endif
+
                 !Create chunk averaged array
+                    !Clean ring (Vxyz) if desired before chunk-averaging
+                    if (doVClean) then
+                        cFTxyz = 0.0
+                        do nv=MOMX,MOMZ
+                            call CleanRingWgt(Model,rW(:,nv),cFTxyz(:,:,nv),rW(:,DEN),gW)
+                        enddo
+                    endif
+                
                     !Loop over chunks, pull average over each chunk
                     do nv=1,NVAR
                         do n=1,NumCh
@@ -148,16 +165,9 @@ module ringav
                     enddo !Var loop
 
                 !Now reconstruct ring/s
-                    !Decide on good cells
-                    if (Model%doMultiF) then
-                        gW = (rW(:,DEN) > Spcs(s)%dVac)
-                        if (.not. any(gW)) cycle
-                    else
-                        gW = .true.
-                    endif
-
-                !Reconstruct mass first w/ standard reconstruction
+                    !Reconstruct mass first w/ standard reconstruction
                     call ReconstructRing(Model,raW(:,DEN),NumCh,gW)
+
                     !Loop over remaining variables and either do pure recon or mass-recon
                     do nv=2,NVAR
                         if (Model%Ring%doMassRA) then
@@ -166,6 +176,13 @@ module ringav
                            call ReconstructRing(Model,raW(:,nv),NumCh,gW)
                         endif  
                     enddo
+
+                    !Dirty ring (Vxyz) if you cleaned before converting back
+                    if (doVClean) then
+                        do nv=MOMX,MOMZ
+                            call DirtyRingWgt(Model,raW(:,nv),cFTxyz(:,:,nv),raW(:,DEN),gW)
+                        enddo
+                    endif
 
                     !Convert back to gas variables
                     call Ring2Gas(Model,raW)
@@ -465,6 +482,58 @@ module ringav
 
     end subroutine DirtyRing
 
+!Clean and dirty w/ scaling
+    !ie for momentum, want to remove modes from velocity but not density
+    subroutine CleanRingWgt(Model,Q,cFT,w,isG)
+        type(Model_T), intent(in) :: Model
+        real(rp), intent(inout) :: Q(Model%Ring%Np)
+        real(rp), intent(out)   :: cFT(0:NFT,FTCOS:FTSIN)
+        real(rp), intent(in)    :: w(Model%Ring%Np)
+        logical , intent(in)    :: isG(Model%Ring%Np)
+        integer :: n
+        !DIR$ ASSUME_ALIGNED Q: ALIGN
+        !DIR$ ASSUME_ALIGNED w: ALIGN
+
+        if (.not. all(isG)) return !Don't clean if some cells in this ring are vacuum
+        !If still here convert to Q/w and clean that
+        do n=1,Model%Ring%Np
+            Q(n) = Q(n)/w(n)
+        enddo
+
+        call CleanRing(Model,Q,cFT) !Done in place
+
+        !Now go back to Q*w
+        do n=1,Model%Ring%Np
+            Q(n) = Q(n)*w(n)
+        enddo
+
+    end subroutine CleanRingWgt
+
+    subroutine DirtyRingWgt(Model,Q,cFT,w,isG)
+        type(Model_T), intent(in) :: Model
+        real(rp), intent(inout) :: Q(Model%Ring%Np)
+        real(rp), intent(in)    :: cFT(0:NFT,FTCOS:FTSIN)
+        real(rp), intent(in)    :: w(Model%Ring%Np)
+        logical , intent(in)    :: isG(Model%Ring%Np)
+        integer :: n
+        !DIR$ ASSUME_ALIGNED Q: ALIGN
+        !DIR$ ASSUME_ALIGNED w: ALIGN
+
+        if (.not. all(isG)) return !Don't clean if some cells in this ring are vacuum
+        !If still here convert to Q/w and dirty that
+        do n=1,Model%Ring%Np
+            Q(n) = Q(n)/w(n)
+        enddo
+        call DirtyRing(Model,Q,cFT)
+
+        !Now go back to Q*w
+        do n=1,Model%Ring%Np
+            Q(n) = Q(n)*w(n)
+        enddo
+
+    end subroutine DirtyRingWgt
+
+!Initialization stuff
     subroutine InitRAVec(Model,Gr,A)
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Gr

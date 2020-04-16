@@ -7,11 +7,12 @@ import kaipy.kaiViz as kv
 #Get grid from K-Cyl
 def getGrid(fIn,do4D=False):
 	with h5py.File(fIn,'r') as hf:
-		X3 = hf.get("X").value.T
-		Y3 = hf.get("Y").value.T
-		Z3 = hf.get("Z").value.T
+		X3 = hf["X"][()].T
+		Y3 = hf["Y"][()].T
+		Z3 = hf["Z"][()].T
 		if (do4D):
-			Ai = hf.get("A").value.T
+			Ai = hf["A"][()].T
+		
 	xx = X3[:,:,0]
 	yy = Y3[:,:,0]
 	Zi = Z3[0,0,:]
@@ -26,7 +27,7 @@ def getGrid(fIn,do4D=False):
 def getSlc(fIn,nStp=0,vID="jPSD",doWrap=False):
 	gID = "Step#%d"%(nStp)
 	with h5py.File(fIn,'r') as hf:
-		V = hf.get(gID).get(vID).value.T
+		V = hf[gId][vID][()].T
 	if (doWrap):
 		return kv.reWrap(V)
 	else:
@@ -63,8 +64,9 @@ def getEQGrid(fIn,doCenter=False,doWrap=False):
 	if (doWrap):
 		doCenter = True
 	with h5py.File(fIn,'r') as hf:
-		xx = hf.get("X")[()].T
-		yy = hf.get("Y")[()].T
+		xx = hf["X"][()].T
+		yy = hf["Y"][()].T
+
 	if (not doCenter):
 		return xx,yy
 

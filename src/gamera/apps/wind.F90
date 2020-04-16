@@ -17,7 +17,7 @@ module wind
     integer, parameter :: SWSPC = 1 !SW fluid is always 1st in multifluid
 
     logical, parameter, private :: doWindInterp = .false.
-    logical, parameter, private :: doSWDiffuse  = .false.
+    logical, parameter, private :: doSWDiffuse  = .true.
 
     !TODO: Remove WindTS_T pointer and call interpwind
 
