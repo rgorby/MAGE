@@ -51,7 +51,7 @@ class GamsphPipe(GameraPipe):
 	def OpenPipe(self,doVerbose=True):
 		GameraPipe.OpenPipe(self,doVerbose)
 		#Now do magnetosphere specific things
-		if (self.UnitsID == "EARTH"):
+		if (self.UnitsID != "CODE"):
 			self.bScl   = 1.0  #->nT
 			self.pScl   = 1.0  #->nPa
 			self.vScl   = 1.0  #-> km/s
