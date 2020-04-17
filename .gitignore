@@ -1,5 +1,6 @@
 # User dependent stuff
 cmake/user.cmake
+build
 
 # Compiled Object files
 *.slo

@@ -29,12 +29,12 @@ module innermagsphere
     contains
 
     !Figure out which inner magnetosphere model we're using and initialize it
-    subroutine InitInnerMag(vApp,isRestart,iXML)
+    subroutine InitInnerMag(vApp,gApp,iXML)
         type(voltApp_T)  , intent(inout) :: vApp
-        logical, intent(in) :: isRestart
+        type(gamApp_T), intent(in) :: gApp
         type(XML_Input_T), intent(inout) :: iXML
-        
         character(len=strLen) :: imStr
+        real(rp) :: iono_rad_m
 
         if (.not. vApp%doDeep) return !Why are you even here?
 
@@ -55,7 +55,10 @@ module innermagsphere
             stop
         end select
 
-        call vApp%imagApp%doInit(iXML,isRestart,vApp)
+        !iono_rad_m = gApp%Model%Units%Rion*gApp%Model%Units%gx0 !Convert Rp to m
+        !Assume for now that ionosphere is always 1.01*planet radius
+        iono_rad_m = 1.01*gApp%Model%Units%gx0 ! m
+        call vApp%imagApp%doInit(iXML,gApp%Model%isRestart,gApp%Model%Units%gx0,iono_rad_m,vApp)
 
     end subroutine InitInnerMag
 

@@ -144,6 +144,7 @@ MODULE ionosphere_exchange
 
       rm%nLat_ion = isize
       rm%nLon_ion = jsize-jwrap+1
+      rm%planet_radius = 6380.e3 ! Default to Earth radius
 
       ALLOCATE( rm%gcolat(rm%nLat_ion) )
       ALLOCATE( rm%glong(rm%nLon_ion) )

@@ -139,7 +139,7 @@ module voltapp
             !Set first deep coupling (defaulting to 0)
             call xmlInp%Set_Val(vApp%DeepT, "coupling/tDeep", 0.0_rp)
             !Initialize deep coupling type/inner magnetosphere model
-            call InitInnerMag(vApp,gApp%Model%isRestart,xmlInp)
+            call InitInnerMag(vApp,gApp,xmlInp)
         endif
 
         if(present(optFilename)) then

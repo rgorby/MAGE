@@ -34,10 +34,12 @@ module sstimag
     contains
 
     !Initialize EQ Map data
-    subroutine initSST(imag,iXML,isRestart,vApp)
+    subroutine initSST(imag,iXML,isRestart,Rp_m,iono_m,vApp)
         class(eqData_T), intent(inout) :: imag
         type(XML_Input_T), intent(in) :: iXML
         logical, intent(in) :: isRestart !Do you even care?
+        real(rp), intent(in) :: Rp_m !Still don't care
+        real(rp), intent(in) :: iono_m !Really don't care
         type(voltApp_T), intent(inout) :: vApp
 
         character(len=strLen) :: eqFile

@@ -13,6 +13,8 @@ module rcm_mhd_interfaces
   type rcm_mhd_T
   integer(iprec) :: nLat_ion 
   integer(iprec) :: nLon_ion 
+  real(rprec) :: planet_radius !Planet radius in meters
+  real(rprec) :: iono_radius !Ionosphee radius in meters
   real(rprec),allocatable :: gcolat(:) !> RCM Latitude grid points
   real(rprec),allocatable :: glong(:)  !> RCM Longitude grid points
 

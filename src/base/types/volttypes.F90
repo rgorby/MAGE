@@ -135,10 +135,12 @@ module volttypes
     contains
 
     ! null default subroutines for inner mag base type
-    subroutine baseInit(imag,iXML,isRestart,vApp)
+    subroutine baseInit(imag,iXML,isRestart,Rp_m,iono_m,vApp)
         class(innerMagBase_T), intent(inout) :: imag
         type(XML_Input_T), intent(in) :: iXML
         logical, intent(in) :: isRestart
+        real(rp), intent(in) :: Rp_m
+        real(rp), intent(in) :: iono_m
         type(voltApp_T), intent(inout) :: vApp
     end subroutine
 

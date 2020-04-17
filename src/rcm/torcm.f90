@@ -192,7 +192,7 @@
       CALL Read_alam (kcsize, alamc, ikflavc, fudgec, almdel, almmax, almmin, iesize, ierr)
       IF (ierr < 0) RETURN
 
-      CALL Press2eta       ! this populates EETA_NEW array
+      CALL Press2eta(RM%planet_radius)       ! this populates EETA_NEW array
 
       ! Here is the second IF promised at the beginning.
       ! It must come after calls to calc_ftv and press2eta.
@@ -328,7 +328,7 @@
       use rcm_mhd_interfaces
 
       IMPLICIT NONE
-      type(rcm_mhd_T),intent(in) :: RM
+      type(rcm_mhd_T), intent(in) :: RM
       REAL(rprec), INTENT (IN) :: big_vm
       INTEGER(iprec), INTENT (OUT) :: ierr
 !
@@ -411,15 +411,15 @@
       den (:,          1) = den (:,jsize-2)
       den (:,          2) = den (:,jsize-1)
 
-      xmin (:,jwrap:jsize) = RM%x_bmin (:,      :,1)/radius_earth_m
+      xmin (:,jwrap:jsize) = RM%x_bmin (:,      :,1)/RM%planet_radius
       xmin (:,          1) = xmin (:,jsize-2)
       xmin (:,          2) = xmin (:,jsize-1)
 
-      ymin (:,jwrap:jsize) = RM%x_bmin (:,      :,2)/radius_earth_m
+      ymin (:,jwrap:jsize) = RM%x_bmin (:,      :,2)/RM%planet_radius
       ymin (:,          1) = ymin (:,jsize-2)
       ymin (:,          2) = ymin (:,jsize-1)
 
-      zmin (:,jwrap:jsize) = RM%x_bmin (:,      :,3)/radius_earth_m
+      zmin (:,jwrap:jsize) = RM%x_bmin (:,      :,3)/RM%planet_radius
       zmin (:,          1) = zmin (:,jsize-2)
       zmin (:,          2) = zmin (:,jsize-1)
 
@@ -519,7 +519,7 @@
 
 !====================================================================
 !
-      SUBROUTINE Press2eta 
+      SUBROUTINE Press2eta(planet_radius) 
 
 ! ====================================================================
 !
@@ -571,11 +571,12 @@
       IMPLICIT NONE
       real(rprec):: xmin,xmax
       real(rprec):: ptemp,eta_correction
+      real(rprec), intent(in) ::planet_radius
 !
 !      real(rprec):: Erf
 !      EXTERNAL Erf
 !
-      real(rprec) ::trans = radius_earth_m/nt
+      !real(rprec) ::trans = radius_earth_m/nt
       real(rprec),parameter :: eps=1.0e-30
       real(rprec):: sqrtpi,factor,fac0,fac1,t
       integer(iprec) :: i,j,k
@@ -609,7 +610,8 @@
                   STOP 'ILLEGAL IKFLAVC(K) IN PRESS2ETA'
                END IF
                if (t > 0.)then
-                fac0 = trans*den(i,j)/((vm(i,j))**1.5)
+                !fac0 = trans*den(i,j)/((vm(i,j))**1.5)
+                fac0 = planet_radius/nt*den(i,j)/((vm(i,j))**1.5)
                 xmax = SQRT(ev*ABS(almmax(k))*vm(i,j)/boltz/t)
                 xmin = SQRT(ev*ABS(almmin(k))*vm(i,j)/boltz/t)
                 fac1 = (Erf(xmax)-Erf(xmin)) -2.0/sqrtpi* &
@@ -631,7 +633,8 @@
          ptemp = 0.0
          DO k=1,kdim
           ptemp = ptemp + &
-           pressure_factor*ABS(alamc(k))*eeta_new(i,j,k)*vm(i,j)**2.5 
+           !pressure_factor*ABS(alamc(k))*eeta_new(i,j,k)*vm(i,j)**2.5 
+          2./3.*ev/planet_radius*nt*ABS(alamc(k))*eeta_new(i,j,k)*vm(i,j)**2.5 
          END DO
          eta_correction = 0.0
          IF (ptemp/= 0)eta_correction = press(i,j)/ptemp
@@ -642,7 +645,8 @@
          ptemp = 0.0
          DO k=1,kdim
           ptemp = ptemp + &
-           pressure_factor*ABS(alamc(k))*eeta_new(i,j,k)*vm(i,j)**2.5 
+           !pressure_factor*ABS(alamc(k))*eeta_new(i,j,k)*vm(i,j)**2.5
+          2./3.*ev/planet_radius*nt*ABS(alamc(k))*eeta_new(i,j,k)*vm(i,j)**2.5
          END DO
          IF (ABS(ptemp-press(i,j)) > 0.01*press(i,j))then
           Write(6,*)' Warning, pressures do not match at i,j =',i,j
