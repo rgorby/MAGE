@@ -4,7 +4,8 @@ module cmiutils
     use gamtypes
     use cmidefs
     use metric
-    
+    use ringutils
+
     implicit none
 
     logical, parameter, private :: doRingFAC = .true. !Do some ring-processing on currents before sending to remix
@@ -60,7 +61,7 @@ module cmiutils
 
                 enddo
             enddo
-        enddo
+        enddo !Shell loop
 
         !$OMP PARALLEL DO default(shared)
         do i=1,PsiSh+1
@@ -77,7 +78,10 @@ module cmiutils
             !Enforce periodicity constraints (needed for differencing in next step)
             inEijk(i,:,Grid%ke+1,IDIR:KDIR) = inEijk(i,:,Grid%ks,IDIR:KDIR)
 
-        enddo
+        enddo !Shell loop
+
+        !Fill ghosts of inEijk
+        call WrapBallEC(Model,Grid,inEijk)
 
         !Now turn nc-IJK FIELDS into cc-XYZ fields
         !$OMP PARALLEL DO default(shared) &
@@ -121,8 +125,71 @@ module cmiutils
 
         enddo !Shell loop
         
+        !Fill ghosts of inExyz
+        call WrapBallCC(Model,Grid,inExyz)
+
     end subroutine Ion2MHD
 
+    subroutine WrapBallCC(Model,Grid,inExyz)
+        type(Model_T), intent(in) :: Model
+        type(Grid_T) , intent(in) :: Grid
+        real(rp)  , intent(inout) :: inExyz(1:PsiSh,Grid%jsg:Grid%jeg,Grid%ksg:Grid%keg,1:NDIM)
+
+        integer :: i,j,k,ip,jp,kp
+        logical :: isInI,isInJ,isInK,isAct
+
+        !Fill all ghosts, lazily loop through everything
+        !$OMP PARALLEL DO default(shared) &
+        !$OMP schedule(dynamic) &
+        !$OMP private(i,j,k,ip,jp,kp,isInI,isInJ,isInK,isAct)
+        do k=Grid%ksg,Grid%keg
+            do j=Grid%jsg,Grid%jeg
+                do i=1,PsiSh
+                    !Check if loop iteration is in active
+                    isInI = .true.
+                    isInJ = (j>=Grid%js) .and. (j<=Grid%je)
+                    isInK = (k>=Grid%ks) .and. (k<=Grid%ke)
+                    isAct = isInI .and. isInJ .and. isInK
+                    if (isAct) then
+                        cycle
+                    else
+                        !This is outside active, map to conjugate
+                        call lfmIJKcc(Model,Grid,i,j,k,ip,jp,kp)
+                        inExyz(i,j,k,:) = inExyz(ip,jp,kp,:)
+                    endif
+                enddo
+            enddo
+        enddo
+    end subroutine WrapBallCC
+
+    subroutine WrapBallEC(Model,Grid,inEijk)
+        type(Model_T), intent(in) :: Model
+        type(Grid_T),  intent(in) :: Grid
+        real(rp) ,  intent(inout) :: inEijk(1:PsiSh+1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1,1:NDIM)
+
+        integer :: i,j,k,ip,jp,kp,d,dijk
+
+        !Just lazily loop over everything
+        !$OMP PARALLEL DO default(shared) &
+        !$OMP schedule(dynamic) &
+        !$OMP private(i,j,k,ip,jp,kp,d,dijk) 
+        do k=Grid%ksg,Grid%keg+1
+            do j=Grid%jsg,Grid%jeg+1
+                do i=1,PsiSh+1
+                    do d=1,NDIM
+                        call lfmIJKec(Model,Grid,d,i,j,k,ip,jp,kp)
+                        !If any index is different then do something
+                        dijk = abs(i-ip) + abs(j-jp) + abs(k-kp)
+                        
+                        if ( dijk > 0 ) then
+                            inEijk(i,j,k,d) = inEijk(ip,jp,kp,d)
+                        endif
+                    enddo !d
+                enddo !i
+            enddo !j
+        enddo !k
+        
+    end subroutine WrapBallEC
     !-----------------------------
     !Calculate currents on inner-most active radial shells
     !NOTE: Only using perturbation field as we are assuming B0 is curl-free in inner region

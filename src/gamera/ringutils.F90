@@ -393,11 +393,13 @@ module ringutils
         !Finally do j
         jp = j ! default value
         if ( Model%Ring%doS .and. (j<Grid%js) ) then
+            !js-1 => js
             jp = Grid%js + (Grid%js-j) - 1
             kp = WrapK(k,Np)
         endif
 
         if ( Model%Ring%doE .and. (j>Grid%je) ) then
+            !je+1 => je
             jp = Grid%je - (j-Grid%je) + 1
             kp = WrapK(k,Np)
         endif
@@ -413,6 +415,9 @@ module ringutils
 
         integer :: Np
         Np  = Grid%Nkp
+
+        !Map i to itself
+        ip = i
 
         if (d == IDIR) then
             !In i direction just use cell-centered
@@ -468,6 +473,68 @@ module ringutils
         endif
 
     end subroutine lfmIJKfc
+
+    !d Edge-centered conjugate mapping
+    subroutine lfmIJKec(Model,Grid,d,i,j,k,ip,jp,kp)
+        type(Model_T), intent(in) :: Model
+        type(Grid_T), intent(in) :: Grid
+        integer, intent(in) :: i,j,k,d
+        integer, intent(out) :: ip,jp,kp
+
+        integer :: Np
+        Np  = Grid%Nkp
+
+        !Map i to itself
+        ip = i
+        
+        !Now do k via periodicity
+        !NOTE: This is assuming you have all
+        kp = k
+        if ( (d == IDIR) .or. (d == JDIR) ) then
+            !i/j edges in k plane
+            if (k < Grid%ks) then
+                kp = k + Np
+            endif
+            if (k > Grid%ke+1) then
+                kp = k - Np
+            endif
+        else 
+            !k edge
+            if (k < Grid%ks) then
+                kp = k + Np
+            endif
+            if (k > Grid%ke) then
+                kp = k - Np
+            endif
+        endif
+
+        !Finally do j
+        jp = j
+        if ( (d == IDIR) .or. (d==KDIR) ) then
+            if ( Model%Ring%doS .and. (j<Grid%js) ) then
+                jp = Grid%js + (Grid%js-j) - 1
+                kp = WrapK(k,Np)
+            endif
+            if ( Model%Ring%doE .and. (j>Grid%je+1) ) then
+                !je+2=>je+1
+                jp = Grid%je + 1 - (j-Grid%je-1) + 1
+                kp = WrapK(k,Np)
+            endif
+        else
+            !J dir
+            if ( Model%Ring%doS .and. (j<Grid%js) ) then
+                !js-1 => js
+                jp = Grid%js + (Grid%js-j) - 1
+                kp = WrapK(k,Np)
+            endif
+            if ( Model%Ring%doE .and. (j>Grid%je) ) then
+                !je+1 => je
+                jp = Grid%je - (j-Grid%je) + 1
+                kp = WrapK(k,Np)
+            endif
+        endif
+
+    end subroutine lfmIJKec
 
     function WrapK(k,Np) result(kp)
         integer, intent(in) :: k,Np
