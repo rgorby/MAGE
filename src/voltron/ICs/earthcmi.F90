@@ -3,6 +3,7 @@
 module uservoltic
     use gamtypes
     use gamdebug
+    use cmidefs
     use gamutils
     use math
     use gridutils
@@ -74,7 +75,7 @@ module uservoltic
         
         !Set magnetosphere parameters
         call setMagsphere(Model,inpXML)
-        P0 = P0/gP0 !Scale to magsphere units
+        P0 = P0/Model%Units%gP0 !Scale to magsphere units
 
         ! deallocate default BCs
         call WipeBCs(Model,Grid)
@@ -351,7 +352,7 @@ module uservoltic
 
         !Are we on the inner (REMIX) boundary
         if (Grid%hasLowerBC(IDIR)) then
-            call xmlInp%Set_Val(PsiShells,"/remix/grid/PsiShells",5)
+            PsiShells = PsiSh !Coming from cmidefs
 
             !Create holders for coupling electric field
             allocate(bc%inExyz(1:PsiShells  ,Grid%jsg:Grid%jeg  ,Grid%ksg:Grid%keg  ,1:NDIM))
@@ -372,7 +373,7 @@ module uservoltic
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(inout) :: State
 
-        real(rp) :: Rin,llBC,dA
+        real(rp) :: Rin,llBC,dA,Rion
         real(rp), dimension(NDIM) :: Bd,Exyz,Veb,rHat
         integer :: ig,ip,idip,j,k,jp,kp,n,np,d
         integer, dimension(NDIM) :: dApm
@@ -380,6 +381,7 @@ module uservoltic
         !Are we on the inner (REMIX) boundary
         if (.not. Grid%hasLowerBC(IDIR)) return
 
+        Rion = RadIonosphere()
         !Get inner radius and low-latitude
         Rin = norm2(Grid%xyz(Grid%is,Grid%js,Grid%ks,:))
         llBC = 90.0 - rad2deg*asin(sqrt(Rion/Rin)) !co-lat -> lat

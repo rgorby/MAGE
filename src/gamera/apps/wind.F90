@@ -573,18 +573,18 @@ module wind
         allocate(windBC%Q(N,NVAR))
         allocate(windBC%B(N,NDIM))
 
-        windBC%tW            = (1/gT0)*IOVars(1)%data
+        windBC%tW            = (1/Model%Units%gT0)*IOVars(1)%data
         windBC%Q(:,DEN)      = (1/1.0)*IOVars(2)%data
-        windBC%Q(:,VELX)     = (1/gv0)*IOVars(3)%data
-        windBC%Q(:,VELY)     = (1/gv0)*IOVars(4)%data
-        windBC%Q(:,VELZ)     = (1/gv0)*IOVars(5)%data
+        windBC%Q(:,VELX)     = (1/Model%Units%gv0)*IOVars(3)%data
+        windBC%Q(:,VELY)     = (1/Model%Units%gv0)*IOVars(4)%data
+        windBC%Q(:,VELZ)     = (1/Model%Units%gv0)*IOVars(5)%data
         ! compute pressure from density and temperature
         ! note, assuming density in /cc and temperature in K
         ! Kbltz is defined in kdefs in erg/K, so convert to nPa
-        windBC%Q(:,PRESSURE) = (1/gP0)*windBC%Q(:,DEN)*Kbltz*IOVars(6)%data*ergcc2nPa
-        windBC%B(:,XDIR)     = (1/gB0)*IOVars(7)%data
-        windBC%B(:,YDIR)     = (1/gB0)*IOVars(8)%data
-        windBC%B(:,ZDIR)     = (1/gB0)*IOVars(9)%data
+        windBC%Q(:,PRESSURE) = (1/Model%Units%gP0)*windBC%Q(:,DEN)*Kbltz*IOVars(6)%data*ergcc2nPa
+        windBC%B(:,XDIR)     = (1/Model%Units%gB0)*IOVars(7)%data
+        windBC%B(:,YDIR)     = (1/Model%Units%gB0)*IOVars(8)%data
+        windBC%B(:,ZDIR)     = (1/Model%Units%gB0)*IOVars(9)%data
 
         windBC%tMin = minval(windBC%tW)
         windBC%tMax = maxval(windBC%tW)
@@ -609,7 +609,7 @@ module wind
         !Don't need to scale coefficients, but need to convert Bx0 to code units
         windBC%ByC = BCoef(1)
         windBC%BzC = BCoef(2)
-        windBC%Bx0 = BCoef(3)*(1/gB0)
+        windBC%Bx0 = BCoef(3)*(1/Model%Units%gB0)
 
         !Now redo Bx to be consistent with tilted front
         !Bx = Bx0 + ByC*By + BzC*Bz
