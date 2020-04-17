@@ -337,11 +337,15 @@ module msphutils
 
         integer :: is0,j,k
 
+        if (.not. Gr%hasLowerBC(IDIR)) return
+
+
         !Multiply by edge length to turn field into EMF
         !Check if Eijk has first shell
         if ( (PsiSh+PsiSt) >= Gr%is ) then
             !Find index in inEijk of first active shell
             is0 = 1-PsiSt+1
+
             !$OMP PARALLEL DO default(shared)
             do k=Gr%ksg,Gr%keg
                 do j=Gr%jsg,Gr%jeg
@@ -966,29 +970,29 @@ module msphutils
         type(Grid_T), intent(in) :: Grid
         real(rp)  , intent(inout) :: gPsi(1:PsiSh+1,Grid%js:Grid%je+1,Grid%ks:Grid%ke+1)
 
-        integer :: n,i,iG,j,k
+        integer :: i,iG,j,k
 
         real(rp), dimension(NDIM) :: xyz
-        real(rp) :: r, lambda
+        real(rp) :: L
 
         if (abs(Psi0)<=TINY) then
             return
         endif
-        
+
+        !$OMP PARALLEL DO default(shared) &
+        !$OMP private(i,iG,j,k,xyz,L)        
         do k=Grid%ks,Grid%ke+1
             do j=Grid%js,Grid%je+1
                 do i=1,PsiSh+1
                     !i = Grid%is+PsiSt-1
                     iG = i+PsiSt-1 !Global i index for Grid access
-
                     xyz = Grid%xyz(iG,j,k,:)
-                    r = norm2(xyz)
-                    lambda = acos(xyz(ZDIR)/r)
-
-                    gPsi(i,j,k) = gPsi(i,j,k)+Psi0*cos(lambda)*cos(lambda)/r                    
+                    L = DipoleL(xyz)
+                    gPsi(i,j,k) = gPsi(i,j,k) - Psi0/L
                 enddo
             enddo
         enddo !K loop
+
     end subroutine CorotationPot
 
     subroutine PhiGrav(x,y,z,pot)
