@@ -34,7 +34,6 @@ module uservoltic
 
     ! type for remix BC
     type, extends(innerIBC_T) :: IonInnerBC_T
-
         !Main electric field structures
         real(rp), allocatable, dimension(:,:,:,:) :: inEijk,inExyz
 
@@ -190,30 +189,13 @@ module uservoltic
 
     end subroutine initUser
 
-    subroutine postBCInitUser(Model,Grid,State)
-        type(Model_T), intent(inout) :: Model
-        type(Grid_T), intent(inout) :: Grid
-        type(State_T), intent(inout) :: State
-
-        SELECT type(pWind=>Grid%externalBCs(OUTI)%p)
-            TYPE IS (WindBC_T)
-                if (associated(pWind%getWind)) then
-                    write(*,*) 'Using solar wind BC from file ...'
-                else
-                    write(*,*) 'No solar wind file provided/found ...'
-                    stop
-                endif
-            CLASS DEFAULT
-                write(*,*) 'Could not find Wind BC in postBCInitUser'
-                stop
-        END SELECT
-
-    end subroutine postBCInitUser
-
+    !Routines to do every timestep
     subroutine PerStep(Model,Gr,State)
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(inout) :: Gr
         type(State_T), intent(inout) :: State
+
+        integer :: nbc
 
         !Call ingestion function
         if (Model%doSource) then
@@ -224,12 +206,14 @@ module uservoltic
         call ChillOut(Model,Gr,State)
 
         !Do some nudging at the outermost cells to hit solar wind
-        SELECT type(pWind=>Gr%externalBCs(OUTI)%p)
-            TYPE IS (WindBC_T)
-                if (Gr%hasUpperBC(IDIR)) then
-                   call NudgeSW(pWind,Model,Gr,State)
-                endif
-        END SELECT
+        if (Gr%hasUpperBC(IDIR)) then
+            nbc = FindBC(Model,Gr,OUTI)
+
+            SELECT type(pWind=>Gr%externalBCs(nbc)%p)
+                TYPE IS (WindBC_T)
+                    call NudgeSW(pWind,Model,Gr,State)
+            END SELECT
+        endif
 
     end subroutine PerStep
 
@@ -239,9 +223,12 @@ module uservoltic
         type(Grid_T) , intent(inout) :: Gr
         type(State_T), intent(inout) :: State
 
+        integer :: nbc
+
         !Fix inner shells
         if (Gr%hasLowerBC(IDIR)) then
-            SELECT type(iiBC=>Gr%externalBCs(INI)%p)
+            nbc = FindBC(Model,Gr,INI)
+            SELECT type(iiBC=>Gr%externalBCs(nbc)%p)
                 TYPE IS (IonInnerBC_T)
                     call IonEFix(Model,Gr,State,iiBC%inEijk)
                 CLASS DEFAULT
@@ -252,7 +239,8 @@ module uservoltic
 
         !Fix outer shells
         if (Gr%hasUpperBC(IDIR)) then
-            SELECT type(pWind=>Gr%externalBCs(OUTI)%p)
+            nbc = FindBC(Model,Gr,OUTI)
+            SELECT type(pWind=>Gr%externalBCs(nbc)%p)
                 TYPE IS (WindBC_T)
                    call WindEFix(pWind,Model,Gr,State)
             CLASS DEFAULT
@@ -271,9 +259,11 @@ module uservoltic
         type(Grid_T), intent(inout) :: Gr
         type(State_T), intent(inout) :: State
 
+        integer :: nbc
         !Fix inner shells
         if (Gr%hasLowerBC(IDIR)) then
-            SELECT type(iiBC=>Gr%externalBCs(INI)%p)
+            nbc = FindBC(Model,Gr,INI)
+            SELECT type(iiBC=>Gr%externalBCs(nbc)%p)
                 TYPE IS (IonInnerBC_T)
                     call IonPredFix(Model,Gr,State)
                 CLASS DEFAULT
@@ -284,7 +274,8 @@ module uservoltic
 
         !Fix outer shells
         if (Gr%hasUpperBC(IDIR)) then
-            SELECT type(pWind=>Gr%externalBCs(OUTI)%p)
+            nbc = FindBC(Model,Gr,OUTI)
+            SELECT type(pWind=>Gr%externalBCs(nbc)%p)
                 TYPE IS (WindBC_T)
                    call WindPredFix(pWind,Model,Gr,State)
                 CLASS DEFAULT
@@ -363,7 +354,7 @@ module uservoltic
             call xmlInp%Set_Val(PsiShells,"/remix/grid/PsiShells",5)
 
             !Create holders for coupling electric field
-            allocate(bc%inExyz(1:PsiShells,Grid%jsg:Grid%jeg,Grid%ksg:Grid%keg,1:NDIM))
+            allocate(bc%inExyz(1:PsiShells  ,Grid%jsg:Grid%jeg  ,Grid%ksg:Grid%keg  ,1:NDIM))
             allocate(bc%inEijk(1:PsiShells+1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1,1:NDIM))
             bc%inExyz = 0.0
             bc%inEijk = 0.0
@@ -387,9 +378,7 @@ module uservoltic
         integer, dimension(NDIM) :: dApm
 
         !Are we on the inner (REMIX) boundary
-        if (.not. Grid%hasLowerBC(1)) then
-            return
-        endif
+        if (.not. Grid%hasLowerBC(IDIR)) return
 
         !Get inner radius and low-latitude
         Rin = norm2(Grid%xyz(Grid%is,Grid%js,Grid%ks,:))

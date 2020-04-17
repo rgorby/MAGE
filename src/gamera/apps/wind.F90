@@ -81,7 +81,8 @@ module wind
         !---------------
         select case (trim(toUpper(bc%wID)))
             case("NONE")
-                write(*,*) "No wind TS file specified, relying on user (don't mess this up)"
+                write(*,*) "No wind TS file specified, bailing ..."
+                stop
             case default
                 !Set discrete wind function
                 bc%isDiscrete = .true.
