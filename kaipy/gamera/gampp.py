@@ -196,7 +196,7 @@ class GameraPipe(object):
 						self.Y[iS:iE+1,jS:jE+1,kS:kE+1] = kh5.PullVar(fIn,"Y")
 						self.Z[iS:iE+1,jS:jE+1,kS:kE+1] = kh5.PullVar(fIn,"Z")
 	#Get 3D variable "vID" from Step# sID
-	def GetVar(self,vID,sID,vScl=None,doVerb=True):
+	def GetVar(self,vID,sID=None,vScl=None,doVerb=True):
 		import kaipy.kaiH5 as kh5
 
 		if (doVerb):

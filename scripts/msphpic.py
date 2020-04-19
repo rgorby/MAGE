@@ -68,22 +68,18 @@ if __name__ == "__main__":
 	pCMap = "viridis"
 	dCMap = "viridis"
 	
-
-	if (doBig):
-		xTail = -350.0
-		xSun = 40.0
-	elif(doSmall):
+	if (doSmall):
 		xTail = -10.0
 		xSun = 5.0
-	elif(doHuge):
-		xTail = -410.0
-		xSun = 50.0
-	elif (doBigger):
-		xTail = -200.0
-		xSun = 25.0
 	elif (doBig):
 		xTail = -100.0
 		xSun = 20.0
+	elif (doBigger):
+		xTail = -200.0
+		xSun = 25.0
+	elif (doHuge):
+		xTail = -350.0
+		xSun = 40.0
 	else:
 		xTail = -40.0
 		xSun = 20.0

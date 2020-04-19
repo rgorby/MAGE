@@ -2,6 +2,7 @@
 module voltio
     use gamapp
     use volttypes
+    use cmiutils
     use mixio
     use clocks
     use innermagsphere
@@ -189,6 +190,8 @@ module voltio
 
         !Get data
         call getCPCP(vApp%mix2mhd%mixOutput,cpcp)
+
+        associate(Gr => gApp%Grid)
         !Cell-centers w/ ghosts
         Nj = gApp%Grid%Nj
         Nk = gApp%Grid%Nk
@@ -198,29 +201,30 @@ module voltio
         Njp = gApp%Grid%Njp
         Nkp = gApp%Grid%Nkp
 
-        allocate(inEijk(Ni+1,Nj+1,Nk+1,NDIM))
-        allocate(inExyz(Ni  ,Nj  ,Nk  ,NDIM))
-        allocate(gJ    (Ni  ,Njp ,Nkp ,NDIM))
-        allocate(Veb   (Ni  ,Njp ,Nkp ,NDIM))
-        allocate(psi   (Ni  ,Njp ,Nkp)) !Cell-centered potential
+        allocate(inEijk(Ni+1,Gr%jsg:Gr%jeg+1,Gr%ksg:Gr%keg+1,1:NDIM))
+        allocate(inExyz(Ni  ,Gr%jsg:Gr%jeg  ,Gr%ksg:Gr%keg  ,1:NDIM))
+
+        !Active cell centers
+        allocate(gJ (Ni,Gr%js:Gr%je,Gr%ks:Gr%ke,1:NDIM))
+        allocate(Veb(Ni,Gr%js:Gr%je,Gr%ks:Gr%ke,1:NDIM))
+        allocate(psi(Ni,Gr%js:Gr%je,Gr%ks:Gr%ke)) !Cell-centered potential
 
         call Ion2MHD(gApp%Model,gApp%Grid,vApp%mix2mhd%gPsi,inEijk,inExyz,vApp%mix2mhd%rm2g)
 
         !Subtract dipole before calculating current
         !$OMP PARALLEL DO default(shared) collapse(2) &
         !$OMP private(i,j,k,Bdip,xcc,Exyz)
-        do k=1,Nkp
-            do j=1,Njp
+        do k=Gr%ks,Gr%ke
+            do j=Gr%js,Gr%je
                 do i=1,Ni
                     psi(i,j,k) = 0.125*( vApp%mix2mhd%gPsi(i+1,j  ,k) + vApp%mix2mhd%gPsi(i+1,j  ,k+1) &
                                        + vApp%mix2mhd%gPsi(i  ,j+1,k) + vApp%mix2mhd%gPsi(i  ,j+1,k+1) &
                                        + vApp%mix2mhd%gPsi(i+1,j+1,k) + vApp%mix2mhd%gPsi(i+1,j+1,k+1) &
                                        + vApp%mix2mhd%gPsi(i  ,j  ,k) + vApp%mix2mhd%gPsi(i  ,j  ,k+1) )
-                    xcc = gApp%Grid%xyzcc(i,j,k,:)
+                    xcc = Gr%xyzcc(i,j,k,:)
                     Bdip = MagsphereDipole(xcc,gApp%Model%MagM0)
                     Exyz = inExyz(i,j,k,:)
                     Veb(i,j,k,:) = cross(Exyz,Bdip)/dot_product(Bdip,Bdip)
-
                 enddo
             enddo
         enddo
@@ -229,9 +233,9 @@ module voltio
         !Reset IO chain
         call ClearIO(IOVars)
 
-        call AddOutVar(IOVars,"Ex",inExyz(:,1:Njp,1:Nkp,XDIR))
-        call AddOutVar(IOVars,"Ey",inExyz(:,1:Njp,1:Nkp,YDIR))
-        call AddOutVar(IOVars,"Ez",inExyz(:,1:Njp,1:Nkp,ZDIR))
+        call AddOutVar(IOVars,"Ex",inExyz(:,Gr%js:Gr%je,Gr%ks:Gr%ke,XDIR))
+        call AddOutVar(IOVars,"Ey",inExyz(:,Gr%js:Gr%je,Gr%ks:Gr%ke,YDIR))
+        call AddOutVar(IOVars,"Ez",inExyz(:,Gr%js:Gr%je,Gr%ks:Gr%ke,ZDIR))
 
         !Add inner currents
         gJ = 0.0
@@ -250,6 +254,7 @@ module voltio
 
         call WriteVars(IOVars,.true.,vh5File,gStr)
 
+        end associate
     end subroutine WriteVolt
 
     !Initialize Voltron-unique IO
