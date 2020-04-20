@@ -28,6 +28,7 @@ if __name__ == "__main__":
 	doHuge = False
 	doBigger = False
 	noIon = False
+	noMPI = False
 	MainS = """Creates simple multi-panel figure for Gamera magnetosphere run
 	Top Panel - Residual vertical magnetic field
 	Bottom Panel - Pressure (or density) and hemispherical insets
@@ -43,6 +44,7 @@ if __name__ == "__main__":
 	parser.add_argument('-small', action='store_true', default=doSmall,help="Use smaller domain bounds (default: %(default)s)")
 	parser.add_argument('-huge', action='store_true', default=doHuge,help="Show full domain (default: %(default)s)")
 	parser.add_argument('-bigger', action='store_true', default=doBigger,help="Use larger domain bounds (default: %(default)s)")
+	parser.add_argument('-nompi', action='store_true', default=noMPI,help="Don't show MPI boundaries (default: %(default)s)")
 
 	#Finalize parsing
 	args = parser.parse_args()
@@ -55,6 +57,9 @@ if __name__ == "__main__":
 	doSmall = args.small
 	doHuge = args.huge
 	doBigger = args.bigger
+	noMPI = args.nompi
+	doMPI = (not noMPI)
+	
 
 	#---------------------
 	#Do work
@@ -87,7 +92,7 @@ if __name__ == "__main__":
 	yMax = (xSun-xTail)/2.0
 	xyBds = [xTail,xSun,-yMax,yMax]
 
-	doMPI = True
+	
 
 	cLW = 0.25
 	vcLW = 0.5
