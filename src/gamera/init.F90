@@ -475,13 +475,20 @@ module init
         type(Grid_T), intent(inout) :: Grid
 
         !Set default domain for DT calculation
-        Grid%isDT = Grid%is-1
-        Grid%ieDT = Grid%ie+1
-        Grid%jsDT = Grid%js-1
-        Grid%jeDT = Grid%je+1
-        Grid%ksDT = Grid%ks-1
-        Grid%keDT = Grid%ke+1
+        Grid%isDT = Grid%is
+        Grid%ieDT = Grid%ie
+        Grid%jsDT = Grid%js
+        Grid%jeDT = Grid%je
+        Grid%ksDT = Grid%ks
+        Grid%keDT = Grid%ke
 
+        if (Grid%hasLowerBC(IDIR)) Grid%isDT = Grid%is-1
+        if (Grid%hasLowerBC(JDIR)) Grid%jsDT = Grid%js-1
+        if (Grid%hasLowerBC(KDIR)) Grid%ksDT = Grid%ks-1
+
+        if (Grid%hasUpperBC(IDIR)) Grid%ieDT = Grid%ie+1
+        if (Grid%hasUpperBC(JDIR)) Grid%jeDT = Grid%je+1
+        if (Grid%hasUpperBC(KDIR)) Grid%keDT = Grid%ke+1
     end subroutine SetDomain
 
     !Set default Grid domain indices (after grid generation)
