@@ -90,11 +90,12 @@ module gioH5
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Gr
 
-        real (rp), dimension(:,:,:),   allocatable :: gQ !Grid quality
+        real(rp), dimension(:,:,:)  , allocatable :: gQ !Grid quality
+        real(rp), dimension(:,:,:,:), allocatable :: gVec
         logical :: isExist
 
         integer :: iMin,iMax,jMin,jMax,kMin,kMax
-
+        integer :: i,j,k
         character(len=strLen) :: vID
 
         !Don't call this function again
@@ -149,13 +150,15 @@ module gioH5
         call AddOutVar(IOVars,"gQ",       gQ(iMin:iMax,jMin:jMax,kMin:kMax))
         if (Model%doMHD .and. Model%doBackground) then
             !Write out background field and force density
-            call AddOutVar(IOVars,"Bx0"  ,Gr%B0  (iMin:iMax,jMin:jMax,kMin:kMax,XDIR))
-            call AddOutVar(IOVars,"By0"  ,Gr%B0  (iMin:iMax,jMin:jMax,kMin:kMax,YDIR))
-            call AddOutVar(IOVars,"Bz0"  ,Gr%B0  (iMin:iMax,jMin:jMax,kMin:kMax,ZDIR))
+            associate(gamOut=>Model%gamOut)
+            call GameraOut("Bx0",gamOut%bID,gamOut%bScl,Gr%B0(iMin:iMax,jMin:jMax,kMin:kMax,XDIR))
+            call GameraOut("By0",gamOut%bID,gamOut%bScl,Gr%B0(iMin:iMax,jMin:jMax,kMin:kMax,YDIR))
+            call GameraOut("Bz0",gamOut%bID,gamOut%bScl,Gr%B0(iMin:iMax,jMin:jMax,kMin:kMax,ZDIR))
+            end associate
+
             call AddOutVar(IOVars,"dPxB0",Gr%dpB0(iMin:iMax,jMin:jMax,kMin:kMax,XDIR))
             call AddOutVar(IOVars,"dPyB0",Gr%dpB0(iMin:iMax,jMin:jMax,kMin:kMax,YDIR))
             call AddOutVar(IOVars,"dPzB0",Gr%dpB0(iMin:iMax,jMin:jMax,kMin:kMax,ZDIR))
-
         endif
         if (Model%doGrav) then
             !Write out grav accelerations
@@ -163,6 +166,25 @@ module gioH5
             call AddOutVar(IOVars,"gy",Gr%gxyz(iMin:iMax,jMin:jMax,kMin:kMax,YDIR))
             call AddOutVar(IOVars,"gz",Gr%gxyz(iMin:iMax,jMin:jMax,kMin:kMax,ZDIR))
 
+        endif
+
+        if (Model%doMHD .and. Model%isMagsphere) then
+            !Write out dipole field values
+            allocate(gVec (iMin:iMax,jMin:jMax,kMin:kMax,1:NDIM))
+            !Subtract dipole before calculating current
+            !$OMP PARALLEL DO default(shared) collapse(2)
+            do k=kMin,kMax
+                do j=jMin,jMax
+                    do i=iMin,iMax
+                        gVec(i,j,k,:) = MagsphereDipole(Gr%xyzcc(i,j,k,:),Model%MagM0)
+                    enddo
+                enddo
+            enddo
+            associate(gamOut=>Model%gamOut)
+            call GameraOut("BxD",gamOut%bID,gamOut%bScl,gVec(iMin:iMax,jMin:jMax,kMin:kMax,XDIR))
+            call GameraOut("ByD",gamOut%bID,gamOut%bScl,gVec(iMin:iMax,jMin:jMax,kMin:kMax,YDIR))
+            call GameraOut("BzD",gamOut%bID,gamOut%bScl,gVec(iMin:iMax,jMin:jMax,kMin:kMax,ZDIR))
+            end associate
         endif
 
         !Add information about time scaling/units
@@ -415,18 +437,6 @@ module gioH5
 
         contains
 
-            subroutine GameraOut(vID,uID,vScl,V)
-                character(len=*), intent(in) :: vID,uID
-                real(rp), intent(in) :: vScl
-                real(rp), intent(in) :: V(:,:,:)
-
-                integer :: n0
-                call AddOutVar(IOVars,vID,V)
-                n0 = FindIO(IOVars,vID)
-                IOVars(n0)%scale = vScl
-                IOVars(n0)%unitStr = uID
-            end subroutine GameraOut
-
             !Fix up cell-centered vector (like current or electric field) to deal with axis
             !Note, this is only for output purposes since we don't have proper ghost information
 
@@ -458,6 +468,18 @@ module gioH5
                 endif
             end subroutine FixRAVec
     end subroutine writeSlc
+
+    subroutine GameraOut(vID,uID,vScl,V)
+        character(len=*), intent(in) :: vID,uID
+        real(rp), intent(in) :: vScl
+        real(rp), intent(in) :: V(:,:,:)
+
+        integer :: n0
+        call AddOutVar(IOVars,vID,V)
+        n0 = FindIO(IOVars,vID)
+        IOVars(n0)%scale = vScl
+        IOVars(n0)%unitStr = uID
+    end subroutine GameraOut
 
     subroutine GridQuality(Model,Gr,gQ)
         type(Model_T), intent(in) :: Model
