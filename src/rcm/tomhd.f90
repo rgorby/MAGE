@@ -215,6 +215,7 @@
           pressrcm(i,j) = pressrcm(i,j) + &
                  !pressure_factor*ABS(alamc(k))*eeta_avg(i,j,k)*vm(i,j)**2.5 ! in pascals
                  2./3.*ev/RM%planet_radius*nt*ABS(alamc(k))*eeta_avg(i,j,k)*vm(i,j)**2.5 ! in pascals
+            write(*,*) "rcm/tomhd.f90: eeta_avg(",i,",",j,",",k,") = ",eeta_avg(i,j,k)
 !           normalize everything to the mass_proton, otherwise answer is below
 !           floating point minimum answer and gets zero in ples/m^3
 !           FIXME: This version is mass weighted, not sure why.

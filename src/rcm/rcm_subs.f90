@@ -7566,7 +7566,7 @@ bjmod_real = MODULO(bj-REAL(jwrap),REAL(jsize-jwrap-1)) + REAL(jwrap)
              END IF
              CYCLE ! exit loop
          END IF
-
+!ams 4/20/20 NaN's by here
 !
 !
          CALL Move_plasma ( dt )

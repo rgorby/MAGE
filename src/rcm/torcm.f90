@@ -276,6 +276,7 @@
       do j=1,jdim
         do i=1,imin_j(j)-1
           eeta(i,j,:) = eeta(imin_j(j),j,:)
+          write(*,*) "rcm/torcm.f90: eeta(",i,",",j,",",1,") = ",eeta(i,j,1)
         end do
       end do
 ! import ionosphere
@@ -402,6 +403,7 @@
      ! transfer pressure and density
 
       !write(6,*)isize,jsize
+      write(*,*) "rcm/torcm.f90:Calc_ftv: RM%planet_radius=",RM%planet_radius
 
       press (:,jwrap:jsize) = RM%Pave (:,      :)
       press (:,          1) = press (:,jsize-2)
@@ -593,7 +595,9 @@
        ti = factor * ti
        te = factor * te
       end if
-!
+
+      write(*,*) "rcm/torcm.f90:Press2eta: planet_radius/nt=",planet_radius/nt
+      
       DO j = 1, jdim
       DO i = 1, idim
 !        IF (iopen(i,j) /= -1 .AND. vm(i,j) > 0.0) THEN
@@ -618,6 +622,8 @@
                        (xmax*EXP(-xmax**2)-xmin*EXP(-xmin**2))
                 fac1 = MAX (fac1,eps)
                 eeta_new(i,j,k)= fac0 * fac1
+                write(*,*) "rcm/tomhd.f90:Press2eta: eeta_new(",i,",",j,",",k,") = ",eeta_new(i,j,k)
+
                else
                 eeta_new(i,j,k) = 0.0
                endif
