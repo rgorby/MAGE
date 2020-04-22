@@ -94,6 +94,11 @@ module rcmimag
                   t0 => vApp%time, &
                   dtCpl => vApp%DeepDT, &
                   nRes => vApp%IO%nRes)
+        !Set radii in RCMApp
+        RCMApp%planet_radius = rad_planet_m
+        RCMApp%iono_radius = rad_iono_m
+        write(*,*) "voltron/rcmimag.f90: RCMApp%planet_radius=",RCMApp%planet_radius
+        write(*,*) "voltron/rcmimag.f90: RCMApp%iono_radius=",RCMApp%iono_radius
 
         call iXML%Set_Val(RunID,"/gamera/sim/runid","sim")
         RCMApp%rcm_runid = trim(RunID)
@@ -124,12 +129,6 @@ module rcmimag
         endif
         call iXML%Set_Val(SmoothOp%nIter,"imag/nIter",4)
         call iXML%Set_Val(SmoothOp%nRad ,"imag/nRad" ,8)
-
-        !Set radii in RCMApp
-        RCMApp%planet_radius = rad_planet_m
-        RCMApp%iono_radius = rad_iono_m
-        write(*,*) "voltron/rcmimag.f90: RCMApp%planet_radius=",RCMApp%planet_radius
-        write(*,*) "voltron/rcmimag.f90: RCMApp%iono_radius=",RCMApp%iono_radius
 
         end associate
 
