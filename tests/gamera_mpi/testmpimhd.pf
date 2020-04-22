@@ -185,7 +185,7 @@ contains
       ! because the case is triply periodic is=ie+1, and the same for j and k
       l=IDIR
       dirMax = gamAppMpi%Grid%ie
-      if(Grid%hasUpperBC(IDIR)) dirMax = gamAppMpi%Grid%ie+1
+      if(gamAppMpi%Grid%hasUpperBC(IDIR)) dirMax = gamAppMpi%Grid%ie+1
       do i=gamAppMpi%Grid%is,dirMax
           do j=gamAppMpi%Grid%js,gamAppMpi%Grid%je
               do k=gamAppMpi%Grid%ks,gamAppMpi%Grid%ke
@@ -205,7 +205,7 @@ contains
       enddo
       l=JDIR
       dirMax = gamAppMpi%Grid%je
-      if(Grid%hasUpperBC(JDIR)) dirMax = gamAppMpi%Grid%je+1
+      if(gamAppMpi%Grid%hasUpperBC(JDIR)) dirMax = gamAppMpi%Grid%je+1
       do i=gamAppMpi%Grid%is,gamAppMpi%Grid%ie
           do j=gamAppMpi%Grid%js,dirMax
               do k=gamAppMpi%Grid%ks,gamAppMpi%Grid%ke
@@ -225,7 +225,7 @@ contains
       enddo
       l=KDIR
       dirMax = gamAppMpi%Grid%ke
-      if(Grid%hasUpperBC(KDIR)) dirMax = gamAppMpi%Grid%ke+1
+      if(gamAppMpi%Grid%hasUpperBC(KDIR)) dirMax = gamAppMpi%Grid%ke+1
       do i=gamAppMpi%Grid%is,gamAppMpi%Grid%ie
           do j=gamAppMpi%Grid%js,gamAppMpi%Grid%je
               do k=gamAppMpi%Grid%ks,dirMax
