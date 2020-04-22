@@ -167,7 +167,7 @@ contains
   subroutine testHaloUpdateMagFlux(this)
       class (MpiTestMethod), intent(inout) :: this
 
-      integer :: i,j,k,l,iIndex,jIndex,kIndex
+      integer :: i,j,k,l,iIndex,jIndex,kIndex,dirMax
       real(rp) :: checkVal
       character(len=strLen) :: checkMessage
       real(rp) :: iVal, jVal, kVal, lVal
@@ -184,7 +184,9 @@ contains
       ! set values in physical faces only
       ! because the case is triply periodic is=ie+1, and the same for j and k
       l=IDIR
-      do i=gamAppMpi%Grid%is,gamAppMpi%Grid%ie+1
+      dirMax = gamAppMpi%Grid%ie
+      if(Grid%hasUpperBC(IDIR)) dirMax = gamAppMpi%Grid%ie+1
+      do i=gamAppMpi%Grid%is,dirMax
           do j=gamAppMpi%Grid%js,gamAppMpi%Grid%je
               do k=gamAppMpi%Grid%ks,gamAppMpi%Grid%ke
                   iIndex = 1+modulo(i+gamAppMpi%Grid%ijkShift(IDIR)-1, &
@@ -202,8 +204,10 @@ contains
           enddo
       enddo
       l=JDIR
+      dirMax = gamAppMpi%Grid%je
+      if(Grid%hasUpperBC(JDIR)) dirMax = gamAppMpi%Grid%je+1
       do i=gamAppMpi%Grid%is,gamAppMpi%Grid%ie
-          do j=gamAppMpi%Grid%js,gamAppMpi%Grid%je+1
+          do j=gamAppMpi%Grid%js,dirMax
               do k=gamAppMpi%Grid%ks,gamAppMpi%Grid%ke
                   iIndex = 1+modulo(i+gamAppMpi%Grid%ijkShift(IDIR)-1, &
                            gamAppMpi%Grid%Nip*gamAppMpi%Grid%NumRi)
@@ -220,9 +224,11 @@ contains
           enddo
       enddo
       l=KDIR
+      dirMax = gamAppMpi%Grid%ke
+      if(Grid%hasUpperBC(KDIR)) dirMax = gamAppMpi%Grid%ke+1
       do i=gamAppMpi%Grid%is,gamAppMpi%Grid%ie
           do j=gamAppMpi%Grid%js,gamAppMpi%Grid%je
-              do k=gamAppMpi%Grid%ks,gamAppMpi%Grid%ke+1
+              do k=gamAppMpi%Grid%ks,dirMax
                   iIndex = 1+modulo(i+gamAppMpi%Grid%ijkShift(IDIR)-1, &
                            gamAppMpi%Grid%Nip*gamAppMpi%Grid%NumRi)
                   jIndex = 1+modulo(j+gamAppMpi%Grid%ijkShift(JDIR)-1, &

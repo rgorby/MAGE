@@ -30,7 +30,9 @@ module gamapp_mpi
         integer, dimension(:), allocatable :: sendCountsBxyz, sendTypesBxyz
         integer, dimension(:), allocatable :: recvCountsBxyz, recvTypesBxyz
         integer(MPI_ADDRESS_KIND), dimension(:), allocatable :: sendDisplsBxyz, recvDisplsBxyz
-        
+        ! Debugging flags
+        logical :: printMagFluxFaceError = .false.
+
     end type gamAppMpi_T
 
     contains
@@ -68,6 +70,7 @@ module gamapp_mpi
         ! read debug flags
         call xmlInp%Set_Val(writeGhosts,"debug/writeGhosts",.false.)
         call xmlInp%Set_Val(writeMagFlux,"debug/writeMagFlux",.false.)
+        call xmlInp%Set_Val(gamAppMpi%printMagFluxFaceError,"debug/printMagFluxError",.false.)
 
         !Initialize Grid/State/Model (Hatch Gamera)
         !Will enforce 1st BCs, caculate 1st timestep, set oldState
@@ -1297,8 +1300,12 @@ module gamapp_mpi
                 offsetI = 0
                 if(dataSum == 1) then
                     ! receiving a face
-                    call mpi_type_contiguous(Model%nG, MPI_MYFLOAT, dType1DI, ierr)
-                    if(iData == 1) offsetI = dataSize ! specific case for max I face
+                    if(iData == 1) then
+                        ! max face receives an extra
+                        call mpi_type_contiguous(Model%nG+1, MPI_MYFLOAT, dType1DI, ierr)
+                    else
+                        call mpi_type_contiguous(Model%nG, MPI_MYFLOAT, dType1DI, ierr)
+                    endif
                 else
                     ! receiving a corner or J/K edge
                     call mpi_type_contiguous(Model%nG+1, MPI_MYFLOAT, dType1DI, ierr)
@@ -1322,8 +1329,11 @@ module gamapp_mpi
                 offsetJ = 0
                 call mpi_type_hvector(Model%nG, 1, dataSize*(Grid%Ni+1), dType1DI, dType2DI, ierr)
                 if(dataSum == 1) then
-                    call mpi_type_hvector(Model%nG, 1, dataSize*(Grid%Ni+1), dType1DJ, dType2DJ, ierr)
-                    if(jData == 1) offsetJ = dataSize*(Grid%Ni+1)
+                    if(jData == 1) then
+                        call mpi_type_hvector(Model%nG+1, 1, dataSize*(Grid%Ni+1), dType1DJ, dType2DJ, ierr)
+                    else
+                        call mpi_type_hvector(Model%nG, 1, dataSize*(Grid%Ni+1), dType1DJ, dType2DJ, ierr)
+                    endif
                 else
                     call mpi_type_hvector(Model%nG+1, 1, dataSize*(Grid%Ni+1), dType1DJ, dType2DJ, ierr)
                 endif
@@ -1344,8 +1354,11 @@ module gamapp_mpi
                 call mpi_type_hvector(Model%nG, 1, dataSize*(Grid%Ni+1)*(Grid%Nj+1), dType2DI, dType3DI, ierr)
                 call mpi_type_hvector(Model%nG, 1, dataSize*(Grid%Ni+1)*(Grid%Nj+1), dType2DJ, dType3DJ, ierr)
                 if(dataSum == 1) then
-                    call mpi_type_hvector(Model%nG,1,dataSize*(Grid%Ni+1)*(Grid%Nj+1),dType2DK,dType3DK,ierr)
-                    if(kData == 1) offsetK = dataSize*(Grid%Ni+1)*(Grid%Nj+1)
+                    if(kData == 1) then
+                        call mpi_type_hvector(Model%nG+1,1,dataSize*(Grid%Ni+1)*(Grid%Nj+1),dType2DK,dType3DK,ierr)
+                    else
+                        call mpi_type_hvector(Model%nG,1,dataSize*(Grid%Ni+1)*(Grid%Nj+1),dType2DK,dType3DK,ierr)
+                    endif
                 else
                     call mpi_type_hvector(Model%nG+1,1,dataSize*(Grid%Ni+1)*(Grid%Nj+1),dType2DK,dType3DK,ierr)
                 endif
