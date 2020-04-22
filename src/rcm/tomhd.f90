@@ -10,7 +10,7 @@
                               Read_grid, Read_plasma,Get_boundary, &
                               xmass, densrcm,denspsph,imin_j,rcmdir, &
                               eflux,eavg,ie_el
-      USE constants, ONLY : mass_proton,nt,ev!,radius_earth_m,pressure_factor,density_factor
+      USE constants, ONLY : mass_proton,radius_earth_m,nt,ev,pressure_factor,density_factor
       USE rice_housekeeping_module
       Use rcm_mhd_interfaces
 ! 
@@ -92,9 +92,6 @@
       LOGICAL,PARAMETER :: avoid_boundaries = .false.
       INTEGER(iprec) :: im,ipl,jm,jpl,km,kpl
 
-      !Replacing constant density_factor and pressure_factor to allow for other planet radii
-      !real(rprec) :: pressure_factor = 2./3.*ev/RM%planet_radius*nt
-      !real(rprec) :: density_factor = nt/RM%planet_radius
 !      INCLUDE 'rcmdir.h'
 
       ierr = 0
@@ -213,16 +210,14 @@
         IF (vm(i,j) < 0.0) CYCLE
         DO k = 1, kcsize
           pressrcm(i,j) = pressrcm(i,j) + &
-                 !pressure_factor*ABS(alamc(k))*eeta_avg(i,j,k)*vm(i,j)**2.5 ! in pascals
-                 2./3.*ev/RM%planet_radius*nt*ABS(alamc(k))*eeta_avg(i,j,k)*vm(i,j)**2.5 ! in pascals
-            write(*,*) "rcm/tomhd.f90: eeta_avg(",i,",",j,",",k,") = ",eeta_avg(i,j,k)
+                 pressure_factor*ABS(alamc(k))*eeta_avg(i,j,k)*vm(i,j)**2.5 ! in pascals
+
 !           normalize everything to the mass_proton, otherwise answer is below
 !           floating point minimum answer and gets zero in ples/m^3
 !           FIXME: This version is mass weighted, not sure why.
           if(alamc(k) >0.0)then ! only add the ion contribution
             densrcm(i,j) = densrcm(i,j) + &
-               !density_factor/mass_proton*xmass(ikflavc(k))*eeta_avg(i,j,k)*vm(i,j)**1.5
-               nt/RM%planet_radius/mass_proton*xmass(ikflavc(k))*eeta_avg(i,j,k)*vm(i,j)**1.5
+               density_factor/mass_proton*xmass(ikflavc(k))*eeta_avg(i,j,k)*vm(i,j)**1.5
           end if
         END DO
         if (use_plasmasphere) then
@@ -233,6 +228,8 @@
 
       END DO
       END DO
+      
+      write(*,*) "rcm/tomhd.f90: eeta_avg(50,50,50)=",eeta_avg(50,50,50)
  
       max_xmin = maxval(xmin)
       max_ymin = maxval(ymin)
@@ -249,8 +246,7 @@
       RM%fac     = birk    (:,jwrap:jdim)
       
       RM%toMHD = .false.
-      !dRad = ellBdry%dRadMHD*radius_earth_m
-      dRad = ellBdry%dRadMHD*RM%planet_radius
+      dRad = ellBdry%dRadMHD*radius_earth_m
 
       do j=jwrap,jdim
         jp = j-jwrap+1

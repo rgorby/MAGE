@@ -7523,7 +7523,7 @@ bjmod_real = MODULO(bj-REAL(jwrap),REAL(jsize-jwrap-1)) + REAL(jwrap)
          birk_avg = birk_avg + birk
          eeta_avg = eeta_avg + eeta
          i_avg    = i_avg    + 1
-!
+         write(*,*) "rcm_subs: i_time=",i_time,", eeta(50,50,50)=",eeta(50,50,50),"eeta_avg(50,50,50)=",eeta_avg(50,50,50)
          IF (i_time == itout1) THEN
 !
             birk_avg = birk_avg / REAL(i_avg)

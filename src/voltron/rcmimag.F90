@@ -30,7 +30,6 @@ module rcmimag
     integer, parameter :: MAXRCMIOVAR = 30
     character(len=strLen), private :: h5File
 
-    real(rp), private :: Rp_cgs
 
     !Information taken from MHD flux tubes
     !TODO: Figure out RCM boundaries
@@ -80,21 +79,22 @@ module rcmimag
     contains
 
     !Initialize RCM inner magnetosphere model
-    subroutine initRCM(imag,iXML,isRestart,Rp_m,iono_m,vApp)
+    subroutine initRCM(imag,iXML,isRestart,rad_planet_m,rad_iono_m,vApp)
         class(rcmIMAG_T), intent(inout) :: imag
         type(XML_Input_T), intent(in) :: iXML
         logical, intent(in) :: isRestart
-        real(rp), intent(in) :: Rp_m
-        real(rp), intent(in) :: iono_m
+        real(rp), intent(in) :: rad_planet_m,rad_iono_m ! Just ignore for now
         type(voltApp_T), intent(inout) :: vApp
+
         character(len=strLen) :: RunID,RCMH5
         logical :: fExist
 
-        associate(RCMApp => imag%rcmCpl, &
+        associate(RCMApp => imag%rcmCpl, & !type rcm_mhd_T
                   imag2mix => vApp%imag2mix, &
                   t0 => vApp%time, &
                   dtCpl => vApp%DeepDT, &
                   nRes => vApp%IO%nRes)
+
         call iXML%Set_Val(RunID,"/gamera/sim/runid","sim")
         RCMApp%rcm_runid = trim(RunID)
 
@@ -125,12 +125,12 @@ module rcmimag
         call iXML%Set_Val(SmoothOp%nIter,"imag/nIter",4)
         call iXML%Set_Val(SmoothOp%nRad ,"imag/nRad" ,8)
 
-        Rp_cgs = Rp_m*1.0e+2
-        !Store planet radius in rcmCpl so that units stay consistent between models
-        RCMApp%planet_radius = Rp_m
-        RCMApp%iono_radius = iono_m
-        write(*,*) 'RCM planet radius = ',RCMApp%planet_radius
-        write(*,*) 'RCM ionosphere radius = ',RCMApp%iono_radius
+        !Set radii in RCMApp
+        RCMApp%planet_radius = rad_planet_m
+        RCMApp%iono_radius = rad_iono_m
+        write(*,*) "voltron/rcmimag.f90: RCMApp%planet_radius=",RCMApp%planet_radius
+        write(*,*) "voltron/rcmimag.f90: RCMApp%iono_radius=",RCMApp%iono_radius
+
         end associate
 
     end subroutine initRCM
@@ -152,7 +152,7 @@ module rcmimag
         associate(RCMApp => imag%rcmCpl)
 
         !Lazily grabbing rDeep here, convert to RCM units
-        rEqMin = vApp%rDeep*Rp_cgs*1.0e-2 !Rp=>meters
+        rEqMin = vApp%rDeep*Re_cgs*1.0e-2 !Re=>meters
 
         llBC = vApp%mhd2chmp%lowlatBC
 
@@ -228,14 +228,14 @@ module rcmimag
 
     !Find maximum extent of closed field region
         maxRad = maxval(norm2(RCMApp%X_bmin,dim=3),mask=vApp%imag2mix%isClosed)
-        maxRad = maxRad/(Rp_cgs*1.0e-2)
+        maxRad = maxRad/(Re_cgs*1.0e-2)
         vApp%rTrc = 1.25*maxRad
 
         end associate        
 
         contains
             !Calculate Alfven bounce timescale
-            !D = #/m3, B = T, L = Rp
+            !D = #/m3, B = T, L = Re
             function AlfvenBounce(D,B,L) result(dTb)
                 real(rp), intent(in) :: D,B,L
                 real(rp) :: dTb
@@ -249,7 +249,7 @@ module rcmimag
                 nCC = D*rcmNScl !Get n in #/cc
                 bNT = B*1.0e+9 !Convert B to nT
                 Va = 22.0*bNT/sqrt(nCC) !km/s, from NRL plasma formulary
-                dTb = (L*Rp_cgs*(1.0e-5))/Va !km
+                dTb = (L*Re_km)/Va
             end function AlfvenBounce
     end subroutine AdvanceRCM
 
@@ -442,10 +442,10 @@ module rcmimag
         call genStream(ebModel,ebState,x0,t,bTrc)
 
     !Get diagnostics from field line
-        !Minimal surface (bEq in Rp, bMin in EB)
+        !Minimal surface (bEq in Re, bMin in EB)
         call FLEq(ebModel,bTrc,bEq,bMin)
         bMin = bMin*oBScl*1.0e-9 !EB=>Tesla
-        bEq = bEq*Rp_cgs*1.0e-2 !Rp=>meters
+        bEq = bEq*Re_cgs*1.0e-2 !Re=>meters
 
         !Plasma quantities
         !dvB = Flux-tube volume (Re/EB)
@@ -505,8 +505,8 @@ module rcmimag
         colat = PI/2 - lat
         L = 1.0/(sin(colat)**2.0)
         ijTube%Vol = 32./35.*L**4.0/mdipole
-        ijTube%X_bmin(XDIR) = L*cos(lon)*Rp_cgs*1.0e-2 !Rp=>meters
-        ijTube%X_bmin(YDIR) = L*sin(lon)*Rp_cgs*1.0e-2 !Rp=>meters
+        ijTube%X_bmin(XDIR) = L*cos(lon)*Re_cgs*1.0e-2 !Re=>meters
+        ijTube%X_bmin(YDIR) = L*sin(lon)*Re_cgs*1.0e-2 !Re=>meters
         ijTube%X_bmin(ZDIR) = 0.0
         ijTube%bmin = mdipole/L**3.0
 

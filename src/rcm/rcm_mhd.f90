@@ -122,8 +122,7 @@ subroutine rcm_mhd(mhdtime,mhdtimedt,RM,iflag,iXML)
 
     ! Set up RCM ionospheric grid:
     !call Grid_torcm (75.0_rprec, 15.0_rprec, 0.0_rprec, radius_earth_m, radius_iono_m)  ! set up RCM ionospheric grid here
-    !call Grid_torcm (HighLatBD,LowLatBD, 0.0_rprec, radius_earth_m, radius_iono_m)  ! set up RCM ionospheric grid here
-    call Grid_torcm (HighLatBD,LowLatBD, 0.0_rprec, RM%planet_radius, RM%iono_radius)  ! set up RCM ionospheric grid here
+    call Grid_torcm (HighLatBD,LowLatBD, 0.0_rprec, radius_earth_m, radius_iono_m)  ! set up RCM ionospheric grid here
 
    ! Setup Ionosphere intermediate Grid by equating it to the RCM grid, without angular overlap:
     call setupIon(RM)
