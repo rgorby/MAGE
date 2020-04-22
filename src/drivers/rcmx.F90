@@ -2,13 +2,16 @@
 ! assumes dipole inputs
 ! 1/19 frt
 program rcmx
+    use kdefs
+    use files
     use rcm_mhd_interfaces
     use rcm_mhd_mod, ONLY: rcm_mhd
-    !USE Rcm_mod_subs, ONLY : iprec,rprec
     USE rcm_precision
+    use rcm_mhd_io
 
     implicit none
-    integer(iprec) :: i,j
+    character(len=strLen) :: RunID
+    integer(iprec) :: i,j,n
     real(rprec) :: Lvalue
     real(rprec),parameter ::mdipole = 3.0e-5 ! dipole moment in T
     real(rprec) :: mhdtime
@@ -29,13 +32,25 @@ program rcmx
     type(rcm_mhd_T) :: RM
     ! intialize transfer arrays
 
+    !Always start with fresh directory
+    CALL SYSTEM("rm -rf RCMFiles > /dev/null 2>&1")
+
+    RunID = "rcmx"
     write(*,'(a,$)')' input MHD time start, end and dt: '
     read(5,*)mhd_time_start,mhd_time_end,mhd_dt
 
     ! initialize
-    call rcm_mhd(mhd_time_start,mhd_dt,RM,0_iprec)
+    call rcm_mhd(mhd_time_start,mhd_dt,RM,RCMINIT)
+
+    !Setup IO
+    RM%rcm_runid = trim(RunID)
+    RM%rcm_nOut = 0
+    call initRCMIO(RM)
+
+    !Set boundaries    
     rcm_boundary_s =35
     rcm_boundary_e =2
+    
     ! now run 
     do mhdtime=mhd_time_start,mhd_time_end-mhd_dt,mhd_dt
         rcmbndy = nint(rcm_boundary_s +&
@@ -63,17 +78,21 @@ program rcmx
                 end if
             end do
         end do
+
         ! set rcm boundary
         RM%Vol(1:rcmbndy,:) = -1.0
         RM%iopen(1:rcmbndy,:) = 1 ! declare open
 
         write(*,'(2(a,g14.4))')' calling rcm_mhd at time: ',mhdtime,' delta t=',mhd_dt
-        call rcm_mhd(mhdtime,mhd_dt,RM,1_iprec)
+        call rcm_mhd(mhdtime,mhd_dt,RM,RCMADVANCE)
         call write_2d(RM,mhdtime+mhd_dt) ! write out results
+
+        call WriteRCM(RM,RM%rcm_nOut,time,time)
+        RM%rcm_nOut = RM%rcm_nOut+1
     end do
 
     ! done now close out
-    call rcm_mhd(mhdtime,mhd_dt,RM,-1_iprec)
+    call rcm_mhd(mhdtime,mhd_dt,RM,RCMWRITETIMING)
 
     stop
 end program rcmx
