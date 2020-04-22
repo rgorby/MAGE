@@ -135,7 +135,15 @@ module voltapp
                 write(*,*) 'Must have GAMERA/source/doSource="T" when running inner magnetosphere model'
                 stop
             endif
-            
+
+            !Verify CHIMP data has been set
+            if (      (.not. xmlInp%Exists("chimp/units/uid"))     &
+               & .or. (.not. xmlInp%Exists("chimp/fields/grType")) &
+               & .or. (.not. xmlInp%Exists("chimp/domain/dtype")) ) then   
+                write(*,*) 'Necessary CHIMP XML paramters not found, sort that out ...'
+                stop
+            endif
+             
             !Set first deep coupling (defaulting to 0)
             call xmlInp%Set_Val(vApp%DeepT, "coupling/tDeep", 0.0_rp)
             !Initialize deep coupling type/inner magnetosphere model
