@@ -167,16 +167,14 @@ module bcs
     subroutine WipeBCs(Model,Grid)
         type(Model_T), intent(in)    :: Model
         type(Grid_T) , intent(inout) :: Grid
+        integer :: n
         !Deallocate current BCs
 
         associate(ExternalBCs=>Grid%ExternalBCs)
 
-        if (allocated(ExternalBCs(INI )%p)) deallocate(ExternalBCs(INI )%p)
-        if (allocated(ExternalBCs(OUTI)%p)) deallocate(ExternalBCs(OUTI)%p)
-        if (allocated(ExternalBCs(INJ )%p)) deallocate(ExternalBCs(INJ )%p)
-        if (allocated(ExternalBCs(OUTJ)%p)) deallocate(ExternalBCs(OUTJ)%p)
-        if (allocated(ExternalBCs(INK )%p)) deallocate(ExternalBCs(INK )%p)
-        if (allocated(ExternalBCs(OUTK)%p)) deallocate(ExternalBCs(OUTK)%p)
+        do n=1,6
+           if (allocated(ExternalBCs(n)%p)) deallocate(ExternalBCs(n)%p) 
+        enddo
 
         end associate
         
@@ -211,6 +209,29 @@ module bcs
         enddo
 
     end subroutine ValidateBCs
+
+    !Find BC for a given direction
+    !Example: n = FindBC(Model,Grid,INI), Gr%externalBCs(n)%p
+    function FindBC(Model,Grid,bcdir)
+        type(Model_T), intent(in) :: Model
+        type(Grid_T) , intent(in) :: Grid
+        integer      , intent(in) :: bcdir
+
+        integer :: FindBC
+        integer :: n,ndir
+        do n=1,Grid%NumBC
+            if (allocated(Grid%externalBCs(n)%p)) then
+                ndir = Grid%externalBCs(n)%p%bcDir()
+                if (ndir == bcdir) then
+                    FindBC = n
+                    return
+                endif
+            endif
+        enddo
+        !Didn't find nothin'
+        FindBC = -1
+
+    end function FindBC
 
     !Checks ijk is in CC bounds
     function isCellCenterG(Model,Grid,i,j,k) result(isCC)

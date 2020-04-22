@@ -35,6 +35,7 @@ module chmpdefs
         integer  :: MaxIter !Maximum iterations
         real(rp) :: TolGC !Tolerance for GC iteration
 
+        logical :: doOldNaming = .false. !Whether to use old-style naming
         logical :: doEQProj=.false. !Force projection to EQ before output
         logical :: doTrc=.false. !Do field line topology tracing
         logical :: doStream=.false. !Inject TPs over time

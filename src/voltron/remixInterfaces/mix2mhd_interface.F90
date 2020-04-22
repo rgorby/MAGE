@@ -8,13 +8,15 @@ module mix2mhd_interface
   use mixmain
   use ioH5
   use gamapp
-  use msphutils
+  use cmiutils
   use mixinterfaceutils
+  use msphutils, only : RadIonosphere
   use uservoltic ! required to have IonInnerBC_T defined
   
   implicit none
 
   integer, parameter :: mix2mhd_varn = 1  ! for now just the potential is sent back
+  real(rp), private :: Rion
 
 contains
 
@@ -29,9 +31,15 @@ contains
         real(rp), allocatable, dimension(:,:) :: mhdt, mhdp, mhdtFpd, mhdpFpd
         type(mixGrid_T) :: mhdG
         type(Map_T) :: Map
+        real(rp) :: gB0,gv0,gx0
+
+        gB0 = gameraApp%Model%Units%gB0
+        gv0 = gameraApp%Model%Units%gv0
+        gx0 = gameraApp%Model%Units%gx0
 
         mix2Mhd%rm2g = gB0*gV0*gx0*1.0e-12 !Scaling factor for remix potential [kV]
-
+        Rion = RadIonosphere()
+        
         ! allocate remix arrays
         allocate(mix2mhd%gPsi(1:mix2mhd%PsiShells+1,gameraApp%Grid%js:gameraApp%Grid%je+1,gameraApp%Grid%ks:gameraApp%Grid%ke+1))
         allocate(mhdPsiGrid(1:mix2mhd%PsiShells+1, gameraApp%Grid%js:gameraApp%Grid%je+1, gameraApp%Grid%ks:gameraApp%Grid%ke/2+1, 1:3, 1:2))
@@ -81,7 +89,7 @@ contains
 
         ! convert the "remixOutputs" variable to inEijk and inExyz, which are in
         ! Gamera coordinates
-        integer :: i
+        integer :: i,nbc
         logical :: doCorot
 
          ! populate potential on gamera grid
@@ -101,7 +109,8 @@ contains
         if (doCorot) call CorotationPot(gameraApp%Model, gameraApp%Grid, mix2mhd%gPsi)
 
         ! find the remix BC to write data into
-        SELECT type(iiBC=>gameraApp%Grid%externalBCs(INI)%p)
+        nbc = FindBC(gameraApp%Model,gameraApp%Grid,INI)
+        SELECT type(iiBC=>gameraApp%Grid%externalBCs(nbc)%p)
             TYPE IS (IonInnerBC_T)
                 call Ion2MHD(gameraApp%Model,gameraApp%Grid,mix2mhd%gPsi,iiBC%inEijk,iiBC%inExyz,mix2mhd%rm2g)
             CLASS DEFAULT
@@ -133,58 +142,5 @@ contains
        enddo
     enddo
   end subroutine mapRemixToGamera
-
-  ! ! This is an ancillary function to get data from gamera dump
-  ! ! In production, the mhd grid would be coming from gamera directly
-  ! subroutine mhd_fromFile(fname,shells,mhdg) 
-  !   character(len=*),intent(in) :: fname
-  !   real(rp), dimension(:,:,:,:,:), allocatable, intent(out) :: mhdg ! MHD grid cell coords (i,j,k,x-z,hemisphere)
-  !   integer :: shells ! number of shells to extract
-  !   real(iop), dimension(:,:,:), allocatable :: gx, gy, gz
-  !   integer :: nip1,njp1,nkp1,nj,nk2,h
-
-  !   call readMHDVar(fname,"X",gx)
-  !   call readMHDVar(fname,"Y",gy)
-  !   call readMHDVar(fname,"Z",gz)
-
-  !   nip1 = size(gx,1); njp1 = size(gx,2); nkp1 = size(gx,3)
-  !   nj = njp1-1; nk2 = (nkp1-1)/2
-
-  !   if (.not.allocated(mhdg)) allocate(mhdg(shells,nj,nk2,3,2))
-
-  !   ! Loop over hemispheres
-  !   do h=1,2
-  !      ! offset of (h-1)*nk2 is 0 for north (h=1) and nk/2 for south (h=2)
-  !      mhdg(1:shells,:,:,1,h) = 0.125*(&
-  !           gx(1:shells,1:nj,    1+(h-1)*nk2:nk2  +(h-1)*nk2)+&
-  !           gx(1:shells,1:nj,    2+(h-1)*nk2:nk2+1+(h-1)*nk2)+&
-  !           gx(1:shells,2:njp1,  1+(h-1)*nk2:nk2  +(h-1)*nk2)+&
-  !           gx(1:shells,2:njp1,  2+(h-1)*nk2:nk2+1+(h-1)*nk2)+&
-  !           gx(2:shells+1,1:nj,  1+(h-1)*nk2:nk2  +(h-1)*nk2)+&
-  !           gx(2:shells+1,1:nj,  2+(h-1)*nk2:nk2+1+(h-1)*nk2)+&
-  !           gx(2:shells+1,2:njp1,1+(h-1)*nk2:nk2  +(h-1)*nk2)+&
-  !           gx(2:shells+1,2:njp1,2+(h-1)*nk2:nk2+1+(h-1)*nk2))
-
-  !      mhdg(1:shells,:,:,2,h) = 0.125*(&
-  !           gy(1:shells,1:nj,    1+(h-1)*nk2:nk2  +(h-1)*nk2)+&
-  !           gy(1:shells,1:nj,    2+(h-1)*nk2:nk2+1+(h-1)*nk2)+&
-  !           gy(1:shells,2:njp1,  1+(h-1)*nk2:nk2  +(h-1)*nk2)+&
-  !           gy(1:shells,2:njp1,  2+(h-1)*nk2:nk2+1+(h-1)*nk2)+&
-  !           gy(2:shells+1,1:nj,  1+(h-1)*nk2:nk2  +(h-1)*nk2)+&
-  !           gy(2:shells+1,1:nj,  2+(h-1)*nk2:nk2+1+(h-1)*nk2)+&
-  !           gy(2:shells+1,2:njp1,1+(h-1)*nk2:nk2  +(h-1)*nk2)+&
-  !           gy(2:shells+1,2:njp1,2+(h-1)*nk2:nk2+1+(h-1)*nk2))
-
-  !      mhdg(1:shells,:,:,3,h) = 0.125*(&
-  !           gz(1:shells,1:nj,    1+(h-1)*nk2:nk2  +(h-1)*nk2)+&
-  !           gz(1:shells,1:nj,    2+(h-1)*nk2:nk2+1+(h-1)*nk2)+&
-  !           gz(1:shells,2:njp1,  1+(h-1)*nk2:nk2  +(h-1)*nk2)+&
-  !           gz(1:shells,2:njp1,  2+(h-1)*nk2:nk2+1+(h-1)*nk2)+&
-  !           gz(2:shells+1,1:nj,  1+(h-1)*nk2:nk2  +(h-1)*nk2)+&
-  !           gz(2:shells+1,1:nj,  2+(h-1)*nk2:nk2+1+(h-1)*nk2)+&
-  !           gz(2:shells+1,2:njp1,1+(h-1)*nk2:nk2  +(h-1)*nk2)+&
-  !           gz(2:shells+1,2:njp1,2+(h-1)*nk2:nk2+1+(h-1)*nk2))
-  !   enddo
-  ! end subroutine mhd_fromFile
 
 end module mix2mhd_interface

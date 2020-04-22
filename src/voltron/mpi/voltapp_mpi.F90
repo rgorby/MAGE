@@ -166,6 +166,7 @@ module voltapp_mpi
         xmlInp = New_XML_Input(trim(inpXML),'Gamera',.true.)
         vApp%gAppLocal%Grid%ijkShift(1:3) = 0
         call ReadCorners(vApp%gAppLocal%Model,vApp%gAppLocal%Grid,xmlInp,noRestart=.true.)
+        call SetRings(vApp%gAppLocal%Model,vApp%gAppLocal%Grid,xmlInp)
         call Corners2Grid(vApp%gAppLocal%Model,vApp%gAppLocal%Grid)
         call DefaultBCs(vApp%gAppLocal%Model,vApp%gAppLocal%Grid)
         call PrepState(vApp%gAppLocal%Model,vApp%gAppLocal%Grid,&

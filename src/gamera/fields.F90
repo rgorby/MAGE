@@ -11,7 +11,7 @@ module fields
     logical, parameter, private :: doVa  = .true. !Use Alfven speed in diffusive velocity
     logical, parameter, private :: doVdA = .true. !Do area scaling for velocity->corner
     logical, parameter, private :: doBdA = .true. !Do area scaling for face flux->edge
-
+    
     contains
 
     !Use electric field to update face fluxes
@@ -112,11 +112,7 @@ module fields
             call Tic("Mom2Face")
             !$OMP END SINGLE NOWAIT
 
-            !Set last active edges in IJK
-            !TODO: Modify per direction
-            ie = Gr%ie+1
-            je = Gr%je+1
-            ke = Gr%ke+1
+
             
             !Use edge normal direction to calculate local triad
             !Push cell-centered velocities along dT1 to face
@@ -125,7 +121,9 @@ module fields
             select case(eD)
                 !Ei fields
                 case(IDIR)
-                    dT1 = JDIR; dT2 = KDIR
+                    dT1 = JDIR; dT2 = KDIR !Sweep directions
+                    ie = Gr%ie; je = Gr%je+1; ke = Gr%ke+1 !Set last active edges in IJK
+
                     !$OMP DO collapse(2)
                     do k=ksg,keg
                         do iB=Gr%isg,Gr%ieg,vecLen !Block loop
@@ -143,7 +141,9 @@ module fields
 
                 case(JDIR)
                     !Ej fields
-                    dT1 = KDIR; dT2 = IDIR
+                    dT1 = KDIR; dT2 = IDIR !Sweep directions
+                    ie = Gr%ie+1; je = Gr%je; ke = Gr%ke+1 !Set last active edges in IJK
+
                     !$OMP DO collapse(2)
                     do j=Gr%jsg,Gr%jeg
                         do iB=Gr%isg,Gr%ieg,vecLen !Block loop
@@ -161,7 +161,9 @@ module fields
 
                 case(KDIR)
                     !Ek fields
-                    dT1 = IDIR; dT2 = JDIR
+                    dT1 = IDIR; dT2 = JDIR !Sweep directions
+                    ie = Gr%ie+1; je = Gr%je+1; ke = Gr%ke !Set last active edges in IJK
+
                     !$OMP DO collapse(2)
                     do k=ksg,keg
                         do j=Gr%jsg,Gr%jeg
@@ -203,7 +205,6 @@ module fields
                         do i=1,iMax
                             iG =iB+i-1
                             
-                            !vDiff = 0.0
                             if (doVa) then
                                 !Add Alfven speed to diffusive speed
                                 vA = sqrt(b1(i)**2.0 + b2(i)**2.0)/sqrt(Dc(i))
@@ -283,7 +284,6 @@ module fields
         !Now interpolate, <VdV>/<dV>
         do d=1,NDIM
             do i=1,iMax
-                !VfB(i,d) = dot_product(interpWgt,MomB(i,:,d)/DenB(i,:))
                 Vfb(i,d) = dot_product(interpWgt,VelB(i,:,d))/dV(i)
             enddo
         enddo
@@ -329,8 +329,8 @@ module fields
             !Fake volume-weighting for BlockLR routine
             VolB = 1.0 
         endif !doBdA
-
         call BlockLRs(VolB,MagB,MagLB,MagRB,1)
+
         bL = MagLB(:,1)
         bR = MagRB(:,1)
 
@@ -338,6 +338,7 @@ module fields
         if (doBdA) then
             do i=1,iMax
                 fA(i) = dot_product(interpWgt,AreaB(i,:))
+
                 bL(i) = bL(i)*fA(i)
                 bR(i) = bR(i)*fA(i)
             enddo
@@ -385,22 +386,6 @@ module fields
             ynj = Gr%Teb(iG,j,k,YNQJ,dN)
             detT = 1.0/(xni*ynj - xnj*yni)
 
-            !Pre-transform version
-            ! b1L = detT*( ynj*bT1L(i)/fA1(i) - yni*bT2L(i)/fA2(i) )
-            ! b1R = detT*( ynj*bT1R(i)/fA1(i) - yni*bT2R(i)/fA2(i) )
-
-            ! b2L = detT*(-xnj*bT1L(i)/fA1(i) + xni*bT2L(i)/fA2(i) )
-            ! b2R = detT*(-xnj*bT1R(i)/fA1(i) + xni*bT2R(i)/fA2(i) )
-
-            ! b1(i) = 0.5*(b1L + b1R)/fA1(i)
-            ! b2(i) = 0.5*(b2L + b2R)/fA2(i)
-
-            ! db1 = b1R-b1L
-            ! db2 = b2R-b2L
-            ! Jd(i) = db2 - db1
-
-            !TODO: Consider transforming to b1/b2 before calculating diffusive current
-
             !Post-transform version
             bT1(i) = 0.5*( bT1L(i) + bT1R(i) )/fA1(i)
             bT2(i) = 0.5*( bT2L(i) + bT2R(i) )/fA2(i)
@@ -437,7 +422,6 @@ module fields
         integer, dimension(NDIM) :: e1,e2
         integer :: i,iG
         integer :: i1,j1,k1,i2,j2,k2,i12,j12,k12
-        real(rp) :: wNE,wNW,wSE,wSW,dNE,dNW,dSE,dSW
 
         !DIR$ ASSUME_ALIGNED ccD: ALIGN
         !DIR$ ASSUME_ALIGNED Dc: ALIGN
@@ -452,19 +436,6 @@ module fields
             i12 = iG-e1(IDIR)-e2(IDIR)
             j12 = j -e1(JDIR)-e2(JDIR)
             k12 = k -e1(KDIR)-e2(KDIR)
-
-            wNE = Gr%volume(iG ,j  ,k  )
-            wNW = Gr%volume(i1 ,j1 ,k1 )
-            wSE = Gr%volume(i2 ,j2 ,k2 )
-            wSW = Gr%volume(i12,j12,k12)
-
-            dNE = ccD(iG ,j  ,k  )
-            dNW = ccD(i1 ,j1 ,k1 )
-            dSE = ccD(i2 ,j2 ,k2 )
-            dSW = ccD(i12,j12,k12)
-
-            !TEST
-            !Dc(i) = (wNE*dNE + wNW*dNW + wSE*dSE + wSW*dSW)/(wNE+wNW+wSE+wSW)
 
             Dc(i) = 0.25*( ccD(iG,j,k) + ccD(i1,j1,k1) + ccD(i2,j2,k2) + ccD(i12,j12,k12) )
         enddo
