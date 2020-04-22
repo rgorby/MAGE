@@ -520,8 +520,6 @@ module gioH5
         type(State_T), intent(in) :: State
         character(len=*), intent(in) :: ResF
 
-        if (Model%dt0 < TINY) Model%dt0 = Model%dt
-
         !Reset IO chain
         call ClearIO(IOVars)
 
@@ -530,7 +528,11 @@ module gioH5
         call AddOutVar(IOVars,"nRes",Model%IO%nRes)
         call AddOutVar(IOVars,"ts"  ,Model%ts)
         call AddOutVar(IOVars,"t"   ,Model%t)
-        call AddOutVar(IOVars,"dt0"   ,Model%dt0)
+        if (Model%dt0 < TINY) then
+            call AddOutVar(IOVars,"dt0"   ,Model%dt)
+        else
+            call AddOutVar(IOVars,"dt0"   ,Model%dt0)
+        endif
 
         !Coordinates of corners
         call AddOutVar(IOVars,"X",Gr%x)
@@ -639,12 +641,20 @@ module gioH5
         endif
         
         !Set back to old dt0 if possible
-        Model%dt0 = 0.0
         if (ioExist(inH5,"dt0")) then
             call ClearIO(IOVars)
             call AddInVar(IOVars,"dt0")
             call ReadVars(IOVars,.false.,inH5)
             Model%dt0 = IOVars(1)%data(1)
+            if (Model%isLoud) then
+                write(*,*) 'Found dt0, setting to ', Model%dt0
+            endif
+            if (Model%dt0<TINY*10) Model%dt0 = 0.0
+        else
+            if (Model%isLoud) then
+                write(*,*) 'No dt0 found in restart, setting to 0'
+                Model%dt0 = 0.0
+            endif
         endif
 
     !Do touchup to data structures
