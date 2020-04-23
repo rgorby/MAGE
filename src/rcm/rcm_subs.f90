@@ -3761,7 +3761,8 @@ END IF
 !      CALL Move_plasma_grid (dt, 1, isize, j1, j2, 1)
        STOP 'This option is no longer available, aborting RCM'
     ELSE IF (i_advect == 3) THEN
-       CALL Move_plasma_grid_new (dt)
+       !CALL Move_plasma_grid_new (dt)
+       CALL Move_plasma_grid_KAIJU (dt)
     ELSE
        STOP 'ILLEGAL I_ADVECT IN MOVING PLASMA'
     END IF
@@ -8361,6 +8362,132 @@ bjmod_real = MODULO(bj-REAL(jwrap),REAL(jsize-jwrap-1)) + REAL(jwrap)
 !
 !=========================================================================
 !=========================================================================
+!Attempt by K: to incorporate newer clawpack 04/20
+SUBROUTINE Move_plasma_grid_KAIJU (dt)
+  USE rcmclaw, only : claw2ez95
+  
+  IMPLICIT NONE
+
+  real(rprec), intent(in) :: dt
+
+  real(rprec), dimension(isize,jsize) :: eeta2,veff,dvefdi,dvefdj
+  real(rprec), dimension(-1:isize+2,-1:jsize-1) :: loc_didt,loc_djdt,loc_Eta, loc_rate
+  real(rprec) :: didt,djdt,mass_factor,r_dist
+  integer(iprec) :: i,j,kc,ie,joff,icut,clawiter
+  REAL (rprec) :: max_eeta, eps = 0.0 !sbao 07/2019
+
+  joff=jwrap-1
+  fac = 1.0E-3*signbe*bir*alpha*beta*dlam*dpsi*ri**2
+
+  !write(*,*) 'Kaiju plasma mover ...'
+
+  !$OMP PARALLEL DO default(NONE) &
+  !$OMP schedule(dynamic) &
+  !$OMP private (i,j,kc,ie,icut,clawiter) &
+  !$OMP private (eeta2,veff,dvefdi,dvefdj,didt,djdt) &
+  !$OMP private (mass_factor,loc_didt,loc_djdt) &
+  !$OMP private (loc_Eta,loc_rate,r_dist,max_eeta) &
+  !$OMP shared (alamc,eeta,v,vcorot,vpar,vm,imin_j,j1,j2,joff) &
+  !$OMP shared (xmin,ymin,fac,fudgec,bir,sini,L_dktime,dktime,sunspot_number) &
+  !$OMP shared (dt,eps)
+  DO kc = 1, kcsize
+    !If oxygen is to be added, must change this!
+    IF (alamc(kc) < 0.0) THEN
+      ie = RCMELECTRON
+    ELSE
+      ie = RCMPROTON
+    END IF
+
+    IF (maxval(eeta(:,:,kc)) < machine_tiny) then
+      cycle
+    ENDIF
+    mass_factor = SQRT (xmass(1)/xmass(ie))
+
+    !K: Here we're adding corotation to total effective potential
+    veff = v + vcorot - vpar + vm*alamc(kc)
+
+    dvefdi = Deriv_i (veff, imin_j)
+    dvefdj = Deriv_j (veff, imin_j, j1, j2, 1.0E+26_rprec)
+    !K: Why only dvefdj and not dvefdi?
+    WHERE (dvefdj > 1.0E+20)
+      dvefdj = 0.0
+    END WHERE
+
+    loc_Eta  = zero
+    loc_didt = zero
+    loc_djdt = zero
+    loc_rate = zero
+
+    icut=0
+    do j=j1,j2
+      icut=max(icut,imin_j(j))
+      do i=imin_j(j),isize-1
+        if (eeta(i,j,kc) > 1.) then
+          icut=max(icut,i)
+        endif
+      end do
+    end do !j loop
+    icut=icut+5
+
+    DO j = j1, j2
+      DO i = 2, isize-1
+        loc_didt (i,j-joff) = + dvefdj (i-1,j) / fac(i-1,j)
+        loc_djdt (i,j-joff) = - dvefdi (i,j-1) / fac(i-1,j)
+        IF (i > icut) THEN
+          loc_didt(i,j-joff) = 0.0
+          loc_djdt(i,j-joff) = 0.0
+        END IF
+!
+        IF (ie == RCMELECTRON) THEN
+          loc_rate(i,j-joff) = Ratefn (fudgec(kc), alamc(kc), sini(i,j),&
+                                       bir (i,j), vm(i,j), mass_factor)
+        ELSE IF (ie == RCMPROTON) THEN
+          IF (L_dktime .AND. i >= imin_j(j)) THEN
+            r_dist = SQRT(xmin(i,j)**2+ymin(i,j)**2)
+            loc_rate(i,j-joff) = Cexrat (ie, ABS(alamc(kc))*vm(i,j)    , &
+                                          R_dist,sunspot_number, dktime, &
+                                          irdk,inrgdk,isodk,iondk)
+                                          
+          ELSE
+            loc_rate(i,j-joff) = 0.0
+          END IF
+        ELSE
+          STOP 'UNKNOWN IE IN COMPUTING LOSS'
+        END IF !ie = X
+
+      END DO ! i loop
+
+      loc_didt(isize,j-joff) = loc_didt(isize-1,j-joff)
+      loc_djdt(isize,j-joff) = loc_djdt(isize-1,j-joff)
+      loc_rate(isize,j-joff) = loc_rate(isize-1,j-joff)
+    END DO ! j loop
+
+    !Copy to local variables
+    loc_Eta (1:isize, 1:jsize-jwrap) = eeta (1:isize, jwrap:jsize-1, kc)     
+
+    !Call clawpack
+    call claw2ez95(dt,loc_Eta,loc_didt,loc_djdt,loc_rate,clawiter)
+
+    !Copy out
+    DO j = j1, j2
+      DO i = imin_j(j)+1, isize-1
+        eeta (i, j, kc) = loc_Eta (i, j-joff)
+      END DO
+    END DO !j loop
+
+    DO j = j1, j2
+      IF (veff(imin_j(j+1),j+1)-veff(imin_j(j-1),j-1) < 0.0) THEN
+        eeta (imin_j(j),j,kc) = loc_eta (imin_j(j),j-joff)
+      END IF
+    END DO !j loop
+
+    !floor eeta 12/06 frt
+    max_eeta = maxval(eeta(:,:,kc))
+    eeta(:,:,kc) = MAX(eps*max_eeta,eeta(:,:,kc))
+    CALL Circle (eeta(:,:,kc))    
+  ENDDO !kc loop
+END SUBROUTINE Move_plasma_grid_KAIJU
+
 !=========================================================================
 !
 SUBROUTINE Move_plasma_grid_NEW (dt)
@@ -8566,22 +8693,35 @@ SUBROUTINE Move_plasma_grid_NEW (dt)
 
   RETURN
 !
-CONTAINS
-!
-  FUNCTION Ratefn (fudgx, alamx, sinix, birx, vmx, xmfact)
-    IMPLICIT NONE
-    REAL (rprec), INTENT (IN) :: fudgx,alamx,sinix,birx,vmx,xmfact
-    REAL (rprec)              :: Ratefn
-!                                                                       
-!   Function subprogram to compute precipitation rate
-!   Last update:  04-04-88
-!
-    Ratefn = 0.0466_rprec*fudgx*SQRT(ABS(alamx))*(sinix/birx)*vmx**2
-    Ratefn = xmfact * ratefn
-    RETURN
-  END FUNCTION Ratefn
+! CONTAINS
+! !
+!   FUNCTION Ratefn (fudgx, alamx, sinix, birx, vmx, xmfact)
+!     IMPLICIT NONE
+!     REAL (rprec), INTENT (IN) :: fudgx,alamx,sinix,birx,vmx,xmfact
+!     REAL (rprec)              :: Ratefn
+! !                                                                       
+! !   Function subprogram to compute precipitation rate
+! !   Last update:  04-04-88
+! !
+!     Ratefn = 0.0466_rprec*fudgx*SQRT(ABS(alamx))*(sinix/birx)*vmx**2
+!     Ratefn = xmfact * ratefn
+!     RETURN
+!   END FUNCTION Ratefn
 END SUBROUTINE Move_plasma_grid_NEW
- 
+
+FUNCTION Ratefn (fudgx, alamx, sinix, birx, vmx, xmfact)
+  IMPLICIT NONE
+  REAL (rprec), INTENT (IN) :: fudgx,alamx,sinix,birx,vmx,xmfact
+  REAL (rprec)              :: Ratefn
+  !                                                                       
+  !   Function subprogram to compute precipitation rate
+  !   Last update:  04-04-88
+  !
+  Ratefn = 0.0466_rprec*fudgx*SQRT(ABS(alamx))*(sinix/birx)*vmx**2
+  Ratefn = xmfact * ratefn
+  RETURN
+END FUNCTION Ratefn
+
 
   SUBROUTINE Deriv_i_NEW (array, isize, jsize, j1, j2, imin_j, derivi)
 !   USE Rcm_mod_subs, ONLY : iprec, rprec
