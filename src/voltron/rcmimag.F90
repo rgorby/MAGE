@@ -24,12 +24,14 @@ module rcmimag
     real(rp), parameter, private :: rcmNScl = 1.0e-6 !Convert #/m3 => #/cc
     real(rp), parameter, private :: IMGAMMA = 5.0/3.0
 
-    real(rp), parameter :: RIonRCM = (RionE/REarth)*1.0e+6 !Units of Re
+    !real(rp), parameter :: RIonRCM = (RionE/REarth)*1.0e+6 !Units of Re
+    real(rp) :: RIonRCM !Units of Re
     real(rp), private :: rEqMin = 0.0
     real(rp), private :: PPDen = 50.0 !Plasmapause density
     integer, parameter :: MAXRCMIOVAR = 30
     character(len=strLen), private :: h5File
 
+    real(rp), private :: Rp_m
 
     !Information taken from MHD flux tubes
     !TODO: Figure out RCM boundaries
@@ -97,6 +99,8 @@ module rcmimag
         !Set radii in RCMApp
         RCMApp%planet_radius = rad_planet_m
         RCMApp%iono_radius = rad_iono_m
+        Rp_m = rad_planet_m ! for local use
+        RIonRCM = rad_iono_m/rad_planet_m
         write(*,*) "voltron/rcmimag.f90: RCMApp%planet_radius=",RCMApp%planet_radius
         write(*,*) "voltron/rcmimag.f90: RCMApp%iono_radius=",RCMApp%iono_radius
 
@@ -151,7 +155,8 @@ module rcmimag
         associate(RCMApp => imag%rcmCpl)
 
         !Lazily grabbing rDeep here, convert to RCM units
-        rEqMin = vApp%rDeep*Re_cgs*1.0e-2 !Re=>meters
+        !rEqMin = vApp%rDeep*Re_cgs*1.0e-2 !Re=>meters
+            rEqMin = vApp%rDeep*Rp_m !Re=>meters
 
         llBC = vApp%mhd2chmp%lowlatBC
 
@@ -227,14 +232,15 @@ module rcmimag
 
     !Find maximum extent of closed field region
         maxRad = maxval(norm2(RCMApp%X_bmin,dim=3),mask=vApp%imag2mix%isClosed)
-        maxRad = maxRad/(Re_cgs*1.0e-2)
+        !maxRad = maxRad/(Re_cgs*1.0e-2)
+        maxRad = maxRad/Rp_m
         vApp%rTrc = 1.25*maxRad
 
         end associate        
 
         contains
             !Calculate Alfven bounce timescale
-            !D = #/m3, B = T, L = Re
+            !D = #/m3, B = T, L = Rp
             function AlfvenBounce(D,B,L) result(dTb)
                 real(rp), intent(in) :: D,B,L
                 real(rp) :: dTb
@@ -248,7 +254,8 @@ module rcmimag
                 nCC = D*rcmNScl !Get n in #/cc
                 bNT = B*1.0e+9 !Convert B to nT
                 Va = 22.0*bNT/sqrt(nCC) !km/s, from NRL plasma formulary
-                dTb = (L*Re_km)/Va
+                !dTb = (L*Re_km)/Va
+                dTb = (L*Rp_m*1.0e-3)/Va
             end function AlfvenBounce
     end subroutine AdvanceRCM
 
@@ -441,10 +448,11 @@ module rcmimag
         call genStream(ebModel,ebState,x0,t,bTrc)
 
     !Get diagnostics from field line
-        !Minimal surface (bEq in Re, bMin in EB)
+        !Minimal surface (bEq in Rp, bMin in EB)
         call FLEq(ebModel,bTrc,bEq,bMin)
         bMin = bMin*oBScl*1.0e-9 !EB=>Tesla
-        bEq = bEq*Re_cgs*1.0e-2 !Re=>meters
+        !bEq = bEq*Re_cgs*1.0e-2 !Re=>meters
+        bEq = bEq*Rp_m !Re=>meters
 
         !Plasma quantities
         !dvB = Flux-tube volume (Re/EB)
@@ -504,8 +512,10 @@ module rcmimag
         colat = PI/2 - lat
         L = 1.0/(sin(colat)**2.0)
         ijTube%Vol = 32./35.*L**4.0/mdipole
-        ijTube%X_bmin(XDIR) = L*cos(lon)*Re_cgs*1.0e-2 !Re=>meters
-        ijTube%X_bmin(YDIR) = L*sin(lon)*Re_cgs*1.0e-2 !Re=>meters
+        !ijTube%X_bmin(XDIR) = L*cos(lon)*Re_cgs*1.0e-2 !Re=>meters
+        !ijTube%X_bmin(YDIR) = L*sin(lon)*Re_cgs*1.0e-2 !Re=>meters
+        ijTube%X_bmin(XDIR) = L*cos(lon)*Rp_m !Rp=>meters
+        ijTube%X_bmin(YDIR) = L*sin(lon)*Rp_m !Rp=>meters
         ijTube%X_bmin(ZDIR) = 0.0
         ijTube%bmin = mdipole/L**3.0
 

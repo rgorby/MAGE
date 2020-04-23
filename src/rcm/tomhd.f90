@@ -10,7 +10,7 @@
                               Read_grid, Read_plasma,Get_boundary, &
                               xmass, densrcm,denspsph,imin_j,rcmdir, &
                               eflux,eavg,ie_el
-      USE constants, ONLY : mass_proton,radius_earth_m,nt,ev,pressure_factor,density_factor
+      USE constants, ONLY : mass_proton,nt,ev!,radius_earth_m,pressure_factor,density_factor
       USE rice_housekeeping_module
       Use rcm_mhd_interfaces
 ! 
@@ -91,6 +91,12 @@
 
       LOGICAL,PARAMETER :: avoid_boundaries = .false.
       INTEGER(iprec) :: im,ipl,jm,jpl,km,kpl
+
+      !AMS 04-22-2020
+      real(rprec) :: pressure_factor,density_factor
+
+      pressure_factor = 2./3.*ev/RM%planet_radius*nt
+      density_factor = nt/RM%planet_radius
 
 !      INCLUDE 'rcmdir.h'
 
@@ -228,8 +234,8 @@
 
       END DO
       END DO
-      
-      write(*,*) "rcm/tomhd.f90: eeta_avg(50,50,50)=",eeta_avg(50,50,50)
+
+  !    write(*,*) "rcm/tomhd.f90: eeta_avg(50,50,50)=",eeta_avg(50,50,50)
  
       max_xmin = maxval(xmin)
       max_ymin = maxval(ymin)
@@ -246,7 +252,8 @@
       RM%fac     = birk    (:,jwrap:jdim)
       
       RM%toMHD = .false.
-      dRad = ellBdry%dRadMHD*radius_earth_m
+      !dRad = ellBdry%dRadMHD*radius_earth_m
+      dRad = ellBdry%dRadMHD*RM%planet_radius
 
       do j=jwrap,jdim
         jp = j-jwrap+1
