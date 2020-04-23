@@ -232,8 +232,8 @@ contains
                       iVal*iIndex + &
                       jVal*jIndex + &
                       kVal*kIndex
-                  write (checkMessage,'(I0,A,I0,A,I0,A,I0,A,I0,A)') this%getNumProcesses(),' processor wrong at (',i,',',j,',',k,',',l,')'
-                  @assertEqual(checkVal, gamAppMpi%State%magFlux(i,j,k,l), trim(checkMessage))
+                  write (checkMsg,'(I0,A,I0,A,I0,A,I0,A,I0,A)') this%getNumProcesses(),' processor wrong at (',i,',',j,',',k,',',l,')'
+                  @assertEqual(checkVal, gamAppMpi%State%magFlux(i,j,k,l), trim(checkMsg))
               enddo
           enddo
       enddo
@@ -251,8 +251,8 @@ contains
                       iVal*iIndex + &
                       jVal*jIndex + &
                       kVal*kIndex
-                  write (checkMessage,'(I0,A,I0,A,I0,A,I0,A,I0,A)') this%getNumProcesses(),' processor wrong at (',i,',',j,',',k,',',l,')'
-                  @assertEqual(checkVal, gamAppMpi%State%magFlux(i,j,k,l), trim(checkMessage))
+                  write (checkMsg,'(I0,A,I0,A,I0,A,I0,A,I0,A)') this%getNumProcesses(),' processor wrong at (',i,',',j,',',k,',',l,')'
+                  @assertEqual(checkVal, gamAppMpi%State%magFlux(i,j,k,l), trim(checkMsg))
               enddo
           enddo
       enddo
@@ -270,8 +270,8 @@ contains
                       iVal*iIndex + &
                       jVal*jIndex + &
                       kVal*kIndex
-                  write (checkMessage,'(I0,A,I0,A,I0,A,I0,A,I0,A)') this%getNumProcesses(),' processor wrong at (',i,',',j,',',k,',',l,')'
-                  @assertEqual(checkVal, gamAppMpi%State%magFlux(i,j,k,l), trim(checkMessage))
+                  write (checkMsg,'(I0,A,I0,A,I0,A,I0,A,I0,A)') this%getNumProcesses(),' processor wrong at (',i,',',j,',',k,',',l,')'
+                  @assertEqual(checkVal, gamAppMpi%State%magFlux(i,j,k,l), trim(checkMsg))
               enddo
           enddo
       enddo
