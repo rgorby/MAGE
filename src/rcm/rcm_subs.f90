@@ -8004,14 +8004,14 @@ bjmod_real = MODULO(bj-REAL(jwrap),REAL(jsize-jwrap-1)) + REAL(jwrap)
           type(XML_Input_T) :: xmlInp
 
           if(present(iXML)) then
-            xmlInp = iXML
+            call iXML%GetFileStr(inpXML)
           else
             !Find input deck filename
             call getIDeckStr(inpXML)
-
-            !Create XML reader
-            xmlInp = New_XML_Input(trim(inpXML),'RCM',.true.)
           endif
+          
+          !Create new XML reader w/ RCM as root
+          xmlInp = New_XML_Input(trim(inpXML),'RCM',.true.)
 
           call xmlInp%Set_Val(label%char,"sim/runid","MHD code run")
 

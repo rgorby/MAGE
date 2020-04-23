@@ -394,9 +394,18 @@ module XML_Input
       !   it does not care about the type the user wishes to set.
       !   Errors will be thrown should a problem arise in dectecting the type
       procedure :: BeQuiet
+
+      procedure :: GetFileStr
    end type XML_Input_T
 
 contains
+
+   subroutine GetFileStr(this,fStr)
+      class(XML_Input_T) :: this
+      character(len=*), intent(out) :: fStr
+
+      fStr = this%fname
+   end subroutine GetFileStr
 
    subroutine BeQuiet(this)
       class(XML_Input_T) :: this

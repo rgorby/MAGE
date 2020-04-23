@@ -93,14 +93,14 @@ MODULE rice_housekeeping_module
         type(XML_Input_T) :: xmlInp
 
         if(present(iXML)) then
-          xmlInp = iXML
+          call iXML%GetFileStr(inpXML)
         else
           !Find input deck filename
           call getIDeckStr(inpXML)
-
-          !Create XML reader
-          xmlInp = New_XML_Input(trim(inpXML),'RCM',.true.)
         endif
+
+        !Create new XML reader w/ RCM as root
+        xmlInp = New_XML_Input(trim(inpXML),'RCM',.true.)
 
         !Read various parameters
         call xmlInp%Set_Val(L_write_rcmu_torcm,"output/toRCM",L_write_rcmu_torcm)

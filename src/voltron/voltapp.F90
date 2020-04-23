@@ -93,9 +93,7 @@ module voltapp
         vApp%MJD = T2MJD(vApp%time,gApp%Model%MJD0)
 
     !Time options
-        !Check both omega/sim/tFin & voltron/time/tFin
         call xmlInp%Set_Val(vApp%tFin,'time/tFin',1.0_rp)
-        call xmlInp%Set_Val(vApp%tFin,'/omega/sim/tFin',vApp%tFin)
         !Sync Gamera to Voltron endtime
         gApp%Model%tFin = vApp%tFin/gTScl
         
