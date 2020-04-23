@@ -7,34 +7,42 @@ add_dependencies(tgiclib baselib gamlib)
 file(GLOB caseTestFiles "${CMAKE_CURRENT_SOURCE_DIR}/cases/*.pf")
 set(caseTestLibs baselib gamlib remixlib voltlib tgiclib)
 add_pfunit_ctest (caseTests TEST_SOURCES ${caseTestFiles} LINK_LIBRARIES ${caseTestLibs} MAX_PES 1)
+add_dependencies(caseTests ${caseTestLibs})
 
 file(GLOB caseMpiTestFiles "${CMAKE_CURRENT_SOURCE_DIR}/cases_mpi/*.pf")
 set(caseMpiTestLibs baselib gamlib remixlib voltlib basempilib gammpilib tgiclib)
 add_pfunit_ctest (caseMpiTests TEST_SOURCES ${caseMpiTestFiles} LINK_LIBRARIES ${caseMpiTestLibs} MAX_PES 64)
+add_dependencies(caseMpiTests ${caseMpiTestLibs})
 
 file(GLOB gamTestFiles "${CMAKE_CURRENT_SOURCE_DIR}/gamera/*.pf")
 set(gamTestLibs baselib gamlib tgiclib)
 add_pfunit_ctest (gamTests TEST_SOURCES ${gamTestFiles} LINK_LIBRARIES ${gamTestLibs} MAX_PES 1)
+add_dependencies(gamTests ${gamTestLibs})
 
 file(GLOB mixTestFiles "${CMAKE_CURRENT_SOURCE_DIR}/remix/*.pf")
 set(mixTestLibs baselib gamlib remixlib voltlib tgiclib)
 add_pfunit_ctest (mixTests TEST_SOURCES ${mixTestFiles} LINK_LIBRARIES ${mixTestLibs} MAX_PES 1)
+add_dependencies(mixTests ${mixTestLibs})
 
 file(GLOB voltTestFiles "${CMAKE_CURRENT_SOURCE_DIR}/voltron/*.pf")
 set(voltTestLibs baselib gamlib remixlib voltlib tgiclib)
 add_pfunit_ctest (voltTests TEST_SOURCES ${voltTestFiles} LINK_LIBRARIES ${voltTestLibs} MAX_PES 1)
+add_dependencies(voltTests ${voltTestLibs})
 
 file(GLOB baseMpiTestFiles "${CMAKE_CURRENT_SOURCE_DIR}/base_mpi/*.pf")
 set(baseMpiTestLibs baselib basempilib)
 add_pfunit_ctest (baseMpiTests TEST_SOURCES ${baseMpiTestFiles} LINK_LIBRARIES ${baseMpiTestLibs} MAX_PES 64)
+add_dependencies(baseMpiTests ${baseMpiTestLibs})
 
 file(GLOB gamMpiTestFiles "${CMAKE_CURRENT_SOURCE_DIR}/gamera_mpi/*.pf")
 set(gamMpiTestLibs baselib gamlib basempilib gammpilib tgiclib)
 add_pfunit_ctest (gamMpiTests TEST_SOURCES ${gamMpiTestFiles} LINK_LIBRARIES ${gamMpiTestLibs} MAX_PES 64)
+add_dependencies(gamMpiTests ${gamMpiTestLibs})
 
 file(GLOB voltMpiTestFiles "${CMAKE_CURRENT_SOURCE_DIR}/voltron_mpi/*.pf")
 set(voltMpiTestLibs baselib gamlib basempilib gammpilib voltlib voltmpilib remixlib tgiclib)
 add_pfunit_ctest (voltMpiTests TEST_SOURCES ${voltMpiTestFiles} LINK_LIBRARIES ${voltMpiTestLibs} MAX_PES 17)
+add_dependencies(voltMpiTests ${voltMpiTestLibs})
 
 # copy input xml files and grid h5 files to binary folder for running
 file(GLOB_RECURSE inputFiles "${CMAKE_CURRENT_SOURCE_DIR}/*.xml")
@@ -69,6 +77,5 @@ add_custom_target(CopyGrids DEPENDS ${gridFilesDest})
 file(GLOB_RECURSE allTestFiles "${CMAKE_CURRENT_SOURCE_DIR}/*.pf")
 set(allTestLibs baselib gamlib remixlib voltlib basempilib gammpilib voltmpilib tgiclib)
 add_pfunit_ctest (allTests TEST_SOURCES ${allTestFiles} LINK_LIBRARIES ${allTestLibs} MAX_PES 64)
-
-add_dependencies(allTests CopyInputs CopyGrids caseTests gamTests mixTests voltTests gamMpiTests baseMpiTests caseMpiTests voltMpiTests tgiclib)
+add_dependencies(allTests CopyInputs CopyGrids ${allTestLibs})
 
