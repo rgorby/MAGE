@@ -1295,78 +1295,66 @@ module gamapp_mpi
         dataSum = abs(iData)+abs(jData)+abs(kData)
         call mpi_type_extent(MPI_MYFLOAT, dataSize, ierr) ! number of bytes per array entry
         SELECT CASE (iData)
-            CASE (-1,1)
-                ! offset of the I direction face data from the start of the final struct
+            CASE (-1)
+                ! receive lower I face and interior but not upper
                 offsetI = 0
-                if(dataSum == 1) then
-                    ! receiving a face
-                    if(iData == 1) then
-                        ! max face receives an extra
-                        call mpi_type_contiguous(Model%nG+1, MPI_MYFLOAT, dType1DI, ierr)
-                    else
-                        call mpi_type_contiguous(Model%nG, MPI_MYFLOAT, dType1DI, ierr)
-                    endif
-                else
-                    ! receiving a corner or J/K edge
-                    call mpi_type_contiguous(Model%nG+1, MPI_MYFLOAT, dType1DI, ierr)
-                endif
-
+                call mpi_type_contiguous(Model%nG, MPI_MYFLOAT, dType1DI, ierr)
                 call mpi_type_contiguous(Model%nG, MPI_MYFLOAT, dType1DJ, ierr)
-
                 call mpi_type_contiguous(Model%nG, MPI_MYFLOAT, dType1DK, ierr)
             CASE (0)
-                offsetI = dataSize
-                call mpi_type_contiguous(Grid%Nip-1, MPI_MYFLOAT, dType1DI, ierr)
-                call mpi_type_contiguous(Grid%Nip,   MPI_MYFLOAT, dType1DJ, ierr)
-                call mpi_type_contiguous(Grid%Nip,   MPI_MYFLOAT, dType1DK, ierr)
+                ! receive lower I face and interior but not upper
+                offsetI = 0
+                call mpi_type_contiguous(Grid%Nip, MPI_MYFLOAT, dType1DI, ierr)
+                call mpi_type_contiguous(Grid%Nip, MPI_MYFLOAT, dType1DJ, ierr)
+                call mpi_type_contiguous(Grid%Nip, MPI_MYFLOAT, dType1DK, ierr)
+            CASE (1)
+                ! overwrite lower, interior, and upper I faces
+                offsetI = 0
+                call mpi_type_contiguous(Model%nG+1, MPI_MYFLOAT, dType1DI, ierr)
+                call mpi_type_contiguous(Model%nG,   MPI_MYFLOAT, dType1DJ, ierr)
+                call mpi_type_contiguous(Model%nG,   MPI_MYFLOAT, dType1DK, ierr)
             CASE DEFAULT
                 write (*,*) 'Unrecognized iData type in calcDatatypeFC'
                 call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
         ENDSELECT
 
         SELECT CASE (jData)
-            CASE (-1,1)
+            CASE (-1)
                 offsetJ = 0
                 call mpi_type_hvector(Model%nG, 1, dataSize*(Grid%Ni+1), dType1DI, dType2DI, ierr)
-                if(dataSum == 1) then
-                    if(jData == 1) then
-                        call mpi_type_hvector(Model%nG+1, 1, dataSize*(Grid%Ni+1), dType1DJ, dType2DJ, ierr)
-                    else
-                        call mpi_type_hvector(Model%nG, 1, dataSize*(Grid%Ni+1), dType1DJ, dType2DJ, ierr)
-                    endif
-                else
-                    call mpi_type_hvector(Model%nG+1, 1, dataSize*(Grid%Ni+1), dType1DJ, dType2DJ, ierr)
-                endif
+                call mpi_type_hvector(Model%nG, 1, dataSize*(Grid%Ni+1), dType1DJ, dType2DJ, ierr)
                 call mpi_type_hvector(Model%nG, 1, dataSize*(Grid%Ni+1), dType1DK, dType2DK, ierr)
             CASE (0)
-                offsetJ = dataSize*(Grid%Ni+1)
-                call mpi_type_hvector(Grid%Njp,   1, dataSize*(Grid%Ni+1), dType1DI, dType2DI, ierr)
-                call mpi_type_hvector(Grid%Njp-1, 1, dataSize*(Grid%Ni+1), dType1DJ, dType2DJ, ierr)
-                call mpi_type_hvector(Grid%Njp,   1, dataSize*(Grid%Ni+1), dType1DK, dType2DK, ierr)
+                offsetJ = 0
+                call mpi_type_hvector(Grid%Njp, 1, dataSize*(Grid%Ni+1), dType1DI, dType2DI, ierr)
+                call mpi_type_hvector(Grid%Njp, 1, dataSize*(Grid%Ni+1), dType1DJ, dType2DJ, ierr)
+                call mpi_type_hvector(Grid%Njp, 1, dataSize*(Grid%Ni+1), dType1DK, dType2DK, ierr)
+            CASE (1)
+                offsetJ = 0
+                call mpi_type_hvector(Model%nG,   1, dataSize*(Grid%Ni+1), dType1DI, dType2DI, ierr)
+                call mpi_type_hvector(Model%nG+1, 1, dataSize*(Grid%Ni+1), dType1DJ, dType2DJ, ierr)
+                call mpi_type_hvector(Model%nG,   1, dataSize*(Grid%Ni+1), dType1DK, dType2DK, ierr)
             CASE DEFAULT
                 write (*,*) 'Unrecognized jData type in calcDatatypeFC'
                 call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
         ENDSELECT
 
         SELECT CASE (kData)
-            CASE (-1,1)
+            CASE (-1)
                 offsetK = 0
                 call mpi_type_hvector(Model%nG, 1, dataSize*(Grid%Ni+1)*(Grid%Nj+1), dType2DI, dType3DI, ierr)
                 call mpi_type_hvector(Model%nG, 1, dataSize*(Grid%Ni+1)*(Grid%Nj+1), dType2DJ, dType3DJ, ierr)
-                if(dataSum == 1) then
-                    if(kData == 1) then
-                        call mpi_type_hvector(Model%nG+1,1,dataSize*(Grid%Ni+1)*(Grid%Nj+1),dType2DK,dType3DK,ierr)
-                    else
-                        call mpi_type_hvector(Model%nG,1,dataSize*(Grid%Ni+1)*(Grid%Nj+1),dType2DK,dType3DK,ierr)
-                    endif
-                else
-                    call mpi_type_hvector(Model%nG+1,1,dataSize*(Grid%Ni+1)*(Grid%Nj+1),dType2DK,dType3DK,ierr)
-                endif
+                call mpi_type_hvector(Model%nG, 1, dataSize*(Grid%Ni+1)*(Grid%Nj+1), dType2DK, dType3DK, ierr)
             CASE (0)
-                offsetK = dataSize*(Grid%Ni+1)*(Grid%Nj+1)
-                call mpi_type_hvector(Grid%Nkp,   1, dataSize*(Grid%Ni+1)*(Grid%Nj+1), dType2DI, dType3DI, ierr)
-                call mpi_type_hvector(Grid%Nkp,   1, dataSize*(Grid%Ni+1)*(Grid%Nj+1), dType2DJ, dType3DJ, ierr)
-                call mpi_type_hvector(Grid%Nkp-1, 1, dataSize*(Grid%Ni+1)*(Grid%Nj+1), dType2DK, dType3DK, ierr)
+                offsetK = 0
+                call mpi_type_hvector(Grid%Nkp, 1, dataSize*(Grid%Ni+1)*(Grid%Nj+1), dType2DI, dType3DI, ierr)
+                call mpi_type_hvector(Grid%Nkp, 1, dataSize*(Grid%Ni+1)*(Grid%Nj+1), dType2DJ, dType3DJ, ierr)
+                call mpi_type_hvector(Grid%Nkp, 1, dataSize*(Grid%Ni+1)*(Grid%Nj+1), dType2DK, dType3DK, ierr)
+            CASE (1)
+                offsetK = 0
+                call mpi_type_hvector(Model%nG,   1, dataSize*(Grid%Ni+1)*(Grid%Nj+1), dType2DI, dType3DI, ierr)
+                call mpi_type_hvector(Model%nG,   1, dataSize*(Grid%Ni+1)*(Grid%Nj+1), dType2DJ, dType3DJ, ierr)
+                call mpi_type_hvector(Model%nG+1, 1, dataSize*(Grid%Ni+1)*(Grid%Nj+1), dType2DK, dType3DK, ierr)
             CASE DEFAULT
                 write (*,*) 'Unrecognized kData type in calcDatatypeFC'
                 call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
