@@ -93,7 +93,7 @@ module chmpfields
         do k=1,ebTab%Rk
             do j=1,ebTab%Rj
                 do i=1,ebTab%Ri
-                    ebFile = genName(ebTab%bStr,ebTab%Ri,ebTab%Rj,ebTab%Rk,i,j,k)
+                    ebFile = genName(ebTab%bStr,ebTab%Ri,ebTab%Rj,ebTab%Rk,i,j,k,Model%doOldNaming)
 
                     !Get piece from file
                     call ClearIO(ebIOs)

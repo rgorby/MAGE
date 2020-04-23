@@ -35,12 +35,13 @@ module userebic
             call inpXML%Set_Val(ebTab%Ri,"parallel/Ri",1)
             call inpXML%Set_Val(ebTab%Rj,"parallel/Rj",1)
             call inpXML%Set_Val(ebTab%Rk,"parallel/Rk",1)
+            call inpXML%Set_Val(Model%doOldNaming,"parallel/doOldNaming",.false.)
         else
             ebTab%Ri = 1
             ebTab%Rj = 1
             ebTab%Rk = 1
         endif
-        ebFile = genName(ebTab%bStr,ebTab%Ri,ebTab%Rj,ebTab%Rk,1,1,1) !Get first (or only) eb file
+        ebFile = genName(ebTab%bStr,ebTab%Ri,ebTab%Rj,ebTab%Rk,1,1,1,Model%doOldNaming) !Get first (or only) eb file
         
         !Check file
         inquire(file=ebFile,exist=fExist)

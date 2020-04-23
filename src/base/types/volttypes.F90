@@ -2,6 +2,7 @@
 
 module volttypes
     use kdefs
+    use cmidefs
     use kronos
     use ioclock
     use mixtypes
@@ -30,7 +31,7 @@ module volttypes
         real(rp), dimension(:,:,:,:,:), allocatable :: mixOutput
         real(rp), dimension(:,:,:), allocatable :: gPsi
         type(Map_T), allocatable, dimension(:) :: PsiMaps
-        integer :: PsiStart = -3, PsiShells = 5
+        integer :: PsiStart = PsiSt, PsiShells = PsiSh !Coming from cmidefs
         real(rp) :: rm2g
     end type mix2Mhd_T
 
@@ -55,7 +56,7 @@ module volttypes
         real(rp), dimension(:,:,:,:,:), allocatable :: mixInput
         real(rp), dimension(:,:,:,:), allocatable :: gJ
         type(Map_T), allocatable, dimension(:) :: Jmaps
-        integer :: JStart = 2, JShells = 1
+        integer :: JStart = JpSt, JShells = JpSh !Coming from cmidefs
         type(mixGrid_T) :: mixGfpd
     end type mhd2mix_T
 

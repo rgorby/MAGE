@@ -1,7 +1,6 @@
 import h5py
 import numpy as np
 
-
 #Generate MPI-style name
 def genName(bStr,i,j,k,Ri,Rj,Rk,nRes=None):
 	n = k + j*Rk + i*Rj*Rk

@@ -562,28 +562,44 @@ module gridutils
 
     end function lfmCellBxyz
 
-    subroutine DivB(Model,Grid,State,totDivB,DivOut)
+    subroutine DivB(Model,Grid,State,totDivB,DivOut,doTotO)
         type(Model_T), intent(in) :: Model
         type(Grid_T),  intent(in) :: Grid
         type(State_T), intent(in) :: State
         real(rp), intent(out) :: totDivB
         real(rp), intent(inout), optional :: DivOut(Grid%isg:Grid%ieg,Grid%jsg:Grid%jeg,Grid%ksg:Grid%keg)
+        logical, intent(in), optional :: doTotO
 
+        logical :: doTot
         real(rp) :: DivBcc(Grid%isg:Grid%ieg,Grid%jsg:Grid%jeg,Grid%ksg:Grid%keg)
         integer :: i,j,k
         real(rp) :: dFi,dFj,dFk,dFi0,dFj0,dFk0
+
+        if (present(doTotO)) then
+            doTot = doTotO
+        else
+            doTot = .true.
+        endif
 
         dFi0 = 0.0
         dFj0 = 0.0
         dFk0 = 0.0
         totDivB = 0.0
+
+        !$OMP PARALLEL DO default(shared) &
+        !$OMP private(dFi,dFj,dFk,dFi0,dFj0,dFk0) &
+        !$OMP reduction(+:totDivB)
         do k=Grid%ks,Grid%ke
             do j=Grid%js,Grid%je
                 do i=Grid%is,Grid%ie
+                    dFi0 = 0.0
+                    dFj0 = 0.0
+                    dFk0 = 0.0
+                                  
                     dFi = State%magFlux(i,j,k,IDIR) - State%magFlux(i+1,j  ,k  ,IDIR)
                     dFj = State%magFlux(i,j,k,JDIR) - State%magFlux(i  ,j+1,k  ,JDIR)
                     dFk = State%magFlux(i,j,k,KDIR) - State%magFlux(i  ,j  ,k+1,KDIR)
-                    if (Model%doBackground) then
+                    if (Model%doBackground .and. doTot) then
                         dFi0 = Grid%bFlux0(i,j,k,IDIR) - Grid%bFlux0(i+1,j  ,k  ,IDIR)
                         dFj0 = Grid%bFlux0(i,j,k,JDIR) - Grid%bFlux0(i  ,j+1,k  ,JDIR)
                         dFk0 = Grid%bFlux0(i,j,k,KDIR) - Grid%bFlux0(i  ,j  ,k+1,KDIR)

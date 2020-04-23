@@ -93,9 +93,7 @@ module voltapp
         vApp%MJD = T2MJD(vApp%time,gApp%Model%MJD0)
 
     !Time options
-        !Check both omega/sim/tFin & voltron/time/tFin
         call xmlInp%Set_Val(vApp%tFin,'time/tFin',1.0_rp)
-        call xmlInp%Set_Val(vApp%tFin,'/omega/sim/tFin',vApp%tFin)
         !Sync Gamera to Voltron endtime
         gApp%Model%tFin = vApp%tFin/gTScl
         
@@ -135,7 +133,15 @@ module voltapp
                 write(*,*) 'Must have GAMERA/source/doSource="T" when running inner magnetosphere model'
                 stop
             endif
-            
+
+            !Verify CHIMP data has been set
+            if (      (.not. xmlInp%Exists("chimp/units/uid"))     &
+               & .or. (.not. xmlInp%Exists("chimp/fields/grType")) &
+               & .or. (.not. xmlInp%Exists("chimp/domain/dtype")) ) then   
+                write(*,*) 'Necessary CHIMP XML paramters not found, sort that out ...'
+                stop
+            endif
+             
             !Set first deep coupling (defaulting to 0)
             call xmlInp%Set_Val(vApp%DeepT, "coupling/tDeep", 0.0_rp)
             !Initialize deep coupling type/inner magnetosphere model

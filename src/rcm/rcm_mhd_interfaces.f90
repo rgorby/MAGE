@@ -7,8 +7,12 @@ module rcm_mhd_interfaces
   USE Rcm_mod_subs, ONLY : isize, jsize, jwrap, pi, colat, aloct
   implicit none
   integer(ip), parameter :: RCMINIT=0,RCMADVANCE=1,RCMRESTART=2,RCMWRITERESTART=-2,RCMWRITEOUTPUT=-3,RCMWRITETIMING=-1
-  logical :: doRCMVerbose = .false.
+  logical :: doRCMVerbose = .FALSE.
   integer(ip), parameter :: RCMTOPCLOSED=-1,RCMTOPOPEN=+1
+
+  !Scaling parameters
+  real(rp), parameter :: rcmPScl = 1.0e+9 !Convert Pa->nPa
+  real(rp), parameter :: rcmNScl = 1.0e-6 !Convert #/m3 => #/cc
 
   type rcm_mhd_T
   integer(iprec) :: nLat_ion 
@@ -17,13 +21,12 @@ module rcm_mhd_interfaces
   real(rprec) :: iono_radius ! m
   real(rprec),allocatable :: gcolat(:) !> RCM Latitude grid points
   real(rprec),allocatable :: glong(:)  !> RCM Longitude grid points
-
   real(rprec),allocatable :: pot(:,:)     !> Potential; received from MHD [Volts]
   real(rprec),allocatable :: eng_avg(:,:) !> Average Energy (sent to MIX Coupler/Solver)
   real(rprec),allocatable :: flux(:,:)    !> Energy Flux (sent to MIX Coupler/Solver)
   real(rprec),allocatable :: fac(:,:)     !> Total FAC density (sent to MIX Coupler/Solver)A
   real(rprec),allocatable :: Pave(:,:)    ! MHD supplied average pressure on Pa
-  real(rprec),allocatable :: Nave(:,:)   ! MHD supplied average density in #/m^3
+  real(rprec),allocatable :: Nave(:,:)    ! MHD supplied average density in #/m^3
   real(rprec),allocatable :: Vol(:,:)     ! MHD supplied flux tube volume, -ve => open fieldline - [Re/T]
   real(rprec),allocatable :: X_bmin(:,:,:)! MHD supplied location of Bmin surface, x,y,z in meters
   real(rprec),allocatable :: Bmin(:,:)    ! MHD supplied  bmin strenght in T
@@ -52,5 +55,5 @@ module rcm_mhd_interfaces
   integer(iprec) :: rcm_nOut,rcm_nRes !Indices for output/restart
   character(len=strLen) :: rcm_runid
   
-  end type rcm_mhd_T
+    end type rcm_mhd_T
 end module rcm_mhd_interfaces

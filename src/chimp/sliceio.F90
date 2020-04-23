@@ -24,14 +24,6 @@ module sliceio
     real(rp), private :: y0=0.0 !Default XZ slice
     real(rp), private :: dSlc=0.05 !Spacing for slice averaging
 
-    !Data holder for doing field line tracing at point
-    type ebTrc_T
-        real(rp) :: OCb !Topology
-        real(rp) :: dvB,bD,bP,bS !Flux-tube volume, averaged density/pressure, integrated entropy
-        real(rp), dimension(NDIM) :: MagEQ, xEPm,xEPp !xyz of equator/ -/+ field endpoints
-        real(rp) :: bMin !Minimum B (@ equator)
-    end type ebTrc_T
-
     contains
 
     subroutine initEBio(Model,ebState,inpXML)
@@ -40,13 +32,14 @@ module sliceio
         type(XML_Input_T), intent(in) :: inpXML
 
         type(IOVAR_T), dimension(MAXEBVS) :: IOVars
-        real(rp) :: dx1,dx2,Rin,Rout,x1,x2
+        real(rp) :: dx1,dx2,Rin,Rout,Pin,Pout,x1,x2
         integer :: i,j,ijk(NDIM)
         integer :: iS,iE,n,Npow
         real(rp) :: xcc(NDIM)
         real(rp), dimension(:,:,:), allocatable :: ijkXY
         character(len=strLen) :: idStr
-        
+        logical :: doLog
+
         write(ebOutF,'(2a)') trim(adjustl(Model%RunID)),'.eb.h5'
 
         associate( ebGr=>ebState%ebGr )
@@ -88,6 +81,10 @@ module sliceio
                 call inpXML%Set_Val(Rin,'slice/Rin',Rin)
                 call inpXML%Set_Val(Rout,'slice/Rout',Rout)
                 write(*,*) 'Radial grid bounds = ', Rin,Rout
+                call inpXML%Set_Val(doLog,'slice/doLog',.true.)
+                !Get phi bounds (deg)
+                call inpXML%Set_Val(Pin ,'slice/Pin' ,0.0  )
+                call inpXML%Set_Val(Pout,'slice/Pout',360.0)
 
             case("LFM2D")
                 !Create 2D LFM slice (w/ full 2pi)
@@ -128,16 +125,24 @@ module sliceio
                 enddo
             enddo
         !---------
-        case("RP")            
-            dx1 = ( log10(Rout)-log10(Rin) )/Nx1
-            dx2 = (2*PI-  0)/Nx2
+        case("RP")
+            if (doLog) then 
+                dx1 = ( log10(Rout)-log10(Rin) )/Nx1
+            else
+                dx1 = (Rout-Rin)/Nx1
+            endif
+            dx2 = (Pout-Pin)/Nx2
             do j=1,Nx2+1
                 do i=1,Nx1+1
-                    !x1 = Rin + (i-1)*dx1
-                    x1 = 10**( log10(Rin) + (i-1)*dx1 )
-                    x2 = 0.0 + (j-1)*dx2
-                    xxi(i,j) = x1*cos(x2)
-                    yyi(i,j) = x1*sin(x2)
+                    if (doLog) then
+                        x1 = 10**( log10(Rin) + (i-1)*dx1 )
+                    else
+                        x1 = Rin + (i-1)*dx1
+                    endif
+
+                    x2 = Pin + (j-1)*dx2 !Degrees
+                    xxi(i,j) = x1*cos(x2*PI/180.0)
+                    yyi(i,j) = x1*sin(x2*PI/180.0)
                 enddo
             enddo
         !---------
@@ -380,50 +385,6 @@ module sliceio
 
         end associate
     end subroutine writeEB
-
-    subroutine SliceFL(Model,ebState,x0,t,ebTrc)
-        real(rp), intent(in) :: x0(NDIM),t
-        type(chmpModel_T), intent(in) :: Model
-        type(ebState_T), intent(in)   :: ebState
-        type(ebTrc_T), intent(inout) :: ebTrc
-
-        type(fLine_T) :: bTrc
-        !Initialize the values
-        ebTrc%OCb = 0.0
-        ebTrc%dvB = 0.0
-        ebTrc%bD  = 0.0
-        ebTrc%bP  = 0.0
-        ebTrc%bS  = 0.0
-        ebTrc%bMin = 0.0
-
-        ebTrc%MagEQ(:) = 0.0
-        ebTrc%xEPm (:) = 0.0
-        ebTrc%xEPp (:) = 0.0
-
-        if (.not. inDomain(x0,Model,ebState%ebGr)) return
-        !Trace field line
-        call genStream(Model,ebState,x0,t,bTrc)
-
-        !Get diagnostics
-        ebTrc%OCb = 1.0*FLTop(Model,ebState%ebGr,bTrc)
-        if (ebTrc%OCb > 0) then
-            !Get flux-tube integrals
-            call FLThermo(Model,ebState%ebGr,bTrc,ebTrc%bD,ebTrc%bP,ebTrc%dvB)
-            ebTrc%bS   = FLEntropy(Model,ebState%ebGr,bTrc)
-
-            !Get magnetic equator info
-            call FLEq(Model,bTrc,ebTrc%MagEQ,ebTrc%bMin)
-
-            !Get endpoints info
-            associate(Np=>bTrc%Np,Nm=>bTrc%Nm)
-            ebTrc%xEPm = bTrc%xyz(-Nm,:)
-            ebTrc%xEPp = bTrc%xyz(+Np,:)
-            end associate
-
-        endif
-
-        !write(*,*) 'FL size = ', bTrc%Nm+bTrc%Np+1
-    end subroutine SliceFL
 
     !Double grid from corners
     subroutine Embiggen(xxi,yyi,Nx1,Nx2)

@@ -90,11 +90,12 @@ module gioH5
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Gr
 
-        real (rp), dimension(:,:,:),   allocatable :: gQ !Grid quality
+        real(rp), dimension(:,:,:)  , allocatable :: gQ !Grid quality
+        real(rp), dimension(:,:,:,:), allocatable :: gVec
         logical :: isExist
 
         integer :: iMin,iMax,jMin,jMax,kMin,kMax
-
+        integer :: i,j,k
         character(len=strLen) :: vID
 
         !Don't call this function again
@@ -149,13 +150,15 @@ module gioH5
         call AddOutVar(IOVars,"gQ",       gQ(iMin:iMax,jMin:jMax,kMin:kMax))
         if (Model%doMHD .and. Model%doBackground) then
             !Write out background field and force density
-            call AddOutVar(IOVars,"Bx0"  ,Gr%B0  (iMin:iMax,jMin:jMax,kMin:kMax,XDIR))
-            call AddOutVar(IOVars,"By0"  ,Gr%B0  (iMin:iMax,jMin:jMax,kMin:kMax,YDIR))
-            call AddOutVar(IOVars,"Bz0"  ,Gr%B0  (iMin:iMax,jMin:jMax,kMin:kMax,ZDIR))
+            associate(gamOut=>Model%gamOut)
+            call GameraOut("Bx0",gamOut%bID,gamOut%bScl,Gr%B0(iMin:iMax,jMin:jMax,kMin:kMax,XDIR))
+            call GameraOut("By0",gamOut%bID,gamOut%bScl,Gr%B0(iMin:iMax,jMin:jMax,kMin:kMax,YDIR))
+            call GameraOut("Bz0",gamOut%bID,gamOut%bScl,Gr%B0(iMin:iMax,jMin:jMax,kMin:kMax,ZDIR))
+            end associate
+
             call AddOutVar(IOVars,"dPxB0",Gr%dpB0(iMin:iMax,jMin:jMax,kMin:kMax,XDIR))
             call AddOutVar(IOVars,"dPyB0",Gr%dpB0(iMin:iMax,jMin:jMax,kMin:kMax,YDIR))
             call AddOutVar(IOVars,"dPzB0",Gr%dpB0(iMin:iMax,jMin:jMax,kMin:kMax,ZDIR))
-
         endif
         if (Model%doGrav) then
             !Write out grav accelerations
@@ -163,6 +166,25 @@ module gioH5
             call AddOutVar(IOVars,"gy",Gr%gxyz(iMin:iMax,jMin:jMax,kMin:kMax,YDIR))
             call AddOutVar(IOVars,"gz",Gr%gxyz(iMin:iMax,jMin:jMax,kMin:kMax,ZDIR))
 
+        endif
+
+        if (Model%doMHD .and. Model%isMagsphere) then
+            !Write out dipole field values
+            allocate(gVec (iMin:iMax,jMin:jMax,kMin:kMax,1:NDIM))
+            !Subtract dipole before calculating current
+            !$OMP PARALLEL DO default(shared) collapse(2)
+            do k=kMin,kMax
+                do j=jMin,jMax
+                    do i=iMin,iMax
+                        gVec(i,j,k,:) = MagsphereDipole(Gr%xyzcc(i,j,k,:),Model%MagM0)
+                    enddo
+                enddo
+            enddo
+            associate(gamOut=>Model%gamOut)
+            call GameraOut("BxD",gamOut%bID,gamOut%bScl,gVec(iMin:iMax,jMin:jMax,kMin:kMax,XDIR))
+            call GameraOut("ByD",gamOut%bID,gamOut%bScl,gVec(iMin:iMax,jMin:jMax,kMin:kMax,YDIR))
+            call GameraOut("BzD",gamOut%bID,gamOut%bScl,gVec(iMin:iMax,jMin:jMax,kMin:kMax,ZDIR))
+            end associate
         endif
 
         !Add information about time scaling/units
@@ -375,9 +397,17 @@ module gioH5
             !Write divergence if necessary
             if (Model%doDivB) then
                 call allocGridVar(Model,Gr,DivBcc)
-                call DivB(Model,Gr,State,totDivB,DivBcc)
+                call DivB(Model,Gr,State,totDivB,DivBcc,doTotO=.true.)
                 gVar = DivBcc(iMin:iMax,jMin:jMax,kMin:kMax)
                 call AddOutVar(IOVars,"DivB",gVar)
+
+                if (Model%doBackground) then
+                    !Also calculate divergence of perturbation field
+                    call DivB(Model,Gr,State,totDivB,DivBcc,doTotO=.false.)
+                    gVar = DivBcc(iMin:iMax,jMin:jMax,kMin:kMax)
+                    call AddOutVar(IOVars,"DivdB",gVar)
+                endif !B0
+                
                 deallocate(DivBcc)
             endif
             deallocate(VecA,VecB)
@@ -406,18 +436,6 @@ module gioH5
         end associate
 
         contains
-
-            subroutine GameraOut(vID,uID,vScl,V)
-                character(len=*), intent(in) :: vID,uID
-                real(rp), intent(in) :: vScl
-                real(rp), intent(in) :: V(:,:,:)
-
-                integer :: n0
-                call AddOutVar(IOVars,vID,V)
-                n0 = FindIO(IOVars,vID)
-                IOVars(n0)%scale = vScl
-                IOVars(n0)%unitStr = uID
-            end subroutine GameraOut
 
             !Fix up cell-centered vector (like current or electric field) to deal with axis
             !Note, this is only for output purposes since we don't have proper ghost information
@@ -450,6 +468,18 @@ module gioH5
                 endif
             end subroutine FixRAVec
     end subroutine writeSlc
+
+    subroutine GameraOut(vID,uID,vScl,V)
+        character(len=*), intent(in) :: vID,uID
+        real(rp), intent(in) :: vScl
+        real(rp), intent(in) :: V(:,:,:)
+
+        integer :: n0
+        call AddOutVar(IOVars,vID,V)
+        n0 = FindIO(IOVars,vID)
+        IOVars(n0)%scale = vScl
+        IOVars(n0)%unitStr = uID
+    end subroutine GameraOut
 
     subroutine GridQuality(Model,Gr,gQ)
         type(Model_T), intent(in) :: Model
@@ -490,8 +520,6 @@ module gioH5
         type(State_T), intent(in) :: State
         character(len=*), intent(in) :: ResF
 
-        if (Model%dt0 < TINY) Model%dt0 = Model%dt
-
         !Reset IO chain
         call ClearIO(IOVars)
 
@@ -500,7 +528,11 @@ module gioH5
         call AddOutVar(IOVars,"nRes",Model%IO%nRes)
         call AddOutVar(IOVars,"ts"  ,Model%ts)
         call AddOutVar(IOVars,"t"   ,Model%t)
-        call AddOutVar(IOVars,"dt0"   ,Model%dt0)
+        if (Model%dt0 < TINY) then
+            call AddOutVar(IOVars,"dt0"   ,Model%dt)
+        else
+            call AddOutVar(IOVars,"dt0"   ,Model%dt0)
+        endif
 
         !Coordinates of corners
         call AddOutVar(IOVars,"X",Gr%x)
@@ -609,12 +641,20 @@ module gioH5
         endif
         
         !Set back to old dt0 if possible
-        Model%dt0 = 0.0
         if (ioExist(inH5,"dt0")) then
             call ClearIO(IOVars)
             call AddInVar(IOVars,"dt0")
             call ReadVars(IOVars,.false.,inH5)
             Model%dt0 = IOVars(1)%data(1)
+            if (Model%isLoud) then
+                write(*,*) 'Found dt0, setting to ', Model%dt0
+            endif
+            if (Model%dt0<TINY*10) Model%dt0 = 0.0
+        else
+            if (Model%isLoud) then
+                write(*,*) 'No dt0 found in restart, setting to 0'
+                Model%dt0 = 0.0
+            endif
         endif
 
     !Do touchup to data structures

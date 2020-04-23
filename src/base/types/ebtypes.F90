@@ -58,6 +58,14 @@ module ebtypes
         type(ebState_T)   :: ebState
     end type ebTrcApp_T
 
+    !Data holder for doing field line tracing at point
+    type ebTrc_T
+        real(rp) :: OCb !Topology
+        real(rp) :: dvB,bD,bP,bS !Flux-tube volume, averaged density/pressure, integrated entropy
+        real(rp), dimension(NDIM) :: MagEQ, xEPm,xEPp !xyz of equator/ -/+ field endpoints
+        real(rp) :: bMin !Minimum B (@ equator)
+    end type ebTrc_T
+
     !Fields and derivatives necessary for GC update
     type gcFields_T
         real(rp), dimension(NDIM) :: DotE,DotB

@@ -169,8 +169,6 @@
 
     Logical :: IsCoupledExternally = .false.  ! flag to determine if RCM is standalone or not
 
-
-
     ! Variables for internal RCM timing:
     INTEGER(iprec) :: timer_start(10) = 0, timer_stop(10) = 0, count_rate
     REAL (rprec) :: timer_values (10)=0.0_rprec
@@ -3754,6 +3752,7 @@ END IF
 !_____________________________________________________________________________
 !
 !
+  
   IF (L_move_plasma_grid) THEN
     IF (i_advect == 1) THEN
        CALL Move_plasma_grid  (dt, 1_iprec, isize, j1, j2, 1_iprec)
@@ -7492,7 +7491,6 @@ bjmod_real = MODULO(bj-REAL(jwrap),REAL(jsize-jwrap-1)) + REAL(jwrap)
 
 
    IF (icontrol == 4) then  ! run RCM from itimei to itimef with time step idt, quit:
-
       CALL SYSTEM_CLOCK (timer_start(2), count_rate)
 
       v_avg    = zero
@@ -7566,8 +7564,6 @@ bjmod_real = MODULO(bj-REAL(jwrap),REAL(jsize-jwrap-1)) + REAL(jwrap)
              END IF
              CYCLE ! exit loop
          END IF
-!ams 4/20/20 NaN's by here
-!
 !
          CALL Move_plasma ( dt )
 !
@@ -8004,14 +8000,14 @@ bjmod_real = MODULO(bj-REAL(jwrap),REAL(jsize-jwrap-1)) + REAL(jwrap)
           type(XML_Input_T) :: xmlInp
 
           if(present(iXML)) then
-            xmlInp = iXML
+            call iXML%GetFileStr(inpXML)
           else
             !Find input deck filename
             call getIDeckStr(inpXML)
-
-            !Create XML reader
-            xmlInp = New_XML_Input(trim(inpXML),'RCM',.true.)
           endif
+          
+          !Create new XML reader w/ RCM as root
+          xmlInp = New_XML_Input(trim(inpXML),'RCM',.true.)
 
           call xmlInp%Set_Val(label%char,"sim/runid","MHD code run")
 

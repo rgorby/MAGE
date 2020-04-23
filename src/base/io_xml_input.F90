@@ -394,9 +394,18 @@ module XML_Input
       !   it does not care about the type the user wishes to set.
       !   Errors will be thrown should a problem arise in dectecting the type
       procedure :: BeQuiet
+
+      procedure :: GetFileStr
    end type XML_Input_T
 
 contains
+
+   subroutine GetFileStr(this,fStr)
+      class(XML_Input_T) :: this
+      character(len=*), intent(out) :: fStr
+
+      fStr = this%fname
+   end subroutine GetFileStr
 
    subroutine BeQuiet(this)
       class(XML_Input_T) :: this
@@ -846,23 +855,22 @@ contains
    !------------------------------------------------------------------
 
    logical function Exists(this, path)
-     class(XML_Input_T)              :: this
-     character(len=*)                :: path
-     integer                         :: cnt, i
-     character(len=strLen)           :: buf
-     Exists = .false.
-     if(size(this%xmld).eq.0) return
-     cnt = 0
-     do i=1, size(this%xmld), 1
-       buf = trim(this%xmld(i)%root) // &
-             trim("/") // trim(this%xmld(i)%key)
-       cnt = cnt & 
-           + index(toUpper(buf),toUpper(trim(path)))
-       if(cnt>0) then
-         Exists = .true.
-         return
-       endif
-     end do
+      class(XML_Input_T)              :: this
+      character(len=*)                :: path
+      integer                         :: cnt, i
+      character(len=strLen)           :: buf
+      Exists = .false.
+      if(size(this%xmld).eq.0) return
+      cnt = 0
+      do i=1, size(this%xmld), 1
+         buf = trim(this%xmld(i)%root) // &
+               trim("/") // trim(this%xmld(i)%key)
+         cnt = cnt + index(toUpper(buf),toUpper(trim(path)))
+         if(cnt>0) then
+            Exists = .true.
+            return
+         endif
+      end do
    end function Exists
 
    !------------------------------------------------------------------

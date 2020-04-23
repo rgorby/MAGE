@@ -97,8 +97,8 @@ module gamapp
         endif
 
         !Update info
-        gameraApp%Model%ts = gameraApp%Model%ts+1
-        gameraApp%Model%t = gameraApp%Model%t+gameraApp%Model%dt
+        gameraApp%Model%ts = gameraApp%Model%ts+ 1
+        gameraApp%Model%t  = gameraApp%Model%t + gameraApp%Model%dt
 
     end subroutine UpdateStateData
 
