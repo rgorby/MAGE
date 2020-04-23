@@ -26,7 +26,6 @@ program rcmx
     real(rprec) :: mhd_time_start
     real(rprec) :: mhd_time_end 
     real(rprec) :: mhd_dt 
-    real(rprec) :: time
     real(rprec) :: colat_boundary
     real(rprec) :: rcm_boundary_s,rcm_boundary_e
     type(rcm_mhd_T) :: RM
@@ -37,7 +36,7 @@ program rcmx
 
     RunID = "rcmx"
     mhd_time_start = 0.0
-    mhd_time_end   = 20.0
+    mhd_time_end   = 600.0
     mhd_dt = 5.0
 
     write(*,*) 'Start / End / dt = ', mhd_time_start,mhd_time_end,mhd_dt
@@ -93,7 +92,7 @@ program rcmx
         call rcm_mhd(mhdtime,mhd_dt,RM,RCMADVANCE)
         call write_2d(RM,mhdtime+mhd_dt) ! write out results
 
-        call WriteRCM(RM,RM%rcm_nOut,time,time)
+        call WriteRCM(RM,RM%rcm_nOut,mhdtime,mhdtime)
         RM%rcm_nOut = RM%rcm_nOut+1
     end do
 

@@ -7491,7 +7491,6 @@ bjmod_real = MODULO(bj-REAL(jwrap),REAL(jsize-jwrap-1)) + REAL(jwrap)
 
 
    IF (icontrol == 4) then  ! run RCM from itimei to itimef with time step idt, quit:
-      write(*,*) 'K: In advance-rcm'
       CALL SYSTEM_CLOCK (timer_start(2), count_rate)
 
       v_avg    = zero
