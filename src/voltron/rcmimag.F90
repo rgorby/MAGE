@@ -18,11 +18,9 @@ module rcmimag
     
     implicit none
 
-    !real(rp), parameter :: RIonRCM = (RionE/REarth)*1.0e+6 !Units of Re
-    real(rp) :: RIonRCM !Units of Re
+    real(rp) :: RIonRCM !Units of Rp
     real(rp), private :: rEqMin = 0.0
     real(rp), private :: PPDen = 50.0 !Plasmapause density
-    integer, parameter :: MAXRCMIOVAR = 30
     character(len=strLen), private :: h5File
 
     real(rp), private :: Rp_m
