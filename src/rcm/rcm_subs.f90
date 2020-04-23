@@ -8368,7 +8368,7 @@ bjmod_real = MODULO(bj-REAL(jwrap),REAL(jsize-jwrap-1)) + REAL(jwrap)
 !=========================================================================
 !Attempt by K: to incorporate newer clawpack 04/20
 SUBROUTINE Move_plasma_grid_KAIJU (dt)
-  USE rcmclaw
+  USE rcmclaw, only : claw2ez95
   
   IMPLICIT NONE
 
@@ -8383,15 +8383,18 @@ SUBROUTINE Move_plasma_grid_KAIJU (dt)
   joff=jwrap-1
   fac = 1.0E-3*signbe*bir*alpha*beta*dlam*dpsi*ri**2
 
-  write(*,*) 'Kaiju plasma mover ...'
-  
-  !$OMP PARALLEL DO default(shared) &
-  !$OMP schedule (dynamic) &
+  !write(*,*) 'Kaiju plasma mover ...'
+
+  !$OMP PARALLEL DO default(NONE) &
   !$OMP private (i,j,kc,ie,icut,clawiter) &
   !$OMP private (eeta2,veff,dvefdi,dvefdj,didt,djdt) &
   !$OMP private (mass_factor,loc_didt,loc_djdt) &
-  !$OMP private (loc_Eta,loc_rate,r_dist,max_eeta)
+  !$OMP private (loc_Eta,loc_rate,r_dist,max_eeta) &
+  !$OMP shared (alamc,eeta,v,vcorot,vpar,vm,imin_j,j1,j2,joff) &
+  !$OMP shared (xmin,ymin,fac,fudgec,bir,sini,L_dktime,dktime,sunspot_number) &
+  !$OMP shared (dt,eps)
   DO kc = 1, kcsize
+    !write(*,*) 'kc = ', kc
     !If oxygen is to be added, must change this!
     IF (alamc(kc) < 0.0) THEN
       ie = RCMELECTRON
@@ -8467,7 +8470,7 @@ SUBROUTINE Move_plasma_grid_KAIJU (dt)
     loc_Eta (1:isize, 1:jsize-jwrap) = eeta (1:isize, jwrap:jsize-1, kc)     
 
     !Call clawpack
-    call claw2ez95(dt,RCMCLAWLIM,loc_Eta,loc_didt,loc_djdt,loc_rate,clawiter)
+    call claw2ez95(dt,loc_Eta,loc_didt,loc_djdt,loc_rate,clawiter)
 
     !Copy out
     DO j = j1, j2

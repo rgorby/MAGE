@@ -6,6 +6,6 @@
        nptmax = 50000, &
        iesize =   2, &
        ncoeff =   5
-    LOGICAL :: asci_flag = .FALSE.
-    LOGICAL :: isGAMRCM = .TRUE. !Whether running coupled to Gamera
-    LOGICAL :: doQuietRCM = .TRUE.
+    LOGICAL, PARAMETER :: asci_flag = .FALSE.
+    LOGICAL, PARAMETER :: isGAMRCM = .TRUE. !Whether running coupled to Gamera
+    LOGICAL, PARAMETER :: doQuietRCM = .TRUE.

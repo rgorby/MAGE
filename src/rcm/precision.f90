@@ -11,8 +11,5 @@ module rcm_precision
     INTEGER(iprec), parameter :: ICONRESTART     = ICONWRITERESTART - 1
     INTEGER(iprec), parameter :: RCMELECTRON = 1
     INTEGER(iprec), parameter :: RCMPROTON   = 2
-    INTEGER(iprec), parameter :: RCMCLAWLIM = 1
-	!Limiters: 1=minmod, 2=superbee, 3=Van Leer, 4=MC, 5=Beam Warming
-	!           6=Fromm, 7=Albada2, 8=Albada3, 9=Ultrabee, 10=UltrabeeMod, 11=Arora Roe
 
 end module rcm_precision
