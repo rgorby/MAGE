@@ -3761,8 +3761,11 @@ END IF
 !      CALL Move_plasma_grid (dt, 1, isize, j1, j2, 1)
        STOP 'This option is no longer available, aborting RCM'
     ELSE IF (i_advect == 3) THEN
-       !CALL Move_plasma_grid_new (dt)
-       CALL Move_plasma_grid_KAIJU (dt)
+        IF (doClaw95) THEN
+          CALL Move_plasma_grid_KAIJU (dt)
+        ELSE
+          CALL Move_plasma_grid_new (dt)
+        ENDIF
     ELSE
        STOP 'ILLEGAL I_ADVECT IN MOVING PLASMA'
     END IF
@@ -8379,17 +8382,16 @@ SUBROUTINE Move_plasma_grid_KAIJU (dt)
   joff=jwrap-1
   fac = 1.0E-3*signbe*bir*alpha*beta*dlam*dpsi*ri**2
 
-  !write(*,*) 'Kaiju plasma mover ...'
-
-  !$OMP PARALLEL DO default(NONE) &
-  !$OMP schedule(dynamic) &
-  !$OMP private (i,j,kc,ie,icut,clawiter) &
-  !$OMP private (eeta2,veff,dvefdi,dvefdj,didt,djdt) &
-  !$OMP private (mass_factor,loc_didt,loc_djdt) &
-  !$OMP private (loc_Eta,loc_rate,r_dist,max_eeta) &
-  !$OMP shared (alamc,eeta,v,vcorot,vpar,vm,imin_j,j1,j2,joff) &
-  !$OMP shared (xmin,ymin,fac,fudgec,bir,sini,L_dktime,dktime,sunspot_number) &
-  !$OMP shared (dt,eps)
+  
+  !!$OMP PARALLEL DO default(NONE) &
+  !!$OMP schedule(dynamic) &
+  !!$OMP private (i,j,kc,ie,icut,clawiter) &
+  !!$OMP private (eeta2,veff,dvefdi,dvefdj,didt,djdt) &
+  !!$OMP private (mass_factor,loc_didt,loc_djdt) &
+  !!$OMP private (loc_Eta,loc_rate,r_dist,max_eeta) &
+  !!$OMP shared (alamc,eeta,v,vcorot,vpar,vm,imin_j,j1,j2,joff) &
+  !!$OMP shared (xmin,ymin,fac,fudgec,bir,sini,L_dktime,dktime,sunspot_number) &
+  !!$OMP shared (dt,eps)
   DO kc = 1, kcsize
     !If oxygen is to be added, must change this!
     IF (alamc(kc) < 0.0) THEN
@@ -8398,7 +8400,7 @@ SUBROUTINE Move_plasma_grid_KAIJU (dt)
       ie = RCMPROTON
     END IF
 
-    IF (maxval(eeta(:,:,kc)) < machine_tiny) then
+    IF (maxval(eeta(:,:,kc)) == 0.0) then
       cycle
     ENDIF
     mass_factor = SQRT (xmass(1)/xmass(ie))
