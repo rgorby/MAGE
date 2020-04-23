@@ -8395,7 +8395,6 @@ SUBROUTINE Move_plasma_grid_KAIJU (dt)
   !$OMP shared (xmin,ymin,fac,fudgec,bir,sini,L_dktime,dktime,sunspot_number) &
   !$OMP shared (dt,eps)
   DO kc = 1, kcsize
-    !write(*,*) 'kc = ', kc
     !If oxygen is to be added, must change this!
     IF (alamc(kc) < 0.0) THEN
       ie = RCMELECTRON
