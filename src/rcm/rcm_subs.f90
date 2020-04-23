@@ -8386,6 +8386,7 @@ SUBROUTINE Move_plasma_grid_KAIJU (dt)
   !write(*,*) 'Kaiju plasma mover ...'
 
   !$OMP PARALLEL DO default(NONE) &
+  !$OMP schedule(dynamic) &
   !$OMP private (i,j,kc,ie,icut,clawiter) &
   !$OMP private (eeta2,veff,dvefdi,dvefdj,didt,djdt) &
   !$OMP private (mass_factor,loc_didt,loc_djdt) &
