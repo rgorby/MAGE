@@ -7,8 +7,8 @@ module rcm_precision
     INTEGER(iprec), parameter :: RCMIOVARS = 50
 
     INTEGER(iprec), parameter :: ICONWRITERESTART = 31337
-    INTEGER(iprec), parameter :: ICONWRITEOUTPUT = ICONWRITERESTART + 1
-    INTEGER(iprec), parameter :: ICONRESTART     = ICONWRITERESTART - 1
+    INTEGER(iprec), parameter :: ICONWRITEOUTPUT  = ICONWRITERESTART + 1
+    INTEGER(iprec), parameter :: ICONRESTART      = ICONWRITERESTART - 1
     INTEGER(iprec), parameter :: RCMELECTRON = 1
     INTEGER(iprec), parameter :: RCMPROTON   = 2
 

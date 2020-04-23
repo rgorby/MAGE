@@ -84,6 +84,7 @@ module rcmimag
                   dtCpl => vApp%DeepDT, &
                   nRes => vApp%IO%nRes)
 
+        
         call iXML%Set_Val(RunID,"/gamera/sim/runid","sim")
         RCMApp%rcm_runid = trim(RunID)
 

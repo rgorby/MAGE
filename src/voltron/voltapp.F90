@@ -103,7 +103,7 @@ module voltapp
         else
             call vApp%IO%init(xmlInp,vApp%time)
         endif
-
+        
         !Pull numbering from Gamera
         vApp%IO%nRes = gApp%Model%IO%nRes
         vApp%IO%nOut = gApp%Model%IO%nOut
