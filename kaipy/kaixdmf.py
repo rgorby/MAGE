@@ -156,9 +156,18 @@ def AddVectors(Grid,fname,vIds,cDims,vDims,Nd,nStp):
 def getLoc(gDims,vDims):
 	vDims = np.array(vDims,dtype=np.int)
 	
-	Ngx,Ngy,Ngz = gDims-1
-	Nvx,Nvy,Nvz = vDims
-
+	Nd = len(vDims)
+	if (Nd == 3):
+		Ngx,Ngy,Ngz = gDims-1
+		Nvx,Nvy,Nvz = vDims
+	elif (Nd==2):
+		Ngx,Ngy = gDims-1
+		Nvx,Nvy = vDims
+		Ngz = 0
+		Nvz = 0
+	else:
+		print("Not enough dimensions!")
+		quit()
 	#For now just testing for cell centers
 	if ( (Ngx == Nvx) and (Ngy == Nvy) and (Ngz == Nvz) ):
 		vLoc = "Cell" #Cell-centered data

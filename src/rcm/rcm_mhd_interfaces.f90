@@ -7,7 +7,7 @@ module rcm_mhd_interfaces
     USE Rcm_mod_subs, ONLY : isize, jsize, jwrap, pi, colat, aloct
     implicit none
     integer(ip), parameter :: RCMINIT=0,RCMADVANCE=1,RCMRESTART=2,RCMWRITERESTART=-2,RCMWRITEOUTPUT=-3,RCMWRITETIMING=-1
-    logical :: doRCMVerbose = .false.
+    logical :: doRCMVerbose = .FALSE.
     integer(ip), parameter :: RCMTOPCLOSED=-1,RCMTOPOPEN=+1
 
     !Scaling parameters

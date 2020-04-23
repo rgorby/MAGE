@@ -36,8 +36,14 @@ program rcmx
     CALL SYSTEM("rm -rf RCMFiles > /dev/null 2>&1")
 
     RunID = "rcmx"
-    write(*,'(a,$)')' input MHD time start, end and dt: '
-    read(5,*)mhd_time_start,mhd_time_end,mhd_dt
+    mhd_time_start = 0.0
+    mhd_time_end   = 20.0
+    mhd_dt = 5.0
+
+    write(*,*) 'Start / End / dt = ', mhd_time_start,mhd_time_end,mhd_dt
+
+    !write(*,'(a,$)')' input MHD time start, end and dt: '
+    !read(5,*)mhd_time_start,mhd_time_end,mhd_dt
 
     ! initialize
     call rcm_mhd(mhd_time_start,mhd_dt,RM,RCMINIT)
