@@ -5,10 +5,9 @@ module rcm_mhd_io
     use rcm_mhd_mod,  ONLY : rcm_mhd
     use rcm_mod_subs, ONLY : colat, aloct
 
-    integer, parameter :: MAXRCMIOVAR = 30
+    integer, parameter   , private :: MAXRCMIOVAR = 30
     character(len=strLen), private :: h5File,RCMH5
-
-    real(rp), parameter, private :: IMGAMMA = 5.0/3.0
+    real(rp), parameter  , private :: IMGAMMA = 5.0/3.0
 
     contains
 !--------------
@@ -192,16 +191,14 @@ module rcm_mhd_io
         t0   = GetIOReal(IOVars,"time")
 
         if (ioExist(inH5,"nRes")) then
-            write(*,*) 'Found nRes'
             call ClearIO(IOVars) !Reset IO chain
             call AddInVar(IOVars,"nRes",vTypeO=IOINT  )
             call ReadVars(IOVars,doSP,inH5)
             nRes = GetIOInt(IOVars,"nRes")
-            RCMApp%rcm_nRes = nRes !Next step already taken into account
-        else
-            RCMApp%rcm_nRes = nRes+1 !Holds step for *NEXT* restart
+            RCMApp%rcm_nRes = nRes 
         endif
 
+        RCMApp%rcm_nRes = nRes + 1 !Holds step for *NEXT* restart
     end subroutine RCMRestartInfo
 
 end module rcm_mhd_io

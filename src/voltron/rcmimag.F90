@@ -98,6 +98,7 @@ module rcmimag
             call RCMRestartInfo(RCMApp,iXML,t0)
 
             write(*,*) 'Restarting RCM @ t = ', t0
+            vApp%time = t0 !Set vApp's time to correct value from restart
             call rcm_mhd(t0,dtCpl,RCMApp,RCMRESTART,iXML=iXML)
         else
             t0 = vApp%time
@@ -530,4 +531,5 @@ module rcmimag
 
         call WriteRCMRestart(imag%rcmCpl,nRes,MJD,time)
     end subroutine doRCMRestart
+    
 end module rcmimag
