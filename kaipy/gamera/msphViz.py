@@ -131,6 +131,7 @@ def PlotJyXZ(gsph,nStp,xyBds,Ax,AxCB=None,jScl=None):
 
 #Add MPI contours
 def PlotMPI(gsph,Ax,ashd=0.5):
+	gCol = mpiCol
 	for i in range(gsph.Ri):
 		i0 = i*gsph.dNi
 		Ax.plot(gsph.xxi[i0,:],gsph.yyi[i0,:],mpiCol,linewidth=cLW,alpha=ashd)
