@@ -17,6 +17,8 @@ cLW = 0.25
 bz0Col = "magenta"
 mpiCol = "deepskyblue"
 
+jMax = 10.0 #Max current for contours
+
 #Default pressure colorbar
 vP = kv.genNorm(1.0e-2,10.0,doLog=True)
 
@@ -104,7 +106,29 @@ def PlotMerid(gsph,nStp,xyBds,Ax,doDen=False,doRCM=False,AxCB=None,doClear=True,
 		Ax.set_ylabel('SM-Z [Re]')
 		Ax.yaxis.tick_right()
 		Ax.yaxis.set_label_position('right')
-		
+
+def PlotJyXZ(gsph,nStp,xyBds,Ax,AxCB=None,jScl=None):
+	if (jScl is None):
+		#VERY LAZY scaling for current
+		#Scale current to nA/m^2
+		#Current is curl(B) = mag field / Re
+		# mu0 J = curl(B)
+		jScl = 4.58/( (6.371*1.0e+6)*(4.0*np.pi*1.0e+2) )  # Convert field to nT/m
+		#jScl => A/m2
+		jScl = jScl*1.0e+9
+	vJ = kv.genNorm(jMax)
+	jCMap = "seismic"
+	Nc = 15
+	cVals = np.linspace(-jMax,jMax,Nc)
+
+	if (AxCB is not None):
+		AxCB.clear()
+		kv.genCB(AxCB,vJ,"Jy [nA/m2]",cM=jCMap)
+	Q = jScl*gsph.EggSlice("Jy",nStp,doEq=False)
+	
+	Ax.contour(kv.reWrap(gsph.xxc),kv.reWrap(gsph.yyc),kv.reWrap(Q),cVals,norm=vJ,cmap=jCMap,linewidths=cLW)
+
+
 #Add MPI contours
 def PlotMPI(gsph,Ax,ashd=0.5):
 	for i in range(gsph.Ri):

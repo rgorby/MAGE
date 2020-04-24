@@ -96,7 +96,8 @@ if __name__ == "__main__":
 	
 	mviz.PlotEqB(gsph,nStp,xyBds,AxL,AxC1)
 	mviz.PlotMerid(gsph,nStp,xyBds,AxR,doDen,doRCM,AxC2)
-	
+	#mviz.PlotJyXZ(gsph,nStp,xyBds,AxR,AxC3)
+
 	gsph.AddTime(nStp,AxL,xy=[0.025,0.89],fs="x-large")
 	gsph.AddSW(nStp,AxL,xy=[0.625,0.025],fs="small")
 
