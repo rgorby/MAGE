@@ -226,6 +226,4 @@ if __name__ == "__main__":
 			AxL.plot(gsph.xxi[:,j0], gsph.yyi[:,j0],gCol,linewidth=LW,alpha=ashd)
 			AxR.plot(gsph.xxi[:,j0], gsph.yyi[:,j0],gCol,linewidth=LW,alpha=ashd)
 
-
-
 	kv.savePic(fOut,bLenX=45)
