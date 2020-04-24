@@ -118,8 +118,10 @@ contains
               else
                   iEnd = gamAppMpi%Grid%ieg
               endif
+          elseif(gamAppMpi%Grid%hasUpperBC(IDIR) .and. iPeriodic .and. gamAppMpi%Grid%NumRi .eq. 1 .and. l .eq. IDIR) then
+              iEnd = gamAppMpi%Grid%ie+1
           else
-              iEnd = gamAppMpi%grid%ie
+              iEnd = gamAppMpi%Grid%ie
           endif
           if(gamAppMpi%Grid%hasUpperBC(JDIR) .and. .not. jPeriodic) then
               if(l .eq. JDIR) then
@@ -127,6 +129,8 @@ contains
               else
                   jEnd = gamAppMpi%Grid%jeg
               endif
+          elseif(gamAppMpi%Grid%hasUpperBC(JDIR) .and. jPeriodic .and. gamAppMpi%Grid%NumRj .eq. 1 .and. l .eq. JDIR) then
+              jEnd = gamAppMpi%Grid%je+1
           else
               jEnd = gamAppMpi%Grid%je
           endif
@@ -136,6 +140,8 @@ contains
               else
                   kEnd = gamAppMpi%Grid%keg
               endif
+          elseif(gamAppMpi%Grid%hasUpperBC(KDIR) .and. kPeriodic .and. gamAppMpi%Grid%NumRk .eq. 1 .and. l .eq. KDIR) then
+              kEnd = gamAppMpi%Grid%ke+1
           else
               kEnd = gamAppMpi%Grid%ke
           endif
@@ -220,14 +226,23 @@ contains
       ! check all ghosts
       l=IDIR
       do i=gamAppMpi%Grid%isg,gamAppMpi%Grid%ieg+1
+          if(iPeriodic) then
+              iIndex = 1+modulo(i+gamAppMpi%Grid%ijkShift(IDIR)-1, gamAppMpi%Grid%Nip*gamAppMpi%Grid%NumRi)
+          else
+              iIndex = i+gamAppMpi%Grid%ijkShift(IDIR)
+          endif
           do j=gamAppMpi%Grid%jsg,gamAppMpi%Grid%jeg
+              if(jPeriodic) then
+                  jIndex = 1+modulo(j+gamAppMpi%Grid%ijkShift(JDIR)-1, gamAppMpi%Grid%Njp*gamAppMpi%Grid%NumRj)
+              else
+                  jIndex = j+gamAppMpi%Grid%ijkShift(JDIR)
+              endif
               do k=gamAppMpi%Grid%ksg,gamAppMpi%Grid%keg
-                  iIndex = 1+modulo(i+gamAppMpi%Grid%ijkShift(IDIR)-1, &
-                      gamAppMpi%Grid%Nip*gamAppMpi%Grid%NumRi)
-                  jIndex = 1+modulo(j+gamAppMpi%Grid%ijkShift(JDIR)-1, &
-                      gamAppMpi%Grid%Njp*gamAppMpi%Grid%NumRj)
-                  kIndex = 1+modulo(k+gamAppMpi%Grid%ijkShift(KDIR)-1, &
-                      gamAppMpi%Grid%Nkp*gamAppMpi%Grid%NumRk)
+                  if(kPeriodic) then
+                      kIndex = 1+modulo(k+gamAppMpi%Grid%ijkShift(KDIR)-1, gamAppMpi%Grid%Nkp*gamAppMpi%Grid%NumRk)
+                  else
+                      kIndex = k+gamAppMpi%Grid%ijkShift(KDIR)
+                  endif
                   checkVal = lVal*l + &
                       iVal*iIndex + &
                       jVal*jIndex + &
@@ -239,14 +254,23 @@ contains
       enddo
       l=JDIR
       do i=gamAppMpi%Grid%isg,gamAppMpi%Grid%ieg
+          if(iPeriodic) then
+              iIndex = 1+modulo(i+gamAppMpi%Grid%ijkShift(IDIR)-1, gamAppMpi%Grid%Nip*gamAppMpi%Grid%NumRi)
+          else
+              iIndex = i+gamAppMpi%Grid%ijkShift(IDIR)
+          endif
           do j=gamAppMpi%Grid%jsg,gamAppMpi%Grid%jeg+1
+              if(jPeriodic) then
+                  jIndex = 1+modulo(j+gamAppMpi%Grid%ijkShift(JDIR)-1, gamAppMpi%Grid%Njp*gamAppMpi%Grid%NumRj)
+              else
+                  jIndex = j+gamAppMpi%Grid%ijkShift(JDIR)
+              endif
               do k=gamAppMpi%Grid%ksg,gamAppMpi%Grid%keg
-                  iIndex = 1+modulo(i+gamAppMpi%Grid%ijkShift(IDIR)-1, &
-                      gamAppMpi%Grid%Nip*gamAppMpi%Grid%NumRi)
-                  jIndex = 1+modulo(j+gamAppMpi%Grid%ijkShift(JDIR)-1, &
-                      gamAppMpi%Grid%Njp*gamAppMpi%Grid%NumRj)
-                  kIndex = 1+modulo(k+gamAppMpi%Grid%ijkShift(KDIR)-1, &
-                      gamAppMpi%Grid%Nkp*gamAppMpi%Grid%NumRk)
+                  if(kPeriodic) then
+                      kIndex = 1+modulo(k+gamAppMpi%Grid%ijkShift(KDIR)-1, gamAppMpi%Grid%Nkp*gamAppMpi%Grid%NumRk)
+                  else
+                      kIndex = k+gamAppMpi%Grid%ijkShift(KDIR)
+                  endif
                   checkVal = lVal*l + &
                       iVal*iIndex + &
                       jVal*jIndex + &
@@ -258,14 +282,23 @@ contains
       enddo
       l=KDIR
       do i=gamAppMpi%Grid%isg,gamAppMpi%Grid%ieg
+          if(iPeriodic) then
+              iIndex = 1+modulo(i+gamAppMpi%Grid%ijkShift(IDIR)-1, gamAppMpi%Grid%Nip*gamAppMpi%Grid%NumRi)
+          else
+              iIndex = i+gamAppMpi%Grid%ijkShift(IDIR)
+          endif
           do j=gamAppMpi%Grid%jsg,gamAppMpi%Grid%jeg
+              if(jPeriodic) then
+                  jIndex = 1+modulo(j+gamAppMpi%Grid%ijkShift(JDIR)-1, gamAppMpi%Grid%Njp*gamAppMpi%Grid%NumRj)
+              else
+                  jIndex = j+gamAppMpi%Grid%ijkShift(JDIR)
+              endif
               do k=gamAppMpi%Grid%ksg,gamAppMpi%Grid%keg+1
-                  iIndex = 1+modulo(i+gamAppMpi%Grid%ijkShift(IDIR)-1, &
-                      gamAppMpi%Grid%Nip*gamAppMpi%Grid%NumRi)
-                  jIndex = 1+modulo(j+gamAppMpi%Grid%ijkShift(JDIR)-1, &
-                      gamAppMpi%Grid%Njp*gamAppMpi%Grid%NumRj)
-                  kIndex = 1+modulo(k+gamAppMpi%Grid%ijkShift(KDIR)-1, &
-                      gamAppMpi%Grid%Nkp*gamAppMpi%Grid%NumRk)
+                  if(kPeriodic) then
+                      kIndex = 1+modulo(k+gamAppMpi%Grid%ijkShift(KDIR)-1, gamAppMpi%Grid%Nkp*gamAppMpi%Grid%NumRk)
+                  else
+                      kIndex = k+gamAppMpi%Grid%ijkShift(KDIR)
+                  endif
                   checkVal = lVal*l + &
                       iVal*iIndex + &
                       jVal*jIndex + &
@@ -284,22 +317,22 @@ contains
       if(.not. iPeriodic) then
           deallocate(gamAppMpi%Grid%externalBCs(INI)%p)
           deallocate(gamAppMpi%Grid%externalBCs(OUTI)%p)
-          allocate(mpiNullBc_T :: gamAppMpi%Grid%externalBCs(INI)%p)
-          allocate(mpiNullBc_T :: gamAppMpi%Grid%externalBCs(OUTI)%p)
+          allocate(gamAppMpi%Grid%externalBCs(INI)%p,source=mpiNullBc_T(INI))
+          allocate(gamAppMpi%Grid%externalBCs(OUTI)%p,source=mpiNullBc_T(OUTI))
       endif
 
       if(.not. jPeriodic) then
           deallocate(gamAppMpi%Grid%externalBCs(INJ)%p)
           deallocate(gamAppMpi%Grid%externalBCs(OUTJ)%p)
-          allocate(mpiNullBc_T :: gamAppMpi%Grid%externalBCs(INJ)%p)
-          allocate(mpiNullBc_T :: gamAppMpi%Grid%externalBCs(OUTJ)%p)
+          allocate(gamAppMpi%Grid%externalBCs(INJ)%p,source=mpiNullBc_T(INJ))
+          allocate(gamAppMpi%Grid%externalBCs(OUTJ)%p,source=mpiNullBc_T(OUTJ))
       endif
 
       if(.not. kPeriodic) then
           deallocate(gamAppMpi%Grid%externalBCs(INK)%p)
           deallocate(gamAppMpi%Grid%externalBCs(OUTK)%p)
-          allocate(mpiNullBc_T :: gamAppMpi%Grid%externalBCs(INK)%p)
-          allocate(mpiNullBc_T :: gamAppMpi%Grid%externalBCs(OUTK)%p)
+          allocate(gamAppMpi%Grid%externalBCs(INK)%p,source=mpiNullBc_T(INK))
+          allocate(gamAppMpi%Grid%externalBCs(OUTK)%p,source=mpiNullBc_T(OUTK))
       endif
 
   end subroutine removeBCs
