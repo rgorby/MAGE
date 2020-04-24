@@ -1,6 +1,7 @@
 module rcm_mhd_io
     use rcm_mhd_interfaces
     use ioh5
+    use xml_input
     use rcm_mhd_mod,  ONLY : rcm_mhd
     use rcm_mod_subs, ONLY : colat, aloct
 
@@ -158,4 +159,49 @@ module rcm_mhd_io
         call rcm_mhd(time,TINY,RCMApp,RCMWRITERESTART)
         
     end subroutine WriteRCMRestart
+
+    subroutine RCMRestartInfo(RCMApp,xmlInp,t0)
+        type(rcm_mhd_t)  , intent(inout) :: RCMApp
+        type(XML_Input_T), intent(in)    :: xmlInp
+        real(rp), intent(out) :: t0
+
+        integer :: nRes
+        character(len=strLen) :: resID,nStr,inH5
+        type(IOVAR_T), dimension(MAXRCMIOVAR) :: IOVars
+        logical :: doSP
+
+        call xmlInp%Set_Val(resID,"/gamera/restart/resID","msphere")
+        call xmlInp%Set_Val(nRes ,"/gamera/restart/nRes" ,-1)
+        !Get number string
+        if (nRes == -1) then
+            nStr = "XXXXX"
+        else
+            write (nStr,'(I0.5)') nRes
+        endif
+        
+        inH5 = trim(resID) // ".RCM.Res." // trim(nStr) // ".h5"
+
+        call CheckFileOrDie(inH5,"Restart file not found ...")
+
+        !Get time data out of restart
+        doSP = .false. !Restarts are always double precision
+
+        call ClearIO(IOVars) !Reset IO chain
+        call AddInVar(IOVars,"time",vTypeO=IOREAL )
+        call ReadVars(IOVars,doSP,inH5)
+        t0   = GetIOReal(IOVars,"time")
+
+        if (ioExist(inH5,"nRes")) then
+            write(*,*) 'Found nRes'
+            call ClearIO(IOVars) !Reset IO chain
+            call AddInVar(IOVars,"nRes",vTypeO=IOINT  )
+            call ReadVars(IOVars,doSP,inH5)
+            nRes = GetIOInt(IOVars,"nRes")
+            RCMApp%rcm_nRes = nRes !Next step already taken into account
+        else
+            RCMApp%rcm_nRes = nRes+1 !Holds step for *NEXT* restart
+        endif
+
+    end subroutine RCMRestartInfo
+
 end module rcm_mhd_io

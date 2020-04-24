@@ -7792,7 +7792,6 @@ bjmod_real = MODULO(bj-REAL(jwrap),REAL(jsize-jwrap-1)) + REAL(jwrap)
 !
 !
         !HDF5 Restart reader
-
         subroutine ReadRCMRestart(runid,nStp)
           use ioh5
           use files
@@ -7807,9 +7806,13 @@ bjmod_real = MODULO(bj-REAL(jwrap),REAL(jsize-jwrap-1)) + REAL(jwrap)
         !Prepare for reading
           doSP = .false. !Restarts are always double precision
           nres = nStp-1 !nStp holds number for *NEXT* restart output
-
-          write (H5File, '(A,A,I0.5,A)') trim(runid), ".RCM.Res.", nres, ".h5"
-
+          if (nres == -1) then
+            !Use sym link
+            H5File = trim(runid) // ".RCM.Res.XXXXX.h5"
+          else
+            !Use actual #
+            write (H5File, '(A,A,I0.5,A)') trim(runid), ".RCM.Res.", nres, ".h5"
+          endif
           write(*,*) 'Restarting RCM with file, ', trim(H5File)
           call ClearIO(IOVars) !Reset IO chain
 
@@ -7925,15 +7928,12 @@ bjmod_real = MODULO(bj-REAL(jwrap),REAL(jsize-jwrap-1)) + REAL(jwrap)
           if (isRestart) then
             doSP = .false. !Double precision restarts
             write (H5File, '(A,A,I0.5,A)') trim(runid), ".RCM.Res.", nStp, ".h5"
-            !write(*,*) 'RCM: Writing restart to ', trim(H5File)
           else
             !Regular output
             doSP = .true.
             H5File = trim(runid) // ".rcm.h5"
             write (gStr, '(A,I0)') "Step#", nStp
-            !write(*,*) 'RCM: Writing output to ', trim(H5File), '/',trim(gStr)
           endif
-
 
         !Attributes
           call AddOutVar(IOVars,"time",1.0_rp*itimei)
@@ -7970,7 +7970,6 @@ bjmod_real = MODULO(bj-REAL(jwrap),REAL(jsize-jwrap-1)) + REAL(jwrap)
           call AddOutVar(IOVars,"rcmbirk"   ,birk    )
           call AddOutVar(IOVars,"rcmbirkavg",birk_avg)
 
-
           call AddOutVar(IOVars,"rcmv",v)
           call AddOutVar(IOVars,"rcmvavg",v_avg)
 
@@ -7985,6 +7984,7 @@ bjmod_real = MODULO(bj-REAL(jwrap),REAL(jsize-jwrap-1)) + REAL(jwrap)
           
         !Done staging output, now let er rip
           if (isRestart) then
+            call AddOutVar(IOVars,"nRes",nStp)
             call CheckAndKill(H5File) !Always overwrite restarts
             call WriteVars(IOVars,doSP,H5File)
             !Create link to latest restart

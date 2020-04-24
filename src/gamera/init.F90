@@ -106,30 +106,70 @@ module init
         !Always read the full mesh file
         if (doH5g) call xmlInp%Set_Val(inH5,"sim/H5Grid","gMesh.h5")
         if (Model%isRestart .and. (.not. present(noRestart) .or. .not. noRestart)) then
-            call xmlInp%Set_Val(inH5,"restart/resFile","Res.h5")
+            !Get restart file information
+            call getRestart(Model,Grid,xmlInp,inH5)
 
-            !If case is tiled, adjust the h5 filename for each rank
-            if(Grid%isTiled) then
-                ! location of the third-to-last period to extract the requested end of the restart
-                dotLoc = INDEX(inH5,".Res.")
-
-                write (inH5, '(A,A)') &
-                    trim(genRunId(Model%RunID,Grid%NumRi,Grid%NumRj,Grid%NumRk,Grid%Ri+1,Grid%Rj+1,Grid%Rk+1)), &
-                    trim(inH5(dotLoc:))
-                write (*,*) 'Tiled case, adjusting restart file to ',trim(inH5)
-            endif
         endif
 
         !Do grid generation
         if (doH5g .or. Model%isRestart) then
             !Use H5 input for Grid
-            if (Model%isLoud) write(*,*) 'Reading grid from file ', trim(inH5)
+            if (Model%isLoud) write(*,*) 'Reading grid from file: ', trim(inH5)
             call readH5Grid(Model,Grid,inH5)
         else
             !Create grid (corners) from XML info
             call genGridXML(Model,Grid,xmlInp)
         endif
     end subroutine ReadCorners
+
+    !Get name of restart file
+    subroutine getRestart(Model,Grid,xmlInp,inH5)
+        type(Model_T)    , intent(inout)   :: Model
+        type(Grid_T)     , intent(in)      :: Grid
+        type(XML_Input_T), intent(inout)   :: xmlInp
+        character(len=strLen), intent(out) :: inH5
+
+        integer :: nRes
+        character(len=strLen) :: resID,bStr,nStr
+
+        if (xmlInp%Exists("restart/resFile")) then
+            if (Model%isLoud) then
+                write(*,*) ''
+                write(*,*) 'As of 23 April 2020 restarts are specified with ID/# instead of filename.'
+                write(*,*) 'Instead of restart/resFile, specify restart/resID and restart/nRes.'
+                write(*,*) 'The restart file msphere.Res.00005.h5 would be: '
+                write(*,*) '   <restart resId="msphere" nRes="5"/>'
+                write(*,*) 'Specifying nRes="-1" will read the XXXXX symbolic link.'
+                write(*,*) ''
+                write(*,*) "If you're seeing this and the info is not on the wiki"
+                write(*,*) "you should add it because obviously I didn't."
+                write(*,*) ''
+            endif
+            write(*,*) "Quitting ..."
+            stop
+        endif
+
+        call xmlInp%Set_Val(resID,"restart/resID","msphere")
+        call xmlInp%Set_Val(nRes,"restart/nRes" ,-1)
+
+        !Get filename base
+        if (Grid%isTiled) then
+            !If case is tiled, adjust the h5 filename for each rank
+            bStr = genRunId(resID,Grid%NumRi,Grid%NumRj,Grid%NumRk,Grid%Ri+1,Grid%Rj+1,Grid%Rk+1)
+        else
+            bStr = trim(resID)
+        endif
+
+        !Get number string
+        if (nRes == -1) then
+            nStr = "XXXXX"
+        else
+            write (nStr,'(I0.5)') nRes
+        endif
+        inH5 = trim(bStr) // ".Res." // trim(nStr) // ".h5"
+        write(*,*) 'Assigned restart file: ', trim(inH5)
+        call CheckFileOrDie(inH5,"Restart file not found ...")
+    end subroutine getRestart
 
     subroutine CalcGridInfo(Model,Grid,State,oState,Solver,xmlInp,userInitFunc)
         type(Model_T), intent(inout) :: Model
@@ -165,18 +205,7 @@ module init
         if (Model%isRestart) then
             !If restart replace State variable w/ restart file
             !Make sure inH5 is set to restart
-            call xmlInp%Set_Val(inH5,"restart/resFile","Res.h5")
-
-            !If case is tiled, adjust the h5 filename for each rank
-            if(Grid%isTiled) then
-                ! location of the third-to-last period to extract the requested end of the restart
-                dotLoc = INDEX(inH5,".Res.")
-
-                write (inH5, '(A,A)') &
-                    trim(genRunId(Model%RunID,Grid%NumRi,Grid%NumRj,Grid%NumRk,Grid%Ri+1,Grid%Rj+1,Grid%Rk+1)), &
-                    trim(inH5(dotLoc:))
-                write (*,*) 'Tiled case, adjusting restart file to ',trim(inH5)
-            endif
+            call getRestart(Model,Grid,xmlInp,inH5)
 
             !Test for resetting time
             call xmlInp%Set_Val(doReset ,"restart/doReset" ,.false.)

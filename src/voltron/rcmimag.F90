@@ -22,6 +22,8 @@ module rcmimag
     real(rp), private :: rEqMin = 0.0
     real(rp), private :: PPDen = 50.0 !Plasmapause density
 
+    logical, parameter, private :: doKillRCMDir = .true. !Whether to always kill RCMdir before starting
+
     !Information taken from MHD flux tubes
     !TODO: Figure out RCM boundaries
 
@@ -77,26 +79,33 @@ module rcmimag
         type(voltApp_T), intent(inout) :: vApp
 
         character(len=strLen) :: RunID
-
+        real(rp) :: t0
+        
         associate(RCMApp => imag%rcmCpl, &
                   imag2mix => vApp%imag2mix, &
-                  t0 => vApp%time, &
-                  dtCpl => vApp%DeepDT, &
-                  nRes => vApp%IO%nRes)
+                  dtCpl => vApp%DeepDT)
 
-        
         call iXML%Set_Val(RunID,"/gamera/sim/runid","sim")
         RCMApp%rcm_runid = trim(RunID)
 
         if (isRestart) then
-            RCMApp%rcm_nRes = nRes
+            if (doKillRCMDir) then
+                !Kill RCMFiles directory even on restart
+                call KillRCMDir()
+            endif
+
+            !Get t0 and nRes necessary for RCM restart
+            call RCMRestartInfo(RCMApp,iXML,t0)
+
             write(*,*) 'Restarting RCM @ t = ', t0
             call rcm_mhd(t0,dtCpl,RCMApp,RCMRESTART,iXML=iXML)
         else
-            CALL SYSTEM("rm -rf RCMFiles > /dev/null 2>&1")
+            t0 = vApp%time
+            call KillRCMDir()
             write(*,*) 'Initializing RCM ...'
             call rcm_mhd(t0,dtCpl,RCMApp,RCMINIT,iXML=iXML)
         endif
+
         call init_rcm_mix(RCMApp,imag2mix)
 
         !Start up IO
@@ -107,6 +116,11 @@ module rcmimag
 
         end associate
 
+        contains
+            subroutine KillRCMDir()
+                write(*,*) 'Nuking RCMfiles/ ...'
+                CALL SYSTEM("rm -rf RCMfiles > /dev/null 2>&1")
+            end subroutine KillRCMDir
     end subroutine initRCM
 
     !Advance RCM from Voltron data
