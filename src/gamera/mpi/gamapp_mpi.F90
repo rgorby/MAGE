@@ -32,6 +32,7 @@ module gamapp_mpi
         integer(MPI_ADDRESS_KIND), dimension(:), allocatable :: sendDisplsBxyz, recvDisplsBxyz
         ! Debugging flags
         logical :: printMagFluxFaceError = .false.
+        real(rp) :: faceError = 0.0_rp
 
     end type gamAppMpi_T
 
@@ -514,6 +515,29 @@ module gamapp_mpi
         end associate
     end subroutine Hatch_mpi
 
+    subroutine consoleOutput_mpi(gamAppMpi)
+        type(gamAppMpi_T), intent(inout) :: gamAppMpi
+        real(rp) :: totalFaceError = 0.0_rp
+        integer :: ierr
+
+        if(gamAppMpi%Grid%Ri==0 .and. gamAppMpi%Grid%Rj==0 .and. gamAppMpi%Grid%Rk==0) then
+            call consoleOutput(gamAppMpi%Model,gamAppMpi%Grid,gamAppMpi%State)
+
+            ! gamera mpi specific output
+            if(gamAppMpi%printMagFluxFaceError) then
+                write(*,*) ANSICYAN
+                write(*,*) 'GAMERA MPI'
+                call MPI_Reduce(gamAppMpi%faceError, totalFaceError, 1, MPI_MYFLOAT, MPI_SUM, gamAppMpi%gamMpiComm,ierr)
+                write(*,'(a,f8.3)') 'Total MF Face Error = ', totalFaceError
+                write(*,'(a)',advance="no") ANSIRESET!, ''
+            endif
+        else
+            if(gamAppMpi%printMagFluxFaceError) then
+            endif
+        endif
+
+    end subroutine
+
     subroutine updateMpiBCs(gamAppMpi)
         type(gamAppMpi_T), intent(inout) :: gamAppMpi
 
@@ -606,6 +630,11 @@ module gamapp_mpi
         integer :: ierr, length
         character(len=strLen) :: message
 
+        ! arrays for calculating mag flux face error, if applicable
+        real(rp), dimension(:,:), allocatable :: maxI
+        real(rp), dimension(:,:), allocatable :: maxJ
+        real(rp), dimension(:,:), allocatable :: maxK
+
         if(gamAppMpi%gamMpiComm /= MPI_COMM_NULL) then
             ! just tell MPI to use the arrays we defined during initialization to send and receive data!
 
@@ -622,6 +651,15 @@ module gamapp_mpi
             endif
 
             if(gamAppMpi%Model%doMHD) then
+                if(gamAppMpi%printMagFluxFaceError) then
+                    if(.not. allocated(maxI)) allocate(maxI(gamAppMpi%grid%js:gamAppMpi%grid%je,gamAppMpi%grid%ks:gamAppMpi%grid%ke))
+                    if(.not. allocated(maxJ)) allocate(maxJ(gamAppMpi%grid%is:gamAppMpi%grid%ie,gamAppMpi%grid%ks:gamAppMpi%grid%ke))
+                    if(.not. allocated(maxK)) allocate(maxK(gamAppMpi%grid%is:gamAppMpi%grid%ie,gamAppMpi%grid%js:gamAppMpi%grid%je))
+                    maxI = gamAppMpi%state%magFlux(gamAppMpi%grid%ie+1,gamAppMpi%grid%js:gamAppMpi%grid%je,gamAppMpi%grid%ks:gamAppMpi%grid%ke,IDIR)
+                    maxJ = gamAppMpi%state%magFlux(gamAppMpi%grid%is:gamAppMpi%grid%ie,gamAppMpi%grid%je+1,gamAppMpi%grid%ks:gamAppMpi%grid%ke,JDIR)
+                    maxK = gamAppMpi%state%magFlux(gamAppMpi%grid%is:gamAppMpi%grid%ie,gamAppMpi%grid%js:gamAppMpi%grid%je,gamAppMpi%grid%ke+1,KDIR)
+                endif
+
                 ! Magnetic Face Flux Data
                 call mpi_neighbor_alltoallw(gamAppMpi%State%magFlux, gamAppMpi%sendCountsMagFlux, &
                                             gamAppMpi%sendDisplsMagFlux, gamAppMpi%sendTypesMagFlux, &
@@ -632,6 +670,12 @@ module gamapp_mpi
                     call MPI_Error_string( ierr, message, length, ierr)
                     print *,message(1:length)
                     call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+                endif
+                if(gamAppMpi%printMagFluxFaceError) then
+                    gamAppMpi%faceError = &
+                      sum(abs(gamAppMpi%state%magFlux(gamAppMpi%grid%ie+1,gamAppMpi%grid%js:gamAppMpi%grid%je,gamAppMpi%grid%ks:gamAppMpi%grid%ke,IDIR) - maxI)) + &
+                      sum(abs(gamAppMpi%state%magFlux(gamAppMpi%grid%is:gamAppMpi%grid%ie,gamAppMpi%grid%je+1,gamAppMpi%grid%ks:gamAppMpi%grid%ke,JDIR) - maxJ)) + &
+                      sum(abs(gamAppMpi%state%magFlux(gamAppMpi%grid%is:gamAppMpi%grid%ie,gamAppMpi%grid%js:gamAppMpi%grid%je,gamAppMpi%grid%ke+1,KDIR) - maxK))
                 endif
 
                 ! Magnetic Field Cell Data
