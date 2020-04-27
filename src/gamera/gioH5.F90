@@ -213,23 +213,6 @@ module gioH5
         real (rp), dimension(:,:,:,:), allocatable :: VecA,VecB !Full-sized arrays
         real(rp) :: totDivB,MJD
 
-        if(writeGhosts) then
-            ! for debugging
-            iMin = Gr%isg
-            iMax = Gr%ieg
-            jMin = Gr%jsg
-            jMax = Gr%jeg
-            kMin = Gr%ksg
-            kMax = Gr%keg
-        else
-            iMin = Gr%is
-            iMax = Gr%ie
-            jMin = Gr%js
-            jMax = Gr%je
-            kMin = Gr%ks
-            kMax = Gr%ke
-        endif
-
         !Check if root variables need to be written
         if (doRoot) then
             call writeH5GridInit(Model,Gr)
@@ -237,6 +220,25 @@ module gioH5
         endif
         !Reset IO chain
         call ClearIO(IOVars)
+
+        if(writeGhosts) then
+            ! for debugging
+            call AddOutVar(IOVars,'hasGhosts',1)
+            iMin = Gr%isg
+            iMax = Gr%ieg
+            jMin = Gr%jsg
+            jMax = Gr%jeg
+            kMin = Gr%ksg
+            kMax = Gr%keg
+        else
+            call AddOutVar(IOVars,'hasGhosts',0)
+            iMin = Gr%is
+            iMax = Gr%ie
+            jMin = Gr%js
+            jMax = Gr%je
+            kMin = Gr%ks
+            kMax = Gr%ke
+        endif
 
         !Allocate holders
         allocate(gVar (iMin:iMax,jMin:jMax,kMin:kMax))
