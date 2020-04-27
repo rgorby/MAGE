@@ -73,10 +73,11 @@ contains
             write (*, '(a,I8)')     '        ts = ', Model%ts
             call timeString(Model%dt,tStr)
             write (*, '(a,a)')      '        dt = ', trim(tStr)
+
             if (Model%dt0 > TINY) then
-                write (*, '(a,f8.3,a)')      '    dt/dt0 = ', 100*Model%dt/Model%dt0, '%'
-                write (*, '(a,f9.2,a,I0,a)') '      kZCs = ', ZCs/1000.0, ' (',nTh,' threads)'            
-            endif            
+                write (*, '(a,f8.3,a)')      '    dt/dt0 = ', 100*Model%dt/Model%dt0, '%'     
+            endif
+            write (*, '(a,f9.2,a,I0,a)') '      kZCs = ', ZCs/1000.0, ' (',nTh,' threads)'         
             write(*,'(a)',advance="no") ANSIRESET!, ''
         endif
 

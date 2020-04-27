@@ -83,6 +83,51 @@ module streamline
         
     end subroutine genStream
 
+    !!Gathers field line topology information
+    subroutine SliceFL(Model,ebState,x0,t,ebTrc)
+        real(rp), intent(in) :: x0(NDIM),t
+        type(chmpModel_T), intent(in) :: Model
+        type(ebState_T), intent(in)   :: ebState
+        type(ebTrc_T), intent(inout) :: ebTrc
+
+        type(fLine_T) :: bTrc
+        !Initialize the values
+        ebTrc%OCb = 0.0
+        ebTrc%dvB = 0.0
+        ebTrc%bD  = 0.0
+        ebTrc%bP  = 0.0
+        ebTrc%bS  = 0.0
+        ebTrc%bMin = 0.0
+
+        ebTrc%MagEQ(:) = 0.0
+        ebTrc%xEPm (:) = 0.0
+        ebTrc%xEPp (:) = 0.0
+
+        if (.not. inDomain(x0,Model,ebState%ebGr)) return
+        !Trace field line
+        call genStream(Model,ebState,x0,t,bTrc)
+
+        !Get diagnostics
+        ebTrc%OCb = 1.0*FLTop(Model,ebState%ebGr,bTrc)
+        if (ebTrc%OCb > 0) then
+            !Get flux-tube integrals
+            call FLThermo(Model,ebState%ebGr,bTrc,ebTrc%bD,ebTrc%bP,ebTrc%dvB)
+            ebTrc%bS   = FLEntropy(Model,ebState%ebGr,bTrc)
+
+            !Get magnetic equator info
+            call FLEq(Model,bTrc,ebTrc%MagEQ,ebTrc%bMin)
+
+            !Get endpoints info
+            associate(Np=>bTrc%Np,Nm=>bTrc%Nm)
+            ebTrc%xEPm = bTrc%xyz(-Nm,:)
+            ebTrc%xEPp = bTrc%xyz(+Np,:)
+            end associate
+
+        endif
+
+        !write(*,*) 'FL size = ', bTrc%Nm+bTrc%Np+1
+    end subroutine SliceFL
+
 !---------------------------------
 !Field line diagnostics
     !Flux tube volume

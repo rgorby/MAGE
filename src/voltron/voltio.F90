@@ -184,9 +184,10 @@ module voltio
         type(IOVAR_T), dimension(MAXVOLTIOVAR) :: IOVars
         real(rp) :: cpcp(2)
 
-        real(rp), dimension(:,:,:,:), allocatable :: inEijk,inExyz,gJ,Veb
-        real(rp), dimension(:,:,:), allocatable :: psi
+        real(rp), dimension(:,:,:,:), allocatable :: inEijk,inExyz,gJ,gB,Veb
+        real(rp), dimension(:,:,:), allocatable :: psi,D,Cs
         real(rp), dimension(NDIM) :: Exyz,Bdip,xcc
+        real(rp) :: Csijk,Con(NVAR)
 
         !Get data
         call getCPCP(vApp%mix2mhd%mixOutput,cpcp)
@@ -206,14 +207,20 @@ module voltio
 
         !Active cell centers
         allocate(gJ (Ni,Gr%js:Gr%je,Gr%ks:Gr%ke,1:NDIM))
+        allocate(gB (Ni,Gr%js:Gr%je,Gr%ks:Gr%ke,1:NDIM))
         allocate(Veb(Ni,Gr%js:Gr%je,Gr%ks:Gr%ke,1:NDIM))
         allocate(psi(Ni,Gr%js:Gr%je,Gr%ks:Gr%ke)) !Cell-centered potential
+        allocate(D  (Ni,Gr%js:Gr%je,Gr%ks:Gr%ke))
+        allocate(Cs (Ni,Gr%js:Gr%je,Gr%ks:Gr%ke))
 
         call Ion2MHD(gApp%Model,gApp%Grid,vApp%mix2mhd%gPsi,inEijk,inExyz,vApp%mix2mhd%rm2g)
 
+        D  = 0.0
+        Cs = 0.0
+
         !Subtract dipole before calculating current
         !$OMP PARALLEL DO default(shared) collapse(2) &
-        !$OMP private(i,j,k,Bdip,xcc,Exyz)
+        !$OMP private(i,j,k,Bdip,xcc,Exyz,Con,Csijk)
         do k=Gr%ks,Gr%ke
             do j=Gr%js,Gr%je
                 do i=1,Ni
@@ -225,6 +232,12 @@ module voltio
                     Bdip = MagsphereDipole(xcc,gApp%Model%MagM0)
                     Exyz = inExyz(i,j,k,:)
                     Veb(i,j,k,:) = cross(Exyz,Bdip)/dot_product(Bdip,Bdip)
+                    if (i == Ni) then
+                        Con = gApp%State%Gas(JpSt,j,k,:,BLK)
+                        D (i,j,k) = Con(DEN)
+                        call CellPress2Cs(gApp%Model,Con,Csijk)
+                        Cs(i,j,k) = Csijk
+                    endif
                 enddo
             enddo
         enddo
@@ -243,6 +256,16 @@ module voltio
         call AddOutVar(IOVars,"Jx",gJ(:,:,:,XDIR))
         call AddOutVar(IOVars,"Jy",gJ(:,:,:,YDIR))
         call AddOutVar(IOVars,"Jz",gJ(:,:,:,ZDIR))
+
+        gB = 0.0
+        gB(Ni,:,:,XDIR:ZDIR) = gApp%State%Bxyz(JpSt,Gr%js:Gr%je,Gr%ks:Gr%ke,XDIR:ZDIR)
+        call AddOutVar(IOVars,"dBx",gB(:,:,:,XDIR))
+        call AddOutVar(IOVars,"dBy",gB(:,:,:,YDIR))
+        call AddOutVar(IOVars,"dBz",gB(:,:,:,ZDIR))
+
+        call AddOutVar(IOVars,"D" ,D (:,:,:))
+        call AddOutVar(IOVars,"Cs",Cs(:,:,:))
+
 
         call AddOutVar(IOVars,"Vx",Veb(:,:,:,XDIR))
         call AddOutVar(IOVars,"Vy",Veb(:,:,:,YDIR))

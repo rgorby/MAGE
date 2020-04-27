@@ -220,5 +220,5 @@ if __name__ == "__main__":
 			gsph.CMIViz(AxR,nStp,dxy=dxy,loc="upper left",doNorth=True)
 			gsph.CMIViz(AxR,nStp,dxy=dxy,loc="lower left",doNorth=False)
 
-			fOut = oDir+"/vid.%04d.png"%(npl)
-			kv.savePic(fOut,bLenX=45)
+		fOut = oDir+"/vid.%04d.png"%(npl)
+		kv.savePic(fOut,bLenX=45)
