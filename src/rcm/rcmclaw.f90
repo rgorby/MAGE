@@ -62,8 +62,6 @@ MODULE rcmclaw
         qIN(:,:) = q(1:mx,1:my)
     end subroutine claw2ez95
 
-!====
-!Below here are the clawpack routines
     subroutine claw2(q, aux, t_end, max_allowed_dt, actual_max_cfl,limiter, iterations)
 
         implicit none
@@ -128,6 +126,8 @@ MODULE rcmclaw
 
     end subroutine claw2
 
+!====
+!Below here are the clawpack routines
     subroutine step2(q,aux,dt,limiter,cfl)
     ! Take one time step, updating q.
     ! On entry, q is the initial data for this step
