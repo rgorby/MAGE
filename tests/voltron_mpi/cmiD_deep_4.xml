@@ -28,3 +28,9 @@
   <solver maxitr="400" mr="30" tol_abs="1.0e-4" tol_rel="1.0e-4"/>
   <output dtOut="0.235109717868"/>
 </REMIX>
+<CHIMP>
+  <units uid="EARTHCODE"/>
+  <fields grType="LFM"/>
+  <domain dtype="SPH" rmin="2.0" rmax="25.0"/>
+</CHIMP>
+
