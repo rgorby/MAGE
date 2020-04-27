@@ -67,7 +67,8 @@ module msphutils
         character(len=strLen) :: pID !Planet ID string
         real(rp) :: M0g,rScl
         real(rp) :: gx0,gv0,gD0,gP0,gB0,gT0,gG0
-
+        logical :: doCorot
+        
         !Set some defaults
         gD0 = 1.67e-21 ! 1 AMU/cc [kg/m3]
         gG0 = 0.0 ! Grav acceleration [m/s2]
@@ -131,6 +132,12 @@ module msphutils
             call xmlInp%Set_Val(Rion,"prob/Rion",RionE*1.e6/gx0) 
             call xmlInp%Set_Val(Model%doGrav,"prob/doGrav",.true.)
         end select
+
+        call xmlInp%Set_Val(doCorot,"prob/doCorot",.true.)
+        if (.not. doCorot) then
+            !Zero out corotation potential
+            Psi0 = 0.0
+        endif
 
         gT0 = gx0/gv0 !Set time scaling
         gB0 = sqrt(Mu0*gD0)*gv0*1.0e+9 !T->nT

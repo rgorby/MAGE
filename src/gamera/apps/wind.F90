@@ -544,10 +544,10 @@ module wind
         call CheckFileOrDie(windBC%wID, "Error opening wind file, exiting ...")
 
         if (.not.(ioExist(trim(windBC%wID),"Temp"))) then
-           write(*,*) 'As of 5 October 2019 solar wind temperature, rather than thermal pressure,'
-           write(*,*) 'is stored in the solar wind h5 file by the omni2wind script.'
-           write(*,*) 'The solar wind file used in this run does not have the "Temp" variable. Quitting...'
-           stop
+            write(*,*) 'As of 5 October 2019 solar wind temperature, rather than thermal pressure,'
+            write(*,*) 'is stored in the solar wind h5 file by the omni2wind script.'
+            write(*,*) 'The solar wind file used in this run does not have the "Temp" variable. Quitting...'
+            stop
         endif
 
         !Setup input chain

@@ -632,14 +632,14 @@ module gioH5
         !Get main attributes
         if (doReset) then
             Model%IO%nOut = 0
-            Model%IO%nRes = int(IOVars(4)%data(1)) + 1
-            Model%ts = 0
-            Model%t = tReset
+            Model%IO%nRes = GetIOInt(IOVars,"nRes") + 1
+            Model%ts      = 0
+            Model%t       = tReset            
         else
-            Model%IO%nOut = int(IOVars(3)%data(1))
-            Model%IO%nRes = int(IOVars(4)%data(1)) + 1
-            Model%ts   = int(IOVars(5)%data(1))
-            Model%t = IOVars(6)%data(1)
+            Model%IO%nOut = GetIOInt(IOVars,"nOut")
+            Model%IO%nRes = GetIOInt(IOVars,"nRes") + 1
+            Model%ts      = GetIOInt(IOVars,"ts")
+            Model%t       = GetIOReal(IOVars,"t")
         endif
         
         !Set back to old dt0 if possible
@@ -647,9 +647,10 @@ module gioH5
             call ClearIO(IOVars)
             call AddInVar(IOVars,"dt0")
             call ReadVars(IOVars,.false.,inH5)
-            Model%dt0 = IOVars(1)%data(1)
+
+            Model%dt0 = GetIOReal(IOVars,"dt0")
             if (Model%isLoud) then
-                write(*,*) 'Found dt0, setting to ', Model%dt0
+                write(*,*) 'Found dt0, setting to ', Model%dt0*Model%Units%gT0
             endif
             if (Model%dt0<TINY*10) Model%dt0 = 0.0
         else

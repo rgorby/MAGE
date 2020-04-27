@@ -183,7 +183,6 @@ module psdutils
             enddo
         enddo
 
-
         psGr%time = t
         !Now calculate full PS volume element
         !dGx ~ L0^3
