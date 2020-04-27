@@ -129,9 +129,7 @@ program voltron_mpix
             !Console output
             if (gApp%Model%IO%doConsole(g2vComm%ts)) then
                 !Using console output from Gamera
-                if(gApp%Grid%Ri==0 .and. gApp%Grid%Rj==0 .and. gApp%Grid%Rk==0) then
-                    call consoleOutput(gApp%Model, gApp%Grid, gApp%State)
-                endif
+                call consoleOutput_mpi(gApp)
             endif
             !Restart output
             if (gApp%Model%IO%doRestart(gApp%Model%t)) then

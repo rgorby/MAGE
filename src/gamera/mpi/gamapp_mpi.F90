@@ -527,12 +527,13 @@ module gamapp_mpi
             if(gamAppMpi%printMagFluxFaceError) then
                 write(*,*) ANSICYAN
                 write(*,*) 'GAMERA MPI'
-                call MPI_Reduce(gamAppMpi%faceError, totalFaceError, 1, MPI_MYFLOAT, MPI_SUM, gamAppMpi%gamMpiComm,ierr)
+                call MPI_AllReduce(gamAppMpi%faceError, totalFaceError, 1, MPI_MYFLOAT, MPI_SUM, gamAppMpi%gamMpiComm, ierr)
                 write(*,'(a,f8.3)') 'Total MF Face Error = ', totalFaceError
                 write(*,'(a)',advance="no") ANSIRESET!, ''
             endif
         else
             if(gamAppMpi%printMagFluxFaceError) then
+                call MPI_AllReduce(gamAppMpi%faceError, totalFaceError, 1, MPI_MYFLOAT, MPI_SUM, gamAppMpi%gamMpiComm, ierr)
             endif
         endif
 
