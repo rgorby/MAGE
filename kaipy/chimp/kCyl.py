@@ -27,7 +27,7 @@ def getGrid(fIn,do4D=False):
 def getSlc(fIn,nStp=0,vID="jPSD",doWrap=False):
 	gID = "Step#%d"%(nStp)
 	with h5py.File(fIn,'r') as hf:
-		V = hf[gId][vID][()].T
+		V = hf[gID][vID][()].T
 	if (doWrap):
 		return kv.reWrap(V)
 	else:
