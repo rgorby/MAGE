@@ -17,8 +17,22 @@ MODULE rcmclaw
 
     real(rprec), parameter, private :: dx      = (mx - 0) / float(mx),  &  ! ---grid spacing
                                        dy      = (my - 0) / float(my)
-    integer, parameter, private :: RCMCLAWLIM = -1 !NOTE: Hard-coded limiter below
-    
+    !integer, parameter, private :: RCMCLAWLIM = -1 !NOTE: Hard-coded limiter below
+    integer, parameter, private :: RCMCLAWLIM = 0 !NOTE: Hard-coded limiter below
+
+    ! The method used is specified by order and transverse_order:
+    ! order == 1 if only first order increment waves are to be used;
+    ! order == 2 if second order correction terms are to be added, with a flux limiter as specified by mthlim.
+    !integer, parameter, private :: order = 2
+    integer, parameter, private :: order = 1
+
+    ! transverse_order ...
+    ! = 0 if no transverse propagation is to be applied. Increment and perhaps correction waves are propagated normal to the interface.
+    ! = 1 if transverse propagation of increment waves (but not correction waves, if any) is to be applied.
+    ! = 2 if transverse propagation of correction waves is also to be included.
+    !integer, parameter, private :: transverse_order = 2
+    integer, parameter, private :: transverse_order = 1
+
     CONTAINS
 
     subroutine claw2ez95(rcm_time_step_s,qIN,aIN,bIN,cIN,final_iterations)
@@ -145,17 +159,6 @@ MODULE rcmclaw
         real(rprec) :: dtdx, dtdy
         integer :: i, j
 
-    ! The method used is specified by order and transverse_order:
-    ! order == 1 if only first order increment waves are to be used;
-    ! order == 2 if second order correction terms are to be added, with a flux limiter as specified by mthlim.
-        integer, parameter :: order = 2
-
-    ! transverse_order ...
-    ! = 0 if no transverse propagation is to be applied. Increment and perhaps correction waves are propagated normal to the interface.
-    ! = 1 if transverse propagation of increment waves (but not correction waves, if any) is to be applied.
-    ! = 2 if transverse propagation of correction waves is also to be included.
-        integer, parameter :: transverse_order = 2
-
         dtdx = dt/dx; dtdy = dt/dy
         u(:,:) = aux(1,:,:)   ! x-velocity
         v(:,:) = aux(2,:,:)   ! y-velocity
@@ -249,6 +252,7 @@ MODULE rcmclaw
 
     end subroutine step2
 
+
     subroutine flux_limiter(ixy,limiter,wave,s,cfl2d)
 
     ! Apply a limiter to the waves.
@@ -289,7 +293,6 @@ MODULE rcmclaw
     !        elsewhere
     !            r = dotr/wave**2
     !        end where
-
         if (ixy == 1) then
             dotr(-1,:) = 0.0
             do j = 0, my+1; do i = 0, mx+1
@@ -303,7 +306,6 @@ MODULE rcmclaw
                 else
                     r(i,j) = dotr(i,j)/wave(i,j)**2
                 end if
-    !            wave = wave*max(0.d0, min(1.d0, 2.d0*r), min(2.d0, r))
             end do; end do
         else
             dotr(:,-1) = 0.0
@@ -318,68 +320,64 @@ MODULE rcmclaw
                 else
                     r(i,j) = dotr(i,j)/wave(i,j)**2
                 end if
-    !            wave = wave*max(0.d0, min(1.d0, 2.d0*r), min(2.d0, r))
             end do; end do
         end if
         
 
     ! Hard code limiter above (and comment out the code below) to get slight speedup
-        !K: Hard-coding limiter to avoid "illegal instruction" error w/ OMP
-        wave = wave*max(0.d0, min(1.d0, r))
+        select case(limiter)
 
-        ! select case(limiter)
+            case(1)  ! Minmod
+                wave = wave*max(0.d0, min(1.d0, r))
 
-        !     case(1)  ! Minmod
-        !         wave = wave*max(0.d0, min(1.d0, r))
+            case(2)  ! Superbee
+                wave = wave*max(0.d0, min(1.d0, 2.d0*r), min(2.d0, r))
 
-        !     case(2)  ! Superbee
-        !         wave = wave*max(0.d0, min(1.d0, 2.d0*r), min(2.d0, r))
+            case(3)  ! Van Leer
+                wave = wave*(r + abs(r)) / (1.d0 + abs(r))
 
-        !     case(3)  ! Van Leer
-        !         wave = wave*(r + abs(r)) / (1.d0 + abs(r))
+            case(4)  ! Monotonized - Centered
+                c = (1.d0 + r)/2.d0
+                wave = wave*max(0.d0, min(c, 2.d0, 2.d0*r))
 
-        !     case(4)  ! Monotonized - Centered
-        !         c = (1.d0 + r)/2.d0
-        !         wave = wave*max(0.d0, min(c, 2.d0, 2.d0*r))
+            case(5)  ! Beam Warming
+                wave = wave*r
 
-        !     case(5)  ! Beam Warming
-        !         wave = wave*r
+            case(6)  ! Fromm
+                wave = wave*0.5*(1 + r)
 
-        !     case(6)  ! Fromm
-        !         wave = wave*0.5*(1 + r)
+            case(7)  ! Albada 2
+                wave = wave*(r**2 + r) / (1 + r**2)
 
-        !     case(7)  ! Albada 2
-        !         wave = wave*(r**2 + r) / (1 + r**2)
+            case(8)  ! Albada 3
+                wave = wave*0.5*(1+r)*(1 - (abs(1-r)**3) / (1+abs(r)**3))
 
-        !     case(8)  ! Albada 3
-        !         wave = wave*0.5*(1+r)*(1 - (abs(1-r)**3) / (1+abs(r)**3))
+            case(9)  ! Roe's Ultrabee (CFL-superbee)
+                wave = wave*max(0.0, min(1.0, 2.0*r/max(0.001, cfl2d)), &
+                                     min(r,   2.0/max(0.001, 1-cfl2d)))
 
-        !     case(9)  ! Roe's Ultrabee (CFL-superbee)
-        !         wave = wave*max(0.0, min(1.0, 2.0*r/max(0.001, cfl2d)), &
-        !                              min(r,   2.0/max(0.001, 1-cfl2d)))
+            case(10)  ! Modified CFL-superbee with Beta = 2/3, theta = 1.0
+                beta = 0.666666667; theta = 1.0
 
-        !     case(10)  ! Modified CFL-superbee with Beta = 2/3, theta = 1.0
-        !         beta = 0.666666667; theta = 1.0
+                ultra = max(0.0, min(theta*2.0/max(0.001, 1-cfl2d),  &
+                                   r*theta*2.0/max(0.001, cfl2d)))
+                s2 = (1.0 + cfl2d)/3.0
 
-        !         ultra = max(0.0, min(theta*2.0/max(0.001, 1-cfl2d),  &
-        !                            r*theta*2.0/max(0.001, cfl2d)))
-        !         s2 = (1.0 + cfl2d)/3.0
+                wave = wave*max(0.0, min(ultra, max(1.0 + (s2 - beta/2.0) * (r - 1.0),  &
+                                                    1.0 + (s2 + beta/2.0) * (r - 1.0)) ))
 
-        !         wave = wave*max(0.0, min(ultra, max(1.0 + (s2 - beta/2.0) * (r - 1.0),  &
-        !                                             1.0 + (s2 + beta/2.0) * (r - 1.0)) ))
+            case(11)  ! Arora Roe
+                cfmod1 = max(0.001, cfl2d); cfmod2 = min(0.999, cfl2d)
+                theta = 0.95
 
-        !     case(11)  ! Arora Roe
-        !         cfmod1 = max(0.001, cfl2d); cfmod2 = min(0.999, cfl2d)
-        !         theta = 0.95
+                s1 = 2.0 / cfmod1
+                s2 = (1.0 + cfl2d) / 3.0
+                phimax = 2.0 / (1.0 - cfmod2)
 
-        !         s1 = 2.0 / cfmod1
-        !         s2 = (1.0 + cfl2d) / 3.0
-        !         phimax = 2.0 / (1.0 - cfmod2)
-
-        !         wave = wave*min( max(1.0 + s2*(r-1.0), (1.0 - theta)*s1), &
-        !                          max(theta*s1*r, (1.0 - theta)*phimax*r), &
-        !                          theta*phimax)
-        ! end select
+                wave = wave*min( max(1.0 + s2*(r-1.0), (1.0 - theta)*s1), &
+                                 max(theta*s1*r, (1.0 - theta)*phimax*r), &
+                                 theta*phimax)
+        end select
 
     end subroutine flux_limiter
 

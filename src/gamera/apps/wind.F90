@@ -473,7 +473,6 @@ module wind
                         else
                             swExyz = 0.0
                         endif
-                        !State%Efld(i,j,k,:) = State%Efld(i,j,k,:) + swExyz
                         State%Efld(i,j,k,:) = State%Efld(i,j,k,:) + wSW*swExyz
                     endif
 
@@ -502,7 +501,7 @@ module wind
         real(rp), intent(in) :: vSW
 
         real(rp), dimension(NDIM) :: Ed,Jd
-        real(rp) :: db2,db1,dlj,dlk,Vdj,Vdk,dl
+        real(rp) :: db2,db1,dl
         real(rp) :: bP,bM,Vd
         Ed = 0.0
         Jd = 0.0
@@ -539,21 +538,6 @@ module wind
         Ed(IDIR) = 0.0
         Ed(JDIR) = Vd*Jd(JDIR)*dl
         Ed(KDIR) = Vd*Jd(KDIR)*dl
-
-        ! !Calculate signal speeds, limited by edge sizes
-        ! dlj = Grid%edge(i,j,k,JDIR)
-        ! dlk = Grid%edge(i,j,k,KDIR)
-
-        !Vdj = min(vSW,Model%CFL*dlj/Model%dt)
-        !Vdk = min(vSW,Model%CFL*dlk/Model%dt)
-
-        ! !Max speed
-        ! Vdj = Model%CFL*dlj/Model%dt
-        ! Vdk = Model%CFL*dlk/Model%dt
-
-        ! Ed(IDIR) = 0.0
-        ! Ed(JDIR) = Vdj*Jd(JDIR)*dlj
-        ! Ed(KDIR) = Vdk*Jd(KDIR)*dlk
 
     end function DiffuseOuter
 

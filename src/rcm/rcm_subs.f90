@@ -8384,15 +8384,15 @@ SUBROUTINE Move_plasma_grid_KAIJU (dt)
   fac = 1.0E-3*signbe*bir*alpha*beta*dlam*dpsi*ri**2
 
   
-  !!$OMP PARALLEL DO default(NONE) &
-  !!$OMP schedule(dynamic) &
-  !!$OMP private (i,j,kc,ie,icut,clawiter) &
-  !!$OMP private (eeta2,veff,dvefdi,dvefdj,didt,djdt) &
-  !!$OMP private (mass_factor,loc_didt,loc_djdt) &
-  !!$OMP private (loc_Eta,loc_rate,r_dist,max_eeta) &
-  !!$OMP shared (alamc,eeta,v,vcorot,vpar,vm,imin_j,j1,j2,joff) &
-  !!$OMP shared (xmin,ymin,fac,fudgec,bir,sini,L_dktime,dktime,sunspot_number) &
-  !!$OMP shared (dt,eps)
+  !$OMP PARALLEL DO default(NONE) &
+  !$OMP schedule(dynamic) &
+  !$OMP private (i,j,kc,ie,icut,clawiter) &
+  !$OMP private (eeta2,veff,dvefdi,dvefdj,didt,djdt) &
+  !$OMP private (mass_factor,loc_didt,loc_djdt) &
+  !$OMP private (loc_Eta,loc_rate,r_dist,max_eeta) &
+  !$OMP shared (alamc,eeta,v,vcorot,vpar,vm,imin_j,j1,j2,joff) &
+  !$OMP shared (xmin,ymin,fac,fudgec,bir,sini,L_dktime,dktime,sunspot_number) &
+  !$OMP shared (dt,eps)
   DO kc = 1, kcsize
     !If oxygen is to be added, must change this!
     IF (alamc(kc) < 0.0) THEN
@@ -8469,7 +8469,9 @@ SUBROUTINE Move_plasma_grid_KAIJU (dt)
     loc_Eta (1:isize, 1:jsize-jwrap) = eeta (1:isize, jwrap:jsize-1, kc)     
 
     !Call clawpack
-    call claw2ez95(dt,loc_Eta,loc_didt,loc_djdt,loc_rate,clawiter)
+    !call claw2ez95(dt,loc_Eta,loc_didt,loc_djdt,loc_rate,clawiter)
+    call claw2ez95(dt,loc_Eta(1:isize,1:jsize-jwrap),loc_didt(1:isize,1:jsize-jwrap),loc_djdt(1:isize,1:jsize-jwrap),loc_rate(1:isize,1:jsize-jwrap),clawiter)
+    !call claw2ez95(dt,loc_Eta(1:isize,j1:j2),loc_didt(1:isize,j1:j2),loc_djdt(1:isize,j1:j2),loc_rate(1:isize,j1:j2),clawiter)
 
     !Copy out
     DO j = j1, j2
@@ -8489,6 +8491,7 @@ SUBROUTINE Move_plasma_grid_KAIJU (dt)
     eeta(:,:,kc) = MAX(eps*max_eeta,eeta(:,:,kc))
     CALL Circle (eeta(:,:,kc))    
   ENDDO !kc loop
+  
 END SUBROUTINE Move_plasma_grid_KAIJU
 
 !=========================================================================
