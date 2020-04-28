@@ -77,5 +77,5 @@ add_custom_target(CopyGrids DEPENDS ${gridFilesDest})
 file(GLOB_RECURSE allTestFiles "${CMAKE_CURRENT_SOURCE_DIR}/*.pf")
 set(allTestLibs baselib gamlib remixlib voltlib basempilib gammpilib voltmpilib tgiclib)
 add_pfunit_ctest (allTests TEST_SOURCES ${allTestFiles} LINK_LIBRARIES ${allTestLibs} MAX_PES 64)
-add_dependencies(allTests CopyInputs CopyGrids ${allTestLibs})
+add_dependencies(allTests CopyInputs CopyGrids caseTests gamTests mixTests voltTests gamMpiTests baseMpiTests caseMpiTests voltMpiTests ${allTestLibs})
 
