@@ -473,7 +473,8 @@ module wind
                         else
                             swExyz = 0.0
                         endif
-                        State%Efld(i,j,k,:) = State%Efld(i,j,k,:) + swExyz
+                        !State%Efld(i,j,k,:) = State%Efld(i,j,k,:) + swExyz
+                        State%Efld(i,j,k,:) = State%Efld(i,j,k,:) + wSW*swExyz
                     endif
 
                 enddo !i cells
@@ -533,7 +534,7 @@ module wind
 
         dl = sqrt(Grid%edge(i,j,k,JDIR)*Grid%edge(i,j,k,KDIR))
 
-        Vd = min(Model%Ca,Model%CFL*dl/Model%dt)
+        Vd = min(vSW,Model%CFL*dl/Model%dt)
 
         Ed(IDIR) = 0.0
         Ed(JDIR) = Vd*Jd(JDIR)*dl
