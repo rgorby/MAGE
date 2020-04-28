@@ -480,6 +480,15 @@ module wind
             enddo
         enddo
 
+        !Do some touchup
+        if (Model%doRing) then
+            if (Model%Ring%doE) then
+                State%Efld(Grid%ie-2:Grid%ie+1,Grid%je+1,:,KDIR) = 0.0
+            endif
+            if (Model%Ring%doS) then
+                State%Efld(Grid%ie-2:Grid%ie+1,Grid%js  ,:,KDIR) = 0.0
+            endif
+        endif
     end subroutine WindEFix
 
 
@@ -492,32 +501,58 @@ module wind
         real(rp), intent(in) :: vSW
 
         real(rp), dimension(NDIM) :: Ed,Jd
-        real(rp) :: db2,db1,dlj,dlk,Vdj,Vdk
-
+        real(rp) :: db2,db1,dlj,dlk,Vdj,Vdk,dl
+        real(rp) :: bP,bM,Vd
         Ed = 0.0
         Jd = 0.0
-        !Calculate current
-        !Jk = d_i (Bj) - d_j (Bi), db2 - db1 (see fields.F90)
         
-        db2 = State%magFlux(i,j,k,JDIR)/Grid%face(i,j,k,JDIR) - State%magFlux(i-1,j,k,JDIR)/Grid%face(i-1,j,k,JDIR)
-        db1 = State%magFlux(i,j,k,IDIR)/Grid%face(i,j,k,IDIR) - State%magFlux(i,j-1,k,IDIR)/Grid%face(i,j-1,k,IDIR)
+    !Calculate current
+        
+    !Jk = d_i (Bj) - d_j (Bi), db2 - db1 (see fields.F90)
+        !Trap for degenerate J face
+        bP = State%magFlux(i  ,j,k,JDIR)/max(Grid%face(i  ,j,k,JDIR),TINY)
+        bM = State%magFlux(i-1,j,k,JDIR)/max(Grid%face(i-1,j,k,JDIR),TINY)
+        db2 = bP-bM
+
+        bP = State%magFlux(i,j  ,k,IDIR)/Grid%face(i,j  ,k,IDIR)
+        bM = State%magFlux(i,j-1,k,IDIR)/Grid%face(i,j-1,k,IDIR)
+        db1 = bP-bM
+        
         Jd(KDIR) = db2 - db1
 
-        !Jj = d_k (Bi) - d_i (Bk)
-        db2 = State%magFlux(i,j,k,IDIR)/Grid%face(i,j,k,IDIR) - State%magFlux(i,j,k-1,IDIR)/Grid%face(i,j,k-1,IDIR)
-        db1 = State%magFlux(i,j,k,KDIR)/Grid%face(i,j,k,KDIR) - State%magFlux(i-1,j,k,KDIR)/Grid%face(i-1,j,k,KDIR)
+    !Jj = d_k (Bi) - d_i (Bk)
+        bP = State%magFlux(i,j,k  ,IDIR)/Grid%face(i,j,k  ,IDIR)
+        bM = State%magFlux(i,j,k-1,IDIR)/Grid%face(i,j,k-1,IDIR)
+        db2 = bP-bM
+
+        bP = State%magFlux(i  ,j,k,KDIR)/Grid%face(i  ,j,k,KDIR)
+        bM = State%magFlux(i-1,j,k,KDIR)/Grid%face(i-1,j,k,KDIR)
+        db1 = bP-bM
+
         Jd(JDIR) = db2 - db1
 
-        !Calculate signal speeds, limited by edge sizes
-        dlj = Grid%edge(i,j,k,JDIR)
-        dlk = Grid%edge(i,j,k,KDIR)
+        dl = sqrt(Grid%edge(i,j,k,JDIR)*Grid%edge(i,j,k,KDIR))
 
-        Vdj = min(vSW,Model%CFL*dlj/Model%dt)
-        Vdk = min(vSW,Model%CFL*dlk/Model%dt)
+        Vd = min(Model%Ca,Model%CFL*dl/Model%dt)
 
         Ed(IDIR) = 0.0
-        Ed(JDIR) = Vdj*Jd(JDIR)*dlj
-        Ed(KDIR) = Vdk*Jd(KDIR)*dlk
+        Ed(JDIR) = Vd*Jd(JDIR)*dl
+        Ed(KDIR) = Vd*Jd(KDIR)*dl
+
+        ! !Calculate signal speeds, limited by edge sizes
+        ! dlj = Grid%edge(i,j,k,JDIR)
+        ! dlk = Grid%edge(i,j,k,KDIR)
+
+        !Vdj = min(vSW,Model%CFL*dlj/Model%dt)
+        !Vdk = min(vSW,Model%CFL*dlk/Model%dt)
+
+        ! !Max speed
+        ! Vdj = Model%CFL*dlj/Model%dt
+        ! Vdk = Model%CFL*dlk/Model%dt
+
+        ! Ed(IDIR) = 0.0
+        ! Ed(JDIR) = Vdj*Jd(JDIR)*dlj
+        ! Ed(KDIR) = Vdk*Jd(KDIR)*dlk
 
     end function DiffuseOuter
 
