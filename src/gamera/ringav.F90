@@ -432,11 +432,11 @@ module ringav
     end subroutine PoleE
 
     !Given variaable defined over ring, remove 0-NFT modes and save coefficients
-    subroutine CleanRing(Model,Q,cFT,nFT)
+    subroutine CleanRing(Model,Q,cFT,numFT)
         type(Model_T), intent(in) :: Model
         real(rp), intent(inout) :: Q(Model%Ring%Np)
         real(rp), intent(out) :: cFT(0:NFTMAX,FTCOS:FTSIN)
-        integer, intent(in) :: nFT
+        integer, intent(in) :: numFT
 
         integer :: n,m
         real(rp) :: aScl,dp,phi
@@ -450,7 +450,7 @@ module ringav
         dp = 2.0*pi/Model%Ring%Np
         do n=1,Model%Ring%Np
             phi = dp*n-0.5*dp
-            do m=0,nFT
+            do m=0,numFT
                 cFT(m,FTCOS) = cFT(m,FTCOS) + Q(n)*cos(1.0*m*phi)
                 cFT(m,FTSIN) = cFT(m,FTSIN) + Q(n)*sin(1.0*m*phi)
             enddo
@@ -458,14 +458,14 @@ module ringav
 
         !Scale
         cFT(0,:)     = 0.5*aScl*cFT(0,:)
-        if (nFT>0) then
-            cFT(1:nFT,:) = 1.0*aScl*cFT(1:nFT,:)
+        if (numFT>0) then
+            cFT(1:numFT,:) = 1.0*aScl*cFT(1:numFT,:)
         endif
 
         !Subtract modes
         do n=1,Model%Ring%Np
             phi = dp*n-0.5*dp
-            do m=0,nFT
+            do m=0,numFT
                 Q(n) = Q(n) - cFT(m,FTCOS)*cos(1.0*m*phi) - cFT(m,FTSIN)*sin(1.0*m*phi)
             enddo !Loop over modes
         enddo !Loop over cells
@@ -473,11 +473,11 @@ module ringav
     end subroutine CleanRing
 
     !Given variaable defined over ring, return 0-NFT modes
-    subroutine DirtyRing(Model,Q,cFT,nFT)
+    subroutine DirtyRing(Model,Q,cFT,numFT)
         type(Model_T), intent(in) :: Model
         real(rp), intent(inout) :: Q(Model%Ring%Np)
-        real(rp), intent(in) :: cFT(0:NFT,FTCOS:FTSIN)
-        integer, intent(in) :: nFT
+        real(rp), intent(in) :: cFT(0:NFTMAX,FTCOS:FTSIN)
+        integer, intent(in) :: numFT
 
         integer :: n,m
         real(rp) :: dp,phi
@@ -487,7 +487,7 @@ module ringav
         dp = 2.0*pi/Model%Ring%Np
         do n=1,Model%Ring%Np
             phi = dp*n-0.5*dp
-            do m=0,nFT
+            do m=0,numFT
                 Q(n) = Q(n) + cFT(m,FTCOS)*cos(1.0*m*phi) + cFT(m,FTSIN)*sin(1.0*m*phi)
             enddo !Loop over modes
         enddo !Loop over cells
@@ -496,13 +496,13 @@ module ringav
 
 !Clean and dirty w/ scaling
     !ie for momentum, want to remove modes from velocity but not density
-    subroutine CleanRingWgt(Model,Q,cFT,w,isG,nFT)
+    subroutine CleanRingWgt(Model,Q,cFT,w,isG,numFT)
         type(Model_T), intent(in) :: Model
         real(rp), intent(inout) :: Q(Model%Ring%Np)
-        real(rp), intent(out)   :: cFT(0:NFT,FTCOS:FTSIN)
+        real(rp), intent(out)   :: cFT(0:NFTMAX,FTCOS:FTSIN)
         real(rp), intent(in)    :: w(Model%Ring%Np)
         logical , intent(in)    :: isG(Model%Ring%Np)
-        integer, intent(in) :: nFT
+        integer, intent(in) :: numFT
         integer :: n
         !DIR$ ASSUME_ALIGNED Q: ALIGN
         !DIR$ ASSUME_ALIGNED w: ALIGN
@@ -513,7 +513,7 @@ module ringav
             Q(n) = Q(n)/w(n)
         enddo
 
-        call CleanRing(Model,Q,cFT,nFT) !Done in place
+        call CleanRing(Model,Q,cFT,numFT) !Done in place
 
         !Now go back to Q*w
         do n=1,Model%Ring%Np
@@ -522,13 +522,13 @@ module ringav
 
     end subroutine CleanRingWgt
 
-    subroutine DirtyRingWgt(Model,Q,cFT,w,isG,nFT)
+    subroutine DirtyRingWgt(Model,Q,cFT,w,isG,numFT)
         type(Model_T), intent(in) :: Model
         real(rp), intent(inout) :: Q(Model%Ring%Np)
-        real(rp), intent(in)    :: cFT(0:NFT,FTCOS:FTSIN)
+        real(rp), intent(in)    :: cFT(0:NFTMAX,FTCOS:FTSIN)
         real(rp), intent(in)    :: w(Model%Ring%Np)
         logical , intent(in)    :: isG(Model%Ring%Np)
-        integer, intent(in) :: nFT
+        integer, intent(in) :: numFT
         integer :: n
         !DIR$ ASSUME_ALIGNED Q: ALIGN
         !DIR$ ASSUME_ALIGNED w: ALIGN
@@ -538,7 +538,7 @@ module ringav
         do n=1,Model%Ring%Np
             Q(n) = Q(n)/w(n)
         enddo
-        call DirtyRing(Model,Q,cFT,nFT)
+        call DirtyRing(Model,Q,cFT,numFT)
 
         !Now go back to Q*w
         do n=1,Model%Ring%Np
