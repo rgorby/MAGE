@@ -14,6 +14,7 @@ module voltapp
     use dates
     use kronos
     use voltio
+    use msphutils, only : RadIonosphere
     
     implicit none
 
@@ -224,7 +225,8 @@ module voltapp
         else
             call init_mix(vApp%remixApp%ion,[NORTH, SOUTH],RunID=RunID,isRestart=isRestart)
         endif
-
+        vApp%remixApp%ion%rad_iono_m = RadIonosphere() ! Returns in planetary radii
+        vApp%remixApp%ion%rad_iono_m = vApp%remixApp%ion%rad_iono_m * gApp%Model%units%gx0 
         !Set F10.7 from time series (using max)
         f107%wID = vApp%tilt%wID
         call f107%initTS("f10.7")
