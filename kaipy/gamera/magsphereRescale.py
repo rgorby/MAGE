@@ -19,6 +19,7 @@ def PushRestartMPI(outid,nRes,Ri,Rj,Rk,X,Y,Z,G,M,fInA):
 	print("Reading attributes from %s"%(fInA))
 	iH5 = h5py.File(fInA,'r')
 
+	Ns,Nv,Nk,Nj,Ni = G.shape
 	#Create output files
 	Nkp = Nk//Rk
 	Njp = Nj//Rj

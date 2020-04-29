@@ -88,7 +88,6 @@ if __name__ == "__main__":
 #Upscale from temp file
 	fTmp2X = "tempRes.31337.2x.h5"
 	
-	
 	#Open input and output
 	oH5 = h5py.File(fTmp2X,'w')
 	iH5 = h5py.File(fTmp,'r')
