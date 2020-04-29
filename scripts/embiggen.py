@@ -69,7 +69,7 @@ if __name__ == "__main__":
 	fTmp = "tempRes.31337.h5"
 	oH5 = h5py.File(fTmp,'w')
 
-	G,M = upscl.PullRestartMPI(bStr,nRes,iRi,iRj,iRk,oH5)
+	G,M = upscl.PullRestartMPI(bStr,nRes,iRi,iRj,iRk,din=None,oH5)
 
 	#Write main data
 	print("Writing plasma and field data to temp file...")
