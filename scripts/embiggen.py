@@ -67,7 +67,7 @@ if __name__ == "__main__":
 #Pull tiled restart, write to temp file
 	#Stupidly writing temp restart to reuse old code
 	fTmp = "tempRes.31337.h5"
-	oH5 = h5py.File(fOut,'w')
+	oH5 = h5py.File(fTmp,'w')
 
 	G,M = upscl.PullRestartMPI(bStr,nRes,iRi,iRj,iRk,oH5)
 
