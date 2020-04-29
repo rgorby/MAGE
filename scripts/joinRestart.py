@@ -55,44 +55,7 @@ if __name__ == "__main__":
 	fOut = outid + ".Res.%05d.h5"%(nRes)
 	oH5 = h5py.File(fOut,'w')
 
-	doInit = True
-	for i in range(Ri):
-		for j in range(Rj):
-			for k in range(Rk):
-				fID = kh5.genName(bStr,i,j,k,Ri,Rj,Rk,nRes)
-				print("Reading from %s"%(fID))
-
-				#Start with input data
-				fIn = dIn  + "/" + fID
-				iH5 = h5py.File(fIn,'r')
-
-				if (doInit):
-					Ns,Nv,Nkp,Njp,Nip = iH5['Gas'].shape
-					Nk = Rk*Nkp
-					Nj = Rj*Njp
-					Ni = Ri*Nip
-					G = np.zeros((Ns,Nv,Nk,Nj,Ni))
-					M = np.zeros((3,Nk+1,Nj+1,Ni+1))
-					for ka in iH5.attrs.keys():
-						aStr = str(ka)
-						#print(aStr)
-						oH5.attrs.create(ka,iH5.attrs[aStr])
-					doInit = False
-				iS = i*Nip
-				iE = iS+Nip
-				jS = j*Njp
-				jE = jS+Njp
-				kS = k*Nkp
-				kE = kS+Nkp
-
-				#print("MPI (%d,%d,%d) = [%d,%d]x[%d,%d]x[%d,%d]"%(i,j,k,iS,iE,jS,jE,kS,kE))
-				
-				G[:,:,kS:kE  ,jS:jE  ,iS:iE  ] = iH5['Gas'][:]
-				M[  :,kS:kE+1,jS:jE+1,iS:iE+1] = iH5['magFlux'][:]
-
-				#Close up
-				iH5.close()
-
+	G,M = upscl.PullRestartMPI(bStr,nRes,Ri,Rj,Rk)
 
 	#Write main data
 	print("Writing plasma and field data ...")
