@@ -83,7 +83,7 @@ def PushRestartMPI(outid,nRes,Ri,Rj,Rk,X,Y,Z,G,M,fInA):
 	iH5.close()
 
 #Get full data from a tiled restart file
-def PullRestartMPI(bStr,nRes,Ri,Rj,Rk,dIn=None):
+def PullRestartMPI(bStr,nRes,Ri,Rj,Rk,dIn=None,oH5=None):
 	doInit = True
 	for i in range(Ri):
 		for j in range(Rj):
@@ -105,10 +105,11 @@ def PullRestartMPI(bStr,nRes,Ri,Rj,Rk,dIn=None):
 					Ni = Ri*Nip
 					G = np.zeros((Ns,Nv,Nk,Nj,Ni))
 					M = np.zeros((3,Nk+1,Nj+1,Ni+1))
-					for ka in iH5.attrs.keys():
-						aStr = str(ka)
-						#print(aStr)
-						oH5.attrs.create(ka,iH5.attrs[aStr])
+					if (oH5 is not None):
+						for ka in iH5.attrs.keys():
+							aStr = str(ka)
+							#print(aStr)
+							oH5.attrs.create(ka,iH5.attrs[aStr])
 					doInit = False
 				iS = i*Nip
 				iE = iS+Nip

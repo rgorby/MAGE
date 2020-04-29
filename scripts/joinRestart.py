@@ -55,7 +55,7 @@ if __name__ == "__main__":
 	fOut = outid + ".Res.%05d.h5"%(nRes)
 	oH5 = h5py.File(fOut,'w')
 
-	G,M = upscl.PullRestartMPI(bStr,nRes,Ri,Rj,Rk,dIn)
+	G,M = upscl.PullRestartMPI(bStr,nRes,Ri,Rj,Rk,dIn,oH5)
 
 	#Write main data
 	print("Writing plasma and field data ...")

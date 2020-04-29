@@ -65,11 +65,12 @@ if __name__ == "__main__":
 	grid = args.grid
 	
 #Pull tiled restart, write to temp file
-	G,M = upscl.PullRestartMPI(bStr,nRes,iRi,iRj,iRk)
-
 	#Stupidly writing temp restart to reuse old code
 	fTmp = "tempRes.31337.h5"
 	oH5 = h5py.File(fOut,'w')
+
+	G,M = upscl.PullRestartMPI(bStr,nRes,iRi,iRj,iRk,oH5)
+
 	#Write main data
 	print("Writing plasma and field data to temp file...")
 	oH5.create_dataset("Gas",data=G)
@@ -131,4 +132,3 @@ if __name__ == "__main__":
 #Delete temp files
 	os.remove(fTmp)
 	os.remove(fTmp2X)
-	
