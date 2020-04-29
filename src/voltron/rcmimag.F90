@@ -15,7 +15,7 @@ module rcmimag
     use clocks
     use rcm_mhd_mod, ONLY : rcm_mhd
     use rcm_mhd_io
-    
+    use msphutils, only : MagMoment
     implicit none
 
     real(rp) :: RIonRCM !Units of Rp
@@ -488,7 +488,8 @@ module rcmimag
         real(rp) :: L,colat
         real(rp) :: mdipole
 
-        mdipole = EarthM0g*G2T ! dipole moment in T
+        !mdipole = EarthM0g*G2T ! dipole moment in T
+        mdipole = MagMoment()*G2T ! dipole moment in T
 
         colat = PI/2 - lat
         L = 1.0/(sin(colat)**2.0)
