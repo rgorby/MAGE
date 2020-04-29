@@ -89,6 +89,7 @@ module step
                 do i=is,ie
                     call CellDT(Model,Gr,State,i,j,k,dtijk)
                     dtMin = min(dtijk,dtMin)
+
                 enddo
             enddo
         enddo
@@ -188,6 +189,7 @@ module step
         real(rp) :: dtijk
         real(rp), dimension(NVAR) :: pW,pCon
         integer :: s
+        character(len=strLen) :: oStr
         isBad = .false.
 
         call CellDT(Model,Gr,State,i,j,k,dtijk)
@@ -195,21 +197,30 @@ module step
         if (isBad) then
             !Display information
             !$OMP CRITICAL
-            write(*,*) '<---------------->'
-            write(*,*) 'ijk = ',i,j,k
-            write(*,*) 'xyz = ', Gr%xyzcc(i,j,k,:)
-            write(*,*) 'Bxyz = ', State%Bxyz(i,j,k,:)
-            pCon = State%Gas(i,j,k,:,BLK)
-            call CellC2P(Model,pCon,pW)
-            write(*,'(A,5es12.2)') 'Bulk (PRIM) = ', pW
-            if (Model%doMultiF) then
-                do s=1,Model%nSpc
-                    pCon = State%Gas(i,j,k,:,s)
-                    call CellC2P(Model,pCon,pW)
-                    write(* ,'(A,I0,A,5es12.2)') "Fluid" , s, ' = ', pW
-                enddo
-            endif
-            write(*,*) '<---------------->'
+            write(*,'(A,3I5)')     '<------- Bad Cell @ ijk = ',i,j,k
+            write(*,'(A,3es12.2)') 'xyz       = ', Gr%xyzcc(i,j,k,:)
+            
+            oStr = 'Bxyz [' // trim(Model%gamOut%bID) // '] = '
+            write(*,'(A,3es12.2)') trim(oStr),State%Bxyz(i,j,k,:)*Model%gamOut%bScl
+
+            do s=0,Model%nSpc
+                !Get prim variables
+                pCon = State%Gas(i,j,k,:,BLK)
+                call CellC2P(Model,pCon,pW)
+
+                if (s > 0) then
+                    write(*,'(A,I0)') 'Fluid ', s
+                else
+                    write(*,'(A)') 'Bulk '
+                endif
+                !Den and pressure
+                oStr = '   D/P [' // trim(Model%gamOut%dID) // ',' // trim(Model%gamOut%pID) // '] = '
+                write(*,'(A,2es12.2)') trim(oStr),pW(DEN)*Model%gamOut%dScl,pW(PRESSURE)*Model%gamOut%pScl
+                !Velocity
+                oStr = '   Vxyz [' // trim(Model%gamOut%vID) // ']    = '
+                write(*,'(A,3es12.2)') trim(oStr),pW(VELX:VELZ)*Model%gamOut%vScl
+            enddo
+            write(*,'(A)') '------->'
             !$OMP END CRITICAL
 
         endif
