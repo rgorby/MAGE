@@ -15,7 +15,7 @@ KDIR = 2
 
 #Push restart data to an MPI tiling
 #fInA is a restart file to pull attributes from
-def PushRestartMPI(outid,nRes,Ri,Rj,Rk,fInA):
+def PushRestartMPI(outid,nRes,Ri,Rj,Rk,X,Y,Z,G,M,fInA):
 	print("Reading attributes from %s"%(fInA))
 	iH5 = h5py.File(fInA,'r')
 

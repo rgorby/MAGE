@@ -56,5 +56,5 @@ if __name__ == "__main__":
 	#Close input file
 	iH5.close()
 
-	upscl.PushRestartMPI(outid,nRes,Ri,Rj,Rk,fIn)
+	upscl.PushRestartMPI(outid,nRes,Ri,Rj,Rk,X,Y,Z,G,M,fIn)
 
