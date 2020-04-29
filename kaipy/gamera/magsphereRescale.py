@@ -83,7 +83,7 @@ def PushRestartMPI(outid,nRes,Ri,Rj,Rk,X,Y,Z,G,M,fInA):
 	iH5.close()
 
 #Get full data from a tiled restart file
-def PullRestartMPI(bStr,nRes,Ri,Rj,Rk):
+def PullRestartMPI(bStr,nRes,Ri,Rj,Rk,dIn=None):
 	doInit = True
 	for i in range(Ri):
 		for j in range(Rj):
@@ -92,7 +92,10 @@ def PullRestartMPI(bStr,nRes,Ri,Rj,Rk):
 				print("Reading from %s"%(fID))
 
 				#Start with input data
-				fIn = dIn  + "/" + fID
+				if (dIn is not None):
+					fIn = dIn  + "/" + fID
+				else:
+					fIn = fID
 				iH5 = h5py.File(fIn,'r')
 
 				if (doInit):
