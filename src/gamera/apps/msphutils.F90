@@ -39,7 +39,8 @@ module msphutils
     real(rp), private :: RhoCO = 1.0e-3 ! Number density
     real(rp), private :: CsCO  = 1.0e-2  ! Cs chillout, m/s
     real(rp), parameter, private :: cLim = 1.5 ! Cool when sound speed is above cLim*Ca
-
+    logical , parameter, private :: doLFMChill = .true. !Do LFM-style chilling
+    
     !Dipole cut values
     !real(rp), private :: rCut=4.5, lCut=3.5 !LFM values
     real(rp), private :: rCut=16.0,lCut=8.0
@@ -363,7 +364,7 @@ module msphutils
                         endif
 
                         !If density is low keep things chill by setting sound speed
-                        if (doChill) then
+                        if (doChill .and. doLFMChill) then
                             pCon = State%Gas(i,j,k,:,s)
                             call CellC2P(Model,pCon,pW)
                             !Set pressure to ensure Cs = CsCO

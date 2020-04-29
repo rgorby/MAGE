@@ -353,15 +353,15 @@ module ringav
         type(State_T), intent(inout) :: State
 
         integer :: nS,nR,fD
-        real(rp) :: tScl
+        real(rp) :: tScl,avgFlx
 
-        tScl = 1.0
         associate(bFlux=>State%magFlux)
         
         !Loop over slices
         !$OMP PARALLEL DO default(shared) &
-        !$OMP private(nS,nR,fD)
+        !$OMP private(nS,nR,fD,tScl,avgFlx)
         do nS=Model%Ring%nSi,Model%Ring%nSe+1
+            tScl = 1.0
             select case (Model%Ring%GridID)
             case ("cyl")
                 !Cylindrical
@@ -370,18 +370,24 @@ module ringav
                 bFlux(Gr%is,Gr%js:Gr%je+1,nS,fD) = bFlux(Gr%is,Gr%js:Gr%je+1,nS,fD) - sum(bFlux(Gr%is,Gr%js:Gr%je,nS,fD))/Model%Ring%Np
             case ("lfm")
                 fD = KDIR
+                !Diffuse over NumRings timesteps
                 if (Model%Ring%doS) then
                     nR = Gr%js
-                    bFlux(nS,nR,Gr%ks:Gr%ke+1,fD) = bFlux(nS,nR,Gr%ks:Gr%ke+1,fD) - tScl*sum(bFlux(nS,nR,Gr%ks:Gr%ke,fD))/Model%Ring%Np
+                    avgFlx = sum(bFlux(nS,nR,Gr%ks:Gr%ke,fD))/Model%Ring%Np
+                    tScl = 1.0/Model%Ring%Np
+                    bFlux(nS,nR,Gr%ks:Gr%ke+1,fD) = bFlux(nS,nR,Gr%ks:Gr%ke+1,fD) - tScl*avgFlx
                 endif
                 if (Model%Ring%doE) then
                     nR = Gr%je
-                    bFlux(nS,nR,Gr%ks:Gr%ke+1,fD) = bFlux(nS,nR,Gr%ks:Gr%ke+1,fD) - tScl*sum(bFlux(nS,nR,Gr%ks:Gr%ke,fD))/Model%Ring%Np
+                    avgFlx = sum(bFlux(nS,nR,Gr%ks:Gr%ke,fD))/Model%Ring%Np
+                    tScl = 1.0/Model%Ring%Np
+                    bFlux(nS,nR,Gr%ks:Gr%ke+1,fD) = bFlux(nS,nR,Gr%ks:Gr%ke+1,fD) - tScl*avgFlx
                 endif
             end select
         enddo
 
         end associate
+
     end subroutine CleanLoops
 
     !Set electric field values at pole prior to B-field update

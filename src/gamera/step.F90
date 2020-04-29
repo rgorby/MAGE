@@ -188,7 +188,7 @@ module step
 
         real(rp) :: dtijk
         real(rp), dimension(NVAR) :: pW,pCon
-        integer :: s
+        integer :: s,iG,jG,kG
         character(len=strLen) :: oStr
         isBad = .false.
 
@@ -197,7 +197,11 @@ module step
         if (isBad) then
             !Display information
             !$OMP CRITICAL
-            write(*,'(A,3I5)')     '<------- Bad Cell @ ijk = ',i,j,k
+            iG = i+Gr%ijkShift(IDIR)
+            jG = j+Gr%ijkShift(JDIR)
+            kG = k+Gr%ijkShift(KDIR)
+
+            write(*,'(A,3I5)')     '<------- Bad Cell @ ijk = ',iG,jG,kG
             write(*,'(A,3es12.2)') 'xyz       = ', Gr%xyzcc(i,j,k,:)
             
             oStr = 'Bxyz [' // trim(Model%gamOut%bID) // '] = '
