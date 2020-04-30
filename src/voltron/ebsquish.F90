@@ -121,24 +121,83 @@ module ebsquish
         !$OMP private(i)
         do i=ebGr%is,vApp%iDeep+1
             !x1 (regular average)
-            xyzSquish(i,ebGr%js  ,:,1) = sum(xyzSquish(i,ebGr%js  ,ebGr%ks:ebGr%ke,1))/Nk
-            xyzSquish(i,ebGr%je+1,:,1) = sum(xyzSquish(i,ebGr%je+1,ebGr%ks:ebGr%ke,1))/Nk
+            xyzSquish(i,ebGr%js  ,:,1) = ArithMean(xyzSquish(i,ebGr%js  ,ebGr%ks:ebGr%ke,1))
+            xyzSquish(i,ebGr%je+1,:,1) = ArithMean(xyzSquish(i,ebGr%je+1,ebGr%ks:ebGr%ke,1))
+
             !x2 (circular average)
             xyzSquish(i,ebGr%js  ,:,2) = CircMean(xyzSquish(i,ebGr%js  ,ebGr%ks:ebGr%ke,2))
             xyzSquish(i,ebGr%je+1,:,2) = CircMean(xyzSquish(i,ebGr%je+1,ebGr%ks:ebGr%ke,2))
         enddo
 
         vApp%chmp2mhd%iMax = vApp%iDeep
-
         end associate
+
     end subroutine Squish
 
+    !Linearly interpolate between the stride 2 projections
     subroutine FillSkips(ebModel,ebGr,iDeep,xyzSquish,isGood)
         type(chmpModel_T), intent(in) :: ebModel
         type(ebGrid_T)   , intent(in) :: ebGr
         integer          , intent(in) :: iDeep
         real(rp), intent(inout) :: xyzSquish(ebGr%is:ebGr%ie+1,ebGr%js:ebGr%je+1,ebGr%ks:ebGr%ke+1,2)
         logical , intent(inout) :: isGood   (ebGr%is:ebGr%ie+1,ebGr%js:ebGr%je+1,ebGr%ks:ebGr%ke+1)
+
+        integer :: i,j,k,nSkp
+        real(rp), dimension(2) :: X1s,X2s
+
+        nSkp = 2
+
+        !Start w/ i edge sweep
+        !$OMP PARALLEL DO default(shared) collapse(2) &
+        !$OMP private(i,j,k,X1s,X2s)
+        do k=ebGr%ks,ebGr%ke+1,nSkp
+            do j=ebGr%js,ebGr%je+1,nSkp
+                do i=ebGr%is+1,iDeep,nSkp
+                    if ( isGood(i-1,j,k) .and. isGood(i+1,j,k) ) then
+                        X1s = [xyzSquish(i-1,j,k,1),xyzSquish(i+1,j,k,1)]
+                        X2s = [xyzSquish(i-1,j,k,2),xyzSquish(i+1,j,k,2)]
+                        xyzSquish(i,j,k,1) = ArithMean(X1s)
+                        xyzSquish(i,j,k,2) = CircMean (X2s)
+                        isGood(i,j,k) = .true.
+                    endif
+                enddo
+            enddo
+        enddo
+
+        !Next do denser j sweep
+        !$OMP PARALLEL DO default(shared) collapse(2) &
+        !$OMP private(i,j,k,X1s,X2s)
+        do k=ebGr%ks,ebGr%ke+1,nSkp
+            do j=ebGr%js+1,ebGr%je,nSkp
+                do i=ebGr%is,iDeep+1,1
+                    if ( isGood(i,j-1,k) .and. isGood(i,j+1,k) ) then
+                        X1s = [xyzSquish(i,j-1,k,1),xyzSquish(i,j+1,k,1)]
+                        X2s = [xyzSquish(i,j-1,k,2),xyzSquish(i,j+1,k,2)]
+                        xyzSquish(i,j,k,1) = ArithMean(X1s)
+                        xyzSquish(i,j,k,2) = CircMean (X2s)
+                        isGood(i,j,k) = .true.
+                    endif
+                enddo
+            enddo
+        enddo
+
+        !Finally, finish with denser-er k sweep
+        !$OMP PARALLEL DO default(shared) collapse(2) &
+        !$OMP private(i,j,k,X1s,X2s)
+        do k=ebGr%ks+1,ebGr%ke,nSkp
+            do j=ebGr%js,ebGr%je+1,1
+                do i=ebGr%is,iDeep+1,1
+                    if ( isGood(i,j,k-1) .and. isGood(i,j,k+1) ) then
+                        X1s = [xyzSquish(i,j,k-1,1),xyzSquish(i,j,k+1,1)]
+                        X2s = [xyzSquish(i,j,k-1,2),xyzSquish(i,j,k+1,2)]
+                        xyzSquish(i,j,k,1) = ArithMean(X1s)
+                        xyzSquish(i,j,k,2) = CircMean (X2s)
+                        isGood(i,j,k) = .true.
+                    endif
+
+                enddo
+            enddo
+        enddo
 
     end subroutine FillSkips
 
