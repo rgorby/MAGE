@@ -106,7 +106,9 @@ program voltron_mpix
             call stepGamera_mpi(gApp)
 
             !Do any updates to Voltron
+            call Tic("StepVoltron")
             call performStepVoltron(g2vComm,gApp)
+            call Toc("StepVoltron")
         
             !Coupling    
             deepPerformed = .false.
@@ -164,7 +166,9 @@ program voltron_mpix
             call Tic("Omega")
 
             !Do any updates to Voltron
+            call Tic("StepVoltronAndWait")
             call stepVoltron_mpi(vApp)
+            call Toc("StepVoltronAndWait")
 
             !Coupling
             deepPerformed = .false.

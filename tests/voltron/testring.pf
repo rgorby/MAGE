@@ -1,0 +1,168 @@
+module testring
+  use pfUnit
+  use voltapp
+  use gamapp
+  use uservoltic
+
+  implicit none
+
+contains
+
+  @before
+  subroutine firstSerial()
+  end subroutine firstSerial
+
+  @after
+  subroutine lastSerial()
+  end subroutine lastSerial
+
+  @test
+  subroutine ringAvgDensityTest()
+    ! testing that gas and mag quantities are conserved during ring averaging
+    type(voltApp_T) :: voltronApp
+    type(gamApp_T) :: gameraApp
+
+    character(len=strLen) :: caseInput = 'cmiD.xml'
+    real(rp), dimension(:,:), allocatable :: denSum
+    real(rp) :: temp
+    integer :: i,j,k,r
+    character(len=strLen) :: checkMessage
+
+    call initGamera(gameraApp, initUser, caseInput)
+
+    call initVoltron(voltronApp, gameraApp, caseInput)
+
+    ! set specific values to gas and magFlux
+    do k=gameraApp%Grid%ks,gameraApp%Grid%ke
+        do r=1,gameraApp%Model%Ring%NumR
+            do i=gameraApp%Grid%is,gameraApp%Grid%ie
+                j=gameraApp%Grid%js+r-1
+                if(k < gameraApp%grid%ke/2) then
+                    gameraApp%State%Gas(i,j,k,DEN,0) = 1
+                else
+                    gameraApp%State%Gas(i,j,k,DEN,0) = 0
+                endif
+                j = gameraApp%Grid%je-r+1
+                if(k < gameraApp%grid%ke/2) then
+                    gameraApp%State%Gas(i,j,k,DEN,0) = 1
+                else
+                    gameraApp%State%Gas(i,j,k,DEN,0) = 0
+                endif
+            enddo
+        enddo
+    enddo
+
+    ! record the values that should be conserved
+    allocate(denSum(gameraApp%Grid%is:gameraApp%Grid%ie,1:gameraApp%Model%Ring%NumR*2))
+    do r=1,gameraApp%Model%Ring%NumR
+        do i = gameraApp%Grid%is,gameraApp%Grid%ie
+            j = gameraApp%Grid%js+r-1
+            denSum(i,r) = sum(gameraApp%State%Gas(i,j,gameraApp%Grid%ks:gameraApp%Grid%ke,DEN,0))
+            j = gameraApp%Grid%je-r+1
+            denSum(i,gameraApp%Model%Ring%NumR+r) = sum(gameraApp%State%Gas(i,j,gameraApp%Grid%ks:gameraApp%Grid%ke,DEN,0))
+        enddo
+    enddo
+
+    ! perform ring averaging
+    call RingAverage(gameraApp%Model, gameraApp%Grid, gameraApp%State)
+
+    ! ensure the values are conserved
+    do r=1,gameraApp%Model%Ring%NumR
+        do i = gameraApp%Grid%is,gameraApp%Grid%ie
+            j = gameraApp%Grid%js+r-1
+            temp = sum(gameraApp%State%Gas(i,j,gameraApp%Grid%ks:gameraApp%Grid%ke,DEN,0))
+            write (checkMessage,'(A,I0,A,I0,A)') 'density wrong at (',i,',',j,')'
+            @assertEqual(temp,denSum(i,r),1e-4_rp*gameraApp%Grid%Nkp,trim(checkMessage))
+
+            j = gameraApp%Grid%je-r+1
+            temp = sum(gameraApp%State%Gas(i,j,gameraApp%Grid%ks:gameraApp%Grid%ke,DEN,0))
+            write (checkMessage,'(A,I0,A,I0,A)') 'density wrong at (',i,',',j,')'
+            @assertEqual(temp,denSum(i,gameraApp%Model%Ring%NumR+r),1e-4_rp*gameraApp%Grid%Nkp,trim(checkMessage))
+        enddo
+    enddo
+
+    deallocate(denSum)
+
+  end subroutine
+
+  !@test
+  subroutine ringAvgConservationTest()
+    ! testing that gas and mag quantities are conserved during ring averaging
+    type(voltApp_T) :: voltronApp
+    type(gamApp_T) :: gameraApp
+
+    character(len=strLen) :: caseInput = 'cmiD.xml'
+    real(rp), dimension(:,:), allocatable :: denSum, momSumX, momSumY, momSumZ
+    real(rp) :: totalDiv, temp
+    integer :: i,j,k,r
+
+    call initGamera(gameraApp, initUser, caseInput)
+
+    call initVoltron(voltronApp, gameraApp, caseInput)
+
+    ! set specific values to gas and magFlux
+    do k=gameraApp%Grid%ks,gameraApp%Grid%ke
+        do r=1,gameraApp%Model%Ring%NumR
+            do i=gameraApp%Grid%is,gameraApp%Grid%ie
+                j=gameraApp%Grid%js+r-1
+                if(k < gameraApp%grid%ke/2) then
+                    gameraApp%State%Gas(i,j,k,DEN,0) = 1
+                else
+                    gameraApp%State%Gas(i,j,k,DEN,0) = 0
+                endif
+                gameraApp%State%Gas(i,j,k,MOMX,0) = sin(1*k*PI)*gameraApp%State%Gas(i,j,k,DEN,0)
+                gameraApp%State%Gas(i,j,k,MOMY,0) = sin(2*k*PI)*gameraApp%State%Gas(i,j,k,DEN,0)
+                gameraApp%State%Gas(i,j,k,MOMZ,0) = sin(3*k*PI)*gameraApp%State%Gas(i,j,k,DEN,0)
+                ! this does not set all ring faces, but it's fine
+                gameraApp%State%magFlux(i,j,k,IDIR) = sin(4*k*PI)
+                gameraApp%State%magFlux(i,j,k,JDIR) = sin(5*k*PI)
+                gameraApp%State%magFlux(i,j,k,KDIR) = sin(6*k*PI)
+
+                j = gameraApp%Grid%je-r+1
+                if(k < gameraApp%grid%ke/2) then
+                    gameraApp%State%Gas(i,j,k,DEN,0) = 1
+                else
+                    gameraApp%State%Gas(i,j,k,DEN,0) = 0
+                endif
+                gameraApp%State%Gas(i,j,k,MOMX,0) = sin(1*k*PI)*gameraApp%State%Gas(i,j,k,DEN,0)
+                gameraApp%State%Gas(i,j,k,MOMY,0) = sin(2*k*PI)*gameraApp%State%Gas(i,j,k,DEN,0)
+                gameraApp%State%Gas(i,j,k,MOMZ,0) = sin(3*k*PI)*gameraApp%State%Gas(i,j,k,DEN,0)
+                gameraApp%State%magFlux(i,j,k,IDIR) = sin(4*k*PI)
+                gameraApp%State%magFlux(i,j,k,JDIR) = sin(5*k*PI)
+                gameraApp%State%magFlux(i,j,k,KDIR) = sin(6*k*PI)
+            enddo
+        enddo
+    enddo
+
+    ! record the values that should be conserved
+    allocate(denSum(gameraApp%Grid%is:gameraApp%Grid%ie,1:gameraApp%Model%Ring%NumR*2))
+    do r=1,gameraApp%Model%Ring%NumR
+        do i = gameraApp%Grid%is,gameraApp%Grid%ie
+            j = gameraApp%Grid%js+r-1
+            denSum(i,r) = sum(gameraApp%State%Gas(i,j,gameraApp%Grid%ks:gameraApp%Grid%ke,DEN,0))
+            j = gameraApp%Grid%je-r+1
+            denSum(i,gameraApp%Model%Ring%NumR+r) = sum(gameraApp%State%Gas(i,j,gameraApp%Grid%ks:gameraApp%Grid%ke,DEN,0))
+        enddo
+    enddo
+    call DivB(gameraApp%Model, gameraApp%Grid, gameraApp%State, totalDiv)
+
+    ! perform ring averaging
+    call RingAverage(gameraApp%Model, gameraApp%Grid, gameraApp%State)
+
+    ! ensure the values are conserved
+    do r=1,gameraApp%Model%Ring%NumR
+        do i = gameraApp%Grid%is,gameraApp%Grid%ie
+            j = gameraApp%Grid%js+r-1
+            temp = sum(gameraApp%State%Gas(i,j,gameraApp%Grid%ks:gameraApp%Grid%ke,DEN,0))
+            !assert...
+
+            j = gameraApp%Grid%je-r+1
+            denSum(i,gameraApp%Model%Ring%NumR+r) = sum(gameraApp%State%Gas(i,j,gameraApp%Grid%ks:gameraApp%Grid%ke,DEN,0))
+            !assert...
+        enddo
+    enddo
+
+  end subroutine
+
+end module testring
+

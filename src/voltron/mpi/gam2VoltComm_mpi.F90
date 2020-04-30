@@ -194,11 +194,15 @@ module gam2VoltComm_mpi
             ! do nothing, don't update gamera's data on voltron
         else
             ! send shallow data
+            call Tic("ShallowSend")
             call sendShallowData(g2vComm, gApp)
+            call Toc("ShallowSend")
         endif
 
         ! receive new shallow data
+        call Tic("ShallowRecv")
         call recvShallowData(g2vComm, gApp)
+        call Toc("ShallowRecv")
 
     end subroutine performShallowUpdate
 
@@ -293,10 +297,14 @@ module gam2VoltComm_mpi
             return
         else
             ! send deep data
+            call Tic("DeepSend")
             call sendDeepData(g2vComm, gApp)
+            call Toc("DeepSend")
 
             ! receive deep data
+            call Tic("DeepRecv")
             call recvDeepData(g2vComm, gApp)
+            call Toc("DeepRecv")
         endif
 
     end subroutine performDeepUpdate
