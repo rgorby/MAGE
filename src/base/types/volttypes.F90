@@ -66,6 +66,7 @@ module volttypes
         !Holds mapping from cell-centered xyz => x1,x1 (projection coordinates)
         !Projection coordinates can be R,phi (cylindrical) or lat,lon (ionospheric)
         real(rp), dimension(:,:,:,:), allocatable :: xyzSquish
+        logical , dimension(:,:,:)  , allocatable :: isGood !Good projection or not
         integer :: iMax !Possibly changing i-boundary of squish mapping
     end type chmp2Mhd_T
 
@@ -131,6 +132,7 @@ module volttypes
         integer  :: iDeep  = 0 !Index of max i shell containing deep coupling radius
         integer  :: imType = 0 !Type of inner magnetosphere model (0 = None)
         integer  :: prType = 0 !Type of projection for coupling   (0 = None)
+        logical  :: doQkSquish = .false. !Whether or not to do fast squishing
     end type voltApp_T
 
     contains

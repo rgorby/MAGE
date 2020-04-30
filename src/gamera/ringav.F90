@@ -15,6 +15,8 @@ module ringav
     implicit none
 
     logical, parameter, private :: doCleanLoop = .true. !Whether to remove magnetic field loops
+    logical, parameter, private :: doFastLoop  = .true. !Whether to remove magnetic field loops instantly
+
     !Information for Fourier reductions
     integer, parameter, private :: NFTMAX = 2 !Max number of FFT modes (beyond 0th) possible
     integer, parameter, private :: NFTMAG = 1 !Number of Fourier modes (beyond 0th) to remove from magflux
@@ -363,7 +365,12 @@ module ringav
         !$OMP PARALLEL DO default(shared) &
         !$OMP private(nS,nR,fD,tScl,avgFlx)
         do nS=Model%Ring%nSi,Model%Ring%nSe+1
-            tScl = 1.0
+            if (doFastLoop) then
+                tScl = 1.0
+            else
+                tScl = 1.0/Model%Ring%Np
+            endif
+            
             select case (Model%Ring%GridID)
             case ("cyl")
                 !Cylindrical
@@ -376,13 +383,11 @@ module ringav
                 if (Model%Ring%doS) then
                     nR = Gr%js
                     avgFlx = sum(bFlux(nS,nR,Gr%ks:Gr%ke,fD))/Model%Ring%Np
-                    tScl = 1.0/Model%Ring%Np
                     bFlux(nS,nR,Gr%ks:Gr%ke+1,fD) = bFlux(nS,nR,Gr%ks:Gr%ke+1,fD) - tScl*avgFlx
                 endif
                 if (Model%Ring%doE) then
                     nR = Gr%je
                     avgFlx = sum(bFlux(nS,nR,Gr%ks:Gr%ke,fD))/Model%Ring%Np
-                    tScl = 1.0/Model%Ring%Np
                     bFlux(nS,nR,Gr%ks:Gr%ke+1,fD) = bFlux(nS,nR,Gr%ks:Gr%ke+1,fD) - tScl*avgFlx
                 endif
             end select
