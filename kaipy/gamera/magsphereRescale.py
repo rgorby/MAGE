@@ -145,9 +145,9 @@ def downGrid(X,Y,Z):
 	rr = np.sqrt(xx**2.0+yy**2.0)
 	pp = np.arctan2(yy,xx)
 
-	NiD = Ni/2
-	NjD = Nj/2
-	NkD = Nk/2
+	NiD = Ni//2
+	NjD = Nj//2
+	NkD = Nk//2
 
 	rrD = np.zeros((NiD+1,NjD+1))
 	ppD = np.zeros((NiD+1,NjD+1))
@@ -235,16 +235,16 @@ def downGas(X,Y,Z,G,Xd,Yd,Zd):
 	dV  = Volume(X ,Y ,Z )
 	dVd = Volume(Xd,Yd,Zd)
 	print("Volume ratio (Coarse/Fine) = %f"%(dVd.sum()/dV.sum()))
-	Gd = np.zeros((Ns,Nv,Nk/2,Nj/2,Ni/2))
+	Gd = np.zeros((Ns,Nv,Nk//2,Nj//2,Ni//2))
 	print("Downscaling gas variables ...")
 
 	#Loop over coarse grid
 	for s in range(Ns):
 		for v in range(Nv):
 			print("\tDownscaling Species %d, Variable %d"%(s,v))
-			for k in range(Nk/2):
-				for j in range(Nj/2):
-					for i in range(Ni/2):
+			for k in range(Nk//2):
+				for j in range(Nj//2):
+					for i in range(Ni//2):
 						dVijk = dV[2*k:2*k+2,2*j:2*j+2,2*i:2*i+2] #Volumes of the finer subgrid
 						dQijk = G[s,v,2*k:2*k+2,2*j:2*j+2,2*i:2*i+2] #stuff density in finer subgrid
 						#Stuff in the subchunk
@@ -318,13 +318,13 @@ def downFlux(X,Y,Z,M,Xu,Yu,Zu):
 	Nj = Njc-1
 	Ni = Nic-1
 
-	Md = np.zeros((Nd,Nk/2+1,Nj/2+1,Ni/2+1))
+	Md = np.zeros((Nd,Nk//2+1,Nj//2+1,Ni//2+1))
 
 	#Loop over coarse grid cells
 	print("Downscaling face fluxes ...")
-	for k in range(Nk/2):
-		for j in range(Nj/2):
-			for i in range(Ni/2):
+	for k in range(Nk//2):
+		for j in range(Nj//2):
+			for i in range(Ni//2):
 				ip = 2*i
 				jp = 2*j
 				kp = 2*k
