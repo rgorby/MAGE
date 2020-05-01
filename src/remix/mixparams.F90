@@ -72,6 +72,8 @@ module mixparams
         call xmlInp%Set_Val(Params%doStarlight,"conductance/doStarlight",.false.)        
         call xmlInp%Set_Val(Params%doMR,"conductance/doMR",.false.)        
         call xmlInp%Set_Val(Params%apply_cap,"conductance/apply_cap",.true.)
+        call xmlInp%Set_Val(Params%doGCM,"conductance/doGCM",.false.)
+        call xmlInp%Set_Val(Params%doGCM2way,"conductance/doGCM2way",.false.)
         ! =========== CONDUCTANCE MODEL PARAMTERS =================== !
 
         ! =========== SOLVER PARAMTERS =================== !

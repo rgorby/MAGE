@@ -7,6 +7,7 @@ module volttypes
     use ioclock
     use mixtypes
     use ebtypes
+    use gcmtypes
 
     implicit none
 
@@ -118,6 +119,8 @@ module volttypes
         type(mhd2Chmp_T)  :: mhd2chmp
         type(chmp2Mhd_T)  :: chmp2mhd
         type(imag2Mix_T)  :: imag2mix
+
+        type(gcm_T) :: gcm
 
         class(innerMagBase_T), allocatable :: imagApp
 

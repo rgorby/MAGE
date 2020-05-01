@@ -2,6 +2,8 @@ module mixconductance
   use mixdefs
   use mixtypes
   use earthhelper
+  use gcmtypes
+  use gcminterp
   
   implicit none
 
@@ -31,6 +33,8 @@ module mixconductance
       conductance%doStarlight = Params%doStarlight      
       conductance%doMR = Params%doMR      
       conductance%apply_cap = Params%apply_cap
+      conductance%doGCM = Params%doGCM
+      conductance%doGCM2way = Params%doGCM2way
 
       conductance%PI2       = pi/2.0D0
       conductance%ang65     = pi/180.0D0*65.0D0
@@ -61,7 +65,10 @@ module mixconductance
       if (.not. allocated(conductance%engFlux)) allocate(conductance%engFlux(G%Np,G%Nt))
 
       if (.not. allocated(tmpD)) allocate(tmpD(G%Np,G%Nt))
-      if (.not. allocated(tmpC)) allocate(tmpC(G%Np,G%Nt))      
+      if (.not. allocated(tmpC)) allocate(tmpC(G%Np,G%Nt))  
+
+      write(*,*) "doGCM?",conductance%doGCM
+      write(*,*) "doGCM2way?",conductance%doGCM2way    
 
     end subroutine conductance_init
 
@@ -216,10 +223,12 @@ module mixconductance
       conductance%deltaSigmaH = (1.87-0.54*exp(-0.16*St%Vars(:,:,AVG_ENG)))*conductance%deltaSigmaH
     end subroutine conductance_mr
 
-    subroutine conductance_total(conductance,G,St)
+    subroutine conductance_total(conductance,G,St,gcm,h)
       type(mixConductance_T), intent(inout) :: conductance
       type(mixGrid_T), intent(in) :: G
       type(mixState_T), intent(inout) :: St
+      type(gcm_T),optional,intent(in) :: gcm
+      integer,optional,intent(in) :: h
 
       ! always call fedder to fill in AVG_ENERGY and NUM_FLUX
       ! even if const_sigma, we still have the precip info that way
@@ -228,7 +237,13 @@ module mixconductance
       call conductance_euv(conductance,G,St)
       call conductance_fedder95(conductance,G,St)
       
-      if (conductance%const_sigma) then
+      if (present(gcm)) then
+         write(*,*) 'going to apply!'
+         call apply_gcm2mix(gcm,St,h)
+         St%Vars(:,:,SIGMAP) = max(conductance%pedmin,St%Vars(:,:,SIGMAP))
+         !St%Vars(:,:,SIGMAH) = min(max(conductance%hallmin,St%Vars(:,:,SIGMAH)),&
+         !     St%Vars(:,:,SIGMAP)*conductance%sigma_ratio)
+      else if (conductance%const_sigma) then
          St%Vars(:,:,SIGMAP) = conductance%ped0
          St%Vars(:,:,SIGMAH) = 0.D0
       else
@@ -239,7 +254,7 @@ module mixconductance
       endif
 
       ! Apply cap
-      if ((conductance%apply_cap).and.(.not. conductance%const_sigma)) then
+      if ((conductance%apply_cap).and.(.not. conductance%const_sigma).and.(.not. present(gcm))) then
          St%Vars(:,:,SIGMAP) = max(conductance%pedmin,St%Vars(:,:,SIGMAP))
          St%Vars(:,:,SIGMAH) = min(max(conductance%hallmin,St%Vars(:,:,SIGMAH)),&
               St%Vars(:,:,SIGMAP)*conductance%sigma_ratio)

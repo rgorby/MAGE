@@ -22,7 +22,9 @@ module mixtypes
      logical  :: doChill
      logical  :: doStarlight
      logical  :: doMR
-     logical  :: apply_cap 
+     logical  :: apply_cap
+     logical  :: doGCM 
+     logical  :: doGCM2way
 
      ! solver
      integer :: maxitr
@@ -89,6 +91,7 @@ module mixtypes
     integer :: euv_model_type, et_model_type
     real(rp) :: alpha, beta, R, F107,pedmin,hallmin,sigma_ratio,ped0
     logical :: const_sigma, doRamp, doChill, doStarlight, apply_cap, doMR
+    logical :: doGCM,doGCM2way
 
     ! auxilary variables
     real(rp) :: PI2, ang65, ang100, pref, href, shall
@@ -113,7 +116,7 @@ module mixtypes
 
   ! used to store all instances of mixIon type, i.e., all hemispheres
   type mixApp_T
-     type(mixIon_T), dimension(:), allocatable :: ion  
+     type(mixIon_T), dimension(:), allocatable :: ion
   end type mixApp_T
 
   ! use this as a container to store the variables read from a previous H5 file

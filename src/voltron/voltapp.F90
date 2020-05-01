@@ -15,6 +15,8 @@ module voltapp
     use kronos
     use voltio
     use msphutils, only : RadIonosphere
+    use gcminterp
+    use gcmtypes
     
     implicit none
 
@@ -231,6 +233,10 @@ module voltapp
             call init_mix(vApp%remixApp%ion,[NORTH, SOUTH],RunID=RunID,isRestart=isRestart)
         endif
         vApp%remixApp%ion%rad_iono_m = RadIonosphere() * gApp%Model%units%gx0 ! [Rp] * [m/Rp]
+        if (vApp%remixApp%ion(1)%conductance%doGCM) then
+            call init_gcm_mix(vApp%gcm,vApp%remixApp%ion)
+        endif
+
         !Set F10.7 from time series (using max)
         f107%wID = vApp%tilt%wID
         call f107%initTS("f10.7")
@@ -314,7 +320,10 @@ module voltapp
         call vApp%tilt%getValue(vApp%time,curTilt)
 
         ! solve for remix output
-        if (time<=0) then
+        if (vApp%remixApp%ion(1)%conductance%doGCM) then
+            call coupleGCM2MIX(vApp%gcm,vApp%remixApp%ion,vApp%remixApp%ion(1)%conductance%doGCM2way,mjd=vApp%MJD,time=vApp%time)
+            call run_mix(vApp%remixApp%ion,curTilt,gcm=vApp%gcm)
+        else if (time<=0) then
             call run_mix(vApp%remixApp%ion,curTilt,doModelOpt=.false.)
         else
             call run_mix(vApp%remixApp%ion,curTilt,doModelOpt=.true.)
