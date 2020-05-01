@@ -353,7 +353,8 @@ MODULE rcmclaw
                         r = wave(i+1,j)*wave(i,j)/wvpow
                     endif
                     c = (1.0+r)/2.0
-                    wvScl = max(0.0,min(c,2.0,2.0*r))
+                    !wvScl = max(0.0,min(1.0,2.0*r),min(2.0,r)) !Superbee
+                    wvScl = max(0.0,min(c,2.0,2.0*r)) !MC
 
                     wave(i,j) = wvScl*wave(i,j)
                 enddo
@@ -372,7 +373,8 @@ MODULE rcmclaw
                         r = wave(i,j+1)*wave(i,j)/wvpow
                     endif
                     c = (1.0+r)/2.0
-                    wvScl = max(0.0,min(c,2.0,2.0*r))
+                    !wvScl = max(0.0,min(1.0,2.0*r),min(2.0,r)) !Superbee
+                    wvScl = max(0.0,min(c,2.0,2.0*r)) !MC
 
                     wave(i,j) = wvScl*wave(i,j)
                 enddo
