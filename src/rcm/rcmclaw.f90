@@ -12,30 +12,29 @@ MODULE rcmclaw
                                    my     = jsize-3, &  !cells in y direction
                                    max_allowed_steps = 200  ! max number of time steps we allow per call to claw2
 
-    real(rprec),  parameter, private :: max_allowed_cfl   = 1.d0
-    real(rprec),  parameter, private :: desired_cfl       = 0.9d0  ! Courant number (allowed, desired)
+   real(rprec),  parameter, private :: max_allowed_cfl   = 1.0
+   real(rprec),  parameter, private :: desired_cfl       = 0.9  ! Courant number (allowed, desired)
+
+    real(rprec),  parameter, private :: WVEPS = 1.0e-8  ! Wave magnitude tolerance
 
     real(rprec), parameter, private :: dx      = (mx - 0) / float(mx),  &  ! ---grid spacing
                                        dy      = (my - 0) / float(my)
-    !integer, parameter, private :: RCMCLAWLIM = -1 !NOTE: Hard-coded limiter below
-    integer, parameter, private :: RCMCLAWLIM = 0 !NOTE: Hard-coded limiter below
+    logical, parameter, private :: doLimiter = .true.
 
     ! The method used is specified by order and transverse_order:
     ! order == 1 if only first order increment waves are to be used;
     ! order == 2 if second order correction terms are to be added, with a flux limiter as specified by mthlim.
-    !integer, parameter, private :: order = 2
-    integer, parameter, private :: order = 1
+    integer, parameter, private :: order = 2
 
     ! transverse_order ...
     ! = 0 if no transverse propagation is to be applied. Increment and perhaps correction waves are propagated normal to the interface.
     ! = 1 if transverse propagation of increment waves (but not correction waves, if any) is to be applied.
     ! = 2 if transverse propagation of correction waves is also to be included.
-    !integer, parameter, private :: transverse_order = 2
-    integer, parameter, private :: transverse_order = 1
+    integer, parameter, private :: transverse_order = 2
 
     CONTAINS
 
-    subroutine claw2ez95(rcm_time_step_s,qIN,aIN,bIN,cIN,final_iterations)
+    recursive subroutine claw2ez95(rcm_time_step_s,qIN,aIN,bIN,cIN,final_iterations)
 
     !     An easy-to-use clawpack driver routine for simple applications
     !     Documentation is available at
@@ -64,26 +63,25 @@ MODULE rcmclaw
         q(1:mx,1:my) = qIN
         max_allowed_dt = rcm_time_step_s  ! try doing the whole thing in 1 step. What do we have to lose?
 
-        call claw2(q, aux, rcm_time_step_s, max_allowed_dt, actual_max_cfl, RCMCLAWLIM, final_iterations)
+        call claw2_95(q, aux, rcm_time_step_s, max_allowed_dt, actual_max_cfl, final_iterations)
         final_iterations = 0
 
         if (final_iterations > max_allowed_steps) then
             WRITE(*,*) 'ERROR: maximum time steps exceeded in clawpack'
-            WRITE(*,*) max_allowed_dt, actual_max_cfl, RCMCLAWLIM, final_iterations
+            WRITE(*,*) max_allowed_dt, actual_max_cfl,final_iterations
             STOP
         end if
 
         qIN(:,:) = q(1:mx,1:my)
     end subroutine claw2ez95
 
-    subroutine claw2(q, aux, t_end, max_allowed_dt, actual_max_cfl,limiter, iterations)
+    recursive subroutine claw2_95(q, aux, t_end, max_allowed_dt, actual_max_cfl,iterations)
 
         implicit none
         real(rprec),  intent(inout), dimension(-1:mx+2, -1:my+2) :: q    ! for RCM, this is eeta
         real(rprec),  intent(inout), dimension(maux, -1:mx+2, -1:my+2) :: aux  !inout because BCs change outer grid cell values
         real(rprec),  intent(in)             :: t_end, max_allowed_dt
         real(rprec),  intent(out)            :: actual_max_cfl
-        integer, intent(in)             :: limiter
         integer, intent(out)            :: iterations
 
         real(rprec) :: t, t_old, dt, cfl, q_old(-1:mx+2, -1:my+2)
@@ -111,7 +109,7 @@ MODULE rcmclaw
 
             dt = min(dt, t_end - t_old)                      ! don't overstep t_end
 
-            call step2(q,aux,dt,limiter,cfl)                 ! take one step on the conservation law
+            call step2_95(q,aux,dt,cfl)                 ! take one step on the conservation law
 
             iterations = iterations + 1; t = t_old + dt      ! update counters
 
@@ -138,11 +136,11 @@ MODULE rcmclaw
             iterations = max_allowed_steps + 1               ! Signal to caller we've exceeded max_allowed_steps
         end if
 
-    end subroutine claw2
+    end subroutine claw2_95
 
 !====
 !Below here are the clawpack routines
-    subroutine step2(q,aux,dt,limiter,cfl)
+    recursive subroutine step2_95(q,aux,dt,cfl)
     ! Take one time step, updating q.
     ! On entry, q is the initial data for this step
     ! On exit,  q is updated for the time step.
@@ -151,39 +149,75 @@ MODULE rcmclaw
 
         real(rprec), intent(inout) :: q(        -1:mx+2, -1:my+2)
         real(rprec), intent(in)    :: aux(maux, -1:mx+2, -1:my+2), dt
-        integer, intent(in)   :: limiter
         real(rprec), intent(out)   :: cfl
 
-        real(rprec) ::    gadd(2,-1:mx+2, -1:my+2)
-        real(rprec), dimension(  -1:mx+2, -1:my+2) :: cfl2d, u, v, cqxx, xwave, ywave, amdq, apdq
-        real(rprec) :: dtdx, dtdy
+        real(rprec), dimension(  -1:mx+2, -1:my+2) :: xwave, ywave
+        real(rprec) :: dtdx, dtdy,xCFL,yCFL
         integer :: i, j
 
         dtdx = dt/dx; dtdy = dt/dy
-        u(:,:) = aux(1,:,:)   ! x-velocity
-        v(:,:) = aux(2,:,:)   ! y-velocity
 
+    !Get CFL
+        xCFL = dtdx*maxval(abs(aux(1,:,:)))
+        yCFL = dtdy*maxval(abs(aux(2,:,:)))
+
+        cfl = max(xCFL,yCFL)
+
+    !X fluxes
+        xwave = 0.0
         do i = 0, mx+2
             xwave(i,:) = q(i,:) - q(i-1,:)   ! Note that the i'th Riemann problem has left state q(:,i-1) and right state q(:,i)
         end do
+
+        call FluxX(q,xwave,aux(1,-1:mx+2,-1:my+2),aux(2,-1:mx+2,-1:my+2),dt)
+
+    !Y fluxes
+        ywave = 0.0
         do j = 0, my+2
-            ywave(:,j) = q(:,j) - q(:,j-1)
-        end do
+            do i = -1, mx+2
+                ywave(i,j) = q(i,j) - q(i,j-1)
+            enddo
+        enddo
+        call FluxY(q,ywave,aux(1,-1:mx+2,-1:my+2),aux(2,-1:mx+2,-1:my+2),dt)
+
+    end subroutine step2_95
+
+    recursive subroutine FluxX(q,xwave,u,v,dt)
+        real(rprec), dimension(-1:mx+2,-1:my+2), intent(inout) :: q,xwave
+        real(rprec), dimension(-1:mx+2,-1:my+2), intent(in)    :: u,v
+        real(rprec), intent(in)    :: dt
+
+        real(rprec), dimension(:,:), allocatable :: cqxx, amdq, apdq,gadd1,gadd2
+        integer :: i,j
+        real(rprec) :: dtdx,dtdy
+
+        allocate(cqxx (-1:mx+2, -1:my+2))
+        allocate(amdq (-1:mx+2, -1:my+2))
+        allocate(apdq (-1:mx+2, -1:my+2))
+        allocate(gadd1(-1:mx+2, -1:my+2))
+        allocate(gadd2(-1:mx+2, -1:my+2))
+
+        cqxx  = 0.0
+        amdq  = 0.0
+        apdq  = 0.0
+        gadd1 = 0.0
+        gadd2 = 0.0
+
+        dtdx = dt/dx
+        dtdy = dt/dy
 
     !-------------- X-dimension Flux calculation (previously in subroutine "flux2") ---------------
     ! rpn2 subroutine was here: solve Riemann problem at each interface and compute Godunov updates
 
-        amdq(:,:) = min(u, 0.d0) * xwave  ! The flux difference df = s*wave  all goes in the downwind direction:
-        apdq(:,:) = max(u, 0.d0) * xwave
+        amdq(:,:) = min(u, 0.0) * xwave  ! The flux difference df = s*wave  all goes in the downwind direction:
+        apdq(:,:) = max(u, 0.0) * xwave
 
         q(1:mx,:) = q(1:mx,:) - dtdx*(apdq(1:mx,:) + amdq(2:mx+1,:))
 
-        cfl2d = abs(dtdx*u)
-        cfl = maxval(cfl2d)
-
+        return
         ! modify F fluxes for second order q_{xx} correction terms:
         if (order > 1) then
-            if (limiter /= 0) call flux_limiter(1,limiter,xwave,u,cfl2d)  !   apply limiter to waves
+            if (doLimiter) call flux_limiter95(1,xwave,u)  !   apply limiter to waves
 
             cqxx(:,:) = abs(u) * (1.d0 - abs(u)*dtdx) * xwave
 
@@ -195,193 +229,161 @@ MODULE rcmclaw
         if (transverse_order > 0) then
             if (transverse_order == 2) then  ! incorporate cqxx into amdq and apdq so that it is split also.
                 do j = 0, my+1; do i = 0, mx+1
-                    gadd(1,i,j) = -0.5d0 * dtdx * min(v(i,j  ), 0.d0) * (amdq(i+1,j) + apdq(i,j) + cqxx(i+1,j) - cqxx(i,j))
-                    gadd(2,i,j) = -0.5d0 * dtdx * max(v(i,j+1), 0.d0) * (amdq(i+1,j) + apdq(i,j) + cqxx(i+1,j) - cqxx(i,j))
+                    gadd1(i,j) = -0.5d0 * dtdx * min(v(i,j  ), 0.d0) * (amdq(i+1,j) + apdq(i,j) + cqxx(i+1,j) - cqxx(i,j))
+                    gadd2(i,j) = -0.5d0 * dtdx * max(v(i,j+1), 0.d0) * (amdq(i+1,j) + apdq(i,j) + cqxx(i+1,j) - cqxx(i,j))
                 end do; end do
             else
                 do j = 0, my+1; do i = 0, mx+1
-                    gadd(1,i,j) = -0.5d0 * dtdx * min(v(i,j  ), 0.d0) * (amdq(i+1,j) + apdq(i,j))
-                    gadd(2,i,j) = -0.5d0 * dtdx * max(v(i,j+1), 0.d0) * (amdq(i+1,j) + apdq(i,j))
+                    gadd1(i,j) = -0.5d0 * dtdx * min(v(i,j  ), 0.d0) * (amdq(i+1,j) + apdq(i,j))
+                    gadd2(i,j) = -0.5d0 * dtdx * max(v(i,j+1), 0.d0) * (amdq(i+1,j) + apdq(i,j))
                 end do; end do
             end if
 
             do j=1,my
-                q(:,j) = q(:,j) + dtdy*(gadd(1,:,j) - gadd(2,:,j) - gadd(1,:,j+1) + gadd(2,:,j-1))
+                q(:,j) = q(:,j) + dtdy*(gadd1(:,j) - gadd2(:,j) - gadd1(:,j+1) + gadd2(:,j-1))
             end do
         end if
 
-    !-------------- Y-dimension Flux calculation (previously in subroutine "flux2") ---------------
-    ! rpn2 subroutine was here: solve Riemann problem at each interface and compute Godunov updates
+    end subroutine FluxX
 
-        amdq(:,:) = min(v, 0.d0) * ywave  ! The flux difference df = s*wave  all goes in the downwind direction:
-        apdq(:,:) = max(v, 0.d0) * ywave
+    recursive subroutine FluxY(q,ywave,u,v,dt)
+        real(rprec), dimension(-1:mx+2,-1:my+2), intent(inout) :: q,ywave
+        real(rprec), dimension(-1:mx+2,-1:my+2), intent(in)    :: u,v
+        real(rprec), intent(in)    :: dt
 
-        q(:,1:my) = q(:,1:my) - dtdy*(apdq(:,1:my) + amdq(:,2:my+1))
+        real(rprec), dimension(:,:), allocatable :: cqxx, amdq, apdq,gadd1,gadd2
+        integer :: i,j
+        real(rprec) :: dtdx,dtdy
 
-        cfl2d = abs(dtdy*v)
-        cfl = max(cfl, maxval(cfl2d))
+        allocate(cqxx (-1:mx+2, -1:my+2))
+        allocate(amdq (-1:mx+2, -1:my+2))
+        allocate(apdq (-1:mx+2, -1:my+2))
+        allocate(gadd1(-1:mx+2, -1:my+2))
+        allocate(gadd2(-1:mx+2, -1:my+2))
+
+        cqxx  = 0.0
+        amdq  = 0.0
+        apdq  = 0.0
+        gadd1 = 0.0
+        gadd2 = 0.0
+
+        dtdx = dt/dx
+        dtdy = dt/dy
+
+        do j = -1, my+2
+            do i = -1, mx+2
+                amdq(i,j) = min(v(i,j),0.0)*ywave(i,j)
+                apdq(i,j) = max(v(i,j),0.0)*ywave(i,j)
+            enddo
+        enddo
+
+        do j = 1, my
+            do i = -1, mx+2
+                q(i,j) = q(i,j) - dtdy*( apdq(i,j) + amdq(i,j+1) )
+            enddo
+        enddo
 
         ! modify F fluxes for second order q_{xx} correction terms:
         if (order > 1) then
-            if (limiter /= 0) call flux_limiter(2,limiter,ywave,v,cfl2d)  !   apply limiter to waves
+            if (doLimiter) call flux_limiter95(2,ywave,v)  !   apply limiter to waves
+            
+            do j = -1, my+2
+                do i = -1, mx+2
+                    cqxx(i,j) = abs(v(i,j))*(1.0-abs(v(i,j))*dtdy)*ywave(i,j)
+                enddo
+            enddo
 
-            cqxx(:,:) = abs(v) * (1.d0 - abs(v)*dtdy) * ywave
+            do j = 1, my
+                do i = -1, mx+2
+                    q(i,j) = q(i,j) - dtdy*0.5*( cqxx(i,j+1) - cqxx(i,j) )
+                enddo
+            enddo
 
-            q(:,1:my) = q(:,1:my) - dtdy*0.5*(cqxx(:,2:my+1) - cqxx(:,1:my))
         end if
 
         ! modify G fluxes for transverse propagation
-        ! rpt2 is embedded here, instead of as a separate subroutine
         if (transverse_order > 0) then
+
             if (transverse_order == 2) then  ! incorporate cqxx into amdq and apdq so that it is split also.
-                do j = 0, my+1; do i = 0, mx+1
-                    gadd(1,i,j) = -0.5d0 * dtdy * min(u(i  ,j), 0.d0) * (amdq(i,j+1) + apdq(i,j) + cqxx(i,j+1) - cqxx(i,j))
-                    gadd(2,i,j) = -0.5d0 * dtdy * max(u(i+1,j), 0.d0) * (amdq(i,j+1) + apdq(i,j) + cqxx(i,j+1) - cqxx(i,j))
-                end do; end do
+                do j = 0, my+1
+                    do i = 0, mx+1
+                        gadd1(i,j) = -0.5 * dtdy * min(u(i  ,j), 0.0) * (amdq(i,j+1) + apdq(i,j) + cqxx(i,j+1) - cqxx(i,j))
+                        gadd2(i,j) = -0.5 * dtdy * max(u(i+1,j), 0.0) * (amdq(i,j+1) + apdq(i,j) + cqxx(i,j+1) - cqxx(i,j))
+                    end do
+                end do
             else
-                do j = 0, my+1; do i = 0, mx+1
-                    gadd(1,i,j) = -0.5d0 * dtdy * min(u(i  ,j), 0.d0) * (amdq(i,j+1) + apdq(i,j))
-                    gadd(2,i,j) = -0.5d0 * dtdy * max(u(i+1,j), 0.d0) * (amdq(i,j+1) + apdq(i,j))
-                end do; end do
+                do j = 0, my+1
+                    do i = 0, mx+1
+                        gadd1(i,j) = -0.5 * dtdy * min(u(i  ,j), 0.0) * (amdq(i,j+1) + apdq(i,j))
+                        gadd2(i,j) = -0.5 * dtdy * max(u(i+1,j), 0.0) * (amdq(i,j+1) + apdq(i,j))
+                    end do
+                end do
             end if
 
-            do i = 1, mx
-                q(i,:) = q(i,:) + dtdx*(gadd(1,i,:) - gadd(2,i,:) - gadd(1,i+1,:) + gadd(2,i-1,:))
-            end do
-        end if
+            do j = -1, my+2
+                do i = 1, mx
+                    q(i,j) = q(i,j) + dtdx*( gadd1(i,j) - gadd2(i,j) - gadd1(i+1,j) + gadd2(i-1,j) )
+                enddo
+            enddo
 
-    end subroutine step2
+        end if !transverse
 
+    end subroutine FluxY
 
-    subroutine flux_limiter(ixy,limiter,wave,s,cfl2d)
-
-    ! Apply a limiter to the waves.
-    ! The limiter is computed by comparing the 2-norm of each wave with
-    ! the projection of the wave from the interface to the left or
-    ! right onto the current wave.  For a linear system this would
-    ! correspond to comparing the norms of the two waves.  For a
-    ! nonlinear problem the eigenvectors are not colinear and so the
-    ! projection is needed to provide more limiting in the case where the
-    ! neighboring wave has large norm but points in a different direction
-    ! in phase space.
-    !
-    ! The specific limiter used in each family is determined by the
-    ! value of the corresponding element of the array mthlim, as used in
-    ! the function philim.
-    ! Note that a different limiter may be used in each wave family.
-    !
-    ! dotl and dotr denote the inner product of wave with the wave to
-    ! the left or right.  The norm of the projections onto the wave are then
-    ! given by dotl/wnorm2 and dotr/wnorm2, where wnorm2 is the 2-norm
-    ! of wave.
-
-        implicit none
-
-        integer, intent(in) :: ixy, limiter
+    recursive subroutine flux_limiter95(ixy,wave,s)
+        integer, intent(in) :: ixy
         real(rprec), intent(inout) :: wave(-1:mx+2,-1:my+2)
-        real(rprec), intent(in) :: s(-1:mx+2,-1:my+2), cfl2d(-1:mx+2,-1:my+2)
+        real(rprec), intent(in) :: s(-1:mx+2,-1:my+2)
 
-        real(rprec), dimension(-1:mx+2,-1:my+2) :: dotl, dotr, r, c
-        real(rprec), dimension(-1:mx+2,-1:my+2) :: cfmod1, cfmod2, theta, beta, ultra, s1, s2, phimax
+        real(rprec) :: wvpow,r,c,wvScl
         integer :: i,j
 
-    ! The following loops should be conceptually equivalent to (but somewhat faster than):
-    !        dotr( 0:mx+1,:) = wave( 0:mx+1,:)*wave(1:mx+2,:)
-    !        dotl( 0:mx+1,:) = wave(-1:mx,  :)*wave(0:mx+1,:)
-    !        where (s > 0.d0)
-    !            r = dotl/wave**2
-    !        elsewhere
-    !            r = dotr/wave**2
-    !        end where
         if (ixy == 1) then
-            dotr(-1,:) = 0.0
-            do j = 0, my+1; do i = 0, mx+1
-                dotl(i,j) = dotr(i-1,j)
-                dotr(i,j) = wave(i,j)*wave(i+1,j)
 
-                if (wave(i,j) == 0) cycle
+            do j=0,my+1
+                do i=0,mx+1
+                    wvpow = wave(i,j)**2.0
+                    if (wvpow <= WVEPS) cycle
 
-                if (s(i,j) > 0.0) then
-                    r(i,j) = dotl(i,j)/wave(i,j)**2
-                else
-                    r(i,j) = dotr(i,j)/wave(i,j)**2
-                end if
-            end do; end do
-        else
-            dotr(:,-1) = 0.0
-            do i = 0, mx+1; do j = 0, my+1
-                dotl(i,j) = dotr(i,j-1)
-                dotr(i,j) = wave(i,j)*wave(i,j+1)
+                    if (s(i,j) > 0.0) then
+                        !Left
+                        r  = wave(i-1,j)*wave(i,j)/wvpow
+                    else
+                        !Right
+                        r = wave(i+1,j)*wave(i,j)/wvpow
+                    endif
+                    c = (1.0+r)/2.0
+                    !wvScl = max(0.0,min(1.0,2.0*r),min(2.0,r)) !Superbee
+                    wvScl = max(0.0,min(c,2.0,2.0*r)) !MC
 
-                if (wave(i,j) == 0) cycle
+                    wave(i,j) = wvScl*wave(i,j)
+                enddo
+            enddo
+        else                    
+            do j=0,my+1
+                do i=0,mx+1
+                    wvpow = wave(i,j)**2.0
+                    if (wvpow <= WVEPS) cycle
 
-                if (s(i,j) > 0.0) then
-                    r(i,j) = dotl(i,j)/wave(i,j)**2
-                else
-                    r(i,j) = dotr(i,j)/wave(i,j)**2
-                end if
-            end do; end do
-        end if
-        
+                    if (s(i,j) > 0.0) then
+                        !Left
+                        r  = wave(i,j-1)*wave(i,j)/wvpow
+                    else
+                        !Right
+                        r = wave(i,j+1)*wave(i,j)/wvpow
+                    endif
+                    c = (1.0+r)/2.0
+                    !wvScl = max(0.0,min(1.0,2.0*r),min(2.0,r)) !Superbee
+                    wvScl = max(0.0,min(c,2.0,2.0*r)) !MC
 
-    ! Hard code limiter above (and comment out the code below) to get slight speedup
-        select case(limiter)
-
-            case(1)  ! Minmod
-                wave = wave*max(0.d0, min(1.d0, r))
-
-            case(2)  ! Superbee
-                wave = wave*max(0.d0, min(1.d0, 2.d0*r), min(2.d0, r))
-
-            case(3)  ! Van Leer
-                wave = wave*(r + abs(r)) / (1.d0 + abs(r))
-
-            case(4)  ! Monotonized - Centered
-                c = (1.d0 + r)/2.d0
-                wave = wave*max(0.d0, min(c, 2.d0, 2.d0*r))
-
-            case(5)  ! Beam Warming
-                wave = wave*r
-
-            case(6)  ! Fromm
-                wave = wave*0.5*(1 + r)
-
-            case(7)  ! Albada 2
-                wave = wave*(r**2 + r) / (1 + r**2)
-
-            case(8)  ! Albada 3
-                wave = wave*0.5*(1+r)*(1 - (abs(1-r)**3) / (1+abs(r)**3))
-
-            case(9)  ! Roe's Ultrabee (CFL-superbee)
-                wave = wave*max(0.0, min(1.0, 2.0*r/max(0.001, cfl2d)), &
-                                     min(r,   2.0/max(0.001, 1-cfl2d)))
-
-            case(10)  ! Modified CFL-superbee with Beta = 2/3, theta = 1.0
-                beta = 0.666666667; theta = 1.0
-
-                ultra = max(0.0, min(theta*2.0/max(0.001, 1-cfl2d),  &
-                                   r*theta*2.0/max(0.001, cfl2d)))
-                s2 = (1.0 + cfl2d)/3.0
-
-                wave = wave*max(0.0, min(ultra, max(1.0 + (s2 - beta/2.0) * (r - 1.0),  &
-                                                    1.0 + (s2 + beta/2.0) * (r - 1.0)) ))
-
-            case(11)  ! Arora Roe
-                cfmod1 = max(0.001, cfl2d); cfmod2 = min(0.999, cfl2d)
-                theta = 0.95
-
-                s1 = 2.0 / cfmod1
-                s2 = (1.0 + cfl2d) / 3.0
-                phimax = 2.0 / (1.0 - cfmod2)
-
-                wave = wave*min( max(1.0 + s2*(r-1.0), (1.0 - theta)*s1), &
-                                 max(theta*s1*r, (1.0 - theta)*phimax*r), &
-                                 theta*phimax)
-        end select
-
-    end subroutine flux_limiter
+                    wave(i,j) = wvScl*wave(i,j)
+                enddo
+            enddo
+        endif
+    end subroutine flux_limiter95
 
 END MODULE rcmclaw
+
 !  Solves a 2D hyperbolic system of conservation laws of the general form
 !
 !     capa * q_t + A q_x + B q_y = psi

@@ -93,6 +93,7 @@ program rcmx
         call write_2d(RM,mhdtime+mhd_dt) ! write out results
 
         call WriteRCM(RM,RM%rcm_nOut,mhdtime,mhdtime)
+        write(*,*) 'Total pressure = ', sum(RM%Prcm)
         RM%rcm_nOut = RM%rcm_nOut+1
     end do
 

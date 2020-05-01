@@ -128,6 +128,9 @@ module voltapp
         endif
 
         if (vApp%doDeep) then
+            !Whether to do fast eb-squishing
+            call xmlInp%Set_Val(vApp%doQkSquish,"coupling/doQkSquish",.false.)
+
             !Verify that Gamera has location to hold source info
             if (.not. gApp%Model%doSource) then
                 write(*,*) 'Must have GAMERA/source/doSource="T" when running inner magnetosphere model'

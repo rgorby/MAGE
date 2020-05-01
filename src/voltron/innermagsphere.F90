@@ -115,12 +115,15 @@ module innermagsphere
                     Gr%Gas0(i,j,k,IMX1  ,BLK) = imW(IMX1)
                     Gr%Gas0(i,j,k,IMX2  ,BLK) = imW(IMX2)
 
-                    !Use IMTSCL if set, otherwise set to coupling timescale
-                    if (imW(IMTSCL) > TINY) then
-                        Gr%Gas0(i,j,k,IMTSCL,BLK) = max(imW(IMTSCL),vApp%DeepDT)/gApp%Model%Units%gT0
-                    else
-                        Gr%Gas0(i,j,k,IMTSCL,BLK) = vApp%DeepDT/gApp%Model%Units%gT0
-                    endif
+                    !K: Setting to coupling timescale everywhere
+                    Gr%Gas0(i,j,k,IMTSCL,BLK) = vApp%DeepDT/gApp%Model%Units%gT0
+                    
+                    ! !Use IMTSCL if set, otherwise set to coupling timescale
+                    ! if (imW(IMTSCL) > TINY) then
+                    !     Gr%Gas0(i,j,k,IMTSCL,BLK) = max(imW(IMTSCL),vApp%DeepDT)/gApp%Model%Units%gT0
+                    ! else
+                    !     Gr%Gas0(i,j,k,IMTSCL,BLK) = vApp%DeepDT/gApp%Model%Units%gT0
+                    ! endif
                     
                 enddo
             enddo

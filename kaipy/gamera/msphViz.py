@@ -87,7 +87,7 @@ def PlotMerid(gsph,nStp,xyBds,Ax,doDen=False,doRCM=False,AxCB=None,doClear=True,
 		if (doRCM):
 			vN = kv.genNorm(1.0,1.0e+3,doLog=True)
 		else:
-			kv.genNorm(0,25)
+			vN = kv.genNorm(0,25)
 		Q = gsph.EggSlice("D",nStp,doEq=False)
 	else:
 		cbStr = "Pressure [nPa]"

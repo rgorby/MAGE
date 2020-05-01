@@ -8469,10 +8469,8 @@ SUBROUTINE Move_plasma_grid_KAIJU (dt)
     loc_Eta (1:isize, 1:jsize-jwrap) = eeta (1:isize, jwrap:jsize-1, kc)     
 
     !Call clawpack
-    !call claw2ez95(dt,loc_Eta,loc_didt,loc_djdt,loc_rate,clawiter)
     call claw2ez95(dt,loc_Eta(1:isize,1:jsize-jwrap),loc_didt(1:isize,1:jsize-jwrap),loc_djdt(1:isize,1:jsize-jwrap),loc_rate(1:isize,1:jsize-jwrap),clawiter)
-    !call claw2ez95(dt,loc_Eta(1:isize,j1:j2),loc_didt(1:isize,j1:j2),loc_djdt(1:isize,j1:j2),loc_rate(1:isize,j1:j2),clawiter)
-
+    
     !Copy out
     DO j = j1, j2
       DO i = imin_j(j)+1, isize-1
