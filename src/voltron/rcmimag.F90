@@ -155,8 +155,8 @@ module rcmimag
        !$OMP PARALLEL DO default(shared) collapse(2) &
        !$OMP schedule(guided) &
        !$OMP private(i,j,colat,lat,lon,isLL,ijTube)
-        do i=1,RCMApp%nLat_ion
-            do j=1,RCMApp%nLon_ion
+        do j=1,RCMApp%nLon_ion
+            do i=1,RCMApp%nLat_ion
                 colat = RCMApp%gcolat(i)
                 lat = PI/2 - colat
                 lon = RCMApp%glong(j)
@@ -189,6 +189,9 @@ module rcmimag
                 RCMApp%pot(i,j)          = mixPot(j,i)
             enddo
         enddo
+
+        !Smooth xmin suface before passing to RCM
+        !call SmoothTubes(RCMApp)
 
         call Toc("RCM_TUBES")
 
@@ -296,6 +299,74 @@ module rcmimag
         enddo
 
     end subroutine SetIngestion
+
+    ! !Smooth bmin surface before passing to RCM
+    ! !TODO: Fix bug in here (doesn't seem to help much anyway)
+    ! subroutine SmoothTubes(RCMApp)
+    !     type(rcm_mhd_T), intent(inout) :: RCMApp
+
+    !     real(rp), dimension(:,:,:), allocatable :: bXYZ
+    !     real(rp), dimension(-1:1) :: wgt1D
+    !     real(rp), dimension(-1:1,-1:1) :: wgt
+    !     logical, dimension(:,:), allocatable :: isGood
+
+    !     integer :: i,j,n,Ng
+
+    !     Ng = 2
+    !     wgt1D = [0.25,0.5,0.25]
+
+    !     do j=-1,1
+    !         do i=-1,1
+    !             wgt(i,j) = wgt1D(i)*wgt1D(j)
+    !         enddo
+    !     enddo
+    !     write(*,*) 'Sum = ', sum(wgt)
+
+    !     associate(nLat => RCMApp%nLat_ion,nLon => RCMApp%nLon_ion)
+        
+    !     !Fill in augmented arrays
+    !     allocate(bXYZ  (1-Ng:nLat+Ng,1-Ng:nLon+Ng,1:NDIM))
+    !     allocate(isGood(1-Ng:nLat+Ng,1-Ng:nLon+Ng))
+
+    !     bXYZ(1:nLat,1:nLon,1:NDIM) = RCMApp%X_bmin !Center
+    !     isGood = .false.
+    !     isGood(1:nLat,1:nLon) = (RCMApp%iopen == RCMTOPCLOSED)
+
+    !     !Lon, periodic
+    !     do n=1,Ng
+    !         bXYZ(1:nLat,1-n   ,1:NDIM) = RCMApp%X_bmin(1:nLat,nLon+1-n,1:NDIM)
+    !         bXYZ(1:nLat,nLon+n,1:NDIM) = RCMApp%X_bmin(1:nLat,n       ,1:NDIM)    
+    !         isGood(1:nLat,1-n   ) = RCMApp%iopen(1:nLat,nLon+1-n)
+    !         isGood(1:nLat,nLon+n) = RCMApp%iopen(1:nLat,n)
+    !     enddo
+    !     !Colat, zero-grad
+    !     do n=1,Ng
+    !         bXYZ(1-n   ,:,1:NDIM) = bXYZ(1   ,:,1:NDIM)
+    !         bXYZ(nLat+n,:,1:NDIM) = bXYZ(nLat,:,1:NDIM)
+    !         isGood(1-n   ,:) = isGood(1   ,:)
+    !         isGood(nLat+n,:) = isGood(nLat,:)
+    !     enddo
+
+    !     !Do new pass with smoothing window
+    !     !$OMP PARALLEL DO default(shared) &
+    !     !$OMP private(i,j,n)
+    !     do j=1,nLon
+    !         do i=1,nLat
+    !             if (all(isGood(i-1:i+1,j-1:j+1))) then
+    !                 !3x3 stencil is all closed fields
+    !                 do n=1,NDIM
+    !                     RCMApp%X_bmin(i,j,n) = sum(bXYZ(i-1:i+1,j-1:j+1,n)*wgt)
+    !                 enddo
+    !             else
+    !                 RCMApp%iopen(i,j) = RCMTOPOPEN
+    !             endif
+
+    !         enddo
+    !     enddo
+
+    !     end associate
+
+    ! end subroutine SmoothTubes
 
     !Evaluate eq map at a given point
     !Returns density (#/cc) and pressure (nPa)
