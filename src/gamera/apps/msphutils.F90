@@ -411,7 +411,7 @@ module msphutils
 
                             !Go back to conserved vars and save
                             call CellP2C(Model,pW,pCon)
-                            State%Gas(i,j,k,:,s) = pCon 
+                            State%Gas(i,j,k,:,s) = pCon
                         endif
 
                     enddo !i loop

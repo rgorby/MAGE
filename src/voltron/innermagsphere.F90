@@ -25,7 +25,6 @@ module innermagsphere
 
     end interface
 
-
     contains
 
     !Figure out which inner magnetosphere model we're using and initialize it
@@ -116,14 +115,14 @@ module innermagsphere
                     Gr%Gas0(i,j,k,IMX2  ,BLK) = imW(IMX2)
 
                     !K: Setting to coupling timescale everywhere
-                    Gr%Gas0(i,j,k,IMTSCL,BLK) = vApp%DeepDT/gApp%Model%Units%gT0
+                    !Gr%Gas0(i,j,k,IMTSCL,BLK) = vApp%DeepDT/gApp%Model%Units%gT0
                     
-                    ! !Use IMTSCL if set, otherwise set to coupling timescale
-                    ! if (imW(IMTSCL) > TINY) then
-                    !     Gr%Gas0(i,j,k,IMTSCL,BLK) = max(imW(IMTSCL),vApp%DeepDT)/gApp%Model%Units%gT0
-                    ! else
-                    !     Gr%Gas0(i,j,k,IMTSCL,BLK) = vApp%DeepDT/gApp%Model%Units%gT0
-                    ! endif
+                    !Use IMTSCL if set, otherwise set to coupling timescale
+                    if (imW(IMTSCL) > TINY) then
+                        Gr%Gas0(i,j,k,IMTSCL,BLK) = max(imW(IMTSCL),vApp%DeepDT)/gApp%Model%Units%gT0
+                    else
+                        Gr%Gas0(i,j,k,IMTSCL,BLK) = vApp%DeepDT/gApp%Model%Units%gT0
+                    endif
                     
                 enddo
             enddo
@@ -184,39 +183,5 @@ module innermagsphere
         call vApp%imagApp%doRestart(nRes,vApp%MJD,vApp%time)
 
     end subroutine InnerMagRestart
-
-    ! !K: This part is draft class for polymorphic approach to inner magnetosphere
-    ! type, abstract :: InnerMag_T
-    ! contains
-    !     procedure(InitInnerMag_T), deferred :: InitIM
-    !     procedure(AdvInnerMag_T) , deferred :: AdvIM
-    !     procedure(IMagEval_T)    , deferred :: EvalIM
-    !     procedure(IOInnerMag_T)  , deferred :: WriteIM
-    ! end type InnerMag_T
-
-    ! abstract interface
-    !     subroutine InitInnerMag_T(vApp,isRestart,iXML)
-    !         Import :: voltApp_T,XML_Input_T
-    !         type(voltApp_T)  , intent(inout) :: vApp
-    !         logical, intent(in) :: isRestart
-    !         type(XML_Input_T), intent(inout) :: iXML
-    !     end subroutine InitInnerMag_T
-    ! end interface
-
-    ! abstract interface
-    !     subroutine AdvInnerMag_T(vApp,tAdv)
-    !         Import :: rp,voltApp_T
-    !         type(voltApp_T), intent(inout) :: vApp
-    !         real(rp), intent(in) :: tAdv
-    !     end subroutine AdvInnerMag_T
-    ! end interface
-
-    ! abstract interface
-    !     subroutine IOInnerMag_T(vApp,nOut)
-    !         Import :: voltApp_T
-    !     type(voltApp_T), intent(inout) :: vApp
-    !     integer, intent(in) :: nOut
-    !     end subroutine IOInnerMag_T
-    ! end interface
 
 end module innermagsphere
