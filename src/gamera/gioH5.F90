@@ -530,8 +530,8 @@ module gioH5
         call AddOutVar(IOVars,"nRes",Model%IO%nRes)
         call AddOutVar(IOVars,"ts"  ,Model%ts)
         call AddOutVar(IOVars,"t"   ,Model%t)
-        if (Model%dt0 < TINY) then
-            call AddOutVar(IOVars,"dt0"   ,Model%dt)
+        if (Model%dt0 < TINY*10.0) then
+            call AddOutVar(IOVars,"dt0"   ,0.0)
         else
             call AddOutVar(IOVars,"dt0"   ,Model%dt0)
         endif
@@ -649,10 +649,12 @@ module gioH5
             call ReadVars(IOVars,.false.,inH5)
 
             Model%dt0 = GetIOReal(IOVars,"dt0")
-            if (Model%isLoud) then
-                write(*,*) 'Found dt0, setting to ', Model%dt0*Model%Units%gT0
+
+            if (Model%dt0<TINY*10) then
+                Model%dt0 = 0.0
+            else
+                if (Model%isLoud) write(*,*) 'Found dt0, setting to ', Model%dt0*Model%Units%gT0
             endif
-            if (Model%dt0<TINY*10) Model%dt0 = 0.0
         else
             if (Model%isLoud) then
                 write(*,*) 'No dt0 found in restart, setting to 0'

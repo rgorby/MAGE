@@ -655,6 +655,29 @@ module msphutils
                         else
                             dP = 0.0
                         endif
+                        
+                        ! !if (Prcm*Model%Units%gP0 > 25.0) then
+                        ! if ( (i==6) .and. (j==41) .and. (k==41) ) then
+                        ! !if (Prcm > TINY) then
+                        !     !$OMP CRITICAL
+                        !     write(*,*) '---'
+                        !     write(*,*) 'ijk = ', i,j,k
+                        !     write(*,*) 'Den = ', pW(DEN)
+                        !     !write(*,*) 'pScl = ', Model%Units%gP0
+                        !     write(*,*) 'Pmhd = ', Pmhd*Model%Units%gP0
+                        !     write(*,*) 'Plim / Prcm = ', PLim*Model%Units%gP0, Prcm*Model%Units%gP0
+                        !     !!write(*,*) 'dP = ', dP*Model%Units%gP0
+                        !     write(*,*) 'DelP = ', (Model%dt/Tau)*dP*Model%Units%gP0
+                        !     !write(*,*) 'Beta, Scl = ', beta, 1.0/(1.0+beta*5.0/6.0)
+                        !     !write(*,*) 'Pb / Bxyz = ', Pb, Bxyz
+
+                        !     !write(*,*) 'dt / tau = ', Model%dt*Model%Units%gT0,Tau*Model%Units%gT0
+                        !     write(*,*) 'Pmhd-Update = ', (pW(PRESSURE) + (Model%dt/Tau)*dP)*Model%Units%gP0
+                            
+                        !     write(*,*) '---'
+                        !     !$OMP END CRITICAL
+                        ! endif
+                        
                         pW(PRESSURE) = pW(PRESSURE) + (Model%dt/Tau)*dP
                     endif
 
