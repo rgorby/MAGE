@@ -769,7 +769,7 @@ module gamapp_mpi
                         if(Model%doMHD) then
                             call calcRecvDatatypeOffsetFC(gamAppMpi,gamAppMpi%recvRanks(rankIndex),iData,&
                                                           jData,kData,periodicI,periodicJ,periodicK,dType,offset)
-                            if(dType /= MPI_DATATYPE_NULL .and. dataSum == ) then
+                            if(dType /= MPI_DATATYPE_NULL .and. dataSum == 1) then
                                 ! face centered datatype already has all 4 dimensions
                                 ! only copy faces (single ghosts)
                                 call appendDatatype(gamAppMpi%recvTypesMagFlux(rankIndex),dType,offset)
