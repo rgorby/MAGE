@@ -686,7 +686,7 @@ module gamapp_mpi
         logical, intent(in) :: periodicI, periodicJ, periodicK
 
         integer :: iData,jData,kData,rankIndex,dType,offset,dataSize,ierr
-        integer :: dtGas4,dtGas5
+        integer :: dtGas4,dtGas5,dataSum
 
         associate(Grid=>gamAppMpi%Grid,Model=>gamAppMpi%Model)
 
@@ -739,12 +739,14 @@ module gamapp_mpi
                 do kData=-1,1
                     do rankIndex = 1,SIZE(gamappMpi%recvRanks)
                         ! for each possibly adjacent rank
+                        dataSum = abs(iData)+abs(jData)+abs(kData)
 
                         ! Start cell centered
                         call calcRecvDatatypeOffsetCC(gamAppMpi,gamAppMpi%recvRanks(rankIndex),iData,jData,kData,&
                                                 periodicI,periodicJ,periodicK,dType,offset)
-                        if(dType /= MPI_DATATYPE_NULL) then
+                        if(dType /= MPI_DATATYPE_NULL .and. dataSum /= 3) then
                             ! add 4th and 5th dimensions for cell centered Gas
+                            ! don't do corners (triple ghosts)
                             call mpi_type_hvector(NVAR,1,Grid%Ni*Grid%Nj*Grid%Nk*dataSize,dType,dtGas4,ierr)
                             call mpi_type_hvector(Model%nSpc+1,1,NVAR*Grid%Ni*Grid%Nj*Grid%Nk*dataSize,&
                                                   dtGas4,dtGas5,ierr)
@@ -753,8 +755,9 @@ module gamapp_mpi
 
                         call calcSendDatatypeOffsetCC(gamAppMpi,gamAppmpi%sendRanks(rankIndex),iData,jData,kData,&
                                                 periodicI,periodicJ,periodicK,dType,offset)
-                        if(dType /= MPI_DATATYPE_NULL) then
+                        if(dType /= MPI_DATATYPE_NULL .and. dataSum /= 3) then
                             ! add 4th and 5th dimensions for cell centered Gas
+                            ! don't do corners (triple ghosts)
                             call mpi_type_hvector(NVAR,1,Grid%Ni*Grid%Nj*Grid%Nk*dataSize,dType,dtGas4,ierr)
                             call mpi_type_hvector(Model%nSpc+1,1,NVAR*Grid%Ni*Grid%Nj*Grid%Nk*dataSize,&
                                                   dtGas4,dtGas5,ierr)
@@ -766,15 +769,17 @@ module gamapp_mpi
                         if(Model%doMHD) then
                             call calcRecvDatatypeOffsetFC(gamAppMpi,gamAppMpi%recvRanks(rankIndex),iData,&
                                                           jData,kData,periodicI,periodicJ,periodicK,dType,offset)
-                            if(dType /= MPI_DATATYPE_NULL) then
+                            if(dType /= MPI_DATATYPE_NULL .and. dataSum == ) then
                                 ! face centered datatype already has all 4 dimensions
+                                ! only copy faces (single ghosts)
                                 call appendDatatype(gamAppMpi%recvTypesMagFlux(rankIndex),dType,offset)
                             endif
 
                             call calcSendDatatypeOffsetFC(gamAppMpi,gamAppmpi%sendRanks(rankIndex),iData,&
                                                     jData,kData,periodicI,periodicJ,periodicK,dType,offset)
-                            if(dType /= MPI_DATATYPE_NULL) then
+                            if(dType /= MPI_DATATYPE_NULL .and. dataSum == 1) then
                                 ! face centered datatype already has all 4 dimensions
+                                ! only copy faces (single ghosts)
                                 call appendDatatype(gamAppMpi%sendTypesMagFlux(rankIndex),dType,offset)
                             endif
                         endif
