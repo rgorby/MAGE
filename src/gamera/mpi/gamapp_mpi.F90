@@ -26,10 +26,6 @@ module gamapp_mpi
         integer, dimension(:), allocatable :: recvCountsMagFlux, recvTypesMagFlux
         integer(MPI_ADDRESS_KIND), dimension(:), allocatable :: sendDisplsMagFlux, recvDisplsMagFlux
 
-        ! Magnetic Field Data Transfer Variables
-        integer, dimension(:), allocatable :: sendCountsBxyz, sendTypesBxyz
-        integer, dimension(:), allocatable :: recvCountsBxyz, recvTypesBxyz
-        integer(MPI_ADDRESS_KIND), dimension(:), allocatable :: sendDisplsBxyz, recvDisplsBxyz
         ! Debugging flags
         logical :: printMagFluxFaceError = .false.
         real(rp) :: faceError = 0.0_rp
@@ -679,17 +675,6 @@ module gamapp_mpi
                       sum(abs(gamAppMpi%state%magFlux(gamAppMpi%grid%is:gamAppMpi%grid%ie,gamAppMpi%grid%js:gamAppMpi%grid%je,gamAppMpi%grid%ke+1,KDIR) - maxK))
                 endif
 
-                ! Magnetic Field Cell Data
-                call mpi_neighbor_alltoallw(gamAppMpi%State%Bxyz, gamAppMpi%sendCountsBxyz, &
-                                            gamAppMpi%sendDisplsBxyz, gamAppMpi%sendTypesBxyz, &
-                                            gamAppMpi%State%Bxyz, gamAppMpi%recvCountsBxyz, &
-                                            gamAppMpi%recvDisplsBxyz, gamAppMpi%recvTypesBxyz, &
-                                            gamAppMpi%gamMpiComm, ierr)
-                if(ierr /= MPI_Success) then
-                    call MPI_Error_string( ierr, message, length, ierr)
-                    print *,message(1:length)
-                    call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
-                endif
             endif
 
         endif
@@ -701,7 +686,7 @@ module gamapp_mpi
         logical, intent(in) :: periodicI, periodicJ, periodicK
 
         integer :: iData,jData,kData,rankIndex,dType,offset,dataSize,ierr
-        integer :: dtGas4,dtGas5,dtBxyz4,dtBxyz5
+        integer :: dtGas4,dtGas5
 
         associate(Grid=>gamAppMpi%Grid,Model=>gamAppMpi%Model)
 
@@ -726,12 +711,6 @@ module gamapp_mpi
 
         if(Model%doMHD) then
             ! do setup for mpi transfer of MHD data
-            allocate(gamAppMpi%sendCountsBxyz(1:SIZE(gamAppMpi%sendRanks)))
-            allocate(gamAppMpi%sendDisplsBxyz(1:SIZE(gamAppMpi%sendRanks)))
-            allocate(gamAppMpi%sendTypesBxyz(1:SIZE(gamAppMpi%sendRanks)))
-            allocate(gamAppMpi%recvCountsBxyz(1:SIZE(gamAppMpi%recvRanks)))
-            allocate(gamAppMpi%recvDisplsBxyz(1:SIZE(gamAppMpi%recvRanks)))
-            allocate(gamAppMpi%recvTypesBxyz(1:SIZE(gamAppMpi%recvRanks)))
             allocate(gamAppMpi%sendCountsMagFlux(1:SIZE(gamAppMpi%sendRanks)))
             allocate(gamAppMpi%sendDisplsMagFlux(1:SIZE(gamAppMpi%sendRanks)))
             allocate(gamAppMpi%sendTypesMagFlux(1:SIZE(gamAppMpi%sendRanks)))
@@ -740,20 +719,14 @@ module gamapp_mpi
             allocate(gamAppMpi%recvTypesMagFlux(1:SIZE(gamAppMpi%recvRanks)))
 
             ! counts are always 1 because we're sending a single (complicated) mpi datatype
-            gamAppMpi%sendCountsBxyz(:) = 1
-            gamAppMpi%recvCountsBxyz(:) = 1
             gamAppMpi%sendCountsMagFlux(:) = 1
             gamAppMpi%recvCountsMagFlux(:) = 1
 
             ! displacements are always 0 because the displacements are baked into each mpi datatype
-            gamAppMpi%sendDisplsBxyz(:) = 0
-            gamAppMpi%recvDisplsBxyz(:) = 0
             gamAppMpi%sendDisplsMagFlux(:) = 0
             gamAppMpi%recvDisplsMagFlux(:) = 0
 
             ! set all datatypes to null by default
-            gamAppMpi%sendTypesBxyz(:) = MPI_DATATYPE_NULL
-            gamAppMpi%recvTypesBxyz(:) = MPI_DATATYPE_NULL
             gamAppMpi%sendTypesMagFlux(:) = MPI_DATATYPE_NULL
             gamAppMpi%recvTypesMagFlux(:) = MPI_DATATYPE_NULL
         endif
@@ -776,12 +749,6 @@ module gamapp_mpi
                             call mpi_type_hvector(Model%nSpc+1,1,NVAR*Grid%Ni*Grid%Nj*Grid%Nk*dataSize,&
                                                   dtGas4,dtGas5,ierr)
                             call appendDatatype(gamAppMpi%recvTypesGas(rankIndex),dtGas5,offset)
-
-                            if(Model%doMHD) then
-                                ! add 4th dimension for cell centered Bxyz
-                                call mpi_type_hvector(NDIM,1,Grid%Ni*Grid%Nj*Grid%Nk*dataSize,dType,dtBxyz4,ierr)
-                                call appendDatatype(gamAppMpi%recvTypesBxyz(rankIndex),dtBxyz4,offset)
-                            endif
                         endif
 
                         call calcSendDatatypeOffsetCC(gamAppMpi,gamAppmpi%sendRanks(rankIndex),iData,jData,kData,&
@@ -792,12 +759,6 @@ module gamapp_mpi
                             call mpi_type_hvector(Model%nSpc+1,1,NVAR*Grid%Ni*Grid%Nj*Grid%Nk*dataSize,&
                                                   dtGas4,dtGas5,ierr)
                             call appendDatatype(gamAppMpi%sendTypesGas(rankIndex),dtGas5,offset)
-
-                            if(Model%doMHD) then
-                                ! add 4th dimension for cell centered Bxyz
-                                call mpi_type_hvector(NDIM,1,Grid%Ni*Grid%Nj*Grid%Nk*dataSize,dType,dtBxyz4,ierr)
-                                call appendDatatype(gamAppMpi%sendTypesBxyz(rankIndex),dtBxyz4,offset)
-                            endif
                         endif
                         ! End cell centered
 
@@ -828,8 +789,6 @@ module gamapp_mpi
             call mpi_type_commit(gamAppMpi%sendTypesGas(rankIndex), ierr)
             call mpi_type_commit(gamAppMpi%recvTypesGas(rankIndex), ierr)
             if(Model%doMHD) then
-                call mpi_type_commit(gamAppMpi%sendTypesBxyz(rankIndex), ierr)
-                call mpi_type_commit(gamAppMpi%recvTypesBxyz(rankIndex), ierr)
                 call mpi_type_commit(gamAppMpi%sendTypesMagFlux(rankIndex), ierr)
                 call mpi_type_commit(gamAppMpi%recvTypesMagFlux(rankIndex), ierr)
             endif
