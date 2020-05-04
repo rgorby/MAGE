@@ -269,14 +269,20 @@ module voltapp_mpi
             ! do nothing here, do not update the incoming gamera data
         else
             ! fetch data from Gamera ranks
+            call Tic("ShallowRecv")
             call recvShallowData_mpi(vApp)
+            call Toc("ShallowRecv")
         endif
 
         ! call base update function with local data
+        call Tic("ShallowUpdate")
         call ShallowUpdate(vApp, vApp%gAppLocal, time)
+        call Toc("ShallowUpdate")
 
         ! send updated data to Gamera ranks
+        call Tic("ShallowSend")
         call sendShallowData_mpi(vApp)
+        call Toc("ShallowSend")
 
     end subroutine ShallowUpdate_mpi
 
@@ -349,13 +355,19 @@ module voltapp_mpi
             return
         else
             ! fetch data from Gamera ranks
+            call Tic("DeepRecv")
             call recvDeepData_mpi(vApp)
+            call Toc("DeepRecv")
 
             ! call base update function with local data
+            call Tic("DeepUpdate")
             call DeepUpdate(vApp, vApp%gAppLocal, time)
+            call Toc("DeepUpdate")
 
             ! send updated data to Gamera ranks
+            call Tic("DeepSend")
             call sendDeepData_mpi(vApp)
+            call Toc("DeepSend")
         endif
 
     end subroutine DeepUpdate_mpi
