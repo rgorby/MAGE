@@ -81,7 +81,7 @@ module ebsquish
         endif
 
         !Force iDeep to be even
-        vApp%iDeep = ceiling(vApp%iDeep/2.0)
+        vApp%iDeep = 2*ceiling(vApp%iDeep/2.0)
 
         !$OMP PARALLEL DO default(shared) collapse(2) &
         !$OMP schedule(dynamic) &
@@ -130,7 +130,9 @@ module ebsquish
         enddo
 
         vApp%chmp2mhd%iMax = vApp%iDeep
+        
         end associate
+
 
     end subroutine Squish
 
