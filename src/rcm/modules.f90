@@ -36,6 +36,7 @@ MODULE rice_housekeeping_module
              L_write_tracing_debug = .false., &
              L_write_vars_debug    = .false., &
              L_write_int_grid_debug= .true.
+  
   INTEGER(iprec) :: Idt_overwrite         = 1
   INTEGER(iprec) :: rcm_record
   REAL(rprec) :: HighLatBD,LowLatBD
@@ -119,7 +120,7 @@ MODULE rice_housekeeping_module
         call xmlInp%Set_Val(ellBdry%isDynamic,"ellipse/isDynamic"  ,.true.)
 
         call xmlInp%Set_Val(ellBdry%dRadMHD ,"ellipse/dRadMHD" ,ellBdry%dRadMHD)
-        
+
         !For now just using default Idt_overwrite
 
       end subroutine RCM_MHD_Params_XML
@@ -226,29 +227,3 @@ MODULE conversion_module
   REAL(rprec), ALLOCATABLE :: eeta_new(:,:,:)
   INTEGER(iprec), ALLOCATABLE :: iopen(:,:),imin_j_old(:),inner_bndy(:)
 END MODULE conversion_module
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-MODULE dipole_params
-!  USE Rcm_mod_subs, ONLY : rprec,iprec
-  USE rcm_precision
-  IMPLICIT NONE
-  REAL(rprec) :: dm !> Dipole Moment
-  REAL(rprec) :: tilt
-END MODULE dipole_params
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-MODULE tracer_params
-  USE rcm_precision
-!  USE Rcm_mod_subs, ONLY : rprec,iprec
-  IMPLICIT NONE
-! REAL(rprec), PARAMETER :: er1=0.005,er2=0.001
-  REAL(rprec), PARAMETER :: er1=5.0e-4,er2=1.0e-4
-END MODULE tracer_params
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-
-
-

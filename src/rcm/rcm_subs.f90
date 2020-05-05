@@ -1,7 +1,6 @@
 !
     MODULE Rcm_mod_subs
     use rcm_precision
-    
     IMPLICIT NONE
     SAVE
 !
@@ -94,6 +93,7 @@
 !
 !
     LOGICAL ::  L_move_plasma_grid = .TRUE.
+    LOGICAL ::  L_doKaiClaw        = .false.
 !
 !
 !   Plasma on grid:
@@ -3761,7 +3761,7 @@ END IF
 !      CALL Move_plasma_grid (dt, 1, isize, j1, j2, 1)
        STOP 'This option is no longer available, aborting RCM'
     ELSE IF (i_advect == 3) THEN
-        IF (doClaw95) THEN
+        IF (L_doKaiClaw) THEN
           CALL Move_plasma_grid_KAIJU (dt)
         ELSE
           CALL Move_plasma_grid_new (dt)
@@ -7253,6 +7253,7 @@ bjmod_real = MODULO(bj-REAL(jwrap),REAL(jsize-jwrap-1)) + REAL(jwrap)
                       idt_in, idt1_in, idt2_in, icontrol,stropt,nslcopt,iXML)
       USE xml_input
       USE rcm_timing_module
+
       IMPLICIT NONE
 !
       type(XML_Input_T), intent(in), optional :: iXML
@@ -8046,6 +8047,9 @@ bjmod_real = MODULO(bj-REAL(jwrap),REAL(jsize-jwrap-1)) + REAL(jwrap)
           endif
           call xmlInp%Set_Val(L_dktime,"chargex/L_dktime",.true.)
           call xmlInp%Set_Val(sunspot_number,"chargex/sunspot_number",96.0)
+
+          !Clawpack options
+          call xmlInp%Set_Val(L_doKaiClaw,"clawpack/doKaiClaw",L_doKaiClaw)
 
           !Some values just setting
           tol_gmres = 1.0e-5

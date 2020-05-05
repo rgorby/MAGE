@@ -761,6 +761,7 @@
         xP = maxval(xe)
         xM = minval(xe)
         yMax = maxval(abs(ye))
+        !Enforce max's from XML ellipse
         a1 = min(a1,xP)
         a2 = max(a2,xM)
         b  = min(b ,yMax)        
