@@ -791,11 +791,37 @@ module gamapp_mpi
 
         ! commit the created MPI datatypes
         do rankIndex=1,SIZE(gamAppMpi%sendRanks)
-            call mpi_type_commit(gamAppMpi%sendTypesGas(rankIndex), ierr)
-            call mpi_type_commit(gamAppMpi%recvTypesGas(rankIndex), ierr)
+            if(gamAppMpi%sendTypesGas(rankIndex) == MPI_DATATYPE_NULL) then
+                ! no comms between these ranks
+                gamAppMpi%sendCountsGas(rankIndex) = 0
+                gamAppMpi%sendDisplsGas(rankIndex) = 0
+                gamAppMpi%sendTypesGas(rankIndex) = MPI_INT ! NULL causes crash
+            else
+                ! there are comms between these ranks
+                call mpi_type_commit(gamAppMpi%sendTypesGas(rankIndex), ierr)
+            endif
+            if(gamAppMpi%recvTypesGas(rankIndex) == MPI_DATATYPE_NULL) then
+                gamAppMpi%recvCountsGas(rankIndex) = 0
+                gamAppMpi%recvDisplsGas(rankIndex) = 0
+                gamAppMpi%recvTypesGas(rankIndex) = MPI_INT
+            else
+                call mpi_type_commit(gamAppMpi%recvTypesGas(rankIndex), ierr)
+            endif
             if(Model%doMHD) then
-                call mpi_type_commit(gamAppMpi%sendTypesMagFlux(rankIndex), ierr)
-                call mpi_type_commit(gamAppMpi%recvTypesMagFlux(rankIndex), ierr)
+                if(gamAppMpi%sendTypesMagFlux(rankIndex) == MPI_DATATYPE_NULL) then
+                    gamAppMpi%sendCountsMagFlux(rankIndex) = 0
+                    gamAppMpi%sendDisplsMagFlux(rankIndex) = 0
+                    gamAppMpi%sendTypesMagFlux(rankIndex) = MPI_INT
+                else
+                    call mpi_type_commit(gamAppMpi%sendTypesMagFlux(rankIndex), ierr)
+                endif
+                if(gamAppMpi%recvTypesMagFlux(rankIndex) == MPI_DATATYPE_NULL) then
+                    gamAppMpi%recvCountsMagFlux(rankIndex) = 0
+                    gamAppMpi%recvDisplsMagFlux(rankIndex) = 0
+                    gamAppMpi%recvTypesMagFlux(rankIndex) = MPI_INT
+                else
+                    call mpi_type_commit(gamAppMpi%recvTypesMagFlux(rankIndex), ierr)
+                endif
             endif
         enddo
 
