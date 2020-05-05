@@ -9,4 +9,5 @@
     LOGICAL, PARAMETER :: asci_flag = .FALSE.
     LOGICAL, PARAMETER :: isGAMRCM = .TRUE. !Whether running coupled to Gamera
     LOGICAL, PARAMETER :: doQuietRCM = .TRUE.
-    LOGICAL, PARAMETER :: doClaw95 = .TRUE.
+    !If you came here looking for doClaw95, use the xml option
+    !rcm/clawpack/doKaiClaw="T"

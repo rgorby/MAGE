@@ -249,7 +249,7 @@
       do j=jwrap,jdim
         jp = j-jwrap+1
         iC = imin_j(j)
-        RadC = norm2(RM%X_bmin(iC,jp,1:2))-dRad
+        RadC = norm2(RM%X_bmin(iC,jp,1:3))-dRad
         do i=iC+1,idim
           rIJ = norm2(RM%X_bmin(i,jp,1:3))
           !write(*,*) 'RadC/rIJ = ',RadC/radius_earth_m,rIj/radius_earth_m
