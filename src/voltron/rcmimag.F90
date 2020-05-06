@@ -393,8 +393,10 @@ module rcmimag
         colat = PI/2 - lat
 
         !Repack
+        !TODO: Avoid temporaries
         lls(:,1) = reshape(llC(:,:,:,1),[8])
         lls(:,2) = reshape(llC(:,:,:,2),[8])
+
         colats = PI/2 - lls(:,1)
 
         !Do 1st short cut tests
@@ -403,6 +405,7 @@ module rcmimag
         if (.not. isGood) return
 
         !If still here, find mapping (i,j) on RCM grid of each corner
+        !TODO: Redo CornerLocs to be faster
         call CornerLocs(lls,ijs)
 
         !Do second short cut tests

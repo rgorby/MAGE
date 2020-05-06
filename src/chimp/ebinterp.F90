@@ -9,7 +9,8 @@ module ebinterp
 
     implicit none
 
-    logical :: doCurldbdt = .false.
+    logical, parameter, private :: doCurldbdt = .false.
+    logical, parameter, private :: doAxisFix = .true.
 
     contains
 
@@ -114,7 +115,7 @@ module ebinterp
 
     !ijkO is optional guess to pass to locate routine
     !     if present will return correct location
-    subroutine ebFields(xyz,t,Model,ebState,E,B,ijkO,vExB,gcFields)
+    recursive subroutine ebFields(xyz,t,Model,ebState,E,B,ijkO,vExB,gcFields)
         real(rp), intent(in) :: xyz(NDIM),t
         type(chmpModel_T), intent(in) :: Model
         type(ebState_T), intent(in)   :: ebState
@@ -130,7 +131,13 @@ module ebinterp
         real(rp), dimension(NDIM) :: ezp,B0,wE,wZ,wP,wEp,wZp,wPp
         real(rp), dimension(Nw,Nw,Nw,NDIM) :: E1,E2,dB1,dB2 !Interpolation stencils
         real(rp), dimension(Nw,Nw,Nw) :: W,eW,zW,pW !Interpolation weights
-        logical :: isIn,doJacob
+        logical :: isIn,doJacob,isAxis,isAxisS,isAxisE
+        
+        !Handling axis
+        integer :: ip,jp,kp,ijkAx(NDIM)
+        type(gcFields_T) :: gcFieldsAxP,gcFieldsAxM
+        real(rp), dimension(NDIM) :: Xp,Xm,Xc,AxE,AxB
+        real(rp) :: wAx
         associate( ebGr=>ebState%ebGr,ebTab=>ebState%ebTab,eb1=>ebState%eb1,eb2=>ebState%eb2 )
 
     !Initialize fields
@@ -162,7 +169,23 @@ module ebinterp
 
         !Bail (returning 0 fields) if not in grid
         if (.not. isIn) return
-            
+        i0 = ijk(IDIR) ; j0 = ijk(JDIR) ; k0 = ijk(KDIR)
+
+    !Trap for special cases (i.e. axis)
+        isAxisS = .false.
+        isAxisE = .false.
+        if (doAxisFix .and. (ebGr%GrID == EGGGRID .or. ebGr%GrID == LFMGRID) )then
+            !Check for +x
+            if ( j0 <= ebGr%js+1 ) then !js/js+1
+                isAxisS = .true.
+            endif
+            if ( j0 >= ebGr%je-1 ) then
+                isAxisE = .true.
+            endif
+        endif
+
+        isAxis = isAxisS .or. isAxisE
+
     !Get mapping and weights
         !Map to ezp
         ezp = Map2ezp(xyz,ijk,Model,ebGr)
@@ -193,7 +216,6 @@ module ebinterp
 
 
     !Do E-B fields
-        i0 = ijk(IDIR) ; j0 = ijk(JDIR) ; k0 = ijk(KDIR)
         !Pull stencils
         dB1 = eb1%dB(i0-1:i0+1,j0-1:j0+1,k0-1:k0+1,:)
         dB2 = eb2%dB(i0-1:i0+1,j0-1:j0+1,k0-1:k0+1,:)
@@ -221,59 +243,97 @@ module ebinterp
 
     !Do star fields if necessary
         if (doJacob) then
-
         !Do Jacobians and time derivatives
+            associate( JacB=>gcFields%JacB, JacE=>gcFields%JacE )
 
-            !Jacobians
-            !---------
-            !Get 1D weights for Jacobians            
-            wEp = Wgt1Dp(ezp(IDIR))
-            wZp = Wgt1Dp(ezp(JDIR))
-            wPp = Wgt1Dp(ezp(KDIR))
+            if (isAxis) then
+                !If on axis then do some trickery
+                Xc = ebGr%xyzcc(i0,j0,k0,XDIR:ZDIR)
+                if (isAxisS) then
+                !Positive displacement
+                    ip = i0;jp = ebGr%js+2;kp = k0
+                    Xp = ebGr%xyzcc(ip,jp,kp,XDIR:ZDIR)
+                    ijkAx = [ip,jp,kp]
+                    call ebFields(Xp,t,Model,ebState,AxE,AxB,ijkAx,gcFields=gcFieldsAxP)
+                !Negative displacement
+                    call ijk2Active(Model,ebGr,i0,ebGr%js-3,k0,ip,jp,kp)
+                    Xm = ebGr%xyzcc(ip,jp,kp,XDIR:ZDIR)
+                    ijkAx = [ip,jp,kp]
+                    call ebFields(Xm,t,Model,ebState,AxE,AxB,ijkAx,gcFields=gcFieldsAxM)
+                !Weight for P (closer)
+                    wAx = norm2(Xm-Xc)/norm2(Xp-Xm)
 
-            !Turn 1D weights into 3D weights
-            do k=1,Nw
-                do j=1,Nw
-                    do i=1,Nw
-                        !Partial derivatives of weights wrt eta,zeta,psi
-                        eW(i,j,k) = wEp(i)*wZ(j)*wP(k)
-                        zW(i,j,k) = wE(i)*wZp(j)*wP(k)
-                        pW(i,j,k) = wE(i)*wZ(j)*wPp(k)
+                else !Negative axis
+                !Positive displacement, flipping positive (to closer point)   
+                    ip = i0;jp = ebGr%je-2;kp = k0
+                    Xp = ebGr%xyzcc(ip,jp,kp,XDIR:ZDIR)
+                    ijkAx = [ip,jp,kp]
+                    call ebFields(Xp,t,Model,ebState,AxE,AxB,ijkAx,gcFields=gcFieldsAxP)
+                !Negative displacement
+                    call ijk2Active(Model,ebGr,i0,ebGr%je+3,k0,ip,jp,kp)
+                    Xm = ebGr%xyzcc(ip,jp,kp,XDIR:ZDIR)
+                    ijkAx = [ip,jp,kp]
+                    call ebFields(Xm,t,Model,ebState,AxE,AxB,ijkAx,gcFields=gcFieldsAxM)
+                !Weight for P (closer)
+                    wAx = norm2(Xm-Xc)/norm2(Xp-Xm)
+                endif !isAxisS
+                JacB = wAx*gcFieldsAxP%JacB + (1-wAx)*gcFieldsAxM%JacB
+                JacE = wAx*gcFieldsAxP%JacE + (1-wAx)*gcFieldsAxM%JacE
+
+            else
+                !Otherwise do standard thing
+
+                !Jacobians
+                !---------
+                !Get 1D weights for Jacobians            
+                wEp = Wgt1Dp(ezp(IDIR))
+                wZp = Wgt1Dp(ezp(JDIR))
+                wPp = Wgt1Dp(ezp(KDIR))
+
+                !Turn 1D weights into 3D weights
+                do k=1,Nw
+                    do j=1,Nw
+                        do i=1,Nw
+                            !Partial derivatives of weights wrt eta,zeta,psi
+                            eW(i,j,k) = wEp(i)*wZ (j)*wP (k)
+                            zW(i,j,k) = wE (i)*wZp(j)*wP (k)
+                            pW(i,j,k) = wE (i)*wZ (j)*wPp(k)
+                        enddo
                     enddo
                 enddo
-            enddo
 
-            !Calculate Jacobians
-            !JacA(i,j) = d B_Xi / dXj
-            !Tix(i0,j0,k0,ezp,xyz) = ezp derivs wrt xyz
+                !Calculate Jacobians
+                !JacA(i,j) = d B_Xi / dXj
+                !Tix(i0,j0,k0,ezp,xyz) = ezp derivs wrt xyz
 
-            !Pull metric terms
-            Tix = ebGr%Tix(i0,j0,k0,:,:)
+                !Pull metric terms
+                Tix = ebGr%Tix(i0,j0,k0,:,:)
 
-            !Do main calculation
-            associate( JacB=>gcFields%JacB, JacE=>gcFields%JacE )
-            do m=1,NDIM !Derivative direction (x,y,z)
-                do n=1,NDIM !Vector component
-                    JacB(n,m) = wT1*( Tix(IDIR,m)*sum(eW*dB1(:,:,:,n))   &
-                                     +Tix(JDIR,m)*sum(zW*dB1(:,:,:,n))   &
-                                     +Tix(KDIR,m)*sum(pW*dB1(:,:,:,n)) ) &
-                              + wT2*( Tix(IDIR,m)*sum(eW*dB2(:,:,:,n))   & 
-                                     +Tix(JDIR,m)*sum(zW*dB2(:,:,:,n))   &
-                                     +Tix(KDIR,m)*sum(pW*dB2(:,:,:,n)) )
+                !Do main calculation
+                do m=1,NDIM !Derivative direction (x,y,z)
+                    do n=1,NDIM !Vector component
+                        JacB(n,m) = wT1*( Tix(IDIR,m)*sum(eW*dB1(:,:,:,n))   &
+                                         +Tix(JDIR,m)*sum(zW*dB1(:,:,:,n))   &
+                                         +Tix(KDIR,m)*sum(pW*dB1(:,:,:,n)) ) &
+                                  + wT2*( Tix(IDIR,m)*sum(eW*dB2(:,:,:,n))   & 
+                                         +Tix(JDIR,m)*sum(zW*dB2(:,:,:,n))   &
+                                         +Tix(KDIR,m)*sum(pW*dB2(:,:,:,n)) )
 
-                    JacE(n,m) = wT1*( Tix(IDIR,m)*sum(eW* E1(:,:,:,n))   &
-                                     +Tix(JDIR,m)*sum(zW* E1(:,:,:,n))   &
-                                     +Tix(KDIR,m)*sum(pW* E1(:,:,:,n)) ) &
-                              + wT2*( Tix(IDIR,m)*sum(eW* E2(:,:,:,n))   & 
-                                     +Tix(JDIR,m)*sum(zW* E2(:,:,:,n))   &
-                                     +Tix(KDIR,m)*sum(pW* E2(:,:,:,n)) )
+                        JacE(n,m) = wT1*( Tix(IDIR,m)*sum(eW* E1(:,:,:,n))   &
+                                         +Tix(JDIR,m)*sum(zW* E1(:,:,:,n))   &
+                                         +Tix(KDIR,m)*sum(pW* E1(:,:,:,n)) ) &
+                                  + wT2*( Tix(IDIR,m)*sum(eW* E2(:,:,:,n))   & 
+                                         +Tix(JDIR,m)*sum(zW* E2(:,:,:,n))   &
+                                         +Tix(KDIR,m)*sum(pW* E2(:,:,:,n)) )
 
 
+                    enddo
                 enddo
-            enddo
+
+            endif !isAxis
+
             JacB = JacB + Model%JacB0(xyz)
 
-            
             !Time derivatives
             !Either use Curl(E) or linear derivative for bdot
             !----------------
@@ -294,7 +354,7 @@ module ebinterp
             endif
             
             end associate !Jacobians
-        endif
+        endif !doJacob
     
         end associate !Main associate
         

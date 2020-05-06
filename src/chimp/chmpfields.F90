@@ -2,6 +2,7 @@ module chmpfields
     use chmpdefs
     use chmpunits
     use ebtypes
+    use ebutils
     use ioH5
     use math
 
@@ -250,51 +251,5 @@ module chmpfields
         end select
 
     end subroutine ebGhosts
-
-
-    !Takes i,j,k cell index and returns active cell ip,jp,kp of mirror
-    !Map in i,k,j order
-    subroutine ijk2Active(Model,Grid,i,j,k,ip,jp,kp)
-        type(chmpModel_T), intent(in)    :: Model
-        type(   ebGrid_T), intent(in)    :: Grid
-        integer, intent(in) :: i,j,k
-        integer, intent(out) :: ip,jp,kp
-
-        integer :: Np,Np2
-
-        Np  = Grid%Nkp
-        Np2 = Grid%Nkp/2
-
-        !Start w/ i index, do mirror back into active
-        if (i < Grid%is) then
-            ip = Grid%is + (Grid%is-i) - 1
-        elseif (i > Grid%ie) then
-            ip = Grid%ie - (i-Grid%ie) + 1
-        else
-            ip = i
-        endif
-
-        !Next do k, map via periodicity
-        if (k < Grid%ks) then
-            kp = Grid%ke - (Grid%ks-k) + 1
-        elseif (k > Grid%ke) then
-            kp = Grid%ks + (k-Grid%ke) - 1
-        else
-            kp = k
-        endif
-
-        !Finally do j
-        if (j < Grid%js) then
-            jp = Grid%js + (Grid%js-j) - 1
-            kp = k+Np2
-            if (kp>Np) kp = kp-Np
-        elseif (j > Grid%je) then
-            jp = Grid%je - (j-Grid%je) + 1
-            kp = k+Np2
-            if (kp>Np) kp = kp-Np
-        else
-            jp = j
-        endif
-    end subroutine ijk2Active
 
 end module chmpfields
