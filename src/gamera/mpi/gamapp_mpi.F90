@@ -601,8 +601,24 @@ module gamapp_mpi
         !update the state variables to the next timestep
         call UpdateStateData(gamAppMpi)
 
+        !Track timing for all gamera ranks to finish math
+        ! Only synchronize when timing
+        if(gamAppMpi%Model%IO%doTimerOut) then
+            call Tic("Sync Math")
+            call MPI_BARRIER(gamAppMpi%gamMpiComm,ierr)
+            call Toc("Sync Math")
+        endif
+
         !Update BCs MPI style
         call updateMpiBCs(gamAppMpi)
+
+        !Track timing for all gamera ranks to finish halo comms
+        ! Only synchronize when timing
+        if(gamAppMpi%Model%IO%doTimerOut) then
+            call Tic("Sync Halo")
+            call MPI_BARRIER(gamAppMpi%gamMpiComm,ierr)
+            call Toc("Sync Halo")
+        endif
 
         !Calculate new timestep
         call Tic("DT")
