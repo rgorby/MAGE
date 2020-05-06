@@ -344,4 +344,23 @@ module cmiutils
 
     end subroutine GetShellJ
 
+    !Pack from corners to 1D array
+    subroutine SquishCorners(Q,Qs)
+        real(rp), dimension(2,2,2), intent(in)  :: Q
+        real(rp), dimension(8)    , intent(out) :: Qs
+
+        integer :: k,j,i,n
+
+        !Doing this tedious to avoid temporary arrays
+        n = 1
+        do k=1,2
+            do j=1,2
+                do i=1,2
+                    Qs(n) = Q(i,j,k)
+                    n = n+1
+                enddo
+            enddo
+        enddo
+
+    end subroutine SquishCorners
 end module cmiutils

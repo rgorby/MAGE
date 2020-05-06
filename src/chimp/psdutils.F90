@@ -50,9 +50,6 @@ module psdutils
             return
         endif
 
-
-
-
         !Now we know we're in this PS grid
         idx(PSRAD  ) = maxloc(psGr%rI,dim=1,mask=r>=psGr%rI)
         idx(PSPHI  ) = maxloc(psGr%pI,dim=1,mask=p>=psGr%pI)
