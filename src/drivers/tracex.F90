@@ -47,7 +47,7 @@ program tracex
 
     write(*,*) ''
     write(*,'(a,I0,a)')  'Tracing ', NumP, ' points'
-    write(*,'(a,f8.3,a,f8.3)') 'Time Interval = ', Model%T0*oTScl,' / ', Model%tFin*oTScl
+    write(*,'(a,f12.3,a,f12.3)') 'Time Interval = ', Model%T0*oTScl,' / ', Model%tFin*oTScl
     write(*,'(a,f8.3)') 'dt = ', Model%dt*oTScl
 
     !Do main loop
