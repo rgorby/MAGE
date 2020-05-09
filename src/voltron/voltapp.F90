@@ -233,9 +233,6 @@ module voltapp
             call init_mix(vApp%remixApp%ion,[NORTH, SOUTH],RunID=RunID,isRestart=isRestart)
         endif
         vApp%remixApp%ion%rad_iono_m = RadIonosphere() * gApp%Model%units%gx0 ! [Rp] * [m/Rp]
-        if (vApp%remixApp%ion(1)%conductance%doGCM) then
-            call init_gcm_mix(vApp%gcm,vApp%remixApp%ion)
-        endif
 
         !Set F10.7 from time series (using max)
         f107%wID = vApp%tilt%wID
@@ -320,14 +317,20 @@ module voltapp
         call vApp%tilt%getValue(vApp%time,curTilt)
 
         ! solve for remix output
-        if (vApp%remixApp%ion(1)%conductance%doGCM) then
-            call coupleGCM2MIX(vApp%gcm,vApp%remixApp%ion,vApp%remixApp%ion(1)%conductance%doGCM2way,mjd=vApp%MJD,time=vApp%time)
-            call run_mix(vApp%remixApp%ion,curTilt,gcm=vApp%gcm)
-        else if (time<=0) then
+        if (time<=0) then
+            write(*,*) " I AM HERE@ "
             call run_mix(vApp%remixApp%ion,curTilt,doModelOpt=.false.)
-        else
+        else if (vApp%remixApp%ion(1)%conductance%doGCM .and. vApp%gcm%cplStep /= 1) then
+            write(*,*) " I AM HERE! "
+            call run_mix(vApp%remixApp%ion,curTilt,gcm=vApp%gcm)
+        else 
+            write(*,*) " I AM HERE? "
             call run_mix(vApp%remixApp%ion,curTilt,doModelOpt=.true.)
         endif
+
+        if (vApp%remixApp%ion(1)%conductance%doGCM .and. time >=0) then
+            call coupleGCM2MIX(vApp%gcm,vApp%remixApp%ion,vApp%remixApp%ion(1)%conductance%doGCM2way,mjd=vApp%MJD,time=vApp%time)
+        end if
         ! get stuff from mix to gamera
         call mapRemixToGamera(vApp%mix2mhd, vApp%remixApp)
 

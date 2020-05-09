@@ -70,13 +70,12 @@ module mixmain
     subroutine get_potential(I)
       type(mixIon_T),intent(inout) :: I
 
-      !I%St%Vars(:,:,POT) = reshape(I%S%solution,[I%G%Np,I%G%Nt])*RionE**2*1.D3 ! in kV
       I%St%Vars(:,:,POT) = reshape(I%S%solution,[I%G%Np,I%G%Nt])*(I%rad_iono_m*1.e-6)**2*1.D3 ! in kV
     end subroutine get_potential
 
     subroutine run_mix(I,tilt,doModelOpt,gcm)
       type(mixIon_T),dimension(:),intent(inout) :: I 
-      type(gcm_T),optional,intent(in) :: gcm
+      type(gcm_T),optional,intent(inout) :: gcm
       real(rp),intent(in) :: tilt
       logical, optional, intent(in) :: doModelOpt  ! allow to change on the fly whether we use conductance model
 
@@ -102,10 +101,11 @@ module mixmain
         end if
 
         call Tic("MIX-COND")
-        if (I(h)%conductance%doGCM) then
+        if (present(gcm) .and. I(h)%conductance%doGCM) then
             write(*,*) 'doGCM!'
             call conductance_total(I(h)%conductance,I(h)%G,I(h)%St,gcm,h)
         else
+            write(*,*) "conductance: total"
             call conductance_total(I(h)%conductance,I(h)%G,I(h)%St)
         end if
 

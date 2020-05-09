@@ -173,20 +173,18 @@ contains
     call WriteVars(IOVars,.true.,h5File,gStr)
   end subroutine writeMIX
 
-  subroutine writeMIX2GCM(I,cplStr,lockStr,mjd,time)
+  subroutine writeMIX2GCM(I,cplStr,lockStr,cplStep,mjd,time)
     type(mixIon_T),dimension(:),intent(in) :: I
     real(rp), optional, intent(in) :: time, mjd
     character(len=strLen) :: vStr
 
-    integer :: v,h,n0
+    integer :: v,h,n0,cplStep
     character(len=strLen) :: gStr,uStr,hStr
     logical :: doDump = .true.,fExist=.true.
     real(rp) :: cpcp = 0.0
+    real(rp), dimension(:,:),allocatable :: xc,yc
     
     character(len=strLen) :: cplStr,lockStr
-
-    !Reset IO chain
-    call ClearIO(IOVars)
 
     !h5gcm = "mix4gcm.h5"
     !gcmlock = "mixgcmcoupling.txt"
@@ -208,7 +206,25 @@ contains
        write(*,*) "writeMIX: Wrong hemisphere identifier. Stopping..."
        stop
     end if
+    
+    !Reset IO chain
+    call ClearIO(IOVars)
+    
+    ! Create grid info (why is this not stored?)
+    !call genOutGrid(I(NORTH)%G%x,I(NORTH)%G%y,xc,yc)
 
+    ! save grid only for north
+    !call AddOutVar(IOVars,"X",xc,uStr="Ri")
+    !call AddOutVar(IOVars,"Y",yc,uStr="Ri")
+
+    !call AddOutVar(IOVars,"UnitsID","ReMIX")
+    
+    !Write out the chain (to root)
+    !call WriteVars(IOVars,.true.,cplStr)
+
+    !Reset IO chain
+    !call ClearIO(IOVars)
+    
     do h=1,size(I)
        ! hemisphere should be set up properly by now but still check just in case
        if (I(h)%St%hemisphere.eq.NORTH) then
@@ -252,7 +268,7 @@ contains
           uStr = trim(mixUnitNames(v))
           
           if (doDump) then
-             call AddOutVar(IOVars,vStr,I(h)%St%Vars(:,2:,v))
+             call AddOutVar(IOVars,vStr,I(h)%St%Vars(:,:,v))
              ! inelegantly specifying the units       
              n0 = FindIO(IOVars,vStr)
              IOVars(n0)%unitStr = uStr
@@ -266,14 +282,22 @@ contains
     ! also add tilt
     call AddOutVar(IOVars,"tilt",I(NORTH)%St%tilt)
 
+    ! add grid info
+    call AddOutVar(IOVars,"colat",I(NORTH)%G%t)
+    call AddOutVar(IOVars,"lon",I(NORTH)%G%p)
+    call AddOutVar(IOVars,"Grid X",I(NORTH)%G%x)
+    call AddOutVar(IOVars,"Grid Y",I(NORTH)%G%y)
+
     ! add cpcp
     call AddOutVar(IOVars,"nCPCP",maxval(I(NORTH)%St%Vars(:,:,POT))-minval(I(NORTH)%St%Vars(:,:,POT)))
     call AddOutVar(IOVars,"sCPCP",maxval(I(SOUTH)%St%Vars(:,:,POT))-minval(I(SOUTH)%St%Vars(:,:,POT)))    
     
     !Write out the chain (to root)
-    write(gStr,'(A,I0)') "Step#", 1
+    write(gStr,'(A,I0)') "Step#", cplStep
     call WriteVars(IOVars,.true.,cplStr,gStr)
-
+   
+    write(*,*) "nCPCP",maxval(I(NORTH)%St%Vars(:,:,POT))-minval(I(NORTH)%St%Vars(:,:,POT))
+    write(*,*) "sCPCP",maxval(I(SOUTH)%St%Vars(:,:,POT))-minval(I(SOUTH)%St%Vars(:,:,POT))
     write(*,*) "Done making ",trim(cplStr)," so locking"
     open(303,file=trim(lockStr))
       write(303,*) mjd
