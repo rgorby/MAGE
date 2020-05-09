@@ -553,6 +553,11 @@ module gioH5
             call AddOutVar(IOVars,"magFlux",State%magFlux(Gr%is:Gr%ie+1,Gr%js:Gr%je+1,Gr%ks:Gr%ke+1,:))
         endif
 
+        if (Model%doSource) then
+            !Add source terms to output
+            call AddOutVar( IOVars,"Gas0",Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,:,:) )
+        endif
+
         !Write out, force real precision
         call WriteVars(IOVars,.false.,ResF)
 
@@ -566,7 +571,7 @@ module gioH5
         logical, intent(in), optional :: doResetO
         real(rp), intent(in), optional :: tResetO
 
-        logical :: doReset,fExist
+        logical :: doReset,fExist,hasSrc
         real(rp) :: tReset
         integer :: wDims(5),bDims(4)
         integer :: rSpc
@@ -667,6 +672,29 @@ module gioH5
                 Model%dt0 = 0.0
             endif
         endif
+
+    !Do source term stuff if necessary
+        hasSrc = ioExist(inH5,"Gas0")
+        if (Model%doSource .and. hasSrc) then
+            if (Model%isLoud) then
+                write(*,*) 'Found MHD source term data in restart, reading ...'
+            endif
+            !We want source and it's got some, let's do this thing
+            call ClearIO(IOVars)
+            call AddInVar(IOVars,"Gas0")
+            call ReadVars(IOVars,.false.,inH5)
+
+            rSpc = IOVars(1)%dims(5)-1
+            if (Model%nSpc == rSpc) then
+                !Restart and Gas0 species agree, do stuff
+                wDims = [Gr%Nip,Gr%Njp,Gr%Nkp,NVAR,Model%nSpc+1]
+                Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,:,:) = reshape(IOVars(1)%data,wDims)
+            else
+                if (Model%isLoud) write(*,*) 'Gas0 is wrong size, ignoring ...'
+            endif
+        else
+            if (Model%isLoud) write(*,*) 'No Gas0 found in restart, starting fresh ...'
+        endif !Gas0
 
     !Do touchup to data structures
         State%time = Model%t

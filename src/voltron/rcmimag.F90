@@ -64,7 +64,7 @@ module rcmimag
         ! over-ride the base functions with RCM versions
         procedure :: doInit => initRCM
         procedure :: doAdvance => advanceRCM
-        procedure :: doEval => evalRCM
+        procedure :: doEval => EvalRCM
         procedure :: doIO => doRCMIO
         procedure :: doRestart => doRCMRestart
 
@@ -299,54 +299,42 @@ module rcmimag
 
     !Evaluate eq map at a given point
     !Returns density (#/cc) and pressure (nPa)
-    subroutine EvalRCM(imag,x1,x2,x12C,t,imW)
+    subroutine EvalRCM(imag,x1,x2,t,imW,isEdible)
         class(rcmIMAG_T), intent(inout) :: imag
         real(rp), intent(in) :: x1,x2,t
-        real(rp), intent(in) :: x12C(2,2,2,2)
         real(rp), intent(out) :: imW(NVARIMAG)
+        logical, intent(out) :: isEdible
 
-        real(rp) :: nrcm,prcm,npp,ntot
-        integer  :: n
-        logical  :: isGood,isGoods(8)
-        real(rp) :: lls(8,2),colats(8)
-        integer  :: ijs(8,2)
+        real(rp) :: colat,nrcm,prcm,npp,ntot
+        integer, dimension(2) :: ij0
 
-        associate(RCMApp => imag%rcmCpl, lat => x1, lon => x2, llc => x12C)
+        associate(RCMApp => imag%rcmCpl, lat => x1, lon => x2)
 
         !Set defaults
         imW(:) = 0.0
         imW(IMDEN ) = 0.0
         imW(IMPR  ) = 0.0
         imW(IMTSCL) = 0.0
+        isEdible = .false.
 
         colat = PI/2 - lat
 
-        !Repack
-        call SquishCorners(llC(:,:,:,1),lls(:,1))
-        call SquishCorners(llC(:,:,:,2),lls(:,2))
-
-        colats = PI/2 - lls(:,1)
-
         !Do 1st short cut tests
-        isGood = all(colats >= RCMApp%gcolat(1)) .and. all(colats <= RCMApp%gcolat(RCMApp%nLat_ion)) &
-                 .and. all(lls(:,1) > TINY)
-        if (.not. isGood) return
+        isEdible =  (colat >= RCMApp%gcolat(1)) .and. (colat <= RCMApp%gcolat(RCMApp%nLat_ion)) &
+                    .and. (lat > TINY)
 
-        !If still here, find mapping (i,j) on RCM grid of each corner
-        !TODO: Redo CornerLocs to be faster
-        call CornerLocs(lls,ijs)
+        if (.not. isEdible) return
+
+        !If still here, find mapping (i,j) on RCM grid of point
+        call GetRCMLoc(lat,lon,ij0)
 
         !Do second short cut tests
-        do n=1,8
-            isGoods(n) = RCMApp%toMHD(ijs(n,1),ijs(n,2))
-        enddo
-        isGood = all(isGoods)
+        isEdible = RCMApp%toMHD(ij0(1),ij0(2))
+        if (.not. isEdible) return
 
-        if (.not. isGood) return
-        
-        prcm = CornerAvg(ijs,RCMApp%Prcm )*rcmPScl
-        npp  = CornerAvg(ijs,RCMApp%Npsph)*rcmNScl
-        nrcm = CornerAvg(ijs,RCMApp%Nrcm )*rcmNScl
+        prcm = rcmPScl*RCMApp%Prcm (ij0(1),ij0(2))
+        nrcm = rcmNScl*RCMApp%Nrcm (ij0(1),ij0(2))
+        npp  = rcmNScl*RCMApp%Npsph(ij0(1),ij0(2))
 
         ntot = 0.0
         !Decide which densities to include
@@ -360,7 +348,7 @@ module rcmimag
         !Store data
         imW(IMDEN)  = ntot
         imW(IMPR)   = prcm
-        imW(IMTSCL) = CornerAvg(ijs,RCMApp%Tb)
+        imW(IMTSCL) = RCMApp%Tb(ij0(1),ij0(2))
         imW(IMX1)   = (180.0/PI)*lat
         imW(IMX2)   = (180.0/PI)*lon
 
@@ -368,73 +356,51 @@ module rcmimag
 
         contains
 
-            !Get RCM cells for corner lat/lons
-            subroutine CornerLocs(lls,ijs)
-                real(rp), intent(in) :: lls(8,2)
-                integer, intent(out) :: ijs(8,2)
+        subroutine GetRCMLoc(lat,lon,ij0)
+            real(rp), intent(in) :: lat,lon
+            integer, intent(out) :: ij0(2)
 
-                integer :: n,iX,jX,iC
-                real(rp) :: colat,lon,dp,dcol,dI,dJ
+            integer :: iX,jX,iC
+            real(rp) :: colat,dp,dcol,dI,dJ
 
-                associate(gcolat=>imag%rcmCpl%gcolat,glong=>imag%rcmCpl%glong, &
-                          nLat=>imag%rcmCpl%nLat_ion,nLon=>imag%rcmCpl%nLon_ion)
+            associate(gcolat=>imag%rcmCpl%gcolat,glong=>imag%rcmCpl%glong, &
+                      nLat=>imag%rcmCpl%nLat_ion,nLon=>imag%rcmCpl%nLon_ion)
 
-                !Assuming constant lon spacing
-                dp = glong(2) - glong(1)
+            !Assuming constant lon spacing
+            dp = glong(2) - glong(1)
 
-                do n=1,8
-                    colat = PI/2 - lls(n,1)
-                    lon   = lls(n,2)
+            !Get colat point
+            colat = PI/2 - lat
+            iC = findloc(gcolat >= colat,.true.,dim=1) - 1
+            dcol = gcolat(iC+1)-gcolat(iC)
+            dI = (colat-gcolat(iC))/dcol
+            if (dI <= 0.5) then
+                iX = iC
+            else
+                iX = iC+1
+            endif
 
-                    !Get colat point
-                    iC = findloc(gcolat >= colat,.true.,dim=1) - 1
-                    dcol = gcolat(iC+1)-gcolat(iC)
-                    dI = (colat-gcolat(iC))/dcol
-                    if (dI <= 0.5) then
-                        iX = iC
-                    else
-                        iX = iC+1
-                    endif
+            !Get lon point
+            dJ = lon/dp
+            if ( (dJ-floor(dJ)) <= 0.5 ) then
+                jX = floor(dJ)+1
+            else
+                jX = floor(dJ)+2
+            endif
 
-                    !Get lon point
-                    dJ = lon/dp
-                    if ( (dJ-floor(dJ)) <= 0.5 ) then
-                        jX = floor(dJ)+1
-                    else
-                        jX = floor(dJ)+2
-                    endif
+            !Impose bounds just in case
+            iX = max(iX,1)
+            iX = min(iX,nLat)
+            jX = max(jX,1)
+            jX = min(jX,nLon)
 
-                    !Impose bounds just in case
-                    iX = max(iX,1)
-                    iX = min(iX,nLat)
-                    jX = max(jX,1)
-                    jX = min(jX,nLon)
+            ij0 = [iX,jX]
 
-                    ijs(n,:) = [iX,jX]
-                enddo
-
-                end associate
-            end subroutine CornerLocs
-
-            !Average a quantity over the corners
-            function CornerAvg(ijs,Q) result(Qavg)
-                integer, intent(in) :: ijs(8,2)
-                real(rp), intent(in) :: Q(imag%rcmCpl%nLat_ion, &
-                                          imag%rcmCpl%nLon_ion)
-                real(rp) :: Qavg
-
-                integer :: n,i0,j0
-
-                Qavg = 0.0
-                do n=1,8
-                    i0 = ijs(n,1)
-                    j0 = ijs(n,2)
-                    Qavg = Qavg + Q(i0,j0)
-                enddo
-                Qavg = Qavg*0.125
-            end function CornerAvg
+            end associate
+        end subroutine GetRCMLoc
 
     end subroutine EvalRCM
+
 !--------------
 !MHD=>RCM routines
     !MHD flux-tube
