@@ -658,6 +658,7 @@ module gamapp_mpi
         type(gamAppMpi_T), intent(inout) :: gamAppMpi
 
         integer :: ierr, length
+        integer :: gasReq=MPI_REQUEST_NULL, magFluxReq=MPI_REQUEST_NULL
         character(len=strLen) :: message
 
         ! arrays for calculating mag flux face error, if applicable
@@ -669,11 +670,11 @@ module gamapp_mpi
             ! just tell MPI to use the arrays we defined during initialization to send and receive data!
 
             ! Gas Cell Data
-            call mpi_neighbor_alltoallw(gamAppMpi%State%Gas, gamAppMpi%sendCountsGas, &
+            call mpi_Ineighbor_alltoallw(gamAppMpi%State%Gas, gamAppMpi%sendCountsGas, &
                                         gamAppMpi%sendDisplsGas, gamAppMpi%sendTypesGas, &
                                         gamAppMpi%State%Gas, gamAppMpi%recvCountsGas, &
                                         gamAppMpi%recvDisplsGas, gamAppMpi%recvTypesGas, &
-                                        gamAppMpi%gamMpiComm, ierr)
+                                        gamAppMpi%gamMpiComm, gasReq, ierr)
             if(ierr /= MPI_Success) then
                 call MPI_Error_string( ierr, message, length, ierr)
                 print *,message(1:length)
@@ -691,11 +692,11 @@ module gamapp_mpi
                 endif
 
                 ! Magnetic Face Flux Data
-                call mpi_neighbor_alltoallw(gamAppMpi%State%magFlux, gamAppMpi%sendCountsMagFlux, &
+                call mpi_Ineighbor_alltoallw(gamAppMpi%State%magFlux, gamAppMpi%sendCountsMagFlux, &
                                             gamAppMpi%sendDisplsMagFlux, gamAppMpi%sendTypesMagFlux, &
                                             gamAppMpi%State%magFlux, gamAppMpi%recvCountsMagFlux, &
                                             gamAppMpi%recvDisplsMagFlux, gamAppMpi%recvTypesMagFlux, &
-                                            gamAppMpi%gamMpiComm, ierr)
+                                            gamAppMpi%gamMpiComm, magFluxReq, ierr)
                 if(ierr /= MPI_Success) then
                     call MPI_Error_string( ierr, message, length, ierr)
                     print *,message(1:length)
@@ -709,6 +710,21 @@ module gamapp_mpi
                 endif
 
             endif
+
+        ! wait for asynchronous halo update
+        call mpi_wait(gasReq, MPI_STATUS_IGNORE, ierr)
+        if(ierr /= MPI_Success) then
+            call MPI_Error_string( ierr, message, length, ierr)
+            print *,message(1:length)
+            call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+        endif
+
+        call mpi_wait(magFluxReq, MPI_STATUS_IGNORE, ierr)
+        if(ierr /= MPI_Success) then
+            call MPI_Error_string( ierr, message, length, ierr)
+            print *,message(1:length)
+            call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+        endif
 
         endif
 
