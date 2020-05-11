@@ -71,7 +71,6 @@ module mixmain
       type(mixIon_T),intent(inout) :: I
 
       !I%St%Vars(:,:,POT) = reshape(I%S%solution,[I%G%Np,I%G%Nt])*RionE**2*1.D3 ! in kV
-      write(*,*) "remix/mixmain.F90:get_potential: using iono radius = ",I%rad_iono_m," meters"
       I%St%Vars(:,:,POT) = reshape(I%S%solution,[I%G%Np,I%G%Nt])*(I%rad_iono_m*1.e-6)**2*1.D3 ! in kV
     end subroutine get_potential
 

@@ -16,6 +16,7 @@ module rcmimag
     use rcm_mhd_mod, ONLY : rcm_mhd
     use rcm_mhd_io
     use msphutils, only : MagMoment
+
     implicit none
 
     real(rp) :: RIonRCM !Units of Rp
@@ -24,6 +25,7 @@ module rcmimag
     character(len=strLen), private :: h5File
 
     real(rp), private :: Rp_m
+    real(rp), private :: planetM0g
 
     !Information taken from MHD flux tubes
     !TODO: Figure out RCM boundaries
@@ -73,11 +75,11 @@ module rcmimag
     contains
 
     !Initialize RCM inner magnetosphere model
-    subroutine initRCM(imag,iXML,isRestart,rad_planet_m,rad_iono_m,vApp)
+    subroutine initRCM(imag,iXML,isRestart,rad_planet_m,rad_iono_m,M0g,vApp)
         class(rcmIMAG_T), intent(inout) :: imag
         type(XML_Input_T), intent(in) :: iXML
         logical, intent(in) :: isRestart
-        real(rp), intent(in) :: rad_planet_m,rad_iono_m ! Just ignore for now
+        real(rp), intent(in) :: rad_planet_m,rad_iono_m, M0g ! Specific planet aprameters
         type(voltApp_T), intent(inout) :: vApp
 
         character(len=strLen) :: RunID
@@ -92,8 +94,11 @@ module rcmimag
         RCMApp%iono_radius = rad_iono_m
         Rp_m = rad_planet_m ! for local use
         RIonRCM = rad_iono_m/rad_planet_m
+
+        planetM0g = M0g
         write(*,*) "voltron/rcmimag.f90: RCMApp%planet_radius=",RCMApp%planet_radius
         write(*,*) "voltron/rcmimag.f90: RCMApp%iono_radius=",RCMApp%iono_radius
+        write(*,*) "voltron/rcmimag.f90: planetM0g=",planetM0g
 
         call iXML%Set_Val(RunID,"/gamera/sim/runid","sim")
         RCMApp%rcm_runid = trim(RunID)
@@ -489,8 +494,7 @@ module rcmimag
         real(rp) :: mdipole
 
         !mdipole = EarthM0g*G2T ! dipole moment in T
-        mdipole = MagMoment()*G2T ! dipole moment in T
-
+        mdipole = ABS(planetM0g)*G2T ! dipole moment in T
         colat = PI/2 - lat
         L = 1.0/(sin(colat)**2.0)
         ijTube%Vol = 32./35.*L**4.0/mdipole

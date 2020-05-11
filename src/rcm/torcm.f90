@@ -774,7 +774,6 @@
       
       x0 = (a1 + a2)/2.
       a  = (a1 - a2)/2.
-
       do j=1,jdim
         do i=ceiling(bndloc(j)),idim-1
 ! now check to see if the point is outside the ellipse, if so
