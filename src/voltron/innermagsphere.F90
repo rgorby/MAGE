@@ -8,6 +8,7 @@ module innermagsphere
     use gamapp
     use sstimag
     use rcmimag
+    use cmiutils, only : SquishCorners
     
     implicit none
 
@@ -79,7 +80,7 @@ module innermagsphere
         real(rp) :: x1,x2,t
         real(rp) :: imW(NVARIMAG)
         real(rp) :: x12C(2,2,2,2)
-        real(rp) :: xAng(8)
+        real(rp), dimension(8) :: x1s,x2s
         real(rp) :: xMag
 
         !TODO: Think about what time to evaluate at
@@ -88,17 +89,20 @@ module innermagsphere
         associate(Gr=>gApp%Grid,chmp2mhd=>vApp%chmp2mhd)
         !$OMP PARALLEL DO default(shared) collapse(2) &
         !$OMP schedule(dynamic) &
-        !$OMP private(i,j,k,x1,x2,imW,x12C,xMag,xAng)
+        !$OMP private(i,j,k,x1,x2,imW,x12C,xMag,x1s,x2s)
         do k=Gr%ks,Gr%ke
             do j=Gr%js,Gr%je
                 do i=Gr%is,Gr%is+chmp2mhd%iMax
                     x12C = chmp2mhd%xyzSquish(i:i+1,j:j+1,k:k+1,1:2)
-                    xMag = minval( norm2(x12C,dim=4) )
+                    xMag = minval(abs(x12C))
                     if (xMag > TINY) then
                         !All projected corners are good
-                        x1 = sum(x12C(:,:,:,1))/8.0
-                        xAng = reshape( x12C(1:2,1:2,1:2,2), [8] )
-                        x2 = CircMean(xAng)
+                        call SquishCorners(x12C(:,:,:,1),x1s)
+                        call SquishCorners(x12C(:,:,:,2),x2s)
+                        x1 = ArithMean(x1s)
+                        x2 = CircMean (x2s)
+
+                        !TODO: Is there a speed difference using this polymorphic eval function?
                         call vApp%imagApp%doEval(x1,x2,x12C,t,imW)
                     else
                         !Both x1/x2 are 0, projection failure
@@ -113,9 +117,6 @@ module innermagsphere
                     Gr%Gas0(i,j,k,IMPR  ,BLK) = imW(IMPR)/gApp%Model%Units%gP0
                     Gr%Gas0(i,j,k,IMX1  ,BLK) = imW(IMX1)
                     Gr%Gas0(i,j,k,IMX2  ,BLK) = imW(IMX2)
-
-                    !K: Setting to coupling timescale everywhere
-                    !Gr%Gas0(i,j,k,IMTSCL,BLK) = vApp%DeepDT/gApp%Model%Units%gT0
                     
                     !Use IMTSCL if set, otherwise set to coupling timescale
                     if (imW(IMTSCL) > TINY) then

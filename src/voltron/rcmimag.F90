@@ -15,6 +15,7 @@ module rcmimag
     use clocks
     use rcm_mhd_mod, ONLY : rcm_mhd
     use rcm_mhd_io
+    use cmiutils, only : SquishCorners
     
     implicit none
 
@@ -189,10 +190,6 @@ module rcmimag
                 RCMApp%pot(i,j)          = mixPot(j,i)
             enddo
         enddo
-
-        !Smooth xmin suface before passing to RCM
-        !call SmoothTubes(RCMApp)
-
         call Toc("RCM_TUBES")
 
         call Tic("AdvRCM")
@@ -300,74 +297,6 @@ module rcmimag
 
     end subroutine SetIngestion
 
-    ! !Smooth bmin surface before passing to RCM
-    ! !TODO: Fix bug in here (doesn't seem to help much anyway)
-    ! subroutine SmoothTubes(RCMApp)
-    !     type(rcm_mhd_T), intent(inout) :: RCMApp
-
-    !     real(rp), dimension(:,:,:), allocatable :: bXYZ
-    !     real(rp), dimension(-1:1) :: wgt1D
-    !     real(rp), dimension(-1:1,-1:1) :: wgt
-    !     logical, dimension(:,:), allocatable :: isGood
-
-    !     integer :: i,j,n,Ng
-
-    !     Ng = 2
-    !     wgt1D = [0.25,0.5,0.25]
-
-    !     do j=-1,1
-    !         do i=-1,1
-    !             wgt(i,j) = wgt1D(i)*wgt1D(j)
-    !         enddo
-    !     enddo
-    !     write(*,*) 'Sum = ', sum(wgt)
-
-    !     associate(nLat => RCMApp%nLat_ion,nLon => RCMApp%nLon_ion)
-        
-    !     !Fill in augmented arrays
-    !     allocate(bXYZ  (1-Ng:nLat+Ng,1-Ng:nLon+Ng,1:NDIM))
-    !     allocate(isGood(1-Ng:nLat+Ng,1-Ng:nLon+Ng))
-
-    !     bXYZ(1:nLat,1:nLon,1:NDIM) = RCMApp%X_bmin !Center
-    !     isGood = .false.
-    !     isGood(1:nLat,1:nLon) = (RCMApp%iopen == RCMTOPCLOSED)
-
-    !     !Lon, periodic
-    !     do n=1,Ng
-    !         bXYZ(1:nLat,1-n   ,1:NDIM) = RCMApp%X_bmin(1:nLat,nLon+1-n,1:NDIM)
-    !         bXYZ(1:nLat,nLon+n,1:NDIM) = RCMApp%X_bmin(1:nLat,n       ,1:NDIM)    
-    !         isGood(1:nLat,1-n   ) = RCMApp%iopen(1:nLat,nLon+1-n)
-    !         isGood(1:nLat,nLon+n) = RCMApp%iopen(1:nLat,n)
-    !     enddo
-    !     !Colat, zero-grad
-    !     do n=1,Ng
-    !         bXYZ(1-n   ,:,1:NDIM) = bXYZ(1   ,:,1:NDIM)
-    !         bXYZ(nLat+n,:,1:NDIM) = bXYZ(nLat,:,1:NDIM)
-    !         isGood(1-n   ,:) = isGood(1   ,:)
-    !         isGood(nLat+n,:) = isGood(nLat,:)
-    !     enddo
-
-    !     !Do new pass with smoothing window
-    !     !$OMP PARALLEL DO default(shared) &
-    !     !$OMP private(i,j,n)
-    !     do j=1,nLon
-    !         do i=1,nLat
-    !             if (all(isGood(i-1:i+1,j-1:j+1))) then
-    !                 !3x3 stencil is all closed fields
-    !                 do n=1,NDIM
-    !                     RCMApp%X_bmin(i,j,n) = sum(bXYZ(i-1:i+1,j-1:j+1,n)*wgt)
-    !                 enddo
-    !             else
-    !                 RCMApp%iopen(i,j) = RCMTOPOPEN
-    !             endif
-
-    !         enddo
-    !     enddo
-
-    !     end associate
-
-    ! end subroutine SmoothTubes
-
     !Evaluate eq map at a given point
     !Returns density (#/cc) and pressure (nPa)
     subroutine EvalRCM(imag,x1,x2,x12C,t,imW)
@@ -393,8 +322,9 @@ module rcmimag
         colat = PI/2 - lat
 
         !Repack
-        lls(:,1) = reshape(llC(:,:,:,1),[8])
-        lls(:,2) = reshape(llC(:,:,:,2),[8])
+        call SquishCorners(llC(:,:,:,1),lls(:,1))
+        call SquishCorners(llC(:,:,:,2),lls(:,2))
+
         colats = PI/2 - lls(:,1)
 
         !Do 1st short cut tests
@@ -403,6 +333,7 @@ module rcmimag
         if (.not. isGood) return
 
         !If still here, find mapping (i,j) on RCM grid of each corner
+        !TODO: Redo CornerLocs to be faster
         call CornerLocs(lls,ijs)
 
         !Do second short cut tests
@@ -442,16 +373,47 @@ module rcmimag
                 real(rp), intent(in) :: lls(8,2)
                 integer, intent(out) :: ijs(8,2)
 
-                integer :: n,i0,j0
-                real(rp) :: colat,lon
+                integer :: n,iX,jX,iC
+                real(rp) :: colat,lon,dp,dcol,dI,dJ
+
+                associate(gcolat=>imag%rcmCpl%gcolat,glong=>imag%rcmCpl%glong, &
+                          nLat=>imag%rcmCpl%nLat_ion,nLon=>imag%rcmCpl%nLon_ion)
+
+                !Assuming constant lon spacing
+                dp = glong(2) - glong(1)
+
                 do n=1,8
                     colat = PI/2 - lls(n,1)
                     lon   = lls(n,2)
 
-                    i0 = minloc( abs(colat-imag%rcmCpl%gcolat),dim=1 )
-                    j0 = minloc( abs(lon  -imag%rcmCpl%glong ),dim=1 )
-                    ijs(n,:) = [i0,j0]
+                    !Get colat point
+                    iC = findloc(gcolat >= colat,.true.,dim=1) - 1
+                    dcol = gcolat(iC+1)-gcolat(iC)
+                    dI = (colat-gcolat(iC))/dcol
+                    if (dI <= 0.5) then
+                        iX = iC
+                    else
+                        iX = iC+1
+                    endif
+
+                    !Get lon point
+                    dJ = lon/dp
+                    if ( (dJ-floor(dJ)) <= 0.5 ) then
+                        jX = floor(dJ)+1
+                    else
+                        jX = floor(dJ)+2
+                    endif
+
+                    !Impose bounds just in case
+                    iX = max(iX,1)
+                    iX = min(iX,nLat)
+                    jX = max(jX,1)
+                    jX = min(jX,nLon)
+
+                    ijs(n,:) = [iX,jX]
                 enddo
+
+                end associate
             end subroutine CornerLocs
 
             !Average a quantity over the corners
@@ -469,7 +431,7 @@ module rcmimag
                     j0 = ijs(n,2)
                     Qavg = Qavg + Q(i0,j0)
                 enddo
-                Qavg = Qavg/8.0
+                Qavg = Qavg*0.125
             end function CornerAvg
 
     end subroutine EvalRCM

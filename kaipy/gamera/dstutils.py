@@ -61,6 +61,17 @@ def GetBz(fIn,nSlc,Xc,Yc,Zc,dV,X=0,Y=0,Z=0):
 	mjd = kh5.tStep(fIn,nSlc,"MJD")
 	return mjd,t,Bz
 
+#Get Bz from MPI data
+def GetBzMPI(gsph,nSlc,Xc,Yc,Zc,dV,X=0,Y=0,Z=0):
+	Rc = np.sqrt( (Xc-X)**2.0+(Yc-Y)**2.0+(Zc-Z)**2.0)
+	Jx = gsph.GetVar("Jx",nSlc)
+	Jy = gsph.GetVar("Jy",nSlc)
+	Bz = -(Jx*Yc - Jy*Xc)/(Rc**3.0)
+	Bz = B0*Bz*dV/(4*np.pi)
+	t = gsph.T[nSlc-gsph.s0]
+	mjd = gsph.MJDs[nSlc-gsph.s0]
+	return mjd,t,Bz
+	
 def GetDST(fIn,nSlc,Xc,Yc,Zc,dV):
 	#Get zero
 	t,Bz0 = GetBz(fIn,nSlc,Xc,Yc,Zc,dV)
