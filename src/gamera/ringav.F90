@@ -14,16 +14,6 @@ module ringav
     
     implicit none
 
-    logical, parameter, private :: doCleanLoop = .true. !Whether to remove magnetic field loops
-    logical, parameter, private :: doFastLoop  = .true. !Whether to remove magnetic field loops instantly
-
-    !Information for Fourier reductions
-    integer, parameter, private :: NFTMAX = 2 !Max number of FFT modes (beyond 0th) possible
-    integer, parameter, private :: NFTMAG = 1 !Number of Fourier modes (beyond 0th) to remove from magflux
-    integer, parameter, private :: NFTVEL = 0 !Number of Fourier modes (beyond 0th) to remove from velocity
-    logical, parameter, private :: doShift = .false. !Whether to add random circular shift to ring chunking
-    logical, parameter, private :: doVClean = .true. !Whether to clean velocity Fourier components before reconstruction
-
     !Enumerators for Fourier reduction coefficients
     enum, bind(C)
         enumerator :: FTCOS=1, FTSIN

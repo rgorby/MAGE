@@ -27,6 +27,12 @@ module chmpfields
         integer, intent(out) :: i1,i2
 
         integer :: n
+
+        !Old code
+        ! i1 = findloc(ebTab%times .le. t,.true.,dim=1,back=.true.)
+        ! i2 = findloc(ebTab%times .gt. t,.true.,dim=1)
+        ! i1 = max(1,i1)
+        ! i2 = min(ebTab%N,i2)
     
         !Work-around code        
         do n=1,ebTab%N
@@ -35,12 +41,6 @@ module chmpfields
         i1 = n-1
         i2 = i1+1
         i1 = max(1,i1)
-        
-        !Old code
-        ! i1 = findloc(ebTab%times .le. t,.true.,dim=1,back=.true.)
-        ! i2 = findloc(ebTab%times .gt. t,.true.,dim=1)
-        ! i1 = max(1,i1)
-        ! i2 = min(ebTab%N,i2)
         
         if (i2 == i1) i2=i1+1 !Possible if none of the tab slices are in range
         i2 = min(ebTab%N,i2)
