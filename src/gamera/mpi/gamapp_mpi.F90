@@ -542,7 +542,7 @@ module gamapp_mpi
     subroutine updateMpiBCs(gamAppMpi)
         type(gamAppMpi_T), intent(inout) :: gamAppMpi
 
-        integer :: i
+        integer :: i,ierr
         character(len=strLen) :: BCID
 
         !Enforce BCs
@@ -550,10 +550,26 @@ module gamapp_mpi
         call EnforceBCs(gamAppMpi%Model,gamAppMpi%Grid,gamAppMpi%State)
         call Toc("BCs")
 
+        !Track timing for all gamera ranks to finish physical BCs
+        ! Only synchronize when timing
+        if(gamAppMpi%Model%IO%doTimerOut) then
+            call Tic("Sync BCs")
+            call MPI_BARRIER(gamAppMpi%gamMpiComm,ierr)
+            call Toc("Sync BCs")
+        endif
+
         !Update ghost cells
         call Tic("Halos")
         call HaloUpdate(gamAppMpi)
         call Toc("Halos")
+
+        !Track timing for all gamera ranks to finish halo comms
+        ! Only synchronize when timing
+        if(gamAppMpi%Model%IO%doTimerOut) then
+            call Tic("Sync Halos")
+            call MPI_BARRIER(gamAppMpi%gamMpiComm,ierr)
+            call Toc("Sync Halos")
+        endif
 
         ! Re-apply periodic BCs last
         do i=1,gamAppMpi%Grid%NumBC
@@ -594,6 +610,15 @@ module gamapp_mpi
                 endselect
             endif
         enddo
+
+        !Track timing for all gamera ranks to finish periodic BCs
+        ! Only synchronize when timing
+        if(gamAppMpi%Model%IO%doTimerOut) then
+            call Tic("Sync Periodics")
+            call MPI_BARRIER(gamAppMpi%gamMpiComm,ierr)
+            call Toc("Sync Periodics")
+        endif
+
     end subroutine updateMpiBCs
 
     subroutine stepGamera_mpi(gamAppMpi)
@@ -615,14 +640,6 @@ module gamapp_mpi
 
         !Update BCs MPI style
         call updateMpiBCs(gamAppMpi)
-
-        !Track timing for all gamera ranks to finish halo comms
-        ! Only synchronize when timing
-        if(gamAppMpi%Model%IO%doTimerOut) then
-            call Tic("Sync Halo")
-            call MPI_BARRIER(gamAppMpi%gamMpiComm,ierr)
-            call Toc("Sync Halo")
-        endif
 
         !Calculate new timestep
         call Tic("DT")
