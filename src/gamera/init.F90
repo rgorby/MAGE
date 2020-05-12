@@ -393,12 +393,8 @@ module init
         else
             Model%fixedTimestep = .false.
         endif
-        !Get possible MJD0, check both Gamera & Voltron
-        call xmlInp%Set_Val(MJD0,"time/MJD0",-1.0)
-        call xmlInp%Set_Val(MJD0,"/voltron/time/MJD0",MJD0)
-        if ( MJD0 >= (-TINY) ) then
-            Model%MJD0 = MJD0
-        endif
+
+        Model%MJD0 = 0.0 !Set this by default
     
     !Output/Restart (IOCLOCK)
         call Model%IO%init(xmlInp,Model%t)
