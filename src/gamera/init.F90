@@ -213,6 +213,9 @@ module init
 
             !Read restart
             call readH5Restart(Model,Grid,State,inH5,doReset,tReset)
+        else
+            ! set initial dt0 to 0, it will be set once the case settles
+            Model%dt0 = 0
         endif
 
         !Do remaining things to finish state
@@ -229,8 +232,6 @@ module init
         !Setup timestep and initial previous state for predictor
         Model%dt = CalcDT(Model,Grid,State)
         oState%time = State%time-Model%dt !Initial old state
-        ! set initial dt0 to 0, it will be set once the case settles
-        Model%dt0 = 0
 
         !Initialize solver data
         call initSolver(Solver, Model, Grid)
