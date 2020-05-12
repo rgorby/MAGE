@@ -49,14 +49,21 @@ module gam2VoltComm_mpi
     contains
 
     ! setup the MPI communicator to talk to voltron, and send grid data
-    subroutine initGam2Volt(g2vComm, gApp, voltComm)
+    subroutine initGam2Volt(g2vComm, gApp, voltComm, doIO)
         type(gam2VoltCommMpi_T), intent(inout) :: g2vComm
         type(gamAppMpi_T), intent(inout) :: gApp
         integer, intent(in) :: voltComm
+        logical, optional, intent(in) :: doIO
 
         integer :: length, commSize, ierr, numCells, dataCount, numInNeighbors, numOutNeighbors
         character( len = MPI_MAX_ERROR_STRING) :: message
-        logical :: reorder, wasWeighted
+        logical :: reorder, wasWeighted, doIOX
+
+        if (present(doIO)) then
+            doIOX = doIO
+        else
+            doIOX = .true.
+        endif
 
         ! create a new communicator using MPI Topology
         call MPI_Comm_Size(voltComm, commSize, ierr)
@@ -166,6 +173,11 @@ module gam2VoltComm_mpi
 
         if (g2vComm%doDeep .and. (g2vComm%time>=g2vComm%DeepT)) then
             call performDeepUpdate(g2vComm, gApp)
+        endif
+
+        if (doIOX) then
+            if (.not. gApp%Model%isRestart) call fOutput(gApp%Model,gApp%Grid,gApp%State)
+            call consoleOutput(gApp%Model,gApp%Grid,gApp%State)
         endif
 
     end subroutine initGam2Volt
