@@ -379,22 +379,22 @@ contains
               @assertEqual(MPI_SUCCESS, ierr, '4 processes maxI send get extent failed')
               ! (1,1,1,1,0)
               @assertEqual(dataSize*1204, lb, '4 processes maxI send lb wrong')
-              ! (4,16,16,5,0) - (1,1,1,1,0) + 1 for exteax
+              ! (4,16,16,5,0) - (1,1,1,1,0) + 1 for extent
               @assertEqual(dataSize*32152, extent, '4 processes minI send extent wrong')
 
               call mpi_type_get_extent(gamAppMpi%recvTypesGas(1),lb,extent,ierr)
               @assertEqual(MPI_SUCCESS, ierr, '4 processes minI recv get extent failed')
-              ! (-3,-3,-3,1,0)
-              @assertEqual(0, lb, '4 processes minI recv lb wrong')
-              ! (0,20,20,5,0) - (-3,-3,-3,1,0) + 1 for extent
-              @assertEqual(dataSize*34552, extent, '4 processes minI recv extent wrong')
+              ! (-3,1,-3,1,0)
+              @assertEqual(dataSize*48, lb, '4 processes minI recv lb wrong')
+              ! (0,16,20,5,0) - (-3,1,-3,1,0) + 1 for extent
+              @assertEqual(dataSize*34456, extent, '4 processes minI recv extent wrong')
 
               call mpi_type_get_extent(gamAppMpi%recvTypesGas(2),lb,extent,ierr)
               @assertEqual(MPI_SUCCESS, ierr, '4 processes maxI recv get extent failed')
-              ! (5,-3,-3,1,0)
-              @assertEqual(dataSize*8, lb, '4 processes maxI recv lb wrong')
-              ! (8,20,20,5,0) - (5,-3,-3,1,0) + 1 for extent
-              @assertEqual(dataSize*34552, extent, '4 processes minI send extent wrong')
+              ! (5,1,-3,1,0)
+              @assertEqual(dataSize*56, lb, '4 processes maxI recv lb wrong')
+              ! (8,16,20,5,0) - (5,1,-3,1,0) + 1 for extent
+              @assertEqual(dataSize*34456, extent, '4 processes minI send extent wrong')
 
           CASE (16)
               @assertTrue(MPI_COMM_NULL /= gamAppMpi%gamMpiComm, '16 processes gamMpiComm wrong')
