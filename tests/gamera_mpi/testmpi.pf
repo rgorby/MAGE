@@ -523,8 +523,57 @@ contains
                   enddo
               enddo
           CASE (64)
-              ! fully decomposed, check all ghost cells for all ranks
+              ! fully decomposed, corners aren't updated but check all faces and edges
+              !I&J
               do i=gamAppMpi%Grid%isg,gamAppMpi%Grid%ieg
+                  do j=gamAppMpi%Grid%jsg,gamAppMpi%Grid%jeg
+                      do k=gamAppMpi%Grid%ks,gamAppMpi%Grid%ke
+                          do l=1,NVAR
+                              do m=0,gamAppMpi%Model%nSpc
+                                  iIndex = 1+modulo(i+gamAppMpi%Grid%ijkShift(IDIR)-1, &
+                                               gamAppMpi%Grid%Nip*gamAppMpi%Grid%NumRi)
+                                  jIndex = 1+modulo(j+gamAppMpi%Grid%ijkShift(JDIR)-1, &
+                                               gamAppMpi%Grid%Njp*gamAppMpi%Grid%NumRj)
+                                  kIndex = 1+modulo(k+gamAppMpi%Grid%ijkShift(KDIR)-1, &
+                                               gamAppMpi%Grid%Nkp*gamAppMpi%Grid%NumRk)
+                                  checkVal = mVal*m + &
+                                      lVal*l + &
+                                      iVal*iIndex + &
+                                      jVal*jIndex + &
+                                      kVal*kIndex
+                                  write (checkMessage,'(I0,A,I0,A,I0,A,I0,A,I0,A,I0,A)') this%getNumProcesses(),' processor wrong at (',i,',',j,',',k,',',l,',',m,')'
+                                  @assertEqual(checkVal, gamAppMpi%State%Gas(i,j,k,l,m), trim(checkMessage))
+                              enddo
+                          enddo
+                      enddo
+                  enddo
+              enddo
+              !I&K
+              do i=gamAppMpi%Grid%isg,gamAppMpi%Grid%ieg
+                  do j=gamAppMpi%Grid%js,gamAppMpi%Grid%je
+                      do k=gamAppMpi%Grid%ksg,gamAppMpi%Grid%keg
+                          do l=1,NVAR
+                              do m=0,gamAppMpi%Model%nSpc
+                                  iIndex = 1+modulo(i+gamAppMpi%Grid%ijkShift(IDIR)-1, &
+                                               gamAppMpi%Grid%Nip*gamAppMpi%Grid%NumRi)
+                                  jIndex = 1+modulo(j+gamAppMpi%Grid%ijkShift(JDIR)-1, &
+                                               gamAppMpi%Grid%Njp*gamAppMpi%Grid%NumRj)
+                                  kIndex = 1+modulo(k+gamAppMpi%Grid%ijkShift(KDIR)-1, &
+                                               gamAppMpi%Grid%Nkp*gamAppMpi%Grid%NumRk)
+                                  checkVal = mVal*m + &
+                                      lVal*l + &
+                                      iVal*iIndex + &
+                                      jVal*jIndex + &
+                                      kVal*kIndex
+                                  write (checkMessage,'(I0,A,I0,A,I0,A,I0,A,I0,A,I0,A)') this%getNumProcesses(),' processor wrong at (',i,',',j,',',k,',',l,',',m,')'
+                                  @assertEqual(checkVal, gamAppMpi%State%Gas(i,j,k,l,m), trim(checkMessage))
+                              enddo
+                          enddo
+                      enddo
+                  enddo
+              enddo
+              !J&K
+              do i=gamAppMpi%Grid%is,gamAppMpi%Grid%ie
                   do j=gamAppMpi%Grid%jsg,gamAppMpi%Grid%jeg
                       do k=gamAppMpi%Grid%ksg,gamAppMpi%Grid%keg
                           do l=1,NVAR

@@ -732,7 +732,7 @@ module gamapp_mpi
         logical, intent(in) :: periodicI, periodicJ, periodicK
 
         integer :: iData,jData,kData,rankIndex,dType,offset,dataSize,ierr
-        integer :: dtGas4,dtGas5,dataSum
+        integer :: dtGas4,dtGas5
 
         associate(Grid=>gamAppMpi%Grid,Model=>gamAppMpi%Model)
 
@@ -785,25 +785,26 @@ module gamapp_mpi
                 do kData=-1,1
                     do rankIndex = 1,SIZE(gamappMpi%recvRanks)
                         ! for each possibly adjacent rank
-                        dataSum = abs(iData)+abs(jData)+abs(kData)
 
                         ! Start cell centered
+                        ! Gas does faces and edges, not corners
                         call calcRecvDatatypeOffsetCC(gamAppMpi,gamAppMpi%recvRanks(rankIndex),iData,jData,kData,&
-                                                periodicI,periodicJ,periodicK,dType,offset)
-                        if(dType /= MPI_DATATYPE_NULL .and. dataSum /= 3) then
+                                                      periodicI,periodicJ,periodicK,dType,offset,&
+                                                      .true.,.true.,.false.)
+                        if(dType /= MPI_DATATYPE_NULL) then
                             ! add 4th and 5th dimensions for cell centered Gas
-                            ! don't do corners (triple ghosts)
                             call mpi_type_hvector(NVAR,1,Grid%Ni*Grid%Nj*Grid%Nk*dataSize,dType,dtGas4,ierr)
                             call mpi_type_hvector(Model%nSpc+1,1,NVAR*Grid%Ni*Grid%Nj*Grid%Nk*dataSize,&
                                                   dtGas4,dtGas5,ierr)
                             call appendDatatype(gamAppMpi%recvTypesGas(rankIndex),dtGas5,offset)
                         endif
 
+                        ! Gas does faces and edges, not corners
                         call calcSendDatatypeOffsetCC(gamAppMpi,gamAppmpi%sendRanks(rankIndex),iData,jData,kData,&
-                                                periodicI,periodicJ,periodicK,dType,offset)
-                        if(dType /= MPI_DATATYPE_NULL .and. dataSum /= 3) then
+                                                      periodicI,periodicJ,periodicK,dType,offset,&
+                                                      .true.,.true.,.false.)
+                        if(dType /= MPI_DATATYPE_NULL) then
                             ! add 4th and 5th dimensions for cell centered Gas
-                            ! don't do corners (triple ghosts)
                             call mpi_type_hvector(NVAR,1,Grid%Ni*Grid%Nj*Grid%Nk*dataSize,dType,dtGas4,ierr)
                             call mpi_type_hvector(Model%nSpc+1,1,NVAR*Grid%Ni*Grid%Nj*Grid%Nk*dataSize,&
                                                   dtGas4,dtGas5,ierr)
@@ -813,19 +814,20 @@ module gamapp_mpi
 
                         ! Start face centered
                         if(Model%doMHD) then
+                            ! magFlux does faces, not edges or corners
                             call calcRecvDatatypeOffsetFC(gamAppMpi,gamAppMpi%recvRanks(rankIndex),iData,&
-                                                          jData,kData,periodicI,periodicJ,periodicK,dType,offset)
-                            if(dType /= MPI_DATATYPE_NULL .and. dataSum == 1) then
+                                                          jData,kData,periodicI,periodicJ,periodicK,dType,offset,&
+                                                          .true.,.false.,.false.)
+                            if(dType /= MPI_DATATYPE_NULL) then
                                 ! face centered datatype already has all 4 dimensions
-                                ! only copy faces (single ghosts)
                                 call appendDatatype(gamAppMpi%recvTypesMagFlux(rankIndex),dType,offset)
                             endif
 
                             call calcSendDatatypeOffsetFC(gamAppMpi,gamAppmpi%sendRanks(rankIndex),iData,&
-                                                    jData,kData,periodicI,periodicJ,periodicK,dType,offset)
-                            if(dType /= MPI_DATATYPE_NULL .and. dataSum == 1) then
+                                                    jData,kData,periodicI,periodicJ,periodicK,dType,offset,&
+                                                    .true.,.false.,.false.)
+                            if(dType /= MPI_DATATYPE_NULL) then
                                 ! face centered datatype already has all 4 dimensions
-                                ! only copy faces (single ghosts)
                                 call appendDatatype(gamAppMpi%sendTypesMagFlux(rankIndex),dType,offset)
                             endif
                         endif
@@ -876,11 +878,13 @@ module gamapp_mpi
     end subroutine createDatatypes
 
     subroutine calcRecvDatatypeOffsetCC(gamAppMpi,recvFromRank,iData,jData,kData,&
-                                  periodicI,periodicJ,periodicK,dType,offset)
+                                  periodicI,periodicJ,periodicK,dType,offset,&
+                                  doFace,doEdge,doCorner)
         type(gamAppMpi_T), intent(in) :: gamAppMpi
         integer, intent(in) :: recvFromRank,iData,jData,kData
         logical, intent(in) :: periodicI, periodicJ, periodicK
         integer, intent(out) :: dType, offset
+        logical, intent(in) :: doFace, doEdge, doCorner
 
         integer :: tgtRank, calcOffset, ierr, dataSize
 
@@ -918,7 +922,12 @@ module gamapp_mpi
         endif
 
         ! assemble the datatype, and calculate the array offset
-        call calcDatatypeCC(gamAppMpi,iData,jData,kData,dType)
+        call calcDatatypeCC(gamAppMpi,iData,jData,kData,dType,doFace,doEdge,doCorner)
+        if(dType == MPI_DATATYPE_NULL) then
+            offset = -1
+            return
+        endif
+
         call mpi_type_extent(MPI_MYFLOAT, dataSize, ierr) ! number of bytes per array entry
         SELECT CASE (iData)
             CASE (-1)
@@ -964,11 +973,13 @@ module gamapp_mpi
     end subroutine calcRecvDatatypeOffsetCC
 
     subroutine calcSendDatatypeOffsetCC(gamAppMpi,sendToRank,iData,jData,kData,&
-                                  periodicI,periodicJ,periodicK,dType,offset)
+                                  periodicI,periodicJ,periodicK,dType,offset,&
+                                  doFace,doEdge,doCorner)
         type(gamAppMpi_T), intent(in) :: gamAppMpi
         integer, intent(in) :: sendToRank,iData,jData,kData
         logical, intent(in) :: periodicI, periodicJ, periodicK
         integer, intent(out) :: dType, offset
+        logical, intent(in) :: doFace, doEdge, doCorner
 
         integer :: myRank, tempRank, sendToI, sendToJ, sendToK
         logical :: wrapI, wrapJ, wrapK
@@ -1018,7 +1029,12 @@ module gamapp_mpi
         endif
 
         ! assemble the datatype, and calculate the array offset
-        call calcDatatypeCC(gamAppMpi,iData,jData,kData,dType)
+        call calcDatatypeCC(gamAppMpi,iData,jData,kData,dType,doFace,doEdge,doCorner)
+        if(dType == MPI_DATATYPE_NULL) then
+            offset = -1
+            return
+        endif
+
         call mpi_type_extent(MPI_MYFLOAT, dataSize, ierr) ! number of bytes per array entry
         SELECT CASE (iData)
             CASE (-1)
@@ -1092,14 +1108,28 @@ module gamapp_mpi
 
     end subroutine calcSendDatatypeOffsetCC
 
-    subroutine calcDatatypeCC(gamAppMpi,iData,jData,kData,dType)
+    subroutine calcDatatypeCC(gamAppMpi,iData,jData,kData,dType,&
+                              doFace,doEdge,doCorner)
         type(gamAppMpi_T), intent(in) :: gamAppMpi
         integer, intent(in) :: iData, jData, kData
         integer, intent(out) :: dType
+        logical, intent(in) :: doFace, doEdge, doCorner
 
-        integer dType1D,dType2D,dType3D,dataSize,ierr
+        integer dType1D,dType2D,dType3D,dataSize,ierr,dataSum
 
         associate(Grid=>gamAppMpi%Grid,Model=>gamAppMpi%Model)
+
+        dataSum = abs(iData)+abs(jData)+abs(kData)
+        if(dataSum == 1 .and. .not. doFace) then
+            dType = MPI_DATATYPE_NULL
+            return
+        elseif(dataSum == 2 .and. .not. doEdge) then
+            dType = MPI_DATATYPE_NULL
+            return
+        elseif(dataSum == 3 .and. .not. doCorner) then
+            dType = MPI_DATATYPE_NULL
+            return
+        endif
 
         call mpi_type_extent(MPI_MYFLOAT, dataSize, ierr) ! number of bytes per array entry
         SELECT CASE (iData)
@@ -1145,11 +1175,13 @@ module gamapp_mpi
     end subroutine calcDatatypeCC
 
     subroutine calcRecvDatatypeOffsetFC(gamAppMpi,recvFromRank,iData,jData,kData,&
-                                  periodicI,periodicJ,periodicK,dType,offset)
+                                  periodicI,periodicJ,periodicK,dType,offset,&
+                                  doFace,doEdge,doCorner)
         type(gamAppMpi_T), intent(in) :: gamAppMpi
         integer, intent(in) :: recvFromRank,iData,jData,kData
         logical, intent(in) :: periodicI, periodicJ, periodicK
         integer, intent(out) :: dType, offset
+        logical, intent(in) :: doFace, doEdge, doCorner
 
         integer :: tgtRank, calcOffset, ierr, dataSize
 
@@ -1187,7 +1219,12 @@ module gamapp_mpi
         endif
 
         ! assemble the datatype, and calculate the array offset
-        call calcDatatypeFC(gamAppMpi,iData,jData,kData,dType)
+        call calcDatatypeFC(gamAppMpi,iData,jData,kData,dType,doFace,doEdge,doCorner)
+        if(dType == MPI_DATATYPE_NULL) then
+            offset = -1
+            return
+        endif
+
         call mpi_type_extent(MPI_MYFLOAT, dataSize, ierr) ! number of bytes per array entry
         SELECT CASE (iData)
             CASE (-1)
@@ -1234,11 +1271,13 @@ module gamapp_mpi
     end subroutine calcRecvDatatypeOffsetFC
 
     subroutine calcSendDatatypeOffsetFC(gamAppMpi,sendToRank,iData,jData,kData,&
-                                  periodicI,periodicJ,periodicK,dType,offset)
+                                  periodicI,periodicJ,periodicK,dType,offset,&
+                                  doFace,doEdge,doCorner)
         type(gamAppMpi_T), intent(in) :: gamAppMpi
         integer, intent(in) :: sendToRank,iData,jData,kData
         logical, intent(in) :: periodicI, periodicJ, periodicK
         integer, intent(out) :: dType, offset
+        logical, intent(in) :: doFace, doEdge, doCorner
 
         integer :: myRank, tempRank, sendToI, sendToJ, sendToK
         logical :: wrapI, wrapJ, wrapK
@@ -1288,7 +1327,12 @@ module gamapp_mpi
         endif
 
         ! assemble the datatype, and calculate the array offset
-        call calcDatatypeFC(gamAppMpi,iData,jData,kData,dType)
+        call calcDatatypeFC(gamAppMpi,iData,jData,kData,dType,doFace,doEdge,doCorner)
+        if(dType == MPI_DATATYPE_NULL) then
+            offset = -1
+            return
+        endif
+
         call mpi_type_extent(MPI_MYFLOAT, dataSize, ierr) ! number of bytes per array entry
         SELECT CASE (iData)
             CASE (-1)
@@ -1362,18 +1406,42 @@ module gamapp_mpi
 
     end subroutine calcSendDatatypeOffsetFC
 
-    subroutine calcDatatypeFC(gamAppMpi,iData,jData,kData,dType)
+    subroutine calcDatatypeFC(gamAppMpi,iData,jData,kData,dType,doFace,doEdge,doCorner)
         type(gamAppMpi_T), intent(in) :: gamAppMpi
         integer, intent(in) :: iData, jData, kData
         integer, intent(out) :: dType
+        logical, intent(in) :: doFace, doEdge, doCorner
 
         integer :: dType1DI,dType1DJ,dType1DK,dType2DI,dType2DJ,dType2DK,dType3DI,dType3DJ,dType3DK
         integer :: offsetI, offsetJ, offsetK, dataSum, ierr, dataSize
+        logical :: anyMaxDim,sendSharedFace
+        integer :: countArray(3)
+        integer(MPI_ADDRESS_KIND) :: offsetArray(3)
 
         associate(Grid=>gamAppMpi%Grid,Model=>gamAppMpi%Model)
 
         ! assemble the datatype, and calculate the array offset
         dataSum = abs(iData)+abs(jData)+abs(kData)
+        anyMaxDim = iData==1 .or. jData==1 .or. kData==1
+        ! due to face ownership "corners" share data with "edges", and
+        !  "edges" share data with "faces", so special care must be taken
+        if((dataSum == 2 .and. .not. doEdge .and. anyMaxDim .and. doFace) .or. &
+           (dataSum == 3 .and. .not. doCorner .and. anyMaxDim .and. doEdge)) then
+            sendSharedFace = .true.
+        else
+            sendSharedFace = .false.
+        endif
+        if(dataSum == 1 .and. .not. doFace) then
+            dType = MPI_DATATYPE_NULL
+            return
+        elseif(dataSum == 2 .and. .not. doEdge .and. .not. sendSharedFace) then
+            dType = MPI_DATATYPE_NULL
+            return
+        elseif(dataSum == 3 .and. .not. doCorner .and. .not. sendSharedFace) then
+            dType = MPI_DATATYPE_NULL
+            return
+        endif
+
         call mpi_type_extent(MPI_MYFLOAT, dataSize, ierr) ! number of bytes per array entry
         SELECT CASE (iData)
             CASE (-1)
@@ -1391,7 +1459,11 @@ module gamapp_mpi
             CASE (1)
                 ! overwrite lower, interior, and upper I faces
                 offsetI = 0
-                call mpi_type_contiguous(Model%nG+1, MPI_MYFLOAT, dType1DI, ierr)
+                if(sendSharedFace) then
+                    call mpi_type_contiguous(1, MPI_MYFLOAT, dType1DI, ierr)
+                else
+                    call mpi_type_contiguous(Model%nG+1, MPI_MYFLOAT, dType1DI, ierr)
+                endif
                 call mpi_type_contiguous(Model%nG,   MPI_MYFLOAT, dType1DJ, ierr)
                 call mpi_type_contiguous(Model%nG,   MPI_MYFLOAT, dType1DK, ierr)
             CASE DEFAULT
@@ -1413,7 +1485,11 @@ module gamapp_mpi
             CASE (1)
                 offsetJ = 0
                 call mpi_type_hvector(Model%nG,   1, dataSize*(Grid%Ni+1), dType1DI, dType2DI, ierr)
-                call mpi_type_hvector(Model%nG+1, 1, dataSize*(Grid%Ni+1), dType1DJ, dType2DJ, ierr)
+                if(sendSharedFace) then
+                    call mpi_type_hvector(1, 1, dataSize*(Grid%Ni+1), dType1DJ, dType2DJ, ierr)
+                else
+                    call mpi_type_hvector(Model%nG+1, 1, dataSize*(Grid%Ni+1), dType1DJ, dType2DJ, ierr)
+                endif
                 call mpi_type_hvector(Model%nG,   1, dataSize*(Grid%Ni+1), dType1DK, dType2DK, ierr)
             CASE DEFAULT
                 write (*,*) 'Unrecognized jData type in calcDatatypeFC'
@@ -1435,7 +1511,11 @@ module gamapp_mpi
                 offsetK = 0
                 call mpi_type_hvector(Model%nG,   1, dataSize*(Grid%Ni+1)*(Grid%Nj+1), dType2DI, dType3DI, ierr)
                 call mpi_type_hvector(Model%nG,   1, dataSize*(Grid%Ni+1)*(Grid%Nj+1), dType2DJ, dType3DJ, ierr)
-                call mpi_type_hvector(Model%nG+1, 1, dataSize*(Grid%Ni+1)*(Grid%Nj+1), dType2DK, dType3DK, ierr)
+                if(sendSharedFace) then
+                    call mpi_type_hvector(1, 1, dataSize*(Grid%Ni+1)*(Grid%Nj+1), dType2DK, dType3DK, ierr)
+                else
+                    call mpi_type_hvector(Model%nG+1, 1, dataSize*(Grid%Ni+1)*(Grid%Nj+1), dType2DK, dType3DK, ierr)
+                endif
             CASE DEFAULT
                 write (*,*) 'Unrecognized kData type in calcDatatypeFC'
                 call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
@@ -1446,8 +1526,29 @@ module gamapp_mpi
         ! move K offset into the 3rd index of the 4th dimension
         offsetK = offsetK + 2*dataSize*(Grid%Ni+1)*(Grid%Nj+1)*(Grid%Nk+1)
 
-        call mpi_type_create_struct(3,(/1,1,1/),(/integer(MPI_ADDRESS_KIND):: offsetI, offsetJ, offsetK /), &
-                                      (/ dType3DI, dType3DJ, dType3DK /), dType, ierr)
+        ! default counts and offsets
+        countArray = (/1,1,1/)
+        offsetArray = (/integer(MPI_ADDRESS_KIND):: offsetI, offsetJ, offsetK /)
+        if(sendSharedFace) then
+            ! this is only sending data for shared faces with an adjacent type
+            if(iData /= 1) then
+                countArray(1) = 0
+                offsetArray(1) = 0
+                dType3DI = MPI_INTEGER
+            endif
+            if(jData /= 1) then
+                countArray(2) = 0
+                offsetArray(2) = 0
+                dType3DJ = MPI_INTEGER
+            endif
+            if(kData /= 1) then
+                countArray(3) = 0
+                offsetArray(3) = 0
+                dType3DK = MPI_INTEGER
+            endif
+        endif
+        call mpi_type_create_struct(3,countArray,offsetArray, &
+                                    (/ dType3DI, dType3DJ, dType3DK /), dType, ierr)
 
         end associate
 
