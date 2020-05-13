@@ -13,6 +13,7 @@ module voltio
     integer, parameter, private :: MAXVOLTIOVAR = 20
     logical, private :: isConInit = .false.
     real(rp), private ::  oMJD = 0.0
+    real(rp), private :: cumTime = 0.0 !Cumulative time
     character(len=strLen), private :: vh5File
 
     contains
@@ -54,14 +55,14 @@ module voltio
 
         if (isConInit) then
             !Console output has been initialized
-            dMJD = cMJD - oMJD !Elapsed MJD since last console output
+            dMJD = cMJD - oMJD !Elapsed MJD since first recorded value
             dtWall = kClocks(1)%tElap
-
-            simRate = dMJD*24.0*60.0*60.0/dtWall !Model seconds per wall second
-            oMJD = cMJD
+            cumTime = cumTime + dtWall !Elapsed wall-clock since first value
+            simRate = dMJD*24.0*60.0*60.0/cumTime !Model seconds per wall second
         else
             simRate = 0.0
             oMJD = cMJD
+            cumTime = 0.0
             isConInit = .true.
         endif
         !Get MJD info
