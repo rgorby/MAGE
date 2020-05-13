@@ -12,20 +12,6 @@ module innermagsphere
     
     implicit none
 
-    !IMag eval type
-    abstract interface
-        !Mapping of cell corners
-        !x12C = chmp2mhd%xyzSquish(i:i+1,j:j+1,k:k+1,1:2) 
-        subroutine IMagEval_T(imagApp,x1,x2,x12C,t,imW)
-            Import :: rp,NVARIMAG
-            class(*), intent(inout) :: imagApp
-            real(rp), intent(in) :: x1,x2,t
-            real(rp), intent(in) :: x12C(2,2,2,2)
-            real(rp), dimension(NVARIMAG), intent(out) :: imW
-        end subroutine IMagEval_T
-
-    end interface
-
     contains
 
     !Figure out which inner magnetosphere model we're using and initialize it
@@ -78,56 +64,100 @@ module innermagsphere
 
         integer :: i,j,k,Nk
         real(rp) :: x1,x2,t
-        real(rp) :: imW(NVARIMAG)
-        real(rp) :: x12C(2,2,2,2)
-        real(rp), dimension(8) :: x1s,x2s
-        real(rp) :: xMag
+        real(rp) :: imW(NVARIMAG),Qs(8)
+        logical :: isTasty
+        real(rp), dimension(:,:,:,:), allocatable :: SrcNC !Node-centered source terms 
+
+
+    !Proceed in two steps
+    ! 1) Get ingestion values at each node (cell corner)
+    ! 2) Loop over cells and average from corners to cell centers
 
         !TODO: Think about what time to evaluate at
         t = gApp%Model%t*gApp%Model%Units%gT0
-
+        
         associate(Gr=>gApp%Grid,chmp2mhd=>vApp%chmp2mhd)
+
+        !Create local storage for cell corner imW's
+        allocate(SrcNC(Gr%is:Gr%is+chmp2mhd%iMax+1,Gr%js:Gr%je+1,Gr%ks:Gr%ke+1,1:NVARIMAG))
+        SrcNC = 0.0
+        chmp2mhd%isEdible = .false.
+      
+    ! 1) Cell corner ingestion
         !$OMP PARALLEL DO default(shared) collapse(2) &
         !$OMP schedule(dynamic) &
-        !$OMP private(i,j,k,x1,x2,imW,x12C,xMag,x1s,x2s)
+        !$OMP private(i,j,k,x1,x2,imW,isTasty)
+        do k=Gr%ks,Gr%ke+1
+            do j=Gr%js,Gr%je+1
+                do i=Gr%is,Gr%is+chmp2mhd%iMax+1
+
+                    if (chmp2mhd%isGood(i,j,k)) then
+                        !Good projection, let's get some values
+                        x1 = chmp2mhd%xyzSquish(i,j,k,1)
+                        x2 = chmp2mhd%xyzSquish(i,j,k,2)
+                        call vApp%imagApp%doEval(x1,x2,t,imW,isTasty)
+                    else
+                        !Projection wasn't good, nothing good to eat
+                        imW = 0.0
+                        isTasty = .false.
+                        
+                    endif !isGood
+                    SrcNC(i,j,k,:) = imW
+                    chmp2mhd%isEdible(i,j,k) = isTasty
+                enddo !i loop
+            enddo
+        enddo
+
+
+    ! 2) Corners => Centers
+        Gr%Gas0 = 0.0
+
+        !$OMP PARALLEL DO default(shared) collapse(2) &
+        !$OMP schedule(dynamic) &
+        !$OMP private(i,j,k,imW,Qs)
         do k=Gr%ks,Gr%ke
             do j=Gr%js,Gr%je
                 do i=Gr%is,Gr%is+chmp2mhd%iMax
-                    x12C = chmp2mhd%xyzSquish(i:i+1,j:j+1,k:k+1,1:2)
-                    xMag = minval(abs(x12C))
-                    if (xMag > TINY) then
-                        !All projected corners are good
-                        call SquishCorners(x12C(:,:,:,1),x1s)
-                        call SquishCorners(x12C(:,:,:,2),x2s)
-                        x1 = ArithMean(x1s)
-                        x2 = CircMean (x2s)
 
-                        !TODO: Is there a speed difference using this polymorphic eval function?
-                        call vApp%imagApp%doEval(x1,x2,x12C,t,imW)
+                    if ( all(chmp2mhd%isEdible(i:i+1,j:j+1,k:k+1)) ) then
+                    !Density and pressure
+                        call SquishCorners(SrcNC(i:i+1,j:j+1,k:k+1,IMDEN),Qs)
+                        imW(IMDEN) = ArithMean(Qs)
+                        call SquishCorners(SrcNC(i:i+1,j:j+1,k:k+1,IMPR) ,Qs)
+                        imW(IMPR)  = ArithMean(Qs)
+                    !x1 and x2
+                        call SquishCorners(SrcNC(i:i+1,j:j+1,k:k+1,IMX1),Qs)
+                        imW(IMX1) = ArithMean(Qs)
+                        call SquishCorners(SrcNC(i:i+1,j:j+1,k:k+1,IMX2),Qs)
+                        imW(IMX2) = CircMean(Qs)
+                    !Timescale
+                        call SquishCorners(SrcNC(i:i+1,j:j+1,k:k+1,IMTSCL),Qs)
+                        if ( all(Qs>TINY) ) then
+                            imW(IMTSCL) = ArithMean(Qs)
+                        else
+                            imW(IMTSCL) = vApp%DeepDT
+                        endif
                     else
-                        !Both x1/x2 are 0, projection failure
+                        !Not good to eat
                         imW = 0.0
                     endif
 
-                    !Assuming density/pressure coming in #/cc and nPa
-                    !Lengthscale is in Rx
-                    Gr%Gas0(i,j,k,:,:) = 0.0
+                    imW(IMTSCL) = max(imW(IMTSCL),vApp%DeepDT)
 
+                    !Do scaling and store
+                    !density/pressure coming back in #/cc and nPa
+                    !ingestion timescale coming back in seconds
                     Gr%Gas0(i,j,k,IMDEN ,BLK) = imW(IMDEN)
                     Gr%Gas0(i,j,k,IMPR  ,BLK) = imW(IMPR)/gApp%Model%Units%gP0
                     Gr%Gas0(i,j,k,IMX1  ,BLK) = imW(IMX1)
                     Gr%Gas0(i,j,k,IMX2  ,BLK) = imW(IMX2)
-                    
-                    !Use IMTSCL if set, otherwise set to coupling timescale
-                    if (imW(IMTSCL) > TINY) then
-                        Gr%Gas0(i,j,k,IMTSCL,BLK) = max(imW(IMTSCL),vApp%DeepDT)/gApp%Model%Units%gT0
-                    else
-                        Gr%Gas0(i,j,k,IMTSCL,BLK) = vApp%DeepDT/gApp%Model%Units%gT0
-                    endif
-                    
-                enddo
+                    Gr%Gas0(i,j,k,IMTSCL,BLK) = imW(IMTSCL)/gApp%Model%Units%gT0
+                
+                enddo !i loop
             enddo
         enddo
+
+    !Now do some touch up at the axis and get outta here
 
         !Do averaging for first cell next to singularity
         !Do for +/- X pole and density/pressure

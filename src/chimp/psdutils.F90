@@ -400,10 +400,12 @@ module psdutils
     !Pxyz = |Nr,Np,NDIM|
     !Note, this calculation is explicitly non-relativistic
 
-    subroutine CalcP(Model,psGr,psPop,Pxyz)
+    subroutine CalcMoms(Model,psGr,psPop,Nk,Vxyz,Pxyz)
         type(chmpModel_T), intent(in) :: Model
         type(PSEq_T), intent(in) :: psGr
         type(psdPop_T), intent(in) :: psPop
+        real(rp), intent(out) :: Nk(psGr%Nr,psGr%Np)
+        real(rp), intent(out) :: Vxyz(psGr%Nr,psGr%Np,NDIM)
         real(rp), intent(out) :: Pxyz(psGr%Nr,psGr%Np,NDIM)
 
         integer :: Ns,ir,ip,ia,ik,is
@@ -424,26 +426,40 @@ module psdutils
         !Lazily adding PSI binning here to deal with EB direction
         Ns = 16
 
+        !Scaling factor for pressure
+        !eb units (kev/cm3) -> nPa
+        PScl = 1.60218e-1
+
+        e0 = Model%m0*mec2*1.0e+3 !Particle rest mass [keV]
+        !Add scaling factor to account for a=[0,90] case
+        aScl = PI/(psGr%dimBds(PSALPHA,2)-psGr%dimBds(PSALPHA,1))
+
+        !Lazily adding PSI binning here to deal with EB direction
+        Ns = 16
+
         !$OMP PARALLEL DO default(shared) collapse(2) &
         !$OMP private(is,ik,ia,ir,ip) &
         !$OMP private(dvdv,Vb,vMag,Vx,Vy,Vz) &
         !$OMP private(fC,dk,da,ds,K,psi,sA,cA,sS,cS,dG)
         do ip=1,psGr%Np
             do ir=1,psGr%Nr
+                Nk  (ir,ip  ) = 0.0
+                Vxyz(ir,ip,:) = 0.0
                 Pxyz(ir,ip,:) = 0.0
-                !Vb is MHD flow (assumed in x dir)
-                !Vb = norm2(psGr%Qrp(ir,ip,VELX:VELZ)) !Units of c
-                Vb = 0 !Already subtracted by particle pusher
 
+                !Vb is MHD flow (assumed in x dir)
+                Vb = 0 !Already subtracted by particle pusher
                 !Now loop over K,alpha & psi* to integrate moment
                 do ia=1,psGr%Na
                     do ik=1,psGr%Nk
                         do is=1,Ns
+
                             !Get various pieces
                             fC = psPop%fPSD(ir,ip,ik,ia) !Units of (keV*s)^-3
                             dk = psGr%kD(ik)
                             da = aScl*psGr%aD(ia)
                             ds = 2*PI/Ns
+                            
 
                             K = psGr%kC(ik)
                             psi = 0.0 + (ds/2) + (is-1)*ds !Lazy psi bin centers
@@ -463,11 +479,18 @@ module psdutils
                             dvdv(YDIR) = (Vy)**2.0
                             dvdv(ZDIR) = (Vz)**2.0
                             dG = (e0*sqrt(2*e0*K)*sA*dk*da*ds)/(vc_cgs**3.0)
+                            
+                            !Density
+                            Nk(ir,ip) = Nk(ir,ip) + fC*dG
+                            !Pressure
                             Pxyz(ir,ip,:) = Pxyz(ir,ip,:) + e0*dvdv(:)*fC*dG
+                            !Velocity
+                            Vxyz(ir,ip,:) = Vxyz(ir,ip,:) + 0.0
 
                         enddo
                     enddo
                 enddo
+
                 !End accumulation into pressure
                 !At this point, P is in units of keV/cm3
                 !Want nPa (Pa = J/m3)
@@ -476,5 +499,6 @@ module psdutils
             enddo
         enddo
 
-    end subroutine CalcP
+    end subroutine CalcMoms
+
 end module psdutils

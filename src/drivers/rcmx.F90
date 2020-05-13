@@ -8,9 +8,15 @@ program rcmx
     use rcm_mhd_mod, ONLY: rcm_mhd
     USE rcm_precision
     use rcm_mhd_io
+    use strings
+    use xml_input
 
     implicit none
+
     character(len=strLen) :: RunID
+    character(len=strLen) :: XMLStr
+    type(XML_Input_T) :: inpXML
+    logical :: doRestart
     integer(iprec) :: i,j,n
     real(rprec) :: Lvalue
     real(rprec),parameter ::mdipole = 3.0e-5 ! dipole moment in T
@@ -29,28 +35,35 @@ program rcmx
     real(rprec) :: colat_boundary
     real(rprec) :: rcm_boundary_s,rcm_boundary_e
     type(rcm_mhd_T) :: RM
-    ! intialize transfer arrays
 
     !Always start with fresh directory
     CALL SYSTEM("rm -rf RCMFiles > /dev/null 2>&1")
 
-    RunID = "rcmx"
-    mhd_time_start = 0.0
-    mhd_time_end   = 600.0
-    mhd_dt = 5.0
+    !Get some XML stuff
+    call getIDeckStr(XMLStr)
+    inpXML = New_XML_Input(trim(XMLStr),"RCM",.true.)
+    call inpXML%Set_Val(RunID,"sim/runid","rcmx")
+    RM%rcm_runid = trim(RunID)
+
+    call inpXML%Set_Val(mhd_time_start,"time/T0"  ,0.0)
+    call inpXML%Set_Val(mhd_time_end  ,"time/tFin",600.0)
+    call inpXML%Set_Val(mhd_dt,        "time/dt"  ,5.0)
+
+    call inpXML%Set_Val(doRestart,"restart/doRes",.false.)
+    if (doRestart) then
+        call RCMRestartInfo(RM,inpXML,mhd_time_start,.true.)
+        write(*,*) 'Restarting RCM @ t = ', mhd_time_start
+        call rcm_mhd(mhd_time_start,mhd_dt,RM,RCMRESTART,iXML=inpXML)
+    else
+        ! initialize
+        call rcm_mhd(mhd_time_start,mhd_dt,RM,RCMINIT,iXML=inpXML)
+    endif
 
     write(*,*) 'Start / End / dt = ', mhd_time_start,mhd_time_end,mhd_dt
 
-    !write(*,'(a,$)')' input MHD time start, end and dt: '
-    !read(5,*)mhd_time_start,mhd_time_end,mhd_dt
-
-    ! initialize
-    call rcm_mhd(mhd_time_start,mhd_dt,RM,RCMINIT)
-
     !Setup IO
-    RM%rcm_runid = trim(RunID)
     RM%rcm_nOut = 0
-    call initRCMIO(RM)
+    call initRCMIO(RM,doRestart)
 
     !Set boundaries    
     rcm_boundary_s =35
@@ -90,7 +103,9 @@ program rcmx
 
         write(*,'(2(a,g14.4))')' calling rcm_mhd at time: ',mhdtime,' delta t=',mhd_dt
         call rcm_mhd(mhdtime,mhd_dt,RM,RCMADVANCE)
-        call write_2d(RM,mhdtime+mhd_dt) ! write out results
+        
+        !Commenting out old-style output for now
+        !call write_2d(RM,mhdtime+mhd_dt) ! write out results
 
         call WriteRCM(RM,RM%rcm_nOut,mhdtime,mhdtime)
         write(*,*) 'Total pressure = ', sum(RM%Prcm)

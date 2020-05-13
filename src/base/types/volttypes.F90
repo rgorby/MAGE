@@ -66,7 +66,9 @@ module volttypes
         !Holds mapping from cell-centered xyz => x1,x1 (projection coordinates)
         !Projection coordinates can be R,phi (cylindrical) or lat,lon (ionospheric)
         real(rp), dimension(:,:,:,:), allocatable :: xyzSquish
-        logical , dimension(:,:,:)  , allocatable :: isGood !Good projection or not
+        logical , dimension(:,:,:)  , allocatable :: isGood   !Good projection or not
+        logical , dimension(:,:,:)  , allocatable :: isEdible !Good values for MHD to eat (ingest)
+        
         integer :: iMax !Possibly changing i-boundary of squish mapping
     end type chmp2Mhd_T
 
@@ -151,12 +153,14 @@ module volttypes
         real(rp), intent(in) :: tAdv
     end subroutine
 
-    subroutine baseEval(imag,x1,x2,x12c,t,imW)
+    subroutine baseEval(imag,x1,x2,t,imW,isEdible)
         class(innerMagBase_T), intent(inout) :: imag
         real(rp), intent(in) :: x1,x2,t
-        real(rp), intent(in) :: x12C(2,2,2,2)
         real(rp), intent(out) :: imW(NVARIMAG)
+        logical, intent(out) :: isEdible
+
         imW = 0.0_rp
+        isEdible = .false.
     end subroutine
 
     subroutine baseIO(imag,nOut,MJD,time)

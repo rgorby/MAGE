@@ -159,18 +159,29 @@ module rcm_mhd_io
         
     end subroutine WriteRCMRestart
 
-    subroutine RCMRestartInfo(RCMApp,xmlInp,t0)
+    subroutine RCMRestartInfo(RCMApp,xmlInp,t0,isRCMopt)
         type(rcm_mhd_t)  , intent(inout) :: RCMApp
         type(XML_Input_T), intent(in)    :: xmlInp
         real(rp), intent(out) :: t0
+        logical, intent(in), optional :: isRCMopt
 
         integer :: nRes
         character(len=strLen) :: resID,nStr,inH5
         type(IOVAR_T), dimension(MAXRCMIOVAR) :: IOVars
-        logical :: doSP
+        logical :: doSP,isRCM
 
-        call xmlInp%Set_Val(resID,"/gamera/restart/resID","msphere")
-        call xmlInp%Set_Val(nRes ,"/gamera/restart/nRes" ,-1)
+        if (present(isRCMopt)) then
+            isRCM = isRCMopt
+        else
+            isRCM = .false.
+        endif
+        if (isRCM) then
+            call xmlInp%Set_Val(resID,"/rcm/restart/resID","msphere")
+            call xmlInp%Set_Val(nRes ,"/rcm/restart/nRes" ,-1)
+        else
+            call xmlInp%Set_Val(resID,"/gamera/restart/resID","msphere")
+            call xmlInp%Set_Val(nRes ,"/gamera/restart/nRes" ,-1)
+        endif            
         !Get number string
         if (nRes == -1) then
             nStr = "XXXXX"

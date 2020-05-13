@@ -67,8 +67,9 @@ module psdio
         !3D vars (r,p,K)
         real(rp), dimension(:,:,:), allocatable :: cP,jP,fP,dG
         !2D vars (r,p)
-        real(rp), dimension(:,:), allocatable :: isC,dvB,cP2,nQ
-        real(rp), dimension(:,:,:), allocatable :: Pxyz
+        real(rp), dimension(:,:), allocatable :: isC,dvB,cP2,nQ,Dkin
+        real(rp), dimension(:,:,:), allocatable :: Pxyz,Vxyz
+
 
         integer :: ir,ip,ik,ia,idx(NVARPS)
         real(rp) :: ds,da,dk,pMag
@@ -172,11 +173,14 @@ module psdio
             enddo
         enddo
         !Get PSD pressure contributions
+        allocate(Dkin(Nr,Np))
+        allocate(Vxyz(Nr,Np,NDIM))
         allocate(Pxyz(Nr,Np,NDIM))
-        Pxyz = 0.0
-
-        call CalcP(Model,psGr,psPop,Pxyz)
         
+
+        !call CalcP(Model,psGr,psPop,Pxyz)
+        call CalcMoms(Model,psGr,psPop,Dkin,Vxyz,Pxyz)
+
         !For now, just not deal with flow speed stuff
         Pxyz(:,:,XDIR) = Pxyz(:,:,YDIR)
 
@@ -192,6 +196,8 @@ module psdio
         call AddOutVar(IOVars,"Vy",oVScl*psGr%Qrp(:,:,VELY))
         call AddOutVar(IOVars,"Vz",oVScl*psGr%Qrp(:,:,VELZ))
         call AddOutVar(IOVars,"Pg",      psGr%Qrp(:,:,PRESSURE))
+        !Kinetic moments
+        call AddOutVar(IOVars,"nK",Dkin)
         call AddOutVar(IOVars,"Pk",sum(Pxyz,dim=3)/3.0)
         call AddOutVar(IOVars,"Pxy",0.5*(Pxyz(:,:,XDIR)+Pxyz(:,:,YDIR)))
         call AddOutVar(IOVars,"Pz",Pxyz(:,:,ZDIR))

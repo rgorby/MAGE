@@ -243,9 +243,8 @@ module chmpunits
                 charge  = +2
                 mass    = 4*mScl
             case default
-                write(*,*) 'Unknown species, using H'
-                charge  = +1
-                mass    = 1*mScl
+                write(*,*) 'Unknown species/unspecified species, bailing ...'
+                stop
         end select
 
     end subroutine getSpecies

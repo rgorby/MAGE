@@ -39,7 +39,7 @@ module usertpic
         write(*,*) 'Initializing test particles ...'
 
         !Get species data
-        call inpXML%Set_Val(sStr,"tps/species","H")
+        call inpXML%Set_Val(sStr,"tps/species","X")
         call getSpecies(sStr,Model%m0,Model%q0)
 
         !Get number
