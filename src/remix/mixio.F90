@@ -44,7 +44,7 @@ contains
   end subroutine initMIXNames
 
   subroutine initMIXIO(I,RunID,isRestart)
-    type(mixIon_T),dimension(:),intent(in) :: I
+    type(mixIon_T),dimension(:),intent(inout) :: I
     character(len=*),optional, intent(in) :: RunID   ! these two things are needed when we're coupled with Gamera
     logical,optional, intent(in) :: isRestart
     
@@ -75,6 +75,9 @@ contains
                 
        !Write out the chain (to root)
        call WriteVars(IOVars,.true.,h5File)
+
+    else
+       call readMIXrestart(trim(h5File),1,I)
     endif
 
     ! Finally, set var and unit names
@@ -305,6 +308,7 @@ contains
     write(*,*) trim(lockStr)," done, so go ahead"
   end subroutine writeMIX2GCM
 
+
   subroutine readMIX(inH5,Step,mixIOobj)
     character(len=*), intent(in) :: inH5
     integer, intent(in) :: Step
@@ -371,6 +375,7 @@ contains
        end do
     end do 
       
+
     write(gStr,'(A,I0)') "Step#", Step
     call ReadVars(IOVars,.true.,inH5,trim(gSTr)) ! note, this checks if step exists
 
@@ -422,6 +427,128 @@ contains
     end do
 
   end subroutine readMIX
+
+  subroutine readMIXrestart(inH5,Step,I)
+    character(len=*), intent(in) :: inH5
+    integer, intent(in) :: Step
+    type(mixIon_T), dimension(:), intent(inout) :: I
+    
+    integer,parameter :: hmsphrs(2) = [NORTH,SOUTH]
+    real(rp),dimension(:,:),allocatable :: xc,yc
+    integer :: h, v, n0
+    integer :: dims(2)    
+    
+    character(len=strLen) :: gStr,hStr,uStr,vStr
+
+    ! filling in var and unit names
+    write(*,*) "Inside readMIXrestart"
+    call initMIXNames()    
+
+    call CheckFileOrDie(inH5,"Restart H5 file does not exist.")
+
+    !Reset IO chain
+    call ClearIO(IOVars)
+    
+    ! read grid corners from root
+    call AddInVar(IOVars,"X")
+    call AddInVar(IOVars,"Y")
+    call ReadVars(IOVars,.true.,inH5)
+
+    dims = IOVars(1)%dims(1:2)
+
+    if (.not.allocated(xc)) allocate(xc(dims(1),dims(2)))
+    if (.not.allocated(yc)) allocate(yc(dims(1),dims(2)))
+    xc = reshape(IOVars(1)%data,dims)
+    yc = reshape(IOVars(2)%data,dims)
+
+    ! convert to original mix grid
+    ! and fill in mixIOobj%x,y
+    !call genInGrid(xc,yc,I(NORTH)%G%x,I(NORTH)%G%y)
+
+    ! now read from step
+
+    !Reset IO chain
+    call ClearIO(IOVars)
+    
+    !call AddInVar(IOVars,"time")
+    !call AddInVar(IOVars,"MJD")
+    !call AddInVar(IOVars,"tilt")    
+
+    if ( (.not.(size(hmsphrs).eq.2)) ) then
+       write(*,*) 'Code is only implemented to do two hemispheres (north,south)'
+       stop
+    end if 
+
+    do h=1,size(hmsphrs)
+       if (h.eq.NORTH) then
+          hStr = "NORTH"          
+       else if (h.eq.SOUTH) then
+          hStr = "SOUTH"          
+       else
+          write(*,*) "readMIX: Wrong hemisphere identifier. Stopping..."
+          stop
+       end if
+
+       do v=1,nVars
+          vStr = trim(mixVarNames(v)) // " "// trim(hStr)
+          call AddInVar(IOVars,vStr)
+       end do
+    end do 
+      
+    write(gStr,'(A,I0)') "Step#", Step
+    call ReadVars(IOVars,.true.,inH5,trim(gSTr)) ! note, this checks if step exists
+
+    ! finally fill in the mixIO object for passing to calling program
+    ! (mixIOobj%x,y already filled in above by genInGrid
+
+    ! time & mjd
+    !mixIOobj%time = IOVars(1)%data(1)
+    !mixIOobj%mjd  = IOVars(2)%data(1)
+
+    ! allow for no tilt in the restart file
+    ! for backward compatibility
+    !if (IOVars(3)%isDone) then
+    !   mixIOobj%tilt  = IOVars(3)%data(1)
+    !else
+    !   mixIOobj%tilt  = 0
+    !end if
+
+    ! allocate as necessary
+    ! NOTE: we're assuming readMIX is not called in a loop
+    ! and is just used for 1-step calculation
+    ! thus allocating here
+    ! also, remember dims below was taken from the x,y arrays
+    ! those have one extra point in phi but THE SAME size in theta as our target array here
+    ! (although the actual stored arrays had -1 point in the theta direction as well)
+    ! since we cut out the pole but extrapolated the low lat boundary
+
+    !if (.not.allocated(mixIOobj%Vars)) allocate(mixIOobj%Vars(dims(1)-1,dims(2),nVars,size(hmsphrs)))
+    !mixIOobj%Vars = 0 ! and initialize to zero
+    I(NORTH)%St%Vars = 0
+    I(SOUTH)%St%Vars = 0
+
+    do h=1,size(hmsphrs)
+       if (h.eq.NORTH) then
+          hStr = "NORTH"          
+       else if (h.eq.SOUTH) then
+          hStr = "SOUTH"          
+       end if
+
+       do v=1,nVars
+          vStr = trim(mixVarNames(v)) // " "// trim(hStr)
+          n0 = FindIO(IOVars,vStr)
+          write(*,*) trim(vStr),maxval(IOVars(n0)%data),minval(IOVars(n0)%data)
+          ! check whether the variable exists in the file
+          ! since we didn't necessarily dump all of them in writeMIX
+          if (IOVars(n0)%isDone) then
+             I(h)%St%Vars(:,2:dims(2),v) = reshape(IOVars(n0)%data,dims-1)
+             ! fix pole
+             I(h)%St%Vars(:,1,v) = sum(I(h)%St%Vars(:,2,v))/size(I(h)%St%Vars(:,2,v))
+          end if
+       end do
+    end do
+
+  end subroutine readMIXrestart
 
   subroutine genOutGrid(x,y,xc,yc)  
     real(rp), dimension(:,:),intent(in) :: x,y
@@ -480,7 +607,5 @@ contains
     x(:,1) = 0
     y(:,1) = 0
   end subroutine genInGrid
-
-
   
 end module mixio
