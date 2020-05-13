@@ -52,7 +52,6 @@ module voltio
         !Figure out some perfromance info
         cMJD = T2MJD(vApp%time,MJD0) !Current MJD
 
-
         if (isConInit) then
             !Console output has been initialized
             dMJD = cMJD - oMJD !Elapsed MJD since first recorded value
@@ -65,6 +64,15 @@ module voltio
             cumTime = 0.0
             isConInit = .true.
         endif
+
+        !Add some stupid trapping code to deal with fortran system clock wrapping
+        if (simRate<0) then
+            !Just reset counters, this is just for diagnostics don't need exact value
+            oMJD = cMJD
+            cumTime = 0.0
+            simRate = 0.0
+        endif
+
         !Get MJD info
         call mjd2ut(cMJD,iYr,iDoY,iMon,iDay,iHr,iMin,rSec)
         write(utStr,'(I0.4,a,I0.2,a,I0.2,a,I0.2,a,I0.2,a,I0.2)') iYr,'-',iMon,'-',iDay,' ',iHr,':',iMin,':',nint(rSec)
@@ -79,8 +87,9 @@ module voltio
             write (*, '(a,1f8.3,a)')             '      tilt = ' , dpT, ' [deg]'
             write (*, '(a,2f8.3,a)')             '      CPCP = ' , cpcp(NORTH), cpcp(SOUTH), ' [kV, N/S]'
             write (*, '(a, f8.3,a)')             '    BSDst  ~ ' , Dst, ' [nT]'
-            write (*, '(a,1f7.3,a)')             '      Running @ ', simRate*100.0, '% of real-time'
-            
+            if (simRate>TINY) then
+                write (*, '(a,1f7.3,a)')             '      Running @ ', simRate*100.0, '% of real-time'
+            endif
             write (*, *) ANSIRESET, ''
         endif
 
