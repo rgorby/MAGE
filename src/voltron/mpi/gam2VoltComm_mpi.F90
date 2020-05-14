@@ -12,6 +12,7 @@ module gam2VoltComm_mpi
     type :: gam2VoltCommMpi_T
         integer :: voltMpiComm = MPI_COMM_NULL
         integer :: myRank, voltRank
+        logical :: doSerialVoltron = .false., firstShallowUpdate = .true., firstDeepUpdate = .true.
 
         real(rp) :: time, tFin, DeepT, ShallowT, MJD
         integer :: ts, JpSt, JpSh, PsiSt, PsiSh
@@ -49,15 +50,30 @@ module gam2VoltComm_mpi
     contains
 
     ! setup the MPI communicator to talk to voltron, and send grid data
-    subroutine initGam2Volt(g2vComm, gApp, voltComm, doIO)
+    subroutine initGam2Volt(g2vComm, gApp, voltComm, optFilename, doIO)
         type(gam2VoltCommMpi_T), intent(inout) :: g2vComm
         type(gamAppMpi_T), intent(inout) :: gApp
         integer, intent(in) :: voltComm
+        character(len=*), optional, intent(in) :: optFilename
         logical, optional, intent(in) :: doIO
 
         integer :: length, commSize, ierr, numCells, dataCount, numInNeighbors, numOutNeighbors
         character( len = MPI_MAX_ERROR_STRING) :: message
         logical :: reorder, wasWeighted, doIOX
+        character(len=strLen) :: inpXML
+        type(XML_Input_T) :: xmlInp
+
+        if(present(optFilename)) then
+            ! read from the prescribed file
+            inpXML = optFilename
+        else
+            !Find input deck
+            call getIDeckStr(inpXML)
+        endif
+        call CheckFileOrDie(inpXML,"Error opening input deck, exiting ...")
+        write(*,*) 'Reading input deck from ', trim(inpXML)
+        xmlInp = New_XML_Input(trim(inpXML),'Voltron',.true.)
+        call xmlInp%Set_Val(g2vComm%doSerialVoltron,"coupling/doSerial",.false.)
 
         if (present(doIO)) then
             doIOX = doIO
@@ -208,6 +224,35 @@ module gam2VoltComm_mpi
         type(gamAppMpi_T), intent(inout) :: gApp
         logical, optional, intent(in) :: skipUpdateGamera
 
+        if(g2vComm%doSerialVoltron) then
+            if(present(skipUpdateGamera)) then
+                call performSerialShallowUpdate(g2vComm, gApp, skipUpdateGamera)
+            else
+                call performSerialShallowUpdate(g2vComm, gApp)
+            endif
+        else
+            ! if this is the first sequence, send initial data
+            if(g2vComm%firstShallowUpdate) then
+                ! if this is the first update, do a serial update
+                call performSerialShallowUpdate(g2vComm, gApp)
+                g2vComm%firstShallowUpdate = .false.
+            else
+                ! otherwise perform a concurrent update
+                if(present(skipUpdateGamera)) then
+                    call performConcurrentShallowUpdate(g2vComm, gApp, skipUpdateGamera)
+                else
+                    call performConcurrentShallowUpdate(g2vComm, gApp)
+                endif
+            endif
+        endif
+
+    end subroutine performShallowUpdate
+
+    subroutine performSerialShallowUpdate(g2vComm, gApp, skipUpdateGamera)
+        type(gam2VoltCommMpi_T), intent(inout) :: g2vComm
+        type(gamAppMpi_T), intent(inout) :: gApp
+        logical, optional, intent(in) :: skipUpdateGamera
+
         !NOTE: This may be bad because of compiler optimization of .and. (K:)
         if(present(skipUpdateGamera) .and. skipUpdateGamera) then
             ! do nothing, don't update gamera's data on voltron
@@ -223,7 +268,29 @@ module gam2VoltComm_mpi
         call recvShallowData(g2vComm, gApp)
         call Toc("ShallowRecv")
 
-    end subroutine performShallowUpdate
+    end subroutine
+
+    subroutine performConcurrentShallowUpdate(g2vComm, gApp, skipUpdateGamera)
+        type(gam2VoltCommMpi_T), intent(inout) :: g2vComm
+        type(gamAppMpi_T), intent(inout) :: gApp
+        logical, optional, intent(in) :: skipUpdateGamera
+
+        ! now reverse process, get (waiting) data
+        call Tic("ShallowRecv")
+        call recvShallowData(g2vComm, gApp)
+        call Toc("ShallowRecv")
+
+        ! and send data for voltron to work on while gamera is busy
+        if(present(skipUpdateGamera) .and. skipUpdateGamera) then
+            ! do nothing, don't update gamera's data on voltron
+        else
+            ! send shallow data
+            call Tic("ShallowSend")
+            call sendShallowData(g2vComm, gApp)
+            call Toc("ShallowSend")
+        endif
+
+    end subroutine
 
     ! send shallow state data to voltron over MPI
     subroutine sendShallowData(g2vComm, gApp)
@@ -314,19 +381,52 @@ module gam2VoltComm_mpi
         if (.not. g2vComm%doDeep) then
             !Why are you even here?
             return
-        else
-            ! send deep data
-            call Tic("DeepSend")
-            call sendDeepData(g2vComm, gApp)
-            call Toc("DeepSend")
+        endif
 
-            ! receive deep data
-            call Tic("DeepRecv")
-            call recvDeepData(g2vComm, gApp)
-            call Toc("DeepRecv")
+        if(g2vComm%doSerialVoltron) then
+            call doSerialDeepUpdate(g2vComm, gApp)
+        else
+            if(g2vComm%firstDeepUpdate) then
+                call doSerialDeepUpdate(g2vComm, gApp)
+                g2vComm%firstDeepUpdate = .false.
+            else
+                call doConcurrentDeepUpdate(g2vComm, gApp)
+            endif
         endif
 
     end subroutine performDeepUpdate
+
+    subroutine doSerialDeepUpdate(g2vComm, gApp)
+        type(gam2VoltCommMpi_T), intent(inout) :: g2vComm
+        type(gamAppMpi_T), intent(inout) :: gApp
+
+        ! send deep data
+        call Tic("DeepSend")
+        call sendDeepData(g2vComm, gApp)
+        call Toc("DeepSend")
+
+        ! receive deep data
+        call Tic("DeepRecv")
+        call recvDeepData(g2vComm, gApp)
+        call Toc("DeepRecv")
+
+    end subroutine
+
+    subroutine doConcurrentDeepUpdate(g2vComm, gApp)
+        type(gam2VoltCommMpi_T), intent(inout) :: g2vComm
+        type(gamAppMpi_T), intent(inout) :: gApp
+
+        ! now reverse process, get (waiting) data
+        call Tic("DeepRecv")
+        call recvDeepData(g2vComm, gApp)
+        call Toc("DeepRecv")
+
+        ! and send data for voltron to work on while gamera is busy
+        call Tic("DeepSend")
+        call sendDeepData(g2vComm, gApp)
+        call Toc("DeepSend")
+
+    end subroutine
 
     ! send deep state data to voltron over MPI
     subroutine sendDeepData(g2vComm, gApp)

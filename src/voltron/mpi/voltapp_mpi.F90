@@ -14,6 +14,7 @@ module voltapp_mpi
         integer :: voltMpiComm = MPI_COMM_NULL
         integer :: myRank
         type(gamApp_T) :: gAppLocal
+        logical :: doSerialVoltron = .false., firstShallowUpdate = .true., firstDeepUpdate = .true.
 
         ! array of all zeroes to simplify various send/receive calls
         integer, dimension(:), allocatable :: zeroArrayCounts, zeroArrayTypes
@@ -164,6 +165,7 @@ module voltapp_mpi
         endif
         call CheckFileOrDie(inpXML,"Error opening input deck in initVoltron_mpi, exiting ...")
         xmlInp = New_XML_Input(trim(inpXML),'Gamera',.true.)
+        call xmlInp%Set_Val(vApp%doSerialVoltron,"/Voltron/coupling/doSerial",.false.)
         vApp%gAppLocal%Grid%ijkShift(1:3) = 0
         call ReadCorners(vApp%gAppLocal%Model,vApp%gAppLocal%Grid,xmlInp,noRestart=.true.)
         call SetRings(vApp%gAppLocal%Model,vApp%gAppLocal%Grid,xmlInp)
@@ -272,6 +274,35 @@ module voltapp_mpi
         real(rp), intent(in) :: time
         logical, optional, intent(in) :: skipUpdateGamera
 
+        if(vApp%doSerialVoltron) then
+            if(present(skipUpdateGamera)) then
+                call shallowSerialUpdate_mpi(vApp, time, skipUpdateGamera)
+            else
+                call shallowSerialUpdate_mpi(vApp, time)
+            endif
+        else
+            ! if this if the first sequence, process initial data
+            if(vApp%firstShallowUpdate) then
+                call shallowSerialUpdate_mpi(vApp, time)
+                vApp%firstShallowUpdate = .false.
+            else
+                if(present(skipUpdateGamera)) then
+                    call shallowConcurrentUpdate_mpi(vApp, time, skipUpdateGamera)
+                else
+                    call shallowConcurrentUpdate_mpi(vApp, time)
+                endif
+            endif
+        endif
+
+    end subroutine
+
+    subroutine shallowSerialUpdate_mpi(vApp, time, skipUpdateGamera)
+        type(voltAppMpi_T), intent(inout) :: vApp
+        real(rp), intent(in) :: time
+        logical, optional, intent(in) :: skipUpdateGamera
+
+        integer :: ierr
+
         if(present(skipUpdateGamera) .and. skipUpdateGamera) then
             ! do nothing here, do not update the incoming gamera data
         else
@@ -291,7 +322,41 @@ module voltapp_mpi
         call sendShallowData_mpi(vApp)
         call Toc("ShallowSend")
 
-    end subroutine ShallowUpdate_mpi
+        ! send next time for shallow calculation to all gamera ranks
+        call mpi_bcast(vApp%ShallowT, 1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
+
+    end subroutine
+
+    subroutine shallowConcurrentUpdate_mpi(vApp, time, skipUpdateGamera)
+        type(voltAppMpi_T), intent(inout) :: vApp
+        real(rp), intent(in) :: time
+        logical, optional, intent(in) :: skipUpdateGamera
+
+        integer :: ierr
+
+        ! send updated data to Gamera ranks
+        call Tic("ShallowSend")
+        call sendShallowData_mpi(vApp)
+        call Toc("ShallowSend")
+
+        ! send next time for shallow calculation to all gamera ranks
+        call mpi_bcast(time + vApp%ShallowDT, 1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
+
+        if(present(skipUpdateGamera) .and. skipUpdateGamera) then
+            ! do nothing here, do not update the incoming gamera data
+        else
+            ! fetch data from Gamera ranks
+            call Tic("ShallowRecv")
+            call recvShallowData_mpi(vApp)
+            call Toc("ShallowRecv")
+        endif
+
+        ! call base update function with local data
+        call Tic("ShallowUpdate")
+        call ShallowUpdate(vApp, vApp%gAppLocal, time)
+        call Toc("ShallowUpdate")
+
+    end subroutine
 
     subroutine recvShallowData_mpi(vApp)
         type(voltAppMpi_T), intent(inout) :: vApp
@@ -343,14 +408,35 @@ module voltapp_mpi
                 stop
         END SELECT
 
-        ! send next time for shallow calculation to all gamera ranks
-        call mpi_bcast(vApp%ShallowT, 1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
-
     end subroutine sendShallowData_mpi
 
 !----------
 !Deep coupling stuff (time coming from vApp%time, so in seconds)
     subroutine DeepUpdate_mpi(vApp, time)
+        type(voltAppMpi_T), intent(inout) :: vApp
+        real(rp), intent(in) :: time
+
+        real(rp) :: tAdv
+        integer :: ierr
+
+        if (.not. vApp%doDeep) then
+            !Why are you even here?
+            return
+        else
+            if(vApp%doSerialVoltron) then
+                call deepSerialUpdate_mpi(vApp, time)
+            else
+                if(vApp%firstDeepUpdate) then
+                    call deepSerialUpdate_mpi(vApp, time)
+                    vApp%firstDeepUpdate = .false.
+                else
+                    call deepConcurrentUpdate_mpi(vApp, time)
+                endif
+            endif
+        endif
+    end subroutine
+
+    subroutine deepSerialUpdate_mpi(vApp, time)
         type(voltAppMpi_T), intent(inout) :: vApp
         real(rp), intent(in) :: time
 
@@ -375,9 +461,43 @@ module voltapp_mpi
             call Tic("DeepSend")
             call sendDeepData_mpi(vApp)
             call Toc("DeepSend")
+
+            ! send next time for deep calculation to all gamera ranks
+            call mpi_bcast(vApp%DeepT,1,MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
         endif
 
-    end subroutine DeepUpdate_mpi
+    end subroutine
+
+    subroutine deepConcurrentUpdate_mpi(vApp, time)
+        type(voltAppMpi_T), intent(inout) :: vApp
+        real(rp), intent(in) :: time
+
+        real(rp) :: tAdv
+        integer :: ierr
+
+        if (.not. vApp%doDeep) then
+            !Why are you even here?
+            return
+        else
+            ! send updated data to Gamera ranks
+            call Tic("DeepSend")
+            call sendDeepData_mpi(vApp)
+            call Toc("DeepSend")
+
+            ! send next time for deep calculation to all gamera ranks
+            call mpi_bcast(time+vApp%DeepDT, 1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
+
+            ! fetch data from Gamera ranks
+            call Tic("DeepRecv")
+            call recvDeepData_mpi(vApp)
+            call Toc("DeepRecv")
+
+            ! call base update function with local data
+            call Tic("DeepUpdate")
+            call DeepUpdate(vApp, vApp%gAppLocal, time)
+            call Toc("DeepUpdate")
+        endif
+    end subroutine
 
     subroutine recvDeepData_mpi(vApp)
         type(voltAppMpi_T), intent(inout) :: vApp
@@ -410,9 +530,6 @@ module voltapp_mpi
                                     vApp%gAppLocal%Grid%Gas0, vApp%zeroArrayCounts, &
                                     vApp%zeroArrayDispls, vApp%zeroArrayTypes, &
                                     vApp%voltMpiComm, ierr)
-
-        ! send next time for deep calculation to all gamera ranks
-        call mpi_bcast(vApp%DeepT, 1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
 
     end subroutine sendDeepData_mpi
 
