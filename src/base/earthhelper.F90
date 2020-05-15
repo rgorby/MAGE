@@ -340,10 +340,8 @@ module earthhelper
     subroutine SetQTRC(dst0,LpkO,dLO)
         real(rp), intent(in) :: dst0
         real(rp), intent(in), optional :: LpkO,dLO
-
-        real(rp) :: LIn,LOut,dl,K,dB
-        real(rp) :: Li,Lip,Lc,Pc,dV
-        integer :: n,Nl
+        real(rp) :: K,dB
+    
         if (present(LpkO)) then
             QTRC_Lpk = LpkO
         endif
@@ -352,30 +350,61 @@ module earthhelper
             QTRC_dL = dLO
         endif
 
-        !Now just doing lazy numerical integral
-        LIn  = 1.5
-        LOut = 10.0
-        Nl = 10
+        if (dst0 >= 0) then
+            QTRC_P0 = 0.0
+            return
+        else
+            QTRC_P0 = 1.0
+        endif
 
-        dl = (LOut-LIn)/Nl
+        !Get energy content w/ P0=1
+        K = KIn()
+        dB = -4.2*(1.0e-30)*K !Dst from DPS
 
-        K = 0.0 !Cumulative energy
-        do n=1,Nl
-            Li  = (n-1)*dl + LIn
-            Lip = Li+dl
-            Lc = Li+0.5*dl
+        !Rescale to get target dst0
+        QTRC_P0 = dst0/dB 
+        
+        !Calculate new energy content
+        K = KIn()
 
-            Pc = P_QTRC(Lc)
-            dV = MagDV(Li,Lip)
-            K = K + Pc*dV
-        enddo
+        write(*,*) '---------------'
+        write(*,*) 'Adding quiet-time ring current'
+        write(*,*) 'Target Dst [nT]    = ', dst0
+        write(*,*) 'RC Energy  [keV]   = ', K
+        write(*,*) 'L-Peak     [Re]    = ', QTRC_Lpk
+        write(*,*) 'dL         [Re]    = ', QTRC_dL
+        write(*,*) 'P-Peak     [nPa]   = ', QTRC_P0
+        write(*,*) '---------------'
 
-        !K has units nPa*m3
-        !Convert to keV
-        K = ((1.0e-9)/kev2J)*K
+        contains
+            !Integrate total ring current energy content (keV)
+            function KIn()
+                real(rp) :: KIn
 
-        write(*,*) 'Total keV = ', K
-        dB = -4.2*(1.0e-30)*K
+                real(rp) :: LIn,LOut,dl,K
+                real(rp) :: Li,Lip,Lc,Pc,dV
+                integer :: n,Nl
+                !Now just doing lazy numerical integral
+                LIn  = 1.5
+                LOut = 10.0
+                Nl = 100
+
+                dl = (LOut-LIn)/Nl
+
+                KIn = 0.0 !Cumulative energy
+                do n=1,Nl
+                    Li  = (n-1)*dl + LIn
+                    Lip = Li+dl
+                    Lc = Li+0.5*dl
+
+                    Pc = P_QTRC(Lc)
+                    dV = MagDV(Li,Lip)
+                    KIn = KIn + Pc*dV
+                enddo
+                !K has units nPa*m3
+                !Convert to keV
+                KIn = ((1.0e-9)/kev2J)*KIn           
+            end function KIn
 
     end subroutine SetQTRC
 
@@ -386,7 +415,7 @@ module earthhelper
         real(rp) :: MagDV
 
         real(rp) :: L21,Re3,a
-        L21 = L2**3.0 - L1**2.0
+        L21 = L2**3.0 - L1**3.0
         Re3 = REarth**3.0 !m^3
         a = 64.0*PI/105.0
         MagDV = a*Re3*L21

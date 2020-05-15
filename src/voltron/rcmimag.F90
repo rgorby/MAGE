@@ -13,6 +13,7 @@ module rcmimag
     use rcm_mix_interface
     use streamline
     use clocks
+    use kronos
     use rcm_mhd_mod, ONLY : rcm_mhd
     use rcm_mhd_io
     use cmiutils, only : SquishCorners
@@ -80,8 +81,10 @@ module rcmimag
         type(voltApp_T), intent(inout) :: vApp
 
         character(len=strLen) :: RunID
-        real(rp) :: t0
-        
+        real(rp) :: t0,dst0
+        type(TimeSeries_T) :: tsDST
+        logical :: doQTRC
+
         associate(RCMApp => imag%rcmCpl, &
                   imag2mix => vApp%imag2mix, &
                   dtCpl => vApp%DeepDT)
@@ -105,6 +108,18 @@ module rcmimag
             t0 = vApp%time
             call KillRCMDir()
             write(*,*) 'Initializing RCM ...'
+            call iXML%Set_Val(doQTRC,"imag/doQTRC",.true.)
+            if (doQTRC) then
+                !Want initial dst0
+                tsDST%wID = vApp%tilt%wID !Solar wind file
+                call tsDST%initTS("symh")
+                dst0 = tsDST%evalAt(0.0_rp) !symh @ T=0
+                call SetQTRC(dst0)
+            else
+                !Zero out any additional ring current
+                call SetQTRC(0.0_rp)
+            endif
+
             call rcm_mhd(t0,dtCpl,RCMApp,RCMINIT,iXML=iXML)
         endif
 
@@ -150,6 +165,8 @@ module rcmimag
     !Get potential from mix
         call map_rcm_mix(vApp,mixPot)
         call Toc("MAP_RCMMIX")
+
+        write(*,*) 'Ingesting @ T = ', vApp%time
 
         call Tic("RCM_TUBES")
     !Load RCM tubes
@@ -415,6 +432,7 @@ module rcmimag
         real(rp), dimension(NDIM) :: xyzC,xyzIonC
         integer :: OCb
         real(rp) :: bD,bP,dvB,bBeta
+        real(rp) :: rcP0,rcN0 !Quiet-time augment to MHD
 
     !First get seed for trace
         !Assume lat/lon @ Earth, dipole push to first cell
@@ -432,6 +450,12 @@ module rcmimag
     !Get diagnostics from field line
         !Minimal surface (bEq in Re, bMin in EB)
         call FLEq(ebModel,bTrc,bEq,bMin)
+        !Calculate quiet-time extra RC here
+        if (vApp%time <= vApp%DeepDT) then
+            rcP0 = P_QTRC(norm2(bEq))
+            rcN0 = 0.0
+        endif
+        
         bMin = bMin*oBScl*1.0e-9 !EB=>Tesla
         bEq = bEq*Re_cgs*1.0e-2 !Re=>meters
 
@@ -440,6 +464,13 @@ module rcmimag
         call FLThermo(ebModel,ebGr,bTrc,bD,bP,dvB,bBeta)
         !Converts Re/EB => Re/T
         dvB = dvB/(oBScl*1.0e-9)
+
+        !Augment w/ quiet-time extra here
+        if (vApp%time <= vApp%DeepDT) then
+            bP = max(bP,rcP0)
+            bD = max(bD,rcN0)
+        endif
+
         bP = bP*1.0e-9 !nPa=>Pa
         bD = bD*1.0e+6 !#/cc => #/m3
         !Topology
