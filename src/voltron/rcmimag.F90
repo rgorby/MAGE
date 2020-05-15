@@ -48,12 +48,21 @@ module rcmimag
 
     real(rp), dimension(:,:), allocatable, private :: mixPot
 
+    !Parameters used to set RCM ICs to feed back into MHD
+    type RCMIC_T
+        logical :: doIC = .false.
+        real(rp) :: dst0,ktRC !Values for inner magnetosphere
+        real(rp) :: vSW,dSW,ktSW !Solar wind values used to set plamsa sheet
+    end type RCMIC_T
+    
+    type(RCMIC_T), private :: RCMICs
+
     !Parameters for smoothing toMHD boundary
     type SmoothOperator_T
         integer :: nIter,nRad
     end type SmoothOperator_T
 
-    type(SmoothOperator_T) :: SmoothOp
+    type(SmoothOperator_T), private :: SmoothOp
 
     type, extends(innerMagBase_T) :: rcmIMAG_T
 
@@ -81,9 +90,7 @@ module rcmimag
         type(voltApp_T), intent(inout) :: vApp
 
         character(len=strLen) :: RunID
-        real(rp) :: t0,dst0
-        type(TimeSeries_T) :: tsDST
-        logical :: doQTRC
+        real(rp) :: t0
 
         associate(RCMApp => imag%rcmCpl, &
                   imag2mix => vApp%imag2mix, &
@@ -108,18 +115,7 @@ module rcmimag
             t0 = vApp%time
             call KillRCMDir()
             write(*,*) 'Initializing RCM ...'
-            call iXML%Set_Val(doQTRC,"imag/doQTRC",.true.)
-            if (doQTRC) then
-                !Want initial dst0
-                tsDST%wID = vApp%tilt%wID !Solar wind file
-                call tsDST%initTS("symh")
-                dst0 = tsDST%evalAt(0.0_rp) !symh @ T=0
-                call SetQTRC(dst0)
-            else
-                !Zero out any additional ring current
-                call SetQTRC(0.0_rp)
-            endif
-
+            call InitRCMICs(imag,vApp,iXML)
             call rcm_mhd(t0,dtCpl,RCMApp,RCMINIT,iXML=iXML)
         endif
 
@@ -139,6 +135,30 @@ module rcmimag
                 CALL SYSTEM("rm -rf RCMfiles > /dev/null 2>&1")
             end subroutine KillRCMDir
     end subroutine initRCM
+
+    !Setup ICs to pass to RCM if asked to
+    subroutine InitRCMICs(imag,vApp,iXML)
+        class(rcmIMAG_T), intent(inout) :: imag
+        type(XML_Input_T), intent(in) :: iXML
+        type(voltApp_T), intent(in) :: vApp
+
+        type(TimeSeries_T) :: tsDST
+        logical :: doQTRC
+        real(rp) :: dst0
+        
+        call iXML%Set_Val(doQTRC,"imag/doQTRC",.true.)
+        if (doQTRC) then
+            !Want initial dst0
+            tsDST%wID = vApp%tilt%wID !Solar wind file
+            call tsDST%initTS("symh")
+            dst0 = tsDST%evalAt(0.0_rp) !symh @ T=0
+            call SetQTRC(dst0)
+        else
+            !Zero out any additional ring current
+            call SetQTRC(0.0_rp)
+        endif
+
+    end subroutine InitRCMICs
 
     !Advance RCM from Voltron data
     subroutine AdvanceRCM(imag,vApp,tAdv)
