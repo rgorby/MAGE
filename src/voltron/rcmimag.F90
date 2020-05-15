@@ -166,8 +166,6 @@ module rcmimag
         call map_rcm_mix(vApp,mixPot)
         call Toc("MAP_RCMMIX")
 
-        write(*,*) 'Ingesting @ T = ', vApp%time
-
         call Tic("RCM_TUBES")
     !Load RCM tubes
        !$OMP PARALLEL DO default(shared) collapse(2) &
