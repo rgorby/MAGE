@@ -11,6 +11,7 @@ module gcmtypes
 
   integer,parameter :: GCMSIGMAP = 1,GCMSIGMAH = 2, GCMNORTH=1, GCMSOUTH=2
   integer,parameter :: GCMhemispheres=2
+
   
   type var_T
       real(rp), dimension(:,:),allocatable :: var
@@ -33,6 +34,7 @@ module gcmtypes
       character(len=strlen) :: mix2gcmLock = "mix2gcm.txt"
       character(len=strlen) :: gcm2mixH5 = "gcm4mix.h5"
       character(len=strlen) :: gcm2mixLock = "gcm2mix.txt"
+      logical :: isRestart
   end type gcm_T
 
   

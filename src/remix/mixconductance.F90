@@ -33,8 +33,6 @@ module mixconductance
       conductance%doStarlight = Params%doStarlight      
       conductance%doMR = Params%doMR      
       conductance%apply_cap = Params%apply_cap
-      conductance%doGCM = Params%doGCM
-      conductance%doGCM2way = Params%doGCM2way
 
       conductance%PI2       = pi/2.0D0
       conductance%ang65     = pi/180.0D0*65.0D0
@@ -66,9 +64,6 @@ module mixconductance
 
       if (.not. allocated(tmpD)) allocate(tmpD(G%Np,G%Nt))
       if (.not. allocated(tmpC)) allocate(tmpC(G%Np,G%Nt))  
-
-      write(*,*) "doGCM?",conductance%doGCM
-      write(*,*) "doGCM2way?",conductance%doGCM2way    
 
     end subroutine conductance_init
 

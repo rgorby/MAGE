@@ -108,15 +108,22 @@ module voltapp
         endif
         
         !Pull numbering from Gamera
-        vApp%IO%nRes = gApp%Model%IO%nRes
+        !vApp%IO%nRes = gApp%Model%IO%nRes
+        call xmlInp%Set_Val(vApp%IO%nRes ,"restart/nRes" , gApp%Model%IO%nRes)
         vApp%IO%nOut = gApp%Model%IO%nOut
         !Force Gamera IO times to match Voltron IO
         call IOSync(vApp%IO,gApp%Model%IO,1.0/gTScl)
+        write(*,*) "VOLTRON NRES: ",vApp%IO%nRes,gApp%Model%IO%nRes
 
     !Shallow coupling
         !Start shallow coupling immediately
         vApp%ShallowT = vApp%time
         call xmlInp%Set_Val(vApp%ShallowDT ,"coupling/dt" , 0.1_rp)
+        call xmlInp%Set_Val(vApp%doGCM, "coupling/doGCM",.false.)
+
+        if (vApp%doGCM) then
+            call init_gcm(vApp%gcm,gApp%Model%isRestart)
+        end if
 
     !Deep coupling
         vApp%DeepT = 0.0_rp
@@ -182,8 +189,10 @@ module voltapp
         !Finally do first output stuff
         !console output
         if(vApp%isSeparate) then
+            write(*,*) "FIRST OUTPUT1"
             call consoleOutputVOnly(vApp,gApp,gApp%Model%MJD0)
         else
+            write(*,*) "FIRST OUTPUT2"
             call consoleOutputV(vApp,gApp)
         endif
         !file output
@@ -228,9 +237,9 @@ module voltapp
     !Remix from Gamera
         if(present(optFilename)) then
             ! read from the prescribed file
-            call init_mix(vApp%remixApp%ion,[NORTH, SOUTH],optFilename=optFilename,RunID=RunID,isRestart=isRestart)
+            call init_mix(vApp%remixApp%ion,[NORTH, SOUTH],optFilename=optFilename,RunID=RunID,isRestart=isRestart,nRes=vApp%IO%nRes)
         else
-            call init_mix(vApp%remixApp%ion,[NORTH, SOUTH],RunID=RunID,isRestart=isRestart)
+            call init_mix(vApp%remixApp%ion,[NORTH, SOUTH],RunID=RunID,isRestart=isRestart,nRes=vApp%IO%nRes)
         endif
         vApp%remixApp%ion%rad_iono_m = RadIonosphere() * gApp%Model%units%gx0 ! [Rp] * [m/Rp]
 
@@ -247,7 +256,7 @@ module voltapp
 
         call init_mhd2Mix(vApp%mhd2mix, gApp, vApp%remixApp)
         call init_mix2Mhd(vApp%mix2mhd, vApp%remixApp, gApp)
-        vApp%mix2mhd%mixOutput = 0.0
+        !vApp%mix2mhd%mixOutput = 0.0
         
     !CHIMP (TRC) from Gamera
         if (vApp%doDeep) then
@@ -320,7 +329,7 @@ module voltapp
         if (time<=0) then
             write(*,*) " I AM HERE@ "
             call run_mix(vApp%remixApp%ion,curTilt,doModelOpt=.false.)
-        else if (vApp%remixApp%ion(1)%conductance%doGCM .and. vApp%gcm%cplStep /= 1) then
+        else if (vApp%doGCM) then
             write(*,*) " I AM HERE! "
             call run_mix(vApp%remixApp%ion,curTilt,gcm=vApp%gcm)
         else 
@@ -328,8 +337,8 @@ module voltapp
             call run_mix(vApp%remixApp%ion,curTilt,doModelOpt=.true.)
         endif
 
-        if (vApp%remixApp%ion(1)%conductance%doGCM .and. time >=0) then
-            call coupleGCM2MIX(vApp%gcm,vApp%remixApp%ion,vApp%remixApp%ion(1)%conductance%doGCM2way,mjd=vApp%MJD,time=vApp%time)
+        if (vApp%doGCM .and. time >=0) then
+            call coupleGCM2MIX(vApp%gcm,vApp%remixApp%ion,vApp%doGCM,mjd=vApp%MJD,time=vApp%time)
         end if
         ! get stuff from mix to gamera
         call mapRemixToGamera(vApp%mix2mhd, vApp%remixApp)

@@ -14,6 +14,15 @@ module gcminterp
 
   contains
 
+    subroutine init_gcm(gcm,isRestart)
+      type(gcm_T),intent(inout) :: gcm
+      logical, intent(in) :: isRestart
+
+      write(*,*) "init_gcm"
+      gcm%isRestart = isRestart
+
+    end subroutine init_gcm
+
     subroutine init_gcm_mix(gcmApp,ion)!,remixApp
       type(gcm_T), intent(inout) :: gcmApp
       type(mixIon_T),dimension(:),intent(in) :: ion
@@ -82,7 +91,7 @@ module gcminterp
       logical,optional,intent(in) :: do2way
       real(rp), optional, intent(in) :: time, mjd
       
-      if (gcm%cplStep == 1) then
+      if (gcm%isRestart) then
         call CheckAndKill(gcm%mix2gcmLock)
         call CheckAndKill(gcm%mix2gcmH5)
       endif
@@ -90,13 +99,15 @@ module gcminterp
       call writeMIX2GCM(ion,gcm%mix2gcmH5,gcm%mix2gcmLock,gcm%cplStep,mjd,time)
 
       !Import gcm data
-      if (gcm%cplStep == 1) then
+      if (gcm%isRestart) then
         call init_gcm_mix(gcm,ion)
       else
         call ReadH5gcm(gcm)
       end if
       !Map the data to MIX grid (redundant for now)
       call mapGCM2MIX(gcm,ion)
+
+      if (gcm%isRestart) gcm%isRestart=.false.
         
     end subroutine coupleGCM2MIX
 
@@ -227,10 +238,10 @@ module gcminterp
       !gcm%glat = transpose(lat(:,::-1))
       !gcm%glon = transpose(lon)
       
-      write(*,*) "SIZE TEST1: ", shape(x)
-      write(*,*) "SIZE TEST2: ", shape(y)
-      write(*,*) "SIZE TEST3: ", shape(gcm%gx)
-      write(*,*) "SIZE TEST4: ", shape(gcm%gy)
+      !write(*,*) "SIZE TEST1: ", shape(x)
+      !write(*,*) "SIZE TEST2: ", shape(y)
+      !write(*,*) "SIZE TEST3: ", shape(gcm%gx)
+      !write(*,*) "SIZE TEST4: ", shape(gcm%gy)
 
       !Check directionality of glat grid
       !if (gcm%glat(1,1) >=0.) then
@@ -291,12 +302,14 @@ module gcminterp
       !call RECALC(utime(1),utime(2),utime(3),utime(4),utime(5))
 
       do h=1,2
-        ! Plan A, write a modified mix_set_map as gcm_set_map
-        write(*,*) 'Mapping r2t'
-        call gcm_set_map(ion(h)%G,gcmG(h),gcmApp%r2tMaps(h),iGEOtoSM)
-        !gcmApp%r2tMaps(h) = Map
-        write(*,*) 'Mapping t2r'
-        call gcm_set_map(gcmG(h),ion(h)%G,gcmApp%t2rMaps(h),iSMtoGEO)
+        if (gcmApp%isRestart) then
+          ! Plan A, write a modified mix_set_map as gcm_set_map
+          write(*,*) 'Mapping r2t'
+          call gcm_set_map(ion(h)%G,gcmG(h),gcmApp%r2tMaps(h),iGEOtoSM)
+          !gcmApp%r2tMaps(h) = Map
+          write(*,*) 'Mapping t2r'
+          call gcm_set_map(gcmG(h),ion(h)%G,gcmApp%t2rMaps(h),iSMtoGEO)
+        endif
         !gcmApp%t2rMaps(h) = Map
         ! Plan B, do a separate transform and then use the mix_set_map
         ! call mix_set_map(gcmApp%gcmGrid,gcmApp%remixGrid,

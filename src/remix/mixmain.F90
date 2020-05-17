@@ -13,19 +13,21 @@ module mixmain
 
   contains
 
-    subroutine init_mix(I,hmsphrs,optFilename,RunID,isRestart,mixIOobj)
+    subroutine init_mix(I,hmsphrs,optFilename,RunID,isRestart,mixIOobj,nRes)
       type(mixIon_T),dimension(:),allocatable,intent(inout) :: I ! I for ionosphere (is an array of 1 or 2 elements for north and south) or it can be artibrarily many, e.g., for different solves done in loop
       integer, dimension(:), intent(in) :: hmsphrs       
       character(len=*), optional, intent(in) :: optFilename
       character(len=*),optional, intent(in) :: RunID   ! these two things are needed when we're coupled with Gamera
       logical,optional, intent(in) :: isRestart
-      type(mixIO_T),optional, intent(in) :: mixIOobj      
+      type(mixIO_T),optional, intent(in) :: mixIOobj  
+      integer,optional,intent(in) :: nRes    
 
-      integer :: h
+      integer :: h,doRestart
 
       if (.not.allocated(I)) allocate(I(size(hmsphrs)))
       
       I%rad_iono_m = RIonE*1.e+6 ! Default to RIonE. To change, overwrite directly after the init_mix call
+      if (present(isRestart)) doRestart = isRestart
 
       do h=1,size(I)
          if(present(optFilename)) then
@@ -64,7 +66,14 @@ module mixmain
       end do
 
       ! initialize the mix dump file
-      call initMIXIO(I,RunID,isRestart)
+      if (present(isRestart) .and. doRestart) then
+        !call xmlInp%Set_Val(nRes ,"/gamera/restart/nRes" ,-1)
+        write(*,*) "InitMIXIO with restart"
+        call initMIXIO(I,RunID,isRestart,nRes)
+      else
+        write(*,*) "InitMIXIO without restart"
+        call initMIXIO(I,RunID,isRestart)
+      end if
     end subroutine init_mix
 
     subroutine get_potential(I)
@@ -80,9 +89,11 @@ module mixmain
       logical, optional, intent(in) :: doModelOpt  ! allow to change on the fly whether we use conductance model
 
       logical :: doModel=.true.   ! always default to xml input deck unless doModelOpt is present and on
+      logical :: isRestart = .false.
       integer :: h,NumH
 
       if (present(doModelOpt)) doModel = doModelOpt
+      if (present(gcm)) isRestart = gcm%isRestart
 
       NumH = size(I)
 
@@ -100,22 +111,30 @@ module mixmain
           I(h)%conductance%const_sigma = .true.            
         end if
 
-        call Tic("MIX-COND")
-        if (present(gcm) .and. I(h)%conductance%doGCM) then
+        if (present(gcm) .and. isRestart) then
+          write(*,*) "conductance: restart"
+          call Tic("MIX-POT")
+          call get_potential(I(h))
+          call Toc("MIX-POT")
+          !we read the conductance from file, so we're going to skip
+          gcm%isRestart = .false.
+        else
+          call Tic("MIX-COND")
+          if (present(gcm)) then
             write(*,*) 'doGCM!'
             call conductance_total(I(h)%conductance,I(h)%G,I(h)%St,gcm,h)
-        else
+          else
             write(*,*) "conductance: total"
             call conductance_total(I(h)%conductance,I(h)%G,I(h)%St)
+          end if
+          call Toc("MIX-COND")
+          call Tic("MIX-SOLVE")
+          call run_solver(I(h)%P,I(h)%G,I(h)%St,I(h)%S)
+          call Toc("MIX-SOLVE")
+          call Tic("MIX-POT")
+          call get_potential(I(h))
+          call Toc("MIX-POT")
         end if
-
-        call Toc("MIX-COND")
-        call Tic("MIX-SOLVE")
-        call run_solver(I(h)%P,I(h)%G,I(h)%St,I(h)%S)
-        call Toc("MIX-SOLVE")
-        call Tic("MIX-POT")
-        call get_potential(I(h))
-        call Toc("MIX-POT")
       end do
     end subroutine run_mix
 

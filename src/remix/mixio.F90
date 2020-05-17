@@ -9,7 +9,7 @@ module mixio
   
   integer, parameter :: MAXIOVAR = 50
   type(IOVAR_T), dimension(MAXIOVAR) :: IOVars
-  character(len=strLen) :: h5File
+  character(len=strLen) :: h5File,h5RunID
   character(len=strLen), dimension(nVars) :: mixVarNames
   character(len=strLen), dimension(nVars) :: mixUnitNames   
 
@@ -43,10 +43,11 @@ contains
     mixUnitNames(EFIELD)       = "mV/m" 
   end subroutine initMIXNames
 
-  subroutine initMIXIO(I,RunID,isRestart)
+  subroutine initMIXIO(I,RunID,isRestart,nRes)
     type(mixIon_T),dimension(:),intent(inout) :: I
     character(len=*),optional, intent(in) :: RunID   ! these two things are needed when we're coupled with Gamera
     logical,optional, intent(in) :: isRestart
+    integer,optional, intent(in) :: nRes
     
     logical :: fExist
     real(rp), dimension(:,:),allocatable :: xc,yc
@@ -54,6 +55,7 @@ contains
 
     !Setup remix output file
     h5File = trim(RunID) // ".mix.h5"
+    if (present(RunID))  h5RunID = trim(RunID)
 
     inquire(file=h5File,exist=fExist)
 
@@ -75,16 +77,17 @@ contains
                 
        !Write out the chain (to root)
        call WriteVars(IOVars,.true.,h5File)
+       call initMIXNames()
 
     else
-       call readMIXrestart(trim(h5File),1,I)
+       call initMIXNames()
+       call readMIXrestart(trim(RunID),nRes,I)
     endif
 
     ! Finally, set var and unit names
     ! for use by all subsequent functions
     ! NOTE: this assumes that initMIXIO ALWAYS gets called in the beginning
     ! e.g., as part of MIX initialization
-    call initMIXNames()
 
   end subroutine initMIXIO
 
@@ -297,7 +300,7 @@ contains
     
     !Write out the chain (to root)
     write(gStr,'(A,I0)') "Step#", cplStep
-    call WriteVars(IOVars,.true.,cplStr,gStr)
+    call WriteVars(IOVars,.false.,cplStr,gStr)
    
     write(*,*) "nCPCP",maxval(I(NORTH)%St%Vars(:,:,POT))-minval(I(NORTH)%St%Vars(:,:,POT))
     write(*,*) "sCPCP",maxval(I(SOUTH)%St%Vars(:,:,POT))-minval(I(SOUTH)%St%Vars(:,:,POT))
@@ -428,9 +431,9 @@ contains
 
   end subroutine readMIX
 
-  subroutine readMIXrestart(inH5,Step,I)
+  subroutine readMIXrestart(inH5,nRes,I)
     character(len=*), intent(in) :: inH5
-    integer, intent(in) :: Step
+    integer, intent(in) :: nRes
     type(mixIon_T), dimension(:), intent(inout) :: I
     
     integer,parameter :: hmsphrs(2) = [NORTH,SOUTH]
@@ -438,13 +441,25 @@ contains
     integer :: h, v, n0
     integer :: dims(2)    
     
-    character(len=strLen) :: gStr,hStr,uStr,vStr
+    character(len=strLen) :: gStr,hStr,uStr,vStr,nStr,h5Str
 
     ! filling in var and unit names
     write(*,*) "Inside readMIXrestart"
-    call initMIXNames()    
+    write(*,*) "Restarting from: ", trim(inH5)
+    call initMIXNames() 
+    write(*,*) "Restarting from: ", trim(inH5),nRes
+   
+    !Get number string
+    if (nRes == -1) then
+        nStr = "XXXXX"
+    else
+        write (nStr,'(I0.5)') nRes
+    endif 
+    write(*,*) "Restarting from: ", trim(inH5)//'.mix.Res.'// trim(nStr)//'.h5'
+    h5Str = trim(inH5)//'.mix.Res.'// trim(nStr)//'.h5'
+    write(*,*) "Restarting from: ", trim(h5Str)
 
-    call CheckFileOrDie(inH5,"Restart H5 file does not exist.")
+    call CheckFileOrDie(h5Str,"Restart file not found ...")
 
     !Reset IO chain
     call ClearIO(IOVars)
@@ -452,7 +467,7 @@ contains
     ! read grid corners from root
     call AddInVar(IOVars,"X")
     call AddInVar(IOVars,"Y")
-    call ReadVars(IOVars,.true.,inH5)
+    call ReadVars(IOVars,.false.,h5Str)
 
     dims = IOVars(1)%dims(1:2)
 
@@ -495,8 +510,8 @@ contains
        end do
     end do 
       
-    write(gStr,'(A,I0)') "Step#", Step
-    call ReadVars(IOVars,.true.,inH5,trim(gSTr)) ! note, this checks if step exists
+    !write(gStr,'(A,I0)') "Step#", Step
+    call ReadVars(IOVars,.false.,h5Str) ! note, this checks if step exists
 
     ! finally fill in the mixIO object for passing to calling program
     ! (mixIOobj%x,y already filled in above by genInGrid
@@ -547,8 +562,123 @@ contains
           end if
        end do
     end do
+    write(*,*) "Done readMIXrestart"
 
   end subroutine readMIXrestart
+
+  subroutine writeMIXRestart(I,nRes,mjd,time)
+    type(mixIon_T),dimension(:),intent(in) :: I    
+    integer, intent(in) :: nRes
+    real(rp), optional, intent(in) :: time, mjd
+    character(len=strLen) :: vStr
+
+    integer :: v,h,n0
+    character(len=strLen) :: gStr,uStr,hStr,h5Str,nStr
+    logical :: doDump = .true.
+    real(rp) :: cpcp = 0.0
+    character(len=strLen) :: ResF, tStr,lnResF !Name of restart file
+    logical :: fExist
+
+    if (nRes == -1) then
+        nStr = "XXXXX"
+    else
+        write (nStr,'(I0.5)') nRes
+    endif
+    write(*,*) "WRITE MIX RESTART 1"
+    write(*,*) "WORKING ON: ",trim(ResF), trim(h5RunID),trim(nStr)
+    write (ResF, '(A,A,A,A)') trim(h5RunID), '.mix.Res.', trim(nStr), '.h5'
+    write(*,*) "WORKING ON: ",trim(ResF), trim(h5RunID),trim(nStr)
+
+    call CheckAndKill(ResF)
+
+    !Reset IO chain
+    call ClearIO(IOVars)
+
+    ! I don't know how to handle the IO when the I object has more than one hemisphere
+    ! because they're labeled by appending the hemisphere stirng to the data set name
+    ! so kill it for now and worry about it when a case like this actually appears
+    if (size(I)>2) then
+       write(*,*) "writeMIX: Wrong hemisphere identifier. Stopping..."
+       stop
+    end if
+
+    h5Str = ResF
+    write(*,*) "WRITE MIX RESTART 2"
+
+    do h=1,size(I)
+       ! hemisphere should be set up properly by now but still check just in case
+       if (I(h)%St%hemisphere.eq.NORTH) then
+          hStr = "NORTH"          
+       else if (I(h)%St%hemisphere.eq.SOUTH) then
+          hStr = "SOUTH"          
+       else
+          write(*,*) "writeMIX: Wrong hemisphere identifier. Stopping..."
+          stop
+       end if
+       
+       do v=1,nVars
+          select case (v)
+          case (POT)
+             doDump = .true.
+          case (FAC)
+             doDump = .true.             
+          case (SIGMAP)
+             doDump = .true.             
+          case (SIGMAH)
+             doDump = .true.             
+          case (SOUND_SPEED)
+             doDump = .true.             
+          case (DENSITY)
+             doDump = .true.             
+          case (AVG_ENG)
+             doDump = .true.             
+          case (NUM_FLUX)
+             doDump = .true.             
+          case (NEUTRAL_WIND) 
+             doDump = .false.
+          case (EFIELD)
+             ! we never compute it
+             doDump = .false.
+          case DEFAULT
+             doDump = .false. ! only dump the variables explicitely set to be dumped above
+          end select
+
+          ! NOTE: assuming initMIXNames got called before
+          vStr = trim(mixVarNames(v)) // " "//trim(hStr)
+          uStr = trim(mixUnitNames(v))
+          
+          if (doDump) then
+             call AddOutVar(IOVars,vStr,I(h)%St%Vars(:,:,v))
+             ! inelegantly specifying the units       
+             n0 = FindIO(IOVars,vStr)
+             IOVars(n0)%unitStr = uStr
+          endif
+       enddo
+    enddo
+    write(*,*) "WRITE MIX RESTART 3"
+
+    ! now add time
+    if (present(time)) call AddOutVar(IOVars,"time",time)
+    if (present(mjd))  call AddOutVar(IOVars,"MJD",mjd)
+    ! also add tilt
+    call AddOutVar(IOVars,"tilt",I(NORTH)%St%tilt)
+
+    ! add cpcp
+    call AddOutVar(IOVars,"nCPCP",maxval(I(NORTH)%St%Vars(:,:,POT))-minval(I(NORTH)%St%Vars(:,:,POT)))
+    call AddOutVar(IOVars,"sCPCP",maxval(I(SOUTH)%St%Vars(:,:,POT))-minval(I(SOUTH)%St%Vars(:,:,POT)))    
+    
+    write(*,*) "WRITE MIX RESTART 4"
+    !Write out the chain (to root)
+    call WriteVars(IOVars,.false.,h5Str)
+
+    write (lnResF, '(A,A,A,A)') trim(h5RunID), ".Res.", "XXXXX", ".h5"
+    write(*,*) "WRITE MIX RESTART 5"
+
+    ! make a link to the default "XXXXX" restart file
+    call EXECUTE_COMMAND_LINE('ln -sf '//trim(ResF)//' '//trim(lnResF), wait=.false.)
+    write(*,*) "WRITE MIX RESTART 6"
+
+  end subroutine writeMIXRestart
 
   subroutine genOutGrid(x,y,xc,yc)  
     real(rp), dimension(:,:),intent(in) :: x,y

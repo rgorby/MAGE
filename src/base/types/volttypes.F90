@@ -127,6 +127,7 @@ module volttypes
         !Shallow coupling information
         real(rp) :: ShallowT
         real(rp) :: ShallowDT
+        logical  :: doGCM = .false.
 
         !Deep coupling information
         real(rp) :: DeepT
