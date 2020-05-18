@@ -443,4 +443,28 @@ module earthhelper
 
     end function P_QTRC
 
+    !Just return peak L value
+    function LPk_QTRC() result(LPk)
+        real(rp) :: LPk
+
+        LPk = QTRC_Lpk
+    end function LPk_QTRC
+
+    !Turn pressure [nPa] and temperature [keV] to density [#/cc]
+    function PkT2Den(P,kT) result(D)
+        real(rp), intent(in) :: P,kT
+        real(rp) :: D
+
+        D = 6.25*P/max(kT,TINY)
+
+    end function PkT2Den
+
+    !Turn density [#/cc] and temperature [keV] to pressure [nPa]
+    function DkT2P(D,kT) result(P)
+        real(rp), intent(in) :: D,kT
+        real(rp) :: P
+
+        P = max(kT,TINY)*D/6.25
+    end function DkT2P
+
 end module earthhelper

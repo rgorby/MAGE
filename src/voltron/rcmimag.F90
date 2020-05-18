@@ -52,7 +52,9 @@ module rcmimag
     type RCMIC_T
         logical :: doIC = .false.
         real(rp) :: dst0,ktRC !Values for inner magnetosphere
-        real(rp) :: vSW,dSW,ktSW !Solar wind values used to set plamsa sheet
+        real(rp) :: vSW,dSW  !Solar wind values used to set plamsa sheet
+        real(rp) :: dPS,ktPS !Plasmasheet values
+        
     end type RCMIC_T
     
     type(RCMIC_T), private :: RCMICs
@@ -142,21 +144,41 @@ module rcmimag
         type(XML_Input_T), intent(in) :: iXML
         type(voltApp_T), intent(in) :: vApp
 
-        type(TimeSeries_T) :: tsDST
-        logical :: doQTRC
-        real(rp) :: dst0
+        real(rp) :: t0
         
-        call iXML%Set_Val(doQTRC,"imag/doQTRC",.true.)
-        if (doQTRC) then
+        call iXML%Set_Val(RCMICs%doIC,"imag/doInit",.true.)
+        t0 = 0.0
+        if (RCMICs%doIC) then
             !Want initial dst0
-            tsDST%wID = vApp%tilt%wID !Solar wind file
-            call tsDST%initTS("symh")
-            dst0 = tsDST%evalAt(0.0_rp) !symh @ T=0
-            call SetQTRC(dst0)
+            RCMICs%dst0 = GetSWVal("symh",vApp%tilt%wID,t0)
+            call iXML%Set_Val(RCMICs%ktRC,"imag/ktRC",30.0)
+            RCMICs%vSW = abs(GetSWVal("Vx",vApp%tilt%wID,t0))
+            RCMICs%dSW = GetSWVal("D",vApp%tilt%wID,t0)
+
+            !Set PS values (see Borovsky paper)
+            RCMICs%dPS  = 0.292*(RCMICs%dSW**0.49)
+            RCMICs%kTPS = -3.65 + 0.0190*RCMICs%vSW*1.0e-3 !m/s=>km/s
+            RCMICs%kTPS = max(RCMICs%kTPS,TINY)
+
+            !Tune RC pressure profile
+            call SetQTRC(RCMICs%dst0)
         else
             !Zero out any additional ring current
             call SetQTRC(0.0_rp)
         endif
+
+        contains
+
+        function GetSWVal(vID,fID,t0) result(qSW)
+            character(len=*), intent(in) :: vID,fID
+            real(rp), intent(in) :: t0
+            real(rp) :: qSW
+
+            type(TimeSeries_T) :: tsQ
+            tsQ%wID = trim(fID)
+            call tsQ%initTS(trim(vID))
+            qSW = tsQ%evalAt(t0)
+        end function GetSWVal
 
     end subroutine InitRCMICs
 
@@ -227,6 +249,11 @@ module rcmimag
         enddo
         call Toc("RCM_TUBES")
 
+        if ( (vApp%time <= vApp%DeepDT) .and. RCMICs%doIC ) then
+            !Tune values to send to RCM for its cold start
+            call HackTubes(RCMApp,vApp)
+        endif
+
         call Tic("AdvRCM")
     !Advance from vApp%time to tAdv
         dtAdv = tAdv-vApp%time !RCM-DT
@@ -276,6 +303,69 @@ module rcmimag
                 dTb = (L*Re_km)/Va
             end function AlfvenBounce
     end subroutine AdvanceRCM
+
+    !Rewire MHD=>RCM info to set RCM's cold start ICs
+    subroutine HackTubes(RCMApp,vApp)
+        type(rcm_mhd_T), intent(inout) :: RCMApp
+        type(voltApp_T), intent(in)    :: vApp
+
+        integer :: i,j
+        real(rp) :: llBC,lat,colat,lon,LPk
+        logical :: isLL
+
+        real(rp) :: L,Pmhd,Dmhd,P0_rc,N0_rc,N0_ps,P0_ps,N,P
+        !Loop through active region and reset things
+        llBC = vApp%mhd2chmp%lowlatBC
+
+        LPk = LPk_QTRC()
+
+        do j=1,RCMApp%nLon_ion
+            do i=1,RCMApp%nLat_ion
+                !Grab coordinates
+                colat = RCMApp%gcolat(i)
+                lat = PI/2 - colat
+                lon = RCMApp%glong(j)
+                
+                !Decide if we're below low-lat BC or not
+                isLL = (lat <= llBC)
+
+                if (isLL) cycle
+                
+                !Get L,Pmhd,Dmhd (convert back to our units; nPa,#/cc,Re)
+                Pmhd = rcmPScl*RCMApp%Pave(i,j)
+                Dmhd = rcmNScl*RCMApp%Nave(i,j)
+                L    = norm2( RCMApp%X_bmin(i,j,:) )/REarth
+
+            !Quiet-time ring current
+                P0_rc = P_QTRC(L)
+                !Get density from pressure and target temperature
+                N0_rc = PkT2Den(P0_rc,RCMICs%ktRC)
+            !Statistical plasma sheet numbers
+                N0_ps = RCMICs%dPS
+                P0_ps = DkT2P(N0_ps,RCMICs%kTPS)
+
+                if ( (L>LPk) .and. (P0_ps>P0_rc) ) then
+                    !Use PS values
+                    P = P0_ps
+                    N = N0_ps
+                else
+                    !Use RC values
+                    P = P0_rc
+                    N = N0_rc
+                endif
+
+                !Now test against MHD
+                P = max(P,Pmhd)
+                N = max(N,Dmhd)
+
+                !Now storee them
+                RCMApp%Pave(i,j) = P/rcmPScl
+                RCMApp%Nave(i,j) = N/rcmNScl
+
+            enddo
+        enddo
+
+    end subroutine HackTubes
 
     !Set region of RCM grid that's "good" for MHD ingestion
     subroutine SetIngestion(RCMApp)
@@ -468,11 +558,6 @@ module rcmimag
     !Get diagnostics from field line
         !Minimal surface (bEq in Re, bMin in EB)
         call FLEq(ebModel,bTrc,bEq,bMin)
-        !Calculate quiet-time extra RC here
-        if (vApp%time <= vApp%DeepDT) then
-            rcP0 = P_QTRC(norm2(bEq))
-            rcN0 = 0.0
-        endif
         
         bMin = bMin*oBScl*1.0e-9 !EB=>Tesla
         bEq = bEq*Re_cgs*1.0e-2 !Re=>meters
@@ -482,12 +567,6 @@ module rcmimag
         call FLThermo(ebModel,ebGr,bTrc,bD,bP,dvB,bBeta)
         !Converts Re/EB => Re/T
         dvB = dvB/(oBScl*1.0e-9)
-
-        !Augment w/ quiet-time extra here
-        if (vApp%time <= vApp%DeepDT) then
-            bP = max(bP,rcP0)
-            bD = max(bD,rcN0)
-        endif
 
         bP = bP*1.0e-9 !nPa=>Pa
         bD = bD*1.0e+6 !#/cc => #/m3
