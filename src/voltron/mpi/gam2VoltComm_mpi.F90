@@ -198,6 +198,16 @@ module gam2VoltComm_mpi
 
     end subroutine initGam2Volt
 
+    ! update voltron time units locally while actual voltron is running
+    subroutine localStepVoltronTime(g2vComm, gApp)
+        type(gam2VoltCommMpi_T), intent(inout) :: g2vComm
+        type(gamAppMpi_T), intent(in) :: gApp
+
+        g2vComm%time = gApp%Model%t*gApp%Model%Units%gT0 !Time in seconds
+        g2vComm%MJD = T2MJD(g2vComm%time,gApp%Model%MJD0)
+        g2vComm%ts = gApp%Model%ts
+    end subroutine localStepVoltronTime
+
     ! transmit data to voltron so that it can keep up with the simulation
     subroutine performStepVoltron(g2vComm, gApp)
         type(gam2VoltCommMpi_T), intent(inout) :: g2vComm
@@ -212,24 +222,56 @@ module gam2VoltComm_mpi
         endif
 
         ! all ranks receive the new time data from voltron after it has updated
-        call mpi_bcast(g2vComm%time, 1, MPI_MYFLOAT, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
-        call mpi_bcast(g2vComm%MJD, 1, MPI_MYFLOAT, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
-        call mpi_bcast(g2vComm%ts, 1, MPI_INT, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
+        ! voltron sends nothing back now
+        !call mpi_bcast(g2vComm%time, 1, MPI_MYFLOAT, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
+        !call mpi_bcast(g2vComm%MJD, 1, MPI_MYFLOAT, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
+        !call mpi_bcast(g2vComm%ts, 1, MPI_INT, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
 
     end subroutine performStepVoltron
 
-    ! transmit state data to voltron over MPI and receive new data
-    subroutine performShallowUpdate(g2vComm, gApp, skipUpdateGamera)
+    ! special function for when shallow and deep updates both need to do done
+    subroutine performShallowAndDeepUpdate(g2vComm, gApp)
         type(gam2VoltCommMpi_T), intent(inout) :: g2vComm
         type(gamAppMpi_T), intent(inout) :: gApp
-        logical, optional, intent(in) :: skipUpdateGamera
 
         if(g2vComm%doSerialVoltron) then
-            if(present(skipUpdateGamera)) then
-                call performSerialShallowUpdate(g2vComm, gApp, skipUpdateGamera)
+            ! deep first
+            call doSerialDeepUpdate(g2vComm, gApp)
+
+            ! then shallow but don't resend data
+            call performSerialShallowUpdate(g2vComm, gApp, .true.)
+        else
+            if(g2vComm%firstShallowUpdate .or. g2vComm%firstDeepUpdate) then
+                call doSerialDeepUpdate(g2vComm, gApp)
+                call performSerialShallowUpdate(g2vComm, gApp, .true.)
+                g2vComm%firstShallowUpdate = .false.
+                g2vComm%firstShallowUpdate = .false.
             else
-                call performSerialShallowUpdate(g2vComm, gApp)
+                ! receive both solutions
+                ! now reverse process, get (waiting) data
+                call Tic("ShallowRecv")
+                call recvShallowData(g2vComm, gApp)
+                call Toc("ShallowRecv")
+                call Tic("DeepRecv")
+                call recvDeepData(g2vComm, gApp)
+                call Toc("DeepRecv")
+
+                ! then send just deep data
+                call Tic("DeepSend")
+                call sendDeepData(g2vComm, gApp)
+                call Toc("DeepSend")
             endif
+        endif
+
+    end subroutine performShallowAndDeepUpdate
+
+    ! transmit state data to voltron over MPI and receive new data
+    subroutine performShallowUpdate(g2vComm, gApp)
+        type(gam2VoltCommMpi_T), intent(inout) :: g2vComm
+        type(gamAppMpi_T), intent(inout) :: gApp
+
+        if(g2vComm%doSerialVoltron) then
+            call performSerialShallowUpdate(g2vComm, gApp)
         else
             ! if this is the first sequence, send initial data
             if(g2vComm%firstShallowUpdate) then
@@ -238,11 +280,7 @@ module gam2VoltComm_mpi
                 g2vComm%firstShallowUpdate = .false.
             else
                 ! otherwise perform a concurrent update
-                if(present(skipUpdateGamera)) then
-                    call performConcurrentShallowUpdate(g2vComm, gApp, skipUpdateGamera)
-                else
-                    call performConcurrentShallowUpdate(g2vComm, gApp)
-                endif
+                call performConcurrentShallowUpdate(g2vComm, gApp)
             endif
         endif
 

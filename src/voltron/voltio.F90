@@ -20,7 +20,7 @@ module voltio
 
     subroutine consoleOutputV(vApp,gApp)
         class(gamApp_T) , intent(inout) :: gApp
-        class(voltApp_T), intent(in) :: vApp
+        class(voltApp_T), intent(inout) :: vApp
 
         !Using console output from Gamera
         call consoleOutput(gApp%Model,gApp%Grid,gApp%State)
@@ -31,7 +31,7 @@ module voltio
     end subroutine consoleOutputV
 
     subroutine consoleOutputVOnly(vApp,gApp,MJD0)
-        class(voltApp_T), intent(in) :: vApp
+        class(voltApp_T), intent(inout) :: vApp
         class(gamApp_T) , intent(in) :: gApp
         real(rp), intent(in) :: MJD0
 
@@ -93,6 +93,8 @@ module voltio
             write (*, *) ANSIRESET, ''
         endif
 
+        !Setup for next output
+        vApp%IO%tsNext = vApp%ts + vApp%IO%tsOut
     end subroutine consoleOutputVOnly
 
     !Given vector, get clock/cone angle and magnitude

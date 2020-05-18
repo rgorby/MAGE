@@ -261,36 +261,73 @@ module voltapp_mpi
         call stepVoltron(vApp, vApp%gAppLocal)
 
         ! send vApp%time,MJD,ts to all gamera ranks
-        call mpi_bcast(vApp%time, 1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
-        call mpi_bcast(vApp%MJD, 1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
-        call mpi_bcast(vApp%ts, 1, MPI_INT, vApp%myRank, vApp%voltMpiComm, ierr)
+        ! exclude this, gamera ranks now do this locally
+        !call mpi_bcast(vApp%time, 1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
+        !call mpi_bcast(vApp%MJD, 1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
+        !call mpi_bcast(vApp%ts, 1, MPI_INT, vApp%myRank, vApp%voltMpiComm, ierr)
 
     end subroutine stepVoltron_mpi
 
-!----------
-!Shallow coupling stuff
-    subroutine ShallowUpdate_mpi(vApp, time, skipUpdateGamera)
+    ! special function for when we need to do both updates
+    subroutine shallowAndDeepUpdate_Mpi(vApp, time)
         type(voltAppMpi_T), intent(inout) :: vApp
         real(rp), intent(in) :: time
-        logical, optional, intent(in) :: skipUpdateGamera
+
+        integer :: ierr
 
         if(vApp%doSerialVoltron) then
-            if(present(skipUpdateGamera)) then
-                call shallowSerialUpdate_mpi(vApp, time, skipUpdateGamera)
+            ! deep first
+            call deepSerialUpdate_mpi(vApp, time)
+
+            ! then shallow but don't resend data
+            call shallowSerialUpdate_mpi(vApp, time, .true.)
+        else
+            if(vApp%firstDeepUpdate .or. vApp%firstShallowUpdate) then
+                call deepSerialUpdate_mpi(vApp, time)
+                call shallowSerialUpdate_mpi(vApp, time, .true.)
+                vApp%firstDeepUpdate = .false.
+                vApp%firstShallowUpdate = .false.
             else
-                call shallowSerialUpdate_mpi(vApp, time)
+                ! send both solutions
+                call Tic("ShallowSend")
+                call sendShallowData_mpi(vApp)
+                call Toc("ShallowSend")
+                call mpi_bcast(time + vApp%ShallowDT, 1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
+                call Tic("DeepSend")
+                call sendDeepData_mpi(vApp)
+                call Toc("DeepSend")
+                call mpi_bcast(time+vApp%DeepDT, 1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
+
+                ! then receive just deep data
+                call Tic("DeepRecv")
+                call recvDeepData_mpi(vApp)
+                call Toc("DeepRecv")
+
+                ! then calculate shallow and deep
+                call Tic("ShallowUpdate")
+                call ShallowUpdate(vApp, vApp%gAppLocal, time)
+                call Toc("ShallowUpdate")
+                call Tic("DeepUpdate")
+                call DeepUpdate(vApp, vApp%gAppLocal, time)
+                call Toc("DeepUpdate")
             endif
+        endif
+    end subroutine
+!----------
+!Shallow coupling stuff
+    subroutine ShallowUpdate_mpi(vApp, time)
+        type(voltAppMpi_T), intent(inout) :: vApp
+        real(rp), intent(in) :: time
+
+        if(vApp%doSerialVoltron) then
+            call shallowSerialUpdate_mpi(vApp, time)
         else
             ! if this if the first sequence, process initial data
             if(vApp%firstShallowUpdate) then
                 call shallowSerialUpdate_mpi(vApp, time)
                 vApp%firstShallowUpdate = .false.
             else
-                if(present(skipUpdateGamera)) then
-                    call shallowConcurrentUpdate_mpi(vApp, time, skipUpdateGamera)
-                else
-                    call shallowConcurrentUpdate_mpi(vApp, time)
-                endif
+                call shallowConcurrentUpdate_mpi(vApp, time)
             endif
         endif
 

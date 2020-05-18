@@ -99,14 +99,15 @@ module voltapp
         
     !IO/Restart options
         if (doDelayIO) then
-            call vApp%IO%init(xmlInp,tIO)
+            call vApp%IO%init(xmlInp,tIO,vApp%ts)
         else
-            call vApp%IO%init(xmlInp,vApp%time)
+            call vApp%IO%init(xmlInp,vApp%time,vApp%ts)
         endif
         
         !Pull numbering from Gamera
         vApp%IO%nRes = gApp%Model%IO%nRes
         vApp%IO%nOut = gApp%Model%IO%nOut
+        vApp%IO%tsNext = gApp%Model%IO%tsNext
         !Force Gamera IO times to match Voltron IO
         call IOSync(vApp%IO,gApp%Model%IO,1.0/gTScl)
 

@@ -398,7 +398,7 @@ module init
         Model%MJD0 = 0.0 !Set this by default
     
     !Output/Restart (IOCLOCK)
-        call Model%IO%init(xmlInp,Model%t)
+        call Model%IO%init(xmlInp,Model%t,Model%ts)
         call xmlInp%Set_Val(Model%doDivB ,'output/DivB' ,.true. )
 
         !Whether to read restart

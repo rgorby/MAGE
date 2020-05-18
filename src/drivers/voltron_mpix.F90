@@ -27,7 +27,6 @@ program voltron_mpix
     integer :: ierror, length, provided, worldSize, worldRank, gamComm
     integer :: required=MPI_THREAD_MULTIPLE
     character( len = MPI_MAX_ERROR_STRING) :: message
-    logical :: deepPerformed
 
     ! initialize MPI
     !Set up MPI with or without thread support
@@ -105,33 +104,50 @@ program voltron_mpix
             !Advance Gamera MHD
             call stepGamera_mpi(gApp)
 
-            !Do any updates to Voltron
-            call Tic("StepVoltron")
-            call performStepVoltron(g2vComm,gApp)
-            call Toc("StepVoltron")
-        
-            !Coupling    
-            deepPerformed = .false.
-            call Tic("DeepCoupling")
-            if ( (g2vComm%time >= g2vComm%DeepT) .and. g2vComm%doDeep ) then
-                call performDeepUpdate(g2vComm, gApp)
-                deepPerformed = .true.
-            endif
-            call Toc("DeepCoupling")
+            !Update local gamera time units
+            call localStepVoltronTime(g2vComm, gApp)
 
-            call Tic("IonCoupling")
-            if (g2vComm%time >= g2vComm%ShallowT) then
-                !write (*,*) "Gamera performing shallow update at ",g2vComm%time
-                call performShallowUpdate(g2vComm, gApp, deepPerformed)
-            endif
-            call Toc("IonCoupling")
+            !Tell gamera to synchronize with voltron (and wait for it if necessary)
+            ! If it needs to do shallow or deep coupling, file io, restart io, or
+            ! Terminate the simulation
+            ! Don't synchronize for console or timing output, not worth it (?)
+            if( (g2vComm%time >= g2vComm%DeepT .and. g2vComm%doDeep) .or. &
+                (g2vComm%time >= g2vComm%ShallowT) .or. &
+                gApp%Model%IO%doRestart(gApp%Model%t) .or. &
+                gApp%Model%IO%doOutput(gApp%Model%t) .or. &
+                (g2vComm%time >= g2vComm%tFin)) then
+                !Do any updates to Voltron
+                call Tic("StepVoltron")
+                call performStepVoltron(g2vComm,gApp)
+                call Toc("StepVoltron")
         
+                !Coupling
+                if(g2vComm%doDeep .and. g2vComm%time >= g2vComm%DeepT .and. g2vComm%time >= g2vComm%ShallowT) then ! both shallow and deep coupling
+                    call Tic("Coupling")
+                    call performShallowAndDeepUpdate(g2vComm, gApp)
+                    call Toc("Coupling")
+                elseif ( g2vComm%time >= g2vComm%DeepT .and. g2vComm%doDeep ) then
+                    call Tic("Coupling")
+                    call performDeepUpdate(g2vComm, gApp)
+                    call Toc("Coupling")
+                elseif (g2vComm%time >= g2vComm%ShallowT) then
+                    call Tic("Coupling")
+                    call performShallowUpdate(g2vComm, gApp)
+                    call Toc("Coupling")
+                endif
+            endif
+
             !IO checks
             call Tic("IO")
             !Console output
             if (gApp%Model%IO%doConsole(g2vComm%ts)) then
                 !Using console output from Gamera
                 call consoleOutput_mpi(gApp)
+                if (gApp%Model%IO%doTimerOut .and. &
+                  gApp%Grid%Ri==0 .and. gApp%Grid%Rj==0 .and. gApp%Grid%Rk==0) then
+                    call printClocks()
+                endif
+                call cleanClocks()
             endif
             !Restart output
             if (gApp%Model%IO%doRestart(gApp%Model%t)) then
@@ -143,15 +159,6 @@ program voltron_mpix
             endif
 
             call Toc("IO")
-
-            !Do timing info
-            if (gApp%Model%IO%doTimer(g2vComm%ts)) then
-                if (gApp%Model%IO%doTimerOut .and. &
-                  gApp%Grid%Ri==0 .and. gApp%Grid%Rj==0 .and. gApp%Grid%Rk==0) then
-                    call printClocks()
-                endif
-                call cleanClocks()
-            endif
 
             call Toc("Omega")
 
@@ -171,26 +178,29 @@ program voltron_mpix
             call Toc("StepVoltronAndWait")
 
             !Coupling
-            deepPerformed = .false.
-            call Tic("DeepCoupling")
-            if ( (vApp%time >= vApp%DeepT) .and. vApp%doDeep ) then
+            if(vApp%doDeep .and. vApp%time >= vApp%DeepT .and. vApp%time >= vApp%ShallowT) then ! both
+                call Tic("Coupling")
+                call shallowAndDeepUpdate_Mpi(vApp, vApp%time)
+                call Toc("Coupling")
+            elseif (vApp%time >= vApp%DeepT .and. vApp%doDeep ) then
+                call Tic("Coupling")
                 call DeepUpdate_mpi(vApp, vApp%time)
-                deepPerformed = .true.
+                call Toc("Coupling")
+            elseif (vApp%time >= vApp%ShallowT) then
+                call Tic("Coupling")
+                call ShallowUpdate_mpi(vApp, vApp%time)
+                call Toc("Coupling")
             endif
-            call Toc("DeepCoupling")
-
-            call Tic("IonCoupling")
-            if (vApp%time >= vApp%ShallowT) then
-                !write (*,*) "Voltron performing shallow update at ",vApp%time
-                call ShallowUpdate_mpi(vApp, vApp%time, deepPerformed)
-            endif
-            call Toc("IonCoupling")
 
             !IO checks
             call Tic("IO")
             !Console output
             if (vApp%IO%doConsole(vApp%ts)) then
                 call consoleOutputVOnly(vApp,vApp%gAppLocal,vApp%gAppLocal%Model%MJD0)
+                if (vApp%IO%doTimerOut) then
+                    call printClocks()
+                endif
+                call cleanClocks()
             endif
             !Restart output
             if (vApp%IO%doRestart(vApp%time)) then
@@ -202,14 +212,6 @@ program voltron_mpix
             endif
 
             call Toc("IO")
-
-            !Do timing info
-            if (vApp%IO%doTimer(vApp%ts)) then
-                if (vApp%IO%doTimerOut) then
-                    call printClocks()
-                endif
-                call cleanClocks()
-            endif
 
             call Toc("Omega")
 

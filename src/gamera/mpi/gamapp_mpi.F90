@@ -655,6 +655,7 @@ module gamapp_mpi
         type(gamAppMpi_T), intent(inout) :: gamAppMpi
 
         integer :: ierr, length
+        integer :: gasReq, mfReq
         character(len=strLen) :: message
 
         ! arrays for calculating mag flux face error, if applicable
@@ -666,11 +667,11 @@ module gamapp_mpi
             ! just tell MPI to use the arrays we defined during initialization to send and receive data!
 
             ! Gas Cell Data
-            call mpi_neighbor_alltoallw(gamAppMpi%State%Gas, gamAppMpi%sendCountsGas, &
+            call mpi_ineighbor_alltoallw(gamAppMpi%State%Gas, gamAppMpi%sendCountsGas, &
                                         gamAppMpi%sendDisplsGas, gamAppMpi%sendTypesGas, &
                                         gamAppMpi%State%Gas, gamAppMpi%recvCountsGas, &
                                         gamAppMpi%recvDisplsGas, gamAppMpi%recvTypesGas, &
-                                        gamAppMpi%gamMpiComm, ierr)
+                                        gamAppMpi%gamMpiComm, gasReq, ierr)
             if(ierr /= MPI_Success) then
                 call MPI_Error_string( ierr, message, length, ierr)
                 print *,message(1:length)
@@ -688,11 +689,11 @@ module gamapp_mpi
                 endif
 
                 ! Magnetic Face Flux Data
-                call mpi_neighbor_alltoallw(gamAppMpi%State%magFlux, gamAppMpi%sendCountsMagFlux, &
+                call mpi_ineighbor_alltoallw(gamAppMpi%State%magFlux, gamAppMpi%sendCountsMagFlux, &
                                             gamAppMpi%sendDisplsMagFlux, gamAppMpi%sendTypesMagFlux, &
                                             gamAppMpi%State%magFlux, gamAppMpi%recvCountsMagFlux, &
                                             gamAppMpi%recvDisplsMagFlux, gamAppMpi%recvTypesMagFlux, &
-                                            gamAppMpi%gamMpiComm, ierr)
+                                            gamAppMpi%gamMpiComm, mfReq, ierr)
                 if(ierr /= MPI_Success) then
                     call MPI_Error_string( ierr, message, length, ierr)
                     print *,message(1:length)
@@ -706,6 +707,9 @@ module gamapp_mpi
                 endif
 
             endif
+
+            call mpi_wait(gasReq, MPI_STATUS_IGNORE, ierr)
+            call mpi_wait(mfReq, MPI_STATUS_IGNORE, ierr)
 
         endif
 
