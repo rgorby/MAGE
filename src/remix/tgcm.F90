@@ -18,9 +18,12 @@ module gcminterp
       type(gcm_T),intent(inout) :: gcm
       logical, intent(in) :: isRestart
 
-      write(*,*) "init_gcm"
       gcm%isRestart = isRestart
-
+      write(*,*) "init_gcm: ",gcm%isRestart
+      if (gcm%cplStep == 1) then
+        call CheckAndKill(gcm%mix2gcmLock)
+        call CheckAndKill(gcm%mix2gcmH5)
+      endif
     end subroutine init_gcm
 
     subroutine init_gcm_mix(gcmApp,ion)!,remixApp
@@ -73,7 +76,7 @@ module gcminterp
       !call init_grid_fromTP(gcmG(GCMSOUTH),gcmApp%glat,gcmApp%glon,SOLVER_GRID=.true.)
       call init_grid_fromXY(gcmG(GCMNORTH),gcmApp%gx,gcmApp%gy,SOLVER_GRID=.true.)
       call init_grid_fromXY(gcmG(GCMSOUTH),gcmApp%gx,gcmApp%gy,SOLVER_GRID=.true.)
-      write(*,*) "Array Check: ",gcmG(GCMSOUTH)%Np,gcmG(GCMSOUTH)%Nt,shape(gcmApp%glat)
+      write(*,*) "Array Check: ",gcmG(GCMSOUTH)%Np,gcmG(GCMSOUTH)%Nt,shape(gcmApp%gx)
         ! call remix grid constructor
         !write(*,*) 'do interpolant ',h
         !call mix_interpolant(gcmG(h))
@@ -91,15 +94,11 @@ module gcminterp
       logical,optional,intent(in) :: do2way
       real(rp), optional, intent(in) :: time, mjd
       
-      if (gcm%isRestart) then
-        call CheckAndKill(gcm%mix2gcmLock)
-        call CheckAndKill(gcm%mix2gcmH5)
-      endif
       !Must MIX export first.  TIEGCM will also import first.
       call writeMIX2GCM(ion,gcm%mix2gcmH5,gcm%mix2gcmLock,gcm%cplStep,mjd,time)
 
       !Import gcm data
-      if (gcm%isRestart) then
+      if (gcm%cplStep == 1) then
         call init_gcm_mix(gcm,ion)
       else
         call ReadH5gcm(gcm)
@@ -108,6 +107,7 @@ module gcminterp
       call mapGCM2MIX(gcm,ion)
 
       if (gcm%isRestart) gcm%isRestart=.false.
+      gcm%cplStep = gcm%cplStep + 1
         
     end subroutine coupleGCM2MIX
 
@@ -202,7 +202,7 @@ module gcminterp
       !allocate(etac(lon))
       write(*,*) 'Allocate arrays: ',nlon,nlat
       !The arrays are read in in the opposite order as listed by netcdf.
-      !The time array is the last dimension
+      !The time array is the last dimension if (.not. allocated(var2d)) 
       allocate(var2d(nlat,nlon,nhemi,gcm2mix_nvar))
       if (.not. allocated(x)) allocate(x(nlat,nlon))
       if (.not. allocated(y)) allocate(y(nlat,nlon))
@@ -274,7 +274,6 @@ module gcminterp
       !end do
       if (allocated(var2d)) deallocate(var2d)
       call CheckAndKill(lockStr)
-      gcm%cplStep = gcm%cplStep + 1
       !write(*,*) 'Time array1: ',gcm%time
       !write(*,*) 'Lon array1: ',gcm%glon(:,1)!modulo(deg2rad*gcm%glon+2*pi,(2*pi))
       !write(*,*) 'Lat array1: ',gcm%glat(1,:)
@@ -301,8 +300,10 @@ module gcminterp
       ! GEOPACK transforms require setting UT time
       !call RECALC(utime(1),utime(2),utime(3),utime(4),utime(5))
 
+      !write(*,*) "mapGCM2MIX CPL STEP: ", gcmApp%cplStep
+
       do h=1,2
-        if (gcmApp%isRestart) then
+        if (gcmApp%cplStep == 1) then
           ! Plan A, write a modified mix_set_map as gcm_set_map
           write(*,*) 'Mapping r2t'
           call gcm_set_map(ion(h)%G,gcmG(h),gcmApp%r2tMaps(h),iGEOtoSM)
@@ -329,6 +330,8 @@ module gcminterp
       end do
       write(*,*) 'SigmaP maxval: ',maxval(gcmApp%gcmInput(GCMNORTH,GCMSIGMAP)%var(:,:)),maxval(gcmApp%mixInput(GCMNORTH,GCMSIGMAP)%var(:,:))
       write(*,*) 'SigmaH maxval: ',maxval(gcmApp%gcmInput(GCMNORTH,GCMSIGMAH)%var(:,:)),maxval(gcmApp%mixInput(GCMNORTH,GCMSIGMAH)%var(:,:))
+      !write(*,*) 'SigmaP minval: ',minval(gcmApp%gcmInput(GCMNORTH,GCMSIGMAP)%var(:,:)),minval(gcmApp%mixInput(GCMNORTH,GCMSIGMAP)%var(:,:))
+      !write(*,*) 'SigmaH minval: ',minval(gcmApp%gcmInput(GCMNORTH,GCMSIGMAH)%var(:,:)),minval(gcmApp%mixInput(GCMNORTH,GCMSIGMAH)%var(:,:))
     end subroutine mapGCM2MIX
     
     subroutine apply_gcm2mix(gcm,St,h)

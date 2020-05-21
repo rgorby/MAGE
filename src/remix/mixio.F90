@@ -550,15 +550,17 @@ contains
        end if
 
        do v=1,nVars
+          dims = IOVars(1)%dims(1:2)
           vStr = trim(mixVarNames(v)) // " "// trim(hStr)
           n0 = FindIO(IOVars,vStr)
-          write(*,*) trim(vStr),maxval(IOVars(n0)%data),minval(IOVars(n0)%data)
+          !write(*,*) trim(vStr),maxval(IOVars(n0)%data),minval(IOVars(n0)%data)
           ! check whether the variable exists in the file
           ! since we didn't necessarily dump all of them in writeMIX
           if (IOVars(n0)%isDone) then
-             I(h)%St%Vars(:,2:dims(2),v) = reshape(IOVars(n0)%data,dims-1)
+             I(h)%St%Vars(:,1:dims(2),v) = reshape(IOVars(n0)%data,dims)
              ! fix pole
-             I(h)%St%Vars(:,1,v) = sum(I(h)%St%Vars(:,2,v))/size(I(h)%St%Vars(:,2,v))
+             !I(h)%St%Vars(:,1,v) = sum(I(h)%St%Vars(:,2,v))/size(I(h)%St%Vars(:,2,v))
+             write(*,*) trim(vStr),maxval(I(h)%St%Vars(:,:,v)),minval(I(h)%St%Vars(:,:,v))
           end if
        end do
     end do

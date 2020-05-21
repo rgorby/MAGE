@@ -109,17 +109,17 @@ module voltapp
         
         !Pull numbering from Gamera
         !vApp%IO%nRes = gApp%Model%IO%nRes
-        call xmlInp%Set_Val(vApp%IO%nRes ,"restart/nRes" , gApp%Model%IO%nRes)
+        call xmlInp%Set_Val(vApp%IO%nRes ,"/Gamera/restart/nRes" , gApp%Model%IO%nRes)
         vApp%IO%nOut = gApp%Model%IO%nOut
         !Force Gamera IO times to match Voltron IO
         call IOSync(vApp%IO,gApp%Model%IO,1.0/gTScl)
-        write(*,*) "VOLTRON NRES: ",vApp%IO%nRes,gApp%Model%IO%nRes
 
     !Shallow coupling
         !Start shallow coupling immediately
         vApp%ShallowT = vApp%time
         call xmlInp%Set_Val(vApp%ShallowDT ,"coupling/dt" , 0.1_rp)
         call xmlInp%Set_Val(vApp%doGCM, "coupling/doGCM",.false.)
+        write(*,*) "VOLTRON NRES: ",vApp%IO%nRes,gApp%Model%IO%nRes,vApp%time
 
         if (vApp%doGCM) then
             call init_gcm(vApp%gcm,gApp%Model%isRestart)
@@ -325,6 +325,10 @@ module voltapp
         ! determining the current dipole tilt
         call vApp%tilt%getValue(vApp%time,curTilt)
 
+        if (vApp%doGCM .and. time >=0) then
+            call coupleGCM2MIX(vApp%gcm,vApp%remixApp%ion,vApp%doGCM,mjd=vApp%MJD,time=vApp%time)
+        end if
+
         ! solve for remix output
         if (time<=0) then
             write(*,*) " I AM HERE@ "
@@ -337,9 +341,6 @@ module voltapp
             call run_mix(vApp%remixApp%ion,curTilt,doModelOpt=.true.)
         endif
 
-        if (vApp%doGCM .and. time >=0) then
-            call coupleGCM2MIX(vApp%gcm,vApp%remixApp%ion,vApp%doGCM,mjd=vApp%MJD,time=vApp%time)
-        end if
         ! get stuff from mix to gamera
         call mapRemixToGamera(vApp%mix2mhd, vApp%remixApp)
 
