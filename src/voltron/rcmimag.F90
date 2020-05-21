@@ -360,7 +360,7 @@ module rcmimag
             real(rp), intent(in) :: lat,lon
             integer, intent(out) :: ij0(2)
 
-            integer :: iX,jX,iC
+            integer :: iX,jX,iC,n
             real(rp) :: colat,dp,dcol,dI,dJ
 
             associate(gcolat=>imag%rcmCpl%gcolat,glong=>imag%rcmCpl%glong, &
@@ -371,7 +371,13 @@ module rcmimag
 
             !Get colat point
             colat = PI/2 - lat
-            iC = findloc(gcolat >= colat,.true.,dim=1) - 1
+!            iC = findloc(gcolat >= colat,.true.,dim=1) - 1
+! bypass as findloc does not work for gfortran<9
+           !  Work-around code        
+           do n=1,nLat
+            if (gcolat(n) > colat) exit
+            enddo
+            iC = n-1
             dcol = gcolat(iC+1)-gcolat(iC)
             dI = (colat-gcolat(iC))/dcol
             if (dI <= 0.5) then

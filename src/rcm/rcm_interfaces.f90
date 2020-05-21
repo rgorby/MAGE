@@ -3,7 +3,7 @@
    SUBROUTINE Grid_torcm (high_lat, low_lat, offseti, Re_external, Ri_external)
 
       USE Rcm_mod_subs, imin_rcm=>imin
-      USE conversion_module, ONLY: idim,jdim,kdim,x0,y0,z0
+      USE conversion_module, ONLY: x0,y0,z0
       USE rice_housekeeping_module, ONLY: rcm_tilted
       USE constants, ONLY : RCMCorot
       IMPLICIT NONE
@@ -28,6 +28,7 @@
       !             tracing magnetic field lines later
       !    [x0,y0,z0 arrays are assigned values in the module where
       !     they are declared, not saved in a file]
+      ! 5/20/20 - removed assumption of jwarp=3, frt
 
 
       INTEGER (iprec), PARAMETER :: imin = 1
@@ -37,44 +38,43 @@
       real(rprec) :: x,dir
       CHARACTER (LEN=15) :: grid_file='grid.dat'
 
+      write(6,*)' setting up RCM grid'
 
       Re   = Re_external / 1.0E+3 ! in km
       Ri   = Ri_external / 1.0E+3 ! in km
 
-      idim = isize
-      jdim = jsize
-
-      i1   = imin + 1
-      i2   = idim - 1
-      jmin = 1 
-      j1   = jmin + 2 
-      j2   = jdim - 1
-      dlam = 1.0 / REAL(idim-1,rprec)
-      dpsi = (2.0*pi) / REAL(jdim-jwrap,rprec)   
+      i1   = isize + 1
+      i2   = isize - 1
+      j1 = jwrap
+      j2 = jsize - 1
+      dlam = 1.0 / REAL(isize-1,rprec)
+      dpsi = (2.0*pi) / REAL(jsize-j1,rprec)   
 
  
       start  = high_lat*DTR
       end    = low_lat*DTR
       offset = offseti*DTR
 
-      if(jdim==0)then
-        write(*,*)'jdim =',jdim
+      if(jsize==0)then
+        write(*,*)'grid_torcm:jsize =',jsize
         stop
       end if
 
-      DO i = imin, idim
-          glat(i) = start + (end-start) * Fun(REAL(i-imin)/REAL(idim-imin,rprec))
+      DO i = imin, isize
+          glat(i) = start + (end-start) * Fun(REAL(i-imin)/REAL(isize-imin,rprec))
           teta(i) = pi/2 - glat(i)
       END DO
 
-      DO j = j1, j2
-          phi(j) = (REAL(j,rprec)-REAL(j1,rprec))*pi /((REAL(jdim,rprec)-REAL(j1,rprec))/2.)
+      DO j = j1,j2 
+          phi(j) = (REAL(j,rprec)-REAL(j1,rprec))*pi /((REAL(jsize,rprec)-REAL(j1,rprec))/2.)
       END DO
-      phi (jmin)   = phi(j2-1)
-      phi (jmin+1) = phi(j2)
-      phi (jdim)   = phi(j1)
+ 
+      DO j=1,j1-1
+       phi(j) = phi(jsize-j1+j)
+      END DO
+      phi (jsize)   = phi(j1)
 
-      DO i = imin, idim
+      DO i = imin, isize
       DO j = j1, j2
          colat(i,j) = ACOS(COS(teta(i))*COS(offset) + &
                            SIN(teta(i))*SIN(offset)*COS(phi(j)))
@@ -84,21 +84,21 @@
          IF (aloct(i,j).lt.0.0) aloct(i,j) = aloct(i,j)+2.0*pi
          IF (aloct(i,j).gt.2.0*pi) aloct(i,j)=aloct(i,j)-2.0*pi
       END DO
-         colat(i,jmin)=colat(i,j2-1)
-         colat(i,jmin+1)=colat(i,j2)
-         colat(i,jdim)=colat(i,j1)
-         aloct(i,jmin)=aloct(i,j2-1)
-         aloct(i,jmin+1)=aloct(i,j2)
-         aloct(i,jdim)=aloct(i,j1)
+       DO j=1,j1-1
+         colat(i,j)=colat(i,jsize-j1+j)
+         aloct(i,jmin)=aloct(i,j1+j)
+       END DO
+         colat(i,jsize)=colat(i,j1)
+         aloct(i,jsize)=aloct(i,j1)
       END DO
 
-      DO j = 1, jdim
+      DO j = 1, jsize
         alpha (1,j) = (teta(2)-teta(1))/dlam
-        alpha (idim,j) = (teta(idim)-teta(idim-1))/dlam
-        DO i = imin+1,idim-1
+        alpha (isize,j) = (teta(isize)-teta(isize-1))/dlam
+        DO i = imin+1,isize-1
            alpha(i,j) = 0.5*(teta(i+1)-teta(i-1))/dlam
         END DO
-        do i=imin,idim
+        do i=imin,isize
            beta(i,j) = SIN(teta(i))
         END DO
       END DO
@@ -125,8 +125,8 @@
       ! this writes a file for plotting (I think... /ss):
 
       OPEN (LUN, FILE = rcmdir//grid_file, status='UNKNOWN')
-      DO j = 1, jdim
-      do i = imin, idim
+      DO j = 1, jsize
+      do i = imin, isize
          x0(i,j) = (Ri/Re)*SIN(colat(i,j))*COS(aloct(i,j))
          y0(i,j) = (Ri/Re)*SIN(colat(i,j))*SIN(aloct(i,j))
          z0(i,j) = (Ri/Re)*COS(colat(i,j))
@@ -188,22 +188,25 @@
 
 
 !      CALL ImportIonosphere
-! FIXME: assumes jwrap=3
       v (:,jwrap:jsize) = RM%pot (:,      :)
-      v (:,          1) = v   (:,jsize-2)
-      v (:,          2) = v   (:,jsize-1)
+      do j=1,jwrap-1
+       v (:,          j) = v   (:,jsize-jwrap+j)
+      end do
 
       qtplam (:,jwrap:jsize) = RM%sigmap (:,      :)
-      qtplam (:,          1) = qtplam (:,jsize-2)
-      qtplam (:,          2) = qtplam (:,jsize-1)
+      do j=1,jwrap-1
+       qtplam (:,          j) = qtplam   (:,jsize-jwrap+j)
+      end do
 
       qtped  (:,jwrap:jsize) = RM%sigmap (:,      :)
-      qtped  (:,          1) = qtplam (:,jsize-2)
-      qtped  (:,          2) = qtplam (:,jsize-1)
+      do j=1,jwrap-1
+       qtped (:,          j) = qtped   (:,jsize-jwrap+j)
+      end do
 
       qthall (:,jwrap:jsize) = RM%sigmah (:,      :)
-      qthall (:,          1) = qthall (:,jsize-2)
-      qthall (:,          2) = qthall (:,jsize-1)
+      do j=1,jwrap-1
+       qthall (:,          j) = qthall   (:,jsize-jwrap+j)
+      end do
 
       ! Double conductances to account for two hemispheres
       ! and correct for magnetic field inclination
