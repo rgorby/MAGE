@@ -1,2 +1,0 @@
-set(HDF5_Fortran_COMPILER_EXECUTABLE /opt/hdf5/bin/h5fc)
-set(CMAKE_Fortran_COMPILER ${HDF5_Fortran_COMPILER_EXECUTABLE})
