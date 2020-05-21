@@ -294,7 +294,7 @@ module voltapp
         call convertRemixToGamera(vApp%mix2mhd, vApp%remixApp, gApp)
         call Toc("R2G")
 
-        vApp%ShallowT = time + vApp%ShallowDT
+        vApp%ShallowT = vApp%ShallowT + vApp%ShallowDT
 
     end subroutine ShallowUpdate
 
@@ -337,7 +337,7 @@ module voltapp
             return
         endif
 
-        tAdv = time + vApp%DeepDT !Advance inner magnetosphere through full coupling time 
+        tAdv = vApp%DeepT + vApp%DeepDT !Advance inner magnetosphere through full coupling time 
     
     !Pull in updated fields to CHIMP
         call Tic("G2C")
@@ -362,7 +362,7 @@ module voltapp
     
 
     !Setup next coupling
-        vApp%DeepT = time + vApp%DeepDT
+        vApp%DeepT = vApp%DeepT + vApp%DeepDT
 
     end subroutine DeepUpdate
 
