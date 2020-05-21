@@ -17,12 +17,14 @@ module rcm_mhd_mod
     subroutine rcm_mhd(mhdtime,mhdtimedt,RM,iflag,iXML)
     ! version to couple to gamera
     ! units are assumed to mks, except for distances which are in Re.
-    ! iflag = 0 - setup arrays, read in parameters
-    ! iflag = 1 - run rcm
-    ! iflag = 2 - Restart RCM
-    ! iflag = -1 - stop, write out timing information
-    ! iflag = -2 - Write restart (icontrol = 31337)
-    ! iflag = -3 - Write H5 output (icontrol = 31338)
+    ! iflag = 0 - setup arrays, read in parameters (RCMINIT)
+    ! iflag = 1 - run rcm (RCMADVANCE)
+    ! iflag = 2 - Restart RCM (RCMWRITERESTART)
+    ! iflag = 10 - start from a cold start (RCMCOLDSTART) 
+    ! iflag = -1 - stop, write out timing information (RCMWRITETIMING)
+    ! iflag = -2 - Write restart (icontrol = 31337) (RCMWRITERESTART)
+    ! iflag = -3 - Write H5 output (icontrol = 31338) (RCMWRITEOUTPUT)
+
 
     ! 2/19 frt
 

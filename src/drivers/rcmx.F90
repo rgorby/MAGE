@@ -18,7 +18,6 @@ program rcmx
     character(len=strLen) :: XMLStr
     type(XML_Input_T) :: inpXML
     logical :: doRestart
-    logical :: coldstart =.true.
     integer(iprec) :: i,j,n
     real(rprec) :: Lvalue
     real(rprec),parameter ::mdipole = 3.0e-5 ! dipole moment in T

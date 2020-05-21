@@ -101,6 +101,7 @@ module rcmimag
             write(*,*) 'Restarting RCM @ t = ', t0
             vApp%time = t0 !Set vApp's time to correct value from restart
             call rcm_mhd(t0,dtCpl,RCMApp,RCMRESTART,iXML=iXML)
+            coldstart = .false. ! set to false is it is a restart
         else
             t0 = vApp%time
             call KillRCMDir()
@@ -195,9 +196,14 @@ module rcmimag
         call Tic("AdvRCM")
     !Advance from vApp%time to tAdv
         dtAdv = tAdv-vApp%time !RCM-DT
-        call rcm_mhd(vApp%time,dtAdv,RCMApp,RCMADVANCE)
-        !Update timming data
-        call rcm_mhd(vApp%time,0.0_rp,RCMApp,RCMWRITETIMING)
+        if(coldstart)then
+         call rcm_mhd(vApp%time,dtAdv,RCMApp,RCMCOLDSTART)
+         coldstart=.false.
+        else
+         call rcm_mhd(vApp%time,dtAdv,RCMApp,RCMADVANCE)
+        end if
+        !Update timming data - not needed, frt
+!        call rcm_mhd(vApp%time,0.0_rp,RCMApp,RCMWRITETIMING)
         call Toc("AdvRCM")
 
         !Set ingestion region

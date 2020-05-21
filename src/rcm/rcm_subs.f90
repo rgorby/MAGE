@@ -2605,7 +2605,7 @@ SUBROUTINE Move_plasma_grid_KAIJU (dt)
   !$OMP shared (dt,eps)
   DO kc = 1, kcsize
     !If oxygen is to be added, must change this!
-    IF (alamc(kc) < 0.0) THEN
+    IF (alamc(kc) <= 0.0) THEN
       ie = RCMELECTRON
     ELSE
       ie = RCMPROTON
@@ -2765,7 +2765,7 @@ SUBROUTINE Move_plasma_grid_NEW (dt)
 !
 !    If oxygen is to be added, must change this!
 !
-     IF (alamc(kc) < 0.0) THEN
+     IF (alamc(kc) <= 0.0) THEN
         ie = 1  ! electrons
      ELSE
         ie = 2  ! protons

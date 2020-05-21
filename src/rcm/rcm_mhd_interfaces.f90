@@ -10,6 +10,7 @@ module rcm_mhd_interfaces
     integer(ip), parameter :: RCMCOLDSTART=10
     logical :: doRCMVerbose = .TRUE.
     integer(ip), parameter :: RCMTOPCLOSED=-1,RCMTOPOPEN=+1
+    logical :: coldstart =.true.
 
     !Scaling parameters
     real(rp), parameter :: rcmPScl = 1.0e+9 !Convert Pa->nPa
