@@ -86,7 +86,7 @@
       END DO
        DO j=1,j1-1
          colat(i,j)=colat(i,jsize-j1+j)
-         aloct(i,jmin)=aloct(i,j1+j)
+         aloct(i,j)=aloct(i,jsize-j1+j)
        END DO
          colat(i,jsize)=colat(i,j1)
          aloct(i,jsize)=aloct(i,j1)
