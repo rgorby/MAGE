@@ -17,6 +17,8 @@ module rcmimag
     use rcm_mhd_io
     use msphutils, only : MagMoment
 
+    use cmiutils, only : SquishCorners
+    
     implicit none
 
     real(rp) :: RIonRCM !Units of Rp
@@ -26,6 +28,8 @@ module rcmimag
 
     real(rp), private :: Rp_m
     real(rp), private :: planetM0g
+
+    logical, parameter, private :: doKillRCMDir = .true. !Whether to always kill RCMdir before starting
 
     !Information taken from MHD flux tubes
     !TODO: Figure out RCM boundaries
@@ -66,7 +70,7 @@ module rcmimag
         ! over-ride the base functions with RCM versions
         procedure :: doInit => initRCM
         procedure :: doAdvance => advanceRCM
-        procedure :: doEval => evalRCM
+        procedure :: doEval => EvalRCM
         procedure :: doIO => doRCMIO
         procedure :: doRestart => doRCMRestart
 
@@ -83,12 +87,12 @@ module rcmimag
         type(voltApp_T), intent(inout) :: vApp
 
         character(len=strLen) :: RunID
+        real(rp) :: t0
 
         associate(RCMApp => imag%rcmCpl, & !type rcm_mhd_T
                   imag2mix => vApp%imag2mix, &
                   t0 => vApp%time, &
-                  dtCpl => vApp%DeepDT, &
-                  nRes => vApp%IO%nRes)
+                  dtCpl => vApp%DeepDT)
         !Set radii in RCMApp
         RCMApp%planet_radius = rad_planet_m
         RCMApp%iono_radius = rad_iono_m
@@ -96,22 +100,30 @@ module rcmimag
         RIonRCM = rad_iono_m/rad_planet_m
 
         planetM0g = M0g
-        write(*,*) "voltron/rcmimag.f90: RCMApp%planet_radius=",RCMApp%planet_radius
-        write(*,*) "voltron/rcmimag.f90: RCMApp%iono_radius=",RCMApp%iono_radius
-        write(*,*) "voltron/rcmimag.f90: planetM0g=",planetM0g
-
+        
         call iXML%Set_Val(RunID,"/gamera/sim/runid","sim")
         RCMApp%rcm_runid = trim(RunID)
 
         if (isRestart) then
-            RCMApp%rcm_nRes = nRes
+            if (doKillRCMDir) then
+                !Kill RCMFiles directory even on restart
+                call KillRCMDir()
+            endif
+
+            !Get t0 and nRes necessary for RCM restart
+            call RCMRestartInfo(RCMApp,iXML,t0)
+
             write(*,*) 'Restarting RCM @ t = ', t0
+            vApp%time = t0 !Set vApp's time to correct value from restart
             call rcm_mhd(t0,dtCpl,RCMApp,RCMRESTART,iXML=iXML)
+            coldstart = .false. ! set to false is it is a restart
         else
-            CALL SYSTEM("rm -rf RCMFiles > /dev/null 2>&1")
+            t0 = vApp%time
+            call KillRCMDir()
             write(*,*) 'Initializing RCM ...'
             call rcm_mhd(t0,dtCpl,RCMApp,RCMINIT,iXML=iXML)
         endif
+
         call init_rcm_mix(RCMApp,imag2mix)
 
         !Start up IO
@@ -122,6 +134,11 @@ module rcmimag
 
         end associate
 
+        contains
+            subroutine KillRCMDir()
+                write(*,*) 'Nuking RCMfiles/ ...'
+                CALL SYSTEM("rm -rf RCMfiles > /dev/null 2>&1")
+            end subroutine KillRCMDir
     end subroutine initRCM
 
     !Advance RCM from Voltron data
@@ -156,8 +173,8 @@ module rcmimag
        !$OMP PARALLEL DO default(shared) collapse(2) &
        !$OMP schedule(guided) &
        !$OMP private(i,j,colat,lat,lon,isLL,ijTube)
-        do i=1,RCMApp%nLat_ion
-            do j=1,RCMApp%nLon_ion
+        do j=1,RCMApp%nLon_ion
+            do i=1,RCMApp%nLat_ion
                 colat = RCMApp%gcolat(i)
                 lat = PI/2 - colat
                 lon = RCMApp%glong(j)
@@ -190,15 +207,19 @@ module rcmimag
                 RCMApp%pot(i,j)          = mixPot(j,i)
             enddo
         enddo
-
         call Toc("RCM_TUBES")
 
         call Tic("AdvRCM")
     !Advance from vApp%time to tAdv
         dtAdv = tAdv-vApp%time !RCM-DT
-        call rcm_mhd(vApp%time,dtAdv,RCMApp,RCMADVANCE)
-        !Update timming data
-        call rcm_mhd(vApp%time,0.0_rp,RCMApp,RCMWRITETIMING)
+        if(coldstart)then
+         call rcm_mhd(vApp%time,dtAdv,RCMApp,RCMCOLDSTART)
+         coldstart=.false.
+        else
+         call rcm_mhd(vApp%time,dtAdv,RCMApp,RCMADVANCE)
+        end if
+        !Update timming data - not needed, frt
+!        call rcm_mhd(vApp%time,0.0_rp,RCMApp,RCMWRITETIMING)
         call Toc("AdvRCM")
 
         !Set ingestion region
@@ -302,52 +323,42 @@ module rcmimag
 
     !Evaluate eq map at a given point
     !Returns density (#/cc) and pressure (nPa)
-    subroutine EvalRCM(imag,x1,x2,x12C,t,imW)
+    subroutine EvalRCM(imag,x1,x2,t,imW,isEdible)
         class(rcmIMAG_T), intent(inout) :: imag
         real(rp), intent(in) :: x1,x2,t
-        real(rp), intent(in) :: x12C(2,2,2,2)
         real(rp), intent(out) :: imW(NVARIMAG)
+        logical, intent(out) :: isEdible
 
-        real(rp) :: nrcm,prcm,npp,ntot
-        integer  :: n
-        logical  :: isGood,isGoods(8)
-        real(rp) :: lls(8,2),colats(8)
-        integer  :: ijs(8,2)
+        real(rp) :: colat,nrcm,prcm,npp,ntot
+        integer, dimension(2) :: ij0
 
-        associate(RCMApp => imag%rcmCpl, lat => x1, lon => x2, llc => x12C)
+        associate(RCMApp => imag%rcmCpl, lat => x1, lon => x2)
 
         !Set defaults
         imW(:) = 0.0
         imW(IMDEN ) = 0.0
         imW(IMPR  ) = 0.0
         imW(IMTSCL) = 0.0
+        isEdible = .false.
 
         colat = PI/2 - lat
 
-        !Repack
-        lls(:,1) = reshape(llC(:,:,:,1),[8])
-        lls(:,2) = reshape(llC(:,:,:,2),[8])
-        colats = PI/2 - lls(:,1)
-
         !Do 1st short cut tests
-        isGood = all(colats >= RCMApp%gcolat(1)) .and. all(colats <= RCMApp%gcolat(RCMApp%nLat_ion)) &
-                 .and. all(lls(:,1) > TINY)
-        if (.not. isGood) return
+        isEdible =  (colat >= RCMApp%gcolat(1)) .and. (colat <= RCMApp%gcolat(RCMApp%nLat_ion)) &
+                    .and. (lat > TINY)
 
-        !If still here, find mapping (i,j) on RCM grid of each corner
-        call CornerLocs(lls,ijs)
+        if (.not. isEdible) return
+
+        !If still here, find mapping (i,j) on RCM grid of point
+        call GetRCMLoc(lat,lon,ij0)
 
         !Do second short cut tests
-        do n=1,8
-            isGoods(n) = RCMApp%toMHD(ijs(n,1),ijs(n,2))
-        enddo
-        isGood = all(isGoods)
+        isEdible = RCMApp%toMHD(ij0(1),ij0(2))
+        if (.not. isEdible) return
 
-        if (.not. isGood) return
-        
-        prcm = CornerAvg(ijs,RCMApp%Prcm )*rcmPScl
-        npp  = CornerAvg(ijs,RCMApp%Npsph)*rcmNScl
-        nrcm = CornerAvg(ijs,RCMApp%Nrcm )*rcmNScl
+        prcm = rcmPScl*RCMApp%Prcm (ij0(1),ij0(2))
+        nrcm = rcmNScl*RCMApp%Nrcm (ij0(1),ij0(2))
+        npp  = rcmNScl*RCMApp%Npsph(ij0(1),ij0(2))
 
         ntot = 0.0
         !Decide which densities to include
@@ -361,7 +372,7 @@ module rcmimag
         !Store data
         imW(IMDEN)  = ntot
         imW(IMPR)   = prcm
-        imW(IMTSCL) = CornerAvg(ijs,RCMApp%Tb)
+        imW(IMTSCL) = RCMApp%Tb(ij0(1),ij0(2))
         imW(IMX1)   = (180.0/PI)*lat
         imW(IMX2)   = (180.0/PI)*lon
 
@@ -369,42 +380,57 @@ module rcmimag
 
         contains
 
-            !Get RCM cells for corner lat/lons
-            subroutine CornerLocs(lls,ijs)
-                real(rp), intent(in) :: lls(8,2)
-                integer, intent(out) :: ijs(8,2)
+        subroutine GetRCMLoc(lat,lon,ij0)
+            real(rp), intent(in) :: lat,lon
+            integer, intent(out) :: ij0(2)
 
-                integer :: n,i0,j0
-                real(rp) :: colat,lon
-                do n=1,8
-                    colat = PI/2 - lls(n,1)
-                    lon   = lls(n,2)
+            integer :: iX,jX,iC,n
+            real(rp) :: colat,dp,dcol,dI,dJ
 
-                    i0 = minloc( abs(colat-imag%rcmCpl%gcolat),dim=1 )
-                    j0 = minloc( abs(lon  -imag%rcmCpl%glong ),dim=1 )
-                    ijs(n,:) = [i0,j0]
-                enddo
-            end subroutine CornerLocs
+            associate(gcolat=>imag%rcmCpl%gcolat,glong=>imag%rcmCpl%glong, &
+                      nLat=>imag%rcmCpl%nLat_ion,nLon=>imag%rcmCpl%nLon_ion)
 
-            !Average a quantity over the corners
-            function CornerAvg(ijs,Q) result(Qavg)
-                integer, intent(in) :: ijs(8,2)
-                real(rp), intent(in) :: Q(imag%rcmCpl%nLat_ion, &
-                                          imag%rcmCpl%nLon_ion)
-                real(rp) :: Qavg
+            !Assuming constant lon spacing
+            dp = glong(2) - glong(1)
 
-                integer :: n,i0,j0
+            !Get colat point
+            colat = PI/2 - lat
+!            iC = findloc(gcolat >= colat,.true.,dim=1) - 1
+! bypass as findloc does not work for gfortran<9
+           !  Work-around code        
+           do n=1,nLat
+            if (gcolat(n) > colat) exit
+            enddo
+            iC = n-1
+            dcol = gcolat(iC+1)-gcolat(iC)
+            dI = (colat-gcolat(iC))/dcol
+            if (dI <= 0.5) then
+                iX = iC
+            else
+                iX = iC+1
+            endif
 
-                Qavg = 0.0
-                do n=1,8
-                    i0 = ijs(n,1)
-                    j0 = ijs(n,2)
-                    Qavg = Qavg + Q(i0,j0)
-                enddo
-                Qavg = Qavg/8.0
-            end function CornerAvg
+            !Get lon point
+            dJ = lon/dp
+            if ( (dJ-floor(dJ)) <= 0.5 ) then
+                jX = floor(dJ)+1
+            else
+                jX = floor(dJ)+2
+            endif
+
+            !Impose bounds just in case
+            iX = max(iX,1)
+            iX = min(iX,nLat)
+            jX = max(jX,1)
+            jX = min(jX,nLon)
+
+            ij0 = [iX,jX]
+
+            end associate
+        end subroutine GetRCMLoc
 
     end subroutine EvalRCM
+
 !--------------
 !MHD=>RCM routines
     !MHD flux-tube
@@ -537,4 +563,5 @@ module rcmimag
 
         call WriteRCMRestart(imag%rcmCpl,nRes,MJD,time)
     end subroutine doRCMRestart
+    
 end module rcmimag

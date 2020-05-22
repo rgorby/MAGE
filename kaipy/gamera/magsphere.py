@@ -233,7 +233,7 @@ class GamsphPipe(GameraPipe):
 		HUGE = 1.0e+8
 		#Decide whether to do UT or elapsed
 		if (self.hasMJD):
-			minMJD = self.MJDs.min()
+			minMJD = self.MJDs[n-self.s0]
 		else:
 			minMJD = -HUGE
 		if (self.hasMJD and minMJD>TINY):

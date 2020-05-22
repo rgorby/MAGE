@@ -106,7 +106,9 @@ program voltron_mpix
             call stepGamera_mpi(gApp)
 
             !Do any updates to Voltron
+            call Tic("StepVoltron")
             call performStepVoltron(g2vComm,gApp)
+            call Toc("StepVoltron")
         
             !Coupling    
             deepPerformed = .false.
@@ -129,9 +131,7 @@ program voltron_mpix
             !Console output
             if (gApp%Model%IO%doConsole(g2vComm%ts)) then
                 !Using console output from Gamera
-                if(gApp%Grid%Ri==0 .and. gApp%Grid%Rj==0 .and. gApp%Grid%Rk==0) then
-                    call consoleOutput(gApp%Model, gApp%Grid, gApp%State)
-                endif
+                call consoleOutput_mpi(gApp)
             endif
             !Restart output
             if (gApp%Model%IO%doRestart(gApp%Model%t)) then
@@ -166,7 +166,9 @@ program voltron_mpix
             call Tic("Omega")
 
             !Do any updates to Voltron
+            call Tic("StepVoltronAndWait")
             call stepVoltron_mpi(vApp)
+            call Toc("StepVoltronAndWait")
 
             !Coupling
             deepPerformed = .false.

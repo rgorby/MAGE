@@ -120,6 +120,12 @@ module uservoltic
         Grid%ksDT = Grid%ks
         Grid%keDT = Grid%ke
 
+        !Trap for unsupported cases
+        if (.not. ( Grid%hasLowerBC(KDIR) .and. Grid%hasUpperBC(KDIR) ) ) then
+            write(*,*) 'K-decomposition not yet supported for magnetosphere, bailing ...'
+            stop
+        endif
+        
     !Set user hack functions
     !NOTE: Need silly double value for GNU
 

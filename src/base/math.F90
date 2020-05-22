@@ -257,6 +257,17 @@ contains
         alphabar = modulo( atan2(Y,X),2*PI )
     end function CircMean
 
+    function ArithMean(alpha) result(alphabar)
+        real(rp), intent(in) :: alpha(:)
+        real(rp) :: alphabar
+        integer :: N
+        real(rp) :: X,Y
+        
+        N = size(alpha)
+        alphabar = sum(alpha)/N
+
+    end function ArithMean
+
     function normVec(a)
         real(rp), dimension(NDIM) :: a, normVec
         real(rp) :: normA

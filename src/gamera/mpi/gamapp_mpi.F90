@@ -30,7 +30,10 @@ module gamapp_mpi
         integer, dimension(:), allocatable :: sendCountsBxyz, sendTypesBxyz
         integer, dimension(:), allocatable :: recvCountsBxyz, recvTypesBxyz
         integer(MPI_ADDRESS_KIND), dimension(:), allocatable :: sendDisplsBxyz, recvDisplsBxyz
-        
+        ! Debugging flags
+        logical :: printMagFluxFaceError = .false.
+        real(rp) :: faceError = 0.0_rp
+
     end type gamAppMpi_T
 
     contains
@@ -68,6 +71,7 @@ module gamapp_mpi
         ! read debug flags
         call xmlInp%Set_Val(writeGhosts,"debug/writeGhosts",.false.)
         call xmlInp%Set_Val(writeMagFlux,"debug/writeMagFlux",.false.)
+        call xmlInp%Set_Val(gamAppMpi%printMagFluxFaceError,"debug/printMagFluxError",.false.)
 
         !Initialize Grid/State/Model (Hatch Gamera)
         !Will enforce 1st BCs, caculate 1st timestep, set oldState
@@ -511,10 +515,34 @@ module gamapp_mpi
         end associate
     end subroutine Hatch_mpi
 
+    subroutine consoleOutput_mpi(gamAppMpi)
+        type(gamAppMpi_T), intent(inout) :: gamAppMpi
+        real(rp) :: totalFaceError = 0.0_rp
+        integer :: ierr
+
+        if(gamAppMpi%Grid%Ri==0 .and. gamAppMpi%Grid%Rj==0 .and. gamAppMpi%Grid%Rk==0) then
+            call consoleOutput(gamAppMpi%Model,gamAppMpi%Grid,gamAppMpi%State)
+
+            ! gamera mpi specific output
+            if(gamAppMpi%printMagFluxFaceError) then
+                write(*,*) ANSICYAN
+                write(*,*) 'GAMERA MPI'
+                call MPI_AllReduce(gamAppMpi%faceError, totalFaceError, 1, MPI_MYFLOAT, MPI_SUM, gamAppMpi%gamMpiComm, ierr)
+                write(*,'(a,f8.3)') 'Total MF Face Error = ', totalFaceError
+                write(*,'(a)',advance="no") ANSIRESET!, ''
+            endif
+        else
+            if(gamAppMpi%printMagFluxFaceError) then
+                call MPI_AllReduce(gamAppMpi%faceError, totalFaceError, 1, MPI_MYFLOAT, MPI_SUM, gamAppMpi%gamMpiComm, ierr)
+            endif
+        endif
+
+    end subroutine
+
     subroutine updateMpiBCs(gamAppMpi)
         type(gamAppMpi_T), intent(inout) :: gamAppMpi
 
-        integer :: i
+        integer :: i,ierr
         character(len=strLen) :: BCID
 
         !Enforce BCs
@@ -522,10 +550,26 @@ module gamapp_mpi
         call EnforceBCs(gamAppMpi%Model,gamAppMpi%Grid,gamAppMpi%State)
         call Toc("BCs")
 
+        !Track timing for all gamera ranks to finish physical BCs
+        ! Only synchronize when timing
+        if(gamAppMpi%Model%IO%doTimerOut) then
+            call Tic("Sync BCs")
+            call MPI_BARRIER(gamAppMpi%gamMpiComm,ierr)
+            call Toc("Sync BCs")
+        endif
+
         !Update ghost cells
         call Tic("Halos")
         call HaloUpdate(gamAppMpi)
         call Toc("Halos")
+
+        !Track timing for all gamera ranks to finish halo comms
+        ! Only synchronize when timing
+        if(gamAppMpi%Model%IO%doTimerOut) then
+            call Tic("Sync Halos")
+            call MPI_BARRIER(gamAppMpi%gamMpiComm,ierr)
+            call Toc("Sync Halos")
+        endif
 
         ! Re-apply periodic BCs last
         do i=1,gamAppMpi%Grid%NumBC
@@ -566,6 +610,15 @@ module gamapp_mpi
                 endselect
             endif
         enddo
+
+        !Track timing for all gamera ranks to finish periodic BCs
+        ! Only synchronize when timing
+        if(gamAppMpi%Model%IO%doTimerOut) then
+            call Tic("Sync Periodics")
+            call MPI_BARRIER(gamAppMpi%gamMpiComm,ierr)
+            call Toc("Sync Periodics")
+        endif
+
     end subroutine updateMpiBCs
 
     subroutine stepGamera_mpi(gamAppMpi)
@@ -576,6 +629,14 @@ module gamapp_mpi
 
         !update the state variables to the next timestep
         call UpdateStateData(gamAppMpi)
+
+        !Track timing for all gamera ranks to finish math
+        ! Only synchronize when timing
+        if(gamAppMpi%Model%IO%doTimerOut) then
+            call Tic("Sync Math")
+            call MPI_BARRIER(gamAppMpi%gamMpiComm,ierr)
+            call Toc("Sync Math")
+        endif
 
         !Update BCs MPI style
         call updateMpiBCs(gamAppMpi)
@@ -603,6 +664,11 @@ module gamapp_mpi
         integer :: ierr, length
         character(len=strLen) :: message
 
+        ! arrays for calculating mag flux face error, if applicable
+        real(rp), dimension(:,:), allocatable :: maxI
+        real(rp), dimension(:,:), allocatable :: maxJ
+        real(rp), dimension(:,:), allocatable :: maxK
+
         if(gamAppMpi%gamMpiComm /= MPI_COMM_NULL) then
             ! just tell MPI to use the arrays we defined during initialization to send and receive data!
 
@@ -619,6 +685,15 @@ module gamapp_mpi
             endif
 
             if(gamAppMpi%Model%doMHD) then
+                if(gamAppMpi%printMagFluxFaceError) then
+                    if(.not. allocated(maxI)) allocate(maxI(gamAppMpi%grid%js:gamAppMpi%grid%je,gamAppMpi%grid%ks:gamAppMpi%grid%ke))
+                    if(.not. allocated(maxJ)) allocate(maxJ(gamAppMpi%grid%is:gamAppMpi%grid%ie,gamAppMpi%grid%ks:gamAppMpi%grid%ke))
+                    if(.not. allocated(maxK)) allocate(maxK(gamAppMpi%grid%is:gamAppMpi%grid%ie,gamAppMpi%grid%js:gamAppMpi%grid%je))
+                    maxI = gamAppMpi%state%magFlux(gamAppMpi%grid%ie+1,gamAppMpi%grid%js:gamAppMpi%grid%je,gamAppMpi%grid%ks:gamAppMpi%grid%ke,IDIR)
+                    maxJ = gamAppMpi%state%magFlux(gamAppMpi%grid%is:gamAppMpi%grid%ie,gamAppMpi%grid%je+1,gamAppMpi%grid%ks:gamAppMpi%grid%ke,JDIR)
+                    maxK = gamAppMpi%state%magFlux(gamAppMpi%grid%is:gamAppMpi%grid%ie,gamAppMpi%grid%js:gamAppMpi%grid%je,gamAppMpi%grid%ke+1,KDIR)
+                endif
+
                 ! Magnetic Face Flux Data
                 call mpi_neighbor_alltoallw(gamAppMpi%State%magFlux, gamAppMpi%sendCountsMagFlux, &
                                             gamAppMpi%sendDisplsMagFlux, gamAppMpi%sendTypesMagFlux, &
@@ -629,6 +704,12 @@ module gamapp_mpi
                     call MPI_Error_string( ierr, message, length, ierr)
                     print *,message(1:length)
                     call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+                endif
+                if(gamAppMpi%printMagFluxFaceError) then
+                    gamAppMpi%faceError = &
+                      sum(abs(gamAppMpi%state%magFlux(gamAppMpi%grid%ie+1,gamAppMpi%grid%js:gamAppMpi%grid%je,gamAppMpi%grid%ks:gamAppMpi%grid%ke,IDIR) - maxI)) + &
+                      sum(abs(gamAppMpi%state%magFlux(gamAppMpi%grid%is:gamAppMpi%grid%ie,gamAppMpi%grid%je+1,gamAppMpi%grid%ks:gamAppMpi%grid%ke,JDIR) - maxJ)) + &
+                      sum(abs(gamAppMpi%state%magFlux(gamAppMpi%grid%is:gamAppMpi%grid%ie,gamAppMpi%grid%js:gamAppMpi%grid%je,gamAppMpi%grid%ke+1,KDIR) - maxK))
                 endif
 
                 ! Magnetic Field Cell Data
@@ -1292,68 +1373,66 @@ module gamapp_mpi
         dataSum = abs(iData)+abs(jData)+abs(kData)
         call mpi_type_extent(MPI_MYFLOAT, dataSize, ierr) ! number of bytes per array entry
         SELECT CASE (iData)
-            CASE (-1,1)
-                ! offset of the I direction face data from the start of the final struct
+            CASE (-1)
+                ! receive lower I face and interior but not upper
                 offsetI = 0
-                if(dataSum == 1) then
-                    ! receiving a face
-                    call mpi_type_contiguous(Model%nG, MPI_MYFLOAT, dType1DI, ierr)
-                    if(iData == 1) offsetI = dataSize ! specific case for max I face
-                else
-                    ! receiving a corner or J/K edge
-                    call mpi_type_contiguous(Model%nG+1, MPI_MYFLOAT, dType1DI, ierr)
-                endif
-
+                call mpi_type_contiguous(Model%nG, MPI_MYFLOAT, dType1DI, ierr)
                 call mpi_type_contiguous(Model%nG, MPI_MYFLOAT, dType1DJ, ierr)
-
                 call mpi_type_contiguous(Model%nG, MPI_MYFLOAT, dType1DK, ierr)
             CASE (0)
-                offsetI = dataSize
-                call mpi_type_contiguous(Grid%Nip-1, MPI_MYFLOAT, dType1DI, ierr)
-                call mpi_type_contiguous(Grid%Nip,   MPI_MYFLOAT, dType1DJ, ierr)
-                call mpi_type_contiguous(Grid%Nip,   MPI_MYFLOAT, dType1DK, ierr)
+                ! receive lower I face and interior but not upper
+                offsetI = 0
+                call mpi_type_contiguous(Grid%Nip, MPI_MYFLOAT, dType1DI, ierr)
+                call mpi_type_contiguous(Grid%Nip, MPI_MYFLOAT, dType1DJ, ierr)
+                call mpi_type_contiguous(Grid%Nip, MPI_MYFLOAT, dType1DK, ierr)
+            CASE (1)
+                ! overwrite lower, interior, and upper I faces
+                offsetI = 0
+                call mpi_type_contiguous(Model%nG+1, MPI_MYFLOAT, dType1DI, ierr)
+                call mpi_type_contiguous(Model%nG,   MPI_MYFLOAT, dType1DJ, ierr)
+                call mpi_type_contiguous(Model%nG,   MPI_MYFLOAT, dType1DK, ierr)
             CASE DEFAULT
                 write (*,*) 'Unrecognized iData type in calcDatatypeFC'
                 call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
         ENDSELECT
 
         SELECT CASE (jData)
-            CASE (-1,1)
+            CASE (-1)
                 offsetJ = 0
                 call mpi_type_hvector(Model%nG, 1, dataSize*(Grid%Ni+1), dType1DI, dType2DI, ierr)
-                if(dataSum == 1) then
-                    call mpi_type_hvector(Model%nG, 1, dataSize*(Grid%Ni+1), dType1DJ, dType2DJ, ierr)
-                    if(jData == 1) offsetJ = dataSize*(Grid%Ni+1)
-                else
-                    call mpi_type_hvector(Model%nG+1, 1, dataSize*(Grid%Ni+1), dType1DJ, dType2DJ, ierr)
-                endif
+                call mpi_type_hvector(Model%nG, 1, dataSize*(Grid%Ni+1), dType1DJ, dType2DJ, ierr)
                 call mpi_type_hvector(Model%nG, 1, dataSize*(Grid%Ni+1), dType1DK, dType2DK, ierr)
             CASE (0)
-                offsetJ = dataSize*(Grid%Ni+1)
-                call mpi_type_hvector(Grid%Njp,   1, dataSize*(Grid%Ni+1), dType1DI, dType2DI, ierr)
-                call mpi_type_hvector(Grid%Njp-1, 1, dataSize*(Grid%Ni+1), dType1DJ, dType2DJ, ierr)
-                call mpi_type_hvector(Grid%Njp,   1, dataSize*(Grid%Ni+1), dType1DK, dType2DK, ierr)
+                offsetJ = 0
+                call mpi_type_hvector(Grid%Njp, 1, dataSize*(Grid%Ni+1), dType1DI, dType2DI, ierr)
+                call mpi_type_hvector(Grid%Njp, 1, dataSize*(Grid%Ni+1), dType1DJ, dType2DJ, ierr)
+                call mpi_type_hvector(Grid%Njp, 1, dataSize*(Grid%Ni+1), dType1DK, dType2DK, ierr)
+            CASE (1)
+                offsetJ = 0
+                call mpi_type_hvector(Model%nG,   1, dataSize*(Grid%Ni+1), dType1DI, dType2DI, ierr)
+                call mpi_type_hvector(Model%nG+1, 1, dataSize*(Grid%Ni+1), dType1DJ, dType2DJ, ierr)
+                call mpi_type_hvector(Model%nG,   1, dataSize*(Grid%Ni+1), dType1DK, dType2DK, ierr)
             CASE DEFAULT
                 write (*,*) 'Unrecognized jData type in calcDatatypeFC'
                 call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
         ENDSELECT
 
         SELECT CASE (kData)
-            CASE (-1,1)
+            CASE (-1)
                 offsetK = 0
                 call mpi_type_hvector(Model%nG, 1, dataSize*(Grid%Ni+1)*(Grid%Nj+1), dType2DI, dType3DI, ierr)
                 call mpi_type_hvector(Model%nG, 1, dataSize*(Grid%Ni+1)*(Grid%Nj+1), dType2DJ, dType3DJ, ierr)
-                if(dataSum == 1) then
-                    call mpi_type_hvector(Model%nG,1,dataSize*(Grid%Ni+1)*(Grid%Nj+1),dType2DK,dType3DK,ierr)
-                    if(kData == 1) offsetK = dataSize*(Grid%Ni+1)*(Grid%Nj+1)
-                else
-                    call mpi_type_hvector(Model%nG+1,1,dataSize*(Grid%Ni+1)*(Grid%Nj+1),dType2DK,dType3DK,ierr)
-                endif
+                call mpi_type_hvector(Model%nG, 1, dataSize*(Grid%Ni+1)*(Grid%Nj+1), dType2DK, dType3DK, ierr)
             CASE (0)
-                offsetK = dataSize*(Grid%Ni+1)*(Grid%Nj+1)
-                call mpi_type_hvector(Grid%Nkp,   1, dataSize*(Grid%Ni+1)*(Grid%Nj+1), dType2DI, dType3DI, ierr)
-                call mpi_type_hvector(Grid%Nkp,   1, dataSize*(Grid%Ni+1)*(Grid%Nj+1), dType2DJ, dType3DJ, ierr)
-                call mpi_type_hvector(Grid%Nkp-1, 1, dataSize*(Grid%Ni+1)*(Grid%Nj+1), dType2DK, dType3DK, ierr)
+                offsetK = 0
+                call mpi_type_hvector(Grid%Nkp, 1, dataSize*(Grid%Ni+1)*(Grid%Nj+1), dType2DI, dType3DI, ierr)
+                call mpi_type_hvector(Grid%Nkp, 1, dataSize*(Grid%Ni+1)*(Grid%Nj+1), dType2DJ, dType3DJ, ierr)
+                call mpi_type_hvector(Grid%Nkp, 1, dataSize*(Grid%Ni+1)*(Grid%Nj+1), dType2DK, dType3DK, ierr)
+            CASE (1)
+                offsetK = 0
+                call mpi_type_hvector(Model%nG,   1, dataSize*(Grid%Ni+1)*(Grid%Nj+1), dType2DI, dType3DI, ierr)
+                call mpi_type_hvector(Model%nG,   1, dataSize*(Grid%Ni+1)*(Grid%Nj+1), dType2DJ, dType3DJ, ierr)
+                call mpi_type_hvector(Model%nG+1, 1, dataSize*(Grid%Ni+1)*(Grid%Nj+1), dType2DK, dType3DK, ierr)
             CASE DEFAULT
                 write (*,*) 'Unrecognized kData type in calcDatatypeFC'
                 call mpi_Abort(MPI_COMM_WORLD, 1, ierr)

@@ -220,7 +220,7 @@ contains
     call initVoltron(voltronApp, gameraApp, caseInput)
 
     ! Manually running for just 1 second of simulation time
-    do while ((1.0 - gameraApp%Model%t) > 1e-15)
+    do while ((1.0 - gameraApp%Model%t*gameraApp%Model%Units%gT0) > 1e-15)
         call stepGamera(gameraApp)
 
         if (gameraApp%Model%t >= voltronApp%ShallowT) then

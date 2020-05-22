@@ -213,23 +213,6 @@ module gioH5
         real (rp), dimension(:,:,:,:), allocatable :: VecA,VecB !Full-sized arrays
         real(rp) :: totDivB,MJD
 
-        if(writeGhosts) then
-            ! for debugging
-            iMin = Gr%isg
-            iMax = Gr%ieg
-            jMin = Gr%jsg
-            jMax = Gr%jeg
-            kMin = Gr%ksg
-            kMax = Gr%keg
-        else
-            iMin = Gr%is
-            iMax = Gr%ie
-            jMin = Gr%js
-            jMax = Gr%je
-            kMin = Gr%ks
-            kMax = Gr%ke
-        endif
-
         !Check if root variables need to be written
         if (doRoot) then
             call writeH5GridInit(Model,Gr)
@@ -237,6 +220,25 @@ module gioH5
         endif
         !Reset IO chain
         call ClearIO(IOVars)
+
+        if(writeGhosts) then
+            ! for debugging
+            call AddOutVar(IOVars,'hasGhosts',1)
+            iMin = Gr%isg
+            iMax = Gr%ieg
+            jMin = Gr%jsg
+            jMax = Gr%jeg
+            kMin = Gr%ksg
+            kMax = Gr%keg
+        else
+            call AddOutVar(IOVars,'hasGhosts',0)
+            iMin = Gr%is
+            iMax = Gr%ie
+            jMin = Gr%js
+            jMax = Gr%je
+            kMin = Gr%ks
+            kMax = Gr%ke
+        endif
 
         !Allocate holders
         allocate(gVar (iMin:iMax,jMin:jMax,kMin:kMax))
@@ -382,9 +384,15 @@ module gioH5
             if (Model%doSource) then
                 call GameraOut("SrcD" ,gamOut%dID,gamOut%dScl,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,DEN     ,BLK))
                 call GameraOut("SrcP" ,gamOut%pID,gamOut%pScl,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,PRESSURE,BLK))
-                call GameraOut("SrcVx","CODE"    ,1.0_rp     ,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,VELX    ,BLK))
-                call GameraOut("SrcVy","CODE"    ,1.0_rp     ,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,VELY    ,BLK))
-                call GameraOut("SrcVz","CODE"    ,1.0_rp     ,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,VELZ    ,BLK))
+                if (Model%isMagsphere) then
+                    call GameraOut("SrcX1","DEG",1.0_rp     ,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,VELX    ,BLK))
+                    call GameraOut("SrcX2","DEG",1.0_rp     ,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,VELY    ,BLK))
+                    call GameraOut("SrcDT","s"  ,gamOut%tScl,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,VELZ    ,BLK))
+                else
+                    call GameraOut("SrcVx","CODE"    ,1.0_rp     ,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,VELX    ,BLK))
+                    call GameraOut("SrcVy","CODE"    ,1.0_rp     ,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,VELY    ,BLK))
+                    call GameraOut("SrcVz","CODE"    ,1.0_rp     ,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,VELZ    ,BLK))
+                endif                    
             endif
 
             if(Model%doResistive) then
@@ -528,8 +536,8 @@ module gioH5
         call AddOutVar(IOVars,"nRes",Model%IO%nRes)
         call AddOutVar(IOVars,"ts"  ,Model%ts)
         call AddOutVar(IOVars,"t"   ,Model%t)
-        if (Model%dt0 < TINY) then
-            call AddOutVar(IOVars,"dt0"   ,Model%dt)
+        if (Model%dt0 < TINY*10.0) then
+            call AddOutVar(IOVars,"dt0"   ,0.0)
         else
             call AddOutVar(IOVars,"dt0"   ,Model%dt0)
         endif
@@ -545,6 +553,11 @@ module gioH5
             call AddOutVar(IOVars,"magFlux",State%magFlux(Gr%is:Gr%ie+1,Gr%js:Gr%je+1,Gr%ks:Gr%ke+1,:))
         endif
 
+        if (Model%doSource) then
+            !Add source terms to output
+            call AddOutVar( IOVars,"Gas0",Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,:,:) )
+        endif
+
         !Write out, force real precision
         call WriteVars(IOVars,.false.,ResF)
 
@@ -558,7 +571,7 @@ module gioH5
         logical, intent(in), optional :: doResetO
         real(rp), intent(in), optional :: tResetO
 
-        logical :: doReset,fExist
+        logical :: doReset,fExist,hasSrc
         real(rp) :: tReset
         integer :: wDims(5),bDims(4)
         integer :: rSpc
@@ -630,14 +643,14 @@ module gioH5
         !Get main attributes
         if (doReset) then
             Model%IO%nOut = 0
-            Model%IO%nRes = int(IOVars(4)%data(1)) + 1
-            Model%ts = 0
-            Model%t = tReset
+            Model%IO%nRes = GetIOInt(IOVars,"nRes") + 1
+            Model%ts      = 0
+            Model%t       = tReset            
         else
-            Model%IO%nOut = int(IOVars(3)%data(1))
-            Model%IO%nRes = int(IOVars(4)%data(1)) + 1
-            Model%ts   = int(IOVars(5)%data(1))
-            Model%t = IOVars(6)%data(1)
+            Model%IO%nOut = GetIOInt(IOVars,"nOut")
+            Model%IO%nRes = GetIOInt(IOVars,"nRes") + 1
+            Model%ts      = GetIOInt(IOVars,"ts")
+            Model%t       = GetIOReal(IOVars,"t")
         endif
         
         !Set back to old dt0 if possible
@@ -645,17 +658,43 @@ module gioH5
             call ClearIO(IOVars)
             call AddInVar(IOVars,"dt0")
             call ReadVars(IOVars,.false.,inH5)
-            Model%dt0 = IOVars(1)%data(1)
-            if (Model%isLoud) then
-                write(*,*) 'Found dt0, setting to ', Model%dt0
+
+            Model%dt0 = GetIOReal(IOVars,"dt0")
+
+            if (Model%dt0<TINY*10) then
+                Model%dt0 = 0.0
+            else
+                if (Model%isLoud) write(*,*) 'Found dt0, setting to ', Model%dt0*Model%Units%gT0
             endif
-            if (Model%dt0<TINY*10) Model%dt0 = 0.0
         else
             if (Model%isLoud) then
                 write(*,*) 'No dt0 found in restart, setting to 0'
                 Model%dt0 = 0.0
             endif
         endif
+
+    !Do source term stuff if necessary
+        hasSrc = ioExist(inH5,"Gas0")
+        if (Model%doSource .and. hasSrc) then
+            if (Model%isLoud) then
+                write(*,*) 'Found MHD source term data in restart, reading ...'
+            endif
+            !We want source and it's got some, let's do this thing
+            call ClearIO(IOVars)
+            call AddInVar(IOVars,"Gas0")
+            call ReadVars(IOVars,.false.,inH5)
+
+            rSpc = IOVars(1)%dims(5)-1
+            if (Model%nSpc == rSpc) then
+                !Restart and Gas0 species agree, do stuff
+                wDims = [Gr%Nip,Gr%Njp,Gr%Nkp,NVAR,Model%nSpc+1]
+                Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,:,:) = reshape(IOVars(1)%data,wDims)
+            else
+                if (Model%isLoud) write(*,*) 'Gas0 is wrong size, ignoring ...'
+            endif
+        else
+            if (Model%isLoud) write(*,*) 'No Gas0 found in restart, starting fresh ...'
+        endif !Gas0
 
     !Do touchup to data structures
         State%time = Model%t

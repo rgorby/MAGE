@@ -281,19 +281,23 @@ module bcs
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(inout) :: State
-        integer :: n,i,j,k
+        integer :: n,ig,j,k
 
-        !i-boundaries (IN)
-            do k=Grid%ksg,Grid%keg
-                do j=Grid%jsg,Grid%jeg
-                    do n=1,Model%Ng
-                        State%Gas(Grid%is -n,j,k,:,:)  = State%Gas(Grid%ie-n+1,j,k,:,:)
-                        State%Bxyz(Grid%is-n,j,k,:)  = State%Bxyz(Grid%ie-n+1,j,k,:)
-                        State%magFlux(Grid%is-n,j,k,YDIR:ZDIR) = State%magFlux(Grid%ie -n+1,j,k,YDIR:ZDIR)
-                        State%magFlux(Grid%is-n,j,k,XDIR) = State%magFlux(Grid%ie -n+1,j,k,XDIR)
-                    enddo
+        !$OMP PARALLEL DO default(shared) &
+        !$OMP private(ig,j,n,k)
+        do k=Grid%ksg,Grid%keg+1
+            do j=Grid%jsg,Grid%jeg+1
+                do n=1,Model%Ng
+                    ig = Grid%is-n
+                    if (isCellCenterG(Model,Grid,ig,j,k)) then
+                        State%Gas (ig,j,k,:,:)  = State%Gas (Grid%ie-n+1,j,k,:,:)
+                        State%Bxyz(ig,j,k,:)    = State%Bxyz(Grid%ie-n+1,j,k,:)
+                    endif
+                    !Always do flux
+                    State%magFlux(ig,j,k,:) = State%magFlux(Grid%ie-n+1,j,k,:)
                 enddo
             enddo
+        enddo
 
     end subroutine periodic_ibcI
 
@@ -302,18 +306,24 @@ module bcs
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(inout) :: State
-        integer :: n,i,j,k
+        integer :: n,ig,j,k
 
-            do k=Grid%ksg,Grid%keg
-                do j=Grid%jsg,Grid%jeg
-                    do n=1,Model%Ng
-                        State%Gas(Grid%ie+n,j,k,:,:) = State%Gas(Grid%is +n-1,j,k,:,:)
-                        State%Bxyz(Grid%ie+n,j,k,:) = State%Bxyz(Grid%is +n-1,j,k,:)
-                        State%magFlux(Grid%ie+n,j,k,YDIR:ZDIR) = State%magFlux(Grid%is +n-1,j,k,YDIR:ZDIR)
-                        State%magFlux(Grid%ie+n+1,j,k,XDIR) = State%magFlux(Grid%is+n,j,k,XDIR)
-                    enddo
+        !$OMP PARALLEL DO default(shared) &
+        !$OMP private(ig,j,n,k)
+        do k=Grid%ksg,Grid%keg+1
+            do j=Grid%jsg,Grid%jeg+1
+                do n=1,Model%Ng
+                    ig = Grid%ie+n
+                    if (isCellCenterG(Model,Grid,ig,j,k)) then
+                        State%Gas (ig,j,k,:,:)  = State%Gas (Grid%is+n-1,j,k,:,:)
+                        State%Bxyz(ig,j,k,:)    = State%Bxyz(Grid%is+n-1,j,k,:)
+                    endif
+                    State%magFlux(ig,j,k,JDIR:KDIR) = State%magFlux(Grid%is+n-1,j,k,JDIR:KDIR)
+                    State%magFlux(ig+1,j,k,IDIR)    = State%magFlux(Grid%is+n,j,k,IDIR)
                 enddo
-            enddo    
+            enddo
+        enddo
+
     end subroutine periodic_obcI
 
     subroutine periodic_ibcJ(bc,Model,Grid,State)
@@ -321,17 +331,24 @@ module bcs
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(inout) :: State
-        integer :: n,i,j,k
+        integer :: n,i,jg,k
 
-            do k=Grid%ksg,Grid%keg
-                do n=1,Model%Ng  
-                    do i=Grid%isg,Grid%ieg
-                        State%Gas(i,Grid%js-n,k,:,:) = State%Gas(i,Grid%je-n+1,k,:,:)
-                        State%Bxyz(i,Grid%js-n,k,:) = State%Bxyz(i,Grid%je-n+1,k,:)
-                        State%magFlux(i,Grid%js-n,k,:) = State%magFlux(i,Grid%je-n+1,k,:)         
-                    enddo
+        !$OMP PARALLEL DO default(shared) &
+        !$OMP private(i,jg,n,k)
+        do k=Grid%ksg,Grid%keg+1
+            do i=Grid%isg,Grid%ieg+1
+                do n=1,Model%Ng
+                    jg = Grid%js-n
+                    if (isCellCenterG(Model,Grid,i,jg,k)) then
+                        State%Gas (i,jg,k,:,:)  = State%Gas (i,Grid%je-n+1,k,:,:)
+                        State%Bxyz(i,jg,k,:)    = State%Bxyz(i,Grid%je-n+1,k,:)
+                    endif
+                    !Always do flux
+                    State%magFlux(i,jg,k,:) = State%magFlux(i,Grid%je-n+1,k,:)    
                 enddo
-            enddo    
+            enddo
+        enddo
+
     end subroutine periodic_ibcJ
 
     subroutine periodic_obcJ(bc,Model,Grid,State)
@@ -339,19 +356,24 @@ module bcs
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(inout) :: State
-        integer :: n,i,j,k
+        integer :: n,i,jg,k
 
-            do k=Grid%ksg,Grid%keg
-                do n=1,Model%Ng  
-                    do i=Grid%isg,Grid%ieg
-                        State%Gas(i,Grid%je+n,k,:,:) = State%Gas(i,Grid%js+n-1,k,:,:)
-                        State%Bxyz(i,Grid%je+n,k,:) = State%Bxyz(i,Grid%js+n-1,k,:)
-                        State%magFlux(i,Grid%je+n,k,XDIR) = State%magFlux(i,Grid%js+n-1,k,XDIR)
-                        State%magFlux(i,Grid%je+n,k,ZDIR) = State%magFlux(i,Grid%js+n-1,k,ZDIR)
-                        State%magFlux(i,Grid%je+n+1,k,YDIR) = State%magFlux(i,Grid%js+n  ,k,YDIR)
-                    enddo
+        !$OMP PARALLEL DO default(shared) &
+        !$OMP private(i,jg,n,k)
+        do k=Grid%ksg,Grid%keg+1
+            do i=Grid%isg,Grid%ieg+1
+                do n=1,Model%Ng
+                    jg = Grid%je+n
+                    if (isCellCenterG(Model,Grid,i,jg,k)) then
+                        State%Gas (i,jg,k,:,:)  = State%Gas (i,Grid%js+n-1,k,:,:)
+                        State%Bxyz(i,jg,k,:)    = State%Bxyz(i,Grid%js+n-1,k,:)
+                    endif
+                    State%magFlux(i,jg,k,IDIR) = State%magFlux(i,Grid%js+n-1,k,IDIR)
+                    State%magFlux(i,jg,k,KDIR) = State%magFlux(i,Grid%js+n-1,k,KDIR)
+                    State%magFlux(i,jg+1,k,JDIR)    = State%magFlux(i,Grid%js+n,k,JDIR)
                 enddo
             enddo
+        enddo
 
     end subroutine periodic_obcJ
 

@@ -1,13 +1,13 @@
-      SUBROUTINE tomhd (RM,rec, ierr)
+      SUBROUTINE tomhd (RM, ierr)
       USE earthhelper, ONLY : GallagherXY
       USE rcm_precision
       USE Rcm_mod_subs, ONLY : isize, jsize, kcsize,jwrap, nptmax, &
                               colat, aloct, v, birk, &
                               bmin, xmin, ymin, zmin, vm, pmin, rmin, &
                               birk_avg, v_avg, eeta, eeta_avg, alamc, ikflavc,&
-                              pi, read_array, label, LUN, &
+                              pi,  &
                               boundary, bndloc, pressrcm,&
-                              Read_grid, Read_plasma,Get_boundary, &
+                              Read_grid, &
                               xmass, densrcm,denspsph,imin_j,rcmdir, &
                               eflux,eavg,ie_el
       USE constants, ONLY : mass_proton,nt,ev!,radius_earth_m,pressure_factor,density_factor
@@ -16,20 +16,11 @@
 ! 
 !==============================================================
 ! purpose:
-!      To read rcm data at a specified record (rec) and place 
-!      into a common block '/press2_eq/' 2d pressure information
-!                           now replaced - frt 10.03
-!  It also writes to files:
-!    'rcmu.dat' = unformatted time-averaged rcm data for plotting
+!  To convert RCM information (eta), to MHD information (p,n) 
+!  It also writes to files (optional):
+!    'rcmu.dat' = unformatted time-averaged rcm data for analysis
 !
 ! inputs:
-!   rec = record to read rcm data
-!
-!
-!  program to read rcm output files and write out results in
-!  this version also spits out pressure contours in the equatorial
-!  plane for input to setupdg.f which setups the pressure for the
-! multi channel version 02/00 frt
 !
 !   4/18/95             rws
 !   9/18/95       frt
@@ -38,18 +29,19 @@
 !     7/09 -restructured to use modules and allow to transfer
 !           the LFM grid - frt      
 !     2/19 -modified version to connect to gamera - frt
+!     5/20 -removed use of record numbers in rcm bookkeeping
+!          - also adds output from plasmasphere model by Shanshan Bao
+!     5/20/20 - removed idim,jdim -frt
 !
 !
 !==============================================================
 !
       IMPLICIT NONE
       type(rcm_mhd_T),intent(inout) :: RM
-      INTEGER(iprec), INTENT (IN) :: rec
       INTEGER(iprec), INTENT (OUT) :: ierr
 !
       INTEGER(iprec) :: iunit, iunit1, iunit2, iout, ig, jg
       INTEGER(iprec) :: kkk, i, j, L, k, itime, n
-      INTEGER(iprec), PARAMETER :: idim=isize, jdim=jsize, jdimr=jsize
       REAL(rprec), PARAMETER :: vmmax = 2000.0
       REAL(rprec) :: bbi, bbj, di, dj,  &
                      emp, vmp, ptemp, rhotemp,ctemp
@@ -84,9 +76,6 @@
       save ifound,mask
 
       INTEGER (iprec) :: itime0,jp,iC
-      REAL (rprec), ALLOCATABLE :: v0(:,:), birk0(:,:), vm0(:,:), bmin0(:,:),&
-                    xmin0(:,:), ymin0(:,:), rmin0(:,:), pmin0(:,:), eeta0(:,:,:),&
-                    bi0(:),bj0(:),etab0(:),v_avg0(:,:),birk_avg0(:,:),eeta_avg0(:,:,:)
       real(rp) :: dRad,RadC,rIJ
 
       LOGICAL,PARAMETER :: avoid_boundaries = .false.
@@ -98,53 +87,13 @@
       pressure_factor = 2./3.*ev/RM%planet_radius*nt
       density_factor = nt/RM%planet_radius
 
-!      INCLUDE 'rcmdir.h'
-
       ierr = 0
-
-      ! Logic of this thing is such that rec must be >= 2 (RCM had to run at least once):
-
-      if (doRCMVerbose) write(6,*)'tomhd, rec=',rec
-      IF (rec < 2) STOP ' tomhd called before RCM was called, aborting...'
 
       ! At this point, we assume that RCM arrays are all populated
       ! (plasma, b-field, bndloc, etc.):
 
    IF (L_write_rcmu) then
 
-      IF (.NOT.allocated(v0) ) then  
-         ALLOCATE (v0(isize,jsize), birk0(isize,jsize), vm0(isize,jsize),&
-                   bmin0(isize,jsize),xmin0(isize,jsize), ymin0(isize,jsize),&
-                   rmin0(isize,jsize),pmin0(isize,jsize), &
-                   birk_avg0(isize,jsize), v_avg0(isize,jsize), &
-                   eeta0(isize,jsize,kcsize), eeta_avg0(isize,jsize,kcsize))
-      END IF
- 
-      ! save current RCM arrays so that another set can be retrieved then will put them back.
-       v0 = v
-       birk0 = birk
-       vm0   = vm
-       bmin0 = bmin
-       xmin0 = xmin
-       ymin0 = ymin
-       rmin0 = rmin
-       pmin0 = pmin
-       eeta0 = eeta
-  
-       v_avg0  = v_avg
-       birk_avg0 = birk_avg
-       eeta_avg0 = eeta_avg
-       itime0   = label%intg(6)
-
-       L = rec - 1
-
-         CALL Read_array (rcmdir//'rcmv'   , L, label, ARRAY_2D = v)
-         CALL Read_array (rcmdir//'rcmbirk', L, label, ARRAY_2D = birk)
-         CALL Read_array (rcmdir//'rcmvm',   L, label, ARRAY_2D = vm)
-         CALL Read_array (rcmdir//'rcmbmin', L, label, ARRAY_2D = bmin)
-         CALL Read_array (rcmdir//'rcmxmin', L, label, ARRAY_2D = xmin)
-         CALL Read_array (rcmdir//'rcmymin', L, label, ARRAY_2D = ymin)
-         CALL Read_array (rcmdir//'rcmzmin', L, label, ARRAY_2D = zmin)
          rmin = SQRT (xmin**2+ymin**2+zmin**2)
          WHERE (xmin == 0.0 .AND. ymin == 0.0)
              pmin = 0.0
@@ -152,36 +101,7 @@
              pmin = ATAN2 (ymin, xmin)
          END WHERE
          WHERE (pmin < 0.0) pmin = pmin + 2.0*pi
-         CALL Read_array (rcmdir//'rcmeeta', L, label, ARRAY_3D = eeta)
 
-  ! change on 6/19/2013 (Stan Sazykin): turn off reading plasma edges info as it is not used
-  !      CALL Read_array (rcmdir//'rcmbi', L, label, ARRAY_1D = bi)
-  !      CALL Read_array (rcmdir//'rcmbj', L, label, ARRAY_1D = bj)
-  !      CALL Read_array (rcmdir//'rcmetab', L, label, ARRAY_1D = etab)
-  !      CALL Read_array (rcmdir//'rcmitrack', L, label, ARRAY_1D = itrack)
-  !      CALL Read_array (rcmdir//'rcmmpoint', L, label, ARRAY_1D = mpoint)
-  !      CALL Read_array (rcmdir//'rcmnpoint', L, label, ARRAY_1D = npoint)
-  !  end of change 6/19/2013 
-
-         CALL Read_array (rcmdir//'rcmvavg'   , L, label, ARRAY_2D = v_avg)
-         CALL Read_array (rcmdir//'rcmbirkavg', L, label, ARRAY_2D = birk_avg)
-         CALL Read_array (rcmdir//'rcmeetaavg', L, label, ARRAY_3D = eeta_avg)
-     
-         itime = label%intg(6)
-         WRITE (*,'(A,I9.9,A,I5.5)') 'TOMHD: Read RCM, T=',itime,', REC=',L
-
-         call write_rcmu (L,0_iprec)
-
-         ! now read again at the next record
-         L = rec
-         
-         CALL Read_array (rcmdir//'rcmv'   , L, label, ARRAY_2D = v)
-         CALL Read_array (rcmdir//'rcmbirk', L, label, ARRAY_2D = birk)
-         CALL Read_array (rcmdir//'rcmvm',   L, label, ARRAY_2D = vm)
-         CALL Read_array (rcmdir//'rcmbmin', L, label, ARRAY_2D = bmin)
-         CALL Read_array (rcmdir//'rcmxmin', L, label, ARRAY_2D = xmin)
-         CALL Read_array (rcmdir//'rcmymin', L, label, ARRAY_2D = ymin)
-         CALL Read_array (rcmdir//'rcmzmin', L, label, ARRAY_2D = zmin)
          rmin = SQRT (xmin**2+ymin**2)
          WHERE (xmin == 0.0 .AND. ymin == 0.0)
              pmin = 0.0
@@ -189,13 +109,6 @@
              pmin = ATAN2 (ymin, xmin)
          END WHERE
          WHERE (pmin < 0.0) pmin = pmin + 2.0*pi
-         CALL Read_array (rcmdir//'rcmeeta', L, label, ARRAY_3D = eeta)
-
-         CALL Read_array (rcmdir//'rcmvavg'   , L, label, ARRAY_2D = v_avg)
-         CALL Read_array (rcmdir//'rcmbirkavg', L, label, ARRAY_2D = birk_avg)
-         CALL Read_array (rcmdir//'rcmeetaavg', L, label, ARRAY_3D = eeta_avg)
-     
-         itime = label%intg(6)
          WRITE (*,'(A,I9.9,A,I5.5)') 'TOMHD: Read RCM, T=',itime,', REC=',L
 
      call write_rcmu (L,0_iprec)
@@ -207,8 +120,8 @@
       !$OMP PARALLEL DO default(shared) &
       !$OMP schedule(dynamic) &
       !$OMP private(i,j,k,dens_plasmasphere)
-      DO j = 1, jdim
-      DO i = 1, idim
+      DO j = 1, jsize
+       DO i = 1, isize
         pressrcm (i,j) = 0.0
         densrcm  (i,j) = 0.0
         denspsph (i,j) = 0.0
@@ -228,11 +141,14 @@
         END DO
         if (use_plasmasphere) then
           ! add a simple plasmasphere model based on carpenter 1992 or gallagher 2002 in ples/cc
-          dens_plasmasphere = GallagherXY(xmin(i,j),ymin(i,j))
-          denspsph(i,j) = dens_plasmasphere*1.0e6
+          !dens_plasmasphere = GallagherXY(xmin(i,j),ymin(i,j))
+          !denspsph(i,j) = dens_plasmasphere*1.0e6
+      ! use plasmasphere channel eeta_avg(:,:,1) sbao 03/2020
+           denspsph(i,j) = density_factor/mass_proton*xmass(2)*eeta_avg(i,j,1)*vm(i,j)**1.5
+
         endif
 
-      END DO
+       END DO
       END DO
 
   !    write(*,*) "rcm/tomhd.f90: eeta_avg(50,50,50)=",eeta_avg(50,50,50)
@@ -244,22 +160,22 @@
  
 !     now update the pressure and density in the mhd code  
 
-      RM%Prcm    = pressrcm(:,jwrap:jdim)
-      RM%Nrcm    = densrcm (:,jwrap:jdim)
-      RM%Npsph   = denspsph(:,jwrap:jdim)
-      RM%flux    = eflux   (:,jwrap:jdim,ie_el)
-      RM%eng_avg = eavg    (:,jwrap:jdim,ie_el)
-      RM%fac     = birk    (:,jwrap:jdim)
+      RM%Prcm    = pressrcm(:,jwrap:jsize)
+      RM%Nrcm    = densrcm (:,jwrap:jsize)
+      RM%Npsph   = denspsph(:,jwrap:jsize)
+      RM%flux    = eflux   (:,jwrap:jsize,ie_el)
+      RM%eng_avg = eavg    (:,jwrap:jsize,ie_el)
+      RM%fac     = birk    (:,jwrap:jsize)
       
       RM%toMHD = .false.
       !dRad = ellBdry%dRadMHD*radius_earth_m
       dRad = ellBdry%dRadMHD*RM%planet_radius
 
-      do j=jwrap,jdim
+      do j=jwrap,jsize
         jp = j-jwrap+1
         iC = imin_j(j)
-        RadC = norm2(RM%X_bmin(iC,jp,1:2))-dRad
-        do i=iC+1,idim
+        RadC = norm2(RM%X_bmin(iC,jp,1:3))-dRad
+        do i=iC+1,isize
           rIJ = norm2(RM%X_bmin(i,jp,1:3))
           !write(*,*) 'RadC/rIJ = ',RadC/radius_earth_m,rIj/radius_earth_m
           if (rIJ<=RadC) exit
@@ -273,36 +189,6 @@
       RETURN
       END SUBROUTINE tomhd
 !
-!-----------------------------------------------------------
-      subroutine writeu_2d(idim,jdim,imax,jmax,file,array,x,y,rec)
-! routine to writeout array unformatted at some interval
-! 8/08? frt
-!      USE Rcm_mod_subs, ONLY : iprec,rprec
-      USE rcm_precision
-      implicit none
-      integer(iprec) :: idim,jdim
-      integer(iprec) :: imax,jmax
-      real(rprec) :: array(idim,jdim)
-      real(rprec) :: x(idim),y(jdim)
-
-      integer(iprec) :: rec,i
-      character (LEN=*) :: file
-
-!     if(rec.eq.1)then
-      if(rec.le.2)then
-       open(80,file=file,status='unknown',form='unformatted')
-       write(80)idim,jdim,imax,jmax
-       write(80)rec,array,x,y
-       close(80)
-      else
-       open(80,file=file,status='unknown',form='unformatted' &
-            ,position='append')
-       write(80)rec,array,x,y
-       close(80)
-      end if
-
-      return
-      end subroutine  writeu_2d
  !---------------------------------------------------
 
       subroutine write_rcmu (record,offset)

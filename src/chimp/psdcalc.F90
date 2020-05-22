@@ -18,7 +18,7 @@ module psdcalc
             real(rp), intent(out) :: wX(-1:+1)
         end subroutine PSDShape_T
     end interface
-    procedure(PSDShape_T), pointer, private :: ShapeWeight => ShapeWeight_TSC
+    procedure(PSDShape_T), pointer, private :: ShapeWeight => ShapeWeight_CIC
 
     contains
 
@@ -156,7 +156,8 @@ module psdcalc
 
     !Finished
         end associate
-        write(*,*) 'Total weight = ', sum(psPop%wgt(:))
+        write(*,*) 'Total weight   = ', sum(psPop%wgt(:))
+        write(*,*) 'Min/Max weight = ', minval(psPop%wgt),maxval(psPop%wgt)
     end subroutine CalcWeights
 
     !Given weights for all TPs, calculate PSD on given PS
@@ -263,6 +264,8 @@ module psdcalc
 
         r0 = Q(PSRAD)
         p0 = Q(PSPHI)
+        if (p0<0) p0=p0+2*PI
+
         k0 = Q(PSKINE)
         a0 = Q(PSALPHA)
         
@@ -379,30 +382,31 @@ module psdcalc
             wX(-1) = (xCC-x0)/dX
             wX( 0) = (x0 -xM)/dX
         endif
-
     end subroutine ShapeWeight_CIC
 
-    subroutine ShapeWeight_TSC(x0,xI,wX)
-        real(rp), intent(in)  :: x0
-        real(rp), intent(in)  :: xI(-1:+2)        
-        real(rp), intent(out) :: wX(-1:+1)
+    !TODO: Fix bug in TSC shaping
+    ! subroutine ShapeWeight_TSC(x0,xI,wX)
+    !     real(rp), intent(in)  :: x0
+    !     real(rp), intent(in)  :: xI(-1:+2)        
+    !     real(rp), intent(out) :: wX(-1:+1)
 
-        real(rp) :: dX,xPI,xMI,mArg,pArg
-        !Initialize
-        wX = 0.0
+    !     real(rp) :: dX,xPI,xMI,mArg,pArg
+    !     !Initialize
+    !     wX = 0.0
 
-        dX = xI(+1)-xI( 0) !Width of center cell
+    !     dX = xI(+1)-xI( 0) !Width of center cell
 
-        xPI = xI(+1)-x0
-        xMI = x0-xI(0)
+    !     xPI = xI(+1)-x0
+    !     xMI = x0-xI(0)
 
-        mArg = 1.0-xMI
-        pArg = 1.0-xPI
+    !     mArg = 1.0-xMI
+    !     pArg = 1.0-xPI
 
-        wX(-1) = 0.5*mArg*mArg
-        wX(+1) = 0.5*pArg*pArg
-        wX( 0) = 1.0-wX(-1)-wX(+1)
+    !     wX(-1) = 0.5*mArg*mArg
+    !     wX(+1) = 0.5*pArg*pArg
+    !     wX( 0) = 1.0-wX(-1)-wX(+1)
 
-    end subroutine ShapeWeight_TSC
+
+    ! end subroutine ShapeWeight_TSC
 
 end module psdcalc

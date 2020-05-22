@@ -5,6 +5,9 @@
   <gamera_remix dt="0.1" dowait="F" dtshift="0.0"/>
   <remix_gamera dt="0.1" dowait="F" dtshift="0.0"/>
 </OMEGA>
+<voltron>
+  <spinup doSpin="F"/>
+</voltron>
 <Gamera>
   <iPdir N="1"/>
   <jPdir N="2"/>

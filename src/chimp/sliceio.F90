@@ -10,7 +10,7 @@ module sliceio
     implicit none
 
     character(len=strLen) :: ebOutF
-    integer, parameter :: MAXEBVS = 30
+    integer, parameter :: MAXEBVS = 40
     !Parameters for output EB grid (2D equatorial)
     !Fixme: Clean up and generalize
     integer  :: Nx1 = 128, Nx2 = 256
@@ -232,7 +232,7 @@ module sliceio
         type(IOVAR_T), dimension(MAXEBVS) :: IOVars
         real(rp), dimension(:,:,:), allocatable :: dB2D,E2D,Q,J2D
         real(rp), dimension(:,:), allocatable :: Vr,Lb,LbXY
-        
+
         integer :: i,j
         real(rp), dimension(NDIM) :: xp,xm,dB,Ep,Em,Bp,Bm
         real(rp) :: MagB,MagJ,oVGScl
@@ -245,13 +245,13 @@ module sliceio
 
         associate( ebGr=>ebState%ebGr,ebTab=>ebState%ebTab,eb1=>ebState%eb1,eb2=>ebState%eb2 )
 
-
         allocate( dB2D(Nx1,Nx2,NDIM))
         allocate(  E2D(Nx1,Nx2,NDIM))
         allocate(  J2D(Nx1,Nx2,NDIM))
         allocate(Vr  (Nx1,Nx2))
         allocate(Lb  (Nx1,Nx2))
         allocate(LbXY(Nx1,Nx2))
+
 
         if (Model%doTrc) then
             !Create an ebTrc for each point on slice
@@ -365,9 +365,9 @@ module sliceio
             call AddOutVar(IOVars,"Ex" , E2D(:,:,XDIR))
             call AddOutVar(IOVars,"Ey" , E2D(:,:,YDIR))
             call AddOutVar(IOVars,"Ez" , E2D(:,:,ZDIR))
-            ! call AddOutVar(IOVars,"Jx" , J2D(:,:,XDIR))
-            ! call AddOutVar(IOVars,"Jy" , J2D(:,:,YDIR))
-            ! call AddOutVar(IOVars,"Jz" , J2D(:,:,ZDIR))
+            call AddOutVar(IOVars,"Jx" , J2D(:,:,XDIR))
+            call AddOutVar(IOVars,"Jy" , J2D(:,:,YDIR))
+            call AddOutVar(IOVars,"Jz" , J2D(:,:,ZDIR))
         endif        
 
         if (Model%doMHD) then

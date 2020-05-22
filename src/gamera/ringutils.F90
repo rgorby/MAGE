@@ -12,14 +12,24 @@ module ringutils
     use xml_input
     implicit none
 
-    !Number of rings to average over, size of circumferential direction
-    !integer :: NumR, Np, Np2
-
     !Enumerators for singularity sides (i.e. positive/negative axis)
     !SPOLE is pole at xs, EPOLE is pole at xe
     enum, bind(C)
         enumerator :: SPOLE=1,EPOLE
     endenum
+
+    integer, parameter :: NFTMAX = 2 !Max number of FFT modes (beyond 0th) possible
+
+    !TODO: Handle these values better for getting them too ringav.F90
+    !Information for Fourier reductions
+    integer :: NFTMAG = 1 !Number of Fourier modes (beyond 0th) to remove from magflux
+    integer :: NFTVEL = 0 !Number of Fourier modes (beyond 0th) to remove from velocity
+    logical :: doShift = .false. !Whether to add random circular shift to ring chunking
+    logical :: doVClean = .false. !Whether to clean velocity Fourier components before reconstruction
+    
+    !Cleaning field loops    
+    logical :: doCleanLoop = .true. !Whether to remove magnetic field loops
+    logical :: doFastLoop  = .true. !Whether to remove magnetic field loops instantly
 
     contains
 
@@ -53,10 +63,33 @@ module ringutils
             Model%Ring%doE = .true.
         endif
 
-        !Choice of ring coordinates
-        call xmlInp%Set_Val(Model%Ring%doMassRA,"ring/doMassRA",.false.)
+    !Set some extra knobs
 
-        !Set singularity information and default ring configurations
+        !Choice of ring coordinates
+        call xmlInp%Set_Val(Model%Ring%doMassRA,"ringknobs/doMassRA",.false.)
+
+        
+        call xmlInp%Set_Val(doCleanLoop,"ringknobs/doClean"    ,doCleanLoop)
+        call xmlInp%Set_Val(doFastLoop ,"ringknobs/doFastClean",doFastLoop )
+        call xmlInp%Set_Val(doShift    ,"ringknobs/doShift",doShift)
+
+        call xmlInp%Set_Val(NFTMAG,"ringknobs/NMag",NFTMAG)
+        call xmlInp%Set_Val(doVClean,"ringknobs/doVClean",.false.)
+        if (doVClean) then
+            call xmlInp%Set_Val(NFTVEL,"ringknobs/NVel",NFTVEL)
+        else
+            NFTVEL = -1
+        endif
+
+        if ( (NFTMAG>NFTMAX) .or. (NFTVEL>NFTMAX) ) then
+            if (Model%isLoud) then
+                write(*,*) 'Trying to subtract more modes than NFTMAX = ', NFTMAX
+                write(*,*) 'Bailing ...'
+            endif
+            stop
+        endif
+
+    !Set singularity information and default ring configurations
         select case (Model%Ring%GridID)
             !------------------
             case ("cyl")

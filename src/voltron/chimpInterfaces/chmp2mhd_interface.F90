@@ -18,8 +18,15 @@ module chmp2mhd_interface
         associate(Gr=>gamApp%Grid)
         !Changing squish to do nodes
         allocate(chmp2mhd%xyzSquish(Gr%is:Gr%ie+1,Gr%js:Gr%je+1,Gr%ks:Gr%ke+1,2))
+        !Good projection or not
+        allocate(chmp2mhd%isGood   (Gr%is:Gr%ie+1,Gr%js:Gr%je+1,Gr%ks:Gr%ke+1))
+        !Safe to ingest or not
+        allocate(chmp2mhd%isEdible (Gr%is:Gr%ie+1,Gr%js:Gr%je+1,Gr%ks:Gr%ke+1))
+
         chmp2mhd%xyzSquish = 0.0
-        
+        chmp2mhd%isGood    = .false.
+        chmp2mhd%isEdible  = .false.
+
         end associate
 
     end subroutine init_chmp2Mhd

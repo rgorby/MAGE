@@ -6,6 +6,8 @@
        nptmax = 50000, &
        iesize =   2, &
        ncoeff =   5
-    LOGICAL :: asci_flag = .FALSE.
-    LOGICAL :: isGAMRCM = .TRUE. !Whether running coupled to Gamera
-    logical :: doQuietRCM = .TRUE.
+    LOGICAL, PARAMETER :: asci_flag = .FALSE.
+    LOGICAL, PARAMETER :: isGAMRCM = .TRUE. !Whether running coupled to Gamera
+    LOGICAL, PARAMETER :: doQuietRCM = .TRUE.
+    !If you came here looking for doClaw95, use the xml option
+    !rcm/clawpack/doKaiClaw="T"

@@ -39,7 +39,8 @@ module msphutils
     real(rp), private :: RhoCO = 1.0e-3 ! Number density
     real(rp), private :: CsCO  = 1.0e-2  ! Cs chillout, m/s
     real(rp), parameter, private :: cLim = 1.5 ! Cool when sound speed is above cLim*Ca
-
+    logical , parameter, private :: doLFMChill = .true. !Do LFM-style chilling
+    
     !Dipole cut values
     !real(rp), private :: rCut=4.5, lCut=3.5 !LFM values
     real(rp), private :: rCut=16.0,lCut=8.0
@@ -67,7 +68,8 @@ module msphutils
         character(len=strLen) :: pID !Planet ID string
         real(rp) :: M0g,rScl
         real(rp) :: gx0,gv0,gD0,gP0,gB0,gT0,gG0
-
+        logical :: doCorot
+        
         !Set some defaults
         gD0 = 1.67e-21 ! 1 AMU/cc [kg/m3]
         gG0 = 0.0 ! Grav acceleration [m/s2]
@@ -131,6 +133,12 @@ module msphutils
             call xmlInp%Set_Val(Rion,"prob/Rion",RionE*1.e6/gx0) 
             call xmlInp%Set_Val(Model%doGrav,"prob/doGrav",.true.)
         end select
+
+        call xmlInp%Set_Val(doCorot,"prob/doCorot",.true.)
+        if (.not. doCorot) then
+            !Zero out corotation potential
+            Psi0 = 0.0
+        endif
 
         gT0 = gx0/gv0 !Set time scaling
         gB0 = sqrt(Mu0*gD0)*gv0*1.0e+9 !T->nT
@@ -356,7 +364,7 @@ module msphutils
                         endif
 
                         !If density is low keep things chill by setting sound speed
-                        if (doChill) then
+                        if (doChill .and. doLFMChill) then
                             pCon = State%Gas(i,j,k,:,s)
                             call CellC2P(Model,pCon,pW)
                             !Set pressure to ensure Cs = CsCO
@@ -403,7 +411,7 @@ module msphutils
 
                             !Go back to conserved vars and save
                             call CellP2C(Model,pW,pCon)
-                            State%Gas(i,j,k,:,s) = pCon 
+                            State%Gas(i,j,k,:,s) = pCon
                         endif
 
                     enddo !i loop
@@ -647,6 +655,29 @@ module msphutils
                         else
                             dP = 0.0
                         endif
+                        
+                        ! !if (Prcm*Model%Units%gP0 > 25.0) then
+                        ! if ( (i==6) .and. (j==41) .and. (k==41) ) then
+                        ! !if (Prcm > TINY) then
+                        !     !$OMP CRITICAL
+                        !     write(*,*) '---'
+                        !     write(*,*) 'ijk = ', i,j,k
+                        !     write(*,*) 'Den = ', pW(DEN)
+                        !     !write(*,*) 'pScl = ', Model%Units%gP0
+                        !     write(*,*) 'Pmhd = ', Pmhd*Model%Units%gP0
+                        !     write(*,*) 'Plim / Prcm = ', PLim*Model%Units%gP0, Prcm*Model%Units%gP0
+                        !     !!write(*,*) 'dP = ', dP*Model%Units%gP0
+                        !     write(*,*) 'DelP = ', (Model%dt/Tau)*dP*Model%Units%gP0
+                        !     !write(*,*) 'Beta, Scl = ', beta, 1.0/(1.0+beta*5.0/6.0)
+                        !     !write(*,*) 'Pb / Bxyz = ', Pb, Bxyz
+
+                        !     !write(*,*) 'dt / tau = ', Model%dt*Model%Units%gT0,Tau*Model%Units%gT0
+                        !     write(*,*) 'Pmhd-Update = ', (pW(PRESSURE) + (Model%dt/Tau)*dP)*Model%Units%gP0
+                            
+                        !     write(*,*) '---'
+                        !     !$OMP END CRITICAL
+                        ! endif
+                        
                         pW(PRESSURE) = pW(PRESSURE) + (Model%dt/Tau)*dP
                     endif
 

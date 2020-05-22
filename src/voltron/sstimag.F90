@@ -168,18 +168,17 @@ module sstimag
 
     !Evaluate eq map at a given point
     !Returns density (#/cc) and pressure (nPa)
-    subroutine EvalSST(imag,x1,x2,x12C,t,imW)
+    subroutine EvalSST(imag,x1,x2,t,imW,isEdible)
         class(eqData_T), intent(inout) :: imag
         real(rp), intent(in) :: x1,x2,t
-        real(rp), intent(in) :: x12C(2,2,2,2)
         real(rp), intent(out) :: imW(NVARIMAG)
+        logical, intent(out) :: isEdible
 
         real(rp) :: D,P,x0,y0
         integer :: ij0(2),i0,j0
         real(rp) :: w1,w2
-        logical :: isGood
 
-        associate(eqData => imag, r=>x1, phi=>x2, rpC=>x12C)
+        associate(eqData => imag, r=>x1, phi=>x2)
 
         if (r>eqData%rDeep) then 
            imW = 0.0
@@ -194,8 +193,8 @@ module sstimag
         i0 = ij0(IDIR)
         j0 = ij0(JDIR)
 
-        isGood = (t>0) .and. (r>TINY)
-        if (isGood) then
+        isEdible = (t>0) .and. (r>TINY)
+        if (isEdible) then
             call tWeights(eqData,t,w1,w2)
             !D = psphD(r) !Gallagher plasmasphere
             D = GallagherRP(r,phi)
