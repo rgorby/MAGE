@@ -213,6 +213,7 @@ module rcmimag
     !Advance from vApp%time to tAdv
         dtAdv = tAdv-vApp%time !RCM-DT
         if(coldstart)then
+         write(6,*)' COLDSTART for the RCM at t=',vApp%time
          call rcm_mhd(vApp%time,dtAdv,RCMApp,RCMCOLDSTART)
          coldstart=.false.
         else
@@ -399,7 +400,7 @@ module rcmimag
 ! bypass as findloc does not work for gfortran<9
            !  Work-around code        
            do n=1,nLat
-            if (gcolat(n) > colat) exit
+            if (gcolat(n) >= colat) exit
             enddo
             iC = n-1
             dcol = gcolat(iC+1)-gcolat(iC)
