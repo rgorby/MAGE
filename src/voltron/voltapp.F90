@@ -160,15 +160,17 @@ module voltapp
             call initializeFromGamera(vApp, gApp)
         endif
 
-        !Do first couplings
-        call Tic("IonCoupling")
-        call ShallowUpdate(vApp,gApp,vApp%time)
-        call Toc("IonCoupling")
+        if(.not. vApp%isSeparate) then
+            !Do first couplings if the gamera data is local and therefore uptodate
+            call Tic("IonCoupling")
+            call ShallowUpdate(vApp,gApp,vApp%time)
+            call Toc("IonCoupling")
         
-        if (vApp%doDeep .and. (vApp%time>=vApp%DeepT)) then
-            call Tic("DeepCoupling")
-            call DeepUpdate(vApp,gApp,vApp%time)
-            call Toc("DeepCoupling")
+            if (vApp%doDeep .and. (vApp%time>=vApp%DeepT)) then
+                call Tic("DeepCoupling")
+                call DeepUpdate(vApp,gApp,vApp%time)
+                call Toc("DeepCoupling")
+            endif
         endif
 
         !Recalculate timestep
@@ -293,7 +295,7 @@ module voltapp
         call convertRemixToGamera(vApp%mix2mhd, vApp%remixApp, gApp)
         call Toc("R2G")
 
-        vApp%ShallowT = time + vApp%ShallowDT
+        vApp%ShallowT = vApp%ShallowT + vApp%ShallowDT
 
     end subroutine ShallowUpdate
 
@@ -336,7 +338,7 @@ module voltapp
             return
         endif
 
-        tAdv = time + vApp%DeepDT !Advance inner magnetosphere through full coupling time 
+        tAdv = vApp%DeepT + vApp%DeepDT !Advance inner magnetosphere through full coupling time 
     
     !Pull in updated fields to CHIMP
         call Tic("G2C")
@@ -361,7 +363,7 @@ module voltapp
     
 
     !Setup next coupling
-        vApp%DeepT = time + vApp%DeepDT
+        vApp%DeepT = vApp%DeepT + vApp%DeepDT
 
     end subroutine DeepUpdate
 

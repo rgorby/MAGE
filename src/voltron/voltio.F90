@@ -13,6 +13,7 @@ module voltio
     integer, parameter, private :: MAXVOLTIOVAR = 20
     logical, private :: isConInit = .false.
     real(rp), private ::  oMJD = 0.0
+    real(rp), private :: cumTime = 0.0 !Cumulative time
     character(len=strLen), private :: vh5File
 
     contains
@@ -51,19 +52,27 @@ module voltio
         !Figure out some perfromance info
         cMJD = T2MJD(vApp%time,MJD0) !Current MJD
 
-
         if (isConInit) then
             !Console output has been initialized
-            dMJD = cMJD - oMJD !Elapsed MJD since last console output
+            dMJD = cMJD - oMJD !Elapsed MJD since first recorded value
             dtWall = kClocks(1)%tElap
-
-            simRate = dMJD*24.0*60.0*60.0/dtWall !Model seconds per wall second
-            oMJD = cMJD
+            cumTime = cumTime + dtWall !Elapsed wall-clock since first value
+            simRate = dMJD*24.0*60.0*60.0/cumTime !Model seconds per wall second
         else
             simRate = 0.0
             oMJD = cMJD
+            cumTime = 0.0
             isConInit = .true.
         endif
+
+        !Add some stupid trapping code to deal with fortran system clock wrapping
+        if (simRate<0) then
+            !Just reset counters, this is just for diagnostics don't need exact value
+            oMJD = cMJD
+            cumTime = 0.0
+            simRate = 0.0
+        endif
+
         !Get MJD info
         call mjd2ut(cMJD,iYr,iDoY,iMon,iDay,iHr,iMin,rSec)
         write(utStr,'(I0.4,a,I0.2,a,I0.2,a,I0.2,a,I0.2,a,I0.2)') iYr,'-',iMon,'-',iDay,' ',iHr,':',iMin,':',nint(rSec)
@@ -78,8 +87,9 @@ module voltio
             write (*, '(a,1f8.3,a)')             '      tilt = ' , dpT, ' [deg]'
             write (*, '(a,2f8.3,a)')             '      CPCP = ' , cpcp(NORTH), cpcp(SOUTH), ' [kV, N/S]'
             write (*, '(a, f8.3,a)')             '    BSDst  ~ ' , Dst, ' [nT]'
-            write (*, '(a,1f7.3,a)')             '      Running @ ', simRate*100.0, '% of real-time'
-            
+            if (simRate>TINY) then
+                write (*, '(a,1f7.3,a)')             '      Running @ ', simRate*100.0, '% of real-time'
+            endif
             write (*, *) ANSIRESET, ''
         endif
 

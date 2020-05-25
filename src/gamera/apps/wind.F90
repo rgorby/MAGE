@@ -33,7 +33,7 @@ module wind
 
         !Holder for discrete data
         real(rp), allocatable :: tW(:), Q(:,:), B(:,:)
-        real(rp) :: tMin,tMax
+        real(rp) :: tMin,tMax,dtW
         integer :: NumT
 
         !Coefficients for solar wind geometry
@@ -551,7 +551,7 @@ module wind
         logical :: isByC,isBzC
         real(rp) :: BCoef(3)
         real(rp), parameter :: ergcc2nPa = 1.0e8
-
+        real(rp) :: dtMin,dtMax
         type(IOVAR_T), dimension(MAXWINDVARS) :: IOVars
 
         if (Model%isLoud) then
@@ -608,6 +608,17 @@ module wind
 
         windBC%tMin = minval(windBC%tW)
         windBC%tMax = maxval(windBC%tW)
+
+        !Check if uniform spacing
+        dtMin = minval(windBC%tW(2:N)-windBC%tW(1:N-1))
+        dtMax = maxval(windBC%tW(2:N)-windBC%tW(1:N-1))
+
+        if ( abs(dtMin-dtMax) > TINY ) then
+            write(*,*) 'Solar wind time series requires uniform spacing, bailing ...'
+            stop
+        else
+            windBC%dtW = dtMin
+        endif
 
     !Now go back in to get coefficients
         !Try to grab all three from file
@@ -671,11 +682,20 @@ module wind
             w0 = 1.0
             w1 = 0.0
         else
-            i0 = maxloc(windBC%tW,dim=1,mask=windBC%tW .le. t)
+            !Inteerpolate
+            i0 = floor( (t-windBC%tMin)/windBC%dtW ) + 1
             i1 = i0+1
-            dT = windBC%tW(i1)-windBC%tW(i0)
-            w0 = (windBC%tW(i1)-t)/dT
-            w1 = (t-windBC%tW(i0))/dT
+            if (i1 <= windBC%NumT) then
+                dT = windBC%tW(i1)-windBC%tW(i0)
+                w0 = (windBC%tW(i1)-t)/dT
+                w1 = (t-windBC%tW(i0))/dT
+            else
+                i1 = windBC%NumT
+                i0 = i1-1
+                w0 = 0.0
+                w1 = 1.0
+            endif
+
         endif
 
         if (.not. doWindInterp) then

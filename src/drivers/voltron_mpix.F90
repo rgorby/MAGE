@@ -95,7 +95,7 @@ program voltron_mpix
     endif
 
     if(isGamera) then
-        call initGamera_mpi(gApp,userInitFunc,gamComm,doIO=.true.)
+        call initGamera_mpi(gApp,userInitFunc,gamComm,doIO=.false.)
         call initGam2Volt(g2vComm,gApp,MPI_COMM_WORLD)
 
         do while (g2vComm%time < g2vComm%tFin)

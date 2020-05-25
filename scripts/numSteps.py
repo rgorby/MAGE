@@ -27,4 +27,10 @@ if __name__ == "__main__":
 		tMin = kh5.getTs(h5F,np.array([s0]))
 		tMax = kh5.getTs(h5F,np.array([sE]))
 		print("\tTime = [%f,%f]"%(tMin,tMax))
+		MJDs = kh5.getTs(h5F,sIds,"MJD",-np.inf)
+		if (MJDs.max()>0):
+			MJDMin = MJDs.min()
+			MJDMax = MJDs.max()
+			print("\tMJD  = [%f,%f]"%(MJDMin,MJDMax))
+			
 	#---------------------

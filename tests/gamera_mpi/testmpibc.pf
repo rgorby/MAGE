@@ -177,36 +177,32 @@ contains
 
   end subroutine setPreHaloData
 
-  subroutine checkPostHaloData(this,iPeriodic,jPeriodic,kPeriodic)
+  subroutine checkCCData(this,iPeriodic,jPeriodic,kPeriodic,&
+                         is,ie,js,je,ks,ke,iVal,jVal,kVal,lVal,mVal)
       class (MpiTestMethod), intent(inout) :: this
       logical,intent(in) :: iPeriodic,jPeriodic,kPeriodic
+      integer,intent(in) :: is,ie,js,je,ks,ke
+      real(rp),intent(in) :: iVal,jVal,kVal,lVal,mVal
 
       integer :: i,j,k,l,m,iIndex,jIndex,kIndex
-      real(rp) :: iVal, jVal, kVal, lVal, mVal, checkVal
+      real(rp) :: checkVal
       character(len=strLen) :: checkMsg
-
-      ! coefficients chosen to allow easy interpretation of final values
-      iVal = 1
-      jVal = 20
-      kVal = 400
-      lVal = 8000
-      mVal = 160000
 
       do l=1,NVAR
           do m=0,gamAppMpi%Model%nSpc
-              do i=gamAppMpi%Grid%isg,gamAppMpi%Grid%ieg
+              do i=is,ie
                   if(iPeriodic) then
                       iIndex = 1+modulo(i+gamAppMpi%Grid%ijkShift(IDIR)-1, gamAppMpi%Grid%Nip*gamAppMpi%Grid%NumRi)
                   else
                       iIndex = i+gamAppMpi%Grid%ijkShift(IDIR)
                   endif
-                  do j=gamAppMpi%Grid%jsg,gamAppMpi%Grid%jeg
+                  do j=js,je
                       if(jPeriodic) then
                           jIndex = 1+modulo(j+gamAppMpi%Grid%ijkShift(JDIR)-1, gamAppMpi%Grid%Njp*gamAppMpi%Grid%NumRj)
                       else
                           jIndex = j+gamAppMpi%Grid%ijkShift(JDIR)
                       endif
-                      do k=gamAppMpi%Grid%ksg,gamAppMpi%Grid%keg
+                      do k=ks,ke
                           if(kPeriodic) then
                               kIndex = 1+modulo(k+gamAppMpi%Grid%ijkShift(KDIR)-1, gamAppMpi%Grid%Nkp*gamAppMpi%Grid%NumRk)
                           else
@@ -223,21 +219,33 @@ contains
           enddo
       enddo
 
-      ! check all ghosts
+  end subroutine
+
+  subroutine checkFCData(this,iPeriodic,jPeriodic,kPeriodic,&
+                         is,ie,js,je,ks,ke,iVal,jVal,kVal,lVal)
+      class (MpiTestMethod), intent(inout) :: this
+      logical,intent(in) :: iPeriodic,jPeriodic,kPeriodic
+      integer,intent(in) :: is,ie,js,je,ks,ke
+      real(rp),intent(in) :: iVal,jVal,kVal,lVal
+
+      integer :: i,j,k,l,iIndex,jIndex,kIndex
+      real(rp) :: checkVal
+      character(len=strLen) :: checkMsg
+
       l=IDIR
-      do i=gamAppMpi%Grid%isg,gamAppMpi%Grid%ieg+1
+      do i=is,ie+1
           if(iPeriodic) then
               iIndex = 1+modulo(i+gamAppMpi%Grid%ijkShift(IDIR)-1, gamAppMpi%Grid%Nip*gamAppMpi%Grid%NumRi)
           else
               iIndex = i+gamAppMpi%Grid%ijkShift(IDIR)
           endif
-          do j=gamAppMpi%Grid%jsg,gamAppMpi%Grid%jeg
+          do j=js,je
               if(jPeriodic) then
                   jIndex = 1+modulo(j+gamAppMpi%Grid%ijkShift(JDIR)-1, gamAppMpi%Grid%Njp*gamAppMpi%Grid%NumRj)
               else
                   jIndex = j+gamAppMpi%Grid%ijkShift(JDIR)
               endif
-              do k=gamAppMpi%Grid%ksg,gamAppMpi%Grid%keg
+              do k=ks,ke
                   if(kPeriodic) then
                       kIndex = 1+modulo(k+gamAppMpi%Grid%ijkShift(KDIR)-1, gamAppMpi%Grid%Nkp*gamAppMpi%Grid%NumRk)
                   else
@@ -253,19 +261,19 @@ contains
           enddo
       enddo
       l=JDIR
-      do i=gamAppMpi%Grid%isg,gamAppMpi%Grid%ieg
+      do i=is,ie
           if(iPeriodic) then
               iIndex = 1+modulo(i+gamAppMpi%Grid%ijkShift(IDIR)-1, gamAppMpi%Grid%Nip*gamAppMpi%Grid%NumRi)
           else
               iIndex = i+gamAppMpi%Grid%ijkShift(IDIR)
           endif
-          do j=gamAppMpi%Grid%jsg,gamAppMpi%Grid%jeg+1
+          do j=js,je+1
               if(jPeriodic) then
                   jIndex = 1+modulo(j+gamAppMpi%Grid%ijkShift(JDIR)-1, gamAppMpi%Grid%Njp*gamAppMpi%Grid%NumRj)
               else
                   jIndex = j+gamAppMpi%Grid%ijkShift(JDIR)
               endif
-              do k=gamAppMpi%Grid%ksg,gamAppMpi%Grid%keg
+              do k=ks,ke
                   if(kPeriodic) then
                       kIndex = 1+modulo(k+gamAppMpi%Grid%ijkShift(KDIR)-1, gamAppMpi%Grid%Nkp*gamAppMpi%Grid%NumRk)
                   else
@@ -281,19 +289,19 @@ contains
           enddo
       enddo
       l=KDIR
-      do i=gamAppMpi%Grid%isg,gamAppMpi%Grid%ieg
+      do i=is,ie
           if(iPeriodic) then
               iIndex = 1+modulo(i+gamAppMpi%Grid%ijkShift(IDIR)-1, gamAppMpi%Grid%Nip*gamAppMpi%Grid%NumRi)
           else
               iIndex = i+gamAppMpi%Grid%ijkShift(IDIR)
           endif
-          do j=gamAppMpi%Grid%jsg,gamAppMpi%Grid%jeg
+          do j=js,je
               if(jPeriodic) then
                   jIndex = 1+modulo(j+gamAppMpi%Grid%ijkShift(JDIR)-1, gamAppMpi%Grid%Njp*gamAppMpi%Grid%NumRj)
               else
                   jIndex = j+gamAppMpi%Grid%ijkShift(JDIR)
               endif
-              do k=gamAppMpi%Grid%ksg,gamAppMpi%Grid%keg+1
+              do k=ks,ke+1
                   if(kPeriodic) then
                       kIndex = 1+modulo(k+gamAppMpi%Grid%ijkShift(KDIR)-1, gamAppMpi%Grid%Nkp*gamAppMpi%Grid%NumRk)
                   else
@@ -308,6 +316,57 @@ contains
               enddo
           enddo
       enddo
+
+  end subroutine
+
+  subroutine checkPostHaloData(this,iPeriodic,jPeriodic,kPeriodic)
+      class (MpiTestMethod), intent(inout) :: this
+      logical,intent(in) :: iPeriodic,jPeriodic,kPeriodic
+
+      integer :: i,j,k,l,m,iIndex,jIndex,kIndex
+      real(rp) :: iVal, jVal, kVal, lVal, mVal, checkVal
+      character(len=strLen) :: checkMsg
+
+      ! coefficients chosen to allow easy interpretation of final values
+      iVal = 1
+      jVal = 20
+      kVal = 400
+      lVal = 8000
+      mVal = 160000
+
+      ! check Gas, faces and edges but not corners, so do dimensions in pairs
+      call checkCCData(this,iPeriodic,jPeriodic,kPeriodic,&
+                       gamAppMpi%Grid%isg,gamAppMpi%Grid%ieg,&
+                       gamAppMpi%Grid%jsg,gamAppMpi%Grid%jeg,&
+                       gamAppMpi%Grid%ks,gamAppMpi%Grid%ke,&
+                       iVal,jVal,kVal,lVal,mVal)
+      call checkCCData(this,iPeriodic,jPeriodic,kPeriodic,&
+                       gamAppMpi%Grid%isg,gamAppMpi%Grid%ieg,&
+                       gamAppMpi%Grid%js,gamAppMpi%Grid%je,&
+                       gamAppMpi%Grid%ksg,gamAppMpi%Grid%keg,&
+                       iVal,jVal,kVal,lVal,mVal)
+      call checkCCData(this,iPeriodic,jPeriodic,kPeriodic,&
+                       gamAppMpi%Grid%is,gamAppMpi%Grid%ie,&
+                       gamAppMpi%Grid%jsg,gamAppMpi%Grid%jeg,&
+                       gamAppMpi%Grid%ksg,gamAppMpi%Grid%keg,&
+                       iVal,jVal,kVal,lVal,mVal)
+
+      ! check mag flux, faces but not corners or edges, so do dimensions one by one
+      call checkFCData(this,iPeriodic,jPeriodic,kPeriodic,&
+                       gamAppMpi%Grid%isg,gamAppMpi%Grid%ieg,&
+                       gamAppMpi%Grid%js,gamAppMpi%Grid%je,&
+                       gamAppMpi%Grid%ks,gamAppMpi%Grid%ke,&
+                       iVal,jVal,kVal,lVal)
+      call checkFCData(this,iPeriodic,jPeriodic,kPeriodic,&
+                       gamAppMpi%Grid%is,gamAppMpi%Grid%ie,&
+                       gamAppMpi%Grid%jsg,gamAppMpi%Grid%jeg,&
+                       gamAppMpi%Grid%ks,gamAppMpi%Grid%ke,&
+                       iVal,jVal,kVal,lVal)
+      call checkFCData(this,iPeriodic,jPeriodic,kPeriodic,&
+                       gamAppMpi%Grid%is,gamAppMpi%Grid%ie,&
+                       gamAppMpi%Grid%js,gamAppMpi%Grid%je,&
+                       gamAppMpi%Grid%ksg,gamAppMpi%Grid%keg,&
+                       iVal,jVal,kVal,lVal)
 
   end subroutine checkPostHaloData
 

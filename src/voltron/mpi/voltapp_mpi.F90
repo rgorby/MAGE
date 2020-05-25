@@ -190,6 +190,11 @@ module voltapp_mpi
         ! update voltron app time, MJD and ts values
         call stepVoltron(vApp, vApp%gAppLocal)
 
+        ! correct initial shallow time, which always starts immediately
+        vApp%ShallowT = vApp%time
+        ! Deep start time is user-defined and may not have occurred before restart
+        if(vApp%time > vApp%DeepT) vApp%DeepT = vApp%time
+
         ! send all of the initial voltron parameters to the gamera ranks
         call mpi_bcast(vApp%time, 1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
         call mpi_bcast(vApp%tFin, 1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
@@ -232,6 +237,13 @@ module voltapp_mpi
         call createVoltDataTypes(vApp, iRanks, jRanks, kRanks)
 
         deallocate(neighborRanks, inData, outData, iRanks, jRanks, kRanks)
+
+        ! perform initial shallow and deep updates if appropriate
+        call ShallowUpdate_mpi(vApp, vApp%time)
+
+        if (vApp%doDeep .and. vApp%time >= vApp%DeepT) then
+            call DeepUpdate_mpi(vApp, vApp%time)
+        endif
 
     end subroutine initVoltron_mpi
 
