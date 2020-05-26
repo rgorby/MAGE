@@ -673,7 +673,7 @@ contains
     !Write out the chain (to root)
     call WriteVars(IOVars,.false.,h5Str)
 
-    write (lnResF, '(A,A,A,A)') trim(h5RunID), ".Res.", "XXXXX", ".h5"
+    write (lnResF, '(A,A,A,A)') trim(h5RunID), ".mix.Res.", "XXXXX", ".h5"
     write(*,*) "WRITE MIX RESTART 5"
 
     ! make a link to the default "XXXXX" restart file
