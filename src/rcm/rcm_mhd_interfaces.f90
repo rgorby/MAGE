@@ -8,7 +8,7 @@ module rcm_mhd_interfaces
     implicit none
     integer(ip), parameter :: RCMINIT=0,RCMADVANCE=1,RCMRESTART=2,RCMWRITERESTART=-2,RCMWRITEOUTPUT=-3,RCMWRITETIMING=-1
     integer(ip), parameter :: RCMCOLDSTART=10
-    logical :: doRCMVerbose = .TRUE.
+    logical :: doRCMVerbose = .FALSE.
     integer(ip), parameter :: RCMTOPCLOSED=-1,RCMTOPOPEN=+1
     logical :: doColdstart =.true.
 
