@@ -31,8 +31,8 @@
         !Use Gamera HDF5 stuff
         doSP = .false.
         call ClearIO(IOVars) !Reset IO chain
-        call AddInVar(IOVars,"iflavin")
-        call AddInVar(IOVars,"alamin")
+        call AddInVar(IOVars,"ikflavc")
+        call AddInVar(IOVars,"alamc")
         call AddInVar(IOVars,"fudgec")
         call ReadVars(IOVars,doSP,RCMGAMConfig)
 
@@ -40,7 +40,7 @@
         DO k = 1, kdim
           iflavin = IOVars(1)%data(k)
           alamin  = IOVars(2)%data(k)
-          fudge  = IOVars(3)%data(k)
+          fudgein  = IOVars(3)%data(k)
           
           IF (iflavin == 1) THEN
              alam (k) = alamin
