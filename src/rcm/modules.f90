@@ -214,7 +214,6 @@ MODULE conversion_module
 !USE Rcm_mod_subs, ONLY : rprec,iprec
   USE rcm_precision
   IMPLICIT NONE
-  INTEGER(iprec) :: idim,jdim,kdim
   REAL(rprec), ALLOCATABLE :: bndloc_old(:),almmin(:),almmax(:),almdel(:),&
        eta_midnight(:)
   REAL(rprec), ALLOCATABLE :: x0(:,:),y0(:,:),z0(:,:)

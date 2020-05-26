@@ -5,7 +5,6 @@ from kaipy.gamera.gampp import GameraPipe
 import numpy as np
 import glob
 import kaipy.kaiH5 as kh5
-import kaipy.gamera.remixpp as remixpp
 import timeit
 
 #Object to pull from MPI/Serial magnetosphere runs (H5 data), extends base
@@ -51,7 +50,7 @@ class GamsphPipe(GameraPipe):
 	def OpenPipe(self,doVerbose=True):
 		GameraPipe.OpenPipe(self,doVerbose)
 		#Now do magnetosphere specific things
-		if (self.UnitsID == "EARTH"):
+		if (self.UnitsID != "CODE"):
 			self.bScl   = 1.0  #->nT
 			self.pScl   = 1.0  #->nPa
 			self.vScl   = 1.0  #-> km/s
@@ -331,6 +330,7 @@ class GamsphPipe(GameraPipe):
 	def CMIViz(self,AxM=None,nStp=0,doNorth=True,loc="upper left",dxy=[20,20]):
 		from kaipy.kaiH5 import CheckOrDie
 		import h5py
+		import kaipy.gamera.remixpp as remixpp
 		if (doNorth):
 			pID = "Potential NORTH"
 			cID = "Field-aligned current NORTH"

@@ -14,6 +14,7 @@ module voltapp
     use dates
     use kronos
     use voltio
+    use msphutils, only : RadIonosphere
     
     implicit none
 
@@ -148,7 +149,8 @@ module voltapp
             !Set first deep coupling (defaulting to 0)
             call xmlInp%Set_Val(vApp%DeepT, "coupling/tDeep", 0.0_rp)
             !Initialize deep coupling type/inner magnetosphere model
-            call InitInnerMag(vApp,gApp%Model%isRestart,xmlInp)
+            !call InitInnerMag(vApp,gApp%Model%isRestart,xmlInp)
+            call InitInnerMag(vApp,gApp,xmlInp)
         endif
 
         if(present(optFilename)) then
@@ -228,7 +230,7 @@ module voltapp
         else
             call init_mix(vApp%remixApp%ion,[NORTH, SOUTH],RunID=RunID,isRestart=isRestart)
         endif
-
+        vApp%remixApp%ion%rad_iono_m = RadIonosphere() * gApp%Model%units%gx0 ! [Rp] * [m/Rp]
         !Set F10.7 from time series (using max)
         f107%wID = vApp%tilt%wID
         call f107%initTS("f10.7")

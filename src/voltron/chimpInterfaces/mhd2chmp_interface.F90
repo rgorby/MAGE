@@ -9,7 +9,7 @@ module mhd2chmp_interface
     use ebtypes
     use chmpunits
     use chmpfields
-
+    use msphutils, only : RadIonosphere
     implicit none
 
     contains
@@ -22,8 +22,8 @@ module mhd2chmp_interface
         real(rp) :: rIon
 
         !Set lowlat BC
-        rIon = (RionE*1.0e+6)/REarth
-
+        !rIon = (RionE*1.0e+6)/REarth
+        rIon = RadIonosphere() ! Grabs RIon in planetary radii
         associate(Gr=>gamApp%Grid)
         !mhd2chmp%Rin = norm2(Gr%xyz(Gr%is+1,Gr%js,Gr%ks,:))
         mhd2chmp%Rin = norm2(Gr%xyz(Gr%is,Gr%js,Gr%ks,:))

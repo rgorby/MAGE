@@ -16,13 +16,19 @@ module rcmimag
     use kronos
     use rcm_mhd_mod, ONLY : rcm_mhd
     use rcm_mhd_io
+    use msphutils, only : MagMoment
+
     use cmiutils, only : SquishCorners
     
     implicit none
 
-    real(rp), parameter :: RIonRCM = (RionE/REarth)*1.0e+6 !Units of Re
+    real(rp) :: RIonRCM !Units of Rp
     real(rp), private :: rEqMin = 0.0
     real(rp), private :: PPDen = 50.0 !Plasmapause density
+    character(len=strLen), private :: h5File
+
+    real(rp), private :: Rp_m
+    real(rp), private :: planetM0g
 
     logical, parameter, private :: doKillRCMDir = .true. !Whether to always kill RCMdir before starting
 
@@ -85,19 +91,28 @@ module rcmimag
     contains
 
     !Initialize RCM inner magnetosphere model
-    subroutine initRCM(imag,iXML,isRestart,vApp)
+    subroutine initRCM(imag,iXML,isRestart,rad_planet_m,rad_iono_m,M0g,vApp)
         class(rcmIMAG_T), intent(inout) :: imag
         type(XML_Input_T), intent(in) :: iXML
         logical, intent(in) :: isRestart
+        real(rp), intent(in) :: rad_planet_m,rad_iono_m, M0g ! Specific planet aprameters
         type(voltApp_T), intent(inout) :: vApp
 
         character(len=strLen) :: RunID
         real(rp) :: t0
 
-        associate(RCMApp => imag%rcmCpl, &
+        associate(RCMApp => imag%rcmCpl, & !type rcm_mhd_T
                   imag2mix => vApp%imag2mix, &
+                  t0 => vApp%time, &
                   dtCpl => vApp%DeepDT)
+        !Set radii in RCMApp
+        RCMApp%planet_radius = rad_planet_m
+        RCMApp%iono_radius = rad_iono_m
+        Rp_m = rad_planet_m ! for local use
+        RIonRCM = rad_iono_m/rad_planet_m
 
+        planetM0g = M0g
+        
         call iXML%Set_Val(RunID,"/gamera/sim/runid","sim")
         RCMApp%rcm_runid = trim(RunID)
 
@@ -113,12 +128,14 @@ module rcmimag
             write(*,*) 'Restarting RCM @ t = ', t0
             vApp%time = t0 !Set vApp's time to correct value from restart
             call rcm_mhd(t0,dtCpl,RCMApp,RCMRESTART,iXML=iXML)
+            doColdstart = .false. ! set to false is it is a restart
         else
             t0 = vApp%time
             call KillRCMDir()
             write(*,*) 'Initializing RCM ...'
             call InitRCMICs(imag,vApp,iXML)
             call rcm_mhd(t0,dtCpl,RCMApp,RCMINIT,iXML=iXML)
+            doColdStart = .true.
         endif
 
         call init_rcm_mix(RCMApp,imag2mix)
@@ -146,7 +163,7 @@ module rcmimag
 
         real(rp) :: t0
         
-        call iXML%Set_Val(RCMICs%doIC,"imag/doInit",.true.)
+        call iXML%Set_Val(RCMICs%doIC,"imag/doInit",.false.)
         t0 = 0.0
         if (RCMICs%doIC) then
             !Want initial dst0
@@ -199,7 +216,7 @@ module rcmimag
         associate(RCMApp => imag%rcmCpl)
 
         !Lazily grabbing rDeep here, convert to RCM units
-        rEqMin = vApp%rDeep*Re_cgs*1.0e-2 !Re=>meters
+        rEqMin = vApp%rDeep*Rp_m !Re=>meters
 
         llBC = vApp%mhd2chmp%lowlatBC
 
@@ -257,9 +274,14 @@ module rcmimag
         call Tic("AdvRCM")
     !Advance from vApp%time to tAdv
         dtAdv = tAdv-vApp%time !RCM-DT
-        call rcm_mhd(vApp%time,dtAdv,RCMApp,RCMADVANCE)
-        !Update timming data
-        call rcm_mhd(vApp%time,0.0_rp,RCMApp,RCMWRITETIMING)
+        if (doColdstart)then
+            write(*,*) 'Cold-starting RCM @ t = ', vApp%time
+            call rcm_mhd(vApp%time,dtAdv,RCMApp,RCMCOLDSTART)
+            doColdstart = .false.
+        else
+            call rcm_mhd(vApp%time,dtAdv,RCMApp,RCMADVANCE)
+        end if
+
         call Toc("AdvRCM")
 
         !Set ingestion region
@@ -279,14 +301,14 @@ module rcmimag
 
     !Find maximum extent of closed field region
         maxRad = maxval(norm2(RCMApp%X_bmin,dim=3),mask=vApp%imag2mix%isClosed)
-        maxRad = maxRad/(Re_cgs*1.0e-2)
+        maxRad = maxRad/Rp_m
         vApp%rTrc = 1.25*maxRad
 
         end associate        
 
         contains
             !Calculate Alfven bounce timescale
-            !D = #/m3, B = T, L = Re
+            !D = #/m3, B = T, L = Rp
             function AlfvenBounce(D,B,L) result(dTb)
                 real(rp), intent(in) :: D,B,L
                 real(rp) :: dTb
@@ -300,7 +322,8 @@ module rcmimag
                 nCC = D*rcmNScl !Get n in #/cc
                 bNT = B*1.0e+9 !Convert B to nT
                 Va = 22.0*bNT/sqrt(nCC) !km/s, from NRL plasma formulary
-                dTb = (L*Re_km)/Va
+                !dTb = (L*Re_km)/Va
+                dTb = (L*Rp_m*1.0e-3)/Va
             end function AlfvenBounce
     end subroutine AdvanceRCM
 
@@ -334,7 +357,7 @@ module rcmimag
                 !Get L,Pmhd,Dmhd (convert back to our units; nPa,#/cc,Re)
                 Pmhd = rcmPScl*RCMApp%Pave(i,j)
                 Dmhd = rcmNScl*RCMApp%Nave(i,j)
-                L    = norm2( RCMApp%X_bmin(i,j,:) )/REarth
+                L    = norm2( RCMApp%X_bmin(i,j,:) )/Rp_m
 
             !Quiet-time ring current
                 P0_rc = P_QTRC(L)
@@ -485,7 +508,7 @@ module rcmimag
             real(rp), intent(in) :: lat,lon
             integer, intent(out) :: ij0(2)
 
-            integer :: iX,jX,iC
+            integer :: iX,jX,iC,n
             real(rp) :: colat,dp,dcol,dI,dJ
 
             associate(gcolat=>imag%rcmCpl%gcolat,glong=>imag%rcmCpl%glong, &
@@ -496,7 +519,17 @@ module rcmimag
 
             !Get colat point
             colat = PI/2 - lat
+!Use findloc w/ intel for speed
+#ifdef __INTEL_COMPILER
             iC = findloc(gcolat >= colat,.true.,dim=1) - 1
+#else 
+!Bypass as findloc does not work for gfortran<9    
+           !Work-around code        
+            do n=1,nLat
+                if (gcolat(n) >= colat) exit
+            enddo
+            iC = n-1
+#endif
             dcol = gcolat(iC+1)-gcolat(iC)
             dI = (colat-gcolat(iC))/dcol
             if (dI <= 0.5) then
@@ -556,11 +589,11 @@ module rcmimag
         call genStream(ebModel,ebState,x0,t,bTrc)
 
     !Get diagnostics from field line
-        !Minimal surface (bEq in Re, bMin in EB)
+        !Minimal surface (bEq in Rp, bMin in EB)
         call FLEq(ebModel,bTrc,bEq,bMin)
         
         bMin = bMin*oBScl*1.0e-9 !EB=>Tesla
-        bEq = bEq*Re_cgs*1.0e-2 !Re=>meters
+        bEq = bEq*Rp_m !Re=>meters
 
         !Plasma quantities
         !dvB = Flux-tube volume (Re/EB)
@@ -616,13 +649,13 @@ module rcmimag
         real(rp) :: L,colat
         real(rp) :: mdipole
 
-        mdipole = EarthM0g*G2T ! dipole moment in T
-
+        !mdipole = EarthM0g*G2T ! dipole moment in T
+        mdipole = ABS(planetM0g)*G2T ! dipole moment in T
         colat = PI/2 - lat
         L = 1.0/(sin(colat)**2.0)
         ijTube%Vol = 32./35.*L**4.0/mdipole
-        ijTube%X_bmin(XDIR) = L*cos(lon)*Re_cgs*1.0e-2 !Re=>meters
-        ijTube%X_bmin(YDIR) = L*sin(lon)*Re_cgs*1.0e-2 !Re=>meters
+        ijTube%X_bmin(XDIR) = L*cos(lon)*Rp_m !Rp=>meters
+        ijTube%X_bmin(YDIR) = L*sin(lon)*Rp_m !Rp=>meters
         ijTube%X_bmin(ZDIR) = 0.0
         ijTube%bmin = mdipole/L**3.0
 
@@ -637,8 +670,6 @@ module rcmimag
         ijTube%latc = -lat
         ijTube%lonc = lon
         ijTube%Lb   = L !Just lazily using L shell
-
-        !ijTube%Nave = psphD(L)*1.0e+6 !#/cc => #/m3
 
     end subroutine DipoleTube
 

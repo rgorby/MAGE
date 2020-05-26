@@ -216,9 +216,9 @@ if __name__ == "__main__":
 				AxL.plot(gsph.xxi[:,j0], gsph.yyi[:,j0],gCol,linewidth=LW,alpha=ashd)
 				AxR.plot(gsph.xxi[:,j0], gsph.yyi[:,j0],gCol,linewidth=LW,alpha=ashd)
 
-			dxy = [32.5,32.5]
-			gsph.CMIViz(AxR,nStp,dxy=dxy,loc="upper left",doNorth=True)
-			gsph.CMIViz(AxR,nStp,dxy=dxy,loc="lower left",doNorth=False)
+		dxy = [32.5,32.5]
+		gsph.CMIViz(AxR,nStp,dxy=dxy,loc="upper left",doNorth=True)
+		gsph.CMIViz(AxR,nStp,dxy=dxy,loc="lower left",doNorth=False)
 
 		fOut = oDir+"/vid.%04d.png"%(npl)
 		kv.savePic(fOut,bLenX=45)

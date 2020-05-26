@@ -10,6 +10,7 @@ program rcmx
     use rcm_mhd_io
     use strings
     use xml_input
+    use rcm_mod_subs, ONLY: vm,bmin,xmin,ymin,zmin,v
 
     implicit none
 
@@ -32,6 +33,7 @@ program rcmx
     real(rprec) :: mhd_time_start
     real(rprec) :: mhd_time_end 
     real(rprec) :: mhd_dt 
+    real(rprec) :: sc,sg
     real(rprec) :: colat_boundary
     real(rprec) :: rcm_boundary_s,rcm_boundary_e
     type(rcm_mhd_T) :: RM
@@ -46,14 +48,19 @@ program rcmx
     RM%rcm_runid = trim(RunID)
 
     call inpXML%Set_Val(mhd_time_start,"time/T0"  ,0.0)
-    call inpXML%Set_Val(mhd_time_end  ,"time/tFin",600.0)
-    call inpXML%Set_Val(mhd_dt,        "time/dt"  ,5.0)
+    call inpXML%Set_Val(mhd_time_end  ,"time/tFin",36000.0)
+    call inpXML%Set_Val(mhd_dt,        "time/dt"  ,500.0)
 
     call inpXML%Set_Val(doRestart,"restart/doRes",.false.)
+
+    !Set planet and ionosphere radius for rid_torcm to use
+    RM%planet_radius = re
+    RM%iono_radius = 6.5e6
     if (doRestart) then
         call RCMRestartInfo(RM,inpXML,mhd_time_start,.true.)
         write(*,*) 'Restarting RCM @ t = ', mhd_time_start
         call rcm_mhd(mhd_time_start,mhd_dt,RM,RCMRESTART,iXML=inpXML)
+        doColdstart = .false.
     else
         ! initialize
         call rcm_mhd(mhd_time_start,mhd_dt,RM,RCMINIT,iXML=inpXML)
@@ -71,6 +78,7 @@ program rcmx
     
     ! now run 
     do mhdtime=mhd_time_start,mhd_time_end-mhd_dt,mhd_dt
+        IF(.not.doRestart)then
         rcmbndy = nint(rcm_boundary_s +&
             (rcm_boundary_e-rcm_boundary_s)*(mhdtime-mhd_time_start)/(mhd_time_end-mhd_time_start),iprec)
         write(*,'(a,g12.4,a,i5)')' At t =',mhdtime,' RCM boundary index =',rcmbndy
@@ -89,11 +97,15 @@ program rcmx
                 RM%beta_average(i,j) = 0.1
                 RM%Pave(i,j) = pmax * exp(-(Lvalue-Lmax)**2) + pmin
                 RM%Nave(i,j) = nmax * exp(-(Lvalue-Lmax)**2) + nmin
+                ! add a potential that goes to zero near the inner boundary 5/20 frt
+                sc = sin(colat_boundary)
+                sg = sin(RM%gcolat(i))
                 if(RM%gcolat(i) < colat_boundary)then
-                    RM%pot(i,j) = -potmax/2.*sin(RM%glong(j))*sin(RM%gcolat(i))
+                    RM%pot(i,j) = -potmax/2.*sin(RM%glong(j))*sg/sc
                 else
-                    RM%pot(i,j) = -potmax/2.*sin(RM%glong(j))*sin(colat_boundary)/sin(RM%gcolat(i))
+                    RM%pot(i,j) = -potmax/2.*sin(RM%glong(j))/sc/(1.-1./sc**2)*(sg-1./sg)
                 end if
+
             end do
         end do
 
@@ -101,8 +113,28 @@ program rcmx
         RM%Vol(1:rcmbndy,:) = -1.0
         RM%iopen(1:rcmbndy,:) = 1 ! declare open
 
-        write(*,'(2(a,g14.4))')' calling rcm_mhd at time: ',mhdtime,' delta t=',mhd_dt
-        call rcm_mhd(mhdtime,mhd_dt,RM,RCMADVANCE)
+        ELSE
+        do i=1,RM%nLat_ion
+            do j=1,RM%nLon_ion
+               RM%Vol(i,j) = 1/abs(vm(i,j))**1.5 * sign(1.0d0,vm(i,j))*1.0e9
+               RM%Bmin(i,j) = bmin(i,j)
+               RM%X_bmin(i,j,1) = xmin(i,j)
+               RM%X_bmin(i,j,2) = ymin(i,j)
+               RM%X_bmin(i,j,3) = zmin(i,j)
+               RM%iopen(i,j) = sign(vm(i,j),1.0d0)
+               RM%pot(i,j) = v(i,j)
+            end do
+        end do
+        END IF ! restart
+
+        if (doColdstart)then
+            write(*,'(2(a,g14.4))')' calling rcm_mhd at time: ',mhdtime,' delta t=',mhd_dt
+            call rcm_mhd(mhdtime,mhd_dt,RM,RCMCOLDSTART)
+            doColdstart = .false.
+        else
+            write(*,'(2(a,g14.4))')' calling rcm_mhd at time: ',mhdtime,' delta t=',mhd_dt
+            call rcm_mhd(mhdtime,mhd_dt,RM,RCMADVANCE)
+        end if
         
         !Commenting out old-style output for now
         !call write_2d(RM,mhdtime+mhd_dt) ! write out results
