@@ -2,7 +2,6 @@
 #Generally dependant on basemap
 
 import numpy as np
-from mpl_toolkits.basemap import Basemap
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 from mpl_toolkits.axes_grid1.inset_locator import InsetPosition
 import matplotlib.pyplot as plt
@@ -47,6 +46,7 @@ gLW = 0.125
 #Adds inset figure to axis using data from fmix
 #dxy = [width%,height%]
 def CMIPic(nLat,nLon,llBC,P,C,AxM=None,doNorth=True,loc="upper left",dxy=[20,20]):
+	from mpl_toolkits.basemap import Basemap
 	if (doNorth):
 		tStr = "North"
 	else:
