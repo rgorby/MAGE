@@ -154,6 +154,7 @@ module rcmimag
                 CALL SYSTEM("rm -rf RCMfiles > /dev/null 2>&1")
                 CALL SYSTEM("mkdir RCMfiles > /dev/null 2>&1")
                 CALL SYSTEM("touch RCMfiles/rcm.printout > /dev/null 2>&1")
+                CALL SYSTEM("touch RCMfiles/rcm.index > /dev/null 2>&1")
             end subroutine ResetRCMDir
             
     end subroutine initRCM
