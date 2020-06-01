@@ -41,6 +41,18 @@ contains
     mixUnitNames(NEUTRAL_WIND) = "cm/s"
     mixVarNames(EFIELD)        = "Electric field"
     mixUnitNames(EFIELD)       = "mV/m" 
+    mixVarNames(IM_EFLUX)      = "IM Energy flux"
+    mixUnitNames(IM_EFLUX)     = "ergs/cm^2 s"
+    mixVarNames(IM_EAVG)       = "IM average energy"
+    mixUnitNames(IM_EAVG)      = "keV" ! add *1e-3 in rcm_mix_interface.F90
+    mixVarNames(IM_IFLUX)      = "IM Energy flux proton"
+    mixUnitNames(IM_IFLUX)     = "ergs/cm^2 s"
+    mixVarNames(IM_IAVG)       = "IM average energy proton"
+    mixUnitNames(IM_IAVG)      = "keV" ! add *1e-3 in rcm_mix_interface.F90
+    mixVarNames(C_EFLUX)       = "Merged Energy flux"
+    mixUnitNames(C_EFLUX)      = "ergs/cm^2 s"
+    mixVarNames(C_EAVG)        = "Merged average energy"
+    mixUnitNames(C_EAVG)       = "keV"
   end subroutine initMIXNames
 
   subroutine initMIXIO(I,RunID,isRestart,nRes)
@@ -141,7 +153,19 @@ contains
           case (AVG_ENG)
              doDump = .true.             
           case (NUM_FLUX)
-             doDump = .true.             
+             doDump = .true.    
+          case (IM_EFLUX)
+             doDump = .true.
+          case (IM_EAVG)
+             doDump = .true.
+          case (IM_IFLUX)
+             doDump = .true.
+          case (IM_IAVG)
+             doDump = .true.
+          case (C_EFLUX)
+             doDump = .true.
+          case (C_EAVG)
+             doDump = .true.         
           case (NEUTRAL_WIND) 
              doDump = .false.
           case (EFIELD)

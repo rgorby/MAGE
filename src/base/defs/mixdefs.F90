@@ -4,9 +4,9 @@ module mixdefs
   use kdefs
   implicit none
 
-  integer, parameter :: nVars = 10 ! change together wiht the enumerator below
+  integer, parameter :: nVars = 16 ! change together wiht the enumerator below
   enum, bind(C)
-     enumerator :: POT=1,FAC,SIGMAP,SIGMAH,SOUND_SPEED,DENSITY,AVG_ENG,NUM_FLUX,NEUTRAL_WIND,EFIELD
+     enumerator :: POT=1,FAC,SIGMAP,SIGMAH,SOUND_SPEED,DENSITY,AVG_ENG,NUM_FLUX,NEUTRAL_WIND,EFIELD,IM_EAVG,IM_EFLUX,IM_IAVG,IM_IFLUX,C_EAVG,C_EFLUX
   end enum
 
   ! enumerator for MHD->MIX variables
@@ -26,6 +26,10 @@ module mixdefs
 
   enum, bind(C)
      enumerator :: AMIE=1,MOEN_BREKKE
+  end enum
+
+  enum, bind(C)
+     enumerator :: FEDDER=1,ZHANG,RCMONO
   end enum
 
   enum, bind(C)

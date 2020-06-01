@@ -163,8 +163,8 @@
       RM%Prcm    = pressrcm(:,jwrap:jsize)
       RM%Nrcm    = densrcm (:,jwrap:jsize)
       RM%Npsph   = denspsph(:,jwrap:jsize)
-      RM%flux    = eflux   (:,jwrap:jsize,ie_el)
-      RM%eng_avg = eavg    (:,jwrap:jsize,ie_el)
+      RM%flux    = eflux   (:,jwrap:jsize,:)
+      RM%eng_avg = eavg    (:,jwrap:jsize,:)
       RM%fac     = birk    (:,jwrap:jsize)
       
       RM%toMHD = .false.
