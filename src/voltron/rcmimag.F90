@@ -119,7 +119,7 @@ module rcmimag
         if (isRestart) then
             if (doKillRCMDir) then
                 !Kill RCMFiles directory even on restart
-                call KillRCMDir()
+                call ResetRCMDir()
             endif
 
             !Get t0 and nRes necessary for RCM restart
@@ -131,7 +131,7 @@ module rcmimag
             doColdstart = .false. ! set to false is it is a restart
         else
             t0 = vApp%time
-            call KillRCMDir()
+            call ResetRCMDir()
             write(*,*) 'Initializing RCM ...'
             call InitRCMICs(imag,vApp,iXML)
             call rcm_mhd(t0,dtCpl,RCMApp,RCMINIT,iXML=iXML)
@@ -149,10 +149,13 @@ module rcmimag
         end associate
 
         contains
-            subroutine KillRCMDir()
-                write(*,*) 'Nuking RCMfiles/ ...'
+            subroutine ResetRCMDir()
+                write(*,*) 'Reset RCMfiles/ ...'
                 CALL SYSTEM("rm -rf RCMfiles > /dev/null 2>&1")
-            end subroutine KillRCMDir
+                CALL SYSTEM("mkdir RCMfiles > /dev/null 2>&1")
+                CALL SYSTEM("touch RCMfiles/rcm.printout > /dev/null 2>&1")
+            end subroutine ResetRCMDir
+            
     end subroutine initRCM
 
     !Setup ICs to pass to RCM if asked to
