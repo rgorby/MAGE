@@ -1238,6 +1238,8 @@ real :: v_1_1, v_1_2, v_2_1, v_2_2
         alamc(:)   = IOVars(1)%data
         ikflavc(:) = IOVars(2)%data
         fudgec(:)  = IOVars(3)%data
+! reset to make sure species if ikflav ==1 alamc is set to negative, for electrons
+        where(ikflavc==1)alamc = -abs(alamc)
 
       END SUBROUTINE Read_plasma_H5
 !
