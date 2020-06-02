@@ -23,9 +23,9 @@ module mixmain
 
       integer :: h
 
-      I%rad_iono_m = RIonE*1.e+6 ! Default to RIonE. To change, overwrite directly after the init_mix call
-
       if (.not.allocated(I)) allocate(I(size(hmsphrs)))
+      
+      I%rad_iono_m = RIonE*1.e+6 ! Default to RIonE. To change, overwrite directly after the init_mix call
 
       do h=1,size(I)
          if(present(optFilename)) then

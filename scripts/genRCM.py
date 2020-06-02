@@ -13,35 +13,35 @@ if __name__ == "__main__":
 	fOut = "rcmconfig.h5"
 
 	MainS = """Generates RCM configuration data
-
 	"""
-	
 	parser = argparse.ArgumentParser(description=MainS, formatter_class=RawTextHelpFormatter)
 	parser.add_argument('-o',type=str,default=fOut,metavar="fOut",help="Output file name (default: %(default)s)")
-        parser.add_argument('--p',metavar='True',choices=('True','False'),help="True if you want the no loss for the first channel")
+	parser.add_argument('-nop',action='store_true',default=False,help="Do not add zero loss first channel (default: %(default)s)")
+	
 	#Finalize parsing
 	args = parser.parse_args()
 	fOut = args.o
-        p = args.p == 'True'
+	nop = args.nop
+	p = (not nop)
+
 	print("Writing RCM configuration to %s"%(fOut))
-        print("NOTE: This version only uses the file enchan.dat")
+	print("NOTE: This version only uses the file enchan.dat")
 
-#	alamc,etac,ikflavc,fudgec = rcminit.LoadLAS1()
 	dktab = rcminit.LoadDKTab()
- 	ikflavc, alamc = rcminit.LoadEnchan()
+	ikflavc, alamc = rcminit.LoadEnchan()
 
-        kdim = ikflavc.size
-        print(' kdim = %d'%kdim)
-        fudgec = np.zeros(kdim)
-        for k in range(kdim):
-         if(ikflavc[k] ==1):
-          fudgec[k] = 0.33333
-         else:
-          fudgec[k] = 0.0
+	kdim = ikflavc.size
+	print(' kdim = %d'%kdim)
+	fudgec = np.zeros(kdim)
+	for k in range(kdim):
+		if(ikflavc[k] ==1):
+			fudgec[k] = 0.33333
+		else:
+			fudgec[k] = 0.0
 
-        if(p):
-         print('Setting first channel to fudge =0')
-         fudgec[0]=0.0
+	if(p):
+		print('Setting first channel to fudge =0')
+		fudgec[0]=0.0
 
 	with h5py.File(fOut,'w') as hf:
 		hf.create_dataset("alamc",data=alamc)
