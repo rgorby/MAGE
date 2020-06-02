@@ -2084,6 +2084,7 @@ real :: v_1_1, v_1_2, v_2_1, v_2_2
           call AddInVar(IOVars,"fclps" ,vTypeO=IOREAL)
           call AddInVar(IOVars,"vdrop" ,vTypeO=IOREAL)
           call AddInVar(IOVars,"kp"    ,vTypeO=IOREAL)
+          call AddInVar(IOVars,"i_avg" ,vTypeO=IOREAL)
 
           !Arrays
           call AddInVar(IOVars,"rcmxmin"  )
@@ -2111,6 +2112,14 @@ real :: v_1_1, v_1_2, v_2_1, v_2_2
 
           call AddInVar(IOVars,"rcmv")
           call AddInVar(IOVars,"rcmvavg")
+
+          call AddInVar(IOVars,"alpha")
+          call AddInVar(IOVars,"aloct")
+          call AddInVar(IOVars,"colat")
+          call AddInVar(IOVars,"beta")
+          call AddInVar(IOVars,"bir")
+          call AddInVar(IOVars,"sini")
+
 
           !Extra stuff (not in write arrays)
           call AddInVar(IOVars,"alamc")
