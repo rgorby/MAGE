@@ -32,7 +32,7 @@
 
 
       INTEGER (iprec), PARAMETER :: imin = 1
-      INTEGER(iprec) :: i, j, jmin
+      INTEGER(iprec) :: i, j
       REAL(rprec) :: start, end, offset
       REAL(rprec) :: glat (isize), teta (isize), phi (jsize)
       real(rprec) :: x,dir

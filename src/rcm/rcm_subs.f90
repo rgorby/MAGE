@@ -1217,28 +1217,6 @@ real :: v_1_1, v_1_2, v_2_1, v_2_2
       END SUBROUTINE Write_grid
 !
 !
-!
-      SUBROUTINE Read_plasma ()
-      INTEGER (iprec) :: n,k
-      CHARACTER (LEN=80) :: form_string
-!
-      OPEN (UNIT = LUN, STATUS = 'OLD', FORM = 'FORMATTED', FILE = rcmdir//'rcmlas1')
-!
-!
-        form_string = '(2(TR2,ES23.15), (TR2,I10.10), (TR2,ES23.15))'
-         READ (LUN,'(TR2,I10.10)') n
-         IF (n /= kcsize) STOP 'problem with rcmlas1, grid-based'
-         READ (LUN,'(A80)') form_string
-         DO k = 1, n
-            READ (LUN, form_string) alamc(k), etac(k), ikflavc(k), fudgec(k)
-         END DO
-!
-      CLOSE (UNIT = LUN)
-!
-      RETURN
-      END SUBROUTINE Read_plasma
-
-      !K: Replacing Read_plasma w/ HDF5 version
       SUBROUTINE Read_plasma_H5
         use ioh5
         use files
@@ -1251,7 +1229,6 @@ real :: v_1_1, v_1_2, v_2_1, v_2_2
         doSP = .false.
         call ClearIO(IOVars) !Reset IO chain
         call AddInVar(IOVars,"alamc")
-        call AddInVar(IOVars,"etac")
         call AddInVar(IOVars,"ikflavc")
         call AddInVar(IOVars,"fudgec")
 
@@ -1259,46 +1236,10 @@ real :: v_1_1, v_1_2, v_2_1, v_2_2
 
         !Store data
         alamc(:)   = IOVars(1)%data
-        etac(:)    = IOVars(2)%data
-        ikflavc(:) = IOVars(3)%data
-        fudgec(:)  = IOVars(4)%data
+        ikflavc(:) = IOVars(2)%data
+        fudgec(:)  = IOVars(3)%data
 
       END SUBROUTINE Read_plasma_H5
-
-!
-!
-!
-      SUBROUTINE Write_plasma ()
-      INTEGER (iprec) :: n,k
-      CHARACTER (LEN=80) :: form_string
-!
-!
-      OPEN (LUN, FILE = rcmdir//'rcmlas1', FORM = 'FORMATTED', STATUS='REPLACE')
-!
-        form_string = '(2(TR2,ES23.15), (TR2,I10.10), (TR2,ES23.15))'
-        WRITE (LUN, '(I5.5)') SIZE (alamc)
-        WRITE (LUN, '(A80)') form_string
-        DO k = 1, SIZE (alamc)
-           WRITE (LUN, form_string) alamc(k), etac(k), ikflavc(k), fudgec(k)
-        END DO
-!
-      CLOSE (LUN)
-!
-      RETURN
-      END SUBROUTINE Write_plasma
-!
-!
-!
-!
-      FUNCTION Get_time_char_string (label) RESULT (time_string)
-      IMPLICIT NONE
-      TYPE (label_def), INTENT (IN) :: label
-      CHARACTER (LEN=8) :: time_string
-      WRITE (time_string,'(I2.2,A1,I2.2,A1,I2.2)') &
-             label%intg(3),':',label%intg(4),':',label%intg(5)
-      RETURN
-      END FUNCTION Get_time_char_string
-!
 !
 !
 !
@@ -1440,112 +1381,6 @@ real :: v_1_1, v_1_2, v_2_1, v_2_2
       END FUNCTION Deriv_j
 !
 !
-    SUBROUTINE Write_real_3d_array_old (filename, rec_num, label, array_3d, setup)
-    IMPLICIT NONE
-    INTEGER (iprec),   INTENT (IN)      :: rec_num
-    REAL (rprec),      INTENT (IN)      :: array_3d (:,:,:)
-    CHARACTER (LEN=*), INTENT (IN)      :: filename
-    TYPE (label_def),  INTENT (IN)      :: label
-    LOGICAL, OPTIONAL, INTENT (IN)      :: setup
-!
-    INTEGER (iprec)   :: length, istat
-    CHARACTER (LEN=7) :: status_char
-    LOGICAL           :: flag
-!
-    INQUIRE (UNIT = LUN, OPENED = flag)
-    IF (flag) THEN
-       STOP 'UNIT ALREADY OPEN'
-    END IF
-    status_char = 'OLD    '
-    IF (PRESENT(setup) ) THEN
-       IF (setup) status_char = 'REPLACE'
-    END IF
-    INQUIRE (IOLENGTH = length ) label, array_3d
-
-    OPEN (UNIT=LUN, FILE = filename, STATUS = status_char, &
-          ACCESS = 'DIRECT',  RECL = length, FORM = 'UNFORMATTED',&
-          IOSTAT = istat, ACTION = 'WRITE')
-    IF (istat /= 0) THEN
-       WRITE (*,*) 'ERROR OPENING FILE: ',filename
-       STOP
-    END IF
-
-    WRITE (UNIT = LUN, REC=rec_num, IOSTAT=istat) label, array_3d
-    IF (istat /= 0) STOP 'ERROR READING FILE'
-
-    CLOSE (UNIT=LUN, IOSTAT = istat)
-    IF (istat /= 0) STOP 'ERROR CLOSING FILE'
-
-    RETURN
-    END SUBROUTINE Write_real_3d_array_old
-!
-    SUBROUTINE Read_real_3d_array_old (filename, rec_num, label, &
-                                   array_3d, error_flag, asci)
-    IMPLICIT NONE
-    INTEGER (iprec),   INTENT (IN)  :: rec_num
-    REAL (rprec),      INTENT (OUT) :: array_3d (:,:,:)
-    CHARACTER (LEN=*), INTENT (IN)  :: filename
-    TYPE (label_def),  INTENT (OUT) :: label
-    LOGICAL, OPTIONAL, INTENT (OUT) :: error_flag
-    LOGICAL, OPTIONAL, INTENT (IN)  ::  asci
-!
-    CHARACTER (LEN=11) :: form_type_char
-    CHARACTER (LEN=80) :: form_string
-    INTEGER (iprec)    :: length, istat
-    LOGICAL            :: flag, asci_format
-!
-!
-    asci_format = .FALSE.
-    IF (PRESENT(asci)) THEN
-       IF (asci) asci_format = .TRUE.
-    END IF
-!
-    INQUIRE (IOLENGTH = length ) label, array_3d
-    IF (PRESENT (error_flag)) error_flag = .FALSE.
-    form_type_char = 'UNFORMATTED'
-    IF (asci_format) THEN
-       length = 20*(2+8)+20*(2+23)+(2+80) + SIZE(array_3d)*(2+23)
-       form_string = '(20(TR2,I8),20(TR2,ES23.15),(TR2,A80),xxxxXXX(TR2,ES23.15))'
-       WRITE (form_string(39:45),'(I7.7)') SIZE(array_3d)
-       form_type_char = 'FORMATTED  '
-    END IF
-!
-    INQUIRE (UNIT = LUN, OPENED = flag)
-    IF (flag) THEN
-       WRITE (*,'(T2,A)') 'UNIT ALREADY OPEN, IN READ_REAL_3D_ARRAY'
-       STOP
-    END IF
-!
-    OPEN (UNIT = LUN, FILE = filename, STATUS = 'OLD', ACCESS = 'DIRECT',&
-          RECL = length, FORM = form_type_char, IOSTAT = istat, ACTION = 'READ')
-    IF (istat /= 0) THEN
-       WRITE (*,*) 'ERROR OPENING FILE: ',filename
-       STOP
-    END IF
-!
-    IF (asci_format) THEN
-       READ (LUN, REC=rec_num, IOSTAT=istat, ERR = 1, FMT = form_string) label, array_3d
-       IF (istat /= 0) GO TO 1
-    ELSE
-       READ (LUN, REC=rec_num, IOSTAT=istat, ERR = 1                   ) label, array_3d
-       IF (istat /= 0) GO TO 1
-    END IF
-    CLOSE (UNIT = LUN)
-    RETURN
- 1  IF (PRESENT (error_flag)) THEN
-       error_flag = .TRUE.
-    ELSE
-       WRITE (*,*) 'ERROR READING, file is: ', filename
-       STOP
-    END IF
-!
-    CLOSE (UNIT=LUN)
-!
-    RETURN
-    END SUBROUTINE Read_real_3d_array_old
-!
-!
-!
 !
       SUBROUTINE Rcm (itimei_in, itimef_in,&
                       idt_in, idt1_in, idt2_in, icontrol,stropt,nslcopt,iXML)
@@ -1634,7 +1469,7 @@ real :: v_1_1, v_1_2, v_2_1, v_2_2
       if (isGAMRCM) then
         CALL Read_plasma_H5()
       else
-        CALL Read_plasma ()
+       STOP ' Wrong read plasma'
       endif
       
       CALL SYSTEM_CLOCK (timer_stop(1), count_rate)      
