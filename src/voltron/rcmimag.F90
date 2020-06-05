@@ -95,7 +95,7 @@ module rcmimag
         class(rcmIMAG_T), intent(inout) :: imag
         type(XML_Input_T), intent(in) :: iXML
         logical, intent(in) :: isRestart
-        real(rp), intent(in) :: rad_planet_m,rad_iono_m, M0g ! Specific planet aprameters
+        real(rp), intent(in) :: rad_planet_m,rad_iono_m, M0g ! Specific planet parameters
         type(voltApp_T), intent(inout) :: vApp
 
         character(len=strLen) :: RunID

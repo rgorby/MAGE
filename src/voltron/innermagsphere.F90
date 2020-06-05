@@ -6,9 +6,11 @@ module innermagsphere
     use ebtypes
     use volttypes
     use gamapp
-    use sstimag
+!    use sstimag
+    use sstLLimag
     use rcmimag
     use msphutils, only : RadIonosphere
+    use rcmXimag
     use cmiutils, only : SquishCorners
     
     implicit none
@@ -34,11 +36,19 @@ module innermagsphere
         case("SST","TS07")
             vApp%imType = IMAGSST
             vApp%prType = LPPROJ !R-phi
-            allocate(eqData_T :: vApp%imagApp)
+            allocate(empData_T :: vApp%imagApp)
+        ! case("SSTLL")  ! on lon-lat grid in the ionosphere -- like RCM
+        !     vApp%imType = IMAGSSTLL
+        !     vApp%prType = LLPROJ !R-phi
+        !     allocate(empData_T :: vApp%imagApp)
         case("RCM")
             vApp%imType = IMAGRCM
             vApp%prType = LLPROJ !Lat-lon
             allocate(rcmIMAG_T :: vApp%imagApp)
+        case("RCMX")
+            vApp%imType = IMAGRCMX
+            vApp%prType = LLPROJ !Lat-lon
+            allocate(rcmXIMAG_T :: vApp%imagApp)
         case DEFAULT
             write(*,*) 'Unkown imType, bailing ...'
             stop

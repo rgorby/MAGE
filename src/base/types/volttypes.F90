@@ -11,7 +11,7 @@ module volttypes
     implicit none
 
     enum, bind(C)
-        enumerator :: IMAGRCM=1,IMAGSST
+        enumerator :: IMAGRCM=1,IMAGRCMX,IMAGSST
     endenum
 
     !Projection types
