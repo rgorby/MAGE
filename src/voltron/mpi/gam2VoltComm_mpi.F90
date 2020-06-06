@@ -244,7 +244,7 @@ module gam2VoltComm_mpi
             if(g2vComm%firstShallowUpdate .or. g2vComm%firstDeepUpdate) then
                 call doSerialDeepUpdate(g2vComm, gApp)
                 call performSerialShallowUpdate(g2vComm, gApp, .true.)
-                g2vComm%firstShallowUpdate = .false.
+                g2vComm%firstDeepUpdate = .false.
                 g2vComm%firstShallowUpdate = .false.
             else
                 ! receive both solutions

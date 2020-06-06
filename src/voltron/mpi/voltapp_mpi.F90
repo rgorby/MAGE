@@ -297,11 +297,11 @@ module voltapp_mpi
                 call Tic("ShallowSend")
                 call sendShallowData_mpi(vApp)
                 call Toc("ShallowSend")
-                call mpi_bcast(time + vApp%ShallowDT, 1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
+                call mpi_bcast(vApp%ShallowT + vApp%ShallowDT, 1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
                 call Tic("DeepSend")
                 call sendDeepData_mpi(vApp)
                 call Toc("DeepSend")
-                call mpi_bcast(time+vApp%DeepDT, 1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
+                call mpi_bcast(vApp%DeepT + vApp%DeepDT, 1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
 
                 ! then receive just deep data
                 call Tic("DeepRecv")
@@ -382,7 +382,7 @@ module voltapp_mpi
         call Toc("ShallowSend")
 
         ! send next time for shallow calculation to all gamera ranks
-        call mpi_bcast(time + vApp%ShallowDT, 1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
+        call mpi_bcast(vApp%ShallowT + vApp%ShallowDT, 1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
 
         if(present(skipUpdateGamera) .and. skipUpdateGamera) then
             ! do nothing here, do not update the incoming gamera data
@@ -527,7 +527,7 @@ module voltapp_mpi
             call Toc("DeepSend")
 
             ! send next time for deep calculation to all gamera ranks
-            call mpi_bcast(time+vApp%DeepDT, 1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
+            call mpi_bcast(vApp%DeepT+vApp%DeepDT, 1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
 
             ! fetch data from Gamera ranks
             call Tic("DeepRecv")
