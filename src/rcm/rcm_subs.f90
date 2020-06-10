@@ -666,6 +666,7 @@
                ! corrections to eavg at eflux(i,j) == 0.0     sbao 07/2019 
                ! == does not work well with real number, use lt threshold instead. ldong 04/2020
                IF (eflux(i,j,ie) .lt. 0.01) eavg(i,j,ie) = 0.0
+               IF (eavg(i,j,ie) .lt. 0.01) eflux(i,j,ie) = 0.0
 
 !                                                                       
             END DO

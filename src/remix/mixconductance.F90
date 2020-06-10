@@ -240,13 +240,7 @@ module mixconductance
       call conductance_auroralmask(conductance,G,signOfY)
 
 !Flag_up
-! conductance%E0 = conductance%alpha*Mp_cgs*heFrac*erg2kev*tmpC**2*conductance%RampFactor
-! conductance%phi0 = sqrt(kev2erg)/(heFrac*Mp_cgs)**1.5D0*conductance%beta*tmpD*sqrt(conductance%E0)*conductance%RampFactor
-      where(St%Vars(:,:,IM_EFLUX)>0.01.and..false.)
-         conductance%E0 = St%Vars(:,:,IM_EAVG)
-      elsewhere
-         conductance%E0 = conductance%alpha*Mp_cgs*heFrac*erg2kev*tmpC**2
-      end where
+      conductance%E0 = conductance%alpha*Mp_cgs*heFrac*erg2kev*tmpC**2
       conductance%phi0 = sqrt(kev2erg)/(heFrac*Mp_cgs)**1.5D0*conductance%beta*sqrt(heFrac*1836.152674)*0.39894228*tmpD*sqrt(conductance%E0)
       ! conductance%phi0 = sqrt(kev2erg)/(heFrac*Mp_cgs)**1.5D0*conductance%beta*tmpD*sqrt(conductance%E0)
       RM = 10.D0
@@ -255,15 +249,19 @@ module mixconductance
       where ( JF0 > 1. )
       ! limit the max potential energy drop to 20 [keV]
          conductance%deltaE = min( 0.5*conductance%E0*(RM - 1.D0)*dlog((RM-1.D0)/(RM-JF0)), 20.D0 )
-         St%Vars(:,:,NUM_FLUX) = JF0*conductance%phi0
+         St%Vars(:,:,Z_NFLUX) = JF0*conductance%phi0
       elsewhere
          conductance%deltaE = 0.
-         St%Vars(:,:,NUM_FLUX) = conductance%phi0*conductance%drift
+         St%Vars(:,:,Z_NFLUX) = conductance%phi0*conductance%drift
       end where
 
       ! floor on total energy
-      St%Vars(:,:,AVG_ENG) = max(2.0*conductance%E0 + conductance%deltaE,1.D-8)
-      St%Vars(:,:,NUM_FLUX) = St%Vars(:,:,NUM_FLUX)!*conductance%AuroraMask
+      St%Vars(:,:,Z_EAVG) = max(2.0*conductance%E0 + conductance%deltaE,1.D-8)
+      St%Vars(:,:,Z_NFLUX) = St%Vars(:,:,Z_NFLUX)!*conductance%AuroraMask
+
+      ! Apply Zhang15 precipitation to main arrays
+      St%Vars(:,:,AVG_ENG)  = St%Vars(:,:,Z_EAVG) ! [keV]
+      St%Vars(:,:,NUM_FLUX) = St%Vars(:,:,Z_NFLUX)
       
     end subroutine conductance_zhang15
 
@@ -274,14 +272,10 @@ module mixconductance
 
       call conductance_zhang15(conductance,G,St)
       ! Precipitation Mask to merge RCM and Zhang15 precipitation.
-      where(conductance%deltaE>0.)
-         conductance%PrecipMask = 1.0
-         St%Vars(:,:,C_EAVG)  = St%Vars(:,:,AVG_ENG) ! [keV]
-         St%Vars(:,:,C_EFLUX) = St%Vars(:,:,NUM_FLUX)*St%Vars(:,:,AVG_ENG)*kev2erg ! [ergs/cm^2/s]
-      elsewhere
-         conductance%PrecipMask = 0.
-         St%Vars(:,:,C_EAVG)  = max(St%Vars(:,:,IM_EAVG),1.D-8) ! [keV]
-         St%Vars(:,:,C_EFLUX) = St%Vars(:,:,IM_EFLUX) ! [ergs/cm^2/s]
+      where(conductance%deltaE<=0.)
+         St%Vars(:,:,AVG_ENG)  = max(St%Vars(:,:,IM_EAVG),1.D-8) ! [keV]
+         St%Vars(:,:,NUM_FLUX) = St%Vars(:,:,IM_EFLUX)/(max(St%Vars(:,:,IM_EAVG),1.D-8)*kev2erg) ! [ergs/cm^2/s]
+         St%Vars(:,:,Z_NFLUX)  = 0.0 ! for diagnostic purposes since full Z15 does not currently work.
       end where
 !    print '(a30,e15.7,e15.7,a25,e15.7,e15.7)', 'IM_EAVG min/max: ', minval(St%Vars(:,:,IM_EAVG)), maxval(St%Vars(:,:,IM_EAVG)), 'IM_EFLUX min/max: ', minval(St%Vars(:,:,IM_EFLUX)), maxval(St%Vars(:,:,IM_EFLUX))
 !    print '(a30,e15.7,e15.7,a25,e15.7,e15.7)', 'AVG_ENG min/max: ',minval(St%Vars(:,:,AVG_ENG)),maxval(St%Vars(:,:,AVG_ENG)), 'NUM_FLUX min/max: ',minval(St%Vars(:,:,NUM_FLUX)),maxval(St%Vars(:,:,NUM_FLUX))
@@ -294,22 +288,10 @@ module mixconductance
       type(mixGrid_T), intent(in) :: G
       type(mixState_T), intent(inout) :: St
 
-      ! note, this assumes that fedder95 or zhang15 has been called prior
-      select case ( conductance%aurora_model_type )
-         case (FEDDER:ZHANG)
-            conductance%engFlux = kev2erg*St%Vars(:,:,AVG_ENG)*St%Vars(:,:,NUM_FLUX)  ! Energy flux in ergs/cm^2/s
-            conductance%deltaSigmaP = 40.D0*St%Vars(:,:,AVG_ENG)*sqrt(conductance%engFlux)/(16.D0+St%Vars(:,:,AVG_ENG)**2);
-            conductance%deltaSigmaH = 0.45D0*conductance%deltaSigmaP*St%Vars(:,:,AVG_ENG)**0.85D0/(1.D0+0.0025D0*St%Vars(:,:,AVG_ENG)**2)
-         case (RCMONO)
-      ! Average Energy from Fedder95 or Zhang15 is in keV. Number flux is in #/cm^2/s. Need kev2erg to convert avg_eng*numflux to ergs/cm^2/s. 
-      ! EnFlux from RCM, i.e., IM_EFLUX is already in ergs/cm^2/s. Average Energy from RCM, i.e., IM_EAVG is also in kev (converted in rcm_mix_interface.F90).
-            conductance%engFlux = St%Vars(:,:,C_EFLUX)
-            conductance%avgEng  = St%Vars(:,:,C_EAVG)
-            conductance%deltaSigmaP = 40.D0*conductance%avgEng*sqrt(conductance%engFlux)/(16.D0+(conductance%avgEng)**2);
-            conductance%deltaSigmaH = 0.45D0*conductance%deltaSigmaP*conductance%avgEng**0.85D0/(1.D0+0.0025D0*conductance%avgEng**2)
-         case default
-            stop "The EUV model type entered is not supported."
-      end select
+      ! note, this assumes that fedder has been called prior
+      conductance%engFlux = kev2erg*St%Vars(:,:,AVG_ENG)*St%Vars(:,:,NUM_FLUX)  ! Energy flux in ergs/cm^2/s
+      conductance%deltaSigmaP = 40.D0*St%Vars(:,:,AVG_ENG)*sqrt(conductance%engFlux)/(16.D0+St%Vars(:,:,AVG_ENG)**2);
+      conductance%deltaSigmaH = 0.45D0*conductance%deltaSigmaP*St%Vars(:,:,AVG_ENG)**0.85D0/(1.D0+0.0025D0*St%Vars(:,:,AVG_ENG)**2)
 
       ! correct for multiple reflections if you're so inclined
       if (conductance%doMR) call conductance_mr(conductance,St)
