@@ -373,7 +373,7 @@ module rcmimag
                 N0_ps = RCMICs%dPS
                 P0_ps = DkT2P(N0_ps,RCMICs%kTPS)
 
-                if ( (L>LPk) .and. (P0_ps>P0_rc) ) then
+                if ( P0_ps>P0_rc ) then
                     !Use PS values
                     P = P0_ps
                     N = N0_ps
