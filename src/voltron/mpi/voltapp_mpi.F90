@@ -23,28 +23,33 @@ module voltapp_mpi
         ! list of gamera ranks to communicate with
         integer, dimension(:), allocatable :: sendRanks, recvRanks
 
-        ! Shallow Gas Data Receive Variables
+        ! STEP VOLTRON VARIABLES
+        integer :: timeReq=MPI_REQUEST_NULL, timeStepReq=MPI_REQUEST_NULL
+
+        ! SHALLOW COUPLING VARIABLES
         integer, dimension(:), allocatable :: recvCountsGasShallow, recvTypesGasShallow
         integer(MPI_ADDRESS_KIND), dimension(:), allocatable :: recvDisplsGasShallow
-        ! Shallow Magnetic Field Data Receive Variables
         integer, dimension(:), allocatable :: recvCountsBxyzShallow, recvTypesBxyzShallow
         integer(MPI_ADDRESS_KIND), dimension(:), allocatable :: recvDisplsBxyzShallow
-        ! Shallow inEijk Data Send Variables
         integer, dimension(:), allocatable :: sendCountsIneijkShallow, sendTypesIneijkShallow
         integer(MPI_ADDRESS_KIND), dimension(:), allocatable :: sendDisplsIneijkShallow
-        ! Shallow inExyz Data Send Variables
         integer, dimension(:), allocatable :: sendCountsInexyzShallow, sendTypesInexyzShallow
         integer(MPI_ADDRESS_KIND), dimension(:), allocatable :: sendDisplsInexyzShallow
+        integer :: sendSIneijkReq=MPI_REQUEST_NULL, sendSInexyzReq=MPI_REQUEST_NULL
+        integer :: recvSGasReq=MPI_REQUEST_NULL, recvSBxyzReq=MPI_REQUEST_NULL
+        integer :: sendSTReq=MPI_REQUEST_NULL
 
-        ! Deep Gas Data Receive Variables
+        ! DEEP COUPLING VARIABLES
         integer, dimension(:), allocatable :: recvCountsGasDeep, recvTypesGasDeep
         integer(MPI_ADDRESS_KIND), dimension(:), allocatable :: recvDisplsGasDeep
-        ! Deep Magnetic Field Data Receive Variables
         integer, dimension(:), allocatable :: recvCountsBxyzDeep, recvTypesBxyzDeep
         integer(MPI_ADDRESS_KIND), dimension(:), allocatable :: recvDisplsBxyzDeep
-        ! Deep Gas0 Data Send Variables
         integer, dimension(:), allocatable :: sendCountsGas0Deep, sendTypesGas0Deep
         integer(MPI_ADDRESS_KIND), dimension(:), allocatable :: sendDisplsGas0Deep
+        logical :: deepProcessingInProgress = .false.
+        integer :: sendDGas0Req=MPI_REQUEST_NULL
+        integer :: recvDGasReq=MPI_REQUEST_NULL, recvDBxyzReq=MPI_REQUEST_NULL
+        integer :: sendDTReq=MPI_REQUEST_NULL
 
     end type voltAppMpi_T
 
@@ -249,6 +254,15 @@ module voltapp_mpi
 
     end subroutine initVoltron_mpi
 
+    function gameraStepReady(vApp)
+        type(voltAppMpi_T), intent(in) :: vApp
+        logical :: gameraStepReady
+
+        integer :: ierr
+        call MPI_REQUEST_GET_STATUS(vApp%timeReq,gameraStepReady,MPI_STATUS_IGNORE,ierr)
+
+    end function gameraStepReady
+
     ! MPI version of updating voltron variables
     subroutine stepVoltron_mpi(vApp)
         type(voltAppMpi_T), intent(inout) :: vApp
@@ -257,8 +271,11 @@ module voltapp_mpi
         integer :: g_ts, ierr
 
         ! get gApp%Model%t,ts from gamera. All ranks have the same, just receive from one of them
-        call mpi_recv(g_t, 1, MPI_MYFLOAT, MPI_ANY_SOURCE, 97600, vApp%voltMpiComm, MPI_STATUS_IGNORE, ierr)
-        call mpi_recv(g_ts, 1, MPI_INT, MPI_ANY_SOURCE, 97700, vApp%voltMpiComm, MPI_STATUS_IGNORE, ierr)
+        call mpi_wait(vApp%timeReq, MPI_STATUS_IGNORE, ierr)
+        call mpi_Irecv(g_t, 1, MPI_MYFLOAT, MPI_ANY_SOURCE, 97600, vApp%voltMpiComm, MPI_STATUS_IGNORE, vApp%timeReq, ierr)
+
+        call mpi_wait(vApp%timeStepReq, MPI_STATUS_IGNORE, ierr)
+        call mpi_Irecv(g_ts, 1, MPI_INT, MPI_ANY_SOURCE, 97700, vApp%voltMpiComm, MPI_STATUS_IGNORE, vApp%timeStepReq, ierr)
 
         vApp%gAppLocal%Model%t = g_t
         vApp%gAppLocal%Model%ts = g_ts
@@ -454,6 +471,15 @@ module voltapp_mpi
 
 !----------
 !Deep coupling stuff (time coming from vApp%time, so in seconds)
+
+    function deepInProgress(vApp)
+        type(voltAppMpi_T), intent(in) :: vApp
+        logical :: deepInProgress
+
+        deepInProgress = vApp%deepProcessingInProgress
+
+    end function deepInProgress
+
     subroutine DeepUpdate_mpi(vApp, time)
         type(voltAppMpi_T), intent(inout) :: vApp
         real(rp), intent(in) :: time

@@ -172,46 +172,55 @@ program voltron_mpix
             !Start root timer
             call Tic("Omega")
 
-            !Do any updates to Voltron
-            call Tic("StepVoltronAndWait")
-            call stepVoltron_mpi(vApp)
-            call Toc("StepVoltronAndWait")
+            !If coupling from Gamera is ready
+            if(vApp%gameraStepReady()) then
+                !Do any updates to Voltron
+                call Tic("StepVoltronAndWait")
+                call stepVoltron_mpi(vApp)
+                call Toc("StepVoltronAndWait")
 
-            !Coupling
-            if(vApp%doDeep .and. vApp%time >= vApp%DeepT .and. vApp%time >= vApp%ShallowT) then ! both
-                call Tic("Coupling")
-                call shallowAndDeepUpdate_Mpi(vApp, vApp%time)
-                call Toc("Coupling")
-            elseif (vApp%time >= vApp%DeepT .and. vApp%doDeep ) then
-                call Tic("Coupling")
-                call DeepUpdate_mpi(vApp, vApp%time)
-                call Toc("Coupling")
-            elseif (vApp%time >= vApp%ShallowT) then
-                call Tic("Coupling")
-                call ShallowUpdate_mpi(vApp, vApp%time)
-                call Toc("Coupling")
-            endif
-
-            !IO checks
-            call Tic("IO")
-            !Console output
-            if (vApp%IO%doConsole(vApp%ts)) then
-                call consoleOutputVOnly(vApp,vApp%gAppLocal,vApp%gAppLocal%Model%MJD0)
-                if (vApp%IO%doTimerOut) then
-                    call printClocks()
+                !Coupling
+                if(vApp%doDeep .and. vApp%time >= vApp%DeepT .and. vApp%time >= vApp%ShallowT) then ! both
+                    call Tic("Coupling")
+                    call shallowAndDeepUpdate_Mpi(vApp, vApp%time)
+                    call Toc("Coupling")
+                elseif (vApp%time >= vApp%DeepT .and. vApp%doDeep ) then
+                    call Tic("Coupling")
+                    call DeepUpdate_mpi(vApp, vApp%time)
+                    call Toc("Coupling")
+                elseif (vApp%time >= vApp%ShallowT) then
+                    call Tic("Coupling")
+                    call ShallowUpdate_mpi(vApp, vApp%time)
+                    call Toc("Coupling")
                 endif
-                call cleanClocks()
-            endif
-            !Restart output
-            if (vApp%IO%doRestart(vApp%time)) then
-                call resOutputVOnly(vApp)
-            endif
-            !Data output
-            if (vApp%IO%doOutput(vApp%time)) then
-                call fOutputVOnly(vApp,vApp%gAppLocal)
-            endif
 
-            call Toc("IO")
+                !IO checks
+                call Tic("IO")
+                !Console output
+                if (vApp%IO%doConsole(vApp%ts)) then
+                    call consoleOutputVOnly(vApp,vApp%gAppLocal,vApp%gAppLocal%Model%MJD0)
+                    if (vApp%IO%doTimerOut) then
+                        call printClocks()
+                    endif
+                    call cleanClocks()
+                endif
+                !Restart output
+                if (vApp%IO%doRestart(vApp%time)) then
+                    call resOutputVOnly(vApp)
+                endif
+                !Data output
+                if (vApp%IO%doOutput(vApp%time)) then
+                    call fOutputVOnly(vApp,vApp%gAppLocal)
+                endif
+
+                call Toc("IO")
+
+            else
+                ! If we did not couple, check for deep work to be done
+                if(vApp%deepInProgress()) then
+                    call vApp%doDeepBlock()
+                endif
+            endif
 
             call Toc("Omega")
 
