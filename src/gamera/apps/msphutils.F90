@@ -192,6 +192,8 @@ module msphutils
         Model%gamOut%pID = 'nPa'
         Model%gamOut%bID = 'nT'
 
+        !Reinterpret pressure floor as nPa
+        pFloor = pFloor/gP0
     end subroutine
 
     subroutine magsphereTime(T,tStr)
