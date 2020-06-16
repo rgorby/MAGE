@@ -31,6 +31,7 @@ module rcmimag
     real(rp), private :: planetM0g
 
     logical, parameter, private :: doKillRCMDir = .true. !Whether to always kill RCMdir before starting
+    logical, parameter, private :: doWolfLim = .true.
 
     !Information taken from MHD flux tubes
     !TODO: Figure out RCM boundaries
@@ -457,7 +458,7 @@ module rcmimag
         real(rp), intent(out) :: imW(NVARIMAG)
         logical, intent(out) :: isEdible
 
-        real(rp) :: colat,nrcm,prcm,npp,ntot
+        real(rp) :: colat,nrcm,prcm,npp,ntot,pScl,beta
         integer, dimension(2) :: ij0
 
         associate(RCMApp => imag%rcmCpl, lat => x1, lon => x2)
@@ -487,7 +488,14 @@ module rcmimag
         prcm = rcmPScl*RCMApp%Prcm (ij0(1),ij0(2))
         nrcm = rcmNScl*RCMApp%Nrcm (ij0(1),ij0(2))
         npp  = rcmNScl*RCMApp%Npsph(ij0(1),ij0(2))
+        beta =  RCMApp%beta_average(ij0(1),ij0(2))
 
+        if (doWolfLim) then
+            pScl = 1.0/(1.0+beta*5.0/6.0)
+        else
+            pScl = 1.0
+        endif
+        
         ntot = 0.0
         !Decide which densities to include
         if (npp >= PPDen) then
@@ -499,7 +507,7 @@ module rcmimag
 
         !Store data
         imW(IMDEN)  = ntot
-        imW(IMPR)   = prcm
+        imW(IMPR)   = prcm*pScl
         imW(IMTSCL) = RCMApp%Tb(ij0(1),ij0(2))
         imW(IMX1)   = (180.0/PI)*lat
         imW(IMX2)   = (180.0/PI)*lon

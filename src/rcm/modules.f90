@@ -47,9 +47,10 @@ MODULE rice_housekeeping_module
 
     type RCMEllipse_T
         !Ellipse parameters
-        real(rprec) :: xSun=7.5,xTail=-15.0,yDD=10.0
-        logical  :: isDynamic=.false. !Whether to update parameters
-        real(rprec) :: dRadMHD = 2.0
+        real(rprec) :: xSun=10.0,xTail=-10.0,yDD=10.0
+        logical  :: isDynamic=.true. !Whether to update parameters
+        real(rprec) :: dRadMHD = 0.5
+        
     end type RCMEllipse_T
     type(RCMEllipse_T) :: ellBdry
 
@@ -115,9 +116,9 @@ MODULE rice_housekeeping_module
         call xmlInp%Set_Val(LowLatBD ,"grid/LowLat",15.0_rprec)
 
         !Ellipse parameters
-        call xmlInp%Set_Val(ellBdry%xSun ,"ellipse/xSun" ,7.5_rprec)
-        call xmlInp%Set_Val(ellBdry%xTail,"ellipse/xTail",-15.0_rprec)
-        call xmlInp%Set_Val(ellBdry%yDD  ,"ellipse/yDD"  ,10.0_rprec)
+        call xmlInp%Set_Val(ellBdry%xSun ,"ellipse/xSun" ,ellBdry%xSun )
+        call xmlInp%Set_Val(ellBdry%xTail,"ellipse/xTail",ellBdry%xTail)
+        call xmlInp%Set_Val(ellBdry%yDD  ,"ellipse/yDD"  ,ellBdry%yDD  )
         call xmlInp%Set_Val(ellBdry%isDynamic,"ellipse/isDynamic"  ,.true.)
 
         call xmlInp%Set_Val(ellBdry%dRadMHD ,"ellipse/dRadMHD" ,ellBdry%dRadMHD)
