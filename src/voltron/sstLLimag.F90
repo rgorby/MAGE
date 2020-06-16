@@ -77,6 +77,8 @@ module sstLLimag
         allocate(imag%empW1(1:imag%Np,1:imag%Nt,NVARIMAG))
         allocate(imag%empW2(1:imag%Np,1:imag%Nt,NVARIMAG))
 
+        allocate(imag%sstP(1:imag%Np,1:imag%Nt))        
+
     !Read grid
         call ClearIO(IOVars)
         call AddInVar(IOVars,"X")
@@ -91,9 +93,11 @@ module sstLLimag
         imag%Y = reshape(IOVars(2)%data,dims)
 
     !Initialize data
-        n1 = 1
-        n2 = 2
-        if (imag%doStatic) n2 = 1
+        ! this returns n1=1, n2=2 for t0<=0
+        ! if imag%doStatic, it returns n1=n2=1
+
+        ! TODO: can we just do AdvanceSST(imag,vApp,vApp%time) here? 
+        call findSlc(imag%ebTab,vApp%time,n1,n2)
 
         call rdEmpMap(imag,n1,imag%empW1)
         imag%empN1 = n1
@@ -102,6 +106,12 @@ module sstLLimag
         call rdEmpMap(imag,n2,imag%empW2)
         imag%empN2 = n2
         imag%empT2 = imag%ebTab%times(n2)
+
+    ! init pressure, set to 1 nPa arbitrarily
+        imag%sstP = 1.  ! doesn't matter
+
+        ! start with the first time slice
+        call EvalSST(imag,imag%empT1)
 
         ! initialize the remix-style grid to interpolate to RCM
         ! note, -1 in both dimensions 
@@ -142,37 +152,35 @@ module sstLLimag
 
         call EvalSST(imag,tAdv)
 
-        contains
-        ! interpolate sst values to corners for representation on the remix-style grid and interpolation to rcm
-
-        subroutine EvalSST(empData,t)  
-            type(empData_T), intent(inout) :: empData
-            real(rp) :: t,w1,w2
-            real(rp), dimension(:,:), allocatable :: P
-
-            ! first interpolate in time
-            ! call tWeights(empData,t,w1,w2)
-            P = w1*empData%empW1(:,:,1) + w2*empData%empW2(:,:,1)
-
-            ! now interpolate in space (cell-centers to corners)
-            ! P is dynamically allocated above (Fortran 2003 standard) to (Np,Nt) size
-
-            associate(Np=>empData%Np, Nt=>empData%Nt)
-
-            empData%sstP(2:Np,2:Nt) = 0.25*( P(2:Np,1:Nt-1)+P(2:Np,2:Nt)+P(1:Np-1,1:Nt-1)+P(1:Np-1,2:Nt) )
-            
-            ! fix periodic
-            empData%sstP(1,2:Nt) = 0.25*( P(Np,1:Nt-1)+P(Np,2:Nt)+P(1,1:Nt-1)+P(1,2:Nt) )
-
-            ! fix pole
-            empData%sstP(:,1) = empData%sstP(:,2)
-
-            ! now sstP has the size (1:Np,1:Nt)
-            end associate
-
-        end subroutine EvalSST
-
     end subroutine AdvanceSST
+
+    ! interpolate sst values to corners for representation on the remix-style grid and interpolation to rcm
+
+    subroutine EvalSST(empData,t)  
+        type(empData_T), intent(inout) :: empData
+        real(rp) :: t,w1,w2
+        real(rp), dimension(:,:), allocatable :: P
+
+        ! first interpolate in time
+        call tWeights(empData,t,w1,w2)
+        P = w1*empData%empW1(:,:,1) + w2*empData%empW2(:,:,1)
+
+        ! now interpolate in space (cell-centers to corners)
+        ! P is dynamically allocated above (Fortran 2003 standard) to (Np,Nt) size
+
+        associate(Np=>empData%Np, Nt=>empData%Nt)
+        empData%sstP(2:Np,2:Nt) = 0.25*( P(2:Np,1:Nt-1)+P(2:Np,2:Nt)+P(1:Np-1,1:Nt-1)+P(1:Np-1,2:Nt) )
+            
+        ! fix periodic
+        empData%sstP(1,2:Nt) = 0.25*( P(Np,1:Nt-1)+P(Np,2:Nt)+P(1,1:Nt-1)+P(1,2:Nt) )
+
+        ! fix pole
+        empData%sstP(:,1) = empData%sstP(:,2)
+
+        ! now sstP has the size (1:Np,1:Nt)
+        end associate
+
+    end subroutine EvalSST    
 
     subroutine rdEmpMap(empData,n,W)
         type(empData_T), intent(inout) :: empData
@@ -311,11 +319,11 @@ module sstLLimag
         endif
 
         if (t > empData%empT2) then
-            w1 = 1.0
-            w2 = 0.0
-        else if (t < empData%empT1) then
             w1 = 0.0
             w2 = 1.0
+        else if (t < empData%empT1) then
+            w1 = 1.0
+            w2 = 0.0
         else
             dt = empData%empT2-empData%empT1
             if (dt>TINY) then
