@@ -52,10 +52,6 @@ module msphutils
     real(rp), private :: Psi0 = 0.0 ! corotation potential coef
     real(rp), private :: M0   = 0.0 !Magnetic moment
 
-    !Ingestion
-    logical, private :: doWolfLim  = .true.
-    logical, private :: doIngestDT = .false.
-
     contains
 
     !Set magnetosphere parameters
@@ -196,11 +192,8 @@ module msphutils
         Model%gamOut%pID = 'nPa'
         Model%gamOut%bID = 'nT'
 
-        if (Model%doSource) then
-            call xmlInp%Set_Val(doWolfLim ,"source/doWolfLim" ,doWolfLim)
-            call xmlInp%Set_Val(doIngestDT,"source/doIngestDT",doIngestDT)
-        endif
-
+        !Reinterpret pressure floor as nPa
+        pFloor = pFloor/gP0
     end subroutine
 
     subroutine magsphereTime(T,tStr)
@@ -626,12 +619,6 @@ module msphutils
 
                     !Get timescale, taking directly from Gas0
                     Tau = Gr%Gas0(i,j,k,IMTSCL,BLK)
-                    if (doIngestDT) then
-                        !Scale tau, wIMag = [0,1] (less to more inner magnetospheric)
-                        wIMag = IMagWgt(Model,pW,Bxyz)
-                        wIMag = max(wIMag,TINY) !Avoid div by 0
-                        Tau = Tau/wIMag
-                    endif
                                         
                     if (Tau<Model%dt) Tau = Model%dt !Unlikely to happen
 
@@ -642,11 +629,14 @@ module msphutils
 
                     if (doInP) then
                         Prcm = Gr%Gas0(i,j,k,IMPR,BLK)
-                        if (doWolfLim) then
-                            PLim = Prcm/(1.0+beta*5.0/6.0)
-                        else
-                            PLim = Prcm
-                        endif
+                        !Assume already wolf-limited or not
+                        PLim = Prcm
+
+                        ! if (doWolfLim) then
+                        !     PLim = Prcm/(1.0+beta*5.0/6.0)
+                        ! else
+                        !     PLim = Prcm
+                        ! endif
 
                         if (Pmhd <= PLim) then
                             dP = PLim - Pmhd
@@ -655,28 +645,6 @@ module msphutils
                         else
                             dP = 0.0
                         endif
-                        
-                        ! !if (Prcm*Model%Units%gP0 > 25.0) then
-                        ! if ( (i==6) .and. (j==41) .and. (k==41) ) then
-                        ! !if (Prcm > TINY) then
-                        !     !$OMP CRITICAL
-                        !     write(*,*) '---'
-                        !     write(*,*) 'ijk = ', i,j,k
-                        !     write(*,*) 'Den = ', pW(DEN)
-                        !     !write(*,*) 'pScl = ', Model%Units%gP0
-                        !     write(*,*) 'Pmhd = ', Pmhd*Model%Units%gP0
-                        !     write(*,*) 'Plim / Prcm = ', PLim*Model%Units%gP0, Prcm*Model%Units%gP0
-                        !     !!write(*,*) 'dP = ', dP*Model%Units%gP0
-                        !     write(*,*) 'DelP = ', (Model%dt/Tau)*dP*Model%Units%gP0
-                        !     !write(*,*) 'Beta, Scl = ', beta, 1.0/(1.0+beta*5.0/6.0)
-                        !     !write(*,*) 'Pb / Bxyz = ', Pb, Bxyz
-
-                        !     !write(*,*) 'dt / tau = ', Model%dt*Model%Units%gT0,Tau*Model%Units%gT0
-                        !     write(*,*) 'Pmhd-Update = ', (pW(PRESSURE) + (Model%dt/Tau)*dP)*Model%Units%gP0
-                            
-                        !     write(*,*) '---'
-                        !     !$OMP END CRITICAL
-                        ! endif
                         
                         pW(PRESSURE) = pW(PRESSURE) + (Model%dt/Tau)*dP
                     endif

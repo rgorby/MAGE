@@ -97,7 +97,9 @@ module rcmXimag
         ! replace RCM pressure for now but think about merging like this later
         !rcmX%Pressure = w1(x,y)*rcm%Pressure + w2(x,y)*sst%Pressure
 
-        imag%rcmApp%rcmCpl%Prcm = transpose(empPressureOnRCMGrid)
+        ! note, converting sst pressure (nPa) to rcm (Pa)
+        ! doEval below converts back to nPa
+        imag%rcmApp%rcmCpl%Prcm = 1.0e-9*transpose(empPressureOnRCMGrid)
 
     end subroutine advanceRCMX
 

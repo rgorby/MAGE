@@ -157,6 +157,11 @@ module voltapp
              
             !Set first deep coupling (defaulting to 0)
             call xmlInp%Set_Val(vApp%DeepT, "coupling/tDeep", 0.0_rp)
+
+            ! correct tDeep on restart for the serial version
+            ! mpi version corrects on its own in voltapp_mpi
+            if(.not. vApp%isSeparate .and. vApp%time > vApp%DeepT) vApp%DeepT = vApp%time
+
             !Initialize deep coupling type/inner magnetosphere model
             !call InitInnerMag(vApp,gApp%Model%isRestart,xmlInp)
             call InitInnerMag(vApp,gApp,xmlInp)

@@ -126,9 +126,12 @@ character(ANSILEN), parameter :: &
 
         character(len=strLen) :: fId,fHd
 
-        if(present(useOldStyle) .and. useOldStyle) then
-            fName = genName_old(caseName,Ri,Rj,Rk,i,j,k)
-            return
+        ! need to split this into two if statements to ensure ordering
+        if(present(useOldStyle)) then
+            if(useOldStyle) then
+                fName = genName_old(caseName,Ri,Rj,Rk,i,j,k)
+                return
+            endif
         endif
 
         fId = genRunId(caseName,Ri,Rj,Rk,i,j,k)
