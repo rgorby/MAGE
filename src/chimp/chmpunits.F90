@@ -130,7 +130,7 @@ module chmpunits
             !Field: 100 nT
             !Gamera units for heliosphere runs
             L0 = 6.955e+10 !Rs in cm 
-            in2cms = 1.0e-3/sqrt(4*pi*200*Mp_cgs) !150e+5 cm/s
+            in2cms = 1.0e-3/sqrt(4*PI*200*Mp_cgs) !150e+5 cm/s
             in2G   = 1.0e-3 !in [G]
             in2s   = L0/in2cms ! time in s 
             M0g = 0.0 
