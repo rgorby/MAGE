@@ -551,7 +551,7 @@ module gridloc
 
         helioC(IDIR) = sqrt(zs**2.0 + rxy**2.0)
         !Calculate theta
-        helioC(JDIR) = acos(zs,sqrt(zs**2.0 + rxy**2.0)) 
+        helioC(JDIR) = acos(zs/sqrt(zs**2.0 + rxy**2.0)) 
 
         !Calculate phi
         phi = atan2(xyz(YDIR),xyz(XDIR))
