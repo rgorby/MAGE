@@ -342,6 +342,7 @@ module gridloc
         integer, intent(in), optional :: ijkO(NDIM)
 
 
+        logical :: isIn
         real(rp) :: helioC(NDIM)
         !For evenly spaced grid in three dimensions
         real(rp) :: dphi,dtheta,dr
@@ -350,9 +351,19 @@ module gridloc
         !E: Add localization routine here
         ijk = 0
         isInO = .false.
+  
+        !Always check is in first
+        isIn = inDomain(xyz,Model,ebGr)
+        if (present(isInO)) isInO = isIn
+
+        if (.not. isIn) then
+            return
+        endif
 
         !Calculate helioCoords
         helioC = helioCoords(xyz)
+
+        
 
         !Even spacing in k
         dphi = 2*PI/ebGr%Nkp
@@ -362,16 +373,18 @@ module gridloc
         !dr = r2-r1 for even spacing in r
         dr = norm2(ebGr%xyz(ebGr%is+1,ebGr%js,ebGr%ks,:)) - norm2(ebGr%xyz(ebGr%is,ebGr%js,ebGr%ks,:))
 
+        !write(*,*) 'dr, dtheta, dphi', dr, dtheta, dphi
+ 
         ! pick the closest one
         i0 = min(floor(helioC(IDIR)/dr)+1,ebGr%Nip) !Evenly spaced i
         j0 = min(floor(helioC(JDIR)/dtheta)+1,ebGr%Njp) !Evenly spaced j
-        k0 = min(floor(helioC(KDIR)/dPhi) +1,ebGr%Nkp) !Evenly spaced k
+        k0 = min(floor(helioC(KDIR)/dphi) +1,ebGr%Nkp) !Evenly spaced k
 
         ijk(IDIR) = i0
         ijk(JDIR) = j0
         ijk(KDIR) = k0
         
-        write(*,*) 'Mapped xyz -> ijk ', xyz,ijk
+        !write(*,*) 'Mapped xyz -> ijk ', xyz, ijk
 
     end subroutine Loc_SPH
 !---------------------------------------
