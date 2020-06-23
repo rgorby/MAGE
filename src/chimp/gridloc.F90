@@ -345,7 +345,7 @@ module gridloc
         logical :: isIn
         real(rp) :: helioC(NDIM)
         !For evenly spaced grid in three dimensions
-        real(rp) :: dphi,dtheta,dr
+        real(rp) :: dphi,dtheta,dr, thetaMin, rMin
         integer :: i0,j0,k0
 
         !E: Add localization routine here
@@ -371,8 +371,8 @@ module gridloc
         !dr = r2-r1 for even spacing in r
         dr = norm2(ebGr%xyz(ebGr%is+1,ebGr%js,ebGr%ks,:)) - norm2(ebGr%xyz(ebGr%is,ebGr%js,ebGr%ks,:))
         
-        thetaMin = acos(ebGr%xyz(ebGr%is,ebGr%js,ebGr%ks,ZDIR)/norm2(ebGr%xyz(ebGr%is,ebGr%js,ebGr%ks,:))) - dtheta/2
-        rMin = norm2(ebGr%xyz(ebGr%is,ebGr%js,ebGr%ks,:)) - dr/2
+        thetaMin = acos(ebGr%xyz(ebGr%is,ebGr%js,ebGr%ks,ZDIR)/norm2(ebGr%xyz(ebGr%is,ebGr%js,ebGr%ks,:)))
+        rMin = norm2(ebGr%xyz(ebGr%is,ebGr%js,ebGr%ks,:)) 
 
         write(*,*) 'dr, dtheta, dphi', dr, dtheta, dphi
         write(*,*) 'thetaMin, rMin', thetaMin, rMin
