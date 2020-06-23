@@ -370,7 +370,7 @@ module gridloc
         !dr = r2-r1 for even spacing in r
         dr = norm2(ebGr%xyz(ebGr%is+1,ebGr%js,ebGr%ks,:)) - norm2(ebGr%xyz(ebGr%is,ebGr%js,ebGr%ks,:))
 
-        !write(*,*) 'dr, dtheta, dphi', dr, dtheta, dphi
+        write(*,*) 'dr, dtheta, dphi', dr, dtheta, dphi
  
         ! pick the closest one
         i0 = min(floor(helioC(IDIR)/dr)+1,ebGr%Nip) !Evenly spaced i
@@ -381,7 +381,7 @@ module gridloc
         ijk(JDIR) = j0
         ijk(KDIR) = k0
         
-        !write(*,*) 'Mapped xyz -> ijk ', xyz, ijk
+        write(*,*) 'Mapped xyz -> ijk ', xyz, ijk
 
     end subroutine Loc_SPH
 !---------------------------------------
