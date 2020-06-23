@@ -632,12 +632,6 @@ module msphutils
                         !Assume already wolf-limited or not
                         PLim = Prcm
 
-                        ! if (doWolfLim) then
-                        !     PLim = Prcm/(1.0+beta*5.0/6.0)
-                        ! else
-                        !     PLim = Prcm
-                        ! endif
-
                         if (Pmhd <= PLim) then
                             dP = PLim - Pmhd
                         else if (Pmhd >= Prcm) then

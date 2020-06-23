@@ -31,7 +31,7 @@ module rcmimag
     real(rp), private :: planetM0g
 
     logical, parameter, private :: doKillRCMDir = .true. !Whether to always kill RCMdir before starting
-    logical, parameter, private :: doWolfLim = .true.
+    logical, private :: doWolfLim = .true.
 
     !Information taken from MHD flux tubes
     !TODO: Figure out RCM boundaries
@@ -117,6 +117,8 @@ module rcmimag
         call iXML%Set_Val(RunID,"/gamera/sim/runid","sim")
         RCMApp%rcm_runid = trim(RunID)
 
+        call iXML%Set_Val(doWolfLim,"/gamera/source/doWolfLim",doWolfLim)
+        
         if (isRestart) then
             if (doKillRCMDir) then
                 !Kill RCMFiles directory even on restart
@@ -129,7 +131,7 @@ module rcmimag
             write(*,*) 'Restarting RCM @ t = ', t0
             vApp%time = t0 !Set vApp's time to correct value from restart
             call rcm_mhd(t0,dtCpl,RCMApp,RCMRESTART,iXML=iXML)
-            doColdstart = .false. ! set to false is it is a restart
+            doColdstart = .false. ! set to false if it is a restart
         else
             t0 = vApp%time
             call ResetRCMDir()

@@ -1564,14 +1564,15 @@ real :: v_1_1, v_1_2, v_2_1, v_2_2
          PS = 'APPEND'
          HD = 'CONTINUE SAME RUN'
       END IF
+
       !K: Commenting out output
       !write(*,*) "L9604, rcm.printout", LUN_2, ST, PS
 
-      OPEN  (LUN_2, FILE = rcmdir//'rcm.printout', STATUS = ST, POSITION = PS)
-      OPEN  (LUN_3, FILE = rcmdir//'rcm.index',  STATUS = ST, POSITION = PS)
-      CALL Initial_printout ()
-      CLOSE (LUN_3)
-      CLOSE (LUN_2)
+      ! OPEN  (LUN_2, FILE = rcmdir//'rcm.printout', STATUS = ST, POSITION = PS)
+      ! OPEN  (LUN_3, FILE = rcmdir//'rcm.index',  STATUS = ST, POSITION = PS)
+      ! CALL Initial_printout ()
+      ! CLOSE (LUN_3)
+      ! CLOSE (LUN_2)
 
       i1 = imin + 1
 
@@ -2206,6 +2207,7 @@ real :: v_1_1, v_1_2, v_2_1, v_2_2
       type(IOVAR_T), dimension(RCMIOVARS) :: IOVars !Lazy hard-coding max variables
       
       !real(rprec) :: dktime2(irdk,inrgdk,isodk, iondk)
+      Call CheckFileOrDie(RCMGAMConfig,"RCM-Config H5 file does not exist.")
 
       if (L_dktime) then
         !Read from HDF5
