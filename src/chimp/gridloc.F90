@@ -363,13 +363,10 @@ module gridloc
         !Calculate helioCoords
         helioC = helioCoords(xyz)
 
-        
-
         !Even spacing in k
         dphi = 2*PI/ebGr%Nkp
         !dtheta = theta2 - theta1 for even spacing in j
-        dtheta = acos(ebGr%xyz(ebGr%is,ebGr%js+1,ebGr%ks,ZDIR)/norm2(ebGr%xyz(ebGr%is,ebGr%js+1,ebGr%ks,:))) &
-                - acos(ebGr%xyz(ebGr%is,ebGr%js,ebGr%ks,ZDIR)/norm2(ebGr%xyz(ebGr%is,ebGr%js,ebGr%ks,:)))
+        dtheta = acos(ebGr%xyz(ebGr%is,ebGr%js+1,ebGr%ks,ZDIR)/norm2(ebGr%xyz(ebGr%is,ebGr%js+1,ebGr%ks,:))) - acos(ebGr%xyz(ebGr%is,ebGr%js,  ebGr%ks,ZDIR)/norm2(ebGr%xyz(ebGr%is,ebGr%js,  ebGr%ks,:)))
         !dr = r2-r1 for even spacing in r
         dr = norm2(ebGr%xyz(ebGr%is+1,ebGr%js,ebGr%ks,:)) - norm2(ebGr%xyz(ebGr%is,ebGr%js,ebGr%ks,:))
 
@@ -563,7 +560,7 @@ module gridloc
         rxy = sqrt(xyz(XDIR)**2.0 + xyz(YDIR)**2.0)
 
         helioC(IDIR) = sqrt(zs**2.0 + rxy**2.0)
-        !Calculate theta
+        !Calculate theta [0, pi]
         helioC(JDIR) = acos(zs/sqrt(zs**2.0 + rxy**2.0)) 
 
         !Calculate phi
