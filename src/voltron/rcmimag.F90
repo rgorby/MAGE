@@ -388,7 +388,7 @@ module rcmimag
                 P = max(P,Pmhd)
                 N = max(N,Dmhd)
 
-                !Now storee them
+                !Now store them
                 RCMApp%Pave(i,j) = P/rcmPScl
                 RCMApp%Nave(i,j) = N/rcmNScl
 
@@ -460,7 +460,7 @@ module rcmimag
         real(rp), intent(out) :: imW(NVARIMAG)
         logical, intent(out) :: isEdible
 
-        real(rp) :: colat,nrcm,prcm,npp,ntot,pScl,beta
+        real(rp) :: colat,nrcm,prcm,npp,ntot,pScl,beta,pmhd
         integer, dimension(2) :: ij0
 
         associate(RCMApp => imag%rcmCpl, lat => x1, lon => x2)
@@ -491,12 +491,13 @@ module rcmimag
         nrcm = rcmNScl*RCMApp%Nrcm (ij0(1),ij0(2))
         npp  = rcmNScl*RCMApp%Npsph(ij0(1),ij0(2))
         beta =  RCMApp%beta_average(ij0(1),ij0(2))
+        pmhd = rcmPScl*RCMApp%Pave (ij0(1),ij0(2))
 
-        if (doWolfLim) then
-            pScl = 1.0/(1.0+beta*5.0/6.0)
-        else
-            pScl = 1.0
-        endif
+        ! if (doWolfLim) then
+        !     pScl = 1.0/(1.0+beta*5.0/6.0)
+        ! else
+        !     pScl = 1.0
+        ! endif
         
         ntot = 0.0
         !Decide which densities to include
@@ -509,7 +510,13 @@ module rcmimag
 
         !Store data
         imW(IMDEN)  = ntot
-        imW(IMPR)   = prcm*pScl
+        if (doWolfLim) then
+            pScl = beta*5.0/6.0
+            imW(IMPR) = (pScl*pmhd + prcm)/(1.0+pScl)
+        else
+            imW(IMPR)   = prcm
+        endif
+
         imW(IMTSCL) = RCMApp%Tb(ij0(1),ij0(2))
         imW(IMX1)   = (180.0/PI)*lat
         imW(IMX2)   = (180.0/PI)*lon
