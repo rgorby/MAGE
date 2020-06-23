@@ -366,21 +366,27 @@ module gridloc
         !Even spacing in k
         dphi = 2*PI/ebGr%Nkp
         !dtheta = theta2 - theta1 for even spacing in j
-        dtheta = acos(ebGr%xyz(ebGr%is,ebGr%js+1,ebGr%ks,ZDIR)/norm2(ebGr%xyz(ebGr%is,ebGr%js+1,ebGr%ks,:))) - acos(ebGr%xyz(ebGr%is,ebGr%js,  ebGr%ks,ZDIR)/norm2(ebGr%xyz(ebGr%is,ebGr%js,  ebGr%ks,:)))
+        dtheta = acos(ebGr%xyz(ebGr%is,ebGr%js+1,ebGr%ks,ZDIR)/norm2(ebGr%xyz(ebGr%is,ebGr%js+1,ebGr%ks,:))) &
+               - acos(ebGr%xyz(ebGr%is,ebGr%js,  ebGr%ks,ZDIR)/norm2(ebGr%xyz(ebGr%is,ebGr%js,  ebGr%ks,:)))
         !dr = r2-r1 for even spacing in r
         dr = norm2(ebGr%xyz(ebGr%is+1,ebGr%js,ebGr%ks,:)) - norm2(ebGr%xyz(ebGr%is,ebGr%js,ebGr%ks,:))
+        
+        thetaMin = acos(ebGr%xyz(ebGr%is,ebGr%js,ebGr%ks,ZDIR)/norm2(ebGr%xyz(ebGr%is,ebGr%js,ebGr%ks,:))) - dtheta/2
+        rMin = norm2(ebGr%xyz(ebGr%is,ebGr%js,ebGr%ks,:)) - dr/2
 
         write(*,*) 'dr, dtheta, dphi', dr, dtheta, dphi
+        write(*,*) 'thetaMin, rMin', thetaMin, rMin
  
         ! pick the closest one
-        i0 = min(floor(helioC(IDIR)/dr)+1,ebGr%Nip) !Evenly spaced i
-        j0 = min(floor(helioC(JDIR)/dtheta)+1,ebGr%Njp) !Evenly spaced j
-        k0 = min(floor(helioC(KDIR)/dphi) +1,ebGr%Nkp) !Evenly spaced k
+        i0 = min(floor((helioC(IDIR)-rMin)/dr) + 1,ebGr%Nip) !Evenly spaced i
+        j0 = min(floor((helioC(JDIR)-thetaMin)/dtheta) + 1,ebGr%Njp) !Evenly spaced j
+        k0 = min(floor(helioC(KDIR)/dphi) + 1,ebGr%Nkp) !Evenly spaced k
 
         ijk(IDIR) = i0
         ijk(JDIR) = j0
         ijk(KDIR) = k0
         
+        write(*,*) 'Mapped xyz -> HelioC ', xyz, helioC
         write(*,*) 'Mapped xyz -> ijk ', xyz, ijk
 
     end subroutine Loc_SPH
