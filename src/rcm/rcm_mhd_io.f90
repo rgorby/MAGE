@@ -97,7 +97,7 @@ module rcm_mhd_io
         character(len=strLen) :: gStr
 
         real(rp) :: rcm2Wolf
-        real(rp), dimension(:,:), allocatable :: PLim
+        real(rp), dimension(:,:), allocatable :: PLim,PBeta
         integer :: NLat,NLon
 
         NLat = RCMApp%nLat_ion
@@ -105,9 +105,13 @@ module rcm_mhd_io
         
         rcm2Wolf = nt**(IMGAMMA-1.0) !Convert to Wolf units, RCM: Pa (Re/T)^gam => nPa (Re/nT)^gam
         
-        allocate(PLim(NLat,NLon))
-        !Calculate wolf-limited P
-        PLim = RCMApp%Prcm/(1.0 + (5.0/6.0)*RCMApp%beta_average)
+        allocate(PLim (NLat,NLon))
+        allocate(PBeta(NLat,NLon))
+        
+        PBeta = (5.0/6.0)*RCMApp%beta_average
+
+        !Calculate wolf-limited P (RCM units)
+        PLim = (PBeta*RCMApp%Pave + RCMApp%Prcm)/(1.0 + PBeta)
 
         !Reset IO chain
         call ClearIO(IOVars)

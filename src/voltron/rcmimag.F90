@@ -492,12 +492,6 @@ module rcmimag
         npp  = rcmNScl*RCMApp%Npsph(ij0(1),ij0(2))
         beta =  RCMApp%beta_average(ij0(1),ij0(2))
         pmhd = rcmPScl*RCMApp%Pave (ij0(1),ij0(2))
-
-        ! if (doWolfLim) then
-        !     pScl = 1.0/(1.0+beta*5.0/6.0)
-        ! else
-        !     pScl = 1.0
-        ! endif
         
         ntot = 0.0
         !Decide which densities to include
