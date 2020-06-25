@@ -374,8 +374,8 @@ module gridloc
         thetaMin = acos(ebGr%xyz(ebGr%is,ebGr%js,ebGr%ks,ZDIR)/norm2(ebGr%xyz(ebGr%is,ebGr%js,ebGr%ks,:)))
         rMin = norm2(ebGr%xyz(ebGr%is,ebGr%js,ebGr%ks,:)) 
 
-        write(*,*) 'dr, dtheta, dphi', dr, dtheta, dphi
-        write(*,*) 'thetaMin, rMin', thetaMin, rMin
+        !write(*,*) 'dr, dtheta, dphi', dr, dtheta, dphi
+        !write(*,*) 'thetaMin, rMin', thetaMin, rMin
  
         ! pick the closest one
         i0 = min(floor((helioC(IDIR)-rMin)/dr) + 1,ebGr%Nip) !Evenly spaced i
@@ -386,8 +386,8 @@ module gridloc
         ijk(JDIR) = j0
         ijk(KDIR) = k0
         
-        write(*,*) 'Mapped xyz -> HelioC ', xyz, helioC
-        write(*,*) 'Mapped xyz -> ijk ', xyz, ijk
+        !write(*,*) 'Mapped xyz -> HelioC ', xyz, helioC
+        !write(*,*) 'Mapped xyz -> ijk ', xyz, ijk
 
     end subroutine Loc_SPH
 !---------------------------------------
