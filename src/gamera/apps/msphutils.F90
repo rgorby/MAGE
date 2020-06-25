@@ -52,6 +52,9 @@ module msphutils
     real(rp), private :: Psi0 = 0.0 ! corotation potential coef
     real(rp), private :: M0   = 0.0 !Magnetic moment
 
+    !Ingestion switch
+    logical, private :: doIngest = .true.
+
     contains
 
     !Set magnetosphere parameters
@@ -129,6 +132,9 @@ module msphutils
             call xmlInp%Set_Val(Rion,"prob/Rion",RionE*1.e6/gx0) 
             call xmlInp%Set_Val(Model%doGrav,"prob/doGrav",.true.)
         end select
+
+        !Whether to ignore ingestion (if set)
+        call xmlInp%Set_Val(doIngest,"source/doIngest",.true.)
 
         call xmlInp%Set_Val(doCorot,"prob/doCorot",.true.)
         if (.not. doCorot) then
@@ -592,6 +598,8 @@ module msphutils
 
         if (Model%t<=0) return
 
+        if (.not. doIngest) return
+        
         !M0 = sum(State%Gas(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,DEN,BLK)*Gr%volume(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke))
 
        !$OMP PARALLEL DO default(shared) collapse(2) &
