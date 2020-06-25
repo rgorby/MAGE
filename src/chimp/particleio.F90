@@ -120,11 +120,8 @@ module particleio
         endif
         
         !Scalar attributes
-        !call AddOutVar(IOVars,"time",oTScl*Model%t)
-        !call AddOutVar(IOVars,"TimeValue",oTScl*Model%t)
-        ! EP: output dimless time
-        call AddOutVar(IOVars,"time",Model%t)
-        call AddOutVar(IOVars,"TimeValue",Model%t)
+        call AddOutVar(IOVars,"time",oTScl*Model%t)
+        call AddOutVar(IOVars,"TimeValue",oTScl*Model%t)
         call WriteVars(IOVars,.true.,tpOutF,gStr)
         call ClearIO(IOVars)
 
