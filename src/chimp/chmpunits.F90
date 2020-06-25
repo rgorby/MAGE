@@ -175,6 +175,18 @@ module chmpunits
         oTScl = (L0/vc_cgs)  !/(60*60.0) !ebtime->hrs
         tStr = "[Seconds]"
 
+        select case (trim(toUpper(Model%uID)))
+            case("HELIO")
+                oTScl = 1. 
+                tStr = "[Dimensionless]"
+            case default 
+                !Set output scaling values
+                oTScl = (L0/vc_cgs)  !/(60*60.0) !ebtime->hrs
+                tStr = "[Seconds]"
+
+        end select
+
+
         oBScl = G2nT/ebScl !eb->nT
         oEScl = (G2T*vc_mks*V2mV)/ebScl !eb->mV/m
         oVScl = vc_cgs*1.0e-5 !eb (1/c) -> km/s
