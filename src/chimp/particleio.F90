@@ -11,7 +11,7 @@ module particleio
 
     character(len=strLen) :: tpOutF
 
-    integer, parameter :: MAXTPVS = 20
+    integer, parameter :: MAXTPVS = 30
     logical :: doMuOut = .false.
 
     contains
