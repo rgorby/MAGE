@@ -120,8 +120,8 @@ module particleio
         call AddOutVar(IOVars,"ebKeq",        Qeq(:,EQKEB))
 
         if (Model%doLL) then
-            call AddOutVar(IOVars,"lat"  ,tpLL(:,1))
-            call AddOutVar(IOVars,"lon"  ,tpLL(:,2))
+            call AddOutVar(IOVars,"lat"  ,rad2deg*tpLL(:,1))
+            call AddOutVar(IOVars,"lon"  ,rad2deg*tpLL(:,2))
         endif
 
         !Topology (always outputting)
