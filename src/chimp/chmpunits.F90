@@ -177,13 +177,9 @@ module chmpunits
 
         select case (trim(toUpper(Model%uID)))
             case("HELIO")
-                oTScl = 1. 
+                oTScl = (L0/vc_cgs)/in2s
                 tStr = "[Dimensionless]"
-            case default 
-                !Set output scaling values
-                oTScl = (L0/vc_cgs)  !/(60*60.0) !ebtime->hrs
-                tStr = "[Seconds]"
-
+                write(*,*) 'L0, in2cms, in2s', L0, in2cms, in2s
         end select
 
 
