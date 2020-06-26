@@ -99,7 +99,8 @@ module particleio
         call AddOutVar(IOVars,"z",TPs(:)%Q(ZPOS))
         call AddOutVar(IOVars,"K",Kev)
         call AddOutVar(IOVars,"Mu",Mu)
-
+        call AddOutVar(IOVars,"A" ,rad2deg*TPs(:)%alpha)
+        
         !Equatorial values
         call AddOutVar(IOVars,"xeq"  ,Qeq(:,EQX))
         call AddOutVar(IOVars,"yeq"  ,Qeq(:,EQY))

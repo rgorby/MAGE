@@ -153,7 +153,7 @@ module pusher
         endif
         Q = Q + dQ
 
-        !Test update
+    !Test update: gamma
         if ( Q(GAMGC) <= (1.0 + TINY) ) then
             !Bad update, redo with smaller timestep
             Q = oQ
@@ -163,15 +163,26 @@ module pusher
             !call FixGC(prt,t+ht,Model,ebState)
         endif
 
+    !Test update: p11
+        p11 = Q(P11GC)
+        pMag = Model%m0*sqrt( Q(GAMGC)**2.0 - 1.0 )
+
+        if ( abs(p11) > pMag ) then
+            !Bad update, redo with smaller timestep
+            Q = oQ
+            prt%ddt = 0.5*prt%ddt            
+            isGood = .false.
+            return
+        endif
+
         !Otherwise finish update
         prt%Ngc = prt%Ngc+1
+
         !Update timestep
         htOld = prt%ddt
         prt%ddt = min(Model%epsht*htNew,dtX*htOld)
 
         !Update pitch angle
-        p11 = Q(P11GC)
-        pMag = Model%m0*sqrt( Q(GAMGC)**2.0 - 1.0 )
         prt%alpha = acos( p11/max(pMag,abs(p11)) )
 
         end associate
@@ -181,6 +192,7 @@ module pusher
             stop
         endif
     end function StepGC
+    
     !Full orbit integrator, Boris push w/ matching x/v time states (ie not leapfrog)
     !x^* = x^n + 0.5*h v^n
     !v^- = v^n + 0.5*h E^*
