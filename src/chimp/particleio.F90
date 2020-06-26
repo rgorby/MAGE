@@ -13,6 +13,7 @@ module particleio
 
     integer, parameter :: MAXTPVS = 20
     logical :: doMuOut = .false.
+
     contains
 
     subroutine initPio(Model,tpState)
@@ -48,7 +49,7 @@ module particleio
         integer :: i,Np
         integer, dimension(:), allocatable :: OCb
         real(rp), dimension(:), allocatable :: Kev,Mu
-        real(rp), dimension(:,:), allocatable :: Qeq
+        real(rp), dimension(:,:), allocatable :: Qeq,tpLL
         real(rp) :: K2kev,eb2nT
         real(rp) :: tpEq(NVAREQ)
         logical :: isG,doTPTrc
@@ -65,6 +66,11 @@ module particleio
         allocate(OCb(Np))
         OCb = 0
         allocate(Qeq(Np,NVAREQ))
+
+        if (Model%doLL) then
+            allocate(tpLL(Np,2))
+            tpLL = 0.0
+        endif
 
         !$OMP PARALLEL DO default(shared) &
         !$OMP& private(tpEq,isG,doTPTrc) &
@@ -88,9 +94,13 @@ module particleio
                     !If we're doing EQ-projections and this TP projection was good
                     Qeq(i,:) = tpEq !Save projection
                 endif
+                !Lat-lon projection (northern hemi)
+                if (Model%doLL) then
+                    call Map2NH(Model,ebState,TPs(i)%Q(XPOS:ZPOS),Model%t,tpLL(i,1),tpLL(i,2))
+                endif
             endif
-
         enddo
+
         call ClearIO(IOVars)
 
         call AddOutVar(IOVars,"id",1.0_dp*tpState%TPs(:)%id)
@@ -108,6 +118,11 @@ module particleio
         call AddOutVar(IOVars,"Teq"  ,oTScl  *Qeq(:,EQTIME))
         call AddOutVar(IOVars,"Keq"  ,        Qeq(:,EQKEV))
         call AddOutVar(IOVars,"ebKeq",        Qeq(:,EQKEB))
+
+        if (Model%doLL) then
+            call AddOutVar(IOVars,"lat"  ,tpLL(:,1))
+            call AddOutVar(IOVars,"lon"  ,tpLL(:,2))
+        endif
 
         !Topology (always outputting)
         call AddOutVar(IOVars,"OCb",1.0_dp*OCb)
