@@ -168,11 +168,14 @@ module pusher
         pMag = Model%m0*sqrt( Q(GAMGC)**2.0 - 1.0 )
 
         if ( abs(p11) > pMag ) then
-            !Bad update, redo with smaller timestep
-            Q = oQ
-            prt%ddt = 0.5*prt%ddt            
-            isGood = .false.
-            return
+            !Constrain p11
+            if (p11 >= 0.0) then
+                p11 = +pMag
+            else
+                p11 = -pMag
+            endif
+            Q(P11GC) = p11
+
         endif
 
         !Otherwise finish update
