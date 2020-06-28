@@ -1,6 +1,7 @@
 !Routines for boundary conditions
 module bcs
     use gamtypes
+    use gambctypes
     use gamutils
     use math
     use gridutils
@@ -8,157 +9,258 @@ module bcs
 
     implicit none
 
-    type, extends(baseBC_T) :: lazyBC_T
+    ! this BC requires special initialization because it can apply to any direction
+    type, extends(multiBC_T) :: lazyBC_T
         contains
         procedure :: doBC => lazyBC
     end type lazyBC_T
 
-    type, extends(baseBC_T) :: periodicInnerIBC_T
+    type, extends(innerIBC_T) :: periodicInnerIBC_T
         contains
         procedure :: doBC => periodic_ibcI
     end type periodicInnerIBC_T
 
-    type, extends(baseBC_T) :: periodicOuterIBC_T
+    type, extends(outerIBC_T) :: periodicOuterIBC_T
         contains
         procedure :: doBC => periodic_obcI
     end type periodicOuterIBC_T
 
-    type, extends(baseBC_T) :: periodicInnerJBC_T
+    type, extends(innerJBC_T) :: periodicInnerJBC_T
         contains
         procedure :: doBC => periodic_ibcJ
     end type periodicInnerJBC_T
 
-    type, extends(baseBC_T) :: periodicOuterJBC_T
+    type, extends(outerJBC_T) :: periodicOuterJBC_T
         contains
         procedure :: doBC => periodic_obcJ
     end type periodicOuterJBC_T
 
-    type, extends(baseBC_T) :: periodicInnerKBC_T
+    type, extends(innerKBC_T) :: periodicInnerKBC_T
         contains
         procedure :: doBC => periodic_ibcK
     end type periodicInnerKBC_T
 
-    type, extends(baseBC_T) :: periodicOuterKBC_T
+    type, extends(outerKBC_T) :: periodicOuterKBC_T
         contains
         procedure :: doBC => periodic_obcK
     end type periodicOuterKBC_T
 
-    type, extends(baseBC_T) :: zeroExtensionInnerIBC_T
+    type, extends(innerIBC_T) :: zeroExtensionInnerIBC_T
         contains
         procedure :: doBC => zeroExten_ibcI
     end type zeroExtensionInnerIBC_T
 
-    type, extends(baseBC_T) :: zeroExtensionOuterIBC_T
+    type, extends(outerIBC_T) :: zeroExtensionOuterIBC_T
         contains
         procedure :: doBC => zeroExten_obcI
     end type zeroExtensionOuterIBC_T
 
-    type, extends(baseBC_T) :: zeroExtensionInnerJBC_T
+    type, extends(innerJBC_T) :: zeroExtensionInnerJBC_T
         contains
         procedure :: doBC => zeroExten_ibcJ
     end type zeroExtensionInnerJBC_T
 
-    type, extends(baseBC_T) :: zeroExtensionOuterJBC_T
+    type, extends(outerJBC_T) :: zeroExtensionOuterJBC_T
         contains
         procedure :: doBC => zeroExten_obcJ
     end type zeroExtensionOuterJBC_T
 
-    type, extends(baseBC_T) :: zeroExtensionInnerKBC_T
+    type, extends(innerKBC_T) :: zeroExtensionInnerKBC_T
         contains
         procedure :: doBC => zeroExten_ibcK
     end type zeroExtensionInnerKBC_T
 
-    type, extends(baseBC_T) :: zeroExtensionOuterKBC_T
+    type, extends(outerKBC_T) :: zeroExtensionOuterKBC_T
         contains
         procedure :: doBC => zeroExten_obcK
     end type zeroExtensionOuterKBC_T
 
-    type, extends(baseBC_T) :: cartesianReflectingInnerIBC_T
+    type, extends(innerIBC_T) :: cartesianReflectingInnerIBC_T
         contains
         procedure :: doBC => cartReflect_ibcI
     end type cartesianReflectingInnerIBC_T
 
-    type, extends(baseBC_T) :: cartesianReflectingOuterIBC_T
+    type, extends(outerIBC_T) :: cartesianReflectingOuterIBC_T
         contains
         procedure :: doBC => cartReflect_obcI
     end type cartesianReflectingOuterIBC_T
 
-    type, extends(baseBC_T) :: cartesianReflectingInnerJBC_T
+    type, extends(innerJBC_T) :: cartesianReflectingInnerJBC_T
         contains
         procedure :: doBC => cartReflect_ibcJ
     end type cartesianReflectingInnerJBC_T
 
-    type, extends(baseBC_T) :: cartesianReflectingOuterJBC_T
+    type, extends(outerJBC_T) :: cartesianReflectingOuterJBC_T
         contains
         procedure :: doBC => cartReflect_obcJ
     end type cartesianReflectingOuterJBC_T
 
-    type, extends(baseBC_T) :: cartesianReflectingInnerKBC_T
+    type, extends(innerKBC_T) :: cartesianReflectingInnerKBC_T
         contains
         procedure :: doBC => cartReflect_ibcK
     end type cartesianReflectingInnerKBC_T
 
-    type, extends(baseBC_T) :: cartesianReflectingOuterKBC_T
+    type, extends(outerKBC_T) :: cartesianReflectingOuterKBC_T
         contains
         procedure :: doBC => cartReflect_obcK
     end type cartesianReflectingOuterKBC_T
 
-    type, extends(baseBC_T) :: zeroGradientInnerIBC_T
+    type, extends(innerIBC_T) :: zeroGradientInnerIBC_T
         contains
         procedure :: doBC => zeroGrad_ibcI
     end type zeroGradientInnerIBC_T
 
-    type, extends(baseBC_T) :: zeroGradientOuterIBC_T
+    type, extends(outerIBC_T) :: zeroGradientOuterIBC_T
         contains
         procedure :: doBC => zeroGrad_obcI
     end type zeroGradientOuterIBC_T
 
-    type, extends(baseBC_T) :: zeroGradientInnerJBC_T
+    type, extends(innerJBC_T) :: zeroGradientInnerJBC_T
         contains
         procedure :: doBC => zeroGrad_ibcJ
     end type zeroGradientInnerJBC_T
 
-    type, extends(baseBC_T) :: zeroGradientOuterJBC_T
+    type, extends(outerJBC_T) :: zeroGradientOuterJBC_T
         contains
         procedure :: doBC => zeroGrad_obcJ
     end type zeroGradientOuterJBC_T
 
-    type, extends(baseBC_T) :: zeroGradientInnerKBC_T
+    type, extends(innerKBC_T) :: zeroGradientInnerKBC_T
         contains
         procedure :: doBC => zeroGrad_ibcK
     end type zeroGradientInnerKBC_T
 
-    type, extends(baseBC_T) :: zeroGradientOuterKBC_T
+    type, extends(outerKBC_T) :: zeroGradientOuterKBC_T
         contains
         procedure :: doBC => zeroGrad_obcK
     end type zeroGradientOuterKBC_T
 
-    type, extends(baseBC_T) :: sphereInBC_T
+    type, extends(innerIBC_T) :: sphereInBC_T
         contains
         procedure :: doBC => SphIn
     end type sphereInBC_T
 
-    type, extends(baseBC_T) :: sphereOutBC_T
+    type, extends(outerIBC_T) :: sphereOutBC_T
         contains
         procedure :: doBC => SphOut
     end type sphereOutBC_T
 
-    type, extends(baseBC_T) :: cylindricalPoleBC_T
+    type, extends(innerIBC_T) :: cylindricalPoleBC_T
         contains
         procedure :: doBC => cylpole
     end type cylindricalPoleBC_T
 
-    type, extends(baseBC_T) :: lfmInBC_T
+    type, extends(innerJBC_T) :: lfmInBC_T
         contains
         procedure :: doBC => lfmIn
     end type lfmInBC_T
 
-    type, extends(baseBC_T) :: lfmOutBC_T
+    type, extends(outerJBC_T) :: lfmOutBC_T
         contains
         procedure :: doBC => lfmOut
     end type lfmOutBC_T
 
     contains
+
+!--------------------------------------------
+    !Simple helper functions for setting/resetting BCs
+    subroutine WipeBCs(Model,Grid)
+        type(Model_T), intent(in)    :: Model
+        type(Grid_T) , intent(inout) :: Grid
+        integer :: n
+        !Deallocate current BCs
+
+        associate(ExternalBCs=>Grid%ExternalBCs)
+
+        do n=1,6
+           if (allocated(ExternalBCs(n)%p)) deallocate(ExternalBCs(n)%p) 
+        enddo
+
+        end associate
+        
+    end subroutine WipeBCs
+
+    !Ensure no direction is taken by more than one BC
+    !And ensure that each BC has a valid direction
+    subroutine ValidateBCs(Model,Grid)
+        type(Model_T), intent(in)    :: Model
+        type(Grid_T) , intent(inout) :: Grid
+
+        ! store whether a direction has been used
+        logical :: dirArray(INI:OUTK)
+        integer :: i
+
+        dirArray = .false.
+        do i=1,Grid%NumBC
+            if(allocated(Grid%externalBCs(i)%p)) then
+                if(Grid%externalBCs(i)%p%bcDir() < INI .or. &
+                   Grid%externalBCs(i)%p%bcDir() > OUTK) then
+                    write (*,*) 'BC ',i,' has an invalid direction of ', &
+                        Grid%externalBCs(i)%p%bcDir(),'. Exiting.'
+                    stop
+                endif
+                if(dirArray(Grid%externalBCs(i)%p%bcDir())) then
+                    write (*,*) 'BC ',i,' is in the direction of ', &
+                        Grid%externalBCs(i)%p%bcDir(),', which already has a BC. Exiting.'
+                    stop
+                endif
+                dirArray(Grid%externalBCs(i)%p%bcDir()) = .true.
+            endif
+        enddo
+
+    end subroutine ValidateBCs
+
+    !Find BC for a given direction
+    !Example: n = FindBC(Model,Grid,INI), Gr%externalBCs(n)%p
+    function FindBC(Model,Grid,bcdir)
+        type(Model_T), intent(in) :: Model
+        type(Grid_T) , intent(in) :: Grid
+        integer      , intent(in) :: bcdir
+
+        integer :: FindBC
+        integer :: n,ndir
+        do n=1,Grid%NumBC
+            if (allocated(Grid%externalBCs(n)%p)) then
+                ndir = Grid%externalBCs(n)%p%bcDir()
+                if (ndir == bcdir) then
+                    FindBC = n
+                    return
+                endif
+            endif
+        enddo
+        !Didn't find nothin'
+        FindBC = -1
+
+    end function FindBC
+
+    !Checks ijk is in CC bounds
+    function isCellCenterG(Model,Grid,i,j,k) result(isCC)
+        type(Model_T), intent(in)    :: Model
+        type(Grid_T) , intent(in)    :: Grid
+        logical :: isCC
+
+        integer, intent(in) :: i,j,k
+
+        isCC = (k<=Grid%keg) .and. (j<=Grid%jeg) .and. (i<=Grid%ieg) &
+         .and. (k>=Grid%ksg) .and. (j>=Grid%jsg) .and. (i>=Grid%isg) 
+
+    end function isCellCenterG
+
+    !Project vector to face flux on face d of cell i,j,k
+    function Project2Face(Model,Grid,V,ijkdir,i,j,k) result(flux)
+        type(Model_T), intent(in)    :: Model
+        type(Grid_T) , intent(in)    :: Grid
+        real(rp), dimension(NDIM), intent(in) :: V
+        integer, intent(in) :: i,j,k,ijkdir
+        real(rp) :: flux
+
+        real(rp) :: dA,nHat(NDIM)
+        
+        dA = Grid%face(i,j,k,ijkdir)
+        nHat = Grid%Tf(i,j,k,NORMX:NORMZ,ijkdir)
+        flux = dA*dot_product(nHat,V)
+
+    end function Project2Face
 
     !Below here are various predefined BCs
 !--------------------------------------------
@@ -179,19 +281,23 @@ module bcs
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(inout) :: State
-        integer :: n,i,j,k
+        integer :: n,ig,j,k
 
-        !i-boundaries (IN)
-            do k=Grid%ksg,Grid%keg
-                do j=Grid%jsg,Grid%jeg
-                    do n=1,Model%Ng
-                        State%Gas(Grid%is -n,j,k,:,:)  = State%Gas(Grid%ie-n+1,j,k,:,:)
-                        State%Bxyz(Grid%is-n,j,k,:)  = State%Bxyz(Grid%ie-n+1,j,k,:)
-                        State%magFlux(Grid%is-n,j,k,YDIR:ZDIR) = State%magFlux(Grid%ie -n+1,j,k,YDIR:ZDIR)
-                        State%magFlux(Grid%is-n,j,k,XDIR) = State%magFlux(Grid%ie -n+1,j,k,XDIR)
-                    enddo
+        !$OMP PARALLEL DO default(shared) &
+        !$OMP private(ig,j,n,k)
+        do k=Grid%ksg,Grid%keg+1
+            do j=Grid%jsg,Grid%jeg+1
+                do n=1,Model%Ng
+                    ig = Grid%is-n
+                    if (isCellCenterG(Model,Grid,ig,j,k)) then
+                        State%Gas (ig,j,k,:,:)  = State%Gas (Grid%ie-n+1,j,k,:,:)
+                        State%Bxyz(ig,j,k,:)    = State%Bxyz(Grid%ie-n+1,j,k,:)
+                    endif
+                    !Always do flux
+                    State%magFlux(ig,j,k,:) = State%magFlux(Grid%ie-n+1,j,k,:)
                 enddo
             enddo
+        enddo
 
     end subroutine periodic_ibcI
 
@@ -200,18 +306,24 @@ module bcs
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(inout) :: State
-        integer :: n,i,j,k
+        integer :: n,ig,j,k
 
-            do k=Grid%ksg,Grid%keg
-                do j=Grid%jsg,Grid%jeg
-                    do n=1,Model%Ng
-                        State%Gas(Grid%ie+n,j,k,:,:) = State%Gas(Grid%is +n-1,j,k,:,:)
-                        State%Bxyz(Grid%ie+n,j,k,:) = State%Bxyz(Grid%is +n-1,j,k,:)
-                        State%magFlux(Grid%ie+n,j,k,YDIR:ZDIR) = State%magFlux(Grid%is +n-1,j,k,YDIR:ZDIR)
-                        State%magFlux(Grid%ie+n+1,j,k,XDIR) = State%magFlux(Grid%is+n,j,k,XDIR)
-                    enddo
+        !$OMP PARALLEL DO default(shared) &
+        !$OMP private(ig,j,n,k)
+        do k=Grid%ksg,Grid%keg+1
+            do j=Grid%jsg,Grid%jeg+1
+                do n=1,Model%Ng
+                    ig = Grid%ie+n
+                    if (isCellCenterG(Model,Grid,ig,j,k)) then
+                        State%Gas (ig,j,k,:,:)  = State%Gas (Grid%is+n-1,j,k,:,:)
+                        State%Bxyz(ig,j,k,:)    = State%Bxyz(Grid%is+n-1,j,k,:)
+                    endif
+                    State%magFlux(ig,j,k,JDIR:KDIR) = State%magFlux(Grid%is+n-1,j,k,JDIR:KDIR)
+                    State%magFlux(ig+1,j,k,IDIR)    = State%magFlux(Grid%is+n,j,k,IDIR)
                 enddo
-            enddo    
+            enddo
+        enddo
+
     end subroutine periodic_obcI
 
     subroutine periodic_ibcJ(bc,Model,Grid,State)
@@ -219,17 +331,24 @@ module bcs
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(inout) :: State
-        integer :: n,i,j,k
+        integer :: n,i,jg,k
 
-            do k=Grid%ksg,Grid%keg
-                do n=1,Model%Ng  
-                    do i=Grid%isg,Grid%ieg
-                        State%Gas(i,Grid%js-n,k,:,:) = State%Gas(i,Grid%je-n+1,k,:,:)
-                        State%Bxyz(i,Grid%js-n,k,:) = State%Bxyz(i,Grid%je-n+1,k,:)
-                        State%magFlux(i,Grid%js-n,k,:) = State%magFlux(i,Grid%je-n+1,k,:)         
-                    enddo
+        !$OMP PARALLEL DO default(shared) &
+        !$OMP private(i,jg,n,k)
+        do k=Grid%ksg,Grid%keg+1
+            do i=Grid%isg,Grid%ieg+1
+                do n=1,Model%Ng
+                    jg = Grid%js-n
+                    if (isCellCenterG(Model,Grid,i,jg,k)) then
+                        State%Gas (i,jg,k,:,:)  = State%Gas (i,Grid%je-n+1,k,:,:)
+                        State%Bxyz(i,jg,k,:)    = State%Bxyz(i,Grid%je-n+1,k,:)
+                    endif
+                    !Always do flux
+                    State%magFlux(i,jg,k,:) = State%magFlux(i,Grid%je-n+1,k,:)    
                 enddo
-            enddo    
+            enddo
+        enddo
+
     end subroutine periodic_ibcJ
 
     subroutine periodic_obcJ(bc,Model,Grid,State)
@@ -237,19 +356,24 @@ module bcs
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(inout) :: State
-        integer :: n,i,j,k
+        integer :: n,i,jg,k
 
-            do k=Grid%ksg,Grid%keg
-                do n=1,Model%Ng  
-                    do i=Grid%isg,Grid%ieg
-                        State%Gas(i,Grid%je+n,k,:,:) = State%Gas(i,Grid%js+n-1,k,:,:)
-                        State%Bxyz(i,Grid%je+n,k,:) = State%Bxyz(i,Grid%js+n-1,k,:)
-                        State%magFlux(i,Grid%je+n,k,XDIR) = State%magFlux(i,Grid%js+n-1,k,XDIR)
-                        State%magFlux(i,Grid%je+n,k,ZDIR) = State%magFlux(i,Grid%js+n-1,k,ZDIR)
-                        State%magFlux(i,Grid%je+n+1,k,YDIR) = State%magFlux(i,Grid%js+n  ,k,YDIR)
-                    enddo
+        !$OMP PARALLEL DO default(shared) &
+        !$OMP private(i,jg,n,k)
+        do k=Grid%ksg,Grid%keg+1
+            do i=Grid%isg,Grid%ieg+1
+                do n=1,Model%Ng
+                    jg = Grid%je+n
+                    if (isCellCenterG(Model,Grid,i,jg,k)) then
+                        State%Gas (i,jg,k,:,:)  = State%Gas (i,Grid%js+n-1,k,:,:)
+                        State%Bxyz(i,jg,k,:)    = State%Bxyz(i,Grid%js+n-1,k,:)
+                    endif
+                    State%magFlux(i,jg,k,IDIR) = State%magFlux(i,Grid%js+n-1,k,IDIR)
+                    State%magFlux(i,jg,k,KDIR) = State%magFlux(i,Grid%js+n-1,k,KDIR)
+                    State%magFlux(i,jg+1,k,JDIR)    = State%magFlux(i,Grid%js+n,k,JDIR)
                 enddo
             enddo
+        enddo
 
     end subroutine periodic_obcJ
 
@@ -258,7 +382,7 @@ module bcs
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(inout) :: State
-        integer :: n,i,j,k
+        integer :: n,i,j,k,kg
 
         if (Model%do25D) then
             !Just replicate ks slice
@@ -270,13 +394,18 @@ module bcs
             enddo
         else
                 !$OMP PARALLEL DO default(shared) &
-                !$OMP private(i,j,n)
-                do j=Grid%jsg,Grid%jeg
-                    do i=Grid%isg,Grid%ieg
-                        do n=1,Model%Ng          
-                            State%Gas (i,j,Grid%ks-n,:,:)  = State%Gas (i,j,Grid%ke-n+1,:,:)
-                            State%Bxyz(i,j,Grid%ks-n,:)    = State%Bxyz(i,j,Grid%ke-n+1,:)
-                            State%magFlux(i,j,Grid%ks-n,:) = State%magFlux(i,j,Grid%ke-n+1,:)                
+                !$OMP private(i,j,n,kg)
+                do j=Grid%jsg,Grid%jeg+1
+                    do i=Grid%isg,Grid%ieg+1
+                        do n=1,Model%Ng
+
+                            kg = Grid%ks-n
+                            if (isCellCenterG(Model,Grid,i,j,kg)) then
+                                State%Gas (i,j,kg,:,:)  = State%Gas (i,j,Grid%ke-n+1,:,:)
+                                State%Bxyz(i,j,kg,:)    = State%Bxyz(i,j,Grid%ke-n+1,:)
+                            endif
+                            !Always do flux
+                            State%magFlux(i,j,kg,:) = State%magFlux(i,j,Grid%ke-n+1,:)                
                         enddo
                     enddo
                 enddo
@@ -289,7 +418,7 @@ module bcs
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(inout) :: State
-        integer :: n,i,j,k
+        integer :: n,i,j,k,kg
 
         if (Model%do25D) then
             !Just replicate ks slice
@@ -300,14 +429,18 @@ module bcs
             enddo
         else
                 !$OMP PARALLEL DO default(shared) &
-                !$OMP private(i,j,n)        
-                do j=Grid%jsg,Grid%jeg
-                    do i=Grid%isg,Grid%ieg  
-                        do n=1,Model%Ng         
-                            State%Gas(i,j,Grid%ke+n,:,:)  = State%Gas(i,j,Grid%ks+n-1,:,:)
-                            State%Bxyz(i,j,Grid%ke+n,:)  = State%Bxyz(i,j,Grid%ks+n-1,:)
-                            State%magFlux(i,j,Grid%ke+n,XDIR:YDIR)  = State%magFlux(i,j,Grid%ks+n-1,XDIR:YDIR)
-                            State%magFlux(i,j,Grid%ke+n+1,ZDIR)  = State%magFlux(i,j,Grid%ks+n,ZDIR)
+                !$OMP private(i,j,n,kg)        
+                do j=Grid%jsg,Grid%jeg+1
+                    do i=Grid%isg,Grid%ieg+1
+                        do n=1,Model%Ng
+                            kg = Grid%ke+n
+                            if (isCellCenterG(Model,Grid,i,j,kg)) then
+                                State%Gas (i,j,kg,:,:)  = State%Gas (i,j,Grid%ks+n-1,:,:)
+                                State%Bxyz(i,j,kg,:)    = State%Bxyz(i,j,Grid%ks+n-1,:)
+
+                            endif
+                            State%magFlux(i,j,kg,IDIR:JDIR) = State%magFlux(i,j,Grid%ks+n-1,IDIR:JDIR)
+                            State%magFlux(i,j,kg+1,KDIR)    = State%magFlux(i,j,Grid%ks+n,KDIR)
             
                         enddo
                     enddo
@@ -892,30 +1025,36 @@ module bcs
 
         integer :: n,i,k
         integer :: ig,jg,kg,ip,jp,kp
-        integer :: Np,Np2
+        
 
         !i,jg,k = ghost cell
-        !i,jp,kp = opposite cell
-        Np = Model%Ring%Np
-        Np2 = Np/2 !Halfway about pole
+        !i,jp,kp = conjugate cell
         
         !j-boundaries (IN)
         !$OMP PARALLEL DO default(shared) &
         !$OMP private(n,i,k,ig,jg,kg,ip,jp,kp)
-        do k=Grid%ksg,Grid%keg
-            do i=Grid%isg,Grid%ieg
+        do k=Grid%ksg,Grid%keg+1
+            do i=Grid%isg,Grid%ieg+1
                 do n=1,Model%Ng
                     !Set ghost cells
                     ig = i
                     jg = Grid%js-n
                     kg = k
-                    call lfmIJK(Model,Grid,ig,jg,kg,ip,jp,kp)
-
-                    State%Gas    (ig,jg,kg,:,:)  =  State%Gas    (ip,jp  ,kp,:,:)
-                    State%Bxyz   (ig,jg,kg,:)    =  State%Bxyz   (ip,jp  ,kp,:)
-                    State%magFlux(ig,jg,kg,IDIR) =  State%magFlux(ip,jp  ,kp,IDIR)
-                    State%magFlux(ig,jg,kg,JDIR) = -State%magFlux(ip,jp+1,kp,JDIR)
-                    State%magFlux(ig,jg,kg,KDIR) = -State%magFlux(ip,jp  ,kp,KDIR)
+                    
+                    if (isCellCenterG(Model,Grid,ig,jg,kg)) then
+                        call lfmIJKcc(Model,Grid,ig,jg,kg,ip,jp,kp)
+                        State%Gas    (ig,jg,kg,:,:)  =  State%Gas    (ip,jp  ,kp,:,:)
+                        State%Bxyz   (ig,jg,kg,:)    =  State%Bxyz   (ip,jp  ,kp,:)
+                    endif
+                    !I face
+                    call lfmIJKfc(Model,Grid,IDIR,ig,jg,kg,ip,jp,kp)
+                    State%magFlux(ig,jg,kg,IDIR) =  State%magFlux(ip,jp,kp,IDIR)
+                    !J face
+                    call lfmIJKfc(Model,Grid,JDIR,ig,jg,kg,ip,jp,kp)
+                    State%magFlux(ig,jg,kg,JDIR) = -State%magFlux(ip,jp,kp,JDIR)
+                    !K face
+                    call lfmIJKfc(Model,Grid,KDIR,ig,jg,kg,ip,jp,kp)
+                    State%magFlux(ig,jg,kg,KDIR) = -State%magFlux(ip,jp,kp,KDIR)
 
                 enddo
             enddo
@@ -931,32 +1070,35 @@ module bcs
 
         integer :: n,i,k
         integer :: ig,jg,kg,ip,jp,kp
-        integer :: Np,Np2
 
         !i,jg,k = ghost cell
-        !i,jp,kp = opposite cell
-
-        Np = Model%Ring%Np
-        Np2 = Np/2 !Halfway about pole
+        !i,jp,kp = conjugate cell
 
         !j-boundaries (OUT)
         !$OMP PARALLEL DO default(shared) &
         !$OMP private(n,i,k,ig,jg,kg,ip,jp,kp)
-        do k=Grid%ksg,Grid%keg
-            do i=Grid%isg,Grid%ieg
+        do k=Grid%ksg,Grid%keg+1
+            do i=Grid%isg,Grid%ieg+1
                 do n=1,Model%Ng
                     !Set ghost cells
                     ig = i
                     jg = Grid%je+n
                     kg = k
-                    call lfmIJK(Model,Grid,ig,jg,kg,ip,jp,kp)
-
-                    State%Gas    (ig,jg  ,kg,:,:)  = State%Gas     (ip,jp,kp,:,:)
-                    State%Bxyz   (ig,jg  ,kg,:)    = State%Bxyz    (ip,jp,kp,:)
-                    State%magFlux(ig,jg  ,kg,IDIR) =  State%magFlux(ip,jp,kp,IDIR)
+                    if (isCellCenterG(Model,Grid,ig,jg,kg)) then
+                        call lfmIJKcc(Model,Grid,ig,jg,kg,ip,jp,kp)
+                        State%Gas    (ig,jg  ,kg,:,:)  = State%Gas     (ip,jp,kp,:,:)
+                        State%Bxyz   (ig,jg  ,kg,:)    = State%Bxyz    (ip,jp,kp,:)
+                    endif
+                    !I face
+                    call lfmIJKfc(Model,Grid,IDIR,ig,jg,kg,ip,jp,kp)
+                    State%magFlux(ig,jg,kg,IDIR) =  State%magFlux(ip,jp,kp,IDIR)
+                    
+                    !J face (first ghost is je+2)
+                    call lfmIJKfc(Model,Grid,JDIR,ig,jg+1,kg,ip,jp,kp)
                     State%magFlux(ig,jg+1,kg,JDIR) = -State%magFlux(ip,jp,kp,JDIR)
-                    State%magFlux(ig,jg  ,kg,KDIR) = -State%magFlux(ip,jp,kp,KDIR)
-
+                    !K face
+                    call lfmIJKfc(Model,Grid,KDIR,ig,jg,kg,ip,jp,kp)
+                    State%magFlux(ig,jg,kg,KDIR) = -State%magFlux(ip,jp,kp,KDIR)
                 enddo
             enddo
         enddo

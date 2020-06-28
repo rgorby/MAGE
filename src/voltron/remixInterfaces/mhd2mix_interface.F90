@@ -2,17 +2,12 @@
 !General coupling consists of XXX
 
 module mhd2mix_interface
+    use kdefs
     use gamtypes
     use gamutils
-    use math
-    use clocks
-    use xml_input
-    use gridutils
-    use msphutils !Get scaling values
-    !Debugging stuff
-    use ioH5
-    use hdf5
-    use h5lt
+    use volttypes
+    use cmiutils
+    use msphutils, only : RadIonosphere
     use gamapp
     use mixgeom
     use mixinterfaceutils
@@ -21,18 +16,7 @@ module mhd2mix_interface
 
     ! how many variables are we sending (should be consistent with the enumerator in mixdefs.F90)
     integer, parameter :: mhd2mix_varn = 3
-
-    type mhd2Mix_T
-
-        ! data for gamera -> remix conversion
-        real(rp), dimension(:,:,:,:,:), allocatable :: mixInput
-        real(rp), dimension(:,:,:,:), allocatable :: gJ
-        type(Map_T), allocatable, dimension(:) :: Jmaps
-        integer :: JStart = 2, JShells = 1
-
-        type(mixGrid_T) :: mixGfpd
-
-    end type mhd2mix_T
+    real(rp), private :: Rion
 
     contains
 
@@ -48,6 +32,8 @@ module mhd2mix_interface
         type(mixGrid_T) :: mhdGfpd,mhdG
         type(Map_T) :: Map
 
+        Rion = RadIonosphere()
+        
         ! allocate remix arrays
         allocate(mhd2Mix%gJ(1:mhd2Mix%JShells, gameraApp%Grid%js:gameraApp%Grid%je, gameraApp%Grid%ks:GameraApp%Grid%ke, 1:NDIM))
         allocate(mhdJGrid(1:mhd2Mix%JShells, gameraApp%Grid%js:gameraApp%Grid%je, gameraApp%Grid%ks:gameraApp%Grid%ke/2, 1:3, 1:2))
@@ -66,7 +52,7 @@ module mhd2mix_interface
                     if (k<=gameraApp%Grid%ke/2) then
                         mhdJGrid(i,j,k,:,NORTH) = [xc,yc,zc]/Rion
                     else
-                        mhdJGrid(i,j,k-ke/2,:,SOUTH) = [xc,yc,zc]/Rion
+                        mhdJGrid(i,j,k-gameraApp%Grid%ke/2,:,SOUTH) = [xc,yc,zc]/Rion
                     endif
                 enddo
             enddo
@@ -104,10 +90,12 @@ module mhd2mix_interface
         real(rp) :: xc,yc,zc
 
         real(rp) :: Con(NVAR)
-        real(rp) :: Cs
+        real(rp) :: Cs,gB0,gv0,gx0
 
+        gB0 = gameraApp%Model%Units%gB0
+        gv0 = gameraApp%Model%Units%gv0
+        gx0 = gameraApp%Model%Units%gx0
 
-        !write(*,*) 'Prepping remix data at T = ',Model%t
 
         !Only working on Bxyz from perturbation
         !B0 in inner region (where we care for remix)
@@ -144,7 +132,7 @@ module mhd2mix_interface
                         ! get sound speed first
                         Con = gameraApp%State%Gas(iG,j,k,:,BLK)
                         call CellPress2Cs(gameraApp%Model,Con,Cs)
-                        mhd2mix%mixInput(i,j,k-ke/2,MHDC,SOUTH) = Cs*gv0*1.e2
+                        mhd2mix%mixInput(i,j,k-gameraApp%Grid%ke/2,MHDC,SOUTH) = Cs*gv0*1.e2
                     endif
                 enddo
             enddo
@@ -209,13 +197,16 @@ module mhd2mix_interface
         real(rp), intent(in) :: x,y,z
         real(rp) :: Bi2m
 
-        real(rp) :: rScl,zScl,zor2
+        real(rp) :: rMag,Rp,zor2,mZ,pZ
 
-        rScl = norm2([x,y,z])/Rion
-        zScl = z/Rion
-        zor2 = (zScl/rScl)**2.0
+        rMag = norm2([x,y,z])
+        Rp = rMag/Rion
+        zor2 = (z/rMag)**2.0
+        mZ = (1.0-zor2)/Rp
+        pZ = 1.0+3.0*zor2
 
-        Bi2m = (rScl**3.0)*sqrt(1+3*(1-zor2)/rScl)/sqrt(1+3*zor2)
+        Bi2m = (Rp**3.0)*sqrt( 1.0 + 3.0*(1.0-mZ) )/sqrt(pZ)
+
         ! bion2bmag in LFM-para/src/interfaces/MHDBoundaryInterface.C
         !Bi2m  = r**3*sqrt(1+3*(1-(1-(zc/r)**2)/r))/sqrt(1+3*(zc/r)**2) 
 
@@ -225,9 +216,9 @@ module mhd2mix_interface
     function need_remix_BC(Model,Grid)
         type(Model_T) ,intent(in) :: Model
         type(Grid_T)  ,intent(in) :: Grid
-        logical need_remix_BC
-     
-        need_remix_BC = Grid%ijkShift(1) == 0
+        logical :: need_remix_BC
+        
+        need_remix_BC = Grid%ijkShift(IDIR) == 0
 
     end function need_remix_BC
 

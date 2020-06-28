@@ -1,10 +1,19 @@
 ! sets up and solves the stencil matrix
+#ifdef USEMKL
+  include 'mkl_pardiso.f90'
+#endif
 module mixsolver
   use mixdefs
   use mixtypes
   use mgmres
+#ifdef USEMKL
+  use mkl_pardiso
+#endif
 
   implicit none
+
+  logical, private :: isSolverInit=.false.
+  integer, private :: MKLMSGLVL=0
 
   contains
     ! running index
@@ -214,6 +223,10 @@ module mixsolver
           S%solution = 0.01_rp
       endif
 
+#ifdef USEMKL
+      !Call MKL-Pardiso solver
+      call MKLSolve(P,G,St,S)
+#else
       ! could drop tolerances by a factor of 100 each (from default 1.d-6)
       ! -- still same result
       call pmgmres_ilu_cr (&
@@ -227,7 +240,69 @@ module mixsolver
            P%maxitr,&
            P%mr,&
            P%tol_abs,&
-           P%tol_rel)  
+           P%tol_rel)
+#endif
     end subroutine run_solver
+
+#ifdef USEMKL
+    subroutine MKLSolve(P,G,St,S)
+      type(mixParams_T), intent(in) :: P
+      type(mixGrid_T),   intent(in) :: G
+      type(mixState_T),  intent(in) :: St
+      type(Solver_T),    intent(inout) :: S
+
+      integer :: Npt
+      TYPE(MKL_PARDISO_HANDLE) :: pt(64)
+      integer :: error,nrhs,msglvl,mtype,iparm(64)
+      integer, dimension(:), allocatable :: perm
+      integer :: maxfct,mnum,phase !pardiso control params
+      ! see description of parameters here: https://software.intel.com/en-us/node/470284#E44B4021-701A-48DA-BA29-70CFA20766AA
+
+      if (MKLMSGLVL > 0) then
+        write(*,*) 'Running MKL-Pardiso'
+      endif
+
+      mtype = 11 ! real nonsymmetric matrix
+
+      !Always initialize/tear-down
+      call pardisoinit(pt,mtype,iparm)
+
+      Npt = G%Np*G%Nt
+      allocate(perm(Npt))
+
+      iparm(1)  = 0  ! all default parameters
+      iparm(27) = 0  ! Matrix checker
+      !Options added by K
+      iparm(2)  = 3
+      iparm(24) = 1
+      !iparm(28) =0; iparm (6) =0;
+      
+      maxfct = 1
+      mnum   = 1
+      nrhs   = 1
+      msglvl = MKLMSGLVL  ! no verbosity
+
+      phase = 13 !Analysis, numerical factorization, solve, iterative refinement
+      !Call solver
+      call pardiso(pt,maxfct,mnum,mtype,phase,Npt, &
+                   S%data,S%rowI,S%JJ,perm, &
+                   nrhs,iparm,msglvl, &
+                   S%RHS,S%solution,error)
+
+      if (error < 0) then
+        write(*,*) 'MKL-Pardiso error, you should deal with that'
+        stop
+      endif
+
+      !Release memory
+      phase =-1  ! release
+      call pardiso(pt,maxfct,mnum,mtype,phase,Npt, &
+                   S%data,S%rowI,S%JJ,perm, &
+                   nrhs,iparm,msglvl, &
+                   S%RHS,S%solution,error)
+
+    end subroutine MKLSolve
+
+#endif USEMKL
 
 end module mixsolver

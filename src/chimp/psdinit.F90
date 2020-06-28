@@ -62,6 +62,8 @@ module psdinit
         psGr%dimBds(PSKINE ,:) = [minval(psGr%kI),maxval(psGr%kI)]
         psGr%dimBds(PSALPHA,:) = [minval(psGr%aI),maxval(psGr%aI)]
 
+        call inpXML%Set_Val(psGr%doShape,"sim/doShape",.true.)
+
         !Output grid data
         write(*,*) '--------------'
         write(*,'(a)') 'Phase space grid (N/Min/Max)'
@@ -82,7 +84,7 @@ module psdinit
         allocate(psGr%bLns(psGr%Nr,psGr%Np))
         
         !Get species info
-        call inpXML%Set_Val(sStr,"tps/species","H")
+        call inpXML%Set_Val(sStr,"tps/species","X")
         call getSpecies(sStr,Model%m0,Model%q0)
 
         allocate(psGr%Qrp (psGr%Nr,psGr%Np,NVARMHD))

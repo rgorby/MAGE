@@ -6,7 +6,7 @@ module particleio
     use tptypes
     use ebtypes
     use tputils
-
+    use files
     implicit none
 
     character(len=strLen) :: tpOutF

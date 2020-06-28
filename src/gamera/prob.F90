@@ -42,8 +42,6 @@ module prob
             initState => ringBW
         case ("RINGLOOP") 
             initState => ringLoop
-        case ("LFMBW")
-            initState => lfmBW
         case ("SOD")
             initState => initSod
         case ("KH_McNally")
@@ -140,12 +138,6 @@ module prob
         allocate(periodicInnerKBC_T     :: Grid%externalBCs(INK )%p)
         allocate(periodicOuterKBC_T     :: Grid%externalBCs(OUTK)%p)
 
-        Grid%isMG = Grid%is
-        Grid%jsMG = Grid%js
-        Grid%jeMG = Grid%je
-        Grid%ksMG = Grid%ks
-        Grid%keMG = Grid%ke        
-
     end subroutine ringLoop
 
     !Initialize blast wave w/ cylindrical singularity
@@ -164,12 +156,6 @@ module prob
 
         allocate(cylindricalPoleBC_T    :: Grid%externalBCs(INI )%p)
         allocate(zeroGradientOuterIBC_T :: Grid%externalBCs(OUTI)%p)
-
-        Grid%isMG = Grid%is
-        Grid%jsMG = Grid%js
-        Grid%jeMG = Grid%je
-        Grid%ksMG = Grid%ks
-        Grid%keMG = Grid%ke        
         
     end subroutine ringBW
 
@@ -189,12 +175,6 @@ module prob
 
         call initBW(Model,Grid,State,inpXML)
 
-        Grid%isMG = Grid%is
-        Grid%jsMG = Grid%js
-        Grid%jeMG = Grid%je
-        Grid%ksMG = Grid%ks
-        Grid%keMG = Grid%ke        
-
         !Setup fluid species
         dScl = 0.8
         pScl = 0.2
@@ -204,36 +184,6 @@ module prob
         State%Gas(:,:,:,ENERGY,2) = (1-pScl)*State%Gas(:,:,:,ENERGY,BLK)
 
     end subroutine initMultiFBW
-
-    !Initialize blast wave w/ LFM singularity
-    subroutine lfmBW(Model,Grid,State,inpXML)
-        type(Model_T), intent(inout) :: Model
-        type(Grid_T), intent(inout) :: Grid
-        type(State_T), intent(inout) :: State
-        type(XML_Input_T), intent(in) :: inpXML
-
-        if (.not. Model%doRing) then
-            write(*,*) 'Need ring-avg'
-            stop
-        endif
-
-        call initBW(Model,Grid,State,inpXML)
-
-        allocate(SphereInBC_T       :: Grid%externalBCs(INI )%p)
-        allocate(SphereOutBC_T      :: Grid%externalBCs(OUTI)%p)
-        allocate(lfmInBC_T          :: Grid%externalBCs(INJ )%p)
-        allocate(lfmOutBC_T         :: Grid%externalBCs(OUTJ)%p)
-        allocate(periodicInnerKBC_T :: Grid%externalBCs(INK )%p)
-        allocate(periodicOuterKBC_T :: Grid%externalBCs(OUTK)%p)
-
-        !Set MG bounds
-        Grid%isMG = Grid%is
-        grid%ieMG = Grid%ie
-        Grid%jsMG = Grid%js
-        Grid%jeMG = Grid%je
-        Grid%ksMG = Grid%ks
-        Grid%keMG = Grid%ke     
-    end subroutine lfmBW
 
     !Initialize all blast wave variants here
     !MHD/Hydro, 2D/3D
@@ -249,6 +199,8 @@ module prob
         real(rp) :: Vx0,Vy0,Vz0, KinE, IntE, Rho
         integer :: i,j,k
         logical :: doB0, doBz
+        real(rp) :: bScl,bSclz
+
         procedure(VectorField_T), pointer :: Axyz
         procedure(GasIC_T), pointer :: Wxyz
 
@@ -274,17 +226,17 @@ module prob
         !Do Z field or not
         call inpXML%Set_Val(doBz,"prob/doBz",.false.)
         !Do field via background or raw
-        call inpXML%Set_Val(doBz,"prob/doBack",.false.)
+        call inpXML%Set_Val(doB0,"prob/doBack",.false.)
 
-        !Set constants in background module            
         if (doBz) then
-            Model%bScl  = B0_BW/sqrt(3.0)
-            Model%bSclz = Model%bScl
+            bScl  = B0_BW/sqrt(3.0)
+            bSclz = bScl
         else
-            Model%bScl  = B0_BW/sqrt(2.0)
-            Model%bSclz = 0.0
+            bScl  = B0_BW/sqrt(2.0)
+            bSclz = 0.0
         endif
-        call inpXML%Set_Val(Model%bSclz,"prob/Bz0",Model%bSclz) !Allow problem file to overwrite Z component
+
+        call inpXML%Set_Val(bSclz,"prob/Bz0",bSclz) !Allow problem file to overwrite Z component
 
         !Initialize State variable analytic function
         Wxyz => GasIC_BW
@@ -311,9 +263,9 @@ module prob
                 real(rp), intent(in) :: x,y,z
                 real(rp), intent(out) :: Ax,Ay,Az
 
-                Ax = Model%bScl
-                Ay = Model%bScl
-                Az = Model%bSclz
+                Ax = bScl
+                Ay = bScl
+                Az = bSclz
 
             end subroutine BlastB0
 
@@ -322,8 +274,8 @@ module prob
                 real(rp), intent(out) :: Ax,Ay,Az
         
                 Ax = 0.0
-                Ay = Model%bSclz*x
-                Az = Model%bScl*(y - x)
+                Ay = bSclz*x
+                Az = bScl*(y - x)
             end subroutine VectorPot_BW
 
             subroutine GasIC_BW(x,y,z,D,Vx,Vy,Vz,P)
@@ -678,10 +630,6 @@ module prob
 
                     State%Gas(i,j,k,ENERGY,BLK) = KinE + P/(Model%gamma-1)
 
-                    !!Initialize fields
-                    !State%magFlux(i,j,k,IDIR) = B0*Grid%Face(i,j,k,IDIR)
-                    !State%magFlux(i,j,k,JDIR) = 0.0
-                    !State%magFlux(i,j,k,KDIR) = 0.0
                 enddo
             enddo
         enddo  
@@ -1004,6 +952,7 @@ module prob
             enddo
         enddo        
 
+        call WipeBCs(Model,Grid)
         allocate(periodicInnerIBC_T      :: Grid%externalBCs(INI )%p)
         allocate(periodicOuterIBC_T      :: Grid%externalBCs(OUTI)%p)
         allocate(zeroGradientInnerJBC_T  :: Grid%externalBCs(INJ )%p)

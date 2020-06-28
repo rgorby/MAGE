@@ -23,6 +23,20 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 #-------------
+#Set minimum compiler versions
+if(CMAKE_Fortran_COMPILER_ID MATCHES Intel)
+	if(CMAKE_Fortran_COMPILER_VERSION VERSION_LESS 18.0)
+		message("Fortran compiler too old!  What, were you gonna use punch cards?")
+		message(FATAL_ERROR "ifort > 18.0 required")
+	endif()
+elseif(CMAKE_Fortran_COMPILER_ID MATCHES GNU)
+	if(CMAKE_Fortran_COMPILER_VERSION VERSION_LESS 8.0)
+		message("Fortran compiler too old!  What, were you gonna use punch cards?")
+		message(FATAL_ERROR "gfortran > 8.0 required")
+	endif()
+endif()
+
+#-------------
 #Set base release options
 set(CMAKE_Fortran_FLAGS_DEBUG "-g")
 set(CMAKE_Fortran_FLAGS_RELEASE "-O3")
@@ -37,7 +51,7 @@ if(CMAKE_Fortran_COMPILER_ID MATCHES Intel)
 	set(PROD "-align array64byte -align rec32byte -no-prec-div -fast-transcendentals")
 	#Debug
 	set(DEBUG "-g -traceback -check bounds -check uninit -debug all -gen-interfaces -warn interfaces -fp-stack-check")
-        set(PRODWITHDEBUGINFO "-O3 -g -traceback -debug all -align array64byte -align rec32byte -no-prec-div -fast-transcendentals")
+	set(PRODWITHDEBUGINFO "-O3 -g -traceback -debug all -align array64byte -align rec32byte -no-prec-div -fast-transcendentals")
 
 	#Now do OS-dep options
 	if (CMAKE_SYSTEM_NAME MATCHES Darwin)
@@ -45,15 +59,16 @@ if(CMAKE_Fortran_COMPILER_ID MATCHES Intel)
 	else()
 		#If we're not doing Mac, then add IPO
 		string(APPEND PROD " -ipo")
-                string(APPEND PRODWITHDEBUGINFO " -ipo")
+		string(APPEND PRODWITHDEBUGINFO " -ipo")
 	endif()
 
 	#Handle individual hosts
 	if (HOST MATCHES cheyenne)
 		string(APPEND PROD " -march=corei7 -axCORE-AVX2")
-                string(APPEND PRODWITHDEBUGINFO " -march=corei7 -axCORE-AVX2")
+		string(APPEND PRODWITHDEBUGINFO " -march=corei7 -axCORE-AVX2")
 	endif()
 	
+
 elseif(CMAKE_Fortran_COMPILER_ID MATCHES GNU)
 	set(dialect "-ffree-form -ffree-line-length-none -fimplicit-none")
 	#Base

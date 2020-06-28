@@ -6,11 +6,12 @@ module clocks
     implicit none
 
     !Global clock parameters
-    integer, parameter :: maxClocks = 40
+    integer, parameter :: maxClocks = 80
     integer :: clockRate=0,clockMax=0
 
     !Clock output (min/max depth)
     integer :: clkMinD = 1, clkMaxD = 5
+
     real(rp) :: clkMinT = 0.0 !Minimum time (in %) to display in clock output
 
     !Timer construct
@@ -90,6 +91,12 @@ module clocks
     subroutine newClock(cID)
         character(len=*), intent(in) :: cID
         integer :: Npa(1),Np,Nl
+
+        if (nclk == maxClocks-1) then
+            write(*,*) 'Ran out of clocks, increse maxClocks ...'
+            stop
+        endif
+
         !Find parent of this clock, ie on clock w/ largest level
         kClocks(nclk+1)%cID = trim(cID)
         Npa = maxloc(kClocks(1:nclk)%level,mask=kClocks(1:nclk)%isOn)
@@ -180,6 +187,7 @@ module clocks
         !Start w/ Omega
         tScl = kClocks(1)%tElap
         write(tStr,'(f8.3)') kClocks(1)%tElap
+
         write(*,'(a)') 'Timing Data (' // trim(adjustl(tStr)) // 's)'
         do n=1,maxClocks
             !Loop until find clock at min depth

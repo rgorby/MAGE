@@ -6,6 +6,7 @@ module psdio
     use psdutils
     use particleio
     use lineio
+    use files
     use pdfuns
 
     implicit none
@@ -17,6 +18,7 @@ module psdio
     logical :: doInitPSIO = .false. !Has IO been initialized
     logical :: doLogKCyl = .true. !Log(K) for K-cylinders
     logical :: doPSLines = .false.
+    logical, parameter :: doEBKEQ = .true.
 
     contains
 
@@ -60,23 +62,51 @@ module psdio
         character(len=strLen), intent(in) :: gStr
 
         type(IOVAR_T), dimension(MAXPSVS) :: IOVars
+        !4D vars (r,p,K,a)
+        real(rp), dimension(:,:,:,:), allocatable :: dGp,dGx
         !3D vars (r,p,K)
         real(rp), dimension(:,:,:), allocatable :: cP,jP,fP,dG
         !2D vars (r,p)
-        real(rp), dimension(:,:), allocatable :: isC,dvB,cP2,nQ
-        real(rp), dimension(:,:,:), allocatable :: Pxyz
+        real(rp), dimension(:,:), allocatable :: isC,dvB,cP2,nQ,Dkin
+        real(rp), dimension(:,:,:), allocatable :: Pxyz,Vxyz
+
 
         integer :: ir,ip,ik,ia,idx(NVARPS)
-        real(rp) :: ds,da,pMag
-
+        real(rp) :: ds,da,dk,pMag
+        integer :: i,j,k,n
         associate(Nr=>psGr%Nr,Np=>psGr%Np,Nk=>psGr%Nk,Na=>psGr%Na)
 
     !Do 4D variables if desired
         if (Model%doFat) then
+            allocate(dGp(Nr,Np,Nk,Na))
+            allocate(dGx(Nr,Np,Nk,Na))
+
+            !$OMP PARALLEL DO default(shared) collapse(2) &
+            !$OMP private(i,j,k,n,idx,dk,da,ds)            
+            do n=1,psGr%Na
+                do k=1,psGr%Nk
+                    do j=1,psGr%Np
+                        do i=1,psGr%Nr
+                            idx = [i,j,k,n]
+                            !Get flux tube volume [L0^3 -> cm3]
+                            dGx(i,j,k,n) = (L0**3.0)*psGr%dVb(i,j,n)
+
+                            !Get volume element contributions from K,alpha,psi
+                            dk = dGamma(Model,psGr,idx,PSKINE)
+                            da = dGamma(Model,psGr,idx,PSALPHA)
+                            ds = dGamma(Model,psGr,idx,PSPSI)
+                            dGp(i,j,k,n) = dk*da*ds
+                        enddo
+                    enddo
+                enddo
+            enddo !n/alpha loop
+
             call ClearIO(IOVars)
             call AddOutVar(IOVars,"Ntp",1.0_rp*psPop%nPSD)
             call AddOutVar(IOVars,"fPSD",psPop%fPSD)
             call AddOutVar(IOVars,"dG",psGr%dG)
+            call AddOutVar(IOVars,"dGx",dGx)
+            call AddOutVar(IOVars,"dGp",dGp)
             call AddOutVar(IOVars,"time",oTScl*Model%t)
             call WriteVars(IOVars,.true.,ps4OutF,gStr)
         endif
@@ -143,11 +173,14 @@ module psdio
             enddo
         enddo
         !Get PSD pressure contributions
+        allocate(Dkin(Nr,Np))
+        allocate(Vxyz(Nr,Np,NDIM))
         allocate(Pxyz(Nr,Np,NDIM))
-        Pxyz = 0.0
-
-        call CalcP(Model,psGr,psPop,Pxyz)
         
+
+        !call CalcP(Model,psGr,psPop,Pxyz)
+        call CalcMoms(Model,psGr,psPop,Dkin,Vxyz,Pxyz)
+
         !For now, just not deal with flow speed stuff
         Pxyz(:,:,XDIR) = Pxyz(:,:,YDIR)
 
@@ -163,6 +196,8 @@ module psdio
         call AddOutVar(IOVars,"Vy",oVScl*psGr%Qrp(:,:,VELY))
         call AddOutVar(IOVars,"Vz",oVScl*psGr%Qrp(:,:,VELZ))
         call AddOutVar(IOVars,"Pg",      psGr%Qrp(:,:,PRESSURE))
+        !Kinetic moments
+        call AddOutVar(IOVars,"nK",Dkin)
         call AddOutVar(IOVars,"Pk",sum(Pxyz,dim=3)/3.0)
         call AddOutVar(IOVars,"Pxy",0.5*(Pxyz(:,:,XDIR)+Pxyz(:,:,YDIR)))
         call AddOutVar(IOVars,"Pz",Pxyz(:,:,ZDIR))
@@ -270,6 +305,8 @@ module psdio
 
         !Calculate step to read
         nStp = nint( (t-psPop%T0)/psPop%dtStp )
+        if (nStp<0) nStp = 0
+
         write(*,*) 'Reading H5p step ', nStp
 
         write(gStr,'(A,I0)') "Step#", nStp
@@ -284,9 +321,14 @@ module psdio
             write(fIn,'(a,a,I0.6,a)') trim(adjustl(psPop%popid)),'.',n,'.h5part'
             call AddInVar(IOVars,"xeq")
             call AddInVar(IOVars,"yeq")
-            !call AddInVar(IOVars,"Keq")
-            !Read eb kinetic energy
-            call AddInVar(IOVars,"ebKeq")
+
+            if (doEBKEQ) then
+                !Read eb kinetic energy (kin energy in ExB frame)
+                call AddInVar(IOVars,"ebKeq")
+            else
+                !Read equatorial kinetic energy
+                call AddInVar(IOVars,"Keq")
+            endif
 
             call AddInVar(IOVars,"Aeq")
             call AddInVar(IOVars,"Teq")

@@ -21,7 +21,7 @@ module gridinterp
     procedure(Wgt1D_T), pointer :: Wgt1D, Wgt1Dp
 
     logical, parameter :: doPole=.false.
-    logical, parameter :: doCornerCut = .false.
+    logical, parameter :: doCornerCut = .true.
     integer, parameter :: Nw=3 !Interpolation stencil size in each dimension
 
     contains

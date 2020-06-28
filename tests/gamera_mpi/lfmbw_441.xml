@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<Gamera>
+  <time tFin="1.5"/>
+  <sim runid="bw" doH5g="T" H5Grid="lfmD.h5" icType="user" pdmb="1.0" rmeth="7Up" pFloor="1e-06" dFloor="0.0001"/>
+  <output dtOut="1.0e-1" tsOut="100" timer="F"/>
+  <physics doMHD="T" doBoris="T" Ca="10.0"/>
+  <prob x0="-50.0" y0="30.0" rC="20.0" B0="1.0" pRat="10.0"/>
+  <ring gid="lfm" doRing="T" Nr="4" Nc1="8" Nc2="16" Nc3="32" Nc4="32"/>
+  <iPdir N="4" bcPeriodic="F"/>
+  <jPdir N="4" bcPeriodic="F"/>
+  <kPdir N="1" bcPeriodic="T"/>
+</Gamera>
+

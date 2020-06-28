@@ -2,9 +2,10 @@
 
 import h5py
 import numpy as np
-import gamGrids as gg
+import kaipy.gamera.gamGrids as gg
 import scipy
 from scipy.spatial import ConvexHull
+import kaipy.kaiH5 as kh5
 
 TINY = 1.0e-8
 NumG = 4
@@ -12,11 +13,120 @@ IDIR = 0
 JDIR = 1
 KDIR = 2
 
-#Generate name of restart file
-def genName(bStr,i,j,k,Ri,Rj,Rk,nRes):
-	n = j + i*Rj + k*Ri*Rj
-	fID = bStr + "_%04d_%04d_%04d_%04d_%04d_%04d_%012d"%(Ri,Rj,Rk,i,j,k,n)+".Res.%05d.h5"%(nRes)
-	return fID
+#Push restart data to an MPI tiling
+#fInA is a restart file to pull attributes from
+def PushRestartMPI(outid,nRes,Ri,Rj,Rk,X,Y,Z,G,M,fInA):
+	print("Reading attributes from %s"%(fInA))
+	iH5 = h5py.File(fInA,'r')
+
+	Ns,Nv,Nk,Nj,Ni = G.shape
+	#Create output files
+	Nkp = Nk//Rk
+	Njp = Nj//Rj
+	Nip = Ni//Ri
+
+	print("Splitting (%d,%d,%d) cells into (%d,%d,%d) x (%d,%d,%d) [Cells,MPI]"%(Ni,Nj,Nk,Nip,Njp,Nkp,Ri,Rj,Rk))
+	#Loop over output slices and create restarts
+	for i in range(Ri):
+		for j in range(Rj):
+			for k in range(Rk):
+				fOut = kh5.genName(outid,i,j,k,Ri,Rj,Rk,nRes)
+				
+				#Open output file
+				oH5 = h5py.File(fOut,'w')
+
+				iS =  i*Nip
+				iE = iS+Nip
+				jS =  j*Njp
+				jE = jS+Njp
+				kS =  k*Nkp
+				kE = kS+Nkp
+
+				#Indices for offset ghost grid
+
+				iSg =  iS    -NumG   + NumG #Last numG to offset to 0-based index
+				iEg =  iS+Nip+NumG+1 + NumG #Last numG to offset to 0-based index
+				jSg =  jS    -NumG   + NumG #Last numG to offset to 0-based index
+				jEg =  jS+Njp+NumG+1 + NumG #Last numG to offset to 0-based index
+				kSg =  kS    -NumG   + NumG #Last numG to offset to 0-based index
+				kEg =  kS+Nkp+NumG+1 + NumG #Last numG to offset to 0-based index
+
+				print("Writing %s"%(fOut))
+				print("\tMPI (%d,%d,%d) = [%d,%d]x[%d,%d]x[%d,%d]"%(i,j,k,iS,iE,jS,jE,kS,kE))
+				print("\tGrid indices = (%d,%d)x(%d,%d)x(%d,%d)"%(iSg,iEg,jSg,jEg,kSg,kEg))
+
+				#Slice subgrids
+				ijkX = X[kSg:kEg,jSg:jEg,iSg:iEg]
+				ijkY = Y[kSg:kEg,jSg:jEg,iSg:iEg]
+				ijkZ = Z[kSg:kEg,jSg:jEg,iSg:iEg]
+
+				#Slice pieces out of gas and magflux
+				ijkG = G[:,:,kS:kE  ,jS:jE  ,iS:iE  ]
+				ijkM = M[  :,kS:kE+1,jS:jE+1,iS:iE+1]
+
+				#Write heavy variables
+				oH5.create_dataset("Gas",data=ijkG)
+				oH5.create_dataset("magFlux",data=ijkM)
+
+				#Write subgrid
+				oH5.create_dataset("X",data=ijkX)
+				oH5.create_dataset("Y",data=ijkY)
+				oH5.create_dataset("Z",data=ijkZ)
+
+				#Transfer attributes to output
+				for ak in iH5.attrs.keys():
+					aStr = str(ak)
+					oH5.attrs.create(ak,iH5.attrs[aStr])
+
+				#Close this output file
+				oH5.close()
+	#Close input file
+	iH5.close()
+
+#Get full data from a tiled restart file
+def PullRestartMPI(bStr,nRes,Ri,Rj,Rk,dIn=None,oH5=None):
+	doInit = True
+	for i in range(Ri):
+		for j in range(Rj):
+			for k in range(Rk):
+				fID = kh5.genName(bStr,i,j,k,Ri,Rj,Rk,nRes)
+				print("Reading from %s"%(fID))
+
+				#Start with input data
+				if (dIn is not None):
+					fIn = dIn  + "/" + fID
+				else:
+					fIn = fID
+				iH5 = h5py.File(fIn,'r')
+
+				if (doInit):
+					Ns,Nv,Nkp,Njp,Nip = iH5['Gas'].shape
+					Nk = Rk*Nkp
+					Nj = Rj*Njp
+					Ni = Ri*Nip
+					G = np.zeros((Ns,Nv,Nk,Nj,Ni))
+					M = np.zeros((3,Nk+1,Nj+1,Ni+1))
+					if (oH5 is not None):
+						for ka in iH5.attrs.keys():
+							aStr = str(ka)
+							#print(aStr)
+							oH5.attrs.create(ka,iH5.attrs[aStr])
+					doInit = False
+				iS = i*Nip
+				iE = iS+Nip
+				jS = j*Njp
+				jE = jS+Njp
+				kS = k*Nkp
+				kE = kS+Nkp
+
+				#print("MPI (%d,%d,%d) = [%d,%d]x[%d,%d]x[%d,%d]"%(i,j,k,iS,iE,jS,jE,kS,kE))
+				
+				G[:,:,kS:kE  ,jS:jE  ,iS:iE  ] = iH5['Gas'][:]
+				M[  :,kS:kE+1,jS:jE+1,iS:iE+1] = iH5['magFlux'][:]
+
+				#Close up
+				iH5.close()
+	return G,M
 
 #Downscale a grid (with ghosts, k-j-i order)
 def downGrid(X,Y,Z):
@@ -35,9 +145,9 @@ def downGrid(X,Y,Z):
 	rr = np.sqrt(xx**2.0+yy**2.0)
 	pp = np.arctan2(yy,xx)
 
-	NiD = Ni/2
-	NjD = Nj/2
-	NkD = Nk/2
+	NiD = Ni//2
+	NjD = Nj//2
+	NkD = Nk//2
 
 	rrD = np.zeros((NiD+1,NjD+1))
 	ppD = np.zeros((NiD+1,NjD+1))
@@ -125,16 +235,16 @@ def downGas(X,Y,Z,G,Xd,Yd,Zd):
 	dV  = Volume(X ,Y ,Z )
 	dVd = Volume(Xd,Yd,Zd)
 	print("Volume ratio (Coarse/Fine) = %f"%(dVd.sum()/dV.sum()))
-	Gd = np.zeros((Ns,Nv,Nk/2,Nj/2,Ni/2))
+	Gd = np.zeros((Ns,Nv,Nk//2,Nj//2,Ni//2))
 	print("Downscaling gas variables ...")
 
 	#Loop over coarse grid
 	for s in range(Ns):
 		for v in range(Nv):
 			print("\tDownscaling Species %d, Variable %d"%(s,v))
-			for k in range(Nk/2):
-				for j in range(Nj/2):
-					for i in range(Ni/2):
+			for k in range(Nk//2):
+				for j in range(Nj//2):
+					for i in range(Ni//2):
 						dVijk = dV[2*k:2*k+2,2*j:2*j+2,2*i:2*i+2] #Volumes of the finer subgrid
 						dQijk = G[s,v,2*k:2*k+2,2*j:2*j+2,2*i:2*i+2] #stuff density in finer subgrid
 						#Stuff in the subchunk
@@ -208,13 +318,13 @@ def downFlux(X,Y,Z,M,Xu,Yu,Zu):
 	Nj = Njc-1
 	Ni = Nic-1
 
-	Md = np.zeros((Nd,Nk/2+1,Nj/2+1,Ni/2+1))
+	Md = np.zeros((Nd,Nk//2+1,Nj//2+1,Ni//2+1))
 
 	#Loop over coarse grid cells
 	print("Downscaling face fluxes ...")
-	for k in range(Nk/2):
-		for j in range(Nj/2):
-			for i in range(Ni/2):
+	for k in range(Nk//2):
+		for j in range(Nj//2):
+			for i in range(Ni//2):
 				ip = 2*i
 				jp = 2*j
 				kp = 2*k

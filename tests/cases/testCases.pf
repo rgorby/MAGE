@@ -220,11 +220,11 @@ contains
     call initVoltron(voltronApp, gameraApp, caseInput)
 
     ! Manually running for just 1 second of simulation time
-    do while ((1.0 - gameraApp%Model%t) > 1e-15)
+    do while ((1.0 - gameraApp%Model%t*gameraApp%Model%Units%gT0) > 1e-15)
         call stepGamera(gameraApp)
 
-        if (gameraApp%Model%t >= voltronApp%fastShallowTime) then
-            call fastShallowUpdate(voltronApp, gameraApp, gameraApp%Model%t)
+        if (gameraApp%Model%t >= voltronApp%ShallowT) then
+            call ShallowUpdate(voltronApp, gameraApp, gameraApp%Model%t)
         endif
     end do
     write(*,*) 'End time = ', gameraApp%Model%t

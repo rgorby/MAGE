@@ -1,11 +1,11 @@
 <?xml version="1.0"?>
 <!-- Blast wave 2D -->
 <Gamera>
-    <sim runid="bw" doH5init="F" icType="BW">
-    <idir min="-0.5" max="0.5" N="400">
-    <jdir min="-0.75" max="0.75" N="600">
-    <kdir min="-0.5" max="0.5" N="1">
-    <time tFin="1.0">
-    <output dtOut="0.005" tsOut="100">
-    <physics doMHD="T">
+    <sim runid="bw" doH5init="F" icType="BW"/>
+    <idir min="-0.5" max="0.5" N="400"/>
+    <jdir min="-0.75" max="0.75" N="600"/>
+    <kdir min="-0.5" max="0.5" N="1"/>
+    <time tFin="1.0"/>
+    <output dtOut="0.005" tsOut="100"/>
+    <physics doMHD="T"/>
 </Gamera>

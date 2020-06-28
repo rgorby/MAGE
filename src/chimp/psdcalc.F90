@@ -10,6 +10,16 @@ module psdcalc
 
     logical :: doInitWgt = .true.
 
+    abstract interface
+        subroutine PSDShape_T(x0,xI,wX)
+            import :: rp
+            real(rp), intent(in)  :: x0
+            real(rp), intent(in)  :: xI(-1:+2) !x0 is between xI(0) and xI(1)
+            real(rp), intent(out) :: wX(-1:+1)
+        end subroutine PSDShape_T
+    end interface
+    procedure(PSDShape_T), pointer, private :: ShapeWeight => ShapeWeight_CIC
+
     contains
 
     !Calculate weights for unweighted particles
@@ -22,7 +32,7 @@ module psdcalc
         integer, dimension(:,:,:,:), allocatable :: nPS
         integer :: NumW, n,ir,ip,ik,ia, NumOut
         integer, dimension(NVARPS) :: idx
-        real(rp) :: n0,kT0,fC,kev,alpha,iScl
+        real(rp) :: n0,kT0,fC,kev,alpha,iScl,R,phi
 
         !Find how many particles need weighting
         NumW = count( (.not. psPop%isWgt) .and. (psPop%isIn) )
@@ -79,7 +89,7 @@ module psdcalc
         !write(*,*) 'Doing weighting loop ...'
         !$OMP PARALLEL DO default(shared) &
         !$OMP private(n,idx,ir,ip,ik,ia)  &
-        !$OMP private(n0,kT0,kev,alpha,fC,iScl)
+        !$OMP private(n0,kT0,kev,alpha,fC,iScl,R,phi)
         do n=1,psPop%NumTP
             if ( (.not. psPop%isIn(n)) .or. (psPop%isWgt(n)) ) then
                 !Don't bother if particle isn't in or has already been weighted
@@ -100,14 +110,19 @@ module psdcalc
             ik = idx(PSKINE)
             ia = idx(PSALPHA)
 
+            !Get TP location
+            R     = psGr%rC(ir)
+            phi   = psGr%pC(ip)
+            kev   = psGr%kC(ik)
+            alpha = psGr%aC(ia)
+
             !Get flow density/temperature
             n0  = psGr%Qrp (ir,ip,DEN)
             kT0 = psGr%kTeq(ir,ip)*psPop%kTScl
-            kev = psGr%kC(ik)
-            alpha = psGr%aC(ia)
 
             !Calculate PSD IC
-            fC = fPSD0(Model,n0,kT0,kev,alpha)
+            fC = fPSD0(Model,R,phi,kev,alpha,n0,kT0)
+            
             !Rescale PSD IC if doing injection over time
             if (Model%doStream) then
                 !Injection scaling, (tau*u)/dWr
@@ -141,7 +156,8 @@ module psdcalc
 
     !Finished
         end associate
-        write(*,*) 'Total weight = ', sum(psPop%wgt(:))
+        write(*,*) 'Total weight   = ', sum(psPop%wgt(:))
+        write(*,*) 'Min/Max weight = ', minval(psPop%wgt),maxval(psPop%wgt)
     end subroutine CalcWeights
 
     !Given weights for all TPs, calculate PSD on given PS
@@ -189,10 +205,7 @@ module psdcalc
             !Add weight and ps counter
             w = psPop%wgt(n)
             
-            !$OMP ATOMIC
-            psPop%fPSD(ir,ip,ik,ia) = psPop%fPSD(ir,ip,ik,ia) + w
-            !$OMP ATOMIC
-            psPop%nPSD(ir,ip,ik,ia) = psPop%nPSD(ir,ip,ik,ia) + 1
+            call depositWeight(Model,psGr,psPop,psPop%TPs(n,:),idx,w)
             
         enddo
 
@@ -221,12 +234,179 @@ module psdcalc
                 enddo
             enddo
         enddo
-        !TODO: Can check for under-sampled cells here and smooth based on neighbors
 
 
         end associate
 
     end subroutine CalcPSD
 
+    subroutine depositWeight(Model,psGr,psPop,Q,idx,wgt)
+        type(chmpModel_T), intent(in)    :: Model
+        type(PSEq_T)     , intent(in)    :: psGr
+        type(psdPop_T)   , intent(inout) :: psPop
+        
+        integer , intent(in) :: idx(NVARPS)
+        real(rp), intent(in) :: wgt, Q(NVARPS)
+
+        integer :: ir,ip,ik,ia
+        real(rp), dimension(-1:1,-1:1,-1:1,-1:1) :: wX
+        real(rp), dimension(-1:1) :: wR,wP,wK,wA
+
+        real(rp) :: r0,p0,k0,a0,wIJK
+        integer :: dr,dp,dk,da
+        integer :: irp,ipp,ikp,iap
+        logical :: inR,inP,inK,inA,inGrid
+
+        ir = idx(PSRAD)
+        ip = idx(PSPHI)
+        ik = idx(PSKINE)
+        ia = idx(PSALPHA)
+
+        r0 = Q(PSRAD)
+        p0 = Q(PSPHI)
+        if (p0<0) p0=p0+2*PI
+
+        k0 = Q(PSKINE)
+        a0 = Q(PSALPHA)
+        
+        
+        if (.not. psGr%doShape) then
+            !$OMP ATOMIC
+            psPop%fPSD(ir,ip,ik,ia) = psPop%fPSD(ir,ip,ik,ia) + wgt
+            !$OMP ATOMIC
+            psPop%nPSD(ir,ip,ik,ia) = psPop%nPSD(ir,ip,ik,ia) + 1
+
+            return
+        endif
+
+        !If we're still here, do shaping
+        wX = 0.0
+
+        wR = 0.0
+        wK = 0.0
+        wA = 0.0
+        wP = 0.0
+
+        !Radius
+        if ( (ir == 1) .or. (ir == psGr%Nr) ) then
+            wR(0) = 1.0
+        else
+            !This is in middle
+            call ShapeWeight(r0,psGr%rI(ir-1:ir+2),wR)
+        endif
+
+        !Energy
+        if ( (ik == 1) .or. (ik == psGr%Nk) ) then
+            wK(0) = 1.0
+        else
+            !This is in middle
+            call ShapeWeight(k0,psGr%kI(ik-1:ik+2),wK)
+        endif
+
+        !Alpha
+        if ( (ia == 1) .or. (ia == psGr%Na) ) then
+            wA(0) = 1.0
+        else
+            !This is in middle
+            call ShapeWeight(a0,psGr%aI(ia-1:ia+2),wA)
+        endif
+
+        !phi
+        if ( (ip == 1) .or. (ip == psGr%Np) ) then
+            wP(0) = 1.0
+        else
+            !This is in middle
+            call ShapeWeight(p0,psGr%pI(ip-1:ip+2),wP)
+        endif
+
+        do dr=-1,1
+            do dp=-1,1
+                do dk=-1,1
+                    do da=-1,1
+                        irp = ir+dr
+                        ipp = ip+dp
+                        ikp = ik+dk
+                        iap = ia+da
+
+                        wIJK = wR(dr)*wP(dp)*wK(dk)*wA(da)
+                        wX(dr,dp,dk,da) = wIJK
+
+                        !Check if this is a good cell
+                        inR = (irp >= 1) .and. (irp <= psGr%Nr)
+                        inP = (ipp >= 1) .and. (ipp <= psGr%Np)
+                        inK = (ikp >= 1) .and. (ikp <= psGr%Nk)
+                        inA = (iap >= 1) .and. (iap <= psGr%Na)
+
+                        inGrid = inR .and. inP .and. inK .and. inA
+                        if (inGrid) then
+                            !$OMP ATOMIC
+                            psPop%fPSD(irp,ipp,ikp,iap) = psPop%fPSD(irp,ipp,ikp,iap) + wgt*wIJK
+
+                        endif !Update
+
+                    enddo
+                enddo
+            enddo
+        enddo
+
+        !$OMP ATOMIC
+        psPop%nPSD(ir,ip,ik,ia) = psPop%nPSD(ir,ip,ik,ia) + 1
+
+        !wIJK = sum(wX)-1.0
+        !write(*,*) 'wIJK = ', wIJK
+
+    end subroutine depositWeight
+
+!--- Shape functions
+!x0 is particle position, xI are the interfaces of the 3 closest cells (-1->0,0->1,1->2)
+    subroutine ShapeWeight_CIC(x0,xI,wX)
+        real(rp), intent(in)  :: x0
+        real(rp), intent(in)  :: xI(-1:+2)        
+        real(rp), intent(out) :: wX(-1:+1)
+
+        real(rp) :: xCC,xM,xP,dX
+
+        !Initialize
+        wX = 0.0
+
+        xM  = 0.5*(xI(-1)+xI( 0))
+        xCC = 0.5*(xI( 0)+xI(+1))
+        xP  = 0.5*(xI(+1)+xI(+2))
+
+        if (x0>=xCC) then
+            dX = xP-xCC
+            wX( 0) = (xP-x0 )/dX
+            wX(+1) = (x0-xCC)/dX
+        else
+            dX = xCC-xM
+            wX(-1) = (xCC-x0)/dX
+            wX( 0) = (x0 -xM)/dX
+        endif
+    end subroutine ShapeWeight_CIC
+
+    !TODO: Fix bug in TSC shaping
+    ! subroutine ShapeWeight_TSC(x0,xI,wX)
+    !     real(rp), intent(in)  :: x0
+    !     real(rp), intent(in)  :: xI(-1:+2)        
+    !     real(rp), intent(out) :: wX(-1:+1)
+
+    !     real(rp) :: dX,xPI,xMI,mArg,pArg
+    !     !Initialize
+    !     wX = 0.0
+
+    !     dX = xI(+1)-xI( 0) !Width of center cell
+
+    !     xPI = xI(+1)-x0
+    !     xMI = x0-xI(0)
+
+    !     mArg = 1.0-xMI
+    !     pArg = 1.0-xPI
+
+    !     wX(-1) = 0.5*mArg*mArg
+    !     wX(+1) = 0.5*pArg*pArg
+    !     wX( 0) = 1.0-wX(-1)-wX(+1)
+
+
+    ! end subroutine ShapeWeight_TSC
 
 end module psdcalc

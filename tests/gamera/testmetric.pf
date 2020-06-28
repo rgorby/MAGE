@@ -1,0 +1,193 @@
+module testMetric
+  use pFUnit
+  use metric
+
+  implicit none
+
+  type(Grid_T) :: testGrid
+
+contains
+
+  @before
+  subroutine setup()
+    testGrid%isg = 1
+    testGrid%ieg = 1
+    testGrid%jsg = 1
+    testGrid%jeg = 1
+    testGrid%ksg = 1
+    testGrid%keg = 1
+
+    allocate(testGrid%xyz(testGrid%isg:testGrid%ieg+1,testGrid%jsg:testGrid%jeg+1,testGrid%ksg:testGrid%keg+1,NDIM))
+
+    ! these points should define a box with corners at 1,1,1 and 2,3,4
+    testGrid%xyz(1,1,1,XDIR) = 1;
+    testGrid%xyz(1,1,1,YDIR) = 1;
+    testGrid%xyz(1,1,1,ZDIR) = 1;
+    testGrid%xyz(2,1,1,XDIR) = 2;
+    testGrid%xyz(2,1,1,YDIR) = 1;
+    testGrid%xyz(2,1,1,ZDIR) = 1;
+    testGrid%xyz(1,2,1,XDIR) = 1;
+    testGrid%xyz(1,2,1,YDIR) = 3;
+    testGrid%xyz(1,2,1,ZDIR) = 1;
+    testGrid%xyz(2,2,1,XDIR) = 2;
+    testGrid%xyz(2,2,1,YDIR) = 3;
+    testGrid%xyz(2,2,1,ZDIR) = 1;
+    testGrid%xyz(1,1,2,XDIR) = 1;
+    testGrid%xyz(1,1,2,YDIR) = 1;
+    testGrid%xyz(1,1,2,ZDIR) = 4;
+    testGrid%xyz(2,1,2,XDIR) = 2;
+    testGrid%xyz(2,1,2,YDIR) = 1;
+    testGrid%xyz(2,1,2,ZDIR) = 4;
+    testGrid%xyz(1,2,2,XDIR) = 1;
+    testGrid%xyz(1,2,2,YDIR) = 3;
+    testGrid%xyz(1,2,2,ZDIR) = 4;
+    testGrid%xyz(2,2,2,XDIR) = 2;
+    testGrid%xyz(2,2,2,YDIR) = 3;
+    testGrid%xyz(2,2,2,ZDIR) = 4;
+
+    allocate(testGrid%x(testGrid%isg:testGrid%ieg+1,testGrid%jsg:testGrid%jeg+1,testGrid%ksg:testGrid%keg+1))
+    allocate(testGrid%y(testGrid%isg:testGrid%ieg+1,testGrid%jsg:testGrid%jeg+1,testGrid%ksg:testGrid%keg+1))
+    allocate(testGrid%z(testGrid%isg:testGrid%ieg+1,testGrid%jsg:testGrid%jeg+1,testGrid%ksg:testGrid%keg+1))
+    testGrid%x = testGrid%xyz(:,:,:,XDIR)
+    testGrid%y = testGrid%xyz(:,:,:,YDIR)
+    testGrid%z = testGrid%xyz(:,:,:,ZDIR)
+
+  end subroutine setup
+
+  @after
+  subroutine teardown()
+    deallocate(testGrid%xyz)
+    deallocate(testGrid%x)
+    deallocate(testGrid%y)
+    deallocate(testGrid%z)
+  end subroutine teardown
+
+  @test
+  subroutine testCellCenter()
+    real(rp) :: xc,yc,zc
+
+    write(*,*) 'Doing testCellCenter ...'
+
+    call cellCenter(testGrid, 1, 1, 1, xc, yc, zc, .false.)
+    @assertLessThanOrEqual(xc - 1.5, 0.0_rp, 'cellCenter failed on xc')
+    @assertLessThanOrEqual(yc - 2,   0.0_rp, 'cellCenter failed on yc')
+    @assertLessThanOrEqual(zc - 2.5, 0.0_rp, 'cellCenter failed on zc')
+
+  end subroutine testCellCenter
+
+  @test
+  subroutine testFaceCenter()
+    real(rp) :: xfc,yfc,zfc
+
+    write(*,*) 'Doing testFaceCenter ...'
+
+    call faceCenter(testGrid, 1, 1, 1, xfc, yfc, zfc, IDIR, .false.)
+    @assertLessThanOrEqual(xfc - 1,   0.0_rp, 'faceCenter IDIR failed on xfc')
+    @assertLessThanOrEqual(yfc - 2,   0.0_rp, 'faceCenter IDIR failed on yfc')
+    @assertLessThanOrEqual(zfc - 2.5, 0.0_rp, 'faceCenter IDIR failed on zfc')
+
+    call faceCenter(testGrid, 1, 1, 1, xfc, yfc, zfc, JDIR, .false.)
+    @assertLessThanOrEqual(xfc - 1.5, 0.0_rp, 'faceCenter JDIR failed on xfc')
+    @assertLessThanOrEqual(yfc - 1,   0.0_rp, 'faceCenter JDIR failed on yfc')
+    @assertLessThanOrEqual(zfc - 2.5, 0.0_rp, 'faceCenter JDIR failed on zfc')
+
+    call faceCenter(testGrid, 1, 1, 1, xfc, yfc, zfc, KDIR, .false.)
+    @assertLessThanOrEqual(xfc - 1.5, 0.0_rp, 'faceCenter KDIR failed on xfc')
+    @assertLessThanOrEqual(yfc - 2,   0.0_rp, 'faceCenter KDIR failed on yfc')
+    @assertLessThanOrEqual(zfc - 1,   0.0_rp, 'faceCenter KDIR failed on zfc')
+
+  end subroutine testFaceCenter
+
+  @test
+  subroutine testFaceCoords()
+    type(Model_T) :: Model ! not used, but needed to call function
+    real(rp), dimension(NDIM) :: f0,f1,f2,f3
+
+    write(*,*) 'Doing testFaceCoords ...'
+
+    call faceCoords(Model, testGrid, 1, 1, 1, IDIR, f0, f1, f2, f3)
+    @assertLessThanOrEqual(sum(abs(f0 - (/1,1,1/))), 0.0_rp, 'faceCoords IDIR failed on f0')
+    @assertLessThanOrEqual(sum(abs(f1 - (/1,3,1/))), 0.0_rp, 'faceCoords IDIR failed on f1')
+    @assertLessThanOrEqual(sum(abs(f2 - (/1,1,4/))), 0.0_rp, 'faceCoords IDIR failed on f2')
+    @assertLessThanOrEqual(sum(abs(f3 - (/1,3,4/))), 0.0_rp, 'faceCoords IDIR failed on f3')
+
+    call faceCoords(Model, testGrid, 1, 1, 1, JDIR, f0, f1, f2, f3)
+    @assertLessThanOrEqual(sum(abs(f0 - (/1,1,1/))), 0.0_rp, 'faceCoords JDIR failed on f0')
+    @assertLessThanOrEqual(sum(abs(f1 - (/1,1,4/))), 0.0_rp, 'faceCoords JDIR failed on f1')
+    @assertLessThanOrEqual(sum(abs(f2 - (/2,1,1/))), 0.0_rp, 'faceCoords JDIR failed on f2')
+    @assertLessThanOrEqual(sum(abs(f3 - (/2,1,4/))), 0.0_rp, 'faceCoords JDIR failed on f3')
+
+    call faceCoords(Model, testGrid, 1, 1, 1, KDIR, f0, f1, f2, f3)
+    @assertLessThanOrEqual(sum(abs(f0 - (/1,1,1/))), 0.0_rp, 'faceCoords KDIR failed on f0')
+    @assertLessThanOrEqual(sum(abs(f1 - (/2,1,1/))), 0.0_rp, 'faceCoords KDIR failed on f1')
+    @assertLessThanOrEqual(sum(abs(f2 - (/1,3,1/))), 0.0_rp, 'faceCoords KDIR failed on f2')
+    @assertLessThanOrEqual(sum(abs(f3 - (/2,3,1/))), 0.0_rp, 'faceCoords KDIR failed on f3')
+
+  end subroutine testFaceCoords
+
+  @test
+  subroutine testEdgeCoords()
+    type(Model_T) :: Model ! not used, but needed to call function
+    real(rp), dimension(NDIM) :: e1,e2
+
+    write(*,*) 'Doing testEdgeCoords ...'
+
+    call edgeCoords(Model, testGrid, 1, 1, 1, IDIR, e1, e2)
+    @assertLessThanOrEqual(sum(abs(e1 - (/1,1,1/))), 0.0_rp, 'edgeCoords IDIR failed on e1')
+    @assertLessThanOrEqual(sum(abs(e2 - (/2,1,1/))), 0.0_rp, 'edgeCoords IDIR failed on e2')
+
+    call edgeCoords(Model, testGrid, 1, 1, 1, JDIR, e1, e2)
+    @assertLessThanOrEqual(sum(abs(e1 - (/1,1,1/))), 0.0_rp, 'edgeCoords JDIR failed on e1')
+    @assertLessThanOrEqual(sum(abs(e2 - (/1,3,1/))), 0.0_rp, 'edgeCoords JDIR failed on e2')
+
+    call edgeCoords(Model, testGrid, 1, 1, 1, KDIR, e1, e2)
+    @assertLessThanOrEqual(sum(abs(e1 - (/1,1,1/))), 0.0_rp, 'edgeCoords KDIR failed on e1')
+    @assertLessThanOrEqual(sum(abs(e2 - (/1,1,4/))), 0.0_rp, 'edgeCoords KDIR failed on e2')
+
+  end subroutine testEdgeCoords
+
+  @test
+  subroutine testCellCoords()
+    type(Model_T) :: Model ! not used, but needed to call function
+    real(rp), dimension(8,NDIM) :: xyzC
+
+    write(*,*) 'Doing testCellCoords ...'
+
+    call cellCoords(Model, testGrid, 1, 1, 1, xyzC)
+    @assertLessThanOrEqual(sum(abs(xyzC(1,:) - testGrid%xyz(1,1,1,:))), 0.0_rp, 'cellCoords failed on point 1')
+    @assertLessThanOrEqual(sum(abs(xyzC(2,:) - testGrid%xyz(2,1,1,:))), 0.0_rp, 'cellCoords failed on point 2')
+    @assertLessThanOrEqual(sum(abs(xyzC(3,:) - testGrid%xyz(2,2,1,:))), 0.0_rp, 'cellCoords failed on point 3')
+    @assertLessThanOrEqual(sum(abs(xyzC(4,:) - testGrid%xyz(1,2,1,:))), 0.0_rp, 'cellCoords failed on point 4')
+    @assertLessThanOrEqual(sum(abs(xyzC(5,:) - testGrid%xyz(1,1,2,:))), 0.0_rp, 'cellCoords failed on point 5')
+    @assertLessThanOrEqual(sum(abs(xyzC(6,:) - testGrid%xyz(2,1,2,:))), 0.0_rp, 'cellCoords failed on point 6')
+    @assertLessThanOrEqual(sum(abs(xyzC(7,:) - testGrid%xyz(2,2,2,:))), 0.0_rp, 'cellCoords failed on point 7')
+    @assertLessThanOrEqual(sum(abs(xyzC(8,:) - testGrid%xyz(1,2,2,:))), 0.0_rp, 'cellCoords failed on point 8')
+
+  end subroutine testCellCoords
+
+  @test
+  subroutine testIjkVec()
+    type(Model_T) :: Model ! not used, but needed to call function
+    real(rp), dimension(NDIM) :: xCC
+
+    write(*,*) 'Doing testIjkVec ...'
+
+    xCC = ijkVec(Model, testGrid, 1, 1, 1, IDIR)
+    @assertLessThanOrEqual(xcc(XDIR) - 1, 0.0_rp, 'ijkVec IDIR failed on XDIR')
+    @assertLessThanOrEqual(xcc(YDIR) - 0, 0.0_rp, 'ijkVec IDIR failed on YDIR')
+    @assertLessThanOrEqual(xcc(ZDIR) - 0, 0.0_rp, 'ijkVec IDIR failed on ZDIR')
+
+    xCC = ijkVec(Model, testGrid, 1, 1, 1, JDIR)
+    @assertLessThanOrEqual(xcc(XDIR) - 0, 0.0_rp, 'ijkVec JDIR failed on XDIR')
+    @assertLessThanOrEqual(xcc(YDIR) - 1, 0.0_rp, 'ijkVec JDIR failed on YDIR')
+    @assertLessThanOrEqual(xcc(ZDIR) - 0, 0.0_rp, 'ijkVec JDIR failed on ZDIR')
+
+    xCC = ijkVec(Model, testGrid, 1, 1, 1, KDIR)
+    @assertLessThanOrEqual(xcc(XDIR) - 0, 0.0_rp, 'ijkVec KDIR failed on XDIR')
+    @assertLessThanOrEqual(xcc(YDIR) - 0, 0.0_rp, 'ijkVec KDIR failed on YDIR')
+    @assertLessThanOrEqual(xcc(ZDIR) - 1, 0.0_rp, 'ijkVec KDIR failed on ZDIR')
+
+  end subroutine testIjkVec
+
+end module testMetric
+

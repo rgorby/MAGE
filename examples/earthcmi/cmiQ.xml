@@ -1,17 +1,15 @@
 <?xml version="1.0"?>
-<!-- Magnetosphere params, code units of time are 1=63.8s -->
-<OMEGA>
-  <sim tFin="677.1159874608151"/>
-  <gamera_remix dt="0.1" dowait="F" dtshift="0.0"/>
-  <remix_gamera dt="0.1" dowait="F" dtshift="0.0"/>
-</OMEGA>
+<!-- Magnetosphere params, Voltron times in seconds -->
+<!-- MJD0 is modified Julian date of T=0 in solar wind file -->
+<VOLTRON>
+  <time tFin="36000.0"/>
+  <output dtOut="60.0" tsOut="100" doTimer="F"/>
+  <restart dtRes="1800.0"/>
+  <coupling dt="5.0"/>
+</VOLTRON>
 <Gamera>
-  <ibc bc="user" jperiod="F" kperiod="T"/>
-  <jbc bc="user" iperiod="F" kperiod="T"/>
-  <kbc bc="periodic" iperiod="F" jperiod="F"/>
   <sim runid="msphere" doH5g="T" H5Grid="lfmQ.h5" icType="user" pdmb="1.0" pFloor="1.0e-8" dFloor="1.0e-6" rmeth="7UP"/>
-  <restart dtRes="28.2131661" doRes="F" resFile="XXXXX.h5"/>
-  <output dtOut="0.940438871" tsOut="100" timer="T"/>
+  <restart doRes="F" resFile="XXXXX.h5"/>
   <physics doMHD="T" doBoris="T" Ca="10.0"/>
   <prob Rho0="0.2" P0="0.001"/>
   <ring gid="lfm" doRing="T" Nr="8" Nc1="8" Nc2="16" Nc3="32" Nc4="32" Nc5="64" Nc6="64" Nc7="64" Nc8="64"/>
@@ -19,8 +17,6 @@
 </Gamera>
 <!-- Remix params -->
 <REMIX>
-  <grid Np="360" Nt="40" LowLatBoundary="45.0"/>
-  <conductance F107="124.8" pedmin="2.0" hallmin="1.0" sigma_ratio="3.0" const_sigma="True" ped0="5.0"/>
-  <state tilt="0.0"/>
-  <output dtOut="0.940438871"/>
+  <grid Np="360" Nt="45" LowLatBoundary="45.0"/>
+  <conductance pedmin="2.0" hallmin="1.0" sigma_ratio="3.0" const_sigma="True" ped0="5.0"/>
 </REMIX>

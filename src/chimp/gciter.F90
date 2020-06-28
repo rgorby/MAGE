@@ -8,9 +8,10 @@ module gciter
     use math
 
     implicit none
-    real(rp) :: Ak0 = 1.0/64 !Minimum step in line search
-    real(rp) :: nScl = 1.0 !Error scaling for new method
-    real(rp) :: rScl = 1.0e-1 !Random perturbation
+
+    real(rp), private :: Ak0 = 1.0/64 !Minimum step in line search
+    real(rp), private :: nScl = 1.0 !Error scaling for new method
+    real(rp), private :: rScl = 1.0e-1 !Random perturbation
 
     !General GC Iteration routine
     abstract interface

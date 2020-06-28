@@ -1,9 +1,12 @@
 #Various tools to post-process and analyze Gamera magnetosphere runs
 from kaipy.kdefs import *
-import gampp
-from gampp import GameraPipe
+import kaipy.gamera.gampp
+from kaipy.gamera.gampp import GameraPipe
 import numpy as np
 import glob
+import kaipy.kaiH5 as kh5
+import timeit
+
 #Object to pull from MPI/Serial magnetosphere runs (H5 data), extends base
 
 ffam =  "monospace"
@@ -25,10 +28,17 @@ class GamsphPipe(GameraPipe):
 		self.pScl = 1.67e-2 #->nPa
 		self.vScl = 1.0e+2  #-> km/s
 		self.tScl = 63.8    #->seconds
-		self.tRMScl = 63.8 #->seconds, for Remix time scaling
 
-		self.hasRemix = False #Remix data present
+		#New mix stuff
+		self.hasRemix  = False #Remix data present (new format)
+		self.mixPipe = None
+
+		#Old mix stuff
+		self.tRMScl = 63.8 #->seconds, for Remix time scaling
+		
+		self.hasRemixO = False #Remix data present (old format)
 		self.Nrm = 0 #Number of remix outputs
+
 		#2D equatorial grid, stretched polar (Ni,Nj*2+1)
 		self.xxi = [] ; self.yyi = []
 		self.xxc = [] ; self.yyc = []
@@ -37,11 +47,10 @@ class GamsphPipe(GameraPipe):
 
 		self.Rin = self.xxi[0,0]
 		
-	def OpenPipe(self):
-		GameraPipe.OpenPipe(self)
-
+	def OpenPipe(self,doVerbose=True):
+		GameraPipe.OpenPipe(self,doVerbose)
 		#Now do magnetosphere specific things
-		if (self.UnitsID == "EARTH"):
+		if (self.UnitsID != "CODE"):
 			self.bScl   = 1.0  #->nT
 			self.pScl   = 1.0  #->nPa
 			self.vScl   = 1.0  #-> km/s
@@ -56,35 +65,43 @@ class GamsphPipe(GameraPipe):
 		Np = 2*(self.Nj)
 		self.xxi = np.zeros((Nr+1,Np+1))
 		self.yyi = np.zeros((Nr+1,Np+1))
+
 		self.xxc = np.zeros((Nr  ,Np  ))
 		self.yyc = np.zeros((Nr  ,Np  ))
 		self.BzD = np.zeros((Nr  ,Np  ))
-		#Create corners for stretched polar grid
-		for i in range(Nr+1):
-			for j in range(self.Nj):
-				self.xxi[i,j] = self.X[i,j,0]
-				self.yyi[i,j] = self.Y[i,j,0]
-			for j in range(self.Nj,Np+1):
-				jp = Np-j
-				self.xxi[i,j] =  self.X[i,jp,0]
-				self.yyi[i,j] = -self.Y[i,jp,0]
-		#Get centers for stretched polar grid & BzD
-		for i in range(Nr):
-			for j in range(Np):
-				self.xxc[i,j] = 0.25*(self.xxi[i,j]+self.xxi[i+1,j]+self.xxi[i,j+1]+self.xxi[i+1,j+1])
-				self.yyc[i,j] = 0.25*(self.yyi[i,j]+self.yyi[i+1,j]+self.yyi[i,j+1]+self.yyi[i+1,j+1])
-				r = np.sqrt(self.xxc[i,j]**2.0+self.yyc[i,j]**2.0)
-				rm5 = r**(-5.0)
-				self.BzD[i,j] = -r*r*self.MagM*rm5
 
-		#Do remix data things
+	#Create corners for stretched polar grid
+		#Upper half plane
+		for j in range(self.Nj):
+			self.xxi[:,j] = self.X[:,j,0]
+			self.yyi[:,j] = self.Y[:,j,0]
+		#Lower half plane
+		for j in range(self.Nj,Np+1):
+			jp = Np-j
+			self.xxi[:,j] =  self.X[:,jp,0]
+			self.yyi[:,j] = -self.Y[:,jp,0]
+
+		#Get centers for stretched polar grid & BzD
+		self.xxc = 0.25*(self.xxi[:-1,:-1] + self.xxi[1:,:-1] + self.xxi[:-1,1:] + self.xxi[1:,1:])
+		self.yyc = 0.25*(self.yyi[:-1,:-1] + self.yyi[1:,:-1] + self.yyi[:-1,1:] + self.yyi[1:,1:])
+		r = np.sqrt(self.xxc**2.0 + self.yyc**2.0)
+		rm5 = r**(-5.0)
+		self.BzD = -r*r*self.MagM*rm5
+
+		if (self.hasMJD):
+			print("Found MJD data")
+			print("\tTime (Min/Max) = %f/%f"%(self.MJDs.min(),self.MJDs.max()))
+
+	#Do remix data things
+		#Old-style
 		rmOStr = "%s/%s*.h5"%(self.fdir,rmStr)
 		rmOuts = glob.glob(rmOStr)
 		Nrm = len(rmOuts)
-		print("Found %d ReMIX outputs"%(Nrm))
+		
 		if (Nrm>0):
 			import h5py
-			self.hasRemix = True
+			print("Found %d ReMIX outputs"%(Nrm))
+			self.hasRemixO = True
 			self.Nrm = Nrm
 			self.tRm = np.zeros(Nrm)
 			self.nCPCP = np.zeros(Nrm)
@@ -108,6 +125,18 @@ class GamsphPipe(GameraPipe):
 				self.nCPCP = self.nCPCP[I]
 				self.sCPCP = self.sCPCP[I]
 				self.rmOuts = [rmOuts[i] for i in I]
+		#New-style
+		Stubs = self.ftag.split(".")
+		rmOStr = "%s/%s.mix.h5"%(self.fdir,Stubs[0])
+		rmOuts = glob.glob(rmOStr)
+		Nrm = len(rmOuts)
+		if (Nrm>0):
+			mixtag = Stubs[0]+".mix"
+			self.hasRemix = True
+			print("Found ReMIX data, reading ...")
+			self.mixPipe = GameraPipe(self.fdir,mixtag,doVerbose=False)
+			self.nCPCP = kh5.getTs(rmOStr,sIds=None,aID="nCPCP")
+			self.sCPCP = kh5.getTs(rmOStr,sIds=None,aID="sCPCP")
 
 	#Get "egg" slice, variable matched to stretched polar grid
 	#Either equatorial or meridional
@@ -116,8 +145,8 @@ class GamsphPipe(GameraPipe):
 		Q = self.GetVar(vID,sID,vScl,doVerb)
 
 		#For upper/lower half planes, average above/below
-		Nk2 = self.Nk/2
-		Nk4 = self.Nk/4
+		Nk2 = self.Nk//2
+		Nk4 = self.Nk//4
 		if (doEq):
 			ku = -1
 			kl = Nk2-1
@@ -175,33 +204,51 @@ class GamsphPipe(GameraPipe):
 	#Map from Gamera step to remix file
 	def Gam2Remix(self,n):
 		tGam = self.T[n-self.s0]
-		if (self.hasRemix):
+		if (self.hasRemixO):
 			#Find nearest time slice
 			i0 = np.abs(self.tRm-tGam).argmin()
 			fMix = self.rmOuts[i0]
 		else:
-			fMix = ""
+			fMix = None
 		return fMix
+		
+	#Get CPCP @ gamera step #n
 	def GetCPCP(self,n):
-		tGam = self.T[n-self.s0]
-		cpcp = [0.0,0.0]
-		if (self.hasRemix):
+		n0 = n-self.s0
+		tGam = self.T[n0]
+		if (self.hasRemixO): #Old remix style
 			#Find nearest time slice
 			i0 = np.abs(self.tRm-tGam).argmin()
 			cpcp = [self.nCPCP[i0],self.sCPCP[i0]]
+		elif (self.hasRemix):
+			cpcp = [self.nCPCP[n0],self.sCPCP[n0]]
+		else:
+			cpcp = [0.0,0.0]
 		return cpcp
 
 	#Add time label, xy is position in axis (not data) coords
 	def AddTime(self,n,Ax,xy=[0.9,0.95],cLab=dLabC,fs=dLabFS,T0=0.0,doBox=True,BoxC=dBoxC):
 		ffam = "monospace"
-		#Get time in seconds
-		t = self.T[n-self.s0] - T0
-		Nm = np.int( (t-T0)/60.0 ) #Minutes, integer
-		Hr = Nm/60
-		Min = np.mod(Nm,60)
-		Sec = np.mod(np.int(t),60)
+		HUGE = 1.0e+8
+		#Decide whether to do UT or elapsed
+		if (self.hasMJD):
+			minMJD = self.MJDs[n-self.s0]
+		else:
+			minMJD = -HUGE
+		if (self.hasMJD and minMJD>TINY):
+			from astropy.time import Time
+			dtObj = Time(self.MJDs[n-self.s0],format='mjd').datetime
+			tStr = "  " + dtObj.strftime("%H:%M:%S") + "\n" + dtObj.strftime("%m/%d/%Y")
 
-		tStr = "Time %02d:%02d:%02d"%(Hr,Min,Sec)
+		else:	
+			#Get time in seconds
+			t = self.T[n-self.s0] - T0
+			Nm = np.int( (t-T0)/60.0 ) #Minutes, integer
+			Hr = Nm/60
+			Min = np.mod(Nm,60)
+			Sec = np.mod(np.int(t),60)
+
+			tStr = "Elapsed Time\n  %02d:%02d:%02d"%(Hr,Min,Sec)
 		if (doBox):
 			Ax.text(xy[0],xy[1],tStr,color=cLab,fontsize=fs,transform=Ax.transAxes,family=ffam,bbox=dict(boxstyle="round",fc=dBoxC))
 
@@ -211,8 +258,11 @@ class GamsphPipe(GameraPipe):
 		vIDs = ["D","P","Vx","Bx","By","Bz"]
 		Nv = len(vIDs)
 		qSW = np.zeros(Nv)
+		if (self.isMPI):
+			fSW = self.fdir + "/" + kh5.genName(self.ftag,self.Ri-1,0,0,self.Ri,self.Rj,self.Rk)
+		else:
+			fSW = self.fdir + "/" + self.ftag + ".h5"
 
-		fSW = self.ChunkName(self.Ri-1,0,0)
 		for i in range(Nv):
 			Q = kh5.PullVar(fSW,vIDs[i],n)
 			qSW[i] = Q[-1,0,0]
@@ -274,3 +324,35 @@ class GamsphPipe(GameraPipe):
 		gM[kOut] = 0.0
 
 		return x1,y1,gu,gv,gM
+
+	#Replacement for remixpp adding inset remix plots
+	#Becomes a wrapper to remixpp.CMIViz
+	def CMIViz(self,AxM=None,nStp=0,doNorth=True,loc="upper left",dxy=[20,20]):
+		from kaipy.kaiH5 import CheckOrDie
+		import h5py
+		import kaipy.gamera.remixpp as remixpp
+		if (doNorth):
+			pID = "Potential NORTH"
+			cID = "Field-aligned current NORTH"
+			gID = "NORTH"
+		else:
+			pID = "Potential SOUTH"
+			cID = "Field-aligned current SOUTH"
+			gID = "SOUTH"
+
+		if (self.hasRemixO): #Old remix style
+			fMix = self.Gam2Remix(nStp)
+			CheckOrDie(fMix)
+			with h5py.File(fMix,'r') as hf:
+				P = hf[gID]['Potential'][()]
+				C = hf[gID]['Field-aligned current'][()]
+
+		elif (self.hasRemix): #New style remix
+			P  = self.mixPipe.GetVar(pID,nStp,doVerb=False).T
+			C  = self.mixPipe.GetVar(cID,nStp,doVerb=False).T
+			
+		RIn = self.xxi[0,0]
+		llBC = np.arcsin(np.sqrt(1.0/RIn))*180.0/np.pi
+		nLat,nLon = C.shape
+		#Now call remixpp.CMIViz
+		remixpp.CMIPic(nLat,nLon,llBC,P,C,AxM,doNorth,loc,dxy)

@@ -9,83 +9,64 @@ module gamapp
     implicit none
 
     type gamApp_T
-        type(Model_T) :: Model
-        type(Grid_T) :: Grid
-        type(State_T) :: State, oState
+        type(Model_T)  :: Model
+        type(Grid_T)   :: Grid
+        type(State_T)  :: State, oState
         type(Solver_T) :: Solver
     end type gamApp_T
 
     contains
 
-    subroutine initGamera(gameraApp, userInitFunc, optFilename)
+    subroutine initGamera(gameraApp, userInitFunc, optFilename,doIO)
         type(gamApp_T), intent(inout) :: gameraApp
         procedure(StateIC_T), pointer, intent(in) :: userInitFunc
         character(len=*), optional, intent(in) :: optFilename
+        logical, optional, intent(in) :: doIO
 
         character(len=strLen) :: inpXML
         type(XML_Input_T) :: xmlInp
-        integer :: Narg
+        logical :: doIOX
 
         if(present(optFilename)) then
             ! read from the prescribed file
             inpXML = optFilename
         else
             !Find input deck
-            Narg = command_argument_count()
-            if (Narg .eq. 0) then
-                write(*,*) 'No input deck specified, defaulting to Input.xml'
-                inpXML = "Input.xml"
-            else
-                call get_command_argument(1,inpXML)
-            endif
+            call getIDeckStr(inpXML)
+        endif
+        call CheckFileOrDie(inpXML,"Error opening input deck, exiting ...")
+
+        if (present(doIO)) then
+            doIOX = doIO
+        else
+            doIOX = .true.
         endif
 
+        !Create XML reader
         write(*,*) 'Reading input deck from ', trim(inpXML)
-        inquire(file=inpXML,exist=fExist)
-        if (.not. fExist) then
-            write(*,*) 'Error opening input deck, exiting ...'
-            write(*,*) ''
-            stop
-        endif
-
-        !Partial inclusion of new XML reader
         xmlInp = New_XML_Input(trim(inpXML),'Gamera',.true.)
+
+        ! read debug flags
+        call xmlInp%Set_Val(writeGhosts,"debug/writeGhosts",.false.)
+        call xmlInp%Set_Val(writeMagFlux,"debug/writeMagFlux",.false.)
 
         !Initialize Grid/State/Model (Hatch Gamera)
         !Will enforce 1st BCs, caculate 1st timestep, set oldState
         call Hatch(gameraApp%Model,gameraApp%Grid,gameraApp%State,gameraApp%oState,gameraApp%Solver,xmlInp,userInitFunc)
         call cleanClocks()
 
-        if (.not. gameraApp%Model%isRestart) call fOutput(gameraApp%Model,gameraApp%Grid,gameraApp%State)
-        call consoleOutput(gameraApp%Model,gameraApp%Grid,gameraApp%State)
-
+        if (doIOX) then
+            if (.not. gameraApp%Model%isRestart) call fOutput(gameraApp%Model,gameraApp%Grid,gameraApp%State)
+            call consoleOutput(gameraApp%Model,gameraApp%Grid,gameraApp%State)
+        endif
+        
     end subroutine initGamera
 
     subroutine stepGamera(gameraApp)
         type(gamApp_T), intent(inout) :: gameraApp
 
-        call Tic("Gamera")
-        !Advance system
-        call AdvanceMHD(gameraApp%Model,gameraApp%Grid,gameraApp%State,gameraApp%oState,gameraApp%Solver,gameraApp%Model%dt)
-        call Toc("Gamera")
-
-        !Enforce floors if necessary
-        if (gameraApp%Model%doArmor) then
-            call Tic("Armor")
-            call Armor(gameraApp%Model,gameraApp%Grid,gameraApp%State)
-            call Toc("Armor")
-        endif
-
-        !Update info
-        gameraApp%Model%ts = gameraApp%Model%ts+1
-        gameraApp%Model%t = gameraApp%Model%t+gameraApp%Model%dt
-
-        !Call user-defined per-step function
-        if (associated(gameraApp%Model%HackStep)) then
-            call Tic("HackStep")
-            call gameraApp%Model%HackStep(gameraApp%Model,gameraApp%Grid,gameraApp%State)
-            call Toc("HackStep")
-        endif
+        !update the state variables to the next timestep
+        call UpdateStateData(gameraApp)
 
         !Calculate new timestep
         call Tic("DT")
@@ -93,26 +74,33 @@ module gamapp
         call Toc("DT")
 
         !Enforce BCs
-        call Tic("Halos")
+        call Tic("BCs")
         call EnforceBCs(gameraApp%Model,gameraApp%Grid,gameraApp%State)
-        call Toc("Halos")
-
-
-        !Output if necessary
-        call Tic("IO")
-        if (modulo(gameraApp%Model%ts,gameraApp%Model%tsOut) ==0) then
-            call consoleOutput(gameraApp%Model,gameraApp%Grid,gameraApp%State)
-        endif
-        if (gameraApp%Model%t >= gameraApp%Model%tOut) then
-            call fOutput(gameraApp%Model,gameraApp%Grid,gameraApp%State)
-        endif
-        if (gameraApp%Model%doResOut .and. (gameraApp%Model%t >= gameraApp%Model%tRes)) then
-            !print *,"RESTART :: ", Model%doResOut, Model%t >= Model%tRes
-            call resOutput(gameraApp%Model,gameraApp%Grid,gameraApp%State)
-        endif
-        call Toc("IO")
-
+        call Toc("BCs")
+        
     end subroutine stepGamera
+
+    subroutine UpdateStateData(gameraApp)
+        class(gamApp_T), intent(inout) :: gameraApp
+
+        call Tic("Gamera")
+        !Advance system
+        call AdvanceMHD(gameraApp%Model,gameraApp%Grid,gameraApp%State,gameraApp%oState,gameraApp%Solver,gameraApp%Model%dt)
+        call Toc("Gamera")
+
+        !Call user-defined per-step function
+        !NOTE: Do this before updating time
+        if (associated(gameraApp%Model%HackStep)) then
+            call Tic("HackStep")
+            call gameraApp%Model%HackStep(gameraApp%Model,gameraApp%Grid,gameraApp%State)
+            call Toc("HackStep")
+        endif
+
+        !Update info
+        gameraApp%Model%ts = gameraApp%Model%ts+ 1
+        gameraApp%Model%t  = gameraApp%Model%t + gameraApp%Model%dt
+
+    end subroutine UpdateStateData
 
 end module gamapp
 

@@ -99,12 +99,21 @@ module XML_Input
 
    implicit none
 
+   logical, private :: doQuiet = .false.
+
+   !Hard-coded format strings
+   character(len=strLen), parameter, private :: realFormat = '(es12.5)'
+   character(len=strLen), parameter, private :: strFormat  =  '(a12)'
+   character(len=strLen), parameter, private :: boolFormat =  '(l12)'
+   character(len=strLen), parameter, private :: intFormat  =  '(i12)'
+
    !Global strings, for default/file messages
    character(len=*), parameter :: defXML_Str = "Using DEFAULT value for "
-   integer, parameter :: MaxXML = 10000 ! HARD-CODED!! -JLD 18/03/02
+   integer, parameter :: MaxXML = 1000 ! HARD-CODED!!
+
    private
 
-   public :: XML_Input_T
+   public :: XML_Input_T,SetAllXML2Quiet
 
    ! Description:
    !   The XML_Input_T "class". This "class" is designed to handle
@@ -199,8 +208,8 @@ module XML_Input
 
       !-------------------------------------------------------------------
 
-   contains
 
+   contains
       procedure :: Open_File
 
       ! Private (internal) function. This function opens the file
@@ -384,100 +393,89 @@ module XML_Input
       !   This subroutine should be the most widely used for users as
       !   it does not care about the type the user wishes to set.
       !   Errors will be thrown should a problem arise in dectecting the type
+      procedure :: BeQuiet
 
+      procedure :: GetFileStr
    end type XML_Input_T
 
 contains
+
+   subroutine GetFileStr(this,fStr)
+      class(XML_Input_T) :: this
+      character(len=*), intent(out) :: fStr
+
+      fStr = this%fname
+   end subroutine GetFileStr
+
+   subroutine BeQuiet(this)
+      class(XML_Input_T) :: this
+      this%vrb = .false.
+   end subroutine BeQuiet
+
    subroutine Set_Real_RpSp(this, val, xmlp, dflt)
       class(XML_Input_T) :: this
       real(rp), intent(inout)     :: val
-      character(len=80), parameter :: formt = '(2X, a20, a1, 2X, e12.5, a10)'
       character(len=*), intent(in) :: xmlp
       real(sp), intent(in)        :: dflt
       character(len=strLen)       :: buf
+      logical :: isXML
 
       val = dflt
       call this%Get_Key_Val(xmlp, buf)
       if (len(trim(buf)) /= 0) then
+         isXML = .true.
          read (buf, *) val
-         if (this%vrb) write(*,formt) trim(xmlp), ':', val, '(XML)'
       else
-         write(*,formt) trim(xmlp), ':', val, '(DEFAULT)'
+         isXML = .false.
       endif
+
+      write(buf,realFormat) val
+      call xmlOutput(this%root,xmlp,buf,this%vrb,isXML)
+
    end subroutine Set_Real_RpSp
 
    subroutine Set_Real_RpDp(this, val, xmlp, dflt)
       class(XML_Input_T) :: this
       real(rp), intent(inout)     :: val
-      character(len=80), parameter :: formt = '(2X, a20, a1, 2X, e12.5, a10)'
       character(len=*), intent(in) :: xmlp
       real(dp), intent(in)        :: dflt
       character(len=strLen)       :: buf
+      logical :: isXML
 
       val = dflt
       call this%Get_Key_Val(xmlp, buf)
       if (len(trim(buf)) /= 0) then
+         isXML = .true.
          read (buf, *) val
-         if (this%vrb) write(*,formt) trim(xmlp), ':', val, '(XML)'
       else
-         write(*,formt) trim(xmlp), ':', val, '(DEFAULT)'
+         isXML = .false.
       endif
+
+      write(buf,realFormat) val
+      call xmlOutput(this%root,xmlp,buf,this%vrb,isXML)
+
    end subroutine Set_Real_RpDp
 
-   ! subroutine Set_Real_Sp(this, val, xmlp, dflt)
-   !    class(XML_Input_T) :: this
-   !    real(sp), intent(inout)     :: val
-   !    character(len=*), intent(in) :: xmlp
-   !    real(sp), intent(in)        :: dflt
-   !    character(len=strLen)       :: buf
-
-   !    val = dflt
-   !    call this%Get_Key_Val(xmlp, buf)
-   !    if (len(trim(buf)) /= 0) then
-   !       read (buf, *) val
-   !       if (this%vrb) write(*,*) trim(xmlp), ' : ', val, '(XML)'
-   !    else
-   !       write(*,*) trim(xmlp), ' : ', val, '(DEFAULT)'
-   !    endif
-   ! end subroutine Set_Real_Sp
-
-   !------------------------------------------------------------------
-
-   ! subroutine Set_Real_Dp(this, val, xmlp, dflt)
-   !    class(XML_Input_T) :: this
-   !    real(dp), intent(inout)     :: val
-   !    character(len=*), intent(in) :: xmlp
-   !    real(dp), intent(in)        :: dflt
-   !    character(len=strLen)       :: buf
-
-   !    val = dflt
-   !    call this%Get_Key_Val(xmlp, buf)
-   !    if (len(trim(buf)) /= 0) then
-   !       read (buf, *) val
-   !       if (this%vrb) write(*,*) trim(xmlp), ' : ', val, '(XML)'
-   !    else
-   !       write(*,*) trim(xmlp), ' : ', val, '(DEFAULT)'
-   !    endif
-   ! end subroutine Set_Real_Dp
-
-   !------------------------------------------------------------------
 
    subroutine Set_Int(this, val, xmlp, dflt)
       class(XML_Input_T) :: this
       integer, intent(inout)       :: val
-      character(len=80), parameter :: formt = '(2X, a20, a1, 2X, i12, a10)'
       character(len=*), intent(in) :: xmlp
       integer, intent(in)          :: dflt
       character(len=strLen)       :: buf
+      logical :: isXML
 
       val = dflt
       call this%Get_Key_Val(xmlp, buf)
       if (len(trim(buf)) /= 0) then
+         isXML = .true.
          read (buf, *) val
-         if (this%vrb) write(*,formt) trim(xmlp), ':', val, '(XML)'
       else
-         write(*,*) trim(xmlp), ':', val, '(DEFAULT)'
+         isXML = .false.
       endif
+      write(buf,intFormat) val
+      call xmlOutput(this%root,xmlp,buf,this%vrb,isXML)
+
    end subroutine Set_Int
 
    !------------------------------------------------------------------
@@ -485,19 +483,23 @@ contains
    subroutine Set_Bool(this, val, xmlp, dflt)
       class(XML_Input_T) :: this
       logical, intent(inout)       :: val
-      character(len=80), parameter :: formt = '(2X, a20, a1, 2X, l12, a10)'
       character(len=*), intent(in) :: xmlp
       logical, intent(in)          :: dflt
       character(len=strLen)       :: buf
+      logical :: isXML
 
       val = dflt
       call this%Get_Key_Val(xmlp, buf)
       if (len(trim(buf)) /= 0) then
+         isXML = .true.
          read (buf, *) val
-         if (this%vrb) write(*,formt) trim(xmlp), ':', val, '(XML)'
       else
-         write(*,formt) trim(xmlp), ':', val, '(DEFAULT)'
+         isXML = .false.
       endif
+
+      write(buf,boolFormat) val
+      call xmlOutput(this%root,xmlp,buf,this%vrb,isXML)
+
    end subroutine Set_Bool
 
    !------------------------------------------------------------------
@@ -505,22 +507,45 @@ contains
    subroutine Set_Str(this, val, xmlp, dflt)
       class(XML_Input_T) :: this
       character(len=*), intent(inout) :: val
-      character(len=80), parameter :: formt = '(2X, a20, a1, 2X, a12, a10)'
       character(len=*), intent(in)    :: xmlp
       character(len=*), intent(in)    :: dflt
       character(len=strLen)          :: buf
+      logical :: isXML
 
       val = dflt
       call this%Get_Key_Val(xmlp, buf)
       if (len(trim(buf)) /= 0) then
-         val = buf;
-         if (this%vrb) write(*,formt) trim(xmlp), ':', trim(val), '(XML)'
+         isXML = .true.
+         read (buf, *) val
       else
-         write(*,formt) trim(xmlp), ':', trim(val), '(DEFAULT)'
+         isXML = .false.
       endif
+      write(buf,strFormat) val
+      call xmlOutput(this%root,xmlp,buf,this%vrb,isXML)
+
    end subroutine Set_Str
 
    !------------------------------------------------------------------
+
+   subroutine xmlOutput(rStr,xStr,vStr,doVerb,isXML)
+      character(len=*), intent(in) :: rStr,xStr,vStr
+      logical, intent(in) :: doVerb,isXML
+      character(len=strLen) :: bStr,srcStr
+      character(len=*), parameter :: formt  = '(2X, a25, a1, 2X, a12, a10)'
+      character(len=*), parameter :: formtC = '(2X, a25, a1, 2X, a12, a,a10,a)'
+
+      if ( (.not. doVerb) .or. (doQuiet) ) return
+      bStr = trim(toUpper(rStr)) // '/' // trim(xStr)
+      
+      if (isXML) then
+         srcStr = "(XML)"
+         write(*,formtC) adjustl(bStr), ':', trim(vStr), ANSIBLUE, trim(srcStr), ANSIRESET
+      else
+         srcStr = "(DEFAULT)"
+         write(*,formtC) adjustl(bStr), ':', trim(vStr), ANSIGREEN, trim(srcStr), ANSIRESET
+      endif
+      !write(*,formt) adjustl(bStr), ':', trim(vStr), trim(srcStr)
+   end subroutine xmlOutput
 
    function New_XML_Input(fname, root, verbOpt)
       type(XML_Input_T) :: New_XML_Input
@@ -708,7 +733,7 @@ contains
            endif
 
            nxml = nxml+1
-           if (nxml > size(xmld)) then
+           if (nxml > size(xmld)-1) then
              write (*, *) "!!!ERROR!!! Total no. of input values exceeds temp xml data array size"
              stop
            endif
@@ -760,128 +785,6 @@ contains
      endif
 
   end function Read_File
-
-   !------------------------------------------------------------------
-
-!   logical function Read_File(this)
-!      class(XML_Input_T) :: this
-!      integer          :: pos
-!      integer          :: ctr
-!      integer          :: nxml
-!      character(len=strLen) :: rt, sub
-!      type(XML_Data_T), dimension(MaxXML) :: xmld
-!
-!      ! First, check to see if the following characters are present
-!      ! (in sequence):
-!      ! "<!" , "<?".  These characters are to be considered comments
-!      ! Second, Check to see if the line has *no* spaces, and *no*
-!      ! '/' characters. Indicating the beginning of a root section.
-!      ! THen, read the next sets of lines, setting values by sub,
-!      ! then key=value pairs, until a line with no spaces and a '/'
-!      ! character is found, indicating the end of the root section
-!
-!      ctr = 0
-!      nxml = 0
-!      ! For each line,
-!      do while (this%Read_Line())
-!
-!         ! Skip this loop if we've encountered an empty line (ie, whitespace)
-!         if(len_trim(this%buf)==0) then
-!           cycle
-!         endif
-!
-!         ! Check for Comments
-!         if (index(trim(this%buf), '<!') /= 0 .or. &
-!           & index(trim(this%buf), '<?') /= 0) then
-!            cycle ! simply skip if a comment line is found
-!         endif
-!
-!         ! Check for the Root of a section
-!         if (index(trim(this%buf), ' ') == 0 .and. &
-!           & index(trim(this%buf), '</') == 0) then
-!            ctr = ctr + 1 ! Adding new xml section
-!
-!            ! remove '<'
-!            this%buf = adjustl(trim(this%buf))
-!            pos = scan(this%buf, '<')
-!            this%buf = this%buf(pos + 1:)
-!
-!            ! remove '>'
-!            pos = scan(this%buf, '>')
-!            this%buf = this%buf(1:pos - 1)
-!
-!            ! Now set temp string to have this root name
-!            rt = trim(this%buf)
-!            cycle
-!         endif
-!
-!         ! check for the end of the section
-!         if (index(trim(this%buf), ' ') == 0 .and. &
-!           & index(trim(this%buf), '</') /= 0) then
-!            ctr = ctr - 1 ! End of new section, this is
-!            ! a rudimentary check if there are
-!            ! any problems with the input file's
-!            ! format
-!            cycle
-!         endif
-!
-!         ! Everything else needs to be parsed
-!         if (index(trim(this%buf), ' ') /= 0) then
-!
-!            ! First, get the tag of the string
-!            ! (remove leading <)
-!            pos = scan(this%buf, '<')
-!            this%buf = this%buf(pos + 1:)
-!
-!            ! set pos to first whitespace, 1:pos is tag
-!            pos = scan(this%buf, ' ')
-!            sub = trim(this%buf(1:pos))
-!            this%buf = this%buf(pos + 1:) ! remove the tag
-!
-!            ! now, parse the rest of the string, obtaining
-!            ! key/value pairs
-!            pos = 1 ! Initialize position value
-!            do
-!
-!               pos = scan(this%buf, '=')
-!               if (pos == 0) then
-!                  exit
-!               endif
-!
-!               nxml = nxml + 1
-!
-!               ! Throw an error and quit if nxml > size(xmld)
-!               ! because xmld is hard-coded to a limited size
-!               if (nxml > size(xmld)) then
-!                  write (*, *) "!!!ERROR!!! Total no. of input values exceeds temp xml data array size"
-!                  stop
-!               endif
-!
-!               xmld(nxml)%root = trim(rt) ! set root
-!               xmld(nxml)%sub = trim(sub) ! set sub
-!               xmld(nxml)%key = this%buf(1:pos - 1) ! set key
-!               this%buf = this%buf(pos + 1:)
-!               pos = scan(this%buf, '"') ! remove first "
-!               this%buf = this%buf(pos + 1:)
-!               pos = scan(this%buf, '"') ! get pos of second "
-!               xmld(nxml)%val = this%buf(1:pos - 1) ! set value
-!               this%buf = this%buf(pos + 2:) ! remove value"_
-!            end do
-!
-!         endif
-!      end do
-!
-!      ! Finally, check if ctr = 0 (meaning all sections properly read)
-!      ! if ctr /= 0, something went wrong
-!      if (ctr /= 0) then
-!         write (*, *) "WARNING: Encountered non-closed XML section"
-!         Read_File = .false.
-!      else
-!         ! allocate and set this%xmld
-!         allocate (this%xmld, source=xmld(1:nxml))
-!         Read_File = .true.
-!      endif
-!   end function Read_File
 
    !------------------------------------------------------------------
 
@@ -952,26 +855,30 @@ contains
    !------------------------------------------------------------------
 
    logical function Exists(this, path)
-     class(XML_Input_T)              :: this
-     character(len=*)                :: path
-     integer                         :: cnt, i
-     character(len=strLen)           :: buf
-     Exists = .false.
-     if(size(this%xmld).eq.0) return
-     cnt = 0
-     do i=1, size(this%xmld), 1
-       buf = trim(this%xmld(i)%root) // &
-             trim("/") // trim(this%xmld(i)%key)
-       cnt = cnt & 
-           + index(toUpper(buf),toUpper(trim(path)))
-       if(cnt>0) then
-         Exists = .true.
-         return
-       endif
-     end do
-   end function Exists 
+      class(XML_Input_T)              :: this
+      character(len=*)                :: path
+      integer                         :: cnt, i
+      character(len=strLen)           :: buf
+      Exists = .false.
+      if(size(this%xmld).eq.0) return
+      cnt = 0
+      do i=1, size(this%xmld), 1
+         buf = trim(this%xmld(i)%root) // &
+               trim("/") // trim(this%xmld(i)%key)
+         cnt = cnt + index(toUpper(buf),toUpper(trim(path)))
+         if(cnt>0) then
+            Exists = .true.
+            return
+         endif
+      end do
+   end function Exists
 
    !------------------------------------------------------------------
+   
+   !Set all XML reading to quiet on this rank
+   subroutine SetAllXML2Quiet()
+      doQuiet = .true.
+   end subroutine SetAllXML2Quiet
 
 end module XML_Input
 

@@ -4,9 +4,8 @@ module step
     use gamtypes
     use gamutils
     use bcs
-    use prob
+    use gdefs
     use output
-    use ringav
     use multifluid
 
     implicit none
@@ -20,10 +19,35 @@ module step
         type(State_T), intent(inout) :: State
 
         integer :: n
+        character(len=strLen) :: BCID
+        logical :: ownBC
+
         !Loop over BCs for this grid and call them
         do n=1,Gr%NumBC
             if (allocated(Gr%externalBCs(n)%p)) then
-                call Gr%externalBCs(n)%p%doBC(Model,Gr,State)
+                SELECT CASE(Gr%externalBCs(n)%p%bcDir())
+                    CASE(INI)
+                        ownBC = Gr%hasLowerBC(IDIR)
+                    CASE(OUTI)
+                        ownBC = Gr%hasUpperBC(IDIR)
+                    CASE(INJ)
+                        ownBC = Gr%hasLowerBC(JDIR)
+                    CASE(OUTJ)
+                        ownBC = Gr%hasUpperBC(JDIR)
+                    CASE(INK)
+                        ownBC = Gr%hasLowerBC(KDIR)
+                    CASE(OUTK)
+                        ownBC = Gr%hasUpperBC(KDIR)
+                    CASE DEFAULT
+                        write (*,*) 'Warning, BC ignored for unowned boundary'
+                        ownBC = .false.
+                END SELECT
+                if(ownBC) then
+                    write (BCID, '(A,I0)') "BC#", n
+                    call Tic(BCID)
+                    call Gr%externalBCs(n)%p%doBC(Model,Gr,State)
+                    call Toc(BCID)
+                endif
             endif
         enddo
 
@@ -40,6 +64,11 @@ module step
         integer :: i,j,k
         integer :: is,ie,js,je,ks,ke
         logical :: isDisaster
+
+        if(Model%fixedTimestep) then
+            CalcDT = Model%dt
+            return
+        endif
 
         dtOld = Model%dt
  
@@ -60,6 +89,7 @@ module step
                 do i=is,ie
                     call CellDT(Model,Gr,State,i,j,k,dtijk)
                     dtMin = min(dtijk,dtMin)
+
                 enddo
             enddo
         enddo
@@ -71,19 +101,20 @@ module step
 
             !Check for sudden drop in dt
             if (dtOld/dtMin >= 10) then
-                write(*,*) "<Drop in timestep by 10x, exiting ...>"
+                write(*,*) "<Drop in timestep by 10x (",dtOld,"=>",dtMin,"), exiting ...>"
                 isDisaster = .true.
             endif
 
             !Check for too small dt
             if (dtMin <= TINY) then
-                write(*,*) "<Timestep too small, exiting ...>"
+                write(*,*) "<Timestep too small (",dtMin,"), exiting ...>"
                 isDisaster = .true.
             endif
 
             !Check for slower but significant timestep drop
-            if ( (dt0>TINY) .and. (dt0/dtMin >=100) ) then
-                write(*,*) "<Timestep less than 1% of initial, exiting ...>"
+            if ( (Model%dt0>TINY) .and. (Model%dt0/dtMin >=100) ) then
+                write(*,*) "<Timestep less than 1% of initial (",Model%dt0,"=>",&
+                    dtMin,"), exiting ...>"
                 isDisaster = .true.
             endif
 
@@ -100,9 +131,14 @@ module step
 
         !Make sure we don't overstep the end of the simulation
         if ( (Model%t+CalcDT) > Model%tFin ) then
-            CalcDT = Model%tFin-Model%t
+            CalcDT = max(Model%tFin-Model%t,TINY)
         endif
-        
+
+        !Apply a limit of 10x the initial timestep in case it starts static
+        if (Model%dt0>TINY .and. CalcDT>(10.0*Model%dt0)) then
+            CalcDT = 10.0 * Model%dt0
+        endif
+
     end function CalcDT
 
     subroutine BlackBox(Model,Gr,State,dt0)
@@ -152,7 +188,8 @@ module step
 
         real(rp) :: dtijk
         real(rp), dimension(NVAR) :: pW,pCon
-        integer :: s
+        integer :: s,iG,jG,kG
+        character(len=strLen) :: oStr
         isBad = .false.
 
         call CellDT(Model,Gr,State,i,j,k,dtijk)
@@ -160,21 +197,34 @@ module step
         if (isBad) then
             !Display information
             !$OMP CRITICAL
-            write(*,*) '<---------------->'
-            write(*,*) 'ijk = ',i,j,k
-            write(*,*) 'xyz = ', Gr%xyzcc(i,j,k,:)
-            write(*,*) 'Bxyz = ', State%Bxyz(i,j,k,:)
-            pCon = State%Gas(i,j,k,:,BLK)
-            call CellC2P(Model,pCon,pW)
-            write(*,'(A,5es12.2)') 'Bulk (PRIM) = ', pW
-            if (Model%doMultiF) then
-                do s=1,Model%nSpc
-                    pCon = State%Gas(i,j,k,:,s)
-                    call CellC2P(Model,pCon,pW)
-                    write(* ,'(A,I0,A,5es12.2)') "Fluid" , s, ' = ', pW
-                enddo
-            endif
-            write(*,*) '<---------------->'
+            iG = i+Gr%ijkShift(IDIR)
+            jG = j+Gr%ijkShift(JDIR)
+            kG = k+Gr%ijkShift(KDIR)
+
+            write(*,'(A,3I5)')     '<------- Bad Cell @ ijk = ',iG,jG,kG
+            write(*,'(A,3es12.2)') 'xyz       = ', Gr%xyzcc(i,j,k,:)
+            
+            oStr = 'Bxyz [' // trim(Model%gamOut%bID) // '] = '
+            write(*,'(A,3es12.2)') trim(oStr),State%Bxyz(i,j,k,:)*Model%gamOut%bScl
+
+            do s=0,Model%nSpc
+                !Get prim variables
+                pCon = State%Gas(i,j,k,:,BLK)
+                call CellC2P(Model,pCon,pW)
+
+                if (s > 0) then
+                    write(*,'(A,I0)') 'Fluid ', s
+                else
+                    write(*,'(A)') 'Bulk '
+                endif
+                !Den and pressure
+                oStr = '   D/P [' // trim(Model%gamOut%dID) // ',' // trim(Model%gamOut%pID) // '] = '
+                write(*,'(A,2es12.2)') trim(oStr),pW(DEN)*Model%gamOut%dScl,pW(PRESSURE)*Model%gamOut%pScl
+                !Velocity
+                oStr = '   Vxyz [' // trim(Model%gamOut%vID) // ']    = '
+                write(*,'(A,3es12.2)') trim(oStr),pW(VELX:VELZ)*Model%gamOut%vScl
+            enddo
+            write(*,'(A)') '------->'
             !$OMP END CRITICAL
 
         endif
@@ -217,7 +267,7 @@ module step
         Valf  = 0.0
         VDiff = 0.0
 
-        if (Model%doMHD) then                                        
+        if (Model%doMHD) then
             Bx = State%Bxyz(i,j,k,XDIR)
             By = State%Bxyz(i,j,k,YDIR)
             Bz = State%Bxyz(i,j,k,ZDIR)
@@ -234,7 +284,7 @@ module step
                 Valf = Model%Ca*Valf/sqrt(Model%Ca*Model%Ca + Valf*Valf)
             endif
             
-            if(Model%useResistivity) then
+            if(Model%doResistive) then
                ! Asume t ~ x^2/(2Diff)
                Diff = maxval((/State%Deta(i,j,k,XDIR),State%Deta(i+1,j,k,XDIR), &
                                State%Deta(i,j,k,YDIR),State%Deta(i,j+1,k,YDIR), &
@@ -250,54 +300,5 @@ module step
         dtijk = Model%CFL*dl/vCFL
 
     end subroutine CellDT
-
-
-    subroutine Armor(Model,Gr,State)
-        type(Model_T), intent(in) :: Model
-        type(Grid_T), intent(in) :: Gr
-        type(State_T), intent(inout) :: State
-        
-
-        integer :: i,j,k
-        real(rp) :: Vx,Vy,Vz,rho,E,P,KinE
-
-        !Loop over active cells
-        do k=Gr%ks, Gr%ke
-            do j=Gr%js, Gr%je
-                do i=Gr%is, Gr%ie
-                    rho = State%Gas(i,j,k,DEN,BLK)
-                    if (rho < dFloor) then
-                        nFloors = nFloors + 1
-                        rho = max(dFloor,rho)
-                        !write(*,*) 'D Fix @ ijk = ', i,j,k
-                        !write(*,*) 'Con = ', State%Gas(i,j,k,:,BLK)
-                    endif
-                    Vx  = State%Gas(i,j,k,MOMX,BLK)/rho
-                    Vy  = State%Gas(i,j,k,MOMY,BLK)/rho
-                    Vz  = State%Gas(i,j,k,MOMZ,BLK)/rho
-                    E   = State%Gas(i,j,k,ENERGY,BLK)
-
-                    KinE = 0.5*rho*(Vx**2.0+Vy**2.0+Vz**2.0) 
-                    P = (Model%gamma-1)*(E-KinE)
-                    if (P < pFloor) then            
-                        nFloors = nFloors + 1
-                        P = max(pFloor,P)
-                        !write(*,*) 'P Fix @ ijk = ', i,j,k
-                        !write(*,*) 'Con = ', State%Gas(i,j,k,:,BLK)
-                    endif
-                    
-                    !Put back
-                    State%Gas(i,j,k,DEN   ,BLK) = rho 
-                    State%Gas(i,j,k,MOMX  ,BLK) = Vx*rho
-                    State%Gas(i,j,k,MOMY  ,BLK) = Vy*rho
-                    State%Gas(i,j,k,MOMZ  ,BLK) = Vz*rho
-                    State%Gas(i,j,k,ENERGY,BLK) = KinE + P/(Model%gamma-1)
-
-                enddo
-            enddo
-        enddo
-
-
-    end subroutine Armor
 
 end module step

@@ -17,9 +17,8 @@ module stress
     
     !Signs for left/right going fluxes @ interfaces
     integer, parameter, dimension(2), private :: SgnLR=[-1,1]
-
-    logical, parameter, private :: doRingFlux = .true.
-    logical, parameter, private :: doNuke = .true. !Do nuclear option, currently testing
+    logical, parameter, private :: doNuke = .true. !Do nuclear option
+    logical, parameter, private :: doHogs11 = .true. !Do // magnetic hogs diffusion
 
     !cLim: Vile magic number, when to apply nuclear option (v>cLim*Ca)
     !LFM uses 1.5
@@ -133,25 +132,26 @@ module stress
 
         !Do various hacks to fluxes before conversion to deltas
         !Fix fluxes on ring if necessary
-        if (doRingFlux) call RingFlux(Model,Gr,gFlx,mFlx)
-
-        if (associated(Model%HackFlux)) then
-            call Tic("HackFlux")
-            call Model%HackFlux(Model,Gr,gFlx,mFlx)
-            call Toc("HackFlux")
+        call Tic("HackFlux")
+        if (Model%doRing) then
+            call RingFlux(Model,Gr,gFlx,mFlx)
         endif
+
+        if (associated(Model%HackFlux)) then            
+            call Model%HackFlux(Model,Gr,gFlx,mFlx)
+        endif
+        call Toc("HackFlux")
 
         call Toc("Fluxes")
 
     !Turn fluxes into deltas
     !---------------------------
         call Tic("Flux2Deltas")
-                
+
         !$OMP PARALLEL DO default(shared) collapse (2) &
         !$OMP private(i,j,k,dV)
         do k=Gr%ks,Gr%ke
             do j=Gr%js,Gr%je
-                !$OMP SIMD
                 do i=Gr%is,Gr%ie
                     dV = Gr%volume(i,j,k)
                     !Do all species here
@@ -344,19 +344,28 @@ module stress
                 if (Model%doBoris .and. isBulk) then
                     do i=1,iMax
 
-                        !Calculate del(rho_m v), the magnetic momentum
-                        RhoML = norm2( B0(i,XDIR:ZDIR) + MagLRB(i,XDIR:ZDIR,LEFT ) )**2.0/(Model%Ca**2.0)
-                        RhoMR = norm2( B0(i,XDIR:ZDIR) + MagLRB(i,XDIR:ZDIR,RIGHT) )**2.0/(Model%Ca**2.0)
-                        deeP = RhoMR*PrimLRB(i,VELX:VELZ,RIGHT) - RhoML*PrimLRB(i,VELX:VELZ,LEFT)
+                        deeP = bbD(i)*dVel(i,XDIR:ZDIR)/(Model%Ca**2.0)
 
-                        !Get average XYZ field @ interface
-                        bAvg = B0(i,XDIR:ZDIR) + 0.5*( MagLRB(i,XDIR:ZDIR,LEFT) + MagLRB(i,XDIR:ZDIR,RIGHT) )
-                        bhat = normVec(bAvg)
-
+                        if (.not. doHogs11) then
                         !Limit to perp component
-                        deeP = Vec2Perp(deeP,bhat)
-                        !Now apply mag hogs to only perp components
+                            !Get average XYZ field @ interface
+                            bAvg = B0(i,XDIR:ZDIR) + 0.5*( MagLRB(i,XDIR:ZDIR,LEFT) + MagLRB(i,XDIR:ZDIR,RIGHT) )
+                            bhat = normVec(bAvg)
+                            !Pull out parallel component
+                            deeP = Vec2Perp(deeP,bhat)
+                        endif
+
+                        !Now apply mag hogs
                         mFlxB(i,XDIR:ZDIR) = mFlxB(i,XDIR:ZDIR) - Model%cHogM*VaD(i)*deeP
+
+                        ! !Calculate del(rho_m v), the magnetic momentum
+                        ! !Two choices here: 
+                        ! !1) Delta mag momentum or Magmass x delta-vee
+                        ! !2) Total direction or perp to field
+
+                        ! RhoML = norm2( B0(i,XDIR:ZDIR) + MagLRB(i,XDIR:ZDIR,LEFT ) )**2.0/(Model%Ca**2.0)
+                        ! RhoMR = norm2( B0(i,XDIR:ZDIR) + MagLRB(i,XDIR:ZDIR,RIGHT) )**2.0/(Model%Ca**2.0)
+                        ! deeP = RhoMR*PrimLRB(i,VELX:VELZ,RIGHT) - RhoML*PrimLRB(i,VELX:VELZ,LEFT)
 
                     enddo
                 endif !Boris HOGS
@@ -432,7 +441,6 @@ module stress
         !Bail out if none of these cells have "real" fluid in this species
         if (.not. any(doFlx)) return
 
-        !$OMP SIMD
         do i=1,vecLen
             if ( doFlx(i) ) then
                 !Get primitive values, calculate lambda
@@ -525,7 +533,6 @@ module stress
         !DIR$ ASSUME_ALIGNED bbD: ALIGN
         !DIR$ ASSUME_ALIGNED VaD: ALIGN
         
-        !$OMP SIMD
         do i=1,vecLen
             !Calculate lambda
             D = PrimLRB(i,DEN)
@@ -534,14 +541,14 @@ module stress
             By = MagLRB(i,YDIR)
             Bz = MagLRB(i,ZDIR)
 
+            B0x = B0(i,XDIR)
+            B0y = B0(i,YDIR)
+            B0z = B0(i,ZDIR)
+
             dPb = 0.5*(Bx**2.0 + By**2.0 + Bz**2.0) !Pressure in residual field
             if (Model%doBackground) then
-                B0x = B0(i,XDIR)
-                B0y = B0(i,YDIR)
-                B0z = B0(i,ZDIR)
-                Va2 = ( (Bx+B0x)**2.0 + (By+B0y)**2.0 + (Bz+B0z)**2.0)/D
+                Va2 = ( (Bx+B0x)**2.0 + (By+B0y)**2.0 + (Bz+B0z)**2.0 )/D
                 bbD(i) = bbD(i) + 0.5*( (Bx+B0x)**2.0 + (By+B0y)**2.0 + (Bz+B0z)**2.0)
-
             else
                 Va2 = 2*dPb/D
                 bbD(i) = bbD(i) + 0.5*(Bx**2.0 + By**2.0 + Bz**2.0)

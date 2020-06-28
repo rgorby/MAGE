@@ -24,7 +24,9 @@ def getVars(fname):
 	#Get variable names from Step#0/Line#0
 	with h5py.File(fname,'r') as hf:
 		gID = "/Step#0/Line#0"
-		vIDs = hf[gID].keys()
+		vIDs = []
+		for k in hf[gID].keys():
+			vIDs.append(str(k))
 	#Remove coordinate vars
 	xyzS = ["xyz","LCon"]
 	for s in xyzS:
@@ -32,19 +34,6 @@ def getVars(fname):
 			vIDs.remove(s)
 	Nv = len(vIDs)
 	return Nv,vIDs
-# def getAtts(fname):
-# 	#Get attribute names from Step#0/Line#0
-# 	with h5py.File(fname,'r') as hf:
-# 		gID = "/Step#0/Line#0"
-# 		aIDs = hf[gID].attrs.keys()
-# 	#Remove coordinate vars
-# 	#xyzS = ["xyz","LCon"]
-# 	# for s in xyzS:
-# 	# 	if s in vIDs:
-# 	# 		vIDs.remove(s)
-# 	Na = len(aIDs)
-# 	print(aIDs,Na)
-# 	return Na,aIDs
 
 def getAtts(fIn,n,m):
 	#Get attribute names from Step#0/Line#0

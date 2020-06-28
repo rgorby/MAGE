@@ -1,0 +1,31 @@
+#!/bin/bash
+#PBS -A UJHB0015
+#PBS -N caseTests
+#PBS -j oe
+#PBS -q regular
+#PBS -l walltime=12:00:00
+#PBS -l select=1:ncpus=36:mpiprocs=64:ompthreads=72
+
+source ~/.bashrc
+
+module list
+hostname
+export OMP_NUM_THREADS=72
+export KMP_STACKSIZE=128M
+
+echo ""
+echo "Running Non MPI Cases"
+date
+./caseTests > caseTests.out
+date
+echo "Non MPI Cases Complete"
+echo | tail -n 2 ./caseTests.out
+
+echo ""
+echo "Running MPI Cases"
+date
+mpirun ./caseMpiTests > caseMpiTests.out
+date
+echo "MPI Cases Complete"
+echo | tail -n 2 ./caseMpiTests.out
+

@@ -14,7 +14,7 @@ module mhdgroup
 
     subroutine AdvanceMHD(Model,Grid,State,oState,Solver,dt)
         type(Model_T), intent(inout) :: Model
-        type(Grid_T), intent(in) :: Grid
+        type(Grid_T), intent(inout) :: Grid
         type(State_T), intent(inout) :: State,oState
         type(Solver_T), intent(inout) :: Solver
         real(rp), intent(in) :: dt
@@ -38,6 +38,7 @@ module mhdgroup
                 call Toc("HackE")
             endif
             call Toc("E-Field")
+            
         endif
         
         !Get plasma stresses
@@ -87,6 +88,7 @@ module mhdgroup
         real(rp) :: Ca
         !DIR$ ASSUME_ALIGNED dGasH: ALIGN
         !DIR$ ASSUME_ALIGNED dGasM: ALIGN
+        !DIR$ ASSUME_ALIGNED E: ALIGN
     !--------------------
     !Copy current->old
         call Tic("Copy2Old")
@@ -448,7 +450,7 @@ module mhdgroup
 
     subroutine Predictor(Model,Grid,oState,State,pState,pdt)
         type(Model_T), intent(in) :: Model
-        type(Grid_T), intent(in) :: Grid
+        type(Grid_T), intent(inout) :: Grid
         type(State_T), intent(in) :: State, oState
         type(State_T), intent(inout) :: pState
         real(rp), intent(in) :: pdt
@@ -475,10 +477,6 @@ module mhdgroup
                     isCC = (k<=Grid%keg) .and. (j<=Grid%jeg) .and. (i<=Grid%ieg)
                     if (isCC) then
                         call CellPredictor(Model,ht,oState%Gas(i,j,k,:,:),State%Gas(i,j,k,:,:),pState%Gas(i,j,k,:,:))
-                        !Do XYZ fields
-                        if (Model%doMHD) then
-                            pState%Bxyz(i,j,k,:) = State%Bxyz(i,j,k,:) + (pdt/odt)*(State%Bxyz(i,j,k,:) - oState%Bxyz(i,j,k,:))
-                        endif !MHD
                     endif
                     if (Model%doMHD) then
                         !Do interface fluxes
@@ -490,11 +488,11 @@ module mhdgroup
 
         !Now do flux->field where necessary
         if (Model%doMHD) then
-            !Replace Bxyz w/ flux->field calculations in xxMG region
+            !Loop through grid and replace Bxyz w/ flux-> field 
             !$OMP DO collapse(2)
-            do k=Grid%ksMG,Grid%keMG
-                do j=Grid%jsMG,Grid%jeMG
-                    do i=Grid%isMG,Grid%ieMG
+            do k=Grid%ksg,Grid%keg
+                do j=Grid%jsg,Grid%jeg
+                    do i=Grid%isg,Grid%ieg                        
                         pState%Bxyz(i,j,k,:) = CellBxyz(Model,Grid,pState%magFlux,i,j,k)
                     enddo
                 enddo
@@ -503,6 +501,12 @@ module mhdgroup
 
         !Close big parallel region
         !$OMP END PARALLEL
+
+        if (Model%doRing) call RingPredictorFix(Model,Grid,pState)
+        
+        if (associated(Model%HackPredictor)) then
+            call Model%HackPredictor(Model,Grid,pState)
+        endif
 
     end subroutine Predictor
 

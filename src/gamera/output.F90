@@ -4,14 +4,10 @@ module output
     use clocks
     use gioH5
     use gridutils
-
+    use files
+    
     implicit none
 
-    logical :: primOut = .true.
-    integer :: nFloors = 0
-    real(rp) :: dt0 = 0
-
-    character :: TAB = char(9)
     character(len=strLen) :: zcsClk = "Gamera" !Clock ID to use for ZCS calculation
 
     !ConOut_T
@@ -19,7 +15,7 @@ module output
     abstract interface
         subroutine ConsoleOut_T(Model,Grid,State)
             Import :: Model_T, Grid_T, State_T
-            type(Model_T), intent(in) :: Model
+            type(Model_T), intent(inout) :: Model
             type(Grid_T), intent(in) :: Grid
             type(State_T), intent(in) :: State
         end subroutine ConsoleOut_T
@@ -43,42 +39,46 @@ module output
 contains
 
     subroutine consoleOutput_STD(Model, Grid, State)
-        type(Model_T), intent(in) :: Model
+        type(Model_T), intent(inout) :: Model
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(in) :: State
 
         real(rp) :: ZCs, wTime
         integer :: nTh
         character(len=strLen) :: tStr
-        if (dt0 < TINY) dt0 = Model%dt
+
+        ! grab the first reasonable dt after the sim has been running for a bit as dt0
+        if (Model%ts > 0 .and. Model%dt0 < TINY) then
+            Model%dt0 = Model%dt
+        endif
+
         wTime = readClock(zcsClk)
 
         !Calculate zone-cycles per second
         if (Model%ts > 0) then
-            ZCs = Model%tsOut*Grid%Nip*Grid%Njp*Grid%Nkp/wTime
+            ZCs = Model%IO%tsOut*Grid%Nip*Grid%Njp*Grid%Nkp/wTime
         else
             ZCs = 0.0
         endif
 
-        if (verbose > 0) then
-            write(*,*) ANSICYAN
-            call timeString(Model%t,tStr)
-            write(*,'(a,a)')        'Sim Time   = ', trim(tStr)
-            write (*, '(a,I8)')     '        ts = ', Model%ts
-            call timeString(Model%dt,tStr)
-            write (*, '(a,a)')      '        dt = ', trim(tStr)
-            write (*, '(a,f8.3,a)') '    dt/dt0 = ', 100*Model%dt/dt0, '%'
-            
+        if (Model%isLoud) then
             nTh = 0
 #ifdef _OPENMP
             nTh = Model%nTh
 #endif
-            write (*, '(a,f9.2,a,I0,a)') '      kZCs = ', ZCs/1000.0, ' (',nTh,' threads)'
-            if (nFloors > 0) then
-                write (*, '(a,I8)') '      nFloors = ', nFloors
-            endif
-            write (*, *) ANSIRESET, ''
+            write(*,*) ANSICYAN
+            write(*,*) 'GAMERA'
+            call timeString(Model%t,tStr)
+            write(*,'(a,a)')        '      Time = ', trim(tStr)
+            write (*, '(a,I8)')     '        ts = ', Model%ts
+            call timeString(Model%dt,tStr)
+            write (*, '(a,a)')      '        dt = ', trim(tStr)
 
+            if (Model%dt0 > TINY) then
+                write (*, '(a,f8.3,a)')      '    dt/dt0 = ', 100*Model%dt/Model%dt0, '%'     
+            endif
+            write (*, '(a,f9.2,a,I0,a)') '      kZCs = ', ZCs/1000.0, ' (',nTh,' threads)'         
+            write(*,'(a)',advance="no") ANSIRESET!, ''
         endif
 
     end subroutine consoleOutput_STD
@@ -101,19 +101,18 @@ contains
 
         character(len=strLen) :: gStr,tStr
 
-        write (gStr, '(A,I0)') "Step#", Model%nOut
+        write (gStr, '(A,I0)') "Step#", Model%IO%nOut
 
-        if (verbose > 0) then
+        if (Model%isLoud) then
             call timeString(Model%t,tStr)
-            write (*, '(a,a,a,a,a)') ANSIPURPLE, '<Writing HDF5 output @ t = ', trim(tStr), ' >', ANSIRESET
+            write (*, '(a,a,a,a,a)') ANSIGREEN, '<Writing HDF5 DATA @ t = ', trim(tStr), ' >', ANSIRESET
         endif
 
-        !call writeH5Slc(Model,Grid,State,gStr)
         call writeSlc(Model, Grid, State, gStr)
 
         !Setup for next output
-        Model%tOut = Model%tOut + Model%dtOut
-        Model%nOut = Model%nOut + 1
+        Model%IO%tOut = Model%IO%tOut + Model%IO%dtOut
+        Model%IO%nOut = Model%IO%nOut + 1
     end subroutine fOutput
 
     subroutine resOutput(Model, Grid, State)
@@ -121,28 +120,23 @@ contains
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(in) :: State
 
-        character(len=strLen) :: ResF, lnResF !Name of restart file
+        character(len=strLen) :: ResF, tStr,lnResF !Name of restart file
         logical :: fExist
 
-        write (ResF, '(A,A,I0.5,A)') trim(Model%RunID), ".Res.", Model%nRes, ".h5"
+        write (ResF, '(A,A,I0.5,A)') trim(Model%RunID), ".Res.", Model%IO%nRes, ".h5"
 
-        if (verbose > 0) then
-            write (*, *) '-----------------------'
-            inquire (file=ResF, exist=fExist)
-            if (fExist) then
-                write (*, *) 'Restart file already exists, deleting file.'
-                call EXECUTE_COMMAND_LINE('rm '//trim(ResF), wait=.true.)
-            endif
+        call CheckAndKill(ResF)
 
-            write (*, '(a,f8.3,a)') '<Writing HDF5 RESTART @ t = ', Model%t, ' >'
-            write (*, *) '-----------------------'
+        if (Model%isLoud) then
+            call timeString(Model%t,tStr)
+            write (*, '(a,a,a,a,a)') ANSIGREEN, '<Writing HDF5 RESTART @ t = ', trim(tStr), ' >', ANSIRESET
         endif
 
         call writeH5Res(Model, Grid, State, ResF)
 
         !Setup for next restart
-        Model%tRes = Model%tRes + Model%dtRes
-        Model%nRes = Model%nRes + 1
+        Model%IO%tRes = Model%IO%tRes + Model%IO%dtRes
+        Model%IO%nRes = Model%IO%nRes + 1
 
         write (lnResF, '(A,A,A,A)') trim(Model%RunID), ".Res.", "XXXXX", ".h5"
 

@@ -6,10 +6,6 @@ module chmpdefs
     use xml_input
     implicit none
 
-!CGS constants
-    real(rp), parameter :: mec2 = 0.511 ! [MeV] electron rest mass
-    real(rp), parameter :: qe   = 4.8032D-10 ! [CGS] magnitude electron charge
-
     !Algorithmic/Run options
     type chmpModel_T
         character(len=strLen) :: RunID, uID
@@ -22,7 +18,7 @@ module chmpdefs
         integer :: ts,tsOut,nOut
         logical :: doTimer=.false.
         logical :: doPureB0=.false.,doNumB0=.false. !Background field options (Pure/Numerical)
-        logical :: doEBOut,doTPOut,doFLOut !slice/particle/field line output
+        logical :: doEBOut=.false.,doTPOut=.false.,doFLOut=.false. !slice/particle/field line output
         logical :: doSlim=.false.,doFat=.false. !Do slim/fat output
         logical :: do2D=.false. !Force 2D tp integration
         logical :: doMHD=.false. !Do full MHD variables instead of just E/B
@@ -39,6 +35,7 @@ module chmpdefs
         integer  :: MaxIter !Maximum iterations
         real(rp) :: TolGC !Tolerance for GC iteration
 
+        logical :: doOldNaming = .false. !Whether to use old-style naming
         logical :: doEQProj=.false. !Force projection to EQ before output
         logical :: doTrc=.false. !Do field line topology tracing
         logical :: doStream=.false. !Inject TPs over time
@@ -59,7 +56,7 @@ module chmpdefs
 
     !Grid types
     enum, bind(C) 
-        enumerator :: LFMGRID,EGGGRID,CARTGRID
+        enumerator :: LFMGRID,EGGGRID,CARTGRID,SPHGRID
     endenum
 
     !Integrator types

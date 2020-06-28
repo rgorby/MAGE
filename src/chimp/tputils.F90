@@ -22,8 +22,9 @@ module tputils
         module procedure eGC_Mu,eGC_p
     end interface
 
-    logical :: doGyroDT = .true. !Use fraction of gyrofrequency for FO timesteps
-    logical :: doLoudKill = .false. !Output when killing TP
+    logical, private :: doGyroDT = .true. !Use fraction of gyrofrequency for FO timesteps
+    logical, private :: doLoudKill = .false. !Output when killing TP
+    
     contains
 
 
@@ -103,7 +104,7 @@ module tputils
         else
             gamma = p2Gam(prt%Q(PXFO:PZFO),Model%m0)
         endif
-            K = (Model%m0*mec2*1.0e+3)*(gamma-1.0)
+        K = (Model%m0*mec2*1.0e+3)*(gamma-1.0)
 
     end function prt2kev
 

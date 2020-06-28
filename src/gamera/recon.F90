@@ -16,7 +16,8 @@ module recon
     end interface
 
     !Note, be careful how interpWgt is initialized to ensure sum(:) = 1 exactly
-    real(rp), dimension(recLen), parameter :: interpWgt = [-3,29,-139,533,533,-139,29,-3]/840.0_rp
+    real(rp), dimension(recLen), parameter :: interpWgt  = [-3,29,-139,533,533,-139,29,-3]/840.0_rp
+    real(rp), dimension(recLen), parameter :: interpWgt6 = [ 0, 1,  -8, 37, 37,  -8, 1, 0]/60.0_rp
 
     !Set choice of LR method in init
     procedure(GetLR_T), pointer :: GetLRs
@@ -132,6 +133,40 @@ module recon
         call pdmLR(Q,Qi,Ql,Qr)
 
     end subroutine Cen8LRs
+
+    !Central 6/PDM LRs
+    subroutine Cen6LRs(dV,Q,Vi,Ql,Qr)
+        real(rp), intent(in), dimension(vecLen,recLen) :: dV,Q
+        real(rp), intent(in), dimension(vecLen)  :: Vi
+        real(rp), intent(inout), dimension(vecLen) :: Ql,Qr
+
+        integer :: i,n
+        real(rp), dimension(vecLen,recLen) :: QdV !Volume-weighted quantity
+        real(rp), dimension(vecLen) :: Qi !Interpolated quantity
+
+        !DIR$ ASSUME_ALIGNED dV: ALIGN
+        !DIR$ ASSUME_ALIGNED Q : ALIGN
+        !DIR$ ASSUME_ALIGNED Vi: ALIGN
+        !DIR$ ASSUME_ALIGNED Ql: ALIGN
+        !DIR$ ASSUME_ALIGNED Qr: ALIGN
+
+        !Volume-weight
+        do n=1,recLen
+            do i=1,vecLen
+                QdV(i,n) = dV(i,n)*Q(i,n)
+            enddo
+        enddo
+
+        !Reconstruct and unweight
+        call Central6(QdV,Qi)
+        do i=1,vecLen
+            Qi(i) = Qi(i)/Vi(i)
+        enddo
+
+        !Split into LRs
+        call pdmLR(Q,Qi,Ql,Qr)
+
+    end subroutine Cen6LRs
 
     !Central 8/PDM LRs
     subroutine Cen8GLRs(dV,Q,Vi,Ql,Qr)
@@ -293,6 +328,21 @@ module recon
 
     end subroutine Central8
 
+    !6th order central interpolation
+    subroutine Central6(Qb,Qi)
+        real(rp), intent(in) :: Qb(vecLen,recLen)
+        real(rp), intent(out) :: Qi(vecLen)
+
+        integer :: i,n
+        !DIR$ ASSUME_ALIGNED Qb: ALIGN
+        !DIR$ ASSUME_ALIGNED Qi : ALIGN
+
+        do i=1,vecLen
+            Qi(i) = dot_product(interpWgt6,Qb(i,1:recLen))
+        enddo
+
+    end subroutine Central6
+
     subroutine pdmLR(Qb,Qi,Ql,Qr)
         real(rp), intent(in) :: Qb(vecLen,recLen), Qi(vecLen)
         real(rp), intent(out) :: Ql(vecLen),Qr(vecLen)
@@ -337,10 +387,7 @@ module recon
     end subroutine pdmLR
 
     !PDM Left
-    function PDM(q0,q1,q2,qI) 
-#ifdef __INTEL_COMPILER
-        !$omp declare simd(PDM)
-#endif
+    function PDM(q0,q1,q2,qI)
         real(rp), intent(in) :: q0,q1,q2,qI
         real(rp) :: PDM
         real(rp) :: maxQ,minQ, qN, dq0,dq1,dqL
@@ -369,9 +416,6 @@ module recon
     end function PDM
 
     function Up7(q0,q1,q2,q3,q4,q5,q6) 
-#ifdef __INTEL_COMPILER
-        !$omp declare simd(Up7)
-#endif
         real(rp), intent(in) :: q0,q1,q2,q3,q4,q5,q6
         real(rp) :: Up7
 
@@ -454,37 +498,5 @@ module recon
         endif
 
     end function isExtreme
-
-    ! !Smoothness detector for length-7 stencil
-    ! function isSmooth(Q)
-    !     real(rp), intent(in) :: Q(0:6)
-    !     logical :: isSmooth
-
-    !     real(rp) :: D1,D2,D3,D4,D5,D6
-    !     logical :: SmL,SmC,SmR
-
-    !     D1 = Q(1)-Q(0)
-    !     D2 = Q(2)-Q(1)
-    !     D3 = Q(3)-Q(2)
-    !     D4 = Q(4)-Q(3)
-    !     D5 = Q(5)-Q(4)
-    !     D6 = Q(6)-Q(5)
-
-    !     SmL = (D1>0) .and. (D2>0) .and. (D3<0) .and. (D4<0)
-    !     SmC = (D2>0) .and. (D3>0) .and. (D4<0) .and. (D5<0)
-    !     SmR = (D3>0) .and. (D4>0) .and. (D5<0) .and. (D6<0)
-
-    !     if (SmL .and. (abs(D2)<abs(D1)) .and. (abs(D3)<abs(D4))) then
-    !         isSmooth = .true.
-    !     else if (SmC .and. (abs(D3)<abs(D2)) .and. (abs(D4)<abs(D5))) then
-    !         isSmooth = .true.
-    !     else if (SmR .and. (abs(D4)<abs(D3)) .and. (abs(D5)<abs(D6))) then
-    !         isSmooth = .true.
-    !     else
-    !         isSmooth = .false.
-    !     endif
-        
-    ! end function isSmooth
     
-
 end module recon

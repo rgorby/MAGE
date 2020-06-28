@@ -202,8 +202,9 @@ module gridutils
         real(rp), intent(in)  :: Bxyz(Grid%isg:Grid%ieg,Grid%jsg:Grid%jeg,Grid%ksg:Grid%keg,1:NDIM)
         real(rp), intent(inout) :: Jxyz(Grid%isg:Grid%ieg,Grid%jsg:Grid%jeg,Grid%ksg:Grid%keg,1:NDIM)
 
-        integer :: i,j,k
+        integer :: i,j,k,Nk
         real(rp), allocatable, dimension(:,:,:,:) :: bInt, JdS
+        real(rp), dimension(NDIM) :: J0,J2,J3
 
         call allocGridVec(Model,Grid,bInt,.false.,NDIM)
         call allocGridVec(Model,Grid,JdS,.true.,NDIM) !Treat like flux-sized to use CellBxyz routine
@@ -260,35 +261,65 @@ module gridutils
         do k=Grid%ks-1, Grid%ke+1
             do j=Grid%js-1, Grid%je+1
                 do i=Grid%is-1, Grid%ie+1
-
                     Jxyz(i,j,k,:) = CellBxyz(Model,Grid,JdS,i,j,k)
-
                 enddo
             enddo
         enddo
         
         !Below here can do things related to ring-avg/periodicity
-        ! if (Model%doRing) then
-        !     select case (Model%Ring%GridID)
+        if (Model%doRing) then
+            select case (Model%Ring%GridID)
+            case("lfm")
+                
+            !Start by cleaning up about axis
+                Nk = Grid%ke-Grid%ks+1
+                !$OMP PARALLEL DO default(shared) &
+                !$OMP private(i,k,J0,J3)
+                do i=Grid%is,Grid%ie
+                    !Positive axis
+                    if (Model%Ring%doS) then
+                        !Calculate J @ pole by averaging @ ring 3
+                        J0 = sum(Jxyz(i,Grid%js+2,Grid%ks:Grid%ke,XDIR:ZDIR),dim=1)/Nk
+                        !Now loop around ring and linearly interpolate first and second j
+                        !Weighting, 0 (pole) -> 0.5 (1cc) -> 1.5 (2cc) -> 2.5 (3cc)
+                        !J1 = 0.8*J0 + 0.2*J3
+                        !J2 = 0.4*J0 + 0.6*J3
+                        do k=Grid%ks,Grid%ke
+                            J3 = Jxyz(i,Grid%js+2,k,:)
+                            Jxyz(i,Grid%js  ,k,:) = 0.8*J0 + 0.2*J3
+                            Jxyz(i,Grid%js+1,k,:) = 0.4*J0 + 0.6*J3
+                        enddo
 
-        !     !case ("cyl")
-        !     case ("lfm")
-        !         !Set currents at axis to zero
-        !         Jxyz(:,Grid%js,:,:) = 0.0
-        !         Jxyz(:,Grid%je,:,:) = 0.0
+                    endif
+                    !Negative axis
+                    if (Model%Ring%doE) then
+                        J0 = sum(Jxyz(i,Grid%je-2,Grid%ks:Grid%ke,XDIR:ZDIR),dim=1)/Nk
+                        !Same as above
+                        do k=Grid%ks,Grid%ke
+                            J3 = Jxyz(i,Grid%je-2,k,:)
+                            Jxyz(i,Grid%je  ,k,:) = 0.8*J0 + 0.2*J3
+                            Jxyz(i,Grid%je-1,k,:) = 0.4*J0 + 0.6*J3
+                        enddo
+                    endif
+                enddo !i loop
 
-        !         !FIXME: For now ridiculously setting inner shell to second
-        !         Jxyz(Grid%is,:,:,:) = Jxyz(Grid%is+1,:,:,:)
-        !         !Jxyz(Grid%is,Grid%js,:,XDIR) = sum(Jxyz(Grid%is,Grid%js,Grid%ks:Grid%ke,XDIR))/Model%Ring%Np
-        !         !Jxyz(Grid%is,Grid%js,:,YDIR) = sum(Jxyz(Grid%is,Grid%js,Grid%ks:Grid%ke,YDIR))/Model%Ring%Np
-        !         !Jxyz(Grid%is,Grid%js,:,ZDIR) = sum(Jxyz(Grid%is,Grid%js,Grid%ks:Grid%ke,ZDIR))/Model%Ring%Np
-        !         !Jxyz(Grid%is,Grid%je,:,XDIR) = sum(Jxyz(Grid%is,Grid%je,Grid%ks:Grid%ke,XDIR))/Model%Ring%Np
-        !         !Jxyz(Grid%is,Grid%je,:,YDIR) = sum(Jxyz(Grid%is,Grid%je,Grid%ks:Grid%ke,YDIR))/Model%Ring%Np
-        !         !Jxyz(Grid%is,Grid%je,:,ZDIR) = sum(Jxyz(Grid%is,Grid%je,Grid%ks:Grid%ke,ZDIR))/Model%Ring%Np
+                
+            ! !Now handle inner shell by extrapolating i=2,i=3 => i=1
+            !     if (Grid%hasLowerBC(IDIR)) then
+            !         !$OMP PARALLEL DO default(shared) &
+            !         !$OMP private(k,j,J2,J3)
+            !         do k=Grid%ks,Grid%ke
+            !             do j=Grid%js,Grid%je
+            !                 J3 = Jxyz(Grid%is+2,j,k,:)
+            !                 J2 = Jxyz(Grid%is+1,j,k,:)
+            !                 Jxyz(Grid%is,j,k,:) = J3 + 2.0*( J2 - J3 )
+            !             enddo
+            !         enddo
+            !     endif !Inner i shell
 
-        !     end select
+            end select
+        endif
 
-        ! endif
 
         deallocate(bInt)
         deallocate(JdS)
@@ -531,28 +562,44 @@ module gridutils
 
     end function lfmCellBxyz
 
-    subroutine DivB(Model,Grid,State,totDivB,DivOut)
+    subroutine DivB(Model,Grid,State,totDivB,DivOut,doTotO)
         type(Model_T), intent(in) :: Model
         type(Grid_T),  intent(in) :: Grid
         type(State_T), intent(in) :: State
         real(rp), intent(out) :: totDivB
         real(rp), intent(inout), optional :: DivOut(Grid%isg:Grid%ieg,Grid%jsg:Grid%jeg,Grid%ksg:Grid%keg)
+        logical, intent(in), optional :: doTotO
 
+        logical :: doTot
         real(rp) :: DivBcc(Grid%isg:Grid%ieg,Grid%jsg:Grid%jeg,Grid%ksg:Grid%keg)
         integer :: i,j,k
         real(rp) :: dFi,dFj,dFk,dFi0,dFj0,dFk0
+
+        if (present(doTotO)) then
+            doTot = doTotO
+        else
+            doTot = .true.
+        endif
 
         dFi0 = 0.0
         dFj0 = 0.0
         dFk0 = 0.0
         totDivB = 0.0
+
+        !$OMP PARALLEL DO default(shared) &
+        !$OMP private(dFi,dFj,dFk,dFi0,dFj0,dFk0) &
+        !$OMP reduction(+:totDivB)
         do k=Grid%ks,Grid%ke
             do j=Grid%js,Grid%je
                 do i=Grid%is,Grid%ie
+                    dFi0 = 0.0
+                    dFj0 = 0.0
+                    dFk0 = 0.0
+                                  
                     dFi = State%magFlux(i,j,k,IDIR) - State%magFlux(i+1,j  ,k  ,IDIR)
                     dFj = State%magFlux(i,j,k,JDIR) - State%magFlux(i  ,j+1,k  ,JDIR)
                     dFk = State%magFlux(i,j,k,KDIR) - State%magFlux(i  ,j  ,k+1,KDIR)
-                    if (Model%doBackground) then
+                    if (Model%doBackground .and. doTot) then
                         dFi0 = Grid%bFlux0(i,j,k,IDIR) - Grid%bFlux0(i+1,j  ,k  ,IDIR)
                         dFj0 = Grid%bFlux0(i,j,k,JDIR) - Grid%bFlux0(i  ,j+1,k  ,JDIR)
                         dFk0 = Grid%bFlux0(i,j,k,KDIR) - Grid%bFlux0(i  ,j  ,k+1,KDIR)

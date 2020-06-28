@@ -6,21 +6,23 @@ module sliceio
     use streamline
     use ioH5
     use xml_input
-
+    use files
     implicit none
 
     character(len=strLen) :: ebOutF
-    integer, parameter :: MAXEBVS = 30
+    integer, parameter :: MAXEBVS = 40
     !Parameters for output EB grid (2D equatorial)
     !Fixme: Clean up and generalize
     integer  :: Nx1 = 128, Nx2 = 256
     real(rp) :: xSun = 12.5,xTail=-20.0,yM=20.0 !Default Cartesian slice
     real(rp) :: dx0=0.05
-    real(rp) :: z0=0.05
+    
     real(rp), dimension(:,:), allocatable :: xxi,yyi,xxc,yyc
     real(rp), dimension(:,:,:), allocatable :: B02D
-    logical :: doXY = .true. !Do XY or XZ slice
-    logical :: doVelGC = .false.
+    logical , private :: doXY = .true. !Do XY or XZ slice
+    real(rp), private :: z0=0.0 !Default XY slice
+    real(rp), private :: y0=0.0 !Default XZ slice
+    real(rp), private :: dSlc=0.05 !Spacing for slice averaging
 
     contains
 
@@ -30,13 +32,14 @@ module sliceio
         type(XML_Input_T), intent(in) :: inpXML
 
         type(IOVAR_T), dimension(MAXEBVS) :: IOVars
-        real(rp) :: dx1,dx2,Rin,Rout,x1,x2
+        real(rp) :: dx1,dx2,Rin,Rout,Pin,Pout,x1,x2
         integer :: i,j,ijk(NDIM)
         integer :: iS,iE,n,Npow
         real(rp) :: xcc(NDIM)
         real(rp), dimension(:,:,:), allocatable :: ijkXY
         character(len=strLen) :: idStr
-        
+        logical :: doLog
+
         write(ebOutF,'(2a)') trim(adjustl(Model%RunID)),'.eb.h5'
 
         associate( ebGr=>ebState%ebGr )
@@ -48,6 +51,13 @@ module sliceio
         call inpXML%Set_Val(doXY,'slice/doXY',.true.)
         call inpXML%Set_Val(idStr,'slice/grType',"XY")
         call inpXML%Set_Val(Npow,'slice/Npow',0) !Number of times to double
+        call inpXML%Set_Val(dSlc,'slice/dSlc',dSlc)
+
+        if (doXY) then
+            call inpXML%Set_Val(z0,'slice/z0',z0)
+        else
+            call inpXML%Set_Val(y0,'slice/y0',y0)
+        endif
 
         select case(trim(toUpper(idStr)))
             case("XY")
@@ -71,6 +81,10 @@ module sliceio
                 call inpXML%Set_Val(Rin,'slice/Rin',Rin)
                 call inpXML%Set_Val(Rout,'slice/Rout',Rout)
                 write(*,*) 'Radial grid bounds = ', Rin,Rout
+                call inpXML%Set_Val(doLog,'slice/doLog',.true.)
+                !Get phi bounds (deg)
+                call inpXML%Set_Val(Pin ,'slice/Pin' ,0.0  )
+                call inpXML%Set_Val(Pout,'slice/Pout',360.0)
 
             case("LFM2D")
                 !Create 2D LFM slice (w/ full 2pi)
@@ -111,16 +125,24 @@ module sliceio
                 enddo
             enddo
         !---------
-        case("RP")            
-            dx1 = ( log10(Rout)-log10(Rin) )/Nx1
-            dx2 = (2*PI-  0)/Nx2
+        case("RP")
+            if (doLog) then 
+                dx1 = ( log10(Rout)-log10(Rin) )/Nx1
+            else
+                dx1 = (Rout-Rin)/Nx1
+            endif
+            dx2 = (Pout-Pin)/Nx2
             do j=1,Nx2+1
                 do i=1,Nx1+1
-                    !x1 = Rin + (i-1)*dx1
-                    x1 = 10**( log10(Rin) + (i-1)*dx1 )
-                    x2 = 0.0 + (j-1)*dx2
-                    xxi(i,j) = x1*cos(x2)
-                    yyi(i,j) = x1*sin(x2)
+                    if (doLog) then
+                        x1 = 10**( log10(Rin) + (i-1)*dx1 )
+                    else
+                        x1 = Rin + (i-1)*dx1
+                    endif
+
+                    x2 = Pin + (j-1)*dx2 !Degrees
+                    xxi(i,j) = x1*cos(x2*PI/180.0)
+                    yyi(i,j) = x1*sin(x2*PI/180.0)
                 enddo
             enddo
         !---------
@@ -163,11 +185,11 @@ module sliceio
                 if (doXY) then
                     xcc(XDIR) = xxc(i,j)
                     xcc(YDIR) = yyc(i,j)
-                    xcc(ZDIR) = 0.0
+                    xcc(ZDIR) = z0
                 else
                     !Assuming XZ, x->x and y->z
                     xcc(XDIR) = xxc(i,j)
-                    xcc(YDIR) = 0.0
+                    xcc(YDIR) = y0
                     xcc(ZDIR) = yyc(i,j)
                 endif
                 
@@ -208,44 +230,40 @@ module sliceio
         character(len=strLen), intent(in) :: gStr
 
         type(IOVAR_T), dimension(MAXEBVS) :: IOVars
-        real(rp), dimension(:,:,:), allocatable :: dB2D,E2D,Q,J2D,MagEQ
-        real(rp), dimension(:,:,:), allocatable :: Vcrv,Vgrd
-        real(rp), dimension(:,:), allocatable :: OCb,dvB,bS,Vr,Lb
+        real(rp), dimension(:,:,:), allocatable :: dB2D,E2D,Q,J2D
+        real(rp), dimension(:,:), allocatable :: Vr,Lb,LbXY
 
         integer :: i,j
         real(rp), dimension(NDIM) :: xp,xm,dB,Ep,Em,Bp,Bm
         real(rp) :: MagB,MagJ,oVGScl
         real(rp), dimension(NVARMHD) :: Qij
-        type(gcFields_T) :: gcFields
-        associate( ebGr=>ebState%ebGr,ebTab=>ebState%ebTab,eb1=>ebState%eb1,eb2=>ebState%eb2 )
+        type(gcFields_T) :: gcFieldsP,gcFieldsM
+        real(rp), dimension(NDIM,NDIM) :: jB
 
+        !Data for tracing
+        type(ebTrc_T), dimension(:,:), allocatable :: ebTrcIJ
+
+        associate( ebGr=>ebState%ebGr,ebTab=>ebState%ebTab,eb1=>ebState%eb1,eb2=>ebState%eb2 )
 
         allocate( dB2D(Nx1,Nx2,NDIM))
         allocate(  E2D(Nx1,Nx2,NDIM))
         allocate(  J2D(Nx1,Nx2,NDIM))
-        allocate(MagEQ(Nx1,Nx2,NDIM))
-        allocate( Vcrv(Nx1,Nx2,NDIM))
-        allocate( Vgrd(Nx1,Nx2,NDIM))
-        allocate(OCb(Nx1,Nx2))
-        allocate(dvB(Nx1,Nx2))
-        allocate(bS (Nx1,Nx2))
-        allocate(Vr (Nx1,Nx2))
-        allocate(Lb (Nx1,Nx2))
+        allocate(Vr  (Nx1,Nx2))
+        allocate(Lb  (Nx1,Nx2))
+        allocate(LbXY(Nx1,Nx2))
+
+
+        if (Model%doTrc) then
+            !Create an ebTrc for each point on slice
+            allocate(ebTrcIJ(Nx1,Nx2))
+        endif
+
         dB2D  = 0.0
         E2D   = 0.0
         J2D   = 0.0
-        MagEQ = 0.0
-        OCb = 0.0
-        dvB = 0.0
-        bS  = 0.0
-        Vr  = 0.0
-        Lb  = 0.0
-        Vcrv = 0.0
-        Vgrd = 0.0
-
-        if (Model%doFat) then
-            doVelGC = .true.
-        endif
+        Vr   = 0.0
+        Lb   = 0.0
+        LbXY = 0.0
 
         if (Model%doMHD) then
             allocate(Q(Nx1,Nx2,NVARMHD))
@@ -253,26 +271,30 @@ module sliceio
         endif
         !$OMP PARALLEL DO default(shared) collapse(2) &
         !$OMP schedule(dynamic) &
-        !$OMP private(i,j,xp,xm,Bp,Bm,Ep,Em,dB,Qij,gcFields,MagB,MagJ)
+        !$OMP private(i,j,xp,xm,Bp,Bm,Ep,Em,dB,Qij,gcFieldsP,gcFieldsM,jB,MagB,MagJ)
         do j=1,Nx2
             do i=1,Nx1
                 !Straddle slice plane
                 !Get fields at x,y,z0
                 if (doXY) then
-                    xp = [xxc(i,j),yyc(i,j), z0]
-                    xm = [xxc(i,j),yyc(i,j),-z0]
+                    xp = [xxc(i,j),yyc(i,j),z0+dSlc]
+                    xm = [xxc(i,j),yyc(i,j),z0-dSlc]
                 else
-                    xp = [xxc(i,j), z0,yyc(i,j)]
-                    xm = [xxc(i,j),-z0,yyc(i,j)]
+                    xp = [xxc(i,j),y0+dSlc,yyc(i,j)]
+                    xm = [xxc(i,j),y0-dSlc,yyc(i,j)]
                 endif
 
-                call ebFields(xp,Model%t,Model,ebState,Ep,Bp)
-                call ebFields(xm,Model%t,Model,ebState,Em,Bm)
+                call ebFields(xp,Model%t,Model,ebState,Ep,Bp,gcFields=gcFieldsP)
+                call ebFields(xm,Model%t,Model,ebState,Em,Bm,gcFields=gcFieldsM)
+
+                jB = 0.5*(gcFieldsP%JacB + gcFieldsM%JacB)
 
                 !Background already scaled to output units
                 db = oBScl*0.5*(Bp+Bm)-B02D(i,j,:)
                 dB2D(i,j,:) = db
                 E2D (i,j,:) = oEScl*0.5*(Em+Ep)
+                MagB = norm2(db+B02D(i,j,:))
+                MagJ = oBScl*sqrt(sum(jB**2.0))
 
                 !Get MHD vars if requested
                 if (Model%doMHD) then
@@ -282,29 +304,24 @@ module sliceio
                     Q(i,j,:) = Qij
                     Vr(i,j) = (xxc(i,j)*Qij(VELX) + yyc(i,j)*Qij(VELY))/norm2([xxc(i,j),yyc(i,j)])
                 endif
-                !Do only point on slice plane
-                if (doXY) then
-                    xp = [xxc(i,j),yyc(i,j),0.0_rp]
-                else
-                    xp = [xxc(i,j),0.0_rp,yyc(i,j)]
-                endif    
 
-                !Get current
-                call ebFields(xp,Model%t,Model,ebState,Ep,Bp,gcFields=gcFields)
-                J2D(i,j,:) = Jac2Curl(gcFields%JacB)
+                !Current
+                J2D(i,j,:) = Jac2Curl(jB)
 
-                !Get B lengthscale
-                MagB = norm2(db+B02D(i,j,:))
-                MagJ = oBScl*sqrt(sum(gcFields%JacB**2.0))
+                !Get B lengthscale (3D)
                 Lb(i,j) = MagB/max(MagJ,TINY)
 
-                if (doVelGC) then
-                    !Get drift terms
-                    call VelGC(Bp,gcFields%JacB,Vgrd(i,j,:),Vcrv(i,j,:))
-                endif
+                !Get B lengthscale (2D)
+                !Note, want derivatives of all 3 B components wrt X,Y (not Z)
+                !MagB is unchanged (all 3 components)
+                !Change MagJ
+                MagJ = oBScl*sqrt(sum(jB(XDIR:ZDIR,XDIR:YDIR)**2.0))
+                LbXY(i,j) = MagB/max(MagJ,TINY)
+
                 if (Model%doTrc) then
                     !Get field line topology stuff
-                    call SliceFL(Model,ebState,xp,Model%t,OCb(i,j),dvB(i,j),bS(i,j),MagEQ(i,j,:))
+                    call SliceFL(Model,ebState,0.5*(xp+xm),Model%t,ebTrcIJ(i,j))
+
                 endif
             enddo
         enddo
@@ -314,23 +331,40 @@ module sliceio
         !-------------------
         !Variables to always output
         call AddOutVar(IOVars,"time",oTScl*Model%t)
-        call AddOutVar(IOVars,"dBx",db2D(:,:,XDIR))
-        call AddOutVar(IOVars,"dBy",db2D(:,:,YDIR))
-        call AddOutVar(IOVars,"dBz",db2D(:,:,ZDIR))
-        call AddOutVar(IOVars,"Lb" ,Lb  (:,:)     )
+        call AddOutVar(IOVars,"dBx" ,db2D(:,:,XDIR))
+        call AddOutVar(IOVars,"dBy" ,db2D(:,:,YDIR))
+        call AddOutVar(IOVars,"dBz" ,db2D(:,:,ZDIR))
+        call AddOutVar(IOVars,"Lb"  ,Lb  (:,:)     )
+        call AddOutVar(IOVars,"LbXY",LbXY(:,:)     )
 
         if (Model%doTrc) then
-            call AddOutVar(IOVars,"OCb",OCb)
-            call AddOutVar(IOVars,"dvB",dvB)
-            call AddOutVar(IOVars,"bS",bS)
-            call AddOutVar(IOVars,"zBEQ",MagEQ(:,:,ZDIR))
+            !Field line tracing metrics
+            call AddOutVar(IOVars,"OCb" ,ebTrcIJ(:,:)%OCb )
+            call AddOutVar(IOVars,"dvB" ,ebTrcIJ(:,:)%dvB )
+            call AddOutVar(IOVars,"bD"  ,ebTrcIJ(:,:)%bD  )
+            call AddOutVar(IOVars,"bP"  ,ebTrcIJ(:,:)%bP  )
+            call AddOutVar(IOVars,"bS"  ,ebTrcIJ(:,:)%bS  )
+            call AddOutVar(IOVars,"bMin",ebTrcIJ(:,:)%bMin)
+
+            !Equator and end-points
+            call AddOutVar(IOVars,"xBEQ",ebTrcIJ(:,:)%MagEQ(XDIR))
+            call AddOutVar(IOVars,"yBEQ",ebTrcIJ(:,:)%MagEQ(YDIR))
+            call AddOutVar(IOVars,"zBEQ",ebTrcIJ(:,:)%MagEQ(ZDIR))
+
+            call AddOutVar(IOVars,"xP",ebTrcIJ(:,:)%xEPp(XDIR))
+            call AddOutVar(IOVars,"yP",ebTrcIJ(:,:)%xEPp(YDIR))
+            call AddOutVar(IOVars,"zP",ebTrcIJ(:,:)%xEPp(ZDIR))
+
+            call AddOutVar(IOVars,"xM",ebTrcIJ(:,:)%xEPm(XDIR))
+            call AddOutVar(IOVars,"yM",ebTrcIJ(:,:)%xEPm(YDIR))
+            call AddOutVar(IOVars,"zM",ebTrcIJ(:,:)%xEPm(ZDIR))
+
         endif
 
         if (.not. Model%doSlim) then
             call AddOutVar(IOVars,"Ex" , E2D(:,:,XDIR))
             call AddOutVar(IOVars,"Ey" , E2D(:,:,YDIR))
             call AddOutVar(IOVars,"Ez" , E2D(:,:,ZDIR))
-
             call AddOutVar(IOVars,"Jx" , J2D(:,:,XDIR))
             call AddOutVar(IOVars,"Jy" , J2D(:,:,YDIR))
             call AddOutVar(IOVars,"Jz" , J2D(:,:,ZDIR))
@@ -345,92 +379,12 @@ module sliceio
             call AddOutVar(IOVars,"P"  ,       Q(:,:,PRESSURE))
         endif
 
-        !Convert gradient drift to km/s/keV
-        oVGScl = 0.5*3.1*(1.0e+2)*4.6*(1.0e+3)/(6380.0)/oBScl
-
-        if (doVelGC) then
-            call AddOutVar(IOVars,"Vgx", oVGScl*Vgrd(:,:,XDIR))
-            call AddOutVar(IOVars,"Vgy", oVGScl*Vgrd(:,:,YDIR))
-            call AddOutVar(IOVars,"Vgz", oVGScl*Vgrd(:,:,ZDIR))
-            call AddOutVar(IOVars,"Vcx", oVGScl*Vcrv(:,:,XDIR))
-            call AddOutVar(IOVars,"Vcy", oVGScl*Vcrv(:,:,YDIR))
-            call AddOutVar(IOVars,"Vcz", oVGScl*Vcrv(:,:,ZDIR))
-        endif
-
         call WriteVars(IOVars,.true.,ebOutF,gStr)
         call ClearIO(IOVars)
         deallocate(dB2D,E2D)
 
         end associate
     end subroutine writeEB
-
-    subroutine SliceFL(Model,ebState,x0,t,OCb,dvB,S,xEQ)
-        real(rp), intent(in) :: x0(NDIM),t
-        type(chmpModel_T), intent(in) :: Model
-        type(ebState_T), intent(in)   :: ebState
-        
-        real(rp), intent(out) :: dvB,S,OCb,xEQ(NDIM)
-
-        type(fLine_T) :: bTrc
-        real(rp) :: bEQ
-        OCb = 0
-        dvB = 0.0
-        S = 0.0
-        xEQ = 0.0
-
-        if (.not. inDomain(x0,Model,ebState%ebGr)) return
-        !Trace field line
-        call genStream(Model,ebState,x0,t,bTrc)
-
-        !Get diagnostics
-        OCb = 1.0*FLTop(Model,ebState%ebGr,bTrc)
-        if (OCb > 0) then
-            dvB = FLVol    (Model,ebState%ebGr,bTrc)
-            S   = FLEntropy(Model,ebState%ebGr,bTrc)
-            call FLEq(Model,bTrc,xEQ,bEQ)
-        endif
-        !write(*,*) 'FL size = ', bTrc%Nm+bTrc%Np+1
-    end subroutine SliceFL
-
-    !Calculate drift velocities
-    subroutine VelGC(B,JacB,Vgrd,Vcrv)
-        real(rp), dimension(NDIM), intent(in) :: B
-        real(rp), dimension(NDIM,NDIM), intent(in) :: JacB
-        real(rp), dimension(NDIM), intent(out) :: Vgrd, Vcrv
-
-        real(rp) :: MagB
-        real(rp), dimension(NDIM) :: bhat,gMagB,cbhat,kappa,alpha
-
-        real(rp), dimension(NDIM,NDIM) :: gbhat
-        Vgrd = 0.0
-        Vcrv = 0.0
-
-        MagB = norm2(B)
-        bhat = normVec(B)
-
-        if (MagB < TINY) then
-            return
-        endif
-        !gMagB = gradient(|B|), vector
-        !      = bhat \cdot \grad \vec{B}
-        gMagB = VdT(bhat,JacB)
-
-        !Curl of bhat
-        !Curl(bhat) = (1/MagB)*( Curl(B) + bhat \cross gMagB)
-        cbhat = (1/MagB)*( Jac2Curl(JacB) + cross(bhat,gMagB) )
-
-        !Get grad bhat
-        gbhat = ( MagB*JacB - Dyad(gMagB,B) )/(MagB**2.0)
-
-        kappa = cross(cbhat,bhat)
-        !alpha = bhat cross bhat dot grad bhat
-        alpha = cross(bhat,VdT(bhat,gbhat))
-        Vgrd = cross(B,gMagB)/(MagB**3.0)
-        !write(*,*) 'Vcrv = ', -2*cross(kappa,B)/(MagB**2.0), 2*alpha/MagB
-        !Vcrv = -2*cross(kappa,B)/(MagB**2.0)
-        Vcrv =  2*alpha/MagB
-
-    end subroutine VelGC
 
     !Double grid from corners
     subroutine Embiggen(xxi,yyi,Nx1,Nx2)

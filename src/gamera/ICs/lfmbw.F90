@@ -16,12 +16,12 @@ module usergamic
     real(rp) :: bMag
     logical :: doDip = .false.
 
-    type, extends(baseBC_T) :: bwiIBC_T
+    type, extends(innerIBC_T) :: bwiIBC_T
         contains
         procedure :: doBC => bw_ibcI
     end type bwiIBC_T
 
-    type, extends(baseBC_T) :: bwoIBC_T
+    type, extends(outerIBC_T) :: bwoIBC_T
         contains
         procedure :: doBC => bw_obcI
     end type bwoIBC_T
@@ -52,12 +52,7 @@ module usergamic
         bMag = B0/sqrt(2.0)
 
         ! deallocate default BCs
-        deallocate(Grid%ExternalBCs(INI )%p)
-        deallocate(Grid%ExternalBCs(OUTI)%p)
-        deallocate(Grid%ExternalBCs(INJ )%p)
-        deallocate(Grid%ExternalBCs(OUTJ)%p)
-        deallocate(Grid%ExternalBCs(INK )%p)
-        deallocate(Grid%ExternalBCs(OUTK)%p)
+        call WipeBCs(Model,Grid)
 
         !Set BCs (spherical, RPT)
         allocate(bwiIBC_T           :: Grid%externalBCs(INI )%p)
@@ -88,16 +83,9 @@ module usergamic
         Grid%jeDT = Grid%je
         Grid%ksDT = Grid%ks
         Grid%keDT = Grid%ke
-
-        !Set MG bounds
-        Grid%isMG = Grid%is
-        Grid%ieMG = Grid%ie
-        Grid%jsMG = Grid%js
-        Grid%jeMG = Grid%je
-        Grid%ksMG = Grid%ks
-        Grid%keMG = Grid%ke
-
         
+        Model%HackPredictor => PredFix
+
         !Local functions
         !NOTE: Don't put BCs here as they won't be visible after the initialization call
 
@@ -156,33 +144,48 @@ module usergamic
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(inout) :: State
 
-        integer :: n,ig,j,k
-        real(rp), dimension(NDIM) :: Bxyz
+        integer :: n,ig,ip,j,k,jp,kp,d
+        integer, dimension(NDIM) :: dApm
+        real(rp) :: dA
 
-        
-
-        !i-boundaries (IN)
-        do k=Grid%ksg,Grid%keg
-            do j=Grid%jsg,Grid%jeg
-                if (doDip) then
-                    Bxyz = State%Bxyz(Grid%is,j,k,:)
-                else
-                    Bxyz = [bMag,bMag,0.0_rp]
-                endif
-
+        do k=Grid%ksg,Grid%keg+1
+            do j=Grid%jsg,Grid%jeg+1
+                
+                !Loop inward over ghosts
                 do n=1,Model%Ng
                     ig = Grid%is-n
-                    State%Gas(ig,j,k,DEN,:)  = D0
-                    State%Gas(ig,j,k,MOMX:MOMZ,:)  = 0.0
-                    State%Gas(ig,j,k,ENERGY,:) = P0/(Model%gamma-1.0) !Just internal energy
-                    State%Bxyz(ig,j,k,:) = Bxyz
+                    ip = Grid%is+n-1
+                    !Do cell-centered stuff
+                    if (isCellCenterG(Model,Grid,ig,j,k)) then
+                        !Fix gas vars
+                        State%Gas(ig,j,k,DEN,:)  = D0
+                        State%Gas(ig,j,k,MOMX:MOMZ,:)  = 0.0
+                        State%Gas(ig,j,k,ENERGY,:) = P0/(Model%gamma-1.0) !Just internal energy
+                    endif
 
-                    State%magFlux(ig  ,j,k,IDIR) = Grid%face(ig,j,k,IDIR)*dot_product(Bxyz,Grid%Tf(ig,j,k,NORMX:NORMZ,IDIR))
-                    State%magFlux(ig  ,j,k,JDIR) = Grid%face(ig,j,k,JDIR)*dot_product(Bxyz,Grid%Tf(ig,j,k,NORMX:NORMZ,JDIR))
-                    State%magFlux(ig  ,j,k,KDIR) = Grid%face(ig,j,k,KDIR)*dot_product(Bxyz,Grid%Tf(ig,j,k,NORMX:NORMZ,KDIR))
-                enddo
-            enddo
-        enddo
+                !Now do face fluxes
+                    
+                    dApm(IDIR:KDIR) = 1 !Use this to hold coefficients for singularity geometry
+
+                    if ( (Model%Ring%doS) .and. (j < Grid%js) ) then
+                        dApm(JDIR:KDIR) = -1
+                    endif
+                    if ( (Model%Ring%doE) .and. (j >= Grid%je+1) ) then
+                        dApm(JDIR:KDIR) = -1
+                    endif
+
+                    !Loop over face directions
+                    do d=IDIR,KDIR
+                        call lfmIJKfc(Model,Grid,d,ig,j,k,ip,jp,kp)
+
+                        dA = Grid%face(ig,j,k,d)/Grid%face(Grid%is,jp,kp,d)
+                        State%magFlux(ig,j,k,d) = dApm(d)*dA*State%magFlux(Grid%is,jp,kp,d)
+
+                    enddo
+
+                enddo !n loop (ig)
+            enddo !j loop
+        enddo !k loop
 
     end subroutine bw_ibcI
     
@@ -193,33 +196,93 @@ module usergamic
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(inout) :: State
 
-        integer :: n,ig,j,k
-        real(rp), dimension(NDIM) :: Bxyz
+        integer :: n,ig,di,ip,j,k,jp,kp,d
+        integer, dimension(NDIM) :: dApm
+        real(rp) :: dA
 
-        !i-boundaries (OUT)
-        do k=Grid%ksg,Grid%keg
-            do j=Grid%jsg,Grid%jeg
-                !Get Cartesian field in last physical cell
-                if (doDip) then
-                    Bxyz = State%Bxyz(Grid%ie,j,k,:)
-                else
-                    Bxyz = [bMag,bMag,0.0_rp]
-                endif
-
+        do k=Grid%ksg,Grid%keg+1
+            do j=Grid%jsg,Grid%jeg+1
+                
+                !Loop outward over ghosts
                 do n=1,Model%Ng
                     ig = Grid%ie+n
-                    State%Gas(ig,j,k,DEN,:)  = D0
-                    State%Gas(ig,j,k,MOMX:MOMZ,:)  = 0.0
-                    State%Gas(ig,j,k,ENERGY,:) = P0/(Model%gamma-1.0) !Just internal energy
+                    ip = Grid%ie-n+1
 
-                    State%Bxyz(ig,j,k,:) = Bxyz
-                    State%magFlux(ig+1,j,k,IDIR) = Grid%face(ig+1,j,k,IDIR)*dot_product(Bxyz,Grid%Tf(ig+1,j,k,NORMX:NORMZ,IDIR))
-                    State%magFlux(ig  ,j,k,JDIR) = Grid%face(ig  ,j,k,JDIR)*dot_product(Bxyz,Grid%Tf(ig  ,j,k,NORMX:NORMZ,JDIR))
-                    State%magFlux(ig  ,j,k,KDIR) = Grid%face(ig  ,j,k,KDIR)*dot_product(Bxyz,Grid%Tf(ig  ,j,k,NORMX:NORMZ,KDIR))
-                enddo
-            enddo
-        enddo
+                    !Do cell-centered stuff
+                    if (isCellCenterG(Model,Grid,ig,j,k)) then
+                        !Fix gas vars
+                        State%Gas(ig,j,k,DEN,:)  = D0
+                        State%Gas(ig,j,k,MOMX:MOMZ,:)  = 0.0
+                        State%Gas(ig,j,k,ENERGY,:) = P0/(Model%gamma-1.0) !Just internal energy
+                    endif
+
+                !Now do face fluxes
+                    
+                    dApm(IDIR:KDIR) = 1 !Use this to hold coefficients for singularity geometry
+
+                    if ( (Model%Ring%doS) .and. (j < Grid%js) ) then
+                        dApm(JDIR:KDIR) = -1
+                    endif
+                    if ( (Model%Ring%doE) .and. (j >= Grid%je+1) ) then
+                        dApm(JDIR:KDIR) = -1
+                    endif
+
+                    !Loop over face directions
+                    do d=IDIR,KDIR
+                        if (d == IDIR) then
+                            di = +1
+                        else
+                            di = 0
+                        endif
+
+                        call lfmIJKfc(Model,Grid,d,ig+di,j,k,ip,jp,kp)
+
+                        dA = Grid%face(ig+di,j,k,d)/Grid%face(Grid%ie+di,jp,kp,d)
+                        State%magFlux(ig+di,j,k,d) = dApm(d)*dA*State%magFlux(Grid%ie+di,jp,kp,d)
+
+                    enddo
+
+                enddo !n loop (ig)
+            enddo !j loop
+        enddo !k loop
 
     end subroutine bw_obcI
 
+    !Fixes cell-centered fields in the predictor
+    subroutine PredFix(Model,Gr,State)
+        type(Model_T), intent(in) :: Model
+        type(Grid_T), intent(inout) :: Gr
+        type(State_T), intent(inout) :: State
+
+        integer :: n,ip,ig,ix,jp,kp,j,k
+
+        if (Gr%hasLowerBC(IDIR)) then
+            do k=Gr%ksg,Gr%keg
+                do j=Gr%jsg,Gr%jeg
+                    do n=1,Model%Ng
+                        ip = Gr%is
+                        ig = Gr%is-n
+
+                        call lfmIJKcc(Model,Gr,ig,j,k,ix,jp,kp)
+                        State%Bxyz(ig,j,k,:) = State%Bxyz(ip,jp,kp,:)
+
+                    enddo !n loop
+                enddo !j loop
+            enddo !k loop
+        endif
+
+    end subroutine PredFix
+
+    ! !Fixes electric field before application
+    ! subroutine EFix(Model,Gr,State)
+    !     type(Model_T), intent(in) :: Model
+    !     type(Grid_T), intent(inout) :: Gr
+    !     type(State_T), intent(inout) :: State
+
+
+    !     if (Gr%hasLowerBC(IDIR)) then
+    !         !Zero out E fields on inner shell (too geometric anyways)
+    !         State%Efld(Gr%is:Gr%is,:,:,:) = 0.0
+    !     endif
+    ! end subroutine EFix
 end module usergamic

@@ -1,0 +1,720 @@
+module testMpiBc
+  use pFUnit
+  use gamapp_mpi
+  use usergamic
+
+  implicit none
+
+  type(gamAppMpi_T), allocatable :: gamAppMpi
+
+contains
+
+  @before
+  subroutine setup(this)
+      class (MpiTestMethod), intent(inout) :: this
+      character(len=strLen) :: caseFile
+
+      call setMpiReal()
+
+      write(caseFile,'(A,I0,A)') 'blast3d_bc_', this%getNumProcesses(), '.xml'
+
+      allocate(gamAppMpi)
+
+  end subroutine setup
+
+  @after
+  subroutine teardown(this)
+      class (MpiTestMethod), intent(inout) :: this
+
+      deallocate(gamAppMpi)
+
+  end subroutine teardown
+
+  subroutine setPreHaloData(iPeriodic,jPeriodic,kPeriodic)
+      logical,intent(in) :: iPeriodic,jPeriodic,kPeriodic
+
+      integer :: i,j,k,l,m,iIndex,jIndex,kIndex
+      real(rp) :: iVal, jVal, kVal, lVal, mVal, checkVal
+      integer :: iStart,iEnd,jStart,jEnd,kStart,kEnd
+
+      ! coefficients chosen to allow easy interpretation of final values
+      iVal = 1
+      jVal = 20
+      kVal = 400
+      lVal = 8000
+      mVal = 160000
+
+      ! clear all cells
+      gamAppMpi%State%Gas(:,:,:,:,:) = 0
+      gamAppmpi%State%magFlux(:,:,:,:) = 0
+
+      ! determine which cells to set values in
+      ! always physical cells, ghost cells at outside borders if not periodic
+      if(gamAppMpi%Grid%hasLowerBC(IDIR) .and. .not. iPeriodic) then
+          iStart = gamappMpi%Grid%isg
+      else
+          iStart = gamAppMpi%Grid%is
+      endif
+      if(gamAppMpi%Grid%hasUpperBC(IDIR) .and. .not. iPeriodic) then
+          iEnd = gamAppMpi%Grid%ieg
+      else
+          iEnd = gamAppMpi%Grid%ie
+      endif
+      if(gamAppMpi%Grid%hasLowerBC(JDIR) .and. .not. jPeriodic) then
+          jStart = gamAppMpi%Grid%jsg
+      else
+          jStart = gamAppMpi%Grid%js
+      endif
+      if(gamAppMpi%Grid%hasUpperBC(JDIR) .and. .not. jPeriodic) then
+          jEnd = gamAppMpi%Grid%jeg
+      else
+          jEnd = gamAppMpi%Grid%je
+      endif
+      if(gamAppMpi%Grid%hasLowerBC(KDIR) .and. .not. kPeriodic) then
+          kStart = gamAppMpi%Grid%ksg
+      else
+          kStart = gamAPpMpi%Grid%ks
+      endif
+      if(gamAppMpi%Grid%hasUpperBC(KDIR) .and. .not. kPeriodic) then
+          kEnd = gamAppMpi%Grid%keg
+      else
+          kEnd = gamAppMpi%Grid%ke
+      endif
+
+      do l=1,NVAR
+          do m=0,gamAppMpi%Model%nSpc
+              do i=iStart,iEnd
+                  if(iPeriodic) then
+                      iIndex = 1+modulo(i+gamAppMpi%Grid%ijkShift(IDIR)-1, gamAppMpi%Grid%Nip*gamAppMpi%Grid%NumRi)
+                  else
+                      iIndex = i+gamAppMpi%Grid%ijkShift(IDIR)
+                  endif
+                  do j=jStart,jEnd
+                      if(jPeriodic) then
+                          jIndex = 1+modulo(j+gamAppMpi%Grid%ijkShift(JDIR)-1, gamAppMpi%Grid%Njp*gamAppMpi%Grid%NumRj)
+                      else
+                          jIndex = j+gamAppMpi%Grid%ijkShift(JDIR)
+                      endif
+                      do k=kStart,kEnd
+                          if(kPeriodic) then
+                              kIndex = 1+modulo(k+gamAppMpi%Grid%ijkShift(KDIR)-1, gamAppMpi%Grid%Nkp*gamAppMpi%Grid%NumRk)
+                          else
+                              kIndex = k+gamAppMpi%Grid%ijkShift(KDIR)
+                          endif
+
+                          checkVal=mVal*m+lVal*l+iVal*iIndex+jVal*jIndex+kVal*kIndex
+                          gamAppMpi%State%gas(i,j,k,l,m) = checkVal
+                      enddo
+                  enddo
+              enddo
+          enddo
+      enddo
+
+      ! adjust face end indices
+      do l=IDIR,KDIR
+          if(gamAppMpi%Grid%hasUpperBC(IDIR) .and. .not. iPeriodic) then
+              if(l .eq. IDIR) then
+                  iEnd = gamAppMpi%Grid%ieg+1
+              else
+                  iEnd = gamAppMpi%Grid%ieg
+              endif
+          elseif(gamAppMpi%Grid%hasUpperBC(IDIR) .and. iPeriodic .and. gamAppMpi%Grid%NumRi .eq. 1 .and. l .eq. IDIR) then
+              iEnd = gamAppMpi%Grid%ie+1
+          else
+              iEnd = gamAppMpi%Grid%ie
+          endif
+          if(gamAppMpi%Grid%hasUpperBC(JDIR) .and. .not. jPeriodic) then
+              if(l .eq. JDIR) then
+                  jEnd = gamAppMpi%Grid%jeg+1
+              else
+                  jEnd = gamAppMpi%Grid%jeg
+              endif
+          elseif(gamAppMpi%Grid%hasUpperBC(JDIR) .and. jPeriodic .and. gamAppMpi%Grid%NumRj .eq. 1 .and. l .eq. JDIR) then
+              jEnd = gamAppMpi%Grid%je+1
+          else
+              jEnd = gamAppMpi%Grid%je
+          endif
+          if(gamAppMpi%Grid%hasUpperBC(KDIR) .and. .not. kPeriodic) then
+              if(l .eq. KDIR) then
+                  kEnd = gamAppMpi%Grid%keg+1
+              else
+                  kEnd = gamAppMpi%Grid%keg
+              endif
+          elseif(gamAppMpi%Grid%hasUpperBC(KDIR) .and. kPeriodic .and. gamAppMpi%Grid%NumRk .eq. 1 .and. l .eq. KDIR) then
+              kEnd = gamAppMpi%Grid%ke+1
+          else
+              kEnd = gamAppMpi%Grid%ke
+          endif
+          do i=iStart,iEnd
+              if(iPeriodic) then
+                  iIndex = 1+modulo(i+gamAppMpi%Grid%ijkShift(IDIR)-1, gamAppMpi%Grid%Nip*gamAppMpi%Grid%NumRi)
+              else
+                  iIndex = i+gamAppMpi%Grid%ijkShift(IDIR)
+              endif
+              do j=jStart,jEnd
+                  if(jPeriodic) then
+                      jIndex = 1+modulo(j+gamAppMpi%Grid%ijkShift(JDIR)-1, gamAppMpi%Grid%Njp*gamAppMpi%Grid%NumRj)
+                  else
+                      jIndex = j+gamAppMpi%Grid%ijkShift(JDIR)
+                  endif
+                  do k=kStart,kEnd
+                      if(kPeriodic) then
+                          kIndex = 1+modulo(k+gamAppMpi%Grid%ijkShift(KDIR)-1, gamAppMpi%Grid%Nkp*gamAppMpi%Grid%NumRk)
+                      else
+                          kIndex = k+gamAppMpi%Grid%ijkShift(KDIR)
+                      endif
+                      gamAppMpi%State%magFlux(i,j,k,l) = &
+                          lVal*l + &
+                          kVal*(kIndex) + &
+                          jVal*(jIndex) + &
+                          iVal*(iIndex)
+                  enddo
+              enddo
+          enddo
+      enddo
+
+      call removeBCs(iPeriodic,jPeriodic,kPeriodic)
+
+  end subroutine setPreHaloData
+
+  subroutine checkCCData(this,iPeriodic,jPeriodic,kPeriodic,&
+                         is,ie,js,je,ks,ke,iVal,jVal,kVal,lVal,mVal)
+      class (MpiTestMethod), intent(inout) :: this
+      logical,intent(in) :: iPeriodic,jPeriodic,kPeriodic
+      integer,intent(in) :: is,ie,js,je,ks,ke
+      real(rp),intent(in) :: iVal,jVal,kVal,lVal,mVal
+
+      integer :: i,j,k,l,m,iIndex,jIndex,kIndex
+      real(rp) :: checkVal
+      character(len=strLen) :: checkMsg
+
+      do l=1,NVAR
+          do m=0,gamAppMpi%Model%nSpc
+              do i=is,ie
+                  if(iPeriodic) then
+                      iIndex = 1+modulo(i+gamAppMpi%Grid%ijkShift(IDIR)-1, gamAppMpi%Grid%Nip*gamAppMpi%Grid%NumRi)
+                  else
+                      iIndex = i+gamAppMpi%Grid%ijkShift(IDIR)
+                  endif
+                  do j=js,je
+                      if(jPeriodic) then
+                          jIndex = 1+modulo(j+gamAppMpi%Grid%ijkShift(JDIR)-1, gamAppMpi%Grid%Njp*gamAppMpi%Grid%NumRj)
+                      else
+                          jIndex = j+gamAppMpi%Grid%ijkShift(JDIR)
+                      endif
+                      do k=ks,ke
+                          if(kPeriodic) then
+                              kIndex = 1+modulo(k+gamAppMpi%Grid%ijkShift(KDIR)-1, gamAppMpi%Grid%Nkp*gamAppMpi%Grid%NumRk)
+                          else
+                              kIndex = k+gamAppMpi%Grid%ijkShift(KDIR)
+                          endif
+
+                          checkVal=mVal*m+lVal*l+iVal*iIndex+jVal*jIndex+kVal*kIndex
+
+                          write (checkMsg,'(I0,A,I0,A,I0,A,I0,A,I0,A,I0,A)') this%getNumProcesses(),' processor wrong at (',i,',',j,',',k,',',l,',',m,')'
+                          @assertEqual(checkVal,gamAppMpi%State%gas(i,j,k,l,m),trim(checkMsg))
+                      enddo
+                  enddo
+              enddo
+          enddo
+      enddo
+
+  end subroutine
+
+  subroutine checkFCData(this,iPeriodic,jPeriodic,kPeriodic,&
+                         is,ie,js,je,ks,ke,iVal,jVal,kVal,lVal)
+      class (MpiTestMethod), intent(inout) :: this
+      logical,intent(in) :: iPeriodic,jPeriodic,kPeriodic
+      integer,intent(in) :: is,ie,js,je,ks,ke
+      real(rp),intent(in) :: iVal,jVal,kVal,lVal
+
+      integer :: i,j,k,l,iIndex,jIndex,kIndex
+      real(rp) :: checkVal
+      character(len=strLen) :: checkMsg
+
+      l=IDIR
+      do i=is,ie+1
+          if(iPeriodic) then
+              iIndex = 1+modulo(i+gamAppMpi%Grid%ijkShift(IDIR)-1, gamAppMpi%Grid%Nip*gamAppMpi%Grid%NumRi)
+          else
+              iIndex = i+gamAppMpi%Grid%ijkShift(IDIR)
+          endif
+          do j=js,je
+              if(jPeriodic) then
+                  jIndex = 1+modulo(j+gamAppMpi%Grid%ijkShift(JDIR)-1, gamAppMpi%Grid%Njp*gamAppMpi%Grid%NumRj)
+              else
+                  jIndex = j+gamAppMpi%Grid%ijkShift(JDIR)
+              endif
+              do k=ks,ke
+                  if(kPeriodic) then
+                      kIndex = 1+modulo(k+gamAppMpi%Grid%ijkShift(KDIR)-1, gamAppMpi%Grid%Nkp*gamAppMpi%Grid%NumRk)
+                  else
+                      kIndex = k+gamAppMpi%Grid%ijkShift(KDIR)
+                  endif
+                  checkVal = lVal*l + &
+                      iVal*iIndex + &
+                      jVal*jIndex + &
+                      kVal*kIndex
+                  write (checkMsg,'(I0,A,I0,A,I0,A,I0,A,I0,A)') this%getNumProcesses(),' processor wrong at (',i,',',j,',',k,',',l,')'
+                  @assertEqual(checkVal, gamAppMpi%State%magFlux(i,j,k,l), trim(checkMsg))
+              enddo
+          enddo
+      enddo
+      l=JDIR
+      do i=is,ie
+          if(iPeriodic) then
+              iIndex = 1+modulo(i+gamAppMpi%Grid%ijkShift(IDIR)-1, gamAppMpi%Grid%Nip*gamAppMpi%Grid%NumRi)
+          else
+              iIndex = i+gamAppMpi%Grid%ijkShift(IDIR)
+          endif
+          do j=js,je+1
+              if(jPeriodic) then
+                  jIndex = 1+modulo(j+gamAppMpi%Grid%ijkShift(JDIR)-1, gamAppMpi%Grid%Njp*gamAppMpi%Grid%NumRj)
+              else
+                  jIndex = j+gamAppMpi%Grid%ijkShift(JDIR)
+              endif
+              do k=ks,ke
+                  if(kPeriodic) then
+                      kIndex = 1+modulo(k+gamAppMpi%Grid%ijkShift(KDIR)-1, gamAppMpi%Grid%Nkp*gamAppMpi%Grid%NumRk)
+                  else
+                      kIndex = k+gamAppMpi%Grid%ijkShift(KDIR)
+                  endif
+                  checkVal = lVal*l + &
+                      iVal*iIndex + &
+                      jVal*jIndex + &
+                      kVal*kIndex
+                  write (checkMsg,'(I0,A,I0,A,I0,A,I0,A,I0,A)') this%getNumProcesses(),' processor wrong at (',i,',',j,',',k,',',l,')'
+                  @assertEqual(checkVal, gamAppMpi%State%magFlux(i,j,k,l), trim(checkMsg))
+              enddo
+          enddo
+      enddo
+      l=KDIR
+      do i=is,ie
+          if(iPeriodic) then
+              iIndex = 1+modulo(i+gamAppMpi%Grid%ijkShift(IDIR)-1, gamAppMpi%Grid%Nip*gamAppMpi%Grid%NumRi)
+          else
+              iIndex = i+gamAppMpi%Grid%ijkShift(IDIR)
+          endif
+          do j=js,je
+              if(jPeriodic) then
+                  jIndex = 1+modulo(j+gamAppMpi%Grid%ijkShift(JDIR)-1, gamAppMpi%Grid%Njp*gamAppMpi%Grid%NumRj)
+              else
+                  jIndex = j+gamAppMpi%Grid%ijkShift(JDIR)
+              endif
+              do k=ks,ke+1
+                  if(kPeriodic) then
+                      kIndex = 1+modulo(k+gamAppMpi%Grid%ijkShift(KDIR)-1, gamAppMpi%Grid%Nkp*gamAppMpi%Grid%NumRk)
+                  else
+                      kIndex = k+gamAppMpi%Grid%ijkShift(KDIR)
+                  endif
+                  checkVal = lVal*l + &
+                      iVal*iIndex + &
+                      jVal*jIndex + &
+                      kVal*kIndex
+                  write (checkMsg,'(I0,A,I0,A,I0,A,I0,A,I0,A)') this%getNumProcesses(),' processor wrong at (',i,',',j,',',k,',',l,')'
+                  @assertEqual(checkVal, gamAppMpi%State%magFlux(i,j,k,l), trim(checkMsg))
+              enddo
+          enddo
+      enddo
+
+  end subroutine
+
+  subroutine checkPostHaloData(this,iPeriodic,jPeriodic,kPeriodic)
+      class (MpiTestMethod), intent(inout) :: this
+      logical,intent(in) :: iPeriodic,jPeriodic,kPeriodic
+
+      integer :: i,j,k,l,m,iIndex,jIndex,kIndex
+      real(rp) :: iVal, jVal, kVal, lVal, mVal, checkVal
+      character(len=strLen) :: checkMsg
+
+      ! coefficients chosen to allow easy interpretation of final values
+      iVal = 1
+      jVal = 20
+      kVal = 400
+      lVal = 8000
+      mVal = 160000
+
+      ! check Gas, faces and edges but not corners, so do dimensions in pairs
+      call checkCCData(this,iPeriodic,jPeriodic,kPeriodic,&
+                       gamAppMpi%Grid%isg,gamAppMpi%Grid%ieg,&
+                       gamAppMpi%Grid%jsg,gamAppMpi%Grid%jeg,&
+                       gamAppMpi%Grid%ks,gamAppMpi%Grid%ke,&
+                       iVal,jVal,kVal,lVal,mVal)
+      call checkCCData(this,iPeriodic,jPeriodic,kPeriodic,&
+                       gamAppMpi%Grid%isg,gamAppMpi%Grid%ieg,&
+                       gamAppMpi%Grid%js,gamAppMpi%Grid%je,&
+                       gamAppMpi%Grid%ksg,gamAppMpi%Grid%keg,&
+                       iVal,jVal,kVal,lVal,mVal)
+      call checkCCData(this,iPeriodic,jPeriodic,kPeriodic,&
+                       gamAppMpi%Grid%is,gamAppMpi%Grid%ie,&
+                       gamAppMpi%Grid%jsg,gamAppMpi%Grid%jeg,&
+                       gamAppMpi%Grid%ksg,gamAppMpi%Grid%keg,&
+                       iVal,jVal,kVal,lVal,mVal)
+
+      ! check mag flux, faces but not corners or edges, so do dimensions one by one
+      call checkFCData(this,iPeriodic,jPeriodic,kPeriodic,&
+                       gamAppMpi%Grid%isg,gamAppMpi%Grid%ieg,&
+                       gamAppMpi%Grid%js,gamAppMpi%Grid%je,&
+                       gamAppMpi%Grid%ks,gamAppMpi%Grid%ke,&
+                       iVal,jVal,kVal,lVal)
+      call checkFCData(this,iPeriodic,jPeriodic,kPeriodic,&
+                       gamAppMpi%Grid%is,gamAppMpi%Grid%ie,&
+                       gamAppMpi%Grid%jsg,gamAppMpi%Grid%jeg,&
+                       gamAppMpi%Grid%ks,gamAppMpi%Grid%ke,&
+                       iVal,jVal,kVal,lVal)
+      call checkFCData(this,iPeriodic,jPeriodic,kPeriodic,&
+                       gamAppMpi%Grid%is,gamAppMpi%Grid%ie,&
+                       gamAppMpi%Grid%js,gamAppMpi%Grid%je,&
+                       gamAppMpi%Grid%ksg,gamAppMpi%Grid%keg,&
+                       iVal,jVal,kVal,lVal)
+
+  end subroutine checkPostHaloData
+
+  subroutine removeBCs(iPeriodic,jPeriodic,kPeriodic)
+      logical,intent(in) :: iPeriodic,jPeriodic,kPeriodic
+
+      if(.not. iPeriodic) then
+          deallocate(gamAppMpi%Grid%externalBCs(INI)%p)
+          deallocate(gamAppMpi%Grid%externalBCs(OUTI)%p)
+          allocate(gamAppMpi%Grid%externalBCs(INI)%p,source=mpiNullBc_T(INI))
+          allocate(gamAppMpi%Grid%externalBCs(OUTI)%p,source=mpiNullBc_T(OUTI))
+      endif
+
+      if(.not. jPeriodic) then
+          deallocate(gamAppMpi%Grid%externalBCs(INJ)%p)
+          deallocate(gamAppMpi%Grid%externalBCs(OUTJ)%p)
+          allocate(gamAppMpi%Grid%externalBCs(INJ)%p,source=mpiNullBc_T(INJ))
+          allocate(gamAppMpi%Grid%externalBCs(OUTJ)%p,source=mpiNullBc_T(OUTJ))
+      endif
+
+      if(.not. kPeriodic) then
+          deallocate(gamAppMpi%Grid%externalBCs(INK)%p)
+          deallocate(gamAppMpi%Grid%externalBCs(OUTK)%p)
+          allocate(gamAppMpi%Grid%externalBCs(INK)%p,source=mpiNullBc_T(INK))
+          allocate(gamAppMpi%Grid%externalBCs(OUTK)%p,source=mpiNullBc_T(OUTK))
+      endif
+
+  end subroutine removeBCs
+
+  @test(npes=[1])
+  subroutine testHalo111FFF(this)
+      class (MpiTestMethod), intent(inout) :: this
+
+      call initGamera_mpi(gamAppMpi,initUser,this%getMpiCommunicator(), &
+          'blast3d_bc_111_FFF.xml',.false.)
+
+      call setPreHaloData(.false.,.false.,.false.)
+
+      call haloUpdate(gamAppMpi)
+      call EnforceBCs(gamAppMpi%Model,gamAppMpi%Grid,gamAppMpi%State)
+
+      call checkPostHaloData(this,.false.,.false.,.false.)
+
+  end subroutine testHalo111FFF
+
+  @test(npes=[1])
+  subroutine testHalo111TFF(this)
+      class (MpiTestMethod), intent(inout) :: this
+
+      call initGamera_mpi(gamAppMpi,initUser,this%getMpiCommunicator(), &
+          'blast3d_bc_111_TFF.xml',.false.)
+
+      call setPreHaloData(.true.,.false.,.false.)
+
+      call haloUpdate(gamAppMpi)
+      call EnforceBCs(gamAppMpi%Model,gamAppMpi%Grid,gamAppMpi%State)
+
+      call checkPostHaloData(this,.true.,.false.,.false.)
+
+  end subroutine testHalo111TFF
+
+  @test(npes=[1])
+  subroutine testHalo111TTF(this)
+      class (MpiTestMethod), intent(inout) :: this
+
+      call initGamera_mpi(gamAppMpi,initUser,this%getMpiCommunicator(), &
+          'blast3d_bc_111_TTF.xml',.false.)
+
+      call setPreHaloData(.true.,.true.,.false.)
+
+      call haloUpdate(gamAppMpi)
+      call EnforceBCs(gamAppMpi%Model,gamAppMpi%Grid,gamAppMpi%State)
+
+      call checkPostHaloData(this,.true.,.true.,.false.)
+
+  end subroutine testHalo111TTF
+
+  @test(npes=[1])
+  subroutine testHalo111TTT(this)
+      class (MpiTestMethod), intent(inout) :: this
+
+      call initGamera_mpi(gamAppMpi,initUser,this%getMpiCommunicator(), &
+          'blast3d_bc_111_TTT.xml',.false.)
+      
+      call setPreHaloData(.true.,.true.,.true.)
+
+      call haloUpdate(gamAppMpi)
+      call EnforceBCs(gamAppMpi%Model,gamAppMpi%Grid,gamAppMpi%State)
+
+      call checkPostHaloData(this,.true.,.true.,.true.)
+
+  end subroutine testHalo111TTT
+
+  @test(npes=[4])
+  subroutine testHalo411FFF(this)
+      class (MpiTestMethod), intent(inout) :: this
+
+      call initGamera_mpi(gamAppMpi,initUser,this%getMpiCommunicator(), &
+          'blast3d_bc_411_FFF.xml',.false.)
+
+      call setPreHaloData(.false.,.false.,.false.)
+
+      call haloUpdate(gamAppMpi)
+      call EnforceBCs(gamAppMpi%Model,gamAppMpi%Grid,gamAppMpi%State)
+
+      call checkPostHaloData(this,.false.,.false.,.false.)
+
+  end subroutine testHalo411FFF
+
+  @test(npes=[4])
+  subroutine testHalo411TFF(this)
+      class (MpiTestMethod), intent(inout) :: this
+
+      call initGamera_mpi(gamAppMpi,initUser,this%getMpiCommunicator(), &
+          'blast3d_bc_411_TFF.xml',.false.)
+
+      call setPreHaloData(.true.,.false.,.false.)
+
+      call haloUpdate(gamAppMpi)
+      call EnforceBCs(gamAppMpi%Model,gamAppMpi%Grid,gamAppMpi%State)
+
+      call checkPostHaloData(this,.true.,.false.,.false.)
+
+  end subroutine testHalo411TFF
+
+  @test(npes=[4])
+  subroutine testHalo411FTF(this)
+      class (MpiTestMethod), intent(inout) :: this
+
+      call initGamera_mpi(gamAppMpi,initUser,this%getMpiCommunicator(), &
+          'blast3d_bc_411_FTF.xml',.false.)
+
+      call setPreHaloData(.false.,.true.,.false.)
+
+      call haloUpdate(gamAppMpi)
+      call EnforceBCs(gamAppMpi%Model,gamAppMpi%Grid,gamAppMpi%State)
+
+      call checkPostHaloData(this,.false.,.true.,.false.)
+
+  end subroutine testHalo411FTF
+
+  @test(npes=[4])
+  subroutine testHalo411TTF(this)
+      class (MpiTestMethod), intent(inout) :: this
+
+      call initGamera_mpi(gamAppMpi,initUser,this%getMpiCommunicator(), &
+          'blast3d_bc_411_TTF.xml',.false.)
+
+      call setPreHaloData(.true.,.true.,.false.)
+
+      call haloUpdate(gamAppMpi)
+      call EnforceBCs(gamAppMpi%Model,gamAppMpi%Grid,gamAppMpi%State)
+
+      call checkPostHaloData(this,.true.,.true.,.false.)
+
+  end subroutine testHalo411TTF
+
+  @test(npes=[4])
+  subroutine testHalo411FTT(this)
+      class (MpiTestMethod), intent(inout) :: this
+
+      call initGamera_mpi(gamAppMpi,initUser,this%getMpiCommunicator(), &
+          'blast3d_bc_411_FTT.xml',.false.)
+
+      call setPreHaloData(.false.,.true.,.true.)
+
+      call haloUpdate(gamAppMpi)
+      call EnforceBCs(gamAppMpi%Model,gamAppMpi%Grid,gamAppMpi%State)
+
+      call checkPostHaloData(this,.false.,.true.,.true.)
+
+  end subroutine testHalo411FTT
+
+  @test(npes=[4])
+  subroutine testHalo411TTT(this)
+      class (MpiTestMethod), intent(inout) :: this
+
+      call initGamera_mpi(gamAppMpi,initUser,this%getMpiCommunicator(), &
+          'blast3d_bc_411_TTT.xml',.false.)
+
+      call setPreHaloData(.true.,.true.,.true.)
+
+      call haloUpdate(gamAppMpi)
+      call EnforceBCs(gamAppMpi%Model,gamAppMpi%Grid,gamAppMpi%State)
+
+      call checkPostHaloData(this,.true.,.true.,.true.)
+
+  end subroutine testHalo411TTT
+
+  @test(npes=[16])
+  subroutine testHalo441FFF(this)
+      class (MpiTestMethod), intent(inout) :: this
+
+      call initGamera_mpi(gamAppMpi,initUser,this%getMpiCommunicator(), &
+          'blast3d_bc_441_FFF.xml',.false.)
+
+      call setPreHaloData(.false.,.false.,.false.)
+
+      call haloUpdate(gamAppMpi)
+      call EnforceBCs(gamAppMpi%Model,gamAppMpi%Grid,gamAppMpi%State)
+
+      call checkPostHaloData(this,.false.,.false.,.false.)
+
+  end subroutine testHalo441FFF
+
+  @test(npes=[16])
+  subroutine testHalo441TFF(this)
+      class (MpiTestMethod), intent(inout) :: this
+
+      call initGamera_mpi(gamAppMpi,initUser,this%getMpiCommunicator(), &
+          'blast3d_bc_441_TFF.xml',.false.)
+
+      call setPreHaloData(.true.,.false.,.false.)
+
+      call haloUpdate(gamAppMpi)
+      call EnforceBCs(gamAppMpi%Model,gamAppMpi%Grid,gamAppMpi%State)
+
+      call checkPostHaloData(this,.true.,.false.,.false.)
+
+  end subroutine testHalo441TFF
+
+  @test(npes=[16])
+  subroutine testHalo441FFT(this)
+      class (MpiTestMethod), intent(inout) :: this
+
+      call initGamera_mpi(gamAppMpi,initUser,this%getMpiCommunicator(), &
+          'blast3d_bc_441_FFT.xml',.false.)
+
+      call setPreHaloData(.false.,.false.,.true.)
+
+      call haloUpdate(gamAppMpi)
+      call EnforceBCs(gamAppMpi%Model,gamAppMpi%Grid,gamAppMpi%State)
+
+      call checkPostHaloData(this,.false.,.false.,.true.)
+
+  end subroutine testHalo441FFT
+
+  @test(npes=[16])
+  subroutine testHalo441TTF(this)
+      class (MpiTestMethod), intent(inout) :: this
+
+      call initGamera_mpi(gamAppMpi,initUser,this%getMpiCommunicator(), &
+          'blast3d_bc_441_TTF.xml',.false.)
+
+      call setPreHaloData(.true.,.true.,.false.)
+
+      call haloUpdate(gamAppMpi)
+      call EnforceBCs(gamAppMpi%Model,gamAppMpi%Grid,gamAppMpi%State)
+
+      call checkPostHaloData(this,.true.,.true.,.false.)
+
+  end subroutine testHalo441TTF
+
+  @test(npes=[16])
+  subroutine testHalo441TFT(this)
+      class (MpiTestMethod), intent(inout) :: this
+
+      call initGamera_mpi(gamAppMpi,initUser,this%getMpiCommunicator(), &
+          'blast3d_bc_441_TFT.xml',.false.)
+
+      call setPreHaloData(.true.,.false.,.true.)
+
+      call haloUpdate(gamAppMpi)
+      call EnforceBCs(gamAppMpi%Model,gamAppMpi%Grid,gamAppMpi%State)
+
+      call checkPostHaloData(this,.true.,.false.,.true.)
+
+  end subroutine testHalo441TFT
+
+  @test(npes=[16])
+  subroutine testHalo441TTT(this)
+      class (MpiTestMethod), intent(inout) :: this
+
+      call initGamera_mpi(gamAppMpi,initUser,this%getMpiCommunicator(), &
+          'blast3d_bc_441_TTT.xml',.false.)
+
+      call setPreHaloData(.true.,.true.,.true.)
+
+      call haloUpdate(gamAppMpi)
+      call EnforceBCs(gamAppMpi%Model,gamAppMpi%Grid,gamAppMpi%State)
+
+      call checkPostHaloData(this,.true.,.true.,.true.)
+
+  end subroutine testHalo441TTT
+
+  @test(npes=[64])
+  subroutine testHalo444FFF(this)
+      class (MpiTestMethod), intent(inout) :: this
+
+      call initGamera_mpi(gamAppMpi,initUser,this%getMpiCommunicator(), &
+          'blast3d_bc_444_FFF.xml',.false.)
+
+      call setPreHaloData(.false.,.false.,.false.)
+
+      call haloUpdate(gamAppMpi)
+      call EnforceBCs(gamAppMpi%Model,gamAppMpi%Grid,gamAppMpi%State)
+
+      call checkPostHaloData(this,.false.,.false.,.false.)
+
+  end subroutine testHalo444FFF
+
+  @test(npes=[64])
+  subroutine testHalo444TFF(this)
+      class (MpiTestMethod), intent(inout) :: this
+
+      call initGamera_mpi(gamAppMpi,initUser,this%getMpiCommunicator(), &
+          'blast3d_bc_444_TFF.xml',.false.)
+
+      call setPreHaloData(.true.,.false.,.false.)
+
+      call haloUpdate(gamAppMpi)
+      call EnforceBCs(gamAppMpi%Model,gamAppMpi%Grid,gamAppMpi%State)
+
+      call checkPostHaloData(this,.true.,.false.,.false.)
+
+  end subroutine testHalo444TFF
+
+  @test(npes=[64])
+  subroutine testHalo444TTF(this)
+      class (MpiTestMethod), intent(inout) :: this
+
+      call initGamera_mpi(gamAppMpi,initUser,this%getMpiCommunicator(), &
+          'blast3d_bc_444_TTF.xml',.false.)
+
+      call setPreHaloData(.true.,.true.,.false.)
+
+      call haloUpdate(gamAppMpi)
+      call EnforceBCs(gamAppMpi%Model,gamAppMpi%Grid,gamAppMpi%State)
+
+      call checkPostHaloData(this,.true.,.true.,.false.)
+
+  end subroutine testHalo444TTF
+
+  @test(npes=[64])
+  subroutine testHalo444TTT(this)
+      class (MpiTestMethod), intent(inout) :: this
+
+      call initGamera_mpi(gamAppMpi,initUser,this%getMpiCommunicator(), &
+          'blast3d_bc_444_TTT.xml',.false.)
+
+      call setPreHaloData(.true.,.true.,.true.)
+
+      call haloUpdate(gamAppMpi)
+      call EnforceBCs(gamAppMpi%Model,gamAppMpi%Grid,gamAppMpi%State)
+
+      call checkPostHaloData(this,.true.,.true.,.true.)
+
+  end subroutine testHalo444TTT
+
+end module testMpiBc
+

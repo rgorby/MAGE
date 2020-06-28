@@ -2,16 +2,21 @@
 #Make video of Gamera magnetosphere run
 import argparse
 from argparse import RawTextHelpFormatter
-import kaipy.gamera.magsphere as msph
 import matplotlib as mpl
 mpl.use('Agg')
 import matplotlib.pyplot as plt
 import kaipy.kaiViz as kv
 import matplotlib.gridspec as gridspec
 import numpy as np
+import kaipy.gamera.magsphere as msph
+import kaipy.gamera.gampp as gampp
 import kaipy.gamera.remixpp as rmpp
+import kaipy.gamera.rcmpp as rcmpp
+from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 import os
 import errno
+
+cLW = 0.25
 
 if __name__ == "__main__":
 	#Defaults
@@ -22,7 +27,8 @@ if __name__ == "__main__":
 	ts = 0    #[min]
 	te = 200  #[min]
 	dt = 60.0 #[sec]
-
+	doBig = False #[Use big window]
+	doMPI = False #[Add MPI tiling]
 	Nblk = 1 #Number of blocks
 	nID = 1 #Block ID of this job
 
@@ -40,6 +46,8 @@ if __name__ == "__main__":
 	parser.add_argument('-dt' ,type=int,metavar="dt"    ,default=dt,help="Cadence       [sec] (default: %(default)s)")
 	parser.add_argument('-Nblk' ,type=int,metavar="Nblk",default=Nblk,help="Number of job blocks (default: %(default)s)")
 	parser.add_argument('-nID' ,type=int,metavar="nID"  ,default=nID,help="Block ID of this job [1-Nblk] (default: %(default)s)")
+	parser.add_argument('-big', action='store_true', default=doBig,help="Use larger domain bounds (default: %(default)s)")
+	parser.add_argument('-mpi', action='store_true', default=doMPI,help="Add MPI tiling to figure (default: %(default)s)")
 
 	#Finalize parsing
 	args = parser.parse_args()
@@ -51,7 +59,9 @@ if __name__ == "__main__":
 	oSub = args.o
 	Nblk = args.Nblk
 	nID = args.nID
-
+	doBig = args.big
+	doMPI = args.mpi
+	
 	#Setup timing info
 	tOut = np.arange(ts*60.0,te*60.0,dt)
 	Nt = len(tOut)
@@ -60,7 +70,7 @@ if __name__ == "__main__":
 	print("Writing %d outputs between minutes %d and %d"%(Nt,ts,te))
 	if (Nblk>1):
 		#Figure out work bounds
-		dI = (Nt/Nblk)
+		dI = (Nt//Nblk)
 		i0 = (nID-1)*dI
 		i1 = i0+dI
 		if (nID == Nblk):
@@ -91,21 +101,36 @@ if __name__ == "__main__":
 	dbCMap = "RdGy_r"
 	bCMap = "inferno"
 	pCMap = "viridis"
-	
+	ppCol = "orange"
+	ppVal = 100.0
 
-	doMPI = False
-	xyBds = [-40,20,-30,30]
+	if (doBig):
+		xTail = -100.0
+		xSun = 20.0
+	else:
+		xTail = -40.0
+		xSun = 20.0
 
-	PMin = 0.0 ; PMax = 2.0
-	Nc = 11
+	yMax = (xSun-xTail)/2.0
+	xyBds = [xTail,xSun,-yMax,yMax]
+
+	PMin = 1.0e-2 ; PMax = 10.0
+
 	vDB = kv.genNorm(25)
-	vP = kv.genNorm(PMin,PMax)
-	pVals = np.linspace(PMin,PMax,Nc)
+	vP = kv.genNorm(PMin,PMax,doLog=True)
 
 	#======
 	#Init data
 	gsph = msph.GamsphPipe(fdir,ftag)
 
+	#Check for RCM
+	rcmChk = fdir + "/%s.mhdrcm.h5"%(ftag)
+	doRCM = os.path.exists(rcmChk)
+	if (doRCM):
+		print("Found RCM data")
+		rcmdata = gampp.GameraPipe(fdir,ftag+".mhdrcm")
+		vP = kv.genNorm(PMin,10*PMax,doLog=True)
+		
 	#======
 	#Setup figure
 	fig = plt.figure(figsize=figSz)
@@ -120,9 +145,10 @@ if __name__ == "__main__":
 
 	
 	kv.genCB(AxC1,vDB,"Residual Field [nT]",cM=dbCMap,Ntk=7)
-	kv.genCB(AxC4,kv.genNorm(rmpp.cMax),"FAC",cM=rmpp.fcMap,Ntk=5)
+	rmpp.cMax = 1.00
+	kv.genCB(AxC4,kv.genNorm(rmpp.cMax),"FAC",cM=rmpp.fcMap,Ntk=4)
 	rmpp.AddPotCB(AxC3)
-	kv.genCB(AxC2,vP,"Pressure",cM=pCMap,Ntk=6)
+	kv.genCB(AxC2,vP,"Pressure",cM=pCMap)#,Ntk=6)
 
 	#Loop over sub-range
 	for i in range(i0,i1):
@@ -135,14 +161,16 @@ if __name__ == "__main__":
 		AxR.clear()
 		
 		dbz = gsph.DelBz(nStp)
+		Bz = gsph.EggSlice("Bz",nStp,doEq=True)
 		Pxz = gsph.EggSlice("P",nStp,vScl=gsph.pScl,doEq=False)
 
 		#Start plotting
 		AxL.pcolormesh(gsph.xxi,gsph.yyi,dbz,cmap=dbCMap,norm=vDB)
+		AxL.contour(kv.reWrap(gsph.xxc),kv.reWrap(gsph.yyc),kv.reWrap(Bz),[0.0],colors='magenta',linewidths=cLW)
 
 		kv.addEarth2D(ax=AxL)
 		kv.SetAx(xyBds,AxL)
-		gsph.AddTime(nStp,AxL,xy=[0.025,0.935],fs="x-large")
+		gsph.AddTime(nStp,AxL,xy=[0.025,0.89],fs="x-large")
 		gsph.AddSW(nStp,AxL,xy=[0.625,0.025],fs="small")
 		AxL.set_xlabel('SM-X [Re]')
 		AxL.set_ylabel('SM-Y [Re]')
@@ -153,26 +181,44 @@ if __name__ == "__main__":
 		kv.SetAx(xyBds,AxR)
 		AxR.yaxis.tick_right()
 		AxR.yaxis.set_label_position('right')
-		gsph.AddCPCP(nStp,AxR,xy=[0.65,0.925])
+		gsph.AddCPCP(nStp,AxR,xy=[0.610,0.925])
 
 		AxR.set_xlabel('SM-X [Re]')
 		AxR.set_ylabel('SM-Z [Re]')
 
+		#Add inset RCM plot
+		if (doRCM):
+			AxRCM = inset_axes(AxL,width="30%",height="30%",loc=3)
+			rcmpp.RCMInset(AxRCM,rcmdata,nStp,vP)
+			rcmpp.AddRCMBox(AxL)
 
 		#Add MPI decomp
-		LW = 0.25
-		ashd = 0.25
 		if (doMPI):
+			gCol = "deepskyblue"
+			LW = 0.25
+			ashd = 0.5
 			for i in range(gsph.Ri):
 				i0 = i*gsph.dNi
-				AxL.plot(gsph.xxi[i0,:],gsph.yyi[i0,:],'m',linewidth=LW,alpha=ashd)
-				AxR.plot(gsph.xxi[i0,:],gsph.yyi[i0,:],'c',linewidth=LW,alpha=ashd)
+				AxL.plot(gsph.xxi[i0,:],gsph.yyi[i0,:],gCol,linewidth=LW,alpha=ashd)
+				AxR.plot(gsph.xxi[i0,:],gsph.yyi[i0,:],gCol,linewidth=LW,alpha=ashd)
+			if (gsph.Rj>1):
+				for j in range(1,gsph.Rj):
+					j0 = j*gsph.dNj
+					AxL.plot(gsph.xxi[:,j0] ,gsph.yyi[:,j0],gCol,linewidth=LW,alpha=ashd)
+					AxL.plot(gsph.xxi[:,j0],-gsph.yyi[:,j0],gCol,linewidth=LW,alpha=ashd)
+					AxR.plot(gsph.xxi[:,j0], gsph.yyi[:,j0],gCol,linewidth=LW,alpha=ashd)
+					AxR.plot(gsph.xxi[:,j0],-gsph.yyi[:,j0],gCol,linewidth=LW,alpha=ashd)
+				#X-axis (+)
+				AxL.plot(gsph.xxi[:,0], gsph.yyi[:,0],gCol,linewidth=LW,alpha=ashd)
+				AxR.plot(gsph.xxi[:,0], gsph.yyi[:,0],gCol,linewidth=LW,alpha=ashd)
+				#X-axis (-)
+				j0 = (gsph.Rj)*gsph.dNj
+				AxL.plot(gsph.xxi[:,j0], gsph.yyi[:,j0],gCol,linewidth=LW,alpha=ashd)
+				AxR.plot(gsph.xxi[:,j0], gsph.yyi[:,j0],gCol,linewidth=LW,alpha=ashd)
 
-
-		fmix = gsph.Gam2Remix(nStp)
 		dxy = [32.5,32.5]
-		rmpp.CMIViz(AxR,fmix,dxy=dxy)
-		rmpp.CMIViz(AxR,fmix,dxy=dxy,loc="lower left",doNorth=False)
+		gsph.CMIViz(AxR,nStp,dxy=dxy,loc="upper left",doNorth=True)
+		gsph.CMIViz(AxR,nStp,dxy=dxy,loc="lower left",doNorth=False)
 
 		fOut = oDir+"/vid.%04d.png"%(npl)
 		kv.savePic(fOut,bLenX=45)

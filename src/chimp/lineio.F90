@@ -5,11 +5,11 @@ module lineio
     use ebtypes
     use streamline
     use ioH5
-
+    use files
     implicit none
 
     character(len=strLen) :: flOutF
-    integer, parameter :: MAXFLVS = 20
+    integer, parameter :: MAXFLVS = 30
 
     contains
 
@@ -90,6 +90,11 @@ module lineio
         call AddOutVar(IOVars,"FLdV",bdV)
         call AddOutVar(IOVars,"FLEnt",bS)
         
+        !Record seed point
+        call AddOutVar(IOVars,"x0",fL%x0(XDIR))
+        call AddOutVar(IOVars,"y0",fL%x0(YDIR))
+        call AddOutVar(IOVars,"z0",fL%x0(ZDIR))
+
         if (Model%doMHD) then
             Nv = NumVFL
         else
