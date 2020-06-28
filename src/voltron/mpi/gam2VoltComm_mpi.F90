@@ -34,9 +34,6 @@ module gam2VoltComm_mpi
         integer(MPI_ADDRESS_KIND), dimension(1) :: recvDisplsIneijkShallow
         integer, dimension(1) :: recvCountsInexyzShallow, recvTypesInexyzShallow
         integer(MPI_ADDRESS_KIND), dimension(1) :: recvDisplsInexyzShallow
-        integer :: recvSIneijkReq=MPI_REQUEST_NULL, recvSInexyzReq=MPI_REQUEST_NULL
-        integer :: sendSGasReq=MPI_REQUEST_NULL, sendSBxyzReq=MPI_REQUEST_NULL
-        integer :: recvSTReq=MPI_REQUEST_NULL
         
         ! DEEP COUPLING VARIABLES
         integer, dimension(1) :: sendCountsGasDeep, sendTypesGasDeep
@@ -45,9 +42,6 @@ module gam2VoltComm_mpi
         integer(MPI_ADDRESS_KIND), dimension(1) :: sendDisplsBxyzDeep
         integer, dimension(1) :: recvCountsGas0Deep, recvTypesGas0Deep
         integer(MPI_ADDRESS_KIND), dimension(1) :: recvDisplsGas0Deep
-        integer :: recvDGas0Req=MPI_REQUEST_NULL
-        integer :: sendDGasReq=MPI_REQUEST_NULL, sendDBxyzReq=MPI_REQUEST_NULL
-        integer :: recvDTReq=MPI_REQUEST_NULL
 
     end type gam2VoltCommMpi_T
 
@@ -221,18 +215,18 @@ module gam2VoltComm_mpi
 
         ! only the rank with Ri/Rj/Rk==0 should send the time values to voltron
         if(gApp%Grid%Ri==0 .and. gApp%Grid%Rj==0 .and. gApp%Grid%Rk==0) then
-            call mpi_wait(g2vComm%timeReq, MPI_STATUS_IGNORE, ierr)
-            call mpi_Isend(gApp%Model%t, 1, MPI_MYFLOAT, g2vComm%voltRank, 97600, g2vComm%voltMpiComm, g2vComm%timeReq, ierr)
+            if(g2vComm%doSerialVoltron) then
+                call mpi_send(gApp%Model%t, 1, MPI_MYFLOAT, g2vComm%voltRank, 97600, g2vComm%voltMpiComm, ierr)
 
-            call mpi_wait(g2vComm%timeStepReq, MPI_STATUS_IGNORE, ierr)
-            call mpi_Isend(gApp%Model%ts, 1, MPI_INT, g2vComm%voltRank, 97700, g2vComm%voltMpiComm, g2vComm%timeStepReq, ierr)
+                call mpi_send(gApp%Model%ts, 1, MPI_INT, g2vComm%voltRank, 97700, g2vComm%voltMpiComm, ierr)
+            else
+                call mpi_wait(g2vComm%timeReq, MPI_STATUS_IGNORE, ierr)
+                call mpi_Isend(gApp%Model%t, 1, MPI_MYFLOAT, g2vComm%voltRank, 97600, g2vComm%voltMpiComm, g2vComm%timeReq, ierr)
+
+                call mpi_wait(g2vComm%timeStepReq, MPI_STATUS_IGNORE, ierr)
+                call mpi_Isend(gApp%Model%ts, 1, MPI_INT, g2vComm%voltRank, 97700, g2vComm%voltMpiComm, g2vComm%timeStepReq, ierr)
+            endif
         endif
-
-        ! all ranks receive the new time data from voltron after it has updated
-        ! voltron sends nothing back now
-        !call mpi_bcast(g2vComm%time, 1, MPI_MYFLOAT, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
-        !call mpi_bcast(g2vComm%MJD, 1, MPI_MYFLOAT, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
-        !call mpi_bcast(g2vComm%ts, 1, MPI_INT, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
 
     end subroutine performStepVoltron
 

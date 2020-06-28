@@ -25,6 +25,8 @@ module voltapp_mpi
 
         ! STEP VOLTRON VARIABLES
         integer :: timeReq=MPI_REQUEST_NULL, timeStepReq=MPI_REQUEST_NULL
+        real(rp) :: timeBuffer
+        integer :: timeStepBuffer
 
         ! SHALLOW COUPLING VARIABLES
         integer, dimension(:), allocatable :: recvCountsGasShallow, recvTypesGasShallow
@@ -35,9 +37,6 @@ module voltapp_mpi
         integer(MPI_ADDRESS_KIND), dimension(:), allocatable :: sendDisplsIneijkShallow
         integer, dimension(:), allocatable :: sendCountsInexyzShallow, sendTypesInexyzShallow
         integer(MPI_ADDRESS_KIND), dimension(:), allocatable :: sendDisplsInexyzShallow
-        integer :: sendSIneijkReq=MPI_REQUEST_NULL, sendSInexyzReq=MPI_REQUEST_NULL
-        integer :: recvSGasReq=MPI_REQUEST_NULL, recvSBxyzReq=MPI_REQUEST_NULL
-        integer :: sendSTReq=MPI_REQUEST_NULL
 
         ! DEEP COUPLING VARIABLES
         integer, dimension(:), allocatable :: recvCountsGasDeep, recvTypesGasDeep
@@ -47,9 +46,6 @@ module voltapp_mpi
         integer, dimension(:), allocatable :: sendCountsGas0Deep, sendTypesGas0Deep
         integer(MPI_ADDRESS_KIND), dimension(:), allocatable :: sendDisplsGas0Deep
         logical :: deepProcessingInProgress = .false.
-        integer :: sendDGas0Req=MPI_REQUEST_NULL
-        integer :: recvDGasReq=MPI_REQUEST_NULL, recvDBxyzReq=MPI_REQUEST_NULL
-        integer :: sendDTReq=MPI_REQUEST_NULL
 
     end type voltAppMpi_T
 
@@ -267,26 +263,29 @@ module voltapp_mpi
     subroutine stepVoltron_mpi(vApp)
         type(voltAppMpi_T), intent(inout) :: vApp
 
-        real(rp) :: g_t
-        integer :: g_ts, ierr
+        integer :: ierr
 
         ! get gApp%Model%t,ts from gamera. All ranks have the same, just receive from one of them
-        call mpi_wait(vApp%timeReq, MPI_STATUS_IGNORE, ierr)
-        call mpi_Irecv(g_t, 1, MPI_MYFLOAT, MPI_ANY_SOURCE, 97600, vApp%voltMpiComm, MPI_STATUS_IGNORE, vApp%timeReq, ierr)
+        if(vApp%doSerialVoltron) then
+            call mpi_recv(vApp%timeBuffer, 1, MPI_MYFLOAT, MPI_ANY_SOURCE, 97600, vApp%voltMpiComm, MPI_STATUS_IGNORE, ierr)
 
-        call mpi_wait(vApp%timeStepReq, MPI_STATUS_IGNORE, ierr)
-        call mpi_Irecv(g_ts, 1, MPI_INT, MPI_ANY_SOURCE, 97700, vApp%voltMpiComm, MPI_STATUS_IGNORE, vApp%timeStepReq, ierr)
+            call mpi_recv(vApp%timeStepBuffer, 1, MPI_INT, MPI_ANY_SOURCE, 97700, vApp%voltMpiComm, MPI_STATUS_IGNORE, ierr)
+        else
+            call mpi_wait(vApp%timeReq, MPI_STATUS_IGNORE, ierr)
 
-        vApp%gAppLocal%Model%t = g_t
-        vApp%gAppLocal%Model%ts = g_ts
+            call mpi_wait(vApp%timeStepReq, MPI_STATUS_IGNORE, ierr)
+        endif
+
+        vApp%gAppLocal%Model%t = vApp%timeBuffer
+        vApp%gAppLocal%Model%ts = vApp%timeStepBuffer
 
         call stepVoltron(vApp, vApp%gAppLocal)
 
-        ! send vApp%time,MJD,ts to all gamera ranks
-        ! exclude this, gamera ranks now do this locally
-        !call mpi_bcast(vApp%time, 1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
-        !call mpi_bcast(vApp%MJD, 1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
-        !call mpi_bcast(vApp%ts, 1, MPI_INT, vApp%myRank, vApp%voltMpiComm, ierr)
+        if(.not. vApp%doSerialVoltron) then
+            call mpi_Irecv(vApp%timeBuffer, 1, MPI_MYFLOAT, MPI_ANY_SOURCE, 97600, vApp%voltMpiComm, MPI_STATUS_IGNORE, vApp%timeReq, ierr)
+
+            call mpi_Irecv(vApp%timeStepBuffer, 1, MPI_INT, MPI_ANY_SOURCE, 97700, vApp%voltMpiComm, MPI_STATUS_IGNORE, vApp%timeStepReq, ierr)
+        endif
 
     end subroutine stepVoltron_mpi
 
@@ -310,6 +309,11 @@ module voltapp_mpi
                 vApp%firstDeepUpdate = .false.
                 vApp%firstShallowUpdate = .false.
             else
+                ! ensure deep update is complete
+                do while(deepInProgress(vApp))
+                    call doDeepBlock(vApp)
+                enddo
+
                 ! send both solutions
                 call Tic("ShallowSend")
                 call sendShallowData_mpi(vApp)
@@ -480,6 +484,16 @@ module voltapp_mpi
 
     end function deepInProgress
 
+    subroutine doDeepBlock(vApp)
+        type(voltAppMpi_T), intent(in) :: vApp
+
+        if(.not. vApp%deepProcessingInProgress) return
+
+
+
+
+    end subroutine doDeepBlock
+
     subroutine DeepUpdate_mpi(vApp, time)
         type(voltAppMpi_T), intent(inout) :: vApp
         real(rp), intent(in) :: time
@@ -498,6 +512,11 @@ module voltapp_mpi
                     call deepSerialUpdate_mpi(vApp, time)
                     vApp%firstDeepUpdate = .false.
                 else
+                    ! ensure deep update is complete
+                    do while(deepInProgress(vApp))
+                        call doDeepBlock(vApp)
+                    enddo
+
                     call deepConcurrentUpdate_mpi(vApp, time)
                 endif
             endif

@@ -173,7 +173,7 @@ program voltron_mpix
             call Tic("Omega")
 
             !If coupling from Gamera is ready
-            if(vApp%gameraStepReady()) then
+            if(gameraStepReady(vApp)) then
                 !Do any updates to Voltron
                 call Tic("StepVoltronAndWait")
                 call stepVoltron_mpi(vApp)
@@ -217,8 +217,8 @@ program voltron_mpix
 
             else
                 ! If we did not couple, check for deep work to be done
-                if(vApp%deepInProgress()) then
-                    call vApp%doDeepBlock()
+                if(deepInProgress(vApp)) then
+                    call doDeepBlock(vApp)
                 endif
             endif
 
