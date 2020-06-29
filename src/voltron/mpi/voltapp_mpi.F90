@@ -6,6 +6,7 @@ module voltapp_mpi
     use gamapp_mpi
     use gamapp
     use mpi
+    use ebsquish, only : SquishBlocksRemain, DoSquishBlock
     use, intrinsic :: ieee_arithmetic, only: IEEE_VALUE, IEEE_SIGNALING_NAN, IEEE_QUIET_NAN
     
     implicit none
@@ -329,13 +330,17 @@ module voltapp_mpi
                 call recvDeepData_mpi(vApp)
                 call Toc("DeepRecv")
 
-                ! then calculate shallow and deep
+                ! then calculate shallow
                 call Tic("ShallowUpdate")
                 call ShallowUpdate(vApp, vApp%gAppLocal, time)
                 call Toc("ShallowUpdate")
+
+                ! then start deep
+                ! setup squish operation but don't yet perform the computations
                 call Tic("DeepUpdate")
-                call DeepUpdate(vApp, vApp%gAppLocal, time)
+                call PreSquishDeep(vApp, vApp%gAppLocal)
                 call Toc("DeepUpdate")
+                vApp%deepProcessingInProgress = .true.
             endif
         endif
     end subroutine
@@ -485,12 +490,23 @@ module voltapp_mpi
     end function deepInProgress
 
     subroutine doDeepBlock(vApp)
-        type(voltAppMpi_T), intent(in) :: vApp
+        type(voltAppMpi_T), intent(inout) :: vApp
 
         if(.not. vApp%deepProcessingInProgress) return
 
+        call Tic("DeepUpdate")
+        call DoSquishBlock(vApp)
+        call Toc("DeepUpdate")
 
+        if(.not. SquishBlocksRemain()) then
+            vApp%deepProcessingInProgress = .false.
+        endif
 
+        if(.not. vApp%deepProcessingInProgress) then
+            call Tic("DeepUpdate")
+            call PostSquishDeep(vApp, vApp%gAppLocal)
+            call Toc("DeepUpdate")
+        endif
 
     end subroutine doDeepBlock
 
@@ -579,10 +595,12 @@ module voltapp_mpi
             call recvDeepData_mpi(vApp)
             call Toc("DeepRecv")
 
-            ! call base update function with local data
+            ! setup squish operation but don't yet perform the computations
             call Tic("DeepUpdate")
-            call DeepUpdate(vApp, vApp%gAppLocal, time)
+            call PreSquishDeep(vApp, vApp%gAppLocal)
             call Toc("DeepUpdate")
+            vApp%deepProcessingInProgress = .true.
+
         endif
     end subroutine
 

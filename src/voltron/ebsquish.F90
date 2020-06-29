@@ -23,6 +23,8 @@ module ebsquish
     real(rp), parameter, private :: startEps = 0.05
     real(rp), parameter, private :: rEps = 0.125
     real(rp), private :: Rinner
+    integer, private :: numSquishBlocks = 1
+    integer, private :: curSquishBlock = 0
 
     contains
 
@@ -43,15 +45,59 @@ module ebsquish
 
     end function ShellBoundary
 
+    !Squish functions below
     !Do 3D->2D mapping from Gamera volume to 2D inner mag model grid
+
+    ! Helper subroutine to perform all squish blocks
     subroutine Squish(vApp)
         type(voltApp_T), intent(inout) :: vApp
+
+        do while(curSquishBlock < numSquishBlocks)
+            call DoSquishBlock(vApp)
+        enddo
+
+    end subroutine Squish
+
+    function SquishBlocksRemain()
+        logical :: SquishBlocksRemain
+
+        SquishBlocksRemain = curSquishBlock < numSquishBlocks
+
+    end function
+
+    !Setup squishy data
+    subroutine SquishStart(vApp)
+        type(voltApp_T), intent(inout) :: vApp
         
-        integer :: i,j,k,Nk,nSkp
+        associate(ebGr=>vApp%ebTrcApp%ebState%ebGr, &                  
+                  xyzSquish=>vApp%chmp2mhd%xyzSquish,isGood=>vApp%chmp2mhd%isGood)
+
+        Rinner = norm2(ebGr%xyz(ebGr%is,ebGr%js,ebGr%ks,XDIR:ZDIR))
+
+        xyzSquish = 0.0
+        isGood = .false.
+
+        !Force iDeep to be even
+        vApp%iDeep = 2*ceiling(vApp%iDeep/2.0)
+
+        curSquishBlock = 0
+
+        end associate
+
+    end subroutine SquishStart
+
+    ! perform bulk of squish opration
+    subroutine DoSquishBlock(vApp)
+        class(voltApp_T), intent(inout) :: vApp
+
+        integer :: i,j,k,nSkp
         real(rp) :: t,x1,x2
-        real(rp), dimension(NDIM) :: xyz,xy0
+        real(rp), dimension(NDIM) :: xyz
         procedure(Projection_T), pointer :: ProjectXYZ
-        
+
+        associate(ebModel=>vApp%ebTrcApp%ebModel,ebGr=>vApp%ebTrcApp%ebState%ebGr,ebState=>vApp%ebTrcApp%ebState, &
+                  xyzSquish=>vApp%chmp2mhd%xyzSquish,isGood=>vApp%chmp2mhd%isGood)
+
         ProjectXYZ => NULL()
 
         select case (vApp%prType)
@@ -64,24 +110,13 @@ module ebsquish
             stop
         end select
 
-        associate(ebModel=>vApp%ebTrcApp%ebModel,ebGr=>vApp%ebTrcApp%ebState%ebGr,ebState=>vApp%ebTrcApp%ebState, &                  
-                  xyzSquish=>vApp%chmp2mhd%xyzSquish,isGood=>vApp%chmp2mhd%isGood)
-
         t = ebState%eb1%time
-
-        Rinner = norm2(ebGr%xyz(ebGr%is,ebGr%js,ebGr%ks,XDIR:ZDIR))
-
-        xyzSquish = 0.0
-        isGood = .false.
 
         if (vApp%doQkSquish) then
             nSkp = 2 !Stride through grid for projections
         else
             nSkp = 1
         endif
-
-        !Force iDeep to be even
-        vApp%iDeep = 2*ceiling(vApp%iDeep/2.0)
 
         !$OMP PARALLEL DO default(shared) collapse(2) &
         !$OMP schedule(dynamic) &
@@ -110,6 +145,21 @@ module ebsquish
             enddo
         enddo
 
+        curSquishBlock = curSquishBlock + 1
+
+        end associate
+
+    end subroutine DoSquishBlock
+
+    ! Perform final operations on squishy data
+    subroutine SquishEnd(vApp)
+        type(voltApp_T), intent(inout) :: vApp
+
+        integer :: i,Nk
+
+        associate(ebModel=>vApp%ebTrcApp%ebModel,ebGr=>vApp%ebTrcApp%ebState%ebGr, &
+                  xyzSquish=>vApp%chmp2mhd%xyzSquish,isGood=>vApp%chmp2mhd%isGood)
+
         if (vApp%doQkSquish) then
             call FillSkips(ebModel,ebGr,vApp%iDeep,xyzSquish,isGood)
         endif
@@ -121,20 +171,19 @@ module ebsquish
         !$OMP private(i)
         do i=ebGr%is,vApp%iDeep+1
             !x1 (regular average)
-            xyzSquish(i,ebGr%js  ,:,1) = ArithMean(xyzSquish(i,ebGr%js  ,ebGr%ks:ebGr%ke,1))
-            xyzSquish(i,ebGr%je+1,:,1) = ArithMean(xyzSquish(i,ebGr%je+1,ebGr%ks:ebGr%ke,1))
+            xyzSquish(i,ebGr%js  ,:,1)=ArithMean(xyzSquish(i,ebGr%js  ,ebGr%ks:ebGr%ke,1))
+            xyzSquish(i,ebGr%je+1,:,1)=ArithMean(xyzSquish(i,ebGr%je+1,ebGr%ks:ebGr%ke,1))
 
             !x2 (circular average)
-            xyzSquish(i,ebGr%js  ,:,2) = CircMean(xyzSquish(i,ebGr%js  ,ebGr%ks:ebGr%ke,2))
-            xyzSquish(i,ebGr%je+1,:,2) = CircMean(xyzSquish(i,ebGr%je+1,ebGr%ks:ebGr%ke,2))
+            xyzSquish(i,ebGr%js  ,:,2)=CircMean(xyzSquish(i,ebGr%js  ,ebGr%ks:ebGr%ke,2))
+            xyzSquish(i,ebGr%je+1,:,2)=CircMean(xyzSquish(i,ebGr%je+1,ebGr%ks:ebGr%ke,2))
         enddo
 
         vApp%chmp2mhd%iMax = vApp%iDeep
         
         end associate
 
-
-    end subroutine Squish
+    end subroutine SquishEnd
 
     !Linearly interpolate between the stride 2 projections
     subroutine FillSkips(ebModel,ebGr,iDeep,xyzSquish,isGood)
