@@ -91,6 +91,7 @@ module ebsquish
         class(voltApp_T), intent(inout) :: vApp
 
         integer :: i,j,k,nSkp
+        integer :: ksB,keB
         real(rp) :: t,x1,x2
         real(rp), dimension(NDIM) :: xyz
         procedure(Projection_T), pointer :: ProjectXYZ
@@ -118,10 +119,12 @@ module ebsquish
             nSkp = 1
         endif
 
+        call GetSquishBds(curSquishBlock,numSquishBlocks,ebGr%ks,ebGr%ke+1,ksB,keB)
+
         !$OMP PARALLEL DO default(shared) collapse(2) &
         !$OMP schedule(dynamic) &
         !$OMP private(i,j,k,xyz,x1,x2)
-        do k=ebGr%ks,ebGr%ke+1,nSkp
+        do k=ksB,keB,nSkp
             do j=ebGr%js,ebGr%je+1,nSkp
                 do i=ebGr%is,vApp%iDeep+1,nSkp
                     xyz = ebGr%xyz(i,j,k,XDIR:ZDIR)
@@ -148,6 +151,27 @@ module ebsquish
         curSquishBlock = curSquishBlock + 1
 
         end associate
+
+        contains
+            !Get squish bounds for block n (out of Nblk)
+            !ksGr and keGr are the start/stop of indices
+            !ksB and keB are the bounds of this block
+            !n \in [0,Nblk-1] (because Jeff)
+            subroutine GetSquishBds(n,Nblk,ksGr,keGr,ksB,keB)
+                integer, intent(in)  :: n,Nblk,ksGr,keGr
+                integer, intent(out) :: ksB,keB
+
+                integer :: Nk,dN
+                Nk = keGr - ksGr + 1
+                dN = Nk/numSquishBlocks !Integer division
+
+                ksB = 1 + n*dN
+                keB = ksB+dN
+                if (n == (Nblk-1)) then
+                    keB = keGr !Make sure last block finishes everything
+                endif
+
+            end subroutine GetSquishBds
 
     end subroutine DoSquishBlock
 
