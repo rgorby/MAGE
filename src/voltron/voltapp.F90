@@ -336,13 +336,13 @@ module voltapp
 
         ! solve for remix output
         if (time<=0) then
-            write(*,*) " I AM HERE@ "
+            !write(*,*) " I AM HERE@ "
             call run_mix(vApp%remixApp%ion,curTilt,doModelOpt=.false.)
         else if (vApp%doGCM) then
-            write(*,*) " I AM HERE! "
+            !write(*,*) " I AM HERE! "
             call run_mix(vApp%remixApp%ion,curTilt,gcm=vApp%gcm)
         else 
-            write(*,*) " I AM HERE? "
+            !write(*,*) " I AM HERE? "
             call run_mix(vApp%remixApp%ion,curTilt,doModelOpt=.true.)
         endif
 

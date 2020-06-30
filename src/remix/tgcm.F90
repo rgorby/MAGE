@@ -19,7 +19,7 @@ module gcminterp
       logical, intent(in) :: isRestart
 
       gcm%isRestart = isRestart
-      write(*,*) "init_gcm: ",gcm%isRestart
+      !write(*,*) "init_gcm: ",gcm%isRestart
       if (gcm%cplStep == 1) then
         call CheckAndKill(gcm%mix2gcmLock)
         call CheckAndKill(gcm%mix2gcmH5)
@@ -39,7 +39,7 @@ module gcminterp
       ! not sure if true
       !gcmApp%remixGrid = remixApp%
       !call mix_interpolant(gcmApp%remixGrid)
-      write(*,*) 'Hello from init_gcm_mix'
+      !write(*,*) 'Hello from init_gcm_mix'
       call readH5gcm(gcmApp)
 
       Np = gcmApp%nlon
@@ -76,7 +76,7 @@ module gcminterp
       !call init_grid_fromTP(gcmG(GCMSOUTH),gcmApp%glat,gcmApp%glon,SOLVER_GRID=.true.)
       call init_grid_fromXY(gcmG(GCMNORTH),gcmApp%gx,gcmApp%gy,SOLVER_GRID=.true.)
       call init_grid_fromXY(gcmG(GCMSOUTH),gcmApp%gx,gcmApp%gy,SOLVER_GRID=.true.)
-      write(*,*) "Array Check: ",gcmG(GCMSOUTH)%Np,gcmG(GCMSOUTH)%Nt,shape(gcmApp%gx)
+      !write(*,*) "Array Check: ",gcmG(GCMSOUTH)%Np,gcmG(GCMSOUTH)%Nt,shape(gcmApp%gx)
         ! call remix grid constructor
         !write(*,*) 'do interpolant ',h
         !call mix_interpolant(gcmG(h))
@@ -125,12 +125,6 @@ module gcminterp
       logical :: doSP = .false. !Restarts are always double precision!Do single precision
       logical :: fExist = .false.
 
-      !Hardcoding the dimensions for now
-      !ntime = 30
-      !nlon = 288
-      !nlat = 144
-      !nlev = 57
-
       !Prepare for reading
       !H5file = "LITd-p32_mar26_2003_80F_no_tsoft_sech_tie_2003-03-28T12-01-00_2003-03-28T12-30-00.nc4"
       H5file = gcm%gcm2mixH5
@@ -146,22 +140,14 @@ module gcminterp
       call CheckFileOrDie(H5file,"Couldn't find input h5 file. Exiting...")
       call ClearIO(IOVars) !Reset IO chain
 
-      write(*,*) 'Start scalar read'
+      !write(*,*) 'Start scalar read'
       !List variables to read
       
       !Scalars (need to specify integers), order doesn't matter
-      !call AddInVar(IOVars,"lon"   ,vTypeO=IOINT )
-      !call AddInVar(IOVars,"lat"   ,vTypeO=IOINT )
-      !call AddInVar(IOVars,"lev"   ,vTypeO=IOINT )
-      !call AddInVar(IOVars,"ilev"  ,vTypeO=IOINT )
       
       !Arrays
 
       !1D Arrays
-      !call AddInVar(IOVars,"time"  )
-      !call AddInVar(IOVars,"lon"   )
-      !call AddInVar(IOVars,"lat"   )
-      !call AddInVar(IOVars,"lev"   )
 
       !2D Arrays
       call AddInVar(IOVars,"Grid X")
@@ -172,13 +158,10 @@ module gcminterp
       call AddInVar(IOVars,"Hall Conductance SOUTH")
       
       !3D Arrays
-      !call AddInVar(IOVars,"gzigm1") !Pedersen Conductance on GEO
-      !call AddInVar(IOVars,"gzigm2") !Hall Conductance on GEO
       
       !4D Arrays
-      !call AddInVar(IOVars,"Z") !Using this to populate the dimensions
       
-      write(*,*) 'ReadVars'
+      !write(*,*) 'ReadVars'
       !Now do actual reading
       call ReadVars(IOVars,doSP,H5File)
       
@@ -189,18 +172,14 @@ module gcminterp
       !nlev = IOVars(N)%dims(3)
       !ntime = IOVars(N)%dims(4)
       nhemi = GCMhemispheres
-      !nlathemi = (nlat/nhemi)-4 !we're going to arbitrarily chop off the equator
       
       !Save dimension information
-      !gcm%ntime = ntime
       gcm%nlon  = nlon
       gcm%nlat  = nlat
-      !gcm%nlev  = nlev
-      !gcm%nlathemi = nlathemi
       gcm%nhemi = nhemi
 
       !allocate(etac(lon))
-      write(*,*) 'Allocate arrays: ',nlon,nlat
+      !write(*,*) 'Allocate arrays: ',nlon,nlat
       !The arrays are read in in the opposite order as listed by netcdf.
       !The time array is the last dimension if (.not. allocated(var2d)) 
       allocate(var2d(nlat,nlon,nhemi,gcm2mix_nvar))
@@ -215,12 +194,8 @@ module gcminterp
 
       !Pull Scalars
 
-      write(*,*) 'Pull 1D Arrays'
+      !write(*,*) 'Pull 1D Arrays'
       !Pull 1D Arrays
-      !call IOArray1DFill(IOVars,"time",gcm%time)
-      !call IOArray1DFill(IOVars,"lon" ,gcm%glon)
-      !call IOArray1DFill(IOVars,"lat" ,gcm%glat)
-      !call IOArray1DFill(IOVars,"lev" ,gcm%lev)
 
       !Pull 2D Arrays
       call IOArray2DFill(IOVars,"Grid X",x)
@@ -231,24 +206,9 @@ module gcminterp
       call IOArray2DFill(IOVars,"Hall Conductance SOUTH",var2d(:,:,GCMSOUTH,GCMSIGMAH))
       
       !Pull 3D Arrays
-      !call IOArray3DFill(IOVars,"gzigm1",var2d(:,:,:,GCMSIGMAP))
-      !call IOArray3DFill(IOVars,"gzigm2",var2d(:,:,:,GCMSIGMAH))
       
       !Pull 4D Arrays
-      !gcm%glat = transpose(lat(:,::-1))
-      !gcm%glon = transpose(lon)
       
-      !write(*,*) "SIZE TEST1: ", shape(x)
-      !write(*,*) "SIZE TEST2: ", shape(y)
-      !write(*,*) "SIZE TEST3: ", shape(gcm%gx)
-      !write(*,*) "SIZE TEST4: ", shape(gcm%gy)
-
-      !Check directionality of glat grid
-      !if (gcm%glat(1,1) >=0.) then
-      !  gcm%order = 1
-      !else
-      !  gcm%order = -1
-      !end if
       do i = 1,nlon
         do j = 1,nlat
           do v = 1,gcm2mix_nvar
@@ -258,22 +218,12 @@ module gcminterp
             gcm%gcmInput(GCMSOUTH,v)%var(i,j) = var2d(j,i,GCMSOUTH,v)
           end do
         end do
-        !shift the arrays because glon starts at -180
-        !gcm%gcmInput(GCMNORTH,v)%var(:,:)=cshift(gcm%gcmInput(GCMNORTH,v)%var(:,:),nlon/2,DIM=1)
-        !gcm%gcmInput(GCMSOUTH,v)%var(:,:)=cshift(gcm%gcmInput(GCMSOUTH,v)%var(:,:),nlon/2,DIM=1)
       end do
-      !shift the glon array to start at 0
-      !gcm%glon=cshift(gcm%glon,nlon/2,dim=1)
 
-      !create colat array
-      !if (.not.allocated(gcm%gcolat)) allocate(gcm%gcolat(nlon,nlathemi))
-      !do i=1,nlon
-      !  do j = 1,nlathemi
-      !    gcm%gcolat(i,j) = 90.-gcm%glat(i,j)*gcm%order
-      !  end do
-      !end do
       if (allocated(var2d)) deallocate(var2d)
       call CheckAndKill(lockStr)
+
+      !Noisy Diagnostics below
       !write(*,*) 'Time array1: ',gcm%time
       !write(*,*) 'Lon array1: ',gcm%glon(:,1)!modulo(deg2rad*gcm%glon+2*pi,(2*pi))
       !write(*,*) 'Lat array1: ',gcm%glat(1,:)
@@ -305,33 +255,23 @@ module gcminterp
       do h=1,2
         if (gcmApp%cplStep == 1) then
           ! Plan A, write a modified mix_set_map as gcm_set_map
-          write(*,*) 'Mapping r2t'
+          !write(*,*) 'Mapping r2t'
           call gcm_set_map(ion(h)%G,gcmG(h),gcmApp%r2tMaps(h),iGEOtoSM)
-          !gcmApp%r2tMaps(h) = Map
-          write(*,*) 'Mapping t2r'
+          !write(*,*) 'Mapping t2r'
           call gcm_set_map(gcmG(h),ion(h)%G,gcmApp%t2rMaps(h),iSMtoGEO)
         endif
-        !gcmApp%t2rMaps(h) = Map
-        ! Plan B, do a separate transform and then use the mix_set_map
-        ! call mix_set_map(gcmApp%gcmGrid,gcmApp%remixGrid,
         do v=1,gcm2mix_nvar
           call mix_map_grids(gcmApp%t2rMaps(h),gcmApp%gcmInput(h,v)%var(:,:),F)
           select case (v)
           case (GCMSIGMAP)
-            !remixApp%conductance(h)%%%%%%% = F
-            !St%Vars(:,:,SIGMAP) = F
             gcmApp%mixInput(h,v)%var(:,:) = F
           case (GCMSIGMAH)
-            !remixApp%conductance(h)%%%%%%% = F
-            !St%Vars(:,:,SIGMAH) = F
             gcmApp%mixInput(h,v)%var(:,:) = F
           end select
         end do
       end do
-      write(*,*) 'SigmaP maxval: ',maxval(gcmApp%gcmInput(GCMNORTH,GCMSIGMAP)%var(:,:)),maxval(gcmApp%mixInput(GCMNORTH,GCMSIGMAP)%var(:,:))
-      write(*,*) 'SigmaH maxval: ',maxval(gcmApp%gcmInput(GCMNORTH,GCMSIGMAH)%var(:,:)),maxval(gcmApp%mixInput(GCMNORTH,GCMSIGMAH)%var(:,:))
-      !write(*,*) 'SigmaP minval: ',minval(gcmApp%gcmInput(GCMNORTH,GCMSIGMAP)%var(:,:)),minval(gcmApp%mixInput(GCMNORTH,GCMSIGMAP)%var(:,:))
-      !write(*,*) 'SigmaH minval: ',minval(gcmApp%gcmInput(GCMNORTH,GCMSIGMAH)%var(:,:)),minval(gcmApp%mixInput(GCMNORTH,GCMSIGMAH)%var(:,:))
+      !write(*,*) 'SigmaP maxval: ',maxval(gcmApp%gcmInput(GCMNORTH,GCMSIGMAP)%var(:,:)),maxval(gcmApp%mixInput(GCMNORTH,GCMSIGMAP)%var(:,:))
+      !write(*,*) 'SigmaH maxval: ',maxval(gcmApp%gcmInput(GCMNORTH,GCMSIGMAH)%var(:,:)),maxval(gcmApp%mixInput(GCMNORTH,GCMSIGMAH)%var(:,:))
     end subroutine mapGCM2MIX
     
     subroutine apply_gcm2mix(gcm,St,h)
@@ -342,16 +282,16 @@ module gcminterp
       do v=1,gcm2mix_nvar
         select case (v)
         case (GCMSIGMAP)
-          write(*,*) 'SigmaP size: ',shape(St%Vars(:,:,SIGMAP)),shape(gcm%mixInput(h,v)%var(:,:))
+          !write(*,*) 'SigmaP size: ',shape(St%Vars(:,:,SIGMAP)),shape(gcm%mixInput(h,v)%var(:,:))
           St%Vars(:,:,SIGMAP) = gcm%mixInput(h,v)%var(:,:)
         case (GCMSIGMAH)
-          write(*,*) 'SigmaH size: ',shape(St%Vars(:,:,SIGMAH)),shape(gcm%mixInput(h,v)%var(:,:))
+          !write(*,*) 'SigmaH size: ',shape(St%Vars(:,:,SIGMAH)),shape(gcm%mixInput(h,v)%var(:,:))
           St%Vars(:,:,SIGMAH) = gcm%mixInput(h,v)%var(:,:)
-          write(*,*) 'SigmaH maxval: ',maxval(gcm%mixInput(h,v)%var(:,:))
+          !write(*,*) 'SigmaH maxval: ',maxval(gcm%mixInput(h,v)%var(:,:))
         end select
       end do
       
-      write(*,*) 'Done applying GCM!'
+      !write(*,*) 'Done applying GCM!'
     end subroutine apply_gcm2mix
 
     subroutine gcm_set_map(G1,G2,Map,transform)
@@ -367,7 +307,7 @@ module gcminterp
       real(rp), dimension(3) :: gsm,gnew
       real(rp) :: pnew,tnew,zin
       
-      write(*,*) 'Np: ',G2%Np,' Nt: ',G2%Nt
+      !write(*,*) 'Np: ',G2%Np,' Nt: ',G2%Nt
       if (.not. allocated(Map%M)) allocate(Map%M(G2%Np,G2%Nt,4))
       if (.not. allocated(Map%I1)) allocate(Map%I1(G2%Np,G2%Nt))
       if (.not. allocated(Map%J1)) allocate(Map%J1(G2%Np,G2%Nt))
@@ -395,16 +335,10 @@ module gcminterp
             tnew = asin(sqrt(gnew(1)**2+gnew(2)**2))
             pnew = modulo((atan2(gnew(2),gnew(1))+2*pi),(2*pi)) ! any pole problems??
             
-            !tnew = G2%t(j2,i2)
-            !pnew = G2%p(j2,i2)
             call mix_search(G1,pnew,tnew,j1,i1)
 
-            !write(*,*) 'gold: ',G2%x(j2,i2),G2%y(j2,i2),zin
-            !write(*,*) 'gnew: ',gnew
-            !write(*,*) 'pnew: ',pnew,j1
-            !write(*,*) 'tnew: ',tnew,i1
             if ((i1 == 0) ) then
-              write(*,*) '??? ',pnew,tnew,j1,i1,gnew,j2,i2,G2%t(j2,i2),G2%p(j2,i2)
+              !write(*,*) '??? ',pnew,tnew,j1,i1,gnew,j2,i2,G2%t(j2,i2),G2%p(j2,i2)
               i1=1
             end if
 

@@ -330,18 +330,18 @@ module mixconductance
       end select
       
       if (present(gcm)) then
-         write(*,*) 'going to apply!'
+         !write(*,*) 'going to apply!'
          call apply_gcm2mix(gcm,St,h)
          St%Vars(:,:,SIGMAP) = max(conductance%pedmin,St%Vars(:,:,SIGMAP))
          St%Vars(:,:,SIGMAH) = max(conductance%hallmin,St%Vars(:,:,SIGMAH))
          !St%Vars(:,:,SIGMAH) = min(max(conductance%hallmin,St%Vars(:,:,SIGMAH)),&
          !     St%Vars(:,:,SIGMAP)*conductance%sigma_ratio)
       else if (conductance%const_sigma) then
-         write(*,*) "conductance: const_sigma"
+         !write(*,*) "conductance: const_sigma"
          St%Vars(:,:,SIGMAP) = conductance%ped0
          St%Vars(:,:,SIGMAH) = 0.D0
       else
-         write(*,*) "conductance: aurora"
+         !write(*,*) "conductance: aurora"
          call conductance_aurora(conductance,G,St)
       
          St%Vars(:,:,SIGMAP) = sqrt( conductance%euvSigmaP**2 + conductance%deltaSigmaP**2) 
@@ -354,7 +354,7 @@ module mixconductance
          St%Vars(:,:,SIGMAH) = min(max(conductance%hallmin,St%Vars(:,:,SIGMAH)),&
               St%Vars(:,:,SIGMAP)*conductance%sigma_ratio)
       endif
-      write(*,*) "conductance: values ",maxval(St%Vars(:,:,SIGMAP)),maxval(St%Vars(:,:,SIGMAH)),minval(St%Vars(:,:,SIGMAP)),minval(St%Vars(:,:,SIGMAH))
+      !write(*,*) "conductance: values ",maxval(St%Vars(:,:,SIGMAP)),maxval(St%Vars(:,:,SIGMAH)),minval(St%Vars(:,:,SIGMAP)),minval(St%Vars(:,:,SIGMAH))
 
     end subroutine conductance_total
 
