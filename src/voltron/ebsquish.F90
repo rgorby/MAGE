@@ -165,7 +165,7 @@ module ebsquish
                 Nk = keGr - ksGr + 1
                 dN = Nk/numSquishBlocks !Integer division
 
-                ksB = 1 + n*dN
+                ksB = ksGr + n*dN
                 keB = ksB+dN
                 if (n == (Nblk-1)) then
                     keB = keGr !Make sure last block finishes everything
