@@ -121,6 +121,7 @@ module starter
         call inpXML%Set_Val(Model%doTrc,'output/doTrc',.false.)
         call inpXML%Set_Val(Model%doSlim,'output/doSlim',.false.)
         call inpXML%Set_Val(Model%doFat ,'output/doFat' ,.false.)
+        call inpXML%Set_Val(Model%doLL  ,'output/doLL' ,.false.)
 
         Model%dtOut = inTScl*Model%dtOut
         T0Out = inTScl*T0Out

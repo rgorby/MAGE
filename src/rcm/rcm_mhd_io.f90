@@ -97,11 +97,22 @@ module rcm_mhd_io
         character(len=strLen) :: gStr
 
         real(rp) :: rcm2Wolf
-!        integer, dimension(2) :: DimLL
-!        integer :: Ni,Nj
+        real(rp), dimension(:,:), allocatable :: PLim,PBeta
+        integer :: NLat,NLon
+
+        NLat = RCMApp%nLat_ion
+        NLon = RCMApp%nLon_ion
         
         rcm2Wolf = nt**(IMGAMMA-1.0) !Convert to Wolf units, RCM: Pa (Re/T)^gam => nPa (Re/nT)^gam
         
+        allocate(PLim (NLat,NLon))
+        allocate(PBeta(NLat,NLon))
+        
+        PBeta = (5.0/6.0)*RCMApp%beta_average
+
+        !Calculate wolf-limited P (RCM units)
+        PLim = (PBeta*RCMApp%Pave + RCMApp%Prcm)/(1.0 + PBeta)
+
         !Reset IO chain
         call ClearIO(IOVars)
 
@@ -115,9 +126,9 @@ module rcm_mhd_io
         call AddOutVar(IOVars,"yMin",RCMApp%X_bmin(:,:,YDIR)/REarth,uStr="Re")
         call AddOutVar(IOVars,"zMin",RCMApp%X_bmin(:,:,ZDIR)/REarth,uStr="Re")
         call AddOutVar(IOVars,"bMin",RCMApp%Bmin,uStr="T")
-        
         call AddOutVar(IOVars,"S",rcm2Wolf*RCMApp%Prcm*(RCMApp%Vol**IMGAMMA),uStr="Wolf")
         call AddOutVar(IOVars,"beta",RCMApp%beta_average)
+        call AddOutVar(IOVars,"Plim",PLim*rcmPScl,uStr="nPa")
         call AddOutVar(IOVars,"Pmhd",RCMApp%Pave*rcmPScl,uStr="nPa")
         call AddOutVar(IOVars,"Nmhd",RCMApp%Nave*rcmNScl,uStr="#/cc")
         call AddOutVar(IOVars,"latc",RCMApp%latc*180.0/PI,uStr="deg")

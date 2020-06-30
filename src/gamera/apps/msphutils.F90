@@ -52,6 +52,9 @@ module msphutils
     real(rp), private :: Psi0 = 0.0 ! corotation potential coef
     real(rp), private :: M0   = 0.0 !Magnetic moment
 
+    !Ingestion switch
+    logical, private :: doIngest = .true.
+
     contains
 
     !Set magnetosphere parameters
@@ -129,6 +132,9 @@ module msphutils
             call xmlInp%Set_Val(Rion,"prob/Rion",RionE*1.e6/gx0) 
             call xmlInp%Set_Val(Model%doGrav,"prob/doGrav",.true.)
         end select
+
+        !Whether to ignore ingestion (if set)
+        call xmlInp%Set_Val(doIngest,"source/doIngest",.true.)
 
         call xmlInp%Set_Val(doCorot,"prob/doCorot",.true.)
         if (.not. doCorot) then
@@ -580,11 +586,10 @@ module msphutils
 
         integer :: i,j,k
         real(rp), dimension(NVAR) :: pW, pCon
-        real(rp), dimension(NDIM) :: Bxyz
 
         real(rp) :: M0,Mf
-        real(rp) :: Tau,dRho,dP,beta,Pb,PLim,Pmhd,Prcm,wIMag
-        logical  :: doIngest,doInD,doInP
+        real(rp) :: Tau,dRho,dP,Pmhd,Prcm
+        logical  :: doIngestIJK,doInD,doInP
 
         if (Model%doMultiF) then
             write(*,*) 'Source ingestion not implemented for multifluid, you should do that'
@@ -593,29 +598,25 @@ module msphutils
 
         if (Model%t<=0) return
 
+        if (.not. doIngest) return
+        
         !M0 = sum(State%Gas(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,DEN,BLK)*Gr%volume(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke))
 
-        !$OMP PARALLEL DO default(shared) collapse(2) &
-        !$OMP private(i,j,k,doInD,doInP,doIngest,pCon,pW,Tau,dRho,dP) &
-        !$OMP private(beta,Bxyz,Pb,PLim,Pmhd,Prcm,wIMag)
+       !$OMP PARALLEL DO default(shared) collapse(2) &
+       !$OMP private(i,j,k,doInD,doInP,doIngestIJK,pCon,pW) &
+       !$OMP private(Tau,dRho,dP,Pmhd,Prcm)
         do k=Gr%ks,Gr%ke
             do j=Gr%js,Gr%je
                 do i=Gr%is,Gr%ie
                     doInD = (Gr%Gas0(i,j,k,IMDEN,BLK)>TINY)
                     doInP = (Gr%Gas0(i,j,k,IMPR ,BLK)>TINY)
-                    doIngest = doInD .or. doInP
+                    doIngestIJK = doInD .or. doInP
 
-                    if (.not. doIngest) cycle
+                    if (.not. doIngestIJK) cycle
 
                     pCon = State%Gas(i,j,k,:,BLK)
                     call CellC2P(Model,pCon,pW)
-                    Bxyz = State%Bxyz(i,j,k,:)
-                    if (Model%doBackground) then
-                        Bxyz = Bxyz + Gr%B0(i,j,k,:)
-                    endif
                     Pmhd = pW(PRESSURE)
-                    Pb = 0.5*dot_product(Bxyz,Bxyz)
-                    beta = Pmhd/Pb
 
                     !Get timescale, taking directly from Gas0
                     Tau = Gr%Gas0(i,j,k,IMTSCL,BLK)
@@ -630,21 +631,7 @@ module msphutils
                     if (doInP) then
                         Prcm = Gr%Gas0(i,j,k,IMPR,BLK)
                         !Assume already wolf-limited or not
-                        PLim = Prcm
-
-                        ! if (doWolfLim) then
-                        !     PLim = Prcm/(1.0+beta*5.0/6.0)
-                        ! else
-                        !     PLim = Prcm
-                        ! endif
-
-                        if (Pmhd <= PLim) then
-                            dP = PLim - Pmhd
-                        else if (Pmhd >= Prcm) then
-                            dP = Prcm - Pmhd
-                        else
-                            dP = 0.0
-                        endif
+                        dP = Prcm - Pmhd
                         
                         pW(PRESSURE) = pW(PRESSURE) + (Model%dt/Tau)*dP
                     endif
