@@ -140,7 +140,8 @@ module psdutils
 
         !Calculate flux tube volumes at each polar point
         !$OMP PARALLEL DO default(shared) &
-        !$OMP private(i,j,R,x0,Qmhd,kT,Vr)
+        !$OMP schedule(dynamic) &
+        !$OMP private(R,x0,Qmhd,kT,Vr)
         do i=1,psGr%Nr
             do j=1,psGr%Np
                 !Get seed point, clean old stream, get new
