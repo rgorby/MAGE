@@ -23,7 +23,7 @@ module ebsquish
     real(rp), parameter, private :: startEps = 0.05
     real(rp), parameter, private :: rEps = 0.125
     real(rp), private :: Rinner
-    integer, private :: numSquishBlocks = 1
+    integer, private :: numSquishBlocks = 16
     integer, private :: curSquishBlock = 0
 
     contains

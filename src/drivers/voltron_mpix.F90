@@ -226,6 +226,8 @@ program voltron_mpix
 
         end do
 
+        call endVoltronWaits(vApp)
+
     endif
 
     call MPI_FINALIZE(ierror)

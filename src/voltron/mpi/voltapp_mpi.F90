@@ -52,6 +52,27 @@ module voltapp_mpi
 
     contains
 
+    !end lingering MPI waits, if there are any
+    subroutine endVoltronWaits(vApp)
+        type(voltAppMpi_T), intent(inout) :: vApp
+
+        logical :: reqStat
+        integer :: ierr
+
+        call MPI_REQUEST_GET_STATUS(vApp%timeReq,reqStat,MPI_STATUS_IGNORE,ierr)
+        if(reqStat) then
+            call MPI_CANCEL(vApp%timeReq, ierr)
+            call MPI_WAIT(vApp%timeReq, MPI_STATUS_IGNORE, ierr)
+        endif
+
+        call MPI_REQUEST_GET_STATUS(vApp%timeStepReq,reqStat,MPI_STATUS_IGNORE,ierr)
+        if(reqStat) then
+            call MPI_CANCEL(vApp%timeStepReq, ierr)
+            call MPI_WAIT(vApp%timeStepReq, MPI_STATUS_IGNORE, ierr)
+        endif
+
+    end subroutine endVoltronWaits
+
     !Initialize Voltron (after Gamera has already been initialized)
     subroutine initVoltron_mpi(vApp, userInitFunc, voltComm, optFilename)
         type(voltAppMpi_T), intent(inout) :: vApp
