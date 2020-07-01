@@ -70,7 +70,7 @@ module uservoltic
         !Get defaults from input deck
 
         !Density for magnetosphere/wind
-        call inpXML%Set_Val(Rho0 ,"prob/Rho0",1.0_rp)
+        call inpXML%Set_Val(Rho0 ,"prob/Rho0",0.2_rp)
         call inpXML%Set_Val(P0   ,"prob/P0"  ,0.001_rp)
         
         !Set magnetosphere parameters
