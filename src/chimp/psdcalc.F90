@@ -134,20 +134,23 @@ module psdcalc
             !Set weights
             psPop%wgt(n) = fC*psGr%dG(ir,ip,ik,ia)/nPS(ir,ip,ik,ia)
             psPop%isWgt(n) = .true.
-            if (psPop%wgt(n) /= psPop%wgt(n)) then
-                !$OMP CRITICAL
-                write(*,*) '--------'
-                write(*,*) 'n = ', n
-                write(*,*) 'I = ',ir,ip,ik,ia
-                write(*,*) 'fC = ', fC
-                write(*,*) 'n0 = ',n0
-                write(*,*) 'kT0 /kev = ', kT0,kev
-                write(*,*) 'alpha = ', alpha
-                write(*,*) 'dG = ', psGr%dG(ir,ip,ik,ia)
-                write(*,*) 'nPS = ', nPS(ir,ip,ik,ia)
-                write(*,*) '--------'
-                !$OMP END CRITICAL
-            endif
+
+            !TODO: Switch this to a better nan test
+            ! if (psPop%wgt(n) /= psPop%wgt(n)) then
+            !     !$OMP CRITICAL
+            !     write(*,*) '--------'
+            !     write(*,*) 'n = ', n
+            !     write(*,*) 'I = ',ir,ip,ik,ia
+            !     write(*,*) 'fC = ', fC
+            !     write(*,*) 'n0 = ',n0
+            !     write(*,*) 'kT0 /kev = ', kT0,kev
+            !     write(*,*) 'alpha = ', alpha
+            !     write(*,*) 'dG = ', psGr%dG(ir,ip,ik,ia)
+            !     write(*,*) 'nPS = ', nPS(ir,ip,ik,ia)
+            !     write(*,*) '--------'
+            !     !$OMP END CRITICAL
+            ! endif
+
         enddo
         NumW = count( (.not. psPop%isWgt) .and. (psPop%isIn) )
         write(*,*) '    Unweighted TPs = ', NumW, ' (after)'
@@ -185,10 +188,8 @@ module psdcalc
 
 
         !Start by looping over all particles and depositing weights
-        !TODO: For now just using delta function, add shape-based weight deposition here
         !$OMP PARALLEL DO default(shared) &
-        !$OMP private(idx,ir,ip,ik,ia,w)  &
-        !$OMP schedule(dynamic)
+        !$OMP private(n,idx,ir,ip,ik,ia,w)
         do n=1,psPop%NumTP
             if (.not. psPop%isIn(n) .or. .not. psPop%isWgt(n) ) cycle !Skip bad particles
             !Otherwise, find where you are in psGr
