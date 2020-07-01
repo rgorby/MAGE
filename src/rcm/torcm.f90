@@ -1,17 +1,12 @@
 !==================================================================      
-      SUBROUTINE Torcm (RM,rec, itimei, ierr) 
+      SUBROUTINE Torcm (RM, itimei, ierr, icontrol) 
       USE rcm_precision
       USE Rcm_mod_subs, ONLY : isize,jsize, jwrap, kcsize, iesize, &
                                vm, bmin, xmin, ymin, pmin, rmin,v, & 
                                alamc, etac, ikflavc, fudgec,eeta,  &
-                               imin_j, bndloc, vbnd, boundary,     &
+                               imin_j, bndloc, vbnd,               &
                                colat, aloct, bir, sini,            &
-                               Read_array, Write_array,            &
-                               LUN, DTR, label,                    &
-                               Get_boundary, Write_grid, outp,     &
-                               ibnd_type, RTD,              &
-                               write_qtcond,                       &
-                               rcmdir
+                               ibnd_type,rcmdir
      USE conversion_module
      USE rice_housekeeping_module
      USE constants, only: big_vm,tiote
@@ -42,12 +37,14 @@
 !                    8.03 frt computes integral average pressure
 !                06.01.04 frt cleaned up version
 !                09.10.12 frt added code to handle tilt
+!                19.05.20 frt removed use of records in rcm 
+!                         frt remove use of idim,jdim,kdim
 !
 !===================================================================
 
       IMPLICIT NONE
       type(rcm_mhd_T),intent(inout) :: RM
-      INTEGER(iprec), INTENT (IN) :: rec, itimei
+      INTEGER(iprec), INTENT (IN) :: itimei,icontrol
       INTEGER(iprec), INTENT (IN OUT) :: ierr
 
       REAL(rprec) :: xp,yp,red
@@ -63,13 +60,13 @@
       INTEGER(iprec) :: jm,jp,ii,itmax
       INTEGER(iprec) :: min0,i,j,k,n,ns
       INTEGER(iprec), PARAMETER :: n_smooth = 5
+      INTEGER(iprec), PARAMETER :: LUN =100
       LOGICAL,PARAMETER :: use_ellipse = .true.
       LOGICAL,PARAMETER :: set_boundary_with_mach = .false.
       LOGICAL,PARAMETER :: set_boundary_with_beta = .false.
       REAL(rprec), PARAMETER :: max_beta = 1.0 ! max averaged beta to set the boundary
 
       ierr = 0
-!      CALL Begin (rec, ierr)     ! Read in MHD data
 
       IF (ierr < 0) RETURN
        x0_sm = x0; y0_sm = y0; z0_sm = z0;
@@ -77,7 +74,7 @@
 !      if(rcm_tilted)then
 ! temporarily assign  geo grid as x0 and convert to sm
 ! this preserves the default behaviour when tilt is off
-!       call geo2sm(idim,jdim,x0,y0,z0,x0_sm,y0_sm,z0_sm,1)
+!       call geo2sm(isize,jsize,x0,y0,z0,x0_sm,y0_sm,z0_sm,1)
 !      end if
 
 !      write(6,*)' x0 y0 z0',x0(1,1),y0(1,1),z0(1,1)
@@ -89,20 +86,24 @@
       ! If T>0, we already have old array values
       ! T=0 case means we have to defer this to after
       ! magnetic field arrays are processed.
-      IF (rec > 1) then  
+
+      IF (icontrol==RCMADVANCE.or.icontrol==RCMRESTART) then  
         bndloc_old = bndloc
         imin_j_old = imin_j
+        if(minval(bndloc) <= 0)then
+          write(6,*) ' TORCM: boundary problem'
+          write(6,*)' bndloc:',bndloc
+          stop
+        end if
       END IF  
 
-
-      ! Trace B-field lines starting from RCM ionospheric grid
+      ! get B-field lines starting from RCM ionospheric grid
       ! points, compute flux-tube volume of field lines that are
       ! closed, and mark open ones with a mask array OPEN
       ! (1=open, 0-closed). For open field lines, FTV is set to big_vm:
 
       CALL Calc_ftv (RM,big_vm,ierr)
       IF (ierr < 0) RETURN
-
 
       ! Now, set RCM high-latitude grid boundary. Initially,
       ! for each MLT, we find the grid point with highest
@@ -111,35 +112,38 @@
       ! Result of this subsection is to populate arrays BNDLOC
       ! and IMIN_J with values:
 
-      do j=1,jdim
+      do j=1,jsize
          bndloc(j) = 2  ! if everything else fails, can use this...
-         do i=idim,2,-1
+         do i=isize,2,-1
             if(iopen(i,j) >= 0)then
                bndloc(j) = i + 1
                exit
             endif
          end do
+       ! reset imin_j
+       imin_j = ceiling(bndloc)
          IF (L_write_vars_debug) then
-            write(*,*)' bndy ',bndloc(j),j,vm(ceiling(bndloc(j)),j)
+            write(*,*)' bndy ',bndloc(j),j,vm(imin_j(j),j)
          END IF
       end do
 
       ! fits an ellipse to the boundary
       if (use_ellipse)then
-        CALL Set_ellipse(idim,jdim,rmin,pmin,vm,big_vm,bndloc,iopen)
+        CALL Set_ellipse(isize,jsize,rmin,pmin,vm,big_vm,bndloc,iopen)
+        imin_j = ceiling(bndloc)
       end if
 
 !      IF(set_boundary_with_mach)then
 !       write(6,*)' boundary before set_bndy_w_mach'
 !       write(6,*) bndloc
-!       CALL Set_bndy_w_mach(idim,jdim,rmin,pmin,vm,big_vm,bndloc,iopen)
+!       CALL Set_bndy_w_mach(isize,jsize,rmin,pmin,vm,big_vm,bndloc,iopen)
 !       write(6,*)' boundary after set_bndy_w_mach'
 !       write(6,*)bndloc
 !      END IF
 
       IF(set_boundary_with_beta)then
-       do j=1,jdim
-        do i=ceiling(bndloc(j)),idim-1
+       do j=1,jsize
+        do i=ceiling(bndloc(j)),isize-1
           IF(beta_average(i,j) > max_beta)then
             bndloc(j) = i+1
             vm(1:i,j) = big_vm
@@ -147,28 +151,28 @@
           END IF
         end do
        end do
+       imin_j = ceiling(bndloc)
       END IF
 
       ! smooth boundary location 
       do ns=1,n_smooth
          if (doRCMVerbose) write(6,*)' smoothing rcm boundary, ns =', ns
-         call smooth_boundary_location(idim,jdim,jwrap,bndloc)
-         call reset_rcm_vm(idim,jdim,bndloc,big_vm,imin_j,vm,iopen) ! adjust Imin_j
+         call smooth_boundary_location(isize,jsize,jwrap,bndloc)
+         call reset_rcm_vm(isize,jsize,bndloc,big_vm,imin_j,vm,iopen) ! adjust Imin_j
       end do
 
-      if (n_smooth < 1) call reset_rcm_vm(idim,jdim,bndloc,big_vm,imin_j,vm,iopen)
-    
+      if (n_smooth < 1) call reset_rcm_vm(isize,jsize,bndloc,big_vm,imin_j,vm,iopen)
 
 ! reset mapping points on open field lines
-       do j=1,jdim
+       do j=1,jsize
         do i=1,imin_j(j)-1
           rmin(i,j) = 0.0
           pmin(i,j) = 0.0
         end do
        end do
 ! find the inner boundary of the lfm in the rcm grid, key on pressure
-       do j=1,jdim
-         inner_bndy(j) = idim ! default
+       do j=1,jsize
+         inner_bndy(j) = isize ! default
         do i=imin_j(j),isize
          if(press(i,j) < 1.0e-15)then
            inner_bndy(j) = i+1
@@ -192,22 +196,26 @@
       CALL Read_alam (kcsize, alamc, ikflavc, fudgec, almdel, almmax, almmin, iesize, ierr)
       IF (ierr < 0) RETURN
 
-      CALL Press2eta       ! this populates EETA_NEW array
+      !CALL Press2eta       ! this populates EETA_NEW array
+      CALL Press2eta(RM%planet_radius)       ! this populates EETA_NEW array
 
-      ! Here is the second IF promised at the beginning.
+      if(maxval(eeta_new) <=0)then
+       write(6,*)' something is wrong in the new eeta arrays'
+       Stop
+      end if
+
       ! It must come after calls to calc_ftv and press2eta.
       ! this is where we must set initial conditions:
 
-      IF (rec == 1) THEN
+      IF (icontrol==RCMCOLDSTART) THEN
+         write(6,*)' TORCM: initializing the RCM arrays at t=',itimei
          bndloc_old = bndloc
          imin_j_old = imin_j
+      ! set the plasmasphere with a refilling model   sbao 03/28
+         call set_plasmasphere(isize,jsize,kcsize,xmin,ymin,vm,eeta_new,imin_j)
+       ! eeta_new(:,:,1) = 0.0  ! to see the refilling model alone
          eeta       = eeta_new  ! this is initial conditions on plasma
       END IF
-
-
-      ! set a crude plasmasphere in the rcm - off for now
-!     call set_plasmasphere(idim,jdim,kdim,rmin,pmin,vm,eeta_new,imin_j)
-
          
       ! just in case:
       imin_j     = CEILING(bndloc)
@@ -216,15 +224,14 @@
       if (doRCMVerbose) then
         write(*,*)'imin_j',imin_j
         write(*,*)'imin_j_old',imin_j_old
-        write(*,*)'rec =',rec
       endif
 
    ! Set boundary conditions on plasma (EETA) for all MLT's and energy levels:
    !$OMP PARALLEL DO default(shared) &
    !$OMP schedule(dynamic) &
    !$OMP private(j,k,inew,iold)
-    DO k=1,kdim
-      DO j=1,jdim
+    DO k=1,kcsize
+      DO j=1,jsize
 
         inew = imin_j(j)
         iold = imin_j_old(j)
@@ -244,21 +251,22 @@
     END DO
 
 
-! get the inner boundary eeta local time
+! get the boundary eeta local time
       do j=1,jsize
         do k=1,kcsize
           eetabnd(j,k) = eeta(imin_j(j),j,k)
           if (eetabnd(j,k) <= 0.0 .and. doRCMVerbose) then
-            write(6,*)' warning: eetabnd <= 0 at j,k =',j,k
-            write(6,*)' eetabnd(',i,',',j,')=',eetabnd(j,k)
-            write(6,*)' vm(',i,',',j,')=',vm(i,j)
+            write(6,'(a,i3,1x,i3)')' warning: eetabnd <= 0 at j,k =',j,k
+            write(6,'(a,i3,a,i3,a,g14.5)')' eetabnd(',j,',',k,')=',eetabnd(j,k)
+            write(6,'(a,i3,a,i3,a,g14.5)')' vm(',imin_j(j),',',j,')=',vm(imin_j(j),j)
           end if
         end do
+
       end do
       
 ! this is off for now
 ! set eeta to start with and empty magnetosphere
-!     if(rec == 1)then
+!     if(itimei==0)then
 !     do j=1,jsize
 !      do i=imin_j(j)+1,isize
 !       do k = 1,ksize
@@ -270,10 +278,10 @@
       
 
 ! smooth eeta at the boundary
-      CALL Smooth_eta_at_boundary(idim,jdim,kdim,jwrap,eeta,imin_j)
+      CALL Smooth_eta_at_boundary(isize,jsize,kcsize,jwrap,eeta,imin_j)
 
 ! now reset eeta outside the rcm to be eeta at the boundary
-      do j=1,jdim
+      do j=1,jsize
         do i=1,imin_j(j)-1
           eeta(i,j,:) = eeta(imin_j(j),j,:)
         end do
@@ -285,9 +293,9 @@
 ! this file is for plotting and/or debugging. RCM itselt does not need it.
 
       IF (L_write_rcmu_torcm ) then
-          IF (rec == 1) THEN
+          IF (itimei==0) THEN
               OPEN (LUN, FILE=rcmdir//'rcmu_torcm.dat',form='unformatted', STATUS = 'replace')
-              WRITE (LUN) idim,jdim,kdim
+              WRITE (LUN) isize,jsize,kcsize
           ELSE
               OPEN (LUN,file=rcmdir//'rcmu_torcm.dat',form='unformatted', status='old',position='append')
           END IF
@@ -328,7 +336,7 @@
       use rcm_mhd_interfaces
 
       IMPLICIT NONE
-      type(rcm_mhd_T),intent(in) :: RM
+      type(rcm_mhd_T), intent(in) :: RM
       REAL(rprec), INTENT (IN) :: big_vm
       INTEGER(iprec), INTENT (OUT) :: ierr
 !
@@ -338,9 +346,9 @@
 !            be, sini, open/closed flag, and pressure on each 2D
 !
 ! inputs: 
-!      idim = dimension in latitude
-!      jdim = dimension in local time
-!      kdim = channel dimensions (not used here)
+!      isize = dimension in latitude
+!      jsize = dimension in local time
+!     kcsize = channel dimensions (not used here)
 !  x0_sm,y0_sm,z0_sm = location of grid points in ionosphere in sm coordinates
 !   big_vm  = value to set open field lines
 !
@@ -392,48 +400,28 @@
       REAL(rprec) :: rdist1,rdist2
       REAL(rprec) :: dx,dy,dz,bf,bx_ion_sm,by_ion_sm,bz_ion_sm
       REAL(rprec) :: bx_ion_geo,by_ion_geo,bz_ion_geo,radius_ion,bradial_ion
-! check indices
-      if(idim.ne.isize)stop ' error in idim in calc_ftv, aborting'
-      if(jdim.ne.jsize)stop ' error in jdim in calc_ftv, aborting'
-      if(kdim.ne.kcsize)stop ' error in kdim in calc_ftv, aborting'
-
-!      pi = acos(-1.0)
-
-     ! transfer pressure and density
-
-      !write(6,*)isize,jsize
 
       press (:,jwrap:jsize) = RM%Pave (:,      :)
-      press (:,          1) = press (:,jsize-2)
-      press (:,          2) = press (:,jsize-1)
-
       den (:,jwrap:jsize) = RM%Nave (:,      :)
-      den (:,          1) = den (:,jsize-2)
-      den (:,          2) = den (:,jsize-1)
 
-      xmin (:,jwrap:jsize) = RM%x_bmin (:,      :,1)/radius_earth_m
-      xmin (:,          1) = xmin (:,jsize-2)
-      xmin (:,          2) = xmin (:,jsize-1)
-
-      ymin (:,jwrap:jsize) = RM%x_bmin (:,      :,2)/radius_earth_m
-      ymin (:,          1) = ymin (:,jsize-2)
-      ymin (:,          2) = ymin (:,jsize-1)
-
-      zmin (:,jwrap:jsize) = RM%x_bmin (:,      :,3)/radius_earth_m
-      zmin (:,          1) = zmin (:,jsize-2)
-      zmin (:,          2) = zmin (:,jsize-1)
+      xmin (:,jwrap:jsize) = RM%x_bmin (:,      :,1)/RM%planet_radius
+      ymin (:,jwrap:jsize) = RM%x_bmin (:,      :,2)/RM%planet_radius
+      zmin (:,jwrap:jsize) = RM%x_bmin (:,      :,3)/RM%planet_radius
 
       bmin (:,jwrap:jsize) = RM%bmin (:,      :)/nt ! in nT
-      bmin (:,          1) = bmin (:,jsize-2)
-      bmin (:,          2) = bmin (:,jsize-1)
-
       beta_average (:,jwrap:jsize) = RM%beta_average (:,      :)
-      beta_average (:,          1) = beta_average (:,jsize-2)
-      beta_average (:,          2) = beta_average (:,jsize-1)
-
       iopen (:,jwrap:jsize) = RM%iopen (:,      :)
-      iopen (:,          1) = iopen (:,jsize-2)
-      iopen (:,          2) = iopen (:,jsize-1)
+! wrap
+      do j=1,jwrap-1
+       press (:,         j)  = press (:,jsize-jwrap+j)
+       den (:,           j)  = den (:,jsize-jwrap+j)
+       xmin (:,          j)  = xmin (:,jsize-jwrap+j)
+       ymin (:,          j)  = ymin (:,jsize-jwrap+j)
+       zmin (:,          j)  = zmin (:,jsize-jwrap+j)
+       bmin (:,          j)  = bmin (:,jsize-jwrap+j)
+       beta_average (:,  j)  = beta_average (:,jsize-jwrap+j)
+       iopen (:,         j)  = iopen (:,jsize-jwrap+j)
+      end do
 
       ! now compute vm and find the boundary
       do j=jwrap,jsize
@@ -450,10 +438,10 @@
        end do
       end do
 
-      vm (:,          1) = vm (:,jsize-2)
-      vm (:,          2) = vm (:,jsize-1)
-      vbnd(1) = vbnd(jsize-2)
-      vbnd(2) = vbnd(jsize-1)
+      do j=1,jwrap-1
+       vm (:, j) = vm (:,jsize-jwrap+j)
+       vbnd(j)   = vbnd(jsize-jwrap+j)
+      end do
 
       ! compute rmin,pmin
       rmin = sqrt(xmin**2 + ymin**2 + zmin**2)
@@ -475,7 +463,7 @@
 ! bug fix to fac 2/19 frt
 !
 ! inputs:
-! idim,jdim - rcm grid dimensions
+! isize,jsize - rcm grid dimensions
 !       r,p - equatorial mapping location of a grid point in Re and rad
 !     press - press in Pa
 !        vm - flux tube volume^(-2/3) in (nt/Re/^(-2/3)   
@@ -486,7 +474,7 @@
 !      ierr  - error flag
 !
 !-------------------------------------------------
-!      USE Rcm_mod_subs, ONLY : iprec,rprec
+      USE Rcm_mod_subs, ONLY : isize,jsize
       USE rcm_precision
       USE conversion_module
       USE CONSTANTS, ONLY: boltz,tiote
@@ -499,8 +487,8 @@
 !
 !    set the temperature:
 
-      DO j=1,jdim
-       DO i=1,idim
+      DO j=1,jsize
+       DO i=1,isize
         IF (iopen(i,j) == -1 .and. den(i,j)>0.) THEN
          ti(i,j) = fac*press(i,j)/den(i,j)/boltz
          te(i,j) = ti(i,j)/tiote
@@ -512,6 +500,11 @@
       END DO
 !
       ierr = 0
+
+      if(maxval(press) <=0.)then
+       write(6,*)' maxval pressure < 0 in gettemp'
+       ierr = -1
+      end if
 !
       RETURN
       END SUBROUTINE Gettemp
@@ -519,7 +512,7 @@
 
 !====================================================================
 !
-      SUBROUTINE Press2eta 
+      SUBROUTINE Press2eta(planet_radius) 
 
 ! ====================================================================
 !
@@ -527,25 +520,25 @@
 !     convert mhd/lfm pressure quantities to rcm quantities
 ! 
 !  input:  
-!     idim     number of grid points in latitudinal direction
-!     jdim      number of grid points in longitudinal direction
-!     vm(idim,jdim)       (flux tube vloume)^(-2/3) at each grid point
+!     isize     number of grid points in latitudinal direction
+!     jsize      number of grid points in longitudinal direction
+!     vm(isize,jsize)       (flux tube vloume)^(-2/3) at each grid point
 !     den(i,j)             density in particles/m^3
-!     tempi(idim,jdim)     ion number temperature on that field line in K
-!     tempe(idim,jdim)     electron temperature on that field line in K
-!     iopen(idim,jdim)     label to define if fieldline is open (0/1)
+!     tempi(isize,jsize)     ion number temperature on that field line in K
+!     tempe(isize,jsize)     electron temperature on that field line in K
+!     iopen(isize,jsize)     label to define if fieldline is open (0/1)
 !                          or closed (-1)
-!     press(idim,jdim)     total pressure on that field line in Pa
-!     kdim            number of energy channels
-!     alam(kdim)      the energy invarant of each energy channel
-!     almdel(kdim)    the width  of each energy channel
-!     almmax(kdim)    the max alam of each energy channel
-!     almmin(kdim)    the min alam of each energy channel
-!     iflav(kdim)     the species of each energy channel
+!     press(isize,jsize)     total pressure on that field line in Pa
+!     kcsize            number of energy channels
+!     alam(kcsize)      the energy invarant of each energy channel
+!     almdel(kcsize)    the width  of each energy channel
+!     almmax(kcsize)    the max alam of each energy channel
+!     almmin(kcsize)    the min alam of each energy channel
+!     iflav(kcsize)     the species of each energy channel
 !     numspe(3)        number of channels of each species, e-, H+, O+
 !
 !  output:
-!     eeta_new(idim,jdim,kdim)       flux tube content at this time
+!     eeta_new(isize,jsize,kcsize)       flux tube content at this time
 ! 
 !  other:    
 !     mass of proton      mass of ion (kg)
@@ -561,13 +554,14 @@
 !    not part of the standard fortran functions, but is very common.
 !
 !    1/19/2000 - frt
+!    May 19, 2020 - removed idim,jdim,kdim - frt
 !
 ! --------------------------------------------------------------------
 !
       USE conversion_module
       USE rcm_precision
-      USE RCM_mod_subs, ONLY : ikflavc,vm,alamc,pi
-      USE CONSTANTS, ONLY : boltz,ev,pressure_factor,radius_earth_m,nt
+      USE RCM_mod_subs, ONLY : ikflavc,vm,alamc,pi,isize,jsize,kcsize
+      USE CONSTANTS, ONLY : boltz,ev,nt!,pressure_factor,radius_earth_m
       IMPLICIT NONE
       real(rprec):: xmin,xmax
       real(rprec):: ptemp,eta_correction
@@ -575,11 +569,14 @@
 !      real(rprec):: Erf
 !      EXTERNAL Erf
 !
-      real(rprec) ::trans = radius_earth_m/nt
       real(rprec),parameter :: eps=1.0e-30
       real(rprec):: sqrtpi,factor,fac0,fac1,t
       integer(iprec) :: i,j,k
-
+      
+      real(rprec), intent(in) :: planet_radius
+      real(rprec) pressure_factor
+      pressure_factor = 2./3.*ev/planet_radius*nt
+      
       sqrtpi = SQRT(pi)
     
 ! factor is a modification to the temperature to get a reasonable
@@ -593,14 +590,14 @@
        te = factor * te
       end if
 !
-      DO j = 1, jdim
-      DO i = 1, idim
+      DO j = 1, jsize
+      DO i = 1, isize
 !        IF (iopen(i,j) /= -1 .AND. vm(i,j) > 0.0) THEN
 !        IF (iopen(i,j) /= -1 .OR. press(i,j) <= 0.0 ) THEN
          IF (iopen(i,j) /= -1 ) THEN
             eeta_new (i,j,:) = 0.0
          ELSE
-            DO k = 1, kdim
+            DO k = 1, kcsize
                IF (ikflavc(k) == 1) THEN  ! electrons
                   t = te (i,j)
                ELSE  IF (ikflavc(k) == 2) THEN ! ions (protons)
@@ -609,7 +606,7 @@
                   STOP 'ILLEGAL IKFLAVC(K) IN PRESS2ETA'
                END IF
                if (t > 0.)then
-                fac0 = trans*den(i,j)/((vm(i,j))**1.5)
+                fac0 = planet_radius/nt*den(i,j)/((vm(i,j))**1.5)
                 xmax = SQRT(ev*ABS(almmax(k))*vm(i,j)/boltz/t)
                 xmin = SQRT(ev*ABS(almmin(k))*vm(i,j)/boltz/t)
                 fac1 = (Erf(xmax)-Erf(xmin)) -2.0/sqrtpi* &
@@ -625,22 +622,22 @@
       END DO
 ! now check to see if we get the original pressure back
 
-      DO j=1, jdim
-       DO i=1, idim
+      DO j=1, jsize
+       DO i=1, isize
         IF (iopen(i,j) < 0) then
          ptemp = 0.0
-         DO k=1,kdim
+         DO k=1,kcsize
           ptemp = ptemp + &
            pressure_factor*ABS(alamc(k))*eeta_new(i,j,k)*vm(i,j)**2.5 
          END DO
          eta_correction = 0.0
          IF (ptemp/= 0)eta_correction = press(i,j)/ptemp
 !         write(100,*)i,j,eta_correction
-         DO k=1,kdim
+         DO k=1,kcsize
           eeta_new(i,j,k) = eeta_new(i,j,k)*eta_correction
          END DO
          ptemp = 0.0
-         DO k=1,kdim
+         DO k=1,kcsize
           ptemp = ptemp + &
            pressure_factor*ABS(alamc(k))*eeta_new(i,j,k)*vm(i,j)**2.5 
          END DO
@@ -769,7 +766,6 @@
       
       x0 = (a1 + a2)/2.
       a  = (a1 - a2)/2.
-
       do j=1,jdim
         do i=ceiling(bndloc(j)),idim-1
 ! now check to see if the point is outside the ellipse, if so
@@ -878,35 +874,56 @@ END SUBROUTINE Smooth_eta_at_boundary
       return
     
       END SUBROUTINE Smooth_boundary_location
+
 !
-      subroutine set_plasmasphere(idim,jdim,kdim,rmin,pmin,vm,eeta,imin_j)
+      subroutine set_plasmasphere(idim,jdim,kdim,xmin,ymin,vm,eeta,imin_j)
+! subroutine set_plasmasphere(idim,jdim,kdim,rmin,pmin,vm,eeta,imin_j)
 ! crude routine to set a plasmasphere model in the rcm
 ! alam(1) should be set to a small value (0.01)
 ! 2/07 frt
+! Use the gallagher model for initial condition, density in ple/m^3
+! alam(1) is set to be 0
+! A refilling model is applied in the RCM simulation region
+! sbao 03/25
+
 !      USE Rcm_mod_subs, ONLY : iprec,rprec
       USE rcm_precision
+      USE earthhelper, ONLY : GallagherXY
+      USE constants, ONLY: density_factor
       IMPLICIT NONE
 
       integer(iprec) :: idim,jdim,kdim
+      real(rprec) :: dens_gal = 0.0
       integer(iprec) :: imin_j(jdim)
-      real(rprec) :: vm(idim,jdim),rmin(idim,jdim),pmin(idim,jdim)
+      real(rprec) :: vm(idim,jdim),xmin(idim,jdim),ymin(idim,jdim)
       real(rprec) :: eeta(idim,jdim,kdim)
 
       integer(iprec) :: i,j,k
-      real(rprec), parameter :: radius_ps = 5.0
-      real(rprec), parameter :: dens_ps = 10.0e6 ! ple/m^3
+!      real(rprec), parameter :: radius_ps = 5.0
+!      real(rprec), parameter :: dens_ps = 10.0e6 ! ple/m^3
 
-      do j=1,jdim
-       do i=imin_j(j),idim
-        if(rmin(i,j) < radius_ps .and. vm(i,j) > 0.0)then
-        eeta(i,j,1) = dens_ps/(1.5695e-16*vm(i,j)**1.5)
-        end if
-       end do
-      end do
+!      do j=1,jdim
+!       do i=imin_j(j),idim
+!        if(rmin(i,j) < radius_ps .and. vm(i,j) > 0.0)then
+!        eeta(i,j,1) = dens_ps/(1.5695e-16*vm(i,j)**1.5)
+!        end if
+!       end do
+!      end do
+
+        do j=1,jdim
+        do i=imin_j(j),idim
+                if(vm(i,j) > 0.0)then
+                dens_gal = GallagherXY(xmin(i,j),ymin(i,j))*1.0e6
+                ! add to the existing eeta - frt
+                eeta(i,j,1) = eeta(i,j,1) + dens_gal/(density_factor*vm(i,j)**1.5)
+                end if
+        end do
+        end do
+
 
       return
 
-end subroutine set_plasmasphere
+      end subroutine set_plasmasphere
 
 !-------------------------------------
       subroutine print_max(nx,ny,nz,label,array,x,y,z)
@@ -1168,6 +1185,7 @@ end subroutine set_plasmasphere
       USE rcm_precision, only : iprec
       implicit none
       integer(iprec),intent(in) :: isize,jsize,kcsize
+      integer(iprec) :: idim,jdim,kdim
 ! if the arrays are allocated, then return
       if(allocated(x0))return
 

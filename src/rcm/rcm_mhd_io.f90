@@ -87,6 +87,8 @@ module rcm_mhd_io
     end subroutine initRCMIO
 
     subroutine WriteRCM(RCMApp,nOut,MJD,time)
+        USE constants, ONLY: nt
+        USE rcm_mod_subs, ONLY:isize,jsize,jwrap
         type(rcm_mhd_t), intent(inout) :: RCMApp
         integer, intent(in) :: nOut
         real(rp), intent(in) :: MJD,time
@@ -95,11 +97,22 @@ module rcm_mhd_io
         character(len=strLen) :: gStr
 
         real(rp) :: rcm2Wolf
-        integer, dimension(2) :: DimLL
-        integer :: Ni,Nj
+        real(rp), dimension(:,:), allocatable :: PLim,PBeta
+        integer :: NLat,NLon
+
+        NLat = RCMApp%nLat_ion
+        NLon = RCMApp%nLon_ion
         
-        rcm2Wolf = (1.0e-9)**(IMGAMMA-1.0) !Convert to Wolf units, RCM: Pa (Re/T)^gam => nPa (Re/nT)^gam
+        rcm2Wolf = nt**(IMGAMMA-1.0) !Convert to Wolf units, RCM: Pa (Re/T)^gam => nPa (Re/nT)^gam
         
+        allocate(PLim (NLat,NLon))
+        allocate(PBeta(NLat,NLon))
+        
+        PBeta = (5.0/6.0)*RCMApp%beta_average
+
+        !Calculate wolf-limited P (RCM units)
+        PLim = (PBeta*RCMApp%Pave + RCMApp%Prcm)/(1.0 + PBeta)
+
         !Reset IO chain
         call ClearIO(IOVars)
 
@@ -107,15 +120,15 @@ module rcm_mhd_io
         call AddOutVar(IOVars,"Npsph",RCMApp%Npsph*rcmNScl,uStr="#/cc")
         call AddOutVar(IOVars,"P",RCMApp%Prcm*rcmPScl,uStr="nPa")
         call AddOutVar(IOVars,"IOpen",RCMApp%iopen*1.0_rp)
-        call AddOutVar(IOVars,"bVol",RCMApp%Vol,uStr="Re/T")
+        call AddOutVar(IOVars,"bVol",RCMApp%Vol*nt,uStr="Re/nT")
         call AddOutVar(IOVars,"pot",RCMApp%pot,uStr="V")
         call AddOutVar(IOVars,"xMin",RCMApp%X_bmin(:,:,XDIR)/REarth,uStr="Re")
         call AddOutVar(IOVars,"yMin",RCMApp%X_bmin(:,:,YDIR)/REarth,uStr="Re")
         call AddOutVar(IOVars,"zMin",RCMApp%X_bmin(:,:,ZDIR)/REarth,uStr="Re")
         call AddOutVar(IOVars,"bMin",RCMApp%Bmin,uStr="T")
-        
         call AddOutVar(IOVars,"S",rcm2Wolf*RCMApp%Prcm*(RCMApp%Vol**IMGAMMA),uStr="Wolf")
         call AddOutVar(IOVars,"beta",RCMApp%beta_average)
+        call AddOutVar(IOVars,"Plim",PLim*rcmPScl,uStr="nPa")
         call AddOutVar(IOVars,"Pmhd",RCMApp%Pave*rcmPScl,uStr="nPa")
         call AddOutVar(IOVars,"Nmhd",RCMApp%Nave*rcmNScl,uStr="#/cc")
         call AddOutVar(IOVars,"latc",RCMApp%latc*180.0/PI,uStr="deg")
@@ -130,12 +143,12 @@ module rcm_mhd_io
         call AddOutVar(IOVars,"toMHD",merge(1.0_rp,0.0_rp,RCMApp%toMHD))
 
         !Trim output for colat/aloct to remove wrapping
-        DimLL = shape(colat)
-        Ni = DimLL(1)
-        Nj = DimLL(2)
+!        DimLL = shape(colat)
+!        Ni = DimLL(1)
+!        Nj = DimLL(2)
 
-        call AddOutVar(IOVars,"colat",colat(:,3:Nj))
-        call AddOutVar(IOVars,"aloct",aloct(:,3:Nj))
+        call AddOutVar(IOVars,"colat",colat(:,jwrap:jsize))
+        call AddOutVar(IOVars,"aloct",aloct(:,jwrap:jsize))
         !Add attributes
         call AddOutVar(IOVars,"time",time)
         call AddOutVar(IOVars,"MJD",MJD)

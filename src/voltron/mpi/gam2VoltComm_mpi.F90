@@ -292,8 +292,14 @@ module gam2VoltComm_mpi
         type(gamAppMpi_T), intent(inout) :: gApp
         logical, optional, intent(in) :: skipUpdateGamera
 
-        !NOTE: This may be bad because of compiler optimization of .and. (K:)
-        if(present(skipUpdateGamera) .and. skipUpdateGamera) then
+        logical :: doSkipUpdate
+
+        if(present(skipUpdateGamera)) then
+            doSkipUpdate = skipUpdateGamera
+        else
+            doSkipUpdate = .false.
+        endif
+        if(doSkipUpdate) then
             ! do nothing, don't update gamera's data on voltron
         else
             ! send shallow data

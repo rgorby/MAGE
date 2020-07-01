@@ -190,7 +190,7 @@ module voltapp_mpi
         xmlInp = New_XML_Input(trim(inpXML),'Gamera',.true.)
         call xmlInp%Set_Val(vApp%doSerialVoltron,"/Voltron/coupling/doSerial",.false.)
         vApp%gAppLocal%Grid%ijkShift(1:3) = 0
-        call ReadCorners(vApp%gAppLocal%Model,vApp%gAppLocal%Grid,xmlInp,noRestart=.true.)
+        call ReadCorners(vApp%gAppLocal%Model,vApp%gAppLocal%Grid,xmlInp,noRestartOpt=.true.)
         call SetRings(vApp%gAppLocal%Model,vApp%gAppLocal%Grid,xmlInp)
         call Corners2Grid(vApp%gAppLocal%Model,vApp%gAppLocal%Grid)
         call DefaultBCs(vApp%gAppLocal%Model,vApp%gAppLocal%Grid)
@@ -390,9 +390,15 @@ module voltapp_mpi
         real(rp), intent(in) :: time
         logical, optional, intent(in) :: skipUpdateGamera
 
+        logical :: doSkipUpdate
         integer :: ierr
 
-        if(present(skipUpdateGamera) .and. skipUpdateGamera) then
+        if(present(skipUpdateGamera)) then
+            doSkipUpdate = skipUpdateGamera
+        else
+            doSkipUpdate = .false.
+        endif
+        if(doSkipUpdate) then
             ! do nothing here, do not update the incoming gamera data
         else
             ! fetch data from Gamera ranks

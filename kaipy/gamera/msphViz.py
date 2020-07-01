@@ -5,10 +5,8 @@ from argparse import RawTextHelpFormatter
 import matplotlib as mpl
 import numpy as np
 import kaipy.kaiViz as kv
-#import kaipy.gamera.remixpp as rmpp
 import kaipy.gamera.magsphere as msph
-#import kaipy.gamera.gampp as gampp
-#import kaipy.gamera.rcmpp as rcmpp
+import kaipy.remix.remix as remix
 import os
 
 dbMax = 25.0
@@ -147,3 +145,18 @@ def PlotMPI(gsph,Ax,ashd=0.5):
 		j0 = (gsph.Rj)*gsph.dNj
 		Ax.plot(gsph.xxi[:,j0], gsph.yyi[:,j0],gCol,linewidth=cLW,alpha=ashd)
 			
+def AddIonBoxes(gs,ion):
+	gsRM = gs.subgridspec(20,20)
+
+	wXY = 6
+	dX = 1
+	dY = 1
+
+	#Northern
+	ion.init_vars('NORTH')
+	ax = ion.plot('current'  ,gs=gsRM[dY:dY+wXY,dX:dX+wXY],doInset=True)
+	#ax.set_title("North",fontsize="small")
+
+	#Southern
+	ion.init_vars('SOUTH')
+	ax = ion.plot('current'  ,gs=gsRM[-dY-wXY:-dY,dX:dX+wXY],doInset=True)

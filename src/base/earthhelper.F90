@@ -33,6 +33,14 @@ module earthhelper
     real(rp), parameter, private :: GLMax = 8.0
 
     integer, parameter, private :: kpDefault = 4
+
+
+    !Toy code for putting in a quiet time RC
+    !See Liemohn 2003
+    real(rp), private :: QTRC_P0  = 1.0 !Scaling parameter for pressure
+    real(rp), private :: QTRC_Lpk = 4.0 !Location of peak
+    real(rp), private :: QTRC_dL  = 0.625 !Width
+
     contains
 
 !Adapted by Kareem from FRT's original code
@@ -325,5 +333,138 @@ module earthhelper
         Bd = 3*dot_product(m,xyz)*xyz/rad**5.0 - m/rad**3.0
 
     end function MagsphereDipole
+
+!---------
+!Code for quiet time RC
+    !Set parameters based on desired dst, Lpeak and dL
+    subroutine SetQTRC(dst0,LpkO,dLO)
+        real(rp), intent(in) :: dst0
+        real(rp), intent(in), optional :: LpkO,dLO
+        real(rp) :: K,dB
+    
+        if (present(LpkO)) then
+            QTRC_Lpk = LpkO
+        endif
+
+        if (present(dLO)) then
+            QTRC_dL = dLO
+        endif
+
+        if (dst0 >= 0) then
+            QTRC_P0 = 0.0
+            return
+        else
+            QTRC_P0 = 1.0
+        endif
+
+        !Get energy content w/ P0=1
+        K = KIn()
+        dB = -4.2*(1.0e-30)*K !Dst from DPS
+
+        !Rescale to get target dst0
+        QTRC_P0 = dst0/dB 
+        
+        !Calculate new energy content
+        K = KIn()
+
+        write(*,*) '---------------'
+        write(*,*) 'Adding quiet-time ring current'
+        write(*,*) 'Target Dst [nT]    = ', dst0
+        write(*,*) 'RC Energy  [keV]   = ', K
+        write(*,*) 'L-Peak     [Re]    = ', QTRC_Lpk
+        write(*,*) 'dL         [Re]    = ', QTRC_dL
+        write(*,*) 'P-Peak     [nPa]   = ', QTRC_P0
+        write(*,*) '---------------'
+
+        contains
+            !Integrate total ring current energy content (keV)
+            function KIn()
+                real(rp) :: KIn
+
+                real(rp) :: LIn,LOut,dl,K
+                real(rp) :: Li,Lip,Lc,Pc,dV
+                integer :: n,Nl
+                !Now just doing lazy numerical integral
+                LIn  = 1.5
+                LOut = 10.0
+                Nl = 100
+
+                dl = (LOut-LIn)/Nl
+
+                KIn = 0.0 !Cumulative energy
+                do n=1,Nl
+                    Li  = (n-1)*dl + LIn
+                    Lip = Li+dl
+                    Lc = Li+0.5*dl
+
+                    Pc = P_QTRC(Lc)
+                    dV = MagDV(Li,Lip)
+                    KIn = KIn + Pc*dV
+                enddo
+                !K has units nPa*m3
+                !Convert to keV
+                KIn = ((1.0e-9)/kev2J)*KIn           
+            end function KIn
+
+    end subroutine SetQTRC
+
+    !Dipole volume between L1,L2 (m3)
+    !See Gkioulidou 2016
+    function MagDV(L1,L2)
+        real(rp), intent(in) :: L1,L2
+        real(rp) :: MagDV
+
+        real(rp) :: L21,Re3,a
+        L21 = L2**3.0 - L1**3.0
+        Re3 = REarth**3.0 !m^3
+        a = 64.0*PI/105.0
+        MagDV = a*Re3*L21
+    end function MagDV
+
+    !Pressure profile, See Liemohn 2003
+    function P_QTRC(L) result(P)
+        real(rp), intent(in) :: L
+        real(rp) :: P
+        real(rp) :: Lm,A,x,eA
+        !Set values
+        Lm = QTRC_Lpk - QTRC_dL
+        
+        A = QTRC_dL*exp(-1.0 + QTRC_Lpk/QTRC_dL)
+
+        if (L>=Lm) then
+            x = L-Lm
+            eA = -(x-QTRC_Lpk)/QTRC_dL
+            P = x*exp(eA)/A
+        else
+            P = 0.0
+        endif
+
+        P = QTRC_P0*P
+
+    end function P_QTRC
+
+    !Just return peak L value
+    function LPk_QTRC() result(LPk)
+        real(rp) :: LPk
+
+        LPk = QTRC_Lpk
+    end function LPk_QTRC
+
+    !Turn pressure [nPa] and temperature [keV] to density [#/cc]
+    function PkT2Den(P,kT) result(D)
+        real(rp), intent(in) :: P,kT
+        real(rp) :: D
+
+        D = 6.25*P/max(kT,TINY)
+
+    end function PkT2Den
+
+    !Turn density [#/cc] and temperature [keV] to pressure [nPa]
+    function DkT2P(D,kT) result(P)
+        real(rp), intent(in) :: D,kT
+        real(rp) :: P
+
+        P = max(kT,TINY)*D/6.25
+    end function DkT2P
 
 end module earthhelper

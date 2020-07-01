@@ -8,6 +8,9 @@ Ri = 6.5  # radius of ionosphere in 1000km
 Re = 6.38 # radius of Earth in 1000km
 mu0o4pi = 1.e-7 # mu0=4pi*10^-7 => mu0/4pi=10^-7
 
+#Setting globals here to grab them from other modules
+facMax = 1.0
+facCM = cm.RdBu_r
 class remix:
 	def __init__(self,h5file,step):
 		# create the ion object to store data and coordinates
@@ -17,8 +20,8 @@ class remix:
 		# DEFINE DATA LIMITS
 		self.variables = { 'potential' : {'min':-100,
 										'max': 100},
-						 'current'   : {'min':-1,
-										'max':1},
+						 'current'   : {'min':-facMax,
+										'max':facMax},
 						 'sigmap'    : {'min':1,
 										'max':10},
 						 'sigmah'    : {'min':2,
@@ -94,11 +97,11 @@ class remix:
 	def plot(self,varname,
 			 ncontours=16,   # default number of potential contours
 			 addlabels={},
-			 gs=None):
+			 gs=None,doInset=False):
 
 		# define function for potential contour overplotting
 		# to keep code below clean and compact
-		def potential_overplot():
+		def potential_overplot(doInset=False):
 			tc = 0.25*(theta[:-1,:-1]+theta[1:,:-1]+theta[:-1,1:]+theta[1:,1:])
 			rc = 0.25*(r[:-1,:-1]+r[1:,:-1]+r[:-1,1:]+r[1:,1:])
 
@@ -117,11 +120,20 @@ class remix:
 			tmp = np.vstack([tmp[0,:].mean()*np.ones_like(tmp[[0],:]),tmp])						
 
 			# finally, plot
-			ax.contour(tc+np.pi/2.,rc,tmp,15,colors='black',linewidths=0.5)
+			if (doInset):
+				LW = 0.25
+				alpha = 1
+				tOff = 0.0
+			else:
+				LW = 0.5
+				alpha = 1
+				tOff = np.pi/2.
+			ax.contour(tc+tOff,rc,tmp,15,colors='black',linewidths=LW,alpha=alpha)
 
-			# also, print min/max values of the potential
-			ax.text(73.*np.pi/180.,1.03*r.max(),('min: '+format_str+'\nmax: ' +format_str) % 
-				  (tmp.min() ,tmp.max()))
+			if (not doInset):
+				# also, print min/max values of the potential
+				ax.text(73.*np.pi/180.,1.03*r.max(),('min: '+format_str+'\nmax: ' +format_str) % 
+					  (tmp.min() ,tmp.max()))
 
 
 		if not self.Initialized:
@@ -170,10 +182,9 @@ class remix:
 		else:
 			format_str = '%.1e'
 
-		# define red/blue colortable for potential and current
-		latlblclr = 'black'
+
 		if (varname == 'potential') or (varname == 'current'):
-			cmap=cm.RdBu_r
+			cmap=facCM
 		elif varname in ['flux','energy','eflux','joule']:
 			cmap=cm.inferno			
 			latlblclr = 'white'
@@ -187,13 +198,24 @@ class remix:
 			cmap=None # default is used
 		
 		# DEFINE GRID LINES AND LABELS
-		circle_list = [10,20,30,40]
+		if (doInset):
+			circle_list = [15,30,45]
+			lbls = ["","",str(45)+u'\xb0']
+			hour_labels = ["","","",""]
+			LW = 0.25
+			latlblclr = 'silver'
+			tOff = 0.0
+		else:
+			circle_list = [10,20,30,40]
+		# convert to string and add degree symbol
+			lbls = [str(elem)+u'\xb0' for elem in circle_list] 
+			hour_labels = ['06','12','18','00']
+			LW = 1.0
+			latlblclr = 'black'
+			tOff = np.pi/2.
 		circles = np.sin(np.array(circle_list)*np.pi/180.)
 
-		# convert to string and add degree symbol
-		lbls = [str(elem)+u'\xb0' for elem in circle_list] 
 		
-		hour_labels = ['06','12','18','00']
 
 		if varname == 'joule':
 			self.variables[varname]['data'] = self.joule()*1.e3  # convert to mW/m^2
@@ -201,26 +223,34 @@ class remix:
 		variable = self.variables[varname]['data']
 
 		fig = plt.gcf()
+		
 		# Now plotting
 		if gs != None:
 			ax=fig.add_subplot(gs,polar=True)
 		else:
 			ax=fig.add_subplot(polar=True) 
 
-		p=ax.pcolormesh(theta+np.pi/2.,r,variable,cmap=cmap,vmin=lower,vmax=upper)
-		cb=plt.colorbar(p,ax=ax,pad=0.1,shrink=0.85)  
-		cb.set_label(cblabels[varname])
+		p=ax.pcolormesh(theta+tOff,r,variable,cmap=cmap,vmin=lower,vmax=upper)
 
-		lines, labels = plt.rgrids(circles,lbls,fontsize=8,color=latlblclr)
+		if (not doInset):
+			cb=plt.colorbar(p,ax=ax,pad=0.1,shrink=0.85)  
+			cb.set_label(cblabels[varname])
+
+			ax.text(-75.*np.pi/180.,1.2*r.max(),('min: '+format_str+'\nmax: ' +format_str) % 
+				  (variable.min() ,variable.max()))
+			
 		lines, labels = plt.thetagrids((0.,90.,180.,270.),hour_labels)
+		lines, labels = plt.rgrids(circles,lbls,fontsize=8,color=latlblclr)
+		# if (doInset):
+		# 	lines, labels = plt.rgrids(circles,lbls,fontsize=8,color=latlblclr)
+
+		ax.grid(True,linewidth=LW)
 		ax.axis([0,2*np.pi,0,r.max()],'tight')
-		ax.text(-75.*np.pi/180.,1.2*r.max(),('min: '+format_str+'\nmax: ' +format_str) % 
-			  (variable.min() ,variable.max()))
-		ax.grid(True)
 
 		if varname=='current': 
-			potential_overplot()
+			potential_overplot(doInset)
 
+		return ax
 	# mpl.rcParams['contour.negative_linestyle'] = 'solid'
 	# if (varname == 'efield' or varname == 'velocity' or varname =='joule'): 
 	#     contour(theta+pi/2.,r,variables['potential']['data'][:,2:-1],21,colors='black')

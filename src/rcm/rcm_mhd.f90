@@ -17,12 +17,14 @@ module rcm_mhd_mod
     subroutine rcm_mhd(mhdtime,mhdtimedt,RM,iflag,iXML)
     ! version to couple to gamera
     ! units are assumed to mks, except for distances which are in Re.
-    ! iflag = 0 - setup arrays, read in parameters
-    ! iflag = 1 - run rcm
-    ! iflag = 2 - Resart RCM
-    ! iflag = -1 - stop, write out timing information
-    ! iflag = -2 - Write restart (icontrol = 31337)
-    ! iflag = -3 - Write H5 output (icontrol = 31338)
+    ! iflag = 0 - setup arrays, read in parameters (RCMINIT)
+    ! iflag = 1 - run rcm (RCMADVANCE)
+    ! iflag = 2 - Restart RCM (RCMWRITERESTART)
+    ! iflag = 10 - start from a cold start (RCMCOLDSTART) 
+    ! iflag = -1 - stop, write out timing information (RCMWRITETIMING)
+    ! iflag = -2 - Write restart (icontrol = 31337) (RCMWRITERESTART)
+    ! iflag = -3 - Write H5 output (icontrol = 31338) (RCMWRITEOUTPUT)
+
 
     ! 2/19 frt
 
@@ -43,15 +45,15 @@ module rcm_mhd_mod
         real(rprec) :: time0 = 0 ! coupling start time
         integer(iprec) :: ircm_dt
         integer(iprec) :: itimef_old = -1
-        integer(iprec) :: irdr = 1 !> RCM(...) param:  record # to read in
-        integer(iprec) :: irdw = 1 !> RCM(...) param:  record # to write out
+!        integer(iprec) :: irdr = 1 !> RCM(...) param:  record # to read in
+!        integer(iprec) :: irdw = 1 !> RCM(...) param:  record # to write out
         integer(iprec) :: idt   !> RCM(...) param:  basic time step in program
         integer(iprec) :: idt1  !> RCM(...) param:  time step for
                               !! changing disk & write records
         integer(iprec) :: idt2  !> RCM(...) param:  time step for
                               !! writting formatted output
 
-        integer(iprec) :: rec = 1 !> Record number that torcm/tomhd use to
+!        integer(iprec) :: rec = 1 !> Record number that torcm/tomhd use to
 
         real(rprec) :: t1, t2  !> Used for performance timing
 
@@ -76,19 +78,18 @@ module rcm_mhd_mod
   
     ! finish up
         if(iflag==RCMWRITETIMING)then
-            call write_rcm_timing(rcm_timing)
-            return
+          return ! do nothing
         end if
 
     ! Write restart file
         if (iflag==RCMWRITERESTART) then
-            CALL Rcm (itimei, itimef, irdr, irdw, idt, idt1, idt2,icontrol=ICONWRITERESTART,stropt=RM%rcm_runid,nslcopt=RM%RCM_nRes)
+            CALL Rcm (itimei, itimef, idt, idt1, idt2,icontrol=ICONWRITERESTART,stropt=RM%rcm_runid,nslcopt=RM%RCM_nRes)
             return
         endif
 
     ! Write output slice
         if (iflag==RCMWRITEOUTPUT) then
-            CALL Rcm (itimei, itimef, irdr, irdw, idt, idt1, idt2,icontrol=ICONWRITEOUTPUT,stropt=RM%rcm_runid,nslcopt=RM%RCM_nOut)
+            CALL Rcm (itimei, itimef, idt, idt1, idt2,icontrol=ICONWRITEOUTPUT,stropt=RM%rcm_runid,nslcopt=RM%RCM_nOut)
             return
         endif
 
@@ -105,45 +106,27 @@ module rcm_mhd_mod
             endif
 
             ! setup rcm
-            CALL Rcm (itimei, itimef, irdr, irdw, idt, idt1, idt2,icontrol=0_iprec)
+            CALL Rcm (itimei, itimef, idt, idt1, idt2,icontrol=0_iprec)
 
             call allocate_conversion_arrays (isize,jsize,kcsize)
 
             ! Set up RCM ionospheric grid:
-            !call Grid_torcm (75.0_rprec, 15.0_rprec, 0.0_rprec, radius_earth_m, radius_iono_m)  ! set up RCM ionospheric grid here
-            call Grid_torcm (HighLatBD,LowLatBD, 0.0_rprec, radius_earth_m, radius_iono_m)  ! set up RCM ionospheric grid here
-
+            !call Grid_torcm (HighLatBD,LowLatBD, 0.0_rprec, radius_earth_m, radius_iono_m)  ! set up RCM ionospheric grid here
+            write(*,*) "rcm/rcm_mhd.f90: RM%planet_radius=",RM%planet_radius
+            call Grid_torcm (HighLatBD,LowLatBD, 0.0_rprec, RM%planet_radius, RM%iono_radius)  ! set up RCM ionospheric grid here
             ! Setup Ionosphere intermediate Grid by equating it to the RCM grid, without angular overlap:
             call setupIon(RM)
 
-            CALL Rcm (itimei, itimef, irdr, irdw, idt, idt1, idt2, icontrol=1_iprec)
+            CALL Rcm (itimei, itimef, idt, idt1, idt2, icontrol=1_iprec)
 
             ! icontrol of 2 also needs the input xml file
-            CALL Rcm (itimei, itimef, irdr, irdw, idt, idt1, idt2, icontrol=2_iprec, iXML=iXML)
-        
+            CALL Rcm (itimei, itimef, idt, idt1, idt2, icontrol=2_iprec, iXML=iXML)
 
         ! restart
             if (iflag == RCMRESTART) then
-                !HDF5 RESTART
-          
-                !Check if timing file exists
-                if ( CheckFile(Rcmdir//"rcm_timing.dat") ) then
-                    !Reset timing for record business
-                    call read_rcm_timing(rcm_timing)
-                    call find_record(itimei,rcm_timing,rec)
-                else
-                    !Create basic setup
-                    rec = 1
-                    call  AddToList(itimei,rcm_timing )
-                    !Write null timing data
-                    call write_rcm_timing(rcm_timing)
-                endif !rcm_timing.dat exists
-          
-                irdr = rec
-                irdw = rec
 
                 !Read in HDF5 restart data
-                CALL Rcm (itimei, itimef, irdr, irdw, idt, idt1, idt2,icontrol=ICONRESTART,stropt=RM%rcm_runid,nslcopt=RM%RCM_nRes)
+                CALL Rcm (itimei, itimef,idt, idt1, idt2,icontrol=ICONRESTART,stropt=RM%rcm_runid,nslcopt=RM%RCM_nRes)
 
                 return
             endif !restart
@@ -154,31 +137,26 @@ module rcm_mhd_mod
 
 
 
-        if(iflag==RCMADVANCE) then ! run the rcm
+        if(iflag==RCMADVANCE.or.iflag==RCMCOLDSTART) then ! run the rcm
 
          !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
          ! Determine exchange times...
          !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-         ! set the record number; Note: nint seems to fix some rounding errors.
-         ! 2 records per timestep 
-            if (itimei==0)then ! first call to rcm
+         if (iflag==RCMINIT)then ! first call to rcm
                 exchangeNum = 0
-            else
-                ! now move to the next record
-                rec = rec + 1
             endif
 
             isFirstExchange = (exchangeNum==0)
 
             if (doRCMVerbose) then
-                write(*,*)'-----------rcm_mhd: rec=',rec
+!                write(*,*)'-----------rcm_mhd: rec=',rec
 
                 write(*,*) 'itimei = ', itimei
                 write(*,*) 'exchangeNum = ', exchangeNum
                 WRITE (*,'(//)')
-                write (*,'(a,i4,a,g12.4,a,i4)') 'RCM: time=',itimei,'  time0=',time0, '  Delta_t[s]=',ircm_dt
-                write (*,'(a,i4,a,i3,a,g12.4)') 'RCM: ____T_rcm[s] =', itimei,'  rec=',rec,'  T_MHD=',mhdtime
+                write (*,'(a,i6,a,g12.4,a,i4)') 'RCM: time=',itimei,'  time0=',time0, '  Delta_t[s]=',ircm_dt
+                write (*,'(a,i6,a,g12.4)') 'RCM: _T_rcm[s] =', itimei, ' T_MHD=',mhdtime
                 WRITE (*,'(//)')
             endif
          
@@ -192,18 +170,9 @@ module rcm_mhd_mod
             itimef = itimei + idt *((itimef-itimei)/idt)
             itimef_old = itimef
 
-            IF (isFirstExchange .AND. itimei == 0) then 
-                !special case. Tell RCM to start from rec=1, but most initial
-                ! conditions will actually be done in TORCM
-                irdr = 1
-            ELSE
-                irdr = rec - 1
-            END IF
-
-            irdw = rec
 
             if (isFirstExchange) then ! Set RCM initial conditions on plasma:
-                call rcm (itimei, itimef, irdr, irdw, idt, idt1, idt2, icontrol=3_iprec)
+                call rcm (itimei, itimef, idt, idt1, idt2, icontrol=3_iprec)
             end if
 
 
@@ -213,12 +182,12 @@ module rcm_mhd_mod
 
             call cpu_time(t1)
             if (doRCMVerbose) then
-                write(6,'(2(a,i4))')'RCM: calling torcm with rec =',rec,' itimei=',itimei
+                write(6,'(2(a,i6))')'RCM: calling torcm with  itimei=',itimei,' iflag=',iflag
                 call print_date_time(6_iprec)
             endif
 
             call Tic("TORCM")
-            call torcm(RM,rec,itimei,ierr)
+            call torcm(RM,itimei,ierr,iflag)
             call Toc("TORCM")
 
             if (ierr > 0 )then
@@ -235,15 +204,15 @@ module rcm_mhd_mod
 
             call cpu_time(t1)
             if (doRCMVerbose) then 
-                write(6,'(a,i5,a,i5,a,i5,a)')'RCM: call rcm at itimei =',itimei,' to itimef =',itimef,' dt=',ircm_dt, ' sec'
+                write(6,'(a,i6,a,i6,a,i5,a)')'RCM: call rcm at itimei =',itimei,' to itimef =',itimef,' dt=',ircm_dt, ' sec'
                 call print_date_time(6_iprec)
             endif
 
             ! now run the rcm
             call Tic("xRCMx")
-            call rcm (itimei, itimef, irdr, irdw, idt, idt1, idt2, icontrol=4_iprec)
+            call rcm (itimei, itimef, idt, idt1, idt2, icontrol=4_iprec,stropt=RM%rcm_runid,nslcopt=RM%RCM_nOut)
             call Toc("xRCMx")
-            rec = rec + 1 ! update record after rcm has run
+!            rec = rec + 1 ! update record after rcm has run
 
             call cpu_time(t2)
             if (doRCMVerbose) then
@@ -255,11 +224,11 @@ module rcm_mhd_mod
             !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
             ! Export data to MHD code
             !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-            if (doRCMVerbose) write(6,'(a,i5.5)')'RCM_MHD: calling tomhd with rec =',rec
+            if (doRCMVerbose) write(6,'(a)')'RCM_MHD: calling tomhd '
             
             call cpu_time(t1)
             call Tic("TOMHD")
-            call Tomhd (RM,rec, ierr)
+            call Tomhd (RM, ierr)
             call Toc("TOMHD")
 
             call cpu_time(t2)
@@ -277,7 +246,7 @@ module rcm_mhd_mod
         end if
 
         if (iflag==RCMRESTART)then ! stop
-            call rcm (itimei,itimef,irdr,irdw,idt,idt1,idt2,icontrol=5_iprec)
+            call rcm (itimei,itimef,idt,idt1,idt2,icontrol=5_iprec)
             !  call Finalize()    ! Matches Initialize() above
             call tearDownIon(RM) ! Matches setupIon() above
         end if

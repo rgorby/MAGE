@@ -7,8 +7,10 @@ module rcm_mhd_interfaces
     USE Rcm_mod_subs, ONLY : isize, jsize, jwrap, pi, colat, aloct
     implicit none
     integer(ip), parameter :: RCMINIT=0,RCMADVANCE=1,RCMRESTART=2,RCMWRITERESTART=-2,RCMWRITEOUTPUT=-3,RCMWRITETIMING=-1
+    integer(ip), parameter :: RCMCOLDSTART=10
     logical :: doRCMVerbose = .FALSE.
     integer(ip), parameter :: RCMTOPCLOSED=-1,RCMTOPOPEN=+1
+    logical :: doColdstart =.true.
 
     !Scaling parameters
     real(rp), parameter :: rcmPScl = 1.0e+9 !Convert Pa->nPa
@@ -16,7 +18,9 @@ module rcm_mhd_interfaces
 
     type rcm_mhd_T
         integer(iprec) :: nLat_ion 
-        integer(iprec) :: nLon_ion 
+        integer(iprec) :: nLon_ion
+        real(rprec) :: planet_radius ! m
+        real(rprec) :: iono_radius ! m 
         real(rprec),allocatable :: gcolat(:) !> RCM Latitude grid points
         real(rprec),allocatable :: glong(:)  !> RCM Longitude grid points
         real(rprec),allocatable :: pot(:,:)     !> Potential; received from MHD [Volts]

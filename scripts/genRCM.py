@@ -13,25 +13,38 @@ if __name__ == "__main__":
 	fOut = "rcmconfig.h5"
 
 	MainS = """Generates RCM configuration data
-
 	"""
-	
 	parser = argparse.ArgumentParser(description=MainS, formatter_class=RawTextHelpFormatter)
 	parser.add_argument('-o',type=str,default=fOut,metavar="fOut",help="Output file name (default: %(default)s)")
+	parser.add_argument('-nop',action='store_true',default=False,help="Do not add zero loss first channel (default: %(default)s)")
+	
 	#Finalize parsing
 	args = parser.parse_args()
 	fOut = args.o
-	print("Writing RCM configuration to %s"%(fOut))
+	nop = args.nop
+	p = (not nop)
 
-	alamc,etac,ikflavc,fudgec = rcminit.LoadLAS1()
+	print("Writing RCM configuration to %s"%(fOut))
+	print("NOTE: This version only uses the file enchan.dat")
+
 	dktab = rcminit.LoadDKTab()
-	iflavin, alamin = rcminit.LoadEnchan()
+	ikflavc, alamc = rcminit.LoadEnchan()
+
+	kdim = ikflavc.size
+	print(' kdim = %d'%kdim)
+	fudgec = np.zeros(kdim)
+	for k in range(kdim):
+		if(ikflavc[k] ==1):
+			fudgec[k] = 0.33333
+		else:
+			fudgec[k] = 0.0
+
+	if(p):
+		print('Setting first channel to fudge =0')
+		fudgec[0]=0.0
 
 	with h5py.File(fOut,'w') as hf:
 		hf.create_dataset("alamc",data=alamc)
-		hf.create_dataset("etac" ,data=etac)
 		hf.create_dataset("ikflavc" ,data=ikflavc,dtype=np.int)
 		hf.create_dataset("fudgec",data=fudgec)
 		hf.create_dataset("dktable",data=dktab)
-		hf.create_dataset("iflavin" ,data=iflavin,dtype=np.int)
-		hf.create_dataset("alamin",data=alamin)

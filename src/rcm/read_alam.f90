@@ -18,7 +18,7 @@
 !
       INTEGER(iprec) :: k, iflavin, ie, lun = 1
       INTEGER(iprec) :: num_chan (iedim), k_start, k_stop
-      REAL(rprec)  :: alamin, amin, amax
+      REAL(rprec)  :: alamin, amin, amax,fudgein
       LOGICAL :: lflag_1, lflag_2
 ! 
       type(IOVAR_T), dimension(RCMIOVARS) :: IOVars !Lazy hard-coding max variables
@@ -31,23 +31,27 @@
         !Use Gamera HDF5 stuff
         doSP = .false.
         call ClearIO(IOVars) !Reset IO chain
-        call AddInVar(IOVars,"iflavin")
-        call AddInVar(IOVars,"alamin")
+        call AddInVar(IOVars,"ikflavc")
+        call AddInVar(IOVars,"alamc")
+        call AddInVar(IOVars,"fudgec")
         call ReadVars(IOVars,doSP,RCMGAMConfig)
 
         !Lazily replicating loop from below
         DO k = 1, kdim
           iflavin = IOVars(1)%data(k)
           alamin  = IOVars(2)%data(k)
+          fudgein  = IOVars(3)%data(k)
           
           IF (iflavin == 1) THEN
              alam (k) = alamin
              IF (alam(k) > 0.0) alam(k) = - alam(k)
-             fudge (k) = 0.3333
+!             fudge (k) = 0.3333
+             fudge (k) = fudgein
              iflav (k) = 1
           ELSE IF (iflavin == 2) THEN
              alam (k) = alamin
-             fudge (k) = 0.0000
+!             fudge (k) = 0.0000
+             fudge (k) = fudgein
              iflav (k) = 2
           ELSE
              STOP 'ILLEGAL TYPE OF SPECIES'

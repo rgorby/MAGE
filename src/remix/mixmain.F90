@@ -24,6 +24,8 @@ module mixmain
       integer :: h
 
       if (.not.allocated(I)) allocate(I(size(hmsphrs)))
+      
+      I%rad_iono_m = RIonE*1.e+6 ! Default to RIonE. To change, overwrite directly after the init_mix call
 
       do h=1,size(I)
          if(present(optFilename)) then
@@ -68,7 +70,8 @@ module mixmain
     subroutine get_potential(I)
       type(mixIon_T),intent(inout) :: I
 
-      I%St%Vars(:,:,POT) = reshape(I%S%solution,[I%G%Np,I%G%Nt])*RionE**2*1.D3 ! in kV
+      !I%St%Vars(:,:,POT) = reshape(I%S%solution,[I%G%Np,I%G%Nt])*RionE**2*1.D3 ! in kV
+      I%St%Vars(:,:,POT) = reshape(I%S%solution,[I%G%Np,I%G%Nt])*(I%rad_iono_m*1.e-6)**2*1.D3 ! in kV
     end subroutine get_potential
 
     subroutine run_mix(I,tilt,doModelOpt)

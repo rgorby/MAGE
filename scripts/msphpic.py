@@ -11,7 +11,7 @@ from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 import matplotlib.gridspec as gridspec
 import numpy as np
 import kaipy.gamera.msphViz as mviz
-import kaipy.gamera.remixpp as rmpp
+import kaipy.remix.remix as remix
 import kaipy.gamera.magsphere as msph
 import kaipy.gamera.gampp as gampp
 import kaipy.gamera.rcmpp as rcmpp
@@ -68,34 +68,45 @@ if __name__ == "__main__":
 	#Init data
 	gsph = msph.GamsphPipe(fdir,ftag,doFast=doFast)
 
+	if (nStp<0):
+		nStp = gsph.sFin
+		print("Using Step %d"%(nStp))
+
 	#Check for remix
 	rcmChk = fdir + "/%s.mhdrcm.h5"%(ftag)
+	rmxChk = fdir + "/%s.mix.h5"%(ftag)
 	doRCM = os.path.exists(rcmChk)
+	doMIX = os.path.exists(rmxChk)
+
 	if (doRCM):
 		print("Found RCM data")
 		rcmdata = gampp.GameraPipe(fdir,ftag+".mhdrcm")
 
-	if (nStp<0):
-		nStp = gsph.sFin
-		print("Using Step %d"%(nStp))
+	if (doMIX):
+		print("Found ReMIX data")
+		ion = remix.remix(rmxChk,nStp)
+
 	#======
 	#Setup figure
 	fig = plt.figure(figsize=figSz)
-	gs = gridspec.GridSpec(3,4,height_ratios=[20,1.0,1.0],hspace=0.025)
+	gs = gridspec.GridSpec(3,6,height_ratios=[20,1,1],hspace=0.025)
+	
 
-	AxL = fig.add_subplot(gs[0,0:2])
-	AxR = fig.add_subplot(gs[0,2:])
-	AxC1 = fig.add_subplot(gs[2,0])
-	AxC2 = fig.add_subplot(gs[2,3])
-	AxC3 = fig.add_subplot(gs[2,1])
-	AxC4 = fig.add_subplot(gs[2,2])
+	AxL = fig.add_subplot(gs[0,0:3])
+	AxR = fig.add_subplot(gs[0,3:])
 
-	rmpp.cMax = 1.00
-	kv.genCB(AxC4,kv.genNorm(rmpp.cMax),"FAC",cM=rmpp.fcMap,Ntk=4)
-	rmpp.AddPotCB(AxC3)
+	AxC1 = fig.add_subplot(gs[-1,0:2])
+	AxC2 = fig.add_subplot(gs[-1,2:4])
+	AxC3 = fig.add_subplot(gs[-1,4:6])
+
+
+	cbM = kv.genCB(AxC2,kv.genNorm(remix.facMax),"FAC",cM=remix.facCM,Ntk=4)
+	AxC2.xaxis.set_ticks_position('top')
+
 	
 	mviz.PlotEqB(gsph,nStp,xyBds,AxL,AxC1)
-	mviz.PlotMerid(gsph,nStp,xyBds,AxR,doDen,doRCM,AxC2)
+
+	mviz.PlotMerid(gsph,nStp,xyBds,AxR,doDen,doRCM,AxC3)
 	#mviz.PlotJyXZ(gsph,nStp,xyBds,AxR,AxC3)
 
 	gsph.AddTime(nStp,AxL,xy=[0.025,0.89],fs="x-large")
@@ -111,9 +122,7 @@ if __name__ == "__main__":
 		gsph.AddCPCP(nStp,AxR,xy=[0.610,0.925])
 
 	if (doIon):
-		dxy = [32.5,32.5]
-		gsph.CMIViz(AxR,nStp,dxy=dxy,loc="upper left",doNorth=True)
-		gsph.CMIViz(AxR,nStp,dxy=dxy,loc="lower left",doNorth=False)
+		mviz.AddIonBoxes(gs[0,3:],ion)
 
 	#Add MPI decomp
 	if (doMPI):
