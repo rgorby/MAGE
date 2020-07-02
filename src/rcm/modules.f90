@@ -152,8 +152,8 @@ MODULE ionosphere_exchange
       ALLOCATE( rm%glong(rm%nLon_ion) )
 
       ALLOCATE( rm%pot(rm%nLat_ion, rm%nLon_ion) )
-      ALLOCATE( rm%eng_avg(rm%nLat_ion, rm%nLon_ion) )
-      ALLOCATE( rm%flux(rm%nLat_ion, rm%nLon_ion) )
+      ALLOCATE( rm%eng_avg(rm%nLat_ion, rm%nLon_ion, 2) )
+      ALLOCATE( rm%flux(rm%nLat_ion, rm%nLon_ion, 2) )
       ALLOCATE( rm%fac(rm%nLat_ion, rm%nLon_ion) )
       ALLOCATE( rm%Pave(rm%nLat_ion, rm%nLon_ion) )
       ALLOCATE( rm%Nave(rm%nLat_ion, rm%nLon_ion) )

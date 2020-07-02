@@ -15,6 +15,8 @@ module voltapp
     use kronos
     use voltio
     use msphutils, only : RadIonosphere
+    use gcminterp
+    use gcmtypes
     
     implicit none
 
@@ -106,7 +108,8 @@ module voltapp
         endif
         
         !Pull numbering from Gamera
-        vApp%IO%nRes = gApp%Model%IO%nRes
+        !vApp%IO%nRes = gApp%Model%IO%nRes
+        call xmlInp%Set_Val(vApp%IO%nRes ,"/Gamera/restart/nRes" , gApp%Model%IO%nRes)
         vApp%IO%nOut = gApp%Model%IO%nOut
         !Force Gamera IO times to match Voltron IO
         call IOSync(vApp%IO,gApp%Model%IO,1.0/gTScl)
@@ -115,6 +118,12 @@ module voltapp
         !Start shallow coupling immediately
         vApp%ShallowT = vApp%time
         call xmlInp%Set_Val(vApp%ShallowDT ,"coupling/dt" , 0.1_rp)
+        call xmlInp%Set_Val(vApp%doGCM, "coupling/doGCM",.false.)
+        write(*,*) "VOLTRON NRES: ",vApp%IO%nRes,gApp%Model%IO%nRes,vApp%time
+
+        if (vApp%doGCM) then
+            call init_gcm(vApp%gcm,gApp%Model%isRestart)
+        end if
 
     !Deep coupling
         vApp%DeepT = 0.0_rp
@@ -185,8 +194,10 @@ module voltapp
         !Finally do first output stuff
         !console output
         if(vApp%isSeparate) then
+            write(*,*) "FIRST OUTPUT1"
             call consoleOutputVOnly(vApp,gApp,gApp%Model%MJD0)
         else
+            write(*,*) "FIRST OUTPUT2"
             call consoleOutputV(vApp,gApp)
         endif
         !file output
@@ -231,11 +242,12 @@ module voltapp
     !Remix from Gamera
         if(present(optFilename)) then
             ! read from the prescribed file
-            call init_mix(vApp%remixApp%ion,[NORTH, SOUTH],optFilename=optFilename,RunID=RunID,isRestart=isRestart)
+            call init_mix(vApp%remixApp%ion,[NORTH, SOUTH],optFilename=optFilename,RunID=RunID,isRestart=isRestart,nRes=vApp%IO%nRes)
         else
-            call init_mix(vApp%remixApp%ion,[NORTH, SOUTH],RunID=RunID,isRestart=isRestart)
+            call init_mix(vApp%remixApp%ion,[NORTH, SOUTH],RunID=RunID,isRestart=isRestart,nRes=vApp%IO%nRes)
         endif
         vApp%remixApp%ion%rad_iono_m = RadIonosphere() * gApp%Model%units%gx0 ! [Rp] * [m/Rp]
+
         !Set F10.7 from time series (using max)
         f107%wID = vApp%tilt%wID
         call f107%initTS("f10.7")
@@ -249,7 +261,7 @@ module voltapp
 
         call init_mhd2Mix(vApp%mhd2mix, gApp, vApp%remixApp)
         call init_mix2Mhd(vApp%mix2mhd, vApp%remixApp, gApp)
-        vApp%mix2mhd%mixOutput = 0.0
+        !vApp%mix2mhd%mixOutput = 0.0
         
     !CHIMP (TRC) from Gamera
         if (vApp%doDeep) then
@@ -318,12 +330,22 @@ module voltapp
         ! determining the current dipole tilt
         call vApp%tilt%getValue(vApp%time,curTilt)
 
+        if (vApp%doGCM .and. time >=0) then
+            call coupleGCM2MIX(vApp%gcm,vApp%remixApp%ion,vApp%doGCM,mjd=vApp%MJD,time=vApp%time)
+        end if
+
         ! solve for remix output
         if (time<=0) then
+            !write(*,*) " I AM HERE@ "
             call run_mix(vApp%remixApp%ion,curTilt,doModelOpt=.false.)
-        else
+        else if (vApp%doGCM) then
+            !write(*,*) " I AM HERE! "
+            call run_mix(vApp%remixApp%ion,curTilt,gcm=vApp%gcm)
+        else 
+            !write(*,*) " I AM HERE? "
             call run_mix(vApp%remixApp%ion,curTilt,doModelOpt=.true.)
         endif
+
         ! get stuff from mix to gamera
         call mapRemixToGamera(vApp%mix2mhd, vApp%remixApp)
 

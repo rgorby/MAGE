@@ -24,8 +24,8 @@ module rcm_mhd_interfaces
         real(rprec),allocatable :: gcolat(:) !> RCM Latitude grid points
         real(rprec),allocatable :: glong(:)  !> RCM Longitude grid points
         real(rprec),allocatable :: pot(:,:)     !> Potential; received from MHD [Volts]
-        real(rprec),allocatable :: eng_avg(:,:) !> Average Energy (sent to MIX Coupler/Solver)
-        real(rprec),allocatable :: flux(:,:)    !> Energy Flux (sent to MIX Coupler/Solver)
+        real(rprec),allocatable :: eng_avg(:,:,:) !> Average Energy (sent to MIX Coupler/Solver)
+        real(rprec),allocatable :: flux(:,:,:)    !> Energy Flux (sent to MIX Coupler/Solver)
         real(rprec),allocatable :: fac(:,:)     !> Total FAC density (sent to MIX Coupler/Solver)A
         real(rprec),allocatable :: Pave(:,:)    ! MHD supplied average pressure on Pa
         real(rprec),allocatable :: Nave(:,:)    ! MHD supplied average density in #/m^3

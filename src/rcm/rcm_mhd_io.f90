@@ -136,8 +136,10 @@ module rcm_mhd_io
         call AddOutVar(IOVars,"Lb"  ,RCMApp%Lb,uStr="Re")
         call AddOutVar(IOVars,"Tb"  ,RCMApp%Tb,uStr="s")
 
-        call AddOutVar(IOVars,"eavg",RCMApp%eng_avg*1.0e-3,uStr="keV") !ev->keV
-        call AddOutVar(IOVars,"eflux",RCMApp%flux,uStr="ergs/cm2")
+        call AddOutVar(IOVars,"eeavg",RCMApp%eng_avg(:,:,1)*1.0e-3,uStr="keV") !ev->keV electrons
+        call AddOutVar(IOVars,"eeflux",RCMApp%flux(:,:,1),uStr="ergs/cm2")
+        call AddOutVar(IOVars,"ieavg",RCMApp%eng_avg(:,:,2)*1.0e-3,uStr="keV") !ev->keV ions
+        call AddOutVar(IOVars,"ieflux",RCMApp%flux(:,:,2),uStr="ergs/cm2")
         call AddOutVar(IOVars,"birk",RCMApp%fac,uStr="uA/m2")
 
         call AddOutVar(IOVars,"toMHD",merge(1.0_rp,0.0_rp,RCMApp%toMHD))

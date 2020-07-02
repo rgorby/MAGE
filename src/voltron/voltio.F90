@@ -130,6 +130,7 @@ module voltio
     subroutine resOutputVOnly(vApp)
         class(voltApp_T), intent(inout) :: vApp
 
+        call writeMIXRestart(vApp%remixApp%ion,vApp%IO%nRes,mjd=vApp%MJD,time=vApp%time)
         !Write inner mag restart
         if (vApp%doDeep) then
             call InnerMagRestart(vApp,vApp%IO%nRes)

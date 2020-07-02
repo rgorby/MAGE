@@ -9,7 +9,7 @@ module mixio
   
   integer, parameter :: MAXIOVAR = 50
   type(IOVAR_T), dimension(MAXIOVAR) :: IOVars
-  character(len=strLen) :: h5File
+  character(len=strLen) :: h5File,h5RunID
   character(len=strLen), dimension(nVars) :: mixVarNames
   character(len=strLen), dimension(nVars) :: mixUnitNames   
 
@@ -41,12 +41,25 @@ contains
     mixUnitNames(NEUTRAL_WIND) = "cm/s"
     mixVarNames(EFIELD)        = "Electric field"
     mixUnitNames(EFIELD)       = "mV/m" 
+    mixVarNames(IM_EFLUX)      = "IM Energy flux"
+    mixUnitNames(IM_EFLUX)     = "ergs/cm^2 s"
+    mixVarNames(IM_EAVG)       = "IM average energy"
+    mixUnitNames(IM_EAVG)      = "keV" ! add *1e-3 in rcm_mix_interface.F90
+    mixVarNames(IM_IFLUX)      = "IM Energy flux proton"
+    mixUnitNames(IM_IFLUX)     = "ergs/cm^2 s"
+    mixVarNames(IM_IAVG)       = "IM average energy proton"
+    mixUnitNames(IM_IAVG)      = "keV" ! add *1e-3 in rcm_mix_interface.F90
+    mixVarNames(Z_NFLUX)       = "Zhang number flux"
+    mixUnitNames(Z_NFLUX)      = "1/cm^2 s"
+    mixVarNames(Z_EAVG)        = "Zhang average energy"
+    mixUnitNames(Z_EAVG)       = "keV"
   end subroutine initMIXNames
 
-  subroutine initMIXIO(I,RunID,isRestart)
-    type(mixIon_T),dimension(:),intent(in) :: I
+  subroutine initMIXIO(I,RunID,isRestart,nRes)
+    type(mixIon_T),dimension(:),intent(inout) :: I
     character(len=*),optional, intent(in) :: RunID   ! these two things are needed when we're coupled with Gamera
     logical,optional, intent(in) :: isRestart
+    integer,optional, intent(in) :: nRes
     
     logical :: fExist
     real(rp), dimension(:,:),allocatable :: xc,yc
@@ -54,6 +67,7 @@ contains
 
     !Setup remix output file
     h5File = trim(RunID) // ".mix.h5"
+    if (present(RunID))  h5RunID = trim(RunID)
 
     inquire(file=h5File,exist=fExist)
 
@@ -75,13 +89,17 @@ contains
                 
        !Write out the chain (to root)
        call WriteVars(IOVars,.true.,h5File)
+       call initMIXNames()
+
+    else
+       call initMIXNames()
+       call readMIXrestart(trim(RunID),nRes,I)
     endif
 
     ! Finally, set var and unit names
     ! for use by all subsequent functions
     ! NOTE: this assumes that initMIXIO ALWAYS gets called in the beginning
     ! e.g., as part of MIX initialization
-    call initMIXNames()
 
   end subroutine initMIXIO
 
@@ -135,7 +153,19 @@ contains
           case (AVG_ENG)
              doDump = .true.             
           case (NUM_FLUX)
-             doDump = .true.             
+             doDump = .true.    
+          case (IM_EFLUX)
+             doDump = .true.
+          case (IM_EAVG)
+             doDump = .true.
+          case (IM_IFLUX)
+             doDump = .true.
+          case (IM_IAVG)
+             doDump = .true.
+          case (Z_NFLUX)
+             doDump = .true.
+          case (Z_EAVG)
+             doDump = .true.         
           case (NEUTRAL_WIND) 
              doDump = .false.
           case (EFIELD)
@@ -172,6 +202,139 @@ contains
     write(gStr,'(A,I0)') "Step#", Step
     call WriteVars(IOVars,.true.,h5File,gStr)
   end subroutine writeMIX
+
+  subroutine writeMIX2GCM(I,cplStr,lockStr,cplStep,mjd,time)
+    type(mixIon_T),dimension(:),intent(in) :: I
+    real(rp), optional, intent(in) :: time, mjd
+    character(len=strLen) :: vStr
+
+    integer :: v,h,n0,cplStep
+    character(len=strLen) :: gStr,uStr,hStr
+    logical :: doDump = .true.,fExist=.true.
+    real(rp) :: cpcp = 0.0
+    real(rp), dimension(:,:),allocatable :: xc,yc
+    
+    character(len=strLen) :: cplStr,lockStr
+
+    !h5gcm = "mix4gcm.h5"
+    !gcmlock = "mixgcmcoupling.txt"
+
+    inquire(file=lockStr,exist=fExist)
+
+    write(*,*) "waiting for ",trim(lockStr)," to be disappear"
+    do while (fExist)
+       inquire(file=lockStr,exist=fExist)
+       call sleep(1)
+    end do
+    write(*,*) trim(lockStr)," is gone so creating ",trim(cplStr),' start coupling @ ',mjd
+    call CheckAndKill(cplStr)
+
+    ! I don't know how to handle the IO when the I object has more than one hemisphere
+    ! because they're labeled by appending the hemisphere stirng to the data set name
+    ! so kill it for now and worry about it when a case like this actually appears
+    if (size(I)>2) then
+       write(*,*) "writeMIX: Wrong hemisphere identifier. Stopping..."
+       stop
+    end if
+    
+    !Reset IO chain
+    call ClearIO(IOVars)
+    
+    ! Create grid info (why is this not stored?)
+    !call genOutGrid(I(NORTH)%G%x,I(NORTH)%G%y,xc,yc)
+
+    ! save grid only for north
+    !call AddOutVar(IOVars,"X",xc,uStr="Ri")
+    !call AddOutVar(IOVars,"Y",yc,uStr="Ri")
+
+    !call AddOutVar(IOVars,"UnitsID","ReMIX")
+    
+    !Write out the chain (to root)
+    !call WriteVars(IOVars,.true.,cplStr)
+
+    !Reset IO chain
+    !call ClearIO(IOVars)
+    
+    do h=1,size(I)
+       ! hemisphere should be set up properly by now but still check just in case
+       if (I(h)%St%hemisphere.eq.NORTH) then
+          hStr = "NORTH"          
+       else if (I(h)%St%hemisphere.eq.SOUTH) then
+          hStr = "SOUTH"          
+       else
+          write(*,*) "writeMIX: Wrong hemisphere identifier. Stopping..."
+          stop
+       end if
+       
+       do v=1,nVars
+          select case (v)
+          case (POT)
+             doDump = .true.
+          case (FAC)
+             doDump = .true.             
+          case (SIGMAP)
+             doDump = .true.             
+          case (SIGMAH)
+             doDump = .true.             
+          case (SOUND_SPEED)
+             doDump = .true.             
+          case (DENSITY)
+             doDump = .true.             
+          case (AVG_ENG)
+             doDump = .true.             
+          case (NUM_FLUX)
+             doDump = .true.             
+          case (NEUTRAL_WIND) 
+             doDump = .false.
+          case (EFIELD)
+             ! we never compute it
+             doDump = .false.
+          case DEFAULT
+             doDump = .false. ! only dump the variables explicitely set to be dumped above
+          end select
+
+          ! NOTE: assuming initMIXNames got called before
+          vStr = trim(mixVarNames(v)) // " "//trim(hStr)
+          uStr = trim(mixUnitNames(v))
+          
+          if (doDump) then
+             call AddOutVar(IOVars,vStr,I(h)%St%Vars(:,:,v))
+             ! inelegantly specifying the units       
+             n0 = FindIO(IOVars,vStr)
+             IOVars(n0)%unitStr = uStr
+          endif
+       enddo
+    enddo
+
+    ! now add time
+    if (present(time)) call AddOutVar(IOVars,"time",time)
+    if (present(mjd))  call AddOutVar(IOVars,"MJD",mjd)
+    ! also add tilt
+    call AddOutVar(IOVars,"tilt",I(NORTH)%St%tilt)
+
+    ! add grid info
+    call AddOutVar(IOVars,"colat",I(NORTH)%G%t)
+    call AddOutVar(IOVars,"lon",I(NORTH)%G%p)
+    call AddOutVar(IOVars,"Grid X",I(NORTH)%G%x)
+    call AddOutVar(IOVars,"Grid Y",I(NORTH)%G%y)
+
+    ! add cpcp
+    call AddOutVar(IOVars,"nCPCP",maxval(I(NORTH)%St%Vars(:,:,POT))-minval(I(NORTH)%St%Vars(:,:,POT)))
+    call AddOutVar(IOVars,"sCPCP",maxval(I(SOUTH)%St%Vars(:,:,POT))-minval(I(SOUTH)%St%Vars(:,:,POT)))    
+    
+    !Write out the chain (to root)
+    write(gStr,'(A,I0)') "Step#", cplStep
+    call WriteVars(IOVars,.false.,cplStr,gStr)
+   
+    write(*,*) "nCPCP",maxval(I(NORTH)%St%Vars(:,:,POT))-minval(I(NORTH)%St%Vars(:,:,POT))
+    write(*,*) "sCPCP",maxval(I(SOUTH)%St%Vars(:,:,POT))-minval(I(SOUTH)%St%Vars(:,:,POT))
+    write(*,*) "Done making ",trim(cplStr)," so locking"
+    open(303,file=trim(lockStr))
+      write(303,*) mjd
+    close(303)
+    write(*,*) trim(lockStr)," done, so go ahead"
+  end subroutine writeMIX2GCM
+
 
   subroutine readMIX(inH5,Step,mixIOobj)
     character(len=*), intent(in) :: inH5
@@ -239,6 +402,7 @@ contains
        end do
     end do 
       
+
     write(gStr,'(A,I0)') "Step#", Step
     call ReadVars(IOVars,.true.,inH5,trim(gSTr)) ! note, this checks if step exists
 
@@ -290,6 +454,269 @@ contains
     end do
 
   end subroutine readMIX
+
+  subroutine readMIXrestart(inH5,nRes,I)
+    character(len=*), intent(in) :: inH5
+    integer, intent(in) :: nRes
+    type(mixIon_T), dimension(:), intent(inout) :: I
+    
+    integer,parameter :: hmsphrs(2) = [NORTH,SOUTH]
+    real(rp),dimension(:,:),allocatable :: xc,yc
+    integer :: h, v, n0
+    integer :: dims(2)    
+    
+    character(len=strLen) :: gStr,hStr,uStr,vStr,nStr,h5Str
+
+    ! filling in var and unit names
+    write(*,*) "Inside readMIXrestart"
+    write(*,*) "Restarting from: ", trim(inH5)
+    call initMIXNames() 
+    write(*,*) "Restarting from: ", trim(inH5),nRes
+   
+    !Get number string
+    if (nRes == -1) then
+        nStr = "XXXXX"
+    else
+        write (nStr,'(I0.5)') nRes
+    endif 
+    write(*,*) "Restarting from: ", trim(inH5)//'.mix.Res.'// trim(nStr)//'.h5'
+    h5Str = trim(inH5)//'.mix.Res.'// trim(nStr)//'.h5'
+    write(*,*) "Restarting from: ", trim(h5Str)
+
+    call CheckFileOrDie(h5Str,"Restart file not found ...")
+
+    !Reset IO chain
+    call ClearIO(IOVars)
+    
+    ! read grid corners from root
+    call AddInVar(IOVars,"X")
+    call AddInVar(IOVars,"Y")
+    call ReadVars(IOVars,.false.,h5Str)
+
+    dims = IOVars(1)%dims(1:2)
+
+    if (.not.allocated(xc)) allocate(xc(dims(1),dims(2)))
+    if (.not.allocated(yc)) allocate(yc(dims(1),dims(2)))
+    xc = reshape(IOVars(1)%data,dims)
+    yc = reshape(IOVars(2)%data,dims)
+
+    ! convert to original mix grid
+    ! and fill in mixIOobj%x,y
+    !call genInGrid(xc,yc,I(NORTH)%G%x,I(NORTH)%G%y)
+
+    ! now read from step
+
+    !Reset IO chain
+    call ClearIO(IOVars)
+    
+    !call AddInVar(IOVars,"time")
+    !call AddInVar(IOVars,"MJD")
+    !call AddInVar(IOVars,"tilt")    
+
+    if ( (.not.(size(hmsphrs).eq.2)) ) then
+       write(*,*) 'Code is only implemented to do two hemispheres (north,south)'
+       stop
+    end if 
+
+    do h=1,size(hmsphrs)
+       if (h.eq.NORTH) then
+          hStr = "NORTH"          
+       else if (h.eq.SOUTH) then
+          hStr = "SOUTH"          
+       else
+          write(*,*) "readMIX: Wrong hemisphere identifier. Stopping..."
+          stop
+       end if
+
+       do v=1,nVars
+          vStr = trim(mixVarNames(v)) // " "// trim(hStr)
+          call AddInVar(IOVars,vStr)
+       end do
+    end do 
+      
+    !write(gStr,'(A,I0)') "Step#", Step
+    call ReadVars(IOVars,.false.,h5Str) ! note, this checks if step exists
+
+    ! finally fill in the mixIO object for passing to calling program
+    ! (mixIOobj%x,y already filled in above by genInGrid
+
+    ! time & mjd
+    !mixIOobj%time = IOVars(1)%data(1)
+    !mixIOobj%mjd  = IOVars(2)%data(1)
+
+    ! allow for no tilt in the restart file
+    ! for backward compatibility
+    !if (IOVars(3)%isDone) then
+    !   mixIOobj%tilt  = IOVars(3)%data(1)
+    !else
+    !   mixIOobj%tilt  = 0
+    !end if
+
+    ! allocate as necessary
+    ! NOTE: we're assuming readMIX is not called in a loop
+    ! and is just used for 1-step calculation
+    ! thus allocating here
+    ! also, remember dims below was taken from the x,y arrays
+    ! those have one extra point in phi but THE SAME size in theta as our target array here
+    ! (although the actual stored arrays had -1 point in the theta direction as well)
+    ! since we cut out the pole but extrapolated the low lat boundary
+
+    !if (.not.allocated(mixIOobj%Vars)) allocate(mixIOobj%Vars(dims(1)-1,dims(2),nVars,size(hmsphrs)))
+    !mixIOobj%Vars = 0 ! and initialize to zero
+    I(NORTH)%St%Vars = 0
+    I(SOUTH)%St%Vars = 0
+
+    do h=1,size(hmsphrs)
+       if (h.eq.NORTH) then
+          hStr = "NORTH"          
+       else if (h.eq.SOUTH) then
+          hStr = "SOUTH"          
+       end if
+
+       do v=1,nVars
+          dims = IOVars(1)%dims(1:2)
+          vStr = trim(mixVarNames(v)) // " "// trim(hStr)
+          n0 = FindIO(IOVars,vStr)
+          !write(*,*) trim(vStr),maxval(IOVars(n0)%data),minval(IOVars(n0)%data)
+          ! check whether the variable exists in the file
+          ! since we didn't necessarily dump all of them in writeMIX
+          if (IOVars(n0)%isDone) then
+             I(h)%St%Vars(:,1:dims(2),v) = reshape(IOVars(n0)%data,dims)
+             ! fix pole
+             !I(h)%St%Vars(:,1,v) = sum(I(h)%St%Vars(:,2,v))/size(I(h)%St%Vars(:,2,v))
+             write(*,*) trim(vStr),maxval(I(h)%St%Vars(:,:,v)),minval(I(h)%St%Vars(:,:,v))
+          end if
+       end do
+    end do
+    write(*,*) "Done readMIXrestart"
+
+  end subroutine readMIXrestart
+
+  subroutine writeMIXRestart(I,nRes,mjd,time)
+    type(mixIon_T),dimension(:),intent(in) :: I    
+    integer, intent(in) :: nRes
+    real(rp), optional, intent(in) :: time, mjd
+    character(len=strLen) :: vStr
+
+    integer :: v,h,n0
+    character(len=strLen) :: gStr,uStr,hStr,h5Str,nStr
+    logical :: doDump = .true.
+    real(rp) :: cpcp = 0.0
+    character(len=strLen) :: ResF, tStr,lnResF !Name of restart file
+    logical :: fExist
+
+    if (nRes == -1) then
+        nStr = "XXXXX"
+    else
+        write (nStr,'(I0.5)') nRes
+    endif
+    write(*,*) "WRITE MIX RESTART 1"
+    write(*,*) "WORKING ON: ",trim(ResF), trim(h5RunID),trim(nStr)
+    write (ResF, '(A,A,A,A)') trim(h5RunID), '.mix.Res.', trim(nStr), '.h5'
+    write(*,*) "WORKING ON: ",trim(ResF), trim(h5RunID),trim(nStr)
+
+    call CheckAndKill(ResF)
+
+    !Reset IO chain
+    call ClearIO(IOVars)
+
+    ! I don't know how to handle the IO when the I object has more than one hemisphere
+    ! because they're labeled by appending the hemisphere stirng to the data set name
+    ! so kill it for now and worry about it when a case like this actually appears
+    if (size(I)>2) then
+       write(*,*) "writeMIX: Wrong hemisphere identifier. Stopping..."
+       stop
+    end if
+
+    h5Str = ResF
+    write(*,*) "WRITE MIX RESTART 2"
+
+    do h=1,size(I)
+       ! hemisphere should be set up properly by now but still check just in case
+       if (I(h)%St%hemisphere.eq.NORTH) then
+          hStr = "NORTH"          
+       else if (I(h)%St%hemisphere.eq.SOUTH) then
+          hStr = "SOUTH"          
+       else
+          write(*,*) "writeMIX: Wrong hemisphere identifier. Stopping..."
+          stop
+       end if
+       
+       do v=1,nVars
+          select case (v)
+          case (POT)
+             doDump = .true.
+          case (FAC)
+             doDump = .true.             
+          case (SIGMAP)
+             doDump = .true.             
+          case (SIGMAH)
+             doDump = .true.             
+          case (SOUND_SPEED)
+             doDump = .true.             
+          case (DENSITY)
+             doDump = .true.             
+          case (AVG_ENG)
+             doDump = .true.             
+          case (NUM_FLUX)
+             doDump = .true.    
+          case (IM_EFLUX)
+             doDump = .true.
+          case (IM_EAVG)
+             doDump = .true.
+          case (IM_IFLUX)
+             doDump = .true.
+          case (IM_IAVG)
+             doDump = .true.
+          case (Z_NFLUX)
+             doDump = .true.
+          case (Z_EAVG)
+             doDump = .true.   
+          case (NEUTRAL_WIND) 
+             doDump = .false.
+          case (EFIELD)
+             ! we never compute it
+             doDump = .false.
+          case DEFAULT
+             doDump = .false. ! only dump the variables explicitely set to be dumped above
+          end select
+
+          ! NOTE: assuming initMIXNames got called before
+          vStr = trim(mixVarNames(v)) // " "//trim(hStr)
+          uStr = trim(mixUnitNames(v))
+          
+          if (doDump) then
+             call AddOutVar(IOVars,vStr,I(h)%St%Vars(:,:,v))
+             ! inelegantly specifying the units       
+             n0 = FindIO(IOVars,vStr)
+             IOVars(n0)%unitStr = uStr
+          endif
+       enddo
+    enddo
+    write(*,*) "WRITE MIX RESTART 3"
+
+    ! now add time
+    if (present(time)) call AddOutVar(IOVars,"time",time)
+    if (present(mjd))  call AddOutVar(IOVars,"MJD",mjd)
+    ! also add tilt
+    call AddOutVar(IOVars,"tilt",I(NORTH)%St%tilt)
+
+    ! add cpcp
+    call AddOutVar(IOVars,"nCPCP",maxval(I(NORTH)%St%Vars(:,:,POT))-minval(I(NORTH)%St%Vars(:,:,POT)))
+    call AddOutVar(IOVars,"sCPCP",maxval(I(SOUTH)%St%Vars(:,:,POT))-minval(I(SOUTH)%St%Vars(:,:,POT)))    
+    
+    write(*,*) "WRITE MIX RESTART 4"
+    !Write out the chain (to root)
+    call WriteVars(IOVars,.false.,h5Str)
+
+    write (lnResF, '(A,A,A,A)') trim(h5RunID), ".mix.Res.", "XXXXX", ".h5"
+    write(*,*) "WRITE MIX RESTART 5"
+
+    ! make a link to the default "XXXXX" restart file
+    call EXECUTE_COMMAND_LINE('ln -sf '//trim(ResF)//' '//trim(lnResF), wait=.false.)
+    write(*,*) "WRITE MIX RESTART 6"
+
+  end subroutine writeMIXRestart
 
   subroutine genOutGrid(x,y,xc,yc)  
     real(rp), dimension(:,:),intent(in) :: x,y
@@ -348,7 +775,5 @@ contains
     x(:,1) = 0
     y(:,1) = 0
   end subroutine genInGrid
-
-
   
 end module mixio
