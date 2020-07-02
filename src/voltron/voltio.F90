@@ -313,6 +313,8 @@ module voltio
             !Not a restart or it is a restart and no file
             call CheckAndKill(vh5File) !For non-restart but file exists
 
+            call StampIO(vh5File)
+            
             !Reset IO chain
             call ClearIO(IOVars)
 

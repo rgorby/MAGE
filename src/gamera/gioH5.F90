@@ -109,6 +109,8 @@ module gioH5
             return
         endif
         
+        call StampIO(GamH5File)
+
         !Calculate grid quality
         call allocGridVar(Model,Gr,gQ)
         call GridQuality(Model,Gr,gQ) 
@@ -528,6 +530,8 @@ module gioH5
         type(State_T), intent(in) :: State
         character(len=*), intent(in) :: ResF
 
+        call StampIO(ResF)
+        
         !Reset IO chain
         call ClearIO(IOVars)
 

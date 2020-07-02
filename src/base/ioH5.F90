@@ -9,7 +9,8 @@ module ioH5
     use ioH5Types
     use ioH5Overload
     use files
-
+    use dates
+    
     !Useful user routines
     !AddOutVar, AddInVar, WriteVars,ReadVars
     !FindIO: Example, call FindIO(IOVars,"Toy",n), IOVars(n) = Toy data/metadata
@@ -28,6 +29,24 @@ module ioH5
     end interface IOArrayFill
 
 contains
+!Routine to stamp output file with various information
+    subroutine StampIO(fIn)
+        character(len=*), intent(in) :: fIn
+        character(len=strLen) :: gStr,dtStr
+        type(IOVAR_T), dimension(10) :: IOVars
+
+        call GitHash(gStr)
+        call DateTimeStr(dtStr)
+
+        call ClearIO(IOVars)
+        call AddOutVar(IOVars,"GITHASH",gStr)
+        call AddOutVar(IOVars,"COMPILER",compiler_version())
+        call AddOutVar(IOVars,"COMPILEROPTS",compiler_options())
+        
+        call AddOutVar(IOVars,"DATETIME",dtStr)
+        call WriteVars(IOVars,.true.,fIn)
+
+    end subroutine StampIO
 !-------------------------------------------   
 !Various routines to quickly pull scalars from IOVar_T
     function GetIOInt(IOVars,vID) result(vOut)
