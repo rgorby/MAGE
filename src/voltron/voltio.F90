@@ -10,8 +10,9 @@ module voltio
 
     implicit none
 
-    integer, parameter, private :: MAXVOLTIOVAR = 20
-    logical, private :: isConInit = .false.
+    integer , parameter, private :: MAXVOLTIOVAR = 20
+    real(rp), parameter, private :: dtWallMax = 1.0 !How long between timer resets[hr]
+    logical , private :: isConInit = .false.
     real(rp), private ::  oMJD = 0.0
     real(rp), private :: cumTime = 0.0 !Cumulative time
     character(len=strLen), private :: vh5File
@@ -66,7 +67,7 @@ module voltio
         endif
 
         !Add some stupid trapping code to deal with fortran system clock wrapping
-        if (simRate<0) then
+        if ( (simRate<0) .or. (abs(cumTime/3600.0) >= dtWallMax) ) then
             !Just reset counters, this is just for diagnostics don't need exact value
             oMJD = cMJD
             cumTime = 0.0
