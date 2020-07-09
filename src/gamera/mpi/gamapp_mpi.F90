@@ -709,7 +709,9 @@ module gamapp_mpi
             endif
 
             call mpi_wait(gasReq, MPI_STATUS_IGNORE, ierr)
-            call mpi_wait(mfReq, MPI_STATUS_IGNORE, ierr)
+            if(gamAppMpi%Model%doMHD) then
+                call mpi_wait(mfReq, MPI_STATUS_IGNORE, ierr)
+            endif
 
         endif
 

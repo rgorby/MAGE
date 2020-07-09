@@ -59,16 +59,20 @@ module voltapp_mpi
         logical :: reqStat
         integer :: ierr
 
-        call MPI_REQUEST_GET_STATUS(vApp%timeReq,reqStat,MPI_STATUS_IGNORE,ierr)
-        if(reqStat) then
-            call MPI_CANCEL(vApp%timeReq, ierr)
-            call MPI_WAIT(vApp%timeReq, MPI_STATUS_IGNORE, ierr)
+        if(vApp%timeReq /= MPI_REQUEST_NULL) then
+            call MPI_REQUEST_GET_STATUS(vApp%timeReq,reqStat,MPI_STATUS_IGNORE,ierr)
+            if(.not. reqStat) then
+                call MPI_CANCEL(vApp%timeReq, ierr)
+                call MPI_WAIT(vApp%timeReq, MPI_STATUS_IGNORE, ierr)
+            endif
         endif
 
-        call MPI_REQUEST_GET_STATUS(vApp%timeStepReq,reqStat,MPI_STATUS_IGNORE,ierr)
-        if(reqStat) then
-            call MPI_CANCEL(vApp%timeStepReq, ierr)
-            call MPI_WAIT(vApp%timeStepReq, MPI_STATUS_IGNORE, ierr)
+        if(vApp%timeStepReq /= MPI_REQUEST_NULL) then
+            call MPI_REQUEST_GET_STATUS(vApp%timeStepReq,reqStat,MPI_STATUS_IGNORE,ierr)
+            if(.not. reqStat) then
+                call MPI_CANCEL(vApp%timeStepReq, ierr)
+                call MPI_WAIT(vApp%timeStepReq, MPI_STATUS_IGNORE, ierr)
+            endif
         endif
 
     end subroutine endVoltronWaits
@@ -270,6 +274,23 @@ module voltapp_mpi
             call DeepUpdate_mpi(vApp, vApp%time)
         endif
 
+        ! if doing concurrent, start the asynchronous comms
+        if(.not. vApp%doSerialVoltron) then
+            call mpi_Irecv(vApp%timeBuffer, 1, MPI_MYFLOAT, MPI_ANY_SOURCE, 97600, vApp%voltMpiComm, vApp%timeReq, ierr)
+            if(ierr /= MPI_Success) then
+                call MPI_Error_string( ierr, message, length, ierr)
+                print *,message(1:length)
+                call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+            end if
+
+            call mpi_Irecv(vApp%timeStepBuffer, 1, MPI_INT, MPI_ANY_SOURCE, 97700, vApp%voltMpiComm, vApp%timeStepReq, ierr)
+            if(ierr /= MPI_Success) then
+                call MPI_Error_string( ierr, message, length, ierr)
+                print *,message(1:length)
+                call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+            end if
+        endif
+
     end subroutine initVoltron_mpi
 
     function gameraStepReady(vApp)
@@ -277,7 +298,12 @@ module voltapp_mpi
         logical :: gameraStepReady
 
         integer :: ierr
-        call MPI_REQUEST_GET_STATUS(vApp%timeReq,gameraStepReady,MPI_STATUS_IGNORE,ierr)
+
+        if(vApp%doSerialVoltron) then
+            gameraStepReady = .true.
+        else
+            call MPI_REQUEST_GET_STATUS(vApp%timeReq,gameraStepReady,MPI_STATUS_IGNORE,ierr)
+        endif
 
     end function gameraStepReady
 
@@ -294,7 +320,6 @@ module voltapp_mpi
             call mpi_recv(vApp%timeStepBuffer, 1, MPI_INT, MPI_ANY_SOURCE, 97700, vApp%voltMpiComm, MPI_STATUS_IGNORE, ierr)
         else
             call mpi_wait(vApp%timeReq, MPI_STATUS_IGNORE, ierr)
-
             call mpi_wait(vApp%timeStepReq, MPI_STATUS_IGNORE, ierr)
         endif
 
@@ -304,9 +329,9 @@ module voltapp_mpi
         call stepVoltron(vApp, vApp%gAppLocal)
 
         if(.not. vApp%doSerialVoltron) then
-            call mpi_Irecv(vApp%timeBuffer, 1, MPI_MYFLOAT, MPI_ANY_SOURCE, 97600, vApp%voltMpiComm, MPI_STATUS_IGNORE, vApp%timeReq, ierr)
+            call mpi_Irecv(vApp%timeBuffer, 1, MPI_MYFLOAT, MPI_ANY_SOURCE, 97600, vApp%voltMpiComm, vApp%timeReq, ierr)
 
-            call mpi_Irecv(vApp%timeStepBuffer, 1, MPI_INT, MPI_ANY_SOURCE, 97700, vApp%voltMpiComm, MPI_STATUS_IGNORE, vApp%timeStepReq, ierr)
+            call mpi_Irecv(vApp%timeStepBuffer, 1, MPI_INT, MPI_ANY_SOURCE, 97700, vApp%voltMpiComm, vApp%timeStepReq, ierr)
         endif
 
     end subroutine stepVoltron_mpi

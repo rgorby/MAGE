@@ -22,9 +22,6 @@ module gam2VoltComm_mpi
         integer, dimension(1) :: zeroArrayCounts = (/ 0 /), zeroArrayTypes = (/ MPI_INT /)
         integer(MPI_ADDRESS_KIND), dimension(1) :: zeroArrayDispls = (/ 0 /)
 
-        ! STEP VARIABLES
-        integer :: timeReq=MPI_REQUEST_NULL, timeStepReq=MPI_REQUEST_NULL
-
         ! SHALLOW COUPLING VARIABLES
         integer, dimension(1) :: sendCountsGasShallow, sendTypesGasShallow
         integer(MPI_ADDRESS_KIND), dimension(1) :: sendDisplsGasShallow
@@ -211,21 +208,24 @@ module gam2VoltComm_mpi
         type(gam2VoltCommMpi_T), intent(inout) :: g2vComm
         type(gamAppMpi_T), intent(in) :: gApp
 
-        integer :: ierr
+        integer :: ierr, length
+        character( len = MPI_MAX_ERROR_STRING) :: message
 
         ! only the rank with Ri/Rj/Rk==0 should send the time values to voltron
         if(gApp%Grid%Ri==0 .and. gApp%Grid%Rj==0 .and. gApp%Grid%Rk==0) then
-            if(g2vComm%doSerialVoltron) then
-                call mpi_send(gApp%Model%t, 1, MPI_MYFLOAT, g2vComm%voltRank, 97600, g2vComm%voltMpiComm, ierr)
+            call mpi_send(gApp%Model%t, 1, MPI_MYFLOAT, g2vComm%voltRank, 97600, g2vComm%voltMpiComm, ierr)
+            if(ierr /= MPI_Success) then
+                call MPI_Error_string( ierr, message, length, ierr)
+                print *,message(1:length)
+                call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+            end if
 
-                call mpi_send(gApp%Model%ts, 1, MPI_INT, g2vComm%voltRank, 97700, g2vComm%voltMpiComm, ierr)
-            else
-                call mpi_wait(g2vComm%timeReq, MPI_STATUS_IGNORE, ierr)
-                call mpi_Isend(gApp%Model%t, 1, MPI_MYFLOAT, g2vComm%voltRank, 97600, g2vComm%voltMpiComm, g2vComm%timeReq, ierr)
-
-                call mpi_wait(g2vComm%timeStepReq, MPI_STATUS_IGNORE, ierr)
-                call mpi_Isend(gApp%Model%ts, 1, MPI_INT, g2vComm%voltRank, 97700, g2vComm%voltMpiComm, g2vComm%timeStepReq, ierr)
-            endif
+            call mpi_send(gApp%Model%ts, 1, MPI_INT, g2vComm%voltRank, 97700, g2vComm%voltMpiComm, ierr)
+            if(ierr /= MPI_Success) then
+                call MPI_Error_string( ierr, message, length, ierr)
+                print *,message(1:length)
+                call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+            end if
         endif
 
     end subroutine performStepVoltron
@@ -293,6 +293,7 @@ module gam2VoltComm_mpi
         logical, optional, intent(in) :: skipUpdateGamera
 
         logical :: doSkipUpdate
+        integer :: ierr
 
         if(present(skipUpdateGamera)) then
             doSkipUpdate = skipUpdateGamera
@@ -313,6 +314,9 @@ module gam2VoltComm_mpi
         call recvShallowData(g2vComm, gApp)
         call Toc("ShallowRecv")
 
+        ! receive next time for shallow calculation
+        call mpi_bcast(g2vComm%ShallowT, 1, MPI_MYFLOAT, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
+
     end subroutine
 
     subroutine performConcurrentShallowUpdate(g2vComm, gApp, skipUpdateGamera)
@@ -320,10 +324,15 @@ module gam2VoltComm_mpi
         type(gamAppMpi_T), intent(inout) :: gApp
         logical, optional, intent(in) :: skipUpdateGamera
 
+        integer :: ierr
+
         ! now reverse process, get (waiting) data
         call Tic("ShallowRecv")
         call recvShallowData(g2vComm, gApp)
         call Toc("ShallowRecv")
+
+        ! receive next time for shallow calculation
+        call mpi_bcast(g2vComm%ShallowT, 1, MPI_MYFLOAT, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
 
         ! and send data for voltron to work on while gamera is busy
         if(present(skipUpdateGamera) .and. skipUpdateGamera) then
@@ -413,9 +422,6 @@ module gam2VoltComm_mpi
                                         g2vComm%voltMpiComm, ierr)
         endif
 
-        ! receive next time for shallow calculation
-        call mpi_bcast(g2vComm%ShallowT, 1, MPI_MYFLOAT, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
-
     end subroutine recvShallowData
 
     ! transmit state data to voltron over MPI and receive new data
@@ -445,6 +451,8 @@ module gam2VoltComm_mpi
         type(gam2VoltCommMpi_T), intent(inout) :: g2vComm
         type(gamAppMpi_T), intent(inout) :: gApp
 
+        integer :: ierr
+
         ! send deep data
         call Tic("DeepSend")
         call sendDeepData(g2vComm, gApp)
@@ -455,16 +463,24 @@ module gam2VoltComm_mpi
         call recvDeepData(g2vComm, gApp)
         call Toc("DeepRecv")
 
+        ! receive next time for deep calculation
+        call mpi_bcast(g2vComm%DeepT, 1, MPI_MYFLOAT, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
+
     end subroutine
 
     subroutine doConcurrentDeepUpdate(g2vComm, gApp)
         type(gam2VoltCommMpi_T), intent(inout) :: g2vComm
         type(gamAppMpi_T), intent(inout) :: gApp
 
+        integer :: ierr
+
         ! now reverse process, get (waiting) data
         call Tic("DeepRecv")
         call recvDeepData(g2vComm, gApp)
         call Toc("DeepRecv")
+
+        ! receive next time for deep calculation
+        call mpi_bcast(g2vComm%DeepT, 1, MPI_MYFLOAT, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
 
         ! and send data for voltron to work on while gamera is busy
         call Tic("DeepSend")
@@ -510,9 +526,6 @@ module gam2VoltComm_mpi
                                     gApp%Grid%Gas0, g2vComm%recvCountsGas0Deep, &
                                     g2vComm%recvDisplsGas0Deep, g2vComm%recvTypesGas0Deep, &
                                     g2vComm%voltMpiComm, ierr)
-
-        ! receive next time for deep calculation
-        call mpi_bcast(g2vComm%DeepT, 1, MPI_MYFLOAT, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
 
     end subroutine recvDeepData
 
