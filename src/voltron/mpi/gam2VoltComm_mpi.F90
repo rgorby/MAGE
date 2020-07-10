@@ -248,19 +248,9 @@ module gam2VoltComm_mpi
                 g2vComm%firstDeepUpdate = .false.
                 g2vComm%firstShallowUpdate = .false.
             else
-                ! receive both solutions
-                ! now reverse process, get (waiting) data
-                call Tic("ShallowRecv")
-                call recvShallowData(g2vComm, gApp)
-                call Toc("ShallowRecv")
-                call Tic("DeepRecv")
-                call recvDeepData(g2vComm, gApp)
-                call Toc("DeepRecv")
-
-                ! then send just deep data
-                call Tic("DeepSend")
-                call sendDeepData(g2vComm, gApp)
-                call Toc("DeepSend")
+                ! now reverse process so that we send all data before receiving new deep
+                call performConcurrentShallowUpdate(g2vComm, gApp, .true.)
+                call doConcurrentDeepUpdate(g2vComm, gApp)
             endif
         endif
 

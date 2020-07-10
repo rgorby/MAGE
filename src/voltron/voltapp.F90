@@ -355,9 +355,8 @@ module voltapp
         type(gamApp_T) , intent(inout) :: gApp
         class(voltApp_T), intent(inout) :: vApp
 
-        real(rp) :: tAdv
-
-        tAdv = vApp%DeepT + vApp%DeepDT !Advance inner magnetosphere through full coupling time
+        !Update coupling time now so that voltron knows what to expect
+        vApp%DeepT = vApp%DeepT + vApp%DeepDT
 
         !Pull in updated fields to CHIMP
         call Tic("G2C")
@@ -366,7 +365,7 @@ module voltapp
 
         !Advance inner magnetosphere model to tAdv
         call Tic("InnerMag")
-        call AdvanceInnerMag(vApp,tAdv)
+        call AdvanceInnerMag(vApp,vApp%DeepT)
         call Toc("InnerMag")
 
         call Tic("Squish")
@@ -398,10 +397,6 @@ module voltapp
         call Tic("IM2G")
         call InnerMag2Gamera(vApp,gApp)
         call Toc("IM2G")
-
-
-        !Setup next coupling
-        vApp%DeepT = vApp%DeepT + vApp%DeepDT
     end subroutine
 
     !Initialize CHIMP data structure
