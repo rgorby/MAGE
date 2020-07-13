@@ -2,13 +2,66 @@
 module wpifuns
     use chmpdefs
     use kdefs
+    use tputils
+    use wpitypes
 
     implicit none
 
     real(rp) :: memp = Me_cgs/Mp_cgs
 
+    !dispersion related functions 
+    procedure(VgFun_T) , pointer :: Vg => NULL()
+    procedure(ResFun_T), pointer :: ResRoots => NULL()
+
+    !function provides wave frequency spectrum 
+    procedure(wsFun_T) , pointer :: waveSpec => NULL()
 
     contains
+
+    !Initialize the wave
+    subroutine initWPI(Model,wModel,wave,inpXML)
+        type(chmpModel_T), intent(inout) :: Model
+        type(wModel_T), intent(inout) :: wModel
+        type(wave_T), intent(inout) :: wave
+        type(XML_Input_T), intent(inout) :: inpXML
+
+        !initializing the wave model
+        call inpXML%Set_Val(wModel%model,'wpi/wmodel',"Gauss")
+
+        select case (trim(toUpper(wModel%model)))
+        !-------
+        case("GAUSSIAN","GAUSS")
+            call inpXML%Set_Val(wModel%xm,'wpi/xm',0.25)
+            call inpXML%Set_Val(wModel%Dx,'wpi/dx',0.2)
+            call inpXML%Set_Val(wModel%B1,'wpi/b1',0.01)
+
+            !normalizing
+            wModel%B1 = wModel%B1*inBScl
+
+            waveSpec => gaussWS 
+        case default
+            write(*,*) '<Unknown wave mode. Exiting....>'
+            stop
+        end select
+
+        !initializing the wave
+        call inpXML%Set_Val(wave%mode,'wpi/mode',"eWhistler")
+
+        select case (trim(toUpper(wave%mode)))
+        !-------
+        case("EWHISTLER","E_WHISTLER")
+            wave%mode = "eRW"
+            wave%s = 1.0
+            wave%lam = -1.0
+            wave%emin = 0.0
+            Vg => epVg
+            ResRoots => epResRoots
+        case default
+            write(*,*) '<Unknown wave mode. Exiting....>'
+            stop
+        end select
+
+    end subroutine initWPI
 
     !!!!!!!!!!!!!!!!! Wave Model Related Functions !!!!!!!!!!!!!!!!!!!!
     !assuming gaussian wave frequency spectrum
@@ -29,11 +82,11 @@ module wpifuns
     !!!!!!!!!!!!!!!!! wave related functions !!!!!!!!!!!!!!!!!!!!
     !variable notation similar to Summers et al. 2005
     
-    !Generalized group velocity for plasma of electrons and protons (Appendix C of Summers 2005)
+    !Generalized dw/dk for plasma of electrons and protons (Appendix C of Summers 2005)
     function epVg(wave,astar,x,y) result(Fxy)
         type(wave_T), intent(in) :: wave
         real(rp), intent(in) :: astar,x,y
-        real(rp) :: b,s,gx,Vg
+        real(rp) :: b,s,gx,Vg,Fxy
         real(rp) :: c1,c2,c3,c4
 
         b = (1.0+memp)/astar
@@ -50,12 +103,13 @@ module wpifuns
     end function epVg
 
     !Solving resonance for generalized plasma of protons and electrons (Appendix A of Summers 2005)
-    subroutine epResRoots(Model,wave,prt,astar,x,y)
+    subroutine epResRoots(Model,wave,prt,astar,xjs,yjs)
         type(chmpModel_T), intent(in) :: Model
         type(prt_T), intent(in) :: prt
         type(wave_T), intent(in) :: wave
         real(rp), intent(in) :: astar
-        real(rp), dimension(NROOTS), intent(out) :: x,y
+        complex(rp), dimension(NROOTS) :: roots
+        real(rp), dimension(:), allocatable, intent(out) :: xjs, yjs
         real(rp) :: a,b,s,mu,beta,denom
         real(rp) :: a0,a1,a2,a3,a4 !polunomial coefficients
 
@@ -78,12 +132,12 @@ module wpifuns
         a3 = ((a**2.0)*s*(-1.0+memp)-2.0*a*memp)/denom
         a4 = (-memp*a**2)/denom
 
-        !!!!FIXME: root solver and picking out correct roos!!!
+        !!!!FIXME: root solver and picking out correct roots!!!
         !roots = np.roots(coef)
 
-        !Keeping roots that are positive (w>0), below the gyrofrequency (w<Oe), and real since are others are non-physical
-        !x = roots[(roots>0)*(roots<1)*(roots.imag==0)] 
-        !y = wave.resCrit(prt,astar,xjs) 
+        ! Keeping roots that are positive, below the gyrofrequency (xj<1), and real (others are non-physical)
+        xjs = pack(roots, (real(roots)>0 .and. real(roots)<1 .and. aimag(roots) == 0))
+        yjs = wave.resCrit(prt,astar,xjs) 
 
     end subroutine epResRoots
 

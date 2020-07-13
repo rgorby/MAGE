@@ -15,10 +15,6 @@ module wpitypes
         real(rp) :: lam    ! lam holds particle info(-1 = e-, me/mp = p+) 
         real(rp) :: eMin=0 !minimum energy needed for particle to resonant
         integer :: id
-
-        !dispersion related functions 
-        procedure(VgFun_T) , pointer :: Vg => NULL()
-        procedure(ResFun_T), pointer :: Resonance => NULL()
     end type wave_T
 
     !wave model information
@@ -30,8 +26,6 @@ module wpitypes
         real(rp) :: xm,Dx !This is mean frequency and half width of gaussian wave band normalized by gyro frequency
         real(rp) :: B1 !wave amplitude
 
-        !function provides 
-        procedure(wsFun_T) , pointer :: waveSpec => NULL()
     end type wModel_T
 
     !Group Velocity function type
