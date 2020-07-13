@@ -2,7 +2,7 @@
 
 module ebtypes
     use chmpdefs
-    use wpifuns
+    use wpitypes
     
     implicit none
 
@@ -52,7 +52,6 @@ module ebtypes
         type(ebTab_T)   :: ebTab
         type(wave_T)    :: ebWave
         type(wModel_T)  :: ebWmodel
-        type()
         logical :: doStatic = .false.
     end type ebState_T
     

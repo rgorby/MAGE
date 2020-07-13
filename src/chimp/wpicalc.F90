@@ -24,15 +24,17 @@ module wpicalc
         type(wModel_T) :: wModel
         
         real(rp), dimension(NDIM) :: r,p,E,B,xhat,yhat,bhat
-        real(rp), dimension(NDIM) :: p11,pxy
+        real(rp), dimension(NDIM) :: p11,pxy,vExB
         real(rp), dimension(NVARMHD) :: Qmhd
-        real(rp) :: gamma,aNew,pNew,pMag,MagB,Mu,p11Mag,K,rho
-        real(rp) :: Ome,wp,astar,xj,yj,Daa
+        real(rp) :: gamma,aNew,pNew,pMag,MagB,Mu,p11Mag,K,rho,psi
+        real(rp) :: Ome,wpe,astar,xHigh,xj,yj,Daa
         real(rp) :: dtCum,dtRem,ddt ! substep used in wpi calculations, not same as ddt in pusher.F90 
         integer :: pSgn=1
 
         real(rp) :: dAlim = 0.05  !Limiting change in pith-angle to be below this value each wpi 
         real(rp) :: da=0.0,dp=0.0 !Change in pitch angle and momentum due to wpi
+
+        logical :: doWave
 
         if (Model%do2D) then
             !Trap here and quickly grab values
@@ -73,10 +75,11 @@ module wpicalc
         astar = Ome**2/wpe**2
 
         !calculate minimum energy needed to resonate
-        wave%emin = K_whistleR(w0+Dw,B0,n0)
+        xHigh = wModel%xm+wModel%Dx
+        wave%emin = Kres_whistleR(xHigh,astar)
 
         !check if particle above minimum required energy
-        K = prt2kev(prt,Model%m0)/(Model%m0*mec2*1.0e+3)
+        K = prt2kev(Model,prt)/(Model%m0*mec2*1.0e+3)
         if (K .lt. wave%emin) return
 
         !Setting adaptive time-step/particle sub-stepping to limit da and reduce error
@@ -96,7 +99,7 @@ module wpicalc
                 ddt = dt
             endif
 
-            dtCum += ddt
+            dtCum = dtCum + ddt
 
             ! Calculate the resulting change in pitch angle and energy of the particle
             call DiffCurve(Model,wave,prt,Daa,ddt,xj,yj,da,dp)
@@ -141,7 +144,7 @@ module wpicalc
     subroutine ChkWave(wModel,r,doWave)
         type(wModel_T), intent(in) :: wModel
         real(rp), dimension(NDIM), intent(in) :: r !Particle location
-        logical, intent(inout) :: doWave = .false. !Holds if waves are present 
+        logical, intent(inout) :: doWave !Holds if waves are present 
 
         !FIXME: for now have waves everywhere
         doWave = .true. 
@@ -157,7 +160,7 @@ module wpicalc
         real(rp), intent(in) :: astar
         real(rp), intent(inout) :: xj,yj
         real(rp), dimension(:), allocatable :: xjs, yjs
-        real(rp), dimension(2) :: xcs, ycs
+        real(rp), dimension(:), allocatable :: xcs, ycs
         real(rp) :: pa,mu,K,beta
 
         pa = prt%alpha
@@ -175,7 +178,7 @@ module wpicalc
         ! Check to see if wave is a critical root (causes singularity in Daa if not fixed)
         ! can occur for electrons and R-mode waves and protons with L-mode waves
         mu = cos(pa)
-        K = prt2kev(prt,Model%m0)/(Model%m0*mec2*1.0e+3) 
+        K = prt2kev(Model,prt)/(Model%m0*mec2*1.0e+3) 
         beta = sqrt(K*(K+2.0))/(K+1.0) ! beta = v/c
 
         if (beta*mu == Vg(wave,astar,xj,yj)) then
@@ -222,21 +225,21 @@ module wpicalc
 
     !!!!!!!!!!!FIXME: need to add capability to sum over mulitple roots!!!!!!!!!!!!
     !Calculates diffusion coefficient assuming wave spectrum is Gaussian (Summers 2005 eq 33)
-    function DiffCoef(Model,wave,wModel,prt,astar,B0,xj,yj) return(Daa)
+    function DiffCoef(Model,wave,wModel,prt,astar,B0,xj,yj) result(Daa)
         type(chmpModel_T), intent(in) :: Model
         type(wave_T), intent(in) :: wave
         type(wModel_T), intent(in) :: wModel
         type(prt_t), intent(in) :: prt
         real(rp), intent(in) :: astar,B0,xj,yj
-        real(rp) :: pa,K,beta,R,Ome,DScl,Fxy
+        real(rp) :: pa,K,beta,R,Ome,DScl,Fxy,Daa
 
         pa= prt%alpha
-        K = prt2kev(prt,Model%m0)/(Model%m0*mec2*1.0e+3) 
+        K = prt2kev(Model,prt)/(Model%m0*mec2*1.0e+3) 
         beta = sqrt(K*(K+2.0))/(K+1.0) ! beta = v/c
         R = (wModel%B1/B0)**2  !ratio of the wave amplitude to background field strength
         Ome = B0 ! normalized non-relativistic electron gyrofrequency, has Om^2/Ome therefore dont need sign of q
 
-        DScl = (PI/2.0)*abs(Ome)*(K+1)**-2.0
+        DScl = (PI/2.0)*abs(Ome)*(K+1)**(-2.0)
 
         Fxy = Vg(wave,astar,xj,yj)
 
@@ -244,14 +247,14 @@ module wpicalc
 
         Daa = DScl*Daa
 
-    end function Daa
+    end function DiffCoef
 
     !Calculates the change in pitch-angle and corresponding change in momentum along the diffusion curve 
     subroutine DiffCurve(Model,wave,prt,Daa,dt,xj,yj,da,dp) 
         type(chmpModel_T), intent(in) :: Model
         type(wave_T), intent(in) :: wave
         type(prt_t), intent(in) :: prt
-        real(rp), intent(in) :: Daa,astar,xj,yj
+        real(rp), intent(in) :: Daa,dt,xj,yj
         real(rp), intent(inout) :: da,dp
         real(rp) :: eta,u,gamu,pa,gamma,pMag,E,A,B
 
@@ -259,12 +262,12 @@ module wpicalc
         da = sqrt(2.0*dt*Daa)*eta
 
         u = xj/yj ! phase velocity of the wave normalized by c
-        gamu = sqrt(1-u**2.)**-1.0
+        gamu = sqrt(1-u**2.)**(-1.0)
         
         pa = prt%alpha
         gamma = prt2Gam(prt,Model%m0)
         pMag = Model%m0*sqrt(gamma**2.0-1.0)
-        E = prt2kev(prt,Model%m0)/(Model%m0*mec2*1.0e+3)+1.0 !full energy of the particle including rest mass
+        E = prt2kev(Model,prt)/(Model%m0*mec2*1.0e+3)+1.0 !full energy of the particle including rest mass
 
         A = gamu**2.0*(pMag*cos(pa)-u*E)*pMag*sin(pa)-pMag**2.0*sin(pa)*cos(pa)
         B = gamu**2.0*(pMag*cos(pa)-u*E)*(cos(pa)-u*pMag/E)+pMag*sin(pa)**2.0
@@ -272,85 +275,5 @@ module wpicalc
         dp = da*A/B
 
     end subroutine DiffCurve
-
-    !Calculates the unitless wave number of the resonant root from the resonance criteria
-    subroutine resCrit(Model,wave,prt,astar,xj,yj)
-        type(chmpModel_T), intent(in) :: Model
-        type(wave_T), intent(in) :: wave
-        type(prt_t), intent(in) :: prt
-        real(rp), intent(in) :: astar,xj
-        real(rp), intent(inout) :: yj
-        real(rp) :: a,mu,K,beta,K
-
-        a = wave%s*wave%lam/prt2Gam(prt,Model%m0)
-        mu = cos(prt%alpha)
-        K = prt2kev(prt,Model%m0)/(Model%m0*mec2*1.0e+3) ! normalized energy 
-        beta = sqrt(K*(K+2.0))/(K+1.0) !beta = v/c
-        yj = (xj+a)/(beta*mu) !resonance criteria [see Eq 24 of Summers 2005 for notation]
-
-    end subroutine resCrit
-
-    !Solving the generalized resonance condition for particles with 90 deg pitch angles (A2/3 of Summers 2005)
-    subroutine res90deg(Model,wave,prt,astar,xjs,yjs)
-        type(chmpModel_T), intent(in) :: Model
-        type(wave_T), intent(in) :: wave
-        type(prt_t), intent(in) :: prt
-        real(rp), intent(in) :: astar
-        real(rp), dimension(2), intent(out) :: xjs,yjs
-        real(rp) :: a,b,s,y0
-
-        b = (1.0+memp)/astar
-        s = wave%s
-        a = s*wave%lam/prt2Gam(prt,Model%m0)
-
-        y0 = abs(a)*sqrt(1.+b/((a+s)*(s*memp-a)))
-        
-        xjs = [-a,-a]
-        yjs = [y0,-y0]
-
-    end subroutine res90deg
-
-    ! Calculating the value of the critical root to remove the singularity if necessary (Appendix B of Summers 2005)
-    subroutine criticalRoot(Model,wave,prt,astar,xjs,yjs)
-        type(chmpModel_T), intent(in) :: Model
-        type(wave_T), intent(in) :: wave
-        type(prt_t), intent(in) :: prt
-        real(rp), intent(in) :: astar
-        real(rp), dimension(2), intent(out) :: xjs, yjs
-        complex(rp), dimension(NROOTS) :: roots
-        real(rp), allocatable :: xc(:),yc(:)
-        real(rp) :: a,b,s,K,beta
-        real(rp) :: b0,b1,b2,b3,b4
-
-        b = (1.0+memp)/astar
-        s = wave%s
-        a = s*wave%lam/prt2Gam(prt,Model%m0)
-
-        K = prt2kev(prt,Model%m0)/(Model%m0*mec2*1.0e+3) ! normalized energy 
-        beta = sqrt(K*(K+2.0))/(K+1.0) !v/c
-
-        b0 = 1.0
-        b1 = 2.0*s*(-1.0+memp)+b/a
-        b2 = 1.0-4.0*memp+memp**2.+b*s*(-1.0+memp)/(2.*a)
-        b3 = -s*(-1.0+memp)*(b+4.*memp)/2.0
-        b4 = memp*(b+memp)
-
-        coef = [b0,b1,b2,b3,b4]
-        !roots = np.roots(coef)
-
-        ! Keeping roots that are positive, below the gyrofrequency (xj<1), and real (others are non-physical)
-        xc = pack(roots, (real(roots)>0 .and. real(roots)<1 .and. aimag(roots) == 0)) 
-        !Should only be one root
-        if (size(xc) > 1) then
-            ! Should only be one resonant wave
-            write(*,*) 'wpiCalc:criticalRoot:: Too many resonant roots, w/|Ome|: ', xc
-            stop
-        end if
-        yc = xc*np.sqrt(1.0-b/((xc-s)*(xc+s*memp))) !get two waves, one in each direction, field & anti-field alligned 
-
-        xjs = [xc(1),xc(1)]
-        yjs = [-yc(1),yc(1)]
-        
-    end subroutine criticalRoot 
 
 end module wpicalc

@@ -6,7 +6,7 @@ module pusher
     use gridloc
     use pxing
     use gcutils
-    use wpi
+    use wpicalc
     implicit none
 
     real(rp), parameter :: dtX = 2.0 !Max increase in timestep, dtNew <= dtX*dtOld
