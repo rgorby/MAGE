@@ -9,6 +9,7 @@ module userebic
     use ioH5
     use chmpfields
     use ebinit
+    use wpifuns
     
     implicit none
 
@@ -94,6 +95,11 @@ module userebic
             eb2%dB = 0.0
             ebState%doStatic = .true.
             return
+        endif
+
+        !Initialize wave particle interactions if present
+        if ( Model%doWPI ) then
+            call initWPI(Model,ebState%ebWmodel,ebState%ebWave,inpXML)
         endif
         
         !Initialize eb data, find time slices
