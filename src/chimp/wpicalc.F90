@@ -27,7 +27,7 @@ module wpicalc
         real(rp), dimension(NDIM) :: p11,pxy,vExB
         real(rp), dimension(NVARMHD) :: Qmhd
         real(rp) :: gamma,aNew,pNew,pMag,MagB,Mu,p11Mag,K,rho,psi
-        real(rp) :: Ome,wpe,astar,xHigh,xj,yj,Daa
+        real(rp) :: Ome,wpe,astar,xHigh,xj,yj,Daa,inWScl
         real(rp) :: dtCum,dtRem,ddt ! substep used in wpi calculations, not same as ddt in pusher.F90 
         integer :: pSgn=1
 
@@ -70,9 +70,11 @@ module wpicalc
         if (.not. doWave) return
 
         !Calulating the ratio of nonrelativistic gyrofrequency to plasma frequency at prt's location
+        !normalization constant to put wpe in code units
+        inWScl = 114704.0207604 !(qe_cgs*L0/(vc_cgs*sqrt(Me_cgs)))^2
         Ome = magB 
-        wpe = sqrt(4*PI*rho)*qe_cgs*L0/(vc_cgs*sqrt(Me_cgs)) ! constants are to normalize plasma frequency
-        astar = Ome**2/wpe**2
+        wpe = sqrt(4*PI*rho) 
+        astar = Ome**2/((wpe**2)*inWScl)
 
         !calculate minimum energy needed to resonate
         xHigh = wModel%xm+wModel%Dx
