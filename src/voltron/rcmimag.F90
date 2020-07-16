@@ -24,7 +24,7 @@ module rcmimag
 
     real(rp) :: RIonRCM !Units of Rp
     real(rp), private :: rEqMin = 0.0
-    real(rp), private :: PPDen = 50.0 !Plasmapause density
+    real(rp), private :: PPDen = 1.0 !Plasmapause density
     character(len=strLen), private :: h5File
 
     real(rp), private :: Rp_m
