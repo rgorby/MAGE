@@ -31,6 +31,7 @@ module voltapp
         type(TimeSeries_T) :: tsMJD
         real(rp) :: gTScl,tSpin,tIO
         logical :: doSpin,doDelayIO
+        integer :: numSB, numVoltThreads
 
         if(present(optFilename)) then
             ! read from the prescribed file
@@ -44,10 +45,14 @@ module voltapp
         !Start by shutting up extra ranks
         if (.not. vApp%isLoud) call xmlInp%BeQuiet()
 
+        !Create XML reader
+        xmlInp = New_XML_Input(trim(inpXML),'Voltron',.true.)
+
 #ifdef _OPENMP
+        call xmlInp%Set_Val(numVoltThreads,'threading/numThreads',omp_get_max_threads())
         if (vApp%isLoud) then
             write(*,*) 'Voltron running threaded'
-            write(*,*) '   # Threads = ', omp_get_max_threads()
+            write(*,*) '   # Threads = ', numVoltThreads
             write(*,*) '   # Cores   = ', omp_get_num_procs()
         endif
 #else
@@ -56,8 +61,9 @@ module voltapp
         endif
 #endif
 
-    !Create XML reader
-        xmlInp = New_XML_Input(trim(inpXML),'Voltron',.true.)
+        ! read number of squish blocks
+        call xmlInp%Set_Val(numSB,"coupling/numSquishBlocks",3)
+        call setNumSquishBlocks(numSB)
 
     !Initialize state information
         !Set file to read from and pass desired variable name to initTS
