@@ -109,7 +109,6 @@ module voltapp
         
         !Pull numbering from Gamera
         vApp%IO%nRes = gApp%Model%IO%nRes
-        call xmlInp%Set_Val(vApp%IO%nRes ,"/Gamera/restart/nRes" , gApp%Model%IO%nRes)
         vApp%IO%nOut = gApp%Model%IO%nOut
         !Force Gamera IO times to match Voltron IO
         call IOSync(vApp%IO,gApp%Model%IO,1.0/gTScl)
