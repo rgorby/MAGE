@@ -326,8 +326,8 @@ contains
     write(gStr,'(A,I0)') "Step#", cplStep
     call WriteVars(IOVars,.false.,cplStr,gStr)
    
-    write(*,*) "nCPCP",maxval(I(NORTH)%St%Vars(:,:,POT))-minval(I(NORTH)%St%Vars(:,:,POT))
-    write(*,*) "sCPCP",maxval(I(SOUTH)%St%Vars(:,:,POT))-minval(I(SOUTH)%St%Vars(:,:,POT))
+    !write(*,*) "nCPCP",maxval(I(NORTH)%St%Vars(:,:,POT))-minval(I(NORTH)%St%Vars(:,:,POT))
+    !write(*,*) "sCPCP",maxval(I(SOUTH)%St%Vars(:,:,POT))-minval(I(SOUTH)%St%Vars(:,:,POT))
     write(*,*) "Done making ",trim(cplStr)," so locking"
     open(303,file=trim(lockStr))
       write(303,*) mjd
@@ -468,7 +468,6 @@ contains
     character(len=strLen) :: gStr,hStr,uStr,vStr,nStr,h5Str
 
     ! filling in var and unit names
-    write(*,*) "Inside readMIXrestart"
     write(*,*) "Restarting from: ", trim(inH5)
     call initMIXNames() 
     write(*,*) "Restarting from: ", trim(inH5),nRes
@@ -606,14 +605,13 @@ contains
     logical :: fExist
 
     if (nRes == -1) then
-        nStr = "XXXXX"
+        write(*,*) 'nRes is -1 in writeMIXRestart, now die'
+        stop
     else
         write (nStr,'(I0.5)') nRes
     endif
-    write(*,*) "WRITE MIX RESTART 1"
-    write(*,*) "WORKING ON: ",trim(ResF), trim(h5RunID),trim(nStr)
+
     write (ResF, '(A,A,A,A)') trim(h5RunID), '.mix.Res.', trim(nStr), '.h5'
-    write(*,*) "WORKING ON: ",trim(ResF), trim(h5RunID),trim(nStr)
 
     call CheckAndKill(ResF)
 
@@ -629,7 +627,6 @@ contains
     end if
 
     h5Str = ResF
-    write(*,*) "WRITE MIX RESTART 2"
 
     do h=1,size(I)
        ! hemisphere should be set up properly by now but still check just in case
@@ -693,7 +690,6 @@ contains
           endif
        enddo
     enddo
-    write(*,*) "WRITE MIX RESTART 3"
 
     ! now add time
     if (present(time)) call AddOutVar(IOVars,"time",time)
@@ -705,16 +701,13 @@ contains
     call AddOutVar(IOVars,"nCPCP",maxval(I(NORTH)%St%Vars(:,:,POT))-minval(I(NORTH)%St%Vars(:,:,POT)))
     call AddOutVar(IOVars,"sCPCP",maxval(I(SOUTH)%St%Vars(:,:,POT))-minval(I(SOUTH)%St%Vars(:,:,POT)))    
     
-    write(*,*) "WRITE MIX RESTART 4"
     !Write out the chain (to root)
     call WriteVars(IOVars,.false.,h5Str)
 
     write (lnResF, '(A,A,A,A)') trim(h5RunID), ".mix.Res.", "XXXXX", ".h5"
-    write(*,*) "WRITE MIX RESTART 5"
 
     ! make a link to the default "XXXXX" restart file
     call EXECUTE_COMMAND_LINE('ln -sf '//trim(ResF)//' '//trim(lnResF), wait=.false.)
-    write(*,*) "WRITE MIX RESTART 6"
 
   end subroutine writeMIXRestart
 
