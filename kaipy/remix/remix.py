@@ -36,7 +36,7 @@ class remix:
 										'max':1},
 						 'joule'     : {'min':0,
 										'max':10},
-						 'jhall'	 : {'min':-2,
+						 'jhall'     : {'min':-2,
 						 				'max':2},
 						 'Menergy'    : {'min':0,
 										'max':20},
