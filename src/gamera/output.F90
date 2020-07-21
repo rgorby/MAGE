@@ -140,9 +140,7 @@ contains
 
         write (lnResF, '(A,A,A,A)') trim(Model%RunID), ".Res.", "XXXXX", ".h5"
 
-        ! make a link to the default "XXXXX" restart file
-        call EXECUTE_COMMAND_LINE('ln -sf '//trim(ResF)//' '//trim(lnResF), wait=.false.)
-
+        call MapSymLink(ResF,lnResF)
     end subroutine resOutput
 
 end module output

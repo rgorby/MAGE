@@ -2113,7 +2113,7 @@ real :: v_1_1, v_1_2, v_2_1, v_2_2
             call WriteVars(IOVars,doSP,H5File)
             !Create link to latest restart
             write (lnResF, '(A,A,A,A)') trim(runid), ".RCM.Res.", "XXXXX", ".h5"
-            call EXECUTE_COMMAND_LINE('ln -sf '//trim(H5File)//' '//trim(lnResF), wait=.false.)
+            call MapSymLink(H5File,lnResF)
           else
             call WriteVars(IOVars,doSP,H5File,gStr)
           endif

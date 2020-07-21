@@ -10,7 +10,7 @@ module voltio
 
     implicit none
 
-    integer , parameter, private :: MAXVOLTIOVAR = 20
+    integer , parameter, private :: MAXVOLTIOVAR = 30
     real(rp), parameter, private :: dtWallMax = 1.0 !How long between timer resets[hr]
     logical , private :: isConInit = .false.
     real(rp), private ::  oMJD = 0.0
@@ -284,8 +284,15 @@ module voltio
         call AddOutVar(IOVars,"Vz",Veb(:,:,:,ZDIR))
 
         call AddOutVar(IOVars,"psi",psi)
+        !---------------------
+        !Do attributes
+
         call AddOutVar(IOVars,"cpcpN",cpcp(1))
         call AddOutVar(IOVars,"cpcpS",cpcp(2))
+
+        call AddOutVar(IOVars,"time",vApp%time)
+        call AddOutVar(IOVars,"MJD" ,vApp%MJD)
+        call AddOutVar(IOVars,"timestep",vApp%ts)
 
         call WriteVars(IOVars,.true.,vh5File,gStr)
 
