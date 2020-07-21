@@ -57,10 +57,23 @@ module mixparams
               stop "The ET model type entered is not supported."              
         end select
 
+        ! AURORA_MODEL_TYPE
+        call xmlInp%Set_Val(tmpStr,"precipitation/aurora_model_type","FEDDER")
+        select case (tmpSTR)
+           case ("FEDDER")
+              Params%aurora_model_type = FEDDER
+           case ("ZHANG")
+              Params%aurora_model_type = ZHANG
+           case ("RCMONO")
+              Params%aurora_model_type = RCMONO
+           case default 
+              stop "The aurora model type entered is not supported (Available options: FEDDER, ZHANG, RCMONO)."
+        end select
+
         ! Numerical constants
-        call xmlInp%Set_Val(Params%alpha,"conductance/alpha",1.0332467_rp)
-        call xmlInp%Set_Val(Params%beta,"conductance/beta",0.4362323_rp)
-        call xmlInp%Set_Val(Params%R,"conductance/R",0.083567956_rp)
+        call xmlInp%Set_Val(Params%alpha,"precipitation/alpha",1.0332467_rp)
+        call xmlInp%Set_Val(Params%beta,"precipitation/beta",0.4362323_rp)
+        call xmlInp%Set_Val(Params%R,"precipitation/R",0.083567956_rp)
         call xmlInp%Set_Val(Params%F107,"conductance/F107",120._rp)
         call xmlInp%Set_Val(Params%pedmin,"conductance/pedmin",2.0_rp)
         call xmlInp%Set_Val(Params%hallmin,"conductance/hallmin",1.0_rp)

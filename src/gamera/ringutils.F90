@@ -130,22 +130,29 @@ module ringutils
                     allocate(NCr(Nr))
                     NCr = [8,16]
                 case(64)
+                    !DBL res
                     Nr = 4
                     allocate(NCr(Nr))
                     NCr = [8,16,32,32]
                 case(128)
+                    !QUAD res
                     Nr = 8
                     allocate(NCr(Nr))
                     NCr = [8,16,32,32,64,64,64,64]
                 case(256)
-                    Nr = 16
+                    !OCT res
+                    Nr = 12
                     allocate(NCr(Nr))
-                    NCr = [8,16,32,32,64,64,64,64,128,128,128,128,128,128,128,128]
+                    NCr = [8,16,32,32,64,64,64,64,128,128,128,128]
+                    !Old LFM values
+                    !Nr = 16
+                    !NCr = [8,16,32,32,64,64,64,64,128,128,128,128,128,128,128,128]
+
                 case(512)
                     !Default HEX case
                     Nr = 16
                     allocate(NCr(Nr))
-                    NCr = [8,16,32,32,64,64,64,64,128,128,128,128,128,128,128,128]
+                    NCr = [8,16,32,32,64,64,64,64,128,128,128,128,256,256,256,256]
                 case default
                     write(*,*) 'Unsupported LFM-Nk, no default ...'
                 end select

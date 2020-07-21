@@ -13,19 +13,21 @@ module mixmain
 
   contains
 
-    subroutine init_mix(I,hmsphrs,optFilename,RunID,isRestart,mixIOobj)
+    subroutine init_mix(I,hmsphrs,optFilename,RunID,isRestart,mixIOobj,nRes)
       type(mixIon_T),dimension(:),allocatable,intent(inout) :: I ! I for ionosphere (is an array of 1 or 2 elements for north and south) or it can be artibrarily many, e.g., for different solves done in loop
       integer, dimension(:), intent(in) :: hmsphrs       
       character(len=*), optional, intent(in) :: optFilename
       character(len=*),optional, intent(in) :: RunID   ! these two things are needed when we're coupled with Gamera
       logical,optional, intent(in) :: isRestart
-      type(mixIO_T),optional, intent(in) :: mixIOobj      
+      type(mixIO_T),optional, intent(in) :: mixIOobj  
+      integer,optional,intent(in) :: nRes    
 
-      integer :: h
+      integer :: h,doRestart
 
       if (.not.allocated(I)) allocate(I(size(hmsphrs)))
       
       I%rad_iono_m = RIonE*1.e+6 ! Default to RIonE. To change, overwrite directly after the init_mix call
+      if (present(isRestart)) doRestart = isRestart
 
       do h=1,size(I)
          if(present(optFilename)) then
@@ -64,25 +66,34 @@ module mixmain
       end do
 
       ! initialize the mix dump file
-      call initMIXIO(I,RunID,isRestart)
+      if (present(isRestart) .and. doRestart) then
+        !call xmlInp%Set_Val(nRes ,"/gamera/restart/nRes" ,-1)
+        write(*,*) "InitMIXIO with restart"
+        call initMIXIO(I,RunID,isRestart,nRes)
+      else
+        write(*,*) "InitMIXIO without restart"
+        call initMIXIO(I,RunID,isRestart)
+      end if
     end subroutine init_mix
 
     subroutine get_potential(I)
       type(mixIon_T),intent(inout) :: I
 
-      !I%St%Vars(:,:,POT) = reshape(I%S%solution,[I%G%Np,I%G%Nt])*RionE**2*1.D3 ! in kV
       I%St%Vars(:,:,POT) = reshape(I%S%solution,[I%G%Np,I%G%Nt])*(I%rad_iono_m*1.e-6)**2*1.D3 ! in kV
     end subroutine get_potential
 
-    subroutine run_mix(I,tilt,doModelOpt)
+    subroutine run_mix(I,tilt,doModelOpt,gcm)
       type(mixIon_T),dimension(:),intent(inout) :: I 
+      type(gcm_T),optional,intent(inout) :: gcm
       real(rp),intent(in) :: tilt
       logical, optional, intent(in) :: doModelOpt  ! allow to change on the fly whether we use conductance model
 
       logical :: doModel=.true.   ! always default to xml input deck unless doModelOpt is present and on
+      logical :: isRestart = .false.
       integer :: h,NumH
 
       if (present(doModelOpt)) doModel = doModelOpt
+      if (present(gcm)) isRestart = gcm%isRestart
 
       NumH = size(I)
 
@@ -101,14 +112,32 @@ module mixmain
         end if
 
         call Tic("MIX-COND")
-        call conductance_total(I(h)%conductance,I(h)%G,I(h)%St)
-        call Toc("MIX-COND")
-        call Tic("MIX-SOLVE")
-        call run_solver(I(h)%P,I(h)%G,I(h)%St,I(h)%S)
-        call Toc("MIX-SOLVE")
-        call Tic("MIX-POT")
-        call get_potential(I(h))
-        call Toc("MIX-POT")
+        if (present(gcm) .and. isRestart) then
+          !write(*,*) "conductance: restart"
+          !we read the conductance from file, so we're going to skip
+          gcm%isRestart = .false.
+          !write(*,*) "Get rePOT: ", maxval(I(h)%St%Vars(:,:,POT)),minval(I(h)%St%Vars(:,:,POT))
+          call Toc("MIX-COND")
+          call Tic("MIX-SOLVE")
+          call Toc("MIX-SOLVE")
+          call Tic("MIX-POT")
+          call Toc("MIX-POT")
+        else
+          if (present(gcm)) then
+            !write(*,*) 'doGCM!'
+            call conductance_total(I(h)%conductance,I(h)%G,I(h)%St,gcm,h)
+          else
+            !write(*,*) "conductance: total"
+            call conductance_total(I(h)%conductance,I(h)%G,I(h)%St)
+          end if
+          call Toc("MIX-COND")
+          call Tic("MIX-SOLVE")
+          call run_solver(I(h)%P,I(h)%G,I(h)%St,I(h)%S)
+          call Toc("MIX-SOLVE")
+          call Tic("MIX-POT")
+          call get_potential(I(h))
+          call Toc("MIX-POT")
+        end if
       end do
     end subroutine run_mix
 

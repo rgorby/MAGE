@@ -579,7 +579,7 @@
 !                                                                       
 !
 !                                  
-      iedim_local = 1
+      iedim_local = 2
 !
       vpar  (:,:)   = zero
       eavg  (:,:,:) = zero
@@ -664,7 +664,9 @@
 !
                END IF 
                ! corrections to eavg at eflux(i,j) == 0.0     sbao 07/2019 
-               IF (eflux(i,j,ie) == 0.0) eavg(i,j,ie) = 0.0
+               ! == does not work well with real number, use lt threshold instead. ldong 04/2020
+               IF (eflux(i,j,ie) .lt. 0.01) eavg(i,j,ie) = 0.0
+               IF (eavg(i,j,ie) .lt. 0.01) eflux(i,j,ie) = 0.0
 
 !                                                                       
             END DO
@@ -677,6 +679,8 @@
       CALL Circle (vpar)
       CALL Circle (eflux (:, :, ie_el))
       CALL Circle (eavg  (:, :, ie_el))
+      CALL Circle (eflux (:, :, ie_hd))
+      CALL Circle (eavg  (:, :, ie_hd))
 !
       RETURN
       END SUBROUTINE Get_vparallel
@@ -700,6 +704,20 @@
          END DO
          DO i = imin_j(j), ivalue_max - 1
             eflux(i,j,ie_el) = MAX (half*eflux_max, eflux(i,j,ie_el))
+         END DO
+      END DO
+      !ion precipitation
+      DO j = 1, jsize
+         eflux_max = eflux (isize, j, ie_hd)
+         ivalue_max = isize
+         DO i = isize-1, imin_j(j), -1
+            IF (eflux(i,j,ie_hd) > eflux(i+1,j,ie_hd)) THEN
+               eflux_max  = eflux(i,j,ie_hd)
+               ivalue_max = i
+            END IF
+         END DO
+         DO i = imin_j(j), ivalue_max - 1
+            eflux(i,j,ie_hd) = MAX (half*eflux_max, eflux(i,j,ie_hd))
          END DO
       END DO
       RETURN
@@ -1957,7 +1975,6 @@ real :: v_1_1, v_1_2, v_2_1, v_2_2
           call AddInVar(IOVars,"beta")
           call AddInVar(IOVars,"bir")
           call AddInVar(IOVars,"sini")
-
 
           !Extra stuff (not in write arrays)
           call AddInVar(IOVars,"alamc")

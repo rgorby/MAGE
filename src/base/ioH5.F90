@@ -245,7 +245,6 @@ contains
         character(len=*), intent(in) :: baseStr
         character(len=*), intent(in), optional :: gStrO
         character(len=strLen) :: outStr
-
         
         integer :: n, Nv
         ! integer(HID_T) :: Nr

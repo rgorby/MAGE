@@ -298,11 +298,13 @@ module rcmimag
         vApp%imag2mix%isClosed = (RCMApp%iopen == RCMTOPCLOSED)
         vApp%imag2mix%latc = RCMApp%latc
         vApp%imag2mix%lonc = RCMApp%lonc
-        vApp%imag2mix%eflux = RCMApp%flux
-        vApp%imag2mix%eavg  = RCMApp%eng_avg
 
-        vApp%imag2mix%iflux = 0.0
-        vApp%imag2mix%iavg  = 0.0
+    ! electrons precipitation
+        vApp%imag2mix%eflux = RCMApp%flux(:,:,1)
+        vApp%imag2mix%eavg  = RCMApp%eng_avg(:,:,1)
+    ! ion precipitation
+        vApp%imag2mix%iflux = RCMApp%flux(:,:,2)
+        vApp%imag2mix%iavg  = RCMApp%eng_avg(:,:,2)
 
         vApp%imag2mix%isFresh = .true.
 
