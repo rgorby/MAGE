@@ -705,9 +705,7 @@ contains
     call WriteVars(IOVars,.false.,h5Str)
 
     write (lnResF, '(A,A,A,A)') trim(h5RunID), ".mix.Res.", "XXXXX", ".h5"
-
-    ! make a link to the default "XXXXX" restart file
-    call EXECUTE_COMMAND_LINE('ln -sf '//trim(ResF)//' '//trim(lnResF), wait=.false.)
+    call MapSymLink(ResF,lnResF)
 
   end subroutine writeMIXRestart
 
