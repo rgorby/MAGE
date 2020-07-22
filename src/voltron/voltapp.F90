@@ -52,6 +52,7 @@ module voltapp
 
 #ifdef _OPENMP
         call xmlInp%Set_Val(numVoltThreads,'threading/numThreads',omp_get_max_threads())
+        call omp_set_num_threads(numVoltThreads)
         if (vApp%isLoud) then
             write(*,*) 'Voltron running threaded'
             write(*,*) '   # Threads = ', numVoltThreads

@@ -84,7 +84,8 @@ module init
 
         !Setup OMP info
 #ifdef _OPENMP
-        Model%nTh = omp_get_max_threads()
+        if(Model%nTh < 1) Model%nTh = omp_get_max_threads() ! Default if unspecified
+        call omp_set_num_threads(Model%nTh)
         if (Model%isLoud) then
             write(*,*) 'Running threaded'
             write(*,*) '   # Threads = ', Model%nTh

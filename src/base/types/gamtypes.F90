@@ -84,7 +84,7 @@ module gamtypes
         logical :: doResistive=.false.
         
         logical :: isLoud = .true. !Whether you can write to console
-        integer :: nTh=1 !Number of threads per node/group
+        integer :: nTh=-1 !Number of threads per node/group
 
         !Output info
         type (IOClock_T) :: IO

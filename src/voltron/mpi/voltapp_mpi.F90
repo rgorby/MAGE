@@ -194,6 +194,7 @@ module voltapp_mpi
         xmlInp = New_XML_Input(trim(inpXML),'Gamera',.true.)
         call xmlInp%Set_Val(vApp%doSerialVoltron,"/Voltron/coupling/doSerial",.false.)
         vApp%gAppLocal%Grid%ijkShift(1:3) = 0
+        call xmlInp%Set_Val(vApp%gAppLocal%Model%nTh,"/Voltron/threading/numThreads",-1)
         call ReadCorners(vApp%gAppLocal%Model,vApp%gAppLocal%Grid,xmlInp,noRestartOpt=.true.)
         call SetRings(vApp%gAppLocal%Model,vApp%gAppLocal%Grid,xmlInp)
         call Corners2Grid(vApp%gAppLocal%Model,vApp%gAppLocal%Grid)
