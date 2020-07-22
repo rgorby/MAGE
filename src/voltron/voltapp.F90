@@ -33,6 +33,7 @@ module voltapp
         type(TimeSeries_T) :: tsMJD
         real(rp) :: gTScl,tSpin,tIO
         logical :: doSpin,doDelayIO
+        integer :: numSB, numVoltThreads
 
         if(present(optFilename)) then
             ! read from the prescribed file
@@ -46,10 +47,14 @@ module voltapp
         !Start by shutting up extra ranks
         if (.not. vApp%isLoud) call xmlInp%BeQuiet()
 
+        !Create XML reader
+        xmlInp = New_XML_Input(trim(inpXML),'Voltron',.true.)
+
 #ifdef _OPENMP
+        call xmlInp%Set_Val(numVoltThreads,'threading/numThreads',omp_get_max_threads())
         if (vApp%isLoud) then
             write(*,*) 'Voltron running threaded'
-            write(*,*) '   # Threads = ', omp_get_max_threads()
+            write(*,*) '   # Threads = ', numVoltThreads
             write(*,*) '   # Cores   = ', omp_get_num_procs()
         endif
 #else
@@ -58,8 +63,9 @@ module voltapp
         endif
 #endif
 
-    !Create XML reader
-        xmlInp = New_XML_Input(trim(inpXML),'Voltron',.true.)
+        ! read number of squish blocks
+        call xmlInp%Set_Val(numSB,"coupling/numSquishBlocks",3)
+        call setNumSquishBlocks(numSB)
 
     !Initialize state information
         !Set file to read from and pass desired variable name to initTS
@@ -102,14 +108,15 @@ module voltapp
         
     !IO/Restart options
         if (doDelayIO) then
-            call vApp%IO%init(xmlInp,tIO)
+            call vApp%IO%init(xmlInp,tIO,vApp%ts)
         else
-            call vApp%IO%init(xmlInp,vApp%time)
+            call vApp%IO%init(xmlInp,vApp%time,vApp%ts)
         endif
         
         !Pull numbering from Gamera
         vApp%IO%nRes = gApp%Model%IO%nRes
         vApp%IO%nOut = gApp%Model%IO%nOut
+        vApp%IO%tsNext = gApp%Model%IO%tsNext
         !Force Gamera IO times to match Voltron IO
         call IOSync(vApp%IO,gApp%Model%IO,1.0/gTScl)
 
@@ -357,42 +364,67 @@ module voltapp
         class(voltApp_T), intent(inout) :: vApp
         real(rp), intent(in) :: time
 
-        real(rp) :: tAdv
-
         if (.not. vApp%doDeep) then
             !Why are you even here?
             return
         endif
 
-        tAdv = vApp%DeepT + vApp%DeepDT !Advance inner magnetosphere through full coupling time 
-    
-    !Pull in updated fields to CHIMP
+        call PreSquishDeep(vApp, gApp)
+
+        ! do all squish blocks here
+        call DoSquish(vApp)
+
+        call PostSquishDeep(vApp, gApp)
+
+    end subroutine DeepUpdate
+
+    subroutine PreSquishDeep(vApp, gApp)
+        type(gamApp_T) , intent(inout) :: gApp
+        class(voltApp_T), intent(inout) :: vApp
+
+        !Update coupling time now so that voltron knows what to expect
+        vApp%DeepT = vApp%DeepT + vApp%DeepDT
+
+        !Pull in updated fields to CHIMP
         call Tic("G2C")
         call convertGameraToChimp(vApp%mhd2chmp,gApp,vApp%ebTrcApp)
         call Toc("G2C")
 
-    !Advance inner magnetosphere model to tAdv
+        !Advance inner magnetosphere model to tAdv
         call Tic("InnerMag")
-        call AdvanceInnerMag(vApp,tAdv)
+        call AdvanceInnerMag(vApp,vApp%DeepT)
         call Toc("InnerMag")
 
-    !Squish 3D data to 2D IMAG grid (either RP or lat-lon)
+        call Tic("Squish")
+        call SquishStart(vApp)
+        call Toc("Squish")
+
+    end subroutine
+
+    subroutine DoSquish(vApp)
+        class(voltApp_T), intent(inout) :: vApp
+
+        !Squish 3D data to 2D IMAG grid (either RP or lat-lon)
         !Doing field projection at current time
         call Tic("Squish")
         call Squish(vApp)
         call Toc("Squish")
 
-    !Now use imag model and squished coordinates to fill Gamera source terms
+    end subroutine DoSquish
+
+    subroutine PostSquishDeep(vApp, gApp)
+        type(gamApp_T) , intent(inout) :: gApp
+        class(voltApp_T), intent(inout) :: vApp
+
+        call Tic("Squish")
+        call SquishEnd(vApp)
+        call Toc("Squish")
+
+        !Now use imag model and squished coordinates to fill Gamera source terms
         call Tic("IM2G")
         call InnerMag2Gamera(vApp,gApp)
         call Toc("IM2G")
-    
-
-    !Setup next coupling
-        vApp%DeepT = vApp%DeepT + vApp%DeepDT
-
-    end subroutine DeepUpdate
-
+    end subroutine
 
     !Initialize CHIMP data structure
     subroutine init_volt2Chmp(ebTrcApp,gApp,optFilename)
