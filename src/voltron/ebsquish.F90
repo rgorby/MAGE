@@ -126,7 +126,7 @@ module ebsquish
             nSkp = 1
         endif
 
-        call GetSquishBds(curSquishBlock,numSquishBlocks,ebGr%ks,ebGr%ke+1,ksB,keB)
+        call GetSquishBds(curSquishBlock,numSquishBlocks,nSkp,ebGr%ks,ebGr%ke+1,ksB,keB)
 
         !$OMP PARALLEL DO default(shared) collapse(2) &
         !$OMP schedule(dynamic) &
@@ -164,13 +164,14 @@ module ebsquish
             !ksGr and keGr are the start/stop of indices
             !ksB and keB are the bounds of this block
             !n \in [0,Nblk-1] (because Jeff)
-            subroutine GetSquishBds(n,Nblk,ksGr,keGr,ksB,keB)
-                integer, intent(in)  :: n,Nblk,ksGr,keGr
+            subroutine GetSquishBds(n,Nblk,nSkp,ksGr,keGr,ksB,keB)
+                integer, intent(in)  :: n,Nblk,nSkp,ksGr,keGr
                 integer, intent(out) :: ksB,keB
 
                 integer :: Nk,dN
                 Nk = keGr - ksGr + 1
                 dN = Nk/numSquishBlocks !Integer division
+                dN = dN - MOD(dN,nSkp)
 
                 ksB = ksGr + n*dN
                 keB = ksB+dN
