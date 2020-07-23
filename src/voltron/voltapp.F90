@@ -199,11 +199,9 @@ module voltapp
         
         !Finally do first output stuff
         !console output
-        if(vApp%isSeparate) then
-            write(*,*) "FIRST OUTPUT1"
+        if (vApp%isSeparate) then
             call consoleOutputVOnly(vApp,gApp,gApp%Model%MJD0)
         else
-            write(*,*) "FIRST OUTPUT2"
             call consoleOutputV(vApp,gApp)
         endif
         !file output

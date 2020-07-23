@@ -28,7 +28,17 @@ def CheckOrDie(fname):
 		print("Unable to find file: %s"%(fname))
 		print("!!Exiting!!")
 		quit()
-		
+
+#Get git hash from file if it exists
+def GetHash(fname):
+	CheckOrDie(fname)
+	with h5py.File(fname,'r') as hf:
+		rStr = hf.attrs.get("GITHASH","NONE")
+	try:
+		hStr = rStr.decode('utf-8')
+	except (UnicodeDecodeError, AttributeError):
+		hStr = rStr
+	return hStr
 #Return time at step n
 def tStep(fname,nStp=0,aID="time",aDef=0.0):
 	CheckOrDie(fname)

@@ -32,5 +32,6 @@ if __name__ == "__main__":
 			MJDMin = MJDs.min()
 			MJDMax = MJDs.max()
 			print("\tMJD  = [%f,%f]"%(MJDMin,MJDMax))
-			
+		hStr = kh5.GetHash(h5F)
+		print("\tGit Hash = %s"%(hStr))
 	#---------------------
