@@ -43,7 +43,7 @@ module voltio
         integer :: iYr,iDoY,iMon,iDay,iHr,iMin
         real(rp) :: rSec
         character(len=strLen) :: utStr
-        real(rp) :: dD,dP,Dst
+        real(rp) :: DelD,DelP,Dst,symh
 
         !Augment Gamera console output w/ Voltron stuff
         call getCPCP(vApp%mix2mhd%mixOutput,cpcp)
@@ -81,15 +81,26 @@ module voltio
         !Get Dst estimate
         call EstDST(gApp%Model,gApp%Grid,gApp%State,Dst)
 
+        !Get symh from input time series
+        symh = vApp%symh%evalAt(vApp%time)
+
         if (vApp%isLoud) then
             write(*,*) ANSIBLUE
             write(*,*) 'VOLTRON'
             write (*,'(a,a)')                    '      UT   = ', trim(utStr)
             write (*, '(a,1f8.3,a)')             '      tilt = ' , dpT, ' [deg]'
             write (*, '(a,2f8.3,a)')             '      CPCP = ' , cpcp(NORTH), cpcp(SOUTH), ' [kV, N/S]'
-            write (*, '(a, f8.3,a)')             '    BSDst  ~ ' , Dst, ' [nT]'
+            write (*, '(a, f8.3,a)')             '    BSDst  ~ ' , Dst , ' [nT]'
+            write (*, '(a, f8.3,a)')             '    Sym-H  = ' , symh, ' [nT]'
+            if (vApp%doDeep) then
+                call IMagDelta(gApp%Model,gApp%Grid,gApp%State,DelD,DelP)
+                write (*, '(a)'        )             '    IMag Ingestion Fraction'
+                write (*, '(a,1f8.3,a)')             '       D   = ', 100.0*DelD,'%'
+                write (*, '(a,1f8.3,a)')             '       P   = ', 100.0*DelP,'%'
+            endif
+
             if (simRate>TINY) then
-                write (*, '(a,1f7.3,a)')             '      Running @ ', simRate*100.0, '% of real-time'
+                write (*, '(a,1f7.3,a)')             '    Running @ ', simRate*100.0, '% of real-time'
             endif
             write (*, *) ANSIRESET, ''
         endif
@@ -385,7 +396,8 @@ module voltio
 
         !Set some lazy config
         xyz0 = 0.0 !Measure at center of Earth
-        iMin = Gr%is+4
+        !iMin = Gr%is+4
+        iMin = Gr%is+1
         iMax = Gr%ie
 
         !Now do accumulation
@@ -433,6 +445,11 @@ module voltio
         Dmhd = 0.0
         Psrc = 0.0
         Pmhd = 0.0
+
+        !$OMP PARALLEL DO default(shared) collapse(2) &
+        !$OMP private(i,j,k,dV,doInD,doInP,doIngest) &
+        !$OMP private(pCon,pW) &
+        !$OMP reduction(+:Dsrc,Dmhd,Psrc,Pmhd)
         do k=Gr%ks,Gr%ke
             do j=Gr%js,Gr%je
                 do i=Gr%is,Gr%ie

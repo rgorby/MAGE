@@ -71,6 +71,8 @@ module voltapp
         !Set file to read from and pass desired variable name to initTS
         call xmlInp%Set_Val(vApp%tilt%wID,"/Gamera/wind/tsfile","NONE")
         call vApp%tilt%initTS("tilt")
+        vApp%symh%wID = vApp%tilt%wID
+        call vApp%symh%initTS("symh")
 
         gTScl = gApp%Model%Units%gT0
 
@@ -125,7 +127,6 @@ module voltapp
         vApp%ShallowT = vApp%time
         call xmlInp%Set_Val(vApp%ShallowDT ,"coupling/dt" , 0.1_rp)
         call xmlInp%Set_Val(vApp%doGCM, "coupling/doGCM",.false.)
-        write(*,*) "VOLTRON NRES: ",vApp%IO%nRes,gApp%Model%IO%nRes,vApp%time
 
         if (vApp%doGCM) then
             call init_gcm(vApp%gcm,gApp%Model%isRestart)
@@ -257,6 +258,7 @@ module voltapp
         call f107%initTS("f10.7")
         maxF107 = f107%getMax()
         
+
         do n=1,2
             vApp%remixApp%ion(n)%P%f107 = maxF107
         enddo

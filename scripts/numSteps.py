@@ -6,6 +6,11 @@ import os
 import kaipy.kaiH5 as kh5
 import numpy as np
 
+def MJD2Str(m0):
+	from astropy.time import Time
+	dtObj = Time(m0,format='mjd').datetime
+	tStr = dtObj.strftime("%H:%M:%S") + " " +  dtObj.strftime("%m/%d/%Y") 
+	return tStr
 if __name__ == "__main__":
 	#Defaults
 
@@ -31,7 +36,13 @@ if __name__ == "__main__":
 		if (MJDs.max()>0):
 			MJDMin = MJDs.min()
 			MJDMax = MJDs.max()
+
 			print("\tMJD  = [%f,%f]"%(MJDMin,MJDMax))
+			tS1 = MJD2Str(MJDMin)
+			tS2 = MJD2Str(MJDMax)
+			print("\t\tStart: %s"%(tS1))
+			print("\t\tStop : %s"%(tS2))
+
 		hStr = kh5.GetHash(h5F)
 		print("\tGit Hash = %s"%(hStr))
 	#---------------------

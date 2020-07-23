@@ -111,8 +111,8 @@ module rcm_mhd_mod
             call allocate_conversion_arrays (isize,jsize,kcsize)
 
             ! Set up RCM ionospheric grid:
-            !call Grid_torcm (HighLatBD,LowLatBD, 0.0_rprec, radius_earth_m, radius_iono_m)  ! set up RCM ionospheric grid here
-            write(*,*) "rcm/rcm_mhd.f90: RM%planet_radius=",RM%planet_radius
+            !write(*,*) "rcm/rcm_mhd.f90: RM%planet_radius=",RM%planet_radius
+            
             call Grid_torcm (HighLatBD,LowLatBD, 0.0_rprec, RM%planet_radius, RM%iono_radius)  ! set up RCM ionospheric grid here
             ! Setup Ionosphere intermediate Grid by equating it to the RCM grid, without angular overlap:
             call setupIon(RM)
