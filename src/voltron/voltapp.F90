@@ -61,9 +61,9 @@ module voltapp
     !Initialize state information
         !Set file to read from and pass desired variable name to initTS
         call xmlInp%Set_Val(vApp%tilt%wID,"/Gamera/wind/tsfile","NONE")
-        call vApp%tilt%initTS("tilt")
+        call vApp%tilt%initTS("tilt",doLoudO=.false.)
         vApp%symh%wID = vApp%tilt%wID
-        call vApp%symh%initTS("symh")
+        call vApp%symh%initTS("symh",doLoudO=.false.)
 
         gTScl = gApp%Model%Units%gT0
 
@@ -89,7 +89,7 @@ module voltapp
 
         !Use MJD from time series
         tsMJD%wID = vApp%tilt%wID
-        call tsMJD%initTS("MJD")
+        call tsMJD%initTS("MJD",doLoudO=.false.)
         gApp%Model%MJD0 = tsMJD%evalAt(0.0_rp) !Evaluate at T=0
         
         vApp%MJD = T2MJD(vApp%time,gApp%Model%MJD0)
@@ -246,7 +246,7 @@ module voltapp
 
         !Set F10.7 from time series (using max)
         f107%wID = vApp%tilt%wID
-        call f107%initTS("f10.7")
+        call f107%initTS("f10.7",doLoudO=.false.)
         maxF107 = f107%getMax()
         
 
