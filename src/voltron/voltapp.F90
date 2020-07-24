@@ -33,7 +33,7 @@ module voltapp
         type(TimeSeries_T) :: tsMJD
         real(rp) :: gTScl,tSpin,tIO
         logical :: doSpin,doDelayIO
-        integer :: numSB, numVoltThreads
+        integer :: numSB
 
         if(present(optFilename)) then
             ! read from the prescribed file
@@ -49,19 +49,10 @@ module voltapp
 
         !Create XML reader
         xmlInp = New_XML_Input(trim(inpXML),'Voltron',.true.)
-
-#ifdef _OPENMP
-        call xmlInp%Set_Val(numVoltThreads,'threading/numThreads',omp_get_max_threads())
-        if (vApp%isLoud) then
-            write(*,*) 'Voltron running threaded'
-            write(*,*) '   # Threads = ', numVoltThreads
-            write(*,*) '   # Cores   = ', omp_get_num_procs()
+        !Setup OMP if on separate node (otherwise can rely on gamera)
+        if (vApp%isSeparate) then
+            call SetOMP(xmlInp)
         endif
-#else
-        if (vApp%isLoud) then
-            write (*,*) 'Voltron running without threading'
-        endif
-#endif
 
         ! read number of squish blocks
         call xmlInp%Set_Val(numSB,"coupling/numSquishBlocks",3)

@@ -5,6 +5,7 @@ module output
     use gioH5
     use gridutils
     use files
+    use kaiomp
     
     implicit none
 
@@ -62,10 +63,8 @@ contains
         endif
 
         if (Model%isLoud) then
-            nTh = 0
-#ifdef _OPENMP
-            nTh = Model%nTh
-#endif
+            nTh = NumOMP()
+
             write(*,*) ANSICYAN
             write(*,*) 'GAMERA'
             call timeString(Model%t,tStr)
