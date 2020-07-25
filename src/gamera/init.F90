@@ -649,10 +649,42 @@ module init
         Grid%ksg = Grid%ks-Model%nG
         Grid%keg = Grid%ke+Model%nG
 
+        Grid%ijkShift(IDIR) = Grid%Nip*Grid%Ri
+        Grid%ijkShift(JDIR) = Grid%Njp*Grid%Rj
+        Grid%ijkShift(KDIR) = Grid%Nkp*Grid%Rk
+
         !Set dx's (uniform for now)
         dx = (xyzBds(2)-xyzBds(1))/Grid%Nip
         dy = (xyzBds(4)-xyzBds(3))/Grid%Njp
         dz = (xyzBds(6)-xyzBds(5))/Grid%Nkp
+
+        if( Grid%isTiled) then
+            !Adjust grid info to only generate data for this tile
+            Grid%Nip = Grid%Nip/Grid%NumRi
+            Grid%Njp = Grid%Njp/Grid%NumRj
+            Grid%Nkp = Grid%Nkp/Grid%NumRk
+
+            Grid%ijkShift(IDIR) = Grid%Nip*Grid%Ri
+            Grid%ijkShift(JDIR) = Grid%Njp*Grid%Rj
+            Grid%ijkShift(KDIR) = Grid%Nkp*Grid%Rk
+
+            Grid%Ni = Grid%Nip + 2*Model%nG
+            Grid%Nj = Grid%Njp + 2*Model%nG
+            Grid%Nk = Grid%Nkp + 2*Model%nG
+
+            Grid%is = 1; Grid%ie = Grid%Nip
+            Grid%js = 1; Grid%je = Grid%Njp
+            Grid%ks = 1; Grid%ke = Grid%Nkp
+
+            Grid%isg = Grid%is-Model%nG
+            Grid%ieg = Grid%ie+Model%nG
+
+            Grid%jsg = Grid%js-Model%nG
+            Grid%jeg = Grid%je+Model%nG
+
+            Grid%ksg = Grid%ks-Model%nG
+            Grid%keg = Grid%ke+Model%nG
+        endif
 
         !Allocate corner grid holders
         allocate(Grid%x(Grid%isg:Grid%ieg+1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1))
@@ -663,9 +695,9 @@ module init
         do k=Grid%ksg, Grid%keg+1
             do j=Grid%jsg, Grid%jeg+1
                 do i=Grid%isg, Grid%ieg+1
-                    x1 = xyzBds(1)+(i-1)*dx
-                    x2 = xyzBds(3)+(j-1)*dy
-                    x3 = xyzBds(5)+(k-1)*dz
+                    x1 = xyzBds(1)+(Grid%ijkShift(IDIR)+i-1)*dx
+                    x2 = xyzBds(3)+(Grid%ijkShift(JDIR)+j-1)*dy
+                    x3 = xyzBds(5)+(Grid%ijkShift(KDIR)+k-1)*dz
                     if (doCyl) then
                         !Treat x1,x2,x3 as R,phi/2pi,z
                         x = x1*cos(2*pi*x2)
