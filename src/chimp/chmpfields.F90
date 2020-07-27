@@ -64,7 +64,6 @@ module chmpfields
         call findSlc(ebTab,t,i1,i2)
 
         if (t>=ebTab%times(i1)) then
-            !XXX
             dt = oTScl*(t-ebTab%times(i1)) !Seconds
             MJDAt = ebTab%MJDs(i1) + dt/(60.0*60.0*24.0)
             
