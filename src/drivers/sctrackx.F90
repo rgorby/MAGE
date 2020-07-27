@@ -15,7 +15,7 @@ program sctrackx
     type SCTrack_T
         !Everything stored in code units
         integer :: NumP !Number of points
-        real(rp), dimension(:), allocatable :: X,Y,Z,T
+        real(rp), dimension(:), allocatable :: X,Y,Z,T,MJDs
         real(rp), dimension(:,:), allocatable :: Q,E,B !MHD vars
     end type SCTrack_T
 
@@ -58,13 +58,14 @@ program sctrackx
         xyz = [SCTrack%X(n),SCTrack%Y(n),SCTrack%Z(n)]
         call ebFields(xyz,Model%t,Model,ebState,Et,Bt)
         Qt = mhdInterp(xyz,Model%t,Model,ebState)
+        SCTrack%MJDs(n) = MJDAt(ebState%ebTab,Model%t)
+
         !Store values
         SCTrack%Q(n,:) = Qt
         SCTrack%B(n,:) = Bt
         SCTrack%E(n,:) = Et
         call Toc("Eval")
 
-        
         call Toc("Omega")
     enddo
     
@@ -90,6 +91,7 @@ program sctrackx
             call AddOutVar(IOVars,"Y",SCTrack%Y)
             call AddOutVar(IOVars,"Z",SCTrack%Z)
             call AddOutVar(IOVars,"T",oTScl*SCTrack%T)
+            call AddOutVar(IOVars,"MJDs",SCTrack%MJDs)
 
             !Output field variables
             call AddOutVar(IOVars,"Bx",oBScl*SCTrack%B(:,XDIR))
@@ -137,6 +139,7 @@ program sctrackx
             allocate(SCTrack%Y(Nt))
             allocate(SCTrack%Z(Nt))
             allocate(SCTrack%T(Nt))
+            allocate(SCTrack%MJDs(Nt))
 
             allocate(SCTrack%Q(Nt,NVARMHD))
             allocate(SCTrack%E(Nt,NDIM))
