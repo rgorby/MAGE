@@ -59,7 +59,7 @@ contains
     type(mixIon_T),dimension(:),intent(inout) :: I
     character(len=*),optional, intent(in) :: RunID   ! these two things are needed when we're coupled with Gamera
     logical,optional, intent(in) :: isRestart
-    integer,optional, intent(in) :: nRes
+    integer,optional, intent(inout) :: nRes
     
     logical :: fExist
     real(rp), dimension(:,:),allocatable :: xc,yc
