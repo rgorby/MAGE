@@ -22,8 +22,8 @@ module mixmain
       type(mixIO_T),optional, intent(in) :: mixIOobj  
       integer,optional,intent(in) :: nRes
       integer :: mixnRes    
-
-      integer :: h,doRestart
+      logical :: doRestart
+      integer :: h
 
       if (.not.allocated(I)) allocate(I(size(hmsphrs)))
       

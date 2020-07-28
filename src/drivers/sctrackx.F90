@@ -87,23 +87,27 @@ program sctrackx
             !Setup output chain
             call ClearIO(IOVars)
             
-            call AddOutVar(IOVars,"X",SCTrack%X)
-            call AddOutVar(IOVars,"Y",SCTrack%Y)
-            call AddOutVar(IOVars,"Z",SCTrack%Z)
-            call AddOutVar(IOVars,"T",oTScl*SCTrack%T)
+            call AddOutVar(IOVars,"X",SCTrack%X,uStr="SM-Re")
+            call AddOutVar(IOVars,"Y",SCTrack%Y,uStr="SM-Re")
+            call AddOutVar(IOVars,"Z",SCTrack%Z,uStr="SM-Re")
+            call AddOutVar(IOVars,"T",oTScl*SCTrack%T,uStr="s")
             call AddOutVar(IOVars,"MJDs",SCTrack%MJDs)
 
             !Output field variables
-            call AddOutVar(IOVars,"Bx",oBScl*SCTrack%B(:,XDIR))
-            call AddOutVar(IOVars,"By",oBScl*SCTrack%B(:,YDIR))
-            call AddOutVar(IOVars,"Bz",oBScl*SCTrack%B(:,ZDIR))
+            call AddOutVar(IOVars,"Bx",oBScl*SCTrack%B(:,XDIR),uStr="nT")
+            call AddOutVar(IOVars,"By",oBScl*SCTrack%B(:,YDIR),uStr="nT")
+            call AddOutVar(IOVars,"Bz",oBScl*SCTrack%B(:,ZDIR),uStr="nT")
+
+            call AddOutVar(IOVars,"Ex",oEScl*SCTrack%E(:,XDIR),uStr="mV/m")
+            call AddOutVar(IOVars,"Ey",oEScl*SCTrack%E(:,YDIR),uStr="mV/m")
+            call AddOutVar(IOVars,"Ez",oEScl*SCTrack%E(:,ZDIR),uStr="mV/m")
 
             !Output fluid variables
-            call AddOutVar(IOVars,"D" ,SCTrack%Q(:,DEN))
-            call AddOutVar(IOVars,"P" ,SCTrack%Q(:,PRESSURE))
-            call AddOutVar(IOVars,"Vx",oVScl*SCTrack%Q(:,VELX))
-            call AddOutVar(IOVars,"Vy",oVScl*SCTrack%Q(:,VELY))
-            call AddOutVar(IOVars,"Vz",oVScl*SCTrack%Q(:,VELZ))
+            call AddOutVar(IOVars,"D" ,SCTrack%Q(:,DEN),uStr="#/cc")
+            call AddOutVar(IOVars,"P" ,SCTrack%Q(:,PRESSURE),uStr="nPa")
+            call AddOutVar(IOVars,"Vx",oVScl*SCTrack%Q(:,VELX),uStr="km/s")
+            call AddOutVar(IOVars,"Vy",oVScl*SCTrack%Q(:,VELY),uStr="km/s")
+            call AddOutVar(IOVars,"Vz",oVScl*SCTrack%Q(:,VELZ),uStr="km/s")
 
             !Let loose
             call WriteVars(IOVars,.true.,H5Out)
