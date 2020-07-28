@@ -14,7 +14,7 @@ module kdefs
     integer, parameter :: iop = sp !Precision for IO
 
 !Globals
-    real(rp), parameter :: pi = 4.0D0*atan(1.0D0)
+    real(rp), parameter :: PI = 4.0D0*atan(1.0D0)
     real(rp), parameter :: TINY=1.0e-12, HUGE=1.0e+12
     real(rp), parameter :: rad2deg = 180.0/PI
     real(rp), parameter :: deg2rad = PI/180.0

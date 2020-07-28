@@ -31,7 +31,8 @@ module rcmimag
     real(rp), private :: planetM0g
 
     logical, parameter, private :: doKillRCMDir = .true. !Whether to always kill RCMdir before starting
-    logical, private :: doWolfLim = .true.
+    logical, private :: doWolfLim  = .true. !Whether to do wolf-limiting
+    logical, private :: doBounceDT = .true. !Whether to use Alfven bounce in dt-ingest
 
     !Information taken from MHD flux tubes
     !TODO: Figure out RCM boundaries
@@ -117,8 +118,9 @@ module rcmimag
         call iXML%Set_Val(RunID,"/gamera/sim/runid","sim")
         RCMApp%rcm_runid = trim(RunID)
 
-        call iXML%Set_Val(doWolfLim,"/gamera/source/doWolfLim",doWolfLim)
-        
+        call iXML%Set_Val(doWolfLim ,"/gamera/source/doWolfLim" ,doWolfLim )
+        call iXML%Set_Val(doBounceDT,"/gamera/source/doBounceDT",doBounceDT)
+
         if (isRestart) then
             if (doKillRCMDir) then
                 !Kill RCMFiles directory even on restart
@@ -513,9 +515,15 @@ module rcmimag
             imW(IMPR)   = prcm
         endif
 
-        imW(IMTSCL) = RCMApp%Tb(ij0(1),ij0(2))
-        imW(IMX1)   = (180.0/PI)*lat
-        imW(IMX2)   = (180.0/PI)*lon
+        if (doBounceDT) then
+            !Use Alfven bounce timescale
+            imW(IMTSCL) = RCMApp%Tb(ij0(1),ij0(2))
+        else
+            imW(IMTSCL) = 0.0 !Set this to zero and rely on coupling timescale later
+        endif
+
+        imW(IMX1)   = rad2deg*lat
+        imW(IMX2)   = rad2deg*lon
 
         end associate
 

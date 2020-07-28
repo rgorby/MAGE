@@ -318,7 +318,6 @@ module ebsquish
     end subroutine Proj2LP
 
     !Project XYZ to lat-lon on ionosphere
-    !TODO: Define cutoff radius within which we just dipole map for speed
     subroutine Proj2LL(ebModel,ebState,xyz,t,x1,x2)
         type(chmpModel_T), intent(in) :: ebModel
         type(ebState_T)  , intent(in) :: ebState
@@ -355,6 +354,7 @@ module ebsquish
             x1 = InvLatitude(xE)
             x2 = atan2(xE(YDIR),xE(XDIR))
             if (x2 < 0) x2 = x2 + 2*PI
+
         else
             !Set 0/0 for projection failure
             x1 = 0.0
