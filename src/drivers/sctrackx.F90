@@ -19,6 +19,7 @@ program sctrackx
         real(rp), dimension(:,:), allocatable :: Q,E,B !MHD vars
         real(rp), dimension(:), allocatable :: inDom !Lazy real-valued boolean
         logical :: doSmooth
+        integer :: Ns=0
     end type SCTrack_T
 
     !Main data structures
@@ -107,11 +108,11 @@ program sctrackx
             if (SCTrack%doSmooth) then
                 write(*,*) 'Smoothing data ...'
                 do n=1,NVARMHD
-                    call SmoothTS(SCTrack%Q(:,n),SCTrack%inDom,SCTrack%NumP)
+                    call SmoothTS(SCTrack%Q(:,n),SCTrack%inDom,SCTrack%NumP,SCTrack%Ns)
                 enddo
                 do n=1,NDIM
-                    call SmoothTS(SCTrack%B(:,n),SCTrack%inDom,SCTrack%NumP)
-                    call SmoothTS(SCTrack%E(:,n),SCTrack%inDom,SCTrack%NumP)
+                    call SmoothTS(SCTrack%B(:,n),SCTrack%inDom,SCTrack%NumP,SCTrack%Ns)
+                    call SmoothTS(SCTrack%E(:,n),SCTrack%inDom,SCTrack%NumP,SCTrack%Ns)
                 enddo
             endif
             
@@ -159,6 +160,9 @@ program sctrackx
             call CheckFileOrDie(H5In,"Trajectory file not found ...")
 
             call inpXML%Set_Val(SCTrack%doSmooth,"trajectory/doSmooth",.false.)
+            if (SCTrack%doSmooth) then
+                call inpXML%Set_Val(SCTrack%Ns,"trajectory/Ns",2)
+            endif
 
             !Setup input chain
             call ClearIO(IOVars)
@@ -171,7 +175,6 @@ program sctrackx
 
             Nt = IOVars(1)%N
             SCTrack%NumP = Nt
-            !write(*,*) 'N = ', Nt
             
             allocate(SCTrack%X(Nt))
             allocate(SCTrack%Y(Nt))
@@ -195,19 +198,27 @@ program sctrackx
         end subroutine GetTrack
 
         !Do 3-pt smoothing window in place on time series
-        subroutine SmoothTS(Q,inDom,Nt)
+        subroutine SmoothTS(Q,inDom,Nt,Ns)
             real(rp), intent(inout) :: Q(Nt)
             real(rp), intent(in)    :: inDom(Nt)
-            integer, intent(in) :: Nt
+            integer, intent(in) :: Nt,Ns
 
             real(rp), dimension(:), allocatable :: Qs
+            logical , dimension(:), allocatable :: isIn
+
             integer :: n
+            real(rp) :: w
+
             allocate(Qs(Nt))
+            allocate(isIn(Nt))
+
+            isIn = (inDom>0.5)
+
             Qs = Q
 
-            do n=2,Nt-1
-                if (all(inDom(n-1:n+1)>0.5)) then
-                    Qs(n) = 0.25*Q(n-1) + 0.50*Q(n) + 0.25*Q(n+1)
+            do n=1+Ns,Nt-Ns
+                if (any(isIn(n-Ns:n+Ns))) then
+                    Qs(n) = sum(Q(n-Ns:n+Ns),mask=isIn(n-Ns:n+Ns))/count(isIn(n-Ns:n+Ns))
                 else
                     Qs(n) = Q(n)
                 endif

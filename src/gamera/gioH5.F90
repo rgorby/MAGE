@@ -54,6 +54,7 @@ module gioH5
         Grid%jeg = Grid%je+Model%nG
         Grid%ksg = Grid%ks-Model%nG
         Grid%keg = Grid%ke+Model%nG
+<<<<<<< HEAD
 
         Grid%ijkShift(IDIR) = Grid%Nip*Grid%Ri
         Grid%ijkShift(JDIR) = Grid%Njp*Grid%Rj
@@ -103,13 +104,11 @@ module gioH5
 
         call ReadVars(IOVars,.false.,inH5) !Don't use io precision
 
-        allocate(Grid%x(Grid%isg:Grid%ieg+1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1))
-        allocate(Grid%y(Grid%isg:Grid%ieg+1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1))
-        allocate(Grid%z(Grid%isg:Grid%ieg+1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1))
-
-        Grid%x = reshape(IOVars(XDIR)%data,[Grid%Ni+1,Grid%Nj+1,Grid%Nk+1])
-        Grid%y = reshape(IOVars(YDIR)%data,[Grid%Ni+1,Grid%Nj+1,Grid%Nk+1])
-        Grid%z = reshape(IOVars(ZDIR)%data,[Grid%Ni+1,Grid%Nj+1,Grid%Nk+1])
+        call allocGrid(Model,Grid)
+        
+        Grid%xyz(:,:,:,XDIR) = reshape(IOVars(XDIR)%data,[Grid%Ni+1,Grid%Nj+1,Grid%Nk+1])
+        Grid%xyz(:,:,:,YDIR) = reshape(IOVars(YDIR)%data,[Grid%Ni+1,Grid%Nj+1,Grid%Nk+1])
+        Grid%xyz(:,:,:,ZDIR) = reshape(IOVars(ZDIR)%data,[Grid%Ni+1,Grid%Nj+1,Grid%Nk+1])
     
     end subroutine readH5Grid
 
@@ -166,14 +165,14 @@ module gioH5
         !Fill IO chain, start with coordinates
         if (Gr%Nkp > 1) then
             !3D problem
-            call AddOutVar(IOVars,"X",Gr%x(iMin:iMax+1,jMin:jMax+1,kMin:kMax+1))
-            call AddOutVar(IOVars,"Y",Gr%y(iMin:iMax+1,jMin:jMax+1,kMin:kMax+1))
-            call AddOutVar(IOVars,"Z",Gr%z(iMin:iMax+1,jMin:jMax+1,kMin:kMax+1))
+            call AddOutVar(IOVars,"X",Gr%xyz(iMin:iMax+1,jMin:jMax+1,kMin:kMax+1,XDIR))
+            call AddOutVar(IOVars,"Y",Gr%xyz(iMin:iMax+1,jMin:jMax+1,kMin:kMax+1,YDIR))
+            call AddOutVar(IOVars,"Z",Gr%xyz(iMin:iMax+1,jMin:jMax+1,kMin:kMax+1,ZDIR))
         else
             !2D problem
             !Squash corner arrays to 2D
-            call AddOutVar(IOVars,"X",reshape(Gr%x(iMin:iMax+1,jMin:jMax+1,kMin:kMin),[iMax-iMin+2,jMax-jMin+2]))
-            call AddOutVar(IOVars,"Y",reshape(Gr%y(iMin:iMax+1,jMin:jMax+1,kMin:kMin),[iMax-iMin+2,jMax-jMin+2]))
+            call AddOutVar(IOVars,"X",reshape(Gr%xyz(iMin:iMax+1,jMin:jMax+1,kMin:kMin,XDIR),[iMax-iMin+2,jMax-jMin+2]))
+            call AddOutVar(IOVars,"Y",reshape(Gr%xyz(iMin:iMax+1,jMin:jMax+1,kMin:kMin,YDIR),[iMax-iMin+2,jMax-jMin+2]))
         endif
 
         call AddOutVar(IOVars,"dV",Gr%volume(iMin:iMax,jMin:jMax,kMin:kMax))
@@ -199,6 +198,9 @@ module gioH5
         endif
 
         if (Model%doMHD .and. Model%isMagsphere) then
+            !Add mag moment
+            call AddOutVar(IOVars,"MagM0",Model%MagM0*Model%gamOut%bScl)
+            
             !Write out dipole field values
             allocate(gVec (iMin:iMax,jMin:jMax,kMin:kMax,1:NDIM))
             !Subtract dipole before calculating current
@@ -575,9 +577,9 @@ module gioH5
         endif
 
         !Coordinates of corners
-        call AddOutVar(IOVars,"X",Gr%x)
-        call AddOutVar(IOVars,"Y",Gr%y)
-        call AddOutVar(IOVars,"Z",Gr%z)
+        call AddOutVar(IOVars,"X",Gr%xyz(:,:,:,XDIR))
+        call AddOutVar(IOVars,"Y",Gr%xyz(:,:,:,YDIR))
+        call AddOutVar(IOVars,"Z",Gr%xyz(:,:,:,ZDIR))
 
         !State variable
         call AddOutVar(IOVars,"Gas",State%Gas(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,:,:))

@@ -95,10 +95,10 @@ module gridutils
             do j=Grid%jsg,Grid%jeg-1
                 do i=Grid%isg,Grid%ieg-1
                     !Get corner points to integrate along all 3 edges
-                    e0 = [Grid%x(i  ,j  ,k  ),Grid%y(i  ,j  ,k  ),Grid%z(i  ,j  ,k  )]
-                    eI = [Grid%x(i+1,j  ,k  ),Grid%y(i+1,j  ,k  ),Grid%z(i+1,j  ,k  )]
-                    eJ = [Grid%x(i  ,j+1,k  ),Grid%y(i  ,j+1,k  ),Grid%z(i  ,j+1,k  )]
-                    eK = [Grid%x(i  ,j  ,k+1),Grid%y(i  ,j  ,k+1),Grid%z(i  ,j  ,k+1)]
+                    e0 = Grid%xyz(i  ,j  ,k  ,:)
+                    eI = Grid%xyz(i+1,j  ,k  ,:)
+                    eJ = Grid%xyz(i  ,j+1,k  ,:)
+                    eK = Grid%xyz(i  ,j  ,k+1,:)
 
                     lA(i,j,k,IDIR) = dot_product(GaussianEdgeIntegral(Model,eI,e0,Axyz),eI-e0)
                     lA(i,j,k,JDIR) = dot_product(GaussianEdgeIntegral(Model,eJ,e0,Axyz),eJ-e0)
@@ -205,9 +205,10 @@ module gridutils
         integer :: i,j,k,Nk
         real(rp), allocatable, dimension(:,:,:,:) :: bInt, JdS
         real(rp), dimension(NDIM) :: J0,J2,J3
+        real(rp), dimension(NDIM) :: bAvg,dxyz
 
         call allocGridVec(Model,Grid,bInt,.false.,NDIM)
-        call allocGridVec(Model,Grid,JdS,.true.,NDIM) !Treat like flux-sized to use CellBxyz routine
+        call allocGridVec(Model,Grid,JdS ,.true. ,NDIM) !Treat like flux-sized to use CellBxyz routine
 
         !$OMP PARALLEL DO default(shared) collapse(2)
         do k=Grid%ksg, Grid%keg
@@ -223,23 +224,27 @@ module gridutils
         ! since the MagFld() array has all the ghost cell information, the line-integral is relatively straightforward, but the calculation
         ! in the first/last computation cell (center) is probably not meaningful. 
         ! to simplify the indexing, we compute the indices from start to end+1, e.g., bint(ie+1,j,k,IDIR) is not going to be use
-        !$OMP PARALLEL DO default(shared) collapse(2)
+        !$OMP PARALLEL DO default(shared) collapse(2) &
+        !$OMP private(bAvg,dxyz)
         do k=Grid%ksg+1, Grid%keg
             do j=Grid%jsg+1, Grid%jeg
                 do i=Grid%isg+1, Grid%ieg
 
                    ! integrating in the i-direction along i-edges, the effective index range is is:ie, js:js+1, ks:ks+1
-                   bInt(i,j,k,IDIR) = 0.25*( Bxyz(i,j,k,XDIR) + Bxyz(i,j-1,k,XDIR) + Bxyz(i,j,k-1,XDIR) + Bxyz(i,j-1,k-1,XDIR) )*( Grid%x(i+1,j,k) - Grid%x(i,j,k) ) + &
-                                      0.25*( Bxyz(i,j,k,YDIR) + Bxyz(i,j-1,k,YDIR) + Bxyz(i,j,k-1,YDIR) + Bxyz(i,j-1,k-1,YDIR) )*( Grid%y(i+1,j,k) - Grid%y(i,j,k) ) + &
-                                      0.25*( Bxyz(i,j,k,ZDIR) + Bxyz(i,j-1,k,ZDIR) + Bxyz(i,j,k-1,ZDIR) + Bxyz(i,j-1,k-1,ZDIR) )*( Grid%z(i+1,j,k) - Grid%z(i,j,k) )
+                   bAvg = 0.25*( Bxyz(i,j,k,:) + Bxyz(i,j-1,k,:) + Bxyz(i,j,k-1,:) + Bxyz(i,j-1,k-1,:) )
+                   dxyz = Grid%xyz(i+1,j,k,:) - Grid%xyz(i,j,k,:)
+                   bInt(i,j,k,IDIR) = dot_product(bAvg,dxyz)
+
                    ! integrating in the j-direction along j-edges, the effective index range is is:ie+1, js:je, ks:ke+1
-                   bInt(i,j,k,JDIR) = 0.25*( Bxyz(i,j,k,XDIR) + Bxyz(i,j,k-1,XDIR) + Bxyz(i-1,j,k,XDIR) + Bxyz(i-1,j,k-1,XDIR) )*( Grid%x(i,j+1,k) - Grid%x(i,j,k) ) + &
-                                      0.25*( Bxyz(i,j,k,YDIR) + Bxyz(i,j,k-1,YDIR) + Bxyz(i-1,j,k,YDIR) + Bxyz(i-1,j,k-1,YDIR) )*( Grid%y(i,j+1,k) - Grid%y(i,j,k) ) + &
-                                      0.25*( Bxyz(i,j,k,ZDIR) + Bxyz(i,j,k-1,ZDIR) + Bxyz(i-1,j,k,ZDIR) + Bxyz(i-1,j,k-1,ZDIR) )*( Grid%z(i,j+1,k) - Grid%z(i,j,k) ) 
+                   bAvg = 0.25*( Bxyz(i,j,k,:) + Bxyz(i,j,k-1,:) + Bxyz(i-1,j,k,:) + Bxyz(i-1,j,k-1,:) )
+                   dxyz = Grid%xyz(i,j+1,k,:) - Grid%xyz(i,j,k,:)
+                   bInt(i,j,k,JDIR) = dot_product(bAvg,dxyz)
+
                    ! integrating in the k-direction along k-edges, the effective index range is is:ie+1, js:je+1, ks:ke
-                   bInt(i,j,k,KDIR) = 0.25*( Bxyz(i,j,k,XDIR) + Bxyz(i-1,j,k,XDIR) + Bxyz(i,j-1,k,XDIR) + Bxyz(i-1,j-1,k,XDIR) )*( Grid%x(i,j,k+1) - Grid%x(i,j,k) ) + &
-                                      0.25*( Bxyz(i,j,k,YDIR) + Bxyz(i-1,j,k,YDIR) + Bxyz(i,j-1,k,YDIR) + Bxyz(i-1,j-1,k,YDIR) )*( Grid%y(i,j,k+1) - Grid%y(i,j,k) ) + &
-                                      0.25*( Bxyz(i,j,k,ZDIR) + Bxyz(i-1,j,k,ZDIR) + Bxyz(i,j-1,k,ZDIR) + Bxyz(i-1,j-1,k,ZDIR) )*( Grid%z(i,j,k+1) - Grid%z(i,j,k) ) 
+                   bAvg = 0.25*(Bxyz(i,j,k,:) + Bxyz(i-1,j,k,:) + Bxyz(i,j-1,k,:) + Bxyz(i-1,j-1,k,:) )
+                   dxyz = Grid%xyz(i,j,k+1,:) - Grid%xyz(i,j,k,:)
+                   bInt(i,j,k,KDIR) = dot_product(bAvg,dxyz)
+
                 enddo
             enddo
         enddo
@@ -303,19 +308,6 @@ module gridutils
                     endif
                 enddo !i loop
 
-                
-            ! !Now handle inner shell by extrapolating i=2,i=3 => i=1
-            !     if (Grid%hasLowerBC(IDIR)) then
-            !         !$OMP PARALLEL DO default(shared) &
-            !         !$OMP private(k,j,J2,J3)
-            !         do k=Grid%ks,Grid%ke
-            !             do j=Grid%js,Grid%je
-            !                 J3 = Jxyz(Grid%is+2,j,k,:)
-            !                 J2 = Jxyz(Grid%is+1,j,k,:)
-            !                 Jxyz(Grid%is,j,k,:) = J3 + 2.0*( J2 - J3 )
-            !             enddo
-            !         enddo
-            !     endif !Inner i shell
 
             end select
         endif
