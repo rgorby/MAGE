@@ -52,7 +52,6 @@ module voltapp
         !Setup OMP if on separate node (otherwise can rely on gamera)
         if (vApp%isSeparate) then
             call SetOMP(xmlInp)
-            vApp%gAppLocal%Model%nTh = NumOMP()
         endif
 
         ! read number of squish blocks

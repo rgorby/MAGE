@@ -80,8 +80,9 @@ module init
         if(.not. childGamera) then
             !Setup OMP info unless gamera is owned by someone else
             call SetOMP(xmlInp,Model%isLoud)
-            Model%nTh = NumOMP()
         endif
+        !Either way set the current number of threads
+        Model%nTh = NumOMP()
    
 !--------------------------------------------
         !Initalize model data structure
