@@ -348,8 +348,7 @@ module init
         !Set Vd0, the coefficient of the diffusive electric field
         call xmlInp%Set_Val(pdmb,'sim/pdmb',1.0_rp)
         C0 = min(0.5/(pdmb+0.5) ,MaxCFL) !Set CFL based on PDM
-        call xmlInp%Set_Val(dFloor,"sim/dFloor",dFloor)
-        call xmlInp%Set_Val(pFloor,"sim/pFloor",pFloor)
+        call SetFloors(Model,xmlInp)
 
         !Set CFL from XML
         call xmlInp%Set_Val(Model%CFL ,'sim/CFL'  ,C0)

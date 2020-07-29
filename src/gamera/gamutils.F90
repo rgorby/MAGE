@@ -1,5 +1,6 @@
 module gamutils
     use gamtypes
+    use xml_input
 
     implicit none
     
@@ -392,7 +393,7 @@ module gamutils
 
         P = (Model%gamma-1)*(E-KinE)
         Cs = sqrt(Model%gamma*P/rho)
-      end subroutine CellPress2Cs
+    end subroutine CellPress2Cs
 
     subroutine CellP2C(Model,Prim,Con)
         type(Model_T), intent(in) :: Model
@@ -416,5 +417,20 @@ module gamutils
         Con(ENERGY) = IntE+KinE
         
     end subroutine CellP2C
+
+    !Set floors (density/pressure) from XML
+    !Check gamera/sim/xFloor and gamera/floors/xFloor
+    subroutine SetFloors(Model,iXML)
+        type(Model_T)    , intent(in) :: Model
+        type(XML_Input_T), intent(in) :: iXML
+
+
+        if (iXML%Exists("sim/dFloor"   )) call iXML%Set_Val(dFloor,"sim/dFloor"   ,TINY)
+        if (iXML%Exists("floors/dFloor")) call iXML%Set_Val(dFloor,"floors/dFloor",TINY)
+
+        if (iXML%Exists("sim/pFloor"   )) call iXML%Set_Val(pFloor,"sim/pFloor"   ,TINY)
+        if (iXML%Exists("floors/pFloor")) call iXML%Set_Val(pFloor,"floors/pFloor",TINY)
+
+    end subroutine SetFloors
 
 end module gamutils
