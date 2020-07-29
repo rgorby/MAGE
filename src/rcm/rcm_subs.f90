@@ -99,7 +99,7 @@
 !   Plasma on grid:
     REAL (rprec) :: alamc (kcsize), etac (kcsize), fudgec (kcsize), &
                     eeta (isize,jsize,kcsize), eeta_cutoff, cmax, &
-                    eeta_avg (isize,jsize,kcsize)
+                    eeta_avg (isize,jsize,kcsize), eeta_pls0(isize)
     INTEGER (iprec) :: ikflavc (kcsize), i_advect, i_eta_bc, i_birk
     LOGICAL :: L_dktime
     INTEGER (iprec), PARAMETER :: irdk=18, inrgdk=13, isodk=2, iondk=2
@@ -2562,6 +2562,9 @@ SUBROUTINE Move_plasma_grid_KAIJU (dt)
     !floor eeta 12/06 frt
     max_eeta = maxval(eeta(:,:,kc))
     eeta(:,:,kc) = MAX(eps*max_eeta,eeta(:,:,kc))
+
+    ! refill the plasmasphere  04012020 sbao       
+    CALL Plasmasphere_Refilling_Model(eeta(:,:,1), rmin, aloct, vm, dt)
     CALL Circle (eeta(:,:,kc))    
   ENDDO !kc loop
   
@@ -2765,6 +2768,9 @@ SUBROUTINE Move_plasma_grid_NEW (dt)
 ! floor eeta 12/06 frt
      max_eeta = maxval(eeta(:,:,kc))
      eeta(:,:,kc) = MAX(eps*max_eeta,eeta(:,:,kc))
+
+   ! refill the plasmasphere  04012020 sbao       
+     CALL Plasmasphere_Refilling_Model(eeta(:,:,1), rmin, aloct, vm, dt)
      CALL Circle (eeta(:,:,kc))
 !
   END DO
@@ -2787,6 +2793,37 @@ SUBROUTINE Move_plasma_grid_NEW (dt)
 !     RETURN
 !   END FUNCTION Ratefn
 END SUBROUTINE Move_plasma_grid_NEW
+
+!Adapted by S.Bao from Colby Lemon's original code. 04012020 sbao
+SUBROUTINE Plasmasphere_Refilling_Model(eeta0, rmin, aloct, vm, idt)
+
+      implicit none
+      REAL (rprec), intent(inout), dimension(isize,jsize) :: eeta0
+      REAL (rprec), intent(in), dimension(isize,jsize) :: rmin, aloct, vm
+      REAL (rprec) :: den_increase(isize, jsize), ftv(isize,jsize)
+      REAL (rprec) :: idt
+      REAL (rprec) , parameter :: m_per_Re = 6380.e3
+      REAL (rprec) , parameter :: nT_per_T = 1.e9
+      REAL (rprec) , parameter :: cm_per_m = 1.e2
+      where (vm > 0)
+        ftv = vm**(-3.0/2.0)
+      elsewhere
+        ftv = 0.0  ! open field lines, most likely. Set ftv to zero because we want eeta to be zero there
+      end where
+
+      den_increase = (idt/1000.0/(24*60*60)) * 10**(3.01 - 0.322*rmin) * ftv * (m_per_Re * nT_per_T * cm_per_m**3)   ! ple/cc
+
+      where (aloct < pi/2 .OR. aloct > 3*pi/2)  ! If we are on the dayside
+        eeta0 = eeta0 + 1.8 * den_increase
+      elsewhere
+        eeta0 = eeta0 + 0.2 * den_increase
+      end where
+
+    ! Keep eeta0 between 0 and two times the Berube et al. 2005 density.
+      eeta0 = min(eeta0, 2*10**(4.56 - 0.51*rmin) * ftv * (m_per_Re*nT_per_T*cm_per_m**3))
+      eeta0 = max(eeta0, 0.0)
+
+END SUBROUTINE
 
 FUNCTION Ratefn (fudgx, alamx, sinix, birx, vmx, xmfact)
   IMPLICIT NONE

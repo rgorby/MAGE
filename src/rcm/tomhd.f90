@@ -4,9 +4,10 @@
       USE Rcm_mod_subs, ONLY : isize, jsize, kcsize,jwrap, nptmax, &
                               colat, aloct, v, birk, &
                               bmin, xmin, ymin, zmin, vm, pmin, rmin, &
-                              birk_avg, v_avg, eeta, eeta_avg, alamc, ikflavc,&
-                              pi,  &
-                              boundary, bndloc, pressrcm,&
+                              birk_avg, v_avg, eeta, eeta_avg, &
+                              alamc, ikflavc, &
+                              pi, &
+                              boundary, bndloc, pressrcm, &
                               Read_grid, &
                               xmass, densrcm,denspsph,imin_j,rcmdir, &
                               eflux,eavg,ie_el
@@ -140,12 +141,14 @@
           end if
         END DO
         if (use_plasmasphere) then
-          ! add a simple plasmasphere model based on carpenter 1992 or gallagher 2002 in ples/cc
-          !dens_plasmasphere = GallagherXY(xmin(i,j),ymin(i,j))
-          !denspsph(i,j) = dens_plasmasphere*1.0e6
-      ! use plasmasphere channel eeta_avg(:,:,1) sbao 03/2020
-           denspsph(i,j) = density_factor/mass_proton*xmass(2)*eeta_avg(i,j,1)*vm(i,j)**1.5
-
+          if (dp_on) then 
+            ! use plasmasphere channel eeta_avg(:,:,1) sbao 03/2020
+            denspsph(i,j) = density_factor/mass_proton*xmass(2)*eeta_avg(i,j,1)*vm(i,j)**1.5
+          else
+            ! add a simple plasmasphere model based on carpenter 1992 or gallagher 2002 in ples/cc
+            dens_plasmasphere = GallagherXY(xmin(i,j),ymin(i,j))
+            denspsph(i,j) = dens_plasmasphere*1.0e6
+          endif
         endif
 
        END DO

@@ -9,7 +9,7 @@ program sctrackx
   
     implicit none
 
-    integer, parameter :: MAXIOVAR = 15
+    integer, parameter :: MAXIOVAR = 25
 
     !Spacecraft trajectory type
     type SCTrack_T
@@ -17,6 +17,8 @@ program sctrackx
         integer :: NumP !Number of points
         real(rp), dimension(:), allocatable :: X,Y,Z,T,MJDs
         real(rp), dimension(:,:), allocatable :: Q,E,B !MHD vars
+        real(rp), dimension(:), allocatable :: inDom !Lazy real-valued boolean
+        logical :: doSmooth
     end type SCTrack_T
 
     !Main data structures
@@ -28,6 +30,7 @@ program sctrackx
     integer :: n
     real(rp), dimension(NDIM) :: xyz,Et,Bt
     real(rp), dimension(NVARMHD) :: Qt
+    real(rp) :: R0,R
 
     !Setup timers
     call initClocks()
@@ -39,6 +42,10 @@ program sctrackx
     !----------------------------
     !Read SC trajectory data
     call GetTrack(inpXML,SCTrack)
+
+    !Find inner radius of grid
+    R0 = norm2(ebState%ebGr%xyz(1,1,1,XDIR:ZDIR))
+    write(*,*) 'Chopping out values inside of R0 = ', R0
 
     !Loop over trajectory positions/times
     do n=1,SCTrack%NumP
@@ -56,14 +63,26 @@ program sctrackx
     !Evaluate at specific point on trajectory
         call Tic("Eval")
         xyz = [SCTrack%X(n),SCTrack%Y(n),SCTrack%Z(n)]
-        call ebFields(xyz,Model%t,Model,ebState,Et,Bt)
-        Qt = mhdInterp(xyz,Model%t,Model,ebState)
+        R = norm2(xyz)
+        if (R>R0) then
+            !Inside domain
+            SCTrack%inDom(n) = 1.0
+            call ebFields(xyz,Model%t,Model,ebState,Et,Bt)
+            Qt = mhdInterp(xyz,Model%t,Model,ebState)
+        else
+            !Outside domain
+            SCTrack%inDom(n) = 0.0
+            Et = 0.0
+            Bt = 0.0
+            Qt = 0.0
+        endif
         SCTrack%MJDs(n) = MJDAt(ebState%ebTab,Model%t)
 
         !Store values
         SCTrack%Q(n,:) = Qt
         SCTrack%B(n,:) = Bt
         SCTrack%E(n,:) = Et
+
         call Toc("Eval")
 
         call Toc("Omega")
@@ -81,9 +100,21 @@ program sctrackx
             character(len=strLen) :: H5Out
             type(IOVAR_T), dimension(MAXIOVAR) :: IOVars
 
+            integer :: n
             write(H5Out,'(2a)') trim(adjustl(Model%RunID)),'.sc.h5'
             call CheckAndKill(H5Out)
 
+            if (SCTrack%doSmooth) then
+                write(*,*) 'Smoothing data ...'
+                do n=1,NVARMHD
+                    call SmoothTS(SCTrack%Q(:,n),SCTrack%inDom,SCTrack%NumP)
+                enddo
+                do n=1,NDIM
+                    call SmoothTS(SCTrack%B(:,n),SCTrack%inDom,SCTrack%NumP)
+                    call SmoothTS(SCTrack%E(:,n),SCTrack%inDom,SCTrack%NumP)
+                enddo
+            endif
+            
             !Setup output chain
             call ClearIO(IOVars)
             
@@ -92,6 +123,7 @@ program sctrackx
             call AddOutVar(IOVars,"Z",SCTrack%Z,uStr="SM-Re")
             call AddOutVar(IOVars,"T",oTScl*SCTrack%T,uStr="s")
             call AddOutVar(IOVars,"MJDs",SCTrack%MJDs)
+            call AddOutVar(IOVars,"inDom",SCTrack%inDom,uStr="BOOLEAN")
 
             !Output field variables
             call AddOutVar(IOVars,"Bx",oBScl*SCTrack%B(:,XDIR),uStr="nT")
@@ -126,6 +158,8 @@ program sctrackx
             call inpXML%Set_Val(H5In,"trajectory/H5Traj","sctrack.h5")
             call CheckFileOrDie(H5In,"Trajectory file not found ...")
 
+            call inpXML%Set_Val(SCTrack%doSmooth,"trajectory/doSmooth",.false.)
+
             !Setup input chain
             call ClearIO(IOVars)
             call AddInVar(IOVars,"X")
@@ -144,6 +178,7 @@ program sctrackx
             allocate(SCTrack%Z(Nt))
             allocate(SCTrack%T(Nt))
             allocate(SCTrack%MJDs(Nt))
+            allocate(SCTrack%inDom(Nt))
 
             allocate(SCTrack%Q(Nt,NVARMHD))
             allocate(SCTrack%E(Nt,NDIM))
@@ -158,4 +193,27 @@ program sctrackx
             SCTrack%T = inTScl*SCTrack%T
 
         end subroutine GetTrack
+
+        !Do 3-pt smoothing window in place on time series
+        subroutine SmoothTS(Q,inDom,Nt)
+            real(rp), intent(inout) :: Q(Nt)
+            real(rp), intent(in)    :: inDom(Nt)
+            integer, intent(in) :: Nt
+
+            real(rp), dimension(:), allocatable :: Qs
+            integer :: n
+            allocate(Qs(Nt))
+            Qs = Q
+
+            do n=2,Nt-1
+                if (all(inDom(n-1:n+1)>0.5)) then
+                    Qs(n) = 0.25*Q(n-1) + 0.50*Q(n) + 0.25*Q(n+1)
+                else
+                    Qs(n) = Q(n)
+                endif
+            enddo
+
+            Q = Qs
+
+        end subroutine SmoothTS
 end program sctrackx
