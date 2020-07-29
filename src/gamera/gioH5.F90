@@ -162,6 +162,9 @@ module gioH5
         endif
 
         if (Model%doMHD .and. Model%isMagsphere) then
+            !Add mag moment
+            call AddOutVar(IOVars,"MagM0",Model%MagM0*Model%gamOut%bScl)
+            
             !Write out dipole field values
             allocate(gVec (iMin:iMax,jMin:jMax,kMin:kMax,1:NDIM))
             !Subtract dipole before calculating current

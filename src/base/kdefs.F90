@@ -29,10 +29,7 @@ module kdefs
     real(rp), parameter :: Mu0 = 4*PI*1.0e-7 ! Tm/A
     real(rp), parameter :: Kbltz = 1.38e-16      ![cm^2 g /s^2/K=erg/K] Boltzmann constant
     real(rp), parameter :: mec2 = 0.511 ! [MeV] electron rest mass
-
     real(rp), parameter :: heFrac= 1.16D0       ! Accounts for 4% helium
-    real(rp), parameter :: kev2erg= 1.602D-9   ! 1 keV = 1.602e-9 ergs
-    real(rp), parameter :: erg2kev= 1.0D0/kev2erg 
     real(rp), parameter :: eCharge= 1.602D-19  ! Charge of electron
     
     !CGS Constants
@@ -44,15 +41,20 @@ module kdefs
 
     !MKS Constants
     real(rp), parameter :: vc_mks = vc_cgs*(1.0e-2) ![m/s], Speed of light
+
     !Helper conversions
     real(rp), parameter :: G2nT = 1.0E+5 !Gauss->nT
     real(rp), parameter :: G2T = 1.0E-4 !Gauss->T
     real(rp), parameter :: kev2J = 1.60218E-16 !keV->J
+    real(rp), parameter :: kev2erg = kev2J*1.0e+7
+    real(rp), parameter :: erg2kev = 1.0/kev2erg
     real(rp), parameter :: Re_km = Re_cgs*(1.0e-2)*(1.0e-3) !km
 
 !Planetary constants
     !Earth
     real(rp), parameter :: EarthM0g = 0.31 !Gauss
+    !real(rp), parameter :: EarthM0g = 0.2961737 !Gauss, Olsen++ 2000
+
     real(rp), parameter :: REarth = Re_cgs*1.0e-2 !m
 
     real(rp), parameter :: RionE  = 6.5    ! Earth Ionosphere radius in 1000 km
