@@ -59,27 +59,29 @@ module init
     end subroutine Hatch
 
     ! Read corner data for the mesh and set grid size variables
-    subroutine ReadCorners(Model,Grid,xmlInp,endTime,noRestartOpt)
+    subroutine ReadCorners(Model,Grid,xmlInp,endTime,childGameraOpt)
         type(Model_T), intent(inout) :: Model
         type(Grid_T), intent(inout) :: Grid
         type(XML_Input_T), intent(inout) :: xmlInp
         real(rp), optional, intent(in) :: endTime
-        logical, optional, intent(in) :: noRestartOpt
+        logical, optional, intent(in) ::childGameraOpt
 
         logical :: doH5g
         character(len=strLen) :: inH5
         integer :: dotLoc
-        logical :: noRestart
+        logical :: childGamera
 
-        if(present(noRestartOpt)) then
-            noRestart = noRestartOpt
+        if(present(childGameraOpt)) then
+            childGamera = childGameraOpt
         else
-            noRestart = .false.
+            childGamera = .false.
         endif
 
-        !Setup OMP info
-        call SetOMP(xmlInp,Model%isLoud)
-        Model%nTh = NumOMP()
+        if(.not. childGamera) then
+            !Setup OMP info unless gamera is owned by someone else
+            call SetOMP(xmlInp,Model%isLoud)
+            Model%nTh = NumOMP()
+        endif
    
 !--------------------------------------------
         !Initalize model data structure
@@ -96,7 +98,7 @@ module init
         !Restart file overwrites doH5g
         !Always read the full mesh file
         if (doH5g) call xmlInp%Set_Val(inH5,"sim/H5Grid","gMesh.h5")
-        if (Model%isRestart .and. .not. noRestart) then
+        if (Model%isRestart .and. .not. childGamera) then
             !Get restart file information
             call getRestart(Model,Grid,xmlInp,inH5)
 
