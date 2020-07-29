@@ -85,13 +85,13 @@ contains
                       do k=gamAppMpi%Grid%ksg,gamAppMpi%Grid%keg+1
                           checkVal = -0.5_rp+(i-1)*(1.0_rp/16.0_rp)
                           write (checkMessage,'(A,I0,A,I0,A,I0,A)') '1 processor x wrong at (',i,',',j,',',k,')'
-                          @assertEqual(checkVal, gamAppMpi%Grid%x(i,j,k), trim(checkMessage))
+                          @assertEqual(checkVal, gamAppMpi%Grid%xyz(XDIR,i,j,k), trim(checkMessage))
                           checkVal = -0.5_rp+(j-1)*(1.0_rp/16.0_rp)
                           write (checkMessage,'(A,I0,A,I0,A,I0,A)') '1 processor y wrong at (',i,',',j,',',k,')'
-                          @assertEqual(checkVal, gamAppMpi%Grid%y(i,j,k), trim(checkMessage))
+                          @assertEqual(checkVal, gamAppMpi%Grid%xyz(YDIR,i,j,k), trim(checkMessage))
                           checkVal = -0.5_rp+(k-1)*(1.0_rp/16.0_rp)
                           write (checkMessage,'(A,I0,A,I0,A,I0,A)') '1 processor z wrong at (',i,',',j,',',k,')'
-                          @assertEqual(checkVal, gamAppMpi%Grid%z(i,j,k), trim(checkMessage))
+                          @assertEqual(checkVal, gamAppMpi%Grid%xyz(ZDIR,i,j,k), trim(checkMessage))
                       enddo
                   enddo
               enddo
@@ -156,13 +156,13 @@ contains
                       do k=gamAppMpi%Grid%ksg,gamAppMpi%Grid%keg+1
                           checkVal = -0.5_rp+(gamAppMpi%Grid%ijkshift(IDIR)+i-1)*(1.0_rp/16.0_rp)
                           write (checkMessage,'(A,I0,A,I0,A,I0,A)') '4 processor x wrong at (',i,',',j,',',k,')'
-                          @assertEqual(checkVal, gamAppMpi%Grid%x(i,j,k), trim(checkMessage))
+                          @assertEqual(checkVal, gamAppMpi%Grid%xyz(XDIR,i,j,k), trim(checkMessage))
                           checkVal = -0.5_rp+(j-1)*(1.0_rp/16.0_rp)
                           write (checkMessage,'(A,I0,A,I0,A,I0,A)') '4 processor y wrong at (',i,',',j,',',k,')'
-                          @assertEqual(checkVal, gamAppMpi%Grid%y(i,j,k), trim(checkMessage))
+                          @assertEqual(checkVal, gamAppMpi%Grid%xyz(YDIR,i,j,k), trim(checkMessage))
                           checkVal = -0.5_rp+(k-1)*(1.0_rp/16.0_rp)
                           write (checkMessage,'(A,I0,A,I0,A,I0,A)') '4 processor z wrong at (',i,',',j,',',k,')'
-                          @assertEqual(checkVal, gamAppMpi%Grid%z(i,j,k), trim(checkMessage))
+                          @assertEqual(checkVal, gamAppMpi%Grid%xyz(ZDIR,i,j,k), trim(checkMessage))
                       enddo
                   enddo
               enddo
@@ -235,13 +235,13 @@ contains
                       do k=gamAppMpi%Grid%ksg,gamAppMpi%Grid%keg+1
                           checkVal = -0.5_rp+(gamAppMpi%Grid%ijkshift(IDIR)+i-1)*(1.0_rp/16.0_rp)
                           write (checkMessage,'(A,I0,A,I0,A,I0,A)') '16 processor x wrong at (',i,',',j,',',k,')'
-                          @assertEqual(checkVal, gamAppMpi%Grid%x(i,j,k), trim(checkMessage))
+                          @assertEqual(checkVal, gamAppMpi%Grid%xyz(XDIR,i,j,k), trim(checkMessage))
                           checkVal = -0.5_rp+(gamAppMpi%Grid%ijkshift(JDIR)+j-1)*(1.0_rp/16.0_rp)
                           write (checkMessage,'(A,I0,A,I0,A,I0,A)') '16 processor y wrong at (',i,',',j,',',k,')'
-                          @assertEqual(checkVal, gamAppMpi%Grid%y(i,j,k), trim(checkMessage))
+                          @assertEqual(checkVal, gamAppMpi%Grid%xyz(YDIR,i,j,k), trim(checkMessage))
                           checkVal = -0.5_rp+(k-1)*(1.0_rp/16.0_rp)
                           write (checkMessage,'(A,I0,A,I0,A,I0,A)') '16 processor z wrong at (',i,',',j,',',k,')'
-                          @assertEqual(checkVal, gamAppMpi%Grid%z(i,j,k), trim(checkMessage))
+                          @assertEqual(checkVal, gamAppMpi%Grid%xyz(ZDIR,i,j,k), trim(checkMessage))
                       enddo
                   enddo
               enddo
@@ -322,13 +322,13 @@ contains
                       do k=gamAppMpi%Grid%ksg,gamAppMpi%Grid%keg+1
                           checkVal = -0.5_rp+(gamAppMpi%Grid%ijkshift(IDIR)+i-1)*(1.0_rp/16.0_rp)
                           write (checkMessage,'(A,I0,A,I0,A,I0,A)') '64 processor x wrong at (',i,',',j,',',k,')'
-                          @assertEqual(checkVal, gamAppMpi%Grid%x(i,j,k), trim(checkMessage))
+                          @assertEqual(checkVal, gamAppMpi%Grid%xyz(XDIR,i,j,k), trim(checkMessage))
                           checkVal = -0.5_rp+(gamAppMpi%Grid%ijkshift(JDIR)+j-1)*(1.0_rp/16.0_rp)
                           write (checkMessage,'(A,I0,A,I0,A,I0,A)') '64 processor y wrong at (',i,',',j,',',k,')'
-                          @assertEqual(checkVal, gamAppMpi%Grid%y(i,j,k), trim(checkMessage))
+                          @assertEqual(checkVal, gamAppMpi%Grid%xyz(YDIR,i,j,k), trim(checkMessage))
                           checkVal = -0.5_rp+(gamAppMpi%Grid%ijkshift(KDIR)+k-1)*(1.0_rp/16.0_rp)
                           write (checkMessage,'(A,I0,A,I0,A,I0,A)') '64 processor z wrong at (',i,',',j,',',k,')'
-                          @assertEqual(checkVal, gamAppMpi%Grid%z(i,j,k), trim(checkMessage))
+                          @assertEqual(checkVal, gamAppMpi%Grid%xyz(ZDIR,i,j,k), trim(checkMessage))
                       enddo
                   enddo
               enddo
