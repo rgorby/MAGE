@@ -16,14 +16,9 @@ module init
     use ringrecon
     use recon
     use multifluid
-    use files
-    
+    use files    
     use step
     
-#ifdef _OPENMP
-    use omp_lib
-#endif
-
     implicit none
 
     !Initialization defaults (2D Square)
@@ -83,21 +78,9 @@ module init
         endif
 
         !Setup OMP info
-#ifdef _OPENMP
-        if(Model%nTh < 1) Model%nTh = omp_get_max_threads() ! Default if unspecified
-        call omp_set_num_threads(Model%nTh)
-        if (Model%isLoud) then
-            write(*,*) 'Running threaded'
-            write(*,*) '   # Threads = ', Model%nTh
-            write(*,*) '   # Cores   = ', omp_get_num_procs()
-        endif
-#else
-        if (Model%isLoud) then
-            write (*,*) 'Running without threading'
-            Model%nTh = 1
-        endif
-#endif
-
+        call SetOMP(xmlInp,Model%isLoud)
+        Model%nTh = NumOMP()
+   
 !--------------------------------------------
         !Initalize model data structure
         call initModel(Model,xmlInp)

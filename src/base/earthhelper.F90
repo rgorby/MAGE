@@ -32,7 +32,7 @@ module earthhelper
     real(rp), parameter, private :: GLMin = 1.0
     real(rp), parameter, private :: GLMax = 8.0
 
-    integer, parameter, private :: kpDefault = 4
+    integer, parameter, private :: kpDefault = 1
 
 
     !Toy code for putting in a quiet time RC

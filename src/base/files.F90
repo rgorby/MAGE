@@ -51,16 +51,36 @@ module files
     end subroutine CheckFileOrDie
     
     !Delete file if it already exists
-    subroutine CheckAndKill(fStr)
+    subroutine CheckAndKill(fStr,doVerbO)
         character(len=*), intent(in) :: fStr
+        logical, intent(in), optional :: doVerbO
 
-        logical :: fExist
+        logical :: fExist,doVerb
+        if (present(doVerbO)) then
+            doVerb = doVerbO
+        else
+            doVerb = .true.
+        endif
 
         inquire(file=trim(fStr),exist=fExist)
         if (fExist) then
-            write(*,'(5a)') ANSIRED,'<',trim(fStr),' already exists, deleting ...>',ANSIRESET
+            if (doVerb) then
+                write(*,'(5a)') ANSIRED,'<',trim(fStr),' already exists, deleting ...>',ANSIRESET
+            endif
             call EXECUTE_COMMAND_LINE('rm ' // trim(fStr) , wait=.true.)
         endif
     end subroutine CheckAndKill
 
+    !Create symlink connecting fReal and fSym
+    subroutine MapSymLink(fReal,fSym)
+        character(len=*), intent(in) :: fReal,fSym
+
+        !Kill sym link if it exists
+        call CheckAndKill(fSym,.false.)
+
+        !Create sym link
+        call EXECUTE_COMMAND_LINE('ln -sf '//trim(fReal)//' '//trim(fSym), wait=.true.)
+
+    end subroutine MapSymLink
+    
 end module files

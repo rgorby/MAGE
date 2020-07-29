@@ -15,8 +15,10 @@ module ebtypes
         character(len=strLen) :: bStr
         character(len=strLen), dimension(:), allocatable :: gStrs
         real(rp), dimension(:), allocatable :: times
+        real(rp), dimension(:), allocatable :: MJDs
+
         !Information for decomposed data
-        logical :: isMPI = .false.
+        logical :: isMPI = .false.,hasMJD=.false.
         integer :: Ri,Rj,Rk
         integer :: dNi,dNj,dNk
     end type ebTab_T

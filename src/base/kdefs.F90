@@ -107,15 +107,19 @@ character(ANSILEN), parameter :: &
 
     contains
 
-    ! !Print out basic configuration info
-    ! subroutine printConfigStamp()
-    !     write(*,*) 'Kaiju configuration'
-    !     write(*,'(2a)') 'Compiler = ', compiler_version()
-    !     write(*,'(2a)') 'Compiler flags = ', compiler_options()
-    !     !write(*,*) 'Git hash = ', GITCOMMITHASH
-    !     !write(*,*) 'Git branch = ', GITBRANCH
+    !Print out basic configuration info
+    subroutine printConfigStamp()
+        character(len=strLen) :: gStr
+        write(*,*) 'Kaiju configuration'
+        write(*,'(2a)') 'Compiler = ', compiler_version()
+        write(*,'(2a)') 'Compiler flags = ', compiler_options()
+        call GitHash(gStr)
+        write(*,'(2a)') 'Git hash = ', trim(gStr)
 
-    ! end subroutine printConfigStamp
+        !write(*,*) 'Git hash = ', GITCOMMITHASH
+        !write(*,*) 'Git branch = ', GITBRANCH
+
+    end subroutine printConfigStamp
 
     !Generate name of output file based on tiling
     function genName(caseName,Ri,Rj,Rk,i,j,k,useOldStyle) result(fName)
@@ -182,5 +186,20 @@ character(ANSILEN), parameter :: &
         endif
         !write(*,*) 'ijk / file = ',i,j,k,trim(fName)
     end function genName_old
+
+    !Create string with git hash if possible
+    subroutine GitHash(gStr)
+
+        character(len=*), intent(inout) :: gStr
+        character(len=strLen) :: cOpts
+        integer :: n,nOff,nH
+
+        nOff = 16
+        nH = 7
+        cOpts = compiler_options()
+        n = index(cOpts,"-DGITCOMMITHASH=")
+        gStr = cOpts(n+nOff:n+nOff+nH)        
+
+    end subroutine GitHash
 
 end module kdefs

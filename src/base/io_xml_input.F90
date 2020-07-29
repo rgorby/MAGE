@@ -198,9 +198,9 @@ module XML_Input
 
    type XML_Input_T
       private
-      character(len=strLen) :: buf ! string buffer
       character(len=strLen) :: root ! default XML Root string
       character(len=strLen) :: fname ! fname
+      character(len=strLen) :: buf ! string buffer
       type(XML_Data_T), dimension(:), allocatable :: xmld ! XML buffer
       integer :: fid ! ID number of opened File
       integer :: fst ! status of file
@@ -396,6 +396,7 @@ module XML_Input
       procedure :: BeQuiet
 
       procedure :: GetFileStr
+      procedure :: GetRootStr
    end type XML_Input_T
 
 contains
@@ -406,6 +407,13 @@ contains
 
       fStr = this%fname
    end subroutine GetFileStr
+
+   subroutine GetRootStr(this,fStr)
+      class(XML_Input_T) :: this
+      character(len=*), intent(out) :: fStr
+
+      fStr = this%root
+   end subroutine GetRootStr
 
    subroutine BeQuiet(this)
       class(XML_Input_T) :: this

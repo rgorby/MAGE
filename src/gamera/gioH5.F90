@@ -26,18 +26,12 @@ module gioH5
         type(Grid_T), intent(inout) :: Grid
         character(len=*), intent(in) :: inH5
 
-        logical :: fExist
         integer, dimension(NDIM) :: dims        
 
         !Reset IO chain
         call ClearIO(IOVars)
 
-        inquire(file=inH5,exist=fExist)
-        if (.not. fExist) then
-            !Error out and leave
-            write(*,*) 'Unable to open input mesh, exiting'
-            stop
-        endif
+        call CheckFileOrDie(inH5,"Unable to open input mesh, exiting ...")
 
         dims = GridSizeH5(inH5)
 
@@ -143,6 +137,8 @@ module gioH5
             return
         endif
         
+        call StampIO(GamH5File)
+
         !Calculate grid quality
         call allocGridVar(Model,Gr,gQ)
         call GridQuality(Model,Gr,gQ) 
@@ -562,6 +558,8 @@ module gioH5
         type(State_T), intent(in) :: State
         character(len=*), intent(in) :: ResF
 
+        call StampIO(ResF)
+        
         !Reset IO chain
         call ClearIO(IOVars)
 

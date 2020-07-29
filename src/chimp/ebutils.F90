@@ -34,7 +34,7 @@ module ebutils
         real(rp), dimension(NDIM), intent(out) :: xhat,yhat,bhat
 
         bhat = normVec(B)
-        if (norm2(bhat)<1) then
+        if ( abs(norm2(bhat)-1.0) > TINY ) then
             !Something went wrong, force to zhat
             bhat = [0.0_rp,0.0_rp,1.0_rp]
         endif
