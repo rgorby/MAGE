@@ -18,6 +18,7 @@ program sctrackx
         real(rp), dimension(:), allocatable :: X,Y,Z,T,MJDs
         real(rp), dimension(:,:), allocatable :: Q,E,B !MHD vars
         real(rp), dimension(:), allocatable :: inDom !Lazy real-valued boolean
+        logical :: doSmooth
     end type SCTrack_T
 
     !Main data structures
@@ -99,9 +100,21 @@ program sctrackx
             character(len=strLen) :: H5Out
             type(IOVAR_T), dimension(MAXIOVAR) :: IOVars
 
+            integer :: n
             write(H5Out,'(2a)') trim(adjustl(Model%RunID)),'.sc.h5'
             call CheckAndKill(H5Out)
 
+            if (SCTrack%doSmooth) then
+                write(*,*) 'Smoothing data ...'
+                do n=1,NVARMHD
+                    call SmoothTS(SCTrack%Q(:,n),SCTrack%inDom,SCTrack%NumP)
+                enddo
+                do n=1,NDIM
+                    call SmoothTS(SCTrack%B(:,n),SCTrack%inDom,SCTrack%NumP)
+                    call SmoothTS(SCTrack%E(:,n),SCTrack%inDom,SCTrack%NumP)
+                enddo
+            endif
+            
             !Setup output chain
             call ClearIO(IOVars)
             
@@ -145,6 +158,8 @@ program sctrackx
             call inpXML%Set_Val(H5In,"trajectory/H5Traj","sctrack.h5")
             call CheckFileOrDie(H5In,"Trajectory file not found ...")
 
+            call inpXML%Set_Val(SCTrack%doSmooth,"trajectory/doSmooth",.false.)
+
             !Setup input chain
             call ClearIO(IOVars)
             call AddInVar(IOVars,"X")
@@ -178,4 +193,27 @@ program sctrackx
             SCTrack%T = inTScl*SCTrack%T
 
         end subroutine GetTrack
+
+        !Do 3-pt smoothing window in place on time series
+        subroutine SmoothTS(Q,inDom,Nt)
+            real(rp), intent(inout) :: Q(Nt)
+            real(rp), intent(in)    :: inDom(Nt)
+            integer, intent(in) :: Nt
+
+            real(rp), dimension(:), allocatable :: Qs
+            integer :: n
+            allocate(Qs(Nt))
+            Qs = Q
+
+            do n=2,Nt-1
+                if (all(inDom(n-1:n+1)>0.5)) then
+                    Qs(n) = 0.25*Q(n-1) + 0.50*Q(n) + 0.25*Q(n+1)
+                else
+                    Qs(n) = Q(n)
+                endif
+            enddo
+
+            Q = Qs
+
+        end subroutine SmoothTS
 end program sctrackx
