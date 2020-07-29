@@ -54,7 +54,6 @@ module gioH5
         Grid%jeg = Grid%je+Model%nG
         Grid%ksg = Grid%ks-Model%nG
         Grid%keg = Grid%ke+Model%nG
-<<<<<<< HEAD
 
         Grid%ijkShift(IDIR) = Grid%Nip*Grid%Ri
         Grid%ijkShift(JDIR) = Grid%Njp*Grid%Rj
