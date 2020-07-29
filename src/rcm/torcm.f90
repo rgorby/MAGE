@@ -3,7 +3,7 @@
       USE rcm_precision
       USE Rcm_mod_subs, ONLY : isize,jsize, jwrap, kcsize, iesize, &
                                vm, bmin, xmin, ymin, pmin, rmin,v, & 
-                               alamc, etac, ikflavc, fudgec, eeta, eeta_pls0 &
+                               alamc, etac, ikflavc, fudgec, eeta, eeta_pls0, &
                                imin_j, bndloc, vbnd,               &
                                colat, aloct, bir, sini,            &
                                ibnd_type,rcmdir
@@ -900,7 +900,7 @@ END SUBROUTINE Smooth_eta_at_boundary
       USE rcm_precision
       USE earthhelper, ONLY : GallagherXY
       USE constants, ONLY: density_factor
-      USE rice_housekeeping_module: InitKp
+      USE rice_housekeeping_module, ONLY: InitKp
       IMPLICIT NONE
 
       integer(iprec) :: idim,jdim,kdim
