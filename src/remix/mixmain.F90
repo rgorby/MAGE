@@ -20,9 +20,10 @@ module mixmain
       character(len=*),optional, intent(in) :: RunID   ! these two things are needed when we're coupled with Gamera
       logical,optional, intent(in) :: isRestart
       type(mixIO_T),optional, intent(in) :: mixIOobj  
-      integer,optional,intent(in) :: nRes    
-
-      integer :: h,doRestart
+      integer,optional,intent(in) :: nRes
+      integer :: mixnRes    
+      logical :: doRestart
+      integer :: h
 
       if (.not.allocated(I)) allocate(I(size(hmsphrs)))
       
@@ -67,9 +68,10 @@ module mixmain
 
       ! initialize the mix dump file
       if (present(isRestart) .and. doRestart) then
-        !call xmlInp%Set_Val(nRes ,"/gamera/restart/nRes" ,-1)
+        !call xmlInp%Set_Val(mixnRes ,"/gamera/restart/nRes" ,-1)
+        mixnRes = I(1)%P%nRes
         write(*,*) "InitMIXIO with restart"
-        call initMIXIO(I,RunID,isRestart,nRes)
+        call initMIXIO(I,RunID,isRestart,mixnRes)
       else
         write(*,*) "InitMIXIO without restart"
         call initMIXIO(I,RunID,isRestart)

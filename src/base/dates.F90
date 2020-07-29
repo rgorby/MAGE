@@ -18,7 +18,10 @@ module dates
         mjd = mjd0 + t*mjdScl
     end function T2MJD
 
-
+    subroutine DateTimeStr(dtStr)
+        character(len=*), intent(inout) :: dtStr
+        call FDATE(dtStr)
+    end subroutine DateTimeStr
 !-----------------
 !NOTE: These routines modified from LFM-RCM code by K. Sorathia
 

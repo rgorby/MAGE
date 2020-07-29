@@ -682,7 +682,7 @@ module wind
             w0 = 1.0
             w1 = 0.0
         else
-            !Inteerpolate
+            !Interpolate
             i0 = floor( (t-windBC%tMin)/windBC%dtW ) + 1
             i1 = i0+1
             if (i1 <= windBC%NumT) then

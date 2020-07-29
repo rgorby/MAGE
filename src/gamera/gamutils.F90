@@ -1,11 +1,7 @@
 module gamutils
-
     use gamtypes
-#ifdef _OPENMP
-    use omp_lib
-#endif    
-    implicit none
 
+    implicit none
     
     contains
 
@@ -391,18 +387,5 @@ module gamutils
         Con(ENERGY) = IntE+KinE
         
     end subroutine CellP2C
-
-    !Returns thread ID within MHD group threads
-    !Returns 1 in non-threaded code
-    function gID(Model)
-        type(Model_T), intent(in) :: Model
-        integer :: gID
-
-#ifdef _OPENMP
-        gID = omp_get_thread_num()+1 !Start w/ 1
-#else
-        gID = 1
-#endif
-    end function gID
 
 end module gamutils

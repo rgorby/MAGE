@@ -12,9 +12,11 @@ module mixparams
 
       character(len=strLen) :: inpXML,tmpStr
       integer :: Narg
-      logical :: fExist
+      logical :: fExist,doSuicide
       type(XML_Input_T) :: xmlInp
-     
+      
+      doSuicide = .false.
+
       if(present(optFilename)) then
          ! read from the prescribed file
          inpXML = optFilename
@@ -107,7 +109,26 @@ module mixparams
 
         ! =========== IO PARAMTERS =================== !
         call xmlInp%Set_Val(Params%dtOut,"output/dtOut",1.0_rp)
+        call xmlInp%Set_Val(Params%nRes,"/gamera/restart/nRes",-1)
         ! =========== IO PARAMTERS =================== !
+
+        ! Check for old-style precipitation quantities
+        write(*,*) ANSIRED
+        if (xmlInp%Exists("conductance/alpha")) then
+            write(*,*) "conductance/alpha is gone. You're entering a world of pain. Use precipitation/alpha"
+            doSuicide=.true.
+        else if (xmlInp%Exists("conductance/beta")) then
+            write(*,*) "conductance/beta is gone. You're entering a world of pain. Use precipitation/beta"
+            doSuicide=.true.
+        else if (xmlInp%Exists("conductance/R")) then
+            write(*,*) "conductance/R is gone. You're entering a world of pain. Use precipitation/R"
+            doSuicide=.true.
+        else if (xmlInp%Exists("conductance/aurora_model_type")) then
+            write(*,*) "conductance/aurora_model_type is gone. You're entering a world of pain. Use precipitation/aurora_model_type"
+            doSuicide=.true.
+        end if
+        write(*,*) ANSIRESET, ''
+        if (doSuicide) stop
 
     end subroutine initMIXParams
 end module mixparams

@@ -9,7 +9,8 @@ module ioH5
     use ioH5Types
     use ioH5Overload
     use files
-
+    use dates
+    
     !Useful user routines
     !AddOutVar, AddInVar, WriteVars,ReadVars
     !FindIO: Example, call FindIO(IOVars,"Toy",n), IOVars(n) = Toy data/metadata
@@ -28,6 +29,24 @@ module ioH5
     end interface IOArrayFill
 
 contains
+!Routine to stamp output file with various information
+    subroutine StampIO(fIn)
+        character(len=*), intent(in) :: fIn
+        character(len=strLen) :: gStr,dtStr
+        type(IOVAR_T), dimension(10) :: IOVars
+
+        call GitHash(gStr)
+        call DateTimeStr(dtStr)
+
+        call ClearIO(IOVars)
+        call AddOutVar(IOVars,"GITHASH",gStr)
+        call AddOutVar(IOVars,"COMPILER",compiler_version())
+        call AddOutVar(IOVars,"COMPILEROPTS",compiler_options())
+        
+        call AddOutVar(IOVars,"DATETIME",dtStr)
+        call WriteVars(IOVars,.true.,fIn)
+
+    end subroutine StampIO
 !-------------------------------------------   
 !Various routines to quickly pull scalars from IOVar_T
     function GetIOInt(IOVars,vID) result(vOut)
@@ -175,6 +194,46 @@ contains
         call h5close_f(herr) !Close intereface
 
     end subroutine StepTimes
+
+    !Same as StepTimes but for MJDs
+    subroutine StepMJDs(fStr,s0,sE,MJDs)
+        character(len=*), intent(in) :: fStr
+        integer, intent(in) :: s0,sE
+        real(rp), intent(inout) :: MJDs(1:sE-s0+1)
+        integer :: n, Nstp,herr
+        character(len=strLen) :: gStr
+        integer(HID_T) :: h5fId,gId
+        logical :: aX
+        real(rp) :: M(1)
+
+        MJDs = 0.0
+        
+        Nstp = sE-s0+1
+
+        call CheckFileOrDie(fStr,"Unable to open file")
+        !Do HDF5 prep
+        call h5open_f(herr) !Setup Fortran interface
+        !Open file
+        call h5fopen_f(trim(fStr), H5F_ACC_RDONLY_F, h5fId, herr)
+
+        do n=1,Nstp
+            write(gStr,('(A,I0)')) "/Step#",s0+n-1
+            call h5gopen_f(h5fId,trim(gStr),gId,herr)
+            call h5aexists_f(gId,"MJD",aX,herr)
+            if (aX) then
+                call h5ltget_attribute_double_f(h5fId,trim(gStr),"MJD",M,herr)
+            else
+                M = -TINY
+            endif
+            
+            MJDs(n) = M(1)
+        enddo
+
+        call h5gclose_f(gId,herr)
+        call h5fclose_f(h5fId,herr) !Close file
+        call h5close_f(herr) !Close intereface
+
+    end subroutine StepMJDs
 
     !Count number of groups of form "Step#XXX"
     function NumSteps(fStr) result(Nstp)

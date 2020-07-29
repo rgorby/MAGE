@@ -244,6 +244,7 @@ contains
 
     end function cross
 
+    !Circular mean, in: rad / out: rad
     function CircMean(alpha) result(alphabar)
         real(rp), intent(in) :: alpha(:)
         real(rp) :: alphabar
@@ -256,6 +257,15 @@ contains
 
         alphabar = modulo( atan2(Y,X),2*PI )
     end function CircMean
+    
+    !Circular mean, in: deg / out: deg
+    function CircMeanDeg(alphadeg) result(alphabar)
+        real(rp), intent(in) :: alphadeg(:)
+        real(rp) :: alphabar
+        
+        alphabar = CircMean(deg2rad*alphadeg)*rad2deg
+
+    end function CircMeanDeg
 
     function ArithMean(alpha) result(alphabar)
         real(rp), intent(in) :: alpha(:)

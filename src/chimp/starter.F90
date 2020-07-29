@@ -11,7 +11,8 @@ module starter
     use gridinterp
     use usertpic
     use userebic
-
+    use kaiomp
+    
     implicit none
 
 !----------------------------------------
@@ -168,6 +169,8 @@ module starter
         call random_seed(put=vSeed)
         Model%Nblk = dR0
         
+    !Threading
+        call SetOMP(inpXML)
     end subroutine initModel
     
     !Set integrator type

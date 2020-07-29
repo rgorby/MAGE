@@ -10,8 +10,9 @@ module voltio
 
     implicit none
 
-    integer, parameter, private :: MAXVOLTIOVAR = 20
-    logical, private :: isConInit = .false.
+    integer , parameter, private :: MAXVOLTIOVAR = 30
+    real(rp), parameter, private :: dtWallMax = 1.0 !How long between timer resets[hr]
+    logical , private :: isConInit = .false.
     real(rp), private ::  oMJD = 0.0
     real(rp), private :: cumTime = 0.0 !Cumulative time
     character(len=strLen), private :: vh5File
@@ -42,7 +43,7 @@ module voltio
         integer :: iYr,iDoY,iMon,iDay,iHr,iMin
         real(rp) :: rSec
         character(len=strLen) :: utStr
-        real(rp) :: dD,dP,Dst
+        real(rp) :: DelD,DelP,Dst,symh
 
         !Augment Gamera console output w/ Voltron stuff
         call getCPCP(vApp%mix2mhd%mixOutput,cpcp)
@@ -66,7 +67,7 @@ module voltio
         endif
 
         !Add some stupid trapping code to deal with fortran system clock wrapping
-        if (simRate<0) then
+        if ( (simRate<0) .or. (abs(cumTime/3600.0) >= dtWallMax) ) then
             !Just reset counters, this is just for diagnostics don't need exact value
             oMJD = cMJD
             cumTime = 0.0
@@ -80,15 +81,26 @@ module voltio
         !Get Dst estimate
         call EstDST(gApp%Model,gApp%Grid,gApp%State,Dst)
 
+        !Get symh from input time series
+        symh = vApp%symh%evalAt(vApp%time)
+
         if (vApp%isLoud) then
             write(*,*) ANSIBLUE
             write(*,*) 'VOLTRON'
             write (*,'(a,a)')                    '      UT   = ', trim(utStr)
             write (*, '(a,1f8.3,a)')             '      tilt = ' , dpT, ' [deg]'
             write (*, '(a,2f8.3,a)')             '      CPCP = ' , cpcp(NORTH), cpcp(SOUTH), ' [kV, N/S]'
-            write (*, '(a, f8.3,a)')             '    BSDst  ~ ' , Dst, ' [nT]'
+            write (*, '(a, f8.3,a)')             '    BSDst  ~ ' , Dst , ' [nT]'
+            write (*, '(a, f8.3,a)')             '    Sym-H  = ' , symh, ' [nT]'
+            if (vApp%doDeep) then
+                call IMagDelta(gApp%Model,gApp%Grid,gApp%State,DelD,DelP)
+                write (*, '(a)'        )             '    IMag Ingestion Fraction'
+                write (*, '(a,1f8.3,a)')             '       D   = ', 100.0*DelD,'%'
+                write (*, '(a,1f8.3,a)')             '       P   = ', 100.0*DelP,'%'
+            endif
+
             if (simRate>TINY) then
-                write (*, '(a,1f7.3,a)')             '      Running @ ', simRate*100.0, '% of real-time'
+                write (*, '(a,1f7.3,a)')             '    Running @ ', simRate*100.0, '% of real-time'
             endif
             write (*, *) ANSIRESET, ''
         endif
@@ -285,8 +297,15 @@ module voltio
         call AddOutVar(IOVars,"Vz",Veb(:,:,:,ZDIR))
 
         call AddOutVar(IOVars,"psi",psi)
+        !---------------------
+        !Do attributes
+
         call AddOutVar(IOVars,"cpcpN",cpcp(1))
         call AddOutVar(IOVars,"cpcpS",cpcp(2))
+
+        call AddOutVar(IOVars,"time",vApp%time)
+        call AddOutVar(IOVars,"MJD" ,vApp%MJD)
+        call AddOutVar(IOVars,"timestep",vApp%ts)
 
         call WriteVars(IOVars,.true.,vh5File,gStr)
 
@@ -316,6 +335,8 @@ module voltio
             !Not a restart or it is a restart and no file
             call CheckAndKill(vh5File) !For non-restart but file exists
 
+            call StampIO(vh5File)
+            
             !Reset IO chain
             call ClearIO(IOVars)
 
@@ -375,7 +396,8 @@ module voltio
 
         !Set some lazy config
         xyz0 = 0.0 !Measure at center of Earth
-        iMin = Gr%is+4
+        !iMin = Gr%is+4
+        iMin = Gr%is+1
         iMax = Gr%ie
 
         !Now do accumulation
@@ -423,6 +445,11 @@ module voltio
         Dmhd = 0.0
         Psrc = 0.0
         Pmhd = 0.0
+
+        !$OMP PARALLEL DO default(shared) collapse(2) &
+        !$OMP private(i,j,k,dV,doInD,doInP,doIngest) &
+        !$OMP private(pCon,pW) &
+        !$OMP reduction(+:Dsrc,Dmhd,Psrc,Pmhd)
         do k=Gr%ks,Gr%ke
             do j=Gr%js,Gr%je
                 do i=Gr%is,Gr%ie

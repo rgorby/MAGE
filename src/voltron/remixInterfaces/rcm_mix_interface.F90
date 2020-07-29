@@ -49,7 +49,7 @@ contains
        rcmp(:,i) = rcmApp%glong
     enddo
 
-    write(*,*) "===================================",rcmApp%glong(1:3),rcmApp%glong(Np-2:Np),rcmApp%gcolat(1:3),rcmApp%gcolat(Nt-2:Nt)
+    !write(*,*) "===================================",rcmApp%glong(1:3),rcmApp%glong(Np-2:Np),rcmApp%gcolat(1:3),rcmApp%gcolat(Nt-2:Nt)
 
     ! call remix grid constructor
     call init_grid_fromTP(rcmG,rcmt,rcmp,SOLVER_GRID=.false.)

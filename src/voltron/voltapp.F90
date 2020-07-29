@@ -33,7 +33,7 @@ module voltapp
         type(TimeSeries_T) :: tsMJD
         real(rp) :: gTScl,tSpin,tIO
         logical :: doSpin,doDelayIO
-        integer :: numSB, numVoltThreads
+        integer :: numSB
 
         if(present(optFilename)) then
             ! read from the prescribed file
@@ -49,19 +49,10 @@ module voltapp
 
         !Create XML reader
         xmlInp = New_XML_Input(trim(inpXML),'Voltron',.true.)
-
-#ifdef _OPENMP
-        call xmlInp%Set_Val(numVoltThreads,'threading/numThreads',omp_get_max_threads())
-        if (vApp%isLoud) then
-            write(*,*) 'Voltron running threaded'
-            write(*,*) '   # Threads = ', numVoltThreads
-            write(*,*) '   # Cores   = ', omp_get_num_procs()
+        !Setup OMP if on separate node (otherwise can rely on gamera)
+        if (vApp%isSeparate) then
+            call SetOMP(xmlInp)
         endif
-#else
-        if (vApp%isLoud) then
-            write (*,*) 'Voltron running without threading'
-        endif
-#endif
 
         ! read number of squish blocks
         call xmlInp%Set_Val(numSB,"coupling/numSquishBlocks",3)
@@ -70,7 +61,9 @@ module voltapp
     !Initialize state information
         !Set file to read from and pass desired variable name to initTS
         call xmlInp%Set_Val(vApp%tilt%wID,"/Gamera/wind/tsfile","NONE")
-        call vApp%tilt%initTS("tilt")
+        call vApp%tilt%initTS("tilt",doLoudO=.false.)
+        vApp%symh%wID = vApp%tilt%wID
+        call vApp%symh%initTS("symh",doLoudO=.false.)
 
         gTScl = gApp%Model%Units%gT0
 
@@ -96,7 +89,7 @@ module voltapp
 
         !Use MJD from time series
         tsMJD%wID = vApp%tilt%wID
-        call tsMJD%initTS("MJD")
+        call tsMJD%initTS("MJD",doLoudO=.false.)
         gApp%Model%MJD0 = tsMJD%evalAt(0.0_rp) !Evaluate at T=0
         
         vApp%MJD = T2MJD(vApp%time,gApp%Model%MJD0)
@@ -125,7 +118,6 @@ module voltapp
         vApp%ShallowT = vApp%time
         call xmlInp%Set_Val(vApp%ShallowDT ,"coupling/dt" , 0.1_rp)
         call xmlInp%Set_Val(vApp%doGCM, "coupling/doGCM",.false.)
-        write(*,*) "VOLTRON NRES: ",vApp%IO%nRes,gApp%Model%IO%nRes,vApp%time
 
         if (vApp%doGCM) then
             call init_gcm(vApp%gcm,gApp%Model%isRestart)
@@ -199,11 +191,9 @@ module voltapp
         
         !Finally do first output stuff
         !console output
-        if(vApp%isSeparate) then
-            write(*,*) "FIRST OUTPUT1"
+        if (vApp%isSeparate) then
             call consoleOutputVOnly(vApp,gApp,gApp%Model%MJD0)
         else
-            write(*,*) "FIRST OUTPUT2"
             call consoleOutputV(vApp,gApp)
         endif
         !file output
@@ -256,9 +246,10 @@ module voltapp
 
         !Set F10.7 from time series (using max)
         f107%wID = vApp%tilt%wID
-        call f107%initTS("f10.7")
+        call f107%initTS("f10.7",doLoudO=.false.)
         maxF107 = f107%getMax()
         
+
         do n=1,2
             vApp%remixApp%ion(n)%P%f107 = maxF107
         enddo

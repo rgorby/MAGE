@@ -147,11 +147,14 @@ module innermagsphere
                         call SquishCorners(SrcNC(i:i+1,j:j+1,k:k+1,IMX1),Qs)
                         imW(IMX1) = ArithMean(Qs)
                         call SquishCorners(SrcNC(i:i+1,j:j+1,k:k+1,IMX2),Qs)
-                        imW(IMX2) = CircMean(Qs)
+                        imW(IMX2) = CircMeanDeg(Qs)
+                        
                     !Timescale
                         call SquishCorners(SrcNC(i:i+1,j:j+1,k:k+1,IMTSCL),Qs)
                         if ( all(Qs>TINY) ) then
                             imW(IMTSCL) = ArithMean(Qs)
+                        else if (any(Qs>TINY)) then
+                            imW(IMTSCL) = sum(Qs,mask=(Qs>TINY))/count(Qs>TINY)
                         else
                             imW(IMTSCL) = vApp%DeepDT
                         endif

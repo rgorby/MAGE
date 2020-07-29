@@ -43,6 +43,7 @@ module mixtypes
 
      ! IO
      real(rp) :: dtOut
+     integer :: nRes
   end type mixParams_T
 
   type mixState_T

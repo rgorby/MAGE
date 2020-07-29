@@ -351,10 +351,18 @@ module ebinit
 
         ebTab%N = Nstp
         allocate(ebTab%times(Nstp))
+        allocate(ebTab%MJDs (Nstp))
         allocate(ebTab%gStrs(Nstp))
         allocate(Ts(Nstp))
 
         call StepTimes(ebFile,s0,sE,Ts)
+        call StepMJDs (ebFile,s0,sE,ebTab%MJDs)
+        if (maxval(ebTab%MJDs)>TINY) then
+            ebTab%hasMJD = .true.
+            write(*,*) 'Found MJD data ...'
+        else
+            ebtab%hasMJD = .false.
+        endif
 
         do i=1,Nstp
             write(gStr,'(A,I0)') "Step#", s0+i-1
