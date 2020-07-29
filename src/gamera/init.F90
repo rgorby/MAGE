@@ -638,9 +638,7 @@ module init
         dz = (xyzBds(6)-xyzBds(5))/Grid%Nkp
 
         !Allocate corner grid holders
-        allocate(Grid%x(Grid%isg:Grid%ieg+1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1))
-        allocate(Grid%y(Grid%isg:Grid%ieg+1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1))
-        allocate(Grid%z(Grid%isg:Grid%ieg+1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1))
+        call allocGrid(Model,Grid)
 
         ! cell corners - a part of the Grid structure
         do k=Grid%ksg, Grid%keg+1
@@ -665,9 +663,7 @@ module init
                         z = x3
                     endif
 
-                    Grid%x(i,j,k) = x
-                    Grid%y(i,j,k) = y
-                    Grid%z(i,j,k) = z
+                    Grid%xyz(i,j,k,XDIR:ZDIR) = [x,y,z]
                 enddo
             enddo
         enddo
@@ -691,17 +687,17 @@ module init
                 do j=Grid%jsg, Grid%jeg+1
                     do i=Grid%isg, Grid%ieg+1
                         
-                        xp = Grid%x(i,j,k) - xyzBds(1)
-                        yp = Grid%y(i,j,k) - xyzBds(3)
-                        zp = Grid%z(i,j,k) - xyzBds(5)
+                        xp = Grid%xyz(i,j,k,XDIR) - xyzBds(1)
+                        yp = Grid%xyz(i,j,k,YDIR) - xyzBds(3)
+                        zp = Grid%xyz(i,j,k,ZDIR) - xyzBds(5)
 
                         dsp = w0*sin(Ax*xp)*sin(Ay*yp)
 
-                        Grid%x(i,j,k) = Grid%x(i,j,k) + dsp
-                        Grid%y(i,j,k) = Grid%y(i,j,k) - dsp
+                        Grid%xyz(i,j,k,XDIR) = Grid%xyz(i,j,k,XDIR) + dsp
+                        Grid%xyz(i,j,k,YDIR) = Grid%xyz(i,j,k,YDIR) - dsp
                         if (.not. Model%do25D) then
                             dsp = w0*sin(Az*zp)
-                            Grid%z(i,j,k) = Grid%z(i,j,k) + dsp
+                            Grid%xyz(i,j,k,ZDIR) = Grid%xyz(i,j,k,ZDIR) + dsp
                         endif
                     enddo
                 enddo
@@ -740,17 +736,12 @@ module init
         fArea => IdVec
 
         !Allocate/initialize
-        allocate(Grid%xyz  (Grid%isg:Grid%ieg+1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1,NDIM))
+        
         allocate(Grid%xyzcc(Grid%isg:Grid%ieg  ,Grid%jsg:Grid%jeg  ,Grid%ksg:Grid%keg  ,NDIM))
         allocate(Grid%xfc  (Grid%isg:Grid%ieg+1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1,NDIM,NDIM))
         allocate(Grid%Tf   (Grid%isg:Grid%ieg+1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1,NDIM*NDIM,NDIM))
         call allocGridVec(Model,Grid,Grid%face,doP1=.true.)
         
-        !------------------------------------------------
-        !Store x,y,z corners into 4D array
-        Grid%xyz(:,:,:,XDIR) = Grid%x
-        Grid%xyz(:,:,:,YDIR) = Grid%y
-        Grid%xyz(:,:,:,ZDIR) = Grid%z
         
         !------------------------------------------------
         !Calculate face-centered coordinates

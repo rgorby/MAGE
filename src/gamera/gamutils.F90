@@ -188,6 +188,22 @@ module gamutils
 
     end subroutine deallocState
     
+    !Creates corner array
+    !Note: Assumes is/ie,etc are already set
+    subroutine allocGrid(Model,Grid)
+        type(Model_T), intent(in)    :: Model
+        type(Grid_T),  intent(inout) :: Grid
+
+        if ( allocated(Grid%xyz) ) then
+            deallocate(Grid%xyz)
+        endif
+
+        !Create big memory
+        allocate(Grid%xyz(Grid%isg:Grid%ieg+1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1,XDIR:ZDIR))
+        Grid%xyz = 0.0
+
+    end subroutine allocGrid
+
     !Allocates space for a grid-sized variable (w/ ghosts)
     !If doP1, create all dims+1
     subroutine allocGridVar(Model,Grid,gV,doP1)
