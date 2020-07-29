@@ -72,11 +72,11 @@ module kaiomp
 
     end subroutine SetOMP
 
-    !Returns default number of threads
+    !Returns current number of threads
     function NumOMP()
         integer :: NumOMP
 #ifdef _OPENMP
-        NumOMP = omp_get_max_threads()
+        NumOMP = omp_get_num_threads()
 #else
         NumOMP = 0
 #endif
