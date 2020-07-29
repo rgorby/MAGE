@@ -99,7 +99,7 @@
 !   Plasma on grid:
     REAL (rprec) :: alamc (kcsize), etac (kcsize), fudgec (kcsize), &
                     eeta (isize,jsize,kcsize), eeta_cutoff, cmax, &
-                    eeta_avg (isize,jsize,kcsize), eeta_pls0(isize)
+                    eeta_avg (isize,jsize,kcsize), eeta_pls0(isize,jsize)
     INTEGER (iprec) :: ikflavc (kcsize), i_advect, i_eta_bc, i_birk
     LOGICAL :: L_dktime
     INTEGER (iprec), PARAMETER :: irdk=18, inrgdk=13, isodk=2, iondk=2
@@ -2444,7 +2444,6 @@ real :: v_1_1, v_1_2, v_2_1, v_2_2
 !Attempt by K: to incorporate newer clawpack 04/20
 SUBROUTINE Move_plasma_grid_KAIJU (dt)
   USE rcmclaw, only : claw2ez95
-  
   IMPLICIT NONE
 
   real(rprec), intent(in) :: dt
@@ -2466,7 +2465,7 @@ SUBROUTINE Move_plasma_grid_KAIJU (dt)
   !$OMP private (mass_factor,loc_didt,loc_djdt) &
   !$OMP private (loc_Eta,loc_rate,r_dist,max_eeta) &
   !$OMP shared (alamc,eeta,v,vcorot,vpar,vm,imin_j,j1,j2,joff) &
-  !$OMP shared (xmin,ymin,fac,fudgec,bir,sini,L_dktime,dktime,sunspot_number) &
+  !$OMP shared (xmin,ymin,rmin,aloct,fac,fudgec,bir,sini,L_dktime,dktime,sunspot_number) &
   !$OMP shared (dt,eps)
   DO kc = 1, kcsize
     !If oxygen is to be added, must change this!
@@ -2573,7 +2572,6 @@ END SUBROUTINE Move_plasma_grid_KAIJU
 !=========================================================================
 !
 SUBROUTINE Move_plasma_grid_NEW (dt)
-! USE Rcm_mod_subs
   IMPLICIT NONE
   REAL (rprec), INTENT (IN) :: dt
 !_____________________________________________________________________________

@@ -47,7 +47,7 @@ MODULE rice_housekeeping_module
 ! set this to false to turn off the dynamic plasmasphere  07242020  sbao
   LOGICAL :: dp_on = .true.
   INTEGER(iprec) :: InitKp = 1
-  REAL(rprec) :: staticR = 2.0
+  REAL(rprec) :: staticR = 0.0
 
     type RCMEllipse_T
         !Ellipse parameters
