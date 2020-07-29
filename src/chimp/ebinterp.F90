@@ -81,16 +81,20 @@ module ebinterp
         V0 = 0.0
         i0 = ijk(IDIR) ; j0 = ijk(JDIR) ; k0 = ijk(KDIR)
 
+        v2b = 0.0 !By default for static case
         select case(FLD)
         !---------------
         case(BFLD,DBFLD)
             v1b = eb1%dB(i0-1:i0+1,j0-1:j0+1,k0-1:k0+1,XDIR:ZDIR)
-            v2b = eb2%dB(i0-1:i0+1,j0-1:j0+1,k0-1:k0+1,XDIR:ZDIR)
+            if (.not. ebState%doStatic) then
+                v2b = eb2%dB(i0-1:i0+1,j0-1:j0+1,k0-1:k0+1,XDIR:ZDIR)
+            endif
             if (FLD == BFLD) V0 = Model%B0(xyz)
         case(EFLD)
             v1b = eb1% E(i0-1:i0+1,j0-1:j0+1,k0-1:k0+1,XDIR:ZDIR)
-            v2b = eb2% E(i0-1:i0+1,j0-1:j0+1,k0-1:k0+1,XDIR:ZDIR)
-
+            if (.not. ebState%doStatic) then
+                v2b = eb2% E(i0-1:i0+1,j0-1:j0+1,k0-1:k0+1,XDIR:ZDIR)
+            endif
         end select
 
         !Now accumulate weighted average
@@ -218,9 +222,14 @@ module ebinterp
     !Do E-B fields
         !Pull stencils
         dB1 = eb1%dB(i0-1:i0+1,j0-1:j0+1,k0-1:k0+1,:)
-        dB2 = eb2%dB(i0-1:i0+1,j0-1:j0+1,k0-1:k0+1,:)
         E1  = eb1%E (i0-1:i0+1,j0-1:j0+1,k0-1:k0+1,:)
-        E2  = eb2%E (i0-1:i0+1,j0-1:j0+1,k0-1:k0+1,:)
+        if (.not. ebState%doStatic) then
+            dB2 = eb2%dB(i0-1:i0+1,j0-1:j0+1,k0-1:k0+1,:)
+            E2  = eb2%E (i0-1:i0+1,j0-1:j0+1,k0-1:k0+1,:)
+        else
+            dB2 = 0.0
+            E2  = 0.0
+        endif
 
         do n=1,NDIM
             B(n) = wT1*sum(W*dB1(:,:,:,n)) &
@@ -407,7 +416,11 @@ module ebinterp
         !Get stencils
         i0 = ijk(IDIR) ; j0 = ijk(JDIR) ; k0 = ijk(KDIR)
         Q1b = eb1%W(i0-1:i0+1,j0-1:j0+1,k0-1:k0+1,1:NVARMHD)
-        Q2b = eb2%W(i0-1:i0+1,j0-1:j0+1,k0-1:k0+1,1:NVARMHD)
+        if (.not. ebState%doStatic) then
+            Q2b = eb2%W(i0-1:i0+1,j0-1:j0+1,k0-1:k0+1,1:NVARMHD)
+        else
+            Q2b = 0.0
+        endif
 
         !Do contraction of weights and stencils via accumulation
         do n=1,NVARMHD

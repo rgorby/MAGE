@@ -15,11 +15,20 @@ module ebinit
 
     ! A version of the above
     !Reads from MHD Grid received via coupling
-    subroutine ebInit_fromMHDGrid(Model,ebState,inpXML,mhdGridCorners)
+    subroutine ebInit_fromMHDGrid(Model,ebState,inpXML,mhdGridCorners,doStaticO)
         type(chmpModel_T), intent(inout) :: Model
         type(ebState_T), intent(inout)   :: ebState
         type(XML_Input_T), intent(inout) :: inpXML
-        real(rp), dimension(:,:,:,:),optional, intent(in) :: mhdGridCorners
+        real(rp), dimension(:,:,:,:), intent(in) :: mhdGridCorners
+        logical, optional, intent(in) :: doStaticO
+
+        logical :: doStatic
+
+        if (present(doStaticO)) then
+            doStatic = doStaticO
+        else
+            doStatic = .true.
+        endif
 
         associate( ebGr=>ebState%ebGr,ebTab=>ebState%ebTab,eb1=>ebState%eb1,eb2=>ebState%eb2 )
 
@@ -27,14 +36,21 @@ module ebinit
         call getGridFromMHD(Model,ebGr,inpXML,mhdGridCorners)
 
         !Allocate eb data (includes space for ghosts)
+        !Always do eb1
         call allocEB(Model,ebGr,eb1)
-        call allocEB(Model,ebGr,eb2)
-
         eb1%E  = 0.0
         eb1%dB = 0.0
-        eb2%E  = 0.0
-        eb2%dB = 0.0
-        ebState%doStatic = .true.
+
+        if (doStatic) then
+            ebState%doStatic = .true.
+        else
+            call allocEB(Model,ebGr,eb2)
+
+            eb2%E  = 0.0
+            eb2%dB = 0.0
+            ebState%doStatic = .false.
+        endif
+
         
         end associate
     end subroutine ebInit_fromMHDGrid

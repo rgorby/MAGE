@@ -175,6 +175,19 @@ module gamutils
 
     end subroutine allocState
 
+    subroutine deallocState(Model,Grid,State)
+        type(Model_T), intent(in) :: Model
+        type(Grid_T),  intent(in) :: Grid
+        type(State_T), intent(inout) :: State
+        
+        if ( allocated(State%Gas)     ) deallocate(State%Gas)
+        if ( allocated(State%magFlux) ) deallocate(State%magFlux)
+        if ( allocated(State%Efld)    ) deallocate(State%Efld)
+        if ( allocated(State%Bxyz)    ) deallocate(State%Bxyz)
+        if ( allocated(State%Deta)    ) deallocate(State%Deta)
+
+    end subroutine deallocState
+    
     !Allocates space for a grid-sized variable (w/ ghosts)
     !If doP1, create all dims+1
     subroutine allocGridVar(Model,Grid,gV,doP1)
