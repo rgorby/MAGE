@@ -44,13 +44,17 @@ MODULE rice_housekeeping_module
   
 ! set this to true to tilt the dipole, must turn off corotation also
   LOGICAL :: rcm_tilted = .false.
+! set this to false to turn off the dynamic plasmasphere  07242020  sbao
+  LOGICAL :: dp_on = .true.
+  INTEGER(iprec) :: InitKp = 1
+  REAL(rprec) :: staticR = 0.0
 
     type RCMEllipse_T
         !Ellipse parameters
         real(rprec) :: xSun=10.0,xTail=-10.0,yDD=10.0
         logical  :: isDynamic=.true. !Whether to update parameters
         real(rprec) :: dRadMHD = 0.5
-        
+            
     end type RCMEllipse_T
     type(RCMEllipse_T) :: ellBdry
 
@@ -122,7 +126,11 @@ MODULE rice_housekeeping_module
         call xmlInp%Set_Val(ellBdry%isDynamic,"ellipse/isDynamic"  ,.true.)
 
         call xmlInp%Set_Val(ellBdry%dRadMHD ,"ellipse/dRadMHD" ,ellBdry%dRadMHD)
-
+        
+        !Dynamic plasmaspehre parameters
+        call xmlInp%Set_Val(dp_on,"plasmasphere/isDynamic",dp_on)
+        call xmlInp%Set_Val(InitKp ,"plasmasphere/initKp",InitKp) 
+        call xmlInp%Set_Val(staticR ,'plasmasphere/staticR',staticR)
         !For now just using default Idt_overwrite
 
       end subroutine RCM_MHD_Params_XML

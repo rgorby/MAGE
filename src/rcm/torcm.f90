@@ -3,7 +3,7 @@
       USE rcm_precision
       USE Rcm_mod_subs, ONLY : isize,jsize, jwrap, kcsize, iesize, &
                                vm, bmin, xmin, ymin, pmin, rmin,v, & 
-                               alamc, etac, ikflavc, fudgec,eeta,  &
+                               alamc, etac, ikflavc, fudgec, eeta, eeta_pls0, &
                                imin_j, bndloc, vbnd,               &
                                colat, aloct, bir, sini,            &
                                ibnd_type,rcmdir
@@ -211,12 +211,23 @@
          write(6,*)' TORCM: initializing the RCM arrays at t=',itimei
          bndloc_old = bndloc
          imin_j_old = imin_j
-      ! set the plasmasphere with a refilling model   sbao 03/28
+      ! initialize the dynamic plasmasphere   sbao 03282020
          call set_plasmasphere(isize,jsize,kcsize,xmin,ymin,vm,eeta_new,imin_j)
        ! eeta_new(:,:,1) = 0.0  ! to see the refilling model alone
          eeta       = eeta_new  ! this is initial conditions on plasma
       END IF
-         
+
+       ! reset the static part of the plasmasphere sbao 07292020
+         if (staticR > 2.0) then
+          do j=1,jsize
+           do i=imin_j(j),isize
+             if(rmin(i,j) < 2.0 .and. vm(i,j) > 0.0)then
+                  eeta (i,j,1) = eeta_pls0 (i,j)
+            end if
+           end do
+           end do
+         end if
+ 
       ! just in case:
       imin_j     = CEILING(bndloc)
       imin_j_old = CEILING(bndloc_old)
@@ -881,15 +892,15 @@ END SUBROUTINE Smooth_eta_at_boundary
 ! crude routine to set a plasmasphere model in the rcm
 ! alam(1) should be set to a small value (0.01)
 ! 2/07 frt
-! Use the gallagher model for initial condition, density in ple/m^3
+! Use the gallagher model for initial condition, density in ple/m^3 and store it in eeta_pls0
 ! alam(1) is set to be 0
-! A refilling model is applied in the RCM simulation region
 ! sbao 03/25
 
-!      USE Rcm_mod_subs, ONLY : iprec,rprec
+      USE Rcm_mod_subs, ONLY : eeta_pls0 
       USE rcm_precision
       USE earthhelper, ONLY : GallagherXY
       USE constants, ONLY: density_factor
+      USE rice_housekeeping_module, ONLY: InitKp
       IMPLICIT NONE
 
       integer(iprec) :: idim,jdim,kdim
@@ -913,9 +924,10 @@ END SUBROUTINE Smooth_eta_at_boundary
         do j=1,jdim
         do i=imin_j(j),idim
                 if(vm(i,j) > 0.0)then
-                dens_gal = GallagherXY(xmin(i,j),ymin(i,j))*1.0e6
+                  dens_gal = GallagherXY(xmin(i,j),ymin(i,j),InitKp)*1.0e6
                 ! add to the existing eeta - frt
-                eeta(i,j,1) = eeta(i,j,1) + dens_gal/(density_factor*vm(i,j)**1.5)
+                  eeta(i,j,1) = eeta(i,j,1) + dens_gal/(density_factor*vm(i,j)**1.5)
+                  eeta_pls0(i,j) = eeta(i,j,1)
                 end if
         end do
         end do
