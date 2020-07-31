@@ -76,7 +76,7 @@ module kaiomp
     function NumOMP()
         integer :: NumOMP
 #ifdef _OPENMP
-        NumOMP = omp_get_num_threads()
+        NumOMP = omp_get_max_threads()
 #else
         NumOMP = 0
 #endif

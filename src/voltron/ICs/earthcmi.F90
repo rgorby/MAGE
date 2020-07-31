@@ -26,13 +26,15 @@ module uservoltic
 
     !Various module variables
     real(rp), private :: Rho0,P0
-    logical, parameter, private :: doIonPush = .false.
 
     ! type for remix BC
     type, extends(innerIBC_T) :: IonInnerBC_T
         !Main electric field structures
         real(rp), allocatable, dimension(:,:,:,:) :: inEijk,inExyz
         real(rp) :: dtCpl !Coupling timescale [code time]
+        logical :: doIonPush
+        integer :: nIonP
+
         contains
 
         procedure :: doInit => InitIonInner
@@ -200,11 +202,12 @@ module uservoltic
 
         !Do heavier nudging to first shell
 
-        if (Gr%hasLowerBC(IDIR) .and. doIonPush) then
+        if ( Gr%hasLowerBC(IDIR) ) then
             nbc = FindBC(Model,Gr,INI)
             SELECT type(iiBC=>Gr%externalBCs(nbc)%p)
                 TYPE IS (IonInnerBC_T)
-                    call PushIon(iiBC,Model,Gr,State)
+                    if (iiBC%doIonPush) call PushIon(iiBC,Model,Gr,State)
+                    
                 CLASS DEFAULT
                     write(*,*) 'Could not find Ion Inner BC in PerStep'
                     stop
@@ -371,8 +374,11 @@ module uservoltic
             !Set value of coupling timescale
             call xmlInp%Set_Val(dtXML,"/voltron/coupling/dt",5.0)
             bc%dtCpl = dtXML/Model%Units%gT0
-
+            !Get knobs for pushing
+            call xmlInp%Set_Val(bc%doIonPush,"ibc/doIonPush",.true.)
+            call xmlInp%Set_Val(bc%nIonP,"ibc/nIonP",2)
         endif
+
     end subroutine InitIonInner
 
 
@@ -448,7 +454,8 @@ module uservoltic
                     do d=IDIR,KDIR
                         call lfmIJKfc(Model,Grid,d,ig,j,k,ip,jp,kp)
 
-                        dA = Grid%face(ig,j,k,d)/Grid%face(Grid%is,jp,kp,d)
+                        !dA = Grid%face(ig,j,k,d)/Grid%face(Grid%is,jp,kp,d)
+                        dA = 1.0 !Using dA=1 for smoother magflux stencil
                         if ( isLowLat(Grid%xfc(ig,j,k,:,d),llBC) ) then
                             !State%magFlux(ig,j,k,d) = 0.0
                             State%magFlux(ig,j,k,d) = dApm(d)*dA*State%magFlux(Grid%is,jp,kp,d)
@@ -481,12 +488,12 @@ module uservoltic
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(inout) :: State
 
-        integer :: i,j,k,PsiShells
+        integer :: i,j,k,PsiShells,dN
         real(rp) :: dt
         real(rp), dimension(NVAR) :: pW,pCon
         real(rp), dimension(NDIM) :: vMHD,xcc,Bd,Exyz,rHat,Veb,dV
 
-        if ( (.not. doIonPush) .or. (.not. Grid%hasLowerBC(IDIR)) ) return
+        if ( (.not. bc%doIonPush) .or. (.not. Grid%hasLowerBC(IDIR)) ) return
 
         if (Model%doMultiF) then
             write(*,*) 'PushIon not implemented for MF yet ...'
@@ -495,16 +502,13 @@ module uservoltic
 
         PsiShells = PsiSh !Coming from cmidefs
 
-        dt = Model%dt/bc%dtCpl
-        dt = min(dt,1.0)
-
         !Loop over active
         !$OMP PARALLEL DO default(shared) &
         !$OMP private(i,j,k,pW,pCon) &
-        !$OMP private(vMHD,xcc,Bd,Exyz,rHat,Veb,dV)
+        !$OMP private(vMHD,xcc,Bd,Exyz,rHat,Veb,dV,dt,dN)
         do k=Grid%ks,Grid%ke
             do j=Grid%js,Grid%je
-                do i=Grid%is,Grid%is+0
+                do i=Grid%is,Grid%is+bc%nIonP-1
                     
                 !Get MHD info
                     pCon = State%Gas(i,j,k,:,BLK)
@@ -521,7 +525,11 @@ module uservoltic
                     Veb = Vec2Perp(Veb,rHat)
                     
                 !Setup push and finish up
+                    dN = i - Grid%is + 1
+                    dt = Model%dt/(dN*bc%dtCpl)
+                    dt = min(dt,1.0)
                     dV = Veb - vMHD
+                    
                     pW(VELX:VELZ) = pW(VELX:VELZ) + dt*dV
                     call CellP2C(Model,pW,pCon)
                     State%Gas(i,j,k,:,BLK) = pCon
