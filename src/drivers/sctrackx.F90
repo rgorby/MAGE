@@ -142,8 +142,8 @@ program sctrackx
             call AddOutVar(IOVars,"Vy",oVScl*SCTrack%Q(:,VELY),uStr="km/s")
             call AddOutVar(IOVars,"Vz",oVScl*SCTrack%Q(:,VELZ),uStr="km/s")
 
-            !Let loose
-            call WriteVars(IOVars,.true.,H5Out)
+            !Let loose (do double precision)
+            call WriteVars(IOVars,.false.,H5Out)
 
         end subroutine OutputTrack
 

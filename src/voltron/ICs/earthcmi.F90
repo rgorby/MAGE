@@ -25,18 +25,15 @@ module uservoltic
 !M0 = -0.31*1.0e+5/B0
 
     !Various module variables
-    real(rp),private :: Rho0,P0
-
-    !Some knobs for initialization
-    logical , private :: doNewIC = .false.
-    real(rp), private :: Lc  = 8.0
-    real(rp), private :: dLc = 4.0
-    real(rp), private :: DInner = 10.0
+    real(rp), private :: Rho0,P0
 
     ! type for remix BC
     type, extends(innerIBC_T) :: IonInnerBC_T
         !Main electric field structures
         real(rp), allocatable, dimension(:,:,:,:) :: inEijk,inExyz
+        real(rp) :: dtCpl !Coupling timescale [code time]
+        logical :: doIonPush
+        integer :: nIonP
 
         contains
 
@@ -160,18 +157,9 @@ module uservoltic
                 Lx = L*cos(phi)
                 Ly = L*sin(phi)
 
+                P = P0
+                D = Rho0
                 
-                if ( (L <= Lc) .and. doNewIC ) then
-                    !P = max( Psk(Lx,Ly),P0 )
-                    !P = max( pwolf(L),P0 )/gP0
-                    M = RampDown(L,Lc-dLc,Lc)
-                    D = max(M*DInner,Rho0)
-                    P = P0
-                else
-                    P = P0
-                    D = Rho0
-                endif
-
                 Vx = 0.0
                 Vy = 0.0
                 Vz = 0.0
@@ -211,6 +199,20 @@ module uservoltic
 
         !Call cooling function/s
         call ChillOut(Model,Gr,State)
+
+        !Do heavier nudging to first shell
+
+        if ( Gr%hasLowerBC(IDIR) ) then
+            nbc = FindBC(Model,Gr,INI)
+            SELECT type(iiBC=>Gr%externalBCs(nbc)%p)
+                TYPE IS (IonInnerBC_T)
+                    if (iiBC%doIonPush) call PushIon(iiBC,Model,Gr,State)
+                    
+                CLASS DEFAULT
+                    write(*,*) 'Could not find Ion Inner BC in PerStep'
+                    stop
+            END SELECT
+        endif
 
         !Do some nudging at the outermost cells to hit solar wind
         if (Gr%hasUpperBC(IDIR)) then
@@ -354,6 +356,7 @@ module uservoltic
         type(XML_Input_T), intent(in) :: xmlInp
 
         integer :: PsiShells
+        real(rp) :: dtXML
         procedure(HackE_T), pointer :: eHack
 
         !Are we on the inner (REMIX) boundary
@@ -368,7 +371,14 @@ module uservoltic
             eHack  => EFix
             Model%HackE => eHack
             Model%HackFlux => IonFlux
+            !Set value of coupling timescale
+            call xmlInp%Set_Val(dtXML,"/voltron/coupling/dt",5.0)
+            bc%dtCpl = dtXML/Model%Units%gT0
+            !Get knobs for pushing
+            call xmlInp%Set_Val(bc%doIonPush,"ibc/doIonPush",.true.)
+            call xmlInp%Set_Val(bc%nIonP,"ibc/nIonP",2)
         endif
+
     end subroutine InitIonInner
 
 
@@ -444,7 +454,8 @@ module uservoltic
                     do d=IDIR,KDIR
                         call lfmIJKfc(Model,Grid,d,ig,j,k,ip,jp,kp)
 
-                        dA = Grid%face(ig,j,k,d)/Grid%face(Grid%is,jp,kp,d)
+                        !dA = Grid%face(ig,j,k,d)/Grid%face(Grid%is,jp,kp,d)
+                        dA = 1.0 !Using dA=1 for smoother magflux stencil
                         if ( isLowLat(Grid%xfc(ig,j,k,:,d),llBC) ) then
                             !State%magFlux(ig,j,k,d) = 0.0
                             State%magFlux(ig,j,k,d) = dApm(d)*dA*State%magFlux(Grid%is,jp,kp,d)
@@ -469,6 +480,65 @@ module uservoltic
             end function isLowLat
 
     end subroutine IonInner
+
+    !Push velocity of first active cell
+    subroutine PushIon(bc,Model,Grid,State)
+        class(IonInnerBC_T), intent(inout) :: bc
+        type(Model_T), intent(in) :: Model
+        type(Grid_T), intent(in) :: Grid
+        type(State_T), intent(inout) :: State
+
+        integer :: i,j,k,PsiShells,dN
+        real(rp) :: dt
+        real(rp), dimension(NVAR) :: pW,pCon
+        real(rp), dimension(NDIM) :: vMHD,xcc,Bd,Exyz,rHat,Veb,dV
+
+        if ( (.not. bc%doIonPush) .or. (.not. Grid%hasLowerBC(IDIR)) ) return
+
+        if (Model%doMultiF) then
+            write(*,*) 'PushIon not implemented for MF yet ...'
+            stop
+        endif
+
+        PsiShells = PsiSh !Coming from cmidefs
+
+        !Loop over active
+        !$OMP PARALLEL DO default(shared) &
+        !$OMP private(i,j,k,pW,pCon) &
+        !$OMP private(vMHD,xcc,Bd,Exyz,rHat,Veb,dV,dt,dN)
+        do k=Grid%ks,Grid%ke
+            do j=Grid%js,Grid%je
+                do i=Grid%is,Grid%is+bc%nIonP-1
+                    
+                !Get MHD info
+                    pCon = State%Gas(i,j,k,:,BLK)
+                    call CellC2P(Model,pCon,pW)
+                    vMHD = pW(VELX:VELZ)
+                !Get EB info
+                    xcc = Grid%xyzcc(i,j,k,:)
+                    Bd = VecDipole(xcc)
+                    Exyz = bc%inExyz(PsiShells,j,k,:)
+                    rHat = normVec(xcc)
+
+                    !Get ExB velocity w/o radial component
+                    Veb = cross(Exyz,Bd)/dot_product(Bd,Bd)
+                    Veb = Vec2Perp(Veb,rHat)
+                    
+                !Setup push and finish up
+                    dN = i - Grid%is + 1
+                    dt = Model%dt/(dN*bc%dtCpl)
+                    dt = min(dt,1.0)
+                    dV = Veb - vMHD
+                    
+                    pW(VELX:VELZ) = pW(VELX:VELZ) + dt*dV
+                    call CellP2C(Model,pW,pCon)
+                    State%Gas(i,j,k,:,BLK) = pCon
+
+                enddo
+            enddo
+        enddo
+
+    end subroutine PushIon
 
     !Correct predictor Bxyz
     subroutine IonPredFix(Model,Grid,State)

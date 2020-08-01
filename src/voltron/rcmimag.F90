@@ -24,7 +24,7 @@ module rcmimag
 
     real(rp) :: RIonRCM !Units of Rp
     real(rp), private :: rEqMin = 0.0
-    real(rp), private :: PPDen = 1.0 !Plasmapause density
+    real(rp), private :: PPDen = 10.0 !Plasmapause density cut-off
     character(len=strLen), private :: h5File
 
     real(rp), private :: Rp_m
@@ -32,7 +32,7 @@ module rcmimag
 
     logical, parameter, private :: doKillRCMDir = .true. !Whether to always kill RCMdir before starting
     logical, private :: doWolfLim  = .true. !Whether to do wolf-limiting
-    logical, private :: doBounceDT = .true. !Whether to use Alfven bounce in dt-ingest
+    logical, private :: doBounceDT = .false. !Whether to use Alfven bounce in dt-ingest
 
     !Information taken from MHD flux tubes
     !TODO: Figure out RCM boundaries
@@ -464,7 +464,7 @@ module rcmimag
         real(rp), intent(out) :: imW(NVARIMAG)
         logical, intent(out) :: isEdible
 
-        real(rp) :: colat,nrcm,prcm,npp,ntot,pScl,beta,pmhd
+        real(rp) :: colat,nrcm,prcm,npp,ntot,pScl,beta,pmhd,nmhd
         integer, dimension(2) :: ij0
 
         associate(RCMApp => imag%rcmCpl, lat => x1, lon => x2)
@@ -496,7 +496,8 @@ module rcmimag
         npp  = rcmNScl*RCMApp%Npsph(ij0(1),ij0(2))
         beta =  RCMApp%beta_average(ij0(1),ij0(2))
         pmhd = rcmPScl*RCMApp%Pave (ij0(1),ij0(2))
-        
+        nmhd = rcmNScl*RCMApp%Nave (ij0(1),ij0(2))
+
         ntot = 0.0
         !Decide which densities to include
         if (npp >= PPDen) then
@@ -507,12 +508,14 @@ module rcmimag
         endif
 
         !Store data
-        imW(IMDEN)  = ntot
+        
         if (doWolfLim) then
             pScl = beta*5.0/6.0
             imW(IMPR) = (pScl*pmhd + prcm)/(1.0+pScl)
+            imW(IMDEN)  = ntot - 0.6*pScl*nmhd*(prcm-pmhd)/(1.0+pScl)/pmhd
         else
             imW(IMPR)   = prcm
+            imW(IMDEN)  = ntot
         endif
 
         if (doBounceDT) then

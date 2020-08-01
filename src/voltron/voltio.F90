@@ -40,7 +40,7 @@ module voltio
 
         real(rp) :: dpT,dtWall,cMJD,dMJD,simRate
 
-        integer :: iYr,iDoY,iMon,iDay,iHr,iMin
+        integer :: iYr,iDoY,iMon,iDay,iHr,iMin,nTh
         real(rp) :: rSec
         character(len=strLen) :: utStr
         real(rp) :: DelD,DelP,Dst,symh
@@ -100,8 +100,14 @@ module voltio
             endif
 
             if (simRate>TINY) then
-                write (*, '(a,1f7.3,a)')             '    Running @ ', simRate*100.0, '% of real-time'
+                if (vApp%isSeparate) then
+                    nTh = NumOMP()
+                    write (*, '(a,1f7.3,a,I0,a)')             '    Running @ ', simRate*100.0, '% of real-time (',nTh,' threads)'  
+                else
+                    write (*, '(a,1f7.3,a)')             '    Running @ ', simRate*100.0, '% of real-time'
+                endif
             endif
+
             write (*, *) ANSIRESET, ''
         endif
 
