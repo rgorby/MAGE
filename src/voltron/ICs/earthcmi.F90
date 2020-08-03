@@ -376,7 +376,7 @@ module uservoltic
             bc%dtCpl = dtXML/Model%Units%gT0
             !Get knobs for pushing
             call xmlInp%Set_Val(bc%doIonPush,"ibc/doIonPush",.true.)
-            call xmlInp%Set_Val(bc%nIonP,"ibc/nIonP",2)
+            call xmlInp%Set_Val(bc%nIonP,"ibc/nIonP",1)
         endif
 
     end subroutine InitIonInner
