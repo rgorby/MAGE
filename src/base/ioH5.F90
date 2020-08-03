@@ -360,12 +360,21 @@ contains
 
                 if (aExist) then
                     !Attribute
-                    call ReadHDFAtt(IOVars(n),inId)
+                    if(IOVars(n)%useHyperslab) then
+                        write(*,*) 'Unable to read attribute "',trim(IOVars(n)%idStr),'" as a hyperslab'
+                        stop
+                    else
+                        call ReadHDFAtt(IOVars(n),inId)
+                    endif
                 endif
 
                 if (dsExist) then
                     !Dataset
-                    call ReadHDFVar(IOVars(n),inId)
+                    if(IOVars(n)%useHyperslab) then
+                        call ReadHDFVarHyper(IOVars(n),inId)
+                    else
+                        call ReadHDFVar(IOVars(n),inId)
+                    endif
                 endif
   
             endif
@@ -487,12 +496,21 @@ contains
 
                 if (Nr == 0) then
                 !Scalar attribute
-                    call WriteHDFAtt(IOVars(n),outId)
+                    if(IOVars(n)%useHyperslab) then
+                        write(*,*) 'Unable to write attribute "',trim(IOVars(n)%idStr),'" as a hyperslab'
+                        stop
+                    else
+                        call WriteHDFAtt(IOVars(n),outId)
+                    endif
                 else
                 !N-rank array
                     !Create data space, use rank/dim info from IOVar
-                    call WriteHDFVar(IOVars(n),outId,doIOP)
-
+                    if(IOVars(n)%useHyperslab) then
+                        write(*,*) 'Writing dataset "',trim(IOVars(n)%idStr),'" as a hyperslab not yet supported'
+                        stop
+                    else
+                        call WriteHDFVar(IOVars(n),outId,doIOP)
+                    endif
                 endif !Nr=0
             endif !isSet
         enddo
@@ -536,6 +554,50 @@ contains
         end select
         IOVar%isDone = .true.
     end subroutine ReadHDFVar
+
+    ! Read a dataset specified as a hyperslab. This assumes a stride of 1 in all dimensions
+    subroutine ReadHDFVarHyper(IOVar,gId)
+        type(IOVAR_T), intent(inout) :: IOVar
+        integer(HID_T), intent(in) :: gId
+
+        integer(HSIZE_T), allocatable, dimension(:) :: dims
+        integer(HSIZE_T) :: N
+        integer :: Nr,herr
+        integer :: typeClass
+        integer(SIZE_T) :: typeSize
+        integer(HID_T) :: dsetId,dataspace,memspace
+
+        !Start by getting rank and dimensions
+        call h5ltget_dataset_ndims_f(gId,trim(IOVar%idStr),Nr,herr)
+        allocate(dims(Nr))
+        call h5ltget_dataset_info_f(gId,trim(IOVar%idStr), dims, typeClass, typeSize, herr)
+
+        !Ensure the requested hyperslab is valid within the variable's dimensions
+
+        if (allocated(IOVar%data)) then
+            deallocate(IOVar%data)
+        endif
+        allocate(IOVar%data(IOVar%N))
+        N = IOVar%N !Convert to HSIZE_T
+
+        !Read based on data type
+        select case(IOVar%vType)
+        case(IONULL,IOREAL)
+            call h5dopen_f(gId,trim(IOVar%idStr),dsetId,herr)
+            call h5dget_space_f(dsetId,dataspace,herr)
+            call h5sselect_hyperslab_f(dataspace,H5S_SELECT_SET_F,IOVar%offsets,IOVar%dims,herr)
+            call h5screate_simple_f(1,(/N/),memspace,herr)
+            call h5sselect_hyperslab_f(memspace,H5S_SELECT_SET_F,(/integer(HSIZE_T)::0/),(/N/),herr)
+            call h5dread_f(dsetId,H5T_NATIVE_DOUBLE,IOVar%data,(/N/),herr,memspace,dataspace)
+            call h5sclose_f(dataspace,herr)
+            call h5sclose_f(memspace,herr)
+            call h5dclose_f(dsetId,herr)
+        case default
+            write(*,*) 'Unknown HDF data type, bailing ...'
+            stop
+        end select
+        IOVar%isDone = .true.
+    end subroutine ReadHDFVarHyper
 
     !FIXME: Add scaling to attributes
     subroutine ReadHDFAtt(IOVar,gId)
@@ -666,6 +728,43 @@ contains
 
     end subroutine AddInVar
 
+    ! Alternate subroutine to read in a hyperslab from a dataset
+    subroutine AddInVarHyper(IOVars,idStr,offsets,counts,vTypeO,vSclO)
+        type(IOVAR_T), dimension(:), intent(inout) :: IOVars
+        integer, dimension(:), intent(in) :: offsets
+        integer, dimension(:), intent(in) :: counts
+        character(len=*), intent(in) :: idStr
+        integer, intent(in), optional :: vTypeO
+        real(rp), intent(in), optional :: vSclO
+        integer :: n,nr
+
+        nr = SIZE(offsets)
+
+        !Find first unused
+        n = NextIO(IOVars)
+
+        IOVars(n)%toRead = .true.
+        IOVars(n)%idStr = trim(idStr)
+
+        if (present(vTypeO)) then
+            IOVars(n)%vType = vTypeO
+        else
+            IOVars(n)%vType = IONULL
+        endif
+        if (present(vSclO)) then
+            IOVars(n)%scale = vSclO
+        else
+            IOVars(n)%scale = 1.0
+        endif
+
+        IOVars(n)%Nr = nr
+        IOVars(n)%offsets(1:nr) = offsets
+        IOVars(n)%dims(1:nr) = counts
+        IOVars%N = product(counts)
+        IOVars%useHyperslab = .true.
+
+    end subroutine AddInVarHyper
+
 !Clears info/memory from an IO chain
     subroutine ClearIO(IOVars)
         type(IOVAR_T), dimension(:), intent(inout) :: IOVars
@@ -684,9 +783,12 @@ contains
         IOVars(:)%toWrite = .false.
         IOVars(:)%toRead  = .false.
         IOVars(:)%isDone  = .false.
-        
+        IOVars(:)%useHyperslab = .false.
         
         do i=1,Nv
+            IOVars(i)%dims(:)    = 0
+            IOVars(i)%offsets(:) = 0
+
             if (allocated(IOVars(i)%data)) then
                 deallocate(IOVars(i)%data)
             endif

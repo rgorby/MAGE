@@ -278,64 +278,6 @@ module gamapp_mpi
         ! call appropriate subroutines to read corner info and mesh size data
         call ReadCorners(Model,Grid,xmlInp,endTime)
 
-        if(Grid%isTiled .and. .not. Model%isRestart ) then
-            !if we're tiled and read the entire grid file, subdivide ita
-            Grid%Nip = Grid%Nip/Grid%NumRi
-            Grid%Njp = Grid%Njp/Grid%NumRj
-            Grid%Nkp = Grid%Nkp/Grid%NumRk
-
-            Grid%ijkShift(IDIR) = Grid%Nip*Grid%Ri
-            Grid%ijkShift(JDIR) = Grid%Njp*Grid%Rj
-            Grid%ijkShift(KDIR) = Grid%Nkp*Grid%Rk
-
-            Grid%Ni = Grid%Nip + 2*Model%nG
-            Grid%Nj = Grid%Njp + 2*Model%nG
-            Grid%Nk = Grid%Nkp + 2*Model%nG
-
-            Grid%is = 1; Grid%ie = Grid%Nip
-            Grid%js = 1; Grid%je = Grid%Njp
-            Grid%ks = 1; Grid%ke = Grid%Nkp
-
-            Grid%isg = Grid%is-Model%nG
-            Grid%ieg = Grid%ie+Model%nG
-
-            Grid%jsg = Grid%js-Model%nG
-            Grid%jeg = Grid%je+Model%nG
-
-            Grid%ksg = Grid%ks-Model%nG
-            Grid%keg = Grid%ke+Model%nG
-
-            ! create temporary arrays to hold this rank's subset of the full corner array
-            allocate(tempX(Grid%isg:Grid%ieg+1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1))
-            allocate(tempY(Grid%isg:Grid%ieg+1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1))
-            allocate(tempZ(Grid%isg:Grid%ieg+1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1))
-
-            ! pull out this rank's relevant corner info
-            tempX = Grid%xyz(Grid%isg+Grid%ijkShift(IDIR):Grid%ieg+1+Grid%ijkShift(IDIR), &
-                             Grid%jsg+Grid%ijkShift(JDIR):Grid%jeg+1+Grid%ijkShift(JDIR), &
-                             Grid%ksg+Grid%ijkShift(KDIR):Grid%keg+1+Grid%ijkShift(KDIR),XDIR)
-            tempY = Grid%xyz(Grid%isg+Grid%ijkShift(IDIR):Grid%ieg+1+Grid%ijkShift(IDIR), &
-                             Grid%jsg+Grid%ijkShift(JDIR):Grid%jeg+1+Grid%ijkShift(JDIR), &
-                             Grid%ksg+Grid%ijkShift(KDIR):Grid%keg+1+Grid%ijkShift(KDIR),YDIR)
-            tempZ = Grid%xyz(Grid%isg+Grid%ijkShift(IDIR):Grid%ieg+1+Grid%ijkShift(IDIR), &
-                             Grid%jsg+Grid%ijkShift(JDIR):Grid%jeg+1+Grid%ijkShift(JDIR), &
-                             Grid%ksg+Grid%ijkShift(KDIR):Grid%keg+1+Grid%ijkShift(KDIR),ZDIR)
-            ! delete the old corner array
-            deallocate(Grid%xyz)
-
-            ! create new corner array and fill in values
-            allocate( Grid%xyz(Grid%isg:Grid%ieg+1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1,NDIM) )
-            Grid%xyz(:,:,:,XDIR) = tempX
-            Grid%xyz(:,:,:,YDIR) = tempY
-            Grid%xyz(:,:,:,ZDIR) = tempZ
-
-        else
-            ! adjust grid info for these ranks
-            Grid%ijkShift(IDIR) = Grid%Nip*Grid%Ri
-            Grid%ijkShift(JDIR) = Grid%Njp*Grid%Rj
-            Grid%ijkShift(KDIR) = Grid%Nkp*Grid%Rk
-        endif
-
         if(Grid%isTiled) then
             ! now create the arrays that MPI will use to send and receive the data
             call mpi_dist_graph_neighbors_count(gamAppMpi%gamMpiComm,numInNeighbors,numOutNeighbors,wasWeighted,ierr)

@@ -59,26 +59,29 @@ module init
     end subroutine Hatch
 
     ! Read corner data for the mesh and set grid size variables
-    subroutine ReadCorners(Model,Grid,xmlInp,endTime,noRestartOpt)
+    subroutine ReadCorners(Model,Grid,xmlInp,endTime,childGameraOpt)
         type(Model_T), intent(inout) :: Model
         type(Grid_T), intent(inout) :: Grid
         type(XML_Input_T), intent(inout) :: xmlInp
         real(rp), optional, intent(in) :: endTime
-        logical, optional, intent(in) :: noRestartOpt
+        logical, optional, intent(in) ::childGameraOpt
 
         logical :: doH5g
         character(len=strLen) :: inH5
         integer :: dotLoc
-        logical :: noRestart
+        logical :: childGamera
 
-        if(present(noRestartOpt)) then
-            noRestart = noRestartOpt
+        if(present(childGameraOpt)) then
+            childGamera = childGameraOpt
         else
-            noRestart = .false.
+            childGamera = .false.
         endif
 
-        !Setup OMP info
-        call SetOMP(xmlInp,Model%isLoud)
+        if(.not. childGamera) then
+            !Setup OMP info unless gamera is owned by someone else
+            call SetOMP(xmlInp,Model%isLoud)
+        endif
+        !Either way set the current number of threads
         Model%nTh = NumOMP()
    
 !--------------------------------------------
@@ -96,7 +99,7 @@ module init
         !Restart file overwrites doH5g
         !Always read the full mesh file
         if (doH5g) call xmlInp%Set_Val(inH5,"sim/H5Grid","gMesh.h5")
-        if (Model%isRestart .and. .not. noRestart) then
+        if (Model%isRestart .and. .not. childGamera) then
             !Get restart file information
             call getRestart(Model,Grid,xmlInp,inH5)
 
@@ -631,10 +634,42 @@ module init
         Grid%ksg = Grid%ks-Model%nG
         Grid%keg = Grid%ke+Model%nG
 
+        Grid%ijkShift(IDIR) = Grid%Nip*Grid%Ri
+        Grid%ijkShift(JDIR) = Grid%Njp*Grid%Rj
+        Grid%ijkShift(KDIR) = Grid%Nkp*Grid%Rk
+
         !Set dx's (uniform for now)
         dx = (xyzBds(2)-xyzBds(1))/Grid%Nip
         dy = (xyzBds(4)-xyzBds(3))/Grid%Njp
         dz = (xyzBds(6)-xyzBds(5))/Grid%Nkp
+
+        if( Grid%isTiled) then
+            !Adjust grid info to only generate data for this tile
+            Grid%Nip = Grid%Nip/Grid%NumRi
+            Grid%Njp = Grid%Njp/Grid%NumRj
+            Grid%Nkp = Grid%Nkp/Grid%NumRk
+
+            Grid%ijkShift(IDIR) = Grid%Nip*Grid%Ri
+            Grid%ijkShift(JDIR) = Grid%Njp*Grid%Rj
+            Grid%ijkShift(KDIR) = Grid%Nkp*Grid%Rk
+
+            Grid%Ni = Grid%Nip + 2*Model%nG
+            Grid%Nj = Grid%Njp + 2*Model%nG
+            Grid%Nk = Grid%Nkp + 2*Model%nG
+
+            Grid%is = 1; Grid%ie = Grid%Nip
+            Grid%js = 1; Grid%je = Grid%Njp
+            Grid%ks = 1; Grid%ke = Grid%Nkp
+
+            Grid%isg = Grid%is-Model%nG
+            Grid%ieg = Grid%ie+Model%nG
+
+            Grid%jsg = Grid%js-Model%nG
+            Grid%jeg = Grid%je+Model%nG
+
+            Grid%ksg = Grid%ks-Model%nG
+            Grid%keg = Grid%ke+Model%nG
+        endif
 
         !Allocate corner grid holders
         call allocGrid(Model,Grid)
@@ -643,9 +678,9 @@ module init
         do k=Grid%ksg, Grid%keg+1
             do j=Grid%jsg, Grid%jeg+1
                 do i=Grid%isg, Grid%ieg+1
-                    x1 = xyzBds(1)+(i-1)*dx
-                    x2 = xyzBds(3)+(j-1)*dy
-                    x3 = xyzBds(5)+(k-1)*dz
+                    x1 = xyzBds(1)+(Grid%ijkShift(IDIR)+i-1)*dx
+                    x2 = xyzBds(3)+(Grid%ijkShift(JDIR)+j-1)*dy
+                    x3 = xyzBds(5)+(Grid%ijkShift(KDIR)+k-1)*dz
                     if (doCyl) then
                         !Treat x1,x2,x3 as R,phi/2pi,z
                         x = x1*cos(2*pi*x2)

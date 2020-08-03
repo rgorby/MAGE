@@ -135,6 +135,11 @@ module voltapp
             vApp%doDeep = .false.
         endif
 
+        if (vApp%doDeep .and. .not. doSpin) then
+            write(*,*) 'Spinup is required with deep coupling. Please enable the spinup/doSpin option. At least 1 minute of spinup is recommended.'
+            stop
+        endif
+
         if (vApp%doDeep) then
             !Whether to do fast eb-squishing
             call xmlInp%Set_Val(vApp%doQkSquish,"coupling/doQkSquish",.false.)

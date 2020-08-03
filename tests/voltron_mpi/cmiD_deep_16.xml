@@ -1,15 +1,13 @@
 <?xml version="1.0"?>
 <!-- Gamera Magnetosphere -->
-<OMEGA>
+<voltron>
   <sim tFin="677.115987461"/>
-  <gamera_remix dt="0.1" dowait="F" dtshift="0.0"/>
-  <remix_gamera dt="0.1" dowait="F" dtshift="0.0"/>
-</OMEGA>
-<VOLTRON>
-  <coupling dtDeep="5.0" imType="RCM"/>
+  <spinup doSpin="T" tSpin="60.0" tIO="0.0"/>
+  <coupling dt="5.0" dtDeep="5.0" rTrc="40.0" imType="RCM"/>
+  <imag doInit="T"/>
 </VOLTRON>
 <Gamera>
-  <source doSource="T"/>
+  <source doSource="T" doWolfLim="T"/>
   <iPdir N="4" bcPeriodic="F"/>
   <jPdir N="4" bcPeriodic="F"/>
   <kPdir N="1" bcPeriodic="T"/>
@@ -24,13 +22,17 @@
 <!-- Remix -->
 <REMIX>
   <grid Np="360" Nt="45" LowLatBoundary="45.0"/>
-  <conductance F107="200.0" pedmin="2.0" hallmin="1.0" sigma_ratio="3.0" const_sigma="True" ped0="10.0"/>
-  <solver maxitr="400" mr="30" tol_abs="1.0e-4" tol_rel="1.0e-4"/>
-  <output dtOut="0.235109717868"/>
+  <conductance doStarlight="T"/>
+  <precipitation aurora_model_type="RCMONO" alpha="0.2" beta="0.4"/>
 </REMIX>
 <CHIMP>
   <units uid="EARTHCODE"/>
   <fields grType="LFM"/>
-  <domain dtype="SPH" rmin="2.0" rmax="25.0"/>
+  <domain dtype="SPH" rmin="2.0" rmax="40.0"/>
+  <tracer epsds="0.05"/>
 </CHIMP>
-
+<RCM>
+  <output debug="F" toRCM="F" toMHD="F"/>
+  <clawpack doKaiClaw="F"/>
+  <ellipse xSun="10.0" yDD="10.0" xTail="-10.0" dRadMHD="1.0"/>
+</RCM>
