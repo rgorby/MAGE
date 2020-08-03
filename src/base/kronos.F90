@@ -1,7 +1,7 @@
 !Various time-series utilities to read in variables from a file and return its value at any given time
 
 module kronos
-    use ioH5,     only : IOVAR_T, ClearIO, AddInVar, ReadVars
+    use ioH5,     only : IOVAR_T, ClearIO, AddInVar, ReadVars, ioExist
     use strings,  only : toUpper
     use kdefs,    only : strLen, dp, rp
  
@@ -42,7 +42,7 @@ module kronos
         logical, intent(in), optional :: doLoudO
 
         integer :: N
-        logical :: fExist,doLoud
+        logical :: fExist,doLoud,vEx1,vEx2
         type(IOVAR_T), dimension(MAXWINDVARS) :: IOVars
 
         varTS%varID = varStr
@@ -62,6 +62,15 @@ module kronos
         inquire(file=trim(varTS%wID),exist=fExist)
         if (.not. fExist) then
             write(*,*) "Error reading ", trim(varTS%wID), " exiting ..."
+            stop
+        endif
+
+        !Check variables
+        vEx1 = ioExist(varTS%wID,"T")
+        vEx2 = ioExist(varTS%wID,varTS%varID)
+              
+        if (.not. (vEx1 .and. vEx2) ) then
+            write(*,*) 'Error reading time series variables from ', trim(varTS%wID), ' : T / ', trim(varTS%varID)
             stop
         endif
 
