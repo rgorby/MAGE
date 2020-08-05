@@ -49,7 +49,8 @@ module rcm_mhd_interfaces
         real(rprec),allocatable :: Lb(:,:)
         !Alfven Bounce timescale [s]
         real(rprec),allocatable :: Tb(:,:)
-
+        !Loss cone size [rad]
+        real(rprec),allocatable :: losscone(:,:)
         !Information about MHD ingestion
         logical, allocatable :: toMHD(:,:)
 

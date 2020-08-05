@@ -77,7 +77,7 @@
       save ifound,mask
 
       INTEGER (iprec) :: itime0,jp,iC
-      real(rp) :: dRad,RadC,rIJ
+      real(rp) :: dRad,RadC,rIJ,dRxy
 
       LOGICAL,PARAMETER :: avoid_boundaries = .false.
       INTEGER(iprec) :: im,ipl,jm,jpl,km,kpl
@@ -177,11 +177,12 @@
       do j=jwrap,jsize
         jp = j-jwrap+1
         iC = imin_j(j)
-        RadC = norm2(RM%X_bmin(iC,jp,1:3))-dRad
+        RadC = norm2(RM%X_bmin(iC,jp,1:2))-dRad
         do i=iC+1,isize
-          rIJ = norm2(RM%X_bmin(i,jp,1:3))
+          rIJ = norm2(RM%X_bmin(i,jp,1:2))
+          dRxy = norm2(RM%X_bmin(i,jp,1:2)) - norm2(RM%X_bmin(i+1,jp,1:2))
           !write(*,*) 'RadC/rIJ = ',RadC/radius_earth_m,rIj/radius_earth_m
-          if (rIJ<=RadC) exit
+          if ( (rIJ<=RadC) .and. (dRxy>0) ) exit
         enddo
         !write(*,*) 'i/iC = ',i,iC
 

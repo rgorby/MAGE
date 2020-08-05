@@ -2234,7 +2234,7 @@ real :: v_1_1, v_1_2, v_2_1, v_2_2
         call ReadVars(IOVars,doSP,RCMGAMConfig)
 
         dktime = reshape(IOVars(1)%data,[irdk,inrgdk,isodk, iondk])
-        
+
         ! !Debugging
         ! dktime2 = reshape(IOVars(1)%data,[irdk,inrgdk,isodk, iondk])
         ! call Read_dktime(L_dktime)

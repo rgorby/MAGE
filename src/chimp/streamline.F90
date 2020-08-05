@@ -157,7 +157,6 @@ module streamline
         end associate
     end function FLVol
 
-
     !Calculate arc length of field line
     function FLArc(Model,ebGr,bTrc) result(L)
         type(chmpModel_T), intent(in) :: Model
@@ -174,6 +173,31 @@ module streamline
         enddo
 
     end function FLArc
+
+    !Calculate Alfven crossing time on line
+    function FLAlfvenX(Model,ebGr,bTrc) result(dtX)
+        type(chmpModel_T), intent(in) :: Model
+        type(ebGrid_T), intent(in) :: ebGr
+        type(fLine_T), intent(in) :: bTrc
+        real(rp) :: dtX
+
+        integer :: k
+        real(rp) :: dL,eD,bMag,Va
+
+        dtX = 0.0
+        do k=-bTrc%Nm,bTrc%Np-1
+            dL = norm2(bTrc%xyz(k+1,:)-bTrc%xyz(k,:))
+            dL = dL*L0*1.0e-5 !Corner units to km
+            !Get egde-centered quantities
+            eD = 0.5*(bTrc%lnVars(DEN)%V(k+1) + bTrc%lnVars(DEN)%V(k))
+            bMag = 0.5*(bTrc%lnVars(0)%V(k+1) + bTrc%lnVars(0)%V(k))
+            !Convert B to nT, eD in #/cc
+            bMag = oBScl*bMag
+            Va = 22.0*bMag/sqrt(eD) !Alfven speed in km/s, NRL formulary
+            dtX = dtX + dL/Va
+        enddo
+
+    end function FLAlfvenX
 
     !Averaged density/pressure
     subroutine FLThermo(Model,ebGr,bTrc,bD,bP,dvB,bBetaO)
@@ -222,15 +246,6 @@ module streamline
         bD  = bD/dvB
         bP  = bP/dvB
         bPb = bPb/dvB
-
-        ! !$OMP CRITICAL
-        ! write(*,*) '---'
-        ! write(*,*) 'dvB = ', dvB
-        ! write(*,*) 'bP/bPb = ', bP,bPb
-
-        ! write(*,*) 'Beta (avg,int) = ', bP/bPb,bBeta/dvB
-        ! write(*,*) '---'
-        ! !$OMP END CRITICAL
 
         !bBeta = bP/bPb
         bBeta = bBeta/dvB

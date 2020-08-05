@@ -69,7 +69,7 @@
       ierr = 0
 
       IF (ierr < 0) RETURN
-       x0_sm = x0; y0_sm = y0; z0_sm = z0;
+      x0_sm = x0; y0_sm = y0; z0_sm = z0;
 
 !      if(rcm_tilted)then
 ! temporarily assign  geo grid as x0 and convert to sm
@@ -113,18 +113,18 @@
       ! and IMIN_J with values:
 
       do j=1,jsize
-         bndloc(j) = 2  ! if everything else fails, can use this...
-         do i=isize,2,-1
-            if(iopen(i,j) >= 0)then
-               bndloc(j) = i + 1
-               exit
-            endif
-         end do
-       ! reset imin_j
-       imin_j = ceiling(bndloc)
-         IF (L_write_vars_debug) then
+        bndloc(j) = 2  ! if everything else fails, can use this...
+        do i=isize,2,-1
+          if(iopen(i,j) >= 0)then
+            bndloc(j) = i + 1
+            exit
+          endif
+        end do
+        ! reset imin_j
+        imin_j = ceiling(bndloc)
+          IF (L_write_vars_debug) then
             write(*,*)' bndy ',bndloc(j),j,vm(imin_j(j),j)
-         END IF
+          END IF
       end do
 
       ! fits an ellipse to the boundary
@@ -193,8 +193,12 @@
 
       IF (ierr < 0) RETURN
       
-      CALL Read_alam (kcsize, alamc, ikflavc, fudgec, almdel, almmax, almmin, iesize, ierr)
-      IF (ierr < 0) RETURN
+      if ( (icontrol==RCMCOLDSTART) .or. (icontrol==RCMINIT) .or. (icontrol==RCMRESTART) ) then
+        !Rewriting this bit to not read_alam every call
+        !K: 8/5/20
+        CALL Read_alam (kcsize, alamc, ikflavc, fudgec, almdel, almmax, almmin, iesize, ierr)
+        IF (ierr < 0) RETURN
+      endif
 
       !CALL Press2eta       ! this populates EETA_NEW array
       CALL Press2eta(RM%planet_radius)       ! this populates EETA_NEW array
@@ -217,16 +221,16 @@
          eeta       = eeta_new  ! this is initial conditions on plasma
       END IF
 
-       ! reset the static part of the plasmasphere sbao 07292020
-         if (staticR > 2.0) then
-          do j=1,jsize
-           do i=imin_j(j),isize
-             if(rmin(i,j) < 2.0 .and. vm(i,j) > 0.0)then
-                  eeta (i,j,1) = eeta_pls0 (i,j)
+      ! reset the static part of the plasmasphere sbao 07292020
+      if (staticR > 0.0) then
+        do j=1,jsize
+          do i=imin_j(j),isize
+            if(rmin(i,j) <= staticR .and. vm(i,j) > 0.0)then
+              eeta (i,j,1) = eeta_pls0 (i,j)
             end if
-           end do
-           end do
-         end if
+          end do
+        end do
+      end if
  
       ! just in case:
       imin_j     = CEILING(bndloc)
@@ -491,7 +495,6 @@
       USE CONSTANTS, ONLY: boltz,tiote
       IMPLICIT NONE
 !
-      REAL(rprec), PARAMETER :: den0=0.5E+6
       REAL(rprec), PARAMETER :: fac = tiote/(1.+tiote)
 !
       INTEGER(iprec) :: i,j,ierr
@@ -665,56 +668,7 @@
 
 !
       RETURN
-      END SUBROUTINE Press2eta
- 
-!--------------atran10
- 
-      subroutine atran10(xs,ys,zs,gla,glo)
-      USE rcm_precision
-      USE Rcm_mod_subs, ONLY : pi
-      implicit none
-      real(rprec) :: xs,ys,zs,gla,glo,rrr,rho
-      real(rprec) :: atan5 
-                         
-!      pi = acos(-1.0)
-
-      gla = 0.0
-      glo = 0.0    
-      rrr = sqrt(xs**2+ys**2+zs**2)
-      if(rrr.eq.0.0)return 
-
-      xs = xs/rrr
-      ys = ys/rrr
-      zs = zs/rrr
-
-      rho = sqrt(xs**2+ys**2)   
-
-      glo = 0.0
-      if(rho.ne.0.)then
-      glo = atan5(-ys,xs)    
-      glo = glo/pi*180. 
-      if(glo.lt.0.0)glo=glo+360.
-      end if   
-
-      gla = atan5(rho,zs)
-      gla = 90.-gla*180./pi
-
-      return
-      end        
-! -----------------atan5
-      function atan5(y,x)
-      USE rcm_precision
-      USE Rcm_mod_subs, ONLY : pi
-      implicit none
-
-      real(rprec) :: atan5,y,x
-!      pi = acos(-1.0)
-      atan5 = 0.00
-      if((x.ne.0.0).or.(y.ne.0.0))   atan5 = atan2(y,x)
- 
-      return
-      end
-
+      END SUBROUTINE Press2eta 
 !===================================================================
     SUBROUTINE Set_ellipse(idim,jdim,rmin,pmin,vm,big_vm,bndloc,iopen)
 
@@ -742,8 +696,10 @@
       integer(iprec) :: iopen(idim,jdim)
       real(rprec) :: bndloc(jdim)
       real(rprec) :: big_vm,a1,a2,a,b,x0,ell
-      real(rprec) :: xP,xM,yMax
+      real(rprec) :: xP,xM,yMax,dR
       integer(iprec) :: i,j
+      logical :: isBad
+
 !  x0 = (a1 + a2)/2
 !   a = (a1 - a2)/2
 !
@@ -766,9 +722,10 @@
 
       if (ellBdry%isDynamic) then
         !Tune to current equatorial bounds
-        xP = maxval(xe)
-        xM = minval(xe)
-        yMax = maxval(abs(ye))
+        xP   = maxval(xe     ,mask=iopen<0)
+        xM   = minval(xe     ,mask=iopen<0)
+        yMax = maxval(abs(ye),mask=iopen<0)
+
         !Enforce max's from XML ellipse
         a1 = min(a1,xP)
         a2 = max(a2,xM)
@@ -782,7 +739,9 @@
 ! now check to see if the point is outside the ellipse, if so
 ! reset open and bndloc        
           ell = ((xe(i,j)-x0)/a)**2+(ye(i,j)/b)**2
-          if(ell > 1.) then
+          dR = rmin(i,j) - rmin(i+1,j) !Check for bifurcated equator
+          isBad = (ell > 1.0) .or. (dR<0)
+          if (isBad) then
             bndloc(j) = i+1
             iopen(i,j) = 0
             vm(i,j) = big_vm

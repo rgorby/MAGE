@@ -28,6 +28,7 @@
       INCLUDE 'rcm_include.h'
 ! 
       if (isGAMRCM) then
+
         !Use Gamera HDF5 stuff
         doSP = .false.
         call ClearIO(IOVars) !Reset IO chain

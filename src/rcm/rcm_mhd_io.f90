@@ -5,7 +5,7 @@ module rcm_mhd_io
     use rcm_mhd_mod,  ONLY : rcm_mhd
     use rcm_mod_subs, ONLY : colat, aloct
 
-    integer, parameter   , private :: MAXRCMIOVAR = 30
+    integer, parameter   , private :: MAXRCMIOVAR = 35
     character(len=strLen), private :: h5File,RCMH5
     real(rp), parameter  , private :: IMGAMMA = 5.0/3.0
 
@@ -133,6 +133,7 @@ module rcm_mhd_io
         call AddOutVar(IOVars,"Nmhd",RCMApp%Nave*rcmNScl,uStr="#/cc")
         call AddOutVar(IOVars,"latc",RCMApp%latc*180.0/PI,uStr="deg")
         call AddOutVar(IOVars,"lonc",RCMApp%lonc*180.0/PI,uStr="deg")
+        call AddOutVar(IOVars,"lossc",RCMApp%losscone*180.0/PI,uStr="deg")
         call AddOutVar(IOVars,"Lb"  ,RCMApp%Lb,uStr="Re")
         call AddOutVar(IOVars,"Tb"  ,RCMApp%Tb,uStr="s")
 

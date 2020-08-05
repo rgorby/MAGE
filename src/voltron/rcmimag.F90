@@ -12,6 +12,7 @@ module rcmimag
     use rcm_mhd_interfaces
     use rcm_mix_interface
     use streamline
+    use chmpdbz, ONLY : DipoleB0
     use clocks
     use kronos
     use rcm_mhd_mod, ONLY : rcm_mhd
@@ -51,7 +52,8 @@ module rcmimag
         real(rp) :: X_bmin(NDIM)
         integer(ip) :: iopen
         real(rp) :: latc,lonc !Conjugate lat/lon
-        real(rp) :: Lb
+        real(rp) :: Lb, Tb !Arc length/bounce time
+        real(rp) :: losscone
     end type RCMTube_T
 
     real(rp), dimension(:,:), allocatable, private :: mixPot
@@ -267,8 +269,11 @@ module rcmimag
 
                 RCMApp%latc(i,j)         = ijTube%latc
                 RCMApp%lonc(i,j)         = ijTube%lonc
+                RCMApp%losscone(i,j)     = ijTube%losscone
                 RCMApp%Lb(i,j)           = ijTube%Lb
-                RCMApp%Tb(i,j)           = AlfvenBounce(ijTube%Nave,ijTube%bmin,ijTube%Lb)
+                !Get some kind of bounce timscale, either real integrated value or lazy average
+                !RCMApp%Tb(i,j)           = AlfvenBounce(ijTube%Nave,ijTube%bmin,ijTube%Lb)
+                RCMApp%Tb(i,j)           = ijTube%Tb
                 !mix variables are stored in this order (longitude,colatitude), hence the index flip
                 RCMApp%pot(i,j)          = mixPot(j,i)
             enddo
@@ -596,7 +601,7 @@ module rcmimag
         type(RCMTube_T), intent(out) :: ijTube
 
         type(fLine_T) :: bTrc
-        real(rp) :: t, bMin
+        real(rp) :: t, bMin,bIon
         real(rp), dimension(NDIM) :: x0, bEq, xyzIon
         real(rp), dimension(NDIM) :: xyzC,xyzIonC
         integer :: OCb
@@ -609,7 +614,8 @@ module rcmimag
         xyzIon(YDIR) = RIonRCM*cos(lat)*sin(lon)
         xyzIon(ZDIR) = RIonRCM*sin(lat)
         x0 = DipoleShift(xyzIon,vApp%mhd2chmp%Rin)
-        
+        bIon = norm2(DipoleB0(xyzIon))*oBScl*1.0e-9 !EB=>T, ionospheric field strength
+
     !Now do field line trace
         associate(ebModel=>vApp%ebTrcApp%ebModel,ebGr=>vApp%ebTrcApp%ebState%ebGr,ebState=>vApp%ebTrcApp%ebState)
 
@@ -652,6 +658,8 @@ module rcmimag
             ijTube%latc = asin(xyzIonC(ZDIR)/norm2(xyzIonC))
             ijTube%lonc = modulo( atan2(xyzIonC(YDIR),xyzIonC(XDIR)),2*PI )
             ijTube%Lb = FLArc(ebModel,ebGr,bTrc)
+            ijTube%Tb = FLAlfvenX(ebModel,ebGr,bTrc)
+            ijTube%losscone = asin(sqrt(bMin/bIon))
         else
             ijTube%X_bmin = 0.0
             ijTube%bmin = 0.0
@@ -663,6 +671,9 @@ module rcmimag
             ijTube%latc = 0.0
             ijTube%lonc = 0.0
             ijTube%Lb   = 0.0
+            ijTube%Tb   = 0.0
+            ijTube%losscone = 0.0
+
         endif
 
         end associate
@@ -698,7 +709,9 @@ module rcmimag
         ijTube%latc = -lat
         ijTube%lonc = lon
         ijTube%Lb   = L !Just lazily using L shell
-
+        ijTube%Tb   = 0.0
+        ijTube%losscone = 0.0
+        
     end subroutine DipoleTube
 
 !IO wrappers

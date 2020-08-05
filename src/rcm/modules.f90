@@ -181,7 +181,8 @@ MODULE ionosphere_exchange
       ALLOCATE( rm%Tb  (rm%nLat_ion, rm%nLon_ion) )
 
       ALLOCATE( rm%toMHD(rm%nLat_ion, rm%nLon_ion) )
-      
+      ALLOCATE( rm%losscone(rm%nLat_ion, rm%nLon_ion) )
+
       rm%gcolat (:) = colat (:,1)
       rm%glong  (:) = aloct (1,jwrap:jsize)
       if (rm%glong(rm%nLon_ion) < pi) rm%glong(rm%nLon_ion) = rm%glong(rm%nLon_ion) + 2*pi
@@ -211,7 +212,8 @@ MODULE ionosphere_exchange
       if (ALLOCATED(rm%latc)) DEALLOCATE(rm%latc)
       if (ALLOCATED(rm%lonc)) DEALLOCATE(rm%lonc)
       if (ALLOCATED(rm%toMHD)) DEALLOCATE(rm%toMHD)
-
+      if (ALLOCATED(rm%losscone)) DEALLOCATE(rm%losscone)
+      
     END SUBROUTINE tearDownIon
 
   END MODULE ionosphere_exchange
