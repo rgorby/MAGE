@@ -109,6 +109,26 @@ character(ANSILEN), parameter :: &
 
     contains
 
+    !Dump contents of /proc/self/status to output
+    subroutine printProcessInfo()
+        logical :: fileEnd
+        character(len=strLen) :: line
+        integer :: io
+
+        OPEN(37, file='/proc/self/status', action='read')
+        fileEnd = .false.
+        do while(.not. fileEnd)
+            read(37,'(A)',iostat=io) line
+            if (io /= 0) then
+                fileEnd = .true.
+            else
+                write (*,*) trim(line)
+            endif
+        enddo
+        CLOSE(37)
+
+    end subroutine printProcessInfo
+
     !Print out basic configuration info
     subroutine printConfigStamp()
         character(len=strLen) :: gStr

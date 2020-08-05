@@ -26,12 +26,24 @@ module files
 
     subroutine CheckDirOrMake(fIn)
         character(len=*), intent(in) :: fIn
+
         logical :: isDir
+        integer :: eStat,cStat
+        character(len=strLen) :: cmd,cMsg
 
         isDir = CheckDir(fIn)
         if (.not. isDir) then
             write(*,'(5a)') ANSIRED,'<',trim(fIn),' does not exist, creating ...>',ANSIRESET
-            call EXECUTE_COMMAND_LINE('mkdir ' // trim(fIn) , wait=.true.)
+            write (cmd,'(A,A)') 'mkdir ',trim(fIn)
+            call EXECUTE_COMMAND_LINE(trim(cmd), wait=.true., exitstat=eStat, cmdstat=cStat, cmdmsg=cMsg)
+            if(cStat > 0) then
+                write (*,*) 'Command line "',trim(cmd),'" failed with error: ',trim(cMsg)
+                call printProcessInfo()
+                stop
+            elseif(cStat < 0) then
+                write (*,*) 'EXECUTE_COMMAND_LINE not supported'
+                stop
+            endif
         endif
         
     end subroutine CheckDirOrMake
@@ -56,6 +68,9 @@ module files
         logical, intent(in), optional :: doVerbO
 
         logical :: fExist,doVerb
+        integer :: eStat,cStat
+        character(len=strLen) :: cmd,cMsg
+
         if (present(doVerbO)) then
             doVerb = doVerbO
         else
@@ -67,7 +82,16 @@ module files
             if (doVerb) then
                 write(*,'(5a)') ANSIRED,'<',trim(fStr),' already exists, deleting ...>',ANSIRESET
             endif
-            call EXECUTE_COMMAND_LINE('rm ' // trim(fStr) , wait=.true.)
+            write (cmd,'(A,A)') 'rm ',trim(fStr)
+            call EXECUTE_COMMAND_LINE(trim(cmd), wait=.true., exitstat=eStat, cmdstat=cStat, cmdmsg=cMsg)
+            if(cStat > 0) then
+                write (*,*) 'Command line "',trim(cmd),'" failed with error: ',trim(cMsg)
+                call printProcessInfo()
+                stop
+            elseif(cStat < 0) then
+                write (*,*) 'EXECUTE_COMMAND_LINE not supported'
+                stop
+            endif
         endif
     end subroutine CheckAndKill
 
@@ -75,11 +99,23 @@ module files
     subroutine MapSymLink(fReal,fSym)
         character(len=*), intent(in) :: fReal,fSym
 
+        integer :: eStat,cStat
+        character(len=strLen) :: cmd,cMsg
+
         !Kill sym link if it exists
         call CheckAndKill(fSym,.false.)
 
         !Create sym link
-        call EXECUTE_COMMAND_LINE('ln -sf '//trim(fReal)//' '//trim(fSym), wait=.true.)
+        write (cmd,'(A,A,A,A)') 'ln -sf ',trim(fReal),' ',trim(fSym)
+        call EXECUTE_COMMAND_LINE(trim(cmd), wait=.true., exitstat=eStat, cmdstat=cStat, cmdmsg=cMsg)
+        if(cStat > 0) then
+            write (*,*) 'Command line "',trim(cmd),'" failed with error: ',trim(cMsg)
+            call printProcessInfo()
+            stop
+        elseif(cStat < 0) then
+            write (*,*) 'EXECUTE_COMMAND_LINE not supported'
+            stop
+        endif
 
     end subroutine MapSymLink
     
