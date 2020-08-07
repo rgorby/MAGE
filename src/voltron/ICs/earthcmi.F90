@@ -454,8 +454,8 @@ module uservoltic
                     do d=IDIR,KDIR
                         call lfmIJKfc(Model,Grid,d,ig,j,k,ip,jp,kp)
 
-                        !dA = Grid%face(ig,j,k,d)/Grid%face(Grid%is,jp,kp,d)
-                        dA = 1.0 !Using dA=1 for smoother magflux stencil
+                        dA = Grid%face(ig,j,k,d)/Grid%face(Grid%is,jp,kp,d)
+                        !dA = 1.0 !Using dA=1 for smoother magflux stencil
                         if ( isLowLat(Grid%xfc(ig,j,k,:,d),llBC) ) then
                             !State%magFlux(ig,j,k,d) = 0.0
                             State%magFlux(ig,j,k,d) = dApm(d)*dA*State%magFlux(Grid%is,jp,kp,d)

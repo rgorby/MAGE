@@ -7,10 +7,12 @@
                                imin_j, bndloc, vbnd,               &
                                colat, aloct, bir, sini,            &
                                ibnd_type,rcmdir
-     USE conversion_module
-     USE rice_housekeeping_module
-     USE constants, only: big_vm,tiote
-     Use rcm_mhd_interfaces
+      USE conversion_module
+      USE rice_housekeeping_module
+      USE constants, only: big_vm,tiote,density_factor
+      Use rcm_mhd_interfaces
+      USE earthhelper, ONLY : GallagherXY
+      
 
 
 ! NOTE: This version fixes the rcm boundary condition at rec=1
@@ -65,7 +67,7 @@
       LOGICAL,PARAMETER :: set_boundary_with_mach = .false.
       LOGICAL,PARAMETER :: set_boundary_with_beta = .false.
       REAL(rprec), PARAMETER :: max_beta = 1.0 ! max averaged beta to set the boundary
-
+      REAL(rprec) :: den_gal
       ierr = 0
 
       IF (ierr < 0) RETURN
@@ -222,11 +224,17 @@
       END IF
 
       ! reset the static part of the plasmasphere sbao 07292020
+      !Tweak by K: 8/7/20
       if (staticR > 0.0) then
+        !$OMP PARALLEL DO default(shared) &
+        !$OMP schedule(dynamic) &
+        !$OMP private(i,j,den_gal)
         do j=1,jsize
           do i=imin_j(j),isize
             if(rmin(i,j) <= staticR .and. vm(i,j) > 0.0)then
-              eeta (i,j,1) = eeta_pls0 (i,j)
+              !eeta (i,j,1) = eeta_pls0 (i,j)
+              den_gal = GallagherXY(xmin(i,j),ymin(i,j),InitKp)*1.0e6
+              eeta(i,j,1) = den_gal/(density_factor*vm(i,j)**1.5)
             end if
           end do
         end do
