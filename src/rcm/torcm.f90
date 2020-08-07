@@ -211,23 +211,13 @@
          write(6,*)' TORCM: initializing the RCM arrays at t=',itimei
          bndloc_old = bndloc
          imin_j_old = imin_j
-      ! initialize the dynamic plasmasphere   sbao 03282020
-         call set_plasmasphere(isize,jsize,kcsize,xmin,ymin,vm,eeta_new,imin_j)
-       ! eeta_new(:,:,1) = 0.0  ! to see the refilling model alone
          eeta       = eeta_new  ! this is initial conditions on plasma
       END IF
 
-       ! reset the static part of the plasmasphere sbao 07292020
-         if (staticR > 2.0) then
-          do j=1,jsize
-           do i=imin_j(j),isize
-             if(rmin(i,j) < 2.0 .and. vm(i,j) > 0.0)then
-                  eeta (i,j,1) = eeta_pls0 (i,j)
-            end if
-           end do
-           end do
-         end if
- 
+      ! initialize the dynamic plasmasphere   sbao 03282020
+      call set_plasmasphere(icontrol,isize,jsize,kcsize,xmin,ymin,rmin,vm,eeta,imin_j)
+      ! eeta_new(:,:,1) = 0.0  ! to see the refilling model alone
+      
       ! just in case:
       imin_j     = CEILING(bndloc)
       imin_j_old = CEILING(bndloc_old)
@@ -887,7 +877,7 @@ END SUBROUTINE Smooth_eta_at_boundary
       END SUBROUTINE Smooth_boundary_location
 
 !
-      subroutine set_plasmasphere(idim,jdim,kdim,xmin,ymin,vm,eeta,imin_j)
+      subroutine set_plasmasphere(icontrol,idim,jdim,kdim,xmin,ymin,rmin,vm,eeta,imin_j)
 ! subroutine set_plasmasphere(idim,jdim,kdim,rmin,pmin,vm,eeta,imin_j)
 ! crude routine to set a plasmasphere model in the rcm
 ! alam(1) should be set to a small value (0.01)
@@ -900,13 +890,15 @@ END SUBROUTINE Smooth_eta_at_boundary
       USE rcm_precision
       USE earthhelper, ONLY : GallagherXY
       USE constants, ONLY: density_factor
-      USE rice_housekeeping_module, ONLY: InitKp
+      USE rice_housekeeping_module, ONLY: InitKp, staticR
+      Use rcm_mhd_interfaces, ONLY: RCMCOLDSTART,RCMRESTART
+
       IMPLICIT NONE
 
-      integer(iprec) :: idim,jdim,kdim
+      integer(iprec) :: idim,jdim,kdim,icontrol
       real(rprec) :: dens_gal = 0.0
       integer(iprec) :: imin_j(jdim)
-      real(rprec) :: vm(idim,jdim),xmin(idim,jdim),ymin(idim,jdim)
+      real(rprec) :: vm(idim,jdim),xmin(idim,jdim),ymin(idim,jdim),rmin(idim,jdim)
       real(rprec) :: eeta(idim,jdim,kdim)
 
       integer(iprec) :: i,j,k
@@ -920,19 +912,37 @@ END SUBROUTINE Smooth_eta_at_boundary
 !        end if
 !       end do
 !      end do
-
+      if (icontrol == RCMCOLDSTART) then
         do j=1,jdim
         do i=imin_j(j),idim
                 if(vm(i,j) > 0.0)then
                   dens_gal = GallagherXY(xmin(i,j),ymin(i,j),InitKp)*1.0e6
-                ! add to the existing eeta - frt
-                  eeta(i,j,1) = eeta(i,j,1) + dens_gal/(density_factor*vm(i,j)**1.5)
+                  eeta(i,j,1) = dens_gal/(density_factor*vm(i,j)**1.5)
                   eeta_pls0(i,j) = eeta(i,j,1)
                 end if
         end do
         end do
-
-
+      else if (icontrol == RCMRESTART) then
+        do j=1,jdim
+        do i=imin_j(j),idim
+                if(vm(i,j) > 0.0)then
+                  dens_gal = GallagherXY(xmin(i,j),ymin(i,j),InitKp)*1.0e6
+                  eeta_pls0(i,j) = dens_gal/(density_factor*vm(i,j)**1.5)
+                end if
+        end do
+        end do
+      end if
+      ! reset the static part of the plasmasphere sbao 07292020
+      if (staticR > 2.0) then
+        do j=1,jdim
+        do i=imin_j(j),idim
+           if(rmin(i,j) < staticR .and. vm(i,j) > 0.0)then
+              eeta (i,j,1) = eeta_pls0 (i,j)
+           end if
+        end do
+        end do
+      end if
+ 
       return
 
       end subroutine set_plasmasphere
