@@ -8,7 +8,7 @@ module ioclock
         !Output/restart (cadence/next output)
         real(rp) :: dtOut,tOut
         real(rp) :: dtRes,tRes
-        integer :: tsOut,tsNext !Timestep console output
+        integer :: tsOut !Timestep console output
         integer :: nOut=0,nRes=0 !Output numbering for output/restarts
 
         logical :: doResOut,doConOut,doDataOut,doTimerOut !Logical flags to do various outputs
@@ -34,7 +34,7 @@ module ioclock
         real(rp), intent(in) :: time
         integer, intent(in) :: ts
 
-        call iXML%Set_Val(this%tsOut,'output/tsOut' ,10)
+        call iXML%Set_Val(this%tsOut,'output/tsOut' ,100)
         call iXML%Set_Val(this%dtOut,'output/dtOut' ,10.0)
         call iXML%Set_Val(this%dtRes,'restart/dtRes',100.0)
 
@@ -47,7 +47,6 @@ module ioclock
             this%doConOut = .false.
         else
             this%doConOut = .true.
-            this%tsNext = ts
         endif
 
         !NOTE: Setting it so that first output is @ time
@@ -75,7 +74,7 @@ module ioclock
         integer, intent(in) :: ts
         logical :: doConsoleIOClock
 
-        if (ts>=this%tsNext .and. this%doConOut ) then
+        if ( (mod(ts,this%tsOut) == 0) .and. this%doConOut ) then    
             doConsoleIOClock = .true.
         else
             doConsoleIOClock = .false.
@@ -113,7 +112,7 @@ module ioclock
         integer, intent(in) :: ts
         logical :: doTimerIOClock
 
-        if (ts>=this%tsNext) then
+        if (mod(ts,this%tsOut) == 0) then
             doTimerIOClock = .true.
         else
             doTimerIOClock = .false.
@@ -142,7 +141,6 @@ module ioclock
         ioB%dtRes = ioA%dtRes*tScl
 
         ioB%tsOut  = ioA%tsOut
-        ioB%tsNext = ioA%tsNext
         
     end subroutine IOSync
 

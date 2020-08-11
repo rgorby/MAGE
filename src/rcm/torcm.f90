@@ -865,12 +865,12 @@ END SUBROUTINE Smooth_eta_at_boundary
 
       if (icontrol == RCMCOLDSTART) then
         do j=1,jdim
-        do i=imin_j(j),idim
-                if(vm(i,j) > 0.0)then
-                  dens_gal = GallagherXY(xmin(i,j),ymin(i,j),InitKp)*1.0e6
-                  eeta(i,j,1) = dens_gal/(density_factor*vm(i,j)**1.5)
-                end if
-        end do
+          do i=imin_j(j),idim
+            if(vm(i,j) > 0.0)then
+              dens_gal = GallagherXY(xmin(i,j),ymin(i,j),InitKp)*1.0e6
+              eeta(i,j,1) = dens_gal/(density_factor*vm(i,j)**1.5)
+            end if
+          end do
         end do
       else
         ! reset the static part of the plasmasphere sbao 07292020
@@ -878,13 +878,13 @@ END SUBROUTINE Smooth_eta_at_boundary
         if (staticR > 2.0) then
           !$OMP PARALLEL DO default(shared) &
           !$OMP schedule(dynamic) &
-          !$OMP private(i,j,den_gal)
-          do j=1,jsize
-            do i=imin_j(j),isize
+          !$OMP private(i,j,dens_gal)
+          do j=1,jdim
+            do i=imin_j(j),idim
               if(rmin(i,j) <= staticR .and. vm(i,j) > 0.0)then
                 !eeta (i,j,1) = eeta_pls0 (i,j)
-                den_gal = GallagherXY(xmin(i,j),ymin(i,j),InitKp)*1.0e6
-                eeta(i,j,1) = den_gal/(density_factor*vm(i,j)**1.5)
+                dens_gal = GallagherXY(xmin(i,j),ymin(i,j),InitKp)*1.0e6
+                eeta(i,j,1) = dens_gal/(density_factor*vm(i,j)**1.5)
               end if
             end do
           end do

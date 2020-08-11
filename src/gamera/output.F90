@@ -80,8 +80,6 @@ contains
             write(*,'(a)',advance="no") ANSIRESET!, ''
         endif
 
-        !Setup for next output
-        Model%IO%tsNext = Model%ts + Model%IO%tsOut
     end subroutine consoleOutput_STD
 
     subroutine tStr_STD(T,tStr)
