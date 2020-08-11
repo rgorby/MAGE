@@ -99,7 +99,7 @@
 !   Plasma on grid:
     REAL (rprec) :: alamc (kcsize), etac (kcsize), fudgec (kcsize), &
                     eeta (isize,jsize,kcsize), eeta_cutoff, cmax, &
-                    eeta_avg (isize,jsize,kcsize), eeta_pls0(isize,jsize)
+                    eeta_avg (isize,jsize,kcsize)
     INTEGER (iprec) :: ikflavc (kcsize), i_advect, i_eta_bc, i_birk
     LOGICAL :: L_dktime
     INTEGER (iprec), PARAMETER :: irdk=18, inrgdk=13, isodk=2, iondk=2
@@ -879,7 +879,11 @@ real :: v_1_1, v_1_2, v_2_1, v_2_2
        CALL Circle (eeta(:,:,kc))
 !
     END DO
-!
+!      
+       ! refill the plasmasphere  04012020 sbao       
+       CALL Plasmasphere_Refilling_Model(eeta(:,:,1), rmin, aloct, vm, dt)
+       CALL Circle (eeta(:,:,1))
+
     RETURN
 !
     CONTAINS
@@ -2561,12 +2565,13 @@ SUBROUTINE Move_plasma_grid_KAIJU (dt)
     !floor eeta 12/06 frt
     max_eeta = maxval(eeta(:,:,kc))
     eeta(:,:,kc) = MAX(eps*max_eeta,eeta(:,:,kc))
-
-    ! refill the plasmasphere  04012020 sbao       
-    CALL Plasmasphere_Refilling_Model(eeta(:,:,1), rmin, aloct, vm, dt)
     CALL Circle (eeta(:,:,kc))    
-  ENDDO !kc loop
   
+  ENDDO !kc loop
+    ! refill the plasmasphere  04012020 sbao       
+    CALL Plasmasphere_Refilling_Model(eeta(:,:,1), rmin, aloct, vm, dt) 
+    CALL Circle (eeta(:,:,1))
+
 END SUBROUTINE Move_plasma_grid_KAIJU
 
 !=========================================================================
@@ -2766,14 +2771,12 @@ SUBROUTINE Move_plasma_grid_NEW (dt)
 ! floor eeta 12/06 frt
      max_eeta = maxval(eeta(:,:,kc))
      eeta(:,:,kc) = MAX(eps*max_eeta,eeta(:,:,kc))
-
-   ! refill the plasmasphere  04012020 sbao       
-     CALL Plasmasphere_Refilling_Model(eeta(:,:,1), rmin, aloct, vm, dt)
      CALL Circle (eeta(:,:,kc))
 !
   END DO
-
-
+! refill the plasmasphere  04012020 sbao       
+  CALL Plasmasphere_Refilling_Model(eeta(:,:,1), rmin, aloct, vm, dt)
+  CALL Circle (eeta(:,:,1))
   RETURN
 !
 ! CONTAINS
