@@ -111,6 +111,9 @@ module voltio
             write (*, *) ANSIRESET, ''
         endif
 
+        !Setup for next output
+        vApp%IO%tsNext = vApp%ts + vApp%IO%tsOut
+        
     end subroutine consoleOutputVOnly
 
     !Given vector, get clock/cone angle and magnitude
