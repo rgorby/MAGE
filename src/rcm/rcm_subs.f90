@@ -94,6 +94,7 @@
 !
     LOGICAL ::  L_move_plasma_grid = .TRUE.
     LOGICAL ::  L_doKaiClaw        = .FALSE.
+    LOGICAL ::  L_doOMPClaw        = .FALSE.
 !
 !
 !   Plasma on grid:
@@ -2172,6 +2173,7 @@ real :: v_1_1, v_1_2, v_2_1, v_2_2
 
           !Clawpack options
           call xmlInp%Set_Val(L_doKaiClaw,"clawpack/doKaiClaw",L_doKaiClaw)
+          call xmlInp%Set_Val(L_doOMPClaw,"clawpack/doOMPClaw",L_doOMPClaw)
 
           !Some values just setting
           tol_gmres = 1.0e-5
@@ -2454,6 +2456,9 @@ SUBROUTINE Move_plasma_grid_KAIJU (dt)
   integer(iprec) :: i,j,kc,ie,joff,icut,clawiter
   REAL (rprec) :: max_eeta, eps = 0.0 !sbao 07/2019
 
+  write(*,*) 'move_plasma_grid_kaiju is currently disabled until it is fixed ...'
+  stop
+
   joff=jwrap-1
   fac = 1.0E-3*signbe*bir*alpha*beta*dlam*dpsi*ri**2
 
@@ -2562,7 +2567,8 @@ SUBROUTINE Move_plasma_grid_KAIJU (dt)
     max_eeta = maxval(eeta(:,:,kc))
     eeta(:,:,kc) = MAX(eps*max_eeta,eeta(:,:,kc))
 
-    ! refill the plasmasphere  04012020 sbao       
+    ! refill the plasmasphere  04012020 sbao    
+    !CODE BELOW IS BROKEN, calling refill K times   
     CALL Plasmasphere_Refilling_Model(eeta(:,:,1), rmin, aloct, vm, dt)
     CALL Circle (eeta(:,:,kc))    
   ENDDO !kc loop
@@ -2616,9 +2622,8 @@ SUBROUTINE Move_plasma_grid_NEW (dt)
   !K: Trying to fix omp bindings
   !Fixing private/shared and vars altered by clawpack
   !NOTE: T1k/T2k need to be private b/c they're altered by claw2ez
-  !Only do this for intel, GNU seems to choke on common blocks in clawpack
-#ifdef __INTEL_COMPILER
-  !$OMP PARALLEL DO &
+  
+  !$OMP PARALLEL DO if (L_doOMPClaw) &
   !$OMP DEFAULT (NONE) &
   !$OMP PRIVATE(i,j,kc,icut,ie) &
   !$OMP PRIVATE(eeta2,veff,dvefdi,dvefdj,loc_didt,loc_djdt,loc_Eta,loc_rate) &
@@ -2626,7 +2631,7 @@ SUBROUTINE Move_plasma_grid_NEW (dt)
   !$OMP SHARED(alamc,eeta,v,vcorot,vpar,vm,imin_j,j1,j2,joff) &
   !$OMP SHARED(xmin,ymin,rmin,fac,fudgec,bir,sini,L_dktime,dktime,sunspot_number) &
   !$OMP SHARED(aloct,xlower,xupper,ylower,yupper,eps,dt,T1,T2)
-#endif
+
   DO kc = 1, kcsize
     !If oxygen is to be added, must change this!
     IF (alamc(kc) <= 0.0) THEN
