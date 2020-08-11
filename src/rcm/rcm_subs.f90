@@ -648,7 +648,13 @@
                                  ( ekt + vpar(i,j) + half*vpar(i,j)**2/ekt)
                   eavg(i,j,ie) = two*(ekt+vpar(i,j)+half*vpar(i,j)**2 /ekt) / &
                                  (one + vpar (i, j) / ekt)
-                 
+                  ! sbao 6/19 detect Nan 
+                  if (ISNAN(eflux(i,j,ie)))then
+                       if (.not. doQuietRCM) write(*,*)'eflux,i,j,therm,ekt,vpar,sum1,sum2,vm',eflux(i,j,ie),i,j,therm,ekt,vpar(i,j),sum1(ie),sum2(ie),vm(i,j)
+                       eflux(i,j,ie) = 0.0
+                       eavg(i,j,ie) = 0.0
+                  end if
+
                ELSE 
 !                                                                       
 !                 Case fudge=0: we want eflux=0 and eavg=0 for no precipitation.
@@ -2556,11 +2562,11 @@ SUBROUTINE Move_plasma_grid_KAIJU (dt)
     max_eeta = maxval(eeta(:,:,kc))
     eeta(:,:,kc) = MAX(eps*max_eeta,eeta(:,:,kc))
 
-    ENDDO !kc loop
     ! refill the plasmasphere  04012020 sbao       
     CALL Plasmasphere_Refilling_Model(eeta(:,:,1), rmin, aloct, vm, dt)
-    CALL Circle (eeta(:,:,1))    
-
+    CALL Circle (eeta(:,:,kc))    
+  ENDDO !kc loop
+  
 END SUBROUTINE Move_plasma_grid_KAIJU
 
 !=========================================================================
