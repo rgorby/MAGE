@@ -879,7 +879,11 @@ real :: v_1_1, v_1_2, v_2_1, v_2_2
        CALL Circle (eeta(:,:,kc))
 !
     END DO
-!
+!      
+       ! refill the plasmasphere  04012020 sbao       
+       CALL Plasmasphere_Refilling_Model(eeta(:,:,1), rmin, aloct, vm, dt)
+       CALL Circle (eeta(:,:,1))
+
     RETURN
 !
     CONTAINS
@@ -2561,12 +2565,13 @@ SUBROUTINE Move_plasma_grid_KAIJU (dt)
     !floor eeta 12/06 frt
     max_eeta = maxval(eeta(:,:,kc))
     eeta(:,:,kc) = MAX(eps*max_eeta,eeta(:,:,kc))
-
-    ! refill the plasmasphere  04012020 sbao       
-    CALL Plasmasphere_Refilling_Model(eeta(:,:,1), rmin, aloct, vm, dt)
     CALL Circle (eeta(:,:,kc))    
-  ENDDO !kc loop
   
+  ENDDO !kc loop
+    ! refill the plasmasphere  04012020 sbao       
+    CALL Plasmasphere_Refilling_Model(eeta(:,:,1), rmin, aloct, vm, dt) 
+    CALL Circle (eeta(:,:,1))
+
 END SUBROUTINE Move_plasma_grid_KAIJU
 
 !=========================================================================
@@ -2766,14 +2771,12 @@ SUBROUTINE Move_plasma_grid_NEW (dt)
 ! floor eeta 12/06 frt
      max_eeta = maxval(eeta(:,:,kc))
      eeta(:,:,kc) = MAX(eps*max_eeta,eeta(:,:,kc))
-
-   ! refill the plasmasphere  04012020 sbao       
-     CALL Plasmasphere_Refilling_Model(eeta(:,:,1), rmin, aloct, vm, dt)
      CALL Circle (eeta(:,:,kc))
 !
   END DO
-
-
+! refill the plasmasphere  04012020 sbao       
+  CALL Plasmasphere_Refilling_Model(eeta(:,:,1), rmin, aloct, vm, dt)
+  CALL Circle (eeta(:,:,1))
   RETURN
 !
 ! CONTAINS
