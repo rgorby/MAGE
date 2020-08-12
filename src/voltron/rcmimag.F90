@@ -33,7 +33,7 @@ module rcmimag
 
     logical, parameter, private :: doKillRCMDir = .true. !Whether to always kill RCMdir before starting
     logical, private :: doWolfLim  = .true. !Whether to do wolf-limiting
-    logical, private :: doBounceDT = .false. !Whether to use Alfven bounce in dt-ingest
+    logical, private :: doBounceDT = .true. !Whether to use Alfven bounce in dt-ingest
 
     !Information taken from MHD flux tubes
     !TODO: Figure out RCM boundaries
@@ -276,6 +276,10 @@ module rcmimag
                 RCMApp%Tb(i,j)           = ijTube%Tb
                 !mix variables are stored in this order (longitude,colatitude), hence the index flip
                 RCMApp%pot(i,j)          = mixPot(j,i)
+
+                !Set composition
+                RCMApp%oxyfrac(i,j)      = 0.0
+                
             enddo
         enddo
         call Toc("RCM_TUBES")
@@ -338,7 +342,6 @@ module rcmimag
                 nCC = D*rcmNScl !Get n in #/cc
                 bNT = B*1.0e+9 !Convert B to nT
                 Va = 22.0*bNT/sqrt(nCC) !km/s, from NRL plasma formulary
-                !dTb = (L*Re_km)/Va
                 dTb = (L*Rp_m*1.0e-3)/Va
             end function AlfvenBounce
     end subroutine AdvanceRCM
@@ -688,7 +691,6 @@ module rcmimag
         real(rp) :: L,colat
         real(rp) :: mdipole
 
-        !mdipole = EarthM0g*G2T ! dipole moment in T
         mdipole = ABS(planetM0g)*G2T ! dipole moment in T
         colat = PI/2 - lat
         L = 1.0/(sin(colat)**2.0)

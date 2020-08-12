@@ -131,6 +131,8 @@ module rcm_mhd_io
         call AddOutVar(IOVars,"Plim",PLim*rcmPScl,uStr="nPa")
         call AddOutVar(IOVars,"Pmhd",RCMApp%Pave*rcmPScl,uStr="nPa")
         call AddOutVar(IOVars,"Nmhd",RCMApp%Nave*rcmNScl,uStr="#/cc")
+        call AddOutVar(IOVars,"oxyfrac",RCMApp%oxyfrac,uStr="fraction")
+
         call AddOutVar(IOVars,"latc",RCMApp%latc*180.0/PI,uStr="deg")
         call AddOutVar(IOVars,"lonc",RCMApp%lonc*180.0/PI,uStr="deg")
         call AddOutVar(IOVars,"lossc",RCMApp%losscone*180.0/PI,uStr="deg")

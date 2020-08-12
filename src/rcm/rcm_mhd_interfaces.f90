@@ -40,6 +40,7 @@ module rcm_mhd_interfaces
         real(rprec),allocatable :: Npsph(:,:)   ! RCM supplied plasmasphere density in #/m^3
         real(rprec),allocatable :: sigmap(:,:)
         real(rprec),allocatable :: sigmah(:,:)
+        real(rprec),allocatable :: oxyfrac(:,:)   ! O+ fraction of MHD number density
 
         !Conjugate mapping, lat/lon of conjugate point mapped
         real(rprec),allocatable :: latc(:,:)
@@ -53,6 +54,8 @@ module rcm_mhd_interfaces
         real(rprec),allocatable :: losscone(:,:)
         !Information about MHD ingestion
         logical, allocatable :: toMHD(:,:)
+
+
 
         !Information to sync restarts w/ MHD
         integer(iprec) :: rcm_nOut,rcm_nRes !Indices for output/restart

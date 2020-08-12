@@ -51,9 +51,9 @@ MODULE rice_housekeeping_module
 
     type RCMEllipse_T
         !Ellipse parameters
-        real(rprec) :: xSun=10.0,xTail=-10.0,yDD=10.0
+        real(rprec) :: xSun=10.0,xTail=-15.0,yDD=10.0
         logical  :: isDynamic=.true. !Whether to update parameters
-        real(rprec) :: dRadMHD = 0.5
+        real(rprec) :: dRadMHD = 1.0
             
     end type RCMEllipse_T
     type(RCMEllipse_T) :: ellBdry
@@ -182,6 +182,7 @@ MODULE ionosphere_exchange
 
       ALLOCATE( rm%toMHD(rm%nLat_ion, rm%nLon_ion) )
       ALLOCATE( rm%losscone(rm%nLat_ion, rm%nLon_ion) )
+      ALLOCATE( rm%oxyfrac(rm%nLat_ion, rm%nLon_ion) )
 
       rm%gcolat (:) = colat (:,1)
       rm%glong  (:) = aloct (1,jwrap:jsize)
@@ -213,7 +214,8 @@ MODULE ionosphere_exchange
       if (ALLOCATED(rm%lonc)) DEALLOCATE(rm%lonc)
       if (ALLOCATED(rm%toMHD)) DEALLOCATE(rm%toMHD)
       if (ALLOCATED(rm%losscone)) DEALLOCATE(rm%losscone)
-      
+      if (ALLOCATED(rm%oxyfrac)) DEALLOCATE(rm%oxyfrac)
+
     END SUBROUTINE tearDownIon
 
   END MODULE ionosphere_exchange
