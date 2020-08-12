@@ -880,7 +880,11 @@ real :: v_1_1, v_1_2, v_2_1, v_2_2
        CALL Circle (eeta(:,:,kc))
 !
     END DO
-!
+!      
+       ! refill the plasmasphere  04012020 sbao       
+       CALL Plasmasphere_Refilling_Model(eeta(:,:,1), rmin, aloct, vm, dt)
+       CALL Circle (eeta(:,:,1))
+
     RETURN
 !
     CONTAINS
@@ -2567,12 +2571,15 @@ SUBROUTINE Move_plasma_grid_KAIJU (dt)
     max_eeta = maxval(eeta(:,:,kc))
     eeta(:,:,kc) = MAX(eps*max_eeta,eeta(:,:,kc))
 
-    ! refill the plasmasphere  04012020 sbao    
-    !CODE BELOW IS BROKEN, calling refill K times   
-    CALL Plasmasphere_Refilling_Model(eeta(:,:,1), rmin, aloct, vm, dt)
+    if (kc == 1) then
+      ! refill the plasmasphere  04012020 sbao
+      CALL Plasmasphere_Refilling_Model(eeta(:,:,1), rmin, aloct, vm, dt)
+    endif
+
     CALL Circle (eeta(:,:,kc))    
-  ENDDO !kc loop
   
+  ENDDO !kc loop
+
 END SUBROUTINE Move_plasma_grid_KAIJU
 
 !=========================================================================
@@ -2681,11 +2688,11 @@ SUBROUTINE Move_plasma_grid_NEW (dt)
           loc_djdt(i,j-joff) = 0.0
         END IF
 !
-        IF (ie == 1) THEN
+        IF (ie == RCMELECTRON) THEN
 
           loc_rate(i,j-joff) = Ratefn (fudgec(kc), alamc(kc), sini(i,j),&
                                        bir (i,j), vm(i,j), mass_factor)
-        ELSE IF (ie == 2) THEN
+        ELSE IF (ie == RCMPROTON) THEN
 
           IF (L_dktime .AND. i >= imin_j(j)) THEN
             r_dist = SQRT(xmin(i,j)**2+ymin(i,j)**2)
@@ -2703,7 +2710,6 @@ SUBROUTINE Move_plasma_grid_NEW (dt)
 
       END DO !i loop
 
-!       eeta (1:imin_j(j)-1,j,kc) = etac (kc)
       loc_didt(isize,j-joff) = loc_didt(isize-1,j-joff)
       loc_djdt(isize,j-joff) = loc_djdt(isize-1,j-joff)
       loc_rate(isize,j-joff) = loc_rate(isize-1,j-joff)
@@ -2778,22 +2784,7 @@ SUBROUTINE Move_plasma_grid_NEW (dt)
 !    loc_Eta (-1:isize+1,jsize-joff:jsize-joff+1) = loc_Eta (-1:isize+1,1:2)
 !    loc_didt(-1:isize+1,jsize-joff:jsize-joff+1) = loc_didt(-1:isize+1,1:2)
 !    loc_djdt(-1:isize+1,jsize-joff:jsize-joff+1) = loc_djdt(-1:isize+1,1:2)
-!  
-!
-! CONTAINS
-! !
-!   FUNCTION Ratefn (fudgx, alamx, sinix, birx, vmx, xmfact)
-!     IMPLICIT NONE
-!     REAL (rprec), INTENT (IN) :: fudgx,alamx,sinix,birx,vmx,xmfact
-!     REAL (rprec)              :: Ratefn
-! !                                                                       
-! !   Function subprogram to compute precipitation rate
-! !   Last update:  04-04-88
-! !
-!     Ratefn = 0.0466_rprec*fudgx*SQRT(ABS(alamx))*(sinix/birx)*vmx**2
-!     Ratefn = xmfact * ratefn
-!     RETURN
-!   END FUNCTION Ratefn
+
 END SUBROUTINE Move_plasma_grid_NEW
 
 !Adapted by S.Bao from Colby Lemon's original code. 04012020 sbao

@@ -93,6 +93,7 @@ module voltapp_mpi
         integer, allocatable, dimension(:) :: iRanks, jRanks, kRanks
 
         vApp%isSeparate = .true. ! running on a different process from the actual gamera ranks
+        vApp%gAppLocal%Grid%lowMem = .true. ! tell Gamera to limit its memory usage
 
         ! create a new communicator using MPI Topology
         call MPI_Comm_Size(voltComm, commSize, ierr)

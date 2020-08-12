@@ -151,7 +151,10 @@ module gamtypes
         integer :: isDT,jsDT,ksDT
         integer :: ieDT,jeDT,keDT
 
-        !Information about decomposed/tiled cases
+        ! Whether this should allocate fewer arrays and use less memory
+        !   Note that this option will limit Gamera's capabilities
+        logical :: lowMem = .false.
+        ! Information about decomposed/tiled cases
         logical :: isTiled = .false.
         ! Number of ranks in each dimension
         integer :: NumRi=1,NumRj=1,NumRk=1
