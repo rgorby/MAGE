@@ -31,9 +31,10 @@ module rcmimag
     real(rp), private :: Rp_m
     real(rp), private :: planetM0g
 
-    logical, parameter, private :: doKillRCMDir = .true. !Whether to always kill RCMdir before starting
-    logical, private :: doWolfLim  = .true. !Whether to do wolf-limiting
-    logical, private :: doBounceDT = .true. !Whether to use Alfven bounce in dt-ingest
+    logical , private, parameter :: doKillRCMDir = .true. !Whether to always kill RCMdir before starting
+    logical , private :: doWolfLim  = .true. !Whether to do wolf-limiting
+    logical , private :: doBounceDT = .true. !Whether to use Alfven bounce in dt-ingest
+    real(rp), private :: nBounce = 0.5 !Scaling factor for Alfven transit
 
     !Information taken from MHD flux tubes
     !TODO: Figure out RCM boundaries
@@ -122,6 +123,7 @@ module rcmimag
 
         call iXML%Set_Val(doWolfLim ,"/gamera/source/doWolfLim" ,doWolfLim )
         call iXML%Set_Val(doBounceDT,"/gamera/source/doBounceDT",doBounceDT)
+        call iXML%Set_Val(nBounce   ,"/gamera/source/nBounce"   ,nBounce   )
 
         if (isRestart) then
             if (doKillRCMDir) then
@@ -274,6 +276,7 @@ module rcmimag
                 !Get some kind of bounce timscale, either real integrated value or lazy average
                 !RCMApp%Tb(i,j)           = AlfvenBounce(ijTube%Nave,ijTube%bmin,ijTube%Lb)
                 RCMApp%Tb(i,j)           = ijTube%Tb
+
                 !mix variables are stored in this order (longitude,colatitude), hence the index flip
                 RCMApp%pot(i,j)          = mixPot(j,i)
 
@@ -528,7 +531,7 @@ module rcmimag
 
         if (doBounceDT) then
             !Use Alfven bounce timescale
-            imW(IMTSCL) = RCMApp%Tb(ij0(1),ij0(2))
+            imW(IMTSCL) = nBounce*RCMApp%Tb(ij0(1),ij0(2))
         else
             imW(IMTSCL) = 0.0 !Set this to zero and rely on coupling timescale later
         endif

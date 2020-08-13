@@ -43,7 +43,7 @@ module voltio
         integer :: iYr,iDoY,iMon,iDay,iHr,iMin,nTh
         real(rp) :: rSec
         character(len=strLen) :: utStr
-        real(rp) :: DelD,DelP,Dst,symh
+        real(rp) :: DelD,DelP,dtIM,Dst,symh
 
         !Augment Gamera console output w/ Voltron stuff
         call getCPCP(vApp%mix2mhd%mixOutput,cpcp)
@@ -84,6 +84,11 @@ module voltio
         !Get symh from input time series
         symh = vApp%symh%evalAt(vApp%time)
 
+        !Get imag ingestion info
+        if (vApp%doDeep) then
+            call IMagDelta(gApp%Model,gApp%Grid,gApp%State,DelD,DelP,dtIM)
+        endif
+
         if (vApp%isLoud) then
             write(*,*) ANSIBLUE
             write(*,*) 'VOLTRON'
@@ -92,11 +97,12 @@ module voltio
             write (*, '(a,2f8.3,a)')             '      CPCP = ' , cpcp(NORTH), cpcp(SOUTH), ' [kV, N/S]'
             write (*, '(a, f8.3,a)')             '    BSDst  ~ ' , Dst , ' [nT]'
             write (*, '(a, f8.3,a)')             '    Sym-H  = ' , symh, ' [nT]'
+
             if (vApp%doDeep) then
-                call IMagDelta(gApp%Model,gApp%Grid,gApp%State,DelD,DelP)
-                write (*, '(a)'        )             '    IMag Ingestion Fraction'
-                write (*, '(a,1f8.3,a)')             '       D   = ', 100.0*DelD,'%'
-                write (*, '(a,1f8.3,a)')             '       P   = ', 100.0*DelP,'%'
+                write (*, '(a)'                 )    '    IMag Ingestion'
+                write (*, '(a,1f7.2,a,1f7.2,a)' )    '       D/P = ', 100.0*DelD,'% /',100.0*DelP,'%'
+                write (*, '(a,1f7.2,a)'         )    '        dt = ', dtIM, ' [s]'
+
             endif
 
             if (simRate>TINY) then
@@ -104,7 +110,7 @@ module voltio
                     nTh = NumOMP()
                     write (*, '(a,1f7.3,a,I0,a)')             '    Running @ ', simRate*100.0, '% of real-time (',nTh,' threads)'  
                 else
-                    write (*, '(a,1f7.3,a)')             '    Running @ ', simRate*100.0, '% of real-time'
+                    write (*, '(a,1f7.3,a)'     )             '    Running @ ', simRate*100.0, '% of real-time'
                 endif
             endif
 
@@ -431,13 +437,13 @@ module voltio
     end subroutine EstDST
 
     !Calculate relative difference between source/MHD
-    subroutine IMagDelta(Model,Gr,State,dD,dP)
+    subroutine IMagDelta(Model,Gr,State,dD,dP,dtIM)
         type(Model_T), intent(in)  :: Model
         type(Grid_T) , intent(in)  :: Gr
         type(State_T), intent(in)  :: State
-        real(rp)     , intent(out) :: dD,dP
+        real(rp)     , intent(out) :: dD,dP,dtIM
 
-        real(rp) :: Dsrc,Dmhd,Psrc,Pmhd
+        real(rp) :: Dsrc,Dmhd,Psrc,Pmhd,dtP
         real(rp) :: dV
         real(rp), dimension(NVAR) :: pCon,pW
         logical :: doInD,doInP,doIngest
@@ -452,11 +458,12 @@ module voltio
         Dmhd = 0.0
         Psrc = 0.0
         Pmhd = 0.0
+        dtP  = 0.0
 
         !$OMP PARALLEL DO default(shared) collapse(2) &
         !$OMP private(i,j,k,dV,doInD,doInP,doIngest) &
         !$OMP private(pCon,pW) &
-        !$OMP reduction(+:Dsrc,Dmhd,Psrc,Pmhd)
+        !$OMP reduction(+:Dsrc,Dmhd,Psrc,Pmhd,dtP)
         do k=Gr%ks,Gr%ke
             do j=Gr%js,Gr%je
                 do i=Gr%is,Gr%ie
@@ -477,6 +484,7 @@ module voltio
                     if (doInP) then
                         Psrc = Psrc + dV*Gr%Gas0(i,j,k,IMPR,BLK)
                         Pmhd = Pmhd + dV*pW(PRESSURE)
+                        dtP  = dtP  + dV*pW(PRESSURE)*Gr%Gas0(i,j,k,IMTSCL,BLK)
                     endif
                     
                 enddo
@@ -484,7 +492,12 @@ module voltio
         enddo
         if (Dsrc>TINY) dD = Dmhd/Dsrc
         if (Psrc>TINY) dP = Pmhd/Psrc
-        
+        if (Pmhd>TINY) then
+            dtIM = Model%Units%gT0*dtP/Pmhd
+        else
+            dtIM = 0.0
+        endif
+
     end subroutine IMagDelta
 
 end module voltio

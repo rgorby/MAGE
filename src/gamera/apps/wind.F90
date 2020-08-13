@@ -445,7 +445,7 @@ module wind
 
         integer :: i,j,k,n
         real(rp), dimension(NDIM) :: xcc,nHat,e1,e2,ecc,Vxyz,Bxyz,swExyz
-        real(rp) :: wSW,D,P,mhdExyz,t,vSW
+        real(rp) :: wSW,D,P,mhdExyz,t,vSW,avgEi
 
         if (.not. Grid%hasUpperBC(IDIR)) return
 
@@ -498,12 +498,21 @@ module wind
 
         !Do some touchup
         if (Model%doRing) then
-            if (Model%Ring%doE) then
-                State%Efld(Grid%ie-2:Grid%ie+1,Grid%je+1,:,KDIR) = 0.0
-            endif
-            if (Model%Ring%doS) then
-                State%Efld(Grid%ie-2:Grid%ie+1,Grid%js  ,:,KDIR) = 0.0
-            endif
+
+            do n=Grid%ie-2,Grid%ie+1
+                if (Model%Ring%doE) then
+                    avgEi = sum( State%Efld(n,Grid%je+1,Grid%ks:Grid%ke,IDIR) )/Model%Ring%Np
+                    State%Efld(n,Grid%je+1,:,IDIR) = avgEi
+                    State%Efld(n,Grid%je+1,:,KDIR) = 0.0
+                endif
+
+                if (Model%Ring%doS) then
+                    avgEi = sum( State%Efld(n,Grid%js  ,Grid%ks:Grid%ke,IDIR) )/Model%Ring%Np
+                    State%Efld(n,Grid%js  ,:,IDIR) = avgEi
+                    State%Efld(n,Grid%js  ,:,KDIR) = 0.0
+                endif
+            enddo
+
         endif
     end subroutine WindEFix
 
