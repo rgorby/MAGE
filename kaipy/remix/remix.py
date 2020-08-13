@@ -460,7 +460,7 @@ class remix:
 
 	# Main function to compute magnetic perturbations using the Biot-Savart integration
 	# This includes Hall, Pedersen and FAC with the option to do Hall only 
-	def dB(self,xyz,hallOnly=True):
+	def dB(self,xyz,hallOnly=True,doXYZ=False):
 		# xyz = array of points where to compute dB
 		# xyz.shape should be (N,3), where N is the number of points
 		# xyz = (x,y,z) in units of Ri
@@ -564,12 +564,13 @@ class remix:
 		tDest = np.arccos(zDest/rDest)
 		pDest = np.arctan2(yDest,xDest)
 
-		dBr     = dBx*np.sin(tDest)*np.cos(pDest) + dBy*np.sin(tDest)*np.sin(pDest) + dBz*np.cos(tDest)
-		dBtheta = dBx*np.cos(tDest)*np.cos(pDest) + dBy*np.cos(tDest)*np.sin(pDest) - dBz*np.sin(tDest)	
-		dBphi   =-dBx*np.sin(pDest) + dBy*np.cos(pDest)
-		
-
-		return(dBr,dBtheta,dBphi)
+		if (doXYZ):
+			return (dBx,dBy,dBz)
+		else:
+			dBr     = dBx*np.sin(tDest)*np.cos(pDest) + dBy*np.sin(tDest)*np.sin(pDest) + dBz*np.cos(tDest)
+			dBtheta = dBx*np.cos(tDest)*np.cos(pDest) + dBy*np.cos(tDest)*np.sin(pDest) - dBz*np.sin(tDest)	
+			dBphi   =-dBx*np.sin(pDest) + dBy*np.cos(pDest)
+			return(dBr,dBtheta,dBphi)
 
 	# FIXME: Make work for SOUTH
 	# Flux-tube Biot-Savart integral \int dl bhat x r'/|r'|^3
