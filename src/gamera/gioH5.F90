@@ -382,6 +382,7 @@ module gioH5
                 call AddOutVar(IOVars,"Jz",gVec(:,:,:,ZDIR))
             else
                 !Do full current
+                VecA = State%Bxyz
                 call bFld2Jxyz(Model,Gr,VecA,VecB)
                 gVec(:,:,:,:) = VecB(iMin:iMax,jMin:jMax,kMin:kMax,XDIR:ZDIR)
 

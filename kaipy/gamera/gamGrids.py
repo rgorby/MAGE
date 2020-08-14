@@ -265,6 +265,9 @@ def Aug2D(XX,YY,doEps=False,TINY=1.0e-8,KeepOut=True,Rpx=1.15):
 	PP = np.arctan2(YY,XX)
 
 	R0 = RR.min()
+	if (R0<=Rpx):
+		print("Inner boundary below critical (%f), bailing ..."%(Rpx))
+		quit()
 	#print("Radial domain = [%3.2f,%3.2f]"%(R0,RR.max()))
 	xs = RR[:,0]
 	xe = RR[:,-1]
@@ -608,16 +611,38 @@ def LoadTabG(fIn="lfmG",Nc=0):
 	return xxi,yyi
 
 #Regrid xx/yy (corners) to new size
-def regrid(xxi,yyi,Ni,Nj,TINY=1.0e-8,scale=False):
+def regrid(xxi,yyi,Ni,Nj,Rin=0.0,Rout=0.0,TINY=1.0e-8,scale=False):
+
 	Ni0 = xxi.shape[0]-1
 	Nj0 = xxi.shape[1]-1
 	rr0 = np.sqrt(xxi**2.0 + yyi**2.0)
 	pp0 = np.arctan2(yyi,xxi)
-	
-	#Create interpolants
+
 	#index space -> (r,phi)
 	iLFM = np.linspace(0,1,Ni0+1)
 	jLFM = np.linspace(0,1,Nj0+1)
+
+	if ( (Rin>TINY) or (Rout>TINY) ):
+		#Rescale radial range
+		xMin = rr0.min()
+		xMax = xxi.max()
+
+		if (Rin>TINY):
+			xSclIn = Rin/xMin
+		else:
+			xSclIn = 1.0
+
+		if (Rout>TINY):
+			xSclOut = Rout/xMax
+		else:
+			xSclOut = 1.0
+		dxScl = (xSclOut-xSclIn)
+
+		#Now rescale each i shell
+		for i in range(Ni0+1):
+			rScl = xSclIn + iLFM[i]*dxScl
+			rr0[i,:] = rScl*rr0[i,:]
+	#Create interpolants
 	fR = interpolate.interp2d(iLFM,jLFM,rr0.T,kind='cubic',fill_value=None)
 	fP = interpolate.interp2d(iLFM,jLFM,pp0.T,kind='cubic',fill_value=None)
 

@@ -25,7 +25,8 @@ if __name__ == "__main__":
 	fIn = "./lfmG"
 	doEpsY = True
 	TINY = 1.0e-8
-
+	Rin = 2.0
+	Rout = 0.0
 	#List of grids
 	gStrs = ['D','Q','O','H']
 	gLabs = ["Double","Quad","Oct","Hex"]
@@ -44,12 +45,20 @@ if __name__ == "__main__":
 	parser.add_argument('-gid',type=str,default="D",choices=gStrs,help="Grid Resolution Specifier (default: %(default)s)")
 	parser.add_argument('-viz', action='store_true', default=False,help="Show 2D figure of grid (default: %(default)s)")
 	parser.add_argument('-chimp', action='store_true', default=False,help="Store grid in CHIMP format (default: %(default)s)")
+	parser.add_argument('-Rin',type=float,metavar="Rin",default=Rin ,help="Inner radius (default: %(default)s)")
+	parser.add_argument('-Rout',type=float,metavar="Rout",default=Rout ,help="Sunward outer radius (default: %(default)s)")
+	parser.add_argument('-vizG', action='store_true', default=False,help="Show 2D figure w/ ghosts (default: %(default)s)")
 
 	#Finalize parsing
 	args = parser.parse_args()
 	gid = args.gid
 	doChimp = args.chimp
 	doViz = args.viz
+	doVizG = args.vizG
+	Rin = args.Rin
+	Rout = args.Rout
+	if (doVizG):
+		doViz = True
 
 	n0 = gStrs.index(gid)
 	en = 2**(n0)
@@ -65,7 +74,7 @@ if __name__ == "__main__":
 	xx0,yy0 = gg.LoadTabG(fIn,Nc0)
 
 	#Regrid to new dimensions
-	XX,YY = gg.regrid(xx0,yy0,Nij,Nij)
+	XX,YY = gg.regrid(xx0,yy0,Nij,Nij,Rin=Rin,Rout=Rout)
 
 	Rin = XX[0,0]
 	#Calculate real outer radii, sunward/anti
@@ -94,4 +103,4 @@ if __name__ == "__main__":
 	print("\nWriting to %s"%(fOut))
 
 	if (doViz):
-		gg.VizGrid(XX,YY,xxG,yyG,fOut=fOut)
+		gg.VizGrid(XX,YY,xxG,yyG,fOut=fOut,doGhost=doVizG)
