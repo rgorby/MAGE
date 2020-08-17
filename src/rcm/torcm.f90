@@ -622,6 +622,7 @@
                else
                 eeta_new(i,j,k) = 0.0
                endif
+
             END DO
          END IF
       END DO

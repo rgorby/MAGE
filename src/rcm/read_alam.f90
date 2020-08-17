@@ -16,7 +16,7 @@
 !     Thus, can use it to get information for grid-based energy
 !     channels, or for edges. (Stanislav)
 !
-      INTEGER(iprec) :: k, iflavin, ie, lun = 1
+      INTEGER(iprec) :: NIn,k, iflavin, ie, lun = 1
       INTEGER(iprec) :: num_chan (iedim), k_start, k_stop
       REAL(rprec)  :: alamin, amin, amax,fudgein
       LOGICAL :: lflag_1, lflag_2
@@ -37,6 +37,15 @@
         call AddInVar(IOVars,"fudgec")
         call ReadVars(IOVars,doSP,RCMGAMConfig)
 
+        !Test all read variables to have the right size
+        do k=1,3
+          NIn = IOVars(k)%N
+          if (NIn /= kdim) then
+            write(*,*) 'RCM configuration error, mismatched k sizes ...'
+            stop
+          endif
+        enddo
+        
         !Lazily replicating loop from below
         DO k = 1, kdim
           iflavin = IOVars(1)%data(k)
