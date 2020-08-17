@@ -34,7 +34,7 @@ module rcmimag
     logical , private, parameter :: doKillRCMDir = .true. !Whether to always kill RCMdir before starting
     logical , private :: doWolfLim  = .true. !Whether to do wolf-limiting
     logical , private :: doBounceDT = .true. !Whether to use Alfven bounce in dt-ingest
-    real(rp), private :: nBounce = 0.5 !Scaling factor for Alfven transit
+    real(rp), private :: nBounce = 1.0 !Scaling factor for Alfven transit
 
     !Information taken from MHD flux tubes
     !TODO: Figure out RCM boundaries
@@ -190,7 +190,7 @@ module rcmimag
             RCMICs%kTPS = -3.65 + 0.0190*RCMICs%vSW*1.0e-3 !m/s=>km/s
             RCMICs%kTPS = max(RCMICs%kTPS,TINY)
 
-            !Tune RC pressure profile
+            !Tune RC pressure profile, using just dst(T=0) (will try to do better later)
             call SetQTRC(RCMICs%dst0)
         else
             !Zero out any additional ring current
@@ -288,7 +288,10 @@ module rcmimag
         call Toc("RCM_TUBES")
 
         if ( (vApp%time <= vApp%DeepDT) .and. RCMICs%doIC ) then
-            !Tune values to send to RCM for its cold start
+        !Tune values to send to RCM for its cold start
+            !Setup quiet time ring current to hit target using both current BSDst and target dst
+            !Replacing first RC estimate w/ Dst at end of blow-in period
+            call SetQTRC(RCMICs%dst0-vApp%BSDst)
             call HackTubes(RCMApp,vApp)
         endif
 

@@ -104,6 +104,7 @@ module volttypes
         !Voltron state information
         type(TimeSeries_T) :: tilt,symh
         real(rp) :: time, MJD,tFin
+        real(rp) :: BSDst=0.0 !Most recent bsdst calculated
         integer :: ts
         logical :: isSeparate = .false. ! whether Voltron is running in a separate application from gamera
 
