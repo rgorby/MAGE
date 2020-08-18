@@ -478,7 +478,8 @@ module rcmimag
         real(rp), intent(out) :: imW(NVARIMAG)
         logical, intent(out) :: isEdible
 
-        real(rp) :: colat,nrcm,prcm,npp,ntot,pScl,beta,pmhd,nmhd
+        real(rp) :: colat,nrcm,prcm,npp,pScl,beta,pmhd,nmhd
+        real(rp) :: plim,nlim
         integer, dimension(2) :: ij0
 
         associate(RCMApp => imag%rcmCpl, lat => x1, lon => x2)
@@ -512,25 +513,34 @@ module rcmimag
         pmhd = rcmPScl*RCMApp%Pave (ij0(1),ij0(2))
         nmhd = rcmNScl*RCMApp%Nave (ij0(1),ij0(2))
 
-        ntot = 0.0
-        !Decide which densities to include
-        if (npp >= PPDen) then
-            ntot = ntot + npp
-        endif
-        if ( (nrcm>TINY) .and. (prcm>TINY) ) then
-            ntot = ntot + nrcm
+
+        !Limit on RCM values
+        if (doWolfLim .and. (prcm>pmhd)) then
+            !Do limiting on pressure/density
+            pScl = beta*5.0/6.0
+            plim = (pScl*pmhd + prcm)/(1.0+pScl)
+            !nlim = nrcm - 0.6*pScl*nmhd*(prcm-pmhd)/(1.0+pScl)/pmhd
+            nlim = nrcm !Not limiting here
+        else
+            !Use raw RCM values if they're good
+            if ( (nrcm>TINY) .and. (prcm>TINY) ) then
+                plim = prcm
+                nlim = nrcm
+            else
+                plim = 0.0
+                nlim = 0.0
+            endif
         endif
 
-        !Store data
-        
-        if (doWolfLim) then
-            pScl = beta*5.0/6.0
-            imW(IMPR) = (pScl*pmhd + prcm)/(1.0+pScl)
-            imW(IMDEN)  = ntot - 0.6*pScl*nmhd*(prcm-pmhd)/(1.0+pScl)/pmhd
-        else
-            imW(IMPR)   = prcm
-            imW(IMDEN)  = ntot
+        !Test plasmasphere
+        if (npp >= PPDen) then
+            !Plasmasphere good, add it to limited rcm density
+            nlim = nlim+npp
         endif
+
+        !Store values
+        imW(IMDEN) = nlim
+        imW(IMPR)  = plim
 
         if (doBounceDT) then
             !Use Alfven bounce timescale

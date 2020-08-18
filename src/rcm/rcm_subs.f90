@@ -1615,8 +1615,7 @@ real :: v_1_1, v_1_2, v_2_1, v_2_2
           !If on first record, create fresh binary files
 !          if (irdr == 1) CALL Disk_write_arrays ()
           if (itimei==0)then
-              CALL Disk_write_arrays ()
-              !call WriteRCMH5(stropt,nslcopt,isRestart=.false.)
+              if (doDiskWrite) CALL Disk_write_arrays ()
           end if
 
         else  
@@ -1697,9 +1696,7 @@ real :: v_1_1, v_1_2, v_2_1, v_2_2
             v_avg    = v_avg    / REAL(i_avg)
             i_avg    = 0
 !
-            CALL Disk_write_arrays ()
-            !call WriteRCMH5(stropt,nslcopt,isRestart=.false.)
-!            call AddToList(i_time,rcm_timing)
+            if (doDiskWrite) CALL Disk_write_arrays ()
 
             itout1 = MIN (itout1 + idt1, itimef-idt)
 !
