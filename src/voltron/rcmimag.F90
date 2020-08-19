@@ -515,22 +515,24 @@ module rcmimag
 
 
         !Limit on RCM values
-        if (doWolfLim .and. (prcm>pmhd)) then
-            !Do limiting on pressure/density
-            pScl = beta*5.0/6.0
-            plim = (pScl*pmhd + prcm)/(1.0+pScl)
-            !nlim = nrcm - 0.6*pScl*nmhd*(prcm-pmhd)/(1.0+pScl)/pmhd
-            nlim = nrcm !Not limiting here
-        else
-            !Use raw RCM values if they're good
-            if ( (nrcm>TINY) .and. (prcm>TINY) ) then
+        if ( (nrcm>TINY) .and. (prcm>TINY) ) then
+            !Good values from RCM, do something
+            if (doWolfLim) then
+                !Do limiting on pressure/density
+                pScl = beta*5.0/6.0
+                plim = (pScl*pmhd + prcm)/(1.0+pScl)
+                nlim = nrcm - 0.6*pScl*nmhd*(prcm-pmhd)/(1.0+pScl)/pmhd
+            else
+                !Use raw RCM values if they're good
                 plim = prcm
                 nlim = nrcm
-            else
-                plim = 0.0
-                nlim = 0.0
-            endif
-        endif
+            endif !doWolfLim                         
+        else
+            !Ignore them
+            plim = 0.0
+            nlim = 0.0
+        endif !Marginal n/p-rcm
+
 
         !Test plasmasphere
         if (npp >= PPDen) then

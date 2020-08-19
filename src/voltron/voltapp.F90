@@ -233,7 +233,7 @@ module voltapp
         type(TimeSeries_T) :: f107
 
         logical :: isRestart
-        real(rp) :: maxF107
+        real(rp) :: maxF107,Rin
         integer :: n
 
         isRestart = gApp%Model%isRestart
@@ -242,6 +242,10 @@ module voltapp
         call InitVoltIO(vApp,gApp)
         
     !Remix from Gamera
+        !Set mix default grid before initializing
+        Rin = norm2(gApp%Grid%xyz(1,1,1,:)) !Inner radius
+        call SetMixGrid0(Rin,gApp%Grid%Nkp)
+
         if(present(optFilename)) then
             ! read from the prescribed file
             call init_mix(vApp%remixApp%ion,[NORTH, SOUTH],optFilename=optFilename,RunID=RunID,isRestart=isRestart,nRes=vApp%IO%nRes)
@@ -432,6 +436,8 @@ module voltapp
         character(len=strLen) :: xmlStr
         type(XML_Input_T) :: inpXML
         
+        real(rp) :: xyz0(NDIM)
+
     !Create input XML object
         if (present(optFilename)) then
             xmlStr = trim(optFilename)
@@ -456,6 +462,14 @@ module voltapp
         !CHIMP grid is initialized from Gamera's active corners
         call ebInit_fromMHDGrid(Model,ebState,inpXML,Gr%xyz(Gr%is:Gr%ie+1,Gr%js:Gr%je+1,Gr%ks:Gr%ke+1,1:NDIM))
         call InitLoc(Model,ebState%ebGr,inpXML)
+
+        !Do simple test to make sure locator is reasonable
+        xyz0 = Gr%xyz(Gr%is+1,Gr%js,Gr%ks,:)
+        if (.not. inDomain(xyz0,Model,ebState%ebGr) ) then
+            write(*,*) 'Configuration error: CHIMP Domain incorrect'
+            stop
+        endif
+
         end associate
 
     end subroutine init_volt2Chmp

@@ -221,7 +221,7 @@ module voltio
         integer :: i,j,k
         character(len=strLen) :: gStr
         type(IOVAR_T), dimension(MAXVOLTIOVAR) :: IOVars
-        real(rp) :: cpcp(2)
+        real(rp) :: cpcp(2),symh
 
         real(rp), dimension(:,:,:,:), allocatable :: inEijk,inExyz,gJ,gB,Veb
         real(rp), dimension(:,:,:), allocatable :: psi,D,Cs
@@ -230,6 +230,9 @@ module voltio
 
         !Get data
         call getCPCP(vApp%mix2mhd%mixOutput,cpcp)
+
+        !Get symh from input time series
+        symh = vApp%symh%evalAt(vApp%time)
 
         associate(Gr => gApp%Grid)
         !Cell-centers w/ ghosts
@@ -318,6 +321,8 @@ module voltio
         call AddOutVar(IOVars,"cpcpS",cpcp(2))
 
         call AddOutVar(IOVars,"BSDst",vApp%BSDst)
+        call AddOutVar(IOVars,"SymH",symh)
+
         call AddOutVar(IOVars,"time" ,vApp%time)
         call AddOutVar(IOVars,"MJD"  ,vApp%MJD)
         call AddOutVar(IOVars,"timestep",vApp%ts)
