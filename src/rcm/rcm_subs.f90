@@ -46,8 +46,9 @@
                                htr          = one / rth      ,&
 !
 !                 Part 2: physical constants          ! EDITING ALLOWED HERE
-                               xmass (2)    = (/ 9.1E-31_rprec, &
-                                                 1.67E-27_rprec /), &
+                               xmass(RCMNUMFLAV) = [Me_cgs*1.0e-3,Mp_cgs*1.0e-3], &
+                               !xmass (2)    = (/ 9.1E-31_rprec, &
+                               !                  1.67E-27_rprec /), &
                                besu         = 3.0584E+4_rprec, &
                                signbe       = one, &
                                romeca       = zero, &
@@ -1680,7 +1681,6 @@ real :: v_1_1, v_1_2, v_2_1, v_2_2
       fac = 1.0E-3_rprec * bir * alpha * beta * dlam * dpsi * ri**2 * signbe
 !
       DO i_time = itimei, itimef-idt, idt 
-
 !
          CALL Comput (i_time, dt)
 !

@@ -11,7 +11,7 @@
                               Read_grid, &
                               xmass, densrcm,denspsph,imin_j,rcmdir, &
                               eflux,eavg,ie_el
-      USE constants, ONLY : mass_proton,nt,ev!,radius_earth_m,pressure_factor,density_factor
+      USE constants, ONLY : mass_proton,mass_electron,nt,ev!,radius_earth_m,pressure_factor,density_factor
       USE rice_housekeeping_module
       Use rcm_mhd_interfaces
 ! 
@@ -57,8 +57,6 @@
       real(rprec) :: rinter
       real(rprec) :: peq,denseq
       real(rprec) :: max_xmin,min_xmin,max_ymin,min_ymin
-      real(rprec), PARAMETER :: rtrans_min = 2.0 ! min radius to nudge back
-      real(rprec), PARAMETER :: empmin = 1.0E+10
       
       integer(iprec) ::  in_tot,ierr2,mask
       integer(iprec) :: istart,iend,iit,jstart,jend,jit,kstart,kend,kit
@@ -78,6 +76,7 @@
 
       INTEGER (iprec) :: itime0,jp,iC
       real(rp) :: dRad,RadC,rIJ,dRxy
+      real(rp) :: sclmass(RCMNUMFLAV) !xmass prescaled to proton
 
       LOGICAL,PARAMETER :: avoid_boundaries = .false.
       INTEGER(iprec) :: im,ipl,jm,jpl,km,kpl
@@ -116,43 +115,46 @@
 
    END IF
 
+      !Set scaled mass by hand here to avoid precision issues
+      sclmass(RCMELECTRON) = mass_electron/mass_proton
+      sclmass(RCMPROTON) = 1.0
+
 !     Compute rcm pressure and density (on the ionospheric RCM grid):
-!
+      !Tweaking scaling for better precision and testing eeta instead of avg (K: 8/20)
       !$OMP PARALLEL DO default(shared) &
       !$OMP schedule(dynamic) &
       !$OMP private(i,j,k,dens_plasmasphere)
       DO j = 1, jsize
-       DO i = 1, isize
-        pressrcm (i,j) = 0.0
-        densrcm  (i,j) = 0.0
-        denspsph (i,j) = 0.0
+        DO i = 1, isize
+          pressrcm (i,j) = 0.0
+          densrcm  (i,j) = 0.0
+          denspsph (i,j) = 0.0
 
-        IF (vm(i,j) < 0.0) CYCLE
-        DO k = 1, kcsize
-          pressrcm(i,j) = pressrcm(i,j) + &
-                 pressure_factor*ABS(alamc(k))*eeta_avg(i,j,k)*vm(i,j)**2.5 ! in pascals
+          IF (vm(i,j) < 0.0) CYCLE
+          DO k = 1, kcsize
+            !Pressure calc in pascals
+            pressrcm(i,j) = pressrcm(i,j) + pressure_factor*ABS(alamc(k))*eeta(i,j,k)*vm(i,j)**2.5
 
-!           normalize everything to the mass_proton, otherwise answer is below
-!           floating point minimum answer and gets zero in ples/m^3
-!           FIXME: This version is mass weighted, not sure why.
-          if(alamc(k) >0.0)then ! only add the ion contribution
-            densrcm(i,j) = densrcm(i,j) + &
-               density_factor/mass_proton*xmass(ikflavc(k))*eeta_avg(i,j,k)*vm(i,j)**1.5
-          end if
-        END DO
-        if (use_plasmasphere) then
-          if (dp_on) then 
-            ! use plasmasphere channel eeta_avg(:,:,1) sbao 03/2020
-            denspsph(i,j) = density_factor/mass_proton*xmass(2)*eeta_avg(i,j,1)*vm(i,j)**1.5
-          else
-            ! add a simple plasmasphere model based on carpenter 1992 or gallagher 2002 in ples/cc
-            dens_plasmasphere = GallagherXY(xmin(i,j),ymin(i,j))
-            denspsph(i,j) = dens_plasmasphere*1.0e6
-          endif
-        endif
+            !Density calc
+            if (alamc(k) > 0.0) then ! only add the ion contribution
+              densrcm(i,j) = densrcm(i,j) + density_factor*sclmass(ikflavc(k))*eeta(i,j,k)*vm(i,j)**1.5
+            endif
+          ENDDO !k
 
-       END DO
-      END DO
+          if (use_plasmasphere) then
+            if (dp_on) then 
+              ! use plasmasphere channel eeta_avg(:,:,1) sbao 03/2020
+              denspsph(i,j) = density_factor*sclmass(RCMPROTON)*eeta(i,j,1)*vm(i,j)**1.5
+            else
+              ! add a simple plasmasphere model based on carpenter 1992 or gallagher 2002 in ples/cc
+              dens_plasmasphere = GallagherXY(xmin(i,j),ymin(i,j))
+              denspsph(i,j) = dens_plasmasphere*1.0e6
+            endif !dp_on
+          endif !use_plasmasphere
+
+        ENDDO !i
+      ENDDO !j
+
 
   !    write(*,*) "rcm/tomhd.f90: eeta_avg(50,50,50)=",eeta_avg(50,50,50)
  

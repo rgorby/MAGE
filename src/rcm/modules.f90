@@ -2,17 +2,19 @@
 
 MODULE CONSTANTS
   USE rcm_precision
-  USE kdefs, ONLY : EarthPsi0
+  USE kdefs, ONLY : EarthPsi0,Me_cgs,Mp_cgs,Mu0
   USE Rcm_mod_subs, ONLY : isize,jsize,jwrap
   REAL(rprec),PARAMETER :: radius_earth_m = 6380.e3 ! Earth's radius in meters
   REAL(rprec),PARAMETER :: radius_iono_m  = 6380.e3 + 100.e3 + 20.e3 ! ionosphere radius in meters
   REAL(rprec),PARAMETER :: boltz = 1.38E-23
-  REAl(rprec),PARAMETER :: mass_proton=1.6726e-27
-  REAL(rprec),PARAMETER :: mass_electron=9.1094e-31
+  REAl(rprec),PARAMETER :: mass_proton =Mp_cgs*1.0e-3
+  REAL(rprec),PARAMETER :: mass_electron=Me_cgs*1.0e-3
+  !REAl(rprec),PARAMETER :: mass_proton=1.6726e-27
+  !REAL(rprec),PARAMETER :: mass_electron=9.1094e-31
   REAL(rprec),PARAMETER :: ev=1.6022e-19
   REAL(rprec),PARAMETER :: gamma=1.6667
   REAL(rprec),PARAMETER :: one_over_gamma=0.6
-  REAL(rprec),PARAMETER :: mu0 = 4.0e-7*3.14159
+  !REAL(rprec),PARAMETER :: mu0 = 4.0e-7*3.14159
   REAL(rprec),PARAMETER :: big_vm = -1.0e5
   REAL(rprec),PARAMETER :: nt = 1.0e-9
   !REAL(rprec),PARAMETER :: tiote = 7.8
@@ -183,6 +185,7 @@ MODULE ionosphere_exchange
       ALLOCATE( rm%toMHD(rm%nLat_ion, rm%nLon_ion) )
       ALLOCATE( rm%losscone(rm%nLat_ion, rm%nLon_ion) )
       ALLOCATE( rm%oxyfrac(rm%nLat_ion, rm%nLon_ion) )
+      ALLOCATE( rm%MedK(rm%nLat_ion, rm%nLon_ion) )
 
       rm%gcolat (:) = colat (:,1)
       rm%glong  (:) = aloct (1,jwrap:jsize)
@@ -215,6 +218,7 @@ MODULE ionosphere_exchange
       if (ALLOCATED(rm%toMHD)) DEALLOCATE(rm%toMHD)
       if (ALLOCATED(rm%losscone)) DEALLOCATE(rm%losscone)
       if (ALLOCATED(rm%oxyfrac)) DEALLOCATE(rm%oxyfrac)
+      if (ALLOCATED(rm%MedK)) DEALLOCATE(rm%MedK)
 
     END SUBROUTINE tearDownIon
 
