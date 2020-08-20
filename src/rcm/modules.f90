@@ -48,6 +48,7 @@ MODULE rice_housekeeping_module
   LOGICAL :: rcm_tilted = .false.
 ! set this to false to turn off the dynamic plasmasphere  07242020  sbao
   LOGICAL :: dp_on = .true.
+  LOGICAL, PARAMETER :: use_plasmasphere = .true.
   INTEGER(iprec) :: InitKp = 1
   REAL(rprec) :: staticR = 0.0
 

@@ -49,7 +49,6 @@
       REAL(rprec) :: xval,yval,pval,rval
       LOGICAL :: L_flag
 !
-      real(rprec), parameter:: pressmin0 =1.0e-12
 !
       real(rprec) :: xg,yg
       real(rprec) :: xn,yn,zn
@@ -66,7 +65,7 @@
       integer(iprec), parameter :: i_offset = 1, imin_grid = 2
 
       real(rprec) :: dens_plasmasphere
-      logical, parameter :: use_plasmasphere = .true.
+      
       logical, parameter :: use_ionosphere_interpolation = .true.
 
       save ig,jg,bbi,bbj,di,dj,iout,ierr2

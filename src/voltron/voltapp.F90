@@ -55,7 +55,7 @@ module voltapp
         endif
 
         ! read number of squish blocks
-        call xmlInp%Set_Val(numSB,"coupling/numSquishBlocks",3)
+        call xmlInp%Set_Val(numSB,"coupling/numSquishBlocks",4)
         call setNumSquishBlocks(numSB)
 
     !Initialize state information
