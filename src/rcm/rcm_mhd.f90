@@ -45,15 +45,11 @@ module rcm_mhd_mod
         real(rprec) :: time0 = 0 ! coupling start time
         integer(iprec) :: ircm_dt
         integer(iprec) :: itimef_old = -1
-!        integer(iprec) :: irdr = 1 !> RCM(...) param:  record # to read in
-!        integer(iprec) :: irdw = 1 !> RCM(...) param:  record # to write out
         integer(iprec) :: idt   !> RCM(...) param:  basic time step in program
         integer(iprec) :: idt1  !> RCM(...) param:  time step for
                               !! changing disk & write records
         integer(iprec) :: idt2  !> RCM(...) param:  time step for
                               !! writting formatted output
-
-!        integer(iprec) :: rec = 1 !> Record number that torcm/tomhd use to
 
         real(rprec) :: t1, t2  !> Used for performance timing
 
@@ -109,9 +105,6 @@ module rcm_mhd_mod
             CALL Rcm (itimei, itimef, idt, idt1, idt2,icontrol=0_iprec)
 
             call allocate_conversion_arrays (isize,jsize,kcsize)
-
-            ! Set up RCM ionospheric grid:
-            !write(*,*) "rcm/rcm_mhd.f90: RM%planet_radius=",RM%planet_radius
             
             call Grid_torcm (HighLatBD,LowLatBD, 0.0_rprec, RM%planet_radius, RM%iono_radius)  ! set up RCM ionospheric grid here
             ! Setup Ionosphere intermediate Grid by equating it to the RCM grid, without angular overlap:

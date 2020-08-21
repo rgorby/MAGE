@@ -203,10 +203,10 @@
       endif
 
      ! Set boundary conditions on plasma (EETA) for all MLT's and energy levels:
-     !$OMP PARALLEL DO default(shared) &
-     !$OMP schedule(dynamic) &
+      !$OMP PARALLEL DO default(shared) &
+      !$OMP schedule(dynamic) &
      !$OMP private(j,k,inew,iold)
-      DO k=1,kcsize
+       DO k=1,kcsize
         DO j=1,jsize
 
           inew = imin_j(j)
@@ -516,10 +516,10 @@
       density_factor = nt/planet_radius
       pressure_factor = 2./3.*ev/planet_radius*nt
 
-     !$OMP PARALLEL DO default(shared) &
-     !$OMP schedule(dynamic) &
-     !$OMP private(i,j,k,kmin,dmhd,dpp,pcon,pcumsum,t) &
-     !$OMP private(xp,xm,A0,delerf,delexp)
+      !$OMP PARALLEL DO default(shared) &
+      !$OMP schedule(dynamic) &
+      !$OMP private(i,j,k,kmin,dmhd,dpp,pcon,pcumsum,t) &
+      !$OMP private(xp,xm,A0,delerf,delexp)
       do j=1,jsize
         do i=1,isize
           !Get corrected density
