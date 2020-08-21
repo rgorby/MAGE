@@ -51,13 +51,6 @@
 
       REAL(rprec) :: xp,yp,red
       REAL(rprec) :: eetabnd_max
-      REAL(rprec), PARAMETER :: offseti = 0.0  
-      REAL(rprec), PARAMETER :: ti0 = 5.0E+8
-      REAL(rprec), PARAMETER :: small_eta = 1.0E+4
-      REAL(rprec), PARAMETER :: xline = -25.0
-      REAL(rprec), PARAMETER :: lmin = 2.10
-!      REAL(rprec), PARAMETER :: big_vm = -1.0e5      
-      
       INTEGER(iprec) :: kin,jmid,ibnd, inew, iold
       INTEGER(iprec) :: jm,jp,ii,itmax
       INTEGER(iprec) :: min0,i,j,k,n,ns
@@ -67,10 +60,19 @@
       LOGICAL,PARAMETER :: set_boundary_with_beta = .false.
       REAL(rprec), PARAMETER :: max_beta = 1.0 ! max averaged beta to set the boundary
       REAL(rprec) :: den_gal
+      LOGICAL, SAVE :: doReadALAM = .true.
+
+      x0_sm = x0; y0_sm = y0; z0_sm = z0;
       ierr = 0
 
-      IF (ierr < 0) RETURN
-      x0_sm = x0; y0_sm = y0; z0_sm = z0;
+      !Start by reading alam channels if they're not yet set
+      !Rewriting this bit to not read_alam every call, K: 8/20
+      if (doReadALAM) then
+        CALL Read_alam (kcsize, alamc, ikflavc, fudgec, almdel, almmax, almmin, iesize, ierr)
+        doReadALAM = .false.
+        IF (ierr < 0) RETURN
+      endif
+
 
 !      if(rcm_tilted)then
 ! temporarily assign  geo grid as x0 and convert to sm
@@ -171,13 +173,6 @@
 
       IF (ierr < 0) RETURN
       
-      if ( (icontrol==RCMCOLDSTART) .or. (icontrol==RCMINIT) .or. (icontrol==RCMRESTART) ) then
-        !Rewriting this bit to not read_alam every call
-        !K: 8/5/20
-        CALL Read_alam (kcsize, alamc, ikflavc, fudgec, almdel, almmax, almmin, iesize, ierr)
-        IF (ierr < 0) RETURN
-      endif
-
       CALL Press2eta(RM%planet_radius)       ! this populates EETA_NEW array
 
       if(maxval(eeta_new) <=0)then
@@ -261,6 +256,15 @@
           endif
         end do
       end do
+
+! ensure open lines have zero content, K: 8/20
+      do j=1,jsize
+        do i=1,isize
+          if (iopen(i,j) /= -1) then
+            eeta(i,j,:) = 0.0
+          endif
+        enddo
+      enddo
 
 ! import ionosphere
    call Ionosphere_toRCM(RM)
@@ -466,11 +470,13 @@
       DO j=1,jsize
         DO i=1,isize
           dmhd = den(i,j)
-          if (use_plasmasphere) then
-            !Calculate plasmasphere density contribution
+          dpp = 0.0
+
+          !Calculate plasmasphere density contribution
+          if ( use_plasmasphere .and. (iopen(i,j) == -1) ) then
             dpp = density_factor*1.0*eeta(i,j,1)*vm(i,j)**1.5
-            dmhd = dmhd-dpp
           endif
+          dmhd = dmhd-dpp
 
           IF (iopen(i,j) == -1 .and. dmhd>0) THEN
             ti(i,j) = fac*press(i,j)/dmhd/boltz
@@ -510,15 +516,20 @@
       density_factor = nt/planet_radius
       pressure_factor = 2./3.*ev/planet_radius*nt
 
+     !$OMP PARALLEL DO default(shared) &
+     !$OMP schedule(dynamic) &
+     !$OMP private(i,j,k,kmin,dmhd,dpp,pcon,pcumsum,t) &
+     !$OMP private(xp,xm,A0,delerf,delexp)
       do j=1,jsize
         do i=1,isize
           !Get corrected density
           dmhd = den(i,j)
-          if (use_plasmasphere) then
+          dpp = 0.0
+          if ( use_plasmasphere .and. (iopen(i,j) == -1) ) then
             !Calculate plasmasphere density contribution
             dpp = density_factor*1.0*eeta(i,j,1)*vm(i,j)**1.5
-            dmhd = dmhd-dpp
           endif
+          dmhd = dmhd-dpp
 
           if ( (iopen(i,j) == -1) .and. (dmhd>0) .and. (ti(i,j)>0) ) then
             !Good stuff, let's go
@@ -560,7 +571,6 @@
 
         enddo
       enddo
-
 
       END SUBROUTINE Press2eta
       

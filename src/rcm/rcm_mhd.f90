@@ -122,11 +122,16 @@ module rcm_mhd_mod
             ! icontrol of 2 also needs the input xml file
             CALL Rcm (itimei, itimef, idt, idt1, idt2, icontrol=2_iprec, iXML=iXML)
 
+            if (iflag == RCMINIT) then
+                exchangeNum = 0
+            endif
+
         ! restart
             if (iflag == RCMRESTART) then
 
                 !Read in HDF5 restart data
                 CALL Rcm (itimei, itimef,idt, idt1, idt2,icontrol=ICONRESTART,stropt=RM%rcm_runid,nslcopt=RM%RCM_nRes)
+                exchangeNum = itimef/(itimef-itimei)
 
                 return
             endif !restart
@@ -142,10 +147,6 @@ module rcm_mhd_mod
          !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
          ! Determine exchange times...
          !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-         if (iflag==RCMINIT)then ! first call to rcm
-                exchangeNum = 0
-            endif
 
             isFirstExchange = (exchangeNum==0)
 

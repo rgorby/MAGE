@@ -156,5 +156,6 @@
       RETURN
  100  WRITE (*,'(T2,A)') 'error on opening enchan.dat'
       ierr = -1
+
       RETURN
       END SUBROUTINE Read_alam
