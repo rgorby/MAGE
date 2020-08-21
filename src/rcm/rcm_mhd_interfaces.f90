@@ -9,7 +9,7 @@ module rcm_mhd_interfaces
     integer(ip), parameter :: RCMINIT=0,RCMADVANCE=1,RCMRESTART=2,RCMWRITERESTART=-2,RCMWRITEOUTPUT=-3,RCMWRITETIMING=-1
     integer(ip), parameter :: RCMCOLDSTART=10
     logical :: doRCMVerbose = .FALSE.
-    integer(ip), parameter :: RCMTOPCLOSED=-1,RCMTOPOPEN=+1
+    integer(ip), parameter :: RCMTOPCLOSED=-1,RCMTOPOPEN=+1,RCMTOPNULL=0
     logical :: doColdstart =.true.
 
     !Scaling parameters
@@ -33,7 +33,7 @@ module rcm_mhd_interfaces
         real(rprec),allocatable :: X_bmin(:,:,:)! MHD supplied location of Bmin surface, x,y,z in meters
         real(rprec),allocatable :: Bmin(:,:)    ! MHD supplied  bmin strenght in T
         real(rprec),allocatable :: beta_average(:,:)    ! MHD field line averaged plasma beta (\int 2mu0P/B^3ds/B/\int ds/B)
-        integer(iprec),allocatable :: iopen(:,:) ! MHD supplied mask open/closed field line (-1: closed; 1: open; 1: else)
+        integer(iprec),allocatable :: iopen(:,:) ! MHD supplied mask open/closed field line (-1: closed; 1: open; 0: else)
 
         real(rprec),allocatable :: Prcm(:,:)    ! RCM supplied pressure in Pa
         real(rprec),allocatable :: Nrcm(:,:)    ! RCM supplied density in #/m^3

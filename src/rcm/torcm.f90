@@ -202,11 +202,8 @@
         write(*,*)'imin_j_old',imin_j_old
       endif
 
-     ! Set boundary conditions on plasma (EETA) for all MLT's and energy levels:
-      !$OMP PARALLEL DO default(shared) &
-      !$OMP schedule(dynamic) &
-     !$OMP private(j,k,inew,iold)
-       DO k=1,kcsize
+
+      DO k=1,kcsize
         DO j=1,jsize
 
           inew = imin_j(j)
@@ -260,7 +257,7 @@
 ! ensure open lines have zero content, K: 8/20
       do j=1,jsize
         do i=1,isize
-          if (iopen(i,j) /= -1) then
+          if (iopen(i,j) == RCMTOPOPEN) then
             eeta(i,j,:) = 0.0
           endif
         enddo
