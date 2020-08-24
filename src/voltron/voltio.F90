@@ -14,7 +14,7 @@ module voltio
     real(rp), parameter, private :: dtWallMax = 1.0 !How long between timer resets[hr]
     logical , private :: isConInit = .false.
     real(rp), private ::  oMJD = 0.0
-    real(rp), private :: cumTime = 0.0 !Cumulative time
+    integer, private :: oTime = 0.0
     character(len=strLen), private :: vh5File
 
     contains
@@ -40,8 +40,8 @@ module voltio
 
         real(rp) :: dpT,dtWall,cMJD,dMJD,simRate
 
-        integer :: iYr,iDoY,iMon,iDay,iHr,iMin,nTh
-        real(rp) :: rSec
+        integer :: iYr,iDoY,iMon,iDay,iHr,iMin,nTh,curCount,countMax
+        real(rp) :: rSec,clockRate
         character(len=strLen) :: utStr
         real(rp) :: DelD,DelP,dtIM,Dst,symh
 
@@ -56,21 +56,23 @@ module voltio
         if (isConInit) then
             !Console output has been initialized
             dMJD = cMJD - oMJD !Elapsed MJD since first recorded value
-            dtWall = kClocks(1)%tElap
-            cumTime = cumTime + dtWall !Elapsed wall-clock since first value
-            simRate = dMJD*24.0*60.0*60.0/cumTime !Model seconds per wall second
+            call system_clock(curCount,clockRate,countMax)
+            dtWall = (curCount - oTime)/clockRate
+            if(dtWall < 0) dtWall = dtWall + countMax / clockRate
+            simRate = dMJD*24.0*60.0*60.0/dtWall !Model seconds per wall second
         else
             simRate = 0.0
             oMJD = cMJD
-            cumTime = 0.0
+            call system_clock(count=oTime)
             isConInit = .true.
+            dtWall = 0.0
         endif
 
         !Add some stupid trapping code to deal with fortran system clock wrapping
-        if ( (simRate<0) .or. (abs(cumTime/3600.0) >= dtWallMax) ) then
+        if ( (simRate<0) .or. (abs(dtWall/3600.0) >= dtWallMax) ) then
             !Just reset counters, this is just for diagnostics don't need exact value
             oMJD = cMJD
-            cumTime = 0.0
+            call system_clock(count=oTime)
             simRate = 0.0
         endif
 

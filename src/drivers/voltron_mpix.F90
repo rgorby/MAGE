@@ -217,9 +217,11 @@ program voltron_mpix
 
             else
                 ! If we did not couple, check for deep work to be done
+                call Tic("DeepUpdate")
                 if(deepInProgress(vApp)) then
                     call doDeepBlock(vApp)
                 endif
+                call Toc("DeepUpdate")
             endif
 
             call Toc("Omega")

@@ -300,11 +300,13 @@ module voltapp_mpi
 
         integer :: ierr
 
+        call Tic("GameraSync")
         if(vApp%doSerialVoltron) then
             gameraStepReady = .true.
         else
             call MPI_REQUEST_GET_STATUS(vApp%timeReq,gameraStepReady,MPI_STATUS_IGNORE,ierr)
         endif
+        call Toc("GameraSync")
 
     end function gameraStepReady
 
@@ -547,20 +549,16 @@ module voltapp_mpi
 
         if(.not. vApp%deepProcessingInProgress) return
 
-        call Tic("DeepUpdate")
         call Tic("Squish")
         call DoSquishBlock(vApp)
         call Toc("Squish")
-        call Toc("DeepUpdate")
 
         if(.not. SquishBlocksRemain()) then
             vApp%deepProcessingInProgress = .false.
         endif
 
         if(.not. vApp%deepProcessingInProgress) then
-            call Tic("DeepUpdate")
             call PostSquishDeep(vApp, vApp%gAppLocal)
-            call Toc("DeepUpdate")
         endif
 
     end subroutine doDeepBlock
