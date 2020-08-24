@@ -6,6 +6,7 @@ import matplotlib as mpl
 mpl.use('Agg')
 import h5py
 import matplotlib.pyplot as plt
+import kaipy.gamera.magsphere as msph
 import kaipy.kaiViz as kv
 import numpy as np
 import kaipy.gamera.dstutils as dstutils
@@ -17,21 +18,24 @@ import os
 
 if __name__ == "__main__":
 	#Defaults
-	Dir = os.getcwd()
+	fdir = os.getcwd()
+	ftag = "msphere"
 	nSk = 4	 #stride of time steps to calculate Dst
 	tpad = 8 #Number of hours beyond MHD to plot
+
 	MainS = """Creates simple plot comparing SYM-H from OMNI dataset to Gamera-RCM.
 	Need to run or point to directory that has the bcwind and msphere.gam files of interest
 	"""
 
 	parser = argparse.ArgumentParser(description=MainS, formatter_class=RawTextHelpFormatter)
-	parser.add_argument('-d',type=str,metavar="directory",default=Dir,help="Directory to read from (default: %(default)s)")
+	parser.add_argument('-d',type=str,metavar="directory",default=fdir,help="Directory to read from (default: %(default)s)")
+	parser.add_argument('-id',type=str,metavar="runid",default=ftag,help="RunID of data (default: %(default)s)")
 	parser.add_argument('-nsk',type=int,metavar="step stride",default=nSk,help="Stride between steps used to calculate Dst (default: %(default)s)")
 	parser.add_argument('-tpad',type=float,metavar="time padding",default=tpad,help="Time beyond MHD data (in hours) to plot (default: %(default)s)")
 	
 	#Finalizing parsing
 	args = parser.parse_args()
-	Dir = args.d
+	fdir = args.d
 	nSk = args.nsk
 	tpad = args.tpad
 
@@ -45,18 +49,22 @@ if __name__ == "__main__":
 	Y0 = 0.0
 	Z0 = 0.0
 
-	Dir = os.getcwd()
-
 	NumI = len(iS)
 
-	fBC = "%s/bcwind.h5"%(Dir)
+	fBC = "%s/bcwind.h5"%(fdir)
 	utD,tD,dstD = dstutils.GetSymH(fBC)
 	ut_symh=[]
 	[ut_symh.append(datetime.datetime.strptime(utD[n].decode('utf-8'),t0fmt)) for n in range(len(utD))]
 
-	fIn = "%s/msphere.gam.h5"%(Dir)
+	print("Reading %s"%(fdir))
+	gsph = msph.GamsphPipe(fdir,ftag)
 
-	s0,sE = dstutils.GetSteps(fIn)
+	#Get quantities for grid
+	Xc,Yc,Zc = dstutils.cGrid(gsph.X,gsph.Y,gsph.Z)
+	dV = gsph.GetVar("dV",None)
+
+	s0 = gsph.s0
+	sE = gsph.sFin
 
 	Ns = len(np.arange(s0,sE,nSk))
 
@@ -68,8 +76,7 @@ if __name__ == "__main__":
 
 	mp = 0
 	for nStp in range(s0,sE,nSk):
-		Xc,Yc,Zc,dV = dstutils.GetCC(fIn)
-		mjd,t,Bz = dstutils.GetBz(fIn,nStp,Xc,Yc,Zc,dV,X0,Y0,Z0)
+		mjd,t,Bz = dstutils.GetBzMPI(gsph,nStp,Xc,Yc,Zc,dV,X0,Y0,Z0)
 		T[mp] = t
 		MJD[mp] = mjd
 		for i in range(NumI):
@@ -80,6 +87,10 @@ if __name__ == "__main__":
 			dDat = dstD[i0]
 			print("Step %d / DST = %f / Data = %f"%(nStp,Dst[0,mp],dDat))
 		mp = mp + 1
+
+	I = np.isinf(MJD)
+	MJD0 = MJD[~I].min()-1
+	MJD[I] = MJD0
 
 	tScl = 1.0/(60.0*60)
 	UT = Time(MJD,format='mjd').isot

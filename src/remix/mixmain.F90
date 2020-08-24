@@ -31,6 +31,7 @@ module mixmain
       if (present(isRestart)) doRestart = isRestart
 
       do h=1,size(I)
+         I(h)%St%hemisphere = hmsphrs(h)
          if(present(optFilename)) then
             call initMIXParams(I(h)%P, optFilename)
          else
@@ -46,8 +47,6 @@ module mixmain
          end if
          
          call conductance_init(I(h)%conductance,I(h)%P,I(h)%G)
-
-         I(h)%St%hemisphere = hmsphrs(h)
 
          ! check that hemisphere makes sense.
          if ((I(h)%St%hemisphere.ne.NORTH).and.(I(h)%St%hemisphere.ne.SOUTH)) then
