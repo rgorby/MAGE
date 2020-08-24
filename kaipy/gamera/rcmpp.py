@@ -18,7 +18,7 @@ rcmCol = "dodgerblue"
 gCol = "cyan"
 gLW = 0.15
 
-doXYZ = False
+doXYZ = True #How to calculate "equator"
 doCut = True
 pCut = 1.0e-8
 MHDCol = "red"

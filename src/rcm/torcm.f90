@@ -813,7 +813,8 @@
 ! reset open and bndloc        
           ell = ((xe(i,j)-x0)/a)**2+(ye(i,j)/b)**2
           dR = rmin(i,j) - rmin(i+1,j) !Check for bifurcated equator
-          isBad = (ell > 1.0) .or. (dR<0)
+          !isBad = (ell > 1.0) .or. (dR<0)
+          isBad = (ell > 1.0) .or. (iopen(i,j) .ge. 0)
           if (isBad) then
             bndloc(j) = i+1
             iopen(i,j) = 0
