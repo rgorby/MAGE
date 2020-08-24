@@ -218,7 +218,7 @@ module ebsquish
     end subroutine SquishEnd
 
     !Linearly interpolate between the stride 2 projections
-    subroutine FillSkips(ebModel,ebGr,iDeep,xyzSquish,isGood,nSkp)
+    recursive subroutine FillSkips(ebModel,ebGr,iDeep,xyzSquish,isGood,nSkp)
         type(chmpModel_T), intent(in) :: ebModel
         type(ebGrid_T)   , intent(in) :: ebGr
         integer          , intent(in) :: iDeep
@@ -229,7 +229,8 @@ module ebsquish
         integer :: i,j,k
         real(rp), dimension(2) :: X1s,X2s
 
-        integer hSkp = nSkp/2
+        integer :: hSkp
+        hSkp = nSkp/2
 
         !Start w/ i edge sweep
         !$OMP PARALLEL DO default(shared) collapse(2) &
