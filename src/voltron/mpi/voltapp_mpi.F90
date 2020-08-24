@@ -548,7 +548,9 @@ module voltapp_mpi
         if(.not. vApp%deepProcessingInProgress) return
 
         call Tic("DeepUpdate")
+        call Tic("Squish")
         call DoSquishBlock(vApp)
+        call Toc("Squish")
         call Toc("DeepUpdate")
 
         if(.not. SquishBlocksRemain()) then
