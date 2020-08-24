@@ -195,14 +195,9 @@
 
       IF (ierr < 0) RETURN
       
-      if ( (icontrol==RCMCOLDSTART) .or. (icontrol==RCMINIT) .or. (icontrol==RCMRESTART) ) then
-        !Rewriting this bit to not read_alam every call
-        !K: 8/5/20
-        CALL Read_alam (kcsize, alamc, ikflavc, fudgec, almdel, almmax, almmin, iesize, ierr)
-        IF (ierr < 0) RETURN
-      endif
+      CALL Read_alam (kcsize, alamc, ikflavc, fudgec, almdel, almmax, almmin, iesize, ierr)
+      IF (ierr < 0) RETURN
 
-      !CALL Press2eta       ! this populates EETA_NEW array
       CALL Press2eta(RM%planet_radius)       ! this populates EETA_NEW array
 
       if(maxval(eeta_new) <=0)then
