@@ -139,6 +139,7 @@ module volttypes
         integer  :: imType = 0 !Type of inner magnetosphere model (0 = None)
         integer  :: prType = 0 !Type of projection for coupling   (0 = None)
         logical  :: doQkSquish = .false. !Whether or not to do fast squishing
+        integer  :: qkSquishStride = 2 ! Stride to use when fast squishing
     end type voltApp_T
 
     contains

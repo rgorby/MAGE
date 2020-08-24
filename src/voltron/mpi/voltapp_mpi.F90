@@ -310,6 +310,19 @@ module voltapp_mpi
 
     end function gameraStepReady
 
+    subroutine waitForGameraStep(vApp)
+        type(voltAppMpi_T), intent(in) :: vApp
+        
+        integer :: ierr
+
+        call Tic("GameraSync")
+        if(.not. vApp%doSerialVoltron) then
+            call MPI_WAIT(vApp%timeReq, MPI_STATUS_IGNORE, ierr)
+        endif
+        call Toc("GameraSync")
+
+    end subroutine waitForGameraStep
+
     ! MPI version of updating voltron variables
     subroutine stepVoltron_mpi(vApp)
         type(voltAppMpi_T), intent(inout) :: vApp
