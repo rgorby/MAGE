@@ -217,9 +217,11 @@ program voltron_mpix
 
             elseif(deepInProgress(vApp)) then
                 ! If we did not couple, check for deep work to be done
+                call Tic("Coupling")
                 call Tic("DeepUpdate")
                 call doDeepBlock(vApp)
                 call Toc("DeepUpdate")
+                call Toc("Coupling")
             else
                 ! Gamera wasn't ready and we don't have deep work to do, wait for gamera
                 call waitForGameraStep(vApp)
