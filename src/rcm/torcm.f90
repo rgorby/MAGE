@@ -49,8 +49,7 @@
       INTEGER(iprec), INTENT (IN) :: itimei,icontrol
       INTEGER(iprec), INTENT (IN OUT) :: ierr
 
-      REAL(rprec) :: xp,yp,red
-      REAL(rprec) :: eetabnd_max
+      REAL(rprec) :: xp,yp,red      
       INTEGER(iprec) :: kin,jmid,ibnd, inew, iold
       INTEGER(iprec) :: jm,jp,ii,itmax
       INTEGER(iprec) :: min0,i,j,k,n,ns
@@ -131,40 +130,18 @@
       end do
 
       ! fits an ellipse to the boundary
+      !K: 8/20, changing ellipse so that it doesn't reset iopen/vm outside domain
       if (use_ellipse)then
         CALL Set_ellipse(isize,jsize,rmin,pmin,vm,big_vm,bndloc,iopen)
         imin_j = ceiling(bndloc)
       end if
 
-      IF(set_boundary_with_beta)then
-        do j=1,jsize
-          do i=ceiling(bndloc(j)),isize-1
-            IF(beta_average(i,j) > max_beta)then
-              bndloc(j) = i+1
-              vm(1:i,j) = big_vm
-              iopen(1:i,j) = 0
-            END IF
-          end do
-        end do
-        imin_j = ceiling(bndloc)
-      END IF
-
-      ! smooth boundary location 
+      !Smooth boundary location
+      !K: 8/20, not resetting outside domain
       do ns=1,n_smooth
-        if (doRCMVerbose) write(6,*)' smoothing rcm boundary, ns =', ns
         call smooth_boundary_location(isize,jsize,jwrap,bndloc)
-        call reset_rcm_vm(isize,jsize,bndloc,big_vm,imin_j,vm,iopen) ! adjust Imin_j
-      end do
-
-      if (n_smooth < 1) call reset_rcm_vm(isize,jsize,bndloc,big_vm,imin_j,vm,iopen)
-
-! reset mapping points on open field lines
-      do j=1,jsize
-        do i=1,imin_j(j)-1
-          rmin(i,j) = 0.0
-          pmin(i,j) = 0.0
-        end do
-      end do
+      enddo
+      imin_j = CEILING(bndloc)
 
 !---->Set new EETA from lfm code pressure. 
 !     On open field lines, values of ETA will be zero:
@@ -197,53 +174,51 @@
       imin_j     = CEILING(bndloc)
       imin_j_old = CEILING(bndloc_old)
 
-      if (doRCMVerbose) then
-        write(*,*)'imin_j',imin_j
-        write(*,*)'imin_j_old',imin_j_old
-      endif
-
 
       DO k=1,kcsize
         DO j=1,jsize
-
           inew = imin_j(j)
           iold = imin_j_old(j)
-
           ! values on the (new) boundary and outside are from MHD:
-
           IF (inew < iold) then
-
             ! There are newly-acquired points inside the modeling region,
             ! assign MHD-produced values to them:
-
-            eeta (inew+1:iold,j,k) = eeta_new(inew+1:iold,j,k)
-
+            !eeta (inew+1:iold,j,k) = eeta_new(inew+1:iold,j,k)
+            eeta (inew:iold,j,k) = eeta_new(inew:iold,j,k)
           END IF
-
         END DO
       END DO
 
-
-! get the boundary eeta local time
-      do j=1,jsize
-        do k=1,kcsize
-          eetabnd(j,k) = eeta(imin_j(j),j,k)
-          if (eetabnd(j,k) <= 0.0 .and. doRCMVerbose) then
-            write(6,'(a,i3,1x,i3)')' warning: eetabnd <= 0 at j,k =',j,k
-            write(6,'(a,i3,a,i3,a,g14.5)')' eetabnd(',j,',',k,')=',eetabnd(j,k)
-            write(6,'(a,i3,a,i3,a,g14.5)')' vm(',imin_j(j),',',j,')=',vm(imin_j(j),j)
-          end if
-        end do
-
-      end do
- 
-      
 ! smooth eeta at the boundary
       CALL Smooth_eta_at_boundary(isize,jsize,kcsize,jwrap,eeta,imin_j)
 
 ! now reset eeta outside the rcm to be eeta at the boundary
+      !Set BCs on eeta
+      !Use MHD info when available, zero's for open cells
+      !K: 8/20, tweaking setting of eeta bc's
       do j=1,jsize
         do i=1,imin_j(j)-1
+          if (iopen(i,j) == RCMTOPCLOSED) then
+            !This is closed flux tube, MHD info here is ostensibly good
+            if (use_plasmasphere) then
+              eeta(i,j,1 ) = 0.0
+
+              eeta(i,j,2:) = eeta_new(i,j,2:)
+            else
+              eeta(i,j,:)  = eeta_new(i,j,: )
+            endif
+
+          else !Open/Undefined topology
+            !Just zap everything
+            eeta(i,j,:) = 0.0
+            vm  (i,j)   = big_vm
+            !Reset mapping on open lines
+            rmin(i,j) = 0.0
+            pmin(i,j) = 0.0
+            xmin(i,j) = 0.0
+            ymin(i,j) = 0.0
+          endif
+
           if (use_plasmasphere) then
             !K: 8/20 - use 0 BC for plasmasphere channel
             eeta(i,j,1 ) = 0.0
@@ -254,51 +229,186 @@
         end do
       end do
 
+
 ! ensure open lines have zero content, K: 8/20
       do j=1,jsize
         do i=1,isize
           if (iopen(i,j) == RCMTOPOPEN) then
             eeta(i,j,:) = 0.0
           endif
+        enddo !i loop
+        do i=1,imin_j(j)-1
+          if (iopen(i,j) == RCMTOPCLOSED) then
+            !Closed field but outside RCM domain, ie buffer, set to null
+            iopen(i,j) = RCMTOPNULL
+          endif
         enddo
       enddo
 
 ! import ionosphere
-   call Ionosphere_toRCM(RM)
+      call Ionosphere_toRCM(RM)
 
-!-----------------------Write to rcmu_torcm.dat-----------------
-! this file is for plotting and/or debugging. RCM itselt does not need it.
-
-      IF (L_write_rcmu_torcm ) then
-          IF (itimei==0) THEN
-              OPEN (LUN, FILE=rcmdir//'rcmu_torcm.dat',form='unformatted', STATUS = 'replace')
-              WRITE (LUN) isize,jsize,kcsize
-          ELSE
-              OPEN (LUN,file=rcmdir//'rcmu_torcm.dat',form='unformatted', status='old',position='append')
-          END IF
-          WRITE (LUN) itimei, alamc, x0, y0, z0, rmin, pmin,&
-                      iopen, vm, press, den, bmin, ti, te, beta_average,v,eeta_new
-          CLOSE (LUN)
-      END IF
-!----------------- end write to rcmu_torcm.dat-------------------
-
-
-      ! Complete preparing B-field arrays for RCM. We already have
-      ! vm, bndloc, rmin, and pmin. Still need xmin and Ymin:
-      ! xmin,ymin comes from the MHD code
-
-!      xmin = rmin * COS (pmin)
-!      ymin = rmin * SIN (pmin)
-      DO j = 1, jsize
-        xmin(1:imin_j(j)-1,j) = xmin(imin_j(j),j) 
-        ymin(1:imin_j(j)-1,j) = ymin(imin_j(j),j) 
-      END DO
-
+      !Do sanity check
       DO j = 1, jsize
         DO i = imin_j(j),isize
           IF (vm(i,j) <= 0.0) STOP 'vm problem in TORCM'
         END DO
       END DO
+
+      !Return updates to topology, CLOSED=>NULL in buffer region to RM object
+      RM%iopen   = iopen   (:,jwrap:jsize)
+
+    !K: OLD STUFF
+      ! IF(set_boundary_with_beta)then
+      !   do j=1,jsize
+      !     do i=ceiling(bndloc(j)),isize-1
+      !       IF(beta_average(i,j) > max_beta)then
+      !         bndloc(j) = i+1
+      !         vm(1:i,j) = big_vm
+      !         iopen(1:i,j) = 0
+      !       END IF
+      !     end do
+      !   end do
+      !   imin_j = ceiling(bndloc)
+      ! END IF
+
+      ! ! smooth boundary location 
+      ! do ns=1,n_smooth
+      !   if (doRCMVerbose) write(6,*)' smoothing rcm boundary, ns =', ns
+      !   call smooth_boundary_location(isize,jsize,jwrap,bndloc)
+      !   call reset_rcm_vm(isize,jsize,bndloc,big_vm,imin_j,vm,iopen) ! adjust Imin_j
+      ! end do
+
+      ! if (n_smooth < 1) call reset_rcm_vm(isize,jsize,bndloc,big_vm,imin_j,vm,iopen)
+
+! ! reset mapping points on open field lines
+!       do j=1,jsize
+!         do i=1,imin_j(j)-1
+!           rmin(i,j) = 0.0
+!           pmin(i,j) = 0.0
+!         end do
+!       end do
+
+! !---->Set new EETA from lfm code pressure. 
+! !     On open field lines, values of ETA will be zero:
+
+!       CALL Gettemp (RM%planet_radius,ierr)
+
+!       IF (ierr < 0) RETURN
+      
+!       CALL Press2eta(RM%planet_radius)       ! this populates EETA_NEW array
+
+!       if(maxval(eeta_new) <=0)then
+!         write(6,*)' something is wrong in the new eeta arrays'
+!         Stop
+!       end if
+
+!       ! It must come after calls to calc_ftv and press2eta.
+!       ! this is where we must set initial conditions:
+
+!       IF (icontrol==RCMCOLDSTART) THEN
+!         write(6,*)' TORCM: initializing the RCM arrays at t=',itimei
+!         bndloc_old = bndloc
+!         imin_j_old = imin_j
+!         eeta       = eeta_new  ! this is initial conditions on plasma
+!       END IF
+
+!       ! initialize the dynamic plasmasphere   sbao 03282020
+!       call set_plasmasphere(icontrol,isize,jsize,kcsize,xmin,ymin,rmin,vm,eeta,imin_j)
+      
+!       ! just in case:
+!       imin_j     = CEILING(bndloc)
+!       imin_j_old = CEILING(bndloc_old)
+
+!       if (doRCMVerbose) then
+!         write(*,*)'imin_j',imin_j
+!         write(*,*)'imin_j_old',imin_j_old
+!       endif
+
+
+!       DO k=1,kcsize
+!         DO j=1,jsize
+
+!           inew = imin_j(j)
+!           iold = imin_j_old(j)
+
+!           ! values on the (new) boundary and outside are from MHD:
+
+!           IF (inew < iold) then
+
+!             ! There are newly-acquired points inside the modeling region,
+!             ! assign MHD-produced values to them:
+
+!             eeta (inew+1:iold,j,k) = eeta_new(inew+1:iold,j,k)
+
+!           END IF
+
+!         END DO
+!       END DO
+
+ 
+      
+! ! smooth eeta at the boundary
+!       CALL Smooth_eta_at_boundary(isize,jsize,kcsize,jwrap,eeta,imin_j)
+
+! ! now reset eeta outside the rcm to be eeta at the boundary
+!       do j=1,jsize
+!         do i=1,imin_j(j)-1
+!           if (use_plasmasphere) then
+!             !K: 8/20 - use 0 BC for plasmasphere channel
+!             eeta(i,j,1 ) = 0.0
+!             eeta(i,j,2:) = eeta(imin_j(j),j,2:)
+!           else   
+!             eeta(i,j,:) = eeta(imin_j(j),j,:)
+!           endif
+!         end do
+!       end do
+
+! ! ensure open lines have zero content, K: 8/20
+!       do j=1,jsize
+!         do i=1,isize
+!           if (iopen(i,j) == RCMTOPOPEN) then
+!             eeta(i,j,:) = 0.0
+!           endif
+!         enddo
+!       enddo
+
+! ! import ionosphere
+!    call Ionosphere_toRCM(RM)
+
+! !-----------------------Write to rcmu_torcm.dat-----------------
+! ! this file is for plotting and/or debugging. RCM itselt does not need it.
+
+!       IF (L_write_rcmu_torcm ) then
+!           IF (itimei==0) THEN
+!               OPEN (LUN, FILE=rcmdir//'rcmu_torcm.dat',form='unformatted', STATUS = 'replace')
+!               WRITE (LUN) isize,jsize,kcsize
+!           ELSE
+!               OPEN (LUN,file=rcmdir//'rcmu_torcm.dat',form='unformatted', status='old',position='append')
+!           END IF
+!           WRITE (LUN) itimei, alamc, x0, y0, z0, rmin, pmin,&
+!                       iopen, vm, press, den, bmin, ti, te, beta_average,v,eeta_new
+!           CLOSE (LUN)
+!       END IF
+! !----------------- end write to rcmu_torcm.dat-------------------
+
+
+!       ! Complete preparing B-field arrays for RCM. We already have
+!       ! vm, bndloc, rmin, and pmin. Still need xmin and Ymin:
+!       ! xmin,ymin comes from the MHD code
+
+! !      xmin = rmin * COS (pmin)
+! !      ymin = rmin * SIN (pmin)
+!       DO j = 1, jsize
+!         xmin(1:imin_j(j)-1,j) = xmin(imin_j(j),j) 
+!         ymin(1:imin_j(j)-1,j) = ymin(imin_j(j),j) 
+!       END DO
+
+!       DO j = 1, jsize
+!         DO i = imin_j(j),isize
+!           IF (vm(i,j) <= 0.0) STOP 'vm problem in TORCM'
+!         END DO
+!       END DO
 
       RETURN
       END SUBROUTINE Torcm
@@ -473,8 +583,8 @@
           if ( use_plasmasphere .and. (iopen(i,j) == -1) ) then
             dpp = density_factor*1.0*eeta(i,j,1)*vm(i,j)**1.5
           endif
-          dmhd = dmhd-dpp
-
+          if (dpp<dmhd) dmhd = dmhd-dpp
+          
           IF (iopen(i,j) == -1 .and. dmhd>0) THEN
             ti(i,j) = fac*press(i,j)/dmhd/boltz
             te(i,j) = ti(i,j)/tiote
@@ -526,7 +636,7 @@
             !Calculate plasmasphere density contribution
             dpp = density_factor*1.0*eeta(i,j,1)*vm(i,j)**1.5
           endif
-          dmhd = dmhd-dpp
+          if (dpp<dmhd) dmhd = dmhd-dpp
 
           if ( (iopen(i,j) == -1) .and. (dmhd>0) .and. (ti(i,j)>0) ) then
             !Good stuff, let's go
@@ -571,6 +681,272 @@
 
       END SUBROUTINE Press2eta
       
+
+
+!===================================================================
+    SUBROUTINE Set_ellipse(idim,jdim,rmin,pmin,vm,big_vm,bndloc,iopen)
+
+! routine that fits an ellipse and resets the modeling
+! boundary to be inside the ellipse
+! 6/03 frt
+! inputs:
+!	idim,jdim - size of the 2d rcm arrays (lat, long)
+!	xe,ye - equatorial mapping point of field line from rcm grid
+!	vm - computed flux tube volume ^(-2/3) set to big_vm if open
+!            or outside the ellipse boundary (output)
+! 	bndloc/imin_j - boundary location (output)
+!	a1 - dayside end of ellipse
+!	a2 - nightside location of the ellipse
+!	b - semi minor axis (y) of ellipse
+
+!      USE Rcm_mod_subs, ONLY : iprec,rprec
+      USE rcm_precision
+      USE rice_housekeeping_module, ONLY : ellBdry
+      implicit none
+      integer(iprec) :: idim,jdim
+      real(rprec) :: rmin(idim,jdim), pmin(idim,jdim)
+      real(rprec) :: xe(idim,jdim), ye(idim,jdim)
+      real(rprec) :: vm(idim,jdim)
+      integer(iprec) :: iopen(idim,jdim)
+      real(rprec) :: bndloc(jdim)
+      real(rprec) :: big_vm,a1,a2,a,b,x0,ell
+      real(rprec) :: xP,xM,yMax,dR
+      integer(iprec) :: i,j
+      logical :: isBad
+
+!  x0 = (a1 + a2)/2
+!   a = (a1 - a2)/2
+!
+!                   b
+!           |       |
+!           |       |
+! x<a1------0-------x0-------------a2
+!           |       |
+!           |       |
+!                   b
+!
+
+      xe = rmin * cos(pmin)
+      ye = rmin * sin(pmin)
+
+!K: Replacing these hard-coded values with ellipse type set by XML file
+      a1 = ellBdry%xSun
+      a2 = ellBdry%xTail
+      b  = ellBdry%yDD
+
+      if (ellBdry%isDynamic) then
+        !Tune to current equatorial bounds
+        xP   = maxval(xe     ,mask=iopen<0)
+        xM   = minval(xe     ,mask=iopen<0)
+        yMax = maxval(abs(ye),mask=iopen<0)
+
+        !Enforce max's from XML ellipse
+        a1 = min(a1,xP)
+        a2 = max(a2,xM)
+        b  = min(b ,yMax)        
+      endif
+      
+      x0 = (a1 + a2)/2.
+      a  = (a1 - a2)/2.
+      do j=1,jdim
+        do i=ceiling(bndloc(j)),idim-1
+! now check to see if the point is outside the ellipse, if so
+! reset open and bndloc        
+          ell = ((xe(i,j)-x0)/a)**2+(ye(i,j)/b)**2
+          dR = rmin(i,j) - rmin(i+1,j) !Check for bifurcated equator
+          !isBad = (ell > 1.0) .or. (dR<0)
+          isBad = (ell > 1.0) .or. (iopen(i,j) .ge. 0)
+          if (isBad) then
+            bndloc(j) = i+1
+            !Reset vm is this is open/undef, otherwise leave alone
+            if (iopen(i,j) .ge. 0) vm(i,j) = big_vm
+
+            !iopen(i,j) = 0
+            !vm(i,j) = big_vm
+          end if
+        end do
+      end do 
+
+    end subroutine Set_ellipse
+
+
+!------------------------------------
+
+      SUBROUTINE Smooth_eta_at_boundary(idim,jdim,kdim,jwrap,eeta,imin_j)
+! this routine attempts to smooth out high frequency noise at the boundary
+! of the rcm 
+! written 2/06 frt
+!      USE Rcm_mod_subs, ONLY : iprec,rprec
+      USE rcm_precision
+      IMPLICIT NONE
+      INTEGER(iprec) :: idim,jdim,kdim,jwrap
+      INTEGER(iprec) :: imin_j(jdim)
+      INTEGER(iprec) :: i,j,k,jm,jmm,jp,jpp
+      REAL(rprec) :: eeta(idim,jdim,kdim)
+      REAL(rprec) :: eetas2d(jdim,kdim)
+! these are the smoothing weights
+      REAL(rprec), PARAMETER :: a1 = 1.0  
+      REAL(rprec), PARAMETER :: a2 = 1.0  
+      REAL(rprec), PARAMETER :: a3 = 2.0  
+      REAL(rprec), PARAMETER :: a4 = 1.0  
+      REAL(rprec), PARAMETER :: a5 = 1.0  
+! now do the smoothing
+
+      do k=1,kdim
+       do j=1,jdim
+
+! 1 <=> jdim -jwrap +1
+! jdim <=> jwrap
+       jmm = j - 2
+       if(jmm < 1)jmm = jdim - jwrap - 1       
+       jm  = j - 1
+       if(jm < 1) jm = jdim - jwrap       
+       jpp = j + 2
+       if(jpp > jdim)jpp = jwrap + 2
+       jp  = j + 1
+       if(jp > jdim) jp = jwrap + 1
+! now smooth
+       eetas2d(j,k) = &
+          ( a1*eeta(imin_j(jmm),jmm,k) + &
+            a2*eeta(imin_j(jm ),jm ,k) + &
+            a3*eeta(imin_j(j  ),j  ,k) + &
+            a4*eeta(imin_j(jp ),jp ,k) + &
+            a5*eeta(imin_j(jpp),jpp,k) )/(a1+a2+a3+a4+a5) 
+
+           end do
+          end do
+! now reset the boundary values
+        do k=1,kdim
+         do j=1,jdim
+          eeta(imin_j(j),j,k) = eetas2d(j,k)
+         end do      
+        end do      
+       return
+END SUBROUTINE Smooth_eta_at_boundary
+
+      SUBROUTINE Smooth_boundary_location(idim,jdim,jwrap,bndloc)
+!      USE Rcm_mod_subs, ONLY : iprec,rprec
+      USE rice_housekeeping_module
+      IMPLICIT NONE
+      INTEGER(iprec), INTENT(IN) :: idim,jdim,jwrap
+      REAL(rprec), INTENT(IN OUT) :: bndloc(jdim)
+
+      INTEGER(iprec) :: i,j,jp,jm
+      REAL(rprec) :: bndloc_new(jdim)
+      REAL(rprec), PARAMETER :: am = 1, a0 =2, ap = 1
+
+     
+      if (L_write_vars_debug) then
+       write(6,*)' smooth_boundary_location, old boundary'
+       write(6,*)bndloc
+      end if
+! 1 <=> jdim -jwrap +1
+! jdim <=> jwrap
+      do j=1,jdim
+       jm  = j - 1
+       if(jm < 1) jm = jdim - jwrap 
+       jp  = j + 1
+       if(jp > jdim) jp = jwrap + 1
+
+       bndloc_new(j) = (am*bndloc(jm) + a0*bndloc(j) + ap*bndloc(jp))/(am+a0+ap)
+
+      end do
+
+      bndloc(:) = max(bndloc_new(:),bndloc(:))
+
+      if (L_write_vars_debug) then
+       write(6,*)' smooth_boundary_location, new boundary'
+       write(6,*)bndloc
+      end if
+
+      return
+    
+      END SUBROUTINE Smooth_boundary_location
+
+!
+      subroutine set_plasmasphere(icontrol,idim,jdim,kdim,xmin,ymin,rmin,vm,eeta,imin_j)
+! subroutine set_plasmasphere(idim,jdim,kdim,rmin,pmin,vm,eeta,imin_j)
+! crude routine to set a plasmasphere model in the rcm
+! alam(1) should be set to a small value (0.01)
+! 2/07 frt
+! Use the gallagher model for initial condition, update plasmaspheric eeta in each RCM call
+! alam(1) is set to be 0
+! sbao 03/25
+
+      USE rcm_precision
+      USE earthhelper, ONLY : GallagherXY
+      USE constants, ONLY: density_factor
+      USE rice_housekeeping_module, ONLY: InitKp, staticR
+      Use rcm_mhd_interfaces, ONLY: RCMCOLDSTART
+
+      IMPLICIT NONE
+
+      integer(iprec) :: idim,jdim,kdim,icontrol
+      real(rprec) :: dens_gal = 0.0
+      integer(iprec) :: imin_j(jdim)
+      real(rprec) :: vm(idim,jdim),xmin(idim,jdim),ymin(idim,jdim),rmin(idim,jdim)
+      real(rprec) :: eeta(idim,jdim,kdim)
+
+      integer(iprec) :: i,j,k
+
+      if (icontrol == RCMCOLDSTART) then
+        do j=1,jdim
+          do i=imin_j(j),idim
+            if(vm(i,j) > 0.0)then
+              dens_gal = GallagherXY(xmin(i,j),ymin(i,j),InitKp)*1.0e6
+              eeta(i,j,1) = dens_gal/(density_factor*vm(i,j)**1.5)
+            end if
+          end do
+        end do
+      else
+        ! reset the static part of the plasmasphere sbao 07292020
+        !Tweak by K: 8/7/20
+        if (staticR > 2.0) then
+          !$OMP PARALLEL DO default(shared) &
+          !$OMP schedule(dynamic) &
+          !$OMP private(i,j,dens_gal)
+          do j=1,jdim
+            do i=imin_j(j),idim
+              if(rmin(i,j) <= staticR .and. vm(i,j) > 0.0)then
+                !eeta (i,j,1) = eeta_pls0 (i,j)
+                dens_gal = GallagherXY(xmin(i,j),ymin(i,j),InitKp)*1.0e6
+                eeta(i,j,1) = dens_gal/(density_factor*vm(i,j)**1.5)
+              end if
+            end do
+          end do
+        end if !staticR
+      endif !RCMCOLDSTART
+
+      return
+
+      end subroutine set_plasmasphere
+
+!------------------------------------------      
+      subroutine reset_rcm_vm(idim,jdim,bndloc,big_vm,imin_j,vm,iopen)
+! this routine resets imin_j, vm, and open based on a newly set bndloc      
+!      USE Rcm_mod_subs, ONLY: rprec,iprec
+      USE rcm_precision
+      implicit none
+      integer(iprec), intent(in) :: idim,jdim
+      integer(iprec) :: i,j
+      integer(iprec),intent(inout) :: imin_j(jdim),iopen(idim,jdim)
+      real(rprec), intent(in) :: bndloc(jdim)
+      real(rprec), intent(in) :: big_vm
+      real(rprec), intent(inout) :: vm(idim,jdim)
+
+       imin_j = CEILING(bndloc)
+
+       do j=1,jdim
+        do i=1,imin_j(j)-1
+          vm(i,j) = big_vm
+          iopen(i,j) = 0
+          end do
+       end do
+      return
+
+      end subroutine reset_rcm_vm
+
+
 ! !====================================================================
 ! !
 !       SUBROUTINE Press2eta(planet_radius) 
@@ -742,241 +1118,6 @@
 !       RETURN
 !       END SUBROUTINE Press2eta
 
-!===================================================================
-    SUBROUTINE Set_ellipse(idim,jdim,rmin,pmin,vm,big_vm,bndloc,iopen)
-
-! routine that fits an ellipse and resets the modeling
-! boundary to be inside the ellipse
-! 6/03 frt
-! inputs:
-!	idim,jdim - size of the 2d rcm arrays (lat, long)
-!	xe,ye - equatorial mapping point of field line from rcm grid
-!	vm - computed flux tube volume ^(-2/3) set to big_vm if open
-!            or outside the ellipse boundary (output)
-! 	bndloc/imin_j - boundary location (output)
-!	a1 - dayside end of ellipse
-!	a2 - nightside location of the ellipse
-!	b - semi minor axis (y) of ellipse
-
-!      USE Rcm_mod_subs, ONLY : iprec,rprec
-      USE rcm_precision
-      USE rice_housekeeping_module, ONLY : ellBdry
-      implicit none
-      integer(iprec) :: idim,jdim
-      real(rprec) :: rmin(idim,jdim), pmin(idim,jdim)
-      real(rprec) :: xe(idim,jdim), ye(idim,jdim)
-      real(rprec) :: vm(idim,jdim)
-      integer(iprec) :: iopen(idim,jdim)
-      real(rprec) :: bndloc(jdim)
-      real(rprec) :: big_vm,a1,a2,a,b,x0,ell
-      real(rprec) :: xP,xM,yMax,dR
-      integer(iprec) :: i,j
-      logical :: isBad
-
-!  x0 = (a1 + a2)/2
-!   a = (a1 - a2)/2
-!
-!                   b
-!           |       |
-!           |       |
-! x<a1------0-------x0-------------a2
-!           |       |
-!           |       |
-!                   b
-!
-
-      xe = rmin * cos(pmin)
-      ye = rmin * sin(pmin)
-
-!K: Replacing these hard-coded values with ellipse type set by XML file
-      a1 = ellBdry%xSun
-      a2 = ellBdry%xTail
-      b  = ellBdry%yDD
-
-      if (ellBdry%isDynamic) then
-        !Tune to current equatorial bounds
-        xP   = maxval(xe     ,mask=iopen<0)
-        xM   = minval(xe     ,mask=iopen<0)
-        yMax = maxval(abs(ye),mask=iopen<0)
-
-        !Enforce max's from XML ellipse
-        a1 = min(a1,xP)
-        a2 = max(a2,xM)
-        b  = min(b ,yMax)        
-      endif
-      
-      x0 = (a1 + a2)/2.
-      a  = (a1 - a2)/2.
-      do j=1,jdim
-        do i=ceiling(bndloc(j)),idim-1
-! now check to see if the point is outside the ellipse, if so
-! reset open and bndloc        
-          ell = ((xe(i,j)-x0)/a)**2+(ye(i,j)/b)**2
-          dR = rmin(i,j) - rmin(i+1,j) !Check for bifurcated equator
-          !isBad = (ell > 1.0) .or. (dR<0)
-          isBad = (ell > 1.0) .or. (iopen(i,j) .ge. 0)
-          if (isBad) then
-            bndloc(j) = i+1
-            iopen(i,j) = 0
-            vm(i,j) = big_vm
-          end if
-        end do
-      end do 
-
-    end subroutine Set_ellipse
-
-
-!------------------------------------
-
-      SUBROUTINE Smooth_eta_at_boundary(idim,jdim,kdim,jwrap,eeta,imin_j)
-! this routine attempts to smooth out high frequency noise at the boundary
-! of the rcm 
-! written 2/06 frt
-!      USE Rcm_mod_subs, ONLY : iprec,rprec
-      USE rcm_precision
-      IMPLICIT NONE
-      INTEGER(iprec) :: idim,jdim,kdim,jwrap
-      INTEGER(iprec) :: imin_j(jdim)
-      INTEGER(iprec) :: i,j,k,jm,jmm,jp,jpp
-      REAL(rprec) :: eeta(idim,jdim,kdim)
-      REAL(rprec) :: eetas2d(jdim,kdim)
-! these are the smoothing weights
-      REAL(rprec), PARAMETER :: a1 = 1.0  
-      REAL(rprec), PARAMETER :: a2 = 1.0  
-      REAL(rprec), PARAMETER :: a3 = 2.0  
-      REAL(rprec), PARAMETER :: a4 = 1.0  
-      REAL(rprec), PARAMETER :: a5 = 1.0  
-! now do the smoothing
-
-      do k=1,kdim
-       do j=1,jdim
-
-! 1 <=> jdim -jwrap +1
-! jdim <=> jwrap
-       jmm = j - 2
-       if(jmm < 1)jmm = jdim - jwrap - 1       
-       jm  = j - 1
-       if(jm < 1) jm = jdim - jwrap       
-       jpp = j + 2
-       if(jpp > jdim)jpp = jwrap + 2
-       jp  = j + 1
-       if(jp > jdim) jp = jwrap + 1
-! now smooth
-       eetas2d(j,k) = &
-          ( a1*eeta(imin_j(jmm),jmm,k) + &
-            a2*eeta(imin_j(jm ),jm ,k) + &
-            a3*eeta(imin_j(j  ),j  ,k) + &
-            a4*eeta(imin_j(jp ),jp ,k) + &
-            a5*eeta(imin_j(jpp),jpp,k) )/(a1+a2+a3+a4+a5) 
-
-           end do
-          end do
-! now reset the boundary values
-        do k=1,kdim
-         do j=1,jdim
-          eeta(imin_j(j),j,k) = eetas2d(j,k)
-         end do      
-        end do      
-       return
-END SUBROUTINE Smooth_eta_at_boundary
-
-      SUBROUTINE Smooth_boundary_location(idim,jdim,jwrap,bndloc)
-!      USE Rcm_mod_subs, ONLY : iprec,rprec
-      USE rice_housekeeping_module
-      IMPLICIT NONE
-      INTEGER(iprec), INTENT(IN) :: idim,jdim,jwrap
-      REAL(rprec), INTENT(IN OUT) :: bndloc(jdim)
-
-      INTEGER(iprec) :: i,j,jp,jm
-      REAL(rprec) :: bndloc_new(jdim)
-      REAL(rprec), PARAMETER :: am = 1, a0 =2, ap = 1
-
-     
-      if (L_write_vars_debug) then
-       write(6,*)' smooth_boundary_location, old boundary'
-       write(6,*)bndloc
-      end if
-! 1 <=> jdim -jwrap +1
-! jdim <=> jwrap
-      do j=1,jdim
-       jm  = j - 1
-       if(jm < 1) jm = jdim - jwrap 
-       jp  = j + 1
-       if(jp > jdim) jp = jwrap + 1
-
-       bndloc_new(j) = (am*bndloc(jm) + a0*bndloc(j) + ap*bndloc(jp))/(am+a0+ap)
-
-      end do
-
-      bndloc(:) = max(bndloc_new(:),bndloc(:))
-
-      if (L_write_vars_debug) then
-       write(6,*)' smooth_boundary_location, new boundary'
-       write(6,*)bndloc
-      end if
-
-      return
-    
-      END SUBROUTINE Smooth_boundary_location
-
-!
-      subroutine set_plasmasphere(icontrol,idim,jdim,kdim,xmin,ymin,rmin,vm,eeta,imin_j)
-! subroutine set_plasmasphere(idim,jdim,kdim,rmin,pmin,vm,eeta,imin_j)
-! crude routine to set a plasmasphere model in the rcm
-! alam(1) should be set to a small value (0.01)
-! 2/07 frt
-! Use the gallagher model for initial condition, update plasmaspheric eeta in each RCM call
-! alam(1) is set to be 0
-! sbao 03/25
-
-      USE rcm_precision
-      USE earthhelper, ONLY : GallagherXY
-      USE constants, ONLY: density_factor
-      USE rice_housekeeping_module, ONLY: InitKp, staticR
-      Use rcm_mhd_interfaces, ONLY: RCMCOLDSTART
-
-      IMPLICIT NONE
-
-      integer(iprec) :: idim,jdim,kdim,icontrol
-      real(rprec) :: dens_gal = 0.0
-      integer(iprec) :: imin_j(jdim)
-      real(rprec) :: vm(idim,jdim),xmin(idim,jdim),ymin(idim,jdim),rmin(idim,jdim)
-      real(rprec) :: eeta(idim,jdim,kdim)
-
-      integer(iprec) :: i,j,k
-
-      if (icontrol == RCMCOLDSTART) then
-        do j=1,jdim
-          do i=imin_j(j),idim
-            if(vm(i,j) > 0.0)then
-              dens_gal = GallagherXY(xmin(i,j),ymin(i,j),InitKp)*1.0e6
-              eeta(i,j,1) = dens_gal/(density_factor*vm(i,j)**1.5)
-            end if
-          end do
-        end do
-      else
-        ! reset the static part of the plasmasphere sbao 07292020
-        !Tweak by K: 8/7/20
-        if (staticR > 2.0) then
-          !$OMP PARALLEL DO default(shared) &
-          !$OMP schedule(dynamic) &
-          !$OMP private(i,j,dens_gal)
-          do j=1,jdim
-            do i=imin_j(j),idim
-              if(rmin(i,j) <= staticR .and. vm(i,j) > 0.0)then
-                !eeta (i,j,1) = eeta_pls0 (i,j)
-                dens_gal = GallagherXY(xmin(i,j),ymin(i,j),InitKp)*1.0e6
-                eeta(i,j,1) = dens_gal/(density_factor*vm(i,j)**1.5)
-              end if
-            end do
-          end do
-        end if !staticR
-      endif !RCMCOLDSTART
-
-      return
-
-      end subroutine set_plasmasphere
-
 !-------------------------------------
       subroutine print_max(nx,ny,nz,label,array,x,y,z)
 ! routine to find, and print the max value of a quantity on a 3D array
@@ -1143,30 +1284,6 @@ END SUBROUTINE Smooth_eta_at_boundary
 
       return
       end subroutine print_min_integer
-!------------------------------------------      
-      subroutine reset_rcm_vm(idim,jdim,bndloc,big_vm,imin_j,vm,iopen)
-! this routine resets imin_j, vm, and open based on a newly set bndloc      
-!      USE Rcm_mod_subs, ONLY: rprec,iprec
-      USE rcm_precision
-      implicit none
-      integer(iprec), intent(in) :: idim,jdim
-      integer(iprec) :: i,j
-      integer(iprec),intent(inout) :: imin_j(jdim),iopen(idim,jdim)
-      real(rprec), intent(in) :: bndloc(jdim)
-      real(rprec), intent(in) :: big_vm
-      real(rprec), intent(inout) :: vm(idim,jdim)
-
-       imin_j = CEILING(bndloc)
-
-       do j=1,jdim
-        do i=1,imin_j(j)-1
-          vm(i,j) = big_vm
-          iopen(i,j) = 0
-          end do
-       end do
-      return
-
-      end subroutine reset_rcm_vm
 
 ! converts geo to sm for iflag = 1 or sm to geo for iflag =-1
 ! ! frt 7/12 
@@ -1269,7 +1386,6 @@ END SUBROUTINE Smooth_eta_at_boundary
       allocate(ti(idim,jdim))
       allocate(to(idim,jdim))
       allocate(beta_average(idim,jdim))
-      allocate(eetabnd(jdim,kdim))
       allocate(iopen(idim,jdim))
       ! 3d arrays
       allocate(eeta_new(idim,jdim,kdim))

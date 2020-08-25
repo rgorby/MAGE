@@ -24,6 +24,7 @@ pCut = 1.0e-8
 MHDCol = "red"
 eLW = 0.05
 MHDLW = 0.5
+
 #Take axis and rcmdata object and add pressure plot
 def RCMInset(AxRCM,rcmdata,nStp,vP):
 	if (AxRCM is None):

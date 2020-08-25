@@ -170,9 +170,9 @@
       RM%flux    = eflux   (:,jwrap:jsize,:)
       RM%eng_avg = eavg    (:,jwrap:jsize,:)
       RM%fac     = birk    (:,jwrap:jsize)
-      
+
       RM%toMHD = .false.
-      !dRad = ellBdry%dRadMHD*radius_earth_m
+      
       dRad = ellBdry%dRadMHD*RM%planet_radius
 
       do j=jwrap,jsize
