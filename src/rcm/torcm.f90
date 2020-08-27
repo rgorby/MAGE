@@ -147,7 +147,6 @@
 !     On open field lines, values of ETA will be zero:
 
       CALL Gettemp (RM%planet_radius,ierr)
-
       IF (ierr < 0) RETURN
       
       CALL Press2eta(RM%planet_radius)       ! this populates EETA_NEW array
@@ -159,7 +158,6 @@
 
       ! It must come after calls to calc_ftv and press2eta.
       ! this is where we must set initial conditions:
-
       IF (icontrol==RCMCOLDSTART) THEN
         write(6,*)' TORCM: initializing the RCM arrays at t=',itimei
         bndloc_old = bndloc
@@ -207,7 +205,6 @@
             else
               eeta(i,j,:)  = eeta_new(i,j,: )
             endif
-
           else !Open/Undefined topology
             !Just zap everything
             eeta(i,j,:) = 0.0
@@ -217,15 +214,7 @@
             pmin(i,j) = 0.0
             xmin(i,j) = 0.0
             ymin(i,j) = 0.0
-          endif
-
-          if (use_plasmasphere) then
-            !K: 8/20 - use 0 BC for plasmasphere channel
-            eeta(i,j,1 ) = 0.0
-            eeta(i,j,2:) = eeta(imin_j(j),j,2:)
-          else   
-            eeta(i,j,:) = eeta(imin_j(j),j,:)
-          endif
+          endif !iopen
         end do
       end do
 
