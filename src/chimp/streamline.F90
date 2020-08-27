@@ -683,7 +683,7 @@ module streamline
             ds = sgn*Model%epsds*min(dl,dsmag)
         !Update position
             !Convert ds to streamline units
-            ds = ds/MagB
+            ds = ds/max(MagB,TINY)
             
             !Get powers of jacobian
             Jb  = matmul(JacB,B  )
