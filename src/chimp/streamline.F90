@@ -520,7 +520,7 @@ module streamline
         real(rp), dimension(NDIM) :: Xn,B,E,dx
         real(rp), dimension(NDIM) :: Jb,Jb2,Jb3,F1,F2,F3,F4
         real(rp), dimension(NDIM,NDIM) :: JacB
-        real(rp) :: ds,dl,MagJb,dsmag
+        real(rp) :: ds,dl,MagB,MagJb,dsmag
         real(rp), dimension(NVARMHD) :: Q
         integer, dimension(NDIM) :: ijk,ijkG
         type(gcFields_T) :: gcF
@@ -606,15 +606,23 @@ module streamline
                 endif
 
                 !Get new ds
-                MagJb = sqrt(sum(JacB**2.0))
+                MagB  = norm2(B)
+                MagJb = norm2(JacB)
+
+                !MagJb = sqrt(sum(JacB**2.0))
+                dl = getDiag(ebState%ebGr,ijk)
+
                 if (MagJb <= TINY) then
                     !Field is constant-ish, use local grid size
-                    dl = getDiag(ebState%ebGr,ijk)
-                    dsmag = Model%epsds*dl/norm2(B)
+                    dsmag = dl
                 else
-                    dsmag = Model%epsds/MagJb
+                    !Magnetic lengthscale
+                    dsmag = MagB/MagJb
                 endif
-                ds = sgn*min(dl,dsmag)
+
+                dsmag = min(dl,dsmag)
+                ds = sgn*Model%epsds*dsmag/max(MagB,TINY)
+
             endif
         enddo
 
