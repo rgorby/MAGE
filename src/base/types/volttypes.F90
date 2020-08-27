@@ -71,6 +71,8 @@ module volttypes
         logical , dimension(:,:,:)  , allocatable :: isEdible !Good values for MHD to eat (ingest)
         
         integer :: iMax !Possibly changing i-boundary of squish mapping
+        real(rp) :: epsSquish,epsds0 !Epsilon parameter for tracing squish/default respectively
+
     end type chmp2Mhd_T
 
     ! data for gamera -> chimp conversion

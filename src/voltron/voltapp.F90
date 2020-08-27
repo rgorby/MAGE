@@ -144,6 +144,7 @@ module voltapp
         if (vApp%doDeep) then
             !Whether to do fast eb-squishing
             call xmlInp%Set_Val(vApp%doQkSquish,"coupling/doQkSquish",.false.)
+            call xmlInp%Set_Val(vApp%chmp2mhd%epsSquish,"ebsquish/epsSquish",0.05)
 
             !Verify that Gamera has location to hold source info
             if (.not. gApp%Model%doSource) then
@@ -167,7 +168,6 @@ module voltapp
             if(.not. vApp%isSeparate .and. vApp%time > vApp%DeepT) vApp%DeepT = vApp%time
 
             !Initialize deep coupling type/inner magnetosphere model
-            !call InitInnerMag(vApp,gApp%Model%isRestart,xmlInp)
             call InitInnerMag(vApp,gApp,xmlInp)
         endif
 

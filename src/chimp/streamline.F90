@@ -635,7 +635,7 @@ module streamline
         real(rp), dimension(NDIM) :: B,E,dx
         real(rp), dimension(NDIM) :: Jb,Jb2,Jb3,F1,F2,F3,F4
         real(rp), dimension(NDIM,NDIM) :: JacB
-        real(rp) :: ds,dsmag,dl,MagJb,dzSgn
+        real(rp) :: ds,dsmag,dl,MagB,MagJb,dzSgn
         real(rp), dimension(NVARMHD) :: Q
         integer, dimension(NDIM) :: ijk,ijkG
         type(gcFields_T) :: gcF
@@ -648,7 +648,8 @@ module streamline
         Np = 0
         Xn = x0
         dl = getDiag(ebState%ebGr,ijk)
-        ds = sgn*min( Model%epsds*dl/norm2(B), dl )
+        ds = sgn*Model%epsds*dl
+
         ijkG = ijk
 
         if (present(toEquator)) then
@@ -666,21 +667,24 @@ module streamline
             !Get location in ijk using old ijk as guess
             call locate(Xn,ijk,Model,ebState%ebGr,inDom,ijkG)
             call ebFields(Xn,t,Model,ebState,E,B,ijk,gcFields=gcF)
+            MagB = norm2(B)
 
-            ! get the jacobian
+            ! get the jacobian and new ds
             JacB = gcF%JacB
+            MagJb = norm2(JacB)
+            dl = getDiag(ebState%ebGr,ijk)
 
-            !Get new ds
-            MagJb = sqrt(sum(JacB**2.0))
             if (MagJb <= TINY) then
                 !Field is constant-ish, use local grid size
-                dl = getDiag(ebState%ebGr,ijk)
-                dsmag = Model%epsds*dl/norm2(B)
+                dsmag = dl
             else
-                dsmag = Model%epsds/MagJb
+                dsmag = MagB/MagJb
             endif
-            ds = sgn*min(dl,dsmag)     
+            ds = sgn*Model%epsds*min(dl,dsmag)
         !Update position
+            !Convert ds to streamline units
+            ds = ds/MagB
+            
             !Get powers of jacobian
             Jb  = matmul(JacB,B  )
             Jb2 = matmul(JacB,Jb )

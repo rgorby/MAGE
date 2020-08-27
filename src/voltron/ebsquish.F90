@@ -89,6 +89,7 @@ module ebsquish
 
         curSquishBlock = 0
 
+
         end associate
 
     end subroutine SquishStart
@@ -107,6 +108,9 @@ module ebsquish
                   xyzSquish=>vApp%chmp2mhd%xyzSquish,isGood=>vApp%chmp2mhd%isGood)
 
         ProjectXYZ => NULL()
+
+        !Use possibly looser tolerance for squish
+        call SetTrcEpsilon(ebModel,vApp%chmp2mhd%epsSquish)
 
         select case (vApp%prType)
         case(LPPROJ)
@@ -154,6 +158,9 @@ module ebsquish
                 enddo
             enddo
         enddo
+
+        !Reset tolerance
+        call SetTrcEpsilon(ebModel,vApp%chmp2mhd%epsds0)
 
         curSquishBlock = curSquishBlock + 1
 

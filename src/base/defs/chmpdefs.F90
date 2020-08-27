@@ -201,4 +201,14 @@ module chmpdefs
         enddo
 
     end subroutine getDim
+
+    !Does the obvious
+    subroutine SetTrcEpsilon(Model,epsds)
+        type(chmpModel_T), intent(inout) :: Model
+        real(rp), intent(in) :: epsds
+        
+        Model%epsds = epsds
+
+    end subroutine SetTrcEpsilon
+
 end module chmpdefs
