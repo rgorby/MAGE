@@ -41,6 +41,17 @@ set_property(CACHE bricksize PROPERTY STRINGS 8 16 32)
 add_compile_definitions(BRICKSIZE=${bricksize})
 mark_as_advanced(bricksize)
 
+#RCM grid size (required to be defined at compile time)
+set(RCMSIZEI 200 CACHE STRING "RCM Grid: Number of Colatitude Cells")
+set(RCMSIZEJ 101 CACHE STRING "RCM Grid: Number of Longitude Cells")
+set(RCMSIZEK 90  CACHE STRING "RCM Grid: Number of Lambda Cells")
+set(RCMWRAPJ 3   CACHE STRING "RCM Grid: Number of periodic wrap cells")
+mark_as_advanced(RCMWRAPJ)
+add_compile_definitions(RCMSIZEI=${RCMSIZEI})
+add_compile_definitions(RCMSIZEJ=${RCMSIZEJ})
+add_compile_definitions(RCMSIZEK=${RCMSIZEK})
+add_compile_definitions(RCMWRAPJ=${RCMWRAPJ})
+
 #-------------
 #Set default IC files
 file(GLOB GAMICDEF src/gamera/ICs/null.F90)

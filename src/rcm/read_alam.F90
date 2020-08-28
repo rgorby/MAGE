@@ -1,9 +1,10 @@
       SUBROUTINE Read_alam (kdim, alam, iflav,fudge, almdel, &
                             almmax, almmin, iedim, ierr)
-!      USE Rcm_mod_subs, ONLY : iprec,rprec
+      use rcmdefs
       USE rcm_precision
       use ioh5
       use files
+
       IMPLICIT NONE
       INTEGER(iprec), INTENT (IN) :: kdim, iedim
       INTEGER(iprec), INTENT (OUT) :: ierr
@@ -25,7 +26,6 @@
       logical :: doSP
 
       INCLUDE 'rcmdir.h'
-      INCLUDE 'rcm_include.h'
 ! 
       if (isGAMRCM) then
 

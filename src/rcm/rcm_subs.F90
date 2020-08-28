@@ -1,5 +1,6 @@
 !
     MODULE Rcm_mod_subs
+    use rcmdefs
     use rcm_precision
     IMPLICIT NONE
     SAVE
@@ -13,7 +14,6 @@
 !    INTEGER, PARAMETER :: rprec = rp
 !
 !
-    INCLUDE 'rcm_include.h'
 !
 !
 !      Define a number of universal useful constants and parameters:
@@ -94,7 +94,6 @@
 !
 !
     LOGICAL ::  L_move_plasma_grid = .TRUE.
-    LOGICAL ::  L_doKaiClaw        = .FALSE.
     LOGICAL ::  L_doOMPClaw        = .FALSE.
 !
 !
@@ -756,11 +755,7 @@
 !      CALL Move_plasma_grid (dt, 1, isize, j1, j2, 1)
        STOP 'This option is no longer available, aborting RCM'
     ELSE IF (i_advect == 3) THEN
-        IF (L_doKaiClaw) THEN
-          CALL Move_plasma_grid_KAIJU (dt)
-        ELSE
-          CALL Move_plasma_grid_new (dt)
-        ENDIF
+        CALL Move_plasma_grid_new (dt)
     ELSE
        STOP 'ILLEGAL I_ADVECT IN MOVING PLASMA'
     END IF
@@ -2173,7 +2168,6 @@ real :: v_1_1, v_1_2, v_2_1, v_2_2
           call xmlInp%Set_Val(sunspot_number,"chargex/sunspot_number",96.0)
 
           !Clawpack options
-          call xmlInp%Set_Val(L_doKaiClaw,"clawpack/doKaiClaw",L_doKaiClaw)
           call xmlInp%Set_Val(L_doOMPClaw,"clawpack/doOMPClaw",L_doOMPClaw)
 
           !Some values just setting
@@ -2443,141 +2437,7 @@ real :: v_1_1, v_1_2, v_2_1, v_2_2
 !
 !
 !=========================================================================
-!=========================================================================
-!Attempt by K: to incorporate newer clawpack 04/20
-SUBROUTINE Move_plasma_grid_KAIJU (dt)
-  USE rcmclaw, only : claw2ez95
-  IMPLICIT NONE
 
-  real(rprec), intent(in) :: dt
-
-  real(rprec), dimension(isize,jsize) :: eeta2,veff,dvefdi,dvefdj
-  real(rprec), dimension(-1:isize+2,-1:jsize-1) :: loc_didt,loc_djdt,loc_Eta, loc_rate
-  real(rprec) :: didt,djdt,mass_factor,r_dist
-  integer(iprec) :: i,j,kc,ie,joff,icut,clawiter
-  REAL (rprec) :: max_eeta, eps = 0.0 !sbao 07/2019
-
-  write(*,*) 'move_plasma_grid_kaiju is currently disabled until it is fixed ...'
-  stop
-
-  joff=jwrap-1
-  fac = 1.0E-3*signbe*bir*alpha*beta*dlam*dpsi*ri**2
-
-  
-  !$OMP PARALLEL DO default(NONE) &
-  !$OMP schedule(dynamic) &
-  !$OMP private (i,j,kc,ie,icut,clawiter) &
-  !$OMP private (eeta2,veff,dvefdi,dvefdj,didt,djdt) &
-  !$OMP private (mass_factor,loc_didt,loc_djdt) &
-  !$OMP private (loc_Eta,loc_rate,r_dist,max_eeta) &
-  !$OMP shared (alamc,eeta,v,vcorot,vpar,vm,imin_j,j1,j2,joff) &
-  !$OMP shared (xmin,ymin,rmin,aloct,fac,fudgec,bir,sini,L_dktime,dktime,sunspot_number) &
-  !$OMP shared (dt,eps)
-  DO kc = 1, kcsize
-    !If oxygen is to be added, must change this!
-    IF (alamc(kc) <= 0.0) THEN
-      ie = RCMELECTRON
-    ELSE
-      ie = RCMPROTON
-    END IF
-
-    IF (maxval(eeta(:,:,kc)) == 0.0) then
-      cycle
-    ENDIF
-    mass_factor = SQRT (xmass(1)/xmass(ie))
-
-    !K: Here we're adding corotation to total effective potential
-    veff = v + vcorot - vpar + vm*alamc(kc)
-
-    dvefdi = Deriv_i (veff, imin_j)
-    dvefdj = Deriv_j (veff, imin_j, j1, j2, 1.0E+26_rprec)
-    !K: Why only dvefdj and not dvefdi?
-    WHERE (dvefdj > 1.0E+20)
-      dvefdj = 0.0
-    END WHERE
-
-    loc_Eta  = zero
-    loc_didt = zero
-    loc_djdt = zero
-    loc_rate = zero
-
-    icut=0
-    do j=j1,j2
-      icut=max(icut,imin_j(j))
-      do i=imin_j(j),isize-1
-        if (eeta(i,j,kc) > 1.) then
-          icut=max(icut,i)
-        endif
-      end do
-    end do !j loop
-    icut=icut+5
-
-    DO j = j1, j2
-      DO i = 2, isize-1
-        loc_didt (i,j-joff) = + dvefdj (i-1,j) / fac(i-1,j)
-        loc_djdt (i,j-joff) = - dvefdi (i,j-1) / fac(i-1,j)
-        IF (i > icut) THEN
-          loc_didt(i,j-joff) = 0.0
-          loc_djdt(i,j-joff) = 0.0
-        END IF
-!
-        IF (ie == RCMELECTRON) THEN
-          loc_rate(i,j-joff) = Ratefn (fudgec(kc), alamc(kc), sini(i,j),&
-                                       bir (i,j), vm(i,j), mass_factor)
-        ELSE IF (ie == RCMPROTON) THEN
-          IF (L_dktime .AND. i >= imin_j(j)) THEN
-            r_dist = SQRT(xmin(i,j)**2+ymin(i,j)**2)
-            loc_rate(i,j-joff) = Cexrat (ie, ABS(alamc(kc))*vm(i,j)    , &
-                                          R_dist,sunspot_number, dktime, &
-                                          irdk,inrgdk,isodk,iondk)
-                                          
-          ELSE
-            loc_rate(i,j-joff) = 0.0
-          END IF
-        ELSE
-          STOP 'UNKNOWN IE IN COMPUTING LOSS'
-        END IF !ie = X
-
-      END DO ! i loop
-
-      loc_didt(isize,j-joff) = loc_didt(isize-1,j-joff)
-      loc_djdt(isize,j-joff) = loc_djdt(isize-1,j-joff)
-      loc_rate(isize,j-joff) = loc_rate(isize-1,j-joff)
-    END DO ! j loop
-
-    !Copy to local variables
-    loc_Eta (1:isize, 1:jsize-jwrap) = eeta (1:isize, jwrap:jsize-1, kc)     
-
-    !Call clawpack
-    call claw2ez95(dt,loc_Eta(1:isize,1:jsize-jwrap),loc_didt(1:isize,1:jsize-jwrap),loc_djdt(1:isize,1:jsize-jwrap),loc_rate(1:isize,1:jsize-jwrap),clawiter)
-    
-    !Copy out
-    DO j = j1, j2
-      DO i = imin_j(j)+1, isize-1
-        eeta (i, j, kc) = loc_Eta (i, j-joff)
-      END DO
-    END DO !j loop
-
-    DO j = j1, j2
-      IF (veff(imin_j(j+1),j+1)-veff(imin_j(j-1),j-1) < 0.0) THEN
-        eeta (imin_j(j),j,kc) = loc_eta (imin_j(j),j-joff)
-      END IF
-    END DO !j loop
-
-    !floor eeta 12/06 frt
-    max_eeta = maxval(eeta(:,:,kc))
-    eeta(:,:,kc) = MAX(eps*max_eeta,eeta(:,:,kc))
-
-    if (kc == 1) then
-      ! refill the plasmasphere  04012020 sbao
-      CALL Plasmasphere_Refilling_Model(eeta(:,:,1), rmin, aloct, vm, dt)
-    endif
-
-    CALL Circle (eeta(:,:,kc))    
-  
-  ENDDO !kc loop
-
-END SUBROUTINE Move_plasma_grid_KAIJU
 
 !=========================================================================
 !
