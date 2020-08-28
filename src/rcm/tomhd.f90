@@ -154,8 +154,10 @@
         ENDDO !i
       ENDDO !j
 
-
-  !    write(*,*) "rcm/tomhd.f90: eeta_avg(50,50,50)=",eeta_avg(50,50,50)
+      if ( isnan(sum(densrcm)+sum(pressrcm)) ) then
+        write(*,*) 'NaN in RCM-DEN/P at tomhd'
+        stop
+      endif
  
       max_xmin = maxval(xmin)
       max_ymin = maxval(ymin)
@@ -163,7 +165,6 @@
       min_ymin = minval(ymin)
  
 !     now update the pressure and density in the mhd code  
-
       RM%Prcm    = pressrcm(:,jwrap:jsize)
       RM%Nrcm    = densrcm (:,jwrap:jsize)
       RM%Npsph   = denspsph(:,jwrap:jsize)

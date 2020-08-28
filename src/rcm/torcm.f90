@@ -247,157 +247,11 @@
       !Return updates to topology, CLOSED=>NULL in buffer region to RM object
       RM%iopen   = iopen   (:,jwrap:jsize)
 
-    !K: OLD STUFF
-      ! IF(set_boundary_with_beta)then
-      !   do j=1,jsize
-      !     do i=ceiling(bndloc(j)),isize-1
-      !       IF(beta_average(i,j) > max_beta)then
-      !         bndloc(j) = i+1
-      !         vm(1:i,j) = big_vm
-      !         iopen(1:i,j) = 0
-      !       END IF
-      !     end do
-      !   end do
-      !   imin_j = ceiling(bndloc)
-      ! END IF
+      if (isnan(sum(eeta))) then
+        write(*,*) 'Bad eeta at end of torcm!'
+        stop
+      endif
 
-      ! ! smooth boundary location 
-      ! do ns=1,n_smooth
-      !   if (doRCMVerbose) write(6,*)' smoothing rcm boundary, ns =', ns
-      !   call smooth_boundary_location(isize,jsize,jwrap,bndloc)
-      !   call reset_rcm_vm(isize,jsize,bndloc,big_vm,imin_j,vm,iopen) ! adjust Imin_j
-      ! end do
-
-      ! if (n_smooth < 1) call reset_rcm_vm(isize,jsize,bndloc,big_vm,imin_j,vm,iopen)
-
-! ! reset mapping points on open field lines
-!       do j=1,jsize
-!         do i=1,imin_j(j)-1
-!           rmin(i,j) = 0.0
-!           pmin(i,j) = 0.0
-!         end do
-!       end do
-
-! !---->Set new EETA from lfm code pressure. 
-! !     On open field lines, values of ETA will be zero:
-
-!       CALL Gettemp (RM%planet_radius,ierr)
-
-!       IF (ierr < 0) RETURN
-      
-!       CALL Press2eta(RM%planet_radius)       ! this populates EETA_NEW array
-
-!       if(maxval(eeta_new) <=0)then
-!         write(6,*)' something is wrong in the new eeta arrays'
-!         Stop
-!       end if
-
-!       ! It must come after calls to calc_ftv and press2eta.
-!       ! this is where we must set initial conditions:
-
-!       IF (icontrol==RCMCOLDSTART) THEN
-!         write(6,*)' TORCM: initializing the RCM arrays at t=',itimei
-!         bndloc_old = bndloc
-!         imin_j_old = imin_j
-!         eeta       = eeta_new  ! this is initial conditions on plasma
-!       END IF
-
-!       ! initialize the dynamic plasmasphere   sbao 03282020
-!       call set_plasmasphere(icontrol,isize,jsize,kcsize,xmin,ymin,rmin,vm,eeta,imin_j)
-      
-!       ! just in case:
-!       imin_j     = CEILING(bndloc)
-!       imin_j_old = CEILING(bndloc_old)
-
-!       if (doRCMVerbose) then
-!         write(*,*)'imin_j',imin_j
-!         write(*,*)'imin_j_old',imin_j_old
-!       endif
-
-
-!       DO k=1,kcsize
-!         DO j=1,jsize
-
-!           inew = imin_j(j)
-!           iold = imin_j_old(j)
-
-!           ! values on the (new) boundary and outside are from MHD:
-
-!           IF (inew < iold) then
-
-!             ! There are newly-acquired points inside the modeling region,
-!             ! assign MHD-produced values to them:
-
-!             eeta (inew+1:iold,j,k) = eeta_new(inew+1:iold,j,k)
-
-!           END IF
-
-!         END DO
-!       END DO
-
- 
-      
-! ! smooth eeta at the boundary
-!       CALL Smooth_eta_at_boundary(isize,jsize,kcsize,jwrap,eeta,imin_j)
-
-! ! now reset eeta outside the rcm to be eeta at the boundary
-!       do j=1,jsize
-!         do i=1,imin_j(j)-1
-!           if (use_plasmasphere) then
-!             !K: 8/20 - use 0 BC for plasmasphere channel
-!             eeta(i,j,1 ) = 0.0
-!             eeta(i,j,2:) = eeta(imin_j(j),j,2:)
-!           else   
-!             eeta(i,j,:) = eeta(imin_j(j),j,:)
-!           endif
-!         end do
-!       end do
-
-! ! ensure open lines have zero content, K: 8/20
-!       do j=1,jsize
-!         do i=1,isize
-!           if (iopen(i,j) == RCMTOPOPEN) then
-!             eeta(i,j,:) = 0.0
-!           endif
-!         enddo
-!       enddo
-
-! ! import ionosphere
-!    call Ionosphere_toRCM(RM)
-
-! !-----------------------Write to rcmu_torcm.dat-----------------
-! ! this file is for plotting and/or debugging. RCM itselt does not need it.
-
-!       IF (L_write_rcmu_torcm ) then
-!           IF (itimei==0) THEN
-!               OPEN (LUN, FILE=rcmdir//'rcmu_torcm.dat',form='unformatted', STATUS = 'replace')
-!               WRITE (LUN) isize,jsize,kcsize
-!           ELSE
-!               OPEN (LUN,file=rcmdir//'rcmu_torcm.dat',form='unformatted', status='old',position='append')
-!           END IF
-!           WRITE (LUN) itimei, alamc, x0, y0, z0, rmin, pmin,&
-!                       iopen, vm, press, den, bmin, ti, te, beta_average,v,eeta_new
-!           CLOSE (LUN)
-!       END IF
-! !----------------- end write to rcmu_torcm.dat-------------------
-
-
-!       ! Complete preparing B-field arrays for RCM. We already have
-!       ! vm, bndloc, rmin, and pmin. Still need xmin and Ymin:
-!       ! xmin,ymin comes from the MHD code
-
-! !      xmin = rmin * COS (pmin)
-! !      ymin = rmin * SIN (pmin)
-!       DO j = 1, jsize
-!         xmin(1:imin_j(j)-1,j) = xmin(imin_j(j),j) 
-!         ymin(1:imin_j(j)-1,j) = ymin(imin_j(j),j) 
-!       END DO
-
-!       DO j = 1, jsize
-!         DO i = imin_j(j),isize
-!           IF (vm(i,j) <= 0.0) STOP 'vm problem in TORCM'
-!         END DO
-!       END DO
 
       RETURN
       END SUBROUTINE Torcm
@@ -405,9 +259,9 @@
       SUBROUTINE Calc_ftv (RM,big_vm,ierr) 
       USE conversion_module
       USE rcm_precision
-      USE constants, ONLY : mass_proton,gamma,one_over_gamma,mu0,radius_earth_m,nt
-      USE RCM_mod_subs,ONLY : isize,jsize,kcsize,bmin, vm, bir,sini,rmin,pmin,&
-                              xmin,ymin,zmin,vbnd,pi,jwrap
+      USE constants, ONLY : nt
+      USE RCM_mod_subs,ONLY : isize,jsize,kcsize,bmin,vm,rmin,pmin,&
+                              xmin,ymin,zmin,vbnd,jwrap
       USE rice_housekeeping_module
       use rcm_mhd_interfaces
 
@@ -454,63 +308,42 @@
 !
       INCLUDE 'rcmdir.h'
 !
-      character(LEN=20) grid
-      character(LEN=80) header
-      integer(iprec),parameter :: imax = 2000
-      real(rprec):: xx(imax), yy(imax), zz(imax) ,bbb(imax)
-      real(rprec):: ftv(imax)
+      integer(iprec) :: i,j
 
-      real(rprec):: xs,ys,zs,xf,yf,zf,xe,ye,ze
-      real(rprec):: dir,gla,glo,pot,poten,ftv1
-      real(rprec):: ds,pp1,pp2,pp3
-      real(rprec):: press1,dens1,x1,y1,z1,beta1
-      real(rprec):: bxe,bye,bze,bbe
+      !Pull RCM-MHD variables into RCM arrays and scale/wrap
+      call EmbiggenWrap(RM%Pave,press)
+      call EmbiggenWrap(RM%Nave,den  )
 
-      integer(iprec) :: jj,ival,i,j,iiit,ii,numm,k
-      integer(iprec) :: i0,j0,i2
-      
-      real(rprec) :: rade
-      REAL(rprec) :: rdist1,rdist2
-      REAL(rprec) :: dx,dy,dz,bf,bx_ion_sm,by_ion_sm,bz_ion_sm
-      REAL(rprec) :: bx_ion_geo,by_ion_geo,bz_ion_geo,radius_ion,bradial_ion
+      call EmbiggenWrap(RM%x_bmin(:,:,1)/RM%planet_radius,xmin)
+      call EmbiggenWrap(RM%x_bmin(:,:,2)/RM%planet_radius,ymin)
+      call EmbiggenWrap(RM%x_bmin(:,:,3)/RM%planet_radius,zmin)
 
-      press (:,jwrap:jsize) = RM%Pave (:,      :)
-      den (:,jwrap:jsize) = RM%Nave (:,      :)
+      call EmbiggenWrap(RM%bmin/nt,bmin)
+      call EmbiggenWrap(RM%beta_average,beta_average)
 
-      xmin (:,jwrap:jsize) = RM%x_bmin (:,      :,1)/RM%planet_radius
-      ymin (:,jwrap:jsize) = RM%x_bmin (:,      :,2)/RM%planet_radius
-      zmin (:,jwrap:jsize) = RM%x_bmin (:,      :,3)/RM%planet_radius
+      call EmbiggenWrapI(RM%iopen,iopen)
 
-      bmin (:,jwrap:jsize) = RM%bmin (:,      :)/nt ! in nT
-      beta_average (:,jwrap:jsize) = RM%beta_average (:,      :)
-      iopen (:,jwrap:jsize) = RM%iopen (:,      :)
-! wrap
-      do j=1,jwrap-1
-        press (:,         j)  = press (:,jsize-jwrap+j)
-        den (:,           j)  = den (:,jsize-jwrap+j)
-        xmin (:,          j)  = xmin (:,jsize-jwrap+j)
-        ymin (:,          j)  = ymin (:,jsize-jwrap+j)
-        zmin (:,          j)  = zmin (:,jsize-jwrap+j)
-        bmin (:,          j)  = bmin (:,jsize-jwrap+j)
-        beta_average (:,  j)  = beta_average (:,jsize-jwrap+j)
-        iopen (:,         j)  = iopen (:,jsize-jwrap+j)
-      end do
-
-      ! now compute vm and find the boundary
+      ! compute vm and find boundaries
+      ! (K: doing in two stages to avoid open/closed/open corner case)
+      vm(:,:) = big_vm
       do j=jwrap,jsize
-        vbnd(j) =1
-        vm(:,j) = big_vm
         do i=isize,1,-1
-          if( iopen(i,j).ge.0)then
+          if (iopen(i,j) == RCMTOPCLOSED) then
+            vm(i,j) = 1.0/(RM%vol(i,j-jwrap+1)*nt)**(2.0/3) ! (nt/re)^0.667
+          endif
+        enddo
+      enddo
+
+      do j=jwrap,jsize
+        do i=isize,1,-1
+          if ( iopen(i,j) .ge. 0 ) then
             vbnd(j) = i
             exit
-          else
-            vm(i,j) = 1.0/(RM%vol(i,j-jwrap+1)*nt)**0.667 ! (nt/re)^0.667
           endif
+        enddo
+      enddo
 
-        end do
-      end do
-
+      ! wrap vm/vbnd
       do j=1,jwrap-1
         vm (:, j) = vm (:,jsize-jwrap+j)
         vbnd(j)   = vbnd(jsize-jwrap+j)
@@ -518,14 +351,50 @@
 
       ! compute rmin,pmin
       rmin = sqrt(xmin**2 + ymin**2 + zmin**2)
-      !rmin = sqrt(xmin**2 + ymin**2)
-
       pmin = atan2(ymin,xmin)
+
+      if (isnan(sum(vm))) then
+        write(*,*) 'RCM: NaN in Calc_FTV'
+        ierr = 1
+        stop
+      endif
 
       ierr = 0
 
-      RETURN 
+      RETURN
+
+      contains
+        !Copy A (RCM/MHD-sized) into B (RCM-sized) and wrap (fill periodic)
+        subroutine EmbiggenWrap(rmA,rcmA)
+          REAL(rprec), intent(in)    :: rmA (isize,jsize-jwrap+1)
+          REAL(rprec), intent(inout) :: rcmA(isize,jsize)
+
+          INTEGER(iprec) :: j
+
+          rcmA(:,jwrap:jsize) = rmA(:,:)
+          do j=1,jwrap-1
+            rcmA(:,j) = rcmA(:,jsize-jwrap+j)
+          enddo
+
+        end subroutine EmbiggenWrap
+
+        !Same as above, but for int
+        subroutine EmbiggenWrapI(rmA,rcmA)
+          INTEGER(iprec), intent(in)    :: rmA (isize,jsize-jwrap+1)
+          INTEGER(iprec), intent(inout) :: rcmA(isize,jsize)
+
+          INTEGER(iprec) :: j
+
+          rcmA(:,jwrap:jsize) = rmA(:,:)
+          do j=1,jwrap-1
+            rcmA(:,j) = rcmA(:,jsize-jwrap+j)
+          enddo
+
+        end subroutine EmbiggenWrapI
+
       END SUBROUTINE Calc_ftv
+
+
 !--------------------------------------------------
 !
       SUBROUTINE Gettemp (planet_radius,ierr)
@@ -581,6 +450,7 @@
             ti(i,j) = 0.0
             te(i,j) = 0.0
           ENDIF
+
         ENDDO
       ENDDO
 
@@ -594,7 +464,7 @@
       RETURN
       END SUBROUTINE Gettemp
 !
-      
+!===================================================================      
       SUBROUTINE Press2eta(planet_radius) 
       USE conversion_module
       USE rcm_precision
@@ -644,11 +514,11 @@
               !Get right temperature
               IF (ikflavc(k) == 1) THEN  ! electrons
                 t = te (i,j)
-              ELSE  IF (ikflavc(k) == 2) THEN ! ions (protons)
+              ELSE IF (ikflavc(k) == 2) THEN ! ions (protons)
                 t = ti (i,j)
-              ELSE
-                STOP 'ILLEGAL IKFLAVC(K) IN PRESS2ETA'
-              END IF
+              ENDIF
+              !K: Removing stop inside OMP loop
+              !STOP 'ILLEGAL IKFLAVC(K) IN PRESS2ETA'
 
               xp = SQRT(ev*ABS(almmax(k))*vm(i,j)/boltz/t)
               xm = SQRT(ev*ABS(almmin(k))*vm(i,j)/boltz/t)
@@ -661,7 +531,7 @@
               pcumsum = pcumsum + pcon
             enddo !k loop
             !write(*,*) 'ij / pmhd prcm = ', i,j,press(i,j),pcumsum
-          else
+          else !Not good MHD
             eeta_new(i,j,:) = 0.0
           endif
 
@@ -1274,6 +1144,56 @@ END SUBROUTINE Smooth_eta_at_boundary
       return
       end subroutine print_min_integer
 
+
+!
+!======================================
+      subroutine allocate_conversion_arrays(isize,jsize,kcsize)
+! used to allocate memory for the exchange arrays      
+! 7/09 frt
+      use conversion_module
+!      use rcm_mod_subs, only : iprec
+      USE rcm_precision, only : iprec
+      implicit none
+      integer(iprec),intent(in) :: isize,jsize,kcsize
+      integer(iprec) :: idim,jdim,kdim
+! if the arrays are allocated, then return
+      if(allocated(x0))return
+
+      idim = isize
+      jdim = jsize
+      kdim = kcsize
+
+      write(*,*)' Allocating conversion arrays'
+
+      ! 1d arrays
+      allocate(imin_j_old(jdim))
+      allocate(bndloc_old(jdim))
+      allocate(almmin(kdim))
+      allocate(almmax(kdim))
+      allocate(almdel(kdim))
+      ! 2d arrays
+      allocate(x0_sm(idim,jdim))
+      allocate(y0_sm(idim,jdim))
+      allocate(z0_sm(idim,jdim))
+      allocate(x0(idim,jdim))
+      allocate(y0(idim,jdim))
+      allocate(z0(idim,jdim))
+      allocate(den(idim,jdim))
+      allocate(press(idim,jdim))
+      allocate(deno(idim,jdim))
+      allocate(presso(idim,jdim))
+      allocate(te(idim,jdim))
+      allocate(ti(idim,jdim))
+      allocate(to(idim,jdim))
+      allocate(beta_average(idim,jdim))
+      allocate(iopen(idim,jdim))
+      ! 3d arrays
+      allocate(eeta_new(idim,jdim,kdim))
+    
+     return
+
+     end subroutine allocate_conversion_arrays 
+
 ! converts geo to sm for iflag = 1 or sm to geo for iflag =-1
 ! ! frt 7/12 
 !       subroutine geo2sm(idim,jdim,xgeo,ygeo,zgeo,xsm,ysm,zsm,iflag)
@@ -1334,53 +1254,155 @@ END SUBROUTINE Smooth_eta_at_boundary
 !       endif
 
 !      end subroutine geo2sm
-!
-!======================================
-      subroutine allocate_conversion_arrays(isize,jsize,kcsize)
-! used to allocate memory for the exchange arrays      
-! 7/09 frt
-      use conversion_module
-!      use rcm_mod_subs, only : iprec
-      USE rcm_precision, only : iprec
-      implicit none
-      integer(iprec),intent(in) :: isize,jsize,kcsize
-      integer(iprec) :: idim,jdim,kdim
-! if the arrays are allocated, then return
-      if(allocated(x0))return
 
-      idim = isize
-      jdim = jsize
-      kdim = kcsize
+         !K: OLD STUFF
+      ! IF(set_boundary_with_beta)then
+      !   do j=1,jsize
+      !     do i=ceiling(bndloc(j)),isize-1
+      !       IF(beta_average(i,j) > max_beta)then
+      !         bndloc(j) = i+1
+      !         vm(1:i,j) = big_vm
+      !         iopen(1:i,j) = 0
+      !       END IF
+      !     end do
+      !   end do
+      !   imin_j = ceiling(bndloc)
+      ! END IF
 
-      write(*,*)' Allocating conversion arrays'
+      ! ! smooth boundary location 
+      ! do ns=1,n_smooth
+      !   if (doRCMVerbose) write(6,*)' smoothing rcm boundary, ns =', ns
+      !   call smooth_boundary_location(isize,jsize,jwrap,bndloc)
+      !   call reset_rcm_vm(isize,jsize,bndloc,big_vm,imin_j,vm,iopen) ! adjust Imin_j
+      ! end do
 
-      ! 1d arrays
-      allocate(imin_j_old(jdim))
-      allocate(bndloc_old(jdim))
-      allocate(almmin(kdim))
-      allocate(almmax(kdim))
-      allocate(almdel(kdim))
-      ! 2d arrays
-      allocate(x0_sm(idim,jdim))
-      allocate(y0_sm(idim,jdim))
-      allocate(z0_sm(idim,jdim))
-      allocate(x0(idim,jdim))
-      allocate(y0(idim,jdim))
-      allocate(z0(idim,jdim))
-      allocate(den(idim,jdim))
-      allocate(press(idim,jdim))
-      allocate(deno(idim,jdim))
-      allocate(presso(idim,jdim))
-      allocate(te(idim,jdim))
-      allocate(ti(idim,jdim))
-      allocate(to(idim,jdim))
-      allocate(beta_average(idim,jdim))
-      allocate(iopen(idim,jdim))
-      ! 3d arrays
-      allocate(eeta_new(idim,jdim,kdim))
-    
-     return
+      ! if (n_smooth < 1) call reset_rcm_vm(isize,jsize,bndloc,big_vm,imin_j,vm,iopen)
 
-     end subroutine allocate_conversion_arrays 
+! ! reset mapping points on open field lines
+!       do j=1,jsize
+!         do i=1,imin_j(j)-1
+!           rmin(i,j) = 0.0
+!           pmin(i,j) = 0.0
+!         end do
+!       end do
 
-     
+! !---->Set new EETA from lfm code pressure. 
+! !     On open field lines, values of ETA will be zero:
+
+!       CALL Gettemp (RM%planet_radius,ierr)
+
+!       IF (ierr < 0) RETURN
+      
+!       CALL Press2eta(RM%planet_radius)       ! this populates EETA_NEW array
+
+!       if(maxval(eeta_new) <=0)then
+!         write(6,*)' something is wrong in the new eeta arrays'
+!         Stop
+!       end if
+
+!       ! It must come after calls to calc_ftv and press2eta.
+!       ! this is where we must set initial conditions:
+
+!       IF (icontrol==RCMCOLDSTART) THEN
+!         write(6,*)' TORCM: initializing the RCM arrays at t=',itimei
+!         bndloc_old = bndloc
+!         imin_j_old = imin_j
+!         eeta       = eeta_new  ! this is initial conditions on plasma
+!       END IF
+
+!       ! initialize the dynamic plasmasphere   sbao 03282020
+!       call set_plasmasphere(icontrol,isize,jsize,kcsize,xmin,ymin,rmin,vm,eeta,imin_j)
+      
+!       ! just in case:
+!       imin_j     = CEILING(bndloc)
+!       imin_j_old = CEILING(bndloc_old)
+
+!       if (doRCMVerbose) then
+!         write(*,*)'imin_j',imin_j
+!         write(*,*)'imin_j_old',imin_j_old
+!       endif
+
+
+!       DO k=1,kcsize
+!         DO j=1,jsize
+
+!           inew = imin_j(j)
+!           iold = imin_j_old(j)
+
+!           ! values on the (new) boundary and outside are from MHD:
+
+!           IF (inew < iold) then
+
+!             ! There are newly-acquired points inside the modeling region,
+!             ! assign MHD-produced values to them:
+
+!             eeta (inew+1:iold,j,k) = eeta_new(inew+1:iold,j,k)
+
+!           END IF
+
+!         END DO
+!       END DO
+
+ 
+      
+! ! smooth eeta at the boundary
+!       CALL Smooth_eta_at_boundary(isize,jsize,kcsize,jwrap,eeta,imin_j)
+
+! ! now reset eeta outside the rcm to be eeta at the boundary
+!       do j=1,jsize
+!         do i=1,imin_j(j)-1
+!           if (use_plasmasphere) then
+!             !K: 8/20 - use 0 BC for plasmasphere channel
+!             eeta(i,j,1 ) = 0.0
+!             eeta(i,j,2:) = eeta(imin_j(j),j,2:)
+!           else   
+!             eeta(i,j,:) = eeta(imin_j(j),j,:)
+!           endif
+!         end do
+!       end do
+
+! ! ensure open lines have zero content, K: 8/20
+!       do j=1,jsize
+!         do i=1,isize
+!           if (iopen(i,j) == RCMTOPOPEN) then
+!             eeta(i,j,:) = 0.0
+!           endif
+!         enddo
+!       enddo
+
+! ! import ionosphere
+!    call Ionosphere_toRCM(RM)
+
+! !-----------------------Write to rcmu_torcm.dat-----------------
+! ! this file is for plotting and/or debugging. RCM itselt does not need it.
+
+!       IF (L_write_rcmu_torcm ) then
+!           IF (itimei==0) THEN
+!               OPEN (LUN, FILE=rcmdir//'rcmu_torcm.dat',form='unformatted', STATUS = 'replace')
+!               WRITE (LUN) isize,jsize,kcsize
+!           ELSE
+!               OPEN (LUN,file=rcmdir//'rcmu_torcm.dat',form='unformatted', status='old',position='append')
+!           END IF
+!           WRITE (LUN) itimei, alamc, x0, y0, z0, rmin, pmin,&
+!                       iopen, vm, press, den, bmin, ti, te, beta_average,v,eeta_new
+!           CLOSE (LUN)
+!       END IF
+! !----------------- end write to rcmu_torcm.dat-------------------
+
+
+!       ! Complete preparing B-field arrays for RCM. We already have
+!       ! vm, bndloc, rmin, and pmin. Still need xmin and Ymin:
+!       ! xmin,ymin comes from the MHD code
+
+! !      xmin = rmin * COS (pmin)
+! !      ymin = rmin * SIN (pmin)
+!       DO j = 1, jsize
+!         xmin(1:imin_j(j)-1,j) = xmin(imin_j(j),j) 
+!         ymin(1:imin_j(j)-1,j) = ymin(imin_j(j),j) 
+!       END DO
+
+!       DO j = 1, jsize
+!         DO i = imin_j(j),isize
+!           IF (vm(i,j) <= 0.0) STOP 'vm problem in TORCM'
+!         END DO
+!       END DO
