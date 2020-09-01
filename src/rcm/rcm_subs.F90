@@ -2439,6 +2439,135 @@ real :: v_1_1, v_1_2, v_2_1, v_2_2
 !=========================================================================
 
 
+! !=========================================================================
+! !
+! SUBROUTINE Move_plasma_grid_MHD (dt)
+!   IMPLICIT NONE
+!   REAL (rprec), INTENT (IN) :: dt
+
+!   REAL (rprec), dimension( 1:isize  , 1:jsize  ) :: didt ,djdt ,rate
+!   REAL (rprec), dimension(-1:isize+2,-1:jsize-1) :: didtG,djdtG,rateG
+
+!   xlower = 1
+!   xupper = isize
+!   ylower = zero
+!   yupper = jsize-3
+
+!   fac = 1.0E-3*signbe*bir*alpha*beta*dlam*dpsi*ri**2
+
+!   DO kc = 1, kcsize
+!     !If oxygen is to be added, must change this!
+!     IF (alamc(kc) <= 0.0) THEN
+!       ie = 1  ! electrons
+!     ELSE
+!       ie = 2  ! protons
+!     END IF
+
+!     IF (MAXVAL(eeta(:,:,kc)) < TINY) CYCLE !Skip boring channels
+!     mass_factor = SQRT (xmass(1)/xmass(ie))
+
+!   !---
+!   !Get "interface" velocities on clawpack grid, |-1:isize+2,-1:jsize-1|
+  
+!     !K: Here we're adding corotation to total effective potential
+!     veff = v +vcorot - vpar + vm*alamc(kc)
+
+!     !Calculate "interface" velocities on RCM grid, |isize,jsize|
+!     didt = 0.0
+!     djdt = 0.0
+
+!     !Do i-interfaces
+!     do j=jwrap:jsize-1
+!       do i=isize-1,1,-1
+        
+!       enddo
+!     enddo
+!     call veff2dxdt(veff,fac,iopen,imin_j,didt,djdt)
+
+!     !Embiggen RCM grid arrays to clawpack size
+!     call rcm2claw(didt,didtG)
+!     call rcm2claw(djdt,djdtG)
+
+!   !---
+!   !Calculate loss terms on clawpack grid
+!     do j=1,jsize
+!       do i=1,isize
+
+!         if (ie == RCMELECTRON) then
+!           rate(i,j) = Ratefn(fudgec(kc),alamc(kc),sini(i,j),bir(i,j),vm(i,j),mass_factor)
+!         else if (ie == RCMPROTON) then
+!           if (L_dktime .and. i>=imin_j(j)) then
+!             r_dist = sqrt(xmin(i,j)**2+ymin(i,j)**2)
+!             rate(i,j) = Cexrat(ie,abs(alamc(kc))*vm(i,j),r_dist,sunspot_number, &
+!                                dktime,irdk,inrgdk,isodk,iondk)
+!           else
+!             rate(i,j) = 0.0
+!           endif !CX decay
+
+!         endif !flavor
+
+!       enddo !i loop
+!     enddo !j loop
+!     !Have loss on RCM grid, now get claw grid
+!     call rcm2claw(rate,rateG)
+
+!   !---
+!   !Advect w/ clawpack
+!     etaG(1:isize,1:jsize-jwrap) = eeta(1:isize,jwrap:jsize-1,kc) !Local eta
+
+!     !Call clawpack, always as first time
+!     !Need local copies b/c clawpack alters T1/T2
+!     T1k = T1
+!     T2k = T2
+!     call claw2ez(.true.,T1k,T2k,xlower,xupper,ylower,yupper, &
+!                  CLAWiter,2,isize-1+1,jsize-3,etaG,didtG,djdtG,rateG)
+
+!   !---
+!   !Unpack and finish up
+!     !Copy out
+!     do j=j1,j2
+!       do i=imin_j(j),isize-1
+!         eeta(i,j,kc) = etaG(i,j-joff)
+!       enddo
+!     enddo
+
+!     if (kc==1) then
+!       !refill the plasmasphere  04012020 sbao
+!       !K: Added kc==1 check 8/11/20
+!       CALL Plasmasphere_Refilling_Model(eeta(:,:,1), rmin, aloct, vm, dt)
+!     endif      
+
+!     call circle(eeta(:,:,kc))
+
+!   enddo !Main kc loop
+
+!   contains
+!     !Copy variable from rcm to clawpack grid
+!     subroutine rcm2claw(q,qG)
+!       REAL (rprec), dimension( 1:isize  , 1:jsize  ), intent(IN)  :: q
+!       REAL (rprec), dimension(-1:isize+2,-1:jsize-1), intent(OUT) :: qG
+
+!       !Center patch
+!       qG(1:isize,1:jsize-jwrap) = q(1:isize,jwrap:jsize-1)
+
+!       !Pole
+!       do i=-1,0
+!         qG(i,j1-joff:j2-joff) = qG(1,j1-joff:j2-joff)
+!       enddo
+
+!       !Equator
+!       do i=isize+1,isize+2
+!         qG(i,j1-joff:j2-joff) = qG(isize,j1-joff:j2-joff)
+!       enddo
+
+!       !Periodic
+!       qG(:,-1:0) = qG(:,jsize-4:jsize-3)
+!       qG(:jsize-joff:jsize-joff+1) = qG(:,1:2)
+
+!     end subroutine rcm2claw
+
+! END SUBROUTINE Move_plasma_grid_MHD
+
 !=========================================================================
 !
 SUBROUTINE Move_plasma_grid_NEW (dt)

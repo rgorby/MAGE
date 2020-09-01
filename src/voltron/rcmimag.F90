@@ -24,13 +24,9 @@ module rcmimag
     implicit none
 
     real(rp) :: RIonRCM !Units of Rp
-    real(rp), private :: rEqMin = 0.0
     real(rp), private :: PPDen = 10.0 !Plasmapause density cut-off
-    character(len=strLen), private :: h5File
-
     real(rp), private :: Rp_m
     real(rp), private :: planetM0g
-
     logical , private, parameter :: doKillRCMDir = .true. !Whether to always kill RCMdir before starting
     logical , private :: doWolfLim  = .true. !Whether to do wolf-limiting
     logical , private :: doBounceDT = .true. !Whether to use Alfven bounce in dt-ingest
@@ -72,7 +68,7 @@ module rcmimag
 
     !Parameters for smoothing toMHD boundary
     type SmoothOperator_T
-        integer :: nIter,nRad
+        integer :: nIter
     end type SmoothOperator_T
 
     type(SmoothOperator_T), private :: SmoothOp
@@ -152,8 +148,7 @@ module rcmimag
         !Start up IO
         call initRCMIO(RCMApp,isRestart)
 
-        call iXML%Set_Val(SmoothOp%nIter,"imag/nIter",4)
-        call iXML%Set_Val(SmoothOp%nRad ,"imag/nRad" ,8)
+        call iXML%Set_Val(SmoothOp%nIter,"imag/nIter",5)
 
         end associate
 
@@ -227,9 +222,6 @@ module rcmimag
         logical :: isLL
 
         associate(RCMApp => imag%rcmCpl)
-
-        !Lazily grabbing rDeep here, convert to RCM units
-        rEqMin = vApp%rDeep*Rp_m !Re=>meters
 
         llBC = vApp%mhd2chmp%lowlatBC
 
@@ -418,56 +410,74 @@ module rcmimag
     !Set region of RCM grid that's "good" for MHD ingestion
     subroutine SetIngestion(RCMApp)
         type(rcm_mhd_T), intent(inout) :: RCMApp
-        integer :: n,i,j,iC
 
+        real(rp), dimension(:), allocatable :: jBndG,jSmG !Real-valued index w/ ghosts
         integer , dimension(:), allocatable :: jBnd
-        real, dimension(:), allocatable :: jRad,jRadG
-        integer :: NSmth,NRad
-        real(rp) :: RadC,rIJ
 
-        NSmth = SmoothOp%nIter
-        NRad  = SmoothOp%nRad
+        integer :: i,j,n,iS,NRad,NSmooth
+        logical :: inMHD,isClosed
+        real(rp) :: a0,a1,a2,aScl
 
+        a0 = 2.0
+        a1 = 1.0
+        a2 = 0.25
+        aScl = 1.0/(a0+2.0*a1+2.0*a2)
+        NSmooth = SmoothOp%nIter
+        NRad = 3
+
+        !Start by allocating arrays
         allocate(jBnd (  RCMApp%nLon_ion  ))
-        
-        allocate(jRad (  RCMApp%nLon_ion  ))
-        allocate(jRadG(1-NRad:RCMApp%nLon_ion+NRad))
+        allocate(jBndG(1-NRad:RCMApp%nLon_ion+NRad))
+        allocate(jSmG (1-NRad:RCMApp%nLon_ion+NRad))
 
+
+        !Now find nominal current boundary
+        jBnd(:) = RCMApp%nLat_ion-1
         do j=1,RCMApp%nLon_ion
-            do i = 1,RCMApp%nLat_ion
-                if (RCMApp%toMHD(i,j) .and. (RCMApp%iopen(i,j) == RCMTOPCLOSED)) then
+            do i = RCMApp%nLat_ion,1,-1
+                inMHD = RCMApp%toMHD(i,j)
+                isClosed = (RCMApp%iopen(i,j) == RCMTOPCLOSED)
+                if ( (.not. inMHD) .or. (.not. isClosed) ) then
+                    !First bad cell, set boundary here
+                    jBnd(j) = min(i+1,RCMApp%nLat_ion)
                     exit
                 endif
-            enddo
-            jBnd(j) = min(i+1,RCMApp%nLat_ion)
-            jRad(j) = norm2( RCMApp%X_bmin(jBnd(j),j,XDIR:YDIR) )
+            enddo !i loop
         enddo
+        
+        !Fill real array w/ data
+        jSmG(1:RCMApp%nLon_ion) = jBnd
 
-        do n=1,NSmth
-            jRadG(1:RCMApp%nLon_ion) = jRad
-            jRadG(1-NRad:0) = jRad(RCMApp%nLon_ion-NRad+1:RCMApp%nLon_ion)
-            jRadG(RCMApp%nLon_ion+1:RCMApp%nLon_ion+NRad) = jRad(1:NRad)
+        !Loop and do smoothing
+        do n=1,NSmooth
+            !Fill augmented array
+            jBndG(1:RCMApp%nLon_ion) = jSmG(1:RCMApp%nLon_ion)
+            jBndG(1-NRad:0) = jBndG(RCMApp%nLon_ion-NRad+1:RCMApp%nLon_ion)
+            jBndG(RCMApp%nLon_ion+1:RCMApp%nLon_ion+NRad) = jBndG(1:NRad)
+
+            !Loop over j cells and smooth
             do j=1,RCMApp%nLon_ion
-                !Take mean over range
-                jRad(j) = sum(jRadG(j-NRad:j+NRad))/(2.0*NRad+1)
-                !jRad(j) = (product(jRadG(j-NRad:j+NRad)))**(1.0/(2.0*NRad+1))
-                !jRad(j) = minval(jRadG(j-NRad:j+NRad))
+                jSmG(j) = aScl*( a0*jBndG(j) + a1*jBndG(j-1) + a1*jBndG(j-1) + &
+                                 a2*jBndG(j-2) + a2*jBndG(j-2) )
+
             enddo
         enddo
-
-        RCMApp%toMHD = .false.
+        
+        !Now loop back and recast to integer
+        RCMApp%toMHD(:,:) = .false.
         do j=1,RCMApp%nLon_ion
-            RadC = jRad(j)
-            do i = jBnd(j),RCMApp%nLat_ion
-                rIJ = norm2(RCMApp%X_bmin(i,j,XDIR:YDIR))
-                if ( (rIJ <= RadC) .and. (RCMApp%iopen(i,j) == RCMTOPCLOSED) ) then
-                    RCMApp%toMHD(i,j) = .true.
-                else
-                    RCMApp%toMHD(i,j) = .false.
+            iS = ceiling(jSmG(j))+1 !Nominal boundary for this j
+            !Start from here and find first such that all above are closed
+            do i=iS,RCMApp%nLat_ion
+                isClosed = all((RCMApp%iopen(i-1:RCMApp%nLat_ion,j) == RCMTOPCLOSED))
+                if (isClosed) then
+                    !All cells above boundary are closed, this works
+                    RCMApp%toMHD(i:RCMApp%nLat_ion,j) = .true.
+                    exit
                 endif
-            enddo
-        enddo
-
+            enddo !i loop
+        enddo !j loop
+        
     end subroutine SetIngestion
 
     !Evaluate eq map at a given point
