@@ -2462,6 +2462,11 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
   REAL (rprec) :: T1k,T2k !Local loop variables b/c clawpack alters input
   LOGICAL, save :: FirstTime=.true.
 
+  if (jwrap /= 3) then
+    write(*,*) 'Somebody should rewrite this code to not assume that jwrap=3'
+    stop
+  endif
+
 !---
 !Do prep work
 
@@ -2605,9 +2610,8 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
     !Copy out
     do j=j1,j2 !jwrap,jsize-1
       iL = min(iOCB_j(j)+1,isize)
-
       do i=iL,isize
-        eeta(i,j,kc) = etaC(i,j-joff)
+        eeta(i,j,kc) = max(etaC(i,j-joff),0.0)
       enddo
     enddo
     eeta(:,jsize,kc) = eeta(:,jwrap,kc)
@@ -2652,7 +2656,10 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
         enddo
       enddo
 
-    !Lower boundary
+    !Lower/Upper boundary
+      dvedi(1,:) = dvedi(2,:)
+      dvedj(1,:) = dvedj(2,:)
+
       dvedi(isize,:) = dvedi(isize-1,:)
       dvedj(isize,:) = dvedj(isize-1,:)
     !Periodic
