@@ -81,7 +81,7 @@ if __name__ == "__main__":
 	if (doRCM):
 		print("Found RCM data")
 		rcmdata = gampp.GameraPipe(fdir,ftag+".mhdrcm")
-
+		mviz.vP = kv.genNorm(1.0e-2,100.0,doLog=True)
 	if (doMIX):
 		print("Found ReMIX data")
 		ion = remix.remix(rmxChk,nStp)
