@@ -49,7 +49,7 @@ module volttypes
         real(rp), dimension(:,:), allocatable :: latc,lonc
         real(rp), dimension(:,:), allocatable :: fac
         
-        logical, dimension(:,:), allocatable :: isClosed
+        logical, dimension(:,:), allocatable :: inIMag
     end type imag2Mix_T
 
     ! data for gamera -> remix conversion
@@ -136,7 +136,6 @@ module volttypes
         real(rp) :: DeepT
         real(rp) :: DeepDT
         logical  :: doDeep = .false. !Whether to do deep coupling
-        real(rp) :: rDeep !Radius (in code units) to do deep coupling
         real(rp) :: rTrc  !Radius to do tracing (ebSquish) inside of
         integer  :: iDeep  = 0 !Index of max i shell containing deep coupling radius
         integer  :: imType = 0 !Type of inner magnetosphere model (0 = None)

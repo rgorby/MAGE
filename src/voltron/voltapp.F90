@@ -127,8 +127,7 @@ module voltapp
     !Deep coupling
         vApp%DeepT = 0.0_rp
         call xmlInp%Set_Val(vApp%DeepDT, "coupling/dtDeep", -1.0_rp)
-        call xmlInp%Set_Val(vApp%rDeep,  "coupling/rDeep" , 10.0_rp)
-        call xmlInp%Set_Val(vApp%rTrc,   "coupling/rTrc"  , 2.0*vApp%rDeep)
+        call xmlInp%Set_Val(vApp%rTrc,   "coupling/rTrc"  , 40.0)
 
         if (vApp%DeepDT>0) then
             vApp%doDeep = .true.
@@ -386,6 +385,9 @@ module voltapp
         !Update coupling time now so that voltron knows what to expect
         vApp%DeepT = vApp%DeepT + vApp%DeepDT
 
+        !Update i-shell to trace within in case rTrc has changed
+        vApp%iDeep = ShellBoundary(gApp%Model,gApp%Grid,vApp%rTrc)
+        
         !Pull in updated fields to CHIMP
         call Tic("G2C")
         call convertGameraToChimp(vApp%mhd2chmp,gApp,vApp%ebTrcApp)

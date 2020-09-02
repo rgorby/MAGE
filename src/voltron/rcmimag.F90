@@ -220,7 +220,7 @@ module rcmimag
 
         real(rp) :: llBC,maxRad
         logical :: isLL
-
+        
         associate(RCMApp => imag%rcmCpl)
 
         llBC = vApp%mhd2chmp%lowlatBC
@@ -304,7 +304,8 @@ module rcmimag
         call SetIngestion(RCMApp)
 
     !Pull data from RCM state for conductance calculations
-        vApp%imag2mix%isClosed = (RCMApp%iopen == RCMTOPCLOSED)
+        !NOTE: this is not the closed field region, this is actually the RCM domain
+        vApp%imag2mix%inIMag = (RCMApp%iopen == RCMTOPCLOSED)
         vApp%imag2mix%latc = RCMApp%latc
         vApp%imag2mix%lonc = RCMApp%lonc
 
@@ -317,11 +318,12 @@ module rcmimag
 
         vApp%imag2mix%isFresh = .true.
 
-    !Find maximum extent of closed field region
-        maxRad = maxval(norm2(RCMApp%X_bmin,dim=3),mask=vApp%imag2mix%isClosed)
+    !Find maximum extent of closed field region, this includes RCMTOPCLOSED and RCMTOPNULL
+        !Take over everything since open field region eq. is set to 0
+        maxRad = maxval(norm2(RCMApp%X_bmin,dim=3))
         maxRad = maxRad/Rp_m
-        vApp%rTrc = 1.25*maxRad
-
+        vApp%rTrc = 2.0*maxRad
+        
         end associate        
 
         contains

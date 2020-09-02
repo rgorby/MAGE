@@ -69,7 +69,7 @@ module sstLLimag
         imag%Np = imag%ebTab%dNi
         imag%Nt = imag%ebTab%dNj
         
-        imag%rDeep = vApp%rDeep  ! probably, will remain unused
+        imag%rDeep = vApp%rTrc  ! probably, will remain unused
 
         allocate(imag%X(1:imag%Np+1,1:imag%Nt+1))
         allocate(imag%Y(1:imag%Np+1,1:imag%Nt+1))

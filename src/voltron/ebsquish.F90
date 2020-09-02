@@ -89,7 +89,6 @@ module ebsquish
 
         curSquishBlock = 0
 
-
         end associate
 
     end subroutine SquishStart

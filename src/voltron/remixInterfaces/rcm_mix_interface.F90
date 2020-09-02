@@ -32,8 +32,8 @@ contains
     allocate(imag2mix%latc (Nt,Np))
     allocate(imag2mix%lonc (Nt,Np))
     allocate(imag2mix%fac  (Nt,Np))
-    allocate(imag2mix%isClosed(Nt,Np))
-    imag2mix%isClosed(:,:) = .false.
+    allocate(imag2mix%inIMag(Nt,Np))
+    imag2mix%inIMag(:,:) = .false.
     imag2mix%isInit = .true.
 
   !Now do remix mapping
