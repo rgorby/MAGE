@@ -4,9 +4,10 @@
       USE Rcm_mod_subs, ONLY : isize, jsize, kcsize,jwrap, nptmax, &
                               colat, aloct, v, birk, &
                               bmin, xmin, ymin, zmin, vm, pmin, rmin, &
-                              birk_avg, v_avg, eeta, eeta_avg, alamc, ikflavc,&
-                              pi,  &
-                              boundary, bndloc, pressrcm,&
+                              birk_avg, v_avg, eeta, eeta_avg, &
+                              alamc, ikflavc, &
+                              pi, &
+                              boundary, bndloc, pressrcm, &
                               Read_grid, &
                               xmass, densrcm,denspsph,imin_j,rcmdir, &
                               eflux,eavg,ie_el
@@ -76,7 +77,7 @@
       save ifound,mask
 
       INTEGER (iprec) :: itime0,jp,iC
-      real(rp) :: dRad,RadC,rIJ
+      real(rp) :: dRad,RadC,rIJ,dRxy
 
       LOGICAL,PARAMETER :: avoid_boundaries = .false.
       INTEGER(iprec) :: im,ipl,jm,jpl,km,kpl
@@ -140,12 +141,14 @@
           end if
         END DO
         if (use_plasmasphere) then
-          ! add a simple plasmasphere model based on carpenter 1992 or gallagher 2002 in ples/cc
-          !dens_plasmasphere = GallagherXY(xmin(i,j),ymin(i,j))
-          !denspsph(i,j) = dens_plasmasphere*1.0e6
-      ! use plasmasphere channel eeta_avg(:,:,1) sbao 03/2020
-           denspsph(i,j) = density_factor/mass_proton*xmass(2)*eeta_avg(i,j,1)*vm(i,j)**1.5
-
+          if (dp_on) then 
+            ! use plasmasphere channel eeta_avg(:,:,1) sbao 03/2020
+            denspsph(i,j) = density_factor/mass_proton*xmass(2)*eeta_avg(i,j,1)*vm(i,j)**1.5
+          else
+            ! add a simple plasmasphere model based on carpenter 1992 or gallagher 2002 in ples/cc
+            dens_plasmasphere = GallagherXY(xmin(i,j),ymin(i,j))
+            denspsph(i,j) = dens_plasmasphere*1.0e6
+          endif
         endif
 
        END DO
@@ -163,8 +166,8 @@
       RM%Prcm    = pressrcm(:,jwrap:jsize)
       RM%Nrcm    = densrcm (:,jwrap:jsize)
       RM%Npsph   = denspsph(:,jwrap:jsize)
-      RM%flux    = eflux   (:,jwrap:jsize,ie_el)
-      RM%eng_avg = eavg    (:,jwrap:jsize,ie_el)
+      RM%flux    = eflux   (:,jwrap:jsize,:)
+      RM%eng_avg = eavg    (:,jwrap:jsize,:)
       RM%fac     = birk    (:,jwrap:jsize)
       
       RM%toMHD = .false.
@@ -174,11 +177,12 @@
       do j=jwrap,jsize
         jp = j-jwrap+1
         iC = imin_j(j)
-        RadC = norm2(RM%X_bmin(iC,jp,1:3))-dRad
+        RadC = norm2(RM%X_bmin(iC,jp,1:2))-dRad
         do i=iC+1,isize
-          rIJ = norm2(RM%X_bmin(i,jp,1:3))
+          rIJ = norm2(RM%X_bmin(i,jp,1:2))
+          dRxy = norm2(RM%X_bmin(i,jp,1:2)) - norm2(RM%X_bmin(i+1,jp,1:2))
           !write(*,*) 'RadC/rIJ = ',RadC/radius_earth_m,rIj/radius_earth_m
-          if (rIJ<=RadC) exit
+          if ( (rIJ<=RadC) .and. (dRxy>0) ) exit
         enddo
         !write(*,*) 'i/iC = ',i,iC
 

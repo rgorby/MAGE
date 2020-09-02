@@ -7,6 +7,7 @@ module volttypes
     use ioclock
     use mixtypes
     use ebtypes
+    use gcmtypes
 
     implicit none
 
@@ -101,7 +102,7 @@ module volttypes
     type voltApp_T
 
         !Voltron state information
-        type(TimeSeries_T) :: tilt
+        type(TimeSeries_T) :: tilt,symh
         real(rp) :: time, MJD,tFin
         integer :: ts
         logical :: isSeparate = .false. ! whether Voltron is running in a separate application from gamera
@@ -119,11 +120,14 @@ module volttypes
         type(chmp2Mhd_T)  :: chmp2mhd
         type(imag2Mix_T)  :: imag2mix
 
+        type(gcm_T) :: gcm
+
         class(innerMagBase_T), allocatable :: imagApp
 
         !Shallow coupling information
         real(rp) :: ShallowT
         real(rp) :: ShallowDT
+        logical  :: doGCM = .false.
 
         !Deep coupling information
         real(rp) :: DeepT

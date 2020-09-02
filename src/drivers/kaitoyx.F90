@@ -28,6 +28,8 @@ program kaitoyx
 
     H5Out = "kaitoy.h5"
 
+    call printConfigStamp()
+    
     !Setup timers
     call initClocks()
     call Tic("OMEGA")
@@ -71,6 +73,8 @@ program kaitoyx
     !Output data
     call Tic("IOData")
     call CheckAndKill(H5Out)
+
+    call StampIO(H5Out)
 
     call ClearIO(IOVars)
     call AddOutVar(IOVars,"X",X)

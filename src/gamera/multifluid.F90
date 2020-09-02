@@ -26,8 +26,9 @@ module multifluid
         real(rp) :: gDFloor !Global density floor
         character(len=strLen) :: sID,sTag
 
-        !FIXME: Reading sim/dFloor here instead of reordering MPI & OMP versions
-        call xmlInp%Set_Val(gDFloor,"sim/dFloor",dFloor)
+        !Need floors here, so may end up doing it twice
+        call SetFloors(Model,xmlInp)
+        gDFloor = dFloor
 
         !Find number of species
         call xmlInp%Set_Val(Model%nSpc,'multifluid/nSpc',1)

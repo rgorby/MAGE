@@ -1,10 +1,10 @@
 <?xml version="1.0"?>
 <!-- Gamera Magnetosphere -->
-<OMEGA>
+<voltron>
   <sim tFin="677.115987461"/>
-  <gamera_remix dt="0.1" dowait="F" dtshift="0.0"/>
-  <remix_gamera dt="0.1" dowait="F" dtshift="0.0"/>
-</OMEGA>
+  <spinup doSpin="F"/>
+  <coupling dt="5.0"/>
+</voltron>
 <Gamera>
   <iPdir N="1" bcPeriodic="F"/>
   <jPdir N="1" bcPeriodic="F"/>
@@ -20,7 +20,5 @@
 <!-- Remix -->
 <REMIX>
   <grid Np="360" Nt="45" LowLatBoundary="45.0"/>
-  <conductance F107="200.0" pedmin="2.0" hallmin="1.0" sigma_ratio="3.0" const_sigma="True" ped0="10.0"/>
-  <solver maxitr="400" mr="30" tol_abs="1.0e-4" tol_rel="1.0e-4"/>
-  <output dtOut="0.235109717868"/>
+  <conductance const_sigma="T" ped0="10.0"/>
 </REMIX>

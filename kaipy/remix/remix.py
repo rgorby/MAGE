@@ -9,7 +9,7 @@ Re = 6.38 # radius of Earth in 1000km
 mu0o4pi = 1.e-7 # mu0=4pi*10^-7 => mu0/4pi=10^-7
 
 #Setting globals here to grab them from other modules
-facMax = 1.0
+facMax = 1.5
 facCM = cm.RdBu_r
 class remix:
 	def __init__(self,h5file,step):
@@ -23,21 +23,33 @@ class remix:
 						 'current'   : {'min':-facMax,
 										'max':facMax},
 						 'sigmap'    : {'min':1,
-										'max':10},
-						 'sigmah'    : {'min':2,
 										'max':20},
+						 'sigmah'    : {'min':2,
+										'max':40},
 						 'energy'    : {'min':0,
-										'max':10},
+										'max':20},
 						 'flux'      : {'min':0,
-										'max':1.e9},
+										'max':1.e10},
 						 'eflux'     : {'min':0,
-										'max':1.},
+										'max':10.},
 						 'efield'    : {'min':-1,
 										'max':1},
 						 'joule'     : {'min':0,
 										'max':10},
-						 'jhall'	 : {'min':-2,
-						 				'max':2}
+						 'jhall'     : {'min':-2,
+						 				'max':2},
+						 'Menergy'    : {'min':0,
+										'max':20},
+						 'Mflux'      : {'min':0,
+										'max':1.e10},
+						 'Meflux'     : {'min':0,
+										'max':10.},
+						 'Denergy'    : {'min':0,
+										'max':20},
+						 'Dflux'      : {'min':0,
+										'max':1.e10},
+						 'Deflux'     : {'min':0,
+										'max':10.}
 						 }
 
 	def get_data(self,h5file,step):
@@ -67,6 +79,17 @@ class remix:
 			self.variables['flux']['data']      = self.ion['Number flux '+h]
 			# variables['efield']['data']    = efield_n*1.e6
 			# variables['joule']['data']     = sigmap_n*efield_n**2*1.e-3
+			if 'Zhang average energy '+h in self.ion.keys():
+				self.variables['Menergy']['data'] = self.ion['Zhang average energy '+h]
+				self.variables['Mflux']['data']   = self.ion['Zhang number flux '+h]
+				self.variables['Meflux']['data'] = self.variables['Menergy']['data']*self.variables['Mflux']['data']*1.6e-9
+			if 'IM average energy '+h in self.ion.keys():
+				self.variables['Denergy']['data'] = self.ion['IM average energy '+h]
+				self.variables['Deflux']['data']  = self.ion['IM Energy flux '+h]
+				self.variables['Denergy']['data'][self.variables['Denergy']['data']==0] = 1.e-20
+				self.variables['Denergy']['data'][np.isnan(self.variables['Denergy']['data'])] = 1.e-20
+				self.variables['Dflux']['data']   = self.variables['Deflux']['data']/self.variables['Denergy']['data']/(1.6e-9)
+				self.variables['Dflux']['data'][self.variables['Denergy']['data']==1.e-20] = 0.
 		else:  # note flipping the y(phi)-axis
 			self.variables['potential']['data'] = self.ion['Potential '+h][:,::-1]
 			self.variables['current']['data']   = self.ion['Field-aligned current '+h][:,::-1]
@@ -74,6 +97,17 @@ class remix:
 			self.variables['sigmah']['data']    = self.ion['Hall conductance '+h][:,::-1]
 			self.variables['energy']['data']    = self.ion['Average energy '+h][:,::-1]
 			self.variables['flux']['data']      = self.ion['Number flux '+h][:,::-1]
+			if 'Zhang average energy '+h in self.ion.keys():
+				self.variables['Menergy']['data'] = self.ion['Zhang average energy '+h][:,::-1]
+				self.variables['Mflux']['data']   = self.ion['Zhang number flux '+h][:,::-1]
+				self.variables['Meflux']['data'] = self.variables['Menergy']['data']*self.variables['Mflux']['data']*1.6e-9
+			if 'IM average energy '+h in self.ion.keys():
+				self.variables['Denergy']['data'] = self.ion['IM average energy '+h][:,::-1]
+				self.variables['Deflux']['data']  = self.ion['IM Energy flux '+h][:,::-1]
+				self.variables['Denergy']['data'][self.variables['Denergy']['data']==0] = 1.e-20
+				self.variables['Denergy']['data'][np.isnan(self.variables['Denergy']['data'])] = 1.e-20
+				self.variables['Dflux']['data']   = self.variables['Deflux']['data']/self.variables['Denergy']['data']/(1.6e-9)
+				self.variables['Dflux']['data'][self.variables['Denergy']['data']==1.e-20] = 0.
 
 		# convert energy flux to erg/cm2/s to conform to Newell++, doi:10.1029/2009JA014326, 2009
 		self.variables['eflux']['data'] = self.variables['energy']['data']*self.variables['flux']['data']*1.6e-9 
@@ -92,6 +126,35 @@ class remix:
 		r=np.sqrt(x**2+y**2)
 
 		return(r,theta)
+	def distance(self,p0, p1):
+	  """ Calculate the distance between p0 & p1--two points in R**3 """
+	  return( np.sqrt( (p0[0]-p1[0])**2 + 
+                      (p0[1]-p1[1])**2 + 
+                      (p0[2]-p1[2])**2 ) )
+
+	def calcFaceAreas(self,x,y):
+	  """ 
+	  Calculate the area of each face in a quad mesh.
+	 
+	  >>> calcFaceAreas(numpy.array([[ 0., 1.],[ 1., 0.]]), numpy.array([[ 0.,1.],[ 1.,0.]]), numpy.array([[ 0., 0.],[ 0.,0.]]))
+	  array([[ 2.]])
+	  """
+	  (nLonP1, nLatP1) = x.shape
+	  (nLon, nLat) = (nLonP1-1, nLatP1-1)
+	  z=np.sqrt(1.0-x**2-y**2)
+
+	  area = np.zeros((nLon, nLat))
+
+	  for i in range(nLon):
+	    for j in range(nLat):
+	      left  = self.distance( (x[i,j],   y[i,j],   z[i,j]),   (x[i,j+1],   y[i,j+1],   z[i,j+1]) )
+	      right = self.distance( (x[i+1,j], y[i+1,j], z[i+1,j]), (x[i+1,j+1], y[i+1,j+1], z[i+1,j+1]) )
+	      top =   self.distance( (x[i,j+1], y[i,j+1], z[i,j+1]), (x[i+1,j+1], y[i+1,j+1], z[i+1,j+1]) )
+	      bot =   self.distance( (x[i,j],   y[i,j],   z[i,j]),   (x[i+1,j],   y[i+1,j],   z[i+1,j]) )
+	      
+	      area[i,j] = 0.5*(left+right) * 0.5*(top+bot)
+
+	  return area
 
 	# TODO: define and consolidate allowed variable names
 	def plot(self,varname,
@@ -159,6 +222,12 @@ class remix:
 					'joule'     : r'Joule heating [mW/m$^2$]',
 					'jped'      : r'Pedersen current [$\mu$A/m]',
 					'magpert'   : r'Magnetic perturbation [nT]',
+					'Menergy'    : r'Mono Energy [keV]',
+					'Mflux'      : r'Mono Flux [1/cm$^2$s]',
+					'Meflux'     : r'Mono Energy flux [erg/cm$^2$s]',
+					'Denergy'    : r'Diffuse Energy [keV]',
+					'Dflux'      : r'Diffuse Flux [1/cm$^2$s]',
+					'Deflux'     : r'Diffuse Energy flux [erg/cm$^2$s]'
 					}
 		cblabels.update(addlabels)  # a way to add cb labels directly through function arguments (e.g., for new variables)
 
@@ -185,7 +254,7 @@ class remix:
 
 		if (varname == 'potential') or (varname == 'current'):
 			cmap=facCM
-		elif varname in ['flux','energy','eflux','joule']:
+		elif varname in ['flux','energy','eflux','joule','Mflux','Menergy','Meflux','Dflux','Denergy','Deflux']:
 			cmap=cm.inferno			
 			latlblclr = 'white'
 		elif (varname == 'velocity'): 
@@ -197,6 +266,18 @@ class remix:
 		else:
 			cmap=None # default is used
 		
+		if varname in ['eflux','Meflux','Deflux']:
+			ri=6500.e3
+			areaMixGrid = self.calcFaceAreas(x,y)*ri*ri
+			hp = areaMixGrid*self.variables[varname]['data'][:,:]/(1.6e-9)
+			power = hp.sum()*1.6e-21
+		if (varname == 'current'):
+			ri=6500.e3
+			areaMixGrid = self.calcFaceAreas(x,y)*ri*ri
+			fac = self.variables[varname]['data'][:,:]
+			dfac = areaMixGrid[fac>0.]*fac[fac>0.]/1.0e12
+			pfac = dfac.sum()
+
 		# DEFINE GRID LINES AND LABELS
 		if (doInset):
 			circle_list = [15,30,45]
@@ -246,6 +327,13 @@ class remix:
 
 		ax.grid(True,linewidth=LW)
 		ax.axis([0,2*np.pi,0,r.max()],'tight')
+		ax.text(-75.*np.pi/180.,1.2*r.max(),('min: '+format_str+'\nmax: ' +format_str) % 
+			  (variable.min() ,variable.max()))
+		if varname in ['eflux','Meflux','Deflux']:
+			ax.text(75.*np.pi/180.,1.3*r.max(),('GW: '+format_str) % power)
+		if (varname == 'current'):
+			ax.text(-(73.+45.)*np.pi/180.,1.3*r.max(),('MA: '+format_str) % pfac)
+		ax.grid(True)
 
 		if varname=='current': 
 			potential_overplot(doInset)
@@ -372,7 +460,7 @@ class remix:
 
 	# Main function to compute magnetic perturbations using the Biot-Savart integration
 	# This includes Hall, Pedersen and FAC with the option to do Hall only 
-	def dB(self,xyz,hallOnly=True):
+	def dB(self,xyz,hallOnly=True,doXYZ=False):
 		# xyz = array of points where to compute dB
 		# xyz.shape should be (N,3), where N is the number of points
 		# xyz = (x,y,z) in units of Ri
@@ -476,12 +564,13 @@ class remix:
 		tDest = np.arccos(zDest/rDest)
 		pDest = np.arctan2(yDest,xDest)
 
-		dBr     = dBx*np.sin(tDest)*np.cos(pDest) + dBy*np.sin(tDest)*np.sin(pDest) + dBz*np.cos(tDest)
-		dBtheta = dBx*np.cos(tDest)*np.cos(pDest) + dBy*np.cos(tDest)*np.sin(pDest) - dBz*np.sin(tDest)	
-		dBphi   =-dBx*np.sin(pDest) + dBy*np.cos(pDest)
-		
-
-		return(dBr,dBtheta,dBphi)
+		if (doXYZ):
+			return (dBx,dBy,dBz)
+		else:
+			dBr     = dBx*np.sin(tDest)*np.cos(pDest) + dBy*np.sin(tDest)*np.sin(pDest) + dBz*np.cos(tDest)
+			dBtheta = dBx*np.cos(tDest)*np.cos(pDest) + dBy*np.cos(tDest)*np.sin(pDest) - dBz*np.sin(tDest)	
+			dBphi   =-dBx*np.sin(pDest) + dBy*np.cos(pDest)
+			return(dBr,dBtheta,dBphi)
 
 	# FIXME: Make work for SOUTH
 	# Flux-tube Biot-Savart integral \int dl bhat x r'/|r'|^3

@@ -5,7 +5,7 @@ module rcm_mhd_io
     use rcm_mhd_mod,  ONLY : rcm_mhd
     use rcm_mod_subs, ONLY : colat, aloct
 
-    integer, parameter   , private :: MAXRCMIOVAR = 30
+    integer, parameter   , private :: MAXRCMIOVAR = 35
     character(len=strLen), private :: h5File,RCMH5
     real(rp), parameter  , private :: IMGAMMA = 5.0/3.0
 
@@ -131,13 +131,18 @@ module rcm_mhd_io
         call AddOutVar(IOVars,"Plim",PLim*rcmPScl,uStr="nPa")
         call AddOutVar(IOVars,"Pmhd",RCMApp%Pave*rcmPScl,uStr="nPa")
         call AddOutVar(IOVars,"Nmhd",RCMApp%Nave*rcmNScl,uStr="#/cc")
+        call AddOutVar(IOVars,"oxyfrac",RCMApp%oxyfrac,uStr="fraction")
+
         call AddOutVar(IOVars,"latc",RCMApp%latc*180.0/PI,uStr="deg")
         call AddOutVar(IOVars,"lonc",RCMApp%lonc*180.0/PI,uStr="deg")
+        call AddOutVar(IOVars,"lossc",RCMApp%losscone*180.0/PI,uStr="deg")
         call AddOutVar(IOVars,"Lb"  ,RCMApp%Lb,uStr="Re")
         call AddOutVar(IOVars,"Tb"  ,RCMApp%Tb,uStr="s")
 
-        call AddOutVar(IOVars,"eavg",RCMApp%eng_avg*1.0e-3,uStr="keV") !ev->keV
-        call AddOutVar(IOVars,"eflux",RCMApp%flux,uStr="ergs/cm2")
+        call AddOutVar(IOVars,"eeavg",RCMApp%eng_avg(:,:,1)*1.0e-3,uStr="keV") !ev->keV electrons
+        call AddOutVar(IOVars,"eeflux",RCMApp%flux(:,:,1),uStr="ergs/cm2")
+        call AddOutVar(IOVars,"ieavg",RCMApp%eng_avg(:,:,2)*1.0e-3,uStr="keV") !ev->keV ions
+        call AddOutVar(IOVars,"ieflux",RCMApp%flux(:,:,2),uStr="ergs/cm2")
         call AddOutVar(IOVars,"birk",RCMApp%fac,uStr="uA/m2")
 
         call AddOutVar(IOVars,"toMHD",merge(1.0_rp,0.0_rp,RCMApp%toMHD))

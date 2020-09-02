@@ -5,6 +5,7 @@ module output
     use gioH5
     use gridutils
     use files
+    use kaiomp
     
     implicit none
 
@@ -62,10 +63,8 @@ contains
         endif
 
         if (Model%isLoud) then
-            nTh = 0
-#ifdef _OPENMP
-            nTh = Model%nTh
-#endif
+            nTh = NumOMP()
+
             write(*,*) ANSICYAN
             write(*,*) 'GAMERA'
             call timeString(Model%t,tStr)
@@ -81,6 +80,9 @@ contains
             write(*,'(a)',advance="no") ANSIRESET!, ''
         endif
 
+        !Setup for next output
+        Model%IO%tsNext = Model%ts + Model%IO%tsOut
+        
     end subroutine consoleOutput_STD
 
     subroutine tStr_STD(T,tStr)
@@ -140,9 +142,7 @@ contains
 
         write (lnResF, '(A,A,A,A)') trim(Model%RunID), ".Res.", "XXXXX", ".h5"
 
-        ! make a link to the default "XXXXX" restart file
-        call EXECUTE_COMMAND_LINE('ln -sf '//trim(ResF)//' '//trim(lnResF), wait=.false.)
-
+        call MapSymLink(ResF,lnResF)
     end subroutine resOutput
 
 end module output

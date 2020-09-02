@@ -43,6 +43,8 @@ module wind
         real(rp), dimension(NDIM) :: xyzW !Position of solar wind time-series (ie L1)
         real(rp), dimension(NDIM) :: vFr !Front velocity @ current time
 
+        logical :: doSeq = .false. !Do set spinup sequence
+
         contains
 
         procedure :: doInit => InitWind
@@ -72,6 +74,8 @@ module wind
         type(State_T), intent(in) :: State
         type(XML_Input_T), intent(in) :: xmlInp
 
+        real(rp) :: tSpin
+        logical :: doSpin
         !Set time series reference point to Origin by default
         bc%xyzW = 0.0
         bc%vFr = [-1.0,0.0,0.0] !Initial front velocity
@@ -90,6 +94,18 @@ module wind
                 !Read data into discrete time series
                 call readWind(bc,Model,xmlInp)
         end select
+
+        call xmlInp%Set_Val(bc%doSeq,"/voltron/spinup/doSeq",.false.)
+        if (bc%doSeq) then
+            !Verify other parameters are correct
+            call xmlInp%Set_Val(doSpin,"/voltron/spinup/doSpin",.false.)
+            call xmlInp%Set_Val(tSpin ,"/voltron/spinup/tSpin",0.0)
+
+            if ( (.not. doSpin) .or. (tSpin < 5.0*60.0*60) ) then
+                write(*,*) 'For spinup sequence require doSpin and tSpin>5hr'
+                stop
+            endif
+        endif
 
     end subroutine InitWind
 
@@ -429,7 +445,7 @@ module wind
 
         integer :: i,j,k,n
         real(rp), dimension(NDIM) :: xcc,nHat,e1,e2,ecc,Vxyz,Bxyz,swExyz
-        real(rp) :: wSW,D,P,mhdExyz,t,vSW
+        real(rp) :: wSW,D,P,mhdExyz,t,vSW,avgEi
 
         if (.not. Grid%hasUpperBC(IDIR)) return
 
@@ -482,12 +498,21 @@ module wind
 
         !Do some touchup
         if (Model%doRing) then
-            if (Model%Ring%doE) then
-                State%Efld(Grid%ie-2:Grid%ie+1,Grid%je+1,:,KDIR) = 0.0
-            endif
-            if (Model%Ring%doS) then
-                State%Efld(Grid%ie-2:Grid%ie+1,Grid%js  ,:,KDIR) = 0.0
-            endif
+
+            do n=Grid%ie-2,Grid%ie+1
+                if (Model%Ring%doE) then
+                    avgEi = sum( State%Efld(n,Grid%je+1,Grid%ks:Grid%ke,IDIR) )/Model%Ring%Np
+                    State%Efld(n,Grid%je+1,:,IDIR) = avgEi
+                    State%Efld(n,Grid%je+1,:,KDIR) = 0.0
+                endif
+
+                if (Model%Ring%doS) then
+                    avgEi = sum( State%Efld(n,Grid%js  ,Grid%ks:Grid%ke,IDIR) )/Model%Ring%Np
+                    State%Efld(n,Grid%js  ,:,IDIR) = avgEi
+                    State%Efld(n,Grid%js  ,:,KDIR) = 0.0
+                endif
+            enddo
+
         endif
     end subroutine WindEFix
 
@@ -682,7 +707,7 @@ module wind
             w0 = 1.0
             w1 = 0.0
         else
-            !Inteerpolate
+            !Interpolate
             i0 = floor( (t-windBC%tMin)/windBC%dtW ) + 1
             i1 = i0+1
             if (i1 <= windBC%NumT) then
@@ -712,7 +737,23 @@ module wind
         !Replace Bx w/ coefficient expansion
         B(XDIR) = windBC%Bx0 + windBC%ByC*B(YDIR) + windBC%BzC*B(ZDIR)
         if (t <= windBC%tMin) then
-            B(:) = 0.0
+            if (windBC%doSeq) then
+                !Set wind to spinup sequence
+                dT = (t - windBC%tMin)*Model%Units%gT0/(60.0*60) !Hours
+                
+                if (dT <= -4.0) then
+                    B(:) = 0.0
+                else if (dT <= -2.0) then
+                    B(:) = 0.0
+                    B(ZDIR) = -5.0*(1/Model%Units%gB0)
+                else
+                    B(:) = 0.0
+                    B(ZDIR) = +5.0*(1/Model%Units%gB0)
+                endif
+            else
+                !Just null wind
+                B(:) = 0.0
+            endif
         endif
     end subroutine InterpWind
 

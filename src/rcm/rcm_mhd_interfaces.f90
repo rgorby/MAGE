@@ -24,8 +24,8 @@ module rcm_mhd_interfaces
         real(rprec),allocatable :: gcolat(:) !> RCM Latitude grid points
         real(rprec),allocatable :: glong(:)  !> RCM Longitude grid points
         real(rprec),allocatable :: pot(:,:)     !> Potential; received from MHD [Volts]
-        real(rprec),allocatable :: eng_avg(:,:) !> Average Energy (sent to MIX Coupler/Solver)
-        real(rprec),allocatable :: flux(:,:)    !> Energy Flux (sent to MIX Coupler/Solver)
+        real(rprec),allocatable :: eng_avg(:,:,:) !> Average Energy (sent to MIX Coupler/Solver)
+        real(rprec),allocatable :: flux(:,:,:)    !> Energy Flux (sent to MIX Coupler/Solver)
         real(rprec),allocatable :: fac(:,:)     !> Total FAC density (sent to MIX Coupler/Solver)A
         real(rprec),allocatable :: Pave(:,:)    ! MHD supplied average pressure on Pa
         real(rprec),allocatable :: Nave(:,:)    ! MHD supplied average density in #/m^3
@@ -40,6 +40,7 @@ module rcm_mhd_interfaces
         real(rprec),allocatable :: Npsph(:,:)   ! RCM supplied plasmasphere density in #/m^3
         real(rprec),allocatable :: sigmap(:,:)
         real(rprec),allocatable :: sigmah(:,:)
+        real(rprec),allocatable :: oxyfrac(:,:)   ! O+ fraction of MHD number density
 
         !Conjugate mapping, lat/lon of conjugate point mapped
         real(rprec),allocatable :: latc(:,:)
@@ -49,9 +50,12 @@ module rcm_mhd_interfaces
         real(rprec),allocatable :: Lb(:,:)
         !Alfven Bounce timescale [s]
         real(rprec),allocatable :: Tb(:,:)
-
+        !Loss cone size [rad]
+        real(rprec),allocatable :: losscone(:,:)
         !Information about MHD ingestion
         logical, allocatable :: toMHD(:,:)
+
+
 
         !Information to sync restarts w/ MHD
         integer(iprec) :: rcm_nOut,rcm_nRes !Indices for output/restart

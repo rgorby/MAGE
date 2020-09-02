@@ -589,7 +589,7 @@ module msphutils
 
         real(rp) :: M0,Mf
         real(rp) :: Tau,dRho,dP,Pmhd,Prcm
-        logical  :: doIngest,doInD,doInP
+        logical  :: doIngestIJK,doInD,doInP
 
         if (Model%doMultiF) then
             write(*,*) 'Source ingestion not implemented for multifluid, you should do that'
@@ -603,16 +603,16 @@ module msphutils
         !M0 = sum(State%Gas(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,DEN,BLK)*Gr%volume(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke))
 
        !$OMP PARALLEL DO default(shared) collapse(2) &
-       !$OMP private(i,j,k,doInD,doInP,doIngest,pCon,pW) &
+       !$OMP private(i,j,k,doInD,doInP,doIngestIJK,pCon,pW) &
        !$OMP private(Tau,dRho,dP,Pmhd,Prcm)
         do k=Gr%ks,Gr%ke
             do j=Gr%js,Gr%je
                 do i=Gr%is,Gr%ie
                     doInD = (Gr%Gas0(i,j,k,IMDEN,BLK)>TINY)
                     doInP = (Gr%Gas0(i,j,k,IMPR ,BLK)>TINY)
-                    doIngest = doInD .or. doInP
+                    doIngestIJK = doInD .or. doInP
 
-                    if (.not. doIngest) cycle
+                    if (.not. doIngestIJK) cycle
 
                     pCon = State%Gas(i,j,k,:,BLK)
                     call CellC2P(Model,pCon,pW)

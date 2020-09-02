@@ -11,5 +11,6 @@ module rcm_precision
     INTEGER(iprec), parameter :: ICONRESTART      = ICONWRITERESTART - 1
     INTEGER(iprec), parameter :: RCMELECTRON = 1
     INTEGER(iprec), parameter :: RCMPROTON   = 2
+    INTEGER(iprec), parameter :: RCMOXYGEN   = 3
 
 end module rcm_precision

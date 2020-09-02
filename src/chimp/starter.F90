@@ -11,7 +11,8 @@ module starter
     use gridinterp
     use usertpic
     use userebic
-
+    use kaiomp
+    
     implicit none
 
 !----------------------------------------
@@ -121,6 +122,7 @@ module starter
         call inpXML%Set_Val(Model%doTrc,'output/doTrc',.false.)
         call inpXML%Set_Val(Model%doSlim,'output/doSlim',.false.)
         call inpXML%Set_Val(Model%doFat ,'output/doFat' ,.false.)
+        call inpXML%Set_Val(Model%doLL  ,'output/doLL' ,.false.)
 
         Model%dtOut = inTScl*Model%dtOut
         T0Out = inTScl*T0Out
@@ -168,6 +170,8 @@ module starter
         call random_seed(put=vSeed)
         Model%Nblk = dR0
         
+    !Threading
+        call SetOMP(inpXML)
     end subroutine initModel
     
     !Set integrator type

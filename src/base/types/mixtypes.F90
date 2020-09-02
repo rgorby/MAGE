@@ -9,6 +9,9 @@ module mixtypes
      ! conductance model
      integer  :: euv_model_type
      integer  :: et_model_type
+     integer  :: aurora_model_type
+     real(rp) :: alphaZ
+     real(rp) :: betaZ
      real(rp) :: alpha
      real(rp) :: beta
      real(rp) :: r
@@ -22,7 +25,7 @@ module mixtypes
      logical  :: doChill
      logical  :: doStarlight
      logical  :: doMR
-     logical  :: apply_cap 
+     logical  :: apply_cap
 
      ! solver
      integer :: maxitr
@@ -40,6 +43,7 @@ module mixtypes
 
      ! IO
      real(rp) :: dtOut
+     integer :: nRes
   end type mixParams_T
 
   type mixState_T
@@ -86,8 +90,8 @@ module mixtypes
   end type Solver_T
 
   type mixConductance_T
-    integer :: euv_model_type, et_model_type
-    real(rp) :: alpha, beta, R, F107,pedmin,hallmin,sigma_ratio,ped0
+    integer :: euv_model_type, et_model_type, aurora_model_type
+    real(rp) :: alpha, beta, R, F107,pedmin,hallmin,sigma_ratio,ped0, alphaZ, betaZ
     logical :: const_sigma, doRamp, doChill, doStarlight, apply_cap, doMR
 
     ! auxilary variables
@@ -97,8 +101,8 @@ module mixtypes
     real(rp), dimension(:,:), allocatable :: euvSigmaP, euvSigmaH
     real(rp), dimension(:,:), allocatable :: deltaSigmaP, deltaSigmaH
     real(rp), dimension(:,:), allocatable :: E0, phi0, deltaE, aRes
-    real(rp), dimension(:,:), allocatable :: rampFactor
-    real(rp), dimension(:,:), allocatable :: engFlux
+    real(rp), dimension(:,:), allocatable :: rampFactor, AuroraMask, PrecipMask, drift
+    real(rp), dimension(:,:), allocatable :: engFlux, avgEng
   end type mixConductance_T
   
   ! used to store an entire instance of MIX (e.g., one per hemisphere)
@@ -113,7 +117,7 @@ module mixtypes
 
   ! used to store all instances of mixIon type, i.e., all hemispheres
   type mixApp_T
-     type(mixIon_T), dimension(:), allocatable :: ion  
+     type(mixIon_T), dimension(:), allocatable :: ion
   end type mixApp_T
 
   ! use this as a container to store the variables read from a previous H5 file

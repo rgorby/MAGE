@@ -3,14 +3,16 @@
       USE rcm_precision
       USE Rcm_mod_subs, ONLY : isize,jsize, jwrap, kcsize, iesize, &
                                vm, bmin, xmin, ymin, pmin, rmin,v, & 
-                               alamc, etac, ikflavc, fudgec,eeta,  &
+                               alamc, etac, ikflavc, fudgec, eeta, &
                                imin_j, bndloc, vbnd,               &
                                colat, aloct, bir, sini,            &
                                ibnd_type,rcmdir
-     USE conversion_module
-     USE rice_housekeeping_module
-     USE constants, only: big_vm,tiote
-     Use rcm_mhd_interfaces
+      USE conversion_module
+      USE rice_housekeeping_module
+      USE constants, only: big_vm,tiote,density_factor
+      Use rcm_mhd_interfaces
+      USE earthhelper, ONLY : GallagherXY
+      
 
 
 ! NOTE: This version fixes the rcm boundary condition at rec=1
@@ -65,11 +67,11 @@
       LOGICAL,PARAMETER :: set_boundary_with_mach = .false.
       LOGICAL,PARAMETER :: set_boundary_with_beta = .false.
       REAL(rprec), PARAMETER :: max_beta = 1.0 ! max averaged beta to set the boundary
-
+      REAL(rprec) :: den_gal
       ierr = 0
 
       IF (ierr < 0) RETURN
-       x0_sm = x0; y0_sm = y0; z0_sm = z0;
+      x0_sm = x0; y0_sm = y0; z0_sm = z0;
 
 !      if(rcm_tilted)then
 ! temporarily assign  geo grid as x0 and convert to sm
@@ -113,18 +115,18 @@
       ! and IMIN_J with values:
 
       do j=1,jsize
-         bndloc(j) = 2  ! if everything else fails, can use this...
-         do i=isize,2,-1
-            if(iopen(i,j) >= 0)then
-               bndloc(j) = i + 1
-               exit
-            endif
-         end do
-       ! reset imin_j
-       imin_j = ceiling(bndloc)
-         IF (L_write_vars_debug) then
+        bndloc(j) = 2  ! if everything else fails, can use this...
+        do i=isize,2,-1
+          if(iopen(i,j) >= 0)then
+            bndloc(j) = i + 1
+            exit
+          endif
+        end do
+        ! reset imin_j
+        imin_j = ceiling(bndloc)
+          IF (L_write_vars_debug) then
             write(*,*)' bndy ',bndloc(j),j,vm(imin_j(j),j)
-         END IF
+          END IF
       end do
 
       ! fits an ellipse to the boundary
@@ -196,7 +198,6 @@
       CALL Read_alam (kcsize, alamc, ikflavc, fudgec, almdel, almmax, almmin, iesize, ierr)
       IF (ierr < 0) RETURN
 
-      !CALL Press2eta       ! this populates EETA_NEW array
       CALL Press2eta(RM%planet_radius)       ! this populates EETA_NEW array
 
       if(maxval(eeta_new) <=0)then
@@ -211,12 +212,13 @@
          write(6,*)' TORCM: initializing the RCM arrays at t=',itimei
          bndloc_old = bndloc
          imin_j_old = imin_j
-      ! set the plasmasphere with a refilling model   sbao 03/28
-         call set_plasmasphere(isize,jsize,kcsize,xmin,ymin,vm,eeta_new,imin_j)
-       ! eeta_new(:,:,1) = 0.0  ! to see the refilling model alone
          eeta       = eeta_new  ! this is initial conditions on plasma
       END IF
-         
+
+      ! initialize the dynamic plasmasphere   sbao 03282020
+      call set_plasmasphere(icontrol,isize,jsize,kcsize,xmin,ymin,rmin,vm,eeta,imin_j)
+      ! eeta_new(:,:,1) = 0.0  ! to see the refilling model alone
+      
       ! just in case:
       imin_j     = CEILING(bndloc)
       imin_j_old = CEILING(bndloc_old)
@@ -480,7 +482,6 @@
       USE CONSTANTS, ONLY: boltz,tiote
       IMPLICIT NONE
 !
-      REAL(rprec), PARAMETER :: den0=0.5E+6
       REAL(rprec), PARAMETER :: fac = tiote/(1.+tiote)
 !
       INTEGER(iprec) :: i,j,ierr
@@ -654,56 +655,7 @@
 
 !
       RETURN
-      END SUBROUTINE Press2eta
- 
-!--------------atran10
- 
-      subroutine atran10(xs,ys,zs,gla,glo)
-      USE rcm_precision
-      USE Rcm_mod_subs, ONLY : pi
-      implicit none
-      real(rprec) :: xs,ys,zs,gla,glo,rrr,rho
-      real(rprec) :: atan5 
-                         
-!      pi = acos(-1.0)
-
-      gla = 0.0
-      glo = 0.0    
-      rrr = sqrt(xs**2+ys**2+zs**2)
-      if(rrr.eq.0.0)return 
-
-      xs = xs/rrr
-      ys = ys/rrr
-      zs = zs/rrr
-
-      rho = sqrt(xs**2+ys**2)   
-
-      glo = 0.0
-      if(rho.ne.0.)then
-      glo = atan5(-ys,xs)    
-      glo = glo/pi*180. 
-      if(glo.lt.0.0)glo=glo+360.
-      end if   
-
-      gla = atan5(rho,zs)
-      gla = 90.-gla*180./pi
-
-      return
-      end        
-! -----------------atan5
-      function atan5(y,x)
-      USE rcm_precision
-      USE Rcm_mod_subs, ONLY : pi
-      implicit none
-
-      real(rprec) :: atan5,y,x
-!      pi = acos(-1.0)
-      atan5 = 0.00
-      if((x.ne.0.0).or.(y.ne.0.0))   atan5 = atan2(y,x)
- 
-      return
-      end
-
+      END SUBROUTINE Press2eta 
 !===================================================================
     SUBROUTINE Set_ellipse(idim,jdim,rmin,pmin,vm,big_vm,bndloc,iopen)
 
@@ -731,8 +683,10 @@
       integer(iprec) :: iopen(idim,jdim)
       real(rprec) :: bndloc(jdim)
       real(rprec) :: big_vm,a1,a2,a,b,x0,ell
-      real(rprec) :: xP,xM,yMax
+      real(rprec) :: xP,xM,yMax,dR
       integer(iprec) :: i,j
+      logical :: isBad
+
 !  x0 = (a1 + a2)/2
 !   a = (a1 - a2)/2
 !
@@ -755,9 +709,10 @@
 
       if (ellBdry%isDynamic) then
         !Tune to current equatorial bounds
-        xP = maxval(xe)
-        xM = minval(xe)
-        yMax = maxval(abs(ye))
+        xP   = maxval(xe     ,mask=iopen<0)
+        xM   = minval(xe     ,mask=iopen<0)
+        yMax = maxval(abs(ye),mask=iopen<0)
+
         !Enforce max's from XML ellipse
         a1 = min(a1,xP)
         a2 = max(a2,xM)
@@ -771,7 +726,9 @@
 ! now check to see if the point is outside the ellipse, if so
 ! reset open and bndloc        
           ell = ((xe(i,j)-x0)/a)**2+(ye(i,j)/b)**2
-          if(ell > 1.) then
+          dR = rmin(i,j) - rmin(i+1,j) !Check for bifurcated equator
+          isBad = (ell > 1.0) .or. (dR<0)
+          if (isBad) then
             bndloc(j) = i+1
             iopen(i,j) = 0
             vm(i,j) = big_vm
@@ -876,50 +833,58 @@ END SUBROUTINE Smooth_eta_at_boundary
       END SUBROUTINE Smooth_boundary_location
 
 !
-      subroutine set_plasmasphere(idim,jdim,kdim,xmin,ymin,vm,eeta,imin_j)
+      subroutine set_plasmasphere(icontrol,idim,jdim,kdim,xmin,ymin,rmin,vm,eeta,imin_j)
 ! subroutine set_plasmasphere(idim,jdim,kdim,rmin,pmin,vm,eeta,imin_j)
 ! crude routine to set a plasmasphere model in the rcm
 ! alam(1) should be set to a small value (0.01)
 ! 2/07 frt
-! Use the gallagher model for initial condition, density in ple/m^3
+! Use the gallagher model for initial condition, update plasmaspheric eeta in each RCM call
 ! alam(1) is set to be 0
-! A refilling model is applied in the RCM simulation region
 ! sbao 03/25
 
-!      USE Rcm_mod_subs, ONLY : iprec,rprec
       USE rcm_precision
       USE earthhelper, ONLY : GallagherXY
       USE constants, ONLY: density_factor
+      USE rice_housekeeping_module, ONLY: InitKp, staticR
+      Use rcm_mhd_interfaces, ONLY: RCMCOLDSTART
+
       IMPLICIT NONE
 
-      integer(iprec) :: idim,jdim,kdim
+      integer(iprec) :: idim,jdim,kdim,icontrol
       real(rprec) :: dens_gal = 0.0
       integer(iprec) :: imin_j(jdim)
-      real(rprec) :: vm(idim,jdim),xmin(idim,jdim),ymin(idim,jdim)
+      real(rprec) :: vm(idim,jdim),xmin(idim,jdim),ymin(idim,jdim),rmin(idim,jdim)
       real(rprec) :: eeta(idim,jdim,kdim)
 
       integer(iprec) :: i,j,k
-!      real(rprec), parameter :: radius_ps = 5.0
-!      real(rprec), parameter :: dens_ps = 10.0e6 ! ple/m^3
 
-!      do j=1,jdim
-!       do i=imin_j(j),idim
-!        if(rmin(i,j) < radius_ps .and. vm(i,j) > 0.0)then
-!        eeta(i,j,1) = dens_ps/(1.5695e-16*vm(i,j)**1.5)
-!        end if
-!       end do
-!      end do
-
+      if (icontrol == RCMCOLDSTART) then
         do j=1,jdim
-        do i=imin_j(j),idim
-                if(vm(i,j) > 0.0)then
-                dens_gal = GallagherXY(xmin(i,j),ymin(i,j))*1.0e6
-                ! add to the existing eeta - frt
-                eeta(i,j,1) = eeta(i,j,1) + dens_gal/(density_factor*vm(i,j)**1.5)
-                end if
+          do i=imin_j(j),idim
+            if(vm(i,j) > 0.0)then
+              dens_gal = GallagherXY(xmin(i,j),ymin(i,j),InitKp)*1.0e6
+              eeta(i,j,1) = dens_gal/(density_factor*vm(i,j)**1.5)
+            end if
+          end do
         end do
-        end do
-
+      else
+        ! reset the static part of the plasmasphere sbao 07292020
+        !Tweak by K: 8/7/20
+        if (staticR > 2.0) then
+          !$OMP PARALLEL DO default(shared) &
+          !$OMP schedule(dynamic) &
+          !$OMP private(i,j,dens_gal)
+          do j=1,jdim
+            do i=imin_j(j),idim
+              if(rmin(i,j) <= staticR .and. vm(i,j) > 0.0)then
+                !eeta (i,j,1) = eeta_pls0 (i,j)
+                dens_gal = GallagherXY(xmin(i,j),ymin(i,j),InitKp)*1.0e6
+                eeta(i,j,1) = dens_gal/(density_factor*vm(i,j)**1.5)
+              end if
+            end do
+          end do
+        end if !staticR
+      endif !RCMCOLDSTART
 
       return
 

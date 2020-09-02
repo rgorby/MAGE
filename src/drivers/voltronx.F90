@@ -49,6 +49,9 @@ program voltronx
         if (vApp%IO%doConsole(vApp%ts)) then
             !Using console output from Gamera
             call consoleOutputV(vApp,gApp)
+            !Timing info
+            if (vApp%IO%doTimerOut) call printClocks()
+            call cleanClocks()
         endif
         !Restart output
         if (vApp%IO%doRestart(vApp%time)) then
@@ -60,12 +63,6 @@ program voltronx
         endif
 
         call Toc("IO")
-
-    !Do timing info
-        if (vApp%IO%doTimer(vApp%ts)) then
-            if (vApp%IO%doTimerOut) call printClocks()
-            call cleanClocks()
-        endif
 
         call Toc("Omega")
 

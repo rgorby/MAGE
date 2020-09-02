@@ -94,6 +94,7 @@
 !
     LOGICAL ::  L_move_plasma_grid = .TRUE.
     LOGICAL ::  L_doKaiClaw        = .FALSE.
+    LOGICAL ::  L_doOMPClaw        = .FALSE.
 !
 !
 !   Plasma on grid:
@@ -579,7 +580,7 @@
 !                                                                       
 !
 !                                  
-      iedim_local = 1
+      iedim_local = 2
 !
       vpar  (:,:)   = zero
       eavg  (:,:,:) = zero
@@ -664,7 +665,9 @@
 !
                END IF 
                ! corrections to eavg at eflux(i,j) == 0.0     sbao 07/2019 
-               IF (eflux(i,j,ie) == 0.0) eavg(i,j,ie) = 0.0
+               ! == does not work well with real number, use lt threshold instead. ldong 04/2020
+               IF (eflux(i,j,ie) .lt. 0.01) eavg(i,j,ie) = 0.0
+               IF (eavg(i,j,ie) .lt. 0.01) eflux(i,j,ie) = 0.0
 
 !                                                                       
             END DO
@@ -677,6 +680,8 @@
       CALL Circle (vpar)
       CALL Circle (eflux (:, :, ie_el))
       CALL Circle (eavg  (:, :, ie_el))
+      CALL Circle (eflux (:, :, ie_hd))
+      CALL Circle (eavg  (:, :, ie_hd))
 !
       RETURN
       END SUBROUTINE Get_vparallel
@@ -700,6 +705,20 @@
          END DO
          DO i = imin_j(j), ivalue_max - 1
             eflux(i,j,ie_el) = MAX (half*eflux_max, eflux(i,j,ie_el))
+         END DO
+      END DO
+      !ion precipitation
+      DO j = 1, jsize
+         eflux_max = eflux (isize, j, ie_hd)
+         ivalue_max = isize
+         DO i = isize-1, imin_j(j), -1
+            IF (eflux(i,j,ie_hd) > eflux(i+1,j,ie_hd)) THEN
+               eflux_max  = eflux(i,j,ie_hd)
+               ivalue_max = i
+            END IF
+         END DO
+         DO i = imin_j(j), ivalue_max - 1
+            eflux(i,j,ie_hd) = MAX (half*eflux_max, eflux(i,j,ie_hd))
          END DO
       END DO
       RETURN
@@ -861,7 +880,11 @@ real :: v_1_1, v_1_2, v_2_1, v_2_2
        CALL Circle (eeta(:,:,kc))
 !
     END DO
-!
+!      
+       ! refill the plasmasphere  04012020 sbao       
+       CALL Plasmasphere_Refilling_Model(eeta(:,:,1), rmin, aloct, vm, dt)
+       CALL Circle (eeta(:,:,1))
+
     RETURN
 !
     CONTAINS
@@ -1958,7 +1981,6 @@ real :: v_1_1, v_1_2, v_2_1, v_2_2
           call AddInVar(IOVars,"bir")
           call AddInVar(IOVars,"sini")
 
-
           !Extra stuff (not in write arrays)
           call AddInVar(IOVars,"alamc")
           
@@ -2096,7 +2118,7 @@ real :: v_1_1, v_1_2, v_2_1, v_2_2
             call WriteVars(IOVars,doSP,H5File)
             !Create link to latest restart
             write (lnResF, '(A,A,A,A)') trim(runid), ".RCM.Res.", "XXXXX", ".h5"
-            call EXECUTE_COMMAND_LINE('ln -sf '//trim(H5File)//' '//trim(lnResF), wait=.false.)
+            call MapSymLink(H5File,lnResF)
           else
             call WriteVars(IOVars,doSP,H5File,gStr)
           endif
@@ -2155,6 +2177,7 @@ real :: v_1_1, v_1_2, v_2_1, v_2_2
 
           !Clawpack options
           call xmlInp%Set_Val(L_doKaiClaw,"clawpack/doKaiClaw",L_doKaiClaw)
+          call xmlInp%Set_Val(L_doOMPClaw,"clawpack/doOMPClaw",L_doOMPClaw)
 
           !Some values just setting
           tol_gmres = 1.0e-5
@@ -2217,7 +2240,7 @@ real :: v_1_1, v_1_2, v_2_1, v_2_2
         call ReadVars(IOVars,doSP,RCMGAMConfig)
 
         dktime = reshape(IOVars(1)%data,[irdk,inrgdk,isodk, iondk])
-        
+
         ! !Debugging
         ! dktime2 = reshape(IOVars(1)%data,[irdk,inrgdk,isodk, iondk])
         ! call Read_dktime(L_dktime)
@@ -2427,7 +2450,6 @@ real :: v_1_1, v_1_2, v_2_1, v_2_2
 !Attempt by K: to incorporate newer clawpack 04/20
 SUBROUTINE Move_plasma_grid_KAIJU (dt)
   USE rcmclaw, only : claw2ez95
-  
   IMPLICIT NONE
 
   real(rprec), intent(in) :: dt
@@ -2437,6 +2459,9 @@ SUBROUTINE Move_plasma_grid_KAIJU (dt)
   real(rprec) :: didt,djdt,mass_factor,r_dist
   integer(iprec) :: i,j,kc,ie,joff,icut,clawiter
   REAL (rprec) :: max_eeta, eps = 0.0 !sbao 07/2019
+
+  write(*,*) 'move_plasma_grid_kaiju is currently disabled until it is fixed ...'
+  stop
 
   joff=jwrap-1
   fac = 1.0E-3*signbe*bir*alpha*beta*dlam*dpsi*ri**2
@@ -2449,7 +2474,7 @@ SUBROUTINE Move_plasma_grid_KAIJU (dt)
   !$OMP private (mass_factor,loc_didt,loc_djdt) &
   !$OMP private (loc_Eta,loc_rate,r_dist,max_eeta) &
   !$OMP shared (alamc,eeta,v,vcorot,vpar,vm,imin_j,j1,j2,joff) &
-  !$OMP shared (xmin,ymin,fac,fudgec,bir,sini,L_dktime,dktime,sunspot_number) &
+  !$OMP shared (xmin,ymin,rmin,aloct,fac,fudgec,bir,sini,L_dktime,dktime,sunspot_number) &
   !$OMP shared (dt,eps)
   DO kc = 1, kcsize
     !If oxygen is to be added, must change this!
@@ -2545,15 +2570,21 @@ SUBROUTINE Move_plasma_grid_KAIJU (dt)
     !floor eeta 12/06 frt
     max_eeta = maxval(eeta(:,:,kc))
     eeta(:,:,kc) = MAX(eps*max_eeta,eeta(:,:,kc))
+
+    if (kc == 1) then
+      ! refill the plasmasphere  04012020 sbao
+      CALL Plasmasphere_Refilling_Model(eeta(:,:,1), rmin, aloct, vm, dt)
+    endif
+
     CALL Circle (eeta(:,:,kc))    
-  ENDDO !kc loop
   
+  ENDDO !kc loop
+
 END SUBROUTINE Move_plasma_grid_KAIJU
 
 !=========================================================================
 !
 SUBROUTINE Move_plasma_grid_NEW (dt)
-! USE Rcm_mod_subs
   IMPLICIT NONE
   REAL (rprec), INTENT (IN) :: dt
 !_____________________________________________________________________________
@@ -2564,131 +2595,167 @@ SUBROUTINE Move_plasma_grid_NEW (dt)
 !_____________________________________________________________________________
 !
 !
-  REAL (rprec) :: eeta2 (isize,jsize), veff  (isize,jsize),  &
-                  dvefdi(isize,jsize), dvefdj(isize,jsize), &
-                  didt, djdt, mass_factor
-  REAL (rprec) :: max_eeta, eps = 0.0 !sbao 07/2019
+
+  REAL (rprec) :: mass_factor, max_eeta, eps = 0.0 !sbao 07/2019
   INTEGER (iprec) :: i, j, kc, ie
-!\\\
-  integer(iprec) :: CLAWiter, joff, icut
-!  real(rprec), dimension(-1:isize+2,-1:jsize-1):: loc_didt, loc_djdt
-!  real(rprec), dimension(-1:isize+2,-1:jsize-1):: loc_Eta, loc_rate
-  double precision, dimension(-1:isize+2,-1:jsize-1):: loc_didt, loc_djdt
-  double precision, dimension(-1:isize+2,-1:jsize-1):: loc_Eta, loc_rate
-  double precision, save :: xlower,xupper,ylower,yupper, T1,T2
-  !real(rprec), save :: xlower,xupper,ylower,yupper, T1,T2
-  logical, save :: FirstTime=.true.
-  REAL(rprec) :: r_dist
-  integer(iprec):: ii,istop
+  INTEGER (iprec) :: CLAWiter, joff, icut
+  REAL (rprec), dimension(isize,jsize) :: eeta2,veff,dvefdi,dvefdj
+  REAL (rprec), dimension(-1:isize+2,-1:jsize-1) :: loc_didt,loc_djdt,loc_Eta,loc_rate
+  REAL (rprec), save :: xlower,xupper,ylower,yupper, T1,T2
+  REAL (rprec) :: T1k,T2k !Local loop variables b/c clawpack alters input
+  REAL (rprec) :: r_dist
+  INTEGER (iprec) :: ii,istop
+  LOGICAL, save :: FirstTime=.true.
   
   joff=jwrap-1
   
   if (FirstTime) then
-     T1=0.
+    T1=0.
+    FirstTime = .false.
   else
-     T1=T2
+    T1=T2
   end if
+
   T2=T1+dt
 
   xlower = 1
   xupper = isize
   ylower = zero
   yupper = jsize-3
-!///
+
+  fac = 1.0E-3*signbe*bir*alpha*beta*dlam*dpsi*ri**2
 
 
- fac = 1.0E-3*signbe*bir*alpha*beta*dlam*dpsi*ri**2
-
-!K: Experiment OMP binding on RCM calculation
-!!$OMP PARALLEL DO schedule(dynamic) &
-!!$PRIVATE (eeta2, veff, dvefdi, dvefdj, didt, djdt, &
-!!$OMP                  & mass_factor, loc_didt, loc_djdt,loc_Eta,loc_rate, &
-!!$OMP                  & ie, icut, j, i, r_dist, FirstTime, max_eeta) &
-!!$OMP        & SHARED (alamc, eeta, v, vcorot, vpar, vm, imin_j, j1, j2, joff, &
-!!$OMP                  xmin, ymin, fac, fudgec, bir, sini, L_dktime, dktime, sunspot_number, &                
-!!$OMP                  T1, T2, xlower, ylower, xupper, yupper, CLAWiter, eps) &
-!!$OMP        & DEFAULT (NONE)
+  !K: Trying to fix omp bindings
+  !Fixing private/shared and vars altered by clawpack
+  !NOTE: T1k/T2k need to be private b/c they're altered by claw2ez
+  
+  !$OMP PARALLEL DO if (L_doOMPClaw) &
+  !$OMP DEFAULT (NONE) &
+  !$OMP PRIVATE(i,j,kc,icut,ie) &
+  !$OMP PRIVATE(eeta2,veff,dvefdi,dvefdj,loc_didt,loc_djdt,loc_Eta,loc_rate) &
+  !$OMP PRIVATE(mass_factor,r_dist,max_eeta,CLAWiter,T1k,T2k) &
+  !$OMP SHARED(alamc,eeta,v,vcorot,vpar,vm,imin_j,j1,j2,joff) &
+  !$OMP SHARED(xmin,ymin,rmin,fac,fudgec,bir,sini,L_dktime,dktime,sunspot_number) &
+  !$OMP SHARED(aloct,xlower,xupper,ylower,yupper,eps,dt,T1,T2)
 
   DO kc = 1, kcsize
-!
-!    If oxygen is to be added, must change this!
-!
-     IF (alamc(kc) <= 0.0) THEN
-        ie = 1  ! electrons
-     ELSE
-        ie = 2  ! protons
-     END IF
-!
-!
-     IF (MAXVAL(eeta(:,:,kc)) == 0.0) CYCLE
-!
-     mass_factor = SQRT (xmass(1)/xmass(ie))
-!
-!    1. Compute the effective potential for the kc energy channel:
-! 
-    !K: Here we're adding corotation to total effective potential
-     veff = v +vcorot - vpar + vm*alamc(kc)
-!!!  CALL V_eff_polar_cap (veff)
-!
-!    2. Differentiate Veff with respect to I and J:
-!
-!!!  CALL Deriv_i_new (veff, isize, jsize, j1, j2, imin_J, dvefdi)
-!!!  CALL Deriv_j_new (veff, isize, jsize, j1, j2, imin_J, dvefdj)
-     
-     dvefdi = Deriv_i (veff, imin_j)
-     dvefdj = Deriv_j (veff, imin_j, j1, j2, 1.0E+26_rprec)
-     WHERE (dvefdj > 1.0E+20)
-       dvefdj = 0.0
-     END WHERE
-!
-!
-     loc_Eta  = zero
-     loc_didt = zero
-     loc_djdt = zero
-     loc_rate = zero
-!
-!
-      icut=0
-      do j=j1,j2
-         icut=max(icut,imin_j(j))
-         do i=imin_j(j),isize-1
-            if (eeta(i,j,kc) > 1.) icut=max(icut,i)
-         end do
-      end do
-      icut=icut+5
+    !If oxygen is to be added, must change this!
+    IF (alamc(kc) <= 0.0) THEN
+      ie = 1  ! electrons
+    ELSE
+      ie = 2  ! protons
+    END IF
 
-     DO j = j1, j2
-        DO i = 2, isize-1
-           loc_didt (i,j-joff) = + dvefdj (i-1,j) / fac(i-1,j)
-           loc_djdt (i,j-joff) = - dvefdi (i,j-1) / fac(i-1,j)
-           IF (i > icut) THEN
-              loc_didt(i,j-joff) = 0.0
-              loc_djdt(i,j-joff) = 0.0
-           END IF
+    IF (MAXVAL(eeta(:,:,kc)) == 0.0) CYCLE
+
+    mass_factor = SQRT (xmass(1)/xmass(ie))
+
+  !1. Compute the effective potential for the kc energy channel:
+    !K: Here we're adding corotation to total effective potential
+    veff = v +vcorot - vpar + vm*alamc(kc)
+
+  !2. Differentiate Veff with respect to I and J:
+
+    !!!CALL Deriv_i_new (veff, isize, jsize, j1, j2, imin_J, dvefdi)
+    !!!CALL Deriv_j_new (veff, isize, jsize, j1, j2, imin_J, dvefdj)
+    dvefdi = Deriv_i (veff, imin_j)
+    dvefdj = Deriv_j (veff, imin_j, j1, j2, 1.0E+26_rprec)
+    WHERE (dvefdj > 1.0E+20)
+      dvefdj = 0.0
+    END WHERE
+    !Zero out local arrays
+    loc_Eta  = 0.0
+    loc_didt = 0.0
+    loc_djdt = 0.0
+    loc_rate = 0.0
+
+    icut=0
+    do j=j1,j2
+      icut=max(icut,imin_j(j))
+      do i=imin_j(j),isize-1
+        if (eeta(i,j,kc) > 1.) icut=max(icut,i)
+      end do
+    end do !j
+    icut=icut+5
+
+    DO j = j1, j2
+      DO i = 2, isize-1
+        loc_didt (i,j-joff) = + dvefdj (i-1,j) / fac(i-1,j)
+        loc_djdt (i,j-joff) = - dvefdi (i,j-1) / fac(i-1,j)
+        IF (i > icut) THEN
+          loc_didt(i,j-joff) = 0.0
+          loc_djdt(i,j-joff) = 0.0
+        END IF
 !
-            IF (ie == 1) THEN
-               loc_rate(i,j-joff) = Ratefn (fudgec(kc), alamc(kc), sini(i,j),&
-                                            bir (i,j), vm(i,j), mass_factor)
-            ELSE IF (ie == 2) THEN
-               IF (L_dktime .AND. i >= imin_j(j)) THEN
-               r_dist = SQRT(xmin(i,j)**2+ymin(i,j)**2)
-               loc_rate(i,j-joff) = Cexrat (ie, ABS(alamc(kc))*vm(i,j), &
-                                            R_dist, &
-                                            sunspot_number, dktime, &
-                                            irdk,inrgdk,isodk,iondk)
-               ELSE
-               loc_rate(i,j-joff) = 0.0
-               END IF
-            ELSE
-               STOP 'UNKNOWN IE IN COMPUTING LOSS'
-            END IF
-!
-        END DO
-!       eeta (1:imin_j(j)-1,j,kc) = etac (kc)
-        loc_didt(isize,j-joff) = loc_didt(isize-1,j-joff)
-        loc_djdt(isize,j-joff) = loc_djdt(isize-1,j-joff)
-        loc_rate(isize,j-joff) = loc_rate(isize-1,j-joff)
-     END DO
+        IF (ie == RCMELECTRON) THEN
+
+          loc_rate(i,j-joff) = Ratefn (fudgec(kc), alamc(kc), sini(i,j),&
+                                       bir (i,j), vm(i,j), mass_factor)
+        ELSE IF (ie == RCMPROTON) THEN
+
+          IF (L_dktime .AND. i >= imin_j(j)) THEN
+            r_dist = SQRT(xmin(i,j)**2+ymin(i,j)**2)
+            loc_rate(i,j-joff) = Cexrat (ie, ABS(alamc(kc))*vm(i,j), &
+                                         R_dist, &
+                                         sunspot_number, dktime, &
+                                         irdk,inrgdk,isodk,iondk)
+          ELSE
+            loc_rate(i,j-joff) = 0.0
+          END IF
+
+        ELSE
+          STOP 'UNKNOWN IE IN COMPUTING LOSS'
+        END IF !ie
+
+      END DO !i loop
+
+      loc_didt(isize,j-joff) = loc_didt(isize-1,j-joff)
+      loc_djdt(isize,j-joff) = loc_djdt(isize-1,j-joff)
+      loc_rate(isize,j-joff) = loc_rate(isize-1,j-joff)
+    END DO !j loop
+
+  !Copy to local variables
+    loc_Eta (1:isize, 1:jsize-jwrap) = eeta (1:isize, jwrap:jsize-1, kc)
+
+  !Call clawpack
+    !Always calling as FirstTime
+    T1k = T1
+    T2k = T2
+    CALL Claw2ez (.true., T1k,T2k, xlower,xupper, ylower,yupper, &
+                  CLAWiter, 2,isize-1+1,jsize-3, &
+                  loc_Eta, loc_didt, loc_djdt, loc_rate)
+
+    !Copy out
+    DO j = j1, j2
+      DO i = imin_j(j)+1, isize-1
+        eeta (i, j, kc) = loc_Eta (i, j-joff)
+      END DO
+    END DO
+    DO j = j1, j2
+      IF (veff(imin_j(j+1),j+1)-veff(imin_j(j-1),j-1) < 0.0) THEN
+        eeta (imin_j(j),j,kc) = loc_eta (imin_j(j),j-joff)
+      END IF
+    END DO
+
+    ! floor eeta 12/06 frt
+    max_eeta = maxval(eeta(:,:,kc))
+    eeta(:,:,kc) = MAX(eps*max_eeta,eeta(:,:,kc))
+
+    
+    if (kc == 1) then
+      !refill the plasmasphere  04012020 sbao
+      !K: Added kc==1 check 8/11/20
+      CALL Plasmasphere_Refilling_Model(eeta(:,:,1), rmin, aloct, vm, dt)
+    endif
+    CALL Circle (eeta(:,:,kc))
+
+  END DO !Main kc loop
+
+
+  RETURN
+
+  !OLD BC CODE:
 !
 ! boundary condition correction:
 !    DO j = j1, j2
@@ -2697,9 +2764,6 @@ SUBROUTINE Move_plasma_grid_NEW (dt)
 !       END IF
 !    END DO
 !
-!
-!Copy to local variables
-     loc_Eta (1:isize, 1:jsize-jwrap) = eeta (1:isize, jwrap:jsize-1, kc)
 !    !Set ghost cell values for clawpack solver
 !    !  Pole
 !    do i=1-2, 1-1
@@ -2720,56 +2784,39 @@ SUBROUTINE Move_plasma_grid_NEW (dt)
 !    loc_Eta (-1:isize+1,jsize-joff:jsize-joff+1) = loc_Eta (-1:isize+1,1:2)
 !    loc_didt(-1:isize+1,jsize-joff:jsize-joff+1) = loc_didt(-1:isize+1,1:2)
 !    loc_djdt(-1:isize+1,jsize-joff:jsize-joff+1) = loc_djdt(-1:isize+1,1:2)
-!    
-     !Call clawpack
-     FirstTime=.true.
-!    print*,'calling clawpack with k=',kc
-!    write(6,*)FirstTime,T1,T2,xlower,xupper,ylower,yupper,CLAWiter
-!    write(6,*)isize,jsize
-!    istop=-1
-!    if(istop.eq.-1)stop
-     CALL Claw2ez (FirstTime, T1,T2, xlower,xupper, ylower,yupper, &
-                   CLAWiter, 2,isize-1+1,jsize-3, &
-                   loc_Eta, loc_didt, loc_djdt, loc_rate)
-     FirstTime=.false.
- 
-     !Copy out
-     DO j = j1, j2
-     DO i = imin_j(j)+1, isize-1
-        eeta (i, j, kc) = loc_Eta (i, j-joff)
-     END DO
-     END DO
-     DO j = j1, j2
-        IF (veff(imin_j(j+1),j+1)-veff(imin_j(j-1),j-1) < 0.0) THEN
-           eeta (imin_j(j),j,kc) = loc_eta (imin_j(j),j-joff)
-        END IF
-     END DO
-!
-! floor eeta 12/06 frt
-     max_eeta = maxval(eeta(:,:,kc))
-     eeta(:,:,kc) = MAX(eps*max_eeta,eeta(:,:,kc))
-     CALL Circle (eeta(:,:,kc))
-!
-  END DO
 
-
-  RETURN
-!
-! CONTAINS
-! !
-!   FUNCTION Ratefn (fudgx, alamx, sinix, birx, vmx, xmfact)
-!     IMPLICIT NONE
-!     REAL (rprec), INTENT (IN) :: fudgx,alamx,sinix,birx,vmx,xmfact
-!     REAL (rprec)              :: Ratefn
-! !                                                                       
-! !   Function subprogram to compute precipitation rate
-! !   Last update:  04-04-88
-! !
-!     Ratefn = 0.0466_rprec*fudgx*SQRT(ABS(alamx))*(sinix/birx)*vmx**2
-!     Ratefn = xmfact * ratefn
-!     RETURN
-!   END FUNCTION Ratefn
 END SUBROUTINE Move_plasma_grid_NEW
+
+!Adapted by S.Bao from Colby Lemon's original code. 04012020 sbao
+SUBROUTINE Plasmasphere_Refilling_Model(eeta0, rmin, aloct, vm, idt)
+
+      implicit none
+      REAL (rprec), intent(inout), dimension(isize,jsize) :: eeta0
+      REAL (rprec), intent(in), dimension(isize,jsize) :: rmin, aloct, vm
+      REAL (rprec) :: den_increase(isize, jsize), ftv(isize,jsize)
+      REAL (rprec) :: idt
+      REAL (rprec) , parameter :: m_per_Re = 6380.e3
+      REAL (rprec) , parameter :: nT_per_T = 1.e9
+      REAL (rprec) , parameter :: cm_per_m = 1.e2
+      where (vm > 0)
+        ftv = vm**(-3.0/2.0)
+      elsewhere
+        ftv = 0.0  ! open field lines, most likely. Set ftv to zero because we want eeta to be zero there
+      end where
+
+      den_increase = (idt/1000.0/(24*60*60)) * 10**(3.01 - 0.322*rmin) * ftv * (m_per_Re * nT_per_T * cm_per_m**3)   ! ple/cc
+
+      where (aloct < pi/2 .OR. aloct > 3*pi/2)  ! If we are on the dayside
+        eeta0 = eeta0 + 1.8 * den_increase
+      elsewhere
+        eeta0 = eeta0 + 0.2 * den_increase
+      end where
+
+    ! Keep eeta0 between 0 and two times the Berube et al. 2005 density.
+      eeta0 = min(eeta0, 2*10**(4.56 - 0.51*rmin) * ftv * (m_per_Re*nT_per_T*cm_per_m**3))
+      eeta0 = max(eeta0, 0.0)
+
+END SUBROUTINE
 
 FUNCTION Ratefn (fudgx, alamx, sinix, birx, vmx, xmfact)
   IMPLICIT NONE

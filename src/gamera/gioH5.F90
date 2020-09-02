@@ -26,33 +26,14 @@ module gioH5
         type(Grid_T), intent(inout) :: Grid
         character(len=*), intent(in) :: inH5
 
-        integer :: Nd
-        logical :: fExist
         integer, dimension(NDIM) :: dims        
 
         !Reset IO chain
         call ClearIO(IOVars)
 
-        inquire(file=inH5,exist=fExist)
-        if (.not. fExist) then
-            !Error out and leave
-            write(*,*) 'Unable to open input mesh, exiting'
-            stop
-        endif
+        call CheckFileOrDie(inH5,"Unable to open input mesh, exiting ...")
 
-        !Setup input chain
-        call AddInVar(IOVars,"X")
-        call AddInVar(IOVars,"Y")
-        call AddInVar(IOVars,"Z")
-
-        call ReadVars(IOVars,.false.,inH5) !Don't use io precision
-
-        Nd = IOVars(1)%Nr !Dimension
-        if (Nd <3) then
-            write(*,*) "Number of dimensions not supported"
-            stop
-        endif
-        dims = IOVars(1)%dims(1:Nd)
+        dims = GridSizeH5(inH5)
 
         !Start with main indices, convert # of ghost corners to active
         Grid%Nip = dims(1) - 2*Model%nG - 1
@@ -73,15 +54,60 @@ module gioH5
         Grid%jeg = Grid%je+Model%nG
         Grid%ksg = Grid%ks-Model%nG
         Grid%keg = Grid%ke+Model%nG
-    
-        allocate(Grid%x(Grid%isg:Grid%ieg+1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1))
-        allocate(Grid%y(Grid%isg:Grid%ieg+1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1))
-        allocate(Grid%z(Grid%isg:Grid%ieg+1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1))
 
-        Grid%x = reshape(IOVars(XDIR)%data,[Grid%Ni+1,Grid%Nj+1,Grid%Nk+1])
-        Grid%y = reshape(IOVars(YDIR)%data,[Grid%Ni+1,Grid%Nj+1,Grid%Nk+1])
-        Grid%z = reshape(IOVars(ZDIR)%data,[Grid%Ni+1,Grid%Nj+1,Grid%Nk+1])
+        Grid%ijkShift(IDIR) = Grid%Nip*Grid%Ri
+        Grid%ijkShift(JDIR) = Grid%Njp*Grid%Rj
+        Grid%ijkShift(KDIR) = Grid%Nkp*Grid%Rk
 
+        if( Model%isRestart .or. .not. Grid%isTiled ) then
+            !Read the entire grid
+
+            !Setup input chain
+            call AddInVar(IOVars,"X")
+            call AddInVar(IOVars,"Y")
+            call AddInVar(IOVars,"Z")
+        else
+            !Read only the part of the grid for this tile
+
+            !Adjust the grid values for this tile
+            Grid%Nip = Grid%Nip/Grid%NumRi
+            Grid%Njp = Grid%Njp/Grid%NumRj
+            Grid%Nkp = Grid%Nkp/Grid%NumRk
+
+            Grid%ijkShift(IDIR) = Grid%Nip*Grid%Ri
+            Grid%ijkShift(JDIR) = Grid%Njp*Grid%Rj
+            Grid%ijkShift(KDIR) = Grid%Nkp*Grid%Rk
+
+            Grid%Ni = Grid%Nip + 2*Model%nG
+            Grid%Nj = Grid%Njp + 2*Model%nG
+            Grid%Nk = Grid%Nkp + 2*Model%nG
+
+            Grid%is = 1; Grid%ie = Grid%Nip
+            Grid%js = 1; Grid%je = Grid%Njp
+            Grid%ks = 1; Grid%ke = Grid%Nkp
+
+            Grid%isg = Grid%is-Model%nG
+            Grid%ieg = Grid%ie+Model%nG
+
+            Grid%jsg = Grid%js-Model%nG
+            Grid%jeg = Grid%je+Model%nG
+
+            Grid%ksg = Grid%ks-Model%nG
+            Grid%keg = Grid%ke+Model%nG
+
+            !Setup input chain
+            call AddInVarHyper(IOVars,"X",Grid%ijkShift,(/ Grid%Ni+1,Grid%Nj+1,Grid%Nk+1 /))
+            call AddInVarHyper(IOVars,"Y",Grid%ijkShift,(/ Grid%Ni+1,Grid%Nj+1,Grid%Nk+1 /))
+            call AddInVarHyper(IOVars,"Z",Grid%ijkShift,(/ Grid%Ni+1,Grid%Nj+1,Grid%Nk+1 /))
+        endif
+
+        call ReadVars(IOVars,.false.,inH5) !Don't use io precision
+
+        call allocGrid(Model,Grid)
+        
+        Grid%xyz(:,:,:,XDIR) = reshape(IOVars(XDIR)%data,[Grid%Ni+1,Grid%Nj+1,Grid%Nk+1])
+        Grid%xyz(:,:,:,YDIR) = reshape(IOVars(YDIR)%data,[Grid%Ni+1,Grid%Nj+1,Grid%Nk+1])
+        Grid%xyz(:,:,:,ZDIR) = reshape(IOVars(ZDIR)%data,[Grid%Ni+1,Grid%Nj+1,Grid%Nk+1])
     
     end subroutine readH5Grid
 
@@ -109,6 +135,8 @@ module gioH5
             return
         endif
         
+        call StampIO(GamH5File)
+
         !Calculate grid quality
         call allocGridVar(Model,Gr,gQ)
         call GridQuality(Model,Gr,gQ) 
@@ -136,14 +164,14 @@ module gioH5
         !Fill IO chain, start with coordinates
         if (Gr%Nkp > 1) then
             !3D problem
-            call AddOutVar(IOVars,"X",Gr%x(iMin:iMax+1,jMin:jMax+1,kMin:kMax+1))
-            call AddOutVar(IOVars,"Y",Gr%y(iMin:iMax+1,jMin:jMax+1,kMin:kMax+1))
-            call AddOutVar(IOVars,"Z",Gr%z(iMin:iMax+1,jMin:jMax+1,kMin:kMax+1))
+            call AddOutVar(IOVars,"X",Gr%xyz(iMin:iMax+1,jMin:jMax+1,kMin:kMax+1,XDIR))
+            call AddOutVar(IOVars,"Y",Gr%xyz(iMin:iMax+1,jMin:jMax+1,kMin:kMax+1,YDIR))
+            call AddOutVar(IOVars,"Z",Gr%xyz(iMin:iMax+1,jMin:jMax+1,kMin:kMax+1,ZDIR))
         else
             !2D problem
             !Squash corner arrays to 2D
-            call AddOutVar(IOVars,"X",reshape(Gr%x(iMin:iMax+1,jMin:jMax+1,kMin:kMin),[iMax-iMin+2,jMax-jMin+2]))
-            call AddOutVar(IOVars,"Y",reshape(Gr%y(iMin:iMax+1,jMin:jMax+1,kMin:kMin),[iMax-iMin+2,jMax-jMin+2]))
+            call AddOutVar(IOVars,"X",reshape(Gr%xyz(iMin:iMax+1,jMin:jMax+1,kMin:kMin,XDIR),[iMax-iMin+2,jMax-jMin+2]))
+            call AddOutVar(IOVars,"Y",reshape(Gr%xyz(iMin:iMax+1,jMin:jMax+1,kMin:kMin,YDIR),[iMax-iMin+2,jMax-jMin+2]))
         endif
 
         call AddOutVar(IOVars,"dV",Gr%volume(iMin:iMax,jMin:jMax,kMin:kMax))
@@ -169,6 +197,9 @@ module gioH5
         endif
 
         if (Model%doMHD .and. Model%isMagsphere) then
+            !Add mag moment
+            call AddOutVar(IOVars,"MagM0",Model%MagM0*Model%gamOut%bScl)
+            
             !Write out dipole field values
             allocate(gVec (iMin:iMax,jMin:jMax,kMin:kMax,1:NDIM))
             !Subtract dipole before calculating current
@@ -351,6 +382,7 @@ module gioH5
                 call AddOutVar(IOVars,"Jz",gVec(:,:,:,ZDIR))
             else
                 !Do full current
+                VecA = State%Bxyz
                 call bFld2Jxyz(Model,Gr,VecA,VecB)
                 gVec(:,:,:,:) = VecB(iMin:iMax,jMin:jMax,kMin:kMax,XDIR:ZDIR)
 
@@ -528,6 +560,8 @@ module gioH5
         type(State_T), intent(in) :: State
         character(len=*), intent(in) :: ResF
 
+        call StampIO(ResF)
+        
         !Reset IO chain
         call ClearIO(IOVars)
 
@@ -543,9 +577,9 @@ module gioH5
         endif
 
         !Coordinates of corners
-        call AddOutVar(IOVars,"X",Gr%x)
-        call AddOutVar(IOVars,"Y",Gr%y)
-        call AddOutVar(IOVars,"Z",Gr%z)
+        call AddOutVar(IOVars,"X",Gr%xyz(:,:,:,XDIR))
+        call AddOutVar(IOVars,"Y",Gr%xyz(:,:,:,YDIR))
+        call AddOutVar(IOVars,"Z",Gr%xyz(:,:,:,ZDIR))
 
         !State variable
         call AddOutVar(IOVars,"Gas",State%Gas(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,:,:))

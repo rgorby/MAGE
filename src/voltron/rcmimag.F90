@@ -12,6 +12,7 @@ module rcmimag
     use rcm_mhd_interfaces
     use rcm_mix_interface
     use streamline
+    use chmpdbz, ONLY : DipoleB0
     use clocks
     use kronos
     use rcm_mhd_mod, ONLY : rcm_mhd
@@ -24,14 +25,16 @@ module rcmimag
 
     real(rp) :: RIonRCM !Units of Rp
     real(rp), private :: rEqMin = 0.0
-    real(rp), private :: PPDen = 50.0 !Plasmapause density
+    real(rp), private :: PPDen = 10.0 !Plasmapause density cut-off
     character(len=strLen), private :: h5File
 
     real(rp), private :: Rp_m
     real(rp), private :: planetM0g
 
-    logical, parameter, private :: doKillRCMDir = .true. !Whether to always kill RCMdir before starting
-    logical, private :: doWolfLim = .true.
+    logical , private, parameter :: doKillRCMDir = .true. !Whether to always kill RCMdir before starting
+    logical , private :: doWolfLim  = .true. !Whether to do wolf-limiting
+    logical , private :: doBounceDT = .true. !Whether to use Alfven bounce in dt-ingest
+    real(rp), private :: nBounce = 0.5 !Scaling factor for Alfven transit
 
     !Information taken from MHD flux tubes
     !TODO: Figure out RCM boundaries
@@ -50,7 +53,8 @@ module rcmimag
         real(rp) :: X_bmin(NDIM)
         integer(ip) :: iopen
         real(rp) :: latc,lonc !Conjugate lat/lon
-        real(rp) :: Lb
+        real(rp) :: Lb, Tb !Arc length/bounce time
+        real(rp) :: losscone
     end type RCMTube_T
 
     real(rp), dimension(:,:), allocatable, private :: mixPot
@@ -117,8 +121,10 @@ module rcmimag
         call iXML%Set_Val(RunID,"/gamera/sim/runid","sim")
         RCMApp%rcm_runid = trim(RunID)
 
-        call iXML%Set_Val(doWolfLim,"/gamera/source/doWolfLim",doWolfLim)
-        
+        call iXML%Set_Val(doWolfLim ,"/gamera/source/doWolfLim" ,doWolfLim )
+        call iXML%Set_Val(doBounceDT,"/gamera/source/doBounceDT",doBounceDT)
+        call iXML%Set_Val(nBounce   ,"/gamera/source/nBounce"   ,nBounce   )
+
         if (isRestart) then
             if (doKillRCMDir) then
                 !Kill RCMFiles directory even on restart
@@ -200,7 +206,7 @@ module rcmimag
 
             type(TimeSeries_T) :: tsQ
             tsQ%wID = trim(fID)
-            call tsQ%initTS(trim(vID))
+            call tsQ%initTS(trim(vID),doLoudO=.false.)
             qSW = tsQ%evalAt(t0)
         end function GetSWVal
 
@@ -265,10 +271,18 @@ module rcmimag
 
                 RCMApp%latc(i,j)         = ijTube%latc
                 RCMApp%lonc(i,j)         = ijTube%lonc
+                RCMApp%losscone(i,j)     = ijTube%losscone
                 RCMApp%Lb(i,j)           = ijTube%Lb
-                RCMApp%Tb(i,j)           = AlfvenBounce(ijTube%Nave,ijTube%bmin,ijTube%Lb)
+                !Get some kind of bounce timscale, either real integrated value or lazy average
+                !RCMApp%Tb(i,j)           = AlfvenBounce(ijTube%Nave,ijTube%bmin,ijTube%Lb)
+                RCMApp%Tb(i,j)           = ijTube%Tb
+
                 !mix variables are stored in this order (longitude,colatitude), hence the index flip
                 RCMApp%pot(i,j)          = mixPot(j,i)
+
+                !Set composition
+                RCMApp%oxyfrac(i,j)      = 0.0
+                
             enddo
         enddo
         call Toc("RCM_TUBES")
@@ -298,11 +312,13 @@ module rcmimag
         vApp%imag2mix%isClosed = (RCMApp%iopen == RCMTOPCLOSED)
         vApp%imag2mix%latc = RCMApp%latc
         vApp%imag2mix%lonc = RCMApp%lonc
-        vApp%imag2mix%eflux = RCMApp%flux
-        vApp%imag2mix%eavg  = RCMApp%eng_avg
 
-        vApp%imag2mix%iflux = 0.0
-        vApp%imag2mix%iavg  = 0.0
+    ! electrons precipitation
+        vApp%imag2mix%eflux = RCMApp%flux(:,:,1)
+        vApp%imag2mix%eavg  = RCMApp%eng_avg(:,:,1)
+    ! ion precipitation
+        vApp%imag2mix%iflux = RCMApp%flux(:,:,2)
+        vApp%imag2mix%iavg  = RCMApp%eng_avg(:,:,2)
 
         vApp%imag2mix%isFresh = .true.
 
@@ -329,7 +345,6 @@ module rcmimag
                 nCC = D*rcmNScl !Get n in #/cc
                 bNT = B*1.0e+9 !Convert B to nT
                 Va = 22.0*bNT/sqrt(nCC) !km/s, from NRL plasma formulary
-                !dTb = (L*Re_km)/Va
                 dTb = (L*Rp_m*1.0e-3)/Va
             end function AlfvenBounce
     end subroutine AdvanceRCM
@@ -460,7 +475,7 @@ module rcmimag
         real(rp), intent(out) :: imW(NVARIMAG)
         logical, intent(out) :: isEdible
 
-        real(rp) :: colat,nrcm,prcm,npp,ntot,pScl,beta,pmhd
+        real(rp) :: colat,nrcm,prcm,npp,ntot,pScl,beta,pmhd,nmhd
         integer, dimension(2) :: ij0
 
         associate(RCMApp => imag%rcmCpl, lat => x1, lon => x2)
@@ -492,7 +507,8 @@ module rcmimag
         npp  = rcmNScl*RCMApp%Npsph(ij0(1),ij0(2))
         beta =  RCMApp%beta_average(ij0(1),ij0(2))
         pmhd = rcmPScl*RCMApp%Pave (ij0(1),ij0(2))
-        
+        nmhd = rcmNScl*RCMApp%Nave (ij0(1),ij0(2))
+
         ntot = 0.0
         !Decide which densities to include
         if (npp >= PPDen) then
@@ -503,17 +519,25 @@ module rcmimag
         endif
 
         !Store data
-        imW(IMDEN)  = ntot
+        
         if (doWolfLim) then
             pScl = beta*5.0/6.0
             imW(IMPR) = (pScl*pmhd + prcm)/(1.0+pScl)
+            imW(IMDEN)  = ntot - 0.6*pScl*nmhd*(prcm-pmhd)/(1.0+pScl)/pmhd
         else
             imW(IMPR)   = prcm
+            imW(IMDEN)  = ntot
         endif
 
-        imW(IMTSCL) = RCMApp%Tb(ij0(1),ij0(2))
-        imW(IMX1)   = (180.0/PI)*lat
-        imW(IMX2)   = (180.0/PI)*lon
+        if (doBounceDT) then
+            !Use Alfven bounce timescale
+            imW(IMTSCL) = nBounce*RCMApp%Tb(ij0(1),ij0(2))
+        else
+            imW(IMTSCL) = 0.0 !Set this to zero and rely on coupling timescale later
+        endif
+
+        imW(IMX1)   = rad2deg*lat
+        imW(IMX2)   = rad2deg*lon
 
         end associate
 
@@ -583,7 +607,7 @@ module rcmimag
         type(RCMTube_T), intent(out) :: ijTube
 
         type(fLine_T) :: bTrc
-        real(rp) :: t, bMin
+        real(rp) :: t, bMin,bIon
         real(rp), dimension(NDIM) :: x0, bEq, xyzIon
         real(rp), dimension(NDIM) :: xyzC,xyzIonC
         integer :: OCb
@@ -596,7 +620,8 @@ module rcmimag
         xyzIon(YDIR) = RIonRCM*cos(lat)*sin(lon)
         xyzIon(ZDIR) = RIonRCM*sin(lat)
         x0 = DipoleShift(xyzIon,vApp%mhd2chmp%Rin)
-        
+        bIon = norm2(DipoleB0(xyzIon))*oBScl*1.0e-9 !EB=>T, ionospheric field strength
+
     !Now do field line trace
         associate(ebModel=>vApp%ebTrcApp%ebModel,ebGr=>vApp%ebTrcApp%ebState%ebGr,ebState=>vApp%ebTrcApp%ebState)
 
@@ -639,6 +664,8 @@ module rcmimag
             ijTube%latc = asin(xyzIonC(ZDIR)/norm2(xyzIonC))
             ijTube%lonc = modulo( atan2(xyzIonC(YDIR),xyzIonC(XDIR)),2*PI )
             ijTube%Lb = FLArc(ebModel,ebGr,bTrc)
+            ijTube%Tb = FLAlfvenX(ebModel,ebGr,bTrc)
+            ijTube%losscone = asin(sqrt(bMin/bIon))
         else
             ijTube%X_bmin = 0.0
             ijTube%bmin = 0.0
@@ -650,6 +677,9 @@ module rcmimag
             ijTube%latc = 0.0
             ijTube%lonc = 0.0
             ijTube%Lb   = 0.0
+            ijTube%Tb   = 0.0
+            ijTube%losscone = 0.0
+
         endif
 
         end associate
@@ -664,7 +694,6 @@ module rcmimag
         real(rp) :: L,colat
         real(rp) :: mdipole
 
-        !mdipole = EarthM0g*G2T ! dipole moment in T
         mdipole = ABS(planetM0g)*G2T ! dipole moment in T
         colat = PI/2 - lat
         L = 1.0/(sin(colat)**2.0)
@@ -685,7 +714,9 @@ module rcmimag
         ijTube%latc = -lat
         ijTube%lonc = lon
         ijTube%Lb   = L !Just lazily using L shell
-
+        ijTube%Tb   = 0.0
+        ijTube%losscone = 0.0
+        
     end subroutine DipoleTube
 
 !IO wrappers

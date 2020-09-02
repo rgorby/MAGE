@@ -32,6 +32,7 @@ contains
         type(mixGrid_T) :: mhdG
         type(Map_T) :: Map
         real(rp) :: gB0,gv0,gx0
+        logical :: isRestart
 
         gB0 = gameraApp%Model%Units%gB0
         gv0 = gameraApp%Model%Units%gv0
@@ -76,6 +77,15 @@ contains
                 mix2mhd%PsiMaps(l) = Map
             enddo
         enddo
+
+        !Initialize the mixOutput mapping
+        mix2mhd%mixOutput = 0.0
+        isRestart = gameraApp%Model%isRestart
+        if (isRestart) then
+          !We have data from mix restart file
+          write(*,*) "mapRemixToGamera"
+          call mapRemixToGamera(mix2mhd, remixApp)
+        end if
  
         deallocate(mhdPsiGrid)
 

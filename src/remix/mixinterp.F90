@@ -64,6 +64,15 @@ module mixinterp
             Map%J1(j2,i2) = j1
             x = (/1._rp, G2%p(j2,i2),G2%t(j2,i2), G2%p(j2,i2)*G2%t(j2,i2) /)
 
+            ! coming out of mix_search: 
+            ! i1=0 if the destination point (j2,i2) is above of the poleward boundary of the source grid (G1) or
+            ! i1=G1%Nt if the destination point (j2,i2) is below the equatorward boundary of the source grid (G1)
+            ! Set the Map to 0.0 there for now and see if we need a more nuanced treatement later
+            if ( (i1.eq.0).or.(i1.eq.G1%Nt) ) then
+              Map%M(j2,i2,:) = 0.0
+              cycle
+            end if
+
             ! treat the poles
             if ((i1.eq.1).and.(G1%t(1,1)).lt.TINY) then
                ! just average over the three vertices of the triangle
