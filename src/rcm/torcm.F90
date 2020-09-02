@@ -128,7 +128,7 @@
         CALL Set_ellipse(isize,jsize,rmin,pmin,vm,big_vm,bndloc,iopen)
       end if
 
-      imin_j = ceiling(bndloc)
+      call reset_rcm_vm(isize,jsize,bndloc,big_vm,imin_j,vm,iopen)
 
       !Smooth boundary location
       !NOTE: This can only shrink RCM domain, not increase
@@ -773,26 +773,34 @@
       Use rcm_mhd_interfaces
       implicit none
       integer(iprec), intent(in) :: idim,jdim
-      integer(iprec) :: i,j
       integer(iprec),intent(inout) :: imin_j(jdim),iopen(idim,jdim)
       real(rprec), intent(in) :: bndloc(jdim)
       real(rprec), intent(in) :: big_vm
       real(rprec), intent(inout) :: vm(idim,jdim)
+      integer(iprec) :: i,j,iC
 
       imin_j = CEILING(bndloc)
 
+      !Loop through grid and reset closed cells below boundary to NULL and poison vm in open cells
+
+      !$OMP PARALLEL DO default(shared) &
+      !$OMP private(i,j,iC)
       do j=1,jdim
-        do i=1,imin_j(j)-1
-          if (iopen(i,j) == RCMTOPCLOSED) then
-            !Make this MHD buffer cell
+        iC = imin_j(j)
+        do i=1,idim
+          if ( (iopen(i,j) == RCMTOPCLOSED) .and. (i<iC) ) then
+            !Closed field region outside RCM domain
+            !Make this a buffer cell but keep physical vm
             iopen(i,j) = RCMTOPNULL
           endif
+
           if (iopen(i,j) == RCMTOPOPEN) then
-            !Nuke vm here
+            !Open cell, poison it
             vm(i,j) = big_vm
           endif
-        enddo
-      enddo
+
+        enddo !i loop
+      enddo !j loop
 
       end subroutine reset_rcm_vm
 

@@ -420,7 +420,7 @@ module rcmimag
 
         a0 = 2.0
         a1 = 1.0
-        a2 = 0.25
+        a2 = 0.5
         aScl = 1.0/(a0+2.0*a1+2.0*a2)
         NSmooth = SmoothOp%nIter
         NRad = 3
@@ -457,8 +457,8 @@ module rcmimag
 
             !Loop over j cells and smooth
             do j=1,RCMApp%nLon_ion
-                jSmG(j) = aScl*( a0*jBndG(j) + a1*jBndG(j-1) + a1*jBndG(j-1) + &
-                                 a2*jBndG(j-2) + a2*jBndG(j-2) )
+                jSmG(j) = aScl*( a0*jBndG(j  ) + a1*jBndG(j-1) + a1*jBndG(j+1) + &
+                                                 a2*jBndG(j-2) + a2*jBndG(j+2) )
 
             enddo
         enddo

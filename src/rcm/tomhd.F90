@@ -6,12 +6,10 @@
                               bmin, xmin, ymin, zmin, vm, pmin, rmin, &
                               birk_avg, v_avg, eeta, eeta_avg, &
                               alamc, ikflavc, &
-                              pi, &
                               boundary, bndloc, pressrcm, &
-                              Read_grid, &
                               xmass, densrcm,denspsph,imin_j,rcmdir, &
                               eflux,eavg,ie_el
-      USE constants, ONLY : mass_proton,mass_electron,nt,ev!,radius_earth_m,pressure_factor,density_factor
+      USE constants, ONLY : mass_proton,mass_electron,nt,ev
       USE rice_housekeeping_module
       Use rcm_mhd_interfaces
 ! 
@@ -40,45 +38,15 @@
       IMPLICIT NONE
       type(rcm_mhd_T),intent(inout) :: RM
       INTEGER(iprec), INTENT (OUT) :: ierr
-!
-      INTEGER(iprec) :: iunit, iunit1, iunit2, iout, ig, jg
-      INTEGER(iprec) :: kkk, i, j, L, k, itime, n
-      REAL(rprec), PARAMETER :: vmmax = 2000.0
-      REAL(rprec) :: bbi, bbj, di, dj,  &
-                     emp, vmp, ptemp, rhotemp,ctemp
-      REAL(rprec) :: xval,yval,pval,rval
-      LOGICAL :: L_flag
-!
-!
-      real(rprec) :: xg,yg
-      real(rprec) :: xn,yn,zn
-      real(rprec) :: xtrans,ytrans,ztrans,rtrans
-      real(rprec) :: rinter
-      real(rprec) :: peq,denseq
+
+      INTEGER(iprec) :: i, j, L, k, itime, n
       real(rprec) :: max_xmin,min_xmin,max_ymin,min_ymin
       
-      integer(iprec) ::  in_tot,ierr2,mask
-      integer(iprec) :: istart,iend,iit,jstart,jend,jit,kstart,kend,kit
-      integer(iprec) :: ier,ifound
-      integer(iprec) :: nxp,nyp
-      integer(iprec) :: bnd_max
-      integer(iprec), parameter :: i_offset = 1, imin_grid = 2
-
       real(rprec) :: dens_plasmasphere
-      
-      logical, parameter :: use_ionosphere_interpolation = .true.
-
-      save ig,jg,bbi,bbj,di,dj,iout,ierr2
-      save pval,rval,ptemp,rhotemp
-      save xn,yn,zn,xtrans,ytrans,ztrans
-      save ifound,mask
-
-      INTEGER (iprec) :: itime0,jp,iC
+      INTEGER (iprec) :: jp,iC
       real(rp) :: dRad,RadC,rIJ,dRxy
       real(rp) :: sclmass(RCMNUMFLAV) !xmass prescaled to proton
 
-      LOGICAL,PARAMETER :: avoid_boundaries = .false.
-      INTEGER(iprec) :: im,ipl,jm,jpl,km,kpl
 
       !AMS 04-22-2020
       real(rprec) :: pressure_factor,density_factor
@@ -91,28 +59,28 @@
       ! At this point, we assume that RCM arrays are all populated
       ! (plasma, b-field, bndloc, etc.):
 
-   IF (L_write_rcmu) then
+      IF (L_write_rcmu) then
 
-         rmin = SQRT (xmin**2+ymin**2+zmin**2)
-         WHERE (xmin == 0.0 .AND. ymin == 0.0)
-             pmin = 0.0
-         ELSEWHERE
-             pmin = ATAN2 (ymin, xmin)
-         END WHERE
-         WHERE (pmin < 0.0) pmin = pmin + 2.0*pi
+        rmin = SQRT (xmin**2+ymin**2+zmin**2)
+        WHERE (xmin == 0.0 .AND. ymin == 0.0)
+          pmin = 0.0
+        ELSE WHERE
+          pmin = ATAN2 (ymin, xmin)
+        END WHERE
+        WHERE (pmin < 0.0) pmin = pmin + 2.0*pi
 
-         rmin = SQRT (xmin**2+ymin**2)
-         WHERE (xmin == 0.0 .AND. ymin == 0.0)
-             pmin = 0.0
-         ELSEWHERE
-             pmin = ATAN2 (ymin, xmin)
-         END WHERE
-         WHERE (pmin < 0.0) pmin = pmin + 2.0*pi
-         WRITE (*,'(A,I9.9,A,I5.5)') 'TOMHD: Read RCM, T=',itime,', REC=',L
+        rmin = SQRT (xmin**2+ymin**2)
+        WHERE (xmin == 0.0 .AND. ymin == 0.0)
+          pmin = 0.0
+        ELSE WHERE
+          pmin = ATAN2 (ymin, xmin)
+        END WHERE
+        WHERE (pmin < 0.0) pmin = pmin + 2.0*pi
+        WRITE (*,'(A,I9.9,A,I5.5)') 'TOMHD: Read RCM, T=',itime,', REC=',L
 
-     call write_rcmu (L,0_iprec)
+        call write_rcmu (L,0_iprec)
 
-   END IF
+      END IF
 
       !Set scaled mass by hand here to avoid precision issues
       sclmass(RCMELECTRON) = mass_electron/mass_proton
@@ -172,26 +140,26 @@
       RM%eng_avg = eavg    (:,jwrap:jsize,:)
       RM%fac     = birk    (:,jwrap:jsize)
 
-      RM%toMHD = .false.
-      
+    !Calculate first cut of MHD ingestion boundary (will get smoothed later by Voltron)
+      RM%toMHD(:,:) = .false. 
       dRad = ellBdry%dRadMHD*RM%planet_radius
 
+      !RCM grid => RCM-MHD grid, j=>j-jwrap+1
       do j=jwrap,jsize
         jp = j-jwrap+1
-        iC = imin_j(j)
-        RadC = norm2(RM%X_bmin(iC,jp,1:2))-dRad
+        iC = imin_j(j) !from RCM-shaped grid
+        !Step inwards from the RCM boundary radius by dRad
+        RadC = norm2(RM%X_bmin(iC,jp,1:2))-dRad 
         do i=iC+1,isize
           rIJ = norm2(RM%X_bmin(i,jp,1:2))
           dRxy = norm2(RM%X_bmin(i,jp,1:2)) - norm2(RM%X_bmin(i+1,jp,1:2))
-          !write(*,*) 'RadC/rIJ = ',RadC/radius_earth_m,rIj/radius_earth_m
-          if ( (rIJ<=RadC) .and. (dRxy>0) ) exit
+          !if ( (rIJ<=RadC) .and. (dRxy>0) ) exit
+          if (rIJ<RadC) exit
         enddo
-        !write(*,*) 'i/iC = ',i,iC
 
-        RM%toMHD(i:,jp) = .true.
+        RM%toMHD(i+1:,jp) = .true.
       enddo
       
-
       
       RETURN
       END SUBROUTINE tomhd
