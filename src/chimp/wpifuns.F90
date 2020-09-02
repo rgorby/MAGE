@@ -6,6 +6,7 @@ module wpifuns
     use wpitypes
     use xml_input
     use strings
+    use quarticRoots
 
     implicit none
 
@@ -17,8 +18,6 @@ module wpifuns
 
     !function provides wave frequency spectrum 
     procedure(wsFun_T) , pointer :: waveSpec => NULL()
-
-       integer, parameter :: NROOTS = 4 !Number of possible resonant roots
 
     !Group Velocity function type
     !Returns Vg for a given resonant wave in normalized units
@@ -166,10 +165,10 @@ module wpifuns
         real(rp), intent(in) :: astar
         real(rp), dimension(2), intent(out) :: xjs, yjs
         complex(rp), dimension(NROOTS) :: roots
-        real(rp), dimension(NROOTS+1) :: coef
+        complex(rp), dimension(NROOTS+1) :: coef
         real(rp), allocatable :: xc(:),yc(:)
         real(rp) :: a,b,s,K,beta
-        real(rp) :: b0,b1,b2,b3,b4
+        complex(rp) :: b0,b1,b2,b3,b4
 
         b = (1.0+memp)/astar
         s = wave%s
@@ -185,7 +184,7 @@ module wpifuns
         b4 = memp*(b+memp)
 
         coef = [b0,b1,b2,b3,b4]
-        !roots = np.roots(coef)
+        call fastQuarticSolver(coef,roots)
 
         ! Keeping roots that are positive, below the gyrofrequency (xj<1), and real (others are non-physical)
         xc = pack(roots, (real(roots)>0 .and. real(roots)<1 .and. aimag(roots) == 0)) 
@@ -229,9 +228,10 @@ module wpifuns
         type(wave_T), intent(in) :: wave
         real(rp), intent(in) :: astar
         complex(rp), dimension(NROOTS) :: roots
+        complex(rp), dimension(NROOTS+1) :: coef
         real(rp), dimension(:), allocatable, intent(out) :: xjs, yjs
         real(rp) :: a,b,s,mu,beta,denom,alpha,gamma,K
-        real(rp) :: a0,a1,a2,a3,a4 !polunomial coefficients
+        complex(rp) :: a0,a1,a2,a3,a4 !polunomial coefficients
 
         alpha = prt%alpha
         gamma = prt2Gam(prt,Model%m0)
@@ -253,7 +253,8 @@ module wpifuns
         a4 = (-memp*a**2)/denom
 
         !!!!FIXME: root solver and picking out correct roots!!!
-        !roots = np.roots(coef)
+        coef = [a0,a1,a2,a3,a4]
+        call fastQuarticSolver(coef,roots)
 
         ! Keeping roots that are positive, below the gyrofrequency (xj<1), and real (others are non-physical)
         xjs = pack(roots, (real(roots)>0 .and. real(roots)<1 .and. aimag(roots) == 0))
