@@ -97,6 +97,7 @@ module rcm_mhd_mod
             !Read RCM/MHD params from XML
             if(present(iXML)) then
                 CALL RCM_MHD_Params_XML(iXML)
+
             else
                 CALL RCM_MHD_Params_XML
             endif
@@ -106,7 +107,7 @@ module rcm_mhd_mod
 
             call allocate_conversion_arrays (isize,jsize,kcsize)
             
-            call Grid_torcm (HighLatBD,LowLatBD, 0.0_rprec, RM%planet_radius, RM%iono_radius)  ! set up RCM ionospheric grid here
+            call Grid_torcm (HighLatBD,LowLatBD, 0.0_rprec, RM%planet_radius, RM%iono_radius,doLatStretch)  ! set up RCM ionospheric grid here
             ! Setup Ionosphere intermediate Grid by equating it to the RCM grid, without angular overlap:
             call setupIon(RM)
 

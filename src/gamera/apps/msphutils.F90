@@ -36,10 +36,11 @@ module msphutils
     real(rp), private :: tScl !Needed for time output, TODO: Fix this
     real(rp), private :: Rion ! Planetary ionosphere radius
     !Chill out parameters
+    logical , private :: doLFMChill = .true. !Do LFM-style chilling
     real(rp), private :: RhoCO = 1.0e-3 ! Number density
     real(rp), private :: CsCO  = 1.0e-2  ! Cs chillout, m/s
     real(rp), parameter, private :: cLim = 1.5 ! Cool when sound speed is above cLim*Ca
-    logical , parameter, private :: doLFMChill = .true. !Do LFM-style chilling
+    
     
     !Dipole cut values
     !real(rp), private :: rCut=4.5, lCut=3.5 !LFM values
@@ -133,6 +134,12 @@ module msphutils
             call xmlInp%Set_Val(Model%doGrav,"prob/doGrav",.true.)
         end select
 
+        !Set some chilling parameters
+        call xmlInp%Set_Val(doLFMChill,"chill/doLFMChill",doLFMChill)
+        if (doLFMChill) then
+            call xmlInp%Set_Val(RhoCO,"chill/RhoCO",RhoCO)
+        endif
+        
         !Whether to ignore ingestion (if set)
         call xmlInp%Set_Val(doIngest,"source/doIngest",.true.)
 

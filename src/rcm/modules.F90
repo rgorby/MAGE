@@ -43,7 +43,8 @@ MODULE rice_housekeeping_module
   INTEGER(iprec) :: Idt_overwrite         = 1
   INTEGER(iprec) :: rcm_record
   REAL(rprec) :: HighLatBD,LowLatBD
-  
+  LOGICAL :: doLatStretch = .true.
+
 ! set this to true to tilt the dipole, must turn off corotation also
   LOGICAL :: rcm_tilted = .false.
 ! set this to false to turn off the dynamic plasmasphere  07242020  sbao
@@ -121,6 +122,7 @@ MODULE rice_housekeeping_module
         !Grid bounds
         call xmlInp%Set_Val(HighLatBD,"grid/HiLat" ,75.0_rprec)
         call xmlInp%Set_Val(LowLatBD ,"grid/LowLat",15.0_rprec)
+        call xmlInp%Set_Val(doLatStretch ,"grid/doLatStretch",.true.)
 
         !Ellipse parameters
         call xmlInp%Set_Val(ellBdry%xSun ,"ellipse/xSun" ,ellBdry%xSun )
