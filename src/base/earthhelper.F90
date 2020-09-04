@@ -478,4 +478,11 @@ module earthhelper
         P = max(kT,TINY)*D/6.25
     end function DkT2P
 
+    !Turn density [#/cc] and pressure [nPa] to temperature [keV]
+    function DP2kT(D,P) result(kT)
+        real(rp), intent(in) :: D,P
+        real(rp) :: kT
+        kT = 6.25*P/max(D,TINY)
+    end function DP2kT
+    
 end module earthhelper

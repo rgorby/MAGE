@@ -752,6 +752,9 @@ module rcmimag
         integer, intent(in) :: nOut
         real(rp), intent(in) :: MJD,time
 
+        !Right now just lazily calling this extra console IO at RCM IO
+        call doRCMConIO(imag,MJD,time)
+
         call WriteRCM(imag%rcmCpl,nOut,MJD,time)
     end subroutine doRCMIO
 
@@ -763,4 +766,39 @@ module rcmimag
         call WriteRCMRestart(imag%rcmCpl,nRes,MJD,time)
     end subroutine doRCMRestart
     
+
+    !Some quick console diagnostics for RCM info
+    subroutine doRCMConIO(imag,MJD,time)
+        class(rcmIMAG_T), intent(inout) :: imag
+        real(rp), intent(in) :: MJD, time
+
+        integer :: i0,j0,maxIJ(2)
+
+        real(rp) :: maxP,maxD,maxL,maxMLT
+
+        associate(RCMApp => imag%rcmCpl)
+    !Start by getting some data
+        !Pressure peak info
+        maxIJ = maxloc(RCMApp%Prcm,mask=RCMApp%toMHD)
+        i0 = maxIJ(1); j0 = maxIJ(2)
+
+        maxP = RCMApp%Prcm(i0,j0)*rcmPScl
+        maxD = RCMApp%Nrcm(i0,j0)*rcmNScl
+        maxL = norm2(RCMApp%X_bmin(i0,j0,XDIR:YDIR))/Rp_m
+        maxMLT = atan2(RCMApp%X_bmin(i0,j0,YDIR),RCMApp%X_bmin(i0,j0,XDIR))*180.0/PI
+
+    !Do some output
+        write(*,*) ANSIYELLOW
+        write(*,*) 'RCM'
+        
+        write (*, '(a,1f8.3,a)')             '  Max RC-P = ' , maxP, ' [nPa]'
+        write (*, '(a,2f8.3,a)')             '   @ L/MLT = ' , maxL, maxMLT, ' [deg]'
+        write (*, '(a,1f8.3,a)')             '      w/ T = ' , DP2kT(maxD,maxP), ' [keV]'
+        
+        write (*, *) ANSIRESET, ''
+
+
+        end associate
+
+    end subroutine doRCMConIO
 end module rcmimag
