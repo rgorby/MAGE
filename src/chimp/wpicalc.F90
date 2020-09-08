@@ -26,13 +26,13 @@ module wpicalc
         real(rp), dimension(NDIM) :: r,p,E,B,xhat,yhat,bhat
         real(rp), dimension(NDIM) :: p11,pxy,vExB
         real(rp), dimension(NVARMHD) :: Qmhd
-        real(rp) :: gamma,aNew,pNew,pMag,MagB,Mu,p11Mag,K,rho,psi
+        real(rp) :: gamma,gamNew,aNew,pMag,MagB,Mu,p11Mag,K,rho,psi
         real(rp) :: Ome,wpe,astar,xHigh,xj,yj,Daa,inWScl
         real(rp) :: dtCum,dtRem,ddt ! substep used in wpi calculations, not same as ddt in pusher.F90 
-        integer :: pSgn=1
+        integer :: pSgn
 
-        real(rp) :: dAlim = 0.05  !Limiting change in pith-angle to be below this value each wpi 
-        real(rp) :: da=0.0,dp=0.0 !Change in pitch angle and momentum due to wpi
+        real(rp) :: dAlim  !Limiting change in pith-angle to be below this value each wpi 
+        real(rp) :: da,dp !Change in pitch angle and momentum due to wpi
 
         logical :: doWave
 
@@ -45,6 +45,9 @@ module wpicalc
             prt%Qeq(EQKEB)   = 0.0
             return
         endif
+
+        !initializing some variables
+        pSgn = 1; dAlim = 0.05; da=0.0; dp=0.0
 
         ! pulling wave information
         wave = ebState%ebWave
@@ -122,11 +125,12 @@ module wpicalc
             if (prt%isGC) then
                 !Scatter GC particle
                 p11Mag = pSgn*pMag*sqrt( 1 - sin(aNew)**2.0 )
-                Mu = ( (Model%m0**2)*(gamma**2.0 - 1.0) - p11Mag*p11Mag) / (2*Model%m0*MagB)
+                gamNew = sqrt(1+(pMag/Model%m0)**2.0)
+                Mu = ( (Model%m0**2)*(gamNew**2.0 - 1.0) - p11Mag*p11Mag) / (2*Model%m0*MagB)
 
                 prt%Q(P11GC) = p11Mag
                 prt%Q(MUGC ) = Mu 
-                prt%Q(GAMGC) = gamma
+                prt%Q(GAMGC) = gamNew
             else                
                 !Update momentum for FO particle
                 p11 = pSgn*pMag*sqrt( 1 - sin(aNew)**2.0 )
@@ -203,14 +207,15 @@ module wpicalc
         pa = prt%alpha
         xMin = wModel%xm-wModel%Dx
         xMax = wModel%xm+wModel%Dx
+ 
         if (pa >= PI/2.) then
-            xpres = pack(xjs, (xjs >= xMin .and. xjs <= xMax .and. yjs < 0))
-            ypres = pack(yjs, (xjs >= xMin .and. xjs <= xMax .and. yjs < 0))
-        else
             xpres = pack(xjs, (xjs >= xMin .and. xjs <= xMax .and. yjs > 0))
             ypres = pack(yjs, (xjs >= xMin .and. xjs <= xMax .and. yjs > 0))
+        else
+            xpres = pack(xjs, (xjs >= xMin .and. xjs <= xMax .and. yjs < 0))
+            ypres = pack(yjs, (xjs >= xMin .and. xjs <= xMax .and. yjs < 0))
         end if
-
+        
         ! Check if no resonant waves are present
         if (size(xpres) == 0) then  
             xj = 999
@@ -223,6 +228,7 @@ module wpicalc
             xj = xpres(1)
             yj = ypres(1)
         end if
+
     end subroutine selectRoot
 
     !!!!!!!!!!!FIXME: need to add capability to sum over mulitple roots!!!!!!!!!!!!
@@ -252,16 +258,21 @@ module wpicalc
     end function DiffCoef
 
     !Calculates the change in pitch-angle and corresponding change in momentum along the diffusion curve 
-    subroutine DiffCurve(Model,wave,prt,Daa,dt,xj,yj,da,dp) 
-        type(chmpModel_T), intent(in) :: Model
-        type(wave_T), intent(in) :: wave
-        type(prt_t), intent(in) :: prt
-        real(rp), intent(in) :: Daa,dt,xj,yj
-        real(rp), intent(inout) :: da,dp
+    subroutine DiffCurve(Model,wave,prt,Daa,dt,xj,yj,da,dp,constDA) 
+        type(chmpModel_T), intent(in)    :: Model
+        type(wave_T),      intent(in)    :: wave
+        type(prt_t),       intent(in)    :: prt
+        real(rp),          intent(in)    :: Daa,dt,xj,yj
+        real(rp),          intent(inout) :: da,dp
+        real(rp), intent(in), optional   :: constDA ! use a constant change in pitch angle if desired
         real(rp) :: eta,u,gamu,pa,gamma,pMag,E,A,B
 
-        eta = genRand(-1.0_rp,1.0_rp) !generating random number between -1 and 1 for random walk eq for da
-        da = sqrt(2.0*dt*Daa)*eta
+        if (present(constDA)) then
+            da = constDA
+        else
+            eta = genRand(-1.0_rp,1.0_rp) !generating random number between -1 and 1 for random walk eq for da
+            da = sqrt(2.0*dt*Daa)*eta
+        end if
 
         u = xj/yj ! phase velocity of the wave normalized by c
         gamu = sqrt(1-u**2.)**(-1.0)
