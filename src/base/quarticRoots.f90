@@ -21,26 +21,29 @@ contains
         complex(rp), dimension(NROOTS) :: xcf !holds roots from closed form solution of quartic roots
         
         real(rp) :: eps,epsTest1,epsTest2,epsilon1,epsilon2
-        integer(rp) :: maxIter = 16,iter=1,i,j,ei
+        integer(rp) :: maxIter,iter,i,j,ei
         real(rp), dimension(4) :: epsArr1,epsArr2 ! holds last four values of error in coefficients
         complex(rp) :: alpha,beta,x1,x2
-        logical :: isGood=.false.
+        logical :: isGood
+
+        !setting iteration values
+        maxIter = 16
+        iter=1
+        isGood=.false.
 
         ! Changing coeff. into depressed form used by Strobach (2010) -- x^4+ax^3+bx^2+cx+d
         a = coef(2)/coef(1); b = coef(3)/coef(1); c = coef(4)/coef(1); d = coef(5)/coef(1)
         depCoef = [a,b,c,d]
         eps = epsilon(1.0_rp) ! machine error used to check if error is close to zero
-        write(*,*) "Machine error: ", eps
 
         ! Check if there are two double roots or one quartic root
         alpha = a/2.0
         beta = (b-alpha**2.0)/2.0
         epsTest1 = c-2.0*alpha*beta
         epsTest2 = d-beta**2.0
-        ! write(*,*) " dep coef: ", depCoef
-        ! write(*,*) "alpha, beta, eps1,eps2,eps: ", alpha,beta,epsTest1,epsTest2,eps
+      
+      
         if (abs(epsTest1) < eps .and. abs(epsTest2) < eps) then
-            write(*,*) "two double roots"
             x(1:2) = quadraticSolve([alpha,beta])
             x(3:4) = x(1:2)
             return
@@ -54,7 +57,6 @@ contains
             epsTest1 = c +x1**2.0*(x1+3.0*x2)
             epsTest2 = d-x2*x1**3.0
             if (abs(epsTest1) < eps .and. abs(epsTest2) < eps) then
-                write(*,*) "cubic root and single root",i
                 x(1:3) = x1
                 x(4) = x2
                 return
@@ -90,15 +92,6 @@ contains
         e2(3) = c-quadCoef2(1,2)*quadCoef2(2,1)-quadCoef2(1,1)*quadCoef2(2,2)
         e2(4) = d-quadCoef2(1,2)*quadCoef2(2,2)
 
-        ! write(*,*) "quartic coef: ", a,b,c,d
-        ! write(*,*) "loop 1"
-        ! write(*,*) "quad coef: ", quadCoef1
-        ! write(*,*) "coef error: ", e1
-        ! write(*,*) ""
-        ! write(*,*) "loop 2"
-        ! write(*,*) "quad coef: ", quadCoef2
-        ! write(*,*) "coef error: ", e2
-
         !fixed point type iterative refinement or backward optimizer loop for quad coefficients
         do while (iter <= maxIter .and. .not.isGood)
             
@@ -111,7 +104,7 @@ contains
                 quadCoef = quadCoef1
             end if
 
-            if(epsilon2 < eps .or. any(epsArr1 == epsilon1)) then
+            if(epsilon2 < eps .or. any(epsArr2 == epsilon2)) then
                 isGood=.true.
                 quadCoef = quadCoef2
             end if
@@ -123,28 +116,27 @@ contains
         end do
 
         ! If hit max iterations than use coefficientsthat had smallest error
-        if (iter == maxIter) then
+        if (iter == maxIter+1) then
             if (epsilon1 < epsilon2) then
                 quadCoef = quadCoef1
             else
                 quadCoef = quadCoef2
             end if
         end if
-
-        write(*,*) "# of iterations: ", iter  
-        write(*,*) "quad coef: ", quadCoef      
+      
         x(1:2) = quadraticSolve(quadCoef(1,:))
         x(3:4) = quadraticSolve(quadCoef(2,:))
 
         !removing error in imaginary part for real roots
         do i = 1, NROOTS
+            !if(abs(aimag(x(i))) < TINY*abs(x(i))) x(i) = real(x(i))
             if(abs(aimag(x(i))) < TINY) x(i) = real(x(i))
         end do
 
     end subroutine fastQuarticSolver 
 
-    ! Ferrari's method from https://en.wikipedia.org/wiki/Quartic_function#Converting_to_a_depressed_quartic
-    ! note change un notation from Strobach (2010), using similar notaion as wiki to make it easier to compare
+    ! Ferrari's method from https://en.wikipedia.org/wiki/Quartic_function
+    ! note change in notation from Strobach (2010), using similar notaion as wiki to make it easier to compare
     function closedFormRoots(coef) result(roots)
         complex(rp), dimension(NROOTS), intent(in) :: coef
         complex(rp), dimension(NROOTS) :: roots
@@ -176,6 +168,7 @@ contains
         roots(2) = -b/4.0-S-0.5*sqrt(-4*S**2-2*p+q/S)
         roots(3) = -b/4.0+S+0.5*sqrt(-4*S**2-2*p-q/S)
         roots(4) = -b/4.0+S-0.5*sqrt(-4*S**2-2*p-q/S)
+
     end function closedFormRoots
 
     ! Table 3 of Strobach(2010) to calculate gamma and delta from alpha0, beta0
@@ -251,6 +244,7 @@ contains
         e(3)=c-beta*gamma-alpha*delta
         e(4)=d-beta*delta   
         epsilon=sum(abs(e))
+
     end subroutine backwardOptimizer
 
     ! Chapter 5.6 from Numerical Recipes
