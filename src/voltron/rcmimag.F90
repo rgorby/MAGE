@@ -85,6 +85,7 @@ module rcmimag
         procedure :: doAdvance => advanceRCM
         procedure :: doEval => EvalRCM
         procedure :: doIO => doRCMIO
+        procedure :: doConIO => doRCMConIO
         procedure :: doRestart => doRCMRestart
 
     end type
@@ -752,9 +753,6 @@ module rcmimag
         integer, intent(in) :: nOut
         real(rp), intent(in) :: MJD,time
 
-        !Right now just lazily calling this extra console IO at RCM IO
-        call doRCMConIO(imag,MJD,time)
-
         call WriteRCM(imag%rcmCpl,nOut,MJD,time)
     end subroutine doRCMIO
 
@@ -786,16 +784,20 @@ module rcmimag
         maxD = RCMApp%Nrcm(i0,j0)*rcmNScl
         maxL = norm2(RCMApp%X_bmin(i0,j0,XDIR:YDIR))/Rp_m
         maxMLT = atan2(RCMApp%X_bmin(i0,j0,YDIR),RCMApp%X_bmin(i0,j0,XDIR))*180.0/PI
+        if (maxMLT<0) maxMLT = maxMLT+360.0
 
     !Do some output
+        if (maxP<TINY) return
+
         write(*,*) ANSIYELLOW
         write(*,*) 'RCM'
         
         write (*, '(a,1f8.3,a)')             '  Max RC-P = ' , maxP, ' [nPa]'
         write (*, '(a,2f8.3,a)')             '   @ L/MLT = ' , maxL, maxMLT, ' [deg]'
+        write (*, '(a,1f8.3,a)')             '      w/ D = ' , maxD, ' [#/cc]'
         write (*, '(a,1f8.3,a)')             '      w/ T = ' , DP2kT(maxD,maxP), ' [keV]'
         
-        write (*, *) ANSIRESET, ''
+        write(*,'(a)',advance="no") ANSIRESET!, ''
 
 
         end associate

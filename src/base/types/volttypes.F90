@@ -97,6 +97,7 @@ module volttypes
         procedure :: doAdvance => baseAdvance
         procedure :: doEval => baseEval
         procedure :: doIO => baseIO
+        procedure :: doConIO => baseConIO
         procedure :: doRestart => baseRestart
 
     end type innerMagBase_T
@@ -175,6 +176,11 @@ module volttypes
     subroutine baseIO(imag,nOut,MJD,time)
         class(innerMagBase_T), intent(inout) :: imag
         integer, intent(in) :: nOut
+        real(rp), intent(in) :: MJD,time
+    end subroutine
+
+    subroutine baseConIO(imag,MJD,time)
+        class(innerMagBase_T), intent(inout) :: imag
         real(rp), intent(in) :: MJD,time
     end subroutine
 

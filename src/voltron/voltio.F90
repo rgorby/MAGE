@@ -117,7 +117,12 @@ module voltio
                 endif
             endif
 
-            write (*, *) ANSIRESET, ''
+            write(*,'(a)',advance="no") ANSIRESET!, ''
+        endif
+
+        !Write inner mag console IO if needed
+        if (vApp%doDeep) then
+            call vApp%imagApp%doConIO(vApp%MJD,vApp%time)
         endif
 
         !Setup for next output
