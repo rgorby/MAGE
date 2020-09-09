@@ -252,7 +252,7 @@ module wpifuns
         a3 = ((a**2.0)*s*(-1.0+memp)-2.0*a*memp)/denom
         a4 = (-memp*a**2)/denom
 
-        !!!!FIXME: root solver and picking out correct roots!!!
+        ! Root solver 
         coef = [a0,a1,a2,a3,a4]
         call fastQuarticSolver(coef,roots)
 

@@ -109,15 +109,20 @@ program wpicheck
             real(rp) :: alpha0,psi0,Daa
             real(rp) :: xj,yj
             real(rp), dimension(:), allocatable   :: K0,astar !particle energies
-            real(rp), dimension(:), allocatable   :: alpha
             real(rp), dimension(:,:), allocatable :: daa_f1,pa_f1,xjs_f1,daa_f2,pa_f2
+            real(rp) :: dpa,palpha
 
             character(len=strLen) :: outH5 = "diffCoef.h5"
 
             !setting values
             B0     = 344.0
-            alpha0 = 180.0
+            alpha0 = 0.0
             psi0   = 0.0
+
+            !normalizing variables
+            B0 = B0*inBScl
+            alpha0 = alpha0*deg2rad
+            psi0 = psi0*deg2rad
             
             !Initialize the particles
             K0 = [100.0,300.0,1000.0,3000.0] ![keV] normalized when converted to gamma in createPrts
@@ -134,14 +139,17 @@ program wpicheck
             end do
 
             !get random sample of pitch-angles between 0 and 90 deg.
-            call getSample(Model,inpXML,"alpha",Np,alpha,0.0_rp,90.0_rp)
-            alpha = alpha/rad2deg
+            ! call getSample(Model,inpXML,"alpha",Np,alpha,0.0_rp,90.0_rp)
+            ! alpha = alpha*deg2rad
+            dpa = (90.0/Np)*deg2rad
 
             do i=1,Nk
                 do n=1,Np
+                    palpha = alpha0+n*dpa
                     !Create particles 
                     tpState(i)%TPs(n)%id = n !+(i-1)*Np
-                    call createPrts(Model,tpState(i)%TPs(n),K0(i),alpha(n),psi0,B0)
+                    call createPrts(Model,tpState(i)%TPs(n),K0(i),palpha,psi0,B0)
+                    !call createPrts(Model,tpState(i)%TPs(n),K0(i),alpha(n),psi0,B0)
                 end do 
             end do
 
@@ -158,12 +166,18 @@ program wpicheck
             !Figure 1 of Summers 2005  Daa vs pa vs K
             do i=1,Nk
                 do n=1,Np
-                   prt = tpState(i)%TPs(n) 
-                   call Resonance(Model,wave,wModel,prt,astar(2),xj,yj)
-                   xjs_f1(i,n) = xj
-                   Daa = DiffCoef(Model,wave,wModel,prt,astar(2),B0,xj,yj) 
-                   daa_f1(i,n) = Daa/oTScl
-                   pa_f1(i,n)  = prt%alpha*rad2deg
+                    prt = tpState(i)%TPs(n) 
+                    call Resonance(Model,wave,wModel,prt,astar(2),xj,yj)
+                    if (xj == 999) then
+                        xjs_f1(i,n) = xj
+                        daa_f1(i,n) = xj
+                        pa_f1(i,n)  = xj
+                    else
+                        xjs_f1(i,n) = xj
+                        Daa = DiffCoef(Model,wave,wModel,prt,astar(2),B0,xj,yj) 
+                        daa_f1(i,n) = Daa/oTScl
+                        pa_f1(i,n)  = prt%alpha*rad2deg
+                    end if
                 end do 
             end do
 
@@ -172,9 +186,14 @@ program wpicheck
                 do n=1,Np
                    prt = tpState(3)%TPs(n) !take 1 MeV particles
                    call Resonance(Model,wave,wModel,prt,astar(j),xj,yj)
-                   Daa = DiffCoef(Model,wave,wModel,prt,astar(j),B0,xj,yj) 
-                   daa_f2(j,n) = Daa/oTScl
-                   pa_f2(j,n)  = prt%alpha*rad2deg
+                   if (xj == 999) then
+                        daa_f2(j,n) = xj
+                        pa_f2(j,n)  = xj
+                    else
+                        Daa = DiffCoef(Model,wave,wModel,prt,astar(j),B0,xj,yj) 
+                        daa_f2(j,n) = Daa/oTScl
+                        pa_f2(j,n)  = prt%alpha*rad2deg
+                    end if
                 end do 
             end do
 
@@ -321,9 +340,9 @@ program wpicheck
             !setting values
             B0     = 344.0
             K0     = 100.0
-            alpha0 = 180.0
+            alpha0 = 10.0
             psi0   = 0.0
-            astar  = 1.0
+            astar  = 0.16
 
             !normalizing variables
             B0 = B0*inBScl
@@ -346,7 +365,7 @@ program wpicheck
 
             write(*,*) "ResTest:: K,p11,pperp,alpha: ",K,p11,pperp,alpha
             write(*,*) "ResTest:: xj,yj: ",xj,yj
-            write(*,*) "ResTest:: astar, Daa: ",astar,Daa
+            write(*,*) "ResTest:: astar, Daa: ",astar,Daa, Daa/oTScl
 
 
         end subroutine resTest
