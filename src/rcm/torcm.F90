@@ -70,6 +70,8 @@
         CALL Read_alam (kcsize, alamc, ikflavc, fudgec, almdel, almmax, almmin, iesize, ierr)
         doReadALAM = .false.
         IF (ierr < 0) RETURN
+        !Go ahead and do some other init stuff while you're here
+        LowLatMHD = RM%llBC
       endif
 
       !Set lowest RC channel
@@ -543,7 +545,6 @@
 !	a2 - nightside location of the ellipse
 !	b - semi minor axis (y) of ellipse
 
-!      USE Rcm_mod_subs, ONLY : iprec,rprec
       USE rcm_precision
       USE rice_housekeeping_module, ONLY : ellBdry
       Use rcm_mhd_interfaces

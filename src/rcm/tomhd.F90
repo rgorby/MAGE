@@ -12,6 +12,7 @@
       USE constants, ONLY : mass_proton,mass_electron,nt,ev
       USE rice_housekeeping_module
       Use rcm_mhd_interfaces
+      USE kdefs, ONLY : TINY
 ! 
 !==============================================================
 ! purpose:
@@ -78,7 +79,7 @@
         WHERE (pmin < 0.0) pmin = pmin + 2.0*pi
         WRITE (*,'(A,I9.9,A,I5.5)') 'TOMHD: Read RCM, T=',itime,', REC=',L
 
-        call write_rcmu (L,0_iprec)
+        !call write_rcmu (L,0_iprec)
 
       END IF
 
@@ -122,7 +123,7 @@
         ENDDO !i
       ENDDO !j
 
-      if ( isnan(sum(densrcm)+sum(pressrcm)) ) then
+      if (any(isnan(densrcm)) .or. any(isnan(pressrcm))) then
         write(*,*) 'NaN in RCM-DEN/P at tomhd'
         stop
       endif
@@ -148,15 +149,18 @@
       do j=jwrap,jsize
         jp = j-jwrap+1
         iC = imin_j(j) !from RCM-shaped grid
-        !Step inwards from the RCM boundary radius by dRad
-        RadC = norm2(RM%X_bmin(iC,jp,1:2))-dRad 
-        do i=iC+1,isize
-          rIJ = norm2(RM%X_bmin(i,jp,1:2))
-          dRxy = norm2(RM%X_bmin(i,jp,1:2)) - norm2(RM%X_bmin(i+1,jp,1:2))
-          !if ( (rIJ<=RadC) .and. (dRxy>0) ) exit
-          if (rIJ<RadC) exit
-        enddo
-
+        if (dRad>TINY) then
+          !Step inwards from the RCM boundary radius by dRad
+          RadC = norm2(RM%X_bmin(iC,jp,1:2))-dRad 
+          do i=iC+1,isize
+            rIJ = norm2(RM%X_bmin(i,jp,1:2))
+            dRxy = norm2(RM%X_bmin(i,jp,1:2)) - norm2(RM%X_bmin(i+1,jp,1:2))
+            !if ( (rIJ<=RadC) .and. (dRxy>0) ) exit
+            if (rIJ<RadC) exit
+          enddo
+        else
+          i = iC+1
+        endif
         RM%toMHD(i+1:,jp) = .true.
       enddo
       
@@ -166,40 +170,40 @@
 !
  !---------------------------------------------------
 
-      subroutine write_rcmu (record,offset)
-! routine to write out rcm data in one unformated data file
-! based on rcmu.dat  10/07 frt
-      USE RCM_MOD_SUBS
-      IMPLICIT NONE
-! offset adds a time to itime to offset it
-     INTEGER(iprec), INTENT(IN) :: record,offset
-     INTEGER(iprec) :: itime
+!       subroutine write_rcmu (record,offset)
+! ! routine to write out rcm data in one unformated data file
+! ! based on rcmu.dat  10/07 frt
+!       USE RCM_MOD_SUBS
+!       IMPLICIT NONE
+! ! offset adds a time to itime to offset it
+!      INTEGER(iprec), INTENT(IN) :: record,offset
+!      INTEGER(iprec) :: itime
 
-     IF (record == 1) THEN ! first time we write, record = 1
-         OPEN (LUN, FILE=rcmdir//'rcmu.dat', status = 'replace', &
-               FORM = 'UNFORMATTED')
-         write(*,*)' Creating new rcmu.dat file'
-     ELSE
-         OPEN (LUN, FILE=rcmdir//'rcmu.dat', status = 'old', &
-               FORM = 'UNFORMATTED', POSITION='APPEND')
-     END IF
+!      IF (record == 1) THEN ! first time we write, record = 1
+!          OPEN (LUN, FILE=rcmdir//'rcmu.dat', status = 'replace', &
+!                FORM = 'UNFORMATTED')
+!          write(*,*)' Creating new rcmu.dat file'
+!      ELSE
+!          OPEN (LUN, FILE=rcmdir//'rcmu.dat', status = 'old', &
+!                FORM = 'UNFORMATTED', POSITION='APPEND')
+!      END IF
 
-!     write(*,*)'---rcm time=',label%intg(6),' offset =',offset
+! !     write(*,*)'---rcm time=',label%intg(6),' offset =',offset
 
-     itime = label%intg(6) + offset
+!      itime = label%intg(6) + offset
 
-     write(6,*)'  label%intg(6) =', label%intg(6) ,' offset =',offset
-     write(6,'(a,i3,a,i3)')'--->writing rcmu.dat at record =',record,' time =',itime
+!      write(6,*)'  label%intg(6) =', label%intg(6) ,' offset =',offset
+!      write(6,'(a,i3,a,i3)')'--->writing rcmu.dat at record =',record,' time =',itime
 
-     WRITE (LUN) itime, isize, jsize, kcsize                         
-     WRITE (LUN) alamc, etac, ikflavc                                
-     WRITE (LUN) xmin,ymin,zmin, &
-            sin(colat)*cos(aloct), &
-            sin(colat)*sin(aloct),cos(colat), &
-            vm,v_avg,eeta,birk_avg,bmin !,dsob3 
+!      WRITE (LUN) itime, isize, jsize, kcsize                         
+!      WRITE (LUN) alamc, etac, ikflavc                                
+!      WRITE (LUN) xmin,ymin,zmin, &
+!             sin(colat)*cos(aloct), &
+!             sin(colat)*sin(aloct),cos(colat), &
+!             vm,v_avg,eeta,birk_avg,bmin !,dsob3 
                                                              
-     close(LUN)                                          
+!      close(LUN)                                          
                                                            
-     return                                                          
-     end subroutine write_rcmu
+!      return                                                          
+!      end subroutine write_rcmu
 

@@ -17,6 +17,7 @@ module rcm_mhd_interfaces
     real(rp), parameter :: rcmNScl = 1.0e-6 !Convert #/m3 => #/cc
 
     type rcm_mhd_T
+        real(rprec) :: llBC !MHD low-latitude boundary (radians)
         integer(iprec) :: nLat_ion 
         integer(iprec) :: nLon_ion
         real(rprec) :: planet_radius ! m
@@ -54,7 +55,6 @@ module rcm_mhd_interfaces
         real(rprec),allocatable :: losscone(:,:)
         !Information about MHD ingestion
         logical, allocatable :: toMHD(:,:)
-
 
 
         !Information to sync restarts w/ MHD

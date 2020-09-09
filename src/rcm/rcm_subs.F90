@@ -1422,7 +1422,6 @@ real :: v_1_1, v_1_2, v_2_1, v_2_2
 
       USE xml_input
       USE rcm_timing_module
-
       IMPLICIT NONE
 !
       type(XML_Input_T), intent(in), optional :: iXML
@@ -2444,6 +2443,8 @@ real :: v_1_1, v_1_2, v_2_1, v_2_2
 !=========================================================================
 !
 SUBROUTINE Move_plasma_grid_MHD (dt)
+  use rice_housekeeping_module, ONLY : LowLatMHD
+
   IMPLICIT NONE
   REAL (rprec), INTENT (IN) :: dt
 
@@ -2456,7 +2457,7 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
   INTEGER (iprec) :: iOCB_j(1:jsize)
   REAL (rprec) :: mass_factor,r_dist
   REAL (rprec), save :: xlower,xupper,ylower,yupper, T1,T2 !Does this need save?
-  INTEGER (iprec) :: i, j, kc, ie, iL,jL,iR,jR
+  INTEGER (iprec) :: i, j, kc, ie, iL,jL,iR,jR,iMHD
   INTEGER (iprec) :: CLAWiter, joff
   
   REAL (rprec) :: T1k,T2k !Local loop variables b/c clawpack alters input
@@ -2466,6 +2467,12 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
     write(*,*) 'Somebody should rewrite this code to not assume that jwrap=3'
     stop
   endif
+
+  !Doing silly thing to find i of MHD's lowlat BC
+  do i=1,isize
+    if (0.5*PI-colat(i,jwrap) <= LowLatMHD) exit
+  enddo
+  iMHD = i !low-lat boundary for MHD on RCM grid
 
 !---
 !Do prep work
@@ -2514,7 +2521,7 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
   !$OMP PRIVATE(mass_factor,r_dist,CLAWiter,T1k,T2k) &
   !$OMP SHARED(isOpen,iOCB_j,alamc,eeta,v,vcorot,vpar,vm,imin_j,j1,j2,joff) &
   !$OMP SHARED(xmin,ymin,rmin,fac,fudgec,bir,sini,L_dktime,dktime,sunspot_number) &
-  !$OMP SHARED(aloct,xlower,xupper,ylower,yupper,dt,T1,T2)  
+  !$OMP SHARED(aloct,xlower,xupper,ylower,yupper,dt,T1,T2,iMHD)  
   DO kc = 1, kcsize
     
     !If oxygen is to be added, must change this!
@@ -2565,6 +2572,10 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
 
       enddo
     enddo
+    !Before setting ghosts, zero out velocities past the MHD domain
+    didt(iMHD  :,:) = 0.0
+    djdt(iMHD+1:,:) = 0.0
+
     call PadClaw(didt)
     call PadClaw(djdt)
 

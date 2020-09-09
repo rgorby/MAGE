@@ -219,12 +219,12 @@ module rcmimag
         real(rp) :: dtAdv
         type(RCMTube_T) :: ijTube
 
-        real(rp) :: llBC,maxRad
+        real(rp) :: maxRad
         logical :: isLL
         
         associate(RCMApp => imag%rcmCpl)
 
-        llBC = vApp%mhd2chmp%lowlatBC
+        RCMApp%llBC = vApp%mhd2chmp%lowlatBC
 
         call Tic("MAP_RCMMIX")
     !Get potential from mix
@@ -243,7 +243,7 @@ module rcmimag
                 lon = RCMApp%glong(j)
                 
                 !Decide if we're below low-lat BC or not
-                isLL = (lat <= llBC)
+                isLL = (lat <= RCMApp%llBC)
 
                 if (isLL) then
                     !Use mocked up values
