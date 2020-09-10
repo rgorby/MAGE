@@ -113,7 +113,7 @@
         bndloc(j) = 2  ! if everything else fails, can use this...
         do i=isize,2,-1
           if (iopen(i,j) >= 0) then !null or open
-            bndloc(j) = i + 1
+            bndloc(j) = i + 2
             exit
           endif
         end do
@@ -212,6 +212,9 @@
             !This is closed field region but outside RCM domain
             !Use MHD information for RC channels
             eeta(i,j,klow:) = eeta_new(i,j,klow:)
+            !Zero out plasmasphere content outside RCM domain
+            if (use_plasmasphere) eeta(i,j,1) = 0.0
+
           endif
         enddo
       enddo
@@ -604,7 +607,7 @@
           isBad = (ell > 1.0) .or. (iopen(i,j) /= RCMTOPCLOSED)
           if (isBad) then
             !Either not in ellipse or on bad topology
-            bndloc(j) = i+1 !Push boundary up by 1
+            bndloc(j) = i+2 !Push boundary up
             if (iopen(i,j) == RCMTOPOPEN) then
               vm(i,j) = big_vm
             endif !Open line
@@ -803,6 +806,21 @@
         enddo !i loop
       enddo !j loop
 
+      !Now go back through and poison extra layer at OCB
+      do j=1,jdim
+        if ( any(iopen(:,j)==RCMTOPOPEN) ) then
+          !There are some open cells on this column
+          !Find first open cell
+          do i=isize,1,-1
+            if (iopen(i,j)==RCMTOPOPEN) exit
+          enddo
+          !Poison one cell up
+          iC = i+1
+          iopen(iC,j) = RCMTOPOPEN
+          vm(iC,j) = big_vm
+        endif !open field
+      enddo
+      
       end subroutine reset_rcm_vm
 
 

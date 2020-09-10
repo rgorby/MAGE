@@ -1728,8 +1728,7 @@ real :: v_1_1, v_1_2, v_2_1, v_2_2
          CALL Move_plasma ( dt )
 !
       END DO
-
-
+      
       CALL SYSTEM_CLOCK (timer_stop(1), count_rate)      
       timer_values (1) = (timer_stop (1) - timer_start (1))/count_rate + timer_values(1)
 
@@ -2620,8 +2619,9 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
   !Unpack and finish up
     !Copy out
     do j=j1,j2 !jwrap,jsize-1
-      iL = min(iOCB_j(j)+1,isize)
-      do i=iL,isize
+      !iL = min(iOCB_j(j)+1,isize) !OCB
+      iL = min(imin_j(j)+1,isize) !RCM ellipse
+      do i=iL,isize-1
         eeta(i,j,kc) = max(etaC(i,j-joff),0.0)
       enddo
     enddo

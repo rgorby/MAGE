@@ -39,7 +39,8 @@ MODULE rice_housekeeping_module
              L_write_vars_debug    = .false., &
              L_write_int_grid_debug= .true.
   
-  INTEGER(iprec) :: Idt_overwrite         = 1
+  !INTEGER(iprec) :: Idt_overwrite         = 1
+  INTEGER(iprec) :: Idt_overwrite         = 5 !K: Setting this to avoid as much unnecessary subcycling
   INTEGER(iprec) :: rcm_record
   REAL(rprec) :: HighLatBD,LowLatBD
   LOGICAL :: doLatStretch = .true.

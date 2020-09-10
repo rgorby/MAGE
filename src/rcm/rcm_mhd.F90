@@ -158,6 +158,14 @@ module rcm_mhd_mod
             idt = Idt_overwrite ! RCM internal time step in seconds
             ! Frequency (in seconds) to change disk & write records
             idt1 = itimef - itimei
+
+            !Ensure no problem w/ RCM's integer time
+            !idt must divide advance time
+            if ( (mod(idt1,idt)) /= 0) then
+                write(*,*) 'RCM Integer Time Divisibility Error ...'
+                stop
+            endif
+
             ! Frequency (in seconds) to write formatted output
             idt2 = idt1
 
