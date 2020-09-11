@@ -384,6 +384,45 @@ module streamline
 
         end associate
     end subroutine FLEq
+
+    !Get curvature radius at equator
+    subroutine FLCurvRadius(Model,ebGr,ebState,bTrc,rCurv)
+        type(chmpModel_T), intent(in)  :: Model
+        type(ebGrid_T)   , intent(in)  :: ebGr
+        type(ebState_T)  , intent(in)  :: ebState
+        type(fLine_T)    , intent(in)  :: bTrc
+        real(rp)         , intent(out) :: rCurv
+
+        type(gcFields_T) :: gcFields
+        real(rp), dimension(NDIM,NDIM) :: Jacbhat
+        real(rp), dimension(NDIM) :: xeq,E,B,bhat,gMagB
+        real(rp) :: t,MagB,invrad,Beq
+
+        rCurv = 0.0
+
+        !Get equator
+        call FLEq(Model,bTrc,xeq,Beq)
+
+        !Now get field information there
+        t = ebState%eb1%time
+        call ebFields(xeq,t,Model,ebState,E,B,gcFields=gcFields)
+        MagB = norm2(B)
+        bhat = normVec(B)
+
+        !Start getting derivative terms
+        !gMagB = gradient(|B|), vector
+        !      = bhat \cdot \grad \vec{B}
+        gMagB = VdT(bhat,gcFields%JacB)
+
+        Jacbhat = ( MagB*gcFields%JacB - Dyad(gMagB,B) )/(MagB*MagB)
+
+        invrad = norm2(VdT(bhat,Jacbhat))
+        if (invrad>TINY) then
+            rCurv = 1.0/invrad
+        else
+            rCurv = -TINY
+        endif
+    end subroutine FLCurvRadius
 !---------------------------------
 !Projection routines
     !Project to SM EQ (Z=0)

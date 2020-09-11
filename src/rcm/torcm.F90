@@ -117,12 +117,12 @@
             exit
           endif
         end do
-        ! reset imin_j
-        imin_j = ceiling(bndloc)
-          IF (L_write_vars_debug) then
-            write(*,*)' bndy ',bndloc(j),j,vm(imin_j(j),j)
-          END IF
       end do
+      ! reset imin_j
+      imin_j = ceiling(bndloc)
+      IF (L_write_vars_debug) then
+        write(*,*)' bndy ',bndloc(j),j,vm(imin_j(j),j)
+      END IF
 
       ! fits an ellipse to the boundary
       !K: 8/20, changing ellipse so that it doesn't reset vm unless open
@@ -778,7 +778,7 @@
       implicit none
       integer(iprec), intent(in) :: idim,jdim
       integer(iprec),intent(inout) :: imin_j(jdim),iopen(idim,jdim)
-      real(rprec), intent(in) :: bndloc(jdim)
+      real(rprec), intent(inout) :: bndloc(jdim)
       real(rprec), intent(in) :: big_vm
       real(rprec), intent(inout) :: vm(idim,jdim)
       integer(iprec) :: i,j,iC
@@ -820,7 +820,20 @@
           vm(iC,j) = big_vm
         endif !open field
       enddo
-      
+
+      !Finish up by resetting boundary
+      do j=1,jsize
+        bndloc(j) = 2  ! if everything else fails, can use this...
+        do i=isize,2,-1
+          if (iopen(i,j) >= 0) then !null or open
+            bndloc(j) = i + 1
+            exit
+          endif
+        end do
+      end do
+      ! reset imin_j
+      imin_j = ceiling(bndloc)
+
       end subroutine reset_rcm_vm
 
 

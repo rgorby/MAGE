@@ -53,6 +53,8 @@ module rcm_mhd_interfaces
         real(rprec),allocatable :: Tb(:,:)
         !Loss cone size [rad]
         real(rprec),allocatable :: losscone(:,:)
+        !Curvature radius [Rp]
+        real(rprec),allocatable :: radcurv(:,:)
         !Information about MHD ingestion
         logical, allocatable :: toMHD(:,:)
 

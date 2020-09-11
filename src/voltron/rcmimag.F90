@@ -44,13 +44,14 @@ module rcmimag
     !Potential = MIX potential [Volts]
     !iopen = Field line topology (-1: Closed, 1: Open)
     !Lb = Field line length [Re]
+    !rCurv = radius of curvature [Re]
     type RCMTube_T
         real(rp) :: Vol,bmin,beta_average,Pave,Nave,pot
         real(rp) :: X_bmin(NDIM)
         integer(ip) :: iopen
         real(rp) :: latc,lonc !Conjugate lat/lon
         real(rp) :: Lb, Tb !Arc length/bounce time
-        real(rp) :: losscone
+        real(rp) :: losscone,rCurv
     end type RCMTube_T
 
     real(rp), dimension(:,:), allocatable, private :: mixPot
@@ -266,6 +267,7 @@ module rcmimag
                 RCMApp%lonc(i,j)         = ijTube%lonc
                 RCMApp%losscone(i,j)     = ijTube%losscone
                 RCMApp%Lb(i,j)           = ijTube%Lb
+                RCMApp%radcurv(i,j)      = ijTube%rCurv
                 !Get some kind of bounce timscale, either real integrated value or lazy average
                 !RCMApp%Tb(i,j)           = AlfvenBounce(ijTube%Nave,ijTube%bmin,ijTube%Lb)
                 RCMApp%Tb(i,j)           = ijTube%Tb
@@ -639,7 +641,7 @@ module rcmimag
         real(rp), dimension(NDIM) :: x0, bEq, xyzIon
         real(rp), dimension(NDIM) :: xyzC,xyzIonC
         integer :: OCb
-        real(rp) :: bD,bP,dvB,bBeta
+        real(rp) :: bD,bP,dvB,bBeta,rCurv
         real(rp) :: rcP0,rcN0 !Quiet-time augment to MHD
 
     !First get seed for trace
@@ -659,7 +661,6 @@ module rcmimag
     !Get diagnostics from field line
         !Minimal surface (bEq in Rp, bMin in EB)
         call FLEq(ebModel,bTrc,bEq,bMin)
-        
         bMin = bMin*oBScl*1.0e-9 !EB=>Tesla
         bEq = bEq*Rp_m !Re=>meters
 
@@ -694,6 +695,9 @@ module rcmimag
             ijTube%Lb = FLArc(ebModel,ebGr,bTrc)
             ijTube%Tb = FLAlfvenX(ebModel,ebGr,bTrc)
             ijTube%losscone = asin(sqrt(bMin/bIon))
+            !Get curvature radius
+            call FLCurvRadius(ebModel,ebGr,ebState,bTrc,rCurv)
+            ijTube%rCurv = rCurv
         else
             ijTube%X_bmin = 0.0
             ijTube%bmin = 0.0
@@ -707,7 +711,7 @@ module rcmimag
             ijTube%Lb   = 0.0
             ijTube%Tb   = 0.0
             ijTube%losscone = 0.0
-
+            ijTube%rCurv = 0.0
         endif
 
         end associate
@@ -744,7 +748,8 @@ module rcmimag
         ijTube%Lb   = L !Just lazily using L shell
         ijTube%Tb   = 0.0
         ijTube%losscone = 0.0
-        
+        ijTube%rCurv = L/3.0
+
     end subroutine DipoleTube
 
 !IO wrappers
