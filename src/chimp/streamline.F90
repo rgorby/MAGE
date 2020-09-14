@@ -23,15 +23,18 @@ module streamline
 
         !Start by emptying line
         call cleanStream(fL)
+        fL%x0 = x0
         inDom = inDomain(x0,Model,ebState%ebGr)
-
+        
         if (.not. inDom) then
+            !Bad tube, seed point isn't in domain
+            fL%isGood = .false.
+            allocate(fL%xyz(0:0,NDIM))
+            fL%xyz(0,:) = x0
             return
         endif
         
-        
         !Get traced line
-        fL%x0 = x0
         fl%lnVars(0)%idStr = "B"
 
         if (Model%doMHD) then
@@ -47,6 +50,7 @@ module streamline
         call genTrace(Model,ebState,x0,t,Xn(:,:,2),ijkn(:,:,2),Vn(:,:,2),N2,+1)
         
         !Create field line
+        fL%isGood = .true.
         fL%Nm = N1
         fL%Np = N2
 
@@ -167,6 +171,8 @@ module streamline
         integer :: k
 
         L = 0.0
+        if (.not. bTrc%isGood) return
+
         do k=-bTrc%Nm,bTrc%Np-1
             dL = norm2(bTrc%xyz(k+1,:)-bTrc%xyz(k,:))
             L = L + dL
@@ -185,6 +191,7 @@ module streamline
         real(rp) :: dL,eD,bMag,Va
 
         dtX = 0.0
+        if (.not. bTrc%isGood) return
         do k=-bTrc%Nm,bTrc%Np-1
             dL = norm2(bTrc%xyz(k+1,:)-bTrc%xyz(k,:))
             dL = dL*L0*1.0e-5 !Corner units to km
@@ -211,6 +218,8 @@ module streamline
         real(rp) :: bMag,dl,eP,eD,ePb !Edge-centered values
         real(rp) :: bPb,bBeta
         
+        if (.not. bTrc%isGood) return
+
         associate(Np=>bTrc%Np,Nm=>bTrc%Nm)
         !Zero out accumulators
         bD = 0.0
@@ -307,6 +316,11 @@ module streamline
         !OCB =  0 (solar wind), 1 (half-closed), 2 (both ends closed)
         !OCB = -1 (plasmoid/timeout)
 
+        if (.not. bTrc%isGood) then
+            OCb = -1
+            return
+        endif
+
         isCP  = isClosed(bTrc%xyz(+Np,:),Model)
         isCM  = isClosed(bTrc%xyz(-Nm,:),Model)
 
@@ -348,6 +362,10 @@ module streamline
 
         real(rp), dimension(NDIM) :: xP,xM
 
+        if (.not. bTrc%isGood) then
+            xyzC = 0.0
+            return
+        endif
         associate(Np=>bTrc%Np,Nm=>bTrc%Nm)
             
         !Get endpoints of field line
@@ -375,6 +393,13 @@ module streamline
         integer :: i0,iMin,OCb
         associate(Np=>bTrc%Np,Nm=>bTrc%Nm)
 
+        if (.not. bTrc%isGood) then
+            !Bad field line
+            xeq = 0.0
+            Beq = 0.0
+            return
+        endif
+
         !Find minimum field and where it occurs
         Beq = minval(bTrc%lnVars(0)%V) !Min field strength
         i0  = minloc(bTrc%lnVars(0)%V,dim=1) !Note this is between 1:N
@@ -399,6 +424,7 @@ module streamline
         real(rp) :: t,MagB,invrad,Beq
 
         rCurv = 0.0
+        if (.not. bTrc%isGood) return
 
         !Get equator
         call FLEq(Model,bTrc,xeq,Beq)
@@ -798,5 +824,6 @@ module streamline
         fL%x0 = 0.0
         fL%Nm = 0
         fL%Np = 0
+        fL%isGood = .false.
     end subroutine cleanStream
 end module streamline

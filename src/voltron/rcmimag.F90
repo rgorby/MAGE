@@ -24,6 +24,7 @@ module rcmimag
     implicit none
 
     real(rp) :: RIonRCM !Units of Rp
+    real(rp), private :: rTrc0 = 1.25 !Padding factor for RCM domain to ebsquish radius
     real(rp), private :: PPDen = 10.0 !Plasmapause density cut-off
     real(rp), private :: Rp_m
     real(rp), private :: planetM0g
@@ -245,7 +246,6 @@ module rcmimag
                 
                 !Decide if we're below low-lat BC or not
                 isLL = (lat <= RCMApp%llBC)
-
                 if (isLL) then
                     !Use mocked up values
                     call DipoleTube(vApp,lat,lon,ijTube)
@@ -281,7 +281,6 @@ module rcmimag
             enddo
         enddo
         call Toc("RCM_TUBES")
-
         if ( (vApp%time <= vApp%DeepDT) .and. RCMICs%doIC ) then
         !Tune values to send to RCM for its cold start
             !Setup quiet time ring current to hit target using both current BSDst and target dst
@@ -321,13 +320,12 @@ module rcmimag
 
         vApp%imag2mix%isFresh = .true.
 
-    !Find maximum extent of closed field region, this includes RCMTOPCLOSED and RCMTOPNULL
-        !Take over everything since open field region eq. is set to 0
-        maxRad = maxval(norm2(RCMApp%X_bmin,dim=3))
+    !Find maximum extent of RCM domain (RCMTOPCLOSED but not RCMTOPNULL)
+        maxRad = maxval(norm2(RCMApp%X_bmin,dim=3),mask=(RCMApp%iopen == RCMTOPCLOSED))
         maxRad = maxRad/Rp_m
-        vApp%rTrc = 2.0*maxRad
+        vApp%rTrc = rTrc0*maxRad
         
-        end associate        
+        end associate
 
         contains
             !Calculate Alfven bounce timescale
@@ -419,7 +417,7 @@ module rcmimag
         real(rp), dimension(:), allocatable :: jBndG,jSmG !Real-valued index w/ ghosts
         integer , dimension(:), allocatable :: jBnd
 
-        integer :: i,j,n,iS,NRad,NSmooth
+        integer :: i,j,n,iS,NRad,NSmooth,iBdry
         logical :: inMHD,isClosed
         real(rp) :: a0,a1,a2,aScl
 
@@ -478,7 +476,12 @@ module rcmimag
                 if (isClosed) then
                     !All cells above boundary are closed, this works
                     RCMApp%toMHD(i:RCMApp%nLat_ion,j) = .true.
-                    exit
+                    !Now increase the ingestion timescale within a handful of cells near boundary to soften transition
+                    do n=0,2
+                        iBdry = min(i+n,RCMApp%nLat_ion)
+                        RCMApp%Tb(iBdry,j) = (4-n)*RCMApp%Tb(iBdry,j)
+                    enddo
+                    exit !Done here
                 endif
             enddo !i loop
         enddo !j loop
@@ -645,60 +648,25 @@ module rcmimag
         real(rp) :: rcP0,rcN0 !Quiet-time augment to MHD
 
     !First get seed for trace
-        !Assume lat/lon @ Earth, dipole push to first cell
+        !Assume lat/lon @ Earth, dipole push to first cell + epsilon
         xyzIon(XDIR) = RIonRCM*cos(lat)*cos(lon)
         xyzIon(YDIR) = RIonRCM*cos(lat)*sin(lon)
         xyzIon(ZDIR) = RIonRCM*sin(lat)
-        x0 = DipoleShift(xyzIon,vApp%mhd2chmp%Rin)
+        x0 = DipoleShift(xyzIon,vApp%mhd2chmp%Rin+TINY)
         bIon = norm2(DipoleB0(xyzIon))*oBScl*1.0e-9 !EB=>T, ionospheric field strength
 
     !Now do field line trace
         associate(ebModel=>vApp%ebTrcApp%ebModel,ebGr=>vApp%ebTrcApp%ebState%ebGr,ebState=>vApp%ebTrcApp%ebState)
 
         t = ebState%eb1%time !Time in CHIMP units
+        
         call genStream(ebModel,ebState,x0,t,bTrc)
-
-    !Get diagnostics from field line
-        !Minimal surface (bEq in Rp, bMin in EB)
-        call FLEq(ebModel,bTrc,bEq,bMin)
-        bMin = bMin*oBScl*1.0e-9 !EB=>Tesla
-        bEq = bEq*Rp_m !Re=>meters
-
-        !Plasma quantities
-        !dvB = Flux-tube volume (Re/EB)
-        call FLThermo(ebModel,ebGr,bTrc,bD,bP,dvB,bBeta)
-        !Converts Re/EB => Re/T
-        dvB = dvB/(oBScl*1.0e-9)
-
-        bP = bP*1.0e-9 !nPa=>Pa
-        bD = bD*1.0e+6 !#/cc => #/m3
         !Topology
         !OCB =  0 (solar wind), 1 (half-closed), 2 (both ends closed)
         OCb = FLTop(ebModel,ebGr,bTrc)
-  
-    !Scale and store information
-        if (OCb == 2) then
-            !Closed field line
-            ijTube%X_bmin = bEq
-            ijTube%bmin = bMin
-            ijTube%iopen = RCMTOPCLOSED
-            ijTube%Vol = dvB
-            ijTube%Pave = bP
-            ijTube%Nave = bD
-            ijTube%beta_average = bBeta
-
-            !Find conjugate lat/lon @ RIonRCM
-            call FLConj(ebModel,ebGr,bTrc,xyzC)
-            xyzIonC = DipoleShift(xyzC,RIonRCM)
-            ijTube%latc = asin(xyzIonC(ZDIR)/norm2(xyzIonC))
-            ijTube%lonc = modulo( atan2(xyzIonC(YDIR),xyzIonC(XDIR)),2*PI )
-            ijTube%Lb = FLArc(ebModel,ebGr,bTrc)
-            ijTube%Tb = FLAlfvenX(ebModel,ebGr,bTrc)
-            ijTube%losscone = asin(sqrt(bMin/bIon))
-            !Get curvature radius
-            call FLCurvRadius(ebModel,ebGr,ebState,bTrc,rCurv)
-            ijTube%rCurv = rCurv
-        else
+        
+        if (OCb /= 2) then
+            !Not closed line, set some values and get out
             ijTube%X_bmin = 0.0
             ijTube%bmin = 0.0
             ijTube%iopen = RCMTOPOPEN
@@ -712,7 +680,42 @@ module rcmimag
             ijTube%Tb   = 0.0
             ijTube%losscone = 0.0
             ijTube%rCurv = 0.0
+            return
         endif
+
+    !Get diagnostics from closed field line
+        !Minimal surface (bEq in Rp, bMin in EB)
+        call FLEq(ebModel,bTrc,bEq,bMin)
+        bMin = bMin*oBScl*1.0e-9 !EB=>Tesla
+        bEq = bEq*Rp_m !Re=>meters
+
+        !Plasma quantities
+        !dvB = Flux-tube volume (Re/EB)
+        call FLThermo(ebModel,ebGr,bTrc,bD,bP,dvB,bBeta)
+        !Converts Re/EB => Re/T
+        dvB = dvB/(oBScl*1.0e-9)
+        bP = bP*1.0e-9 !nPa=>Pa
+        bD = bD*1.0e+6 !#/cc => #/m3
+
+        ijTube%X_bmin = bEq
+        ijTube%bmin = bMin
+        ijTube%iopen = RCMTOPCLOSED
+        ijTube%Vol = dvB
+        ijTube%Pave = bP
+        ijTube%Nave = bD
+        ijTube%beta_average = bBeta
+
+        !Find conjugate lat/lon @ RIonRCM
+        call FLConj(ebModel,ebGr,bTrc,xyzC)
+        xyzIonC = DipoleShift(xyzC,RIonRCM)
+        ijTube%latc = asin(xyzIonC(ZDIR)/norm2(xyzIonC))
+        ijTube%lonc = modulo( atan2(xyzIonC(YDIR),xyzIonC(XDIR)),2*PI )
+        ijTube%Lb = FLArc(ebModel,ebGr,bTrc)
+        ijTube%Tb = FLAlfvenX(ebModel,ebGr,bTrc)
+        ijTube%losscone = asin(sqrt(bMin/bIon))
+        !Get curvature radius
+        call FLCurvRadius(ebModel,ebGr,ebState,bTrc,rCurv)
+        ijTube%rCurv = rCurv
 
         end associate
     end subroutine MHDTube

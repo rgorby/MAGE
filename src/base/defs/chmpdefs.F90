@@ -31,7 +31,6 @@ module chmpdefs
         
         logical :: doEBInit=.false. !Initialize particles to have specified energy in ExB frame (instead of lab)
         logical :: doEBFix=.true. !Enforce E.B=0
-        real(rp) :: rmin, rmax ! in case min and max radii of the domain are specified in the xml file
 
         integer  :: MaxIter !Maximum iterations
         real(rp) :: TolGC !Tolerance for GC iteration

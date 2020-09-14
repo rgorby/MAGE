@@ -84,6 +84,7 @@ module ebtypes
         real(rp), allocatable, dimension(:) :: V !Same spacing as xyz in main streamline structure (-Nm:Np)
         real(rp) :: V0 !Value @ "equator"
     end type lnVar_T
+
     !Individual streamline
     type fLine_T
         integer :: Nm,Np
@@ -96,6 +97,8 @@ module ebtypes
         !Localization data, ie ijk of each node of field line (not set yet)
         integer, allocatable, dimension(:,:) :: ijk
 
+        !Whether this is a degenerate line (seed point not in domain)
+        logical :: isGood
     end type fLine_T
         
     contains

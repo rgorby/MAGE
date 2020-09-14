@@ -342,13 +342,10 @@ module voltapp
 
         ! solve for remix output
         if (time<=0) then
-            !write(*,*) " I AM HERE@ "
             call run_mix(vApp%remixApp%ion,curTilt,doModelOpt=.false.)
         else if (vApp%doGCM) then
-            !write(*,*) " I AM HERE! "
             call run_mix(vApp%remixApp%ion,curTilt,gcm=vApp%gcm)
-        else 
-            !write(*,*) " I AM HERE? "
+        else
             call run_mix(vApp%remixApp%ion,curTilt,doModelOpt=.true.)
         endif
 
@@ -375,7 +372,7 @@ module voltapp
         call DoSquish(vApp)
 
         call PostSquishDeep(vApp, gApp)
-
+        
     end subroutine DeepUpdate
 
     subroutine PreSquishDeep(vApp, gApp)
@@ -401,7 +398,7 @@ module voltapp
         call Tic("Squish")
         call SquishStart(vApp)
         call Toc("Squish")
-
+        
     end subroutine
 
     subroutine DoSquish(vApp)
