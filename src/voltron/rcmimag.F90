@@ -24,7 +24,7 @@ module rcmimag
     implicit none
 
     real(rp) :: RIonRCM !Units of Rp
-    real(rp), private :: rTrc0 = 1.25 !Padding factor for RCM domain to ebsquish radius
+    real(rp), private :: rTrc0 = 2.0 !Padding factor for RCM domain to ebsquish radius
     real(rp), private :: PPDen = 10.0 !Plasmapause density cut-off
     real(rp), private :: Rp_m
     real(rp), private :: planetM0g

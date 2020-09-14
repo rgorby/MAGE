@@ -2514,6 +2514,7 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
 !Main channel loop
   !NOTE: T1k/T2k need to be private b/c they're altered by claw2ez
   !$OMP PARALLEL DO if (L_doOMPClaw) &
+  !$OMP schedule(dynamic) &
   !$OMP DEFAULT (NONE) &
   !$OMP PRIVATE(i,j,kc,ie,iL,jL,iR,jR) &
   !$OMP PRIVATE(veff,didt,djdt,etaC,rateC,rate,dvedi,dvedj) &

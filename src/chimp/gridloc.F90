@@ -178,7 +178,7 @@ module gridloc
                 !Choose appropriate for RCM coupling
                 call inpXML%Set_Val(DomE(1),'domain/xSun' , 15.0_rp)
                 call inpXML%Set_Val(DomE(2),'domain/xTail',-40.0_rp)
-                call inpXML%Set_Val(DomE(3),'domain/yzMax', 20.0_rp)
+                call inpXML%Set_Val(DomE(3),'domain/yzMax', 25.0_rp)
             case("EGG")
                 write(*,*) 'Using EGG inDomain'
                 inDomain=>inDomain_Egg
