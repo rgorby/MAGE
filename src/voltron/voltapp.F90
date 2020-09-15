@@ -394,7 +394,7 @@ module voltapp
 
         !Advance inner magnetosphere model to tAdv
         call Tic("InnerMag")
-        call AdvanceInnerMag(vApp,vApp%DeepT)
+        call vApp%imagApp%doAdvance(vApp,vApp%DeepT)
         call Toc("InnerMag")
 
         call Tic("Squish")

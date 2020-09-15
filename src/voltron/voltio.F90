@@ -162,7 +162,7 @@ module voltio
         call writeMIXRestart(vApp%remixApp%ion,vApp%IO%nRes,mjd=vApp%MJD,time=vApp%time)
         !Write inner mag restart
         if (vApp%doDeep) then
-            call InnerMagRestart(vApp,vApp%IO%nRes)
+            call vApp%imagApp%doRestart(vApp%IO%nRes,vApp%MJD,vApp%time)
         endif
         if (vApp%time>vApp%IO%tRes) then
             vApp%IO%tRes = vApp%IO%tRes + vApp%IO%dtRes
@@ -192,7 +192,7 @@ module voltio
 
         !Write inner mag IO if needed
         if (vApp%doDeep) then
-            call InnerMagIO(vApp,vApp%IO%nOut)
+            call vApp%imagApp%doIO(vApp%IO%nOut,vApp%MJD,vApp%time)
         endif
 
         call WriteVolt(vApp,gApp,vApp%IO%nOut)
