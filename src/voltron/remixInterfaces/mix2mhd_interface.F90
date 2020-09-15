@@ -72,7 +72,7 @@ contains
             ! set up interpolation map(s) for mix2mhd
             do l=1,mix2mhd%PsiShells
                 call mix_mhd_grid(mhdPsiGrid(l,:,:,:,h),mhdt,mhdp,mhdtFpd,mhdpFpd,mhd_Rin)
-                call init_grid_fromTP(mhdG,mhdt,mhdp,.false.)
+                call init_grid_fromTP(mhdG,mhdt,mhdp,isSolverGrid=.false.)
                 call mix_set_map(remixApp%ion(h)%G,mhdG,Map)
                 mix2mhd%PsiMaps(l) = Map
             enddo
