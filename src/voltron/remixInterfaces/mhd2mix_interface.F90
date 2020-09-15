@@ -62,7 +62,7 @@ module mhd2mix_interface
            ! set up interpolation map(s) for mhd2mix
            do l=1,mhd2mix%JShells
                call mix_mhd_grid(mhdJGrid(l,:,:,:,h),mhdt,mhdp,mhdtFpd,mhdpFpd,mhd_Rin)
-               call init_grid_fromTP(mhdGfpd,mhdtFpd,mhdpFpd,.false.)
+               call init_grid_fromTP(mhdGfpd,mhdtFpd,mhdpFpd,isSolverGrid=.false.,isPeriodic=.false.)
                call flip_grid(remixApp%ion(h)%G,mhd2mix%mixGfpd,mhd_Rin) ! storing flipped
                ! grid for MIX only to
                ! use in mhd2mix

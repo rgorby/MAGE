@@ -9,6 +9,7 @@ module mixconductance
 
   real(rp), dimension(:,:), allocatable :: tmpD,tmpC ! used for chilling in Fedder95. Declare it here so we can allocate in init.
   real(rp), dimension(:,:), allocatable :: JF0,RM,RRdi ! used for zhang15
+  real(rp), dimension(:,:), allocatable :: tmpE,tmpF ! used for smoothing precipitation avg_eng and num_flux
 
   contains
     subroutine conductance_init(conductance,Params,G)
@@ -75,6 +76,8 @@ module mixconductance
       if (.not. allocated(JF0)) allocate(JF0(G%Np,G%Nt))      
       if (.not. allocated(RM)) allocate(RM(G%Np,G%Nt))      
       if (.not. allocated(RRdi)) allocate(RRdi(G%Np,G%Nt))      
+      if (.not. allocated(tmpE)) allocate(tmpE(G%Np,G%Nt))
+      if (.not. allocated(tmpF)) allocate(tmpF(G%Np,G%Nt))
 
     end subroutine conductance_init
 
@@ -261,7 +264,7 @@ module mixconductance
 
       ! Apply Zhang15 precipitation to main arrays
       St%Vars(:,:,AVG_ENG)  = St%Vars(:,:,Z_EAVG) ! [keV]
-      St%Vars(:,:,NUM_FLUX) = St%Vars(:,:,Z_NFLUX)
+      St%Vars(:,:,NUM_FLUX) = St%Vars(:,:,Z_NFLUX)! [#/cm^2/s]
       
     end subroutine conductance_zhang15
 
@@ -271,15 +274,12 @@ module mixconductance
       type(mixState_T), intent(inout) :: St
 
       call conductance_zhang15(conductance,G,St)
-      ! Precipitation Mask to merge RCM and Zhang15 precipitation.
-      where(conductance%deltaE<=0.)
+      ! If there is no potential drop OR mono eflux is too low, use RCM precipitation instead.
+      where(conductance%deltaE<=0.0)
          St%Vars(:,:,AVG_ENG)  = max(St%Vars(:,:,IM_EAVG),1.D-8) ! [keV]
-         St%Vars(:,:,NUM_FLUX) = St%Vars(:,:,IM_EFLUX)/(max(St%Vars(:,:,IM_EAVG),1.D-8)*kev2erg) ! [ergs/cm^2/s]
+         St%Vars(:,:,NUM_FLUX) = St%Vars(:,:,IM_EFLUX)/(St%Vars(:,:,AVG_ENG)*kev2erg) ! [ergs/cm^2/s]
          St%Vars(:,:,Z_NFLUX)  = 0.0 ! for diagnostic purposes since full Z15 does not currently work.
       end where
-!    print '(a30,e15.7,e15.7,a25,e15.7,e15.7)', 'IM_EAVG min/max: ', minval(St%Vars(:,:,IM_EAVG)), maxval(St%Vars(:,:,IM_EAVG)), 'IM_EFLUX min/max: ', minval(St%Vars(:,:,IM_EFLUX)), maxval(St%Vars(:,:,IM_EFLUX))
-!    print '(a30,e15.7,e15.7,a25,e15.7,e15.7)', 'AVG_ENG min/max: ',minval(St%Vars(:,:,AVG_ENG)),maxval(St%Vars(:,:,AVG_ENG)), 'NUM_FLUX min/max: ',minval(St%Vars(:,:,NUM_FLUX)),maxval(St%Vars(:,:,NUM_FLUX))
-!    print '(a30,e15.7,e15.7,a25,e15.7,e15.7)', 'C_EAVG min/max: ',minval(St%Vars(:,:,C_EAVG)),maxval(St%Vars(:,:,C_EAVG)), 'C_EFLUX min/max: ',minval(St%Vars(:,:,C_EFLUX)),maxval(St%Vars(:,:,C_EFLUX))
 
     end subroutine conductance_rcmono
 
@@ -328,6 +328,9 @@ module mixconductance
          case default
             stop "The aurora precipitation model type entered is not supported."
       end select
+
+      ! Smooth precipitation energy and flux before calculating conductance.
+      call conductance_auroralsmooth(St,G)
       
       if (present(gcm)) then
          !write(*,*) 'going to apply!'
@@ -354,7 +357,6 @@ module mixconductance
          St%Vars(:,:,SIGMAH) = min(max(conductance%hallmin,St%Vars(:,:,SIGMAH)),&
               St%Vars(:,:,SIGMAP)*conductance%sigma_ratio)
       endif
-      !write(*,*) "conductance: values ",maxval(St%Vars(:,:,SIGMAP)),maxval(St%Vars(:,:,SIGMAH)),minval(St%Vars(:,:,SIGMAP)),minval(St%Vars(:,:,SIGMAH))
 
     end subroutine conductance_total
 
@@ -386,8 +388,6 @@ module mixconductance
       Radi = Rady**2 ! Rio**2*(1-cos(alp-al0)*cos(alp-al0))
       order = 2.0
       
-!      print *,'In mask: alphaZ, betaZ', conductance%alphaZ, conductance%betaZ  ! printing shows consistent values with xml inputs.
-
       RRdi = (G%y-0.03*signOfY)**2 + ( G%x/cos(al0) - Rio*cos(alp-al0)*tan(al0) )**2
       where(RRdi < Radi)
          conductance%AuroraMask = cos((RRdi/Radi)**order*conductance%PI2)+0.D0
@@ -400,5 +400,26 @@ module mixconductance
          conductance%drift = 1.D0
       end where
     end subroutine conductance_auroralmask
+
+    subroutine conductance_auroralsmooth(St,G)
+      type(mixState_T), intent(inout) :: St
+      type(mixGrid_T), intent(in) :: G      
+      integer :: i, j
+
+      tmpE = St%Vars(:,:,AVG_ENG)  ! tmpE(G%Np,G%Nt)
+      tmpF = St%Vars(:,:,NUM_FLUX)
+      !$OMP PARALLEL DO default(shared) collapse(2) &
+      !$OMP private(i,j)
+      do j=2,G%Nt-1
+         do i=2,G%Np-1
+            St%Vars(i,j,AVG_ENG)=0.25*tmpE(i,j) + 0.125*(tmpE(i,j+1)+tmpE(i,j-1)+tmpE(i-1,j)+tmpE(i+1,j)) &
+                +0.0625*(tmpE(i+1,j+1)+tmpE(i+1,j-1)+tmpE(i-1,j+1)+tmpE(i-1,j-1))
+            St%Vars(i,j,NUM_FLUX)=0.25*tmpF(i,j) + 0.125*(tmpF(i,j+1)+tmpF(i,j-1)+tmpF(i-1,j)+tmpF(i+1,j)) &
+                +0.0625*(tmpF(i+1,j+1)+tmpF(i+1,j-1)+tmpF(i-1,j+1)+tmpF(i-1,j-1))
+         end do
+      end do
+      St%Vars(:,:,AVG_ENG)  = tmpE
+      St%Vars(:,:,NUM_FLUX) = tmpF
+    end subroutine conductance_auroralsmooth
 
   end module mixconductance
