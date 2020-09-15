@@ -15,7 +15,8 @@ module voltapp_mpi
         integer :: voltMpiComm = MPI_COMM_NULL
         integer :: myRank
         type(gamApp_T) :: gAppLocal
-        logical :: doSerialVoltron = .false., firstShallowUpdate = .true., firstDeepUpdate = .true.
+        logical :: doSerialVoltron = .false., doAsyncShallow = .true.
+        logical :: firstShallowUpdate = .true., firstDeepUpdate = .true.
 
         ! array of all zeroes to simplify various send/receive calls
         integer, dimension(:), allocatable :: zeroArrayCounts, zeroArrayTypes
@@ -38,6 +39,8 @@ module voltapp_mpi
         integer(MPI_ADDRESS_KIND), dimension(:), allocatable :: sendDisplsIneijkShallow
         integer, dimension(:), allocatable :: sendCountsInexyzShallow, sendTypesInexyzShallow
         integer(MPI_ADDRESS_KIND), dimension(:), allocatable :: sendDisplsInexyzShallow
+        ! SHALLOW ASYNCHRONOUS VARIABLES
+        integer :: shallowIneijkSendReq=MPI_REQUEST_NULL, shallowInexyzSendReq=MPI_REQUEST_NULL
 
         ! DEEP COUPLING VARIABLES
         integer, dimension(:), allocatable :: recvCountsGasDeep, recvTypesGasDeep
@@ -74,6 +77,10 @@ module voltapp_mpi
                 call MPI_WAIT(vApp%timeStepReq, MPI_STATUS_IGNORE, ierr)
             endif
         endif
+
+        call MPI_WAIT(vApp%shallowIneijkSendReq, MPI_STATUS_IGNORE, ierr)
+
+        call MPI_WAIT(vApp%shallowInexyzSendReq, MPI_STATUS_IGNORE, ierr)
 
     end subroutine endVoltronWaits
 
@@ -194,6 +201,11 @@ module voltapp_mpi
         call CheckFileOrDie(inpXML,"Error opening input deck in initVoltron_mpi, exiting ...")
         xmlInp = New_XML_Input(trim(inpXML),'Gamera',.true.)
         call xmlInp%Set_Val(vApp%doSerialVoltron,"/Voltron/coupling/doSerial",.false.)
+        call xmlInp%Set_Val(vApp%doAsyncShallow, "/Voltron/coupling/doAsyncShallow",.true.)
+        if(vApp%doSerialVoltron) then
+            ! don't do asynchronous shallow if comms are serial
+            vApp%doAsyncShallow = .false.
+        endif
         vApp%gAppLocal%Grid%ijkShift(1:3) = 0
         call ReadCorners(vApp%gAppLocal%Model,vApp%gAppLocal%Grid,xmlInp,childGameraOpt=.true.)
         call SetRings(vApp%gAppLocal%Model,vApp%gAppLocal%Grid,xmlInp)
@@ -526,19 +538,37 @@ module voltapp_mpi
         ! find the remix BC to read data from
         SELECT type(iiBC=>vApp%gAppLocal%Grid%externalBCs(INI)%p)
             TYPE IS (IonInnerBC_T)
-                ! Send Shallow inEijk Data
-                call mpi_neighbor_alltoallw(iiBC%inEijk, vApp%sendCountsIneijkShallow, &
-                                            vApp%sendDisplsIneijkShallow, vApp%sendTypesIneijkShallow, &
-                                            0, vApp%zeroArrayCounts, &
-                                            vApp%zeroArrayDispls, vApp%zeroArrayTypes, &
-                                            vApp%voltMpiComm, ierr)
+                if(vApp%doAsyncShallow) then
+                    ! asynchronous
+                    call mpi_wait(vApp%shallowIneijkSendReq, MPI_STATUS_IGNORE, ierr)
+                    call mpi_Ineighbor_alltoallw(iiBC%inEijk, vApp%sendCountsIneijkShallow, &
+                                                 vApp%sendDisplsIneijkShallow, vApp%sendTypesIneijkShallow, &
+                                                 0, vApp%zeroArrayCounts, &
+                                                 vApp%zeroArrayDispls, vApp%zeroArrayTypes, &
+                                                 vApp%voltMpiComm, vApp%shallowIneijkSendReq, ierr)
 
-                ! Send Shallow inExyz Data
-                call mpi_neighbor_alltoallw(iiBC%inExyz, vApp%sendCountsInexyzShallow, &
-                                            vApp%sendDisplsInexyzShallow, vApp%sendTypesInexyzShallow, &
-                                            0, vApp%zeroArrayCounts, &
-                                            vApp%zeroArrayDispls, vApp%zeroArrayTypes, &
-                                            vApp%voltMpiComm, ierr)
+                    call mpi_wait(vApp%shallowInexyzSendReq, MPI_STATUS_IGNORE, ierr)
+                    call mpi_Ineighbor_alltoallw(iiBC%inExyz, vApp%sendCountsInexyzShallow, &
+                                                 vApp%sendDisplsInexyzShallow, vApp%sendTypesInexyzShallow, &
+                                                 0, vApp%zeroArrayCounts, &
+                                                 vApp%zeroArrayDispls, vApp%zeroArrayTypes, &
+                                                 vApp%voltMpiComm, vApp%shallowInexyzSendReq, ierr)
+                else
+                    ! synchronous
+                    ! Send Shallow inEijk Data
+                    call mpi_neighbor_alltoallw(iiBC%inEijk, vApp%sendCountsIneijkShallow, &
+                                                vApp%sendDisplsIneijkShallow, vApp%sendTypesIneijkShallow, &
+                                                0, vApp%zeroArrayCounts, &
+                                                vApp%zeroArrayDispls, vApp%zeroArrayTypes, &
+                                                vApp%voltMpiComm, ierr)
+
+                    ! Send Shallow inExyz Data
+                    call mpi_neighbor_alltoallw(iiBC%inExyz, vApp%sendCountsInexyzShallow, &
+                                                vApp%sendDisplsInexyzShallow, vApp%sendTypesInexyzShallow, &
+                                                0, vApp%zeroArrayCounts, &
+                                                vApp%zeroArrayDispls, vApp%zeroArrayTypes, &
+                                                vApp%voltMpiComm, ierr)
+                endif
             CLASS DEFAULT
                 write(*,*) 'Could not find Ion Inner BC in Voltron MPI ShallowUpdate_mpi'
                 stop

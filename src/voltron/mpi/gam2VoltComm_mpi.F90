@@ -12,7 +12,8 @@ module gam2VoltComm_mpi
     type :: gam2VoltCommMpi_T
         integer :: voltMpiComm = MPI_COMM_NULL
         integer :: myRank, voltRank
-        logical :: doSerialVoltron = .false., firstShallowUpdate = .true., firstDeepUpdate = .true.
+        logical :: doSerialVoltron = .false., doAsyncShallow = .true.
+        logical :: firstShallowUpdate = .true., firstDeepUpdate = .true.
 
         real(rp) :: time, tFin, DeepT, ShallowT, MJD
         integer :: ts, JpSt, JpSh, PsiSt, PsiSh
@@ -31,6 +32,10 @@ module gam2VoltComm_mpi
         integer(MPI_ADDRESS_KIND), dimension(1) :: recvDisplsIneijkShallow
         integer, dimension(1) :: recvCountsInexyzShallow, recvTypesInexyzShallow
         integer(MPI_ADDRESS_KIND), dimension(1) :: recvDisplsInexyzShallow
+        ! SHALLOW ASYNCHRONOUS VARIABLES
+        integer :: shallowGasSendReq=MPI_REQUEST_NULL, shallowBxyzSendReq=MPI_REQUEST_NULL
+        real(rp), dimension(:,:,:,:,:), allocatable :: gasBuffer
+        real(rp), dimension(:,:,:,:), allocatable   :: bxyzBuffer
         
         ! DEEP COUPLING VARIABLES
         integer, dimension(1) :: sendCountsGasDeep, sendTypesGasDeep
@@ -69,6 +74,16 @@ module gam2VoltComm_mpi
         write(*,*) 'Reading input deck from ', trim(inpXML)
         xmlInp = New_XML_Input(trim(inpXML),'Voltron',.true.)
         call xmlInp%Set_Val(g2vComm%doSerialVoltron,"coupling/doSerial",.false.)
+        call xmlInp%Set_Val(g2vComm%doAsyncShallow,"coupling/doAsyncShallow",.true.)
+        if(g2vComm%doSerialVoltron) then
+            ! don't do asynchronous shallow if comms are serial
+            g2vComm%doAsyncShallow = .false.
+        endif
+        if(g2vComm%doAsyncShallow) then
+            ! asynchronous shallow requires buffers for the data since Gamera may modify it before it finishes sending
+            allocate(g2vComm%gasBuffer,  MOLD=gApp%State%Gas)
+            allocate(g2vComm%bxyzBuffer, MOLD=gApp%State%Bxyz)
+        endif
 
         if (present(doIO)) then
             doIOX = doIO
@@ -192,6 +207,17 @@ module gam2VoltComm_mpi
         endif
 
     end subroutine initGam2Volt
+
+    suboutine endGam2VoltWaits(g2vComm)
+        type(gam2VoltCommMpi_T), intent(inout) :: g2vComm
+
+        integer :: ierr
+
+        call MPI_WAIT(g2vComm%shallowGasSendReq, MPI_STATUS_IGNORE, ierr)
+
+        call MPI_WAIT(g2vComm%shallowBxyzSendReq, MPI_STATUS_IGNORE, ierr)
+
+    end subroutine endGam2VoltWaits
 
     ! update voltron time units locally while actual voltron is running
     subroutine localStepVoltronTime(g2vComm, gApp)
@@ -344,19 +370,41 @@ module gam2VoltComm_mpi
         integer :: ierr
 
         ! send state data to voltron
-        ! Send Shallow Gas Data
-        call mpi_neighbor_alltoallw(gApp%State%Gas, g2vComm%sendCountsGasShallow, &
-                                    g2vComm%sendDisplsGasShallow, g2vComm%sendTypesGasShallow, &
-                                    0, g2vComm%zeroArrayCounts, &
-                                    g2vComm%zeroArrayDispls, g2vComm%zeroArrayTypes, &
-                                    g2vComm%voltMpiComm, ierr)
+        if(g2vComm%doAsyncShallow) then
+            ! asynchronous
 
-        ! Send Shallow Bxyz Data
-        call mpi_neighbor_alltoallw(gApp%State%Bxyz, g2vComm%sendCountsBxyzShallow, &
-                                    g2vComm%sendDisplsBxyzShallow, g2vComm%sendTypesBxyzShallow, &
-                                    0, g2vComm%zeroArrayCounts, &
-                                    g2vComm%zeroArrayDispls, g2vComm%zeroArrayTypes, &
-                                    g2vComm%voltMpiComm, ierr)
+            g2vComm%gasBuffer = gApp%State%Gas
+            call mpi_wait(g2vComm%shallowGasSendReq, MPI_STATUS_IGNORE, ierr)
+            call mpi_Ineighbor_alltoallw(g2vComm%gasBuffer, g2vComm%sendCountsGasShallow, &
+                                         g2vComm%sendDisplsGasShallow, g2vComm%sendTypesGasShallow, &
+                                         0, g2vComm%zeroArrayCounts, &
+                                         g2vComm%zeroArrayDispls, g2vComm%zeroArrayTypes, &
+                                         g2vComm%voltMpiComm, g2vComm%shallowGasSendReq, ierr)
+
+            g2vComm%bxyzBuffer = gApp%State%Bxyz
+            call mpi_wait(g2vComm%shallowBxyzSendReq, MPI_STATUS_IGNORE, ierr)
+            call mpi_Ineighbor_alltoallw(g2vComm%bxyzBuffer, g2vComm%sendCountsBxyzShallow, &
+                                         g2vComm%sendDisplsBxyzShallow, g2vComm%sendTypesBxyzShallow, &
+                                         0, g2vComm%zeroArrayCounts, &
+                                         g2vComm%zeroArrayDispls, g2vComm%zeroArrayTypes, &
+                                         g2vComm%voltMpiComm, g2vComm%shallowBxyzSendReq, ierr)
+        else
+            ! synchronous
+
+            ! Send Shallow Gas Data
+            call mpi_neighbor_alltoallw(gApp%State%Gas, g2vComm%sendCountsGasShallow, &
+                                        g2vComm%sendDisplsGasShallow, g2vComm%sendTypesGasShallow, &
+                                        0, g2vComm%zeroArrayCounts, &
+                                        g2vComm%zeroArrayDispls, g2vComm%zeroArrayTypes, &
+                                        g2vComm%voltMpiComm, ierr)
+
+            ! Send Shallow Bxyz Data
+            call mpi_neighbor_alltoallw(gApp%State%Bxyz, g2vComm%sendCountsBxyzShallow, &
+                                        g2vComm%sendDisplsBxyzShallow, g2vComm%sendTypesBxyzShallow, &
+                                        0, g2vComm%zeroArrayCounts, &
+                                        g2vComm%zeroArrayDispls, g2vComm%zeroArrayTypes, &
+                                        g2vComm%voltMpiComm, ierr)
+        endif
 
     end subroutine sendShallowData
 
