@@ -1,6 +1,7 @@
 ! Constants for RCM
 
 module rcmdefs
+    use kdefs, ONLY: ip
     implicit none
 
     INTEGER, PARAMETER :: isize = RCMSIZEI !RCM grid size in colatitude
@@ -15,5 +16,6 @@ module rcmdefs
     LOGICAL, PARAMETER :: isGAMRCM = .TRUE. !Whether running coupled to Gamera
     LOGICAL, PARAMETER :: doQuietRCM = .TRUE.
     LOGICAL, PARAMETER :: doDiskWrite = .FALSE.
+    integer(ip), parameter :: RCMTOPCLOSED=-1,RCMTOPOPEN=+1,RCMTOPNULL=0
 
 end module rcmdefs

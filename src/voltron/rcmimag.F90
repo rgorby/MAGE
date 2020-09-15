@@ -25,7 +25,7 @@ module rcmimag
 
     real(rp) :: RIonRCM !Units of Rp
     real(rp), private :: rTrc0 = 2.0 !Padding factor for RCM domain to ebsquish radius
-    real(rp), private :: PPDen = 10.0 !Plasmapause density cut-off
+    real(rp), private :: PPDen = 1.0 !Plasmasphere density cut-off for ingestion
     real(rp), private :: Rp_m
     real(rp), private :: planetM0g
     logical , private, parameter :: doKillRCMDir = .true. !Whether to always kill RCMdir before starting
@@ -52,7 +52,7 @@ module rcmimag
         integer(ip) :: iopen
         real(rp) :: latc,lonc !Conjugate lat/lon
         real(rp) :: Lb, Tb !Arc length/bounce time
-        real(rp) :: losscone,rCurv
+        real(rp) :: losscone,rCurv,wIMAG
     end type RCMTube_T
 
     real(rp), dimension(:,:), allocatable, private :: mixPot
@@ -271,6 +271,7 @@ module rcmimag
                 !Get some kind of bounce timscale, either real integrated value or lazy average
                 !RCMApp%Tb(i,j)           = AlfvenBounce(ijTube%Nave,ijTube%bmin,ijTube%Lb)
                 RCMApp%Tb(i,j)           = ijTube%Tb
+                RCMApp%wIMAG(i,j)        = ijTube%wIMAG
 
                 !mix variables are stored in this order (longitude,colatitude), hence the index flip
                 RCMApp%pot(i,j)          = mixPot(j,i)
@@ -278,6 +279,7 @@ module rcmimag
                 !Set composition
                 RCMApp%oxyfrac(i,j)      = 0.0
                 
+
             enddo
         enddo
         call Toc("RCM_TUBES")
@@ -645,8 +647,9 @@ module rcmimag
         real(rp), dimension(NDIM) :: xyzC,xyzIonC
         integer :: OCb
         real(rp) :: bD,bP,dvB,bBeta,rCurv
-        real(rp) :: rcP0,rcN0 !Quiet-time augment to MHD
 
+        real(rp) :: VaMKS,CsMKS,VebMKS !Speeds in km/s
+        real(rp) :: TiEV !Temperature in ev
     !First get seed for trace
         !Assume lat/lon @ Earth, dipole push to first cell + epsilon
         xyzIon(XDIR) = RIonRCM*cos(lat)*cos(lon)
@@ -680,6 +683,7 @@ module rcmimag
             ijTube%Tb   = 0.0
             ijTube%losscone = 0.0
             ijTube%rCurv = 0.0
+            ijTube%wIMAG = 0.0
             return
         endif
 
@@ -713,11 +717,21 @@ module rcmimag
         ijTube%Lb = FLArc(ebModel,ebGr,bTrc)
         ijTube%Tb = FLAlfvenX(ebModel,ebGr,bTrc)
         ijTube%losscone = asin(sqrt(bMin/bIon))
-        !Get curvature radius
-        call FLCurvRadius(ebModel,ebGr,ebState,bTrc,rCurv)
+
+        !Get curvature radius and ExB velocity [km/s]
+        call FLCurvRadius(ebModel,ebGr,ebState,bTrc,rCurv,VebMKS)
         ijTube%rCurv = rCurv
 
+    !Get confidence interval
+        !VaMKS = flux tube arc length [km] / Alfven crossing time [s]
+        VaMKS = (ijTube%Lb*Rp_m*1.0e-3)/ijTube%Tb 
+        !CsMKS = 9.79 x sqrt(5/3 * Ti) km/s, Ti eV
+        TiEV = (1.0e+3)*DP2kT(bD*1.0e-6,bP*1.0e+9) !Temp in eV
+        CsMKS = 9.79*sqrt((5.0/3)*TiEV)
+
+        ijTube%wIMAG = VaMKS/( sqrt(VaMKS**2.0 + CsMKS**2.0) + VebMKS)
         end associate
+
     end subroutine MHDTube
 
     !Dipole flux tube info
@@ -753,6 +767,7 @@ module rcmimag
         ijTube%losscone = 0.0
         ijTube%rCurv = L/3.0
 
+        ijTube%wIMAG = 1.0 !Much imag
     end subroutine DipoleTube
 
 !IO wrappers
@@ -780,7 +795,7 @@ module rcmimag
 
         integer :: i0,j0,maxIJ(2)
 
-        real(rp) :: maxP,maxD,maxL,maxMLT
+        real(rp) :: maxP,maxD,maxL,maxMLT,wTrust
 
         associate(RCMApp => imag%rcmCpl)
     !Start by getting some data
@@ -794,12 +809,15 @@ module rcmimag
         maxMLT = atan2(RCMApp%X_bmin(i0,j0,YDIR),RCMApp%X_bmin(i0,j0,XDIR))*180.0/PI
         if (maxMLT<0) maxMLT = maxMLT+360.0
 
+        !Get pressure weighted confidence
+        wTrust = sum(RCMApp%Prcm*RCMApp%wIMAG,mask=RCMApp%toMHD)/sum(RCMApp%Prcm,mask=RCMApp%toMHD)
+        wTrust = 100.0*wTrust
     !Do some output
         if (maxP<TINY) return
 
         write(*,*) ANSIYELLOW
         write(*,*) 'RCM'
-        
+        write (*, '(a,1f8.2,a)')             '  Trust    = ' , wTrust, '%'
         write (*, '(a,1f8.3,a)')             '  Max RC-P = ' , maxP, ' [nPa]'
         write (*, '(a,2f8.3,a)')             '   @ L/MLT = ' , maxL, maxMLT, ' [deg]'
         write (*, '(a,1f8.3,a)')             '      w/ D = ' , maxD, ' [#/cc]'

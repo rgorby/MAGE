@@ -139,6 +139,7 @@ module rcm_mhd_io
         call AddOutVar(IOVars,"Lb"  ,RCMApp%Lb,uStr="Re")
         call AddOutVar(IOVars,"Tb"  ,RCMApp%Tb,uStr="s")
         call AddOutVar(IOVars,"radcurv"  ,RCMApp%radcurv,uStr="Re")
+        call AddOutVar(IOVars,"wIMAG"  ,RCMApp%wIMAG,uStr="weight")
 
         call AddOutVar(IOVars,"eeavg",RCMApp%eng_avg(:,:,1)*1.0e-3,uStr="keV") !ev->keV electrons
         call AddOutVar(IOVars,"eeflux",RCMApp%flux(:,:,1),uStr="ergs/cm2")

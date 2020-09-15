@@ -41,6 +41,7 @@ MODULE ionosphere_exchange
       ALLOCATE( rm%toMHD(rm%nLat_ion, rm%nLon_ion) )
       ALLOCATE( rm%losscone(rm%nLat_ion, rm%nLon_ion) )
       ALLOCATE( rm%radcurv(rm%nLat_ion, rm%nLon_ion) )
+      ALLOCATE( rm%wIMAG(rm%nLat_ion, rm%nLon_ion) )
       ALLOCATE( rm%oxyfrac(rm%nLat_ion, rm%nLon_ion) )
       ALLOCATE( rm%MedK(rm%nLat_ion, rm%nLon_ion) )
 
@@ -77,6 +78,7 @@ MODULE ionosphere_exchange
       if (ALLOCATED(rm%oxyfrac)) DEALLOCATE(rm%oxyfrac)
       if (ALLOCATED(rm%MedK)) DEALLOCATE(rm%MedK)
       if (ALLOCATED(rm%radcurv)) DEALLOCATE(rm%radcurv)
+      if (ALLOCATED(rm%wIMAG)) DEALLOCATE(rm%wIMAG)
 
     END SUBROUTINE tearDownIon
 

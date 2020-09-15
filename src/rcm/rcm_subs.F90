@@ -2618,10 +2618,16 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
 
   !---
   !Unpack and finish up
+    !For RC fluid only take updates from active domain, for plasmasphere take larger domain
+
     !Copy out
     do j=j1,j2 !jwrap,jsize-1
-      !iL = min(iOCB_j(j)+1,isize) !OCB
-      iL = min(imin_j(j)+1,isize) !RCM ellipse
+      if (kc == 1) then
+        iL = min(iOCB_j(j)+1,isize) !OCB
+      else
+        iL = min(imin_j(j)+1,isize) !RCM ellipse
+      endif
+      
       do i=iL,isize-1
         eeta(i,j,kc) = max(etaC(i,j-joff),0.0)
       enddo

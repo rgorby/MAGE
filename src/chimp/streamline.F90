@@ -410,17 +410,18 @@ module streamline
         end associate
     end subroutine FLEq
 
-    !Get curvature radius at equator
-    subroutine FLCurvRadius(Model,ebGr,ebState,bTrc,rCurv)
+    !Get curvature radius at equator and ExB velocity [km/s]
+    subroutine FLCurvRadius(Model,ebGr,ebState,bTrc,rCurv,vEB)
         type(chmpModel_T), intent(in)  :: Model
         type(ebGrid_T)   , intent(in)  :: ebGr
         type(ebState_T)  , intent(in)  :: ebState
         type(fLine_T)    , intent(in)  :: bTrc
         real(rp)         , intent(out) :: rCurv
+        real(rp)         , intent(out) :: vEB
 
         type(gcFields_T) :: gcFields
         real(rp), dimension(NDIM,NDIM) :: Jacbhat
-        real(rp), dimension(NDIM) :: xeq,E,B,bhat,gMagB
+        real(rp), dimension(NDIM) :: xeq,E,B,bhat,gMagB,vExB
         real(rp) :: t,MagB,invrad,Beq
 
         rCurv = 0.0
@@ -431,7 +432,7 @@ module streamline
 
         !Now get field information there
         t = ebState%eb1%time
-        call ebFields(xeq,t,Model,ebState,E,B,gcFields=gcFields)
+        call ebFields(xeq,t,Model,ebState,E,B,vExB=vExB,gcFields=gcFields)
         MagB = norm2(B)
         bhat = normVec(B)
 
@@ -448,6 +449,7 @@ module streamline
         else
             rCurv = -TINY
         endif
+        vEB = norm2(vExB)*oVScl
     end subroutine FLCurvRadius
 !---------------------------------
 !Projection routines

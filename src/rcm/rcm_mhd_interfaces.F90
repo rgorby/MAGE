@@ -5,11 +5,11 @@
 module rcm_mhd_interfaces
     USE rcm_precision
     USE Rcm_mod_subs, ONLY : isize, jsize, jwrap, pi, colat, aloct
+    USE rcmdefs, ONLY : RCMTOPCLOSED,RCMTOPNULL,RCMTOPOPEN
     implicit none
     integer(ip), parameter :: RCMINIT=0,RCMADVANCE=1,RCMRESTART=2,RCMWRITERESTART=-2,RCMWRITEOUTPUT=-3,RCMWRITETIMING=-1
     integer(ip), parameter :: RCMCOLDSTART=10
     logical :: doRCMVerbose = .FALSE.
-    integer(ip), parameter :: RCMTOPCLOSED=-1,RCMTOPOPEN=+1,RCMTOPNULL=0
     logical :: doColdstart =.true.
 
     !Scaling parameters
@@ -57,7 +57,8 @@ module rcm_mhd_interfaces
         real(rprec),allocatable :: radcurv(:,:)
         !Information about MHD ingestion
         logical, allocatable :: toMHD(:,:)
-
+        !RCM confidence weight, [0,1]
+        real(rprec),allocatable :: wIMAG(:,:)
 
         !Information to sync restarts w/ MHD
         integer(iprec) :: rcm_nOut,rcm_nRes !Indices for output/restart

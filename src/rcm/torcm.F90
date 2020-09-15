@@ -126,20 +126,22 @@
 
       ! fits an ellipse to the boundary
       !K: 8/20, changing ellipse so that it doesn't reset vm unless open
-      if (use_ellipse)then
+      if (use_ellipse) then
         CALL Set_ellipse(isize,jsize,rmin,pmin,vm,big_vm,bndloc,iopen)
       end if
 
-      call reset_rcm_vm(isize,jsize,bndloc,big_vm,imin_j,vm,iopen)
+      call reset_rcm_vm(isize,jsize,bndloc,big_vm,imin_j,vm,iopen,.false.)
 
       !Smooth boundary location
       !NOTE: This can only shrink RCM domain, not increase
       !K: 8/20, changing reset_rcm_vm to only reset VM on open fields
       do ns=1,n_smooth
         call smooth_boundary_location(isize,jsize,jwrap,bndloc)
-        call reset_rcm_vm(isize,jsize,bndloc,big_vm,imin_j,vm,iopen) ! adjust Imin_j
+        call reset_rcm_vm(isize,jsize,bndloc,big_vm,imin_j,vm,iopen,.false.) ! adjust Imin_j
       enddo
       
+      !Last setting of boundary, add option for padding one cell at OCB
+      call reset_rcm_vm(isize,jsize,bndloc,big_vm,imin_j,vm,iopen,.true.) 
 
     !-----
     !MHD thermodynamics
@@ -186,13 +188,10 @@
         inew = imin_j(j)
         iold = imin_j_old(j)
         if (inew <= iold) then
-          
           eeta(inew:iold,j,klow:) = eeta_new(inew:iold,j,klow:)
         endif
       ENDDO
 
-      ! smooth eeta at the boundary
-      CALL Smooth_eta_at_boundary(isize,jsize,kcsize,jwrap,eeta,imin_j)
 
     !-----
     !Fill in grid ghosts
@@ -212,12 +211,16 @@
             !This is closed field region but outside RCM domain
             !Use MHD information for RC channels
             eeta(i,j,klow:) = eeta_new(i,j,klow:)
-            !Zero out plasmasphere content outside RCM domain
-            if (use_plasmasphere) eeta(i,j,1) = 0.0
+
+            ! !Zero out plasmasphere content outside RCM domain
+            ! if (use_plasmasphere) eeta(i,j,1) = 0.0
 
           endif
         enddo
       enddo
+
+      ! smooth eeta at the boundary
+      CALL Smooth_eta_at_boundary(isize,jsize,kcsize,jwrap,eeta,iopen,imin_j)
 
     !-----
     !Finish up and get out of here
@@ -411,6 +414,8 @@
       USE conversion_module
       USE rice_housekeeping_module, ONLY: use_plasmasphere
       USE CONSTANTS, ONLY: boltz,tiote,nt
+      USE rcmdefs, ONLY : RCMTOPCLOSED,RCMTOPNULL,RCMTOPOPEN
+      USE kdefs, ONLY : TINY
       IMPLICIT NONE
 !
       real(rprec), intent(in) :: planet_radius
@@ -422,18 +427,14 @@
 !
 !    set the temperature:
 
+      !$OMP PARALLEL DO default(shared) &
+      !$OMP schedule(dynamic) &
+      !$OMP private(i,j,dmhd,dpp)
       DO j=1,jsize
         DO i=1,isize
-          dmhd = den(i,j)
-          dpp = 0.0
-
-          !Calculate plasmasphere density contribution
-          if ( use_plasmasphere .and. (iopen(i,j) == -1) ) then
-            dpp = density_factor*1.0*eeta(i,j,1)*vm(i,j)**1.5
-          endif
-          if (dpp<dmhd) dmhd = dmhd-dpp
-          
-          IF (iopen(i,j) == -1 .and. dmhd>0) THEN
+          !Get corrected density from MHD
+          call PartFluid(i,j,planet_radius,dmhd,dpp)
+          IF ( (iopen(i,j) /= RCMTOPOPEN) .and. (dmhd>TINY) ) THEN
             ti(i,j) = fac*press(i,j)/dmhd/boltz
             te(i,j) = ti(i,j)/tiote
           ELSE
@@ -453,6 +454,71 @@
 !
       RETURN
       END SUBROUTINE Gettemp
+
+!
+!===================================================================
+      !Attempt to separate hot/cold components of MHD fluid    
+      SUBROUTINE PartFluid(i,j,planet_radius,dmhd,dpp)
+      USE conversion_module
+      USE rcm_precision
+      USE RCM_mod_subs, ONLY : ikflavc,vm,alamc,isize,jsize,kcsize,eeta
+      USE CONSTANTS, ONLY : boltz,ev,nt
+      USE rice_housekeeping_module, ONLY: use_plasmasphere
+      USE rcmdefs, ONLY : RCMTOPCLOSED,RCMTOPNULL,RCMTOPOPEN
+      USE kdefs, ONLY : TINY
+      IMPLICIT NONE
+      integer(iprec), intent(in) :: i,j
+      real(rprec), intent(in) :: planet_radius
+      real(rprec), intent(out) :: dmhd,dpp
+
+      real(rprec) :: dtot,drcm,density_factor
+      integer(iprec) :: k
+
+    !Trap for boring cases
+      if (iopen(i,j) == RCMTOPOPEN) then
+        dmhd = 0.0
+        dpp  = 0.0
+        return
+      endif
+      dmhd = den(i,j)
+      dpp  = 0.0
+      if (.not. use_plasmasphere) return !Separation complete
+      
+    !If still here either null or closed
+      density_factor = nt/planet_radius
+      !Calculate plasmasphere density contribution
+      dpp = density_factor*1.0*eeta(i,j,1)*vm(i,j)**1.5
+      if (dpp < TINY) return !No plasmasphere to worry about
+
+      if ( (dpp < dmhd) .and. (dpp > TINY) ) then
+        !Smaller than MHD so just subtract out and assume rest is hot fluid
+        dmhd = dmhd - dpp
+        return
+      endif
+
+      !Last try, if this is in RCM domain use RC/RC+PSPH density fraction
+      if (iopen(i,j) == RCMTOPCLOSED) then
+        drcm = 0.0
+        do k=2,kcsize
+          if (alamc(k)>0) then
+            !NOTE: Assuming protons here, otherwise see tomhd for mass scaling
+            drcm = drcm + density_factor*eeta(i,j,k)*vm(i,j)**1.5
+          endif
+        enddo
+        if (drcm > TINY) then
+          !Part MHD fluid based on ratio inferred from RCM
+          dtot = dpp + drcm
+          dmhd = den(i,j)*drcm/dtot
+          dpp  = den(i,j)*dpp /dtot
+          return
+        endif
+      endif
+
+      !Yeesh, are we still here?
+      !Give up and just use uncorrected density
+      return
+
+      END SUBROUTINE PartFluid
 !
 !===================================================================      
       SUBROUTINE Press2eta(planet_radius) 
@@ -460,34 +526,31 @@
       USE rcm_precision
       USE RCM_mod_subs, ONLY : ikflavc,vm,alamc,isize,jsize,kcsize,eeta
       USE CONSTANTS, ONLY : boltz,ev,nt
+      USE rcmdefs, ONLY : RCMTOPCLOSED,RCMTOPNULL,RCMTOPOPEN
       USE rice_housekeeping_module, ONLY: use_plasmasphere
+      USE kdefs, ONLY : TINY
       IMPLICIT NONE
 
       real(rprec), intent(in) :: planet_radius
       real(rprec) :: dmhd,dpp,pcon,pcumsum,t
       real(rprec) :: density_factor,pressure_factor
       integer(iprec) :: i,j,k,kmin
-      real(rprec) :: xp,xm,A0,delerf,delexp
+      real(rprec) :: xp,xm,A0,delerf,delexp,pscl
+      logical :: doPChk
 
+      doPChk = .true.
       density_factor = nt/planet_radius
       pressure_factor = 2./3.*ev/planet_radius*nt
 
       !$OMP PARALLEL DO default(shared) &
       !$OMP schedule(dynamic) &
       !$OMP private(i,j,k,kmin,dmhd,dpp,pcon,pcumsum,t) &
-      !$OMP private(xp,xm,A0,delerf,delexp)
+      !$OMP private(xp,xm,A0,delerf,delexp,pscl)
       do j=1,jsize
         do i=1,isize
-          !Get corrected density
-          dmhd = den(i,j)
-          dpp = 0.0
-          if ( use_plasmasphere .and. (iopen(i,j) == -1) ) then
-            !Calculate plasmasphere density contribution
-            dpp = density_factor*1.0*eeta(i,j,1)*vm(i,j)**1.5
-          endif
-          if (dpp<dmhd) dmhd = dmhd-dpp
-
-          if ( (iopen(i,j) == -1) .and. (dmhd>0) .and. (ti(i,j)>0) ) then
+          !Get corrected density from MHD
+          call PartFluid(i,j,planet_radius,dmhd,dpp)
+          if ( (iopen(i,j) /= RCMTOPOPEN) .and. (dmhd>TINY) .and. (ti(i,j)>TINY) ) then
             !Good stuff, let's go
             if (use_plasmasphere) then
               eeta_new(i,j,1) = 0.0
@@ -507,8 +570,6 @@
               ELSE IF (ikflavc(k) == 2) THEN ! ions (protons)
                 t = ti (i,j)
               ENDIF
-              !K: Removing stop inside OMP loop
-              !STOP 'ILLEGAL IKFLAVC(K) IN PRESS2ETA'
 
               xp = SQRT(ev*ABS(almmax(k))*vm(i,j)/boltz/t)
               xm = SQRT(ev*ABS(almmin(k))*vm(i,j)/boltz/t)
@@ -519,9 +580,17 @@
               !Pressure contribution from this channel
               pcon = pressure_factor*ABS(alamc(k))*eeta_new(i,j,k)*vm(i,j)**2.5
               pcumsum = pcumsum + pcon
+
             enddo !k loop
-            !write(*,*) 'ij / pmhd prcm = ', i,j,press(i,j),pcumsum
-          else !Not good MHD
+
+            !Now rescale eeta channels to conserve pressure integral between MHD/RCM
+            pscl = press(i,j)/pcumsum
+            do k=kmin,kcsize
+              eeta_new(i,j,k) = pscl*eeta_new(i,j,k)
+            enddo
+
+        !Not good MHD
+          else 
             eeta_new(i,j,:) = 0.0
           endif
 
@@ -621,55 +690,77 @@
 
 !------------------------------------
 
-      SUBROUTINE Smooth_eta_at_boundary(idim,jdim,kdim,jwrap,eeta,imin_j)
+      SUBROUTINE Smooth_eta_at_boundary(idim,jdim,kdim,jwrap,eeta,iopen,imin_j)
 ! this routine attempts to smooth out high frequency noise at the boundary
 ! of the rcm 
 ! written 2/06 frt
 !      USE Rcm_mod_subs, ONLY : iprec,rprec
       USE rcm_precision
+      USE rcmdefs, ONLY : RCMTOPCLOSED,RCMTOPNULL,RCMTOPOPEN
+      USE rice_housekeeping_module, ONLY: use_plasmasphere
       IMPLICIT NONE
       INTEGER(iprec) :: idim,jdim,kdim,jwrap
       INTEGER(iprec) :: imin_j(jdim)
       INTEGER(iprec) :: i,j,k,jm,jmm,jp,jpp
       REAL(rprec) :: eeta(idim,jdim,kdim)
+      integer(iprec), intent(in) :: iopen(idim,jdim)
       REAL(rprec) :: eetas2d(jdim,kdim)
 ! these are the smoothing weights
       REAL(rprec), PARAMETER :: a1 = 1.0  
       REAL(rprec), PARAMETER :: a2 = 1.0  
       REAL(rprec), PARAMETER :: a3 = 2.0  
       REAL(rprec), PARAMETER :: a4 = 1.0  
-      REAL(rprec), PARAMETER :: a5 = 1.0  
+      REAL(rprec), PARAMETER :: a5 = 1.0
+      integer(iprec) :: klow
+      logical :: isOpen(5)
 ! now do the smoothing
+      
+      if (use_plasmasphere) then
+        klow = 2
+      else
+        klow = 1
+      endif
 
-      do k=1,kdim
-        do j=1,jdim
+      do j=1,jdim
+        ! 1 <=> jdim -jwrap +1
+        ! jdim <=> jwrap
+        jmm = j - 2
+        if(jmm < 1)jmm = jdim - jwrap - 1       
+        jm  = j - 1
+        if(jm < 1) jm = jdim - jwrap       
+        jpp = j + 2
+        if(jpp > jdim)jpp = jwrap + 2
+        jp  = j + 1
+        if(jp > jdim) jp = jwrap + 1
 
-! 1 <=> jdim -jwrap +1
-! jdim <=> jwrap
-          jmm = j - 2
-          if(jmm < 1)jmm = jdim - jwrap - 1       
-          jm  = j - 1
-          if(jm < 1) jm = jdim - jwrap       
-          jpp = j + 2
-          if(jpp > jdim)jpp = jwrap + 2
-          jp  = j + 1
-          if(jp > jdim) jp = jwrap + 1
-! now smooth
-          eetas2d(j,k) = ( a1*eeta(imin_j(jmm),jmm,k) + &
-                           a2*eeta(imin_j(jm ),jm ,k) + &
-                           a3*eeta(imin_j(j  ),j  ,k) + &
-                           a4*eeta(imin_j(jp ),jp ,k) + &
-                           a5*eeta(imin_j(jpp),jpp,k) )/(a1+a2+a3+a4+a5) 
+        isOpen(1) = (iopen(imin_j(jmm),jmm) == RCMTOPOPEN)
+        isOpen(2) = (iopen(imin_j(jm ),jm ) == RCMTOPOPEN)
+        isOpen(3) = (iopen(imin_j(j  ),j  ) == RCMTOPOPEN)
+        isOpen(4) = (iopen(imin_j(jp ),jp ) == RCMTOPOPEN)
+        isOpen(5) = (iopen(imin_j(jpp),jpp) == RCMTOPOPEN)
 
-        end do
-      end do
+        if ( any(isOpen) ) then
+          !Keep old values b/c too close to OCB
+          eetas2d(j,klow:kdim) = eeta(imin_j(j  ),j  ,klow:kdim)
+        else
+          !Only smooth if all closed/null cells
+          !Only smooth RC, plasmasphere would diffuse too much
+          do k=klow,kdim
+            eetas2d(j,k) = ( a1*eeta(imin_j(jmm),jmm,k) + &
+                             a2*eeta(imin_j(jm ),jm ,k) + &
+                             a3*eeta(imin_j(j  ),j  ,k) + &
+                             a4*eeta(imin_j(jp ),jp ,k) + &
+                             a5*eeta(imin_j(jpp),jpp,k) )/(a1+a2+a3+a4+a5)
+          enddo !k loop
+        endif !OCB
 
-! now reset the boundary values
-      do k=1,kdim
-        do j=1,jdim
-          eeta(imin_j(j),j,k) = eetas2d(j,k)
-        end do      
-      end do
+      enddo !j loop
+
+      !Now go back and reset values
+      do j=1,jdim
+        eeta(imin_j(j),j,klow:kdim) = eetas2d(j,klow:kdim)
+      enddo
+
 
       return
       END SUBROUTINE Smooth_eta_at_boundary
@@ -771,7 +862,7 @@
       end subroutine set_plasmasphere
 
 !------------------------------------------      
-      subroutine reset_rcm_vm(idim,jdim,bndloc,big_vm,imin_j,vm,iopen)
+      subroutine reset_rcm_vm(idim,jdim,bndloc,big_vm,imin_j,vm,iopen,doOCBPad)
 ! this routine resets imin_j, vm, and open based on a newly set bndloc      
       USE rcm_precision
       Use rcm_mhd_interfaces
@@ -781,6 +872,8 @@
       real(rprec), intent(inout) :: bndloc(jdim)
       real(rprec), intent(in) :: big_vm
       real(rprec), intent(inout) :: vm(idim,jdim)
+      logical, intent(in) :: doOCBPad
+
       integer(iprec) :: i,j,iC
 
       imin_j = CEILING(bndloc)
@@ -806,20 +899,22 @@
         enddo !i loop
       enddo !j loop
 
-      !Now go back through and poison extra layer at OCB
-      do j=1,jdim
-        if ( any(iopen(:,j)==RCMTOPOPEN) ) then
-          !There are some open cells on this column
-          !Find first open cell
-          do i=isize,1,-1
-            if (iopen(i,j)==RCMTOPOPEN) exit
-          enddo
-          !Poison one cell up
-          iC = i+1
-          iopen(iC,j) = RCMTOPOPEN
-          vm(iC,j) = big_vm
-        endif !open field
-      enddo
+      if (doOCBPad) then
+        !Now go back through and poison extra layer at OCB
+        do j=1,jdim
+          if ( any(iopen(:,j)==RCMTOPOPEN) ) then
+            !There are some open cells on this column
+            !Find first open cell
+            do i=isize,1,-1
+              if (iopen(i,j)==RCMTOPOPEN) exit
+            enddo
+            !Poison one cell up
+            iC = i+1
+            iopen(iC,j) = RCMTOPOPEN
+            vm(iC,j) = big_vm
+          endif !open field
+        enddo
+      endif
 
       !Finish up by resetting boundary
       do j=1,jsize
