@@ -327,12 +327,13 @@ class remix:
 
 		ax.grid(True,linewidth=LW)
 		ax.axis([0,2*np.pi,0,r.max()],'tight')
-		ax.text(-75.*np.pi/180.,1.2*r.max(),('min: '+format_str+'\nmax: ' +format_str) % 
-			  (variable.min() ,variable.max()))
-		if varname in ['eflux','Meflux','Deflux']:
-			ax.text(75.*np.pi/180.,1.3*r.max(),('GW: '+format_str) % power)
-		if (varname == 'current'):
-			ax.text(-(73.+45.)*np.pi/180.,1.3*r.max(),('MA: '+format_str) % pfac)
+		if (not doInset):
+			ax.text(-75.*np.pi/180.,1.2*r.max(),('min: '+format_str+'\nmax: ' +format_str) % 
+				  (variable.min() ,variable.max()))
+			if varname in ['eflux','Meflux','Deflux']:
+				ax.text(75.*np.pi/180.,1.3*r.max(),('GW: '+format_str) % power)
+			if (varname == 'current'):
+				ax.text(-(73.+45.)*np.pi/180.,1.3*r.max(),('MA: '+format_str) % pfac)
 		ax.grid(True)
 
 		if varname=='current': 

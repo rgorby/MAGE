@@ -77,7 +77,8 @@ def PlotEqB(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
 		kv.addEarth2D(ax=Ax)
 		Ax.set_xlabel('SM-X [Re]')
 		Ax.set_ylabel('SM-Y [Re]')
-
+	return Bz
+	
 def PlotMerid(gsph,nStp,xyBds,Ax,doDen=False,doRCM=False,AxCB=None,doClear=True,doDeco=True):
 	CMx = "viridis"
 	if (doDen):

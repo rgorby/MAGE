@@ -55,6 +55,7 @@ if __name__ == "__main__":
 	#Get domain size
 	xyBds = mviz.GetSizeBds(args)
 
+
 	#---------------------
 	#Do work
 	doFast=False
@@ -104,7 +105,7 @@ if __name__ == "__main__":
 	AxC2.xaxis.set_ticks_position('top')
 
 	
-	mviz.PlotEqB(gsph,nStp,xyBds,AxL,AxC1)
+	Bz = mviz.PlotEqB(gsph,nStp,xyBds,AxL,AxC1)
 
 	mviz.PlotMerid(gsph,nStp,xyBds,AxR,doDen,doRCM,AxC3)
 	#mviz.PlotJyXZ(gsph,nStp,xyBds,AxR,AxC3)
@@ -116,6 +117,9 @@ if __name__ == "__main__":
 	if (doRCM):
 		AxRCM = inset_axes(AxL,width="30%",height="30%",loc=3)
 		rcmpp.RCMInset(AxRCM,rcmdata,nStp,mviz.vP)
+		#Add some dBz contours
+		AxRCM.contour(kv.reWrap(gsph.xxc),kv.reWrap(gsph.yyc),kv.reWrap(Bz),[0.0],colors=mviz.bz0Col,linewidths=mviz.cLW)
+		#AxRCM.contour(kv.reWrap(gsph.xxc),kv.reWrap(gsph.yyc),kv.reWrap(dBz),dbzVals,norm=vDB,cmap=mviz.dbCM,linewidths=0.25)
 		rcmpp.AddRCMBox(AxL)
 
 	if (doIon):
