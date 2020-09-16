@@ -3,6 +3,7 @@ module rcm_mhd_mod
     use rcm_precision
     use Rcm_mod_subs
     use rcm_mhd_interfaces
+    use torcm_mod
     use ionosphere_exchange, only : setupIon, tearDownIon
     use constants, ONLY : radius_earth_m, radius_iono_m
     use rice_housekeeping_module

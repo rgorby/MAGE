@@ -18,14 +18,13 @@ module rcmimag
     use rcm_mhd_mod, ONLY : rcm_mhd
     use rcm_mhd_io
     use msphutils, only : MagMoment
-
+    use rcmdefs, only : DenPP0
     use cmiutils, only : SquishCorners
     
     implicit none
 
     real(rp) :: RIonRCM !Units of Rp
     real(rp), private :: rTrc0 = 2.0 !Padding factor for RCM domain to ebsquish radius
-    real(rp), private :: PPDen = 1.0 !Plasmasphere density cut-off for ingestion
     real(rp), private :: Rp_m
     real(rp), private :: planetM0g
     logical , private, parameter :: doKillRCMDir = .true. !Whether to always kill RCMdir before starting
@@ -555,7 +554,7 @@ module rcmimag
 
 
         !Test plasmasphere
-        if (npp >= PPDen) then
+        if (npp >= DenPP0) then
             !Plasmasphere good, add it to limited rcm density
             nlim = nlim+npp
         endif

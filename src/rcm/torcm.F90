@@ -1,6 +1,21 @@
+
+MODULE torcm_mod
+  USE rcm_precision
+  USE constants, only: big_vm,tiote,nt,ev,boltz
+  USE rice_housekeeping_module, ONLY: use_plasmasphere,LowLatMHD,L_write_vars_debug
+  Use rcm_mhd_interfaces
+  USE rcmdefs, ONLY : RCMTOPCLOSED,RCMTOPNULL,RCMTOPOPEN
+  USE kdefs, ONLY : TINY
+
+  implicit none
+
+  real(rp), private :: density_factor !module private density_factor using planet radius
+  real(rp), private :: pressure_factor
+
+  contains
 !==================================================================      
       SUBROUTINE Torcm (RM, itimei, ierr, icontrol) 
-      USE rcm_precision
+
       USE Rcm_mod_subs, ONLY : isize,jsize, jwrap, kcsize, iesize, &
                                vm, bmin, xmin, ymin, pmin, rmin,v, & 
                                alamc, etac, ikflavc, fudgec, eeta, &
@@ -8,13 +23,8 @@
                                colat, aloct, bir, sini,            &
                                ibnd_type,rcmdir
       USE conversion_module
-      USE rice_housekeeping_module
-      USE constants, only: big_vm,tiote,density_factor
-      Use rcm_mhd_interfaces
       USE earthhelper, ONLY : GallagherXY
       
-
-
 ! NOTE: This version fixes the rcm boundary condition at rec=1
 !===================================================================
 !
@@ -63,6 +73,10 @@
       !        0 (RCMTOPNULL)  , CLOSED & outside RCM domain
 
       ierr = 0
+
+      !Set density factor for rest of module
+      density_factor = nt/RM%planet_radius
+      pressure_factor = 2./3.*ev/RM%planet_radius*nt
 
       !Start by reading alam channels if they're not yet set
       !Rewriting this bit to not read_alam every call, K: 8/20
@@ -151,9 +165,10 @@
 
       !---->Set new EETA from MHD code pressure. 
       !     On open field lines, values of ETA will be zero:
-      CALL Gettemp (RM%planet_radius,ierr)
+      CALL Gettemp (ierr)
       IF (ierr < 0) RETURN
-      CALL Press2eta(RM%planet_radius)       ! this populates EETA_NEW array
+      CALL Press2eta()       ! this populates EETA_NEW array
+      
       if(maxval(eeta_new) <=0)then
         write(6,*)' something is wrong in the new eeta arrays'
         stop
@@ -251,13 +266,9 @@
 !----------------------------------------------------------
       SUBROUTINE Calc_ftv (RM,big_vm,ierr) 
       USE conversion_module
-      USE rcm_precision
-      USE constants, ONLY : nt
       USE RCM_mod_subs,ONLY : isize,jsize,kcsize,bmin,vm,rmin,pmin,&
                               xmin,ymin,zmin,vbnd,jwrap
-      USE rice_housekeeping_module
-      use rcm_mhd_interfaces
-
+      
       IMPLICIT NONE
       type(rcm_mhd_T), intent(in) :: RM
       REAL(rprec), INTENT (IN) :: big_vm
@@ -299,8 +310,7 @@
 !  created 03/90 last mod 08/95                       
 !  01/19 - frt -this version gets all the values from the MHD code
 !
-      INCLUDE 'rcmdir.h'
-!
+
       integer(iprec) :: i,j
 
       !Pull RCM-MHD variables into RCM arrays and scale/wrap
@@ -390,7 +400,7 @@
 
 !--------------------------------------------------
 !
-      SUBROUTINE Gettemp (planet_radius,ierr)
+      SUBROUTINE Gettemp (ierr)
 !
 ! routine to compute an estimate for temperature given
 ! the pressure assume that alam*vm = energy = kt
@@ -410,20 +420,14 @@
 !
 !-------------------------------------------------
       USE Rcm_mod_subs, ONLY : isize,jsize,eeta,vm
-      USE rcm_precision
-      USE conversion_module
-      USE rice_housekeeping_module, ONLY: use_plasmasphere
-      USE CONSTANTS, ONLY: boltz,tiote,nt
-      USE rcmdefs, ONLY : RCMTOPCLOSED,RCMTOPNULL,RCMTOPOPEN
-      USE kdefs, ONLY : TINY
+      use conversion_module
       IMPLICIT NONE
 !
-      real(rprec), intent(in) :: planet_radius
       REAL(rprec), PARAMETER :: fac = tiote/(1.+tiote)
-      REAL(rprec) :: dmhd,dpp,density_factor
+      REAL(rprec) :: dmhd,dpp
 !
       INTEGER(iprec) :: i,j,ierr
-      density_factor = nt/planet_radius
+      
 !
 !    set the temperature:
 
@@ -433,7 +437,7 @@
       DO j=1,jsize
         DO i=1,isize
           !Get corrected density from MHD
-          call PartFluid(i,j,planet_radius,dmhd,dpp)
+          call PartFluid(i,j,dmhd,dpp)
           IF ( (iopen(i,j) /= RCMTOPOPEN) .and. (dmhd>TINY) ) THEN
             ti(i,j) = fac*press(i,j)/dmhd/boltz
             te(i,j) = ti(i,j)/tiote
@@ -458,20 +462,15 @@
 !
 !===================================================================
       !Attempt to separate hot/cold components of MHD fluid    
-      SUBROUTINE PartFluid(i,j,planet_radius,dmhd,dpp)
+      SUBROUTINE PartFluid(i,j,dmhd,dpp)
       USE conversion_module
-      USE rcm_precision
       USE RCM_mod_subs, ONLY : ikflavc,vm,alamc,isize,jsize,kcsize,eeta
-      USE CONSTANTS, ONLY : boltz,ev,nt
-      USE rice_housekeeping_module, ONLY: use_plasmasphere
-      USE rcmdefs, ONLY : RCMTOPCLOSED,RCMTOPNULL,RCMTOPOPEN
-      USE kdefs, ONLY : TINY
+    
       IMPLICIT NONE
       integer(iprec), intent(in) :: i,j
-      real(rprec), intent(in) :: planet_radius
       real(rprec), intent(out) :: dmhd,dpp
 
-      real(rprec) :: dtot,drcm,density_factor
+      real(rprec) :: dtot,drcm
       integer(iprec) :: k
 
     !Trap for boring cases
@@ -485,7 +484,6 @@
       if (.not. use_plasmasphere) return !Separation complete
       
     !If still here either null or closed
-      density_factor = nt/planet_radius
       !Calculate plasmasphere density contribution
       dpp = density_factor*1.0*eeta(i,j,1)*vm(i,j)**1.5
       if (dpp < TINY) return !No plasmasphere to worry about
@@ -521,26 +519,16 @@
       END SUBROUTINE PartFluid
 !
 !===================================================================      
-      SUBROUTINE Press2eta(planet_radius) 
-      USE conversion_module
-      USE rcm_precision
+      SUBROUTINE Press2eta() 
+      USE conversion_module      
       USE RCM_mod_subs, ONLY : ikflavc,vm,alamc,isize,jsize,kcsize,eeta
-      USE CONSTANTS, ONLY : boltz,ev,nt
-      USE rcmdefs, ONLY : RCMTOPCLOSED,RCMTOPNULL,RCMTOPOPEN
-      USE rice_housekeeping_module, ONLY: use_plasmasphere
-      USE kdefs, ONLY : TINY
-      IMPLICIT NONE
 
-      real(rprec), intent(in) :: planet_radius
+      IMPLICIT NONE
+      
       real(rprec) :: dmhd,dpp,pcon,pcumsum,t
-      real(rprec) :: density_factor,pressure_factor
       integer(iprec) :: i,j,k,kmin
       real(rprec) :: xp,xm,A0,delerf,delexp,pscl
-      logical :: doPChk
-
-      doPChk = .true.
-      density_factor = nt/planet_radius
-      pressure_factor = 2./3.*ev/planet_radius*nt
+      
 
       !$OMP PARALLEL DO default(shared) &
       !$OMP schedule(dynamic) &
@@ -549,7 +537,7 @@
       do j=1,jsize
         do i=1,isize
           !Get corrected density from MHD
-          call PartFluid(i,j,planet_radius,dmhd,dpp)
+          call PartFluid(i,j,dmhd,dpp)
           if ( (iopen(i,j) /= RCMTOPOPEN) .and. (dmhd>TINY) .and. (ti(i,j)>TINY) ) then
             !Good stuff, let's go
             if (use_plasmasphere) then
@@ -616,10 +604,8 @@
 !	a1 - dayside end of ellipse
 !	a2 - nightside location of the ellipse
 !	b - semi minor axis (y) of ellipse
-
-      USE rcm_precision
       USE rice_housekeeping_module, ONLY : ellBdry
-      Use rcm_mhd_interfaces
+      
       implicit none
       integer(iprec) :: idim,jdim
       real(rprec) :: rmin(idim,jdim), pmin(idim,jdim)
@@ -694,10 +680,6 @@
 ! this routine attempts to smooth out high frequency noise at the boundary
 ! of the rcm 
 ! written 2/06 frt
-!      USE Rcm_mod_subs, ONLY : iprec,rprec
-      USE rcm_precision
-      USE rcmdefs, ONLY : RCMTOPCLOSED,RCMTOPNULL,RCMTOPOPEN
-      USE rice_housekeeping_module, ONLY: use_plasmasphere
       IMPLICIT NONE
       INTEGER(iprec) :: idim,jdim,kdim,jwrap
       INTEGER(iprec) :: imin_j(jdim)
@@ -766,7 +748,7 @@
       END SUBROUTINE Smooth_eta_at_boundary
 !------------------------------------
       SUBROUTINE smooth_boundary_location(idim,jdim,jwrap,bndloc)
-      USE rice_housekeeping_module
+      USE rice_housekeeping_module, ONLY : L_write_vars_debug
       IMPLICIT NONE
       INTEGER(iprec), INTENT(IN) :: idim,jdim,jwrap
       REAL(rprec), INTENT(IN OUT) :: bndloc(jdim)
@@ -813,11 +795,8 @@
 ! alam(1) is set to be 0
 ! sbao 03/25
 
-      USE rcm_precision
       USE earthhelper, ONLY : GallagherXY
-      USE constants, ONLY: density_factor
       USE rice_housekeeping_module, ONLY: InitKp, staticR
-      Use rcm_mhd_interfaces, ONLY: RCMCOLDSTART
 
       IMPLICIT NONE
 
@@ -864,8 +843,6 @@
 !------------------------------------------      
       subroutine reset_rcm_vm(idim,jdim,bndloc,big_vm,imin_j,vm,iopen,doOCBPad)
 ! this routine resets imin_j, vm, and open based on a newly set bndloc      
-      USE rcm_precision
-      Use rcm_mhd_interfaces
       implicit none
       integer(iprec), intent(in) :: idim,jdim
       integer(iprec),intent(inout) :: imin_j(jdim),iopen(idim,jdim)
@@ -938,8 +915,6 @@
 ! used to allocate memory for the exchange arrays      
 ! 7/09 frt
       use conversion_module
-!      use rcm_mod_subs, only : iprec
-      USE rcm_precision, only : iprec
       implicit none
       integer(iprec),intent(in) :: isize,jsize,kcsize
       integer(iprec) :: idim,jdim,kdim
@@ -981,3 +956,5 @@
      return
 
      end subroutine allocate_conversion_arrays 
+
+END MODULE torcm_mod
