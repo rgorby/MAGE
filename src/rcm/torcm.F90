@@ -4,7 +4,7 @@ MODULE torcm_mod
   USE constants, only: big_vm,tiote,nt,ev,boltz
   USE rice_housekeeping_module, ONLY: use_plasmasphere,LowLatMHD,L_write_vars_debug
   Use rcm_mhd_interfaces
-  USE rcmdefs, ONLY : RCMTOPCLOSED,RCMTOPNULL,RCMTOPOPEN
+  USE rcmdefs, ONLY : RCMTOPCLOSED,RCMTOPNULL,RCMTOPOPEN,DenPP0
   USE kdefs, ONLY : TINY
 
   implicit none
@@ -64,8 +64,8 @@ MODULE torcm_mod
       INTEGER(iprec) :: min0,i,j,k,n,ns,klow
       INTEGER(iprec), PARAMETER :: n_smooth = 5
       LOGICAL,PARAMETER :: use_ellipse = .true.
-      REAL(rprec) :: den_gal
       LOGICAL, SAVE :: doReadALAM = .true.
+      REAL(rprec) :: dpp,wMHD
 
       !K: 8/20, rewritten to try to better incorporate immersed boundary BCs
       !iopen: -1 (RCMTOPCLOSED), CLOSED & inside RCM ellipse
@@ -211,7 +211,7 @@ MODULE torcm_mod
     !-----
     !Fill in grid ghosts
       do j=1,jsize
-        do i=1,imin_j(j)-1
+        do i=1,isize
           if (iopen(i,j) == RCMTOPOPEN) then
             !Zap everything here
             eeta(i,j,:) = 0.0
@@ -227,12 +227,23 @@ MODULE torcm_mod
             !Use MHD information for RC channels
             eeta(i,j,klow:) = eeta_new(i,j,klow:)
 
-            ! !Zero out plasmasphere content outside RCM domain
-            ! if (use_plasmasphere) eeta(i,j,1) = 0.0
+            !Check for outside domain and below plasmasphere cutoff
+            dpp = density_factor*1.0*eeta(i,j,1)*vm(i,j)**1.5
+            if ( use_plasmasphere .and. (dpp < DenPP0*1.0e+6) ) then
+              eeta(i,j,1) = 0.0
+            endif
+          else if (iopen(i,j) == RCMTOPCLOSED) then
+            !Closed field region inside RCM domain, test wIMAG
+            if (wImag(i,j)<0.5) then
+              !Blend MHD/RCM eeta states using wMHD between 1/2,0 for wImag between 0,1/2
+              wMHD = 0.5-wImag(i,j)
+              eeta(i,j,klow:) = wMHD*eeta_new(i,j,klow:) + (1-wMHD)*eeta(i,j,klow:)
+            endif
+            
+          endif !iopen
 
-          endif
-        enddo
-      enddo
+        enddo !i
+      enddo !j
 
       ! smooth eeta at the boundary
       CALL Smooth_eta_at_boundary(isize,jsize,kcsize,jwrap,eeta,iopen,imin_j)
@@ -325,6 +336,7 @@ MODULE torcm_mod
       call EmbiggenWrap(RM%beta_average,beta_average)
 
       call EmbiggenWrapI(RM%iopen,iopen)
+      call EmbiggenWrap (RM%wImag,wImag)
 
       ! compute vm and find boundaries
       ! (K: doing in two stages to avoid open/closed/open corner case)
@@ -573,12 +585,13 @@ MODULE torcm_mod
 
             !Now rescale eeta channels to conserve pressure integral between MHD/RCM
             pscl = press(i,j)/pcumsum
-            do k=kmin,kcsize
-              eeta_new(i,j,k) = pscl*eeta_new(i,j,k)
-            enddo
-
+            if (pscl<1.0) then !Only scale down pressure
+              do k=kmin,kcsize
+                eeta_new(i,j,k) = pscl*eeta_new(i,j,k)
+              enddo
+            endif
         !Not good MHD
-          else 
+          else
             eeta_new(i,j,:) = 0.0
           endif
 
@@ -950,6 +963,8 @@ MODULE torcm_mod
       allocate(to(idim,jdim))
       allocate(beta_average(idim,jdim))
       allocate(iopen(idim,jdim))
+      allocate(wImag(idim,jdim))
+
       ! 3d arrays
       allocate(eeta_new(idim,jdim,kdim))
     

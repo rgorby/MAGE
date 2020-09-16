@@ -8,7 +8,7 @@ MODULE conversion_module
   REAL(rprec), ALLOCATABLE :: te(:,:),ti(:,:),to(:,:),&
       den(:,:),press(:,:),&
       deno(:,:),presso(:,:),&
-      beta_average(:,:)
+      beta_average(:,:),wImag(:,:)
 
   REAL(rprec), ALLOCATABLE :: eeta_new(:,:,:)
   INTEGER(iprec), ALLOCATABLE :: iopen(:,:),imin_j_old(:),inner_bndy(:)
