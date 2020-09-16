@@ -32,12 +32,15 @@ if __name__ == "__main__":
 	parser.add_argument('-d',type=str,metavar="directory",default=fdir,help="Directory to read from (default: %(default)s)")
 	parser.add_argument('-id',type=str,metavar="runid",default=ftag,help="RunID of data (default: %(default)s)")
 	parser.add_argument('-n' ,type=int,metavar="step" ,default=nStp,help="Time slice to plot (default: %(default)s)")
+	parser.add_argument('-wgt', action='store_true',default=False,help="Show wRCM instead of FTV (default: %(default)s)")
 
 	#Finalize parsing
 	args = parser.parse_args()
 	fdir = args.d
 	ftag = args.id + ".mhdrcm"
 	nStp = args.n
+
+	doWgt = args.wgt
 
 	#---------
 	#Figure parameters
@@ -53,6 +56,8 @@ if __name__ == "__main__":
 	cLW = 0.5
 	vP = kv.genNorm(1.0e-1,1.0e+2,doLog=True)
 	vS = kv.genNorm(0.0,0.25)
+	vW = kv.genNorm(0,1)
+
 	Nc = 10
 	nMin = 1.0
 	nMax = 1.0e+3
@@ -62,6 +67,8 @@ if __name__ == "__main__":
 	pCMap = "viridis"
 	sCMap = "terrain"
 	dCMap = "cool"
+	wCMap = "bwr_r"
+
 	#dCMap = palettable.cmocean.sequential.Algae_20_r.mpl_colormap
 	
 	#======
@@ -85,7 +92,10 @@ if __name__ == "__main__":
 	AxC3 = fig.add_subplot(gs[-1,-1])
 	kv.genCB(AxC1,vP,"Pressure [nPa]",cM=pCMap)
 	kv.genCB(AxC2,vD,"Density [#/cc]",cM=dCMap)
-	kv.genCB(AxC3,vS,r"Flux-Tube Entropy [nPa (R$_{E}$/nT)$^{\gamma}$]",cM=sCMap)
+	if (doWgt):
+		kv.genCB(AxC3,vW,r"wRCM",cM=wCMap)
+	else:	
+		kv.genCB(AxC3,vS,r"Flux-Tube Entropy [nPa (R$_{E}$/nT)$^{\gamma}$]",cM=sCMap)
 
 	AxL.clear()
 	AxM.clear()
@@ -104,6 +114,7 @@ if __name__ == "__main__":
 	Nmhd  = rcmpp.GetVarMask(rcmdata,nStp,"Nmhd" ,I)
 	S     = rcmpp.GetVarMask(rcmdata,nStp,"S"    ,I)
 	toMHD = rcmpp.GetVarMask(rcmdata,nStp,"toMHD",I)
+	wRCM  = rcmpp.GetVarMask(rcmdata,nStp,"wIMAG" ,I)
 
 	AxL.set_title("RCM Pressure")
 
@@ -121,6 +132,7 @@ if __name__ == "__main__":
 	kv.addEarth2D(ax=AxM)
 	kv.SetAx(xyBds,AxM)
 	Axs = [AxL,AxM,AxR]
+
 	if (nStp>0):
 		for n in range(3):
 			Ax = Axs[n]
@@ -133,8 +145,12 @@ if __name__ == "__main__":
 
 
 	#Handle right
-	AxR.set_title("Flux-Tube Entropy")
-	AxR.pcolor(bmX,bmY,S,norm=vS,cmap=sCMap)
+	if (doWgt):
+		AxR.set_title("RCM Weight")
+		AxR.pcolor(bmX,bmY,wRCM,norm=vW,cmap=wCMap)
+	else:	
+		AxR.set_title("Flux-Tube Entropy")
+		AxR.pcolor(bmX,bmY,S,norm=vS,cmap=sCMap)
 	
 	AxR.plot(bmX,bmY,color=eCol,linewidth=eLW)
 	AxR.plot(bmX.T,bmY.T,color=eCol,linewidth=eLW)
