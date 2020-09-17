@@ -19,12 +19,13 @@ gCol = "cyan"
 gLW = 0.15
 
 doXYZ = True #How to calculate "equator"
-doCut = True
+doCut = False
 pCut = 1.0e-8
 MHDCol = "red"
 eLW = 0.05
 MHDLW = 0.5
 
+doEll = True
 #Get equatorial coordinates, masked if asked to
 def RCMEq(rcmdata,nStp,doMask=False,doXYZ=doXYZ):
 
@@ -50,13 +51,20 @@ def GetVarMask(rcmdata,nStp,Qid="P",I=None):
 	return Q
 
 #Calculate mask
+#doRCM: Do RCM domain or full closed region
 def GetMask(rcmdata,nStp):
 	IOpen = rcmdata.GetVar("IOpen",nStp)
+	
+	if (doEll):
+		ioCut = -0.5
+	else:
+		ioCut = 0.5
+
 	if (doCut):
 		Prcm = rcmdata.GetVar("P",nStp)
-		I = (IOpen > -0.5) | (Prcm<pCut)
+		I = (IOpen > ioCut) | (Prcm<pCut)
 	else:
-		I = (IOpen > -0.5)
+		I = (IOpen > ioCut)
 	return I
 
 #Take axis and rcmdata object and add pressure plot

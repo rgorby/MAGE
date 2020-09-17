@@ -17,8 +17,8 @@ import numpy.ma as ma
 
 if __name__ == "__main__":
 	#Defaults
-	MHDCol = "red"
-	MHDLW = 0.5
+	MHDCol = rcmpp.MHDCol
+	MHDLW = rcmpp.MHDLW
 	fdir = os.getcwd()
 	ftag = "msphere"
 	nStp = -1
@@ -32,15 +32,21 @@ if __name__ == "__main__":
 	parser.add_argument('-d',type=str,metavar="directory",default=fdir,help="Directory to read from (default: %(default)s)")
 	parser.add_argument('-id',type=str,metavar="runid",default=ftag,help="RunID of data (default: %(default)s)")
 	parser.add_argument('-n' ,type=int,metavar="step" ,default=nStp,help="Time slice to plot (default: %(default)s)")
-	parser.add_argument('-wgt', action='store_true',default=False,help="Show wRCM instead of FTV (default: %(default)s)")
+	parser.add_argument('-big',action='store_true', default=False,help="Plot entire RCM grid (default: %(default)s)")
+	parser.add_argument('-wgt', action='store_true',default=False,help="Show wRCM instead of FTE (default: %(default)s)")
+	parser.add_argument('-vol', action='store_true',default=False,help="Show FTV instead of FTE (default: %(default)s)")
 
 	#Finalize parsing
 	args = parser.parse_args()
 	fdir = args.d
 	ftag = args.id + ".mhdrcm"
 	nStp = args.n
+	doBig = args.big
 
 	doWgt = args.wgt
+	doVol = args.vol
+
+	rcmpp.doEll = not doBig
 
 	#---------
 	#Figure parameters
@@ -57,6 +63,7 @@ if __name__ == "__main__":
 	vP = kv.genNorm(1.0e-1,1.0e+2,doLog=True)
 	vS = kv.genNorm(0.0,0.25)
 	vW = kv.genNorm(0,1)
+	vV = kv.genNorm(1.0e-2,1.0,doLog=True)
 
 	Nc = 10
 	nMin = 1.0
@@ -68,7 +75,7 @@ if __name__ == "__main__":
 	sCMap = "terrain"
 	dCMap = "cool"
 	wCMap = "bwr_r"
-
+	vCMap = "gnuplot2"
 	#dCMap = palettable.cmocean.sequential.Algae_20_r.mpl_colormap
 	
 	#======
@@ -94,6 +101,8 @@ if __name__ == "__main__":
 	kv.genCB(AxC2,vD,"Density [#/cc]",cM=dCMap)
 	if (doWgt):
 		kv.genCB(AxC3,vW,r"wRCM",cM=wCMap)
+	elif (doVol):
+		kv.genCB(AxC3,vV,r"Flux-Tube Volume [Re/nT]",cM=vCMap)
 	else:	
 		kv.genCB(AxC3,vS,r"Flux-Tube Entropy [nPa (R$_{E}$/nT)$^{\gamma}$]",cM=sCMap)
 
@@ -114,8 +123,12 @@ if __name__ == "__main__":
 	Nmhd  = rcmpp.GetVarMask(rcmdata,nStp,"Nmhd" ,I)
 	S     = rcmpp.GetVarMask(rcmdata,nStp,"S"    ,I)
 	toMHD = rcmpp.GetVarMask(rcmdata,nStp,"toMHD",I)
-	wRCM  = rcmpp.GetVarMask(rcmdata,nStp,"wIMAG" ,I)
-
+	
+		
+	if (doWgt):
+		wRCM  = rcmpp.GetVarMask(rcmdata,nStp,"wIMAG" ,I)
+	if (doVol):
+		bVol = rcmpp.GetVarMask(rcmdata,nStp,"bVol" ,I)
 	AxL.set_title("RCM Pressure")
 
 	AxL.pcolor(bmX,bmY,Prcm,norm=vP,cmap=pCMap)
@@ -136,6 +149,7 @@ if __name__ == "__main__":
 	if (nStp>0):
 		for n in range(3):
 			Ax = Axs[n]
+
 			CS1 = Ax.contour(bmX,bmY,toMHD,[0.5],colors=MHDCol,linewidths=MHDLW)
 			manloc = [(0.0,8.0)]
 
@@ -148,6 +162,9 @@ if __name__ == "__main__":
 	if (doWgt):
 		AxR.set_title("RCM Weight")
 		AxR.pcolor(bmX,bmY,wRCM,norm=vW,cmap=wCMap)
+	elif (doVol):
+		AxR.set_title("Flux-tube Volume")
+		AxR.pcolor(bmX,bmY,bVol,norm=vV,cmap=vCMap)
 	else:	
 		AxR.set_title("Flux-Tube Entropy")
 		AxR.pcolor(bmX,bmY,S,norm=vS,cmap=sCMap)

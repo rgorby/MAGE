@@ -149,10 +149,6 @@ module rcm_mhd_io
 
         call AddOutVar(IOVars,"toMHD",merge(1.0_rp,0.0_rp,RCMApp%toMHD))
 
-        !Trim output for colat/aloct to remove wrapping
-!        DimLL = shape(colat)
-!        Ni = DimLL(1)
-!        Nj = DimLL(2)
 
         call AddOutVar(IOVars,"colat",colat(:,jwrap:jsize))
         call AddOutVar(IOVars,"aloct",aloct(:,jwrap:jsize))

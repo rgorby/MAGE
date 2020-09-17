@@ -221,7 +221,7 @@ module rcmimag
         type(RCMTube_T) :: ijTube
 
         real(rp) :: maxRad
-        logical :: isLL
+        logical :: isLL,doHackIC
         
         associate(RCMApp => imag%rcmCpl)
 
@@ -278,11 +278,12 @@ module rcmimag
                 !Set composition
                 RCMApp%oxyfrac(i,j)      = 0.0
                 
-
             enddo
         enddo
+        doHackIC = (vApp%time <= vApp%DeepDT) .and. RCMICs%doIC !Whether to hack MHD/RCM coupling for ICs
+
         call Toc("RCM_TUBES")
-        if ( (vApp%time <= vApp%DeepDT) .and. RCMICs%doIC ) then
+        if (doHackIC) then
         !Tune values to send to RCM for its cold start
             !Setup quiet time ring current to hit target using both current BSDst and target dst
             !Replacing first RC estimate w/ Dst at end of blow-in period
@@ -293,7 +294,7 @@ module rcmimag
         call Tic("AdvRCM")
     !Advance from vApp%time to tAdv
         dtAdv = tAdv-vApp%time !RCM-DT
-        if (doColdstart)then
+        if (doColdstart) then
             write(*,*) 'Cold-starting RCM @ t = ', vApp%time
             call rcm_mhd(vApp%time,dtAdv,RCMApp,RCMCOLDSTART)
             doColdstart = .false.
@@ -303,8 +304,17 @@ module rcmimag
 
         call Toc("AdvRCM")
 
-        !Set ingestion region
-        call SetIngestion(RCMApp)
+    !Set ingestion region
+        if (doHackIC) then
+            !For ICs ingest from entire closed field region just this once
+            RCMApp%toMHD = .not. (RCMApp%iopen == RCMTOPOPEN)
+        else
+            call SetIngestion(RCMApp)
+            !Find maximum extent of RCM domain (RCMTOPCLOSED but not RCMTOPNULL)
+            maxRad = maxval(norm2(RCMApp%X_bmin,dim=3),mask=(RCMApp%iopen == RCMTOPCLOSED))
+            maxRad = maxRad/Rp_m
+            vApp%rTrc = rTrc0*maxRad
+        endif
 
     !Pull data from RCM state for conductance calculations
         !NOTE: this is not the closed field region, this is actually the RCM domain
@@ -321,11 +331,6 @@ module rcmimag
 
         vApp%imag2mix%isFresh = .true.
 
-    !Find maximum extent of RCM domain (RCMTOPCLOSED but not RCMTOPNULL)
-        maxRad = maxval(norm2(RCMApp%X_bmin,dim=3),mask=(RCMApp%iopen == RCMTOPCLOSED))
-        maxRad = maxRad/Rp_m
-        vApp%rTrc = rTrc0*maxRad
-        
         end associate
 
         contains
