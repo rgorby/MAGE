@@ -234,9 +234,9 @@ MODULE torcm_mod
             endif
           else if (iopen(i,j) == RCMTOPCLOSED) then
             !Closed field region inside RCM domain, test wIMAG
-            if (wImag(i,j)<0.5) then
-              !Blend MHD/RCM eeta states using wMHD between 1/2,0 for wImag between 0,1/2
-              wMHD = 0.5-wImag(i,j)
+            if (wImag(i,j)<0.25) then
+              !Blend MHD/RCM eeta states using wMHD between 1/2,0 for wImag between 0,1/4
+              wMHD = 2*(0.25-wImag(i,j))
               eeta(i,j,klow:) = wMHD*eeta_new(i,j,klow:) + (1-wMHD)*eeta(i,j,klow:)
             endif
             

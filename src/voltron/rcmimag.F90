@@ -386,16 +386,16 @@ module rcmimag
                 if (isClosed) then
                     !All cells above boundary are closed, this works
                     RCMApp%toMHD(i:RCMApp%nLat_ion,j) = .true.
-                    !Now increase the ingestion timescale within a handful of cells near boundary to soften transition
-                    do n=0,2
-                        iBdry = min(i+n,RCMApp%nLat_ion)
-                        RCMApp%Tb(iBdry,j) = (4-n)*RCMApp%Tb(iBdry,j)
-                    enddo
                     exit !Done here
                 endif
             enddo !i loop
         enddo !j loop
         
+        !Finally, upscale ingestion timescales based on wImag
+        where (RCMApp%wImag>TINY)
+            RCMApp%Tb = RCMApp%Tb/RCMApp%wImag
+        endwhere
+
     end subroutine SetIngestion
 
     !Evaluate eq map at a given point
@@ -566,7 +566,7 @@ module rcmimag
 
         integer :: i0,j0,maxIJ(2)
 
-        real(rp) :: maxP,maxD,maxL,maxMLT,wTrust
+        real(rp) :: maxP,maxD,maxL,maxMLT,wTrust,wTMin
 
         associate(RCMApp => imag%rcmCpl)
     !Start by getting some data
@@ -583,12 +583,15 @@ module rcmimag
         !Get pressure weighted confidence
         wTrust = sum(RCMApp%Prcm*RCMApp%wIMAG,mask=RCMApp%toMHD)/sum(RCMApp%Prcm,mask=RCMApp%toMHD)
         wTrust = 100.0*wTrust
+        !Get min confidence in MHD domain
+        wTMin = 100.0*minval(RCMApp%wIMAG,mask=RCMApp%toMHD)
+
     !Do some output
         if (maxP<TINY) return
 
         write(*,*) ANSIYELLOW
         write(*,*) 'RCM'
-        write (*, '(a,1f8.2,a)')             '  Trust    = ' , wTrust, '%'
+        write (*, '(a, f8.2,a,f6.2,a)')      '  Trust    = ' , wTrust, '% (P-AVG) / ', wTMin, '% (MIN)'
         write (*, '(a,1f8.3,a)')             '  Max RC-P = ' , maxP, ' [nPa]'
         write (*, '(a,2f8.3,a)')             '   @ L/MLT = ' , maxL, maxMLT, ' [deg]'
         write (*, '(a,1f8.3,a)')             '      w/ D = ' , maxD, ' [#/cc]'
