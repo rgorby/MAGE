@@ -208,7 +208,7 @@ module gam2VoltComm_mpi
 
     end subroutine initGam2Volt
 
-    suboutine endGam2VoltWaits(g2vComm)
+    subroutine endGam2VoltWaits(g2vComm)
         type(gam2VoltCommMpi_T), intent(inout) :: g2vComm
 
         integer :: ierr
@@ -364,7 +364,7 @@ module gam2VoltComm_mpi
 
     ! send shallow state data to voltron over MPI
     subroutine sendShallowData(g2vComm, gApp)
-        type(gam2VoltCommMpi_T), intent(in) :: g2vComm
+        type(gam2VoltCommMpi_T), intent(inout) :: g2vComm
         type(gamAppMpi_T), intent(in) :: gApp
 
         integer :: ierr
