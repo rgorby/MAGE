@@ -13,7 +13,6 @@ module mixsolver
   implicit none
 
   logical, private :: isSolverInit=.false.
-  integer, private :: MKLMSGLVL=0
 
   contains
     ! running index
@@ -258,7 +257,7 @@ module mixsolver
       integer :: maxfct,mnum,phase !pardiso control params
       ! see description of parameters here: https://software.intel.com/en-us/node/470284#E44B4021-701A-48DA-BA29-70CFA20766AA
 
-      if (MKLMSGLVL > 0) then
+      if (P%mklmsglvl > 0) then
         write(*,*) 'Running MKL-Pardiso'
       endif
 
@@ -280,7 +279,7 @@ module mixsolver
       maxfct = 1
       mnum   = 1
       nrhs   = 1
-      msglvl = MKLMSGLVL  ! no verbosity
+      msglvl = P%mklmsglvl  ! no verbosity
 
       phase = 13 !Analysis, numerical factorization, solve, iterative refinement
       !Call solver

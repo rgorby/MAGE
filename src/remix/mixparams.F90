@@ -112,6 +112,10 @@ module mixparams
         call xmlInp%Set_Val(Params%nRes,"/gamera/restart/nRes",-1)
         ! =========== IO PARAMTERS =================== !
 
+        ! =========== DEBUG PARAMETERS ================ !
+        call xmlInp%Set_Val(Params%mklmsglvl,"debug/mklmsglvl", 0)
+        ! =========== DEBUG PARAMETERS   ============== !
+
         ! Check for old-style precipitation quantities
         write(*,*) ANSIRED
         if (xmlInp%Exists("conductance/alpha")) then
