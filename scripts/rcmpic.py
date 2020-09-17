@@ -129,6 +129,9 @@ if __name__ == "__main__":
 		wRCM  = rcmpp.GetVarMask(rcmdata,nStp,"wIMAG" ,I)
 	if (doVol):
 		bVol = rcmpp.GetVarMask(rcmdata,nStp,"bVol" ,I)
+	if (doBig):
+		toRCM = rcmpp.GetVarMask(rcmdata,nStp,"IOpen" ,I)
+
 	AxL.set_title("RCM Pressure")
 
 	AxL.pcolor(bmX,bmY,Prcm,norm=vP,cmap=pCMap)
@@ -156,7 +159,8 @@ if __name__ == "__main__":
 			fmt = {}
 			fmt[0.5] = 'MHD'
 			Ax.clabel(CS1,CS1.levels[::2],inline=True,fmt=fmt,fontsize=5,inline_spacing=25,manual=manloc)
-
+			if (doBig):
+				CS2 = Ax.contour(bmX,bmY,toRCM,[-0.5],colors=rcmpp.rcmCol,linewidths=MHDLW,linestyles='solid')
 
 	#Handle right
 	if (doWgt):
