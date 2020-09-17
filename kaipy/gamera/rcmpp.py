@@ -87,8 +87,9 @@ def RCMInset(AxRCM,rcmdata,nStp,vP):
 	AxRCM.plot(bmX,bmY,color=eCol,linewidth=eLW)
 	AxRCM.plot(bmX.T,bmY.T,color=eCol,linewidth=eLW)
 
+	doCon = (nStp>0) and (toMHD.min()<0.5) and (toMHD.max()>0.5)
 	#Add MHD ingestion contour
-	if (nStp>0):
+	if (doCon):
 		CS1 = AxRCM.contour(bmX,bmY,toMHD,[0.5],colors=MHDCol,linewidths=MHDLW)
 		manloc = [(0.0,8.0)]
 
