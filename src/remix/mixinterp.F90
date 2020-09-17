@@ -97,6 +97,8 @@ module mixinterp
             end if
          end do
       end do
+      Map%M = max(Map%M,0.D0)
+      Map%M = min(Map%M,1.D0)
 
     end subroutine mix_set_map
 
