@@ -33,7 +33,7 @@ module gam2VoltComm_mpi
         integer, dimension(1) :: recvCountsInexyzShallow, recvTypesInexyzShallow
         integer(MPI_ADDRESS_KIND), dimension(1) :: recvDisplsInexyzShallow
         ! SHALLOW ASYNCHRONOUS VARIABLES
-        integer :: shallowGasSendReq=MPI_REQUEST_NULL, shallowBxyzSendReq=MPI_REQUEST_NULL
+        integer :: shallowGasSendReq=MPI_REQUEST_NULL, shallowBxyzSendReq=MPI_REQUEST_NULL, shallowTimeBcastReq=MPI_REQUEST_NULL
         real(rp), dimension(:,:,:,:,:), allocatable :: gasBuffer
         real(rp), dimension(:,:,:,:), allocatable   :: bxyzBuffer
         
@@ -217,6 +217,8 @@ module gam2VoltComm_mpi
 
         call MPI_WAIT(g2vComm%shallowBxyzSendReq, MPI_STATUS_IGNORE, ierr)
 
+        call MPI_WAIT(g2vComm%shallowTimeBcastReq, MPI_STATUS_IGNORE, ierr)
+
     end subroutine endGam2VoltWaits
 
     ! update voltron time units locally while actual voltron is running
@@ -348,7 +350,17 @@ module gam2VoltComm_mpi
         call Toc("ShallowRecv")
 
         ! receive next time for shallow calculation
-        call mpi_bcast(g2vComm%ShallowT, 1, MPI_MYFLOAT, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
+        if(g2vComm%doAsyncShallow) then
+            ! asynchronous
+            call mpi_wait(g2vComm%shallowTimeBcastReq, MPI_STATUS_IGNORE, ierr)
+            ! set the next coupling time to a value we won't hit accidentally, then wait for the asynchronous call to fill the variable
+            !    this is dangerous, it assumes that voltron will fill this before gamera hits the coupling time
+            g2vComm%ShallowT = g2vComm%tFin
+            call mpi_Ibcast(g2vComm%ShallowT, 1, MPI_MYFLOAT, g2vComm%voltRank, g2vComm%voltMpiComm, g2vComm%shallowTimeBcastReq, ierr)
+        else
+            ! synchronous
+            call mpi_bcast(g2vComm%ShallowT, 1, MPI_MYFLOAT, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
+        endif
 
         ! and send data for voltron to work on while gamera is busy
         if(present(skipUpdateGamera) .and. skipUpdateGamera) then
