@@ -480,7 +480,7 @@ module voltapp_mpi
         real(rp), intent(in) :: time
         logical, optional, intent(in) :: skipUpdateGamera
 
-        integer :: ierr
+        integer :: ierr, asyncShallowBcastReq
 
         ! send updated data to Gamera ranks
         call Tic("ShallowSend")
@@ -488,7 +488,15 @@ module voltapp_mpi
         call Toc("ShallowSend")
 
         ! send next time for shallow calculation to all gamera ranks
-        call mpi_bcast(vApp%ShallowT + vApp%ShallowDT, 1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
+        if(vApp%doAsyncShallow) then
+            ! asynchronous
+            ! cannot mix bcast and Ibcast, so this must also by Ibcast even though I want it to be synchronous
+            call mpi_Ibcast(vApp%ShallowT + vApp%ShallowDT, 1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, asyncShallowBcastReq, ierr)
+            call mpi_wait(asyncShallowBcastReq, MPI_STATUS_IGNORE, ierr)
+        else
+            ! synchronous
+            call mpi_bcast(vApp%ShallowT + vApp%ShallowDT, 1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
+        endif
 
         if(present(skipUpdateGamera) .and. skipUpdateGamera) then
             ! do nothing here, do not update the incoming gamera data
