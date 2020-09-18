@@ -11,6 +11,7 @@ MODULE torcm_mod
 
   real(rp), private :: density_factor !module private density_factor using planet radius
   real(rp), private :: pressure_factor
+  logical, parameter :: doWgt = .false. !Whether to do MHD=>RCM blending
 
   contains
 !==================================================================      
@@ -232,7 +233,7 @@ MODULE torcm_mod
             if ( use_plasmasphere .and. (dpp < DenPP0*1.0e+6) ) then
               eeta(i,j,1) = 0.0
             endif
-          else if (iopen(i,j) == RCMTOPCLOSED) then
+          else if (iopen(i,j) == RCMTOPCLOSED .and. doWgt) then
             !Closed field region inside RCM domain, test wIMAG
             if (wImag(i,j)<0.25) then
               !Blend MHD/RCM eeta states using wMHD between 1/2,0 for wImag between 0,1/4

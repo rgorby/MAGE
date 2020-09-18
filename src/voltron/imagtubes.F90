@@ -13,6 +13,11 @@ module imagtubes
     real(rp) :: Rp_m
     real(rp) :: planetM0g
 
+    !Some threshold values for poisoning tubes
+    !TODO: Make these XML parameters
+    real(rp), private :: wImag_C = 0.25 ![0,1]
+    real(rp), private :: bMin_C  = 30.0 !nT
+
 !Information taken from MHD flux tubes
     !Pave = Average pressure [Pa]
     !Nave = Average density [#/m3]
@@ -183,6 +188,34 @@ module imagtubes
         ijTube%wIMAG = 1.0 !Much imag
     end subroutine DipoleTube
 
+    !Do some trickkery on the tubes if they seem too weird for RCM
+    subroutine TrickyTubes(RCMApp)
+        type(rcm_mhd_T), intent(inout) :: RCMApp
+
+        integer :: Ni,Nj,i,j
+        logical :: isBadTube
+
+        Ni = RCMApp%nLat_ion
+        Nj = RCMApp%nLon_ion
+        
+        !Loop over grid and poison cells we wouldn't trust RCM with
+        do j=1,Nj
+            do i=1,Ni
+                if (RCMApp%iopen(i,j) /= RCMTOPOPEN) then
+                    !Check this cell
+                    isBadTube = (RCMApp%wImag(i,j)<=wImag_C) .or. (RCMApp%Bmin(i,j)*1.0e+9 <= bMin_C)
+                    
+                    if (isBadTube) then
+                        !Poison this cell
+                        RCMApp%iopen(i,j) = RCMTOPOPEN
+                        RCMApp%Vol(i,j) = 0.0 
+                    endif
+                endif
+            enddo !i loop
+        enddo !j loop
+        
+    end subroutine TrickyTubes
+    
     !Smooth RCM tube data as needed
     subroutine SmoothTubes(RCMApp)
         type(rcm_mhd_T), intent(inout) :: RCMApp
