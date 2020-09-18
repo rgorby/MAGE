@@ -369,7 +369,7 @@ module voltapp_mpi
         type(voltAppMpi_T), intent(inout) :: vApp
         real(rp), intent(in) :: time
 
-        integer :: ierr
+        integer :: ierr, asyncShallowBcastReq
 
         if(vApp%doSerialVoltron) then
             ! deep first
@@ -393,7 +393,14 @@ module voltapp_mpi
                 call Tic("ShallowSend")
                 call sendShallowData_mpi(vApp)
                 call Toc("ShallowSend")
-                call mpi_bcast(vApp%ShallowT + vApp%ShallowDT, 1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
+                if(vApp%doAsyncShallow) then
+                    ! cannot mix bcast and Ibcast, so this must also by Ibcast even though I want it to be synchronous
+                    call mpi_Ibcast(vApp%ShallowT + vApp%ShallowDT, 1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, asyncShallowBcastReq, ierr)
+                    call mpi_wait(asyncShallowBcastReq, MPI_STATUS_IGNORE, ierr)
+                else
+                    ! synchronous
+                    call mpi_bcast(vApp%ShallowT + vApp%ShallowDT, 1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
+                endif
                 call Tic("DeepSend")
                 call sendDeepData_mpi(vApp)
                 call Toc("DeepSend")
