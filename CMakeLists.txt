@@ -31,9 +31,6 @@ add_compile_definitions(GITBRANCH=${GIT_BRANCH})
 option(ENABLE_OMP "Enable OMP parallelization" ON )
 option(ENABLE_MPI "Enable MPI parallelization" OFF)
 option(ENABLE_MKL "Enable Intel MKL usage" OFF)
-if(ENABLE_MKL)
-    add_compile_definitions(USEMKL)
-endif()
 
 #Vector blocking
 set(bricksize 16 CACHE STRING "Vector brick size")
@@ -60,6 +57,9 @@ set(EBIC ${EBICDEF} CACHE FILEPATH "CHIMP EB IC file")
 #Include user cmake file if present
 include(cmake/user.cmake OPTIONAL)
 
+if(ENABLE_MKL)
+    add_compile_definitions(USEMKL)
+endif()
 
 #Include compile flag generator
 include(cmake/compilers.cmake)
