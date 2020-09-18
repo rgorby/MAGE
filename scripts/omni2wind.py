@@ -21,7 +21,7 @@ import matplotlib.pyplot as plt
 import os
 import kaipy.solarWind
 from  kaipy.solarWind import swBCplots
-from  kaipy.solarWind.OMNI import OMNI
+#from  kaipy.solarWind.OMNI import OMNI
 import datetime
 from astropy.time import Time
 from ai import cdas
@@ -107,7 +107,16 @@ if __name__ == "__main__":
         f107[f107 == 999.9] = np.nan # removing bad values from mean calculation
         avgF107 = np.nanmean(f107)
         print("Average f10.7: ", avgF107)
- 
+
+        print('Retrieving f10.7 data from CDAWeb')
+        data = cdas.get_data(
+           'sp_phys',
+           'OMNI2_H0_MRG1HR',
+           datetime.datetime.strptime(t0,fmt),
+           datetime.datetime.strptime(t1,fmt),
+           ['F10_INDEX1800']
+        )
+         
         #converting hourly cadence to minutes 
         f107min = np.zeros(len(f107)*60)
         if (f107[0] == np.nan):
