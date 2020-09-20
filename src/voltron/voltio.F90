@@ -422,7 +422,10 @@ module voltio
         do k=Gr%ksg,Gr%keg
             do j=Gr%jsg,Gr%jeg
                 do i=Gr%isg,Gr%ieg
-                    dB(i,j,k,:) = State%Bxyz(i,j,k,:) + Gr%B0(i,j,k,:) - MagsphereDipole(Gr%xyzcc(i,j,k,:),Model%MagM0)
+                    dB(i,j,k,:) = State%Bxyz(i,j,k,:) - MagsphereDipole(Gr%xyzcc(i,j,k,:),Model%MagM0)
+                    if (Model%doBackground) then
+                        dB(i,j,k,:) = dB(i,j,k,:) + Gr%B0(i,j,k,:)
+                    endif
                 enddo
             enddo
         enddo
@@ -457,7 +460,7 @@ module voltio
                     !Bios-Savart Dst
                     BSDst = BSDst + bScl*dBz
 
-                    if (Gr%Gas0(i,j,k,IMPR ,BLK)>TINY) then
+                    if ((Gr%Gas0(i,j,k,IMPR ,BLK)>TINY) .and. (Model%doSource)) then
                         KTot = KTot + dV*Gr%Gas0(i,j,k,IMPR ,BLK) !Code units
                     endif
                 enddo ! i loop
