@@ -6,12 +6,13 @@ MODULE torcm_mod
   Use rcm_mhd_interfaces
   USE rcmdefs, ONLY : RCMTOPCLOSED,RCMTOPNULL,RCMTOPOPEN,DenPP0
   USE kdefs, ONLY : TINY
+  use math, ONLY : RampDown
 
   implicit none
 
   real(rp), private :: density_factor !module private density_factor using planet radius
   real(rp), private :: pressure_factor
-  logical, parameter :: doWgt = .false. !Whether to do MHD=>RCM blending
+  logical, parameter :: doWgt = .true. !Whether to do MHD=>RCM blending
 
   contains
 !==================================================================      
@@ -66,7 +67,7 @@ MODULE torcm_mod
       INTEGER(iprec), PARAMETER :: n_smooth = 5
       LOGICAL,PARAMETER :: use_ellipse = .true.
       LOGICAL, SAVE :: doReadALAM = .true.
-      REAL(rprec) :: dpp,wMHD
+      REAL(rprec) :: dpp,wMHD,wRCM
 
       !K: 8/20, rewritten to try to better incorporate immersed boundary BCs
       !iopen: -1 (RCMTOPCLOSED), CLOSED & inside RCM ellipse
@@ -234,11 +235,13 @@ MODULE torcm_mod
               eeta(i,j,1) = 0.0
             endif
           else if (iopen(i,j) == RCMTOPCLOSED .and. doWgt) then
+
             !Closed field region inside RCM domain, test wIMAG
-            if (wImag(i,j)<0.25) then
-              !Blend MHD/RCM eeta states using wMHD between 1/2,0 for wImag between 0,1/4
-              wMHD = 2*(0.25-wImag(i,j))
-              eeta(i,j,klow:) = wMHD*eeta_new(i,j,klow:) + (1-wMHD)*eeta(i,j,klow:)
+            if (wImag(i,j)<=0.35) then
+              
+              wMHD = RampDown(wImag(i,j),0.0_rp,0.35_rp)
+              wRCM = (1-wMHD)
+              eeta(i,j,klow:) = wMHD*eeta_new(i,j,klow:) + wRCM*eeta(i,j,klow:)
             endif
             
           endif !iopen
@@ -586,11 +589,10 @@ MODULE torcm_mod
 
             !Now rescale eeta channels to conserve pressure integral between MHD/RCM
             pscl = press(i,j)/pcumsum
-            if (pscl<1.0) then !Only scale down pressure
-              do k=kmin,kcsize
-                eeta_new(i,j,k) = pscl*eeta_new(i,j,k)
-              enddo
-            endif
+            do k=kmin,kcsize
+              eeta_new(i,j,k) = pscl*eeta_new(i,j,k)
+            enddo
+
         !Not good MHD
           else
             eeta_new(i,j,:) = 0.0
