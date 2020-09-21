@@ -117,7 +117,7 @@
                     y1 (isize,jsize), y2 (isize,jsize), &
                     b1 (isize,jsize), b2 (isize,jsize), &
                     vm1(isize,jsize), vm2(isize,jsize), &
-                    bndloc (jsize)
+                    bndloc (jsize),radcurv(isize,jsize)
     INTEGER (iprec), ALLOCATABLE :: ibtime (:)
     REAL    (rprec) :: fstoff, fclps, fdst, fmeb, ftilt
     INTEGER (iprec) :: itype_bf
@@ -2494,7 +2494,7 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
 
   LOGICAL, dimension(1:isize,1:jsize) :: isOpen
   INTEGER (iprec) :: iOCB_j(1:jsize)
-  REAL (rprec) :: mass_factor,r_dist
+  REAL (rprec) :: mass_factor,r_dist,lossCX,lossFLC,lossFDG
   REAL (rprec), save :: xlower,xupper,ylower,yupper, T1,T2 !Does this need save?
   INTEGER (iprec) :: i, j, kc, ie, iL,jL,iR,jR,iMHD
   INTEGER (iprec) :: CLAWiter, joff
@@ -2560,6 +2560,7 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
   !$OMP PRIVATE(i,j,kc,ie,iL,jL,iR,jR) &
   !$OMP PRIVATE(veff,didt,djdt,etaC,rateC,rate,dvedi,dvedj) &
   !$OMP PRIVATE(mass_factor,r_dist,CLAWiter,T1k,T2k) &
+  !$OMP PRIVATE(lossCX,lossFLC,lossFDG) &
   !$OMP SHARED(isOpen,iOCB_j,alamc,eeta,v,vcorot,vpar,vm,imin_j,j1,j2,joff) &
   !$OMP SHARED(xmin,ymin,rmin,fac,fudgec,bir,sini,L_dktime,dktime,sunspot_number) &
   !$OMP SHARED(aloct,xlower,xupper,ylower,yupper,dt,T1,T2,iMHD)  
@@ -2626,20 +2627,26 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
     !Start w/ loss term on RCM grid
     do j=1,jsize
       do i=1,isize
-
+        lossCX  = 0.0
+        lossFLC = 0.0
+        lossFDG = 0.0
         if (ie == RCMELECTRON) then
-          rate(i,j) = Ratefn(fudgec(kc),alamc(kc),sini(i,j),bir(i,j),vm(i,j),mass_factor)
+          lossFDG = Ratefn(fudgec(kc),alamc(kc),sini(i,j),bir(i,j),vm(i,j),mass_factor)
+          
         else if (ie == RCMPROTON) then
-          if (L_dktime .and. i>=imin_j(j)) then
+          if ( L_dktime .and. (.not. isOpen(i,j)) ) then
+            !Do losses even in buffer region in case stuff moves in/out
             r_dist = sqrt(xmin(i,j)**2+ymin(i,j)**2)
-            rate(i,j) = Cexrat(ie,abs(alamc(kc))*vm(i,j),r_dist,sunspot_number, &
-                               dktime,irdk,inrgdk,isodk,iondk)
-          else
-            rate(i,j) = 0.0
-          endif !CX decay
+            lossCX = Cexrat(ie,abs(alamc(kc))*vm(i,j),r_dist,sunspot_number, &
+                            dktime,irdk,inrgdk,isodk,iondk)
+            !Placeholder for FLC loss, uses radcurv(i,j) [Re]
+            !lossFLC = FLCRat(xxx)
+            
+          endif
 
         endif !flavor
 
+        rate(i,j) = lossCX + lossFLC + lossFDG
       enddo !i loop
     enddo !j loop
 

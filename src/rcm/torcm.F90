@@ -282,7 +282,7 @@ MODULE torcm_mod
       SUBROUTINE Calc_ftv (RM,big_vm,ierr) 
       USE conversion_module
       USE RCM_mod_subs,ONLY : isize,jsize,kcsize,bmin,vm,rmin,pmin,&
-                              xmin,ymin,zmin,vbnd,jwrap
+                              xmin,ymin,zmin,vbnd,jwrap,radcurv
       
       IMPLICIT NONE
       type(rcm_mhd_T), intent(in) :: RM
@@ -338,6 +338,8 @@ MODULE torcm_mod
 
       call EmbiggenWrap(RM%bmin/nt,bmin)
       call EmbiggenWrap(RM%beta_average,beta_average)
+
+      call EmbiggenWrap(RM%radcurv,radcurv)
 
       call EmbiggenWrapI(RM%iopen,iopen)
       call EmbiggenWrap (RM%wImag,wImag)
@@ -412,7 +414,6 @@ MODULE torcm_mod
         end subroutine EmbiggenWrapI
 
       END SUBROUTINE Calc_ftv
-
 
 !--------------------------------------------------
 !
