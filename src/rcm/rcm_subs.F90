@@ -2483,6 +2483,7 @@ real :: v_1_1, v_1_2, v_2_1, v_2_2
 FUNCTION FLCRat(ie,alam,vm,beq,rcurv,lossc) result(lossFLC)
   use constants, only : radius_earth_m
   use kdefs, only : TINY
+  use math, only : RampUp
   IMPLICIT NONE
   integer(iprec), intent(in) :: ie
   real(rprec), intent(in) :: alam,vm,beq,rcurv,lossc
@@ -2511,10 +2512,14 @@ FUNCTION FLCRat(ie,alam,vm,beq,rcurv,lossc) result(lossFLC)
 
   eps = Rgyro/rcurv
 
-  xSS = max(100.0*eps**-5.0,1.0)
+  !Chen+ 2019
+  ! xSS = max(100.0*eps**-5.0,1.0)
+  ! TauFLC = xSS*TauSS
+  ! lossFLC = 1.0/TauFLC !Rate, 1/s
 
-  TauFLC = xSS*TauSS
-  lossFLC = 1.0/TauFLC !Rate, 1/s
+!Mixed Chen+ 2019/Gilson+ 2012
+  !Above eps = 0.125, kap <= sqrt(8) use full strong-scattering
+  lossFLC = (1.0/TauSS)*RampUp(eps,0.1_rp,0.15_rp)
 
 END FUNCTION FLCRat
 
