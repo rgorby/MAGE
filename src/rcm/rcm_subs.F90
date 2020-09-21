@@ -117,7 +117,7 @@
                     y1 (isize,jsize), y2 (isize,jsize), &
                     b1 (isize,jsize), b2 (isize,jsize), &
                     vm1(isize,jsize), vm2(isize,jsize), &
-                    bndloc (jsize),radcurv(isize,jsize)
+                    bndloc (jsize),radcurv(isize,jsize),losscone(isize,jsize)
     INTEGER (iprec), ALLOCATABLE :: ibtime (:)
     REAL    (rprec) :: fstoff, fclps, fdst, fmeb, ftilt
     INTEGER (iprec) :: itype_bf
@@ -2479,6 +2479,45 @@ real :: v_1_1, v_1_2, v_2_1, v_2_2
 !=========================================================================
 
 
+!Really quick test of simple FLCRat
+FUNCTION FLCRat(ie,alam,vm,beq,rcurv,lossc) result(lossFLC)
+  use constants, only : radius_earth_m
+  use kdefs, only : TINY
+  IMPLICIT NONE
+  integer(iprec), intent(in) :: ie
+  real(rprec), intent(in) :: alam,vm,beq,rcurv,lossc
+  real(rprec) :: lossFLC
+  
+  real(rprec) :: bfp,ftv,K,V,TauSS,Rgyro,eps,xSS,TauFLC
+
+  bfp = beq/(sin(lossc)**2.0) !Foot point field strength, nT
+  ftv = (1.0/vm)**(3.0/2.0) !flux-tube volume Re/nT
+  K = alam*vm*1.0e-3 !Energy [keV]
+
+  if (ie == RCMPROTON) then
+    V = (3.1e+2)*sqrt(K) !km/s
+  else
+    lossFLC = 0.0
+    return
+  endif
+
+  !Convert V from km/s to Re/s
+  V = V/(radius_earth_m*1.0e-3)
+
+  TauSS = 3*2*ftv*bfp/V !Strong scattering lifetime [s], assuming ion w/ gamma=1
+
+  Rgyro = (4.6e+3)*sqrt(K)/beq !Gyroradius of proton [km], assuming K in keV and beq in nT
+  Rgyro = Rgyro/(radius_earth_m*1.0e-3) !In terms of Re
+
+  eps = Rgyro/rcurv
+
+  xSS = max(100.0*eps**-5.0,1.0)
+
+  TauFLC = xSS*TauSS
+  lossFLC = 1.0/TauFLC !Rate, 1/s
+
+END FUNCTION FLCRat
+
 !=========================================================================
 !
 SUBROUTINE Move_plasma_grid_MHD (dt)
@@ -2563,7 +2602,7 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
   !$OMP PRIVATE(lossCX,lossFLC,lossFDG) &
   !$OMP SHARED(isOpen,iOCB_j,alamc,eeta,v,vcorot,vpar,vm,imin_j,j1,j2,joff) &
   !$OMP SHARED(xmin,ymin,rmin,fac,fudgec,bir,sini,L_dktime,dktime,sunspot_number) &
-  !$OMP SHARED(aloct,xlower,xupper,ylower,yupper,dt,T1,T2,iMHD)  
+  !$OMP SHARED(aloct,xlower,xupper,ylower,yupper,dt,T1,T2,iMHD,bmin,radcurv,losscone)  
   DO kc = 1, kcsize
     
     !If oxygen is to be added, must change this!
@@ -2640,10 +2679,11 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
             lossCX = Cexrat(ie,abs(alamc(kc))*vm(i,j),r_dist,sunspot_number, &
                             dktime,irdk,inrgdk,isodk,iondk)
             !Placeholder for FLC loss, uses radcurv(i,j) [Re]
-            !lossFLC = FLCRat(xxx)
-            
+            lossFLC = FLCRat(ie,alamc(kc),vm(i,j),bmin(i,j),radcurv(i,j),losscone(i,j))
           endif
-
+        else
+          !Unknown flavor
+          write(*,*) 'Unknown flavor!'
         endif !flavor
 
         rate(i,j) = lossCX + lossFLC + lossFDG
