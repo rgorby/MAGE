@@ -230,8 +230,9 @@ module imagtubes
 
         
         !Smooth some tubes
-        call Smooth2D(RCMApp%Vol)
-
+        call Smooth2D(RCMApp%Vol) !Flux-tube volume
+        call Smooth2D(RCMApp%pot) !Electrostatic potential
+        
         contains
         subroutine Smooth2D(Q)
             real(rp), dimension(Ni,Nj), intent(inout) :: Q

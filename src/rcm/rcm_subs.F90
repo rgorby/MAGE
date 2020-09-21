@@ -2241,6 +2241,46 @@ real :: v_1_1, v_1_2, v_2_1, v_2_2
       endif
     END SUBROUTINE Read_dktime_H5
 
+
+
+    FUNCTION CXKaiju(isp,enrg,rloc) result(cxrate)
+      IMPLICIT NONE
+
+      integer(iprec), intent(in) :: isp
+      real(rprec), intent(in) :: enrg,rloc
+
+      real(rprec) :: cxrate
+      real(rprec) :: K,L,Ngeo,KSig,Sig0,a1,a2,a3,B1,B2,Sig,M,Kj,V,Tau,tScl
+
+      K = enrg*1.0e-3 !Energy in kev
+    !Geocoronal density afa L [#/cc], Taken from Ostgaard 2003 
+      L = rloc
+      Ngeo = 10000.0*exp(-L/1.02) + 70.0*exp(-L/8.2)
+
+    !Charge exchange cross-section for H+/H
+      !K in keV, Sig in cm2
+      !Using Lindsay & Stebbings 2005
+      KSig = min(K,250.0) !Cap for validity of CX cross-section
+      
+      Sig0 = 1.0e-16
+      a1 = 4.15
+      a2 = 0.531
+      a3 = 67.3
+
+      B1 = (a1-a2*log(KSig))**2.0
+      B2 = 1.0-exp(-a3/KSig) 
+      Sig =  Sig0*B1*(B2**(4.5))
+    !Get velocity [cm/s] from energy [keV]
+      M = 1.67*1.0e-27 !Proton mass
+      Kj = K*1000.0*1.6*1.0e-19 !Joules
+      V = sqrt(2*Kj/M)*100.0 !m/s->cm/s
+
+    !Timescale
+      tScl = cos(30.0*PI/180.0)**3.5
+      Tau = tScl*1.0/(Ngeo*V*Sig)
+
+      cxrate = 1.0/Tau
+    END FUNCTION CXKaiju
 !
 !
 !
@@ -2494,6 +2534,7 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
 
   fac = 1.0E-3*signbe*bir*alpha*beta*dlam*dpsi*ri**2
 
+
 !---
 !Get OCB
   isOpen = (vm < 0)
@@ -2572,9 +2613,10 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
 
       enddo
     enddo
-    !Before setting ghosts, zero out velocities past the MHD domain
-    didt(iMHD  :,:) = 0.0
-    djdt(iMHD+1:,:) = 0.0
+
+    !Before setting ghosts, enforce outflow-only (i.e. into RCM) velocities past the MHD domain
+    didt(iMHD  :,:) = max(didt(iMHD:,:),0.0)
+    !djdt(iMHD+1:,:) = 0.0
 
     call PadClaw(didt)
     call PadClaw(djdt)
