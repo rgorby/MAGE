@@ -12,7 +12,7 @@ MODULE torcm_mod
 
   real(rp), private :: density_factor !module private density_factor using planet radius
   real(rp), private :: pressure_factor
-  logical, parameter :: doWgt = .true. !Whether to do MHD=>RCM blending
+  logical, parameter :: doWgt = .false. !Whether to do MHD=>RCM blending
 
   contains
 !==================================================================      
@@ -815,7 +815,8 @@ MODULE torcm_mod
 
       USE earthhelper, ONLY : GallagherXY
       USE rice_housekeeping_module, ONLY: InitKp, staticR
-
+      USE kdefs, ONLY : TINY
+      
       IMPLICIT NONE
 
       integer(iprec) :: idim,jdim,kdim,icontrol
@@ -838,7 +839,7 @@ MODULE torcm_mod
       else
         ! reset the static part of the plasmasphere sbao 07292020
         !Tweak by K: 8/7/20
-        if (staticR > 2.0) then
+        if (staticR > TINY) then
           !$OMP PARALLEL DO default(shared) &
           !$OMP schedule(dynamic) &
           !$OMP private(i,j,dens_gal)

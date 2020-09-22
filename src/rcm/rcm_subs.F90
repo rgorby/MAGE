@@ -2513,13 +2513,13 @@ FUNCTION FLCRat(ie,alam,vm,beq,rcurv,lossc) result(lossFLC)
   eps = Rgyro/rcurv
 
   !Chen+ 2019
-  ! xSS = max(100.0*eps**-5.0,1.0)
-  ! TauFLC = xSS*TauSS
-  ! lossFLC = 1.0/TauFLC !Rate, 1/s
+  xSS = max(100.0*eps**-5.0,1.0)
+  TauFLC = xSS*TauSS
+  lossFLC = 1.0/TauFLC !Rate, 1/s
 
-!Mixed Chen+ 2019/Gilson+ 2012
-  !Above eps = 0.125, kap <= sqrt(8) use full strong-scattering
-  lossFLC = (1.0/TauSS)*RampUp(eps,0.1_rp,0.15_rp)
+! !Mixed Chen+ 2019/Gilson+ 2012
+!   !Above eps = 0.125, kap <= sqrt(8) use full strong-scattering
+!   lossFLC = (1.0/TauSS)*RampUp(eps,0.1_rp,0.15_rp)
 
 END FUNCTION FLCRat
 
