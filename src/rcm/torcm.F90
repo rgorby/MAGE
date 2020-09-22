@@ -129,7 +129,7 @@ MODULE torcm_mod
         bndloc(j) = 2  ! if everything else fails, can use this...
         do i=isize,2,-1
           if (iopen(i,j) >= 0) then !null or open
-            bndloc(j) = i + 2
+            bndloc(j) = i + 1
             exit
           endif
         end do

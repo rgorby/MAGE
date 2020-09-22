@@ -2538,12 +2538,13 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
 
   LOGICAL, dimension(1:isize,1:jsize) :: isOpen
   INTEGER (iprec) :: iOCB_j(1:jsize)
-  REAL (rprec) :: mass_factor,r_dist,lossCX,lossFLC,lossFDG
+  REAL (rprec) :: mass_factor,r_dist,lossCX,lossFLC,lossFDG,lossOCB
   REAL (rprec), save :: xlower,xupper,ylower,yupper, T1,T2 !Does this need save?
   INTEGER (iprec) :: i, j, kc, ie, iL,jL,iR,jR,iMHD
   INTEGER (iprec) :: CLAWiter, joff
   
   REAL (rprec) :: T1k,T2k !Local loop variables b/c clawpack alters input
+  REAL (rprec) :: dij !Index lengthscale
   LOGICAL, save :: FirstTime=.true.
 
   if (jwrap /= 3) then
@@ -2576,6 +2577,7 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
   ylower = zero
   yupper = jsize-3
 
+  dij = sqrt( (1.0/isize)**2.0 + (1.0/(jsize-3))**2.0 )
   fac = 1.0E-3*signbe*bir*alpha*beta*dlam*dpsi*ri**2
 
 
@@ -2604,10 +2606,10 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
   !$OMP PRIVATE(i,j,kc,ie,iL,jL,iR,jR) &
   !$OMP PRIVATE(veff,didt,djdt,etaC,rateC,rate,dvedi,dvedj) &
   !$OMP PRIVATE(mass_factor,r_dist,CLAWiter,T1k,T2k) &
-  !$OMP PRIVATE(lossCX,lossFLC,lossFDG) &
+  !$OMP PRIVATE(lossCX,lossFLC,lossFDG,lossOCB) &
   !$OMP SHARED(isOpen,iOCB_j,alamc,eeta,v,vcorot,vpar,vm,imin_j,j1,j2,joff) &
   !$OMP SHARED(xmin,ymin,rmin,fac,fudgec,bir,sini,L_dktime,dktime,sunspot_number) &
-  !$OMP SHARED(aloct,xlower,xupper,ylower,yupper,dt,T1,T2,iMHD,bmin,radcurv,losscone)  
+  !$OMP SHARED(aloct,xlower,xupper,ylower,yupper,dt,T1,T2,iMHD,bmin,radcurv,losscone,dij)  
   DO kc = 1, kcsize
     
     !If oxygen is to be added, must change this!
@@ -2674,9 +2676,10 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
         lossCX  = 0.0
         lossFLC = 0.0
         lossFDG = 0.0
-        if (ie == RCMELECTRON) then
-          lossFDG = Ratefn(fudgec(kc),alamc(kc),sini(i,j),bir(i,j),vm(i,j),mass_factor)
-          
+        if ( ie == RCMELECTRON ) then
+          if ( .not. isOpen(i,j) ) then
+            lossFDG = Ratefn(fudgec(kc),alamc(kc),sini(i,j),bir(i,j),vm(i,j),mass_factor)
+          endif !not open
         else if (ie == RCMPROTON) then
           if ( L_dktime .and. (.not. isOpen(i,j)) ) then
             !Do losses even in buffer region in case stuff moves in/out
@@ -2688,11 +2691,20 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
           endif
         else
           !Unknown flavor
-          write(*,*) 'Unknown flavor!'
+          write(*,*) 'Unknown flavor, ie = ', ie
         endif !flavor
 
         rate(i,j) = lossCX + lossFLC + lossFDG
       enddo !i loop
+      !Now handle cells adjacent to OCB
+      if (iOCB_j(j)>0) then !Cell on this column is open, ij=iOCB_j(j),j
+        !Add losses to boundary cell w/ index iR,jR
+        iR = iOCB_j(j)+1
+        jR = j
+        !Loss ~ index/delta-time ~ 1/s
+        lossOCB = sqrt(dvedi(iR,jR)**2.0 + dvedj(iR,jR)**2.0)/abs(fac(iR,jR))
+        rate(iR,jR) = rate(iR,jR) + lossOCB
+      endif !OCB
     enddo !j loop
 
     !Have loss on RCM grid, now get claw grid
