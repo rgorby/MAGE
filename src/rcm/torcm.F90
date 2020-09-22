@@ -12,7 +12,7 @@ MODULE torcm_mod
 
   real(rp), private :: density_factor !module private density_factor using planet radius
   real(rp), private :: pressure_factor
-  logical, parameter :: doWgt = .false. !Whether to do MHD=>RCM blending
+  logical, parameter :: doWgt = .true. !Whether to do MHD=>RCM blending
 
   contains
 !==================================================================      
@@ -237,9 +237,9 @@ MODULE torcm_mod
           else if (iopen(i,j) == RCMTOPCLOSED .and. doWgt) then
 
             !Closed field region inside RCM domain, test wIMAG
-            if (wImag(i,j)<=0.35) then
+            if (wImag(i,j)<=0.5) then
               
-              wMHD = RampDown(wImag(i,j),0.0_rp,0.35_rp)
+              wMHD = RampDown(wImag(i,j),0.0_rp,0.50_rp)
               wRCM = (1-wMHD)
               eeta(i,j,klow:) = wMHD*eeta_new(i,j,klow:) + wRCM*eeta(i,j,klow:)
             endif
