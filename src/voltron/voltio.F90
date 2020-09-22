@@ -460,8 +460,10 @@ module voltio
                     !Bios-Savart Dst
                     BSDst = BSDst + bScl*dBz
 
-                    if ((Gr%Gas0(i,j,k,IMPR ,BLK)>TINY) .and. (Model%doSource)) then
-                        KTot = KTot + dV*Gr%Gas0(i,j,k,IMPR ,BLK) !Code units
+                    if(Model%doSource) then ! need to check this first or Gas0 is not allocated
+                        if (Gr%Gas0(i,j,k,IMPR ,BLK)>TINY) then
+                            KTot = KTot + dV*Gr%Gas0(i,j,k,IMPR ,BLK) !Code units
+                        endif
                     endif
                 enddo ! i loop
             enddo
