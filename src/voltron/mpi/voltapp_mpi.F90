@@ -41,6 +41,7 @@ module voltapp_mpi
         integer(MPI_ADDRESS_KIND), dimension(:), allocatable :: sendDisplsInexyzShallow
         ! SHALLOW ASYNCHRONOUS VARIABLES
         integer :: shallowIneijkSendReq=MPI_REQUEST_NULL, shallowInexyzSendReq=MPI_REQUEST_NULL
+        integer :: asyncShallowBcastReq=MPI_REQUEST_NULL
 
         ! DEEP COUPLING VARIABLES
         integer, dimension(:), allocatable :: recvCountsGasDeep, recvTypesGasDeep
@@ -78,9 +79,29 @@ module voltapp_mpi
             endif
         endif
 
-        call MPI_WAIT(vApp%shallowIneijkSendReq, MPI_STATUS_IGNORE, ierr)
+        if(vApp%shallowIneijkSendReq /= MPI_REQUEST_NULL) then
+            call MPI_REQUEST_GET_STATUS(vApp%shallowIneijkSendReq,reqStat,MPI_STATUS_IGNORE,ierr)
+            if(.not. reqStat) then
+                call MPI_CANCEL(vApp%shallowIneijkSendReq, ierr)
+                call MPI_WAIT(vApp%shallowIneijkSendReq, MPI_STATUS_IGNORE, ierr)
+            endif
+        endif
 
-        call MPI_WAIT(vApp%shallowInexyzSendReq, MPI_STATUS_IGNORE, ierr)
+        if(vApp%shallowInexyzSendReq /= MPI_REQUEST_NULL) then
+            call MPI_REQUEST_GET_STATUS(vApp%shallowInexyzSendReq,reqStat,MPI_STATUS_IGNORE,ierr)
+            if(.not. reqStat) then
+                call MPI_CANCEL(vApp%shallowInexyzSendReq, ierr)
+                call MPI_WAIT(vApp%shallowInexyzSendReq, MPI_STATUS_IGNORE, ierr)
+            endif
+        endif
+
+        if(vApp%asyncShallowBcastReq /= MPI_REQUEST_NULL) then
+            call MPI_REQUEST_GET_STATUS(vApp%asyncShallowBcastReq,reqStat,MPI_STATUS_IGNORE,ierr)
+            if(.not. reqStat) then
+                call MPI_CANCEL(vApp%asyncShallowBcastReq, ierr)
+                call MPI_WAIT(vApp%asyncShallowBcastReq, MPI_STATUS_IGNORE, ierr)
+            endif
+        endif
 
     end subroutine endVoltronWaits
 
@@ -378,66 +399,185 @@ module voltapp_mpi
             ! then shallow but don't resend data
             call shallowSerialUpdate_mpi(vApp, time, .true.)
         else
-            if(vApp%firstDeepUpdate .or. vApp%firstShallowUpdate) then
-                call deepSerialUpdate_mpi(vApp, time)
-                call shallowSerialUpdate_mpi(vApp, time, .true.)
-                vApp%firstDeepUpdate = .false.
-                vApp%firstShallowUpdate = .false.
-            else
-                ! ensure deep update is complete
-                do while(deepInProgress(vApp))
-                    call doDeepBlock(vApp)
-                enddo
-
-                ! send both solutions
-                call Tic("ShallowSend")
-                call sendShallowData_mpi(vApp)
-                call Toc("ShallowSend")
-                if(vApp%doAsyncShallow) then
-                    ! cannot mix bcast and Ibcast, so this must also by Ibcast even though I want it to be synchronous
-                    call mpi_Ibcast(vApp%ShallowT + vApp%ShallowDT, 1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, asyncShallowBcastReq, ierr)
-                    call mpi_wait(asyncShallowBcastReq, MPI_STATUS_IGNORE, ierr)
-                else
-                    ! synchronous
-                    call mpi_bcast(vApp%ShallowT + vApp%ShallowDT, 1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
-                endif
-                call Tic("DeepSend")
-                call sendDeepData_mpi(vApp)
-                call Toc("DeepSend")
-                call mpi_bcast(vApp%DeepT + vApp%DeepDT, 1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
-
-                ! then receive just deep data
+            if(vApp%firstDeepUpdate .and. vApp%firstShallowUpdate) then
                 call Tic("DeepRecv")
                 call recvDeepData_mpi(vApp)
                 call Toc("DeepRecv")
-
-                ! then calculate shallow
                 call Tic("ShallowUpdate")
                 call ShallowUpdate(vApp, vApp%gAppLocal, time)
                 call Toc("ShallowUpdate")
-
-                ! then start deep
-                ! setup squish operation but don't yet perform the computations
+                if(vApp%doAsyncShallow) then
+                    !async also requires starting the async comms
+                    call Tic("ShallowSend")
+                    call sendShallowData_mpi(vApp)
+                    call mpi_wait(vApp%asyncShallowBcastReq, MPI_STATUS_IGNORE, ierr)
+                    call mpi_Ibcast(vApp%ShallowT + vApp%ShallowDT, 1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, vApp%asyncShallowBcastReq, ierr)
+                    call Toc("ShallowSend")
+                endif
                 call Tic("DeepUpdate")
                 call PreSquishDeep(vApp, vApp%gAppLocal)
                 call Toc("DeepUpdate")
                 vApp%deepProcessingInProgress = .true.
+                vApp%firstDeepUpdate = .false.
+                vApp%firstShallowUpdate = .false.
+            elseif(vApp%firstDeepUpdate) then
+                call Tic("DeepRecv")
+                call recvDeepData_mpi(vApp)
+                call Toc("DeepRecv")
+                call Tic("DeepUpdate")
+                call PreSquishDeep(vApp, vApp%gAppLocal)
+                call Toc("DeepUpdate")
+                vApp%deepProcessingInProgress = .true.
+                vApp%firstDeepUpdate = .false.
+            elseif(vApp%firstShallowUpdate) then
+                call Tic("ShallowRecv")
+                call recvShallowData_mpi(vApp)
+                call Toc("ShallowRecv")
+                call Tic("ShallowUpdate")
+                call ShallowUpdate(vApp, vApp%gAppLocal, time)
+                call Toc("ShallowUpdate")
+                if(vApp%doAsyncShallow) then
+                    !async also requires starting the async comms
+                    call Tic("ShallowSend")
+                    call sendShallowData_mpi(vApp)
+                    call mpi_wait(vApp%asyncShallowBcastReq, MPI_STATUS_IGNORE, ierr)
+                    call mpi_Ibcast(vApp%ShallowT + vApp%ShallowDT, 1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, vApp%asyncShallowBcastReq, ierr)
+                    call Toc("ShallowSend")
+                endif
+                vApp%firstShallowUpdate = .false.
             endif
+
+            ! ensure deep update is complete
+            do while(deepInProgress(vApp))
+                call doDeepBlock(vApp)
+            enddo
+
+            if(vApp%doAsyncShallow) then
+                call concurrentSAD_mpi(vApp, time)
+            else
+                call concAsyncSAD_mpi(vApp, time)
+            endif
+
         endif
     end subroutine
+
+    subroutine concurrentSAD_mpi(vApp, time)
+        type(voltAppMpi_T), intent(inout) :: vApp
+        real(rp), intent(in) :: time
+
+        integer :: ierr
+
+        ! Update coupling DT
+        vApp%DeepDT = vApp%TargetDeepDT
+        vApp%ShallowDT = vApp%TargetShallowDT
+
+        ! send both solutions
+        call Tic("ShallowSend")
+        call sendShallowData_mpi(vApp)
+        call mpi_bcast(vApp%ShallowT + vApp%ShallowDT, 1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
+        call Toc("ShallowSend")
+        call Tic("DeepSend")
+        call sendDeepData_mpi(vApp)
+        call Toc("DeepSend")
+        call mpi_bcast(vApp%DeepT + vApp%DeepDT, 1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
+
+        ! then receive just deep data
+        call Tic("DeepRecv")
+        call recvDeepData_mpi(vApp)
+        call Toc("DeepRecv")
+
+        ! then calculate shallow
+        call Tic("ShallowUpdate")
+        call ShallowUpdate(vApp, vApp%gAppLocal, time)
+        call Toc("ShallowUpdate")
+
+        ! then start deep
+        ! setup squish operation but don't yet perform the computations
+        call Tic("DeepUpdate")
+        call PreSquishDeep(vApp, vApp%gAppLocal)
+        call Toc("DeepUpdate")
+        vApp%deepProcessingInProgress = .true.
+
+    end subroutine
+
+    subroutine concAsyncSAD_mpi(vApp, time)
+        type(voltAppMpi_T), intent(inout) :: vApp
+        real(rp), intent(in) :: time
+
+        integer :: ierr
+
+        ! Update coupling DT
+        vApp%DeepDT = vApp%TargetDeepDT
+
+        ! send deep now
+        call Tic("DeepSend")
+        call sendDeepData_mpi(vApp)
+        call Toc("DeepSend")
+        call mpi_bcast(vApp%DeepT + vApp%DeepDT, 1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
+
+        ! then receive just deep data
+        call Tic("DeepRecv")
+        call recvDeepData_mpi(vApp)
+        call Toc("DeepRecv")
+
+        ! then calculate shallow
+        call Tic("ShallowUpdate")
+        call ShallowUpdate(vApp, vApp%gAppLocal, time)
+        call Toc("ShallowUpdate")
+
+        ! Update coupling DT
+        vApp%ShallowDT = vApp%TargetShallowDT
+
+        ! send updated data to Gamera ranks
+        call Tic("ShallowSend")
+        call sendShallowData_mpi(vApp)
+
+        ! send next time for shallow calculation to all gamera ranks
+        call mpi_wait(vApp%asyncShallowBcastReq, MPI_STATUS_IGNORE, ierr)
+        call mpi_Ibcast(vApp%ShallowT + vApp%ShallowDT, 1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, vApp%asyncShallowBcastReq, ierr)
+        call Toc("ShallowSend")
+
+        ! then start deep
+        ! setup squish operation but don't yet perform the computations
+        call Tic("DeepUpdate")
+        call PreSquishDeep(vApp, vApp%gAppLocal)
+        call Toc("DeepUpdate")
+        vApp%deepProcessingInProgress = .true.
+
+    end subroutine
+
 !----------
 !Shallow coupling stuff
     subroutine ShallowUpdate_mpi(vApp, time)
         type(voltAppMpi_T), intent(inout) :: vApp
         real(rp), intent(in) :: time
 
+        integer :: ierr
+
         if(vApp%doSerialVoltron) then
             call shallowSerialUpdate_mpi(vApp, time)
         else
             ! if this if the first sequence, process initial data
             if(vApp%firstShallowUpdate) then
-                call shallowSerialUpdate_mpi(vApp, time)
+                call Tic("ShallowRecv")
+                call recvShallowData_mpi(vApp)
+                call Toc("ShallowRecv")
+                call Tic("ShallowUpdate")
+                call ShallowUpdate(vApp, vApp%gAppLocal, time)
+                call Toc("ShallowUpdate")
+                if(vApp%doAsyncShallow) then
+                    !async also requires starting the async comms
+                    call Tic("ShallowSend")
+                    call sendShallowData_mpi(vApp)
+                    call mpi_wait(vApp%asyncShallowBcastReq, MPI_STATUS_IGNORE, ierr)
+                    call mpi_Ibcast(vApp%ShallowT + vApp%ShallowDT, 1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, vApp%asyncShallowBcastReq, ierr)
+                    call Toc("ShallowSend")
+                endif
                 vApp%firstShallowUpdate = .false.
+            endif
+
+            if(vApp%doAsyncShallow) then
+                call shallowConcAsyncUpdate_mpi(vApp, time)
             else
                 call shallowConcurrentUpdate_mpi(vApp, time)
             endif
@@ -467,6 +607,9 @@ module voltapp_mpi
             call Toc("ShallowRecv")
         endif
 
+        ! Update coupling DT
+        vApp%ShallowDT = vApp%TargetShallowDT
+
         ! call base update function with local data
         call Tic("ShallowUpdate")
         call ShallowUpdate(vApp, vApp%gAppLocal, time)
@@ -487,23 +630,18 @@ module voltapp_mpi
         real(rp), intent(in) :: time
         logical, optional, intent(in) :: skipUpdateGamera
 
-        integer :: ierr, asyncShallowBcastReq
+        integer :: ierr
 
         ! send updated data to Gamera ranks
         call Tic("ShallowSend")
         call sendShallowData_mpi(vApp)
         call Toc("ShallowSend")
 
+        ! Update coupling DT
+        vApp%ShallowDT = vApp%TargetShallowDT
+
         ! send next time for shallow calculation to all gamera ranks
-        if(vApp%doAsyncShallow) then
-            ! asynchronous
-            ! cannot mix bcast and Ibcast, so this must also by Ibcast even though I want it to be synchronous
-            call mpi_Ibcast(vApp%ShallowT + vApp%ShallowDT, 1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, asyncShallowBcastReq, ierr)
-            call mpi_wait(asyncShallowBcastReq, MPI_STATUS_IGNORE, ierr)
-        else
-            ! synchronous
-            call mpi_bcast(vApp%ShallowT + vApp%ShallowDT, 1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
-        endif
+        call mpi_bcast(vApp%ShallowT + vApp%ShallowDT, 1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
 
         if(present(skipUpdateGamera) .and. skipUpdateGamera) then
             ! do nothing here, do not update the incoming gamera data
@@ -518,6 +656,41 @@ module voltapp_mpi
         call Tic("ShallowUpdate")
         call ShallowUpdate(vApp, vApp%gAppLocal, time)
         call Toc("ShallowUpdate")
+
+    end subroutine
+
+    subroutine shallowConcAsyncUpdate_mpi(vApp, time, skipUpdateGamera)
+        type(voltAppMpi_T), intent(inout) :: vApp
+        real(rp), intent(in) :: time
+        logical, optional, intent(in) :: skipUpdateGamera
+
+        integer :: ierr
+
+        if(present(skipUpdateGamera) .and. skipUpdateGamera) then
+            ! do nothing here, do not update the incoming gamera data
+        else
+            ! fetch data from Gamera ranks
+            call Tic("ShallowRecv")
+            call recvShallowData_mpi(vApp)
+            call Toc("ShallowRecv")
+        endif
+
+        ! call base update function with local data
+        call Tic("ShallowUpdate")
+        call ShallowUpdate(vApp, vApp%gAppLocal, time)
+        call Toc("ShallowUpdate")
+
+        ! Update coupling DT
+        vApp%ShallowDT = vApp%TargetShallowDT
+
+        ! send updated data to Gamera ranks
+        call Tic("ShallowSend")
+        call sendShallowData_mpi(vApp)
+
+        ! send next time for shallow calculation to all gamera ranks
+        call mpi_wait(vApp%asyncShallowBcastReq, MPI_STATUS_IGNORE, ierr)
+        call mpi_Ibcast(vApp%ShallowT + vApp%ShallowDT, 1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, vApp%asyncShallowBcastReq, ierr)
+        call Toc("ShallowSend")
 
     end subroutine
 
@@ -636,16 +809,23 @@ module voltapp_mpi
                 call deepSerialUpdate_mpi(vApp, time)
             else
                 if(vApp%firstDeepUpdate) then
-                    call deepSerialUpdate_mpi(vApp, time)
+                    call Tic("DeepRecv")
+                    call recvDeepData_mpi(vApp)
+                    call Toc("DeepRecv")
+                    call Tic("DeepUpdate")
+                    call PreSquishDeep(vApp, vApp%gAppLocal)
+                    call Toc("DeepUpdate")
+                    vApp%deepProcessingInProgress = .true.
                     vApp%firstDeepUpdate = .false.
-                else
-                    ! ensure deep update is complete
-                    do while(deepInProgress(vApp))
-                        call doDeepBlock(vApp)
-                    enddo
-
-                    call deepConcurrentUpdate_mpi(vApp, time)
                 endif
+
+                ! ensure deep update is complete
+                do while(deepInProgress(vApp))
+                    call doDeepBlock(vApp)
+                enddo
+
+                call deepConcurrentUpdate_mpi(vApp, time)
+
             endif
         endif
     end subroutine
@@ -661,6 +841,9 @@ module voltapp_mpi
             !Why are you even here?
             return
         else
+            ! Update coupling DT
+            vApp%DeepDT = vApp%TargetDeepDT
+
             ! fetch data from Gamera ranks
             call Tic("DeepRecv")
             call recvDeepData_mpi(vApp)
@@ -697,6 +880,9 @@ module voltapp_mpi
             call Tic("DeepSend")
             call sendDeepData_mpi(vApp)
             call Toc("DeepSend")
+
+            ! Update coupling DT
+            vApp%DeepDT = vApp%TargetDeepDT
 
             ! send next time for deep calculation to all gamera ranks
             call mpi_bcast(vApp%DeepT+vApp%DeepDT, 1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)

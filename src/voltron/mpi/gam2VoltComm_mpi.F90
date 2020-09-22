@@ -270,16 +270,22 @@ module gam2VoltComm_mpi
             ! then shallow but don't resend data
             call performSerialShallowUpdate(g2vComm, gApp, .true.)
         else
-            if(g2vComm%firstShallowUpdate .or. g2vComm%firstDeepUpdate) then
-                call doSerialDeepUpdate(g2vComm, gApp)
-                call performSerialShallowUpdate(g2vComm, gApp, .true.)
+            if(g2vComm%firstShallowUpdate .and. g2vComm%firstDeepUpdate) then
+                call sendDeepData(g2vComm, gApp)
                 g2vComm%firstDeepUpdate = .false.
                 g2vComm%firstShallowUpdate = .false.
-            else
-                ! now reverse process so that we send all data before receiving new deep
-                call performConcurrentShallowUpdate(g2vComm, gApp, .true.)
-                call doConcurrentDeepUpdate(g2vComm, gApp)
+            elseif(g2vComm%firstDeepUpdate) then
+                call sendDeepData(g2vComm, gApp)
+                g2vComm%firstDeepUpdate = .false.
+            elseif(g2vComm%firstShallowUpdate) then
+                call sendShallowData(g2vComm, gApp)
+                g2vComm%firstShallowUpdate = .false.
             endif
+
+            ! now reverse process so that we send all data before receiving new deep
+            call performConcurrentShallowUpdate(g2vComm, gApp, .true.)
+            call doConcurrentDeepUpdate(g2vComm, gApp)
+
         endif
 
     end subroutine performShallowAndDeepUpdate
@@ -294,13 +300,12 @@ module gam2VoltComm_mpi
         else
             ! if this is the first sequence, send initial data
             if(g2vComm%firstShallowUpdate) then
-                ! if this is the first update, do a serial update
-                call performSerialShallowUpdate(g2vComm, gApp)
+                call sendShallowData(g2vComm, gApp)
                 g2vComm%firstShallowUpdate = .false.
-            else
-                ! otherwise perform a concurrent update
-                call performConcurrentShallowUpdate(g2vComm, gApp)
             endif
+
+            call performConcurrentShallowUpdate(g2vComm, gApp)
+
         endif
 
     end subroutine performShallowUpdate
@@ -352,11 +357,8 @@ module gam2VoltComm_mpi
         ! receive next time for shallow calculation
         if(g2vComm%doAsyncShallow) then
             ! asynchronous
-            call mpi_wait(g2vComm%shallowTimeBcastReq, MPI_STATUS_IGNORE, ierr)
-            ! set the next coupling time to a value we won't hit accidentally, then wait for the asynchronous call to fill the variable
-            !    this is dangerous, it assumes that voltron will fill this before gamera hits the coupling time
-            g2vComm%ShallowT = g2vComm%tFin
             call mpi_Ibcast(g2vComm%ShallowT, 1, MPI_MYFLOAT, g2vComm%voltRank, g2vComm%voltMpiComm, g2vComm%shallowTimeBcastReq, ierr)
+            call mpi_wait(g2vComm%shallowTimeBcastReq, MPI_STATUS_IGNORE, ierr)
         else
             ! synchronous
             call mpi_bcast(g2vComm%ShallowT, 1, MPI_MYFLOAT, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
@@ -488,11 +490,12 @@ module gam2VoltComm_mpi
             call doSerialDeepUpdate(g2vComm, gApp)
         else
             if(g2vComm%firstDeepUpdate) then
-                call doSerialDeepUpdate(g2vComm, gApp)
+                call sendDeepData(g2vComm, gApp)
                 g2vComm%firstDeepUpdate = .false.
-            else
-                call doConcurrentDeepUpdate(g2vComm, gApp)
             endif
+
+            call doConcurrentDeepUpdate(g2vComm, gApp)
+
         endif
 
     end subroutine performDeepUpdate

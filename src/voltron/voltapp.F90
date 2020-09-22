@@ -118,6 +118,7 @@ module voltapp
         !Start shallow coupling immediately
         vApp%ShallowT = vApp%time
         call xmlInp%Set_Val(vApp%ShallowDT ,"coupling/dt" , 0.1_rp)
+        vApp%TargetShallowDT = vApp%ShallowDT
         call xmlInp%Set_Val(vApp%doGCM, "coupling/doGCM",.false.)
 
         if (vApp%doGCM) then
@@ -127,6 +128,7 @@ module voltapp
     !Deep coupling
         vApp%DeepT = 0.0_rp
         call xmlInp%Set_Val(vApp%DeepDT, "coupling/dtDeep", -1.0_rp)
+        vApp%TargetDeepDT = vApp%DeepDT
         call xmlInp%Set_Val(vApp%rDeep,  "coupling/rDeep" , 10.0_rp)
         call xmlInp%Set_Val(vApp%rTrc,   "coupling/rTrc"  , 2.0*vApp%rDeep)
 
@@ -464,6 +466,20 @@ module voltapp
         end associate
 
     end subroutine init_volt2Chmp
+
+    subroutine resetShallowCoupling(vApp, newShallow)
+        class(voltApp_T), intent(inout) :: vApp
+        real(rp), intent(in) :: newShallow
+
+        vApp%TargetShallowDT = newShallow
+    end subroutine resetShallowCoupling
+
+    subroutine resetDeepCoupling(vApp, newDeep)
+        class(voltApp_T), intent(inout) :: vApp
+        real(rp), intent(in) :: newDeep
+
+        vApp%TargetShallowDT = newDeep
+    end subroutine resetDeepCoupling
 
 end module voltapp
 
