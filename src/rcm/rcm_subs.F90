@@ -2546,6 +2546,9 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
   REAL (rprec) :: T1k,T2k !Local loop variables b/c clawpack alters input
   REAL (rprec) :: dij !Index lengthscale
   LOGICAL, save :: FirstTime=.true.
+  LOGICAL :: doOCBLoss
+
+  doOCBLoss = .false.
 
   if (jwrap /= 3) then
     write(*,*) 'Somebody should rewrite this code to not assume that jwrap=3'
@@ -2609,7 +2612,7 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
   !$OMP PRIVATE(lossCX,lossFLC,lossFDG,lossOCB) &
   !$OMP SHARED(isOpen,iOCB_j,alamc,eeta,v,vcorot,vpar,vm,imin_j,j1,j2,joff) &
   !$OMP SHARED(xmin,ymin,rmin,fac,fudgec,bir,sini,L_dktime,dktime,sunspot_number) &
-  !$OMP SHARED(aloct,xlower,xupper,ylower,yupper,dt,T1,T2,iMHD,bmin,radcurv,losscone,dij)  
+  !$OMP SHARED(aloct,xlower,xupper,ylower,yupper,dt,T1,T2,iMHD,bmin,radcurv,losscone,dij,doOCBLoss) 
   DO kc = 1, kcsize
     
     !If oxygen is to be added, must change this!
@@ -2694,17 +2697,20 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
           write(*,*) 'Unknown flavor, ie = ', ie
         endif !flavor
 
-        rate(i,j) = lossCX + lossFLC + lossFDG
+        rate(i,j) = max(lossCX + lossFLC + lossFDG,0.0)
       enddo !i loop
-      !Now handle cells adjacent to OCB
-      if (iOCB_j(j)>0) then !Cell on this column is open, ij=iOCB_j(j),j
-        !Add losses to boundary cell w/ index iR,jR
-        iR = iOCB_j(j)+1
-        jR = j
-        !Loss ~ index/delta-time ~ 1/s
-        lossOCB = sqrt(dvedi(iR,jR)**2.0 + dvedj(iR,jR)**2.0)/abs(fac(iR,jR))
-        rate(iR,jR) = rate(iR,jR) + lossOCB
-      endif !OCB
+      
+      if (doOCBLoss) then
+        !Now handle cells adjacent to OCB
+        if (iOCB_j(j)>0) then !Cell on this column is open, ij=iOCB_j(j),j
+          !Add losses to boundary cell w/ index iR,jR
+          iR = iOCB_j(j)+1
+          jR = j
+          !Loss ~ index/delta-time/dij ~ 1/s
+          lossOCB = sqrt(dvedi(iR,jR)**2.0 + dvedj(iR,jR)**2.0)/abs(fac(iR,jR))/dij
+          rate(iR,jR) = rate(iR,jR) + lossOCB
+        endif !OCB
+      endif !doOCBLoss
     enddo !j loop
 
     !Have loss on RCM grid, now get claw grid

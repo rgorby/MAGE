@@ -12,7 +12,7 @@ MODULE torcm_mod
 
   real(rp), private :: density_factor !module private density_factor using planet radius
   real(rp), private :: pressure_factor
-  logical, parameter :: doWgt = .true. !Whether to do MHD=>RCM blending
+  logical, parameter :: doWgt = .false. !Whether to do MHD=>RCM blending
 
   contains
 !==================================================================      
@@ -129,7 +129,7 @@ MODULE torcm_mod
         bndloc(j) = 2  ! if everything else fails, can use this...
         do i=isize,2,-1
           if (iopen(i,j) >= 0) then !null or open
-            bndloc(j) = i + 1
+            bndloc(j) = i + 2 !Adding one buffer cell here
             exit
           endif
         end do
