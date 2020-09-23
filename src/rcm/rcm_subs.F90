@@ -1,5 +1,6 @@
 !
     MODULE Rcm_mod_subs
+    use rcmdefs
     use rcm_precision
     IMPLICIT NONE
     SAVE
@@ -13,7 +14,6 @@
 !    INTEGER, PARAMETER :: rprec = rp
 !
 !
-    INCLUDE 'rcm_include.h'
 !
 !
 !      Define a number of universal useful constants and parameters:
@@ -46,8 +46,9 @@
                                htr          = one / rth      ,&
 !
 !                 Part 2: physical constants          ! EDITING ALLOWED HERE
-                               xmass (2)    = (/ 9.1E-31_rprec, &
-                                                 1.67E-27_rprec /), &
+                               xmass(RCMNUMFLAV) = [Me_cgs*1.0e-3,Mp_cgs*1.0e-3], &
+                               !xmass (2)    = (/ 9.1E-31_rprec, &
+                               !                  1.67E-27_rprec /), &
                                besu         = 3.0584E+4_rprec, &
                                signbe       = one, &
                                romeca       = zero, &
@@ -93,7 +94,6 @@
 !
 !
     LOGICAL ::  L_move_plasma_grid = .TRUE.
-    LOGICAL ::  L_doKaiClaw        = .FALSE.
     LOGICAL ::  L_doOMPClaw        = .FALSE.
 !
 !
@@ -755,11 +755,9 @@
 !      CALL Move_plasma_grid (dt, 1, isize, j1, j2, 1)
        STOP 'This option is no longer available, aborting RCM'
     ELSE IF (i_advect == 3) THEN
-        IF (L_doKaiClaw) THEN
-          CALL Move_plasma_grid_KAIJU (dt)
-        ELSE
-          CALL Move_plasma_grid_new (dt)
-        ENDIF
+        !CALL Move_plasma_grid_new (dt)
+        CALL Move_plasma_grid_MHD (dt)
+
     ELSE
        STOP 'ILLEGAL I_ADVECT IN MOVING PLASMA'
     END IF
@@ -1424,7 +1422,6 @@ real :: v_1_1, v_1_2, v_2_1, v_2_2
 
       USE xml_input
       USE rcm_timing_module
-
       IMPLICIT NONE
 !
       type(XML_Input_T), intent(in), optional :: iXML
@@ -1615,8 +1612,7 @@ real :: v_1_1, v_1_2, v_2_1, v_2_2
           !If on first record, create fresh binary files
 !          if (irdr == 1) CALL Disk_write_arrays ()
           if (itimei==0)then
-              CALL Disk_write_arrays ()
-              !call WriteRCMH5(stropt,nslcopt,isRestart=.false.)
+              if (doDiskWrite) CALL Disk_write_arrays ()
           end if
 
         else  
@@ -1681,7 +1677,6 @@ real :: v_1_1, v_1_2, v_2_1, v_2_2
       fac = 1.0E-3_rprec * bir * alpha * beta * dlam * dpsi * ri**2 * signbe
 !
       DO i_time = itimei, itimef-idt, idt 
-
 !
          CALL Comput (i_time, dt)
 !
@@ -1697,9 +1692,7 @@ real :: v_1_1, v_1_2, v_2_1, v_2_2
             v_avg    = v_avg    / REAL(i_avg)
             i_avg    = 0
 !
-            CALL Disk_write_arrays ()
-            !call WriteRCMH5(stropt,nslcopt,isRestart=.false.)
-!            call AddToList(i_time,rcm_timing)
+            if (doDiskWrite) CALL Disk_write_arrays ()
 
             itout1 = MIN (itout1 + idt1, itimef-idt)
 !
@@ -1735,8 +1728,7 @@ real :: v_1_1, v_1_2, v_2_1, v_2_2
          CALL Move_plasma ( dt )
 !
       END DO
-
-
+      
       CALL SYSTEM_CLOCK (timer_stop(1), count_rate)      
       timer_values (1) = (timer_stop (1) - timer_start (1))/count_rate + timer_values(1)
 
@@ -2176,7 +2168,6 @@ real :: v_1_1, v_1_2, v_2_1, v_2_2
           call xmlInp%Set_Val(sunspot_number,"chargex/sunspot_number",96.0)
 
           !Clawpack options
-          call xmlInp%Set_Val(L_doKaiClaw,"clawpack/doKaiClaw",L_doKaiClaw)
           call xmlInp%Set_Val(L_doOMPClaw,"clawpack/doOMPClaw",L_doOMPClaw)
 
           !Some values just setting
@@ -2446,141 +2437,350 @@ real :: v_1_1, v_1_2, v_2_1, v_2_2
 !
 !
 !=========================================================================
+
+
 !=========================================================================
-!Attempt by K: to incorporate newer clawpack 04/20
-SUBROUTINE Move_plasma_grid_KAIJU (dt)
-  USE rcmclaw, only : claw2ez95
+!
+SUBROUTINE Move_plasma_grid_MHD (dt)
+  use rice_housekeeping_module, ONLY : LowLatMHD
+
   IMPLICIT NONE
+  REAL (rprec), INTENT (IN) :: dt
 
-  real(rprec), intent(in) :: dt
+  !Clawpack-sized grids
+  REAL (rprec), dimension(-1:isize+2,-1:jsize-1) :: didt,djdt,etaC,rateC
+  !RCM-sized grids
+  REAL (rprec), dimension( 1:isize  , 1:jsize  ) :: rate,veff,dvedi,dvedj
 
-  real(rprec), dimension(isize,jsize) :: eeta2,veff,dvefdi,dvefdj
-  real(rprec), dimension(-1:isize+2,-1:jsize-1) :: loc_didt,loc_djdt,loc_Eta, loc_rate
-  real(rprec) :: didt,djdt,mass_factor,r_dist
-  integer(iprec) :: i,j,kc,ie,joff,icut,clawiter
-  REAL (rprec) :: max_eeta, eps = 0.0 !sbao 07/2019
+  LOGICAL, dimension(1:isize,1:jsize) :: isOpen
+  INTEGER (iprec) :: iOCB_j(1:jsize)
+  REAL (rprec) :: mass_factor,r_dist
+  REAL (rprec), save :: xlower,xupper,ylower,yupper, T1,T2 !Does this need save?
+  INTEGER (iprec) :: i, j, kc, ie, iL,jL,iR,jR,iMHD
+  INTEGER (iprec) :: CLAWiter, joff
+  
+  REAL (rprec) :: T1k,T2k !Local loop variables b/c clawpack alters input
+  LOGICAL, save :: FirstTime=.true.
 
-  write(*,*) 'move_plasma_grid_kaiju is currently disabled until it is fixed ...'
-  stop
+  if (jwrap /= 3) then
+    write(*,*) 'Somebody should rewrite this code to not assume that jwrap=3'
+    stop
+  endif
+
+  !Doing silly thing to find i of MHD's lowlat BC
+  do i=1,isize
+    if (0.5*PI-colat(i,jwrap) <= LowLatMHD) exit
+  enddo
+  iMHD = i !low-lat boundary for MHD on RCM grid
+
+!---
+!Do prep work
 
   joff=jwrap-1
+
+  if (FirstTime) then
+    T1=0.
+    FirstTime = .false.
+  else
+    T1=T2
+  end if
+
+  T2=T1+dt
+
+  xlower = 1
+  xupper = isize
+  ylower = zero
+  yupper = jsize-3
+
   fac = 1.0E-3*signbe*bir*alpha*beta*dlam*dpsi*ri**2
 
-  
-  !$OMP PARALLEL DO default(NONE) &
-  !$OMP schedule(dynamic) &
-  !$OMP private (i,j,kc,ie,icut,clawiter) &
-  !$OMP private (eeta2,veff,dvefdi,dvefdj,didt,djdt) &
-  !$OMP private (mass_factor,loc_didt,loc_djdt) &
-  !$OMP private (loc_Eta,loc_rate,r_dist,max_eeta) &
-  !$OMP shared (alamc,eeta,v,vcorot,vpar,vm,imin_j,j1,j2,joff) &
-  !$OMP shared (xmin,ymin,rmin,aloct,fac,fudgec,bir,sini,L_dktime,dktime,sunspot_number) &
-  !$OMP shared (dt,eps)
+!---
+!Get OCB
+  isOpen = (vm < 0)
+  do j=1,jsize
+    if (any(isOpen(:,j))) then
+      !Some open cells on this column
+      do i=isize,1,-1
+        if (isOpen(i,j)) exit
+      enddo
+      iOCB_j(j) = i
+    else
+      !No open cells here
+      iOCB_j(j) = 0
+    endif
+  enddo !j loop
+
+!---
+!Main channel loop
+  !NOTE: T1k/T2k need to be private b/c they're altered by claw2ez
+  !$OMP PARALLEL DO if (L_doOMPClaw) &
+  !$OMP DEFAULT (NONE) &
+  !$OMP PRIVATE(i,j,kc,ie,iL,jL,iR,jR) &
+  !$OMP PRIVATE(veff,didt,djdt,etaC,rateC,rate,dvedi,dvedj) &
+  !$OMP PRIVATE(mass_factor,r_dist,CLAWiter,T1k,T2k) &
+  !$OMP SHARED(isOpen,iOCB_j,alamc,eeta,v,vcorot,vpar,vm,imin_j,j1,j2,joff) &
+  !$OMP SHARED(xmin,ymin,rmin,fac,fudgec,bir,sini,L_dktime,dktime,sunspot_number) &
+  !$OMP SHARED(aloct,xlower,xupper,ylower,yupper,dt,T1,T2,iMHD)  
   DO kc = 1, kcsize
+    
     !If oxygen is to be added, must change this!
     IF (alamc(kc) <= 0.0) THEN
-      ie = RCMELECTRON
+      ie = 1  ! electrons
     ELSE
-      ie = RCMPROTON
+      ie = 2  ! protons
     END IF
 
-    IF (maxval(eeta(:,:,kc)) == 0.0) then
-      cycle
-    ENDIF
+    IF (MAXVAL(eeta(:,:,kc)) < machine_tiny) CYCLE !Skip boring channels
     mass_factor = SQRT (xmass(1)/xmass(ie))
 
+  !---
+  !Get "interface" velocities on clawpack grid, |-1:isize+2,-1:jsize-1|
+  
     !K: Here we're adding corotation to total effective potential
     veff = v + vcorot - vpar + vm*alamc(kc)
-
-    dvefdi = Deriv_i (veff, imin_j)
-    dvefdj = Deriv_j (veff, imin_j, j1, j2, 1.0E+26_rprec)
-    !K: Why only dvefdj and not dvefdi?
-    WHERE (dvefdj > 1.0E+20)
-      dvefdj = 0.0
-    END WHERE
-
-    loc_Eta  = zero
-    loc_didt = zero
-    loc_djdt = zero
-    loc_rate = zero
-
-    icut=0
-    do j=j1,j2
-      icut=max(icut,imin_j(j))
-      do i=imin_j(j),isize-1
-        if (eeta(i,j,kc) > 1.) then
-          icut=max(icut,i)
-        endif
-      end do
-    end do !j loop
-    icut=icut+5
-
-    DO j = j1, j2
-      DO i = 2, isize-1
-        loc_didt (i,j-joff) = + dvefdj (i-1,j) / fac(i-1,j)
-        loc_djdt (i,j-joff) = - dvefdi (i,j-1) / fac(i-1,j)
-        IF (i > icut) THEN
-          loc_didt(i,j-joff) = 0.0
-          loc_djdt(i,j-joff) = 0.0
-        END IF
-!
-        IF (ie == RCMELECTRON) THEN
-          loc_rate(i,j-joff) = Ratefn (fudgec(kc), alamc(kc), sini(i,j),&
-                                       bir (i,j), vm(i,j), mass_factor)
-        ELSE IF (ie == RCMPROTON) THEN
-          IF (L_dktime .AND. i >= imin_j(j)) THEN
-            r_dist = SQRT(xmin(i,j)**2+ymin(i,j)**2)
-            loc_rate(i,j-joff) = Cexrat (ie, ABS(alamc(kc))*vm(i,j)    , &
-                                          R_dist,sunspot_number, dktime, &
-                                          irdk,inrgdk,isodk,iondk)
-                                          
-          ELSE
-            loc_rate(i,j-joff) = 0.0
-          END IF
-        ELSE
-          STOP 'UNKNOWN IE IN COMPUTING LOSS'
-        END IF !ie = X
-
-      END DO ! i loop
-
-      loc_didt(isize,j-joff) = loc_didt(isize-1,j-joff)
-      loc_djdt(isize,j-joff) = loc_djdt(isize-1,j-joff)
-      loc_rate(isize,j-joff) = loc_rate(isize-1,j-joff)
-    END DO ! j loop
-
-    !Copy to local variables
-    loc_Eta (1:isize, 1:jsize-jwrap) = eeta (1:isize, jwrap:jsize-1, kc)     
-
-    !Call clawpack
-    call claw2ez95(dt,loc_Eta(1:isize,1:jsize-jwrap),loc_didt(1:isize,1:jsize-jwrap),loc_djdt(1:isize,1:jsize-jwrap),loc_rate(1:isize,1:jsize-jwrap),clawiter)
     
+    
+    !Calculate RCM-node-centered gradient of veff
+    call Grad_IJ(veff,isOpen,dvedi,dvedj)
+
+    !Now loop over clawpack grid interfaces and calculate velocities
+    didt = 0.0
+    djdt = 0.0
+    
+    do j=1,jsize-1 !clawpack jdim
+      do i=isize,2,-1
+
+      !I interface
+
+        !Clawpack i,j I-interface is betwen RCM nodes i-1,j+jwrap-1 and i,j+wrap-1
+        ! i.e., i,j:I => i-1,j+joff / i,j+joff
+        iL = i-1; jL = WrapJ(j+joff)
+        iR = i  ; jR = WrapJ(j+joff)
+
+        didt(i,j) = CalcInterface(isOpen(iL,jL),dvedj(iL,jL),fac(iL,jL), &
+                                  isOpen(iR,jR),dvedj(iR,jR),fac(iR,jR) )
+
+      !J interface
+        !Clawpack i,j J-interface is between RCM nodes i,j+joff-1 and i,j+joff
+        iL = i; jL = WrapJ(j+joff-1)
+        iR = i; jR = WrapJ(j+joff  )
+        
+        !Note extra - in dvedi part of call
+        djdt(i,j) = CalcInterface(isOpen(iL,jL),-dvedi(iL,jL),fac(iL,jL), &
+                                  isOpen(iR,jR),-dvedi(iR,jR),fac(iR,jR) )
+
+      enddo
+    enddo
+    !Before setting ghosts, zero out velocities past the MHD domain
+    didt(iMHD  :,:) = 0.0
+    djdt(iMHD+1:,:) = 0.0
+
+    call PadClaw(didt)
+    call PadClaw(djdt)
+
+  !---
+  !Calculate loss terms on clawpack grid
+    !Start w/ loss term on RCM grid
+    do j=1,jsize
+      do i=1,isize
+
+        if (ie == RCMELECTRON) then
+          rate(i,j) = Ratefn(fudgec(kc),alamc(kc),sini(i,j),bir(i,j),vm(i,j),mass_factor)
+        else if (ie == RCMPROTON) then
+          if (L_dktime .and. i>=imin_j(j)) then
+            r_dist = sqrt(xmin(i,j)**2+ymin(i,j)**2)
+            rate(i,j) = Cexrat(ie,abs(alamc(kc))*vm(i,j),r_dist,sunspot_number, &
+                               dktime,irdk,inrgdk,isodk,iondk)
+          else
+            rate(i,j) = 0.0
+          endif !CX decay
+
+        endif !flavor
+
+      enddo !i loop
+    enddo !j loop
+
+    !Have loss on RCM grid, now get claw grid
+    call rcm2claw(rate,rateC)
+
+  !---
+  !Advect w/ clawpack
+    !Pack clawpack grid w/ eta
+    call rcm2claw(eeta(:,:,kc),etaC)
+
+    !Call clawpack, always as first time
+    !Need local copies b/c clawpack alters T1/T2
+    T1k = T1
+    T2k = T2
+    call claw2ez(.true.,T1k,T2k,xlower,xupper,ylower,yupper, &
+                 CLAWiter,2,isize-1+1,jsize-3,etaC,didt,djdt,rateC)
+
+  !---
+  !Unpack and finish up
     !Copy out
-    DO j = j1, j2
-      DO i = imin_j(j)+1, isize-1
-        eeta (i, j, kc) = loc_Eta (i, j-joff)
-      END DO
-    END DO !j loop
+    do j=j1,j2 !jwrap,jsize-1
+      !iL = min(iOCB_j(j)+1,isize) !OCB
+      iL = min(imin_j(j)+1,isize) !RCM ellipse
+      do i=iL,isize-1
+        eeta(i,j,kc) = max(etaC(i,j-joff),0.0)
+      enddo
+    enddo
+    eeta(:,jsize,kc) = eeta(:,jwrap,kc)
+    call circle(eeta(:,:,kc))
 
-    DO j = j1, j2
-      IF (veff(imin_j(j+1),j+1)-veff(imin_j(j-1),j-1) < 0.0) THEN
-        eeta (imin_j(j),j,kc) = loc_eta (imin_j(j),j-joff)
-      END IF
-    END DO !j loop
-
-    !floor eeta 12/06 frt
-    max_eeta = maxval(eeta(:,:,kc))
-    eeta(:,:,kc) = MAX(eps*max_eeta,eeta(:,:,kc))
-
-    if (kc == 1) then
-      ! refill the plasmasphere  04012020 sbao
+    if (kc==1) then
+      !refill the plasmasphere  04012020 sbao
+      !K: Added kc==1 check 8/11/20
       CALL Plasmasphere_Refilling_Model(eeta(:,:,1), rmin, aloct, vm, dt)
-    endif
+      call circle(eeta(:,:,kc)) !Probably don't need to re-circle
+    endif      
+    
+  enddo !Main kc loop
 
-    CALL Circle (eeta(:,:,kc))    
-  
-  ENDDO !kc loop
+  contains
 
-END SUBROUTINE Move_plasma_grid_KAIJU
+    !Calculate RCM-node centered gradient of veff
+    subroutine Grad_IJ(veff,isOpen,dvedi,dvedj)
+      REAL (rprec), dimension(1:isize,1:jsize), intent(IN)  :: veff
+      REAL (rprec), dimension(1:isize,1:jsize), intent(OUT) :: dvedi,dvedj
+      LOGICAL     , dimension(1:isize,1:jsize), intent(IN)  :: isOpen
+
+      INTEGER (iprec) :: i,j
+
+      LOGICAL :: isOp(3)
+      REAL (rprec) :: Q(3)
+
+      dvedi = 0.0
+      dvedj = 0.0
+
+      do j=2,jsize-1
+        do i=2,isize-1
+          !Do I deriv
+          Q          = veff  (i-1:i+1,j)
+          isOp       = isOpen(i-1:i+1,j)
+          dvedi(i,j) = Deriv_IJ(Q,isOp)
+
+          !Do J deriv
+          Q          = veff  (i,j-1:j+1)
+          isOp       = isOpen(i,j-1:j+1)
+          dvedj(i,j) = Deriv_IJ(Q,isOp)
+        enddo
+      enddo
+
+    !Lower/Upper boundary
+      dvedi(1,:) = dvedi(2,:)
+      dvedj(1,:) = dvedj(2,:)
+
+      dvedi(isize,:) = dvedi(isize-1,:)
+      dvedj(isize,:) = dvedj(isize-1,:)
+    !Periodic
+      dvedi(:,jsize) = dvedi(:,jwrap  )
+      dvedi(:,1    ) = dvedi(:,jsize-2)
+
+      dvedj(:,jsize) = dvedj(:,jwrap  )
+      dvedj(:,1    ) = dvedj(:,jsize-2)
+    end subroutine Grad_IJ
+
+    !Take derivative from 3-point stencil if possible
+    function Deriv_IJ(Q,isOp) result(dvdx)
+      LOGICAL     , intent(IN) :: isOp(-1:+1)
+      REAL (rprec), intent(IN) ::    Q(-1:+1)
+
+      REAL (rprec) :: dvdx
+      dvdx = 0.0
+
+      if (isOp(0)) return
+
+      !If still here then central point is closed
+      if (isOp(-1) .and. isOp(+1)) then
+        !Nothing to work with
+        return
+      endif
+      !Have at least two points
+      if ((.not. isOp(-1)) .and. (.not. isOp(+1))) then
+        !Both sides closed
+        dvdx = 0.5*(Q(+1)-Q(-1))
+      else if (.not. isOp(-1)) then
+        !-1 is closed, do backward difference
+        dvdx = Q(0)-Q(-1)
+      else
+        !+1 is closed, do forward difference
+        dvdx = Q(+1)-Q(0)
+      endif
+
+    end function Deriv_IJ
+
+    !Copy variable from rcm to clawpack grid
+    subroutine rcm2claw(qR,qC)
+      REAL (rprec), dimension( 1:isize  , 1:jsize  ), intent(IN)  :: qR
+      REAL (rprec), dimension(-1:isize+2,-1:jsize-1), intent(OUT) :: qC
+
+      !Center patch
+      qC(1:isize,1:jsize-jwrap) = qR(1:isize,jwrap:jsize-1)
+      call PadClaw(qC)
+
+    end subroutine rcm2claw
+
+    !Fill padding of a clawpack grid
+    subroutine PadClaw(qC)
+      REAL (rprec), dimension(-1:isize+2,-1:jsize-1), intent(INOUT) :: qC
+      INTEGER (iprec) :: i, j
+      !Pole
+      do i=-1,0
+        qC(i,j1-joff:j2-joff) = qC(1,j1-joff:j2-joff)
+      enddo
+
+      !Equator
+      do i=isize+1,isize+2
+        qC(i,j1-joff:j2-joff) = qC(isize,j1-joff:j2-joff)
+      enddo
+
+      !Periodic
+      qC(:,-1:0)                    = qC(:,jsize-4:jsize-3)
+      qC(:,jsize-joff:jsize-joff+1) = qC(:,1:2)
+    end subroutine PadClaw
+
+    function CalcInterface(isOpL,dvL,facL,isOpR,dvR,facR) result(dxdt)
+      LOGICAL, intent(IN) :: isOpL,isOpR
+      REAL (rprec), intent(IN) :: dvL,dvR,facL,facR
+      REAL (rprec) :: dxdt
+
+      REAL (rprec) :: dvAvg,fAvg
+      if (isOpL .and. isOpR) then
+        !Both sides are bad, no flow
+        dxdt = 0.0
+        
+      else if ( (.not. isOpL) .and. (.not. isOpR) ) then
+        !Both sides are good, do basic averaging
+        dvAvg = 0.5*( dvL +  dvR)
+        fAvg  = 0.5*(facL + facR)
+        dxdt = dvAvg/fAvg
+      else if (isOpL) then
+        !Left = Open / Right = Closed
+        !Use right velocity if it's leftward
+        dxdt = min(0.0,dvR/facR)
+      else if (isOpR) then
+        !Left = Closed / Right = Open
+        !Use left velocity if it's rightward
+        dxdt = max(0.0,dvL/facL)
+      endif
+    end function CalcInterface
+
+
+    !Wrap around large indices, jwrap<=>jsize seem to be repeated points on axis
+    !So jsize+1 => jwrap+1, i.e. j=>j-jsize+jwrap
+    function WrapJ(j) result(jp)
+      INTEGER (iprec), intent(IN) :: j
+      INTEGER (iprec) :: jp
+
+      if (j>jsize) then
+        jp = j-jsize+jwrap
+      else
+        jp = j
+      endif      
+    end function WrapJ
+
+END SUBROUTINE Move_plasma_grid_MHD
 
 !=========================================================================
 !

@@ -182,8 +182,8 @@ module ringutils
             !------------------
             case ("lfm")
                 !Test that we haven't over-refined past ring avg chunks
-                if (Model%Ring%NumR>Grid%Njp) then
-                    write(*,*) 'Number of rings is larger than J cells per grid!'
+                if (Model%Ring%NumR>=Grid%Njp) then
+                    write(*,*) 'Number of rings is larger than J cells per rank!'
                     stop
                 endif
                 if (.not. (Grid%hasUpperBC(KDIR) .and. Grid%hasLowerBC(KDIR)) ) then

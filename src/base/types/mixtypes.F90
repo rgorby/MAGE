@@ -59,6 +59,7 @@ module mixtypes
 
   type mixGrid_T
      integer :: Np, Nt
+     logical :: isPeriodic=.true.
      
      real(rp), dimension(:,:), allocatable :: x,y,t,p,r
      real(rp), dimension(:,:), allocatable :: dt,dp

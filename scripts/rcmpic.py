@@ -10,6 +10,7 @@ import kaipy.kaiViz as kv
 import matplotlib.gridspec as gridspec
 import numpy as np
 import kaipy.gamera.gampp as gampp
+import kaipy.gamera.rcmpp as rcmpp
 import palettable
 import os
 import numpy.ma as ma
@@ -90,32 +91,20 @@ if __name__ == "__main__":
 	AxM.clear()
 	AxR.clear()
 
-	bmX = rcmdata.GetVar("xMin",nStp)
-	bmY = rcmdata.GetVar("yMin",nStp)
-	Prcm = rcmdata.GetVar("P",nStp)
-	Pmhd = rcmdata.GetVar("Pmhd",nStp)
-	Nmhd = rcmdata.GetVar("Nmhd",nStp)
-
-	bmin = rcmdata.GetVar("bMin",nStp)
-
-	IOpen = rcmdata.GetVar("IOpen",nStp)
-	toMHD = rcmdata.GetVar("toMHD",nStp)
-	S = rcmdata.GetVar("S",nStp)
-	
-	I = (IOpen > -0.5)
+	bmX,bmY = rcmpp.RCMEq(rcmdata,nStp,doMask=True)
+	I = rcmpp.GetMask(rcmdata,nStp)
 	Ni = (~I).sum()
 	
 	if (Ni == 0):
 		print("No closed field region in RCM, exiting ...")
 		exit()
-	
 
-	bmX = ma.masked_array(bmX,mask=I)
-	bmY = ma.masked_array(bmY,mask=I)
-	Prcm = ma.masked_array(Prcm,mask=I)
-	Pmhd = ma.masked_array(Pmhd,mask=I)
-	Nmhd = ma.masked_array(Nmhd,mask=I)
-	S = ma.masked_array(S,mask=I)
+	Prcm  = rcmpp.GetVarMask(rcmdata,nStp,"P"    ,I)
+	Pmhd  = rcmpp.GetVarMask(rcmdata,nStp,"Pmhd" ,I)
+	Nmhd  = rcmpp.GetVarMask(rcmdata,nStp,"Nmhd" ,I)
+	S     = rcmpp.GetVarMask(rcmdata,nStp,"S"    ,I)
+	toMHD = rcmpp.GetVarMask(rcmdata,nStp,"toMHD",I)
+
 	AxL.set_title("RCM Pressure")
 
 	AxL.pcolor(bmX,bmY,Prcm,norm=vP,cmap=pCMap)
@@ -128,8 +117,6 @@ if __name__ == "__main__":
 	AxM.set_title("MHD Pressure")
 	AxM.pcolor(bmX,bmY,Pmhd,norm=vP,cmap=pCMap)
 	
-	#AxM.plot(bmX,bmY,color=eCol,linewidth=eLW)
-	#AxM.plot(bmX.T,bmY.T,color=eCol,linewidth=eLW)
 	AxM.contour(bmX,bmY,Nmhd,cVals,norm=vD,cmap=dCMap,linewidths=cLW)
 	kv.addEarth2D(ax=AxM)
 	kv.SetAx(xyBds,AxM)

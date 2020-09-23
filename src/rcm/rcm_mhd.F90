@@ -45,15 +45,11 @@ module rcm_mhd_mod
         real(rprec) :: time0 = 0 ! coupling start time
         integer(iprec) :: ircm_dt
         integer(iprec) :: itimef_old = -1
-!        integer(iprec) :: irdr = 1 !> RCM(...) param:  record # to read in
-!        integer(iprec) :: irdw = 1 !> RCM(...) param:  record # to write out
         integer(iprec) :: idt   !> RCM(...) param:  basic time step in program
         integer(iprec) :: idt1  !> RCM(...) param:  time step for
                               !! changing disk & write records
         integer(iprec) :: idt2  !> RCM(...) param:  time step for
                               !! writting formatted output
-
-!        integer(iprec) :: rec = 1 !> Record number that torcm/tomhd use to
 
         real(rprec) :: t1, t2  !> Used for performance timing
 
@@ -101,6 +97,7 @@ module rcm_mhd_mod
             !Read RCM/MHD params from XML
             if(present(iXML)) then
                 CALL RCM_MHD_Params_XML(iXML)
+
             else
                 CALL RCM_MHD_Params_XML
             endif
@@ -109,11 +106,8 @@ module rcm_mhd_mod
             CALL Rcm (itimei, itimef, idt, idt1, idt2,icontrol=0_iprec)
 
             call allocate_conversion_arrays (isize,jsize,kcsize)
-
-            ! Set up RCM ionospheric grid:
-            !write(*,*) "rcm/rcm_mhd.f90: RM%planet_radius=",RM%planet_radius
             
-            call Grid_torcm (HighLatBD,LowLatBD, 0.0_rprec, RM%planet_radius, RM%iono_radius)  ! set up RCM ionospheric grid here
+            call Grid_torcm (HighLatBD,LowLatBD, 0.0_rprec, RM%planet_radius, RM%iono_radius,doLatStretch)  ! set up RCM ionospheric grid here
             ! Setup Ionosphere intermediate Grid by equating it to the RCM grid, without angular overlap:
             call setupIon(RM)
 
@@ -122,11 +116,16 @@ module rcm_mhd_mod
             ! icontrol of 2 also needs the input xml file
             CALL Rcm (itimei, itimef, idt, idt1, idt2, icontrol=2_iprec, iXML=iXML)
 
+            if (iflag == RCMINIT) then
+                exchangeNum = 0
+            endif
+
         ! restart
             if (iflag == RCMRESTART) then
 
                 !Read in HDF5 restart data
                 CALL Rcm (itimei, itimef,idt, idt1, idt2,icontrol=ICONRESTART,stropt=RM%rcm_runid,nslcopt=RM%RCM_nRes)
+                exchangeNum = itimef/(itimef-itimei)
 
                 return
             endif !restart
@@ -142,10 +141,6 @@ module rcm_mhd_mod
          !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
          ! Determine exchange times...
          !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-         if (iflag==RCMINIT)then ! first call to rcm
-                exchangeNum = 0
-            endif
 
             isFirstExchange = (exchangeNum==0)
 
@@ -163,6 +158,14 @@ module rcm_mhd_mod
             idt = Idt_overwrite ! RCM internal time step in seconds
             ! Frequency (in seconds) to change disk & write records
             idt1 = itimef - itimei
+
+            !Ensure no problem w/ RCM's integer time
+            !idt must divide advance time
+            if ( (mod(idt1,idt)) /= 0) then
+                write(*,*) 'RCM Integer Time Divisibility Error ...'
+                stop
+            endif
+
             ! Frequency (in seconds) to write formatted output
             idt2 = idt1
 

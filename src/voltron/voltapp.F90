@@ -55,7 +55,7 @@ module voltapp
         endif
 
         ! read number of squish blocks
-        call xmlInp%Set_Val(numSB,"coupling/numSquishBlocks",3)
+        call xmlInp%Set_Val(numSB,"coupling/numSquishBlocks",4)
         call setNumSquishBlocks(numSB)
 
     !Initialize state information
@@ -129,8 +129,7 @@ module voltapp
         vApp%DeepT = 0.0_rp
         call xmlInp%Set_Val(vApp%DeepDT, "coupling/dtDeep", -1.0_rp)
         vApp%TargetDeepDT = vApp%DeepDT
-        call xmlInp%Set_Val(vApp%rDeep,  "coupling/rDeep" , 10.0_rp)
-        call xmlInp%Set_Val(vApp%rTrc,   "coupling/rTrc"  , 2.0*vApp%rDeep)
+        call xmlInp%Set_Val(vApp%rTrc,   "coupling/rTrc"  , 40.0)
 
         if (vApp%DeepDT>0) then
             vApp%doDeep = .true.
@@ -151,6 +150,7 @@ module voltapp
                 write(*,*) 'Quick Squish Stride must be a power of 2'
                 stop
             endif
+            call xmlInp%Set_Val(vApp%chmp2mhd%epsSquish,"ebsquish/epsSquish",0.05)
 
             !Verify that Gamera has location to hold source info
             if (.not. gApp%Model%doSource) then
@@ -174,7 +174,6 @@ module voltapp
             if(.not. vApp%isSeparate .and. vApp%time > vApp%DeepT) vApp%DeepT = vApp%time
 
             !Initialize deep coupling type/inner magnetosphere model
-            !call InitInnerMag(vApp,gApp%Model%isRestart,xmlInp)
             call InitInnerMag(vApp,gApp,xmlInp)
         endif
 
@@ -240,7 +239,7 @@ module voltapp
         type(TimeSeries_T) :: f107
 
         logical :: isRestart
-        real(rp) :: maxF107
+        real(rp) :: maxF107,Rin
         integer :: n
 
         isRestart = gApp%Model%isRestart
@@ -249,6 +248,10 @@ module voltapp
         call InitVoltIO(vApp,gApp)
         
     !Remix from Gamera
+        !Set mix default grid before initializing
+        Rin = norm2(gApp%Grid%xyz(1,1,1,:)) !Inner radius
+        call SetMixGrid0(Rin,gApp%Grid%Nkp)
+
         if(present(optFilename)) then
             ! read from the prescribed file
             call init_mix(vApp%remixApp%ion,[NORTH, SOUTH],optFilename=optFilename,RunID=RunID,isRestart=isRestart,nRes=vApp%IO%nRes)
@@ -389,6 +392,9 @@ module voltapp
         !Update coupling time now so that voltron knows what to expect
         vApp%DeepT = vApp%DeepT + vApp%DeepDT
 
+        !Update i-shell to trace within in case rTrc has changed
+        vApp%iDeep = ShellBoundary(gApp%Model,gApp%Grid,vApp%rTrc)
+        
         !Pull in updated fields to CHIMP
         call Tic("G2C")
         call convertGameraToChimp(vApp%mhd2chmp,gApp,vApp%ebTrcApp)
@@ -439,6 +445,8 @@ module voltapp
         character(len=strLen) :: xmlStr
         type(XML_Input_T) :: inpXML
         
+        real(rp) :: xyz0(NDIM)
+
     !Create input XML object
         if (present(optFilename)) then
             xmlStr = trim(optFilename)
@@ -463,6 +471,14 @@ module voltapp
         !CHIMP grid is initialized from Gamera's active corners
         call ebInit_fromMHDGrid(Model,ebState,inpXML,Gr%xyz(Gr%is:Gr%ie+1,Gr%js:Gr%je+1,Gr%ks:Gr%ke+1,1:NDIM))
         call InitLoc(Model,ebState%ebGr,inpXML)
+
+        !Do simple test to make sure locator is reasonable
+        xyz0 = Gr%xyz(Gr%is+1,Gr%js,Gr%ks,:)
+        if (.not. inDomain(xyz0,Model,ebState%ebGr) ) then
+            write(*,*) 'Configuration error: CHIMP Domain incorrect'
+            stop
+        endif
+
         end associate
 
     end subroutine init_volt2Chmp

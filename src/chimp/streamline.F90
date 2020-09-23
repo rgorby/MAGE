@@ -384,6 +384,45 @@ module streamline
 
         end associate
     end subroutine FLEq
+
+    !Get curvature radius at equator
+    subroutine FLCurvRadius(Model,ebGr,ebState,bTrc,rCurv)
+        type(chmpModel_T), intent(in)  :: Model
+        type(ebGrid_T)   , intent(in)  :: ebGr
+        type(ebState_T)  , intent(in)  :: ebState
+        type(fLine_T)    , intent(in)  :: bTrc
+        real(rp)         , intent(out) :: rCurv
+
+        type(gcFields_T) :: gcFields
+        real(rp), dimension(NDIM,NDIM) :: Jacbhat
+        real(rp), dimension(NDIM) :: xeq,E,B,bhat,gMagB
+        real(rp) :: t,MagB,invrad,Beq
+
+        rCurv = 0.0
+
+        !Get equator
+        call FLEq(Model,bTrc,xeq,Beq)
+
+        !Now get field information there
+        t = ebState%eb1%time
+        call ebFields(xeq,t,Model,ebState,E,B,gcFields=gcFields)
+        MagB = norm2(B)
+        bhat = normVec(B)
+
+        !Start getting derivative terms
+        !gMagB = gradient(|B|), vector
+        !      = bhat \cdot \grad \vec{B}
+        gMagB = VdT(bhat,gcFields%JacB)
+
+        Jacbhat = ( MagB*gcFields%JacB - Dyad(gMagB,B) )/(MagB*MagB)
+
+        invrad = norm2(VdT(bhat,Jacbhat))
+        if (invrad>TINY) then
+            rCurv = 1.0/invrad
+        else
+            rCurv = -TINY
+        endif
+    end subroutine FLCurvRadius
 !---------------------------------
 !Projection routines
     !Project to SM EQ (Z=0)
@@ -520,7 +559,7 @@ module streamline
         real(rp), dimension(NDIM) :: Xn,B,E,dx
         real(rp), dimension(NDIM) :: Jb,Jb2,Jb3,F1,F2,F3,F4
         real(rp), dimension(NDIM,NDIM) :: JacB
-        real(rp) :: ds,dl,MagJb,dsmag
+        real(rp) :: ds,dl,MagB,MagJb,dsmag
         real(rp), dimension(NVARMHD) :: Q
         integer, dimension(NDIM) :: ijk,ijkG
         type(gcFields_T) :: gcF
@@ -606,15 +645,23 @@ module streamline
                 endif
 
                 !Get new ds
-                MagJb = sqrt(sum(JacB**2.0))
+                MagB  = norm2(B)
+                MagJb = norm2(JacB)
+
+                !MagJb = sqrt(sum(JacB**2.0))
+                dl = getDiag(ebState%ebGr,ijk)
+
                 if (MagJb <= TINY) then
                     !Field is constant-ish, use local grid size
-                    dl = getDiag(ebState%ebGr,ijk)
-                    dsmag = Model%epsds*dl/norm2(B)
+                    dsmag = dl
                 else
-                    dsmag = Model%epsds/MagJb
+                    !Magnetic lengthscale
+                    dsmag = MagB/MagJb
                 endif
-                ds = sgn*min(dl,dsmag)
+
+                dsmag = min(dl,dsmag)
+                ds = sgn*Model%epsds*dsmag/max(MagB,TINY)
+
             endif
         enddo
 
@@ -635,7 +682,7 @@ module streamline
         real(rp), dimension(NDIM) :: B,E,dx
         real(rp), dimension(NDIM) :: Jb,Jb2,Jb3,F1,F2,F3,F4
         real(rp), dimension(NDIM,NDIM) :: JacB
-        real(rp) :: ds,dsmag,dl,MagJb,dzSgn
+        real(rp) :: ds,dsmag,dl,MagB,MagJb,dzSgn
         real(rp), dimension(NVARMHD) :: Q
         integer, dimension(NDIM) :: ijk,ijkG
         type(gcFields_T) :: gcF
@@ -648,7 +695,8 @@ module streamline
         Np = 0
         Xn = x0
         dl = getDiag(ebState%ebGr,ijk)
-        ds = sgn*min( Model%epsds*dl/norm2(B), dl )
+        ds = sgn*Model%epsds*dl
+
         ijkG = ijk
 
         if (present(toEquator)) then
@@ -666,21 +714,24 @@ module streamline
             !Get location in ijk using old ijk as guess
             call locate(Xn,ijk,Model,ebState%ebGr,inDom,ijkG)
             call ebFields(Xn,t,Model,ebState,E,B,ijk,gcFields=gcF)
+            MagB = norm2(B)
 
-            ! get the jacobian
+            ! get the jacobian and new ds
             JacB = gcF%JacB
+            MagJb = norm2(JacB)
+            dl = getDiag(ebState%ebGr,ijk)
 
-            !Get new ds
-            MagJb = sqrt(sum(JacB**2.0))
             if (MagJb <= TINY) then
                 !Field is constant-ish, use local grid size
-                dl = getDiag(ebState%ebGr,ijk)
-                dsmag = Model%epsds*dl/norm2(B)
+                dsmag = dl
             else
-                dsmag = Model%epsds/MagJb
+                dsmag = MagB/MagJb
             endif
-            ds = sgn*min(dl,dsmag)     
+            ds = sgn*Model%epsds*min(dl,dsmag)
         !Update position
+            !Convert ds to streamline units
+            ds = ds/max(MagB,TINY)
+            
             !Get powers of jacobian
             Jb  = matmul(JacB,B  )
             Jb2 = matmul(JacB,Jb )

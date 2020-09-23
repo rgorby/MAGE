@@ -10,7 +10,7 @@ module voltio
 
     implicit none
 
-    integer , parameter, private :: MAXVOLTIOVAR = 30
+    integer , parameter, private :: MAXVOLTIOVAR = 35
     real(rp), parameter, private :: dtWallMax = 1.0 !How long between timer resets[hr]
     logical , private :: isConInit = .false.
     real(rp), private ::  oMJD = 0.0
@@ -44,7 +44,7 @@ module voltio
         integer :: iYr,iDoY,iMon,iDay,iHr,iMin,nTh,curCount,countMax
         real(rp) :: rSec,clockRate
         character(len=strLen) :: utStr
-        real(rp) :: DelD,DelP,dtIM,Dst,symh
+        real(rp) :: DelD,DelP,dtIM,BSDst,DPSDst,symh
 
         !Augment Gamera console output w/ Voltron stuff
         call getCPCP(vApp%mix2mhd%mixOutput,cpcp)
@@ -84,8 +84,9 @@ module voltio
         write(utStr,'(I0.4,a,I0.2,a,I0.2,a,I0.2,a,I0.2,a,I0.2)') iYr,'-',iMon,'-',iDay,' ',iHr,':',iMin,':',nint(rSec)
 
         !Get Dst estimate
-        call EstDST(gApp%Model,gApp%Grid,gApp%State,Dst)
-
+        call EstDST(gApp%Model,gApp%Grid,gApp%State,BSDst,DPSDst)
+        vApp%BSDst = BSDst
+        
         !Get symh from input time series
         symh = vApp%symh%evalAt(vApp%time)
 
@@ -100,8 +101,10 @@ module voltio
             write (*,'(a,a)')                    '      UT   = ', trim(utStr)
             write (*, '(a,1f8.3,a)')             '      tilt = ' , dpT, ' [deg]'
             write (*, '(a,2f8.3,a)')             '      CPCP = ' , cpcp(NORTH), cpcp(SOUTH), ' [kV, N/S]'
-            write (*, '(a, f8.3,a)')             '    BSDst  ~ ' , Dst , ' [nT]'
-            write (*, '(a, f8.3,a)')             '    Sym-H  = ' , symh, ' [nT]'
+            write (*, '(a, f8.3,a)')             '    Sym-H  = ' , symh  , ' [nT]'
+            write (*, '(a, f8.3,a)')             '    BSDst  ~ ' , BSDst , ' [nT]'
+            write (*, '(a, f8.3,a)')             '   DPSDst  ~ ' , DPSDst, ' [nT]'
+
 
             if (vApp%doDeep) then
                 write (*, '(a)'                 )    '    IMag Ingestion'
@@ -120,7 +123,12 @@ module voltio
             endif
             write (*, '(a,1f7.1,a)' ) '    Spent ', gamWait*100.0, '% of time waiting for Gamera'
 
-            write (*, *) ANSIRESET, ''
+            write(*,'(a)',advance="no") ANSIRESET!, ''
+        endif
+
+        !Write inner mag console IO if needed
+        if (vApp%doDeep) then
+            call vApp%imagApp%doConIO(vApp%MJD,vApp%time)
         endif
 
         !Setup for next output
@@ -226,15 +234,19 @@ module voltio
         integer :: i,j,k
         character(len=strLen) :: gStr
         type(IOVAR_T), dimension(MAXVOLTIOVAR) :: IOVars
-        real(rp) :: cpcp(2)
+        real(rp) :: cpcp(2),symh
 
         real(rp), dimension(:,:,:,:), allocatable :: inEijk,inExyz,gJ,gB,Veb
         real(rp), dimension(:,:,:), allocatable :: psi,D,Cs
         real(rp), dimension(NDIM) :: Exyz,Bdip,xcc
         real(rp) :: Csijk,Con(NVAR)
+        real(rp) :: BSDst,DPSDst
 
         !Get data
         call getCPCP(vApp%mix2mhd%mixOutput,cpcp)
+
+        !Get symh from input time series
+        symh = vApp%symh%evalAt(vApp%time)
 
         associate(Gr => gApp%Grid)
         !Cell-centers w/ ghosts
@@ -286,6 +298,10 @@ module voltio
             enddo
         enddo
 
+        !Refresh Dst
+        call EstDST(gApp%Model,gApp%Grid,gApp%State,BSDst,DPSDst)
+        vApp%BSDst = BSDst
+
         write(gStr,'(A,I0)') "Step#", nOut
         !Reset IO chain
         call ClearIO(IOVars)
@@ -322,8 +338,13 @@ module voltio
         call AddOutVar(IOVars,"cpcpN",cpcp(1))
         call AddOutVar(IOVars,"cpcpS",cpcp(2))
 
-        call AddOutVar(IOVars,"time",vApp%time)
-        call AddOutVar(IOVars,"MJD" ,vApp%MJD)
+        call AddOutVar(IOVars,"BSDst" ,BSDst )
+        call AddOutVar(IOVars,"DPSDst",DPSDst)
+
+        call AddOutVar(IOVars,"SymH",symh)
+
+        call AddOutVar(IOVars,"time" ,vApp%time)
+        call AddOutVar(IOVars,"MJD"  ,vApp%MJD)
         call AddOutVar(IOVars,"timestep",vApp%ts)
 
         call WriteVars(IOVars,.true.,vh5File,gStr)
@@ -377,12 +398,11 @@ module voltio
 
     !Use Gamera data to estimate DST
     !(Move this to msphutils?)
-    subroutine EstDST(Model,Gr,State,Dst)
+    subroutine EstDST(Model,Gr,State,BSDst,DPSDst)
         type(Model_T), intent(in)  :: Model
         type(Grid_T) , intent(in)  :: Gr
         type(State_T), intent(in)  :: State
-        real(rp)     , intent(out) :: Dst
-
+        real(rp)     , intent(out) :: BSDst,DPSDst
         integer :: i,j,k
         real (rp), dimension(:,:,:,:), allocatable :: dB,Jxyz !Full-sized arrays
 
@@ -390,7 +410,7 @@ module voltio
         integer :: iMax,iMin
 
         real(rp) :: dV,r,bs1,bs2,bScl,dBz
-        real(rp) :: mu0,d0,u0,B0
+        real(rp) :: mu0,d0,u0,B0,KTot
 
         !Very lazy scaling
         mu0 = 4*PI*1.0e-7
@@ -406,7 +426,10 @@ module voltio
         do k=Gr%ksg,Gr%keg
             do j=Gr%jsg,Gr%jeg
                 do i=Gr%isg,Gr%ieg
-                    dB(i,j,k,:) = State%Bxyz(i,j,k,:) + Gr%B0(i,j,k,:) - MagsphereDipole(Gr%xyzcc(i,j,k,:),Model%MagM0)
+                    dB(i,j,k,:) = State%Bxyz(i,j,k,:) - MagsphereDipole(Gr%xyzcc(i,j,k,:),Model%MagM0)
+                    if (Model%doBackground) then
+                        dB(i,j,k,:) = dB(i,j,k,:) + Gr%B0(i,j,k,:)
+                    endif
                 enddo
             enddo
         enddo
@@ -420,10 +443,13 @@ module voltio
         iMax = Gr%ie
 
         !Now do accumulation
-        Dst = 0.0
+        BSDst  = 0.0 !Bios-Savart
+        DPSDst = 0.0 !DPS
+        KTot = 0.0 !Total energy content
+
         !$OMP PARALLEL DO default(shared) collapse(2) &
         !$OMP private(i,j,k,xyz,dV,r,bs1,bs2,bScl,dBz) &
-        !$OMP reduction(+:Dst)
+        !$OMP reduction(+:BSDst,KTot)
         do k=Gr%ks,Gr%ke
             do j=Gr%js,Gr%je
                 do i=iMin,iMax
@@ -435,10 +461,24 @@ module voltio
                     bScl = B0*dV/(4*PI)
 
                     dBz = -(bs1 - bs2)/(r**3.0)
-                    Dst = Dst + bScl*dBz
+                    !Bios-Savart Dst
+                    BSDst = BSDst + bScl*dBz
+
+                    if(Model%doSource) then ! need to check this first or Gas0 is not allocated
+                        if (Gr%Gas0(i,j,k,IMPR ,BLK)>TINY) then
+                            KTot = KTot + dV*Gr%Gas0(i,j,k,IMPR ,BLK) !Code units
+                        endif
+                    endif
                 enddo ! i loop
             enddo
         enddo !k loop
+
+        !Scale code units to energy
+        !KTot = x0^3 x P0
+        KTot = (Model%Units%gx0**3.0)*(Model%Units%gP0)*KTot
+        !KTot = nPa*m3, now go to keV
+        KTot = ((1.0e-9)/kev2J)*KTot
+        DPSDst = -4.2*(1.0e-30)*KTot
 
     end subroutine EstDST
 

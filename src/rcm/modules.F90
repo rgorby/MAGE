@@ -2,17 +2,19 @@
 
 MODULE CONSTANTS
   USE rcm_precision
-  USE kdefs, ONLY : EarthPsi0
-  USE Rcm_mod_subs, ONLY : isize,jsize,jwrap
+  USE kdefs, ONLY : EarthPsi0,Me_cgs,Mp_cgs,Mu0
+  use rcmdefs, ONLY : isize,jsize,jwrap
   REAL(rprec),PARAMETER :: radius_earth_m = 6380.e3 ! Earth's radius in meters
   REAL(rprec),PARAMETER :: radius_iono_m  = 6380.e3 + 100.e3 + 20.e3 ! ionosphere radius in meters
   REAL(rprec),PARAMETER :: boltz = 1.38E-23
-  REAl(rprec),PARAMETER :: mass_proton=1.6726e-27
-  REAL(rprec),PARAMETER :: mass_electron=9.1094e-31
+  REAl(rprec),PARAMETER :: mass_proton =Mp_cgs*1.0e-3
+  REAL(rprec),PARAMETER :: mass_electron=Me_cgs*1.0e-3
+  !REAl(rprec),PARAMETER :: mass_proton=1.6726e-27
+  !REAL(rprec),PARAMETER :: mass_electron=9.1094e-31
   REAL(rprec),PARAMETER :: ev=1.6022e-19
   REAL(rprec),PARAMETER :: gamma=1.6667
   REAL(rprec),PARAMETER :: one_over_gamma=0.6
-  REAL(rprec),PARAMETER :: mu0 = 4.0e-7*3.14159
+  !REAL(rprec),PARAMETER :: mu0 = 4.0e-7*3.14159
   REAL(rprec),PARAMETER :: big_vm = -1.0e5
   REAL(rprec),PARAMETER :: nt = 1.0e-9
   !REAL(rprec),PARAMETER :: tiote = 7.8
@@ -25,7 +27,6 @@ END MODULE CONSTANTS
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 MODULE rice_housekeeping_module
-!  USE Rcm_mod_subs, ONLY : rprec,iprec
   USE rcm_precision, only : iprec,rprec,strLen
   use xml_input
   use strings
@@ -38,17 +39,20 @@ MODULE rice_housekeeping_module
              L_write_vars_debug    = .false., &
              L_write_int_grid_debug= .true.
   
-  INTEGER(iprec) :: Idt_overwrite         = 1
+  !INTEGER(iprec) :: Idt_overwrite         = 1
+  INTEGER(iprec) :: Idt_overwrite         = 5 !K: Setting this to avoid as much unnecessary subcycling
   INTEGER(iprec) :: rcm_record
   REAL(rprec) :: HighLatBD,LowLatBD
-  
+  LOGICAL :: doLatStretch = .true.
+
 ! set this to true to tilt the dipole, must turn off corotation also
   LOGICAL :: rcm_tilted = .false.
 ! set this to false to turn off the dynamic plasmasphere  07242020  sbao
   LOGICAL :: dp_on = .true.
+  LOGICAL, PARAMETER :: use_plasmasphere = .true.
   INTEGER(iprec) :: InitKp = 1
   REAL(rprec) :: staticR = 0.0
-
+  REAL(rprec) :: LowLatMHD = 0.0
     type RCMEllipse_T
         !Ellipse parameters
         real(rprec) :: xSun=10.0,xTail=-15.0,yDD=10.0
@@ -118,6 +122,7 @@ MODULE rice_housekeeping_module
         !Grid bounds
         call xmlInp%Set_Val(HighLatBD,"grid/HiLat" ,75.0_rprec)
         call xmlInp%Set_Val(LowLatBD ,"grid/LowLat",15.0_rprec)
+        call xmlInp%Set_Val(doLatStretch ,"grid/doLatStretch",.true.)
 
         !Ellipse parameters
         call xmlInp%Set_Val(ellBdry%xSun ,"ellipse/xSun" ,ellBdry%xSun )
@@ -136,107 +141,3 @@ MODULE rice_housekeeping_module
       end subroutine RCM_MHD_Params_XML
 
 END MODULE rice_housekeeping_module
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-
-MODULE ionosphere_exchange
-  use rcm_mhd_interfaces
-  use rcm_mod_subs, ONLY: isize, jsize, jwrap, colat, aloct
-  
-  contains 
-    
-    !> Allocate Ionosphere Grid variables and read Ion grid from "RCM-ion.dat".
-    !! Don't forget to deallocate!
-    SUBROUTINE setupIon(RM)
-      IMPLICIT NONE
-      type(rcm_mhd_T),intent(inout) ::RM
-      integer(iprec) :: lat,lon
-
-      rm%nLat_ion = isize
-      rm%nLon_ion = jsize-jwrap+1
-
-      ALLOCATE( rm%gcolat(rm%nLat_ion) )
-      ALLOCATE( rm%glong(rm%nLon_ion) )
-
-      ALLOCATE( rm%pot(rm%nLat_ion, rm%nLon_ion) )
-      ALLOCATE( rm%eng_avg(rm%nLat_ion, rm%nLon_ion, 2) )
-      ALLOCATE( rm%flux(rm%nLat_ion, rm%nLon_ion, 2) )
-      ALLOCATE( rm%fac(rm%nLat_ion, rm%nLon_ion) )
-      ALLOCATE( rm%Pave(rm%nLat_ion, rm%nLon_ion) )
-      ALLOCATE( rm%Nave(rm%nLat_ion, rm%nLon_ion) )
-      ALLOCATE( rm%Vol(rm%nLat_ion, rm%nLon_ion) )
-      ALLOCATE( rm%Bmin(rm%nLat_ion, rm%nLon_ion) )
-      ALLOCATE( rm%X_bmin(rm%nLat_ion, rm%nLon_ion, 3) )
-      ALLOCATE( rm%iopen(rm%nLat_ion, rm%nLon_ion) )
-      ALLOCATE( rm%Prcm(rm%nLat_ion, rm%nLon_ion) )
-      ALLOCATE( rm%Npsph(rm%nLat_ion, rm%nLon_ion) )
-      ALLOCATE( rm%Nrcm(rm%nLat_ion, rm%nLon_ion) )
-      ALLOCATE( rm%beta_average(rm%nLat_ion, rm%nLon_ion))
-      ALLOCATE( rm%sigmap(rm%nLat_ion, rm%nLon_ion) )
-      ALLOCATE( rm%sigmah(rm%nLat_ion, rm%nLon_ion) )
-      ALLOCATE( rm%latc(rm%nLat_ion, rm%nLon_ion) )
-      ALLOCATE( rm%lonc(rm%nLat_ion, rm%nLon_ion) )
-      ALLOCATE( rm%Lb  (rm%nLat_ion, rm%nLon_ion) )
-      ALLOCATE( rm%Tb  (rm%nLat_ion, rm%nLon_ion) )
-
-      ALLOCATE( rm%toMHD(rm%nLat_ion, rm%nLon_ion) )
-      ALLOCATE( rm%losscone(rm%nLat_ion, rm%nLon_ion) )
-      ALLOCATE( rm%oxyfrac(rm%nLat_ion, rm%nLon_ion) )
-
-      rm%gcolat (:) = colat (:,1)
-      rm%glong  (:) = aloct (1,jwrap:jsize)
-      if (rm%glong(rm%nLon_ion) < pi) rm%glong(rm%nLon_ion) = rm%glong(rm%nLon_ion) + 2*pi
-    END SUBROUTINE setupIon
-
-    !> Deallocate any variables allocated by setupIon.
-    SUBROUTINE tearDownIon(rm)
-      type(rcm_mhd_T),intent(inout) ::RM
-
-      if (ALLOCATED(rm%pot)) DEALLOCATE(rm%pot)
-      if (ALLOCATED(rm%sigmap)) DEALLOCATE(rm%sigmap)
-      if (ALLOCATED(rm%sigmah)) DEALLOCATE(rm%sigmah)
-      if (ALLOCATED(rm%gcolat)) DEALLOCATE(rm%gcolat)
-      if (ALLOCATED(rm%glong)) DEALLOCATE(rm%glong)
-      if (ALLOCATED(rm%flux)) DEALLOCATE(rm%flux)
-      if (ALLOCATED(rm%fac)) DEALLOCATE(rm%fac)
-      if (ALLOCATED(rm%Pave)) DEALLOCATE(rm%Pave)
-      if (ALLOCATED(rm%Nave)) DEALLOCATE(rm%Nave)
-      if (ALLOCATED(rm%Vol)) DEALLOCATE(rm%Vol)
-      if (ALLOCATED(rm%Bmin)) DEALLOCATE(rm%Bmin)
-      if (ALLOCATED(rm%X_bmin)) DEALLOCATE(rm%X_bmin)
-      if (ALLOCATED(rm%iopen)) DEALLOCATE(rm%iopen)
-      if (ALLOCATED(rm%Prcm)) DEALLOCATE(rm%Prcm)
-      if (ALLOCATED(rm%Npsph)) DEALLOCATE(rm%Npsph)
-      if (ALLOCATED(rm%Nrcm)) DEALLOCATE(rm%Nrcm)
-      if (ALLOCATED(rm%beta_average)) DEALLOCATE(rm%beta_average)
-      if (ALLOCATED(rm%latc)) DEALLOCATE(rm%latc)
-      if (ALLOCATED(rm%lonc)) DEALLOCATE(rm%lonc)
-      if (ALLOCATED(rm%toMHD)) DEALLOCATE(rm%toMHD)
-      if (ALLOCATED(rm%losscone)) DEALLOCATE(rm%losscone)
-      if (ALLOCATED(rm%oxyfrac)) DEALLOCATE(rm%oxyfrac)
-
-    END SUBROUTINE tearDownIon
-
-  END MODULE ionosphere_exchange
-
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-MODULE conversion_module
-!USE Rcm_mod_subs, ONLY : rprec,iprec
-  USE rcm_precision
-  IMPLICIT NONE
-  REAL(rprec), ALLOCATABLE :: bndloc_old(:),almmin(:),almmax(:),almdel(:),&
-       eta_midnight(:)
-  REAL(rprec), ALLOCATABLE :: x0(:,:),y0(:,:),z0(:,:)
-  REAL(rprec), ALLOCATABLE :: x0_sm(:,:),y0_sm(:,:),z0_sm(:,:)
-  REAL(rprec), ALLOCATABLE :: te(:,:),ti(:,:),to(:,:),&
-       eetabnd(:,:),&
-       den(:,:),press(:,:),&
-       deno(:,:),presso(:,:),&
-       beta_average(:,:)
-
-  REAL(rprec), ALLOCATABLE :: eeta_new(:,:,:)
-  INTEGER(iprec), ALLOCATABLE :: iopen(:,:),imin_j_old(:),inner_bndy(:)
-END MODULE conversion_module

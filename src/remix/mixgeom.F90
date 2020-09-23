@@ -34,20 +34,25 @@ module mixgeom
     end subroutine generate_uniformTP
 
 
-    subroutine init_grid_fromTP(G,t,p,SOLVER_GRID)
+    subroutine init_grid_fromTP(G,t,p,isSolverGrid,isPeriodic)
       type(mixGrid_T),intent(out) :: G
       real(rp), dimension(:,:), intent(in) :: t,p
-      logical, intent(in) :: SOLVER_GRID
+      logical, intent(in) :: isSolverGrid
+      logical, optional, intent(in) :: isPeriodic
       integer :: i,j
       
       G%Np = size(p,1)
       G%Nt = size(p,2)
+
+      if (present(isPeriodic)) G%isPeriodic = isPeriodic   ! otherwise, always periodic as is set in mix types
       
       if (.not.allocated(G%t)) allocate(G%t(G%Np,G%Nt))
       if (.not.allocated(G%p)) allocate(G%p(G%Np,G%Nt)) 
 
       ! interpolant
-      if (.not.allocated(G%Interpolant)) allocate(G%Interpolant(G%Np,G%Nt,4,4)) ! True size (Np,Nt-1) (note, we include the cell between Np and 1)
+      ! True size (Np,Nt-1) (note, we include the cell between Np and 1 for periodic; 
+      ! otherwise, it's unused and interpolant set to 0. below)
+      if (.not.allocated(G%Interpolant)) allocate(G%Interpolant(G%Np,G%Nt,4,4)) 
 
       G%Interpolant = 0.0
 
@@ -64,7 +69,7 @@ module mixgeom
       ! calculate interpolant
       call mix_interpolant(G)
 
-      if (SOLVER_GRID) call set_grid(G)
+      if (isSolverGrid) call set_grid(G)
     end subroutine init_grid_fromTP
 
     subroutine init_grid(I,mixIOobj)
@@ -74,33 +79,36 @@ module mixgeom
       real(rp) :: highLatBoundary = 0.  ! always default the remix grid to start at the pole: that's the only thing that it knows how to do
 
       if (present(mixIOobj)) then
-         call init_grid_fromXY(I%G,mixIOobj%x,mixIOobj%y,.true.)
+         call init_grid_fromXY(I%G,mixIOobj%x,mixIOobj%y,isSolverGrid=.true.)
       else
          ! for now always do uniform if grid not passed via mixIOobj
-         call init_uniform(I%G,I%P%Np,I%P%Nt,I%P%LowLatBoundary*pi/180._rp,highLatBoundary*pi/180._rp,.true.)
+         call init_uniform(I%G,I%P%Np,I%P%Nt,I%P%LowLatBoundary*pi/180._rp,highLatBoundary*pi/180._rp,isSolverGrid=.true.)
       endif
-      call setD0(I%G,I%St%hemisphere)  ! pay attention: if the functional form is not axisymmetric, should make sure north and south are treated correctly.      
+      call setD0(I%G)  ! pay attention: if the functional form is not axisymmetric, should make sure north and south are treated correctly.      
     end subroutine init_grid
     
-    subroutine init_uniform(G,Np,Nt,LowLatBoundary,HighLatBoundary,SOLVER_GRID)
+    subroutine init_uniform(G,Np,Nt,LowLatBoundary,HighLatBoundary,isSolverGrid)
       type(mixGrid_T),intent(inout) :: G
       integer, intent(in) :: Np, Nt
       real(rp), intent(in) :: LowLatBoundary,HighLatBoundary ! in degrees
-      logical, intent(in) :: SOLVER_GRID
+      logical, intent(in) :: isSolverGrid
       real(rp), dimension(:,:), allocatable :: t,p
 
       call generate_uniformTP(Np,Nt,LowLatBoundary,HighLatBoundary,t,p)
-      call init_grid_fromTP(G,t,p,SOLVER_GRID)
+      call init_grid_fromTP(G,t,p,isSolverGrid)
     end subroutine init_uniform
 
-    subroutine init_grid_fromXY(G,x,y,SOLVER_GRID)
+    subroutine init_grid_fromXY(G,x,y,isSolverGrid,isPeriodic)
       type(mixGrid_T),intent(inout) :: G
       real(rp), dimension(:,:), intent(in) :: x,y
-      logical, intent(in) :: SOLVER_GRID
+      logical, intent(in) :: isSolverGrid
+      logical, optional, intent(in) :: isPeriodic
       integer, dimension(2) :: dims
 
       ! set grid size
       dims = shape(x); G%Nt = dims(2); G%Np = dims(1)
+
+      if (present(isPeriodic)) G%isPeriodic = isPeriodic   ! otherwise, always periodic as is set in mix types
 
       if (.not.allocated(G%x)) allocate(G%x(G%Np,G%Nt))
       if (.not.allocated(G%y)) allocate(G%y(G%Np,G%Nt))
@@ -112,7 +120,9 @@ module mixgeom
       if (.not.allocated(G%p)) allocate(G%p(G%Np,G%Nt))
 
       ! interpolant
-      if (.not.allocated(G%Interpolant)) allocate(G%Interpolant(G%Np,G%Nt,4,4)) ! True size (Np,Nt-1) (note, we include the cell between Np and 1)
+      ! True size (Np,Nt-1) (note, we include the cell between Np and 1 for periodic; 
+      ! otherwise, it's unused and interpolant set to 0. below)      
+      if (.not.allocated(G%Interpolant)) allocate(G%Interpolant(G%Np,G%Nt,4,4)) 
 
       G%Interpolant = 0.0
 
@@ -126,16 +136,15 @@ module mixgeom
       ! calculate interpolant
       call mix_interpolant(G)
 
-      if (SOLVER_GRID) call set_grid(G)
+      if (isSolverGrid) call set_grid(G)
     end subroutine init_grid_fromXY
 
     
-    subroutine setD0(G,hemisphere)
+    subroutine setD0(G)
       ! pay attention: if the functional form is not axisymmetric, should make sure north and south are treated correctly.
       type(mixGrid_T),intent(inout) :: G
-      integer,intent(in) :: hemisphere
       integer :: i,j
-      real(rp) :: r,L,phi
+      real(rp) :: r,L
       
       ! allocate space for background density
       if (.not.allocated(G%D0)) allocate(G%D0(G%Np,G%Nt))
@@ -143,17 +152,9 @@ module mixgeom
       do i=1,G%Nt
          do j=1,G%Np
             ! compute invariant latitude
-            r = sqrt(G%x(j,i)**2+G%y(j,i)**2)   ! =cos(lambda)
-            L = (1./r**2)*(RionE/REarth)*1.0e+6 ! correcting for the Ri/Re difference
-
-            ! computing phi and flipping in the southern hemisphere
-            if (hemisphere.eq.SOUTH) then 
-               phi = 2*pi-G%p(j,i)
-            else
-               phi = G%p(j,i)
-            endif
-
-            G%D0(j,i) = GallagherRP(L,phi)  ! use Gallagher from earthhelper
+            r = sqrt(G%x(j,i)**2+G%y(j,i)**2)  ! =cos(lambda)
+            L = 1./r**2   ! neglecting the Ri/Re difference here
+            G%D0(j,i) = psphD(L)  ! use Gallagher from earthhelper
          enddo
       enddo
       
@@ -163,10 +164,10 @@ module mixgeom
     ! NOTE, periodic boundary already cut out in mix2h5.py
     ! VGM 10142019: deprecating and renaming this function
     ! reserving the name for initializing grid from x,y arrays in remix convention (above)
-    subroutine init_grid_fromXY_oldMIX(G,x,y,SOLVER_GRID)
+    subroutine init_grid_fromXY_oldMIX(G,x,y,isSolverGrid)
       type(mixGrid_T),intent(inout) :: G
       real(rp), dimension(:,:), intent(in) :: x,y
-      logical, intent(in) :: SOLVER_GRID
+      logical, intent(in) :: isSolverGrid
       integer, dimension(2) :: dims
 
       ! set grid size
@@ -196,7 +197,7 @@ module mixgeom
       ! calculate interpolant
       call mix_interpolant(G)
 
-      if (SOLVER_GRID) call set_grid(G)
+      if (isSolverGrid) call set_grid(G)
     end subroutine init_grid_fromXY_oldMIX
 
     subroutine set_grid(G)
