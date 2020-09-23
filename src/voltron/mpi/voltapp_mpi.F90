@@ -420,19 +420,8 @@ module voltapp_mpi
                 vApp%deepProcessingInProgress = .true.
                 vApp%firstDeepUpdate = .false.
                 vApp%firstShallowUpdate = .false.
-            elseif(vApp%firstDeepUpdate) then
-                call Tic("DeepRecv")
-                call recvDeepData_mpi(vApp)
-                call Toc("DeepRecv")
-                call Tic("DeepUpdate")
-                call PreSquishDeep(vApp, vApp%gAppLocal)
-                call Toc("DeepUpdate")
-                vApp%deepProcessingInProgress = .true.
-                vApp%firstDeepUpdate = .false.
             elseif(vApp%firstShallowUpdate) then
-                call Tic("ShallowRecv")
-                call recvShallowData_mpi(vApp)
-                call Toc("ShallowRecv")
+                ! don't need shallow data if we already got deep
                 call Tic("ShallowUpdate")
                 call ShallowUpdate(vApp, vApp%gAppLocal, time)
                 call Toc("ShallowUpdate")
@@ -453,9 +442,9 @@ module voltapp_mpi
             enddo
 
             if(vApp%doAsyncShallow) then
-                call concurrentSAD_mpi(vApp, time)
-            else
                 call concAsyncSAD_mpi(vApp, time)
+            else
+                call concurrentSAD_mpi(vApp, time)
             endif
 
         endif
@@ -476,6 +465,22 @@ module voltapp_mpi
         call sendShallowData_mpi(vApp)
         call mpi_bcast(vApp%ShallowT + vApp%ShallowDT, 1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
         call Toc("ShallowSend")
+
+        if(vApp%firstDeepUpdate) then
+            ! must receive initial deep data after sending shallow if starting deep after spinup
+            call Tic("DeepRecv")
+            call recvDeepData_mpi(vApp)
+            call Toc("DeepRecv")
+            call Tic("DeepUpdate")
+            call PreSquishDeep(vApp, vApp%gAppLocal)
+            call Toc("DeepUpdate")
+            vApp%deepProcessingInProgress = .true.
+            vApp%firstDeepUpdate = .false.
+            do while(deepInProgress(vApp))
+                call doDeepBlock(vApp)
+            enddo
+        endif
+
         call Tic("DeepSend")
         call sendDeepData_mpi(vApp)
         call Toc("DeepSend")
@@ -508,6 +513,21 @@ module voltapp_mpi
 
         ! Update coupling DT
         vApp%DeepDT = vApp%TargetDeepDT
+
+        if(vApp%firstDeepUpdate) then
+            ! must receive initial deep data after sending shallow if starting deep after spinup
+            call Tic("DeepRecv")
+            call recvDeepData_mpi(vApp)
+            call Toc("DeepRecv")
+            call Tic("DeepUpdate")
+            call PreSquishDeep(vApp, vApp%gAppLocal)
+            call Toc("DeepUpdate")
+            vApp%deepProcessingInProgress = .true.
+            vApp%firstDeepUpdate = .false.
+            do while(deepInProgress(vApp))
+                call doDeepBlock(vApp)
+            enddo
+        endif
 
         ! send deep now
         call Tic("DeepSend")

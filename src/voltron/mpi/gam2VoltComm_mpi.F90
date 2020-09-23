@@ -274,16 +274,20 @@ module gam2VoltComm_mpi
                 call sendDeepData(g2vComm, gApp)
                 g2vComm%firstDeepUpdate = .false.
                 g2vComm%firstShallowUpdate = .false.
-            elseif(g2vComm%firstDeepUpdate) then
-                call sendDeepData(g2vComm, gApp)
-                g2vComm%firstDeepUpdate = .false.
             elseif(g2vComm%firstShallowUpdate) then
-                call sendShallowData(g2vComm, gApp)
+                ! don't need shallow data if we already got deep
                 g2vComm%firstShallowUpdate = .false.
             endif
 
             ! now reverse process so that we send all data before receiving new deep
             call performConcurrentShallowUpdate(g2vComm, gApp, .true.)
+
+            if(g2vComm%firstDeepUpdate) then
+                ! must receive async shallow comms before sending deep data
+                call sendDeepData(g2vComm, gApp)
+                g2vComm%firstDeepUpdate = .false.
+            endif
+
             call doConcurrentDeepUpdate(g2vComm, gApp)
 
         endif
