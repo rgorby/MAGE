@@ -422,7 +422,10 @@ module voltio
         do k=Gr%ksg,Gr%keg
             do j=Gr%jsg,Gr%jeg
                 do i=Gr%isg,Gr%ieg
-                    dB(i,j,k,:) = State%Bxyz(i,j,k,:) + Gr%B0(i,j,k,:) - MagsphereDipole(Gr%xyzcc(i,j,k,:),Model%MagM0)
+                    dB(i,j,k,:) = State%Bxyz(i,j,k,:) - MagsphereDipole(Gr%xyzcc(i,j,k,:),Model%MagM0)
+                    if (Model%doBackground) then
+                        dB(i,j,k,:) = dB(i,j,k,:) + Gr%B0(i,j,k,:)
+                    endif
                 enddo
             enddo
         enddo
@@ -457,8 +460,10 @@ module voltio
                     !Bios-Savart Dst
                     BSDst = BSDst + bScl*dBz
 
-                    if (Gr%Gas0(i,j,k,IMPR ,BLK)>TINY) then
-                        KTot = KTot + dV*Gr%Gas0(i,j,k,IMPR ,BLK) !Code units
+                    if(Model%doSource) then ! need to check this first or Gas0 is not allocated
+                        if (Gr%Gas0(i,j,k,IMPR ,BLK)>TINY) then
+                            KTot = KTot + dV*Gr%Gas0(i,j,k,IMPR ,BLK) !Code units
+                        endif
                     endif
                 enddo ! i loop
             enddo
