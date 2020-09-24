@@ -24,10 +24,11 @@ module rcmimag
     real(rp), private :: rTrc0 = 2.0 !Padding factor for RCM domain to ebsquish radius
     logical , private, parameter :: doKillRCMDir = .true. !Whether to always kill RCMdir before starting
     logical , private :: doWolfLim  = .true. !Whether to do wolf-limiting
+    logical , private :: doDynWolf = .false. !Whether to do dynamic wolf-limiting
     logical , private :: doBounceDT = .true. !Whether to use Alfven bounce in dt-ingest
     real(rp), private :: nBounce = 1.0 !Scaling factor for Alfven transit
 
-    real(rp), private :: wIM_C = 0.20 !Critical wIM for MHD ingestion inclusion
+    real(rp), private :: wIM_C = 0.0 !Critical wIM for MHD ingestion inclusion
 
     real(rp), dimension(:,:), allocatable, private :: mixPot
 
@@ -85,6 +86,7 @@ module rcmimag
         RCMApp%rcm_runid = trim(RunID)
 
         call iXML%Set_Val(doWolfLim ,"/gamera/source/doWolfLim" ,doWolfLim )
+        call iXML%Set_Val(doDynWolf ,"/gamera/source/doDynWolf" ,doDynWolf )
         call iXML%Set_Val(doBounceDT,"/gamera/source/doBounceDT",doBounceDT)
         call iXML%Set_Val(nBounce   ,"/gamera/source/nBounce"   ,nBounce   )
 
@@ -409,7 +411,7 @@ module rcmimag
         real(rp), intent(out) :: imW(NVARIMAG)
         logical, intent(out) :: isEdible
 
-        real(rp) :: colat,nrcm,prcm,npp,pScl,beta,pmhd,nmhd
+        real(rp) :: colat,nrcm,prcm,npp,pScl,beta,pmhd,nmhd,wIM
         real(rp) :: plim,nlim
         integer, dimension(2) :: ij0
 
@@ -443,22 +445,27 @@ module rcmimag
         beta =  RCMApp%beta_average(ij0(1),ij0(2))
         pmhd = rcmPScl*RCMApp%Pave (ij0(1),ij0(2))
         nmhd = rcmNScl*RCMApp%Nave (ij0(1),ij0(2))
-
+        wIM  =         RCMApp%wImag(ij0(1),ij0(2))
 
         !Limit on RCM values
         if ( (nrcm>TINY) .and. (prcm>TINY) ) then
             !Good values from RCM, do something
-            if (doWolfLim) then
+            if (doWolfLim .or. doDynWolf) then
                 !Do limiting on pressure/density
                 pScl = beta*5.0/6.0
                 plim = (pScl*pmhd + prcm)/(1.0+pScl)
                 !nlim = nrcm - 0.6*pScl*nmhd*(prcm-pmhd)/(1.0+pScl)/pmhd
                 nlim = nrcm !Testing P-only wolf limiting
+                if (doDynWolf) then
+                    !Blend plim/prcm w/ wIM
+                    plim = wIM*prcm + (1-wIM)*plim
+                endif
             else
                 !Use raw RCM values if they're good
                 plim = prcm
                 nlim = nrcm
             endif !doWolfLim
+
         else !Either n or p is tiny
             !Ignore them
             plim = 0.0
@@ -572,7 +579,7 @@ module rcmimag
         integer :: i0,j0,maxIJ(2)
 
         real(rp) :: maxPRCM,maxD,maxDP,maxPMHD,maxL,maxMLT,maxBeta
-        real(rp) :: pScl,limP,wTrust,wTMin,maxT
+        real(rp) :: pScl,limP,wTrust,wTMin,maxT,maxWT
 
         associate(RCMApp => imag%rcmCpl)
     !Start by getting some data
@@ -592,6 +599,7 @@ module rcmimag
         maxL = norm2(RCMApp%X_bmin(i0,j0,XDIR:YDIR))/Rp_m
         maxMLT = atan2(RCMApp%X_bmin(i0,j0,YDIR),RCMApp%X_bmin(i0,j0,XDIR))*180.0/PI
         if (maxMLT<0) maxMLT = maxMLT+360.0
+        maxWT = 100*RCMApp%wImag(i0,j0)
 
         !Get pressure weighted confidence
         wTrust = sum(RCMApp%Prcm*RCMApp%wIMAG,mask=RCMApp%toMHD)/sum(RCMApp%Prcm,mask=RCMApp%toMHD)
@@ -604,8 +612,10 @@ module rcmimag
 
         write(*,*) ANSIYELLOW
         write(*,*) 'RCM'
-        write (*, '(a, f8.2,a,f6.2,a)')      '  Trust    = ' , wTrust, '% (P-AVG) / ', wTMin, '% (MIN)'
-        if (doWolfLim) then
+        !write (*, '(a, f8.2,a,f6.2,a)')      '  Trust    = ' , wTrust, '% (P-AVG) / ', wTMin, '% (MIN)'
+        write (*, '(a, f8.2,a,f6.2,a,f6.2,a)')      '  Trust    = ' , wTrust, '% (P-AVG) / ', wTMin, '% (MIN) / ', maxWT, '% (@ MAX)'
+
+        if (doWolfLim .or. doDynWolf) then
             write (*, '(a, f8.3,a,f8.3,a)')      '  Max RC-P = ' , maxPRCM, ' (RCM) / ', limP, ' (LIM) [nPa]'
             maxT = DP2kT(maxD,limP)
         else
@@ -615,7 +625,8 @@ module rcmimag
         write (*, '(a,2f8.3,a)')             '   @ L/MLT = ' , maxL, maxMLT, ' [deg]'
         write (*, '(a, f8.3,a,f8.3,a)')      '      w/ D = ' , maxD, ' (RC) / ', maxDP, ' (PSPH) [#/cc]'
         write (*, '(a,1f8.3,a)')             '      w/ T = ' , maxT, ' [keV]'
-        
+        write (*, '(a,1f6.2,a)')             '       wIM = ' , maxWT, ' %'
+
         write(*,'(a)',advance="no") ANSIRESET!, ''
 
 
