@@ -2232,56 +2232,9 @@ real :: v_1_1, v_1_2, v_2_1, v_2_2
 
         dktime = reshape(IOVars(1)%data,[irdk,inrgdk,isodk, iondk])
 
-        ! !Debugging
-        ! dktime2 = reshape(IOVars(1)%data,[irdk,inrgdk,isodk, iondk])
-        ! call Read_dktime(L_dktime)
-        ! write(*,*) 'dktime1 = ', dktime
-        ! write(*,*) 'dktime2 = ', dktime2
-        ! write(*,*) 'Del = ', sum(abs(dktime-dktime2))
       endif
     END SUBROUTINE Read_dktime_H5
 
-
-
-    FUNCTION CXKaiju(isp,enrg,rloc) result(cxrate)
-      IMPLICIT NONE
-
-      integer(iprec), intent(in) :: isp
-      real(rprec), intent(in) :: enrg,rloc
-
-      real(rprec) :: cxrate
-      real(rprec) :: K,L,Ngeo,KSig,Sig0,a1,a2,a3,B1,B2,Sig,M,Kj,V,Tau,tScl
-
-      K = enrg*1.0e-3 !Energy in kev
-    !Geocoronal density afa L [#/cc], Taken from Ostgaard 2003 
-      L = rloc
-      Ngeo = 10000.0*exp(-L/1.02) + 70.0*exp(-L/8.2)
-
-    !Charge exchange cross-section for H+/H
-      !K in keV, Sig in cm2
-      !Using Lindsay & Stebbings 2005
-      KSig = min(K,250.0) !Cap for validity of CX cross-section
-      
-      Sig0 = 1.0e-16
-      a1 = 4.15
-      a2 = 0.531
-      a3 = 67.3
-
-      B1 = (a1-a2*log(KSig))**2.0
-      B2 = 1.0-exp(-a3/KSig) 
-      Sig =  Sig0*B1*(B2**(4.5))
-    !Get velocity [cm/s] from energy [keV]
-      M = 1.67*1.0e-27 !Proton mass
-      Kj = K*1000.0*1.6*1.0e-19 !Joules
-      V = sqrt(2*Kj/M)*100.0 !m/s->cm/s
-
-    !Timescale
-      tScl = cos(30.0*PI/180.0)**3.5
-      Tau = tScl*1.0/(Ngeo*V*Sig)
-
-      cxrate = 1.0/Tau
-    END FUNCTION CXKaiju
-!
 !
 !
 !
@@ -2538,17 +2491,14 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
 
   LOGICAL, dimension(1:isize,1:jsize) :: isOpen
   INTEGER (iprec) :: iOCB_j(1:jsize)
-  REAL (rprec) :: mass_factor,r_dist,lossCX,lossFLC,lossFDG,lossOCB
+  REAL (rprec) :: mass_factor,r_dist,lossCX,lossFLC,lossFDG
   REAL (rprec), save :: xlower,xupper,ylower,yupper, T1,T2 !Does this need save?
   INTEGER (iprec) :: i, j, kc, ie, iL,jL,iR,jR,iMHD
   INTEGER (iprec) :: CLAWiter, joff
   
   REAL (rprec) :: T1k,T2k !Local loop variables b/c clawpack alters input
-  REAL (rprec) :: dij !Index lengthscale
   LOGICAL, save :: FirstTime=.true.
-  LOGICAL :: doOCBLoss
-
-  doOCBLoss = .false.
+  
 
   if (jwrap /= 3) then
     write(*,*) 'Somebody should rewrite this code to not assume that jwrap=3'
@@ -2579,8 +2529,7 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
   xupper = isize
   ylower = zero
   yupper = jsize-3
-
-  dij = sqrt( (1.0/isize)**2.0 + (1.0/(jsize-3))**2.0 )
+  
   fac = 1.0E-3*signbe*bir*alpha*beta*dlam*dpsi*ri**2
 
 
@@ -2609,10 +2558,10 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
   !$OMP PRIVATE(i,j,kc,ie,iL,jL,iR,jR) &
   !$OMP PRIVATE(veff,didt,djdt,etaC,rateC,rate,dvedi,dvedj) &
   !$OMP PRIVATE(mass_factor,r_dist,CLAWiter,T1k,T2k) &
-  !$OMP PRIVATE(lossCX,lossFLC,lossFDG,lossOCB) &
+  !$OMP PRIVATE(lossCX,lossFLC,lossFDG) &
   !$OMP SHARED(isOpen,iOCB_j,alamc,eeta,v,vcorot,vpar,vm,imin_j,j1,j2,joff) &
   !$OMP SHARED(xmin,ymin,rmin,fac,fudgec,bir,sini,L_dktime,dktime,sunspot_number) &
-  !$OMP SHARED(aloct,xlower,xupper,ylower,yupper,dt,T1,T2,iMHD,bmin,radcurv,losscone,dij,doOCBLoss) 
+  !$OMP SHARED(aloct,xlower,xupper,ylower,yupper,dt,T1,T2,iMHD,bmin,radcurv,losscone) 
   DO kc = 1, kcsize
     
     !If oxygen is to be added, must change this!
@@ -2700,17 +2649,6 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
         rate(i,j) = max(lossCX + lossFLC + lossFDG,0.0)
       enddo !i loop
       
-      if (doOCBLoss) then
-        !Now handle cells adjacent to OCB
-        if (iOCB_j(j)>0) then !Cell on this column is open, ij=iOCB_j(j),j
-          !Add losses to boundary cell w/ index iR,jR
-          iR = iOCB_j(j)+1
-          jR = j
-          !Loss ~ index/delta-time/dij ~ 1/s
-          lossOCB = sqrt(dvedi(iR,jR)**2.0 + dvedj(iR,jR)**2.0)/abs(fac(iR,jR))/dij
-          rate(iR,jR) = rate(iR,jR) + lossOCB
-        endif !OCB
-      endif !doOCBLoss
     enddo !j loop
 
     !Have loss on RCM grid, now get claw grid

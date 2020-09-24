@@ -12,7 +12,6 @@ MODULE torcm_mod
 
   real(rp), private :: density_factor !module private density_factor using planet radius
   real(rp), private :: pressure_factor
-  logical, parameter :: doWgt = .false. !Whether to do MHD=>RCM blending
   logical, parameter :: doSmoothEta = .false. !Whether to smooth eeta at boundary
 
   contains
@@ -234,15 +233,6 @@ MODULE torcm_mod
             dpp = density_factor*1.0*eeta(i,j,1)*vm(i,j)**1.5
             if ( use_plasmasphere .and. (dpp < DenPP0*1.0e+6) ) then
               eeta(i,j,1) = 0.0
-            endif
-          else if (iopen(i,j) == RCMTOPCLOSED .and. doWgt) then
-
-            !Closed field region inside RCM domain, test wIMAG
-            if (wImag(i,j)<=0.5) then
-              
-              wMHD = RampDown(wImag(i,j),0.0_rp,0.50_rp)
-              wRCM = (1-wMHD)
-              eeta(i,j,klow:) = wMHD*eeta_new(i,j,klow:) + wRCM*eeta(i,j,klow:)
             endif
             
           endif !iopen
@@ -547,18 +537,18 @@ MODULE torcm_mod
       SUBROUTINE Press2eta() 
       USE conversion_module      
       USE RCM_mod_subs, ONLY : ikflavc,vm,alamc,isize,jsize,kcsize,eeta
-
+      USE rcm_precision
       IMPLICIT NONE
       
-      real(rprec) :: dmhd,dpp,pcon,pcumsum,t
+      real(rprec) :: dmhd,dpp,pcon,t,prcmI,prcmE,pmhdI,pmhdE
       integer(iprec) :: i,j,k,kmin
-      real(rprec) :: xp,xm,A0,delerf,delexp,pscl
-      
+      real(rprec) :: xp,xm,A0,delerf,delexp
+      logical :: isIon
 
       !$OMP PARALLEL DO default(shared) &
       !$OMP schedule(dynamic) &
-      !$OMP private(i,j,k,kmin,dmhd,dpp,pcon,pcumsum,t) &
-      !$OMP private(xp,xm,A0,delerf,delexp,pscl)
+      !$OMP private(i,j,k,kmin,dmhd,dpp,pcon,prcmI,prcmE,t,pmhdI,pmhdE) &
+      !$OMP private(xp,xm,A0,delerf,delexp,isIon)
       do j=1,jsize
         do i=1,isize
           !Get corrected density from MHD
@@ -573,15 +563,18 @@ MODULE torcm_mod
             endif
 
             A0 = (dmhd/density_factor)/(vm(i,j)**1.5)
-            pcumsum = 0.0
+            prcmI = 0.0 !Cumulative ion pressure
+            prcmE = 0.0 !Cumulative electron pressure
 
             !Loop over non-zero channels
             do k=kmin,kcsize
               !Get right temperature
-              IF (ikflavc(k) == 1) THEN  ! electrons
+              IF (ikflavc(k) == RCMELECTRON) THEN  ! electrons
                 t = te (i,j)
-              ELSE IF (ikflavc(k) == 2) THEN ! ions (protons)
+                isIon = .false.
+              ELSE IF (ikflavc(k) == RCMPROTON) THEN ! ions (protons)
                 t = ti (i,j)
+                isIon = .true.
               ENDIF
 
               xp = SQRT(ev*ABS(almmax(k))*vm(i,j)/boltz/t)
@@ -592,17 +585,27 @@ MODULE torcm_mod
               eeta_new(i,j,k) = A0*( delerf - delexp )
               !Pressure contribution from this channel
               pcon = pressure_factor*ABS(alamc(k))*eeta_new(i,j,k)*vm(i,j)**2.5
-              pcumsum = pcumsum + pcon
+
+              if (isIon) then
+                prcmI = prcmI + pcon
+              else
+                prcmE = prcmE + pcon
+              endif
 
             enddo !k loop
 
             !Now rescale eeta channels to conserve pressure integral between MHD/RCM
-            pscl = press(i,j)/pcumsum
-            if (pscl<1.0) then
-              do k=kmin,kcsize
-                eeta_new(i,j,k) = pscl*eeta_new(i,j,k)
-              enddo
-            endif
+            !In particular, we separately conserve ion/electron contribution to total pressure
+            pmhdI = press(i,j)*tiote/(1.0+tiote) !Desired ion pressure
+            pmhdE = press(i,j)*  1.0/(1.0+tiote) !Desired elec pressure
+
+            do k=kmin,kcsize
+              IF (ikflavc(k) == RCMELECTRON) THEN  ! electrons
+                eeta_new(i,j,k) = (pmhdE/prcmE)*eeta_new(i,j,k)
+              ELSE IF (ikflavc(k) == RCMPROTON) THEN ! ions (protons)
+                eeta_new(i,j,k) = (pmhdI/prcmI)*eeta_new(i,j,k)
+              ENDIF
+            enddo
 
         !Not good MHD
           else
@@ -640,8 +643,8 @@ MODULE torcm_mod
       real(rprec) :: vm(idim,jdim)
       integer(iprec) :: iopen(idim,jdim)
       real(rprec) :: bndloc(jdim)
-      real(rprec) :: big_vm,a1,a2,a,b,x0,ell
-      real(rprec) :: xP,xM,yMax,yMaxP,yMaxM
+      real(rprec) :: big_vm,a1,a2,a,bP,bM,x0,ell
+      real(rprec) :: xP,xM,yMaxP,yMaxM
       integer(iprec) :: i,j
       logical :: isBad
 
@@ -663,7 +666,9 @@ MODULE torcm_mod
 !K: Replacing these hard-coded values with ellipse type set by XML file
       a1 = ellBdry%xSun
       a2 = ellBdry%xTail
-      b  = ellBdry%yDD
+      !Separate positive/negative y-axis bounds
+      bP = ellBdry%yDD
+      bM = ellBdry%yDD
 
       if (ellBdry%isDynamic) then
         !Tune to current equatorial bounds
@@ -672,20 +677,25 @@ MODULE torcm_mod
         !Test dusk/dawn y extents
         yMaxP = maxval( ye,mask=iopen<0) !Dusk extent
         yMaxM = maxval(-ye,mask=iopen<0) !Dawn extent
-        yMax  = min(yMaxP,yMaxM) !Min of max dusk/dawn extent
-
         !Enforce max's from XML ellipse
         a1 = min(a1,xP)
         a2 = max(a2,xM)
-        b  = min(b ,yMax)
+        bP = min(bP,yMaxP)
+        bM = min(bM,yMaxM)
       endif
       
       x0 = (a1 + a2)/2.
       a  = (a1 - a2)/2.
       do j=1,jdim
         do i=1,idim-1 !Start from the bottom
-          !Check ellipse
-          ell = ((xe(i,j)-x0)/a)**2+(ye(i,j)/b)**2
+          !Check ellipse, separate dawn/dusk extent
+          if (ye(i,j)>=0) then
+            ell = ((xe(i,j)-x0)/a)**2+(ye(i,j)/bP)**2
+          else 
+            !Dawn
+            ell = ((xe(i,j)-x0)/a)**2+(ye(i,j)/bM)**2
+          endif
+
           isBad = (ell > 1.0) .or. (iopen(i,j) /= RCMTOPCLOSED)
           if (isBad) then
             !Either not in ellipse or on bad topology
