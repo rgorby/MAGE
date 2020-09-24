@@ -483,8 +483,8 @@ module voltapp_mpi
 
         call Tic("DeepSend")
         call sendDeepData_mpi(vApp)
-        call Toc("DeepSend")
         call mpi_bcast(vApp%DeepT + vApp%DeepDT, 1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
+        call Toc("DeepSend")
 
         ! then receive just deep data
         call Tic("DeepRecv")
@@ -532,8 +532,8 @@ module voltapp_mpi
         ! send deep now
         call Tic("DeepSend")
         call sendDeepData_mpi(vApp)
-        call Toc("DeepSend")
         call mpi_bcast(vApp%DeepT + vApp%DeepDT, 1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
+        call Toc("DeepSend")
 
         ! then receive just deep data
         call Tic("DeepRecv")
@@ -638,10 +638,10 @@ module voltapp_mpi
         ! send updated data to Gamera ranks
         call Tic("ShallowSend")
         call sendShallowData_mpi(vApp)
-        call Toc("ShallowSend")
 
         ! send next time for shallow calculation to all gamera ranks
         call mpi_bcast(vApp%ShallowT, 1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
+        call Toc("ShallowSend")
 
     end subroutine
 
@@ -655,13 +655,13 @@ module voltapp_mpi
         ! send updated data to Gamera ranks
         call Tic("ShallowSend")
         call sendShallowData_mpi(vApp)
-        call Toc("ShallowSend")
 
         ! Update coupling DT
         vApp%ShallowDT = vApp%TargetShallowDT
 
         ! send next time for shallow calculation to all gamera ranks
         call mpi_bcast(vApp%ShallowT + vApp%ShallowDT, 1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
+        call Toc("ShallowSend")
 
         if(present(skipUpdateGamera) .and. skipUpdateGamera) then
             ! do nothing here, do not update the incoming gamera data
@@ -800,6 +800,7 @@ module voltapp_mpi
 
         if(.not. vApp%deepProcessingInProgress) return
 
+        call Tic("DeepUpdate")
         call Tic("Squish")
         call DoSquishBlock(vApp)
         call Toc("Squish")
@@ -811,6 +812,7 @@ module voltapp_mpi
         if(.not. vApp%deepProcessingInProgress) then
             call PostSquishDeep(vApp, vApp%gAppLocal)
         endif
+       call Toc("DeepUpdate")
 
     end subroutine doDeepBlock
 
@@ -877,10 +879,10 @@ module voltapp_mpi
             ! send updated data to Gamera ranks
             call Tic("DeepSend")
             call sendDeepData_mpi(vApp)
-            call Toc("DeepSend")
 
             ! send next time for deep calculation to all gamera ranks
             call mpi_bcast(vApp%DeepT,1,MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
+            call Toc("DeepSend")
         endif
 
     end subroutine
@@ -899,13 +901,13 @@ module voltapp_mpi
             ! send updated data to Gamera ranks
             call Tic("DeepSend")
             call sendDeepData_mpi(vApp)
-            call Toc("DeepSend")
 
             ! Update coupling DT
             vApp%DeepDT = vApp%TargetDeepDT
 
             ! send next time for deep calculation to all gamera ranks
             call mpi_bcast(vApp%DeepT+vApp%DeepDT, 1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
+            call Toc("DeepSend")
 
             ! fetch data from Gamera ranks
             call Tic("DeepRecv")
