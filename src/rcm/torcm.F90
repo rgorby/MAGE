@@ -13,6 +13,7 @@ MODULE torcm_mod
   real(rp), private :: density_factor !module private density_factor using planet radius
   real(rp), private :: pressure_factor
   logical, parameter :: doWgt = .false. !Whether to do MHD=>RCM blending
+  logical, parameter :: doSmoothEta = .false. !Whether to smooth eeta at boundary
 
   contains
 !==================================================================      
@@ -129,7 +130,7 @@ MODULE torcm_mod
         bndloc(j) = 2  ! if everything else fails, can use this...
         do i=isize,2,-1
           if (iopen(i,j) >= 0) then !null or open
-            bndloc(j) = i + 2 !Adding one buffer cell here
+            bndloc(j) = i + 2 !Adding buffer cell/s here
             exit
           endif
         end do
@@ -249,8 +250,10 @@ MODULE torcm_mod
         enddo !i
       enddo !j
 
-      ! smooth eeta at the boundary
-      CALL Smooth_eta_at_boundary(isize,jsize,kcsize,jwrap,eeta,iopen,imin_j)
+      if (doSmoothEta) then
+        ! smooth eeta at the boundary
+        CALL Smooth_eta_at_boundary(isize,jsize,kcsize,jwrap,eeta,iopen,imin_j)
+      endif
 
     !-----
     !Finish up and get out of here
@@ -499,6 +502,7 @@ MODULE torcm_mod
       endif
       dmhd = den(i,j)
       dpp  = 0.0
+
       if (.not. use_plasmasphere) return !Separation complete
       
     !If still here either null or closed
@@ -512,27 +516,30 @@ MODULE torcm_mod
         return
       endif
 
-      !Last try, if this is in RCM domain use RC/RC+PSPH density fraction
-      if (iopen(i,j) == RCMTOPCLOSED) then
-        drcm = 0.0
-        do k=2,kcsize
-          if (alamc(k)>0) then
-            !NOTE: Assuming protons here, otherwise see tomhd for mass scaling
-            drcm = drcm + density_factor*eeta(i,j,k)*vm(i,j)**1.5
-          endif
-        enddo
-        if (drcm > TINY) then
-          !Part MHD fluid based on ratio inferred from RCM
-          dtot = dpp + drcm
-          dmhd = den(i,j)*drcm/dtot
-          dpp  = den(i,j)*dpp /dtot
-          return
-        endif
-      endif
-
-      !Yeesh, are we still here?
-      !Give up and just use uncorrected density
+      !We tried our best, just return uncorrected density
       return
+
+      ! !Last try, if this is in RCM domain use RC/RC+PSPH density fraction
+      ! if (iopen(i,j) == RCMTOPCLOSED) then
+      !   drcm = 0.0
+      !   do k=2,kcsize
+      !     if (alamc(k)>0) then
+      !       !NOTE: Assuming protons here, otherwise see tomhd for mass scaling
+      !       drcm = drcm + density_factor*eeta(i,j,k)*vm(i,j)**1.5
+      !     endif
+      !   enddo
+      !   if (drcm > TINY) then
+      !     !Part MHD fluid based on ratio inferred from RCM
+      !     dtot = dpp + drcm
+      !     dmhd = den(i,j)*drcm/dtot
+      !     dpp  = den(i,j)*dpp /dtot
+      !     return
+      !   endif
+      ! endif
+
+      ! !Yeesh, are we still here?
+      ! !Give up and just use uncorrected density
+      ! return
 
       END SUBROUTINE PartFluid
 !
@@ -591,9 +598,11 @@ MODULE torcm_mod
 
             !Now rescale eeta channels to conserve pressure integral between MHD/RCM
             pscl = press(i,j)/pcumsum
-            do k=kmin,kcsize
-              eeta_new(i,j,k) = pscl*eeta_new(i,j,k)
-            enddo
+            if (pscl<1.0) then
+              do k=kmin,kcsize
+                eeta_new(i,j,k) = pscl*eeta_new(i,j,k)
+              enddo
+            endif
 
         !Not good MHD
           else
@@ -680,7 +689,7 @@ MODULE torcm_mod
           isBad = (ell > 1.0) .or. (iopen(i,j) /= RCMTOPCLOSED)
           if (isBad) then
             !Either not in ellipse or on bad topology
-            bndloc(j) = i+2 !Push boundary up
+            bndloc(j) = i+1 !Push boundary up
             if (iopen(i,j) == RCMTOPOPEN) then
               vm(i,j) = big_vm
             endif !Open line

@@ -27,6 +27,7 @@ module rcmimag
     logical , private :: doBounceDT = .true. !Whether to use Alfven bounce in dt-ingest
     real(rp), private :: nBounce = 1.0 !Scaling factor for Alfven transit
 
+    real(rp), private :: wIM_C = 0.20 !Critical wIM for MHD ingestion inclusion
 
     real(rp), dimension(:,:), allocatable, private :: mixPot
 
@@ -385,7 +386,8 @@ module rcmimag
             iS = ceiling(jSmG(j))+1 !Nominal boundary for this j
             !Start from here and find first such that all above are closed
             do i=iS,RCMApp%nLat_ion
-                isClosed = all((RCMApp%iopen(i-1:RCMApp%nLat_ion,j) == RCMTOPCLOSED))
+                isClosed = all((RCMApp%iopen(i-1:RCMApp%nLat_ion,j) == RCMTOPCLOSED)) .and. &
+                           all((RCMApp%wImag(i-1:RCMApp%nLat_ion,j) > wIM_C))
                 if (isClosed) then
                     !All cells above boundary are closed, this works
                     RCMApp%toMHD(i:RCMApp%nLat_ion,j) = .true.
@@ -452,13 +454,14 @@ module rcmimag
                 !Do limiting on pressure/density
                 pScl = beta*5.0/6.0
                 plim = (pScl*pmhd + prcm)/(1.0+pScl)
-                nlim = nrcm - 0.6*pScl*nmhd*(prcm-pmhd)/(1.0+pScl)/pmhd
+                !nlim = nrcm - 0.6*pScl*nmhd*(prcm-pmhd)/(1.0+pScl)/pmhd
+                nlim = nrcm !Testing P-only wolf limiting
             else
                 !Use raw RCM values if they're good
                 plim = prcm
                 nlim = nrcm
-            endif !doWolfLim                         
-        else
+            endif !doWolfLim
+        else !Either n or p is tiny
             !Ignore them
             plim = 0.0
             nlim = 0.0
@@ -569,7 +572,7 @@ module rcmimag
 
         integer :: i0,j0,maxIJ(2)
 
-        real(rp) :: maxP,maxD,maxL,maxMLT,wTrust,wTMin
+        real(rp) :: maxP,maxD,maxDP,maxL,maxMLT,wTrust,wTMin
 
         associate(RCMApp => imag%rcmCpl)
     !Start by getting some data
@@ -577,8 +580,9 @@ module rcmimag
         maxIJ = maxloc(RCMApp%Prcm,mask=RCMApp%toMHD)
         i0 = maxIJ(1); j0 = maxIJ(2)
 
-        maxP = RCMApp%Prcm(i0,j0)*rcmPScl
-        maxD = RCMApp%Nrcm(i0,j0)*rcmNScl
+        maxP  = RCMApp%Prcm (i0,j0)*rcmPScl
+        maxD  = RCMApp%Nrcm (i0,j0)*rcmNScl
+        maxDP = RCMApp%Npsph(i0,j0)*rcmNScl
         maxL = norm2(RCMApp%X_bmin(i0,j0,XDIR:YDIR))/Rp_m
         maxMLT = atan2(RCMApp%X_bmin(i0,j0,YDIR),RCMApp%X_bmin(i0,j0,XDIR))*180.0/PI
         if (maxMLT<0) maxMLT = maxMLT+360.0
@@ -597,7 +601,8 @@ module rcmimag
         write (*, '(a, f8.2,a,f6.2,a)')      '  Trust    = ' , wTrust, '% (P-AVG) / ', wTMin, '% (MIN)'
         write (*, '(a,1f8.3,a)')             '  Max RC-P = ' , maxP, ' [nPa]'
         write (*, '(a,2f8.3,a)')             '   @ L/MLT = ' , maxL, maxMLT, ' [deg]'
-        write (*, '(a,1f8.3,a)')             '      w/ D = ' , maxD, ' [#/cc]'
+        !write (*, '(a,1f8.3,a)')             '      w/ D = ' , maxD, ' [#/cc]', maxDP
+        write (*, '(a, f8.3,a,f8.3,a)')      '      w/ D = ' , maxD, ' (RC) / ', maxDP, ' (PSPH) [#/cc]'
         write (*, '(a,1f8.3,a)')             '      w/ T = ' , DP2kT(maxD,maxP), ' [keV]'
         
         write(*,'(a)',advance="no") ANSIRESET!, ''
