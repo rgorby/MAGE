@@ -190,8 +190,8 @@ module rcmimag
         
         associate(RCMApp => imag%rcmCpl)
 
-        RCMApp%llBC = vApp%mhd2chmp%lowlatBC
-
+        RCMApp%llBC  = vApp%mhd2chmp%lowlatBC
+        RCMApp%dtCpl = vApp%DeepDT
         call Tic("MAP_RCMMIX")
     !Get potential from mix
         call map_rcm_mix(vApp,mixPot)
@@ -482,7 +482,8 @@ module rcmimag
             !Use Alfven bounce timescale
             imW(IMTSCL) = nBounce*RCMApp%Tb(ij0(1),ij0(2))
         else
-            imW(IMTSCL) = 0.0 !Set this to zero and rely on coupling timescale later
+            !Use current coupling timescale, modulated by wImag
+            imW(IMTSCL) = RCMApp%dtCpl/max( RCMApp%wImag(ij0(1),ij0(2)), TINY )
         endif
 
         imW(IMX1)   = rad2deg*lat

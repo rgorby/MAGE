@@ -18,6 +18,7 @@ module rcm_mhd_interfaces
 
     type rcm_mhd_T
         real(rprec) :: llBC !MHD low-latitude boundary (radians)
+        real(rprec) :: dtCpl !Current coupling timescale (can change), [s]
         integer(iprec) :: nLat_ion 
         integer(iprec) :: nLon_ion
         real(rprec) :: planet_radius ! m
