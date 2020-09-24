@@ -573,7 +573,8 @@ module rcmimag
 
         integer :: i0,j0,maxIJ(2)
 
-        real(rp) :: maxP,maxD,maxDP,maxL,maxMLT,wTrust,wTMin
+        real(rp) :: maxPRCM,maxD,maxDP,maxPMHD,maxL,maxMLT,maxBeta
+        real(rp) :: pScl,limP,wTrust,wTMin,maxT
 
         associate(RCMApp => imag%rcmCpl)
     !Start by getting some data
@@ -581,7 +582,13 @@ module rcmimag
         maxIJ = maxloc(RCMApp%Prcm,mask=RCMApp%toMHD)
         i0 = maxIJ(1); j0 = maxIJ(2)
 
-        maxP  = RCMApp%Prcm (i0,j0)*rcmPScl
+        maxPRCM  = RCMApp%Prcm (i0,j0)*rcmPScl
+        maxPMHD  = RCMApp%Pave (i0,j0)*rcmPScl
+        maxBeta  = RCMApp%beta_average(i0,j0)
+
+        pScl = maxBeta*5.0/6.0
+        limP = (pScl*maxPMHD+maxPRCM)/(1+pScl)
+
         maxD  = RCMApp%Nrcm (i0,j0)*rcmNScl
         maxDP = RCMApp%Npsph(i0,j0)*rcmNScl
         maxL = norm2(RCMApp%X_bmin(i0,j0,XDIR:YDIR))/Rp_m
@@ -595,16 +602,21 @@ module rcmimag
         wTMin = 100.0*minval(RCMApp%wIMAG,mask=RCMApp%toMHD)
 
     !Do some output
-        if (maxP<TINY) return
+        if (maxPRCM<TINY) return
 
         write(*,*) ANSIYELLOW
         write(*,*) 'RCM'
         write (*, '(a, f8.2,a,f6.2,a)')      '  Trust    = ' , wTrust, '% (P-AVG) / ', wTMin, '% (MIN)'
-        write (*, '(a,1f8.3,a)')             '  Max RC-P = ' , maxP, ' [nPa]'
+        if (doWolfLim) then
+            write (*, '(a, f8.3,a,f8.3,a)')      '  Max RC-P = ' , maxPRCM, ' (RCM) / ', limP, ' (LIM) [nPa]'
+            maxT = DP2kT(maxD,limP)
+        else
+            write (*, '(a,1f8.3,a)')             '  Max RC-P = ' , maxPRCM, ' [nPa]'
+            maxT = DP2kT(maxD,maxPRCM)
+        endif
         write (*, '(a,2f8.3,a)')             '   @ L/MLT = ' , maxL, maxMLT, ' [deg]'
-        !write (*, '(a,1f8.3,a)')             '      w/ D = ' , maxD, ' [#/cc]', maxDP
         write (*, '(a, f8.3,a,f8.3,a)')      '      w/ D = ' , maxD, ' (RC) / ', maxDP, ' (PSPH) [#/cc]'
-        write (*, '(a,1f8.3,a)')             '      w/ T = ' , DP2kT(maxD,maxP), ' [keV]'
+        write (*, '(a,1f8.3,a)')             '      w/ T = ' , maxT, ' [keV]'
         
         write(*,'(a)',advance="no") ANSIRESET!, ''
 
