@@ -599,10 +599,17 @@ MODULE torcm_mod
             pmhdI = press(i,j)*tiote/(1.0+tiote) !Desired ion pressure
             pmhdE = press(i,j)*  1.0/(1.0+tiote) !Desired elec pressure
 
-            !Clamp scaling so we don't increase eeta pressure
-            psclI = min(pmhdI/prcmI,1.0)
-            psclE = min(pmhdE/prcmE,1.0)
-
+            if (prcmI>0.0) then
+              psclI = pmhdI/prcmI
+            else
+              psclI = 0.0
+            endif
+            if (prcmE>0.0) then
+              psclE = pmhdE/prcmE
+            else
+              psclE = 0.0
+            endif
+            
             do k=kmin,kcsize
               IF (ikflavc(k) == RCMELECTRON) THEN  ! electrons
                 eeta_new(i,j,k) = psclE*eeta_new(i,j,k)
