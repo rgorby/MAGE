@@ -93,8 +93,8 @@ contains
 
     call mix_set_map(rcmG_mixstyle,remixApp%ion(NORTH)%G,rcmMap)
     associate(rcmNt=>rcmG_mixstyle%Nt,rcmNp=>rcmG_mixstyle%Np)
-    call mix_map_grids(rcmMap,max(transpose(imag2mix%eflux(:,1:rcmNp)),1.D-6),rcmEflux_mix)
-    call mix_map_grids(rcmMap,max(transpose(imag2mix%eavg(:,1:rcmNp)),1.D-6),rcmEavg_mix)
+    call mix_map_grids(rcmMap,transpose(imag2mix%eflux(:,1:rcmNp)),rcmEflux_mix)
+    call mix_map_grids(rcmMap,transpose(imag2mix%eavg(:,1:rcmNp)),rcmEavg_mix)
     end associate
 
     remixApp%ion(NORTH)%St%Vars(:,:,IM_EAVG)  = rcmEavg_mix*1e-3 ! [eV -> keV]
@@ -144,7 +144,7 @@ contains
     real(rp), dimension(:,:), allocatable, intent(inout) :: efluxS, eavgS
     real(rp), dimension(:,:), allocatable :: colatc, glongc, rcmt, rcmp, Ainvdwgt2
     real(rp) :: dlat, delt, delp, invdwgt
-    integer :: i, j, Np, Nt, i0, j0, NpS, NtS, jl, ju
+    integer :: i, j, Np, Nt, i0, j0, NpS, NtS, jl, ju, il, iu, jp
 
     Nt = size(imag2mix%latc,1)
     Np = size(imag2mix%latc,2) ! imag2mix%latc (Nt,Np)
@@ -173,25 +173,53 @@ contains
     eavgS = 0.0
     Ainvdwgt2 = 0.0
     !$OMP PARALLEL DO default(shared) collapse(2) &
-    !$OMP private(i,j,i0,j0,jl,ju,delt,delp,invdwgt) &
+    !$OMP private(i,j,i0,il,iu,j0,jl,ju,jp,delt,delp,invdwgt) &
     !$OMP reduction(+:efluxS,eavgS,Ainvdwgt2)
     do j=1,Np
        do i=1,Nt
           if(imag2mix%eflux(i,j)>0.0) then
              i0 = minloc(abs(rcmt(1,:)-colatc(i,j)),1)
-             if(abs(rcmt(1,i0)-colatc(i,j))<dlat) then
-                j0 = minloc(abs(rcmp(:,1)-glongc(i,j)),1)
-                jl = max(j0-2,1)
-                ju = min(j0+2,NpS)
-                do j0=jl,ju
-                   delt = abs(rcmt(j0,i0)-colatc(i,j))
-                   delp = abs((rcmp(j0,i0)-glongc(i,j)))*sin(rcmt(j0,i0))
-                   invdwgt = 1./sqrt(delt**2+delp**2)
-                   efluxS(i0,j0) = efluxS(i0,j0) + imag2mix%eflux(i,j)*invdwgt
-                   eavgS(i0,j0)  = eavgS(i0,j0)  + imag2mix%eavg(i,j)*invdwgt
-                   Ainvdwgt2(i0,j0)  = Ainvdwgt2(i0,j0)  + invdwgt
-                enddo
+             if(rcmt(1,i0)<=colatc(i,j)) then
+                il=i0
+                iu=min(i0+1,NtS)
+             else
+                il=max(i0-1,1)
+                iu=i0
              endif
+             do i0=il,iu 
+                if(abs(rcmt(1,i0)-colatc(i,j))<dlat) then
+                   jp = minloc(abs(rcmp(:,1)-glongc(i,j)),1)
+                   jl = max(jp-2,1)
+                   ju = min(jp+2,NpS)
+                   if(jp<3) then  ! The code here may be optimized to be more concise.
+                     do j0=NpS-(2-jp),NpS
+                       delt = abs(rcmt(j0,i0)-colatc(i,j))
+                       delp = abs((rcmp(j0,i0)-glongc(i,j)))*sin(rcmt(j0,i0))
+                       invdwgt = 1./sqrt(delt**2+delp**2)
+                       efluxS(i0,j0) = efluxS(i0,j0) + imag2mix%eflux(i,j)*invdwgt
+                       eavgS(i0,j0)  = eavgS(i0,j0)  + imag2mix%eavg(i,j)*invdwgt
+                       Ainvdwgt2(i0,j0)  = Ainvdwgt2(i0,j0)  + invdwgt
+                     enddo
+                   elseif(jp>NpS-2) then
+                     do j0=1,2-(NpS-jp)
+                       delt = abs(rcmt(j0,i0)-colatc(i,j))
+                       delp = abs((rcmp(j0,i0)-glongc(i,j)))*sin(rcmt(j0,i0))
+                       invdwgt = 1./sqrt(delt**2+delp**2)
+                       efluxS(i0,j0) = efluxS(i0,j0) + imag2mix%eflux(i,j)*invdwgt
+                       eavgS(i0,j0)  = eavgS(i0,j0)  + imag2mix%eavg(i,j)*invdwgt
+                       Ainvdwgt2(i0,j0)  = Ainvdwgt2(i0,j0)  + invdwgt
+                     enddo
+                   endif
+                   do j0=jl,ju
+                      delt = abs(rcmt(j0,i0)-colatc(i,j))
+                      delp = abs((rcmp(j0,i0)-glongc(i,j)))*sin(rcmt(j0,i0))
+                      invdwgt = 1./sqrt(delt**2+delp**2)
+                      efluxS(i0,j0) = efluxS(i0,j0) + imag2mix%eflux(i,j)*invdwgt
+                      eavgS(i0,j0)  = eavgS(i0,j0)  + imag2mix%eavg(i,j)*invdwgt
+                      Ainvdwgt2(i0,j0)  = Ainvdwgt2(i0,j0)  + invdwgt
+                   enddo
+                endif
+             enddo
           endif
        end do
     end do
