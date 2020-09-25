@@ -2480,6 +2480,7 @@ END FUNCTION FLCRat
 !
 SUBROUTINE Move_plasma_grid_MHD (dt)
   use rice_housekeeping_module, ONLY : LowLatMHD
+  use math, ONLY : SmoothOpTSC
 
   IMPLICIT NONE
   REAL (rprec), INTENT (IN) :: dt
@@ -2491,14 +2492,16 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
 
   LOGICAL, dimension(1:isize,1:jsize) :: isOpen
   INTEGER (iprec) :: iOCB_j(1:jsize)
-  REAL (rprec) :: mass_factor,r_dist,lossCX,lossFLC,lossFDG
+  REAL (rprec) :: mass_factor,r_dist,lossCX,lossFLC,lossFDG,lossOCB
   REAL (rprec), save :: xlower,xupper,ylower,yupper, T1,T2 !Does this need save?
   INTEGER (iprec) :: i, j, kc, ie, iL,jL,iR,jR,iMHD
   INTEGER (iprec) :: CLAWiter, joff
   
   REAL (rprec) :: T1k,T2k !Local loop variables b/c clawpack alters input
   LOGICAL, save :: FirstTime=.true.
-  
+  LOGICAL :: doOCBNuke
+
+  doOCBNuke = .true.
 
   if (jwrap /= 3) then
     write(*,*) 'Somebody should rewrite this code to not assume that jwrap=3'
@@ -2558,8 +2561,8 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
   !$OMP PRIVATE(i,j,kc,ie,iL,jL,iR,jR) &
   !$OMP PRIVATE(veff,didt,djdt,etaC,rateC,rate,dvedi,dvedj) &
   !$OMP PRIVATE(mass_factor,r_dist,CLAWiter,T1k,T2k) &
-  !$OMP PRIVATE(lossCX,lossFLC,lossFDG) &
-  !$OMP SHARED(isOpen,iOCB_j,alamc,eeta,v,vcorot,vpar,vm,imin_j,j1,j2,joff) &
+  !$OMP PRIVATE(lossCX,lossFLC,lossFDG,lossOCB) &
+  !$OMP SHARED(isOpen,iOCB_j,alamc,eeta,v,vcorot,vpar,vm,imin_j,j1,j2,joff,doOCBNuke) &
   !$OMP SHARED(xmin,ymin,rmin,fac,fudgec,bir,sini,L_dktime,dktime,sunspot_number) &
   !$OMP SHARED(aloct,xlower,xupper,ylower,yupper,dt,T1,T2,iMHD,bmin,radcurv,losscone) 
   DO kc = 1, kcsize
@@ -2579,7 +2582,6 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
   
     !K: Here we're adding corotation to total effective potential
     veff = v + vcorot - vpar + vm*alamc(kc)
-    
     
     !Calculate RCM-node-centered gradient of veff
     call Grad_IJ(veff,isOpen,dvedi,dvedj)
@@ -2615,7 +2617,7 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
 
     !Before setting ghosts, enforce outflow-only (i.e. into RCM) velocities past the MHD domain
     didt(iMHD  :,:) = max(didt(iMHD:,:),0.0)
-    !djdt(iMHD+1:,:) = 0.0
+    djdt(iMHD+1:,:) = 0.0
 
     call PadClaw(didt)
     call PadClaw(djdt)
@@ -2673,15 +2675,32 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
     !Copy out
     do j=j1,j2 !jwrap,jsize-1
       if (kc == 1) then
-        iL = min(iOCB_j(j)+1,isize) !OCB
+        iL = min(iOCB_j(j)+1,isize) !OCB, go up 1 for first closed cell
       else
-        iL = min(imin_j(j)+1,isize) !RCM ellipse
+        iL = min(imin_j(j)  ,isize) !RCM ellipse
       endif
       
       do i=iL,isize-1
         eeta(i,j,kc) = max(etaC(i,j-joff),0.0)
       enddo
     enddo
+
+    if (doOCBNuke) then
+      !Go through and nuke any content next to open cell
+      do j=j1,j2 !jwrap,jsize-1
+        do i=2,isize-1
+          if (isOpen(i,j)) then
+            eeta(i,j,kc) = 0.0
+          else if (any(isOpen(i-1:i+1,j-1:j+1))) then
+          !Has border cells that are open
+            !Count up losses, 1/16 per diag and 1/8 per cardinal direction
+            lossOCB = sum(SmoothOpTSC,mask=isOpen(i-1:i+1,j-1:j+1))
+            eeta(i,j,kc) = (1.0-lossOCB)*eeta(i,j,kc)
+          endif
+        enddo !i loop
+      enddo !j loop
+    endif !doOCBNuke
+
     eeta(:,jsize,kc) = eeta(:,jwrap,kc)
     call circle(eeta(:,:,kc))
 
@@ -2744,6 +2763,7 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
       REAL (rprec), intent(IN) ::    Q(-1:+1)
 
       REAL (rprec) :: dvdx
+      REAL (rprec) :: dvL,dvR
       dvdx = 0.0
 
       if (isOp(0)) return
@@ -2756,7 +2776,12 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
       !Have at least two points
       if ((.not. isOp(-1)) .and. (.not. isOp(+1))) then
         !Both sides closed
-        dvdx = 0.5*(Q(+1)-Q(-1))
+        
+        !dvdx = 0.5*(Q(+1)-Q(-1)) !Straight up centered derivative
+        dvL = Q( 0) - Q(-1)
+        dvR = Q(+1) - Q( 0)
+        dvdx = qkminmod(dvL,dvR)
+
       else if (.not. isOp(-1)) then
         !-1 is closed, do backward difference
         dvdx = Q(0)-Q(-1)
@@ -2766,6 +2791,23 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
       endif
 
     end function Deriv_IJ
+
+    !Quick and lazy minmod limiter
+    function qkminmod(a,b) result(c)
+      REAL (rprec), intent(in) :: a,b
+      REAL (rprec) :: c
+
+      if (a*b > 0) then
+        !Pick min modulus
+        if (abs(a) < abs(b)) then
+          c = a
+        else
+          c = b
+        endif !No sign flip
+      else
+        c = 0.0
+      endif
+    end function qkminmod
 
     !Copy variable from rcm to clawpack grid
     subroutine rcm2claw(qR,qC)

@@ -12,6 +12,11 @@ module math
                                       4,16,26,16, 4, &
                                       1, 4, 7, 4, 1  ], [5,5] )
 
+    !Marix for 3x3 smoothing (scaled)
+    real(rp), parameter, dimension(3,3) ::  &
+              SmoothOpTSC = reshape( [ 0.0625,0.1250,0.0625, &
+                                       0.1250,0.2500,0.1250, &
+                                       0.0625,0.1250,0.0625 ], [3,3] )
 
     contains
 

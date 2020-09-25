@@ -259,6 +259,8 @@ module rcmimag
             call HackTubes(RCMApp,vApp)
         endif
 
+        !coverup some bad tubes
+        call TrickyTubes(RCMApp)
         !Smooth out FTV on tubes b/c RCM will take gradient
         call SmoothTubes(RCMApp)
 
@@ -625,7 +627,6 @@ module rcmimag
         write (*, '(a,2f8.3,a)')             '   @ L/MLT = ' , maxL, maxMLT, ' [deg]'
         write (*, '(a, f8.3,a,f8.3,a)')      '      w/ D = ' , maxD, ' (RC) / ', maxDP, ' (PSPH) [#/cc]'
         write (*, '(a,1f8.3,a)')             '      w/ T = ' , maxT, ' [keV]'
-        write (*, '(a,1f6.2,a)')             '       wIM = ' , maxWT, ' %'
 
         write(*,'(a)',advance="no") ANSIRESET!, ''
 

@@ -17,5 +17,5 @@ module rcmdefs
     LOGICAL, PARAMETER :: doQuietRCM = .TRUE.
     LOGICAL, PARAMETER :: doDiskWrite = .FALSE.
     integer(ip), parameter :: RCMTOPCLOSED=-1,RCMTOPOPEN=+1,RCMTOPNULL=0
-    real(rp) :: DenPP0 = 1.0 !Defining plasmasphere density cutoff, [#/cc]
+    real(rp) :: DenPP0 = 0.0 !Defining plasmasphere density cutoff, [#/cc]
 end module rcmdefs
