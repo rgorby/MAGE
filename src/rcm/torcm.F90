@@ -540,14 +540,14 @@ MODULE torcm_mod
       USE rcm_precision
       IMPLICIT NONE
       
-      real(rprec) :: dmhd,dpp,pcon,t,prcmI,prcmE,pmhdI,pmhdE
+      real(rprec) :: dmhd,dpp,pcon,t,prcmI,prcmE,pmhdI,pmhdE,psclI,psclE
       integer(iprec) :: i,j,k,kmin
       real(rprec) :: xp,xm,A0,delerf,delexp
       logical :: isIon
 
       !$OMP PARALLEL DO default(shared) &
       !$OMP schedule(dynamic) &
-      !$OMP private(i,j,k,kmin,dmhd,dpp,pcon,prcmI,prcmE,t,pmhdI,pmhdE) &
+      !$OMP private(i,j,k,kmin,dmhd,dpp,pcon,prcmI,prcmE,t,pmhdI,pmhdE,psclI,psclE) &
       !$OMP private(xp,xm,A0,delerf,delexp,isIon)
       do j=1,jsize
         do i=1,isize
@@ -599,11 +599,15 @@ MODULE torcm_mod
             pmhdI = press(i,j)*tiote/(1.0+tiote) !Desired ion pressure
             pmhdE = press(i,j)*  1.0/(1.0+tiote) !Desired elec pressure
 
+            !Clamp scaling so we don't increase eeta pressure
+            psclI = min(pmhdI/prcmI,1.0)
+            psclE = min(pmhdE/prcmE,1.0)
+
             do k=kmin,kcsize
               IF (ikflavc(k) == RCMELECTRON) THEN  ! electrons
-                eeta_new(i,j,k) = (pmhdE/prcmE)*eeta_new(i,j,k)
+                eeta_new(i,j,k) = psclE*eeta_new(i,j,k)
               ELSE IF (ikflavc(k) == RCMPROTON) THEN ! ions (protons)
-                eeta_new(i,j,k) = (pmhdI/prcmI)*eeta_new(i,j,k)
+                eeta_new(i,j,k) = psclI*eeta_new(i,j,k)
               ENDIF
             enddo
 
