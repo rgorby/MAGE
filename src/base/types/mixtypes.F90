@@ -25,6 +25,7 @@ module mixtypes
      logical  :: doChill
      logical  :: doStarlight
      logical  :: doMR
+     logical  :: doAuroralSmooth
      logical  :: apply_cap
 
      ! solver
@@ -93,7 +94,7 @@ module mixtypes
   type mixConductance_T
     integer :: euv_model_type, et_model_type, aurora_model_type
     real(rp) :: alpha, beta, R, F107,pedmin,hallmin,sigma_ratio,ped0, alphaZ, betaZ
-    logical :: const_sigma, doRamp, doChill, doStarlight, apply_cap, doMR
+    logical :: const_sigma, doRamp, doChill, doStarlight, apply_cap, doMR, doAuroralSmooth
 
     ! auxilary variables
     real(rp) :: PI2, ang65, ang100, pref, href, shall

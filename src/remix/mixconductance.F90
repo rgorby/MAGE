@@ -34,6 +34,7 @@ module mixconductance
       conductance%doChill = Params%doChill
       conductance%doStarlight = Params%doStarlight      
       conductance%doMR = Params%doMR      
+      conductance%doAuroralSmooth = Params%doAuroralSmooth      
       conductance%apply_cap = Params%apply_cap
       conductance%aurora_model_type = Params%aurora_model_type
 
@@ -330,7 +331,7 @@ module mixconductance
       end select
 
       ! Smooth precipitation energy and flux before calculating conductance.
-      call conductance_auroralsmooth(St,G)
+      if (conductance%doAuroralSmooth) call conductance_auroralsmooth(St,G)
       
       if (present(gcm)) then
          !write(*,*) 'going to apply!'
