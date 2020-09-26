@@ -2501,7 +2501,7 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
   LOGICAL, save :: FirstTime=.true.
   LOGICAL :: doOCBNuke
 
-  doOCBNuke = .true.
+  doOCBNuke = .false.
 
   if (jwrap /= 3) then
     write(*,*) 'Somebody should rewrite this code to not assume that jwrap=3'
