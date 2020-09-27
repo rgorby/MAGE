@@ -4,6 +4,7 @@ module mixconductance
   use earthhelper
   use gcmtypes
   use gcminterp
+  use math
   
   implicit none
 
@@ -411,16 +412,13 @@ module mixconductance
       tmpF = St%Vars(:,:,NUM_FLUX)
       !$OMP PARALLEL DO default(shared) collapse(2) &
       !$OMP private(i,j)
-      do j=2,G%Nt-1
-         do i=2,G%Np-1
-            St%Vars(i,j,AVG_ENG)=0.25*tmpE(i,j) + 0.125*(tmpE(i,j+1)+tmpE(i,j-1)+tmpE(i-1,j)+tmpE(i+1,j)) &
-                +0.0625*(tmpE(i+1,j+1)+tmpE(i+1,j-1)+tmpE(i-1,j+1)+tmpE(i-1,j-1))
-            St%Vars(i,j,NUM_FLUX)=0.25*tmpF(i,j) + 0.125*(tmpF(i,j+1)+tmpF(i,j-1)+tmpF(i-1,j)+tmpF(i+1,j)) &
-                +0.0625*(tmpF(i+1,j+1)+tmpF(i+1,j-1)+tmpF(i-1,j+1)+tmpF(i-1,j-1))
+      do j=3,G%Nt-2
+         do i=3,G%Np-2
+            ! SmoothOperator55(Q,isGO)
+            St%Vars(i,j,AVG_ENG) =SmoothOperator55(tmpE(i-2:i+2,j-2:j+2))
+            St%Vars(i,j,NUM_FLUX)=SmoothOperator55(tmpF(i-2:i+2,j-2:j+2))
          end do
       end do
-      St%Vars(:,:,AVG_ENG)  = tmpE
-      St%Vars(:,:,NUM_FLUX) = tmpF
     end subroutine conductance_auroralsmooth
 
   end module mixconductance
