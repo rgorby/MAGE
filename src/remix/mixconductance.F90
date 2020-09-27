@@ -4,12 +4,14 @@ module mixconductance
   use earthhelper
   use gcmtypes
   use gcminterp
+  use math
   
   implicit none
 
   real(rp), dimension(:,:), allocatable :: tmpD,tmpC ! used for chilling in Fedder95. Declare it here so we can allocate in init.
   real(rp), dimension(:,:), allocatable :: JF0,RM,RRdi ! used for zhang15
   real(rp), dimension(:,:), allocatable :: tmpE,tmpF ! used for smoothing precipitation avg_eng and num_flux
+  real(rp), dimension(:,:), allocatable :: Kc ! used for multi-reflection modification
 
   contains
     subroutine conductance_init(conductance,Params,G)
@@ -79,6 +81,7 @@ module mixconductance
       if (.not. allocated(RRdi)) allocate(RRdi(G%Np,G%Nt))      
       if (.not. allocated(tmpE)) allocate(tmpE(G%Np,G%Nt))
       if (.not. allocated(tmpF)) allocate(tmpF(G%Np,G%Nt))
+      if (.not. allocated(Kc)) allocate(Kc(G%Np,G%Nt))
 
     end subroutine conductance_init
 
@@ -294,17 +297,29 @@ module mixconductance
       conductance%deltaSigmaP = 40.D0*St%Vars(:,:,AVG_ENG)*sqrt(conductance%engFlux)/(16.D0+St%Vars(:,:,AVG_ENG)**2);
       conductance%deltaSigmaH = 0.45D0*conductance%deltaSigmaP*St%Vars(:,:,AVG_ENG)**0.85D0/(1.D0+0.0025D0*St%Vars(:,:,AVG_ENG)**2)
 
-      ! correct for multiple reflections if you're so inclined
-      if (conductance%doMR) call conductance_mr(conductance,St)
     end subroutine conductance_aurora
 
     ! George Khazanov's multiple reflection(MR) corrections
     subroutine conductance_mr(conductance,St)
-      type(mixConductance_T), intent(inout) :: conductance
-      type(mixState_T), intent(in) :: St
+      type(mixConductance_T), intent(in) :: conductance
+      type(mixState_T), intent(inout) :: St
 
-      conductance%deltaSigmaP = (2.16-0.87*exp(-0.16*St%Vars(:,:,AVG_ENG)))*conductance%deltaSigmaP
-      conductance%deltaSigmaH = (1.87-0.54*exp(-0.16*St%Vars(:,:,AVG_ENG)))*conductance%deltaSigmaH
+      ! Modify the diffuse precipitation energy and mean energy based on equation (5) in Khazanov et al. [2019JA026589]
+      ! Kc = 3.36-exp(0.597-0.37*Eavg+0.00794*Eavg^2)
+      ! Eavg_c = 0.073+0.933*Eavg-0.0092*Eavg^2
+      ! Nflx_c = Eflx_c/Eavg_c = Eflx*Kc/Eavg_c = Nflx*Eavg*Kc/Eavg_c
+      ! where Eavg is the mean energy in [keV] before MR, Eavg_c is the modified mean energy. Kc is the ratio between modified enflux and unmodified enflux.
+      ! print *, "doMR for diffuse electron precipitation."
+      Kc = 1.D0
+      where(conductance%deltaE<=0.0.and.St%Vars(:,:,AVG_ENG)<=30.and.St%Vars(:,:,AVG_ENG)>=0.5)
+      ! The formula was derived from E_avg between 0.5 and 30 keV. Kc becomes negative when E_avg > 47-48 keV.
+         Kc = 3.36 - exp(0.597-0.37*St%Vars(:,:,AVG_ENG)+0.00794*St%Vars(:,:,AVG_ENG)**2)
+         St%Vars(:,:,NUM_FLUX) = St%Vars(:,:,NUM_FLUX)*St%Vars(:,:,AVG_ENG) ! store Eflux
+         St%Vars(:,:,AVG_ENG)  = 0.073+0.933*St%Vars(:,:,AVG_ENG)-0.0092*St%Vars(:,:,AVG_ENG)**2 ! [keV]
+         St%Vars(:,:,NUM_FLUX) = Kc*St%Vars(:,:,NUM_FLUX)/St%Vars(:,:,AVG_ENG)
+      end where
+!      conductance%deltaSigmaP = (2.16-0.87*exp(-0.16*St%Vars(:,:,AVG_ENG)))*conductance%deltaSigmaP
+!      conductance%deltaSigmaH = (1.87-0.54*exp(-0.16*St%Vars(:,:,AVG_ENG)))*conductance%deltaSigmaH
     end subroutine conductance_mr
 
     subroutine conductance_total(conductance,G,St,gcm,h)
@@ -329,6 +344,9 @@ module mixconductance
          case default
             stop "The aurora precipitation model type entered is not supported."
       end select
+
+      ! correct for multiple reflections if you're so inclined
+      if (conductance%doMR) call conductance_mr(conductance,St)
 
       ! Smooth precipitation energy and flux before calculating conductance.
       if (conductance%doAuroralSmooth) call conductance_auroralsmooth(St,G)
@@ -411,16 +429,13 @@ module mixconductance
       tmpF = St%Vars(:,:,NUM_FLUX)
       !$OMP PARALLEL DO default(shared) collapse(2) &
       !$OMP private(i,j)
-      do j=2,G%Nt-1
-         do i=2,G%Np-1
-            St%Vars(i,j,AVG_ENG)=0.25*tmpE(i,j) + 0.125*(tmpE(i,j+1)+tmpE(i,j-1)+tmpE(i-1,j)+tmpE(i+1,j)) &
-                +0.0625*(tmpE(i+1,j+1)+tmpE(i+1,j-1)+tmpE(i-1,j+1)+tmpE(i-1,j-1))
-            St%Vars(i,j,NUM_FLUX)=0.25*tmpF(i,j) + 0.125*(tmpF(i,j+1)+tmpF(i,j-1)+tmpF(i-1,j)+tmpF(i+1,j)) &
-                +0.0625*(tmpF(i+1,j+1)+tmpF(i+1,j-1)+tmpF(i-1,j+1)+tmpF(i-1,j-1))
+      do j=3,G%Nt-2
+         do i=3,G%Np-2
+            ! SmoothOperator55(Q,isGO)
+            St%Vars(i,j,AVG_ENG) =SmoothOperator55(tmpE(i-2:i+2,j-2:j+2))
+            St%Vars(i,j,NUM_FLUX)=SmoothOperator55(tmpF(i-2:i+2,j-2:j+2))
          end do
       end do
-      St%Vars(:,:,AVG_ENG)  = tmpE
-      St%Vars(:,:,NUM_FLUX) = tmpF
     end subroutine conductance_auroralsmooth
 
   end module mixconductance
