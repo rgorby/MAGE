@@ -2780,7 +2780,10 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
         !dvdx = 0.5*(Q(+1)-Q(-1)) !Straight up centered derivative
         dvL = Q( 0) - Q(-1)
         dvR = Q(+1) - Q( 0)
-        dvdx = qkminmod(dvL,dvR)
+
+        !dvdx = qkminmod(dvL,dvR) !Just minmod lim
+        !Superbee slope-lim on gradient
+        dvdx = qkmaxmod( qkminmod(dvR,2*dvL),qkminmod(2*dvR,dvL) )
 
       else if (.not. isOp(-1)) then
         !-1 is closed, do backward difference
@@ -2808,6 +2811,23 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
         c = 0.0
       endif
     end function qkminmod
+
+    !Quick and laxy maxmod limiter
+    function qkmaxmod(a,b) result(c)
+      REAL (rprec), intent(in) :: a,b
+      REAL (rprec) :: c
+
+      if (a*b > 0) then
+        !Pick max modulus
+        if (abs(a) < abs(b)) then
+          c = b
+        else
+          c = a
+        endif !No sign flip
+      else
+        c = 0.0
+      endif
+    end function qkmaxmod
 
     !Copy variable from rcm to clawpack grid
     subroutine rcm2claw(qR,qC)

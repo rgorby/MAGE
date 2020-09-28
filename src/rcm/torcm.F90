@@ -506,30 +506,25 @@ MODULE torcm_mod
         return
       endif
 
+      !Last try, part fluid based on inferred ratio from RCM
+        drcm = 0.0
+        do k=2,kcsize
+          if (alamc(k)>0) then
+            !NOTE: Assuming protons here, otherwise see tomhd for mass scaling
+            drcm = drcm + density_factor*eeta(i,j,k)*vm(i,j)**1.5
+          endif
+        enddo
+
+        if (drcm > TINY) then
+          !Part MHD fluid based on ratio inferred from RCM
+          dtot = dpp + drcm
+          dmhd = den(i,j)*drcm/dtot
+          dpp  = den(i,j)*dpp /dtot
+          return
+        endif
+
       !We tried our best, just return uncorrected density
       return
-
-      ! !Last try, if this is in RCM domain use RC/RC+PSPH density fraction
-      ! if (iopen(i,j) == RCMTOPCLOSED) then
-      !   drcm = 0.0
-      !   do k=2,kcsize
-      !     if (alamc(k)>0) then
-      !       !NOTE: Assuming protons here, otherwise see tomhd for mass scaling
-      !       drcm = drcm + density_factor*eeta(i,j,k)*vm(i,j)**1.5
-      !     endif
-      !   enddo
-      !   if (drcm > TINY) then
-      !     !Part MHD fluid based on ratio inferred from RCM
-      !     dtot = dpp + drcm
-      !     dmhd = den(i,j)*drcm/dtot
-      !     dpp  = den(i,j)*dpp /dtot
-      !     return
-      !   endif
-      ! endif
-
-      ! !Yeesh, are we still here?
-      ! !Give up and just use uncorrected density
-      ! return
 
       END SUBROUTINE PartFluid
 !
