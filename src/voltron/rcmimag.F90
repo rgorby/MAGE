@@ -26,6 +26,7 @@ module rcmimag
     logical , private :: doWolfLim  = .true. !Whether to do wolf-limiting
     logical , private :: doDynWolf = .false. !Whether to do dynamic wolf-limiting
     logical , private :: doBounceDT = .true. !Whether to use Alfven bounce in dt-ingest
+    logical , private :: doWIMTScl = .false. !Whether to modulate ingestion timescale by wIM
     real(rp), private :: nBounce = 1.0 !Scaling factor for Alfven transit
 
     real(rp), private :: wIM_C = 0.0 !Critical wIM for MHD ingestion inclusion
@@ -400,9 +401,11 @@ module rcmimag
         enddo !j loop
         
         !Finally, upscale ingestion timescales based on wImag
-        where (RCMApp%wImag>TINY)
-            RCMApp%Tb = RCMApp%Tb/RCMApp%wImag
-        endwhere
+        if (doWIMTScl) then
+            where (RCMApp%wImag>TINY)
+                RCMApp%Tb = RCMApp%Tb/RCMApp%wImag
+            endwhere
+        endif
 
     end subroutine SetIngestion
 
@@ -489,7 +492,7 @@ module rcmimag
         if (doBounceDT) then
             !Use Alfven bounce timescale
             imW(IMTSCL) = nBounce*RCMApp%Tb(ij0(1),ij0(2))
-        else
+        else if (doWIMTScl) then
             !Use current coupling timescale, modulated by wImag
             imW(IMTSCL) = RCMApp%dtCpl/max( RCMApp%wImag(ij0(1),ij0(2)), TINY )
         endif
