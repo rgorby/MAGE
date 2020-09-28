@@ -302,7 +302,9 @@ module voltapp_mpi
         deallocate(neighborRanks, inData, outData, iRanks, jRanks, kRanks)
 
         ! perform initial shallow and deep updates if appropriate
+        call Tic("Coupling")
         call ShallowUpdate_mpi(vApp, vApp%time)
+        call Toc("Coupling")
 
         if (vApp%doDeep .and. vApp%time >= vApp%DeepT) then
             call DeepUpdate_mpi(vApp, vApp%time)
