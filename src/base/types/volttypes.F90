@@ -142,6 +142,9 @@ module volttypes
         integer  :: imType = 0 !Type of inner magnetosphere model (0 = None)
         integer  :: prType = 0 !Type of projection for coupling   (0 = None)
         logical  :: doQkSquish = .false. !Whether or not to do fast squishing
+
+        !Dynamic coupling info
+        logical :: doDynCplDT = .false. !Whether to do dynamic coupling cadence
     end type voltApp_T
 
     contains

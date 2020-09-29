@@ -170,6 +170,9 @@ module voltapp
             call InitInnerMag(vApp,gApp,xmlInp)
         endif
 
+        !Check for dynamic coupling cadence
+        call xmlInp%Set_Val(vApp%doDynCplDT ,"coupling/doDynDT" , .false.)
+        
         if(present(optFilename)) then
             ! read from the prescribed file
             call initializeFromGamera(vApp, gApp, optFilename)

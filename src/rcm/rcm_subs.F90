@@ -2615,8 +2615,8 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
       enddo
     enddo
 
-    !Before setting ghosts, enforce outflow-only (i.e. into RCM) velocities past the MHD domain
-    didt(iMHD  :,:) = max(didt(iMHD:,:),0.0)
+    !Freeze flow too close to MHD boundary
+    didt(iMHD-1:,:) = 0.0 
     djdt(iMHD+1:,:) = 0.0
 
     call PadClaw(didt)
