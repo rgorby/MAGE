@@ -7,7 +7,8 @@ module voltio
     use clocks
     use innermagsphere
     use wind
-
+    use dyncoupling
+    
     implicit none
 
     integer , parameter, private :: MAXVOLTIOVAR = 35
@@ -130,6 +131,10 @@ module voltio
         !Setup for next output
         vApp%IO%tsNext = vApp%ts + vApp%IO%tsOut
         
+        if (vApp%doDynCplDT) then
+            call UpdateCouplingCadence(vApp)
+        endif
+
     end subroutine consoleOutputVOnly
 
     !Given vector, get clock/cone angle and magnitude

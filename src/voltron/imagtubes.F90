@@ -17,7 +17,7 @@ module imagtubes
 
     !Some threshold values for poisoning tubes
     !TODO: Make these XML parameters
-    real(rp), private :: wImag_C = 0.15 ![0,1]
+    real(rp), private :: wImag_C = 0.20 ![0,1]
     real(rp), private :: bMin_C  = 5.0 !nT
 
 !Information taken from MHD flux tubes

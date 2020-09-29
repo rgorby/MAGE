@@ -339,66 +339,86 @@ module rcmimag
         logical :: inMHD,isClosed
         real(rp) :: a0,a1,a2,aScl
 
-        a0 = 2.0
-        a1 = 1.0
-        a2 = 0.5
-        aScl = 1.0/(a0+2.0*a1+2.0*a2)
-        NSmooth = SmoothOp%nIter
-        NRad = 3
-
-        !Start by allocating arrays
+        !Testing lazy quick boundary
         allocate(jBnd (  RCMApp%nLon_ion  ))
-        allocate(jBndG(1-NRad:RCMApp%nLon_ion+NRad))
-        allocate(jSmG (1-NRad:RCMApp%nLon_ion+NRad))
-
-
         !Now find nominal current boundary
         jBnd(:) = RCMApp%nLat_ion-1
         do j=1,RCMApp%nLon_ion
             do i = RCMApp%nLat_ion,1,-1
                 inMHD = RCMApp%toMHD(i,j)
                 isClosed = (RCMApp%iopen(i,j) == RCMTOPCLOSED)
-                if ( (.not. inMHD) .or. (.not. isClosed) ) then
-                    !First bad cell, set boundary here
-                    jBnd(j) = min(i+1,RCMApp%nLat_ion)
+                if ( .not. isClosed ) then
+                    jBnd(j) = min(i+1+2,RCMApp%nLat_ion)
                     exit
                 endif
+
             enddo !i loop
+            RCMApp%toMHD(:,j) = .false.
+            RCMApp%toMHD(jBnd(j):,j) = .true.
+
         enddo
+
+        ! !OLD
+        ! a0 = 2.0
+        ! a1 = 1.0
+        ! a2 = 0.5
+        ! aScl = 1.0/(a0+2.0*a1+2.0*a2)
+        ! NSmooth = SmoothOp%nIter
+        ! NRad = 3
+
+        ! !Start by allocating arrays
+        ! allocate(jBnd (  RCMApp%nLon_ion  ))
+        ! allocate(jBndG(1-NRad:RCMApp%nLon_ion+NRad))
+        ! allocate(jSmG (1-NRad:RCMApp%nLon_ion+NRad))
+
+
+        ! !Now find nominal current boundary
+        ! jBnd(:) = RCMApp%nLat_ion-1
+        ! do j=1,RCMApp%nLon_ion
+        !     do i = RCMApp%nLat_ion,1,-1
+        !         inMHD = RCMApp%toMHD(i,j)
+        !         isClosed = (RCMApp%iopen(i,j) == RCMTOPCLOSED)
+        !         if ( (.not. inMHD) .or. (.not. isClosed) ) then
+        !             !First bad cell, set boundary here
+        !             jBnd(j) = min(i+1,RCMApp%nLat_ion)
+        !             exit
+        !         endif
+        !     enddo !i loop
+        ! enddo
         
-        !Fill real array w/ data
-        jSmG(1:RCMApp%nLon_ion) = jBnd
+        ! !Fill real array w/ data
+        ! jSmG(1:RCMApp%nLon_ion) = jBnd
 
-        !Loop and do smoothing
-        do n=1,NSmooth
-            !Fill augmented array
-            jBndG(1:RCMApp%nLon_ion) = jSmG(1:RCMApp%nLon_ion)
-            jBndG(1-NRad:0) = jBndG(RCMApp%nLon_ion-NRad+1:RCMApp%nLon_ion)
-            jBndG(RCMApp%nLon_ion+1:RCMApp%nLon_ion+NRad) = jBndG(1:NRad)
+        ! !Loop and do smoothing
+        ! do n=1,NSmooth
+        !     !Fill augmented array
+        !     jBndG(1:RCMApp%nLon_ion) = jSmG(1:RCMApp%nLon_ion)
+        !     jBndG(1-NRad:0) = jBndG(RCMApp%nLon_ion-NRad+1:RCMApp%nLon_ion)
+        !     jBndG(RCMApp%nLon_ion+1:RCMApp%nLon_ion+NRad) = jBndG(1:NRad)
 
-            !Loop over j cells and smooth
-            do j=1,RCMApp%nLon_ion
-                jSmG(j) = aScl*( a0*jBndG(j  ) + a1*jBndG(j-1) + a1*jBndG(j+1) + &
-                                                 a2*jBndG(j-2) + a2*jBndG(j+2) )
+        !     !Loop over j cells and smooth
+        !     do j=1,RCMApp%nLon_ion
+        !         jSmG(j) = aScl*( a0*jBndG(j  ) + a1*jBndG(j-1) + a1*jBndG(j+1) + &
+        !                                          a2*jBndG(j-2) + a2*jBndG(j+2) )
 
-            enddo
-        enddo
+        !     enddo
+        ! enddo
         
-        !Now loop back and recast to integer
-        RCMApp%toMHD(:,:) = .false.
-        do j=1,RCMApp%nLon_ion
-            iS = ceiling(jSmG(j))+1 !Nominal boundary for this j
-            !Start from here and find first such that all above are closed
-            do i=iS,RCMApp%nLat_ion
-                isClosed = all((RCMApp%iopen(i-1:RCMApp%nLat_ion,j) == RCMTOPCLOSED)) .and. &
-                           all((RCMApp%wImag(i-1:RCMApp%nLat_ion,j) > wIM_C))
-                if (isClosed) then
-                    !All cells above boundary are closed, this works
-                    RCMApp%toMHD(i:RCMApp%nLat_ion,j) = .true.
-                    exit !Done here
-                endif
-            enddo !i loop
-        enddo !j loop
+        ! !Now loop back and recast to integer
+        ! RCMApp%toMHD(:,:) = .false.
+        ! do j=1,RCMApp%nLon_ion
+        !     iS = ceiling(jSmG(j))+1 !Nominal boundary for this j
+        !     !Start from here and find first such that all above are closed
+        !     do i=iS,RCMApp%nLat_ion
+        !         isClosed = all((RCMApp%iopen(i-1:RCMApp%nLat_ion,j) == RCMTOPCLOSED)) .and. &
+        !                    all((RCMApp%wImag(i-1:RCMApp%nLat_ion,j) > wIM_C))
+        !         if (isClosed) then
+        !             !All cells above boundary are closed, this works
+        !             RCMApp%toMHD(i:RCMApp%nLat_ion,j) = .true.
+        !             exit !Done here
+        !         endif
+        !     enddo !i loop
+        ! enddo !j loop
         
         !Finally, upscale ingestion timescales based on wImag
         if (doWIMTScl) then

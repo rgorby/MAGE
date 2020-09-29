@@ -13,6 +13,7 @@ MODULE torcm_mod
   real(rp), private :: density_factor !module private density_factor using planet radius
   real(rp), private :: pressure_factor
   logical, parameter :: doSmoothEta = .false. !Whether to smooth eeta at boundary
+  integer, private, parameter :: NumG = 4 !How many buffer cells to require
 
   contains
 !==================================================================      
@@ -146,18 +147,16 @@ MODULE torcm_mod
         CALL Set_ellipse(isize,jsize,rmin,pmin,vm,big_vm,bndloc,iopen)
       end if
 
-      call reset_rcm_vm(isize,jsize,bndloc,big_vm,imin_j,vm,iopen,.false.)
+      call reset_rcm_vm(isize,jsize,bndloc,big_vm,imin_j,vm,iopen)
 
       !Smooth boundary location
       !NOTE: This can only shrink RCM domain, not increase
       !K: 8/20, changing reset_rcm_vm to only reset VM on open fields
       do ns=1,n_smooth
         call smooth_boundary_location(isize,jsize,jwrap,bndloc)
-        call reset_rcm_vm(isize,jsize,bndloc,big_vm,imin_j,vm,iopen,.false.) ! adjust Imin_j
+        call reset_rcm_vm(isize,jsize,bndloc,big_vm,imin_j,vm,iopen) ! adjust Imin_j
       enddo
       
-      !Last setting of boundary, add option for padding one cell at OCB
-      call reset_rcm_vm(isize,jsize,bndloc,big_vm,imin_j,vm,iopen,.true.) 
 
     !-----
     !MHD thermodynamics
@@ -651,8 +650,8 @@ MODULE torcm_mod
       real(rprec) :: bndloc(jdim)
       real(rprec) :: big_vm,a1,a2,a,bP,bM,x0,ell
       real(rprec) :: xP,xM,yMaxP,yMaxM
-      integer(iprec) :: i,j
-      logical :: isBad
+      integer(iprec) :: i,j,jm,jp
+      logical :: isGood(idim,jdim)
 
 !  x0 = (a1 + a2)/2
 !   a = (a1 - a2)/2
@@ -692,27 +691,43 @@ MODULE torcm_mod
       
       x0 = (a1 + a2)/2.
       a  = (a1 - a2)/2.
+
+      !Fill isGood array
       do j=1,jdim
-        do i=1,idim-1 !Start from the bottom
-          !Check ellipse, separate dawn/dusk extent
-          if (ye(i,j)>=0) then
-            ell = ((xe(i,j)-x0)/a)**2+(ye(i,j)/bP)**2
-          else 
-            !Dawn
-            ell = ((xe(i,j)-x0)/a)**2+(ye(i,j)/bM)**2
+        do i=1,idim
+          if (iopen(i,j) == RCMTOPOPEN) then
+            isGood(i,j) = .false.
+          else
+          !This is closed field line region
+            !Check ellipse, separate dawn/dusk extent
+            if (ye(i,j)>=0) then
+              ell = ((xe(i,j)-x0)/a)**2+(ye(i,j)/bP)**2
+            else
+              !Dawn
+              ell = ((xe(i,j)-x0)/a)**2+(ye(i,j)/bM)**2
+            endif !Dusk/dawn
+
+            !Also check longitudinal neighbors
+            jm = j-1
+            if (jm < 1) jm = jdim - jwrap
+            jp = j+1
+            if(jp > jdim) jp = jwrap + 1
+
+            isGood(i,j) = (ell<=1.0) .and. (iopen(i,jm) /= RCMTOPOPEN) .and. (iopen(i,jp) /= RCMTOPOPEN)
           endif
-
-          isBad = (ell > 1.0) .or. (iopen(i,j) /= RCMTOPCLOSED)
-          if (isBad) then
-            !Either not in ellipse or on bad topology
-            bndloc(j) = i+1 !Push boundary up
-            if (iopen(i,j) == RCMTOPOPEN) then
-              vm(i,j) = big_vm
-            endif !Open line
-          endif !isBad
-
         enddo
-      enddo
+      enddo !j loop
+
+      !Now set boundary based on isGood and number of required buffer cells
+      do j=1,jdim
+        do i=idim,1,-1
+          !Loop from the top and find first bad cell
+          if (.not. isGood(i,j)) exit
+        enddo !i loop
+        !Cell i,j is bad or got to i=1
+        bndloc(j) = min(i+1+NumG,idim)
+      enddo !j loop
+
 
     end subroutine Set_ellipse
 
@@ -885,7 +900,7 @@ MODULE torcm_mod
       end subroutine set_plasmasphere
 
 !------------------------------------------      
-      subroutine reset_rcm_vm(idim,jdim,bndloc,big_vm,imin_j,vm,iopen,doOCBPad)
+      subroutine reset_rcm_vm(idim,jdim,bndloc,big_vm,imin_j,vm,iopen)
 ! this routine resets imin_j, vm, and open based on a newly set bndloc      
       implicit none
       integer(iprec), intent(in) :: idim,jdim
@@ -893,7 +908,6 @@ MODULE torcm_mod
       real(rprec), intent(inout) :: bndloc(jdim)
       real(rprec), intent(in) :: big_vm
       real(rprec), intent(inout) :: vm(idim,jdim)
-      logical, intent(in) :: doOCBPad
 
       integer(iprec) :: i,j,iC
 
@@ -919,23 +933,6 @@ MODULE torcm_mod
 
         enddo !i loop
       enddo !j loop
-
-      if (doOCBPad) then
-        !Now go back through and poison extra layer at OCB
-        do j=1,jdim
-          if ( any(iopen(:,j)==RCMTOPOPEN) ) then
-            !There are some open cells on this column
-            !Find first open cell
-            do i=isize,1,-1
-              if (iopen(i,j)==RCMTOPOPEN) exit
-            enddo
-            !Poison one cell up
-            iC = i+1
-            iopen(iC,j) = RCMTOPOPEN
-            vm(iC,j) = big_vm
-          endif !open field
-        enddo
-      endif
 
       !Finish up by resetting boundary
       do j=1,jsize
