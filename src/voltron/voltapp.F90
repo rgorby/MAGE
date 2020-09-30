@@ -118,6 +118,7 @@ module voltapp
         !Start shallow coupling immediately
         vApp%ShallowT = vApp%time
         call xmlInp%Set_Val(vApp%ShallowDT ,"coupling/dt" , 0.1_rp)
+        vApp%TargetShallowDT = vApp%ShallowDT
         call xmlInp%Set_Val(vApp%doGCM, "coupling/doGCM",.false.)
 
         if (vApp%doGCM) then
@@ -127,6 +128,7 @@ module voltapp
     !Deep coupling
         vApp%DeepT = 0.0_rp
         call xmlInp%Set_Val(vApp%DeepDT, "coupling/dtDeep", -1.0_rp)
+        vApp%TargetDeepDT = vApp%DeepDT
         call xmlInp%Set_Val(vApp%rTrc,   "coupling/rTrc"  , 40.0)
 
         if (vApp%DeepDT>0) then
@@ -143,6 +145,11 @@ module voltapp
         if (vApp%doDeep) then
             !Whether to do fast eb-squishing
             call xmlInp%Set_Val(vApp%doQkSquish,"coupling/doQkSquish",.false.)
+            call xmlInp%Set_Val(vApp%qkSquishStride,"coupling/qkSquishStride", 2)
+            if(vApp%doQkSquish .and. popcnt(vApp%qkSquishStride /= 1)) then
+                write(*,*) 'Quick Squish Stride must be a power of 2'
+                stop
+            endif
             call xmlInp%Set_Val(vApp%chmp2mhd%epsSquish,"ebsquish/epsSquish",0.05)
 
             !Verify that Gamera has location to hold source info
@@ -395,7 +402,7 @@ module voltapp
 
         !Advance inner magnetosphere model to tAdv
         call Tic("InnerMag")
-        call AdvanceInnerMag(vApp,vApp%DeepT)
+        call vApp%imagApp%doAdvance(vApp,vApp%DeepT)
         call Toc("InnerMag")
 
         call Tic("Squish")
@@ -475,6 +482,20 @@ module voltapp
         end associate
 
     end subroutine init_volt2Chmp
+
+    subroutine resetShallowCoupling(vApp, newShallow)
+        class(voltApp_T), intent(inout) :: vApp
+        real(rp), intent(in) :: newShallow
+
+        vApp%TargetShallowDT = newShallow
+    end subroutine resetShallowCoupling
+
+    subroutine resetDeepCoupling(vApp, newDeep)
+        class(voltApp_T), intent(inout) :: vApp
+        real(rp), intent(in) :: newDeep
+
+        vApp%TargetShallowDT = newDeep
+    end subroutine resetDeepCoupling
 
 end module voltapp
 

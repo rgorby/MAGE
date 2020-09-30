@@ -16,6 +16,7 @@ module voltio
     logical , private :: isConInit = .false.
     real(rp), private ::  oMJD = 0.0
     integer, private :: oTime = 0.0
+    real(rp), private :: gamWait = 0.0
     character(len=strLen), private :: vh5File
 
     contains
@@ -61,12 +62,14 @@ module voltio
             dtWall = (curCount - oTime)/clockRate
             if(dtWall < 0) dtWall = dtWall + countMax / clockRate
             simRate = dMJD*24.0*60.0*60.0/dtWall !Model seconds per wall second
+            gamWait = 0.8*gamWait + 0.2*readClock('GameraSync')/kClocks(1)%tElap ! Weighted average to self-correct
         else
             simRate = 0.0
             oMJD = cMJD
             call system_clock(count=oTime)
             isConInit = .true.
             dtWall = 0.0
+            gamWait = 0.0
         endif
 
         !Add some stupid trapping code to deal with fortran system clock wrapping
@@ -119,6 +122,7 @@ module voltio
                     write (*, '(a,1f7.3,a)'     )             '    Running @ ', simRate*100.0, '% of real-time'
                 endif
             endif
+            write (*, '(a,1f7.1,a)' ) '    Spent ', gamWait*100.0, '% of time waiting for Gamera'
 
             write(*,'(a)',advance="no") ANSIRESET!, ''
         endif
@@ -175,7 +179,7 @@ module voltio
         call writeMIXRestart(vApp%remixApp%ion,vApp%IO%nRes,mjd=vApp%MJD,time=vApp%time)
         !Write inner mag restart
         if (vApp%doDeep) then
-            call InnerMagRestart(vApp,vApp%IO%nRes)
+            call vApp%imagApp%doRestart(vApp%IO%nRes,vApp%MJD,vApp%time)
         endif
         if (vApp%time>vApp%IO%tRes) then
             vApp%IO%tRes = vApp%IO%tRes + vApp%IO%dtRes
@@ -205,7 +209,7 @@ module voltio
 
         !Write inner mag IO if needed
         if (vApp%doDeep) then
-            call InnerMagIO(vApp,vApp%IO%nOut)
+            call vApp%imagApp%doIO(vApp%IO%nOut,vApp%MJD,vApp%time)
         endif
 
         call WriteVolt(vApp,gApp,vApp%IO%nOut)

@@ -131,11 +131,13 @@ module volttypes
         !Shallow coupling information
         real(rp) :: ShallowT
         real(rp) :: ShallowDT
+        real(rp) :: TargetShallowDT ! Desired shallow step from Voltron
         logical  :: doGCM = .false.
 
         !Deep coupling information
         real(rp) :: DeepT
         real(rp) :: DeepDT
+        real(rp) :: TargetDeepDT ! Desired deep step from Voltron
         logical  :: doDeep = .false. !Whether to do deep coupling
         real(rp) :: rTrc  !Radius to do tracing (ebSquish) inside of
         integer  :: iDeep  = 0 !Index of max i shell containing deep coupling radius
@@ -145,6 +147,8 @@ module volttypes
 
         !Dynamic coupling info
         logical :: doDynCplDT = .false. !Whether to do dynamic coupling cadence
+        integer  :: qkSquishStride = 2 ! Stride to use when fast squishing
+
     end type voltApp_T
 
     contains

@@ -45,6 +45,10 @@ module mixtypes
      ! IO
      real(rp) :: dtOut
      integer :: nRes
+
+     ! debug
+     integer :: mklmsglvl
+
   end type mixParams_T
 
   type mixState_T
