@@ -494,7 +494,7 @@ module voltapp
         class(voltApp_T), intent(inout) :: vApp
         real(rp), intent(in) :: newDeep
 
-        vApp%TargetShallowDT = newDeep
+        vApp%TargetDeepDT = newDeep
     end subroutine resetDeepCoupling
 
 end module voltapp
