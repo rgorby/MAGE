@@ -58,10 +58,31 @@ module dyncoupling
 
         if (newAlert /= alertStatus) then
             !Alert status has changed
+            if (newAlert < alertStatus) then
+                write(*,*) 'Downgrading cadence to ', dynDT
+            else
+                write(*,*) 'Upgrading cadence to ', dynDT
+            endif
 
+            call resetDeepCoupling(vApp,dynDT)
             alertStatus = newAlert
         endif
 
     end subroutine UpdateCouplingCadence
+
+    subroutine resetShallowCoupling(vApp, newShallow)
+        class(voltApp_T), intent(inout) :: vApp
+        real(rp), intent(in) :: newShallow
+
+        vApp%TargetShallowDT = newShallow
+    end subroutine resetShallowCoupling
+
+    subroutine resetDeepCoupling(vApp, newDeep)
+        class(voltApp_T), intent(inout) :: vApp
+        real(rp), intent(in) :: newDeep
+
+        vApp%TargetDeepDT = newDeep
+    end subroutine resetDeepCoupling
+
 
 end module dyncoupling

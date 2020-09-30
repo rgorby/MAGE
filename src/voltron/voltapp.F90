@@ -483,19 +483,5 @@ module voltapp
 
     end subroutine init_volt2Chmp
 
-    subroutine resetShallowCoupling(vApp, newShallow)
-        class(voltApp_T), intent(inout) :: vApp
-        real(rp), intent(in) :: newShallow
-
-        vApp%TargetShallowDT = newShallow
-    end subroutine resetShallowCoupling
-
-    subroutine resetDeepCoupling(vApp, newDeep)
-        class(voltApp_T), intent(inout) :: vApp
-        real(rp), intent(in) :: newDeep
-
-        vApp%TargetShallowDT = newDeep
-    end subroutine resetDeepCoupling
-
 end module voltapp
 

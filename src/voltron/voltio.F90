@@ -114,6 +114,7 @@ module voltio
 
             endif
 
+            write (*, '(a,1f7.1,a)' ) '    Spent ', gamWait*100.0, '% of time waiting for Gamera'
             if (simRate>TINY) then
                 if (vApp%isSeparate) then
                     nTh = NumOMP()
@@ -122,8 +123,7 @@ module voltio
                     write (*, '(a,1f7.3,a)'     )             '    Running @ ', simRate*100.0, '% of real-time'
                 endif
             endif
-            write (*, '(a,1f7.1,a)' ) '    Spent ', gamWait*100.0, '% of time waiting for Gamera'
-
+            
             write(*,'(a)',advance="no") ANSIRESET!, ''
         endif
 
