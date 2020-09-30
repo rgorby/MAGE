@@ -1,5 +1,5 @@
       SUBROUTINE tomhd (RM, ierr)
-      USE earthhelper, ONLY : GallagherXY
+      USE earthhelper, ONLY : GallagherXY,DP2kT
       USE rcm_precision
       USE Rcm_mod_subs, ONLY : isize, jsize, kcsize,jwrap, nptmax, &
                               colat, aloct, v, birk, &
@@ -44,10 +44,11 @@
       real(rprec) :: max_xmin,min_xmin,max_ymin,min_ymin
       
       real(rprec) :: dens_plasmasphere
-      INTEGER (iprec) :: jp,iC
+      INTEGER (iprec) :: jp,iC,klow
       real(rp) :: dRad,RadC,rIJ,dRxy
       real(rp) :: sclmass(RCMNUMFLAV) !xmass prescaled to proton
 
+      real(rp) :: kevRCM,kevMHD
 
       !AMS 04-22-2020
       real(rprec) :: pressure_factor,density_factor
@@ -56,6 +57,13 @@
       density_factor = nt/RM%planet_radius
 
       ierr = 0
+
+      !Set lowest RC channel
+      if (use_plasmasphere) then
+        klow = 2
+      else
+        klow = 1
+      endif
 
       ! At this point, we assume that RCM arrays are all populated
       ! (plasma, b-field, bndloc, etc.):
@@ -91,7 +99,7 @@
       !Tweaking scaling for better precision and testing eeta instead of avg (K: 8/20)
       !$OMP PARALLEL DO default(shared) &
       !$OMP schedule(dynamic) &
-      !$OMP private(i,j,k,dens_plasmasphere)
+      !$OMP private(i,j,k,dens_plasmasphere,kevRCM,kevMHD)
       DO j = 1, jsize
         DO i = 1, isize
           pressrcm (i,j) = 0.0
@@ -99,7 +107,7 @@
           denspsph (i,j) = 0.0
 
           IF (vm(i,j) < 0.0) CYCLE
-          DO k = 1, kcsize
+          DO k = klow, kcsize
             !Pressure calc in pascals
             pressrcm(i,j) = pressrcm(i,j) + pressure_factor*ABS(alamc(k))*eeta(i,j,k)*vm(i,j)**2.5
 
@@ -120,6 +128,20 @@
             endif !dp_on
           endif !use_plasmasphere
 
+          !Do some checking on how well resolved energy channel stuff is
+          kevRCM = abs(alamc(kcsize))*vm(i,j)*1.0e-3 !Max keV of RCM channels here
+          kevMHD = DP2kT(densrcm(i,j)*rcmNScl,pressrcm(i,j)*rcmPScl) !Get keV from RCM moments
+          
+          if (kevMHD > 0.5*kevRCM) then
+            !Effective "MHD" temperature, P=nkT_{MHD} is above 1/2 the max RCM channel energy
+            !This is probably bad for resolving the distribution so we do some shady cooling here
+
+            !Rescale eeta's to clamp P_{RCM}
+            eeta(i,j,klow:) = (0.5*kevRCM/kevMHD)*eeta(i,j,klow:)
+            pressrcm(i,j)   = (0.5*kevRCM/kevMHD)*pressrcm(i,j)
+
+            !write(*,*) 'kevRCM, kevMHD = ', kevRCM,kevMHD,densrcm(i,j)*rcmNScl,pressrcm(i,j)*rcmPScl
+          endif
         ENDDO !i
       ENDDO !j
 

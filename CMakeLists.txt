@@ -155,6 +155,7 @@ add_dependencies(remix remix.x remix2remix.x remix2rcm.x baselib)
 #-------------
 #Kaiju: RCM
 message("Adding RCM module ...")
+message("\tRCM Grid is of size ${RCMSIZEI} x ${RCMSIZEJ} x ${RCMSIZEK}")
 #Add source
 add_subdirectory(src/rcm)
 add_custom_target(rcm ALL)

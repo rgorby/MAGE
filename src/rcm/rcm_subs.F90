@@ -2714,7 +2714,8 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
     if (kc==1) then
       !refill the plasmasphere  04012020 sbao
       !K: Added kc==1 check 8/11/20
-      CALL Plasmasphere_Refilling_Model(eeta(:,:,1), rmin, aloct, vm, dt)
+      !CALL Plasmasphere_Refilling_Model(eeta(:,:,1), rmin, aloct, vm, dt)
+      call Kaiju_Plasmasphere_Refill(eeta(:,:,1), rmin, aloct, vm, dt)
       call circle(eeta(:,:,kc)) !Probably don't need to re-circle
     endif      
     
@@ -3113,6 +3114,44 @@ SUBROUTINE Move_plasma_grid_NEW (dt)
 
 END SUBROUTINE Move_plasma_grid_NEW
 
+!Adapted by K: from S. Bao's adaptation of Colby Lemon's code, 09/20
+
+SUBROUTINE Kaiju_Plasmasphere_Refill(eeta0,rmin,aloct,vm,idt)
+  use constants, ONLY : density_factor
+
+  implicit none
+
+  REAL (rprec), intent(inout), dimension(isize,jsize) :: eeta0
+  REAL (rprec), intent(in), dimension(isize,jsize) :: rmin, aloct, vm
+  REAL (rprec), intent(in)  :: idt
+
+  integer :: i,j
+  REAL (rprec) , parameter :: DenPP0 = 10.0 ![#/cc], cutoff for plasmasphere refilling
+  REAL (rprec) :: dppT,dpsph,eta2cc,tau,etaT,deta
+
+  do j=1,jsize
+    do i=1,isize
+      if (vm(i,j) <= 0) cycle
+      !Closed field line, calculate Berbue+ 2005 density (#/cc)
+      dppT = 10.0**(-0.66*rmin(i,j) + 4.89) !Target refilled density [#/cc]
+      eta2cc = (1.0e-6)*density_factor*vm(i,j)**1.5 !Convert eta to #/cc
+      dpsph = eta2cc*eeta0(i,j) !Current plasmasphere density [#/cc]
+
+      !Check for target density under cutoff or actual plasmasphere density already above refilling target
+      if ( (dppT < DenPP0) .or. (dpsph>=dppT) ) cycle
+      etaT = dppT/eta2cc !Target eta for refilling
+      deta = etaT-eeta0(i,j)
+      !Using timescale [days] from Denton+ 2012, equation 3
+      tau = (2.63*24.0*60.0*60)*10**(0.016*rmin(i,j)) !Refilling timescale [s]
+
+      eeta0(i,j) = eeta0(i,j) + (idt/tau)*deta
+
+    enddo
+  enddo
+
+
+END SUBROUTINE Kaiju_Plasmasphere_Refill
+
 !Adapted by S.Bao from Colby Lemon's original code. 04012020 sbao
 SUBROUTINE Plasmasphere_Refilling_Model(eeta0, rmin, aloct, vm, idt)
 
@@ -3131,12 +3170,12 @@ SUBROUTINE Plasmasphere_Refilling_Model(eeta0, rmin, aloct, vm, idt)
       end where
 
       den_increase = (idt/1000.0/(24*60*60)) * 10**(3.01 - 0.322*rmin) * ftv * (m_per_Re * nT_per_T * cm_per_m**3)   ! ple/cc
-
       where (aloct < pi/2 .OR. aloct > 3*pi/2)  ! If we are on the dayside
         eeta0 = eeta0 + 1.8 * den_increase
       elsewhere
         eeta0 = eeta0 + 0.2 * den_increase
       end where
+
 
     ! Keep eeta0 between 0 and two times the Berube et al. 2005 density.
       eeta0 = min(eeta0, 2*10**(4.56 - 0.51*rmin) * ftv * (m_per_Re*nT_per_T*cm_per_m**3))

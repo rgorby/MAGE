@@ -79,8 +79,8 @@ contains
             if (Model%dt0 > TINY) then
                 write (*, '(a,f8.3,a)')      '    dt/dt0 = ', 100*Model%dt/Model%dt0, '%'     
             endif
-            write (*, '(a,f9.2,a,I0,a)') '      kZCs = ', ZCs/1000.0, ' (',nTh,' threads)'
             write (*, '(a,1f7.1,a)' )    '    Spent ', voltWait*100.0, '% of time waiting for Voltron'
+            write (*, '(a,f9.2,a,I0,a)') '      kZCs = ', ZCs/1000.0, ' (',nTh,' threads)'
             write(*,'(a)',advance="no") ANSIRESET!, ''
         endif
 
