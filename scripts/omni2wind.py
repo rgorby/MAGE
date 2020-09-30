@@ -51,8 +51,8 @@ def bxFit(sw, fileType, filename):
 if __name__ == "__main__":
         fOut = "bcwind.h5"
         mod = "LFM"
-        t0="2010-01-01T00:00:00"
-        t1="2010-01-01T02:00:00"
+        t0Str="2010-01-01T00:00:00"
+        t1Str="2010-01-01T02:00:00"
         Ts = 0.0
         obs="OMNI"
         MainS = """ This script does several things:
@@ -69,8 +69,8 @@ if __name__ == "__main__":
         """
 
         parser = argparse.ArgumentParser(description=MainS, formatter_class=RawTextHelpFormatter)
-        parser.add_argument('-t0',type=str,metavar="TStart",default=t0,help="Start time in 'YYYY-MM-DDThh:mm:ss' (default: %(default)s)")
-        parser.add_argument('-t1',type=str,metavar="TStop",default=t1,help="End time in 'YYYY-MM-DDThh:mm:ss' (default: %(default)s)")
+        parser.add_argument('-t0',type=str,metavar="TStart",default=t0Str,help="Start time in 'YYYY-MM-DDThh:mm:ss' (default: %(default)s)")
+        parser.add_argument('-t1',type=str,metavar="TStop",default=t1Str,help="End time in 'YYYY-MM-DDThh:mm:ss' (default: %(default)s)")
         parser.add_argument('-obs',type=str,metavar="OMNI",default=obs,help="Select spacecraft to obtain observations from (default: %(default)s)")
         parser.add_argument('-o',type=str,metavar="wind.h5",default=fOut,help="Output Gamera wind file (default: %(default)s)")
         parser.add_argument('-m',type=str,metavar="LFM",default=mod,help="Format to write.  Options are LFM or TIEGCM (default: %(default)s)")
@@ -88,10 +88,13 @@ if __name__ == "__main__":
         includeBx = args.bx
         plotInterped = args.interp
 
-        t0 = args.t0
-        t1 = args.t1
+        t0Str = args.t0
+        t1Str = args.t1
 
         fmt='%Y-%m-%dT%H:%M:%S'
+
+        t0 = datetime.datetime.strptime(t0Str,fmt)
+        t1 = datetime.datetime.strptime(t1Str,fmt)
 
         # calculating average F10.7 over specified time period, can be converted into a timeseries
         # pulling data from CDAWeb database
@@ -99,27 +102,37 @@ if __name__ == "__main__":
         data = cdas.get_data(
            'sp_phys',
            'OMNI2_H0_MRG1HR',
-           datetime.datetime.strptime(t0,fmt),
-           datetime.datetime.strptime(t1,fmt),
-           ['F10_INDEX1800']
+           t0,
+           t1, 
+           ['F10_INDEX1800','KP1800']
         )
+
+        totalMin = (t1-t0).days*24.0*60.0+(t1-t0).seconds/60
+        tmin = np.arange(totalMin)
+        t107 = data.get('TIME_AT_CENTER_OF_HOUR')
+        t107min = np.zeros(len(t107))
+        for i in range(len(t107)):
+            t107min[i]=(t107[i]-t0).days*24.0*60.0+(t107[i]-t0).seconds/60
+
         f107=data.get('DAILY_F10.7')
         f107[f107 == 999.9] = np.nan # removing bad values from mean calculation
         avgF107 = np.nanmean(f107)
         print("Average f10.7: ", avgF107)
 
-        #converting hourly cadence to minutes 
-        f107min = np.zeros(len(f107)*60)
         if (f107[0] == np.nan):
             f107[0] = avgF107
             print('!!!!!!!!!! Warning: f10.7 starts with a bad value, setting to average value: %d !!!!!!!!!!'%(avgF107))
 
-        for i in range(len(f107)*60):
-            if (f107[int(i/60.)] == np.nan):
-                f107min[i] = f107[int(i/60.)-1]
-            else:
-                f107min[i] = f107[int(i/60.)]
+        kp = data.get('3-H_KP*10') 
 
+        #Linearly interpolating and converting hourly cadence to minutes
+        f107min = np.interp(tmin, t107min[~np.isnan(f107)], f107[~np.isnan(f107)])
+
+        if (np.all(kp == 99)):
+            kpmin   = np.interp(tmin, t107min, kp) # if no good values, setting all to bad values
+            print("!!!!!!!!!! Warning: No valid Kp data, setting all values in array to 99 !!!!!!!!!!")
+        else:
+            kpmin   = np.interp(tmin, t107min[kp != 99], kp[kp!=99]/10.0)
 
         if (obs == 'OMNI'):
             fileType = 'OMNI'
@@ -130,8 +143,8 @@ if __name__ == "__main__":
             fIn = cdas.get_data(
                'sp_phys',
                'OMNI_HRO_1MIN',
-               datetime.datetime.strptime(t0,fmt),
-               datetime.datetime.strptime(t1,fmt),
+               t0,
+               t1,
                ['BX_GSE,BY_GSE,BZ_GSE,Vx,Vy,Vz,proton_density,T,AE_INDEX,AL_INDEX,AU_INDEX,SYM_H']
             )
 
@@ -290,6 +303,7 @@ if __name__ == "__main__":
                 hf.create_dataset("symh",data=SYMH)
                 hf.create_dataset("Interped",data=1*isInterp)
                 hf.create_dataset("f10.7",data=f107min)
+                hf.create_dataset("Kp",data=kpmin)
                 hf.create_dataset("Bx0",data=bCoef[0])
                 hf.create_dataset("ByC",data=bCoef[1])
                 hf.create_dataset("BzC",data=bCoef[2])
