@@ -63,7 +63,7 @@ module dyncoupling
             else
                 write(*,*) 'Upgrading cadence to ', dynDT
             endif
-
+            
             call resetDeepCoupling(vApp,dynDT)
             alertStatus = newAlert
         endif

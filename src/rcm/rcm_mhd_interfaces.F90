@@ -65,5 +65,8 @@ module rcm_mhd_interfaces
         integer(iprec) :: rcm_nOut,rcm_nRes !Indices for output/restart
         character(len=strLen) :: rcm_runid
   
+        !Some simple quantities for keeping track of RCM energy channels
+        real(rprec) :: MaxAlam = 0.0
+        
     end type rcm_mhd_T
 end module rcm_mhd_interfaces

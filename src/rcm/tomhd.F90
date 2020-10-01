@@ -56,6 +56,8 @@
       pressure_factor = 2./3.*ev/RM%planet_radius*nt
       density_factor = nt/RM%planet_radius
 
+      RM%MaxAlam = maxval(alamc)
+      
       ierr = 0
 
       !Set lowest RC channel
@@ -65,31 +67,6 @@
         klow = 1
       endif
 
-      ! At this point, we assume that RCM arrays are all populated
-      ! (plasma, b-field, bndloc, etc.):
-
-      IF (L_write_rcmu) then
-
-        rmin = SQRT (xmin**2+ymin**2+zmin**2)
-        WHERE (xmin == 0.0 .AND. ymin == 0.0)
-          pmin = 0.0
-        ELSE WHERE
-          pmin = ATAN2 (ymin, xmin)
-        END WHERE
-        WHERE (pmin < 0.0) pmin = pmin + 2.0*pi
-
-        rmin = SQRT (xmin**2+ymin**2)
-        WHERE (xmin == 0.0 .AND. ymin == 0.0)
-          pmin = 0.0
-        ELSE WHERE
-          pmin = ATAN2 (ymin, xmin)
-        END WHERE
-        WHERE (pmin < 0.0) pmin = pmin + 2.0*pi
-        WRITE (*,'(A,I9.9,A,I5.5)') 'TOMHD: Read RCM, T=',itime,', REC=',L
-
-        !call write_rcmu (L,0_iprec)
-
-      END IF
 
       !Set scaled mass by hand here to avoid precision issues
       sclmass(RCMELECTRON) = mass_electron/mass_proton
@@ -186,6 +163,33 @@
         RM%toMHD(i+1:,jp) = .true.
       enddo
       
+
+      ! At this point, we assume that RCM arrays are all populated
+      ! (plasma, b-field, bndloc, etc.):
+
+      IF (L_write_rcmu) then
+
+        rmin = SQRT (xmin**2+ymin**2+zmin**2)
+        WHERE (xmin == 0.0 .AND. ymin == 0.0)
+          pmin = 0.0
+        ELSE WHERE
+          pmin = ATAN2 (ymin, xmin)
+        END WHERE
+        WHERE (pmin < 0.0) pmin = pmin + 2.0*pi
+
+        rmin = SQRT (xmin**2+ymin**2)
+        WHERE (xmin == 0.0 .AND. ymin == 0.0)
+          pmin = 0.0
+        ELSE WHERE
+          pmin = ATAN2 (ymin, xmin)
+        END WHERE
+        WHERE (pmin < 0.0) pmin = pmin + 2.0*pi
+        WRITE (*,'(A,I9.9,A,I5.5)') 'TOMHD: Read RCM, T=',itime,', REC=',L
+
+        !call write_rcmu (L,0_iprec)
+
+      END IF
+
       
       RETURN
       END SUBROUTINE tomhd

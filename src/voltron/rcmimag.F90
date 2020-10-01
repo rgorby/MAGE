@@ -605,7 +605,7 @@ module rcmimag
         integer :: i0,j0,maxIJ(2)
 
         real(rp) :: maxPRCM,maxD,maxDP,maxPMHD,maxL,maxMLT,maxBeta
-        real(rp) :: pScl,limP,wTrust,wTMin,maxT,maxWT
+        real(rp) :: pScl,limP,wTrust,wTMin,maxT,maxWT,maxLam
 
         associate(RCMApp => imag%rcmCpl)
     !Start by getting some data
@@ -627,18 +627,21 @@ module rcmimag
         if (maxMLT<0) maxMLT = maxMLT+360.0
         maxWT = 100*RCMApp%wImag(i0,j0)
 
+        maxLam = (1.0e-3)*RCMApp%MaxAlam/( (RCMApp%vol(i0,j0)*1.0e-9)**(2.0/3.0) ) !Max RCM energy channel [keV]
+
         !Get pressure weighted confidence
         wTrust = sum(RCMApp%Prcm*RCMApp%wIMAG,mask=RCMApp%toMHD)/sum(RCMApp%Prcm,mask=RCMApp%toMHD)
         wTrust = 100.0*wTrust
         !Get min confidence in MHD domain
         wTMin = 100.0*minval(RCMApp%wIMAG,mask=RCMApp%toMHD)
 
+
     !Do some output
         if (maxPRCM<TINY) return
 
         write(*,*) ANSIYELLOW
         write(*,*) 'RCM'
-        !write (*, '(a, f8.2,a,f6.2,a)')      '  Trust    = ' , wTrust, '% (P-AVG) / ', wTMin, '% (MIN)'
+        
         write (*, '(a, f8.2,a,f6.2,a,f6.2,a)')      '  Trust    = ' , wTrust, '% (P-AVG) / ', wTMin, '% (MIN) / ', maxWT, '% (@ MAX)'
 
         if (doWolfLim .or. doDynWolf) then
@@ -650,7 +653,9 @@ module rcmimag
         endif
         write (*, '(a,2f8.3,a)')             '   @ L/MLT = ' , maxL, maxMLT, ' [deg]'
         write (*, '(a, f8.3,a,f8.3,a)')      '      w/ D = ' , maxD, ' (RC) / ', maxDP, ' (PSPH) [#/cc]'
-        write (*, '(a,1f8.3,a)')             '      w/ T = ' , maxT, ' [keV]'
+        !write (*, '(a,1f8.3,a)')             '      w/ T = ' , maxT, ' [keV]'
+        write (*, '(a, f8.3,a,f8.3,a)')      '      w/ T = ' , maxT, ' [keV] (RCM-Max: ', maxLam, ')'
+
 
         write(*,'(a)',advance="no") ANSIRESET!, ''
 
