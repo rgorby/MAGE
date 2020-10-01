@@ -3127,7 +3127,8 @@ SUBROUTINE Kaiju_Plasmasphere_Refill(eeta0,rmin,aloct,vm,idt)
 
   integer :: i,j
   REAL (rprec) , parameter :: DenPP0 = 10.0 ![#/cc], cutoff for plasmasphere refilling
-  REAL (rprec) :: dppT,dpsph,eta2cc,tau,etaT,deta
+  REAL (rprec) , parameter :: day2s = 24.0*60.0*60
+  REAL (rprec) :: dppT,dpsph,eta2cc,tau,etaT,deta,dndt
 
   do j=1,jsize
     do i=1,isize
@@ -3141,14 +3142,16 @@ SUBROUTINE Kaiju_Plasmasphere_Refill(eeta0,rmin,aloct,vm,idt)
       if ( (dppT < DenPP0) .or. (dpsph>=dppT) ) cycle
       etaT = dppT/eta2cc !Target eta for refilling
       deta = etaT-eeta0(i,j)
-      !Using timescale [days] from Denton+ 2012, equation 3
-      tau = (2.63*24.0*60.0*60)*10**(0.016*rmin(i,j)) !Refilling timescale [s]
 
-      eeta0(i,j) = eeta0(i,j) + (idt/tau)*deta
+      !Using timescale [days] from Denton+ 2012, equation 3
+      !tau = (2.63*day2s)*10**(0.016*rmin(i,j)) !Refilling timescale [s]
+
+      dndt = 10.0**(3.48-0.331*rmin(i,j)) !cm^-3/day, Denton+ 2012 eqn 1
+      tau = day2s*(dppT-dpsph)/dndt
+      eeta0(i,j) = eeta0(i,j) + min(idt/tau,1.0)*deta !Make sure not to overfill but unlikely
 
     enddo
   enddo
-
 
 END SUBROUTINE Kaiju_Plasmasphere_Refill
 
