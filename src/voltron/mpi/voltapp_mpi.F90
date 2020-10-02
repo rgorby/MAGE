@@ -16,7 +16,7 @@ module voltapp_mpi
         integer :: myRank
         type(gamApp_T) :: gAppLocal
         logical :: doSerialVoltron = .false., doAsyncShallow = .true.
-        logical :: firstShallowUpdate = .true., firstDeepUpdate = .true.
+        logical :: firstShallowUpdate = .true., firstDeepUpdate = .true., firstStepUpdate = .true.
 
         ! array of all zeroes to simplify various send/receive calls
         integer, dimension(:), allocatable :: zeroArrayCounts, zeroArrayTypes
@@ -310,23 +310,6 @@ module voltapp_mpi
             call DeepUpdate_mpi(vApp, vApp%time)
         endif
 
-        ! if doing concurrent, start the asynchronous comms
-        if(.not. vApp%doSerialVoltron) then
-            call mpi_Irecv(vApp%timeBuffer, 1, MPI_MYFLOAT, MPI_ANY_SOURCE, 97600, vApp%voltMpiComm, vApp%timeReq, ierr)
-            if(ierr /= MPI_Success) then
-                call MPI_Error_string( ierr, message, length, ierr)
-                print *,message(1:length)
-                call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
-            end if
-
-            call mpi_Irecv(vApp%timeStepBuffer, 1, MPI_INT, MPI_ANY_SOURCE, 97700, vApp%voltMpiComm, vApp%timeStepReq, ierr)
-            if(ierr /= MPI_Success) then
-                call MPI_Error_string( ierr, message, length, ierr)
-                print *,message(1:length)
-                call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
-            end if
-        endif
-
     end subroutine initVoltron_mpi
 
     function gameraStepReady(vApp)
@@ -365,10 +348,11 @@ module voltapp_mpi
         integer :: ierr
 
         ! get gApp%Model%t,ts from gamera. All ranks have the same, just receive from one of them
-        if(vApp%doSerialVoltron) then
+        if(vApp%doSerialVoltron .or. vApp%firstStepUpdate) then
             call mpi_recv(vApp%timeBuffer, 1, MPI_MYFLOAT, MPI_ANY_SOURCE, 97600, vApp%voltMpiComm, MPI_STATUS_IGNORE, ierr)
 
             call mpi_recv(vApp%timeStepBuffer, 1, MPI_INT, MPI_ANY_SOURCE, 97700, vApp%voltMpiComm, MPI_STATUS_IGNORE, ierr)
+            vApp%firstStepUpdate = .false.
         else
             call mpi_wait(vApp%timeReq, MPI_STATUS_IGNORE, ierr)
             call mpi_wait(vApp%timeStepReq, MPI_STATUS_IGNORE, ierr)
@@ -394,6 +378,15 @@ module voltapp_mpi
 
         integer :: ierr, asyncShallowBcastReq
 
+        if(vApp%firstDeepUpdate .and. vApp%firstShallowUpdate) then
+            call firstDeep(vApp)
+            call firstShallow(vApp, time, .true.) ! don't send shallow data, we just sent deep
+        elseif(vApp%firstDeepUpdate) then !
+            call firstDeep(vApp)
+        elseif(vApp%firstShallowUpdate) then
+            call firstShallow(vApp, time)
+        endif
+
         if(vApp%doSerialVoltron) then
             ! deep first
             call deepSerialUpdate_mpi(vApp, time)
@@ -401,43 +394,6 @@ module voltapp_mpi
             ! then shallow but don't resend data
             call shallowSerialUpdate_mpi(vApp, time, .true.)
         else
-            if(vApp%firstDeepUpdate .and. vApp%firstShallowUpdate) then
-                call Tic("DeepRecv")
-                call recvDeepData_mpi(vApp)
-                call Toc("DeepRecv")
-                call Tic("ShallowUpdate")
-                call ShallowUpdate(vApp, vApp%gAppLocal, time)
-                call Toc("ShallowUpdate")
-                if(vApp%doAsyncShallow) then
-                    !async also requires starting the async comms
-                    call Tic("ShallowSend")
-                    call sendShallowData_mpi(vApp)
-                    call mpi_wait(vApp%asyncShallowBcastReq, MPI_STATUS_IGNORE, ierr)
-                    call mpi_Ibcast(vApp%ShallowT + vApp%ShallowDT, 1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, vApp%asyncShallowBcastReq, ierr)
-                    call Toc("ShallowSend")
-                endif
-                call Tic("DeepUpdate")
-                call PreSquishDeep(vApp, vApp%gAppLocal)
-                call Toc("DeepUpdate")
-                vApp%deepProcessingInProgress = .true.
-                vApp%firstDeepUpdate = .false.
-                vApp%firstShallowUpdate = .false.
-            elseif(vApp%firstShallowUpdate) then
-                ! don't need shallow data if we already got deep
-                call Tic("ShallowUpdate")
-                call ShallowUpdate(vApp, vApp%gAppLocal, time)
-                call Toc("ShallowUpdate")
-                if(vApp%doAsyncShallow) then
-                    !async also requires starting the async comms
-                    call Tic("ShallowSend")
-                    call sendShallowData_mpi(vApp)
-                    call mpi_wait(vApp%asyncShallowBcastReq, MPI_STATUS_IGNORE, ierr)
-                    call mpi_Ibcast(vApp%ShallowT + vApp%ShallowDT, 1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, vApp%asyncShallowBcastReq, ierr)
-                    call Toc("ShallowSend")
-                endif
-                vApp%firstShallowUpdate = .false.
-            endif
-
             ! ensure deep update is complete
             do while(deepInProgress(vApp))
                 call doDeepBlock(vApp)
@@ -448,7 +404,6 @@ module voltapp_mpi
             else
                 call concurrentSAD_mpi(vApp, time)
             endif
-
         endif
     end subroutine
 
@@ -467,21 +422,6 @@ module voltapp_mpi
         call sendShallowData_mpi(vApp)
         call mpi_bcast(vApp%ShallowT + vApp%ShallowDT, 1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
         call Toc("ShallowSend")
-
-        if(vApp%firstDeepUpdate) then
-            ! must receive initial deep data after sending shallow if starting deep after spinup
-            call Tic("DeepRecv")
-            call recvDeepData_mpi(vApp)
-            call Toc("DeepRecv")
-            call Tic("DeepUpdate")
-            call PreSquishDeep(vApp, vApp%gAppLocal)
-            call Toc("DeepUpdate")
-            vApp%deepProcessingInProgress = .true.
-            vApp%firstDeepUpdate = .false.
-            do while(deepInProgress(vApp))
-                call doDeepBlock(vApp)
-            enddo
-        endif
 
         call Tic("DeepSend")
         call sendDeepData_mpi(vApp)
@@ -515,21 +455,6 @@ module voltapp_mpi
 
         ! Update coupling DT
         vApp%DeepDT = vApp%TargetDeepDT
-
-        if(vApp%firstDeepUpdate) then
-            ! must receive initial deep data after sending shallow if starting deep after spinup
-            call Tic("DeepRecv")
-            call recvDeepData_mpi(vApp)
-            call Toc("DeepRecv")
-            call Tic("DeepUpdate")
-            call PreSquishDeep(vApp, vApp%gAppLocal)
-            call Toc("DeepUpdate")
-            vApp%deepProcessingInProgress = .true.
-            vApp%firstDeepUpdate = .false.
-            do while(deepInProgress(vApp))
-                call doDeepBlock(vApp)
-            enddo
-        endif
 
         ! send deep now
         call Tic("DeepSend")
@@ -576,33 +501,59 @@ module voltapp_mpi
 
         integer :: ierr
 
+        if(vApp%firstShallowUpdate) call firstShallow(vApp, time)
+
         if(vApp%doSerialVoltron) then
             call shallowSerialUpdate_mpi(vApp, time)
+        elseif(vApp%doAsyncShallow) then
+            call shallowConcAsyncUpdate_mpi(vApp, time)
         else
-            ! if this if the first sequence, process initial data
-            if(vApp%firstShallowUpdate) then
-                call Tic("ShallowRecv")
-                call recvShallowData_mpi(vApp)
-                call Toc("ShallowRecv")
-                call Tic("ShallowUpdate")
-                call ShallowUpdate(vApp, vApp%gAppLocal, time)
-                call Toc("ShallowUpdate")
-                if(vApp%doAsyncShallow) then
-                    !async also requires starting the async comms
-                    call Tic("ShallowSend")
-                    call sendShallowData_mpi(vApp)
-                    call mpi_wait(vApp%asyncShallowBcastReq, MPI_STATUS_IGNORE, ierr)
-                    call mpi_Ibcast(vApp%ShallowT + vApp%ShallowDT, 1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, vApp%asyncShallowBcastReq, ierr)
-                    call Toc("ShallowSend")
-                endif
-                vApp%firstShallowUpdate = .false.
-            endif
+            call shallowConcurrentUpdate_mpi(vApp, time)
+        endif
 
-            if(vApp%doAsyncShallow) then
-                call shallowConcAsyncUpdate_mpi(vApp, time)
-            else
-                call shallowConcurrentUpdate_mpi(vApp, time)
-            endif
+    end subroutine
+
+    subroutine firstShallow(vApp, time, skipUpdateGamera)
+        type(voltAppMpi_T), intent(inout) :: vApp
+        real(rp), intent(in) :: time
+        logical, optional, intent(in) :: skipUpdateGamera
+
+        logical :: doSkipUpdate
+        real(rp) :: saveShallowT
+        integer :: ierr
+
+        vApp%firstShallowUpdate = .false.
+
+        if(vApp%doSerialVoltron) then
+            ! serial needs no prep
+            return
+        endif
+
+        if(present(skipUpdateGamera)) then
+            doSkipUpdate = skipUpdateGamera
+        else
+            doSkipUpdate = .false.
+        endif
+        if(doSkipUpdate) then
+            ! do nothing here, do not update the incoming gamera data
+        else
+            ! fetch data from Gamera ranks
+            call Tic("ShallowRecv")
+            call recvShallowData_mpi(vApp)
+            call Toc("ShallowRecv")
+        endif
+        saveShallowT = vApp%ShallowT ! don't update ShallowT during first update
+        call Tic("ShallowUpdate")
+        call ShallowUpdate(vApp, vApp%gAppLocal, time)
+        call Toc("ShallowUpdate")
+        vApp%ShallowT = saveShallowT ! restore ShallowT
+        if(vApp%doAsyncShallow) then
+            !async also requires starting the async comms
+            call Tic("ShallowSend")
+            call sendShallowData_mpi(vApp)
+            call mpi_wait(vApp%asyncShallowBcastReq, MPI_STATUS_IGNORE, ierr)
+            call mpi_Ibcast(vApp%ShallowT + vApp%ShallowDT, 1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, vApp%asyncShallowBcastReq, ierr)
+            call Toc("ShallowSend")
         endif
 
     end subroutine
@@ -818,6 +769,34 @@ module voltapp_mpi
 
     end subroutine doDeepBlock
 
+    subroutine firstDeep(vApp)
+        type(voltAppMpi_T), intent(inout) :: vApp
+
+        real(rp) :: saveDeepT
+
+        vApp%firstDeepUpdate = .false.
+
+        if(vApp%doSerialVoltron) then
+            ! serial needs no prep
+            return
+        endif
+
+        call Tic("DeepRecv")
+        call recvDeepData_mpi(vApp)
+        call Toc("DeepRecv")
+        saveDeepT = vApp%DeepT ! save the DeepT so it won't change during initial update
+        call Tic("DeepUpdate")
+        call PreSquishDeep(vApp, vApp%gAppLocal)
+        call Toc("DeepUpdate")
+        vApp%deepProcessingInProgress = .true.
+        vApp%firstDeepUpdate = .false.
+        do while(deepInProgress(vApp))
+            call doDeepBlock(vApp)
+        enddo
+        vApp%DeepT = saveDeepT ! restore DeepT
+
+    end subroutine
+
     subroutine DeepUpdate_mpi(vApp, time)
         type(voltAppMpi_T), intent(inout) :: vApp
         real(rp), intent(in) :: time
@@ -828,29 +807,18 @@ module voltapp_mpi
         if (.not. vApp%doDeep) then
             !Why are you even here?
             return
+        endif
+
+        if(vApp%firstDeepUpdate) call firstDeep(vApp)
+
+        if(vApp%doSerialVoltron) then
+            call deepSerialUpdate_mpi(vApp, time)
         else
-            if(vApp%doSerialVoltron) then
-                call deepSerialUpdate_mpi(vApp, time)
-            else
-                if(vApp%firstDeepUpdate) then
-                    call Tic("DeepRecv")
-                    call recvDeepData_mpi(vApp)
-                    call Toc("DeepRecv")
-                    call Tic("DeepUpdate")
-                    call PreSquishDeep(vApp, vApp%gAppLocal)
-                    call Toc("DeepUpdate")
-                    vApp%deepProcessingInProgress = .true.
-                    vApp%firstDeepUpdate = .false.
-                endif
-
-                ! ensure deep update is complete
-                do while(deepInProgress(vApp))
-                    call doDeepBlock(vApp)
-                enddo
-
-                call deepConcurrentUpdate_mpi(vApp, time)
-
-            endif
+            ! ensure deep update is complete
+            do while(deepInProgress(vApp))
+                call doDeepBlock(vApp)
+            enddo
+            call deepConcurrentUpdate_mpi(vApp, time)
         endif
     end subroutine
 

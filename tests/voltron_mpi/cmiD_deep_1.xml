@@ -3,7 +3,7 @@
 <voltron>
   <sim tFin="677.115987461"/>
   <spinup doSpin="T" tSpin="60.0" tIO="0.0"/>
-  <coupling dt="5.0" dtDeep="5.0" rTrc="40.0" imType="RCM" doAsyncShallow="F"/>
+  <coupling dt="5.0" dtDeep="7.5" rTrc="40.0" imType="RCM" doAsyncShallow="F"/>
   <imag doInit="T"/>
 </VOLTRON>
 <Gamera>
