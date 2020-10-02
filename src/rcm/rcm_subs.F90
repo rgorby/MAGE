@@ -2686,10 +2686,11 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
 
     !Check total content after versus before
     sumEtaAFT = sum(eeta(:,:,kc))
-    if (sumEtaAFT>sumEtaBEF) then
-      !Can only increase content due to numerical shennanigans, i.e. borrowing from vacuum
-      eeta(:,:,kc) = (sumEtaBEF/sumEtaAFT)*eeta(:,:,kc)
-    endif
+    
+    ! if (sumEtaAFT>sumEtaBEF) then
+    !   !Can only increase content due to numerical shennanigans, i.e. borrowing from vacuum
+    !   eeta(:,:,kc) = (sumEtaBEF/sumEtaAFT)*eeta(:,:,kc)
+    ! endif
 
     if (doOCBNuke) then
       !Go through and nuke any content next to open cell

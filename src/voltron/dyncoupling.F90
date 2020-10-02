@@ -70,6 +70,7 @@ module dyncoupling
 
     end subroutine UpdateCouplingCadence
 
+    !Helper routines to reset coupling cadences
     subroutine resetShallowCoupling(vApp, newShallow)
         class(voltApp_T), intent(inout) :: vApp
         real(rp), intent(in) :: newShallow

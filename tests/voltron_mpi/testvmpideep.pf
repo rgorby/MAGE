@@ -53,12 +53,15 @@ contains
   subroutine teardown(this)
       class (MpiTestMethod), intent(inout) :: this
 
-      if(allocated(gamAppMpi)) deallocate(gamAppMpi)
       if(allocated(voltAppMpi)) then
           call endVoltronWaits(voltAppMpi)
           deallocate(voltAppMpi)
       endif
-      if(allocated(g2vCommMpi)) deallocate(g2vCommMpi)
+      if(allocated(g2vCommMpi)) then
+          call endGam2VoltWaits(g2vCommMpi)
+          deallocate(g2vCommMpi)
+      endif
+      if(allocated(gamAppMpi)) deallocate(gamAppMpi)
 
   end subroutine teardown
 
