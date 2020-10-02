@@ -50,6 +50,7 @@
 
       real(rp) :: kevRCM,kevMHD
 
+      real(rp), parameter :: kRatMax = 1.0
       !AMS 04-22-2020
       real(rprec) :: pressure_factor,density_factor
 
@@ -109,16 +110,17 @@
           kevRCM = abs(alamc(kcsize))*vm(i,j)*1.0e-3 !Max keV of RCM channels here
           kevMHD = DP2kT(densrcm(i,j)*rcmNScl,pressrcm(i,j)*rcmPScl) !Get keV from RCM moments
           
-          if (kevMHD > 0.5*kevRCM) then
-            !Effective "MHD" temperature, P=nkT_{MHD} is above 1/2 the max RCM channel energy
+          if (kevMHD > kRatMax*kevRCM) then
+            !Effective "MHD" temperature, P=nkT_{MHD} is above kRatMax the max RCM channel energy
             !This is probably bad for resolving the distribution so we do some shady cooling here
 
             !Rescale eeta's to clamp P_{RCM}
-            eeta(i,j,klow:) = (0.5*kevRCM/kevMHD)*eeta(i,j,klow:)
-            pressrcm(i,j)   = (0.5*kevRCM/kevMHD)*pressrcm(i,j)
+            eeta(i,j,klow:) = (kRatMax*kevRCM/kevMHD)*eeta(i,j,klow:)
+            pressrcm(i,j)   = (kRatMax*kevRCM/kevMHD)*pressrcm(i,j)
 
             !write(*,*) 'kevRCM, kevMHD = ', kevRCM,kevMHD,densrcm(i,j)*rcmNScl,pressrcm(i,j)*rcmPScl
           endif
+
         ENDDO !i
       ENDDO !j
 
