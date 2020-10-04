@@ -488,6 +488,12 @@ module gam2VoltComm_mpi
             return
         endif
 
+        if(g2vComm%doAsyncShallow) then
+            ! async shallow does not permit solo deep updates. they must become shallow+deep
+            call performShallowAndDeepUpdate(g2vComm, gApp)
+            return
+        endif
+
         if(g2vComm%doSerialVoltron) then
             call doSerialDeepUpdate(g2vComm, gApp)
         else

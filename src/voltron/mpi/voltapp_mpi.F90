@@ -811,6 +811,12 @@ module voltapp_mpi
             return
         endif
 
+        if(vApp%doAsyncShallow) then
+            ! async shallow does not permit solo deep updates. they must become shallow+deep
+            call shallowAndDeepUpdate_Mpi(vApp, time)
+            return
+        endif
+
         if(vApp%firstDeepUpdate) call firstDeep(vApp)
 
         if(vApp%doSerialVoltron) then
