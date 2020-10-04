@@ -303,12 +303,14 @@ module voltapp_mpi
 
         ! perform initial shallow and deep updates if appropriate
         call Tic("Coupling")
-        call ShallowUpdate_mpi(vApp, vApp%time)
-        call Toc("Coupling")
-
         if (vApp%doDeep .and. vApp%time >= vApp%DeepT) then
-            call DeepUpdate_mpi(vApp, vApp%time)
-        endif
+            ! do deep and shallow
+            call shallowAndDeepUpdate_mpi(vApp, vApp%time)
+        else
+            ! just shallow
+            call ShallowUpdate_mpi(vApp, vApp%time)
+            endif
+        call Toc("Coupling")
 
     end subroutine initVoltron_mpi
 
