@@ -110,6 +110,11 @@ module gamtypes
         logical :: isMagsphere = .false.
         real(rp) :: MagM0 = 0.0
         
+        !Timestep stuff
+        real(rp) :: limDT0 = 1.0e-3  !Ratio of dt0 to die
+        logical  :: doCPR  = .false. !Whether to try and fix low timesteps
+        real(rp) :: limCPR = 1.0e-1  !Ratio of dt0 to start CPR
+
         !Background field function pointer
         procedure(VectorField_T), pointer, nopass :: B0 => NULL()
 

@@ -57,7 +57,7 @@ module step
     function CalcDT(Model,Gr,State)
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Gr
-        type(State_T), intent(in) :: State
+        type(State_T), intent(inout) :: State
         real(rp) :: CalcDT
 
         real(rp) :: dtMin,dtOld,dtijk
@@ -112,8 +112,8 @@ module step
             endif
 
             !Check for slower but significant timestep drop
-            if ( (Model%dt0>TINY) .and. (Model%dt0/dtMin >=100) ) then
-                write(*,*) "<Timestep less than 1% of initial (",Model%dt0,"=>",&
+            if ( (Model%dt0>TINY) .and. (dtMin/Model%dt0 <= Model%limDT0) ) then
+                write(*,*) "<Timestep less than limDT0 of initial (",Model%dt0,"=>",&
                     dtMin,"), exiting ...>"
                 isDisaster = .true.
             endif
@@ -127,6 +127,11 @@ module step
                 stop
             endif !Self-destruct
 
+            !If we didn't crash, check to see if we need to try CPR
+            if ( Model%doCPR .and. (Model%dt0>TINY) .and. (dtMin/Model%dt0 <= Model%limCPR) ) then
+                !Attempt CPR to keep patient alive
+                call StateCPR(Model,Gr,State)
+            endif
         endif !Disaster check
 
         !Make sure we don't overstep the end of the simulation
@@ -230,6 +235,112 @@ module step
         endif
 
     end subroutine ChkCell
+
+    !Try to do CPR on the plasma state, slow down fastest speeds
+    subroutine StateCPR(Model,Gr,State)
+        type(Model_T), intent(in) :: Model
+        type(Grid_T), intent(in) :: Gr
+        type(State_T), intent(inout) :: State
+
+        integer :: i,j,k
+        real(rp) :: dtijk
+
+        if (Model%doMultiF .or. Model%doResistive) then
+            write(*,*) 'CPR not yet implemented for these options, bailing ...'
+            stop
+        endif
+        
+        
+        !$OMP PARALLEL DO default(shared) collapse(2) &
+        !$OMP private(i,j,k,dtijk)
+        do k=Gr%ksDT,Gr%keDT
+            do j=Gr%jsDT,Gr%jeDT
+                do i=Gr%isDT,Gr%ieDT
+                    call CellDT(Model,Gr,State,i,j,k,dtijk)
+                    if (dtijk/Model%dt0 <= Model%limCPR) then
+                        !Fix this cell
+                        call CellCPR(Model,Gr,State,i,j,k)
+                    endif
+                    
+                enddo
+            enddo
+        enddo
+
+    end subroutine StateCPR
+
+    !Perform CPR on a cell, try to nudge the timestep up a bit
+    subroutine CellCPR(Model,Gr,State,i,j,k)
+        integer, intent(in) :: i,j,k
+        type(Model_T), intent(in) :: Model
+        type(Grid_T), intent(in) :: Gr
+        type(State_T), intent(in) :: State
+        
+
+        real(rp), parameter :: alpha = 0.9 !Slow-down factor
+        real(rp) :: D,Vf,Va,Cs,MagB
+        real(rp), dimension(NVAR) :: pCon,pW
+        real(rp), dimension(NDIM) :: B
+        logical :: doVa,doCs,doVf !Which speeds to slow
+
+    !TODO: Remove this replicated code
+    !Get three speeds, fluid/sound/alfven
+        pCon = State%Gas(i,j,k,:,BLK)
+        call CellC2P(Model,pCon,pW)
+        Vf = norm2(pW(VELX:VELZ))
+
+        call CellPress2Cs(Model,pCon,Cs)
+
+        Va = 0.0
+        D = pCon(DEN)
+
+        if (Model%doMHD) then
+            B = State%Bxyz(i,j,k,:)
+
+            if (Model%doBackground) then
+                B = B + Gr%B0(i,j,k,:)
+            endif
+
+            MagB = norm2(B)
+            Va = MagB/sqrt(D)
+            !Boris correct Alfven speed
+            if (Model%doBoris) then
+                Va = Model%Ca*Va/sqrt(Model%Ca**2.0 + Va**2.0)
+            endif
+        endif !doMHD
+
+    !Identify which speeds are too fast
+        doVa = .false.
+        doCs = .false.
+        doVf = .false.
+        if ( (Vf>=Cs) .and. (Vf>=Va) ) then
+            !Fast flow speed
+            doVf = .true.
+        else if ( (Cs>=Va) .and. (Cs>=Va) ) then
+            doCs = .true.
+        else if ( (Va>=Cs) .and. (Va>=Vf) ) then
+            !Fast Alfven speed
+            doVa = .true.
+        endif
+
+    !Slow down speeds by a bit
+        if (doVf) then
+            !Directly slow speed
+            pW(VELX:VELZ) = alpha*pW(VELX:VELZ)
+        endif
+
+        if (doCs) then
+            !Reduce pressure
+            pW(PRESSURE) = alpha*alpha*pW(PRESSURE)
+        endif
+
+        if (doVa) then
+            !Nudge up density
+            pW(DEN) = pW(DEN)/(alpha*alpha)
+        endif
+
+        !Store changed values
+        call CellP2C(Model,pW,pCon)
+    end subroutine CellCPR
 
     subroutine CellDT(Model,Gr,State,i,j,k,dtijk)
         integer, intent(in) :: i,j,k
