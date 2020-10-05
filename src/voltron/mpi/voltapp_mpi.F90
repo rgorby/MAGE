@@ -383,8 +383,17 @@ module voltapp_mpi
         if(vApp%firstDeepUpdate .and. vApp%firstShallowUpdate) then
             call firstDeep(vApp)
             call firstShallow(vApp, time, .true.) ! don't send shallow data, we just sent deep
-        elseif(vApp%firstDeepUpdate) then !
+        elseif(vApp%firstDeepUpdate) then
             call firstDeep(vApp)
+            if(vApp%doAsyncShallow) then
+                ! kind of a hack for async shallow. gamera will need to flush the shallow sends to do the first deep update
+                ! so, resend the shallow data so that it can receive it as expected. this is an inefficient one-time cost
+                call Tic("ShallowSend")
+                call sendShallowData_mpi(vApp)
+                call mpi_wait(vApp%asyncShallowBcastReq, MPI_STATUS_IGNORE, ierr)
+                call mpi_Ibcast(vApp%ShallowT + vApp%ShallowDT, 1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, vApp%asyncShallowBcastReq, ierr)
+                call Toc("ShallowSend")
+            endif
         elseif(vApp%firstShallowUpdate) then
             call firstShallow(vApp, time)
         endif
