@@ -74,7 +74,7 @@ module gam2VoltComm_mpi
         write(*,*) 'Reading input deck from ', trim(inpXML)
         xmlInp = New_XML_Input(trim(inpXML),'Voltron',.true.)
         call xmlInp%Set_Val(g2vComm%doSerialVoltron,"coupling/doSerial",.false.)
-        call xmlInp%Set_Val(g2vComm%doAsyncShallow,"coupling/doAsyncShallow",.true.)
+        call xmlInp%Set_Val(g2vComm%doAsyncShallow,"coupling/doAsyncShallow",.false.)
         if(g2vComm%doSerialVoltron) then
             ! don't do asynchronous shallow if comms are serial
             g2vComm%doAsyncShallow = .false.
