@@ -303,12 +303,14 @@ module voltapp_mpi
 
         ! perform initial shallow and deep updates if appropriate
         call Tic("Coupling")
-        call ShallowUpdate_mpi(vApp, vApp%time)
-        call Toc("Coupling")
-
         if (vApp%doDeep .and. vApp%time >= vApp%DeepT) then
-            call DeepUpdate_mpi(vApp, vApp%time)
-        endif
+            ! do deep and shallow
+            call shallowAndDeepUpdate_mpi(vApp, vApp%time)
+        else
+            ! just shallow
+            call ShallowUpdate_mpi(vApp, vApp%time)
+            endif
+        call Toc("Coupling")
 
     end subroutine initVoltron_mpi
 
@@ -806,6 +808,12 @@ module voltapp_mpi
 
         if (.not. vApp%doDeep) then
             !Why are you even here?
+            return
+        endif
+
+        if(vApp%doAsyncShallow) then
+            ! async shallow does not permit solo deep updates. they must become shallow+deep
+            call shallowAndDeepUpdate_Mpi(vApp, time)
             return
         endif
 
