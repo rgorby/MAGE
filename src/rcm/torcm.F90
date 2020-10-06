@@ -161,7 +161,7 @@ MODULE torcm_mod
     !-----
     !MHD thermodynamics
       IF (icontrol==RCMCOLDSTART .and. use_plasmasphere) THEN
-        eeta(i,j,1) = 0.0 !Make sure no plasmasphere for first cold start calculation
+        eeta(:,:,1) = 0.0 !Make sure no plasmasphere for first cold start calculation
       ENDIF
 
       !---->Set new EETA from MHD code pressure. 
