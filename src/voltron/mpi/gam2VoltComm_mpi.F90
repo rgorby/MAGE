@@ -265,6 +265,8 @@ module gam2VoltComm_mpi
         type(gam2VoltCommMpi_T), intent(inout) :: g2vComm
         type(gamAppMpi_T), intent(inout) :: gApp
 
+        integer :: ierr
+
         if(g2vComm%doSerialVoltron) then
             ! deep first
             call doSerialDeepUpdate(g2vComm, gApp)
@@ -277,6 +279,15 @@ module gam2VoltComm_mpi
                 g2vComm%firstDeepUpdate = .false.
                 g2vComm%firstShallowUpdate = .false.
             elseif(g2vComm%firstDeepUpdate) then
+                if(g2vComm%doAsyncShallow) then
+                    ! kind of a hack. need to flush shallow buffers to send deep data
+                    ! voltron will resend it afterwards. inefficient one-time cost
+                    call Tic("ShallowRecv")
+                    call recvShallowData(g2vComm, gApp)
+                    call mpi_Ibcast(g2vComm%ShallowT, 1, MPI_MYFLOAT, g2vComm%voltRank, g2vComm%voltMpiComm, g2vComm%shallowTimeBcastReq, ierr)
+                    call mpi_wait(g2vComm%shallowTimeBcastReq, MPI_STATUS_IGNORE, ierr)
+                    call Toc("ShallowRecv")
+                endif
                 call sendDeepData(g2vComm, gApp)
                 g2vComm%firstDeepUpdate = .false.
             elseif(g2vComm%firstShallowUpdate) then

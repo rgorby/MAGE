@@ -84,10 +84,6 @@ contains
                     call performShallowUpdate(g2vCommMpi, gamAppMpi)
                 endif
             endif
-            if (gamAppMpi%Model%IO%doConsole(g2vCommMpi%ts)) then
-                write (*,'(a,f8.3,a)', advance="no") '\r Time = ', g2vCommMpi%Time, '          '
-                gamAppMpi%Model%IO%tsNext = gamAppMpi%Model%ts + gamAppMpi%Model%IO%tsOut
-            endif
           end do
           call endGam2VoltWaits(g2vCommMpi)
       else
@@ -290,11 +286,11 @@ contains
           @assertEqual(10.0_rp, voltAppMpi%DeepDT, trim("Voltron DeepDT not 10.0 after first couplings"))
 
           ! couple three more times and check DT again
-          call resetDeepCoupling(voltAppMpi, 5.0_rp)
+          call resetDeepCoupling(voltAppMpi, 20.0_rp)
           call DeepUpdate_mpi(voltAppMpi, voltAppMpi%time)
           call DeepUpdate_mpi(voltAppMpi, voltAppMpi%time)
           call DeepUpdate_mpi(voltAppMpi, voltAppMpi%time)
-          @assertEqual(5.0_rp, voltAppMpi%DeepDT, trim("Voltron DeepDT not 5.0 after second couplings"))
+          @assertEqual(20.0_rp, voltAppMpi%DeepDT, trim("Voltron DeepDT not 20.0 after second couplings"))
       endif
 
   end subroutine testAdjustDeepCoupling
