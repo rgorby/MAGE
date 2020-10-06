@@ -53,14 +53,13 @@ MODULE rice_housekeeping_module
   INTEGER(iprec) :: InitKp = 1
   REAL(rprec) :: staticR = 0.0
   REAL(rprec) :: LowLatMHD = 0.0
-    type RCMEllipse_T
-        !Ellipse parameters
-        real(rprec) :: xSun=10.0,xTail=-15.0,yDD=10.0
-        logical  :: isDynamic=.true. !Whether to update parameters
-        real(rprec) :: dRadMHD = 1.0
-            
-    end type RCMEllipse_T
-    type(RCMEllipse_T) :: ellBdry
+  type RCMEllipse_T
+      !Ellipse parameters
+      real(rprec) :: xSun=10.0,xTail=-15.0,yDD=10.0
+      logical  :: isDynamic=.true. !Whether to update parameters
+          
+  end type RCMEllipse_T
+  type(RCMEllipse_T) :: ellBdry
 
   CONTAINS
   
@@ -129,8 +128,6 @@ MODULE rice_housekeeping_module
         call xmlInp%Set_Val(ellBdry%xTail,"ellipse/xTail",ellBdry%xTail)
         call xmlInp%Set_Val(ellBdry%yDD  ,"ellipse/yDD"  ,ellBdry%yDD  )
         call xmlInp%Set_Val(ellBdry%isDynamic,"ellipse/isDynamic"  ,.true.)
-
-        call xmlInp%Set_Val(ellBdry%dRadMHD ,"ellipse/dRadMHD" ,ellBdry%dRadMHD)
         
         !Dynamic plasmaspehre parameters
         call xmlInp%Set_Val(dp_on,"plasmasphere/isDynamic",dp_on)

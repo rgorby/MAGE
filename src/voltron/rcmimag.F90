@@ -23,8 +23,8 @@ module rcmimag
 
     real(rp), private :: rTrc0 = 2.0 !Padding factor for RCM domain to ebsquish radius
     logical , private, parameter :: doKillRCMDir = .true. !Whether to always kill RCMdir before starting
-    logical , private :: doWolfLim  = .true. !Whether to do wolf-limiting
-    logical , private :: doDynWolf = .false. !Whether to do dynamic wolf-limiting
+    integer, parameter, private :: MHDPad = 2 !Number of padding cells between RCM domain and MHD ingestion
+    logical , private :: doWolfLim  = .false. !Whether to do wolf-limiting
     logical , private :: doBounceDT = .true. !Whether to use Alfven bounce in dt-ingest
     logical , private :: doWIMTScl = .false. !Whether to modulate ingestion timescale by wIM
     real(rp), private :: nBounce = 1.0 !Scaling factor for Alfven transit
@@ -33,13 +33,6 @@ module rcmimag
 
     real(rp), dimension(:,:), allocatable, private :: mixPot
 
-
-    !Parameters for smoothing toMHD boundary
-    type SmoothOperator_T
-        integer :: nIter
-    end type SmoothOperator_T
-
-    type(SmoothOperator_T), private :: SmoothOp
 
     type, extends(innerMagBase_T) :: rcmIMAG_T
 
@@ -87,7 +80,6 @@ module rcmimag
         RCMApp%rcm_runid = trim(RunID)
 
         call iXML%Set_Val(doWolfLim ,"/gamera/source/doWolfLim" ,doWolfLim )
-        call iXML%Set_Val(doDynWolf ,"/gamera/source/doDynWolf" ,doDynWolf )
         call iXML%Set_Val(doBounceDT,"/gamera/source/doBounceDT",doBounceDT)
         call iXML%Set_Val(nBounce   ,"/gamera/source/nBounce"   ,nBounce   )
 
@@ -117,8 +109,6 @@ module rcmimag
 
         !Start up IO
         call initRCMIO(RCMApp,isRestart)
-
-        call iXML%Set_Val(SmoothOp%nIter,"imag/nIter",5)
 
         end associate
 
@@ -332,13 +322,11 @@ module rcmimag
     subroutine SetIngestion(RCMApp)
         type(rcm_mhd_T), intent(inout) :: RCMApp
 
-        real(rp), dimension(:), allocatable :: jBndG,jSmG !Real-valued index w/ ghosts
         integer , dimension(:), allocatable :: jBnd
-
-        integer :: i,j,n,iS,NRad,NSmooth,iBdry
+        integer :: i,j
         logical :: inMHD,isClosed
-        real(rp) :: a0,a1,a2,aScl
-
+        
+        RCMApp%toMHD(:,:) = .false.
         !Testing lazy quick boundary
         allocate(jBnd (  RCMApp%nLon_ion  ))
         !Now find nominal current boundary
@@ -348,7 +336,7 @@ module rcmimag
                 inMHD = RCMApp%toMHD(i,j)
                 isClosed = (RCMApp%iopen(i,j) == RCMTOPCLOSED)
                 if ( .not. isClosed ) then
-                    jBnd(j) = min(i+1+2,RCMApp%nLat_ion)
+                    jBnd(j) = min(i+1+MHDPad,RCMApp%nLat_ion)
                     exit
                 endif
 
@@ -357,68 +345,6 @@ module rcmimag
             RCMApp%toMHD(jBnd(j):,j) = .true.
 
         enddo
-
-        ! !OLD
-        ! a0 = 2.0
-        ! a1 = 1.0
-        ! a2 = 0.5
-        ! aScl = 1.0/(a0+2.0*a1+2.0*a2)
-        ! NSmooth = SmoothOp%nIter
-        ! NRad = 3
-
-        ! !Start by allocating arrays
-        ! allocate(jBnd (  RCMApp%nLon_ion  ))
-        ! allocate(jBndG(1-NRad:RCMApp%nLon_ion+NRad))
-        ! allocate(jSmG (1-NRad:RCMApp%nLon_ion+NRad))
-
-
-        ! !Now find nominal current boundary
-        ! jBnd(:) = RCMApp%nLat_ion-1
-        ! do j=1,RCMApp%nLon_ion
-        !     do i = RCMApp%nLat_ion,1,-1
-        !         inMHD = RCMApp%toMHD(i,j)
-        !         isClosed = (RCMApp%iopen(i,j) == RCMTOPCLOSED)
-        !         if ( (.not. inMHD) .or. (.not. isClosed) ) then
-        !             !First bad cell, set boundary here
-        !             jBnd(j) = min(i+1,RCMApp%nLat_ion)
-        !             exit
-        !         endif
-        !     enddo !i loop
-        ! enddo
-        
-        ! !Fill real array w/ data
-        ! jSmG(1:RCMApp%nLon_ion) = jBnd
-
-        ! !Loop and do smoothing
-        ! do n=1,NSmooth
-        !     !Fill augmented array
-        !     jBndG(1:RCMApp%nLon_ion) = jSmG(1:RCMApp%nLon_ion)
-        !     jBndG(1-NRad:0) = jBndG(RCMApp%nLon_ion-NRad+1:RCMApp%nLon_ion)
-        !     jBndG(RCMApp%nLon_ion+1:RCMApp%nLon_ion+NRad) = jBndG(1:NRad)
-
-        !     !Loop over j cells and smooth
-        !     do j=1,RCMApp%nLon_ion
-        !         jSmG(j) = aScl*( a0*jBndG(j  ) + a1*jBndG(j-1) + a1*jBndG(j+1) + &
-        !                                          a2*jBndG(j-2) + a2*jBndG(j+2) )
-
-        !     enddo
-        ! enddo
-        
-        ! !Now loop back and recast to integer
-        ! RCMApp%toMHD(:,:) = .false.
-        ! do j=1,RCMApp%nLon_ion
-        !     iS = ceiling(jSmG(j))+1 !Nominal boundary for this j
-        !     !Start from here and find first such that all above are closed
-        !     do i=iS,RCMApp%nLat_ion
-        !         isClosed = all((RCMApp%iopen(i-1:RCMApp%nLat_ion,j) == RCMTOPCLOSED)) .and. &
-        !                    all((RCMApp%wImag(i-1:RCMApp%nLat_ion,j) > wIM_C))
-        !         if (isClosed) then
-        !             !All cells above boundary are closed, this works
-        !             RCMApp%toMHD(i:RCMApp%nLat_ion,j) = .true.
-        !             exit !Done here
-        !         endif
-        !     enddo !i loop
-        ! enddo !j loop
         
         !Finally, upscale ingestion timescales based on wImag
         if (doWIMTScl) then
@@ -476,16 +402,12 @@ module rcmimag
         !Limit on RCM values
         if ( (nrcm>TINY) .and. (prcm>TINY) ) then
             !Good values from RCM, do something
-            if (doWolfLim .or. doDynWolf) then
+            if (doWolfLim) then
                 !Do limiting on pressure/density
                 pScl = beta*5.0/6.0
                 plim = (pScl*pmhd + prcm)/(1.0+pScl)
                 !nlim = nrcm - 0.6*pScl*nmhd*(prcm-pmhd)/(1.0+pScl)/pmhd
                 nlim = nrcm !Testing P-only wolf limiting
-                if (doDynWolf) then
-                    !Blend plim/prcm w/ wIM
-                    plim = wIM*prcm + (1-wIM)*plim
-                endif
             else
                 !Use raw RCM values if they're good
                 plim = prcm
@@ -644,7 +566,7 @@ module rcmimag
         
         write (*, '(a, f8.2,a,f6.2,a,f6.2,a)')      '  Trust    = ' , wTrust, '% (P-AVG) / ', wTMin, '% (MIN) / ', maxWT, '% (@ MAX)'
 
-        if (doWolfLim .or. doDynWolf) then
+        if (doWolfLim) then
             write (*, '(a, f8.3,a,f8.3,a)')      '  Max RC-P = ' , maxPRCM, ' (RCM) / ', limP, ' (LIM) [nPa]'
             maxT = DP2kT(maxD,limP)
         else
