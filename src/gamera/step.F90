@@ -253,9 +253,9 @@ module step
         
         !$OMP PARALLEL DO default(shared) collapse(2) &
         !$OMP private(i,j,k,dtijk)
-        do k=Gr%ksDT,Gr%keDT
-            do j=Gr%jsDT,Gr%jeDT
-                do i=Gr%isDT,Gr%ieDT
+        do k=Gr%ks,Gr%ke
+            do j=Gr%js,Gr%je
+                do i=Gr%is,Gr%ie
                     call CellDT(Model,Gr,State,i,j,k,dtijk)
                     if (dtijk/Model%dt0 <= Model%limCPR) then
                         !Fix this cell
@@ -273,7 +273,7 @@ module step
         integer, intent(in) :: i,j,k
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Gr
-        type(State_T), intent(in) :: State
+        type(State_T), intent(inout) :: State
         
 
         real(rp), parameter :: alpha = 0.9 !Slow-down factor
@@ -281,7 +281,7 @@ module step
         real(rp), dimension(NVAR) :: pCon,pW
         real(rp), dimension(NDIM) :: B
         logical :: doVa,doCs,doVf !Which speeds to slow
-
+    
     !TODO: Remove this replicated code
     !Get three speeds, fluid/sound/alfven
         pCon = State%Gas(i,j,k,:,BLK)
@@ -312,6 +312,7 @@ module step
         doVa = .false.
         doCs = .false.
         doVf = .false.
+        !Decide which speed is the problem
         if ( (Vf>=Cs) .and. (Vf>=Va) ) then
             !Fast flow speed
             doVf = .true.
@@ -322,6 +323,9 @@ module step
             doVa = .true.
         endif
 
+        !For now disabling doing anything about Va
+        doVa = .false.
+        
     !Slow down speeds by a bit
         if (doVf) then
             !Directly slow speed
@@ -338,8 +342,9 @@ module step
             pW(DEN) = pW(DEN)/(alpha*alpha)
         endif
 
-        !Store changed values
+    !Store changed values
         call CellP2C(Model,pW,pCon)
+        State%Gas(i,j,k,:,BLK) = pCon
     end subroutine CellCPR
 
     subroutine CellDT(Model,Gr,State,i,j,k,dtijk)
