@@ -5,7 +5,7 @@ MODULE torcm_mod
   USE rice_housekeeping_module, ONLY: use_plasmasphere,LowLatMHD,L_write_vars_debug
   Use rcm_mhd_interfaces
   USE rcmdefs, ONLY : RCMTOPCLOSED,RCMTOPNULL,RCMTOPOPEN,DenPP0
-  USE kdefs, ONLY : TINY
+  USE kdefs, ONLY : TINY,qp
   use math, ONLY : RampDown
 
   implicit none
@@ -536,13 +536,13 @@ MODULE torcm_mod
       
       real(rprec) :: dmhd,dpp,pcon,t,prcmI,prcmE,pmhdI,pmhdE,psclI,psclE
       integer(iprec) :: i,j,k,kmin
-      real(rprec) :: xp,xm,A0,delerf,delexp
+      real(rprec) :: xp,xm,A0
       logical :: isIon
 
       !$OMP PARALLEL DO default(shared) &
       !$OMP schedule(dynamic) &
       !$OMP private(i,j,k,kmin,dmhd,dpp,pcon,prcmI,prcmE,t,pmhdI,pmhdE,psclI,psclE) &
-      !$OMP private(xp,xm,A0,delerf,delexp,isIon)
+      !$OMP private(xp,xm,A0,isIon)
       do j=1,jsize
         do i=1,isize
           !Get corrected density from MHD
@@ -573,10 +573,9 @@ MODULE torcm_mod
 
               xp = SQRT(ev*ABS(almmax(k))*vm(i,j)/boltz/t)
               xm = SQRT(ev*ABS(almmin(k))*vm(i,j)/boltz/t)
-              
-              delerf = erf(xp)-erf(xm)
-              delexp = (2.0/sqrt(pi)) * ( xp*exp(-xp**2.0) - xm*exp(-xm**2.0) )
-              eeta_new(i,j,k) = A0*( delerf - delexp )
+              !Use quad prec calc of erf/exp differences
+              eeta_new(i,j,k) = erfexpdiff(A0,xp,xm)
+
               !Pressure contribution from this channel
               pcon = pressure_factor*ABS(alamc(k))*eeta_new(i,j,k)*vm(i,j)**2.5
 
@@ -622,7 +621,26 @@ MODULE torcm_mod
 
       END SUBROUTINE Press2eta
       
+      !Calculates difference of erfs - diff of exps, i.e. Eqn B5 from Pembroke+ 2012
+      function erfexpdiff(A,x,y) result(z)
 
+        real(rp), intent(in) :: A,x, y
+        real(rp) :: z
+
+        !QUAD precision holders
+        real(qp) :: xq,yq,zq,differf,diffexp
+
+        xq = x
+        yq = y
+        !Replacing erf(x)-erf(y) w/ erfc to avoid flooring to zero
+        differf = erfc(yq)-erfc(xq)
+        diffexp = xq*exp(-xq**2.0) - yq*exp(-yq**2.0)
+        diffexp = 2.0*diffexp/sqrt(PI)
+
+        zq = A*(differf-diffexp)
+        z = zq
+
+      end function erfexpdiff
 
 !===================================================================
     SUBROUTINE Set_ellipse(idim,jdim,rmin,pmin,vm,big_vm,bndloc,iopen)

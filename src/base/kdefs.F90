@@ -6,6 +6,7 @@ module kdefs
     !Define variable precisions
     integer, parameter :: sp = REAL32
     integer, parameter :: dp = REAL64
+    integer, parameter :: qp = REAL128 !Quad precision
     !integer, parameter :: ip = INT64
     integer, parameter :: ip = INT32
     

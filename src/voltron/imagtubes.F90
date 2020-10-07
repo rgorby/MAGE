@@ -13,7 +13,6 @@ module imagtubes
     real(rp) :: Rp_m
     real(rp) :: planetM0g
 
-    logical, parameter :: doNewBeta = .false.
 
     !Some threshold values for poisoning tubes
     !TODO: Make these XML parameters
@@ -152,10 +151,10 @@ module imagtubes
         ijTube%wIMAG = VaMKS/( sqrt(VaMKS**2.0 + CsMKS**2.0) + VebMKS)
 
     !Do different calculation of beta if desired
-        if (doNewBeta) then
-            bBeta = 2.0*(CsMKS/VaMKS)**2.0 !alternative beta definition
-            ijTube%beta_average = bBeta
-        endif
+        ! if (doNewBeta) then
+        !     bBeta = 2.0*(CsMKS/VaMKS)**2.0 !alternative beta definition
+        !     ijTube%beta_average = bBeta
+        ! endif
 
         end associate
 
@@ -237,7 +236,6 @@ module imagtubes
         allocate(isG(Ni,Nj))
         isG = .not. (RCMApp%iopen == RCMTOPOPEN)
 
-        
         !Smooth some tubes
         call Smooth2D(RCMApp%Vol) !Flux-tube volume
         call Smooth2D(RCMApp%pot) !Electrostatic potential
