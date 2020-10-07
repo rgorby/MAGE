@@ -190,7 +190,6 @@ module math
         real(rp), parameter :: ONE = 1.0
         d = 0.5*(sign(ONE, x) + sign(ONE, y))*min(abs(x), abs(y))
     end function minmod
-
 !--------------------------------------
 !Vector/tensor stuff
 

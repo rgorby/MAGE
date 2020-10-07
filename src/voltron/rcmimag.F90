@@ -254,7 +254,7 @@ module rcmimag
         call TrickyTubes(RCMApp)
         
         !Smooth out FTV on tubes b/c RCM will take gradient
-        call SmoothTubes(RCMApp)
+        !call SmoothTubes(RCMApp)
 
     !Advance from vApp%time to tAdv
         call Tic("AdvRCM")
