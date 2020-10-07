@@ -26,7 +26,7 @@ module rcmimag
     integer, parameter, private :: MHDPad = 2 !Number of padding cells between RCM domain and MHD ingestion
     logical , private :: doWolfLim  = .false. !Whether to do wolf-limiting
     logical , private :: doBounceDT = .true. !Whether to use Alfven bounce in dt-ingest
-    logical , private :: doWIMTScl = .false. !Whether to modulate ingestion timescale by wIM
+    logical , private :: doWIMTScl = .true. !Whether to modulate ingestion timescale by wIM
     real(rp), private :: nBounce = 1.0 !Scaling factor for Alfven transit
 
     real(rp), private :: wIM_C = 0.0 !Critical wIM for MHD ingestion inclusion

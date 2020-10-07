@@ -2508,7 +2508,10 @@ FUNCTION FLCRat(ie,alam,vm,beq,rcurv,lossc) result(lossFLC)
   eps = Rgyro/rcurv
 
   !Chen+ 2019
-  xSS = max(100.0*eps**-5.0,1.0)
+  !xSS = max(100.0*eps**-5.0,1.0)
+  !K: Mockup between Chen/Gibson, transition between eps^-5 dep. and strong scattering at kappa = sqrt(8)
+  xSS = max( (8.0*eps)**(-5.0), 1.0 )
+
   TauFLC = xSS*TauSS
   lossFLC = 1.0/TauFLC !Rate, 1/s
 
@@ -2534,7 +2537,7 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
 
   LOGICAL, dimension(1:isize,1:jsize) :: isOpen
   INTEGER (iprec) :: iOCB_j(1:jsize)
-  REAL (rprec) :: mass_factor,r_dist,lossCX,lossFLC,lossFDG,lossOCB
+  REAL (rprec) :: mass_factor,r_dist,lossCX,lossFLC,lossFDG,lossOCB,sumEtaBEF,sumEtaAFT
   REAL (rprec), save :: xlower,xupper,ylower,yupper, T1,T2 !Does this need save?
   INTEGER (iprec) :: i, j, kc, ie, iL,jL,iR,jR,iMHD
   INTEGER (iprec) :: CLAWiter, joff
@@ -2603,7 +2606,7 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
   !$OMP PRIVATE(i,j,kc,ie,iL,jL,iR,jR) &
   !$OMP PRIVATE(veff,didt,djdt,etaC,rateC,rate,dvedi,dvedj) &
   !$OMP PRIVATE(mass_factor,r_dist,CLAWiter,T1k,T2k) &
-  !$OMP PRIVATE(lossCX,lossFLC,lossFDG,lossOCB) &
+  !$OMP PRIVATE(lossCX,lossFLC,lossFDG,lossOCB,sumEtaBEF,sumEtaAFT) &
   !$OMP SHARED(isOpen,iOCB_j,alamc,eeta,v,vcorot,vpar,vm,imin_j,j1,j2,joff,doOCBNuke) &
   !$OMP SHARED(xmin,ymin,rmin,fac,fudgec,bir,sini,L_dktime,dktime,sunspot_number) &
   !$OMP SHARED(aloct,xlower,xupper,ylower,yupper,dt,T1,T2,iMHD,bmin,radcurv,losscone) 
@@ -2700,7 +2703,9 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
 
   !---
   !Advect w/ clawpack
+    sumEtaBEF = sum(eeta(:,:,kc)) !Total content before clawpack
     call rcm2claw(eeta(:,:,kc),etaC)
+    
 
     !Call clawpack, always as first time
     !Need local copies b/c clawpack alters T1/T2
@@ -2723,6 +2728,13 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
     enddo
     eeta(:,jsize,kc) = eeta(:,jwrap,kc)
     call circle(eeta(:,:,kc))
+
+    !Check total content after versus before
+    sumEtaAFT = sum(eeta(:,:,kc))
+    if (sumEtaAFT>sumEtaBEF) then
+      !Can only increase content due to numerical shennanigans, i.e. borrowing from vacuum
+      eeta(:,:,kc) = (sumEtaBEF/sumEtaAFT)*eeta(:,:,kc)
+    endif
 
     if (doOCBNuke) then
       !Go through and nuke any content next to open cell

@@ -45,7 +45,7 @@
       real(rprec) :: dens_plasmasphere
       real(rp) :: sclmass(RCMNUMFLAV) !xmass prescaled to proton
       real(rp) :: kevRCM,kevMHD
-      real(rp), parameter :: kRatMax = 1.0
+      real(rp), parameter :: kRatMax = 0.5
       !AMS 04-22-2020
       real(rprec) :: pressure_factor,density_factor
 
