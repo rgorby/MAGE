@@ -2508,9 +2508,9 @@ FUNCTION FLCRat(ie,alam,vm,beq,rcurv,lossc) result(lossFLC)
   eps = Rgyro/rcurv
 
   !Chen+ 2019
-  !xSS = max(100.0*eps**-5.0,1.0)
+  xSS = max(100.0*eps**-5.0,1.0)
   !K: Mockup between Chen/Gibson, transition between eps^-5 dep. and strong scattering at kappa = sqrt(8)
-  xSS = max( (8.0*eps)**(-5.0), 1.0 )
+  !xSS = max( (8.0*eps)**(-5.0), 1.0 )
 
   TauFLC = xSS*TauSS
   lossFLC = 1.0/TauFLC !Rate, 1/s
@@ -2703,7 +2703,7 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
 
   !---
   !Advect w/ clawpack
-    sumEtaBEF = sum(eeta(:,:,kc)) !Total content before clawpack
+    sumEtaBEF = sum(eeta(:,j1:j2,kc)) !Total content before clawpack
     call rcm2claw(eeta(:,:,kc),etaC)
     
 
@@ -2729,8 +2729,10 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
     eeta(:,jsize,kc) = eeta(:,jwrap,kc)
     call circle(eeta(:,:,kc))
 
+    
     !Check total content after versus before
-    sumEtaAFT = sum(eeta(:,:,kc))
+    sumEtaAFT = sum(eeta(:,j1:j2,kc))
+
     if (sumEtaAFT>sumEtaBEF) then
       !Can only increase content due to numerical shennanigans, i.e. borrowing from vacuum
       eeta(:,:,kc) = (sumEtaBEF/sumEtaAFT)*eeta(:,:,kc)

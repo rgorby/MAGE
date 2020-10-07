@@ -237,10 +237,12 @@ module imagtubes
         allocate(isG(Ni,Nj))
         isG = .not. (RCMApp%iopen == RCMTOPOPEN)
 
+        !For now not doing anything
+        return
         
         !Smooth some tubes
         call Smooth2D(RCMApp%Vol) !Flux-tube volume
-        call Smooth2D(RCMApp%pot) !Electrostatic potential
+        !call Smooth2D(RCMApp%pot) !Electrostatic potential
         
         contains
         subroutine Smooth2D(Q)

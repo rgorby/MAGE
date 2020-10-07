@@ -45,7 +45,7 @@
       real(rprec) :: dens_plasmasphere
       real(rp) :: sclmass(RCMNUMFLAV) !xmass prescaled to proton
       real(rp) :: kevRCM,kevMHD
-      real(rp), parameter :: kRatMax = 0.5
+      real(rp), parameter :: kRatMax = 0.90
       !AMS 04-22-2020
       real(rprec) :: pressure_factor,density_factor
 
@@ -105,7 +105,7 @@
           kevRCM = abs(alamc(kcsize))*vm(i,j)*1.0e-3 !Max keV of RCM channels here
           kevMHD = DP2kT(densrcm(i,j)*rcmNScl,pressrcm(i,j)*rcmPScl) !Get keV from RCM moments
           
-          if (kevMHD > kRatMax*kevRCM) then
+          if (kevMHD >= kRatMax*kevRCM) then
             !Effective "MHD" temperature, P=nkT_{MHD} is above kRatMax the max RCM channel energy
             !This is probably bad for resolving the distribution so we do some shady cooling here
 
