@@ -2512,8 +2512,8 @@ FUNCTION FLCRat(ie,alam,vm,beq,rcurv,lossc) result(lossFLC)
   !K: Mockup between Chen/Gibson, transition between eps^-5 dep. and strong scattering at kappa = sqrt(8)
   !xSS = max( (8.0*eps)**(-5.0), 1.0 )
   earg = eps**(-5.0)
-  !xSS = max(100.0*earg,1.0)
-  xSS = max(10.0*earg,1.0)
+  xSS = max(100.0*earg,1.0)
+  !xSS = max(10.0*earg,1.0)
 
   TauFLC = xSS*TauSS
   lossFLC = 1.0/TauFLC !Rate, 1/s
@@ -2560,6 +2560,9 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
 
 !---
 !Do prep work
+  where (eeta<0)
+    eeta = 0.0
+  endwhere
 
   joff=jwrap-1
 
@@ -2617,9 +2620,12 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
       ie = 2  ! protons
     END IF
 
-    IF (MAXVAL(eeta(:,:,kc)) < machine_tiny) CYCLE !Skip boring channels
+    IF (MAXVAL(eeta(:,:,kc)) < machine_tiny) then
+      !Skip boring channels
+      eeta(:,:,kc) = 0.0
+      CYCLE
+    END IF
     mass_factor = SQRT (xmass(1)/xmass(ie))
-
 
   !---
   !Get "interface" velocities on clawpack grid, |-1:isize+2,-1:jsize-1|
@@ -2686,9 +2692,9 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
           if ( L_dktime .and. (.not. isOpen(i,j)) ) then
             !Do losses even in buffer region in case stuff moves in/out
             r_dist = sqrt(xmin(i,j)**2+ymin(i,j)**2)
-            lossCX = Cexrat(ie,abs(alamc(kc))*vm(i,j),r_dist,sunspot_number, &
-                            dktime,irdk,inrgdk,isodk,iondk)
-            !lossCX = CXKaiju(ie,abs(alamc(kc))*vm(i,j),r_dist)
+            !lossCX = Cexrat(ie,abs(alamc(kc))*vm(i,j),r_dist,sunspot_number, &
+            !                dktime,irdk,inrgdk,isodk,iondk)
+            lossCX = CXKaiju(ie,abs(alamc(kc))*vm(i,j),r_dist)
             !Placeholder for FLC loss, uses radcurv(i,j) [Re]
             lossFLC = FLCRat(ie,alamc(kc),vm(i,j),bmin(i,j),radcurv(i,j),losscone(i,j))
           endif
@@ -3196,7 +3202,7 @@ SUBROUTINE Kaiju_Plasmasphere_Refill(eeta0,rmin,aloct,vm,idt)
 
       dndt = 10.0**(3.48-0.331*rmin(i,j)) !cm^-3/day, Denton+ 2012 eqn 1
       tau = day2s*(dppT-dpsph)/dndt
-      eeta0(i,j) = eeta0(i,j) + min(idt/tau,1.0)*deta !Make sure not to overfill but unlikely
+      eeta0(i,j) = eeta0(i,j) + min(idt/tau,1.0)*max(deta,0.0) !Make sure not to overfill but unlikely
 
     enddo
   enddo

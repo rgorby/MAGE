@@ -211,6 +211,9 @@ MODULE torcm_mod
 
     !-----
     !Fill in grid ghosts
+      !$OMP PARALLEL DO default(shared) &
+      !$OMP schedule(dynamic) &
+      !$OMP private(i,j,dpp)
       do j=1,jsize
         do i=1,isize
           if (iopen(i,j) == RCMTOPOPEN) then
@@ -340,6 +343,8 @@ MODULE torcm_mod
       ! compute vm and find boundaries
       ! (K: doing in two stages to avoid open/closed/open corner case)
       vm(:,:) = big_vm
+      !$OMP PARALLEL DO default(shared) &
+      !$OMP private(i,j)
       do j=jwrap,jsize
         do i=isize,1,-1
           if (iopen(i,j) == RCMTOPCLOSED) then
@@ -711,6 +716,8 @@ MODULE torcm_mod
       a  = (a1 - a2)/2.
 
       !Fill isGood array
+      !$OMP PARALLEL DO default(shared) &
+      !$OMP private(i,j,ell,jm,jp)
       do j=1,jdim
         do i=1,idim
           if (iopen(i,j) == RCMTOPOPEN) then
@@ -737,6 +744,8 @@ MODULE torcm_mod
       enddo !j loop
 
       !Now set boundary based on isGood and number of required buffer cells
+      !$OMP PARALLEL DO default(shared) &
+      !$OMP private(i,j)
       do j=1,jdim
         do i=idim,1,-1
           !Loop from the top and find first bad cell
