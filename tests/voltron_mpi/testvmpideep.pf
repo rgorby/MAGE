@@ -58,7 +58,7 @@ contains
           deallocate(voltAppMpi)
       endif
       if(allocated(g2vCommMpi)) then
-          call endGam2VoltWaits(g2vCommMpi)
+          call endGam2VoltWaits(g2vCommMpi, gamAppMpi)
           deallocate(g2vCommMpi)
       endif
       if(allocated(gamAppMpi)) deallocate(gamAppMpi)
