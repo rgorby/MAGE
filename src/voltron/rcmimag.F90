@@ -26,7 +26,7 @@ module rcmimag
     integer, parameter, private :: MHDPad = 2 !Number of padding cells between RCM domain and MHD ingestion
     logical , private :: doWolfLim  = .false. !Whether to do wolf-limiting
     logical , private :: doBounceDT = .true. !Whether to use Alfven bounce in dt-ingest
-    logical , private :: doWIMTScl = .true. !Whether to modulate ingestion timescale by wIM
+    logical , private :: doWIMTScl = .false. !Whether to modulate ingestion timescale by wIM
     real(rp), private :: nBounce = 1.0 !Scaling factor for Alfven transit
 
     real(rp), private :: wIM_C = 0.0 !Critical wIM for MHD ingestion inclusion
@@ -254,7 +254,7 @@ module rcmimag
         call TrickyTubes(RCMApp)
         
         !Smooth out FTV on tubes b/c RCM will take gradient
-        !call SmoothTubes(RCMApp)
+        call SmoothTubes(RCMApp)
 
     !Advance from vApp%time to tAdv
         call Tic("AdvRCM")
@@ -575,8 +575,8 @@ module rcmimag
         endif
         write (*, '(a,2f8.3,a)')             '   @ L/MLT = ' , maxL, maxMLT, ' [deg]'
         write (*, '(a, f8.3,a,f8.3,a)')      '      w/ D = ' , maxD, ' (RC) / ', maxDP, ' (PSPH) [#/cc]'
-        !write (*, '(a,1f8.3,a)')             '      w/ T = ' , maxT, ' [keV]'
-        write (*, '(a, f8.3,a,f8.3,a)')      '      w/ T = ' , maxT, ' [keV] (RCM-Max: ', maxLam, ')'
+        write (*, '(a,1f8.3,a)')             '      w/ T = ' , maxT, ' [keV]'
+        !write (*, '(a, f8.3,a,f8.3,a)')      '      w/ T = ' , maxT, ' [keV] (RCM-Max: ', maxLam, ')'
 
 
         write(*,'(a)',advance="no") ANSIRESET!, ''

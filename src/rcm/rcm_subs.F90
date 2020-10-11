@@ -2270,7 +2270,7 @@ real :: v_1_1, v_1_2, v_2_1, v_2_2
       V = sqrt(2*Kj/M)*100.0 !m/s->cm/s
 
     !Timescale
-      tScl = cos(30.0*PI/180.0)**3.5
+      tScl = cos(45*PI/180.0)**3.5 !Using Smith & Bewtra 1976 scaling
       Tau = tScl*1.0/(Ngeo*V*Sig)
 
       cxrate = 1.0/Tau
@@ -2484,7 +2484,7 @@ FUNCTION FLCRat(ie,alam,vm,beq,rcurv,lossc) result(lossFLC)
   real(rprec), intent(in) :: alam,vm,beq,rcurv,lossc
   real(rprec) :: lossFLC
   
-  real(rprec) :: bfp,ftv,K,V,TauSS,Rgyro,eps,xSS,TauFLC
+  real(rprec) :: bfp,ftv,K,V,TauSS,Rgyro,eps,xSS,TauFLC,earg
 
   bfp = beq/(sin(lossc)**2.0) !Foot point field strength, nT
   ftv = (1.0/vm)**(3.0/2.0) !flux-tube volume Re/nT
@@ -2508,16 +2508,15 @@ FUNCTION FLCRat(ie,alam,vm,beq,rcurv,lossc) result(lossFLC)
   eps = Rgyro/rcurv
 
   !Chen+ 2019
-  !xSS = max(100.0*eps**-5.0,1.0)
+  
   !K: Mockup between Chen/Gibson, transition between eps^-5 dep. and strong scattering at kappa = sqrt(8)
-  xSS = max( (8.0*eps)**(-5.0), 1.0 )
+  !xSS = max( (8.0*eps)**(-5.0), 1.0 )
+  earg = eps**(-5.0)
+  xSS = max(100.0*earg,1.0)
+  !xSS = max(10.0*earg,1.0)
 
   TauFLC = xSS*TauSS
   lossFLC = 1.0/TauFLC !Rate, 1/s
-
-! !Mixed Chen+ 2019/Gilson+ 2012
-!   !Above eps = 0.125, kap <= sqrt(8) use full strong-scattering
-!   lossFLC = (1.0/TauSS)*RampUp(eps,0.1_rp,0.15_rp)
 
 END FUNCTION FLCRat
 
@@ -2561,6 +2560,9 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
 
 !---
 !Do prep work
+  where (eeta<0)
+    eeta = 0.0
+  endwhere
 
   joff=jwrap-1
 
@@ -2579,7 +2581,6 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
   yupper = jsize-3
   
   fac = 1.0E-3*signbe*bir*alpha*beta*dlam*dpsi*ri**2
-
 
 !---
 !Get OCB
@@ -2619,7 +2620,11 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
       ie = 2  ! protons
     END IF
 
-    IF (MAXVAL(eeta(:,:,kc)) < machine_tiny) CYCLE !Skip boring channels
+    IF (MAXVAL(eeta(:,:,kc)) < machine_tiny) then
+      !Skip boring channels
+      eeta(:,:,kc) = 0.0
+      CYCLE
+    END IF
     mass_factor = SQRT (xmass(1)/xmass(ie))
 
   !---
@@ -2663,6 +2668,10 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
     !Freeze flow too close to MHD boundary
     didt(iMHD-1:,:) = 0.0 
     djdt(iMHD+1:,:) = 0.0
+    
+    !Freeze flow into the domain, only move stuff around from MHD buffer
+    didt(1:2,:) = 0.0
+    djdt(1  ,:) = 0.0
 
     call PadClaw(didt)
     call PadClaw(djdt)
@@ -2683,8 +2692,9 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
           if ( L_dktime .and. (.not. isOpen(i,j)) ) then
             !Do losses even in buffer region in case stuff moves in/out
             r_dist = sqrt(xmin(i,j)**2+ymin(i,j)**2)
-            lossCX = Cexrat(ie,abs(alamc(kc))*vm(i,j),r_dist,sunspot_number, &
-                            dktime,irdk,inrgdk,isodk,iondk)
+            !lossCX = Cexrat(ie,abs(alamc(kc))*vm(i,j),r_dist,sunspot_number, &
+            !                dktime,irdk,inrgdk,isodk,iondk)
+            lossCX = CXKaiju(ie,abs(alamc(kc))*vm(i,j),r_dist)
             !Placeholder for FLC loss, uses radcurv(i,j) [Re]
             lossFLC = FLCRat(ie,alamc(kc),vm(i,j),bmin(i,j),radcurv(i,j),losscone(i,j))
           endif
@@ -2703,7 +2713,7 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
 
   !---
   !Advect w/ clawpack
-    sumEtaBEF = sum(eeta(:,:,kc)) !Total content before clawpack
+    sumEtaBEF = sum(eeta(:,j1:j2,kc)) !Total content before clawpack
     call rcm2claw(eeta(:,:,kc),etaC)
     
 
@@ -2730,11 +2740,11 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
     call circle(eeta(:,:,kc))
 
     !Check total content after versus before
-    sumEtaAFT = sum(eeta(:,:,kc))
-    if (sumEtaAFT>sumEtaBEF) then
-      !Can only increase content due to numerical shennanigans, i.e. borrowing from vacuum
-      eeta(:,:,kc) = (sumEtaBEF/sumEtaAFT)*eeta(:,:,kc)
-    endif
+    sumEtaAFT = sum(eeta(:,j1:j2,kc))
+    ! if (sumEtaAFT>sumEtaBEF) then
+    !   !Can only increase content due to numerical shennanigans, i.e. borrowing from vacuum
+    !   eeta(:,:,kc) = (sumEtaBEF/sumEtaAFT)*eeta(:,:,kc)
+    ! endif
 
     if (doOCBNuke) then
       !Go through and nuke any content next to open cell
@@ -2761,7 +2771,7 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
       !K: Added kc==1 check 8/11/20
       call Kaiju_Plasmasphere_Refill(eeta(:,:,1), rmin, aloct, vm, dt)
       call circle(eeta(:,:,kc)) !Probably don't need to re-circle
-    endif      
+    endif
     
   enddo !Main kc loop
 
@@ -3192,7 +3202,7 @@ SUBROUTINE Kaiju_Plasmasphere_Refill(eeta0,rmin,aloct,vm,idt)
 
       dndt = 10.0**(3.48-0.331*rmin(i,j)) !cm^-3/day, Denton+ 2012 eqn 1
       tau = day2s*(dppT-dpsph)/dndt
-      eeta0(i,j) = eeta0(i,j) + min(idt/tau,1.0)*deta !Make sure not to overfill but unlikely
+      eeta0(i,j) = eeta0(i,j) + min(idt/tau,1.0)*max(deta,0.0) !Make sure not to overfill but unlikely
 
     enddo
   enddo
