@@ -82,7 +82,7 @@ module voltapp_mpi
         if(vApp%shallowIneijkSendReq /= MPI_REQUEST_NULL) then
             call MPI_REQUEST_GET_STATUS(vApp%shallowIneijkSendReq,reqStat,MPI_STATUS_IGNORE,ierr)
             if(.not. reqStat) then
-                call MPI_CANCEL(vApp%shallowIneijkSendReq, ierr)
+                ! async neighborhood ops don't support cancel
                 call MPI_WAIT(vApp%shallowIneijkSendReq, MPI_STATUS_IGNORE, ierr)
             endif
         endif
@@ -90,7 +90,7 @@ module voltapp_mpi
         if(vApp%shallowInexyzSendReq /= MPI_REQUEST_NULL) then
             call MPI_REQUEST_GET_STATUS(vApp%shallowInexyzSendReq,reqStat,MPI_STATUS_IGNORE,ierr)
             if(.not. reqStat) then
-                call MPI_CANCEL(vApp%shallowInexyzSendReq, ierr)
+                ! async neighborhood ops don't support cancel
                 call MPI_WAIT(vApp%shallowInexyzSendReq, MPI_STATUS_IGNORE, ierr)
             endif
         endif

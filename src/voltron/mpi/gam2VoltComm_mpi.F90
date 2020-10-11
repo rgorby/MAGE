@@ -210,16 +210,45 @@ module gam2VoltComm_mpi
 
     end subroutine initGam2Volt
 
-    subroutine endGam2VoltWaits(g2vComm)
+    subroutine endGam2VoltWaits(g2vComm, gApp)
         type(gam2VoltCommMpi_T), intent(inout) :: g2vComm
+        type(gamAppMpi_T), intent(inout) :: gApp
 
+        logical :: reqStat
         integer :: ierr
 
-        call MPI_WAIT(g2vComm%shallowGasSendReq, MPI_STATUS_IGNORE, ierr)
+        if(g2vComm%shallowGasSendReq /= MPI_REQUEST_NULL) then
+            call MPI_REQUEST_GET_STATUS(g2vComm%shallowGasSendReq,reqStat,MPI_STATUS_IGNORE,ierr)
+            if(.not. reqStat) then
+                ! can't cancel neighborhood calls
+                call MPI_WAIT(g2vComm%shallowGasSendReq, MPI_STATUS_IGNORE, ierr)
+            endif
+        endif
 
+        if(g2vComm%shallowBxyzSendReq /= MPI_REQUEST_NULL) then
+            call MPI_REQUEST_GET_STATUS(g2vComm%shallowBxyzSendReq,reqStat,MPI_STATUS_IGNORE,ierr)
+            if(.not. reqStat) then
+                ! can't cancel neighborhood calls
+                call MPI_WAIT(g2vComm%shallowBxyzSendReq, MPI_STATUS_IGNORE, ierr)
+            endif
+        endif
         call MPI_WAIT(g2vComm%shallowBxyzSendReq, MPI_STATUS_IGNORE, ierr)
 
-        call MPI_WAIT(g2vComm%shallowTimeBcastReq, MPI_STATUS_IGNORE, ierr)
+        if(g2vComm%doAsyncShallow) then
+            ! voltron sent shallow data which can't be cancelled
+            call recvShallowData(g2vComm, gApp)
+        endif
+
+        if(g2vComm%shallowTimeBcastReq /= MPI_REQUEST_NULL) then
+            call MPI_REQUEST_GET_STATUS(g2vComm%shallowTimeBcastReq,reqStat,MPI_STATUS_IGNORE,ierr)
+            if(.not. reqStat) then
+                call MPI_CANCEL(g2vComm%shallowTimeBcastReq, ierr)
+                call MPI_WAIT(g2vComm%shallowTimeBcastReq, MPI_STATUS_IGNORE, ierr)
+            endif
+        endif
+
+        if(allocated(g2vComm%gasBuffer)) deallocate(g2vComm%gasBuffer)
+        if(allocated(g2vComm%bxyzBuffer)) deallocate(g2vComm%bxyzBuffer)
 
     end subroutine endGam2VoltWaits
 

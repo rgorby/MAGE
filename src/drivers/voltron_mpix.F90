@@ -164,7 +164,7 @@ program voltron_mpix
 
         end do
 
-        call endGam2VoltWaits(g2vComm)
+        call endGam2VoltWaits(g2vComm, gApp)
 
     else
         call initVoltron_mpi(vApp, userInitFunc, MPI_COMM_WORLD)
