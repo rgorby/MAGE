@@ -95,7 +95,10 @@ if(ENABLE_MPI)
 	add_definitions(${MPI_Fortran_COMPILE_FLAGS})
 	include_directories(${MPI_Fortran_INCLUDE_PATH})
 	link_directories(${MPI_Fortran_LIBRARIES})
-	string(APPEND CMAKE_Fortran_FLAGS " -mt_mpi")
+	if(CMAKE_Fortran_COMPILER_ID MATCHES Intel)
+		string(APPEND CMAKE_Fortran_FLAGS " -mt_mpi")
+	endif()
+	# no matching flag for GNU
 	set(CMAKE_Fortran_COMPILER ${MPI_Fortran_COMPILER})
 endif()
 
