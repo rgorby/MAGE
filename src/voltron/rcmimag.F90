@@ -564,7 +564,7 @@ module rcmimag
         write(*,*) ANSIYELLOW
         write(*,*) 'RCM'
         
-        write (*, '(a, f8.2,a,f6.2,a,f6.2,a)')      '  Trust    = ' , wTrust, '% (P-AVG) / ', wTMin, '% (MIN) / ', maxWT, '% (@ MAX)'
+        !write (*, '(a, f8.2,a,f6.2,a,f6.2,a)')      '  Trust    = ' , wTrust, '% (P-AVG) / ', wTMin, '% (MIN) / ', maxWT, '% (@ MAX)'
 
         if (doWolfLim) then
             write (*, '(a, f8.3,a,f8.3,a)')      '  Max RC-P = ' , maxPRCM, ' (RCM) / ', limP, ' (LIM) [nPa]'
@@ -576,7 +576,6 @@ module rcmimag
         write (*, '(a,2f8.3,a)')             '   @ L/MLT = ' , maxL, maxMLT, ' [deg]'
         write (*, '(a, f8.3,a,f8.3,a)')      '      w/ D = ' , maxD, ' (RC) / ', maxDP, ' (PSPH) [#/cc]'
         write (*, '(a,1f8.3,a)')             '      w/ T = ' , maxT, ' [keV]'
-        !write (*, '(a, f8.3,a,f8.3,a)')      '      w/ T = ' , maxT, ' [keV] (RCM-Max: ', maxLam, ')'
 
 
         write(*,'(a)',advance="no") ANSIRESET!, ''
