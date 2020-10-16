@@ -43,11 +43,21 @@
       INTEGER(iprec) :: i, j, L, k, itime,n,klow
       real(rprec) :: max_xmin,min_xmin,max_ymin,min_ymin
       real(rprec) :: dens_plasmasphere
-      real(rp) :: sclmass(RCMNUMFLAV) !xmass prescaled to proton
-      real(rp) :: kevRCM,kevMHD
-      real(rp), parameter :: kRatMax = 0.9
+      real(rprec) :: sclmass(RCMNUMFLAV) !xmass prescaled to proton
+      real(rprec) :: kevRCM,kevMHD
+      real(rprec), parameter :: kRatMax = 0.9
       !AMS 04-22-2020
       real(rprec) :: pressure_factor,density_factor
+
+      !Array to hold eeta to ingest into MHD, should do this as pointer but requires adding "target" various places
+      real(rprec), dimension(isize,jsize,kcsize) :: eeta2mhd
+
+      !Pick which eeta to use, avg or final after advance
+      if (doAvg2MHD) then
+        eeta2mhd = max(eeta_avg,0.0)
+      else
+        eeta2mhd = max(eeta    ,0.0)
+      endif
 
       pressure_factor = 2./3.*ev/RM%planet_radius*nt
       density_factor = nt/RM%planet_radius
@@ -81,18 +91,18 @@
           IF (vm(i,j) < 0.0) CYCLE
           DO k = klow, kcsize
             !Pressure calc in pascals
-            pressrcm(i,j) = pressrcm(i,j) + pressure_factor*ABS(alamc(k))*eeta(i,j,k)*vm(i,j)**2.5
+            pressrcm(i,j) = pressrcm(i,j) + pressure_factor*ABS(alamc(k))*eeta2mhd(i,j,k)*vm(i,j)**2.5
 
             !Density calc
             if (alamc(k) > 0.0) then ! only add the ion contribution
-              densrcm(i,j) = densrcm(i,j) + density_factor*sclmass(ikflavc(k))*eeta(i,j,k)*vm(i,j)**1.5
+              densrcm(i,j) = densrcm(i,j) + density_factor*sclmass(ikflavc(k))*eeta2mhd(i,j,k)*vm(i,j)**1.5
             endif
           ENDDO !k
 
           if (use_plasmasphere) then
             if (dp_on) then 
               ! use plasmasphere channel eeta_avg(:,:,1) sbao 03/2020
-              denspsph(i,j) = density_factor*sclmass(RCMPROTON)*eeta(i,j,1)*vm(i,j)**1.5
+              denspsph(i,j) = density_factor*sclmass(RCMPROTON)*eeta2mhd(i,j,1)*vm(i,j)**1.5
             else
               ! add a simple plasmasphere model based on carpenter 1992 or gallagher 2002 in ples/cc
               dens_plasmasphere = GallagherXY(xmin(i,j),ymin(i,j))
@@ -108,10 +118,9 @@
             !Effective "MHD" temperature, P=nkT_{MHD} is above kRatMax the max RCM channel energy
             !This is probably bad for resolving the distribution so we do some shady cooling here
 
-            !Rescale eeta's to clamp P_{RCM}
+            !Rescale eeta's to clamp P_{RCM} (doing directly to eeta, not copyed eeta2mhd)
             eeta(i,j,klow:) = (kRatMax*kevRCM/kevMHD)*eeta(i,j,klow:)
             pressrcm(i,j)   = (kRatMax*kevRCM/kevMHD)*pressrcm(i,j)
-
             !write(*,*) 'kevRCM, kevMHD = ', kevRCM,kevMHD,densrcm(i,j)*rcmNScl,pressrcm(i,j)*rcmPScl
           endif
 
