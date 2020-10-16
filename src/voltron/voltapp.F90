@@ -146,7 +146,7 @@ module voltapp
             !Whether to do fast eb-squishing
             call xmlInp%Set_Val(vApp%doQkSquish,"coupling/doQkSquish",.false.)
             call xmlInp%Set_Val(vApp%qkSquishStride,"coupling/qkSquishStride", 2)
-            if(vApp%doQkSquish .and. popcnt(vApp%qkSquishStride /= 1)) then
+            if(vApp%doQkSquish .and. popcnt(vApp%qkSquishStride) /= 1) then
                 write(*,*) 'Quick Squish Stride must be a power of 2'
                 stop
             endif
