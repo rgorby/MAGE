@@ -62,6 +62,7 @@ module gam2VoltComm_mpi
         logical :: reorder, wasWeighted, doIOX
         character(len=strLen) :: inpXML
         type(XML_Input_T) :: xmlInp
+        integer, dimension(1) :: rankArray, weightArray
 
         if(present(optFilename)) then
             ! read from the prescribed file
@@ -121,8 +122,8 @@ module gam2VoltComm_mpi
 
         reorder = .true. ! allow MPI to reorder the ranks
         call mpi_dist_graph_create_adjacent(voltComm, &
-            (/1/),(/commSize-1/),(/dataCount/), &
-            (/1/),(/commSize-1/),(/dataCount/), &
+            1,(/commSize-1/),(/dataCount/), &
+            1,(/commSize-1/),(/dataCount/), &
             MPI_INFO_NULL, reorder, g2vComm%voltMpiComm, ierr)
         if(ierr /= MPI_Success) then
             call MPI_Error_string( ierr, message, length, ierr)
@@ -143,8 +144,9 @@ module gam2VoltComm_mpi
         endif
 
         ! get the rank of voltron in the new communicator
-        call mpi_dist_graph_neighbors(g2vComm%voltMpiComm, numInNeighbors, g2vComm%voltRank, dataCount, &
-                                      numOutNeighbors, g2vComm%voltRank, dataCount, ierr)
+        call mpi_dist_graph_neighbors(g2vComm%voltMpiComm, numInNeighbors, rankArray, weightArray, &
+                                      numOutNeighbors, rankArray, weightArray, ierr)
+        g2vComm%voltRank = rankArray(1)
 
         ! send i/j/k ranks again since my rank may have changed in the new communicator
         call mpi_gather(gApp%Grid%Ri, 1, MPI_INT, 0, 0, 0, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
