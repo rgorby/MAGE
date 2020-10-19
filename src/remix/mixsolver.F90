@@ -302,6 +302,6 @@ module mixsolver
 
     end subroutine MKLSolve
 
-#endif USEMKL
+#endif
 
 end module mixsolver
