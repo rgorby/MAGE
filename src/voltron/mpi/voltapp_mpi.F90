@@ -331,7 +331,7 @@ module voltapp_mpi
     end function gameraStepReady
 
     subroutine waitForGameraStep(vApp)
-        type(voltAppMpi_T), intent(in) :: vApp
+        type(voltAppMpi_T), intent(inout) :: vApp
         
         integer :: ierr
 
@@ -701,7 +701,7 @@ module voltapp_mpi
     end subroutine recvShallowData_mpi
 
     subroutine sendShallowData_mpi(vApp)
-        type(voltAppMpi_T), intent(in) :: vApp
+        type(voltAppMpi_T), intent(inout) :: vApp
 
         integer :: ierr
 
