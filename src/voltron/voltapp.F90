@@ -137,7 +137,8 @@ module voltapp
             vApp%doDeep = .false.
         endif
 
-        if (vApp%doDeep .and. .not. doSpin) then
+        ! Deep enabled, not restart, not spinup is an error. Restart or spinup is required
+        if (vApp%doDeep .and. (.not. gApp%Model%isRestart) .and. (.not. doSpin) ) then
             write(*,*) 'Spinup is required with deep coupling. Please enable the spinup/doSpin option. At least 1 minute of spinup is recommended.'
             stop
         endif
