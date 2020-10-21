@@ -407,7 +407,8 @@ module rcmimag
                 pScl = beta*5.0/6.0
                 plim = (pScl*pmhd + prcm)/(1.0+pScl)
                 !nlim = nrcm - 0.6*pScl*nmhd*(prcm-pmhd)/(1.0+pScl)/pmhd
-                nlim = nrcm !Testing P-only wolf limiting
+                nlim = (plim/prcm)*nrcm !Constant temp. limiting
+                !nlim = nrcm !Testing P-only wolf limiting
             else
                 !Use raw RCM values if they're good
                 plim = prcm
