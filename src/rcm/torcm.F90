@@ -488,27 +488,27 @@ MODULE torcm_mod
       real(rprec) :: dtot,drcm
       integer(iprec) :: k
 
-    !Trap for boring cases
-      if (iopen(i,j) == RCMTOPOPEN) then
-        dmhd = 0.0
+      !Trap for boring cases
+        if (iopen(i,j) == RCMTOPOPEN) then
+          dmhd = 0.0
+          dpp  = 0.0
+          return
+        endif
+        dmhd = den(i,j)
         dpp  = 0.0
-        return
-      endif
-      dmhd = den(i,j)
-      dpp  = 0.0
 
-      if (.not. use_plasmasphere) return !Separation complete
-      
-    !If still here either null or closed
-      !Calculate plasmasphere density contribution
-      dpp = density_factor*1.0*eeta(i,j,1)*vm(i,j)**1.5
-      if (dpp < TINY) return !No plasmasphere to worry about
+        if (.not. use_plasmasphere) return !Separation complete
+        
+      !If still here either null or closed
+        !Calculate plasmasphere density contribution
+        dpp = density_factor*1.0*eeta(i,j,1)*vm(i,j)**1.5
+        if (dpp < TINY) return !No plasmasphere to worry about
 
-      if ( (dpp < dmhd) .and. (dpp > TINY) ) then
-        !Smaller than MHD so just subtract out and assume rest is hot fluid
-        dmhd = dmhd - dpp
-        return
-      endif
+        if ( (dpp < dmhd) .and. (dpp > TINY) ) then
+          !Smaller than MHD so just subtract out and assume rest is hot fluid
+          dmhd = dmhd - dpp
+          return
+        endif
 
       !Last try, part fluid based on inferred ratio from RCM
         drcm = 0.0
@@ -527,8 +527,14 @@ MODULE torcm_mod
           return
         endif
 
-      !We tried our best, just return uncorrected density
-      return
+        !dpp > dmhd, but don't want to use potentially large plasmasphere mass
+        if ( abs(dmhd-dpp) > TINY ) then
+          dmhd = abs(dmhd-dpp)
+          return
+        endif
+        
+        !We tried our best, just return uncorrected density
+        return
 
       END SUBROUTINE PartFluid
 !
