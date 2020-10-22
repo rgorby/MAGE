@@ -70,8 +70,8 @@ module rcm_mhd_mod
         if (doRCMVerbose) write (*,'(TR1,A,L7)') 'Welcome to the RCM, IsCoupledExternally=', IsCoupledExternally
         
         ! setup rcm,time in integer format
-        itimei = nint(mhdtime-time0,iprec)
-        itimef = nint(mhdtime + mhdtimedt-time0,iprec)
+        itimei = floor(mhdtime-time0,iprec)
+        itimef = floor(mhdtime + mhdtimedt-time0,iprec)
         ircm_dt = itimef - itimei
   
     ! finish up
