@@ -304,5 +304,89 @@ contains
 
   end subroutine testAdjustDeepCoupling
 
+  @test(npes=[2,5,17])
+  subroutine testQuickSquish(this)
+      class (MpiTestMethod), intent(inout) :: this
+
+      real(rp) :: x2err, x4err
+
+      if(isGamera) then
+          call endGam2VoltWaits(g2vCommMpi, gamAppMpi)
+          g2vCommMpi%doSerialVoltron = .false.
+          g2vCommMpi%doAsyncShallow = .true.
+          g2vCommMpi%firstShallowUpdate = .true.
+          g2vCommMpi%firstDeepUpdate = .true.
+
+          ! run case for 1 minute of spinup to initialize data
+          call runApplication(0.0_rp)
+
+          ! explicitly deeo couple once to update deep data
+          call performDeepUpdate(g2vCommMpi,gamAppMpi)
+      else
+          write (*,'(a,I0)') 'Testing Quick Squish ',this%getNumProcesses()
+
+          call endVoltronWaits(voltAppMpi)
+          voltAppMpi%doSerialVoltron = .false.
+          voltAppMpi%doAsyncShallow = .true.
+          voltAppMpi%firstShallowUpdate = .true.
+          voltAppMpi%firstDeepUpdate = .true.
+          voltAppMpi%firstStepUpdate = .true.
+
+          ! run case for 1 minute of spinup to initialize data
+          call runApplication(0.0_rp)
+
+          ! explicitly deep couple once to update deep data
+          call DeepUpdate_mpi(voltAppMpi, voltAppMpi%time)
+
+          ! now check the quick squish erroers
+          call CheckQuickSquishError(voltAppmpi, voltAppMpi%gAppLocal, x2Err, x4Err)
+
+          @assertLessThanOrEqual(0.1_rp, x2Err, trim("X2 Quick Squish Error Too Large"))
+          @assertLessThanOrEqual(0.4_rp, x4Err, trim("X2 Quick Squish Error Too Large"))
+      endif
+  end subroutine testQuickSquish
+
+  @test(npes=[2,5,17])
+  subroutine testQuickSquishStorm(this)
+      class (MpiTestMethod), intent(inout) :: this
+
+      real(rp) :: x2err, x4err
+
+      if(isGamera) then
+          call endGam2VoltWaits(g2vCommMpi, gamAppMpi)
+          g2vCommMpi%doSerialVoltron = .false.
+          g2vCommMpi%doAsyncShallow = .true.
+          g2vCommMpi%firstShallowUpdate = .true.
+          g2vCommMpi%firstDeepUpdate = .true.
+
+          ! run case for 10 minutes to get some storm data
+          call runApplication(600.0_rp)
+
+          ! explicitly deeo couple once to update deep data
+          call performDeepUpdate(g2vCommMpi,gamAppMpi)
+      else
+          write (*,'(a,I0)') 'Testing Quick Squish ',this%getNumProcesses()
+
+          call endVoltronWaits(voltAppMpi)
+          voltAppMpi%doSerialVoltron = .false.
+          voltAppMpi%doAsyncShallow = .true.
+          voltAppMpi%firstShallowUpdate = .true.
+          voltAppMpi%firstDeepUpdate = .true.
+          voltAppMpi%firstStepUpdate = .true.
+
+          ! run case for 10 minutes to get some storm data
+          call runApplication(600.0_rp)
+
+          ! explicitly deep couple once to update deep data
+          call DeepUpdate_mpi(voltAppMpi, voltAppMpi%time)
+
+          ! now check the quick squish erroers
+          call CheckQuickSquishError(voltAppmpi, voltAppMpi%gAppLocal, x2Err, x4Err)
+
+          @assertLessThanOrEqual(0.1_rp, x2Err, trim("X2 Quick Squish Error Too Large"))
+          @assertLessThanOrEqual(0.4_rp, x4Err, trim("X2 Quick Squish Error Too Large"))
+      endif
+  end subroutine testQuickSquishStorm
+
 end module testCoupling
 
