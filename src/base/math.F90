@@ -463,11 +463,35 @@ module math
 
         if (any(isG)) then
             qAvg = sum(SmoothOp5x5*Q,mask=isG)
-            qScl = sum(SmoothOp5x5,mask=isG)
+            qScl = sum(SmoothOp5x5  ,mask=isG)
             Qs = qAvg/qScl
         else
             Qs = 0.0
         endif
         
     end function SmoothOperator55
+
+    !Use 3x3 smoothing window, isGO is optional logical for good cells
+    function SmoothOperator33(Q,isGO) result(Qs)
+        real(rp), dimension(3,3), intent(in)  :: Q
+        logical , dimension(3,3), intent(in), optional  :: isGO
+        real(rp) :: Qs
+        logical, dimension(3,3) :: isG
+        real(rp) :: qAvg,qScl
+
+        if (present(isGO)) then
+            isG = isGO
+        else
+            isG = .true.
+        endif
+
+        if (any(isG)) then
+            qAvg = sum(SmoothOpTSC*Q,mask=isG)
+            qScl = sum(SmoothOpTSC  ,mask=isG)
+            Qs = qAvg/qScl
+        else
+            Qs = 0.0
+        endif
+        
+    end function SmoothOperator33 
 end module math
