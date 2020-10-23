@@ -196,7 +196,7 @@ module voltapp
         
             if (vApp%doDeep .and. (vApp%time>=vApp%DeepT)) then
                 call Tic("DeepCoupling")
-                call DeepUpdate(vApp,gApp,vApp%time)
+                call DeepUpdate(vApp,gApp)
                 call Toc("DeepCoupling")
             endif
         endif
@@ -441,13 +441,14 @@ module voltapp
         class(voltApp_T), intent(inout) :: vApp
         real(rp), intent(out) :: x2Err, x4Err
 
-        integer :: i,j,k,baseQkSqStr = vApp%qkSquishStride
+        integer :: i,j,k,baseQkSqStr
         real(rp), dimension(:,:,:,:), allocatable :: baseXyzSquish
-        real(rp) dimension(2) :: posErr
+        real(rp), dimension(2) :: posErr
 
         associate(ebGr=>vApp%ebTrcApp%ebState%ebGr)
 
         allocate(baseXyzSquish,  MOLD=vApp%chmp2mhd%xyzSquish)
+        baseQkSqStr = vApp%qkSquishStride
 
         ! squish with baseline quick squish stride
         call DeepUpdate(vApp, gApp)

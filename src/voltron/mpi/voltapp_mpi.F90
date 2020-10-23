@@ -860,7 +860,7 @@ module voltapp_mpi
 
             ! call base update function with local data
             call Tic("DeepUpdate")
-            call DeepUpdate(vApp, vApp%gAppLocal, time)
+            call DeepUpdate(vApp, vApp%gAppLocal)
             call Toc("DeepUpdate")
 
             ! send updated data to Gamera ranks
