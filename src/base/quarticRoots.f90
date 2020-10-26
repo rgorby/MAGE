@@ -42,7 +42,6 @@ contains
         epsTest1 = c-2.0*alpha*beta
         epsTest2 = d-beta**2.0
       
-      
         if (abs(epsTest1) < eps .and. abs(epsTest2) < eps) then
             x(1:2) = quadraticSolve([alpha,beta])
             x(3:4) = x(1:2)

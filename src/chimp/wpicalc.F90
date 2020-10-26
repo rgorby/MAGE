@@ -31,10 +31,12 @@ module wpicalc
         real(rp) :: dtCum,dtRem,ddt ! substep used in wpi calculations, not same as ddt in pusher.F90 
         integer :: pSgn
 
-        real(rp) :: dAlim  !Limiting change in pith-angle to be below this value each wpi 
+        real(rp) :: dAlim  !Limiting change in pith-angle to be below this value each wpi to reduce error in diff. Curve
         real(rp) :: da,dp !Change in pitch angle and momentum due to wpi
 
         logical :: doWave
+
+        if (.not.prt%isIn) return !shouldn't be here if particle is not in domain
 
         if (Model%do2D) then
             !Trap here and quickly grab values
@@ -92,7 +94,7 @@ module wpicalc
         do while (dtCum<dt)
             ! Determine wj,kj that particle resonants with
             call Resonance(Model,wave,wModel,prt,astar,xj,yj)
-            if (xj == 999) exit ! no resonant waves present
+            if (xj == 999) return ! no resonant waves present
 
             Daa = DiffCoef(Model,wave,wModel,prt,astar,MagB,xj,yj) ! Calculate the diffusion coeffcient
 
