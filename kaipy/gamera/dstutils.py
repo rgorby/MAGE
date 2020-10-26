@@ -84,6 +84,7 @@ def GetDST(fIn,nSlc,Xc,Yc,Zc,dV):
 	dA = dA/Np
 	return t,d0,dA
 def GetSymH(fBC):
+	kh5.CheckOrDie(fBC)
 	with h5py.File(fBC,'r') as hf:
 		tData = hf['T'][()]
 		dstData = hf['symh'][()]

@@ -3,7 +3,7 @@
 <voltron>
   <sim tFin="677.115987461"/>
   <spinup doSpin="F"/>
-  <coupling dt="5.0"/>
+  <coupling dt="5.0" doAsyncShallow="F"/>
 </voltron>
 <Gamera>
   <iPdir N="1" bcPeriodic="F"/>

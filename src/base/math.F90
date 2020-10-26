@@ -3,7 +3,22 @@ module math
     use kdefs
 
     implicit none
-contains
+
+    !Matrix for 5x5 smoothing (unscaled)
+    real(rp), private, parameter, dimension(5,5) ::  &
+             SmoothOp5x5 = reshape( [ 1, 4, 7, 4, 1, &
+                                      4,16,26,16, 4, &
+                                      7,26,41,26, 7, &
+                                      4,16,26,16, 4, &
+                                      1, 4, 7, 4, 1  ], [5,5] )
+
+    !Marix for 3x3 smoothing (scaled)
+    real(rp), parameter, dimension(3,3) ::  &
+              SmoothOpTSC = reshape( [ 0.0625,0.1250,0.0625, &
+                                       0.1250,0.2500,0.1250, &
+                                       0.0625,0.1250,0.0625 ], [3,3] )
+
+    contains
 
     !Generates a random number between vMin/vMax
     function genRand(vMin, vMax, seedIN)
@@ -430,4 +445,29 @@ contains
         B(4,4) = detinv*(A(1,1)*(A(2,2)*A(3,3)-A(2,3)*A(3,2))+A(1,2)*(A(2,3)*A(3,1)-A(2,1)*A(3,3))+A(1,3)*(A(2,1)*A(3,2)-A(2,2)*A(3,1)))
     end subroutine matinv4
 
+!--------------------------------------
+!Simple smoothing stuff
+    !Use 5x5 smoothing window, isGO is optional logical for good cells
+    function SmoothOperator55(Q,isGO) result(Qs)
+        real(rp), dimension(5,5), intent(in)  :: Q
+        logical , dimension(5,5), intent(in), optional  :: isGO
+        real(rp) :: Qs
+        logical, dimension(5,5) :: isG
+        real(rp) :: qAvg,qScl
+
+        if (present(isGO)) then
+            isG = isGO
+        else
+            isG = .true.
+        endif
+
+        if (any(isG)) then
+            qAvg = sum(SmoothOp5x5*Q,mask=isG)
+            qScl = sum(SmoothOp5x5,mask=isG)
+            Qs = qAvg/qScl
+        else
+            Qs = 0.0
+        endif
+        
+    end function SmoothOperator55
 end module math

@@ -8,9 +8,11 @@ import matplotlib.pyplot as plt
 import kaipy.kaiViz as kv
 import matplotlib.gridspec as gridspec
 import numpy as np
+import numpy as np
+import kaipy.gamera.msphViz as mviz
+import kaipy.remix.remix as remix
 import kaipy.gamera.magsphere as msph
 import kaipy.gamera.gampp as gampp
-import kaipy.gamera.remixpp as rmpp
 import kaipy.gamera.rcmpp as rcmpp
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 import os
@@ -23,7 +25,7 @@ if __name__ == "__main__":
 	fdir = os.getcwd()
 	ftag = "msphere"
 	oDir = "vid2D"
-
+	doDen = False
 	ts = 0    #[min]
 	te = 200  #[min]
 	dt = 60.0 #[sec]
@@ -31,6 +33,7 @@ if __name__ == "__main__":
 	doMPI = False #[Add MPI tiling]
 	Nblk = 1 #Number of blocks
 	nID = 1 #Block ID of this job
+	noMPI = False
 
 	MainS = """Creates simple multi-panel figure for Gamera magnetosphere run
 	Left Panel - Residual vertical magnetic field
@@ -46,8 +49,9 @@ if __name__ == "__main__":
 	parser.add_argument('-dt' ,type=int,metavar="dt"    ,default=dt,help="Cadence       [sec] (default: %(default)s)")
 	parser.add_argument('-Nblk' ,type=int,metavar="Nblk",default=Nblk,help="Number of job blocks (default: %(default)s)")
 	parser.add_argument('-nID' ,type=int,metavar="nID"  ,default=nID,help="Block ID of this job [1-Nblk] (default: %(default)s)")
-	parser.add_argument('-big', action='store_true', default=doBig,help="Use larger domain bounds (default: %(default)s)")
-	parser.add_argument('-mpi', action='store_true', default=doMPI,help="Add MPI tiling to figure (default: %(default)s)")
+	parser.add_argument('-nompi', action='store_true', default=noMPI,help="Don't show MPI boundaries (default: %(default)s)")
+
+	mviz.AddSizeArgs(parser)
 
 	#Finalize parsing
 	args = parser.parse_args()
@@ -59,8 +63,8 @@ if __name__ == "__main__":
 	oSub = args.o
 	Nblk = args.Nblk
 	nID = args.nID
-	doBig = args.big
-	doMPI = args.mpi
+	noMPI = args.nompi
+	doMPI = (not noMPI)
 	
 	#Setup timing info
 	tOut = np.arange(ts*60.0,te*60.0,dt)
@@ -94,61 +98,48 @@ if __name__ == "__main__":
 				pass
 			else:
 				raise
+
+	#Get domain size
+	xyBds = mviz.GetSizeBds(args)
 	
 	#---------
 	#Figure parameters
 	figSz = (12,7.5)
-	dbCMap = "RdGy_r"
-	bCMap = "inferno"
-	pCMap = "viridis"
-	ppCol = "orange"
-	ppVal = 100.0
 
-	if (doBig):
-		xTail = -100.0
-		xSun = 20.0
-	else:
-		xTail = -40.0
-		xSun = 20.0
-
-	yMax = (xSun-xTail)/2.0
-	xyBds = [xTail,xSun,-yMax,yMax]
-
-	PMin = 1.0e-2 ; PMax = 10.0
-
-	vDB = kv.genNorm(25)
-	vP = kv.genNorm(PMin,PMax,doLog=True)
 
 	#======
 	#Init data
 	gsph = msph.GamsphPipe(fdir,ftag)
 
-	#Check for RCM
+	#Check for remix
 	rcmChk = fdir + "/%s.mhdrcm.h5"%(ftag)
+	rmxChk = fdir + "/%s.mix.h5"%(ftag)
 	doRCM = os.path.exists(rcmChk)
+	doMIX = os.path.exists(rmxChk)
+
 	if (doRCM):
 		print("Found RCM data")
 		rcmdata = gampp.GameraPipe(fdir,ftag+".mhdrcm")
-		vP = kv.genNorm(PMin,10*PMax,doLog=True)
+		mviz.vP = kv.genNorm(1.0e-2,100.0,doLog=True)
+	if (doMIX):
+		print("Found ReMIX data")
+		
 		
 	#======
 	#Setup figure
 	fig = plt.figure(figsize=figSz)
-	gs = gridspec.GridSpec(3,4,height_ratios=[20,1.0,1.0],hspace=0.025)
-
-	AxL = fig.add_subplot(gs[0,0:2])
-	AxR = fig.add_subplot(gs[0,2:])
-	AxC1 = fig.add_subplot(gs[2,0])
-	AxC2 = fig.add_subplot(gs[2,3])
-	AxC3 = fig.add_subplot(gs[2,1])
-	AxC4 = fig.add_subplot(gs[2,2])
-
+	gs = gridspec.GridSpec(3,6,height_ratios=[20,1,1],hspace=0.025)
 	
-	kv.genCB(AxC1,vDB,"Residual Field [nT]",cM=dbCMap,Ntk=7)
-	rmpp.cMax = 1.00
-	kv.genCB(AxC4,kv.genNorm(rmpp.cMax),"FAC",cM=rmpp.fcMap,Ntk=4)
-	rmpp.AddPotCB(AxC3)
-	kv.genCB(AxC2,vP,"Pressure",cM=pCMap)#,Ntk=6)
+
+	AxL = fig.add_subplot(gs[0,0:3])
+	AxR = fig.add_subplot(gs[0,3:])
+
+	AxC1 = fig.add_subplot(gs[-1,0:2])
+	AxC2 = fig.add_subplot(gs[-1,2:4])
+	AxC3 = fig.add_subplot(gs[-1,4:6])
+
+	cbM = kv.genCB(AxC2,kv.genNorm(remix.facMax),"FAC",cM=remix.facCM,Ntk=4)
+	AxC2.xaxis.set_ticks_position('top')
 
 	#Loop over sub-range
 	for i in range(i0,i1):
@@ -159,66 +150,32 @@ if __name__ == "__main__":
 
 		AxL.clear()
 		AxR.clear()
-		
-		dbz = gsph.DelBz(nStp)
-		Bz = gsph.EggSlice("Bz",nStp,doEq=True)
-		Pxz = gsph.EggSlice("P",nStp,vScl=gsph.pScl,doEq=False)
 
-		#Start plotting
-		AxL.pcolormesh(gsph.xxi,gsph.yyi,dbz,cmap=dbCMap,norm=vDB)
-		AxL.contour(kv.reWrap(gsph.xxc),kv.reWrap(gsph.yyc),kv.reWrap(Bz),[0.0],colors='magenta',linewidths=cLW)
+		Bz = mviz.PlotEqB(gsph,nStp,xyBds,AxL,AxC1)
 
-		kv.addEarth2D(ax=AxL)
-		kv.SetAx(xyBds,AxL)
+		mviz.PlotMerid(gsph,nStp,xyBds,AxR,doDen,doRCM,AxC3)
+		#mviz.PlotJyXZ(gsph,nStp,xyBds,AxR,AxC3)
+
 		gsph.AddTime(nStp,AxL,xy=[0.025,0.89],fs="x-large")
 		gsph.AddSW(nStp,AxL,xy=[0.625,0.025],fs="small")
-		AxL.set_xlabel('SM-X [Re]')
-		AxL.set_ylabel('SM-Y [Re]')
 
-		AxR.pcolormesh(gsph.xxi,gsph.yyi,Pxz,cmap=pCMap,norm=vP)
-
-		kv.addEarth2D(ax=AxR)
-		kv.SetAx(xyBds,AxR)
-		AxR.yaxis.tick_right()
-		AxR.yaxis.set_label_position('right')
-		gsph.AddCPCP(nStp,AxR,xy=[0.610,0.925])
-
-		AxR.set_xlabel('SM-X [Re]')
-		AxR.set_ylabel('SM-Z [Re]')
-
+			
 		#Add inset RCM plot
 		if (doRCM):
 			AxRCM = inset_axes(AxL,width="30%",height="30%",loc=3)
-			rcmpp.RCMInset(AxRCM,rcmdata,nStp,vP)
+			rcmpp.RCMInset(AxRCM,rcmdata,nStp,mviz.vP)
+			AxRCM.contour(kv.reWrap(gsph.xxc),kv.reWrap(gsph.yyc),kv.reWrap(Bz),[0.0],colors=mviz.bz0Col,linewidths=mviz.cLW)
 			rcmpp.AddRCMBox(AxL)
+
+		if (doMIX):
+			ion = remix.remix(rmxChk,nStp)
+			gsph.AddCPCP(nStp,AxR,xy=[0.610,0.925])
+			mviz.AddIonBoxes(gs[0,3:],ion)		
 
 		#Add MPI decomp
 		if (doMPI):
-			gCol = "deepskyblue"
-			LW = 0.25
-			ashd = 0.5
-			for i in range(gsph.Ri):
-				i0 = i*gsph.dNi
-				AxL.plot(gsph.xxi[i0,:],gsph.yyi[i0,:],gCol,linewidth=LW,alpha=ashd)
-				AxR.plot(gsph.xxi[i0,:],gsph.yyi[i0,:],gCol,linewidth=LW,alpha=ashd)
-			if (gsph.Rj>1):
-				for j in range(1,gsph.Rj):
-					j0 = j*gsph.dNj
-					AxL.plot(gsph.xxi[:,j0] ,gsph.yyi[:,j0],gCol,linewidth=LW,alpha=ashd)
-					AxL.plot(gsph.xxi[:,j0],-gsph.yyi[:,j0],gCol,linewidth=LW,alpha=ashd)
-					AxR.plot(gsph.xxi[:,j0], gsph.yyi[:,j0],gCol,linewidth=LW,alpha=ashd)
-					AxR.plot(gsph.xxi[:,j0],-gsph.yyi[:,j0],gCol,linewidth=LW,alpha=ashd)
-				#X-axis (+)
-				AxL.plot(gsph.xxi[:,0], gsph.yyi[:,0],gCol,linewidth=LW,alpha=ashd)
-				AxR.plot(gsph.xxi[:,0], gsph.yyi[:,0],gCol,linewidth=LW,alpha=ashd)
-				#X-axis (-)
-				j0 = (gsph.Rj)*gsph.dNj
-				AxL.plot(gsph.xxi[:,j0], gsph.yyi[:,j0],gCol,linewidth=LW,alpha=ashd)
-				AxR.plot(gsph.xxi[:,j0], gsph.yyi[:,j0],gCol,linewidth=LW,alpha=ashd)
-
-		dxy = [32.5,32.5]
-		gsph.CMIViz(AxR,nStp,dxy=dxy,loc="upper left",doNorth=True)
-		gsph.CMIViz(AxR,nStp,dxy=dxy,loc="lower left",doNorth=False)
+			mviz.PlotMPI(gsph,AxL)
+			mviz.PlotMPI(gsph,AxR)
 
 		fOut = oDir+"/vid.%04d.png"%(npl)
 		kv.savePic(fOut,bLenX=45)

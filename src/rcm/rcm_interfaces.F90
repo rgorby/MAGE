@@ -1,6 +1,6 @@
 ! File to hold RCM interfaces to other codes
 
-   SUBROUTINE Grid_torcm (high_lat, low_lat, offseti, Re_external, Ri_external)
+   SUBROUTINE Grid_torcm (high_lat, low_lat, offseti, Re_external, Ri_external,doStretch)
 
       USE Rcm_mod_subs, imin_rcm=>imin
       USE conversion_module, ONLY: x0,y0,z0
@@ -9,7 +9,7 @@
       IMPLICIT NONE
 
       REAL(rprec), INTENT (IN) :: high_lat, low_lat, offseti, Re_external, Ri_external
-
+      LOGICAL, INTENT(IN) :: doStretch
 
       ! This routine will generate an ionospheric 2-D grid for the RCM
       !
@@ -61,8 +61,13 @@
       end if
 
       DO i = imin, isize
+        if (doStretch) then
           glat(i) = start + (end-start) * Fun(REAL(i-imin)/REAL(isize-imin,rprec))
-          teta(i) = pi/2 - glat(i)
+        else
+          !Do uniform spacing
+          glat(i) = start + (end-start) * REAL(i-imin)/REAL(isize-imin,rprec)
+        endif
+        teta(i) = pi/2 - glat(i)
       END DO
 
       DO j = j1,j2 

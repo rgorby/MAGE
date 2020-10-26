@@ -1,9 +1,10 @@
       SUBROUTINE Read_alam (kdim, alam, iflav,fudge, almdel, &
                             almmax, almmin, iedim, ierr)
-!      USE Rcm_mod_subs, ONLY : iprec,rprec
+      use rcmdefs
       USE rcm_precision
       use ioh5
       use files
+
       IMPLICIT NONE
       INTEGER(iprec), INTENT (IN) :: kdim, iedim
       INTEGER(iprec), INTENT (OUT) :: ierr
@@ -16,7 +17,7 @@
 !     Thus, can use it to get information for grid-based energy
 !     channels, or for edges. (Stanislav)
 !
-      INTEGER(iprec) :: k, iflavin, ie, lun = 1
+      INTEGER(iprec) :: NIn,k, iflavin, ie, lun = 1
       INTEGER(iprec) :: num_chan (iedim), k_start, k_stop
       REAL(rprec)  :: alamin, amin, amax,fudgein
       LOGICAL :: lflag_1, lflag_2
@@ -25,7 +26,6 @@
       logical :: doSP
 
       INCLUDE 'rcmdir.h'
-      INCLUDE 'rcm_include.h'
 ! 
       if (isGAMRCM) then
 
@@ -37,6 +37,15 @@
         call AddInVar(IOVars,"fudgec")
         call ReadVars(IOVars,doSP,RCMGAMConfig)
 
+        !Test all read variables to have the right size
+        do k=1,3
+          NIn = IOVars(k)%N
+          if (NIn /= kdim) then
+            write(*,*) 'RCM configuration error, mismatched k sizes ...'
+            stop
+          endif
+        enddo
+        
         !Lazily replicating loop from below
         DO k = 1, kdim
           iflavin = IOVars(1)%data(k)
@@ -147,5 +156,6 @@
       RETURN
  100  WRITE (*,'(T2,A)') 'error on opening enchan.dat'
       ierr = -1
+
       RETURN
       END SUBROUTINE Read_alam

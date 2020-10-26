@@ -72,10 +72,10 @@ module gcminterp
       !end do
 
       !do h=1,Nh
-      !call init_grid_fromTP(gcmG(GCMNORTH),gcmApp%glat,gcmApp%glon,SOLVER_GRID=.true.)
-      !call init_grid_fromTP(gcmG(GCMSOUTH),gcmApp%glat,gcmApp%glon,SOLVER_GRID=.true.)
-      call init_grid_fromXY(gcmG(GCMNORTH),gcmApp%gx,gcmApp%gy,SOLVER_GRID=.true.)
-      call init_grid_fromXY(gcmG(GCMSOUTH),gcmApp%gx,gcmApp%gy,SOLVER_GRID=.true.)
+      !call init_grid_fromTP(gcmG(GCMNORTH),gcmApp%glat,gcmApp%glon,isSolverGrid=.true.)
+      !call init_grid_fromTP(gcmG(GCMSOUTH),gcmApp%glat,gcmApp%glon,isSolverGrid=.true.)
+      call init_grid_fromXY(gcmG(GCMNORTH),gcmApp%gx,gcmApp%gy,isSolverGrid=.true.)
+      call init_grid_fromXY(gcmG(GCMSOUTH),gcmApp%gx,gcmApp%gy,isSolverGrid=.true.)
       !write(*,*) "Array Check: ",gcmG(GCMSOUTH)%Np,gcmG(GCMSOUTH)%Nt,shape(gcmApp%gx)
         ! call remix grid constructor
         !write(*,*) 'do interpolant ',h

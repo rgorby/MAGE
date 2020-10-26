@@ -9,73 +9,30 @@ module rcmimag
     use volttypes
     use files
     use earthhelper
+    use imagtubes
     use rcm_mhd_interfaces
     use rcm_mix_interface
-    use streamline
-    use chmpdbz, ONLY : DipoleB0
     use clocks
     use kronos
     use rcm_mhd_mod, ONLY : rcm_mhd
     use rcm_mhd_io
-    use msphutils, only : MagMoment
-
-    use cmiutils, only : SquishCorners
+    use rcmdefs, only : DenPP0
+    
     
     implicit none
 
-    real(rp) :: RIonRCM !Units of Rp
-    real(rp), private :: rEqMin = 0.0
-    real(rp), private :: PPDen = 10.0 !Plasmapause density cut-off
-    character(len=strLen), private :: h5File
-
-    real(rp), private :: Rp_m
-    real(rp), private :: planetM0g
-
+    real(rp), private :: rTrc0 = 2.0 !Padding factor for RCM domain to ebsquish radius
     logical , private, parameter :: doKillRCMDir = .true. !Whether to always kill RCMdir before starting
-    logical , private :: doWolfLim  = .true. !Whether to do wolf-limiting
+    integer, parameter, private :: MHDPad = 2 !Number of padding cells between RCM domain and MHD ingestion
+    logical , private :: doWolfLim  = .false. !Whether to do wolf-limiting
     logical , private :: doBounceDT = .true. !Whether to use Alfven bounce in dt-ingest
-    real(rp), private :: nBounce = 0.5 !Scaling factor for Alfven transit
+    logical , private :: doWIMTScl = .false. !Whether to modulate ingestion timescale by wIM
+    real(rp), private :: nBounce = 1.0 !Scaling factor for Alfven transit
 
-    !Information taken from MHD flux tubes
-    !TODO: Figure out RCM boundaries
-
-    !Pave = Average pressure [Pa]
-    !Nave = Average density [#/m3]
-    !Vol  = Flux-tube volume [Re/T]
-    !bmin = Min field strength [T]
-    !X_bmin = Location of Bmin [m]
-    !beta_average = Average plasma beta
-    !Potential = MIX potential [Volts]
-    !iopen = Field line topology (-1: Closed, 1: Open)
-    !Lb = Field line length [Re]
-    type RCMTube_T
-        real(rp) :: Vol,bmin,beta_average,Pave,Nave,pot
-        real(rp) :: X_bmin(NDIM)
-        integer(ip) :: iopen
-        real(rp) :: latc,lonc !Conjugate lat/lon
-        real(rp) :: Lb, Tb !Arc length/bounce time
-        real(rp) :: losscone
-    end type RCMTube_T
+    real(rp), private :: wIM_C = 0.0 !Critical wIM for MHD ingestion inclusion
 
     real(rp), dimension(:,:), allocatable, private :: mixPot
 
-    !Parameters used to set RCM ICs to feed back into MHD
-    type RCMIC_T
-        logical :: doIC = .false.
-        real(rp) :: dst0,ktRC !Values for inner magnetosphere
-        real(rp) :: vSW,dSW  !Solar wind values used to set plamsa sheet
-        real(rp) :: dPS,ktPS !Plasmasheet values
-        
-    end type RCMIC_T
-    
-    type(RCMIC_T), private :: RCMICs
-
-    !Parameters for smoothing toMHD boundary
-    type SmoothOperator_T
-        integer :: nIter,nRad
-    end type SmoothOperator_T
-
-    type(SmoothOperator_T), private :: SmoothOp
 
     type, extends(innerMagBase_T) :: rcmIMAG_T
 
@@ -89,6 +46,7 @@ module rcmimag
         procedure :: doAdvance => advanceRCM
         procedure :: doEval => EvalRCM
         procedure :: doIO => doRCMIO
+        procedure :: doConIO => doRCMConIO
         procedure :: doRestart => doRCMRestart
 
     end type
@@ -152,9 +110,6 @@ module rcmimag
         !Start up IO
         call initRCMIO(RCMApp,isRestart)
 
-        call iXML%Set_Val(SmoothOp%nIter,"imag/nIter",4)
-        call iXML%Set_Val(SmoothOp%nRad ,"imag/nRad" ,8)
-
         end associate
 
         contains
@@ -190,7 +145,7 @@ module rcmimag
             RCMICs%kTPS = -3.65 + 0.0190*RCMICs%vSW*1.0e-3 !m/s=>km/s
             RCMICs%kTPS = max(RCMICs%kTPS,TINY)
 
-            !Tune RC pressure profile
+            !Tune RC pressure profile, using just dst(T=0) (will try to do better later)
             call SetQTRC(RCMICs%dst0)
         else
             !Zero out any additional ring current
@@ -223,16 +178,13 @@ module rcmimag
         real(rp) :: dtAdv
         type(RCMTube_T) :: ijTube
 
-        real(rp) :: llBC,maxRad
-        logical :: isLL
-
+        real(rp) :: maxRad
+        logical :: isLL,doHackIC
+        
         associate(RCMApp => imag%rcmCpl)
 
-        !Lazily grabbing rDeep here, convert to RCM units
-        rEqMin = vApp%rDeep*Rp_m !Re=>meters
-
-        llBC = vApp%mhd2chmp%lowlatBC
-
+        RCMApp%llBC  = vApp%mhd2chmp%lowlatBC
+        RCMApp%dtCpl = vApp%DeepDT
         call Tic("MAP_RCMMIX")
     !Get potential from mix
         call map_rcm_mix(vApp,mixPot)
@@ -241,7 +193,7 @@ module rcmimag
         call Tic("RCM_TUBES")
     !Load RCM tubes
        !$OMP PARALLEL DO default(shared) collapse(2) &
-       !$OMP schedule(guided) &
+       !$OMP schedule(dynamic) &
        !$OMP private(i,j,colat,lat,lon,isLL,ijTube)
         do j=1,RCMApp%nLon_ion
             do i=1,RCMApp%nLat_ion
@@ -250,8 +202,7 @@ module rcmimag
                 lon = RCMApp%glong(j)
                 
                 !Decide if we're below low-lat BC or not
-                isLL = (lat <= llBC)
-
+                isLL = (lat <= RCMApp%llBC)
                 if (isLL) then
                     !Use mocked up values
                     call DipoleTube(vApp,lat,lon,ijTube)
@@ -273,9 +224,11 @@ module rcmimag
                 RCMApp%lonc(i,j)         = ijTube%lonc
                 RCMApp%losscone(i,j)     = ijTube%losscone
                 RCMApp%Lb(i,j)           = ijTube%Lb
+                RCMApp%radcurv(i,j)      = ijTube%rCurv
                 !Get some kind of bounce timscale, either real integrated value or lazy average
                 !RCMApp%Tb(i,j)           = AlfvenBounce(ijTube%Nave,ijTube%bmin,ijTube%Lb)
                 RCMApp%Tb(i,j)           = ijTube%Tb
+                RCMApp%wIMAG(i,j)        = ijTube%wIMAG
 
                 !mix variables are stored in this order (longitude,colatitude), hence the index flip
                 RCMApp%pot(i,j)          = mixPot(j,i)
@@ -285,17 +238,28 @@ module rcmimag
                 
             enddo
         enddo
-        call Toc("RCM_TUBES")
+        doHackIC = (vApp%time <= vApp%DeepDT) .and. RCMICs%doIC !Whether to hack MHD/RCM coupling for ICs
 
-        if ( (vApp%time <= vApp%DeepDT) .and. RCMICs%doIC ) then
-            !Tune values to send to RCM for its cold start
+        call Toc("RCM_TUBES")
+    !Do any tube hacking needed before sending tubes to RCM
+        if (doHackIC) then
+        !Tune values to send to RCM for its cold start
+            !Setup quiet time ring current to hit target using both current BSDst and target dst
+            !Replacing first RC estimate w/ Dst at end of blow-in period
+            call SetQTRC(RCMICs%dst0-vApp%BSDst)
             call HackTubes(RCMApp,vApp)
         endif
 
-        call Tic("AdvRCM")
+        !Coverup some bad tubes
+        call TrickyTubes(RCMApp)
+        
+        !Smooth out FTV on tubes b/c RCM will take gradient
+        call SmoothTubes(RCMApp)
+
     !Advance from vApp%time to tAdv
+        call Tic("AdvRCM")
         dtAdv = tAdv-vApp%time !RCM-DT
-        if (doColdstart)then
+        if (doColdstart) then
             write(*,*) 'Cold-starting RCM @ t = ', vApp%time
             call rcm_mhd(vApp%time,dtAdv,RCMApp,RCMCOLDSTART)
             doColdstart = .false.
@@ -305,11 +269,21 @@ module rcmimag
 
         call Toc("AdvRCM")
 
-        !Set ingestion region
-        call SetIngestion(RCMApp)
+    !Set ingestion region
+        if (doHackIC) then
+            !For ICs ingest from entire closed field region just this once
+            RCMApp%toMHD = .not. (RCMApp%iopen == RCMTOPOPEN)
+        else
+            call SetIngestion(RCMApp)
+            !Find maximum extent of RCM domain (RCMTOPCLOSED but not RCMTOPNULL)
+            maxRad = maxval(norm2(RCMApp%X_bmin,dim=3),mask=(RCMApp%iopen == RCMTOPCLOSED))
+            maxRad = maxRad/Rp_m
+            vApp%rTrc = rTrc0*maxRad
+        endif
 
     !Pull data from RCM state for conductance calculations
-        vApp%imag2mix%isClosed = (RCMApp%iopen == RCMTOPCLOSED)
+        !NOTE: this is not the closed field region, this is actually the RCM domain
+        vApp%imag2mix%inIMag = (RCMApp%iopen == RCMTOPCLOSED)
         vApp%imag2mix%latc = RCMApp%latc
         vApp%imag2mix%lonc = RCMApp%lonc
 
@@ -322,12 +296,7 @@ module rcmimag
 
         vApp%imag2mix%isFresh = .true.
 
-    !Find maximum extent of closed field region
-        maxRad = maxval(norm2(RCMApp%X_bmin,dim=3),mask=vApp%imag2mix%isClosed)
-        maxRad = maxRad/Rp_m
-        vApp%rTrc = 1.25*maxRad
-
-        end associate        
+        end associate
 
         contains
             !Calculate Alfven bounce timescale
@@ -349,121 +318,40 @@ module rcmimag
             end function AlfvenBounce
     end subroutine AdvanceRCM
 
-    !Rewire MHD=>RCM info to set RCM's cold start ICs
-    subroutine HackTubes(RCMApp,vApp)
-        type(rcm_mhd_T), intent(inout) :: RCMApp
-        type(voltApp_T), intent(in)    :: vApp
-
-        integer :: i,j
-        real(rp) :: llBC,lat,colat,lon,LPk
-        logical :: isLL
-
-        real(rp) :: L,Pmhd,Dmhd,P0_rc,N0_rc,N0_ps,P0_ps,N,P
-        !Loop through active region and reset things
-        llBC = vApp%mhd2chmp%lowlatBC
-
-        LPk = LPk_QTRC()
-
-        do j=1,RCMApp%nLon_ion
-            do i=1,RCMApp%nLat_ion
-                !Grab coordinates
-                colat = RCMApp%gcolat(i)
-                lat = PI/2 - colat
-                lon = RCMApp%glong(j)
-                
-                !Decide if we're below low-lat BC or not
-                isLL = (lat <= llBC)
-
-                if (isLL) cycle
-                
-                !Get L,Pmhd,Dmhd (convert back to our units; nPa,#/cc,Re)
-                Pmhd = rcmPScl*RCMApp%Pave(i,j)
-                Dmhd = rcmNScl*RCMApp%Nave(i,j)
-                L    = norm2( RCMApp%X_bmin(i,j,:) )/Rp_m
-
-            !Quiet-time ring current
-                P0_rc = P_QTRC(L)
-                !Get density from pressure and target temperature
-                N0_rc = PkT2Den(P0_rc,RCMICs%ktRC)
-            !Statistical plasma sheet numbers
-                N0_ps = RCMICs%dPS
-                P0_ps = DkT2P(N0_ps,RCMICs%kTPS)
-
-                if ( P0_ps>P0_rc ) then
-                    !Use PS values
-                    P = P0_ps
-                    N = N0_ps
-                else
-                    !Use RC values
-                    P = P0_rc
-                    N = N0_rc
-                endif
-
-                !Now test against MHD
-                P = max(P,Pmhd)
-                N = max(N,Dmhd)
-
-                !Now store them
-                RCMApp%Pave(i,j) = P/rcmPScl
-                RCMApp%Nave(i,j) = N/rcmNScl
-
-            enddo
-        enddo
-
-    end subroutine HackTubes
-
     !Set region of RCM grid that's "good" for MHD ingestion
     subroutine SetIngestion(RCMApp)
         type(rcm_mhd_T), intent(inout) :: RCMApp
-        integer :: n,i,j,iC
 
         integer , dimension(:), allocatable :: jBnd
-        real, dimension(:), allocatable :: jRad,jRadG
-        integer :: NSmth,NRad
-        real(rp) :: RadC,rIJ
-
-        NSmth = SmoothOp%nIter
-        NRad  = SmoothOp%nRad
-
-        allocate(jBnd (  RCMApp%nLon_ion  ))
+        integer :: i,j
+        logical :: inMHD,isClosed
         
-        allocate(jRad (  RCMApp%nLon_ion  ))
-        allocate(jRadG(1-NRad:RCMApp%nLon_ion+NRad))
-
+        RCMApp%toMHD(:,:) = .false.
+        !Testing lazy quick boundary
+        allocate(jBnd (  RCMApp%nLon_ion  ))
+        !Now find nominal current boundary
+        jBnd(:) = RCMApp%nLat_ion-1
         do j=1,RCMApp%nLon_ion
-            do i = 1,RCMApp%nLat_ion
-                if (RCMApp%toMHD(i,j) .and. (RCMApp%iopen(i,j) == RCMTOPCLOSED)) then
+            do i = RCMApp%nLat_ion,1,-1
+                inMHD = RCMApp%toMHD(i,j)
+                isClosed = (RCMApp%iopen(i,j) == RCMTOPCLOSED)
+                if ( .not. isClosed ) then
+                    jBnd(j) = min(i+1+MHDPad,RCMApp%nLat_ion)
                     exit
                 endif
-            enddo
-            jBnd(j) = min(i+1,RCMApp%nLat_ion)
-            jRad(j) = norm2( RCMApp%X_bmin(jBnd(j),j,XDIR:YDIR) )
-        enddo
 
-        do n=1,NSmth
-            jRadG(1:RCMApp%nLon_ion) = jRad
-            jRadG(1-NRad:0) = jRad(RCMApp%nLon_ion-NRad+1:RCMApp%nLon_ion)
-            jRadG(RCMApp%nLon_ion+1:RCMApp%nLon_ion+NRad) = jRad(1:NRad)
-            do j=1,RCMApp%nLon_ion
-                !Take mean over range
-                jRad(j) = sum(jRadG(j-NRad:j+NRad))/(2.0*NRad+1)
-                !jRad(j) = (product(jRadG(j-NRad:j+NRad)))**(1.0/(2.0*NRad+1))
-                !jRad(j) = minval(jRadG(j-NRad:j+NRad))
-            enddo
-        enddo
+            enddo !i loop
+            RCMApp%toMHD(:,j) = .false.
+            RCMApp%toMHD(jBnd(j):,j) = .true.
 
-        RCMApp%toMHD = .false.
-        do j=1,RCMApp%nLon_ion
-            RadC = jRad(j)
-            do i = jBnd(j),RCMApp%nLat_ion
-                rIJ = norm2(RCMApp%X_bmin(i,j,XDIR:YDIR))
-                if ( (rIJ <= RadC) .and. (RCMApp%iopen(i,j) == RCMTOPCLOSED) ) then
-                    RCMApp%toMHD(i,j) = .true.
-                else
-                    RCMApp%toMHD(i,j) = .false.
-                endif
-            enddo
         enddo
+        
+        !Finally, upscale ingestion timescales based on wImag
+        if (doWIMTScl) then
+            where (RCMApp%wImag>TINY)
+                RCMApp%Tb = RCMApp%Tb/RCMApp%wImag
+            endwhere
+        endif
 
     end subroutine SetIngestion
 
@@ -475,7 +363,8 @@ module rcmimag
         real(rp), intent(out) :: imW(NVARIMAG)
         logical, intent(out) :: isEdible
 
-        real(rp) :: colat,nrcm,prcm,npp,ntot,pScl,beta,pmhd,nmhd
+        real(rp) :: colat,nrcm,prcm,npp,pScl,beta,pmhd,nmhd,wIM
+        real(rp) :: plim,nlim
         integer, dimension(2) :: ij0
 
         associate(RCMApp => imag%rcmCpl, lat => x1, lon => x2)
@@ -508,32 +397,46 @@ module rcmimag
         beta =  RCMApp%beta_average(ij0(1),ij0(2))
         pmhd = rcmPScl*RCMApp%Pave (ij0(1),ij0(2))
         nmhd = rcmNScl*RCMApp%Nave (ij0(1),ij0(2))
+        wIM  =         RCMApp%wImag(ij0(1),ij0(2))
 
-        ntot = 0.0
-        !Decide which densities to include
-        if (npp >= PPDen) then
-            ntot = ntot + npp
-        endif
+        !Limit on RCM values
         if ( (nrcm>TINY) .and. (prcm>TINY) ) then
-            ntot = ntot + nrcm
+            !Good values from RCM, do something
+            if (doWolfLim) then
+                !Do limiting on pressure/density
+                pScl = beta*5.0/6.0
+                plim = (pScl*pmhd + prcm)/(1.0+pScl)
+                !nlim = nrcm - 0.6*pScl*nmhd*(prcm-pmhd)/(1.0+pScl)/pmhd
+                nlim = nrcm !Testing P-only wolf limiting
+            else
+                !Use raw RCM values if they're good
+                plim = prcm
+                nlim = nrcm
+            endif !doWolfLim
+
+        else !Either n or p is tiny
+            !Ignore them
+            plim = 0.0
+            nlim = 0.0
+        endif !Marginal n/p-rcm
+
+
+        !Test plasmasphere
+        if (npp >= DenPP0) then
+            !Plasmasphere good, add it to limited rcm density
+            nlim = nlim+npp
         endif
 
-        !Store data
-        
-        if (doWolfLim) then
-            pScl = beta*5.0/6.0
-            imW(IMPR) = (pScl*pmhd + prcm)/(1.0+pScl)
-            imW(IMDEN)  = ntot - 0.6*pScl*nmhd*(prcm-pmhd)/(1.0+pScl)/pmhd
-        else
-            imW(IMPR)   = prcm
-            imW(IMDEN)  = ntot
-        endif
+        !Store values
+        imW(IMDEN) = nlim
+        imW(IMPR)  = plim
 
         if (doBounceDT) then
             !Use Alfven bounce timescale
             imW(IMTSCL) = nBounce*RCMApp%Tb(ij0(1),ij0(2))
-        else
-            imW(IMTSCL) = 0.0 !Set this to zero and rely on coupling timescale later
+        else if (doWIMTScl) then
+            !Use current coupling timescale, modulated by wImag
+            imW(IMTSCL) = RCMApp%dtCpl/max( RCMApp%wImag(ij0(1),ij0(2)), TINY )
         endif
 
         imW(IMX1)   = rad2deg*lat
@@ -598,127 +501,6 @@ module rcmimag
 
     end subroutine EvalRCM
 
-!--------------
-!MHD=>RCM routines
-    !MHD flux-tube
-    subroutine MHDTube(vApp,lat,lon,ijTube)
-        type(voltApp_T), intent(in) :: vApp
-        real(rp), intent(in) :: lat,lon
-        type(RCMTube_T), intent(out) :: ijTube
-
-        type(fLine_T) :: bTrc
-        real(rp) :: t, bMin,bIon
-        real(rp), dimension(NDIM) :: x0, bEq, xyzIon
-        real(rp), dimension(NDIM) :: xyzC,xyzIonC
-        integer :: OCb
-        real(rp) :: bD,bP,dvB,bBeta
-        real(rp) :: rcP0,rcN0 !Quiet-time augment to MHD
-
-    !First get seed for trace
-        !Assume lat/lon @ Earth, dipole push to first cell
-        xyzIon(XDIR) = RIonRCM*cos(lat)*cos(lon)
-        xyzIon(YDIR) = RIonRCM*cos(lat)*sin(lon)
-        xyzIon(ZDIR) = RIonRCM*sin(lat)
-        x0 = DipoleShift(xyzIon,vApp%mhd2chmp%Rin)
-        bIon = norm2(DipoleB0(xyzIon))*oBScl*1.0e-9 !EB=>T, ionospheric field strength
-
-    !Now do field line trace
-        associate(ebModel=>vApp%ebTrcApp%ebModel,ebGr=>vApp%ebTrcApp%ebState%ebGr,ebState=>vApp%ebTrcApp%ebState)
-
-        t = ebState%eb1%time !Time in CHIMP units
-        call genStream(ebModel,ebState,x0,t,bTrc)
-
-    !Get diagnostics from field line
-        !Minimal surface (bEq in Rp, bMin in EB)
-        call FLEq(ebModel,bTrc,bEq,bMin)
-        
-        bMin = bMin*oBScl*1.0e-9 !EB=>Tesla
-        bEq = bEq*Rp_m !Re=>meters
-
-        !Plasma quantities
-        !dvB = Flux-tube volume (Re/EB)
-        call FLThermo(ebModel,ebGr,bTrc,bD,bP,dvB,bBeta)
-        !Converts Re/EB => Re/T
-        dvB = dvB/(oBScl*1.0e-9)
-
-        bP = bP*1.0e-9 !nPa=>Pa
-        bD = bD*1.0e+6 !#/cc => #/m3
-        !Topology
-        !OCB =  0 (solar wind), 1 (half-closed), 2 (both ends closed)
-        OCb = FLTop(ebModel,ebGr,bTrc)
-  
-    !Scale and store information
-        if (OCb == 2) then
-            !Closed field line
-            ijTube%X_bmin = bEq
-            ijTube%bmin = bMin
-            ijTube%iopen = RCMTOPCLOSED
-            ijTube%Vol = dvB
-            ijTube%Pave = bP
-            ijTube%Nave = bD
-            ijTube%beta_average = bBeta
-
-            !Find conjugate lat/lon @ RIonRCM
-            call FLConj(ebModel,ebGr,bTrc,xyzC)
-            xyzIonC = DipoleShift(xyzC,RIonRCM)
-            ijTube%latc = asin(xyzIonC(ZDIR)/norm2(xyzIonC))
-            ijTube%lonc = modulo( atan2(xyzIonC(YDIR),xyzIonC(XDIR)),2*PI )
-            ijTube%Lb = FLArc(ebModel,ebGr,bTrc)
-            ijTube%Tb = FLAlfvenX(ebModel,ebGr,bTrc)
-            ijTube%losscone = asin(sqrt(bMin/bIon))
-        else
-            ijTube%X_bmin = 0.0
-            ijTube%bmin = 0.0
-            ijTube%iopen = RCMTOPOPEN
-            ijTube%Vol = -1.0
-            ijTube%Pave = 0.0
-            ijTube%Nave = 0.0
-            ijTube%beta_average = 0.0
-            ijTube%latc = 0.0
-            ijTube%lonc = 0.0
-            ijTube%Lb   = 0.0
-            ijTube%Tb   = 0.0
-            ijTube%losscone = 0.0
-
-        endif
-
-        end associate
-    end subroutine MHDTube
-
-    !Dipole flux tube info
-    subroutine DipoleTube(vApp,lat,lon,ijTube)
-        type(voltApp_T), intent(in) :: vApp
-        real(rp), intent(in) :: lat,lon
-        type(RCMTube_T), intent(out) :: ijTube
-
-        real(rp) :: L,colat
-        real(rp) :: mdipole
-
-        mdipole = ABS(planetM0g)*G2T ! dipole moment in T
-        colat = PI/2 - lat
-        L = 1.0/(sin(colat)**2.0)
-        ijTube%Vol = 32./35.*L**4.0/mdipole
-        ijTube%X_bmin(XDIR) = L*cos(lon)*Rp_m !Rp=>meters
-        ijTube%X_bmin(YDIR) = L*sin(lon)*Rp_m !Rp=>meters
-        ijTube%X_bmin(ZDIR) = 0.0
-        ijTube%bmin = mdipole/L**3.0
-
-        ijTube%iopen = RCMTOPCLOSED
-        
-        ijTube%pot = 0.0
-
-        ijTube%beta_average = 0.0
-        ijTube%Pave = 0.0
-        ijTube%Nave = 0.0
-
-        ijTube%latc = -lat
-        ijTube%lonc = lon
-        ijTube%Lb   = L !Just lazily using L shell
-        ijTube%Tb   = 0.0
-        ijTube%losscone = 0.0
-        
-    end subroutine DipoleTube
-
 !IO wrappers
     subroutine doRCMIO(imag,nOut,MJD,time)
         class(rcmIMAG_T), intent(inout) :: imag
@@ -736,4 +518,70 @@ module rcmimag
         call WriteRCMRestart(imag%rcmCpl,nRes,MJD,time)
     end subroutine doRCMRestart
     
+
+    !Some quick console diagnostics for RCM info
+    subroutine doRCMConIO(imag,MJD,time)
+        class(rcmIMAG_T), intent(inout) :: imag
+        real(rp), intent(in) :: MJD, time
+
+        integer :: i0,j0,maxIJ(2)
+
+        real(rp) :: maxPRCM,maxD,maxDP,maxPMHD,maxL,maxMLT,maxBeta
+        real(rp) :: pScl,limP,wTrust,wTMin,maxT,maxWT,maxLam
+
+        associate(RCMApp => imag%rcmCpl)
+    !Start by getting some data
+        !Pressure peak info
+        maxIJ = maxloc(RCMApp%Prcm,mask=RCMApp%toMHD)
+        i0 = maxIJ(1); j0 = maxIJ(2)
+
+        maxPRCM  = RCMApp%Prcm (i0,j0)*rcmPScl
+        maxPMHD  = RCMApp%Pave (i0,j0)*rcmPScl
+        maxBeta  = RCMApp%beta_average(i0,j0)
+
+        pScl = maxBeta*5.0/6.0
+        limP = (pScl*maxPMHD+maxPRCM)/(1+pScl)
+
+        maxD  = RCMApp%Nrcm (i0,j0)*rcmNScl
+        maxDP = RCMApp%Npsph(i0,j0)*rcmNScl
+        maxL = norm2(RCMApp%X_bmin(i0,j0,XDIR:YDIR))/Rp_m
+        maxMLT = atan2(RCMApp%X_bmin(i0,j0,YDIR),RCMApp%X_bmin(i0,j0,XDIR))*180.0/PI
+        if (maxMLT<0) maxMLT = maxMLT+360.0
+        maxWT = 100*RCMApp%wImag(i0,j0)
+
+        maxLam = (1.0e-3)*RCMApp%MaxAlam/( (RCMApp%vol(i0,j0)*1.0e-9)**(2.0/3.0) ) !Max RCM energy channel [keV]
+
+        !Get pressure weighted confidence
+        wTrust = sum(RCMApp%Prcm*RCMApp%wIMAG,mask=RCMApp%toMHD)/sum(RCMApp%Prcm,mask=RCMApp%toMHD)
+        wTrust = 100.0*wTrust
+        !Get min confidence in MHD domain
+        wTMin = 100.0*minval(RCMApp%wIMAG,mask=RCMApp%toMHD)
+
+
+    !Do some output
+        if (maxPRCM<TINY) return
+
+        write(*,*) ANSIYELLOW
+        write(*,*) 'RCM'
+        
+        !write (*, '(a, f8.2,a,f6.2,a,f6.2,a)')      '  Trust    = ' , wTrust, '% (P-AVG) / ', wTMin, '% (MIN) / ', maxWT, '% (@ MAX)'
+
+        if (doWolfLim) then
+            write (*, '(a, f8.3,a,f8.3,a)')      '  Max RC-P = ' , maxPRCM, ' (RCM) / ', limP, ' (LIM) [nPa]'
+            maxT = DP2kT(maxD,limP)
+        else
+            write (*, '(a,1f8.3,a)')             '  Max RC-P = ' , maxPRCM, ' [nPa]'
+            maxT = DP2kT(maxD,maxPRCM)
+        endif
+        write (*, '(a,2f8.3,a)')             '   @ L/MLT = ' , maxL, maxMLT, ' [deg]'
+        write (*, '(a, f8.3,a,f8.3,a)')      '      w/ D = ' , maxD, ' (RC) / ', maxDP, ' (PSPH) [#/cc]'
+        write (*, '(a,1f8.3,a)')             '      w/ T = ' , maxT, ' [keV]'
+
+
+        write(*,'(a)',advance="no") ANSIRESET!, ''
+
+
+        end associate
+
+    end subroutine doRCMConIO
 end module rcmimag

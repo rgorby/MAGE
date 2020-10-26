@@ -5,7 +5,40 @@ module mixparams
 
   implicit none
 
+  !Grid default parameter type
+  type MixGrid0_T
+    integer :: Np=256,Nt=128
+    real(rp) :: LowLatBC = 45.0
+  end type MixGrid0_T
+
+  type(MixGrid0_T), private :: MixGrid0
+
   contains
+
+    !Set default mix grid parameters based on inner MHD boundary and number of k cells
+    subroutine SetMixGrid0(Rin,Nk)
+      real(rp), intent(in) :: Rin
+      integer , intent(in) :: Nk
+
+      real(rp) :: dDeg
+
+      MixGrid0%LowLatBC = asin(sqrt(1.0/Rin))*180.0/PI
+      !Set default grid resolution (in degrees)
+      if (Nk<=128) then
+        dDeg = 1.0
+      else if (Nk<=256) then
+        !OCT
+        dDeg = 0.5
+      else
+        !HEX or above
+        dDeg = 0.25
+      endif
+
+      MixGrid0%Np = nint(360.0/dDeg)
+      MixGrid0%Nt = nint(MixGrid0%LowLatBC/dDeg)
+
+    end subroutine SetMixgrid0
+
     subroutine initMIXParams(Params, optFilename)
       type(mixParams_T), intent(out) :: Params
       character(len=*), optional, intent(in) :: optFilename
@@ -76,6 +109,7 @@ module mixparams
         call xmlInp%Set_Val(Params%alpha,"precipitation/alpha",1.0332467_rp)
         call xmlInp%Set_Val(Params%beta,"precipitation/beta",0.4362323_rp)
         call xmlInp%Set_Val(Params%R,"precipitation/R",0.083567956_rp)
+        call xmlInp%Set_Val(Params%doAuroralSmooth,"precipitation/doAuroralSmooth",.false.)        
         call xmlInp%Set_Val(Params%F107,"conductance/F107",120._rp)
         call xmlInp%Set_Val(Params%pedmin,"conductance/pedmin",2.0_rp)
         call xmlInp%Set_Val(Params%hallmin,"conductance/hallmin",1.0_rp)
@@ -98,9 +132,10 @@ module mixparams
         ! =========== SOLVER PARAMTERS =================== !
 
         ! =========== GRID PARAMTERS =================== !
-        call xmlInp%Set_Val(Params%Np,"grid/Np",256)
-        call xmlInp%Set_Val(Params%Nt,"grid/Nt",128)
-        call xmlInp%Set_Val(Params%LowLatBoundary,"grid/LowLatBoundary",45.0_rp)
+        call xmlInp%Set_Val(Params%Np,"grid/Np",MixGrid0%Np)
+        call xmlInp%Set_Val(Params%Nt,"grid/Nt",MixGrid0%Nt)
+        call xmlInp%Set_Val(Params%LowLatBoundary,"grid/LowLatBoundary",MixGrid0%LowLatBC)
+
         ! =========== GRID PARAMTERS =================== !
 
         ! =========== INIT PARAMTERS =================== !
@@ -111,6 +146,10 @@ module mixparams
         call xmlInp%Set_Val(Params%dtOut,"output/dtOut",1.0_rp)
         call xmlInp%Set_Val(Params%nRes,"/gamera/restart/nRes",-1)
         ! =========== IO PARAMTERS =================== !
+
+        ! =========== DEBUG PARAMETERS ================ !
+        call xmlInp%Set_Val(Params%mklmsglvl,"debug/mklmsglvl", 0)
+        ! =========== DEBUG PARAMETERS   ============== !
 
         ! Check for old-style precipitation quantities
         write(*,*) ANSIRED

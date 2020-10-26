@@ -32,8 +32,8 @@ contains
     allocate(imag2mix%latc (Nt,Np))
     allocate(imag2mix%lonc (Nt,Np))
     allocate(imag2mix%fac  (Nt,Np))
-    allocate(imag2mix%isClosed(Nt,Np))
-    imag2mix%isClosed(:,:) = .false.
+    allocate(imag2mix%inIMag(Nt,Np))
+    imag2mix%inIMag(:,:) = .false.
     imag2mix%isInit = .true.
 
   !Now do remix mapping
@@ -52,8 +52,8 @@ contains
     !write(*,*) "===================================",rcmApp%glong(1:3),rcmApp%glong(Np-2:Np),rcmApp%gcolat(1:3),rcmApp%gcolat(Nt-2:Nt)
 
     ! call remix grid constructor
-    call init_grid_fromTP(rcmG,rcmt,rcmp,SOLVER_GRID=.false.)
-    call init_grid_fromTP(rcmG_mixstyle,rcmt(1:Np-1,:),rcmp(1:Np-1,:),SOLVER_GRID=.false.)
+    call init_grid_fromTP(rcmG,rcmt,rcmp,isSolverGrid=.false.)
+    call init_grid_fromTP(rcmG_mixstyle,rcmt(1:Np-1,:),rcmp(1:Np-1,:),isSolverGrid=.false.)
 
   end subroutine init_rcm_mix
 
@@ -78,6 +78,12 @@ contains
     real(rp),dimension(:,:),allocatable :: rcmEflux_mix,rcmEavg_mix
     real(rp), dimension(:,:), allocatable :: efluxS, eavgS ! for SH mapping. will add ifluxS and iavgS later.
     integer :: ii, jj, kk, Nt, Np
+    integer :: SHmaptype 
+    ! # of steps for mapping RCM SH precipitation (may make it an option in XML later): 
+    ! 0. direct mirror mapping using NH results; 
+    ! 1. map from irregular RCM SH to remix; 
+    ! 2. map from irregular RCM SH to a regular equivalent then map to remix as the NH does.
+    SHmaptype=1
 
     if ( (.not. imag2mix%isInit) .or. (.not. imag2mix%isFresh) ) return
 
@@ -85,45 +91,41 @@ contains
     ! do mapping here since in geo the RCM grid will be moving
     ! FIXME: if we do RCM in SM, though, this is not necessary (can set map in the init routine above)
 
-    associate(rcmNt=>rcmG_mixstyle%Nt,rcmNp=>rcmG_mixstyle%Np)
-
     call mix_set_map(rcmG_mixstyle,remixApp%ion(NORTH)%G,rcmMap)
+    associate(rcmNt=>rcmG_mixstyle%Nt,rcmNp=>rcmG_mixstyle%Np)
     call mix_map_grids(rcmMap,transpose(imag2mix%eflux(:,1:rcmNp)),rcmEflux_mix)
     call mix_map_grids(rcmMap,transpose(imag2mix%eavg(:,1:rcmNp)),rcmEavg_mix)
-    rcmEflux_mix = max(rcmEflux_mix,1.D-10)
-
     end associate
 
     remixApp%ion(NORTH)%St%Vars(:,:,IM_EAVG)  = rcmEavg_mix*1e-3 ! [eV -> keV]
-    remixApp%ion(NORTH)%St%Vars(:,:,IM_EFLUX) = rcmEflux_mix
+    remixApp%ion(NORTH)%St%Vars(:,:,IM_EFLUX) = rcmEflux_mix     ! [ergs/cm^2/s]
 
     ! Southern Hemisphere Mapping
-    ! 1. map eflux and eavg to rcmG* based on NN. Inputs: imag2mix%eflux, eavg, latc, lonc. Outputs: efluxS, eavgS
-    call mapIMagToIMagS(imag2mix,efluxS,eavgS)
+    if(SHmaptype==1) then
+       call mapIMagSToRemix(imag2mix,remixApp,efluxS,eavgS)
+       rcmEavg_mix = transpose(eavgS)
+       rcmEflux_mix = transpose(efluxS)
+    elseif(SHmaptype==2) then
+       call mapIMagSToIMag(imag2mix,efluxS,eavgS)
+       call mix_set_map(rcmGS,remixApp%ion(NORTH)%G,rcmMapS)
+       associate(rcmNt=>rcmGS%Nt,rcmNp=>rcmGS%Np)
+       call mix_map_grids(rcmMapS,transpose(efluxS(:,1:rcmNp-1)),rcmEflux_mix)
+       call mix_map_grids(rcmMapS,transpose(eavgS(:,1:rcmNp-1)), rcmEavg_mix)
+       end associate
+    endif
 
-    ! 2. Use the same interpolation procedure for NH.
-    associate(rcmNt=>rcmGS%Nt,rcmNp=>rcmGS%Np)
-    call mix_set_map(rcmGS,remixApp%ion(NORTH)%G,rcmMapS)
-    call mix_map_grids(rcmMapS,transpose(efluxS(:,1:rcmNp-1)),rcmEflux_mix)
-    call mix_map_grids(rcmMapS,transpose(eavgS(:,1:rcmNp-1)), rcmEavg_mix)
-    rcmEflux_mix = max(rcmEflux_mix,1.D-10)
-    end associate
-
-    ! 3. Like before: set grid size
     associate(Nt=>remixApp%ion(SOUTH)%G%Nt,Np=>remixApp%ion(SOUTH)%G%Np)
     remixApp%ion(SOUTH)%St%Vars(:,:,IM_EAVG)  = rcmEavg_mix(Np:1:-1,:)*1e-3 ! [eV -> keV]
     remixApp%ion(SOUTH)%St%Vars(:,:,IM_EFLUX) = rcmEflux_mix(Np:1:-1,:)
-
     end associate
 
-! For proton precipitation
-    associate(rcmNt=>rcmG_mixstyle%Nt,rcmNp=>rcmG_mixstyle%Np)
+! For proton precipitation (all zero for now)
     rcmEflux_mix=0.0
     rcmEavg_mix=0.0
+    associate(rcmNt=>rcmG_mixstyle%Nt,rcmNp=>rcmG_mixstyle%Np)
     call mix_map_grids(rcmMap,transpose(imag2mix%iflux(:,1:rcmNp)),rcmEflux_mix)
     call mix_map_grids(rcmMap,transpose(imag2mix%iavg(:,1:rcmNp)),rcmEavg_mix)
     end associate
-    rcmEflux_mix = max(rcmEflux_mix,1.D-10)
     remixApp%ion(NORTH)%St%Vars(:,:,IM_IAVG)  = rcmEavg_mix*1e-3 ! [eV -> keV]
     remixApp%ion(NORTH)%St%Vars(:,:,IM_IFLUX) = rcmEflux_mix
     associate(Nt=>remixApp%ion(SOUTH)%G%Nt,Np=>remixApp%ion(SOUTH)%G%Np)
@@ -135,81 +137,202 @@ contains
     imag2mix%isFresh = .false.
   end subroutine mapIMagToRemix
 
-  subroutine mapIMagToIMagS(imag2mix,efluxS,eavgS)
+  subroutine mapIMagSToRemix(imag2mix,remixApp,efluxS,eavgS)
+  ! Directly map from irregular RCM SH grid to ReMIX.
     type(imag2Mix_T), intent(in) :: imag2mix
+    type(mixApp_T), intent(inout) :: remixApp
     real(rp), dimension(:,:), allocatable, intent(inout) :: efluxS, eavgS
-    real(rp), dimension(:,:), allocatable :: colatc, glongc, xc, yc, xS, yS, rcmt, rcmp
-    real(rp) :: dist, distmin, colatmin, colatmax, dlat, rlat, rlon
-    integer :: i, j, Np, Nt, i0, j0, NpS, NtS, im, jm
+    real(rp), dimension(:,:), allocatable :: colatc, glongc, rcmt, rcmp, Ainvdwgt2
+    real(rp) :: dlat, delt, delp, invdwgt
+    integer :: i, j, Np, Nt, i0, j0, NpS, NtS, jl, ju, il, iu, jp
 
     Nt = size(imag2mix%latc,1)
     Np = size(imag2mix%latc,2) ! imag2mix%latc (Nt,Np)
     if (.not.allocated(colatc)) allocate(colatc(Nt,Np))
     if (.not.allocated(glongc)) allocate(glongc(Nt,Np))
-    if (.not.allocated(xc)) allocate(xc(Nt,Np))
-    if (.not.allocated(yc)) allocate(yc(Nt,Np))
-    colatc = PI/2 + imag2mix%latc
+    ! Source grid: latc is negative. colatc is positive from ~15 to 75 deg. Note latc=0 for open field lines.
+    colatc = PI/2 + imag2mix%latc 
     glongc = imag2mix%lonc
-    dlat = (imag2mix%gcolat(Nt)-imag2mix%gcolat(1))/(Nt-1)
-    
-    ! Step 1. Create a regular grid that covers all latc/lonc. 
-! Need to first determine the size in colat by assuming the same lat resolution and using the same lon grid.
-    colatmin = PI/2
-    colatmax = 0.0
-    do j=1,Np
-       do i=1,Nt
-          if(colatc(i,j)<PI/2) then
-             colatmin = min(colatmin,colatc(i,j))
-             colatmax = max(colatmax,colatc(i,j))
-          end if
-          xc(i,j)=sin(colatc(i,j))*cos(glongc(i,j))
-          yc(i,j)=sin(colatc(i,j))*sin(glongc(i,j))
-       end do
-    end do
-    NpS = Np
-    NtS = ceiling((colatmax-colatmin)/dlat)
-    if (.not.allocated(rcmt)) allocate(rcmt(NtS,NpS))
-    if (.not.allocated(rcmp)) allocate(rcmp(NtS,NpS))
-    if (.not.allocated(xS)) allocate(xS(NtS,NpS))
-    if (.not.allocated(yS)) allocate(yS(NtS,NpS))
 
-    do j=1,NpS
-       do i=1,NtS
-          rcmt(i,j)=colatmin+(i-1)*dlat ! rlat is actually co-lat.
-          rcmp(i,j)=imag2mix%glong(j)
-       end do
-    end do
-    call init_grid_fromTP(rcmGS,transpose(rcmt),transpose(rcmp),SOLVER_GRID=.false.)
-    xS=transpose(rcmGS%x)
-    yS=transpose(rcmGS%y)
+    ! Destination grid: remix Grid.
+    rcmt = remixApp%ion(NORTH)%G%t
+    rcmp = remixApp%ion(NORTH)%G%p
+    NpS  = size(rcmt,1)
+    NtS  = size(rcmt,2)
+    dlat = rcmt(1,2)-rcmt(1,1)
 
-    ! Step 3. Return efluxS and eavgS on that expanded regular grid using nearest neighbor.
-    ! Find nearest xc/yc for each xS/yS. Can increase precision by decreasing dlat.
+    ! Mapping: remix dlat is ~10x of rcm, dlon is ~1/3.6 of rcm. Remix lat is from 0-45 deg. RCM is from 15-75 deg.
+    ! For each rcm SH point, find the nearest remix lat. If it's not too far away (within dlat) then
+    ! find the nearest remix lon. Assign rcm contribution to the nearest lat shell within 2 rcm dlon.
+    ! The difference is due to remix dlat is larger while dlon is smaller. Need to make sure all remix grids have some contribution from rcm.
+    ! Lastly, normalize the contribution by total IDW.
     if (.not.allocated(efluxS)) allocate(efluxS(NtS,NpS))
     if (.not.allocated(eavgS))  allocate(eavgS(NtS,NpS))
-    do j0=1,NpS
-       do i0=1,NtS
-          distmin = 1.0D5
-          do j=1,Np
-             do i=1,Nt
-                dist=(xS(i0,j0)-xc(i,j))**2+(yS(i0,j0)-yc(i,j))**2
-                if(dist < distmin) then
-                   distmin = dist
-                   im = i
-                   jm = j
-                end if
-             end do
-          end do
-          if(distmin<0.025) then !lat cell size: 60deg/200/180*pi=0.005. lon cell size: 360deg/100/180*pi*sin(15-75)=0.016
-             efluxS(i0,j0) = imag2mix%eflux(im,jm)
-             eavgS(i0,j0)  = imag2mix%eavg(im,jm)
-          else
-             efluxS(i0,j0) = 0.0
-             eavgS(i0,j0)  = 0.0
+    if (.not.allocated(Ainvdwgt2))  allocate(Ainvdwgt2(NtS,NpS))
+    efluxS = 0.0
+    eavgS = 0.0
+    Ainvdwgt2 = 0.0
+    !$OMP PARALLEL DO default(shared) collapse(2) &
+    !$OMP private(i,j,i0,il,iu,j0,jl,ju,jp,delt,delp,invdwgt) &
+    !$OMP reduction(+:efluxS,eavgS,Ainvdwgt2)
+    do j=1,Np
+       do i=1,Nt
+          if(imag2mix%eflux(i,j)>0.0) then
+             i0 = minloc(abs(rcmt(1,:)-colatc(i,j)),1)
+             if(rcmt(1,i0)<=colatc(i,j)) then
+                il=i0
+                iu=min(i0+1,NtS)
+             else
+                il=max(i0-1,1)
+                iu=i0
+             endif
+             do i0=il,iu 
+                if(abs(rcmt(1,i0)-colatc(i,j))<dlat) then
+                   jp = minloc(abs(rcmp(:,1)-glongc(i,j)),1)
+                   jl = max(jp-2,1)
+                   ju = min(jp+2,NpS)
+                   if(jp<3) then  ! The code here may be optimized to be more concise.
+                     do j0=NpS-(2-jp),NpS
+                       delt = abs(rcmt(j0,i0)-colatc(i,j))
+                       delp = abs((rcmp(j0,i0)-glongc(i,j)))*sin(rcmt(j0,i0))
+                       invdwgt = 1./sqrt(delt**2+delp**2)
+                       efluxS(i0,j0) = efluxS(i0,j0) + imag2mix%eflux(i,j)*invdwgt
+                       eavgS(i0,j0)  = eavgS(i0,j0)  + imag2mix%eavg(i,j)*invdwgt
+                       Ainvdwgt2(i0,j0)  = Ainvdwgt2(i0,j0)  + invdwgt
+                     enddo
+                   elseif(jp>NpS-2) then
+                     do j0=1,2-(NpS-jp)
+                       delt = abs(rcmt(j0,i0)-colatc(i,j))
+                       delp = abs((rcmp(j0,i0)-glongc(i,j)))*sin(rcmt(j0,i0))
+                       invdwgt = 1./sqrt(delt**2+delp**2)
+                       efluxS(i0,j0) = efluxS(i0,j0) + imag2mix%eflux(i,j)*invdwgt
+                       eavgS(i0,j0)  = eavgS(i0,j0)  + imag2mix%eavg(i,j)*invdwgt
+                       Ainvdwgt2(i0,j0)  = Ainvdwgt2(i0,j0)  + invdwgt
+                     enddo
+                   endif
+                   do j0=jl,ju
+                      delt = abs(rcmt(j0,i0)-colatc(i,j))
+                      delp = abs((rcmp(j0,i0)-glongc(i,j)))*sin(rcmt(j0,i0))
+                      invdwgt = 1./sqrt(delt**2+delp**2)
+                      efluxS(i0,j0) = efluxS(i0,j0) + imag2mix%eflux(i,j)*invdwgt
+                      eavgS(i0,j0)  = eavgS(i0,j0)  + imag2mix%eavg(i,j)*invdwgt
+                      Ainvdwgt2(i0,j0)  = Ainvdwgt2(i0,j0)  + invdwgt
+                   enddo
+                endif
+             enddo
           endif
        end do
     end do
-  end subroutine mapIMagToIMagS
+    !$OMP PARALLEL DO default(shared) collapse(2) &
+    !$OMP private(i0,j0)
+    do j0=1,NpS
+       do i0=1,NtS
+          if(Ainvdwgt2(i0,j0)>0.0) then
+             efluxS(i0,j0) = efluxS(i0,j0)/Ainvdwgt2(i0,j0)
+             eavgS(i0,j0) = eavgS(i0,j0)/Ainvdwgt2(i0,j0)
+          endif
+       end do
+    end do
+  end subroutine mapIMagSToRemix
 
+  subroutine mapIMagSToIMag(imag2mix,efluxS,eavgS)
+    type(imag2Mix_T), intent(in) :: imag2mix
+    real(rp), dimension(:,:), allocatable, intent(inout) :: efluxS, eavgS
+    real(rp), dimension(:,:), allocatable :: colatc, glongc, rcmt, rcmp, Ainvdwgt2
+    real(rp) :: colatmin, dlat, dlon, delt, delp, invdwgt, Ainvdwgt
+    integer :: i, j, Np, Nt, i0, j0, NpS, NtS, il, iu, jl, ju
+
+! RCM NH grid is regular but not uniform. The lat spacing increases toward low latitude (high colat) 
+! from 0.015 deg to 0.6 deg, on average (75-15)/200 = 0.3 deg. The lon spacing is uniform, 360/100 = 3.6 deg.
+! When constructing a regular grid for SH, may keep the highest lat resolution in the high lat end. The low
+! lat end would be no different.
+
+    Nt = size(imag2mix%latc,1)
+    Np = size(imag2mix%latc,2) ! imag2mix%latc (Nt,Np)
+    if (.not.allocated(colatc)) allocate(colatc(Nt,Np))
+    if (.not.allocated(glongc)) allocate(glongc(Nt,Np))
+    ! latc is negative. colatc is positive from ~15 to 75 deg. Note latc=0 for open field lines.
+    colatc = PI/2 + imag2mix%latc 
+    glongc = imag2mix%lonc
+     
+    ! Step 1. Determine the highest lat/lowest colat in SH conjugate grid.
+    colatmin = PI/2
+    do j=1,Np
+       do i=1,Nt
+          if(colatc(i,j)<colatmin) then
+             colatmin = colatc(i,j)
+          end if
+       end do
+    end do
+
+    ! Step 2. Create a regular grid that covers all latc/lonc. 
+    !     Keep the same size for the SH grid if SH polar cap is larger.
+    !     Need to expand for the SH conjugate grid otherwise. 
+    !     Note NH colat spacing is 0.07, 0.015, 0.018 for the first four shells.
+    !     Use 0.07 deg as dlat for grid expansion. Value of dlat will change later
+    dlat = imag2mix%gcolat(2)-imag2mix%gcolat(1) 
+    dlon = imag2mix%glong(3)-imag2mix%glong(2)
+    NtS = Nt+ceiling(max((imag2mix%gcolat(1)-colatmin),0.0)/dlat)
+    NpS = Np
+    if (.not.allocated(rcmt)) allocate(rcmt(NpS,NtS))
+    if (.not.allocated(rcmp)) allocate(rcmp(NpS,NtS))
+
+    do j=1,NpS
+       do i=1,NtS-Nt
+          rcmt(j,i)=colatmin+(i-1)*dlat ! Expanded grid.
+          rcmp(j,i)=imag2mix%glong(j)
+       end do
+       do i=NtS-Nt+1,NtS
+          rcmt(j,i)=imag2mix%gcolat(i-NtS+Nt)
+          rcmp(j,i)=imag2mix%glong(j)
+       end do
+    end do
+    call init_grid_fromTP(rcmGS,rcmt,rcmp,isSolverGrid=.false.)
+
+    ! Step 3. Return efluxS and eavgS on that expanded regular grid using nearest neighbors with inverse distance weighting (IDW).
+    !     Neighbors within two grid spacings will be used for IDW average.
+    if (.not.allocated(efluxS)) allocate(efluxS(NtS,NpS))
+    if (.not.allocated(eavgS))  allocate(eavgS(NtS,NpS))
+    if (.not.allocated(Ainvdwgt2))  allocate(Ainvdwgt2(NtS,NpS))
+    efluxS = 0.0
+    eavgS = 0.0
+    Ainvdwgt2 = 0.0
+    ! Traverse the irregular grid. Cells in the destination regular grid can be determined which are within 2 spacings.
+    !$OMP PARALLEL DO default(shared) collapse(2) &
+    !$OMP private(i,j,i0,j0,il,iu,jl,ju,delt,delp,invdwgt) &
+    !$OMP reduction(+:efluxS,eavgS,Ainvdwgt2)
+    do j=1,Np
+       do i=1,Nt
+          if(imag2mix%eflux(i,j)>0.0) then
+             i0 = minloc(abs(rcmt(1,:)-colatc(i,j)),1)
+             il = max(i0-2,1)
+             iu = min(i0+2,NtS)
+             j0 = minloc(abs(rcmp(:,1)-glongc(i,j)),1)
+             jl = max(j0-2,1)
+             ju = min(j0+2,NpS)
+             do i0=il,iu ! Warning: this range in lat is too broad and would result in latitudinal expansion.
+                do j0=jl,ju
+                   delt = abs(rcmt(j0,i0)-colatc(i,j))
+                   delp = abs((rcmp(j0,i0)-glongc(i,j)))*sin(rcmt(j0,i0))
+                   invdwgt = 1./sqrt(delt**2+delp**2)
+                   efluxS(i0,j0) = efluxS(i0,j0) + imag2mix%eflux(i,j)*invdwgt
+                   eavgS(i0,j0)  = eavgS(i0,j0)  + imag2mix%eavg(i,j)*invdwgt
+                   Ainvdwgt2(i0,j0)  = Ainvdwgt2(i0,j0)  + invdwgt
+                enddo
+             end do
+          endif
+       end do
+    end do
+    !$OMP PARALLEL DO default(shared) collapse(2) &
+    !$OMP private(i0,j0)
+    do j0=1,NpS
+       do i0=1,NtS
+          if(Ainvdwgt2(i0,j0)>0.0) then
+             efluxS(i0,j0) = efluxS(i0,j0)/Ainvdwgt2(i0,j0)
+             eavgS(i0,j0) = eavgS(i0,j0)/Ainvdwgt2(i0,j0)
+          endif
+       end do
+    end do
+  end subroutine mapIMagSToIMag
 
 end module  rcm_mix_interface

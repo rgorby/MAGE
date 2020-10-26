@@ -5,11 +5,11 @@
 module rcm_mhd_interfaces
     USE rcm_precision
     USE Rcm_mod_subs, ONLY : isize, jsize, jwrap, pi, colat, aloct
+    USE rcmdefs, ONLY : RCMTOPCLOSED,RCMTOPNULL,RCMTOPOPEN
     implicit none
     integer(ip), parameter :: RCMINIT=0,RCMADVANCE=1,RCMRESTART=2,RCMWRITERESTART=-2,RCMWRITEOUTPUT=-3,RCMWRITETIMING=-1
     integer(ip), parameter :: RCMCOLDSTART=10
     logical :: doRCMVerbose = .FALSE.
-    integer(ip), parameter :: RCMTOPCLOSED=-1,RCMTOPOPEN=+1
     logical :: doColdstart =.true.
 
     !Scaling parameters
@@ -17,6 +17,8 @@ module rcm_mhd_interfaces
     real(rp), parameter :: rcmNScl = 1.0e-6 !Convert #/m3 => #/cc
 
     type rcm_mhd_T
+        real(rprec) :: llBC !MHD low-latitude boundary (radians)
+        real(rprec) :: dtCpl !Current coupling timescale (can change), [s]
         integer(iprec) :: nLat_ion 
         integer(iprec) :: nLon_ion
         real(rprec) :: planet_radius ! m
@@ -33,7 +35,7 @@ module rcm_mhd_interfaces
         real(rprec),allocatable :: X_bmin(:,:,:)! MHD supplied location of Bmin surface, x,y,z in meters
         real(rprec),allocatable :: Bmin(:,:)    ! MHD supplied  bmin strenght in T
         real(rprec),allocatable :: beta_average(:,:)    ! MHD field line averaged plasma beta (\int 2mu0P/B^3ds/B/\int ds/B)
-        integer(iprec),allocatable :: iopen(:,:) ! MHD supplied mask open/closed field line (-1: closed; 1: open; 1: else)
+        integer(iprec),allocatable :: iopen(:,:) ! MHD supplied mask open/closed field line (-1: closed; 1: open; 0: else)
 
         real(rprec),allocatable :: Prcm(:,:)    ! RCM supplied pressure in Pa
         real(rprec),allocatable :: Nrcm(:,:)    ! RCM supplied density in #/m^3
@@ -41,7 +43,7 @@ module rcm_mhd_interfaces
         real(rprec),allocatable :: sigmap(:,:)
         real(rprec),allocatable :: sigmah(:,:)
         real(rprec),allocatable :: oxyfrac(:,:)   ! O+ fraction of MHD number density
-
+        real(rprec),allocatable :: MedK(:,:) !Median energy contribution to pressure [keV]
         !Conjugate mapping, lat/lon of conjugate point mapped
         real(rprec),allocatable :: latc(:,:)
         real(rprec),allocatable :: lonc(:,:)
@@ -52,14 +54,19 @@ module rcm_mhd_interfaces
         real(rprec),allocatable :: Tb(:,:)
         !Loss cone size [rad]
         real(rprec),allocatable :: losscone(:,:)
+        !Curvature radius [Rp]
+        real(rprec),allocatable :: radcurv(:,:)
         !Information about MHD ingestion
         logical, allocatable :: toMHD(:,:)
-
-
+        !RCM confidence weight, [0,1]
+        real(rprec),allocatable :: wIMAG(:,:)
 
         !Information to sync restarts w/ MHD
         integer(iprec) :: rcm_nOut,rcm_nRes !Indices for output/restart
         character(len=strLen) :: rcm_runid
   
+        !Some simple quantities for keeping track of RCM energy channels
+        real(rprec) :: MaxAlam = 0.0
+        
     end type rcm_mhd_T
 end module rcm_mhd_interfaces

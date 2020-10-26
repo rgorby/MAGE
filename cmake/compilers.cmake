@@ -67,7 +67,11 @@ if(CMAKE_Fortran_COMPILER_ID MATCHES Intel)
 		string(APPEND PROD " -march=corei7 -axCORE-AVX2")
 		string(APPEND PRODWITHDEBUGINFO " -march=corei7 -axCORE-AVX2")
 	endif()
-	
+
+	#Check Intel Fortran version
+	if(NOT ALLOW_INVALID_COMPILERS AND CMAKE_Fortran_COMPILER_VERSION VERSION_GREATER "19")
+		message(FATAL_ERROR "Intel Fortran compilers 19 or newer are not supported. Set the ALLOW_INVALID_COMPILERS variable to ON to force compilation at your own risk.")
+	endif()
 
 elseif(CMAKE_Fortran_COMPILER_ID MATCHES GNU)
 	set(dialect "-ffree-form -ffree-line-length-none -fimplicit-none")
@@ -95,7 +99,10 @@ if(ENABLE_MPI)
 	add_definitions(${MPI_Fortran_COMPILE_FLAGS})
 	include_directories(${MPI_Fortran_INCLUDE_PATH})
 	link_directories(${MPI_Fortran_LIBRARIES})
-	string(APPEND CMAKE_Fortran_FLAGS " -mt_mpi")
+	if(CMAKE_Fortran_COMPILER_ID MATCHES Intel)
+		string(APPEND CMAKE_Fortran_FLAGS " -mt_mpi")
+	endif()
+	# no matching flag for GNU
 	set(CMAKE_Fortran_COMPILER ${MPI_Fortran_COMPILER})
 endif()
 

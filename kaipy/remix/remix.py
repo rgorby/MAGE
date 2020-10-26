@@ -327,12 +327,13 @@ class remix:
 
 		ax.grid(True,linewidth=LW)
 		ax.axis([0,2*np.pi,0,r.max()],'tight')
-		ax.text(-75.*np.pi/180.,1.2*r.max(),('min: '+format_str+'\nmax: ' +format_str) % 
-			  (variable.min() ,variable.max()))
-		if varname in ['eflux','Meflux','Deflux']:
-			ax.text(75.*np.pi/180.,1.3*r.max(),('GW: '+format_str) % power)
-		if (varname == 'current'):
-			ax.text(-(73.+45.)*np.pi/180.,1.3*r.max(),('MA: '+format_str) % pfac)
+		if (not doInset):
+			ax.text(-75.*np.pi/180.,1.2*r.max(),('min: '+format_str+'\nmax: ' +format_str) % 
+				  (variable.min() ,variable.max()))
+			if varname in ['eflux','Meflux','Deflux']:
+				ax.text(75.*np.pi/180.,1.3*r.max(),('GW: '+format_str) % power)
+			if (varname == 'current'):
+				ax.text(-(73.+45.)*np.pi/180.,1.3*r.max(),('MA: '+format_str) % pfac)
 		ax.grid(True)
 
 		if varname=='current': 
@@ -459,8 +460,9 @@ class remix:
 		return(xc,yc,theta,phi,dtheta,dphi,Jh_theta,Jh_phi,Jp_theta,Jp_phi,cosDipAngle)
 
 	# Main function to compute magnetic perturbations using the Biot-Savart integration
-	# This includes Hall, Pedersen and FAC with the option to do Hall only 
-	def dB(self,xyz,hallOnly=True,doXYZ=False):
+	# This includes Hall, Pedersen and FAC with the option to do Hall only
+	# Rin = Inner boundary of MHD grid [Re]
+	def dB(self,xyz,hallOnly=True,Rin=2.0,rsegments=10):
 		# xyz = array of points where to compute dB
 		# xyz.shape should be (N,3), where N is the number of points
 		# xyz = (x,y,z) in units of Ri
@@ -541,7 +543,7 @@ class remix:
 		dBz = mu0o4pi*np.sum( (jx*Ry - jy*Rx)*dA/R**3,axis=(0,1))
 
 		if not hallOnly:
-			intx,inty,intz = self.BSFluxTubeInt(xyz)
+			intx,inty,intz = self.BSFluxTubeInt(xyz,Rinner=Rin*Re/Ri,rsegments=rsegments)
 			# FIXME: don't fix sign for south
 			jpara = -self.variables['current']['data'] # note, the sign was inverted by the reader for north, put it back to recover true FAC 
 			jpara = jpara[:,:,np.newaxis]
@@ -564,17 +566,14 @@ class remix:
 		tDest = np.arccos(zDest/rDest)
 		pDest = np.arctan2(yDest,xDest)
 
-		if (doXYZ):
-			return (dBx,dBy,dBz)
-		else:
-			dBr     = dBx*np.sin(tDest)*np.cos(pDest) + dBy*np.sin(tDest)*np.sin(pDest) + dBz*np.cos(tDest)
-			dBtheta = dBx*np.cos(tDest)*np.cos(pDest) + dBy*np.cos(tDest)*np.sin(pDest) - dBz*np.sin(tDest)	
-			dBphi   =-dBx*np.sin(pDest) + dBy*np.cos(pDest)
-			return(dBr,dBtheta,dBphi)
+		dBr     = dBx*np.sin(tDest)*np.cos(pDest) + dBy*np.sin(tDest)*np.sin(pDest) + dBz*np.cos(tDest)
+		dBtheta = dBx*np.cos(tDest)*np.cos(pDest) + dBy*np.cos(tDest)*np.sin(pDest) - dBz*np.sin(tDest)	
+		dBphi   =-dBx*np.sin(pDest) + dBy*np.cos(pDest)
+		return(dBr,dBtheta,dBphi)
 
 	# FIXME: Make work for SOUTH
 	# Flux-tube Biot-Savart integral \int dl bhat x r'/|r'|^3
-	def BSFluxTubeInt(self,xyz,Rinner=2.*Re/Ri,rsegments = 10):
+	def BSFluxTubeInt(self,xyz,Rinner,rsegments = 10):
 		# xyz = array of points where to compute dB  (same as above in dB)
 		# xyz.shape should be (N,3), where N is the number of points
 		# xyz = (x,y,z) in units of Ri

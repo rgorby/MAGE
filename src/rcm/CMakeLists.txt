@@ -1,4 +1,4 @@
-file(GLOB rcm_srcs_f90 *.f90)
+file(GLOB rcm_srcs_f90 *.F90)
 file(GLOB rcm_srcs_f *.F)
 if(CMAKE_Fortran_COMPILER_ID MATCHES Intel)
 	set_source_files_properties(${rcm_srcs_f} PROPERTIES COMPILE_FLAGS "-fixed -nowarn")

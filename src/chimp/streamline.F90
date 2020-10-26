@@ -23,15 +23,18 @@ module streamline
 
         !Start by emptying line
         call cleanStream(fL)
+        fL%x0 = x0
         inDom = inDomain(x0,Model,ebState%ebGr)
-
+        
         if (.not. inDom) then
+            !Bad tube, seed point isn't in domain
+            fL%isGood = .false.
+            allocate(fL%xyz(0:0,NDIM))
+            fL%xyz(0,:) = x0
             return
         endif
         
-        
         !Get traced line
-        fL%x0 = x0
         fl%lnVars(0)%idStr = "B"
 
         if (Model%doMHD) then
@@ -47,6 +50,7 @@ module streamline
         call genTrace(Model,ebState,x0,t,Xn(:,:,2),ijkn(:,:,2),Vn(:,:,2),N2,+1)
         
         !Create field line
+        fL%isGood = .true.
         fL%Nm = N1
         fL%Np = N2
 
@@ -167,6 +171,8 @@ module streamline
         integer :: k
 
         L = 0.0
+        if (.not. bTrc%isGood) return
+
         do k=-bTrc%Nm,bTrc%Np-1
             dL = norm2(bTrc%xyz(k+1,:)-bTrc%xyz(k,:))
             L = L + dL
@@ -185,6 +191,7 @@ module streamline
         real(rp) :: dL,eD,bMag,Va
 
         dtX = 0.0
+        if (.not. bTrc%isGood) return
         do k=-bTrc%Nm,bTrc%Np-1
             dL = norm2(bTrc%xyz(k+1,:)-bTrc%xyz(k,:))
             dL = dL*L0*1.0e-5 !Corner units to km
@@ -211,6 +218,8 @@ module streamline
         real(rp) :: bMag,dl,eP,eD,ePb !Edge-centered values
         real(rp) :: bPb,bBeta
         
+        if (.not. bTrc%isGood) return
+
         associate(Np=>bTrc%Np,Nm=>bTrc%Nm)
         !Zero out accumulators
         bD = 0.0
@@ -307,6 +316,11 @@ module streamline
         !OCB =  0 (solar wind), 1 (half-closed), 2 (both ends closed)
         !OCB = -1 (plasmoid/timeout)
 
+        if (.not. bTrc%isGood) then
+            OCb = -1
+            return
+        endif
+
         isCP  = isClosed(bTrc%xyz(+Np,:),Model)
         isCM  = isClosed(bTrc%xyz(-Nm,:),Model)
 
@@ -348,6 +362,10 @@ module streamline
 
         real(rp), dimension(NDIM) :: xP,xM
 
+        if (.not. bTrc%isGood) then
+            xyzC = 0.0
+            return
+        endif
         associate(Np=>bTrc%Np,Nm=>bTrc%Nm)
             
         !Get endpoints of field line
@@ -375,6 +393,13 @@ module streamline
         integer :: i0,iMin,OCb
         associate(Np=>bTrc%Np,Nm=>bTrc%Nm)
 
+        if (.not. bTrc%isGood) then
+            !Bad field line
+            xeq = 0.0
+            Beq = 0.0
+            return
+        endif
+
         !Find minimum field and where it occurs
         Beq = minval(bTrc%lnVars(0)%V) !Min field strength
         i0  = minloc(bTrc%lnVars(0)%V,dim=1) !Note this is between 1:N
@@ -384,6 +409,48 @@ module streamline
 
         end associate
     end subroutine FLEq
+
+    !Get curvature radius at equator and ExB velocity [km/s]
+    subroutine FLCurvRadius(Model,ebGr,ebState,bTrc,rCurv,vEB)
+        type(chmpModel_T), intent(in)  :: Model
+        type(ebGrid_T)   , intent(in)  :: ebGr
+        type(ebState_T)  , intent(in)  :: ebState
+        type(fLine_T)    , intent(in)  :: bTrc
+        real(rp)         , intent(out) :: rCurv
+        real(rp)         , intent(out) :: vEB
+
+        type(gcFields_T) :: gcFields
+        real(rp), dimension(NDIM,NDIM) :: Jacbhat
+        real(rp), dimension(NDIM) :: xeq,E,B,bhat,gMagB,vExB
+        real(rp) :: t,MagB,invrad,Beq
+
+        rCurv = 0.0
+        if (.not. bTrc%isGood) return
+
+        !Get equator
+        call FLEq(Model,bTrc,xeq,Beq)
+
+        !Now get field information there
+        t = ebState%eb1%time
+        call ebFields(xeq,t,Model,ebState,E,B,vExB=vExB,gcFields=gcFields)
+        MagB = norm2(B)
+        bhat = normVec(B)
+
+        !Start getting derivative terms
+        !gMagB = gradient(|B|), vector
+        !      = bhat \cdot \grad \vec{B}
+        gMagB = VdT(bhat,gcFields%JacB)
+
+        Jacbhat = ( MagB*gcFields%JacB - Dyad(gMagB,B) )/(MagB*MagB)
+
+        invrad = norm2(VdT(bhat,Jacbhat))
+        if (invrad>TINY) then
+            rCurv = 1.0/invrad
+        else
+            rCurv = -TINY
+        endif
+        vEB = norm2(vExB)*oVScl
+    end subroutine FLCurvRadius
 !---------------------------------
 !Projection routines
     !Project to SM EQ (Z=0)
@@ -520,7 +587,7 @@ module streamline
         real(rp), dimension(NDIM) :: Xn,B,E,dx
         real(rp), dimension(NDIM) :: Jb,Jb2,Jb3,F1,F2,F3,F4
         real(rp), dimension(NDIM,NDIM) :: JacB
-        real(rp) :: ds,dl,MagJb,dsmag
+        real(rp) :: ds,dl,MagB,MagJb,dsmag
         real(rp), dimension(NVARMHD) :: Q
         integer, dimension(NDIM) :: ijk,ijkG
         type(gcFields_T) :: gcF
@@ -606,15 +673,23 @@ module streamline
                 endif
 
                 !Get new ds
-                MagJb = sqrt(sum(JacB**2.0))
+                MagB  = norm2(B)
+                MagJb = norm2(JacB)
+
+                !MagJb = sqrt(sum(JacB**2.0))
+                dl = getDiag(ebState%ebGr,ijk)
+
                 if (MagJb <= TINY) then
                     !Field is constant-ish, use local grid size
-                    dl = getDiag(ebState%ebGr,ijk)
-                    dsmag = Model%epsds*dl/norm2(B)
+                    dsmag = dl
                 else
-                    dsmag = Model%epsds/MagJb
+                    !Magnetic lengthscale
+                    dsmag = MagB/MagJb
                 endif
-                ds = sgn*min(dl,dsmag)
+
+                dsmag = min(dl,dsmag)
+                ds = sgn*Model%epsds*dsmag/max(MagB,TINY)
+
             endif
         enddo
 
@@ -635,7 +710,7 @@ module streamline
         real(rp), dimension(NDIM) :: B,E,dx
         real(rp), dimension(NDIM) :: Jb,Jb2,Jb3,F1,F2,F3,F4
         real(rp), dimension(NDIM,NDIM) :: JacB
-        real(rp) :: ds,dsmag,dl,MagJb,dzSgn
+        real(rp) :: ds,dsmag,dl,MagB,MagJb,dzSgn
         real(rp), dimension(NVARMHD) :: Q
         integer, dimension(NDIM) :: ijk,ijkG
         type(gcFields_T) :: gcF
@@ -648,7 +723,8 @@ module streamline
         Np = 0
         Xn = x0
         dl = getDiag(ebState%ebGr,ijk)
-        ds = sgn*min( Model%epsds*dl/norm2(B), dl )
+        ds = sgn*Model%epsds*dl
+
         ijkG = ijk
 
         if (present(toEquator)) then
@@ -666,21 +742,24 @@ module streamline
             !Get location in ijk using old ijk as guess
             call locate(Xn,ijk,Model,ebState%ebGr,inDom,ijkG)
             call ebFields(Xn,t,Model,ebState,E,B,ijk,gcFields=gcF)
+            MagB = norm2(B)
 
-            ! get the jacobian
+            ! get the jacobian and new ds
             JacB = gcF%JacB
+            MagJb = norm2(JacB)
+            dl = getDiag(ebState%ebGr,ijk)
 
-            !Get new ds
-            MagJb = sqrt(sum(JacB**2.0))
             if (MagJb <= TINY) then
                 !Field is constant-ish, use local grid size
-                dl = getDiag(ebState%ebGr,ijk)
-                dsmag = Model%epsds*dl/norm2(B)
+                dsmag = dl
             else
-                dsmag = Model%epsds/MagJb
+                dsmag = MagB/MagJb
             endif
-            ds = sgn*min(dl,dsmag)     
+            ds = sgn*Model%epsds*min(dl,dsmag)
         !Update position
+            !Convert ds to streamline units
+            ds = ds/max(MagB,TINY)
+            
             !Get powers of jacobian
             Jb  = matmul(JacB,B  )
             Jb2 = matmul(JacB,Jb )
@@ -747,5 +826,6 @@ module streamline
         fL%x0 = 0.0
         fL%Nm = 0
         fL%Np = 0
+        fL%isGood = .false.
     end subroutine cleanStream
 end module streamline

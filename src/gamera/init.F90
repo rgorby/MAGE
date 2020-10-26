@@ -390,6 +390,16 @@ module init
 
         Model%MJD0 = 0.0 !Set this by default
     
+    !Timestep stuff
+        !Ratio of dt0 to die
+        call xmlInp%Set_Val(Model%limDT0,'timestep/limDT0',Model%limDT0)
+        !Whether to try and fix low timesteps
+        call xmlInp%Set_Val(Model%doCPR,'timestep/doCPR',Model%doCPR)
+        if (Model%doCPR) then
+            !Ratio of dt0 to start CPR
+            call xmlInp%Set_Val(Model%limCPR,'timestep/limCPR',Model%limCPR)
+        endif
+        
     !Output/Restart (IOCLOCK)
         call Model%IO%init(xmlInp,Model%t,Model%ts)
         call xmlInp%Set_Val(Model%doDivB ,'output/DivB' ,.true. )

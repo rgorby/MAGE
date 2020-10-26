@@ -46,7 +46,10 @@ if __name__ == "__main__":
 	X = iH5['X'][:]
 	Y = iH5['Y'][:]
 	Z = iH5['Z'][:]
-
+	doGas0 = ('Gas0' in iH5.keys()) #Whether there's a Gas0 array
+	if (doGas0):
+		G0 = np.zeros((Ns,Nv,Nk,Nj,Ni))
+		G0[:,:,:,:,:] = iH5['Gas0'][:]
 	#Transfer attributes to output
 	for k in iH5.attrs.keys():
 		aStr = str(k)
@@ -60,12 +63,15 @@ if __name__ == "__main__":
 		Xr,Yr,Zr = upscl.upGrid(X,Y,Z)
 		Gr = upscl.upGas(X,Y,Z,G,Xr.T,Yr.T,Zr.T)
 		FluxR = upscl.upFlux(X,Y,Z,M,Xr,Yr,Zr)
+		if (doGas0):
+			G0r = upscl.upGas(X,Y,Z,G0,Xr.T,Yr.T,Zr.T)
 	else:
 		print("Downscaling ...")
 		Xr,Yr,Zr = upscl.downGrid(X,Y,Z)
 		Gr = upscl.downGas(X,Y,Z,G,Xr.T,Yr.T,Zr.T)
 		FluxR = upscl.downFlux(X,Y,Z,M,Xr,Yr,Zr)
-
+		if (doGas0):
+			G0r = upscl.downGas(X,Y,Z,G0,Xr.T,Yr.T,Zr.T)
 	print("Writing to %s"%(fOut))
 
 	#Write out grid to restart
@@ -76,7 +82,8 @@ if __name__ == "__main__":
 	#Write out gas/flux variables
 	oH5.create_dataset("Gas",data=Gr)
 	oH5.create_dataset("magFlux",data=FluxR)
-	
+	if (doGas0):
+		oH5.create_dataset("Gas0",data=G0r)
 	#Close output
 	oH5.close()
 

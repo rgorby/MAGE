@@ -42,7 +42,11 @@ program voltronx
             call ShallowUpdate(vApp, gApp, vApp%time)
         endif
         call Toc("IonCoupling")
-        
+
+    !Update coupling DTs
+    vApp%ShallowDT = vApp%TargetShallowDT
+    vApp%DeepDT = vApp%TargetDeepDT
+       
     !IO checks
         call Tic("IO")
         !Console output

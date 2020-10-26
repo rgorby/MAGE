@@ -36,10 +36,12 @@ module msphutils
     real(rp), private :: tScl !Needed for time output, TODO: Fix this
     real(rp), private :: Rion ! Planetary ionosphere radius
     !Chill out parameters
+    logical , private :: doLFMChill = .true. !Do LFM-style chilling
+    logical , private :: doGAMChill = .true. !Do GAM-style chilling
     real(rp), private :: RhoCO = 1.0e-3 ! Number density
     real(rp), private :: CsCO  = 1.0e-2  ! Cs chillout, m/s
-    real(rp), parameter, private :: cLim = 1.5 ! Cool when sound speed is above cLim*Ca
-    logical , parameter, private :: doLFMChill = .true. !Do LFM-style chilling
+    real(rp), private :: cLim = 1.5 ! Cool when sound speed is above cLim*Ca
+    
     
     !Dipole cut values
     !real(rp), private :: rCut=4.5, lCut=3.5 !LFM values
@@ -133,9 +135,27 @@ module msphutils
             call xmlInp%Set_Val(Model%doGrav,"prob/doGrav",.true.)
         end select
 
-        !Whether to ignore ingestion (if set)
-        call xmlInp%Set_Val(doIngest,"source/doIngest",.true.)
+        !Set some chilling parameters
+        !If we're using source term set default as chilling off
+        if (Model%doSource) then
+            doGAMChill = .false.
+            doLFMChill = .false.
+        endif
+        !Now read XML parameters w/ default options
+        call xmlInp%Set_Val(doGAMChill,"chill/doGAMChill",doGAMChill)
+        call xmlInp%Set_Val(doLFMChill,"chill/doLFMChill",doLFMChill)
+        if (doLFMChill) then
+            call xmlInp%Set_Val(RhoCO,"chill/RhoCO",RhoCO)
+        endif
+        if (doGAMChill) then
+            call xmlInp%Set_Val(cLim,"chill/cLim",cLim)
+        endif
 
+        !Whether to ignore ingestion (if set)
+        if (Model%doSource) then
+            call xmlInp%Set_Val(doIngest,"source/doIngest",.true.)
+        endif
+        
         call xmlInp%Set_Val(doCorot,"prob/doCorot",.true.)
         if (.not. doCorot) then
             !Zero out corotation potential
@@ -332,6 +352,11 @@ module msphutils
         real(rp) :: D,P,CsC,Pc,Leq,tau
         logical :: doChill
 
+        !Check if there's no chill and get out
+        if ( (.not. doLFMChill) .and. (.not. doGAMChill) ) then
+            return
+        endif
+
         RhoMin(BLK) = 0.0
         if (Model%doMultiF) then
             !Don't do bulk
@@ -389,7 +414,7 @@ module msphutils
                         endif
 
                         !If sound speed is faster than "light", chill the fuck out
-                        doChill = Model%doBoris .and. (CsC>cLim*Model%Ca)
+                        doChill = Model%doBoris .and. (CsC>cLim*Model%Ca) .and. (doGAMChill)
                         if (doChill .and. Model%doSource) then
                             !If this is a pressure ingestion region, then let the pressure go wild
                             if (Grid%Gas0(i,j,k,IMPR ,BLK)>TINY) doChill = .false.

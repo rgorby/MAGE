@@ -10,14 +10,15 @@ import kaipy.kaiViz as kv
 import matplotlib.gridspec as gridspec
 import numpy as np
 import kaipy.gamera.gampp as gampp
+import kaipy.gamera.rcmpp as rcmpp
 import palettable
 import os
 import numpy.ma as ma
 
 if __name__ == "__main__":
 	#Defaults
-	MHDCol = "red"
-	MHDLW = 0.5
+	MHDCol = rcmpp.MHDCol
+	MHDLW = rcmpp.MHDLW
 	fdir = os.getcwd()
 	ftag = "msphere"
 	nStp = -1
@@ -31,12 +32,21 @@ if __name__ == "__main__":
 	parser.add_argument('-d',type=str,metavar="directory",default=fdir,help="Directory to read from (default: %(default)s)")
 	parser.add_argument('-id',type=str,metavar="runid",default=ftag,help="RunID of data (default: %(default)s)")
 	parser.add_argument('-n' ,type=int,metavar="step" ,default=nStp,help="Time slice to plot (default: %(default)s)")
+	parser.add_argument('-big',action='store_true', default=False,help="Plot entire RCM grid (default: %(default)s)")
+	parser.add_argument('-wgt', action='store_true',default=False,help="Show wRCM instead of FTE (default: %(default)s)")
+	parser.add_argument('-vol', action='store_true',default=False,help="Show FTV instead of FTE (default: %(default)s)")
 
 	#Finalize parsing
 	args = parser.parse_args()
 	fdir = args.d
 	ftag = args.id + ".mhdrcm"
 	nStp = args.n
+	doBig = args.big
+
+	doWgt = args.wgt
+	doVol = args.vol
+
+	rcmpp.doEll = not doBig
 
 	#---------
 	#Figure parameters
@@ -52,6 +62,9 @@ if __name__ == "__main__":
 	cLW = 0.5
 	vP = kv.genNorm(1.0e-1,1.0e+2,doLog=True)
 	vS = kv.genNorm(0.0,0.25)
+	vW = kv.genNorm(0,1)
+	vV = kv.genNorm(1.0e-2,1.0,doLog=True)
+
 	Nc = 10
 	nMin = 1.0
 	nMax = 1.0e+3
@@ -61,6 +74,8 @@ if __name__ == "__main__":
 	pCMap = "viridis"
 	sCMap = "terrain"
 	dCMap = "cool"
+	wCMap = "bwr_r"
+	vCMap = "gnuplot2"
 	#dCMap = palettable.cmocean.sequential.Algae_20_r.mpl_colormap
 	
 	#======
@@ -84,38 +99,39 @@ if __name__ == "__main__":
 	AxC3 = fig.add_subplot(gs[-1,-1])
 	kv.genCB(AxC1,vP,"Pressure [nPa]",cM=pCMap)
 	kv.genCB(AxC2,vD,"Density [#/cc]",cM=dCMap)
-	kv.genCB(AxC3,vS,r"Flux-Tube Entropy [nPa (R$_{E}$/nT)$^{\gamma}$]",cM=sCMap)
+	if (doWgt):
+		kv.genCB(AxC3,vW,r"wRCM",cM=wCMap)
+	elif (doVol):
+		kv.genCB(AxC3,vV,r"Flux-Tube Volume [Re/nT]",cM=vCMap)
+	else:	
+		kv.genCB(AxC3,vS,r"Flux-Tube Entropy [nPa (R$_{E}$/nT)$^{\gamma}$]",cM=sCMap)
 
 	AxL.clear()
 	AxM.clear()
 	AxR.clear()
 
-	bmX = rcmdata.GetVar("xMin",nStp)
-	bmY = rcmdata.GetVar("yMin",nStp)
-	Prcm = rcmdata.GetVar("P",nStp)
-	Pmhd = rcmdata.GetVar("Pmhd",nStp)
-	Nmhd = rcmdata.GetVar("Nmhd",nStp)
-
-	bmin = rcmdata.GetVar("bMin",nStp)
-
-	IOpen = rcmdata.GetVar("IOpen",nStp)
-	toMHD = rcmdata.GetVar("toMHD",nStp)
-	S = rcmdata.GetVar("S",nStp)
-	
-	I = (IOpen > -0.5)
+	bmX,bmY = rcmpp.RCMEq(rcmdata,nStp,doMask=True)
+	I = rcmpp.GetMask(rcmdata,nStp)
 	Ni = (~I).sum()
 	
 	if (Ni == 0):
 		print("No closed field region in RCM, exiting ...")
 		exit()
-	
 
-	bmX = ma.masked_array(bmX,mask=I)
-	bmY = ma.masked_array(bmY,mask=I)
-	Prcm = ma.masked_array(Prcm,mask=I)
-	Pmhd = ma.masked_array(Pmhd,mask=I)
-	Nmhd = ma.masked_array(Nmhd,mask=I)
-	S = ma.masked_array(S,mask=I)
+	Prcm  = rcmpp.GetVarMask(rcmdata,nStp,"P"    ,I)
+	Pmhd  = rcmpp.GetVarMask(rcmdata,nStp,"Pmhd" ,I)
+	Nmhd  = rcmpp.GetVarMask(rcmdata,nStp,"Nmhd" ,I)
+	S     = rcmpp.GetVarMask(rcmdata,nStp,"S"    ,I)
+	toMHD = rcmpp.GetVarMask(rcmdata,nStp,"toMHD",I)
+	
+		
+	if (doWgt):
+		wRCM  = rcmpp.GetVarMask(rcmdata,nStp,"wIMAG" ,I)
+	if (doVol):
+		bVol = rcmpp.GetVarMask(rcmdata,nStp,"bVol" ,I)
+	if (doBig):
+		toRCM = rcmpp.GetVarMask(rcmdata,nStp,"IOpen" ,I)
+
 	AxL.set_title("RCM Pressure")
 
 	AxL.pcolor(bmX,bmY,Prcm,norm=vP,cmap=pCMap)
@@ -128,26 +144,34 @@ if __name__ == "__main__":
 	AxM.set_title("MHD Pressure")
 	AxM.pcolor(bmX,bmY,Pmhd,norm=vP,cmap=pCMap)
 	
-	#AxM.plot(bmX,bmY,color=eCol,linewidth=eLW)
-	#AxM.plot(bmX.T,bmY.T,color=eCol,linewidth=eLW)
 	AxM.contour(bmX,bmY,Nmhd,cVals,norm=vD,cmap=dCMap,linewidths=cLW)
 	kv.addEarth2D(ax=AxM)
 	kv.SetAx(xyBds,AxM)
 	Axs = [AxL,AxM,AxR]
+
 	if (nStp>0):
 		for n in range(3):
 			Ax = Axs[n]
+
 			CS1 = Ax.contour(bmX,bmY,toMHD,[0.5],colors=MHDCol,linewidths=MHDLW)
 			manloc = [(0.0,8.0)]
 
 			fmt = {}
 			fmt[0.5] = 'MHD'
 			Ax.clabel(CS1,CS1.levels[::2],inline=True,fmt=fmt,fontsize=5,inline_spacing=25,manual=manloc)
-
+			if (doBig):
+				CS2 = Ax.contour(bmX,bmY,toRCM,[-0.5],colors=rcmpp.rcmCol,linewidths=MHDLW,linestyles='solid')
 
 	#Handle right
-	AxR.set_title("Flux-Tube Entropy")
-	AxR.pcolor(bmX,bmY,S,norm=vS,cmap=sCMap)
+	if (doWgt):
+		AxR.set_title("RCM Weight")
+		AxR.pcolor(bmX,bmY,wRCM,norm=vW,cmap=wCMap)
+	elif (doVol):
+		AxR.set_title("Flux-tube Volume")
+		AxR.pcolor(bmX,bmY,bVol,norm=vV,cmap=vCMap)
+	else:	
+		AxR.set_title("Flux-Tube Entropy")
+		AxR.pcolor(bmX,bmY,S,norm=vS,cmap=sCMap)
 	
 	AxR.plot(bmX,bmY,color=eCol,linewidth=eLW)
 	AxR.plot(bmX.T,bmY.T,color=eCol,linewidth=eLW)

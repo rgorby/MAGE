@@ -27,6 +27,12 @@ module chmp2mhd_interface
         chmp2mhd%isGood    = .false.
         chmp2mhd%isEdible  = .false.
 
+        if (ebTrcApp%ebModel%epsds > TINY) then
+            chmp2mhd%epsds0 = ebTrcApp%ebModel%epsds
+        else
+            chmp2mhd%epsds0 = chmp2mhd%epsSquish
+        endif
+
         end associate
 
     end subroutine init_chmp2Mhd
