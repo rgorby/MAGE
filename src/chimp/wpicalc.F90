@@ -23,12 +23,13 @@ module wpicalc
         type(wave_T) :: wave
         type(wModel_T) :: wModel
         
-        real(rp), dimension(NDIM) :: r,p,E,B,xhat,yhat,bhat
+        real(rp), dimension(NDIM) :: r,p,E,B,xhat,yhat,bhat,req
         real(rp), dimension(NDIM) :: p11,pxy,vExB
         real(rp), dimension(NVARMHD) :: Qmhd
         real(rp) :: gamma,gamNew,aNew,pMag,MagB,Mu,p11Mag,K,rho,psi
         real(rp) :: Ome,wpe,astar,xHigh,xj,yj,Daa,inWScl
         real(rp) :: dtCum,dtRem,ddt ! substep used in wpi calculations, not same as ddt in pusher.F90 
+        real(rp) :: zEq = 0.0 !Defined Z for equator
         integer :: pSgn
 
         real(rp) :: dAlim  !Limiting change in pith-angle to be below this value each wpi to reduce error in diff. Curve
@@ -57,6 +58,7 @@ module wpicalc
 
         !Get local coordinate system
         r = prt%Q(XPOS:ZPOS)
+        req = [prt%Qeq(EQX),prt%Qeq(EQX),zEq] ! defining magnetic equator at z=0
         call ebFields(r,t,Model,ebState,E,B,ijkO=prt%ijk0,vExB=vExB)
         call MagTriad(r,B,xhat,yhat,bhat)
         MagB = max(norm2(B),TINY)
@@ -71,8 +73,8 @@ module wpicalc
         endif
 
         !Check to see if waves are present
-        call ChkWave(wModel,r,doWave)
-        if (.not. doWave) return
+        call ChkWave(wModel,r,req,doWave)
+        if (.not. doWave) return ! no waves so exit
 
         !Calulating the ratio of nonrelativistic gyrofrequency to plasma frequency at prt's location
         !normalization constant to put wpe in code units
@@ -149,13 +151,41 @@ module wpicalc
     end subroutine PerformWPI
 
     !Check to see if waves are present at location 
-    subroutine ChkWave(wModel,r,doWave)
+    subroutine ChkWave(wModel,r,req,doWave)
         type(wModel_T), intent(in) :: wModel
-        real(rp), dimension(NDIM), intent(in) :: r !Particle location
+        real(rp), dimension(NDIM), intent(in) :: r,req !Particle location and coordinates of last equatorial crossing
         logical, intent(inout) :: doWave !Holds if waves are present 
+        real(rp), dimension(2) :: Lbds, LONbds,MLATbds ! Hold the range where waves are present
+        real(rp) :: lat,lon,L,rMag
+        logical :: inL,inLat,inLon,inWaves
 
-        !FIXME: for now have waves everywhere
-        doWave = .true. 
+        !FIXME: need more accurate wave model
+        ! Setting simple limits in L, MLT and MLAT for now
+        Lbds(1)    = 4.5
+        Lbds(2)    = 8.0
+        LONbds(1)  = 4*PI/5 ! 144 degrees, 21 MLT
+        LONbds(1)  = -PI/12 ! -15 degrees, 11 MLT
+        MLATbds(1) = -PI/9  ! -20 degrees
+        MLATbds(2) = PI/9   ! -20 degrees
+
+        rMag = norm2(r)
+
+        lat = asin(r(3)/rMag)
+        lon = atan2(r(2),r(1))
+        L = norm2(req)
+        !L = rMag/cos(lat)**2 !FIXME: assumes dipolar field
+
+        ! check if particle is in presence of waves
+        inL = (L .gt. Lbds(1) .and. L .le. Lbds(2))
+        inLon = (lon .gt. LONbds(1) .or. lon .lt. LONbds(2))
+        inLat = (lat .gt. MLATbds(1) .and. lat .lt. MLATbds(2))
+        inWaves = inL .and. inLat .and. inLon
+
+        if (inWaves) then
+            doWave = .true.
+        else   
+            doWave = .false.
+        end if 
 
     end subroutine ChkWave
 
