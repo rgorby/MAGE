@@ -406,6 +406,7 @@ module rcmimag
                 !Do limiting on pressure/density
                 pScl = beta*5.0/6.0
                 plim = (pScl*pmhd + prcm)/(1.0+pScl)
+                !plim = (wIM)*prcm + (1-wIM)*plim
                 !nlim = nrcm - 0.6*pScl*nmhd*(prcm-pmhd)/(1.0+pScl)/pmhd
                 nlim = (plim/prcm)*nrcm !Constant temp. limiting
                 !nlim = nrcm !Testing P-only wolf limiting

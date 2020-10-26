@@ -43,6 +43,9 @@ MODULE rice_housekeeping_module
   INTEGER(iprec) :: rcm_record
   REAL(rprec) :: HighLatBD,LowLatBD
   LOGICAL :: doLatStretch = .true.
+  LOGICAL :: doOCBLoss = .false.
+  LOGICAL :: doFLCLoss = .true. !Use FLC losses
+  LOGICAL :: doNewCX = .true. !Use newer CX loss estimate
 
 ! set this to true to tilt the dipole, must turn off corotation also
   LOGICAL :: rcm_tilted = .false.
@@ -134,6 +137,11 @@ MODULE rice_housekeeping_module
         call xmlInp%Set_Val(dp_on,"plasmasphere/isDynamic",dp_on)
         call xmlInp%Set_Val(InitKp ,"plasmasphere/initKp",InitKp) 
         call xmlInp%Set_Val(staticR ,'plasmasphere/staticR',staticR)
+
+        !Loss options
+        call xmlInp%Set_Val(doOCBLoss,"loss/doOCBLoss",doOCBLoss)
+        call xmlInp%Set_Val(doFLCLoss,"loss/doFLCLoss",doFLCLoss)
+        call xmlInp%Set_Val(doNewCX  ,"loss/doNewCX"  ,doNewCX  )
 
         !Tomhd parameters
         call xmlInp%Set_Val(doAvg2MHD,"tomhd/doAvg2MHD",doAvg2MHD)

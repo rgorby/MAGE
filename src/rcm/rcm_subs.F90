@@ -2523,7 +2523,7 @@ END FUNCTION FLCRat
 !=========================================================================
 !
 SUBROUTINE Move_plasma_grid_MHD (dt)
-  use rice_housekeeping_module, ONLY : LowLatMHD
+  use rice_housekeeping_module, ONLY : LowLatMHD,doOCBLoss,doNewCX,doFLCLoss
   use math, ONLY : SmoothOpTSC,SmoothOperator33
 
   IMPLICIT NONE
@@ -2544,9 +2544,7 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
   
   REAL (rprec) :: T1k,T2k !Local loop variables b/c clawpack alters input
   LOGICAL, save :: FirstTime=.true.
-  LOGICAL :: doOCBNuke
-
-  doOCBNuke = .false.
+  
 
   if (jwrap /= 3) then
     write(*,*) 'Somebody should rewrite this code to not assume that jwrap=3'
@@ -2623,8 +2621,8 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
   !$OMP PRIVATE(didt,djdt,etaC,rateC,rate,dvedi,dvedj) &
   !$OMP PRIVATE(mass_factor,r_dist,CLAWiter,T1k,T2k) &
   !$OMP PRIVATE(lossCX,lossFLC,lossFDG,lossOCB,sumEtaBEF,sumEtaAFT) &
-  !$OMP SHARED(isOpen,iOCB_j,alamc,eeta,v,vcorot,vpar,vm,imin_j,j1,j2,joff,doOCBNuke) &
-  !$OMP SHARED(dvvdi,dvvdj,dvmdi,dvmdj) &
+  !$OMP SHARED(isOpen,iOCB_j,alamc,eeta,v,vcorot,vpar,vm,imin_j,j1,j2,joff) &
+  !$OMP SHARED(dvvdi,dvvdj,dvmdi,dvmdj,doOCBLoss,doFLCLoss,doNewCX) &
   !$OMP SHARED(xmin,ymin,rmin,fac,fudgec,bir,sini,L_dktime,dktime,sunspot_number) &
   !$OMP SHARED(aloct,xlower,xupper,ylower,yupper,dt,T1,T2,iMHD,bmin,radcurv,losscone) 
   DO kc = 1, kcsize
@@ -2705,11 +2703,16 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
           if ( L_dktime .and. (.not. isOpen(i,j)) ) then
             !Do losses even in buffer region in case stuff moves in/out
             r_dist = sqrt(xmin(i,j)**2+ymin(i,j)**2)
-            !lossCX = Cexrat(ie,abs(alamc(kc))*vm(i,j),r_dist,sunspot_number, &
-            !                dktime,irdk,inrgdk,isodk,iondk)
-            lossCX = CXKaiju(ie,abs(alamc(kc))*vm(i,j),r_dist)
-            !Placeholder for FLC loss, uses radcurv(i,j) [Re]
-            lossFLC = FLCRat(ie,alamc(kc),vm(i,j),bmin(i,j),radcurv(i,j),losscone(i,j))
+            if (doNewCX) then
+              lossCX = CXKaiju(ie,abs(alamc(kc))*vm(i,j),r_dist)
+            else
+              lossCX = Cexrat(ie,abs(alamc(kc))*vm(i,j),r_dist,sunspot_number, &
+                              dktime,irdk,inrgdk,isodk,iondk)
+            endif
+            if (doFLCLoss) then
+              !Placeholder for FLC loss, uses radcurv(i,j) [Re]
+              lossFLC = FLCRat(ie,alamc(kc),vm(i,j),bmin(i,j),radcurv(i,j),losscone(i,j))
+            endif
           endif
         else
           !Unknown flavor
@@ -2759,7 +2762,7 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
     !   eeta(:,:,kc) = (sumEtaBEF/sumEtaAFT)*eeta(:,:,kc)
     ! endif
 
-    if (doOCBNuke) then
+    if (doOCBLoss) then
       !Go through and nuke any content next to open cell
       do j=j1,j2 !jwrap,jsize-1
         do i=2,isize-1
