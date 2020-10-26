@@ -12,7 +12,7 @@ MODULE torcm_mod
 
   real(rp), private :: density_factor !module private density_factor using planet radius
   real(rp), private :: pressure_factor
-  logical, parameter :: doSmoothEta = .true. !Whether to smooth eeta at boundary
+  logical, parameter :: doSmoothEta = .false. !Whether to smooth eeta at boundary
   integer, private, parameter :: NumG = 4 !How many buffer cells to require
 
   contains
@@ -766,6 +766,8 @@ MODULE torcm_mod
       REAL(rprec), PARAMETER :: a4 = 1.0  
       REAL(rprec), PARAMETER :: a5 = 1.0
       integer(iprec) :: klow,di
+      integer(iprec), parameter :: NumI = 0
+
       logical :: isOpen(5)
 ! now do the smoothing
 
@@ -778,7 +780,7 @@ MODULE torcm_mod
 
       klow = 1 
       !Loop over di levels at boundary and do j-smoothing
-      do di=0,2
+      do di=0,NumI
         do j=1,jdim
 
           ! 1 <=> jdim -jwrap +1
@@ -824,6 +826,7 @@ MODULE torcm_mod
       
       
       END SUBROUTINE Smooth_eta_at_boundary
+
 !------------------------------------
       SUBROUTINE smooth_boundary_location(idim,jdim,jwrap,bndloc)
       USE rice_housekeeping_module, ONLY : L_write_vars_debug

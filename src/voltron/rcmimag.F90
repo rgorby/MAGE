@@ -410,9 +410,9 @@ module rcmimag
                 pwlf = (pScl*pmhd + prcm)/(1.0+pScl) !Wolf-limited pressure
                 wgt = min(RCMApp%dtCpl/Tb,1.0)
 
-                !plim = pwlf !Use Wolf pressure directly
+                plim = pwlf !Use Wolf pressure directly
                 !plim = (wIM)*prcm + (1-wIM)*plim !Blend based on wIM
-                plim = wgt*pwlf + (1-wgt)*prcm !Blend based on Tb
+                !plim = wgt*pwlf + (1-wgt)*prcm !Blend based on Tb
 
                 !Set density
                 !nlim = nrcm - 0.6*pScl*nmhd*(prcm-pmhd)/(1.0+pScl)/pmhd

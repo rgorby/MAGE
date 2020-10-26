@@ -2544,7 +2544,9 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
   
   REAL (rprec) :: T1k,T2k !Local loop variables b/c clawpack alters input
   LOGICAL, save :: FirstTime=.true.
-  
+  LOGICAL, parameter :: doDFTVSmooth = .false. !Smooth grad_ij FTV
+  LOGICAL, parameter :: doSuperBee = .true. !Use superbee (instead of minmod)
+
 
   if (jwrap /= 3) then
     write(*,*) 'Somebody should rewrite this code to not assume that jwrap=3'
@@ -2606,8 +2608,11 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
   !call Grad_IJ(vm,isOpen,dvmdi,dvmdj) !Old calculation
   ftv = vm**(-3.0/2)
   call Grad_IJ(ftv,isOpen,dftvi,dftvj)
-  call Smooth_IJ(dftvi,isOpen)
-  call Smooth_IJ(dftvj,isOpen)
+  if (doDFTVSmooth) then
+    call Smooth_IJ(dftvi,isOpen)
+    call Smooth_IJ(dftvj,isOpen)
+  endif
+
   dvmdi = (-2.0/3.0)*(ftv**(-5.0/3.0))*dftvi
   dvmdj = (-2.0/3.0)*(ftv**(-5.0/3.0))*dftvj
 
@@ -2860,10 +2865,12 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
         dvR = Q(+1) - Q( 0)
 
         !Do slope limiter, either minmod or superbee
-        dvdx = qkminmod(dvL,dvR) !Just minmod lim
-        !Superbee slope-lim on gradient
-        !dvdx = qkmaxmod( qkminmod(dvR,2*dvL),qkminmod(2*dvR,dvL) )
-
+        if (doSuperBee) then
+          !Superbee slope-lim on gradient
+          dvdx = qkmaxmod( qkminmod(dvR,2*dvL),qkminmod(2*dvR,dvL) )
+        else
+          dvdx = qkminmod(dvL,dvR) !Just minmod lim
+        endif
       else if (.not. isOp(-1)) then
         !-1 is closed, do backward difference
         dvdx = Q(0)-Q(-1)
