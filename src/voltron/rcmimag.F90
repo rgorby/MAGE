@@ -364,7 +364,7 @@ module rcmimag
         logical, intent(out) :: isEdible
 
         real(rp) :: colat,nrcm,prcm,npp,pScl,beta,pmhd,nmhd,wIM
-        real(rp) :: plim,nlim
+        real(rp) :: plim,nlim,wgt,pwlf,Tb
         integer, dimension(2) :: ij0
 
         associate(RCMApp => imag%rcmCpl, lat => x1, lon => x2)
@@ -398,15 +398,23 @@ module rcmimag
         pmhd = rcmPScl*RCMApp%Pave (ij0(1),ij0(2))
         nmhd = rcmNScl*RCMApp%Nave (ij0(1),ij0(2))
         wIM  =         RCMApp%wImag(ij0(1),ij0(2))
+        Tb   =         RCMApp%Tb   (ij0(1),ij0(2))
 
         !Limit on RCM values
         if ( (nrcm>TINY) .and. (prcm>TINY) ) then
             !Good values from RCM, do something
             if (doWolfLim) then
-                !Do limiting on pressure/density
+            !Do limiting on pressure/density
                 pScl = beta*5.0/6.0
-                plim = (pScl*pmhd + prcm)/(1.0+pScl)
-                !plim = (wIM)*prcm + (1-wIM)*plim
+                !Set pressure
+                pwlf = (pScl*pmhd + prcm)/(1.0+pScl) !Wolf-limited pressure
+                wgt = min(RCMApp%dtCpl/Tb,1.0)
+
+                !plim = pwlf !Use Wolf pressure directly
+                !plim = (wIM)*prcm + (1-wIM)*plim !Blend based on wIM
+                plim = wgt*pwlf + (1-wgt)*prcm !Blend based on Tb
+
+                !Set density
                 !nlim = nrcm - 0.6*pScl*nmhd*(prcm-pmhd)/(1.0+pScl)/pmhd
                 nlim = (plim/prcm)*nrcm !Constant temp. limiting
                 !nlim = nrcm !Testing P-only wolf limiting
