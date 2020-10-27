@@ -46,7 +46,7 @@ if __name__ == "__main__":
 
 	doWgt = args.wgt
 	doVol = args.vol
-	doT   = args.tmp
+	doT   = args.kt
 
 	rcmpp.doEll = not doBig
 
