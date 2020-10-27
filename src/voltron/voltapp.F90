@@ -442,6 +442,7 @@ module voltapp
         real(rp), intent(out) :: x2Err, x4Err
 
         integer :: i,j,k,baseQkSqStr
+        logical :: baseDoQkSq
         real(rp), dimension(:,:,:,:), allocatable :: baseXyzSquish
         real(rp), dimension(2) :: posErr
 
@@ -449,13 +450,17 @@ module voltapp
 
         allocate(baseXyzSquish,  MOLD=vApp%chmp2mhd%xyzSquish)
         baseQkSqStr = vApp%qkSquishStride
+        baseDoQkSq = vApp%doQkSquish
 
-        ! squish with baseline quick squish stride
+        ! squish with no quick squish stride
+        vApp%qkSquishStride = 1
+        vApp%doQkSquish = .false.
         call DeepUpdate(vApp, gApp)
         baseXyzSquish = vApp%chmp2mhd%xyzSquish
 
         ! squish with 2x quick squish stride
-        vApp%qkSquishStride = baseQkSqStr*2
+        vApp%qkSquishStride = 2
+        vApp%doQkSquish = .true.
         call DeepUpdate(vApp, gApp)
         x2Err = 0
         do i=ebGr%is,vApp%iDeep+1
@@ -469,7 +474,7 @@ module voltapp
         enddo
 
         ! squish with 4x quick squish stride
-        vApp%qkSquishStride = baseQkSqStr*4
+        vApp%qkSquishStride = 4
         call DeepUpdate(vApp, gApp)
         x4Err = 0
         do i=ebGr%is,vApp%iDeep+1
@@ -483,6 +488,7 @@ module voltapp
         enddo
 
         vApp%qkSquishStride = baseQkSqStr
+        vApp%doQkSquish = baseDoQkSq
         deallocate(baseXyzSquish)
 
         end associate
