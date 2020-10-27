@@ -66,7 +66,7 @@ if __name__ == "__main__":
 	vS = kv.genNorm(0.0,0.25)
 	vW = kv.genNorm(0,1)
 	vV = kv.genNorm(1.0e-2,1.0,doLog=True)
-	vT = kv.genNorm(0,100)
+	vT = kv.genNorm(0,50)
 
 	Nc = 10
 	nMin = 1.0

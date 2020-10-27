@@ -502,18 +502,20 @@ MODULE torcm_mod
       !If still here either null or closed
         !Calculate plasmasphere density contribution
         dpp = density_factor*1.0*eeta(i,j,1)*vm(i,j)**1.5
-        if (dpp < TINY) return !No plasmasphere to worry about
 
-        if ( (dpp < dmhd) .and. (dpp > TINY) ) then
+        if ( (dpp <= TINY) .or. (dmhd <= TINY) ) return !Nothing to do
+        
+        if (dpp < dmhd) then
           !Smaller than MHD so just subtract out and assume rest is hot fluid
           dmhd = dmhd - dpp
           return
         endif
 
-      !Last try, part fluid based on inferred ratio from RCM
+
+      !Try to part fluid based on inferred ratio from RCM
         drcm = 0.0
         do k=2,kcsize
-          if (alamc(k)>0) then
+          if (alamc(k)>TINY) then
             !NOTE: Assuming protons here, otherwise see tomhd for mass scaling
             drcm = drcm + density_factor*eeta(i,j,k)*vm(i,j)**1.5
           endif
@@ -524,12 +526,6 @@ MODULE torcm_mod
           dtot = dpp + drcm
           dmhd = den(i,j)*drcm/dtot
           dpp  = den(i,j)*dpp /dtot
-          return
-        endif
-
-        !dpp > dmhd, but don't want to use potentially large plasmasphere mass
-        if ( abs(dmhd-dpp) > TINY ) then
-          dmhd = abs(dmhd-dpp)
           return
         endif
         
