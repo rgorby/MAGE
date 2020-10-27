@@ -35,6 +35,7 @@ if __name__ == "__main__":
 	parser.add_argument('-big',action='store_true', default=False,help="Plot entire RCM grid (default: %(default)s)")
 	parser.add_argument('-wgt', action='store_true',default=False,help="Show wRCM instead of FTE (default: %(default)s)")
 	parser.add_argument('-vol', action='store_true',default=False,help="Show FTV instead of FTE (default: %(default)s)")
+	parser.add_argument('-kt' , action='store_true',default=False,help="Show temperature instead of FTE (default: %(default)s)")
 
 	#Finalize parsing
 	args = parser.parse_args()
@@ -45,6 +46,7 @@ if __name__ == "__main__":
 
 	doWgt = args.wgt
 	doVol = args.vol
+	doT   = args.tmp
 
 	rcmpp.doEll = not doBig
 
@@ -64,6 +66,7 @@ if __name__ == "__main__":
 	vS = kv.genNorm(0.0,0.25)
 	vW = kv.genNorm(0,1)
 	vV = kv.genNorm(1.0e-2,1.0,doLog=True)
+	vT = kv.genNorm(0,100)
 
 	Nc = 10
 	nMin = 1.0
@@ -103,6 +106,8 @@ if __name__ == "__main__":
 		kv.genCB(AxC3,vW,r"wRCM",cM=wCMap)
 	elif (doVol):
 		kv.genCB(AxC3,vV,r"Flux-Tube Volume [Re/nT]",cM=vCMap)
+	elif (doT):
+		kv.genCB(AxC3,vT,r"Temperature [keV]",cM=vCMap)
 	else:	
 		kv.genCB(AxC3,vS,r"Flux-Tube Entropy [nPa (R$_{E}$/nT)$^{\gamma}$]",cM=sCMap)
 
@@ -119,6 +124,8 @@ if __name__ == "__main__":
 		exit()
 
 	Prcm  = rcmpp.GetVarMask(rcmdata,nStp,"P"    ,I)
+	Nrcm  = rcmpp.GetVarMask(rcmdata,nStp,"N"    ,I)
+
 	Pmhd  = rcmpp.GetVarMask(rcmdata,nStp,"Pmhd" ,I)
 	Nmhd  = rcmpp.GetVarMask(rcmdata,nStp,"Nmhd" ,I)
 	S     = rcmpp.GetVarMask(rcmdata,nStp,"S"    ,I)
@@ -169,6 +176,10 @@ if __name__ == "__main__":
 	elif (doVol):
 		AxR.set_title("Flux-tube Volume")
 		AxR.pcolor(bmX,bmY,bVol,norm=vV,cmap=vCMap)
+	elif (doT):
+		kT = 6.25*Prcm/Nrcm
+		AxR.set_title("RCM Temperature")
+		AxR.pcolor(bmX,bmY,kT,norm=vT,cmap=vCMap)
 	else:	
 		AxR.set_title("Flux-Tube Entropy")
 		AxR.pcolor(bmX,bmY,S,norm=vS,cmap=sCMap)
