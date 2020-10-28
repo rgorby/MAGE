@@ -135,6 +135,16 @@ module wpicalc
                 prt%Q(P11GC) = p11Mag
                 prt%Q(MUGC ) = Mu 
                 prt%Q(GAMGC) = gamNew
+
+                ! catch to see if momentum becomes nan and when updated
+                if (isnan(pMag) .or. isnan(p11Mag) .or. isnan(gamNew)) then
+                    write(*,*) 'PERFORMWPI:: ERROR:: A NAN OCCURRED IN THE MOMENTUM UPDATE'
+                    write(*,*) 'Resonant wave: xj,yj:  ',xj,yj 
+                    write(*,*) 'Daa,  da,  dp: ', Daa,da,dp
+                    write(*,*) 'new ps and p of tp: ', aNew,pMag
+                    write(*,*) 'new p11 and gamma of tp: ', p11Mag,gamNew
+                    stop
+                endif
             else                
                 !Update momentum for FO particle
                 p11 = pSgn*pMag*sqrt( 1 - sin(aNew)**2.0 )
@@ -199,10 +209,12 @@ module wpicalc
         real(rp), intent(inout) :: xj,yj
         real(rp), dimension(:), allocatable :: xjs, yjs
         real(rp), dimension(:), allocatable :: xcs, ycs
-        real(rp) :: pa,mu,K,beta
+        real(rp) :: pa,mu,K,beta,pa90p,pa90m
 
+        pa90p = 0.5*PI+5.0E-6
+        pa90m = 0.5*PI-5.0E-6
         pa = prt%alpha
-        if (wave%mode .eq. "eRW".and. pa .eq. PI/2.) then
+        if (wave%mode .eq. "eRW".and. pa .ge. pa90m .and. pa .le. pa90p) then
             call res90deg(Model,wave,prt,astar,xjs,yjs)
         else   
             call ResRoots(Model,wave,prt,astar,xjs,yjs)
@@ -254,7 +266,10 @@ module wpicalc
             yj = 999
         else if (size(xpres) > 1) then
             ! Should only be one resonant wave
-            write(*,*) 'Too many resonant roots, w/|Ome|: ', xpres
+            write(*,*) 'Particle gamma and pitch angle: ', prt%Q(GAMGC),pa
+            write(*,*) 'All roots (w/|Ome|): ', xjs
+            write(*,*) 'All roots (kc/|Ome|): ', yjs
+            write(*,*) 'Too many resonant roots (w/|Ome|, kc/|Ome|): ', xpres, ypres
             stop
         else
             xj = xpres(1)
