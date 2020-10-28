@@ -143,7 +143,7 @@ module wpifuns
         type(wave_T), intent(in) :: wave
         type(prt_t), intent(in) :: prt
         real(rp), intent(in) :: astar
-        real(rp), dimension(2), intent(out) :: xjs,yjs
+        real(rp), dimension(:), allocatable, intent(out) :: xjs,yjs
         real(rp) :: a,b,s,y0
 
         b = (1.0+memp)/astar
