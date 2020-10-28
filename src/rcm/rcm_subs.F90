@@ -2545,7 +2545,7 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
   REAL (rprec) :: T1k,T2k !Local loop variables b/c clawpack alters input
   LOGICAL, save :: FirstTime=.true.
   LOGICAL, parameter :: doDFTVSmooth = .false. !Smooth grad_ij FTV
-  LOGICAL, parameter :: doSuperBee = .true. !Use superbee (instead of minmod)
+  LOGICAL, parameter :: doSuperBee = .false. !Use superbee (instead of minmod)
 
 
   if (jwrap /= 3) then
@@ -2790,7 +2790,7 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
     if (kc==1) then
       !refill the plasmasphere  04012020 sbao
       !K: Added kc==1 check 8/11/20
-      call Kaiju_Plasmasphere_Refill(eeta(:,:,1), rmin, aloct, vm, dt)
+      call Kaiju_Plasmasphere_Refill(eeta(:,:,1), rmin, aloct, vm, imin_j,dt)
       call circle(eeta(:,:,kc)) !Probably don't need to re-circle
     endif
     
@@ -3218,30 +3218,43 @@ END SUBROUTINE Move_plasma_grid_NEW
 
 !Adapted by K: from S. Bao's adaptation of Colby Lemon's code, 09/20
 
-SUBROUTINE Kaiju_Plasmasphere_Refill(eeta0,rmin,aloct,vm,idt)
+SUBROUTINE Kaiju_Plasmasphere_Refill(eeta0,rmin,aloct,vm,imin_j,idt)
   use constants, ONLY : density_factor
+  use earthhelper, ONLY : GallagherRP
 
   implicit none
 
   REAL (rprec), intent(inout), dimension(isize,jsize) :: eeta0
   REAL (rprec), intent(in), dimension(isize,jsize) :: rmin, aloct, vm
   REAL (rprec), intent(in)  :: idt
+  INTEGER (iprec), intent(in), dimension(jsize) :: imin_j
 
   integer :: i,j
   REAL (rprec) , parameter :: DenPP0 = 10.0 ![#/cc], cutoff for plasmasphere refilling
   REAL (rprec) , parameter :: day2s = 24.0*60.0*60
   REAL (rprec) :: dppT,dpsph,eta2cc,tau,etaT,deta,dndt
+  REAL (rprec) :: dpp0
+
+  dpp0 = 10*DenPP0 !Use 10x the plasmasphere cutoff density to decide on refilling
 
   do j=1,jsize
     do i=1,isize
       if (vm(i,j) <= 0) cycle
+      if (i < imin_j(j)+1) cycle !Don't refill outside active domain
+
       !Closed field line, calculate Berbue+ 2005 density (#/cc)
-      dppT = 10.0**(-0.66*rmin(i,j) + 4.89) !Target refilled density [#/cc]
+      !dppT = 10.0**(-0.66*rmin(i,j) + 4.89) !Target refilled density [#/cc]
+      !Or use Gallagher on nightside w/ currently set default Kp
+      dppT = GallagherRP(rmin(i,j),PI)
+
       eta2cc = (1.0e-6)*density_factor*vm(i,j)**1.5 !Convert eta to #/cc
       dpsph = eta2cc*eeta0(i,j) !Current plasmasphere density [#/cc]
 
-      !Check for target density under cutoff or actual plasmasphere density already above refilling target
-      if ( (dppT < DenPP0) .or. (dpsph>=dppT) ) cycle
+      !Check for other outs before doing anything
+      if (dppT  <  dpp0) cycle !Target too low
+      if (dpsph <  dpp0) cycle !Current density too low to bother w/
+      if (dpsph >= dppT) cycle !Already above refilling target
+
       etaT = dppT/eta2cc !Target eta for refilling
       deta = etaT-eeta0(i,j)
 

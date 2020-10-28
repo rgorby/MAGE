@@ -3,7 +3,7 @@ module dyncoupling
     
     use volttypes
     use kronos
-
+    use earthhelper, ONLY : SetKp0
     implicit none
     enum, bind(C)
         enumerator :: NULLALERT=0,GREYALERT,YELLOWALERT,REDALERT
@@ -55,6 +55,7 @@ module dyncoupling
                 dynDT = 15.0
 
         end select
+        call SetKp0(KpI)
 
         if (newAlert /= alertStatus) then
             !Alert status has changed

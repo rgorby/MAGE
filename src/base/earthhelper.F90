@@ -32,7 +32,7 @@ module earthhelper
     real(rp), parameter, private :: GLMin = 1.0
     real(rp), parameter, private :: GLMax = 8.0
 
-    integer, parameter, private :: kpDefault = 1
+    integer, private :: kpDefault = 1
 
 
     !Toy code for putting in a quiet time RC
@@ -55,6 +55,18 @@ module earthhelper
     ! v 1.1 1/16 frt
     !----------------------------------------
 
+    !Routine to change kp-default on the fly if necessary
+    subroutine SetKp0(kp)
+        integer, intent(in) :: kp
+
+        !Can only be 1,5
+        if ( (kp>=1) .and. (kp<=5) ) then
+            kpDefault = kp
+        else if (kp>5) then
+            kpDefault = 5
+        endif
+
+    end subroutine SetKp0
     !Return 2D gallagher density afa r,phi (rad)
     function GallagherRP(r,phi,kpO) result(D)
         real(rp), intent(in) :: r,phi

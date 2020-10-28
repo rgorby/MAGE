@@ -30,7 +30,8 @@ MODULE rice_housekeeping_module
   USE rcm_precision, only : iprec,rprec,strLen
   use xml_input
   use strings
-
+  use earthhelper, ONLY : SetKp0
+  
   IMPLICIT NONE
   
   LOGICAL :: L_write_rcmu          = .false., &
@@ -137,6 +138,8 @@ MODULE rice_housekeeping_module
         call xmlInp%Set_Val(dp_on,"plasmasphere/isDynamic",dp_on)
         call xmlInp%Set_Val(InitKp ,"plasmasphere/initKp",InitKp) 
         call xmlInp%Set_Val(staticR ,'plasmasphere/staticR',staticR)
+
+        call SetKp0(InitKp)
 
         !Loss options
         call xmlInp%Set_Val(doOCBLoss,"loss/doOCBLoss",doOCBLoss)
