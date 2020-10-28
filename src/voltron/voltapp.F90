@@ -196,7 +196,7 @@ module voltapp
         
             if (vApp%doDeep .and. (vApp%time>=vApp%DeepT)) then
                 call Tic("DeepCoupling")
-                call DeepUpdate(vApp,gApp,vApp%time)
+                call DeepUpdate(vApp,gApp)
                 call Toc("DeepCoupling")
             endif
         endif
@@ -370,10 +370,9 @@ module voltapp
 
 !----------
 !Deep coupling stuff (time coming from vApp%time, so in seconds)
-    subroutine DeepUpdate(vApp, gApp, time)
+    subroutine DeepUpdate(vApp, gApp)
         type(gamApp_T) , intent(inout) :: gApp
         class(voltApp_T), intent(inout) :: vApp
-        real(rp), intent(in) :: time
 
         if (.not. vApp%doDeep) then
             !Why are you even here?
@@ -438,6 +437,65 @@ module voltapp
         call Tic("IM2G")
         call InnerMag2Gamera(vApp,gApp)
         call Toc("IM2G")
+    end subroutine
+
+    subroutine CheckQuickSquishError(vApp, gApp, x2Err, x4Err)
+        type(gamApp_T) , intent(inout) :: gApp
+        class(voltApp_T), intent(inout) :: vApp
+        real(rp), intent(out) :: x2Err, x4Err
+
+        integer :: i,j,k,baseQkSqStr
+        logical :: baseDoQkSq
+        real(rp), dimension(:,:,:,:), allocatable :: baseXyzSquish
+        real(rp), dimension(2) :: posErr
+
+        associate(ebGr=>vApp%ebTrcApp%ebState%ebGr)
+
+        allocate(baseXyzSquish,  MOLD=vApp%chmp2mhd%xyzSquish)
+        baseQkSqStr = vApp%qkSquishStride
+        baseDoQkSq = vApp%doQkSquish
+
+        ! squish with no quick squish stride
+        vApp%qkSquishStride = 1
+        vApp%doQkSquish = .false.
+        call DeepUpdate(vApp, gApp)
+        baseXyzSquish = vApp%chmp2mhd%xyzSquish
+
+        ! squish with 2x quick squish stride
+        vApp%qkSquishStride = 2
+        vApp%doQkSquish = .true.
+        call DeepUpdate(vApp, gApp)
+        x2Err = 0
+        do i=ebGr%is,vApp%iDeep+1
+            do j=ebGr%js,ebGr%je+1
+                do k=ebGr%ks,ebGr%ke+1
+                    posErr = abs(baseXyzSquish(i,j,k,:) - vApp%chmp2mhd%xyzSquish(i,j,k,:))
+                    if(posErr(2) > PI) posErr(2) = 2*PI - posErr(2)
+                    x2Err = x2Err + NORM2(posErr)
+                enddo
+            enddo
+        enddo
+
+        ! squish with 4x quick squish stride
+        vApp%qkSquishStride = 4
+        call DeepUpdate(vApp, gApp)
+        x4Err = 0
+        do i=ebGr%is,vApp%iDeep+1
+            do j=ebGr%js,ebGr%je+1
+                do k=ebGr%ks,ebGr%ke+1
+                    posErr = abs(baseXyzSquish(i,j,k,:) - vApp%chmp2mhd%xyzSquish(i,j,k,:))
+                    if(posErr(2) > PI) posErr(2) = 2*PI - posErr(2)
+                    x4Err = x4Err + NORM2(posErr)
+                enddo
+            enddo
+        enddo
+
+        vApp%qkSquishStride = baseQkSqStr
+        vApp%doQkSquish = baseDoQkSq
+        deallocate(baseXyzSquish)
+
+        end associate
+
     end subroutine
 
     !Initialize CHIMP data structure

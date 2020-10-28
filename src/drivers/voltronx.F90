@@ -33,7 +33,7 @@ program voltronx
     !Coupling
         call Tic("DeepCoupling")
         if ( (vApp%time >= vApp%DeepT) .and. vApp%doDeep ) then
-            call DeepUpdate(vApp, gApp, vApp%time)
+            call DeepUpdate(vApp, gApp)
         endif
         call Toc("DeepCoupling")
 
