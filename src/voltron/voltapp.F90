@@ -205,6 +205,9 @@ module voltapp
         gApp%Model%dt = CalcDT(gApp%Model,gApp%Grid,gApp%State)
         if (gApp%Model%dt0<TINY) gApp%Model%dt0 = gApp%Model%dt
         
+        !Bring overview info
+        call printConfigStamp()
+
         !Finally do first output stuff
         !console output
         if (vApp%isSeparate) then

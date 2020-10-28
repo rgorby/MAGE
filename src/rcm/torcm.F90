@@ -12,7 +12,7 @@ MODULE torcm_mod
 
   real(rp), private :: density_factor !module private density_factor using planet radius
   real(rp), private :: pressure_factor
-  logical, parameter :: doSmoothEta = .false. !Whether to smooth eeta at boundary
+  logical, parameter :: doSmoothEta = .true. !Whether to smooth eeta at boundary
   integer, private, parameter :: NumG = 4 !How many buffer cells to require
 
   contains
@@ -476,61 +476,83 @@ MODULE torcm_mod
 
 !
 !===================================================================
-      !Attempt to separate hot/cold components of MHD fluid    
-      SUBROUTINE PartFluid(i,j,dmhd,dpp)
+      !Attempt to separate hot/cold components of MHD fluid
+      !TODO: Rewrite this messy code
+      SUBROUTINE PartFluid(i,j,drc,dpp)
       USE conversion_module
       USE RCM_mod_subs, ONLY : ikflavc,vm,alamc,isize,jsize,kcsize,eeta
     
       IMPLICIT NONE
       integer(iprec), intent(in) :: i,j
-      real(rprec), intent(out) :: dmhd,dpp
+      real(rprec), intent(out) :: drc,dpp
 
-      real(rprec) :: dtot,drcm
+      real(rprec) :: dmhd,dpp_rcm,drc_rcm,dtot_rcm
       integer(iprec) :: k
 
+        drc = 0.0
+        dpp = 0.0
       !Trap for boring cases
         if (iopen(i,j) == RCMTOPOPEN) then
-          dmhd = 0.0
-          dpp  = 0.0
           return
         endif
+
+        !Get MHD bulk density
         dmhd = den(i,j)
-        dpp  = 0.0
-
-        if (.not. use_plasmasphere) return !Separation complete
         
-      !If still here either null or closed
-        !Calculate plasmasphere density contribution
-        dpp = density_factor*1.0*eeta(i,j,1)*vm(i,j)**1.5
-
-        if ( (dpp <= TINY) .or. (dmhd <= TINY) ) return !Nothing to do
+        if (.not. use_plasmasphere) then
+          dpp = 0.0
+          drc = dmhd !All goes to RC fluid
+          return
+        endif
         
-        if (dpp < dmhd) then
-          !Smaller than MHD so just subtract out and assume rest is hot fluid
-          dmhd = dmhd - dpp
+        dpp_rcm = density_factor*1.0*eeta(i,j,1)*vm(i,j)**1.5
+        if (dmhd <= TINY) then
+          drc = 0.0
+          dpp = dpp_rcm
           return
         endif
 
+        if (dpp_rcm <= TINY) then
+          drc = dmhd
+          dpp = 0.0
+          return
+        endif
 
-      !Try to part fluid based on inferred ratio from RCM
-        drcm = 0.0
+      !If still here either null or closed and have some work to do
+        !Try two ways:
+        !1: drc = dmhd-dpp
+        !2: Use RCM RC/PP ratio to split dmhd
+
+        !Get RC density from RCM
+        drc_rcm = 0.0
         do k=2,kcsize
           if (alamc(k)>TINY) then
             !NOTE: Assuming protons here, otherwise see tomhd for mass scaling
-            drcm = drcm + density_factor*eeta(i,j,k)*vm(i,j)**1.5
+            drc_rcm = drc_rcm + density_factor*eeta(i,j,k)*vm(i,j)**1.5
           endif
         enddo
 
-        if (drcm > TINY) then
-          !Part MHD fluid based on ratio inferred from RCM
-          dtot = dpp + drcm
-          dmhd = den(i,j)*drcm/dtot
-          dpp  = den(i,j)*dpp /dtot
+        !Prefer ratio splitting
+        if ( (drc_rcm > TINY) .and. (dpp_rcm > TINY) ) then
+          dtot_rcm = drc_rcm + dpp_rcm
+          drc = dmhd*(drc_rcm/dtot_rcm)
+          dpp = dmhd*(dpp_rcm/dtot_rcm)
           return
         endif
-        
-        !We tried our best, just return uncorrected density
-        return
+
+        !Still here, so running out of options
+        if (dpp_rcm <= dmhd) then
+          !Subtract plasmasphere from RCM from MHD density
+          drc = dmhd-dpp_rcm
+          if (drc < TINY) drc = 0.0
+          dpp = dpp_rcm
+          return
+        endif
+
+        !Take the smaller of dmhd and abs(dmhd_dpp_rcm) as drc
+        drc = min(dmhd,abs(dpp_rcm-dmhd))
+        if (drc < TINY) drc = 0.0
+        dpp = dpp_rcm
 
       END SUBROUTINE PartFluid
 !
@@ -762,19 +784,19 @@ MODULE torcm_mod
       REAL(rprec), PARAMETER :: a4 = 1.0  
       REAL(rprec), PARAMETER :: a5 = 1.0
       integer(iprec) :: klow,di
-      integer(iprec), parameter :: NumI = 0
+      integer(iprec), parameter :: NumI = 1
 
       logical :: isOpen(5)
 ! now do the smoothing
 
-    !Smooth all channels, including plasmasphere      
-      ! if (use_plasmasphere) then
-      !   klow = 2
-      ! else
-      !   klow = 1
-      ! endif
 
-      klow = 1 
+      !Smooth RC channels          
+      if (use_plasmasphere) then
+        klow = 2
+      else
+        klow = 1
+      endif
+
       !Loop over di levels at boundary and do j-smoothing
       do di=0,NumI
         do j=1,jdim

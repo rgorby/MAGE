@@ -23,8 +23,9 @@ module rcmimag
 
     real(rp), private :: rTrc0 = 2.0 !Padding factor for RCM domain to ebsquish radius
     logical , private, parameter :: doKillRCMDir = .true. !Whether to always kill RCMdir before starting
-    integer, parameter, private :: MHDPad = 2 !Number of padding cells between RCM domain and MHD ingestion
+    integer, parameter, private :: MHDPad = 0 !Number of padding cells between RCM domain and MHD ingestion
     logical , private :: doWolfLim  = .false. !Whether to do wolf-limiting
+    logical , private :: doIsoWolf  = .true. !Preserve RCM temp. when doing wolf-limiting
     logical , private :: doBounceDT = .true. !Whether to use Alfven bounce in dt-ingest
     logical , private :: doWIMTScl = .false. !Whether to modulate ingestion timescale by wIM
     real(rp), private :: nBounce = 1.0 !Scaling factor for Alfven transit
@@ -415,9 +416,13 @@ module rcmimag
                 !plim = wgt*pwlf + (1-wgt)*prcm !Blend based on Tb
 
                 !Set density
+                if (doIsoWolf) then
+                    nlim = (plim/prcm)*nrcm !Constant temp. limiting
+                else
+                    nlim = nrcm !Testing P-only wolf limiting
+                endif
                 !nlim = nrcm - 0.6*pScl*nmhd*(prcm-pmhd)/(1.0+pScl)/pmhd
-                nlim = (plim/prcm)*nrcm !Constant temp. limiting
-                !nlim = nrcm !Testing P-only wolf limiting
+                
             else
                 !Use raw RCM values if they're good
                 plim = prcm
@@ -578,7 +583,11 @@ module rcmimag
 
         if (doWolfLim) then
             write (*, '(a, f8.3,a,f8.3,a)')      '  Max RC-P = ' , maxPRCM, ' (RCM) / ', limP, ' (LIM) [nPa]'
-            maxT = DP2kT(maxD,limP)
+            if (doIsoWolf) then
+                maxT = DP2kT(maxD*limP/maxPRCM,limP)
+            else
+                maxT = DP2kT(maxD,limP)
+            endif
         else
             write (*, '(a,1f8.3,a)')             '  Max RC-P = ' , maxPRCM, ' [nPa]'
             maxT = DP2kT(maxD,maxPRCM)
@@ -587,9 +596,7 @@ module rcmimag
         write (*, '(a, f8.3,a,f8.3,a)')      '      w/ D = ' , maxD, ' (RC) / ', maxDP, ' (PSPH) [#/cc]'
         write (*, '(a,1f8.3,a)')             '      w/ T = ' , maxT, ' [keV]'
 
-
         write(*,'(a)',advance="no") ANSIRESET!, ''
-
 
         end associate
 

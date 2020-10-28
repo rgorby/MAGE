@@ -1,6 +1,7 @@
 module strings
-    use kdefs, ONLY: strLen
-
+    use kdefs
+    use, intrinsic :: iso_fortran_env
+    use dates, ONLY : DateTimeStr
     implicit none
 
     contains
@@ -50,5 +51,36 @@ module strings
         enddo
     end function toUpper
     
+    !Print out basic configuration info
+    subroutine printConfigStamp()
+        character(len=strLen) :: dtStr,gStr
 
+        call DateTimeStr(dtStr)
+        call GitHash(gStr)
+        write(*,*) ANSIGREEN
+        write(*,*) '---------------'
+        write(*,*) 'Kaiju configuration'
+        write(*,'(2a)') 'Git hash = ', trim(gStr)
+        write(*,'(2a)') 'Run starting on: ', trim(dtStr)
+        write(*,'(2a)') 'Compiler = ', compiler_version()
+        !write(*,'(2a)') 'Compiler flags = ', compiler_options()
+        write(*,*) '---------------'
+        write(*,'(a)',advance="no") ANSIRESET!, ''
+
+    end subroutine printConfigStamp
+    
+    !Create string with git hash if possible
+    subroutine GitHash(gStr)
+
+        character(len=*), intent(inout) :: gStr
+        character(len=strLen) :: cOpts
+        integer :: n,nOff,nH
+
+        nOff = 16
+        nH = 7
+        cOpts = compiler_options()
+        n = index(cOpts,"-DGITCOMMITHASH=")
+        gStr = cOpts(n+nOff:n+nOff+nH)        
+
+    end subroutine GitHash
 end module strings
