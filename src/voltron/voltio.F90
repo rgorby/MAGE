@@ -169,24 +169,57 @@ module voltio
         call resOutput(gApp%Model,gApp%Grid,gApp%State)
 
         !Write Voltron restart data
-        call resOutputVOnly(vApp)
+        call resOutputVOnly(vApp,gApp)
 
     end subroutine resOutputV
 
     subroutine resOutputVOnly(vApp)
         class(voltApp_T), intent(inout) :: vApp
+        class(gamApp_T) , intent(inout) :: gApp
 
         call writeMIXRestart(vApp%remixApp%ion,vApp%IO%nRes,mjd=vApp%MJD,time=vApp%time)
         !Write inner mag restart
         if (vApp%doDeep) then
             call vApp%imagApp%doRestart(vApp%IO%nRes,vApp%MJD,vApp%time)
         endif
+
+        call writeVoltRestart(vApp,gApp)
+
         if (vApp%time>vApp%IO%tRes) then
             vApp%IO%tRes = vApp%IO%tRes + vApp%IO%dtRes
         endif
         vApp%IO%nRes = vApp%IO%nRes + 1
 
     end subroutine resOutputVOnly
+
+    subroutine writeVoltRestart(vApp,gApp)
+        class(voltApp_T), intent(in) :: vApp
+        class(gamApp_T) , intent(in) :: gApp
+
+        character(len=strLen) :: ResF
+        type(IOVAR_T), dimension(MAXVOLTIOVAR) :: IOVars
+
+        write (ResF, '(A,A,I0.5,A)') trim(gApp%Model%RunID), ".volt.Res.", vApp%IO%nRes, ".h5"
+        call CheckAndKill(ResF)
+
+        call StampIO(ResF)
+
+        call ClearIO(IOVars)
+
+        !Main attributes
+        call AddOutVar(IOVars,"nOut",vApp%IO%nOut)
+        call AddOutVar(IOVars,"nRes",vApp%IO%nRes)
+        call AddOutVar(IOVars,"ts"  ,vApp%ts)
+        call AddOutVar(IOVars,"MJD" ,vApp%MJD)
+        call AddOutVar(IOVars,"time",vApp%time)
+
+        !Coupling info
+        call AddOutVar(IOVars,"ShallowT",vApp%ShallowT)
+        call AddOutVar(IOVars,"DeepT"   ,vApp%DeepT)
+
+        call WriteVars(IOVars,.false.,ResF)
+
+    end subroutine writeVoltRestart
 
     subroutine fOutputV(vApp,gApp)
         class(gamApp_T) , intent(inout) :: gApp
