@@ -11,7 +11,6 @@ MODULE tomhd_mod
 
   real(rp), private :: density_factor = 0.0 !module private density_factor using planet radius
   real(rp), private :: pressure_factor = 0.0
-  integer , private :: klow = 1
 
   logical, parameter, private :: doClamp=.true. !Whether to clamp poorly resolved pressure
   !real(rprec), parameter :: kRatMax = 0.9 !Ratio of kT_{Avg} =P_{RCM}/n_{RCM} over kT_{RCM,Max}
@@ -54,13 +53,6 @@ MODULE tomhd_mod
       pressure_factor = 2./3.*ev/RM%planet_radius*nt
       density_factor = nt/RM%planet_radius
 
-      !Set lowest RC channel
-      if (use_plasmasphere) then
-        klow = 2
-      else
-        klow = 1
-      endif
-
       !Do some checks on the RCM eta distribution
       if (doClamp) call ClampEta(eeta,eeta_avg,vm)
 
@@ -91,9 +83,16 @@ MODULE tomhd_mod
       REAL(rprec), intent(in)  :: vm(isize,jsize)
 
       REAL(rprec), dimension(isize,jsize) :: Drc,Dpp,Prc
-      integer :: i,j
+      integer :: i,j,klow
       REAL(rprec) :: kevRCM,kevMHD,wMax
       REAL(rprec), dimension(kcsize) :: etaMax
+
+      !Set lowest RC channel
+      if (use_plasmasphere) then
+        klow = 2
+      else
+        klow = 1
+      endif
 
       !Get moments from eta
       call eeta2DP(eta,vm,Drc,Dpp,Prc)
@@ -139,11 +138,18 @@ MODULE tomhd_mod
 
       REAL(rprec) :: Tk,ti,te,A0,prcmI,prcmE,pmhdI,pmhdE
       REAL(rprec) :: xp,xm,pcon,psclI,psclE
-      INTEGER(iprec) :: k
+      INTEGER(iprec) :: k,klow
       logical :: isIon
 
       eta = 0.0
       if ( (vm<0) .or. (Drc<TINY) ) return
+
+      !Set lowest RC channel
+      if (use_plasmasphere) then
+        klow = 2
+      else
+        klow = 1
+      endif
 
       !Get ion/electron temperature
       ti = fac*Prc/Drc/boltz
@@ -209,7 +215,7 @@ MODULE tomhd_mod
       REAL(rprec), intent(out), dimension(isize,jsize) :: Drc,Dpp,Prc
 
       
-      integer :: i,j,k
+      integer :: i,j,k,klow
       real(rprec) :: sclmass(RCMNUMFLAV) !xmass prescaled to proton
 
       !Set lowest RC channel

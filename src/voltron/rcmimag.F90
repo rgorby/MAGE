@@ -417,7 +417,8 @@ module rcmimag
 
                 !Set density
                 if (doIsoWolf) then
-                    nlim = (plim/prcm)*nrcm !Constant temp. limiting
+                    !Constant temp. limiting, take smaller density
+                    nlim = min( (plim/prcm)*nrcm, nrcm )
                 else
                     nlim = nrcm !Testing P-only wolf limiting
                 endif
@@ -584,7 +585,8 @@ module rcmimag
         if (doWolfLim) then
             write (*, '(a, f8.3,a,f8.3,a)')      '  Max RC-P = ' , maxPRCM, ' (RCM) / ', limP, ' (LIM) [nPa]'
             if (doIsoWolf) then
-                maxT = DP2kT(maxD*limP/maxPRCM,limP)
+                maxD = min( maxD*limP,maxPRCM, maxD )
+                maxT = DP2kT(maxD,limP)
             else
                 maxT = DP2kT(maxD,limP)
             endif
