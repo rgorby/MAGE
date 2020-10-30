@@ -2523,7 +2523,7 @@ END FUNCTION FLCRat
 !=========================================================================
 !
 SUBROUTINE Move_plasma_grid_MHD (dt)
-  use rice_housekeeping_module, ONLY : LowLatMHD,doOCBLoss,doNewCX,doFLCLoss,dp_on
+  use rice_housekeeping_module, ONLY : LowLatMHD,doOCBLoss,doNewCX,doFLCLoss,dp_on,doPPRefill
   use math, ONLY : SmoothOpTSC,SmoothOperator33
 
   IMPLICIT NONE
@@ -2627,7 +2627,7 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
   !$OMP PRIVATE(mass_factor,r_dist,CLAWiter,T1k,T2k) &
   !$OMP PRIVATE(lossCX,lossFLC,lossFDG,lossOCB,sumEtaBEF,sumEtaAFT) &
   !$OMP SHARED(isOpen,iOCB_j,alamc,eeta,v,vcorot,vpar,vm,imin_j,j1,j2,joff) &
-  !$OMP SHARED(dvvdi,dvvdj,dvmdi,dvmdj,doOCBLoss,doFLCLoss,doNewCX,dp_on) &
+  !$OMP SHARED(dvvdi,dvvdj,dvmdi,dvmdj,doOCBLoss,doFLCLoss,doNewCX,dp_on,doPPRefill) &
   !$OMP SHARED(xmin,ymin,rmin,fac,fudgec,bir,sini,L_dktime,dktime,sunspot_number) &
   !$OMP SHARED(aloct,xlower,xupper,ylower,yupper,dt,T1,T2,iMHD,bmin,radcurv,losscone) 
   DO kc = 1, kcsize
@@ -2787,7 +2787,7 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
     endif !doOCBNuke
 
 
-    if ( (kc==1) .and. dp_on ) then
+    if ( (kc==1) .and. dp_on .and. doPPRefill) then
       !refill the plasmasphere  04012020 sbao
       !K: Added kc==1 check 8/11/20
       call Kaiju_Plasmasphere_Refill(eeta(:,:,1), rmin, aloct, vm, imin_j,dt)
@@ -3221,6 +3221,7 @@ END SUBROUTINE Move_plasma_grid_NEW
 SUBROUTINE Kaiju_Plasmasphere_Refill(eeta0,rmin,aloct,vm,imin_j,idt)
   use constants, ONLY : density_factor
   use earthhelper, ONLY : GallagherRP
+  use rcmdefs, ONLY : DenPP0
 
   implicit none
 
@@ -3230,7 +3231,6 @@ SUBROUTINE Kaiju_Plasmasphere_Refill(eeta0,rmin,aloct,vm,imin_j,idt)
   INTEGER (iprec), intent(in), dimension(jsize) :: imin_j
 
   integer :: i,j
-  REAL (rprec) , parameter :: DenPP0 = 10.0 ![#/cc], cutoff for plasmasphere refilling
   REAL (rprec) , parameter :: day2s = 24.0*60.0*60
   REAL (rprec) :: dppT,dpsph,eta2cc,tau,etaT,deta,dndt
   REAL (rprec) :: dpp0

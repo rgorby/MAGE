@@ -7,11 +7,10 @@ MODULE torcm_mod
   USE rcmdefs, ONLY : RCMTOPCLOSED,RCMTOPNULL,RCMTOPOPEN,DenPP0
   USE kdefs, ONLY : TINY,qp
   use math, ONLY : RampDown
+  use etautils
 
   implicit none
 
-  real(rp), private :: density_factor !module private density_factor using planet radius
-  real(rp), private :: pressure_factor
   logical, parameter :: doSmoothEta = .true. !Whether to smooth eeta at boundary
   integer, private, parameter :: NumG = 4 !How many buffer cells to require
 
@@ -77,9 +76,8 @@ MODULE torcm_mod
 
       ierr = 0
 
-      !Set density factor for rest of module
-      density_factor = nt/RM%planet_radius
-      pressure_factor = 2./3.*ev/RM%planet_radius*nt
+      !Set density/pressure factors
+      call SetFactors(RM%planet_radius)
 
       !Start by reading alam channels if they're not yet set
       !Rewriting this bit to not read_alam every call, K: 8/20
@@ -230,14 +228,14 @@ MODULE torcm_mod
             !This is closed field region but outside RCM domain
             !Use MHD information for RC channels
             eeta(i,j,klow:) = eeta_new(i,j,klow:)
-
-            !Check for outside domain and below plasmasphere cutoff
-            dpp = density_factor*1.0*eeta(i,j,1)*vm(i,j)**1.5
-            if ( use_plasmasphere .and. (dpp < DenPP0*1.0e+6) ) then
-              eeta(i,j,1) = 0.0
-            endif
             
           endif !iopen
+
+          if (use_plasmasphere .and. iopen(i,j) /= RCMTOPOPEN) then
+          	!Check for below plasmasphere cutoff
+          	dpp = GetDensityFactor()*1.0*eeta(i,j,1)*vm(i,j)**1.5
+          	if (dpp < DenPP0*1.0e+6) eeta(i,j,1) = 0.0
+          endif !plasmasphere
 
         enddo !i
       enddo !j
@@ -505,7 +503,7 @@ MODULE torcm_mod
           return
         endif
         
-        dpp_rcm = density_factor*1.0*eeta(i,j,1)*vm(i,j)**1.5
+        dpp_rcm = GetDensityFactor()*1.0*eeta(i,j,1)*vm(i,j)**1.5
         if (dmhd <= TINY) then
           drc = 0.0
           dpp = dpp_rcm
@@ -528,7 +526,7 @@ MODULE torcm_mod
         do k=2,kcsize
           if (alamc(k)>TINY) then
             !NOTE: Assuming protons here, otherwise see tomhd for mass scaling
-            drc_rcm = drc_rcm + density_factor*eeta(i,j,k)*vm(i,j)**1.5
+            drc_rcm = drc_rcm + GetDensityFactor()*eeta(i,j,k)*vm(i,j)**1.5
           endif
         enddo
 
@@ -563,94 +561,32 @@ MODULE torcm_mod
       USE rcm_precision
       IMPLICIT NONE
       
-      real(rprec) :: dmhd,dpp,pcon,t,prcmI,prcmE,pmhdI,pmhdE,psclI,psclE
-      integer(iprec) :: i,j,k,kmin
-      real(rprec) :: xp,xm,A0
-      logical :: isIon
+      real(rprec) :: drc,dpp,prc
+      integer(iprec) :: i,j
+
 
       !$OMP PARALLEL DO default(shared) &
       !$OMP schedule(dynamic) &
-      !$OMP private(i,j,k,kmin,dmhd,dpp,pcon,prcmI,prcmE,t,pmhdI,pmhdE,psclI,psclE) &
-      !$OMP private(xp,xm,A0,isIon)
+      !$OMP private(i,j,drc,dpp,prc)
       do j=1,jsize
         do i=1,isize
           !Get corrected density from MHD
-          call PartFluid(i,j,dmhd,dpp)
-          if ( (iopen(i,j) /= RCMTOPOPEN) .and. (dmhd>TINY) .and. (ti(i,j)>TINY) ) then
+          call PartFluid(i,j,drc,dpp)
+
+          if ( (iopen(i,j) /= RCMTOPOPEN) .and. (drc>TINY) .and. (ti(i,j)>TINY) ) then
             !Good stuff, let's go
-            if (use_plasmasphere) then
-              eeta_new(i,j,1) = 0.0
-              kmin = 2
-            else
-              kmin = 1
-            endif
-
-            A0 = (dmhd/density_factor)/(vm(i,j)**1.5)
-            prcmI = 0.0 !Cumulative ion pressure
-            prcmE = 0.0 !Cumulative electron pressure
-
-            !Loop over non-zero channels
-            do k=kmin,kcsize
-              !Get right temperature
-              IF (ikflavc(k) == RCMELECTRON) THEN  ! electrons
-                t = te (i,j)
-                isIon = .false.
-              ELSE IF (ikflavc(k) == RCMPROTON) THEN ! ions (protons)
-                t = ti (i,j)
-                isIon = .true.
-              ENDIF
-
-              xp = SQRT(ev*ABS(almmax(k))*vm(i,j)/boltz/t)
-              xm = SQRT(ev*ABS(almmin(k))*vm(i,j)/boltz/t)
-              !Use quad prec calc of erf/exp differences
-              eeta_new(i,j,k) = erfexpdiff(A0,xp,xm)
-
-              !Pressure contribution from this channel
-              pcon = pressure_factor*ABS(alamc(k))*eeta_new(i,j,k)*vm(i,j)**2.5
-
-              if (isIon) then
-                prcmI = prcmI + pcon
-              else
-                prcmE = prcmE + pcon
-              endif
-
-            enddo !k loop
-
-            !Now rescale eeta channels to conserve pressure integral between MHD/RCM
-            !In particular, we separately conserve ion/electron contribution to total pressure
-            pmhdI = press(i,j)*tiote/(1.0+tiote) !Desired ion pressure
-            pmhdE = press(i,j)*  1.0/(1.0+tiote) !Desired elec pressure
-
-            if (prcmI>0.0) then
-              psclI = pmhdI/prcmI
-            else
-              psclI = 0.0
-            endif
-            if (prcmE>0.0) then
-              psclE = pmhdE/prcmE
-            else
-              psclE = 0.0
-            endif
-            
-            do k=kmin,kcsize
-              IF (ikflavc(k) == RCMELECTRON) THEN  ! electrons
-                eeta_new(i,j,k) = psclE*eeta_new(i,j,k)
-              ELSE IF (ikflavc(k) == RCMPROTON) THEN ! ions (protons)
-                eeta_new(i,j,k) = psclI*eeta_new(i,j,k)
-              ENDIF
-            enddo
-
+            prc = press(i,j)
+            call DP2eta(drc,prc,vm(i,j),eeta_new(i,j,:))
         !Not good MHD
           else
             eeta_new(i,j,:) = 0.0
           endif
 
         enddo
-      enddo
+      enddo !J loop
 
       END SUBROUTINE Press2eta
       
-
 
 !===================================================================
     SUBROUTINE Set_ellipse(idim,jdim,rmin,pmin,vm,big_vm,bndloc,iopen)
@@ -913,7 +849,7 @@ MODULE torcm_mod
           do i=imin_j(j),idim
             if(vm(i,j) > 0.0)then
               dens_gal = GallagherXY(xmin(i,j),ymin(i,j),InitKp)*1.0e6
-              eeta(i,j,1) = dens_gal/(density_factor*vm(i,j)**1.5)
+              eeta(i,j,1) = dens_gal/(GetDensityFactor()*vm(i,j)**1.5)
             end if
           end do
         end do
@@ -929,7 +865,7 @@ MODULE torcm_mod
               if(rmin(i,j) <= staticR .and. vm(i,j) > 0.0)then
                 !eeta (i,j,1) = eeta_pls0 (i,j)
                 dens_gal = GallagherXY(xmin(i,j),ymin(i,j),InitKp)*1.0e6
-                eeta(i,j,1) = dens_gal/(density_factor*vm(i,j)**1.5)
+                eeta(i,j,1) = dens_gal/(GetDensityFactor()*vm(i,j)**1.5)
               end if
             end do
           end do

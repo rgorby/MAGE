@@ -6,14 +6,9 @@ MODULE tomhd_mod
   USE constants, ONLY : mass_proton,mass_electron,nt,ev,tiote,boltz
   USE Rcm_mod_subs, ONLY : isize, jsize, kcsize,jwrap,alamc,ikflavc
   USE earthhelper, ONLY : GallagherXY,DP2kT
-
+  USE etautils
+  
   implicit none
-
-  real(rp), private :: density_factor = 0.0 !module private density_factor using planet radius
-  real(rp), private :: pressure_factor = 0.0
-
-  logical, parameter, private :: doClamp=.true. !Whether to clamp poorly resolved pressure
-  !real(rprec), parameter :: kRatMax = 0.9 !Ratio of kT_{Avg} =P_{RCM}/n_{RCM} over kT_{RCM,Max}
 
   contains
 
@@ -50,17 +45,16 @@ MODULE tomhd_mod
       INTEGER(iprec), INTENT (OUT) :: ierr
 
       !Always set p/d_factors
-      pressure_factor = 2./3.*ev/RM%planet_radius*nt
-      density_factor = nt/RM%planet_radius
+      call SetFactors(RM%planet_radius)
 
       !Do some checks on the RCM eta distribution
-      if (doClamp) call ClampEta(eeta,eeta_avg,vm)
+      if (doRelax) call RelaxEta(eeta,eeta_avg,vm)
 
       !Now pick which eta (instant vs. avg) and calculate moments
       if (doAvg2MHD) then
-        call eeta2DP(eeta_avg,vm,densrcm,denspsph,pressrcm)
+        call rcm2moments(eeta_avg,vm,densrcm,denspsph,pressrcm)
       else
-        call eeta2DP(eeta    ,vm,densrcm,denspsph,pressrcm)
+        call rcm2moments(eeta    ,vm,densrcm,denspsph,pressrcm)
       endif
 
       RM%MaxAlam = maxval(alamc)
@@ -78,7 +72,7 @@ MODULE tomhd_mod
 
 
     !Do some safety stuff to eta w/ temperature is high
-    SUBROUTINE ClampEta(eta,eta_avg,vm)
+    SUBROUTINE RelaxEta(eta,eta_avg,vm)
       REAL(rprec), intent(inout), dimension(isize,jsize,kcsize)  :: eta,eta_avg
       REAL(rprec), intent(in)  :: vm(isize,jsize)
 
@@ -95,7 +89,7 @@ MODULE tomhd_mod
       endif
 
       !Get moments from eta
-      call eeta2DP(eta,vm,Drc,Dpp,Prc)
+      call rcm2moments(eta,vm,Drc,Dpp,Prc)
 
       !Now loop over i,j and check "MHD" vs. top RCM energy
       !$OMP PARALLEL DO default(shared) &
@@ -110,160 +104,100 @@ MODULE tomhd_mod
           wMax = min(wMax,1.0) !Ensure <= 1
 
           !Blend w/ Maxwellian
-          call DP2eeta(Drc(i,j),Prc(i,j),vm(i,j),etaMax)
+          call DP2eta(Drc(i,j),Prc(i,j),vm(i,j),etaMax)
 
           eta(i,j,klow:) = (1.0-wMax)*eta(i,j,klow:) + wMax*etaMax(klow:)
 
-          ! if (kevMHD >= kRatMax*kevRCM) then
-          !   !Effective "MHD" temperature, P=nkT_{MHD} is above kRatMax the max RCM channel energy
-          !   !This is probably bad for resolving the distribution so we do some shady cooling here
-
-          !   !Rescale eeta's to clamp P_{RCM}
-          !   eta    (i,j,klow:) = (kRatMax*kevRCM/kevMHD)*eta    (i,j,klow:)
-          !   eta_avg(i,j,klow:) = (kRatMax*kevRCM/kevMHD)*eta_avg(i,j,klow:)
-          ! endif
 
         ENDDO
       ENDDO
 
-    END SUBROUTINE ClampEta
+    END SUBROUTINE RelaxEta
 
-    !Convert given single density/pressure to eeta
-    SUBROUTINE DP2eeta(Drc,Prc,vm,eta)
-      USE conversion_module, ONLY : almmax,almmin,erfexpdiff
-      REAL(rprec), intent(in)  :: Drc,Prc,vm
-      REAL(rprec), intent(out) :: eta(kcsize)
-
-      REAL(rprec), PARAMETER :: fac = tiote/(1.+tiote)
-
-      REAL(rprec) :: Tk,ti,te,A0,prcmI,prcmE,pmhdI,pmhdE
-      REAL(rprec) :: xp,xm,pcon,psclI,psclE
-      INTEGER(iprec) :: k,klow
-      logical :: isIon
-
-      eta = 0.0
-      if ( (vm<0) .or. (Drc<TINY) ) return
-
-      !Set lowest RC channel
-      if (use_plasmasphere) then
-        klow = 2
-      else
-        klow = 1
-      endif
-
-      !Get ion/electron temperature
-      ti = fac*Prc/Drc/boltz
-      te = ti/tiote
-
-      A0 = (Drc/density_factor)/(vm**1.5)
-      prcmI = 0.0 !Cumulative ion pressure
-      prcmE = 0.0 !Cumulative electron pressure
-
-      !Loop over non-zero channels
-      do k=klow,kcsize
-        !Get right temperature
-        IF (ikflavc(k) == RCMELECTRON) THEN  ! electrons
-          Tk = te
-          isIon = .false.
-        ELSE IF (ikflavc(k) == RCMPROTON) THEN ! ions (protons)
-          Tk = ti
-          isIon = .true.
-        ENDIF
-
-        xp = SQRT(ev*ABS(almmax(k))*vm/boltz/Tk)
-        xm = SQRT(ev*ABS(almmin(k))*vm/boltz/Tk)
-        !Use quad prec calc of erf/exp differences
-        eta(k) = erfexpdiff(A0,xp,xm)
-        
-
-        !Pressure contribution from this channel
-        pcon = pressure_factor*ABS(alamc(k))*eta(k)*vm**2.5
-
-        if (isIon) then
-          prcmI = prcmI + pcon
-        else
-          prcmE = prcmE + pcon
-        endif
-
-      enddo !k loop
-
-      !Now rescale eeta channels to conserve pressure integral between MHD/RCM
-      !In particular, we separately conserve ion/electron contribution to total pressure
-      pmhdI = Prc*tiote/(1.0+tiote) !Desired ion pressure
-      pmhdE = Prc*  1.0/(1.0+tiote) !Desired elec pressure
-
-      psclI = pmhdI/prcmI
-      psclE = pmhdE/prcmE
-
-      !Loop over channels and rescale      
-      do k=klow,kcsize
-        IF (ikflavc(k) == RCMELECTRON) THEN  ! electrons
-          eta(k) = psclE*eta(k)
-        ELSE IF (ikflavc(k) == RCMPROTON) THEN ! ions (protons)
-          eta(k) = psclI*eta(k)
-        ENDIF
-      enddo
-
-    END SUBROUTINE DP2eeta
 
     !Convert given eeta to density (RC/plasmasphere) and pressure
-    SUBROUTINE eeta2DP(eta,vm,Drc,Dpp,Prc)
+    SUBROUTINE rcm2moments(eta,vm,Drc,Dpp,Prc)
       USE Rcm_mod_subs, ONLY : xmin,ymin,zmin
       IMPLICIT NONE
       REAL(rprec), intent(in)  :: eta(isize,jsize,kcsize)
       REAL(rprec), intent(in)  :: vm(isize,jsize)
       REAL(rprec), intent(out), dimension(isize,jsize) :: Drc,Dpp,Prc
 
-      
-      integer :: i,j,k,klow
-      real(rprec) :: sclmass(RCMNUMFLAV) !xmass prescaled to proton
-
-      !Set lowest RC channel
-      if (use_plasmasphere) then
-        klow = 2
-      else
-        klow = 1
-      endif
-
-      !Set scaled mass by hand here to avoid precision issues
-      sclmass(RCMELECTRON) = mass_electron/mass_proton
-      sclmass(RCMPROTON) = 1.0
+      INTEGER (iprec) :: i,j
+      Drc = 0.0
+      Dpp = 0.0
+      Prc = 0.0
 
       !$OMP PARALLEL DO default(shared) &
       !$OMP schedule(dynamic) &
-      !$OMP private(i,j,k)
+      !$OMP private(i,j)
       DO j = 1, jsize
         DO i = 1, isize
-          Prc(i,j) = 0.0
-          Drc(i,j) = 0.0
-          Dpp(i,j) = 0.0
 
-          IF (vm(i,j) < 0.0) CYCLE
-          DO k = klow, kcsize
-            !Pressure calc in pascals
-            Prc(i,j) = Prc(i,j) + pressure_factor*ABS(alamc(k))*eta(i,j,k)*vm(i,j)**2.5
+          call eta2DP(eta(i,j,:),vm(i,j),Drc(i,j),Dpp(i,j),Prc(i,j))
+        ENDDO
+      ENDDO !J loop
 
-            !Density calc (ring current)
-            if (alamc(k) > 0.0) then ! only add the ion contribution
-              Drc(i,j) = Drc(i,j) + density_factor*sclmass(ikflavc(k))*eta(i,j,k)*vm(i,j)**1.5
-            endif
-          ENDDO !k loop
+    END SUBROUTINE rcm2moments
 
-          if (use_plasmasphere) then
-            if (dp_on) then 
-              ! use plasmasphere channel eeta_avg(:,:,1) sbao 03/2020
-              Dpp(i,j) = density_factor*sclmass(RCMPROTON)*eta(i,j,1)*vm(i,j)**1.5
-            else
-              ! add a simple plasmasphere model based on carpenter 1992 or gallagher 2002 in ples/cc
-              Dpp(i,j) = (1.0e6)*GallagherXY(xmin(i,j),ymin(i,j))
+    ! !Convert given eeta to density (RC/plasmasphere) and pressure
+    ! SUBROUTINE eeta2DP(eta,vm,Drc,Dpp,Prc)
+    !   USE Rcm_mod_subs, ONLY : xmin,ymin,zmin
+    !   IMPLICIT NONE
+    !   REAL(rprec), intent(in)  :: eta(isize,jsize,kcsize)
+    !   REAL(rprec), intent(in)  :: vm(isize,jsize)
+    !   REAL(rprec), intent(out), dimension(isize,jsize) :: Drc,Dpp,Prc
+
+      
+    !   integer :: i,j,k,klow
+    !   real(rprec) :: sclmass(RCMNUMFLAV) !xmass prescaled to proton
+
+    !   !Set lowest RC channel
+    !   if (use_plasmasphere) then
+    !     klow = 2
+    !   else
+    !     klow = 1
+    !   endif
+
+    !   !Set scaled mass by hand here to avoid precision issues
+    !   sclmass(RCMELECTRON) = mass_electron/mass_proton
+    !   sclmass(RCMPROTON) = 1.0
+
+    !   !$OMP PARALLEL DO default(shared) &
+    !   !$OMP schedule(dynamic) &
+    !   !$OMP private(i,j,k)
+    !   DO j = 1, jsize
+    !     DO i = 1, isize
+    !       Prc(i,j) = 0.0
+    !       Drc(i,j) = 0.0
+    !       Dpp(i,j) = 0.0
+
+    !       IF (vm(i,j) < 0.0) CYCLE
+    !       DO k = klow, kcsize
+    !         !Pressure calc in pascals
+    !         Prc(i,j) = Prc(i,j) + pressure_factor*ABS(alamc(k))*eta(i,j,k)*vm(i,j)**2.5
+
+    !         !Density calc (ring current)
+    !         if (alamc(k) > 0.0) then ! only add the ion contribution
+    !           Drc(i,j) = Drc(i,j) + density_factor*sclmass(ikflavc(k))*eta(i,j,k)*vm(i,j)**1.5
+    !         endif
+    !       ENDDO !k loop
+
+    !       if (use_plasmasphere) then
+    !         if (dp_on) then 
+    !           ! use plasmasphere channel eeta_avg(:,:,1) sbao 03/2020
+    !           Dpp(i,j) = density_factor*sclmass(RCMPROTON)*eta(i,j,1)*vm(i,j)**1.5
+    !         else
+    !           ! add a simple plasmasphere model based on carpenter 1992 or gallagher 2002 in ples/cc
+    !           Dpp(i,j) = (1.0e6)*GallagherXY(xmin(i,j),ymin(i,j))
               
               
-            endif !dp_on
-          endif !use_plasmasphere
-        ENDDO !i
-      ENDDO !j
+    !         endif !dp_on
+    !       endif !use_plasmasphere
+    !     ENDDO !i
+    !   ENDDO !j
 
-    END SUBROUTINE eeta2DP
+    ! END SUBROUTINE eeta2DP
 
 !       SUBROUTINE tomhd (RM, ierr)
 !       USE earthhelper, ONLY : GallagherXY,DP2kT

@@ -31,6 +31,7 @@ MODULE rice_housekeeping_module
   use xml_input
   use strings
   use earthhelper, ONLY : SetKp0
+  use rcmdefs, ONLY : DenPP0
   
   IMPLICIT NONE
   
@@ -54,6 +55,8 @@ MODULE rice_housekeeping_module
   LOGICAL :: dp_on = .true.
   LOGICAL, PARAMETER :: use_plasmasphere = .true.
   LOGICAL :: doAvg2MHD = .true.
+  LOGICAL :: doPPRefill = .false. !Whether to refill plasmasphere
+  LOGICAL :: doRelax = .true. !Whether to relax energy distribution
 
   INTEGER(iprec) :: InitKp = 1
   REAL(rprec) :: staticR = 0.0
@@ -138,6 +141,8 @@ MODULE rice_housekeeping_module
         call xmlInp%Set_Val(dp_on,"plasmasphere/isDynamic",dp_on)
         call xmlInp%Set_Val(InitKp ,"plasmasphere/initKp",InitKp) 
         call xmlInp%Set_Val(staticR ,'plasmasphere/staticR',staticR)
+        call xmlInp%Set_Val(doPPRefill ,'plasmasphere/doRefill',doPPRefill)
+        call xmlInp%Set_Val(DenPP0  ,'plasmasphere/DenPP0',DenPP0)
 
         call SetKp0(InitKp)
 
@@ -145,6 +150,7 @@ MODULE rice_housekeeping_module
         call xmlInp%Set_Val(doOCBLoss,"loss/doOCBLoss",doOCBLoss)
         call xmlInp%Set_Val(doFLCLoss,"loss/doFLCLoss",doFLCLoss)
         call xmlInp%Set_Val(doNewCX  ,"loss/doNewCX"  ,doNewCX  )
+        call xmlInp%Set_Val(doRelax  ,"loss/doRelax"  ,doRelax  )
 
         !Tomhd parameters
         call xmlInp%Set_Val(doAvg2MHD,"tomhd/doAvg2MHD",doAvg2MHD)
