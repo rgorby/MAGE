@@ -356,6 +356,36 @@ module rcmimag
 
     end subroutine SetIngestion
 
+    !Enforce Wolf-limiting on an MHD/RCM thermodynamic state
+
+    subroutine WolfLimit(nrcm,prcm,nmhd,pmhd,beta,nlim,plim)
+        real(rp), intent(in)  :: nrcm,prcm,nmhd,pmhd,beta
+        real(rp), intent(out) :: nlim,plim
+
+        real(rp) :: pScl
+
+        nlim = 0.0
+        plim = 0.0
+        if (.not. doWolfLim) then
+            nlim = nrcm
+            plim = prcm
+            return
+        endif
+        if ( (nrcm>TINY) .and. (prcm>TINY) ) then
+            !Apply wolf limiting
+            pScl = beta*5.0/6.0
+            plim = (pScl*pmhd + prcm)/(1.0+pScl) !Wolf-limited pressure
+            if (doIsoWolf) then
+                nlim = min( (plim/prcm)*nrcm, nrcm )
+            else
+                nlim = nrcm - 0.6*pScl*nmhd*(prcm-pmhd)/(1.0+pScl)/pmhd
+                nlim = max(nlim,TINY)
+            endif
+            
+            !nlim = nrcm
+        endif
+    end subroutine WolfLimit
+
     !Evaluate eq map at a given point
     !Returns density (#/cc) and pressure (nPa)
     subroutine EvalRCM(imag,x1,x2,t,imW,isEdible)
@@ -365,7 +395,7 @@ module rcmimag
         logical, intent(out) :: isEdible
 
         real(rp) :: colat,nrcm,prcm,npp,pScl,beta,pmhd,nmhd,wIM
-        real(rp) :: plim,nlim,wgt,pwlf,Tb
+        real(rp) :: plim,nlim,Tb
         integer, dimension(2) :: ij0
 
         associate(RCMApp => imag%rcmCpl, lat => x1, lon => x2)
@@ -401,29 +431,14 @@ module rcmimag
         wIM  =         RCMApp%wImag(ij0(1),ij0(2))
         Tb   =         RCMApp%Tb   (ij0(1),ij0(2))
 
+        nlim = 0.0
+        plim = 0.0
+
         !Limit on RCM values
         if ( (nrcm>TINY) .and. (prcm>TINY) ) then
             !Good values from RCM, do something
             if (doWolfLim) then
-            !Do limiting on pressure/density
-                pScl = beta*5.0/6.0
-                !Set pressure
-                pwlf = (pScl*pmhd + prcm)/(1.0+pScl) !Wolf-limited pressure
-                wgt = min(RCMApp%dtCpl/Tb,1.0)
-
-                plim = pwlf !Use Wolf pressure directly
-                !plim = (wIM)*prcm + (1-wIM)*plim !Blend based on wIM
-                !plim = wgt*pwlf + (1-wgt)*prcm !Blend based on Tb
-
-                !Set density
-                if (doIsoWolf) then
-                    !Constant temp. limiting, take smaller density
-                    nlim = min( (plim/prcm)*nrcm, nrcm )
-                else
-                    nlim = nrcm !Testing P-only wolf limiting
-                endif
-                !nlim = nrcm - 0.6*pScl*nmhd*(prcm-pmhd)/(1.0+pScl)/pmhd
-                
+                call WolfLimit(nrcm,prcm,nmhd,pmhd,beta,nlim,plim)                
             else
                 !Use raw RCM values if they're good
                 plim = prcm
@@ -542,8 +557,8 @@ module rcmimag
 
         integer :: i0,j0,maxIJ(2)
 
-        real(rp) :: maxPRCM,maxD,maxDP,maxPMHD,maxL,maxMLT,maxBeta
-        real(rp) :: pScl,limP,wTrust,wTMin,maxT,maxWT,maxLam
+        real(rp) :: maxPRCM,maxD,maxDP,maxPMHD,maxDMHD,maxL,maxMLT,maxBeta
+        real(rp) :: limP,limD,wTrust,wTMin,maxT,maxWT,maxLam
 
         associate(RCMApp => imag%rcmCpl)
     !Start by getting some data
@@ -554,11 +569,11 @@ module rcmimag
         maxPRCM  = RCMApp%Prcm (i0,j0)*rcmPScl
         maxPMHD  = RCMApp%Pave (i0,j0)*rcmPScl
         maxBeta  = RCMApp%beta_average(i0,j0)
+        maxD     = RCMApp%Nrcm (i0,j0)*rcmNScl
+        maxDMHD  = RCMApp%Nave (i0,j0)*rcmNScl
 
-        pScl = maxBeta*5.0/6.0
-        limP = (pScl*maxPMHD+maxPRCM)/(1+pScl)
+        call WolfLimit(maxD,maxPRCM,maxDMHD,maxPMHD,maxBeta,limD,limP)
 
-        maxD  = RCMApp%Nrcm (i0,j0)*rcmNScl
         maxDP = RCMApp%Npsph(i0,j0)*rcmNScl
         maxL = norm2(RCMApp%X_bmin(i0,j0,XDIR:YDIR))/Rp_m
         maxMLT = atan2(RCMApp%X_bmin(i0,j0,YDIR),RCMApp%X_bmin(i0,j0,XDIR))*180.0/PI
@@ -584,12 +599,7 @@ module rcmimag
 
         if (doWolfLim) then
             write (*, '(a, f8.3,a,f8.3,a)')      '  Max RC-P = ' , maxPRCM, ' (RCM) / ', limP, ' (LIM) [nPa]'
-            if (doIsoWolf) then
-                maxD = min( maxD*limP,maxPRCM, maxD )
-                maxT = DP2kT(maxD,limP)
-            else
-                maxT = DP2kT(maxD,limP)
-            endif
+            maxT = DP2kT(limD,limP)
         else
             write (*, '(a,1f8.3,a)')             '  Max RC-P = ' , maxPRCM, ' [nPa]'
             maxT = DP2kT(maxD,maxPRCM)
