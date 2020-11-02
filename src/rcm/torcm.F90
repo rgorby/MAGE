@@ -484,8 +484,9 @@ MODULE torcm_mod
       integer(iprec), intent(in) :: i,j
       real(rprec), intent(out) :: drc,dpp
 
-      real(rprec) :: dmhd,dpp_rcm,drc_rcm,dtot_rcm
-      integer(iprec) :: k
+      real(rprec) :: dmhd,dpp_rcm,drc_rcm,dtot_rcm,prc_rcm
+      real(rprec) :: drc1,drc2
+      logical :: doM1
 
         drc = 0.0
         dpp = 0.0
@@ -502,14 +503,15 @@ MODULE torcm_mod
           drc = dmhd !All goes to RC fluid
           return
         endif
-        
-        dpp_rcm = GetDensityFactor()*1.0*eeta(i,j,1)*vm(i,j)**1.5
+
         if (dmhd <= TINY) then
           drc = 0.0
           dpp = dpp_rcm
           return
         endif
-
+        
+      !Get RCM info
+        call eta2DP(eeta(i,j,:),vm(i,j),drc_rcm,dpp_rcm,prc_rcm)
         if (dpp_rcm <= TINY) then
           drc = dmhd
           dpp = 0.0
@@ -520,38 +522,64 @@ MODULE torcm_mod
         !Try two ways:
         !1: drc = dmhd-dpp
         !2: Use RCM RC/PP ratio to split dmhd
+        drc1 = 0.0
+        drc2 = 0.0
 
-        !Get RC density from RCM
-        drc_rcm = 0.0
-        do k=2,kcsize
-          if (alamc(k)>TINY) then
-            !NOTE: Assuming protons here, otherwise see tomhd for mass scaling
-            drc_rcm = drc_rcm + GetDensityFactor()*eeta(i,j,k)*vm(i,j)**1.5
-          endif
-        enddo
-
-        !Prefer ratio splitting
-        if ( (drc_rcm > TINY) .and. (dpp_rcm > TINY) ) then
-          dtot_rcm = drc_rcm + dpp_rcm
-          drc = dmhd*(drc_rcm/dtot_rcm)
-          dpp = dmhd*(dpp_rcm/dtot_rcm)
-          return
-        endif
-
-        !Still here, so running out of options
+        !Method 1
         if (dpp_rcm <= dmhd) then
           !Subtract plasmasphere from RCM from MHD density
-          drc = dmhd-dpp_rcm
-          if (drc < TINY) drc = 0.0
-          dpp = dpp_rcm
+          drc1 = dmhd-dpp_rcm
+        else
+          drc1 = min(dmhd,abs(dpp_rcm-dmhd))
+        endif
+        if (drc1 < TINY) drc1 = 0.0
+
+        !Method 2
+        if ( (drc_rcm > TINY) .and. (dpp_rcm > TINY) ) then
+          dtot_rcm = drc_rcm + dpp_rcm
+          drc2 = dmhd*(drc_rcm/dtot_rcm)
+        else
+          drc2 = 0.0
+        endif
+
+      !Pick which split to use
+        if ( (drc1 <= TINY) .and. (drc2 <= TINY) ) then
+          !Both methods failed, just return unsplit density
+          drc = dmhd
+          dpp = 0.0
           return
         endif
 
-        !Take the smaller of dmhd and abs(dmhd_dpp_rcm) as drc
-        drc = min(dmhd,abs(dpp_rcm-dmhd))
-        if (drc < TINY) drc = 0.0
-        dpp = dpp_rcm
+        !If still here at least one good method
+        doM1 = .false.
+        
+        if ( (drc1 > TINY) .and. (drc2 > TINY) ) then
+          !Both methods successful, choose min
+          if (drc1 < drc2) then
+            doM1 = .true.
+          else
+            !Second method
+            doM1 = .false.
+          endif
+        else if (drc1 > TINY) then
+          !Only method 1 worked
+          doM1 = .true.
+        else
+          !Only method 2 worked
+          doM1 = .false.
+        endif
 
+        if (doM1) then
+          !Method 1
+          drc = drc1
+          dpp = dpp_rcm
+        else
+          !Second method
+          drc = drc2
+          dpp = dmhd*(dpp_rcm/dtot_rcm)
+        endif
+
+        !write(*,*) 'M: dmhd / drc / dpp = ', doM1,1.0e-6*dmhd,1.0e-6*drc,1.0e-6*dpp
       END SUBROUTINE PartFluid
 !
 !===================================================================      

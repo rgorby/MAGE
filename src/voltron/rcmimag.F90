@@ -357,33 +357,65 @@ module rcmimag
     end subroutine SetIngestion
 
     !Enforce Wolf-limiting on an MHD/RCM thermodynamic state
-
-    subroutine WolfLimit(nrcm,prcm,nmhd,pmhd,beta,nlim,plim)
-        real(rp), intent(in)  :: nrcm,prcm,nmhd,pmhd,beta
+    subroutine WolfLimit(nrc,prc,npp,nmhd,pmhd,beta,nlim,plim)
+        real(rp), intent(in)  :: nrc,prc,npp,nmhd,pmhd,beta
         real(rp), intent(out) :: nlim,plim
 
-        real(rp) :: pScl
+        real(rp) :: nrcm,prcm
+        real(rp) :: alpha
 
         nlim = 0.0
         plim = 0.0
+
+        !Test RC contribution
+        if ( (nrc>TINY) .and. (prc>TINY) ) then
+            nrcm = nrc !Ring current contribution
+            prcm = prc !Only pressure contribution from RC
+        else
+            nrcm = 0.0
+            prcm = 0.0
+        endif
+
+        !Test plasmasphere density
+        if (npp >= DenPP0) then
+            !Plasmasphere good, add it to total rcm density
+            nrcm = nrcm + npp
+        endif
+
+        !Now have total density/pressure from RC+PP
         if (.not. doWolfLim) then
             nlim = nrcm
             plim = prcm
             return
         endif
+
+        !Get scaling term
+        alpha = 1.0 + beta*5.0/6.0
         if ( (nrcm>TINY) .and. (prcm>TINY) ) then
-            !Apply wolf limiting
-            pScl = beta*5.0/6.0
-            plim = (pScl*pmhd + prcm)/(1.0+pScl) !Wolf-limited pressure
-            if (doIsoWolf) then
-                nlim = min( (plim/prcm)*nrcm, nrcm )
-            else
-                nlim = nrcm - 0.6*pScl*nmhd*(prcm-pmhd)/(1.0+pScl)/pmhd
-                nlim = max(nlim,TINY)
+
+            !Apply wolf-limiting
+            plim = ( pmhd*(alpha-1) + prcm )/alpha
+            nlim = nrcm - (0.5*beta/alpha)*(nmhd/pmhd)*(prcm-pmhd)
+            if (nlim <= TINY) then
+                !Something went bad, nuke both
+                nlim = 0.0
+                plim = 0.0
             endif
-            
-            !nlim = nrcm
+            return
         endif
+
+        !If still here at least one of density/pressure is degenerate
+        !Test for den only, i.e. plasmasphere
+        if (nrcm>TINY) then
+            !Take raw density
+            nlim = nrcm
+            plim = 0.0
+            return
+        endif
+        !Return null values
+        nlim = 0.0
+        plim = 0.0
+
     end subroutine WolfLimit
 
     !Evaluate eq map at a given point
@@ -434,28 +466,11 @@ module rcmimag
         nlim = 0.0
         plim = 0.0
 
-        !Limit on RCM values
-        if ( (nrcm>TINY) .and. (prcm>TINY) ) then
-            !Good values from RCM, do something
-            if (doWolfLim) then
-                call WolfLimit(nrcm,prcm,nmhd,pmhd,beta,nlim,plim)                
-            else
-                !Use raw RCM values if they're good
-                plim = prcm
-                nlim = nrcm
-            endif !doWolfLim
-
-        else !Either n or p is tiny
-            !Ignore them
-            plim = 0.0
-            nlim = 0.0
-        endif !Marginal n/p-rcm
-
-
-        !Test plasmasphere
-        if (npp >= DenPP0) then
-            !Plasmasphere good, add it to limited rcm density
-            nlim = nlim+npp
+        if (doWolfLim) then
+            call WolfLimit(nrcm,prcm,npp,nmhd,pmhd,beta,nlim,plim)
+        else
+            !Just lazyily use same function w/ beta=0
+            call WolfLimit(nrcm,prcm,npp,nmhd,pmhd,0.0_rp,nlim,plim)
         endif
 
         !Store values
@@ -571,10 +586,8 @@ module rcmimag
         maxBeta  = RCMApp%beta_average(i0,j0)
         maxD     = RCMApp%Nrcm (i0,j0)*rcmNScl
         maxDMHD  = RCMApp%Nave (i0,j0)*rcmNScl
-
-        call WolfLimit(maxD,maxPRCM,maxDMHD,maxPMHD,maxBeta,limD,limP)
-
         maxDP = RCMApp%Npsph(i0,j0)*rcmNScl
+
         maxL = norm2(RCMApp%X_bmin(i0,j0,XDIR:YDIR))/Rp_m
         maxMLT = atan2(RCMApp%X_bmin(i0,j0,YDIR),RCMApp%X_bmin(i0,j0,XDIR))*180.0/PI
         if (maxMLT<0) maxMLT = maxMLT+360.0
@@ -588,24 +601,30 @@ module rcmimag
         !Get min confidence in MHD domain
         wTMin = 100.0*minval(RCMApp%wIMAG,mask=RCMApp%toMHD)
 
-
     !Do some output
         if (maxPRCM<TINY) return
 
         write(*,*) ANSIYELLOW
         write(*,*) 'RCM'
-        
         !write (*, '(a, f8.2,a,f6.2,a,f6.2,a)')      '  Trust    = ' , wTrust, '% (P-AVG) / ', wTMin, '% (MIN) / ', maxWT, '% (@ MAX)'
-
         if (doWolfLim) then
+            call WolfLimit(maxD,maxPRCM,maxDP,maxDMHD,maxPMHD,maxBeta,limD,limP)
             write (*, '(a, f8.3,a,f8.3,a)')      '  Max RC-P = ' , maxPRCM, ' (RCM) / ', limP, ' (LIM) [nPa]'
-            maxT = DP2kT(limD,limP)
+            !Get temperature from RCM raw (unlimited)
+            maxT = DP2kT(maxD,maxPRCM)
+            !maxT = DP2kT(limD,limP)
         else
             write (*, '(a,1f8.3,a)')             '  Max RC-P = ' , maxPRCM, ' [nPa]'
             maxT = DP2kT(maxD,maxPRCM)
         endif
+
         write (*, '(a,2f8.3,a)')             '   @ L/MLT = ' , maxL, maxMLT, ' [deg]'
-        write (*, '(a, f8.3,a,f8.3,a)')      '      w/ D = ' , maxD, ' (RC) / ', maxDP, ' (PSPH) [#/cc]'
+        if (doWolfLim) then
+            !Add limited density
+            write (*, '(a, f8.3,a,f8.3,a,f8.3,a)')      '      w/ D = ' , maxD, ' (RC) / ', maxDP, ' (PSPH) / ', limD, ' (LIM) [#/cc]' 
+        else
+            write (*, '(a, f8.3,a,f8.3,a)')      '      w/ D = ' , maxD, ' (RC) / ', maxDP, ' (PSPH) [#/cc]'
+        endif
         write (*, '(a,1f8.3,a)')             '      w/ T = ' , maxT, ' [keV]'
 
         write (*, '(a,1f8.3,a)')             '  Max RC-D = ' , maxval(RCMApp%Nrcm,mask=RCMApp%toMHD)*rcmNScl,' [#/cc]'
