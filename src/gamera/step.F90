@@ -94,6 +94,11 @@ module step
             enddo
         enddo
 
+        if(dtMin == HUGE) then
+            write(*,*) "<No timestep was smaller than HUGE, exiting ...>"
+            isDisaster = .true.
+        endif
+
         CalcDT = dtMin
         isDisaster = .false.
         if (Model%ts > 0) then
