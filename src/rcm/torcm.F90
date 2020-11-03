@@ -378,37 +378,6 @@ MODULE torcm_mod
 
       ierr = 0
 
-      RETURN
-
-      contains
-        !Copy A (RCM/MHD-sized) into B (RCM-sized) and wrap (fill periodic)
-        subroutine EmbiggenWrap(rmA,rcmA)
-          REAL(rprec), intent(in)    :: rmA (isize,jsize-jwrap+1)
-          REAL(rprec), intent(inout) :: rcmA(isize,jsize)
-
-          INTEGER(iprec) :: j
-
-          rcmA(:,jwrap:jsize) = rmA(:,:)
-          do j=1,jwrap-1
-            rcmA(:,j) = rcmA(:,jsize-jwrap+j)
-          enddo
-
-        end subroutine EmbiggenWrap
-
-        !Same as above, but for int
-        subroutine EmbiggenWrapI(rmA,rcmA)
-          INTEGER(iprec), intent(in)    :: rmA (isize,jsize-jwrap+1)
-          INTEGER(iprec), intent(inout) :: rcmA(isize,jsize)
-
-          INTEGER(iprec) :: j
-
-          rcmA(:,jwrap:jsize) = rmA(:,:)
-          do j=1,jwrap-1
-            rcmA(:,j) = rcmA(:,jsize-jwrap+j)
-          enddo
-
-        end subroutine EmbiggenWrapI
-
       END SUBROUTINE Calc_ftv
 
 !--------------------------------------------------

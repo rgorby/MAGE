@@ -48,7 +48,7 @@ MODULE tomhd_mod
       call SetFactors(RM%planet_radius)
 
       !Do some checks on the RCM eta distribution
-      if (doRelax) call RelaxEta(eeta,eeta_avg,vm)
+      if (doRelax) call RelaxEta(eeta,eeta_avg,vm,RM)
 
       !Now pick which eta (instant vs. avg) and calculate moments
       if (doAvg2MHD) then
@@ -70,17 +70,19 @@ MODULE tomhd_mod
       ierr = 0
     END SUBROUTINE tomhd
 
-
     !Do some safety stuff to eta w/ temperature is high
-    SUBROUTINE RelaxEta(eta,eta_avg,vm)
+    SUBROUTINE RelaxEta(eta,eta_avg,vm,RCMApp)
       REAL(rprec), intent(inout), dimension(isize,jsize,kcsize)  :: eta,eta_avg
       REAL(rprec), intent(in)  :: vm(isize,jsize)
+      type(rcm_mhd_T),intent(in) :: RCMApp
 
-      REAL(rprec), dimension(isize,jsize) :: Drc,Dpp,Prc
+      REAL(rprec), dimension(isize,jsize) :: Drc,Dpp,Prc,Lb,Tb
       integer :: i,j,klow
-      REAL(rprec) :: kevRCM,kevMHD,wMax
       REAL(rprec), dimension(kcsize) :: etaMax
+      REAL(rprec) :: Tau,wCS,wGR,wgt
 
+      REAL(rprec) :: dij,pij,dppij      
+      
       !Set lowest RC channel
       if (use_plasmasphere) then
         klow = 2
@@ -91,26 +93,86 @@ MODULE tomhd_mod
       !Get moments from eta
       call rcm2moments(eta,vm,Drc,Dpp,Prc)
 
-      !Now loop over i,j and check "MHD" vs. top RCM energy
+      !Map Lb from RCM-MHD grid to RCM grid, Lb = Tube length [m]
+      call EmbiggenWrap(RCMApp%Lb,Lb)
+      !Convert to km
+      Lb = RCMApp%planet_radius*Lb*1.0e-3
+
+      call EmbiggenWrap(RCMApp%Tb,Tb)
+
+    !Now loop over i,j and relax in energy space by blending w/ Maxwellian
+      !Get weights for Maxwellian part of blend
+      !eta_{R} = w * eta_{Maxwellian} + (1-w) * eta
+      !Thermal bounce: w = dtCpl/tau, tau = sound wave bounce period
+      !Grid bounce: w = kT_{RCM}/kT_{Top}, ratio of effective temperature to largest grid energy
+
       !$OMP PARALLEL DO default(shared) &
       !$OMP schedule(dynamic) &
-      !$OMP private(i,j,kevRCM,kevMHD,wMax,etaMax)
+      !$OMP private(i,j,Tau,wCS,wGR,wgt,etaMax) &
+      !$OMP private(dij,pij,dppij)
       DO j = 1, jsize
         DO i = 1, isize
-          IF (vm(i,j) < 0.0) CYCLE
-          kevRCM = abs(alamc(kcsize))*vm(i,j)*1.0e-3 !Max keV of RCM channels here
-          kevMHD = DP2kT(Drc(i,j)*rcmNScl,Prc(i,j)*rcmPScl) !Get keV from RCM moments
-          wMax = kevMHD/kevRCM !Want this to be small for well-resolved pressure
-          wMax = min(wMax,1.0) !Ensure <= 1
+          IF (vm (i,j) < 0.0) CYCLE
+          IF (Drc(i,j) < TINY) CYCLE
 
-          !Blend w/ Maxwellian
-          call DP2eta(Drc(i,j),Prc(i,j),vm(i,j),etaMax)
+          !Get Maxwellian to blend with
+          call DP2eta(Drc(i,j),Prc(i,j),vm(i,j),etaMax,doRescaleO=.false.)
 
-          eta(i,j,klow:) = (1.0-wMax)*eta(i,j,klow:) + wMax*etaMax(klow:)
+          Tau = CsBounce(Drc(i,j),Prc(i,j),Lb(i,j)) ! [s]
+          wCS = RCMApp%dtCpl/Tau
+          call ClampWeight(wCS)
+          wGR = GridWeight(Drc(i,j),Prc(i,j),vm(i,j),alamc(kcsize))
+          wgt = wCS
 
+          !Now blend w/ maxwellian
+          eta(i,j,klow:) = (1.0-wgt)*eta(i,j,klow:) + wgt*etaMax(klow:)
 
+        !Diagnostics
+          !Calc updated value
+          !call eta2DP(eta(i,j,:),vm(i,j),dij,dppij,pij)
+          
+          !write(*,*) 'Before/After ratio (D/P) = ', Drc(i,j)/dij,Prc(i,j)/pij          
+          !write(*,*) 'wCS / wGR = ', wCS,wGR
+          ! if (wCS/wGR>10.0) then
+          !   write(*,*) '   D,P,Tau-Tau = ', Drc(i,j)*rcmNScl,Prc(i,j)*rcmPScl,Tau,Tb(i,j)
+          ! endif
+          
         ENDDO
-      ENDDO
+      ENDDO !j loop
+
+      contains
+        !Return sound wave bounce period [s], take n/P in RCM units and L [km]
+        function CsBounce(n,P,L) result(TauCS)
+          REAL(rprec), intent(in) :: n,P,L
+          REAL(rprec) :: TauCS
+          REAL(rprec) :: TiEV,CsMKS
+
+          integer, parameter :: nBounce = 8 !Number of bounces to equilibrate
+
+          TiEV = (1.0e+3)*DP2kT(n*rcmNScl,P*rcmPScl) !Temp in eV
+          !CsMKS = 9.79 x sqrt(5/3 * Ti) km/s, Ti eV
+          CsMKS = 9.79*sqrt((5.0/3)*TiEV)
+          TauCS = 2*nBounce*L/CsMKS
+        end function CsBounce
+
+        function GridWeight(n,P,vm,alamax) result(wgt)
+          REAL(rprec), intent(in) :: n,P,vm,alamax
+          REAL(rprec) :: wgt
+          REAL(rprec) :: kevMHD,kevRCM
+
+          kevMHD = DP2kT(n*rcmNScl,P*rcmPScl) !Get keV from RCM moments
+          kevRCM = abs(alamax)*vm*1.0e-3 !keV of max RCM energy channel
+
+          wgt = kevMHD/kevRCM
+          call ClampWeight(wgt)
+        end function GridWeight
+
+        !Clamps weight in [0,1]
+        subroutine ClampWeight(wgt)
+          REAL(rprec), intent(inout) :: wgt
+          if (wgt<0.0) wgt = 0.0
+          if (wgt>1.0) wgt = 1.0
+        end subroutine ClampWeight
 
     END SUBROUTINE RelaxEta
 
@@ -139,244 +201,5 @@ MODULE tomhd_mod
       ENDDO !J loop
 
     END SUBROUTINE rcm2moments
-
-    ! !Convert given eeta to density (RC/plasmasphere) and pressure
-    ! SUBROUTINE eeta2DP(eta,vm,Drc,Dpp,Prc)
-    !   USE Rcm_mod_subs, ONLY : xmin,ymin,zmin
-    !   IMPLICIT NONE
-    !   REAL(rprec), intent(in)  :: eta(isize,jsize,kcsize)
-    !   REAL(rprec), intent(in)  :: vm(isize,jsize)
-    !   REAL(rprec), intent(out), dimension(isize,jsize) :: Drc,Dpp,Prc
-
-      
-    !   integer :: i,j,k,klow
-    !   real(rprec) :: sclmass(RCMNUMFLAV) !xmass prescaled to proton
-
-    !   !Set lowest RC channel
-    !   if (use_plasmasphere) then
-    !     klow = 2
-    !   else
-    !     klow = 1
-    !   endif
-
-    !   !Set scaled mass by hand here to avoid precision issues
-    !   sclmass(RCMELECTRON) = mass_electron/mass_proton
-    !   sclmass(RCMPROTON) = 1.0
-
-    !   !$OMP PARALLEL DO default(shared) &
-    !   !$OMP schedule(dynamic) &
-    !   !$OMP private(i,j,k)
-    !   DO j = 1, jsize
-    !     DO i = 1, isize
-    !       Prc(i,j) = 0.0
-    !       Drc(i,j) = 0.0
-    !       Dpp(i,j) = 0.0
-
-    !       IF (vm(i,j) < 0.0) CYCLE
-    !       DO k = klow, kcsize
-    !         !Pressure calc in pascals
-    !         Prc(i,j) = Prc(i,j) + pressure_factor*ABS(alamc(k))*eta(i,j,k)*vm(i,j)**2.5
-
-    !         !Density calc (ring current)
-    !         if (alamc(k) > 0.0) then ! only add the ion contribution
-    !           Drc(i,j) = Drc(i,j) + density_factor*sclmass(ikflavc(k))*eta(i,j,k)*vm(i,j)**1.5
-    !         endif
-    !       ENDDO !k loop
-
-    !       if (use_plasmasphere) then
-    !         if (dp_on) then 
-    !           ! use plasmasphere channel eeta_avg(:,:,1) sbao 03/2020
-    !           Dpp(i,j) = density_factor*sclmass(RCMPROTON)*eta(i,j,1)*vm(i,j)**1.5
-    !         else
-    !           ! add a simple plasmasphere model based on carpenter 1992 or gallagher 2002 in ples/cc
-    !           Dpp(i,j) = (1.0e6)*GallagherXY(xmin(i,j),ymin(i,j))
-              
-              
-    !         endif !dp_on
-    !       endif !use_plasmasphere
-    !     ENDDO !i
-    !   ENDDO !j
-
-    ! END SUBROUTINE eeta2DP
-
-!       SUBROUTINE tomhd (RM, ierr)
-!       USE earthhelper, ONLY : GallagherXY,DP2kT
-      
-!       USE Rcm_mod_subs, ONLY : isize, jsize, kcsize,jwrap, nptmax, &
-!                               colat, aloct, v, birk, &
-!                               bmin, xmin, ymin, zmin, vm, pmin, rmin, &
-!                               birk_avg, v_avg, eeta, eeta_avg, &
-!                               alamc, ikflavc, &
-!                               boundary, bndloc, pressrcm, &
-!                               xmass, densrcm,denspsph,imin_j,rcmdir, &
-!                               eflux,eavg,ie_el
-      
-      
-      
-      
-! ! 
-! !==============================================================
-! ! purpose:
-! !  To convert RCM information (eta), to MHD information (p,n) 
-! !  It also writes to files (optional):
-! !    'rcmu.dat' = unformatted time-averaged rcm data for analysis
-! !
-! ! inputs:
-! !
-! !   4/18/95             rws
-! !   9/18/95       frt
-! !   9/1/98 this version takes into account the the rcm record
-! !           can differ to the record
-! !     7/09 -restructured to use modules and allow to transfer
-! !           the LFM grid - frt      
-! !     2/19 -modified version to connect to gamera - frt
-! !     5/20 -removed use of record numbers in rcm bookkeeping
-! !          - also adds output from plasmasphere model by Shanshan Bao
-! !     5/20/20 - removed idim,jdim -frt
-! !
-! !
-! !==============================================================
-! !
-!       IMPLICIT NONE
-!       type(rcm_mhd_T),intent(inout) :: RM
-!       INTEGER(iprec), INTENT (OUT) :: ierr
-
-!       INTEGER(iprec) :: i, j, L, k, itime,n,klow
-!       real(rprec) :: max_xmin,min_xmin,max_ymin,min_ymin
-!       real(rprec) :: dens_plasmasphere
-!       real(rprec) :: sclmass(RCMNUMFLAV) !xmass prescaled to proton
-!       real(rprec) :: kevRCM,kevMHD
-!       real(rprec), parameter :: kRatMax = 0.9
-!       !AMS 04-22-2020
-!       real(rprec) :: pressure_factor,density_factor
-
-!       !Array to hold eeta to ingest into MHD, should do this as pointer but requires adding "target" various places
-!       real(rprec), dimension(isize,jsize,kcsize) :: eeta2mhd
-
-!       !Pick which eeta to use, avg or final after advance
-!       if (doAvg2MHD) then
-!         eeta2mhd = max(eeta_avg,0.0)
-!       else
-!         eeta2mhd = max(eeta    ,0.0)
-!       endif
-
-!       pressure_factor = 2./3.*ev/RM%planet_radius*nt
-!       density_factor = nt/RM%planet_radius
-
-!       RM%MaxAlam = maxval(alamc)
-      
-!       ierr = 0
-
-!       !Set lowest RC channel
-!       if (use_plasmasphere) then
-!         klow = 2
-!       else
-!         klow = 1
-!       endif
-
-!       !Set scaled mass by hand here to avoid precision issues
-!       sclmass(RCMELECTRON) = mass_electron/mass_proton
-!       sclmass(RCMPROTON) = 1.0
-
-! !     Compute rcm pressure and density (on the ionospheric RCM grid):
-!       !Tweaking scaling for better precision and testing eeta instead of avg (K: 8/20)
-!       !$OMP PARALLEL DO default(shared) &
-!       !$OMP schedule(dynamic) &
-!       !$OMP private(i,j,k,dens_plasmasphere,kevRCM,kevMHD)
-!       DO j = 1, jsize
-!         DO i = 1, isize
-!           pressrcm (i,j) = 0.0
-!           densrcm  (i,j) = 0.0
-!           denspsph (i,j) = 0.0
-
-!           IF (vm(i,j) < 0.0) CYCLE
-!           DO k = klow, kcsize
-!             !Pressure calc in pascals
-!             pressrcm(i,j) = pressrcm(i,j) + pressure_factor*ABS(alamc(k))*eeta2mhd(i,j,k)*vm(i,j)**2.5
-
-!             !Density calc
-!             if (alamc(k) > 0.0) then ! only add the ion contribution
-!               densrcm(i,j) = densrcm(i,j) + density_factor*sclmass(ikflavc(k))*eeta2mhd(i,j,k)*vm(i,j)**1.5
-!             endif
-!           ENDDO !k
-
-!           if (use_plasmasphere) then
-!             if (dp_on) then 
-!               ! use plasmasphere channel eeta_avg(:,:,1) sbao 03/2020
-!               denspsph(i,j) = density_factor*sclmass(RCMPROTON)*eeta2mhd(i,j,1)*vm(i,j)**1.5
-!             else
-!               ! add a simple plasmasphere model based on carpenter 1992 or gallagher 2002 in ples/cc
-!               dens_plasmasphere = GallagherXY(xmin(i,j),ymin(i,j))
-!               denspsph(i,j) = dens_plasmasphere*1.0e6
-!             endif !dp_on
-!           endif !use_plasmasphere
-
-!           !Do some checking on how well resolved energy channel stuff is
-!           kevRCM = abs(alamc(kcsize))*vm(i,j)*1.0e-3 !Max keV of RCM channels here
-!           kevMHD = DP2kT(densrcm(i,j)*rcmNScl,pressrcm(i,j)*rcmPScl) !Get keV from RCM moments
-          
-!           if (kevMHD >= kRatMax*kevRCM) then
-!             !Effective "MHD" temperature, P=nkT_{MHD} is above kRatMax the max RCM channel energy
-!             !This is probably bad for resolving the distribution so we do some shady cooling here
-
-!             !Rescale eeta's to clamp P_{RCM} (doing directly to eeta, not copyed eeta2mhd)
-!             eeta(i,j,klow:) = (kRatMax*kevRCM/kevMHD)*eeta(i,j,klow:)
-!             pressrcm(i,j)   = (kRatMax*kevRCM/kevMHD)*pressrcm(i,j)
-!             !write(*,*) 'kevRCM, kevMHD = ', kevRCM,kevMHD,densrcm(i,j)*rcmNScl,pressrcm(i,j)*rcmPScl
-!           endif
-
-!         ENDDO !i
-!       ENDDO !j
-
-!       if (any(isnan(densrcm)) .or. any(isnan(pressrcm))) then
-!         write(*,*) 'NaN in RCM-DEN/P at tomhd'
-!         stop
-!       endif
- 
-!       max_xmin = maxval(xmin)
-!       max_ymin = maxval(ymin)
-!       min_xmin = minval(xmin)
-!       min_ymin = minval(ymin)
- 
-! !     now update the pressure and density in the mhd code  
-!       RM%Prcm    = pressrcm(:,jwrap:jsize)
-!       RM%Nrcm    = densrcm (:,jwrap:jsize)
-!       RM%Npsph   = denspsph(:,jwrap:jsize)
-!       RM%flux    = eflux   (:,jwrap:jsize,:)
-!       RM%eng_avg = eavg    (:,jwrap:jsize,:)
-!       RM%fac     = birk    (:,jwrap:jsize)
-
-
-
-!       ! At this point, we assume that RCM arrays are all populated
-!       ! (plasma, b-field, bndloc, etc.):
-
-!       IF (L_write_rcmu) then
-
-!         rmin = SQRT (xmin**2+ymin**2+zmin**2)
-!         WHERE (xmin == 0.0 .AND. ymin == 0.0)
-!           pmin = 0.0
-!         ELSE WHERE
-!           pmin = ATAN2 (ymin, xmin)
-!         END WHERE
-!         WHERE (pmin < 0.0) pmin = pmin + 2.0*pi
-
-!         rmin = SQRT (xmin**2+ymin**2)
-!         WHERE (xmin == 0.0 .AND. ymin == 0.0)
-!           pmin = 0.0
-!         ELSE WHERE
-!           pmin = ATAN2 (ymin, xmin)
-!         END WHERE
-!         WHERE (pmin < 0.0) pmin = pmin + 2.0*pi
-!         WRITE (*,'(A,I9.9,A,I5.5)') 'TOMHD: Read RCM, T=',itime,', REC=',L
-
-!         !call write_rcmu (L,0_iprec)
-
-!       END IF
-
-      
-!       RETURN
-!       END SUBROUTINE tomhd
-
 
 END MODULE tomhd_mod

@@ -11,8 +11,9 @@ MODULE etautils
 
   real(rp), private :: density_factor = 0.0 !module private density_factor using planet radius
   real(rp), private :: pressure_factor = 0.0
-
-
+  logical , private :: doRescaleDef = .false. !Whether to rescale D,P => eta
+  real(rprec), private :: sclmass(RCMNUMFLAV) !xmass prescaled to proton
+  
   contains
 
   !Set density/pressure factors using planet radius
@@ -21,6 +22,11 @@ MODULE etautils
 
   	pressure_factor = 2./3.*ev/Rx*nt
   	density_factor = nt/Rx
+
+    !Set scaled mass by hand here to avoid precision issues
+    sclmass(RCMELECTRON) = mass_electron/mass_proton
+    sclmass(RCMPROTON) = 1.0
+
   end subroutine SetFactors
 
   !Simple functions to access XXX factors
@@ -40,19 +46,14 @@ MODULE etautils
     REAL(rprec), intent(in)  :: vm
     REAL(rprec), intent(out) :: Drc,Dpp,Prc
 
-    integer :: k,klow
-    real(rprec) :: sclmass(RCMNUMFLAV) !xmass prescaled to proton
-
+    integer :: klow
+    
     !Set lowest RC channel
     if (use_plasmasphere) then
       klow = 2
     else
       klow = 1
     endif
-
-    !Set scaled mass by hand here to avoid precision issues
-    sclmass(RCMELECTRON) = mass_electron/mass_proton
-    sclmass(RCMPROTON) = 1.0
 
     Drc = 0.0
     Dpp = 0.0
@@ -61,15 +62,8 @@ MODULE etautils
     if (vm <= 0) return
 
     !Do RC channels
-    do k=klow,kcsize
-    	!Pressure calc in pascals
-    	Prc = Prc + pressure_factor*ABS(alamc(k))*eta(k)*vm**2.5
-
-    	!Density calc (ring current)
-      if (alamc(k) > 0.0) then ! only add the ion contribution
-      	Drc = Drc + density_factor*sclmass(ikflavc(k))*eta(k)*vm**1.5
-      endif
-    enddo !k loop
+    Prc = IntegratePressure(eta,vm,klow,kcsize)
+    Drc = IntegrateDensity (eta,vm,klow,kcsize)
 
     !Handle plasmasphere
     if (use_plasmasphere) then
@@ -80,21 +74,59 @@ MODULE etautils
 
   end subroutine eta2DP
 
+  !Integrate pressure from eta between channels k1,k2
+  function IntegratePressure(eta,vm,k1,k2) result(P)
+    REAL(rprec), intent(in)  :: eta(kcsize)
+    REAL(rprec), intent(in)  :: vm
+    integer    , intent(in)  :: k1,k2
+    REAL(rprec) :: P
+    integer :: k
+
+    P = 0.0
+    do k=k1,k2
+      !Pressure calc in pascals
+      P = P + pressure_factor*ABS(alamc(k))*eta(k)*vm**2.5
+    enddo
+  end function IntegratePressure
+
+  !Integrate density from eta between channels k1,k2
+  function IntegrateDensity(eta,vm,k1,k2) result(D)
+    REAL(rprec), intent(in)  :: eta(kcsize)
+    REAL(rprec), intent(in)  :: vm
+    integer    , intent(in)  :: k1,k2
+    REAL(rprec) :: D
+    integer :: k
+
+    D = 0.0
+    do k=k1,k2
+      !Density calc 
+      if (alamc(k) > 0.0) then ! only add the ion contribution
+        D = D + density_factor*sclmass(ikflavc(k))*eta(k)*vm**1.5
+      endif
+    enddo !k loop
+
+  end function IntegrateDensity
+
   !Convert given single density/pressure to eeta
-  SUBROUTINE DP2eta(Drc,Prc,vm,eta)
+  SUBROUTINE DP2eta(Drc,Prc,vm,eta,doRescaleO)
     USE conversion_module, ONLY : almmax,almmin,erfexpdiff
     REAL(rprec), intent(in)  :: Drc,Prc,vm
     REAL(rprec), intent(out) :: eta(kcsize)
-
+    logical, intent(in), optional :: doRescaleO
     REAL(rprec), PARAMETER :: fac = tiote/(1.+tiote)
 
     REAL(rprec) :: Tk,ti,te,A0,prcmI,prcmE,pmhdI,pmhdE
     REAL(rprec) :: xp,xm,pcon,psclI,psclE
     INTEGER(iprec) :: k,klow
-    logical :: isIon
+    logical :: isIon,doRescale
 
     eta = 0.0
     if ( (vm<0) .or. (Drc<TINY) ) return
+    if (present(doRescaleO)) then
+      doRescale = doRescaleO
+    else
+      doRescale = .true.
+    endif
 
     !Set lowest RC channel
     if (use_plasmasphere) then
@@ -127,7 +159,6 @@ MODULE etautils
       !Use quad prec calc of erf/exp differences
       eta(k) = erfexpdiff(A0,xp,xm)
       
-
       !Pressure contribution from this channel
       pcon = pressure_factor*ABS(alamc(k))*eta(k)*vm**2.5
 
@@ -138,6 +169,8 @@ MODULE etautils
       endif
 
     enddo !k loop
+
+    if (.not. doRescale) return !We're done here
 
     !Now rescale eeta channels to conserve pressure integral between MHD/RCM
     !In particular, we separately conserve ion/electron contribution to total pressure
