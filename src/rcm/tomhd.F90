@@ -72,14 +72,17 @@ MODULE tomhd_mod
 
     !Do some safety stuff to eta w/ temperature is high
     SUBROUTINE RelaxEta(eta,eta_avg,vm,RCMApp)
+      USE Rcm_mod_subs, ONLY : rmin
+      IMPLICIT NONE
+
       REAL(rprec), intent(inout), dimension(isize,jsize,kcsize)  :: eta,eta_avg
       REAL(rprec), intent(in)  :: vm(isize,jsize)
       type(rcm_mhd_T),intent(in) :: RCMApp
 
       REAL(rprec), dimension(isize,jsize) :: Drc,Dpp,Prc,Lb,Tb
-      integer :: i,j,klow
+      integer :: i,j,jp,klow
       REAL(rprec), dimension(kcsize) :: etaMax
-      REAL(rprec) :: Tau,wCS,wGR,wgt
+      REAL(rprec) :: TauCS,TauDP,wCS,wGR,wDP,wgt,TiovTe
 
       REAL(rprec) :: dij,pij,dppij      
       
@@ -108,21 +111,28 @@ MODULE tomhd_mod
 
       !$OMP PARALLEL DO default(shared) &
       !$OMP schedule(dynamic) &
-      !$OMP private(i,j,Tau,wCS,wGR,wgt,etaMax) &
-      !$OMP private(dij,pij,dppij)
+      !$OMP private(i,j,jp,TauCS,TauDP,wCS,wDP,wGR,wgt,etaMax) &
+      !$OMP private(TiovTe,dij,pij,dppij)
       DO j = 1, jsize
+        
         DO i = 1, isize
           IF (vm (i,j) < 0.0) CYCLE
           IF (Drc(i,j) < TINY) CYCLE
 
           !Get Maxwellian to blend with
-          call DP2eta(Drc(i,j),Prc(i,j),vm(i,j),etaMax,doRescaleO=.false.)
+          TiovTe = GetTioTe(eta(i,j,:),vm(i,j)) !Current Ti/Te ratio
+          call DP2eta(Drc(i,j),Prc(i,j),vm(i,j),etaMax,doRescaleO=.true.,tioteO=TiovTe)
 
-          Tau = CsBounce(Drc(i,j),Prc(i,j),Lb(i,j)) ! [s]
-          wCS = RCMApp%dtCpl/Tau
+          TauCS = CsBounce(Drc(i,j),Prc(i,j),Lb(i,j)) ! [s]
+          TauDP = DriftPeriod(Drc(i,j),Prc(i,j),rmin(i,j))
+
+          wCS = RCMApp%dtCpl/TauCS !Sonic bounce
+          wDP = RCMApp%dtCpl/TauDP !Drift period
           call ClampWeight(wCS)
+          call ClampWeight(wDP)
           wGR = GridWeight(Drc(i,j),Prc(i,j),vm(i,j),alamc(kcsize))
-          wgt = wCS
+          !Choose which weight to use
+          wgt = wDP 
 
           !Now blend w/ maxwellian
           eta(i,j,klow:) = (1.0-wgt)*eta(i,j,klow:) + wgt*etaMax(klow:)
@@ -130,9 +140,10 @@ MODULE tomhd_mod
         !Diagnostics
           !Calc updated value
           !call eta2DP(eta(i,j,:),vm(i,j),dij,dppij,pij)
-          
-          !write(*,*) 'Before/After ratio (D/P) = ', Drc(i,j)/dij,Prc(i,j)/pij          
-          !write(*,*) 'wCS / wGR = ', wCS,wGR
+          !write(*,*) 'wCS / wDP / wGR = ', wCS,wDP,wGR
+
+          !write(*,*) 'Before/After ratio (D/P), Ti/Te bef/aft = ', Drc(i,j)/dij,Prc(i,j)/pij,TiovTe,GetTioTe(eta(i,j,:),vm(i,j))        
+          !
           ! if (wCS/wGR>10.0) then
           !   write(*,*) '   D,P,Tau-Tau = ', Drc(i,j)*rcmNScl,Prc(i,j)*rcmPScl,Tau,Tb(i,j)
           ! endif
@@ -141,6 +152,17 @@ MODULE tomhd_mod
       ENDDO !j loop
 
       contains
+
+        function DriftPeriod(n,P,L) result(TauD)
+          REAL(rprec), intent(in) :: n,P,L
+          REAL(rprec) :: TauD
+          REAL(rprec) :: keV
+
+          keV = DP2kT(n*rcmNScl,P*rcmPScl) !Temp in keV
+          !Using, Td = 700/K/L hrs
+          TauD = (60.0*60.0)*700/(keV*L)
+        end function DriftPeriod
+
         !Return sound wave bounce period [s], take n/P in RCM units and L [km]
         function CsBounce(n,P,L) result(TauCS)
           REAL(rprec), intent(in) :: n,P,L

@@ -1,7 +1,7 @@
 !Utilities for D/P <=> eta mapping
 
 MODULE etautils
-  USE kdefs, ONLY : TINY
+  USE kdefs, ONLY : TINY,Me_cgs,Mp_cgs
   USE rcm_precision
   USE rice_housekeeping_module
   USE constants, ONLY : mass_proton,mass_electron,nt,ev,tiote,boltz
@@ -11,9 +11,11 @@ MODULE etautils
 
   real(rp), private :: density_factor = 0.0 !module private density_factor using planet radius
   real(rp), private :: pressure_factor = 0.0
-  logical , private :: doRescaleDef = .false. !Whether to rescale D,P => eta
+  logical , private :: doRescaleDef = .true. !Whether to rescale D,P => eta
   real(rprec), private :: sclmass(RCMNUMFLAV) !xmass prescaled to proton
-  
+  !Kind of hacky limits to Ti/Te ratio
+  real(rp), private, parameter :: TioTeMax = 20.0
+  real(rp), private, parameter :: TioTeMin = 0.10
   contains
 
   !Set density/pressure factors using planet radius
@@ -24,7 +26,7 @@ MODULE etautils
   	density_factor = nt/Rx
 
     !Set scaled mass by hand here to avoid precision issues
-    sclmass(RCMELECTRON) = mass_electron/mass_proton
+    sclmass(RCMELECTRON) = Me_cgs/Mp_cgs
     sclmass(RCMPROTON) = 1.0
 
   end subroutine SetFactors
@@ -83,6 +85,8 @@ MODULE etautils
     integer :: k
 
     P = 0.0
+    if (vm <= 0) return
+
     do k=k1,k2
       !Pressure calc in pascals
       P = P + pressure_factor*ABS(alamc(k))*eta(k)*vm**2.5
@@ -98,6 +102,7 @@ MODULE etautils
     integer :: k
 
     D = 0.0
+    if (vm <= 0) return
     do k=k1,k2
       !Density calc 
       if (alamc(k) > 0.0) then ! only add the ion contribution
@@ -107,16 +112,48 @@ MODULE etautils
 
   end function IntegrateDensity
 
+  !Get Ti/Te for a given eta
+  ! Ti/Te = Pi/Pe b/c Ni=Ne
+  function GetTioTe(eta,vm) result(TiovTe)
+    REAL(rprec), intent(in)  :: eta(kcsize)
+    REAL(rprec), intent(in)  :: vm
+    REAL(rprec) :: TiovTe
+    REAL(rprec) :: Pe,Pi
+    INTEGER(iprec) :: k
+
+    TiovTe = 0.0
+    if (vm <= 0) return
+    Pi = 0.0
+    Pe = 0.0
+    do k=1,kcsize !Include psphere b/c it won't contribute
+      if (abs(alamc(k))<TINY) cycle
+
+      if (alamc(k)>TINY) then
+        !Ion pressure
+        Pi = Pi + pressure_factor*ABS(alamc(k))*eta(k)*vm**2.5
+      else
+        !Elec pressure
+        Pe = Pe + pressure_factor*ABS(alamc(k))*eta(k)*vm**2.5
+      endif
+    enddo
+    TiovTe = Pi/Pe
+    if (isnan(TiovTe)) then
+      write(*,*) 'Pi,Pe = ',Pi,Pe
+      !write(*,*) 'eta = ', eta
+    endif
+  end function GetTioTe
+
   !Convert given single density/pressure to eeta
-  SUBROUTINE DP2eta(Drc,Prc,vm,eta,doRescaleO)
+  !Optional flag to rescale moments or provide different Ti/Te
+  SUBROUTINE DP2eta(Drc,Prc,vm,eta,doRescaleO,tioteO)
     USE conversion_module, ONLY : almmax,almmin,erfexpdiff
     REAL(rprec), intent(in)  :: Drc,Prc,vm
     REAL(rprec), intent(out) :: eta(kcsize)
-    logical, intent(in), optional :: doRescaleO
-    REAL(rprec), PARAMETER :: fac = tiote/(1.+tiote)
+    logical    , intent(in), optional :: doRescaleO
+    REAL(rprec), intent(in), optional :: tioteO 
 
     REAL(rprec) :: Tk,ti,te,A0,prcmI,prcmE,pmhdI,pmhdE
-    REAL(rprec) :: xp,xm,pcon,psclI,psclE
+    REAL(rprec) :: xp,xm,pcon,psclI,psclE,fac,TiovTe
     INTEGER(iprec) :: k,klow
     logical :: isIon,doRescale
 
@@ -127,6 +164,14 @@ MODULE etautils
     else
       doRescale = .true.
     endif
+ 
+    if (present(tioteO)) then !Use specified Ti/Te
+      TiovTe = tioteO
+      call ClampTioTe(TiovTe) !Ensure reasonable number
+    else !Use default from defs
+      TiovTe = tiote
+    endif
+    fac = TiovTe/(1.0+TiovTe)
 
     !Set lowest RC channel
     if (use_plasmasphere) then
@@ -137,7 +182,7 @@ MODULE etautils
 
     !Get ion/electron temperature
     ti = fac*Prc/Drc/boltz
-    te = ti/tiote
+    te = ti/TiovTe
 
     A0 = (Drc/density_factor)/(vm**1.5)
     prcmI = 0.0 !Cumulative ion pressure
@@ -174,8 +219,8 @@ MODULE etautils
 
     !Now rescale eeta channels to conserve pressure integral between MHD/RCM
     !In particular, we separately conserve ion/electron contribution to total pressure
-    pmhdI = Prc*tiote/(1.0+tiote) !Desired ion pressure
-    pmhdE = Prc*  1.0/(1.0+tiote) !Desired elec pressure
+    pmhdI = Prc*TiovTe/(1.0+TiovTe) !Desired ion pressure
+    pmhdE = Prc*   1.0/(1.0+TiovTe) !Desired elec pressure
 
     psclI = pmhdI/prcmI
     psclE = pmhdE/prcmE
@@ -190,5 +235,11 @@ MODULE etautils
     enddo
 
   END SUBROUTINE DP2eta
+
+  SUBROUTINE ClampTioTe(TiovTe)
+    REAL(rprec), intent(inout)  :: TiovTe
+    if (TiovTe<TioTeMin) TiovTe = TioTeMin
+    if (TiovTe>TioTeMax) TiovTe = TioTeMax
+  END SUBROUTINE ClampTioTe
 
 END MODULE etautils
