@@ -5,7 +5,7 @@ project(Kaiju Fortran)
 #   variables when looking for packages
 cmake_policy(SET CMP0074 NEW)
 
-# add and search for pfunit
+# add and search for pfunit (fingers crossed)
 list(APPEND CMAKE_PREFIX_PATH "./external")
 find_package(PFUNIT QUIET)
 if(PFUNIT_FOUND)
