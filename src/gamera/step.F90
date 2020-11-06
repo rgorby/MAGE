@@ -95,6 +95,11 @@ module step
             enddo
         enddo
 
+        if(dtMin == HUGE) then
+            write(*,*) "<No timestep was smaller than HUGE, exiting ...>"
+            isDisaster = .true.
+        endif
+
         CalcDT = dtMin
 
         !Whether to crash or resort to desperate measures

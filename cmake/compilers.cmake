@@ -50,7 +50,7 @@ if(CMAKE_Fortran_COMPILER_ID MATCHES Intel)
 	#Production
 	set(PROD "-align array64byte -align rec32byte -no-prec-div -fast-transcendentals")
 	#Debug
-	set(DEBUG "-g -traceback -check bounds -check uninit -debug all -gen-interfaces -warn interfaces -fp-stack-check")
+	set(DEBUG "-g -traceback -check bounds -check uninit -debug all -gen-interfaces -warn interfaces -fp-stack-check -fpe-all=0")
 	set(PRODWITHDEBUGINFO "-O3 -g -traceback -debug all -align array64byte -align rec32byte -no-prec-div -fast-transcendentals")
 
 	#Now do OS-dep options
