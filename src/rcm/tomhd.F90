@@ -114,7 +114,6 @@ MODULE tomhd_mod
       !$OMP private(i,j,jp,TauCS,TauDP,wCS,wDP,wGR,wgt,etaMax) &
       !$OMP private(TiovTe,dij,pij,dppij)
       DO j = 1, jsize
-        
         DO i = 1, isize
           IF (vm (i,j) < 0.0) CYCLE
           IF (Drc(i,j) < TINY) CYCLE
@@ -136,17 +135,6 @@ MODULE tomhd_mod
 
           !Now blend w/ maxwellian
           eta(i,j,klow:) = (1.0-wgt)*eta(i,j,klow:) + wgt*etaMax(klow:)
-
-        !Diagnostics
-          !Calc updated value
-          !call eta2DP(eta(i,j,:),vm(i,j),dij,dppij,pij)
-          !write(*,*) 'wCS / wDP / wGR = ', wCS,wDP,wGR
-
-          !write(*,*) 'Before/After ratio (D/P), Ti/Te bef/aft = ', Drc(i,j)/dij,Prc(i,j)/pij,TiovTe,GetTioTe(eta(i,j,:),vm(i,j))        
-          !
-          ! if (wCS/wGR>10.0) then
-          !   write(*,*) '   D,P,Tau-Tau = ', Drc(i,j)*rcmNScl,Prc(i,j)*rcmPScl,Tau,Tb(i,j)
-          ! endif
           
         ENDDO
       ENDDO !j loop

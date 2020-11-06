@@ -2441,7 +2441,7 @@ real :: v_1_1, v_1_2, v_2_1, v_2_2
 SUBROUTINE Move_plasma_grid_MHD (dt)
   use rice_housekeeping_module, ONLY : LowLatMHD,doOCBLoss,doNewCX,doFLCLoss,dp_on,doPPRefill
   use math, ONLY : SmoothOpTSC,SmoothOperator33
-  use lossutils, ONLY : CXKaiju,FLCRat
+  use lossutils, ONLY : CXKaiju,FLCRat,DepleteOCB
   
   IMPLICIT NONE
   REAL (rprec), INTENT (IN) :: dt
@@ -2450,11 +2450,11 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
   REAL (rprec), dimension(-1:isize+2,-1:jsize-1) :: didt,djdt,etaC,rateC
   !RCM-sized grids
   REAL (rprec), dimension( 1:isize  , 1:jsize  ) :: rate,dvedi,dvedj,vv,dvvdi,dvvdj,dvmdi,dvmdj
-  REAL (rprec), dimension( 1:isize  , 1:jsize  ) :: ftv,dftvi,dftvj
+  REAL (rprec), dimension( 1:isize  , 1:jsize  ) :: ftv,dftvi,dftvj,dA
 
   LOGICAL, dimension(1:isize,1:jsize) :: isOpen
   INTEGER (iprec) :: iOCB_j(1:jsize)
-  REAL (rprec) :: mass_factor,r_dist,lossCX,lossFLC,lossFDG,lossOCB,sumEtaBEF,sumEtaAFT
+  REAL (rprec) :: mass_factor,r_dist,lossCX,lossFLC,lossFDG
   REAL (rprec), save :: xlower,xupper,ylower,yupper, T1,T2 !Does this need save?
   INTEGER (iprec) :: i, j, kc, ie, iL,jL,iR,jR,iMHD
   INTEGER (iprec) :: CLAWiter, joff
@@ -2499,6 +2499,8 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
   yupper = jsize-3
   
   fac = 1.0E-3*signbe*bir*alpha*beta*dlam*dpsi*ri**2
+  !Calculate surface area element
+  dA = alpha*beta*dlam*dpsi*ri**2
 
 !---
 !Get OCB
@@ -2542,11 +2544,11 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
   !$OMP PRIVATE(i,j,kc,ie,iL,jL,iR,jR) &
   !$OMP PRIVATE(didt,djdt,etaC,rateC,rate,dvedi,dvedj) &
   !$OMP PRIVATE(mass_factor,r_dist,CLAWiter,T1k,T2k) &
-  !$OMP PRIVATE(lossCX,lossFLC,lossFDG,lossOCB,sumEtaBEF,sumEtaAFT) &
+  !$OMP PRIVATE(lossCX,lossFLC,lossFDG) &
   !$OMP SHARED(isOpen,iOCB_j,alamc,eeta,v,vcorot,vpar,vm,imin_j,j1,j2,joff) &
   !$OMP SHARED(dvvdi,dvvdj,dvmdi,dvmdj,doOCBLoss,doFLCLoss,doNewCX,dp_on,doPPRefill) &
   !$OMP SHARED(xmin,ymin,rmin,fac,fudgec,bir,sini,L_dktime,dktime,sunspot_number) &
-  !$OMP SHARED(aloct,xlower,xupper,ylower,yupper,dt,T1,T2,iMHD,bmin,radcurv,losscone) 
+  !$OMP SHARED(aloct,xlower,xupper,ylower,yupper,dt,T1,T2,iMHD,bmin,radcurv,losscone,vv,dA) 
   DO kc = 1, kcsize
     
     !If oxygen is to be added, must change this!
@@ -2651,7 +2653,6 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
 
   !---
   !Advect w/ clawpack
-    sumEtaBEF = sum(eeta(:,j1:j2,kc)) !Total content before clawpack
     call rcm2claw(eeta(:,:,kc),etaC)
     
 
@@ -2677,27 +2678,9 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
     eeta(:,jsize,kc) = eeta(:,jwrap,kc)
     call circle(eeta(:,:,kc))
 
-    !Check total content after versus before
-    sumEtaAFT = sum(eeta(:,j1:j2,kc))
-    ! if (sumEtaAFT>sumEtaBEF) then
-    !   !Can only increase content due to numerical shennanigans, i.e. borrowing from vacuum
-    !   eeta(:,:,kc) = (sumEtaBEF/sumEtaAFT)*eeta(:,:,kc)
-    ! endif
-
+    !Deplete cells near OCB if option is set
     if (doOCBLoss) then
-      !Go through and nuke any content next to open cell
-      do j=j1,j2 !jwrap,jsize-1
-        do i=2,isize-1
-          if (isOpen(i,j)) then
-            eeta(i,j,kc) = 0.0
-          else if (any(isOpen(i-1:i+1,j-1:j+1))) then
-          !Has border cells that are open
-            !Count up losses, 1/16 per diag and 1/8 per cardinal direction
-            lossOCB = sum(SmoothOpTSC,mask=isOpen(i-1:i+1,j-1:j+1))
-            eeta(i,j,kc) = (1.0-lossOCB)*eeta(i,j,kc)
-          endif
-        enddo !i loop
-      enddo !j loop
+      call DepleteOCB(eeta(:,:,kc),ie,alamc(kc),dt,isOpen,vv,vm,bmin,dA,isize,jsize)
 
       eeta(:,jsize,kc) = eeta(:,jwrap,kc)
       call circle(eeta(:,:,kc))

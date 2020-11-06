@@ -45,6 +45,7 @@ module ringutils
         integer :: NCh0, iR, Nr, dJ, iLim
         integer, dimension(:), allocatable :: NCr !Default number of chunks/ring
         character(len=strLen) :: ChunkID
+        logical :: doAggressive
 
         Nx = [Grid%Nip,Grid%Njp,Grid%Nkp]
         Model%Ring%NumR = 1 !Fake value for now
@@ -87,6 +88,14 @@ module ringutils
                 write(*,*) 'Bailing ...'
             endif
             stop
+        endif
+
+        !Choose safe vs. dangerous defaults
+        call xmlInp%Set_Val(doAggressive,"ring/doAggressive",.false.)
+        if (doAggressive .and. Model%isLoud) then
+            write(*,*) ANSIRED
+            write(*,*) "<Using aggressive ring configuration, that could be dangerous ...>"
+            write(*,'(a)',advance="no") ANSIRESET, ''
         endif
 
     !Set singularity information and default ring configurations
@@ -141,18 +150,33 @@ module ringutils
                     NCr = [8,16,32,32,64,64,64,64]
                 case(256)
                     !OCT res
-                    Nr = 12
-                    allocate(NCr(Nr))
-                    NCr = [8,16,32,32,64,64,64,64,128,128,128,128]
-                    !Old LFM values
-                    !Nr = 16
-                    !NCr = [8,16,32,32,64,64,64,64,128,128,128,128,128,128,128,128]
+                    if (doAggressive) then
+                        !Use old LFM config
+                        Nr = 16
+                        allocate(NCr(Nr))
+                        NCr = [8,16,32,32,64,64,64,64,128,128,128,128,128,128,128,128]
+                    else
+                        !Use safer gamera defaults
+                        Nr = 12
+                        allocate(NCr(Nr))
+                        NCr = [8,16,32,32,64,64,64,64,128,128,128,128]
+                    endif
 
                 case(512)
                     !Default HEX case
-                    Nr = 16
-                    allocate(NCr(Nr))
-                    NCr = [8,16,32,32,64,64,64,64,128,128,128,128,256,256,256,256]
+                    if (doAggressive) then
+                        !Use dangerous hex config
+                        Nr = 22
+                        allocate(NCr(Nr))
+                        ! 8x1,16x1,32x2,64x4,128x6,256x8
+                        NCr = [8,16,32,32,64,64,64,64,128,128,128,128,128,128,256,256,256,256,256,256,256,256]
+                    else
+                        !Use safer defaults
+                        Nr = 16
+                        allocate(NCr(Nr))
+                        ! 8x1,16x1,32x2,64x4,128x4,256x4
+                        NCr = [8,16,32,32,64,64,64,64,128,128,128,128,256,256,256,256]
+                    endif
                 case default
                     write(*,*) 'Unsupported LFM-Nk, no default ...'
                 end select

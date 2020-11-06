@@ -3,7 +3,8 @@
 MODULE lossutils
   USE kdefs, ONLY : TINY
   USE rcm_precision
-  
+  use math, ONLY : SmoothOpTSC,SmoothOperator33
+
   implicit none
 
   contains
@@ -48,8 +49,7 @@ MODULE lossutils
       cxrate = 1.0/Tau
     END FUNCTION CXKaiju
 
-
-    !Really quick test of simple FLCRat
+    !Simple mock-up for FLC losses
     FUNCTION FLCRat(ie,alam,vm,beq,rcurv,lossc) result(lossFLC)
       use constants, only : radius_earth_m
       use kdefs, only : TINY
@@ -88,11 +88,60 @@ MODULE lossutils
       !xSS = max( (8.0*eps)**(-5.0), 1.0 )
       earg = eps**(-5.0)
       xSS = max(100.0*earg,1.0)
-      !xSS = max(10.0*earg,1.0)
 
       TauFLC = xSS*TauSS
       lossFLC = 1.0/TauFLC !Rate, 1/s
 
     END FUNCTION FLCRat
+
+    !Deplete eta (single channel) at OCB using lazy timescale
+    !Tau = cell mag-flux / effective potential
+    !bmin [nT], dA [km^2],vpot [V],bmin [nT]
+
+    subroutine DepleteOCB(etak,ie,alamk,dt,isOpen,vpot,vm,bmin,dA,isize,jsize)
+      REAL(rprec), intent(inout)  :: etak(isize,jsize)
+      integer(iprec), intent(in) :: ie,isize,jsize
+      REAL(rprec), intent(in) :: alamk,dt
+      REAL(rprec), intent(in), dimension(isize,jsize) :: vpot,vm,bmin,dA
+      LOGICAL    , intent(in), dimension(isize,jsize) :: isOpen
+
+      integer :: i,j
+      real(rprec) :: wocb
+      !real(rprec) :: Kkev,Vmks,Tau,wgt,wocb,mscl
+
+      ! if (ie == RCMPROTON) then
+      !   mscl = 1.0
+      ! else if (ie == RCMELECTRON) then
+      !   mscl = sqrt(Mp_cgs/Me_cgs)
+      ! else
+      !   mscl = 1.0
+      ! endif
+
+      !Go through each cell and deplete content if it's next to OCB
+      do j=2,jsize-1
+        do i=2,isize-1
+          if (isOpen(i,j)) then
+            etak(i,j) = 0.0
+          else if (any(isOpen(i-1:i+1,j-1:j+1))) then
+          !At least on boundary cell is open
+            !Count up neighboring open cells to get boundary factor
+            !1/16 per diag and 1/8 per cardinal direction
+            ! wocb = sum(SmoothOpTSC,mask=isOpen(i-1:i+1,j-1:j+1))
+
+            ! Kkev = max(abs(alamk)*vm(i,j)*1.0e-3,1.0e-3) !Energy in keV, clamp to min 1ev
+
+            ! Vmks = mscl*(3.1e+2)*sqrt(Kkev) !km/s
+            ! Tau = sqrt(dA(i,j))/Vmks !Timescale [s]
+            ! wgt = min(dt/Tau,1.0)*wocb
+            ! etak(i,j) = (1.0-wgt)*etak(i,j)
+
+            ! write(*,*) 'wgt/ocb = ', wgt,wocb
+            etak(i,j) = (1.0-wocb)*etak(i,j)
+
+          endif
+
+        enddo
+      enddo !j loop
+    end subroutine DepleteOCB
 
 END MODULE lossutils
