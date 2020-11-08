@@ -42,6 +42,7 @@ module tptypes
         integer :: ijk0(NDIM) !Last known location in eb grid
         real(rp) :: ddt !Size of next substep
         real(rp) :: alpha=0.0
+        real(rp) :: dAwpi=0.0,dKwpi=0.0 !change in pitch angle and energy due to wpi
         integer :: OCb=0 !Topology, [0,1,2] = Open/Clopen/Closed
     end type prt_T
 

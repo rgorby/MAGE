@@ -34,6 +34,7 @@ module wpicalc
 
         real(rp) :: dAlim  !Limiting change in pith-angle to be below this value each wpi to reduce error in diff. Curve
         real(rp) :: da,dp !Change in pitch angle and momentum due to wpi
+        real(rp) :: K0,K1,dK ! energy before and after wpi
 
         logical :: doWave
 
@@ -50,7 +51,7 @@ module wpicalc
         endif
 
         !initializing some variables
-        pSgn = 1; dAlim = 0.05; da=0.0; dp=0.0
+        pSgn = 1; dAlim = 0.05; da=0.0; dp=0.0; dK=0.0
 
         ! pulling wave information
         wave = ebState%ebWave
@@ -117,6 +118,13 @@ module wpicalc
             aNew = prt%alpha + da
             prt%alpha = aNew
 
+            !reflecting pitch angle at 0° and 180° (to keep in this range)
+            if (aNew .lt. 0) then 
+                aNew = abs(aNew)
+            else if (aNew .gt. PI) then
+                aNew = 2.0*PI-aNew
+            endif
+
             if (aNew <= PI/2) then
                 pSgn = +1
             else
@@ -126,6 +134,11 @@ module wpicalc
             !Updating the momentum components
             gamma = prt2Gam(prt,Model%m0)
             pMag = Model%m0*sqrt(gamma**2.0 - 1.0)+dp !dp is scalar and change in total momentum
+           
+            !updating wpi diagnostic variables
+            prt%dAwpi = prt%dAwpi + da
+            K0 = prt2kev(Model,prt)
+
             if (prt%isGC) then
                 !Scatter GC particle
                 p11Mag = pSgn*pMag*sqrt( 1 - sin(aNew)**2.0 )
@@ -135,6 +148,11 @@ module wpicalc
                 prt%Q(P11GC) = p11Mag
                 prt%Q(MUGC ) = Mu 
                 prt%Q(GAMGC) = gamNew
+
+                !updating wpi K diagnostic
+                K1 = prt2kev(Model,prt)
+                dK = (K1 - K0)
+                prt%dKwpi = prt%dKwpi + dK
 
                 ! catch to see if momentum becomes nan and when updated
                 if (isnan(pMag) .or. isnan(p11Mag) .or. isnan(gamNew)) then
