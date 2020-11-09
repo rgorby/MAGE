@@ -2462,8 +2462,8 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
   REAL (rprec) :: T1k,T2k !Local loop variables b/c clawpack alters input
   LOGICAL, save :: FirstTime=.true.
   LOGICAL, parameter :: doDFTVSmooth = .false. !Smooth grad_ij FTV
-  LOGICAL, parameter :: doSuperBee = .false. !Use superbee (instead of minmod)
-
+  LOGICAL, parameter :: doSuperBee = .false. !Use superbee (instead of minmod/MC)
+  
 
   if (jwrap /= 3) then
     write(*,*) 'Somebody should rewrite this code to not assume that jwrap=3'
@@ -2746,7 +2746,7 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
       REAL (rprec), intent(IN) ::    Q(-1:+1)
 
       REAL (rprec) :: dvdx
-      REAL (rprec) :: dvL,dvR
+      REAL (rprec) :: dvL,dvR,dvC
       dvdx = 0.0
 
       if (isOp(0)) return
@@ -2761,15 +2761,17 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
         !Both sides closed
         
         !dvdx = 0.5*(Q(+1)-Q(-1)) !Straight up centered derivative
-        dvL = Q( 0) - Q(-1)
-        dvR = Q(+1) - Q( 0)
+        dvL =       Q( 0) - Q(-1)
+        dvR =       Q(+1) - Q( 0)
+        dvC = 0.5*( Q(+1) - Q(-1) )
 
         !Do slope limiter, either minmod or superbee
         if (doSuperBee) then
           !Superbee slope-lim on gradient
           dvdx = qkmaxmod( qkminmod(dvR,2*dvL),qkminmod(2*dvR,dvL) )
         else
-          dvdx = qkminmod(dvL,dvR) !Just minmod lim
+          dvdx = MCLim(dvL,dvR,dvC)
+          !dvdx = qkminmod(dvL,dvR) !Just minmod lim
         endif
       else if (.not. isOp(-1)) then
         !-1 is closed, do backward difference
@@ -2804,6 +2806,22 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
       call circle(Qs)
       Q = Qs !Save back smoothed array
     end subroutine Smooth_IJ
+
+    function MCLim(dqL,dqR,dqC) result(dqbar)
+      REAL (rprec), intent(in) :: dqL,dqR,dqC
+      REAL (rprec) :: dqbar
+      REAL (rprec) :: magdq
+
+      if (dqL*dqR <= 0) then
+        !Sign flip, clamp
+        dqbar = 0.0
+      else
+        !Consistent sense, use MC limiter
+        magdq = min(2*abs(dqL),2*abs(dqR),abs(dqC))
+        !SIGN(A,B) returns the value of A with the sign of B
+        dqbar = sign(magdq,dqC)
+      endif
+    end function MCLim
 
     !Quick and lazy minmod limiter
     function qkminmod(a,b) result(c)

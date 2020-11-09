@@ -114,6 +114,15 @@ MODULE tomhd_mod
       !$OMP private(i,j,jp,TauCS,TauDP,wCS,wDP,wGR,wgt,etaMax) &
       !$OMP private(TiovTe,dij,pij,dppij)
       DO j = 1, jsize
+        !i,j is index in RCM grid
+        !i,jp is index in RCM-MHD grid
+        if (j>=jwrap) then
+          jp = j-jwrap+1
+        else
+          !j (RCM) => jsize-jwrap+j (RCM) => jsize-jwrap+j-jwrap+1 (RCM-MHD)
+          jp = jsize-jwrap+j-jwrap+1
+        endif
+
         DO i = 1, isize
           IF (vm (i,j) < 0.0) CYCLE
           IF (Drc(i,j) < TINY) CYCLE
@@ -123,13 +132,16 @@ MODULE tomhd_mod
           call DP2eta(Drc(i,j),Prc(i,j),vm(i,j),etaMax,doRescaleO=.true.,tioteO=TiovTe)
 
           TauCS = CsBounce(Drc(i,j),Prc(i,j),Lb(i,j)) ! [s]
-          TauDP = DriftPeriod(Drc(i,j),Prc(i,j),rmin(i,j))
+          !TauDP = DriftPeriod(Drc(i,j),Prc(i,j),rmin(i,j))
+          !TauDP = DipoleDriftPeriod(Drc(i,j),Prc(i,j),rmin(i,j))
+          TauDP = DriftPeriod(Drc(i,j),Prc(i,j),rmin(i,j),RCMApp%Bmin(i,jp),RCMApp%radcurv(i,jp),RCMApp%planet_radius)
 
           wCS = RCMApp%dtCpl/TauCS !Sonic bounce
           wDP = RCMApp%dtCpl/TauDP !Drift period
           call ClampWeight(wCS)
           call ClampWeight(wDP)
           wGR = GridWeight(Drc(i,j),Prc(i,j),vm(i,j),alamc(kcsize))
+
           !Choose which weight to use
           wgt = wDP 
 
@@ -141,7 +153,23 @@ MODULE tomhd_mod
 
       contains
 
-        function DriftPeriod(n,P,L) result(TauD)
+        !L [Rp], Rc [Rp], Rp[m]
+        function DriftPeriod(n,P,L,Bmin,Rc,Rp) result(TauD)
+          REAL(rprec), intent(in) :: n,P,L,Bmin,Rc,Rp
+          REAL(rprec) :: TauD
+          REAL(rprec) :: keV,Bnt,Vd
+
+          keV = DP2kT(n*rcmNScl,P*rcmPScl) !Temp in keV
+          Bnt = Bmin*1.0e+9 !B in nT
+
+          !Using, Vd = 156*K/Rc/B, K[keV],Rc[Re],B[nT]
+
+          Vd = 0.5*(1.0e+3)*156.0*keV/Rc/Bnt !m/s
+          TauD = 2.0*PI*L*Rp/Vd
+          !write(*,*) 'Tau = ', TauD,DipoleDriftPeriod(n,P,L)
+        end function DriftPeriod
+
+        function DipoleDriftPeriod(n,P,L) result(TauD)
           REAL(rprec), intent(in) :: n,P,L
           REAL(rprec) :: TauD
           REAL(rprec) :: keV
@@ -149,7 +177,7 @@ MODULE tomhd_mod
           keV = DP2kT(n*rcmNScl,P*rcmPScl) !Temp in keV
           !Using, Td = 700/K/L hrs
           TauD = (60.0*60.0)*700/(keV*L)
-        end function DriftPeriod
+        end function DipoleDriftPeriod
 
         !Return sound wave bounce period [s], take n/P in RCM units and L [km]
         function CsBounce(n,P,L) result(TauCS)
