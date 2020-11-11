@@ -63,8 +63,7 @@ MODULE torcm_mod
 
       INTEGER(iprec) :: kin,jmid,ibnd, inew, iold
       INTEGER(iprec) :: jm,jp,ii,itmax
-      INTEGER(iprec) :: min0,i,j,k,n,ns,klow
-      INTEGER(iprec), PARAMETER :: n_smooth = 5
+      INTEGER(iprec) :: min0,i,j,k,n,ns,klow,n_smooth
       LOGICAL,PARAMETER :: use_ellipse = .true.
       LOGICAL, SAVE :: doReadALAM = .true.
       REAL(rprec) :: dpp,wMHD,wRCM
@@ -150,6 +149,11 @@ MODULE torcm_mod
       !Smooth boundary location
       !NOTE: This can only shrink RCM domain, not increase
       !K: 8/20, changing reset_rcm_vm to only reset VM on open fields
+      !Calculate number of smoothing iterations based on longitudinal cell size
+      !Approx. 1hr MLT
+      !n_smooth = 5
+      n_smooth = nint( 15.0/(360.0/jsize) )
+      
       do ns=1,n_smooth
         call smooth_boundary_location(isize,jsize,jwrap,bndloc)
         call reset_rcm_vm(isize,jsize,bndloc,big_vm,imin_j,vm,iopen) ! adjust Imin_j

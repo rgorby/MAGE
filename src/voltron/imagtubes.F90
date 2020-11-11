@@ -225,10 +225,11 @@ module imagtubes
     end subroutine TrickyTubes
     
     !Smooth RCM tube data as needed
-    subroutine SmoothTubes(RCMApp)
+    subroutine SmoothTubes(RCMApp,vApp)
         type(rcm_mhd_T), intent(inout) :: RCMApp
+        type(voltApp_T), intent(in) :: vApp
 
-        integer :: Ni,Nj
+        integer :: n,Ni,Nj,Ns
         logical, dimension(:,:), allocatable :: isG
 
         Ni = RCMApp%nLat_ion
@@ -236,10 +237,16 @@ module imagtubes
         allocate(isG(Ni,Nj))
         isG = .not. (RCMApp%iopen == RCMTOPOPEN)
 
+        !Choose number of smoothing iterations
+        Ns = nint(vApp%DeepDT/vApp%ShallowDT) - 1
+        if (Ns<=0) return
+
         !Smooth some tubes
-        call Smooth2D(RCMApp%Vol) !Flux-tube volume
-        call Smooth2D(RCMApp%pot) !Electrostatic potential
-        
+        do n=1,Ns
+            call Smooth2D(RCMApp%Vol) !Flux-tube volume
+            call Smooth2D(RCMApp%pot) !Electrostatic potential
+        enddo
+
         contains
         subroutine Smooth2D(Q)
             real(rp), dimension(Ni,Nj), intent(inout) :: Q

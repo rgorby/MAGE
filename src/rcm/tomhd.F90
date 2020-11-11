@@ -164,7 +164,7 @@ MODULE tomhd_mod
 
           !Using, Vd = 156*K/Rc/B, K[keV],Rc[Re],B[nT]
 
-          Vd = 0.5*(1.0e+3)*156.0*keV/Rc/Bnt !m/s
+          Vd = (1.0e+3)*156.0*keV/Rc/Bnt !m/s
           TauD = 2.0*PI*L*Rp/Vd
           !write(*,*) 'Tau = ', TauD,DipoleDriftPeriod(n,P,L)
         end function DriftPeriod
