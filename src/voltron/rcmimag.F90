@@ -430,7 +430,16 @@ module rcmimag
         real(rp) :: plim,nlim,Tb
         integer, dimension(2) :: ij0
 
+        !Points for interpolation
+        integer, parameter :: Np = 9
+        integer :: Ni,Nj
+        integer , dimension(Np,2) :: IJs
+        real(rp), dimension(Np) :: Ws
+        logical , dimension(Np) :: isGs
+
         associate(RCMApp => imag%rcmCpl, lat => x1, lon => x2)
+        Ni = RCMApp%nLat_ion
+        Nj = RCMApp%nLon_ion
 
         !Set defaults
         imW(:) = 0.0
@@ -454,14 +463,18 @@ module rcmimag
         isEdible = RCMApp%toMHD(ij0(1),ij0(2))
         if (.not. isEdible) return
 
-        prcm = rcmPScl*RCMApp%Prcm (ij0(1),ij0(2))
-        nrcm = rcmNScl*RCMApp%Nrcm (ij0(1),ij0(2))
-        npp  = rcmNScl*RCMApp%Npsph(ij0(1),ij0(2))
-        beta =  RCMApp%beta_average(ij0(1),ij0(2))
-        pmhd = rcmPScl*RCMApp%Pave (ij0(1),ij0(2))
-        nmhd = rcmNScl*RCMApp%Nave (ij0(1),ij0(2))
-        wIM  =         RCMApp%wImag(ij0(1),ij0(2))
-        Tb   =         RCMApp%Tb   (ij0(1),ij0(2))
+        call GetInterp(lat,lon,ij0,IJs,Ws,isGs)
+        !Do last short cut
+        if (.not. all(isGs)) return
+
+        prcm = rcmPScl*AvgQ(RCMApp%Prcm ,IJs,Ws,Ni,Np)
+        nrcm = rcmNScl*AvgQ(RCMApp%Nrcm ,IJs,Ws,Ni,Np)
+        npp  = rcmNScl*AvgQ(RCMApp%Npsph,IJs,Ws,Ni,Np)
+        pmhd = rcmPScl*AvgQ(RCMApp%Pave ,IJs,Ws,Ni,Np)
+        nmhd = rcmNScl*AvgQ(RCMApp%Nave ,IJs,Ws,Ni,Np)
+        beta = AvgQ(RCMApp%beta_average ,IJs,Ws,Ni,Np)
+        wIM  = AvgQ(RCMApp%wImag        ,IJs,Ws,Ni,Np)
+        Tb   = AvgQ(RCMApp%Tb           ,IJs,Ws,Ni,Np)
 
         nlim = 0.0
         plim = 0.0
@@ -491,6 +504,106 @@ module rcmimag
         end associate
 
         contains
+
+        !Get ij's of stencil points and weights
+        subroutine GetInterp(lat,lon,ij0,IJs,Ws,isGs)
+            real(rp), intent(in)  :: lat,lon
+            integer , intent(in)  :: ij0(2)
+            integer , intent(out) :: IJs(Np,2)
+            real(rp), intent(out) :: Ws(Np)
+            logical , intent(out) :: isGs(Np)
+
+            integer :: i0,j0,n,di,dj,ip,jp
+            real(rp) :: colat,dcolat,dlon,eta,zeta
+            real(rp), dimension(-1:+1) :: wE,wZ
+
+            !Single point
+            isGs = .true.
+            IJs(:,:) = 1
+            Ws = 0.0
+            IJs(1,:) = [ij0]
+            Ws (1  ) = 1.0
+            associate(gcolat=>imag%rcmCpl%gcolat,glong=>imag%rcmCpl%glong, &
+                      nLat=>imag%rcmCpl%nLat_ion,nLon=>imag%rcmCpl%nLon_ion,toMHD=>imag%rcmCpl%toMHD)
+
+            i0 = ij0(1)
+            j0 = ij0(2)
+
+            if ( (i0==1) .or. (i0==nLat) ) return !Don't bother if you're next to lat boundary
+            
+            !Get index space mapping: eta,zeta in [-0.5,0.5]
+            colat = PI/2 - lat
+            dcolat = ( gcolat(i0+1)-gcolat(i0-1) )/2
+            dlon  = glong(2)-glong(1) !Assuming constant spacing
+
+            eta  = ( colat - gcolat(i0) )/ dcolat
+            zeta = ( lon - glong(j0) )/dlon
+
+            !Clamp mappings
+            call ClampMap(eta)
+            call ClampMap(zeta)
+            !Calculate weights
+            call Wgt1D(eta,wE)
+            call Wgt1D(zeta,wZ)
+
+            n = 1
+            do dj=-1,+1
+                do di=-1,+1
+                    ip = i0+di
+                    jp = j0+dj
+                    !Wrap around boundary, repeated point at 1/isize
+                    if (jp<1)    jp = nLon-1
+                    if (jp>nLon) jp = 2
+                    IJs(n,:) = [ip,jp]
+                    Ws(n) = wE(di)*wE(dj)
+                    isGs(n) = toMHD(ip,jp)
+                    n = n + 1
+                enddo
+            enddo !dj
+
+            end associate            
+        end subroutine GetInterp
+
+        !1D triangular shaped cloud weights
+        !1D weights for triangular shaped cloud interpolation
+        !Assuming on -1,1 reference element, dx=1
+        !Check for degenerate cases ( |eta| > 0.5 )
+        subroutine Wgt1D(eta,wE)
+            real(rp), intent(in)  :: eta
+            real(rp), intent(out) :: wE(-1:1)
+
+            wE(-1) = 0.5*(0.5-eta)**2.0
+            wE( 1) = 0.5*(0.5+eta)**2.0
+            wE( 0) = 0.75 - eta**2.0
+
+        end subroutine Wgt1D
+
+        !Clamps mapping in [-0.5,0.5]
+        subroutine ClampMap(ez)
+          REAL(rprec), intent(inout) :: ez
+          if (ez<-0.5) ez = -0.5
+          if (ez>+0.5) ez = +0.5
+        end subroutine ClampMap
+
+        function AvgQ(Q,IJs,Ws,Ni,Nj) 
+            integer , intent(in) :: Ni,Nj
+            integer , intent(in) :: IJs(Np,2)
+            real(rp), intent(in) :: Ws(Np)
+            real(rp), intent(in) :: Q(Ni,Nj)
+
+            real(rp) :: AvgQ
+            integer :: n,i0,j0
+            real(rp) :: Qs(Np)
+            AvgQ = 0.0
+
+            do n=1,Np
+                i0 = IJs(n,1)
+                j0 = IJs(n,2)
+                Qs(n) = Q(i0,j0)
+            enddo
+            AvgQ = dot_product(Qs,Ws)
+
+        end function AvgQ
 
         subroutine GetRCMLoc(lat,lon,ij0)
             real(rp), intent(in) :: lat,lon
@@ -533,7 +646,7 @@ module rcmimag
             else
                 jX = floor(dJ)+2
             endif
-
+            
             !Impose bounds just in case
             iX = max(iX,1)
             iX = min(iX,nLat)

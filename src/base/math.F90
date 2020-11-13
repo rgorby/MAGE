@@ -293,6 +293,40 @@ module math
 
     end function ArithMean
 
+    !Weighted means
+    function wArithMean(alpha,wgt) result(alphabar)
+        real(rp), intent(in) :: alpha(:),wgt(:)
+        real(rp) :: alphabar
+        integer :: N
+        real(rp) :: X,Y
+        
+        if (size(alpha) /= size(wgt)) then
+            write(*,*) "wArithMean size error ..."
+            stop
+        endif
+        alphabar = dot_product(alpha,wgt)/sum(wgt)
+    end function wArithMean
+
+    !Weighted circular mean, in: rad / out: rad
+    function wCircMean(alpha,wgt) result(alphabar)
+        real(rp), intent(in) :: alpha(:),wgt(:)
+        real(rp) :: alphabar
+        integer :: N
+        real(rp) :: X,Y
+
+        if (size(alpha) /= size(wgt)) then
+            write(*,*) "wCircMean size error ..."
+            stop
+        endif
+        
+        N = size(alpha)
+        Y = dot_product(sin(alpha),wgt)/sum(wgt)
+        X = dot_product(cos(alpha),wgt)/sum(wgt)
+
+        alphabar = modulo( atan2(Y,X),2*PI )
+
+    end function wCircMean
+
     function normVec(a)
         real(rp), dimension(NDIM) :: a, normVec
         real(rp) :: normA

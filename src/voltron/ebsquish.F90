@@ -233,22 +233,28 @@ module ebsquish
         integer          , intent(in) :: nSkp
 
         integer :: i,j,k
-        real(rp), dimension(2) :: X1s,X2s
+        real(rp), dimension(2) :: X1s,X2s,Ws
+        real(rp), dimension(NDIM) :: xL,xM,xR
 
         integer :: hSkp
         hSkp = nSkp/2
 
+
         !Start w/ i edge sweep
         !$OMP PARALLEL DO default(shared) collapse(2) &
-        !$OMP private(i,j,k,X1s,X2s)
+        !$OMP private(i,j,k,X1s,X2s,Ws,xL,xM,xR)
         do k=ebGr%ks,ebGr%ke+1,nSkp
             do j=ebGr%js,ebGr%je+1,nSkp
                 do i=ebGr%is+hSkp,iDeep,nSkp
                     if ( isGood(i-hSkp,j,k) .and. isGood(i+hSkp,j,k) ) then
                         X1s = [xyzSquish(i-hSkp,j,k,1),xyzSquish(i+hSkp,j,k,1)]
                         X2s = [xyzSquish(i-hSkp,j,k,2),xyzSquish(i+hSkp,j,k,2)]
-                        xyzSquish(i,j,k,1) = ArithMean(X1s)
-                        xyzSquish(i,j,k,2) = CircMean (X2s)
+                        xL = ebGr%xyzcc(i-hSkp,j,k,:)
+                        xM = ebGr%xyzcc(i     ,j,k,:)
+                        xR = ebGr%xyzcc(i+hSkp,j,k,:)
+                        Ws = [norm2(xR-xM)/norm2(xR-xL),norm2(xL-xM)/norm2(xR-xL)]
+                        xyzSquish(i,j,k,1) = wArithMean(X1s,Ws)
+                        xyzSquish(i,j,k,2) = wCircMean (X2s,Ws)
                         isGood(i,j,k) = .true.
                     endif
                 enddo
@@ -257,15 +263,19 @@ module ebsquish
 
         !Next do denser j sweep
         !$OMP PARALLEL DO default(shared) collapse(2) &
-        !$OMP private(i,j,k,X1s,X2s)
+        !$OMP private(i,j,k,X1s,X2s,Ws,xL,xM,xR)
         do k=ebGr%ks,ebGr%ke+1,nSkp
             do j=ebGr%js+hSkp,ebGr%je,nSkp
                 do i=ebGr%is,iDeep+1,hSkp
                     if ( isGood(i,j-hSkp,k) .and. isGood(i,j+hSkp,k) ) then
                         X1s = [xyzSquish(i,j-hSkp,k,1),xyzSquish(i,j+hSkp,k,1)]
                         X2s = [xyzSquish(i,j-hSkp,k,2),xyzSquish(i,j+hSkp,k,2)]
-                        xyzSquish(i,j,k,1) = ArithMean(X1s)
-                        xyzSquish(i,j,k,2) = CircMean (X2s)
+                        xL = ebGr%xyzcc(i,j-hSkp,k,:)
+                        xM = ebGr%xyzcc(i,j     ,k,:)
+                        xR = ebGr%xyzcc(i,j+hSkp,k,:)
+                        Ws = [norm2(xR-xM)/norm2(xR-xL),norm2(xL-xM)/norm2(xR-xL)]
+                        xyzSquish(i,j,k,1) = wArithMean(X1s,Ws)
+                        xyzSquish(i,j,k,2) = wCircMean (X2s,Ws)
                         isGood(i,j,k) = .true.
                     endif
                 enddo
@@ -274,15 +284,20 @@ module ebsquish
 
         !Finally, finish with denser-er k sweep
         !$OMP PARALLEL DO default(shared) collapse(2) &
-        !$OMP private(i,j,k,X1s,X2s)
+        !$OMP private(i,j,k,X1s,X2s,Ws,xL,xM,xR)
         do k=ebGr%ks+hSkp,ebGr%ke,nSkp
             do j=ebGr%js,ebGr%je+1,hSkp
                 do i=ebGr%is,iDeep+1,hSkp
                     if ( isGood(i,j,k-hSkp) .and. isGood(i,j,k+hSkp) ) then
                         X1s = [xyzSquish(i,j,k-hSkp,1),xyzSquish(i,j,k+hSkp,1)]
                         X2s = [xyzSquish(i,j,k-hSkp,2),xyzSquish(i,j,k+hSkp,2)]
-                        xyzSquish(i,j,k,1) = ArithMean(X1s)
-                        xyzSquish(i,j,k,2) = CircMean (X2s)
+
+                        xL = ebGr%xyzcc(i,j,k-hSkp,:)
+                        xM = ebGr%xyzcc(i,j,k     ,:)
+                        xR = ebGr%xyzcc(i,j,k+hSkp,:)
+                        Ws = [norm2(xR-xM)/norm2(xR-xL),norm2(xL-xM)/norm2(xR-xL)]
+                        xyzSquish(i,j,k,1) = wArithMean(X1s,Ws)
+                        xyzSquish(i,j,k,2) = wCircMean (X2s,Ws)
                         isGood(i,j,k) = .true.
                     endif
 
