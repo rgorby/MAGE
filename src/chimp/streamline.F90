@@ -695,6 +695,220 @@ module streamline
 
     end subroutine genTrace
 
+    !Slimmed down projection to northern hemisphere for MAGE
+    !RinO is optional cut-off inner radius when in northern hemisphere
+    !epsO is optional epsilon (otherwise use Model default)
+    subroutine mageproject(Model,ebState,x0,t,xyz,Np,isG,RinO,epsO)
+        type(chmpModel_T), intent(in) :: Model
+        type(ebState_T), intent(in)   :: ebState
+        real(rp), intent(in) :: x0(NDIM),t
+        real(rp), intent(out) :: xyz(NDIM)
+        integer, intent(out) :: Np
+        logical, intent(out) :: isG
+        real(rp), intent(in), optional :: RinO,epsO
+
+        integer :: sgn
+        real(rp) :: Rin,eps,dl,eps0
+        real(rp), dimension(NDIM) :: B,E,dx
+        integer , dimension(NDIM) :: ijk,ijkG
+        type(gcFields_T) :: gcF
+        logical :: inDom,isSC,isDone
+
+        if (present(RinO)) then
+            Rin = RinO
+        else
+            Rin = 0.0
+        endif
+        if (present(epsO)) then
+            eps = epsO
+        else
+            eps = Model%epsds
+        endif
+
+        !Save initial epsilon
+        eps0 = eps
+
+        sgn = +1 !Step towards NH
+        !Initialize output
+        Np = 0
+        isG = .false.
+        xyz = x0
+
+        call CheckDone(Model,ebState,xyz,inDom,isSC,isDone)
+
+        do while ( (.not. isDone) .and. (Np <= MaxFL) )
+        !Locate and get fields
+            !Get location in ijk using old ijk as guess if possible
+            if (Np == 0) then
+                !First step, no guess yet
+                call locate(xyz,ijk,Model,ebState%ebGr,inDom)
+            else
+                call locate(xyz,ijk,Model,ebState%ebGr,inDom,ijkG)
+            endif
+            ijkG = ijk !Save correct location for next guess
+            call ebFields(xyz,t,Model,ebState,E,B,ijk,gcFields=gcF)
+
+            dl = getDiag(ebState%ebGr,ijk)
+            !call StepRK4(dl,B,gcF%JacB,eps,dx)
+            call StepBS(dl,B,gcF%JacB,eps,dx)
+
+            xyz = xyz + dx
+
+            !Check if we're done
+            call CheckDone(Model,ebState,xyz,inDom,isSC,isDone)
+            Np = Np + 1
+        enddo !Main stepping loop
+
+    !Finished loop somehow, decide if it was good
+        !Got to short circuit, we're good
+        if (isSC) then
+            isG = .true.
+            return
+        endif
+
+        !Timed out, not good
+        if (Np >= MaxFL) then
+            isG = .false.
+            return
+        endif
+        if (inDom) then
+            !This shouldn't happen
+            write(*,*) 'How did you get here? Bad thing in mageproject'
+            stop
+        else
+            !Left domain, but not sure if left from inner boundary
+            if (isClosed(xyz,Model)) then
+                isG = .true.
+            else
+                isG = .false.
+            endif
+            return
+        endif
+
+
+        contains
+
+            !Do one step of linearized RK4
+            subroutine StepRK4(dl,B,JacB,eps,dx)
+                real(rp), intent(in) :: dl,B(NDIM),JacB(NDIM,NDIM)
+                real(rp), intent(inout) :: eps
+                real(rp), intent(out) :: dx(NDIM)
+
+                real(rp), dimension(NDIM) :: Jb,Jb2,Jb3,F1,F2,F3,F4
+                real(rp) :: ds,dsmag,MagB,MagJb
+
+                MagB = norm2(B)
+                MagJb = norm2(JacB)
+                if (MagJb <= TINY) then
+                    !Field is constant-ish, use local grid size
+                    dsmag = dl
+                else
+                    dsmag = MagB/MagJb
+                endif
+                ds = sgn*eps*min(dl,dsmag)
+                !Convert ds to streamline units
+                ds = ds/max(MagB,TINY)
+
+                !Get powers of jacobian
+                Jb  = matmul(JacB,B  )
+                Jb2 = matmul(JacB,Jb )
+                Jb3 = matmul(JacB,Jb2)
+
+                !Calculate steps
+                F1 = ds*B
+                F2 = F1 + (ds*ds/2)*Jb
+                F3 = F2 + (ds*ds*ds/4)*Jb2
+                F4 = ds*B + ds*ds*Jb + (ds**3.0/2.0)*Jb2 + (ds**4.0/4.0)*Jb3
+
+                !Advance
+                dx = (F1+2*F2+2*F3+F4)/6.0
+
+            end subroutine StepRK4
+
+            !Do one step of Bogacki-Shampine, alter eps using Kutta-Merson style
+            !TODO: Remove duplicated code
+            subroutine StepBS(dl,B,JacB,eps,dx)
+                real(rp), intent(in) :: dl,B(NDIM),JacB(NDIM,NDIM)
+                real(rp), intent(inout) :: eps
+                real(rp), intent(out) :: dx(NDIM)
+
+                real(rp), dimension(NDIM) :: Jb,Jb2,k1,k2,k3,k4
+                real(rp), dimension(NDIM) :: dxHO,dxLO
+                real(rp) :: ds,dsmag,MagB,MagJb,ddx
+
+                real(rp), parameter :: eAmp = 10.0
+                real(rp), parameter :: eStp = 1.0e-3 !Target for adaptive step
+
+                MagB = norm2(B)
+                MagJb = norm2(JacB)
+                if (MagJb <= TINY) then
+                    !Field is constant-ish, use local grid size
+                    dsmag = dl
+                else
+                    dsmag = MagB/MagJb
+                endif
+                ds = sgn*eps*min(dl,dsmag)
+                !Convert ds to streamline units
+                ds = ds/max(MagB,TINY)
+
+                !Get powers of jacobian
+                Jb  = matmul(JacB,B  )
+                Jb2 = matmul(JacB,Jb )
+
+                !Note: Removing ds factor relative to above
+                k1 = B
+                k2 = k1 + 0.5*ds*Jb
+                k3 = B + (3.0/4.0)*ds*( Jb + 0.5*ds*Jb2)
+                dxHO = ds*(2*k1 + 3*k2 + 4*k3)/9.0
+                k4 = B + matmul(JacB,dxHO)
+                dxLO = ds*(7*k1 + 6*k2 + 8*k3 + 3*k4)/24.0 !Lower-order
+                ddx = norm2(dxHO-dxLO)/dsmag
+
+                !Use high-order dx
+                dx = dxHO
+
+                !Decide to increase/decrease eps
+                if (ddx>eStp) then
+                    eps = 0.5*eps
+                endif
+                if (ddx<=eStp/100.0) then
+                    eps = 2.0*eps
+                endif
+
+                !Clamp eps to within eAmpx of eps0
+                call ClampValue(eps,eps0/eAmp,eAmp*eps0)
+
+
+            end subroutine StepBS
+             
+            subroutine CheckDone(Model,ebState,xyz,inDom,isSC,isDone)
+                type(chmpModel_T), intent(in) :: Model
+                type(ebState_T), intent(in)   :: ebState
+                real(rp), intent(inout) :: xyz(NDIM)
+                logical, intent(out) :: inDom,isSC,isDone
+
+                real(rp) :: rad
+
+                inDom = inDomain(xyz,Model,ebState%ebGr)
+                if (inDom) then
+                    !in domain, check for short cut to end
+                    rad = norm2(xyz)
+                    if ( (rad <= Rin) .and. (xyz(ZDIR)>=0.0) ) then
+                        isSC = .true. 
+                        xyz = DipoleShift(xyz,1.0_rp) !Dipole project to surface
+                        isDone = .true.
+                    else
+                        isSC = .false.
+                        isDone = .false.
+                    endif
+                else
+                    isSC = .false.
+                    isDone = .true.
+                endif
+            end subroutine CheckDone
+
+    end subroutine mageproject
+
     !Calculate one-sided projection (in sgn direction)
     subroutine project(Model,ebState,x0,t,xn,sgn,toEquator,failEquator)
         type(chmpModel_T), intent(in) :: Model

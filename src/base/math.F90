@@ -259,6 +259,14 @@ module math
 
     end function cross
 
+    !Clamp a in [aL,aH]
+    subroutine ClampValue(a,aL,aH)
+        real(rp), intent(inout) :: a
+        real(rp), intent(in) :: aL,aH
+        if (a<aL) a = aL
+        if (a>aH) a = aH
+    end subroutine ClampValue
+    
     !Circular mean, in: rad / out: rad
     function CircMean(alpha) result(alphabar)
         real(rp), intent(in) :: alpha(:)
@@ -306,26 +314,6 @@ module math
         endif
         alphabar = dot_product(alpha,wgt)/sum(wgt)
     end function wArithMean
-
-    !Weighted circular mean, in: rad / out: rad
-    function wCircMean(alpha,wgt) result(alphabar)
-        real(rp), intent(in) :: alpha(:),wgt(:)
-        real(rp) :: alphabar
-        integer :: N
-        real(rp) :: X,Y
-
-        if (size(alpha) /= size(wgt)) then
-            write(*,*) "wCircMean size error ..."
-            stop
-        endif
-        
-        N = size(alpha)
-        Y = dot_product(sin(alpha),wgt)/sum(wgt)
-        X = dot_product(cos(alpha),wgt)/sum(wgt)
-
-        alphabar = modulo( atan2(Y,X),2*PI )
-
-    end function wCircMean
 
     function normVec(a)
         real(rp), dimension(NDIM) :: a, normVec
