@@ -31,11 +31,13 @@ text = p.stdout.read()
 text = text.decode('ascii')
 text = text.rstrip()
 print(text)
+isTest = False
+print(str(sys.argv[1]))
 
-# If there is no update, then skip the test for the day
-if (text == 'Already up to date.'):
-    print("Oh crap, it is already up to date!")
-    if (len(sys.argv) < 2):
+# Check argument flags
+if (len(sys.argv) < 2):
+    # If no arguments, check for update
+    if (text == 'Already up to date.'):
         # Try to send Slack message
         try:
             response = client.chat_postMessage(
@@ -47,8 +49,30 @@ if (text == 'Already up to date.'):
             assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
         
         exit()
-    elif(str(sys.argv[1] == 'f')):
-        print("Buuuuut you forced me to do it anyway....")
+# Else check for force flag
+elif(str(sys.argv[1]) == '-f'):
+    print("Buuuuut you forced me to do it anyway...")
+# Else check for testing flag
+elif(str(sys.argv[1]) == '-t'):
+    print("Test Mode: On")
+    isTest = True
+
+# Create a test build folder, get the list of executables to be generated and store them
+os.chdir(home)
+os.chdir("kaiju")
+os.system("rm -rf testFolder")
+os.system("mkdir testFolder")
+os.chdir("testFolder")
+os.system("cmake ..")
+listProcess = subprocess.Popen("make help | grep '\.x'", shell=True, stdout=subprocess.PIPE)
+executableString = listProcess.stdout.read()
+executableString = executableString.decode('ascii')
+executableList = executableString.splitlines()
+
+# Loop through each entry of the list and remove the first four characters
+for index, element in enumerate(executableList):
+    executableList[index] = executableList[index][4:]
+print(executableList)
 
 # Go back to scripts folder
 os.chdir(home)
@@ -72,8 +96,11 @@ for line in modules:
         arguments = arguments + "cd " + home + "; cd kaiju; mkdir build" + str(iteration) + ";"
         # Move to the build folder
         arguments = arguments + "cd build" + str(iteration) + "; "
-        # Make gamera and voltron
-        arguments = arguments + "cmake ../ -DALLOW_INVALID_COMPILERS=ON; make gamera_mpi.x; make voltron_mpi.x;"
+        # Invoke cmake
+        arguments = arguments + "cmake ../ -DALLOW_INVALID_COMPILERS=ON;"
+        # Create list of executables
+        for element in executableList:
+            arguments = arguments + " make " + element + ";"
         print(arguments)
         subprocess.call(arguments, shell=True)
         ModuleList.append('>' + tempString)
@@ -90,8 +117,11 @@ arguments = arguments + " module list;" # List modules for this build
 arguments = arguments + "cd " + home + "; cd kaiju; mkdir build" + str(iteration) + ";"
 # Move to the build folder
 arguments = arguments + "cd build" + str(iteration) + "; "
-# Make gamera and voltron
-arguments = arguments + "cmake ..; make gamera_mpi.x; make voltron_mpi.x;"
+# Invoke cmake
+arguments = arguments + "cmake ../ -DALLOW_INVALID_COMPILERS=ON;"
+# Create list of executables
+for element in executableList:
+    arguments = arguments + " make " + element + ";"
 print(arguments)
 subprocess.call(arguments, shell=True)
 ModuleList.append(tempString)
@@ -115,44 +145,56 @@ while i <= iteration:
     os.chdir("build" + str(i) + "/bin")
 
     print(os.getcwd())
+
+    anyWrong = False
+    missing = []
+
+    # Check for all executables
+    for element in executableList:
+        isThere = os.path.isfile(element)
+        if (isThere == False):
+            anyWrong = True
+            isPerfect = False
+            missing.append(element)
     
-    # Check for Gamera and Voltron
-    isGamera = os.path.isfile('gamera_mpi.x')
-    isVoltron = os.path.isfile('voltron_mpi.x')
-    
-    # Check if both worked. If so, skip.
-    if (isGamera and isVoltron):
+    # If any are missing, report. Otherwise, skip
+    if (not anyWrong):
         i = i + 1
+        # Move back out into kaiju folder
+        os.chdir(home)
+        os.chdir("kaiju")
         continue
-
+    
     else:
-        isPerfect = False
+        myText = myText + "*Trying the following module set:*\n"
+        myText = myText + ModuleList[i - 1]
 
-    myText = myText + "*Trying the following module set:*\n"
-    myText = myText + ModuleList[i - 1]
-
-    if (not isGamera):
-        myText = myText + "Whoops! I couldn't build Gamera using that module set.\n"
-
-    if (not isVoltron):
-        myText = myText + "Whoops! I couldn't build Voltron using that module set.\n"
-
-    # Move back out into kaiju folder
-    os.chdir(home)
-    os.chdir("kaiju")
-
-    i = i + 1
+        # Which executables failed?
+        for element in missing:
+            myText = myText + "I couldn't build " + element + "\n"
+            
+        # Move back out into kaiju folder
+        os.chdir(home)
+        os.chdir("kaiju")
+        i = i + 1
 
 # If nothing was wrong, change myText
-myText = ""
-myText = "Everything built properly!"
+if (isPerfect == True):
+    myText = ""
+    myText = "Everything built properly!"
 
-# Try to send Slack message
-try:
-    response = client.chat_postMessage(
-        channel="#kaijudev",
-        text=myText,
-    )
-except SlackApiError as e:
-    # You will get a SlackApiError if "ok" is False
-    assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
+# If not a test, send message to Slack
+if (not isTest):
+    # Try to send Slack message
+    try:
+        response = client.chat_postMessage(
+            channel="#kaijudev",
+            text=myText,
+        )
+    except SlackApiError as e:
+        # You will get a SlackApiError if "ok" is False
+        assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
+
+# If it is a test, just print to the command line
+else:
+    print(myText)
