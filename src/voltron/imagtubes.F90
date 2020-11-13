@@ -231,14 +231,24 @@ module imagtubes
 
         integer :: n,Ni,Nj,Ns
         logical, dimension(:,:), allocatable :: isG
+        real(rp) :: dphi_mix,dphi_rcm
+
 
         Ni = RCMApp%nLat_ion
         Nj = RCMApp%nLon_ion
         allocate(isG(Ni,Nj))
         isG = .not. (RCMApp%iopen == RCMTOPOPEN)
 
-        !Choose number of smoothing iterations
-        Ns = nint(vApp%DeepDT/vApp%ShallowDT) - 1
+    !Choose number of smoothing iterations
+        !Based on ratio of mix vs. rcm coupling
+        !Ns = nint(vApp%DeepDT/vApp%ShallowDT) - 1
+
+        !Based on ratio of mix/RCM resolutions
+        dphi_mix = 360.0/vApp%remixApp%ion(1)%G%Np
+        dphi_rcm = 360.0/Nj
+
+        Ns = nint( (dphi_rcm/dphi_mix)/2 )
+
         if (Ns<=0) return
 
         !Smooth some tubes
