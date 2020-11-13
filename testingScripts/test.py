@@ -35,21 +35,24 @@ print(text)
 # If there is no update, then skip the test for the day
 if (text == 'Already up to date.'):
     print("Oh crap, it is already up to date!")
-    # Try to send Slack message
-    try:
-        response = client.chat_postMessage(
-            channel="#kaijudev",
-            text='No test today. It is already up to date!',
-        )
-    except SlackApiError as e:
-        # You will get a SlackApiError if "ok" is False
-        assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
+    if (len(sys.argv) < 2):
+        # Try to send Slack message
+        try:
+            response = client.chat_postMessage(
+                channel="#kaijudev",
+                text='No test today. It is already up to date!',
+            )
+        except SlackApiError as e:
+            # You will get a SlackApiError if "ok" is False
+            assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
         
-    exit()
+        exit()
+    elif(str(sys.argv[1] == 'f')):
+        print("Buuuuut you forced me to do it anyway....")
 
 # Go back to scripts folder
 os.chdir(home)
-os.chdir("scripts")
+os.chdir("kaiju/testingScripts")
 
 iteration = 1
 
