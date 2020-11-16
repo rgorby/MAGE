@@ -28,6 +28,8 @@ module rcmimag
     logical , private :: doIsoWolf  = .true. !Preserve RCM temp. when doing wolf-limiting
     logical , private :: doBounceDT = .true. !Whether to use Alfven bounce in dt-ingest
     logical , private :: doWIMTScl = .false. !Whether to modulate ingestion timescale by wIM
+    logical , private :: doTrickyTubes = .false. !Whether to poison bad flux tubes
+    logical , private :: doSmoothTubes = .true.  !Whether to smooth potential/FTV on torcm grid
     real(rp), private :: nBounce = 1.0 !Scaling factor for Alfven transit
 
     real(rp), private :: wIM_C = 0.0 !Critical wIM for MHD ingestion inclusion
@@ -251,9 +253,11 @@ module rcmimag
             call HackTubes(RCMApp,vApp)
         endif
 
-        !Coverup some bad tubes
-        call TrickyTubes(RCMApp)
-        
+        if (doTrickyTubes) then
+            !Coverup some bad tubes
+            call TrickyTubes(RCMApp)
+        endif
+
         !Smooth out FTV/potential on tubes b/c RCM will take gradient
         call SmoothTubes(RCMApp,vApp)
 
