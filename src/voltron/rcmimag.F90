@@ -366,7 +366,7 @@ module rcmimag
         real(rp), intent(out) :: nlim,plim
 
         real(rp) :: nrcm,prcm
-        real(rp) :: alpha
+        real(rp) :: alpha,blim
 
         nlim = 0.0
         plim = 0.0
@@ -393,13 +393,17 @@ module rcmimag
             return
         endif
 
+        !Experiment w/ limiting max value of beta allowed
+        blim = min(beta,6.0/5.0)
+        !blim = beta
+
         !Get scaling term
-        alpha = 1.0 + beta*5.0/6.0
+        alpha = 1.0 + blim*5.0/6.0
         if ( (nrcm>TINY) .and. (prcm>TINY) ) then
 
             !Apply wolf-limiting
             plim = ( pmhd*(alpha-1) + prcm )/alpha
-            nlim = nrcm - (0.5*beta/alpha)*(nmhd/pmhd)*(prcm-pmhd)
+            nlim = nrcm - (0.5*blim/alpha)*(nmhd/pmhd)*(prcm-pmhd)
             if (nlim <= TINY) then
                 !Something went bad, nuke both
                 nlim = 0.0
