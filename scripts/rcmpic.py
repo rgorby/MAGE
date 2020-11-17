@@ -36,6 +36,7 @@ if __name__ == "__main__":
 	parser.add_argument('-wgt', action='store_true',default=False,help="Show wRCM instead of FTE (default: %(default)s)")
 	parser.add_argument('-vol', action='store_true',default=False,help="Show FTV instead of FTE (default: %(default)s)")
 	parser.add_argument('-kt' , action='store_true',default=False,help="Show temperature instead of FTE (default: %(default)s)")
+	parser.add_argument('-beta', action='store_true',default=False,help="Show beta instead of FTE (default: %(default)s)")
 
 	#Finalize parsing
 	args = parser.parse_args()
@@ -47,6 +48,7 @@ if __name__ == "__main__":
 	doWgt = args.wgt
 	doVol = args.vol
 	doT   = args.kt
+	doBeta = args.beta
 
 	rcmpp.doEll = not doBig
 
@@ -67,6 +69,7 @@ if __name__ == "__main__":
 	vW = kv.genNorm(0,1)
 	vV = kv.genNorm(1.0e-2,1.0,doLog=True)
 	vT = kv.genNorm(0,50)
+	vB = kv.genNorm(1.0e-2,1.0e+2,doLog=True)
 
 	Nc = 10
 	nMin = 1.0
@@ -108,6 +111,8 @@ if __name__ == "__main__":
 		kv.genCB(AxC3,vV,r"Flux-Tube Volume [Re/nT]",cM=vCMap)
 	elif (doT):
 		kv.genCB(AxC3,vT,r"Temperature [keV]",cM=vCMap)
+	elif (doBeta):
+		kv.genCB(AxC3,vB,r"Beta",cM=wCMap)
 	else:	
 		kv.genCB(AxC3,vS,r"Flux-Tube Entropy [nPa (R$_{E}$/nT)$^{\gamma}$]",cM=sCMap)
 
@@ -136,6 +141,8 @@ if __name__ == "__main__":
 		wRCM  = rcmpp.GetVarMask(rcmdata,nStp,"wIMAG" ,I)
 	if (doVol):
 		bVol = rcmpp.GetVarMask(rcmdata,nStp,"bVol" ,I)
+	if (doBeta):
+		beta = rcmpp.GetVarMask(rcmdata,nStp,"beta" ,I)
 	if (doBig):
 		toRCM = rcmpp.GetVarMask(rcmdata,nStp,"IOpen" ,I)
 
@@ -157,16 +164,17 @@ if __name__ == "__main__":
 	Axs = [AxL,AxM,AxR]
 
 	if (nStp>0):
-		for n in range(3):
-			Ax = Axs[n]
+		if (doBig):
+			for n in range(3):
+				Ax = Axs[n]
 
-			CS1 = Ax.contour(bmX,bmY,toMHD,[0.5],colors=MHDCol,linewidths=MHDLW)
-			manloc = [(0.0,8.0)]
+				CS1 = Ax.contour(bmX,bmY,toMHD,[0.5],colors=MHDCol,linewidths=MHDLW)
+				manloc = [(0.0,8.0)]
 
-			fmt = {}
-			fmt[0.5] = 'MHD'
-			Ax.clabel(CS1,CS1.levels[::2],inline=True,fmt=fmt,fontsize=5,inline_spacing=25,manual=manloc)
-			if (doBig):
+				fmt = {}
+				fmt[0.5] = 'MHD'
+				Ax.clabel(CS1,CS1.levels[::2],inline=True,fmt=fmt,fontsize=5,inline_spacing=25,manual=manloc)
+				
 				CS2 = Ax.contour(bmX,bmY,toRCM,[-0.5],colors=rcmpp.rcmCol,linewidths=MHDLW,linestyles='solid')
 
 	#Handle right
@@ -180,6 +188,9 @@ if __name__ == "__main__":
 		kT = 6.25*Prcm/Nrcm
 		AxR.set_title("RCM Temperature")
 		AxR.pcolor(bmX,bmY,kT,norm=vT,cmap=vCMap)
+	elif (doBeta):
+		AxR.set_title("Average Beta")
+		AxR.pcolor(bmX,bmY,beta,norm=vB,cmap=wCMap)
 	else:	
 		AxR.set_title("Flux-Tube Entropy")
 		AxR.pcolor(bmX,bmY,S,norm=vS,cmap=sCMap)

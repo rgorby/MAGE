@@ -11,8 +11,8 @@ MODULE torcm_mod
 
   implicit none
 
-  logical, parameter :: doSmoothEta = .true. !Whether to smooth eeta at boundary
-  integer, private, parameter :: NumG = 4 !How many buffer cells to require
+  logical, parameter :: doSmoothEta = .false. !Whether to smooth eeta at boundary
+  integer(iprec), private, parameter :: NumG = 4 !How many buffer cells to require
 
   contains
 !==================================================================      
@@ -62,7 +62,7 @@ MODULE torcm_mod
       INTEGER(iprec), INTENT (IN OUT) :: ierr
 
       INTEGER(iprec) :: kin,jmid,ibnd, inew, iold
-      INTEGER(iprec) :: jm,jp,ii,itmax
+      INTEGER(iprec) :: jm,jp,ip,itmax
       INTEGER(iprec) :: min0,i,j,k,n,ns,klow,n_smooth
       LOGICAL,PARAMETER :: use_ellipse = .true.
       LOGICAL, SAVE :: doReadALAM = .true.
@@ -243,6 +243,16 @@ MODULE torcm_mod
 
         enddo !i
       enddo !j
+
+      !Do some reverse-blending near RCM outer boundary
+      n = nint(0.5*NumG)
+      do j=1,jsize
+        do i=0,n
+          ip = imin_j(j)+i !i cell
+          wRCM = wImag(ip,j) !Va/fast+flow
+          eeta(ip,j,klow:) = wRCM*eeta(ip,j,klow:) + (1-wRCM)*eeta_new(ip,j,klow:)
+        enddo !i loop
+      enddo !j loop
 
       if (doSmoothEta) then
         ! smooth eeta at the boundary
@@ -615,7 +625,7 @@ MODULE torcm_mod
       real(rprec) :: bndloc(jdim)
       real(rprec) :: big_vm,a1,a2,a,bP,bM,x0,ell
       real(rprec) :: xP,xM,yMaxP,yMaxM
-      integer(iprec) :: i,j,jm,jp
+      integer(iprec) :: i,j,jm,jp,newi,oldi
       logical :: isGood(idim,jdim)
 
 !  x0 = (a1 + a2)/2
@@ -694,9 +704,22 @@ MODULE torcm_mod
           if (.not. isGood(i,j)) exit
         enddo !i loop
         !Cell i,j is bad or got to i=1
-        bndloc(j) = min(i+1+NumG,idim)
+        newi = min(i+1+NumG,idim)
+        !newbndloc(j) = newi
+        oldi = bndloc(j)
+        !Throttle change in bndloc to NumG if possible
+        if (newi > oldi+NumG) then
+          !Boundary is moving inwards, limit inwards motion if the cells are good
+          if ( all(isGood(oldi:newi,j)) ) then
+            !All the cells are good, so limit retreat to NumG cells
+            newi = min(oldi+NumG,idim)
+          endif
+        else if (newi < oldi-NumG) then
+          !Trying to expand by too many cells
+          newi = max(oldi-NumG,1)
+        endif
+        bndloc(j) = newi
       enddo !j loop
-
 
     end subroutine Set_ellipse
 
