@@ -17,13 +17,12 @@ MODULE lossutils
       real(rprec), intent(in) :: enrg,rloc
 
       real(rprec) :: cxrate
-      real(rprec) :: K,L,Ngeo,KSig,Sig0,a1,a2,a3,B1,B2,Sig,M,Kj,V,Tau,tScl
+      real(rprec) :: K,Ngeo,KSig,Sig0,a1,a2,a3,B1,B2,Sig,M,Kj,V,Tau,tScl
 
       K = enrg*1.0e-3 !Energy in kev
-    !Geocoronal density afa L [#/cc], Taken from Ostgaard 2003 
-      L = rloc
-      Ngeo = 10000.0*exp(-L/1.02) + 70.0*exp(-L/8.2)
-
+    !Geocoronal density [#/cc]
+      Ngeo = OstgaardGeocorona(rloc)
+      
     !Charge exchange cross-section for H+/H
       !K in keV, Sig in cm2
       !Using Lindsay & Stebbings 2005
@@ -48,6 +47,15 @@ MODULE lossutils
 
       cxrate = 1.0/Tau
     END FUNCTION CXKaiju
+
+    !Geocoronal density afa L [#/cc], Taken from Ostgaard 2003 
+    FUNCTION OstgaardGeocorona(L) result(Ngeo)
+      real(rprec), intent(in) :: L
+      real(rprec) :: Ngeo
+
+      Ngeo = 10000.0*exp(-L/1.02) + 70.0*exp(-L/8.2)
+
+    END FUNCTION OstgaardGeocorona
 
     !Simple mock-up for FLC losses
     FUNCTION FLCRat(ie,alam,vm,beq,rcurv,lossc) result(lossFLC)
