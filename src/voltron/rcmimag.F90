@@ -25,14 +25,12 @@ module rcmimag
     logical , private, parameter :: doKillRCMDir = .true. !Whether to always kill RCMdir before starting
     integer, parameter, private :: MHDPad = 0 !Number of padding cells between RCM domain and MHD ingestion
     logical , private :: doWolfLim  = .false. !Whether to do wolf-limiting
-    logical , private :: doIsoWolf  = .true. !Preserve RCM temp. when doing wolf-limiting
     logical , private :: doBounceDT = .true. !Whether to use Alfven bounce in dt-ingest
     logical , private :: doWIMTScl = .false. !Whether to modulate ingestion timescale by wIM
     logical , private :: doTrickyTubes = .true.  !Whether to poison bad flux tubes
     logical , private :: doSmoothTubes = .true.  !Whether to smooth potential/FTV on torcm grid
     real(rp), private :: nBounce = 1.0 !Scaling factor for Alfven transit
-
-    real(rp), private :: wIM_C = 0.0 !Critical wIM for MHD ingestion inclusion
+    real(rp), private :: maxBetaLim = 6.0/5.0
 
     real(rp), dimension(:,:), allocatable, private :: mixPot
 
@@ -85,6 +83,7 @@ module rcmimag
         call iXML%Set_Val(doWolfLim ,"/gamera/source/doWolfLim" ,doWolfLim )
         call iXML%Set_Val(doBounceDT,"/gamera/source/doBounceDT",doBounceDT)
         call iXML%Set_Val(nBounce   ,"/gamera/source/nBounce"   ,nBounce   )
+        call iXML%Set_Val(maxBetaLim,"/gamera/source/betamax"   ,maxBetaLim)
 
         if (isRestart) then
             if (doKillRCMDir) then
@@ -394,7 +393,7 @@ module rcmimag
         endif
 
         !Experiment w/ limiting max value of beta allowed
-        blim = min(beta,6.0/5.0)
+        blim = min(beta,maxBetaLim)
         !blim = beta
 
         !Get scaling term

@@ -152,7 +152,8 @@ MODULE torcm_mod
       !Calculate number of smoothing iterations based on longitudinal cell size
       !Approx. 1hr MLT
       !n_smooth = 5
-      n_smooth = nint( 15.0/(360.0/jsize) )
+      !n_smooth = nint( 15.0/(360.0/jsize) )
+      n_smooth = nint( 7.5/(360.0/jsize) )
       
       do ns=1,n_smooth
         call smooth_boundary_location(isize,jsize,jwrap,bndloc)
@@ -245,11 +246,14 @@ MODULE torcm_mod
       enddo !j
 
       !Do some reverse-blending near RCM outer boundary
-      n = nint(0.5*NumG)
+      !n = nint(0.5*NumG)
+      n = NumG
       do j=1,jsize
         do i=0,n
           ip = imin_j(j)+i !i cell
-          wRCM = wImag(ip,j) !Va/fast+flow
+          !wRCM = wImag(ip,j) !Va/fast+flow
+          wRCM = 1.0/(1.0 + 5.0*beta_average(ip,j)/6.0)
+
           eeta(ip,j,klow:) = wRCM*eeta(ip,j,klow:) + (1-wRCM)*eeta_new(ip,j,klow:)
         enddo !i loop
       enddo !j loop
