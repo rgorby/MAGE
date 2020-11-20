@@ -24,9 +24,9 @@ module rcmimag
     real(rp), private :: rTrc0 = 2.0 !Padding factor for RCM domain to ebsquish radius
     logical , private, parameter :: doKillRCMDir = .true. !Whether to always kill RCMdir before starting
     integer, parameter, private :: MHDPad = 0 !Number of padding cells between RCM domain and MHD ingestion
-    logical , private :: doWolfLim  = .false. !Whether to do wolf-limiting
+    logical , private :: doWolfLim   = .false. !Whether to do wolf-limiting
+    logical , private :: doWolfNLim  = .true.  !If wolf-limiting whether to do wolf-limiting on density as well
     logical , private :: doBounceDT = .true. !Whether to use Alfven bounce in dt-ingest
-    logical , private :: doWIMTScl = .false. !Whether to modulate ingestion timescale by wIM
     logical , private :: doTrickyTubes = .true.  !Whether to poison bad flux tubes
     logical , private :: doSmoothTubes = .true.  !Whether to smooth potential/FTV on torcm grid
     real(rp), private :: nBounce = 1.0 !Scaling factor for Alfven transit
@@ -81,6 +81,12 @@ module rcmimag
         RCMApp%rcm_runid = trim(RunID)
 
         call iXML%Set_Val(doWolfLim ,"/gamera/source/doWolfLim" ,doWolfLim )
+        if (doWolfLim) then
+            call iXML%Set_Val(doWolfNLim ,"/gamera/source/doWolfNLim" ,doWolfNLim )
+        else
+            doWolfNLim = .false.
+        endif
+
         call iXML%Set_Val(doBounceDT,"/gamera/source/doBounceDT",doBounceDT)
         call iXML%Set_Val(nBounce   ,"/gamera/source/nBounce"   ,nBounce   )
         call iXML%Set_Val(maxBetaLim,"/gamera/source/betamax"   ,maxBetaLim)
@@ -350,13 +356,6 @@ module rcmimag
 
         enddo
         
-        !Finally, upscale ingestion timescales based on wImag
-        if (doWIMTScl) then
-            where (RCMApp%wImag>TINY)
-                RCMApp%Tb = RCMApp%Tb/RCMApp%wImag
-            endwhere
-        endif
-
     end subroutine SetIngestion
 
     !Enforce Wolf-limiting on an MHD/RCM thermodynamic state
@@ -402,7 +401,11 @@ module rcmimag
 
             !Apply wolf-limiting
             plim = ( pmhd*(alpha-1) + prcm )/alpha
-            nlim = nrcm - (0.5*blim/alpha)*(nmhd/pmhd)*(prcm-pmhd)
+            if (doWolfNLim) then
+                nlim = nrcm - (0.5*blim/alpha)*(nmhd/pmhd)*(prcm-pmhd)
+            else
+                nlim = nrcm
+            endif
             
             if (nlim <= TINY) then
                 !Something went bad, nuke both
@@ -501,9 +504,6 @@ module rcmimag
         if (doBounceDT) then
             !Use Alfven bounce timescale
             imW(IMTSCL) = nBounce*RCMApp%Tb(ij0(1),ij0(2))
-        else if (doWIMTScl) then
-            !Use current coupling timescale, modulated by wImag
-            imW(IMTSCL) = RCMApp%dtCpl/max( RCMApp%wImag(ij0(1),ij0(2)), TINY )
         endif
 
         imW(IMX1)   = rad2deg*lat
