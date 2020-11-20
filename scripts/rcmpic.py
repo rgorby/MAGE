@@ -37,6 +37,7 @@ if __name__ == "__main__":
 	parser.add_argument('-vol', action='store_true',default=False,help="Show FTV instead of FTE (default: %(default)s)")
 	parser.add_argument('-kt' , action='store_true',default=False,help="Show temperature instead of FTE (default: %(default)s)")
 	parser.add_argument('-beta', action='store_true',default=False,help="Show beta instead of FTE (default: %(default)s)")
+	parser.add_argument('-tbnc', action='store_true',default=False,help="Show Tb instead of FTE (default: %(default)s)")
 
 	#Finalize parsing
 	args = parser.parse_args()
@@ -49,6 +50,7 @@ if __name__ == "__main__":
 	doVol = args.vol
 	doT   = args.kt
 	doBeta = args.beta
+	doTb   = args.tbnc
 
 	rcmpp.doEll = not doBig
 
@@ -70,6 +72,7 @@ if __name__ == "__main__":
 	vV = kv.genNorm(1.0e-2,1.0,doLog=True)
 	vT = kv.genNorm(0,50)
 	vB = kv.genNorm(1.0e-2,1.0e+2,doLog=True)
+	vI = kv.genNorm(0,180)
 
 	Nc = 10
 	nMin = 1.0
@@ -113,6 +116,8 @@ if __name__ == "__main__":
 		kv.genCB(AxC3,vT,r"Temperature [keV]",cM=vCMap)
 	elif (doBeta):
 		kv.genCB(AxC3,vB,r"Beta",cM=wCMap)
+	elif (doTb):
+		kv.genCB(AxC3,vI,r"Tb",cM=sCMap)
 	else:	
 		kv.genCB(AxC3,vS,r"Flux-Tube Entropy [nPa (R$_{E}$/nT)$^{\gamma}$]",cM=sCMap)
 
@@ -143,8 +148,11 @@ if __name__ == "__main__":
 		bVol = rcmpp.GetVarMask(rcmdata,nStp,"bVol" ,I)
 	if (doBeta):
 		beta = rcmpp.GetVarMask(rcmdata,nStp,"beta" ,I)
+	if (doTb):
+		Tb   = rcmpp.GetVarMask(rcmdata,nStp,"Tb" ,I) 
 	if (doBig):
 		toRCM = rcmpp.GetVarMask(rcmdata,nStp,"IOpen" ,I)
+	
 
 	AxL.set_title("RCM Pressure")
 
@@ -191,6 +199,10 @@ if __name__ == "__main__":
 	elif (doBeta):
 		AxR.set_title("Average Beta")
 		AxR.pcolor(bmX,bmY,beta,norm=vB,cmap=wCMap)
+	elif (doTb):
+		AxR.set_title("Ingestion timescale")
+		AxR.pcolor(bmX,bmY,Tb,norm=vI,cmap=sCMap)
+
 	else:	
 		AxR.set_title("Flux-Tube Entropy")
 		AxR.pcolor(bmX,bmY,S,norm=vS,cmap=sCMap)

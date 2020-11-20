@@ -401,8 +401,15 @@ module rcmimag
         if ( (nrcm>TINY) .and. (prcm>TINY) ) then
 
             !Apply wolf-limiting
-            plim = ( pmhd*(alpha-1) + prcm )/alpha
-            nlim = nrcm - (0.5*blim/alpha)*(nmhd/pmhd)*(prcm-pmhd)
+            if (prcm<pmhd) then
+                !Don't inhibit cooling
+                plim = prcm
+                nlim = nrcm
+            else
+                plim = ( pmhd*(alpha-1) + prcm )/alpha
+                nlim = nrcm - (0.5*blim/alpha)*(nmhd/pmhd)*(prcm-pmhd)
+            endif
+            
             if (nlim <= TINY) then
                 !Something went bad, nuke both
                 nlim = 0.0

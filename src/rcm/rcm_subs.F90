@@ -2600,7 +2600,7 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
       enddo
     enddo
 
-    !Freeze flow too close to MHD boundary
+    !Freeze flow too close to MHD inner boundary
     didt(iMHD-1:,:) = 0.0 
     djdt(iMHD+1:,:) = 0.0
     
