@@ -172,7 +172,10 @@ module imagtubes
         mdipole = ABS(planetM0g)*G2T ! dipole moment in T
         colat = PI/2 - lat
         L = 1.0/(sin(colat)**2.0)
-        ijTube%Vol = 32./35.*L**4.0/mdipole
+        !ijTube%Vol = 32./35.*L**4.0/mdipole
+        !Use full dipole FTV formula, convert Rx/nT => Rx/T
+        ijTube%Vol = DipFTV_L(L,planetM0g)*1.0e+9
+        
         ijTube%X_bmin(XDIR) = L*cos(lon)*Rp_m !Rp=>meters
         ijTube%X_bmin(YDIR) = L*sin(lon)*Rp_m !Rp=>meters
         ijTube%X_bmin(ZDIR) = 0.0
@@ -231,14 +234,31 @@ module imagtubes
 
         integer :: n,Ni,Nj,Ns
         logical, dimension(:,:), allocatable :: isG
-        real(rp) :: dphi_mix,dphi_rcm
+        real(rp), dimension(:,:), allocatable :: V0,dV
 
+        real(rp) :: dphi_mix,dphi_rcm
+        real(rp) :: colat
 
         Ni = RCMApp%nLat_ion
         Nj = RCMApp%nLon_ion
         allocate(isG(Ni,Nj))
         isG = .not. (RCMApp%iopen == RCMTOPOPEN)
 
+        allocate(V0(Ni,Nj))
+        allocate(dV(Ni,Nj))
+        V0 = 0.0
+        dV = 0.0
+
+        !Calculate dV, non-dipolar part of FTV
+        do n=1,Ni
+            colat = RCMApp%gcolat(n)
+            V0(n,:) = DipFTV_colat(colat,planetM0g)*1.0e+9
+        enddo
+
+        where (isG)
+            dV = RCMApp%Vol - V0
+        endwhere
+        
     !Choose number of smoothing iterations
         !Based on ratio of mix vs. rcm coupling
         !Ns = nint(vApp%DeepDT/vApp%ShallowDT) - 1
@@ -253,9 +273,14 @@ module imagtubes
 
         !Smooth some tubes
         do n=1,Ns
-            call Smooth2D(RCMApp%Vol) !Flux-tube volume
+            !call Smooth2D(RCMApp%Vol) !Flux-tube volume
+            call Smooth2D(dV) !Smooth dV
             call Smooth2D(RCMApp%pot) !Electrostatic potential
         enddo
+
+        where (isG)
+            RCMApp%Vol = V0 + dV
+        endwhere
 
         contains
         subroutine Smooth2D(Q)

@@ -2442,7 +2442,7 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
   use rice_housekeeping_module, ONLY : LowLatMHD,doOCBLoss,doNewCX,doFLCLoss,dp_on,doPPRefill
   use math, ONLY : SmoothOpTSC,SmoothOperator33
   use lossutils, ONLY : CXKaiju,FLCRat,DepleteOCB
-  
+  use earthhelper, ONLY : DipFTV_colat
   IMPLICIT NONE
   REAL (rprec), INTENT (IN) :: dt
 
@@ -2461,7 +2461,6 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
   
   REAL (rprec) :: T1k,T2k !Local loop variables b/c clawpack alters input
   LOGICAL, save :: FirstTime=.true.
-  LOGICAL, parameter :: doDFTVSmooth = .false. !Smooth grad_ij FTV
   LOGICAL, parameter :: doSuperBee = .false. !Use superbee (instead of minmod/MC)
   
 
@@ -2525,12 +2524,12 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
   !Now get energy-dep. portion, grad_ij vm
   !Using ftv directly w/ possible intermediate smoothing
   !call Grad_IJ(vm,isOpen,dvmdi,dvmdj) !Old calculation
-  ftv = vm**(-3.0/2)
-  call Grad_IJ(ftv,isOpen,dftvi,dftvj)
-  if (doDFTVSmooth) then
-    call Smooth_IJ(dftvi,isOpen)
-    call Smooth_IJ(dftvj,isOpen)
-  endif
+  ftv = 0.0
+  where (.not. isOpen)
+    ftv = vm**(-3.0/2)
+  endwhere
+
+  call FTVGrad(ftv,isOpen,dftvi,dftvj)
 
   dvmdi = (-2.0/3.0)*(ftv**(-5.0/3.0))*dftvi
   dvmdj = (-2.0/3.0)*(ftv**(-5.0/3.0))*dftvj
@@ -2655,7 +2654,6 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
   !Advect w/ clawpack
     call rcm2claw(eeta(:,:,kc),etaC)
     
-
     !Call clawpack, always as first time
     !Need local copies b/c clawpack alters T1/T2
     T1k = T1
@@ -2699,15 +2697,62 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
   contains
 
     !Calculate RCM-node centered gradient of veff
-    subroutine Grad_IJ(veff,isOpen,dvedi,dvedj)
+    subroutine FTVGrad(ftv,isOpen,dftvdi,dftvdj)
+      REAL (rprec), dimension(1:isize,1:jsize), intent(IN)  :: ftv
+      REAL (rprec), dimension(1:isize,1:jsize), intent(OUT) :: dftvdi,dftvdj
+      LOGICAL     , dimension(1:isize,1:jsize), intent(IN)  :: isOpen
+
+      REAL (rprec), dimension(1:isize,1:jsize) :: V0,dV
+      REAL (rprec), dimension(1:isize,1:jsize) :: dV0i,dV0j,ddVi,ddVj
+
+      INTEGER (iprec) :: i,j
+      REAL (rprec) :: cl
+
+      !Calculate dipole FTV
+      do i=1,isize
+        cl = colat(i,jwrap)
+        V0(i,:) = DipFTV_colat(cl)
+        
+      enddo
+      !Now decompose the two contributions
+      dV = 0.0
+      where (.not. isOpen)
+        dV = ftv - V0
+      endwhere
+
+      !Take gradients of each
+      call Grad_IJ(V0,isOpen,dV0i,dV0j,doLimO=.false.)
+      call Grad_IJ(dV,isOpen,ddVi,ddVj,doLimO=.true. )
+      !Do some work on IJ gradients
+      dV0j = 0.0
+      call Smooth_IJ(ddVi,isOpen)
+      call Smooth_IJ(ddVj,isOpen)
+
+      !Recombine pieces
+      dftvdi = dV0i + ddVi
+      dftvdj = dV0j + ddVj
+
+      !call Grad_IJ(ftv,isOpen,dftvdi,dftvdj)
+
+    end subroutine FTVGrad
+
+    !Calculate RCM-node centered gradient of veff
+    subroutine Grad_IJ(veff,isOpen,dvedi,dvedj,doLimO)
       REAL (rprec), dimension(1:isize,1:jsize), intent(IN)  :: veff
       REAL (rprec), dimension(1:isize,1:jsize), intent(OUT) :: dvedi,dvedj
       LOGICAL     , dimension(1:isize,1:jsize), intent(IN)  :: isOpen
+      LOGICAL, intent(in), optional :: doLimO
 
       INTEGER (iprec) :: i,j
 
-      LOGICAL :: isOp(3)
+      LOGICAL :: isOp(3),doLim
       REAL (rprec) :: Q(3)
+
+      if (present(doLimO)) then
+        doLim = doLimO
+      else
+        doLim = .true.
+      endif
 
       dvedi = 0.0
       dvedj = 0.0
@@ -2717,12 +2762,12 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
           !Do I deriv
           Q          = veff  (i-1:i+1,j)
           isOp       = isOpen(i-1:i+1,j)
-          dvedi(i,j) = Deriv_IJ(Q,isOp)
+          dvedi(i,j) = Deriv_IJ(Q,isOp,doLim)
 
           !Do J deriv
           Q          = veff  (i,j-1:j+1)
           isOp       = isOpen(i,j-1:j+1)
-          dvedj(i,j) = Deriv_IJ(Q,isOp)
+          dvedj(i,j) = Deriv_IJ(Q,isOp,doLim)
         enddo
       enddo
 
@@ -2741,9 +2786,10 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
     end subroutine Grad_IJ
 
     !Take derivative from 3-point stencil if possible
-    function Deriv_IJ(Q,isOp) result(dvdx)
+    function Deriv_IJ(Q,isOp,doLim) result(dvdx)
       LOGICAL     , intent(IN) :: isOp(-1:+1)
       REAL (rprec), intent(IN) ::    Q(-1:+1)
+      LOGICAL     , intent(IN)  :: doLim
 
       REAL (rprec) :: dvdx
       REAL (rprec) :: dvL,dvR,dvC
@@ -2765,14 +2811,20 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
         dvR =       Q(+1) - Q( 0)
         dvC = 0.5*( Q(+1) - Q(-1) )
 
-        !Do slope limiter, either minmod or superbee
-        if (doSuperBee) then
-          !Superbee slope-lim on gradient
-          dvdx = qkmaxmod( qkminmod(dvR,2*dvL),qkminmod(2*dvR,dvL) )
+        if (doLim) then
+          !Do slope limiter, either minmod or superbee
+          if (doSuperBee) then
+            !Superbee slope-lim on gradient
+            dvdx = qkmaxmod( qkminmod(dvR,2*dvL),qkminmod(2*dvR,dvL) )
+          else
+            dvdx = MCLim(dvL,dvR,dvC)
+            !dvdx = qkminmod(dvL,dvR) !Just minmod lim
+          endif
         else
-          dvdx = MCLim(dvL,dvR,dvC)
-          !dvdx = qkminmod(dvL,dvR) !Just minmod lim
+          !Take straight centered difference
+          dvdx = dvC
         endif
+
       else if (.not. isOp(-1)) then
         !-1 is closed, do backward difference
         dvdx = Q(0)-Q(-1)

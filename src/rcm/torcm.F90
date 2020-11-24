@@ -11,7 +11,7 @@ MODULE torcm_mod
 
   implicit none
 
-  logical, parameter :: doSmoothEta = .false. !Whether to smooth eeta at boundary
+  logical, parameter :: doSmoothEta = .true. !Whether to smooth eeta at boundary
   integer(iprec), private, parameter :: NumG = 4 !How many buffer cells to require
 
   contains
@@ -245,15 +245,16 @@ MODULE torcm_mod
       enddo !j
 
       !Do some reverse-blending near RCM outer boundary
-      !n = nint(0.5*NumG)
       n = NumG
       do j=1,jsize
         do i=0,n
           ip = imin_j(j)+i !i cell
-          wRCM = wImag(ip,j) !Va/fast+flow
-          !wRCM = 1.0/(1.0 + 5.0*beta_average(ip,j)/6.0)
+          !wRCM = wImag(ip,j) !Va/fast+flow
+          wRCM = 1.0/(1.0 + 5.0*beta_average(ip,j)/6.0)
+          wMHD = (1-wRCM)/(2.0**i)
+          wRCM = (1-wMHD)
 
-          eeta(ip,j,klow:) = wRCM*eeta(ip,j,klow:) + (1-wRCM)*eeta_new(ip,j,klow:)
+          eeta(ip,j,klow:) = wRCM*eeta(ip,j,klow:) + wMHD*eeta_new(ip,j,klow:)
         enddo !i loop
       enddo !j loop
 
@@ -747,7 +748,7 @@ MODULE torcm_mod
       REAL(rprec), PARAMETER :: a4 = 1.0  
       REAL(rprec), PARAMETER :: a5 = 1.0
       integer(iprec) :: klow,di
-      integer(iprec), parameter :: NumI = 1
+      integer(iprec), parameter :: NumI = NumG
 
       logical :: isOpen(5)
 ! now do the smoothing

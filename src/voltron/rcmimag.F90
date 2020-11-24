@@ -364,7 +364,7 @@ module rcmimag
         real(rp), intent(out) :: nlim,plim
 
         real(rp) :: nrcm,prcm
-        real(rp) :: alpha,blim
+        real(rp) :: alpha,blim,dVoV
 
         nlim = 0.0
         plim = 0.0
@@ -402,7 +402,22 @@ module rcmimag
             !Apply wolf-limiting
             plim = ( pmhd*(alpha-1) + prcm )/alpha
             if (doWolfNLim) then
-                nlim = nrcm - (0.5*blim/alpha)*(nmhd/pmhd)*(prcm-pmhd)
+                !nlim = nrcm - (0.5*blim/alpha)*(nmhd/pmhd)*(prcm-pmhd)
+                !n_R V = (n_M + dn)(V + dV)
+                !nlim = n_M + dn
+                dVoV = 0.5*(blim/alpha)*(prcm-pmhd)/pmhd
+
+                !Drop dn*dV =>
+                !nlim = nrcm - nmhd*dVoV
+                
+                !Keep double term, nlim = n_R x [1 + dV/V]^-1
+                !dV/V = beta/2*alpha * (P_R - P_M)/P_M
+                if (dVoV-TINY>-1.0) then
+                    nlim = nrcm/(1+dVoV)
+                else
+                    nlim = nrcm
+                endif
+
             else
                 nlim = nrcm
             endif
