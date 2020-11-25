@@ -655,19 +655,19 @@ module msphutils
                     if (doInD) then
                         dRho = Gr%Gas0(i,j,k,IMDEN,BLK) - pW(DEN)
                         pW(DEN) = pW(DEN) + (Model%dt/Tau)*dRho
+                        pW(VELX:VELZ) = Pxyz/pW(DEN) !Conserve momentum
                     endif
+
 
                     if (doInP) then
                         Prcm = Gr%Gas0(i,j,k,IMPR,BLK)
                         !Assume already wolf-limited or not
                         dP = Prcm - Pmhd
-                        
                         pW(PRESSURE) = pW(PRESSURE) + (Model%dt/Tau)*dP
                     endif
 
                     !Now put back
                     call CellP2C(Model,pW,pCon)
-                    pCon(MOMX:MOMZ) = Pxyz !Conserve momentum during ingestion
                     State%Gas(i,j,k,:,BLK) = pCon
                 enddo
             enddo
