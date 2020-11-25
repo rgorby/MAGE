@@ -145,9 +145,16 @@ module ringutils
                     NCr = [8,16,32,32]
                 case(128)
                     !QUAD res
-                    Nr = 8
-                    allocate(NCr(Nr))
-                    NCr = [8,16,32,32,64,64,64,64]
+                    if (doAggressive) then
+                        !Use possibly dangerous config
+                        Nr = 12
+                        allocate(NCr(Nr))
+                        NCr = [8,16,32,32,64,64,64,64,64,64,64,64]
+                    else
+                        Nr = 8
+                        allocate(NCr(Nr))
+                        NCr = [8,16,32,32,64,64,64,64]
+                    endif
                 case(256)
                     !OCT res
                     if (doAggressive) then

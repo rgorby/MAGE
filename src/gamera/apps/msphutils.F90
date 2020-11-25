@@ -614,6 +614,8 @@ module msphutils
 
         real(rp) :: M0,Mf
         real(rp) :: Tau,dRho,dP,Pmhd,Prcm
+        real(rp), dimension(NDIM) :: Pxyz
+
         logical  :: doIngestIJK,doInD,doInP
 
         if (Model%doMultiF) then
@@ -629,7 +631,7 @@ module msphutils
 
        !$OMP PARALLEL DO default(shared) collapse(2) &
        !$OMP private(i,j,k,doInD,doInP,doIngestIJK,pCon,pW) &
-       !$OMP private(Tau,dRho,dP,Pmhd,Prcm)
+       !$OMP private(Tau,dRho,dP,Pmhd,Prcm,Pxyz)
         do k=Gr%ks,Gr%ke
             do j=Gr%js,Gr%je
                 do i=Gr%is,Gr%ie
@@ -640,6 +642,8 @@ module msphutils
                     if (.not. doIngestIJK) cycle
 
                     pCon = State%Gas(i,j,k,:,BLK)
+                    Pxyz = pCon(MOMX:MOMZ) !Momentum
+
                     call CellC2P(Model,pCon,pW)
                     Pmhd = pW(PRESSURE)
 
@@ -663,6 +667,7 @@ module msphutils
 
                     !Now put back
                     call CellP2C(Model,pW,pCon)
+                    pCon(MOMX:MOMZ) = Pxyz !Conserve momentum during ingestion
                     State%Gas(i,j,k,:,BLK) = pCon
                 enddo
             enddo

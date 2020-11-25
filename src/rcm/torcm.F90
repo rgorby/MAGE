@@ -742,11 +742,12 @@ MODULE torcm_mod
       integer(iprec), intent(in) :: iopen(idim,jdim)
       REAL(rprec) :: eetas2d(jdim,kdim)
 ! these are the smoothing weights
-      REAL(rprec), PARAMETER :: a1 = 1.0  
-      REAL(rprec), PARAMETER :: a2 = 1.0  
-      REAL(rprec), PARAMETER :: a3 = 2.0  
-      REAL(rprec), PARAMETER :: a4 = 1.0  
-      REAL(rprec), PARAMETER :: a5 = 1.0
+      REAL(rprec) :: a1,a2,a3,a4,a5
+      ! REAL(rprec), PARAMETER :: a1 = 1.0  
+      ! REAL(rprec), PARAMETER :: a2 = 1.0  
+      ! REAL(rprec), PARAMETER :: a3 = 2.0  
+      ! REAL(rprec), PARAMETER :: a4 = 1.0  
+      ! REAL(rprec), PARAMETER :: a5 = 1.0
       integer(iprec) :: klow,di
       integer(iprec), parameter :: NumI = NumG
 
@@ -763,6 +764,13 @@ MODULE torcm_mod
 
       !Loop over di levels at boundary and do j-smoothing
       do di=0,NumI
+        !Use more centered weights as we move into the domain
+        a3 = 1.00
+        a2 = 0.50/(2.0**di)
+        a1 = 0.25/(2.0**di)
+        a4 = a2
+        a5 = a1
+
         do j=1,jdim
 
           ! 1 <=> jdim -jwrap +1

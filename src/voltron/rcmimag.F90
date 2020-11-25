@@ -408,15 +408,16 @@ module rcmimag
                 dVoV = 0.5*(blim/alpha)*(prcm-pmhd)/pmhd
 
                 !Drop dn*dV =>
-                !nlim = nrcm - nmhd*dVoV
+                nlim = nrcm - nmhd*dVoV
                 
                 !Keep double term, nlim = n_R x [1 + dV/V]^-1
                 !dV/V = beta/2*alpha * (P_R - P_M)/P_M
-                if (dVoV-TINY>-1.0) then
-                    nlim = nrcm/(1+dVoV)
-                else
-                    nlim = nrcm
-                endif
+
+                ! if (dVoV-TINY>-1.0) then
+                !     nlim = nrcm/(1+dVoV)
+                ! else
+                !     nlim = nrcm
+                ! endif
 
             else
                 nlim = nrcm

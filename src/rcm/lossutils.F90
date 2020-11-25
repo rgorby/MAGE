@@ -115,15 +115,6 @@ MODULE lossutils
 
       integer :: i,j
       real(rprec) :: wocb
-      !real(rprec) :: Kkev,Vmks,Tau,wgt,wocb,mscl
-
-      ! if (ie == RCMPROTON) then
-      !   mscl = 1.0
-      ! else if (ie == RCMELECTRON) then
-      !   mscl = sqrt(Mp_cgs/Me_cgs)
-      ! else
-      !   mscl = 1.0
-      ! endif
 
       !Go through each cell and deplete content if it's next to OCB
       do j=2,jsize-1
@@ -134,17 +125,8 @@ MODULE lossutils
           !At least on boundary cell is open
             !Count up neighboring open cells to get boundary factor
             !1/16 per diag and 1/8 per cardinal direction
-            ! wocb = sum(SmoothOpTSC,mask=isOpen(i-1:i+1,j-1:j+1))
-
-            ! Kkev = max(abs(alamk)*vm(i,j)*1.0e-3,1.0e-3) !Energy in keV, clamp to min 1ev
-
-            ! Vmks = mscl*(3.1e+2)*sqrt(Kkev) !km/s
-            ! Tau = sqrt(dA(i,j))/Vmks !Timescale [s]
-            ! wgt = min(dt/Tau,1.0)*wocb
-            ! etak(i,j) = (1.0-wgt)*etak(i,j)
-
-            ! write(*,*) 'wgt/ocb = ', wgt,wocb
-            etak(i,j) = (1.0-wocb)*etak(i,j)
+            wocb = sum(SmoothOpTSC,mask=isOpen(i-1:i+1,j-1:j+1))
+            etak(i,j) = (1.0-wocb)*etak(i,j)            
 
           endif
 
