@@ -2442,7 +2442,7 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
   use rice_housekeeping_module, ONLY : LowLatMHD,doOCBLoss,doNewCX,doFLCLoss,dp_on,doPPRefill
   use math, ONLY : SmoothOpTSC,SmoothOperator33
   use lossutils, ONLY : CXKaiju,FLCRat,DepleteOCB
-  use earthhelper, ONLY : DipFTV_colat
+  use earthhelper, ONLY : DipFTV_colat,DerivDipFTV
   IMPLICIT NONE
   REAL (rprec), INTENT (IN) :: dt
 
@@ -2523,7 +2523,6 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
   call Grad_IJ(vv,isOpen,dvvdi,dvvdj)
   !Now get energy-dep. portion, grad_ij vm
   !Using ftv directly w/ possible intermediate smoothing
-  !call Grad_IJ(vm,isOpen,dvmdi,dvmdj) !Old calculation
   ftv = 0.0
   where (.not. isOpen)
     ftv = vm**(-3.0/2)
@@ -2696,7 +2695,7 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
 
   contains
 
-    !Calculate RCM-node centered gradient of veff
+    !Calculate RCM-node centered gradient of FTV
     subroutine FTVGrad(ftv,isOpen,dftvdi,dftvdj)
       REAL (rprec), dimension(1:isize,1:jsize), intent(IN)  :: ftv
       REAL (rprec), dimension(1:isize,1:jsize), intent(OUT) :: dftvdi,dftvdj
@@ -2705,33 +2704,50 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
       REAL (rprec), dimension(1:isize,1:jsize) :: V0,dV
       REAL (rprec), dimension(1:isize,1:jsize) :: dV0i,dV0j,ddVi,ddVj
 
-      INTEGER (iprec) :: i,j
-      REAL (rprec) :: cl
+      INTEGER (iprec) :: i
+      REAL (rprec) :: cl,dcldi,dv0dcl
 
       !Calculate dipole FTV
       do i=1,isize
         cl = colat(i,jwrap)
         V0(i,:) = DipFTV_colat(cl)
-        
       enddo
+
       !Now decompose the two contributions
       dV = 0.0
       where (.not. isOpen)
         dV = ftv - V0
       endwhere
 
-      !Take gradients of each
-      call Grad_IJ(V0,isOpen,dV0i,dV0j,doLimO=.false.)
-      call Grad_IJ(dV,isOpen,ddVi,ddVj,doLimO=.true. )
-      !Do some work on IJ gradients
+    !Take gradients of each
+      !Grad of dipole, analytic
+      dV0i = 0.0
       dV0j = 0.0
+      do i=2,isize-1
+        dcldi = 0.5*(colat(i+1,jwrap)-colat(i-1,jwrap))
+        cl = colat(i,jwrap)
+        dv0dcl = DerivDipFTV(cl)
+        dV0i(i,:) = dv0dcl*dcldi
+      enddo
+      
+      !Grad of perturbation, smooth this
+      call Grad_IJ(dV,isOpen,ddVi,ddVj,doLimO=.true. )
       call Smooth_IJ(ddVi,isOpen)
       call Smooth_IJ(ddVj,isOpen)
 
       !Recombine pieces
+      where (.not. isOpen)
+        dftvdi = dV0i + ddVi
+        dftvdj = dV0j + ddVj
+      elsewhere
+        dftvdi = 0.0
+        dftvdj = 0.0
+      endwhere
+
       dftvdi = dV0i + ddVi
       dftvdj = dV0j + ddVj
 
+      !Old calculation, just do raw gradient
       !call Grad_IJ(ftv,isOpen,dftvdi,dftvdj)
 
     end subroutine FTVGrad

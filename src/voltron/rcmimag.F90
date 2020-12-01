@@ -16,6 +16,7 @@ module rcmimag
     use kronos
     use rcm_mhd_mod, ONLY : rcm_mhd
     use rcm_mhd_io
+    use gdefs, only : dFloor,pFloor
     use rcmdefs, only : DenPP0
     
     
@@ -359,21 +360,26 @@ module rcmimag
     end subroutine SetIngestion
 
     !Enforce Wolf-limiting on an MHD/RCM thermodynamic state
+    !Density [#/cc], pressure [nPa]
     subroutine WolfLimit(nrc,prc,npp,nmhd,pmhd,beta,nlim,plim)
         real(rp), intent(in)  :: nrc,prc,npp,nmhd,pmhd,beta
         real(rp), intent(out) :: nlim,plim
 
         real(rp) :: nrcm,prcm
         real(rp) :: alpha,blim,dVoV
+        logical :: doP,doD
 
         nlim = 0.0
         plim = 0.0
 
+        doP = (prc >= pFloor)
+
         !Test RC contribution
-        if ( (nrc>TINY) .and. (prc>TINY) ) then
+        if (doP) then
             nrcm = nrc !Ring current contribution
             prcm = prc !Only pressure contribution from RC
         else
+            !Nothing worth while from RC
             nrcm = 0.0
             prcm = 0.0
         endif
@@ -391,57 +397,53 @@ module rcmimag
             return
         endif
 
+        doD = (nrcm >= dFloor)
+
         !Experiment w/ limiting max value of beta allowed
         blim = min(beta,maxBetaLim)
         !blim = beta
 
         !Get scaling term
         alpha = 1.0 + blim*5.0/6.0
-        if ( (nrcm>TINY) .and. (prcm>TINY) ) then
 
-            !Apply wolf-limiting
+        if (doP) then
+            !Have pressure to ingest, do wolf-limiting
             plim = ( pmhd*(alpha-1) + prcm )/alpha
-            if (doWolfNLim) then
-                !nlim = nrcm - (0.5*blim/alpha)*(nmhd/pmhd)*(prcm-pmhd)
-                !n_R V = (n_M + dn)(V + dV)
-                !nlim = n_M + dn
-                dVoV = 0.5*(blim/alpha)*(prcm-pmhd)/pmhd
+            if (doD) then
+                !Check whether to limit density
+                if (doWolfNLim) then
+                    !n_R V = (n_M + dn)(V + dV)
+                    !nlim = n_M + dn, Drop dn*dV =>
+                    dVoV = 0.5*(blim/alpha)*(prcm-pmhd)/pmhd
+                    nlim = nrcm - nmhd*dVoV
+                    if (nlim <= dFloor) then
+                        !Something went bad, nuke everything
+                        nlim = 0.0
+                        plim = 0.0
+                        return
+                    endif !nlim
+                else
+                    nlim = nrcm !Raw density
+                endif !Wolf-limit on density
 
-                !Drop dn*dV =>
-                nlim = nrcm - nmhd*dVoV
-                
-                !Keep double term, nlim = n_R x [1 + dV/V]^-1
-                !dV/V = beta/2*alpha * (P_R - P_M)/P_M
-
-                ! if (dVoV-TINY>-1.0) then
-                !     nlim = nrcm/(1+dVoV)
-                ! else
-                !     nlim = nrcm
-                ! endif
-
+                return
             else
-                nlim = nrcm
-            endif
-            
-            if (nlim <= TINY) then
-                !Something went bad, nuke both
+                !Pressure but no density (electron RC?)
                 nlim = 0.0
-                plim = 0.0
-            endif
-            return
-        endif
-
-        !If still here at least one of density/pressure is degenerate
-        !Test for den only, i.e. plasmasphere
-        if (nrcm>TINY) then
-            !Take raw density
-            nlim = nrcm
+                return
+            endif !doD
+        else !not doP
+            !No pressure, but possibly density (i.e. plasmasphere only)
             plim = 0.0
+            if (doD) then
+                nlim = nrcm
+            else
+                nlim = 0.0
+            endif !doD
+
             return
-        endif
-        !Return null values
-        nlim = 0.0
-        plim = 0.0
+
+        endif !doP
 
     end subroutine WolfLimit
 

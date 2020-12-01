@@ -538,4 +538,30 @@ module earthhelper
         S8 = sin(colat)**8.0
         V = 2*cSum/S8/M0
     end function DipFTV_colat
+
+    !Derivative wrt colat of dipole FTV
+    function DerivDipFTV(colat,M0gO) result(dVdcol)
+        real(rp), intent(in) :: colat
+        real(rp), intent(in), optional :: M0gO
+        real(rp) :: dVdcol
+        real(rp) :: M0g,M0,cSum,dSum,S8
+
+        if (present(M0gO)) then
+            M0g = M0gO
+        else
+            M0g = EarthM0g
+        endif
+        M0 = abs(M0g*G2nT) !Convert to nano-tesa
+        cSum =  35.0     *cos(1.0*colat) -      7.0 *cos(3.0*colat) &
+              +(7.0/5.0) *cos(5.0*colat) - (1.0/7.0)*cos(7.0*colat)
+
+        cSum = cSum/64.0
+        S8 = sin(colat)**8.0
+
+        !Deriv of csum wrt colat
+        dSum = (-35.0*sin(1.0*colat) + 21.0*sin(3.0*colat) &
+                - 7.0*sin(5.0*colat) +  1.0*sin(7.0*colat) )/64.0
+        dVdcol = (2.0/S8/M0)*( -8.0*cotan(colat)*cSum + dSum )
+
+    end function DerivDipFTV
 end module earthhelper

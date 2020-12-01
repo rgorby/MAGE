@@ -612,9 +612,9 @@ module msphutils
         integer :: i,j,k
         real(rp), dimension(NVAR) :: pW, pCon
 
-        real(rp) :: M0,Mf
         real(rp) :: Tau,dRho,dP,Pmhd,Prcm
-        real(rp), dimension(NDIM) :: Pxyz
+        real(rp), dimension(NDIM) :: Mxyz,Vxyz,B
+        real(rp), dimension(NDIM,NDIM) :: Lam,Laminv
 
         logical  :: doIngestIJK,doInD,doInP
 
@@ -626,12 +626,12 @@ module msphutils
         if (Model%t<=0) return
 
         if (.not. doIngest) return
-        
-        !M0 = sum(State%Gas(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,DEN,BLK)*Gr%volume(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke))
 
        !$OMP PARALLEL DO default(shared) collapse(2) &
        !$OMP private(i,j,k,doInD,doInP,doIngestIJK,pCon,pW) &
-       !$OMP private(Tau,dRho,dP,Pmhd,Prcm,Pxyz)
+       !$OMP private(Tau,dRho,dP,Pmhd,Prcm,Mxyz,Vxyz,B) &
+       !$OMP private(Lam,Laminv)
+
         do k=Gr%ks,Gr%ke
             do j=Gr%js,Gr%je
                 do i=Gr%is,Gr%ie
@@ -642,10 +642,13 @@ module msphutils
                     if (.not. doIngestIJK) cycle
 
                     pCon = State%Gas(i,j,k,:,BLK)
-                    Pxyz = pCon(MOMX:MOMZ) !Momentum
-
                     call CellC2P(Model,pCon,pW)
                     Pmhd = pW(PRESSURE)
+
+                    !Calculate semi-rel momentum (identical to momentum if no boris correction)
+                    B = State%Bxyz(i,j,k,:)
+                    call Mom2Rel(Model,pW(DEN),B,Lam)
+                    Mxyz = matmul(Lam,pCon(MOMX:MOMZ)) !semi-relativistic momentum
 
                     !Get timescale, taking directly from Gas0
                     Tau = Gr%Gas0(i,j,k,IMTSCL,BLK)
@@ -655,9 +658,7 @@ module msphutils
                     if (doInD) then
                         dRho = Gr%Gas0(i,j,k,IMDEN,BLK) - pW(DEN)
                         pW(DEN) = pW(DEN) + (Model%dt/Tau)*dRho
-                        pW(VELX:VELZ) = Pxyz/pW(DEN) !Conserve momentum
                     endif
-
 
                     if (doInP) then
                         Prcm = Gr%Gas0(i,j,k,IMPR,BLK)
@@ -666,6 +667,11 @@ module msphutils
                         pW(PRESSURE) = pW(PRESSURE) + (Model%dt/Tau)*dP
                     endif
 
+                    !Get new velocity, start w/ updated inverse matrix
+                    call Rel2Mom(Model,pW(DEN),B,Laminv)
+                    Vxyz = matmul(Laminv,Mxyz)/max(pW(DEN),dFloor)
+                    pW(VELX:VELZ) = Vxyz
+
                     !Now put back
                     call CellP2C(Model,pW,pCon)
                     State%Gas(i,j,k,:,BLK) = pCon
@@ -673,50 +679,7 @@ module msphutils
             enddo
         enddo
                     
-        !Mf = sum(State%Gas(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,DEN,BLK)*Gr%volume(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke))
-        !write(*,*) 'Before / After / Delta = ', M0,Mf,Mf-M0
-
     end subroutine MagsphereIngest
-
-    !Calculate weight for imag ingestion, Va/Vfast
-    function IMagWgt(Model,pW,Bxyz) result(w)
-        type(Model_T), intent(in) :: Model
-        real(rp), dimension(NVAR), intent(in) :: pW
-        real(rp), dimension(NDIM), intent(in) :: Bxyz
-        real(rp) :: w
-
-        real(rp) :: D,P,MagV,MagB,Va,Cs,Vf
-
-        D = pW(DEN)
-        P = pW(PRESSURE)
-
-        MagV = norm2(pW(VELX:VELZ))
-        MagB = norm2(Bxyz)
-        !Alfven speed
-        Va = MagB/sqrt(D)
-        if (Model%doBoris) then
-            Va = Model%Ca*Va/sqrt(Model%Ca*Model%Ca + Va*Va)
-        endif
-        !Fastest signal
-        Cs = sqrt(Model%gamma*P/D)
-        Vf = MagV + sqrt(Cs**2.0 + Va**2.0)
-
-        w = Va/Vf
-    end function IMagWgt
-
-    function BouncePeriod(Model,xyz) result(Tau)
-        type(Model_T), intent(in) :: Model
-        real(rp), dimension(NDIM), intent(in) :: xyz
-        real(rp) :: Tau
-
-        real(rp) :: Leq,V
-
-        Leq = DipoleL(xyz)
-        V = Model%Ca
-        !Convert to m/(m/s)/(code time)
-        Tau = (Leq*Model%Units%gx0)/(V*Model%Units%gv0*Model%Units%gT0)
-
-    end function BouncePeriod
 
     !Set gPsi (corotation potential)
     subroutine CorotationPot(Model,Grid,gPsi)

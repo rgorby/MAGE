@@ -16,8 +16,13 @@ module math
     real(rp), parameter, dimension(3,3) ::  &
               SmoothOpTSC = reshape( [ 0.0625,0.1250,0.0625, &
                                        0.1250,0.2500,0.1250, &
-                                       0.0625,0.1250,0.0625 ], [3,3] )
+                                       0.0625,0.1250,0.0625  ], [3,3] )
 
+    !3x3 identity tensor
+    real(rp), parameter, dimension(3,3) ::  &
+              Eye33 = reshape( [ 1.0,0.0,0.0, &
+                                 0.0,1.0,0.0, &
+                                 0.0,0.0,1.0  ], [3,3] )
     contains
 
     !Generates a random number between vMin/vMax
