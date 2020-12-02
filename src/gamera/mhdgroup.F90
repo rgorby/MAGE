@@ -520,10 +520,13 @@ module mhdgroup
         real(rp), intent(in) :: dt
 
         integer :: i,j,k,s,s0,sE
-        real(rp) :: Dhf,IntE
-        real(rp), dimension(NDIM) :: p,g
+        
+        real(rp) :: Dhf,Dblk
+        real(rp), dimension(NDIM) :: g,B,bMxyz,cMxyz
+        real(rp), dimension(NDIM,NDIM) :: Lam,Laminv
         real(rp), dimension(NVAR) :: pW,pCon
         real(rp), dimension(0:Model%nSpc) :: RhoMin
+
 
         RhoMin(BLK) = 0.0
         if (Model%doMultiF) then
@@ -539,34 +542,43 @@ module mhdgroup
 
         !Add grav forces
         !$OMP PARALLEL DO default(shared) collapse(2) &
-        !$OMP private(s,i,j,k,Dhf,IntE,p,g,pW,pCon)
+        !$OMP private(s,i,j,k,Dhf,Dblk,bMxyz,cMxyz) &
+        !$OMP private(g,B,Lam,Laminv,pW,pCon)
         do s=s0,sE
             do k=Gr%ks,Gr%ke
                 do j=Gr%js,Gr%je
                     do i=Gr%is,Gr%ie
                         if ( State%Gas(i,j,k,DEN,s) >= RhoMin(s) ) then
-                            !Save thermal energy of state
-                            pCon = State%Gas(i,j,k,1:NVAR,s)
-                            call CellC2P(Model,pCon,pW)
-                            IntE = pW(PRESSURE)/(Model%gamma-1)
+                        !Get necessary state info
+                            pCon = State%Gas(i,j,k,1:NVAR,s) !Conserved
+                            call CellC2P(Model,pCon,pW) !Primitive
+                            Dblk = State%Gas(i,j,k,DEN,BLK) !Bulk density
 
                             !Get average density
                             Dhf = 0.5*( State%Gas(i,j,k,DEN,s) + oState%Gas(i,j,k,DEN,s) )
-
-                            !Update momentum
+                        !Map classical momentum to boris momentum
+                            !NOTE: transform is I if Boris isn't on
+                            cMxyz = pCon(MOMX:MOMZ) !Classical momentum
+                            B = State%Bxyz(i,j,k,:)
+                            call Mom2Rel(Model,Dblk,B,Lam)
+                            bMxyz = matmul(Lam,cMxyz)
+                        !Apply gravitational force to boris momentum
                             g = Gr%gxyz(i,j,k,XDIR:ZDIR)
-                            p = pCon(MOMX:MOMZ) + Model%dt*Dhf*g
-
-                            !Reset conserved state
-                            pCon(MOMX:MOMZ) = p
-                            pCon(ENERGY) = IntE + 0.5*dot_product(p,p)/pCon(DEN)
+                            bMxyz = bMxyz + Model%dt*Dhf*g
+                        !Map updated Boris momentum back to classical
+                            call Rel2Mom(Model,Dblk,B,Laminv)
+                            cMxyz = matmul(Laminv,bMxyz) !Classical momentum
+                        !Set new primitive variables, convert and store
+                            !Only V has changed
+                            pW(VELX:VELZ) = cMxyz/max(pW(DEN),dFloor)
+                            call CellP2C(Model,pW,pCon)
                             State%Gas(i,j,k,:,s) = pCon
                         endif
-                    enddo
-                enddo
-            enddo
-        enddo
-        
+                    enddo !i
+                enddo !j
+            enddo !k
+        enddo !s
+
         if (Model%doMultiF) then
             call State2Bulk(Model,Gr,State)
         endif
