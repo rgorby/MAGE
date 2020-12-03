@@ -63,7 +63,8 @@ module step
         real(rp) :: dtMin,dtOld,dtijk
         integer :: i,j,k
         integer :: is,ie,js,je,ks,ke
-        logical :: isDisaster
+        logical :: isDisaster,isBad
+        character(len=strLen) :: eStr
 
         if(Model%fixedTimestep) then
             CalcDT = Model%dt
@@ -100,44 +101,57 @@ module step
         endif
 
         CalcDT = dtMin
-        isDisaster = .false.
-        if (Model%ts > 0) then
-        !Check for horrible things
 
+        !Whether to crash or resort to desperate measures
+        isDisaster = .false. 
+        isBad      = .false.
+
+        !Check for horrible things
+        if (Model%ts > 0) then
             !Check for sudden drop in dt
             if (dtOld/dtMin >= 10) then
-                write(*,*) "<Drop in timestep by 10x (",dtOld,"=>",dtMin,"), exiting ...>"
-                isDisaster = .true.
+                write(eStr,*) "<Drop in timestep by 10x (",dtOld,"=>",dtMin,"), exiting ...>"
+                isBad = .true.
             endif
 
             !Check for too small dt
             if (dtMin <= TINY) then
-                write(*,*) "<Timestep too small (",dtMin,"), exiting ...>"
-                isDisaster = .true.
+                write(eStr,*) "<Timestep too small (",dtMin,"), exiting ...>"
+                isDisaster = .true. !We're boned
             endif
 
             !Check for slower but significant timestep drop
             if ( (Model%dt0>TINY) .and. (dtMin/Model%dt0 <= Model%limDT0) ) then
-                write(*,*) "<Timestep less than limDT0 of initial (",Model%dt0,"=>",&
-                    dtMin,"), exiting ...>"
-                isDisaster = .true.
+                write(eStr,*) "<Timestep less than limDT0 of initial (",Model%dt0,"=>",dtMin,"), exiting ...>"
+                isBad = .true.
             endif
 
-            !Call black box and implode
-            if (isDisaster) then
-                call BlackBox(Model,Gr,State,dtOld)
-                write(*,*) 'Commiting suicide in 120s ...'
-                call sleep(120) !Sleep for 2 minuts before blowing up
-                write(*,*) 'Goodbye cruel world'
-                stop
-            endif !Self-destruct
-
-            !If we didn't crash, check to see if we need to try CPR
             if ( Model%doCPR .and. (Model%dt0>TINY) .and. (dtMin/Model%dt0 <= Model%limCPR) ) then
-                !Attempt CPR to keep patient alive
-                call StateCPR(Model,Gr,State)
+                !Patient is dying, attempt CPR to keep patient alive
+                write(eStr,*) "<Patient is dying, trying to resuscitate. Clear!>"
+                isBad = .true.
             endif
-        endif !Disaster check
+
+            !Done testing, now is the time for action!
+            if (isDisaster .or. isBad) then
+
+                if (Model%doCPR .and. isBad .and. (.not. isDisaster)) then
+                !Doing CPR, it's bad but not a disaster. Try to save the patient
+                    call StateCPR(Model,Gr,State)
+                else
+                !Meh, let it die
+                    write(*,*) trim(eStr)
+                    !Call black box and implode
+                    call BlackBox(Model,Gr,State,dtOld)
+                    write(*,*) 'Commiting suicide in 300s ...'
+                    call sleep(300) !Sleep before blowing up
+                    write(*,*) 'Goodbye cruel world'
+                    stop !Self destruct
+
+                endif
+            endif !isDis or isBad
+
+        endif !Terrible things check
 
         !Make sure we don't overstep the end of the simulation
         if ( (Model%t+CalcDT) > Model%tFin ) then
@@ -285,7 +299,7 @@ module step
         real(rp) :: D,Vf,Va,Cs,MagB
         real(rp), dimension(NVAR) :: pCon,pW
         real(rp), dimension(NDIM) :: B
-        logical :: doVa,doCs,doVf !Which speeds to slow
+        logical :: doVa,doCs,doVf,isFloored !Which speeds to slow
     
     !TODO: Remove this replicated code
     !Get three speeds, fluid/sound/alfven
@@ -346,6 +360,13 @@ module step
             !Nudge up density
             pW(DEN) = pW(DEN)/(alpha*alpha)
         endif
+    !Check for floored cell
+        isFloored = (pW(DEN)     <dFloor+TINY) .or. &
+                  & (pW(PRESSURE)<pFloor+TINY)
+        if (isFloored) then
+            !This cell was just floored and it's causing us problems, so take away its velocity
+            pW(VELX:VELZ) = 0.0
+        endif          
 
     !Store changed values
         call CellP2C(Model,pW,pCon)

@@ -39,8 +39,7 @@ MODULE rice_housekeeping_module
              L_write_vars_debug    = .false., &
              L_write_int_grid_debug= .true.
   
-  !INTEGER(iprec) :: Idt_overwrite         = 1
-  INTEGER(iprec) :: Idt_overwrite         = 5 !K: Setting this to avoid as much unnecessary subcycling
+  INTEGER(iprec) :: Idt_overwrite         = 1
   INTEGER(iprec) :: rcm_record
   REAL(rprec) :: HighLatBD,LowLatBD
   LOGICAL :: doLatStretch = .true.
@@ -50,6 +49,8 @@ MODULE rice_housekeeping_module
 ! set this to false to turn off the dynamic plasmasphere  07242020  sbao
   LOGICAL :: dp_on = .true.
   LOGICAL, PARAMETER :: use_plasmasphere = .true.
+  LOGICAL :: doAvg2MHD = .true.
+
   INTEGER(iprec) :: InitKp = 1
   REAL(rprec) :: staticR = 0.0
   REAL(rprec) :: LowLatMHD = 0.0
@@ -133,7 +134,12 @@ MODULE rice_housekeeping_module
         call xmlInp%Set_Val(dp_on,"plasmasphere/isDynamic",dp_on)
         call xmlInp%Set_Val(InitKp ,"plasmasphere/initKp",InitKp) 
         call xmlInp%Set_Val(staticR ,'plasmasphere/staticR',staticR)
-        !For now just using default Idt_overwrite
+
+        !Tomhd parameters
+        call xmlInp%Set_Val(doAvg2MHD,"tomhd/doAvg2MHD",doAvg2MHD)
+
+        !Advance parameters
+        call xmlInp%Set_Val(Idt_overwrite,"sim/idt",Idt_overwrite)
 
       end subroutine RCM_MHD_Params_XML
 

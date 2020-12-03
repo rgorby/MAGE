@@ -12,7 +12,7 @@ MODULE torcm_mod
 
   real(rp), private :: density_factor !module private density_factor using planet radius
   real(rp), private :: pressure_factor
-  logical, parameter :: doSmoothEta = .false. !Whether to smooth eeta at boundary
+  logical, parameter :: doSmoothEta = .true. !Whether to smooth eeta at boundary
   integer, private, parameter :: NumG = 4 !How many buffer cells to require
 
   contains
@@ -488,27 +488,27 @@ MODULE torcm_mod
       real(rprec) :: dtot,drcm
       integer(iprec) :: k
 
-    !Trap for boring cases
-      if (iopen(i,j) == RCMTOPOPEN) then
-        dmhd = 0.0
+      !Trap for boring cases
+        if (iopen(i,j) == RCMTOPOPEN) then
+          dmhd = 0.0
+          dpp  = 0.0
+          return
+        endif
+        dmhd = den(i,j)
         dpp  = 0.0
-        return
-      endif
-      dmhd = den(i,j)
-      dpp  = 0.0
 
-      if (.not. use_plasmasphere) return !Separation complete
-      
-    !If still here either null or closed
-      !Calculate plasmasphere density contribution
-      dpp = density_factor*1.0*eeta(i,j,1)*vm(i,j)**1.5
-      if (dpp < TINY) return !No plasmasphere to worry about
+        if (.not. use_plasmasphere) return !Separation complete
+        
+      !If still here either null or closed
+        !Calculate plasmasphere density contribution
+        dpp = density_factor*1.0*eeta(i,j,1)*vm(i,j)**1.5
+        if (dpp < TINY) return !No plasmasphere to worry about
 
-      if ( (dpp < dmhd) .and. (dpp > TINY) ) then
-        !Smaller than MHD so just subtract out and assume rest is hot fluid
-        dmhd = dmhd - dpp
-        return
-      endif
+        if ( (dpp < dmhd) .and. (dpp > TINY) ) then
+          !Smaller than MHD so just subtract out and assume rest is hot fluid
+          dmhd = dmhd - dpp
+          return
+        endif
 
       !Last try, part fluid based on inferred ratio from RCM
         drcm = 0.0
@@ -527,8 +527,14 @@ MODULE torcm_mod
           return
         endif
 
-      !We tried our best, just return uncorrected density
-      return
+        !dpp > dmhd, but don't want to use potentially large plasmasphere mass
+        if ( abs(dmhd-dpp) > TINY ) then
+          dmhd = abs(dmhd-dpp)
+          return
+        endif
+        
+        !We tried our best, just return uncorrected density
+        return
 
       END SUBROUTINE PartFluid
 !
@@ -626,26 +632,7 @@ MODULE torcm_mod
 
       END SUBROUTINE Press2eta
       
-      !Calculates difference of erfs - diff of exps, i.e. Eqn B5 from Pembroke+ 2012
-      function erfexpdiff(A,x,y) result(z)
 
-        real(rp), intent(in) :: A,x, y
-        real(rp) :: z
-
-        !QUAD precision holders
-        real(qp) :: xq,yq,zq,differf,diffexp
-
-        xq = x
-        yq = y
-        !Replacing erf(x)-erf(y) w/ erfc to avoid flooring to zero
-        differf = erfc(yq)-erfc(xq)
-        diffexp = xq*exp(-xq**2.0) - yq*exp(-yq**2.0)
-        diffexp = 2.0*diffexp/sqrt(PI)
-
-        zq = A*(differf-diffexp)
-        z = zq
-
-      end function erfexpdiff
 
 !===================================================================
     SUBROUTINE Set_ellipse(idim,jdim,rmin,pmin,vm,big_vm,bndloc,iopen)
@@ -778,58 +765,64 @@ MODULE torcm_mod
       REAL(rprec), PARAMETER :: a3 = 2.0  
       REAL(rprec), PARAMETER :: a4 = 1.0  
       REAL(rprec), PARAMETER :: a5 = 1.0
-      integer(iprec) :: klow
+      integer(iprec) :: klow,di
       logical :: isOpen(5)
 ! now do the smoothing
+
+    !Smooth all channels, including plasmasphere      
+      ! if (use_plasmasphere) then
+      !   klow = 2
+      ! else
+      !   klow = 1
+      ! endif
+
+      klow = 1 
+      !Loop over di levels at boundary and do j-smoothing
+      do di=0,2
+        do j=1,jdim
+
+          ! 1 <=> jdim -jwrap +1
+          ! jdim <=> jwrap
+          jmm = j - 2
+          if(jmm < 1)jmm = jdim - jwrap - 1       
+          jm  = j - 1
+          if(jm < 1) jm = jdim - jwrap       
+          jpp = j + 2
+          if(jpp > jdim)jpp = jwrap + 2
+          jp  = j + 1
+          if(jp > jdim) jp = jwrap + 1
+
+          isOpen(1) = (iopen(imin_j(jmm)+di,jmm) == RCMTOPOPEN)
+          isOpen(2) = (iopen(imin_j(jm )+di,jm ) == RCMTOPOPEN)
+          isOpen(3) = (iopen(imin_j(j  )+di,j  ) == RCMTOPOPEN)
+          isOpen(4) = (iopen(imin_j(jp )+di,jp ) == RCMTOPOPEN)
+          isOpen(5) = (iopen(imin_j(jpp)+di,jpp) == RCMTOPOPEN)
+
+          if ( any(isOpen) ) then
+            !Keep old values b/c too close to OCB
+            eetas2d(j,klow:kdim) = eeta(imin_j(j  )+di,j  ,klow:kdim)
+          else
+            !Only smooth if all closed/null cells
+            !Only smooth RC, plasmasphere would diffuse too much
+            do k=klow,kdim
+              eetas2d(j,k) = ( a1*eeta(imin_j(jmm)+di,jmm,k) + &
+                               a2*eeta(imin_j(jm )+di,jm ,k) + &
+                               a3*eeta(imin_j(j  )+di,j  ,k) + &
+                               a4*eeta(imin_j(jp )+di,jp ,k) + &
+                               a5*eeta(imin_j(jpp)+di,jpp,k) )/(a1+a2+a3+a4+a5)
+            enddo !k loop
+          endif !OCB
+
+        enddo !j loop
+
+        !Now go back and reset values
+        do j=1,jdim
+          eeta(imin_j(j)+di,j,klow:kdim) = eetas2d(j,klow:kdim)
+        enddo
+
+      enddo !di loop
       
-      if (use_plasmasphere) then
-        klow = 2
-      else
-        klow = 1
-      endif
-
-      do j=1,jdim
-        ! 1 <=> jdim -jwrap +1
-        ! jdim <=> jwrap
-        jmm = j - 2
-        if(jmm < 1)jmm = jdim - jwrap - 1       
-        jm  = j - 1
-        if(jm < 1) jm = jdim - jwrap       
-        jpp = j + 2
-        if(jpp > jdim)jpp = jwrap + 2
-        jp  = j + 1
-        if(jp > jdim) jp = jwrap + 1
-
-        isOpen(1) = (iopen(imin_j(jmm),jmm) == RCMTOPOPEN)
-        isOpen(2) = (iopen(imin_j(jm ),jm ) == RCMTOPOPEN)
-        isOpen(3) = (iopen(imin_j(j  ),j  ) == RCMTOPOPEN)
-        isOpen(4) = (iopen(imin_j(jp ),jp ) == RCMTOPOPEN)
-        isOpen(5) = (iopen(imin_j(jpp),jpp) == RCMTOPOPEN)
-
-        if ( any(isOpen) ) then
-          !Keep old values b/c too close to OCB
-          eetas2d(j,klow:kdim) = eeta(imin_j(j  ),j  ,klow:kdim)
-        else
-          !Only smooth if all closed/null cells
-          !Only smooth RC, plasmasphere would diffuse too much
-          do k=klow,kdim
-            eetas2d(j,k) = ( a1*eeta(imin_j(jmm),jmm,k) + &
-                             a2*eeta(imin_j(jm ),jm ,k) + &
-                             a3*eeta(imin_j(j  ),j  ,k) + &
-                             a4*eeta(imin_j(jp ),jp ,k) + &
-                             a5*eeta(imin_j(jpp),jpp,k) )/(a1+a2+a3+a4+a5)
-          enddo !k loop
-        endif !OCB
-
-      enddo !j loop
-
-      !Now go back and reset values
-      do j=1,jdim
-        eeta(imin_j(j),j,klow:kdim) = eetas2d(j,klow:kdim)
-      enddo
-
-
-      return
+      
       END SUBROUTINE Smooth_eta_at_boundary
 !------------------------------------
       SUBROUTINE smooth_boundary_location(idim,jdim,jwrap,bndloc)

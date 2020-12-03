@@ -2134,7 +2134,7 @@ real :: v_1_1, v_1_2, v_2_1, v_2_2
           !Create new XML reader w/ RCM as root
           xmlInp = New_XML_Input(trim(inpXML),'RCM',.true.)
 
-          call xmlInp%Set_Val(label%char,"sim/runid","MHD code run")
+          call xmlInp%Set_Val(label%char,"sim/runid","MAGE sim")
 
           !Output
           call xmlInp%Set_Val(idebug,"output/idebug",1) ! 6.  0 <=> do disk printout
@@ -2524,7 +2524,7 @@ END FUNCTION FLCRat
 !
 SUBROUTINE Move_plasma_grid_MHD (dt)
   use rice_housekeeping_module, ONLY : LowLatMHD
-  use math, ONLY : SmoothOpTSC
+  use math, ONLY : SmoothOpTSC,SmoothOperator33
 
   IMPLICIT NONE
   REAL (rprec), INTENT (IN) :: dt
@@ -2532,7 +2532,8 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
   !Clawpack-sized grids
   REAL (rprec), dimension(-1:isize+2,-1:jsize-1) :: didt,djdt,etaC,rateC
   !RCM-sized grids
-  REAL (rprec), dimension( 1:isize  , 1:jsize  ) :: rate,veff,dvedi,dvedj
+  REAL (rprec), dimension( 1:isize  , 1:jsize  ) :: rate,dvedi,dvedj,vv,dvvdi,dvvdj,dvmdi,dvmdj
+  REAL (rprec), dimension( 1:isize  , 1:jsize  ) :: ftv,dftvi,dftvj
 
   LOGICAL, dimension(1:isize,1:jsize) :: isOpen
   INTEGER (iprec) :: iOCB_j(1:jsize)
@@ -2598,6 +2599,20 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
     endif
   enddo !j loop
 
+!Calculate node-centered IJ gradients for use inside loop (instead of redoing for each channel)
+  !veff = v + vcorot - vpar + vm*alamc(k) = vv + vm*alamc(k)
+  vv = v + vcorot - vpar
+  call Grad_IJ(vv,isOpen,dvvdi,dvvdj)
+  !Now get energy-dep. portion, grad_ij vm
+  !Using ftv directly w/ possible intermediate smoothing
+  !call Grad_IJ(vm,isOpen,dvmdi,dvmdj) !Old calculation
+  ftv = vm**(-3.0/2)
+  call Grad_IJ(ftv,isOpen,dftvi,dftvj)
+  call Smooth_IJ(dftvi,isOpen)
+  call Smooth_IJ(dftvj,isOpen)
+  dvmdi = (-2.0/3.0)*(ftv**(-5.0/3.0))*dftvi
+  dvmdj = (-2.0/3.0)*(ftv**(-5.0/3.0))*dftvj
+
 !---
 !Main channel loop
   !NOTE: T1k/T2k need to be private b/c they're altered by claw2ez
@@ -2605,10 +2620,11 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
   !$OMP schedule(dynamic) &
   !$OMP DEFAULT (NONE) &
   !$OMP PRIVATE(i,j,kc,ie,iL,jL,iR,jR) &
-  !$OMP PRIVATE(veff,didt,djdt,etaC,rateC,rate,dvedi,dvedj) &
+  !$OMP PRIVATE(didt,djdt,etaC,rateC,rate,dvedi,dvedj) &
   !$OMP PRIVATE(mass_factor,r_dist,CLAWiter,T1k,T2k) &
   !$OMP PRIVATE(lossCX,lossFLC,lossFDG,lossOCB,sumEtaBEF,sumEtaAFT) &
   !$OMP SHARED(isOpen,iOCB_j,alamc,eeta,v,vcorot,vpar,vm,imin_j,j1,j2,joff,doOCBNuke) &
+  !$OMP SHARED(dvvdi,dvvdj,dvmdi,dvmdj) &
   !$OMP SHARED(xmin,ymin,rmin,fac,fudgec,bir,sini,L_dktime,dktime,sunspot_number) &
   !$OMP SHARED(aloct,xlower,xupper,ylower,yupper,dt,T1,T2,iMHD,bmin,radcurv,losscone) 
   DO kc = 1, kcsize
@@ -2629,12 +2645,9 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
 
   !---
   !Get "interface" velocities on clawpack grid, |-1:isize+2,-1:jsize-1|
-  
-    !K: Here we're adding corotation to total effective potential
-    veff = v + vcorot - vpar + vm*alamc(kc)
-    
-    !Calculate RCM-node-centered gradient of veff
-    call Grad_IJ(veff,isOpen,dvedi,dvedj)
+    !Start by calculating dvedi,dvedj = grad_ij (veff) = grad_ij (vv) + alamc(k)*grad_ij vm
+    dvedi = dvvdi + alamc(kc)*dvmdi
+    dvedj = dvvdj + alamc(kc)*dvmdj
 
     !Now loop over clawpack grid interfaces and calculate velocities
     didt = 0.0
@@ -2843,9 +2856,10 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
         dvL = Q( 0) - Q(-1)
         dvR = Q(+1) - Q( 0)
 
-        !dvdx = qkminmod(dvL,dvR) !Just minmod lim
+        !Do slope limiter, either minmod or superbee
+        dvdx = qkminmod(dvL,dvR) !Just minmod lim
         !Superbee slope-lim on gradient
-        dvdx = qkmaxmod( qkminmod(dvR,2*dvL),qkminmod(2*dvR,dvL) )
+        !dvdx = qkmaxmod( qkminmod(dvR,2*dvL),qkminmod(2*dvR,dvL) )
 
       else if (.not. isOp(-1)) then
         !-1 is closed, do backward difference
@@ -2856,6 +2870,30 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
       endif
 
     end function Deriv_IJ
+
+    !Do smoothing window on RCM grid quantity
+    subroutine Smooth_IJ(Q,isOpen)
+      REAL (rprec), dimension(1:isize,1:jsize), intent(INOUT)  :: Q
+      LOGICAL     , dimension(1:isize,1:jsize), intent(IN)  :: isOpen
+      REAL (rprec), dimension(1:isize,1:jsize) :: Qs
+      REAL (rprec), dimension(3,3) :: Q33
+      LOGICAL     , dimension(3,3) :: G33
+
+      INTEGER (iprec) :: i,j
+
+      Qs = Q
+      do j=j1,j2 !jwrap,jsize-1
+        do i=2,isize-1
+          Q33(:,:) = Q(i-1:i+1,j-1:j+1)
+          G33(:,:) = .not. isOpen(i-1:i+1,j-1:j+1) !Only smooth w/ good cells
+          Qs(i,j) = SmoothOperator33(Q33,G33)
+        enddo
+      enddo
+      
+      Qs(:,jsize) = Qs(:,jwrap)
+      call circle(Qs)
+      Q = Qs !Save back smoothed array
+    end subroutine Smooth_IJ
 
     !Quick and lazy minmod limiter
     function qkminmod(a,b) result(c)
