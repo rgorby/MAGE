@@ -719,6 +719,7 @@ module streamline
         else
             Rin = 0.0
         endif
+
         if (present(epsO)) then
             eps = epsO
         else
@@ -827,7 +828,7 @@ module streamline
 
             !Do one step of Bogacki-Shampine, alter eps using Kutta-Merson style
             !TODO: Remove duplicated code
-            subroutine StepBS(dl,B,JacB,eps,dx)
+            recursive subroutine StepBS(dl,B,JacB,eps,dx)
                 real(rp), intent(in) :: dl,B(NDIM),JacB(NDIM,NDIM)
                 real(rp), intent(inout) :: eps
                 real(rp), intent(out) :: dx(NDIM)
@@ -835,9 +836,11 @@ module streamline
                 real(rp), dimension(NDIM) :: Jb,Jb2,k1,k2,k3,k4
                 real(rp), dimension(NDIM) :: dxHO,dxLO
                 real(rp) :: ds,dsmag,MagB,MagJb,ddx
+                real(rp) :: epsMin,epsMax
 
-                real(rp), parameter :: eAmp = 10.0
-                real(rp), parameter :: eStp = 1.0e-3 !Target for adaptive step
+                real(rp), parameter :: eAmp = 10.0 !Max variation from initial eps
+                real(rp), parameter :: eStp0 = 1.0e-3 !Target for adaptive step
+                real(rp), parameter :: eStpX = 1.0e-5 !Threshold to increase step size
 
                 MagB = norm2(B)
                 MagJb = norm2(JacB)
@@ -855,29 +858,40 @@ module streamline
                 Jb  = matmul(JacB,B  )
                 Jb2 = matmul(JacB,Jb )
 
-                !Note: Removing ds factor relative to above
+                !Note: Removing ds factor relative to above RK4 code
                 k1 = B
                 k2 = k1 + 0.5*ds*Jb
                 k3 = B + (3.0/4.0)*ds*( Jb + 0.5*ds*Jb2)
                 dxHO = ds*(2*k1 + 3*k2 + 4*k3)/9.0
                 k4 = B + matmul(JacB,dxHO)
                 dxLO = ds*(7*k1 + 6*k2 + 8*k3 + 3*k4)/24.0 !Lower-order
-                ddx = norm2(dxHO-dxLO)/dsmag
+                
+                !Estimate error in displacement normalized by local cell size
+                ddx = norm2(dxHO-dxLO)/dl
+                epsMin = eps0/eAmp
+                epsMax = eps0*eAmp
 
-                !Use high-order dx
-                dx = dxHO
+                !Check for base case, eps is small so take anything
+                if (eps <= epsMin+TINY) then
+                    dx = dxHO
+                    eps = epsMin
+                    return
+                endif
 
-                !Decide to increase/decrease eps
-                if (ddx>eStp) then
+                !Now test for local errors
+                if (ddx >= eStp0) then
+                    !Error is too high, try reducing step
                     eps = 0.5*eps
-                endif
-                if (ddx<=eStp/100.0) then
+                    call StepBS(dl,B,JacB,eps,dx)
+                else if (ddx <= eStpX) then
+                    !Error is great, let's go faster
                     eps = 2.0*eps
+                    call ClampValue(eps,epsMin,epsMax)
+                    dx = dxHO
+                else
+                    !Error is fine, just keep going
+                    dx = dxHO
                 endif
-
-                !Clamp eps to within eAmpx of eps0
-                call ClampValue(eps,eps0/eAmp,eAmp*eps0)
-
 
             end subroutine StepBS
              
