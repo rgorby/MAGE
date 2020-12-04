@@ -23,35 +23,22 @@ os.chdir("kaiju")
 os.system("rm -rf build*/")
 os.system('ls')
 
+# NOT NEEDED. HANDLED IN MASTER SCRIPT
 # Git Status and then attempt to pull
-os.system('git status')
-print('Attempting git pull via subprocess...')
-p = subprocess.Popen("git pull", shell=True, stdout=subprocess.PIPE)
-text = p.stdout.read()
-text = text.decode('ascii')
-text = text.rstrip()
-print(text)
+#os.system('git status')
+#print('Attempting git pull via subprocess...')
+#p = subprocess.Popen("git pull", shell=True, stdout=subprocess.PIPE)
+#text = p.stdout.read()
+#text = text.decode('ascii')
+#text = text.rstrip()
+#print(text)
 isTest = False
-print(str(sys.argv[1]))
+# print(str(sys.argv[1]))
 
 # Check argument flags
 if (len(sys.argv) < 2):
-    # If no arguments, check for update
-    if (text == 'Already up to date.'):
-        # Try to send Slack message
-        try:
-            response = client.chat_postMessage(
-                channel="#kaijudev",
-                text='No test today. It is already up to date!',
-            )
-        except SlackApiError as e:
-            # You will get a SlackApiError if "ok" is False
-            assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
-        
-        exit()
-# Else check for force flag
-elif(str(sys.argv[1]) == '-f'):
-    print("Buuuuut you forced me to do it anyway...")
+    continue
+    # Just to ensure no out of bounds error later
 # Else check for testing flag
 elif(str(sys.argv[1]) == '-t'):
     print("Test Mode: On")
@@ -60,7 +47,6 @@ elif(str(sys.argv[1]) == '-t'):
 # Create a test build folder, get the list of executables to be generated and store them
 os.chdir(home)
 os.chdir("kaiju")
-os.system("rm -rf testFolder")
 os.system("mkdir testFolder")
 os.chdir("testFolder")
 os.system("cmake ..")
@@ -76,12 +62,14 @@ print(executableList)
 
 # Go back to scripts folder
 os.chdir(home)
-os.chdir("kaiju/testingScripts")
+os.chdir("kaiju")
+os.system("rm -rf testFolder")
+os.chdir("testingScripts")
 
 iteration = 1
 
 # Read in modules.txt and load only the requested modules
-file = open('modules.txt', 'r')
+file = open('modules1.txt', 'r')
 modules = file.readlines()
 arguments = "module purge; module list;"
 
