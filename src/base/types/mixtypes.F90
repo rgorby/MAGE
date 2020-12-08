@@ -114,7 +114,7 @@ module mixtypes
   ! used to store an entire instance of MIX (e.g., one per hemisphere)
   type mixIon_T
      type(mixState_T)       :: St
-     type(mixGrid_T)        :: G ! G - primary MIX grid used for the solver
+     type(mixGrid_T)        :: G, mixGfpd ! G - primary MIX grid used for the solver. ! mixGfpd - flipped grid for mapping from MHD, moved from mhd2mix type.
      type(mixParams_T)      :: P
      type(Solver_T)         :: S
      type(mixConductance_T) :: conductance

@@ -31,7 +31,7 @@ module volttypes
     type mix2Mhd_T
         real(rp), dimension(:,:,:,:,:), allocatable :: mixOutput
         real(rp), dimension(:,:,:), allocatable :: gPsi
-        type(Map_T), allocatable, dimension(:) :: PsiMaps
+        type(Map_T), allocatable, dimension(:,:) :: PsiMaps
         integer :: PsiStart = PsiSt, PsiShells = PsiSh !Coming from cmidefs
         real(rp) :: rm2g
     end type mix2Mhd_T
@@ -56,9 +56,8 @@ module volttypes
     type mhd2Mix_T
         real(rp), dimension(:,:,:,:,:), allocatable :: mixInput
         real(rp), dimension(:,:,:,:), allocatable :: gJ
-        type(Map_T), allocatable, dimension(:) :: Jmaps
+        type(Map_T), allocatable, dimension(:,:) :: Jmaps
         integer :: JStart = JpSt, JShells = JpSh !Coming from cmidefs
-        type(mixGrid_T) :: mixGfpd
     end type mhd2mix_T
 
     ! data for chimp -> gamera conversion

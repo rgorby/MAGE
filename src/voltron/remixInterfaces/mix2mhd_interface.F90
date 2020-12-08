@@ -45,7 +45,7 @@ contains
         allocate(mix2mhd%gPsi(1:mix2mhd%PsiShells+1,gameraApp%Grid%js:gameraApp%Grid%je+1,gameraApp%Grid%ks:gameraApp%Grid%ke+1))
         allocate(mhdPsiGrid(1:mix2mhd%PsiShells+1, gameraApp%Grid%js:gameraApp%Grid%je+1, gameraApp%Grid%ks:gameraApp%Grid%ke/2+1, 1:3, 1:2))
         allocate(mix2mhd%mixOutput(1:mix2mhd%PsiShells+1, gameraApp%Grid%js:gameraApp%Grid%je+1, gameraApp%Grid%ks:gameraApp%Grid%ke/2+1, 1:mix2mhd_varn, 1:2))
-        allocate(mix2mhd%PsiMaps(mix2mhd%PsiShells))
+        allocate(mix2mhd%PsiMaps(mix2mhd%PsiShells,size(remixApp%ion)))
 
         ! get those grid coordinates (corner centers for Psi)
         do k=gameraApp%Grid%ks,gameraApp%Grid%ke+1
@@ -74,10 +74,10 @@ contains
                 call mix_mhd_grid(mhdPsiGrid(l,:,:,:,h),mhdt,mhdp,mhdtFpd,mhdpFpd,mhd_Rin)
                 call init_grid_fromTP(mhdG,mhdt,mhdp,isSolverGrid=.false.)
                 call mix_set_map(remixApp%ion(h)%G,mhdG,Map)
-                mix2mhd%PsiMaps(l) = Map
+                mix2mhd%PsiMaps(l,h) = Map
             enddo
         enddo
-
+        
         !Initialize the mixOutput mapping
         mix2mhd%mixOutput = 0.0
         isRestart = gameraApp%Model%isRestart
@@ -142,7 +142,7 @@ contains
     do h=1,size(remixApp%ion)
        do v=1,size(mix2mhd%mixOutput,4)  ! mirroring mix2mhd here, but for now only one variable 
           do l=1,mix2mhd%PsiShells
-             call mix_map_grids(mix2mhd%PsiMaps(l),remixApp%ion(h)%St%Vars(:,:,POT),gPsi_tmp)  
+             call mix_map_grids(mix2mhd%PsiMaps(l,h),remixApp%ion(h)%St%Vars(:,:,POT),gPsi_tmp)  
              ! this is going back to gamera
              select case (v)
              case (MHDPSI)
