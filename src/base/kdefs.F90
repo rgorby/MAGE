@@ -53,8 +53,8 @@ module kdefs
 
 !Planetary constants
     !Earth
-    real(rp), parameter :: EarthM0g = 0.31 !Gauss
-    !real(rp), parameter :: EarthM0g = 0.2961737 !Gauss, Olsen++ 2000
+    !real(rp), parameter :: EarthM0g = 0.31 !Gauss, old LFM value
+    real(rp), parameter :: EarthM0g = 0.2961737 !Gauss, Olsen++ 2000
 
     real(rp), parameter :: REarth = Re_cgs*1.0e-2 !m
 

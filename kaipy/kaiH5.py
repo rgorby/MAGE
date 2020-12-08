@@ -39,6 +39,7 @@ def GetHash(fname):
 	except (UnicodeDecodeError, AttributeError):
 		hStr = rStr
 	return hStr
+
 #Return time at step n
 def tStep(fname,nStp=0,aID="time",aDef=0.0):
 	CheckOrDie(fname)

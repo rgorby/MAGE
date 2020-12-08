@@ -5,7 +5,7 @@ module msphutils
     use gamtypes
     use volttypes
     use gamutils
-    use math, magRampDown => CubicRampDown
+    use math, magRampDown => PenticRampDown
     use gridutils
     use output
     use background
@@ -44,8 +44,8 @@ module msphutils
     
     
     !Dipole cut values
-    !real(rp), private :: rCut=4.5, lCut=3.5 !LFM values
-    real(rp), private :: rCut=16.0,lCut=8.0
+    real(rp), private :: rCut=4.5, lCut=3.5 !LFM values
+    !real(rp), private :: rCut=16.0,lCut=8.0
     real(rp), private :: xSun,xTail,yMax
     real(rp), private :: x0,Aq,Bq,sInner
 
@@ -462,7 +462,7 @@ module msphutils
 
         integer :: i,j,k
         real(rp), dimension(8,NDIM) :: xyzC
-        real(rp) :: rI(8),rMax,rMin,MagP,rCC
+        real(rp) :: rMax,rMin,MagP
 
         !Get values for initial field cutoffs
 
@@ -497,15 +497,19 @@ module msphutils
 
         !Be careful and forcibly zero out cut dipole forces near Earth
         !$OMP PARALLEL DO default(shared) collapse(2) &
-        !$OMP private(i,j,k,rCC)
+        !$OMP private(i,j,k,xyzC,rMin,rMax)
         do k=Grid%ks, Grid%ke
             do j=Grid%js, Grid%je
                 do i=Grid%is, Grid%ie
-                    rCC = norm2(Grid%xyzcc(i,j,k,:))
-                    if (rCC <= 0.75*rCut) then
-                        !Force hard zero
-                        Grid%dpB0(i,j,k,:) = 0.0
-                    endif
+                    !Get 8 cell corners
+                    call cellCoords(Model,Grid,i,j,k,xyzC)
+                    rMin = minval(norm2(xyzC,dim=2))
+                    rMax = maxval(norm2(xyzC,dim=2))
+                    !Force hard zero outside of dipole cut region (can be non-zero due to quadrature error)
+
+                    if (rMin + TINY < rCut       ) Grid%dpB0(i,j,k,:) = 0.0
+                    if (rMax - TINY > rCut + lCut) Grid%dpB0(i,j,k,:) = 0.0
+
                 enddo
             enddo
         enddo
