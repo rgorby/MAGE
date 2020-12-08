@@ -44,8 +44,9 @@ module msphutils
     
     
     !Dipole cut values
-    real(rp), private :: rCut=4.5, lCut=3.5 !LFM values
-    !real(rp), private :: rCut=16.0,lCut=8.0
+    !real(rp), private :: rCut=4.5, lCut=3.5 !LFM values
+    real(rp), private :: rCut=16.0,lCut=8.0
+    real(rp), private :: dcScl=4.0 !Tailward dipole cut = dcScl x rCut, dawn/dusk = dcScl x rCut/2
     real(rp), private :: xSun,xTail,yMax
     real(rp), private :: x0,Aq,Bq,sInner
 
@@ -466,17 +467,23 @@ module msphutils
 
         !Get values for initial field cutoffs
 
-        !LFM values
+        ! !LFM values
+        ! call xmlInp%Set_Val(xSun  ,"prob/xMax",20.0_rp  )
+        ! call xmlInp%Set_Val(yMax  ,"prob/yMax",75.0_rp  )
+        ! call xmlInp%Set_Val(xTail ,"prob/xMin",-185.0_rp)
+        
+        !Gamera values
         call xmlInp%Set_Val(xSun  ,"prob/xMax",20.0_rp  )
         call xmlInp%Set_Val(yMax  ,"prob/yMax",75.0_rp  )
-        call xmlInp%Set_Val(xTail ,"prob/xMin",-185.0_rp)
-        
+        call xmlInp%Set_Val(xTail ,"prob/xMin",-225.0_rp)
+
         call xmlInp%Set_Val(sInner,"prob/sIn" ,0.96_rp  )
 
         !Get cut dipole values
-        call xmlInp%Set_Val(rCut,"prob/rCut",rCut)
-        call xmlInp%Set_Val(lCut,"prob/lCut",lCut)
-        
+        call xmlInp%Set_Val(rCut ,"background/rCut" ,rCut)
+        call xmlInp%Set_Val(lCut ,"background/lCut" ,lCut)
+        call xmlInp%Set_Val(dcScl,"background/dcScl",dcScl)
+
         !Calculate some derived quantities/alloc arrays
         Aq = 0.5*(xSun-xTail)
         x0 = Aq - xSun
@@ -506,9 +513,8 @@ module msphutils
                     rMin = minval(norm2(xyzC,dim=2))
                     rMax = maxval(norm2(xyzC,dim=2))
                     !Force hard zero outside of dipole cut region (can be non-zero due to quadrature error)
-
                     if (rMin + TINY < rCut       ) Grid%dpB0(i,j,k,:) = 0.0
-                    if (rMax - TINY > rCut + lCut) Grid%dpB0(i,j,k,:) = 0.0
+                    !if (rMax - TINY > rCut + lCut) Grid%dpB0(i,j,k,:) = 0.0
 
                 enddo
             enddo
@@ -594,11 +600,16 @@ module msphutils
         real(rp), intent(in) :: x,y,z
         real(rp), intent(out) :: Ax,Ay,Az
    
-        real(rp) :: r,M
+        real(rp) :: r,M,phid,rScl,yp
         r = sqrt(x**2.0 + y**2.0 + z**2.0)
 
         call Dipole(x,y,z,Ax,Ay,Az)
-        M = magRampDown(r,rCut,lCut)
+        !Get mollifier term
+        yp = sqrt(y**2.0 + z**2.0)
+        phid = atan2(yp,x)*180.0/PI
+        rScl = 1.0 + RampUp(phid,0.0_rp,180.0_rp)*(dcScl-1.0) !Between 1,dcScl
+        M = magRampDown(r,rCut*rScl,lCut*rScl)
+        !M = magRampDown(r,rCut,lCut)
 
         Ax = M*Ax
         Ay = M*Ay
