@@ -133,8 +133,8 @@ MODULE tomhd_mod
           !Get Maxwellian to blend with
           TiovTe = GetTioTe(eta(i,j,:),vm(i,j)) !Current Ti/Te ratio
           !Try to reproduce current Ti/Te or just use default global value
-          call DP2eta(Drc(i,j),Prc(i,j),vm(i,j),etaMax,doRescaleO=.true.,tioteO=TiovTe)
-          !call DP2eta(Drc(i,j),Prc(i,j),vm(i,j),etaMax,doRescaleO=.true.)
+          !call DP2eta(Drc(i,j),Prc(i,j),vm(i,j),etaMax,doRescaleO=.true.,tioteO=TiovTe)
+          call DP2eta(Drc(i,j),Prc(i,j),vm(i,j),etaMax,doRescaleO=.true.)
 
           TauCS = CsBounce(Drc(i,j),Prc(i,j),Lb(i,j)) ! [s]
           !TauDP = DriftPeriod(Drc(i,j),Prc(i,j),rmin(i,j))
