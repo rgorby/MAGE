@@ -97,7 +97,7 @@ module rcm_mhd_io
         character(len=strLen) :: gStr
 
         real(rp) :: rcm2Wolf
-        real(rp), dimension(:,:), allocatable :: PLim,PBeta
+        
         integer :: NLat,NLon
 
         NLat = RCMApp%nLat_ion
@@ -105,20 +105,14 @@ module rcm_mhd_io
         
         rcm2Wolf = nt**(IMGAMMA-1.0) !Convert to Wolf units, RCM: Pa (Re/T)^gam => nPa (Re/nT)^gam
         
-        allocate(PLim (NLat,NLon))
-        allocate(PBeta(NLat,NLon))
-        
-        PBeta = (5.0/6.0)*RCMApp%beta_average
-
-        !Calculate wolf-limited P (RCM units)
-        PLim = (PBeta*RCMApp%Pave + RCMApp%Prcm)/(1.0 + PBeta)
 
         !Reset IO chain
         call ClearIO(IOVars)
 
         call AddOutVar(IOVars,"N",RCMApp%Nrcm*rcmNScl,uStr="#/cc")
         call AddOutVar(IOVars,"Npsph",RCMApp%Npsph*rcmNScl,uStr="#/cc")
-        call AddOutVar(IOVars,"P",RCMApp%Prcm*rcmPScl,uStr="nPa")
+        call AddOutVar(IOVars,"P" ,RCMApp%Prcm *rcmPScl,uStr="nPa")
+        call AddOutVar(IOVars,"Pe",RCMApp%Percm*rcmPScl,uStr="nPa")
         call AddOutVar(IOVars,"IOpen",RCMApp%iopen*1.0_rp)
         call AddOutVar(IOVars,"bVol",RCMApp%Vol*nt,uStr="Re/nT")
         call AddOutVar(IOVars,"pot",RCMApp%pot,uStr="V")
@@ -128,7 +122,7 @@ module rcm_mhd_io
         call AddOutVar(IOVars,"bMin",RCMApp%Bmin,uStr="T")
         call AddOutVar(IOVars,"S",rcm2Wolf*RCMApp%Prcm*(RCMApp%Vol**IMGAMMA),uStr="Wolf")
         call AddOutVar(IOVars,"beta",RCMApp%beta_average)
-        call AddOutVar(IOVars,"Plim",PLim*rcmPScl,uStr="nPa")
+        
         call AddOutVar(IOVars,"Pmhd",RCMApp%Pave*rcmPScl,uStr="nPa")
         call AddOutVar(IOVars,"Nmhd",RCMApp%Nave*rcmNScl,uStr="#/cc")
         call AddOutVar(IOVars,"oxyfrac",RCMApp%oxyfrac,uStr="fraction")

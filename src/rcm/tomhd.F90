@@ -44,6 +44,8 @@ MODULE tomhd_mod
       type(rcm_mhd_T),intent(inout) :: RM
       INTEGER(iprec), INTENT (OUT) :: ierr
 
+      REAL(rprec), dimension(isize,jsize) :: Pircm,Percm
+
       !Always set p/d_factors
       call SetFactors(RM%planet_radius)
 
@@ -52,9 +54,9 @@ MODULE tomhd_mod
 
       !Now pick which eta (instant vs. avg) and calculate moments
       if (doAvg2MHD) then
-        call rcm2moments(eeta_avg,vm,densrcm,denspsph,pressrcm)
+        call rcm2moments(eeta_avg,vm,densrcm,denspsph,pressrcm,Pircm,Percm)
       else
-        call rcm2moments(eeta    ,vm,densrcm,denspsph,pressrcm)
+        call rcm2moments(eeta    ,vm,densrcm,denspsph,pressrcm,Pircm,Percm)
       endif
 
       RM%MaxAlam = maxval(alamc)
@@ -66,8 +68,9 @@ MODULE tomhd_mod
       RM%flux    = eflux   (:,jwrap:jsize,:)
       RM%eng_avg = eavg    (:,jwrap:jsize,:)
       RM%fac     = birk    (:,jwrap:jsize)
-
+      RM%Percm   = Percm   (:,jwrap:jsize)
       ierr = 0
+
     END SUBROUTINE tomhd
 
     !Do some safety stuff to eta w/ temperature is high
@@ -79,12 +82,12 @@ MODULE tomhd_mod
       REAL(rprec), intent(in)  :: vm(isize,jsize)
       type(rcm_mhd_T),intent(in) :: RCMApp
 
-      REAL(rprec), dimension(isize,jsize) :: Drc,Dpp,Prc,Lb,Tb
+      REAL(rprec), dimension(isize,jsize) :: Drc,Dpp,Prc,Lb,Tb,Pion,Pele
       integer :: i,j,jp,klow
-      REAL(rprec), dimension(kcsize) :: etaMax
+      REAL(rprec), dimension(kcsize) :: etaMax,etaNew,etaOld
       REAL(rprec) :: TauCS,TauDP,wCS,wGR,wDP,wgt,TiovTe
 
-      REAL(rprec) :: dij,pij,dppij      
+      REAL(rprec) :: pi_ij,pe_ij
       
       !Set lowest RC channel
       if (use_plasmasphere) then
@@ -94,7 +97,7 @@ MODULE tomhd_mod
       endif
 
       !Get moments from eta
-      call rcm2moments(eta,vm,Drc,Dpp,Prc)
+      call rcm2moments(eta,vm,Drc,Dpp,Prc,Pion,Pele)
 
       !Map Lb from RCM-MHD grid to RCM grid, Lb = Tube length [m]
       call EmbiggenWrap(RCMApp%Lb,Lb)
@@ -111,8 +114,8 @@ MODULE tomhd_mod
 
       !$OMP PARALLEL DO default(shared) &
       !$OMP schedule(dynamic) &
-      !$OMP private(i,j,jp,TauCS,TauDP,wCS,wDP,wGR,wgt,etaMax) &
-      !$OMP private(TiovTe,dij,pij,dppij)
+      !$OMP private(i,j,jp,TauCS,TauDP,wCS,wDP,wGR,wgt) &
+      !$OMP private(TiovTe,pi_ij,pe_ij,etaMax,etaNew,etaOld)
       DO j = 1, jsize
         !i,j is index in RCM grid
         !i,jp is index in RCM-MHD grid
@@ -147,8 +150,18 @@ MODULE tomhd_mod
           !Choose which weight to use
           wgt = wDP 
 
-          !Now blend w/ maxwellian
-          eta(i,j,klow:) = (1.0-wgt)*eta(i,j,klow:) + wgt*etaMax(klow:)
+          !Now blend w/ maxwellian (ions only)
+          etaOld = eta(i,j,:)
+          call IntegratePressureIE(etaMax,vm(i,j),pi_ij,pe_ij)
+
+          where (alamc > TINY)
+            !Blend the two, ensure that etaMax ion component preserves original ion pressure
+            etaNew = (1.0-wgt)*etaOld + wgt*Pion(i,j)/pi_ij *etaMax
+          elsewhere
+            etaNew = etaOld
+          endwhere
+
+          eta(i,j,:) = etaNew
           
         ENDDO
       ENDDO !j loop
@@ -218,17 +231,26 @@ MODULE tomhd_mod
 
 
     !Convert given eeta to density (RC/plasmasphere) and pressure
-    SUBROUTINE rcm2moments(eta,vm,Drc,Dpp,Prc)
+    SUBROUTINE rcm2moments(eta,vm,Drc,Dpp,Prc,Pion,Pele)
       USE Rcm_mod_subs, ONLY : xmin,ymin,zmin
       IMPLICIT NONE
       REAL(rprec), intent(in)  :: eta(isize,jsize,kcsize)
       REAL(rprec), intent(in)  :: vm(isize,jsize)
       REAL(rprec), intent(out), dimension(isize,jsize) :: Drc,Dpp,Prc
-
+      REAL(rprec), intent(out), dimension(isize,jsize), optional :: Pion,Pele
       INTEGER (iprec) :: i,j
+      LOGICAL :: doIE
+
       Drc = 0.0
       Dpp = 0.0
       Prc = 0.0
+      if (present(Pion) .and. present(Pele)) then
+        Pion = 0.0
+        Pele = 0.0
+        doIE = .true.
+      else
+        doIE = .false.
+      endif
 
       !$OMP PARALLEL DO default(shared) &
       !$OMP schedule(dynamic) &
@@ -237,6 +259,9 @@ MODULE tomhd_mod
         DO i = 1, isize
 
           call eta2DP(eta(i,j,:),vm(i,j),Drc(i,j),Dpp(i,j),Prc(i,j))
+          if (doIE) then
+            call IntegratePressureIE(eta(i,j,:),vm(i,j),Pion(i,j),Pele(i,j)) !Get separated pressures
+          endif
         ENDDO
       ENDDO !J loop
 

@@ -43,7 +43,7 @@ module rcm_mhd_interfaces
         real(rprec),allocatable :: sigmap(:,:)
         real(rprec),allocatable :: sigmah(:,:)
         real(rprec),allocatable :: oxyfrac(:,:)   ! O+ fraction of MHD number density
-        real(rprec),allocatable :: MedK(:,:) !Median energy contribution to pressure [keV]
+        real(rprec),allocatable :: Percm(:,:) ! RCM electron (only) pressure in Pa
         !Conjugate mapping, lat/lon of conjugate point mapped
         real(rprec),allocatable :: latc(:,:)
         real(rprec),allocatable :: lonc(:,:)

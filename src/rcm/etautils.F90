@@ -112,6 +112,30 @@ MODULE etautils
 
   end function IntegrateDensity
 
+  !Get both ion and electron pressures
+  subroutine IntegratePressureIE(eta,vm,Pi,Pe)
+    REAL(rprec), intent(in)  :: eta(kcsize)
+    REAL(rprec), intent(in)  :: vm
+    REAL(rprec), intent(out) :: Pi,Pe
+
+    INTEGER(iprec) :: k
+    Pi = 0.0
+    Pe = 0.0
+    if (vm <= 0) return
+    do k=1,kcsize !Include psphere b/c it won't contribute
+      if (abs(alamc(k))<TINY) cycle
+
+      if (alamc(k)>TINY) then
+        !Ion pressure
+        Pi = Pi + pressure_factor*ABS(alamc(k))*eta(k)*vm**2.5
+      else
+        !Elec pressure
+        Pe = Pe + pressure_factor*ABS(alamc(k))*eta(k)*vm**2.5
+      endif
+    enddo
+
+  end subroutine IntegratePressureIE
+  
   !Get Ti/Te for a given eta
   ! Ti/Te = Pi/Pe b/c Ni=Ne
   function GetTioTe(eta,vm) result(TiovTe)
@@ -125,17 +149,8 @@ MODULE etautils
     if (vm <= 0) return
     Pi = 0.0
     Pe = 0.0
-    do k=1,kcsize !Include psphere b/c it won't contribute
-      if (abs(alamc(k))<TINY) cycle
+    call IntegratePressureIE(eta,vm,Pi,Pe)
 
-      if (alamc(k)>TINY) then
-        !Ion pressure
-        Pi = Pi + pressure_factor*ABS(alamc(k))*eta(k)*vm**2.5
-      else
-        !Elec pressure
-        Pe = Pe + pressure_factor*ABS(alamc(k))*eta(k)*vm**2.5
-      endif
-    enddo
     TiovTe = Pi/Pe
     if (isnan(TiovTe)) then
       write(*,*) 'Pi,Pe = ',Pi,Pe

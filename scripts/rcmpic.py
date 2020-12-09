@@ -38,6 +38,7 @@ if __name__ == "__main__":
 	parser.add_argument('-kt' , action='store_true',default=False,help="Show temperature instead of FTE (default: %(default)s)")
 	parser.add_argument('-beta', action='store_true',default=False,help="Show beta instead of FTE (default: %(default)s)")
 	parser.add_argument('-tbnc', action='store_true',default=False,help="Show Tb instead of FTE (default: %(default)s)")
+	parser.add_argument('-elec', action='store_true',default=False,help="Show electron pressure (default: %(default)s)")
 
 	#Finalize parsing
 	args = parser.parse_args()
@@ -51,6 +52,7 @@ if __name__ == "__main__":
 	doT   = args.kt
 	doBeta = args.beta
 	doTb   = args.tbnc
+	doElec = args.elec
 
 	rcmpp.doEll = not doBig
 
@@ -133,7 +135,11 @@ if __name__ == "__main__":
 		print("No closed field region in RCM, exiting ...")
 		exit()
 
-	Prcm  = rcmpp.GetVarMask(rcmdata,nStp,"P"    ,I)
+	if (doElec):
+		Prcm  = rcmpp.GetVarMask(rcmdata,nStp,"Pe"   ,I)
+	else:
+		Prcm  = rcmpp.GetVarMask(rcmdata,nStp,"P"    ,I)
+		
 	Nrcm  = rcmpp.GetVarMask(rcmdata,nStp,"N"    ,I)
 
 	Pmhd  = rcmpp.GetVarMask(rcmdata,nStp,"Pmhd" ,I)
