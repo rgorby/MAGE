@@ -133,8 +133,8 @@ MODULE tomhd_mod
           !Get Maxwellian to blend with
           TiovTe = GetTioTe(eta(i,j,:),vm(i,j)) !Current Ti/Te ratio
           !Try to reproduce current Ti/Te or just use default global value
-          !call DP2eta(Drc(i,j),Prc(i,j),vm(i,j),etaMax,doRescaleO=.true.,tioteO=TiovTe)
-          call DP2eta(Drc(i,j),Prc(i,j),vm(i,j),etaMax,doRescaleO=.true.)
+          call DP2eta(Drc(i,j),Prc(i,j),vm(i,j),etaMax,doRescaleO=.true.,tioteO=TiovTe)
+          !call DP2eta(Drc(i,j),Prc(i,j),vm(i,j),etaMax,doRescaleO=.true.)
 
           TauCS = CsBounce(Drc(i,j),Prc(i,j),Lb(i,j)) ! [s]
           !TauDP = DriftPeriod(Drc(i,j),Prc(i,j),rmin(i,j))
@@ -150,17 +150,11 @@ MODULE tomhd_mod
           !Choose which weight to use
           wgt = wDP 
 
-          !Now blend w/ maxwellian (ions only)
+          !Now blend w/ maxwellian
           etaOld = eta(i,j,:)
-          call IntegratePressureIE(etaMax,vm(i,j),pi_ij,pe_ij)
-
-          where (alamc > TINY)
-            !Blend the two, ensure that etaMax ion component preserves original ion pressure
-            etaNew = (1.0-wgt)*etaOld + wgt*Pion(i,j)/pi_ij *etaMax
-          elsewhere
-            etaNew = etaOld
-          endwhere
-
+          etaNew = etaOld !Keep old values in cold channel(s)
+          etaNew(klow:) = (1-wgt)*etaOld(klow:) + wgt*etaMax(klow:)
+          
           eta(i,j,:) = etaNew
           
         ENDDO
