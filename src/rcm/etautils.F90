@@ -14,8 +14,8 @@ MODULE etautils
   logical , private :: doRescaleDef = .true. !Whether to rescale D,P => eta
   real(rprec), private :: sclmass(RCMNUMFLAV) !xmass prescaled to proton
   !Kind of hacky limits to Ti/Te ratio
-  real(rp), private, parameter :: TioTeMax = tiote*10.0
-  real(rp), private, parameter :: TioTeMin = tiote/10.0
+  real(rp), private, parameter :: TioTeMax = 20.0
+  real(rp), private, parameter :: TioTeMin = 0.25
   contains
 
   !Set density/pressure factors using planet radius
