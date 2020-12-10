@@ -113,24 +113,24 @@ MODULE etautils
   end function IntegrateDensity
 
   !Get both ion and electron pressures
-  subroutine IntegratePressureIE(eta,vm,Pi,Pe)
+  subroutine IntegratePressureIE(eta,vm,iP,eP)
     REAL(rprec), intent(in)  :: eta(kcsize)
     REAL(rprec), intent(in)  :: vm
-    REAL(rprec), intent(out) :: Pi,Pe
+    REAL(rprec), intent(out) :: iP,eP
 
     INTEGER(iprec) :: k
-    Pi = 0.0
-    Pe = 0.0
+    iP = 0.0
+    eP = 0.0
     if (vm <= 0) return
     do k=1,kcsize !Include psphere b/c it won't contribute
       if (abs(alamc(k))<TINY) cycle
 
       if (alamc(k)>TINY) then
         !Ion pressure
-        Pi = Pi + pressure_factor*ABS(alamc(k))*eta(k)*vm**2.5
+        iP = iP + pressure_factor*ABS(alamc(k))*eta(k)*vm**2.5
       else
         !Elec pressure
-        Pe = Pe + pressure_factor*ABS(alamc(k))*eta(k)*vm**2.5
+        eP = eP + pressure_factor*ABS(alamc(k))*eta(k)*vm**2.5
       endif
     enddo
 
@@ -142,20 +142,16 @@ MODULE etautils
     REAL(rprec), intent(in)  :: eta(kcsize)
     REAL(rprec), intent(in)  :: vm
     REAL(rprec) :: TiovTe
-    REAL(rprec) :: Pe,Pi
+    REAL(rprec) :: eP,iP
     INTEGER(iprec) :: k
 
     TiovTe = 0.0
     if (vm <= 0) return
-    Pi = 0.0
-    Pe = 0.0
-    call IntegratePressureIE(eta,vm,Pi,Pe)
+    iP = 0.0
+    eP = 0.0
+    call IntegratePressureIE(eta,vm,iP,eP)
 
-    TiovTe = Pi/Pe
-    if (isnan(TiovTe)) then
-      write(*,*) 'Pi,Pe = ',Pi,Pe
-      !write(*,*) 'eta = ', eta
-    endif
+    TiovTe = iP/eP
   end function GetTioTe
 
   !Convert given single density/pressure to eeta
@@ -167,10 +163,8 @@ MODULE etautils
     logical    , intent(in), optional :: doRescaleO
     REAL(rprec), intent(in), optional :: tioteO 
 
-    REAL(rprec) :: Tk,ti,te,A0,prcmI,prcmE,pmhdI,pmhdE
-    REAL(rprec) :: xp,xm,pcon,psclI,psclE,fac,TiovTe
-    INTEGER(iprec) :: k,klow
-    logical :: isIon,doRescale
+    REAL(rprec) :: fac,TiovTe,Pion,Pele
+    logical :: doRescale
 
     eta = 0.0
     if ( (vm<0) .or. (Drc<TINY) ) return
@@ -188,6 +182,34 @@ MODULE etautils
     endif
     fac = TiovTe/(1.0+TiovTe)
 
+    Pion = Prc*TiovTe/(1.0+TiovTe) !Desired ion pressure
+    Pele = Prc*   1.0/(1.0+TiovTe) !Desired elec pressure
+
+    call DPP2eta(Drc,Pion,Pele,vm,eta,doRescale)
+
+  END SUBROUTINE DP2eta
+
+  !Like DP2eta but take both desired ion and electron pressure
+  !Optional flag to rescale pressure
+  SUBROUTINE DPP2eta(Drc,Pion,Pele,vm,eta,doRescaleO)
+    USE conversion_module, ONLY : almmax,almmin,erfexpdiff
+    REAL(rprec), intent(in)  :: Drc,Pion,Pele,vm
+    REAL(rprec), intent(out) :: eta(kcsize)
+    logical    , intent(in), optional :: doRescaleO
+
+    REAL(rprec) :: Tk,ti,te,A0,prcmI,prcmE
+    REAL(rprec) :: xp,xm,pcon,psclI,psclE
+    INTEGER(iprec) :: k,klow
+    logical :: isIon,doRescale
+
+    eta = 0.0
+    if ( (vm<0) .or. (Drc<TINY) ) return
+    if (present(doRescaleO)) then
+      doRescale = doRescaleO
+    else
+      doRescale = .true.
+    endif
+
     !Set lowest RC channel
     if (use_plasmasphere) then
       klow = 2
@@ -196,8 +218,8 @@ MODULE etautils
     endif
 
     !Get ion/electron temperature
-    ti = fac*Prc/Drc/boltz
-    te = ti/TiovTe
+    ti = Pion/Drc/boltz
+    te = Pele/Drc/boltz
 
     A0 = (Drc/density_factor)/(vm**1.5)
     prcmI = 0.0 !Cumulative ion pressure
@@ -213,6 +235,11 @@ MODULE etautils
         Tk = ti
         isIon = .true.
       ENDIF
+
+      if (Tk<TINY) then
+        eta(k) = 0.0
+        cycle
+      endif
 
       xp = SQRT(ev*ABS(almmax(k))*vm/boltz/Tk)
       xm = SQRT(ev*ABS(almmin(k))*vm/boltz/Tk)
@@ -232,13 +259,10 @@ MODULE etautils
 
     if (.not. doRescale) return !We're done here
 
-    !Now rescale eeta channels to conserve pressure integral between MHD/RCM
-    !In particular, we separately conserve ion/electron contribution to total pressure
-    pmhdI = Prc*TiovTe/(1.0+TiovTe) !Desired ion pressure
-    pmhdE = Prc*   1.0/(1.0+TiovTe) !Desired elec pressure
-
-    psclI = pmhdI/prcmI
-    psclE = pmhdE/prcmE
+    !Now rescale to get desired Pi and Pe
+    !NOTE: This will affect density
+    psclI = Pion/prcmI
+    psclE = Pele/prcmE
 
     !Loop over channels and rescale      
     do k=klow,kcsize
@@ -249,7 +273,7 @@ MODULE etautils
       ENDIF
     enddo
 
-  END SUBROUTINE DP2eta
+  END SUBROUTINE DPP2eta
 
   SUBROUTINE ClampTioTe(TiovTe)
     REAL(rprec), intent(inout)  :: TiovTe

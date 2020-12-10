@@ -83,11 +83,9 @@ MODULE tomhd_mod
       type(rcm_mhd_T),intent(in) :: RCMApp
 
       REAL(rprec), dimension(isize,jsize) :: Drc,Dpp,Prc,Lb,Tb,Pion,Pele
-      integer :: i,j,jp,klow
+      integer :: i,j,jp,klow,k
       REAL(rprec), dimension(kcsize) :: etaMax,etaNew,etaOld
-      REAL(rprec) :: TauCS,TauDP,wCS,wGR,wDP,wgt,TiovTe
-
-      REAL(rprec) :: pi_ij,pe_ij
+      REAL(rprec) :: TauDP,wDP,wgt
       
       !Set lowest RC channel
       if (use_plasmasphere) then
@@ -114,8 +112,8 @@ MODULE tomhd_mod
 
       !$OMP PARALLEL DO default(shared) &
       !$OMP schedule(dynamic) &
-      !$OMP private(i,j,jp,TauCS,TauDP,wCS,wDP,wGR,wgt) &
-      !$OMP private(TiovTe,pi_ij,pe_ij,etaMax,etaNew,etaOld)
+      !$OMP private(i,j,jp,TauDP,wDP,wgt,k) &
+      !$OMP private(etaMax,etaNew,etaOld)
       DO j = 1, jsize
         !i,j is index in RCM grid
         !i,jp is index in RCM-MHD grid
@@ -131,43 +129,25 @@ MODULE tomhd_mod
           IF (Drc(i,j) < TINY) CYCLE
 
         !Get Maxwellian to blend with
-          TiovTe = GetTioTe(eta(i,j,:),vm(i,j)) !Current Ti/Te ratio
-          !Try to reproduce current Ti/Te or just use default global value
-          call DP2eta(Drc(i,j),Prc(i,j),vm(i,j),etaMax,doRescaleO=.true.,tioteO=TiovTe)
-          !call DP2eta(Drc(i,j),Prc(i,j),vm(i,j),etaMax,doRescaleO=.true.)
-
-          !Ensure that Maxwellian reproduces old Pi and Pe
-          call IntegratePressureIE(etaMax,vm(i,j),pi_ij,pe_ij) !ion/electron pressure from etaMax
-          where (alamc < -TINY)
-            etaMax = ( Pele(i,j)/pe_ij ) * etaMax
-          endwhere
-
-          where (alamc > +TINY)
-            etaMax = ( Pion(i,j)/pi_ij ) * etaMax
-          endwhere
-
+          call DPP2eta(Drc(i,j),Pion(i,j),Pele(i,j),vm(i,j),etaMax,doRescaleO=.true.)
         !Get timescale to blend over
-          TauCS = CsBounce(Drc(i,j),Prc(i,j),Lb(i,j)) ! [s]
-          !TauDP = DriftPeriod(Drc(i,j),Prc(i,j),rmin(i,j))
-          !TauDP = DipoleDriftPeriod(Drc(i,j),Prc(i,j),rmin(i,j))
           TauDP = DriftPeriod(Drc(i,j),Prc(i,j),rmin(i,j),RCMApp%Bmin(i,jp),RCMApp%radcurv(i,jp),RCMApp%planet_radius)
-
-          wCS = RCMApp%dtCpl/TauCS !Sonic bounce
           wDP = RCMApp%dtCpl/TauDP !Drift period
-          call ClampWeight(wCS)
           call ClampWeight(wDP)
-          wGR = GridWeight(Drc(i,j),Prc(i,j),vm(i,j),alamc(kcsize))
-
           !Choose which weight to use
           wgt = wDP 
 
         !Now do blending
           etaOld = eta(i,j,:)
-          etaNew = etaOld !Keep old values in cold channel(s)
-          etaNew(klow:) = (1-wgt)*etaOld(klow:) + wgt*etaMax(klow:)
-          
+          do k=1,kcsize
+            if (alamc(k) > TINY) then
+              etaNew(k) = (1-wgt)*etaOld(k) + wgt*etaMax(k)
+            else
+              etaNew(k) = etaOld(k)
+            endif
+          enddo
           eta(i,j,:) = etaNew
-          
+
         ENDDO
       ENDDO !j loop
 
