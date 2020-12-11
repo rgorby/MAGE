@@ -86,7 +86,8 @@ MODULE tomhd_mod
       integer :: i,j,jp,klow,k
       REAL(rprec), dimension(kcsize) :: etaMax,etaNew,etaOld
       REAL(rprec) :: TauDP,wDP,wgt
-      
+      LOGICAL :: doBlend
+
       !Set lowest RC channel
       if (use_plasmasphere) then
         klow = 2
@@ -113,7 +114,7 @@ MODULE tomhd_mod
       !$OMP PARALLEL DO default(shared) &
       !$OMP schedule(dynamic) &
       !$OMP private(i,j,jp,TauDP,wDP,wgt,k) &
-      !$OMP private(etaMax,etaNew,etaOld)
+      !$OMP private(etaMax,etaNew,etaOld,doBlend)
       DO j = 1, jsize
         !i,j is index in RCM grid
         !i,jp is index in RCM-MHD grid
@@ -140,11 +141,25 @@ MODULE tomhd_mod
         !Now do blending
           etaOld = eta(i,j,:)
           do k=1,kcsize
-            if (alamc(k) > TINY) then
-              etaNew(k) = (1-wgt)*etaOld(k) + wgt*etaMax(k)
+            if (alamc(k)>TINY) then
+              !Ions
+              if (Pion(i,j)>TINY) then
+                etaNew(k) = (1-wgt)*etaOld(k) + wgt*etaMax(k)
+              else
+                etaNew(k) = etaOld(k)
+              endif !Pion>TINY
+            else if (alamc(k)<TINY) then
+              !Electrons
+              if (Pele(i,j)>TINY) then
+                etaNew(k) = (1-wgt)*etaOld(k) + wgt*etaMax(k)
+              else
+                etaNew(k) = etaOld(k)
+              endif !Pele > TINY
             else
+              !plasmasphere
               etaNew(k) = etaOld(k)
-            endif
+            endif !alamc
+
           enddo
           eta(i,j,:) = etaNew
 

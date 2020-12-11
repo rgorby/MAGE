@@ -150,8 +150,11 @@ MODULE etautils
     iP = 0.0
     eP = 0.0
     call IntegratePressureIE(eta,vm,iP,eP)
-
-    TiovTe = iP/eP
+    if (eP>TINY) then
+      TiovTe = iP/eP
+    else
+      TiovTe = 0.0
+    endif
   end function GetTioTe
 
   !Convert given single density/pressure to eeta
