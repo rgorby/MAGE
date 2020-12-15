@@ -374,7 +374,7 @@ module mhdgroup
                          + pConS*Rsbar*Vec2Perp(dPGas,bhat1)      &
                          + Vec2Para(dPGasS,bhat1)
                          
-                    Vtmp = (D0s*V0s + dMom)/D2
+                    Vtmp = (D0s*V0s + dMom)/D2s
                 else 
                     !Not a good species, just use bulk flow
                     Vtmp = V2

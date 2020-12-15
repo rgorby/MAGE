@@ -17,6 +17,12 @@ module mixinterp
       ! note, looping over cells -- not nodes -- here
       do i=1,G%Nt-1  
          do j=1,G%Np  ! we go to +1 point in phi to cover the gap between Np and 1
+
+            ! only do the last point in phi if the grid isPeriodic
+            ! otherwise, interpolant will not be set there
+            ! and just like for i=G%Nt will default to 0.
+            if ( (j.eq.G%Np).and.(.not.(G%isPeriodic)) ) cycle
+
             if (j.ne.G%Np) then
                jp1=j+1
                dp = 0._rp
@@ -64,6 +70,21 @@ module mixinterp
             Map%J1(j2,i2) = j1
             x = (/1._rp, G2%p(j2,i2),G2%t(j2,i2), G2%p(j2,i2)*G2%t(j2,i2) /)
 
+            ! coming out of mix_search: 
+            ! i1=0 if the destination point (j2,i2) is above of the poleward boundary of the source grid (G1) or
+            ! i1=G1%Nt if the destination point (j2,i2) is below the equatorward boundary of the source grid (G1)
+            ! Set the Map to 0.0 there for now and see if we need a more nuanced treatement later
+            if ( (i1.eq.0).or.(i1.eq.G1%Nt) ) then
+              Map%M(j2,i2,:) = 0.0
+              cycle
+            end if
+ 
+            ! same for j-boundary if G1 is not periodic
+            if ( (.not.G1%isPeriodic).and.((j1.eq.0).or.(j1.eq.G1%Np)) ) then
+              Map%M(j2,i2,:) = 0.0
+              cycle
+            end if
+
             ! treat the poles
             if ((i1.eq.1).and.(G1%t(1,1)).lt.TINY) then
                ! just average over the three vertices of the triangle
@@ -76,6 +97,8 @@ module mixinterp
             end if
          end do
       end do
+      Map%M = max(Map%M,0.D0)
+      Map%M = min(Map%M,1.D0)
 
     end subroutine mix_set_map
 
@@ -96,6 +119,7 @@ module mixinterp
       if ( (G%t(1,i)-t).gt.0 ) i=i-1
 
       ! treat periodic
+      ! still set it even if not periodic but then fix in set map
       if ( ((p-G%p(G%Np,1)).gt.0).and.(p.lt.2*pi) ) j=G%Np
     end subroutine mix_search
 
@@ -124,8 +148,12 @@ module mixinterp
             end if
             
             !FIXME: Something here causing overrun on index 2
+            ! vgm 041820: seems like this has been fixed by the if statement below
+            ! at least -check bounds runs fine, and the code seems fine too
             if (i1 == size(F1,2)) then
               F = (/ F1(j1,i1), F1(j1p1,i1), F1(j1,i1), F1(j1p1,i1)/)
+            elseif (i1 ==0) then
+              F = (/ F1(j1,i1+1), F1(j1p1,i1+1), F1(j1,i1+1), F1(j1p1,i1+1)/)
             else
               F = (/ F1(j1,i1), F1(j1p1,i1), F1(j1,i1+1), F1(j1p1,i1+1)/)
             endif

@@ -55,11 +55,14 @@ if __name__ == "__main__":
 	fOut = outid + ".Res.%05d.h5"%(nRes)
 	oH5 = h5py.File(fOut,'w')
 
-	G,M = upscl.PullRestartMPI(bStr,nRes,Ri,Rj,Rk,dIn,oH5)
+	G,M,G0 = upscl.PullRestartMPI(bStr,nRes,Ri,Rj,Rk,dIn,oH5)
 
 	#Write main data
 	print("Writing plasma and field data ...")
 	oH5.create_dataset("Gas",data=G)
+	if (G0 is not None):
+		print("Writing Gas0")
+		oH5.create_dataset("Gas0",data=G0)
 	oH5.create_dataset("magFlux",data=M)
 	gVals = ['X','Y','Z']
 

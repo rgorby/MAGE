@@ -1,5 +1,5 @@
 module rcm_precision
-    use kdefs, ONLY: ip,rp,PI,strLen
+    use kdefs, ONLY: ip,rp,PI,strLen,Me_cgs,Mp_cgs
   ! use gamera precision
     INTEGER, PARAMETER :: iprec = ip
     INTEGER, PARAMETER :: rprec = rp
@@ -11,5 +11,6 @@ module rcm_precision
     INTEGER(iprec), parameter :: ICONRESTART      = ICONWRITERESTART - 1
     INTEGER(iprec), parameter :: RCMELECTRON = 1
     INTEGER(iprec), parameter :: RCMPROTON   = 2
-
+    INTEGER(iprec), parameter :: RCMOXYGEN   = 3
+    INTEGER(iprec), parameter :: RCMNUMFLAV = 2 !Number of RCM flavors
 end module rcm_precision

@@ -1,7 +1,7 @@
 !Various time-series utilities to read in variables from a file and return its value at any given time
 
 module kronos
-    use ioH5,     only : IOVAR_T, ClearIO, AddInVar, ReadVars
+    use ioH5,     only : IOVAR_T, ClearIO, AddInVar, ReadVars, ioExist
     use strings,  only : toUpper
     use kdefs,    only : strLen, dp, rp
  
@@ -36,29 +36,48 @@ module kronos
     contains
 
     !Read variable data from file
-    subroutine initTS(varTS,varStr)
+    subroutine initTS(varTS,varStr,doLoudO)
         class(TimeSeries_T), intent(inout) :: varTS
         character(len=*),intent(in) :: varStr
+        logical, intent(in), optional :: doLoudO
 
         integer :: N
-        logical :: fExist
+        logical :: fExist,doLoud,vEx1,vEx2
         type(IOVAR_T), dimension(MAXWINDVARS) :: IOVars
 
         varTS%varID = varStr
+
+        if (present(doLoudO)) then
+            doLoud = doLoudO
+        else
+            doLoud = .true.
+        endif
 
         if (trim(toUpper(varTS%wID)) .eq. "NONE") then
             write(*,*) "Error: No input file specified to be read in"
             stop
         endif
 
-        write(*,*) "---------------"
-        write(*,*) "Creating time series for ", trim(varTS%varID)
-        write(*,*) "Reading data from ", trim(varTS%wID)
         !Check file
         inquire(file=trim(varTS%wID),exist=fExist)
         if (.not. fExist) then
             write(*,*) "Error reading ", trim(varTS%wID), " exiting ..."
             stop
+        endif
+
+        !Check variables
+        vEx1 = ioExist(varTS%wID,"T")
+        vEx2 = ioExist(varTS%wID,varTS%varID)
+              
+        if (.not. (vEx1 .and. vEx2) ) then
+            write(*,*) 'Error reading time series variables from ', trim(varTS%wID), ' : T / ', trim(varTS%varID)
+            stop
+        endif
+
+        if (doLoud) then
+            write(*,*) "---------------"
+            write(*,*) "Creating time series for ", trim(varTS%varID)
+            write(*,*) "Reading data from ", trim(varTS%wID)
         endif
 
         !Set discrete wind function                                                                                                                                                            
@@ -86,8 +105,10 @@ module kronos
         varTS%tMin = minval(varTS%tF)
         varTS%tMax = maxval(varTS%tF)
 
-        write(*,*) "Finished reading data for ", trim(varTS%varID)
-        write(*,*) "---------------"
+        if (doLoud) then
+            write(*,*) "Finished reading data for ", trim(varTS%varID)
+            write(*,*) "---------------"
+        endif
 
     end subroutine initTS
 

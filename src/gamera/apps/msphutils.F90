@@ -36,10 +36,12 @@ module msphutils
     real(rp), private :: tScl !Needed for time output, TODO: Fix this
     real(rp), private :: Rion ! Planetary ionosphere radius
     !Chill out parameters
+    logical , private :: doLFMChill = .true. !Do LFM-style chilling
+    logical , private :: doGAMChill = .true. !Do GAM-style chilling
     real(rp), private :: RhoCO = 1.0e-3 ! Number density
     real(rp), private :: CsCO  = 1.0e-2  ! Cs chillout, m/s
-    real(rp), parameter, private :: cLim = 1.5 ! Cool when sound speed is above cLim*Ca
-    logical , parameter, private :: doLFMChill = .true. !Do LFM-style chilling
+    real(rp), private :: cLim = 1.5 ! Cool when sound speed is above cLim*Ca
+    
     
     !Dipole cut values
     !real(rp), private :: rCut=4.5, lCut=3.5 !LFM values
@@ -52,9 +54,8 @@ module msphutils
     real(rp), private :: Psi0 = 0.0 ! corotation potential coef
     real(rp), private :: M0   = 0.0 !Magnetic moment
 
-    !Ingestion
-    logical, private :: doWolfLim  = .true.
-    logical, private :: doIngestDT = .false.
+    !Ingestion switch
+    logical, private :: doIngest = .true.
 
     contains
 
@@ -134,6 +135,27 @@ module msphutils
             call xmlInp%Set_Val(Model%doGrav,"prob/doGrav",.true.)
         end select
 
+        !Set some chilling parameters
+        !If we're using source term set default as chilling off
+        if (Model%doSource) then
+            doGAMChill = .false.
+            doLFMChill = .false.
+        endif
+        !Now read XML parameters w/ default options
+        call xmlInp%Set_Val(doGAMChill,"chill/doGAMChill",doGAMChill)
+        call xmlInp%Set_Val(doLFMChill,"chill/doLFMChill",doLFMChill)
+        if (doLFMChill) then
+            call xmlInp%Set_Val(RhoCO,"chill/RhoCO",RhoCO)
+        endif
+        if (doGAMChill) then
+            call xmlInp%Set_Val(cLim,"chill/cLim",cLim)
+        endif
+
+        !Whether to ignore ingestion (if set)
+        if (Model%doSource) then
+            call xmlInp%Set_Val(doIngest,"source/doIngest",.true.)
+        endif
+        
         call xmlInp%Set_Val(doCorot,"prob/doCorot",.true.)
         if (.not. doCorot) then
             !Zero out corotation potential
@@ -196,11 +218,8 @@ module msphutils
         Model%gamOut%pID = 'nPa'
         Model%gamOut%bID = 'nT'
 
-        if (Model%doSource) then
-            call xmlInp%Set_Val(doWolfLim ,"source/doWolfLim" ,doWolfLim)
-            call xmlInp%Set_Val(doIngestDT,"source/doIngestDT",doIngestDT)
-        endif
-
+        !Reinterpret pressure floor as nPa
+        pFloor = pFloor/gP0
     end subroutine
 
     subroutine magsphereTime(T,tStr)
@@ -333,6 +352,11 @@ module msphutils
         real(rp) :: D,P,CsC,Pc,Leq,tau
         logical :: doChill
 
+        !Check if there's no chill and get out
+        if ( (.not. doLFMChill) .and. (.not. doGAMChill) ) then
+            return
+        endif
+
         RhoMin(BLK) = 0.0
         if (Model%doMultiF) then
             !Don't do bulk
@@ -390,7 +414,7 @@ module msphutils
                         endif
 
                         !If sound speed is faster than "light", chill the fuck out
-                        doChill = Model%doBoris .and. (CsC>cLim*Model%Ca)
+                        doChill = Model%doBoris .and. (CsC>cLim*Model%Ca) .and. (doGAMChill)
                         if (doChill .and. Model%doSource) then
                             !If this is a pressure ingestion region, then let the pressure go wild
                             if (Grid%Gas0(i,j,k,IMPR ,BLK)>TINY) doChill = .false.
@@ -587,11 +611,10 @@ module msphutils
 
         integer :: i,j,k
         real(rp), dimension(NVAR) :: pW, pCon
-        real(rp), dimension(NDIM) :: Bxyz
 
         real(rp) :: M0,Mf
-        real(rp) :: Tau,dRho,dP,beta,Pb,PLim,Pmhd,Prcm,wIMag
-        logical  :: doIngest,doInD,doInP
+        real(rp) :: Tau,dRho,dP,Pmhd,Prcm
+        logical  :: doIngestIJK,doInD,doInP
 
         if (Model%doMultiF) then
             write(*,*) 'Source ingestion not implemented for multifluid, you should do that'
@@ -600,38 +623,28 @@ module msphutils
 
         if (Model%t<=0) return
 
+        if (.not. doIngest) return
+        
         !M0 = sum(State%Gas(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,DEN,BLK)*Gr%volume(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke))
 
-        !$OMP PARALLEL DO default(shared) collapse(2) &
-        !$OMP private(i,j,k,doInD,doInP,doIngest,pCon,pW,Tau,dRho,dP) &
-        !$OMP private(beta,Bxyz,Pb,PLim,Pmhd,Prcm,wIMag)
+       !$OMP PARALLEL DO default(shared) collapse(2) &
+       !$OMP private(i,j,k,doInD,doInP,doIngestIJK,pCon,pW) &
+       !$OMP private(Tau,dRho,dP,Pmhd,Prcm)
         do k=Gr%ks,Gr%ke
             do j=Gr%js,Gr%je
                 do i=Gr%is,Gr%ie
                     doInD = (Gr%Gas0(i,j,k,IMDEN,BLK)>TINY)
                     doInP = (Gr%Gas0(i,j,k,IMPR ,BLK)>TINY)
-                    doIngest = doInD .or. doInP
+                    doIngestIJK = doInD .or. doInP
 
-                    if (.not. doIngest) cycle
+                    if (.not. doIngestIJK) cycle
 
                     pCon = State%Gas(i,j,k,:,BLK)
                     call CellC2P(Model,pCon,pW)
-                    Bxyz = State%Bxyz(i,j,k,:)
-                    if (Model%doBackground) then
-                        Bxyz = Bxyz + Gr%B0(i,j,k,:)
-                    endif
                     Pmhd = pW(PRESSURE)
-                    Pb = 0.5*dot_product(Bxyz,Bxyz)
-                    beta = Pmhd/Pb
 
                     !Get timescale, taking directly from Gas0
                     Tau = Gr%Gas0(i,j,k,IMTSCL,BLK)
-                    if (doIngestDT) then
-                        !Scale tau, wIMag = [0,1] (less to more inner magnetospheric)
-                        wIMag = IMagWgt(Model,pW,Bxyz)
-                        wIMag = max(wIMag,TINY) !Avoid div by 0
-                        Tau = Tau/wIMag
-                    endif
                                         
                     if (Tau<Model%dt) Tau = Model%dt !Unlikely to happen
 
@@ -642,41 +655,8 @@ module msphutils
 
                     if (doInP) then
                         Prcm = Gr%Gas0(i,j,k,IMPR,BLK)
-                        if (doWolfLim) then
-                            PLim = Prcm/(1.0+beta*5.0/6.0)
-                        else
-                            PLim = Prcm
-                        endif
-
-                        if (Pmhd <= PLim) then
-                            dP = PLim - Pmhd
-                        else if (Pmhd >= Prcm) then
-                            dP = Prcm - Pmhd
-                        else
-                            dP = 0.0
-                        endif
-                        
-                        ! !if (Prcm*Model%Units%gP0 > 25.0) then
-                        ! if ( (i==6) .and. (j==41) .and. (k==41) ) then
-                        ! !if (Prcm > TINY) then
-                        !     !$OMP CRITICAL
-                        !     write(*,*) '---'
-                        !     write(*,*) 'ijk = ', i,j,k
-                        !     write(*,*) 'Den = ', pW(DEN)
-                        !     !write(*,*) 'pScl = ', Model%Units%gP0
-                        !     write(*,*) 'Pmhd = ', Pmhd*Model%Units%gP0
-                        !     write(*,*) 'Plim / Prcm = ', PLim*Model%Units%gP0, Prcm*Model%Units%gP0
-                        !     !!write(*,*) 'dP = ', dP*Model%Units%gP0
-                        !     write(*,*) 'DelP = ', (Model%dt/Tau)*dP*Model%Units%gP0
-                        !     !write(*,*) 'Beta, Scl = ', beta, 1.0/(1.0+beta*5.0/6.0)
-                        !     !write(*,*) 'Pb / Bxyz = ', Pb, Bxyz
-
-                        !     !write(*,*) 'dt / tau = ', Model%dt*Model%Units%gT0,Tau*Model%Units%gT0
-                        !     write(*,*) 'Pmhd-Update = ', (pW(PRESSURE) + (Model%dt/Tau)*dP)*Model%Units%gP0
-                            
-                        !     write(*,*) '---'
-                        !     !$OMP END CRITICAL
-                        ! endif
+                        !Assume already wolf-limited or not
+                        dP = Prcm - Pmhd
                         
                         pW(PRESSURE) = pW(PRESSURE) + (Model%dt/Tau)*dP
                     endif

@@ -228,9 +228,6 @@ program projectx
           call inpXML%Set_Val(rmin,'radius/min',5.0)
           call inpXML%Set_Val(rmax,'radius/max',25.0)
 
-          Model%rmin = rmin
-          Model%rmax = rmax
-
           ! find nightside i-location just inside the domain
           ! note minloc assumes indices start from 1, thus the -1+isg at the end
           ind=minloc(rmax+ebState%ebGr%xyz(:,je+1,ks,XDIR),dim=1,mask=rmax+ebState%ebGr%xyz(:,je+1,ks,XDIR)>=0.)-1+isg  

@@ -278,65 +278,6 @@ module gamapp_mpi
         ! call appropriate subroutines to read corner info and mesh size data
         call ReadCorners(Model,Grid,xmlInp,endTime)
 
-        if(Grid%isTiled .and. .not. Model%isRestart ) then
-            !if we're tiled and read the entire grid file, subdivide ita
-            Grid%Nip = Grid%Nip/Grid%NumRi
-            Grid%Njp = Grid%Njp/Grid%NumRj
-            Grid%Nkp = Grid%Nkp/Grid%NumRk
-
-            Grid%ijkShift(IDIR) = Grid%Nip*Grid%Ri
-            Grid%ijkShift(JDIR) = Grid%Njp*Grid%Rj
-            Grid%ijkShift(KDIR) = Grid%Nkp*Grid%Rk
-
-            Grid%Ni = Grid%Nip + 2*Model%nG
-            Grid%Nj = Grid%Njp + 2*Model%nG
-            Grid%Nk = Grid%Nkp + 2*Model%nG
-
-            Grid%is = 1; Grid%ie = Grid%Nip
-            Grid%js = 1; Grid%je = Grid%Njp
-            Grid%ks = 1; Grid%ke = Grid%Nkp
-
-            Grid%isg = Grid%is-Model%nG
-            Grid%ieg = Grid%ie+Model%nG
-
-            Grid%jsg = Grid%js-Model%nG
-            Grid%jeg = Grid%je+Model%nG
-
-            Grid%ksg = Grid%ks-Model%nG
-            Grid%keg = Grid%ke+Model%nG
-
-            ! create temporary arrays to hold this rank's subset of the full corner array
-            allocate(tempX(Grid%isg:Grid%ieg+1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1))
-            allocate(tempY(Grid%isg:Grid%ieg+1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1))
-            allocate(tempZ(Grid%isg:Grid%ieg+1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1))
-
-            ! pull out this rank's relevant corner info
-            tempX = Grid%x(Grid%isg+Grid%ijkShift(IDIR):Grid%ieg+1+Grid%ijkShift(IDIR), &
-                           Grid%jsg+Grid%ijkShift(JDIR):Grid%jeg+1+Grid%ijkShift(JDIR), &
-                           Grid%ksg+Grid%ijkShift(KDIR):Grid%keg+1+Grid%ijkShift(KDIR))
-            tempY = Grid%y(Grid%isg+Grid%ijkShift(IDIR):Grid%ieg+1+Grid%ijkShift(IDIR), &
-                           Grid%jsg+Grid%ijkShift(JDIR):Grid%jeg+1+Grid%ijkShift(JDIR), &
-                           Grid%ksg+Grid%ijkShift(KDIR):Grid%keg+1+Grid%ijkShift(KDIR))
-            tempZ = Grid%z(Grid%isg+Grid%ijkShift(IDIR):Grid%ieg+1+Grid%ijkShift(IDIR), &
-                           Grid%jsg+Grid%ijkShift(JDIR):Grid%jeg+1+Grid%ijkShift(JDIR), &
-                           Grid%ksg+Grid%ijkShift(KDIR):Grid%keg+1+Grid%ijkShift(KDIR))
-
-            ! delete the old corner arrays
-            deallocate(Grid%x)
-            deallocate(Grid%y)
-            deallocate(Grid%z)
-
-            ! move the new arrays to the grid corner arrays
-            call move_alloc(tempX, Grid%x)
-            call move_alloc(tempY, Grid%y)
-            call move_alloc(tempZ, Grid%z)
-        else
-            ! adjust grid info for these ranks
-            Grid%ijkShift(IDIR) = Grid%Nip*Grid%Ri
-            Grid%ijkShift(JDIR) = Grid%Njp*Grid%Rj
-            Grid%ijkShift(KDIR) = Grid%Nkp*Grid%Rk
-        endif
-
         if(Grid%isTiled) then
             ! now create the arrays that MPI will use to send and receive the data
             call mpi_dist_graph_neighbors_count(gamAppMpi%gamMpiComm,numInNeighbors,numOutNeighbors,wasWeighted,ierr)
@@ -655,6 +596,7 @@ module gamapp_mpi
         type(gamAppMpi_T), intent(inout) :: gamAppMpi
 
         integer :: ierr, length
+        integer :: gasReq, mfReq
         character(len=strLen) :: message
 
         ! arrays for calculating mag flux face error, if applicable
@@ -666,11 +608,11 @@ module gamapp_mpi
             ! just tell MPI to use the arrays we defined during initialization to send and receive data!
 
             ! Gas Cell Data
-            call mpi_neighbor_alltoallw(gamAppMpi%State%Gas, gamAppMpi%sendCountsGas, &
+            call mpi_ineighbor_alltoallw(gamAppMpi%State%Gas, gamAppMpi%sendCountsGas, &
                                         gamAppMpi%sendDisplsGas, gamAppMpi%sendTypesGas, &
                                         gamAppMpi%State%Gas, gamAppMpi%recvCountsGas, &
                                         gamAppMpi%recvDisplsGas, gamAppMpi%recvTypesGas, &
-                                        gamAppMpi%gamMpiComm, ierr)
+                                        gamAppMpi%gamMpiComm, gasReq, ierr)
             if(ierr /= MPI_Success) then
                 call MPI_Error_string( ierr, message, length, ierr)
                 print *,message(1:length)
@@ -688,11 +630,11 @@ module gamapp_mpi
                 endif
 
                 ! Magnetic Face Flux Data
-                call mpi_neighbor_alltoallw(gamAppMpi%State%magFlux, gamAppMpi%sendCountsMagFlux, &
+                call mpi_ineighbor_alltoallw(gamAppMpi%State%magFlux, gamAppMpi%sendCountsMagFlux, &
                                             gamAppMpi%sendDisplsMagFlux, gamAppMpi%sendTypesMagFlux, &
                                             gamAppMpi%State%magFlux, gamAppMpi%recvCountsMagFlux, &
                                             gamAppMpi%recvDisplsMagFlux, gamAppMpi%recvTypesMagFlux, &
-                                            gamAppMpi%gamMpiComm, ierr)
+                                            gamAppMpi%gamMpiComm, mfReq, ierr)
                 if(ierr /= MPI_Success) then
                     call MPI_Error_string( ierr, message, length, ierr)
                     print *,message(1:length)
@@ -705,6 +647,11 @@ module gamapp_mpi
                       sum(abs(gamAppMpi%state%magFlux(gamAppMpi%grid%is:gamAppMpi%grid%ie,gamAppMpi%grid%js:gamAppMpi%grid%je,gamAppMpi%grid%ke+1,KDIR) - maxK))
                 endif
 
+            endif
+
+            call mpi_wait(gasReq, MPI_STATUS_IGNORE, ierr)
+            if(gamAppMpi%Model%doMHD) then
+                call mpi_wait(mfReq, MPI_STATUS_IGNORE, ierr)
             endif
 
         endif

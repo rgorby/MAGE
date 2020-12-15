@@ -182,17 +182,22 @@ module chopio
 
         type(IOVAR_T), dimension(MAXEBVS) :: IOVars
 
-        real(rp), dimension(:,:,:,:), allocatable :: B,Q,E
+        real(rp), dimension(:,:,:,:), allocatable :: B,Q,E,J3
         real(rp), dimension(NVARMHD) :: Qijk
         real(rp), dimension(NDIM) :: Bijk,Eijk,xyz
+        type(gcFields_T) :: gcFields
+        real(rp), dimension(NDIM,NDIM) :: jB
         integer :: i,j,k
+
+        real(rp) :: oJScl
 
         !Data for tracing
         type(ebTrc_T), dimension(:,:,:), allocatable :: ebTrcIJK
 
-        allocate(B(Nx1,Nx2,Nx3,NDIM))
-        allocate(E(Nx1,Nx2,Nx3,NDIM))
-        allocate(Q(Nx1,Nx2,Nx3,NVARMHD))
+        allocate(B (Nx1,Nx2,Nx3,NDIM))
+        allocate(E (Nx1,Nx2,Nx3,NDIM))
+        allocate(J3(Nx1,Nx2,Nx3,NDIM))
+        allocate(Q (Nx1,Nx2,Nx3,NVARMHD))
 
         if (Model%doTrc) then
             !Create an ebTrc for each point on slice
@@ -201,18 +206,23 @@ module chopio
 
         B = 0.0
         E = 0.0
+        J = 0.0
         Q = 0.0
 
         !$OMP PARALLEL DO default(shared) collapse(2) &
-        !$OMP private(i,j,k,xyz,Bijk,Eijk,Qijk)
+        !$OMP private(i,j,k,xyz,Bijk,Eijk,Qijk,gcFields,jB)
         do k=1,Nx3
             do j=1,Nx2
                 do i=1,Nx1
                     xyz = [xxc(i,j,k),yyc(i,j,k),zzc(i,j,k)]
 
-                    call ebFields(xyz,Model%t,Model,ebState,Eijk,Bijk)
+                    call ebFields(xyz,Model%t,Model,ebState,Eijk,Bijk,gcFields=gcFields)
                     B(i,j,k,:) = Bijk
                     E(i,j,k,:) = Eijk
+
+                    jB = gcFields%JacB
+
+                    J3(i,j,k,:) = Jac2Curl(jB)
 
                     if (Model%doMHD) then
                         Qijk = mhdInterp(xyz,Model%t,Model,ebState)
@@ -228,7 +238,12 @@ module chopio
             enddo
         enddo
 
-
+        !Calculate output J (current) scaling
+        !Mu0 [Tm/A] 
+        ! Curl(B) * oBScl/L0 => nT/cm x (1.0e-9)/(1.0e-2) => T/m
+        !oJScl => A/m^2
+        oJScl = ( (1.0e-7)*oBScl/L0 )/Mu0
+        
         !Now write out
         call ClearIO(IOVars)
 
@@ -242,6 +257,11 @@ module chopio
         call AddOutVar(IOVars,"Ex"  ,oEScl*E(:,:,:,XDIR))
         call AddOutVar(IOVars,"Ey"  ,oEScl*E(:,:,:,YDIR))
         call AddOutVar(IOVars,"Ez"  ,oEScl*E(:,:,:,ZDIR))
+
+        call AddOutVar(IOVars,"Jx"  ,oJScl*J3(:,:,:,XDIR))
+        call AddOutVar(IOVars,"Jy"  ,oJScl*J3(:,:,:,YDIR))
+        call AddOutVar(IOVars,"Jz"  ,oJScl*J3(:,:,:,ZDIR))
+
         if (Model%doMHD) then
             call AddOutVar(IOVars,"Vx"  ,oVScl*Q(:,:,:,VELX    ))
             call AddOutVar(IOVars,"Vy"  ,oVScl*Q(:,:,:,VELY    ))

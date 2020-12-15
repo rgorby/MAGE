@@ -36,7 +36,7 @@ contains
           call MPI_Comm_Split(this%getMpiCommunicator(), 0, this%getProcessRank(), gamComm, ierror)
 
           call initGamera_mpi(gamAppMpi, initUser, gamComm, caseFile, .false.)
-          call initGam2Volt(g2vCommMpi, gamAppMpi, this%getMpiCommunicator())
+          call initGam2Volt(g2vCommMpi, gamAppMpi, this%getMpiCommunicator(), caseFile)
       else
           isGamera = .false.
           allocate(voltAppMpi)
@@ -53,9 +53,15 @@ contains
   subroutine teardown(this)
       class (MpiTestMethod), intent(inout) :: this
 
+      if(allocated(voltAppMpi)) then
+          call endVoltronWaits(voltAppMpi)
+          deallocate(voltAppMpi)
+      endif
+      if(allocated(g2vCommMpi)) then
+           call endGam2VoltWaits(g2vCommMpi, gamAppMpi)
+           deallocate(g2vCommMpi)
+      endif
       if(allocated(gamAppMpi)) deallocate(gamAppMpi)
-      if(allocated(voltAppMpi)) deallocate(voltAppMpi)
-      if(allocated(g2vCommMpi)) deallocate(g2vCommMpi)
 
   end subroutine teardown
 
@@ -73,6 +79,7 @@ contains
           g2vCommMpi%MJD = 0
           g2vCommMpi%ts = 0
 
+          call localStepVoltronTime(g2vCommMpi, gamAppMpi)
           call performStepVoltron(g2vCommMpi,gamAppMpi)
 
           write (checkMessage,'(A,I0)') 'voltron time wrong on gamera rank ',this%getProcessRank()

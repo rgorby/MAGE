@@ -130,22 +130,29 @@ module ringutils
                     allocate(NCr(Nr))
                     NCr = [8,16]
                 case(64)
+                    !DBL res
                     Nr = 4
                     allocate(NCr(Nr))
                     NCr = [8,16,32,32]
                 case(128)
+                    !QUAD res
                     Nr = 8
                     allocate(NCr(Nr))
                     NCr = [8,16,32,32,64,64,64,64]
                 case(256)
-                    Nr = 16
+                    !OCT res
+                    Nr = 12
                     allocate(NCr(Nr))
-                    NCr = [8,16,32,32,64,64,64,64,128,128,128,128,128,128,128,128]
+                    NCr = [8,16,32,32,64,64,64,64,128,128,128,128]
+                    !Old LFM values
+                    !Nr = 16
+                    !NCr = [8,16,32,32,64,64,64,64,128,128,128,128,128,128,128,128]
+
                 case(512)
                     !Default HEX case
                     Nr = 16
                     allocate(NCr(Nr))
-                    NCr = [8,16,32,32,64,64,64,64,128,128,128,128,128,128,128,128]
+                    NCr = [8,16,32,32,64,64,64,64,128,128,128,128,256,256,256,256]
                 case default
                     write(*,*) 'Unsupported LFM-Nk, no default ...'
                 end select
@@ -175,8 +182,8 @@ module ringutils
             !------------------
             case ("lfm")
                 !Test that we haven't over-refined past ring avg chunks
-                if (Model%Ring%NumR>Grid%Njp) then
-                    write(*,*) 'Number of rings is larger than J cells per grid!'
+                if (Model%Ring%NumR>=Grid%Njp) then
+                    write(*,*) 'Number of rings is larger than J cells per rank!'
                     stop
                 endif
                 if (.not. (Grid%hasUpperBC(KDIR) .and. Grid%hasLowerBC(KDIR)) ) then
@@ -200,7 +207,6 @@ module ringutils
         integer :: iR,dJ,Np2
         integer :: n,dNorm,T1,T2
         integer :: jxP,jxM
-
 
         associate(NumR=>Model%Ring%NumR,Np=>Model%Ring%Np)
 
@@ -255,9 +261,11 @@ module ringutils
                         Gr%dj(ig,jg,kg) = Gr%dj(ip,jp,kp)
                         Gr%dk(ig,jg,kg) = Gr%dk(ip,jp,kp)
                         
-                        Gr%Tf(ig,jg,kg,NORMX:NORMZ,IDIR) = -Gr%Tf(ip+1,jp,kp,NORMX:NORMZ,IDIR)
-                        Gr%Tf(ig,jg,kg,NORMX:NORMZ,JDIR) = -Gr%Tf(ip  ,jp,kp,NORMX:NORMZ,JDIR)
-                        Gr%Tf(ig,jg,kg,NORMX:NORMZ,KDIR) =  Gr%Tf(ip  ,jp,kp,NORMX:NORMZ,KDIR)
+                        if (.not. Gr%lowMem) then
+                            Gr%Tf(ig,jg,kg,NORMX:NORMZ,IDIR) = -Gr%Tf(ip+1,jp,kp,NORMX:NORMZ,IDIR)
+                            Gr%Tf(ig,jg,kg,NORMX:NORMZ,JDIR) = -Gr%Tf(ip  ,jp,kp,NORMX:NORMZ,JDIR)
+                            Gr%Tf(ig,jg,kg,NORMX:NORMZ,KDIR) =  Gr%Tf(ip  ,jp,kp,NORMX:NORMZ,KDIR)
+                        endif
 
                         ! Gr%face(ig,jg,kg,IDIR) = Gr%face(ip+1,jp,kp,IDIR)
                         ! Gr%face(ig,jg,kg,JDIR) = Gr%face(ip  ,jp,kp,JDIR)
@@ -289,16 +297,16 @@ module ringutils
                             !Do faces
                             !I face (+ signature)
                             call lfmIJKfc(Model,Gr,IDIR,ig,jg,kg,ip,jp,kp)
-                            Gr%Tf  (ig,jg,kg,NORMX:NORMZ,IDIR) = Gr%Tf  (ip,jp,kp,NORMX:NORMZ,IDIR)
+                            if (.not. Gr%lowMem) Gr%Tf  (ig,jg,kg,NORMX:NORMZ,IDIR) = Gr%Tf  (ip,jp,kp,NORMX:NORMZ,IDIR)
                             Gr%face(ig,jg,kg,            IDIR) = Gr%face(ip,jp,kp,            IDIR)
                             !J face (- signature)
                             call lfmIJKfc(Model,Gr,JDIR,ig,jg,kg,ip,jp,kp)
-                            Gr%Tf  (ig,jg,kg,NORMX:NORMZ,JDIR) = -Gr%Tf  (ip,jp,kp,NORMX:NORMZ,JDIR)
+                            if (.not. Gr%lowMem) Gr%Tf  (ig,jg,kg,NORMX:NORMZ,JDIR) = -Gr%Tf  (ip,jp,kp,NORMX:NORMZ,JDIR)
                             Gr%face(ig,jg,kg,            JDIR) =  Gr%face(ip,jp,kp,            JDIR)
 
                             !K face (- signature)
                             call lfmIJKfc(Model,Gr,KDIR,ig,jg,kg,ip,jp,kp)
-                            Gr%Tf  (ig,jg,kg,NORMX:NORMZ,KDIR) = -Gr%Tf  (ip,jp,kp,NORMX:NORMZ,KDIR)
+                            if (.not. Gr%lowMem) Gr%Tf  (ig,jg,kg,NORMX:NORMZ,KDIR) = -Gr%Tf  (ip,jp,kp,NORMX:NORMZ,KDIR)
                             Gr%face(ig,jg,kg,            KDIR) =  Gr%face(ip,jp,kp,            KDIR)
 
                         endif !doS
@@ -320,17 +328,17 @@ module ringutils
                             !Do faces
                             !I face (+ signature)
                             call lfmIJKfc(Model,Gr,IDIR,ig,jg,kg,ip,jp,kp)
-                            Gr%Tf  (ig,jg,kg,NORMX:NORMZ,IDIR) = Gr%Tf  (ip,jp,kp,NORMX:NORMZ,IDIR)
+                            if (.not. Gr%lowMem) Gr%Tf  (ig,jg,kg,NORMX:NORMZ,IDIR) = Gr%Tf  (ip,jp,kp,NORMX:NORMZ,IDIR)
                             Gr%face(ig,jg,kg,            IDIR) = Gr%face(ip,jp,kp,            IDIR)
 
                             !J face (- signature), first active is je+1+1
                             call lfmIJKfc(Model,Gr,JDIR,ig,jg+1,kg,ip,jp,kp)
-                            Gr%Tf  (ig,jg+1,kg,NORMX:NORMZ,JDIR) = -Gr%Tf  (ip,jp,kp,NORMX:NORMZ,JDIR)
+                            if (.not. Gr%lowMem) Gr%Tf  (ig,jg+1,kg,NORMX:NORMZ,JDIR) = -Gr%Tf  (ip,jp,kp,NORMX:NORMZ,JDIR)
                             Gr%face(ig,jg+1,kg,            JDIR) =  Gr%face(ip,jp,kp,            JDIR)
 
                             !K face (- signature)
                             call lfmIJKfc(Model,Gr,KDIR,ig,jg,kg,ip,jp,kp)
-                            Gr%Tf  (ig,jg,kg,NORMX:NORMZ,KDIR) = -Gr%Tf  (ip,jp,kp,NORMX:NORMZ,KDIR)
+                            if (.not. Gr%lowMem) Gr%Tf  (ig,jg,kg,NORMX:NORMZ,KDIR) = -Gr%Tf  (ip,jp,kp,NORMX:NORMZ,KDIR)
                             Gr%face(ig,jg,kg,            KDIR) =  Gr%face(ip,jp,kp,            KDIR)
                         endif !doE
 

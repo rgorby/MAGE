@@ -74,9 +74,9 @@ module gridloc
         if(allocated(locAux%rMax)) deallocate(locAux%rMax)
         if(allocated(locAux%pMin)) deallocate(locAux%pMin)
         if(allocated(locAux%pMax)) deallocate(locAux%pMax)
-        if(allocated(locAux%rrI)) deallocate(locAux%rrI)
-        if(allocated(locAux%xxC)) deallocate(locAux%xxC)
-        if(allocated(locAux%yyC)) deallocate(locAux%yyC)
+        if(allocated(locAux%rrI))  deallocate(locAux%rrI)
+        if(allocated(locAux%xxC))  deallocate(locAux%xxC)
+        if(allocated(locAux%yyC))  deallocate(locAux%yyC)
     end subroutine CleanupLoc
 
     !Initialize various things for grid localization
@@ -171,6 +171,14 @@ module gridloc
                 call inpXML%Set_Val(DomE(1),'domain/xSun' ,30.0_rp)
                 call inpXML%Set_Val(DomE(2),'domain/xTail',-100.0_rp)
                 call inpXML%Set_Val(DomE(3),'domain/yzMax',40.0_rp)
+            case("MAGE")
+                write(*,*) 'Using MAGE inDomain'
+                inDomain=>inDomain_LFM
+                !Set bounds for yz-cylinder grid
+                !Choose appropriate for RCM coupling
+                call inpXML%Set_Val(DomE(1),'domain/xSun' , 20.0_rp)
+                call inpXML%Set_Val(DomE(2),'domain/xTail',-45.0_rp)
+                call inpXML%Set_Val(DomE(3),'domain/yzMax', 35.0_rp)
             case("EGG")
                 write(*,*) 'Using EGG inDomain'
                 inDomain=>inDomain_Egg

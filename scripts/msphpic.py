@@ -11,7 +11,7 @@ from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 import matplotlib.gridspec as gridspec
 import numpy as np
 import kaipy.gamera.msphViz as mviz
-import kaipy.gamera.remixpp as rmpp
+import kaipy.remix.remix as remix
 import kaipy.gamera.magsphere as msph
 import kaipy.gamera.gampp as gampp
 import kaipy.gamera.rcmpp as rcmpp
@@ -26,7 +26,8 @@ if __name__ == "__main__":
 	doDen = False
 	noIon = False
 	noMPI = False
-
+	doJy = False
+	doBz = False
 	MainS = """Creates simple multi-panel figure for Gamera magnetosphere run
 	Top Panel - Residual vertical magnetic field
 	Bottom Panel - Pressure (or density) and hemispherical insets
@@ -36,9 +37,12 @@ if __name__ == "__main__":
 	parser.add_argument('-d',type=str,metavar="directory",default=fdir,help="Directory to read from (default: %(default)s)")
 	parser.add_argument('-id',type=str,metavar="runid",default=ftag,help="RunID of data (default: %(default)s)")
 	parser.add_argument('-n' ,type=int,metavar="step" ,default=nStp,help="Time slice to plot (default: %(default)s)")
-	parser.add_argument('-den', action='store_true', default=doDen,help="Show density instead of pressure (default: %(default)s)")
+	parser.add_argument('-bz'   , action='store_true', default=doBz ,help="Show Bz instead of dBz (default: %(default)s)")
+	parser.add_argument('-den'  , action='store_true', default=doDen,help="Show density instead of pressure (default: %(default)s)")
+	parser.add_argument('-jy'   , action='store_true', default=doJy ,help="Show Jy instead of pressure (default: %(default)s)")
 	parser.add_argument('-noion', action='store_true', default=noIon,help="Don't show ReMIX data (default: %(default)s)")
 	parser.add_argument('-nompi', action='store_true', default=noMPI,help="Don't show MPI boundaries (default: %(default)s)")
+	
 
 	mviz.AddSizeArgs(parser)
 
@@ -51,9 +55,11 @@ if __name__ == "__main__":
 	noIon = args.noion
 	noMPI = args.nompi
 	doMPI = (not noMPI)
-	
+	doJy = args.jy
+	doBz = args.bz
 	#Get domain size
 	xyBds = mviz.GetSizeBds(args)
+
 
 	#---------------------
 	#Do work
@@ -68,35 +74,49 @@ if __name__ == "__main__":
 	#Init data
 	gsph = msph.GamsphPipe(fdir,ftag,doFast=doFast)
 
-	#Check for remix
-	rcmChk = fdir + "/%s.mhdrcm.h5"%(ftag)
-	doRCM = os.path.exists(rcmChk)
-	if (doRCM):
-		print("Found RCM data")
-		rcmdata = gampp.GameraPipe(fdir,ftag+".mhdrcm")
-
 	if (nStp<0):
 		nStp = gsph.sFin
 		print("Using Step %d"%(nStp))
+
+	#Check for remix
+	rcmChk = fdir + "/%s.mhdrcm.h5"%(ftag)
+	rmxChk = fdir + "/%s.mix.h5"%(ftag)
+	doRCM = os.path.exists(rcmChk)
+	doMIX = os.path.exists(rmxChk)
+
+	if (doRCM):
+		print("Found RCM data")
+		rcmdata = gampp.GameraPipe(fdir,ftag+".mhdrcm")
+		mviz.vP = kv.genNorm(1.0e-2,100.0,doLog=True)
+	if (doMIX):
+		print("Found ReMIX data")
+		ion = remix.remix(rmxChk,nStp)
+
 	#======
 	#Setup figure
 	fig = plt.figure(figsize=figSz)
-	gs = gridspec.GridSpec(3,4,height_ratios=[20,1.0,1.0],hspace=0.025)
-
-	AxL = fig.add_subplot(gs[0,0:2])
-	AxR = fig.add_subplot(gs[0,2:])
-	AxC1 = fig.add_subplot(gs[2,0])
-	AxC2 = fig.add_subplot(gs[2,3])
-	AxC3 = fig.add_subplot(gs[2,1])
-	AxC4 = fig.add_subplot(gs[2,2])
-
-	rmpp.cMax = 1.00
-	kv.genCB(AxC4,kv.genNorm(rmpp.cMax),"FAC",cM=rmpp.fcMap,Ntk=4)
-	rmpp.AddPotCB(AxC3)
+	gs = gridspec.GridSpec(3,6,height_ratios=[20,1,1],hspace=0.025)
 	
-	mviz.PlotEqB(gsph,nStp,xyBds,AxL,AxC1)
-	mviz.PlotMerid(gsph,nStp,xyBds,AxR,doDen,doRCM,AxC2)
-	#mviz.PlotJyXZ(gsph,nStp,xyBds,AxR,AxC3)
+
+	AxL = fig.add_subplot(gs[0,0:3])
+	AxR = fig.add_subplot(gs[0,3:])
+
+	AxC1 = fig.add_subplot(gs[-1,0:2])
+	AxC2 = fig.add_subplot(gs[-1,2:4])
+	AxC3 = fig.add_subplot(gs[-1,4:6])
+
+
+	cbM = kv.genCB(AxC2,kv.genNorm(remix.facMax),"FAC",cM=remix.facCM,Ntk=4)
+	AxC2.xaxis.set_ticks_position('top')
+
+	
+	Bz = mviz.PlotEqB(gsph,nStp,xyBds,AxL,AxC1,doBz=doBz)
+
+	if (doJy):
+		mviz.PlotJyXZ(gsph,nStp,xyBds,AxR,AxC3)
+	else:
+		mviz.PlotMerid(gsph,nStp,xyBds,AxR,doDen,doRCM,AxC3)
+	
 
 	gsph.AddTime(nStp,AxL,xy=[0.025,0.89],fs="x-large")
 	gsph.AddSW(nStp,AxL,xy=[0.625,0.025],fs="small")
@@ -105,15 +125,16 @@ if __name__ == "__main__":
 	if (doRCM):
 		AxRCM = inset_axes(AxL,width="30%",height="30%",loc=3)
 		rcmpp.RCMInset(AxRCM,rcmdata,nStp,mviz.vP)
+		#Add some dBz contours
+		AxRCM.contour(kv.reWrap(gsph.xxc),kv.reWrap(gsph.yyc),kv.reWrap(Bz),[0.0],colors=mviz.bz0Col,linewidths=mviz.cLW)
+		#AxRCM.contour(kv.reWrap(gsph.xxc),kv.reWrap(gsph.yyc),kv.reWrap(dBz),dbzVals,norm=vDB,cmap=mviz.dbCM,linewidths=0.25)
 		rcmpp.AddRCMBox(AxL)
 
 	if (doIon):
 		gsph.AddCPCP(nStp,AxR,xy=[0.610,0.925])
 
 	if (doIon):
-		dxy = [32.5,32.5]
-		gsph.CMIViz(AxR,nStp,dxy=dxy,loc="upper left",doNorth=True)
-		gsph.CMIViz(AxR,nStp,dxy=dxy,loc="lower left",doNorth=False)
+		mviz.AddIonBoxes(gs[0,3:],ion)
 
 	#Add MPI decomp
 	if (doMPI):
