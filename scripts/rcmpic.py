@@ -123,7 +123,7 @@ if __name__ == "__main__":
 		kv.genCB(AxC3,vB,r"Beta",cM=wCMap)
 	elif (doTb):
 		kv.genCB(AxC3,vI,r"Tb",cM=sCMap)
-	if (doBMin):
+	elif (doBMin):
 		kv.genCB(AxC3,vBM,r"B-Minimum [nT]",cM=sCMap)
 	else:	
 		kv.genCB(AxC3,vS,r"Flux-Tube Entropy [nPa (R$_{E}$/nT)$^{\gamma}$]",cM=sCMap)

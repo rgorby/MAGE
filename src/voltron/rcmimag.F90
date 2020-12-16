@@ -377,7 +377,7 @@ module rcmimag
         nlim = 0.0
         plim = 0.0
 
-        doP = (prc >= TINY)
+        doP = (prc >= pFloor)
         !Test RC contribution
         if (doP) then
             nrcm = nrc !Ring current contribution
@@ -401,7 +401,7 @@ module rcmimag
             return
         endif
 
-        doD = (nrcm >= TINY)
+        doD = (nrcm >= dFloor)
         !Experiment w/ limiting max value of beta allowed
         blim = min(beta,maxBetaLim)
         !Get scaling term
