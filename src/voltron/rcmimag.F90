@@ -104,7 +104,12 @@ module rcmimag
             write(*,*) 'Restarting RCM @ t = ', t0
             vApp%time = t0 !Set vApp's time to correct value from restart
             call rcm_mhd(t0,dtCpl,RCMApp,RCMRESTART,iXML=iXML)
-            doColdstart = .false. ! set to false if it is a restart
+            !Check if we need to do coldstart, assuming coldstart happens at T=0
+            if (t0 <= 0) then
+                doColdStart = .true.
+            else
+                doColdstart = .false. ! set to false if it is a restart
+            endif
         else
             t0 = vApp%time
             call ResetRCMDir()
