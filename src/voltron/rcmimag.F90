@@ -106,7 +106,9 @@ module rcmimag
             call rcm_mhd(t0,dtCpl,RCMApp,RCMRESTART,iXML=iXML)
             !Check if we need to do coldstart, assuming coldstart happens at T=0
             if (t0 <= 0) then
+                !Still haven't got to T=0 even w/ restart so still need to cold start
                 doColdStart = .true.
+                call InitRCMICs(imag,vApp,iXML)
             else
                 doColdstart = .false. ! set to false if it is a restart
             endif

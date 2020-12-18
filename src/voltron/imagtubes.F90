@@ -239,8 +239,22 @@ module imagtubes
         real(rp) :: dphi_mix,dphi_rcm
         real(rp) :: colat
 
+    !Choose number of smoothing iterations
         Ni = RCMApp%nLat_ion
         Nj = RCMApp%nLon_ion
+
+        !Based on ratio of mix vs. rcm coupling
+        !Ns = nint(vApp%DeepDT/vApp%ShallowDT) - 1
+
+        !Based on ratio of mix/RCM resolutions
+        dphi_mix = 360.0/vApp%remixApp%ion(1)%G%Np
+        dphi_rcm = 360.0/Nj
+
+        Ns = nint( (dphi_rcm/dphi_mix)/2 )
+
+        if (Ns<=0) return
+
+    !Prep for smoothing
         allocate(isG(Ni,Nj))
         isG = .not. (RCMApp%iopen == RCMTOPOPEN)
 
@@ -259,19 +273,7 @@ module imagtubes
             dV = RCMApp%Vol - V0
         endwhere
         
-    !Choose number of smoothing iterations
-        !Based on ratio of mix vs. rcm coupling
-        !Ns = nint(vApp%DeepDT/vApp%ShallowDT) - 1
-
-        !Based on ratio of mix/RCM resolutions
-        dphi_mix = 360.0/vApp%remixApp%ion(1)%G%Np
-        dphi_rcm = 360.0/Nj
-
-        Ns = nint( (dphi_rcm/dphi_mix)/2 )
-
-        if (Ns<=0) return
-
-        !Smooth some tubes
+    !Smooth some tubes
         do n=1,Ns
             !call Smooth2D(RCMApp%Vol) !Flux-tube volume
             call Smooth2D(dV) !Smooth dV
