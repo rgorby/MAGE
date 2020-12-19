@@ -81,7 +81,7 @@ if __name__ == "__main__":
 	vB = kv.genNorm(1.0e-2,1.0e+2,doLog=True)
 	vI = kv.genNorm(0,180)
 	vBM = kv.genNorm(0,100)
-	vFAC = kv.genNorm(-5,5)
+	vFAC = kv.genNorm(2.0)
 
 	Nc = 10
 	nMin = 1.0

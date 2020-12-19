@@ -56,7 +56,8 @@ MODULE rice_housekeeping_module
   LOGICAL, PARAMETER :: use_plasmasphere = .true.
   LOGICAL :: doAvg2MHD = .true.
   LOGICAL :: doPPRefill = .false. !Whether to refill plasmasphere
-  LOGICAL :: doRelax = .true. !Whether to relax energy distribution
+  LOGICAL :: doRelax    = .true. !Whether to relax energy distribution
+  LOGICAL :: doSmoothIJ = .true. !Whether to smooth individual eta channels
 
   INTEGER(iprec) :: InitKp = 1
   REAL(rprec) :: staticR = 0.0

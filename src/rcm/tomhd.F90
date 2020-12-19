@@ -7,7 +7,8 @@ MODULE tomhd_mod
   USE Rcm_mod_subs, ONLY : isize, jsize, kcsize,jwrap,alamc,ikflavc
   USE earthhelper, ONLY : GallagherXY,DP2kT
   USE etautils
-  
+  USE math
+
   implicit none
 
   contains
@@ -52,6 +53,12 @@ MODULE tomhd_mod
       !Do some checks on the RCM eta distribution
       if (doRelax) call RelaxEta(eeta,eeta_avg,vm,RM)
 
+      !Do IJ smoothing if needed
+      if (doSmoothIJ) then
+        call SmoothEtaIJ(eeta,vm)
+        if (doAvg2MHD) call SmoothEtaIJ(eeta_avg,vm)
+      endif
+
       !Now pick which eta (instant vs. avg) and calculate moments
       if (doAvg2MHD) then
         call rcm2moments(eeta_avg,vm,densrcm,denspsph,pressrcm,Pircm,Percm)
@@ -72,6 +79,78 @@ MODULE tomhd_mod
       ierr = 0
 
     END SUBROUTINE tomhd
+
+    SUBROUTINE SmoothEtaIJ(eta,vm)
+      REAL(rprec), intent(inout), dimension(isize,jsize,kcsize)  :: eta
+      REAL(rprec), intent(in)  :: vm(isize,jsize)
+
+      integer :: k
+
+      !$OMP PARALLEL DO default(shared) &
+      !$OMP schedule(dynamic) &
+      !$OMP private(k)
+      do k=1,kcsize
+        if (alamc(k) < TINY) cycle !Only do ions
+
+        call KSmooth(alamc(k),vm,eta(:,:,k))
+      enddo !k
+
+      contains
+
+      !Smooth individual K level
+      subroutine KSmooth(lam,vm,etak)
+        REAL(rprec), intent(in) :: lam
+        REAL(rprec), intent(in)  :: vm(isize,jsize)
+        REAL(rprec), intent(inout), dimension(isize,jsize)  :: etak
+
+        REAL(rprec), dimension(isize,jsize) :: etas
+
+        REAL(rprec) :: pfac,dP
+        integer :: i,j,di,dj,ipp,jpp
+        logical , dimension(-1:+1,-1:+1) :: isG33
+        REAL(rprec), dimension(-1:+1,-1:+1) :: dPC33
+
+        pfac = GetPressureFactor()
+
+        etas = etak
+        do j=2,jsize-1
+          do i=2,isize-1
+            if (vm(i,j)<TINY) cycle !Not good value
+
+            !Pack local stencil
+            isG33(:,:) = .false.
+            dPC33(:,:) = 0.0
+            do dj=-1,+1
+              do di=-1,+1
+                ipp = i+di
+                jpp = j+dj
+                if (vm(ipp,jpp)<TINY) cycle
+                dP = pfac*abs(lam)*etak(ipp,jpp)*vm(ipp,jpp)**2.5 !Pressure contribution
+                if (dP>TINY) then
+                  isG33(di,dj) = .true.
+                  dPC33(di,dj) = dP
+                endif
+
+              enddo !di
+            enddo !dj
+
+            !Now calculate smoothed value and store
+            if ( any(isG33) .and. (dPC33(0,0)>TINY) ) then
+              dP = SmoothOperator33(dPC33,isG33)
+
+              etas(i,j) = dP/pfac/abs(lam)/(vm(i,j)**2.5)
+              
+            endif
+
+          enddo !i loop
+        enddo !j
+
+        !Store values
+        etak = etas
+
+      end subroutine KSmooth
+
+    END SUBROUTINE SmoothEtaIJ
 
     !Do some safety stuff to eta w/ temperature is high
     SUBROUTINE RelaxEta(eta,eta_avg,vm,RCMApp)
