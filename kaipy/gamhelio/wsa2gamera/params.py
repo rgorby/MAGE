@@ -6,8 +6,10 @@ class params():
         config.read(ConfigFileName)
         
         self.gameraGridFile = config['Gamera']['gameraGridFile']
-        self.dirGameraGridFile = config['Gamera']['Dir']
-    
+        self.GridDir = config['Gamera']['GridDir']
+        self.gameraIbcFile = config['Gamera']['gameraIbcFile'] 
+        self.IbcDir = config['Gamera']['IbcDir']   
+
         self.wsaFile = config['WSA']['wsafile']
         self.gaussSmoothWidth = config.getint('WSA','gauss_smooth_width')
         self.plots = config.getboolean('WSA','plots')

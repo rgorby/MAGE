@@ -25,7 +25,7 @@ args = parser.parse_args()
 #----------- PARSE ARGUMENTS ---------#
 
 # Read params from config file
-prm = params(args.ConfigFileName)
+prm = params.params(args.ConfigFileName)
 Ng=prm.NO2
 gamma = prm.gamma
 B0 = prm.B0
@@ -53,7 +53,7 @@ v_wsa /= V0
 ############### GAMERA STUFF #####################
 
 # GAMERA GRID
-with h5py.File(os.path.join(prm.dirGameraGridFile,prm.gameraGridFile),'r') as f:
+with h5py.File(os.path.join(prm.GridDir,prm.gameraGridFile),'r') as f:
     x=f['X'][:]
     y=f['Y'][:]
     z=f['Z'][:]
@@ -119,7 +119,7 @@ rho*=(R0/Rc[0,0,:Ng])**2
 br*=(R0/Rc[0,0,:Ng])**2
 br_kface*=(R0/Rc[0,0,:Ng])**2
 
-with h5py.File('innerbc.h5','w') as hf:
+with h5py.File(os.path.join(prm.IbcDir,prm.gameraIbcFile),'w') as hf:
     hf.create_dataset("vr",data=vr)
     hf.create_dataset("vr_kface",data=vr_kface)
     hf.create_dataset("rho",data=rho)
