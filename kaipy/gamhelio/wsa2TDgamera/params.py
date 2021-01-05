@@ -1,8 +1,8 @@
-import ConfigParser
+import configparser
 
 class params():
     def __init__(self,ConfigFileName):
-        config = ConfigParser.ConfigParser()
+        config = configparser.ConfigParser()
         config.read(ConfigFileName)
         
         self.ni = config.getint('Dimensions','NI')
@@ -53,4 +53,3 @@ class params():
         self.dumpBC   = config.getboolean('DUMPS','BC')
 
 
-import ConfigParser

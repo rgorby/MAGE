@@ -1,12 +1,11 @@
-
-#! /usr/bin/env python
+#!/usr/bin/env python
 
 #python wsa2TDgamera.py 
-
 #helioLibLocation='/Users/provoea1/Work/gamera/python/gamera-h/lib'
+#from numpy import linspace,pi,meshgrid,sin,cos,zeros,ones,dstack,diff,sqrt,array,savetxt,flatnonzero,insert,asarray,zeros_like,where,roll,ediff1d,empty,tanh,insert,append
 
-from numpy import linspace,pi,meshgrid,sin,cos,zeros,ones,dstack,diff,sqrt,array,savetxt,flatnonzero,insert,asarray,zeros_like,where,roll,ediff1d,empty,tanh,insert,append
 import os,sys,glob
+import scipy
 from scipy import interpolate
 from scipy.optimize import newton_krylov,anderson
 import h5py
@@ -52,8 +51,8 @@ def plotBc(wsa_file, phi, theta, var1, var2, var3, var4):
     fig=plt.figure(figsize=(12,9))
     gs = gridspec.GridSpec(2,2,wspace=0.2, hspace =0.1)
 
-    phi = phi*180./pi
-    theta = theta*180./pi-90
+    phi = phi*180./np.pi
+    theta = theta*180./np.pi-90
 
     var1 = var1/1.e5 #km/s
     var2 = var2*1.e5 #nT
@@ -107,8 +106,8 @@ print(wsaFiles)
 
 # [EP] electric fields on edges
 #+2 in j directions, two ghost cells at start and end
-et_save = zeros( (nj+2,nk+1) )
-ep_save = zeros( (nj+1+2,nk) )
+et_save = np.zeros( (nj+2,nk+1) )
+ep_save = np.zeros( (nj+1+2,nk) )
 
 #[EP] going through the list of WSA files
 for (fcount,wsaFile) in enumerate(wsaFiles):
@@ -152,8 +151,8 @@ for (fcount,wsaFile) in enumerate(wsaFiles):
         #do we need this et al?
         # remove the ghosts from angular dimensions (corners)
         P = np.arctan2(y[Ng:-Ng-1,Ng:-Ng-1,:],x[Ng:-Ng-1,Ng:-Ng-1,:])
-        P [ P < 0] += 2*pi
-        P = P % (2*pi)  # sometimes the very first point may be a very
+        P [ P < 0] += 2*np.pi
+        P = P % (2*np.pi)  # sometimes the very first point may be a very
                    # small negative number, which the above call sets
                    # to 2*pi. This takes care of it.
         T = np.arccos(z[Ng:-Ng-1,Ng:-Ng,Ng]/r[Ng:-Ng-1,Ng:-Ng,Ng])
@@ -171,7 +170,7 @@ for (fcount,wsaFile) in enumerate(wsaFiles):
         Tc = np.arccos(zc[Ng:-Ng,Pg:-Pg,:]/Rc)
         
 
-        Pc [Pc < 0] += 2*pi
+        Pc [Pc < 0] += 2*np.pi
         #GAMERA grid at the inner boundary
         phi = Pc[:,0,0]
         theta = Tc[0,:,0]
@@ -184,26 +183,26 @@ for (fcount,wsaFile) in enumerate(wsaFiles):
         pois = poisson.poisson(theta,phi)
 
     
-    omega=2*pi/prm.Tsolar*(25.38/27.27)
+    omega=2*np.pi/prm.Tsolar*(25.38/27.27)
     #shift of wsa maps needed if wsa solutions are provided in inertial frame (folder UPDATED)
     #if wsa solutions are provided in rotating carrington frame (folder CARR), no need to shift.
     #shift phi coordinate in wsa data according to the shift of the wsa map relative to the first one 
     #wsa maps move to the right with cadence 1 day
 
-    phi_prime=(phi_wsa_c-omega*prm.adaptCadence*fcount)%(2*pi)
+    phi_prime=(phi_wsa_c-omega*prm.adaptCadence*fcount)%(2*np.pi)
     #looking for index of shift
-    if where(ediff1d(phi_prime)<0)[0].size!=0: #for the first map size =0, for other maps size=1
-        ind0=where(ediff1d(phi_prime)<0)[0][0]+1
+    if np.where(np.ediff1d(phi_prime)<0)[0].size!=0: #for the first map size =0, for other maps size=1
+        ind0=np.where(np.ediff1d(phi_prime)<0)[0][0]+1
         #print 'ind = ', ind0
     else:
         ind0=0 # this is for the first map
     
     #shifting phi_prime to the left
-    phi_prime=roll(phi_prime,-ind0)
-    bi_wsa_rolled=roll(bi_wsa,-ind0,axis=1)
-    v_wsa_rolled=roll(v_wsa,-ind0,axis=1)
-    n_wsa_rolled=roll(n_wsa,-ind0,axis=1)
-    T_wsa_rolled=roll(T_wsa,-ind0,axis=1)
+    phi_prime=np.roll(phi_prime,-ind0)
+    bi_wsa_rolled=np.roll(bi_wsa,-ind0,axis=1)
+    v_wsa_rolled=np.roll(v_wsa,-ind0,axis=1)
+    n_wsa_rolled=np.roll(n_wsa,-ind0,axis=1)
+    T_wsa_rolled=np.roll(T_wsa,-ind0,axis=1)
 
     #plot br from original wsa map (top plot) and shifted to the origin map(bottom plot)
     #changes in time in the bottom plot are purely due to time-dependent variations of B_r (rotation is eliminted) 
@@ -230,14 +229,14 @@ for (fcount,wsaFile) in enumerate(wsaFiles):
     #assuming uniform total pressure Rho_max*k*T0 = p+Br^2/8pi
 
     T0 = 0.8e6 #8e5 in wsa.py
-    cs = sqrt(prm.gamma/rho*(rho.max()*1.38e-16*T0/1.67e-24-br**2/8/pi))
+    cs = np.sqrt(prm.gamma/rho*(rho.max()*1.38e-16*T0/1.67e-24-br**2/8/np.pi))
 
     # Poisson solver after interpolation onto GAMERA grid
     if fcount>0:
         print ('fcount = ', fcount)
         #right-hand side of laplacian equation
         pois.setRHS( (br-br_save).T) #after transponding it becomes (nj,nk)
-        guess=zeros_like(br.T)
+        guess=np.zeros_like(br.T)
         #electric field potential psi: (Laplacian(Psi) = dB_r/dt)
         Psi = newton_krylov(pois.residual,guess, method='lgmres',verbose=True,iter=100)#,f_rtol=1.e-6) #iter=100
         print('Residual: %g' % abs(pois.residual(Psi)).max())
@@ -250,18 +249,18 @@ for (fcount,wsaFile) in enumerate(wsaFiles):
         #E_theta = dPsi/dphi/sin(theta)
         #E_phi = -dPsi/dtheta/r
 
-        et_a = zeros( (Psi.shape[0],Psi.shape[1]+1) ) #(128, 257)
-        et_a[:,1:-1] = diff(Psi,axis=1)/diff(phi) #except first and last cells in k
-        et_a[:,0] = (Psi[:,0] - Psi[:,-1])/(phi[0]-phi[-1]+2*pi) #k=0
+        et_a = np.zeros( (Psi.shape[0],Psi.shape[1]+1) ) #(128, 257)
+        et_a[:,1:-1] = np.diff(Psi,axis=1)/np.diff(phi) #except first and last cells in k
+        et_a[:,0] = (Psi[:,0] - Psi[:,-1])/(phi[0]-phi[-1]+2*np.pi) #k=0
         et_a[:,-1]=et_a[:,0] #k=Nk+1
-        et_a /= sin(theta[:,None]) 
+        et_a /= np.sin(theta[:,None]) 
         print ('E_theta.shape = ', et_a.shape) 
         """
         note, here we assume theta constant along phi and same theta on the
         boundary and in the center of the GAMERA cell - Elena: we should probably fix that 
         """
-        ep_a=zeros((Psi.shape[0]+1,Psi.shape[1])) #(129, 256)
-        ep_a[1:-1,:] = -diff(Psi,axis=0)/diff(theta)[:,None] #except first and last cells in j
+        ep_a=np.zeros((Psi.shape[0]+1,Psi.shape[1])) #(129, 256)
+        ep_a[1:-1,:] = -np.diff(Psi,axis=0)/np.diff(theta)[:,None] #except first and last cells in j
         #for j=0 and j=N_j we set nearby values
         ep_a[0,:]=ep_a[1,:]   # used to set these to zero, but more appropriate to repeat from next theta, since Ephi does not depend on theta at the pole.
         ep_a[-1,:]=ep_a[-2,:] 
@@ -287,12 +286,12 @@ for (fcount,wsaFile) in enumerate(wsaFiles):
     at cell centers and faces
     """
     vrt = vr.T #(nj,nk) in cell centers
-    bp_a = zeros_like(vrt) #B_phi in cell centers
-    bt_a = zeros_like(vrt) #B_theta in cell centers
-    bp_kface_a = zeros( (vrt.shape[0],vrt.shape[1]+1) ) #(nj,nk+1)
-    bt_jface_a = zeros( (vrt.shape[0]+1,vrt.shape[1]) ) #(nj+1,nk)
-    vrt_kface  = zeros( (vrt.shape[0],vrt.shape[1]+1) )
-    vrt_jface  = zeros( (vrt.shape[0]+1,vrt.shape[1]) )
+    bp_a = np.zeros_like(vrt) #B_phi in cell centers
+    bt_a = np.zeros_like(vrt) #B_theta in cell centers
+    bp_kface_a = np.zeros( (vrt.shape[0],vrt.shape[1]+1) ) #(nj,nk+1)
+    bt_jface_a = np.zeros( (vrt.shape[0]+1,vrt.shape[1]) ) #(nj+1,nk)
+    vrt_kface  = np.zeros( (vrt.shape[0],vrt.shape[1]+1) )
+    vrt_jface  = np.zeros( (vrt.shape[0]+1,vrt.shape[1]) )
 
     if fcount >0:
         # B_phi and B_theta defined at cell centers
@@ -337,8 +336,8 @@ for (fcount,wsaFile) in enumerate(wsaFiles):
     print (wsaFile)
     #
     vrp = vr[:,1:-1,:]
-    vp = zeros_like(vrp)
-    vt = zeros_like(vrp)
+    vp = np.zeros_like(vrp)
+    vt = np.zeros_like(vrp)
     rhop = rho[:,1:-1,:]
     csp = cs[:,1:-1,:]
     brp = br[:,1:-1,:]
