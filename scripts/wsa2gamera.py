@@ -1,6 +1,6 @@
 #! /usr/bin/env python
 
-helioLibLocation='/glade/u/home/elenap/kaiju/kaipy/gamhelio/lib'
+#helioLibLocation='/glade/u/home/elenap/kaiju/kaipy/gamhelio/lib'
 
 
 import numpy as np
