@@ -4,13 +4,14 @@ module rcm_mhd_io
     use xml_input
     use rcm_mhd_mod,  ONLY : rcm_mhd
     use rcm_mod_subs, ONLY : colat, aloct
+    use rice_housekeeping_module, ONLY : nSkipFL
 
     implicit none
 
     integer, parameter   , private :: MAXRCMIOVAR = 35
     character(len=strLen), private :: h5File,RCMH5,FLH5
     real(rp), parameter  , private :: IMGAMMA = 5.0/3.0
-    integer , parameter  , private :: nSkipFL = 3 !Stride to skip over writing out field lines
+    
     contains
 !--------------
 !Kaiju RCM IO Routines
@@ -254,7 +255,7 @@ module rcm_mhd_io
             do j=1,Nj-1,nSkipFL
                 write(lnStr,'(A,I0)') "Line#", n
                 if (RCMFLs(i,j)%isGood) then
-                    call OutLine(RCMFLs(i,j),gStr,lnStr)
+                    call OutLine(RCMFLs(i,j),gStr,lnStr,IOVars)
                     n = n + 1
                 endif
             enddo
@@ -263,18 +264,17 @@ module rcm_mhd_io
     end subroutine WriteRCMFLs
 
     !Write out individual line
-    subroutine OutLine(fL,gStr,lnStr)
+    subroutine OutLine(fL,gStr,lnStr,IOVars)
         USE ebtypes
         type(fLine_T), intent(in) :: fL
         character(len=strLen), intent(in) :: gStr,lnStr
-
-        type(IOVAR_T), dimension(MAXRCMIOVAR) :: IOVars
+        type(IOVAR_T), intent(inout), dimension(MAXRCMIOVAR) :: IOVars
         real(rp), allocatable, dimension(:,:) :: LCon
         integer :: i,Np,Npp,n0
         
-
+        call ClearIO(IOVars)
         Np = fL%Nm + fL%Np + 1
-        if (Np<=3) return
+        if (Np<=nSkipFL) return
         n0 = fL%Nm
 
         !Add scalar stuff

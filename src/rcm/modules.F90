@@ -60,6 +60,8 @@ MODULE rice_housekeeping_module
   LOGICAL :: doSmoothIJ = .true. !Whether to smooth individual eta channels
 
   INTEGER(iprec) :: InitKp = 1
+  INTEGER(iprec) :: nSkipFL = 8 !Stride for outputting field lines
+
   REAL(rprec) :: staticR = 0.0
   REAL(rprec) :: LowLatMHD = 0.0
   type RCMEllipse_T
@@ -125,6 +127,7 @@ MODULE rice_housekeeping_module
         call xmlInp%Set_Val(L_write_rcmu_torcm,"output/toRCM",L_write_rcmu_torcm)
         call xmlInp%Set_Val(L_write_rcmu,"output/toMHD",L_write_rcmu)
         call xmlInp%Set_Val(L_write_vars_debug,"output/debug",L_write_vars_debug)
+        call xmlInp%Set_Val(nSkipFL,"output/nSkipFL",nSkipFL)
         call xmlInp%Set_Val(rcm_tilted,"tilt/isTilt",rcm_tilted)
 
         !Grid bounds
