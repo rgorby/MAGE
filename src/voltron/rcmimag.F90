@@ -41,6 +41,9 @@ module rcmimag
         ! rcm coupling variable
         type(rcm_mhd_T) :: rcmCpl
 
+        ! Holder for field line data
+        type(fLine_T), dimension(:,:), allocatable :: rcmFLs
+
         contains
 
         ! over-ride the base functions with RCM versions
@@ -122,6 +125,9 @@ module rcmimag
         endif
 
         call init_rcm_mix(RCMApp,imag2mix)
+
+        !Allocate any memory needed
+        allocate(imag%rcmFLs(RCMApp%nLat_ion,RCMApp%nLon_ion))
 
         !Start up IO
         call initRCMIO(RCMApp,isRestart)
@@ -213,6 +219,8 @@ module rcmimag
        !$OMP private(i,j,colat,lat,lon,isLL,ijTube)
         do j=1,RCMApp%nLon_ion
             do i=1,RCMApp%nLat_ion
+                call CleanStream(imag%rcmFLs(i,j)) !Wipe old field line info
+
                 colat = RCMApp%gcolat(i)
                 lat = PI/2 - colat
                 lon = RCMApp%glong(j)
@@ -221,10 +229,10 @@ module rcmimag
                 isLL = (lat <= RCMApp%llBC)
                 if (isLL) then
                     !Use mocked up values
-                    call DipoleTube(vApp,lat,lon,ijTube)
+                    call DipoleTube(vApp,lat,lon,ijTube,imag%rcmFLs(i,j))
                 else
                     !Trace through MHD
-                    call MHDTube(vApp,lat,lon,ijTube)
+                    call MHDTube   (vApp,lat,lon,ijTube,imag%rcmFLs(i,j))
                 endif
 
                 !Stuff data into RCM
@@ -692,7 +700,9 @@ module rcmimag
         integer, intent(in) :: nOut
         real(rp), intent(in) :: MJD,time
 
-        call WriteRCM(imag%rcmCpl,nOut,MJD,time)
+        call WriteRCM   (imag%rcmCpl,nOut,MJD,time)
+        call WriteRCMFLs(imag%rcmFLs,nOut,MJD,time,imag%rcmCpl%nLat_ion,imag%rcmCpl%nLon_ion)
+        
     end subroutine doRCMIO
 
     subroutine doRCMRestart(imag,nRes,MJD,time)

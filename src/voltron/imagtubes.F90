@@ -55,12 +55,12 @@ module imagtubes
 !--------------
 !MHD=>RCM routines
     !MHD flux-tube
-    subroutine MHDTube(vApp,lat,lon,ijTube)
+    subroutine MHDTube(vApp,lat,lon,ijTube,bTrc)
         type(voltApp_T), intent(in) :: vApp
         real(rp), intent(in) :: lat,lon
         type(RCMTube_T), intent(out) :: ijTube
+        type(fLine_T), intent(inout) :: bTrc
 
-        type(fLine_T) :: bTrc
         real(rp) :: t, bMin,bIon
         real(rp), dimension(NDIM) :: x0, bEq, xyzIon
         real(rp), dimension(NDIM) :: xyzC,xyzIonC
@@ -161,11 +161,12 @@ module imagtubes
     end subroutine MHDTube
 
     !Dipole flux tube info
-    subroutine DipoleTube(vApp,lat,lon,ijTube)
+    subroutine DipoleTube(vApp,lat,lon,ijTube,bTrc)
         type(voltApp_T), intent(in) :: vApp
         real(rp), intent(in) :: lat,lon
         type(RCMTube_T), intent(out) :: ijTube
-
+        type(fLine_T), intent(inout) :: bTrc
+        
         real(rp) :: L,colat
         real(rp) :: mdipole
 

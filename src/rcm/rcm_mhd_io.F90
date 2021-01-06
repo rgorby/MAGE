@@ -5,10 +5,12 @@ module rcm_mhd_io
     use rcm_mhd_mod,  ONLY : rcm_mhd
     use rcm_mod_subs, ONLY : colat, aloct
 
-    integer, parameter   , private :: MAXRCMIOVAR = 35
-    character(len=strLen), private :: h5File,RCMH5
-    real(rp), parameter  , private :: IMGAMMA = 5.0/3.0
+    implicit none
 
+    integer, parameter   , private :: MAXRCMIOVAR = 35
+    character(len=strLen), private :: h5File,RCMH5,FLH5
+    real(rp), parameter  , private :: IMGAMMA = 5.0/3.0
+    integer , parameter  , private :: nSkipFL = 3 !Stride to skip over writing out field lines
     contains
 !--------------
 !Kaiju RCM IO Routines
@@ -32,13 +34,16 @@ module rcm_mhd_io
 
         !Create file names and nuke old stuff
         h5File = trim(RCMApp%rcm_runid) // ".mhdrcm.h5" !MHD-RCM coupling data
+        FLH5   = trim(RCMApp%rcm_runid) // ".rcmfl.h5" !RCM field lines
         RCMH5  = trim(RCMApp%rcm_runid) // ".rcm.h5" !RCM data
-
+        
         fExist = CheckFile(h5File)
         write(*,*) 'RCM outputting to ',trim(h5File)
+
         if (.not. isRestart) then
             !Kill it all
             call CheckAndKill(h5File) !For non-restart but file exists
+            call CheckAndKill(FLH5)
             call CheckAndKill(RCMH5)
         endif
 
@@ -221,5 +226,87 @@ module rcm_mhd_io
 
         RCMApp%rcm_nRes = nRes + 1 !Holds step for *NEXT* restart
     end subroutine RCMRestartInfo
+
+    !Write out field lines
+    subroutine WriteRCMFLs(RCMFLs,nOut,MJD,time,Ni,Nj)
+        USE ebtypes
+        integer, intent(in) :: nOut,Ni,Nj
+        real(rp), intent(in) :: MJD,time
+        type(fLine_T), intent(in), dimension(Ni,Nj) :: RCMFLs
+
+        type(IOVAR_T), dimension(MAXRCMIOVAR) :: IOVars
+        character(len=strLen) :: gStr,lnStr
+        integer :: i,j,n
+        
+    !Create group and write base data
+        write(gStr,'(A,I0)') "Step#", nOut
+        call AddOutVar(IOVars,"time",time)
+        call AddOutVar(IOVars,"MJD",MJD)
+
+        
+        call WriteVars(IOVars,.true.,FLH5,gStr)
+        call ClearIO(IOVars)
+
+        !Now loop through and create subgroup for each line (w/ striding)
+        !TODO: Avoid the individual write for every line
+        n = 0
+        do i=1,Ni,nSkipFL
+            do j=1,Nj-1,nSkipFL
+                write(lnStr,'(A,I0)') "Line#", n
+                if (RCMFLs(i,j)%isGood) then
+                    call OutLine(RCMFLs(i,j),gStr,lnStr)
+                    n = n + 1
+                endif
+            enddo
+        enddo
+
+    end subroutine WriteRCMFLs
+
+    !Write out individual line
+    subroutine OutLine(fL,gStr,lnStr)
+        USE ebtypes
+        type(fLine_T), intent(in) :: fL
+        character(len=strLen), intent(in) :: gStr,lnStr
+
+        type(IOVAR_T), dimension(MAXRCMIOVAR) :: IOVars
+        real(rp), allocatable, dimension(:,:) :: LCon
+        integer :: i,Np
+        
+
+        Np = fL%Nm + fL%Np + 1
+        if (Np<=1) return
+
+        
+        call AddOutVar(IOVars,"Np",Np)
+        call AddOutVar(IOVars,"xyz",transpose(fL%xyz))
+        call AddOutVar(IOVars,"n0",fL%Nm)
+
+        !Record seed point
+        call AddOutVar(IOVars,"x0",fL%x0(XDIR))
+        call AddOutVar(IOVars,"y0",fL%x0(YDIR))
+        call AddOutVar(IOVars,"z0",fL%x0(ZDIR))
+
+        do i=0,NumVFL
+            call AddOutVar(IOVars,fL%lnVars(i)%idStr,fL%lnVars(i)%V)
+        enddo
+
+        !Create connectivity data (cast to int before write)
+        !TODO: There must be a better way to do this?
+        allocate(LCon(Np-1,2))
+        
+        do i=1,Np-1
+            LCon(i,1) = i-1
+            LCon(i,2) = i
+        enddo
+
+        call AddOutVar(IOVars,"LCon",transpose(LCon))
+        i = FindIO(IOVars,"LCon")
+        IOVars(i)%vType = IOINT
+
+        !Write output chain
+        call WriteVars(IOVars,.true.,FLH5,gStr,lnStr)
+        call ClearIO(IOVars)
+
+    end subroutine OutLine
 
 end module rcm_mhd_io

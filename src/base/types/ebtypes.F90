@@ -98,7 +98,7 @@ module ebtypes
         integer, allocatable, dimension(:,:) :: ijk
 
         !Whether this is a degenerate line (seed point not in domain)
-        logical :: isGood
+        logical :: isGood = .false.
     end type fLine_T
         
     contains
