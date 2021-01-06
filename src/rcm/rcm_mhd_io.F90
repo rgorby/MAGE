@@ -270,31 +270,37 @@ module rcm_mhd_io
 
         type(IOVAR_T), dimension(MAXRCMIOVAR) :: IOVars
         real(rp), allocatable, dimension(:,:) :: LCon
-        integer :: i,Np
+        integer :: i,Np,Npp,n0
         
 
         Np = fL%Nm + fL%Np + 1
-        if (Np<=1) return
+        if (Np<=3) return
+        n0 = fL%Nm
 
-        
-        call AddOutVar(IOVars,"Np",Np)
-        call AddOutVar(IOVars,"xyz",transpose(fL%xyz))
-        call AddOutVar(IOVars,"n0",fL%Nm)
-
+        !Add scalar stuff
         !Record seed point
         call AddOutVar(IOVars,"x0",fL%x0(XDIR))
         call AddOutVar(IOVars,"y0",fL%x0(YDIR))
         call AddOutVar(IOVars,"z0",fL%x0(ZDIR))
 
-        do i=0,NumVFL
-            call AddOutVar(IOVars,fL%lnVars(i)%idStr,fL%lnVars(i)%V)
-        enddo
+        !Do striding through field line points
+        Npp = size(fL%xyz(0:-n0:-nSkipFL,XDIR))
+
+        call AddOutVar(IOVars,"xyz",transpose(fL%xyz(0:-n0:-nSkipFL,XDIR:ZDIR)))
+        call AddOutVar(IOVars,"Np",Npp)
+        call AddOutVar(IOVars,"n0",1) !Seed point is now the first point
+
+        !Only output some of the variables
+        call AddOutVar(IOVars,"B",fL%lnVars(0)       %V(0:-n0:-nSkipFL),uStr="nT")
+        call AddOutVar(IOVars,"D",fL%lnVars(DEN)     %V(0:-n0:-nSkipFL),uStr="#/cc")
+        call AddOutVar(IOVars,"P",fL%lnVars(PRESSURE)%V(0:-n0:-nSkipFL),uStr="nPa")
+
 
         !Create connectivity data (cast to int before write)
         !TODO: There must be a better way to do this?
-        allocate(LCon(Np-1,2))
+        allocate(LCon(Npp-1,2))
         
-        do i=1,Np-1
+        do i=1,Npp-1
             LCon(i,1) = i-1
             LCon(i,2) = i
         enddo
