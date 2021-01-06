@@ -55,8 +55,8 @@ MODULE tomhd_mod
 
       !Do IJ smoothing if needed
       if (doSmoothIJ) then
-        call SmoothEtaIJ(eeta,vm)
-        if (doAvg2MHD) call SmoothEtaIJ(eeta_avg,vm)
+        call SmoothEtaIJ(eeta,vm,RM)
+        if (doAvg2MHD) call SmoothEtaIJ(eeta_avg,vm,RM)
       endif
 
       !Now pick which eta (instant vs. avg) and calculate moments
@@ -80,11 +80,16 @@ MODULE tomhd_mod
 
     END SUBROUTINE tomhd
 
-    SUBROUTINE SmoothEtaIJ(eta,vm)
+    SUBROUTINE SmoothEtaIJ(eta,vm,RCMApp)
       REAL(rprec), intent(inout), dimension(isize,jsize,kcsize)  :: eta
       REAL(rprec), intent(in)  :: vm(isize,jsize)
+      type(rcm_mhd_T),intent(in) :: RCMApp
 
+      REAL(rprec), dimension(isize,jsize) :: beta !RCM-sized arrays
       integer :: k
+
+      !Embiggen RCM-MHD array to RCM array
+      call EmbiggenWrap(RCMApp%beta_average,beta)
 
       !$OMP PARALLEL DO default(shared) &
       !$OMP schedule(dynamic) &
@@ -92,20 +97,21 @@ MODULE tomhd_mod
       do k=1,kcsize
         if (alamc(k) < TINY) cycle !Only do ions
 
-        call KSmooth(alamc(k),vm,eta(:,:,k))
+        call KSmooth(alamc(k),vm,eta(:,:,k),beta)
       enddo !k
 
       contains
 
       !Smooth individual K level
-      subroutine KSmooth(lam,vm,etak)
+      subroutine KSmooth(lam,vm,etak,beta)
         REAL(rprec), intent(in) :: lam
         REAL(rprec), intent(in)  :: vm(isize,jsize)
         REAL(rprec), intent(inout), dimension(isize,jsize)  :: etak
+        REAL(rprec), intent(in)   , dimension(isize,jsize)  :: beta
 
         REAL(rprec), dimension(isize,jsize) :: etas
 
-        REAL(rprec) :: pfac,dP
+        REAL(rprec) :: pfac,dP,wgt,alpha
         integer :: i,j,di,dj,ipp,jpp
         logical , dimension(-1:+1,-1:+1) :: isG33
         REAL(rprec), dimension(-1:+1,-1:+1) :: dPC33
@@ -145,7 +151,17 @@ MODULE tomhd_mod
           enddo !i loop
         enddo !j
 
-        !Store values
+        !Blend values and store
+        do j=2,jsize-1
+          do i=2,isize-1
+            alpha = 1.0 + beta(i,j)*5.0/6.0
+            wgt = 1.0/alpha
+            !Favor smoothed values in high beta regions
+            etak(i,j) = wgt*etak(i,j) + (1-wgt)*etas(i,j)
+            
+          enddo !i loop
+        enddo !j
+
         etak = etas
 
       end subroutine KSmooth

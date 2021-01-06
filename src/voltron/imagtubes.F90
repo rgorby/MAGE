@@ -276,9 +276,9 @@ module imagtubes
         
     !Smooth some tubes
         do n=1,Ns
+            !call Smooth2D(RCMApp%pot) !Electrostatic potential
             !call Smooth2D(RCMApp%Vol) !Flux-tube volume
             call Smooth2D(dV) !Smooth dV
-            call Smooth2D(RCMApp%pot) !Electrostatic potential
         enddo
 
         where (isG)
