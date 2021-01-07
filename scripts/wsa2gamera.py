@@ -1,18 +1,11 @@
 #! /usr/bin/env python
 
-#helioLibLocation='/glade/u/home/elenap/kaiju/kaipy/gamhelio/lib'
-
-
 import numpy as np
 import os,sys,glob
 from scipy import interpolate
 import time
 import h5py
 import matplotlib.pyplot as plt
-
-#from wsa2gamera.params import params
-#if helioLibLocation not in sys.path: sys.path.append(helioLibLocation)
-#import wsa
 
 import kaipy.gamhelio.wsa2gamera.params as params
 import kaipy.gamhelio.lib.wsa as wsa
