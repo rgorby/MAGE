@@ -4,7 +4,7 @@ module rcm_mhd_io
     use xml_input
     use rcm_mhd_mod,  ONLY : rcm_mhd
     use rcm_mod_subs, ONLY : colat, aloct
-    use rice_housekeeping_module, ONLY : nSkipFL
+    use rice_housekeeping_module, ONLY : nSkipFL,doFLOut
 
     implicit none
 
@@ -239,6 +239,9 @@ module rcm_mhd_io
         character(len=strLen) :: gStr,lnStr
         integer :: i,j,n
         
+        !Bail out if we're not doing this
+        if (.not. doFLOut) return
+
     !Create group and write base data
         write(gStr,'(A,I0)') "Step#", nOut
         call AddOutVar(IOVars,"time",time)

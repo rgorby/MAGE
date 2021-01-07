@@ -38,8 +38,7 @@ MODULE rice_housekeeping_module
   LOGICAL :: L_write_rcmu          = .false., &
              L_write_rcmu_torcm    = .false., &
              L_write_tracing_debug = .false., &
-             L_write_vars_debug    = .false., &
-             L_write_int_grid_debug= .true.
+             L_write_vars_debug    = .false.
   
   INTEGER(iprec) :: Idt_overwrite         = 1
   INTEGER(iprec) :: rcm_record
@@ -55,11 +54,12 @@ MODULE rice_housekeeping_module
   LOGICAL :: dp_on = .true.
   LOGICAL, PARAMETER :: use_plasmasphere = .true.
   LOGICAL :: doAvg2MHD = .true.
-  LOGICAL :: doPPRefill = .false. !Whether to refill plasmasphere
+  LOGICAL :: doPPRefill = .false.!Whether to refill plasmasphere
   LOGICAL :: doRelax    = .true. !Whether to relax energy distribution
   LOGICAL :: doSmoothIJ = .true. !Whether to smooth individual eta channels
 
   INTEGER(iprec) :: InitKp = 1
+  LOGICAL :: doFLOut = .false. !Whether to output field lines (slow)
   INTEGER(iprec) :: nSkipFL = 8 !Stride for outputting field lines
 
   REAL(rprec) :: staticR = 0.0
@@ -128,6 +128,7 @@ MODULE rice_housekeeping_module
         call xmlInp%Set_Val(L_write_rcmu,"output/toMHD",L_write_rcmu)
         call xmlInp%Set_Val(L_write_vars_debug,"output/debug",L_write_vars_debug)
         call xmlInp%Set_Val(nSkipFL,"output/nSkipFL",nSkipFL)
+        call xmlInp%Set_Val(doFLOut,"output/doFLOut",doFLOut)
         call xmlInp%Set_Val(rcm_tilted,"tilt/isTilt",rcm_tilted)
 
         !Grid bounds
