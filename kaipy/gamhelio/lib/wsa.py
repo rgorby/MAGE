@@ -25,20 +25,21 @@ def read(wsa_file,densTempInfile,normalized=False,verbose=True):
         T_wsa  = hdul[0].data[3,::-1,:]
     else:
         n_wsa = 112.64+9.49e7/v_wsa**2
-        T0 = 8e5
+        T0 = 1.44e6 #8e5
         n0 = 300.
         
         B0 = bi_wsa[unravel_index(argmin(abs(n_wsa-n0)),n_wsa.shape)] # this is in nT
         n0 = n_wsa[unravel_index(argmin(abs(n_wsa-n0)),n_wsa.shape)]  # this is in cm^-3
 
-        T_wsa = n0*T0/n_wsa
+#        T_wsa = n0*T0/n_wsa
 
 # The code below allows total pressure conservation in the non-radial
 # direction: nT+B**2/8pi = n0*T0+B0**2/8pi. The unit conversion assumes
 # B and B0 in nT (which they should be by now) and botzmann constant in the
 # denominator.
-#        T_wsa = n0*T0/n_wsa + (B0**2-bi_wsa**2)/1.38/8./pi*1.e6/n_wsa
-
+        T_wsa = n0*T0/n_wsa + (B0**2-bi_wsa**2)/1.38/8./pi*1.e6/n_wsa
+# units: B in nT = * 10^-5 G; Kb in Gauss = 1.38*10^-16; n in cm^-3
+        P_tot_wsa = n_wsa*1.38*1.e-16 * T_wsa + (bi_wsa**2 * 1.e-10)/8./pi
     hdul.close()
     
     if normalized:
@@ -59,17 +60,23 @@ def plot(wsa_file,savefig):
 
     import matplotlib.pyplot as plt
     fig=plt.figure(figsize=(16,12))
-    ax1 = plt.subplot(211)
+    ax1 = plt.subplot(311)
     p1=ax1.pcolormesh(bi_wsa,cmap='RdBu_r',vmin=bi_wsa.min(),vmax=-bi_wsa.min())
     plt.colorbar(p1,ax=ax1).set_label('Br')
     ax1.set_xlim((0,bi_wsa.shape[1]))
     ax1.set_ylim((0,bi_wsa.shape[0]))
 
-    ax2 = plt.subplot(212,sharex=ax1)
+    ax2 = plt.subplot(312,sharex=ax1)
     p2=ax2.pcolormesh(v_wsa)
     plt.colorbar(p2,ax=ax2).set_label('V')
     ax2.set_xlim((0,bi_wsa.shape[1]))
     ax2.set_ylim((0,bi_wsa.shape[0]))
+
+    ax3 = plt.subplot(313,sharex=ax1)
+    p3=ax3.pcolormesh(n0*T0/n_wsa + (B0**2-bi_wsa**2)/1.38/8./pi*1.e6/n_wsa)
+    plt.colorbar(p3,ax=ax3).set_label('T')
+    ax3.set_xlim((0,bi_wsa.shape[1]))
+    ax3.set_ylim((0,bi_wsa.shape[0]))
 
     fig.suptitle(wsa_file)
     if not savefig:
