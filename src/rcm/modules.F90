@@ -64,6 +64,7 @@ MODULE rice_housekeeping_module
 
   REAL(rprec) :: staticR = 0.0
   REAL(rprec) :: LowLatMHD = 0.0
+  
   type RCMEllipse_T
       !Ellipse parameters
       real(rprec) :: xSun=10.0,xTail=-15.0,yDD=10.0

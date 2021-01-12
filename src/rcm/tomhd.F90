@@ -86,7 +86,11 @@ MODULE tomhd_mod
       type(rcm_mhd_T),intent(in) :: RCMApp
 
       REAL(rprec), dimension(isize,jsize) :: beta !RCM-sized arrays
+      REAL(rprec) :: dpMin
       integer :: k
+
+      
+      dpMin = RCMApp%pFloor/rcmPScl !Minimum pressure contribution [Pa]
 
       !Embiggen RCM-MHD array to RCM array
       call EmbiggenWrap(RCMApp%beta_average,beta)
@@ -97,17 +101,18 @@ MODULE tomhd_mod
       do k=1,kcsize
         if (alamc(k) < TINY) cycle !Only do ions
 
-        call KSmooth(alamc(k),vm,eta(:,:,k),beta)
+        call KSmooth(alamc(k),vm,eta(:,:,k),beta,dpMin)
       enddo !k
 
       contains
 
       !Smooth individual K level
-      subroutine KSmooth(lam,vm,etak,beta)
+      subroutine KSmooth(lam,vm,etak,beta,dpMin)
         REAL(rprec), intent(in) :: lam
         REAL(rprec), intent(in)  :: vm(isize,jsize)
         REAL(rprec), intent(inout), dimension(isize,jsize)  :: etak
         REAL(rprec), intent(in)   , dimension(isize,jsize)  :: beta
+        REAL(rprec), intent(in) :: dpMin
 
         REAL(rprec), dimension(isize,jsize) :: etas
 
@@ -118,11 +123,10 @@ MODULE tomhd_mod
 
         pfac = GetPressureFactor()
 
-        etas = etak
+        etas = 0.0
         do j=2,jsize-1
           do i=2,isize-1
-            if (vm(i,j)<TINY) cycle !Not good value
-
+            if (vm(i,j)<TINY) cycle !Not good tube
             !Pack local stencil
             isG33(:,:) = .false.
             dPC33(:,:) = 0.0
@@ -130,9 +134,9 @@ MODULE tomhd_mod
               do di=-1,+1
                 ipp = i+di
                 jpp = j+dj
-                if (vm(ipp,jpp)<TINY) cycle
+                if (vm(ipp,jpp)<TINY) cycle !Not closed field line
                 dP = pfac*abs(lam)*etak(ipp,jpp)*vm(ipp,jpp)**2.5 !Pressure contribution
-                if (dP>TINY) then
+                if (dP > dpMin) then
                   isG33(di,dj) = .true.
                   dPC33(di,dj) = dP
                 endif
@@ -140,13 +144,14 @@ MODULE tomhd_mod
               enddo !di
             enddo !dj
 
-            !Now calculate smoothed value and store
-            if ( any(isG33) .and. (dPC33(0,0)>TINY) ) then
+            !Now calculate smoothed values
+            if ( all(isG33) ) then !All values in stencil are good
               dP = SmoothOperator33(dPC33,isG33)
 
               etas(i,j) = dP/pfac/abs(lam)/(vm(i,j)**2.5)
-              
-            endif
+            else
+              etas(i,j) = 0.0
+            endif !Good stencil
 
           enddo !i loop
         enddo !j
@@ -154,15 +159,16 @@ MODULE tomhd_mod
         !Blend values and store
         do j=2,jsize-1
           do i=2,isize-1
-            alpha = 1.0 + beta(i,j)*5.0/6.0
-            wgt = 1.0/alpha
-            !Favor smoothed values in high beta regions
-            etak(i,j) = wgt*etak(i,j) + (1-wgt)*etas(i,j)
-            
+            if (etas(i,j) > TINY) then
+              !Have smoothed value to blend w/
+              alpha = 1.0 + beta(i,j)*5.0/6.0
+              wgt = 1.0/alpha
+              !Favor smoothed values in high beta regions
+              etak(i,j) = wgt*etak(i,j) + (1-wgt)*etas(i,j)
+            endif
           enddo !i loop
         enddo !j
 
-        etak = etas
 
       end subroutine KSmooth
 

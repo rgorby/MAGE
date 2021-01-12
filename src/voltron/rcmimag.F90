@@ -207,6 +207,8 @@ module rcmimag
 
         RCMApp%llBC  = vApp%mhd2chmp%lowlatBC
         RCMApp%dtCpl = vApp%DeepDT
+        RCMApp%pFloor = pFloor
+        
         call Tic("MAP_RCMMIX")
     !Get potential from mix
         call map_rcm_mix(vApp,mixPot)

@@ -68,6 +68,8 @@ module rcm_mhd_interfaces
         !Some simple quantities for keeping track of RCM energy channels
         real(rprec) :: MaxAlam = 0.0
         
+        !Current pressure floor from MHD [nPa]
+        real(rprec) :: pFloor = 0.0
     end type rcm_mhd_T
 
     contains
