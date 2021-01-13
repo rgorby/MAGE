@@ -159,7 +159,9 @@ MODULE rice_housekeeping_module
         call xmlInp%Set_Val(doRelax  ,"loss/doRelax"  ,doRelax  )
 
         !Tomhd parameters
-        call xmlInp%Set_Val(doAvg2MHD,"tomhd/doAvg2MHD",doAvg2MHD)
+        call xmlInp%Set_Val(doAvg2MHD ,"tomhd/doAvg2MHD" ,doAvg2MHD )
+        call xmlInp%Set_Val(doRelax   ,"tomhd/doRelax"   ,doRelax   )
+        call xmlInp%Set_Val(doSmoothIJ,"tomhd/doSmoothIJ",doSmoothIJ)
 
         !Advance parameters
         call xmlInp%Set_Val(Idt_overwrite,"sim/idt",Idt_overwrite)
