@@ -16,14 +16,6 @@ client = WebClient(token=slack_token)
 # Get the home directory
 home = expanduser("~")
 
-# Delete everything in the unitTest folder
-os.chdir(home)
-os.chdir("kaiju")
-os.system('rm -r unitTest1')
-os.system('rm -r unitTest2')
-os.system('mkdir unitTest1')
-os.system('mkdir unitTest2')
-
 # Go back to scripts folder
 os.chdir(home)
 os.chdir("kaiju/testingScripts")
@@ -202,19 +194,15 @@ file.write(secondJob)
 #        os.chdir("kaiju")
 #        i = i + 1
 
-# If nothing was wrong, change myText
-#if (isPerfect == True):
-#    myText = ""
-#    myText = "Everything built properly!"
+myText = "Slack script correctly called following unit tests"
 
 # If not a test, send message to Slack
-#if (not isTest):
-    # Try to send Slack message
-#    try:
-#        response = client.chat_postMessage(
-#            channel="#kaijudev",
-#            text=myText,
-#        )
-#    except SlackApiError as e:
-        # You will get a SlackApiError if "ok" is False
-#        assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
+# Try to send Slack message
+try:
+    response = client.chat_postMessage(
+   channel="#kaijudev",
+   text=myText,
+   )
+except SlackApiError as e:
+   # You will get a SlackApiError if "ok" is False
+   assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
