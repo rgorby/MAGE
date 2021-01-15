@@ -1676,6 +1676,7 @@ real :: v_1_1, v_1_2, v_2_1, v_2_2
 !
       dt = REAL (idt)
 !
+      !Q: Does this have any point since it gets recalculated in move-plasma?
       fac = 1.0E-3_rprec * bir * alpha * beta * dlam * dpsi * ri**2 * signbe
 !
       DO i_time = itimei, itimef-idt, idt 
@@ -2452,7 +2453,7 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
   REAL (rprec), dimension(-1:isize+2,-1:jsize-1) :: didt,djdt,etaC,rateC
   !RCM-sized grids
   REAL (rprec), dimension( 1:isize  , 1:jsize  ) :: rate,dvedi,dvedj,vv,dvvdi,dvvdj,dvmdi,dvmdj
-  REAL (rprec), dimension( 1:isize  , 1:jsize  ) :: ftv,dftvi,dftvj,dA
+  REAL (rprec), dimension( 1:isize  , 1:jsize  ) :: ftv,dftvi,dftvj
 
   LOGICAL, dimension(1:isize,1:jsize) :: isOpen
   INTEGER (iprec) :: iOCB_j(1:jsize)
@@ -2496,13 +2497,9 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
 
   xlower = 1
   xupper = isize
-  ylower = zero
+  ylower = 0.0
   yupper = jsize-3
   
-  fac = 1.0E-3*signbe*bir*alpha*beta*dlam*dpsi*ri**2
-  !Calculate surface area element
-  dA = alpha*beta*dlam*dpsi*ri**2
-
 !---
 !Get OCB
   isOpen = (vm < 0)
@@ -2519,21 +2516,30 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
     endif
   enddo !j loop
 
+  
 !Calculate node-centered IJ gradients for use inside loop (instead of redoing for each channel)
   !veff = v + vcorot - vpar + vm*alamc(k) = vv + vm*alamc(k)
+  
+  !Do array-sized prep work
+  !$OMP PARALLEL WORKSHARE if (L_doOMPClaw)
+  fac = 1.0E-3*signbe*bir*alpha*beta*dlam*dpsi*ri**2
   vv = v + vcorot - vpar
+  where (.not. isOpen)
+    !Using ftv directly w/ possible intermediate smoothing
+    ftv = vm**(-3.0/2)
+  elsewhere
+    ftv = 0.0
+  endwhere
+  !$OMP END PARALLEL WORKSHARE
+
   call Grad_IJ(vv,isOpen,dvvdi,dvvdj)
   !Now get energy-dep. portion, grad_ij vm
-  !Using ftv directly w/ possible intermediate smoothing
-  ftv = 0.0
-  where (.not. isOpen)
-    ftv = vm**(-3.0/2)
-  endwhere
-
   call FTVGrad(ftv,isOpen,dftvi,dftvj)
 
+  !$OMP PARALLEL WORKSHARE if (L_doOMPClaw)
   dvmdi = (-2.0/3.0)*(ftv**(-5.0/3.0))*dftvi
   dvmdj = (-2.0/3.0)*(ftv**(-5.0/3.0))*dftvj
+  !$OMP END PARALLEL WORKSHARE
 
 !---
 !Main channel loop
@@ -2548,7 +2554,7 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
   !$OMP SHARED(isOpen,iOCB_j,alamc,eeta,v,vcorot,vpar,vm,imin_j,j1,j2,joff) &
   !$OMP SHARED(dvvdi,dvvdj,dvmdi,dvmdj,doOCBLoss,doFLCLoss,doNewCX,dp_on,doPPRefill) &
   !$OMP SHARED(xmin,ymin,rmin,fac,fudgec,bir,sini,L_dktime,dktime,sunspot_number) &
-  !$OMP SHARED(aloct,xlower,xupper,ylower,yupper,dt,T1,T2,iMHD,bmin,radcurv,losscone,vv,dA) 
+  !$OMP SHARED(aloct,xlower,xupper,ylower,yupper,dt,T1,T2,iMHD,bmin,radcurv,losscone,vv) 
   DO kc = 1, kcsize
     
     !If oxygen is to be added, must change this!
@@ -2677,15 +2683,6 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
     eeta(:,jsize,kc) = eeta(:,jwrap,kc)
     call circle(eeta(:,:,kc))
 
-    !Deplete cells near OCB if option is set
-    if (doOCBLoss) then
-      call DepleteOCB(eeta(:,:,kc),ie,alamc(kc),dt,isOpen,vv,vm,bmin,dA,isize,jsize)
-
-      eeta(:,jsize,kc) = eeta(:,jwrap,kc)
-      call circle(eeta(:,:,kc))
-    endif !doOCBNuke
-
-
     if ( (kc==1) .and. dp_on .and. doPPRefill) then
       !refill the plasmasphere  04012020 sbao
       !K: Added kc==1 check 8/11/20
@@ -2738,14 +2735,6 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
       call Smooth_IJ(ddVj,isOpen)
 
       !Recombine pieces
-      where (.not. isOpen)
-        dftvdi = dV0i + ddVi
-        dftvdj = dV0j + ddVj
-      elsewhere
-        dftvdi = 0.0
-        dftvdj = 0.0
-      endwhere
-
       dftvdi = dV0i + ddVi
       dftvdj = dV0j + ddVj
 
@@ -2775,6 +2764,10 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
       dvedi = 0.0
       dvedj = 0.0
 
+      !$OMP PARALLEL DO if (L_doOMPClaw) &
+      !$OMP DEFAULT (NONE) &
+      !$OMP PRIVATE(i,j,isOp,Q) &
+      !$OMP SHARED(dvedi,dvedj,veff,isOpen,doLim)
       do j=2,jsize-1
         do i=2,isize-1
           !Do I deriv
@@ -2864,6 +2857,10 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
       INTEGER (iprec) :: i,j
 
       Qs = Q
+
+      !$OMP PARALLEL DO if (L_doOMPClaw) &
+      !$OMP DEFAULT (SHARED) &
+      !$OMP PRIVATE(i,j,Q33,G33)
       do j=j1,j2 !jwrap,jsize-1
         do i=2,isize-1
           Q33(:,:) = Q(i-1:i+1,j-1:j+1)
@@ -2875,6 +2872,7 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
       Qs(:,jsize) = Qs(:,jwrap)
       call circle(Qs)
       Q = Qs !Save back smoothed array
+
     end subroutine Smooth_IJ
 
     function MCLim(dqL,dqR,dqC) result(dqbar)

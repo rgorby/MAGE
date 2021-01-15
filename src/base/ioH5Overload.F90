@@ -391,13 +391,18 @@ module ioH5Overload
 
         !For now, always realloc
         !FIXME: Replace with check of current data and realloc only if necessary
-        if (allocated(IOBuffer)) deallocate(IOBuffer)
-
-        allocate(IOBuffer(N))
+        if (allocated(IOBuffer)) then
+            if ( size(IOBuffer) /= N ) then
+                !Allocated but wrong size
+                deallocate(IOBuffer)
+                allocate(IOBuffer(N))
+            endif
+        else !Not allocated
+            allocate(IOBuffer(N))
+        endif
 
         !Copy data
         IOBuffer = IOSource
-        !write(*,*) 'Copying N elements, N = ', N
     end subroutine CopyIO
 
 
