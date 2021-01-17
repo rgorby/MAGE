@@ -793,7 +793,7 @@
     INTEGER (iprec) :: i, j, kc, ie, i_1, i_2, j_1, j_2
     LOGICAL :: pt_1_1, pt_1_2, pt_2_1, pt_2_2
 !
-real :: v_1_1, v_1_2, v_2_1, v_2_2
+	real :: v_1_1, v_1_2, v_2_1, v_2_2
 !
     DO kc = 1, kcsize
 !
@@ -1425,9 +1425,10 @@ real :: v_1_1, v_1_2, v_2_1, v_2_2
       IMPLICIT NONE
 !
       type(XML_Input_T), intent(in), optional :: iXML
-      INTEGER (iprec), INTENT (IN) :: itimei_in, itimef_in, &
+      REAL (rprec), INTENT (IN) :: itimei_in, itimef_in, &   ! sbaotime
                                       idt_in, idt1_in,& 
-                                      idt2_in, icontrol
+                                      idt2_in, 
+      INTEGER (iprec), INTENT (IN) :: icontrol
       character(len=*), intent(in), optional :: stropt
       integer(iprec)  , intent(in), optional :: nslcopt
       CHARACTER(LEN=8) :: real_date
@@ -1437,10 +1438,11 @@ real :: v_1_1, v_1_2, v_2_1, v_2_2
       LOGICAL :: FD, logical_flag
 !                                                                       
 !
-      INTEGER (iprec), SAVE :: itimei, itimef, idt, idt1, idt2 
-      INTEGER (iprec), SAVE :: itout1, itout2,  itcln, idebug, i_time, &
-                         k, kc, n, i_avg
+      REAL (rprec), SAVE :: itimei, itimef, idt, idt1, idt2 
+      REAL (rprec), SAVE :: itout1, itout2,  itcln, idebug, i_time
+      INTEGER (iprec), SAVE :: idebug, k, kc, n, i_avg
       REAL (rprec) :: dt
+      REAL (rprec), PARAMETER :: tinyT = 1e-6     !10.0*machine_tiny 
 
 
       CALL SYSTEM_CLOCK (timer_start(1), count_rate)
@@ -1597,7 +1599,7 @@ real :: v_1_1, v_1_2, v_2_1, v_2_2
       i1 = imin + 1
 
 
-      IF (itimei == 0) THEN
+      IF (itimei < tinyT) THEN    ! itimei == 0
 
          IF (.NOT.IsCoupledExternally) then
 !            CALL Read_array (rcmdir//'rcmeeta_inp',   irdr, label, ARRAY_3D = eeta,ASCI=asci_flag)
@@ -1611,7 +1613,7 @@ real :: v_1_1, v_1_2, v_2_1, v_2_2
           imin_j = CEILING (bndloc)
           !If on first record, create fresh binary files
 !          if (irdr == 1) CALL Disk_write_arrays ()
-          if (itimei==0)then
+          if (itimei < tinyT)then   !itimei == 0
               if (doDiskWrite) CALL Disk_write_arrays ()
           end if
 
@@ -1620,27 +1622,27 @@ real :: v_1_1, v_1_2, v_2_1, v_2_2
           imin_j = CEILING (bndloc)
 !          CALL Read_array (rcmdir//'rcmeeta',   irdr, label, ARRAY_3D = eeta)
 !         IF (label%intg(6) /= itimei-idt )THEN
-          IF (label%intg(6) /= itimei )THEN
-            WRITE (*,*)' label%intg(6) =',label%intg(6),' itimei =',itimei
-            !write(*,*) 'T in file /=  ITIMEI for EETA, RESTART IS CORRUPTED'
-            STOP 'T in file /=  ITIMEI for EETA, RESTART IS CORRUPTED'
-          END IF
+        !  IF (label%intg(6) /= itimei )THEN
+        !    WRITE (*,*)' label%intg(6) =',label%intg(6),' itimei =',itimei
+        !    !write(*,*) 'T in file /=  ITIMEI for EETA, RESTART IS CORRUPTED'
+        !    STOP 'T in file /=  ITIMEI for EETA, RESTART IS CORRUPTED'
+        !  END IF
         endif !isGAMRCM
       END IF
 
       ! IF hot restart, read V and check the time label:
       IF (.NOT.IsCoupledExternally) THEN
-         IF (itimei /= 0) THEN
+         IF (itimei > tinyT) THEN  !itimei /= 0
 !         IF (irdr /= 1) THEN
             WRITE (*,'(A)', ADVANCE='NO') &
               'HOT restart, reading V from file to check time label...'
 !            CALL READ_array (rcmdir//'rcmv', irdr, label, ARRAY_2D = v)
-            IF (label%intg(6) /= itimei )THEN
-              WRITE (*,*)' label%intg(6) =',label%intg(6),' itimei =',itimei
-              STOP 'T in file /=  ITIMEI for V'
-            ELSE
-              WRITE (*,*) 'OK'
-            END IF 
+          !  IF (label%intg(6) /= itimei )THEN
+          !    WRITE (*,*)' label%intg(6) =',label%intg(6),' itimei =',itimei
+          !    STOP 'T in file /=  ITIMEI for V'
+          !  ELSE
+          !    WRITE (*,*) 'OK'
+          !  END IF 
          END IF
       END IF
 
@@ -1666,18 +1668,21 @@ real :: v_1_1, v_1_2, v_2_1, v_2_2
 !
 !*******************  main time loop  *************************
 !
-      IF (idt1/idt*idt /= idt1) STOP 'RCM: idt1--idt'
+      IF (idt1 < idt) STOP 'RCM: idt1 < idt' !IF (idt1/idt*idt /= idt1) STOP 'RCM: idt1--idt'
       itout1 = itimei   ! next time to write to disk; set this to
 !                         ITIMEI to write out initial configuration
       itout2 = itimei   ! next time to do formatted output
       itcln = itimei    ! next time to call ADD & ZAP 
 !
-      dt = REAL (idt)
+      dt = idt  !dt = REAL (idt)
 !
       fac = 1.0E-3_rprec * bir * alpha * beta * dlam * dpsi * ri**2 * signbe
 !
-      DO i_time = itimei, itimef-idt, idt 
-!
+      i_time = itimei
+      DO WHILE (itimef - i_time > tinyT)    !DO i_time = itimei, itimef-idt, idt 
+         
+         IF (idt > itimef - i_time) dt = itimef-i_time
+            
          CALL Comput (i_time, dt)
 !
          v_avg    = v_avg    + v
@@ -1685,7 +1690,7 @@ real :: v_1_1, v_1_2, v_2_1, v_2_2
          eeta_avg = eeta_avg + eeta
          i_avg    = i_avg    + 1
 !
-         IF (i_time == itout1) THEN
+         IF (i_time - itout1 < tinyT) THEN   ! i_time == itout1
 !
             birk_avg = birk_avg / REAL(i_avg)
             eeta_avg = eeta_avg / REAL(i_avg)
@@ -1727,6 +1732,8 @@ real :: v_1_1, v_1_2, v_2_1, v_2_2
 !
          CALL Move_plasma ( dt )
 !
+         i_time += idt
+
       END DO
       
       CALL SYSTEM_CLOCK (timer_stop(1), count_rate)      

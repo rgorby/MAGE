@@ -42,15 +42,15 @@ module rcm_mhd_mod
                                !! define as integer to avoid compile error.
 
 
-        integer(iprec) :: itimei !> RCM(...) param:  start time
-        integer(iprec) :: itimef !> RCM(...) param:  end time
-        real(rprec) :: time0 = 0 ! coupling start time
-        integer(iprec) :: ircm_dt
-        integer(iprec) :: itimef_old = -1
-        integer(iprec) :: idt   !> RCM(...) param:  basic time step in program
-        integer(iprec) :: idt1  !> RCM(...) param:  time step for
+        real(rprec) :: itimei !> RCM(...) param:  start time   sbaotime
+        real(rprec) :: itimef !> RCM(...) param:  end time
+        real(rprec) :: time0 = 0. ! coupling start time
+        real(rprec) :: ircm_dt
+        real(iprec) :: itimef_old = -1
+        real(rprec) :: idt   !> RCM(...) param:  basic time step in program
+        real(rprec) :: idt1  !> RCM(...) param:  time step for
                               !! changing disk & write records
-        integer(iprec) :: idt2  !> RCM(...) param:  time step for
+        real(rprec) :: idt2  !> RCM(...) param:  time step for
                               !! writting formatted output
 
         real(rprec) :: t1, t2  !> Used for performance timing
@@ -63,15 +63,15 @@ module rcm_mhd_mod
         !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
         ! bypass for now
-        time0 = 0 ! FIXME set for now
+        time0 = 0. ! FIXME set for now
 
         IsCoupledExternally = .TRUE.  ! switch RCM to "coupled" mode before doing anything else
 
         if (doRCMVerbose) write (*,'(TR1,A,L7)') 'Welcome to the RCM, IsCoupledExternally=', IsCoupledExternally
         
         ! setup rcm,time in integer format
-        itimei = floor(mhdtime-time0,iprec)
-        itimef = floor(mhdtime + mhdtimedt-time0,iprec)
+        itimei = mhdtime   !floor(mhdtime-time0,iprec)
+        itimef = mhdtime + mhdtimedt !floor(mhdtime + mhdtimedt-time0,iprec)
         ircm_dt = itimef - itimei
   
     ! finish up
@@ -157,16 +157,16 @@ module rcm_mhd_mod
                 WRITE (*,'(//)')
             endif
          
-            idt = Idt_overwrite ! RCM internal time step in seconds
+            idt = real(Idt_overwrite) ! RCM internal time step in seconds
             ! Frequency (in seconds) to change disk & write records
             idt1 = itimef - itimei
 
-            !Ensure no problem w/ RCM's integer time
-            !idt must divide advance time
-            if ( (mod(idt1,idt)) /= 0) then
-                write(*,*) 'RCM Integer Time Divisibility Error ...'
-                stop
-            endif
+            !!!Ensure no problem w/ RCM's integer time
+            !!idt must divide advance time
+            !if ( (mod(idt1,idt)) /= 0) then
+            !    write(*,*) 'RCM Integer Time Divisibility Error ...'
+            !    stop
+            !endif
 
             ! Frequency (in seconds) to write formatted output
             idt2 = idt1
@@ -187,7 +187,7 @@ module rcm_mhd_mod
 
             call cpu_time(t1)
             if (doRCMVerbose) then
-                write(6,'(2(a,i6))')'RCM: calling torcm with  itimei=',itimei,' iflag=',iflag
+                write(6,'(a,f12.4,a,i6)')'RCM: calling torcm with  itimei=',itimei,' iflag=',iflag
                 call print_date_time(6_iprec)
             endif
 
@@ -209,7 +209,7 @@ module rcm_mhd_mod
 
             call cpu_time(t1)
             if (doRCMVerbose) then 
-                write(6,'(a,i6,a,i6,a,i5,a)')'RCM: call rcm at itimei =',itimei,' to itimef =',itimef,' dt=',ircm_dt, ' sec'
+                write(6,'(a,f12.4,a,f12.4,a,i5,a)')'RCM: call rcm at itimei =',itimei,' to itimef =',itimef,' dt=',ircm_dt, ' sec'
                 call print_date_time(6_iprec)
             endif
 
@@ -221,7 +221,7 @@ module rcm_mhd_mod
 
             call cpu_time(t2)
             if (doRCMVerbose) then
-                write(*,'(a,g14.4,a)')'RCM_MHD:   rcm cpu time= ',t2-t1,' seconds'
+                write(*,'(a,f12.4,a)')'RCM_MHD:   rcm cpu time= ',t2-t1,' seconds'
                 call print_date_time(6_iprec)
             endif
 
