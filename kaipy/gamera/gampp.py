@@ -45,6 +45,9 @@ class GameraPipe(object):
 		self.doFast = doFast
 		self.UnitsID = "NONE"
 
+		#Example file data
+		self.f0 = []
+
 		#Stubs for MJD stuff
 		self.hasMJD = False
 		self.MJDs = []
@@ -155,7 +158,8 @@ class GameraPipe(object):
 			print("Units Type = %s"%(self.UnitsID))
 			print("Pulling grid ...")
 		self.GetGrid(doVerbose)
-	
+		self.f0 = f0
+		
 	def SetUnits(self,f0):
 		import h5py
 		with h5py.File(f0,'r') as hf:

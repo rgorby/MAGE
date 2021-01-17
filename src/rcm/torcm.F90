@@ -7,13 +7,12 @@ MODULE torcm_mod
   USE rcmdefs, ONLY : RCMTOPCLOSED,RCMTOPNULL,RCMTOPOPEN,DenPP0
   USE kdefs, ONLY : TINY,qp
   use math, ONLY : RampDown
+  use etautils
 
   implicit none
 
-  real(rp), private :: density_factor !module private density_factor using planet radius
-  real(rp), private :: pressure_factor
   logical, parameter :: doSmoothEta = .true. !Whether to smooth eeta at boundary
-  integer, private, parameter :: NumG = 4 !How many buffer cells to require
+  integer(iprec), private, parameter :: NumG = 4 !How many buffer cells to require
 
   contains
 !==================================================================      
@@ -63,9 +62,8 @@ MODULE torcm_mod
       INTEGER(iprec), INTENT (IN OUT) :: ierr
 
       INTEGER(iprec) :: kin,jmid,ibnd, inew, iold
-      INTEGER(iprec) :: jm,jp,ii,itmax
-      INTEGER(iprec) :: min0,i,j,k,n,ns,klow
-      INTEGER(iprec), PARAMETER :: n_smooth = 5
+      INTEGER(iprec) :: jm,jp,ip,itmax
+      INTEGER(iprec) :: min0,i,j,k,n,ns,klow,n_smooth
       LOGICAL,PARAMETER :: use_ellipse = .true.
       LOGICAL, SAVE :: doReadALAM = .true.
       REAL(rprec) :: dpp,wMHD,wRCM
@@ -77,9 +75,8 @@ MODULE torcm_mod
 
       ierr = 0
 
-      !Set density factor for rest of module
-      density_factor = nt/RM%planet_radius
-      pressure_factor = 2./3.*ev/RM%planet_radius*nt
+      !Set density/pressure factors
+      call SetFactors(RM%planet_radius)
 
       !Start by reading alam channels if they're not yet set
       !Rewriting this bit to not read_alam every call, K: 8/20
@@ -152,6 +149,11 @@ MODULE torcm_mod
       !Smooth boundary location
       !NOTE: This can only shrink RCM domain, not increase
       !K: 8/20, changing reset_rcm_vm to only reset VM on open fields
+      !Calculate number of smoothing iterations based on longitudinal cell size
+      !Approx. 1hr MLT
+      !n_smooth = 5
+      n_smooth = nint( 15.0/(360.0/jsize) )
+
       do ns=1,n_smooth
         call smooth_boundary_location(isize,jsize,jwrap,bndloc)
         call reset_rcm_vm(isize,jsize,bndloc,big_vm,imin_j,vm,iopen) ! adjust Imin_j
@@ -230,17 +232,31 @@ MODULE torcm_mod
             !This is closed field region but outside RCM domain
             !Use MHD information for RC channels
             eeta(i,j,klow:) = eeta_new(i,j,klow:)
-
-            !Check for outside domain and below plasmasphere cutoff
-            dpp = density_factor*1.0*eeta(i,j,1)*vm(i,j)**1.5
-            if ( use_plasmasphere .and. (dpp < DenPP0*1.0e+6) ) then
-              eeta(i,j,1) = 0.0
-            endif
             
           endif !iopen
 
+          if (use_plasmasphere .and. iopen(i,j) /= RCMTOPOPEN) then
+          	!Check for below plasmasphere cutoff
+          	dpp = GetDensityFactor()*1.0*eeta(i,j,1)*vm(i,j)**1.5
+          	if (dpp < DenPP0*1.0e+6) eeta(i,j,1) = 0.0
+          endif !plasmasphere
+
         enddo !i
       enddo !j
+
+      !Do some reverse-blending near RCM outer boundary
+      n = NumG
+      do j=1,jsize
+        do i=0,n
+          ip = imin_j(j)+i !i cell
+          !wRCM = wImag(ip,j) !Va/fast+flow
+          wRCM = 1.0/(1.0 + 5.0*beta_average(ip,j)/6.0)
+          wMHD = (1-wRCM)/(2.0**i)
+          wRCM = (1-wMHD)
+
+          eeta(ip,j,klow:) = wRCM*eeta(ip,j,klow:) + wMHD*eeta_new(ip,j,klow:)
+        enddo !i loop
+      enddo !j loop
 
       if (doSmoothEta) then
         ! smooth eeta at the boundary
@@ -380,37 +396,6 @@ MODULE torcm_mod
 
       ierr = 0
 
-      RETURN
-
-      contains
-        !Copy A (RCM/MHD-sized) into B (RCM-sized) and wrap (fill periodic)
-        subroutine EmbiggenWrap(rmA,rcmA)
-          REAL(rprec), intent(in)    :: rmA (isize,jsize-jwrap+1)
-          REAL(rprec), intent(inout) :: rcmA(isize,jsize)
-
-          INTEGER(iprec) :: j
-
-          rcmA(:,jwrap:jsize) = rmA(:,:)
-          do j=1,jwrap-1
-            rcmA(:,j) = rcmA(:,jsize-jwrap+j)
-          enddo
-
-        end subroutine EmbiggenWrap
-
-        !Same as above, but for int
-        subroutine EmbiggenWrapI(rmA,rcmA)
-          INTEGER(iprec), intent(in)    :: rmA (isize,jsize-jwrap+1)
-          INTEGER(iprec), intent(inout) :: rcmA(isize,jsize)
-
-          INTEGER(iprec) :: j
-
-          rcmA(:,jwrap:jsize) = rmA(:,:)
-          do j=1,jwrap-1
-            rcmA(:,j) = rcmA(:,jsize-jwrap+j)
-          enddo
-
-        end subroutine EmbiggenWrapI
-
       END SUBROUTINE Calc_ftv
 
 !--------------------------------------------------
@@ -476,66 +461,112 @@ MODULE torcm_mod
 
 !
 !===================================================================
-      !Attempt to separate hot/cold components of MHD fluid    
-      SUBROUTINE PartFluid(i,j,dmhd,dpp)
+      !Attempt to separate hot/cold components of MHD fluid
+      !TODO: Rewrite this messy code
+      SUBROUTINE PartFluid(i,j,drc,dpp)
       USE conversion_module
       USE RCM_mod_subs, ONLY : ikflavc,vm,alamc,isize,jsize,kcsize,eeta
     
       IMPLICIT NONE
       integer(iprec), intent(in) :: i,j
-      real(rprec), intent(out) :: dmhd,dpp
+      real(rprec), intent(out) :: drc,dpp
 
-      real(rprec) :: dtot,drcm
-      integer(iprec) :: k
+      real(rprec) :: dmhd,dpp_rcm,drc_rcm,dtot_rcm,prc_rcm
+      real(rprec) :: drc1,drc2
+      logical :: doM1
 
+        drc = 0.0
+        dpp = 0.0
       !Trap for boring cases
         if (iopen(i,j) == RCMTOPOPEN) then
-          dmhd = 0.0
-          dpp  = 0.0
           return
         endif
+
+        !Get MHD bulk density
         dmhd = den(i,j)
-        dpp  = 0.0
-
-        if (.not. use_plasmasphere) return !Separation complete
         
-      !If still here either null or closed
-        !Calculate plasmasphere density contribution
-        dpp = density_factor*1.0*eeta(i,j,1)*vm(i,j)**1.5
-        if (dpp < TINY) return !No plasmasphere to worry about
-
-        if ( (dpp < dmhd) .and. (dpp > TINY) ) then
-          !Smaller than MHD so just subtract out and assume rest is hot fluid
-          dmhd = dmhd - dpp
+        if (.not. use_plasmasphere) then
+          dpp = 0.0
+          drc = dmhd !All goes to RC fluid
           return
         endif
 
-      !Last try, part fluid based on inferred ratio from RCM
-        drcm = 0.0
-        do k=2,kcsize
-          if (alamc(k)>0) then
-            !NOTE: Assuming protons here, otherwise see tomhd for mass scaling
-            drcm = drcm + density_factor*eeta(i,j,k)*vm(i,j)**1.5
+        if (dmhd <= TINY) then
+          drc = 0.0
+          dpp = dpp_rcm
+          return
+        endif
+        
+      !Get RCM info
+        call eta2DP(eeta(i,j,:),vm(i,j),drc_rcm,dpp_rcm,prc_rcm)
+        if (dpp_rcm <= TINY) then
+          drc = dmhd
+          dpp = 0.0
+          return
+        endif
+
+      !If still here either null or closed and have some work to do
+        !Try two ways:
+        !1: drc = dmhd-dpp
+        !2: Use RCM RC/PP ratio to split dmhd
+        drc1 = 0.0
+        drc2 = 0.0
+
+        !Method 1
+        if (dpp_rcm <= dmhd) then
+          !Subtract plasmasphere from RCM from MHD density
+          drc1 = dmhd-dpp_rcm
+        else
+          drc1 = min(dmhd,abs(dpp_rcm-dmhd))
+        endif
+        if (drc1 < TINY) drc1 = 0.0
+
+        !Method 2
+        if ( (drc_rcm > TINY) .and. (dpp_rcm > TINY) ) then
+          dtot_rcm = drc_rcm + dpp_rcm
+          drc2 = dmhd*(drc_rcm/dtot_rcm)
+        else
+          drc2 = 0.0
+        endif
+
+      !Pick which split to use
+        if ( (drc1 <= TINY) .and. (drc2 <= TINY) ) then
+          !Both methods failed, just return unsplit density
+          drc = dmhd
+          dpp = 0.0
+          return
+        endif
+
+        !If still here at least one good method
+        doM1 = .false.
+        
+        if ( (drc1 > TINY) .and. (drc2 > TINY) ) then
+          !Both methods successful, choose min
+          if (drc1 < drc2) then
+            doM1 = .true.
+          else
+            !Second method
+            doM1 = .false.
           endif
-        enddo
-
-        if (drcm > TINY) then
-          !Part MHD fluid based on ratio inferred from RCM
-          dtot = dpp + drcm
-          dmhd = den(i,j)*drcm/dtot
-          dpp  = den(i,j)*dpp /dtot
-          return
+        else if (drc1 > TINY) then
+          !Only method 1 worked
+          doM1 = .true.
+        else
+          !Only method 2 worked
+          doM1 = .false.
         endif
 
-        !dpp > dmhd, but don't want to use potentially large plasmasphere mass
-        if ( abs(dmhd-dpp) > TINY ) then
-          dmhd = abs(dmhd-dpp)
-          return
+        if (doM1) then
+          !Method 1
+          drc = drc1
+          dpp = dpp_rcm
+        else
+          !Second method
+          drc = drc2
+          dpp = dmhd*(dpp_rcm/dtot_rcm)
         endif
-        
-        !We tried our best, just return uncorrected density
-        return
 
+        !write(*,*) 'M: dmhd / drc / dpp = ', doM1,1.0e-6*dmhd,1.0e-6*drc,1.0e-6*dpp
       END SUBROUTINE PartFluid
 !
 !===================================================================      
@@ -545,94 +576,32 @@ MODULE torcm_mod
       USE rcm_precision
       IMPLICIT NONE
       
-      real(rprec) :: dmhd,dpp,pcon,t,prcmI,prcmE,pmhdI,pmhdE,psclI,psclE
-      integer(iprec) :: i,j,k,kmin
-      real(rprec) :: xp,xm,A0
-      logical :: isIon
+      real(rprec) :: drc,dpp,prc
+      integer(iprec) :: i,j
+
 
       !$OMP PARALLEL DO default(shared) &
       !$OMP schedule(dynamic) &
-      !$OMP private(i,j,k,kmin,dmhd,dpp,pcon,prcmI,prcmE,t,pmhdI,pmhdE,psclI,psclE) &
-      !$OMP private(xp,xm,A0,isIon)
+      !$OMP private(i,j,drc,dpp,prc)
       do j=1,jsize
         do i=1,isize
           !Get corrected density from MHD
-          call PartFluid(i,j,dmhd,dpp)
-          if ( (iopen(i,j) /= RCMTOPOPEN) .and. (dmhd>TINY) .and. (ti(i,j)>TINY) ) then
+          call PartFluid(i,j,drc,dpp)
+
+          if ( (iopen(i,j) /= RCMTOPOPEN) .and. (drc>TINY) .and. (ti(i,j)>TINY) ) then
             !Good stuff, let's go
-            if (use_plasmasphere) then
-              eeta_new(i,j,1) = 0.0
-              kmin = 2
-            else
-              kmin = 1
-            endif
-
-            A0 = (dmhd/density_factor)/(vm(i,j)**1.5)
-            prcmI = 0.0 !Cumulative ion pressure
-            prcmE = 0.0 !Cumulative electron pressure
-
-            !Loop over non-zero channels
-            do k=kmin,kcsize
-              !Get right temperature
-              IF (ikflavc(k) == RCMELECTRON) THEN  ! electrons
-                t = te (i,j)
-                isIon = .false.
-              ELSE IF (ikflavc(k) == RCMPROTON) THEN ! ions (protons)
-                t = ti (i,j)
-                isIon = .true.
-              ENDIF
-
-              xp = SQRT(ev*ABS(almmax(k))*vm(i,j)/boltz/t)
-              xm = SQRT(ev*ABS(almmin(k))*vm(i,j)/boltz/t)
-              !Use quad prec calc of erf/exp differences
-              eeta_new(i,j,k) = erfexpdiff(A0,xp,xm)
-
-              !Pressure contribution from this channel
-              pcon = pressure_factor*ABS(alamc(k))*eeta_new(i,j,k)*vm(i,j)**2.5
-
-              if (isIon) then
-                prcmI = prcmI + pcon
-              else
-                prcmE = prcmE + pcon
-              endif
-
-            enddo !k loop
-
-            !Now rescale eeta channels to conserve pressure integral between MHD/RCM
-            !In particular, we separately conserve ion/electron contribution to total pressure
-            pmhdI = press(i,j)*tiote/(1.0+tiote) !Desired ion pressure
-            pmhdE = press(i,j)*  1.0/(1.0+tiote) !Desired elec pressure
-
-            if (prcmI>0.0) then
-              psclI = pmhdI/prcmI
-            else
-              psclI = 0.0
-            endif
-            if (prcmE>0.0) then
-              psclE = pmhdE/prcmE
-            else
-              psclE = 0.0
-            endif
-            
-            do k=kmin,kcsize
-              IF (ikflavc(k) == RCMELECTRON) THEN  ! electrons
-                eeta_new(i,j,k) = psclE*eeta_new(i,j,k)
-              ELSE IF (ikflavc(k) == RCMPROTON) THEN ! ions (protons)
-                eeta_new(i,j,k) = psclI*eeta_new(i,j,k)
-              ENDIF
-            enddo
-
+            prc = press(i,j)
+            call DP2eta(drc,prc,vm(i,j),eeta_new(i,j,:))
         !Not good MHD
           else
             eeta_new(i,j,:) = 0.0
           endif
 
         enddo
-      enddo
+      enddo !J loop
 
       END SUBROUTINE Press2eta
       
-
 
 !===================================================================
     SUBROUTINE Set_ellipse(idim,jdim,rmin,pmin,vm,big_vm,bndloc,iopen)
@@ -660,7 +629,7 @@ MODULE torcm_mod
       real(rprec) :: bndloc(jdim)
       real(rprec) :: big_vm,a1,a2,a,bP,bM,x0,ell
       real(rprec) :: xP,xM,yMaxP,yMaxM
-      integer(iprec) :: i,j,jm,jp
+      integer(iprec) :: i,j,jm,jp,newi,oldi
       logical :: isGood(idim,jdim)
 
 !  x0 = (a1 + a2)/2
@@ -739,9 +708,22 @@ MODULE torcm_mod
           if (.not. isGood(i,j)) exit
         enddo !i loop
         !Cell i,j is bad or got to i=1
-        bndloc(j) = min(i+1+NumG,idim)
+        newi = min(i+1+NumG,idim)
+        !newbndloc(j) = newi
+        oldi = bndloc(j)
+        !Throttle change in bndloc to NumG if possible
+        if (newi > oldi+NumG) then
+          !Boundary is moving inwards, limit inwards motion if the cells are good
+          if ( all(isGood(oldi:newi,j)) ) then
+            !All the cells are good, so limit retreat to NumG cells
+            newi = min(oldi+NumG,idim)
+          endif
+        else if (newi < oldi-NumG) then
+          !Trying to expand by too many cells
+          newi = max(oldi-NumG,1)
+        endif
+        bndloc(j) = newi
       enddo !j loop
-
 
     end subroutine Set_ellipse
 
@@ -760,25 +742,35 @@ MODULE torcm_mod
       integer(iprec), intent(in) :: iopen(idim,jdim)
       REAL(rprec) :: eetas2d(jdim,kdim)
 ! these are the smoothing weights
-      REAL(rprec), PARAMETER :: a1 = 1.0  
-      REAL(rprec), PARAMETER :: a2 = 1.0  
-      REAL(rprec), PARAMETER :: a3 = 2.0  
-      REAL(rprec), PARAMETER :: a4 = 1.0  
-      REAL(rprec), PARAMETER :: a5 = 1.0
+      REAL(rprec) :: a1,a2,a3,a4,a5
+      ! REAL(rprec), PARAMETER :: a1 = 1.0  
+      ! REAL(rprec), PARAMETER :: a2 = 1.0  
+      ! REAL(rprec), PARAMETER :: a3 = 2.0  
+      ! REAL(rprec), PARAMETER :: a4 = 1.0  
+      ! REAL(rprec), PARAMETER :: a5 = 1.0
       integer(iprec) :: klow,di
+      integer(iprec), parameter :: NumI = NumG
+
       logical :: isOpen(5)
 ! now do the smoothing
 
-    !Smooth all channels, including plasmasphere      
-      ! if (use_plasmasphere) then
-      !   klow = 2
-      ! else
-      !   klow = 1
-      ! endif
 
-      klow = 1 
+      !Smooth RC channels          
+      if (use_plasmasphere) then
+        klow = 2
+      else
+        klow = 1
+      endif
+
       !Loop over di levels at boundary and do j-smoothing
-      do di=0,2
+      do di=0,NumI
+        !Use more centered weights as we move into the domain
+        a3 = 1.00
+        a2 = 0.50/(2.0**di)
+        a1 = 0.25/(2.0**di)
+        a4 = a2
+        a5 = a1
+
         do j=1,jdim
 
           ! 1 <=> jdim -jwrap +1
@@ -824,6 +816,7 @@ MODULE torcm_mod
       
       
       END SUBROUTINE Smooth_eta_at_boundary
+
 !------------------------------------
       SUBROUTINE smooth_boundary_location(idim,jdim,jwrap,bndloc)
       USE rice_housekeeping_module, ONLY : L_write_vars_debug
@@ -892,7 +885,7 @@ MODULE torcm_mod
           do i=imin_j(j),idim
             if(vm(i,j) > 0.0)then
               dens_gal = GallagherXY(xmin(i,j),ymin(i,j),InitKp)*1.0e6
-              eeta(i,j,1) = dens_gal/(density_factor*vm(i,j)**1.5)
+              eeta(i,j,1) = dens_gal/(GetDensityFactor()*vm(i,j)**1.5)
             end if
           end do
         end do
@@ -908,7 +901,7 @@ MODULE torcm_mod
               if(rmin(i,j) <= staticR .and. vm(i,j) > 0.0)then
                 !eeta (i,j,1) = eeta_pls0 (i,j)
                 dens_gal = GallagherXY(xmin(i,j),ymin(i,j),InitKp)*1.0e6
-                eeta(i,j,1) = dens_gal/(density_factor*vm(i,j)**1.5)
+                eeta(i,j,1) = dens_gal/(GetDensityFactor()*vm(i,j)**1.5)
               end if
             end do
           end do

@@ -16,8 +16,8 @@ module imagtubes
 
     !Some threshold values for poisoning tubes
     !TODO: Make these XML parameters
-    real(rp), private :: wImag_C = 0.20 ![0,1]
-    real(rp), private :: bMin_C  = 5.0 !nT
+    real(rp), private :: wImag_C = 0.15 ![0,1]
+    real(rp), private :: bMin_C  = 2.5 !nT
 
 !Information taken from MHD flux tubes
     !Pave = Average pressure [Pa]
@@ -55,12 +55,12 @@ module imagtubes
 !--------------
 !MHD=>RCM routines
     !MHD flux-tube
-    subroutine MHDTube(vApp,lat,lon,ijTube)
+    subroutine MHDTube(vApp,lat,lon,ijTube,bTrc)
         type(voltApp_T), intent(in) :: vApp
         real(rp), intent(in) :: lat,lon
         type(RCMTube_T), intent(out) :: ijTube
+        type(fLine_T), intent(inout) :: bTrc
 
-        type(fLine_T) :: bTrc
         real(rp) :: t, bMin,bIon
         real(rp), dimension(NDIM) :: x0, bEq, xyzIon
         real(rp), dimension(NDIM) :: xyzC,xyzIonC
@@ -161,18 +161,22 @@ module imagtubes
     end subroutine MHDTube
 
     !Dipole flux tube info
-    subroutine DipoleTube(vApp,lat,lon,ijTube)
+    subroutine DipoleTube(vApp,lat,lon,ijTube,bTrc)
         type(voltApp_T), intent(in) :: vApp
         real(rp), intent(in) :: lat,lon
         type(RCMTube_T), intent(out) :: ijTube
-
+        type(fLine_T), intent(inout) :: bTrc
+        
         real(rp) :: L,colat
         real(rp) :: mdipole
 
         mdipole = ABS(planetM0g)*G2T ! dipole moment in T
         colat = PI/2 - lat
         L = 1.0/(sin(colat)**2.0)
-        ijTube%Vol = 32./35.*L**4.0/mdipole
+        !ijTube%Vol = 32./35.*L**4.0/mdipole
+        !Use full dipole FTV formula, convert Rx/nT => Rx/T
+        ijTube%Vol = DipFTV_L(L,planetM0g)*1.0e+9
+        
         ijTube%X_bmin(XDIR) = L*cos(lon)*Rp_m !Rp=>meters
         ijTube%X_bmin(YDIR) = L*sin(lon)*Rp_m !Rp=>meters
         ijTube%X_bmin(ZDIR) = 0.0
@@ -225,21 +229,62 @@ module imagtubes
     end subroutine TrickyTubes
     
     !Smooth RCM tube data as needed
-    subroutine SmoothTubes(RCMApp)
+    subroutine SmoothTubes(RCMApp,vApp)
         type(rcm_mhd_T), intent(inout) :: RCMApp
+        type(voltApp_T), intent(in) :: vApp
 
-        integer :: Ni,Nj
+        integer :: n,Ni,Nj,Ns
         logical, dimension(:,:), allocatable :: isG
+        real(rp), dimension(:,:), allocatable :: V0,dV
 
+        real(rp) :: dphi_mix,dphi_rcm
+        real(rp) :: colat
+
+    !Choose number of smoothing iterations
         Ni = RCMApp%nLat_ion
         Nj = RCMApp%nLon_ion
+
+        !Based on ratio of mix vs. rcm coupling
+        !Ns = nint(vApp%DeepDT/vApp%ShallowDT) - 1
+
+        !Based on ratio of mix/RCM resolutions
+        dphi_mix = 360.0/vApp%remixApp%ion(1)%G%Np
+        dphi_rcm = 360.0/Nj
+
+        Ns = nint( (dphi_rcm/dphi_mix)/2 )
+
+        if (Ns<=0) return
+
+    !Prep for smoothing
         allocate(isG(Ni,Nj))
         isG = .not. (RCMApp%iopen == RCMTOPOPEN)
 
-        !Smooth some tubes
-        call Smooth2D(RCMApp%Vol) !Flux-tube volume
-        call Smooth2D(RCMApp%pot) !Electrostatic potential
+        allocate(V0(Ni,Nj))
+        allocate(dV(Ni,Nj))
+        V0 = 0.0
+        dV = 0.0
+
+        !Calculate dV, non-dipolar part of FTV
+        do n=1,Ni
+            colat = RCMApp%gcolat(n)
+            V0(n,:) = DipFTV_colat(colat,planetM0g)*1.0e+9
+        enddo
+
+        where (isG)
+            dV = RCMApp%Vol - V0
+        endwhere
         
+    !Smooth some tubes
+        do n=1,Ns
+            !call Smooth2D(RCMApp%pot) !Electrostatic potential
+            !call Smooth2D(RCMApp%Vol) !Flux-tube volume
+            call Smooth2D(dV) !Smooth dV
+        enddo
+
+        where (isG)
+            RCMApp%Vol = V0 + dV
+        endwhere
+
         contains
         subroutine Smooth2D(Q)
             real(rp), dimension(Ni,Nj), intent(inout) :: Q

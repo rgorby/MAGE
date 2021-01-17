@@ -32,7 +32,7 @@ module earthhelper
     real(rp), parameter, private :: GLMin = 1.0
     real(rp), parameter, private :: GLMax = 8.0
 
-    integer, parameter, private :: kpDefault = 1
+    integer, private :: kpDefault = 1
 
 
     !Toy code for putting in a quiet time RC
@@ -55,6 +55,18 @@ module earthhelper
     ! v 1.1 1/16 frt
     !----------------------------------------
 
+    !Routine to change kp-default on the fly if necessary
+    subroutine SetKp0(kp)
+        integer, intent(in) :: kp
+
+        !Can only be 1,5
+        if ( (kp>=1) .and. (kp<=5) ) then
+            kpDefault = kp
+        else if (kp>5) then
+            kpDefault = 5
+        endif
+
+    end subroutine SetKp0
     !Return 2D gallagher density afa r,phi (rad)
     function GallagherRP(r,phi,kpO) result(D)
         real(rp), intent(in) :: r,phi
@@ -485,4 +497,71 @@ module earthhelper
         kT = 6.25*P/max(D,TINY)
     end function DP2kT
     
+
+!Some routines for flux-tube volume
+    
+    !Calculate FTV of dipole, Rx/nT
+    !M0g is optional mag moment in Gauss, otherwise use Earth
+    function DipFTV_L(L,M0gO) result(V)
+        real(rp), intent(in) :: L
+        real(rp), intent(in), optional :: M0gO
+        real(rp) :: V
+        real(rp) :: M0g,colat
+        if (present(M0gO)) then
+            M0g = M0gO
+        else
+            M0g = EarthM0g
+        endif
+        
+        !Now get colat
+        colat = asin( sqrt(1.0/L) )
+        V = DipFTV_colat(colat,M0g)
+    end function DipFTV_L
+
+    !Same units as above but w/ colat as input
+    function DipFTV_colat(colat,M0gO) result(V)
+        real(rp), intent(in) :: colat
+        real(rp), intent(in), optional :: M0gO
+        real(rp) :: V
+        real(rp) :: M0g,M0,cSum,S8
+
+        if (present(M0gO)) then
+            M0g = M0gO
+        else
+            M0g = EarthM0g
+        endif
+        M0 = abs(M0g*G2nT) !Convert to nano-tesa
+        cSum =  35.0     *cos(1.0*colat) -      7.0 *cos(3.0*colat) &
+              +(7.0/5.0) *cos(5.0*colat) - (1.0/7.0)*cos(7.0*colat)
+
+        cSum = cSum/64.0
+        S8 = sin(colat)**8.0
+        V = 2*cSum/S8/M0
+    end function DipFTV_colat
+
+    !Derivative wrt colat of dipole FTV
+    function DerivDipFTV(colat,M0gO) result(dVdcol)
+        real(rp), intent(in) :: colat
+        real(rp), intent(in), optional :: M0gO
+        real(rp) :: dVdcol
+        real(rp) :: M0g,M0,cSum,dSum,S8
+
+        if (present(M0gO)) then
+            M0g = M0gO
+        else
+            M0g = EarthM0g
+        endif
+        M0 = abs(M0g*G2nT) !Convert to nano-tesa
+        cSum =  35.0     *cos(1.0*colat) -      7.0 *cos(3.0*colat) &
+              +(7.0/5.0) *cos(5.0*colat) - (1.0/7.0)*cos(7.0*colat)
+
+        cSum = cSum/64.0
+        S8 = sin(colat)**8.0
+
+        !Deriv of csum wrt colat
+        dSum = (-35.0*sin(1.0*colat) + 21.0*sin(3.0*colat) &
+                - 7.0*sin(5.0*colat) +  1.0*sin(7.0*colat) )/64.0
+        dVdcol = (2.0/S8/M0)*( -8.0*cotan(colat)*cSum + dSum )
+
+    end function DerivDipFTV
 end module earthhelper

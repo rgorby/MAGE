@@ -34,6 +34,9 @@ if __name__ == "__main__":
 	Nblk = 1 #Number of blocks
 	nID = 1 #Block ID of this job
 	noMPI = False
+	doJy = False
+	doBz = False
+	doBigRCM = False
 
 	MainS = """Creates simple multi-panel figure for Gamera magnetosphere run
 	Left Panel - Residual vertical magnetic field
@@ -50,6 +53,9 @@ if __name__ == "__main__":
 	parser.add_argument('-Nblk' ,type=int,metavar="Nblk",default=Nblk,help="Number of job blocks (default: %(default)s)")
 	parser.add_argument('-nID' ,type=int,metavar="nID"  ,default=nID,help="Block ID of this job [1-Nblk] (default: %(default)s)")
 	parser.add_argument('-nompi', action='store_true', default=noMPI,help="Don't show MPI boundaries (default: %(default)s)")
+	parser.add_argument('-bz'   , action='store_true', default=doBz ,help="Show Bz instead of dBz (default: %(default)s)")
+	parser.add_argument('-jy'   , action='store_true', default=doJy ,help="Show Jy instead of pressure (default: %(default)s)")
+	parser.add_argument('-bigrcm', action='store_true',default=doBigRCM,help="Show entire RCM domain (default: %(default)s)")
 
 	mviz.AddSizeArgs(parser)
 
@@ -65,6 +71,9 @@ if __name__ == "__main__":
 	nID = args.nID
 	noMPI = args.nompi
 	doMPI = (not noMPI)
+	doJy = args.jy
+	doBz = args.bz
+	doBigRCM = args.bigrcm
 	
 	#Setup timing info
 	tOut = np.arange(ts*60.0,te*60.0,dt)
@@ -121,6 +130,7 @@ if __name__ == "__main__":
 		print("Found RCM data")
 		rcmdata = gampp.GameraPipe(fdir,ftag+".mhdrcm")
 		mviz.vP = kv.genNorm(1.0e-2,100.0,doLog=True)
+		rcmpp.doEll = not doBigRCM
 	if (doMIX):
 		print("Found ReMIX data")
 		
@@ -151,10 +161,12 @@ if __name__ == "__main__":
 		AxL.clear()
 		AxR.clear()
 
-		Bz = mviz.PlotEqB(gsph,nStp,xyBds,AxL,AxC1)
+		Bz = mviz.PlotEqB(gsph,nStp,xyBds,AxL,AxC1,doBz=doBz)
 
-		mviz.PlotMerid(gsph,nStp,xyBds,AxR,doDen,doRCM,AxC3)
-		#mviz.PlotJyXZ(gsph,nStp,xyBds,AxR,AxC3)
+		if (doJy):
+			mviz.PlotJyXZ(gsph,nStp,xyBds,AxR,AxC3)
+		else:
+			mviz.PlotMerid(gsph,nStp,xyBds,AxR,doDen,doRCM,AxC3)
 
 		gsph.AddTime(nStp,AxL,xy=[0.025,0.89],fs="x-large")
 		gsph.AddSW(nStp,AxL,xy=[0.625,0.025],fs="small")

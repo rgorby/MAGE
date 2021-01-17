@@ -16,8 +16,13 @@ module math
     real(rp), parameter, dimension(3,3) ::  &
               SmoothOpTSC = reshape( [ 0.0625,0.1250,0.0625, &
                                        0.1250,0.2500,0.1250, &
-                                       0.0625,0.1250,0.0625 ], [3,3] )
+                                       0.0625,0.1250,0.0625  ], [3,3] )
 
+    !3x3 identity tensor
+    real(rp), parameter, dimension(3,3) ::  &
+              Eye33 = reshape( [ 1.0,0.0,0.0, &
+                                 0.0,1.0,0.0, &
+                                 0.0,0.0,1.0  ], [3,3] )
     contains
 
     !Generates a random number between vMin/vMax
@@ -259,6 +264,14 @@ module math
 
     end function cross
 
+    !Clamp a in [aL,aH]
+    subroutine ClampValue(a,aL,aH)
+        real(rp), intent(inout) :: a
+        real(rp), intent(in) :: aL,aH
+        if (a<aL) a = aL
+        if (a>aH) a = aH
+    end subroutine ClampValue
+    
     !Circular mean, in: rad / out: rad
     function CircMean(alpha) result(alphabar)
         real(rp), intent(in) :: alpha(:)
@@ -292,6 +305,20 @@ module math
         alphabar = sum(alpha)/N
 
     end function ArithMean
+
+    !Weighted means
+    function wArithMean(alpha,wgt) result(alphabar)
+        real(rp), intent(in) :: alpha(:),wgt(:)
+        real(rp) :: alphabar
+        integer :: N
+        real(rp) :: X,Y
+        
+        if (size(alpha) /= size(wgt)) then
+            write(*,*) "wArithMean size error ..."
+            stop
+        endif
+        alphabar = dot_product(alpha,wgt)/sum(wgt)
+    end function wArithMean
 
     function normVec(a)
         real(rp), dimension(NDIM) :: a, normVec

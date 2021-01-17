@@ -205,6 +205,9 @@ module voltapp
         gApp%Model%dt = CalcDT(gApp%Model,gApp%Grid,gApp%State)
         if (gApp%Model%dt0<TINY) gApp%Model%dt0 = gApp%Model%dt
         
+        !Bring overview info
+        call printConfigStamp()
+
         !Finally do first output stuff
         !console output
         if (vApp%isSeparate) then
@@ -503,7 +506,6 @@ module voltapp
 
         character(len=strLen) :: xmlStr
         type(XML_Input_T) :: inpXML
-        
         real(rp) :: xyz0(NDIM)
 
     !Create input XML object
@@ -515,7 +517,7 @@ module voltapp
         inpXML = New_XML_Input(trim(xmlStr),"Chimp",.true.)
 
     !Initialize model
-        associate(Model=>ebTrcApp%ebModel,ebState=>ebTrcApp%ebState,Gr=>gApp%Grid)
+        associate(Model=>ebTrcApp%ebModel,ebState=>ebTrcApp%ebState,ebGr=>ebState%ebGr,Gr=>gApp%Grid)
         call setUnits (Model,inpXML)
         Model%T0   = 0.0
         Model%tFin = 0.0
@@ -529,6 +531,9 @@ module voltapp
     !Initialize ebState
         !CHIMP grid is initialized from Gamera's active corners
         call ebInit_fromMHDGrid(Model,ebState,inpXML,Gr%xyz(Gr%is:Gr%ie+1,Gr%js:Gr%je+1,Gr%ks:Gr%ke+1,1:NDIM))
+        !Replace CHIMP 8-point average centers w/ more accurate Gamera quadrature centers        
+        ebGr%xyzcc(ebGr%is:ebGr%ie,ebGr%js:ebGr%je,ebGr%ks:ebGr%ke,:) = Gr%xyzcc(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,:)
+
         call InitLoc(Model,ebState%ebGr,inpXML)
 
         !Do simple test to make sure locator is reasonable

@@ -30,19 +30,23 @@ MODULE rice_housekeeping_module
   USE rcm_precision, only : iprec,rprec,strLen
   use xml_input
   use strings
-
+  use earthhelper, ONLY : SetKp0
+  use rcmdefs, ONLY : DenPP0
+  
   IMPLICIT NONE
   
   LOGICAL :: L_write_rcmu          = .false., &
              L_write_rcmu_torcm    = .false., &
              L_write_tracing_debug = .false., &
-             L_write_vars_debug    = .false., &
-             L_write_int_grid_debug= .true.
+             L_write_vars_debug    = .false.
   
   INTEGER(iprec) :: Idt_overwrite         = 1
   INTEGER(iprec) :: rcm_record
   REAL(rprec) :: HighLatBD,LowLatBD
   LOGICAL :: doLatStretch = .true.
+  LOGICAL :: doOCBLoss = .false.
+  LOGICAL :: doFLCLoss = .true. !Use FLC losses
+  LOGICAL :: doNewCX = .true. !Use newer CX loss estimate
 
 ! set this to true to tilt the dipole, must turn off corotation also
   LOGICAL :: rcm_tilted = .false.
@@ -50,10 +54,17 @@ MODULE rice_housekeeping_module
   LOGICAL :: dp_on = .true.
   LOGICAL, PARAMETER :: use_plasmasphere = .true.
   LOGICAL :: doAvg2MHD = .true.
+  LOGICAL :: doPPRefill = .false.!Whether to refill plasmasphere
+  LOGICAL :: doRelax    = .true. !Whether to relax energy distribution
+  LOGICAL :: doSmoothIJ = .false. !Whether to smooth individual eta channels
 
   INTEGER(iprec) :: InitKp = 1
+  LOGICAL :: doFLOut = .false. !Whether to output field lines (slow)
+  INTEGER(iprec) :: nSkipFL = 8 !Stride for outputting field lines
+
   REAL(rprec) :: staticR = 0.0
   REAL(rprec) :: LowLatMHD = 0.0
+  
   type RCMEllipse_T
       !Ellipse parameters
       real(rprec) :: xSun=10.0,xTail=-15.0,yDD=10.0
@@ -117,6 +128,8 @@ MODULE rice_housekeeping_module
         call xmlInp%Set_Val(L_write_rcmu_torcm,"output/toRCM",L_write_rcmu_torcm)
         call xmlInp%Set_Val(L_write_rcmu,"output/toMHD",L_write_rcmu)
         call xmlInp%Set_Val(L_write_vars_debug,"output/debug",L_write_vars_debug)
+        call xmlInp%Set_Val(nSkipFL,"output/nSkipFL",nSkipFL)
+        call xmlInp%Set_Val(doFLOut,"output/doFLOut",doFLOut)
         call xmlInp%Set_Val(rcm_tilted,"tilt/isTilt",rcm_tilted)
 
         !Grid bounds
@@ -134,9 +147,21 @@ MODULE rice_housekeeping_module
         call xmlInp%Set_Val(dp_on,"plasmasphere/isDynamic",dp_on)
         call xmlInp%Set_Val(InitKp ,"plasmasphere/initKp",InitKp) 
         call xmlInp%Set_Val(staticR ,'plasmasphere/staticR',staticR)
+        call xmlInp%Set_Val(doPPRefill ,'plasmasphere/doRefill',doPPRefill)
+        call xmlInp%Set_Val(DenPP0  ,'plasmasphere/DenPP0',DenPP0)
+
+        call SetKp0(InitKp)
+
+        !Loss options
+        call xmlInp%Set_Val(doOCBLoss,"loss/doOCBLoss",doOCBLoss)
+        call xmlInp%Set_Val(doFLCLoss,"loss/doFLCLoss",doFLCLoss)
+        call xmlInp%Set_Val(doNewCX  ,"loss/doNewCX"  ,doNewCX  )
+        call xmlInp%Set_Val(doRelax  ,"loss/doRelax"  ,doRelax  )
 
         !Tomhd parameters
-        call xmlInp%Set_Val(doAvg2MHD,"tomhd/doAvg2MHD",doAvg2MHD)
+        call xmlInp%Set_Val(doAvg2MHD ,"tomhd/doAvg2MHD" ,doAvg2MHD )
+        call xmlInp%Set_Val(doRelax   ,"tomhd/doRelax"   ,doRelax   )
+        call xmlInp%Set_Val(doSmoothIJ,"tomhd/doSmoothIJ",doSmoothIJ)
 
         !Advance parameters
         call xmlInp%Set_Val(Idt_overwrite,"sim/idt",Idt_overwrite)

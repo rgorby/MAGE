@@ -885,20 +885,22 @@
 
     RETURN
 !
-    CONTAINS
-!
-    FUNCTION Ratefn (fudgx, alamx, sinix, birx, vmx, xmfact)
-    IMPLICIT NONE
-    REAL (rprec), INTENT (IN) :: fudgx,alamx,sinix,birx,vmx,xmfact
-    REAL (rprec)              :: Ratefn
-!                                                                       
-!   Function subprogram to compute precipitation rate
-!   Last update:  04-04-88
-!
-    Ratefn = 0.0466_rprec*fudgx*SQRT(ABS(alamx))*(sinix/birx)*vmx**2
-    Ratefn = xmfact * ratefn
-    RETURN
-    END FUNCTION Ratefn
+      !K: This function gets defined again identically further down?!
+!     CONTAINS
+! !
+!     FUNCTION Ratefn (fudgx, alamx, sinix, birx, vmx, xmfact)
+!     IMPLICIT NONE
+!     REAL (rprec), INTENT (IN) :: fudgx,alamx,sinix,birx,vmx,xmfact
+!     REAL (rprec)              :: Ratefn
+! !                                                                       
+! !   Function subprogram to compute precipitation rate
+! !   Last update:  04-04-88
+! !
+!     Ratefn = 0.0466_rprec*fudgx*SQRT(ABS(alamx))*(sinix/birx)*vmx**2
+!     Ratefn = xmfact * ratefn
+!     RETURN
+!     END FUNCTION Ratefn
+
     END SUBROUTINE Move_plasma_grid
 !
 !
@@ -1676,6 +1678,7 @@
 !
       dt = idt  !dt = REAL (idt)
 !
+      !Q: Does this have any point since it gets recalculated in move-plasma?
       fac = 1.0E-3_rprec * bir * alpha * beta * dlam * dpsi * ri**2 * signbe
 !
       i_time = itimei
@@ -2243,45 +2246,6 @@
     END SUBROUTINE Read_dktime_H5
 
 
-
-    FUNCTION CXKaiju(isp,enrg,rloc) result(cxrate)
-      IMPLICIT NONE
-
-      integer(iprec), intent(in) :: isp
-      real(rprec), intent(in) :: enrg,rloc
-
-      real(rprec) :: cxrate
-      real(rprec) :: K,L,Ngeo,KSig,Sig0,a1,a2,a3,B1,B2,Sig,M,Kj,V,Tau,tScl
-
-      K = enrg*1.0e-3 !Energy in kev
-    !Geocoronal density afa L [#/cc], Taken from Ostgaard 2003 
-      L = rloc
-      Ngeo = 10000.0*exp(-L/1.02) + 70.0*exp(-L/8.2)
-
-    !Charge exchange cross-section for H+/H
-      !K in keV, Sig in cm2
-      !Using Lindsay & Stebbings 2005
-      KSig = min(K,250.0) !Cap for validity of CX cross-section
-      
-      Sig0 = 1.0e-16
-      a1 = 4.15
-      a2 = 0.531
-      a3 = 67.3
-
-      B1 = (a1-a2*log(KSig))**2.0
-      B2 = 1.0-exp(-a3/KSig) 
-      Sig =  Sig0*B1*(B2**(4.5))
-    !Get velocity [cm/s] from energy [keV]
-      M = 1.67*1.0e-27 !Proton mass
-      Kj = K*1000.0*1.6*1.0e-19 !Joules
-      V = sqrt(2*Kj/M)*100.0 !m/s->cm/s
-
-    !Timescale
-      tScl = cos(45*PI/180.0)**3.5 !Using Smith & Bewtra 1976 scaling
-      Tau = tScl*1.0/(Ngeo*V*Sig)
-
-      cxrate = 1.0/Tau
-    END FUNCTION CXKaiju
     
 !
 !
@@ -2481,58 +2445,14 @@
 !=========================================================================
 
 
-!Really quick test of simple FLCRat
-FUNCTION FLCRat(ie,alam,vm,beq,rcurv,lossc) result(lossFLC)
-  use constants, only : radius_earth_m
-  use kdefs, only : TINY
-  use math, only : RampUp
-  IMPLICIT NONE
-  integer(iprec), intent(in) :: ie
-  real(rprec), intent(in) :: alam,vm,beq,rcurv,lossc
-  real(rprec) :: lossFLC
-  
-  real(rprec) :: bfp,ftv,K,V,TauSS,Rgyro,eps,xSS,TauFLC,earg
-
-  bfp = beq/(sin(lossc)**2.0) !Foot point field strength, nT
-  ftv = (1.0/vm)**(3.0/2.0) !flux-tube volume Re/nT
-  K = alam*vm*1.0e-3 !Energy [keV]
-
-  if (ie == RCMPROTON) then
-    V = (3.1e+2)*sqrt(K) !km/s
-  else
-    lossFLC = 0.0
-    return
-  endif
-
-  !Convert V from km/s to Re/s
-  V = V/(radius_earth_m*1.0e-3)
-
-  TauSS = 3*2*ftv*bfp/V !Strong scattering lifetime [s], assuming ion w/ gamma=1
-
-  Rgyro = (4.6e+3)*sqrt(K)/beq !Gyroradius of proton [km], assuming K in keV and beq in nT
-  Rgyro = Rgyro/(radius_earth_m*1.0e-3) !In terms of Re
-
-  eps = Rgyro/rcurv
-
-  !Chen+ 2019
-  
-  !K: Mockup between Chen/Gibson, transition between eps^-5 dep. and strong scattering at kappa = sqrt(8)
-  !xSS = max( (8.0*eps)**(-5.0), 1.0 )
-  earg = eps**(-5.0)
-  xSS = max(100.0*earg,1.0)
-  !xSS = max(10.0*earg,1.0)
-
-  TauFLC = xSS*TauSS
-  lossFLC = 1.0/TauFLC !Rate, 1/s
-
-END FUNCTION FLCRat
 
 !=========================================================================
 !
 SUBROUTINE Move_plasma_grid_MHD (dt)
-  use rice_housekeeping_module, ONLY : LowLatMHD
+  use rice_housekeeping_module, ONLY : LowLatMHD,doOCBLoss,doNewCX,doFLCLoss,dp_on,doPPRefill
   use math, ONLY : SmoothOpTSC,SmoothOperator33
-
+  use lossutils, ONLY : CXKaiju,FLCRat,DepleteOCB
+  use earthhelper, ONLY : DipFTV_colat,DerivDipFTV
   IMPLICIT NONE
   REAL (rprec), INTENT (IN) :: dt
 
@@ -2544,16 +2464,15 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
 
   LOGICAL, dimension(1:isize,1:jsize) :: isOpen
   INTEGER (iprec) :: iOCB_j(1:jsize)
-  REAL (rprec) :: mass_factor,r_dist,lossCX,lossFLC,lossFDG,lossOCB,sumEtaBEF,sumEtaAFT
+  REAL (rprec) :: mass_factor,r_dist,lossCX,lossFLC,lossFDG
   REAL (rprec), save :: xlower,xupper,ylower,yupper, T1,T2 !Does this need save?
   INTEGER (iprec) :: i, j, kc, ie, iL,jL,iR,jR,iMHD
   INTEGER (iprec) :: CLAWiter, joff
   
   REAL (rprec) :: T1k,T2k !Local loop variables b/c clawpack alters input
   LOGICAL, save :: FirstTime=.true.
-  LOGICAL :: doOCBNuke
-
-  doOCBNuke = .false.
+  LOGICAL, parameter :: doSuperBee = .false. !Use superbee (instead of minmod/MC)
+  
 
   if (jwrap /= 3) then
     write(*,*) 'Somebody should rewrite this code to not assume that jwrap=3'
@@ -2585,11 +2504,9 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
 
   xlower = 1
   xupper = isize
-  ylower = zero
+  ylower = 0.0
   yupper = jsize-3
   
-  fac = 1.0E-3*signbe*bir*alpha*beta*dlam*dpsi*ri**2
-
 !---
 !Get OCB
   isOpen = (vm < 0)
@@ -2606,19 +2523,30 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
     endif
   enddo !j loop
 
+  
 !Calculate node-centered IJ gradients for use inside loop (instead of redoing for each channel)
   !veff = v + vcorot - vpar + vm*alamc(k) = vv + vm*alamc(k)
+  
+  !Do array-sized prep work
+  !$OMP PARALLEL WORKSHARE if (L_doOMPClaw)
+  fac = 1.0E-3*signbe*bir*alpha*beta*dlam*dpsi*ri**2
   vv = v + vcorot - vpar
+  where (.not. isOpen)
+    !Using ftv directly w/ possible intermediate smoothing
+    ftv = vm**(-3.0/2)
+  elsewhere
+    ftv = 0.0
+  endwhere
+  !$OMP END PARALLEL WORKSHARE
+
   call Grad_IJ(vv,isOpen,dvvdi,dvvdj)
   !Now get energy-dep. portion, grad_ij vm
-  !Using ftv directly w/ possible intermediate smoothing
-  !call Grad_IJ(vm,isOpen,dvmdi,dvmdj) !Old calculation
-  ftv = vm**(-3.0/2)
-  call Grad_IJ(ftv,isOpen,dftvi,dftvj)
-  call Smooth_IJ(dftvi,isOpen)
-  call Smooth_IJ(dftvj,isOpen)
+  call FTVGrad(ftv,isOpen,dftvi,dftvj)
+
+  !$OMP PARALLEL WORKSHARE if (L_doOMPClaw)
   dvmdi = (-2.0/3.0)*(ftv**(-5.0/3.0))*dftvi
   dvmdj = (-2.0/3.0)*(ftv**(-5.0/3.0))*dftvj
+  !$OMP END PARALLEL WORKSHARE
 
 !---
 !Main channel loop
@@ -2629,11 +2557,11 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
   !$OMP PRIVATE(i,j,kc,ie,iL,jL,iR,jR) &
   !$OMP PRIVATE(didt,djdt,etaC,rateC,rate,dvedi,dvedj) &
   !$OMP PRIVATE(mass_factor,r_dist,CLAWiter,T1k,T2k) &
-  !$OMP PRIVATE(lossCX,lossFLC,lossFDG,lossOCB,sumEtaBEF,sumEtaAFT) &
-  !$OMP SHARED(isOpen,iOCB_j,alamc,eeta,v,vcorot,vpar,vm,imin_j,j1,j2,joff,doOCBNuke) &
-  !$OMP SHARED(dvvdi,dvvdj,dvmdi,dvmdj) &
+  !$OMP PRIVATE(lossCX,lossFLC,lossFDG) &
+  !$OMP SHARED(isOpen,iOCB_j,alamc,eeta,v,vcorot,vpar,vm,imin_j,j1,j2,joff) &
+  !$OMP SHARED(dvvdi,dvvdj,dvmdi,dvmdj,doOCBLoss,doFLCLoss,doNewCX,dp_on,doPPRefill) &
   !$OMP SHARED(xmin,ymin,rmin,fac,fudgec,bir,sini,L_dktime,dktime,sunspot_number) &
-  !$OMP SHARED(aloct,xlower,xupper,ylower,yupper,dt,T1,T2,iMHD,bmin,radcurv,losscone) 
+  !$OMP SHARED(aloct,xlower,xupper,ylower,yupper,dt,T1,T2,iMHD,bmin,radcurv,losscone,vv) 
   DO kc = 1, kcsize
     
     !If oxygen is to be added, must change this!
@@ -2685,7 +2613,7 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
       enddo
     enddo
 
-    !Freeze flow too close to MHD boundary
+    !Freeze flow too close to MHD inner boundary
     didt(iMHD-1:,:) = 0.0 
     djdt(iMHD+1:,:) = 0.0
     
@@ -2712,11 +2640,16 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
           if ( L_dktime .and. (.not. isOpen(i,j)) ) then
             !Do losses even in buffer region in case stuff moves in/out
             r_dist = sqrt(xmin(i,j)**2+ymin(i,j)**2)
-            !lossCX = Cexrat(ie,abs(alamc(kc))*vm(i,j),r_dist,sunspot_number, &
-            !                dktime,irdk,inrgdk,isodk,iondk)
-            lossCX = CXKaiju(ie,abs(alamc(kc))*vm(i,j),r_dist)
-            !Placeholder for FLC loss, uses radcurv(i,j) [Re]
-            lossFLC = FLCRat(ie,alamc(kc),vm(i,j),bmin(i,j),radcurv(i,j),losscone(i,j))
+            if (doNewCX) then
+              lossCX = CXKaiju(ie,abs(alamc(kc))*vm(i,j),r_dist)
+            else
+              lossCX = Cexrat(ie,abs(alamc(kc))*vm(i,j),r_dist,sunspot_number, &
+                              dktime,irdk,inrgdk,isodk,iondk)
+            endif
+            if (doFLCLoss) then
+              !Placeholder for FLC loss, uses radcurv(i,j) [Re]
+              lossFLC = FLCRat(ie,alamc(kc),vm(i,j),bmin(i,j),radcurv(i,j),losscone(i,j))
+            endif
           endif
         else
           !Unknown flavor
@@ -2733,10 +2666,8 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
 
   !---
   !Advect w/ clawpack
-    sumEtaBEF = sum(eeta(:,j1:j2,kc)) !Total content before clawpack
     call rcm2claw(eeta(:,:,kc),etaC)
     
-
     !Call clawpack, always as first time
     !Need local copies b/c clawpack alters T1/T2
     T1k = T1
@@ -2759,37 +2690,10 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
     eeta(:,jsize,kc) = eeta(:,jwrap,kc)
     call circle(eeta(:,:,kc))
 
-    !Check total content after versus before
-    sumEtaAFT = sum(eeta(:,j1:j2,kc))
-    ! if (sumEtaAFT>sumEtaBEF) then
-    !   !Can only increase content due to numerical shennanigans, i.e. borrowing from vacuum
-    !   eeta(:,:,kc) = (sumEtaBEF/sumEtaAFT)*eeta(:,:,kc)
-    ! endif
-
-    if (doOCBNuke) then
-      !Go through and nuke any content next to open cell
-      do j=j1,j2 !jwrap,jsize-1
-        do i=2,isize-1
-          if (isOpen(i,j)) then
-            eeta(i,j,kc) = 0.0
-          else if (any(isOpen(i-1:i+1,j-1:j+1))) then
-          !Has border cells that are open
-            !Count up losses, 1/16 per diag and 1/8 per cardinal direction
-            lossOCB = sum(SmoothOpTSC,mask=isOpen(i-1:i+1,j-1:j+1))
-            eeta(i,j,kc) = (1.0-lossOCB)*eeta(i,j,kc)
-          endif
-        enddo !i loop
-      enddo !j loop
-
-      eeta(:,jsize,kc) = eeta(:,jwrap,kc)
-      call circle(eeta(:,:,kc))
-    endif !doOCBNuke
-
-
-    if (kc==1) then
+    if ( (kc==1) .and. dp_on .and. doPPRefill) then
       !refill the plasmasphere  04012020 sbao
       !K: Added kc==1 check 8/11/20
-      call Kaiju_Plasmasphere_Refill(eeta(:,:,1), rmin, aloct, vm, dt)
+      call Kaiju_Plasmasphere_Refill(eeta(:,:,1), rmin, aloct, vm, imin_j,dt)
       call circle(eeta(:,:,kc)) !Probably don't need to re-circle
     endif
     
@@ -2797,31 +2701,91 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
 
   contains
 
+    !Calculate RCM-node centered gradient of FTV
+    subroutine FTVGrad(ftv,isOpen,dftvdi,dftvdj)
+      REAL (rprec), dimension(1:isize,1:jsize), intent(IN)  :: ftv
+      REAL (rprec), dimension(1:isize,1:jsize), intent(OUT) :: dftvdi,dftvdj
+      LOGICAL     , dimension(1:isize,1:jsize), intent(IN)  :: isOpen
+
+      REAL (rprec), dimension(1:isize,1:jsize) :: V0,dV
+      REAL (rprec), dimension(1:isize,1:jsize) :: dV0i,dV0j,ddVi,ddVj
+
+      INTEGER (iprec) :: i
+      REAL (rprec) :: cl,dcldi,dv0dcl
+
+      !Calculate dipole FTV
+      do i=1,isize
+        cl = colat(i,jwrap)
+        V0(i,:) = DipFTV_colat(cl)
+      enddo
+
+      !Now decompose the two contributions
+      dV = 0.0
+      where (.not. isOpen)
+        dV = ftv - V0
+      endwhere
+
+    !Take gradients of each
+      !Grad of dipole, analytic
+      dV0i = 0.0
+      dV0j = 0.0
+      do i=2,isize-1
+        dcldi = 0.5*(colat(i+1,jwrap)-colat(i-1,jwrap))
+        cl = colat(i,jwrap)
+        dv0dcl = DerivDipFTV(cl)
+        dV0i(i,:) = dv0dcl*dcldi
+      enddo
+      
+      !Grad of perturbation, smooth this
+      call Grad_IJ(dV,isOpen,ddVi,ddVj,doLimO=.true. )
+      call Smooth_IJ(ddVi,isOpen)
+      call Smooth_IJ(ddVj,isOpen)
+
+      !Recombine pieces
+      dftvdi = dV0i + ddVi
+      dftvdj = dV0j + ddVj
+
+      !Old calculation, just do raw gradient
+      !call Grad_IJ(ftv,isOpen,dftvdi,dftvdj)
+
+    end subroutine FTVGrad
+
     !Calculate RCM-node centered gradient of veff
-    subroutine Grad_IJ(veff,isOpen,dvedi,dvedj)
+    subroutine Grad_IJ(veff,isOpen,dvedi,dvedj,doLimO)
       REAL (rprec), dimension(1:isize,1:jsize), intent(IN)  :: veff
       REAL (rprec), dimension(1:isize,1:jsize), intent(OUT) :: dvedi,dvedj
       LOGICAL     , dimension(1:isize,1:jsize), intent(IN)  :: isOpen
+      LOGICAL, intent(in), optional :: doLimO
 
       INTEGER (iprec) :: i,j
 
-      LOGICAL :: isOp(3)
+      LOGICAL :: isOp(3),doLim
       REAL (rprec) :: Q(3)
+
+      if (present(doLimO)) then
+        doLim = doLimO
+      else
+        doLim = .true.
+      endif
 
       dvedi = 0.0
       dvedj = 0.0
 
+      !$OMP PARALLEL DO if (L_doOMPClaw) &
+      !$OMP DEFAULT (NONE) &
+      !$OMP PRIVATE(i,j,isOp,Q) &
+      !$OMP SHARED(dvedi,dvedj,veff,isOpen,doLim)
       do j=2,jsize-1
         do i=2,isize-1
           !Do I deriv
           Q          = veff  (i-1:i+1,j)
           isOp       = isOpen(i-1:i+1,j)
-          dvedi(i,j) = Deriv_IJ(Q,isOp)
+          dvedi(i,j) = Deriv_IJ(Q,isOp,doLim)
 
           !Do J deriv
           Q          = veff  (i,j-1:j+1)
           isOp       = isOpen(i,j-1:j+1)
-          dvedj(i,j) = Deriv_IJ(Q,isOp)
+          dvedj(i,j) = Deriv_IJ(Q,isOp,doLim)
         enddo
       enddo
 
@@ -2840,12 +2804,13 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
     end subroutine Grad_IJ
 
     !Take derivative from 3-point stencil if possible
-    function Deriv_IJ(Q,isOp) result(dvdx)
+    function Deriv_IJ(Q,isOp,doLim) result(dvdx)
       LOGICAL     , intent(IN) :: isOp(-1:+1)
       REAL (rprec), intent(IN) ::    Q(-1:+1)
+      LOGICAL     , intent(IN)  :: doLim
 
       REAL (rprec) :: dvdx
-      REAL (rprec) :: dvL,dvR
+      REAL (rprec) :: dvL,dvR,dvC
       dvdx = 0.0
 
       if (isOp(0)) return
@@ -2860,13 +2825,23 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
         !Both sides closed
         
         !dvdx = 0.5*(Q(+1)-Q(-1)) !Straight up centered derivative
-        dvL = Q( 0) - Q(-1)
-        dvR = Q(+1) - Q( 0)
+        dvL =       Q( 0) - Q(-1)
+        dvR =       Q(+1) - Q( 0)
+        dvC = 0.5*( Q(+1) - Q(-1) )
 
-        !Do slope limiter, either minmod or superbee
-        dvdx = qkminmod(dvL,dvR) !Just minmod lim
-        !Superbee slope-lim on gradient
-        !dvdx = qkmaxmod( qkminmod(dvR,2*dvL),qkminmod(2*dvR,dvL) )
+        if (doLim) then
+          !Do slope limiter, either minmod or superbee
+          if (doSuperBee) then
+            !Superbee slope-lim on gradient
+            dvdx = qkmaxmod( qkminmod(dvR,2*dvL),qkminmod(2*dvR,dvL) )
+          else
+            dvdx = MCLim(dvL,dvR,dvC)
+            !dvdx = qkminmod(dvL,dvR) !Just minmod lim
+          endif
+        else
+          !Take straight centered difference
+          dvdx = dvC
+        endif
 
       else if (.not. isOp(-1)) then
         !-1 is closed, do backward difference
@@ -2889,6 +2864,10 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
       INTEGER (iprec) :: i,j
 
       Qs = Q
+
+      !$OMP PARALLEL DO if (L_doOMPClaw) &
+      !$OMP DEFAULT (SHARED) &
+      !$OMP PRIVATE(i,j,Q33,G33)
       do j=j1,j2 !jwrap,jsize-1
         do i=2,isize-1
           Q33(:,:) = Q(i-1:i+1,j-1:j+1)
@@ -2900,7 +2879,24 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
       Qs(:,jsize) = Qs(:,jwrap)
       call circle(Qs)
       Q = Qs !Save back smoothed array
+
     end subroutine Smooth_IJ
+
+    function MCLim(dqL,dqR,dqC) result(dqbar)
+      REAL (rprec), intent(in) :: dqL,dqR,dqC
+      REAL (rprec) :: dqbar
+      REAL (rprec) :: magdq
+
+      if (dqL*dqR <= 0) then
+        !Sign flip, clamp
+        dqbar = 0.0
+      else
+        !Consistent sense, use MC limiter
+        magdq = min(2*abs(dqL),2*abs(dqR),abs(dqC))
+        !SIGN(A,B) returns the value of A with the sign of B
+        dqbar = sign(magdq,dqC)
+      endif
+    end function MCLim
 
     !Quick and lazy minmod limiter
     function qkminmod(a,b) result(c)
@@ -3215,30 +3211,43 @@ END SUBROUTINE Move_plasma_grid_NEW
 
 !Adapted by K: from S. Bao's adaptation of Colby Lemon's code, 09/20
 
-SUBROUTINE Kaiju_Plasmasphere_Refill(eeta0,rmin,aloct,vm,idt)
+SUBROUTINE Kaiju_Plasmasphere_Refill(eeta0,rmin,aloct,vm,imin_j,idt)
   use constants, ONLY : density_factor
+  use earthhelper, ONLY : GallagherRP
+  use rcmdefs, ONLY : DenPP0
 
   implicit none
 
   REAL (rprec), intent(inout), dimension(isize,jsize) :: eeta0
   REAL (rprec), intent(in), dimension(isize,jsize) :: rmin, aloct, vm
   REAL (rprec), intent(in)  :: idt
+  INTEGER (iprec), intent(in), dimension(jsize) :: imin_j
 
   integer :: i,j
-  REAL (rprec) , parameter :: DenPP0 = 10.0 ![#/cc], cutoff for plasmasphere refilling
   REAL (rprec) , parameter :: day2s = 24.0*60.0*60
   REAL (rprec) :: dppT,dpsph,eta2cc,tau,etaT,deta,dndt
+  REAL (rprec) :: dpp0
+
+  dpp0 = 10*DenPP0 !Use 10x the plasmasphere cutoff density to decide on refilling
 
   do j=1,jsize
     do i=1,isize
       if (vm(i,j) <= 0) cycle
+      if (i < imin_j(j)+1) cycle !Don't refill outside active domain
+
       !Closed field line, calculate Berbue+ 2005 density (#/cc)
       dppT = 10.0**(-0.66*rmin(i,j) + 4.89) !Target refilled density [#/cc]
+      !Or use Gallagher on nightside w/ currently set default Kp
+      !dppT = GallagherRP(rmin(i,j),PI)
+
       eta2cc = (1.0e-6)*density_factor*vm(i,j)**1.5 !Convert eta to #/cc
       dpsph = eta2cc*eeta0(i,j) !Current plasmasphere density [#/cc]
 
-      !Check for target density under cutoff or actual plasmasphere density already above refilling target
-      if ( (dppT < DenPP0) .or. (dpsph>=dppT) ) cycle
+      !Check for other outs before doing anything
+      if (dppT  <  dpp0) cycle !Target too low
+      if (dpsph <  dpp0) cycle !Current density too low to bother w/
+      if (dpsph >= dppT) cycle !Already above refilling target
+
       etaT = dppT/eta2cc !Target eta for refilling
       deta = etaT-eeta0(i,j)
 

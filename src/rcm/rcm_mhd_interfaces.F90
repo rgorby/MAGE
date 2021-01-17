@@ -43,7 +43,7 @@ module rcm_mhd_interfaces
         real(rprec),allocatable :: sigmap(:,:)
         real(rprec),allocatable :: sigmah(:,:)
         real(rprec),allocatable :: oxyfrac(:,:)   ! O+ fraction of MHD number density
-        real(rprec),allocatable :: MedK(:,:) !Median energy contribution to pressure [keV]
+        real(rprec),allocatable :: Percm(:,:) ! RCM electron (only) pressure in Pa
         !Conjugate mapping, lat/lon of conjugate point mapped
         real(rprec),allocatable :: latc(:,:)
         real(rprec),allocatable :: lonc(:,:)
@@ -68,5 +68,37 @@ module rcm_mhd_interfaces
         !Some simple quantities for keeping track of RCM energy channels
         real(rprec) :: MaxAlam = 0.0
         
+        !Current pressure floor from MHD [nPa]
+        real(rprec) :: pFloor = 0.0
     end type rcm_mhd_T
+
+    contains
+        !Copy A (RCM/MHD-sized) into B (RCM-sized) and wrap (fill periodic)
+        subroutine EmbiggenWrap(rmA,rcmA)
+          REAL(rprec), intent(in)    :: rmA (isize,jsize-jwrap+1)
+          REAL(rprec), intent(inout) :: rcmA(isize,jsize)
+
+          INTEGER(iprec) :: j
+
+          rcmA(:,jwrap:jsize) = rmA(:,:)
+          do j=1,jwrap-1
+            rcmA(:,j) = rcmA(:,jsize-jwrap+j)
+          enddo
+
+        end subroutine EmbiggenWrap
+
+        !Same as above, but for int
+        subroutine EmbiggenWrapI(rmA,rcmA)
+          INTEGER(iprec), intent(in)    :: rmA (isize,jsize-jwrap+1)
+          INTEGER(iprec), intent(inout) :: rcmA(isize,jsize)
+
+          INTEGER(iprec) :: j
+
+          rcmA(:,jwrap:jsize) = rmA(:,:)
+          do j=1,jwrap-1
+            rcmA(:,j) = rcmA(:,jsize-jwrap+j)
+          enddo
+
+        end subroutine EmbiggenWrapI
+        
 end module rcm_mhd_interfaces
