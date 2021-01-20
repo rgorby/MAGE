@@ -160,7 +160,7 @@ class remix:
 	def plot(self,varname,
 			 ncontours=16,   # default number of potential contours
 			 addlabels={},
-			 gs=None,doInset=False):
+			 gs=None,doInset=False,doCB=True,doCBVert=True):
 
 		# define function for potential contour overplotting
 		# to keep code below clean and compact
@@ -314,11 +314,15 @@ class remix:
 		p=ax.pcolormesh(theta+tOff,r,variable,cmap=cmap,vmin=lower,vmax=upper)
 
 		if (not doInset):
-			cb=plt.colorbar(p,ax=ax,pad=0.1,shrink=0.85)  
-			cb.set_label(cblabels[varname])
+			if (doCB):
+				if (doCBVert):
+					cb=plt.colorbar(p,ax=ax,pad=0.1,shrink=0.85,orientation="vertical")
+				else:
+					cb=plt.colorbar(p,ax=ax,pad=0.1,shrink=0.85,orientation="horizontal")
+				cb.set_label(cblabels[varname])
 
-			ax.text(-75.*np.pi/180.,1.2*r.max(),('min: '+format_str+'\nmax: ' +format_str) % 
-				  (variable.min() ,variable.max()))
+				ax.text(-75.*np.pi/180.,1.2*r.max(),('min: '+format_str+'\nmax: ' +format_str) % 
+					  (variable.min() ,variable.max()))
 			
 		lines, labels = plt.thetagrids((0.,90.,180.,270.),hour_labels)
 		lines, labels = plt.rgrids(circles,lbls,fontsize=8,color=latlblclr)

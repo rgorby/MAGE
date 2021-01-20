@@ -28,7 +28,13 @@ def CheckOrDie(fname):
 		print("Unable to find file: %s"%(fname))
 		print("!!Exiting!!")
 		quit()
-
+#Check directory exists and make it if not
+def CheckDirOrMake(fdir):
+	import os
+	isDir = os.path.isdir(fdir)
+	if (not isDir):
+		print("Creating %s"%(fdir))
+		os.makedirs(fdir)
 #Get git hash from file if it exists
 def GetHash(fname):
 	CheckOrDie(fname)
