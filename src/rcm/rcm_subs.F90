@@ -3217,7 +3217,7 @@ SUBROUTINE Kaiju_Plasmasphere_Refill(eeta0,rmin,aloct,vm,imin_j,idt)
   INTEGER (iprec), intent(in), dimension(jsize) :: imin_j
 
   integer :: i,j
-  REAL (rprec) , parameter :: day2s = 24.0*60.0*60
+  REAL (rprec) , parameter :: day2s = 24.0*60.0*60,s2day=1.0/day2s
   REAL (rprec) :: dppT,dpsph,eta2cc,tau,etaT,deta,dndt
   REAL (rprec) :: dpp0
 
@@ -3230,6 +3230,7 @@ SUBROUTINE Kaiju_Plasmasphere_Refill(eeta0,rmin,aloct,vm,imin_j,idt)
 
       !Closed field line, calculate Berbue+ 2005 density (#/cc)
       dppT = 10.0**(-0.66*rmin(i,j) + 4.89) !Target refilled density [#/cc]
+      
       !Or use Gallagher on nightside w/ currently set default Kp
       !dppT = GallagherRP(rmin(i,j),PI)
 
@@ -3242,14 +3243,23 @@ SUBROUTINE Kaiju_Plasmasphere_Refill(eeta0,rmin,aloct,vm,imin_j,idt)
       if (dpsph >= dppT) cycle !Already above refilling target
 
       etaT = dppT/eta2cc !Target eta for refilling
-      deta = etaT-eeta0(i,j)
 
-      !Using timescale [days] from Denton+ 2012, equation 3
-      !tau = (2.63*day2s)*10**(0.016*rmin(i,j)) !Refilling timescale [s]
-
+      !Now calculate refilling
       dndt = 10.0**(3.48-0.331*rmin(i,j)) !cm^-3/day, Denton+ 2012 eqn 1
-      tau = day2s*(dppT-dpsph)/dndt
-      eeta0(i,j) = eeta0(i,j) + min(idt/tau,1.0)*max(deta,0.0) !Make sure not to overfill but unlikely
+      dndt = (cos(aloct(i,j))+1)*dndt !Bias refilling towards dayside
+      deta = (idt*s2day)*dndt/eta2cc !Change in eta over idt
+      deta = min(deta,etaT-eeta0(i,j)) !Don't overfill
+
+      eeta0(i,j) = eeta0(i,j) + deta
+
+      ! deta = etaT-eeta0(i,j)
+
+      ! !Using timescale [days] from Denton+ 2012, equation 3
+      ! !tau = (2.63*day2s)*10**(0.016*rmin(i,j)) !Refilling timescale [s]
+
+      ! dndt = 10.0**(3.48-0.331*rmin(i,j)) !cm^-3/day, Denton+ 2012 eqn 1
+      ! tau = day2s*(dppT-dpsph)/dndt
+      ! eeta0(i,j) = eeta0(i,j) + min(idt/tau,1.0)*max(deta,0.0) !Make sure not to overfill but unlikely
 
     enddo
   enddo

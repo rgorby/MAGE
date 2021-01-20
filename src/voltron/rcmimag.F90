@@ -28,6 +28,7 @@ module rcmimag
     logical , private :: doWolfLim   = .false. !Whether to do wolf-limiting
     logical , private :: doWolfNLim  = .true.  !If wolf-limiting whether to do wolf-limiting on density as well
     logical , private :: doBounceDT = .true. !Whether to use Alfven bounce in dt-ingest
+    logical , private :: doHotBounce= .true. !Whether to limit Alfven speed density to only hot (RC) population
     logical , private :: doTrickyTubes = .true.  !Whether to poison bad flux tubes
     logical , private :: doSmoothTubes = .true.  !Whether to smooth potential/FTV on torcm grid
     real(rp), private :: nBounce = 1.0 !Scaling factor for Alfven transit
@@ -326,6 +327,56 @@ module rcmimag
 
         end associate
 
+    end subroutine AdvanceRCM
+
+    !Set region of RCM grid that's "good" for MHD ingestion
+    subroutine SetIngestion(RCMApp)
+        type(rcm_mhd_T), intent(inout) :: RCMApp
+
+        integer , dimension(:), allocatable :: jBnd
+        integer :: i,j
+        logical :: inMHD,isClosed
+        real(rp) :: Tbnc
+
+        RCMApp%toMHD(:,:) = .false.
+        !Testing lazy quick boundary
+        allocate(jBnd (  RCMApp%nLon_ion  ))
+        !Now find nominal current boundary
+        jBnd(:) = RCMApp%nLat_ion-1
+
+        do j=1,RCMApp%nLon_ion
+            do i = RCMApp%nLat_ion,1,-1
+                inMHD = RCMApp%toMHD(i,j)
+                isClosed = (RCMApp%iopen(i,j) == RCMTOPCLOSED)
+                if ( .not. isClosed ) then
+                    jBnd(j) = min(i+1+MHDPad,RCMApp%nLat_ion)
+                    exit
+                endif
+
+            enddo !i loop
+            RCMApp%toMHD(:,j) = .false.
+            RCMApp%toMHD(jBnd(j):,j) = .true.
+
+        enddo
+        
+        if (doHotBounce) then
+            do j=1,RCMApp%nLon_ion
+                do i = 1,RCMApp%nLat_ion
+                    if (RCMApp%iopen(i,j) == RCMTOPOPEN) cycle
+                    Tbnc = RCMApp%Tb(i,j)
+                    if ((RCMApp%Nrcm(i,j) > TINY) .and. (RCMApp%Nave(i,j) > TINY)) then
+                        !Have some RC density
+                        !RCMApp%Tb(i,j) = AlfvenBounce(RCMApp%Nrcm(i,j),RCMApp%bmin(i,j),RCMApp%Lb(i,j))
+                        !Rescale bounce timescale to mock up only hot component
+                        RCMApp%Tb(i,j) = sqrt(RCMApp%Nrcm(i,j)/RCMApp%Nave(i,j))*RCMApp%Tb(i,j)
+                    else
+                        RCMApp%Tb(i,j) = 0.0
+                    endif
+                    !write(*,*) "Tb (Old/New) = ", Tbnc,RCMApp%Tb(i,j)
+                enddo !i
+            enddo !j
+        endif
+
         contains
             !Calculate Alfven bounce timescale
             !D = #/m3, B = T, L = Rp
@@ -344,36 +395,6 @@ module rcmimag
                 Va = 22.0*bNT/sqrt(nCC) !km/s, from NRL plasma formulary
                 dTb = (L*Rp_m*1.0e-3)/Va
             end function AlfvenBounce
-    end subroutine AdvanceRCM
-
-    !Set region of RCM grid that's "good" for MHD ingestion
-    subroutine SetIngestion(RCMApp)
-        type(rcm_mhd_T), intent(inout) :: RCMApp
-
-        integer , dimension(:), allocatable :: jBnd
-        integer :: i,j
-        logical :: inMHD,isClosed
-        
-        RCMApp%toMHD(:,:) = .false.
-        !Testing lazy quick boundary
-        allocate(jBnd (  RCMApp%nLon_ion  ))
-        !Now find nominal current boundary
-        jBnd(:) = RCMApp%nLat_ion-1
-        do j=1,RCMApp%nLon_ion
-            do i = RCMApp%nLat_ion,1,-1
-                inMHD = RCMApp%toMHD(i,j)
-                isClosed = (RCMApp%iopen(i,j) == RCMTOPCLOSED)
-                if ( .not. isClosed ) then
-                    jBnd(j) = min(i+1+MHDPad,RCMApp%nLat_ion)
-                    exit
-                endif
-
-            enddo !i loop
-            RCMApp%toMHD(:,j) = .false.
-            RCMApp%toMHD(jBnd(j):,j) = .true.
-
-        enddo
-        
     end subroutine SetIngestion
 
     !Enforce Wolf-limiting on an MHD/RCM thermodynamic state
