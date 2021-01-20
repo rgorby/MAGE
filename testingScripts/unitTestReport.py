@@ -101,7 +101,7 @@ if (myText == ""):
 try:
     response = client.chat_postMessage(
    channel="#kaijudev",
-   text=myText,
+   text=myText + "https://tenor.com/Yx4u.gif",
    )
 except SlackApiError as e:
    # You will get a SlackApiError if "ok" is False
