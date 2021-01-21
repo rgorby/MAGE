@@ -2,6 +2,7 @@
 
 MODULE etautils
   USE kdefs, ONLY : TINY,Me_cgs,Mp_cgs
+  USE rcmdefs
   USE rcm_precision
   USE rice_housekeeping_module
   USE constants, ONLY : mass_proton,mass_electron,nt,ev,tiote,boltz
@@ -16,6 +17,7 @@ MODULE etautils
   !Kind of hacky limits to Ti/Te ratio
   real(rp), private, parameter :: TioTeMax = 20.0
   real(rp), private, parameter :: TioTeMin = 0.25
+  
   contains
 
   !Set density/pressure factors using planet radius

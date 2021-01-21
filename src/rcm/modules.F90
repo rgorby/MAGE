@@ -2,19 +2,15 @@
 
 MODULE CONSTANTS
   USE rcm_precision
-  USE kdefs, ONLY : EarthPsi0,Me_cgs,Mp_cgs,Mu0
+  USE kdefs, ONLY : EarthPsi0,Re_cgs,Me_cgs,Mp_cgs,Mu0,Kbltz,eCharge
   use rcmdefs, ONLY : isize,jsize,jwrap
-  REAL(rprec),PARAMETER :: radius_earth_m = 6380.e3 ! Earth's radius in meters
-  REAL(rprec),PARAMETER :: radius_iono_m  = 6380.e3 + 100.e3 + 20.e3 ! ionosphere radius in meters
-  REAL(rprec),PARAMETER :: boltz = 1.38E-23
+  REAL(rprec),PARAMETER :: radius_earth_m = Re_cgs*1.0e-2 ! Earth's radius in meters
+  REAL(rprec),PARAMETER :: radius_iono_m  = radius_earth_m + 100.e3 + 20.e3 ! ionosphere radius in meters
+  REAL(rprec),PARAMETER :: boltz = Kbltz*1.0e-7
   REAl(rprec),PARAMETER :: mass_proton =Mp_cgs*1.0e-3
   REAL(rprec),PARAMETER :: mass_electron=Me_cgs*1.0e-3
-  !REAl(rprec),PARAMETER :: mass_proton=1.6726e-27
-  !REAL(rprec),PARAMETER :: mass_electron=9.1094e-31
-  REAL(rprec),PARAMETER :: ev=1.6022e-19
-  REAL(rprec),PARAMETER :: gamma=1.6667
-  REAL(rprec),PARAMETER :: one_over_gamma=0.6
-  !REAL(rprec),PARAMETER :: mu0 = 4.0e-7*3.14159
+  REAL(rprec),PARAMETER :: ev=eCharge
+  REAL(rprec),PARAMETER :: gamma=5.0/3.0
   REAL(rprec),PARAMETER :: big_vm = -1.0e5
   REAL(rprec),PARAMETER :: nt = 1.0e-9
   !REAL(rprec),PARAMETER :: tiote = 7.8
@@ -22,12 +18,20 @@ MODULE CONSTANTS
   REAL(rprec),PARAMETER :: pressure_factor = 2./3.*ev/radius_earth_m*nt
   REAL(rprec),PARAMETER :: density_factor = nt/radius_earth_m
   REAL(rprec),PARAMETER :: RCMCorot = EarthPsi0*1.0e+3 ! Convert corotation to V
+  !Old values
+  !REAL(rprec),PARAMETER :: boltz = 1.38E-23
+  !REAl(rprec),PARAMETER :: mass_proton=1.6726e-27
+  !REAL(rprec),PARAMETER :: mass_electron=9.1094e-31
+  !REAL(rprec),PARAMETER :: ev=1.6022e-19
+  !REAL(rprec),PARAMETER :: radius_earth_m = 6380.e3 ! Earth's radius in meters
+
 END MODULE CONSTANTS
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 MODULE rice_housekeeping_module
-  USE rcm_precision, only : iprec,rprec,strLen
+  USE kdefs, ONLY : strLen
+  USE rcm_precision, only : iprec,rprec
   use xml_input
   use strings
   use earthhelper, ONLY : SetKp0

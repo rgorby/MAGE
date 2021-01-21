@@ -1,7 +1,7 @@
 MODULE ionosphere_exchange
   use rcm_mhd_interfaces
   use rcm_mod_subs, ONLY: isize, jsize, jwrap, colat, aloct
-  
+  use kdefs, ONLY : PI
   contains 
     
     !> Allocate Ionosphere Grid variables and read Ion grid from "RCM-ion.dat".

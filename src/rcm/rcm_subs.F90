@@ -1,7 +1,10 @@
 !
     MODULE Rcm_mod_subs
+    use kdefs, ONLY : PI,Mp_cgs,Me_cgs
     use rcmdefs
     use rcm_precision
+    use clocks
+
     IMPLICIT NONE
     SAVE
 !
@@ -36,8 +39,8 @@
                                qtr          = 0.25_rprec,&
                                machine_eps1 = EPSILON (1.0_rprec), &
                                machine_eps2 = machine_eps1*10_rprec, &
-                               machine_tiny = TINY (one),&
-                               machine_huge = HUGE (one),&
+                               ! machine_tiny = TINY (one),&
+                               ! machine_huge = HUGE (one),&
                                pi_two       = two * pi, &
                                pi_by_two    = pi / two, &
                                rtd          = 180.0_rprec/pi, &
@@ -1657,6 +1660,8 @@ real :: v_1_1, v_1_2, v_2_1, v_2_2
 
 
    IF (icontrol == 4) then  ! run RCM from itimei to itimef with time step idt, quit:
+      call Tic("Main_Loop")
+      
       CALL SYSTEM_CLOCK (timer_start(2), count_rate)
 
       v_avg    = zero
@@ -1739,6 +1744,8 @@ real :: v_1_1, v_1_2, v_2_1, v_2_2
       timer_values (2) = (timer_stop (2) - timer_start (2))/count_rate
 
       CALL Formatted_output ()
+
+      call Toc("Main_Loop")
 
       RETURN
 

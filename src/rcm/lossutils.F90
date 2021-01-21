@@ -1,8 +1,9 @@
 !Utilities for loss calculations
 
 MODULE lossutils
-  USE kdefs, ONLY : TINY
+  USE kdefs, ONLY : TINY,PI
   USE rcm_precision
+  USE rcmdefs
   use math, ONLY : SmoothOpTSC,SmoothOperator33
 
   implicit none

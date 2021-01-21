@@ -1,6 +1,7 @@
 MODULE conversion_module
   USE rcm_precision
-  USE kdefs, ONLY : TINY,qp
+  USE rcmdefs
+  USE kdefs, ONLY : qp,PI
   IMPLICIT NONE
   REAL(rprec), ALLOCATABLE :: bndloc_old(:),almmin(:),almmax(:),almdel(:),&
       eta_midnight(:)
