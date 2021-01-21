@@ -193,13 +193,19 @@ MODULE torcm_mod
 
       ENDIF
 
-      ! initialize the dynamic plasmasphere, reset static part if necessary
-      !sbao 03282020
-      call set_plasmasphere(icontrol,isize,jsize,kcsize,xmin,ymin,rmin,vm,eeta,imin_j)
-      
       ! just in case:
       imin_j     = CEILING(bndloc)
       imin_j_old = CEILING(bndloc_old)
+
+      ! initialize the dynamic plasmasphere, reset static part if necessary
+      !sbao 03282020
+      if (use_plasmasphere) then
+        call set_plasmasphere(icontrol,isize,jsize,kcsize,xmin,ymin,rmin,vm,eeta,imin_j)
+        
+        !Adding some smoothing to the plasmapause
+        call SmoothPPause(eeta(:,:,1),vm,imin_j)
+      endif
+
 
       !Incorporate MHD-produced values into newly-acquired RCM cells
       DO j=1,jsize
@@ -249,7 +255,6 @@ MODULE torcm_mod
       do j=1,jsize
         do i=0,n
           ip = imin_j(j)+i !i cell
-          !wRCM = wImag(ip,j) !Va/fast+flow
           wRCM = 1.0/(1.0 + 5.0*beta_average(ip,j)/6.0)
           wMHD = (1-wRCM)/(2.0**i)
           wRCM = (1-wMHD)
@@ -288,7 +293,75 @@ MODULE torcm_mod
       RETURN
       END SUBROUTINE Torcm
 
+      !Smooth ragged edges at the plasmapause
+!----------------------------------------------------------
+      SUBROUTINE SmoothPPause(etapp,vm,imin_j)
+        USE rcmdefs,ONLY : isize,jsize
+        IMPLICIT NONE
+        REAL(rprec)   , INTENT(INOUT) :: etapp(isize,jsize)
+        REAL(rprec)   , INTENT(IN)    :: vm(isize,jsize)
+        INTEGER(iprec), INTENT(IN)    :: imin_j(jsize)
 
+        REAL(rprec) :: bndlocpp(jsize)
+        INTEGER(iprec) :: imin_jpp(jsize)
+        INTEGER(iprec) :: i,j,n,n_smooth
+        REAL(rprec) :: dpp
+
+        !Find plasmapause
+        do j=1,jsize
+          !For fixed j start from far and go near, find first value above DenPP0
+          do i = 2,isize
+            dpp = GetDensityFactor()*1.0*etapp(i,j)*vm(i,j)**1.5
+            if (dpp >= DenPP0*1.0e+6) then
+              bndlocpp(j) = i-1
+              imin_jpp(j) = i-1
+              exit
+            endif !Above plasmapause cutoff
+          enddo !i loop
+        enddo !j loop
+
+        !Now do smoothing on real-valued boundary
+        n_smooth = nint( 15.0/(360.0/jsize) ) !Same as outer RCM boundary
+
+        do n=1,n_smooth
+          call SmoothWrap(bndlocpp)
+        enddo
+
+        !Convert to indices
+        imin_jpp = ceiling(bndlocpp)
+                
+        !Zero out below plasmapause
+        do j=1,jsize
+          etapp(1:imin_jpp(j),j) = 0.0 !Zero out below this
+        enddo
+
+      END SUBROUTINE SmoothPPause
+
+      SUBROUTINE SmoothWrap(bndloc)
+        USE rcmdefs,ONLY : jsize
+        IMPLICIT NONE
+        REAL(rprec), INTENT(INOUT) :: bndloc(jsize)
+
+        REAL(rprec), PARAMETER :: am = 1, a0 = 2, ap = 1
+        REAL(rprec) :: bndloc_new(jsize)
+        INTEGER(iprec) :: j,jm,jp
+
+        do j=1,jsize
+          ! 1 <=> jdim -jwrap +1
+          ! jdim <=> jwrap
+      
+          jm  = j - 1
+          if(jm < 1) jm = jsize - jwrap 
+          jp  = j + 1
+          if(jp > jsize) jp = jwrap + 1
+          !Use 3-pt stencil
+          bndloc_new(j) = (am*bndloc(jm) + a0*bndloc(j) + ap*bndloc(jp))/(am+a0+ap)
+
+        enddo
+        !Store back w/ trap for only earthward
+        bndloc = max(bndloc_new,bndloc)
+
+      END SUBROUTINE SmoothWrap
 !----------------------------------------------------------
       SUBROUTINE Calc_ftv (RM,big_vm,ierr) 
       USE conversion_module
@@ -823,29 +896,13 @@ MODULE torcm_mod
       IMPLICIT NONE
       INTEGER(iprec), INTENT(IN) :: idim,jdim,jwrap
       REAL(rprec), INTENT(IN OUT) :: bndloc(jdim)
-
-      INTEGER(iprec) :: i,j,jp,jm
-      REAL(rprec) :: bndloc_new(jdim)
-      REAL(rprec), PARAMETER :: am = 1, a0 =2, ap = 1
-
      
       if (L_write_vars_debug) then
        write(6,*)' smooth_boundary_location, old boundary'
        write(6,*)bndloc
       end if
-! 1 <=> jdim -jwrap +1
-! jdim <=> jwrap
-      do j=1,jdim
-       jm  = j - 1
-       if(jm < 1) jm = jdim - jwrap 
-       jp  = j + 1
-       if(jp > jdim) jp = jwrap + 1
 
-       bndloc_new(j) = (am*bndloc(jm) + a0*bndloc(j) + ap*bndloc(jp))/(am+a0+ap)
-
-      end do
-
-      bndloc(:) = max(bndloc_new(:),bndloc(:))
+      call SmoothWrap(bndloc)
 
       if (L_write_vars_debug) then
        write(6,*)' smooth_boundary_location, new boundary'
