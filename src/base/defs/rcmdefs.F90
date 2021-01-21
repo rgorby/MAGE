@@ -27,9 +27,8 @@ module rcmdefs
     LOGICAL, PARAMETER :: doQuietRCM = .TRUE.
     LOGICAL, PARAMETER :: doDiskWrite = .FALSE.
     integer(ip), parameter :: RCMTOPCLOSED=-1,RCMTOPOPEN=+1,RCMTOPNULL=0
-    real(rp) :: DenPP0 = 10.0 !Defining plasmasphere density cutoff, [#/cc]
-
-    REAL(rp), PARAMETER :: machine_tiny = 1.0e-16
-    !REAL(rp), PARAMETER :: machine_huge = HUGE (1.0_rp)
+    REAL(rp) :: DenPP0 = 10.0 !Defining plasmasphere density cutoff, [#/cc]
+    REAL(rp) :: PSPHKT = 1.0e-3 !Characteristic temperature for plasmasphere [keV]
+    REAL(rp), PARAMETER :: machine_tiny = 1.0e-32
 
 end module rcmdefs
