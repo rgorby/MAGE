@@ -141,7 +141,7 @@ secondJob = readString.split('.')[0]
 print (secondJob)
 
 file = open("jobs.txt", 'w+')
-file.write(firstJob)
+file.write(firstJob + "\n")
 file.write(secondJob)
 
 # SUBMIT JOB THAT WILL FOLLOW UP ONCE PREVIOUS JOBS HAVE FINISHED
