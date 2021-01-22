@@ -6,6 +6,7 @@ module mixsolver
   use mixdefs
   use mixtypes
   use mgmres
+  use clocks
 #ifdef USEMKL
   use mkl_pardiso
 #endif
