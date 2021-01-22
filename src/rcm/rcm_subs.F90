@@ -749,7 +749,7 @@
 !_____________________________________________________________________________
 !
 !
-  
+  call Tic("Move_Plasma") 
   IF (L_move_plasma_grid) THEN
     IF (i_advect == 1) THEN
        CALL Move_plasma_grid  (dt, 1_iprec, isize, j1, j2, 1_iprec)
@@ -765,6 +765,7 @@
        STOP 'ILLEGAL I_ADVECT IN MOVING PLASMA'
     END IF
   END IF
+  call Toc("Move_Plasma")
 !
     RETURN
     END SUBROUTINE Move_plasma
@@ -2474,6 +2475,7 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
   LOGICAL, parameter :: doSuperBee = .false. !Use superbee (instead of minmod/MC)
   
 
+  call Tic("Move_Plasma_Init")
   if (jwrap /= 3) then
     write(*,*) 'Somebody should rewrite this code to not assume that jwrap=3'
     stop
@@ -2548,6 +2550,9 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
   dvmdj = (-2.0/3.0)*(ftv**(-5.0/3.0))*dftvj
   !$OMP END PARALLEL WORKSHARE
 
+  call Toc("Move_Plasma_Init")
+
+  call Tic("Move_Plasma_Adv")
 !---
 !Main channel loop
   !NOTE: T1k/T2k need to be private b/c they're altered by claw2ez
@@ -2651,7 +2656,7 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
               lossFLC = FLCRat(ie,alamc(kc),vm(i,j),bmin(i,j),radcurv(i,j),losscone(i,j))
             endif
           endif
-        else
+        else !ie = X
           !Unknown flavor
           write(*,*) 'Unknown flavor, ie = ', ie
         endif !flavor
@@ -2698,6 +2703,8 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
     endif
     
   enddo !Main kc loop
+
+  call Toc("Move_Plasma_Adv")
 
   contains
 
