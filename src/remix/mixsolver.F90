@@ -263,6 +263,7 @@ module mixsolver
 
       mtype = 11 ! real nonsymmetric matrix
 
+      call Tic("MKL-Init")
       !Always initialize/tear-down
       call pardisoinit(pt,mtype,iparm)
 
@@ -280,8 +281,10 @@ module mixsolver
       mnum   = 1
       nrhs   = 1
       msglvl = P%mklmsglvl  ! no verbosity
+      call Toc("MKL-Init")
 
       phase = 13 !Analysis, numerical factorization, solve, iterative refinement
+      call Tic("MKL-Solve")
       !Call solver
       call pardiso(pt,maxfct,mnum,mtype,phase,Npt, &
                    S%data,S%rowI,S%JJ,perm, &
@@ -292,13 +295,16 @@ module mixsolver
         write(*,*) 'MKL-Pardiso error, you should deal with that'
         stop
       endif
+      call Toc("MKL-Solve")
 
+      call Tic("MKL-Fin")
       !Release memory
       phase =-1  ! release
       call pardiso(pt,maxfct,mnum,mtype,phase,Npt, &
                    S%data,S%rowI,S%JJ,perm, &
                    nrhs,iparm,msglvl, &
                    S%RHS,S%solution,error)
+      call Toc("MKL-Fin")
 
     end subroutine MKLSolve
 
