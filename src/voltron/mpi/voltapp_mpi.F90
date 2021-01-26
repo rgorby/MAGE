@@ -8,10 +8,18 @@ module voltapp_mpi
     use mpi
     use ebsquish, only : SquishBlocksRemain, DoSquishBlock
     use, intrinsic :: ieee_arithmetic, only: IEEE_VALUE, IEEE_SIGNALING_NAN, IEEE_QUIET_NAN
+    use volthelpers_mpi
     
     implicit none
 
     type, extends(voltApp_T) :: voltAppMpi_T
+        ! voltron to helpers comms variables
+        integer :: vHelpComm = MPI_COMM_NULL
+        integer :: vHelpRank
+        logical :: amHelper = .false., useHelpers = .false.
+        logical :: doSquishHelp = .false.
+
+        ! voltron to gamera comms variables
         integer :: voltMpiComm = MPI_COMM_NULL
         integer :: myRank
         type(gamApp_T) :: gAppLocal
@@ -106,15 +114,16 @@ module voltapp_mpi
     end subroutine endVoltronWaits
 
     !Initialize Voltron (after Gamera has already been initialized)
-    subroutine initVoltron_mpi(vApp, userInitFunc, voltComm, optFilename)
+    subroutine initVoltron_mpi(vApp, userInitFunc, helperComm, allComm, optFilename)
         type(voltAppMpi_T), intent(inout) :: vApp
         procedure(StateIC_T), pointer, intent(in) :: userInitFunc
-        integer, intent(in) :: voltComm
+        integer, intent(in) :: helperComm
+        integer, intent(in) :: allComm
         character(len=*), optional, intent(in) :: optFilename
 
         character(len=strLen) :: inpXML
         type(XML_Input_T) :: xmlInp
-        integer :: commSize, ierr, numCells, length, ic, numInNeighbors, numOutNeighbors
+        integer :: commSize, ierr, numCells, length, ic, numInNeighbors, numOutNeighbors, voltComm
         character( len = MPI_MAX_ERROR_STRING) :: message
         logical :: reorder, wasWeighted
         integer, allocatable, dimension(:) :: neighborRanks, inData, outData
@@ -122,6 +131,49 @@ module voltapp_mpi
 
         vApp%isSeparate = .true. ! running on a different process from the actual gamera ranks
         vApp%gAppLocal%Grid%lowMem = .true. ! tell Gamera to limit its memory usage
+
+        ! get info about voltron-only mpi communicator
+        vApp%vHelpComm = helperComm
+        call MPI_Comm_rank(vApp%vHelpComm, vApp%vHelpRank, ierr)
+        if(ierr /= MPI_Success) then
+            call MPI_Error_string( ierr, message, length, ierr)
+            print *,message(1:length)
+            call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+        end if
+        if(vApp%vHelpRank > 0) vApp%amHelper = .true.
+
+        ! split allComm into a communicator with only the non-helper voltron rank
+        call MPI_Comm_rank(allComm, commSize, ierr)
+        if(vApp%amHelper) then
+            call MPI_comm_split(allComm, MPI_UNDEFINED, commSize, voltComm, ierr)
+        else
+            call MPI_comm_split(allComm, 0, commSize, voltComm, ierr)
+        endif
+
+        ! helpers don't do full voltron initialization
+        if(vApp%amHelper) then
+            ! read helper XML options
+            if(present(optFilename)) then
+                inpXML = optFilename
+            else
+                call getIDeckStr(inpXML)
+            endif
+            call CheckFileOrDie(inpXML,"Error opening input deck in initVoltron_mpi, exiting ...")
+            xmlInp = New_XML_Input(trim(inpXML),'Gamera',.false.)
+            call xmlInp%Set_Val(vApp%useHelpers,"/Voltron/Helpers/useHelpers",.true.)
+            call xmlInp%Set_Val(vApp%doSquishHelp,"/Voltron/Helpers/doSquishHelp",.true.)
+            if(.not. vApp%useHelpers) then
+                print *,"Voltron helpers were created, but the helping option is disabled."
+                print *,"Please either turn the /Voltron/Helpers/useHelpers option on, or "
+                print *,"  remove the unnecessary Voltron helper ranks."
+                call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+            endif
+
+            ! get starting time values from master voltron rank
+            call mpi_bcast(vApp%tFin, 1, MPI_MYFLOAT, 0, vApp%vHelpComm, ierr)
+            call mpi_bcast(vApp%time, 1, MPI_MYFLOAT, 0, vApp%vHelpComm, ierr)
+            return
+        endif
 
         ! create a new communicator using MPI Topology
         call MPI_Comm_Size(voltComm, commSize, ierr)
@@ -223,6 +275,9 @@ module voltapp_mpi
         xmlInp = New_XML_Input(trim(inpXML),'Gamera',.true.)
         call xmlInp%Set_Val(vApp%doSerialVoltron,"/Voltron/coupling/doSerial",.false.)
         call xmlInp%Set_Val(vApp%doAsyncShallow, "/Voltron/coupling/doAsyncShallow",.true.)
+        call xmlInp%Set_Val(vApp%useHelpers,"/Voltron/Helpers/useHelpers",.true.)
+        call xmlInp%Set_Val(vApp%doSquishHelp,"/Voltron/Helpers/doSquishHelp",.true.)
+
         if(vApp%doSerialVoltron) then
             ! don't do asynchronous shallow if comms are serial
             vApp%doAsyncShallow = .false.
@@ -295,6 +350,10 @@ module voltapp_mpi
         call mpi_bcast(vApp%IO%dtRes/vApp%gAppLocal%Model%Units%gT0, &
                        1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
         call mpi_bcast(vApp%IO%tsOut, 1, MPI_INT, vApp%myRank, vApp%voltMpiComm, ierr)
+
+        ! send initial timing data to helper voltron ranks
+        call mpi_bcast(vApp%tFin, 1, MPI_MYFLOAT, 0, vApp%vHelpComm, ierr)
+        call mpi_bcast(vApp%time, 1, MPI_MYFLOAT, 0, vApp%vHelpComm, ierr)
 
         ! create the MPI datatypes needed to transfer state data
         call createVoltDataTypes(vApp, iRanks, jRanks, kRanks)
@@ -370,6 +429,8 @@ module voltapp_mpi
 
             call mpi_Irecv(vApp%timeStepBuffer, 1, MPI_INT, MPI_ANY_SOURCE, 97700, vApp%voltMpiComm, vApp%timeStepReq, ierr)
         endif
+
+        if(vApp%useHelpers) call vhReqStep(vApp)
 
     end subroutine stepVoltron_mpi
 
@@ -1193,6 +1254,30 @@ module voltapp_mpi
         end associate
 
     end subroutine createVoltDataTypes
+
+    subroutine helpVoltron(vApp)
+        type(voltAppMpi_T), intent(inout) :: vApp
+
+        integer :: helpType, helpReq = MPI_REQUEST_NULL
+
+        ! assumed to only be in this function if helpers are enabled
+
+        ! async wait for command type
+        call mpi_Ibcast(helpType, 1, MPI_INT, 0, vApp%vHelpComm, helpReq, ierr)
+        call mpi_wait(helpReq, MPI_STATUS_IGNORE, ierr)
+
+        ! then call appropriate function to deal with command
+        select case(helpType)
+            CASE (VHSTEP)
+                call vhHandleStep(vApp)
+            CASE (VHSQUISH)
+                call vhHandleSquish(vApp)
+            CASE DEFAULT
+                print *,"Unknown voltron helper request type received."
+                stop
+        end select
+
+    end subroutine
 
 end module voltapp_mpi
 

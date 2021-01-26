@@ -888,6 +888,30 @@ contains
       doQuiet = .true.
    end subroutine SetAllXML2Quiet
 
+   !------------------------------------------------------------------
+
+   !Helper function to open an xml, read a single parameter, and close it
+   !For when you just need that one parameter, right now
+   subroutine ReadXmlImmediate(fname, keyIn, valOut, dflt, verbOpt)
+      character(len=*), intent(in) :: keyIn
+      character(len=strLen), intent(out) :: valOut
+      character(len=*), intent(in) :: fname
+      character(len=*), intent(in) :: dflt
+      logical, optional            :: verbOpt
+
+      type(XML_Input_T) :: xmlInp
+
+      if (present(verbOpt)) then
+         xmlInp = New_XML_Input(trim(fname),'/',verbOpt)
+      else
+         xmlInp = New_XML_Input(trim(fname),'/')
+      endif
+
+      call this%Get_Key_Val(trim(keyIn), valOut)
+      if(len(trim(valOut)) == 0) valOut = trim(dflt)
+
+   end subroutine
+
 end module XML_Input
 
 !--------------------------------------------------------------------

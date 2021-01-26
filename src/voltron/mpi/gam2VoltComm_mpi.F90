@@ -50,19 +50,24 @@ module gam2VoltComm_mpi
     contains
 
     ! setup the MPI communicator to talk to voltron, and send grid data
-    subroutine initGam2Volt(g2vComm, gApp, voltComm, optFilename, doIO)
+    subroutine initGam2Volt(g2vComm, gApp, allComm, optFilename, doIO)
         type(gam2VoltCommMpi_T), intent(inout) :: g2vComm
         type(gamAppMpi_T), intent(inout) :: gApp
         integer, intent(in) :: voltComm
         character(len=*), optional, intent(in) :: optFilename
         logical, optional, intent(in) :: doIO
 
-        integer :: length, commSize, ierr, numCells, dataCount, numInNeighbors, numOutNeighbors
+        integer :: length, commSize, ierr, numCells, dataCount, numInNeighbors, numOutNeighbors, voltComm
         character( len = MPI_MAX_ERROR_STRING) :: message
         logical :: reorder, wasWeighted, doIOX
         character(len=strLen) :: inpXML
         type(XML_Input_T) :: xmlInp
         integer, dimension(1) :: rankArray, weightArray
+
+        ! split voltron helpers off of the communicator
+        ! split allComm into a communicator with only the non-helper voltron rank
+        call MPI_Comm_rank(allComm, commSize, ierr)
+        call MPI_comm_split(allComm, 0, commSize, voltComm, ierr)
 
         if(present(optFilename)) then
             ! read from the prescribed file

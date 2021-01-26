@@ -24,9 +24,10 @@ program voltron_mpix
 
     procedure(StateIC_T), pointer :: userInitFunc => initUser
 
-    integer :: ierror, length, provided, worldSize, worldRank, gamComm
+    integer :: ierror, length, provided, worldSize, worldRank, gamComm, voltComm, numHelpersInt
     integer :: required=MPI_THREAD_MULTIPLE
     character( len = MPI_MAX_ERROR_STRING) :: message
+    character(len=strLen) :: inpXML, numHelpersBuf
 
     ! initialize MPI
     !Set up MPI with or without thread support
@@ -55,6 +56,11 @@ program voltron_mpix
 
     gApp%Model%isLoud = .true.    
 
+    ! need to know how many voltron helpers there are
+    call getIDeckStr(inpXML)
+    call ReadXmlImmediate(trim(inpXML),'/Voltron/Helpers/numHelpers',numHelpersBuf,'0',.false.)
+    read(numHelpersBuf,*) numHelpersInt
+
     ! create a new MPI communicator for just Gamera
     !    for now this is always all ranks excep the last one (which is reserved for voltron)
     call MPI_Comm_Size(MPI_COMM_WORLD, worldSize, ierror)
@@ -69,19 +75,15 @@ program voltron_mpix
         print *,message(1:length)
         call mpi_Abort(MPI_COMM_WORLD, 1, ierror)
     end if
-    if(worldRank == (worldSize-1)) then
+    if(worldRank .ge. (worldSize-1-numHelpersInt)) then
         ! voltron rank
         isGamera = .false.
-        call MPI_Comm_Split(MPI_COMM_WORLD, MPI_UNDEFINED, worldRank, gamComm, ierror)
+        call MPI_Comm_Split(MPI_COMM_WORLD, 1, worldRank, voltComm, ierror)
         if(ierror /= MPI_Success) then
             call MPI_Error_string( ierror, message, length, ierror)
             print *,message(1:length)
             call mpi_Abort(MPI_COMM_WORLD, 1, ierror)
         end if
-        if(gamComm /= MPI_COMM_NULL) then
-            print *,"Voltron rank did not get a null communicator back from mpi_comm_split"
-            call mpi_Abort(MPI_COMM_WORLD, 1, ierror)
-        endif
     else
         ! gamera rank
         isGamera = .true.
@@ -167,68 +169,68 @@ program voltron_mpix
         call endGam2VoltWaits(g2vComm, gApp)
 
     else
-        call initVoltron_mpi(vApp, userInitFunc, MPI_COMM_WORLD)
+        call initVoltron_mpi(vApp, userInitFunc, voltComm, MPI_COMM_WORLD)
 
         ! voltron run loop
         do while (vApp%time < vApp%tFin)
             !Start root timer
             call Tic("Omega")
-
-            !If coupling from Gamera is ready
-            if(gameraStepReady(vApp)) then
-                !Do any updates to Voltron
-                call Tic("StepVoltronAndWait")
-                call stepVoltron_mpi(vApp)
-                call Toc("StepVoltronAndWait")
-
-                !Coupling
-                call Tic("Coupling")
-                if(vApp%doDeep .and. vApp%time >= vApp%DeepT .and. vApp%time >= vApp%ShallowT) then ! both
-                    call shallowAndDeepUpdate_Mpi(vApp, vApp%time)
-                elseif (vApp%time >= vApp%DeepT .and. vApp%doDeep ) then
-                    call DeepUpdate_mpi(vApp, vApp%time)
-                elseif (vApp%time >= vApp%ShallowT) then
-                    call ShallowUpdate_mpi(vApp, vApp%time)
-                endif
-                call Toc("Coupling")
-
-                !IO checks
-                call Tic("IO")
-                !Console output
-                if (vApp%IO%doConsole(vApp%ts)) then
-                    call consoleOutputVOnly(vApp,vApp%gAppLocal,vApp%gAppLocal%Model%MJD0)
-                    if (vApp%IO%doTimerOut) then
-                        call printClocks()
-                    endif
-                    call cleanClocks()
-                endif
-                !Restart output
-                if (vApp%IO%doRestart(vApp%time)) then
-                    call resOutputVOnly(vApp)
-                endif
-                !Data output
-                if (vApp%IO%doOutput(vApp%time)) then
-                    call fOutputVOnly(vApp,vApp%gAppLocal)
-                endif
-
-                call Toc("IO")
-
-            elseif(deepInProgress(vApp)) then
-                ! If we did not couple, check for deep work to be done
-                call Tic("Coupling")
-                call doDeepBlock(vApp)
-                call Toc("Coupling")
+            if(vApp%amHelper) then
+                ! do helper loop
+                call helpVoltron(vApp)
             else
-                ! Gamera wasn't ready and we don't have deep work to do, wait for gamera
-                call waitForGameraStep(vApp)
+                !If coupling from Gamera is ready
+                if(gameraStepReady(vApp)) then
+                    !Do any updates to Voltron
+                    call Tic("StepVoltronAndWait")
+                    call stepVoltron_mpi(vApp)
+                    call Toc("StepVoltronAndWait")
+
+                    !Coupling
+                    call Tic("Coupling")
+                    if(vApp%doDeep .and. vApp%time >= vApp%DeepT .and. vApp%time >= vApp%ShallowT) then ! both
+                        call shallowAndDeepUpdate_Mpi(vApp, vApp%time)
+                    elseif (vApp%time >= vApp%DeepT .and. vApp%doDeep ) then
+                        call DeepUpdate_mpi(vApp, vApp%time)
+                    elseif (vApp%time >= vApp%ShallowT) then
+                        call ShallowUpdate_mpi(vApp, vApp%time)
+                    endif
+                    call Toc("Coupling")
+
+                    !IO checks
+                    call Tic("IO")
+                    !Console output
+                    if (vApp%IO%doConsole(vApp%ts)) then
+                        call consoleOutputVOnly(vApp,vApp%gAppLocal,vApp%gAppLocal%Model%MJD0)
+                        if (vApp%IO%doTimerOut) then
+                            call printClocks()
+                        endif
+                        call cleanClocks()
+                    endif
+                    !Restart output
+                    if (vApp%IO%doRestart(vApp%time)) then
+                        call resOutputVOnly(vApp)
+                    endif
+                    !Data output
+                    if (vApp%IO%doOutput(vApp%time)) then
+                        call fOutputVOnly(vApp,vApp%gAppLocal)
+                    endif
+
+                    call Toc("IO")
+
+                elseif(deepInProgress(vApp)) then
+                    ! If we did not couple, check for deep work to be done
+                    call Tic("Coupling")
+                    call doDeepBlock(vApp)
+                    call Toc("Coupling")
+                else
+                    ! Gamera wasn't ready and we don't have deep work to do, wait for gamera
+                    call waitForGameraStep(vApp)
+                endif
             endif
-
             call Toc("Omega")
-
-        end do
-
+        enddo
         call endVoltronWaits(vApp)
-
     endif
 
     call MPI_FINALIZE(ierror)
