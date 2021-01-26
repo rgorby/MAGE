@@ -27,6 +27,7 @@ module ebtypes
     type ebField_T
         real(rp), dimension(:,:,:,:), allocatable :: dB,E !Fields
         real(rp), dimension(:,:,:,:), allocatable :: W !Primitive MHD variables
+        real(rp), dimension(:,:,:,:), allocatable :: Jxyz !Currents
         real(rp) :: time !Time in code units for this slice
     end type ebField_T
 
@@ -40,6 +41,9 @@ module ebtypes
         !4D cell corners, cell centers
         !(isg:ieg,jsg:jeg,ksg:keg,1:NDIM)
         real(rp), dimension(:,:,:,:), allocatable :: xyz,xyzcc,B0cc
+        !3D cell centered dV
+        real(rp), dimension(:,:,:), allocatable :: dV
+
         !Cell-centered Jacobians.  Txi: (xyz),ijk / Tix: (ijk),xyz
         !Ie, Txi(XDIR,JDIR) = dx/dj
         !(isg:ieg,jsg:jeg,ksg:keg,1:NDIM,1:NDIM)
@@ -125,7 +129,11 @@ module ebtypes
             allocate(ebF%W(ebGr%isg:ebGr%ieg,ebGr%jsg:ebGr%jeg,ebGr%ksg:ebGr%keg,NVARMHD))
             ebF%W = 0.0
         endif
-        
+        if (Model%doJ .and. (.not. allocated(ebF%Jxyz))) then
+            allocate(ebF%Jxyz(ebGr%isg:ebGr%ieg,ebGr%jsg:ebGr%jeg,ebGr%ksg:ebGr%keg,NDIM))
+            ebF%Jxyz = 0.0
+        endif
+
     end subroutine allocEB
     
 end module ebtypes
