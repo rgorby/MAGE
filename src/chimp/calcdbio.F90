@@ -17,6 +17,8 @@ module calcdbio
     real(rp), private :: dz = 60.0 !Default height spacing [km]
     real(rp), dimension(:,:,:,:), allocatable, private :: xyzI,xyzC !Corner/Center points
     integer, private :: i0 !Shell to start at
+    real(rp), private :: rMax = 25.0 !Radius of magnetospheric ball to integrate over [Re]
+
     contains
 
     subroutine initDBio(Model,ebState,inpXML,NumP)
@@ -37,6 +39,7 @@ module calcdbio
         call inpXML%Set_Val(NLon,'Grid/NLon',90) !Number of longitudinal cells
         call inpXML%Set_Val(Nz  ,'Grid/Nz'  , 2) !Number of longitudinal cells
         call inpXML%Set_Val(i0,'CalcDB/i0',1)
+        call inpXML%Set_Val(rMax,'CalcDB/rMax',rMax)
 
         NumP = NLat*NLon*Nz
 
@@ -206,11 +209,21 @@ module calcdbio
     					do jM=ebGr%js,ebGr%je
     						do iM=ebGr%is+i0-1,ebGr%ie
     							xCC = ebGr%xyzcc(iM,jM,kM,:) !MHD grid cell center
-    							r3 = norm2(x0-xCC)**3.0
+    							if ( norm2(xCC) > rMax ) cycle
+                                
+                                r3 = norm2(x0-xCC)**3.0
     							dV = ebGr%dV(iM,jM,kM)
     							!Get differential contribution
-    							ddB = -cross(Jxyz(iM,jM,kM,:),xCC)/r3
-    							dbMAG(iG,jG,kG,:) = dbMAG(iG,jG,kG,:) + B0*dV*ddB/(4.0*PI)
+                                !Avoid array temporary
+    							!ddB = -cross(Jxyz(iM,jM,kM,:),xCC)/r3
+                                ddB(XDIR) = -( Jxyz(iM,jM,kM,YDIR)*xCC(ZDIR) - Jxyz(iM,jM,kM,ZDIR)*xCC(YDIR) )/r3
+                                ddB(YDIR) = -( Jxyz(iM,jM,kM,ZDIR)*xCC(XDIR) - Jxyz(iM,jM,kM,XDIR)*xCC(ZDIR) )/r3
+                                ddB(ZDIR) = -( Jxyz(iM,jM,kM,XDIR)*xCC(YDIR) - Jxyz(iM,jM,kM,YDIR)*xCC(XDIR) )/r3
+
+                                !Pulling out overall scaling
+    							!dbMAG(iG,jG,kG,:) = dbMAG(iG,jG,kG,:) + B0*dV*ddB/(4.0*PI)
+                                dbMAG(iG,jG,kG,:) = dbMAG(iG,jG,kG,:) + dV*ddB
+
     						enddo !iM
     					enddo !jM
     				enddo !kM
@@ -218,6 +231,17 @@ module calcdbio
     			enddo !iG
     		enddo !jG
     	enddo !kG
+
+        !Moving overall scaling factor to secondary loop to only apply once
+        !$OMP PARALLEL DO default(shared) collapse(2) &
+        !$OMP private(iG,jG,kG)
+        do kG=1,Nz
+            do jG=1,NLon
+                do iG=1,NLat
+                    dbMAG(iG,jG,kG,:) = B0*dbMAG(iG,jG,kG,:)/(4.0*PI)
+                enddo !iG
+            enddo !jG
+        enddo !kG
 
     	end associate
 

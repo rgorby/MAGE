@@ -22,8 +22,9 @@ program calcdbx
 
 
     integer :: NumP
-    real(rp) :: wT
-    character(len=strLen) :: gStr
+    real(rp) :: wT,cMJD,rSec
+    character(len=strLen) :: gStr,utStr
+    integer :: iYr,iDoY,iMon,iDay,iHr,iMin
 
     !write(*,*) "Num threads=",omp_get_max_threads()
     !------------
@@ -71,9 +72,14 @@ program calcdbx
         Model%nOut = Model%nOut + 1
 
         if (modulo(Model%ts,Model%tsOut) ==0) then
+            cMJD = MJDAt(ebState%ebTab,Model%t)
+            call mjd2ut(cMJD,iYr,iDoY,iMon,iDay,iHr,iMin,rSec)
+            write(utStr,'(I0.4,a,I0.2,a,I0.2,a,I0.2,a,I0.2,a,I0.2)') iYr,'-',iMon,'-',iDay,' ',iHr,':',iMin,':',nint(rSec)
+
             wT = readClock("MagDB")
-            write(*,'(a,f8.3,a)') 'T = ', Model%t*oTScl, ' ' // trim(tStr)
-            write(*,'(a,f8.3)') '   kDBps = ', 1.0e-3*NumP*Model%tsOut/wT
+            write(*,'(a,a)')       'UT = ', trim(utStr)
+            write(*,'(a,f12.3,a)') '       T = ', Model%t*oTScl, ' ' // trim(tStr)
+            write(*,'(a,f8.3)')    '   kDBps = ', 1.0e-3*NumP*Model%tsOut/wT
         endif
 
         call Toc("Output")
