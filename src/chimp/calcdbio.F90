@@ -10,6 +10,18 @@ module calcdbio
 	use clocks
 	implicit none
 
+    !Remix holders
+    type rmState_T
+        real(rp) :: time !CHIMP units
+        real(rp), dimension(:,:,:), allocatable :: XY
+        integer :: Np,Nth !Remix cap sizes
+        integer :: i1=-1,i2=-1 !Bracketing step numbers
+        !Data arrays are size Np,Nth (lon,lat)
+        real(rp), dimension(:,:), allocatable :: nFac,nSigP,nSigH,nPot
+        real(rp), dimension(:,:), allocatable :: sFac,sSigP,sSigH,sPot
+    
+    end type rmState_T
+
     character(len=strLen), private :: dbOutF
     integer, parameter, private :: MAXDBVS = 20
     !Parameters for output DB grid, 3D thin shell (lat/lon/height)
@@ -94,6 +106,40 @@ module calcdbio
         call ClearIO(IOVars)
 
     end subroutine initDBio
+
+    subroutine initRM(Model,ebState,rmState)
+        type(chmpModel_T), intent(in) :: Model
+        type(ebState_T), intent(in)   :: ebState
+        type(rmState_T), intent(inout) :: rmState
+        
+        type(IOVAR_T), dimension(MAXDBVS) :: IOVars
+        integer :: Ni,Nj
+        character(len=strLen) :: rmF !Remix file
+        write(rmF,'(2a)') trim(adjustl(Model%RunID)),'.mix.h5'
+        write(*,*) 'Initializing w/ ', trim(rmF)
+
+        call ClearIO(IOVars)
+        call AddInVar(IOVars,"X")
+        call AddInVar(IOVars,"Y")
+        call ReadVars(IOVars,.true.,rmF)
+
+        Ni = IOVars(1)%dims(1) - 1
+        Nj = IOVars(2)%dims(2) - 1
+
+        write(*,*) 'Shape = ', IOVars(1)%dims(:)
+        rmState%Np  = Ni !Phi cells
+        rmState%Nth = Nj !Theta cells
+
+        allocate(rmState%nFac (Ni,Nj))
+        allocate(rmState%nPot (Ni,Nj))
+        allocate(rmState%nSigP(Ni,Nj))
+        allocate(rmState%nSigH(Ni,Nj))
+        allocate(rmState%sFac (Ni,Nj))
+        allocate(rmState%sPot (Ni,Nj))
+        allocate(rmState%sSigP(Ni,Nj))
+        allocate(rmState%sSigH(Ni,Nj))
+
+    end subroutine initRM
 
     !Calculate and output delta-B data
     subroutine writeDB(Model,ebState,gStr)
