@@ -710,7 +710,11 @@ module rcmimag
         integer, intent(in) :: nOut
         real(rp), intent(in) :: MJD,time
 
+        !RCM-MHD output
         call WriteRCM   (imag%rcmCpl,nOut,MJD,time)
+        !RCM output
+        imag%rcmCpl%rcm_nOut = nOut
+        call rcm_mhd(time,TINY,imag%rcmCpl,RCMWRITEOUTPUT)
         call WriteRCMFLs(imag%rcmFLs,nOut,MJD,time,imag%rcmCpl%nLat_ion,imag%rcmCpl%nLon_ion)
         
     end subroutine doRCMIO
@@ -720,7 +724,8 @@ module rcmimag
         integer, intent(in) :: nRes
         real(rp), intent(in) :: MJD, time
 
-        call WriteRCMRestart(imag%rcmCpl,nRes,MJD,time)
+        imag%rcmCpl%rcm_nRes = nRes
+        call rcm_mhd(time,TINY,imag%rcmCpl,RCMWRITERESTART)
     end subroutine doRCMRestart
     
 

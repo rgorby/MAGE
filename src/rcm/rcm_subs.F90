@@ -1411,6 +1411,7 @@ real :: v_1_1, v_1_2, v_2_1, v_2_2
 !
 !
 !
+
       SUBROUTINE Rcm (itimei_in, itimef_in,&
                       idt_in, idt1_in, idt2_in, icontrol,stropt,nslcopt,iXML)
 !---------------------------------------------
@@ -2571,9 +2572,9 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
     
     !If oxygen is to be added, must change this!
     IF (alamc(kc) <= 0.0) THEN
-      ie = 1  ! electrons
+      ie = RCMELECTRON
     ELSE
-      ie = 2  ! protons
+      ie = RCMPROTON
     END IF
 
     IF (MAXVAL(eeta(:,:,kc)) < machine_tiny) then

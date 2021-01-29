@@ -7,6 +7,7 @@ MODULE etautils
   USE rice_housekeeping_module
   USE constants, ONLY : mass_proton,mass_electron,nt,ev,tiote,boltz
   USE Rcm_mod_subs, ONLY : kcsize,alamc,ikflavc
+  USE rcm_mhd_interfaces, ONLY : rcmPScl
 
   implicit none
 
@@ -266,8 +267,18 @@ MODULE etautils
 
     !Now rescale to get desired Pi and Pe
     !NOTE: This will affect density
-    psclI = Pion/prcmI
-    psclE = Pele/prcmE
+    !Check if pressures are above TINY nPa
+    if (prcmI*rcmPScl > TINY) then
+      psclI = Pion/prcmI
+    else
+      psclI = 0.0
+    endif
+
+    if (prcmE*rcmPScl > TINY) then
+      psclE = Pele/prcmE
+    else
+      psclE = 0.0
+    endif
 
     !Loop over channels and rescale      
     do k=klow,kcsize
@@ -275,6 +286,9 @@ MODULE etautils
         eta(k) = psclE*eta(k)
       ELSE IF (ikflavc(k) == RCMPROTON) THEN ! ions (protons)
         eta(k) = psclI*eta(k)
+      ELSE
+        write(*,*) 'Unknown species!'
+        eta(k) = 0.0
       ENDIF
     enddo
 

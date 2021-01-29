@@ -5,6 +5,7 @@ module rcm_mhd_mod
     use rcm_mhd_interfaces
     use torcm_mod
     use tomhd_mod
+    use rcm_mhd_io
     use ionosphere_exchange, only : setupIon, tearDownIon
     use constants, ONLY : radius_earth_m, radius_iono_m
     use rice_housekeeping_module
@@ -195,8 +196,9 @@ module rcm_mhd_mod
             call torcm(RM,itimei,ierr,iflag)
             call Toc("TORCM")
 
-            if (ierr > 0 )then
-                stop 'RCM: error in torcm '
+            if (ierr < 0 ) then
+                write(*,*) 'RCM: error in torcm '
+                call BlackBoxRCM(RM)
             endif
             exchangeNum = exchangeNum + 1
             call cpu_time(t2)
@@ -242,9 +244,10 @@ module rcm_mhd_mod
                 write(*,*)'RCM: tomhd cpu time= ',t2-t1,' seconds'
             endif
 
-            if (ierr > 0 )then
-                stop 'RCM: error in tomhd '
-            end if
+            if (ierr < 0 ) then
+                write(*,*) 'RCM: error in tomhd '
+                call BlackBoxRCM(RM)
+            endif
          !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 
@@ -259,6 +262,27 @@ module rcm_mhd_mod
         return
 
     end subroutine rcm_mhd
+
+    !Write black box and die
+    subroutine BlackBoxRCM(RCMApp)
+        type(rcm_mhd_t), intent(inout) :: RCMApp
+
+    !TODO: Can add some console output here
+
+    !Output last words
+        RCMApp%rcm_runid = "CRASH" // trim(RCMApp%rcm_runid)
+        call initRCMIO(RCMApp,isResO=.false.)
+        call WriteRCM(RCMApp,0,0.0_rp,0.0_rp)
+        RCMApp%rcm_nOut = 0
+        call rcm_mhd(0.0_rp,TINY,RCMApp,RCMWRITEOUTPUT)
+
+    !Die with dignity
+        write(*,*) 'RCM Commiting suicide in 300s ...'
+        call sleep(300) !Sleep before blowing up
+        write(*,*) 'Goodbye cruel world'
+        stop !Self destruct
+    end subroutine BlackBoxRCM
+
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     subroutine print_date_time(LUN)

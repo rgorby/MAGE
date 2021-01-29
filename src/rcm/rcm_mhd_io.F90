@@ -2,7 +2,6 @@ module rcm_mhd_io
     use rcm_mhd_interfaces
     use ioh5
     use xml_input
-    use rcm_mhd_mod,  ONLY : rcm_mhd
     use rcm_mod_subs, ONLY : colat, aloct
     use rice_housekeeping_module, ONLY : nSkipFL,doFLOut
 
@@ -158,22 +157,8 @@ module rcm_mhd_io
 
         write(gStr,'(A,I0)') "Step#", nOut
         call WriteVars(IOVars,.true.,h5File,gStr)
-
-        !Call RCM output
-        RCMApp%rcm_nOut = nOut
-        call rcm_mhd(time,TINY,RCMApp,RCMWRITEOUTPUT)
         
     end subroutine WriteRCM
-
-    subroutine WriteRCMRestart(RCMApp,nRes,MJD,time)
-        type(rcm_mhd_t), intent(inout) :: RCMApp
-        integer, intent(in) :: nRes
-        real(rp), intent(in) :: MJD, time
-
-        RCMApp%rcm_nRes = nRes
-        call rcm_mhd(time,TINY,RCMApp,RCMWRITERESTART)
-        
-    end subroutine WriteRCMRestart
 
     subroutine RCMRestartInfo(RCMApp,xmlInp,t0,isRCMopt)
         type(rcm_mhd_t)  , intent(inout) :: RCMApp

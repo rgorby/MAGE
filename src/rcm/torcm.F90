@@ -3,12 +3,11 @@ MODULE torcm_mod
   USE rcm_precision
   USE constants, only: big_vm,tiote,nt,ev,boltz
   USE rice_housekeeping_module, ONLY: use_plasmasphere,LowLatMHD,L_write_vars_debug
-  Use rcm_mhd_interfaces
+  USE rcm_mhd_interfaces
   USE rcmdefs, ONLY : RCMTOPCLOSED,RCMTOPNULL,RCMTOPOPEN,DenPP0
   USE kdefs, ONLY : TINY,qp
-  use math, ONLY : RampDown
-  use etautils
-
+  USE math, ONLY : RampDown
+  USE etautils
   implicit none
 
   logical, parameter :: doSmoothEta = .true. !Whether to smooth eeta at boundary
@@ -102,7 +101,9 @@ MODULE torcm_mod
         if(minval(bndloc) <= 0)then
           write(6,*) ' TORCM: boundary problem'
           write(6,*)' bndloc:',bndloc
-          stop
+          ierr = -1
+          return
+          
         end if
       END IF  
 
@@ -112,7 +113,10 @@ MODULE torcm_mod
       ! (1=open, -1=closed). For open field lines, FTV is set to big_vm:
 
       CALL Calc_ftv (RM,big_vm,ierr)
-      IF (ierr < 0) RETURN
+      IF (ierr < 0) THEN
+        write(*,*) 'calc_ftv problem'
+        RETURN
+      ENDIF
 
     !-----
     !Domain calculation
@@ -172,9 +176,10 @@ MODULE torcm_mod
       IF (ierr < 0) RETURN
       CALL Press2eta()       ! this populates EETA_NEW array
       
-      if(maxval(eeta_new) <=0)then
-        write(6,*)' something is wrong in the new eeta arrays'
-        stop
+      if ( (maxval(eeta_new) <=0) .or. any(isnan(eeta_new)) ) then
+        write(*,*)' something is wrong in eeta_new'
+        ierr = -1
+        return
       end if
 
       !Handle cold start, must happen after eeta_new is calculated (temp/press2eta)
@@ -255,11 +260,13 @@ MODULE torcm_mod
       do j=1,jsize
         do i=0,n
           ip = imin_j(j)+i !i cell
-          wRCM = 1.0/(1.0 + 5.0*beta_average(ip,j)/6.0)
-          wMHD = (1-wRCM)/(2.0**i)
-          wRCM = (1-wMHD)
+          if (ip<isize) then
+            wRCM = 1.0/(1.0 + 5.0*beta_average(ip,j)/6.0)
+            wMHD = (1-wRCM)/(2.0**i)
+            wRCM = (1-wMHD)
 
-          eeta(ip,j,klow:) = wRCM*eeta(ip,j,klow:) + wMHD*eeta_new(ip,j,klow:)
+            eeta(ip,j,klow:) = wRCM*eeta(ip,j,klow:) + wMHD*eeta_new(ip,j,klow:)
+          endif
         enddo !i loop
       enddo !j loop
 
@@ -277,18 +284,22 @@ MODULE torcm_mod
       !Do sanity check
       DO j = 1, jsize
         DO i = imin_j(j),isize
-          IF (vm(i,j) <= 0.0) STOP 'vm problem in TORCM'
+          IF (vm(i,j) <= 0.0) THEN
+            write(*,*) 'vm problem in TORCM'
+            ierr = -1
+            return
+          ENDIF
         END DO
       END DO
 
       !Return updates to topology, CLOSED=>NULL in buffer region to RM object
       RM%iopen   = iopen   (:,jwrap:jsize)
 
-      if (isnan(sum(eeta))) then
+      if (any(isnan(eeta))) then
         write(*,*) 'Bad eeta at end of torcm!'
-        stop
+        ierr = -1
+        return
       endif
-
 
       RETURN
       END SUBROUTINE Torcm
@@ -531,8 +542,8 @@ MODULE torcm_mod
 
       if (isnan(sum(vm))) then
         write(*,*) 'RCM: NaN in Calc_FTV'
-        ierr = 1
-        stop
+        ierr = -1
+        return
       endif
 
       ierr = 0
@@ -737,7 +748,6 @@ MODULE torcm_mod
           else
             eeta_new(i,j,:) = 0.0
           endif
-
         enddo
       enddo !J loop
 
