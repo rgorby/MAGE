@@ -249,7 +249,7 @@ MODULE etautils
 
       xp = SQRT(ev*ABS(almmax(k))*vm/boltz/Tk)
       xm = SQRT(ev*ABS(almmin(k))*vm/boltz/Tk)
-      !Use quad prec calc of erf/exp differences
+      !Use quad prec calc of erf/exp differences, Pembroke+ Eqn B5
       eta(k) = erfexpdiff(A0,xp,xm)
       
       !Pressure contribution from this channel
