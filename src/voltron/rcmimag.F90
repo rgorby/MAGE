@@ -17,7 +17,7 @@ module rcmimag
     use rcm_mhd_mod, ONLY : rcm_mhd
     use rcm_mhd_io
     use gdefs, only : dFloor,pFloor
-    use rcmdefs, only : DenPP0
+    use rcmdefs, only : DenPP0,PSPHKT
     
     
     implicit none
@@ -26,8 +26,9 @@ module rcmimag
     logical , private, parameter :: doKillRCMDir = .true. !Whether to always kill RCMdir before starting
     integer, parameter, private :: MHDPad = 0 !Number of padding cells between RCM domain and MHD ingestion
     logical , private :: doWolfLim   = .false. !Whether to do wolf-limiting
-    logical , private :: doWolfNLim  = .true.  !If wolf-limiting whether to do wolf-limiting on density as well
+    logical , private :: doWolfNLim  = .false.  !If wolf-limiting whether to do wolf-limiting on density as well
     logical , private :: doBounceDT = .true. !Whether to use Alfven bounce in dt-ingest
+    logical , private :: doHotBounce= .false. !Whether to limit Alfven speed density to only hot (RC) population
     logical , private :: doTrickyTubes = .true.  !Whether to poison bad flux tubes
     logical , private :: doSmoothTubes = .true.  !Whether to smooth potential/FTV on torcm grid
     real(rp), private :: nBounce = 1.0 !Scaling factor for Alfven transit
@@ -261,9 +262,10 @@ module rcmimag
 
                 !Set composition
                 RCMApp%oxyfrac(i,j)      = 0.0
-                
+
             enddo
         enddo
+
         doHackIC = (vApp%time <= vApp%DeepDT) .and. RCMICs%doIC !Whether to hack MHD/RCM coupling for ICs
 
         call Toc("RCM_TUBES")
@@ -326,6 +328,56 @@ module rcmimag
 
         end associate
 
+    end subroutine AdvanceRCM
+
+    !Set region of RCM grid that's "good" for MHD ingestion
+    subroutine SetIngestion(RCMApp)
+        type(rcm_mhd_T), intent(inout) :: RCMApp
+
+        integer , dimension(:), allocatable :: jBnd
+        integer :: i,j
+        logical :: inMHD,isClosed
+        real(rp) :: Tbnc
+
+        RCMApp%toMHD(:,:) = .false.
+        !Testing lazy quick boundary
+        allocate(jBnd (  RCMApp%nLon_ion  ))
+        !Now find nominal current boundary
+        jBnd(:) = RCMApp%nLat_ion-1
+
+        do j=1,RCMApp%nLon_ion
+            do i = RCMApp%nLat_ion,1,-1
+                inMHD = RCMApp%toMHD(i,j)
+                isClosed = (RCMApp%iopen(i,j) == RCMTOPCLOSED)
+                if ( .not. isClosed ) then
+                    jBnd(j) = min(i+1+MHDPad,RCMApp%nLat_ion)
+                    exit
+                endif
+
+            enddo !i loop
+            RCMApp%toMHD(:,j) = .false.
+            RCMApp%toMHD(jBnd(j):,j) = .true.
+
+        enddo
+        
+        if (doHotBounce) then
+            do j=1,RCMApp%nLon_ion
+                do i = 1,RCMApp%nLat_ion
+                    if (RCMApp%iopen(i,j) == RCMTOPOPEN) cycle
+                    Tbnc = RCMApp%Tb(i,j)
+                    if ((RCMApp%Nrcm(i,j) > TINY) .and. (RCMApp%Nave(i,j) > TINY)) then
+                        !Have some RC density
+                        !RCMApp%Tb(i,j) = AlfvenBounce(RCMApp%Nrcm(i,j),RCMApp%bmin(i,j),RCMApp%Lb(i,j))
+                        !Rescale bounce timescale to mock up only hot component
+                        RCMApp%Tb(i,j) = sqrt(RCMApp%Nrcm(i,j)/RCMApp%Nave(i,j))*RCMApp%Tb(i,j)
+                    else
+                        RCMApp%Tb(i,j) = 0.0
+                    endif
+                    !write(*,*) "Tb (Old/New) = ", Tbnc,RCMApp%Tb(i,j)
+                enddo !i
+            enddo !j
+        endif
+
         contains
             !Calculate Alfven bounce timescale
             !D = #/m3, B = T, L = Rp
@@ -344,116 +396,73 @@ module rcmimag
                 Va = 22.0*bNT/sqrt(nCC) !km/s, from NRL plasma formulary
                 dTb = (L*Rp_m*1.0e-3)/Va
             end function AlfvenBounce
-    end subroutine AdvanceRCM
-
-    !Set region of RCM grid that's "good" for MHD ingestion
-    subroutine SetIngestion(RCMApp)
-        type(rcm_mhd_T), intent(inout) :: RCMApp
-
-        integer , dimension(:), allocatable :: jBnd
-        integer :: i,j
-        logical :: inMHD,isClosed
-        
-        RCMApp%toMHD(:,:) = .false.
-        !Testing lazy quick boundary
-        allocate(jBnd (  RCMApp%nLon_ion  ))
-        !Now find nominal current boundary
-        jBnd(:) = RCMApp%nLat_ion-1
-        do j=1,RCMApp%nLon_ion
-            do i = RCMApp%nLat_ion,1,-1
-                inMHD = RCMApp%toMHD(i,j)
-                isClosed = (RCMApp%iopen(i,j) == RCMTOPCLOSED)
-                if ( .not. isClosed ) then
-                    jBnd(j) = min(i+1+MHDPad,RCMApp%nLat_ion)
-                    exit
-                endif
-
-            enddo !i loop
-            RCMApp%toMHD(:,j) = .false.
-            RCMApp%toMHD(jBnd(j):,j) = .true.
-
-        enddo
-        
     end subroutine SetIngestion
 
     !Enforce Wolf-limiting on an MHD/RCM thermodynamic state
     !Density [#/cc], pressure [nPa]
-    subroutine WolfLimit(nrc,prc,npp,nmhd,pmhd,beta,nlim,plim)
-        real(rp), intent(in)  :: nrc,prc,npp,nmhd,pmhd,beta
+    subroutine WolfLimit(nrc,prc,npsph,nmhd,pmhd,beta,nlim,plim)
+        real(rp), intent(in)  :: nrc,prc,npsph,nmhd,pmhd,beta
         real(rp), intent(out) :: nlim,plim
 
-        real(rp) :: nrcm,prcm
+        real(rp) :: nrcm,prcm,ppsph
         real(rp) :: alpha,blim,dVoV,wRCM,wMHD
-        logical :: doP,doD
+        logical :: doRC,doPP
 
         nlim = 0.0
         plim = 0.0
+        nrcm = 0.0
+        prcm = 0.0
 
-        doP = (prc >= pFloor)
-        !Test RC contribution
-        if (doP) then
-            nrcm = nrc !Ring current contribution
-            prcm = prc !Only pressure contribution from RC
-        else
-            !Nothing worth while from RC
-            nrcm = 0.0
-            prcm = 0.0
+        !Get a low but non-zero pressure for plasmasphere
+        ppsph = DkT2P(npsph,PSPHKT) !Using ~eV default plasmasphere temperature
+    !Incorporate RC/PP contributions
+        !Test RC/PP contribution
+        doRC = (prc   >= TINY  )
+        doPP = (npsph >= DenPP0)
+
+        if (doRC) then
+            !Incorporate RC contribution
+            nrcm = nrcm + nrc
+            prcm = prcm + prc
         endif
-
-        !Test plasmasphere density
-        if (npp >= DenPP0) then
-            !Plasmasphere good, add it to total rcm density
-            nrcm = nrcm + npp
+        if (doPP) then
+            !Incorporate plasmasphere contribution
+            nrcm = nrcm + npsph
+            prcm = prcm + ppsph
         endif
-
-        !Now have total density/pressure from RC+PP
-        if (.not. doWolfLim) then
+        !Now have total density/pressure contributions from RC+PP
+    !Think about bailing
+        !Return raw values if not limiting, and don't limit if there's no RC
+        if ( (.not. doWolfLim) .or. (.not. doRC) ) then
             nlim = nrcm
             plim = prcm
             return
         endif
 
-        doD = (nrcm >= dFloor)
+    !If still here we've gotta wolf limit
         !Experiment w/ limiting max value of beta allowed
         blim = min(beta,maxBetaLim)
         !Get scaling term
         alpha = 1.0 + blim*5.0/6.0
-        
-        if (doP .and. doD) then
-            wRCM = 1.0/alpha
-            wMHD = (alpha-1.0)/alpha ! = 1 - wRCM
-            plim = wRCM*prcm + wMHD*pmhd
 
-            !Check whether to limit density
-            if (doWolfNLim) then
-                !n_R V = (n_M + dn)(V + dV)
-                !nlim = n_M + dn, Drop dn*dV =>
-                dVoV = 0.5*(blim/alpha)*(prcm-pmhd)/pmhd
-                nlim = nrcm - nmhd*dVoV
-                if (nlim <= dFloor) then
-                    !Something went bad, nuke everything
-                    nlim = 0.0
-                    plim = 0.0
-                endif !nlim
-            else
-                nlim = nrcm !Raw density
-            endif !doWolfNLim
+        wRCM = 1.0/alpha
+        wMHD = (alpha-1.0)/alpha ! = 1 - wRCM
+        plim = wRCM*prcm + wMHD*pmhd
 
-            !Done here
-            return
-        endif
-
-        !If still here either D or P is degenerate
-        if (doD) then
-            !Have density but no pressure, ie plasmasphere
-            nlim = nrcm !Take raw density
-            plim = pFloor !Floor pressure
-            return
-        endif
-
-        !Otherwise return null values
-        nlim = 0.0
-        plim = 0.0
+        !Check whether to limit density
+        if (doWolfNLim .and. (nrcm>TINY)) then
+            !n_R V = (n_M + dn)(V + dV)
+            !nlim = n_M + dn, Drop dn*dV =>
+            dVoV = 0.5*(blim/alpha)*(prcm-pmhd)/pmhd
+            nlim = nrcm - nmhd*dVoV
+            if (nlim <= dFloor) then
+                !Something went bad, nuke everything
+                nlim = 0.0
+                plim = 0.0
+            endif !nlim
+        else
+            nlim = nrcm !Raw density
+        endif !doWolfNLim
         
     end subroutine WolfLimit
 
@@ -702,7 +711,11 @@ module rcmimag
         integer, intent(in) :: nOut
         real(rp), intent(in) :: MJD,time
 
+        !RCM-MHD output
         call WriteRCM   (imag%rcmCpl,nOut,MJD,time)
+        !RCM output
+        imag%rcmCpl%rcm_nOut = nOut
+        call rcm_mhd(time,TINY,imag%rcmCpl,RCMWRITEOUTPUT)
         call WriteRCMFLs(imag%rcmFLs,nOut,MJD,time,imag%rcmCpl%nLat_ion,imag%rcmCpl%nLon_ion)
         
     end subroutine doRCMIO
@@ -712,7 +725,8 @@ module rcmimag
         integer, intent(in) :: nRes
         real(rp), intent(in) :: MJD, time
 
-        call WriteRCMRestart(imag%rcmCpl,nRes,MJD,time)
+        imag%rcmCpl%rcm_nRes = nRes
+        call rcm_mhd(time,TINY,imag%rcmCpl,RCMWRITERESTART)
     end subroutine doRCMRestart
     
 

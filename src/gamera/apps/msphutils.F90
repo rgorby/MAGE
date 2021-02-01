@@ -57,7 +57,8 @@ module msphutils
 
     !Ingestion switch
     logical, private :: doIngest = .true.
-
+    logical, private :: doBorisIngest = .false. !Whether to try and preserve Boris momentum when ingesting
+    
     contains
 
     !Set magnetosphere parameters
@@ -155,6 +156,8 @@ module msphutils
         !Whether to ignore ingestion (if set)
         if (Model%doSource) then
             call xmlInp%Set_Val(doIngest,"source/doIngest",.true.)
+            call xmlInp%Set_Val(doBorisIngest,"source/doBorisIngest",doBorisIngest)
+
         endif
         
         call xmlInp%Set_Val(doCorot,"prob/doCorot",.true.)
@@ -638,7 +641,7 @@ module msphutils
             stop
         endif
 
-        if (Model%t<=0) return
+        if (Model%t<=0) return !You'll spoil your appetite
 
         if (.not. doIngest) return
 
@@ -646,12 +649,11 @@ module msphutils
        !$OMP private(i,j,k,doInD,doInP,doIngestIJK,pCon,pW) &
        !$OMP private(Tau,dRho,dP,Pmhd,Prcm,Mxyz,Vxyz,B) &
        !$OMP private(Lam,Laminv)
-
         do k=Gr%ks,Gr%ke
             do j=Gr%js,Gr%je
                 do i=Gr%is,Gr%ie
-                    doInD = (Gr%Gas0(i,j,k,IMDEN,BLK)>TINY)
-                    doInP = (Gr%Gas0(i,j,k,IMPR ,BLK)>TINY)
+                    doInD = (Gr%Gas0(i,j,k,IMDEN,BLK)>dFloor)
+                    doInP = (Gr%Gas0(i,j,k,IMPR ,BLK)>pFloor)
                     doIngestIJK = doInD .or. doInP
 
                     if (.not. doIngestIJK) cycle
@@ -660,10 +662,12 @@ module msphutils
                     call CellC2P(Model,pCon,pW)
                     Pmhd = pW(PRESSURE)
 
-                    !Calculate semi-rel momentum (identical to momentum if no boris correction)
-                    B = State%Bxyz(i,j,k,:)
-                    call Mom2Rel(Model,pW(DEN),B,Lam)
-                    Mxyz = matmul(Lam,pCon(MOMX:MOMZ)) !semi-relativistic momentum
+                    if (Model%doBoris .and. doBorisIngest) then
+                        !Calculate semi-rel momentum (identical to momentum if no boris correction)
+                        B = State%Bxyz(i,j,k,:)
+                        call Mom2Rel(Model,pW(DEN),B,Lam)
+                        Mxyz = matmul(Lam,pCon(MOMX:MOMZ)) !semi-relativistic momentum
+                    endif
 
                     !Get timescale, taking directly from Gas0
                     Tau = Gr%Gas0(i,j,k,IMTSCL,BLK)
@@ -682,10 +686,12 @@ module msphutils
                         pW(PRESSURE) = pW(PRESSURE) + (Model%dt/Tau)*dP
                     endif
 
-                    !Get new velocity, start w/ updated inverse matrix
-                    call Rel2Mom(Model,pW(DEN),B,Laminv)
-                    Vxyz = matmul(Laminv,Mxyz)/max(pW(DEN),dFloor)
-                    pW(VELX:VELZ) = Vxyz
+                    if (Model%doBoris .and. doBorisIngest) then
+                        !Get new velocity, start w/ updated inverse matrix
+                        call Rel2Mom(Model,pW(DEN),B,Laminv)
+                        Vxyz = matmul(Laminv,Mxyz)/max(pW(DEN),dFloor)
+                        pW(VELX:VELZ) = Vxyz
+                    endif !Otherwise leave primitive state (VELX:VELZ) unchanged
 
                     !Now put back
                     call CellP2C(Model,pW,pCon)

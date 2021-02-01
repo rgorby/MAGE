@@ -140,6 +140,7 @@ module starter
         call inpXML%Set_Val(Model%doPureB0,'fields/doPureB0',.false.)
         call inpXML%Set_Val(Model%doEBOut,'fields/ebOut',.false.)
         call inpXML%Set_Val(Model%doMHD,'fields/doMHD',.false.)
+        call inpXML%Set_Val(Model%doJ,  'fields/doJ'  ,.false.)
 
     !Tracer
         call inpXML%Set_Val(Model%epsds,'tracer/epsds',1.0e-2)

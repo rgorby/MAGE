@@ -42,13 +42,13 @@ module dyncoupling
         !Set coupling cadences based on max Kp on one hour window
         select case (KpI)
             case (1,2)
-                dynDT = 25.0
+                dynDT = 15.0
                 newAlert = WHITEALERT
             case (3,4)
-                dynDT = 20.0
+                dynDT = 15.0
                 newAlert = GREYALERT
             case (5,6)
-                dynDT = 15.0
+                dynDT = 10.0
                 newAlert = YELLOWALERT
             case (7:)
                 dynDT = 10.0

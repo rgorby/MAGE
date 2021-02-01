@@ -1,8 +1,9 @@
 !Utilities for loss calculations
 
 MODULE lossutils
-  USE kdefs, ONLY : TINY
+  USE kdefs, ONLY : TINY,PI,Mp_cgs,kev2J
   USE rcm_precision
+  USE rcmdefs
   use math, ONLY : SmoothOpTSC,SmoothOperator33
 
   implicit none
@@ -23,22 +24,28 @@ MODULE lossutils
     !Geocoronal density [#/cc]
       Ngeo = OstgaardGeocorona(rloc)
       
-    !Charge exchange cross-section for H+/H
       !K in keV, Sig in cm2
       !Using Lindsay & Stebbings 2005
-      KSig = min(K,250.0) !Cap for validity of CX cross-section
+      if (isp == RCMPROTON) then
+        !Charge exchange cross-section for H+/H
+        KSig = min(K,250.0) !Cap for validity of CX cross-section
       
-      Sig0 = 1.0e-16
-      a1 = 4.15
-      a2 = 0.531
-      a3 = 67.3
+        Sig0 = 1.0e-16
+        a1 = 4.15
+        a2 = 0.531
+        a3 = 67.3
 
-      B1 = (a1-a2*log(KSig))**2.0
-      B2 = 1.0-exp(-a3/KSig) 
-      Sig =  Sig0*B1*(B2**(4.5))
+        B1 = (a1-a2*log(KSig))**2.0
+        B2 = 1.0-exp(-a3/KSig) 
+        Sig =  Sig0*B1*(B2**(4.5))
+        M = (Mp_cgs)*(1.0e-3) !Proton mass
+      else
+        write(*,*) 'Unknown charge exchange species, bailing!'
+        stop
+      endif
+
     !Get velocity [cm/s] from energy [keV]
-      M = 1.67*1.0e-27 !Proton mass
-      Kj = K*1000.0*1.6*1.0e-19 !Joules
+      Kj = kev2J*K !Joules
       V = sqrt(2*Kj/M)*100.0 !m/s->cm/s
 
     !Timescale

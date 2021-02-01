@@ -3,12 +3,11 @@ MODULE torcm_mod
   USE rcm_precision
   USE constants, only: big_vm,tiote,nt,ev,boltz
   USE rice_housekeeping_module, ONLY: use_plasmasphere,LowLatMHD,L_write_vars_debug
-  Use rcm_mhd_interfaces
+  USE rcm_mhd_interfaces
   USE rcmdefs, ONLY : RCMTOPCLOSED,RCMTOPNULL,RCMTOPOPEN,DenPP0
   USE kdefs, ONLY : TINY,qp
-  use math, ONLY : RampDown
-  use etautils
-
+  USE math, ONLY : RampDown
+  USE etautils
   implicit none
 
   logical, parameter :: doSmoothEta = .true. !Whether to smooth eeta at boundary
@@ -103,7 +102,9 @@ MODULE torcm_mod
         if(minval(bndloc) <= 0)then
           write(6,*) ' TORCM: boundary problem'
           write(6,*)' bndloc:',bndloc
-          stop
+          ierr = -1
+          return
+          
         end if
       END IF  
 
@@ -113,7 +114,10 @@ MODULE torcm_mod
       ! (1=open, -1=closed). For open field lines, FTV is set to big_vm:
 
       CALL Calc_ftv (RM,big_vm,ierr)
-      IF (ierr < 0) RETURN
+      IF (ierr < 0) THEN
+        write(*,*) 'calc_ftv problem'
+        RETURN
+      ENDIF
 
     !-----
     !Domain calculation
@@ -173,9 +177,12 @@ MODULE torcm_mod
       IF (ierr < 0) RETURN
       CALL Press2eta()       ! this populates EETA_NEW array
       
-      if(maxval(eeta_new) <=0)then
-        write(6,*)' something is wrong in the new eeta arrays'
-        stop
+      if ( (maxval(eeta_new) <=0) .or. any(isnan(eeta_new)) ) then
+        write(*,*)' something is wrong in eeta_new'
+        write(*,*) 'maxval = ', maxval(eeta_new)
+        write(*,*) 'Num nans = ', count(isnan(eeta_new))
+        ierr = -1
+        return
       end if
 
       !Handle cold start, must happen after eeta_new is calculated (temp/press2eta)
@@ -194,13 +201,19 @@ MODULE torcm_mod
 
       ENDIF
 
-      ! initialize the dynamic plasmasphere, reset static part if necessary
-      !sbao 03282020
-      call set_plasmasphere(icontrol,isize,jsize,kcsize,xmin,ymin,rmin,vm,eeta,imin_j)
-      
       ! just in case:
       imin_j     = CEILING(bndloc)
       imin_j_old = CEILING(bndloc_old)
+
+      ! initialize the dynamic plasmasphere, reset static part if necessary
+      !sbao 03282020
+      if (use_plasmasphere) then
+        call set_plasmasphere(icontrol,isize,jsize,kcsize,xmin,ymin,rmin,vm,eeta,imin_j)
+        
+        !Adding some smoothing to the plasmapause
+        call SmoothPPause(eeta(:,:,1),vm,iopen,imin_j)
+      endif
+
 
       !Incorporate MHD-produced values into newly-acquired RCM cells
       DO j=1,jsize
@@ -250,12 +263,13 @@ MODULE torcm_mod
       do j=1,jsize
         do i=0,n
           ip = imin_j(j)+i !i cell
-          !wRCM = wImag(ip,j) !Va/fast+flow
-          wRCM = 1.0/(1.0 + 5.0*beta_average(ip,j)/6.0)
-          wMHD = (1-wRCM)/(2.0**i)
-          wRCM = (1-wMHD)
+          if (ip<isize) then
+            wRCM = 1.0/(1.0 + 5.0*beta_average(ip,j)/6.0)
+            wMHD = (1-wRCM)/(2.0**i)
+            wRCM = (1-wMHD)
 
-          eeta(ip,j,klow:) = wRCM*eeta(ip,j,klow:) + wMHD*eeta_new(ip,j,klow:)
+            eeta(ip,j,klow:) = wRCM*eeta(ip,j,klow:) + wMHD*eeta_new(ip,j,klow:)
+          endif
         enddo !i loop
       enddo !j loop
 
@@ -273,23 +287,163 @@ MODULE torcm_mod
       !Do sanity check
       DO j = 1, jsize
         DO i = imin_j(j),isize
-          IF (vm(i,j) <= 0.0) STOP 'vm problem in TORCM'
+          IF (vm(i,j) <= 0.0) THEN
+            write(*,*) 'vm problem in TORCM'
+            ierr = -1
+            return
+          ENDIF
         END DO
       END DO
 
       !Return updates to topology, CLOSED=>NULL in buffer region to RM object
       RM%iopen   = iopen   (:,jwrap:jsize)
 
-      if (isnan(sum(eeta))) then
+      if (any(isnan(eeta))) then
         write(*,*) 'Bad eeta at end of torcm!'
-        stop
+        ierr = -1
+        return
       endif
-
 
       RETURN
       END SUBROUTINE Torcm
 
+      !Smooth ragged edges at the plasmapause
+!----------------------------------------------------------
+      SUBROUTINE SmoothPPause(etapp,vm,iopen,imin_j)
+        USE rcmdefs,ONLY : isize,jsize
+        IMPLICIT NONE
+        REAL(rprec)   , INTENT(INOUT) :: etapp(isize,jsize)
+        REAL(rprec)   , INTENT(IN)    :: vm(isize,jsize)
+        INTEGER(iprec), INTENT(IN)    :: iopen(isize,jsize)
+        INTEGER(iprec), INTENT(IN)    :: imin_j(jsize)
 
+        REAL(rprec) :: bndlocpp(jsize),bndlocpp_new(jsize)
+        INTEGER(iprec) :: imin_jpp(jsize)
+        INTEGER(iprec) :: i,j,n,n_smooth,di
+        REAL(rprec) :: dpp,Ac(3)
+        INTEGER(iprec), parameter :: NumI = NumG
+
+        !Find plasmapause
+        do j=1,jsize
+          !For fixed j start from far and go near, find first value above DenPP0
+          do i = 2,isize
+            dpp = GetDensityFactor()*1.0*etapp(i,j)*vm(i,j)**1.5
+            if (dpp >= DenPP0*1.0e+6) then
+              bndlocpp(j) = i-1
+              imin_jpp(j) = i-1
+              exit
+            endif !Above plasmapause cutoff
+          enddo !i loop
+        enddo !j loop
+
+        !Now do smoothing on real-valued boundary
+        n_smooth = nint( 5.0/(360.0/jsize) ) !Arbitrary 5deg window
+
+        do n=1,n_smooth
+          call SmoothJBnd(bndlocpp,bndlocpp_new)
+          !Store back w/ trap for only earthward
+          bndlocpp = max(bndlocpp,bndlocpp_new)
+        enddo
+
+        !Convert to indices
+        imin_jpp = ceiling(bndlocpp)
+        
+        !Smooth around estimated plasmapause
+        Ac = [0.25,0.5,1.0] !Smoothing coefficients
+        do di = -NumI/2,+NumI/2
+          call SmoothJEta(etapp,iopen,imin_jpp,di,Ac)
+        enddo
+
+        ! !Zero out below plasmapause
+        ! do j=1,jsize
+        !   etapp(1:imin_jpp(j),j) = 0.0 !Zero out below this
+        ! enddo
+
+      END SUBROUTINE SmoothPPause
+
+      !Smooth real-valued bndloc, store in bndloc_new
+      SUBROUTINE SmoothJBnd(bndloc,bndloc_new)
+        USE rcmdefs,ONLY : jsize
+        IMPLICIT NONE
+        REAL(rprec), INTENT(IN ) :: bndloc(jsize)
+        REAL(rprec), INTENT(OUT) :: bndloc_new(jsize)
+
+        REAL(rprec), PARAMETER :: am = 1, a0 = 2, ap = 1
+        INTEGER(iprec) :: j,jm,jp
+
+        bndloc_new = 0.0
+
+        do j=1,jsize
+          ! 1 <=> jdim -jwrap +1
+          ! jdim <=> jwrap
+      
+          jm  = j - 1
+          if(jm < 1) jm = jsize - jwrap 
+          jp  = j + 1
+          if(jp > jsize) jp = jwrap + 1
+          !Use 3-pt stencil
+          bndloc_new(j) = (am*bndloc(jm) + a0*bndloc(j) + ap*bndloc(jp))/(am+a0+ap)
+
+        enddo
+
+      END SUBROUTINE SmoothJBnd
+
+      !Smooth eta k-slice over ibnd_j + di using coefficients Ac (--,-,0)
+      SUBROUTINE SmoothJEta(etak,iopen,ibnd_j,di,Ac)
+        USE rcmdefs,ONLY : isize,jsize,jwrap
+        IMPLICIT NONE
+
+        REAL(rprec), INTENT(INOUT) :: etak(isize,jsize)
+        INTEGER(iprec), INTENT(IN) :: iopen(isize,jsize)
+        INTEGER(iprec), INTENT(IN) :: ibnd_j(jsize)
+        INTEGER(iprec), INTENT(IN) :: di
+        REAL(rprec), INTENT(IN)    :: Ac(3)
+
+        logical :: isOpen(5)
+        REAL(rprec) :: etaks(jsize)
+        REAL(rprec) :: a1,a2,a3,a4,a5
+        INTEGER(iprec) :: jmm,jm,j,jp,jpp
+        a1 = Ac(1) ; a2 = Ac(2) ; a3 = Ac(3) ; a4 = a2 ; a5 = a1
+
+        do j=1,jsize
+        !Get indices
+          ! 1 <=> jdim -jwrap +1
+          ! jdim <=> jwrap
+          jmm = j - 2
+          if(jmm < 1)jmm = jsize - jwrap - 1
+          jm  = j - 1
+          if(jm < 1) jm = jsize - jwrap
+          jpp = j + 2
+          if(jpp > jsize)jpp = jwrap + 2
+          jp  = j + 1
+          if(jp > jsize) jp = jwrap + 1
+
+          !Check topology
+          isOpen(1) = (iopen(ibnd_j(jmm)+di,jmm) == RCMTOPOPEN)
+          isOpen(2) = (iopen(ibnd_j(jm )+di,jm ) == RCMTOPOPEN)
+          isOpen(3) = (iopen(ibnd_j(j  )+di,j  ) == RCMTOPOPEN)
+          isOpen(4) = (iopen(ibnd_j(jp )+di,jp ) == RCMTOPOPEN)
+          isOpen(5) = (iopen(ibnd_j(jpp)+di,jpp) == RCMTOPOPEN)
+
+          if ( any(isOpen) ) then
+            !Keep old values b/c too close to OCB
+            etaks(j) = etak(ibnd_j(j)+di,j)
+          else
+            !Only smooth if all closed/null cells
+            etaks(j) = ( a1*etak(ibnd_j(jmm)+di,jmm) + &
+                         a2*etak(ibnd_j(jm )+di,jm ) + &
+                         a3*etak(ibnd_j(j  )+di,j  ) + &
+                         a4*etak(ibnd_j(jp )+di,jp ) + &
+                         a5*etak(ibnd_j(jpp)+di,jpp) )/(a1+a2+a3+a4+a5)
+          endif !isOpen
+        enddo !j loop
+
+        !Now go back and reset values
+        do j=1,jsize
+          etak(ibnd_j(j)+di,j) = etaks(j)
+        enddo
+
+      END SUBROUTINE SmoothJEta
 !----------------------------------------------------------
       SUBROUTINE Calc_ftv (RM,big_vm,ierr) 
       USE conversion_module
@@ -339,8 +493,10 @@ MODULE torcm_mod
 !
 
       integer(iprec) :: i,j
+      REAL(rprec) :: vm_rcmmhd(isize,jsize-jwrap+1) !Holder for vm calc
 
       !Pull RCM-MHD variables into RCM arrays and scale/wrap
+      !RCM-MHD => RCM (sizes)
       call EmbiggenWrap(RM%Pave,press)
       call EmbiggenWrap(RM%Nave,den  )
 
@@ -357,31 +513,35 @@ MODULE torcm_mod
       call EmbiggenWrapI(RM%iopen,iopen)
       call EmbiggenWrap (RM%wImag,wImag)
 
-      ! compute vm and find boundaries
-      ! (K: doing in two stages to avoid open/closed/open corner case)
-      vm(:,:) = big_vm
-      !$OMP PARALLEL DO default(shared) &
-      !$OMP private(i,j)
-      do j=jwrap,jsize
-        do i=isize,1,-1
-          if (iopen(i,j) == RCMTOPCLOSED) then
-            vm(i,j) = 1.0/(RM%vol(i,j-jwrap+1)*nt)**(2.0/3) ! (nt/re)^0.667
-          endif
-        enddo
-      enddo
+    ! compute vm and find boundaries
+      !Calculate vm on RCM/MHD-sized grid
+      where (RM%vol > 0.0)
+        vm_rcmmhd = 1.0/(RM%vol*nt)**(2.0/3.0) ! (nt/re)^0.667
+      elsewhere
+        vm_rcmmhd = big_vm
+      end where
 
+      !Convert to RCM-sized grid
+      call EmbiggenWrap(vm_rcmmhd,vm)
+      
+      !Make sure topology is right
+      where (vm<0)
+        iopen = RCMTOPOPEN
+      endwhere
+
+      !Find boundary
+      vbnd(:) = 2
       do j=jwrap,jsize
-        do i=isize,1,-1
-          if ( iopen(i,j) .ge. 0 ) then
+        do i=isize,2,-1
+          if ( iopen(i,j) /= RCMTOPCLOSED ) then
             vbnd(j) = i
             exit
           endif
         enddo
       enddo
 
-      ! wrap vm/vbnd
+      ! wrap vbnd
       do j=1,jwrap-1
-        vm (:, j) = vm (:,jsize-jwrap+j)
         vbnd(j)   = vbnd(jsize-jwrap+j)
       end do
 
@@ -389,10 +549,11 @@ MODULE torcm_mod
       rmin = sqrt(xmin**2 + ymin**2 + zmin**2)
       pmin = atan2(ymin,xmin)
 
-      if (isnan(sum(vm))) then
+      if (any(isnan(vm))) then
         write(*,*) 'RCM: NaN in Calc_FTV'
-        ierr = 1
-        stop
+        write(*,*) 'Num NaNs = ', count(isnan(vm))
+        ierr = -1
+        return
       endif
 
       ierr = 0
@@ -597,7 +758,6 @@ MODULE torcm_mod
           else
             eeta_new(i,j,:) = 0.0
           endif
-
         enddo
       enddo !J loop
 
@@ -824,33 +984,22 @@ MODULE torcm_mod
       IMPLICIT NONE
       INTEGER(iprec), INTENT(IN) :: idim,jdim,jwrap
       REAL(rprec), INTENT(IN OUT) :: bndloc(jdim)
-
-      INTEGER(iprec) :: i,j,jp,jm
-      REAL(rprec) :: bndloc_new(jdim)
-      REAL(rprec), PARAMETER :: am = 1, a0 =2, ap = 1
-
      
+      REAL(rprec) :: bndloc_new(jdim)
+
       if (L_write_vars_debug) then
        write(6,*)' smooth_boundary_location, old boundary'
        write(6,*)bndloc
       end if
-! 1 <=> jdim -jwrap +1
-! jdim <=> jwrap
-      do j=1,jdim
-       jm  = j - 1
-       if(jm < 1) jm = jdim - jwrap 
-       jp  = j + 1
-       if(jp > jdim) jp = jwrap + 1
 
-       bndloc_new(j) = (am*bndloc(jm) + a0*bndloc(j) + ap*bndloc(jp))/(am+a0+ap)
+      call SmoothJBnd(bndloc,bndloc_new)
 
-      end do
-
-      bndloc(:) = max(bndloc_new(:),bndloc(:))
+      !Store back w/ trap for only earthward
+      bndloc = max(bndloc_new,bndloc)
 
       if (L_write_vars_debug) then
        write(6,*)' smooth_boundary_location, new boundary'
-       write(6,*)bndloc
+       write(6,*) bndloc
       end if
 
       return

@@ -2,10 +2,12 @@
 
 MODULE etautils
   USE kdefs, ONLY : TINY,Me_cgs,Mp_cgs
+  USE rcmdefs
   USE rcm_precision
   USE rice_housekeeping_module
   USE constants, ONLY : mass_proton,mass_electron,nt,ev,tiote,boltz
   USE Rcm_mod_subs, ONLY : kcsize,alamc,ikflavc
+  USE rcm_mhd_interfaces, ONLY : rcmPScl
 
   implicit none
 
@@ -16,6 +18,7 @@ MODULE etautils
   !Kind of hacky limits to Ti/Te ratio
   real(rp), private, parameter :: TioTeMax = 20.0
   real(rp), private, parameter :: TioTeMin = 0.25
+  
   contains
 
   !Set density/pressure factors using planet radius
@@ -246,7 +249,7 @@ MODULE etautils
 
       xp = SQRT(ev*ABS(almmax(k))*vm/boltz/Tk)
       xm = SQRT(ev*ABS(almmin(k))*vm/boltz/Tk)
-      !Use quad prec calc of erf/exp differences
+      !Use quad prec calc of erf/exp differences, Pembroke+ Eqn B5
       eta(k) = erfexpdiff(A0,xp,xm)
       
       !Pressure contribution from this channel
@@ -264,8 +267,18 @@ MODULE etautils
 
     !Now rescale to get desired Pi and Pe
     !NOTE: This will affect density
-    psclI = Pion/prcmI
-    psclE = Pele/prcmE
+    !Check if pressures are above TINY nPa
+    if (prcmI*rcmPScl > TINY) then
+      psclI = Pion/prcmI
+    else
+      psclI = 0.0
+    endif
+
+    if (prcmE*rcmPScl > TINY) then
+      psclE = Pele/prcmE
+    else
+      psclE = 0.0
+    endif
 
     !Loop over channels and rescale      
     do k=klow,kcsize
@@ -273,6 +286,9 @@ MODULE etautils
         eta(k) = psclE*eta(k)
       ELSE IF (ikflavc(k) == RCMPROTON) THEN ! ions (protons)
         eta(k) = psclI*eta(k)
+      ELSE
+        write(*,*) 'Unknown species!'
+        eta(k) = 0.0
       ENDIF
     enddo
 

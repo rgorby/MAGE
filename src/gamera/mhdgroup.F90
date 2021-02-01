@@ -9,8 +9,10 @@ module mhdgroup
     use multifluid
 
     implicit none
-
+    logical, parameter, private :: doBorisGrav = .false.
+    
     contains
+    
 
     subroutine AdvanceMHD(Model,Grid,State,oState,Solver,dt)
         type(Model_T), intent(inout) :: Model
@@ -521,7 +523,7 @@ module mhdgroup
 
         integer :: i,j,k,s,s0,sE
         
-        real(rp) :: Dhf,Dblk
+        real(rp) :: Dhf,Dblk,IntE
         real(rp), dimension(NDIM) :: g,B,bMxyz,cMxyz
         real(rp), dimension(NDIM,NDIM) :: Lam,Laminv
         real(rp), dimension(NVAR) :: pW,pCon
@@ -543,7 +545,7 @@ module mhdgroup
         !Add grav forces
         !$OMP PARALLEL DO default(shared) collapse(2) &
         !$OMP private(s,i,j,k,Dhf,Dblk,bMxyz,cMxyz) &
-        !$OMP private(g,B,Lam,Laminv,pW,pCon)
+        !$OMP private(g,B,Lam,Laminv,pW,pCon,IntE)
         do s=s0,sE
             do k=Gr%ks,Gr%ke
                 do j=Gr%js,Gr%je
@@ -553,27 +555,42 @@ module mhdgroup
                             pCon = State%Gas(i,j,k,1:NVAR,s) !Conserved
                             call CellC2P(Model,pCon,pW) !Primitive
                             Dblk = State%Gas(i,j,k,DEN,BLK) !Bulk density
+                            IntE = pW(PRESSURE)/(Model%gamma-1)
 
-                            !Get average density
+                            !Get average density (species)
                             Dhf = 0.5*( State%Gas(i,j,k,DEN,s) + oState%Gas(i,j,k,DEN,s) )
-                        !Map classical momentum to boris momentum
-                            !NOTE: transform is I if Boris isn't on
-                            cMxyz = pCon(MOMX:MOMZ) !Classical momentum
-                            B = State%Bxyz(i,j,k,:)
-                            call Mom2Rel(Model,Dblk,B,Lam)
-                            bMxyz = matmul(Lam,cMxyz)
-                        !Apply gravitational force to boris momentum
                             g = Gr%gxyz(i,j,k,XDIR:ZDIR)
-                            bMxyz = bMxyz + Model%dt*Dhf*g
-                        !Map updated Boris momentum back to classical
-                            call Rel2Mom(Model,Dblk,B,Laminv)
-                            cMxyz = matmul(Laminv,bMxyz) !Classical momentum
-                        !Set new primitive variables, convert and store
-                            !Only V has changed
-                            pW(VELX:VELZ) = cMxyz/max(pW(DEN),dFloor)
-                            call CellP2C(Model,pW,pCon)
-                            State%Gas(i,j,k,:,s) = pCon
-                        endif
+                            cMxyz = pCon(MOMX:MOMZ) !Classical momentum
+
+                            if (doBorisGrav .and. Model%doBoris) then
+
+                            !Map classical momentum to boris momentum
+                                !NOTE: transform is I if Boris isn't on
+                                
+                                B = State%Bxyz(i,j,k,:)
+                                call Mom2Rel(Model,Dblk,B,Lam)
+                                bMxyz = matmul(Lam,cMxyz)
+                            !Apply gravitational force to boris momentum
+                                
+                                bMxyz = bMxyz + Model%dt*Dhf*g
+                            !Map updated Boris momentum back to classical
+                                call Rel2Mom(Model,Dblk,B,Laminv)
+                                cMxyz = matmul(Laminv,bMxyz) !Classical momentum
+                            !Set new primitive variables, convert and store
+                                !Only V has changed
+                                pW(VELX:VELZ) = cMxyz/max(pW(DEN),dFloor)
+                                call CellP2C(Model,pW,pCon)
+                                State%Gas(i,j,k,:,s) = pCon
+                            else
+                                !Regular update
+                                cMxyz = cMxyz + Model%dt*Dhf*g
+                                !Reset conserved state
+                                pCon(MOMX:MOMZ) = cMxyz
+                                pCon(ENERGY   ) = IntE + 0.5*dot_product(cMxyz,cMxyz)/pCon(DEN)
+                                State%Gas(i,j,k,:,s) = pCon
+                            endif !Classical vs. Boris momentum update
+
+                        endif !RhoMin
                     enddo !i
                 enddo !j
             enddo !k

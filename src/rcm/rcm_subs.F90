@@ -1,7 +1,10 @@
 !
     MODULE Rcm_mod_subs
+    use kdefs, ONLY : PI,Mp_cgs,Me_cgs
     use rcmdefs
     use rcm_precision
+    use clocks
+
     IMPLICIT NONE
     SAVE
 !
@@ -36,8 +39,8 @@
                                qtr          = 0.25_rprec,&
                                machine_eps1 = EPSILON (1.0_rprec), &
                                machine_eps2 = machine_eps1*10_rprec, &
-                               machine_tiny = TINY (one),&
-                               machine_huge = HUGE (one),&
+                               ! machine_tiny = TINY (one),&
+                               ! machine_huge = HUGE (one),&
                                pi_two       = two * pi, &
                                pi_by_two    = pi / two, &
                                rtd          = 180.0_rprec/pi, &
@@ -767,7 +770,7 @@
 !_____________________________________________________________________________
 !
 !
-  
+  call Tic("Move_Plasma") 
   IF (L_move_plasma_grid) THEN
     IF (i_advect == 1) THEN
        CALL Move_plasma_grid  (dt, 1_iprec, isize, j1, j2, 1_iprec)
@@ -783,6 +786,7 @@
        STOP 'ILLEGAL I_ADVECT IN MOVING PLASMA'
     END IF
   END IF
+  call Toc("Move_Plasma")
 !
     RETURN
     END SUBROUTINE Move_plasma
@@ -1450,6 +1454,8 @@
 
 
    IF (icontrol == 4) then  ! run RCM from itimei to itimef with time step idt, quit:
+      call Tic("Main_Loop")
+      
       CALL SYSTEM_CLOCK (timer_start(2), count_rate)
 
       v_avg    = zero
@@ -1488,6 +1494,8 @@
       CALL SYSTEM_CLOCK (timer_stop(2), count_rate)      
       timer_values (2) = (timer_stop (2) - timer_start (2))/count_rate
 
+
+      call Toc("Main_Loop")
 
       RETURN
 
@@ -2056,6 +2064,7 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
   LOGICAL, parameter :: doSuperBee = .false. !Use superbee (instead of minmod/MC)
   
 
+  call Tic("Move_Plasma_Init")
   if (jwrap /= 3) then
     write(*,*) 'Somebody should rewrite this code to not assume that jwrap=3'
     stop
@@ -2130,6 +2139,9 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
   dvmdj = (-2.0/3.0)*(ftv**(-5.0/3.0))*dftvj
   !$OMP END PARALLEL WORKSHARE
 
+  call Toc("Move_Plasma_Init")
+
+  call Tic("Move_Plasma_Adv")
 !---
 !Main channel loop
   !NOTE: T1k/T2k need to be private b/c they're altered by claw2ez
@@ -2148,9 +2160,9 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
     
     !If oxygen is to be added, must change this!
     IF (alamc(kc) <= 0.0) THEN
-      ie = 1  ! electrons
+      ie = RCMELECTRON
     ELSE
-      ie = 2  ! protons
+      ie = RCMPROTON
     END IF
 
     IF (MAXVAL(eeta(:,:,kc)) < machine_tiny) then
@@ -2233,7 +2245,7 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
               lossFLC = FLCRat(ie,alamc(kc),vm(i,j),bmin(i,j),radcurv(i,j),losscone(i,j))
             endif
           endif
-        else
+        else !ie = X
           !Unknown flavor
           write(*,*) 'Unknown flavor, ie = ', ie
         endif !flavor
@@ -2280,6 +2292,8 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
     endif
     
   enddo !Main kc loop
+
+  call Toc("Move_Plasma_Adv")
 
   contains
 
@@ -2806,7 +2820,7 @@ SUBROUTINE Kaiju_Plasmasphere_Refill(eeta0,rmin,aloct,vm,imin_j,idt)
   INTEGER (iprec), intent(in), dimension(jsize) :: imin_j
 
   integer :: i,j
-  REAL (rprec) , parameter :: day2s = 24.0*60.0*60
+  REAL (rprec) , parameter :: day2s = 24.0*60.0*60,s2day=1.0/day2s
   REAL (rprec) :: dppT,dpsph,eta2cc,tau,etaT,deta,dndt
   REAL (rprec) :: dpp0
 
@@ -2819,6 +2833,7 @@ SUBROUTINE Kaiju_Plasmasphere_Refill(eeta0,rmin,aloct,vm,imin_j,idt)
 
       !Closed field line, calculate Berbue+ 2005 density (#/cc)
       dppT = 10.0**(-0.66*rmin(i,j) + 4.89) !Target refilled density [#/cc]
+      
       !Or use Gallagher on nightside w/ currently set default Kp
       !dppT = GallagherRP(rmin(i,j),PI)
 
@@ -2831,14 +2846,23 @@ SUBROUTINE Kaiju_Plasmasphere_Refill(eeta0,rmin,aloct,vm,imin_j,idt)
       if (dpsph >= dppT) cycle !Already above refilling target
 
       etaT = dppT/eta2cc !Target eta for refilling
-      deta = etaT-eeta0(i,j)
 
-      !Using timescale [days] from Denton+ 2012, equation 3
-      !tau = (2.63*day2s)*10**(0.016*rmin(i,j)) !Refilling timescale [s]
-
+      !Now calculate refilling
       dndt = 10.0**(3.48-0.331*rmin(i,j)) !cm^-3/day, Denton+ 2012 eqn 1
-      tau = day2s*(dppT-dpsph)/dndt
-      eeta0(i,j) = eeta0(i,j) + min(idt/tau,1.0)*max(deta,0.0) !Make sure not to overfill but unlikely
+      dndt = (cos(aloct(i,j))+1)*dndt !Bias refilling towards dayside
+      deta = (idt*s2day)*dndt/eta2cc !Change in eta over idt
+      deta = min(deta,etaT-eeta0(i,j)) !Don't overfill
+
+      eeta0(i,j) = eeta0(i,j) + deta
+
+      ! deta = etaT-eeta0(i,j)
+
+      ! !Using timescale [days] from Denton+ 2012, equation 3
+      ! !tau = (2.63*day2s)*10**(0.016*rmin(i,j)) !Refilling timescale [s]
+
+      ! dndt = 10.0**(3.48-0.331*rmin(i,j)) !cm^-3/day, Denton+ 2012 eqn 1
+      ! tau = day2s*(dppT-dpsph)/dndt
+      ! eeta0(i,j) = eeta0(i,j) + min(idt/tau,1.0)*max(deta,0.0) !Make sure not to overfill but unlikely
 
     enddo
   enddo

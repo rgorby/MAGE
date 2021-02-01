@@ -174,34 +174,34 @@
 
        opened = .true.
 
-        if(threed)then
-        do k=1,kdim
-        do j=1,jdim
+        ! if(threed)then
+        ! do k=1,kdim
+        ! do j=1,jdim
 
-         do i=1,idim
-          write(2,21)xe(i,j),ye(i,j),xi(i,j),yi(i,j),zi(i,j),&
-                     pressure(i,j),&
-                     pvg(i,j),eeta(i,j,k),alam(k),&
-                     dens(i,j)/1.0e6,bmin(i,j),&
-                     ti(i,j)*boltz/ev,te(i,j)*boltz/ev,vm(i,j)
-        21 format(14(g12.6,1x))             
-          end do
-         end do
-        end do
-        else
+        !  do i=1,idim
+        !   write(2,21)xe(i,j),ye(i,j),xi(i,j),yi(i,j),zi(i,j),&
+        !              pressure(i,j),&
+        !              pvg(i,j),eeta(i,j,k),alam(k),&
+        !              dens(i,j)/1.0e6,bmin(i,j),&
+        !              ti(i,j)*boltz/ev,te(i,j)*boltz/ev,vm(i,j)
+        ! 21 format(14(g12.6,1x))             
+        !   end do
+        !  end do
+        ! end do
+        ! else
 
-        do j=1,jdim
-         k = 1
-         do i=1,idim
-          write(2,11)xe(i,j),ye(i,j),xi(i,j),yi(i,j),zi(i,j),&
-                     pressure(i,j),&
-                     pvg(i,j),eeta(i,j,k),alam(k),&
-                     dens(i,j)/1.0e6,bmin(i,j),&
-                     ti(i,j)*boltz/ev,te(i,j)*boltz/ev,vm(i,j)
-        11 format(13(g12.6,1x))             
-          end do
-         end do
-        end if
+        ! do j=1,jdim
+        !  k = 1
+        !  do i=1,idim
+        !   write(2,11)xe(i,j),ye(i,j),xi(i,j),yi(i,j),zi(i,j),&
+        !              pressure(i,j),&
+        !              pvg(i,j),eeta(i,j,k),alam(k),&
+        !              dens(i,j)/1.0e6,bmin(i,j),&
+        !              ti(i,j)*boltz/ev,te(i,j)*boltz/ev,vm(i,j)
+        ! 11 format(13(g12.6,1x))             
+        !   end do
+        !  end do
+        ! end if
 
         if(.not.onefile)then
                 opened=.false.
