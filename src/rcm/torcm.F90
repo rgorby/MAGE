@@ -58,7 +58,8 @@ MODULE torcm_mod
 
       IMPLICIT NONE
       type(rcm_mhd_T),intent(inout) :: RM
-      INTEGER(iprec), INTENT (IN) :: itimei,icontrol
+      REAL(rprec), INTENT (IN) :: itimei
+      INTEGER(iprec), INTENT (IN) :: icontrol
       INTEGER(iprec), INTENT (IN OUT) :: ierr
 
       INTEGER(iprec) :: kin,jmid,ibnd, inew, iold

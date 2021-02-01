@@ -40,7 +40,7 @@ MODULE rice_housekeeping_module
              L_write_tracing_debug = .false., &
              L_write_vars_debug    = .false.
   
-  INTEGER(iprec) :: Idt_overwrite         = 1
+  INTEGER(iprec) :: nStep = 4
   INTEGER(iprec) :: rcm_record
   REAL(rprec) :: HighLatBD,LowLatBD
   LOGICAL :: doLatStretch = .true.
@@ -75,37 +75,37 @@ MODULE rice_housekeeping_module
 
   CONTAINS
   
-      SUBROUTINE Read_rcm_mhd_params
+!      SUBROUTINE Read_rcm_mhd_params
 
-      IMPLICIT NONE
+!      IMPLICIT NONE
 
-      INTEGER, PARAMETER :: Lun = 10
-      LOGICAL :: L_flag
+!      INTEGER, PARAMETER :: Lun = 10
+!      LOGICAL :: L_flag
 
-      INQUIRE (FILE='rcm_mhd.params',EXIST=L_flag)
+!      INQUIRE (FILE='rcm_mhd.params',EXIST=L_flag)
 
-      IF (.NOT.L_flag) THEN
-         WRITE (*,*) ' RCM_MHD: no rcm_mhd.params file found, default values will be used'
+!      IF (.NOT.L_flag) THEN
+!         WRITE (*,*) ' RCM_MHD: no rcm_mhd.params file found, default values will be used'
 
-      ELSE
-         OPEN (LUN, FILE='rcm_mhd.params', STATUS='OLD')
-         READ (LUN,*) L_write_rcmu_torcm
-         READ (LUN,*) L_write_rcmu
-         READ (LUN,*) L_write_vars_debug
-         READ (LUN,*) Idt_overwrite
-         READ (LUN,*) rcm_tilted
-      END IF
+!      ELSE
+!         OPEN (LUN, FILE='rcm_mhd.params', STATUS='OLD')
+!         READ (LUN,*) L_write_rcmu_torcm
+!         READ (LUN,*) L_write_rcmu
+!         READ (LUN,*) L_write_vars_debug
+!         READ (LUN,*) Idt_overwrite
+!         READ (LUN,*) rcm_tilted
+!      END IF
 
-      WRITE (*,*)
-      WRITE (*,'(A,L7)') ' RCM_MHD:  rcmu_torcm.dat file      (in TORCM) will be written?_____', L_write_rcmu_torcm
-      WRITE (*,'(A,L7)') ' RCM_MHD:  rcmu.dat  file      (in TOMHD) will be written?_____', L_write_rcmu    
-      WRITE (*,'(A,L7)') ' RCM_MHD:  debug vars print to stdout (in TORCM,TOMHD)   ?_____', L_write_vars_debug
-      WRITE (*,'(A,I5)') ' RCM_MHD:  Internal RCM time step (in s)  will be set to ?_____', Idt_overwrite
-      WRITE (*,'(A,L7)') ' RCM_MHD:  Running RCM in tilted mode   ?______________________',rcm_tilted
-      WRITE (*,*)
+!      WRITE (*,*)
+!      WRITE (*,'(A,L7)') ' RCM_MHD:  rcmu_torcm.dat file      (in TORCM) will be written?_____', L_write_rcmu_torcm
+!      WRITE (*,'(A,L7)') ' RCM_MHD:  rcmu.dat  file      (in TOMHD) will be written?_____', L_write_rcmu    
+!      WRITE (*,'(A,L7)') ' RCM_MHD:  debug vars print to stdout (in TORCM,TOMHD)   ?_____', L_write_vars_debug
+!      WRITE (*,'(A,I5)') ' RCM_MHD:  Internal RCM time step (in s)  will be set to ?_____', Idt_overwrite
+!      WRITE (*,'(A,L7)') ' RCM_MHD:  Running RCM in tilted mode   ?______________________',rcm_tilted
+!      WRITE (*,*)
 
-      RETURN
-      END SUBROUTINE Read_rcm_mhd_params
+!      RETURN
+!      END SUBROUTINE Read_rcm_mhd_params
 
       !Get RCM params from Kaiju-style XML file
       subroutine RCM_MHD_Params_XML(iXML)
@@ -164,7 +164,8 @@ MODULE rice_housekeeping_module
         call xmlInp%Set_Val(doSmoothIJ,"tomhd/doSmoothIJ",doSmoothIJ)
 
         !Advance parameters
-        call xmlInp%Set_Val(Idt_overwrite,"sim/idt",Idt_overwrite)
+        !call xmlInp%Set_Val(Idt_overwrite,"sim/idt",Idt_overwrite)
+        call xmlInp%Set_Val(nStep,"sim/nStep", nStep)
 
       end subroutine RCM_MHD_Params_XML
 
