@@ -43,15 +43,16 @@ module rcm_mhd_mod
                                !! define as integer to avoid compile error.
 
 
-        integer(iprec) :: itimei !> RCM(...) param:  start time
-        integer(iprec) :: itimef !> RCM(...) param:  end time
-        real(rprec) :: time0 = 0 ! coupling start time
-        integer(iprec) :: ircm_dt
-        integer(iprec) :: itimef_old = -1
-        integer(iprec) :: idt   !> RCM(...) param:  basic time step in program
-        integer(iprec) :: idt1  !> RCM(...) param:  time step for
+        real(rprec) :: itimei !> RCM(...) param:  start time   sbaotime
+        real(rprec) :: itimef !> RCM(...) param:  end time
+        real(rprec) :: time0 = 0. ! coupling start time
+        real(rprec) :: ircm_dt
+        real(rprec) :: itimef_old = -1
+        integer(iprec) :: nstep   !> RCM(...) param:  number of sub-time steps in program
+        !integer(iprec) :: idt   !> RCM(...) param:  basic time step in program
+        !real(rprec) :: idt1  !> RCM(...) param:  time step for
                               !! changing disk & write records
-        integer(iprec) :: idt2  !> RCM(...) param:  time step for
+        !real(rprec) :: idt2  !> RCM(...) param:  time step for
                               !! writting formatted output
 
         real(rprec) :: t1, t2  !> Used for performance timing
@@ -64,15 +65,15 @@ module rcm_mhd_mod
         !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
         ! bypass for now
-        time0 = 0 ! FIXME set for now
+        time0 = 0. ! FIXME set for now
 
-        IsCoupledExternally = .TRUE.  ! switch RCM to "coupled" mode before doing anything else
+!        IsCoupledExternally = .TRUE.  ! switch RCM to "coupled" mode before doing anything else
 
-        if (doRCMVerbose) write (*,'(TR1,A,L7)') 'Welcome to the RCM, IsCoupledExternally=', IsCoupledExternally
+        !if (doRCMVerbose) write (*,'(TR1,A,L7)') 'Welcome to the RCM, IsCoupledExternally=', IsCoupledExternally
         
         ! setup rcm,time in integer format
-        itimei = floor(mhdtime-time0,iprec)
-        itimef = floor(mhdtime + mhdtimedt-time0,iprec)
+        itimei = mhdtime   !floor(mhdtime-time0,iprec)
+        itimef = mhdtime + mhdtimedt !floor(mhdtime + mhdtimedt-time0,iprec)
         ircm_dt = itimef - itimei
   
     ! finish up
@@ -82,13 +83,13 @@ module rcm_mhd_mod
 
     ! Write restart file
         if (iflag==RCMWRITERESTART) then
-            CALL Rcm (itimei, itimef, idt, idt1, idt2,icontrol=ICONWRITERESTART,stropt=RM%rcm_runid,nslcopt=RM%RCM_nRes)
+            CALL Rcm (itimei, itimef, nstep, icontrol=ICONWRITERESTART,stropt=RM%rcm_runid,nslcopt=RM%RCM_nRes)
             return
         endif
 
     ! Write output slice
         if (iflag==RCMWRITEOUTPUT) then
-            CALL Rcm (itimei, itimef, idt, idt1, idt2,icontrol=ICONWRITEOUTPUT,stropt=RM%rcm_runid,nslcopt=RM%RCM_nOut)
+            CALL Rcm (itimei, itimef, nstep, icontrol=ICONWRITEOUTPUT,stropt=RM%rcm_runid,nslcopt=RM%RCM_nOut)
             return
         endif
 
@@ -106,7 +107,7 @@ module rcm_mhd_mod
             endif
 
             ! setup rcm
-            CALL Rcm (itimei, itimef, idt, idt1, idt2,icontrol=0_iprec)
+            CALL Rcm (itimei, itimef, nstep, icontrol=0_iprec)
 
             call allocate_conversion_arrays (isize,jsize,kcsize)
             
@@ -114,10 +115,10 @@ module rcm_mhd_mod
             ! Setup Ionosphere intermediate Grid by equating it to the RCM grid, without angular overlap:
             call setupIon(RM)
 
-            CALL Rcm (itimei, itimef, idt, idt1, idt2, icontrol=1_iprec)
+            CALL Rcm (itimei, itimef, nstep, icontrol=1_iprec)
 
             ! icontrol of 2 also needs the input xml file
-            CALL Rcm (itimei, itimef, idt, idt1, idt2, icontrol=2_iprec, iXML=iXML)
+            CALL Rcm (itimei, itimef, nstep, icontrol=2_iprec, iXML=iXML)
 
             if (iflag == RCMINIT) then
                 exchangeNum = 0
@@ -127,8 +128,8 @@ module rcm_mhd_mod
             if (iflag == RCMRESTART) then
 
                 !Read in HDF5 restart data
-                CALL Rcm (itimei, itimef,idt, idt1, idt2,icontrol=ICONRESTART,stropt=RM%rcm_runid,nslcopt=RM%RCM_nRes)
-                exchangeNum = itimef/(itimef-itimei)
+                CALL Rcm (itimei, itimef, nstep, icontrol=ICONRESTART,stropt=RM%rcm_runid,nslcopt=RM%RCM_nRes)
+                exchangeNum = floor(itimef/(itimef-itimei)) ! Need to find another way of calculating exchangeNum
 
                 return
             endif !restart
@@ -153,32 +154,33 @@ module rcm_mhd_mod
                 write(*,*) 'itimei = ', itimei
                 write(*,*) 'exchangeNum = ', exchangeNum
                 WRITE (*,'(//)')
-                write (*,'(a,i6,a,g12.4,a,i4)') 'RCM: time=',itimei,'  time0=',time0, '  Delta_t[s]=',ircm_dt
-                write (*,'(a,i6,a,g12.4)') 'RCM: _T_rcm[s] =', itimei, ' T_MHD=',mhdtime
+                write (*,'(a,f12.4,a,f12.4,a,i4)') 'RCM: time=',itimei,'  time0=',time0, '  Delta_t[s]=',ircm_dt
+                write (*,'(a,i6,a,f12.4)') 'RCM: _T_rcm[s] =', itimei, ' T_MHD=',mhdtime
                 WRITE (*,'(//)')
             endif
          
-            idt = Idt_overwrite ! RCM internal time step in seconds
+            !idt = real(Idt_overwrite) ! RCM internal time step in seconds
             ! Frequency (in seconds) to change disk & write records
-            idt1 = itimef - itimei
+            ! idt1 = itimef - itimei
 
-            !Ensure no problem w/ RCM's integer time
-            !idt must divide advance time
-            if ( (mod(idt1,idt)) /= 0) then
-                write(*,*) 'RCM Integer Time Divisibility Error ...'
-                stop
-            endif
+            !!!Ensure no problem w/ RCM's integer time
+            !!idt must divide advance time
+            !if ( (mod(idt1,idt)) /= 0) then
+            !    write(*,*) 'RCM Integer Time Divisibility Error ...'
+            !    stop
+            !endif
 
             ! Frequency (in seconds) to write formatted output
-            idt2 = idt1
+            !idt2 = idt1
 
             ! now round to to fit the correct number rcm timesteps
-            itimef = itimei + idt *((itimef-itimei)/idt)
+            !itimef = itimei + idt *((itimef-itimei)/idt)
+            nstep = nStep 
             itimef_old = itimef
 
 
             if (isFirstExchange) then ! Set RCM initial conditions on plasma:
-                call rcm (itimei, itimef, idt, idt1, idt2, icontrol=3_iprec)
+                call rcm (itimei, itimef, nstep, icontrol=3_iprec)
             end if
 
 
@@ -188,7 +190,7 @@ module rcm_mhd_mod
 
             call cpu_time(t1)
             if (doRCMVerbose) then
-                write(6,'(2(a,i6))')'RCM: calling torcm with  itimei=',itimei,' iflag=',iflag
+                write(6,'(a,f12.4,a,i6)')'RCM: calling torcm with  itimei=',itimei,' iflag=',iflag
                 call print_date_time(6_iprec)
             endif
 
@@ -211,19 +213,19 @@ module rcm_mhd_mod
 
             call cpu_time(t1)
             if (doRCMVerbose) then 
-                write(6,'(a,i6,a,i6,a,i5,a)')'RCM: call rcm at itimei =',itimei,' to itimef =',itimef,' dt=',ircm_dt, ' sec'
+                write(6,'(a,f12.4,a,f12.4,a,i5,a)')'RCM: call rcm at itimei =',itimei,' to itimef =',itimef,' dt=',ircm_dt, ' sec'
                 call print_date_time(6_iprec)
             endif
 
             ! now run the rcm
             call Tic("xRCMx")
-            call rcm (itimei, itimef, idt, idt1, idt2, icontrol=4_iprec,stropt=RM%rcm_runid,nslcopt=RM%RCM_nOut)
+            call rcm (itimei, itimef, nstep, icontrol=4_iprec,stropt=RM%rcm_runid,nslcopt=RM%RCM_nOut)
             call Toc("xRCMx")
 !            rec = rec + 1 ! update record after rcm has run
 
             call cpu_time(t2)
             if (doRCMVerbose) then
-                write(*,'(a,g14.4,a)')'RCM_MHD:   rcm cpu time= ',t2-t1,' seconds'
+                write(*,'(a,f12.4,a)')'RCM_MHD:   rcm cpu time= ',t2-t1,' seconds'
                 call print_date_time(6_iprec)
             endif
 
@@ -254,7 +256,7 @@ module rcm_mhd_mod
         end if
 
         if (iflag==RCMRESTART)then ! stop
-            call rcm (itimei,itimef,idt,idt1,idt2,icontrol=5_iprec)
+            call rcm (itimei,itimef,nstep,icontrol=5_iprec)
             !  call Finalize()    ! Matches Initialize() above
             call tearDownIon(RM) ! Matches setupIon() above
         end if

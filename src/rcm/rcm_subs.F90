@@ -9,7 +9,7 @@
     SAVE
 !
 !
-    INTEGER, PARAMETER :: LUN = 11, LUN_2 = 12, LUN_3 = 13
+    INTEGER, PARAMETER :: LUN = 11 !, LUN_2 = 12, LUN_3 = 13
 !    INTEGER, PARAMETER :: iprec = SELECTED_INT_KIND (9)
 !    INTEGER, PARAMETER :: rprec = SELECTED_REAL_KIND (6,37)
 ! use gamera precision
@@ -98,6 +98,7 @@
 !
     LOGICAL ::  L_move_plasma_grid = .TRUE.
     LOGICAL ::  L_doOMPClaw        = .FALSE.
+    LOGICAL ::  L_doOMPprecip      = .FALSE.
 !
 !
 !   Plasma on grid:
@@ -161,7 +162,7 @@
  
     INCLUDE 'rcmdir.h'
 
-    Logical :: IsCoupledExternally = .false.  ! flag to determine if RCM is standalone or not
+!    Logical :: IsCoupledExternally = .false.  ! flag to determine if RCM is standalone or not
 
     ! Variables for internal RCM timing:
     INTEGER(iprec) :: timer_start(10) = 0, timer_stop(10) = 0, count_rate
@@ -190,40 +191,26 @@
 !
 !
 !
-      SUBROUTINE Comput (jtime, dt )
+!      SUBROUTINE Comput (jtime, dt )
+      SUBROUTINE Comput ()
       IMPLICIT NONE
-      INTEGER (iprec), INTENT (IN) :: jtime
-      REAL (rprec),    INTENT (IN) :: dt
+!      INTEGER (iprec), INTENT (IN) :: jtime
+!      REAL (rprec),    INTENT (IN) :: dt
 !
       INTEGER (iprec) :: j
       REAL (rprec)  ::  a(3), b(3), dx(3), dy(3), deqdt
 !
 !
-      IF (IsCoupledExternally) then
-         vdrop = (MAXVAL(vbnd) - MINVAL(vbnd))/1.0E+3
-         vdrop_phase = 0.0
-      ELSE
-         vdrop = Get_vdrop    (ivtime,  vinput,  jtime)
-         vdrop_phase = Get_vdrop_phase    (ivtime,  vinput_phase,  jtime)
-      END IF
-      IF (i_eta_bc == 1) THEN
-!        DO NOTHING
-      ELSE IF (i_eta_bc == 2) THEN
-!        DO NOTHING
-      ELSE 
-         STOP 'ILLEGAL VALUE OF I_eta_bc'
-      END IF
       IF (i_birk == 1) THEN
          CALL Get_jbirk
       ELSE IF (i_birk == 2) THEN
          stop 'do not use'
       ELSE IF (i_birk ==3) THEN
          CALL Get_jbirk2
-
       ELSE
           STOP 'ILLEGAL VALUE OF BIRK'
       END IF
-      CALL Get_vparallel ()
+      CALL diffusePrecip ()
 !
 !
       IF (ibnd_type == 4) THEN
@@ -241,93 +228,6 @@
 !
 !
 !- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-!
-!
-      FUNCTION Get_vdrop (ivtime, vinput, jtime)
-      IMPLICIT NONE
-      INTEGER (iprec), INTENT (IN) :: jtime, ivtime(:)
-      REAL (rprec), INTENT (IN) :: vinput (:)
-      REAL (rprec) :: Get_vdrop
-!                                                                       
-!-------------------------------------------------------------
-!     Subroutine to specify total cross-polar-cap potential drop
-!     vdrop (in kV) at time jtime.  this is accomplished by
-!     interpolating vinput in time.
-!     rws     3/20/97
-!     If jtime <= ivtime(1) then vdrop = vinput(1)
-!     If jtime >  ivtime(nvmax) then vdrop = vinput(nvmax)
-!     all other cases--interpolated.
-!-------------------------------------------------------------
-!
-      INTEGER (iprec) :: nv, nvmax
-      REAL (rprec)    :: f
-!
-      nvmax = SIZE (vinput)
-      DO nv = 1, nvmax 
-         IF (jtime <= ivtime (nv) ) THEN 
-            IF (nv == 1) THEN 
-               Get_vdrop = vinput (1)
-               RETURN 
-            ELSE 
-               f = REAL(jtime-ivtime(nv-1),rprec) / &
-                   REAL(ivtime(nv)-ivtime(nv-1), rprec)
-               Get_vdrop = (one - f) * vinput(nv-1) + f * vinput(nv)
-               RETURN 
-            END IF 
-         END IF 
-      END DO 
-      Get_vdrop = vinput (nvmax)
-!
-      RETURN 
-      END FUNCTION Get_vdrop
-!
-!- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-!
-!
-      FUNCTION Get_vdrop_phase (ivtime, vinput_phase, jtime)
-      IMPLICIT NONE
-      INTEGER (iprec), INTENT (IN) :: jtime, ivtime(:)
-      REAL (rprec), INTENT (IN) :: vinput_phase (:)
-      REAL (rprec) :: Get_vdrop_phase
-!                                                                       
-!-------------------------------------------------------------
-!     Subroutine to specify total cross-polar-cap potential drop
-!     vdrop (in kV) at time jtime.  this is accomplished by
-!     interpolating vinput in time.
-!     rws     3/20/97
-!     If jtime <= ivtime(1) then vdrop = vinput(1)
-!     If jtime >  ivtime(nvmax) then vdrop = vinput(nvmax)
-!     all other cases--interpolated.
-!-------------------------------------------------------------
-!
-      INTEGER (iprec) :: nv, nvmax
-      REAL (rprec)    :: f
-!
-      nvmax = SIZE (vinput_phase)
-      DO nv = 1, nvmax 
-         IF (jtime <= ivtime (nv) ) THEN 
-            IF (nv == 1) THEN 
-               Get_vdrop_phase = vinput_phase (1)
-               RETURN 
-            ELSE 
-               f = REAL(jtime-ivtime(nv-1),rprec) / &
-                   REAL(ivtime(nv)-ivtime(nv-1), rprec)
-               Get_vdrop_phase = (one - f) * vinput_phase(nv-1) + f * vinput_phase(nv)
-               RETURN 
-            END IF 
-         END IF 
-      END DO 
-      Get_vdrop_phase = vinput_phase (nvmax)
-!
-      RETURN 
-      END FUNCTION Get_vdrop_phase
-!
-! - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-!
-!
-!
-!
-! - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 !
 !
       SUBROUTINE Get_jbirk ( )
@@ -389,6 +289,14 @@
           dvmdj = 0.0
       END WHERE
 !
+
+      !$OMP PARALLEL DO if (L_doOMPprecip) &
+      !$OMP schedule(dynamic) &
+      !$OMP DEFAULT (NONE) &
+      !$OMP PRIVATE(i,j,kc) &
+      !$OMP PRIVATE(dbirk) &
+      !$OMP SHARED(j1,j2,i2,imin_j,alamc,dlam,dpsi,Ri) &
+      !$OMP SHARED(alpha,beta,detadi,detadj,dvmdj,dvmdi,eeta,birk) 
       DO kc = 1, kcsize
 !
          detadi = Deriv_i (eeta (:,:,kc), imin_j)
@@ -398,6 +306,7 @@
            detadj = 0.0
          END WHERE
 !
+
          DO  j = j1, j2 
             DO  i = imin_j(j)+1, i2
 !              IF (i < imin_j(j) + 3) CYCLE
@@ -542,7 +451,118 @@
 !
 !
 !*************************************************************************
+!
+!
 
+      SUBROUTINE diffusePrecip ()
+      IMPLICIT NONE
+
+!--------------------------------------------------------------------------
+! sbao 01/2021
+! This subroutine calculates diffuse electron precipitation, adapted from Get_vparallel
+
+      INTEGER (iprec) :: i, j, ie, iedim_local, kc
+      REAL (rprec)    :: en, ekt, therm, sum1 (iesize), sum2 (iesize)
+!                                                                       
+!
+!                                  
+      iedim_local = 2
+!
+      vpar  (:,:)   = zero
+      eavg  (:,:,:) = zero
+      eflux (:,:,:) = zero
+
+
+      !$OMP PARALLEL DO if (L_doOMPprecip) &
+      !$OMP schedule(dynamic) &
+      !$OMP DEFAULT (NONE) &
+      !$OMP PRIVATE(i,j,kc,ie,sum1,sum2) &
+      !$OMP PRIVATE(en,ekt,therm) &
+      !$OMP SHARED(j1,j2,iedim_local,imin_j,alamc,eeta,vpar,vm,fudgec,birk,eflux,eavg) 
+
+      loop_j: DO j = j1, j2
+      loop_i: DO i = imin_j(j), isize
+!
+!           For each grid point, clear sum1 and sum2:
+!
+            sum1 (1:iedim_local) = zero
+            sum2 (1:iedim_local) = zero
+!
+!
+!           Now for each grid point, consider all species
+!           present at that grid point, and compute sum1 and
+!           sum2 for positive and negative particles separately:
+!
+            GRID_BASED: DO kc = 1, kcsize
+            ! IF ( ABS(alamc(kc))*vm(i,j) > 500.0_rprec) THEN
+              IF (alamc (kc) < zero) THEN
+                 ie = 1 
+              ELSE 
+                 ie = 2 
+!              STOP 'BALGN4: ie is 2'
+              END IF
+              sum1(ie) = sum1(ie) + eeta(i,j,kc)*fudgec(kc)
+              sum2(ie) = sum2(ie) + eeta(i,j,kc)*fudgec(kc)*ABS(alamc(kc))
+             !END IF
+            END DO GRID_BASED 
+!
+!           For positive and negative particles separately,
+!           compute precipitating number flux, average energy,
+!           and parallel potential drop:
+!
+            DO ie = 1, iedim_local 
+!                                                                       
+               IF (sum1 (ie) > 10.*machine_tiny) THEN  ! zero  sbao 07/2019
+!
+!                compute thermal electron current, field-aligned
+!                potential drop, electron energy flux,
+!                and average electron energy at (i,j):          
+!
+                  en    = sum1 (ie) * vm (i, j)**1.5 / 6.38E+21
+                  ekt   = (two/three) * sum2 (ie) * vm (i,j) / sum1 (ie)
+                  therm = 0.02675 * en * SQRT(ekt*xmass(1)/xmass(ie))
+!
+                  IF (therm < 1.E-30) therm = zero
+
+                  eflux(i,j,ie) = 0.002 * therm * ekt 
+                  eavg(i,j,ie) = two*ekt
+                  ! sbao 6/19 detect Nan 
+                  if (ISNAN(eflux(i,j,ie)))then
+                       if (.not. doQuietRCM) write(*,*)'eflux,i,j,therm,ekt,vpar,sum1,sum2,vm',eflux(i,j,ie),i,j,therm,ekt,sum1(ie),sum2(ie),vm(i,j)
+                       eflux(i,j,ie) = 0.0
+                       eavg(i,j,ie) = 0.0
+                  end if
+
+               ELSE 
+!                                                                       
+!                 Case fudge=0: we want eflux=0 and eavg=0 for no precipitation.
+!
+                  eflux (i, j, ie) = zero
+                  eavg  (i, j, ie) = zero
+!
+               END IF 
+               ! corrections to eavg at eflux(i,j) == 0.0     sbao 07/2019 
+               ! == does not work well with real number, use lt threshold instead. ldong 04/2020
+               IF (eflux(i,j,ie) .lt. 0.01) eavg(i,j,ie) = 0.0
+               IF (eavg(i,j,ie) .lt. 0.01) eflux(i,j,ie) = 0.0
+!                                                                       
+            END DO
+!
+      END DO loop_i
+      END DO loop_j 
+!                                                                       
+!
+!
+      CALL Circle (eflux (:, :, ie_el))
+      CALL Circle (eavg  (:, :, ie_el))
+      CALL Circle (eflux (:, :, ie_hd))
+      CALL Circle (eavg  (:, :, ie_hd))
+!
+      RETURN
+      END SUBROUTINE diffusePrecip
+!
+!
+!==============================================================================
 !
 !
       SUBROUTINE Get_vparallel ()
@@ -588,7 +608,8 @@
       vpar  (:,:)   = zero
       eavg  (:,:,:) = zero
       eflux (:,:,:) = zero
-!
+
+
       loop_j: DO j = j1, j2
       loop_i: DO i = imin_j(j), isize
 !
@@ -797,7 +818,7 @@
     INTEGER (iprec) :: i, j, kc, ie, i_1, i_2, j_1, j_2
     LOGICAL :: pt_1_1, pt_1_2, pt_2_1, pt_2_2
 !
-real :: v_1_1, v_1_2, v_2_1, v_2_2
+	real :: v_1_1, v_1_2, v_2_1, v_2_2
 !
     DO kc = 1, kcsize
 !
@@ -924,6 +945,11 @@ real :: v_1_1, v_1_2, v_2_1, v_2_2
       imax = SIZE (r, DIM = 1)
       jmax = SIZE (r, DIM = 2)
       jlast = jmax - jwrap 
+      
+      !$OMP PARALLEL DO if (L_doOMPprecip) &
+      !$OMP DEFAULT (NONE) &
+      !$OMP PRIVATE(i,j) &
+      !$OMP SHARED(jlast,imax,jmax,r)
       DO i = 1, imax 
         DO  j = 1, jwrap - 1
           r (i, j) = r (i, jlast + j)
@@ -944,7 +970,12 @@ real :: v_1_1, v_1_2, v_2_1, v_2_2
       INTEGER (iprec) :: jlast, j, jmax
 !
       jmax = SIZE (r, DIM = 1)
-      jlast = jmax - jwrap 
+      jlast = jmax - jwrap
+
+      !$OMP PARALLEL DO if (L_doOMPprecip) &
+      !$OMP DEFAULT (NONE) &
+      !$OMP PRIVATE(j) &
+      !$OMP SHARED(jlast,r)
       DO  j = 1, jwrap - 1
         r (j) = r (jlast + j)
       END DO
@@ -1020,122 +1051,6 @@ real :: v_1_1, v_1_2, v_2_1, v_2_2
     END FUNCTION Eta_lambda_vgamma
 !
 !
-!
-! - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-!
-!
-      SUBROUTINE Read_qtcond ()
-      IMPLICIT NONE
-      INTEGER (iprec) :: n, i, j
-      CHARACTER (LEN=80) :: form_string
-      LOGICAL, SAVE :: called_already = .FALSE.
-!
-      IF (called_already) RETURN
-!
-      OPEN (UNIT = LUN, STATUS = 'OLD', FORM = 'FORMATTED', &
-            FILE = rcmdir//'rcmcond', ACTION = 'READ') 
-!
-        READ (LUN, '(I10.10)') n
-        IF (n /= isize*jsize) STOP 'sizes do not match in qtcond'
-        READ (LUN,'(A80)') form_string
-        DO j = 1, jsize
-        DO i = 1, isize
-           READ (LUN,form_string) qtplam(i,j), qthall(i,j), qtped(i,j)
-        END DO
-        END DO
-!
-!
-        READ (LUN, '(I10.10)') n
-        IF (n /= jsize) STOP 'sizes do not match in qtcond'
-        READ (LUN,'(A80)') form_string
-        DO j = 1, jsize
-           READ (LUN,form_string) ss(j)
-        END DO
-!
-      CLOSE (LUN)
-      called_already = .TRUE.
-      RETURN
-      END SUBROUTINE Read_qtcond
-!
-!
-!
-!
-      SUBROUTINE Write_qtcond
-      IMPLICIT NONE
-      INTEGER (iprec) :: n, i, j
-      CHARACTER (LEN=80) :: form_string
-!
-      OPEN (LUN, FILE = rcmdir//'rcmcond', FORM = 'FORMATTED', STATUS = 'REPLACE')
-!
-        form_string = '(3(TR2,ES23.15))'
-        WRITE (LUN,'(I10.10)') SIZE(qtplam)
-        WRITE (LUN,'(A80)') form_string
-        DO j = 1, jsize
-        DO i = 1, isize
-           WRITE (LUN,form_string) qtplam(i,j), qthall(i,j), qtped(i,j)
-        END DO
-        END DO
-!
-        form_string = '(1(TR2,ES23.15))'
-        WRITE (LUN, '(I10.10)') SIZE(ss)
-        WRITE (LUN,'(A80)') form_string
-        DO j = 1, jsize
-           WRITE (LUN,form_string) ss(j)
-        END DO
-!
-      CLOSE (LUN)
-!
-      RETURN
-      END SUBROUTINE Write_qtcond
-!
-! - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-!
-!
-      SUBROUTINE Read_vdrop ()
-      IMPLICIT NONE
-!_____________________________________________________________________________
-!
-!     Subroutine to read cross polar cap potential drops
-!     and place them in vinput array.  Times are stored in
-!     ivtime array.  nvmax is actual number of potential drop
-!     values.  These results are used in subroutine getv to
-!     interpolate in time to get potential at any time of
-!     interest.
-!     rws  03-20-97
-!_____________________________________________________________________________
-!
-      INTEGER (iprec) :: nv, nvmax
-      LOGICAL         :: logical_flag
-      LOGICAL, SAVE   :: called_already = .FALSE.
-!
-      IF (called_already) RETURN
-!
-      INQUIRE (FILE = rcmdir//'rcmpcp_inp', EXIST = logical_flag)
-      IF (.NOT.logical_flag ) STOP 'READV: RCMPCP_INP not found'
-      INQUIRE (UNIT = LUN, OPENED = logical_flag)
-      IF (logical_flag) STOP 'READV: LUN is already open'
-!
-      OPEN (UNIT = LUN, STATUS = 'OLD', FILE = rcmdir//'rcmpcp_inp')
-      nvmax = 0
-      DO
-         READ (LUN,*, END = 19 )
-         nvmax = nvmax + 1
-      END DO
-  19  CLOSE (UNIT = LUN)
-!
-      ALLOCATE (ivtime (nvmax), vinput (nvmax), vinput_phase(nvmax) )
-!
-      OPEN (UNIT = LUN, STATUS ='OLD', FILE = rcmdir//'rcmpcp_inp') 
-      DO nv = 1, nvmax
-         READ (LUN, *) ivtime (nv), vinput (nv), vinput_phase(nv)
-      END DO
-      CLOSE (UNIT = LUN)
-      called_already = .TRUE.
-!
-      RETURN 
-      END SUBROUTINE Read_vdrop
-!
-!
 ! - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 !
 !
@@ -1170,9 +1085,6 @@ real :: v_1_1, v_1_2, v_2_1, v_2_2
      END IF
      RETURN
      END FUNCTION Lt_from_aloct
-!
-!
-!
 !
 !
 !- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -1411,9 +1323,7 @@ real :: v_1_1, v_1_2, v_2_1, v_2_2
 !
 !
 !
-
-      SUBROUTINE Rcm (itimei_in, itimef_in,&
-                      idt_in, idt1_in, idt2_in, icontrol,stropt,nslcopt,iXML)
+       SUBROUTINE Rcm (itimei_in, itimef_in, nstep_in, icontrol, stropt, nslcopt, iXML)
 !---------------------------------------------
 ! notes
 !     icontrol controls behaviour of the RCM
@@ -1432,9 +1342,11 @@ real :: v_1_1, v_1_2, v_2_1, v_2_2
       IMPLICIT NONE
 !
       type(XML_Input_T), intent(in), optional :: iXML
-      INTEGER (iprec), INTENT (IN) :: itimei_in, itimef_in, &
-                                      idt_in, idt1_in,& 
-                                      idt2_in, icontrol
+      REAL (rprec), INTENT (IN) :: itimei_in, itimef_in    !, &   
+                                      !idt_in, idt1_in,& 
+                                      !idt2_in, 
+      INTEGER (iprec), INTENT (IN) :: nstep_in
+      INTEGER (iprec), INTENT (IN) :: icontrol
       character(len=*), intent(in), optional :: stropt
       integer(iprec)  , intent(in), optional :: nslcopt
       CHARACTER(LEN=8) :: real_date
@@ -1444,22 +1356,19 @@ real :: v_1_1, v_1_2, v_2_1, v_2_2
       LOGICAL :: FD, logical_flag
 !                                                                       
 !
-      INTEGER (iprec), SAVE :: itimei, itimef, idt, idt1, idt2 
-      INTEGER (iprec), SAVE :: itout1, itout2,  itcln, idebug, i_time, &
-                         k, kc, n, i_avg
+      REAL (rprec), SAVE :: itimei, itimef      !, idt, idt1, idt2 
+!      REAL (rprec), SAVE :: itout1, itout2,  itcln,  i_time
+      INTEGER (iprec), SAVE :: idebug, k, kc, n, nstep
+      INTEGER (iprec) :: i_avg, i_step
       REAL (rprec) :: dt
+      REAL (rprec), PARAMETER :: tinyT = 1e-6     !10.0*machine_tiny 
 
 
       CALL SYSTEM_CLOCK (timer_start(1), count_rate)
 
-
-      IF (IsCoupledExternally) then
-       itimef = itimef_in
-       itimei = itimei_in
-       idt    = idt_in
-       idt1   = idt1_in
-       idt2   = idt2_in
-      END IF
+      itimef = itimef_in
+      itimei = itimei_in
+      nstep = nstep_in
 
       IF (icontrol == ICONWRITERESTART) then  ! write a restart record to RCM
          call WriteRCMH5(stropt,nslcopt,isRestart=.true.)
@@ -1494,12 +1403,8 @@ real :: v_1_1, v_1_2, v_2_1, v_2_2
    END IF
 
    IF (icontrol == 1) then   ! initialize RCM grid, energy channels, quit:
-      CALL Read_grid ()
-      if (isGAMRCM) then
-        CALL Read_plasma_H5()
-      else
-       STOP ' Wrong read plasma'
-      endif
+   !   CALL Read_grid ()
+      CALL Read_plasma_H5()
       
       CALL SYSTEM_CLOCK (timer_stop(1), count_rate)      
       timer_values (1) = (timer_stop (1) - timer_start (1))/count_rate + timer_values(1)
@@ -1508,67 +1413,15 @@ real :: v_1_1, v_1_2, v_2_1, v_2_2
    END IF
 
 
-
    IF (icontrol == 2) then ! read in inputs, quit:
-      !K: Splitting based on whether running coupled to Gamera
-      if (isGAMRCM) then
-        if(present(iXML)) then
-          call RCM_Params_XML(iXML)
-        else
-          call RCM_Params_XML()
-        endif
-        CALL Read_dktime_H5(L_dktime)
+      
+      if(present(iXML)) then
+        call RCM_Params_XML(iXML)
       else
+        call RCM_Params_XML()
+      endif
+      CALL Read_dktime_H5(L_dktime)
 
-        OPEN (UNIT = LUN, FILE = rcmdir//'rcm.params', STATUS = 'OLD', &
-                 ACTION = 'READ', FORM = 'FORMATTED')
-
-  !
-         READ (LUN, '(a80)') label%char! 5.  text label
-         READ (LUN,*) idebug   ! 6.  0 <=> do disk printout
-         READ (LUN,*) imin  !  5.  i-value of poleward bndy
-         READ (LUN,*) ipot  !  6.  which potential solver to use
-         READ (LUN,*) iwind !  9.  0 is no neutral winds
-         READ (LUN,*) ibnd_type  ! 14.  type of bndy (1-eq.p, 2-iono)
-         READ (LUN,*) ipcp_type  ! 14.  type of bndy (1-eq.p, 2-iono)
-         READ (LUN,*) nsmthi! 15.  How much to smooth cond in I
-         READ (LUN,*) nsmthj! 16.  How much to smooth cond in J
-         READ (LUN,*) icond ! 17. 1 is active conductances, 2 is Hardy with kp  
-         READ (LUN,*) ifloor! 18. if true, install a floor for EFLUX
-         READ (LUN,*) icorrect! 19. if true, make lat. correction to EFLUX
-  !
-         READ (LUN,*) cmax    ! in rcm_mod_balgn
-         READ (LUN,*) eeta_cutoff ! as a fraction
-         READ (LUN,*) tol_gmres ! should be 1e-5
-         READ (LUN,*) itype_bf  ! 1 is interpolate for HV, 2--MHD code, 3--receive through module
-         READ (LUN,*) i_advect  ! 1-interpolate, 2rCLAWPACK/inter, 3-CLAWPACK
-         READ (LUN,*) i_eta_bc  ! 1-time-dep. from file, 2-constant for run
-         READ (LUN,*) kill_fudge ! .true. means no loss
-            if (kill_fudge) then; fudgec = 0.0; end if
-         READ (LUN,*) i_birk  ! birk calculation 1=default 3 = new
-         READ (LUN,*) L_dktime
-         READ (LUN,*) sunspot_number
-         READ (LUN,*) L_move_plasma_grid
-
-
-        ! now run parameters (bypassed via arguments if coupled):
-        IF (.NOT.IsCoupledExternally) then
-         READ (LUN,*) itimei   ! 1.  start time
-         READ (LUN,*) itimef   ! 2.  end time
-!         READ (LUN,*) irdr     ! 3.  record # to read in
-!         READ (LUN,*) irdw     ! 4.  record # to write out
-         READ (LUN,*) idt   !  1.  basic time step in program
-         READ (LUN,*) idt1  !  2.  t-step for changing disk write rcds
-         READ (LUN,*) idt2  !  3.  t-step for writing formatted output
-        END IF
-
-        CLOSE (UNIT = LUN)
-          !  Read in other inputs, both constant and run-specific:
-          
-          IF (.NOT.IsCoupledExternally) CALL Read_vdrop  
-          CALL Read_dktime (L_dktime)
-
-      endif !isGAMRCM
 
       CALL SYSTEM_CLOCK (timer_stop(1), count_rate)      
       timer_values (1) = (timer_stop (1) - timer_start (1))/count_rate + timer_values(1)
@@ -1582,74 +1435,10 @@ real :: v_1_1, v_1_2, v_2_1, v_2_2
 !
       ! Open file for formatted output and do initial print out :
       CALL Date_and_time (real_date, real_time)
-      IF (itimei == 0) THEN
-         ST = 'REPLACE'
-         PS = 'APPEND'
-         HD = 'BEGINNING NEW RUN'
-      ELSE
-         ST = 'OLD'
-         PS = 'APPEND'
-         HD = 'CONTINUE SAME RUN'
-      END IF
-
-      !K: Commenting out output
-      !write(*,*) "L9604, rcm.printout", LUN_2, ST, PS
-
-      ! OPEN  (LUN_2, FILE = rcmdir//'rcm.printout', STATUS = ST, POSITION = PS)
-      ! OPEN  (LUN_3, FILE = rcmdir//'rcm.index',  STATUS = ST, POSITION = PS)
-      ! CALL Initial_printout ()
-      ! CLOSE (LUN_3)
-      ! CLOSE (LUN_2)
 
       i1 = imin + 1
-
-
-      IF (itimei == 0) THEN
-
-         IF (.NOT.IsCoupledExternally) then
-!            CALL Read_array (rcmdir//'rcmeeta_inp',   irdr, label, ARRAY_3D = eeta,ASCI=asci_flag)
-         ELSE
-            ! grid-based plasma should have been set up elsewhere and passed via module, do nothing here:
-            !  CALL Read_array (rcmdir//'rcmeeta_inp',   irdr, label, ARRAY_3D = eeta,ASCI=asci_flag)
-         END IF
-
-      ELSE
-        if (isGAMRCM) then
-          imin_j = CEILING (bndloc)
-          !If on first record, create fresh binary files
-!          if (irdr == 1) CALL Disk_write_arrays ()
-          if (itimei==0)then
-              if (doDiskWrite) CALL Disk_write_arrays ()
-          end if
-
-        else  
-!          CALL Read_array (rcmdir//'rcmbndloc', irdr, label, ARRAY_1D = bndloc)
-          imin_j = CEILING (bndloc)
-!          CALL Read_array (rcmdir//'rcmeeta',   irdr, label, ARRAY_3D = eeta)
-!         IF (label%intg(6) /= itimei-idt )THEN
-          IF (label%intg(6) /= itimei )THEN
-            WRITE (*,*)' label%intg(6) =',label%intg(6),' itimei =',itimei
-            !write(*,*) 'T in file /=  ITIMEI for EETA, RESTART IS CORRUPTED'
-            STOP 'T in file /=  ITIMEI for EETA, RESTART IS CORRUPTED'
-          END IF
-        endif !isGAMRCM
-      END IF
-
-      ! IF hot restart, read V and check the time label:
-      IF (.NOT.IsCoupledExternally) THEN
-         IF (itimei /= 0) THEN
-!         IF (irdr /= 1) THEN
-            WRITE (*,'(A)', ADVANCE='NO') &
-              'HOT restart, reading V from file to check time label...'
-!            CALL READ_array (rcmdir//'rcmv', irdr, label, ARRAY_2D = v)
-            IF (label%intg(6) /= itimei )THEN
-              WRITE (*,*)' label%intg(6) =',label%intg(6),' itimei =',itimei
-              STOP 'T in file /=  ITIMEI for V'
-            ELSE
-              WRITE (*,*) 'OK'
-            END IF 
-         END IF
-      END IF
+        
+      IF (itimei > tinyT) imin_j = CEILING (bndloc)
 
 
       CALL SYSTEM_CLOCK (timer_stop(1), count_rate)      
@@ -1671,73 +1460,30 @@ real :: v_1_1, v_1_2, v_2_1, v_2_2
       eeta_avg = zero
       i_avg    = 0
 !
-!                                                                       
-!
 !*******************  main time loop  *************************
 !
-      IF (idt1/idt*idt /= idt1) STOP 'RCM: idt1--idt'
-      itout1 = itimei   ! next time to write to disk; set this to
-!                         ITIMEI to write out initial configuration
-      itout2 = itimei   ! next time to do formatted output
-      itcln = itimei    ! next time to call ADD & ZAP 
-!
-      dt = REAL (idt)
+
+      dt = (itimef - itimei)/REAl(nstep) 
 !
       !Q: Does this have any point since it gets recalculated in move-plasma?
       fac = 1.0E-3_rprec * bir * alpha * beta * dlam * dpsi * ri**2 * signbe
 !
-      DO i_time = itimei, itimef-idt, idt 
-!
-         CALL Comput (i_time, dt)
-!
-         v_avg    = v_avg    + v
-         birk_avg = birk_avg + birk
+      v_avg    = v_avg    + v
+      birk_avg = birk_avg + birk
+ 
+      IF (nstep < 1) STOP 'Number of substep in RCM should be at least 1'
+      
+      DO i_step = 1, nstep                          
          eeta_avg = eeta_avg + eeta
-         i_avg    = i_avg    + 1
-!
-         IF (i_time == itout1) THEN
-!
-            birk_avg = birk_avg / REAL(i_avg)
-            eeta_avg = eeta_avg / REAL(i_avg)
-            v_avg    = v_avg    / REAL(i_avg)
-            i_avg    = 0
-!
-            if (doDiskWrite) CALL Disk_write_arrays ()
-
-            itout1 = MIN (itout1 + idt1, itimef-idt)
-!
-            ! this is a special case: if we wrote output and time is not
-            ! last time (i.e., we are not exiting RCM), then reset average
-            ! arrays. Otherwise, deal with them separately below:
-
-            IF (i_time < itimef-idt) then
-               birk_avg = zero
-               eeta_avg = zero
-               v_avg    = zero
-               i_avg    = 0
-            END IF
-!
-         END IF
-
-
-         ! this will force RCM to stop with E-field and plasma
-         ! in sync (at the same time). Also, since it is time
-         ! to exit RCM, we average the arrays but not reset them to zero
-         ! so that average arrays stay in memory:
-
-         IF (i_time == itimef - idt) then
-             IF (i_avg > 0) then
-               birk_avg = birk_avg / REAL(i_avg)
-               eeta_avg = eeta_avg / REAL(i_avg)
-               v_avg    = v_avg    / REAL(i_avg)
-               i_avg    = 0
-             END IF
-             CYCLE ! exit loop
-         END IF
-!
-         CALL Move_plasma ( dt )
-!
+         CALL Move_plasma (dt)
       END DO
+      eeta_avg = (eeta_avg + eeta)/REAL(nstep + 1)     ! eeta_avg takes data points at itimei,itimei+dt,...,itimef, nstep+1 points in total 
+  
+     
+      CALL Comput ()
+      birk_avg = (birk_avg + birk)/2.     ! brik_avg and v_avg take two data points at itimei and itimef
+      v_avg    = (v_avg    + v)/2.
+
       
       CALL SYSTEM_CLOCK (timer_stop(1), count_rate)      
       timer_values (1) = (timer_stop (1) - timer_start (1))/count_rate + timer_values(1)
@@ -1745,29 +1491,11 @@ real :: v_1_1, v_1_2, v_2_1, v_2_2
       CALL SYSTEM_CLOCK (timer_stop(2), count_rate)      
       timer_values (2) = (timer_stop (2) - timer_start (2))/count_rate
 
-      CALL Formatted_output ()
 
       call Toc("Main_Loop")
 
       RETURN
 
-   END IF
-
-
-
-   IF (icontrol == 5) then ! finalize RCM, quit:
-      INQUIRE(FILE = rcmdir//'rcm.printout', EXIST=logical_flag)
-      IF (.NOT.logical_flag) then
-         ST='REPLACE'
-      else
-         ST='OLD'
-      endif
-      write(*,*) "L9786, rcm.printout",itimei
-      OPEN  (LUN_2, FILE = rcmdir//'rcm.printout', STATUS=ST, POSITION = 'APPEND')
-      WRITE (LUN_2,'(//A)') 'End RCM timing table'
-      CLOSE (UNIT = LUN_2)
-      CLOSE (UNIT = LUN_3)
-      RETURN
    END IF
 
    
@@ -1776,138 +1504,6 @@ real :: v_1_1, v_1_2, v_2_1, v_2_2
 
 
       CONTAINS
-!
-!
-      SUBROUTINE Initial_printout ()
-!
-      WRITE (LUN_3,'(T2,A)',ADVANCE='NO') TRIM(HD)
-      WRITE (LUN_3,'(A11,A4,A1,A2,A1,A2, A8,A2,A1,A2,A1,A2)') &
-            '  TODAY IS ', real_date(1:4), '/', &
-                           real_date(5:6), '/', &
-                           real_date (7:8), &
-            '  TIME: ', real_time(1:2), ':', &
-                      real_time(3:4), ':', &
-                      real_time(5:6)
-      WRITE (LUN_3,902) 
-      write(6,*)'here'
-!
-      WRITE (LUN_2,*) 'START OF RCM RUN:'
-      WRITE (LUN_2,'(A,I6,A,I6)') 'WILL START AT ITIMEI=',itimei, &
-                    '  AND STOP AT ITIMEF=',itimef
-      WRITE (LUN_2,'(T5,A,T35,I5.5)') 'time step =', idt 
-      WRITE (LUN_2,'(T5,A,T35,I5.5)') 'disk write time step=', idt1 
-      WRITE (LUN_2,'(T5,A,T35,I5.5)') 'printout time step=', idt2 
-      WRITE (LUN_2,'(T5,A,T35,I5.5)') 'imin =', imin 
-      WRITE (LUN_2,'(T5,A,T35,I5.5)') 'start at itimei=', itimei
-      WRITE (LUN_2,'(T5,A,T35,I5.5)') 'stop at itimef=', itimef 
-!      WRITE (LUN_2,'(T5,A,T35,I5.5)') 'read at itimei from REC ',irdr
-!      WRITE (LUN_2,'(T5,A,T35,I5.5)') 'start writing at REC ', irdw 
-      WRITE (LUN_2,'(/T5,A)' ) 'SIZES PARAMETERS:'
-         WRITE (LUN_2,'(T10,A,T20,I6)') 'isize=',isize
-         WRITE (LUN_2,'(T10,A,T20,I6)') 'jsize=',jsize
-         WRITE (LUN_2,'(T10,A,T20,I6)') 'ksize=',ksize
-         WRITE (LUN_2,'(T10,A,T20,I6)') 'kcsize=',kcsize
-         WRITE (LUN_2,'(T10,A,T20,I6)') 'iesize=',iesize
-      WRITE (LUN_2,'(/T5,A)' ) 'GRID PARAMETERS:'
-         WRITE (LUN_2,'(T10,A,T20,G9.2)') 'dlam=',dlam
-         WRITE (LUN_2,'(T10,A,T20,G9.2)') 'dpsi=',dpsi
-         WRITE (LUN_2,'(T10,A,T20,G9.2)') 're=',re
-         WRITE (LUN_2,'(T10,A,T20,G9.2)') 're=',re
-         WRITE (LUN_2,'(T10,A,T20,2G9.2)') 'xmass',xmass
-      WRITE (LUN_2,'(/T5,A)' ) 'PLASMA EDGES PARAMETERS:'
-      WRITE (LUN_2,'(/T5,A)' ) 'PLASMA GRID PARAMETERS:'
-         DO kc = 1, kcsize
-           WRITE (LUN_2,'(T10,A,I3,T20,A,G9.2,T45,A,ES9.2, T65,A,F5.2)') &
-            'kc=', kc, 'alamc=',  alamc(kc), 'etac=', etac(kc), 'f=', fudgec(kc)
-         END DO 
-      WRITE (LUN_2,'(T2,A,T20,I2)')     'IPOT =',     ipot
-      WRITE (LUN_2,'(T2,A,T20,I2)')     'ICOND = ',   icond
-      WRITE (LUN_2,'(T2,A,T20,I2)')     'IBND = ',    ibnd_type
-      WRITE (LUN_2,'(T2,A,T20,I2)')     'IPCP_TYPE=', ipcp_type
-
-
-      WRITE (LUN_2,'(//A)') 'Begin RCM timing table'
-      WRITE (LUN_2,'(T1,A,T16,A,T31,A,T46,A)')  'RCM itime [s]', '  record#', 'cpu_time [s]', 'sum_cpu_time [s]'
-
-  902 FORMAT (T2,'TIME', T12,'ITIME' , T19,'REC#' ,&
-              T26,'VDROP', T33,'FSTOFF',   &
-              T46,'FMEB', T53, 'DST', T62,'FCLPS', T69,'VDROP_PHASE' )
-      RETURN
-      END SUBROUTINE Initial_printout
-!
-!
-!
-         SUBROUTINE Disk_write_arrays ()
-!
-!        Writing rcm arrays to files is done at each time step, but the
-!        record number is changed only with the time step specified in
-!        'rcm.params'. This ensures that if the model crashes, files
-!        contain the most recent arrays.
-!
-!
-!________We call OUTPUT subroutine with this flag. The policy is
-!        that if we start at time=0, then we delete any old files
-!        and start from scratch. Otherwise, continue to output to
-!        existing files if they exist or create them if not.
-!
-         IF (i_time == 0) THEN
-            FD = .TRUE.
-         ELSE
-            FD = .FALSE.
-         END IF
-!
-         label%intg = 0
-         label%real = zero
-         label%char   = ''
-!
-!        UT TIME  = HH:MM:SS=ilabel(3):ilabel(4):ilabel(5)
-!
-         label%intg (2) = i_time ! UT in seconds
-         label%intg (3) = (i_time) / 3600! hrs of UT
-         label%intg (4) = MOD (label%intg (2), 3600) / 60 ! mints of UT
-         label%intg (5) = MOD (label%intg (2), 60)  ! scs of UT time
-         label%intg (6) = i_time       ! elapsed time in seconds
-         label%intg (8) = isize
-         label%intg (9) = jsize
-         label%intg (10) = ksize
-!        label%intg (12) used in OUTPUT and READ3D for kmax(=kdim)
-!        label%intg (13) used in OUTPUT and READ3D for k-index
-         label%intg (14) = - 1
-!
-!        label%real (1) = eb   !phoney loss
-         label%real (2) = cmax
-         label%real (12) = fmeb
-         label%real (13) = fstoff
-         label%real (14) = fdst
-         label%real (15) = fclps
-         label%real (16) = vdrop
-!         label%real (17) = kp
-!
-         ST = 'OLD'
-         PS = 'APPEND'
-         OPEN  (LUN_3, FILE = rcmdir//'rcm.index',  STATUS = ST, POSITION = PS)
-         WRITE (time_char,'(I2.2,A1,I2.2,A1,I2.2)') &
-               label%intg(3), ':', label%intg(4), ':', label%intg(5)
-         WRITE (*,'(T2,A21,I5.5,A10,TR4)') &
-                'RCM:-->TIME_STEP, T=', i_time,'('//time_char//')'
-!                                                                       
-!        IF (i_time == itout1 .OR. i_time == itimef) THEN
-            WRITE (lun_3,901) time_char, &
-                     i_time, vdrop, fstoff, fmeb, fdst, fclps, vdrop_phase
-            CLOSE (LUN_3)
-  901       FORMAT (T2,A8, T12,I6,  T26,F5.1, &
-                    T39,F5.2, T46,F5.2, T53,F7.1, T62,F5.1, T69, F6.2)
-!        END IF
-!
-         IF (idebug == 0) THEN 
-
-                 STOP 'idebug =0, should not be here'
-!
-!
-!
-         END IF
-         RETURN
-         END SUBROUTINE Disk_write_arrays
 !
 !
         !HDF5 Restart reader
@@ -2190,18 +1786,7 @@ real :: v_1_1, v_1_2, v_2_1, v_2_2
           i_birk  = 1 ! birk calculation 1=default 3 = new
         end subroutine RCM_Params_XML
 
-         SUBROUTINE Formatted_output ()
-          !K: Suppressing output
-          !write(*,*) "L10019, rcm.printout", LUN_2, ST, PS
-         OPEN  (LUN_2, FILE = rcmdir//'rcm.printout', STATUS = 'OLD', POSITION = 'append')
-         WRITE (LUN_2,'(T1,I10,T31,F10.2,T46,F10.2)')  &
-        &  i_time, timer_values(2), timer_values(1) 
-         close (lun_2)
-         itout2 = itout2 + idt2
-         RETURN
-         END SUBROUTINE Formatted_output
-!
-!
+ !
       END SUBROUTINE Rcm
 !
 !

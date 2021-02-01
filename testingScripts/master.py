@@ -7,6 +7,7 @@ from slack import WebClient
 from slack.errors import SlackApiError
 import logging
 logging.basicConfig(level=logging.DEBUG)
+import time
 
 # Get Slack API token
 slack_token = os.environ["SLACK_BOT_TOKEN"]
@@ -63,6 +64,15 @@ if (isTest == True):
 
 elif (not len(sys.argv) < 2):
     buildTest = subprocess.Popen("python3 buildTest.py -f", shell = True)
+    unitTest = subprocess.Popen("python3 unitTest.py", shell = True)
+    intelTest = subprocess.Popen("python3 intelChecks.py", shell=True)
+    time.sleep(900)
+    report = subprocess.Popen("python3 intelChecksReport.py", shell=True)
 
 else:
     buildTest = subprocess.Popen("python3 buildTest.py", shell = True)
+    unitTest = subprocess.Popen("python3 unitTest.py", shell = True)
+    intelTest = subprocess.Popen("python3 intelChecks.py", shell=True)
+    time.sleep(900)
+    report = subprocess.Popen("python3 intelChecksReport.py", shell=True)
+
