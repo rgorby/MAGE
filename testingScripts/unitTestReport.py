@@ -7,6 +7,7 @@ from slack import WebClient
 from slack.errors import SlackApiError
 import logging
 logging.basicConfig(level=logging.DEBUG)
+from os import path
 
 # Get Slack API token
 slack_token = os.environ["SLACK_BOT_TOKEN"]
@@ -16,193 +17,97 @@ client = WebClient(token=slack_token)
 # Get the home directory
 home = expanduser("~")
 
-# Go back to scripts folder
+# Go to the unit Test directory
 os.chdir(home)
-os.chdir("kaiju/testingScripts")
+os.chdir("kaiju/unitTest1/bin")
 
-iteration = 1
+# Check for jobs.txt
+jobsExists = path.exists("jobs.txt")
 
-# Read in modules.txt and load only the requested modules
-file = open('unitModules.txt', 'r')
-modules = file.readlines()
-#print(modules)
+# If not, end. Otherwise, continue
+if (not jobsExists):
+    print("Nothing to Test.\n")
+    exit()
 
-ModuleList = []
-myModules = []
-tempString = ""
+# Read in the jobs.txt file to get the job numbers
+file = open('jobs.txt', 'r')
+job1 = file.readline()
+job1 = job1.strip()
+job2 = file.readline()
+job2 = job2.strip()
+file.close()
 
-# Create List from separate modules
-for line in modules:
-    if (line.strip() == "##NEW ENVIRONMENT##"):
-        # Set aside what we have already
-        ModuleList.append(myModules)
-        # Reset
-        myModules = []
-        iteration += 1
-    else:
-        myModules.append(line.strip())
+# Take the two output files and slap them together
+extension1 = "o" + job1
+extension2 = "o" + job2
 
-# Add the last module set
-ModuleList.append(myModules)
+# Case Tests
+file = open('caseTests.' + extension1, 'r')
+bigFile = file.readlines()
+file.close()
+bigFile.append("\n\n\n")
 
-for setOfModules in ModuleList:
-	for line in setOfModules:
-		print(line)
+# Non Case Tests
+file = open('nonCaseTests.' + extension2, 'r')
+nextFile = file.readlines()
+file.close()
+bigFile = bigFile + nextFile
 
-# Create the list of arguments for the first set
-arguments = "module purge; module list;"
+# Scan through for some key things like "error" and "job killed"
+myError = False
+jobKilled = False
 
-for line in ModuleList[0]:
-	arguments = arguments + "module load " + line + ";"
-
-# BUILD EXECUTABLES AND TESTS
-# Move to the correct test folder
-os.chdir(home)
-os.chdir('kaiju/unitTest1')
-#arguments = arguments + "cd" + home + ";"
-#arguments = arguments + "cd kaiju/unitTest1;"
-# Invoke cmake
-arguments = arguments + "cmake ../ -DALLOW_INVALID_COMPILERS=ON;"
-# Make gamera, voltron and allTests
-arguments = arguments + "make gamera_mpi; make voltron_mpi; make allTests;"
-print(arguments)
-subprocess.call(arguments, shell=True)
-
-# Create the list of arguments for the second set
-# NOT WORKING RIGHT NOW
-#arguments = "module purge; module list;"
-
-#for line in ModuleList[1]:
-	#arguments = arguments + "module load " + line + ";"
-
-# BUILD EXECUTABLES AND TESTS
-# Move to the correct test folder
-#os.chdir(home)
-#os.chdir('kaiju/unitTest2')
-# Invoke cmake
-#arguments = arguments + "cmake ../ -DALLOW_INVALID_COMPILERS=ON;"
-# Make Gamera, Voltron, and allTests
-#arguments = arguments + "make gamera_mpi; make voltron_mpi; make allTests;"
-#print(arguments)
-#subprocess.call(arguments, shell=True)
-#ModuleList.append(tempString)
-#arguments = "module purge; module list;"
-#print(arguments)
-#subprocess.call(arguments, shell=True)
-
-# Submitting the test
-# Go to correct directory
-os.chdir(home)
-os.chdir('kaiju/tests')
-#arguments = "qsub runNonCaseTests.pbs"
-#print(arguments)
-#submission = subprocess.call(arguments, shell=True, stdout=subprocess.PIPE)
-#readString = submission.stdout.read()
-#readString = readString.decode('ascii')
-#print(submission)
-
-#finalString = readString + "\n"
-
-subprocess.call("cp runNonCaseTests.pbs ../unitTest1/bin", shell=True)
-subprocess.call("cp runCaseTests.pbs ../unitTest1/bin", shell=True)
-
-os.chdir(home)
-os.chdir('kaiju/unitTest1/bin')
-
-arguments = "qsub runCaseTests.pbs"
-print(arguments)
-submission = subprocess.Popen(arguments, shell=True, stdout=subprocess.PIPE)
-readString = submission.stdout.read()
-readString = readString.decode('ascii')
-print(readString)
-
-finalString = readString
-firstJob = readString.split('.')[0]
-print(firstJob)
-
-arguments = "qsub runNonCaseTests.pbs"
-print(arguments)
-submission = subprocess.Popen(arguments, shell=True, stdout=subprocess.PIPE)
-readString = submission.stdout.read()
-readString = readString.decode('ascii')
-print(readString)
-
-finalString = finalString + readString
-
-secondJob = readString.split('.')[0]
-print (secondJob)
-
-file = open("jobs.txt", 'w+')
-file.write(firstJob)
-file.write(secondJob)
-
-# SUBMIT JOB THAT WILL FOLLOW UP ONCE PREVIOUS JOBS HAVE FINISHED
-
-# HERE IS THE STUFF FOR MOVING TO THE CORRECT FOLDER
-# Move to the correct unitTest folder
-#        arguments = arguments + "cd unitTest" + str(iteration) + "; "
-        # Invoke cmake
-#        arguments = arguments + "cmake ../ -DALLOW_INVALID_COMPILERS=ON;"
-
-
-# Change directory to Kaiju repo
-#os.chdir(home)
-#os.chdir("kaiju")
-
-# Check build directories for good executables
-#myText = ""
-#i = 1
-#isPerfect = True
-#while i <= iteration:
-#    isGamera = False
-#    isVoltron = False
+for line in bigFile:
+    if 'error' in line:
+        myError = True
     
-    # Move to next build folder
-#    os.chdir("build" + str(i) + "/bin")
+    elif 'job killed' in line:
+        jobKilled = True
 
-#    print(os.getcwd())
+# Write to a file
+file = open('Results.txt', 'w+')
+file.writelines(bigFile)
+file.close()
 
-#    anyWrong = False
-#    missing = []
+# Post the file to slack
+try:
+    response = client.files_upload(
+        file='Results.txt',
+        initial_comment='Unit Test Results:\n\n',
+        channels="#kaijudev",
+        )
 
-    # Check for all executables
-#    for element in executableList:
-#        isThere = os.path.isfile(element)
-#        if (isThere == False):
-#            anyWrong = True
-#            isPerfect = False
-#            missing.append(element)
-    
-    # If any are missing, report. Otherwise, skip
-#    if (not anyWrong):
-#        i = i + 1
-        # Move back out into kaiju folder
-#        os.chdir(home)
-#        os.chdir("kaiju")
-#        continue
-    
-#    else:
-#        myText = myText + "*Trying the following module set:*\n"
-#        myText = myText + ModuleList[i - 1]
+    assert response['ok']
+    slack_file = response['file']
 
-        # Which executables failed?
-#        for element in missing:
-#            myText = myText + "I couldn't build " + element + "\n"
-            
-        # Move back out into kaiju folder
-#        os.chdir(home)
-#        os.chdir("kaiju")
-#        i = i + 1
+except SlackApiError as e:
+    # You will get a SlackApiError if "ok" is False
+    assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
 
-myText = "Slack script correctly called following unit tests"
+# If there were any issues, also send a message saying "Uh oh" or something
+myText = ""
+
+if (myError):
+    myText = "There were errors!\n"
+
+if (jobKilled):
+    myText = myText + "The job was killed early!\n"
+
+if (myText == ""):
+    exit()
 
 # If not a test, send message to Slack
 # Try to send Slack message
 try:
     response = client.chat_postMessage(
    channel="#kaijudev",
-   text=myText,
+   text=myText + "https://tenor.com/Yx4u.gif",
    )
 except SlackApiError as e:
    # You will get a SlackApiError if "ok" is False
    assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
+
+# Go to unitTests1 and delete jobs.txt
+os.chdir(home)
+os.chdir('kaiju/unitTest1/bin')
+os.remove("jobs.txt")
