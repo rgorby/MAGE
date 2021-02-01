@@ -16,63 +16,13 @@ client = WebClient(token=slack_token)
 # Get the home directory
 home = expanduser("~")
 
-# Change directory to Kaiju repo
+# Delete everything in the unitTest folder
 os.chdir(home)
 os.chdir("kaiju")
-# Delete all build folders
-os.system("rm -rf build*/")
-os.system('ls')
-
-# Git Status and then attempt to pull
-os.system('git status')
-print('Attempting git pull via subprocess...')
-p = subprocess.Popen("git pull", shell=True, stdout=subprocess.PIPE)
-text = p.stdout.read()
-text = text.decode('ascii')
-text = text.rstrip()
-print(text)
-isTest = False
-# print(str(sys.argv[1]))
-
-# Check argument flags
-if (len(sys.argv) < 2):
-    # If no arguments, check for update
-    if (text == 'Already up to date.'):
-        # Try to send Slack message
-        try:
-            response = client.chat_postMessage(
-                channel="#kaijudev",
-                text='No test today. It is already up to date!',
-            )
-        except SlackApiError as e:
-            # You will get a SlackApiError if "ok" is False
-            assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
-        
-        exit()
-# Else check for force flag
-elif(str(sys.argv[1]) == '-f'):
-    print("Buuuuut you forced me to do it anyway...")
-# Else check for testing flag
-elif(str(sys.argv[1]) == '-t'):
-    print("Test Mode: On")
-    isTest = True
-
-# Create a test build folder, get the list of executables to be generated and store them
-os.chdir(home)
-os.chdir("kaiju")
-os.system("rm -rf testFolder")
-os.system("mkdir testFolder")
-os.chdir("testFolder")
-os.system("cmake ..")
-listProcess = subprocess.Popen("make help | grep '\.x'", shell=True, stdout=subprocess.PIPE)
-executableString = listProcess.stdout.read()
-executableString = executableString.decode('ascii')
-executableList = executableString.splitlines()
-
-# Loop through each entry of the list and remove the first four characters
-for index, element in enumerate(executableList):
-    executableList[index] = executableList[index][4:]
-print(executableList)
+os.system('rm -r unitTest1')
+os.system('rm -r unitTest2')
+os.system('mkdir unitTest1')
+os.system('mkdir unitTest2')
 
 # Go back to scripts folder
 os.chdir(home)
@@ -81,120 +31,190 @@ os.chdir("kaiju/testingScripts")
 iteration = 1
 
 # Read in modules.txt and load only the requested modules
-file = open('modules1.txt', 'r')
+file = open('unitModules.txt', 'r')
 modules = file.readlines()
-arguments = "module purge; module list;"
+#print(modules)
 
 ModuleList = []
+myModules = []
 tempString = ""
 
-# Add modules to the list to be loaded
+# Create List from separate modules
 for line in modules:
     if (line.strip() == "##NEW ENVIRONMENT##"):
-        arguments = arguments + " module list;" # List modules for this build
-        # Create the build folder
-        arguments = arguments + "cd " + home + "; cd kaiju; mkdir build" + str(iteration) + ";"
-        # Move to the build folder
-        arguments = arguments + "cd build" + str(iteration) + "; "
-        # Invoke cmake
-        arguments = arguments + "cmake ../ -DALLOW_INVALID_COMPILERS=ON;"
-        # Create list of executables
-        for element in executableList:
-            arguments = arguments + " make " + element + ";"
-        print(arguments)
-        subprocess.call(arguments, shell=True)
-        ModuleList.append('>' + tempString)
-        tempString = ""
+        # Set aside what we have already
+        ModuleList.append(myModules)
+        # Reset
+        myModules = []
         iteration += 1
-        arguments = "module purge; module list;"
-        #print(arguments)
     else:
-        tempString += line
-        arguments = arguments + " module load " + line.strip() + ";" # Strip off newline characters
+        myModules.append(line.strip())
 
-arguments = arguments + " module list;" # List modules for this build
-# Create the build folder
-arguments = arguments + "cd " + home + "; cd kaiju; mkdir build" + str(iteration) + ";"
-# Move to the build folder
-arguments = arguments + "cd build" + str(iteration) + "; "
+# Add the last module set
+ModuleList.append(myModules)
+
+for setOfModules in ModuleList:
+	for line in setOfModules:
+		print(line)
+
+# Create the list of arguments for the first set
+arguments = "module purge; module list;"
+
+for line in ModuleList[0]:
+	arguments = arguments + "module load " + line + ";"
+
+# BUILD EXECUTABLES AND TESTS
+# Move to the correct test folder
+os.chdir(home)
+os.chdir('kaiju/unitTest1')
+#arguments = arguments + "cd" + home + ";"
+#arguments = arguments + "cd kaiju/unitTest1;"
 # Invoke cmake
 arguments = arguments + "cmake ../ -DALLOW_INVALID_COMPILERS=ON;"
-# Create list of executables
-for element in executableList:
-    arguments = arguments + " make " + element + ";"
+# Make gamera, voltron and allTests
+arguments = arguments + "make gamera_mpi; make voltron_mpi; make allTests;"
 print(arguments)
 subprocess.call(arguments, shell=True)
-ModuleList.append(tempString)
-arguments = "module purge; module list;"
+
+# Create the list of arguments for the second set
+# NOT WORKING RIGHT NOW
+#arguments = "module purge; module list;"
+
+#for line in ModuleList[1]:
+	#arguments = arguments + "module load " + line + ";"
+
+# BUILD EXECUTABLES AND TESTS
+# Move to the correct test folder
+#os.chdir(home)
+#os.chdir('kaiju/unitTest2')
+# Invoke cmake
+#arguments = arguments + "cmake ../ -DALLOW_INVALID_COMPILERS=ON;"
+# Make Gamera, Voltron, and allTests
+#arguments = arguments + "make gamera_mpi; make voltron_mpi; make allTests;"
 #print(arguments)
-subprocess.call(arguments, shell=True)
+#subprocess.call(arguments, shell=True)
+#ModuleList.append(tempString)
+#arguments = "module purge; module list;"
+#print(arguments)
+#subprocess.call(arguments, shell=True)
+
+# Submitting the test
+# Go to correct directory
+os.chdir(home)
+os.chdir('kaiju/tests')
+#arguments = "qsub runNonCaseTests.pbs"
+#print(arguments)
+#submission = subprocess.call(arguments, shell=True, stdout=subprocess.PIPE)
+#readString = submission.stdout.read()
+#readString = readString.decode('ascii')
+#print(submission)
+
+#finalString = readString + "\n"
+
+subprocess.call("cp runNonCaseTests.pbs ../unitTest1/bin", shell=True)
+subprocess.call("cp runCaseTests.pbs ../unitTest1/bin", shell=True)
+
+os.chdir(home)
+os.chdir('kaiju/unitTest1/bin')
+
+arguments = "qsub runCaseTests.pbs"
+print(arguments)
+submission = subprocess.Popen(arguments, shell=True, stdout=subprocess.PIPE)
+readString = submission.stdout.read()
+readString = readString.decode('ascii')
+print(readString)
+
+finalString = readString
+firstJob = readString.split('.')[0]
+print(firstJob)
+
+arguments = "qsub runNonCaseTests.pbs"
+print(arguments)
+submission = subprocess.Popen(arguments, shell=True, stdout=subprocess.PIPE)
+readString = submission.stdout.read()
+readString = readString.decode('ascii')
+print(readString)
+
+finalString = finalString + readString
+
+secondJob = readString.split('.')[0]
+print (secondJob)
+
+file = open("jobs.txt", 'w+')
+file.write(firstJob + "\n")
+file.write(secondJob)
+
+# SUBMIT JOB THAT WILL FOLLOW UP ONCE PREVIOUS JOBS HAVE FINISHED
+
+# HERE IS THE STUFF FOR MOVING TO THE CORRECT FOLDER
+# Move to the correct unitTest folder
+#        arguments = arguments + "cd unitTest" + str(iteration) + "; "
+        # Invoke cmake
+#        arguments = arguments + "cmake ../ -DALLOW_INVALID_COMPILERS=ON;"
+
 
 # Change directory to Kaiju repo
-os.chdir(home)
-os.chdir("kaiju")
+#os.chdir(home)
+#os.chdir("kaiju")
 
 # Check build directories for good executables
-myText = ""
-i = 1
-isPerfect = True
-while i <= iteration:
-    isGamera = False
-    isVoltron = False
+#myText = ""
+#i = 1
+#isPerfect = True
+#while i <= iteration:
+#    isGamera = False
+#    isVoltron = False
     
     # Move to next build folder
-    os.chdir("build" + str(i) + "/bin")
+#    os.chdir("build" + str(i) + "/bin")
 
-    print(os.getcwd())
+#    print(os.getcwd())
 
-    anyWrong = False
-    missing = []
+#    anyWrong = False
+#    missing = []
 
     # Check for all executables
-    for element in executableList:
-        isThere = os.path.isfile(element)
-        if (isThere == False):
-            anyWrong = True
-            isPerfect = False
-            missing.append(element)
+#    for element in executableList:
+#        isThere = os.path.isfile(element)
+#        if (isThere == False):
+#            anyWrong = True
+#            isPerfect = False
+#            missing.append(element)
     
     # If any are missing, report. Otherwise, skip
-    if (not anyWrong):
-        i = i + 1
+#    if (not anyWrong):
+#        i = i + 1
         # Move back out into kaiju folder
-        os.chdir(home)
-        os.chdir("kaiju")
-        continue
+#        os.chdir(home)
+#        os.chdir("kaiju")
+#        continue
     
-    else:
-        myText = myText + "*Trying the following module set:*\n"
-        myText = myText + ModuleList[i - 1]
+#    else:
+#        myText = myText + "*Trying the following module set:*\n"
+#        myText = myText + ModuleList[i - 1]
 
         # Which executables failed?
-        for element in missing:
-            myText = myText + "I couldn't build " + element + "\n"
+#        for element in missing:
+#            myText = myText + "I couldn't build " + element + "\n"
             
         # Move back out into kaiju folder
-        os.chdir(home)
-        os.chdir("kaiju")
-        i = i + 1
+#        os.chdir(home)
+#        os.chdir("kaiju")
+#        i = i + 1
 
 # If nothing was wrong, change myText
-if (isPerfect == True):
-    myText = ""
-    myText = "Everything built properly!"
+#if (isPerfect == True):
+#    myText = ""
+#    myText = "Everything built properly!"
 
 # If not a test, send message to Slack
-if (not isTest):
+#if (not isTest):
     # Try to send Slack message
-    try:
-        response = client.chat_postMessage(
-            channel="#kaijudev",
-            text=myText,
-        )
-    except SlackApiError as e:
+#    try:
+#        response = client.chat_postMessage(
+#            channel="#kaijudev",
+#            text=myText,
+#        )
+#    except SlackApiError as e:
         # You will get a SlackApiError if "ok" is False
-        assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
-
-# If it is a test, just print to the command line
-else:
-    print(myText)
+#        assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
