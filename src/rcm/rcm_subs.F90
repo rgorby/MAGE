@@ -98,7 +98,7 @@
 !
     LOGICAL ::  L_move_plasma_grid = .TRUE.
     LOGICAL ::  L_doOMPClaw        = .FALSE.
-    LOGICAL ::  L_doOMPprecip      = .FALSE.
+    LOGICAL ::  L_doOMPprecip      = .TRUE.
 !
 !
 !   Plasma on grid:
@@ -202,7 +202,9 @@
 !
 !
       IF (i_birk == 1) THEN
+         CALL Tic("GET_JBIRK")
          CALL Get_jbirk
+         CALL Toc("GET_JBIRK")
       ELSE IF (i_birk == 2) THEN
          stop 'do not use'
       ELSE IF (i_birk ==3) THEN
@@ -210,7 +212,9 @@
       ELSE
           STOP 'ILLEGAL VALUE OF BIRK'
       END IF
+      CALL Tic("PRECIP")
       CALL diffusePrecip ()
+      CALL Toc("PRECIP")
 !
 !
       IF (ibnd_type == 4) THEN
@@ -329,7 +333,8 @@
 !              birk (i, j) = MAX (birk(i,j),-10.)
 !        END DO 
 !     END DO 
-!                                                                       
+!     
+      
       CALL Circle (birk)
 !
       RETURN 
@@ -551,7 +556,6 @@
       END DO loop_i
       END DO loop_j 
 !                                                                       
-!
 !
       CALL Circle (eflux (:, :, ie_el))
       CALL Circle (eavg  (:, :, ie_el))
@@ -946,10 +950,6 @@
       jmax = SIZE (r, DIM = 2)
       jlast = jmax - jwrap 
       
-      !$OMP PARALLEL DO if (L_doOMPprecip) &
-      !$OMP DEFAULT (NONE) &
-      !$OMP PRIVATE(i,j) &
-      !$OMP SHARED(jlast,imax,jmax,r)
       DO i = 1, imax 
         DO  j = 1, jwrap - 1
           r (i, j) = r (i, jlast + j)
@@ -972,10 +972,6 @@
       jmax = SIZE (r, DIM = 1)
       jlast = jmax - jwrap
 
-      !$OMP PARALLEL DO if (L_doOMPprecip) &
-      !$OMP DEFAULT (NONE) &
-      !$OMP PRIVATE(j) &
-      !$OMP SHARED(jlast,r)
       DO  j = 1, jwrap - 1
         r (j) = r (jlast + j)
       END DO
