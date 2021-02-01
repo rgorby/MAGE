@@ -178,6 +178,8 @@ MODULE torcm_mod
       
       if ( (maxval(eeta_new) <=0) .or. any(isnan(eeta_new)) ) then
         write(*,*)' something is wrong in eeta_new'
+        write(*,*) 'maxval = ', maxval(eeta_new)
+        write(*,*) 'Num nans = ', count(isnan(eeta_new))
         ierr = -1
         return
       end if
@@ -490,8 +492,10 @@ MODULE torcm_mod
 !
 
       integer(iprec) :: i,j
+      REAL(rprec) :: vm_rcmmhd(isize,jsize-jwrap+1) !Holder for vm calc
 
       !Pull RCM-MHD variables into RCM arrays and scale/wrap
+      !RCM-MHD => RCM (sizes)
       call EmbiggenWrap(RM%Pave,press)
       call EmbiggenWrap(RM%Nave,den  )
 
@@ -508,31 +512,35 @@ MODULE torcm_mod
       call EmbiggenWrapI(RM%iopen,iopen)
       call EmbiggenWrap (RM%wImag,wImag)
 
-      ! compute vm and find boundaries
-      ! (K: doing in two stages to avoid open/closed/open corner case)
-      vm(:,:) = big_vm
-      !$OMP PARALLEL DO default(shared) &
-      !$OMP private(i,j)
-      do j=jwrap,jsize
-        do i=isize,1,-1
-          if (iopen(i,j) == RCMTOPCLOSED) then
-            vm(i,j) = 1.0/(RM%vol(i,j-jwrap+1)*nt)**(2.0/3) ! (nt/re)^0.667
-          endif
-        enddo
-      enddo
+    ! compute vm and find boundaries
+      !Calculate vm on RCM/MHD-sized grid
+      where (RM%vol > 0.0)
+        vm_rcmmhd = 1.0/(RM%vol*nt)**(2.0/3.0) ! (nt/re)^0.667
+      elsewhere
+        vm_rcmmhd = big_vm
+      end where
 
+      !Convert to RCM-sized grid
+      call EmbiggenWrap(vm_rcmmhd,vm)
+      
+      !Make sure topology is right
+      where (vm<0)
+        iopen = RCMTOPOPEN
+      endwhere
+
+      !Find boundary
+      vbnd(:) = 2
       do j=jwrap,jsize
-        do i=isize,1,-1
-          if ( iopen(i,j) .ge. 0 ) then
+        do i=isize,2,-1
+          if ( iopen(i,j) /= RCMTOPCLOSED ) then
             vbnd(j) = i
             exit
           endif
         enddo
       enddo
 
-      ! wrap vm/vbnd
+      ! wrap vbnd
       do j=1,jwrap-1
-        vm (:, j) = vm (:,jsize-jwrap+j)
         vbnd(j)   = vbnd(jsize-jwrap+j)
       end do
 
@@ -540,8 +548,9 @@ MODULE torcm_mod
       rmin = sqrt(xmin**2 + ymin**2 + zmin**2)
       pmin = atan2(ymin,xmin)
 
-      if (isnan(sum(vm))) then
+      if (any(isnan(vm))) then
         write(*,*) 'RCM: NaN in Calc_FTV'
+        write(*,*) 'Num NaNs = ', count(isnan(vm))
         ierr = -1
         return
       endif

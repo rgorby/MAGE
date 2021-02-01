@@ -157,7 +157,6 @@ module imagtubes
         ! endif
 
         end associate
-
     end subroutine MHDTube
 
     !Dipole flux tube info

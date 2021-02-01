@@ -262,9 +262,10 @@ module rcmimag
 
                 !Set composition
                 RCMApp%oxyfrac(i,j)      = 0.0
-                
+
             enddo
         enddo
+
         doHackIC = (vApp%time <= vApp%DeepDT) .and. RCMICs%doIC !Whether to hack MHD/RCM coupling for ICs
 
         call Toc("RCM_TUBES")
