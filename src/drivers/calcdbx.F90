@@ -15,11 +15,11 @@ program calcdbx
 
     implicit none
 
-    !Main data structures
+    !Main CHIMP data structures
     type(chmpModel_T) :: Model
     type(ebState_T)   :: ebState
     type(XML_Input_T) :: inpXML
-
+    type(rmState_T) :: rmState
 
     integer :: NumP
     real(rp) :: wT,cMJD,rSec
@@ -40,7 +40,8 @@ program calcdbx
     endif
     
     call initDBio(Model,ebState,inpXML,NumP)
-    
+    call initRM(Model,ebState,rmState)
+
     !Loop from T0 -> tFin
     Model%t = Model%T0
 
@@ -56,6 +57,10 @@ program calcdbx
         call Tic("Step")
         !Update fields to current time
         call updateFields(Model,ebState,Model%t)
+        
+        !Update remix data to current time
+        call updateRemix(Model,ebState,Model%t,rmState)
+
         call Toc("Step")
 
         !Calc/write DB on grid

@@ -10,6 +10,18 @@ module calcdbio
 	use clocks
 	implicit none
 
+    !Remix holders
+    type rmState_T
+        real(rp) :: time !CHIMP units
+        real(rp), dimension(:,:,:), allocatable :: XY
+        integer :: Np,Nth !Remix cap sizes
+        integer :: i1=-1,i2=-1 !Bracketing step numbers
+        !Data arrays are size Np,Nth (lon,lat)
+        real(rp), dimension(:,:), allocatable :: nFac,nSigP,nSigH,nPot
+        real(rp), dimension(:,:), allocatable :: sFac,sSigP,sSigH,sPot
+    
+    end type rmState_T
+
     character(len=strLen), private :: dbOutF
     integer, parameter, private :: MAXDBVS = 20
     !Parameters for output DB grid, 3D thin shell (lat/lon/height)
@@ -95,6 +107,89 @@ module calcdbio
 
     end subroutine initDBio
 
+    subroutine initRM(Model,ebState,rmState)
+        type(chmpModel_T), intent(in) :: Model
+        type(ebState_T), intent(in)   :: ebState
+        type(rmState_T), intent(inout) :: rmState
+        
+        type(IOVAR_T), dimension(MAXDBVS) :: IOVars
+        integer :: Ni,Nj
+        character(len=strLen) :: rmF !Remix file
+        write(rmF,'(2a)') trim(adjustl(Model%RunID)),'.mix.h5'
+        write(*,*) 'Initializing w/ ', trim(rmF)
+
+        call ClearIO(IOVars)
+        call AddInVar(IOVars,"X")
+        call AddInVar(IOVars,"Y")
+        call ReadVars(IOVars,.true.,rmF)
+
+        Ni = IOVars(1)%dims(1) - 1
+        Nj = IOVars(2)%dims(2) - 1
+
+        write(*,*) 'Shape = ', IOVars(1)%dims(:)
+        rmState%Np  = Ni !Phi cells
+        rmState%Nth = Nj !Theta cells
+
+        allocate(rmState%nFac (Ni,Nj))
+        allocate(rmState%nPot (Ni,Nj))
+        allocate(rmState%nSigP(Ni,Nj))
+        allocate(rmState%nSigH(Ni,Nj))
+        allocate(rmState%sFac (Ni,Nj))
+        allocate(rmState%sPot (Ni,Nj))
+        allocate(rmState%sSigP(Ni,Nj))
+        allocate(rmState%sSigH(Ni,Nj))
+
+    end subroutine initRM
+
+    !Update remix data
+    subroutine updateRemix(Model,ebState,t,rmState)
+        type(chmpModel_T), intent(in)    :: Model
+        type(ebState_T)  , intent(in)   :: ebState
+        real(rp), intent(in) :: t
+        type(rmState_T), intent(inout)   :: rmState
+
+        character(len=strLen) :: rmF !Remix file
+        character(len=strLen) :: gStr
+        integer :: i1,i2
+        type(IOVAR_T), dimension(MAXDBVS) :: IOVars
+
+        !TODO: Remove redundant code here
+        write(rmF,'(2a)') trim(adjustl(Model%RunID)),'.mix.h5'
+
+        call findSlc(ebState%ebTab,t,i1,i2)
+
+        !Right now just lazily reading one slice and storing
+        !TODO: Fix this to properly interpolate
+        gStr = trim(ebState%ebTab%gStrs(i1))
+
+        call ClearIO(IOVars)
+        !Northern hemisphere
+        call AddInVar(IOVars,"Field-aligned current NORTH")
+        call AddInVar(IOVars, "Pedersen conductance NORTH")
+        call AddInVar(IOVars,     "Hall conductance NORTH")
+        call AddInVar(IOVars,            "Potential NORTH")
+        call AddInVar(IOVars,"Field-aligned current SOUTH")
+        call AddInVar(IOVars, "Pedersen conductance SOUTH")
+        call AddInVar(IOVars,     "Hall conductance SOUTH")
+        call AddInVar(IOVars,            "Potential SOUTH")
+
+        call ReadVars(IOVars,.true.,rmF,gStr)
+
+        write(*,*) 'Done reading ...'
+        !Pull data into arrays
+        call IOArray2DFill(IOVars,"Field-aligned current NORTH",rmState%nFac )
+        call IOArray2DFill(IOVars, "Pedersen conductance NORTH",rmState%nSigP)
+        call IOArray2DFill(IOVars,     "Hall conductance NORTH",rmState%nSigH)
+        call IOArray2DFill(IOVars,            "Potential NORTH",rmState%nPot )
+
+        call IOArray2DFill(IOVars,"Field-aligned current SOUTH",rmState%sFac )
+        call IOArray2DFill(IOVars, "Pedersen conductance SOUTH",rmState%sSigP)
+        call IOArray2DFill(IOVars,     "Hall conductance SOUTH",rmState%sSigH)
+        call IOArray2DFill(IOVars,            "Potential SOUTH",rmState%sPot )
+
+ 
+    end subroutine updateRemix
+
     !Calculate and output delta-B data
     subroutine writeDB(Model,ebState,gStr)
         type(chmpModel_T), intent(in) :: Model
@@ -119,13 +214,13 @@ module calcdbio
         call ClearIO(IOVars)
         call AddOutVar(IOVars,"time",oTScl*Model%t)
         call AddOutVar(IOVars,"MJD",mjd)
-        call AddOutVar(IOVars,"dBx" ,dbMAG_xyz(:,:,:,XDIR),"nT")
-        call AddOutVar(IOVars,"dBy" ,dbMAG_xyz(:,:,:,YDIR),"nT")
-        call AddOutVar(IOVars,"dBz" ,dbMAG_xyz(:,:,:,ZDIR),"nT")
+        call AddOutVar(IOVars,"dBx_M" ,dbMAG_xyz(:,:,:,XDIR),"nT")
+        call AddOutVar(IOVars,"dBy_M" ,dbMAG_xyz(:,:,:,YDIR),"nT")
+        call AddOutVar(IOVars,"dBz_M" ,dbMAG_xyz(:,:,:,ZDIR),"nT")
         !Write out spherical vectors (XDIR:ZDIR = RDIR,TDIR,PDIR)
-        call AddOutVar(IOVars,"dBr" ,dbMAG_rtp(:,:,:,XDIR),"nT")
-        call AddOutVar(IOVars,"dBt" ,dbMAG_rtp(:,:,:,YDIR),"nT")
-        call AddOutVar(IOVars,"dBp" ,dbMAG_rtp(:,:,:,ZDIR),"nT")
+        call AddOutVar(IOVars,"dBr_M" ,dbMAG_rtp(:,:,:,XDIR),"nT")
+        call AddOutVar(IOVars,"dBt_M" ,dbMAG_rtp(:,:,:,YDIR),"nT")
+        call AddOutVar(IOVars,"dBp_M" ,dbMAG_rtp(:,:,:,ZDIR),"nT")
 
         call WriteVars(IOVars,.true.,dbOutF,gStr)
         call ClearIO(IOVars)
