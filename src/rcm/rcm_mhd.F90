@@ -48,7 +48,8 @@ module rcm_mhd_mod
         real(rprec) :: time0 = 0. ! coupling start time
         real(rprec) :: ircm_dt
         real(rprec) :: itimef_old = -1
-        integer(iprec) :: nstep   !> RCM(...) param:  number of sub-time steps in program
+        !using nSubstep from rice_housekeeping_module  !> RCM(...) param:  number of sub-time steps in program
+
         !integer(iprec) :: idt   !> RCM(...) param:  basic time step in program
         !real(rprec) :: idt1  !> RCM(...) param:  time step for
                               !! changing disk & write records
@@ -75,7 +76,6 @@ module rcm_mhd_mod
         itimei = mhdtime   !floor(mhdtime-time0,iprec)
         itimef = mhdtime + mhdtimedt !floor(mhdtime + mhdtimedt-time0,iprec)
         ircm_dt = itimef - itimei
-        nstep = nSubstep
   
     ! finish up
         if(iflag==RCMWRITETIMING)then
@@ -84,13 +84,13 @@ module rcm_mhd_mod
 
     ! Write restart file
         if (iflag==RCMWRITERESTART) then
-            CALL Rcm (itimei, itimef, nstep, icontrol=ICONWRITERESTART,stropt=RM%rcm_runid,nslcopt=RM%RCM_nRes)
+            CALL Rcm (itimei, itimef, nSubstep, icontrol=ICONWRITERESTART,stropt=RM%rcm_runid,nslcopt=RM%RCM_nRes)
             return
         endif
 
     ! Write output slice
         if (iflag==RCMWRITEOUTPUT) then
-            CALL Rcm (itimei, itimef, nstep, icontrol=ICONWRITEOUTPUT,stropt=RM%rcm_runid,nslcopt=RM%RCM_nOut)
+            CALL Rcm (itimei, itimef, nSubstep, icontrol=ICONWRITEOUTPUT,stropt=RM%rcm_runid,nslcopt=RM%RCM_nOut)
             return
         endif
 
@@ -108,7 +108,7 @@ module rcm_mhd_mod
             endif
 
             ! setup rcm
-            CALL Rcm (itimei, itimef, nstep, icontrol=0_iprec)
+            CALL Rcm (itimei, itimef, nSubstep, icontrol=0_iprec)
 
             call allocate_conversion_arrays (isize,jsize,kcsize)
             
@@ -116,10 +116,10 @@ module rcm_mhd_mod
             ! Setup Ionosphere intermediate Grid by equating it to the RCM grid, without angular overlap:
             call setupIon(RM)
 
-            CALL Rcm (itimei, itimef, nstep, icontrol=1_iprec)
+            CALL Rcm (itimei, itimef, nSubstep, icontrol=1_iprec)
 
             ! icontrol of 2 also needs the input xml file
-            CALL Rcm (itimei, itimef, nstep, icontrol=2_iprec, iXML=iXML)
+            CALL Rcm (itimei, itimef, nSubstep, icontrol=2_iprec, iXML=iXML)
 
             if (iflag == RCMINIT) then
                 exchangeNum = 0
@@ -129,7 +129,7 @@ module rcm_mhd_mod
             if (iflag == RCMRESTART) then
 
                 !Read in HDF5 restart data
-                CALL Rcm (itimei, itimef, nstep, icontrol=ICONRESTART,stropt=RM%rcm_runid,nslcopt=RM%RCM_nRes)
+                CALL Rcm (itimei, itimef, nSubstep, icontrol=ICONRESTART,stropt=RM%rcm_runid,nslcopt=RM%RCM_nRes)
                 exchangeNum = floor(itimef/(itimef-itimei)) ! Need to find another way of calculating exchangeNum
 
                 return
@@ -180,7 +180,7 @@ module rcm_mhd_mod
 
 
             if (isFirstExchange) then ! Set RCM initial conditions on plasma:
-                call rcm (itimei, itimef, nstep, icontrol=3_iprec)
+                call rcm (itimei, itimef, nSubstep, icontrol=3_iprec)
             end if
 
 
@@ -219,7 +219,7 @@ module rcm_mhd_mod
 
             ! now run the rcm
             call Tic("xRCMx")
-            call rcm (itimei, itimef, nstep, icontrol=4_iprec,stropt=RM%rcm_runid,nslcopt=RM%RCM_nOut)
+            call rcm (itimei, itimef, nSubstep, icontrol=4_iprec,stropt=RM%rcm_runid,nslcopt=RM%RCM_nOut)
             call Toc("xRCMx")
 !            rec = rec + 1 ! update record after rcm has run
 
@@ -256,7 +256,7 @@ module rcm_mhd_mod
         end if
 
         if (iflag==RCMRESTART)then ! stop
-            call rcm (itimei,itimef,nstep,icontrol=5_iprec)
+            call rcm (itimei,itimef,nSubstep,icontrol=5_iprec)
             !  call Finalize()    ! Matches Initialize() above
             call tearDownIon(RM) ! Matches setupIon() above
         end if

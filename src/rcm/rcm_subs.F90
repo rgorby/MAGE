@@ -1485,12 +1485,12 @@
       
       DO i_step = 1, nstep
          if (doRCMVerbose) then
-           write(6,*)'RCM: at substep: ',i_step,' with total step ', nstep
+           write(6,*)'RCM: at substep ',i_step,' with total step ', nstep
          endif
          eeta_avg = eeta_avg + eeta
          CALL Move_plasma (dt)
          if (doRCMVerbose) then
-           write(6,*)'RCM: : finish moving plasma at substep',i_step
+           write(6,*)'RCM: finish moving plasma at substep',i_step
          endif
       END DO
       eeta_avg = (eeta_avg + eeta)/REAL(nstep + 1)     ! eeta_avg takes data points at itimei,itimei+dt,...,itimef, nstep+1 points in total 
