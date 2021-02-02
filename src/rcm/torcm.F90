@@ -115,7 +115,7 @@ MODULE torcm_mod
 
       CALL Calc_ftv (RM,big_vm,ierr)
       IF (ierr < 0) THEN
-        write(*,*) 'calc_ftv problem'
+        write(6,*) 'calc_ftv problem'
         RETURN
       ENDIF
 
@@ -140,7 +140,7 @@ MODULE torcm_mod
       ! reset imin_j
       imin_j = ceiling(bndloc)
       IF (L_write_vars_debug) then
-        write(*,*)' bndy ',bndloc(j),j,vm(imin_j(j),j)
+        write(6,*)' bndy ',bndloc(j),j,vm(imin_j(j),j)
       END IF
 
       ! fits an ellipse to the boundary
@@ -178,9 +178,9 @@ MODULE torcm_mod
       CALL Press2eta()       ! this populates EETA_NEW array
       
       if ( (maxval(eeta_new) <=0) .or. any(isnan(eeta_new)) ) then
-        write(*,*)' something is wrong in eeta_new'
-        write(*,*) 'maxval = ', maxval(eeta_new)
-        write(*,*) 'Num nans = ', count(isnan(eeta_new))
+        write(6,*)' something is wrong in eeta_new'
+        write(6,*) 'maxval = ', maxval(eeta_new)
+        write(6,*) 'Num nans = ', count(isnan(eeta_new))
         ierr = -1
         return
       end if
@@ -288,7 +288,7 @@ MODULE torcm_mod
       DO j = 1, jsize
         DO i = imin_j(j),isize
           IF (vm(i,j) <= 0.0) THEN
-            write(*,*) 'vm problem in TORCM'
+            write(6,*) 'vm problem in TORCM'
             ierr = -1
             return
           ENDIF
@@ -299,7 +299,7 @@ MODULE torcm_mod
       RM%iopen   = iopen   (:,jwrap:jsize)
 
       if (any(isnan(eeta))) then
-        write(*,*) 'Bad eeta at end of torcm!'
+        write(6,*) 'Bad eeta at end of torcm!'
         ierr = -1
         return
       endif
@@ -550,8 +550,8 @@ MODULE torcm_mod
       pmin = atan2(ymin,xmin)
 
       if (any(isnan(vm))) then
-        write(*,*) 'RCM: NaN in Calc_FTV'
-        write(*,*) 'Num NaNs = ', count(isnan(vm))
+        write(6,*) 'RCM: NaN in Calc_FTV'
+        write(6,*) 'Num NaNs = ', count(isnan(vm))
         ierr = -1
         return
       endif

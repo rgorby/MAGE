@@ -44,7 +44,7 @@ MODULE rice_housekeeping_module
              L_write_tracing_debug = .false., &
              L_write_vars_debug    = .false.
   
-  INTEGER(iprec) :: nStep = 4
+  INTEGER(iprec) :: nSubstep = 4
   INTEGER(iprec) :: rcm_record
   REAL(rprec) :: HighLatBD,LowLatBD
   LOGICAL :: doLatStretch = .true.
@@ -169,7 +169,7 @@ MODULE rice_housekeeping_module
 
         !Advance parameters
         !call xmlInp%Set_Val(Idt_overwrite,"sim/idt",Idt_overwrite)
-        call xmlInp%Set_Val(nStep,"sim/nStep", nStep)
+        call xmlInp%Set_Val(nSubstep,"sim/nSubstep", nSubstep)
 
       end subroutine RCM_MHD_Params_XML
 
