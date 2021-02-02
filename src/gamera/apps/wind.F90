@@ -638,7 +638,9 @@ module wind
         dtMin = minval(windBC%tW(2:N)-windBC%tW(1:N-1))
         dtMax = maxval(windBC%tW(2:N)-windBC%tW(1:N-1))
 
-        if ( abs(dtMin-dtMax) > TINY ) then
+!        if ( abs(dtMin-dtMax) > TINY ) then
+        print *, "bcwind dtMin-dtMax = ",dtMin-dtMax
+        if ( abs(dtMin-dtMax) > (1.0e-6)*sqrt(dtMin**2 + dtMax**2) ) then
             write(*,*) 'Solar wind time series requires uniform spacing, bailing ...'
             stop
         else
