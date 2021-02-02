@@ -8,26 +8,12 @@ module calcdbio
 	use xml_input
 	use files
 	use clocks
-	implicit none
+    use calcdbutils
 
-    !Remix holders
-    type rmState_T
-        real(rp) :: time !CHIMP units
-        real(rp), dimension(:,:,:), allocatable :: XY
-        integer :: Np,Nth !Remix cap sizes
-        integer :: i1=-1,i2=-1 !Bracketing step numbers
-        !Data arrays are size Np,Nth (lon,lat)
-        real(rp), dimension(:,:), allocatable :: nFac,nSigP,nSigH,nPot
-        real(rp), dimension(:,:), allocatable :: sFac,sSigP,sSigH,sPot
-    
-    end type rmState_T
+	implicit none
 
     character(len=strLen), private :: dbOutF
     integer, parameter, private :: MAXDBVS = 20
-    !Parameters for output DB grid, 3D thin shell (lat/lon/height)
-    integer, private :: NLat,NLon,Nz
-    real(rp), private :: dz = 60.0 !Default height spacing [km]
-    real(rp), dimension(:,:,:,:), allocatable, private :: xyzI,xyzC !Corner/Center points
     integer, private :: i0 !Shell to start at
     real(rp), private :: rMax = 25.0 !Radius of magnetospheric ball to integrate over [Re]
 
@@ -40,7 +26,7 @@ module calcdbio
         integer, intent(inout) :: NumP
 
         type(IOVAR_T), dimension(MAXDBVS) :: IOVars
-        integer :: i,j,k
+        integer :: i,j,k,NLat,NLon,Nz
         real(rp) :: z,R,lat,phi
         write(dbOutF,'(2a)') trim(adjustl(Model%RunID)),'.deltab.h5'
 
@@ -55,14 +41,19 @@ module calcdbio
 
         NumP = NLat*NLon*Nz
 
+        !Store sizes
+        gGr%NLat = NLat
+        gGr%NLon = NLon
+        gGr%Nz   = Nz
+
         !Calculate corner/center
-        allocate(xyzI(NLat+1,NLon+1,Nz+1,NDIM))
-        allocate(xyzC(NLat  ,NLon  ,Nz  ,NDIM))
+        allocate(gGr%xyzI(NLat+1,NLon+1,Nz+1,NDIM))
+        allocate(gGr%xyzC(NLat  ,NLon  ,Nz  ,NDIM))
 
 
         !Do corners
         do k=1,Nz+1
-        	z = -0.5*dz + (k-1)*dz !km above ground
+        	z = -0.5*dzGG + (k-1)*dzGG !km above ground
         	z = (1.0e+5)*z !cm above ground
         	R = 1.0 + z/Re_cgs !Assuming Earth here
 
@@ -70,9 +61,9 @@ module calcdbio
         		phi = (j-1)*360.0/NLon 
         		do i=1,NLat+1
         			lat = -90.0 + (i-1)*180.0/NLat
-        			xyzI(i,j,k,XDIR) = R*cos(lat*PI/180.0)*cos(phi*PI/180.0)
-        			xyzI(i,j,k,YDIR) = R*cos(lat*PI/180.0)*sin(phi*PI/180.0)
-        			xyzI(i,j,k,ZDIR) = R*sin(lat*PI/180.0)
+        			gGr%xyzI(i,j,k,XDIR) = R*cos(lat*PI/180.0)*cos(phi*PI/180.0)
+        			gGr%xyzI(i,j,k,YDIR) = R*cos(lat*PI/180.0)*sin(phi*PI/180.0)
+        			gGr%xyzI(i,j,k,ZDIR) = R*sin(lat*PI/180.0)
 
         		enddo !i
         	enddo !j
@@ -82,10 +73,10 @@ module calcdbio
         do k=1,Nz
         	do j=1,NLon
         		do i=1,NLat
-        			xyzC(i,j,k,:) = 0.125*(  xyzI(i,j,k,:)     + xyzI(i+1,j,k,:) &
-                                           + xyzI(i,j+1,k,:)   + xyzI(i,j,k+1,:) &
-                                           + xyzI(i+1,j+1,k,:) + xyzI(i+1,j,k+1,:) &
-                                           + xyzI(i,j+1,k+1,:) + xyzI(i+1,j+1,k+1,:) )
+        			gGr%xyzC(i,j,k,:) = 0.125*(  gGr%xyzI(i,j,k,:)     + gGr%xyzI(i+1,j,k,:) &
+                                                 + gGr%xyzI(i,j+1,k,:)   + gGr%xyzI(i,j,k+1,:) &
+                                                 + gGr%xyzI(i+1,j+1,k,:) + gGr%xyzI(i+1,j,k+1,:) &
+                                                 + gGr%xyzI(i,j+1,k+1,:) + gGr%xyzI(i+1,j+1,k+1,:) )
         		enddo
         	enddo
         enddo
@@ -94,13 +85,13 @@ module calcdbio
 
         !Write grid
         call ClearIO(IOVars)
-        call AddOutVar(IOVars,"X",xyzI(:,:,:,XDIR))
-        call AddOutVar(IOVars,"Y",xyzI(:,:,:,YDIR))
-        call AddOutVar(IOVars,"Z",xyzI(:,:,:,ZDIR))
+        call AddOutVar(IOVars,"X",gGr%xyzI(:,:,:,XDIR))
+        call AddOutVar(IOVars,"Y",gGr%xyzI(:,:,:,YDIR))
+        call AddOutVar(IOVars,"Z",gGr%xyzI(:,:,:,ZDIR))
 
-        call AddOutVar(IOVars,"Xcc",xyzC(:,:,:,XDIR))
-        call AddOutVar(IOVars,"Ycc",xyzC(:,:,:,YDIR))
-        call AddOutVar(IOVars,"Zcc",xyzC(:,:,:,ZDIR))
+        call AddOutVar(IOVars,"Xcc",gGr%xyzC(:,:,:,XDIR))
+        call AddOutVar(IOVars,"Ycc",gGr%xyzC(:,:,:,YDIR))
+        call AddOutVar(IOVars,"Zcc",gGr%xyzC(:,:,:,ZDIR))
 
         call WriteVars(IOVars,.true.,dbOutF)
         call ClearIO(IOVars)
@@ -175,7 +166,6 @@ module calcdbio
 
         call ReadVars(IOVars,.true.,rmF,gStr)
 
-        write(*,*) 'Done reading ...'
         !Pull data into arrays
         call IOArray2DFill(IOVars,"Field-aligned current NORTH",rmState%nFac )
         call IOArray2DFill(IOVars, "Pedersen conductance NORTH",rmState%nSigP)
@@ -187,7 +177,9 @@ module calcdbio
         call IOArray2DFill(IOVars,     "Hall conductance SOUTH",rmState%sSigH)
         call IOArray2DFill(IOVars,            "Potential SOUTH",rmState%sPot )
 
- 
+        !TODO: Fill in fac and ionospheric grid data
+        call facGridUpdate(Model,ebState,rmState)
+
     end subroutine updateRemix
 
     !Calculate and output delta-B data
@@ -201,8 +193,8 @@ module calcdbio
         real(rp) :: mjd
 
         mjd = MJDAt(ebState%ebTab,Model%t)
-        allocate(dbMAG_xyz(NLat,NLon,Nz,NDIM)) !Magnetospheric delta-B
-        allocate(dbMAG_rtp(NLat,NLon,Nz,NDIM)) !Magnetospheric delta-B in spherical vectors
+        allocate(dbMAG_xyz(gGr%NLat,gGr%NLon,gGr%Nz,NDIM)) !Magnetospheric delta-B
+        allocate(dbMAG_rtp(gGr%NLat,gGr%NLon,gGr%Nz,NDIM)) !Magnetospheric delta-B in spherical vectors
 
         call Tic("CalcMagDB")
         call CalcMagDB(Model,ebState,dbMAG_xyz)
@@ -239,12 +231,12 @@ module calcdbio
 
         !$OMP PARALLEL DO default(shared) collapse(2) &
         !$OMP private(i,j,k,rad,theta,phi,dBx,dBy,dBz)
-        do k=1,Nz
-            do j=1,NLon
-                do i=1,NLat
-                    rad = norm2(xyzC(i,j,k,:))
-                    theta = acos(xyzC(i,j,k,ZDIR)/rad)
-                    phi = atan2(xyzC(i,j,k,YDIR),xyzC(i,j,k,XDIR))
+        do k=1,gGr%Nz
+            do j=1,gGr%NLon
+                do i=1,gGr%NLat
+                    rad  = norm2(gGr%xyzC(i,j,k,:))
+                    theta = acos(gGr%xyzC(i,j,k,ZDIR)/rad)
+                    phi  = atan2(gGr%xyzC(i,j,k,YDIR),gGr%xyzC(i,j,k,XDIR))
                     dBx = dbXYZ(i,j,k,XDIR)
                     dBy = dbXYZ(i,j,k,YDIR)
                     dBz = dbXYZ(i,j,k,ZDIR)
@@ -283,9 +275,11 @@ module calcdbio
             w2 = (Model%t-ebState%eb1%time)/dt
         endif
 
-    	allocate(Jxyz(NLat,NLon,Nz,NDIM))
+    	allocate(Jxyz(gGr%NLat,gGr%NLon,gGr%Nz,NDIM))
+        !$OMP PARALLEL WORKSHARE
     	Jxyz = w1*ebState%eb1%Jxyz + w2*ebState%eb2%Jxyz
-
+        !$OMP END PARALLEL WORKSHARE
+        
     	dbMAG = 0.0
     	associate( ebGr=>ebState%ebGr )
     	!Big-ass loop, loop over grid cells we want dB at and then loop over MHD grid contribution
@@ -295,10 +289,10 @@ module calcdbio
         !$OMP PARALLEL DO default(shared) collapse(2) &
         !$OMP private(iG,jG,kG,iM,jM,kM) &
         !$OMP private(dV,r3,x0,xCC,ddB)
-    	do kG=1,Nz
-    		do jG=1,NLon
-    			do iG=1,NLat
-    				x0 = xyzC(iG,jG,kG,:) !Cell center of ground grid
+    	do kG=1,gGr%Nz
+    		do jG=1,gGr%NLon
+    			do iG=1,gGr%NLat
+    				x0 = gGr%xyzC(iG,jG,kG,:) !Cell center of ground grid
 
     				do kM=ebGr%ks,ebGr%ke
     					do jM=ebGr%js,ebGr%je
@@ -330,9 +324,9 @@ module calcdbio
         !Moving overall scaling factor to secondary loop to only apply once
         !$OMP PARALLEL DO default(shared) collapse(2) &
         !$OMP private(iG,jG,kG)
-        do kG=1,Nz
-            do jG=1,NLon
-                do iG=1,NLat
+        do kG=1,gGr%Nz
+            do jG=1,gGr%NLon
+                do iG=1,gGr%NLat
                     dbMAG(iG,jG,kG,:) = B0*dbMAG(iG,jG,kG,:)/(4.0*PI)
                 enddo !iG
             enddo !jG

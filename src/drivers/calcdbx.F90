@@ -44,11 +44,6 @@ program calcdbx
 
     !Loop from T0 -> tFin
     Model%t = Model%T0
-
-    ! write(*,*) ''
-    ! write(*,'(a,I0,a)')  'Tracing ', NumP, ' points'
-    ! write(*,'(a,f12.3,a,f12.3)') 'Time Interval = ', Model%T0*oTScl,' / ', Model%tFin*oTScl
-    ! write(*,'(a,f8.3)') 'dt = ', Model%dt*oTScl
     
     !Do main loop
     do while (Model%t<=Model%tFin)

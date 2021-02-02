@@ -65,12 +65,14 @@ if __name__ == "__main__":
     #Set defaults
 	parser = argparse.ArgumentParser(description="Generates XDMF file from CHIMP tracer HDF5 output")
 	parser.add_argument('h5F',nargs=1,type=str,metavar='tracer.h5',help="Filename of CHIMP tracer HDF5 Output")
-	parser.add_argument('-noatts', action='store_false', default=True,help="Don't add XDMF scalars (default: %(default)s)")
+	parser.add_argument('-noatts', action='store_true', default=False,help="Don't add XDMF scalars (default: %(default)s)")
 	#Finished getting arguments, parse and move on
 	args = parser.parse_args()
 
 	fIn = args.h5F[0]
-	doAtts = args.noatts
+	kh5.CheckOrDie(fIn)
+	
+	doAtts =  not args.noatts
 	
 	#Create XML filename
 	pre,ext = os.path.splitext(fIn)
