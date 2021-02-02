@@ -141,6 +141,55 @@ module calcdbio
 
     end subroutine initRM
 
+    !Update remix data
+    subroutine updateRemix(Model,ebState,t,rmState)
+        type(chmpModel_T), intent(in)    :: Model
+        type(ebState_T)  , intent(in)   :: ebState
+        real(rp), intent(in) :: t
+        type(rmState_T), intent(inout)   :: rmState
+
+        character(len=strLen) :: rmF !Remix file
+        character(len=strLen) :: gStr
+        integer :: i1,i2
+        type(IOVAR_T), dimension(MAXDBVS) :: IOVars
+
+        !TODO: Remove redundant code here
+        write(rmF,'(2a)') trim(adjustl(Model%RunID)),'.mix.h5'
+
+        call findSlc(ebState%ebTab,t,i1,i2)
+
+        !Right now just lazily reading one slice and storing
+        !TODO: Fix this to properly interpolate
+        gStr = trim(ebState%ebTab%gStrs(i1))
+
+        call ClearIO(IOVars)
+        !Northern hemisphere
+        call AddInVar(IOVars,"Field-aligned current NORTH")
+        call AddInVar(IOVars, "Pedersen conductance NORTH")
+        call AddInVar(IOVars,     "Hall conductance NORTH")
+        call AddInVar(IOVars,            "Potential NORTH")
+        call AddInVar(IOVars,"Field-aligned current SOUTH")
+        call AddInVar(IOVars, "Pedersen conductance SOUTH")
+        call AddInVar(IOVars,     "Hall conductance SOUTH")
+        call AddInVar(IOVars,            "Potential SOUTH")
+
+        call ReadVars(IOVars,.true.,rmF,gStr)
+
+        write(*,*) 'Done reading ...'
+        !Pull data into arrays
+        call IOArray2DFill(IOVars,"Field-aligned current NORTH",rmState%nFac )
+        call IOArray2DFill(IOVars, "Pedersen conductance NORTH",rmState%nSigP)
+        call IOArray2DFill(IOVars,     "Hall conductance NORTH",rmState%nSigH)
+        call IOArray2DFill(IOVars,            "Potential NORTH",rmState%nPot )
+
+        call IOArray2DFill(IOVars,"Field-aligned current SOUTH",rmState%sFac )
+        call IOArray2DFill(IOVars, "Pedersen conductance SOUTH",rmState%sSigP)
+        call IOArray2DFill(IOVars,     "Hall conductance SOUTH",rmState%sSigH)
+        call IOArray2DFill(IOVars,            "Potential SOUTH",rmState%sPot )
+
+ 
+    end subroutine updateRemix
+
     !Calculate and output delta-B data
     subroutine writeDB(Model,ebState,gStr)
         type(chmpModel_T), intent(in) :: Model
@@ -165,13 +214,13 @@ module calcdbio
         call ClearIO(IOVars)
         call AddOutVar(IOVars,"time",oTScl*Model%t)
         call AddOutVar(IOVars,"MJD",mjd)
-        call AddOutVar(IOVars,"dBx" ,dbMAG_xyz(:,:,:,XDIR),"nT")
-        call AddOutVar(IOVars,"dBy" ,dbMAG_xyz(:,:,:,YDIR),"nT")
-        call AddOutVar(IOVars,"dBz" ,dbMAG_xyz(:,:,:,ZDIR),"nT")
+        call AddOutVar(IOVars,"dBx_M" ,dbMAG_xyz(:,:,:,XDIR),"nT")
+        call AddOutVar(IOVars,"dBy_M" ,dbMAG_xyz(:,:,:,YDIR),"nT")
+        call AddOutVar(IOVars,"dBz_M" ,dbMAG_xyz(:,:,:,ZDIR),"nT")
         !Write out spherical vectors (XDIR:ZDIR = RDIR,TDIR,PDIR)
-        call AddOutVar(IOVars,"dBr" ,dbMAG_rtp(:,:,:,XDIR),"nT")
-        call AddOutVar(IOVars,"dBt" ,dbMAG_rtp(:,:,:,YDIR),"nT")
-        call AddOutVar(IOVars,"dBp" ,dbMAG_rtp(:,:,:,ZDIR),"nT")
+        call AddOutVar(IOVars,"dBr_M" ,dbMAG_rtp(:,:,:,XDIR),"nT")
+        call AddOutVar(IOVars,"dBt_M" ,dbMAG_rtp(:,:,:,YDIR),"nT")
+        call AddOutVar(IOVars,"dBp_M" ,dbMAG_rtp(:,:,:,ZDIR),"nT")
 
         call WriteVars(IOVars,.true.,dbOutF,gStr)
         call ClearIO(IOVars)

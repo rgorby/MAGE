@@ -57,6 +57,7 @@ program calcdbx
         call Tic("Step")
         !Update fields to current time
         call updateFields(Model,ebState,Model%t)
+        
         !Update remix data to current time
         call updateRemix(Model,ebState,Model%t,rmState)
 
@@ -101,24 +102,5 @@ program calcdbx
 
     enddo
 
-    !---
-    contains
-
-    subroutine updateRemix(Model,ebState,t,rmState)
-        type(chmpModel_T), intent(in)    :: Model
-        type(ebState_T), intent(inout)   :: ebState
-        real(rp), intent(in) :: t
-        type(rmState_T), intent(inout)   :: rmState
-        character(len=strLen) :: rmF !Remix file
-
-        integer :: i1,i2
-        call findSlc(ebState%ebTab,t,i1,i2)
-        write(*,*) 'i1,i2 = ', i1,i2
-
-        ! if (i1 == -1) then
-        !     !Haven't yet initialized
-
-        ! endif
-    end subroutine updateRemix
 
 end program calcdbx
