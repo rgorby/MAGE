@@ -75,6 +75,7 @@ module rcm_mhd_mod
         itimei = mhdtime   !floor(mhdtime-time0,iprec)
         itimef = mhdtime + mhdtimedt !floor(mhdtime + mhdtimedt-time0,iprec)
         ircm_dt = itimef - itimei
+        nstep = nSubstep
   
     ! finish up
         if(iflag==RCMWRITETIMING)then
@@ -175,7 +176,6 @@ module rcm_mhd_mod
 
             ! now round to to fit the correct number rcm timesteps
             !itimef = itimei + idt *((itimef-itimei)/idt)
-            nstep = nStep 
             itimef_old = itimef
 
 
