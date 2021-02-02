@@ -151,12 +151,12 @@ module rcm_mhd_mod
             if (doRCMVerbose) then
 !                write(*,*)'-----------rcm_mhd: rec=',rec
 
-                write(*,*) 'itimei = ', itimei
-                write(*,*) 'exchangeNum = ', exchangeNum
-                WRITE (*,'(//)')
-                write (*,'(a,f12.4,a,f12.4,a,i4)') 'RCM: time=',itimei,'  time0=',time0, '  Delta_t[s]=',ircm_dt
-                write (*,'(a,i6,a,f12.4)') 'RCM: _T_rcm[s] =', itimei, ' T_MHD=',mhdtime
-                WRITE (*,'(//)')
+                write(6,*) 'itimei = ', itimei
+                write(6,*) 'exchangeNum = ', exchangeNum
+                WRITE (6,'(//)')
+                write (6,'(a,f12.4,a,f12.4,a,i4)') 'RCM: time=',itimei,'  time0=',time0, '  Delta_t[s]=',ircm_dt
+                write (6,'(a,i6,a,f12.4)') 'RCM: _T_rcm[s] =', itimei, ' T_MHD=',mhdtime
+                WRITE (6,'(//)')
             endif
          
             !idt = real(Idt_overwrite) ! RCM internal time step in seconds
@@ -205,7 +205,7 @@ module rcm_mhd_mod
             exchangeNum = exchangeNum + 1
             call cpu_time(t2)
 
-            if (doRCMVerbose) write(*,'(a,g14.4,a)')'RCM: torcm cpu time= ',t2-t1,' seconds'
+            if (doRCMVerbose) write(6,'(a,g14.4,a)')'RCM: torcm cpu time= ',t2-t1,' seconds'
 
             !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
             ! Advance RCM
@@ -225,7 +225,7 @@ module rcm_mhd_mod
 
             call cpu_time(t2)
             if (doRCMVerbose) then
-                write(*,'(a,f12.4,a)')'RCM_MHD:   rcm cpu time= ',t2-t1,' seconds'
+                write(6,'(a,f12.4,a)')'RCM_MHD:   rcm cpu time= ',t2-t1,' seconds'
                 call print_date_time(6_iprec)
             endif
 
@@ -243,11 +243,11 @@ module rcm_mhd_mod
             call cpu_time(t2)
             if (doRCMVerbose) then
                 call print_date_time(6_iprec)
-                write(*,*)'RCM: tomhd cpu time= ',t2-t1,' seconds'
+                write(6,*)'RCM: tomhd cpu time= ',t2-t1,' seconds'
             endif
 
             if (ierr < 0 ) then
-                write(*,*) 'RCM: error in tomhd '
+                write(6,*) 'RCM: error in tomhd '
                 call BlackBoxRCM(RM)
             endif
          !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

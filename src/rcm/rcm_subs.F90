@@ -62,7 +62,7 @@
 !
 !   Potential solver GMRESM tolerance:
     REAL (rprec) :: tol_gmres
-!
+    logical :: doRCMVerbose = .TRUE.    
 !
 !
 !
@@ -204,6 +204,9 @@
       IF (i_birk == 1) THEN
          CALL Tic("GET_JBIRK")
          CALL Get_jbirk
+         if (doRCMVerbose) then
+            write(6,*)'RCM: finish getting jbirk' 
+         endif
          CALL Toc("GET_JBIRK")
       ELSE IF (i_birk == 2) THEN
          stop 'do not use'
@@ -214,6 +217,9 @@
       END IF
       CALL Tic("PRECIP")
       CALL diffusePrecip ()
+      if (doRCMVerbose) then
+         write(6,*)'RCM: finish getting diffuse precipitation'
+      endif
       CALL Toc("PRECIP")
 !
 !
@@ -1368,6 +1374,10 @@
       itimef = itimef_in
       itimei = itimei_in
       nstep = nstep_in
+     
+      if (doRCMVerbose) then
+        write(6,*)'RCM: itimei= ',itimei,' seconds',' itimef= ',itimef,' seconds ','nStep= ',nstep
+      endif
 
       IF (icontrol == ICONWRITERESTART) then  ! write a restart record to RCM
          call WriteRCMH5(stropt,nslcopt,isRestart=.true.)
@@ -1463,6 +1473,10 @@
 !
 
       dt = (itimef - itimei)/REAl(nstep) 
+
+      if (doRCMVerbose) then
+         write(6,*)'RCM: substep length = ',dt,' seconds'
+      endif
 !
       !Q: Does this have any point since it gets recalculated in move-plasma?
       fac = 1.0E-3_rprec * bir * alpha * beta * dlam * dpsi * ri**2 * signbe
@@ -1472,14 +1486,23 @@
  
       IF (nstep < 1) STOP 'Number of substep in RCM should be at least 1'
       
-      DO i_step = 1, nstep                          
+      DO i_step = 1, nstep
+         if (doRCMVerbose) then
+           write(6,*)'RCM: at substep: ',i_step,' with total step ', nstep
+         endif
          eeta_avg = eeta_avg + eeta
          CALL Move_plasma (dt)
+         if (doRCMVerbose) then
+           write(6,*)'RCM: : finish moving plasma at substep',i_step
+         endif
       END DO
       eeta_avg = (eeta_avg + eeta)/REAL(nstep + 1)     ! eeta_avg takes data points at itimei,itimei+dt,...,itimef, nstep+1 points in total 
   
-     
+      
       CALL Comput ()
+      if (doRCMVerbose) then
+         write(6,*)'RCM: : finishing Comput'
+      endif
       birk_avg = (birk_avg + birk)/2.     ! brik_avg and v_avg take two data points at itimei and itimef
       v_avg    = (v_avg    + v)/2.
 
