@@ -1,7 +1,7 @@
 ! Collection of data and objects for additional voltron helper ranks
 
 module volthelpers_mpi
-    use voltapp_mpi
+    use voltmpitypes
     use mpi
     use ebsquish, only : SquishBlocksRemain, DoSquishBlock
     use, intrinsic :: ieee_arithmetic, only: IEEE_VALUE, IEEE_SIGNALING_NAN, IEEE_QUIET_NAN

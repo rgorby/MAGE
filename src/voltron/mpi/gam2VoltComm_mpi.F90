@@ -53,7 +53,7 @@ module gam2VoltComm_mpi
     subroutine initGam2Volt(g2vComm, gApp, allComm, optFilename, doIO)
         type(gam2VoltCommMpi_T), intent(inout) :: g2vComm
         type(gamAppMpi_T), intent(inout) :: gApp
-        integer, intent(in) :: voltComm
+        integer, intent(in) :: allComm
         character(len=*), optional, intent(in) :: optFilename
         logical, optional, intent(in) :: doIO
 

@@ -9,6 +9,7 @@ program voltron_mpix
     use voltio
     use uservoltic
     use mpi
+    use xml_input
 
     implicit none
 

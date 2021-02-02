@@ -194,6 +194,8 @@ module XML_Input
    !   provided, 'Input.XML' is set as the default file name
    !   and no 'root' path is defined.
 
+   public :: ReadXmlImmediate
+
    !-------------------------------------------------------------------
 
    type XML_Input_T
@@ -907,7 +909,7 @@ contains
          xmlInp = New_XML_Input(trim(fname),'/')
       endif
 
-      call this%Get_Key_Val(trim(keyIn), valOut)
+      call xmlInp%Get_Key_Val(trim(keyIn), valOut)
       if(len(trim(valOut)) == 0) valOut = trim(dflt)
 
    end subroutine

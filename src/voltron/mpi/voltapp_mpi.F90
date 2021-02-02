@@ -2,7 +2,7 @@
 ! MPI version
 
 module voltapp_mpi
-    use voltapp
+    use voltmpitypes
     use gamapp_mpi
     use gamapp
     use mpi
@@ -11,56 +11,6 @@ module voltapp_mpi
     use volthelpers_mpi
     
     implicit none
-
-    type, extends(voltApp_T) :: voltAppMpi_T
-        ! voltron to helpers comms variables
-        integer :: vHelpComm = MPI_COMM_NULL
-        integer :: vHelpRank
-        logical :: amHelper = .false., useHelpers = .false.
-        logical :: doSquishHelp = .false.
-
-        ! voltron to gamera comms variables
-        integer :: voltMpiComm = MPI_COMM_NULL
-        integer :: myRank
-        type(gamApp_T) :: gAppLocal
-        logical :: doSerialVoltron = .false., doAsyncShallow = .true.
-        logical :: firstShallowUpdate = .true., firstDeepUpdate = .true., firstStepUpdate = .true.
-
-        ! array of all zeroes to simplify various send/receive calls
-        integer, dimension(:), allocatable :: zeroArrayCounts, zeroArrayTypes
-        integer(MPI_ADDRESS_KIND), dimension(:), allocatable ::  zeroArrayDispls
-
-        ! list of gamera ranks to communicate with
-        integer, dimension(:), allocatable :: sendRanks, recvRanks
-
-        ! STEP VOLTRON VARIABLES
-        integer :: timeReq=MPI_REQUEST_NULL, timeStepReq=MPI_REQUEST_NULL
-        real(rp) :: timeBuffer
-        integer :: timeStepBuffer
-
-        ! SHALLOW COUPLING VARIABLES
-        integer, dimension(:), allocatable :: recvCountsGasShallow, recvTypesGasShallow
-        integer(MPI_ADDRESS_KIND), dimension(:), allocatable :: recvDisplsGasShallow
-        integer, dimension(:), allocatable :: recvCountsBxyzShallow, recvTypesBxyzShallow
-        integer(MPI_ADDRESS_KIND), dimension(:), allocatable :: recvDisplsBxyzShallow
-        integer, dimension(:), allocatable :: sendCountsIneijkShallow, sendTypesIneijkShallow
-        integer(MPI_ADDRESS_KIND), dimension(:), allocatable :: sendDisplsIneijkShallow
-        integer, dimension(:), allocatable :: sendCountsInexyzShallow, sendTypesInexyzShallow
-        integer(MPI_ADDRESS_KIND), dimension(:), allocatable :: sendDisplsInexyzShallow
-        ! SHALLOW ASYNCHRONOUS VARIABLES
-        integer :: shallowIneijkSendReq=MPI_REQUEST_NULL, shallowInexyzSendReq=MPI_REQUEST_NULL
-        integer :: asyncShallowBcastReq=MPI_REQUEST_NULL
-
-        ! DEEP COUPLING VARIABLES
-        integer, dimension(:), allocatable :: recvCountsGasDeep, recvTypesGasDeep
-        integer(MPI_ADDRESS_KIND), dimension(:), allocatable :: recvDisplsGasDeep
-        integer, dimension(:), allocatable :: recvCountsBxyzDeep, recvTypesBxyzDeep
-        integer(MPI_ADDRESS_KIND), dimension(:), allocatable :: recvDisplsBxyzDeep
-        integer, dimension(:), allocatable :: sendCountsGas0Deep, sendTypesGas0Deep
-        integer(MPI_ADDRESS_KIND), dimension(:), allocatable :: sendDisplsGas0Deep
-        logical :: deepProcessingInProgress = .false.
-
-    end type voltAppMpi_T
 
     contains
 
@@ -123,7 +73,8 @@ module voltapp_mpi
 
         character(len=strLen) :: inpXML
         type(XML_Input_T) :: xmlInp
-        integer :: commSize, ierr, numCells, length, ic, numInNeighbors, numOutNeighbors, voltComm
+        integer :: commSize, ierr, numCells, length, ic, numInNeighbors, numOutNeighbors
+        integer :: voltComm, nHelpers
         character( len = MPI_MAX_ERROR_STRING) :: message
         logical :: reorder, wasWeighted
         integer, allocatable, dimension(:) :: neighborRanks, inData, outData
@@ -277,6 +228,8 @@ module voltapp_mpi
         call xmlInp%Set_Val(vApp%doAsyncShallow, "/Voltron/coupling/doAsyncShallow",.true.)
         call xmlInp%Set_Val(vApp%useHelpers,"/Voltron/Helpers/useHelpers",.true.)
         call xmlInp%Set_Val(vApp%doSquishHelp,"/Voltron/Helpers/doSquishHelp",.true.)
+        call xmlInp%Set_Val(nHelpers,"/Voltron/Helpers/numHelpers",0)
+        if(nHelpers .le. 0) vApp%useHelpers = .false.
 
         if(vApp%doSerialVoltron) then
             ! don't do asynchronous shallow if comms are serial
@@ -830,7 +783,7 @@ module voltapp_mpi
         call DoSquishBlock(vApp)
         call Toc("Squish")
 
-        if(.not. SquishBlocksRemain()) then
+        if(.not. SquishBlocksRemain(vApp)) then
             vApp%deepProcessingInProgress = .false.
         endif
 
@@ -1258,7 +1211,7 @@ module voltapp_mpi
     subroutine helpVoltron(vApp)
         type(voltAppMpi_T), intent(inout) :: vApp
 
-        integer :: helpType, helpReq = MPI_REQUEST_NULL
+        integer :: ierr, helpType, helpReq = MPI_REQUEST_NULL
 
         ! assumed to only be in this function if helpers are enabled
 

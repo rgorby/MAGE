@@ -8,6 +8,18 @@ module ebtypes
     !Primitive variables
     integer, parameter :: NVARMHD = 5
 
+    !Data necessary for CHIMP 2D<->3D mapping for deep coupling
+    type ebSquish_T
+        ! base variables
+        real(rp) :: Rinner
+        ! block tracking for splitting up calculations and dividing work
+        integer :: numSquishBlocks = 3 ! total blocks to divide work into
+        integer :: curSquishBlock = 0
+        ! start and end blocks in case work is divided across multiple ranks
+        integer :: myFirstBlock = 0 ! first block for me to work on
+        integer :: myNumBlocks = -1 ! how many blocks I should solve
+    end type ebSquish_T
+
     !Data necessary to update fields, ie time->field data file mapping
     !File: bStr + gStr (base+group)
     type ebTab_T
@@ -58,6 +70,7 @@ module ebtypes
     type ebTrcApp_T
         type(chmpModel_T) :: ebModel
         type(ebState_T)   :: ebState
+        type(ebSquish_T)  :: ebSquish
     end type ebTrcApp_T
 
     !Data holder for doing field line tracing at point

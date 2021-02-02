@@ -33,7 +33,6 @@ module voltapp
         type(TimeSeries_T) :: tsMJD
         real(rp) :: gTScl,tSpin,tIO
         logical :: doSpin,doDelayIO
-        integer :: numSB
 
         if(present(optFilename)) then
             ! read from the prescribed file
@@ -55,8 +54,7 @@ module voltapp
         endif
 
         ! read number of squish blocks
-        call xmlInp%Set_Val(numSB,"coupling/numSquishBlocks",4)
-        call setNumSquishBlocks(numSB)
+        call xmlInp%Set_Val(vApp%ebTrcApp%ebSquish%numSquishBlocks,"coupling/numSquishBlocks",4)
 
     !Initialize state information
         !Set file to read from and pass desired variable name to initTS
