@@ -39,6 +39,8 @@ module pdfuns
         case("KAPPA","KAP")
             fPSD0 => fKappa
             call inpXML%Set_Val(kappa,"population/k0",3.0_rp)
+        case("RBPSD")
+            fPSD0 => fRBPSD
         case("HDF5IN")
             fPSD0 => fHDF5
             !Read filename of hdf5 from XML
@@ -84,6 +86,42 @@ module pdfuns
         
     end function fKappa
 
+    !Function for radiation belt trapped population
+    function fRBPSD(Model,L,phi,K,alpha,n0,kT0) result(fD)
+        type(chmpModel_T), intent(in) :: Model
+        real(rp), intent(in) :: L,phi,K,alpha
+        real(rp), intent(in), optional :: n0,kT0
+        real(rp) :: fD
+
+        real(rp) :: AScl,B,a,n
+        real(rp) :: L0,Lm,Flk,lScl,nXP
+
+        AScl = 4.54238496204e+26 !4.5e5 ![keV^-3 cm^-1 s^-3 sr^-1]
+        B = -3.5
+        a = 0.5
+        n = 2.0
+        
+        if (K >= 1000.0) then
+            L0 = 3.5
+            Lm = 4.5
+        else
+            L0 = 4.75-1.25*(K*1.0e-3)
+            Lm = 6.37-1.88*(K*1.0e-3)
+        endif
+
+        if (L < L0) then
+            Flk = 0.0
+        else
+            lScl = (L-L0)/(Lm-L0)
+            nXP = (2.0/n)*(1.0-lScl**n)
+            Flk  = lScl**2.0*exp(nXP)
+        endif
+
+        fD = AScl*(K**B)*(sin(alpha)**a)*Flk
+
+    end function fRBPSD
+
+    !Function for taking PSD from a file
     function fHDF5(Model,L,phi,K,alpha,n0,kT0) result(fD)
         type(chmpModel_T), intent(in) :: Model
         real(rp), intent(in) :: L,phi,K,alpha

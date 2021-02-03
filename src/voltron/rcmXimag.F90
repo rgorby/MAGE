@@ -76,7 +76,7 @@ module rcmXimag
             enddo
 
             ! call remix grid constructor
-            call init_grid_fromTP(imagX%rcmG,rcmt,rcmp,SOLVER_GRID=.false.)
+            call init_grid_fromTP(imagX%rcmG,rcmt,rcmp,isSolverGrid=.false.)
 
         end subroutine rcmGrid
 

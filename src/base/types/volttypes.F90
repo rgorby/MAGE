@@ -7,6 +7,7 @@ module volttypes
     use ioclock
     use mixtypes
     use ebtypes
+    use gcmtypes
 
     implicit none
 
@@ -30,7 +31,7 @@ module volttypes
     type mix2Mhd_T
         real(rp), dimension(:,:,:,:,:), allocatable :: mixOutput
         real(rp), dimension(:,:,:), allocatable :: gPsi
-        type(Map_T), allocatable, dimension(:) :: PsiMaps
+        type(Map_T), allocatable, dimension(:,:) :: PsiMaps
         integer :: PsiStart = PsiSt, PsiShells = PsiSh !Coming from cmidefs
         real(rp) :: rm2g
     end type mix2Mhd_T
@@ -48,16 +49,15 @@ module volttypes
         real(rp), dimension(:,:), allocatable :: latc,lonc
         real(rp), dimension(:,:), allocatable :: fac
         
-        logical, dimension(:,:), allocatable :: isClosed
+        logical, dimension(:,:), allocatable :: inIMag
     end type imag2Mix_T
 
     ! data for gamera -> remix conversion
     type mhd2Mix_T
         real(rp), dimension(:,:,:,:,:), allocatable :: mixInput
         real(rp), dimension(:,:,:,:), allocatable :: gJ
-        type(Map_T), allocatable, dimension(:) :: Jmaps
+        type(Map_T), allocatable, dimension(:,:) :: Jmaps
         integer :: JStart = JpSt, JShells = JpSh !Coming from cmidefs
-        type(mixGrid_T) :: mixGfpd
     end type mhd2mix_T
 
     ! data for chimp -> gamera conversion
@@ -70,6 +70,8 @@ module volttypes
         logical , dimension(:,:,:)  , allocatable :: isEdible !Good values for MHD to eat (ingest)
         
         integer :: iMax !Possibly changing i-boundary of squish mapping
+        real(rp) :: epsSquish,epsds0 !Epsilon parameter for tracing squish/default respectively
+
     end type chmp2Mhd_T
 
     ! data for gamera -> chimp conversion
@@ -94,6 +96,7 @@ module volttypes
         procedure :: doAdvance => baseAdvance
         procedure :: doEval => baseEval
         procedure :: doIO => baseIO
+        procedure :: doConIO => baseConIO
         procedure :: doRestart => baseRestart
 
     end type innerMagBase_T
@@ -101,8 +104,9 @@ module volttypes
     type voltApp_T
 
         !Voltron state information
-        type(TimeSeries_T) :: tilt
+        type(TimeSeries_T) :: tilt,symh
         real(rp) :: time, MJD,tFin
+        real(rp) :: BSDst=0.0 !Most recent bsdst calculated
         integer :: ts
         logical :: isSeparate = .false. ! whether Voltron is running in a separate application from gamera
 
@@ -119,22 +123,31 @@ module volttypes
         type(chmp2Mhd_T)  :: chmp2mhd
         type(imag2Mix_T)  :: imag2mix
 
+        type(gcm_T) :: gcm
+
         class(innerMagBase_T), allocatable :: imagApp
 
         !Shallow coupling information
         real(rp) :: ShallowT
         real(rp) :: ShallowDT
+        real(rp) :: TargetShallowDT ! Desired shallow step from Voltron
+        logical  :: doGCM = .false.
 
         !Deep coupling information
         real(rp) :: DeepT
         real(rp) :: DeepDT
+        real(rp) :: TargetDeepDT ! Desired deep step from Voltron
         logical  :: doDeep = .false. !Whether to do deep coupling
-        real(rp) :: rDeep !Radius (in code units) to do deep coupling
         real(rp) :: rTrc  !Radius to do tracing (ebSquish) inside of
         integer  :: iDeep  = 0 !Index of max i shell containing deep coupling radius
         integer  :: imType = 0 !Type of inner magnetosphere model (0 = None)
         integer  :: prType = 0 !Type of projection for coupling   (0 = None)
         logical  :: doQkSquish = .false. !Whether or not to do fast squishing
+
+        !Dynamic coupling info
+        logical :: doDynCplDT = .false. !Whether to do dynamic coupling cadence
+        integer  :: qkSquishStride = 2 ! Stride to use when fast squishing
+
     end type voltApp_T
 
     contains
@@ -169,6 +182,11 @@ module volttypes
     subroutine baseIO(imag,nOut,MJD,time)
         class(innerMagBase_T), intent(inout) :: imag
         integer, intent(in) :: nOut
+        real(rp), intent(in) :: MJD,time
+    end subroutine
+
+    subroutine baseConIO(imag,MJD,time)
+        class(innerMagBase_T), intent(inout) :: imag
         real(rp), intent(in) :: MJD,time
     end subroutine
 

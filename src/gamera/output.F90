@@ -5,10 +5,12 @@ module output
     use gioH5
     use gridutils
     use files
+    use kaiomp
     
     implicit none
 
     character(len=strLen) :: zcsClk = "Gamera" !Clock ID to use for ZCS calculation
+    real(rp), private :: voltWait = 0.0
 
     !ConOut_T
     !Console output function pointer
@@ -57,15 +59,15 @@ contains
         !Calculate zone-cycles per second
         if (Model%ts > 0) then
             ZCs = Model%IO%tsOut*Grid%Nip*Grid%Njp*Grid%Nkp/wTime
+            voltWait = 0.8*voltWait + 0.2*(readClock('ShallowRecv')+readClock('DeepRecv'))/kClocks(1)%tElap ! Weighted average to self-correct
         else
             ZCs = 0.0
+            voltWait = 0
         endif
 
         if (Model%isLoud) then
-            nTh = 0
-#ifdef _OPENMP
-            nTh = Model%nTh
-#endif
+            nTh = NumOMP()
+
             write(*,*) ANSICYAN
             write(*,*) 'GAMERA'
             call timeString(Model%t,tStr)
@@ -77,10 +79,16 @@ contains
             if (Model%dt0 > TINY) then
                 write (*, '(a,f8.3,a)')      '    dt/dt0 = ', 100*Model%dt/Model%dt0, '%'     
             endif
-            write (*, '(a,f9.2,a,I0,a)') '      kZCs = ', ZCs/1000.0, ' (',nTh,' threads)'         
+            if (.not. isnan(voltWait)) then
+                write (*, '(a,1f7.1,a)' )    '    Spent ', voltWait*100.0, '% of time waiting for Voltron'
+            endif
+            write (*, '(a,f9.2,a,I0,a)') '      kZCs = ', ZCs/1000.0, ' (',nTh,' threads)'
             write(*,'(a)',advance="no") ANSIRESET!, ''
         endif
 
+        !Setup for next output
+        Model%IO%tsNext = Model%ts + Model%IO%tsOut
+        
     end subroutine consoleOutput_STD
 
     subroutine tStr_STD(T,tStr)
@@ -140,9 +148,7 @@ contains
 
         write (lnResF, '(A,A,A,A)') trim(Model%RunID), ".Res.", "XXXXX", ".h5"
 
-        ! make a link to the default "XXXXX" restart file
-        call EXECUTE_COMMAND_LINE('ln -sf '//trim(ResF)//' '//trim(lnResF), wait=.false.)
-
+        call MapSymLink(ResF,lnResF)
     end subroutine resOutput
 
 end module output

@@ -16,7 +16,7 @@ module metric
         logical, intent(in), optional :: doBaryO
 
         logical :: doBary
-
+        real(rp), dimension(NDIM) :: xyzcc
         if (present(doBaryO)) then
             doBary = doBaryO
         else
@@ -24,19 +24,17 @@ module metric
         endif
 
         if (doBary) then
-            xc = Gr%xyzcc(i,j,k,XDIR)
-            yc = Gr%xyzcc(i,j,k,YDIR)
-            zc = Gr%xyzcc(i,j,k,ZDIR)
+            xyzcc = Gr%xyzcc(i,j,k,:)
+
         else
-            xc = 0.125*( Gr%x(i,j,k)   + Gr%x(i+1,j,k)   + Gr%x(i+1,j+1,k)   + Gr%x(i,j+1,k) + &
-                         Gr%x(i,j,k+1) + Gr%x(i+1,j,k+1) + Gr%x(i+1,j+1,k+1) + Gr%x(i,j+1,k+1) )
 
-            yc = 0.125*( Gr%y(i,j,k)   + Gr%y(i+1,j,k)   + Gr%y(i+1,j+1,k)   + Gr%y(i,j+1,k) + &
-                         Gr%y(i,j,k+1) + Gr%y(i+1,j,k+1) + Gr%y(i+1,j+1,k+1) + Gr%y(i,j+1,k+1) )
-
-            zc = 0.125*( Gr%z(i,j,k)   + Gr%z(i+1,j,k)   + Gr%z(i+1,j+1,k)   + Gr%z(i,j+1,k) + &
-                         Gr%z(i,j,k+1) + Gr%z(i+1,j,k+1) + Gr%z(i+1,j+1,k+1) + Gr%z(i,j+1,k+1) )
+            xyzcc = 0.125*(  Gr%xyz(i,j,k  ,:) + Gr%xyz(i+1,j,k  ,:) + Gr%xyz(i+1,j+1,k  ,:) + Gr%xyz(i,j+1,k  ,:) &
+                           + Gr%xyz(i,j,k+1,:) + Gr%xyz(i+1,j,k+1,:) + Gr%xyz(i+1,j+1,k+1,:) + Gr%xyz(i,j+1,k+1,:) )
         endif
+        xc = xyzcc(XDIR)
+        yc = xyzcc(YDIR)
+        zc = xyzcc(ZDIR)
+
     end subroutine cellCenter
 
     !Calculate face center (in direction d, shifted down) of cell i,j,k
@@ -47,6 +45,7 @@ module metric
         logical, intent(in), optional :: doBaryO
 
         logical :: doBary
+        real(rp), dimension(NDIM) :: xyzfc
 
         if (present(doBaryO)) then
             doBary = doBaryO
@@ -55,26 +54,25 @@ module metric
         endif
 
         if (doBary) then
-            xfc = Gr%xfc(i,j,k,XDIR,d)
-            yfc = Gr%xfc(i,j,k,YDIR,d)
-            zfc = Gr%xfc(i,j,k,ZDIR,d)
+            xyzfc = Gr%xfc(i,j,k,XDIR:ZDIR,d)
         else
             ! select direction
             select case(d)
                 case(IDIR)
-                    xfc = 0.25*( Gr%x(i,j,k) + Gr%x(i,j+1,k) + Gr%x(i,j+1,k+1) + Gr%x(i,j,k+1) )
-                    yfc = 0.25*( Gr%y(i,j,k) + Gr%y(i,j+1,k) + Gr%y(i,j+1,k+1) + Gr%y(i,j,k+1) )
-                    zfc = 0.25*( Gr%z(i,j,k) + Gr%z(i,j+1,k) + Gr%z(i,j+1,k+1) + Gr%z(i,j,k+1) )
+                    xyzfc = 0.25*( Gr%xyz(i,j,k,:) + Gr%xyz(i,j+1,k,:) + Gr%xyz(i,j+1,k+1,:) + Gr%xyz(i,j,k+1,:) )
+
                 case(JDIR)
-                    xfc = 0.25*( Gr%x(i,j,k) + Gr%x(i+1,j,k) + Gr%x(i+1,j,k+1) + Gr%x(i,j,k+1) )
-                    yfc = 0.25*( Gr%y(i,j,k) + Gr%y(i+1,j,k) + Gr%y(i+1,j,k+1) + Gr%y(i,j,k+1) )
-                    zfc = 0.25*( Gr%z(i,j,k) + Gr%z(i+1,j,k) + Gr%z(i+1,j,k+1) + Gr%z(i,j,k+1) )
+                    xyzfc = 0.25*( Gr%xyz(i,j,k,:) + Gr%xyz(i+1,j,k,:) + Gr%xyz(i+1,j,k+1,:) + Gr%xyz(i,j,k+1,:) )
+
                 case(KDIR)
-                    xfc = 0.25*( Gr%x(i,j,k) + Gr%x(i+1,j,k) + Gr%x(i+1,j+1,k) + Gr%x(i,j+1,k) )
-                    yfc = 0.25*( Gr%y(i,j,k) + Gr%y(i+1,j,k) + Gr%y(i+1,j+1,k) + Gr%y(i,j+1,k) )
-                    zfc = 0.25*( Gr%z(i,j,k) + Gr%z(i+1,j,k) + Gr%z(i+1,j+1,k) + Gr%z(i,j+1,k) )
+                    xyzfc = 0.25*( Gr%xyz(i,j,k,:) + Gr%xyz(i+1,j,k,:) + Gr%xyz(i+1,j+1,k,:) + Gr%xyz(i,j+1,k,:) )
+
             end select
         endif
+        xfc = xyzfc(XDIR)
+        yfc = xyzfc(YDIR)
+        zfc = xyzfc(ZDIR)
+
     end subroutine faceCenter
 
     !d-Face coordinates in order f0=SW,f1=SE,f2=NW,f3=NE
@@ -84,53 +82,29 @@ module metric
         integer, intent(in) :: i,j,k,d
         real(rp), intent(out), dimension(NDIM) :: f0,f1,f2,f3
 
-        f0(XDIR) = Grid%x(i,j,k)
-        f0(YDIR) = Grid%y(i,j,k)
-        f0(ZDIR) = Grid%z(i,j,k)
-        
+        f0 = Grid%xyz(i,j,k,:)
+
         select case(d)
         case(IDIR)
             !I face
-            f1(XDIR) = Grid%x(i,j+1,k)
-            f1(YDIR) = Grid%y(i,j+1,k)
-            f1(ZDIR) = Grid%z(i,j+1,k)
+            f1 = Grid%xyz(i,j+1,k  ,:)
+            f2 = Grid%xyz(i,j  ,k+1,:)
+            f3 = Grid%xyz(i,j+1,k+1,:)
 
-            f3(XDIR) = Grid%x(i,j+1,k+1)
-            f3(YDIR) = Grid%y(i,j+1,k+1)
-            f3(ZDIR) = Grid%z(i,j+1,k+1)
-
-            f2(XDIR) = Grid%x(i,j,k+1)
-            f2(YDIR) = Grid%y(i,j,k+1)
-            f2(ZDIR) = Grid%z(i,j,k+1)
         case(JDIR)
             !J face
-            f1(XDIR) = Grid%x(i,j,k+1)
-            f1(YDIR) = Grid%y(i,j,k+1)
-            f1(ZDIR) = Grid%z(i,j,k+1)
+            f1 = Grid%xyz(i  ,j,k+1,:)
+            f2 = Grid%xyz(i+1,j,k  ,:)
+            f3 = Grid%xyz(i+1,j,k+1,:)
 
-            f3(XDIR) = Grid%x(i+1,j,k+1)
-            f3(YDIR) = Grid%y(i+1,j,k+1)
-            f3(ZDIR) = Grid%z(i+1,j,k+1)
-
-            f2(XDIR) = Grid%x(i+1,j,k)
-            f2(YDIR) = Grid%y(i+1,j,k)
-            f2(ZDIR) = Grid%z(i+1,j,k)
         case(KDIR)
             !K face
-            f1(XDIR) = Grid%x(i+1,j,k)
-            f1(YDIR) = Grid%y(i+1,j,k)
-            f1(ZDIR) = Grid%z(i+1,j,k)
+            f1 = Grid%xyz(i+1,j  ,k,:)
+            f2 = Grid%xyz(i  ,j+1,k,:)
+            f3 = Grid%xyz(i+1,j+1,k,:)
 
-            f3(XDIR) = Grid%x(i+1,j+1,k)
-            f3(YDIR) = Grid%y(i+1,j+1,k)
-            f3(ZDIR) = Grid%z(i+1,j+1,k)
-
-            f2(XDIR) = Grid%x(i,j+1,k)
-            f2(YDIR) = Grid%y(i,j+1,k)
-            f2(ZDIR) = Grid%z(i,j+1,k)
         end select  
                         
-
     end subroutine faceCoords
 
     !d-Edge coordinates in order
@@ -140,17 +114,18 @@ module metric
         integer, intent(in) :: i,j,k,d
         real(rp), intent(out), dimension(NDIM) :: e1,e2
 
-        e1 = [Grid%x(i,j,k),Grid%y(i,j,k),Grid%z(i,j,k)]
+        e1 = Grid%xyz(i,j,k,:)
+
         select case(d)
         case(IDIR)
             !I edge
-            e2 = [Grid%x(i+1,j,k),Grid%y(i+1,j,k),Grid%z(i+1,j,k)]
+            e2 = Grid%xyz(i+1,j,k,:)
         case(JDIR)
             !J edge
-            e2 = [Grid%x(i,j+1,k),Grid%y(i,j+1,k),Grid%z(i,j+1,k)]
+            e2 = Grid%xyz(i,j+1,k,:)
         case(KDIR)
             !K edge
-            e2 = [Grid%x(i,j,k+1),Grid%y(i,j,k+1),Grid%z(i,j,k+1)]
+            e2 = Grid%xyz(i,j,k+1,:)
         end select
     end subroutine edgeCoords
 
@@ -161,14 +136,14 @@ module metric
         integer, intent(in) :: i,j,k
         real(rp), intent(out), dimension(8,NDIM) :: xyzC
 
-        xyzC(1,:) = [Grid%x(i  ,j  ,k  ),Grid%y(i  ,j  ,k  ),Grid%z(i  ,j  ,k  )]
-        xyzC(2,:) = [Grid%x(i+1,j  ,k  ),Grid%y(i+1,j  ,k  ),Grid%z(i+1,j  ,k  )]
-        xyzC(3,:) = [Grid%x(i+1,j+1,k  ),Grid%y(i+1,j+1,k  ),Grid%z(i+1,j+1,k  )]
-        xyzC(4,:) = [Grid%x(i  ,j+1,k  ),Grid%y(i  ,j+1,k  ),Grid%z(i  ,j+1,k  )]
-        xyzC(5,:) = [Grid%x(i  ,j  ,k+1),Grid%y(i  ,j  ,k+1),Grid%z(i  ,j  ,k+1)]
-        xyzC(6,:) = [Grid%x(i+1,j  ,k+1),Grid%y(i+1,j  ,k+1),Grid%z(i+1,j  ,k+1)]
-        xyzC(7,:) = [Grid%x(i+1,j+1,k+1),Grid%y(i+1,j+1,k+1),Grid%z(i+1,j+1,k+1)]
-        xyzC(8,:) = [Grid%x(i  ,j+1,k+1),Grid%y(i  ,j+1,k+1),Grid%z(i  ,j+1,k+1)]
+        xyzC(1,:) = Grid%xyz(i  ,j  ,k  ,:)
+        xyzC(2,:) = Grid%xyz(i+1,j  ,k  ,:)
+        xyzC(3,:) = Grid%xyz(i+1,j+1,k  ,:)
+        xyzC(4,:) = Grid%xyz(i  ,j+1,k  ,:)
+        xyzC(5,:) = Grid%xyz(i  ,j  ,k+1,:)
+        xyzC(6,:) = Grid%xyz(i+1,j  ,k+1,:)
+        xyzC(7,:) = Grid%xyz(i+1,j+1,k+1,:)
+        xyzC(8,:) = Grid%xyz(i  ,j+1,k+1,:)
 
     end subroutine cellCoords
 
@@ -200,33 +175,27 @@ module metric
         integer, intent(in) :: i,j,k,d
         real(rp), dimension(NDIM) :: xCC
 
+        real(rp), dimension(NDIM) :: xCCp,xCCm
         ! select direction
         select case(d)
           case(IDIR)
             ! i-vector at cell center
-            xCC(XDIR) = 0.25*( (Grid%x(i+1,j,k) + Grid%x(i+1,j+1,k) + Grid%x(i+1,j,k+1) + Grid%x(i+1,j+1,k+1)) - &
-                         (Grid%x(i,  j,k) + Grid%x(i,  j+1,k) + Grid%x(i,  j,k+1) + Grid%x(i,  j+1,k+1)) )
-            xCC(YDIR) = 0.25*( (Grid%y(i+1,j,k) + Grid%y(i+1,j+1,k) + Grid%y(i+1,j,k+1) + Grid%y(i+1,j+1,k+1)) - &
-                         (Grid%y(i,  j,k) + Grid%y(i,  j+1,k) + Grid%y(i,  j,k+1) + Grid%y(i,  j+1,k+1)) )
-            xCC(ZDIR) = 0.25*( (Grid%z(i+1,j,k) + Grid%z(i+1,j+1,k) + Grid%z(i+1,j,k+1) + Grid%z(i+1,j+1,k+1)) - &
-                         (Grid%z(i,  j,k) + Grid%z(i,  j+1,k) + Grid%z(i,  j,k+1) + Grid%z(i,  j+1,k+1)) )
+            xCCp = 0.25*( Grid%xyz(i+1,j,k,:) + Grid%xyz(i+1,j+1,k,:) + Grid%xyz(i+1,j,k+1,:) + Grid%xyz(i+1,j+1,k+1,:) )
+            xCCm = 0.25*( Grid%xyz(i,  j,k,:) + Grid%xyz(i,  j+1,k,:) + Grid%xyz(i,  j,k+1,:) + Grid%xyz(i,  j+1,k+1,:) )
+
           case(JDIR)
             ! j-vector at cell center
-            xCC(XDIR) = 0.25*( (Grid%x(i,j+1,k) + Grid%x(i+1,j+1,k) + Grid%x(i,j+1,k+1) + Grid%x(i+1,j+1,k+1)) - &
-                          (Grid%x(i,j,  k) + Grid%x(i+1,j,  k) + Grid%x(i,j,  k+1) + Grid%x(i+1,j,  k+1)) )
-            xCC(YDIR) = 0.25*( (Grid%y(i,j+1,k) + Grid%y(i+1,j+1,k) + Grid%y(i,j+1,k+1) + Grid%y(i+1,j+1,k+1)) - &
-                          (Grid%y(i,j,  k) + Grid%y(i+1,j,  k) + Grid%y(i,j,  k+1) + Grid%y(i+1,j,  k+1)) )  
-            xCC(ZDIR) = 0.25*( (Grid%z(i,j+1,k) + Grid%z(i+1,j+1,k) + Grid%z(i,j+1,k+1) + Grid%z(i+1,j+1,k+1)) - &
-                         (Grid%z(i,j,  k) + Grid%z(i+1,j,  k) + Grid%z(i,j,  k+1) + Grid%z(i+1,j,  k+1)) )  
+            xCCp = 0.25*( Grid%xyz(i,j+1,k,:) + Grid%xyz(i+1,j+1,k,:) + Grid%xyz(i,j+1,k+1,:) + Grid%xyz(i+1,j+1,k+1,:) )
+            xCCm = 0.25*( Grid%xyz(i,j,  k,:) + Grid%xyz(i+1,j,  k,:) + Grid%xyz(i,j,  k+1,:) + Grid%xyz(i+1,j,  k+1,:) )
+
           case(KDIR)
             ! k-vector at cell center
-            xCC(XDIR) = 0.25*( (Grid%x(i,j,k+1) + Grid%x(i+1,j,k+1) + Grid%x(i,j+1,k+1) + Grid%x(i+1,j+1,k+1)) - &
-                          (Grid%x(i,j,k  ) + Grid%x(i+1,j,k  ) + Grid%x(i,J+1,k  ) + Grid%x(i+1,j+1,k  )) )
-            xCC(YDIR) = 0.25*( (Grid%y(i,j,k+1) + Grid%y(i+1,j,k+1) + Grid%y(i,j+1,k+1) + Grid%y(i+1,j+1,k+1)) - &
-                          (Grid%y(i,j,k  ) + Grid%y(i+1,j,k  ) + Grid%y(i,J+1,k  ) + Grid%y(i+1,j+1,k  )) )
-            xCC(ZDIR) = 0.25*( (Grid%z(i,j,k+1) + Grid%z(i+1,j,k+1) + Grid%z(i,j+1,k+1) + Grid%z(i+1,j+1,k+1)) - &
-                         (Grid%z(i,j,k  ) + Grid%z(i+1,j,k  ) + Grid%z(i,J+1,k  ) + Grid%z(i+1,j+1,k  )) )
+            xCCp = 0.25*( Grid%xyz(i,j,k+1,:) + Grid%xyz(i+1,j,k+1,:) + Grid%xyz(i,j+1,k+1,:) + Grid%xyz(i+1,j+1,k+1,:) )
+            xCCm = 0.25*( Grid%xyz(i,j,k  ,:) + Grid%xyz(i+1,j,k  ,:) + Grid%xyz(i,J+1,k  ,:) + Grid%xyz(i+1,j+1,k  ,:) )
+
         end select
+
+        xCC = xCCp - xCCm
         xCC = xCC/norm2(xCC)
 
     end function ijkVec

@@ -5,14 +5,13 @@ from argparse import RawTextHelpFormatter
 import matplotlib as mpl
 import numpy as np
 import kaipy.kaiViz as kv
-#import kaipy.gamera.remixpp as rmpp
 import kaipy.gamera.magsphere as msph
-#import kaipy.gamera.gampp as gampp
-#import kaipy.gamera.rcmpp as rcmpp
+import kaipy.remix.remix as remix
 import os
 
 dbMax = 25.0
 dbCM = "RdGy_r"
+bzCM = "bwr"
 cLW = 0.25
 bz0Col = "magenta"
 mpiCol = "deepskyblue"
@@ -58,19 +57,26 @@ def GetSizeBds(args):
 	return xyBds
 
 #Plot equatorial field
-def PlotEqB(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
+def PlotEqB(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True,doBz=False):
+	vBZ = kv.genNorm(dbMax)
 	vDB = kv.genNorm(dbMax)
-
+	
 	if (AxCB is not None):
 		#Add the colorbar to AxCB
 		AxCB.clear()
-		kv.genCB(AxCB,vDB,"Residual Field [nT]",cM=dbCM,Ntk=7)
+		if (doBz):
+			kv.genCB(AxCB,vBZ,"Vertical Field [nT]",cM=bzCM,Ntk=7)
+		else:	
+			kv.genCB(AxCB,vDB,"Residual Field [nT]",cM=dbCM,Ntk=7)
 	#Now do main plotting
 	if (doClear):
 		Ax.clear()
-	dbz = gsph.DelBz(nStp)
 	Bz = gsph.EggSlice("Bz",nStp,doEq=True)
-	Ax.pcolormesh(gsph.xxi,gsph.yyi,dbz,cmap=dbCM,norm=vDB)
+	if (doBz):
+		Ax.pcolormesh(gsph.xxi,gsph.yyi,Bz,cmap=bzCM,norm=vBZ)
+	else:	
+		dbz = gsph.DelBz(nStp)
+		Ax.pcolormesh(gsph.xxi,gsph.yyi,dbz,cmap=dbCM,norm=vDB)
 	Ax.contour(kv.reWrap(gsph.xxc),kv.reWrap(gsph.yyc),kv.reWrap(Bz),[0.0],colors=bz0Col,linewidths=cLW)
 
 	kv.SetAx(xyBds,Ax)
@@ -79,7 +85,8 @@ def PlotEqB(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
 		kv.addEarth2D(ax=Ax)
 		Ax.set_xlabel('SM-X [Re]')
 		Ax.set_ylabel('SM-Y [Re]')
-
+	return Bz
+	
 def PlotMerid(gsph,nStp,xyBds,Ax,doDen=False,doRCM=False,AxCB=None,doClear=True,doDeco=True):
 	CMx = "viridis"
 	if (doDen):
@@ -107,7 +114,7 @@ def PlotMerid(gsph,nStp,xyBds,Ax,doDen=False,doRCM=False,AxCB=None,doClear=True,
 		Ax.yaxis.tick_right()
 		Ax.yaxis.set_label_position('right')
 
-def PlotJyXZ(gsph,nStp,xyBds,Ax,AxCB=None,jScl=None):
+def PlotJyXZ(gsph,nStp,xyBds,Ax,AxCB=None,jScl=None,doDeco=True):
 	if (jScl is None):
 		#VERY LAZY scaling for current
 		#Scale current to nA/m^2
@@ -117,7 +124,7 @@ def PlotJyXZ(gsph,nStp,xyBds,Ax,AxCB=None,jScl=None):
 		#jScl => A/m2
 		jScl = jScl*1.0e+9
 	vJ = kv.genNorm(jMax)
-	jCMap = "seismic"
+	jCMap = "PRGn"
 	Nc = 15
 	cVals = np.linspace(-jMax,jMax,Nc)
 
@@ -125,9 +132,18 @@ def PlotJyXZ(gsph,nStp,xyBds,Ax,AxCB=None,jScl=None):
 		AxCB.clear()
 		kv.genCB(AxCB,vJ,"Jy [nA/m2]",cM=jCMap)
 	Q = jScl*gsph.EggSlice("Jy",nStp,doEq=False)
-	
-	Ax.contour(kv.reWrap(gsph.xxc),kv.reWrap(gsph.yyc),kv.reWrap(Q),cVals,norm=vJ,cmap=jCMap,linewidths=cLW)
-
+	#Zero out first shell b/c bad derivative
+	print(Q.shape)
+	Q[0:2,:] = 0.0
+	#Ax.contour(kv.reWrap(gsph.xxc),kv.reWrap(gsph.yyc),kv.reWrap(Q),cVals,norm=vJ,cmap=jCMap,linewidths=cLW)
+	Ax.pcolormesh(gsph.xxi,gsph.yyi,Q,norm=vJ,cmap=jCMap)
+	kv.SetAx(xyBds,Ax)
+	if (doDeco):
+		kv.addEarth2D(ax=Ax)
+		Ax.set_xlabel('SM-X [Re]')
+		Ax.set_ylabel('SM-Z [Re]')
+		Ax.yaxis.tick_right()
+		Ax.yaxis.set_label_position('right')
 
 #Add MPI contours
 def PlotMPI(gsph,Ax,ashd=0.5):
@@ -147,3 +163,18 @@ def PlotMPI(gsph,Ax,ashd=0.5):
 		j0 = (gsph.Rj)*gsph.dNj
 		Ax.plot(gsph.xxi[:,j0], gsph.yyi[:,j0],gCol,linewidth=cLW,alpha=ashd)
 			
+def AddIonBoxes(gs,ion):
+	gsRM = gs.subgridspec(20,20)
+
+	wXY = 6
+	dX = 1
+	dY = 1
+
+	#Northern
+	ion.init_vars('NORTH')
+	ax = ion.plot('current'  ,gs=gsRM[dY:dY+wXY,dX:dX+wXY],doInset=True)
+	#ax.set_title("North",fontsize="small")
+
+	#Southern
+	ion.init_vars('SOUTH')
+	ax = ion.plot('current'  ,gs=gsRM[-dY-wXY:-dY,dX:dX+wXY],doInset=True)

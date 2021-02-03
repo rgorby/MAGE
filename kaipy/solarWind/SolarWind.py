@@ -141,7 +141,7 @@ class SolarWind(object):
         # -- Sound Speed
         if 'cs' not in self.data:
             try:
-                cs = numpy.sqrt(1e3*self.data.getData('t')*(1.38e-23)/(1.67e-27)/(1.0e6))
+                cs = numpy.sqrt(5.0*1e3*self.data.getData('t')*(1.38e-23)/(3.0*1.67e-27)/(1.0e6))
                 self.data.append('cs', 'Sound Speed', r'$\mathrm{km/s}$', cs)
             except KeyError:
                 raise KeyError('Could not find temperature \'t\'.  Cannot compute sound speed (cs) without Temperature (t)!')

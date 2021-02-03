@@ -1,0 +1,23 @@
+#!/bin/bash
+#PBS -A UJHB0015
+#PBS -N KAIJU
+#PBS -j oe
+#PBS -q regular
+#PBS -l walltime=12:00:00
+#PBS -l select=1:ncpus=72:ompthreads=72
+
+source ~/.bashrc
+module restore kaiju
+
+module list
+hostname
+date
+export OMP_NUM_THREADS=72
+export KMP_STACKSIZE=128M
+export JNUM=${PBS_ARRAY_INDEX:-0}
+
+inspxe-cl -collect=mi3 mpirun -np 2 ./voltron_mpi.x tinyCase.xml
+inspxe-cl -collect=ti3 mpirun -np 2 ./voltron_mpi.x tinyCase.xml
+
+date
+

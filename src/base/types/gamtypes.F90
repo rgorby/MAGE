@@ -84,7 +84,7 @@ module gamtypes
         logical :: doResistive=.false.
         
         logical :: isLoud = .true. !Whether you can write to console
-        integer :: nTh=1 !Number of threads per node/group
+        integer :: nTh=-1 !Number of threads per node/group
 
         !Output info
         type (IOClock_T) :: IO
@@ -110,6 +110,11 @@ module gamtypes
         logical :: isMagsphere = .false.
         real(rp) :: MagM0 = 0.0
         
+        !Timestep stuff
+        real(rp) :: limDT0 = 1.0e-3  !Ratio of dt0 to die
+        logical  :: doCPR  = .false. !Whether to try and fix low timesteps
+        real(rp) :: limCPR = 1.0e-1  !Ratio of dt0 to start CPR
+
         !Background field function pointer
         procedure(VectorField_T), pointer, nopass :: B0 => NULL()
 
@@ -127,7 +132,7 @@ module gamtypes
 !Overall grid information
     !Nip = # of physical cells, Ni = Nip+2*Ng
     !Sizes of data structures
-    !Coords (x,y,z): (Ni+1,Nj+1,Nk+1)
+    !Coords (x,y,z): (Ni+1,Nj+1,Nk+1) [REMOVED]
     !Total coords (xyz): (Ni+1,Nj+1,Nk+1,NDIM)
     !Face-center coords (xfc): (Ni+1,Nj+1,Nk+1,NDIM,NDIM)
         !xfc(i,j,k,:,IDIR) = xyz coordinates of i,j,k I-Face
@@ -151,7 +156,10 @@ module gamtypes
         integer :: isDT,jsDT,ksDT
         integer :: ieDT,jeDT,keDT
 
-        !Information about decomposed/tiled cases
+        ! Whether this should allocate fewer arrays and use less memory
+        !   Note that this option will limit Gamera's capabilities
+        logical :: lowMem = .false.
+        ! Information about decomposed/tiled cases
         logical :: isTiled = .false.
         ! Number of ranks in each dimension
         integer :: NumRi=1,NumRj=1,NumRk=1
@@ -165,9 +173,8 @@ module gamtypes
         logical :: hasUpperBC(NDIM) = (/.true.,.true.,.true./)
 
         !Corner-centered xyz-coordinates
-        real(rp), dimension(:,:,:), allocatable :: x,y,z
         real(rp), dimension(:,:,:,:), allocatable :: xyz !4D array with all corners
-
+        
         !Volume-centered xyz-coordinates (isg:ieg,jsg:jeg,ksg:keg)
         real(rp), dimension(:,:,:,:), allocatable :: xyzcc
         

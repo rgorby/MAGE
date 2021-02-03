@@ -45,21 +45,11 @@ contains
     testGrid%xyz(2,2,2,YDIR) = 3;
     testGrid%xyz(2,2,2,ZDIR) = 4;
 
-    allocate(testGrid%x(testGrid%isg:testGrid%ieg+1,testGrid%jsg:testGrid%jeg+1,testGrid%ksg:testGrid%keg+1))
-    allocate(testGrid%y(testGrid%isg:testGrid%ieg+1,testGrid%jsg:testGrid%jeg+1,testGrid%ksg:testGrid%keg+1))
-    allocate(testGrid%z(testGrid%isg:testGrid%ieg+1,testGrid%jsg:testGrid%jeg+1,testGrid%ksg:testGrid%keg+1))
-    testGrid%x = testGrid%xyz(:,:,:,XDIR)
-    testGrid%y = testGrid%xyz(:,:,:,YDIR)
-    testGrid%z = testGrid%xyz(:,:,:,ZDIR)
-
   end subroutine setup
 
   @after
   subroutine teardown()
     deallocate(testGrid%xyz)
-    deallocate(testGrid%x)
-    deallocate(testGrid%y)
-    deallocate(testGrid%z)
   end subroutine teardown
 
   @test

@@ -63,7 +63,7 @@ module sstimag
         eqData%Nr = eqData%ebTab%dNi
         eqData%Np = eqData%ebTab%dNj
         
-        eqData%rDeep = vApp%rDeep
+        eqData%rDeep = vApp%rTrc
 
         allocate(eqData%X(1:eqData%Nr+1,1:eqData%Np+1))
         allocate(eqData%Y(1:eqData%Nr+1,1:eqData%Np+1))

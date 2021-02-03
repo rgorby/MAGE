@@ -50,6 +50,28 @@ module chmpfields
 
     end subroutine findSlc
 
+    function MJDAt(ebTab,t)
+        type(ebTab_T), intent(in) :: ebTab
+        real(rp), intent(in) :: t
+        real(rp) :: MJDAt
+
+        real(rp) :: dt
+        integer :: i1,i2
+        if (.not. ebTab%hasMJD) then
+            MJDAt = 0.0
+            return
+        endif
+        call findSlc(ebTab,t,i1,i2)
+
+        if (t>=ebTab%times(i1)) then
+            dt = oTScl*(t-ebTab%times(i1)) !Seconds
+            MJDAt = ebTab%MJDs(i1) + dt/(60.0*60.0*24.0)
+            
+        else
+            MJDAt = ebTab%MJDs(i1)
+        endif
+    end function MJDAt
+
     !Reads specific slice given by group string
     !File: bStr, Group: gStr
     !NOTE: Calculating convective electric field to avoid diffusive terms

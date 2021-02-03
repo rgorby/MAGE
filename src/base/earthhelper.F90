@@ -32,7 +32,7 @@ module earthhelper
     real(rp), parameter, private :: GLMin = 1.0
     real(rp), parameter, private :: GLMax = 8.0
 
-    integer, parameter, private :: kpDefault = 4
+    integer, parameter, private :: kpDefault = 1
 
 
     !Toy code for putting in a quiet time RC
@@ -337,9 +337,12 @@ module earthhelper
 !---------
 !Code for quiet time RC
     !Set parameters based on desired dst, Lpeak and dL
-    subroutine SetQTRC(dst0,LpkO,dLO)
+    subroutine SetQTRC(dst0,LpkO,dLO,doVerbO)
         real(rp), intent(in) :: dst0
         real(rp), intent(in), optional :: LpkO,dLO
+        logical , intent(in), optional :: doVerbO
+
+        logical :: doVerb
         real(rp) :: K,dB
     
         if (present(LpkO)) then
@@ -348,6 +351,12 @@ module earthhelper
 
         if (present(dLO)) then
             QTRC_dL = dLO
+        endif
+
+        if (present(doVerbO)) then
+            doVerb = doVerbO
+        else
+            doVerb = .false.
         endif
 
         if (dst0 >= 0) then
@@ -367,14 +376,16 @@ module earthhelper
         !Calculate new energy content
         K = KIn()
 
-        write(*,*) '---------------'
-        write(*,*) 'Adding quiet-time ring current'
-        write(*,*) 'Target Dst [nT]    = ', dst0
-        write(*,*) 'RC Energy  [keV]   = ', K
-        write(*,*) 'L-Peak     [Re]    = ', QTRC_Lpk
-        write(*,*) 'dL         [Re]    = ', QTRC_dL
-        write(*,*) 'P-Peak     [nPa]   = ', QTRC_P0
-        write(*,*) '---------------'
+        if (doVerb) then
+            write(*,*) '---------------'
+            write(*,*) 'Adding quiet-time ring current'
+            write(*,*) 'Target Dst [nT]    = ', dst0
+            write(*,*) 'RC Energy  [keV]   = ', K
+            write(*,*) 'L-Peak     [Re]    = ', QTRC_Lpk
+            write(*,*) 'dL         [Re]    = ', QTRC_dL
+            write(*,*) 'P-Peak     [nPa]   = ', QTRC_P0
+            write(*,*) '---------------'
+        endif
 
         contains
             !Integrate total ring current energy content (keV)
@@ -467,4 +478,11 @@ module earthhelper
         P = max(kT,TINY)*D/6.25
     end function DkT2P
 
+    !Turn density [#/cc] and pressure [nPa] to temperature [keV]
+    function DP2kT(D,P) result(kT)
+        real(rp), intent(in) :: D,P
+        real(rp) :: kT
+        kT = 6.25*P/max(D,TINY)
+    end function DP2kT
+    
 end module earthhelper

@@ -18,51 +18,78 @@ rcmCol = "dodgerblue"
 gCol = "cyan"
 gLW = 0.15
 
-doXYZ = False
-doCut = True
+doXYZ = True #How to calculate "equator"
+doCut = False
 pCut = 1.0e-8
 MHDCol = "red"
 eLW = 0.05
 MHDLW = 0.5
+
+doEll = True
+#Get equatorial coordinates, masked if asked to
+def RCMEq(rcmdata,nStp,doMask=False,doXYZ=doXYZ):
+
+	bmX = rcmdata.GetVar("xMin",nStp)
+	bmY = rcmdata.GetVar("yMin",nStp)
+	if (doXYZ):
+		bmZ = rcmdata.GetVar("zMin",nStp)
+		bmP = np.arctan2(bmY,bmX)
+		bmR = np.sqrt(bmX*bmX + bmY*bmY + bmZ*bmZ)
+		bmX = bmR*np.cos(bmP)
+		bmY = bmR*np.sin(bmP)
+	if (doMask):
+		I = GetMask(rcmdata,nStp)
+		bmX = ma.masked_array(bmX,mask=I)
+		bmY = ma.masked_array(bmY,mask=I)
+	return bmX,bmY
+
+def GetVarMask(rcmdata,nStp,Qid="P",I=None):
+	if (I is None):
+		I = GetMask(rcmdata,nStp)
+	Q = rcmdata.GetVar(Qid,nStp)
+	Q = ma.masked_array(Q,mask=I)
+	return Q
+
+#Calculate mask
+#doRCM: Do RCM domain or full closed region
+def GetMask(rcmdata,nStp):
+	IOpen = rcmdata.GetVar("IOpen",nStp)
+	
+	if (doEll):
+		ioCut = -0.5
+	else:
+		ioCut = 0.5
+
+	if (doCut):
+		Prcm = rcmdata.GetVar("P",nStp)
+		I = (IOpen > ioCut) | (Prcm<pCut)
+	else:
+		I = (IOpen > ioCut)
+	return I
+
 #Take axis and rcmdata object and add pressure plot
 def RCMInset(AxRCM,rcmdata,nStp,vP):
 	if (AxRCM is None):
 		AxRCM = plt.gca()
 
-	bmX = rcmdata.GetVar("xMin",nStp)
-	bmY = rcmdata.GetVar("yMin",nStp)
-	bmZ = rcmdata.GetVar("zMin",nStp)
-	Prcm = rcmdata.GetVar("P",nStp)
-	IOpen = rcmdata.GetVar("IOpen",nStp)
-	toMHD = rcmdata.GetVar("toMHD",nStp)
-	if (doCut):
-		I = (IOpen > -0.5) | (Prcm<pCut)
-	else:
-		I = (IOpen > -0.5)
+	bmX,bmY = RCMEq(rcmdata,nStp,doMask=True)
+	I = GetMask(rcmdata,nStp)
 	Ni = (~I).sum()
 
 	if (Ni == 0):
 		return
-	#If still here we got something to show
-	if (doXYZ):
-		bmP = np.arctan2(bmY,bmX)
-		bmR = np.sqrt(bmX*bmX + bmY*bmY + bmZ*bmZ)
 
-		bmX = bmR*np.cos(bmP)
-		bmY = bmR*np.sin(bmP)
-	
-	#Do masks
-	bmX = ma.masked_array(bmX,mask=I)
-	bmY = ma.masked_array(bmY,mask=I)
-	Prcm = ma.masked_array(Prcm,mask=I)
+	Prcm  = GetVarMask(rcmdata,nStp,"P"    ,I)
+	toMHD = GetVarMask(rcmdata,nStp,"toMHD",I)
 
 	#Start plotting
 	AxRCM.pcolor(bmX,bmY,Prcm,norm=vP,cmap=pCMap)
 	AxRCM.plot(bmX,bmY,color=eCol,linewidth=eLW)
 	AxRCM.plot(bmX.T,bmY.T,color=eCol,linewidth=eLW)
 
+	doCon = (nStp>0) and (toMHD.min()<0.5) and (toMHD.max()>0.5)
 	#Add MHD ingestion contour
-	if (nStp>0):
+	if (doCon):
 		CS1 = AxRCM.contour(bmX,bmY,toMHD,[0.5],colors=MHDCol,linewidths=MHDLW)
 		manloc = [(0.0,8.0)]
 

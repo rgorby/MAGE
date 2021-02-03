@@ -7,20 +7,23 @@ module voltio
     use clocks
     use innermagsphere
     use wind
-
+    use dyncoupling
+    
     implicit none
 
-    integer, parameter, private :: MAXVOLTIOVAR = 20
-    logical, private :: isConInit = .false.
+    integer , parameter, private :: MAXVOLTIOVAR = 35
+    real(rp), parameter, private :: dtWallMax = 1.0 !How long between timer resets[hr]
+    logical , private :: isConInit = .false.
     real(rp), private ::  oMJD = 0.0
-    real(rp), private :: cumTime = 0.0 !Cumulative time
+    integer, private :: oTime = 0.0
+    real(rp), private :: gamWait = 0.0
     character(len=strLen), private :: vh5File
 
     contains
 
     subroutine consoleOutputV(vApp,gApp)
         class(gamApp_T) , intent(inout) :: gApp
-        class(voltApp_T), intent(in) :: vApp
+        class(voltApp_T), intent(inout) :: vApp
 
         !Using console output from Gamera
         call consoleOutput(gApp%Model,gApp%Grid,gApp%State)
@@ -31,7 +34,7 @@ module voltio
     end subroutine consoleOutputV
 
     subroutine consoleOutputVOnly(vApp,gApp,MJD0)
-        class(voltApp_T), intent(in) :: vApp
+        class(voltApp_T), intent(inout) :: vApp
         class(gamApp_T) , intent(in) :: gApp
         real(rp), intent(in) :: MJD0
 
@@ -39,10 +42,10 @@ module voltio
 
         real(rp) :: dpT,dtWall,cMJD,dMJD,simRate
 
-        integer :: iYr,iDoY,iMon,iDay,iHr,iMin
-        real(rp) :: rSec
+        integer :: iYr,iDoY,iMon,iDay,iHr,iMin,nTh,curCount,countMax
+        real(rp) :: rSec,clockRate
         character(len=strLen) :: utStr
-        real(rp) :: dD,dP,Dst
+        real(rp) :: DelD,DelP,dtIM,BSDst,DPSDst,symh
 
         !Augment Gamera console output w/ Voltron stuff
         call getCPCP(vApp%mix2mhd%mixOutput,cpcp)
@@ -55,21 +58,25 @@ module voltio
         if (isConInit) then
             !Console output has been initialized
             dMJD = cMJD - oMJD !Elapsed MJD since first recorded value
-            dtWall = kClocks(1)%tElap
-            cumTime = cumTime + dtWall !Elapsed wall-clock since first value
-            simRate = dMJD*24.0*60.0*60.0/cumTime !Model seconds per wall second
+            call system_clock(curCount,clockRate,countMax)
+            dtWall = (curCount - oTime)/clockRate
+            if(dtWall < 0) dtWall = dtWall + countMax / clockRate
+            simRate = dMJD*24.0*60.0*60.0/dtWall !Model seconds per wall second
+            gamWait = 0.8*gamWait + 0.2*readClock('GameraSync')/kClocks(1)%tElap ! Weighted average to self-correct
         else
             simRate = 0.0
             oMJD = cMJD
-            cumTime = 0.0
+            call system_clock(count=oTime)
             isConInit = .true.
+            dtWall = 0.0
+            gamWait = 0.0
         endif
 
         !Add some stupid trapping code to deal with fortran system clock wrapping
-        if (simRate<0) then
+        if ( (simRate<0) .or. (abs(dtWall/3600.0) >= dtWallMax) ) then
             !Just reset counters, this is just for diagnostics don't need exact value
             oMJD = cMJD
-            cumTime = 0.0
+            call system_clock(count=oTime)
             simRate = 0.0
         endif
 
@@ -78,7 +85,16 @@ module voltio
         write(utStr,'(I0.4,a,I0.2,a,I0.2,a,I0.2,a,I0.2,a,I0.2)') iYr,'-',iMon,'-',iDay,' ',iHr,':',iMin,':',nint(rSec)
 
         !Get Dst estimate
-        call EstDST(gApp%Model,gApp%Grid,gApp%State,Dst)
+        call EstDST(gApp%Model,gApp%Grid,gApp%State,BSDst,DPSDst)
+        vApp%BSDst = BSDst
+        
+        !Get symh from input time series
+        symh = vApp%symh%evalAt(vApp%time)
+
+        !Get imag ingestion info
+        if (vApp%doDeep) then
+            call IMagDelta(gApp%Model,gApp%Grid,gApp%State,DelD,DelP,dtIM)
+        endif
 
         if (vApp%isLoud) then
             write(*,*) ANSIBLUE
@@ -86,11 +102,41 @@ module voltio
             write (*,'(a,a)')                    '      UT   = ', trim(utStr)
             write (*, '(a,1f8.3,a)')             '      tilt = ' , dpT, ' [deg]'
             write (*, '(a,2f8.3,a)')             '      CPCP = ' , cpcp(NORTH), cpcp(SOUTH), ' [kV, N/S]'
-            write (*, '(a, f8.3,a)')             '    BSDst  ~ ' , Dst, ' [nT]'
-            if (simRate>TINY) then
-                write (*, '(a,1f7.3,a)')             '      Running @ ', simRate*100.0, '% of real-time'
+            write (*, '(a, f8.3,a)')             '    Sym-H  = ' , symh  , ' [nT]'
+            write (*, '(a, f8.3,a)')             '    BSDst  ~ ' , BSDst , ' [nT]'
+            write (*, '(a, f8.3,a)')             '   DPSDst  ~ ' , DPSDst, ' [nT]'
+
+
+            if (vApp%doDeep) then
+                write (*, '(a)'                 )    '    IMag Ingestion'
+                write (*, '(a,1f7.2,a,1f7.2,a)' )    '       D/P = ', 100.0*DelD,'% /',100.0*DelP,'%'
+                write (*, '(a,1f7.2,a)'         )    '        dt = ', dtIM, ' [s]'
+
             endif
-            write (*, *) ANSIRESET, ''
+
+            write (*, '(a,1f7.1,a)' ) '    Spent ', gamWait*100.0, '% of time waiting for Gamera'
+            if (simRate>TINY) then
+                if (vApp%isSeparate) then
+                    nTh = NumOMP()
+                    write (*, '(a,1f7.3,a,I0,a)')             '    Running @ ', simRate*100.0, '% of real-time (',nTh,' threads)'  
+                else
+                    write (*, '(a,1f7.3,a)'     )             '    Running @ ', simRate*100.0, '% of real-time'
+                endif
+            endif
+            
+            write(*,'(a)',advance="no") ANSIRESET!, ''
+        endif
+
+        !Write inner mag console IO if needed
+        if (vApp%doDeep) then
+            call vApp%imagApp%doConIO(vApp%MJD,vApp%time)
+        endif
+
+        !Setup for next output
+        vApp%IO%tsNext = vApp%ts + vApp%IO%tsOut
+        
+        if (vApp%doDynCplDT) then
+            call UpdateCouplingCadence(vApp)
         endif
 
     end subroutine consoleOutputVOnly
@@ -130,9 +176,10 @@ module voltio
     subroutine resOutputVOnly(vApp)
         class(voltApp_T), intent(inout) :: vApp
 
+        call writeMIXRestart(vApp%remixApp%ion,vApp%IO%nRes,mjd=vApp%MJD,time=vApp%time)
         !Write inner mag restart
         if (vApp%doDeep) then
-            call InnerMagRestart(vApp,vApp%IO%nRes)
+            call vApp%imagApp%doRestart(vApp%IO%nRes,vApp%MJD,vApp%time)
         endif
         if (vApp%time>vApp%IO%tRes) then
             vApp%IO%tRes = vApp%IO%tRes + vApp%IO%dtRes
@@ -162,7 +209,7 @@ module voltio
 
         !Write inner mag IO if needed
         if (vApp%doDeep) then
-            call InnerMagIO(vApp,vApp%IO%nOut)
+            call vApp%imagApp%doIO(vApp%IO%nOut,vApp%MJD,vApp%time)
         endif
 
         call WriteVolt(vApp,gApp,vApp%IO%nOut)
@@ -192,15 +239,19 @@ module voltio
         integer :: i,j,k
         character(len=strLen) :: gStr
         type(IOVAR_T), dimension(MAXVOLTIOVAR) :: IOVars
-        real(rp) :: cpcp(2)
+        real(rp) :: cpcp(2),symh
 
         real(rp), dimension(:,:,:,:), allocatable :: inEijk,inExyz,gJ,gB,Veb
         real(rp), dimension(:,:,:), allocatable :: psi,D,Cs
         real(rp), dimension(NDIM) :: Exyz,Bdip,xcc
         real(rp) :: Csijk,Con(NVAR)
+        real(rp) :: BSDst,DPSDst
 
         !Get data
         call getCPCP(vApp%mix2mhd%mixOutput,cpcp)
+
+        !Get symh from input time series
+        symh = vApp%symh%evalAt(vApp%time)
 
         associate(Gr => gApp%Grid)
         !Cell-centers w/ ghosts
@@ -252,6 +303,10 @@ module voltio
             enddo
         enddo
 
+        !Refresh Dst
+        call EstDST(gApp%Model,gApp%Grid,gApp%State,BSDst,DPSDst)
+        vApp%BSDst = BSDst
+
         write(gStr,'(A,I0)') "Step#", nOut
         !Reset IO chain
         call ClearIO(IOVars)
@@ -282,8 +337,20 @@ module voltio
         call AddOutVar(IOVars,"Vz",Veb(:,:,:,ZDIR))
 
         call AddOutVar(IOVars,"psi",psi)
+        !---------------------
+        !Do attributes
+
         call AddOutVar(IOVars,"cpcpN",cpcp(1))
         call AddOutVar(IOVars,"cpcpS",cpcp(2))
+
+        call AddOutVar(IOVars,"BSDst" ,BSDst )
+        call AddOutVar(IOVars,"DPSDst",DPSDst)
+
+        call AddOutVar(IOVars,"SymH",symh)
+
+        call AddOutVar(IOVars,"time" ,vApp%time)
+        call AddOutVar(IOVars,"MJD"  ,vApp%MJD)
+        call AddOutVar(IOVars,"timestep",vApp%ts)
 
         call WriteVars(IOVars,.true.,vh5File,gStr)
 
@@ -313,6 +380,8 @@ module voltio
             !Not a restart or it is a restart and no file
             call CheckAndKill(vh5File) !For non-restart but file exists
 
+            call StampIO(vh5File)
+            
             !Reset IO chain
             call ClearIO(IOVars)
 
@@ -334,12 +403,11 @@ module voltio
 
     !Use Gamera data to estimate DST
     !(Move this to msphutils?)
-    subroutine EstDST(Model,Gr,State,Dst)
+    subroutine EstDST(Model,Gr,State,BSDst,DPSDst)
         type(Model_T), intent(in)  :: Model
         type(Grid_T) , intent(in)  :: Gr
         type(State_T), intent(in)  :: State
-        real(rp)     , intent(out) :: Dst
-
+        real(rp)     , intent(out) :: BSDst,DPSDst
         integer :: i,j,k
         real (rp), dimension(:,:,:,:), allocatable :: dB,Jxyz !Full-sized arrays
 
@@ -347,7 +415,7 @@ module voltio
         integer :: iMax,iMin
 
         real(rp) :: dV,r,bs1,bs2,bScl,dBz
-        real(rp) :: mu0,d0,u0,B0
+        real(rp) :: mu0,d0,u0,B0,KTot
 
         !Very lazy scaling
         mu0 = 4*PI*1.0e-7
@@ -363,7 +431,10 @@ module voltio
         do k=Gr%ksg,Gr%keg
             do j=Gr%jsg,Gr%jeg
                 do i=Gr%isg,Gr%ieg
-                    dB(i,j,k,:) = State%Bxyz(i,j,k,:) + Gr%B0(i,j,k,:) - MagsphereDipole(Gr%xyzcc(i,j,k,:),Model%MagM0)
+                    dB(i,j,k,:) = State%Bxyz(i,j,k,:) - MagsphereDipole(Gr%xyzcc(i,j,k,:),Model%MagM0)
+                    if (Model%doBackground) then
+                        dB(i,j,k,:) = dB(i,j,k,:) + Gr%B0(i,j,k,:)
+                    endif
                 enddo
             enddo
         enddo
@@ -372,14 +443,18 @@ module voltio
 
         !Set some lazy config
         xyz0 = 0.0 !Measure at center of Earth
-        iMin = Gr%is+4
+        !iMin = Gr%is+4
+        iMin = Gr%is+1
         iMax = Gr%ie
 
         !Now do accumulation
-        Dst = 0.0
+        BSDst  = 0.0 !Bios-Savart
+        DPSDst = 0.0 !DPS
+        KTot = 0.0 !Total energy content
+
         !$OMP PARALLEL DO default(shared) collapse(2) &
         !$OMP private(i,j,k,xyz,dV,r,bs1,bs2,bScl,dBz) &
-        !$OMP reduction(+:Dst)
+        !$OMP reduction(+:BSDst,KTot)
         do k=Gr%ks,Gr%ke
             do j=Gr%js,Gr%je
                 do i=iMin,iMax
@@ -391,21 +466,35 @@ module voltio
                     bScl = B0*dV/(4*PI)
 
                     dBz = -(bs1 - bs2)/(r**3.0)
-                    Dst = Dst + bScl*dBz
+                    !Bios-Savart Dst
+                    BSDst = BSDst + bScl*dBz
+
+                    if(Model%doSource) then ! need to check this first or Gas0 is not allocated
+                        if (Gr%Gas0(i,j,k,IMPR ,BLK)>TINY) then
+                            KTot = KTot + dV*Gr%Gas0(i,j,k,IMPR ,BLK) !Code units
+                        endif
+                    endif
                 enddo ! i loop
             enddo
         enddo !k loop
 
+        !Scale code units to energy
+        !KTot = x0^3 x P0
+        KTot = (Model%Units%gx0**3.0)*(Model%Units%gP0)*KTot
+        !KTot = nPa*m3, now go to keV
+        KTot = ((1.0e-9)/kev2J)*KTot
+        DPSDst = -4.2*(1.0e-30)*KTot
+
     end subroutine EstDST
 
     !Calculate relative difference between source/MHD
-    subroutine IMagDelta(Model,Gr,State,dD,dP)
+    subroutine IMagDelta(Model,Gr,State,dD,dP,dtIM)
         type(Model_T), intent(in)  :: Model
         type(Grid_T) , intent(in)  :: Gr
         type(State_T), intent(in)  :: State
-        real(rp)     , intent(out) :: dD,dP
+        real(rp)     , intent(out) :: dD,dP,dtIM
 
-        real(rp) :: Dsrc,Dmhd,Psrc,Pmhd
+        real(rp) :: Dsrc,Dmhd,Psrc,Pmhd,dtP
         real(rp) :: dV
         real(rp), dimension(NVAR) :: pCon,pW
         logical :: doInD,doInP,doIngest
@@ -420,6 +509,12 @@ module voltio
         Dmhd = 0.0
         Psrc = 0.0
         Pmhd = 0.0
+        dtP  = 0.0
+
+        !$OMP PARALLEL DO default(shared) collapse(2) &
+        !$OMP private(i,j,k,dV,doInD,doInP,doIngest) &
+        !$OMP private(pCon,pW) &
+        !$OMP reduction(+:Dsrc,Dmhd,Psrc,Pmhd,dtP)
         do k=Gr%ks,Gr%ke
             do j=Gr%js,Gr%je
                 do i=Gr%is,Gr%ie
@@ -440,6 +535,7 @@ module voltio
                     if (doInP) then
                         Psrc = Psrc + dV*Gr%Gas0(i,j,k,IMPR,BLK)
                         Pmhd = Pmhd + dV*pW(PRESSURE)
+                        dtP  = dtP  + dV*pW(PRESSURE)*Gr%Gas0(i,j,k,IMTSCL,BLK)
                     endif
                     
                 enddo
@@ -447,7 +543,12 @@ module voltio
         enddo
         if (Dsrc>TINY) dD = Dmhd/Dsrc
         if (Psrc>TINY) dP = Pmhd/Psrc
-        
+        if (Pmhd>TINY) then
+            dtIM = Model%Units%gT0*dtP/Pmhd
+        else
+            dtIM = 0.0
+        endif
+
     end subroutine IMagDelta
 
 end module voltio

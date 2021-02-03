@@ -101,10 +101,13 @@ def PullRestartMPI(bStr,nRes,Ri,Rj,Rk,dIn=None,oH5=None):
 
 				if (doInit):
 					Ns,Nv,Nkp,Njp,Nip = iH5['Gas'].shape
+					doGas0 = ('Gas0' in iH5.keys())
+					
 					Nk = Rk*Nkp
 					Nj = Rj*Njp
 					Ni = Ri*Nip
-					G = np.zeros((Ns,Nv,Nk,Nj,Ni))
+					G  = np.zeros((Ns,Nv,Nk,Nj,Ni))
+					G0 = np.zeros((Ns,Nv,Nk,Nj,Ni))
 					M = np.zeros((3,Nk+1,Nj+1,Ni+1))
 					if (oH5 is not None):
 						for ka in iH5.attrs.keys():
@@ -122,11 +125,18 @@ def PullRestartMPI(bStr,nRes,Ri,Rj,Rk,dIn=None,oH5=None):
 				#print("MPI (%d,%d,%d) = [%d,%d]x[%d,%d]x[%d,%d]"%(i,j,k,iS,iE,jS,jE,kS,kE))
 				
 				G[:,:,kS:kE  ,jS:jE  ,iS:iE  ] = iH5['Gas'][:]
+				if (doGas0):
+					G0[:,:,kS:kE  ,jS:jE  ,iS:iE  ] = iH5['Gas0'][:]
+
 				M[  :,kS:kE+1,jS:jE+1,iS:iE+1] = iH5['magFlux'][:]
 
 				#Close up
 				iH5.close()
-	return G,M
+
+	if (not doGas0):
+		G0 = None
+	
+	return G,M,G0
 
 #Downscale a grid (with ghosts, k-j-i order)
 def downGrid(X,Y,Z):

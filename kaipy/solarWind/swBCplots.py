@@ -161,7 +161,7 @@ def MultiPlotN(varDicts, Xname, variables, colors = [], legendLabels=[]):
     if legendLabels:
         plt.legend(legendLabels, loc='best')
 
-def swQuickPlot(UT,D,Temp,Vx,Vy,Vz,Bx,By,Bz,SYMH,fname):
+def swQuickPlot(UT,D,Temp,Vx,Vy,Vz,Bx,By,Bz,SYMH,interped,fname):
     """
     Plot solar wind n,T, dyn p, V, B and sym/h over time period specified by the user.
 
@@ -210,6 +210,7 @@ def swQuickPlot(UT,D,Temp,Vx,Vy,Vz,Bx,By,Bz,SYMH,fname):
     kv.SetAxLabs(ax11,"","n [cm^-3]",doBot=True,doLeft=True)
     ax11.set_ylim(np.min(D)-0.05*Dlim,np.max(D)+0.05*Dlim)
     ax11.tick_params(axis="x",direction="in")
+    ax11.fill_between(utall, 0, 1, where=interped, alpha=0.4, transform=ax11.get_xaxis_transform())
     plt.setp(ax11.get_xticklabels(),visible=False)
     ax11.legend(ncol=len(smlabel), bbox_to_anchor=(0.5,1),loc='lower center', fontsize='small')
     
@@ -217,12 +218,14 @@ def swQuickPlot(UT,D,Temp,Vx,Vy,Vz,Bx,By,Bz,SYMH,fname):
     ax21.plot(utall,Temp*TScl,color=clrs[3])
     kv.SetAxLabs(ax21,"","T [MK]",doBot=True,doLeft=False)
     ax21.tick_params(axis="x",direction="in")
+    ax21.fill_between(utall, 0, 1, where=interped, alpha=0.4, transform=ax21.get_xaxis_transform())
     plt.setp(ax21.get_xticklabels(),visible=False)
     
     ax31.plot(utall,Pram,color=clrs[3])
     ax31.xaxis_date()
     kv.SetAxLabs(ax31,"","Dynamic P [nPa]",doBot=True,doLeft=True)
     ax31.tick_params(axis="x",direction="in")
+    ax31.fill_between(utall, 0, 1, where=interped, alpha=0.4, transform=ax31.get_xaxis_transform())
     plt.setp(ax31.get_xticklabels(),visible=False)
     
     vScl = 1.0e-3
@@ -233,6 +236,7 @@ def swQuickPlot(UT,D,Temp,Vx,Vy,Vz,Bx,By,Bz,SYMH,fname):
     secax12.set_ylabel('Vy,z [km/s]')
     kv.SetAxLabs(ax12,"","Vx [km/s]",doBot=True,doLeft=True)
     ax12.tick_params(axis="x",direction="in")
+    ax12.fill_between(utall, 0, 1, where=interped, alpha=0.4, transform=ax12.get_xaxis_transform())
     plt.setp(ax12.get_xticklabels(),visible=False)
     
     ax22.plot(utall,Bx,color=clrs[0],linewidth=0.95)
@@ -241,10 +245,12 @@ def swQuickPlot(UT,D,Temp,Vx,Vy,Vz,Bx,By,Bz,SYMH,fname):
     ax22.axhline(y=0.0, color='black', linestyle='--',alpha=0.6,linewidth=0.9)
     kv.SetAxLabs(ax22,"","B [nT]",doBot=True,doLeft=False)
     ax22.tick_params(axis="x",direction="in")
+    ax22.fill_between(utall, 0, 1, where=interped, alpha=0.4, transform=ax22.get_xaxis_transform())
     plt.setp(ax22.get_xticklabels(),visible=False)
     
     ax32.plot(utall,SYMH,color=clrs[3])
     ax32.axhline(y=0.0, color='black', linestyle='--',alpha=0.6,linewidth=0.9)
+    ax32.fill_between(utall, 0, 1, where=interped, alpha=0.4, transform=ax32.get_xaxis_transform())
     ax32.xaxis_date()
     xfmt = dates.DateFormatter(utfmt)
     ax32.xaxis.set_major_formatter(xfmt)

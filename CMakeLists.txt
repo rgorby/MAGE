@@ -5,7 +5,7 @@ project(Kaiju Fortran)
 #   variables when looking for packages
 cmake_policy(SET CMP0074 NEW)
 
-# add and search for pfunit
+# add and search for pfunit (fingers crossed)
 list(APPEND CMAKE_PREFIX_PATH "./external")
 find_package(PFUNIT QUIET)
 if(PFUNIT_FOUND)
@@ -31,15 +31,24 @@ add_compile_definitions(GITBRANCH=${GIT_BRANCH})
 option(ENABLE_OMP "Enable OMP parallelization" ON )
 option(ENABLE_MPI "Enable MPI parallelization" OFF)
 option(ENABLE_MKL "Enable Intel MKL usage" OFF)
-if(ENABLE_MKL)
-    add_compile_definitions(USEMKL)
-endif()
+option(ALLOW_INVALID_COMPILERS "Allow Invalid Compiler Versions" OFF)
 
 #Vector blocking
 set(bricksize 16 CACHE STRING "Vector brick size")
 set_property(CACHE bricksize PROPERTY STRINGS 8 16 32)
 add_compile_definitions(BRICKSIZE=${bricksize})
 mark_as_advanced(bricksize)
+
+#RCM grid size (required to be defined at compile time)
+set(RCMSIZEI 200 CACHE STRING "RCM Grid: Number of Colatitude Cells")
+set(RCMSIZEJ 101 CACHE STRING "RCM Grid: Number of Longitude Cells")
+set(RCMSIZEK 90  CACHE STRING "RCM Grid: Number of Lambda Cells")
+set(RCMWRAPJ 3   CACHE STRING "RCM Grid: Number of periodic wrap cells")
+mark_as_advanced(RCMWRAPJ)
+add_compile_definitions(RCMSIZEI=${RCMSIZEI})
+add_compile_definitions(RCMSIZEJ=${RCMSIZEJ})
+add_compile_definitions(RCMSIZEK=${RCMSIZEK})
+add_compile_definitions(RCMWRAPJ=${RCMWRAPJ})
 
 #-------------
 #Set default IC files
@@ -60,6 +69,9 @@ set(EBIC ${EBICDEF} CACHE FILEPATH "CHIMP EB IC file")
 #Include user cmake file if present
 include(cmake/user.cmake OPTIONAL)
 
+if(ENABLE_MKL)
+    add_compile_definitions(USEMKL)
+endif()
 
 #Include compile flag generator
 include(cmake/compilers.cmake)
@@ -102,7 +114,7 @@ add_subdirectory(src/chimp)
 add_custom_target(chimp ALL)
 message("\tEB IC file is ${EBIC}")
 message("\tTP IC file is ${TPIC}")
-set(chimpX "project;psd;push;slice;chop;trace")
+set(chimpX "project;psd;push;slice;chop;trace;sctrack")
 foreach (EXE ${chimpX})
 	message("\tAdding executable ${EXE}.x")
 	add_executable(${EXE}.x src/drivers/${EXE}x.F90)
@@ -144,6 +156,7 @@ add_dependencies(remix remix.x remix2remix.x remix2rcm.x baselib)
 #-------------
 #Kaiju: RCM
 message("Adding RCM module ...")
+message("\tRCM Grid is of size ${RCMSIZEI} x ${RCMSIZEJ} x ${RCMSIZEK}")
 #Add source
 add_subdirectory(src/rcm)
 add_custom_target(rcm ALL)

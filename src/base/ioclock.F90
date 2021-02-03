@@ -8,13 +8,13 @@ module ioclock
         !Output/restart (cadence/next output)
         real(rp) :: dtOut,tOut
         real(rp) :: dtRes,tRes
-        integer :: tsOut !Timestep console output
+        integer :: tsOut,tsNext !Timestep console output cadence/next time
         integer :: nOut=0,nRes=0 !Output numbering for output/restarts
 
         logical :: doResOut,doConOut,doDataOut,doTimerOut !Logical flags to do various outputs
         logical :: doFat,doSlim !Not yet used generically
         logical :: isTop = .true. !Not used yet
-
+        
         contains
 
             procedure :: init => IOClockInit
@@ -28,12 +28,13 @@ module ioclock
     contains
 
     !Initialize IOClock from an already created XML reader
-    subroutine IOClockInit(this,iXML,time)
+    subroutine IOClockInit(this,iXML,time,ts)
         class(IOClock_T), intent(inout) :: this
         type(XML_Input_T), intent(in)   :: iXML
         real(rp), intent(in) :: time
+        integer, intent(in) :: ts
 
-        call iXML%Set_Val(this%tsOut,'output/tsOut' ,10)
+        call iXML%Set_Val(this%tsOut,'output/tsOut' ,100)
         call iXML%Set_Val(this%dtOut,'output/dtOut' ,10.0)
         call iXML%Set_Val(this%dtRes,'restart/dtRes',100.0)
 
@@ -46,6 +47,7 @@ module ioclock
             this%doConOut = .false.
         else
             this%doConOut = .true.
+            this%tsNext = ts
         endif
 
         !NOTE: Setting it so that first output is @ time
@@ -73,9 +75,7 @@ module ioclock
         integer, intent(in) :: ts
         logical :: doConsoleIOClock
 
-        integer :: tsMod
-        tsMod = modulo(ts,this%tsOut)
-        if ( (tsMod==0) .and. this%doConOut ) then
+        if (ts>=this%tsNext .and. this%doConOut ) then
             doConsoleIOClock = .true.
         else
             doConsoleIOClock = .false.
@@ -113,9 +113,7 @@ module ioclock
         integer, intent(in) :: ts
         logical :: doTimerIOClock
 
-        integer :: tsMod
-        tsMod = modulo(ts,this%tsOut)
-        if (tsMod==0) then
+        if (ts>=this%tsNext) then
             doTimerIOClock = .true.
         else
             doTimerIOClock = .false.
@@ -143,7 +141,8 @@ module ioclock
         ioB%dtOut = ioA%dtOut*tScl
         ioB%dtRes = ioA%dtRes*tScl
 
-        ioB%tsOut = ioA%tsOut
+        ioB%tsOut  = ioA%tsOut
+        ioB%tsNext = ioA%tsNext
         
     end subroutine IOSync
 
