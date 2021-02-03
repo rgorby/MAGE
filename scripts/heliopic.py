@@ -106,7 +106,7 @@ if __name__ == "__main__":
 
 
 	#plotting equatorial magV (left plot in msphere pic)
-	Vz = hviz.PlotEqMagV(gsph,nStp,xyBds,AxL,AxC1)
+	hviz.PlotEqMagV(gsph,nStp,xyBds,AxL,AxC1)
 
 	hviz.PlotEqMagV(gsph,nStp,xyBds,AxR,AxC2)
 
