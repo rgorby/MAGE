@@ -57,7 +57,8 @@ class GamsphPipe(GameraPipe):
 		#Rescale time
 		self.T = self.tScl*self.T
 
-		Neq_a = self.Nj/2 #cell above eq plane
+		Neq_a = self.Nj//2 #cell above eq plane
+		print (Neq_a)
 
 		Nr = self.Ni
 		Np = self.Nk

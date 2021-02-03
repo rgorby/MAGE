@@ -19,7 +19,7 @@ import os
 if __name__ == "__main__":
 	#Defaults
 	fdir = os.getcwd()
-	ftag = "helio"
+	ftag = "wsa"
 	nStp = -1
 	fOut = "qkpichelio.png"
 	doDen = False
@@ -89,7 +89,7 @@ if __name__ == "__main__":
 	#======
 	#Setup figure
 	fig = plt.figure(figsize=figSz)
-	gs = gridspec.GridSpec(2,6,height_ratios=[20,1,1],hspace=0.025)
+	gs = gridspec.GridSpec(2,6,height_ratios=[20,1],hspace=0.025)
 	
 
 	AxL = fig.add_subplot(gs[0,0:3])
@@ -117,7 +117,7 @@ if __name__ == "__main__":
 	#mviz.PlotMerid(gsph,nStp,xyBds,AxR,doDen,doRCM,AxC3)
 	
 	#Add time (upper left) - Later!!!
-	hsph.AddTime(nStp,AxL,xy=[0.025,0.89],fs="x-large")
+	gsph.AddTime(nStp,AxL,xy=[0.025,0.89],fs="x-large")
 
 
 	#Add wsa info (lower left) instead of Solar wind params

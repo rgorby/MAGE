@@ -56,8 +56,8 @@ def PlotEqMagV(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
 	if (doClear):
 		Ax.clear()
 
-	MagV = hsph.eqMagV(nStp)
-	Ax.pcolormesh(gsph.xxi,gsph.yyi,dbz,cmap=MagVCM,norm=vMagV)
+	MagV = gsph.eqMagV(nStp)
+	Ax.pcolormesh(gsph.xxi,gsph.yyi,MagV,cmap=MagVCM,norm=vMagV)
 
 	#Ax.contour(kv.reWrap(gsph.xxc),kv.reWrap(gsph.yyc),kv.reWrap(Bz),[0.0],colors=bz0Col,linewidths=cLW)
 	kv.SetAx(xyBds,Ax)
