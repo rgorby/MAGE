@@ -13,6 +13,10 @@ VMax = 1000.
 VMin = 300.
 MagVCM = "inferno"
 
+DMax = 150.
+DMin = 3000.
+DCM = "copper_r"
+
 dbMax = 25.0
 dbCM = "RdGy_r"
 bzCM = "bwr"
@@ -67,6 +71,31 @@ def PlotEqMagV(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
 		Ax.set_xlabel('X [R_S]')
 		Ax.set_ylabel('Y [R_S]')
 	return MagV
+
+#Plot normalized density in equatorial plane
+def PlotEqD(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
+	vD = kv.genNorm(DMin, DMax, doLog=False, midP=None)
+	
+	if (AxCB is not None):
+		#Add the colorbar to AxCB
+		AxCB.clear()
+		kv.genCB(AxCB,vD,"Normalized density [cm-3]",cM=DCM,Ntk=7)
+
+	#Now do main plotting
+	if (doClear):
+		Ax.clear()
+
+	NormD = gsph.eqNormD(nStp)
+	Ax.pcolormesh(gsph.xxi,gsph.yyi,NormD,cmap=DCM,norm=vD)
+
+	#Ax.contour(kv.reWrap(gsph.xxc),kv.reWrap(gsph.yyc),kv.reWrap(Bz),[0.0],colors=bz0Col,linewidths=cLW)
+	kv.SetAx(xyBds,Ax)
+
+	if (doDeco):
+		#kv.addEarth2D(ax=Ax)
+		Ax.set_xlabel('X [R_S]')
+		Ax.set_ylabel('Y [R_S]')
+	return NormD
 
 #Plot equatorial field
 def PlotEqB(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True,doBz=False):
