@@ -22,7 +22,7 @@ module usergamic
     real(rp), dimension(:,:,:,:), allocatable :: ibcVars
 
     !Various global would go here
-    real (rp) :: Rho0, P0, Vslow,Vfast, wScl, Cs0, B0, jd_c
+    real (rp) :: Rho0, P0, Vslow,Vfast, wScl, Cs0, B0, MJD_c
 
     ! things we keep reusing
     real(rp), dimension(NDIM) :: xyz,xyz0,rHat,phiHat
@@ -120,7 +120,7 @@ module usergamic
         ! everybody reads WSA data
         call readIBC(wsaFile)
 
-        Model%MJD0 = jd_c
+        Model%MJD0 = MJD_c
 
         !Map IC to grid
         Wxyz => GasIC
@@ -367,7 +367,7 @@ module usergamic
       call AddInVar(IOVars,"temp")
       call AddInVar(IOVars,"br")
       call AddInVar(IOVars,"br_kface")
-      call AddInVar(IOVars,"JD")
+      call AddInVar(IOVars,"MJD")
 
       call ReadVars(IOVars,.false.,ibcH5) !Don't use io precision
 
@@ -394,8 +394,8 @@ module usergamic
 
          ibcVars(:,:,:,i) = reshape(IOVars(nvar)%data,dims)
       end do
-         !reading Julian date
-         jd_c = GetIOReal(IOVars,"JD")
+         !reading modified julian date from innerbc
+         MJD_c = GetIOReal(IOVars,"MJD")
    
     end subroutine readIBC
 end module usergamic
