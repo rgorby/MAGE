@@ -4,6 +4,8 @@ module calcdbutils
 	use ebtypes
 	implicit none
 
+    real(rp), parameter :: RIon = (RionE*1.0e+6)/REarth !Ionospheric radius in units of Re, ~1.01880
+
 !Remix holders
     type rmState_T
         real(rp) :: time !CHIMP units
@@ -30,6 +32,17 @@ module calcdbutils
     	real(rp), dimension(:,:,:,:)  , allocatable :: dV !Differential volume of each segment
     end type facGrid_T
 
+!Grid for ION calculation (Hall+Pederson currents)
+    !Np,Nth are phi/theta grid cells
+    !Nh = 1/2 for hemisphere
+    !Arrays are size Np,Nth,Nh=2 (for vectors)
+    type ionGrid_T
+        real(rp), dimension(:,:,:,:), allocatable :: XYZcc !XYZ of segment centers
+        real(rp), dimension(:,:,:,:), allocatable :: Jxyz !Jxyz at segment centers
+        real(rp), dimension(:,:,:)  , allocatable :: dS !Differential surface area of patch
+
+    end type ionGrid_T
+
 !Destination (ground) grid, thin shell (lat/lon/height)
 	real(rp) :: dzGG = 60.0 !Default height spacing [km]
 
@@ -41,6 +54,7 @@ module calcdbutils
 
 	type(sphGrid_T) :: gGr !Ground grid
 	type(facGrid_T) :: facGrid !FAC grid
+    type(ionGrid_T) :: ionGrid !Ionospheric grid
 
 	contains
 
@@ -64,6 +78,7 @@ module calcdbutils
         facGrid%dV    = 0.0
 
         !TODO: Need to add code here to define facGrid%XYZcc and dV
+        !NOTE: XYZ from remix is in units of Rion, not Re
 
 	end subroutine facGridInit
 
