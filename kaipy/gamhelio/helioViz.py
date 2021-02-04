@@ -9,7 +9,7 @@ import kaipy.kaiViz as kv
 import kaipy.gamhelio.heliosphere as hsph
 import os
 
-VMax = 1000.
+VMax = 800.
 VMin = 300.
 MagVCM = "inferno"
 
