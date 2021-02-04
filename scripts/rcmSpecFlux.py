@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 """
 this code computes differential energy flux in units of cm^-2 keV^-1 str^-1
 """
