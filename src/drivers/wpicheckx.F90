@@ -288,7 +288,7 @@ program wpicheck
                     Ks(i,j) = prt2kev(Model,prt)/1000.0 ![MeV]
 
                     ! Calculate the resulting change in pitch angle and energy of the particle
-                    call DiffCurve(Model,wave,prt,Daa,ddt,xj,yj,da,dp,dAlim)
+                    call DiffCurve(Model,prt,Daa,ddt,xj,yj,da,dp,dAlim)
 
                     !Update the pitch angle
                     aNew = prt%alpha + da

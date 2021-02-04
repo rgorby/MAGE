@@ -102,17 +102,17 @@ module wpicalc
             Daa = DiffCoef(Model,wave,wModel,prt,astar,MagB,xj,yj) ! Calculate the diffusion coeffcient
 
             dtRem = dt - dtCum
-            if (sqrt(2.0*dt*Daa) > abs(dAlim)) then
-                ddt = dAlim**2/(2.*Daa)
-                if (dtRem < ddt) ddt = dtRem ! So don't overshoot global step
-            else
-                ddt = dt
-            endif
-
+            ! if (sqrt(2.0*dt*Daa) > abs(dAlim)) then
+            !     ddt = dAlim**2/(2.*Daa)
+            !     if (dtRem < ddt) ddt = dtRem ! So don't overshoot global step
+            ! else
+            !     ddt = dt
+            ! endif
+            ddt = dt
             dtCum = dtCum + ddt
 
             ! Calculate the resulting change in pitch angle and energy of the particle
-            call DiffCurve(Model,wave,prt,Daa,ddt,xj,yj,da,dp)
+            call DiffCurve(Model,prt,Daa,ddt,xj,yj,da,dp)
 
             !Update the pitch angle
             aNew = prt%alpha + da
@@ -323,14 +323,13 @@ module wpicalc
     end function DiffCoef
 
     !Calculates the change in pitch-angle and corresponding change in momentum along the diffusion curve 
-    subroutine DiffCurve(Model,wave,prt,Daa,dt,xj,yj,da,dp,constDA) 
+    subroutine DiffCurve(Model,prt,Daa,dt,xj,yj,da,dp,constDA) 
         type(chmpModel_T), intent(in)    :: Model
-        type(wave_T),      intent(in)    :: wave
         type(prt_t),       intent(in)    :: prt
         real(rp),          intent(in)    :: Daa,dt,xj,yj
         real(rp),          intent(inout) :: da,dp
         real(rp), intent(in), optional   :: constDA ! use a constant change in pitch angle if desired
-        real(rp) :: eta,u,gamu,pa,gamma,pMag,E,A,B
+        real(rp) :: eta,u,a0,p0,gamma,p1
 
         if (present(constDA)) then
             da = constDA
@@ -340,18 +339,87 @@ module wpicalc
         end if
 
         u = xj/yj ! phase velocity of the wave normalized by c
+        
+        a0 = prt%alpha
+        gamma = prt2Gam(prt,Model%m0)
+        p0 = Model%m0*sqrt(gamma**2.0-1.0)
+
+        p1 = rkf45(prt,Model%m0,da,u)
+
+        dp = p1-p0
+
+    end subroutine DiffCurve
+
+    !resonant diffusion surface equation for dp/da for fixed wave phase speed
+    function dpda(pa,pMag,m0,u) result(f)
+        real(rp),          intent(in)    :: pa,pMag,m0,u
+        real(rp) :: gamu,E,A,B,f
+
         gamu = sqrt(1-u**2.)**(-1.0)
         
-        pa = prt%alpha
-        gamma = prt2Gam(prt,Model%m0)
-        pMag = Model%m0*sqrt(gamma**2.0-1.0)
-        E = prt2kev(Model,prt)/(Model%m0*mec2*1.0e+3)+1.0 !full energy of the particle including rest mass
+        E =  sqrt(pMag**2.+m0**2.) !full energy of the particle including rest mass (code units)
 
         A = gamu**2.0*(pMag*cos(pa)-u*E)*pMag*sin(pa)-pMag**2.0*sin(pa)*cos(pa)
         B = gamu**2.0*(pMag*cos(pa)-u*E)*(cos(pa)-u*pMag/E)+pMag*sin(pa)**2.0
 
-        dp = da*A/B
+        f = A/B
 
-    end subroutine DiffCurve
+    end function dpda
+
+    ! adaptive step RK following the Runge-Kutta-Fehlberg Method (RKF45)
+    ! http://maths.cnam.fr/IMG/pdf/RungeKuttaFehlbergProof.pdf
+    function rkf45(prt,m0,da,u) result(p1)
+        type(prt_t),       intent(in)    :: prt
+        real(rp),          intent(in)    :: m0,da,u
+        real(rp) :: a1,p1,y1
+        real(rp) :: tol,h,s,dah,daRem,unity,aSgn,gamma
+        real(rp) :: k1,k2,k3,k4,k5,k6 
+        integer  :: Nmax,i
+
+        tol = 1.0e-2
+        h   = da/10.0 !deltaA & h holds +/- direction 
+        unity = 1.0
+
+        aSgn = sign(unity,da)
+        a1 = prt%alpha
+
+        gamma = prt2Gam(prt,m0)
+        p1 = m0*sqrt(gamma**2.0-1.0)
+       
+        i  = 0
+        dah = 0
+        do while(abs(dah) < abs(da)) 
+            daRem = aSgn*(abs(da) - abs(dah))
+            if (abs(daRem) < abs(h))then 
+                h = daRem ! So don't overshoot 
+            end if
+
+            !Apply Runge-Kutta-Fehlberg formulas to find next value of p
+            k1 = h * dpda(a1, p1, m0, u) 
+            k2 = h * dpda(a1+0.25*h, p1+0.25*k1, m0, u) 
+            k3 = h * dpda(a1+0.375*h, p1+0.09375*k1+0.28125*k2, m0, u) 
+            k4 = h * dpda(a1+12*h/13, p1 + (1932*k1-7200*k2+7296*k3)/2197, m0, u) 
+            k5 = h * dpda(a1+h, p1 + (8341*k1-32832*k2+29440*k3-845*k4)/4104, m0, u) 
+            k6 = h * dpda(a1+0.5*h, p1 + (-6080*k1+41040*k2-28352*k3-9295*k4-5643*k5)/20520, m0, u) 
+
+            ! Update next value of p 
+            y1 = p1 + (3246625*k1+15397888*k3+15027480*k4-5610168*k5)/28050840
+            p1 = p1 + (33440*k1+146432*k3+142805*k4-50787*k5+10260*k6)/282150
+
+            ! Update next value of a1 
+            a1 = a1 + h 
+            dah = dah + h
+
+            ! Determine next step size
+            if (p1 == y1) then 
+                s = 1.0 
+            else
+                s = (tol/(2*abs(p1-y1)))**0.25
+            end if
+
+            h = s*h
+        enddo
+
+    end function rkf45
 
 end module wpicalc
