@@ -14,19 +14,12 @@ from matplotlib import rcParams, cycler
 import argparse
 from argparse import RawTextHelpFormatter
 
-#pwd="/Volumes/work4/voltron/dec20-relaxQ"
-#fIn = "/glade/u/home/skareem/scratch/aug20/rebuilt4fall/msphere.rcm.h5"
-
 if __name__ == "__main__":
 	ftag = "msphere"
 	cmap = plt.cm.brg
 	timeStr = ""
 	locStr = "-5,0,0"
 	numSamples = 6
-	#Hard-coded 
-	#Position to look at
-	#NOTE: THIS IS LAZILY ASSUMING 60s OUTPUT CADENCE OF THE DATA
-	dtC = 60
 	
 	MainS = """Creates a plot of the differential flux for RCM ions or electrons in units of cm^-2 keV^-1 str^-1
 	"""
@@ -45,13 +38,10 @@ if __name__ == "__main__":
 	doElectrons = args.e
 
 	fIn = ftag+".rcm.h5"
-	#Different time (hrs) to plot
 	x0,y0,z0 = [float(x) for x in locStr.split(',')]
-	
-	t0 = 0 #Hours to displace in label
 
 #--Time stuff--
-	#Get rcm date timesteps
+	#Get rcm data timesteps
 	nDataSteps,sIds = kh5.cntSteps(fIn)
 	dataTimes = kh5.getTs(fIn,sIds,"time")/3600  # [Hrs]
 	if timeStr == "":  # If user didn't specify the times they wanted, do evenly spaced samples using numSamples
@@ -80,13 +70,14 @@ if __name__ == "__main__":
 	eos = False #Flag for reaching end of steps
 	for n in range(NumStps):
 		
-		nStp = np.abs(dataTimes - nHrs[n]).argmin()
-		legStr = "T = +%2.1f Hours"%(dataTimes[nStp])
-		if nStp == nDataSteps:
+		nStpIdx = np.abs(dataTimes - nHrs[n]).argmin()
+		nStp = nStpIdx + sIds.min()
+		legStr = "T = +%2.1f Hours"%(dataTimes[nStpIdx])
+		if nStpIdx == nDataSteps: # Note that we're about to plot the last timestep and there's no need to plot any more afterwards
 			eos=True
 		elif nHrs[n] > dataTimes[-1]:
-			if not eos:  # If this is the first time we've reached the end of the available timesteps, plot the last timestep anyways
-				print("%2.1f [hrs] out of time range (%2.1f, %2.1f), using last step time (%2.1f)"%(nHrs[n],dataTimes[0],dataTimes[-1],dataTimes[nStp]))
+			if not eos:  # If this is the first time we've exceeded the end of the available timesteps, plot the last timestep anyways
+				print("%2.1f [hrs] out of time range (%2.1f, %2.1f), using last step time (%2.1f)"%(nHrs[n],dataTimes[0],dataTimes[-1],dataTimes[nStpIdx]))
 				eos = True
 			else:
 				print("%2.1f [hrs] out of time range (%2.1f, %2.1f), skipping."%(nHrs[n],dataTimes[0],dataTimes[-1]))
