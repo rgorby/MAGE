@@ -50,7 +50,6 @@ module calcdbio
         allocate(gGr%xyzI(NLat+1,NLon+1,Nz+1,NDIM))
         allocate(gGr%xyzC(NLat  ,NLon  ,Nz  ,NDIM))
 
-
         !Do corners
         do k=1,Nz+1
         	z = -0.5*dzGG + (k-1)*dzGG !km above ground
@@ -118,6 +117,14 @@ module calcdbio
         Nj = IOVars(2)%dims(2) - 1
 
         write(*,*) 'Shape = ', IOVars(1)%dims(:)
+
+        !Initialize 4 hemispheres (N/S i1/i2)
+        call initHemi(rmState%rmN1,Ni,Nj)
+        call initHemi(rmState%rmN2,Ni,Nj)
+        call initHemi(rmState%rmS1,Ni,Nj)
+        call initHemi(rmState%rmS2,Ni,Nj)
+
+        !Now do main rmState
         rmState%Np  = Ni !Phi cells
         rmState%Nth = Nj !Theta cells
 
@@ -130,6 +137,30 @@ module calcdbio
         allocate(rmState%sSigP(Ni,Nj))
         allocate(rmState%sSigH(Ni,Nj))
 
+        call hemi2rm(rmState,0.0_rp,0.0_rp) !Zero out main state arrays
+
+        contains
+
+            subroutine initHemi(rmHemi,Ni,Nj)
+                type(rmHemi_T), intent(inout) :: rmHemi
+                integer, intent(in) :: Ni,Nj
+
+                rmHemi%nStp = -1 !Not yet set
+                rmHemi%time = 0.0
+                rmHemi%Np  = Ni !Phi cells
+                rmHemi%Nth = Nj !Theta cells
+
+                allocate(rmHemi%xFac (Ni,Nj))
+                allocate(rmHemi%xPot (Ni,Nj))
+                allocate(rmHemi%xSigP(Ni,Nj))
+                allocate(rmHemi%xSigH(Ni,Nj))
+
+                rmHemi%xFac  = 0.0
+                rmHemi%xPot  = 0.0
+                rmHemi%xSigP = 0.0
+                rmHemi%xSigH = 0.0
+
+            end subroutine initHemi
     end subroutine initRM
 
     !Update remix data
@@ -139,46 +170,71 @@ module calcdbio
         real(rp), intent(in) :: t
         type(rmState_T), intent(inout)   :: rmState
 
-        character(len=strLen) :: rmF !Remix file
-        character(len=strLen) :: gStr
+        character(len=strLen) :: rmF !Remix file    
         integer :: i1,i2
-        type(IOVAR_T), dimension(MAXDBVS) :: IOVars
+        real(rp) :: w1,w2
 
         !TODO: Remove redundant code here
         write(rmF,'(2a)') trim(adjustl(Model%RunID)),'.mix.h5'
-
         call findSlc(ebState%ebTab,t,i1,i2)
 
-        !Right now just lazily reading one slice and storing
-        !TODO: Fix this to properly interpolate
-        gStr = trim(ebState%ebTab%gStrs(i1))
+        !Read 4 hemispheres
+        call readHemi(rmState%rmN1,rmF,ebState%ebTab,i1,NORTH)
+        call readHemi(rmState%rmS1,rmF,ebState%ebTab,i1,SOUTH)
 
-        call ClearIO(IOVars)
-        !Northern hemisphere
-        call AddInVar(IOVars,"Field-aligned current NORTH")
-        call AddInVar(IOVars, "Pedersen conductance NORTH")
-        call AddInVar(IOVars,     "Hall conductance NORTH")
-        call AddInVar(IOVars,            "Potential NORTH")
-        call AddInVar(IOVars,"Field-aligned current SOUTH")
-        call AddInVar(IOVars, "Pedersen conductance SOUTH")
-        call AddInVar(IOVars,     "Hall conductance SOUTH")
-        call AddInVar(IOVars,            "Potential SOUTH")
+        call readHemi(rmState%rmN2,rmF,ebState%ebTab,i2,NORTH)
+        call readHemi(rmState%rmS2,rmF,ebState%ebTab,i2,SOUTH)
 
-        call ReadVars(IOVars,.true.,rmF,gStr)
-
-        !Pull data into arrays
-        call IOArray2DFill(IOVars,"Field-aligned current NORTH",rmState%nFac )
-        call IOArray2DFill(IOVars, "Pedersen conductance NORTH",rmState%nSigP)
-        call IOArray2DFill(IOVars,     "Hall conductance NORTH",rmState%nSigH)
-        call IOArray2DFill(IOVars,            "Potential NORTH",rmState%nPot )
-
-        call IOArray2DFill(IOVars,"Field-aligned current SOUTH",rmState%sFac )
-        call IOArray2DFill(IOVars, "Pedersen conductance SOUTH",rmState%sSigP)
-        call IOArray2DFill(IOVars,     "Hall conductance SOUTH",rmState%sSigH)
-        call IOArray2DFill(IOVars,            "Potential SOUTH",rmState%sPot )
+        !Now fill in remix main state for this t
+        call GetTWgts(Model,ebState,t,w1,w2)
+        call hemi2rm(rmState,w1,w2)
 
         !TODO: Fill in fac and ionospheric grid data
         call facGridUpdate(Model,ebState,rmState)
+
+        contains
+
+        !Read hemisphere data
+        !NOTE: nStp here refers to array index in ebTab, not necessarily Step#X
+        subroutine readHemi(rmHemi,rmF,ebTab,nStp,nsID)
+            type(rmHemi_T), intent(inout) :: rmHemi
+            character(len=strLen), intent(in) :: rmF
+            type(ebTab_T), intent(in) :: ebTab
+            integer, intent(in) :: nStp,nsID
+
+            character(len=strLen) :: hID,gStr
+            type(IOVAR_T), dimension(MAXDBVS) :: IOVars
+
+            !Check to see if we need to read
+            if (rmHemi%nStp == nStp) then
+                !We've already read this data
+                return
+            endif
+            !Otherwise get the data
+            !Which hemisphere?
+            if (nsID == NORTH) then
+                hID = "NORTH"
+            else
+                hID = "SOUTH"
+            endif
+            gStr = trim(ebState%ebTab%gStrs(nStp))
+
+            rmHemi%time = ebTab%times(nStp)
+            rmHemi%nStp = nStp
+
+            call ClearIO(IOVars)
+            call AddInVar(IOVars,"Field-aligned current" // hID)
+            call AddInVar(IOVars, "Pedersen conductance" // hID)
+            call AddInVar(IOVars,     "Hall conductance" // hID)
+            call AddInVar(IOVars,            "Potential" // hID)
+            call ReadVars(IOVars,.true.,rmF,gStr)
+
+            call IOArray2DFill(IOVars,"Field-aligned current" // hID,rmHemi%xFac )
+            call IOArray2DFill(IOVars, "Pedersen conductance" // hID,rmHemi%xSigP)
+            call IOArray2DFill(IOVars,     "Hall conductance" // hID,rmHemi%xSigH)
+            call IOArray2DFill(IOVars,            "Potential" // hID,rmHemi%xPot )
+
+        end subroutine readHemi
 
     end subroutine updateRemix
 
@@ -252,6 +308,26 @@ module calcdbio
 
     end subroutine xyz2rtp
     
+    !Get time weights for time t (assuming proper bracketing)
+    subroutine GetTWgts(Model,ebState,t,w1,w2)
+        type(chmpModel_T), intent(in) :: Model
+        type(ebState_T), intent(in)   :: ebState
+        real(rp), intent(in)  :: t
+        real(rp), intent(out) :: w1,w2
+
+        real(rp) :: dt
+        !Start by getting time weight
+        if (ebState%doStatic) then
+            w1 = 1.0
+            w2 = 0.0
+        else
+            dt = ebState%eb2%time-ebState%eb1%time
+            w1 = (ebState%eb2%time-t)/dt
+            w2 = (t-ebState%eb1%time)/dt
+        endif
+
+    end subroutine GetTWgts
+
     !Get ground delta-B at grid points
     subroutine CalcMagDB(Model,ebState,dbMAG)
         type(chmpModel_T), intent(in) :: Model
@@ -259,21 +335,12 @@ module calcdbio
         real(rp), dimension(:,:,:,:), intent(inout) :: dbMAG
 
         real(rp), dimension(:,:,:,:), allocatable :: Jxyz
-        real(rp) :: w1,w2,dt
-        real(rp) :: dV,B0,r3
+        real(rp) :: w1,w2,dV,B0,r3
         real(rp), dimension(NDIM) :: x0,xCC,ddB
         integer :: iG,jG,kG,iM,jM,kM
+        
         B0 = bScale()
-
-        !Start by getting time weight
-        if (ebState%doStatic) then
-            w1 = 1.0
-            w2 = 0.0
-        else
-            dt = ebState%eb2%time-ebState%eb1%time
-            w1 = (ebState%eb2%time-Model%t)/dt
-            w2 = (Model%t-ebState%eb1%time)/dt
-        endif
+        call GetTWgts(Model,ebState,Model%t,w1,w2)
 
     	allocate(Jxyz(gGr%NLat,gGr%NLon,gGr%Nz,NDIM))
         !$OMP PARALLEL WORKSHARE

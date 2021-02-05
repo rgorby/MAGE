@@ -7,6 +7,16 @@ module calcdbutils
     real(rp), parameter :: RIon = (RionE*1.0e+6)/REarth !Ionospheric radius in units of Re, ~1.01880
 
 !Remix holders
+    !Holds one hemisphere at one time slice
+    type rmHemi_T
+        integer :: nStp
+        integer :: Np,Nth !Remix cap sizes
+        real(rp) :: time
+        !Data arrays are size Np,Nth (lon,lat)
+        real(rp), dimension(:,:), allocatable :: xFac,xSigP,xSigH,xPot
+    end type rmHemi_T
+
+    !Remix state interpolated to specific time using bracketing steps rmHemi_T
     type rmState_T
         real(rp) :: time !CHIMP units
         real(rp), dimension(:,:,:), allocatable :: XY
@@ -15,7 +25,10 @@ module calcdbutils
         !Data arrays are size Np,Nth (lon,lat)
         real(rp), dimension(:,:), allocatable :: nFac,nSigP,nSigH,nPot
         real(rp), dimension(:,:), allocatable :: sFac,sSigP,sSigH,sPot
-    
+        
+        !Holds N/S hemisphere at i1/i2
+        type(rmHemi_T) :: rmN1,rmN2,rmS1,rmS2
+
     end type rmState_T
 
 	INTEGER, parameter :: NORTH=1,SOUTH=2
@@ -93,4 +106,20 @@ module calcdbutils
 
     end subroutine facGridUpdate
 
+    !Set rmState given properly set 4 hemispheres and temporal weights
+    subroutine hemi2rm(rmState,w1,w2)
+        type(rmState_T)  , intent(inout) :: rmState
+        real(rp), intent(in) :: w1,w2
+
+        rmState%nFac  = w1*rmState%rmN1%xFac  + w2*rmState%rmN2%xFac 
+        rmState%nPot  = w1*rmState%rmN1%xPot  + w2*rmState%rmN2%xPot 
+        rmState%nSigP = w1*rmState%rmN1%xSigP + w2*rmState%rmN2%xSigP
+        rmState%nSigH = w1*rmState%rmN1%xSigH + w2*rmState%rmN2%xSigH
+        rmState%sFac  = w1*rmState%rmS1%xFac  + w2*rmState%rmS2%xFac 
+        rmState%sPot  = w1*rmState%rmS1%xPot  + w2*rmState%rmS2%xPot 
+        rmState%sSigP = w1*rmState%rmS1%xSigP + w2*rmState%rmS2%xSigP
+        rmState%sSigH = w1*rmState%rmS1%xSigH + w2*rmState%rmS2%xSigH
+
+
+    end subroutine hemi2rm
 end module calcdbutils
