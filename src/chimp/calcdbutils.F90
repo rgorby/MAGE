@@ -63,18 +63,23 @@ module calcdbutils
 		integer :: NLat,NLon,Nz
 		real(rp), dimension(:,:,:,:), allocatable :: xyzI,xyzC !Corner/Center points
 
-	end type sphGrid_T
+        !Individual ground perturbations
+        real(rp), dimension(:,:,:,:), allocatable :: dbMAG_xyz,dbION_xyz,dbFAC_xyz
+        real(rp), dimension(:,:,:,:), allocatable :: dbMAG_rtp,dbION_rtp,dbFAC_rtp
 
-	type(sphGrid_T) :: gGr !Ground grid
-	type(facGrid_T) :: facGrid !FAC grid
-    type(ionGrid_T) :: ionGrid !Ionospheric grid
+        !Some parameters for calculation
+        integer :: i0=1 !Shell to start at
+        real(rp) :: rMax=25.0 !Radius of magnetospheric ball to integrate over [Re]
+
+	end type sphGrid_T
 
 	contains
 
-	subroutine facGridInit(Model,ebState,rmState)
+	subroutine facGridInit(Model,ebState,rmState,facGrid)
         type(chmpModel_T), intent(in) :: Model
         type(ebState_T)  , intent(in) :: ebState
         type(rmState_T)  , intent(in) :: rmState
+        type(facGrid_T)  , intent(inout) :: facGrid
 
         integer :: Np,Nth
 
@@ -96,10 +101,11 @@ module calcdbutils
 	end subroutine facGridInit
 
 	!Using a rmState (remix data), fill facGrid Jxyz
-	subroutine facGridUpdate(Model,ebState,rmState)
+	subroutine facGridUpdate(Model,ebState,rmState,facGrid)
         type(chmpModel_T), intent(in) :: Model
         type(ebState_T)  , intent(in) :: ebState
         type(rmState_T)  , intent(in) :: rmState
+        type(facGrid_T)  , intent(inout) :: facGrid
 
         !TODO: Write this
         facGrid%Jxyz = 0.0

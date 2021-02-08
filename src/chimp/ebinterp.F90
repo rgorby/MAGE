@@ -431,4 +431,24 @@ module ebinterp
 
     end function
 
+    !Get time weights for time t (assuming proper bracketing)
+    subroutine GetTWgts(Model,ebState,t,w1,w2)
+        type(chmpModel_T), intent(in) :: Model
+        type(ebState_T), intent(in)   :: ebState
+        real(rp), intent(in)  :: t
+        real(rp), intent(out) :: w1,w2
+
+        real(rp) :: dt
+        !Start by getting time weight
+        if (ebState%doStatic) then
+            w1 = 1.0
+            w2 = 0.0
+        else
+            dt = ebState%eb2%time-ebState%eb1%time
+            w1 = (ebState%eb2%time-t)/dt
+            w2 = (t-ebState%eb1%time)/dt
+        endif
+
+    end subroutine GetTWgts
+    
 end module ebinterp

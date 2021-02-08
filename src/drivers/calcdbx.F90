@@ -19,7 +19,12 @@ program calcdbx
     type(chmpModel_T) :: Model
     type(ebState_T)   :: ebState
     type(XML_Input_T) :: inpXML
+
+    !New calc-DB structures
     type(rmState_T) :: rmState
+    type(sphGrid_T) :: gGr !Ground grid
+    type(facGrid_T) :: facGrid !FAC grid
+    type(ionGrid_T) :: ionGrid !Ionospheric grid
 
     integer :: NumP
     real(rp) :: wT,cMJD,rSec
@@ -39,7 +44,7 @@ program calcdbx
         stop
     endif
     
-    call initDBio(Model,ebState,inpXML,NumP)
+    call initDBio(Model,ebState,gGr,inpXML,NumP)
     call initRM(Model,ebState,rmState)
 
     !Loop from T0 -> tFin
@@ -56,16 +61,27 @@ program calcdbx
         !Update remix data to current time
         call updateRemix(Model,ebState,Model%t,rmState)
 
+        !Update FAC/ION grids
+        call facGridUpdate(Model,ebState,rmState,facGrid)
+        
         call Toc("Step")
+
+        call Tic("Compute")
+    !Mag DB
+        call Tic("MagDB")
+        call CalcMagDB(Model,ebState,gGr)
+        call Toc("MagDB")
+    !Ion DB
+
+    !FAC DB
+        call Toc("Compute")
 
         !Calc/write DB on grid
         call Tic("Output")
         !Write output grid
         write(gStr,'(A,I0)') "Step#", Model%nOut
-        call Tic("MagDB")
-
-        call writeDB(Model,ebState,gStr)
-        call Toc("MagDB")
+        
+        call writeDB(Model,ebState,gGr,gStr)
         
         !Setup for next output
         Model%tOut = Model%tOut + Model%dtOut

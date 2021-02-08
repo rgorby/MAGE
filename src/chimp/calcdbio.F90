@@ -9,19 +9,20 @@ module calcdbio
 	use files
 	use clocks
     use calcdbutils
-
+    use calcdbcore
+    use ebinterp
+    
 	implicit none
 
     character(len=strLen), private :: dbOutF
     integer, parameter, private :: MAXDBVS = 20
-    integer, private :: i0 !Shell to start at
-    real(rp), private :: rMax = 25.0 !Radius of magnetospheric ball to integrate over [Re]
 
     contains
 
-    subroutine initDBio(Model,ebState,inpXML,NumP)
+    subroutine initDBio(Model,ebState,gGr,inpXML,NumP)
         type(chmpModel_T), intent(inout) :: Model
-        type(ebState_T), intent(in)   :: ebState
+        type(ebState_T), intent(in)    :: ebState
+        type(sphGrid_T), intent(inout) :: gGr
         type(XML_Input_T), intent(in) :: inpXML
         integer, intent(inout) :: NumP
 
@@ -36,8 +37,8 @@ module calcdbio
         call inpXML%Set_Val(NLat,'Grid/NLat',45) !Number of latitudinal cells
         call inpXML%Set_Val(NLon,'Grid/NLon',90) !Number of longitudinal cells
         call inpXML%Set_Val(Nz  ,'Grid/Nz'  , 2) !Number of longitudinal cells
-        call inpXML%Set_Val(i0,'CalcDB/i0',1)
-        call inpXML%Set_Val(rMax,'CalcDB/rMax',rMax)
+        call inpXML%Set_Val(gGr%i0,'CalcDB/i0',gGr%i0)
+        call inpXML%Set_Val(gGr%rMax,'CalcDB/rMax',gGr%rMax)
 
         NumP = NLat*NLon*Nz
 
@@ -81,6 +82,22 @@ module calcdbio
         enddo
 
         end associate
+
+        !Allocate db holders (XYZ)
+        allocate(gGr%dbMAG_xyz(gGr%NLat,gGr%NLon,gGr%Nz,NDIM)) !Magnetospheric delta-B
+        allocate(gGr%dbION_xyz(gGr%NLat,gGr%NLon,gGr%Nz,NDIM)) !Ionospheric delta-B
+        allocate(gGr%dbFAC_xyz(gGr%NLat,gGr%NLon,gGr%Nz,NDIM)) !FAC delta-B
+        !Spherical holders
+        allocate(gGr%dbMAG_rtp(gGr%NLat,gGr%NLon,gGr%Nz,NDIM)) !Magnetospheric delta-B
+        allocate(gGr%dbION_rtp(gGr%NLat,gGr%NLon,gGr%Nz,NDIM)) !Ionospheric delta-B
+        allocate(gGr%dbFAC_rtp(gGr%NLat,gGr%NLon,gGr%Nz,NDIM)) !FAC delta-B
+
+        gGr%dbMAG_xyz = 0.0
+        gGr%dbION_xyz = 0.0
+        gGr%dbFAC_xyz = 0.0
+        gGr%dbMAG_rtp = 0.0
+        gGr%dbION_rtp = 0.0
+        gGr%dbFAC_rtp = 0.0
 
         !Write grid
         call ClearIO(IOVars)
@@ -189,9 +206,6 @@ module calcdbio
         call GetTWgts(Model,ebState,t,w1,w2)
         call hemi2rm(rmState,w1,w2)
 
-        !TODO: Fill in fac and ionospheric grid data
-        call facGridUpdate(Model,ebState,rmState)
-
         contains
 
         !Read hemisphere data
@@ -239,9 +253,10 @@ module calcdbio
     end subroutine updateRemix
 
     !Calculate and output delta-B data
-    subroutine writeDB(Model,ebState,gStr)
+    subroutine writeDB(Model,ebState,gGr,gStr)
         type(chmpModel_T), intent(in) :: Model
         type(ebState_T), intent(in)   :: ebState
+        type(sphGrid_T), intent(inout) :: gGr
         character(len=strLen), intent(in) :: gStr
 
         type(IOVAR_T), dimension(MAXDBVS) :: IOVars
@@ -249,15 +264,9 @@ module calcdbio
         real(rp) :: mjd
 
         mjd = MJDAt(ebState%ebTab,Model%t)
-        allocate(dbMAG_xyz(gGr%NLat,gGr%NLon,gGr%Nz,NDIM)) !Magnetospheric delta-B
-        allocate(dbMAG_rtp(gGr%NLat,gGr%NLon,gGr%Nz,NDIM)) !Magnetospheric delta-B in spherical vectors
-
-        call Tic("CalcMagDB")
-        call CalcMagDB(Model,ebState,dbMAG_xyz)
-        call Toc("CalcMagDB")
         
-        
-        call xyz2rtp(dbMAG_xyz,dbMAG_rtp)
+        !Do conversion to spherical
+        call xyz2rtp(gGr,gGr%dbMAG_xyz,gGr%dbMAG_rtp)
 
         call ClearIO(IOVars)
         call AddOutVar(IOVars,"time",oTScl*Model%t)
@@ -273,11 +282,11 @@ module calcdbio
         call WriteVars(IOVars,.true.,dbOutF,gStr)
         call ClearIO(IOVars)
         
-        
     end subroutine writeDB
 
     !Convert XYZ to RTP vectors
-    subroutine xyz2rtp(dbXYZ,dbRTP)
+    subroutine xyz2rtp(gGr,dbXYZ,dbRTP)
+        type(sphGrid_T), intent(in) :: gGr
         real(rp), dimension(:,:,:,:), intent(in ) :: dbXYZ
         real(rp), dimension(:,:,:,:), intent(out) :: dbRTP
 
@@ -308,113 +317,5 @@ module calcdbio
 
     end subroutine xyz2rtp
     
-    !Get time weights for time t (assuming proper bracketing)
-    subroutine GetTWgts(Model,ebState,t,w1,w2)
-        type(chmpModel_T), intent(in) :: Model
-        type(ebState_T), intent(in)   :: ebState
-        real(rp), intent(in)  :: t
-        real(rp), intent(out) :: w1,w2
-
-        real(rp) :: dt
-        !Start by getting time weight
-        if (ebState%doStatic) then
-            w1 = 1.0
-            w2 = 0.0
-        else
-            dt = ebState%eb2%time-ebState%eb1%time
-            w1 = (ebState%eb2%time-t)/dt
-            w2 = (t-ebState%eb1%time)/dt
-        endif
-
-    end subroutine GetTWgts
-
-    !Get ground delta-B at grid points
-    subroutine CalcMagDB(Model,ebState,dbMAG)
-        type(chmpModel_T), intent(in) :: Model
-        type(ebState_T), intent(in)   :: ebState
-        real(rp), dimension(:,:,:,:), intent(inout) :: dbMAG
-
-        real(rp), dimension(:,:,:,:), allocatable :: Jxyz
-        real(rp) :: w1,w2,dV,B0,r3
-        real(rp), dimension(NDIM) :: x0,xCC,ddB
-        integer :: iG,jG,kG,iM,jM,kM
-        
-        B0 = bScale()
-        call GetTWgts(Model,ebState,Model%t,w1,w2)
-
-    	allocate(Jxyz(gGr%NLat,gGr%NLon,gGr%Nz,NDIM))
-        !$OMP PARALLEL WORKSHARE
-    	Jxyz = w1*ebState%eb1%Jxyz + w2*ebState%eb2%Jxyz
-        !$OMP END PARALLEL WORKSHARE
-        
-    	dbMAG = 0.0
-    	associate( ebGr=>ebState%ebGr )
-    	!Big-ass loop, loop over grid cells we want dB at and then loop over MHD grid contribution
-    	!iG,jG,kG = ground grid
-    	!iM,jM,kM = MHD grid
-
-        !$OMP PARALLEL DO default(shared) collapse(2) &
-        !$OMP private(iG,jG,kG,iM,jM,kM) &
-        !$OMP private(dV,r3,x0,xCC,ddB)
-    	do kG=1,gGr%Nz
-    		do jG=1,gGr%NLon
-    			do iG=1,gGr%NLat
-    				x0 = gGr%xyzC(iG,jG,kG,:) !Cell center of ground grid
-
-    				do kM=ebGr%ks,ebGr%ke
-    					do jM=ebGr%js,ebGr%je
-    						do iM=ebGr%is+i0-1,ebGr%ie
-    							xCC = ebGr%xyzcc(iM,jM,kM,:) !MHD grid cell center
-    							if ( norm2(xCC) > rMax ) cycle
-                                
-                                r3 = norm2(x0-xCC)**3.0
-    							dV = ebGr%dV(iM,jM,kM)
-    							!Get differential contribution
-                                !Avoid array temporary
-    							!ddB = -cross(Jxyz(iM,jM,kM,:),xCC)/r3
-                                ddB(XDIR) = -( Jxyz(iM,jM,kM,YDIR)*xCC(ZDIR) - Jxyz(iM,jM,kM,ZDIR)*xCC(YDIR) )/r3
-                                ddB(YDIR) = -( Jxyz(iM,jM,kM,ZDIR)*xCC(XDIR) - Jxyz(iM,jM,kM,XDIR)*xCC(ZDIR) )/r3
-                                ddB(ZDIR) = -( Jxyz(iM,jM,kM,XDIR)*xCC(YDIR) - Jxyz(iM,jM,kM,YDIR)*xCC(XDIR) )/r3
-
-                                !Pulling out overall scaling
-    							!dbMAG(iG,jG,kG,:) = dbMAG(iG,jG,kG,:) + B0*dV*ddB/(4.0*PI)
-                                dbMAG(iG,jG,kG,:) = dbMAG(iG,jG,kG,:) + dV*ddB
-
-    						enddo !iM
-    					enddo !jM
-    				enddo !kM
-
-    			enddo !iG
-    		enddo !jG
-    	enddo !kG
-
-        !Moving overall scaling factor to secondary loop to only apply once
-        !$OMP PARALLEL DO default(shared) collapse(2) &
-        !$OMP private(iG,jG,kG)
-        do kG=1,gGr%Nz
-            do jG=1,gGr%NLon
-                do iG=1,gGr%NLat
-                    dbMAG(iG,jG,kG,:) = B0*dbMAG(iG,jG,kG,:)/(4.0*PI)
-                enddo !iG
-            enddo !jG
-        enddo !kG
-
-    	end associate
-
-    end subroutine CalcMagDB
-
-    !Lazy function to return scaling, should be replaced
-    function bScale() result(B0)
-    	real(rp) :: B0
-    	real(rp) :: mu0,Mp,x0,u0,t0,d0,p0
-    	mu0 = 4*PI*1e-7
-    	Mp = 1.67e-27 ![kg]
-		x0 = 1*6.38e6 ![m]   - RE
-		u0 = 100e3    ![m/s] - 100 km/s
-		t0 = x0/u0 ![s]   -
-		d0 = Mp*1e6 ! [kg/m^3] - 1 particle/cc
-		p0 = d0*u0*u0 ![N/m^2]
-		B0 = sqrt(mu0*d0*u0*u0)*1e9 ! [nT]
-    end function bScale
 
 end module calcdbio
