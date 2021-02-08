@@ -134,7 +134,7 @@ module ebsquish
             nSkp = 1
         endif
 
-        call GetSquishBds(ebSquish%curSquishBlock,ebSquish%numSquishBlocks,nSkp,ebGr%ks,ebGr%ke+1,ksB,keB)
+        call GetSquishBds(vApp,ksB,keB)
 
         !$OMP PARALLEL DO default(shared) collapse(2) &
         !$OMP schedule(dynamic) &
@@ -170,29 +170,47 @@ module ebsquish
 
         end associate
 
-        contains
-            !Get squish bounds for block n (out of Nblk)
-            !ksGr and keGr are the start/stop of indices
-            !ksB and keB are the bounds of this block
-            !n \in [0,Nblk-1] (because Jeff)
-            subroutine GetSquishBds(n,Nblk,nSkp,ksGr,keGr,ksB,keB)
-                integer, intent(in)  :: n,Nblk,nSkp,ksGr,keGr
-                integer, intent(out) :: ksB,keB
-
-                integer :: Nk,dN
-                Nk = keGr - ksGr + 1
-                dN = Nk/Nblk !Integer division
-                dN = dN - MOD(dN,nSkp)
-
-                ksB = ksGr + n*dN
-                keB = ksB+dN
-                if (n == (Nblk-1)) then
-                    keB = keGr !Make sure last block finishes everything
-                endif
-
-            end subroutine GetSquishBds
-
     end subroutine DoSquishBlock
+
+    !Get squish bounds for block n (out of Nblk)
+    !ksGr and keGr are the start/stop of indices
+    !ksB and keB are the bounds of this block
+    !n \in [0,Nblk-1] (because Jeff)
+    subroutine GetSquishBds(vApp,ksB,keB,blockNum)
+        class(voltApp_T), intent(in) :: vApp
+        integer, intent(out) :: ksB,keB
+        integer, optional, intent(in) :: blockNum
+
+        integer :: Nk,dN,nSkp
+        integer :: curB
+
+        associate(ebSquish=>vApp%ebTrcApp%ebSquish,ebGr=>vApp%ebTrcApp%ebState%ebGr)
+
+        if(present(blockNum)) then
+            curB = blockNum
+        else
+            curB = ebSquish%curSquishBlock
+        endif
+
+        if (vApp%doQkSquish) then
+            nSkp = vApp%qkSquishStride !Stride through grid for projections
+        else
+            nSkp = 1
+        endif
+
+        Nk = ebGr%ke+1 - ebGr%ks + 1
+        dN = Nk/ebSquish%numSquishBlocks !Integer division
+        dN = dN - MOD(dN,nSkp)
+
+        ksB = ebGr%ks + curB*dN
+        keB = ksB+dN
+        if (curB == (ebSquish%numSquishBlocks-1)) then
+            keB = ebGr%ke+1 !Make sure last block finishes everything
+        endif
+
+        end associate
+
+    end subroutine GetSquishBds
 
     ! Perform final operations on squishy data
     subroutine SquishEnd(vApp)

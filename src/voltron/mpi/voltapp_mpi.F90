@@ -123,6 +123,9 @@ module voltapp_mpi
             ! get starting time values from master voltron rank
             call mpi_bcast(vApp%tFin, 1, MPI_MYFLOAT, 0, vApp%vHelpComm, ierr)
             call mpi_bcast(vApp%time, 1, MPI_MYFLOAT, 0, vApp%vHelpComm, ierr)
+
+            if(vApp%doSquishHelp) call initializeAndReceiveChimp(vApp)
+
             return
         endif
 
@@ -304,9 +307,12 @@ module voltapp_mpi
                        1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
         call mpi_bcast(vApp%IO%tsOut, 1, MPI_INT, vApp%myRank, vApp%voltMpiComm, ierr)
 
-        ! send initial timing data to helper voltron ranks
-        call mpi_bcast(vApp%tFin, 1, MPI_MYFLOAT, 0, vApp%vHelpComm, ierr)
-        call mpi_bcast(vApp%time, 1, MPI_MYFLOAT, 0, vApp%vHelpComm, ierr)
+        if(vApp%useHelpers) then
+            ! send initial timing data to helper voltron ranks
+            call mpi_bcast(vApp%tFin, 1, MPI_MYFLOAT, 0, vApp%vHelpComm, ierr)
+            call mpi_bcast(vApp%time, 1, MPI_MYFLOAT, 0, vApp%vHelpComm, ierr)
+            if(vApp%doSquishHelp) call sendChimpInitialization(vApp)
+        endif
 
         ! create the MPI datatypes needed to transfer state data
         call createVoltDataTypes(vApp, iRanks, jRanks, kRanks)
@@ -465,11 +471,7 @@ module voltapp_mpi
 
         ! then start deep
         ! setup squish operation but don't yet perform the computations
-        call Tic("DeepUpdate")
-        call PreSquishDeep(vApp, vApp%gAppLocal)
-        call Toc("DeepUpdate")
-        vApp%deepProcessingInProgress = .true.
-
+        call startDeep(vApp)
     end subroutine
 
     subroutine concAsyncSAD_mpi(vApp, time)
@@ -511,11 +513,7 @@ module voltapp_mpi
 
         ! then start deep
         ! setup squish operation but don't yet perform the computations
-        call Tic("DeepUpdate")
-        call PreSquishDeep(vApp, vApp%gAppLocal)
-        call Toc("DeepUpdate")
-        vApp%deepProcessingInProgress = .true.
-
+        call startDeep(vApp)
     end subroutine
 
 !----------
@@ -765,6 +763,36 @@ module voltapp_mpi
 !----------
 !Deep coupling stuff (time coming from vApp%time, so in seconds)
 
+    subroutine startDeep(vApp)
+        type(voltAppMpi_T), intent(inout) :: vApp
+
+        call Tic("DeepUpdate")
+        call PreSquishDeep(vApp, vApp%gAppLocal)
+
+        if(vApp%useHelpers .and. vApp%doSquishHelp) then
+            call vhReqSquishStart(vApp)
+        endif
+
+        vApp%deepProcessingInProgress = .true.
+        call Toc("DeepUpdate")
+
+    end subroutine startDeep
+
+    subroutine endDeep(vApp)
+        type(voltAppMpi_T), intent(inout) :: vApp
+
+        call Tic("DeepUpdate")
+        vApp%deepProcessingInProgress = .false.
+
+        if(vApp%useHelpers .and. vApp%doSquishHelp) then
+            call vhReqSquishEnd(vApp)
+        endif
+
+        call PostSquishDeep(vApp, vApp%gAppLocal)
+        call Toc("DeepUpdate")
+
+    end subroutine endDeep
+
     function deepInProgress(vApp)
         type(voltAppMpi_T), intent(in) :: vApp
         logical :: deepInProgress
@@ -782,15 +810,11 @@ module voltapp_mpi
         call Tic("Squish")
         call DoSquishBlock(vApp)
         call Toc("Squish")
+        call Toc("DeepUpdate")
 
         if(.not. SquishBlocksRemain(vApp)) then
-            vApp%deepProcessingInProgress = .false.
+            call endDeep(vApp)
         endif
-
-        if(.not. vApp%deepProcessingInProgress) then
-            call PostSquishDeep(vApp, vApp%gAppLocal)
-        endif
-       call Toc("DeepUpdate")
 
     end subroutine doDeepBlock
 
@@ -810,10 +834,7 @@ module voltapp_mpi
         call recvDeepData_mpi(vApp)
         call Toc("DeepRecv")
         saveDeepT = vApp%DeepT ! save the DeepT so it won't change during initial update
-        call Tic("DeepUpdate")
-        call PreSquishDeep(vApp, vApp%gAppLocal)
-        call Toc("DeepUpdate")
-        vApp%deepProcessingInProgress = .true.
+        call startDeep(vApp)
         vApp%firstDeepUpdate = .false.
         do while(deepInProgress(vApp))
             call doDeepBlock(vApp)
@@ -916,11 +937,7 @@ module voltapp_mpi
             call Toc("DeepRecv")
 
             ! setup squish operation but don't yet perform the computations
-            call Tic("DeepUpdate")
-            call PreSquishDeep(vApp, vApp%gAppLocal)
-            call Toc("DeepUpdate")
-            vApp%deepProcessingInProgress = .true.
-
+            call startDeep(vApp)
         endif
     end subroutine
 
@@ -1223,8 +1240,10 @@ module voltapp_mpi
         select case(helpType)
             CASE (VHSTEP)
                 call vhHandleStep(vApp)
-            CASE (VHSQUISH)
-                call vhHandleSquish(vApp)
+            CASE (VHSQUISHSTART)
+                call vhHandleSquishStart(vApp)
+            CASE (VHSQUISHEND)
+                call vhHandleSquishEnd(vApp)
             CASE DEFAULT
                 print *,"Unknown voltron helper request type received."
                 stop
