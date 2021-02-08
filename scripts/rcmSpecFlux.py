@@ -17,7 +17,7 @@ from argparse import RawTextHelpFormatter
 
 if __name__ == "__main__":
 	ftag = "msphere"
-	cmap = plt.cm.brg
+	cmap = plt.cm.plasma
 	timeStr = ""
 	locStr = "-5,0,0"
 	numSamples = 6
