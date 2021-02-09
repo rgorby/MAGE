@@ -18,7 +18,7 @@ MODULE lossutils
       real(rprec), intent(in) :: enrg,rloc
 
       real(rprec) :: cxrate
-      real(rprec) :: K,Ngeo,KSig,Sig0,a1,a2,a3,B1,B2,Sig,M,Kj,V,Tau,tScl
+      real(rprec) :: K,Ngeo,Sig,M,Kj,V,Tau,tScl
 
       K = enrg*1.0e-3 !Energy in kev
     !Geocoronal density [#/cc]
@@ -27,17 +27,7 @@ MODULE lossutils
       !K in keV, Sig in cm2
       !Using Lindsay & Stebbings 2005
       if (isp == RCMPROTON) then
-        !Charge exchange cross-section for H+/H
-        KSig = min(K,250.0) !Cap for validity of CX cross-section
-      
-        Sig0 = 1.0e-16
-        a1 = 4.15
-        a2 = 0.531
-        a3 = 67.3
-
-        B1 = (a1-a2*log(KSig))**2.0
-        B2 = 1.0-exp(-a3/KSig) 
-        Sig =  Sig0*B1*(B2**(4.5))
+        Sig = CXSigma(K,isp)
         M = (Mp_cgs)*(1.0e-3) !Proton mass
       else
         write(*,*) 'Unknown charge exchange species, bailing!'
@@ -54,6 +44,44 @@ MODULE lossutils
 
       cxrate = 1.0/Tau
     END FUNCTION CXKaiju
+
+    !Charge exchange cross-section for K [keV] and species ispc
+    !Sig in cm2
+    !Using Lindsay & Stebbings 2005
+    FUNCTION CXSigma(K,ispc) result(Sig)
+      real(rprec), intent(in) :: K
+      integer(iprec), intent(in) :: ispc
+      real(rprec) :: Sig
+
+      real(rprec) :: Sig0, KSig,a1,a2,a3,B1,B2
+      Sig0 = 1.0e-16
+
+      select case(ispc)
+        case(RCMPROTON)
+          !Charge exchange cross-section for H+/H
+          KSig = min(K,250.0) !Cap for validity of CX cross-section
+          a1 = 4.15
+          a2 = 0.531
+          a3 = 67.3
+
+          B1 = (a1-a2*log(KSig))**2.0
+          B2 = 1.0-exp(-a3/KSig) 
+          Sig =  Sig0*B1*(B2**(4.5))
+        case(RCMOXYGEN)
+          !Charge exchange cross-section for O+/H
+          KSig = min(K,250.0) !Cap for validity of CX cross-section
+          a1 = 3.13
+          a2 = 0.170
+          a3 = 87.5
+
+          B1 = (a1-a2*log(KSig))**2.0
+          B2 = 1.0-exp(-a3/KSig) 
+          Sig =  Sig0*B1*(B2**(0.8))
+        case default
+          Sig = 0.0
+      end select
+
+    END FUNCTION CXSigma
 
     !Geocoronal density afa L [#/cc], Taken from Ostgaard 2003 
     FUNCTION OstgaardGeocorona(L) result(Ngeo)
