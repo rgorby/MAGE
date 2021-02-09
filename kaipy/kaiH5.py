@@ -62,6 +62,21 @@ def cntSteps(fname):
 	nSteps = len(Steps)
 	return nSteps,sIds
 
+#More general version of cntSteps, useful for Step#X/Line#Y
+def cntX(fname,gID=None,StrX="/Step#"):
+	with h5py.File(fname,'r') as hf:
+		if (gID is not None):
+			grps = hf[gID].values()
+		else:
+			grps = hf.values()
+		grpNames = [str(grp.name) for grp in grps]
+		#Steps = [stp if "/Step#" in stp for stp in grpNames]
+		Steps = [stp for stp in grpNames if StrX in stp]
+		nSteps = len(Steps)
+
+		sIds = np.array([str.split(s,"#")[-1] for s in Steps],dtype=np.int)
+		return nSteps,sIds
+
 def getTs(fname,sIds=None,aID="time",aDef=0.0):
 	if (sIds is None):
 		nSteps,sIds = cntSteps(fname)
@@ -99,10 +114,10 @@ def getRootVars(fname):
 	return vIds
 
 #Get variables in initial Step
-def getVars(fname,s0):
+def getVars(fname,smin):
 	CheckOrDie(fname)
 	with h5py.File(fname,'r') as hf:
-		gId = "/Step#%d"%(s0)
+		gId = "/Step#%d"%(smin)
 		stp0 = hf[gId]
 		vIds = [str(k) for k in stp0.keys()]
 	return vIds
