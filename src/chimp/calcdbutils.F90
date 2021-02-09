@@ -95,10 +95,34 @@ module calcdbutils
         facGrid%Jxyz  = 0.0
         facGrid%dV    = 0.0
 
-        !TODO: Need to add code here to define facGrid%XYZcc and dV
+        !CALCDB-TODO: Need to add code here to define facGrid%XYZcc and dV
         !NOTE: XYZ from remix is in units of Rion, not Re
 
 	end subroutine facGridInit
+
+    subroutine ionGridInit(Model,ebState,rmState,ionGrid)
+        type(chmpModel_T), intent(in) :: Model
+        type(ebState_T)  , intent(in) :: ebState
+        type(rmState_T)  , intent(in) :: rmState
+        type(ionGrid_T)  , intent(inout) :: ionGrid
+
+        integer :: Np,Nth
+
+        Np = rmState%Np
+        Nth = rmState%Nth
+
+        allocate(ionGrid%XYZcc(Np,Nth,2,NDIM))
+        allocate(ionGrid%Jxyz (Np,Nth,2,NDIM))
+        allocate(ionGrid%dS   (Np,Nth,2)) !Surface area per patch
+
+        ionGrid%XYZcc = 0.0
+        ionGrid%Jxyz  = 0.0
+        ionGrid%dS    = 0.0
+
+        !CALCDB-TODO: Need to add code here to define grid (XYZcc and dS)
+        !NOTE: XYZ from remix is in units of Rion, not Re
+
+    end subroutine ionGridInit
 
 	!Using a rmState (remix data), fill facGrid Jxyz
 	subroutine facGridUpdate(Model,ebState,rmState,facGrid)
@@ -107,10 +131,23 @@ module calcdbutils
         type(rmState_T)  , intent(in) :: rmState
         type(facGrid_T)  , intent(inout) :: facGrid
 
-        !TODO: Write this
+        !CALCDB-TODO: Write this
         facGrid%Jxyz = 0.0
 
     end subroutine facGridUpdate
+
+    !Using a rmState (remix data), fill ionGrid Jxyz
+    subroutine ionGridUpdate(Model,ebState,rmState,ionGrid)
+        type(chmpModel_T), intent(in) :: Model
+        type(ebState_T)  , intent(in) :: ebState
+        type(rmState_T)  , intent(in) :: rmState
+        type(ionGrid_T)  , intent(inout) :: ionGrid
+
+        !CALCDB-TODO: Write this
+        ionGrid%Jxyz = 0.0
+
+    end subroutine ionGridUpdate
+
 
     !Set rmState given properly set 4 hemispheres and temporal weights
     subroutine hemi2rm(rmState,w1,w2)

@@ -99,4 +99,27 @@ module calcdbcore
         B0 = sqrt(mu0*d0*u0*u0)*1e9 ! [nT]
     end function bScale
 
+    !Calculate ionospheric DB contribution
+    subroutine CalcIonDB(Model,ebState,gGr,ionGr)
+        type(chmpModel_T), intent(in) :: Model
+        type(ebState_T), intent(in)   :: ebState
+        type(sphGrid_T), intent(inout) :: gGr
+        type(ionGrid_T), intent(inout) :: ionGr
+
+        gGr%dbION_xyz = 0.0
+        !CALCDB-TODO: Add the BS integral
+    end subroutine CalcIonDB
+
+    !Calculate ionospheric DB contribution
+    subroutine CalcFacDB(Model,ebState,gGr,facGr)
+        type(chmpModel_T), intent(in) :: Model
+        type(ebState_T), intent(in)   :: ebState
+        type(sphGrid_T), intent(inout) :: gGr
+        type(facGrid_T), intent(inout) :: facGr
+
+        gGr%dbFAC_xyz = 0.0
+        !CALCDB-TODO: Add the BS integral
+
+    end subroutine CalcFacDB
+
 end module calcdbcore

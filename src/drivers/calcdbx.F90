@@ -47,6 +47,9 @@ program calcdbx
     call initDBio(Model,ebState,gGr,inpXML,NumP)
     call initRM(Model,ebState,rmState)
 
+    call facGridInit(Model,ebState,rmState,facGrid)
+    call ionGridInit(Model,ebState,rmState,ionGrid)
+
     !Loop from T0 -> tFin
     Model%t = Model%T0
     
@@ -62,8 +65,10 @@ program calcdbx
         call updateRemix(Model,ebState,Model%t,rmState)
 
         !Update FAC/ION grids
+        !CALCDB-TODO: Need to fill in the following routines to fill in Jxyz's from rmState
         call facGridUpdate(Model,ebState,rmState,facGrid)
-        
+        call ionGridUpdate(Model,ebState,rmState,ionGrid)
+
         call Toc("Step")
 
         call Tic("Compute")
@@ -71,9 +76,18 @@ program calcdbx
         call Tic("MagDB")
         call CalcMagDB(Model,ebState,gGr)
         call Toc("MagDB")
+        
+    !CALCDB-TODO: Need to fill in the following routines to do Bios-Savart integrals
     !Ion DB
+        call Tic("IonDB")
+        call CalcIonDB(Model,ebState,gGr,ionGrid)
+        call Toc("IonDB")
 
     !FAC DB
+        call Tic("FacDB")
+        call CalcFacDB(Model,ebState,gGr,facGrid)
+        call Toc("FacDB")
+
         call Toc("Compute")
 
         !Calc/write DB on grid
