@@ -14,8 +14,20 @@ VMin = 300.
 MagVCM = "inferno"
 
 DMax = 150.
-DMin = 3000.
+DMin = 2000.
 DCM = "copper_r"
+
+D0Max = 15.
+D0Min = 1.
+D0CM = "copper_r"
+
+TMax = 1.
+TMin = 0.1
+TCM = "copper_r"
+
+BMax = 150.
+BMin = -150.
+BCM = "coolwarm"
 
 dbMax = 25.0
 dbCM = "RdGy_r"
@@ -40,10 +52,9 @@ def AddSizeArgs(parser):
 
 #Return domain size from parsed arguments; see msphViz for options
 def GetSizeBds():
-	xTail = -220.
-	xSun = 220.
-	yMax = 220.
-	xyBds = [xTail,xSun,-yMax,yMax]
+	xMax = 216.
+	yMax = 216.
+	xyBds = [-xMax,xMax,-yMax,yMax]
 
 	return xyBds
 
@@ -72,6 +83,55 @@ def PlotEqMagV(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
 		Ax.set_ylabel('Y [R_S]')
 	return MagV
 
+def PlotMerMagV(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
+        vMagV = kv.genNorm(VMin, VMax, doLog=False, midP=None)
+
+        if (AxCB is not None):
+                #Add the colorbar to AxCB
+                AxCB.clear()
+                kv.genCB(AxCB,vMagV,"Speed [km/s]",cM=MagVCM,Ntk=7)
+
+        if (doClear):
+                Ax.clear()
+
+        Vr, Vl = gsph.MerMagV(nStp)
+        xr, zr, xl, zl, r = gsph.MeridGridHalfs()
+        Ax.pcolormesh(xr,zr,Vr,cmap=MagVCM,norm=vMagV)
+        Ax.pcolormesh(xl,zl,Vl,cmap=MagVCM,norm=vMagV)
+
+        kv.SetAx(xyBds,Ax)
+
+        if (doDeco):
+                Ax.set_xlabel('X [R_S]')
+                Ax.set_ylabel('Z [R_S]')
+        return Vr, Vl
+
+
+def PlotMerDNorm(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
+	vD = kv.genNorm(DMin, DMax, doLog=False, midP=None)
+
+	if (AxCB is not None):
+		#Add the colorbar to AxCB
+		AxCB.clear()
+		kv.genCB(AxCB,vD,"Normalized number density [cm-3]",cM=DCM,Ntk=7)
+
+	if (doClear):
+		Ax.clear()
+
+	Dr, Dl = gsph.MerDNrm(nStp)
+	xr, zr, xl, zl, r = gsph.MeridGridHalfs()
+	Ax.pcolormesh(xr,zr,Dr,cmap=DCM,norm=vD, shading='auto')
+	Ax.pcolormesh(xl,zl,Dl,cmap=DCM,norm=vD, shading='auto')
+
+	kv.SetAx(xyBds,Ax)
+
+	if (doDeco):
+		Ax.set_xlabel('X [R_S]')
+		Ax.set_ylabel('Z [R_S]')
+		Ax.yaxis.tick_right()
+		Ax.yaxis.set_label_position('right')
+	return Dr, Dl
+
 #Plot normalized density in equatorial plane
 def PlotEqD(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
 	vD = kv.genNorm(DMin, DMax, doLog=False, midP=None)
@@ -79,7 +139,7 @@ def PlotEqD(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
 	if (AxCB is not None):
 		#Add the colorbar to AxCB
 		AxCB.clear()
-		kv.genCB(AxCB,vD,"Normalized density [cm-3]",cM=DCM,Ntk=7)
+		kv.genCB(AxCB,vD,"Normalized number density [cm-3]",cM=DCM,Ntk=7)
 
 	#Now do main plotting
 	if (doClear):
@@ -95,8 +155,106 @@ def PlotEqD(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
 		#kv.addEarth2D(ax=Ax)
 		Ax.set_xlabel('X [R_S]')
 		Ax.set_ylabel('Y [R_S]')
+		Ax.yaxis.tick_right()
+		Ax.yaxis.set_label_position('right')
 	return NormD
 
+#Plot Temperature in equatorial plane
+def PlotEqTemp(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
+	vT = kv.genNorm(TMin, TMax, doLog=False, midP=None)
+
+	if (AxCB is not None):
+		AxCB.clear()
+		kv.genCB(AxCB,vT,"Temperature [MK]",cM=TCM,Ntk=7)
+	if (doClear):
+		Ax.clear()
+
+	Temp = gsph.eqTemp(nStp)
+	Ax.pcolormesh(gsph.xxi,gsph.yyi,Temp,cmap=TCM,norm=vT)
+	
+	kv.SetAx(xyBds,Ax)
+
+	if (doDeco):
+		Ax.set_xlabel('X [R_S]')
+		Ax.set_ylabel('Y [R_S]')
+		Ax.yaxis.tick_right()
+		Ax.yaxis.set_label_position('right')
+	return Temp
+
+#Plor Br in eq plane
+def PlotEqBr(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
+	vB = kv.genNorm(BMin, BMax, doLog=False, midP=None)
+
+	if (AxCB is not None):
+		AxCB.clear()
+		kv.genCB(AxCB,vB,"Radial magnetic field [nT]",cM=BCM,Ntk=7)
+	if (doClear):
+		Ax.clear()
+
+	Br = gsph.eqNormBr(nStp)
+	Ax.pcolormesh(gsph.xxi,gsph.yyi,Br,cmap=BCM,norm=vB)
+
+	kv.SetAx(xyBds,Ax)
+
+	if (doDeco):
+		Ax.set_xlabel('X [R_S]')
+		Ax.set_ylabel('Y [R_S]')
+		Ax.yaxis.tick_right()
+		Ax.yaxis.set_label_position('right')
+	return Br
+
+
+
+def PlotiSlMagV(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
+	xyBds = [0.,360.,-75.,75.]
+	vMagV = kv.genNorm(VMin, VMax, doLog=False, midP=None)
+
+	if (AxCB is not None):
+                #Add the colorbar to AxCB
+                AxCB.clear()
+                kv.genCB(AxCB,vMagV,"Speed [km/s]",cM=MagVCM,Ntk=7)
+
+	#Now do main plotting
+	if (doClear):
+		Ax.clear()
+
+	V = gsph.iSliceMagV(nStp)
+	lat, lon = gsph.iSliceGrid()
+	Ax.pcolormesh(lon,lat,V,cmap=MagVCM,norm=vMagV)
+
+        #Ax.contour(kv.reWrap(gsph.xxc),kv.reWrap(gsph.yyc),kv.reWrap(Bz),[0.0],colors=bz0Col,linewidths=cLW)
+	kv.SetAx(xyBds,Ax)
+
+	if (doDeco):
+		Ax.set_xlabel('Longitude')
+		Ax.set_ylabel('Latitude')
+	return V
+
+#plot density at 1 AU (last cell)
+def PlotiSlD(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
+	xyBds = [0.,360.,-75.,75.]
+	vD = kv.genNorm(D0Min, D0Max, doLog=False, midP=None)
+	if (AxCB is not None):
+		AxCB.clear()
+		kv.genCB(AxCB,vD,"Number density [cm-3]",cM=D0CM,Ntk=7)
+
+	#Now do main plotting
+	if (doClear):
+		Ax.clear()
+
+	D = gsph.iSliceD(nStp)
+	lat, lon = gsph.iSliceGrid()
+	Ax.pcolormesh(lon,lat,D,cmap=D0CM,norm=vD)
+	kv.SetAx(xyBds,Ax)
+
+	if (doDeco):
+		Ax.set_xlabel('Longitude')
+		Ax.set_ylabel('Latitude')
+		Ax.yaxis.tick_right()
+		Ax.yaxis.set_label_position('right')
+	return D
+		
+	
 #Plot equatorial field
 def PlotEqB(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True,doBz=False):
 	vBZ = kv.genNorm(dbMax)

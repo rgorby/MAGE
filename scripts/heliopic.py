@@ -63,9 +63,6 @@ if __name__ == "__main__":
 	xyBds = hviz.GetSizeBds()
 	print (xyBds)
 
-	#Specify domain size!!!!!!!
-
-
 	#---------------------
 	#Do work
 	doFast=False
@@ -73,7 +70,7 @@ if __name__ == "__main__":
 
 	#---------
 	#Figure parameters
-	figSz = (12,7.5)
+	figSz = (10,18)
 	
 	#======
 	#Init data
@@ -89,35 +86,41 @@ if __name__ == "__main__":
 	#======
 	#Setup figure
 	fig = plt.figure(figsize=figSz)
-	gs = gridspec.GridSpec(2,6,height_ratios=[20,1],hspace=0.025)
+	gs = gridspec.GridSpec(6,6,height_ratios=[20,1,20,1,10,1])
 	
 
-	AxL = fig.add_subplot(gs[0,0:3])
-	AxR = fig.add_subplot(gs[0,3:])
+	AxL0 = fig.add_subplot(gs[0,0:3])
+	AxR0 = fig.add_subplot(gs[0,3:])
+
+	AxL1 = fig.add_subplot(gs[2,0:3])
+	AxR1 = fig.add_subplot(gs[2,3:])
+
+	AxL2 = fig.add_subplot(gs[4,0:3])
+	AxR2 = fig.add_subplot(gs[4,3:])
 
 	#colorbars
-	AxC1 = fig.add_subplot(gs[-1,0:3])
-	AxC2 = fig.add_subplot(gs[-1,3:])
-	#AxC3 = fig.add_subplot(gs[-1,4:6])
+	AxC1_0 = fig.add_subplot(gs[1,0:3])
+	AxC2_0 = fig.add_subplot(gs[1,3:])
 
-	#"FAC" color bar
-	#cbM = kv.genCB(AxC2,kv.genNorm(remix.facMax),"FAC",cM=remix.facCM,Ntk=4)
-	#AxC2.xaxis.set_ticks_position('top')
+	AxC1_1 = fig.add_subplot(gs[3,0:3])
+	AxC2_1 = fig.add_subplot(gs[3,3:])
+
+	AxC1_2 = fig.add_subplot(gs[5,0:3])
+	AxC2_2 = fig.add_subplot(gs[5,3:])
 
 
 	#plotting equatorial magV (left plot in msphere pic)
-	hviz.PlotEqMagV(gsph,nStp,xyBds,AxL,AxC1)
+	hviz.PlotEqMagV(gsph,nStp,xyBds,AxL0,AxC1_0)
+	hviz.PlotEqTemp(gsph,nStp,xyBds,AxR0,AxC2_0)
 
-	hviz.PlotEqD(gsph,nStp,xyBds,AxR,AxC2)
-
-	#if (doJy):
-	#	mviz.PlotJyXZ(gsph,nStp,xyBds,AxR,AxC3)
-	#else:
-	#plotting meridional slice (right plot in msphere pic)
-	#mviz.PlotMerid(gsph,nStp,xyBds,AxR,doDen,doRCM,AxC3)
+	hviz.PlotMerMagV(gsph,nStp,xyBds,AxL1,AxC1_1)
+	hviz.PlotMerDNorm(gsph,nStp,xyBds,AxR1,AxC2_1)
 	
-	#Add time (upper left) - Later!!!
-	gsph.AddTime(nStp,AxL,xy=[0.025,0.89],fs="x-large")
+	hviz.PlotiSlMagV(gsph,nStp,xyBds,AxL2,AxC1_2)
+	hviz.PlotiSlD(gsph,nStp,xyBds,AxR2,AxC2_2)
+	
+	#Add time (upper left)
+	gsph.AddTime(nStp,AxL0,xy=[0.025,0.875],fs="x-large")
 
 
 	#Add wsa info (lower left) instead of Solar wind params
@@ -139,8 +142,12 @@ if __name__ == "__main__":
 	#	mviz.AddIonBoxes(gs[0,3:],ion)
 
 	#Add MPI decomp
-	if (doMPI):
-		hviz.PlotMPI(gsph,AxL)
-		hviz.PlotMPI(gsph,AxR)
+	#if (doMPI):
+	#	hviz.PlotMPI(gsph,AxL0)
+	#	hviz.PlotMPI(gsph,AxR0)
+	#	hviz.PlotMPI(gsph,AxL1)
+	#	hviz.PlotMPI(gsph,AxR1)
+	#	hviz.PlotMPI(gsph,AxL2)
+	#	hviz.PlotMPI(gsph,AxR2)
 
 	kv.savePic(fOut,bLenX=45)

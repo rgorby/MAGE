@@ -30,6 +30,7 @@ class GamsphPipe(GameraPipe):
 		self.vScl = 150.  #-> km/s
 		self.tScl = 4637.    #->seconds
 		self.dScl = 200. #cm-3
+		self.TScl = 1.e-6/4/np.pi/200./1.38e-16/2./1.e6 #in K
 
 		#2D equatorial grid, stretched polar (Ni,Nj*2+1)
 		#??????
@@ -37,10 +38,14 @@ class GamsphPipe(GameraPipe):
 		self.xxi = [] ; self.yyi = [] #corners
 		self.xxc = [] ; self.yyc = [] #centers
 
+		#2D merid grid
+		self.xxi_m = []; self.zzi = [] #corners
+		self.xxc_m = []; self.zzc = []
+
 		#base class, will use OpenPipe below
 		GameraPipe.__init__(self,fdir,ftag,doFast=doFast)
 
-		self.Rin = self.xxi[0,0]
+		self.R0 = self.xxc[0,0]
 		
 	def OpenPipe(self,doVerbose=True):
 		GameraPipe.OpenPipe(self,doVerbose)
@@ -51,7 +56,8 @@ class GamsphPipe(GameraPipe):
 			self.vScl   = 1.0  #-> km/s
 			self.tScl   = 1.0 #->Seconds
 			# [EP] added
-			self.dScl = 1.0 
+			self.dScl = 1.0
+			self.TScl = 1.0 
 			#self.tRMScl = 63.8 #->Seconds
 
 		#Rescale time
@@ -117,6 +123,110 @@ class GamsphPipe(GameraPipe):
 		Qj[:,:] = 0.5*( Q[:,ja,:] + Q[:,jb,:] )
 		return Qj
 
+	#merid plane Y=0
+	def MeridGrid(self):
+		#Get Grid
+		self.GetGrid(doVerbose=True)
+
+		Nk2 = self.Nk//2
+		Nt = self.Nj
+		
+		#kooking from -Y to XZ plane
+		xright = self.X[:,:,0] #corners
+		xleft = self.X [:,:,Nk2]
+
+		zright = self.Z[:,:,0] #corners
+		zleft = self.Z[:,:,Nk2]
+
+		#stack right and left together
+		xmer = np.hstack( (xright, xleft[:,::-1]) ) #reverse j 
+		zmer = np.hstack( (zright, zleft[:,::-1]) ) #reverse j
+
+		#cell centers
+		xmer_c = 0.25*( xmer[:-1,:-1]+xmer[:-1,1:]+xmer[1:,:-1]+xmer[1:,1:] )
+		xmer_c = np.delete(xmer_c, Nt, axis = 1)
+		zmer_c = 0.25*( zmer[:-1,:-1]+zmer[:-1,1:]+zmer[1:,:-1]+zmer[1:,1:] )
+		zmer_c = np.delete(zmer_c, Nt, axis = 1)
+		return xmer_c, zmer_c
+
+	#merid plane Y=0
+	def MeridGridHalfs(self):
+		self.GetGrid(doVerbose=True)
+
+		Nk2 = self.Nk//2
+		Nt = self.Nj
+
+		#looking from -Y to XZ plane
+		xright = self.X[:,:,0] #corners
+		zright = self.Z[:,:,0] #corners
+
+		xleft = self.X [:,:,Nk2]
+		zleft = self.Z[:,:,Nk2]
+
+		xright_c = 0.25*( xright[:-1,:-1]+xright[:-1,1:]+xright[1:,:-1]+xright[1:,1:] )
+		zright_c = 0.25*( zright[:-1,:-1]+zright[:-1,1:]+zright[1:,:-1]+zright[1:,1:] )
+		r = np.sqrt(xright_c**2 + zright_c**2)
+
+		#centers: right plane, left plane, radius
+		return xright, zright, xleft, zleft, r
+
+	def iSliceGrid(self):
+		#Get Grid
+		self.GetGrid(doVerbose=True)
+
+		rxy = np.sqrt(self.X**2 + self.Y**2)
+		theta = np.arctan2(rxy,self.Z)
+		phi = np.arctan2(self.Y,self.X)
+
+		theta = 90. - theta*180./np.pi
+		phi [phi < 0] += 2*np.pi
+		phi = phi*180./np.pi
+
+		#last i-index == face of the last cell
+		lat = theta[-1,:,:]
+		lon = phi[-1,:,:]
+
+		return lat, lon
+
+	def MeridSlice(self,vID,sID=None,vScl=None,doVerb=True):
+		#Get full 3D variable first
+		Q = self.GetVar(vID,sID,vScl,doVerb)
+		
+		Nk2 = self.Nk//2
+		Np = self.Nk
+		
+		#Nr = self.Ni
+		#Nt = 2*self.Nj
+		#XZ meridional slice (k=0) of var 
+		#Qj = np.zeros((Nr,Nt))
+		
+		Qright = 0.5*( Q[:,:,0] + Q[:,:,Np-1] ) 
+		Qleft  = 0.5*( Q[:,:,Nk2-1] + Q[:,:,Nk2] )
+		#print (Qright.shape, Qleft.shape)
+		#Qj = np.hstack( (Qright, Qleft[:,::-1]) ) #reverse in j
+		#print (Qj.shape)
+		return Qright, Qleft
+
+	def iSliceVar(self,vID,sID=None,vScl=None,doVerb=True):
+		#Get full 3D variable first
+		Q = self.GetVar(vID,sID,vScl,doVerb)
+
+		#cell centered valies from the last cell
+		Qi = Q[-1,:,:]
+		return Qi
+
+	def iSliceMagV(self,s0=0):
+		Vx = self.iSliceVar("Vx",s0) #Unscaled
+		Vy = self.iSliceVar("Vy",s0) #Unscaled
+		Vz = self.iSliceVar("Vz",s0) #Unscaled
+		Vi = self.vScl*np.sqrt(Vx**2.0+Vy**2.0+Vz**2.0)
+		return Vi
+
+	def iSliceD(self,s0=0):
+		Di = self.iSliceVar("D",s0) #Unscaled
+		Di = Di*self.dScl
+		return Di
+
 	#Equatorial speed (in km/s) in eq plane
 	def eqMagV(self,s0=0):
 		Vx = self.EqSlice("Vx",s0) #Unscaled
@@ -136,24 +246,50 @@ class GamsphPipe(GameraPipe):
 
 		#calculate normalized density
 		#r = np.sqrt(self.xxc**2.0 + self.yyc**2.0)
-		Norm = r*r/R0/R0
+		Norm = (self.xxc**2.0 + self.yyc**2.0)/R0/R0
 		NormDeq = self.dScl*D*Norm
 		return NormDeq
 
 	#Normalized Br (Br*r*r/21.5/21.5) in eq plane
 	def eqNormBr (self,s0=0):
-		Br = self.EqSlice("Br",s0) #Unscaled
-		R0 = self.xxc[0,0]
-		print ("R0 = %f"%R0)
+		Bx = self.EqSlice("Bx",s0) #Unscaled
+		By = self.EqSlice("By",s0) #Unscaled
+		Bz = self.EqSlice("Bz",s0) #Unscaled
+		#Br = self.EqSlice("Br",s0) #Unscaled
+		#R0 = self.xxc[0,0]
 
 		#calculate normalized Br
 		#r = np.sqrt(self.xxc**2.0 + self.yyc**2.0)
-		Norm = r*r/R0/R0
-		NormBreq = self.bScl*Br*Norm
+		Br = (Bx*self.xxc + By*self.yyc)*np.sqrt(self.xxc**2.0 + self.yyc**2.0)/self.R0/self.R0
+		
+		NormBreq = self.bScl*Br
 		return NormBreq
 
 	#Temperature
+	def eqTemp (self,s0=0):
+		Pres = self.EqSlice("P",s0)
+		D = self.EqSlice("D",s0)
 
+		Temp = Pres/D*self.TScl
+		
+		return Temp
+	
+	#Meridional speed (in km/s)
+	def MerMagV(self,s0=0):
+		Vxr, Vxl = self.MeridSlice("Vx",s0) #Unscaled
+		Vyr, Vyl = self.MeridSlice("Vy",s0) #Unscaled
+		Vzr, Vzl = self.MeridSlice("Vz",s0) #Unscaled
+		MagVr = self.vScl*np.sqrt(Vxr**2.0+Vyr**2.0+Vzr**2.0)
+		MagVl = self.vScl*np.sqrt(Vxl**2.0+Vyl**2.0+Vzl**2.0)
+		return MagVr, MagVl
+
+	def MerDNrm(self,s0=0):
+		xr, zr, xl, zl, r = self.MeridGridHalfs()
+		print (r.shape)
+		Dr, Dl = self.MeridSlice("D",s0) #Unscaled
+		Drn = Dr*self.dScl*r*r/self.R0/self.R0
+		Dln = Dl*self.dScl*r*r/self.R0/self.R0
+		return Drn, Dln
 
 
 	#Return data for meridional 2D field lines
