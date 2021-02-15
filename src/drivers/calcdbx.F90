@@ -8,6 +8,7 @@ program calcdbx
     use chmpfields
     use math
     use calcdbio
+    use calcdbremap
 
 #ifdef _OPENMP
     use omp_lib
@@ -20,11 +21,19 @@ program calcdbx
     type(ebState_T)   :: ebState
     type(XML_Input_T) :: inpXML
 
-    !New calc-DB structures
+    !Holder for remix data
     type(rmState_T) :: rmState
-    type(sphGrid_T) :: gGr !Ground grid
+
+    !Native (SM) source grids
     type(facGrid_T) :: facGrid !FAC grid
     type(ionGrid_T) :: ionGrid !Ionospheric grid
+
+    !Bios-Savart data, source terms in GEO
+    type(BSGrid_T) :: facBS,ionBS,magBS
+
+    !Destination (GEO) data
+    type(grGrid_T) :: gGr !Ground grid
+    
 
     integer :: NumP
     real(rp) :: wT,cMJD,rSec
@@ -43,12 +52,16 @@ program calcdbx
         write(*,*) "Must use fields/doJ=T, bailing ..."
         stop
     endif
-    
+
+    !----------------------------
+    !Initialize data structures
     call initDBio(Model,ebState,gGr,inpXML,NumP)
     call initRM(Model,ebState,rmState)
 
     call facGridInit(Model,ebState,rmState,facGrid)
     call ionGridInit(Model,ebState,rmState,ionGrid)
+
+    call BSGridInit(Model,ebState,rmState,magBS,ionBS,facBS)
 
     !Loop from T0 -> tFin
     Model%t = Model%T0
@@ -57,6 +70,7 @@ program calcdbx
     do while (Model%t<=Model%tFin)
         call Tic("Omega")
 
+    !Read in data and fill native (SM) grids
         call Tic("Step")
         !Update fields to current time
         call updateFields(Model,ebState,Model%t)
@@ -71,24 +85,15 @@ program calcdbx
 
         call Toc("Step")
 
-        call Tic("Compute")
-    !Mag DB
-        call Tic("MagDB")
-        call CalcMagDB(Model,ebState,gGr)
-        call Toc("MagDB")
-        
-    !CALCDB-TODO: Need to fill in the following routines to do Bios-Savart integrals
-    !Ion DB
-        call Tic("IonDB")
-        call CalcIonDB(Model,ebState,gGr,ionGrid)
-        call Toc("IonDB")
+    !Remap from native to ground coordinates
+        call Tic("Remap")
+        call remapBS(Model,Model%t,ebState,ionGrid,facGrid,magBS,ionBS,facBS)
+        call Toc("Remap")
 
-    !FAC DB
-        call Tic("FacDB")
-        call CalcFacDB(Model,ebState,gGr,facGrid)
-        call Toc("FacDB")
-
-        call Toc("Compute")
+    !Compute BS integrals
+        call Tic("ComputeBS")
+        call BS2Gr(Model,magBS,ionBS,facBS,gGr)
+        call Toc("ComputeBS")
 
         !Calc/write DB on grid
         call Tic("Output")

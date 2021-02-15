@@ -16,13 +16,14 @@ module calcdbio
 
     character(len=strLen), private :: dbOutF
     integer, parameter, private :: MAXDBVS = 20
+    logical, parameter :: doVerboseDB = .true.
 
     contains
 
     subroutine initDBio(Model,ebState,gGr,inpXML,NumP)
         type(chmpModel_T), intent(inout) :: Model
         type(ebState_T), intent(in)    :: ebState
-        type(sphGrid_T), intent(inout) :: gGr
+        type(grGrid_T), intent(inout) :: gGr
         type(XML_Input_T), intent(in) :: inpXML
         integer, intent(inout) :: NumP
 
@@ -37,7 +38,6 @@ module calcdbio
         call inpXML%Set_Val(NLat,'Grid/NLat',45) !Number of latitudinal cells
         call inpXML%Set_Val(NLon,'Grid/NLon',90) !Number of longitudinal cells
         call inpXML%Set_Val(Nz  ,'Grid/Nz'  , 2) !Number of longitudinal cells
-        call inpXML%Set_Val(gGr%i0,'CalcDB/i0',gGr%i0)
         call inpXML%Set_Val(gGr%rMax,'CalcDB/rMax',gGr%rMax)
 
         NumP = NLat*NLon*Nz
@@ -132,8 +132,6 @@ module calcdbio
 
         Ni = IOVars(1)%dims(1) - 1
         Nj = IOVars(2)%dims(2) - 1
-
-        write(*,*) 'Shape = ', IOVars(1)%dims(:)
 
         !Initialize 4 hemispheres (N/S i1/i2)
         call initHemi(rmState%rmN1,Ni,Nj)
@@ -256,28 +254,48 @@ module calcdbio
     subroutine writeDB(Model,ebState,gGr,gStr)
         type(chmpModel_T), intent(in) :: Model
         type(ebState_T), intent(in)   :: ebState
-        type(sphGrid_T), intent(inout) :: gGr
+        type(grGrid_T), intent(inout) :: gGr
         character(len=strLen), intent(in) :: gStr
 
         type(IOVAR_T), dimension(MAXDBVS) :: IOVars
-        real(rp), dimension(:,:,:,:), allocatable :: dbMAG_xyz,dbMAG_rtp
         real(rp) :: mjd
+        real(rp), dimension(:,:,:,:), allocatable :: dbRTP
 
         mjd = MJDAt(ebState%ebTab,Model%t)
         
         !Do conversion to spherical
         call xyz2rtp(gGr,gGr%dbMAG_xyz,gGr%dbMAG_rtp)
+        call xyz2rtp(gGr,gGr%dbION_xyz,gGr%dbION_rtp)
+        call xyz2rtp(gGr,gGr%dbFAC_xyz,gGr%dbFAC_rtp)
+
+        !Get total perturbation
+        allocate(dbRTP(gGr%NLat,gGr%NLon,gGr%Nz,NDIM))
+        !$OMP PARALLEL WORKSHARE
+        dbRTP = gGr%dbMAG_rtp + gGr%dbION_rtp + gGr%dbFAC_rtp
+        !$OMP END PARALLEL WORKSHARE
 
         call ClearIO(IOVars)
         call AddOutVar(IOVars,"time",oTScl*Model%t)
         call AddOutVar(IOVars,"MJD",mjd)
-        call AddOutVar(IOVars,"dBx_M" ,dbMAG_xyz(:,:,:,XDIR),"nT")
-        call AddOutVar(IOVars,"dBy_M" ,dbMAG_xyz(:,:,:,YDIR),"nT")
-        call AddOutVar(IOVars,"dBz_M" ,dbMAG_xyz(:,:,:,ZDIR),"nT")
-        !Write out spherical vectors (XDIR:ZDIR = RDIR,TDIR,PDIR)
-        call AddOutVar(IOVars,"dBr_M" ,dbMAG_rtp(:,:,:,XDIR),"nT")
-        call AddOutVar(IOVars,"dBt_M" ,dbMAG_rtp(:,:,:,YDIR),"nT")
-        call AddOutVar(IOVars,"dBp_M" ,dbMAG_rtp(:,:,:,ZDIR),"nT")
+
+    !Write out spherical vectors (XDIR:ZDIR = RDIR,TDIR,PDIR)
+        if (doVerboseDB) then
+            call AddOutVar(IOVars,"dBrM" ,gGr%dbMAG_rtp(:,:,:,XDIR),"nT")
+            call AddOutVar(IOVars,"dBtM" ,gGr%dbMAG_rtp(:,:,:,YDIR),"nT")
+            call AddOutVar(IOVars,"dBpM" ,gGr%dbMAG_rtp(:,:,:,ZDIR),"nT")
+
+            call AddOutVar(IOVars,"dBrI" ,gGr%dbION_rtp(:,:,:,XDIR),"nT")
+            call AddOutVar(IOVars,"dBtI" ,gGr%dbION_rtp(:,:,:,YDIR),"nT")
+            call AddOutVar(IOVars,"dBpI" ,gGr%dbION_rtp(:,:,:,ZDIR),"nT")
+
+            call AddOutVar(IOVars,"dBrF" ,gGr%dbFAC_rtp(:,:,:,XDIR),"nT")
+            call AddOutVar(IOVars,"dBtF" ,gGr%dbFAC_rtp(:,:,:,YDIR),"nT")
+            call AddOutVar(IOVars,"dBpF" ,gGr%dbFAC_rtp(:,:,:,ZDIR),"nT")
+        endif
+        
+        call AddOutVar(IOVars,"dBr" ,dbRTP(:,:,:,XDIR),"nT")
+        call AddOutVar(IOVars,"dBt" ,dbRTP(:,:,:,YDIR),"nT")
+        call AddOutVar(IOVars,"dBp" ,dbRTP(:,:,:,ZDIR),"nT")
 
         call WriteVars(IOVars,.true.,dbOutF,gStr)
         call ClearIO(IOVars)
@@ -286,7 +304,7 @@ module calcdbio
 
     !Convert XYZ to RTP vectors
     subroutine xyz2rtp(gGr,dbXYZ,dbRTP)
-        type(sphGrid_T), intent(in) :: gGr
+        type(grGrid_T), intent(in) :: gGr
         real(rp), dimension(:,:,:,:), intent(in ) :: dbXYZ
         real(rp), dimension(:,:,:,:), intent(out) :: dbRTP
 
