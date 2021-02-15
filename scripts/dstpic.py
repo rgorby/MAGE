@@ -22,7 +22,7 @@ if __name__ == "__main__":
 	ftag = "msphere"
 	nSk = 4	 #stride of time steps to calculate Dst
 	tpad = 8 #Number of hours beyond MHD to plot
-
+	iMax = -1
 	MainS = """Creates simple plot comparing SYM-H from OMNI dataset to Gamera-RCM.
 	Need to run or point to directory that has the bcwind and msphere.gam files of interest
 	"""
@@ -32,12 +32,14 @@ if __name__ == "__main__":
 	parser.add_argument('-id',type=str,metavar="runid",default=ftag,help="RunID of data (default: %(default)s)")
 	parser.add_argument('-nsk',type=int,metavar="step stride",default=nSk,help="Stride between steps used to calculate Dst (default: %(default)s)")
 	parser.add_argument('-tpad',type=float,metavar="time padding",default=tpad,help="Time beyond MHD data (in hours) to plot (default: %(default)s)")
+	parser.add_argument('-imax',type=int,metavar="index",default=iMax,help="Maximum i index (default: No limit")
 	
 	#Finalizing parsing
 	args = parser.parse_args()
 	fdir = args.d
 	nSk = args.nsk
 	tpad = args.tpad
+	iMax = args.imax
 
 	#UT formats for plotting
 	isotfmt = '%Y-%m-%dT%H:%M:%S.%f'
@@ -58,6 +60,12 @@ if __name__ == "__main__":
 
 	print("Reading %s"%(fdir))
 	gsph = msph.GamsphPipe(fdir,ftag)
+
+	if (iMax == -1 or iMax > gsph.Ni):
+		iMax = gsph.Ni
+	elif iMax <= np.amax(iS):
+		iMax = np.amax(iS) + 1
+	print("iMax = " + str(iMax))
 
 	#Get quantities for grid
 	Xc,Yc,Zc = dstutils.cGrid(gsph.X,gsph.Y,gsph.Z)
@@ -81,7 +89,7 @@ if __name__ == "__main__":
 		MJD[mp] = mjd
 		for i in range(NumI):
 			i0 = iS[i]
-			Dst[i,mp] = Bz[i0:,:,:].sum()
+			Dst[i,mp] = Bz[i0:iMax,:,:].sum()
 		if (mp % Nc == 0):
 			i0 = np.argmin(np.abs(tD-t))
 			dDat = dstD[i0]

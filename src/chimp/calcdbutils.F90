@@ -50,8 +50,8 @@ module calcdbutils
     !Nh = 1/2 for hemisphere
     !Arrays are size Np,Nth,Nh=2 (for vectors)
     type ionGrid_T
-        real(rp), dimension(:,:,:,:), allocatable :: XYZcc !XYZ of segment centers
-        real(rp), dimension(:,:,:,:), allocatable :: Jxyz !Jxyz at segment centers
+        real(rp), dimension(:,:,:,:), allocatable :: XYZcc !XYZ of patch centers
+        real(rp), dimension(:,:,:,:), allocatable :: Jxyz !Jxyz at patch centers
         real(rp), dimension(:,:,:)  , allocatable :: dS !Differential surface area of patch
 
     end type ionGrid_T
