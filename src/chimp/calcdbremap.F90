@@ -122,10 +122,8 @@ module calcdbremap
 	subroutine sm2geo(smX,smJ,mjd,geoX,geoJ)
 		real(rp), intent(in ) :: smX(NDIM),smJ(NDIM),mjd
 		real(rp), intent(out) :: geoX(NDIM),geoJ(NDIM)
-
 		geoX = smX
 		geoJ = smJ
-
 	end subroutine sm2geo
 
     !TODO: Rewrite these routines to be smarter

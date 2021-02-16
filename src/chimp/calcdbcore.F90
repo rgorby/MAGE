@@ -36,12 +36,14 @@ module calcdbcore
         real(rp), intent(inout) :: dbXYZ(gGr%NLat,gGr%NLon,gGr%Nz,NDIM)
         
         integer :: iG,jG,kG,nS
-        real(rp), dimension(NDIM) :: x0,xCC,ddB,J
+        real(rp), dimension(NDIM) :: x0,xCC,ddB,J,R
         real(rp) :: dV,r3
 
+        dbXYZ = 0.0
+        
        !$OMP PARALLEL DO default(shared) collapse(2) &
        !$OMP private(iG,jG,kG,nS) &
-       !$OMP private(dV,r3,x0,xCC,ddB,J) 
+       !$OMP private(dV,r3,x0,xCC,ddB,J,R) 
         do kG=1,gGr%Nz
             do jG=1,gGr%NLon
                 do iG=1,gGr%NLat
@@ -51,14 +53,15 @@ module calcdbcore
                         xCC = xBS%XYZcc(nS,:) !Location of source contribution
                         if ( norm2(xCC) > gGr%rMax ) cycle
                         
-                        r3 = norm2(x0-xCC)**3.0
+                        R = xCC-x0 !R = x_src - x_station
+                        r3 = norm2(R)**3.0
                         dV = xBS%dV(nS)
                         J = xBS%Jxyz(nS,:) !Current contribution
 
                         !Avoid array temporary
-                        ddB(XDIR) = -( J(YDIR)*xCC(ZDIR) - J(ZDIR)*xCC(YDIR) )/r3
-                        ddB(YDIR) = -( J(ZDIR)*xCC(XDIR) - J(XDIR)*xCC(ZDIR) )/r3
-                        ddB(ZDIR) = -( J(XDIR)*xCC(YDIR) - J(YDIR)*xCC(XDIR) )/r3
+                        ddB(XDIR) = ( J(YDIR)*R(ZDIR) - J(ZDIR)*R(YDIR) )/r3
+                        ddB(YDIR) = ( J(ZDIR)*R(XDIR) - J(XDIR)*R(ZDIR) )/r3
+                        ddB(ZDIR) = ( J(XDIR)*R(YDIR) - J(YDIR)*R(XDIR) )/r3
 
                         dbXYZ(iG,jG,kG,:) = dbXYZ(iG,jG,kG,:) + xBS%jScl*dV*ddB
                     enddo !nS

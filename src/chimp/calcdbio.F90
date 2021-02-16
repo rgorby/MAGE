@@ -143,6 +143,8 @@ module calcdbio
         rmState%Np  = Ni !Phi cells
         rmState%Nth = Nj !Theta cells
 
+        allocate(rmState%XY(Ni+1,Nj+1,XDIR:YDIR))
+
         allocate(rmState%nFac (Ni,Nj))
         allocate(rmState%nPot (Ni,Nj))
         allocate(rmState%nSigP(Ni,Nj))
@@ -151,6 +153,10 @@ module calcdbio
         allocate(rmState%sPot (Ni,Nj))
         allocate(rmState%sSigP(Ni,Nj))
         allocate(rmState%sSigH(Ni,Nj))
+
+        call IOArray2DFill(IOVars,"X",rmState%XY(:,:,XDIR))
+        call IOArray2DFill(IOVars,"Y",rmState%XY(:,:,YDIR))
+
 
         call hemi2rm(rmState,0.0_rp,0.0_rp) !Zero out main state arrays
 
@@ -235,16 +241,17 @@ module calcdbio
             rmHemi%nStp = nStp
 
             call ClearIO(IOVars)
-            call AddInVar(IOVars,"Field-aligned current" // hID)
-            call AddInVar(IOVars, "Pedersen conductance" // hID)
-            call AddInVar(IOVars,     "Hall conductance" // hID)
-            call AddInVar(IOVars,            "Potential" // hID)
+            call AddInVar(IOVars,"Field-aligned current " // hID)
+            call AddInVar(IOVars, "Pedersen conductance " // hID)
+            call AddInVar(IOVars,     "Hall conductance " // hID)
+            call AddInVar(IOVars,            "Potential " // hID)
             call ReadVars(IOVars,.true.,rmF,gStr)
 
-            call IOArray2DFill(IOVars,"Field-aligned current" // hID,rmHemi%xFac )
-            call IOArray2DFill(IOVars, "Pedersen conductance" // hID,rmHemi%xSigP)
-            call IOArray2DFill(IOVars,     "Hall conductance" // hID,rmHemi%xSigH)
-            call IOArray2DFill(IOVars,            "Potential" // hID,rmHemi%xPot )
+            !Pull from arrays
+            call IOArray2DFill(IOVars,"Field-aligned current " // hID,rmHemi%xFac )
+            call IOArray2DFill(IOVars, "Pedersen conductance " // hID,rmHemi%xSigP)
+            call IOArray2DFill(IOVars,     "Hall conductance " // hID,rmHemi%xSigH)
+            call IOArray2DFill(IOVars,            "Potential " // hID,rmHemi%xPot )
 
         end subroutine readHemi
 

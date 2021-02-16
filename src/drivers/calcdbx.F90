@@ -58,8 +58,8 @@ program calcdbx
     call initDBio(Model,ebState,gGr,inpXML,NumP)
     call initRM(Model,ebState,rmState)
 
-    call facGridInit(Model,ebState,rmState,facGrid)
     call ionGridInit(Model,ebState,rmState,ionGrid)
+    call facGridInit(Model,ebState,rmState,ionGrid,facGrid)
 
     call BSGridInit(Model,ebState,rmState,magBS,ionBS,facBS)
 

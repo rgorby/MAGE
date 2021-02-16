@@ -6,19 +6,24 @@ module calcdbutils
     
 	implicit none
 
-    real(rp), parameter :: RIon = (RionE*1.0e+6)/REarth !Ionospheric radius in units of Re, ~1.01880
 	real(rp) :: dzGG = 60.0 !Default height spacing [km]
+    logical, private, parameter :: doHall = .true.
+    logical, private, parameter :: doPed  = .true.
 
 	contains
 
-	subroutine facGridInit(Model,ebState,rmState,facGrid)
+	subroutine facGridInit(Model,ebState,rmState,ionGrid,facGrid)
         type(chmpModel_T), intent(in) :: Model
         type(ebState_T)  , intent(in) :: ebState
         type(rmState_T)  , intent(in) :: rmState
+        type(ionGrid_T)  , intent(in) :: ionGrid
         type(facGrid_T)  , intent(inout) :: facGrid
 
-        integer :: Np,Nth
-
+        integer :: Np,Nth,n,i,j,l
+        real(rp) :: rMHD,rIon,dr,dV
+        real(rp), dimension(:), allocatable :: rC
+        real(rp) :: phi,theta,ionlat,c2lat,lat
+        real(rp) :: latC,latP,latM,dlat
         Np = rmState%Np
         Nth = rmState%Nth
 
@@ -26,15 +31,82 @@ module calcdbutils
         allocate(facGrid%XYZcc(Np,Nth,rSegs,2,NDIM))
         allocate(facGrid%Jxyz (Np,Nth,rSegs,2,NDIM))
         allocate(facGrid%dV   (Np,Nth,rSegs,2))
+        allocate(facGrid%pcc  (Np,Nth,2)) !Cell-centered phi
+        allocate(facGrid%tcc  (Np,Nth,2)) !Cell-centered theta
+
         facGrid%XYZcc = 0.0
         facGrid%Jxyz  = 0.0
         facGrid%dV    = 0.0
         facGrid%Np = Np
         facGrid%Nth = Nth
         facGrid%rSegs = rSegs
+        facGrid%pcc = ionGrid%pcc
+        facGrid%tcc = ionGrid%tcc
+        facGrid%dp = ionGrid%dp
+        facGrid%dt = ionGrid%dt
 
-        !CALCDB-TODO: Need to add code here to define facGrid%XYZcc and dV
-        !NOTE: XYZ from remix is in units of Rion, not Re
+        !Get radial spacing
+        rMHD = norm2(ebState%ebGr%xyz(1,1,1,XDIR:ZDIR))
+        rIon = (RionE*1.0e+6)/REarth !Ionospheric radius in units of Re, ~1.01880
+
+        dr = (rMHD-rIon)/rSegs
+        allocate(rC(rSegs))
+
+        do n=1,rSegs
+            rC(n) = rIon + 0.5*dr + (n-1)*dr
+        enddo
+
+        !Get cell centers of segments
+        do l=1,2
+            do n=1,rSegs
+                do j=1,Nth
+                    do i=1,Np
+                        phi   = facGrid%pcc(i,j,l) !N/S hemisphere
+                        theta = facGrid%tcc(i,j,l) !N/S hemisphere
+                        ionlat = PI/2 - theta
+
+                        c2lat = (rIon/rC(n)) * (cos(ionlat)**2.0)
+                        lat = acos(sqrt(c2lat))
+                        if ( (l==SOUTH) .and. (lat>0) ) then
+                            lat = -lat
+                        endif
+                        theta = PI/2-lat
+                  
+                        facGrid%XYZcc(i,j,n,l,XDIR) = rC(n)*sin(theta)*cos(phi)
+                        facGrid%XYZcc(i,j,n,l,YDIR) = rC(n)*sin(theta)*sin(phi)
+                        facGrid%XYZcc(i,j,n,l,ZDIR) = rC(n)*cos(theta)
+
+                    enddo !i
+
+                enddo !j
+            enddo !n
+        enddo !l
+
+        !Get dV, do northern hemisphere then copy
+        do n=1,rSegs
+            do j=1,Nth
+                latC = xyz2lat(facGrid%XYZcc(1,j,n,NORTH,:))
+
+                if (j==1) then
+                    latM = latC
+                    latP = xyz2lat(facGrid%XYZcc(1,j+1,n,NORTH,:))
+                    dlat = abs(latP-latM)
+                else if (j == Nth) then
+                    latP = latC
+                    latM = xyz2lat(facGrid%XYZcc(1,j-1,n,NORTH,:))
+                    dlat = abs(latP-latM)
+                else
+                    latP = xyz2lat(facGrid%XYZcc(1,j+1,n,NORTH,:))
+                    latM = xyz2lat(facGrid%XYZcc(1,j-1,n,NORTH,:))
+                    dlat = abs(latP-latM)/2.0
+                endif
+
+                !Note: This includes extra dphi missing from Eqn 6 in Rastatter+ 2014
+                dV = (dr*rC(n)**2.0)*dlat*facGrid%dp*cos(latC)
+                facGrid%dV(:,j,n,:) = dV
+            enddo
+        enddo
+
 
 	end subroutine facGridInit
 
@@ -45,21 +117,79 @@ module calcdbutils
         type(ionGrid_T)  , intent(inout) :: ionGrid
 
         integer :: Np,Nth
+        integer :: i,j
+        real(rp), dimension(:,:), allocatable :: Z
+        real(rp) :: R0,theta,phi,thesp,phisp
+        real(rp) :: phi0,dp,th0,dth
 
         Np = rmState%Np
         Nth = rmState%Nth
 
         allocate(ionGrid%XYZcc(Np,Nth,2,NDIM))
         allocate(ionGrid%Jxyz (Np,Nth,2,NDIM))
-        allocate(ionGrid%dS   (Np,Nth,2)) !Surface area per patch
+        allocate(ionGrid%dS   (Np,Nth,2)) !Surface area per patch, Re^2
+        allocate(ionGrid%pcc  (Np,Nth,2)) !Cell-centered phi
+        allocate(ionGrid%tcc  (Np,Nth,2)) !Cell-centered theta
 
         ionGrid%XYZcc = 0.0
         ionGrid%Jxyz  = 0.0
         ionGrid%dS    = 0.0
         ionGrid%Np = Np
         ionGrid%Nth = Nth
-        !CALCDB-TODO: Need to add code here to define grid (XYZcc and dS)
-        !NOTE: XYZ from remix is in units of Rion, not Re
+
+        allocate(Z(Np,Nth))
+        Z = sqrt(1.0 - rmState%XY(:,:,XDIR)**2.0 - rmState%XY(:,:,YDIR)**2.0)
+        !Note: Z is in Rion, not Re
+
+        !Get angular spacing & starting point
+        phi0 = atan2(rmState%XY(1,1,YDIR),rmState%XY(1,1,XDIR))
+        dp = 2*PI/Np
+
+        th0 = acos(Z(1,1))
+        dth = acos(Z(1,2)) - acos(Z(1,1))
+        
+        ionGrid%dt = dth
+        ionGrid%dp = dp
+
+        R0 = (RionE*1.0e+6)/REarth !Ionospheric radius in units of Re, ~1.01880
+
+        !Get coordinates and dS
+        !$OMP PARALLEL DO default(shared) &
+        !$OMP private(i,j,phi,theta,thesp,phisp)
+        do j=1,ionGrid%Nth !Theta
+            !Get NH theta (cc)
+            theta = th0 + 0.5*dth + dth*(j-1)
+
+            do i=1,ionGrid%Np !phi
+                !cell-centered phi
+                phi = phi0 + 0.5*dp + dp*(i-1)
+
+                !Store northern hemisphere quantities
+                ionGrid%XYZcc(i,j,NORTH,XDIR) = R0*sin(theta)*cos(phi)
+                ionGrid%XYZcc(i,j,NORTH,YDIR) = R0*sin(theta)*sin(phi)
+                ionGrid%XYZcc(i,j,NORTH,ZDIR) = R0*cos(theta)
+
+                !Get southern hemisphere angles
+                thesp = PI - theta !Southern hemisphere theta
+                phisp = 2*PI-phi !Southern hemisphere MLT
+
+                !Store southern hemisphere quantities
+                ionGrid%XYZcc(i,j,SOUTH,XDIR) = R0*sin(thesp)*cos(phisp)
+                ionGrid%XYZcc(i,j,SOUTH,YDIR) = R0*sin(thesp)*sin(phisp)
+                ionGrid%XYZcc(i,j,SOUTH,ZDIR) = R0*cos(thesp)
+
+                !Store surface area elements
+                ionGrid%dS(i,j,NORTH) = (R0**2.0)*sin(theta)*dth*dp
+                ionGrid%dS(i,j,SOUTH) = (R0**2.0)*sin(thesp)*dth*dp
+
+                !Store cell-centered angles
+                ionGrid%pcc(i,j,NORTH) = phi
+                ionGrid%pcc(i,j,SOUTH) = phisp
+                ionGrid%tcc(i,j,NORTH) = theta
+                ionGrid%tcc(i,j,SOUTH) = thesp
+
+            enddo
+        enddo
 
     end subroutine ionGridInit
 
@@ -84,12 +214,13 @@ module calcdbutils
         !Number of cells
         NIon = (rmState%Np)*(rmState%Nth)*(2) !Include N/S hemispheres
         call BSSubInit(ionBS,NIon)
-        ionBS%jScl = 1.0
+        ionBS%jScl = (1.0e+9)*Mu0/(4.0*PI) !Ensure final db is nT
+
     !FAC BS grid
         !Number of cells
         NFac = NIon*rSegs
         call BSSubInit(facBS,NFac)
-        facBS%jScl = 1.0
+        facBS%jScl = (1.0e+9)*REarth*Mu0/(4.0*PI) !Ensure final db is nT & needs extra factor of Re
 
         contains
 
@@ -115,8 +246,43 @@ module calcdbutils
         type(rmState_T)  , intent(in) :: rmState
         type(facGrid_T)  , intent(inout) :: facGrid
 
+        integer :: i,j,n,l
+        real(rp), dimension(NDIM) :: xC,jhat
+        real(rp) :: rIon,lation,lat,dscl,J11,rscl3
+
         !CALCDB-TODO: Write this
         facGrid%Jxyz = 0.0
+
+        rIon = (RionE*1.0e+6)/REarth !Ionospheric radius in units of Re, ~1.01880
+
+        !$OMP PARALLEL DO default(shared) collapse (3) &
+        !$OMP private(i,j,n,l,xC,jhat) &
+        !$OMP private(lation,lat,dscl,J11,rscl3)
+        do l=1,2
+            do n=1,facGrid%rSegs
+                do j=1,facGrid%Nth
+                    do i=1,facGrid%Np
+                        xC = facGrid%XYZcc(i,j,n,l,XDIR:ZDIR)
+                        
+                        rscl3 = (rIon/norm2(xC))**3.0
+                        lation = PI/2 - facGrid%tcc(i,j,l)
+                        lat = xyz2lat(xC)
+                        dscl = sqrt(3*sin(lation)*sin(lation) + 1)
+                        !Get J11, stored in muA/m2
+                        if (l == NORTH) then
+                            J11 = rmState%nFac(i,j)
+                        else
+                            J11 = rmState%sFac(i,j)
+                        endif
+                        J11 = (1.0e-6)*J11 
+                        !Calculate current in A/m2
+                        jhat = [2.0*sin(lat),0.0_rp,-cos(lat)]
+
+                        facGrid%Jxyz(i,j,n,l,:) = jhat*J11*rscl3/dscl 
+                    enddo !i
+                enddo !j
+            enddo !k
+        enddo !l
 
     end subroutine facGridUpdate
 
@@ -127,13 +293,116 @@ module calcdbutils
         type(rmState_T)  , intent(in) :: rmState
         type(ionGrid_T)  , intent(inout) :: ionGrid
 
-        !CALCDB-TODO: Write this
+        real(rp) :: nEp,nEt,sEp,sEt
+        integer :: i,j,im,ip
+        real(rp) :: R0,dth,dph,thnh,thsh,phnh,phsh
+        real(rp) :: nhcdip,shcdip,nJt,sJt,nJp,sJp
+
+        real(rp), dimension(NDIM) :: nJ,sJ
+
         !Need to calculate E field from potential in both N/S hemispheres
         !Then get J from E and SigP/SigH
-
         ionGrid%Jxyz = 0.0
 
+        R0 = (RionE*1.0e+6)/REarth !Ionospheric radius in units of Re, ~1.01880
+        dth = ionGrid%dt
+        dph = ionGrid%dp
+
+        !$OMP PARALLEL DO default(shared) &
+        !$OMP private(i,j,im,ip,nJ,sJ) &
+        !$OMP private(nEp,nEt,sEp,sEt,thnh,thsh,phnh,phsh) &
+        !$OMP private(nhcdip,shcdip,nJt,sJt,nJp,sJp) 
+        do j=1,ionGrid%Nth !Theta
+            do i=1,ionGrid%Np !phi
+            !Start w/ E field via gradient    
+            !E = -grad(pot), kV/Re
+
+                !Theta derivatives
+                if (j == 1) then
+                    nEt = -( rmState%nPot(i,j+1)-rmState%nPot(i,j) )/(R0*dth)
+                    sEt = -( rmState%sPot(i,j+1)-rmState%sPot(i,j) )/(R0*dth)
+                    sEt = -sEt !Flip direction
+                else if (j == ionGrid%Nth) then
+                    nEt = 0.0
+                    sEt = 0.0
+                else
+                    nEt = -( rmState%nPot(i,j+1)-rmState%nPot(i,j-1) )/(R0*2*dth)
+                    sEt = -( rmState%sPot(i,j+1)-rmState%sPot(i,j-1) )/(R0*2*dth)
+                    sEt = -sEt !Flip direction
+                endif
+
+                !Phi derivatives
+                if (i == 1) then
+                    im = ionGrid%Np
+                else
+                    im = i-1
+                endif
+                if (i == ionGrid%Np) then
+                    ip = 1
+                else
+                    ip = i+1
+                endif
+                thnh = ionGrid%tcc(i,j,NORTH)
+                thsh = ionGrid%tcc(i,j,SOUTH)
+
+                phnh = ionGrid%pcc(i,j,NORTH)
+                phsh = ionGrid%pcc(i,j,SOUTH)
+
+                nEp = -(rmState%nPot(ip,j)-rmState%nPot(im,j))/(R0*sin(thnh)*2*dph)
+                sEp = -(rmState%nPot(im,j)-rmState%nPot(ip,j))/(R0*sin(thsh)*2*dph)
+                
+                !Convert E [kV/Re] to [V/m]
+                nEp = (1.0e+3)*nEp/REarth
+                nEt = (1.0e+3)*nEt/REarth
+                sEp = (1.0e+3)*sEp/REarth
+                sEt = (1.0e+3)*sEt/REarth
+
+            !Now have E fields [V/m], calculate currents
+                !Get cos of dip angles for both
+                !CALCDB-TODO: Check dip angle formula in SH?
+                nhcdip = -2*cos(thnh)/sqrt(1.0 + 3*cos(thnh)*cos(thnh))
+                shcdip = -2*cos(thsh)/sqrt(1.0 + 3*cos(thsh)*cos(thsh))
+
+                !Get theta/phi currents from Hall/Pederson
+                !Conductance units are S = A/V, so currents are J = A/m
+                nJt = 0.0 ; nJp = 0.0 ; sJt = 0.0 ; sJp = 0.0
+                if (doHall) then
+                    nJt = nJt - rmState%nSigH(i,j)*nEp/nhcdip
+                    nJp = nJp + rmState%nSigH(i,j)*nEt/nhcdip
+                    sJt = sJt - rmState%sSigH(i,j)*sEp/shcdip
+                    sJp = sJp + rmState%sSigH(i,j)*sEt/shcdip
+                endif
+                if (doPed) then
+                    nJt = nJt + rmState%nSigP(i,j)*nEt/nhcdip**2.0
+                    nJp = nJp + rmState%nSigP(i,j)*nEp
+                    sJt = sJt + rmState%sSigP(i,j)*sEt/shcdip**2.0
+                    sJp = sJp + rmState%sSigP(i,j)*sEp
+                endif
+
+            !Now have currents (theta/phi) [A/m], convert to XYZ and store
+                nJ = tp2xyz(phnh,thnh,nJt,nJp)
+                sJ = tp2xyz(phsh,thsh,sJt,sJp)
+
+                ionGrid%Jxyz(i,j,NORTH,:) = nJ
+                ionGrid%Jxyz(i,j,SOUTH,:) = sJ
+            enddo
+
+        enddo !j,Nth
+
     end subroutine ionGridUpdate
+
+    !Convert theta-phi vector to Jxyz
+    function tp2xyz(phi,theta,Jt,Jp) result(Jxyz)
+        real(rp), intent(in) :: phi,theta,Jt,Jp
+
+        real(rp), dimension(NDIM) :: Jxyz
+        real(rp), dimension(NDIM) :: phat,that
+        
+        phat = [-sin(phi),cos(phi),0.0_rp]
+        that = [cos(theta)*cos(phi),cos(theta)*sin(phi),-sin(theta)]
+
+        Jxyz = that*Jt + phat*Jp
+    end function tp2xyz
 
     !Set rmState given properly set 4 hemispheres and temporal weights
     subroutine hemi2rm(rmState,w1,w2)
@@ -148,7 +417,6 @@ module calcdbutils
         rmState%sPot  = w1*rmState%rmS1%xPot  + w2*rmState%rmS2%xPot 
         rmState%sSigP = w1*rmState%rmS1%xSigP + w2*rmState%rmS2%xSigP
         rmState%sSigH = w1*rmState%rmS1%xSigH + w2*rmState%rmS2%xSigH
-
 
     end subroutine hemi2rm
 
@@ -165,5 +433,16 @@ module calcdbutils
         p0 = d0*u0*u0 ![N/m^2]
         B0 = sqrt(mu0*d0*u0*u0)*1e9 ! [nT]
     end function bScale
+
+    function xyz2lat(xyz) result(lat)
+        real(rp), dimension(NDIM), intent(in) :: xyz
+
+        real(rp) :: lat
+        real(rp) :: z,r
+        r = norm2(xyz)
+        z = xyz(ZDIR)
+        lat = abs(asin(z/r))
+
+    end function xyz2lat
 
 end module calcdbutils

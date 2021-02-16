@@ -49,6 +49,9 @@ module calcdbtypes
     	real(rp), dimension(:,:,:,:,:), allocatable :: XYZcc !XYZ of segment centers
         real(rp), dimension(:,:,:,:,:), allocatable :: Jxyz !Jxyz at segment centers
     	real(rp), dimension(:,:,:,:)  , allocatable :: dV !Differential volume of each segment
+        real(rp) :: dt,dp
+        real(rp), dimension(:,:,:), allocatable :: pcc,tcc !phi/theta cell-centered
+
     end type facGrid_T
 
 	!Grid for ION calculation (Hall+Pederson currents)
@@ -60,6 +63,8 @@ module calcdbtypes
         real(rp), dimension(:,:,:,:), allocatable :: XYZcc !XYZ of patch centers
         real(rp), dimension(:,:,:,:), allocatable :: Jxyz !Jxyz at patch centers
         real(rp), dimension(:,:,:)  , allocatable :: dS !Differential surface area of patch
+        real(rp) :: dt,dp
+        real(rp), dimension(:,:,:), allocatable :: pcc,tcc !phi/theta cell-centered
 
     end type ionGrid_T
 
