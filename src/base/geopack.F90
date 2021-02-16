@@ -58,6 +58,7 @@
 module geopack
 
       use kdefs
+      use dates
       implicit none
       ! COMMON /GEOPACK1/
       real(rp) :: ST0,CT0,SL0,CL0,CTCL,STCL,CTSL,STSL,SFI,CFI, &
@@ -127,6 +128,18 @@ module geopack
 
 !     Wraps RECALC_08 with {VGSEX,VGSEY,VGSEZ}={-400.0,0.0,0.0} for GSM
 !     & SM transformations
+
+      SUBROUTINE mjdRECALC(mjd)
+          implicit none
+          real(rp), intent(in) :: mjd
+          integer :: iyr,idoy,imon,iday,ihr,imin
+          real(rp) :: rsec
+          real(rp) :: mjdin
+
+          mjdin = mjd ! mjdin of mjd2ut is for inout intent.
+          call mjd2ut(mjdin,iyr,idoy,imon,iday,ihr,imin,rsec)
+          call RECALC(iyr,idoy,ihr,imin,nint(rsec))
+      END SUBROUTINE mjdRECALC
 
       SUBROUTINE RECALC(IYEAR,IDAY,IHOUR,MIN,ISEC)
           implicit none
@@ -1123,5 +1136,24 @@ module geopack
 
           RETURN
       END SUBROUTINE GEOGSW_08
+
+      SUBROUTINE GEOSM_08 (XGEO,YGEO,ZGEO,XSM,YSM,ZSM,J)
+          implicit none
+          real(rp), intent(inout) :: XGEO,YGEO,ZGEO,XSM,YSM,ZSM
+          integer, intent(in) :: J
+          real(rp) :: XGSW,YGSW,ZGSW
+          integer :: iGEO2GSW, iGSW2SM
+          ! J = +1 for GEO to SM
+          !     -1 for SM to GEO
+          iGEO2GSW = J 
+          iGSW2SM  =-J
+          if(J>0) then
+            call GEOGSW_08 (XGEO,YGEO,ZGEO,XGSW,YGSW,ZGSW,iGEO2GSW)
+            call SMGSW_08 (XSM,YSM,ZSM,XGSW,YGSW,ZGSW,iGSW2SM)
+          else
+            call SMGSW_08 (XSM,YSM,ZSM,XGSW,YGSW,ZGSW,iGSW2SM)
+            call GEOGSW_08 (XGEO,YGEO,ZGEO,XGSW,YGSW,ZGSW,iGEO2GSW)
+          endif
+      END SUBROUTINE GEOSM_08
 
 end module geopack
