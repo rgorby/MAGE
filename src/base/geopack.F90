@@ -1137,23 +1137,57 @@ module geopack
           RETURN
       END SUBROUTINE GEOGSW_08
 
-      SUBROUTINE GEOSM_08 (XGEO,YGEO,ZGEO,XSM,YSM,ZSM,J)
+      SUBROUTINE GEO2GSW (XGEO,YGEO,ZGEO,XGSW,YGSW,ZGSW)
           implicit none
-          real(rp), intent(inout) :: XGEO,YGEO,ZGEO,XSM,YSM,ZSM
-          integer, intent(in) :: J
-          real(rp) :: XGSW,YGSW,ZGSW
-          integer :: iGEO2GSW, iGSW2SM
-          ! J = +1 for GEO to SM
-          !     -1 for SM to GEO
-          iGEO2GSW = J 
-          iGSW2SM  =-J
-          if(J>0) then
-            call GEOGSW_08 (XGEO,YGEO,ZGEO,XGSW,YGSW,ZGSW,iGEO2GSW)
-            call SMGSW_08 (XSM,YSM,ZSM,XGSW,YGSW,ZGSW,iGSW2SM)
-          else
-            call SMGSW_08 (XSM,YSM,ZSM,XGSW,YGSW,ZGSW,iGSW2SM)
-            call GEOGSW_08 (XGEO,YGEO,ZGEO,XGSW,YGSW,ZGSW,iGEO2GSW)
-          endif
-      END SUBROUTINE GEOSM_08
+          real(rp), intent(in) :: XGEO,YGEO,ZGEO
+          real(rp), intent(out) :: XGSW,YGSW,ZGSW
+          XGSW=A11*XGEO+A12*YGEO+A13*ZGEO
+          YGSW=A21*XGEO+A22*YGEO+A23*ZGEO
+          ZGSW=A31*XGEO+A32*YGEO+A33*ZGEO
+      END SUBROUTINE GEO2GSW
 
+      SUBROUTINE GSW2GEO (XGSW,YGSW,ZGSW,XGEO,YGEO,ZGEO)
+          implicit none
+          real(rp), intent(in) :: XGSW,YGSW,ZGSW
+          real(rp), intent(out) :: XGEO,YGEO,ZGEO
+          XGEO=A11*XGSW+A21*YGSW+A31*ZGSW
+          YGEO=A12*XGSW+A22*YGSW+A32*ZGSW
+          ZGEO=A13*XGSW+A23*YGSW+A33*ZGSW
+      END SUBROUTINE GSW2GEO
+
+      SUBROUTINE SM2GSW (XSM,YSM,ZSM,XGSW,YGSW,ZGSW)
+          implicit none
+          real(rp), intent(in) :: XSM,YSM,ZSM
+          real(rp), intent(out) :: XGSW,YGSW,ZGSW
+          XGSW=XSM*CPS+ZSM*SPS
+          YGSW=YSM
+          ZGSW=ZSM*CPS-XSM*SPS
+      END SUBROUTINE SM2GSW
+
+      SUBROUTINE GSW2SM (XGSW,YGSW,ZGSW,XSM,YSM,ZSM)
+          implicit none
+          real(rp), intent(in) :: XGSW,YGSW,ZGSW
+          real(rp), intent(out) :: XSM,YSM,ZSM
+          XSM=XGSW*CPS-ZGSW*SPS
+          YSM=YGSW
+          ZSM=XGSW*SPS+ZGSW*CPS
+      END SUBROUTINE GSW2SM
+
+      SUBROUTINE GEO2SM (XGEO,YGEO,ZGEO,XSM,YSM,ZSM)
+          implicit none
+          real(rp), intent(in) :: XGEO,YGEO,ZGEO
+          real(rp), intent(out) :: XSM,YSM,ZSM
+          real(rp) :: XGSW,YGSW,ZGSW
+          call GEO2GSW (XGEO,YGEO,ZGEO,XGSW,YGSW,ZGSW)
+          call GSW2SM (XGSW,YGSW,ZGSW,XSM,YSM,ZSM)
+      END SUBROUTINE GEO2SM
+
+      SUBROUTINE SM2GEO (XSM,YSM,ZSM,XGEO,YGEO,ZGEO)
+          implicit none
+          real(rp), intent(in) :: XSM,YSM,ZSM
+          real(rp), intent(out) :: XGEO,YGEO,ZGEO
+          real(rp) :: XGSW,YGSW,ZGSW
+          call SM2GSW (XSM,YSM,ZSM,XGSW,YGSW,ZGSW)
+          call GSW2GEO (XGSW,YGSW,ZGSW,XGEO,YGEO,ZGEO)
+      END SUBROUTINE SM2GEO
 end module geopack
