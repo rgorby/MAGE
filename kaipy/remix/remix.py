@@ -29,7 +29,7 @@ class remix:
 						 'energy'    : {'min':0,
 										'max':20},
 						 'flux'      : {'min':0,
-										'max':1.e10},
+										'max':1.e9},
 						 'eflux'     : {'min':0,
 										'max':10.},
 						 'efield'    : {'min':-1,
@@ -49,7 +49,13 @@ class remix:
 						 'Dflux'      : {'min':0,
 										'max':1.e10},
 						 'Deflux'     : {'min':0,
-										'max':10.}
+										'max':10.},
+						 'Penergy'    : {'min':0,
+										'max':240},
+						 'Pflux'      : {'min':0,
+										'max':1.e7},
+						 'Peflux'     : {'min':0,
+										'max':1.}
 						 }
 
 	def get_data(self,h5file,step):
@@ -90,6 +96,13 @@ class remix:
 				self.variables['Denergy']['data'][np.isnan(self.variables['Denergy']['data'])] = 1.e-20
 				self.variables['Dflux']['data']   = self.variables['Deflux']['data']/self.variables['Denergy']['data']/(1.6e-9)
 				self.variables['Dflux']['data'][self.variables['Denergy']['data']==1.e-20] = 0.
+			if 'IM average energy proton '+h in self.ion.keys():
+				self.variables['Penergy']['data'] = self.ion['IM average energy proton '+h]
+				self.variables['Peflux']['data']  = self.ion['IM Energy flux proton '+h]
+				self.variables['Penergy']['data'][self.variables['Penergy']['data']==0] = 1.e-20
+				self.variables['Penergy']['data'][np.isnan(self.variables['Penergy']['data'])] = 1.e-20
+				self.variables['Pflux']['data']   = self.variables['Peflux']['data']/self.variables['Penergy']['data']/(1.6e-9)
+				self.variables['Pflux']['data'][self.variables['Penergy']['data']==1.e-20] = 0.
 		else:  # note flipping the y(phi)-axis
 			self.variables['potential']['data'] = self.ion['Potential '+h][:,::-1]
 			self.variables['current']['data']   = self.ion['Field-aligned current '+h][:,::-1]
@@ -108,6 +121,13 @@ class remix:
 				self.variables['Denergy']['data'][np.isnan(self.variables['Denergy']['data'])] = 1.e-20
 				self.variables['Dflux']['data']   = self.variables['Deflux']['data']/self.variables['Denergy']['data']/(1.6e-9)
 				self.variables['Dflux']['data'][self.variables['Denergy']['data']==1.e-20] = 0.
+			if 'IM average energy proton '+h in self.ion.keys():
+				self.variables['Penergy']['data'] = self.ion['IM average energy proton '+h][:,::-1]
+				self.variables['Peflux']['data']  = self.ion['IM Energy flux proton '+h][:,::-1]
+				self.variables['Penergy']['data'][self.variables['Penergy']['data']==0] = 1.e-20
+				self.variables['Penergy']['data'][np.isnan(self.variables['Penergy']['data'])] = 1.e-20
+				self.variables['Pflux']['data']   = self.variables['Peflux']['data']/self.variables['Penergy']['data']/(1.6e-9)
+				self.variables['Pflux']['data'][self.variables['Penergy']['data']==1.e-20] = 0.
 
 		# convert energy flux to erg/cm2/s to conform to Newell++, doi:10.1029/2009JA014326, 2009
 		self.variables['eflux']['data'] = self.variables['energy']['data']*self.variables['flux']['data']*1.6e-9 
@@ -227,7 +247,10 @@ class remix:
 					'Meflux'     : r'Mono Energy flux [erg/cm$^2$s]',
 					'Denergy'    : r'Diffuse Energy [keV]',
 					'Dflux'      : r'Diffuse Flux [1/cm$^2$s]',
-					'Deflux'     : r'Diffuse Energy flux [erg/cm$^2$s]'
+					'Deflux'     : r'Diffuse Energy flux [erg/cm$^2$s]',
+					'Penergy'    : r'Diffuse Proton Energy [keV]',
+					'Pflux'      : r'Diffuse Proton Flux [1/cm$^2$s]',
+					'Peflux'     : r'Diffuse Proton Energy flux [erg/cm$^2$s]'
 					}
 		cblabels.update(addlabels)  # a way to add cb labels directly through function arguments (e.g., for new variables)
 
@@ -243,7 +266,7 @@ class remix:
 			upper = self.variables[varname]['data'].max()
 
 		# define number format string for min/max labels
-		if varname !='flux': 
+		if varname !='flux' and varname !='Pflux': 
 			if varname == 'jped':
 				format_str = '%.2f'
 			else:
@@ -251,10 +274,9 @@ class remix:
 		else:
 			format_str = '%.1e'
 
-
 		if (varname == 'potential') or (varname == 'current'):
 			cmap=facCM
-		elif varname in ['flux','energy','eflux','joule','Mflux','Menergy','Meflux','Dflux','Denergy','Deflux']:
+		elif varname in ['flux','energy','eflux','joule','Mflux','Menergy','Meflux','Dflux','Denergy','Deflux','Pflux','Penergy','Peflux']:
 			cmap=cm.inferno			
 			latlblclr = 'white'
 		elif (varname == 'velocity'): 
@@ -266,7 +288,7 @@ class remix:
 		else:
 			cmap=None # default is used
 		
-		if varname in ['eflux','Meflux','Deflux']:
+		if varname in ['eflux','Meflux','Deflux','Peflux']:
 			ri=6500.e3
 			areaMixGrid = self.calcFaceAreas(x,y)*ri*ri
 			hp = areaMixGrid*self.variables[varname]['data'][:,:]/(1.6e-9)
@@ -334,7 +356,7 @@ class remix:
 		if (not doInset):
 			ax.text(-75.*np.pi/180.,1.2*r.max(),('min: '+format_str+'\nmax: ' +format_str) % 
 				  (variable.min() ,variable.max()))
-			if varname in ['eflux','Meflux','Deflux']:
+			if varname in ['eflux','Meflux','Deflux','Peflux']:
 				ax.text(75.*np.pi/180.,1.3*r.max(),('GW: '+format_str) % power)
 			if (varname == 'current'):
 				ax.text(-(73.+45.)*np.pi/180.,1.3*r.max(),('MA: '+format_str) % pfac)
