@@ -65,6 +65,9 @@ module calcdbtypes
         real(rp), dimension(:,:,:)  , allocatable :: dS !Differential surface area of patch
         real(rp) :: dt,dp
         real(rp), dimension(:,:,:), allocatable :: pcc,tcc !phi/theta cell-centered
+        real(rp), dimension(:,:,:,:), allocatable :: Etp !E field, theta/phi components
+        real(rp), dimension(:,:,:,:), allocatable :: hJ  !Hall current, theta/phi components
+        real(rp), dimension(:,:,:,:), allocatable :: pJ  !Pede current, theta/phi components
 
     end type ionGrid_T
 

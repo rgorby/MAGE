@@ -459,6 +459,7 @@ class remix:
 		Jp_theta =  SigmaP*etheta/cosDipAngle**2
 		Jp_phi   =  SigmaP*ephi
 
+
 		# current above is in SI units [A/m]
 		# i.e., height-integrated current density
 		return(xc,yc,theta,phi,dtheta,dphi,Jh_theta,Jh_phi,Jp_theta,Jp_phi,cosDipAngle)

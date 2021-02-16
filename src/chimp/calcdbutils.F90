@@ -10,6 +10,8 @@ module calcdbutils
     logical, private, parameter :: doHall = .true.
     logical, private, parameter :: doPed  = .true.
 
+    integer, private, parameter :: TDIR=1,PDIR=2
+
 	contains
 
 	subroutine facGridInit(Model,ebState,rmState,ionGrid,facGrid)
@@ -127,6 +129,9 @@ module calcdbutils
 
         allocate(ionGrid%XYZcc(Np,Nth,2,NDIM))
         allocate(ionGrid%Jxyz (Np,Nth,2,NDIM))
+        allocate(ionGrid%Etp  (Np,Nth,2,TDIR:PDIR))
+        allocate(ionGrid%hJ   (Np,Nth,2,TDIR:PDIR))
+        allocate(ionGrid%pJ   (Np,Nth,2,TDIR:PDIR))
         allocate(ionGrid%dS   (Np,Nth,2)) !Surface area per patch, Re^2
         allocate(ionGrid%pcc  (Np,Nth,2)) !Cell-centered phi
         allocate(ionGrid%tcc  (Np,Nth,2)) !Cell-centered theta
@@ -349,13 +354,19 @@ module calcdbutils
                 phsh = ionGrid%pcc(i,j,SOUTH)
 
                 nEp = -(rmState%nPot(ip,j)-rmState%nPot(im,j))/(R0*sin(thnh)*2*dph)
-                sEp = -(rmState%nPot(im,j)-rmState%nPot(ip,j))/(R0*sin(thsh)*2*dph)
+                sEp = -(rmState%sPot(im,j)-rmState%sPot(ip,j))/(R0*sin(thsh)*2*dph)
                 
                 !Convert E [kV/Re] to [V/m]
                 nEp = (1.0e+3)*nEp/REarth
                 nEt = (1.0e+3)*nEt/REarth
                 sEp = (1.0e+3)*sEp/REarth
                 sEt = (1.0e+3)*sEt/REarth
+
+                !Store E fields
+                ionGrid%Etp(i,j,NORTH,TDIR) = nEt
+                ionGrid%Etp(i,j,NORTH,PDIR) = nEp
+                ionGrid%Etp(i,j,SOUTH,TDIR) = sEt
+                ionGrid%Etp(i,j,SOUTH,PDIR) = sEp
 
             !Now have E fields [V/m], calculate currents
                 !Get cos of dip angles for both
@@ -365,19 +376,31 @@ module calcdbutils
 
                 !Get theta/phi currents from Hall/Pederson
                 !Conductance units are S = A/V, so currents are J = A/m
+                ionGrid%hJ(i,j,NORTH,TDIR) = -rmState%nSigH(i,j)*nEp/nhcdip
+                ionGrid%hJ(i,j,NORTH,PDIR) =  rmState%nSigH(i,j)*nEt/nhcdip
+                ionGrid%pJ(i,j,NORTH,TDIR) =  rmState%nSigP(i,j)*nEt/nhcdip**2.0
+                ionGrid%pJ(i,j,NORTH,PDIR) =  rmState%nSigP(i,j)*nEp
+
+                ionGrid%hJ(i,j,SOUTH,TDIR) = -rmState%sSigH(i,j)*sEp/shcdip
+                ionGrid%hJ(i,j,SOUTH,PDIR) =  rmState%sSigH(i,j)*sEt/shcdip
+                ionGrid%pJ(i,j,SOUTH,TDIR) =  rmState%sSigP(i,j)*sEt/shcdip**2.0
+                ionGrid%pJ(i,j,SOUTH,PDIR) =  rmState%sSigP(i,j)*sEp
+
+
                 nJt = 0.0 ; nJp = 0.0 ; sJt = 0.0 ; sJp = 0.0
                 if (doHall) then
-                    nJt = nJt - rmState%nSigH(i,j)*nEp/nhcdip
-                    nJp = nJp + rmState%nSigH(i,j)*nEt/nhcdip
-                    sJt = sJt - rmState%sSigH(i,j)*sEp/shcdip
-                    sJp = sJp + rmState%sSigH(i,j)*sEt/shcdip
+                    nJt = nJt + ionGrid%hJ(i,j,NORTH,TDIR)
+                    nJp = nJp + ionGrid%hJ(i,j,NORTH,PDIR)
+                    sJt = sJt + ionGrid%hJ(i,j,SOUTH,TDIR)
+                    sJp = sJp + ionGrid%hJ(i,j,SOUTH,PDIR)
                 endif
                 if (doPed) then
-                    nJt = nJt + rmState%nSigP(i,j)*nEt/nhcdip**2.0
-                    nJp = nJp + rmState%nSigP(i,j)*nEp
-                    sJt = sJt + rmState%sSigP(i,j)*sEt/shcdip**2.0
-                    sJp = sJp + rmState%sSigP(i,j)*sEp
+                    nJt = nJt + ionGrid%pJ(i,j,NORTH,TDIR)
+                    nJp = nJp + ionGrid%pJ(i,j,NORTH,PDIR)
+                    sJt = sJt + ionGrid%pJ(i,j,SOUTH,TDIR)
+                    sJp = sJp + ionGrid%pJ(i,j,SOUTH,PDIR)
                 endif
+
 
             !Now have currents (theta/phi) [A/m], convert to XYZ and store
                 nJ = tp2xyz(phnh,thnh,nJt,nJp)
@@ -388,6 +411,14 @@ module calcdbutils
             enddo
 
         enddo !j,Nth
+
+        ! write(*,*) 'Hall '
+        ! write(*,*) '   Theta: ',minval(ionGrid%hJ(:,:,NORTH,TDIR)),maxval(ionGrid%hJ(:,:,NORTH,TDIR))
+        ! write(*,*) '   Phi  : ',minval(ionGrid%hJ(:,:,NORTH,PDIR)),maxval(ionGrid%hJ(:,:,NORTH,PDIR))
+
+        ! write(*,*) 'Pede '
+        ! write(*,*) '   Theta: ',minval(ionGrid%pJ(:,:,NORTH,TDIR)),maxval(ionGrid%pJ(:,:,NORTH,TDIR))
+        ! write(*,*) '   Phi  : ',minval(ionGrid%pJ(:,:,NORTH,PDIR)),maxval(ionGrid%pJ(:,:,NORTH,PDIR))
 
     end subroutine ionGridUpdate
 
@@ -402,6 +433,7 @@ module calcdbutils
         that = [cos(theta)*cos(phi),cos(theta)*sin(phi),-sin(theta)]
 
         Jxyz = that*Jt + phat*Jp
+
     end function tp2xyz
 
     !Set rmState given properly set 4 hemispheres and temporal weights
