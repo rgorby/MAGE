@@ -2,6 +2,7 @@
 import argparse
 import os
 import h5py
+import kaipy.kaiH5 as kh5
 #import lxml.etree as et
 import xml.etree.ElementTree as et
 import xml.dom.minidom
@@ -20,10 +21,10 @@ def cntX(fname,gID=None,StrX="/Step#"):
 
 		sIds = np.array([str.split(s,"#")[-1] for s in Steps],dtype=np.int)
 		return nSteps,sIds
-def getVars(fname):
+def getVars(fname,smin):
 	#Get variable names from Step#0/Line#0
 	with h5py.File(fname,'r') as hf:
-		gID = "/Step#0/Line#0"
+		gID = "/Step#%d/Line#0"%(smin)
 		vIDs = []
 		for k in hf[gID].keys():
 			vIDs.append(str(k))
@@ -57,10 +58,13 @@ def getAtts(fIn,n,m):
 def getTs(fname,sIds):
 	Nt = len(sIds)
 	T = np.zeros(Nt)
+	nS = sIds.min()
+	nE = sIds.max()
+	
 	with h5py.File(fname,'r') as hf:
-		for n in range(sIds.min(),sIds.max()+1):
+		for n in range(nS,nE+1):
 			gId = "/Step#%d"%(n)
-			T[n] = hf[gId].attrs["time"]
+			T[n-nS] = hf[gId].attrs["time"]
 	return T
 
 def getNum(fIn,n,m):
@@ -79,17 +83,19 @@ if __name__ == "__main__":
 
 	fIn = args.h5F[0]
 	doAtts = args.noatts
-	print(doAtts)
+	
 	#Create XML filename
 	pre,ext = os.path.splitext(fIn)
 	fOutXML = pre + ".xmf"
 
 	print("Reading from %s"%(fIn))
-
+	kh5.CheckOrDie(fIn)
+	
 	#Count steps and lines
 	Nstp,sIds = cntX(fIn)
-	Nl,lIds = cntX(fIn,gID="Step#0",StrX="Line#")
-	Nv,vIds = getVars(fIn)
+	gID = "Step#%d"%(sIds.min())
+	Nl,lIds = cntX(fIn,gID=gID,StrX="Line#")
+	Nv,vIds = getVars(fIn,sIds.min())
 	
 	print("\tFound %d steps"%(Nstp))
 	print("\tFound %d lines/step"%(Nl))
@@ -117,11 +123,11 @@ if __name__ == "__main__":
 		#Add time
 		tLab = et.SubElement(lGrid,"Time")
 		tLab.set("Value","%f"%T[n])
-
+		nStp = n + sIds.min()
 		#Loop over individual lines
 		for m in range(Nl):
 			#Get number of points for this step/line
-			Np = getNum(fIn,n,m)
+			Np = getNum(fIn,nStp,m)
 
 			#Create main grid structure
 			l0G = et.SubElement(lGrid,"Grid")
@@ -143,7 +149,7 @@ if __name__ == "__main__":
 			tCon.set("Format","HDF")
 			tCon.set("NumberType","Int")
 			tCon.set("Precision","4")
-			tCon.text = "%s:/Step#%d/Line#%d/LCon"%(fIn,n,m)
+			tCon.text = "%s:/Step#%d/Line#%d/LCon"%(fIn,nStp,m)
 
 			Geom = et.SubElement(l0G,"Geometry")
 			Geom.set("GeometryType","XYZ")
@@ -152,7 +158,7 @@ if __name__ == "__main__":
 			xC.set("NumberType","Float")
 			xC.set("Precision","4")
 			xC.set("Format","HDF")
-			xC.text = "%s:/Step#%d/Line#%d/xyz"%(fIn,n,m)
+			xC.text = "%s:/Step#%d/Line#%d/xyz"%(fIn,nStp,m)
 
 			#Now loop over variables
 			for v in range(Nv):
@@ -165,10 +171,10 @@ if __name__ == "__main__":
 				vDI.set("NumberType","Float")
 				vDI.set("Precision","4")
 				vDI.set("Format","HDF")
-				vDI.text = "%s:/Step#%d/Line#%d/%s"%(fIn,n,m,vIds[v])
+				vDI.text = "%s:/Step#%d/Line#%d/%s"%(fIn,nStp,m,vIds[v])
 			if (doAtts):
 				#Add scalar attributes in lazy XDMF way
-				aIDs,aVs = getAtts(fIn,n,m)
+				aIDs,aVs = getAtts(fIn,nStp,m)
 				Na = len(aIDs)
 				for a in range(Na):
 					#Main variable
@@ -187,7 +193,7 @@ if __name__ == "__main__":
 					vNull.set("NumberType","Float")
 					vNull.set("Precision","4")
 					vNull.set("Format","HDF")
-					vNull.text = "%s:/Step#%d/Line#%d/%s"%(fIn,n,m,vIds[v])
+					vNull.text = "%s:/Step#%d/Line#%d/%s"%(fIn,nStp,m,vIds[v])
 
 	#Finished creating XML, now write
 	xmlStr = xml.dom.minidom.parseString(et.tostring(Xdmf)).toprettyxml(indent="    ")
