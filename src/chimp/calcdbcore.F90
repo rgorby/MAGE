@@ -28,8 +28,39 @@ module calcdbcore
         call BSIntegral(facBS,gGr,gGr%dbFAC_xyz)
         call Toc("BSFac")
 
+        if (gGr%doGEO) then
+            call Tic("BSRemap")
+            call BSRemap(gGr,gGr%dbMAG_xyz)
+            call BSRemap(gGr,gGr%dbION_xyz)
+            call BSRemap(gGr,gGr%dbFAC_xyz)
+
+            call Toc("BSRemap")
+        endif
     end subroutine BS2Gr
 
+    !Remap ground grid vectors to GEO
+    subroutine BSRemap(gGr,dbXYZ)
+        type(grGrid_T), intent(in) :: gGr
+        real(rp), intent(inout) :: dbXYZ(gGr%NLat,gGr%NLon,gGr%Nz,NDIM)
+
+        integer :: i,j,k
+        real(rp), dimension(NDIM) :: sm,geo
+
+        if (.not. gGr%doGEO) return
+        
+        !$OMP PARALLEL DO default(shared) collapse(2) &
+        !$OMP private(i,j,k,sm,geo)
+        do k=1,gGr%Nz
+            do j=1,gGr%NLon
+                do i=1,gGr%NLat
+                    sm = dbXYZ(i,j,k,:) !SM ground dB
+                    call SM2GEO(sm(XDIR),sm(YDIR),sm(ZDIR),geo(XDIR),geo(YDIR),geo(ZDIR))
+                    dbXYZ(i,j,k,:) = geo
+                enddo
+            enddo
+        enddo !k
+
+    end subroutine BSRemap
     !Do individual BS integral using BSGr
     subroutine BSIntegral(xBS,gGr,dbXYZ)
         type(BSGrid_T), intent(in) :: xBS
@@ -65,15 +96,13 @@ module calcdbcore
                         ddB(ZDIR) = ( J(XDIR)*R(YDIR) - J(YDIR)*R(XDIR) )/r3
 
                         !NOTE: This current vector is in SM coordinates
-                        dbXYZ(iG,jG,kG,:) = dbXYZ(iG,jG,kG,:) + xBS%jScl*dV*ddB
 
+                        !dbXYZ(iG,jG,kG,:) = dbXYZ(iG,jG,kG,:) + xBS%jScl*dV*ddB
+                        dbXYZ(iG,jG,kG,:) = dbXYZ(iG,jG,kG,:) + dV*ddB !Pull out overall scaling
                     enddo !nS
-                    if (gGr%doGEO) then
-                        !Done this ground point, now convert from SM to GEO
-                        ddB = dbXYZ(iG,jG,kG,:) !SM ground dB
+                    !Do scaling factor here just once
+                    dbXYZ(iG,jG,kG,:) = xBS%jScl*dbXYZ(iG,jG,kG,:)
 
-                        call SM2GEO(ddB(XDIR),ddB(YDIR),ddB(ZDIR),dbXYZ(iG,jG,kG,XDIR),dbXYZ(iG,jG,kG,YDIR),dbXYZ(iG,jG,kG,ZDIR))
-                    endif
                 enddo !iG
             enddo !jG
         enddo !kG

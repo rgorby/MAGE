@@ -59,6 +59,8 @@ module calcdbutils
         enddo
 
         !Get cell centers of segments
+        !$OMP PARALLEL DO default(shared) collapse(2) &
+        !$OMP private(i,j,n,l,phi,theta,ionlat,c2lat,lat)
         do l=1,2
             do n=1,rSegs
                 do j=1,Nth
@@ -85,6 +87,8 @@ module calcdbutils
         enddo !l
 
         !Get dV, do northern hemisphere then copy
+        !$OMP PARALLEL DO default(shared) &
+        !$OMP private(j,n,latC,latM,latP,dlat,dV)
         do n=1,rSegs
             do j=1,Nth
                 latC = xyz2lat(facGrid%XYZcc(1,j,n,NORTH,:))

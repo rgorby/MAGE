@@ -124,7 +124,8 @@ module calcdbio
         type(IOVAR_T), dimension(MAXDBVS) :: IOVars
         integer :: Ni,Nj
         character(len=strLen) :: rmF !Remix file
-        write(rmF,'(2a)') trim(adjustl(Model%RunID)),'.mix.h5'
+        write(rmF,'(2a)') trim(adjustl(ebState%ebTab%bStr)),'.mix.h5'
+
         write(*,*) 'Initializing w/ ', trim(rmF)
 
         call ClearIO(IOVars)
@@ -198,7 +199,8 @@ module calcdbio
         real(rp) :: w1,w2
 
         !TODO: Remove redundant code here
-        write(rmF,'(2a)') trim(adjustl(Model%RunID)),'.mix.h5'
+        write(rmF,'(2a)') trim(adjustl(ebState%ebTab%bStr)),'.mix.h5'
+        
         call findSlc(ebState%ebTab,t,i1,i2)
 
         !Read 4 hemispheres
