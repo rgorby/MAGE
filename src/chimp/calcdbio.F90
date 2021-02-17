@@ -29,6 +29,8 @@ module calcdbio
         integer, intent(inout) :: NumP
 
         type(IOVAR_T), dimension(MAXDBVS) :: IOVars
+        character(len=strLen) :: cID
+
         integer :: i,j,k,NLat,NLon,Nz,dOut
         real(rp) :: z,R,lat,phi
         real(rp) :: dtB,T0
@@ -43,6 +45,12 @@ module calcdbio
         call inpXML%Set_Val(Nz  ,'Grid/Nz'  , 2) !Number of longitudinal cells
         call inpXML%Set_Val(gGr%rMax,'CalcDB/rMax',gGr%rMax)
         call inpXML%Set_Val(gGr%doGEO,'Grid/doGEO',gGr%doGEO) !Whether to do GEO on ground
+        if (gGr%doGEO) then
+            cID = "GEO"
+        else
+            cID = "SM"
+        endif
+
     !Possible // in time
         call inpXML%Set_Val(NumB,'parintime/NumB',NumB)
         if (NumB > 1) then
@@ -157,6 +165,8 @@ module calcdbio
         call AddOutVar(IOVars,"Xcc",gGr%GxyzC(:,:,:,XDIR))
         call AddOutVar(IOVars,"Ycc",gGr%GxyzC(:,:,:,YDIR))
         call AddOutVar(IOVars,"Zcc",gGr%GxyzC(:,:,:,ZDIR))
+
+        call AddOutVar(IOVars,"CoordinatesID",cID)
 
         call WriteVars(IOVars,.true.,dbOutF)
         call ClearIO(IOVars)
