@@ -231,22 +231,21 @@ module calcdbutils
         call BSSubInit(facBS,NFac)
         facBS%jScl = (1.0e+9)*REarth*Mu0/(4.0*PI) !Ensure final db is nT & needs extra factor of Re
 
-        contains
-
-        !Initialize BS grid w/ N points
-        subroutine BSSubInit(xBS,N)
-            type(BSGrid_T), intent(inout) :: xBS
-            integer, intent(in) :: N
-            xBS%NumP = N
-            allocate(xBS%XYZcc(N,NDIM))
-            allocate(xBS%Jxyz (N,NDIM))
-            allocate(xBS%dV(N))
-            xBS%XYZcc = 0.0
-            xBS%Jxyz = 0.0
-            xBS%dV = 0.0
-        end subroutine BSSubInit
-
     end subroutine BSGridInit
+
+    !Initialize BS grid w/ N points
+    subroutine BSSubInit(xBS,N)
+        type(BSGrid_T), intent(inout) :: xBS
+        integer, intent(in) :: N
+        xBS%NumP = N
+        allocate(xBS%XYZcc(N,NDIM))
+        allocate(xBS%Jxyz (N,NDIM))
+        allocate(xBS%dV(N))
+        xBS%XYZcc = 0.0
+        xBS%Jxyz = 0.0
+        xBS%dV = 0.0
+        
+    end subroutine BSSubInit
 
 	!Using a rmState (remix data), fill facGrid Jxyz
 	subroutine facGridUpdate(Model,ebState,rmState,facGrid)

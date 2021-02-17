@@ -13,11 +13,18 @@ module calcdbcore
     !Calculate contribution from BSGrid to ground
     subroutine BS2Gr(Model,magBS,ionBS,facBS,gGr)
         type(chmpModel_T), intent(in) :: Model
-        type(BSGrid_T), intent(in) :: magBS,ionBS,facBS
+        type(BSGrid_T), intent(inout) :: magBS,ionBS,facBS
         type(grGrid_T), intent(inout) :: gGr
 
+        type(BSGrid_T) :: magltBS !Squashed magBS
+
+        !Remove far away points in magnetospheric grid and make remaining contiguous
+        call Tic("Compactify")
+        call Compactify(magBS,gGr%rMax,magltBS)
+        call Toc("Compactify")
+
         call Tic("BSMag")
-        call BSIntegral(magBS,gGr,gGr%dbMAG_xyz)
+        call BSIntegral(magltBS,gGr,gGr%dbMAG_xyz)
         call Toc("BSMag")
 
         call Tic("BSIon")
@@ -37,6 +44,43 @@ module calcdbcore
             call Toc("BSRemap")
         endif
     end subroutine BS2Gr
+
+    !Remove far away points and make contiguous
+    subroutine Compactify(xBS,rMax,xsBS)
+        type(BSGrid_T), intent(in)    :: xBS
+        real(rp)      , intent(in)    :: rMax
+        type(BSGrid_T), intent(inout) :: xsBS
+
+        logical, dimension(:), allocatable :: isG
+        integer :: n,np
+
+        !Identify good points
+        allocate(isG(xBS%NumP))
+        isG = .false.
+
+        do n=1,xBS%NumP
+            isG(n) = ( norm2(xBS%XYZcc(n,:)) <= rMax )
+        enddo
+
+        !Create sub-grid for only good points
+        xsBS%NumP = count(isG)
+        call BSSubInit(xsBS,xsBS%NumP)
+
+        !Scrape values into new sub-grid
+        xsBS%jScl = xBS%jScl
+
+        np = 1
+        do n=1,xBS%NumP !Loop over original grid
+            if (isG(n)) then
+                !Good point, copy this
+                xsBS%XYZcc(np,:) = xBS%XYZcc(n,:)
+                xsBS%Jxyz (np,:) = xBS%Jxyz (n,:)
+                xsBS%dV   (np)   = xBS%dV   (n)
+                np = np+1
+            endif
+        enddo
+
+    end subroutine Compactify
 
     !Remap ground grid vectors to GEO
     subroutine BSRemap(gGr,dbXYZ)
@@ -83,7 +127,6 @@ module calcdbcore
 
                     do nS=1,xBS%NumP
                         xCC = xBS%XYZcc(nS,:) !Location of source contribution
-                        if ( norm2(xCC) > gGr%rMax ) cycle
                         
                         R = xCC-x0 !R = x_src - x_station
                         r3 = norm2(R)**3.0
@@ -91,11 +134,10 @@ module calcdbcore
                         J = xBS%Jxyz(nS,:) !Current contribution
 
                         !Avoid array temporary
+                        !NOTE: This current vector is in SM coordinates
                         ddB(XDIR) = ( J(YDIR)*R(ZDIR) - J(ZDIR)*R(YDIR) )/r3
                         ddB(YDIR) = ( J(ZDIR)*R(XDIR) - J(XDIR)*R(ZDIR) )/r3
                         ddB(ZDIR) = ( J(XDIR)*R(YDIR) - J(YDIR)*R(XDIR) )/r3
-
-                        !NOTE: This current vector is in SM coordinates
 
                         !dbXYZ(iG,jG,kG,:) = dbXYZ(iG,jG,kG,:) + xBS%jScl*dV*ddB
                         dbXYZ(iG,jG,kG,:) = dbXYZ(iG,jG,kG,:) + dV*ddB !Pull out overall scaling
