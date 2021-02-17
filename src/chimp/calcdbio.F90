@@ -16,6 +16,8 @@ module calcdbio
 
     character(len=strLen), private :: dbOutF
     integer, parameter, private :: MAXDBVS = 20
+    logical, private :: doParInT = .false. !// in time
+    integer, private :: NumB = 0
 
     contains
 
@@ -27,19 +29,64 @@ module calcdbio
         integer, intent(inout) :: NumP
 
         type(IOVAR_T), dimension(MAXDBVS) :: IOVars
-        integer :: i,j,k,NLat,NLon,Nz
+        integer :: i,j,k,NLat,NLon,Nz,dOut
         real(rp) :: z,R,lat,phi
-        write(dbOutF,'(2a)') trim(adjustl(Model%RunID)),'.deltab.h5'
+        real(rp) :: dtB,T0
 
         associate( ebGr=>ebState%ebGr )
-        call CheckAndKill(dbOutF)
+        !Equate dtout/dt since the difference doesn't matter here
+        Model%dtOut = Model%dt
 
+    !Read info from XML
         call inpXML%Set_Val(NLat,'Grid/NLat',45) !Number of latitudinal cells
         call inpXML%Set_Val(NLon,'Grid/NLon',90) !Number of longitudinal cells
         call inpXML%Set_Val(Nz  ,'Grid/Nz'  , 2) !Number of longitudinal cells
         call inpXML%Set_Val(gGr%rMax,'CalcDB/rMax',gGr%rMax)
         call inpXML%Set_Val(gGr%doGEO,'Grid/doGEO',gGr%doGEO) !Whether to do GEO on ground
+    !Possible // in time
+        call inpXML%Set_Val(NumB,'parintime/NumB',NumB)
+        if (NumB > 1) then
+            doParInT = .true.
+            if ( (Model%Nblk>NumB) .or. (Model%Nblk<1) ) then
+                write(*,*) "This block outside of acceptable bounds"
+                write(*,*) "Block = ",Model%Nblk
+                write(*,*) "Bounds = ",1,NumB
+                write(*,*) "Bailing ..."
+                stop
+            endif
+            !Reset time bounds
+            T0 = Model%T0
+            dtB = (Model%tFin-Model%T0)/NumB
+            write(*,*) '------'
+            write(*,*) 'Resetting T0/TFin = ',Model%T0*oTScl,Model%tFin*oTScl
+            write(*,*) 'Using block ', Model%Nblk
+            Model%T0 = (Model%Nblk-1)*dtB + T0
+            Model%tFin = Model%T0 + dtB
+            write(*,*) 'To        T0/TFin = ',Model%T0*oTScl,Model%tFin*oTScl
+            if (Model%Nblk < NumB) then
+                !Cut off a bit from TFin to avoid overlap w/ start of next
+                Model%tFin = Model%tFin-0.01*dtB
+            endif
+            !Get step# offset
+            !NOTE: Assuming here nice divisibility
+            dOut = nint(dtB/Model%dtOut)
+            Model%nOut = (Model%Nblk-1)*dOut + 0
+            write(*,*) 'Offsetting Step# by ', Model%nOut
 
+            write(dbOutF,'(a,a,I0.4,a)') trim(adjustl(Model%RunID)),'.',Model%Nblk,'.deltab.h5'
+            write(*,*) '------'
+
+        else
+            doParInT = .false.
+            NumB = 0
+            write(dbOutF,'(2a)') trim(adjustl(Model%RunID)),'.deltab.h5'
+        endif
+        write(*,*) "Writing output to ", trim(dbOutF)
+    
+    !Setup output file
+        call CheckAndKill(dbOutF)
+
+    !Create ground grid
         NumP = NLat*NLon*Nz
 
         !Store sizes
@@ -271,6 +318,8 @@ module calcdbio
         type(IOVAR_T), dimension(MAXDBVS) :: IOVars
         real(rp) :: mjd
         real(rp), dimension(:,:,:,:), allocatable :: dbRTP
+
+        write(*,*) 'Writing ', trim(gStr)
 
         mjd = MJDAt(ebState%ebTab,Model%t)
         
