@@ -34,7 +34,6 @@ program calcdbx
     !Destination (GEO) data
     type(grGrid_T) :: gGr !Ground grid
     
-
     integer :: NumP
     real(rp) :: wT,cMJD,rSec
     character(len=strLen) :: gStr,utStr
@@ -68,6 +67,9 @@ program calcdbx
     
     !Do main loop
     do while (Model%t<=Model%tFin)
+        cMJD = MJDAt(ebState%ebTab,Model%t)
+        call MJDRecalc(cMJD) !Setup geopack for this time
+
         call Tic("Omega")
 
     !Read in data and fill native (SM) grids
@@ -79,18 +81,22 @@ program calcdbx
         call updateRemix(Model,ebState,Model%t,rmState)
 
         !Update FAC/ION grids
-        !CALCDB-TODO: Need to fill in the following routines to fill in Jxyz's from rmState
         call facGridUpdate(Model,ebState,rmState,facGrid)
         call ionGridUpdate(Model,ebState,rmState,ionGrid)
 
         call Toc("Step")
 
-    !Remap from native to ground coordinates
+    !Pack data into 1D bricks
+        call Tic("Pack")
+        call packBS(Model,Model%t,ebState,ionGrid,facGrid,magBS,ionBS,facBS)
+        call Toc("Pack")
+
+    !Remap ground grid to SM coordinates
         call Tic("Remap")
-        call remapBS(Model,Model%t,ebState,ionGrid,facGrid,magBS,ionBS,facBS)
+        call remapGR(Model,Model%t,ebState,gGr)
         call Toc("Remap")
 
-    !Compute BS integrals
+    !Compute BS integrals (SM) on ground and remap dB to GEO
         call Tic("ComputeBS")
         call BS2Gr(Model,magBS,ionBS,facBS,gGr)
         call Toc("ComputeBS")

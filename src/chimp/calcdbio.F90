@@ -16,7 +16,6 @@ module calcdbio
 
     character(len=strLen), private :: dbOutF
     integer, parameter, private :: MAXDBVS = 20
-    logical, parameter :: doVerboseDB = .true.
 
     contains
 
@@ -48,8 +47,9 @@ module calcdbio
         gGr%Nz   = Nz
 
         !Calculate corner/center
-        allocate(gGr%xyzI(NLat+1,NLon+1,Nz+1,NDIM))
-        allocate(gGr%xyzC(NLat  ,NLon  ,Nz  ,NDIM))
+        allocate(gGr%GxyzI (NLat+1,NLon+1,Nz+1,NDIM))
+        allocate(gGr%GxyzC (NLat  ,NLon  ,Nz  ,NDIM))
+        allocate(gGr%SMxyzC(NLat  ,NLon  ,Nz  ,NDIM))
 
         !Do corners
         do k=1,Nz+1
@@ -61,9 +61,9 @@ module calcdbio
         		phi = (j-1)*360.0/NLon 
         		do i=1,NLat+1
         			lat = -90.0 + (i-1)*180.0/NLat
-        			gGr%xyzI(i,j,k,XDIR) = R*cos(lat*PI/180.0)*cos(phi*PI/180.0)
-        			gGr%xyzI(i,j,k,YDIR) = R*cos(lat*PI/180.0)*sin(phi*PI/180.0)
-        			gGr%xyzI(i,j,k,ZDIR) = R*sin(lat*PI/180.0)
+        			gGr%GxyzI(i,j,k,XDIR) = R*cos(lat*PI/180.0)*cos(phi*PI/180.0)
+        			gGr%GxyzI(i,j,k,YDIR) = R*cos(lat*PI/180.0)*sin(phi*PI/180.0)
+        			gGr%GxyzI(i,j,k,ZDIR) = R*sin(lat*PI/180.0)
 
         		enddo !i
         	enddo !j
@@ -73,10 +73,11 @@ module calcdbio
         do k=1,Nz
         	do j=1,NLon
         		do i=1,NLat
-        			gGr%xyzC(i,j,k,:) = 0.125*(  gGr%xyzI(i,j,k,:)     + gGr%xyzI(i+1,j,k,:) &
-                                                 + gGr%xyzI(i,j+1,k,:)   + gGr%xyzI(i,j,k+1,:) &
-                                                 + gGr%xyzI(i+1,j+1,k,:) + gGr%xyzI(i+1,j,k+1,:) &
-                                                 + gGr%xyzI(i,j+1,k+1,:) + gGr%xyzI(i+1,j+1,k+1,:) )
+        			gGr%GxyzC(i,j,k,:) = 0.125*( gGr%GxyzI(i  ,j  ,k  ,:) + gGr%GxyzI(i+1,j  ,k  ,:) &
+                                               + gGr%GxyzI(i  ,j+1,k  ,:) + gGr%GxyzI(i  ,j  ,k+1,:) &
+                                               + gGr%GxyzI(i+1,j+1,k  ,:) + gGr%GxyzI(i+1,j  ,k+1,:) &
+                                               + gGr%GxyzI(i  ,j+1,k+1,:) + gGr%GxyzI(i+1,j+1,k+1,:) )
+                    gGr%SMxyzC(i,j,k,:) = gGr%GxyzC(i,j,k,:) !Just set SM=G for now
         		enddo
         	enddo
         enddo
@@ -101,13 +102,13 @@ module calcdbio
 
         !Write grid
         call ClearIO(IOVars)
-        call AddOutVar(IOVars,"X",gGr%xyzI(:,:,:,XDIR))
-        call AddOutVar(IOVars,"Y",gGr%xyzI(:,:,:,YDIR))
-        call AddOutVar(IOVars,"Z",gGr%xyzI(:,:,:,ZDIR))
+        call AddOutVar(IOVars,"X",gGr%GxyzI(:,:,:,XDIR))
+        call AddOutVar(IOVars,"Y",gGr%GxyzI(:,:,:,YDIR))
+        call AddOutVar(IOVars,"Z",gGr%GxyzI(:,:,:,ZDIR))
 
-        call AddOutVar(IOVars,"Xcc",gGr%xyzC(:,:,:,XDIR))
-        call AddOutVar(IOVars,"Ycc",gGr%xyzC(:,:,:,YDIR))
-        call AddOutVar(IOVars,"Zcc",gGr%xyzC(:,:,:,ZDIR))
+        call AddOutVar(IOVars,"Xcc",gGr%GxyzC(:,:,:,XDIR))
+        call AddOutVar(IOVars,"Ycc",gGr%GxyzC(:,:,:,YDIR))
+        call AddOutVar(IOVars,"Zcc",gGr%GxyzC(:,:,:,ZDIR))
 
         call WriteVars(IOVars,.true.,dbOutF)
         call ClearIO(IOVars)
@@ -286,7 +287,7 @@ module calcdbio
         call AddOutVar(IOVars,"MJD",mjd)
 
     !Write out spherical vectors (XDIR:ZDIR = RDIR,TDIR,PDIR)
-        if (doVerboseDB) then
+        if (.not. Model%doSlim) then
             call AddOutVar(IOVars,"dBrM" ,gGr%dbMAG_rtp(:,:,:,XDIR),"nT")
             call AddOutVar(IOVars,"dBtM" ,gGr%dbMAG_rtp(:,:,:,YDIR),"nT")
             call AddOutVar(IOVars,"dBpM" ,gGr%dbMAG_rtp(:,:,:,ZDIR),"nT")
@@ -324,9 +325,9 @@ module calcdbio
         do k=1,gGr%Nz
             do j=1,gGr%NLon
                 do i=1,gGr%NLat
-                    rad  = norm2(gGr%xyzC(i,j,k,:))
-                    theta = acos(gGr%xyzC(i,j,k,ZDIR)/rad)
-                    phi  = atan2(gGr%xyzC(i,j,k,YDIR),gGr%xyzC(i,j,k,XDIR))
+                    rad  = norm2(gGr%GxyzC(i,j,k,:))
+                    theta = acos(gGr%GxyzC(i,j,k,ZDIR)/rad)
+                    phi  = atan2(gGr%GxyzC(i,j,k,YDIR),gGr%GxyzC(i,j,k,XDIR))
                     dBx = dbXYZ(i,j,k,XDIR)
                     dBy = dbXYZ(i,j,k,YDIR)
                     dBz = dbXYZ(i,j,k,ZDIR)

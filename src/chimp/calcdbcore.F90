@@ -4,6 +4,7 @@ module calcdbcore
     use ebtypes
     use calcdbutils
     use clocks
+    use calcdbremap
     
 	implicit none
 
@@ -41,13 +42,13 @@ module calcdbcore
 
         dbXYZ = 0.0
         
-       !$OMP PARALLEL DO default(shared) collapse(2) &
-       !$OMP private(iG,jG,kG,nS) &
-       !$OMP private(dV,r3,x0,xCC,ddB,J,R) 
+        !$OMP PARALLEL DO default(shared) collapse(2) &
+        !$OMP private(iG,jG,kG,nS) &
+        !$OMP private(dV,r3,x0,xCC,ddB,J,R) 
         do kG=1,gGr%Nz
             do jG=1,gGr%NLon
                 do iG=1,gGr%NLat
-                    x0 = gGr%xyzC(iG,jG,kG,:) !Cell center of ground grid
+                    x0 = gGr%SMxyzC(iG,jG,kG,:) !Cell center of ground grid
 
                     do nS=1,xBS%NumP
                         xCC = xBS%XYZcc(nS,:) !Location of source contribution
@@ -63,9 +64,13 @@ module calcdbcore
                         ddB(YDIR) = ( J(ZDIR)*R(XDIR) - J(XDIR)*R(ZDIR) )/r3
                         ddB(ZDIR) = ( J(XDIR)*R(YDIR) - J(YDIR)*R(XDIR) )/r3
 
+                        !NOTE: This current vector is in SM coordinates
                         dbXYZ(iG,jG,kG,:) = dbXYZ(iG,jG,kG,:) + xBS%jScl*dV*ddB
-                    enddo !nS
 
+                    enddo !nS
+                    !Done this ground point, now convert from SM to GEO
+                    ddB = dbXYZ(iG,jG,kG,:) !SM ground dB
+                    call sm2geo(ddB,dbXYZ(iG,jG,kG,:)) !Convert and store GEO dB vector
                 enddo !iG
             enddo !jG
         enddo !kG

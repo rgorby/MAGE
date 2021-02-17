@@ -6,6 +6,7 @@ module calcdbremap
     use calcdbtypes
     use ebinterp
     use chmpfields
+    use geopack
 
 	implicit none
 
@@ -13,8 +14,36 @@ module calcdbremap
 
 	contains
 
-	!Get magBS,ionBS,facBS using current MJD and source grids
-	subroutine remapBS(Model,t,ebState,ionGrid,facGrid,magBS,ionBS,facBS)
+    !Map ground coordinates to SM
+    subroutine remapGR(Model,t,ebState,gGr)
+        type(chmpModel_T), intent(in)    :: Model
+        real(rp)         , intent(in)    :: t
+        type(ebState_T)  , intent(in)    :: ebState
+        type(grGrid_T)   , intent(inout) :: gGr
+
+        real(rp) :: mjd
+        integer :: i,j,k
+        real(rp), dimension(NDIM) :: grXYZ,smXYZ
+
+        mjd = MJDAt(ebState%ebTab,Model%t)
+        call MJDRecalc(mjd) !Setup geopack for this time
+
+        !$OMP PARALLEL DO default(shared) collapse(2) &
+        !$OMP private(i,j,k,grXYZ,smXYZ)
+        do k=1,gGr%Nz
+            do j=1,gGr%NLon
+                do i=1,gGr%NLat
+                    grXYZ = gGr%GxyzC(i,j,k,XDIR:ZDIR)
+                    call geo2sm(grXYZ,smXYZ)
+                    gGr%SMxyzC(i,j,k,XDIR:ZDIR) = smXYZ
+                enddo
+            enddo
+        enddo
+
+    end subroutine remapGR
+
+    !Load Bios Savart grids
+	subroutine packBS(Model,t,ebState,ionGrid,facGrid,magBS,ionBS,facBS)
         type(chmpModel_T), intent(in) :: Model
         real(rp)         , intent(in) :: t
         type(ebState_T)  , intent(in) :: ebState
@@ -22,16 +51,9 @@ module calcdbremap
         type(facGrid_T)  , intent(in) :: facGrid
         type(BSGrid_T), intent(inout) :: magBS,ionBS,facBS
 
-        real(rp) :: mjd,w1,w2,dV
+        real(rp) :: w1,w2,dV
         integer :: i,j,k,l,n
         real(rp), dimension(:,:,:,:), allocatable :: Jxyz
-        real(rp), dimension(NDIM) :: smX,smJ,geoX,geoJ
-
-        mjd = MJDAt(ebState%ebTab,t) !Current MJD
-
-        !CALCDB-TODO: Add any initialization for geopack at a given time here
-
-        !CALCDB-TODO: Make sm2geo actually do something
 
   	!----
   	!Magnetospheric part
@@ -46,14 +68,13 @@ module calcdbremap
         !$OMP END PARALLEL WORKSHARE
         
     !Now do remap and store into BSGrid
+        !$OMP PARALLEL DO default(shared) collapse(2) &
+        !$OMP private(i,j,k,n,dV)
     	do k=ebGr%ks,ebGr%ke
 			do j=ebGr%js,ebGr%je
 				do i=ebGr%is,ebGr%ie
 					!Get n-d => 1D index
 					n = ijk2n(i,j,k,ebGr%is,ebGr%ie,ebGr%js,ebGr%je,ebGr%ks,ebGr%ke)
-
-					smX = ebGr%xyz(i,j,k,:) !Cell-centered MHD grid coordinates (SM)
-					smJ =     Jxyz(i,j,k,:) !SM current at cell-center
 					dV  = ebGr%dV(i,j,k) !Volume element, Re^3
 
 					if (i <= ebGr%is+i0-1) then
@@ -61,9 +82,8 @@ module calcdbremap
 						!Zap this contribution
 					endif
 
-					call sm2geo(smX,smJ,mjd,geoX,geoJ)
-					magBS%XYZcc(n,XDIR:ZDIR) = geoX
-					magBS%Jxyz (n,XDIR:ZDIR) = geoJ
+					magBS%XYZcc(n,XDIR:ZDIR) = ebGr%xyz(i,j,k,:) !Cell-centered MHD grid coordinates (SM)
+					magBS%Jxyz (n,XDIR:ZDIR) = Jxyz(i,j,k,:) !SM current at cell-center
 					magBS%dV(n) = dV
 
 				enddo
@@ -74,19 +94,17 @@ module calcdbremap
 
   	!----
   	!Ionospheric part
+        !$OMP PARALLEL DO default(shared) collapse(2) &
+        !$OMP private(i,j,k,n)
   		do k=1,2 !Hemisphere
   			do j=1,ionGrid%Nth !Theta
   				do i=1,ionGrid%Np !phi
                     !Get n-d => 1D index
                     n = ijk2n(i,j,k,1,ionGrid%Np,1,ionGrid%Nth,1,2)
 
-  					smX = ionGrid%XYZcc(i,j,k,:)
-  					smJ = ionGrid%Jxyz (i,j,k,:)
-  					dV  = ionGrid%dS(i,j,k)
-  					call sm2geo(smX,smJ,mjd,geoX,geoJ)
-					ionBS%XYZcc(n,XDIR:ZDIR) = geoX
-					ionBS%Jxyz (n,XDIR:ZDIR) = geoJ
-					ionBS%dV(n) = dV
+					ionBS%XYZcc(n,XDIR:ZDIR) = ionGrid%XYZcc(i,j,k,:)
+					ionBS%Jxyz (n,XDIR:ZDIR) = ionGrid%Jxyz (i,j,k,:)
+					ionBS%dV(n) = ionGrid%dS(i,j,k)
 
   				enddo
   			enddo
@@ -94,37 +112,57 @@ module calcdbremap
 
   	!----
   	!FAC part
-
+        !$OMP PARALLEL DO default(shared) collapse(2) &
+        !$OMP private(i,j,k,n,l)
   		do l=1,2 !Hemisphere
   			do k=1,facGrid%rSegs
   				do j=1,facGrid%Nth
   					do i=1,facGrid%Np
                         !Get n-d => 1D index
                         n = ijkl2n(i,j,k,l,1,ionGrid%Np,1,ionGrid%Nth,1,facGrid%rSegs,1,2)
-
-  						smX = facGrid%XYZcc(i,j,k,l,:)
-  						smJ = facGrid%Jxyz (i,j,k,l,:)
-  						dV  = facGrid%dV   (i,j,k,l)
-  						call sm2geo(smX,smJ,mjd,geoX,geoJ)
-						facBS%XYZcc(n,XDIR:ZDIR) = geoX
-						facBS%Jxyz (n,XDIR:ZDIR) = geoJ
-						facBS%dV(n) = dV
+  						
+						facBS%XYZcc(n,XDIR:ZDIR) = facGrid%XYZcc(i,j,k,l,:)
+						facBS%Jxyz (n,XDIR:ZDIR) = facGrid%Jxyz (i,j,k,l,:)
+						facBS%dV(n) = facGrid%dV   (i,j,k,l)
 					enddo !i
 				enddo
 			enddo
 		enddo !l
 
-	end subroutine remapBS
+	end subroutine packBS
 
+!=========
+!Mapping routines
+    subroutine sm2geo(smXYZ,geo)
+        real(rp), dimension(NDIM), intent(in ) :: smXYZ
+        real(rp), dimension(NDIM), intent(out) :: geo
+        real(rp), dimension(NDIM) :: sm,gsw
+        !NOTE: Need an sm dummy to call intent(inout) geopack routines
+        sm = smXYZ
+        call SMGSW_08 (sm(XDIR  ),sm(YDIR),sm(ZDIR) ,gsw(XDIR),gsw(YDIR),gsw(ZDIR),+1)
+        call GEOGSW_08(geo(XDIR),geo(YDIR),geo(ZDIR),gsw(XDIR),gsw(YDIR),gsw(ZDIR),-1)
+    end subroutine sm2geo
 
-	!Convert coordinate and vector from SM to GEO
-	!CALCDB-TODO: Make sm2geo actually do something, right now it's just doing identity
-	subroutine sm2geo(smX,smJ,mjd,geoX,geoJ)
-		real(rp), intent(in ) :: smX(NDIM),smJ(NDIM),mjd
-		real(rp), intent(out) :: geoX(NDIM),geoJ(NDIM)
-		geoX = smX
-		geoJ = smJ
-	end subroutine sm2geo
+    subroutine geo2sm(geoXYZ,sm)
+        real(rp), dimension(NDIM), intent(in ) :: geoXYZ
+        real(rp), dimension(NDIM), intent(out) :: sm
+        real(rp), dimension(NDIM) :: geo,gsw
+        !NOTE: Need a dummy to call intent(inout) geopack routines
+        geo = geoXYZ
+        call GEOGSW_08(geo(XDIR),geo(YDIR),geo(ZDIR),gsw(XDIR),gsw(YDIR),gsw(ZDIR),+1)
+        call SMGSW_08 (sm(XDIR  ),sm(YDIR),sm(ZDIR) ,gsw(XDIR),gsw(YDIR),gsw(ZDIR),-1)
+    end subroutine geo2sm
+
+    subroutine MJDRecalc(mjd)
+        real(rp), intent(in) :: mjd
+        !Do nothing
+
+        write(*,*) 'Need to add mjdrecalc ...'
+        stop
+    end subroutine MJDRecalc
+
+!=========
+!Index squashing routines
 
     !TODO: Rewrite these routines to be smarter
     function ijk2n(i,j,k,is,ie,js,je,ks,ke) result(n)

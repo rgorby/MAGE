@@ -91,14 +91,15 @@ module calcdbtypes
 
 	type grGrid_T
 		integer :: NLat,NLon,Nz
-		real(rp), dimension(:,:,:,:), allocatable :: xyzI,xyzC !Corner/Center points
+		real(rp), dimension(:,:,:,:), allocatable :: GxyzI,GxyzC !Corner/Center points, ground coordinates
+        real(rp), dimension(:,:,:,:), allocatable :: SMxyzC !Center points, SM
 
         !Individual ground perturbations
         real(rp), dimension(:,:,:,:), allocatable :: dbMAG_xyz,dbION_xyz,dbFAC_xyz
         real(rp), dimension(:,:,:,:), allocatable :: dbMAG_rtp,dbION_rtp,dbFAC_rtp
 
         !Some parameters for calculation
-        real(rp) :: rMax=25.0 !Radius of magnetospheric ball to integrate over [Re]
+        real(rp) :: rMax=15.0 !Radius of magnetospheric ball to integrate over [Re]
 
 	end type grGrid_T
 
