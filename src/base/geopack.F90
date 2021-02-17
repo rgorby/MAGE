@@ -58,6 +58,7 @@
 module geopack
 
       use kdefs
+      use dates
       implicit none
       ! COMMON /GEOPACK1/
       real(rp) :: ST0,CT0,SL0,CL0,CTCL,STCL,CTSL,STSL,SFI,CFI, &
@@ -127,6 +128,18 @@ module geopack
 
 !     Wraps RECALC_08 with {VGSEX,VGSEY,VGSEZ}={-400.0,0.0,0.0} for GSM
 !     & SM transformations
+
+      SUBROUTINE mjdRECALC(mjd)
+          implicit none
+          real(rp), intent(in) :: mjd
+          integer :: iyr,idoy,imon,iday,ihr,imin
+          real(rp) :: rsec
+          real(rp) :: mjdin
+
+          mjdin = mjd ! mjdin of mjd2ut is for inout intent.
+          call mjd2ut(mjdin,iyr,idoy,imon,iday,ihr,imin,rsec)
+          call RECALC(iyr,idoy,ihr,imin,nint(rsec))
+      END SUBROUTINE mjdRECALC
 
       SUBROUTINE RECALC(IYEAR,IDAY,IHOUR,MIN,ISEC)
           implicit none
@@ -1124,4 +1137,57 @@ module geopack
           RETURN
       END SUBROUTINE GEOGSW_08
 
+      SUBROUTINE GEO2GSW (XGEO,YGEO,ZGEO,XGSW,YGSW,ZGSW)
+          implicit none
+          real(rp), intent(in) :: XGEO,YGEO,ZGEO
+          real(rp), intent(out) :: XGSW,YGSW,ZGSW
+          XGSW=A11*XGEO+A12*YGEO+A13*ZGEO
+          YGSW=A21*XGEO+A22*YGEO+A23*ZGEO
+          ZGSW=A31*XGEO+A32*YGEO+A33*ZGEO
+      END SUBROUTINE GEO2GSW
+
+      SUBROUTINE GSW2GEO (XGSW,YGSW,ZGSW,XGEO,YGEO,ZGEO)
+          implicit none
+          real(rp), intent(in) :: XGSW,YGSW,ZGSW
+          real(rp), intent(out) :: XGEO,YGEO,ZGEO
+          XGEO=A11*XGSW+A21*YGSW+A31*ZGSW
+          YGEO=A12*XGSW+A22*YGSW+A32*ZGSW
+          ZGEO=A13*XGSW+A23*YGSW+A33*ZGSW
+      END SUBROUTINE GSW2GEO
+
+      SUBROUTINE SM2GSW (XSM,YSM,ZSM,XGSW,YGSW,ZGSW)
+          implicit none
+          real(rp), intent(in) :: XSM,YSM,ZSM
+          real(rp), intent(out) :: XGSW,YGSW,ZGSW
+          XGSW=XSM*CPS+ZSM*SPS
+          YGSW=YSM
+          ZGSW=ZSM*CPS-XSM*SPS
+      END SUBROUTINE SM2GSW
+
+      SUBROUTINE GSW2SM (XGSW,YGSW,ZGSW,XSM,YSM,ZSM)
+          implicit none
+          real(rp), intent(in) :: XGSW,YGSW,ZGSW
+          real(rp), intent(out) :: XSM,YSM,ZSM
+          XSM=XGSW*CPS-ZGSW*SPS
+          YSM=YGSW
+          ZSM=XGSW*SPS+ZGSW*CPS
+      END SUBROUTINE GSW2SM
+
+      SUBROUTINE GEO2SM (XGEO,YGEO,ZGEO,XSM,YSM,ZSM)
+          implicit none
+          real(rp), intent(in) :: XGEO,YGEO,ZGEO
+          real(rp), intent(out) :: XSM,YSM,ZSM
+          real(rp) :: XGSW,YGSW,ZGSW
+          call GEO2GSW (XGEO,YGEO,ZGEO,XGSW,YGSW,ZGSW)
+          call GSW2SM (XGSW,YGSW,ZGSW,XSM,YSM,ZSM)
+      END SUBROUTINE GEO2SM
+
+      SUBROUTINE SM2GEO (XSM,YSM,ZSM,XGEO,YGEO,ZGEO)
+          implicit none
+          real(rp), intent(in) :: XSM,YSM,ZSM
+          real(rp), intent(out) :: XGEO,YGEO,ZGEO
+          real(rp) :: XGSW,YGSW,ZGSW
+          call SM2GSW (XSM,YSM,ZSM,XGSW,YGSW,ZGSW)
+          call GSW2GEO (XGSW,YGSW,ZGSW,XGEO,YGEO,ZGEO)
+      END SUBROUTINE SM2GEO
 end module geopack
