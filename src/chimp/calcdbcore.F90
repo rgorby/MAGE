@@ -4,8 +4,8 @@ module calcdbcore
     use ebtypes
     use calcdbutils
     use clocks
-    use calcdbremap
-    
+    use geopack
+
 	implicit none
 
 	contains
@@ -68,9 +68,12 @@ module calcdbcore
                         dbXYZ(iG,jG,kG,:) = dbXYZ(iG,jG,kG,:) + xBS%jScl*dV*ddB
 
                     enddo !nS
-                    !Done this ground point, now convert from SM to GEO
-                    ddB = dbXYZ(iG,jG,kG,:) !SM ground dB
-                    call sm2geo(ddB,dbXYZ(iG,jG,kG,:)) !Convert and store GEO dB vector
+                    if (gGr%doGEO) then
+                        !Done this ground point, now convert from SM to GEO
+                        ddB = dbXYZ(iG,jG,kG,:) !SM ground dB
+
+                        call SM2GEO(ddB(XDIR),ddB(YDIR),ddB(ZDIR),dbXYZ(iG,jG,kG,XDIR),dbXYZ(iG,jG,kG,YDIR),dbXYZ(iG,jG,kG,ZDIR))
+                    endif
                 enddo !iG
             enddo !jG
         enddo !kG

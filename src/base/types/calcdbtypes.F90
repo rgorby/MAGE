@@ -93,7 +93,7 @@ module calcdbtypes
 		integer :: NLat,NLon,Nz
 		real(rp), dimension(:,:,:,:), allocatable :: GxyzI,GxyzC !Corner/Center points, ground coordinates
         real(rp), dimension(:,:,:,:), allocatable :: SMxyzC !Center points, SM
-
+        logical :: doGEO = .true. !Do GEO coordinates on ground
         !Individual ground perturbations
         real(rp), dimension(:,:,:,:), allocatable :: dbMAG_xyz,dbION_xyz,dbFAC_xyz
         real(rp), dimension(:,:,:,:), allocatable :: dbMAG_rtp,dbION_rtp,dbFAC_rtp

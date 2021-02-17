@@ -25,6 +25,11 @@ module calcdbremap
         integer :: i,j,k
         real(rp), dimension(NDIM) :: grXYZ,smXYZ
 
+        if (.not. gGr%doGEO) then
+            gGr%SMxyzC = gGr%GxyzC
+            return
+        endif
+
         mjd = MJDAt(ebState%ebTab,Model%t)
         call MJDRecalc(mjd) !Setup geopack for this time
 
@@ -34,7 +39,7 @@ module calcdbremap
             do j=1,gGr%NLon
                 do i=1,gGr%NLat
                     grXYZ = gGr%GxyzC(i,j,k,XDIR:ZDIR)
-                    call geo2sm(grXYZ,smXYZ)
+                    call GEO2SM(grXYZ(XDIR),grXYZ(YDIR),grXYZ(ZDIR),smXYZ(XDIR),smXYZ(YDIR),smXYZ(ZDIR))
                     gGr%SMxyzC(i,j,k,XDIR:ZDIR) = smXYZ
                 enddo
             enddo
@@ -84,7 +89,7 @@ module calcdbremap
 
 					magBS%XYZcc(n,XDIR:ZDIR) = ebGr%xyz(i,j,k,:) !Cell-centered MHD grid coordinates (SM)
 					magBS%Jxyz (n,XDIR:ZDIR) = Jxyz(i,j,k,:) !SM current at cell-center
-					magBS%dV(n) = dV
+					magBS%dV   (n)           = dV
 
 				enddo
 			enddo
@@ -104,7 +109,7 @@ module calcdbremap
 
 					ionBS%XYZcc(n,XDIR:ZDIR) = ionGrid%XYZcc(i,j,k,:)
 					ionBS%Jxyz (n,XDIR:ZDIR) = ionGrid%Jxyz (i,j,k,:)
-					ionBS%dV(n) = ionGrid%dS(i,j,k)
+					ionBS%dV   (n)           = ionGrid%dS   (i,j,k)
 
   				enddo
   			enddo
@@ -123,43 +128,13 @@ module calcdbremap
   						
 						facBS%XYZcc(n,XDIR:ZDIR) = facGrid%XYZcc(i,j,k,l,:)
 						facBS%Jxyz (n,XDIR:ZDIR) = facGrid%Jxyz (i,j,k,l,:)
-						facBS%dV(n) = facGrid%dV   (i,j,k,l)
+						facBS%   dV(n)           = facGrid%dV   (i,j,k,l)
 					enddo !i
 				enddo
 			enddo
 		enddo !l
 
 	end subroutine packBS
-
-!=========
-!Mapping routines
-    subroutine sm2geo(smXYZ,geo)
-        real(rp), dimension(NDIM), intent(in ) :: smXYZ
-        real(rp), dimension(NDIM), intent(out) :: geo
-        real(rp), dimension(NDIM) :: sm,gsw
-        !NOTE: Need an sm dummy to call intent(inout) geopack routines
-        sm = smXYZ
-        call SMGSW_08 (sm(XDIR  ),sm(YDIR),sm(ZDIR) ,gsw(XDIR),gsw(YDIR),gsw(ZDIR),+1)
-        call GEOGSW_08(geo(XDIR),geo(YDIR),geo(ZDIR),gsw(XDIR),gsw(YDIR),gsw(ZDIR),-1)
-    end subroutine sm2geo
-
-    subroutine geo2sm(geoXYZ,sm)
-        real(rp), dimension(NDIM), intent(in ) :: geoXYZ
-        real(rp), dimension(NDIM), intent(out) :: sm
-        real(rp), dimension(NDIM) :: geo,gsw
-        !NOTE: Need a dummy to call intent(inout) geopack routines
-        geo = geoXYZ
-        call GEOGSW_08(geo(XDIR),geo(YDIR),geo(ZDIR),gsw(XDIR),gsw(YDIR),gsw(ZDIR),+1)
-        call SMGSW_08 (sm(XDIR  ),sm(YDIR),sm(ZDIR) ,gsw(XDIR),gsw(YDIR),gsw(ZDIR),-1)
-    end subroutine geo2sm
-
-    subroutine MJDRecalc(mjd)
-        real(rp), intent(in) :: mjd
-        !Do nothing
-
-        write(*,*) 'Need to add mjdrecalc ...'
-        stop
-    end subroutine MJDRecalc
 
 !=========
 !Index squashing routines

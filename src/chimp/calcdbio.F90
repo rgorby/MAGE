@@ -38,6 +38,7 @@ module calcdbio
         call inpXML%Set_Val(NLon,'Grid/NLon',90) !Number of longitudinal cells
         call inpXML%Set_Val(Nz  ,'Grid/Nz'  , 2) !Number of longitudinal cells
         call inpXML%Set_Val(gGr%rMax,'CalcDB/rMax',gGr%rMax)
+        call inpXML%Set_Val(gGr%doGEO,'Grid/doGEO',gGr%doGEO) !Whether to do GEO on ground
 
         NumP = NLat*NLon*Nz
 
