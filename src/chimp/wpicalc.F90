@@ -119,6 +119,7 @@ module wpicalc
             p0 = (gamma**2.0-1.0)*(Model%m0**2.0)
             G = sin(pa)*p0**2
 
+            !coefficients for Langevin Equation
             aCoef = dGDda/G
             bCoef = sqrt(2.0*Daa)/p0
 
@@ -438,20 +439,20 @@ module wpicalc
 
     ! adaptive step RK following the Runge-Kutta-Fehlberg Method (RKF45)
     ! http://maths.cnam.fr/IMG/pdf/RungeKuttaFehlbergProof.pdf
-    function rkf45(wave,wModel,prt,m0,astar,da) result(p1)
+    function rkf45(wave,wModel,prt,m0,astar,deltaA) result(p1)
         type(wave_T),   intent(in) :: wave
         type(wModel_T), intent(in) :: wModel
         type(prt_t),       intent(in)    :: prt
-        real(rp),          intent(in)    :: m0,astar,da
+        real(rp),          intent(in)    :: m0,astar,deltaA
         type(prt_t) :: prtTemp
         real(rp) :: u,a1,p1,aStp,pStp,kStp,xStp,yStp,uStp,y1
-        real(rp) :: tol,h,s,dah,daRem,unity,aSgn,gamma
+        real(rp) :: tol,h,s,dah,daRem,unity,aSgn,gamma,da
         real(rp) :: k1,k2,k3,k4,k5,k6 
         integer  :: Nmax,i
         logical :: doAllWaves
 
         tol = 1.0e-2
-        h   = da/100.0 !deltaA & h holds +/- direction 
+        h   = deltaA/100.0 !deltaA & h holds +/- direction 
         unity = 1.0
         doAllWaves = .true.
 
@@ -462,6 +463,13 @@ module wpicalc
         p1 = m0*sqrt(gamma**2.0-1.0)
 
         u = prt%xj/prt%yj ! phase velocity of the wave normalized by c
+
+        !catch to not go past alpha = 90 degrees
+        if ((a1 < PI/2 .and. a1+deltaA > PI/2) .or. (a1 > PI/2 .and. a1+deltaA < PI/2)) then
+            da = abs(a1-PI/2)
+        else
+            da = deltaA
+        end if
        
         i  = 0
         dah = 0
