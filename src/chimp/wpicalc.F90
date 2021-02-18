@@ -143,7 +143,7 @@ module wpicalc
             dtCum = dtCum + ddt
 
             ! Calculate the resulting updated pitch angle and energy of the particle
-            call LangevinEq(wave,wModel,Model,prt,dGDda,Daa,ddt,astar,aNew,pNew)
+            call LangevinEq(wave,wModel,Model,prt,aCoef,bCoef,ddt,astar,aNew,pNew)
 
             !Update the pitch angle
             prt%alpha = aNew
@@ -398,12 +398,12 @@ module wpicalc
     end function derivGD
 
     !Calculates the change in pitch-angle and corresponding change in momentum along the diffusion curve 
-    subroutine LangevinEq(wave,wModel,Model,prt,dGDda,Daa,dt,astar,a1,p1,constDA) 
+    subroutine LangevinEq(wave,wModel,Model,prt,aCoef,bCoef,dt,astar,a1,p1,constDA) 
         type(wave_T),   intent(in) :: wave
         type(wModel_T), intent(in) :: wModel
         type(chmpModel_T), intent(in)    :: Model
         type(prt_t),       intent(in)    :: prt
-        real(rp),          intent(in)    :: dGDda,Daa,dt,astar
+        real(rp),          intent(in)    :: aCoef,bCoef,dt,astar
         real(rp),          intent(inout) :: a1,p1   ! new pitch-angle and momentum of particle after wpi
         real(rp), intent(in), optional   :: constDA ! use a constant change in pitch angle if desired
         real(rp) :: eta,da,gamma,p0,a0,G
@@ -411,13 +411,8 @@ module wpicalc
         if (present(constDA)) then
             da = constDA
         else
-            a0 = prt%alpha
-            gamma = prt2Gam(prt,Model%m0)
-            p0 = Model%m0*sqrt(gamma**2.0-1.0)
-            G = sin(a0)*p0**2
-
             eta = genRand(-1.0_rp,1.0_rp) !generating random number between -1 and 1 for random walk eq for da
-            da = (dGDda/G)*dt + sqrt(2.0*dt*Daa)*eta/p0
+            da = aCoef*dt + bCoef*eta*sqrt(dt)
         end if
         
         a1 = prt%alpha + da
