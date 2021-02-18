@@ -25,6 +25,13 @@ os.system('rm -r unitTest2')
 os.system('mkdir unitTest1')
 os.system('mkdir unitTest2')
 
+# Copy pFUnit stuff into Kaiju External
+os.chdir(home)
+os.system('cp -r /glade/p/hao/msphere/gamshare/FARGPARSE-0.9 external')
+os.system('cp -r /glade/p/hao/msphere/gamshare/GFTL-1.1 external')
+os.system('cp -r /glade/p/hao/msphere/gamshare/GFTL_SHARED-1.0 external')
+os.system('cp -r /glade/p/hao/msphere/gamshare/PFUNIT-4.1 external')
+
 # Go back to scripts folder
 os.chdir(home)
 os.chdir("testingScripts")
@@ -71,7 +78,7 @@ os.chdir('unitTest1')
 #arguments = arguments + "cd" + home + ";"
 #arguments = arguments + "cd kaiju/unitTest1;"
 # Invoke cmake
-arguments = arguments + "cmake ../ -DALLOW_INVALID_COMPILERS=ON;"
+arguments = arguments + "cmake ../ -DALLOW_INVALID_COMPILERS=ON -DENABLE_MPI=ON;"
 # Make gamera, voltron and allTests
 arguments = arguments + "make gamera_mpi; make voltron_mpi; make allTests;"
 print(arguments)

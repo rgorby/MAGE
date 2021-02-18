@@ -42,7 +42,7 @@ tempString = ""
 
 # Get list of IC files to try (GAMERA ONLY FOR NOW)
 os.chdir(home)
-os.chdir('/src/gamera/ICs')
+os.chdir('src/gamera/ICs')
 directory = os.getcwd()
 directory = directory + "/"
 listFiles = subprocess.Popen("ls", shell=True, stdout=subprocess.PIPE)
