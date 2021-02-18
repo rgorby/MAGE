@@ -545,6 +545,7 @@ module earthhelper
         real(rp), intent(in), optional :: M0gO
         real(rp) :: dVdcol
         real(rp) :: M0g,M0,cSum,dSum,S8
+        real(rp) :: wtfgnu
 
         if (present(M0gO)) then
             M0g = M0gO
@@ -558,10 +559,19 @@ module earthhelper
         cSum = cSum/64.0
         S8 = sin(colat)**8.0
 
+        !Do cotan w/ tan b/c of gnu not having cotan by default
+        if (abs(colat)>TINY) then
+            wtfgnu = 1/tan(colat) ! = cotan(colat)
+        else
+            dVdcol = 0.0
+            return
+        endif
+
         !Deriv of csum wrt colat
         dSum = (-35.0*sin(1.0*colat) + 21.0*sin(3.0*colat) &
                 - 7.0*sin(5.0*colat) +  1.0*sin(7.0*colat) )/64.0
-        dVdcol = (2.0/S8/M0)*( -8.0*cotan(colat)*cSum + dSum )
+        dVdcol = (2.0/S8/M0)*( -8.0*wtfgnu*cSum + dSum )
 
     end function DerivDipFTV
+    
 end module earthhelper
