@@ -110,7 +110,7 @@ program wpicheck
             real(rp) :: xj,yj
             real(rp), dimension(:), allocatable   :: K0,astar !particle energies
             real(rp), dimension(:,:), allocatable :: daa_f1,pa_f1,xjs_f1,daa_f2,pa_f2
-            real(rp) :: dpa,palpha
+            real(rp) :: dpa,palpha, Kprt
 
             character(len=strLen) :: outH5 = "diffCoef.h5"
 
@@ -166,15 +166,16 @@ program wpicheck
             !Figure 1 of Summers 2005  Daa vs pa vs K
             do i=1,Nk
                 do n=1,Np
-                    prt = tpState(i)%TPs(n) 
-                    call Resonance(Model,wave,wModel,prt,astar(2),xj,yj)
+                    prt = tpState(i)%TPs(n)
+                    Kprt = prt2kev(Model,prt)/(Model%m0*mec2*1.0e+3)
+                    call Resonance(wave,wModel,Model%m0,Kprt,prt%alpha,astar(2),xj,yj)
                     if (xj == 999) then
                         xjs_f1(i,n) = xj
                         daa_f1(i,n) = xj
                         pa_f1(i,n)  = xj
                     else
                         xjs_f1(i,n) = xj
-                        Daa = DiffCoef(Model,wave,wModel,prt,astar(2),B0,xj,yj) 
+                        Daa = DiffCoef(wave,wModel,Model%m0,Kprt,prt%alpha,astar(2),B0,xj,yj) 
                         daa_f1(i,n) = Daa/oTScl
                         pa_f1(i,n)  = prt%alpha*rad2deg
                     end if
@@ -184,13 +185,14 @@ program wpicheck
             !Figure 2 of Summers 2005 Daa vs pa vs astar
             do j=1,Nas
                 do n=1,Np
-                   prt = tpState(3)%TPs(n) !take 1 MeV particles
-                   call Resonance(Model,wave,wModel,prt,astar(j),xj,yj)
-                   if (xj == 999) then
+                    prt = tpState(3)%TPs(n) !take 1 MeV particles
+                    Kprt = prt2kev(Model,prt)/(Model%m0*mec2*1.0e+3)
+                    call Resonance(wave,wModel,Model%m0,Kprt,prt%alpha,astar(j),xj,yj)
+                    if (xj == 999) then
                         daa_f2(j,n) = xj
                         pa_f2(j,n)  = xj
                     else
-                        Daa = DiffCoef(Model,wave,wModel,prt,astar(j),B0,xj,yj) 
+                        Daa = DiffCoef(wave,wModel,Model%m0,Kprt,prt%alpha,astar(j),B0,xj,yj) 
                         daa_f2(j,n) = Daa/oTScl
                         pa_f2(j,n)  = prt%alpha*rad2deg
                     end if
@@ -225,8 +227,8 @@ program wpicheck
             real(rp), dimension(5) :: K0
             integer :: Na,Np,n,i,j
             real(rp), dimension(:,:), allocatable :: p11,pperp,Ks, xjs
-            real(rp) :: xj,yj,da,dp,Daa,ddt !Daa and ddt not used, using const da
-            real(rp) :: gamOld,gamNew,aNew,pMag,Mu,p11Mag
+            real(rp) :: xj,yj,da,dp,Daa,ddt,dGDda !Daa, ddt, dGDda are not used, using const da
+            real(rp) :: gamOld,gamNew,aNew,pNew,Mu,p11Mag,Kprt
             integer :: pSgn=1
 
             character(len=strLen) :: outH5 = "diffCurve.h5"
@@ -238,6 +240,7 @@ program wpicheck
             psi0=0
             astar=1.0 ![1,3,10]
             Daa=0.0001 ! arbitrary, not used
+            dGDda = 0.5 ! arbitrary, not used
             ddt=0.05
 
             !manually set diff curve test to allow resonance with all waves
@@ -280,7 +283,11 @@ program wpicheck
             do i=1,Np 
                 prt = tpState%TPs(i)
                 do j=1,Na
-                    call Resonance(Model,wave,wModel,prt,astar,xj,yj)
+                    Kprt = prt2kev(Model,prt)/(Model%m0*mec2*1.0e+3)
+                    call Resonance(wave,wModel,Model%m0,Kprt,prt%alpha,astar,xj,yj)
+                    prt%xj = xj
+                    prt%yj = yj
+
                     !save particle state before Updating
                     p11(i,j) = prt%Q(P11GC)
                     pperp(i,j) = sqrt(abs(prt%Q(MUGC))*2*B0*Model%m0)
@@ -288,10 +295,9 @@ program wpicheck
                     Ks(i,j) = prt2kev(Model,prt)/1000.0 ![MeV]
 
                     ! Calculate the resulting change in pitch angle and energy of the particle
-                    call DiffCurve(Model,prt,Daa,ddt,xj,yj,da,dp,dAlim)
+                    call LangevinEq(wave,wModel,Model,prt,dGDda,Daa,ddt,astar,aNew,pNew,dAlim)
 
                     !Update the pitch angle
-                    aNew = prt%alpha + da
                     prt%alpha = aNew
 
                     if (aNew <= PI/2) then
@@ -300,10 +306,8 @@ program wpicheck
                         pSgn = -1
                     endif
                     !Updating the particle momentum and energy
-                    gamOld = prt2Gam(prt,Model%m0)
-                    pMag = Model%m0*sqrt(gamOld**2.0 - 1.0)+dp !dp is scalar and change in total momentum
-                    p11Mag = pSgn*pMag*sqrt( 1 - sin(aNew)**2.0 )
-                    gamNew = sqrt(1+(pMag/Model%m0)**2.0)
+                    p11Mag = pSgn*pNew*sqrt( 1 - sin(aNew)**2.0 )
+                    gamNew = sqrt(1+(pNew/Model%m0)**2.0)
                     Mu = ( (Model%m0**2)*(gamNew**2.0 - 1.0) - p11Mag*p11Mag) / (2*Model%m0*B0)
                     prt%Q(P11GC) = p11Mag
                     prt%Q(MUGC ) = Mu 
@@ -335,7 +339,7 @@ program wpicheck
             real(rp) :: B0 ![nT] uniform background field (arbitrary)
             real(rp) :: K0, alpha0,psi0,astar
             real(rp) :: xj,yj !Daa and ddt not used, using const da
-            real(rp) :: p11,pperp,alpha,K,Daa
+            real(rp) :: p11,pperp,alpha,K,Daa,Kprt
 
             !setting values
             B0     = 344.0
@@ -354,9 +358,10 @@ program wpicheck
 
             call createPrts(Model,prt,K0,alpha0,psi0,B0)
 
-            call Resonance(Model,wave,wModel,prt,astar,xj,yj)
+            Kprt = prt2kev(Model,prt)/(Model%m0*mec2*1.0e+3)
+            call Resonance(wave,wModel,Model%m0,Kprt,prt%alpha,astar,xj,yj)
 
-            Daa = DiffCoef(Model,wave,wModel,prt,astar,B0,xj,yj)
+            Daa = DiffCoef(wave,wModel,Model%m0,Kprt,prt%alpha,astar,B0,xj,yj)
 
             p11 = prt%Q(P11GC)
             alpha = prt%alpha/deg2rad

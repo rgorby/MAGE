@@ -33,12 +33,10 @@ module wpifuns
     !Resonant root function type
     !Returns resonant root in unitless variables (divided by gyrofrequency)
     abstract interface
-        subroutine ResFun_T(Model,wave,prt,astar,x,y) 
-            import :: rp,prt_T,chmpModel_T,wave_T
-            type(chmpModel_T), intent(in) :: Model
-            type(prt_T), intent(in) :: prt
+        subroutine ResFun_T(wave,m0,K,alpha,astar,x,y) 
+            import :: rp,wave_T
             type(wave_T), intent(in) :: wave
-            real(rp), intent(in) :: astar
+            real(rp), intent(in) :: m0,K,alpha,astar
             real(rp), dimension(:), allocatable, intent(out) :: x,y
         end subroutine ResFun_T
     end interface
@@ -121,34 +119,32 @@ module wpifuns
     !variable notation similar to Summers et al. 2005
 
     !Calculates the unitless wave number of the resonant root from the resonance criteria
-    subroutine resCrit(Model,wave,prt,astar,xj,yj)
-        type(chmpModel_T), intent(in) :: Model
+    subroutine resCrit(wave,m0,K,pa,astar,xj,yj)
         type(wave_T), intent(in) :: wave
-        type(prt_t), intent(in) :: prt
-        real(rp), intent(in) :: astar
+        real(rp), intent(in) :: astar,K,pa,m0
         real(rp), dimension(:), allocatable, intent(inout) :: xj, yj
-        real(rp) :: a,mu,K,beta
+        real(rp) :: a,mu,beta,gamma,Km
 
-        a = wave%s*wave%lam/prt2Gam(prt,Model%m0)
-        mu = cos(prt%alpha)
-        K = prt2kev(Model,prt)/(Model%m0*mec2*1.0e+3) ! normalized energy 
-        beta = sqrt(K*(K+2.0))/(K+1.0) !beta = v/c
+        Km = K/m0
+        gamma = Km + 1.0
+        a = wave%s*wave%lam/gamma
+        mu = cos(pa) 
+        beta = sqrt(Km*(Km+2.0))/(Km+1.0) !beta = v/c
         yj = (xj+a)/(beta*mu) !resonance criteria [see Eq 24 of Summers 2005 for notation]
 
     end subroutine resCrit
 
     !Solving the generalized resonance condition for particles with 90 deg pitch angles (A2/3 of Summers 2005)
-    subroutine res90deg(Model,wave,prt,astar,xjs,yjs)
-        type(chmpModel_T), intent(in) :: Model
+    subroutine res90deg(wave,m0,K,astar,xjs,yjs)
         type(wave_T), intent(in) :: wave
-        type(prt_t), intent(in) :: prt
-        real(rp), intent(in) :: astar
+        real(rp),     intent(in) :: m0,K, astar
         real(rp), dimension(:), allocatable, intent(out) :: xjs,yjs
-        real(rp) :: a,b,s,y0
+        real(rp) :: a,b,s,y0,gamma
 
+        gamma = K/m0 + 1.0
         b = (1.0+memp)/astar
         s = wave%s
-        a = s*wave%lam/prt2Gam(prt,Model%m0)
+        a = s*wave%lam/gamma
 
         y0 = abs(a)*sqrt(1.+b/((a+s)*(s*memp-a)))
         
@@ -158,24 +154,23 @@ module wpifuns
     end subroutine res90deg
 
     ! Calculating the value of the critical root to remove the singularity if necessary (Appendix B of Summers 2005)
-    subroutine criticalRoot(Model,wave,prt,astar,xjs,yjs)
-        type(chmpModel_T), intent(in) :: Model
+    subroutine criticalRoot(wave,m0,K,astar,xjs,yjs)
         type(wave_T), intent(in) :: wave
-        type(prt_t), intent(in) :: prt
-        real(rp), intent(in) :: astar
+        real(rp), intent(in) :: m0,K, astar
         real(rp), dimension(2), intent(out) :: xjs, yjs
         complex(rp), dimension(NROOTS) :: roots
         complex(rp), dimension(NROOTS+1) :: coef
         real(rp), allocatable :: xc(:),yc(:)
-        real(rp) :: a,b,s,K,beta
+        real(rp) :: a,b,s,gamma,beta,Km
         complex(rp) :: b0,b1,b2,b3,b4
 
+        Km = K/m0
+        gamma = Km + 1.0
         b = (1.0+memp)/astar
         s = wave%s
-        a = s*wave%lam/prt2Gam(prt,Model%m0)
+        a = s*wave%lam/gamma
 
-        K = prt2kev(Model,prt)/(Model%m0*mec2*1.0e+3) ! normalized energy 
-        beta = sqrt(K*(K+2.0))/(K+1.0) !v/c
+        beta = sqrt(Km*(Km+2.0))/(Km+1.0) !v/c
 
         b0 = 1.0
         b1 = 2.0*s*(-1.0+memp)+b/a
@@ -222,27 +217,24 @@ module wpifuns
     end function epVg
 
     !Solving resonance for generalized plasma of protons and electrons (Appendix A of Summers 2005)
-    subroutine epResRoots(Model,wave,prt,astar,xjs,yjs)
-        type(chmpModel_T), intent(in) :: Model
-        type(prt_T), intent(in) :: prt
+    subroutine epResRoots(wave,m0,K,alpha,astar,xjs,yjs)
         type(wave_T), intent(in) :: wave
-        real(rp), intent(in) :: astar
+        real(rp), intent(in) :: m0, K, alpha, astar
         complex(rp), dimension(NROOTS) :: roots
         complex(rp), dimension(NROOTS+1) :: coef
         real(rp), dimension(:), allocatable, intent(out) :: xjs, yjs
-        real(rp) :: a,b,s,mu,beta,denom,alpha,gamma,K
+        real(rp) :: a,b,s,mu,beta,denom,gamma,Km
         complex(rp) :: a0,a1,a2,a3,a4 !polunomial coefficients
 
-        alpha = prt%alpha
-        gamma = prt2Gam(prt,Model%m0)
-        K = prt2kev(Model,prt)/(Model%m0*mec2*1.0e+3) !in code units
+        Km = K/m0
+        gamma = Km + 1.0
 
         b = (1.0+memp)/astar
         s = wave%s
         a = s*wave%lam/gamma
 
         mu = cos(alpha)
-        beta = sqrt(K*(K+2.0))/(K+1.0)
+        beta = sqrt(Km*(Km+2.0))/(Km+1.0)
 
         denom = 1.0-((beta*mu)**2.0)
 
@@ -258,20 +250,20 @@ module wpifuns
 
         ! Keeping roots that are positive, below the gyrofrequency (xj<1), and real (others are non-physical)
         xjs = pack(roots, (real(roots)>0 .and. real(roots)<1 .and. aimag(roots) == 0))
-        call resCrit(Model,wave,prt,astar,xjs,yjs)
+        call resCrit(wave,m0,K,alpha,astar,xjs,yjs)
 
     end subroutine epResRoots
 
     !Returns kinetic energy of particle needed to resonate with given wave (takes in dimensionless w and k)
     !Assumes all energy is in the 11 direction
-    function Kres_whistleR(x,astar) result(Kres)
-        real(rp), intent(in) :: x,astar
+    function Kres_whistleR(x,astar,m0) result(Kres)
+        real(rp), intent(in) :: x,astar,m0
         real(rp) :: y,gamma,Kres
 
         !calculating minimum wavenumber (ymin) of given wave from dispersion relation
         y = sqrt(x/(astar*(1.-x))) ! Take wave moving in same direction as B
         gamma = (x - y*sqrt(y**2.-x**2.+1.))/(x**2.-y**2.) 
-        Kres = (gamma-1.) !returns min kinetic energy (K) in chimp units
+        Kres = m0*(gamma-1.) !returns min kinetic energy (K) in chimp units
 
     end function Kres_whistleR
 
