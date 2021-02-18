@@ -1,8 +1,13 @@
 ! Constants for RCM
 
 module rcmdefs
-    use kdefs, ONLY: ip,rp
+
+    ! preventing ip and rp from polluting rcm due to use association
+    use kdefs, ONLY: kip => ip, krp => rp
+
     implicit none
+
+    private kip,krp
 
     INTEGER, parameter :: RCMIOVARS = 50
 
@@ -26,9 +31,9 @@ module rcmdefs
     LOGICAL, PARAMETER :: isGAMRCM = .TRUE. !Whether running coupled to Gamera
     LOGICAL, PARAMETER :: doQuietRCM = .TRUE.
     LOGICAL, PARAMETER :: doDiskWrite = .FALSE.
-    integer(ip), parameter :: RCMTOPCLOSED=-1,RCMTOPOPEN=+1,RCMTOPNULL=0
-    REAL(rp) :: DenPP0 = 10.0 !Defining plasmasphere density cutoff, [#/cc]
-    REAL(rp) :: PSPHKT = 1.0e-3 !Characteristic temperature for plasmasphere [keV]
-    REAL(rp), PARAMETER :: machine_tiny = 1.0e-32
+    integer(kip), parameter :: RCMTOPCLOSED=-1,RCMTOPOPEN=+1,RCMTOPNULL=0
+    REAL(krp) :: DenPP0 = 10.0 !Defining plasmasphere density cutoff, [#/cc]
+    REAL(krp) :: PSPHKT = 1.0e-3 !Characteristic temperature for plasmasphere [keV]
+    REAL(krp), PARAMETER :: machine_tiny = 1.0e-32
 
 end module rcmdefs

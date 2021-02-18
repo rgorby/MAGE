@@ -26,8 +26,8 @@ MODULE conversion_module
 
     !Calculates difference of erfs - diff of exps, i.e. Eqn B5 from Pembroke+ 2012
     function erfexpdiff(A,xp,xm) result(eta)
-      real(rp), intent(in) :: A,xp,xm
-      real(rp) :: eta
+      real(rprec), intent(in) :: A,xp,xm
+      real(rprec) :: eta
 
       real(qp) :: qp,qm,tp,tm,ep,em,erfdiff,expdiff,etaq
       qp = xp

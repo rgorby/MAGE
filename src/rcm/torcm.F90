@@ -1115,19 +1115,19 @@ MODULE torcm_mod
 
 !
 !======================================
-      subroutine allocate_conversion_arrays(isize,jsize,kcsize)
+      subroutine allocate_conversion_arrays(isz,jsz,kcsz)
 ! used to allocate memory for the exchange arrays      
 ! 7/09 frt
       use conversion_module
       implicit none
-      integer(iprec),intent(in) :: isize,jsize,kcsize
+      integer(iprec),intent(in) :: isz,jsz,kcsz
       integer(iprec) :: idim,jdim,kdim
 ! if the arrays are allocated, then return
       if(allocated(x0))return
 
-      idim = isize
-      jdim = jsize
-      kdim = kcsize
+      idim = isz
+      jdim = jsz
+      kdim = kcsz
 
       write(*,*)' Allocating conversion arrays'
 

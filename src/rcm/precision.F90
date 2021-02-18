@@ -1,7 +1,8 @@
 module rcm_precision
-    !use kdefs, ONLY: ip,rp,PI,strLen,Me_cgs,Mp_cgs
-    use kdefs, ONLY: ip,rp
+    ! preventing rcm namespace pollution
+    use kdefs, ONLY: kip => ip, krp => rp
+    private kip,krp
   ! use gamera precision
-    INTEGER, PARAMETER :: iprec = ip
-    INTEGER, PARAMETER :: rprec = rp
+    INTEGER, PARAMETER :: iprec = kip
+    INTEGER, PARAMETER :: rprec = krp
 end module rcm_precision

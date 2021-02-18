@@ -517,7 +517,7 @@ module voltapp
         inpXML = New_XML_Input(trim(xmlStr),"Chimp",.true.)
 
     !Initialize model
-        associate(Model=>ebTrcApp%ebModel,ebState=>ebTrcApp%ebState,ebGr=>ebState%ebGr,Gr=>gApp%Grid)
+        associate(Model=>ebTrcApp%ebModel,ebState=>ebTrcApp%ebState,ebGr=>ebTrcApp%ebState%ebGr,Gr=>gApp%Grid)
         call setUnits (Model,inpXML)
         Model%T0   = 0.0
         Model%tFin = 0.0

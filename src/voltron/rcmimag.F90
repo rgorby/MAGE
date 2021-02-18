@@ -588,8 +588,8 @@ module rcmimag
             call ClampMap(eta)
             call ClampMap(zeta)
             !Calculate weights
-            call Wgt1D(eta,wE)
-            call Wgt1D(zeta,wZ)
+            call weight1D(eta,wE)
+            call weight1D(zeta,wZ)
 
             n = 1
             do dj=-1,+1
@@ -613,7 +613,7 @@ module rcmimag
         !1D weights for triangular shaped cloud interpolation
         !Assuming on -1,1 reference element, dx=1
         !Check for degenerate cases ( |eta| > 0.5 )
-        subroutine Wgt1D(eta,wE)
+        subroutine weight1D(eta,wE)
             real(rp), intent(in)  :: eta
             real(rp), intent(out) :: wE(-1:1)
 
@@ -621,7 +621,7 @@ module rcmimag
             wE( 1) = 0.5*(0.5+eta)**2.0
             wE( 0) = 0.75 - eta**2.0
 
-        end subroutine Wgt1D
+        end subroutine weight1D
 
         !Clamps mapping in [-0.5,0.5]
         subroutine ClampMap(ez)

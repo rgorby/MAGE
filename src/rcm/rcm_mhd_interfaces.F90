@@ -8,14 +8,14 @@ module rcm_mhd_interfaces
     USE Rcm_mod_subs, ONLY : isize, jsize, jwrap, doRCMVerbose
     USE rcmdefs, ONLY : RCMTOPCLOSED,RCMTOPNULL,RCMTOPOPEN
     implicit none
-    integer(ip), parameter :: RCMINIT=0,RCMADVANCE=1,RCMRESTART=2,RCMWRITERESTART=-2,RCMWRITEOUTPUT=-3,RCMWRITETIMING=-1
-    integer(ip), parameter :: RCMCOLDSTART=10
+    integer(iprec), parameter :: RCMINIT=0,RCMADVANCE=1,RCMRESTART=2,RCMWRITERESTART=-2,RCMWRITEOUTPUT=-3,RCMWRITETIMING=-1
+    integer(iprec), parameter :: RCMCOLDSTART=10
     !logical :: doRCMVerbose = .TRUE.
     logical :: doColdstart =.true.
 
     !Scaling parameters
-    real(rp), parameter :: rcmPScl = 1.0e+9 !Convert Pa->nPa
-    real(rp), parameter :: rcmNScl = 1.0e-6 !Convert #/m3 => #/cc
+    real(rprec), parameter :: rcmPScl = 1.0e+9 !Convert Pa->nPa
+    real(rprec), parameter :: rcmNScl = 1.0e-6 !Convert #/m3 => #/cc
 
     type rcm_mhd_T
         real(rprec) :: llBC !MHD low-latitude boundary (radians)
