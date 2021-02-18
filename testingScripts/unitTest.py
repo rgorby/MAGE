@@ -13,12 +13,13 @@ slack_token = os.environ["SLACK_BOT_TOKEN"]
 print(slack_token)
 client = WebClient(token=slack_token)
 
-# Get the home directory
-home = expanduser("~")
+# Get CWD and set main kaiju folder to "home"
+orig = os.getcwd()
+os.chdir('..')
+home = os.getcwd()
 
 # Delete everything in the unitTest folder
 os.chdir(home)
-os.chdir("kaiju")
 os.system('rm -r unitTest1')
 os.system('rm -r unitTest2')
 os.system('mkdir unitTest1')
@@ -26,7 +27,7 @@ os.system('mkdir unitTest2')
 
 # Go back to scripts folder
 os.chdir(home)
-os.chdir("kaiju/testingScripts")
+os.chdir("testingScripts")
 
 iteration = 1
 
@@ -66,7 +67,7 @@ for line in ModuleList[0]:
 # BUILD EXECUTABLES AND TESTS
 # Move to the correct test folder
 os.chdir(home)
-os.chdir('kaiju/unitTest1')
+os.chdir('unitTest1')
 #arguments = arguments + "cd" + home + ";"
 #arguments = arguments + "cd kaiju/unitTest1;"
 # Invoke cmake
@@ -101,7 +102,7 @@ subprocess.call(arguments, shell=True)
 # Submitting the test
 # Go to correct directory
 os.chdir(home)
-os.chdir('kaiju/tests')
+os.chdir('tests')
 #arguments = "qsub runNonCaseTests.pbs"
 #print(arguments)
 #submission = subprocess.call(arguments, shell=True, stdout=subprocess.PIPE)
@@ -115,7 +116,7 @@ subprocess.call("cp runNonCaseTests.pbs ../unitTest1/bin", shell=True)
 subprocess.call("cp runCaseTests.pbs ../unitTest1/bin", shell=True)
 
 os.chdir(home)
-os.chdir('kaiju/unitTest1/bin')
+os.chdir('unitTest1/bin')
 
 arguments = "qsub runCaseTests.pbs"
 print(arguments)
