@@ -127,26 +127,6 @@
       end if
 
 
-      ! this writes a file for plotting (I think... /ss):
-
-      OPEN (LUN, FILE = rcmdir//grid_file, status='UNKNOWN')
-      DO j = 1, jsize
-      do i = imin, isize
-         x0(i,j) = (Ri/Re)*SIN(colat(i,j))*COS(aloct(i,j))
-         y0(i,j) = (Ri/Re)*SIN(colat(i,j))*SIN(aloct(i,j))
-         z0(i,j) = (Ri/Re)*COS(colat(i,j))
-         WRITE (LUN,'(2(1x,i3),4(1x,f10.4))') &
-                 i,j,x0(i,j),y0(i,j),z0(i,j)
-200      FORMAT (TR2,a2,TR7,a5,TR10,a10,TR4,a5)
-201      FORMAT (TR1,i3,TR5,f12.8,TR3,f12.8) 
-      END DO
-      END DO
-      CLOSE (LUN)
-
-
-      CALL Write_grid  ! this writes standard RCM grid files
-
-
       RETURN
       CONTAINS
 !

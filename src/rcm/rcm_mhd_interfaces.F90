@@ -5,12 +5,12 @@
 module rcm_mhd_interfaces
     USE kdefs, ONLY : strLen
     USE rcm_precision
-    USE Rcm_mod_subs, ONLY : isize, jsize, jwrap
+    USE Rcm_mod_subs, ONLY : isize, jsize, jwrap, doRCMVerbose
     USE rcmdefs, ONLY : RCMTOPCLOSED,RCMTOPNULL,RCMTOPOPEN
     implicit none
     integer(ip), parameter :: RCMINIT=0,RCMADVANCE=1,RCMRESTART=2,RCMWRITERESTART=-2,RCMWRITEOUTPUT=-3,RCMWRITETIMING=-1
     integer(ip), parameter :: RCMCOLDSTART=10
-    logical :: doRCMVerbose = .FALSE.
+    !logical :: doRCMVerbose = .TRUE.
     logical :: doColdstart =.true.
 
     !Scaling parameters
