@@ -14,19 +14,20 @@ slack_token = os.environ["SLACK_BOT_TOKEN"]
 print(slack_token)
 client = WebClient(token=slack_token)
 
-# Get the home directory
-home = expanduser("~")
+# Get CWD and set kaiju to "home"
+orig = os.getcwd()
+os.chdir('..')
+home = os.getcwd()
 
 # Delete everything in the unitTest folder
 os.chdir(home)
-os.chdir("kaiju")
 os.system('rm -r intelChecks')
 os.system('mkdir intelChecks')
 
 
 # Go back to scripts folder
 os.chdir(home)
-os.chdir("kaiju/testingScripts")
+os.chdir("testingScripts")
 
 iteration = 1
 
@@ -66,24 +67,24 @@ for line in ModuleList[0]:
 # BUILD EXECUTABLES AND TESTS
 # Move to the correct test folder
 os.chdir(home)
-os.chdir('kaiju/intelChecks')
+os.chdir('intelChecks')
 #arguments = arguments + "cd" + home + ";"
 #arguments = arguments + "cd kaiju/unitTest1;"
 # Invoke cmake
-arguments = arguments + "cmake ../ -DALLOW_INVALID_COMPILERS=ON;"
+arguments = arguments + "cmake ../ -DALLOW_INVALID_COMPILERS=ON -DENABLE_MPI=ON;"
 # Make gamera, voltron and allTests
 arguments = arguments + "make gamera_mpi; make voltron_mpi;"
 print(arguments)
 subprocess.call(arguments, shell=True)
 
 os.chdir(home)
-os.chdir('kaiju/testingScripts')
+os.chdir('testingScripts')
 subprocess.call("cp tinyCase.xml ../intelChecks/bin", shell=True)
 subprocess.call("cp intelCheckSubmit.pbs ../intelChecks/bin", shell=True)
 
 # SUBMIT INTEL CHECK JOBS
 os.chdir(home)
-os.chdir('kaiju/intelChecks/bin')
+os.chdir('intelChecks/bin')
 arguments = 'qsub intelCheckSubmit.pbs'
 print(arguments)
 submission = subprocess.Popen(arguments, shell=True, stdout=subprocess.PIPE)
