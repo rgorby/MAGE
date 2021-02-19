@@ -155,8 +155,8 @@ module rcm_mhd_mod
                 write(6,*) 'itimei = ', itimei
                 write(6,*) 'exchangeNum = ', exchangeNum
                 WRITE (6,'(//)')
-                write (6,'(a,f12.4,a,f12.4,a,i4)') 'RCM: time=',itimei,'  time0=',time0, '  Delta_t[s]=',ircm_dt
-                write (6,'(a,i6,a,f12.4)') 'RCM: _T_rcm[s] =', itimei, ' T_MHD=',mhdtime
+                write (6,'(a,f12.4,a,f12.4,a,f12.4)') 'RCM: time=',itimei,'  time0=',time0, '  Delta_t[s]=',ircm_dt
+                write (6,'(a,f12.4,a,f12.4)') 'RCM: _T_rcm[s] =', itimei, ' T_MHD=',mhdtime
                 WRITE (6,'(//)')
             endif
          
@@ -213,7 +213,7 @@ module rcm_mhd_mod
 
             call cpu_time(t1)
             if (doRCMVerbose) then 
-                write(6,'(a,f12.4,a,f12.4,a,i5,a)')'RCM: call rcm at itimei =',itimei,' to itimef =',itimef,' dt=',ircm_dt, ' sec'
+                write(6,'(a,f12.4,a,f12.4,a,f12.4,a)')'RCM: call rcm at itimei =',itimei,' to itimef =',itimef,' dt=',ircm_dt, ' sec'
                 call print_date_time(6_iprec)
             endif
 
