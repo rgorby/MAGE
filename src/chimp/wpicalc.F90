@@ -434,7 +434,7 @@ module wpicalc
         unity = 1.0
         doAllWaves = .true.
 
-        aSgn = sign(unity,da)
+        aSgn = sign(unity,deltaA)
         a1 = prt%alpha
 
         gamma = prt2Gam(prt,m0)
@@ -444,7 +444,7 @@ module wpicalc
 
         !catch to not go past alpha = 90 degrees
         if ((a1 < PI/2 .and. a1+deltaA > PI/2) .or. (a1 > PI/2 .and. a1+deltaA < PI/2)) then
-            da = abs(a1-PI/2)
+            da = aSgn*abs(a1-PI/2)
         else
             da = deltaA
         end if
