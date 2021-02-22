@@ -54,8 +54,7 @@ module wpihelper
     contains
 
     !Initialize the wave
-    subroutine initWPI(Model,wModel,wave,inpXML)
-        type(chmpModel_T), intent(inout) :: Model
+    subroutine initWPI(wModel,wave,inpXML)
         type(wModel_T), intent(inout) :: wModel
         type(wave_T), intent(inout) :: wave
         type(XML_Input_T), intent(inout) :: inpXML

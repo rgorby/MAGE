@@ -99,7 +99,7 @@ module userebic
 
         !Initialize wave particle interactions if present
         if ( Model%doWPI ) then
-            call initWPI(Model,ebState%ebWmodel,ebState%ebWave,inpXML)
+            call initWPI(ebState%ebWmodel,ebState%ebWave,inpXML)
         endif
         
         !Initialize eb data, find time slices
