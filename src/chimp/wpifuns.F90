@@ -99,6 +99,30 @@ module wpifuns
 
     end subroutine initWPI
 
+
+    !!!!!!!!!!!FIXME: need to add capability to sum over mulitple roots!!!!!!!!!!!!
+    !Calculates diffusion coefficient assuming wave spectrum is Gaussian (Summers 2005 eq 33)
+    function DiffCoef(wave,wModel,m0,K,pa,astar,B0,xj,yj) result(Daa)
+        type(wave_T), intent(in) :: wave
+        type(wModel_T), intent(in) :: wModel
+        real(rp), intent(in) :: m0,K,pa,astar,B0,xj,yj
+        real(rp) :: beta,R,Ome,DScl,Fxy,Daa,Km
+
+        Km = K/m0
+        beta = sqrt(Km*(Km+2.0))/(Km+1.0) ! beta = v/c
+        R = (wModel%B1/B0)**2  !ratio of the wave amplitude to background field strength
+        Ome = B0 ! normalized non-relativistic electron gyrofrequency, has Om^2/Ome therefore dont need sign of q
+
+        DScl = (PI/2.0)*abs(Ome)*(K+1)**(-2.0)
+
+        Fxy = Vg(wave,astar,xj,yj)
+
+        Daa = R*(1.0-xj*cos(pa)/(yj*beta))**2*(abs(Fxy)/abs(beta*cos(pa)-Fxy))*waveSpec(wModel,xj)
+
+        Daa = DScl*Daa
+
+    end function DiffCoef
+
     !!!!!!!!!!!!!!!!! Wave Model Related Functions !!!!!!!!!!!!!!!!!!!!
     !assuming gaussian wave frequency spectrum
     function gaussWS(wModel,x) result(Ws)
