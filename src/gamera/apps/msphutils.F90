@@ -95,6 +95,14 @@ module msphutils
             Psi0 = EarthPsi0 !kV
             Rion = RionE*1.e6/gx0 ! Radius of ionosphere in code units (RionE defined in kdefs in 1000km)
             Model%doGrav = .true.
+        !For Earth redo some XML parameters w/ different defaults
+            call SetFloorsWDefs(Model,xmlInp,1.0e-4_rp,1.0e-6_rp)
+            call xmlInp%Set_Val(Model%doCPR,'timestep/doCPR',.true.)
+            if (Model%doCPR) then
+                !Ratio of dt0 to start CPR
+                call xmlInp%Set_Val(Model%limCPR,'timestep/limCPR',0.25)
+            endif
+
         case("Saturn","saturn","SATURN")
             gx0 = RSaturnXE*REarth  ! [m]
             gv0 = 100.0e+3    ! [m/s]

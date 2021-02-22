@@ -176,9 +176,9 @@ module gridloc
                 inDomain=>inDomain_LFM
                 !Set bounds for yz-cylinder grid
                 !Choose appropriate for RCM coupling
-                call inpXML%Set_Val(DomE(1),'domain/xSun' , 20.0_rp)
-                call inpXML%Set_Val(DomE(2),'domain/xTail',-45.0_rp)
-                call inpXML%Set_Val(DomE(3),'domain/yzMax', 35.0_rp)
+                call inpXML%Set_Val(DomE(1),'domain/xSun' ,  25.0_rp)
+                call inpXML%Set_Val(DomE(2),'domain/xTail',-100.0_rp)
+                call inpXML%Set_Val(DomE(3),'domain/yzMax',  40.0_rp)
             case("EGG")
                 write(*,*) 'Using EGG inDomain'
                 inDomain=>inDomain_Egg

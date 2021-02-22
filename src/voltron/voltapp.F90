@@ -73,7 +73,7 @@ module voltapp
         doDelayIO = .false.
         if (doSpin .and. (.not. gApp%Model%isRestart)) then
             !Doing spinup and not a restart
-            call xmlInp%Set_Val(tSpin,"spinup/tSpin",3600.0) !Default two hours
+            call xmlInp%Set_Val(tSpin,"spinup/tSpin",7200.0) !Default two hours
             !Rewind Gamera time to negative tSpin (seconds)
             gApp%Model%t = -tSpin/gTScl 
             !Reset State/oState

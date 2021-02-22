@@ -97,7 +97,7 @@
 !
 !
     LOGICAL ::  L_move_plasma_grid = .TRUE.
-    LOGICAL ::  L_doOMPClaw        = .FALSE.
+    LOGICAL ::  L_doOMPClaw        = .TRUE.
     LOGICAL ::  L_doOMPprecip      = .FALSE.
 !
 !
