@@ -20,11 +20,12 @@ module wpicalc
 
     !FIXME: include capability of particle interaction with multiple waves
     !Main subroutine for wave particle inteactions
-    subroutine PerformWPI(prt,t,dt,Model,ebState)
+    subroutine PerformWPI(prt,t,dt,Model,ebState,constB0,constNe)
         type(prt_t), intent(inout) :: prt
         real(rp), intent(in) :: t,dt ! Note: dt is substep size for particle (ddt in pusher.F90)
         type(chmpModel_T), intent(in) :: Model
         type(ebState_T), intent(in)   :: ebState
+        real(rp), optional, intent(in)   :: constB0,constNe ! use constant values for B0 and ne, usefull for testing
         type(wave_T) :: wave
         type(wModel_T) :: wModel
         
@@ -64,17 +65,26 @@ module wpicalc
         if (.not. doWave) return ! no waves so exit
 
         !Get MHD density
-        if (Model%doMHD) then
-            Qmhd = mhdInterp(r,t,Model,ebState)
-            rho = Qmhd(DEN)
+        if (present(constNe)) then
+            rho = constNe
         else 
-            write(*,*) 'PerformWPI: Exiting.... no access to full MHD variables, set doMHD to true'
-            stop
+            if (Model%doMHD) then
+                Qmhd = mhdInterp(r,t,Model,ebState)
+                rho = Qmhd(DEN)
+            else 
+                write(*,*) 'PerformWPI: Exiting.... no access to full MHD variables, set doMHD to true'
+                stop
+            endif
         endif
 
-        call ebFields(r,t,Model,ebState,E,B,ijkO=prt%ijk0,vExB=vExB)
-        call MagTriad(r,B,xhat,yhat,bhat)
-        MagB = max(norm2(B),TINY)
+        !pull background magnetic field strength
+        if (present(constB0)) then
+            MagB = constB0
+        else 
+            call ebFields(r,t,Model,ebState,E,B,ijkO=prt%ijk0,vExB=vExB)
+            call MagTriad(r,B,xhat,yhat,bhat)
+            MagB = max(norm2(B),TINY)
+        endif
 
         !Calulating the ratio of nonrelativistic gyrofrequency to plasma frequency at prt's location
         !normalization constant to put wpe in code units

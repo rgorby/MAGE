@@ -5,6 +5,7 @@ program wpicheck
     use chmpunits
     use ioH5
     use tptypes
+    use tputils
     use starter
     use wpicalc
     use wpitypes
@@ -14,9 +15,8 @@ program wpicheck
 
     !Main data structures
     type(chmpModel_T) :: Model
-    type(tpState_T)   :: tpState_daa
     type(wave_T) :: wave
-    type(wModel_T)   :: wModel_daa
+    type(wModel_T)   :: wModel_1prt
     type(XML_Input_T) :: inpXML
 
     integer, parameter :: MAXIOVAR = 50
@@ -31,13 +31,15 @@ program wpicheck
     call getSpecies(sStr,Model%m0,Model%q0)
 
     !use xml to set up daa test
-    call initWPI(Model,wModel_daa,wave,inpXML)
+    call initWPI(wModel_1prt,wave,inpXML)
 
-    call DiffCoef_summers05(Model,wave,wModel_daa,inpXML)
+    call singlePrtDiff(Model,wave,wModel_1prt,inpXML)
+
+    call DiffCoef_summers05(Model,wave,inpXML)
 
     call diffCurve_summers98(Model,wave)
 
-    call resTest(Model,wave,wModel_daa)
+    call resTest(Model,wave,wModel_1prt)
 
     contains
 
@@ -95,15 +97,14 @@ program wpicheck
             prt%ddt = 0.0
         end subroutine createPrts
 
-        subroutine DiffCoef_summers05(Model,wave,wModel,inpXML)
+        subroutine DiffCoef_summers05(Model,wave,inpXML)
             type(chmpModel_T), intent(inout)    :: Model
             type(wave_T),      intent(in)       :: wave
-            type(wModel_T),    intent(in)       :: wModel
             type(XML_Input_T), intent(inout)    :: inpXML
+            type(wModel_T)                      :: wModel
             type(prt_T)                         :: prt
             type(tpState_T),dimension(:),allocatable :: tpState
-            ! type(tpState_T),allocatable :: tpState1,tpState2,tpState3,tpState4,tpState5
-            
+              
             real(rp) :: B0 ![nT] uniform background field
             integer  :: Nk,Nas,Np,n,i,j
             real(rp) :: alpha0,psi0,Daa
@@ -123,6 +124,11 @@ program wpicheck
             B0 = B0*inBScl
             alpha0 = alpha0*deg2rad
             psi0 = psi0*deg2rad
+
+            !manually set wave spectrum to match values used in Summers 
+            wModel%xm = 0.35
+            wModel%Dx = 0.3
+            wModel%B1 = 0.1*inBScl
             
             !Initialize the particles
             K0 = [100.0,300.0,1000.0,3000.0] ![keV] normalized when converted to gamma in createPrts
@@ -228,7 +234,7 @@ program wpicheck
             integer :: Na,Np,n,i,j
             real(rp), dimension(:,:), allocatable :: p11,pperp,Ks, xjs
             real(rp) :: xj,yj,da,dp,Daa,ddt,dGDda !Daa, ddt, dGDda are not used, using const da
-            real(rp) :: gamOld,gamNew,aNew,pNew,Mu,p11Mag,Kprt
+            real(rp) :: gamNew,aNew,pNew,Mu,p11Mag,Kprt
             integer :: pSgn=1
 
             character(len=strLen) :: outH5 = "diffCurve.h5"
@@ -374,6 +380,142 @@ program wpicheck
 
 
         end subroutine resTest
+
+        subroutine singlePrtDiff(Model,wave,wModel,inpXML)
+            type(chmpModel_T), intent(inout)    :: Model
+            type(wave_T),      intent(in)       :: wave
+            type(wModel_T),    intent(in)       :: wModel
+            type(XML_Input_T), intent(inout)    :: inpXML
+            type(ebState_T) :: ebState
+            type(tpState_T),dimension(:),allocatable :: tpState
+            type(prt_T)   :: prt,prtDC
+
+            character(len=strLen) :: outH5 = "singlPrtTest.h5"
+
+            real(rp), dimension(:), allocatable :: kwpi,awpi,xjwpi,yjwpi
+            real(rp), dimension(:), allocatable :: kDC,aDC,xjDC,yjDC
+            real(rp) :: B0,n0
+            real(rp) :: K0,alpha0,psi0
+            real(rp) :: t0,t1,dt
+            integer  :: Nt,s,Na,n
+            real(rp) :: wpe,inWScl,astar,xj,yj,Daa=0.0001,dGDda=0.5 !Daa,dGDda are not used, using const da
+            real(rp) :: dAlim = 0.0087
+            real(rp) :: gamNew,aNew,pNew,Mu,p11Mag,Kprt
+            integer  :: pSgn=1
+
+            !pull K, alpha, psi for prt from xml file 
+            call inpXML%Set_Val(K0,'energy/min',500.0)
+            call inpXML%Set_Val(alpha0,'alpha/min',45.0)
+            call inpXML%Set_Val(psi0,'psi/min',0.0)
+
+            ! pulling timing info, already normalized
+            t0 = Model%T0
+            t1 = Model%tFin
+            dt = Model%dt
+            Nt = int((t1-t0)/dt)
+
+            !setting ebState wave information (nothing else is needed in ebState)
+            ebState%ebWave = wave
+            ebState%ebWmodel = wModel
+
+            !setting values
+            B0     = 341.3
+            n0     = 7.0
+
+            !normalizing variables
+            B0 = B0*inBScl
+            alpha0 = alpha0*deg2rad
+            psi0 = psi0*deg2rad 
+
+            prt%isIn = .true.
+            prt%isGC = .true.
+            call createPrts(Model,prt,K0,alpha0,psi0,B0)                    
+
+            ! setting position of particle
+            ! not important just need to specify hemisphere
+            prt%Q(XPOS:ZPOS) = [-3.0_rp, 3.0_rp, -0.5_rp] ! Southern hemisphere
+            prt%Qeq(EQX:EQY) = [-3.0_rp, 3.0_rp] 
+
+            !allocate arrays to hold output
+            allocate(kwpi(Nt))
+            allocate(awpi(Nt))
+            allocate(xjwpi(Nt))
+            allocate(yjwpi(Nt))
+
+            do s=1,Nt
+                call PerformWPI(prt,Model%t,Model%dt,Model,ebState,B0,n0) 
+                Model%t = Model%t+Model%dt
+                kwpi(s) = prt2kev(Model,prt)
+                awpi(s) = prt%alpha*rad2deg
+                xjwpi(s)= prt%xj
+                yjwpi(s)= prt%yj
+            enddo
+
+            ! diffusion curve calculation
+            prtDC%isIn = .true.
+            prtDC%isGC = .true.
+            call createPrts(Model,prtDC,K0,alpha0,psi0,B0)
+
+            !Calulating the ratio of nonrelativistic gyrofrequency to plasma frequency at prt's location
+            inWScl = 114704.0207604 !(qe_cgs*L0/(vc_cgs*sqrt(Me_cgs)))^2 
+            wpe = sqrt(4*PI*n0) 
+            astar = B0**2/((wpe**2)*inWScl)
+
+            Na = int(abs(alpha0-PI/2)/dAlim)
+
+            !allocate arrays to hold output
+            allocate(kDC(Na))
+            allocate(aDC(Na))
+            allocate(xjDC(Na))
+            allocate(yjDC(Na))
+
+            do n=1, Na
+                Kprt = prt2kev(Model,prtDC)/(Model%m0*mec2*1.0e+3)
+                call Resonance(wave,wModel,Model%m0,Kprt,prtDC%alpha,astar,xj,yj)
+                prtDC%xj = xj
+                prtDC%yj = yj
+
+                !save particle state before Updating
+                kDC(n) = prt2kev(Model,prtDC)
+                aDC(n) = prtDC%alpha*rad2deg
+                xjDC(n)= prtDC%xj
+                yjDC(n)= prtDC%yj
+
+                ! Calculate the resulting change in pitch angle and energy of the particle
+                call LangevinEq(wave,wModel,Model,prtDC,dGDda,Daa,Model%dt,astar,aNew,pNew,dAlim)
+
+                !Update the pitch angle
+                prtDC%alpha = aNew
+
+                if (aNew <= PI/2) then
+                    pSgn = +1
+                else
+                    pSgn = -1
+                endif
+                !Updating the particle momentum and energy
+                p11Mag = pSgn*pNew*sqrt( 1 - sin(aNew)**2.0 )
+                gamNew = sqrt(1+(pNew/Model%m0)**2.0)
+                Mu = ( (Model%m0**2)*(gamNew**2.0 - 1.0) - p11Mag*p11Mag) / (2*Model%m0*B0)
+                prtDC%Q(P11GC) = p11Mag
+                prtDC%Q(MUGC ) = Mu 
+                prtDC%Q(GAMGC) = gamNew
+            enddo
+
+            !write data to a file
+            call CheckAndKill(outH5)
+            call ClearIO(IOVars)
+            call AddOutVar(IOVars,"kwpi",kwpi)
+            call AddOutVar(IOVars,"awpi",awpi)
+            call AddOutVar(IOVars,"xjwpi",xjwpi)
+            call AddOutVar(IOVars,"yjwpi",yjwpi)
+            call AddOutVar(IOVars,"kDC",kDC)
+            call AddOutVar(IOVars,"aDC",aDC)
+            call AddOutVar(IOVars,"xjDC",xjDC)
+            call AddOutVar(IOVars,"yjDC",yjDC)
+            call WriteVars(IOVars,.true.,outH5)
+            call ClearIO(IOVars)
+
+        end subroutine singlePrtDiff
 
 
 end program wpicheck
