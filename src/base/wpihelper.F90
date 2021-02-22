@@ -1,8 +1,7 @@
 !contains wave mode and wave model specific functions
-module wpifuns
+module wpihelper
     use chmpdefs
     use kdefs
-    use tputils
     use wpitypes
     use xml_input
     use strings
@@ -60,6 +59,7 @@ module wpifuns
         type(wModel_T), intent(inout) :: wModel
         type(wave_T), intent(inout) :: wave
         type(XML_Input_T), intent(inout) :: inpXML
+        real(rp) :: ebScl, inBScl
 
         !initializing the wave model
         call inpXML%Set_Val(wModel%model,'wpi/wmodel',"Gauss")
@@ -71,7 +71,9 @@ module wpifuns
             call inpXML%Set_Val(wModel%Dx,'wpi/dx',0.2)
             call inpXML%Set_Val(wModel%B1,'wpi/b1',0.01)
 
-            !normalizing
+            !normalizing (assumes B1 is in nT and length scale is in Re, good for EARTH)
+            ebScl = (qe_cgs*Re_cgs/Me_cgs)/(vc_cgs**2.0)
+            inBScl = ebScl/G2nT
             wModel%B1 = wModel%B1*inBScl
 
             waveSpec => gaussWS 
@@ -291,4 +293,4 @@ module wpifuns
 
     end function Kres_whistleR
 
-end module wpifuns
+end module wpihelper

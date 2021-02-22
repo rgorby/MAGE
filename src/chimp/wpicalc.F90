@@ -5,7 +5,7 @@ module wpicalc
     use ebtypes
     use tputils
     use wpitypes
-    use wpifuns
+    use wpihelper
     use xml_input
     use chmpunits
     use quarticRoots

@@ -9,7 +9,7 @@ module userebic
     use ioH5
     use chmpfields
     use ebinit
-    use wpifuns
+    use wpihelper
     
     implicit none
 
