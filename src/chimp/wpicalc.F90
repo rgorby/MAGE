@@ -48,16 +48,6 @@ module wpicalc
 
         if (.not.prt%isIn) return !shouldn't be here if particle is not in domain
 
-        if (Model%do2D) then
-            !Trap here and quickly grab values
-            prt%Qeq(EQX:EQY) = prt%Q(XPOS:YPOS)
-            prt%Qeq(EQTIME)  = t
-            prt%Qeq(EQKEV)   = prt2kev(Model,prt)
-            prt%Qeq(EQALP)   = prt%alpha
-            prt%Qeq(EQKEB)   = 0.0
-            return
-        endif
-
         !initializing some variables
         pSgn = 1; da=0.0; dp=0.0; dK=0.0
 
@@ -67,10 +57,11 @@ module wpicalc
 
         !Get local coordinate system
         r = prt%Q(XPOS:ZPOS)
-        req = [prt%Qeq(EQX),prt%Qeq(EQX),zEq] ! defining magnetic equator at z=0
-        call ebFields(r,t,Model,ebState,E,B,ijkO=prt%ijk0,vExB=vExB)
-        call MagTriad(r,B,xhat,yhat,bhat)
-        MagB = max(norm2(B),TINY)
+        req = [prt%Qeq(EQX),prt%Qeq(EQY),zEq] ! defining magnetic equator at z=0
+
+        !Check to see if waves are present
+        call ChkWave(wModel,r,req,prt%alpha,doWave)
+        if (.not. doWave) return ! no waves so exit
 
         !Get MHD density
         if (Model%doMHD) then
@@ -81,9 +72,9 @@ module wpicalc
             stop
         endif
 
-        !Check to see if waves are present
-        call ChkWave(wModel,r,req,prt%alpha,doWave)
-        if (.not. doWave) return ! no waves so exit
+        call ebFields(r,t,Model,ebState,E,B,ijkO=prt%ijk0,vExB=vExB)
+        call MagTriad(r,B,xhat,yhat,bhat)
+        MagB = max(norm2(B),TINY)
 
         !Calulating the ratio of nonrelativistic gyrofrequency to plasma frequency at prt's location
         !normalization constant to put wpe in code units
@@ -341,29 +332,6 @@ module wpicalc
         end if
 
     end subroutine selectRoot
-
-    !!!!!!!!!!!FIXME: need to add capability to sum over mulitple roots!!!!!!!!!!!!
-    !Calculates diffusion coefficient assuming wave spectrum is Gaussian (Summers 2005 eq 33)
-    function DiffCoef(wave,wModel,m0,K,pa,astar,B0,xj,yj) result(Daa)
-        type(wave_T), intent(in) :: wave
-        type(wModel_T), intent(in) :: wModel
-        real(rp), intent(in) :: m0,K,pa,astar,B0,xj,yj
-        real(rp) :: beta,R,Ome,DScl,Fxy,Daa,Km
-
-        Km = K/m0
-        beta = sqrt(Km*(Km+2.0))/(Km+1.0) ! beta = v/c
-        R = (wModel%B1/B0)**2  !ratio of the wave amplitude to background field strength
-        Ome = B0 ! normalized non-relativistic electron gyrofrequency, has Om^2/Ome therefore dont need sign of q
-
-        DScl = (PI/2.0)*abs(Ome)*(K+1)**(-2.0)
-
-        Fxy = Vg(wave,astar,xj,yj)
-
-        Daa = R*(1.0-xj*cos(pa)/(yj*beta))**2*(abs(Fxy)/abs(beta*cos(pa)-Fxy))*waveSpec(wModel,xj)
-
-        Daa = DScl*Daa
-
-    end function DiffCoef
 
     !Calculates the derivative of the diffusion coefficient
     !Equation 5.7.7 from Numerical Recipes 
