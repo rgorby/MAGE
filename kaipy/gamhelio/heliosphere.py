@@ -149,7 +149,7 @@ class GamsphPipe(GameraPipe):
 		zmer_c = np.delete(zmer_c, Nt, axis = 1)
 		return xmer_c, zmer_c
 
-	#merid plane Y=0
+	#merid plane Y=0 from two halfs
 	def MeridGridHalfs(self):
 		self.GetGrid(doVerbose=True)
 
@@ -185,6 +185,7 @@ class GamsphPipe(GameraPipe):
 		#last i-index == face of the last cell
 		lat = theta[-1,:,:]
 		lon = phi[-1,:,:]
+		#these are corners
 
 		return lat, lon
 
@@ -226,6 +227,29 @@ class GamsphPipe(GameraPipe):
 		Di = self.iSliceVar("D",s0) #Unscaled
 		Di = Di*self.dScl
 		return Di
+
+	def iSliceBr(self,s0=0):
+		Bx = self.iSliceVar("Bx",s0) #Unscaled
+		By = self.iSliceVar("By",s0) #Unscaled
+		Bz = self.iSliceVar("Bz",s0) #Unscaled
+
+		self.GetGrid(doVerbose=True)
+		x = self.X[-1,:,:]
+		y = self.Y[-1,:,:]
+		z = self.Z[-1,:,:]
+		x_c = 0.25*( x[:-1,:-1]+x[:-1,1:]+x[1:,:-1]+x[1:,1:] )
+		y_c = 0.25*( y[:-1,:-1]+y[:-1,1:]+y[1:,:-1]+y[1:,1:] )
+		z_c = 0.25*( z[:-1,:-1]+z[:-1,1:]+z[1:,:-1]+z[1:,1:] )
+		Br = self.bScl*(Bx*x_c + By*y_c + Bz*z_c)/np.sqrt(x_c**2.+y_c**2.+z_c**2.)
+		return Br
+
+	def iSliceT(self,s0=0):
+		Pi = self.iSliceVar("P",s0) #Unscaled
+		Di = self.iSliceVar("D",s0) #Unscaled
+
+		Temp = Pi/Di*self.TScl
+		return Temp
+		
 
 	#Equatorial speed (in km/s) in eq plane
 	def eqMagV(self,s0=0):
@@ -285,11 +309,34 @@ class GamsphPipe(GameraPipe):
 
 	def MerDNrm(self,s0=0):
 		xr, zr, xl, zl, r = self.MeridGridHalfs()
-		print (r.shape)
+		#print (r.shape)
 		Dr, Dl = self.MeridSlice("D",s0) #Unscaled
 		Drn = Dr*self.dScl*r*r/self.R0/self.R0
 		Dln = Dl*self.dScl*r*r/self.R0/self.R0
 		return Drn, Dln
+
+	def MerBrNrm(self,s0=0):
+		xr, zr, xl, zl, r = self.MeridGridHalfs()
+		Bxr, Bxl = self.MeridSlice("Bx",s0) #Unscaled
+		Bzr, Bzl = self.MeridSlice("Bz",s0) #Unscaled
+
+		xr_c = 0.25*( xr[:-1,:-1]+xr[:-1,1:]+xr[1:,:-1]+xr[1:,1:] )
+		zr_c = 0.25*( zr[:-1,:-1]+zr[:-1,1:]+zr[1:,:-1]+zr[1:,1:] )
+		
+		xl_c = 0.25*( xl[:-1,:-1]+xl[:-1,1:]+xl[1:,:-1]+xl[1:,1:] )
+		zl_c = 0.25*( zl[:-1,:-1]+zl[:-1,1:]+zl[1:,:-1]+zl[1:,1:] )
+		
+		Br_r = (Bxr*xr_c + Bzr*zr_c)*r*self.bScl/self.R0/self.R0
+		Br_l = (Bxl*xl_c + Bzl*zl_c)*r*self.bScl/self.R0/self.R0 
+		return Br_r, Br_l
+
+	def MerTemp(self,s0=0):
+		Pr, Pl = self.MeridSlice("P",s0) #Unscaled
+		Dr, Dl = self.MeridSlice("D",s0) #Unscaled
+
+		Tempr = Pr/Dr*self.TScl
+		Templ = Pl/Dl*self.TScl
+		return Tempr, Templ
 
 
 	#Return data for meridional 2D field lines

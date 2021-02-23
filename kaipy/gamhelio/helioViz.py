@@ -21,9 +21,9 @@ D0Max = 15.
 D0Min = 1.
 D0CM = "copper_r"
 
-TMax = 1.
-TMin = 0.1
-TCM = "copper_r"
+TMax = 0.2
+TMin = 0.01
+TCM = "copper"
 
 BMax = 150.
 BMin = -150.
@@ -113,7 +113,7 @@ def PlotMerDNorm(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
 	if (AxCB is not None):
 		#Add the colorbar to AxCB
 		AxCB.clear()
-		kv.genCB(AxCB,vD,"Normalized number density [cm-3]",cM=DCM,Ntk=7)
+		kv.genCB(AxCB,vD,r"Density n$(r/r_0)^2$ [cm$^{-3}$]",cM=DCM,Ntk=7)
 
 	if (doClear):
 		Ax.clear()
@@ -132,6 +132,51 @@ def PlotMerDNorm(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
 		Ax.yaxis.set_label_position('right')
 	return Dr, Dl
 
+def PlotMerBrNorm(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
+	vB = kv.genNorm(BMin, BMax, doLog=False, midP=None)
+
+	if (AxCB is not None):
+		#Add the colorbar to AxCB
+		AxCB.clear()
+		kv.genCB(AxCB,vB,r'Radial MF $B_r(r/r_0)^2$ [nT]',cM=BCM,Ntk=7)
+	if (doClear):
+		Ax.clear()
+
+	Br_r, Br_l = gsph.MerBrNrm(nStp)
+	xr, zr, xl, zl, r = gsph.MeridGridHalfs()
+	Ax.pcolormesh(xr,zr,Br_r,cmap=BCM,norm=vB,shading='auto')
+	Ax.pcolormesh(xl,zl,Br_l,cmap=BCM,norm=vB,shading='auto')
+
+	kv.SetAx(xyBds,Ax)
+
+	if (doDeco):
+		Ax.set_xlabel('X [R_S]')
+		Ax.set_ylabel('Z [R_S]')
+		Ax.yaxis.tick_right()
+		Ax.yaxis.set_label_position('right')
+	return Br_r, Br_l
+
+def PlotMerTemp(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
+	vT = kv.genNorm(TMin, TMax, doLog=False, midP=None)
+
+	if (AxCB is not None):
+		AxCB.clear()
+		kv.genCB(AxCB,vT,"Temperature [MK]",cM=TCM,Ntk=7)
+	if (doClear):
+		Ax.clear()
+
+	Tempr, Templ = gsph.MerTemp(nStp)
+	xr, zr, xl, zl, r = gsph.MeridGridHalfs()
+	Ax.pcolormesh(xr,zr,Tempr,cmap=TCM,norm=vT)
+	Ax.pcolormesh(xl,zl,Templ,cmap=TCM,norm=vT)
+
+	kv.SetAx(xyBds,Ax)
+
+	if (doDeco):
+		Ax.set_xlabel('X [R_S]')
+		Ax.set_ylabel('Z [R_S]')
+	return Tempr, Templ
+
 #Plot normalized density in equatorial plane
 def PlotEqD(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
 	vD = kv.genNorm(DMin, DMax, doLog=False, midP=None)
@@ -139,7 +184,7 @@ def PlotEqD(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
 	if (AxCB is not None):
 		#Add the colorbar to AxCB
 		AxCB.clear()
-		kv.genCB(AxCB,vD,"Normalized number density [cm-3]",cM=DCM,Ntk=7)
+		kv.genCB(AxCB,vD,r"Density n$(r/r_0)^2$ [cm$^{-3}$]",cM=DCM,Ntk=7)
 
 	#Now do main plotting
 	if (doClear):
@@ -177,8 +222,6 @@ def PlotEqTemp(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
 	if (doDeco):
 		Ax.set_xlabel('X [R_S]')
 		Ax.set_ylabel('Y [R_S]')
-		Ax.yaxis.tick_right()
-		Ax.yaxis.set_label_position('right')
 	return Temp
 
 #Plor Br in eq plane
@@ -187,7 +230,7 @@ def PlotEqBr(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
 
 	if (AxCB is not None):
 		AxCB.clear()
-		kv.genCB(AxCB,vB,"Radial magnetic field [nT]",cM=BCM,Ntk=7)
+		kv.genCB(AxCB,vB,r'Radial MF $B_r(r/r_0)^2$ [nT]',cM=BCM,Ntk=7)
 	if (doClear):
 		Ax.clear()
 
@@ -253,8 +296,54 @@ def PlotiSlD(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
 		Ax.yaxis.tick_right()
 		Ax.yaxis.set_label_position('right')
 	return D
-		
-	
+
+def PlotiSlBr(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
+	xyBds = [0.,360.,-75.,75.]
+	BMin = -5.
+	BMax = 5.
+	vB = kv.genNorm(BMin, BMax, doLog=False, midP=None)
+	if (AxCB is not None):
+		AxCB.clear()
+		kv.genCB(AxCB,vB,"Radial magnetic field [nT]",cM=BCM,Ntk=7)
+	if (doClear):
+		Ax.clear()
+
+	Br = gsph.iSliceBr(nStp)
+	lat, lon = gsph.iSliceGrid()
+	Ax.pcolormesh(lon,lat,Br,cmap=BCM,norm=vB)
+	kv.SetAx(xyBds,Ax)
+
+	if (doDeco):
+		Ax.set_xlabel('Longitude')
+		Ax.set_ylabel('Latitude')
+		Ax.yaxis.tick_right()
+		Ax.yaxis.set_label_position('right')
+	return Br
+
+def PlotiSlTemp(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
+	xyBds = [0.,360.,-75.,75.]
+	TMin = 0.02
+	TMax = 0.12
+	vT = kv.genNorm(TMin, TMax, doLog=False, midP=None)
+
+	if (AxCB is not None):
+		AxCB.clear()
+		kv.genCB(AxCB,vT,"Temperature [MK]",cM=TCM,Ntk=7)
+	if (doClear):
+		Ax.clear()
+
+	Temp = gsph.iSliceT(nStp)	
+	lat, lon = gsph.iSliceGrid()
+	Ax.pcolormesh(lon,lat,Temp,cmap=TCM,norm=vT)
+
+	kv.SetAx(xyBds,Ax)
+
+	if (doDeco):
+		Ax.set_xlabel('Longitude')
+		Ax.set_ylabel('Latitude')
+	return Temp
+
+
 #Plot equatorial field
 def PlotEqB(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True,doBz=False):
 	vBZ = kv.genNorm(dbMax)

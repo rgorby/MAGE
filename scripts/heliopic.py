@@ -27,6 +27,7 @@ if __name__ == "__main__":
 	noMPI = False
 	#doJy = False
 	#doBz = False
+	pic = "pic1"
 	MainS = """Creates simple multi-panel figure for Gamera helio run
 	Top Panel - density and radial velocity in equatorial plane
 	Bottom Panel - density and radial velocity in meridional plane
@@ -43,7 +44,9 @@ if __name__ == "__main__":
 	#parser.add_argument('-jy'   , action='store_true', default=doJy ,help="Show Jy instead of pressure (default: %(default)s)")
 	#parser.add_argument('-noion', action='store_true', default=noIon,help="Don't show ReMIX data (default: %(default)s)")
 	parser.add_argument('-nompi', action='store_true', default=noMPI,help="Don't show MPI boundaries (default: %(default)s)")
-	
+	#pic1 is equatorial pic2 is meridional pic3 is 1 AU maps
+	parser.add_argument('-p',type=str,metavar="pictype",default=pic,help="Type of output image (default: %(default)s)")	
+
 	#size of domain - do not need right now. Think how it can be useful.
 	#hviz.AddSizeArgs(parser)
 
@@ -58,6 +61,7 @@ if __name__ == "__main__":
 	doMPI = (not noMPI)
 	#doJy = args.jy
 	#doBz = args.bz
+	pic = args.p
 
 	#Get domain size
 	xyBds = hviz.GetSizeBds()
@@ -70,8 +74,10 @@ if __name__ == "__main__":
 
 	#---------
 	#Figure parameters
-	figSz = (10,18)
-	
+	if (pic == "pic1" or pic == "pic2"):
+		figSz = (10,12.5)
+	else:
+		figSz = (10,6.5)
 	#======
 	#Init data
 	gsph = hsph.GamsphPipe(fdir,ftag,doFast=doFast)
@@ -86,17 +92,17 @@ if __name__ == "__main__":
 	#======
 	#Setup figure
 	fig = plt.figure(figsize=figSz)
-	gs = gridspec.GridSpec(6,6,height_ratios=[20,1,20,1,10,1])
+	gs = gridspec.GridSpec(4,6,height_ratios=[20,1,20,1])
 	
-
+	#plots
 	AxL0 = fig.add_subplot(gs[0,0:3])
 	AxR0 = fig.add_subplot(gs[0,3:])
 
 	AxL1 = fig.add_subplot(gs[2,0:3])
 	AxR1 = fig.add_subplot(gs[2,3:])
 
-	AxL2 = fig.add_subplot(gs[4,0:3])
-	AxR2 = fig.add_subplot(gs[4,3:])
+	#AxL2 = fig.add_subplot(gs[4,0:3])
+	#AxR2 = fig.add_subplot(gs[4,3:])
 
 	#colorbars
 	AxC1_0 = fig.add_subplot(gs[1,0:3])
@@ -105,23 +111,37 @@ if __name__ == "__main__":
 	AxC1_1 = fig.add_subplot(gs[3,0:3])
 	AxC2_1 = fig.add_subplot(gs[3,3:])
 
-	AxC1_2 = fig.add_subplot(gs[5,0:3])
-	AxC2_2 = fig.add_subplot(gs[5,3:])
+	#AxC1_2 = fig.add_subplot(gs[5,0:3])
+	#AxC2_2 = fig.add_subplot(gs[5,3:])
 
 
 	#plotting equatorial magV (left plot in msphere pic)
-	hviz.PlotEqMagV(gsph,nStp,xyBds,AxL0,AxC1_0)
-	hviz.PlotEqTemp(gsph,nStp,xyBds,AxR0,AxC2_0)
+	if (pic == "pic1"):
+		hviz.PlotEqMagV(gsph,nStp,xyBds,AxL0,AxC1_0)
+		hviz.PlotEqD(gsph,nStp,xyBds,AxR0,AxC2_0)
 
-	hviz.PlotMerMagV(gsph,nStp,xyBds,AxL1,AxC1_1)
-	hviz.PlotMerDNorm(gsph,nStp,xyBds,AxR1,AxC2_1)
-	
-	hviz.PlotiSlMagV(gsph,nStp,xyBds,AxL2,AxC1_2)
-	hviz.PlotiSlD(gsph,nStp,xyBds,AxR2,AxC2_2)
-	
-	#Add time (upper left)
-	gsph.AddTime(nStp,AxL0,xy=[0.025,0.875],fs="x-large")
+		hviz.PlotEqTemp(gsph,nStp,xyBds,AxL1,AxC1_1)
+		hviz.PlotEqBr(gsph,nStp,xyBds,AxR1,AxC2_1)
+	elif (pic == "pic2"):
+		hviz.PlotMerMagV(gsph,nStp,xyBds,AxL0,AxC1_0)
+		hviz.PlotMerDNorm(gsph,nStp,xyBds,AxR0,AxC2_0)
 
+		hviz.PlotMerTemp(gsph,nStp,xyBds,AxL1,AxC1_1)
+		hviz.PlotMerBrNorm(gsph,nStp,xyBds,AxR1,AxC2_1)
+	elif (pic == "pic3"):
+		hviz.PlotiSlMagV(gsph,nStp,xyBds,AxL0,AxC1_0)
+		hviz.PlotiSlD(gsph,nStp,xyBds,AxR0,AxC2_0)
+
+		hviz.PlotiSlTemp(gsph,nStp,xyBds,AxL1,AxC1_1)
+		hviz.PlotiSlBr(gsph,nStp,xyBds,AxR1,AxC2_1)
+	else:
+		print ("Pic is empty. Choose pic1 or pic2 or pic3")
+	
+	#edd time (upper left)
+	if (pic == "pic1" or pic == "pic2"):
+		gsph.AddTime(nStp,AxL0,xy=[0.025,0.865],fs="x-large")
+	else:	
+		gsph.AddTime(nStp,AxL0,xy=[0.025,0.7],fs="x-large")
 
 	#Add wsa info (lower left) instead of Solar wind params
 	#gsph.AddSW(nStp,AxL,xy=[0.625,0.025],fs="small")
