@@ -21,7 +21,7 @@ D0Max = 15.
 D0Min = 1.
 D0CM = "copper_r"
 
-TMax = 0.2
+TMax = 1.
 TMin = 0.01
 TCM = "copper"
 
@@ -29,20 +29,8 @@ BMax = 150.
 BMin = -150.
 BCM = "coolwarm"
 
-dbMax = 25.0
-dbCM = "RdGy_r"
-bzCM = "bwr"
-cLW = 0.25
-bz0Col = "magenta"
-mpiCol = "deepskyblue"
 
-jMax = 10.0 #Max current for contours
-
-#Default pressure colorbar
-vP = kv.genNorm(1.0e-2,10.0,doLog=True)
-
-#Add different size options to argument
-
+#Function to Add different size options to argument
 #not used for helio right now
 def AddSizeArgs(parser):
 	parser.add_argument('-small' , action='store_true', default=False,help="Use smaller domain bounds (default: %(default)s)")
@@ -51,11 +39,13 @@ def AddSizeArgs(parser):
 	parser.add_argument('-huge'  , action='store_true', default=False,help="Use huge domain bounds (default: %(default)s)")
 
 #Return domain size from parsed arguments; see msphViz for options
-def GetSizeBds():
-	xMax = 216.
-	yMax = 216.
-	xyBds = [-xMax,xMax,-yMax,yMax]
-
+def GetSizeBds(pic):
+	if (pic == "pic1" or pic == "pic2"):
+		xyBds = [-216.,216.,-216.,216.]
+	elif (pic == "pic3"):
+		xyBds = [0.,360.,-75.,75.]
+	else:		
+		print ("No pic type specified.")
 	return xyBds
 
 #Plot speed in equatorial plane
@@ -74,15 +64,14 @@ def PlotEqMagV(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
 	MagV = gsph.eqMagV(nStp)
 	Ax.pcolormesh(gsph.xxi,gsph.yyi,MagV,cmap=MagVCM,norm=vMagV)
 
-	#Ax.contour(kv.reWrap(gsph.xxc),kv.reWrap(gsph.yyc),kv.reWrap(Bz),[0.0],colors=bz0Col,linewidths=cLW)
 	kv.SetAx(xyBds,Ax)
 
 	if (doDeco):
-		#kv.addEarth2D(ax=Ax)
 		Ax.set_xlabel('X [R_S]')
 		Ax.set_ylabel('Y [R_S]')
 	return MagV
 
+#Plot speed in meridional plane Y=0
 def PlotMerMagV(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
         vMagV = kv.genNorm(VMin, VMax, doLog=False, midP=None)
 
@@ -93,8 +82,9 @@ def PlotMerMagV(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
 
         if (doClear):
                 Ax.clear()
-
+	#r is for +X plane and l is for -X plane
         Vr, Vl = gsph.MerMagV(nStp)
+	#cell corners
         xr, zr, xl, zl, r = gsph.MeridGridHalfs()
         Ax.pcolormesh(xr,zr,Vr,cmap=MagVCM,norm=vMagV)
         Ax.pcolormesh(xl,zl,Vl,cmap=MagVCM,norm=vMagV)
@@ -106,7 +96,7 @@ def PlotMerMagV(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
                 Ax.set_ylabel('Z [R_S]')
         return Vr, Vl
 
-
+#Plot normalized density n(r/r0)^2 in meridional plane Y=0
 def PlotMerDNorm(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
 	vD = kv.genNorm(DMin, DMax, doLog=False, midP=None)
 
@@ -132,13 +122,14 @@ def PlotMerDNorm(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
 		Ax.yaxis.set_label_position('right')
 	return Dr, Dl
 
+#Plot normalized Br Br(r/r0)^2 in meridional plane
 def PlotMerBrNorm(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
 	vB = kv.genNorm(BMin, BMax, doLog=False, midP=None)
 
 	if (AxCB is not None):
 		#Add the colorbar to AxCB
 		AxCB.clear()
-		kv.genCB(AxCB,vB,r'Radial MF $B_r(r/r_0)^2$ [nT]',cM=BCM,Ntk=7)
+		kv.genCB(AxCB,vB,r'Radial MF B$_r$(r/r$_0)^2$ [nT]',cM=BCM,Ntk=7)
 	if (doClear):
 		Ax.clear()
 
@@ -156,12 +147,13 @@ def PlotMerBrNorm(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
 		Ax.yaxis.set_label_position('right')
 	return Br_r, Br_l
 
+#Plot normalized temperature T(r/r0) in meridional plane
 def PlotMerTemp(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
 	vT = kv.genNorm(TMin, TMax, doLog=False, midP=None)
 
 	if (AxCB is not None):
 		AxCB.clear()
-		kv.genCB(AxCB,vT,"Temperature [MK]",cM=TCM,Ntk=7)
+		kv.genCB(AxCB,vT, r'Temperature T(r/r$_0$) [MK]',cM=TCM,Ntk=7)
 	if (doClear):
 		Ax.clear()
 
@@ -177,14 +169,14 @@ def PlotMerTemp(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
 		Ax.set_ylabel('Z [R_S]')
 	return Tempr, Templ
 
-#Plot normalized density in equatorial plane
+#Plot normalized density in equatorial plane n(r/r0)^2
 def PlotEqD(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
 	vD = kv.genNorm(DMin, DMax, doLog=False, midP=None)
 	
 	if (AxCB is not None):
 		#Add the colorbar to AxCB
 		AxCB.clear()
-		kv.genCB(AxCB,vD,r"Density n$(r/r_0)^2$ [cm$^{-3}$]",cM=DCM,Ntk=7)
+		kv.genCB(AxCB,vD,r"Density n(r/r$_0)^2$ [cm$^{-3}$]",cM=DCM,Ntk=7)
 
 	#Now do main plotting
 	if (doClear):
@@ -193,24 +185,22 @@ def PlotEqD(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
 	NormD = gsph.eqNormD(nStp)
 	Ax.pcolormesh(gsph.xxi,gsph.yyi,NormD,cmap=DCM,norm=vD)
 
-	#Ax.contour(kv.reWrap(gsph.xxc),kv.reWrap(gsph.yyc),kv.reWrap(Bz),[0.0],colors=bz0Col,linewidths=cLW)
 	kv.SetAx(xyBds,Ax)
 
 	if (doDeco):
-		#kv.addEarth2D(ax=Ax)
 		Ax.set_xlabel('X [R_S]')
 		Ax.set_ylabel('Y [R_S]')
 		Ax.yaxis.tick_right()
 		Ax.yaxis.set_label_position('right')
 	return NormD
 
-#Plot Temperature in equatorial plane
+#Plot normalized Temperature in equatorial plane T(r/r0)
 def PlotEqTemp(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
 	vT = kv.genNorm(TMin, TMax, doLog=False, midP=None)
 
 	if (AxCB is not None):
 		AxCB.clear()
-		kv.genCB(AxCB,vT,"Temperature [MK]",cM=TCM,Ntk=7)
+		kv.genCB(AxCB,vT,r"Temperature T(r/r$_0$) [MK]",cM=TCM,Ntk=7)
 	if (doClear):
 		Ax.clear()
 
@@ -224,13 +214,13 @@ def PlotEqTemp(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
 		Ax.set_ylabel('Y [R_S]')
 	return Temp
 
-#Plor Br in eq plane
+#Plor Br in equatorial plane
 def PlotEqBr(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
 	vB = kv.genNorm(BMin, BMax, doLog=False, midP=None)
 
 	if (AxCB is not None):
 		AxCB.clear()
-		kv.genCB(AxCB,vB,r'Radial MF $B_r(r/r_0)^2$ [nT]',cM=BCM,Ntk=7)
+		kv.genCB(AxCB,vB,r'Radial MF B$_r$(r/r$_0)^2$ [nT]',cM=BCM,Ntk=7)
 	if (doClear):
 		Ax.clear()
 
@@ -247,9 +237,8 @@ def PlotEqBr(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
 	return Br
 
 
-
+#Plot Speed at 1 AU
 def PlotiSlMagV(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
-	xyBds = [0.,360.,-75.,75.]
 	vMagV = kv.genNorm(VMin, VMax, doLog=False, midP=None)
 
 	if (AxCB is not None):
@@ -265,7 +254,6 @@ def PlotiSlMagV(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
 	lat, lon = gsph.iSliceGrid()
 	Ax.pcolormesh(lon,lat,V,cmap=MagVCM,norm=vMagV)
 
-        #Ax.contour(kv.reWrap(gsph.xxc),kv.reWrap(gsph.yyc),kv.reWrap(Bz),[0.0],colors=bz0Col,linewidths=cLW)
 	kv.SetAx(xyBds,Ax)
 
 	if (doDeco):
@@ -273,15 +261,13 @@ def PlotiSlMagV(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
 		Ax.set_ylabel('Latitude')
 	return V
 
-#plot density at 1 AU (last cell)
+#Plot Density at 1 AU
 def PlotiSlD(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
-	xyBds = [0.,360.,-75.,75.]
 	vD = kv.genNorm(D0Min, D0Max, doLog=False, midP=None)
 	if (AxCB is not None):
 		AxCB.clear()
 		kv.genCB(AxCB,vD,"Number density [cm-3]",cM=D0CM,Ntk=7)
 
-	#Now do main plotting
 	if (doClear):
 		Ax.clear()
 
@@ -297,8 +283,8 @@ def PlotiSlD(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
 		Ax.yaxis.set_label_position('right')
 	return D
 
+#Plot Br and current sheet (Br=0) at 1 AU
 def PlotiSlBr(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
-	xyBds = [0.,360.,-75.,75.]
 	BMin = -5.
 	BMax = 5.
 	vB = kv.genNorm(BMin, BMax, doLog=False, midP=None)
@@ -310,7 +296,12 @@ def PlotiSlBr(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
 
 	Br = gsph.iSliceBr(nStp)
 	lat, lon = gsph.iSliceGrid()
+	#for contour cell-centered lon lat coordinates
+	lon_c = 0.25*( lon[:-1,:-1]+lon[:-1,1:]+lon[1:,:-1]+lon[1:,1:] )
+	lat_c = 0.25*( lat[:-1,:-1]+lat[:-1,1:]+lat[1:,:-1]+lat[1:,1:] )
+
 	Ax.pcolormesh(lon,lat,Br,cmap=BCM,norm=vB)
+	Ax.contour(lon_c, lat_c,Br,[0.],colors='black')
 	kv.SetAx(xyBds,Ax)
 
 	if (doDeco):
@@ -320,8 +311,9 @@ def PlotiSlBr(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
 		Ax.yaxis.set_label_position('right')
 	return Br
 
+#Plot Temperature at 1 AU
 def PlotiSlTemp(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
-	xyBds = [0.,360.,-75.,75.]
+	#colorbar limits
 	TMin = 0.02
 	TMax = 0.12
 	vT = kv.genNorm(TMin, TMax, doLog=False, midP=None)
@@ -344,96 +336,8 @@ def PlotiSlTemp(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
 	return Temp
 
 
-#Plot equatorial field
-def PlotEqB(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True,doBz=False):
-	vBZ = kv.genNorm(dbMax)
-	vDB = kv.genNorm(dbMax)
-	
-	if (AxCB is not None):
-		#Add the colorbar to AxCB
-		AxCB.clear()
-		if (doBz):
-			kv.genCB(AxCB,vBZ,"Vertical Field [nT]",cM=bzCM,Ntk=7)
-		else:	
-			kv.genCB(AxCB,vDB,"Residual Field [nT]",cM=dbCM,Ntk=7)
-	#Now do main plotting
-	if (doClear):
-		Ax.clear()
-	Bz = gsph.EggSlice("Bz",nStp,doEq=True)
-	if (doBz):
-		Ax.pcolormesh(gsph.xxi,gsph.yyi,Bz,cmap=bzCM,norm=vBZ)
-	else:	
-		dbz = gsph.DelBz(nStp)
-		Ax.pcolormesh(gsph.xxi,gsph.yyi,dbz,cmap=dbCM,norm=vDB)
-	Ax.contour(kv.reWrap(gsph.xxc),kv.reWrap(gsph.yyc),kv.reWrap(Bz),[0.0],colors=bz0Col,linewidths=cLW)
-
-	kv.SetAx(xyBds,Ax)
-
-	if (doDeco):
-		kv.addEarth2D(ax=Ax)
-		Ax.set_xlabel('SM-X [Re]')
-		Ax.set_ylabel('SM-Y [Re]')
-	return Bz
-	
-def PlotMerid(gsph,nStp,xyBds,Ax,doDen=False,doRCM=False,AxCB=None,doClear=True,doDeco=True):
-	CMx = "viridis"
-	if (doDen):
-		cbStr = "Density [#/cc]"
-		if (doRCM):
-			vN = kv.genNorm(1.0,1.0e+3,doLog=True)
-		else:
-			vN = kv.genNorm(0,25)
-		Q = gsph.EggSlice("D",nStp,doEq=False)
-	else:
-		cbStr = "Pressure [nPa]"
-		vN = vP
-		Q = gsph.EggSlice("P",nStp,doEq=False)
-	if (AxCB is not None):
-		#Add the colorbar to AxCB
-		AxCB.clear()
-		kv.genCB(AxCB,vN,cbStr,cM=CMx)
-	Ax.pcolormesh(gsph.xxi,gsph.yyi,Q,cmap=CMx,norm=vN)
-
-	kv.SetAx(xyBds,Ax)
-	if (doDeco):
-		kv.addEarth2D(ax=Ax)
-		Ax.set_xlabel('SM-X [Re]')
-		Ax.set_ylabel('SM-Z [Re]')
-		Ax.yaxis.tick_right()
-		Ax.yaxis.set_label_position('right')
-
-def PlotJyXZ(gsph,nStp,xyBds,Ax,AxCB=None,jScl=None,doDeco=True):
-	if (jScl is None):
-		#VERY LAZY scaling for current
-		#Scale current to nA/m^2
-		#Current is curl(B) = mag field / Re
-		# mu0 J = curl(B)
-		jScl = 4.58/( (6.371*1.0e+6)*(4.0*np.pi*1.0e+2) )  # Convert field to nT/m
-		#jScl => A/m2
-		jScl = jScl*1.0e+9
-	vJ = kv.genNorm(jMax)
-	jCMap = "PRGn"
-	Nc = 15
-	cVals = np.linspace(-jMax,jMax,Nc)
-
-	if (AxCB is not None):
-		AxCB.clear()
-		kv.genCB(AxCB,vJ,"Jy [nA/m2]",cM=jCMap)
-	Q = jScl*gsph.EggSlice("Jy",nStp,doEq=False)
-	#Zero out first shell b/c bad derivative
-	print(Q.shape)
-	Q[0:2,:] = 0.0
-	#Ax.contour(kv.reWrap(gsph.xxc),kv.reWrap(gsph.yyc),kv.reWrap(Q),cVals,norm=vJ,cmap=jCMap,linewidths=cLW)
-	Ax.pcolormesh(gsph.xxi,gsph.yyi,Q,norm=vJ,cmap=jCMap)
-	kv.SetAx(xyBds,Ax)
-	if (doDeco):
-		kv.addEarth2D(ax=Ax)
-		Ax.set_xlabel('SM-X [Re]')
-		Ax.set_ylabel('SM-Z [Re]')
-		Ax.yaxis.tick_right()
-		Ax.yaxis.set_label_position('right')
-
-#Add MPI contours
+#Adds MPI contours
+#this function is from magnetosphere Viz script. PlotMPI is not used for helio as of now 
 def PlotMPI(gsph,Ax,ashd=0.5):
 	gCol = mpiCol
 	for i in range(gsph.Ri):

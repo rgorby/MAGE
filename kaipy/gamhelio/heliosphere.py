@@ -16,7 +16,7 @@ dBoxC = "lightgrey" #Default box color
 TINY = 1.0e-8
 rmStr = "mixtest"
 
-#Assuming LFM/EGG type grid -need to adapt to helio grid
+#Adapted to helio grid
 class GamsphPipe(GameraPipe):
 	#Initialize object, rely on base class, take optional unit identifier
 	def __init__(self,fdir,ftag,doFast=False,uID="Inner"):
@@ -24,27 +24,20 @@ class GamsphPipe(GameraPipe):
 		print("Initializing %s heliosphere"%(uID))
 		
 		#units for helio
-		#self.MagM = -EarthM0g*1.0e+5
 		self.bScl = 100.    #->nT
-		#self.pScl = 1.67e-2 #->nPa
 		self.vScl = 150.  #-> km/s
 		self.tScl = 4637.    #->seconds
 		self.dScl = 200. #cm-3
-		self.TScl = 1.e-6/4/np.pi/200./1.38e-16/2./1.e6 #in K
+		self.TScl = 1.e-6/4/np.pi/200./1.38e-16/2./1.e6 #in MK
 
-		#2D equatorial grid, stretched polar (Ni,Nj*2+1)
-		#??????
 		#2D equatorial grid
 		self.xxi = [] ; self.yyi = [] #corners
 		self.xxc = [] ; self.yyc = [] #centers
 
-		#2D merid grid
-		self.xxi_m = []; self.zzi = [] #corners
-		self.xxc_m = []; self.zzc = []
-
 		#base class, will use OpenPipe below
 		GameraPipe.__init__(self,fdir,ftag,doFast=doFast)
 
+		#inner boundary distance
 		self.R0 = self.xxc[0,0]
 		
 	def OpenPipe(self,doVerbose=True):
@@ -52,13 +45,11 @@ class GamsphPipe(GameraPipe):
 		
 		if (self.UnitsID != "CODE"):
 			self.bScl   = 1.0  #->nT
-			#self.pScl   = 1.0  #->nPa
 			self.vScl   = 1.0  #-> km/s
 			self.tScl   = 1.0 #->Seconds
 			# [EP] added
 			self.dScl = 1.0
 			self.TScl = 1.0 
-			#self.tRMScl = 63.8 #->Seconds
 
 		#Rescale time
 		self.T = self.tScl*self.T
@@ -76,7 +67,7 @@ class GamsphPipe(GameraPipe):
 		self.xxc = np.zeros((Nr  ,Np  ))
 		self.yyc = np.zeros((Nr  ,Np  ))
 		
-
+		#Grid for equatorial plane. Should probably be done as a separate function
 		#equatorial plane
 		#corners i,k in eq plane, j index is Neq_a
 		self.xxi[:,:] = self.X[:,Neq_a,:]
@@ -87,23 +78,11 @@ class GamsphPipe(GameraPipe):
 		self.yyc = 0.25*(self.yyi[:-1,:-1] + self.yyi[1:,:-1] + self.yyi[:-1,1:] + self.yyi[1:,1:])
 		r = np.sqrt(self.xxc**2.0 + self.yyc**2.0)
 
-		#!!!for helio meridional plane grid would be different; should be done like for magnetosphere
-
-
-		#Upper half plane
-		#for j in range(self.Nj):
-		#	self.xxi[:,j] = self.X[:,j,0] #k=0
-		#	self.yyi[:,j] = self.Y[:,j,0]
-		#Lower half plane
-		#for j in range(self.Nj,Np+1):
-		#	jp = Np-j
-		#	self.xxi[:,j] =  self.X[:,jp,0]
-		#	self.yyi[:,j] = -self.Y[:,jp,0]
-
 		if (self.hasMJD):
 			print("Found MJD data")
 			print("\tTime (Min/Max) = %f/%f"%(self.MJDs.min(),self.MJDs.max()))
 
+	#Var eq slice
 	def EqSlice(self,vID,sID=None,vScl=None,doEq=True,doVerb=True):
 		#Get full 3D variable first
 		Q = self.GetVar(vID,sID,vScl,doVerb)
@@ -123,7 +102,7 @@ class GamsphPipe(GameraPipe):
 		Qj[:,:] = 0.5*( Q[:,ja,:] + Q[:,jb,:] )
 		return Qj
 
-	#merid plane Y=0
+	#NOT USED merid plane Y=0
 	def MeridGrid(self):
 		#Get Grid
 		self.GetGrid(doVerbose=True)
@@ -170,6 +149,7 @@ class GamsphPipe(GameraPipe):
 		#centers: right plane, left plane, radius
 		return xright, zright, xleft, zleft, r
 
+	#Grid at 1 AU lat lon
 	def iSliceGrid(self):
 		#Get Grid
 		self.GetGrid(doVerbose=True)
@@ -189,10 +169,12 @@ class GamsphPipe(GameraPipe):
 
 		return lat, lon
 
+	#Vars at Y=0
 	def MeridSlice(self,vID,sID=None,vScl=None,doVerb=True):
 		#Get full 3D variable first
 		Q = self.GetVar(vID,sID,vScl,doVerb)
 		
+	
 		Nk2 = self.Nk//2
 		Np = self.Nk
 		
@@ -208,6 +190,7 @@ class GamsphPipe(GameraPipe):
 		#print (Qj.shape)
 		return Qright, Qleft
 
+	#Var at 1 AU
 	def iSliceVar(self,vID,sID=None,vScl=None,doVerb=True):
 		#Get full 3D variable first
 		Q = self.GetVar(vID,sID,vScl,doVerb)
@@ -216,6 +199,7 @@ class GamsphPipe(GameraPipe):
 		Qi = Q[-1,:,:]
 		return Qi
 
+	#Speed at 1 AU
 	def iSliceMagV(self,s0=0):
 		Vx = self.iSliceVar("Vx",s0) #Unscaled
 		Vy = self.iSliceVar("Vy",s0) #Unscaled
@@ -223,11 +207,13 @@ class GamsphPipe(GameraPipe):
 		Vi = self.vScl*np.sqrt(Vx**2.0+Vy**2.0+Vz**2.0)
 		return Vi
 
+	#Density at 1 AU
 	def iSliceD(self,s0=0):
 		Di = self.iSliceVar("D",s0) #Unscaled
 		Di = Di*self.dScl
 		return Di
 
+	#Br at 1 AU
 	def iSliceBr(self,s0=0):
 		Bx = self.iSliceVar("Bx",s0) #Unscaled
 		By = self.iSliceVar("By",s0) #Unscaled
@@ -237,12 +223,14 @@ class GamsphPipe(GameraPipe):
 		x = self.X[-1,:,:]
 		y = self.Y[-1,:,:]
 		z = self.Z[-1,:,:]
+		#centers
 		x_c = 0.25*( x[:-1,:-1]+x[:-1,1:]+x[1:,:-1]+x[1:,1:] )
 		y_c = 0.25*( y[:-1,:-1]+y[:-1,1:]+y[1:,:-1]+y[1:,1:] )
 		z_c = 0.25*( z[:-1,:-1]+z[:-1,1:]+z[1:,:-1]+z[1:,1:] )
 		Br = self.bScl*(Bx*x_c + By*y_c + Bz*z_c)/np.sqrt(x_c**2.+y_c**2.+z_c**2.)
 		return Br
 
+	#temperature at 1 AU
 	def iSliceT(self,s0=0):
 		Pi = self.iSliceVar("P",s0) #Unscaled
 		Di = self.iSliceVar("D",s0) #Unscaled
@@ -261,16 +249,10 @@ class GamsphPipe(GameraPipe):
 
 	#Normalized density (D*r*r/21.5/21.5 in cm-3) in eq plane
 	def eqNormD (self,s0=0):
-		#self.GetGrid(self,doVerb=True)
 
 		D = self.EqSlice("D",s0) #Unscaled
-		#radius of inner boudnary (center of the first cell)
-		R0 = self.xxc[0,0]
-		print ("R0 = %f"%R0)
 
-		#calculate normalized density
-		#r = np.sqrt(self.xxc**2.0 + self.yyc**2.0)
-		Norm = (self.xxc**2.0 + self.yyc**2.0)/R0/R0
+		Norm = (self.xxc**2.0 + self.yyc**2.0)/self.R0/self.R0
 		NormDeq = self.dScl*D*Norm
 		return NormDeq
 
@@ -279,26 +261,23 @@ class GamsphPipe(GameraPipe):
 		Bx = self.EqSlice("Bx",s0) #Unscaled
 		By = self.EqSlice("By",s0) #Unscaled
 		Bz = self.EqSlice("Bz",s0) #Unscaled
-		#Br = self.EqSlice("Br",s0) #Unscaled
-		#R0 = self.xxc[0,0]
 
-		#calculate normalized Br
-		#r = np.sqrt(self.xxc**2.0 + self.yyc**2.0)
 		Br = (Bx*self.xxc + By*self.yyc)*np.sqrt(self.xxc**2.0 + self.yyc**2.0)/self.R0/self.R0
 		
 		NormBreq = self.bScl*Br
 		return NormBreq
 
-	#Temperature
+	#Temperature T(r/r0) in eq plane
 	def eqTemp (self,s0=0):
 		Pres = self.EqSlice("P",s0)
 		D = self.EqSlice("D",s0)
-
-		Temp = Pres/D*self.TScl
+		
+		#T(r/r0)
+		Temp = Pres/D*self.TScl*np.sqrt(self.xxc**2.0 + self.yyc**2.0)/self.R0
 		
 		return Temp
 	
-	#Meridional speed (in km/s)
+	#Meridional speed (in km/s) in Y=0 plane
 	def MerMagV(self,s0=0):
 		Vxr, Vxl = self.MeridSlice("Vx",s0) #Unscaled
 		Vyr, Vyl = self.MeridSlice("Vy",s0) #Unscaled
@@ -307,38 +286,44 @@ class GamsphPipe(GameraPipe):
 		MagVl = self.vScl*np.sqrt(Vxl**2.0+Vyl**2.0+Vzl**2.0)
 		return MagVr, MagVl
 
+	#Normalized D in Y=0 plane
 	def MerDNrm(self,s0=0):
 		xr, zr, xl, zl, r = self.MeridGridHalfs()
-		#print (r.shape)
 		Dr, Dl = self.MeridSlice("D",s0) #Unscaled
 		Drn = Dr*self.dScl*r*r/self.R0/self.R0
 		Dln = Dl*self.dScl*r*r/self.R0/self.R0
 		return Drn, Dln
 
+	#Mormalized Br in Y=0 plane
 	def MerBrNrm(self,s0=0):
 		xr, zr, xl, zl, r = self.MeridGridHalfs()
 		Bxr, Bxl = self.MeridSlice("Bx",s0) #Unscaled
 		Bzr, Bzl = self.MeridSlice("Bz",s0) #Unscaled
 
+		#cell centers to calculate Br
 		xr_c = 0.25*( xr[:-1,:-1]+xr[:-1,1:]+xr[1:,:-1]+xr[1:,1:] )
 		zr_c = 0.25*( zr[:-1,:-1]+zr[:-1,1:]+zr[1:,:-1]+zr[1:,1:] )
 		
 		xl_c = 0.25*( xl[:-1,:-1]+xl[:-1,1:]+xl[1:,:-1]+xl[1:,1:] )
 		zl_c = 0.25*( zl[:-1,:-1]+zl[:-1,1:]+zl[1:,:-1]+zl[1:,1:] )
-		
+
+		#calculating Br
 		Br_r = (Bxr*xr_c + Bzr*zr_c)*r*self.bScl/self.R0/self.R0
 		Br_l = (Bxl*xl_c + Bzl*zl_c)*r*self.bScl/self.R0/self.R0 
 		return Br_r, Br_l
 
+	#Normalized Temp in Y=0 plane 
 	def MerTemp(self,s0=0):
+		xr, zr, xl, zl, r = self.MeridGridHalfs()
+
 		Pr, Pl = self.MeridSlice("P",s0) #Unscaled
 		Dr, Dl = self.MeridSlice("D",s0) #Unscaled
 
-		Tempr = Pr/Dr*self.TScl
-		Templ = Pl/Dl*self.TScl
+		Tempr = Pr/Dr*self.TScl*r/self.R0
+		Templ = Pl/Dl*self.TScl*r/self.R0
 		return Tempr, Templ
 
-
+	#Not used for helio as of now
 	#Return data for meridional 2D field lines
 	#Need to use Cartesian grid
 	def bStream(self,s0=0,xyBds=[-35,25,-25,25],dx=0.05):
