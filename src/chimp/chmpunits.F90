@@ -118,6 +118,14 @@ module chmpunits
             rClosed = 10.0
         case("SATURN")
             L0 = RSaturnXE*Re_cgs
+            in2cms = 1.0e+5 ! 100 km/s -> cm/s
+            in2G   = 1.0/G2nT
+            in2s   = 1.0
+            M0g = SaturnM0g
+            inPScl = 1.0 !Converted to nPa on output
+            rClosed = 5.0 !Inner boundary for Saturn
+        case("SATURNCODE")
+            L0 = RSaturnXE*Re_cgs
             in2cms = 100*1.0e+5 ! 100 km/s -> cm/s
             in2G   = gamB0/G2nT
             in2s   = L0/in2cms

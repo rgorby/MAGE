@@ -5,9 +5,8 @@ module quadrature
     
     implicit none
     !Constants for Gaussian integration
-    integer, parameter, private :: gNp = 12
-    
 
+    integer, parameter, private :: gNp = 12
     !Zeros of 12th order Legendre polynomial
     real(rp), dimension(gNp), parameter :: gA   = &
               [ 0.1252334085114689154724_dp, 0.3678314989981801937527_dp, &
@@ -28,10 +27,10 @@ module quadrature
 
     !Alternative Gaussian order for speed
     ! integer, parameter :: gNp = 6
-    ! real(rp), dimensin(gNp), parameter ::    gA = [0.6612093864662645, 0.2386191860831969, 0.9324695142031521, &
-    !                                                  -0.6612093864662645,-0.2386191860831969,-0.9324695142031521]
+    ! real(rp), dimension(gNp), parameter :: gA   = [0.6612093864662645, 0.2386191860831969, 0.9324695142031521, &
+    !                                               -0.6612093864662645,-0.2386191860831969,-0.9324695142031521]
     ! real(rp), dimension(gNp), parameter :: gWgt = [0.3607615730481386, 0.4679139345726910, 0.1713244923791704, &
-    !                                                   0.3607615730481386, 0.4679139345726910, 0.1713244923791704]                              
+    !                                                0.3607615730481386, 0.4679139345726910, 0.1713244923791704]                              
 
     contains
 
@@ -142,8 +141,9 @@ module quadrature
                 psiV(2) = dy(2) + dy(3)*eta
                 psiV(3) = dz(2) + dz(3)*eta
 
-                area = 0.25*norm2(cross(etaV,psiV))*w
-                N = area*cross(etaV,psiV)/norm2(cross(etaV,psiV))
+                !area = 0.25*norm2(cross(etaV,psiV))*w
+                !N = area*cross(etaV,psiV)/norm2(cross(etaV,psiV))
+                N = 0.25*w*cross(etaV,psiV)
                 flx = flx + dot_product(N,[Axp,Ayp,Azp])
             enddo
         enddo
@@ -324,9 +324,10 @@ module quadrature
 
                 area = 0.25*norm2(cross(etaV,psiV))*w
                 !Accumulate integrals into total
-                N  = N  + area*cross(etaV,psiV)/norm2(cross(etaV,psiV))
-                T1 = T1 + area*etaV/norm2(etaV)
-                T2 = T2 + area*psiV/norm2(psiV)
+                !N  = N  + area*cross(etaV,psiV)/norm2(cross(etaV,psiV))
+                N  = N  + 0.25*w*cross(etaV,psiV)
+                T1 = T1 + area*normVec(etaV)
+                T2 = T2 + area*normVec(psiV)
             enddo
         enddo
 

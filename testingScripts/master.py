@@ -17,9 +17,10 @@ client = WebClient(token=slack_token)
 # Get the home directory
 home = expanduser("~")
 
-# Change directory to Kaiju repo
-os.chdir(home)
-os.chdir("kaiju")
+# Get CWD and move to the main Kaiju folder
+origCWD = os.getcwd()
+os.chdir("..")
+
 # Delete all build folders
 os.system("rm -rf build*/")
 os.system('ls')
@@ -66,9 +67,13 @@ elif (not len(sys.argv) < 2):
     buildTest = subprocess.Popen("python3 buildTest.py -f", shell = True)
     unitTest = subprocess.Popen("python3 unitTest.py", shell = True)
     intelTest = subprocess.Popen("python3 intelChecks.py", shell=True)
+    ICTest = subprocess.Popen("python3 ICtest.py", shell=True)
+    ICReport = subprocess.Popen("python3 ICTestReport.py", shell=True)
 
 else:
     buildTest = subprocess.Popen("python3 buildTest.py", shell = True)
     unitTest = subprocess.Popen("python3 unitTest.py", shell = True)
     intelTest = subprocess.Popen("python3 intelChecks.py", shell=True)
+    ICTest = subprocess.Popen("python3 ICtest.py", shell=True)
+    ICReport = subprocess.Popen("python3 ICTestReport.py", shell=True)
 

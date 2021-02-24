@@ -11,7 +11,7 @@ module sstLLimag
 
     implicit none
 
-    type, extends(innerMagBase_T) :: empData_T ! replace "emp" (specific to empuator) with a more descriptive "emp" for "empirical"
+    type, extends(innerMagBase_T) :: empData_T ! replace "emp" (specific to equator) with a more descriptive "emp" for "empirical"
 
         type(ebTab_T)   :: ebTab
         logical :: doStatic = .true.

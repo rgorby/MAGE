@@ -14,12 +14,14 @@ slack_token = os.environ["SLACK_BOT_TOKEN"]
 print(slack_token)
 client = WebClient(token=slack_token)
 
-# Get the home directory
-home = expanduser("~")
+# Get CWD and set main kaiju folder to "home"
+orig = os.getcwd()
+os.chdir('..')
+home = os.getcwd()
 
 # Go to the unit Test directory
 os.chdir(home)
-os.chdir("kaiju/unitTest1/bin")
+os.chdir("unitTest1/bin")
 
 # Check for jobs.txt
 jobsExists = path.exists("jobs.txt")
@@ -109,5 +111,5 @@ except SlackApiError as e:
 
 # Go to unitTests1 and delete jobs.txt
 os.chdir(home)
-os.chdir('kaiju/unitTest1/bin')
+os.chdir('unitTest1/bin')
 os.remove("jobs.txt")

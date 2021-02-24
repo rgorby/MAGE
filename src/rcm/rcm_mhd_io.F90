@@ -2,13 +2,15 @@ module rcm_mhd_io
     use rcm_mhd_interfaces
     use ioh5
     use xml_input
-    use rcm_mhd_mod,  ONLY : rcm_mhd
     use rcm_mod_subs, ONLY : colat, aloct
+    use rice_housekeeping_module, ONLY : nSkipFL,doFLOut
+
+    implicit none
 
     integer, parameter   , private :: MAXRCMIOVAR = 35
-    character(len=strLen), private :: h5File,RCMH5
+    character(len=strLen), private :: h5File,RCMH5,FLH5
     real(rp), parameter  , private :: IMGAMMA = 5.0/3.0
-
+    
     contains
 !--------------
 !Kaiju RCM IO Routines
@@ -32,13 +34,16 @@ module rcm_mhd_io
 
         !Create file names and nuke old stuff
         h5File = trim(RCMApp%rcm_runid) // ".mhdrcm.h5" !MHD-RCM coupling data
+        FLH5   = trim(RCMApp%rcm_runid) // ".rcmfl.h5" !RCM field lines
         RCMH5  = trim(RCMApp%rcm_runid) // ".rcm.h5" !RCM data
-
+        
         fExist = CheckFile(h5File)
         write(*,*) 'RCM outputting to ',trim(h5File)
+
         if (.not. isRestart) then
             !Kill it all
             call CheckAndKill(h5File) !For non-restart but file exists
+            call CheckAndKill(FLH5)
             call CheckAndKill(RCMH5)
         endif
 
@@ -97,7 +102,7 @@ module rcm_mhd_io
         character(len=strLen) :: gStr
 
         real(rp) :: rcm2Wolf
-        real(rp), dimension(:,:), allocatable :: PLim,PBeta
+        
         integer :: NLat,NLon
 
         NLat = RCMApp%nLat_ion
@@ -105,20 +110,14 @@ module rcm_mhd_io
         
         rcm2Wolf = nt**(IMGAMMA-1.0) !Convert to Wolf units, RCM: Pa (Re/T)^gam => nPa (Re/nT)^gam
         
-        allocate(PLim (NLat,NLon))
-        allocate(PBeta(NLat,NLon))
-        
-        PBeta = (5.0/6.0)*RCMApp%beta_average
-
-        !Calculate wolf-limited P (RCM units)
-        PLim = (PBeta*RCMApp%Pave + RCMApp%Prcm)/(1.0 + PBeta)
 
         !Reset IO chain
         call ClearIO(IOVars)
 
         call AddOutVar(IOVars,"N",RCMApp%Nrcm*rcmNScl,uStr="#/cc")
         call AddOutVar(IOVars,"Npsph",RCMApp%Npsph*rcmNScl,uStr="#/cc")
-        call AddOutVar(IOVars,"P",RCMApp%Prcm*rcmPScl,uStr="nPa")
+        call AddOutVar(IOVars,"P" ,RCMApp%Prcm *rcmPScl,uStr="nPa")
+        call AddOutVar(IOVars,"Pe",RCMApp%Percm*rcmPScl,uStr="nPa")
         call AddOutVar(IOVars,"IOpen",RCMApp%iopen*1.0_rp)
         call AddOutVar(IOVars,"bVol",RCMApp%Vol*nt,uStr="Re/nT")
         call AddOutVar(IOVars,"pot",RCMApp%pot,uStr="V")
@@ -128,7 +127,7 @@ module rcm_mhd_io
         call AddOutVar(IOVars,"bMin",RCMApp%Bmin,uStr="T")
         call AddOutVar(IOVars,"S",rcm2Wolf*RCMApp%Prcm*(RCMApp%Vol**IMGAMMA),uStr="Wolf")
         call AddOutVar(IOVars,"beta",RCMApp%beta_average)
-        call AddOutVar(IOVars,"Plim",PLim*rcmPScl,uStr="nPa")
+        
         call AddOutVar(IOVars,"Pmhd",RCMApp%Pave*rcmPScl,uStr="nPa")
         call AddOutVar(IOVars,"Nmhd",RCMApp%Nave*rcmNScl,uStr="#/cc")
         call AddOutVar(IOVars,"oxyfrac",RCMApp%oxyfrac,uStr="fraction")
@@ -158,22 +157,8 @@ module rcm_mhd_io
 
         write(gStr,'(A,I0)') "Step#", nOut
         call WriteVars(IOVars,.true.,h5File,gStr)
-
-        !Call RCM output
-        RCMApp%rcm_nOut = nOut
-        call rcm_mhd(time,TINY,RCMApp,RCMWRITEOUTPUT)
         
     end subroutine WriteRCM
-
-    subroutine WriteRCMRestart(RCMApp,nRes,MJD,time)
-        type(rcm_mhd_t), intent(inout) :: RCMApp
-        integer, intent(in) :: nRes
-        real(rp), intent(in) :: MJD, time
-
-        RCMApp%rcm_nRes = nRes
-        call rcm_mhd(time,TINY,RCMApp,RCMWRITERESTART)
-        
-    end subroutine WriteRCMRestart
 
     subroutine RCMRestartInfo(RCMApp,xmlInp,t0,isRCMopt)
         type(rcm_mhd_t)  , intent(inout) :: RCMApp
@@ -227,5 +212,95 @@ module rcm_mhd_io
 
         RCMApp%rcm_nRes = nRes + 1 !Holds step for *NEXT* restart
     end subroutine RCMRestartInfo
+
+    !Write out field lines
+    subroutine WriteRCMFLs(RCMFLs,nOut,MJD,time,Ni,Nj)
+        USE ebtypes
+        integer, intent(in) :: nOut,Ni,Nj
+        real(rp), intent(in) :: MJD,time
+        type(fLine_T), intent(in), dimension(Ni,Nj) :: RCMFLs
+
+        type(IOVAR_T), dimension(MAXRCMIOVAR) :: IOVars
+        character(len=strLen) :: gStr,lnStr
+        integer :: i,j,n
+        
+        !Bail out if we're not doing this
+        if (.not. doFLOut) return
+
+    !Create group and write base data
+        write(gStr,'(A,I0)') "Step#", nOut
+        call AddOutVar(IOVars,"time",time)
+        call AddOutVar(IOVars,"MJD",MJD)
+
+        
+        call WriteVars(IOVars,.true.,FLH5,gStr)
+        call ClearIO(IOVars)
+
+        !Now loop through and create subgroup for each line (w/ striding)
+        !TODO: Avoid the individual write for every line
+        n = 0
+        do i=1,Ni,nSkipFL
+            do j=1,Nj-1,nSkipFL
+                write(lnStr,'(A,I0)') "Line#", n
+                if (RCMFLs(i,j)%isGood) then
+                    call OutLine(RCMFLs(i,j),gStr,lnStr,IOVars)
+                    n = n + 1
+                endif
+            enddo
+        enddo
+
+    end subroutine WriteRCMFLs
+
+    !Write out individual line
+    subroutine OutLine(fL,gStr,lnStr,IOVars)
+        USE ebtypes
+        type(fLine_T), intent(in) :: fL
+        character(len=strLen), intent(in) :: gStr,lnStr
+        type(IOVAR_T), intent(inout), dimension(MAXRCMIOVAR) :: IOVars
+        real(rp), allocatable, dimension(:,:) :: LCon
+        integer :: i,Np,Npp,n0
+        
+        call ClearIO(IOVars)
+        Np = fL%Nm + fL%Np + 1
+        if (Np<=nSkipFL) return
+        n0 = fL%Nm
+
+        !Add scalar stuff
+        !Record seed point
+        call AddOutVar(IOVars,"x0",fL%x0(XDIR))
+        call AddOutVar(IOVars,"y0",fL%x0(YDIR))
+        call AddOutVar(IOVars,"z0",fL%x0(ZDIR))
+
+        !Do striding through field line points
+        Npp = size(fL%xyz(0:-n0:-nSkipFL,XDIR))
+
+        call AddOutVar(IOVars,"xyz",transpose(fL%xyz(0:-n0:-nSkipFL,XDIR:ZDIR)))
+        call AddOutVar(IOVars,"Np",Npp)
+        call AddOutVar(IOVars,"n0",1) !Seed point is now the first point
+
+        !Only output some of the variables
+        call AddOutVar(IOVars,"B",fL%lnVars(0)       %V(0:-n0:-nSkipFL),uStr="nT")
+        call AddOutVar(IOVars,"D",fL%lnVars(DEN)     %V(0:-n0:-nSkipFL),uStr="#/cc")
+        call AddOutVar(IOVars,"P",fL%lnVars(PRESSURE)%V(0:-n0:-nSkipFL),uStr="nPa")
+
+
+        !Create connectivity data (cast to int before write)
+        !TODO: There must be a better way to do this?
+        allocate(LCon(Npp-1,2))
+        
+        do i=1,Npp-1
+            LCon(i,1) = i-1
+            LCon(i,2) = i
+        enddo
+
+        call AddOutVar(IOVars,"LCon",transpose(LCon))
+        i = FindIO(IOVars,"LCon")
+        IOVars(i)%vType = IOINT
+
+        !Write output chain
+        call WriteVars(IOVars,.true.,FLH5,gStr,lnStr)
+        call ClearIO(IOVars)
+
+    end subroutine OutLine
 
 end module rcm_mhd_io

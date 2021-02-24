@@ -3,18 +3,19 @@
 !> RCM Ionosphere grid definition, coupled model variables and helper
 !! functions.
 module rcm_mhd_interfaces
+    USE kdefs, ONLY : strLen
     USE rcm_precision
-    USE Rcm_mod_subs, ONLY : isize, jsize, jwrap, pi, colat, aloct
+    USE Rcm_mod_subs, ONLY : isize, jsize, jwrap, doRCMVerbose
     USE rcmdefs, ONLY : RCMTOPCLOSED,RCMTOPNULL,RCMTOPOPEN
     implicit none
-    integer(ip), parameter :: RCMINIT=0,RCMADVANCE=1,RCMRESTART=2,RCMWRITERESTART=-2,RCMWRITEOUTPUT=-3,RCMWRITETIMING=-1
-    integer(ip), parameter :: RCMCOLDSTART=10
-    logical :: doRCMVerbose = .FALSE.
+    integer(iprec), parameter :: RCMINIT=0,RCMADVANCE=1,RCMRESTART=2,RCMWRITERESTART=-2,RCMWRITEOUTPUT=-3,RCMWRITETIMING=-1
+    integer(iprec), parameter :: RCMCOLDSTART=10
+    !logical :: doRCMVerbose = .TRUE.
     logical :: doColdstart =.true.
 
     !Scaling parameters
-    real(rp), parameter :: rcmPScl = 1.0e+9 !Convert Pa->nPa
-    real(rp), parameter :: rcmNScl = 1.0e-6 !Convert #/m3 => #/cc
+    real(rprec), parameter :: rcmPScl = 1.0e+9 !Convert Pa->nPa
+    real(rprec), parameter :: rcmNScl = 1.0e-6 !Convert #/m3 => #/cc
 
     type rcm_mhd_T
         real(rprec) :: llBC !MHD low-latitude boundary (radians)
@@ -43,7 +44,7 @@ module rcm_mhd_interfaces
         real(rprec),allocatable :: sigmap(:,:)
         real(rprec),allocatable :: sigmah(:,:)
         real(rprec),allocatable :: oxyfrac(:,:)   ! O+ fraction of MHD number density
-        real(rprec),allocatable :: MedK(:,:) !Median energy contribution to pressure [keV]
+        real(rprec),allocatable :: Percm(:,:) ! RCM electron (only) pressure in Pa
         !Conjugate mapping, lat/lon of conjugate point mapped
         real(rprec),allocatable :: latc(:,:)
         real(rprec),allocatable :: lonc(:,:)
@@ -68,5 +69,37 @@ module rcm_mhd_interfaces
         !Some simple quantities for keeping track of RCM energy channels
         real(rprec) :: MaxAlam = 0.0
         
+        !Current pressure floor from MHD [nPa]
+        real(rprec) :: pFloor = 0.0
     end type rcm_mhd_T
+
+    contains
+        !Copy A (RCM/MHD-sized) into B (RCM-sized) and wrap (fill periodic)
+        subroutine EmbiggenWrap(rmA,rcmA)
+          REAL(rprec), intent(in)    :: rmA (isize,jsize-jwrap+1)
+          REAL(rprec), intent(inout) :: rcmA(isize,jsize)
+
+          INTEGER(iprec) :: j
+
+          rcmA(:,jwrap:jsize) = rmA(:,:)
+          do j=1,jwrap-1
+            rcmA(:,j) = rcmA(:,jsize-jwrap+j)
+          enddo
+
+        end subroutine EmbiggenWrap
+
+        !Same as above, but for int
+        subroutine EmbiggenWrapI(rmA,rcmA)
+          INTEGER(iprec), intent(in)    :: rmA (isize,jsize-jwrap+1)
+          INTEGER(iprec), intent(inout) :: rcmA(isize,jsize)
+
+          INTEGER(iprec) :: j
+
+          rcmA(:,jwrap:jsize) = rmA(:,:)
+          do j=1,jwrap-1
+            rcmA(:,j) = rcmA(:,jsize-jwrap+j)
+          enddo
+
+        end subroutine EmbiggenWrapI
+        
 end module rcm_mhd_interfaces

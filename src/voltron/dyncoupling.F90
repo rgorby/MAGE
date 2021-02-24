@@ -3,10 +3,10 @@ module dyncoupling
     
     use volttypes
     use kronos
-
+    use earthhelper, ONLY : SetKp0
     implicit none
     enum, bind(C)
-        enumerator :: NULLALERT=0,GREYALERT,YELLOWALERT,REDALERT
+        enumerator :: NULLALERT=0,WHITEALERT,GREYALERT,YELLOWALERT,REDALERT
     end enum
 
     logical, private :: doInit = .true.
@@ -39,14 +39,16 @@ module dyncoupling
         enddo
 
         KpI = nint(KpMax) !Cast to integer
-
         !Set coupling cadences based on max Kp on one hour window
         select case (KpI)
-            case (1,2,3)
-                dynDT = 30.0
-                newAlert = GREYALERT
-            case (4,5,6)
+            case (1,2)
                 dynDT = 15.0
+                newAlert = WHITEALERT
+            case (3,4)
+                dynDT = 15.0
+                newAlert = GREYALERT
+            case (5,6)
+                dynDT = 10.0
                 newAlert = YELLOWALERT
             case (7:)
                 dynDT = 10.0
@@ -56,6 +58,8 @@ module dyncoupling
 
         end select
 
+        !Whether to reset current Kp default
+        !call SetKp0(KpI)
         if (newAlert /= alertStatus) then
             !Alert status has changed
             if (newAlert < alertStatus) then

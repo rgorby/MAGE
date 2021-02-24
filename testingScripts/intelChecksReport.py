@@ -15,12 +15,14 @@ slack_token = os.environ["SLACK_BOT_TOKEN"]
 print(slack_token)
 client = WebClient(token=slack_token, timeout=120)
 
-# Get the home directory
-home = expanduser("~")
+# Get CWD and set main kaiju folder to "home"
+orig = os.getcwd()
+os.chdir('..')
+home = os.getcwd()
 
 # Go to IntelChecks folder
 os.chdir(home)
-os.chdir('kaiju/intelChecks/bin')
+os.chdir('intelChecks/bin')
 
 # Check for jobs.txt
 jobsExists = path.exists("jobs.txt")
@@ -31,7 +33,7 @@ if (not jobsExists):
 
 # Go to IntelChecks folder
 os.chdir(home)
-os.chdir('kaiju/intelChecks/bin/r000mi3')
+os.chdir('intelChecks/bin/r000mi3')
 process = subprocess.call("ls", shell=True)
 
 # Find output files
@@ -69,7 +71,7 @@ except SlackApiError as e:
 
 # Threading
 os.chdir(home)
-os.chdir('kaiju/intelChecks/bin/r001ti3')
+os.chdir('intelChecks/bin/r001ti3')
 process = subprocess.call("ls", shell=True)
 time.sleep(60)
 
@@ -103,5 +105,5 @@ except SlackApiError as e:
 
 # Go to IntelChecks and delete jobs.txt
 os.chdir(home)
-os.chdir('kaiju/intelChecks/bin')
+os.chdir('intelChecks/bin')
 os.remove("jobs.txt")
