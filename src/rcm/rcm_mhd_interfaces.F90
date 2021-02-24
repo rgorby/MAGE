@@ -10,7 +10,6 @@ module rcm_mhd_interfaces
     implicit none
     integer(iprec), parameter :: RCMINIT=0,RCMADVANCE=1,RCMRESTART=2,RCMWRITERESTART=-2,RCMWRITEOUTPUT=-3,RCMWRITETIMING=-1
     integer(iprec), parameter :: RCMCOLDSTART=10
-    !logical :: doRCMVerbose = .TRUE.
     logical :: doColdstart =.true.
 
     !Scaling parameters
