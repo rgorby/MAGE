@@ -39,7 +39,7 @@ module lineio
         
         !Create group and write base data
         write(gStr,'(A,I0)') "Step#", Model%nOut
-        call AddOutVar(IOVars,"time",Model%t)
+        call AddOutVar(IOVars,"time",oTScl*Model%t)
         !xxx, any others
         call WriteVars(IOVars,.true.,flOutF,gStr)
         call ClearIO(IOVars)
