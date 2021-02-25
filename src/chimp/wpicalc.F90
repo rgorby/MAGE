@@ -6,6 +6,7 @@ module wpicalc
     use tputils
     use wpitypes
     use wpihelper
+    use earthhelper
     use xml_input
     use chmpunits
     use quarticRoots
@@ -33,7 +34,7 @@ module wpicalc
         real(rp), dimension(NDIM) :: p11,pxy,vExB
         real(rp), dimension(NVARMHD) :: Qmhd
         complex(rp), dimension(2) :: quadCoef,dtLim ! used to set subcycle dt given dAlim
-        real(rp) :: gamNew,aNew,pNew,MagB,Mu,p11Mag,K,rho,psi
+        real(rp) :: gamNew,aNew,pNew,MagB,Mu,p11Mag,K,rho,psi,L,phi
         real(rp) :: Ome,wpe,astar,xHigh,xj,yj,dGDda,Daa,inWScl
         real(rp) :: dtCum,dtRem,ddt,aMax ! substep used in wpi calculations, not same as ddt in pusher.F90 
         real(rp) :: zEq = 0.0 !Defined Z for equator
@@ -72,10 +73,14 @@ module wpicalc
                 Qmhd = mhdInterp(r,t,Model,ebState)
                 rho = Qmhd(DEN)
             else 
-                write(*,*) 'PerformWPI: Exiting.... no access to full MHD variables, set doMHD to true'
-                stop
+                ! Pull density from Gallagher plasmasphere
+                L = norm2(req)
+                phi = atan2(req(2),req(1))
+                rho = GallagherRP(L,phi)  ! use Gallagher from earthhelper
             endif
         endif
+
+        if (rho < TINY) return ! no plasma to interact with so exit
 
         !pull background magnetic field strength
         if (present(constB0)) then
@@ -230,7 +235,6 @@ module wpicalc
         lat = asin(r(3)/rMag)
         lon = atan2(r(2),r(1))
         L = norm2(req)
-        !L = rMag/cos(lat)**2 !FIXME: assumes dipolar field
 
         ! check if particle is in presence of waves
         inL = (L >= Lbds(1) .and. L <= Lbds(2))
