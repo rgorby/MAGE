@@ -1,8 +1,6 @@
 #!/usr/bin/env python
 
 #python wsa2TDgamera.py 
-#helioLibLocation='/Users/provoea1/Work/gamera/python/gamera-h/lib'
-#from numpy import linspace,pi,meshgrid,sin,cos,zeros,ones,dstack,diff,sqrt,array,savetxt,flatnonzero,insert,asarray,zeros_like,where,roll,ediff1d,empty,tanh,insert,append
 
 import os,sys,glob
 import scipy
@@ -16,10 +14,6 @@ import time
 import kaipy.gamhelio.wsa2TDgamera.params as params
 import kaipy.gamhelio.lib.wsa as wsa
 import kaipy.gamhelio.lib.poisson as poisson
-
-#if helioLibLocation not in sys.path: sys.path.append(helioLibLocation)
-#import wsa
-#import poisson
 
 #plotting function for debug
 def plot(wsa_file, var_wsa, var_wsa_rolled):
@@ -43,7 +37,7 @@ def plot(wsa_file, var_wsa, var_wsa_rolled):
     plt.savefig(wsaFile[:-4]+'png')
 
 
-#function to plot boundary conditions in rotating frame to make a movie
+# [EP] function to plot boundary conditions in rotating frame to make a movie
 def plotBc(wsa_file, phi, theta, var1, var2, var3, var4):
     import matplotlib.pyplot as plt
     import matplotlib.gridspec as gridspec
@@ -96,8 +90,6 @@ prm = params.params(args.ConfigFileName)
 (ni,nj,nk) = (prm.ni,prm.nj,prm.nk)
 Ng = prm.NO2
 
-#print(ni, nj, nk)
-#print(prm.adaptdir)
 
 # [EP] sorted list of WSA files
 wsaFiles = sorted(glob.glob(os.path.join(prm.adaptdir,prm.adaptWildCard)))
@@ -115,15 +107,16 @@ for (fcount,wsaFile) in enumerate(wsaFiles):
 	############### WSA STUFF #####################
     isFirstFile = (wsaFile == wsaFiles[0]) 
    	#[EP] reading WSA file
-    phi_wsa_v,theta_wsa_v,phi_wsa_c,theta_wsa_c,bi_wsa,v_wsa,n_wsa,T_wsa = wsa.read(wsaFile,prm.densTempInfile,prm.normalized, verbose = isFirstFile)
+    jd_c,phi_wsa_v,theta_wsa_v,phi_wsa_c,theta_wsa_c,bi_wsa,v_wsa,n_wsa,T_wsa = wsa.read(wsaFile,prm.densTempInfile,prm.normalized, verbose = isFirstFile)
     #bi_wsa in Gs
-    ############### WSA STUFF #####################
+
+    #convert julian date from wsa fits into modified julian date
+    mjd_c = jd_c - 2400000.5
 
     if isFirstFile:
-    # GAMERA GRID
-    # read GAMERA grid from innerbc.h5
-        #print (len(phi_wsa_c))
-        #print (phi_wsa_c)
+        # GAMERA GRID
+        # read GAMERA grid from innerbc.h5
+        
         print ('reading heliogrid.h5 ...')
         f = h5py.File(os.path.join(prm.GridDir,prm.gameraGridFile), 'r')
         #Nphi, Nth, Nr = np.shape(f['X'])
@@ -140,7 +133,7 @@ for (fcount,wsaFile) in enumerate(wsaFiles):
         zc = 0.125*(f['Z'][:-1,:-1,:-1]+f['Z'][:-1,:-1,1:]+f['Z'][:-1,1:,:-1]+f['Z'][:-1,1:,1:]+
              f['Z'][1:,:-1,:-1]+f['Z'][1:,:-1,1:]+f['Z'][1:,1:,:-1]+f['Z'][1:,1:,1:]) 
 
-        #radius of inner boundary
+        #radius of inner boundary. Index order [k,j,i]
         R0 = np.sqrt(x[0,0,Ng]**2+y[0,0,Ng]**2+z[0,0,Ng]**2)
 
         #[EP for testing]
@@ -148,7 +141,6 @@ for (fcount,wsaFile) in enumerate(wsaFiles):
         r = np.sqrt(x[:]**2+y[:]**2+z[:]**2)
         rxy = np.sqrt(x[:]**2+y[:]**2)
       
-        #do we need this et al?
         # remove the ghosts from angular dimensions (corners)
         P = np.arctan2(y[Ng:-Ng-1,Ng:-Ng-1,:],x[Ng:-Ng-1,Ng:-Ng-1,:])
         P [ P < 0] += 2*np.pi
@@ -156,6 +148,12 @@ for (fcount,wsaFile) in enumerate(wsaFiles):
                    # small negative number, which the above call sets
                    # to 2*pi. This takes care of it.
         T = np.arccos(z[Ng:-Ng-1,Ng:-Ng,Ng]/r[Ng:-Ng-1,Ng:-Ng,Ng])
+
+        #grid for output into innerbc.h5
+        #Do we save phi theta or xyz corners?
+        P_out = P[:,:,0]
+        T_out = T[:,:]
+        print ("shapes of output phi and theta ", P_out.shape, T_out.shape)
 
         #centers spherical grid excluding ghosts in angular directions
         
@@ -171,7 +169,7 @@ for (fcount,wsaFile) in enumerate(wsaFiles):
         
 
         Pc [Pc < 0] += 2*np.pi
-        #GAMERA grid at the inner boundary
+        #GAMERA grid centers at the inner boundary, 1D array
         phi = Pc[:,0,0]
         theta = Tc[0,:,0]
 
@@ -352,7 +350,14 @@ for (fcount,wsaFile) in enumerate(wsaFiles):
 
     if prm.dumpBC:
         with h5py.File(os.path.join(prm.IbcDir,prm.gameraIbcFile),'w') as hf:
-            hf.create_dataset("vr",data=vrp) #cc
+            if fcount == 0:
+                #write out phi and th coords of corners at inner boundary grid
+                hf.create_dataset("Phi", data=P_out)
+                hf.create_dataset("Th", data=T_out)
+            grname = "Step#"+str(fcount)
+            grp = hf.create_group(grname)
+            grp.attrs["MJD"] = mjd_c
+            grp.create_dataset("vr",data=vrp) #cc
             hf.create_dataset("vp",data=vp) #cc
             hf.create_dataset("vt",data=vt) #cc
             #hf.create_dataset("vr_kface",data=vr_kface) #kface
@@ -370,7 +375,7 @@ for (fcount,wsaFile) in enumerate(wsaFiles):
     #plotBc(wsaFile,phi, theta[1:-1], vrp[:,:,Ng-1], brp[:,:,Ng-1], rhop[:,:,Ng-1], csp[:,:,Ng-1])
     
 
-    #test if calculated tengential electric fields give Br from wsa
+    # [EP] test if calculated tengential electric fields give Br from wsa
     if fcount > 30:
         print ('Elena debug')
         print (fcount)
