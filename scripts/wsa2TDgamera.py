@@ -101,6 +101,9 @@ print(wsaFiles)
 et_save = np.zeros( (nj+2,nk+1) )
 ep_save = np.zeros( (nj+1+2,nk) )
 
+#open innerbcTD.h5 for ouput
+with h5py.File(os.path.join(prm.IbcDir,prm.gameraIbcFile),'w') as hf:
+
 #[EP] going through the list of WSA files
 for (fcount,wsaFile) in enumerate(wsaFiles):
     #print(fcount)
@@ -349,7 +352,6 @@ for (fcount,wsaFile) in enumerate(wsaFiles):
     
 
     if prm.dumpBC:
-        with h5py.File(os.path.join(prm.IbcDir,prm.gameraIbcFile),'w') as hf:
             if fcount == 0:
                 #write out phi and th coords of corners at inner boundary grid
                 hf.create_dataset("Phi", data=P_out)
@@ -358,19 +360,19 @@ for (fcount,wsaFile) in enumerate(wsaFiles):
             grp = hf.create_group(grname)
             grp.attrs["MJD"] = mjd_c
             grp.create_dataset("vr",data=vrp) #cc
-            hf.create_dataset("vp",data=vp) #cc
-            hf.create_dataset("vt",data=vt) #cc
+            grp.create_dataset("vp",data=vp) #cc
+            grp.create_dataset("vt",data=vt) #cc
             #hf.create_dataset("vr_kface",data=vr_kface) #kface
-            hf.create_dataset("rho",data=rhop) #cc
-            hf.create_dataset("cs",data=csp) #cc
-            hf.create_dataset("br",data=brp) #cc
+            grp.create_dataset("rho",data=rhop) #cc
+            grp.create_dataset("cs",data=csp) #cc
+            grp.create_dataset("br",data=brp) #cc
             #hf.create_dataset("br_kface",data=br_kface) #kface 
             #hf.create_dataset("bp",data=bp_a) #cc
             #hf.create_dataset("bt",data=bt_a) #cc
-            hf.create_dataset("bt_jface",data=bt_jface_a_p) #jface
-            hf.create_dataset("bp_kface",data=bp_kface_a_p) #kface
-            hf.create_dataset("et",data=et_save_p) #k-edges
-            hf.create_dataset("ep",data=ep_save_p) #j-edges
+            grp.create_dataset("bt_jface",data=bt_jface_a_p) #jface
+            grp.create_dataset("bp_kface",data=bp_kface_a_p) #kface
+            grp.create_dataset("et",data=et_save_p) #k-edges
+            grp.create_dataset("ep",data=ep_save_p) #j-edges
 
     #plotBc(wsaFile,phi, theta[1:-1], vrp[:,:,Ng-1], brp[:,:,Ng-1], rhop[:,:,Ng-1], csp[:,:,Ng-1])
     
