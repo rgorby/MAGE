@@ -145,12 +145,12 @@ with h5py.File(os.path.join(prm.IbcDir,prm.gameraIbcFile),'w') as hf:
             rxy = np.sqrt(x[:]**2+y[:]**2)
           
             # remove the ghosts from angular dimensions (corners)
-            P = np.arctan2(y[Ng:-Ng-1,Ng:-Ng-1,:],x[Ng:-Ng-1,Ng:-Ng-1,:])
+            P = np.arctan2(y[Ng:-Ng,Ng:-Ng,:],x[Ng:-Ng,Ng:-Ng,:])
             P [ P < 0] += 2*np.pi
             P = P % (2*np.pi)  # sometimes the very first point may be a very
                        # small negative number, which the above call sets
                        # to 2*pi. This takes care of it.
-            T = np.arccos(z[Ng:-Ng-1,Ng:-Ng,Ng]/r[Ng:-Ng-1,Ng:-Ng,Ng])
+            T = np.arccos(z[Ng:-Ng,Ng:-Ng,Ng]/r[Ng:-Ng,Ng:-Ng,Ng])
 
             #grid for output into innerbc.h5
             #Do we save phi theta or xyz corners?
@@ -352,27 +352,27 @@ with h5py.File(os.path.join(prm.IbcDir,prm.gameraIbcFile),'w') as hf:
         
 
         if prm.dumpBC:
-                if fcount == 0:
-                    #write out phi and th coords of corners at inner boundary grid
-                    hf.create_dataset("Phi", data=P_out)
-                    hf.create_dataset("Th", data=T_out)
-                grname = "Step#"+str(fcount)
-                grp = hf.create_group(grname)
-                grp.attrs["MJD"] = mjd_c
-                grp.create_dataset("vr",data=vrp) #cc
-                grp.create_dataset("vp",data=vp) #cc
-                grp.create_dataset("vt",data=vt) #cc
-                #hf.create_dataset("vr_kface",data=vr_kface) #kface
-                grp.create_dataset("rho",data=rhop) #cc
-                grp.create_dataset("cs",data=csp) #cc
-                grp.create_dataset("br",data=brp) #cc
-                #hf.create_dataset("br_kface",data=br_kface) #kface 
-                #hf.create_dataset("bp",data=bp_a) #cc
-                #hf.create_dataset("bt",data=bt_a) #cc
-                grp.create_dataset("bt_jface",data=bt_jface_a_p) #jface
-                grp.create_dataset("bp_kface",data=bp_kface_a_p) #kface
-                grp.create_dataset("et",data=et_save_p) #k-edges
-                grp.create_dataset("ep",data=ep_save_p) #j-edges
+            if fcount == 0:
+                #write out phi and th coords of corners at inner boundary grid
+                hf.create_dataset("Phi", data=P_out)
+                hf.create_dataset("Th", data=T_out)
+            grname = "Step#"+str(fcount)
+            grp = hf.create_group(grname)
+            grp.attrs["MJD"] = mjd_c
+            grp.create_dataset("vr",data=vrp) #cc
+            grp.create_dataset("vp",data=vp) #cc
+            grp.create_dataset("vt",data=vt) #cc
+            #hf.create_dataset("vr_kface",data=vr_kface) #kface
+            grp.create_dataset("rho",data=rhop) #cc
+            grp.create_dataset("cs",data=csp) #cc
+            grp.create_dataset("br",data=brp) #cc
+            #hf.create_dataset("br_kface",data=br_kface) #kface 
+            #hf.create_dataset("bp",data=bp_a) #cc
+            #hf.create_dataset("bt",data=bt_a) #cc
+            grp.create_dataset("bt_jface",data=bt_jface_a_p) #jface
+            grp.create_dataset("bp_kface",data=bp_kface_a_p) #kface
+            grp.create_dataset("et",data=et_save_p) #k-edges
+            grp.create_dataset("ep",data=ep_save_p) #j-edges
 
         #plotBc(wsaFile,phi, theta[1:-1], vrp[:,:,Ng-1], brp[:,:,Ng-1], rhop[:,:,Ng-1], csp[:,:,Ng-1])
         
