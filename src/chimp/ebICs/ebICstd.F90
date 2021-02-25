@@ -65,6 +65,12 @@ module userebic
 
         !Do various types of initialization
         !ie, static, numb0, etc
+
+        !Initialize wave particle interactions if present
+        if ( Model%doWPI ) then
+            call initWPI(ebState%ebWmodel,ebState%ebWave,inpXML)
+        endif
+
     !Numerical background, put B0 field on grid
         if (Model%doNumB0) then
             write(*,*) '<Setting Numerical B0>'
@@ -95,11 +101,6 @@ module userebic
             eb2%dB = 0.0
             ebState%doStatic = .true.
             return
-        endif
-
-        !Initialize wave particle interactions if present
-        if ( Model%doWPI ) then
-            call initWPI(ebState%ebWmodel,ebState%ebWave,inpXML)
         endif
         
         !Initialize eb data, find time slices
