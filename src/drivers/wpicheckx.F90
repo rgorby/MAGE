@@ -390,7 +390,7 @@ program wpicheck
             type(tpState_T),dimension(:),allocatable :: tpState
             type(prt_T)   :: prt,prtDC
 
-            character(len=strLen) :: outH5 = "singlPrtTest.h5"
+            character(len=strLen) :: outH5 = "singlePrtTest.h5"
 
             real(rp), dimension(:), allocatable :: kwpi,awpi,xjwpi,yjwpi
             real(rp), dimension(:), allocatable :: kDC,aDC,xjDC,yjDC
@@ -433,8 +433,8 @@ program wpicheck
 
             ! setting position of particle
             ! not important just need to specify hemisphere
-            prt%Q(XPOS:ZPOS) = [-3.0_rp, 3.0_rp, -0.5_rp] ! Southern hemisphere
-            prt%Qeq(EQX:EQY) = [-3.0_rp, 3.0_rp] 
+            prt%Q(XPOS:ZPOS) = [-5.0_rp, -3.0_rp, -0.5_rp] ! Southern hemisphere
+            prt%Qeq(EQX:EQY) = [-5.0_rp, -3.0_rp] 
 
             !allocate arrays to hold output
             allocate(kwpi(Nt))
