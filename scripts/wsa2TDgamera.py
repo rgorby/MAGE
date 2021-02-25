@@ -105,319 +105,319 @@ ep_save = np.zeros( (nj+1+2,nk) )
 with h5py.File(os.path.join(prm.IbcDir,prm.gameraIbcFile),'w') as hf:
 
 #[EP] going through the list of WSA files
-for (fcount,wsaFile) in enumerate(wsaFiles):
-    #print(fcount)
-	############### WSA STUFF #####################
-    isFirstFile = (wsaFile == wsaFiles[0]) 
-   	#[EP] reading WSA file
-    jd_c,phi_wsa_v,theta_wsa_v,phi_wsa_c,theta_wsa_c,bi_wsa,v_wsa,n_wsa,T_wsa = wsa.read(wsaFile,prm.densTempInfile,prm.normalized, verbose = isFirstFile)
-    #bi_wsa in Gs
+    for (fcount,wsaFile) in enumerate(wsaFiles):
+        #print(fcount)
+    	############### WSA STUFF #####################
+        isFirstFile = (wsaFile == wsaFiles[0]) 
+       	#[EP] reading WSA file
+        jd_c,phi_wsa_v,theta_wsa_v,phi_wsa_c,theta_wsa_c,bi_wsa,v_wsa,n_wsa,T_wsa = wsa.read(wsaFile,prm.densTempInfile,prm.normalized, verbose = isFirstFile)
+        #bi_wsa in Gs
 
-    #convert julian date from wsa fits into modified julian date
-    mjd_c = jd_c - 2400000.5
+        #convert julian date from wsa fits into modified julian date
+        mjd_c = jd_c - 2400000.5
 
-    if isFirstFile:
-        # GAMERA GRID
-        # read GAMERA grid from innerbc.h5
+        if isFirstFile:
+            # GAMERA GRID
+            # read GAMERA grid from innerbc.h5
+            
+            print ('reading heliogrid.h5 ...')
+            f = h5py.File(os.path.join(prm.GridDir,prm.gameraGridFile), 'r')
+            #Nphi, Nth, Nr = np.shape(f['X'])
+            #corners
+            x = f['X'][:]
+            y = f['Y'][:]
+            z = f['Z'][:]
+
+            #centers
+            xc = 0.125*(f['X'][:-1,:-1,:-1]+f['X'][:-1,:-1,1:]+f['X'][:-1,1:,:-1]+f['X'][:-1,1:,1:]+
+                 f['X'][1:,:-1,:-1]+f['X'][1:,:-1,1:]+f['X'][1:,1:,:-1]+f['X'][1:,1:,1:])
+            yc = 0.125*(f['Y'][:-1,:-1,:-1]+f['Y'][:-1,:-1,1:]+f['Y'][:-1,1:,:-1]+f['Y'][:-1,1:,1:]+
+                 f['Y'][1:,:-1,:-1]+f['Y'][1:,:-1,1:]+f['Y'][1:,1:,:-1]+f['Y'][1:,1:,1:])
+            zc = 0.125*(f['Z'][:-1,:-1,:-1]+f['Z'][:-1,:-1,1:]+f['Z'][:-1,1:,:-1]+f['Z'][:-1,1:,1:]+
+                 f['Z'][1:,:-1,:-1]+f['Z'][1:,:-1,1:]+f['Z'][1:,1:,:-1]+f['Z'][1:,1:,1:]) 
+
+            #radius of inner boundary. Index order [k,j,i]
+            R0 = np.sqrt(x[0,0,Ng]**2+y[0,0,Ng]**2+z[0,0,Ng]**2)
+
+            #[EP for testing]
+            #cell corners including ghost cells
+            r = np.sqrt(x[:]**2+y[:]**2+z[:]**2)
+            rxy = np.sqrt(x[:]**2+y[:]**2)
+          
+            # remove the ghosts from angular dimensions (corners)
+            P = np.arctan2(y[Ng:-Ng-1,Ng:-Ng-1,:],x[Ng:-Ng-1,Ng:-Ng-1,:])
+            P [ P < 0] += 2*np.pi
+            P = P % (2*np.pi)  # sometimes the very first point may be a very
+                       # small negative number, which the above call sets
+                       # to 2*pi. This takes care of it.
+            T = np.arccos(z[Ng:-Ng-1,Ng:-Ng,Ng]/r[Ng:-Ng-1,Ng:-Ng,Ng])
+
+            #grid for output into innerbc.h5
+            #Do we save phi theta or xyz corners?
+            P_out = P[:,:,0]
+            T_out = T[:,:]
+            print ("shapes of output phi and theta ", P_out.shape, T_out.shape)
+
+            #centers spherical grid excluding ghosts in angular directions
+            
+            #Rc = np.sqrt(xc[Ng:-Ng, Ng:-Ng,:]**2 + yc[Ng:-Ng, Ng:-Ng,:]**2 + zc[Ng:-Ng, Ng:-Ng,:]**2)
+            #Pc = np.arctan2(yc[Ng:-Ng, Ng:-Ng,:], xc[Ng:-Ng, Ng:-Ng,:])
+            #Tc = np.arccos(zc[Ng:-Ng,Ng:-Ng,:]/Rc)
+
+            #include one extra cell in j direction at start and end
+            Pg = Ng-1
+            Rc = np.sqrt(xc[Ng:-Ng, Pg:-Pg,:]**2 + yc[Ng:-Ng, Pg:-Pg,:]**2 + zc[Ng:-Ng, Pg:-Pg,:]**2)
+            Pc = np.arctan2(yc[Ng:-Ng, Pg:-Pg,:], xc[Ng:-Ng, Pg:-Pg,:])
+            Tc = np.arccos(zc[Ng:-Ng,Pg:-Pg,:]/Rc)
+            
+
+            Pc [Pc < 0] += 2*np.pi
+            #GAMERA grid centers at the inner boundary, 1D array
+            phi = Pc[:,0,0]
+            theta = Tc[0,:,0]
+
+            #debug
+            #print (phi)
+            #print (theta)
+
+            # what exactly does this do???
+            pois = poisson.poisson(theta,phi)
+
         
-        print ('reading heliogrid.h5 ...')
-        f = h5py.File(os.path.join(prm.GridDir,prm.gameraGridFile), 'r')
-        #Nphi, Nth, Nr = np.shape(f['X'])
-        #corners
-        x = f['X'][:]
-        y = f['Y'][:]
-        z = f['Z'][:]
+        omega=2*np.pi/prm.Tsolar*(25.38/27.27)
+        #shift of wsa maps needed if wsa solutions are provided in inertial frame (folder UPDATED)
+        #if wsa solutions are provided in rotating carrington frame (folder CARR), no need to shift.
+        #shift phi coordinate in wsa data according to the shift of the wsa map relative to the first one 
+        #wsa maps move to the right with cadence 1 day
 
-        #centers
-        xc = 0.125*(f['X'][:-1,:-1,:-1]+f['X'][:-1,:-1,1:]+f['X'][:-1,1:,:-1]+f['X'][:-1,1:,1:]+
-             f['X'][1:,:-1,:-1]+f['X'][1:,:-1,1:]+f['X'][1:,1:,:-1]+f['X'][1:,1:,1:])
-        yc = 0.125*(f['Y'][:-1,:-1,:-1]+f['Y'][:-1,:-1,1:]+f['Y'][:-1,1:,:-1]+f['Y'][:-1,1:,1:]+
-             f['Y'][1:,:-1,:-1]+f['Y'][1:,:-1,1:]+f['Y'][1:,1:,:-1]+f['Y'][1:,1:,1:])
-        zc = 0.125*(f['Z'][:-1,:-1,:-1]+f['Z'][:-1,:-1,1:]+f['Z'][:-1,1:,:-1]+f['Z'][:-1,1:,1:]+
-             f['Z'][1:,:-1,:-1]+f['Z'][1:,:-1,1:]+f['Z'][1:,1:,:-1]+f['Z'][1:,1:,1:]) 
-
-        #radius of inner boundary. Index order [k,j,i]
-        R0 = np.sqrt(x[0,0,Ng]**2+y[0,0,Ng]**2+z[0,0,Ng]**2)
-
-        #[EP for testing]
-        #cell corners including ghost cells
-        r = np.sqrt(x[:]**2+y[:]**2+z[:]**2)
-        rxy = np.sqrt(x[:]**2+y[:]**2)
-      
-        # remove the ghosts from angular dimensions (corners)
-        P = np.arctan2(y[Ng:-Ng-1,Ng:-Ng-1,:],x[Ng:-Ng-1,Ng:-Ng-1,:])
-        P [ P < 0] += 2*np.pi
-        P = P % (2*np.pi)  # sometimes the very first point may be a very
-                   # small negative number, which the above call sets
-                   # to 2*pi. This takes care of it.
-        T = np.arccos(z[Ng:-Ng-1,Ng:-Ng,Ng]/r[Ng:-Ng-1,Ng:-Ng,Ng])
-
-        #grid for output into innerbc.h5
-        #Do we save phi theta or xyz corners?
-        P_out = P[:,:,0]
-        T_out = T[:,:]
-        print ("shapes of output phi and theta ", P_out.shape, T_out.shape)
-
-        #centers spherical grid excluding ghosts in angular directions
+        phi_prime=(phi_wsa_c-omega*prm.adaptCadence*fcount)%(2*np.pi)
+        #looking for index of shift
+        if np.where(np.ediff1d(phi_prime)<0)[0].size!=0: #for the first map size =0, for other maps size=1
+            ind0=np.where(np.ediff1d(phi_prime)<0)[0][0]+1
+            #print 'ind = ', ind0
+        else:
+            ind0=0 # this is for the first map
         
-        #Rc = np.sqrt(xc[Ng:-Ng, Ng:-Ng,:]**2 + yc[Ng:-Ng, Ng:-Ng,:]**2 + zc[Ng:-Ng, Ng:-Ng,:]**2)
-        #Pc = np.arctan2(yc[Ng:-Ng, Ng:-Ng,:], xc[Ng:-Ng, Ng:-Ng,:])
-        #Tc = np.arccos(zc[Ng:-Ng,Ng:-Ng,:]/Rc)
+        #shifting phi_prime to the left
+        phi_prime=np.roll(phi_prime,-ind0)
+        bi_wsa_rolled=np.roll(bi_wsa,-ind0,axis=1)
+        v_wsa_rolled=np.roll(v_wsa,-ind0,axis=1)
+        n_wsa_rolled=np.roll(n_wsa,-ind0,axis=1)
+        T_wsa_rolled=np.roll(T_wsa,-ind0,axis=1)
 
-        #include one extra cell in j direction at start and end
-        Pg = Ng-1
-        Rc = np.sqrt(xc[Ng:-Ng, Pg:-Pg,:]**2 + yc[Ng:-Ng, Pg:-Pg,:]**2 + zc[Ng:-Ng, Pg:-Pg,:]**2)
-        Pc = np.arctan2(yc[Ng:-Ng, Pg:-Pg,:], xc[Ng:-Ng, Pg:-Pg,:])
-        Tc = np.arccos(zc[Ng:-Ng,Pg:-Pg,:]/Rc)
+        #plot br from original wsa map (top plot) and shifted to the origin map(bottom plot)
+        #changes in time in the bottom plot are purely due to time-dependent variations of B_r (rotation is eliminted) 
         
+        #plot(wsaFile, bi_wsa, bi_wsa_rolled)
+        ##plot(wsaFile, v_wsa, v_wsa_rolled)
 
-        Pc [Pc < 0] += 2*np.pi
-        #GAMERA grid centers at the inner boundary, 1D array
-        phi = Pc[:,0,0]
-        theta = Tc[0,:,0]
+        ###INTERPOLATION OF ROLLED WSA MAPS TO GAMERA GRID phi-theta####
 
-        #debug
-        #print (phi)
-        #print (theta)
+        # bivariate spline approximation over a rectangular mesh
+        fbi = interpolate.RectBivariateSpline(phi_wsa_c,theta_wsa_c,bi_wsa_rolled.T,kx=1,ky=1)  
+        # interpolation to Gamera grid
+        br = fbi(phi,theta)
 
-        # what exactly does this do???
-        pois = poisson.poisson(theta,phi)
+        #Next Slava used SMOOTHING for br for the paper, we do not need it for now
 
-    
-    omega=2*np.pi/prm.Tsolar*(25.38/27.27)
-    #shift of wsa maps needed if wsa solutions are provided in inertial frame (folder UPDATED)
-    #if wsa solutions are provided in rotating carrington frame (folder CARR), no need to shift.
-    #shift phi coordinate in wsa data according to the shift of the wsa map relative to the first one 
-    #wsa maps move to the right with cadence 1 day
+        fv = interpolate.RectBivariateSpline(phi_wsa_c,theta_wsa_c,v_wsa_rolled.T,kx=1,ky=1)  
+        vr = fv(phi,theta)
 
-    phi_prime=(phi_wsa_c-omega*prm.adaptCadence*fcount)%(2*np.pi)
-    #looking for index of shift
-    if np.where(np.ediff1d(phi_prime)<0)[0].size!=0: #for the first map size =0, for other maps size=1
-        ind0=np.where(np.ediff1d(phi_prime)<0)[0][0]+1
-        #print 'ind = ', ind0
-    else:
-        ind0=0 # this is for the first map
-    
-    #shifting phi_prime to the left
-    phi_prime=np.roll(phi_prime,-ind0)
-    bi_wsa_rolled=np.roll(bi_wsa,-ind0,axis=1)
-    v_wsa_rolled=np.roll(v_wsa,-ind0,axis=1)
-    n_wsa_rolled=np.roll(n_wsa,-ind0,axis=1)
-    T_wsa_rolled=np.roll(T_wsa,-ind0,axis=1)
+        f = interpolate.RectBivariateSpline(phi_wsa_c,theta_wsa_c,n_wsa_rolled.T,kx=1,ky=1)  
+        rho = f(phi,theta)
 
-    #plot br from original wsa map (top plot) and shifted to the origin map(bottom plot)
-    #changes in time in the bottom plot are purely due to time-dependent variations of B_r (rotation is eliminted) 
-    
-    #plot(wsaFile, bi_wsa, bi_wsa_rolled)
-    ##plot(wsaFile, v_wsa, v_wsa_rolled)
+        #not interpolating temperature, calculating sound speed cs
+        #assuming uniform total pressure Rho_max*k*T0 = p+Br^2/8pi
 
-    ###INTERPOLATION OF ROLLED WSA MAPS TO GAMERA GRID phi-theta####
+        T0 = 0.8e6 #8e5 in wsa.py
+        cs = np.sqrt(prm.gamma/rho*(rho.max()*1.38e-16*T0/1.67e-24-br**2/8/np.pi))
 
-    # bivariate spline approximation over a rectangular mesh
-    fbi = interpolate.RectBivariateSpline(phi_wsa_c,theta_wsa_c,bi_wsa_rolled.T,kx=1,ky=1)  
-    # interpolation to Gamera grid
-    br = fbi(phi,theta)
+        # Poisson solver after interpolation onto GAMERA grid
+        if fcount>0:
+            print ('fcount = ', fcount)
+            #right-hand side of laplacian equation
+            pois.setRHS( (br-br_save).T) #after transponding it becomes (nj,nk)
+            guess=np.zeros_like(br.T)
+            #electric field potential psi: (Laplacian(Psi) = dB_r/dt)
+            Psi = newton_krylov(pois.residual,guess, method='lgmres',verbose=True,iter=100)#,f_rtol=1.e-6) #iter=100
+            print('Residual: %g' % abs(pois.residual(Psi)).max())
 
-    #Next Slava used SMOOTHING for br for the paper, we do not need it for now
+            print ('Psi.shape = ', Psi.shape) # (nj, nk) =(128, 256)
+            #Psi is defined in cell centers
 
-    fv = interpolate.RectBivariateSpline(phi_wsa_c,theta_wsa_c,v_wsa_rolled.T,kx=1,ky=1)  
-    vr = fv(phi,theta)
+            #calculate electric field componenet
+            #suffix  _a denotes that this is adapt field
+            #E_theta = dPsi/dphi/sin(theta)
+            #E_phi = -dPsi/dtheta/r
 
-    f = interpolate.RectBivariateSpline(phi_wsa_c,theta_wsa_c,n_wsa_rolled.T,kx=1,ky=1)  
-    rho = f(phi,theta)
+            et_a = np.zeros( (Psi.shape[0],Psi.shape[1]+1) ) #(128, 257)
+            et_a[:,1:-1] = np.diff(Psi,axis=1)/np.diff(phi) #except first and last cells in k
+            et_a[:,0] = (Psi[:,0] - Psi[:,-1])/(phi[0]-phi[-1]+2*np.pi) #k=0
+            et_a[:,-1]=et_a[:,0] #k=Nk+1
+            et_a /= np.sin(theta[:,None]) 
+            print ('E_theta.shape = ', et_a.shape) 
+            """
+            note, here we assume theta constant along phi and same theta on the
+            boundary and in the center of the GAMERA cell - Elena: we should probably fix that 
+            """
+            ep_a=np.zeros((Psi.shape[0]+1,Psi.shape[1])) #(129, 256)
+            ep_a[1:-1,:] = -np.diff(Psi,axis=0)/np.diff(theta)[:,None] #except first and last cells in j
+            #for j=0 and j=N_j we set nearby values
+            ep_a[0,:]=ep_a[1,:]   # used to set these to zero, but more appropriate to repeat from next theta, since Ephi does not depend on theta at the pole.
+            ep_a[-1,:]=ep_a[-2,:] 
+            print ('E_phi.shape = ', ep_a.shape)
+            #[EP]: two lines above are from LFM where theta went from pole to pole
 
-    #not interpolating temperature, calculating sound speed cs
-    #assuming uniform total pressure Rho_max*k*T0 = p+Br^2/8pi
 
-    T0 = 0.8e6 #8e5 in wsa.py
-    cs = np.sqrt(prm.gamma/rho*(rho.max()*1.38e-16*T0/1.67e-24-br**2/8/np.pi))
+            # I do not understand all that business with interpolation of electric fields in time (see adapt2lfm.py)
+            # Convert to CGS. FIX ME!!! UNITS HARD CODED
+            et_a*= prm.rmin*prm.scale/prm.adaptCadence/24./3600.
+            ep_a*= prm.rmin*prm.scale/prm.adaptCadence/24./3600.
 
-    # Poisson solver after interpolation onto GAMERA grid
-    if fcount>0:
-        print ('fcount = ', fcount)
-        #right-hand side of laplacian equation
-        pois.setRHS( (br-br_save).T) #after transponding it becomes (nj,nk)
-        guess=np.zeros_like(br.T)
-        #electric field potential psi: (Laplacian(Psi) = dB_r/dt)
-        Psi = newton_krylov(pois.residual,guess, method='lgmres',verbose=True,iter=100)#,f_rtol=1.e-6) #iter=100
-        print('Residual: %g' % abs(pois.residual(Psi)).max())
+            et_save = et_a
+            ep_save = ep_a
+            #[EP] for debug
+            dbr = br - br_save
+            #et_save and ep_save are defined at times of adapt and on cell edges
 
-        print ('Psi.shape = ', Psi.shape) # (nj, nk) =(128, 256)
-        #Psi is defined in cell centers
+        br_save = br
 
-        #calculate electric field componenet
-        #suffix  _a denotes that this is adapt field
-        #E_theta = dPsi/dphi/sin(theta)
-        #E_phi = -dPsi/dtheta/r
-
-        et_a = np.zeros( (Psi.shape[0],Psi.shape[1]+1) ) #(128, 257)
-        et_a[:,1:-1] = np.diff(Psi,axis=1)/np.diff(phi) #except first and last cells in k
-        et_a[:,0] = (Psi[:,0] - Psi[:,-1])/(phi[0]-phi[-1]+2*np.pi) #k=0
-        et_a[:,-1]=et_a[:,0] #k=Nk+1
-        et_a /= np.sin(theta[:,None]) 
-        print ('E_theta.shape = ', et_a.shape) 
         """
-        note, here we assume theta constant along phi and same theta on the
-        boundary and in the center of the GAMERA cell - Elena: we should probably fix that 
+        After we obtained et_save ep_save at cell edges we calculate B_theta and B_phi
+        at cell centers and faces
         """
-        ep_a=np.zeros((Psi.shape[0]+1,Psi.shape[1])) #(129, 256)
-        ep_a[1:-1,:] = -np.diff(Psi,axis=0)/np.diff(theta)[:,None] #except first and last cells in j
-        #for j=0 and j=N_j we set nearby values
-        ep_a[0,:]=ep_a[1,:]   # used to set these to zero, but more appropriate to repeat from next theta, since Ephi does not depend on theta at the pole.
-        ep_a[-1,:]=ep_a[-2,:] 
-        print ('E_phi.shape = ', ep_a.shape)
-        #[EP]: two lines above are from LFM where theta went from pole to pole
+        vrt = vr.T #(nj,nk) in cell centers
+        bp_a = np.zeros_like(vrt) #B_phi in cell centers
+        bt_a = np.zeros_like(vrt) #B_theta in cell centers
+        bp_kface_a = np.zeros( (vrt.shape[0],vrt.shape[1]+1) ) #(nj,nk+1)
+        bt_jface_a = np.zeros( (vrt.shape[0]+1,vrt.shape[1]) ) #(nj+1,nk)
+        vrt_kface  = np.zeros( (vrt.shape[0],vrt.shape[1]+1) )
+        vrt_jface  = np.zeros( (vrt.shape[0]+1,vrt.shape[1]) )
+
+        if fcount >0:
+            # B_phi and B_theta defined at cell centers
+            bp_a = 0.5*(et_save[:,:-1]+et_save[:,1:])/vrt
+            bt_a = -0.5*(ep_save[:-1,:]+ep_save[1:,:])/vrt
+
+            # the above are at cell centers, also need at the
+            # corresponding faces, see below
+            
+            # First interpolate velocity to faces
+            vrt_kface[:,1:-1] = 0.5*(vrt[:,:-1]+vrt[:,1:]); vrt_kface[:,0] = 0.5*(vrt[:,-1]+vrt[:,0]); vrt_kface[:,-1] = vrt_kface[:,0]
+            vrt_jface[1:-1,:] = 0.5*(vrt[1:,:]+vrt[:-1,:]) ; vrt_jface[0,:]=vrt[1,:].mean(); vrt_jface[-1,:]=vrt[-2,:].mean(); 
+            
+            #B_phi and B_theta at faces
+            bp_kface_a = et_save/vrt_kface
+            bt_jface_a = -ep_save/vrt_jface
+
+        #transponse again to agree with GAMERA indexing nk,nj,ni
+        # Note, these are defined at cell centers on the boundary (at rmin)
+        bp_a = bp_a.T  
+        bt_a = bt_a.T
+        #in kaiju we do not to save B-components at cell centers, so we do not need bp_a and bt_a
+
+        # at faces; change shapes to match order in gamera nk, nj
+        bt_jface_a = bt_jface_a.T 
+        bp_kface_a = bp_kface_a.T
 
 
-        # I do not understand all that business with interpolation of electric fields in time (see adapt2lfm.py)
-        # Convert to CGS. FIX ME!!! UNITS HARD CODED
-        et_a*= prm.rmin*prm.scale/prm.adaptCadence/24./3600.
-        ep_a*= prm.rmin*prm.scale/prm.adaptCadence/24./3600.
+        # Scale inside ghost region
+        #print(rho.shape)
+        (vr,rho,cs,br,bp_kface_a,bt_jface_a) = [np.dstack(prm.NO2*[var]) for var in (vr,rho,cs,br,bp_kface_a,bt_jface_a)]
+        rho*=(R0/Rc[0,0,:Ng])**2
+        br*=(R0/Rc[0,0,:Ng])**2
+        bp_kface_a*=(R0/Rc[0,0,:Ng])
 
-        et_save = et_a
-        ep_save = ep_a
-        #[EP] for debug
-        dbr = br - br_save
-        #et_save and ep_save are defined at times of adapt and on cell edges
+        #tangential velocities are set to zero
+        #vp = zeros_like(vr)
+        #vt = zeros_like(vr)
 
-    br_save = br
+        #print vr.shape, rho.shape, cs.shape, br.shape, bt_jface_a.shape, bp_kface_a.shape
+        #print et_save.shape, ep_save.shape
+        print (wsaFile)
+        #
+        vrp = vr[:,1:-1,:]
+        vp = np.zeros_like(vrp)
+        vt = np.zeros_like(vrp)
+        rhop = rho[:,1:-1,:]
+        csp = cs[:,1:-1,:]
+        brp = br[:,1:-1,:]
+        bt_jface_a_p = bt_jface_a[:,1:-1,:]
+        bp_kface_a_p = bp_kface_a[:,1:-1,:]
+        et_save_p = et_save[1:-1,:]
+        ep_save_p = ep_save[1:-1,:]
 
-    """
-    After we obtained et_save ep_save at cell edges we calculate B_theta and B_phi
-    at cell centers and faces
-    """
-    vrt = vr.T #(nj,nk) in cell centers
-    bp_a = np.zeros_like(vrt) #B_phi in cell centers
-    bt_a = np.zeros_like(vrt) #B_theta in cell centers
-    bp_kface_a = np.zeros( (vrt.shape[0],vrt.shape[1]+1) ) #(nj,nk+1)
-    bt_jface_a = np.zeros( (vrt.shape[0]+1,vrt.shape[1]) ) #(nj+1,nk)
-    vrt_kface  = np.zeros( (vrt.shape[0],vrt.shape[1]+1) )
-    vrt_jface  = np.zeros( (vrt.shape[0]+1,vrt.shape[1]) )
-
-    if fcount >0:
-        # B_phi and B_theta defined at cell centers
-        bp_a = 0.5*(et_save[:,:-1]+et_save[:,1:])/vrt
-        bt_a = -0.5*(ep_save[:-1,:]+ep_save[1:,:])/vrt
-
-        # the above are at cell centers, also need at the
-        # corresponding faces, see below
+        #print vrp.shape, rhop.shape, csp.shape, brp.shape, bt_jface_a_p.shape, bp_kface_a_p.shape
+        #print et_save_p.shape, ep_save_p.shape
         
-        # First interpolate velocity to faces
-        vrt_kface[:,1:-1] = 0.5*(vrt[:,:-1]+vrt[:,1:]); vrt_kface[:,0] = 0.5*(vrt[:,-1]+vrt[:,0]); vrt_kface[:,-1] = vrt_kface[:,0]
-        vrt_jface[1:-1,:] = 0.5*(vrt[1:,:]+vrt[:-1,:]) ; vrt_jface[0,:]=vrt[1,:].mean(); vrt_jface[-1,:]=vrt[-2,:].mean(); 
+
+        if prm.dumpBC:
+                if fcount == 0:
+                    #write out phi and th coords of corners at inner boundary grid
+                    hf.create_dataset("Phi", data=P_out)
+                    hf.create_dataset("Th", data=T_out)
+                grname = "Step#"+str(fcount)
+                grp = hf.create_group(grname)
+                grp.attrs["MJD"] = mjd_c
+                grp.create_dataset("vr",data=vrp) #cc
+                grp.create_dataset("vp",data=vp) #cc
+                grp.create_dataset("vt",data=vt) #cc
+                #hf.create_dataset("vr_kface",data=vr_kface) #kface
+                grp.create_dataset("rho",data=rhop) #cc
+                grp.create_dataset("cs",data=csp) #cc
+                grp.create_dataset("br",data=brp) #cc
+                #hf.create_dataset("br_kface",data=br_kface) #kface 
+                #hf.create_dataset("bp",data=bp_a) #cc
+                #hf.create_dataset("bt",data=bt_a) #cc
+                grp.create_dataset("bt_jface",data=bt_jface_a_p) #jface
+                grp.create_dataset("bp_kface",data=bp_kface_a_p) #kface
+                grp.create_dataset("et",data=et_save_p) #k-edges
+                grp.create_dataset("ep",data=ep_save_p) #j-edges
+
+        #plotBc(wsaFile,phi, theta[1:-1], vrp[:,:,Ng-1], brp[:,:,Ng-1], rhop[:,:,Ng-1], csp[:,:,Ng-1])
         
-        #B_phi and B_theta at faces
-        bp_kface_a = et_save/vrt_kface
-        bt_jface_a = -ep_save/vrt_jface
 
-    #transponse again to agree with GAMERA indexing nk,nj,ni
-    # Note, these are defined at cell centers on the boundary (at rmin)
-    bp_a = bp_a.T  
-    bt_a = bt_a.T
-    #in kaiju we do not to save B-components at cell centers, so we do not need bp_a and bt_a
+        # [EP] test if calculated tengential electric fields give Br from wsa
+        if fcount > 30:
+            print ('Elena debug')
+            print (fcount)
 
-    # at faces; change shapes to match order in gamera nk, nj
-    bt_jface_a = bt_jface_a.T 
-    bp_kface_a = bp_kface_a.T
+            dphi = phi[2]-phi[1]
+            dtheta = theta[2]-theta[1]
 
+            dbrp = dbr[:,1:-1]
 
-    # Scale inside ghost region
-    #print(rho.shape)
-    (vr,rho,cs,br,bp_kface_a,bt_jface_a) = [np.dstack(prm.NO2*[var]) for var in (vr,rho,cs,br,bp_kface_a,bt_jface_a)]
-    rho*=(R0/Rc[0,0,:Ng])**2
-    br*=(R0/Rc[0,0,:Ng])**2
-    bp_kface_a*=(R0/Rc[0,0,:Ng])
+            
+            #cell edges dphi and dtheta at inner boundary face
+            dlp = dphi*rxy[Ng:-Ng-1,Ng:-Ng,Ng] #(256,129) dlp change with nj
+            #dlp = dphi*r[Ng:-Ng-1,Ng:-Ng,Ng]*sin(T[:,:])
+            dlt = dtheta*R0 #dlt is same for all cells
 
-    #tangential velocities are set to zero
-    #vp = zeros_like(vr)
-    #vt = zeros_like(vr)
+            et_use = et_save_p.T #(257,128)
+            ep_use = ep_save_p.T #(256,129)
 
-    #print vr.shape, rho.shape, cs.shape, br.shape, bt_jface_a.shape, bp_kface_a.shape
-    #print et_save.shape, ep_save.shape
-    print (wsaFile)
-    #
-    vrp = vr[:,1:-1,:]
-    vp = np.zeros_like(vrp)
-    vt = np.zeros_like(vrp)
-    rhop = rho[:,1:-1,:]
-    csp = cs[:,1:-1,:]
-    brp = br[:,1:-1,:]
-    bt_jface_a_p = bt_jface_a[:,1:-1,:]
-    bp_kface_a_p = bp_kface_a[:,1:-1,:]
-    et_save_p = et_save[1:-1,:]
-    ep_save_p = ep_save[1:-1,:]
+            #rotE of the cell face
+            circE = zeros((nk,nj))
 
-    #print vrp.shape, rhop.shape, csp.shape, brp.shape, bt_jface_a_p.shape, bp_kface_a_p.shape
-    #print et_save_p.shape, ep_save_p.shape
-    
+            #circE1 = - (ep_use[:,:-1]*dlp + et_use[1:,:]*dlt - ep_use[:,1:]*dlp - et_use[:-1,:]*dlt)
 
-    if prm.dumpBC:
-            if fcount == 0:
-                #write out phi and th coords of corners at inner boundary grid
-                hf.create_dataset("Phi", data=P_out)
-                hf.create_dataset("Th", data=T_out)
-            grname = "Step#"+str(fcount)
-            grp = hf.create_group(grname)
-            grp.attrs["MJD"] = mjd_c
-            grp.create_dataset("vr",data=vrp) #cc
-            grp.create_dataset("vp",data=vp) #cc
-            grp.create_dataset("vt",data=vt) #cc
-            #hf.create_dataset("vr_kface",data=vr_kface) #kface
-            grp.create_dataset("rho",data=rhop) #cc
-            grp.create_dataset("cs",data=csp) #cc
-            grp.create_dataset("br",data=brp) #cc
-            #hf.create_dataset("br_kface",data=br_kface) #kface 
-            #hf.create_dataset("bp",data=bp_a) #cc
-            #hf.create_dataset("bt",data=bt_a) #cc
-            grp.create_dataset("bt_jface",data=bt_jface_a_p) #jface
-            grp.create_dataset("bp_kface",data=bp_kface_a_p) #kface
-            grp.create_dataset("et",data=et_save_p) #k-edges
-            grp.create_dataset("ep",data=ep_save_p) #j-edges
+            for k in range(256):
+                for j in range(128):
+                    circE[k,j] = - (ep_use[k,j+1]*dlp[k,j+1] - ep_use[k,j]*dlp[k,j] + et_use[k,j]*dlt - et_use[k+1,j]*dlt)
 
-    #plotBc(wsaFile,phi, theta[1:-1], vrp[:,:,Ng-1], brp[:,:,Ng-1], rhop[:,:,Ng-1], csp[:,:,Ng-1])
-    
-
-    # [EP] test if calculated tengential electric fields give Br from wsa
-    if fcount > 30:
-        print ('Elena debug')
-        print (fcount)
-
-        dphi = phi[2]-phi[1]
-        dtheta = theta[2]-theta[1]
-
-        dbrp = dbr[:,1:-1]
-
-        
-        #cell edges dphi and dtheta at inner boundary face
-        dlp = dphi*rxy[Ng:-Ng-1,Ng:-Ng,Ng] #(256,129) dlp change with nj
-        #dlp = dphi*r[Ng:-Ng-1,Ng:-Ng,Ng]*sin(T[:,:])
-        dlt = dtheta*R0 #dlt is same for all cells
-
-        et_use = et_save_p.T #(257,128)
-        ep_use = ep_save_p.T #(256,129)
-
-        #rotE of the cell face
-        circE = zeros((nk,nj))
-
-        #circE1 = - (ep_use[:,:-1]*dlp + et_use[1:,:]*dlt - ep_use[:,1:]*dlp - et_use[:-1,:]*dlt)
-
-        for k in range(256):
-            for j in range(128):
-                circE[k,j] = - (ep_use[k,j+1]*dlp[k,j+1] - ep_use[k,j]*dlp[k,j] + et_use[k,j]*dlt - et_use[k+1,j]*dlt)
-
-        dt = prm.adaptCadence*24.*3600.
-        dbrdt = dlp[:,:-1]*dlt*prm.scale*dbrp/dt
-       
-        resid = dbrdt - circE
-        
-        fig1 = plt.figure(); plt.pcolormesh(np.log10(np.abs(resid.T))); plt.colorbar()
-        fig1.suptitle(wsaFile)
-        plt.savefig(wsaFile[:-5]+'_testFL.png')
-     
+            dt = prm.adaptCadence*24.*3600.
+            dbrdt = dlp[:,:-1]*dlt*prm.scale*dbrp/dt
+           
+            resid = dbrdt - circE
+            
+            fig1 = plt.figure(); plt.pcolormesh(np.log10(np.abs(resid.T))); plt.colorbar()
+            fig1.suptitle(wsaFile)
+            plt.savefig(wsaFile[:-5]+'_testFL.png')
+         
 
 
-    #if fcount==2:
-     #   sys.exit("passed two wsa files")
+        #if fcount==2:
+         #   sys.exit("passed two wsa files")
             
 
 
