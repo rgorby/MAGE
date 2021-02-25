@@ -15,6 +15,7 @@ module gioH5
     integer, parameter, private :: MAXIOVAR = 50
     type(IOVAR_T), dimension(MAXIOVAR), private :: IOVars
     logical, private :: doRoot = .true. !Whether root variables need to be written
+    logical, private :: doFat = .false. !Whether to output lots of extra data
 
     !Necessary for IO routines
     character(len=strLen) ,public:: GamH5File
@@ -175,7 +176,9 @@ module gioH5
         endif
 
         call AddOutVar(IOVars,"dV",Gr%volume(iMin:iMax,jMin:jMax,kMin:kMax))
-        call AddOutVar(IOVars,"gQ",       gQ(iMin:iMax,jMin:jMax,kMin:kMax))
+        if (doFat) then
+            call AddOutVar(IOVars,"gQ",       gQ(iMin:iMax,jMin:jMax,kMin:kMax))
+        endif
         if (Model%doMHD .and. Model%doBackground) then
             !Write out background field and force density
             associate(gamOut=>Model%gamOut)
@@ -184,11 +187,13 @@ module gioH5
             call GameraOut("Bz0",gamOut%bID,gamOut%bScl,Gr%B0(iMin:iMax,jMin:jMax,kMin:kMax,ZDIR))
             end associate
 
-            call AddOutVar(IOVars,"dPxB0",Gr%dpB0(iMin:iMax,jMin:jMax,kMin:kMax,XDIR))
-            call AddOutVar(IOVars,"dPyB0",Gr%dpB0(iMin:iMax,jMin:jMax,kMin:kMax,YDIR))
-            call AddOutVar(IOVars,"dPzB0",Gr%dpB0(iMin:iMax,jMin:jMax,kMin:kMax,ZDIR))
+            if (doFat) then
+                call AddOutVar(IOVars,"dPxB0",Gr%dpB0(iMin:iMax,jMin:jMax,kMin:kMax,XDIR))
+                call AddOutVar(IOVars,"dPyB0",Gr%dpB0(iMin:iMax,jMin:jMax,kMin:kMax,YDIR))
+                call AddOutVar(IOVars,"dPzB0",Gr%dpB0(iMin:iMax,jMin:jMax,kMin:kMax,ZDIR))
+            endif
         endif
-        if (Model%doGrav) then
+        if (Model%doGrav .and. doFat) then
             !Write out grav accelerations
             call AddOutVar(IOVars,"gx",Gr%gxyz(iMin:iMax,jMin:jMax,kMin:kMax,XDIR))
             call AddOutVar(IOVars,"gy",Gr%gxyz(iMin:iMax,jMin:jMax,kMin:kMax,YDIR))
@@ -409,10 +414,12 @@ module gioH5
             call Eijk2xyz(Model,Gr,VecA,VecB)
             gVec(:,:,:,:) = VecB(iMin:iMax,jMin:jMax,kMin:kMax,XDIR:ZDIR)
             call FixRAVec(gVec(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,1:NDIM))
-            call AddOutVar(IOVars,"Ex",gVec(:,:,:,XDIR))
-            call AddOutVar(IOVars,"Ey",gVec(:,:,:,YDIR))
-            call AddOutVar(IOVars,"Ez",gVec(:,:,:,ZDIR))
-            
+            if (doFat) then
+                call AddOutVar(IOVars,"Ex",gVec(:,:,:,XDIR))
+                call AddOutVar(IOVars,"Ey",gVec(:,:,:,YDIR))
+                call AddOutVar(IOVars,"Ez",gVec(:,:,:,ZDIR))
+            endif
+
             if (Model%doSource) then
                 call GameraOut("SrcD" ,gamOut%dID,gamOut%dScl,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,DEN     ,BLK))
                 call GameraOut("SrcP" ,gamOut%pID,gamOut%pScl,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,PRESSURE,BLK))
@@ -435,7 +442,7 @@ module gioH5
             end if
 
             !Write divergence if necessary
-            if (Model%doDivB) then
+            if (Model%doDivB .and. doFat) then
                 call allocGridVar(Model,Gr,DivBcc)
                 call DivB(Model,Gr,State,totDivB,DivBcc,doTotO=.true.)
                 gVar = DivBcc(iMin:iMax,jMin:jMax,kMin:kMax)

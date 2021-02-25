@@ -317,7 +317,7 @@ contains
         h5File = baseStr
         inquire(file=h5File,exist=fExist)
         if (.not. fExist) then
-            write(*,*) 'Unable to open file: ', h5File
+            write(*,*) 'Unable to open file: ', trim(h5File)
             stop
         endif
 

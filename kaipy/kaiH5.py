@@ -28,7 +28,13 @@ def CheckOrDie(fname):
 		print("Unable to find file: %s"%(fname))
 		print("!!Exiting!!")
 		quit()
-
+#Check directory exists and make it if not
+def CheckDirOrMake(fdir):
+	import os
+	isDir = os.path.isdir(fdir)
+	if (not isDir):
+		print("Creating %s"%(fdir))
+		os.makedirs(fdir)
 #Get git hash from file if it exists
 def GetHash(fname):
 	CheckOrDie(fname)
@@ -39,6 +45,7 @@ def GetHash(fname):
 	except (UnicodeDecodeError, AttributeError):
 		hStr = rStr
 	return hStr
+
 #Return time at step n
 def tStep(fname,nStp=0,aID="time",aDef=0.0):
 	CheckOrDie(fname)
@@ -54,6 +61,21 @@ def cntSteps(fname):
 	sIds = np.array([str.split(s,"#")[-1] for s in Steps],dtype=np.int)
 	nSteps = len(Steps)
 	return nSteps,sIds
+
+#More general version of cntSteps, useful for Step#X/Line#Y
+def cntX(fname,gID=None,StrX="/Step#"):
+	with h5py.File(fname,'r') as hf:
+		if (gID is not None):
+			grps = hf[gID].values()
+		else:
+			grps = hf.values()
+		grpNames = [str(grp.name) for grp in grps]
+		#Steps = [stp if "/Step#" in stp for stp in grpNames]
+		Steps = [stp for stp in grpNames if StrX in stp]
+		nSteps = len(Steps)
+
+		sIds = np.array([str.split(s,"#")[-1] for s in Steps],dtype=np.int)
+		return nSteps,sIds
 
 def getTs(fname,sIds=None,aID="time",aDef=0.0):
 	if (sIds is None):
@@ -92,10 +114,10 @@ def getRootVars(fname):
 	return vIds
 
 #Get variables in initial Step
-def getVars(fname,s0):
+def getVars(fname,smin):
 	CheckOrDie(fname)
 	with h5py.File(fname,'r') as hf:
-		gId = "/Step#%d"%(s0)
+		gId = "/Step#%d"%(smin)
 		stp0 = hf[gId]
 		vIds = [str(k) for k in stp0.keys()]
 	return vIds

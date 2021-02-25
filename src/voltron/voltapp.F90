@@ -196,7 +196,7 @@ module voltapp
         
             if (vApp%doDeep .and. (vApp%time>=vApp%DeepT)) then
                 call Tic("DeepCoupling")
-                call DeepUpdate(vApp,gApp,vApp%time)
+                call DeepUpdate(vApp,gApp)
                 call Toc("DeepCoupling")
             endif
         endif
@@ -205,6 +205,9 @@ module voltapp
         gApp%Model%dt = CalcDT(gApp%Model,gApp%Grid,gApp%State)
         if (gApp%Model%dt0<TINY) gApp%Model%dt0 = gApp%Model%dt
         
+        !Bring overview info
+        call printConfigStamp()
+
         !Finally do first output stuff
         !console output
         if (vApp%isSeparate) then
@@ -347,7 +350,7 @@ module voltapp
         ! determining the current dipole tilt
         call vApp%tilt%getValue(vApp%time,curTilt)
 
-        if (vApp%doGCM .and. time >=0) then
+        if (vApp%doGCM .and. time >=0 .and. .not.(vApp%gcm%isRestart)) then
             call coupleGCM2MIX(vApp%gcm,vApp%remixApp%ion,vApp%doGCM,mjd=vApp%MJD,time=vApp%time)
         end if
 
@@ -367,10 +370,9 @@ module voltapp
 
 !----------
 !Deep coupling stuff (time coming from vApp%time, so in seconds)
-    subroutine DeepUpdate(vApp, gApp, time)
+    subroutine DeepUpdate(vApp, gApp)
         type(gamApp_T) , intent(inout) :: gApp
         class(voltApp_T), intent(inout) :: vApp
-        real(rp), intent(in) :: time
 
         if (.not. vApp%doDeep) then
             !Why are you even here?
@@ -437,6 +439,65 @@ module voltapp
         call Toc("IM2G")
     end subroutine
 
+    subroutine CheckQuickSquishError(vApp, gApp, x2Err, x4Err)
+        type(gamApp_T) , intent(inout) :: gApp
+        class(voltApp_T), intent(inout) :: vApp
+        real(rp), intent(out) :: x2Err, x4Err
+
+        integer :: i,j,k,baseQkSqStr
+        logical :: baseDoQkSq
+        real(rp), dimension(:,:,:,:), allocatable :: baseXyzSquish
+        real(rp), dimension(2) :: posErr
+
+        associate(ebGr=>vApp%ebTrcApp%ebState%ebGr)
+
+        allocate(baseXyzSquish,  MOLD=vApp%chmp2mhd%xyzSquish)
+        baseQkSqStr = vApp%qkSquishStride
+        baseDoQkSq = vApp%doQkSquish
+
+        ! squish with no quick squish stride
+        vApp%qkSquishStride = 1
+        vApp%doQkSquish = .false.
+        call DeepUpdate(vApp, gApp)
+        baseXyzSquish = vApp%chmp2mhd%xyzSquish
+
+        ! squish with 2x quick squish stride
+        vApp%qkSquishStride = 2
+        vApp%doQkSquish = .true.
+        call DeepUpdate(vApp, gApp)
+        x2Err = 0
+        do i=ebGr%is,vApp%iDeep+1
+            do j=ebGr%js,ebGr%je+1
+                do k=ebGr%ks,ebGr%ke+1
+                    posErr = abs(baseXyzSquish(i,j,k,:) - vApp%chmp2mhd%xyzSquish(i,j,k,:))
+                    if(posErr(2) > PI) posErr(2) = 2*PI - posErr(2)
+                    x2Err = x2Err + NORM2(posErr)
+                enddo
+            enddo
+        enddo
+
+        ! squish with 4x quick squish stride
+        vApp%qkSquishStride = 4
+        call DeepUpdate(vApp, gApp)
+        x4Err = 0
+        do i=ebGr%is,vApp%iDeep+1
+            do j=ebGr%js,ebGr%je+1
+                do k=ebGr%ks,ebGr%ke+1
+                    posErr = abs(baseXyzSquish(i,j,k,:) - vApp%chmp2mhd%xyzSquish(i,j,k,:))
+                    if(posErr(2) > PI) posErr(2) = 2*PI - posErr(2)
+                    x4Err = x4Err + NORM2(posErr)
+                enddo
+            enddo
+        enddo
+
+        vApp%qkSquishStride = baseQkSqStr
+        vApp%doQkSquish = baseDoQkSq
+        deallocate(baseXyzSquish)
+
+        end associate
+
+    end subroutine
+
     !Initialize CHIMP data structure
     subroutine init_volt2Chmp(ebTrcApp,gApp,optFilename)
         type(ebTrcApp_T), intent(inout) :: ebTrcApp
@@ -445,7 +506,6 @@ module voltapp
 
         character(len=strLen) :: xmlStr
         type(XML_Input_T) :: inpXML
-        
         real(rp) :: xyz0(NDIM)
 
     !Create input XML object
@@ -457,7 +517,7 @@ module voltapp
         inpXML = New_XML_Input(trim(xmlStr),"Chimp",.true.)
 
     !Initialize model
-        associate(Model=>ebTrcApp%ebModel,ebState=>ebTrcApp%ebState,Gr=>gApp%Grid)
+        associate(Model=>ebTrcApp%ebModel,ebState=>ebTrcApp%ebState,ebGr=>ebTrcApp%ebState%ebGr,Gr=>gApp%Grid)
         call setUnits (Model,inpXML)
         Model%T0   = 0.0
         Model%tFin = 0.0
@@ -471,6 +531,9 @@ module voltapp
     !Initialize ebState
         !CHIMP grid is initialized from Gamera's active corners
         call ebInit_fromMHDGrid(Model,ebState,inpXML,Gr%xyz(Gr%is:Gr%ie+1,Gr%js:Gr%je+1,Gr%ks:Gr%ke+1,1:NDIM))
+        !Replace CHIMP 8-point average centers w/ more accurate Gamera quadrature centers        
+        ebGr%xyzcc(ebGr%is:ebGr%ie,ebGr%js:ebGr%je,ebGr%ks:ebGr%ke,:) = Gr%xyzcc(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,:)
+
         call InitLoc(Model,ebState%ebGr,inpXML)
 
         !Do simple test to make sure locator is reasonable

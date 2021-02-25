@@ -49,6 +49,8 @@ class GamsphPipe(GameraPipe):
 		
 	def OpenPipe(self,doVerbose=True):
 		GameraPipe.OpenPipe(self,doVerbose)
+		self.GetM0()
+
 		#Now do magnetosphere specific things
 		if (self.UnitsID != "CODE"):
 			self.bScl   = 1.0  #->nT
@@ -137,7 +139,14 @@ class GamsphPipe(GameraPipe):
 			self.mixPipe = GameraPipe(self.fdir,mixtag,doVerbose=False)
 			self.nCPCP = kh5.getTs(rmOStr,sIds=None,aID="nCPCP")
 			self.sCPCP = kh5.getTs(rmOStr,sIds=None,aID="sCPCP")
-
+	#Get magnetic moment from file
+	def GetM0(self):
+		import h5py
+		with h5py.File(self.f0,'r') as hf:
+			M0 = hf.attrs.get("MagM0",self.MagM)
+		#Store value
+		self.MagM = M0
+		
 	#Get "egg" slice, variable matched to stretched polar grid
 	#Either equatorial or meridional
 	def EggSlice(self,vID,sID=None,vScl=None,doEq=True,doVerb=True):

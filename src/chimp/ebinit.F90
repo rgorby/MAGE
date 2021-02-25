@@ -84,11 +84,14 @@ module ebinit
         allocate(ebGr%B0cc (ebGr%isg:ebGr%ieg,ebGr%jsg:ebGr%jeg,ebGr%ksg:ebGr%keg,NDIM))
         allocate(ebGr%Tix  (ebGr%isg:ebGr%ieg,ebGr%jsg:ebGr%jeg,ebGr%ksg:ebGr%keg,NDIM,NDIM))
         allocate(ebGr%Txi  (ebGr%isg:ebGr%ieg,ebGr%jsg:ebGr%jeg,ebGr%ksg:ebGr%keg,NDIM,NDIM))
+        allocate(ebGr%dV   (ebGr%isg:ebGr%ieg,ebGr%jsg:ebGr%jeg,ebGr%ksg:ebGr%keg))
 
         !Zero out initial values
         ebGr%xyz = 0.0 ; ebGr%xyzcc = 0.0
         ebGr%B0cc = 0.0
         ebGr%Tix = 0.0 ; ebGr%Txi = 0.0
+        ebGr%dV = 0.0
+
     end subroutine setGrid
 
     subroutine fixGrid(Model,ebGr,inpXML)
@@ -133,7 +136,7 @@ module ebinit
 
         integer :: i,j,k,is,ie,js,je,ks,ke
         character(len=strLen) :: ebFile
-        integer :: dims(NDIM)
+        integer :: dims(NDIM),dimscc(NDIM)
 
 
         ebGr%Nip = ebTab%Ri*ebTab%dNi 
@@ -142,7 +145,8 @@ module ebinit
         !requires that the above be set (Nip,Njp,Nkp)
         call setGrid(Model,ebGr)
 
-        dims = [ebTab%dNi+1,ebTab%dNj+1,ebTab%dNk+1]
+        dims   = [ebTab%dNi+1,ebTab%dNj+1,ebTab%dNk+1]
+        dimscc = [ebTab%dNi  ,ebTab%dNj  ,ebTab%dNk  ]
 
         !------------
         !Loop over grid pieces and get sub-grids
@@ -161,6 +165,8 @@ module ebinit
                     call AddInVar(ebIOs,"X")
                     call AddInVar(ebIOs,"Y")
                     call AddInVar(ebIOs,"Z")
+                    call AddInVar(ebIOs,"dV")
+
                     call ReadVars(ebIOs,.false.,ebFile) !Use IO precision
 
                     !Push piece to grid
@@ -174,7 +180,8 @@ module ebinit
                     ebGr%xyz(is:ie+1,js:je+1,ks:ke+1,XDIR) = reshape(ebIOs(XDIR)%data,dims)
                     ebGr%xyz(is:ie+1,js:je+1,ks:ke+1,YDIR) = reshape(ebIOs(YDIR)%data,dims)
                     ebGr%xyz(is:ie+1,js:je+1,ks:ke+1,ZDIR) = reshape(ebIOs(ZDIR)%data,dims)
-                    
+                    ebGr%dV (is:ie  ,js:je  ,ks:ke       ) = reshape(ebIOs(NDIM+1)%data,dimscc)
+
                 enddo
             enddo
         enddo

@@ -84,6 +84,8 @@ module ioH5Overload
 
         integer :: nvar
         nvar = FindIO(IOVars,vID,.true.)
+        if (.not. IOVars(nvar)%isDone) call FailArrayFill(vID)
+
         Q = IOVars(nvar)%data
     end subroutine IOArray1DFill
 
@@ -95,6 +97,8 @@ module ioH5Overload
 
         integer :: nvar
         nvar = FindIO(IOVars,vID,.true.)
+        if (.not. IOVars(nvar)%isDone) call FailArrayFill(vID)
+
         Q = reshape(IOVars(nvar)%data,[IOVars(nvar)%dims(1),IOVars(nvar)%dims(2)])
     end subroutine IOArray2DFill
 
@@ -106,10 +110,18 @@ module ioH5Overload
 
         integer :: nvar
         nvar = FindIO(IOVars,vID,.true.)
+        if (.not. IOVars(nvar)%isDone) call FailArrayFill(vID)
+
         Q = reshape(IOVars(nvar)%data,[IOVars(nvar)%dims(1),IOVars(nvar)%dims(2),IOVars(nvar)%dims(3)])
     end subroutine IOArray3DFill
 
+    subroutine FailArrayFill(vID)
+        character(len=*), intent(in) :: vID
 
+        write(*,*) 'Failed to fill array w/ variable: ', trim(vID)
+        stop
+        
+    end subroutine FailArrayFill
 !-------------------------------------------
 !These routines add data for output to IO chain
 !All routines find first unused link and add there
@@ -391,13 +403,18 @@ module ioH5Overload
 
         !For now, always realloc
         !FIXME: Replace with check of current data and realloc only if necessary
-        if (allocated(IOBuffer)) deallocate(IOBuffer)
-
-        allocate(IOBuffer(N))
+        if (allocated(IOBuffer)) then
+            if ( size(IOBuffer) /= N ) then
+                !Allocated but wrong size
+                deallocate(IOBuffer)
+                allocate(IOBuffer(N))
+            endif
+        else !Not allocated
+            allocate(IOBuffer(N))
+        endif
 
         !Copy data
         IOBuffer = IOSource
-        !write(*,*) 'Copying N elements, N = ', N
     end subroutine CopyIO
 
 

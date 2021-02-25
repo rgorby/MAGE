@@ -11,7 +11,7 @@ module chmpfields
     logical, parameter :: doRering = .true.
     integer, parameter :: NumRR = 1
 
-    integer, parameter :: EBIOVARS = 10
+    integer, parameter :: EBIOVARS = 15
     type(IOVAR_T), dimension(EBIOVARS) :: ebIOs
 
     logical :: chkStatic = .false. !Whether to check for static->time interval switch
@@ -84,11 +84,12 @@ module chmpfields
 
         character(len=strLen) :: ebFile
 
-        real(rp), dimension(:,:,:), allocatable :: Bx,By,Bz,Vx,Vy,Vz,D,P
+        real(rp), dimension(:,:,:), allocatable :: Bx,By,Bz,Vx,Vy,Vz,D,P,Jx,Jy,Jz
         integer :: Nip,Njp,Nkp
         integer :: i,j,k,is,ie,js,je,ks,ke
         integer :: dN(NDIM)
-        real(rp), dimension(NDIM) :: B0xyz, Vxyz,Bxyz,Exyz,xcc
+        integer :: nioD,nioP,nioJx,nioJy,nioJz
+        real(rp), dimension(NDIM) :: B0xyz, Vxyz,Bxyz,Exyz,xcc,Jxyz
 
         write(*,'(5a)') '<Reading eb from ', trim(ebTab%bStr), '/', trim(gStr), '>'
 
@@ -108,6 +109,11 @@ module chmpfields
         if (Model%doMHD) then
             allocate(D(Nip,Njp,Nkp))
             allocate(P(Nip,Njp,Nkp))
+        endif
+        if (Model%doJ) then
+            allocate(Jx(Nip,Njp,Nkp))
+            allocate(Jy(Nip,Njp,Nkp))
+            allocate(Jz(Nip,Njp,Nkp))
         endif
 
         !------------
@@ -131,7 +137,11 @@ module chmpfields
                         call AddInVar(ebIOs,"D")
                         call AddInVar(ebIOs,"P")
                     endif
-
+                    if (Model%doJ) then
+                        call AddInVar(ebIOs,"Jx")
+                        call AddInVar(ebIOs,"Jy")
+                        call AddInVar(ebIOs,"Jz")
+                    endif                            
                     call AddInVar(ebIOs,"time",vTypeO=IOREAL)
                     call ReadVars(ebIOs,.true.,ebFile,gStr)
 
@@ -150,10 +160,22 @@ module chmpfields
                     Vy(is:ie,js:je,ks:ke) = inVScl*reshape(ebIOs(5)%data,dN)
                     Vz(is:ie,js:je,ks:ke) = inVScl*reshape(ebIOs(6)%data,dN)
                     if (Model%doMHD) then
+                        nioD = FindIO(ebIOs,"D")
+                        nioP = FindIO(ebIOs,"P")
+
                         !Convert incoming data to [#/cc] and [nPa] using defined scaling params
-                        D(is:ie,js:je,ks:ke) = inDScl*reshape(ebIOs(7)%data,dN)
-                        P(is:ie,js:je,ks:ke) = inPScl*reshape(ebIOs(8)%data,dN)
+                        D(is:ie,js:je,ks:ke) = inDScl*reshape(ebIOs(nioD)%data,dN)
+                        P(is:ie,js:je,ks:ke) = inPScl*reshape(ebIOs(nioP)%data,dN)
                     endif
+                    if (Model%doJ) then
+                        nioJx = FindIO(ebIOs,"Jx")
+                        nioJy = FindIO(ebIOs,"Jy")
+                        nioJz = FindIO(ebIOs,"Jz")
+                        Jx(is:ie,js:je,ks:ke) = reshape(ebIOs(nioJx)%data,dN)
+                        Jy(is:ie,js:je,ks:ke) = reshape(ebIOs(nioJy)%data,dN)
+                        Jz(is:ie,js:je,ks:ke) = reshape(ebIOs(nioJz)%data,dN)
+                    endif
+
                 enddo
             enddo
         enddo
@@ -169,9 +191,10 @@ module chmpfields
             ebF%W = 0.0
         endif
 
+
         !FIXME: Lazily assuming is=1,ie=Nxp
         !$OMP PARALLEL DO default(shared) collapse(2) &
-        !$OMP private(B0xyz,Bxyz,Vxyz,Exyz)    
+        !$OMP private(B0xyz,Bxyz,Vxyz,Exyz,Jxyz)    
         do k=1,Nkp
             do j=1,Njp
                 do i=1,Nip
@@ -191,9 +214,15 @@ module chmpfields
                         ebF%W(i,j,k,VELX:VELZ) = Vxyz
                         ebF%W(i,j,k,PRESSURE) = P(i,j,k)
                     endif
+                    if (Model%doJ) then
+                        Jxyz = [Jx(i,j,k),Jy(i,j,k),Jz(i,j,k)]
+                        ebF%Jxyz(i,j,k,:) = Jxyz
+                    endif
+                    
                 enddo
             enddo
         enddo
+        
         !------------
         !Fill in ghosts
         call ebGhosts(Model,ebGr,ebF)
