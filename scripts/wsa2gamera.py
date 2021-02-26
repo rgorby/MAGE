@@ -40,7 +40,8 @@ V0 = B0/np.sqrt(4*np.pi*mp*n0)
 bi_wsa /= B0
 n_wsa  /= (mp*n0)
 v_wsa /= V0
-
+#convert julian date from wsa fits into modified julian date
+mjd_c = jd_c - 2400000.5
 # keep temperature in K
 ############### WSA STUFF #####################
 
@@ -183,7 +184,7 @@ br*=(R0/Rc[0,0,:Ng])**2
 br_kface*=(R0/Rc[0,0,:Ng])**2
 
 with h5py.File(os.path.join(prm.IbcDir,prm.gameraIbcFile),'w') as hf:
-    hf.attrs["JD"] = jd_c
+    hf.attrs["MJD"] = mjd_c
     hf.create_dataset("vr",data=vr)
     hf.create_dataset("vr_kface",data=vr_kface)
     hf.create_dataset("rho",data=rho)
