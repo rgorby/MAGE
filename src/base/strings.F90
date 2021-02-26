@@ -63,7 +63,11 @@ module strings
         write(*,*) 'Kaiju configuration'
         write(*,'(2a)') 'Git branch = ', trim(bStr)
         write(*,'(2a)') 'Git hash   = ', trim(gStr)
+#ifdef __INTEL_COMPILER_OLD
+        write(*,'(2a)') 'Compiler   = ', trim(gStr)
+#else
         write(*,'(2a)') 'Compiler   = ', compiler_version()
+#endif
         write(*,'(2a)') 'Run starting on: ', trim(dtStr)
         
         !write(*,'(2a)') 'Compiler flags = ', compiler_options()
@@ -81,10 +85,13 @@ module strings
 
         nOff = 16
         nH = 7
+#ifdef __INTEL_COMPILER_OLD
+        gStr = "XXXXXXX" !Avoid unavailable compiler_options
+#else
         cOpts = compiler_options()
         n = index(cOpts,"-DGITCOMMITHASH=")
         gStr = cOpts(n+nOff:n+nOff+nH)        
-
+#endif
     end subroutine GitHash
 
     !Create string with git hash if possible
@@ -95,13 +102,16 @@ module strings
         integer :: n,nOff
 
         nOff = 12
+#ifdef __INTEL_COMPILER_OLD
         cOpts = compiler_options()
+        gStr = "XXXXXXX" !Avoid unavailable compiler_options
+#else
         n = index(cOpts,"-DGITBRANCH=")
         !Don't know length of branch name, so need to find next space
         gStr = cOpts(n+nOff:)
         n = index(gStr," ")
         gStr = gStr(1:n-1)
-        
+#endif
     end subroutine GitBranch
 
 

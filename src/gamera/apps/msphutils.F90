@@ -675,6 +675,8 @@ module msphutils
                         B = State%Bxyz(i,j,k,:)
                         call Mom2Rel(Model,pW(DEN),B,Lam)
                         Mxyz = matmul(Lam,pCon(MOMX:MOMZ)) !semi-relativistic momentum
+                    else
+                        Mxyz = pCon(MOMX:MOMZ) !Classical momentum
                     endif
 
                     !Get timescale, taking directly from Gas0
@@ -699,7 +701,15 @@ module msphutils
                         call Rel2Mom(Model,pW(DEN),B,Laminv)
                         Vxyz = matmul(Laminv,Mxyz)/max(pW(DEN),dFloor)
                         pW(VELX:VELZ) = Vxyz
-                    endif !Otherwise leave primitive state (VELX:VELZ) unchanged
+                    else
+                        Vxyz = Mxyz/max(pW(DEN),dFloor) !Conserve classical momentum
+                        !Don't allow mass ingestion to speed things up
+                        if ( norm2(Vxyz) <= norm2(pW(VELX:VELZ)) ) then
+                            !Conserve momentum if it doesn't increase speed
+                            pW(VELX:VELZ) = Vxyz
+                        endif
+
+                    endif 
 
                     !Now put back
                     call CellP2C(Model,pW,pCon)

@@ -42,10 +42,13 @@ contains
         call ClearIO(IOVars)
         call AddOutVar(IOVars,"GITHASH",gStr)
         call AddOutVar(IOVars,"GITBRANCH",bStr)
-
+#ifdef __INTEL_COMPILER_OLD
+        call AddOutVar(IOVars,"COMPILER",gStr)
+        call AddOutVar(IOVars,"COMPILEROPTS",gStr)
+#else
         call AddOutVar(IOVars,"COMPILER",compiler_version())
         call AddOutVar(IOVars,"COMPILEROPTS",compiler_options())
-        
+#endif   
         call AddOutVar(IOVars,"DATETIME",dtStr)
         call WriteVars(IOVars,.true.,fIn)
 
