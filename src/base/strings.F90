@@ -103,9 +103,10 @@ module strings
 
         nOff = 12
 #ifdef __INTEL_COMPILER_OLD
-        cOpts = compiler_options()
+        
         gStr = "XXXXXXX" !Avoid unavailable compiler_options
 #else
+        cOpts = compiler_options()
         n = index(cOpts,"-DGITBRANCH=")
         !Don't know length of branch name, so need to find next space
         gStr = cOpts(n+nOff:)
