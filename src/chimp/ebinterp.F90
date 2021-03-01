@@ -287,9 +287,8 @@ module ebinterp
                 !Weight for P (closer)
                     wAx = norm2(Xm-Xc)/norm2(Xp-Xm)
                 endif !isAxisS
-                !JacB = wAx*gcFieldsAxP%JacB + (1-wAx)*gcFieldsAxM%JacB
+                
                 JacE = wAx*gcFieldsAxP%JacE + (1-wAx)*gcFieldsAxM%JacE
-                !JacB = wAx*gcFieldsAxP%JacB - Model%JacB0(Xp) + (1-wAx)*gcFieldsAxM%JacB - Model%JacB0(Xm) + Model%JacB0(xyz)
                 JacB =     wAx *( gcFieldsAxP%JacB - Model%JacB0(Xp) ) + &
                         (1-wAx)*( gcFieldsAxM%JacB - Model%JacB0(Xm) ) + &
                                   Model%JacB0(xyz)
