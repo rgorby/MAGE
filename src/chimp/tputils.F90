@@ -37,7 +37,7 @@ module tputils
         real(rp), dimension(NDIM), intent(in) :: pFO,E,B
         real(rp) :: dt
         real(rp) :: dtO,dtE
-        real(rp) :: MagF, gamma, Omega, F(NDIM)
+        real(rp) :: MagF, MagE,gamma, Omega, F(NDIM)
 
         gamma = p2Gam(pFO,Model%m0)
 
@@ -46,7 +46,10 @@ module tputils
             Omega = abs(Model%q0)*norm2(B)/Model%m0
             Omega = Omega/gamma !Relativistic correction
             dtO = 2*PI/Omega
-            dtE = norm2(pFO)/norm2(Model%q0*E)
+            MagE = norm2(E)
+
+            !dtE = norm2(pFO)/norm2(Model%q0*E)
+            dtE = norm2(pFO)/max(Model%q0*MagE,TINY)
             dt = min(dtO,dtE)
 
         else
