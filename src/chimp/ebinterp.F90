@@ -189,7 +189,6 @@ module ebinterp
         endif
 
         isAxis = isAxisS .or. isAxisE
-        isAxis = .false.
 
     !Get mapping and weights
         !Map to ezp
