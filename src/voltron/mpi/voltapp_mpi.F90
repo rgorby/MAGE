@@ -113,6 +113,17 @@ module voltapp_mpi
             xmlInp = New_XML_Input(trim(inpXML),'Gamera',.false.)
             call xmlInp%Set_Val(vApp%useHelpers,"/Voltron/Helpers/useHelpers",.true.)
             call xmlInp%Set_Val(vApp%doSquishHelp,"/Voltron/Helpers/doSquishHelp",.true.)
+            call xmlInp%Set_Val(nHelpers,"/Voltron/Helpers/numHelpers",0)
+            call MPI_Comm_Size(vApp%vHelpComm, commSize, ierr)
+            if(ierr /= MPI_Success) then
+                call MPI_Error_string( ierr, message, length, ierr)
+                print *,message(1:length)
+                call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+            end if
+            if(nHelpers .ne. commSize-1) then
+                print *,"The number of voltron helpers is not correct."
+                call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+            endif
             if(.not. vApp%useHelpers) then
                 print *,"Voltron helpers were created, but the helping option is disabled."
                 print *,"Please either turn the /Voltron/Helpers/useHelpers option on, or "
@@ -232,6 +243,16 @@ module voltapp_mpi
         call xmlInp%Set_Val(vApp%useHelpers,"/Voltron/Helpers/useHelpers",.true.)
         call xmlInp%Set_Val(vApp%doSquishHelp,"/Voltron/Helpers/doSquishHelp",.true.)
         call xmlInp%Set_Val(nHelpers,"/Voltron/Helpers/numHelpers",0)
+        call MPI_Comm_Size(vApp%vHelpComm, commSize, ierr)
+        if(ierr /= MPI_Success) then
+            call MPI_Error_string( ierr, message, length, ierr)
+            print *,message(1:length)
+            call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+        end if
+        if(nHelpers .ne. commSize-1) then
+            print *,"The number of voltron helpers is not correct."
+            call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+        endif
         if(nHelpers .le. 0) vApp%useHelpers = .false.
 
         if(vApp%doSerialVoltron) then

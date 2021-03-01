@@ -117,7 +117,10 @@ contains
   subroutine testHelpTimestepping(this)
       class (MpiTestMethod), intent(inout) :: this
 
+      write (*,'(a,I0)') 'Testing HelpTimestepping ',this%getNumProcesses()
+
       call manualSetup(this, 'testHelpersStep_4.xml')
+
       if(isGamera) then
           call runApplication()
       else
@@ -129,6 +132,8 @@ contains
   @test(npes=[8])
   subroutine testHelpSquish(this)
       class (MpiTestMethod), intent(inout) :: this
+
+      write (*,'(a,I0)') 'Testing HelpSquish ',this%getNumProcesses()
 
       call manualSetup(this, 'testHelpersSquish_4.xml')
 
