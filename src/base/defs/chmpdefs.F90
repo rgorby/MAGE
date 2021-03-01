@@ -40,6 +40,7 @@ module chmpdefs
         logical :: doEQProj=.false. !Force projection to EQ before output
         logical :: doTrc=.false. !Do field line topology tracing
         logical :: doStream=.false. !Inject TPs over time
+        logical :: doWPI=.false. !Include wave particle interactions
         logical :: doEQScat=.false. !Do equatorial PA scattering
         real(rp) :: reqScat
 

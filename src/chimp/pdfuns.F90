@@ -6,6 +6,7 @@ module pdfuns
     use psdtypes
     use xml_input
     use strings
+    use ioh5
 
     implicit none
 
@@ -14,13 +15,14 @@ module pdfuns
 
     !See src/voltron/sstimag.F90 for example on reading HDF5
     type PSDIN_T
-        integer :: Nr,Np,Nk,Na
-        real(rp), dimension(:,:), allocatable :: X,Y,xxc,yyc
+        integer :: Nl,Np,Nk,Na
+        real(rp), dimension(:), allocatable :: Li,Ki,Ai,Pi
         real(rp), dimension(:,:,:,:), allocatable :: Fpsd
         character(len=strLen) :: filename
     end type PSDIN_T
     
     type(PSDIN_T), private :: PSDInput
+   
     contains
 
     !Set f0 information
@@ -43,10 +45,8 @@ module pdfuns
             fPSD0 => fRBPSD
         case("HDF5IN")
             fPSD0 => fHDF5
-            !Read filename of hdf5 from XML
-            call inpXML%Set_Val(PSDInput%filename,"population/f0data","psd.h5")
             !Initialize data object
-            !call InitPSDIn()
+            call InitPSDIn(PSDInput,inpXML)
 
         case default
             write(*,*) '<Unknown f0, using Maxwellian>'
@@ -122,13 +122,109 @@ module pdfuns
     end function fRBPSD
 
     !Function for taking PSD from a file
+    !Currently for reading in PSD(K,L) in units of (keV*s)^(-3)
+    !FIXME: need to update to include alpha and phi the file
     function fHDF5(Model,L,phi,K,alpha,n0,kT0) result(fD)
         type(chmpModel_T), intent(in) :: Model
         real(rp), intent(in) :: L,phi,K,alpha
         real(rp), intent(in), optional :: n0,kT0
-        real(rp) :: fD
+        integer :: Nl,Np,Nk,Na
+        real(rp), dimension(:), allocatable :: Li,Ki,Ai,Pi ! values at the interface
+        real(rp), dimension(:), allocatable :: Lc,Kc,Ac,Pc ! cell centered values
+        real(rp), dimension(:,:,:,:), allocatable :: psdH5
+        integer :: iL,iK,iP,iA
+        integer :: n
+        logical :: inL,inP,inK,inA,inPS
+        real(rp) :: fD,sinN,paScl
 
-        fD = 0.0
+        Li   = PSDInput%Li
+        Ki   = PSDInput%Ki
+        psdH5 = PSDInput%Fpsd
+
+        !Check if within bounds of psd file
+        inL = ( L >= minval(Li) ) .and. ( L <= maxval(Li) )
+        inK = ( K >= minval(Ki) ) .and. ( K <= maxval(Ki) )
+        inPS = inL .and. inK !.and. inP .and. inA
+        
+        if (.not. inPS) then
+            fD = 0 ! not in domain of file, set PSD to zero
+            return
+        endif
+
+        ! Calculating cell center values
+        allocate(Kc(PSDInput%Nk))
+        do n=1,PSDInput%Nk
+            Kc(n) = 0.5*(Ki(n)+Ki(n+1))
+        enddo
+
+        allocate(Lc(PSDInput%Nl))
+        do n=1,PSDInput%Nl
+            Lc(n) = 0.5*(Li(n)+Li(n+1))
+        enddo
+
+        !Now we know we're in this PS grid
+        iL = maxloc(Lc,dim=1,mask=Lc<=L)
+        iK = maxloc(Kc,dim=1,mask=Kc<=K)
+
+        ! scaling PSD for equatorial pitch angles to others with sin^n(alpha) fit
+        sinN = 0.8
+        paScl = sin(alpha)**sinN
+
+        fD = psdH5(iL,iK,1,1)*paScl
 
     end function fHDF5
+
+    subroutine InitPSDIn(PSDInput,inpXML)
+        class(PSDIN_T), intent(inout) :: PSDInput
+        type(XML_Input_T), intent(in) :: inpXML
+
+        integer, parameter :: NIOVAR = 6
+        type(IOVAR_T), dimension(NIOVAR) :: IOVars
+        character(len=strLen) :: psdFile
+        integer :: dims(2) ! update when add higher dimensions
+        integer :: Nl,Np,Nk,Na,Ndim
+        real(rp), dimension(:,:), allocatable :: fLK
+
+        !Read filename of hdf5 from XML
+        call inpXML%Set_Val(psdFile,"population/f0data","psd.h5")  
+        call CheckFileOrDie(psdFile,"Error opening PSD initial condition file")
+        PSDInput%filename = psdFile
+
+        !Read file
+        call ClearIO(IOVars)
+        call AddInVar(IOVars,"fPSD")
+        call AddInVar(IOVars,"Ki")
+        call AddInVar(IOVars,"Li")
+        call ReadVars(IOVars,.false.,psdFile) !Don't use io precision
+
+        ! FIXME: only compatible with PSD(K,L) need to extend to include alpha & phi
+        Ndim = IOVars(1)%Nr
+        if ( Ndim /= 2) then
+            write(*,*) 'Currently only support input files in the form PSD(L,K) and not higher dimensions'
+            stop
+        endif
+        
+        dims = IOVars(1)%dims(1:Ndim)
+        Nk = IOVars(2)%N-1
+        Nl = IOVars(3)%N-1
+        Na = 1
+        Np = 1
+
+        if ( Nl /=  dims(1) .or. Nk /= dims(2)) then
+            write(*,*) 'Dimensions of PSD file are not compatible with each other'
+            stop
+        endif
+
+        allocate(PSDInput%Fpsd(Nl,Nk,Na,Np))
+
+        PSDInput%Nk = Nk
+        PSDInput%Nl = Nl
+        PSDInput%Na = Na
+        PSDInput%Np = Np
+
+        PSDInput%Fpsd(:,:,1,1) = reshape(IOVars(1)%data,dims)
+        PSDInput%Ki = IOVars(2)%data
+        PSDInput%Li = IOVars(3)%data 
+
+    end subroutine InitPSDIn
 end module pdfuns

@@ -127,6 +127,12 @@ module particleio
         !Topology (always outputting)
         call AddOutVar(IOVars,"OCb",1.0_dp*OCb)
 
+        !Wave-particle values
+        if (Model%doWPI) then
+            call AddOutVar(IOVars,"dAwpi",rad2deg*TPs(:)%dAwpi)
+            call AddOutVar(IOVars,"dKwpi",K2kev*TPs(:)%dKwpi)
+        endif
+
         !Logical values
         call AddOutVar(IOVars,"isIn",merge(1.0_rp,0.0_rp,TPs(:)%isIn))
 
