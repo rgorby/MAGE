@@ -62,7 +62,6 @@ module lineio
         type(IOVAR_T), dimension(MAXFLVS) :: IOVars
         integer :: i,Np,Nv
         real(rp) :: bS,bdV,OCb
-        real(rp), allocatable, dimension(:,:) :: LCon
 
         Np = fL%Nm + fL%Np + 1
 
@@ -104,18 +103,6 @@ module lineio
         do i=0,Nv
             call AddOutVar(IOVars,fL%lnVars(i)%idStr,fL%lnVars(i)%V)
         enddo
-
-        !Create connectivity data (cast to int before write)
-        allocate(LCon(Np-1,2))
-        
-        do i=1,Np-1
-            LCon(i,1) = i-1
-            LCon(i,2) = i
-        enddo
-
-        call AddOutVar(IOVars,"LCon",transpose(LCon))
-        i = FindIO(IOVars,"LCon")
-        IOVars(i)%vType = IOINT
 
         !Write output chain
         call WriteVars(IOVars,.true.,fOut,gStr,lnStr)
