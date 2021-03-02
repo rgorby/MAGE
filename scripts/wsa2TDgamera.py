@@ -122,9 +122,12 @@ with h5py.File(os.path.join(prm.IbcDir,prm.gameraIbcFile),'w') as hf:
 	#T_wsa in K
 
         #convert julian date from wsa fits into modified julian date
-        mjd_c = jd_c - 2400000.5
+        #mjd_c = jd_c - 2400000.5
 
         if isFirstFile:
+            #take JD from the first wsa file
+            jd0 = jd_c
+
             # GAMERA GRID
             # read GAMERA grid from innerbc.h5
             
@@ -191,7 +194,9 @@ with h5py.File(os.path.join(prm.IbcDir,prm.gameraIbcFile),'w') as hf:
             # what exactly does this do???
             pois = poisson.poisson(theta,phi)
 
-        
+        #time from the 1st wsa map in seconds
+        time_sec = (jd_c - jd0)*24.*60.*60.
+
         omega=2*np.pi/prm.Tsolar*(25.38/27.27)
         #shift of wsa maps needed if wsa solutions are provided in inertial frame (folder UPDATED)
         #if wsa solutions are provided in rotating carrington frame (folder CARR), no need to shift.
@@ -359,6 +364,7 @@ with h5py.File(os.path.join(prm.IbcDir,prm.gameraIbcFile),'w') as hf:
         #print et_save_p.shape, ep_save_p.shape
         
 	#V in cm/s B in Gs n in gcm-3
+        print fcount, time_sec
 
         if prm.dumpBC:
             if fcount == 0:
@@ -368,7 +374,7 @@ with h5py.File(os.path.join(prm.IbcDir,prm.gameraIbcFile),'w') as hf:
                 hf.create_dataset("Z", data=T_out)
             grname = "Step#"+str(fcount)
             grp = hf.create_group(grname)
-            grp.attrs.create("time", mjd_c)
+            grp.attrs.create("time", time_sec)
             grp.create_dataset("vr",data=vrp) #cc
             grp.create_dataset("vp",data=vp) #cc
             grp.create_dataset("vt",data=vt) #cc
