@@ -101,6 +101,11 @@ print(wsaFiles)
 et_save = np.zeros( (nj+2,nk+1) )
 ep_save = np.zeros( (nj+1+2,nk) )
 
+#Normalization
+Vnorm = 1.e5*150 #cm/s
+Nnorm = 200.*1.67e-24 #gcm-3
+Bnorm = 100.*1.e-5 #in Gs
+
 #open innerbcTD.h5 for ouput
 with h5py.File(os.path.join(prm.IbcDir,prm.gameraIbcFile),'w') as hf:
 
@@ -111,7 +116,10 @@ with h5py.File(os.path.join(prm.IbcDir,prm.gameraIbcFile),'w') as hf:
         isFirstFile = (wsaFile == wsaFiles[0]) 
        	#[EP] reading WSA file
         jd_c,phi_wsa_v,theta_wsa_v,phi_wsa_c,theta_wsa_c,bi_wsa,v_wsa,n_wsa,T_wsa = wsa.read(wsaFile,prm.densTempInfile,prm.normalized, verbose = isFirstFile)
-        #bi_wsa in Gs
+        #bi_wsa in Gs CGS units
+	#v_wsa in cm/s
+	#n_wsa in g/cm-3
+	#T_wsa in K
 
         #convert julian date from wsa fits into modified julian date
         mjd_c = jd_c - 2400000.5
@@ -350,6 +358,7 @@ with h5py.File(os.path.join(prm.IbcDir,prm.gameraIbcFile),'w') as hf:
         #print vrp.shape, rhop.shape, csp.shape, brp.shape, bt_jface_a_p.shape, bp_kface_a_p.shape
         #print et_save_p.shape, ep_save_p.shape
         
+	#V in cm/s B in Gs n in gcm-3
 
         if prm.dumpBC:
             if fcount == 0:
