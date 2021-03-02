@@ -150,13 +150,13 @@ with h5py.File(os.path.join(prm.IbcDir,prm.gameraIbcFile),'w') as hf:
             P = P % (2*np.pi)  # sometimes the very first point may be a very
                        # small negative number, which the above call sets
                        # to 2*pi. This takes care of it.
-            T = np.arccos(z[Ng:-Ng,Ng:-Ng,Ng]/r[Ng:-Ng,Ng:-Ng,Ng])
+            T = np.arccos(z[Ng:-Ng,Ng:-Ng,:]/r[Ng:-Ng,Ng:-Ng,:])
 
             #grid for output into innerbc.h5
-            #Do we save phi theta or xyz corners?
-            P_out = P[:,:,0]
-            T_out = T[:,:]
-            print ("shapes of output phi and theta ", P_out.shape, T_out.shape)
+            P_out = P[:,:,0:Ng+1]
+            T_out = T[:,:,0:Ng+1]
+            R_out = r[Ng:-Ng,Ng:-Ng,0:Ng+1]
+            print ("shapes of output phi and theta ", P_out.shape, T_out.shape, R_out.shape)
 
             #centers spherical grid excluding ghosts in angular directions
             
@@ -354,11 +354,12 @@ with h5py.File(os.path.join(prm.IbcDir,prm.gameraIbcFile),'w') as hf:
         if prm.dumpBC:
             if fcount == 0:
                 #write out phi and th coords of corners at inner boundary grid
-                hf.create_dataset("Phi", data=P_out)
-                hf.create_dataset("Th", data=T_out)
+                hf.create_dataset("X", data=R_out)
+                hf.create_dataset("Y", data=P_out)
+                hf.create_dataset("Z", data=T_out)
             grname = "Step#"+str(fcount)
             grp = hf.create_group(grname)
-            grp.attrs["MJD"] = mjd_c
+            grp.attrs.create("time", mjd_c)
             grp.create_dataset("vr",data=vrp) #cc
             grp.create_dataset("vp",data=vp) #cc
             grp.create_dataset("vt",data=vt) #cc
@@ -371,8 +372,8 @@ with h5py.File(os.path.join(prm.IbcDir,prm.gameraIbcFile),'w') as hf:
             #hf.create_dataset("bt",data=bt_a) #cc
             grp.create_dataset("bt_jface",data=bt_jface_a_p) #jface
             grp.create_dataset("bp_kface",data=bp_kface_a_p) #kface
-            grp.create_dataset("et",data=et_save_p) #k-edges
-            grp.create_dataset("ep",data=ep_save_p) #j-edges
+            #grp.create_dataset("et",data=et_save_p) #k-edges
+            #grp.create_dataset("ep",data=ep_save_p) #j-edges
 
         #plotBc(wsaFile,phi, theta[1:-1], vrp[:,:,Ng-1], brp[:,:,Ng-1], rhop[:,:,Ng-1], csp[:,:,Ng-1])
         
