@@ -240,11 +240,12 @@ module wpicalc
         ! check if particle is in presence of waves
         inL = (L >= Lbds(1) .and. L <= Lbds(2))
         inLon = (lon >= LONbds(1) .or. lon <= LONbds(2))
+        inLat = (lat >= MLATbds(1) .and. lat <= MLATbds(2))
 
         ! only include waves propagating off equator, resonance is with waves propagating 
         ! in opposite direction of prt, therefore particle needs to be moving toward equator
         inNorth = (pa >= PI/2 .and. lat >= 0)
-        inSouth = (pa =< PI/2 .and. lat < 0)
+        inSouth = (pa <= PI/2 .and. lat < 0)
         offEq = (inNorth .or. inSouth)
 
         inWaves = inL .and. inLat .and. inLon .and. offEq
