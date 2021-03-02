@@ -94,7 +94,9 @@ module chmpio
             write(*,'(a,f8.3)')       '     Pitch Angle [o]          = ', prt%alpha*rad2deg
             write(*,'(a,2f8.3)')      '     Last Eq-XY               = ', prt%Qeq(EQX:EQY)
             write(*,'(a,f8.3)')       '     EQ-PA [o]                = ', prt%Qeq(EQALP)*rad2deg
-            write(*,'(a,f8.3)')       '     p11/|P|                  = ', prt%Q(P11GC)/sqrt( prt%Q(GAMGC)**2.0 - 1 )
+            if (prt%isGC) then
+                write(*,'(a,f8.3)')       '     p11/|P|                  = ', prt%Q(P11GC)/sqrt( prt%Q(GAMGC)**2.0 - 1 )
+            endif
             write(*,'(a,f6.1,a,f6.1,a)') '        Substeps (FO/GC) = ', Nfo*1.0e-3, 'k / ', Ngc*1.0e-3,'k'
         endif
         write(*,*) '----------------------------'

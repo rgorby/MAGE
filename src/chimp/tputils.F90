@@ -48,7 +48,6 @@ module tputils
             dtO = 2*PI/Omega
             MagE = norm2(E)
 
-            !dtE = norm2(pFO)/norm2(Model%q0*E)
             dtE = norm2(pFO)/max(Model%q0*MagE,TINY)
             dt = min(dtO,dtE)
 
