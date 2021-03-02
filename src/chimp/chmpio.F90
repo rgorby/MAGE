@@ -104,7 +104,7 @@ module chmpio
     subroutine fOutput(Model,ebState,tpState,fLines)
         type(chmpModel_T), intent(inout) :: Model
         type(ebState_T), intent(in), optional   :: ebState
-        type(tpState_T), intent(in), optional   :: tpState
+        type(tpState_T), intent(inout), optional   :: tpState
         type(fLine_T),   intent(in), optional   :: fLines(:)
 
         character(len=strLen) :: gStr
@@ -133,6 +133,11 @@ module chmpio
         if ( Model%doTPOut .and. present(tpState) .and. present(ebState) ) then
             call Tic("tpOut")
             call writeTP(Model,ebState,tpState,gStr)
+
+            if (Model%doWPI) then
+                tpState%TPs(:)%dAwpi = 0.0 !reset wpi diagnotsitcs every output
+                tpState%TPs(:)%dKwpi = 0.0
+            endif
             call Toc("tpOut")
         endif
 

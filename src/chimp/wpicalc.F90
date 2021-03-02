@@ -43,7 +43,7 @@ module wpicalc
         integer  :: pSgn
 
         real(rp) :: pa,Kprt ! pitch-angle and energy of particle in subcycle loop
-        real(rp) :: da,dp !Change in pitch angle and momentum due to wpi
+        real(rp) :: da !Change in pitch angle due to wpi
         real(rp) :: K0,K1,dK ! energy before and after wpi
 
         logical :: doWave
@@ -51,7 +51,7 @@ module wpicalc
         if (.not.prt%isIn) return !shouldn't be here if particle is not in domain
 
         !initializing some variables
-        pSgn = 1; da=0.0; dp=0.0; dK=0.0
+        pSgn = 1; da=0.0; dK=0.0
 
         ! pulling wave information
         wave = ebState%ebWave
@@ -152,9 +152,6 @@ module wpicalc
             ! Calculate the resulting updated pitch angle and energy of the particle
             call LangevinEq(wave,wModel,Model,prt,aCoef,bCoef,ddt,astar,aNew,pNew)
 
-            !Update the pitch angle
-            prt%alpha = aNew
-
             !reflecting pitch angle at 0° and 180° (to keep in this range)
             if (aNew < 0) then 
                 aNew = abs(aNew)
@@ -168,7 +165,11 @@ module wpicalc
                 pSgn = -1
             endif
            
+            !Update the pitch angle
+            prt%alpha = aNew
+
             !updating wpi diagnostic variables
+            da = aNew - pa
             prt%dAwpi = prt%dAwpi + da
             K0 = prt2kev(Model,prt)
 
@@ -191,7 +192,7 @@ module wpicalc
                 if (isnan(pNew) .or. isnan(p11Mag) .or. isnan(gamNew)) then
                     write(*,*) 'PERFORMWPI:: ERROR:: A NAN OCCURRED IN THE MOMENTUM UPDATE'
                     write(*,*) 'Resonant wave: xj,yj:  ',xj,yj 
-                    write(*,*) 'Daa,  da,  dp: ', Daa,da,dp
+                    write(*,*) 'Daa,  da,  dK: ', Daa,da,dK
                     write(*,*) 'new ps and p of tp: ', aNew,pNew
                     write(*,*) 'new p11 and gamma of tp: ', p11Mag,gamNew
                     stop
@@ -226,7 +227,7 @@ module wpicalc
         Lbds(1)    = 4.5
         Lbds(2)    = 8.0
         LONbds(1)  = 4*PI/5 ! 144 degrees, 21 MLT
-        LONbds(1)  = -PI/12 ! -15 degrees, 11 MLT
+        LONbds(2)  = -PI/12 ! -15 degrees, 11 MLT
         MLATbds(1) = -PI/9  ! -20 degrees
         MLATbds(2) = PI/9   ! -20 degrees
 
@@ -239,12 +240,11 @@ module wpicalc
         ! check if particle is in presence of waves
         inL = (L >= Lbds(1) .and. L <= Lbds(2))
         inLon = (lon >= LONbds(1) .or. lon <= LONbds(2))
-        inLat = (lat >= MLATbds(1) .and. lat <= MLATbds(2))
 
         ! only include waves propagating off equator, resonance is with waves propagating 
         ! in opposite direction of prt, therefore particle needs to be moving toward equator
         inNorth = (pa >= PI/2 .and. lat >= 0)
-        inSouth = (pa < PI/2 .and. lat < 0)
+        inSouth = (pa =< PI/2 .and. lat < 0)
         offEq = (inNorth .or. inSouth)
 
         inWaves = inL .and. inLat .and. inLon .and. offEq
@@ -389,7 +389,7 @@ module wpicalc
         real(rp),          intent(in)    :: aCoef,bCoef,dt,astar
         real(rp),          intent(inout) :: a1,p1   ! new pitch-angle and momentum of particle after wpi
         real(rp), intent(in), optional   :: constDA ! use a constant change in pitch angle if desired
-        real(rp) :: eta,da,gamma,p0,a0,G
+        real(rp) :: eta,da
 
         if (present(constDA)) then
             da = constDA
@@ -426,7 +426,7 @@ module wpicalc
         type(wModel_T), intent(in) :: wModel
         type(prt_t),       intent(in)    :: prt
         real(rp),          intent(in)    :: m0,astar,deltaA
-        type(prt_t) :: prtTemp
+
         real(rp) :: u,a1,p1,aStp,pStp,kStp,xStp,yStp,uStp,y1
         real(rp) :: tol,h,s,dah,daRem,unity,aSgn,gamma,da
         real(rp) :: k1,k2,k3,k4,k5,k6 
