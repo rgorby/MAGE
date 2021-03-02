@@ -129,19 +129,8 @@ if __name__ == "__main__":
 			#Add topology/connectivity
 			Topo = et.SubElement(l0G,"Topology")
 			Topo.set("TopologyType","Polyline")
-			Topo.set("NumberOfElements",str(Np-1))
-			#Topo.set("NumberOfElements",str(Np))
-			Topo.set("NodesPerElement","2")
-
-			tCon = et.SubElement(Topo,"DataItem")
-			
-			
-			#Binary connectivity
-			tCon.set("Dimensions","%d 2"%(Np-1))
-			tCon.set("Format","HDF")
-			tCon.set("NumberType","Int")
-			tCon.set("Precision","4")
-			tCon.text = "%s:/Step#%d/Line#%d/LCon"%(fIn,nStp,m)
+			Topo.set("NumberOfElements","1")
+			Topo.set("NodesPerElement",str(Np-1))
 
 			Geom = et.SubElement(l0G,"Geometry")
 			Geom.set("GeometryType","XYZ")
