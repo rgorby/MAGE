@@ -122,7 +122,7 @@ with h5py.File(os.path.join(prm.IbcDir,prm.gameraIbcFile),'w') as hf:
 	#T_wsa in K
 
         #convert julian date from wsa fits into modified julian date
-        #mjd_c = jd_c - 2400000.5
+        mjd_c = jd_c - 2400000.5
 
         if isFirstFile:
             #take JD from the first wsa file
@@ -364,7 +364,7 @@ with h5py.File(os.path.join(prm.IbcDir,prm.gameraIbcFile),'w') as hf:
         #print et_save_p.shape, ep_save_p.shape
         
 	#V in cm/s B in Gs n in gcm-3
-        print fcount, time_sec
+        print (fcount, time_sec, mjd_c)
 
         if prm.dumpBC:
             if fcount == 0:
@@ -375,6 +375,7 @@ with h5py.File(os.path.join(prm.IbcDir,prm.gameraIbcFile),'w') as hf:
             grname = "Step#"+str(fcount)
             grp = hf.create_group(grname)
             grp.attrs.create("time", time_sec)
+            grp.attrs.create("MJD", mjd_c)
             grp.create_dataset("vr",data=vrp) #cc
             grp.create_dataset("vp",data=vp) #cc
             grp.create_dataset("vt",data=vt) #cc
