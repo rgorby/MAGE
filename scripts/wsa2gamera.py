@@ -28,7 +28,7 @@ T0 = 3.44e6  #2.88e6
 # constants
 mp = 1.67e-24
 ############### WSA STUFF #####################
-phi_wsa_v,theta_wsa_v,phi_wsa_c,theta_wsa_c,bi_wsa,v_wsa,n_wsa,T_wsa = wsa.read(prm.wsaFile,prm.densTempInfile,prm.normalized)
+jd_c,phi_wsa_v,theta_wsa_v,phi_wsa_c,theta_wsa_c,bi_wsa,v_wsa,n_wsa,T_wsa = wsa.read(prm.wsaFile,prm.densTempInfile,prm.normalized)
 
 # convert the units; remember to use the same units in gamera
 # TODO: probably store units in the h5 file?
@@ -40,7 +40,8 @@ V0 = B0/np.sqrt(4*np.pi*mp*n0)
 bi_wsa /= B0
 n_wsa  /= (mp*n0)
 v_wsa /= V0
-
+#convert julian date from wsa fits into modified julian date
+mjd_c = jd_c - 2400000.5
 # keep temperature in K
 ############### WSA STUFF #####################
 
@@ -104,66 +105,66 @@ pressure_B = (br)**2 *V0**2 / 2.*mp*n0 *0.1
 
 
 # Plot different variables 
-nk = 256  # 1024
-nj = 128   # 512
+#nk = 256  # 1024
+#nj = 128   # 512
 
-Pcc   = np.arange(nk)*360./nk
-Tcc = np.arange(nj)*0.8*180./nj + 0.1*180.
+#Pcc   = np.arange(nk)*360./nk
+#Tcc = np.arange(nj)*0.8*180./nj + 0.1*180.
 
-fig = plt.figure(figsize=(7.5,3))
-plt.pcolormesh(Pcc,Tcc, temp[:,::-1].T,cmap=cm.RdBu,rasterized=True)
-plt.xlabel(r'$\Phi$ [$^\circ$]')
-plt.ylabel(r'$\Theta$ [$^\circ$]')
-plt.colorbar()
-plt.axes().set_aspect('equal')
-plt.savefig('./temp_wsa2gam.pdf',dpi=300)
+#fig = plt.figure(figsize=(7.5,3))
+#plt.pcolormesh(Pcc,Tcc, temp[:,::-1].T,cmap=cm.RdBu,rasterized=True)
+#plt.xlabel(r'$\Phi$ [$^\circ$]')
+#plt.ylabel(r'$\Theta$ [$^\circ$]')
+#plt.colorbar()
+#plt.axes().set_aspect('equal')
+#plt.savefig('./temp_wsa2gam.pdf',dpi=300)
 
-fig = plt.figure(figsize=(7.5,3))
-plt.pcolormesh(Pcc,Tcc, pressure_therm[:,::-1].T,cmap=cm.plasma,vmin=pressure.min()*0.99,vmax=pressure.max()*1.01,rasterized=True)
-plt.xlabel(r'$\Phi$ [$^\circ$]')
-plt.ylabel(r'$\Theta$ [$^\circ$]')
-plt.colorbar()
-plt.axes().set_aspect('equal')
-plt.savefig('./thermal_Pres_wsa2gam.pdf',dpi=300)
+#fig = plt.figure(figsize=(7.5,3))
+#plt.pcolormesh(Pcc,Tcc, pressure_therm[:,::-1].T,cmap=cm.plasma,vmin=pressure.min()*0.99,vmax=pressure.max()*1.01,rasterized=True)
+#plt.xlabel(r'$\Phi$ [$^\circ$]')
+#plt.ylabel(r'$\Theta$ [$^\circ$]')
+#plt.colorbar()
+#plt.axes().set_aspect('equal')
+#plt.savefig('./thermal_Pres_wsa2gam.pdf',dpi=300)
 
-fig = plt.figure(figsize=(7.5,3))
-plt.pcolormesh(Pcc,Tcc, pressure[:,::-1].T,cmap=cm.plasma,vmin=pressure.min()*0.9,vmax=pressure.max()*1.1,rasterized=True)
-plt.xlabel(r'$\Phi$ [$^\circ$]')
-plt.ylabel(r'$\Theta$ [$^\circ$]')
-plt.colorbar()
-plt.axes().set_aspect('equal')
-plt.savefig('./total_P_wsa2gam.pdf',dpi=300)
-fig = plt.figure(figsize=(7.5,3))
-plt.pcolormesh(Pcc,Tcc, pressure_B[:,::-1].T,cmap=cm.plasma,vmin=pressure_B.min()*0.9,vmax=pressure_B.max()*1.1,rasterized=True)
-plt.xlabel(r'$\Phi$ [$^\circ$]')
-plt.ylabel(r'$\Theta$ [$^\circ$]')
-plt.colorbar()
-plt.axes().set_aspect('equal')
-plt.savefig('./magnetic_P_wsa2gam.pdf',dpi=300)
+#fig = plt.figure(figsize=(7.5,3))
+#plt.pcolormesh(Pcc,Tcc, pressure[:,::-1].T,cmap=cm.plasma,vmin=pressure.min()*0.9,vmax=pressure.max()*1.1,rasterized=True)
+#plt.xlabel(r'$\Phi$ [$^\circ$]')
+#plt.ylabel(r'$\Theta$ [$^\circ$]')
+#plt.colorbar()
+#plt.axes().set_aspect('equal')
+#plt.savefig('./total_P_wsa2gam.pdf',dpi=300)
+#fig = plt.figure(figsize=(7.5,3))
+#plt.pcolormesh(Pcc,Tcc, pressure_B[:,::-1].T,cmap=cm.plasma,vmin=pressure_B.min()*0.9,vmax=pressure_B.max()*1.1,rasterized=True)
+#plt.xlabel(r'$\Phi$ [$^\circ$]')
+#plt.ylabel(r'$\Theta$ [$^\circ$]')
+#plt.colorbar()
+#plt.axes().set_aspect('equal')
+#plt.savefig('./magnetic_P_wsa2gam.pdf',dpi=300)
 
-fig = plt.figure(figsize=(7.5,3))
-plt.pcolormesh(Pcc,Tcc, br[:,::-1].T,cmap=cm.RdBu,vmin=br.min(),vmax=br.max(),rasterized=True)
-plt.xlabel(r'$\Phi$ [$^\circ$]')
-plt.ylabel(r'$\Theta$ [$^\circ$]')
-plt.colorbar()
-plt.axes().set_aspect('equal')
-plt.savefig('./Br_wsa2gam.pdf',dpi=300)
+#fig = plt.figure(figsize=(7.5,3))
+#plt.pcolormesh(Pcc,Tcc, br[:,::-1].T,cmap=cm.RdBu,vmin=br.min(),vmax=br.max(),rasterized=True)
+#plt.xlabel(r'$\Phi$ [$^\circ$]')
+#plt.ylabel(r'$\Theta$ [$^\circ$]')
+#plt.colorbar()
+#plt.axes().set_aspect('equal')
+#plt.savefig('./Br_wsa2gam.pdf',dpi=300)
 
-fig = plt.figure(figsize=(7.5,3))
-plt.pcolormesh(Pcc,Tcc, vr[:,::-1].T,cmap=cm.plasma,vmin=vr.min(),vmax=vr.max(),rasterized=True)
-plt.xlabel(r'$\Phi$ [$^\circ$]')
-plt.ylabel(r'$\Theta$ [$^\circ$]')
-plt.colorbar()
-plt.axes().set_aspect('equal')
-plt.savefig('./Vr_wsa2gam.pdf',dpi=300)
+#fig = plt.figure(figsize=(7.5,3))
+#plt.pcolormesh(Pcc,Tcc, vr[:,::-1].T,cmap=cm.plasma,vmin=vr.min(),vmax=vr.max(),rasterized=True)
+#plt.xlabel(r'$\Phi$ [$^\circ$]')
+#plt.ylabel(r'$\Theta$ [$^\circ$]')
+#plt.colorbar()
+#plt.axes().set_aspect('equal')
+#plt.savefig('./Vr_wsa2gam.pdf',dpi=300)
 
-fig = plt.figure(figsize=(7.5,3))
-plt.pcolormesh(Pcc,Tcc, rho[:,::-1].T,cmap=cm.RdBu,vmin=rho.min(),vmax=rho.max(),rasterized=True)
-plt.xlabel(r'$\Phi$ [$^\circ$]')
-plt.ylabel(r'$\Theta$ [$^\circ$]')
-plt.colorbar()
-plt.axes().set_aspect('equal')
-plt.savefig('./Density_wsa2gam.pdf',dpi=300)
+#fig = plt.figure(figsize=(7.5,3))
+#plt.pcolormesh(Pcc,Tcc, rho[:,::-1].T,cmap=cm.RdBu,vmin=rho.min(),vmax=rho.max(),rasterized=True)
+#plt.xlabel(r'$\Phi$ [$^\circ$]')
+#plt.ylabel(r'$\Theta$ [$^\circ$]')
+#plt.colorbar()
+#plt.axes().set_aspect('equal')
+#plt.savefig('./Density_wsa2gam.pdf',dpi=300)
 
 # note, redefining interpolation functions we could also
 # interpolate from bi_wsa as above, but then we would have to
@@ -183,9 +184,11 @@ br*=(R0/Rc[0,0,:Ng])**2
 br_kface*=(R0/Rc[0,0,:Ng])**2
 
 with h5py.File(os.path.join(prm.IbcDir,prm.gameraIbcFile),'w') as hf:
+    hf.attrs["MJD"] = mjd_c
     hf.create_dataset("vr",data=vr)
     hf.create_dataset("vr_kface",data=vr_kface)
     hf.create_dataset("rho",data=rho)
     hf.create_dataset("temp",data=temp)
     hf.create_dataset("br",data=br)
     hf.create_dataset("br_kface",data=br_kface)
+hf.close()

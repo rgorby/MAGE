@@ -13,20 +13,28 @@ slack_token = os.environ["SLACK_BOT_TOKEN"]
 print(slack_token)
 client = WebClient(token=slack_token)
 
-# Get the home directory
-home = expanduser("~")
+# Get CWD and set main kaiju folder to "home"
+orig = os.getcwd()
+os.chdir('..')
+home = os.getcwd()
 
 # Delete everything in the unitTest folder
 os.chdir(home)
-os.chdir("kaiju")
 os.system('rm -r unitTest1')
 os.system('rm -r unitTest2')
 os.system('mkdir unitTest1')
 os.system('mkdir unitTest2')
 
+# Copy pFUnit stuff into Kaiju External
+os.chdir(home)
+os.system('cp -r /glade/p/hao/msphere/gamshare/FARGPARSE-0.9 external')
+os.system('cp -r /glade/p/hao/msphere/gamshare/GFTL-1.1 external')
+os.system('cp -r /glade/p/hao/msphere/gamshare/GFTL_SHARED-1.0 external')
+os.system('cp -r /glade/p/hao/msphere/gamshare/PFUNIT-4.1 external')
+
 # Go back to scripts folder
 os.chdir(home)
-os.chdir("kaiju/testingScripts")
+os.chdir("testingScripts")
 
 iteration = 1
 
@@ -66,11 +74,11 @@ for line in ModuleList[0]:
 # BUILD EXECUTABLES AND TESTS
 # Move to the correct test folder
 os.chdir(home)
-os.chdir('kaiju/unitTest1')
+os.chdir('unitTest1')
 #arguments = arguments + "cd" + home + ";"
 #arguments = arguments + "cd kaiju/unitTest1;"
 # Invoke cmake
-arguments = arguments + "cmake ../ -DALLOW_INVALID_COMPILERS=ON;"
+arguments = arguments + "cmake ../ -DALLOW_INVALID_COMPILERS=ON -DENABLE_MPI=ON;"
 # Make gamera, voltron and allTests
 arguments = arguments + "make gamera_mpi; make voltron_mpi; make allTests;"
 print(arguments)
@@ -101,7 +109,7 @@ subprocess.call(arguments, shell=True)
 # Submitting the test
 # Go to correct directory
 os.chdir(home)
-os.chdir('kaiju/tests')
+os.chdir('tests')
 #arguments = "qsub runNonCaseTests.pbs"
 #print(arguments)
 #submission = subprocess.call(arguments, shell=True, stdout=subprocess.PIPE)
@@ -115,7 +123,7 @@ subprocess.call("cp runNonCaseTests.pbs ../unitTest1/bin", shell=True)
 subprocess.call("cp runCaseTests.pbs ../unitTest1/bin", shell=True)
 
 os.chdir(home)
-os.chdir('kaiju/unitTest1/bin')
+os.chdir('unitTest1/bin')
 
 arguments = "qsub runCaseTests.pbs"
 print(arguments)
@@ -141,7 +149,7 @@ secondJob = readString.split('.')[0]
 print (secondJob)
 
 file = open("jobs.txt", 'w+')
-file.write(firstJob)
+file.write(firstJob + "\n")
 file.write(secondJob)
 
 # SUBMIT JOB THAT WILL FOLLOW UP ONCE PREVIOUS JOBS HAVE FINISHED

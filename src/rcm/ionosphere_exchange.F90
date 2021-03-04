@@ -1,7 +1,7 @@
 MODULE ionosphere_exchange
   use rcm_mhd_interfaces
   use rcm_mod_subs, ONLY: isize, jsize, jwrap, colat, aloct
-  
+  use kdefs, ONLY : PI
   contains 
     
     !> Allocate Ionosphere Grid variables and read Ion grid from "RCM-ion.dat".
@@ -43,7 +43,7 @@ MODULE ionosphere_exchange
       ALLOCATE( rm%radcurv(rm%nLat_ion, rm%nLon_ion) )
       ALLOCATE( rm%wIMAG(rm%nLat_ion, rm%nLon_ion) )
       ALLOCATE( rm%oxyfrac(rm%nLat_ion, rm%nLon_ion) )
-      ALLOCATE( rm%MedK(rm%nLat_ion, rm%nLon_ion) )
+      ALLOCATE( rm%Percm(rm%nLat_ion, rm%nLon_ion) )
 
       rm%gcolat (:) = colat (:,1)
       rm%glong  (:) = aloct (1,jwrap:jsize)
@@ -76,7 +76,7 @@ MODULE ionosphere_exchange
       if (ALLOCATED(rm%toMHD)) DEALLOCATE(rm%toMHD)
       if (ALLOCATED(rm%losscone)) DEALLOCATE(rm%losscone)
       if (ALLOCATED(rm%oxyfrac)) DEALLOCATE(rm%oxyfrac)
-      if (ALLOCATED(rm%MedK)) DEALLOCATE(rm%MedK)
+      if (ALLOCATED(rm%Percm)) DEALLOCATE(rm%Percm)
       if (ALLOCATED(rm%radcurv)) DEALLOCATE(rm%radcurv)
       if (ALLOCATED(rm%wIMAG)) DEALLOCATE(rm%wIMAG)
 

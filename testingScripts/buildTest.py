@@ -13,12 +13,11 @@ slack_token = os.environ["SLACK_BOT_TOKEN"]
 print(slack_token)
 client = WebClient(token=slack_token)
 
-# Get the home directory
-home = expanduser("~")
+# Get CWD and move to main kaiju folder
+origCWD = os.getcwd()
+os.chdir('..')
+home = os.getcwd()
 
-# Change directory to Kaiju repo
-os.chdir(home)
-os.chdir("kaiju")
 # Delete all build folders
 os.system("rm -rf build*/")
 os.system('ls')
@@ -45,7 +44,6 @@ elif(str(sys.argv[1]) == '-t'):
 
 # Create a test build folder, get the list of executables to be generated and store them
 os.chdir(home)
-os.chdir("kaiju")
 os.system("mkdir testFolder")
 os.chdir("testFolder")
 os.system("cmake ..")
@@ -61,7 +59,6 @@ print(executableList)
 
 # Go back to scripts folder
 os.chdir(home)
-os.chdir("kaiju")
 os.system("rm -rf testFolder")
 os.chdir("testingScripts")
 
@@ -80,7 +77,7 @@ for line in modules:
     if (line.strip() == "##NEW ENVIRONMENT##"):
         arguments = arguments + " module list;" # List modules for this build
         # Create the build folder
-        arguments = arguments + "cd " + home + "; cd kaiju; mkdir build" + str(iteration) + ";"
+        arguments = arguments + "cd " + home + ";  mkdir build" + str(iteration) + ";"
         # Move to the build folder
         arguments = arguments + "cd build" + str(iteration) + "; "
         # Invoke cmake
@@ -101,7 +98,7 @@ for line in modules:
 
 arguments = arguments + " module list;" # List modules for this build
 # Create the build folder
-arguments = arguments + "cd " + home + "; cd kaiju; mkdir build" + str(iteration) + ";"
+arguments = arguments + "cd " + home + "; mkdir build" + str(iteration) + ";"
 # Move to the build folder
 arguments = arguments + "cd build" + str(iteration) + "; "
 # Invoke cmake
@@ -118,7 +115,6 @@ subprocess.call(arguments, shell=True)
 
 # Change directory to Kaiju repo
 os.chdir(home)
-os.chdir("kaiju")
 
 # Check build directories for good executables
 myText = ""
@@ -149,7 +145,6 @@ while i <= iteration:
         i = i + 1
         # Move back out into kaiju folder
         os.chdir(home)
-        os.chdir("kaiju")
         continue
     
     else:
@@ -162,7 +157,6 @@ while i <= iteration:
             
         # Move back out into kaiju folder
         os.chdir(home)
-        os.chdir("kaiju")
         i = i + 1
 
 # If nothing was wrong, change myText

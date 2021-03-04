@@ -1,6 +1,7 @@
 module gamutils
     use gamtypes
     use xml_input
+    use math
 
     implicit none
     
@@ -433,4 +434,60 @@ module gamutils
 
     end subroutine SetFloors
 
+    subroutine SetFloorsWDefs(Model,iXML,dFDef,pFDef)
+        type(Model_T)    , intent(in) :: Model
+        type(XML_Input_T), intent(in) :: iXML
+        real(rp)         , intent(in) :: dFDef,pFDef
+
+        if (iXML%Exists("sim/dFloor"   )) call iXML%Set_Val(dFloor,"sim/dFloor"   ,dFDef)
+        if (iXML%Exists("floors/dFloor")) call iXML%Set_Val(dFloor,"floors/dFloor",dFDef)
+
+        if (iXML%Exists("sim/pFloor"   )) call iXML%Set_Val(pFloor,"sim/pFloor"   ,pFDef)
+        if (iXML%Exists("floors/pFloor")) call iXML%Set_Val(pFloor,"floors/pFloor",pFDef)
+
+    end subroutine SetFloorsWDefs
+
+    !Calculate semi-relativistic transform
+    !m = Lam*(rho x u)
+    subroutine Mom2Rel(Model,D,B,Lam)
+        type(Model_T), intent(in) :: Model
+        real(rp), intent(in) :: D, B(NDIM)
+        real(rp), intent(out) :: Lam(NDIM,NDIM)
+
+        real(rp), dimension(NDIM) :: bhat
+        real(rp) :: alpha
+
+        
+        if (.not. Model%doBoris) then
+            Lam = Eye33
+            return
+        endif
+        !Calc ratio of magnetic/plasma mass, va2/ca2
+        alpha = dot_product(B,B)/max(D,dFloor)/(Model%Ca**2.0)
+        bhat = normVec(B)
+
+        Lam = Eye33 + alpha*(Eye33 - Dyad(bhat,bhat))
+    end subroutine Mom2Rel
+
+    !Calculate inverse of semi-rel transform
+    !rho x u = Laminv * m
+    subroutine Rel2Mom(Model,D,B,Laminv)
+        type(Model_T), intent(in) :: Model
+        real(rp), intent(in) :: D, B(NDIM)
+        real(rp), intent(out) :: Laminv(NDIM,NDIM)
+
+        real(rp), dimension(NDIM) :: bhat
+        real(rp) :: alpha,GamA
+
+        if (.not. Model%doBoris) then
+            Laminv = Eye33
+            return
+        endif
+        !Calc ratio of magnetic/plasma mass, va2/ca2
+        alpha = dot_product(B,B)/max(D,dFloor)/(Model%Ca**2.0)
+        bhat = normVec(B)
+
+        GamA = 1.0/sqrt(1.0 + alpha)
+        LamInv = (GamA**2.0)*( Eye33 + alpha*Dyad(bhat,bhat))
+    end subroutine Rel2mom
 end module gamutils

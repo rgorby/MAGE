@@ -258,9 +258,11 @@ module ebsquish
 
         integer :: i,j,k
         real(rp), dimension(2) :: X1s,X2s
+        
 
         integer :: hSkp
         hSkp = nSkp/2
+
 
         !Start w/ i edge sweep
         !$OMP PARALLEL DO default(shared) collapse(2) &
@@ -273,6 +275,7 @@ module ebsquish
                         X2s = [xyzSquish(i-hSkp,j,k,2),xyzSquish(i+hSkp,j,k,2)]
                         xyzSquish(i,j,k,1) = ArithMean(X1s)
                         xyzSquish(i,j,k,2) = CircMean (X2s)
+
                         isGood(i,j,k) = .true.
                     endif
                 enddo
@@ -290,6 +293,7 @@ module ebsquish
                         X2s = [xyzSquish(i,j-hSkp,k,2),xyzSquish(i,j+hSkp,k,2)]
                         xyzSquish(i,j,k,1) = ArithMean(X1s)
                         xyzSquish(i,j,k,2) = CircMean (X2s)
+
                         isGood(i,j,k) = .true.
                     endif
                 enddo
@@ -307,6 +311,7 @@ module ebsquish
                         X2s = [xyzSquish(i,j,k-hSkp,2),xyzSquish(i,j,k+hSkp,2)]
                         xyzSquish(i,j,k,1) = ArithMean(X1s)
                         xyzSquish(i,j,k,2) = CircMean (X2s)
+
                         isGood(i,j,k) = .true.
                     endif
 
@@ -357,6 +362,53 @@ module ebsquish
         real(rp), intent(in) :: t
         real(rp), intent(out) :: x1,x2
 
+        real(rp), dimension(NDIM) :: xE,xyz0
+        integer :: Np
+        logical :: isGood,isGP
+        real(rp) :: dX,rC
+        real(rp) :: x11,x22
+
+        x1 = 0.0
+        x2 = 0.0
+
+        ! trap for when we're within epsilon of the inner boundary
+        ! (really, it's probably only the first shell of nodes at R=Rinner_boundary that doesn't trace correctly)
+        if ( (norm2(xyz)-Rinner)/Rinner < startEps ) then
+           ! dipole-shift to startEps
+           xyz0 = DipoleShift(xyz,norm2(xyz)+startEps)
+        else
+           xyz0 = xyz
+        end if
+
+        call mageproject(ebModel,ebState,xyz0,t,xE,Np,isGP)
+        
+        dX = norm2(xyz0-xE)
+        rC = Rinner*(1.+rEps)
+
+        isGood = isGP .and. (dX>TINY) .and. (xE(ZDIR)>0.0) .and. (norm2(xE)<rC)
+
+        if (isGood) then
+            !Get invariant lat/lon
+            x1 = InvLatitude(xE)
+            x2 = atan2(xE(YDIR),xE(XDIR))
+            if (x2 < 0) x2 = x2 + 2*PI
+        else
+            x1 = 0.0
+            x2 = 0.0
+        endif
+
+        !call Proj2LL_OLD(ebModel,ebState,xyz,t,x11,x22)
+        !call Proj2LL_OLD(ebModel,ebState,xyz,t,x1,x2)
+
+    end subroutine Proj2LL
+
+    subroutine Proj2LL_OLD(ebModel,ebState,xyz,t,x1,x2)
+        type(chmpModel_T), intent(in) :: ebModel
+        type(ebState_T)  , intent(in) :: ebState
+        real(rp), dimension(NDIM), intent(in) :: xyz
+        real(rp), intent(in) :: t
+        real(rp), intent(out) :: x1,x2
+
         real(rp), dimension(NDIM) :: xE,xIon,xyz0
         real(rp) :: dX,rC
         logical :: isGood
@@ -393,6 +445,6 @@ module ebsquish
             x2 = 0.0
         endif
 
-    end subroutine Proj2LL
+    end subroutine Proj2LL_OLD
 
 end module ebsquish
