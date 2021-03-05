@@ -9,6 +9,8 @@ module usergamic
     use bcs
     use ioH5
     use helioutils
+    ![EP] for TD 
+    use ebinit
 
     implicit none
 
@@ -17,6 +19,8 @@ module usergamic
        ! Br, Vr, Rho, Temperature, Br @ kface, Vr @ kface
        enumerator :: BRIN=1,VRIN,RHOIN,TIN,BRKFIN,VRKFIN
     endenum 
+
+    type(ebTab_T)   :: ebTab
 
     integer, private, parameter :: NVARSIN=6 ! SHOULD be the same as the number of vars in the above enumerator
     real(rp), dimension(:,:,:,:), allocatable :: ibcVars
@@ -77,6 +81,15 @@ module usergamic
 
         ! grab inner 
         call inpXML%Set_Val(wsaFile,"prob/wsaFile","innerbc.h5" )
+
+        ![EP]
+        imag%ebTab%bStr = wsaFile
+        call rdTab(imag%ebTab,iXML,empFile,doTSclO=.false.)
+        write(*,*) imag%ebTab%N
+
+        imag%Nr = imag%ebTab%dNi
+        imag%Nt = imag%ebTab%dNj
+        imap%Np = imag%ebTab%dNk
 
         ! compute global Nkp
         gNkp = Grid%Nkp*Grid%NumRk
