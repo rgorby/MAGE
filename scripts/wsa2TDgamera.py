@@ -369,9 +369,9 @@ with h5py.File(os.path.join(prm.IbcDir,prm.gameraIbcFile),'w') as hf:
         if prm.dumpBC:
             if fcount == 0:
                 #write out phi and th coords of corners at inner boundary grid
-                hf.create_dataset("X", data=R_out)
-                hf.create_dataset("Y", data=P_out)
-                hf.create_dataset("Z", data=T_out)
+                hf.create_dataset("X", data=P_out)
+                hf.create_dataset("Y", data=T_out)
+                hf.create_dataset("Z", data=R_out)
             grname = "Step#"+str(fcount)
             grp = hf.create_group(grname)
             grp.attrs.create("time", time_sec)
