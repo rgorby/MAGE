@@ -456,11 +456,15 @@ module uservoltic
 
                         !dA = Grid%face(ig,j,k,d)/Grid%face(Grid%is,jp,kp,d)
                         dA = 1.0 !Using dA=1 for smoother magflux stencil
-                        if ( isLowLat(Grid%xfc(ig,j,k,:,d),llBC) ) then
-                            !State%magFlux(ig,j,k,d) = 0.0
-                            State%magFlux(ig,j,k,d) = dApm(d)*dA*State%magFlux(Grid%is,jp,kp,d)
-                        else
-                            State%magFlux(ig,j,k,d) = dApm(d)*dA*State%magFlux(Grid%is,jp,kp,d)
+                        if((d == IDIR .and. j .le. Grid%jsg .and. k .le. Grid%ksg) .or. &
+                           (d == JDIR .and. ig .le. Grid%isg .and. k .le. Grid%ksg) .or. &
+                           (d == KDIR .and. ig .le. Grid%isg .and. j .le. Grid%jsg)) then
+                            if ( isLowLat(Grid%xfc(ig,j,k,:,d),llBC) ) then
+                                !State%magFlux(ig,j,k,d) = 0.0
+                                State%magFlux(ig,j,k,d) = dApm(d)*dA*State%magFlux(Grid%is,jp,kp,d)
+                            else
+                                State%magFlux(ig,j,k,d) = dApm(d)*dA*State%magFlux(Grid%is,jp,kp,d)
+                            endif
                         endif
                     enddo
                 enddo !n loop (ig)
