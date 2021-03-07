@@ -373,17 +373,17 @@ module ebsquish
 
         ! trap for when we're within epsilon of the inner boundary
         ! (really, it's probably only the first shell of nodes at R=Rinner_boundary that doesn't trace correctly)
-        if ( (norm2(xyz)-Rinner)/Rinner < startEps ) then
+        if ( (norm2(xyz)-ebApp%ebSquish%Rinner)/ebApp%ebSquish%Rinner < startEps ) then
            ! dipole-shift to startEps
            xyz0 = DipoleShift(xyz,norm2(xyz)+startEps)
         else
            xyz0 = xyz
         end if
 
-        call mageproject(ebModel,ebState,xyz0,t,xE,Np,isGP)
+        call mageproject(ebApp%ebModel,ebApp%ebState,xyz0,t,xE,Np,isGP)
         
         dX = norm2(xyz0-xE)
-        rC = Rinner*(1.+rEps)
+        rC = ebApp%ebSquish%Rinner*(1.+rEps)
 
         isGood = isGP .and. (dX>TINY) .and. (xE(ZDIR)>0.0) .and. (norm2(xE)<rC)
 
@@ -397,14 +397,13 @@ module ebsquish
             x2 = 0.0
         endif
 
-        !call Proj2LL_OLD(ebModel,ebState,xyz,t,x11,x22)
-        !call Proj2LL_OLD(ebModel,ebState,xyz,t,x1,x2)
+        !call Proj2LL_OLD(ebApp%ebModel,ebApp%ebState,xyz,t,x11,x22)
+        !call Proj2LL_OLD(ebApp%ebModel,ebApp%ebState,xyz,t,x1,x2)
 
     end subroutine Proj2LL
 
-    subroutine Proj2LL_OLD(ebModel,ebState,xyz,t,x1,x2)
-        type(chmpModel_T), intent(in) :: ebModel
-        type(ebState_T)  , intent(in) :: ebState
+    subroutine Proj2LL_OLD(ebApp,xyz,t,x1,x2)
+        type(ebTrcApp_T), intent(in) :: ebApp
         real(rp), dimension(NDIM), intent(in) :: xyz
         real(rp), intent(in) :: t
         real(rp), intent(out) :: x1,x2
