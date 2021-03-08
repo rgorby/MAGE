@@ -158,9 +158,10 @@ with h5py.File(os.path.join(prm.IbcDir,prm.gameraIbcFile),'w') as hf:
             # remove the ghosts from angular dimensions (corners)
             P = np.arctan2(y[Ng:-Ng,Ng:-Ng,:],x[Ng:-Ng,Ng:-Ng,:])
             P [ P < 0] += 2*np.pi
-            P = P % (2*np.pi)  # sometimes the very first point may be a very
+            #P = P % (2*np.pi)  # sometimes the very first point may be a very
                        # small negative number, which the above call sets
                        # to 2*pi. This takes care of it.
+                       #[EP] this line produces 0 at the last corner equal to 2pi
             T = np.arccos(z[Ng:-Ng,Ng:-Ng,:]/r[Ng:-Ng,Ng:-Ng,:])
 
             #grid for output into innerbc.h5
@@ -369,9 +370,9 @@ with h5py.File(os.path.join(prm.IbcDir,prm.gameraIbcFile),'w') as hf:
         if prm.dumpBC:
             if fcount == 0:
                 #write out phi and th coords of corners at inner boundary grid
-                hf.create_dataset("X", data=R_out)
+                hf.create_dataset("X", data=P_out)
                 hf.create_dataset("Y", data=T_out)
-                hf.create_dataset("Z", data=P_out)
+                hf.create_dataset("Z", data=R_out)
             grname = "Step#"+str(fcount)
             grp = hf.create_group(grname)
             grp.attrs.create("time", time_sec)
