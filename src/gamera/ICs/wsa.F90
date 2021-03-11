@@ -11,6 +11,7 @@ module usergamic
     use helioutils
     ![EP] for TD 
     use ebinit
+    use ebtypes
 
     implicit none
 
@@ -86,7 +87,9 @@ module usergamic
         imag%ebTab%bStr = wsaFile
         call rdTab(imag%ebTab,iXML,empFile,doTSclO=.false.)
         write(*,*) imag%ebTab%N
+        !!!add a check for steady state and time-dep
 
+        !number of cells
         imag%Nr = imag%ebTab%dNi
         imag%Nt = imag%ebTab%dNj
         imap%Np = imag%ebTab%dNk
@@ -207,6 +210,14 @@ module usergamic
       !$OMP PARALLEL DO default(shared) &
       !$OMP private(i,j,k,jg,kg,ke,kb,a,var,xyz,R,Theta,Phi,rHat,phiHat) &
       !$OMP private(ibcVarsStatic,pVar,conVar,xyz0,R_kf,Theta_kf)
+
+      ![EP] TD: find time steps before and after current time
+      call findSlc(imag%ebTab,State%time,n1,n2)
+
+      ![EP] interpolation in time
+      call tWeights(empData,t,w1,w2)
+        P = w1*empData%empW1(:,:,1) + w2*empData%empW2(:,:,1)
+
       do k=Grid%ksg,Grid%keg+1  ! note, going all the way to last face for mag fluxes
          kg = k+Grid%ijkShift(KDIR)
          ! map rotating to static grid
