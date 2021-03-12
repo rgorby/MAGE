@@ -79,7 +79,7 @@ module calcdbutils
                         facGrid%XYZcc(i,j,n,l,XDIR) = rC(n)*sin(theta)*cos(phi)
                         facGrid%XYZcc(i,j,n,l,YDIR) = rC(n)*sin(theta)*sin(phi)
                         facGrid%XYZcc(i,j,n,l,ZDIR) = rC(n)*cos(theta)
-
+                        
                     enddo !i
 
                 enddo !j
@@ -255,8 +255,8 @@ module calcdbutils
         type(facGrid_T)  , intent(inout) :: facGrid
 
         integer :: i,j,n,l
-        real(rp), dimension(NDIM) :: xC,jhat
-        real(rp) :: rIon,lation,lat,dscl,J11,rscl3
+        real(rp), dimension(NDIM) :: xC,bhat
+        real(rp) :: rIon,J11i,J11m,Biom
 
         !CALCDB-TODO: Write this
         facGrid%Jxyz = 0.0
@@ -264,33 +264,79 @@ module calcdbutils
         rIon = (RionE*1.0e+6)/REarth !Ionospheric radius in units of Re, ~1.01880
 
         !$OMP PARALLEL DO default(shared) collapse (3) &
-        !$OMP private(i,j,n,l,xC,jhat) &
-        !$OMP private(lation,lat,dscl,J11,rscl3)
+        !$OMP private(i,j,n,l,xC,bhat) &
+        !$OMP private(J11i,J11m,Biom)
         do l=1,2
             do n=1,facGrid%rSegs
                 do j=1,facGrid%Nth
                     do i=1,facGrid%Np
                         xC = facGrid%XYZcc(i,j,n,l,XDIR:ZDIR)
                         
-                        rscl3 = (rIon/norm2(xC))**3.0
-                        lation = PI/2 - facGrid%tcc(i,j,l)
-                        lat = xyz2lat(xC)
-                        dscl = sqrt(3*sin(lation)*sin(lation) + 1)
-                        !Get J11, stored in muA/m2
+                        Biom = BionoBm(xC) !Ratio of ionosphere B field and this point
+                        !Get J11,ion stored in muA/m2
                         if (l == NORTH) then
-                            J11 = rmState%nFac(i,j)
+                            J11i = rmState%nFac(i,j)
                         else
-                            J11 = rmState%sFac(i,j)
+                            J11i = rmState%sFac(i,j)
                         endif
-                        J11 = (1.0e-6)*J11 
                         !Calculate current in A/m2
-                        jhat = [2.0*sin(lat),0.0_rp,-cos(lat)]
+                        J11i = (1.0e-6)*J11i
 
-                        facGrid%Jxyz(i,j,n,l,:) = jhat*J11*rscl3/dscl 
+                        !Get J11 at this point using j11/B = const,
+                        J11m = J11i/Biom
+
+                        !Now get local bhat
+                        bhat = bhatXYZ(xC)
+
+                        !J11,bhat,amplification factor
+                        facGrid%Jxyz(i,j,n,l,:) = J11m*bhat
+
                     enddo !i
                 enddo !j
             enddo !k
         enddo !l
+
+        contains
+
+            function bhatXYZ(xyz)
+                real(rp), intent(in) :: xyz(NDIM)
+                real(rp) :: bhatXYZ(NDIM)
+
+                real(rp) :: x,y,z,r,r2,A
+
+                x = xyz(XDIR)
+                y = xyz(YDIR)
+                z = xyz(ZDIR)
+                r = norm2(xyz)
+                r2 = r**2.0
+                A = sqrt( 1 + 3.0*(z/r)**2.0 )
+
+                bhatXYZ(XDIR) = -(1/A)*(3*x*z)/r2
+                bhatXYZ(YDIR) = -(1/A)*(3*y*z)/r2
+                bhatXYZ(ZDIR) =  (1/A)*( -2 + 3*(x**2.0+y**2.0)/r2 )
+
+            end function bhatXYZ
+
+            !Bion/Bm ratio, see mhd2mix code for explanation
+            function BionoBm(xyz)
+                real(rp), intent(in) :: xyz(NDIM)
+                real(rp) :: BionoBm
+
+                real(rp) :: x,y,z,rMag,Rp,zor2,mZ,pZ
+
+                x = xyz(XDIR)
+                y = xyz(YDIR)
+                z = xyz(ZDIR)
+                rMag = norm2(xyz)
+                Rp = rMag/rIon
+                
+                zor2 = (z/rMag)**2.0
+                mZ = (1.0-zor2)/Rp
+                pZ = 1.0+3.0*zor2
+
+                BionoBm = (Rp**3.0)*sqrt( 1.0 + 3.0*(1.0-mZ) )/sqrt(pZ)
+
+            end function BionoBm
 
     end subroutine facGridUpdate
 

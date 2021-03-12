@@ -102,13 +102,12 @@ module particleio
         enddo
 
         call ClearIO(IOVars)
-
         call AddOutVar(IOVars,"id",1.0_dp*tpState%TPs(:)%id)
         call AddOutVar(IOVars,"x",TPs(:)%Q(XPOS))
         call AddOutVar(IOVars,"y",TPs(:)%Q(YPOS))
         call AddOutVar(IOVars,"z",TPs(:)%Q(ZPOS))
         call AddOutVar(IOVars,"K",Kev)
-        call AddOutVar(IOVars,"Mu",Mu)
+        call AddOutVar(IOVars,"Mu",Mu,uStr="keV/nT")
         call AddOutVar(IOVars,"A" ,rad2deg*TPs(:)%alpha)
         
         !Equatorial values

@@ -471,6 +471,7 @@ module gioH5
             MJD = T2MJD(Model%t*Model%Units%gT0,Model%MJD0)
             call AddOutVar(IOVars,"MJD",MJD)
         endif
+        call AddOutVar(IOVars,"nSpc",Model%nSpc)
 
         !---------------------
         !Call user routine

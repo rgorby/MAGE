@@ -105,6 +105,7 @@ module calcdbcore
         enddo !k
 
     end subroutine BSRemap
+    
     !Do individual BS integral using BSGr
     subroutine BSIntegral(xBS,gGr,dbXYZ)
         type(BSGrid_T), intent(in) :: xBS
@@ -135,9 +136,10 @@ module calcdbcore
 
                         !Avoid array temporary
                         !NOTE: This current vector is in SM coordinates
-                        ddB(XDIR) = ( J(YDIR)*R(ZDIR) - J(ZDIR)*R(YDIR) )/r3
-                        ddB(YDIR) = ( J(ZDIR)*R(XDIR) - J(XDIR)*R(ZDIR) )/r3
-                        ddB(ZDIR) = ( J(XDIR)*R(YDIR) - J(YDIR)*R(XDIR) )/r3
+                        !NOTE: flipped R
+                        ddB(XDIR) = -( J(YDIR)*R(ZDIR) - J(ZDIR)*R(YDIR) )/r3
+                        ddB(YDIR) = -( J(ZDIR)*R(XDIR) - J(XDIR)*R(ZDIR) )/r3
+                        ddB(ZDIR) = -( J(XDIR)*R(YDIR) - J(YDIR)*R(XDIR) )/r3
 
                         !dbXYZ(iG,jG,kG,:) = dbXYZ(iG,jG,kG,:) + xBS%jScl*dV*ddB
                         dbXYZ(iG,jG,kG,:) = dbXYZ(iG,jG,kG,:) + dV*ddB !Pull out overall scaling
