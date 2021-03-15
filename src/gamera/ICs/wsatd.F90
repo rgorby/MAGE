@@ -9,18 +9,45 @@ module usergamic
     use bcs
     use ioH5
     use helioutils
-  
+    ![EP] for TD 
+    use ebinit
+    use ebtypes
 
     implicit none
 
+    !enum, bind(C)
+    !   ! variables passed via innerbc file
+    !   ! Br, Vr, Rho, Temperature, Br @ kface, Vr @ kface
+    !   enumerator :: BRIN=1,VRIN,RHOIN,TIN,BRKFIN,VRKFIN
+    !endenum 
+
+    !For TimeDep
     enum, bind(C)
        ! variables passed via innerbc file
-       ! Br, Vr, Rho, Temperature, Br @ kface, Vr @ kface
-       enumerator :: BRIN=1,VRIN,RHOIN,TIN,BRKFIN,VRKFIN
+       ! Br, Bp_kface, Bt_jface, Vr, Vt, Vp, Rho, Cs (TIN)
+       enumerator :: BRIN=1,VRIN,RHOIN,TIN,BPKFIN,BTJFIN,VTIN,VPIN
     endenum 
+
+    ![EP] data structure for TD
+    ![EP] should that be type, extends(baseBC_T) ??
+    type wsaData_T 
+
+        type(ebTab_T)   :: ebTab
+        logical :: doStatic = .true.
+        integer :: Nr,Nt,Np !dimensions
+        !real(rp), dimension(:,:), allocatable :: X,Y
+        real(rp) :: wsaT1,wsaT2 !Times of two data slices
+        integer  :: wsaN1,wsaN2 !Indices of two data slices
+        real(rp), dimension(:,:,:,:), allocatable :: ibcVarsW1,ibcVarsW2
+        !real(rp) :: rDeep   ! where we're ingesting
+        !type(mixGrid_T) :: sstG   ! remix-style grid
+        !real(rp), dimension(:,:), allocatable :: sstP  ! pressure interpolated to sstG
+
+    end type wsaData_T
 
 
     integer, private, parameter :: NVARSIN=6 ! SHOULD be the same as the number of vars in the above enumerator
+    integer, parameter :: NVARSINTD = 8
     real(rp), dimension(:,:,:,:), allocatable :: ibcVars
 
     !Various global would go here
@@ -61,7 +88,8 @@ module usergamic
 
     contains
 
-    subroutine initUser(Model,Grid,State,inpXML)
+    subroutine initUser(wsaData,Model,Grid,State,inpXML)
+        type(wsaData_T), intent(inout) :: wsaData
         type(Model_T), intent(inout) :: Model
         type(Grid_T), intent(inout) :: Grid
         type(State_T), intent(inout) :: State
@@ -81,6 +109,51 @@ module usergamic
 
         ! grab inner 
         call inpXML%Set_Val(wsaFile,"prob/wsaFile","innerbc.h5" )
+
+        ![EP] we need to covert time in seconds to code units so doTSclO=true
+        wsaData%ebTab%bStr = wsaFile
+        ![EP] read times, convert to times to code units, read grid dimensions
+        call rdTab(wsaData%ebTab,inpXML,wsaFile,doTSclO=.true.)
+        ![EP] ebTab%N is a number of time steps
+        if (wsaData%ebTab%N>1) then
+            wsaData%doStatic = .false.
+        endif
+        write(*,*) wsaData%doStatic
+        ![EP] check
+        write(*,*) wsaData%ebTab%N, wsaData%ebTab%dNi, wsaData%ebTab%dNj, wsaData%ebTab%dNk
+        !!!add a check for steady state and time-dep
+
+        ![EP] diemsions of i-ghost grid
+        Nr = wsaData%ebTab%dNi
+        Nt = wsaData%ebTab%dNj
+        Np = wsaData%ebTab%dNk
+        write(*,*) Nr, Nt, Np
+
+        !allocate ibcVars
+
+        !initialization
+        ![EP] TD: find bounding time slices from ebTab file
+        call findSlc(wsaData%ebTab,State%time,n1,n2)
+        write(*,*) n1, n2
+
+        !read map from Step#n1
+        call rdWSAMap(wsaData,n1,wsaData%ibcVarsW1)
+        wsaData%wsaN1 = n1
+        wsaData%wsaT1 = wsaData%ebTab%times(n1)
+
+        !read map from Step#2
+        call rdWSAMap(wsaData,n2,wsaData%ibcVarsW2)
+        wsaData%wsaN2 = n2
+        wsaData%wsaT2 = wsaData%ebTab%times(n2)
+
+        ![EP]interpolation (a) calculate weights (b) interpolate in time 
+        call tCalcWeights(wsaData,State%time,w1,w2)
+
+        !(interp BR) INTERPOLATE ALL VARS
+        ibcVars(:,:,:,:) = w1*wsaData%ibcVarsW1(:,:,:,:) + w2*wsaData%ibcVarsW2(:,:,:,:)
+        !now we have WSA "map" for a current code time
+
+        ![EP] For restart add boundary cases in time
 
 
         ! compute global Nkp
@@ -123,7 +196,7 @@ module usergamic
 !        Model%HackE => eHack
 
         ! everybody reads WSA data
-        call readIBC(wsaFile)
+        !call readIBC(wsaFile)
 
         Model%MJD0 = MJD_c
 
@@ -179,7 +252,8 @@ module usergamic
     end subroutine initUser
 
     !Inner-I BC for WSA-Gamera
-    subroutine wsaBC(bc,Model,Grid,State)
+    subroutine wsaBC(wsaData,bc,Model,Grid,State)
+      type(wsaData_T), intent(inout) :: wsaData
       class(SWInnerBC_T), intent(inout) :: bc
       type(Model_T), intent(in) :: Model
       type(Grid_T), intent(in) :: Grid
@@ -199,6 +273,31 @@ module usergamic
       !$OMP PARALLEL DO default(shared) &
       !$OMP private(i,j,k,jg,kg,ke,kb,a,var,xyz,R,Theta,Phi,rHat,phiHat) &
       !$OMP private(ibcVarsStatic,pVar,conVar,xyz0,R_kf,Theta_kf)
+      
+      if (.not.((State%time >= wsaData%wsaT1) .and. (State%time <= wsaData%wsaT2)) then
+         !find bounding slices
+         call findSlc(wsaData%ebTab,State%time,n1,n2)
+         write(*,*) n1, n2
+
+        !read a map from Step#n1
+        call rdWSAMap(wsaData,n1,wsaData%ibcVarsW1)
+        wsaData%wsaN1 = n1
+        !time from Step#n1
+        wsaData%wsaT1 = wsaData%ebTab%times(n1)
+
+        !read a map from Step#2
+        call rdWSAMap(wsaData,n2,wsaData%ibcVarsW2)
+        wsaData%wsaN2 = n2
+        !time from Step#n2
+        wsaData%wsaT2 = wsaData%ebTab%times(n2)
+
+        ![EP]interpolation (a) calculate weights (b) interpolate in time 
+        call tCalcWeights(wsaData,State%time,w1,w2)
+
+        !interpolate in time between two WSA maps (all vars)
+        ibcVars(:,:,:,:) = w1*wsaData%ibcVarsW1(:,:,:,:) + w2*wsaData%ibcVarsW2(:,:,:,:)
+
+      endif
 
 
 
@@ -222,7 +321,7 @@ module usergamic
                ! otherwise
                ! interpolate linearly from rotating to inertial frame 
                if ( (jg>=Grid%js).and.(jg<=size(ibcVars,2)) ) then
-                  do var=1,NVARSIN
+                  do var=1,NVARSINTD
                      ibcVarsStatic(var) = a*ibcVars(ig,jg,kb,var)+(1-a)*ibcVars(ig,jg,ke,var)
                   end do
                end if
@@ -261,10 +360,13 @@ module usergamic
                Theta_kf = acos(xyz0(ZDIR)/R_kf)
 
                ! note scaling for Bi. See note above in InitUser
+               !no scaling for Bt_jface
+               !BRIN=1,VRIN,RHOIN,TIN,BPKFIN,BTJFIN,VTIN,VPIN
                Rfactor = Rbc/norm2(Grid%xfc(Grid%is,j,k,:,IDIR))
                State%magFlux(i,j,k,IDIR) = ibcVarsStatic(BRIN)*Rfactor**2*Grid%face(Grid%is,j,k,IDIR)
-               State%magFlux(i,j,k,JDIR) = 0.0
-               State%magFlux(i,j,k,KDIR) = - 2*PI/Tsolar*R_kf*sin(Theta_kf)/ibcVarsStatic(VRKFIN)*ibcVarsStatic(BRKFIN)*Grid%face(i,j,k,KDIR)
+               State%magFlux(i,j,k,JDIR) = ibcVarsStatic(BTJFIN)*Grid%face(i,j,k,JDIR)
+               State%magFlux(i,j,k,KDIR) = - 2*PI/Tsolar*R_kf*sin(Theta_kf)/ibcVarsStatic(VRKFIN)*ibcVarsStatic(BRKFIN)*Grid%face(i,j,k,KDIR) &
+                                           + ibcVarsStatic(BPKFIN)*Rbc/norm2(Grid%xfc(i,j,k,:,KDIR))*Grid%face(i,j,k,KDIR)
             end do
          end do
       end do
@@ -364,7 +466,7 @@ module usergamic
       inquire(file=ibcH5,exist=fExist)
       if (.not. fExist) then
          !Error out and leave
-         write(*,*) 'Unable to open innerbc file, exiting'
+        write(*,*) 'Unable to open innerbc file, exiting'
          stop
       endif
 
@@ -406,4 +508,108 @@ module usergamic
          MJD_c = GetIOReal(IOVars,"MJD")
    
     end subroutine readIBC
+
+    ![EP] reads WSA map for a given time step Step#n in innerbc.h5
+    subroutine rdWSAMap(wsaData,n,W)
+        type(empData_T), intent(inout) :: wsaData
+        integer, intent(in) :: n !timeslice
+        real(rp), dimension(:,:,:,:), intent(out) :: W
+        !real(rp), dimension(:,:,:,:), allocatable :: ibcVars
+
+        integer, parameter :: MAXIOVAR = 50
+        type(IOVAR_T), dimension(MAXIOVAR) :: IOVars
+
+
+        !integer, parameter :: NIOVAR = 2
+        !type(IOVAR_T), dimension(NIOVAR) :: IOVars
+        !integer :: dims(2)
+        integer :: i,nvar,dims(3)
+
+        !reading group for this time step n
+        write(*,*) 'Reading file/group = ', &
+             trim(wsaData%ebtab%bStr),'/',trim(wsaData%ebTab%gStrs(n))
+
+        !Reset IO chain
+        call ClearIO(IOVars)
+
+        !Setup input chain
+        call AddInVar(IOVars,"vr")
+        call AddInVar(IOVars,"vt")
+        call AddInVar(IOVars,"vp")
+        call AddInVar(IOVars,"rho")
+        !SOUND SPEED
+        call AddInVar(IOVars,"cs")
+        call AddInVar(IOVars,"br")
+        call AddInVar(IOVars,"bp_kface")
+        call AddInVar(IOVars,"bt_jface")
+        call AddInVar(IOVars,"MJD")
+        call AddInVar(IOVars,"time")
+
+        call ReadVars(IOVars,.false.,wsaData%ebTab%bStr,wsaData%ebTab%gStrs(n)) 
+
+        dims = [wsaData%Nr,empData%Nt,empData%Np] !i,j,k
+        write(*,*) dims
+        !Allocate W
+        !Bp_kface has dim 257, 128, 4
+        !Bt_jface has dim 256, 129, 4
+        if (.not.allocated(W)) allocate(W(dims(1),dims(2),dims(3),NVARSINTD))
+
+        !BRIN=1,VRIN,RHOIN,TIN,BPKFIN,BTJFIN,VTIN,VPIN
+
+        do i=1,NVARSINTD
+         select case (i)
+         case (BRIN)
+            nvar= FindIO(IOVars,"br")
+         case (VRIN)
+            nvar= FindIO(IOVars,"vr")
+         case (RHOIN)
+            nvar= FindIO(IOVars,"rho")
+         case (TIN)
+            nvar= FindIO(IOVars,"cs")
+         case (BPKFIN)
+            nvar= FindIO(IOVars,"bp_kface")
+         case (BTJFIN)
+            nvar= FindIO(IOVars,"bt_jface")
+         case (VTIN)
+            nvar= FindIO(IOVars,"vt")
+         case (VPIN)
+            nvar= FindIO(IOVars,"vp")
+         end select
+
+         W(:,:,:,i) = reshape(IOVars(nvar)%data,dims)
+        end do
+         !reading MJD
+         MJD_c = GetIOReal(IOVars,"MJD")
+        
+    end subroutine rdEmpMap
+
+    subroutine tCalcWeights(wsaData,t,w1,w2)
+        type(empData_T), intent(inout) :: wsaData
+        real(rp), intent(in)  :: t
+        real(rp), intent(out) :: w1,w2
+        real(rp) :: dt
+        if (wsaData%doStatic) then
+            w1 = 1.0
+            w2 = 0.0
+            return
+        endif
+
+        if (t > wsaData%wsaT2) then
+            w1 = 0.0
+            w2 = 1.0
+        else if (t < wsaData%wsaT1) then
+            w1 = 1.0
+            w2 = 0.0
+        else
+            dt = wsaData%wsaT2-wsaData%wsaT1
+            if (dt>TINY) then
+                w1 = (wsaData%empT2-t)/dt
+                w2 = (t - wsaData%empT1)/dt
+            else
+                w1 = 0.5
+                w2 = 0.5
+            endif
+        endif !Weights
+    end subroutine tCalcWeights
+
 end module usergamic
