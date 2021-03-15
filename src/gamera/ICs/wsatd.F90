@@ -12,6 +12,7 @@ module usergamic
     ![EP] for TD 
     use ebinit
     use ebtypes
+    use volttypes
 
     implicit none
 
@@ -21,7 +22,7 @@ module usergamic
     !   enumerator :: BRIN=1,VRIN,RHOIN,TIN,BRKFIN,VRKFIN
     !endenum 
 
-    !For TimeDep
+    !For TD
     enum, bind(C)
        ! variables passed via innerbc file
        ! Br, Bp_kface, Bt_jface, Vr, Vt, Vp, Rho, Cs (TIN)
@@ -29,8 +30,8 @@ module usergamic
     endenum 
 
     ![EP] data structure for TD
-    ![EP] should that be type, extends(baseBC_T) ??
-    type wsaData_T 
+    ![EP] should that be 'type, extends(baseBC_T)' ??
+    type :: wsaData_T 
 
         type(ebTab_T)   :: ebTab
         logical :: doStatic = .true.
@@ -39,14 +40,12 @@ module usergamic
         real(rp) :: wsaT1,wsaT2 !Times of two data slices
         integer  :: wsaN1,wsaN2 !Indices of two data slices
         real(rp), dimension(:,:,:,:), allocatable :: ibcVarsW1,ibcVarsW2
-        !real(rp) :: rDeep   ! where we're ingesting
-        !type(mixGrid_T) :: sstG   ! remix-style grid
-        !real(rp), dimension(:,:), allocatable :: sstP  ! pressure interpolated to sstG
 
     end type wsaData_T
 
 
     integer, private, parameter :: NVARSIN=6 ! SHOULD be the same as the number of vars in the above enumerator
+    !for TD
     integer, parameter :: NVARSINTD = 8
     real(rp), dimension(:,:,:,:), allocatable :: ibcVars
 
@@ -99,8 +98,9 @@ module usergamic
         procedure(HackE_T), pointer :: eHack
 
         integer :: i,j,k,nvar,nr,d
-        integer :: Nr, Nt, Np
+        integer :: Nrr, Nt, Np
         integer :: n1, n2
+        real(rp) :: w1, w2
 
 !        if (.not.allocated(inEijk)) allocate(inEijk(1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1,1:NDIM))
 
@@ -127,7 +127,7 @@ module usergamic
         Nr = wsaData%ebTab%dNi
         Nt = wsaData%ebTab%dNj
         Np = wsaData%ebTab%dNk
-        write(*,*) Nr, Nt, Np
+        write(*,*) Nrr, Nt, Np
 
         !allocate ibcVars
 
@@ -268,13 +268,14 @@ module usergamic
       real(rp) :: R, Theta, Phi
       real(rp) :: Theta_kf, R_kf ! kface
       real(rp), dimension(NVAR) :: conVar, pVar
-
+      real(rp) :: w1, w2, n1, n2
+  
       !i-boundaries (IN)
       !$OMP PARALLEL DO default(shared) &
       !$OMP private(i,j,k,jg,kg,ke,kb,a,var,xyz,R,Theta,Phi,rHat,phiHat) &
       !$OMP private(ibcVarsStatic,pVar,conVar,xyz0,R_kf,Theta_kf)
       
-      if (.not.((State%time >= wsaData%wsaT1) .and. (State%time <= wsaData%wsaT2)) then
+      if (.not.((State%time >= wsaData%wsaT1) .and. (State%time <= wsaData%wsaT2))) then
          !find bounding slices
          call findSlc(wsaData%ebTab,State%time,n1,n2)
          write(*,*) n1, n2
@@ -511,7 +512,7 @@ module usergamic
 
     ![EP] reads WSA map for a given time step Step#n in innerbc.h5
     subroutine rdWSAMap(wsaData,n,W)
-        type(empData_T), intent(inout) :: wsaData
+        type(wsaData_T), intent(inout) :: wsaData
         integer, intent(in) :: n !timeslice
         real(rp), dimension(:,:,:,:), intent(out) :: W
         !real(rp), dimension(:,:,:,:), allocatable :: ibcVars
@@ -547,7 +548,7 @@ module usergamic
 
         call ReadVars(IOVars,.false.,wsaData%ebTab%bStr,wsaData%ebTab%gStrs(n)) 
 
-        dims = [wsaData%Nr,empData%Nt,empData%Np] !i,j,k
+        dims = [wsaData%Nr,wsaData%Nt,wsaData%Np] !i,j,k
         write(*,*) dims
         !Allocate W
         !Bp_kface has dim 257, 128, 4
@@ -584,7 +585,7 @@ module usergamic
     end subroutine rdEmpMap
 
     subroutine tCalcWeights(wsaData,t,w1,w2)
-        type(empData_T), intent(inout) :: wsaData
+        type(wsaData_T), intent(inout) :: wsaData
         real(rp), intent(in)  :: t
         real(rp), intent(out) :: w1,w2
         real(rp) :: dt

@@ -71,7 +71,6 @@ module usergamic
         procedure(HackE_T), pointer :: eHack
 
         integer :: i,j,k,nvar,nr,d
-        integer :: Nr, Nt, Np
         integer :: n1, n2
 
 !        if (.not.allocated(inEijk)) allocate(inEijk(1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1,1:NDIM))
