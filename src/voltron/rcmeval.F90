@@ -93,13 +93,12 @@ module rcmeval
         real(rp)       , intent(out) :: imW(NVARIMAG)
         logical        , intent(out) :: isEdible
 
-        real(rp) :: colat,nrcm,prcm,npp,pScl,beta,pmhd,nmhd,wIM
-        real(rp) :: plim,nlim,Tb
+        integer :: n,Ni,Nj,ip,jp
         integer, dimension(2) :: ij0
-        integer :: Ni,Nj
         integer , dimension(Np,2) :: IJs
-        real(rp), dimension(Np) :: Ws
+        real(rp), dimension(Np) :: Ws,nLims,pLims,Tbs
         logical , dimension(Np) :: isGs
+        real(rp) :: colat,npp,nrcm,nmhd,prcm,pmhd,beta
 
         Ni = RCMApp%nLat_ion
         Nj = RCMApp%nLon_ion
@@ -126,45 +125,59 @@ module rcmeval
         isEdible = RCMApp%toMHD(ij0(1),ij0(2))
         if (.not. isEdible) return
 
-        call GetInterp(lat,lon,ij0,IJs,Ws,isGs)
+        call GetInterpTSC(lat,lon,ij0,IJs,Ws,isGs)
+        isEdible = all(isGs) !Require all points in stencil are edible
+
         !Do last short cut
-        if (.not. all(isGs)) return
+        if (.not. isEdible) return
 
-        prcm = rcmPScl*AvgQ(RCMApp%Prcm ,IJs,Ws,Ni,Nj)
-        nrcm = rcmNScl*AvgQ(RCMApp%Nrcm ,IJs,Ws,Ni,Nj)
-        npp  = rcmNScl*AvgQ(RCMApp%Npsph,IJs,Ws,Ni,Nj)
-        pmhd = rcmPScl*AvgQ(RCMApp%Pave ,IJs,Ws,Ni,Nj)
-        nmhd = rcmNScl*AvgQ(RCMApp%Nave ,IJs,Ws,Ni,Nj)
-        beta = AvgQ(RCMApp%beta_average ,IJs,Ws,Ni,Nj)
-        wIM  = AvgQ(RCMApp%wImag        ,IJs,Ws,Ni,Nj)
-        Tb   = AvgQ(RCMApp%Tb           ,IJs,Ws,Ni,Nj)
+    !Get limited N/P at each stencil point
+        nLims = 0.0
+        pLims = 0.0
 
-        nlim = 0.0
-        plim = 0.0
+        do n=1,Np
+            ip = IJs(n,1)
+            jp = IJs(n,2)
+            !Densities
+            npp  = rcmNScl*RCMApp%Npsph(ip,jp)
+            nrcm = rcmNScl*RCMApp%Nrcm (ip,jp)
+            nmhd = rcmNScl*RCMApp%Nave (ip,jp)
+            !Pressure
+            prcm = rcmPScl*RCMApp%Prcm (ip,jp)
+            pmhd = rcmPScl*RCMApp%Pave (ip,jp)
 
-        if (doWolfLim) then
-            call WolfLimit(nrcm,prcm,npp,nmhd,pmhd,beta,nlim,plim)
-        else
-            !Just lazyily use same function w/ beta=0
-            call WolfLimit(nrcm,prcm,npp,nmhd,pmhd,0.0_rp,nlim,plim)
-        endif
+            beta = RCMApp%beta_average(ip,jp)
 
-        !Store values
-        imW(IMDEN) = nlim
-        imW(IMPR)  = plim
+            !Have input quantities, calculate local wolf-limited values
+            if (doWolfLim) then
+                call WolfLimit(nrcm,prcm,npp,nmhd,pmhd,beta,nLims(n),pLims(n))
+            else
+                !Just lazyily use same function w/ beta=0
+                call WolfLimit(nrcm,prcm,npp,nmhd,pmhd,0.0_rp,nLims(n),pLims(n))
+            endif
 
-        if (doBounceDT) then
-            !Use Alfven bounce timescale
-            imW(IMTSCL) = nBounce*RCMApp%Tb(ij0(1),ij0(2))
-        endif
+            Tbs(n) = RcMApp%Tb(ip,jp)
 
+        enddo
+    !Get final ingestion values
+        imW(IMDEN) = dot_product(nLims,Ws)
+        imW(IMPR ) = dot_product(pLims,Ws)
+
+        !Coordinates
         imW(IMX1)   = rad2deg*lat
         imW(IMX2)   = rad2deg*lon
 
+        if (doBounceDT) then
+            !Use Alfven bounce timescale
+            imW(IMTSCL) = nBounce*dot_product(Tbs,Ws)
+        endif
+
+    !--------
+    !Internal routines
         contains
 
         !Get ij's of stencil points and weights
-        subroutine GetInterp(lat,lon,ij0,IJs,Ws,isGs)
+        subroutine GetInterpTSC(lat,lon,ij0,IJs,Ws,isGs)
             real(rp), intent(in)  :: lat,lon
             integer , intent(in)  :: ij0(2)
             integer , intent(out) :: IJs(Np,2)
@@ -221,7 +234,7 @@ module rcmeval
             enddo !dj
 
             end associate            
-        end subroutine GetInterp
+        end subroutine GetInterpTSC
 
         !1D triangular shaped cloud weights
         !1D weights for triangular shaped cloud interpolation
