@@ -72,9 +72,12 @@ module usergamic
     ! use this to fix the Efield at the inner boundary
 !    real(rp), allocatable :: inEijk(:,:,:,:)
 
-    ! type for solar wind BC
-    type, extends(innerIBC_T) :: SWInnerBC_T
 
+
+    ! type for solar wind BC
+    type, extends(innerIBC_T) :: WSAInnerBC_T
+
+        type(wsaData_T) :: wsaData
         !Main electric field structures
         real(rp), allocatable, dimension(:,:,:,:) :: inEijk,inExyz
 
@@ -83,7 +86,7 @@ module usergamic
 !        procedure :: doInit => InitIonInner
           ! TODO: this shoudl be made generic (wsa, mas, etc.) How
         procedure :: doBC => wsaBC
-    end type SWInnerBC_T
+    end type WSAInnerBC_T
 
     contains
 
@@ -174,7 +177,7 @@ module usergamic
         call WipeBCs(Model,Grid)
 
         !Set BCs
-        allocate(SWInnerBC_T        :: Grid%externalBCs(1)%p)
+        allocate(WSAInnerBC_T        :: Grid%externalBCs(1)%p)
         allocate(helioOuterIBC_T    :: Grid%externalBCs(2)%p)
         allocate(helioInnerJBC_T    :: Grid%externalBCs(3)%p)
         allocate(helioOuterJBC_T    :: Grid%externalBCs(4)%p)
@@ -252,9 +255,9 @@ module usergamic
     end subroutine initUser
 
     !Inner-I BC for WSA-Gamera
-    subroutine wsaBC(wsaData,bc,Model,Grid,State)
-      type(wsaData_T), intent(inout) :: wsaData
-      class(SWInnerBC_T), intent(inout) :: bc
+    subroutine wsaBC(bc,Model,Grid,State)
+      class(WSAInnerBC_T), intent(inout) :: bc
+      !type(wsaData_T), intent(inout) :: wsaData
       type(Model_T), intent(in) :: Model
       type(Grid_T), intent(in) :: Grid
       type(State_T), intent(inout) :: State
@@ -268,35 +271,36 @@ module usergamic
       real(rp) :: R, Theta, Phi
       real(rp) :: Theta_kf, R_kf ! kface
       real(rp), dimension(NVAR) :: conVar, pVar
-      real(rp) :: w1, w2, n1, n2
+      real(rp) :: w1, w2
+      integer :: n1, n2
   
       !i-boundaries (IN)
       !$OMP PARALLEL DO default(shared) &
       !$OMP private(i,j,k,jg,kg,ke,kb,a,var,xyz,R,Theta,Phi,rHat,phiHat) &
       !$OMP private(ibcVarsStatic,pVar,conVar,xyz0,R_kf,Theta_kf)
       
-      if (.not.((State%time >= wsaData%wsaT1) .and. (State%time <= wsaData%wsaT2))) then
+      if (.not.((State%time >= bc%wsaData%wsaT1) .and. (State%time <= bc%wsaData%wsaT2))) then
          !find bounding slices
-         call findSlc(wsaData%ebTab,State%time,n1,n2)
+         call findSlc(bc%wsaData%ebTab,State%time,n1,n2)
          write(*,*) n1, n2
 
         !read a map from Step#n1
-        call rdWSAMap(wsaData,n1,wsaData%ibcVarsW1)
-        wsaData%wsaN1 = n1
+        call rdWSAMap(bc%wsaData,n1,bc%wsaData%ibcVarsW1)
+        bc%wsaData%wsaN1 = n1
         !time from Step#n1
-        wsaData%wsaT1 = wsaData%ebTab%times(n1)
+        bc%wsaData%wsaT1 = bc%wsaData%ebTab%times(n1)
 
         !read a map from Step#2
-        call rdWSAMap(wsaData,n2,wsaData%ibcVarsW2)
-        wsaData%wsaN2 = n2
+        call rdWSAMap(bc%wsaData,n2,bc%wsaData%ibcVarsW2)
+        bc%wsaData%wsaN2 = n2
         !time from Step#n2
-        wsaData%wsaT2 = wsaData%ebTab%times(n2)
+        bc%wsaData%wsaT2 = bc%wsaData%ebTab%times(n2)
 
         ![EP]interpolation (a) calculate weights (b) interpolate in time 
-        call tCalcWeights(wsaData,State%time,w1,w2)
+        call tCalcWeights(bc%wsaData,State%time,w1,w2)
 
         !interpolate in time between two WSA maps (all vars)
-        ibcVars(:,:,:,:) = w1*wsaData%ibcVarsW1(:,:,:,:) + w2*wsaData%ibcVarsW2(:,:,:,:)
+        ibcVars(:,:,:,:) = w1*bc%wsaData%ibcVarsW1(:,:,:,:) + w2*bc%wsaData%ibcVarsW2(:,:,:,:)
 
       endif
 
