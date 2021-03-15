@@ -278,6 +278,7 @@ module imagtubes
         !K: Tweaking to simply do 1 iteration of smoothing
         call Smooth2D(dV) !Smooth dV
         call Smooth2D(RCMApp%pot) !Electrostatic potential
+        call Smooth2D(RCMApp%Tb) !Bounce timescale for ingestion
         
         ! do n=1,Ns
         !     !call Smooth2D(RCMApp%pot) !Electrostatic potential
