@@ -10,7 +10,9 @@ MODULE torcm_mod
   USE etautils
   implicit none
 
-  logical, parameter :: doSmoothEta = .true. !Whether to smooth eeta at boundary
+  logical, parameter :: doSmoothEta = .false. !Whether to smooth eeta at boundary
+  !Whether to do reverse blend near outer boundary, i.e. nudge RCM to MHD
+  logical, parameter :: doRevBlend  = .false. 
   integer(iprec), private, parameter :: NumG = 4 !How many buffer cells to require
 
   contains
@@ -258,21 +260,23 @@ MODULE torcm_mod
         enddo !i
       enddo !j
 
-      !Do some reverse-blending near RCM outer boundary
-      n = NumG
-      do j=1,jsize
-        do i=0,n
-          ip = imin_j(j)+i !i cell
-          if (ip<isize) then
-            wRCM = 1.0/(1.0 + 5.0*beta_average(ip,j)/6.0)
-            wMHD = (1-wRCM)/(2.0**i)
-            wRCM = (1-wMHD)
+      if (doRevBlend) then
+        !Do some reverse-blending near RCM outer boundary
+        n = NumG
+        do j=1,jsize
+          do i=0,n
+            ip = imin_j(j)+i !i cell
+            if (ip<isize) then
+              wRCM = 1.0/(1.0 + 5.0*beta_average(ip,j)/6.0)
+              wMHD = (1-wRCM)/(2.0**i)
+              wRCM = (1-wMHD)
 
-            eeta(ip,j,klow:) = wRCM*eeta(ip,j,klow:) + wMHD*eeta_new(ip,j,klow:)
-          endif
-        enddo !i loop
-      enddo !j loop
-
+              eeta(ip,j,klow:) = wRCM*eeta(ip,j,klow:) + wMHD*eeta_new(ip,j,klow:)
+            endif
+          enddo !i loop
+        enddo !j loop
+      endif
+      
       if (doSmoothEta) then
         ! smooth eeta at the boundary
         CALL Smooth_eta_at_boundary(isize,jsize,kcsize,jwrap,eeta,iopen,imin_j)

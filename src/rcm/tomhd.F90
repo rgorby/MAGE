@@ -249,7 +249,7 @@ MODULE tomhd_mod
               else
                 etaNew(k) = etaOld(k)
               endif !Pion>TINY
-            else if (alamc(k)<TINY) then
+            else if (alamc(k)<-TINY) then
               !Electrons
               if (Pele(i,j)>TINY) then
                 etaNew(k) = (1-wgt)*etaOld(k) + wgt*etaMax(k)

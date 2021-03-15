@@ -274,11 +274,16 @@ module imagtubes
         endwhere
         
     !Smooth some tubes
-        do n=1,Ns
-            !call Smooth2D(RCMApp%pot) !Electrostatic potential
-            !call Smooth2D(RCMApp%Vol) !Flux-tube volume
-            call Smooth2D(dV) !Smooth dV
-        enddo
+
+        !K: Tweaking to simply do 1 iteration of smoothing
+        call Smooth2D(dV) !Smooth dV
+        call Smooth2D(RCMApp%pot) !Electrostatic potential
+        
+        ! do n=1,Ns
+        !     !call Smooth2D(RCMApp%pot) !Electrostatic potential
+        !     !call Smooth2D(RCMApp%Vol) !Flux-tube volume
+        !     call Smooth2D(dV) !Smooth dV
+        ! enddo
 
         where (isG)
             RCMApp%Vol = V0 + dV
