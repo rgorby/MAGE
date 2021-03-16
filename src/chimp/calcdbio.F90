@@ -19,6 +19,8 @@ module calcdbio
     logical, private :: doParInT = .false. !// in time
     integer, private :: NumB = 0
 
+    integer, parameter, private :: RDIR=1,TDIR=2,PDIR=3
+
     contains
 
     subroutine initDBio(Model,ebState,gGr,inpXML,NumP)
@@ -34,6 +36,7 @@ module calcdbio
         integer :: i,j,k,NLat,NLon,Nz,dOut
         real(rp) :: z,R,lat,phi
         real(rp) :: dtB,T0
+        real(rp), dimension(:,:,:,:), allocatable :: SphI,SphC !Spherical coordinates
 
         associate( ebGr=>ebState%ebGr )
         !Equate dtout/dt since the difference doesn't matter here
@@ -140,6 +143,19 @@ module calcdbio
 
         end associate
 
+    !Get matching spherical grids
+        allocate(SphI(NLat+1,NLon+1,Nz+1,NDIM))
+        allocate(SphC(NLat  ,NLon  ,Nz  ,NDIM))
+
+        SphI(:,:,:,RDIR) = norm2(gGr%GxyzI,dim=4)
+        SphC(:,:,:,RDIR) = norm2(gGr%GxyzC,dim=4)
+
+        SphI(:,:,:,TDIR) = acos(gGr%GxyzI(:,:,:,ZDIR)/SphI(:,:,:,RDIR))
+        SphC(:,:,:,TDIR) = acos(gGr%GxyzC(:,:,:,ZDIR)/SphC(:,:,:,RDIR))
+
+        SphI(:,:,:,PDIR) = atan2(gGr%GxyzI(:,:,:,YDIR),gGr%GxyzI(:,:,:,XDIR))
+        SphC(:,:,:,PDIR) = atan2(gGr%GxyzC(:,:,:,YDIR),gGr%GxyzC(:,:,:,XDIR))
+
         !Allocate db holders (XYZ)
         allocate(gGr%dbMAG_xyz(gGr%NLat,gGr%NLon,gGr%Nz,NDIM)) !Magnetospheric delta-B
         allocate(gGr%dbION_xyz(gGr%NLat,gGr%NLon,gGr%Nz,NDIM)) !Ionospheric delta-B
@@ -156,7 +172,7 @@ module calcdbio
         gGr%dbION_rtp = 0.0
         gGr%dbFAC_rtp = 0.0
 
-        !Write grid
+    !Write grid
         call ClearIO(IOVars)
         call AddOutVar(IOVars,"X",gGr%GxyzI(:,:,:,XDIR))
         call AddOutVar(IOVars,"Y",gGr%GxyzI(:,:,:,YDIR))
@@ -165,6 +181,14 @@ module calcdbio
         call AddOutVar(IOVars,"Xcc",gGr%GxyzC(:,:,:,XDIR))
         call AddOutVar(IOVars,"Ycc",gGr%GxyzC(:,:,:,YDIR))
         call AddOutVar(IOVars,"Zcc",gGr%GxyzC(:,:,:,ZDIR))
+
+        call AddOutVar(IOVars,"Rad",SphI(:,:,:,RDIR))
+        call AddOutVar(IOVars,"Theta",SphI(:,:,:,TDIR))
+        call AddOutVar(IOVars,"Phi",SphI(:,:,:,PDIR))
+
+        call AddOutVar(IOVars,"Radcc",SphC(:,:,:,RDIR))
+        call AddOutVar(IOVars,"Thetacc",SphC(:,:,:,TDIR))
+        call AddOutVar(IOVars,"Phicc",SphC(:,:,:,PDIR))
 
         call AddOutVar(IOVars,"CoordinatesID",cID)
 
