@@ -131,6 +131,7 @@ module particleio
         if (Model%doWPI) then
             call AddOutVar(IOVars,"dAwpi",rad2deg*TPs(:)%dAwpi)
             call AddOutVar(IOVars,"dKwpi",TPs(:)%dKwpi)
+            call AddOutVar(IOVars,"Nwpi",TPs(:)%Nwpi)
         endif
 
         !Logical values
