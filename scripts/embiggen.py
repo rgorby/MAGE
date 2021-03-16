@@ -47,7 +47,7 @@ if __name__ == "__main__":
 	parser.add_argument('-oRj',type=int,metavar="oRj",default=oRj,help="Input j-Ranks (default: %(default)s)")
 	parser.add_argument('-oRk',type=int,metavar="oRk",default=oRk,help="Input k-Ranks (default: %(default)s)")
 	
-	parser.add_argument('-grid',type=str,metavar="grid",default=grid,help="Grid file to read from (default: %(default)s)")
+	parser.add_argument('-grid',type=str,metavar="grid",default=grid,help="inGrid file to read from (default: %(default)s)")
 
 	#Finalize parsing
 	args = parser.parse_args()
@@ -126,7 +126,7 @@ if __name__ == "__main__":
 	oH5.close()
 
 #Split up upscaled file
-	upscl.PushRestartMPI(outid,nRes,oRi,oRj,oRk,Xr,Yr,Zr,Gr,FluxR,fTmp2X)
+	upscl.PushRestartMPI(outid,nRes,oRi,oRj,oRk,Xr.T,Yr.T,Zr.T,Gr,FluxR,fTmp2X)
 
 #Delete temp files
 	os.remove(fTmp)
