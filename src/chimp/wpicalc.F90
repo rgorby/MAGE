@@ -15,7 +15,7 @@ module wpicalc
 
     ! sets subcycling limit in change pitch-angle to be below this value 
     ! to reduce error and not allow large resonance times 
-    real(rp), private :: dAlim = 0.0087 
+    real(rp), private :: dAalim = 0.0087_rp 
 
     contains
 
@@ -36,22 +36,26 @@ module wpicalc
         complex(rp), dimension(2) :: quadCoef,dtLim ! used to set subcycle dt given dAlim
         real(rp) :: gamNew,aNew,pNew,MagB,Mu,p11Mag,K,rho,psi,L,phi
         real(rp) :: Ome,wpe,astar,xHigh,xj,yj,dGDda,Daa,inWScl
-        real(rp) :: dtCum,dtRem,ddt,aMax ! substep used in wpi calculations, not same as ddt in pusher.F90 
+        real(rp) :: dtCum,dtRem,ddt,daMax ! substep used in wpi calculations, not same as ddt in pusher.F90 
         real(rp) :: zEq = 0.0 !Defined Z for equator
         real(rp) :: aCoef,bCoef !coefficients to LangevinEq
         real(rp) :: p0,G,gamma
         integer  :: pSgn
 
         real(rp) :: pa,Kprt ! pitch-angle and energy of particle in subcycle loop
-        real(rp) :: da !Change in pitch angle due to wpi
-        real(rp) :: K0,K1,dK ! energy before and after wpi
+        real(rp) :: da,dp,dK,dgam !Changes due to wpi
+        real(rp) :: K0,K1,mu0,p110,Pperp20,Pperp21 ! energy before and after wpi
+
+        ! helps sets subcycling limit in change pitch-angle to be below this value 
+        ! to reduce error in change in energy not to be to large
+        real(rp) :: dAlim,dAplim,deltaPdeltaA,u,epsp,deltaP
 
         logical :: doWave
 
         if (.not.prt%isIn) return !shouldn't be here if particle is not in domain
 
         !initializing some variables
-        pSgn = 1; da=0.0; dK=0.0
+        pSgn = 1; da=0.0; dK=0.0; epsp = 0.005_rp ! change in momentum is below this limit
 
         ! pulling wave information
         wave = ebState%ebWave
@@ -93,7 +97,7 @@ module wpicalc
 
         !Calulating the ratio of nonrelativistic gyrofrequency to plasma frequency at prt's location
         !normalization constant to put wpe in code units
-        inWScl = 114704.0207604 !(qe_cgs*L0/(vc_cgs*sqrt(Me_cgs)))^2
+        inWScl = 114704.0207604_rp !(qe_cgs*L0/(vc_cgs*sqrt(Me_cgs)))^2
         Ome = MagB 
         wpe = sqrt(4*PI*rho) 
         astar = Ome**2/((wpe**2)*inWScl)
@@ -108,6 +112,7 @@ module wpicalc
 
         !Setting adaptive time-step/particle sub-stepping to limit da and reduce error
         dtCum = 0.0 !How far we've advanced
+        ! ddt = dt
         do while (dtCum<dt)
             ! Get pitch-angle and energy of the particle
             pa = prt%alpha
@@ -122,31 +127,35 @@ module wpicalc
             dGDda = derivGD(wave,wModel,Model%m0,K,pa,astar,MagB)
 
             gamma = prt2Gam(prt,Model%m0)
-            p0 = (gamma**2.0-1.0)*(Model%m0**2.0)
-            G = sin(pa)*p0**2
+            p0 = Model%m0*sqrt(gamma**2.0-1.0)
+            G = sin(pa)*p0*p0
 
             !coefficients for Langevin Equation
             aCoef = dGDda/G
             bCoef = sqrt(2.0*Daa)/p0
 
-            aMax = aCoef*dt+bCoef*sqrt(dt)
+            daMax = abs(aCoef)*dt+bCoef*sqrt(dt)
+            ! daMax = abs(aCoef)*ddt+bCoef*sqrt(ddt)
+
+            !limit da to change p by epsp
+            u = xj/yj ! phase velocity of the wave normalized by c
+            deltaPdeltaA = dpda(pa,p0,Model%m0,u)
+            dAplim = epsp*p0/deltaPdeltaA !also have dAlim in case dpda is very small
 
             dtRem = dt - dtCum
-            if (abs(aMax) > abs(dAlim)) then
-                if (abs(aCoef) < TINY) then
+            if (abs(daMax) > abs(dAalim) .or. abs(daMax) > abs(dAplim)) then
+                dAlim = min(dAalim,dAplim)!use value that is the smallest
+                if (aCoef < TINY) then
                     ddt = (dAlim/bCoef)**2
-                else if (aCoef <= -bCoef**2/(4*dAlim)) then !added catch since no real solutions if aCoef is lower
-                    ddt = 4*(abs(dAlim)/bCoef)**2
                 else 
                     quadCoef = [-(2.*aCoef*abs(dAlim)+bCoef**2)/aCoef**2,(dAlim/aCoef)**2.0]
                     dtLim = quadraticSolve(quadCoef)
                     ddt = minval(real(dtLim)) ! only real roots but only taking real part
                 end if
-                if (dtRem < ddt) ddt = dtRem ! So don't overshoot global step
             else
                 ddt = dt
             endif
-            ddt = dt
+            if (dtRem < ddt) ddt = dtRem ! So don't overshoot global step
             dtCum = dtCum + ddt
 
             ! Calculate the resulting updated pitch angle and energy of the particle
@@ -176,8 +185,36 @@ module wpicalc
             if (prt%isGC) then
                 !Scatter GC particle
                 p11Mag = pSgn*pNew*sqrt( 1 - sin(aNew)**2.0 )
+
+                ! for gamma update 
+                ! dp = pNew - p0
+                ! dgam = dp*(p0/(Model%m0*Model%m0*gamma))
+                ! write(*,*) 'Energy Update:: from dp (update, dGam): ',gamma+dgam,dgam
+                ! Kold = sqrt(p0**2.+Model%m0**2.) - Model%m0
+                ! K1 = sqrt(pNew**2.+Model%m0**2.) - Model%m0
+                ! dK = K1-Kprt
+                ! dgam = dK/Model%m0
+                ! gamNew = gamma+dgam
+                ! write(*,*) 'Energy Update:: from dK (update, dGam): ',gamma+dK/Model%m0,dK/Model%m0
                 gamNew = sqrt(1+(pNew/Model%m0)**2.0)
-                Mu = ( (Model%m0**2)*(gamNew**2.0 - 1.0) - p11Mag*p11Mag) / (2*Model%m0*MagB)
+                ! write(*,*) 'Energy Update:: full calc   (new,dGam): ',gamNew,gamNew-gamma
+                ! write(*,*) ' '
+
+
+                ! for mu update
+                p110 = prt%Q(P11GC)
+                Pperp20 = p0*p0-p110*p110
+                Pperp21 = pNew*pNew-p11Mag*p11Mag
+                mu0 = prt%Q(MUGC )
+
+                !Old 
+                ! Mu = ( (Model%m0**2)*(gamNew**2.0 - 1.0) - p11Mag*p11Mag) / (2*Model%m0*MagB)
+                if (Pperp20 < TINY) then
+                    !particle will most likely precipitate
+                    Mu = ( Pperp21) / (2*Model%m0*MagB)
+                else
+                    Mu = (Pperp21/Pperp20)*mu0
+                endif
 
                 prt%Q(P11GC) = p11Mag
                 prt%Q(MUGC ) = Mu 
@@ -193,7 +230,7 @@ module wpicalc
                     write(*,*) 'PERFORMWPI:: ERROR:: A NAN OCCURRED IN THE MOMENTUM UPDATE'
                     write(*,*) 'Resonant wave: xj,yj:  ',xj,yj 
                     write(*,*) 'Daa,  da,  dK: ', Daa,da,dK
-                    write(*,*) 'new ps and p of tp: ', aNew,pNew
+                    write(*,*) 'new pa and p of tp: ', aNew,pNew
                     write(*,*) 'new p11 and gamma of tp: ', p11Mag,gamNew
                     stop
                 endif
@@ -208,8 +245,11 @@ module wpicalc
                 prt%Q(PXFO:PZFO) = p
                 
             endif
+            prt%Nwpi = prt%Nwpi + 1
+            ! write(*,*) 'new pa and p of tp: ', aNew,pNew
+            ! write(*,*) 'Particle Energy [keV]: ', prt2kev(Model,prt)
         enddo
-
+        ! write(*,*) 'End PerformWPI'
     end subroutine PerformWPI
 
     !Check to see if waves are present at location 
@@ -224,12 +264,17 @@ module wpicalc
 
         !FIXME: need more accurate wave model
         ! Setting simple limits in L, MLT and MLAT for now
-        Lbds(1)    = 4.5
-        Lbds(2)    = 8.0
-        LONbds(1)  = 4*PI/5 ! 144 degrees, 21 MLT
-        LONbds(2)  = -PI/12 ! -15 degrees, 11 MLT
-        MLATbds(1) = -PI/9  ! -20 degrees
-        MLATbds(2) = PI/9   ! -20 degrees
+        Lbds(1)    = 4.5_rp
+        Lbds(2)    = 8.0_rp
+        ! LONbds(1)  = 4*PI/5 ! 144 degrees, 21 MLT
+        ! LONbds(2)  = -PI/12 ! -15 degrees, 11 MLT
+        ! MLATbds(1) = -PI/9  ! -20 degrees
+        ! MLATbds(2) = PI/9   ! -20 degrees
+
+        !!!!!!!!!!!!!!! for dipole testing !!!!!!!!!!!!!!!!!
+        MLATbds(1) = -PI/18  ! 10 degrees
+        MLATbds(2) = PI/18   ! 10 degrees
+        inLon = .true. ! uncomment line below when remove!!!!!!!!!!!!!
 
         rMag = norm2(r)
 
@@ -239,7 +284,7 @@ module wpicalc
 
         ! check if particle is in presence of waves
         inL = (L >= Lbds(1) .and. L <= Lbds(2))
-        inLon = (lon >= LONbds(1) .or. lon <= LONbds(2))
+        ! inLon = (lon >= LONbds(1) .or. lon <= LONbds(2))
         inLat = (lat >= MLATbds(1) .and. lat <= MLATbds(2))
 
         ! only include waves propagating off equator, resonance is with waves propagating 
@@ -270,6 +315,8 @@ module wpicalc
         real(rp) :: mu,beta,pa90p,pa90m,Km
         logical :: doAllWaves
 
+        ! pa90p = 0.5*PI+5.0E-6
+        ! pa90m = 0.5*PI-5.0E-6
         pa90p = 0.5*PI+5.0E-6
         pa90m = 0.5*PI-5.0E-6
 
@@ -314,8 +361,8 @@ module wpicalc
         real(rp) :: xMin,xMax
         
         if (doAllWaves) then
-            xMin = 0.0
-            xMax = 1.0
+            xMin = 0
+            xMax = 1
         else
             xMin = wModel%xm-wModel%Dx
             xMax = wModel%xm+wModel%Dx
@@ -336,7 +383,7 @@ module wpicalc
             yj = 999
         else if (size(xpres) > 1) then
             ! Should only be one resonant wave
-            write(*,*) 'Particle Epitch angle: ', pa
+            write(*,*) 'Particle pitch angle: ', pa
             write(*,*) 'All roots (w/|Ome|): ', xjs
             write(*,*) 'All roots (kc/|Ome|): ', yjs
             write(*,*) 'Too many resonant roots (w/|Ome|, kc/|Ome|): ', xpres, ypres
@@ -363,8 +410,8 @@ module wpicalc
         pMag = sqrt(K*(K+2.0*m0))
 
         eps = epsilon(1.0_rp) !machine error
-        if (pa < dAlim) then
-            h = eps*dAlim !to avoid setting h to zero
+        if (pa < dAalim) then
+            h = eps*dAalim !to avoid setting h to zero
         else
             h = eps*pa
         end if
@@ -391,6 +438,7 @@ module wpicalc
         real(rp),          intent(inout) :: a1,p1   ! new pitch-angle and momentum of particle after wpi
         real(rp), intent(in), optional   :: constDA ! use a constant change in pitch angle if desired
         real(rp) :: eta,da
+        real(rp) :: gamma
 
         if (present(constDA)) then
             da = constDA
@@ -398,9 +446,19 @@ module wpicalc
             eta = genRand(-1.0_rp,1.0_rp) !generating random number between -1 and 1 for random walk eq for da
             da = aCoef*dt + bCoef*eta*sqrt(dt)
         end if
-        
+
+        !push back when get to alpha = 90 degrees so dont cross 
+        ! if ((prt%alpha < PI/2 .and. prt%alpha+da > PI/2) .or. (prt%alpha > PI/2 .and. prt%alpha+da < PI/2)) then
+        !push back when get to alpha = 70 degrees so dont cross 
+        ! if ((prt%alpha < 1.22173 .and. prt%alpha+da > 1.22173) .or. (prt%alpha > 2.0944 .and. prt%alpha+da < 2.0944)) then
+        ! if ((prt%alpha < 0.698132 .and. prt%alpha+da > 0.698132) .or. (prt%alpha > 2.44346 .and. prt%alpha+da < 2.44346)) then
+        !     da = -1.0*da
+        ! end if
+
         a1 = prt%alpha + da
         p1 = rkf45(wave,wModel,prt,Model%m0,astar,da)
+        ! gamma = prt2Gam(prt,Model%m0)
+        ! p1 = Model%m0*sqrt(gamma**2.0-1.0)
 
     end subroutine LangevinEq
 
@@ -450,6 +508,7 @@ module wpicalc
         !catch to not go past alpha = 90 degrees
         if ((a1 < PI/2 .and. a1+deltaA > PI/2) .or. (a1 > PI/2 .and. a1+deltaA < PI/2)) then
             da = aSgn*abs(a1-PI/2)
+            write(*,*) 'RKF45: da over 90, fixing:  ',a1,deltaA,da
         else
             da = deltaA
         end if
@@ -469,6 +528,7 @@ module wpicalc
             pStp = p1+0.25*k1
             kStp = sqrt(pStp**2.+m0**2.) - m0
             call Resonance(wave,wModel,m0,kStp,aStp,astar,xStp,yStp,doAllWaves)
+            if (xStp == 999) write(*,*) 'RKF45_1: No Resonant wave: aStp,pStp,kStp,a1,da:  ',aStp*rad2deg,pStp,(m0*mec2*1.0e+3)*kStp,a1,da
             uStp = xStp/yStp
             k2 = h * dpda(aStp, pStp, m0, uStp) 
 
@@ -476,6 +536,7 @@ module wpicalc
             pStp = p1+0.09375*k1+0.28125*k2
             kStp = sqrt(pStp**2.+m0**2.) - m0
             call Resonance(wave,wModel,m0,kStp,aStp,astar,xStp,yStp,doAllWaves)
+            if (xStp == 999) write(*,*) 'RKF45_2: No Resonant wave: aStp,pStp,kStp,a1,da:  ',aStp*rad2deg,pStp,(m0*mec2*1.0e+3)*kStp,a1,da
             uStp = xStp/yStp
             k3 = h * dpda(aStp, pStp, m0, uStp) 
 
@@ -483,6 +544,7 @@ module wpicalc
             pStp = p1 + (1932*k1-7200*k2+7296*k3)/2197
             kStp = sqrt(pStp**2.+m0**2.) - m0
             call Resonance(wave,wModel,m0,kStp,aStp,astar,xStp,yStp,doAllWaves)
+            if (xStp == 999) write(*,*) 'RKF45_3: No Resonant wave: aStp,pStp,kStp,a1,da:  ',aStp*rad2deg,pStp,(m0*mec2*1.0e+3)*kStp,a1,da
             uStp = xStp/yStp
             k4 = h * dpda(aStp, pStp, m0, uStp)
 
@@ -490,6 +552,7 @@ module wpicalc
             pStp = p1 + (8341*k1-32832*k2+29440*k3-845*k4)/4104
             kStp = sqrt(pStp**2.+m0**2.) - m0
             call Resonance(wave,wModel,m0,kStp,aStp,astar,xStp,yStp,doAllWaves)
+            if (xStp == 999) write(*,*) 'RKF45_4: No Resonant wave: aStp,pStp,kStp,a1,da:  ',aStp*rad2deg,pStp,(m0*mec2*1.0e+3)*kStp,a1,da
             uStp = xStp/yStp 
             k5 = h * dpda(aStp, pStp, m0, uStp) 
 
@@ -497,6 +560,7 @@ module wpicalc
             pStp = p1 + (-6080*k1+41040*k2-28352*k3-9295*k4-5643*k5)/20520
             kStp = sqrt(pStp**2.+m0**2.) - m0
             call Resonance(wave,wModel,m0,kStp,aStp,astar,xStp,yStp,doAllWaves)
+            if (xStp == 999) write(*,*) 'RKF45_5: No Resonant wave: aStp,pStp,kStp,a1,da:  ',aStp*rad2deg,pStp,(m0*mec2*1.0e+3)*kStp,a1,da
             uStp = xStp/yStp
             k6 = h * dpda(aStp, pStp, m0, uStp) 
 
