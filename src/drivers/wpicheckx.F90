@@ -173,7 +173,7 @@ program wpicheck
             do i=1,Nk
                 do n=1,Np
                     prt = tpState(i)%TPs(n)
-                    Kprt = prt2kev(Model,prt)/(Model%m0*mec2*1.0e+3)
+                    Kprt = pGC2K(Model,prt)
                     call Resonance(wave,wModel,Model%m0,Kprt,prt%alpha,astar(2),xj,yj)
                     if (xj == 999) then
                         xjs_f1(i,n) = xj
@@ -192,7 +192,7 @@ program wpicheck
             do j=1,Nas
                 do n=1,Np
                     prt = tpState(3)%TPs(n) !take 1 MeV particles
-                    Kprt = prt2kev(Model,prt)/(Model%m0*mec2*1.0e+3)
+                    Kprt = pGC2K(Model,prt)
                     call Resonance(wave,wModel,Model%m0,Kprt,prt%alpha,astar(j),xj,yj)
                     if (xj == 999) then
                         daa_f2(j,n) = xj
@@ -289,7 +289,7 @@ program wpicheck
             do i=1,Np 
                 prt = tpState%TPs(i)
                 do j=1,Na
-                    Kprt = prt2kev(Model,prt)/(Model%m0*mec2*1.0e+3)
+                    Kprt = pGC2K(Model,prt)
                     call Resonance(wave,wModel,Model%m0,Kprt,prt%alpha,astar,xj,yj)
                     prt%xj = xj
                     prt%yj = yj
@@ -447,7 +447,7 @@ program wpicheck
             allocate(gamDC(Na))
 
             do n=1, Na
-                Kprt = prt2kev(Model,prtDC)/(Model%m0*mec2*1.0e+3)
+                Kprt = pGC2K(Model,prtDC)
                 call Resonance(wave,wModel,Model%m0,Kprt,prtDC%alpha,astar,xj,yj,doAllWaves)
                 prtDC%xj = xj
                 prtDC%yj = yj
@@ -550,7 +550,7 @@ program wpicheck
 
             call createPrts(Model,prt,K0,alpha0,psi0,B0)
 
-            Kprt = prt2kev(Model,prt)/(Model%m0*mec2*1.0e+3)
+            Kprt = pGC2K(Model,prt)
 
             ! do n=1, 100000
             call Resonance(wave,wModel,Model%m0,Kprt,prt%alpha,astar,xj,yj)

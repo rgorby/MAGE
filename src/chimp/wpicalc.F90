@@ -107,7 +107,7 @@ module wpicalc
         wave%emin = Kres_whistleR(xHigh,astar,Model%m0)
 
         !check if particle above minimum required energy
-        K = prt2kev(Model,prt)/(Model%m0*mec2*1.0e+3)
+        K = pGC2K(Model,prt)
         if (K < wave%emin) return
 
         !Setting adaptive time-step/particle sub-stepping to limit da and reduce error
@@ -116,7 +116,7 @@ module wpicalc
         do while (dtCum<dt)
             ! Get pitch-angle and energy of the particle
             pa = prt%alpha
-            Kprt = prt2kev(Model,prt)/(Model%m0*mec2*1.0e+3)
+            Kprt = pGC2K(Model,prt)
             ! Determine wj,kj that particle resonants with
             call Resonance(wave,wModel,Model%m0,Kprt,pa,astar,xj,yj)
             if (xj == 999) return ! no resonant waves present

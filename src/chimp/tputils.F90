@@ -100,13 +100,11 @@ module tputils
         type(chmpModel_T), intent(in) :: Model
         
         real(rp) :: K
-        real(rp) :: gamma
         if (prt%isGC) then
-            gamma = prt%Q(GAMGC)
+            K = (mec2*1.0e+3)*pGC2K(Model,prt)
         else
-            gamma = p2Gam(prt%Q(PXFO:PZFO),Model%m0)
+            K = (mec2*1.0e+3)*p2K(prt%Q(PXFO:PZFO),Model%m0) 
         endif
-        K = (Model%m0*mec2*1.0e+3)*(gamma-1.0)
 
     end function prt2kev
 
@@ -130,6 +128,19 @@ module tputils
         K = m0*u2/(gamma+1.0)
 
     end function p2K
+
+    !Determine kinetic energy (code units) for GC prt
+    function pGC2K(Model,prt) result(K)
+        type(prt_T), intent(in) :: prt
+        type(chmpModel_T), intent(in) :: Model
+
+        real(rp) :: K
+        real(rp) :: gamma,p2
+        gamma = prt%Q(GAMGC)
+        p2 = (Model%m0**2.0)*(gamma**2.0 - 1.0)
+        K = (p2/Model%m0)/(gamma+1.0)
+
+    end function pGC2K
 
 
 !---------------------------------
