@@ -336,51 +336,6 @@ program wpicheck
             !performing diffusion curve test
         end subroutine diffCurve_summers98
 
-        subroutine resTest(Model,wave,wModel)
-            type(chmpModel_T), intent(in) :: Model
-            type(wave_T),      intent(in) :: wave
-            type(wModel_T),    intent(in) :: wModel
-            type(prt_T)                   :: prt
-
-            real(rp) :: B0 ![nT] uniform background field (arbitrary)
-            real(rp) :: K0, alpha0,psi0,astar
-            real(rp) :: xj,yj !Daa and ddt not used, using const da
-            real(rp) :: p11,pperp,alpha,K,Daa,Kprt
-
-            !setting values
-            B0     = 344.0
-            K0     = 100.0
-            alpha0 = 10.0
-            psi0   = 0.0
-            astar  = 0.16
-
-            !normalizing variables
-            B0 = B0*inBScl
-            alpha0 = alpha0*deg2rad
-            psi0 = psi0*deg2rad
-
-            prt%isIn = .true.
-            prt%isGC = .true.
-
-            call createPrts(Model,prt,K0,alpha0,psi0,B0)
-
-            Kprt = prt2kev(Model,prt)/(Model%m0*mec2*1.0e+3)
-            call Resonance(wave,wModel,Model%m0,Kprt,prt%alpha,astar,xj,yj)
-
-            Daa = DiffCoef(wave,wModel,Model%m0,Kprt,prt%alpha,astar,B0,xj,yj)
-
-            p11 = prt%Q(P11GC)
-            alpha = prt%alpha/deg2rad
-            pperp = sqrt(abs(prt%Q(MUGC))*2*B0*Model%m0)
-            K = prt2kev(Model,prt)!/1000.0 ![MeV]
-
-            write(*,*) "ResTest:: K,p11,pperp,alpha: ",K,p11,pperp,alpha
-            write(*,*) "ResTest:: xj,yj: ",xj,yj
-            write(*,*) "ResTest:: astar, Daa: ",astar,Daa, Daa/oTScl
-
-
-        end subroutine resTest
-
         subroutine singlePrtDiff(Model,wave,wModel,inpXML)
             type(chmpModel_T), intent(inout)    :: Model
             type(wave_T),      intent(in)       :: wave
@@ -392,8 +347,8 @@ program wpicheck
 
             character(len=strLen) :: outH5 = "singlePrtTest.h5"
 
-            real(rp), dimension(:), allocatable :: kwpi,awpi,xjwpi,yjwpi
-            real(rp), dimension(:), allocatable :: kDC,aDC,xjDC,yjDC
+            real(rp), dimension(:), allocatable :: kwpi,awpi,xjwpi,yjwpi,p11wpi,gamwpi,muwpi,Nwpi,time
+            real(rp), dimension(:), allocatable :: kDC,aDC,xjDC,yjDC,p11DC,gamDC,muDC
             real(rp) :: B0,n0
             real(rp) :: K0,alpha0,psi0
             real(rp) :: t0,t1,dt
@@ -402,6 +357,10 @@ program wpicheck
             real(rp) :: dAlim = 0.0087
             real(rp) :: gamNew,aNew,pNew,Mu,p11Mag,Kprt
             integer  :: pSgn=1
+
+            logical :: doAllWaves
+
+            doAllWaves = .true.
 
             !pull K, alpha, psi for prt from xml file 
             call inpXML%Set_Val(K0,'energy/min',500.0)
@@ -419,8 +378,11 @@ program wpicheck
             ebState%ebWmodel = wModel
 
             !setting values
-            B0     = 341.3
-            n0     = 7.0
+            ! B0     = 341.3
+            ! n0     = 7.0
+            B0     = 156.0
+            n0     = 9.0
+            ! B0     = 312.0
 
             !normalizing variables
             B0 = B0*inBScl
@@ -441,6 +403,11 @@ program wpicheck
             allocate(awpi(Nt))
             allocate(xjwpi(Nt))
             allocate(yjwpi(Nt))
+            allocate(p11wpi(Nt))
+            allocate(gamwpi(Nt))
+            allocate(muwpi(Nt))
+            allocate(Nwpi(Nt))
+            allocate(time(Nt))
 
             do s=1,Nt
                 call PerformWPI(prt,Model%t,Model%dt,Model,ebState,B0,n0) 
@@ -449,6 +416,11 @@ program wpicheck
                 awpi(s) = prt%alpha*rad2deg
                 xjwpi(s)= prt%xj
                 yjwpi(s)= prt%yj
+                p11wpi(s) = prt%Q(P11GC)
+                muwpi(s)  = prt%Q(MUGC )
+                gamwpi(s) = prt%Q(GAMGC)
+                Nwpi(s) = prt%Nwpi
+                time(s) = oTScl*Model%t
             enddo
 
             ! diffusion curve calculation
@@ -461,6 +433,8 @@ program wpicheck
             wpe = sqrt(4*PI*n0) 
             astar = B0**2/((wpe**2)*inWScl)
 
+            write(*,*) "SinglePrtTest:: B0, n0, astar: ",B0*oBScl,n0,astar
+
             Na = int(abs(alpha0-PI/2)/dAlim)
 
             !allocate arrays to hold output
@@ -468,10 +442,13 @@ program wpicheck
             allocate(aDC(Na))
             allocate(xjDC(Na))
             allocate(yjDC(Na))
+            allocate(p11DC(Na))
+            allocate(muDC(Na))
+            allocate(gamDC(Na))
 
             do n=1, Na
                 Kprt = prt2kev(Model,prtDC)/(Model%m0*mec2*1.0e+3)
-                call Resonance(wave,wModel,Model%m0,Kprt,prtDC%alpha,astar,xj,yj)
+                call Resonance(wave,wModel,Model%m0,Kprt,prtDC%alpha,astar,xj,yj,doAllWaves)
                 prtDC%xj = xj
                 prtDC%yj = yj
 
@@ -480,6 +457,9 @@ program wpicheck
                 aDC(n) = prtDC%alpha*rad2deg
                 xjDC(n)= prtDC%xj
                 yjDC(n)= prtDC%yj
+                p11DC(n) = prtDC%Q(P11GC)
+                muDC(n)  = prtDC%Q(MUGC )
+                gamDC(n) = prtDC%Q(GAMGC)
 
                 ! Calculate the resulting change in pitch angle and energy of the particle
                 call LangevinEq(wave,wModel,Model,prtDC,dGDda,Daa,Model%dt,astar,aNew,pNew,dAlim)
@@ -504,18 +484,148 @@ program wpicheck
             !write data to a file
             call CheckAndKill(outH5)
             call ClearIO(IOVars)
+            call AddOutVar(IOVars,"time",time)
             call AddOutVar(IOVars,"kwpi",kwpi)
             call AddOutVar(IOVars,"awpi",awpi)
+            call AddOutVar(IOVars,"Nwpi",Nwpi)
             call AddOutVar(IOVars,"xjwpi",xjwpi)
             call AddOutVar(IOVars,"yjwpi",yjwpi)
+            call AddOutVar(IOVars,"p11wpi",p11wpi)
+            call AddOutVar(IOVars,"muwpi",muwpi)
+            call AddOutVar(IOVars,"gamwpi",gamwpi)
             call AddOutVar(IOVars,"kDC",kDC)
             call AddOutVar(IOVars,"aDC",aDC)
             call AddOutVar(IOVars,"xjDC",xjDC)
             call AddOutVar(IOVars,"yjDC",yjDC)
+            call AddOutVar(IOVars,"p11DC",p11DC)
+            call AddOutVar(IOVars,"muDC",muDC)
+            call AddOutVar(IOVars,"gamDC",gamDC)
             call WriteVars(IOVars,.true.,outH5)
             call ClearIO(IOVars)
 
         end subroutine singlePrtDiff
+
+        subroutine resTest(Model,wave,wModel)
+            type(chmpModel_T), intent(in) :: Model
+            type(wave_T),      intent(in) :: wave
+            type(wModel_T),    intent(in) :: wModel
+            type(prt_T)                   :: prt
+
+            real(rp) :: B0 ![nT] uniform background field (arbitrary)
+            real(rp) :: K0, alpha0,psi0,astar
+            real(rp) :: xj,yj
+            real(rp) :: p11,pperp,alpha,K,Daa,Kprt
+            real(rp), dimension(:), allocatable :: xjs, yjs,x90,y90
+            integer :: n,Na
+            real(rp) :: dAlim
+            real(rp) :: pa
+            real(rp), dimension(:), allocatable :: xroots,yroots,resid,alphas,astars,Ks
+            complex(rp), dimension(:,:), allocatable :: allRoots
+            complex(rp), dimension(NROOTS+1) :: coef
+            logical :: doAllWaves
+
+            character(len=strLen) :: outH5 = "rootTest.h5"
+
+            doAllWaves = .true.
+            
+            !setting values
+            ! B0     = 344.0
+            K0     = 100.0_rp
+            alpha0 = 89.0_rp
+            psi0   = 0.0_rp
+            ! astar  = 0.16_rp
+            B0     = 156.0_rp
+            ! K0 = 136.21044791583898
+            ! alpha0 = 89.999648419152763
+            ! alpha0 = 89.999
+            astar = 0.026!1!0.16!0.026
+
+            !normalizing variables
+            B0 = B0*inBScl
+            alpha0 = alpha0*deg2rad
+            psi0 = psi0*deg2rad
+
+            prt%isIn = .true.
+            prt%isGC = .true.
+
+            call createPrts(Model,prt,K0,alpha0,psi0,B0)
+
+            Kprt = prt2kev(Model,prt)/(Model%m0*mec2*1.0e+3)
+
+            ! do n=1, 100000
+            call Resonance(wave,wModel,Model%m0,Kprt,prt%alpha,astar,xj,yj)
+
+            ! call res90deg(wave,Model%m0,Kprt,astar,x90,y90)
+            ! write(*,*) "ResTest::alpha=90:: xjs,yjs: ",x90,y90
+            ! call ResRoots(wave,Model%m0,Kprt,prt%alpha,astar,xjs,yjs)
+            ! write(*,*) "ResTest::All roots:: xjs,yjs: ",xjs,yjs
+
+            Daa = DiffCoef(wave,wModel,Model%m0,Kprt,prt%alpha,astar,B0,xj,yj)
+
+            p11 = prt%Q(P11GC)
+            alpha = prt%alpha/deg2rad
+            pperp = sqrt(abs(prt%Q(MUGC))*2*B0*Model%m0)
+            K = prt2kev(Model,prt)!/1000.0 ![MeV]
+
+            write(*,*) "ResTest:: K,p11,pperp,alpha: ",K,p11,pperp,alpha
+            write(*,*) "ResTest:: xj,yj: ",xj,yj
+            write(*,*) "ResTest:: astar, Daa: ",astar,Daa, Daa/oTScl
+            ! enddo
+
+            ! testing quartic root solver
+            dAlim = 0.0000087_rp
+            Na = int(abs(alpha0-PI/2)/dAlim)
+            allocate(allRoots(Na,NROOTS))
+            allocate(xroots(Na))
+            allocate(yroots(Na))
+            allocate(resid(Na))
+            allocate(alphas(Na))
+
+            do n=1, Na
+                pa = alpha0+(n-1)*dAlim
+                call ResRoots(wave,Model%m0,Kprt,pa,astar,xjs,yjs,coef)
+                call fastQuarticSolver(coef,allRoots(n,:))
+                call selectRoot(wModel,pa,xjs,yjs,xj,yj,doAllWaves)
+                alphas(n) = pa
+                xroots(n) = xj
+                yroots(n) = yj
+                resid(n) = quarticResidual(xj,coef)
+                ! write(*,*) "Resonant Energy and pitch angle: ",K,pa*rad2deg
+                ! write(*,*) allRoots(n,:)
+                ! write(*,*) xj,yj
+                ! write(*,*) " "
+            enddo
+
+            allocate(Ks(2))
+            allocate(astars(2))
+            Ks(:) = K
+            astars(:) = astar
+
+           !write data to a file
+            call CheckAndKill(outH5)
+            call ClearIO(IOVars)
+            call AddOutVar(IOVars,"xroots",xroots)
+            call AddOutVar(IOVars,"yroots",yroots)
+            call AddOutVar(IOVars,"resid",resid)
+            call AddOutVar(IOVars,"alphas",alphas)
+            call AddOutVar(IOVars,"Ks",Ks)
+            call AddOutVar(IOVars,"astars",astars)
+            ! call AddOutVar(IOVars,"allRoots",allRoots)
+            call WriteVars(IOVars,.true.,outH5)
+            call ClearIO(IOVars)
+
+        end subroutine resTest
+
+        function quarticResidual(x,coef) result(resid)
+            real(rp), intent(in) :: x
+            complex(rp), dimension(NROOTS+1), intent(in) :: coef
+
+            real(rp) :: resid
+
+            !calculating value of quartic at a given x for array of coef
+            resid = coef(5)+x*(coef(4)+x*(coef(3)+x*(coef(2)+x*coef(1))))
+
+        end function quarticResidual
 
 
 end program wpicheck
