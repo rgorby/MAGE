@@ -30,7 +30,7 @@ module kdefs
     !CGS Constants
     real(rp), parameter :: vc_cgs = 2.99792458E+10 ![cm/s], speed of light
     real(rp), parameter :: qe_cgs = 4.80320425E-10 ![CGS], electron charge
-    real(rp), parameter :: Re_cgs = 6.33781E8     ![cm]    Earth's radius
+    real(rp), parameter :: Re_cgs = 6.3781E8     ![cm]    Earth's radius
     real(rp), parameter :: Me_cgs = 9.1093837015E-28 ![g] Electron mass
     real(rp), parameter :: Mp_cgs = 1.67262192369D-24 ![g] Proton mass
 
