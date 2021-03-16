@@ -9,7 +9,7 @@ module wpihelper
 
     implicit none
 
-    real(rp) :: memp = Me_cgs/Mp_cgs
+    real(rp), parameter :: memp = Me_cgs/Mp_cgs
 
     !dispersion related functions 
     procedure(VgFun_T) , pointer :: Vg => NULL()
@@ -32,11 +32,12 @@ module wpihelper
     !Resonant root function type
     !Returns resonant root in unitless variables (divided by gyrofrequency)
     abstract interface
-        subroutine ResFun_T(wave,m0,K,alpha,astar,x,y) 
+        subroutine ResFun_T(wave,m0,K,alpha,astar,x,y,coef) 
             import :: rp,wave_T
             type(wave_T), intent(in) :: wave
             real(rp), intent(in) :: m0,K,alpha,astar
             real(rp), dimension(:), allocatable, intent(out) :: x,y
+            complex(rp), dimension(5), intent(out), optional :: coef
         end subroutine ResFun_T
     end interface
 
@@ -88,9 +89,9 @@ module wpihelper
         !-------
         case("EWHISTLER","E_WHISTLER")
             wave%mode = "eRW"
-            wave%s = 1.0
-            wave%lam = -1.0
-            wave%emin = 0.0
+            wave%s = 1.0_rp
+            wave%lam = -1.0_rp
+            wave%emin = 0.0_rp
             Vg => epVg
             ResRoots => epResRoots
         case default
@@ -176,6 +177,8 @@ module wpihelper
         xjs = [-a,-a]
         yjs = [y0,-y0]
 
+        ! write(*,*) 'Calling res90deg function:K,astar, xj,yj: ',xjs,yjs
+
     end subroutine res90deg
 
     ! Calculating the value of the critical root to remove the singularity if necessary (Appendix B of Summers 2005)
@@ -242,12 +245,13 @@ module wpihelper
     end function epVg
 
     !Solving resonance for generalized plasma of protons and electrons (Appendix A of Summers 2005)
-    subroutine epResRoots(wave,m0,K,alpha,astar,xjs,yjs)
+    subroutine epResRoots(wave,m0,K,alpha,astar,xjs,yjs,passCoef)
         type(wave_T), intent(in) :: wave
         real(rp), intent(in) :: m0, K, alpha, astar
         complex(rp), dimension(NROOTS) :: roots
         complex(rp), dimension(NROOTS+1) :: coef
         real(rp), dimension(:), allocatable, intent(out) :: xjs, yjs
+        complex(rp), dimension(NROOTS+1), intent(out), optional :: passCoef
         real(rp) :: a,b,s,mu,beta,denom,gamma,Km
         complex(rp) :: a0,a1,a2,a3,a4 !polunomial coefficients
 
@@ -271,6 +275,7 @@ module wpihelper
 
         ! Root solver 
         coef = [a0,a1,a2,a3,a4]
+        if (present(passCoef)) passCoef = coef
         call fastQuarticSolver(coef,roots)
 
         ! Keeping roots that are positive, below the gyrofrequency (xj<1), and real (others are non-physical)
