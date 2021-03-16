@@ -199,28 +199,21 @@
       REAL (rprec)  ::  a(3), b(3), dx(3), dy(3), deqdt
 !
 !
-      IF (i_birk == 1) THEN
-         CALL Tic("GET_JBIRK")
-         CALL Get_jbirk
-         if (doRCMVerbose) then
-            write(6,*)'RCM: finish getting jbirk' 
-         endif
-         CALL Toc("GET_JBIRK")
-      ELSE IF (i_birk == 2) THEN
-         stop 'do not use'
-      ELSE IF (i_birk ==3) THEN
-         CALL Get_jbirk2
-      ELSE
-          STOP 'ILLEGAL VALUE OF BIRK'
-      END IF
-      CALL Tic("PRECIP")
-      CALL diffusePrecip ()
-      if (doRCMVerbose) then
-         write(6,*)'RCM: finish getting diffuse precipitation'
-      endif
-      CALL Toc("PRECIP")
-!
-!
+
+    CALL Tic("GET_JBIRK")
+    CALL Get_jbirk
+    if (doRCMVerbose) then
+      write(6,*)'RCM: finish getting jbirk' 
+    endif
+    CALL Toc("GET_JBIRK")
+
+    CALL Tic("PRECIP")
+    CALL diffusePrecip ()
+    if (doRCMVerbose) then
+      write(6,*)'RCM: finish getting diffuse precipitation'
+    endif
+    CALL Toc("PRECIP")
+
       IF (ibnd_type == 4) THEN
 !        DO NOTHING, VBND IS ALREADY SET
          DO j = 1, jsize
@@ -283,65 +276,46 @@
                       vmkl, vmnext, sum, b1, b2, x, y, el, umax, umin, ss, &
                       z, dg1, dg2, dg3, qmin, qmax, qn, qx,  &
                       denom, a1, a2, bjm, range, bim, gkl (5000)
+      LOGICAL, dimension(1:isize,1:jsize) :: isOpen
+
 !                                                                       
 !
       birk (:,:) = zero
 !
 !
 !     Compute J_parallel due to continuous channel:
-!                                                                       
-      dvmdi  = Deriv_i (vm, imin_j)
-      dvmdj  = Deriv_j (vm, imin_j, j1, j2, 1.0E+25_rprec)
-      WHERE (ABS(dvmdj) > 1.0E+24)  ! to prevent artificial inflows on bndy
-          dvmdi = 0.0
-          dvmdj = 0.0
-      END WHERE
-!
+!             
+      !Replacing gradient w/ slope-limited gradient used in advection       
+      isOpen = (vm < 0)
+      call Grad_IJ(vm,isOpen,dvmdi,dvmdj)
 
-      !$OMP PARALLEL DO if (L_doOMPprecip) &
-      !$OMP schedule(dynamic) &
-      !$OMP DEFAULT (NONE) &
-      !$OMP PRIVATE(i,j,kc) &
-      !$OMP PRIVATE(dbirk) &
-      !$OMP SHARED(j1,j2,i2,imin_j,alamc,dlam,dpsi,Ri) &
-      !$OMP SHARED(alpha,beta,detadi,detadj,dvmdj,dvmdi,eeta,birk) 
-      DO kc = 1, kcsize
-!
-         detadi = Deriv_i (eeta (:,:,kc), imin_j)
-         detadj = Deriv_j (eeta (:,:,kc), imin_j, j1, j2, 1.0E+32_rprec)
-         WHERE (ABS(detadj) > 1.0E+31)
-           detadi = 0.0
-           detadj = 0.0
-         END WHERE
-!
+      do kc=1,kcsize
+        !Using new gradient, Grad_IJ is internally threaded so don't call it from OMP loop
+        call Grad_IJ(eeta(:,:,kc),isOpen,detadi,detadj)
 
-         DO  j = j1, j2 
-            DO  i = imin_j(j)+1, i2
-!              IF (i < imin_j(j) + 3) CYCLE
-!              IF (i <= imin_j(j-1) .or. i<=imin_j(j-2).or.&
-!                 i<=imin_j(Bjmod_int(j-3,jwrap,jsize)) ) CYCLE
-!              IF (i <= imin_j(j+1) .or. i<=imin_j(Bjmod_int(j+2,jwrap,jsize))&
-!                  .or. i<=imin_j(Bjmod_int(j+3,jwrap,jsize))) CYCLE
-               dbirk  = charge_e * signbe * ABS(alamc(kc)) * &
-                        (detadj(i,j) * dvmdi(i,j) - detadi(i,j)*dvmdj(i,j)) / &
-                        (alpha(i,j)*beta(i,j)*dlam*dpsi*Ri**2)
-               birk (i, j) = birk (i, j) + dbirk 
-            END DO 
-         END DO 
-      END DO 
-!     pause
-!     print *,birk
-!        DO  j = j1, j2 
-!           DO  i = imin_j(j)+1, i2
-!              birk (i, j) = MIN (birk(i,j),10.)
-!              birk (i, j) = MAX (birk(i,j),-10.)
-!        END DO 
-!     END DO 
-!     
-      
+        !NOTE: Not great to have OMP inside k loop but easier than writing an unthreaded Grad_IJ
+        !$OMP PARALLEL DO &
+        !$OMP schedule(dynamic) &
+        !$OMP DEFAULT (NONE) &
+        !$OMP PRIVATE(i,j,dbirk) &
+        !$OMP SHARED(kc,j1,j2,i2,alamc,dlam,dpsi,Ri) &
+        !$OMP SHARED(alpha,beta,detadi,detadj,dvmdj,dvmdi,eeta,birk,isOpen)
+        DO  j = j1, j2
+          !Calculate Vasyliunas FAC wherever possible, even using MHD buffer cells  
+          DO i = 1,i2
+            if (isOpen(i,j)) CYCLE
+
+            dbirk  = charge_e * signbe * ABS(alamc(kc)) * &
+                     (detadj(i,j) * dvmdi(i,j) - detadi(i,j)*dvmdj(i,j)) / &
+                     (alpha(i,j)*beta(i,j)*dlam*dpsi*Ri**2)
+            birk (i, j) = birk (i, j) + dbirk    
+          ENDDO !i
+        ENDDO !j
+
+      enddo
+
       CALL Circle (birk)
-!
-      RETURN 
+
       END SUBROUTINE Get_jbirk
 !
 !
@@ -1085,75 +1059,7 @@
      END IF
      RETURN
      END FUNCTION Lt_from_aloct
-!
-!
-!- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-!
-!
-      SUBROUTINE Read_grid ( )
-      IMPLICIT NONE
-      INTEGER (iprec) :: istat, isize_pr, jsize_pr, jwrap_pr
-      CHARACTER (LEN=80) :: form_length
-      OPEN (UNIT = LUN, STATUS = 'OLD', FORM = 'FORMATTED', &
-            FILE = rcmdir//'rcmcrd11', IOSTAT = istat)
-         IF (istat /= 0) STOP 'ERROR OPENING RCMCRD11'
-         READ (LUN, '(A80)') form_length
-         READ (UNIT = LUN, FMT = form_length) isize_pr, jsize_pr, jwrap_pr, dlam, dpsi, ri, re
-      CLOSE (UNIT = LUN)
-!
-!
-      IF (isize /= isize_pr .OR. jsize /= jsize_pr .OR. jwrap /= jwrap_pr) THEN
-         WRITE (*,*) ' GRID SIZES IN rcmcrd11 DO NOT MATCH THOSE IN THE CODE'
-         STOP
-      END IF
-!
-!
-      OPEN (UNIT = LUN, STATUS = 'OLD', FORM = 'FORMATTED', &
-            FILE = rcmdir//'rcmcrd21', IOSTAT = istat)
-         IF (istat /= 0) STOP 'ERROR OPENING RCMCRD21'
-         READ (LUN, '(A80)') form_length
-         READ (UNIT=LUN, FMT = form_length) alpha
-         READ (UNIT=LUN, FMT = form_length) beta
-         READ (UNIT=LUN, FMT = form_length) colat
-         READ (UNIT=LUN, FMT = form_length) aloct
-         READ (UNIT=LUN, FMT = form_length) vcorot
-         READ (UNIT=LUN, FMT = form_length) bir
-         READ (UNIT=LUN, FMT = form_length) sini
-      CLOSE (UNIT = LUN)
-      RETURN
-      END SUBROUTINE Read_grid
-!
-!
-!
-      SUBROUTINE Write_grid ( )
-      IMPLICIT NONE
-      INTEGER (iprec) :: istat, isize_pr, jsize_pr, jwrap_pr
-      CHARACTER (LEN=80) :: form_string
-      OPEN (UNIT = LUN, STATUS = 'REPLACE', FORM = 'FORMATTED', &
-            FILE = rcmdir//'rcmcrd11', IOSTAT = istat)
-         IF (istat /= 0) STOP 'ERROR OPENING RCMCRD11'
-       form_string = '(3(TR2,I10),4(TR2,ES23.15))'
-       WRITE (UNIT = LUN, FMT = '(A80)') form_string
-       WRITE (UNIT = LUN, FMT=form_string) &
-              isize, jsize, jwrap, dlam, dpsi, Re, Ri
-      CLOSE (UNIT = LUN)
-!
-!
-      OPEN (UNIT = LUN, STATUS = 'REPLACE', FORM = 'FORMATTED', &
-            FILE = rcmdir//'rcmcrd21', IOSTAT = istat)
-         IF (istat /= 0) STOP 'ERROR OPENING RCMCRD21'
-       form_string = '(3(TR2,ES23.15))'
-       WRITE (LUN, '(A80)') form_string
-       WRITE (LUN, form_string) alpha
-       WRITE (LUN, form_string) beta
-       WRITE (LUN, form_string) colat
-       WRITE (LUN, form_string) aloct
-       WRITE (LUN, form_string) vcorot
-       WRITE (LUN, form_string) bir
-       WRITE (LUN, form_string) sini
-      CLOSE (UNIT = LUN)
-      RETURN
-      END SUBROUTINE Write_grid
+
 !
 !
       SUBROUTINE Read_plasma_H5
@@ -2092,7 +1998,6 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
   
   REAL (rprec) :: T1k,T2k !Local loop variables b/c clawpack alters input
   LOGICAL, save :: FirstTime=.true.
-  LOGICAL, parameter :: doSuperBee = .false. !Use superbee (instead of minmod/MC)
   
 
   call Tic("Move_Plasma_Init")
@@ -2389,108 +2294,6 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
 
     end subroutine FTVGrad
 
-    !Calculate RCM-node centered gradient of veff
-    subroutine Grad_IJ(veff,isOpen,dvedi,dvedj,doLimO)
-      REAL (rprec), dimension(1:isize,1:jsize), intent(IN)  :: veff
-      REAL (rprec), dimension(1:isize,1:jsize), intent(OUT) :: dvedi,dvedj
-      LOGICAL     , dimension(1:isize,1:jsize), intent(IN)  :: isOpen
-      LOGICAL, intent(in), optional :: doLimO
-
-      INTEGER (iprec) :: i,j
-
-      LOGICAL :: isOp(3),doLim
-      REAL (rprec) :: Q(3)
-
-      if (present(doLimO)) then
-        doLim = doLimO
-      else
-        doLim = .true.
-      endif
-
-      dvedi = 0.0
-      dvedj = 0.0
-
-      !$OMP PARALLEL DO if (L_doOMPClaw) &
-      !$OMP DEFAULT (NONE) &
-      !$OMP PRIVATE(i,j,isOp,Q) &
-      !$OMP SHARED(dvedi,dvedj,veff,isOpen,doLim)
-      do j=2,jsize-1
-        do i=2,isize-1
-          !Do I deriv
-          Q          = veff  (i-1:i+1,j)
-          isOp       = isOpen(i-1:i+1,j)
-          dvedi(i,j) = Deriv_IJ(Q,isOp,doLim)
-
-          !Do J deriv
-          Q          = veff  (i,j-1:j+1)
-          isOp       = isOpen(i,j-1:j+1)
-          dvedj(i,j) = Deriv_IJ(Q,isOp,doLim)
-        enddo
-      enddo
-
-    !Lower/Upper boundary
-      dvedi(1,:) = dvedi(2,:)
-      dvedj(1,:) = dvedj(2,:)
-
-      dvedi(isize,:) = dvedi(isize-1,:)
-      dvedj(isize,:) = dvedj(isize-1,:)
-    !Periodic
-      dvedi(:,jsize) = dvedi(:,jwrap  )
-      dvedi(:,1    ) = dvedi(:,jsize-2)
-
-      dvedj(:,jsize) = dvedj(:,jwrap  )
-      dvedj(:,1    ) = dvedj(:,jsize-2)
-    end subroutine Grad_IJ
-
-    !Take derivative from 3-point stencil if possible
-    function Deriv_IJ(Q,isOp,doLim) result(dvdx)
-      LOGICAL     , intent(IN) :: isOp(-1:+1)
-      REAL (rprec), intent(IN) ::    Q(-1:+1)
-      LOGICAL     , intent(IN)  :: doLim
-
-      REAL (rprec) :: dvdx
-      REAL (rprec) :: dvL,dvR,dvC
-      dvdx = 0.0
-
-      if (isOp(0)) return
-
-      !If still here then central point is closed
-      if (isOp(-1) .and. isOp(+1)) then
-        !Nothing to work with
-        return
-      endif
-      !Have at least two points
-      if ((.not. isOp(-1)) .and. (.not. isOp(+1))) then
-        !Both sides closed
-        
-        !dvdx = 0.5*(Q(+1)-Q(-1)) !Straight up centered derivative
-        dvL =       Q( 0) - Q(-1)
-        dvR =       Q(+1) - Q( 0)
-        dvC = 0.5*( Q(+1) - Q(-1) )
-
-        if (doLim) then
-          !Do slope limiter, either minmod or superbee
-          if (doSuperBee) then
-            !Superbee slope-lim on gradient
-            dvdx = qkmaxmod( qkminmod(dvR,2*dvL),qkminmod(2*dvR,dvL) )
-          else
-            dvdx = MCLim(dvL,dvR,dvC)
-            !dvdx = qkminmod(dvL,dvR) !Just minmod lim
-          endif
-        else
-          !Take straight centered difference
-          dvdx = dvC
-        endif
-
-      else if (.not. isOp(-1)) then
-        !-1 is closed, do backward difference
-        dvdx = Q(0)-Q(-1)
-      else
-        !+1 is closed, do forward difference
-        dvdx = Q(+1)-Q(0)
-      endif
-
-    end function Deriv_IJ
 
     !Do smoothing window on RCM grid quantity
     subroutine Smooth_IJ(Q,isOpen)
@@ -2520,56 +2323,6 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
       Q = Qs !Save back smoothed array
 
     end subroutine Smooth_IJ
-
-    function MCLim(dqL,dqR,dqC) result(dqbar)
-      REAL (rprec), intent(in) :: dqL,dqR,dqC
-      REAL (rprec) :: dqbar
-      REAL (rprec) :: magdq
-
-      if (dqL*dqR <= 0) then
-        !Sign flip, clamp
-        dqbar = 0.0
-      else
-        !Consistent sense, use MC limiter
-        magdq = min(2*abs(dqL),2*abs(dqR),abs(dqC))
-        !SIGN(A,B) returns the value of A with the sign of B
-        dqbar = sign(magdq,dqC)
-      endif
-    end function MCLim
-
-    !Quick and lazy minmod limiter
-    function qkminmod(a,b) result(c)
-      REAL (rprec), intent(in) :: a,b
-      REAL (rprec) :: c
-
-      if (a*b > 0) then
-        !Pick min modulus
-        if (abs(a) < abs(b)) then
-          c = a
-        else
-          c = b
-        endif !No sign flip
-      else
-        c = 0.0
-      endif
-    end function qkminmod
-
-    !Quick and laxy maxmod limiter
-    function qkmaxmod(a,b) result(c)
-      REAL (rprec), intent(in) :: a,b
-      REAL (rprec) :: c
-
-      if (a*b > 0) then
-        !Pick max modulus
-        if (abs(a) < abs(b)) then
-          c = b
-        else
-          c = a
-        endif !No sign flip
-      else
-        c = 0.0
-      endif
-    end function qkmaxmod
 
     !Copy variable from rcm to clawpack grid
     subroutine rcm2claw(qR,qC)
@@ -2642,6 +2395,161 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
     end function WrapJ
 
 END SUBROUTINE Move_plasma_grid_MHD
+
+!Calculate RCM-node centered gradient of veff
+subroutine Grad_IJ(veff,isOpen,dvedi,dvedj,doLimO)
+  REAL (rprec), dimension(1:isize,1:jsize), intent(IN)  :: veff
+  REAL (rprec), dimension(1:isize,1:jsize), intent(OUT) :: dvedi,dvedj
+  LOGICAL     , dimension(1:isize,1:jsize), intent(IN)  :: isOpen
+  LOGICAL, intent(in), optional :: doLimO
+
+  INTEGER (iprec) :: i,j
+
+  LOGICAL :: isOp(3),doLim
+  REAL (rprec) :: Q(3)
+
+  if (present(doLimO)) then
+    doLim = doLimO
+  else
+    doLim = .true.
+  endif
+
+  dvedi = 0.0
+  dvedj = 0.0
+
+  !$OMP PARALLEL DO if (L_doOMPClaw) &
+  !$OMP DEFAULT (NONE) &
+  !$OMP PRIVATE(i,j,isOp,Q) &
+  !$OMP SHARED(dvedi,dvedj,veff,isOpen,doLim)
+  do j=2,jsize-1
+    do i=2,isize-1
+      !Do I deriv
+      Q          = veff  (i-1:i+1,j)
+      isOp       = isOpen(i-1:i+1,j)
+      dvedi(i,j) = Deriv_IJ(Q,isOp,doLim)
+
+      !Do J deriv
+      Q          = veff  (i,j-1:j+1)
+      isOp       = isOpen(i,j-1:j+1)
+      dvedj(i,j) = Deriv_IJ(Q,isOp,doLim)
+    enddo
+  enddo
+
+!Lower/Upper boundary
+  dvedi(1,:) = dvedi(2,:)
+  dvedj(1,:) = dvedj(2,:)
+
+  dvedi(isize,:) = dvedi(isize-1,:)
+  dvedj(isize,:) = dvedj(isize-1,:)
+!Periodic
+  dvedi(:,jsize) = dvedi(:,jwrap  )
+  dvedi(:,1    ) = dvedi(:,jsize-2)
+
+  dvedj(:,jsize) = dvedj(:,jwrap  )
+  dvedj(:,1    ) = dvedj(:,jsize-2)
+end subroutine Grad_IJ
+
+!Take derivative from 3-point stencil if possible
+function Deriv_IJ(Q,isOp,doLim) result(dvdx)
+  LOGICAL     , intent(IN) :: isOp(-1:+1)
+  REAL (rprec), intent(IN) ::    Q(-1:+1)
+  LOGICAL     , intent(IN)  :: doLim
+
+  LOGICAL, parameter :: doSuperBee = .false. !Use superbee (instead of minmod/MC)
+  REAL (rprec) :: dvdx
+  REAL (rprec) :: dvL,dvR,dvC
+  dvdx = 0.0
+
+  if (isOp(0)) return
+
+  !If still here then central point is closed
+  if (isOp(-1) .and. isOp(+1)) then
+    !Nothing to work with
+    return
+  endif
+  !Have at least two points
+  if ((.not. isOp(-1)) .and. (.not. isOp(+1))) then
+    !Both sides closed
+    
+    !dvdx = 0.5*(Q(+1)-Q(-1)) !Straight up centered derivative
+    dvL =       Q( 0) - Q(-1)
+    dvR =       Q(+1) - Q( 0)
+    dvC = 0.5*( Q(+1) - Q(-1) )
+
+    if (doLim) then
+      !Do slope limiter, either minmod or superbee
+      if (doSuperBee) then
+        !Superbee slope-lim on gradient
+        dvdx = qkmaxmod( qkminmod(dvR,2*dvL),qkminmod(2*dvR,dvL) )
+      else
+        dvdx = MCLim(dvL,dvR,dvC)
+        !dvdx = qkminmod(dvL,dvR) !Just minmod lim
+      endif
+    else
+      !Take straight centered difference
+      dvdx = dvC
+    endif
+
+  else if (.not. isOp(-1)) then
+    !-1 is closed, do backward difference
+    dvdx = Q(0)-Q(-1)
+  else
+    !+1 is closed, do forward difference
+    dvdx = Q(+1)-Q(0)
+  endif
+
+  contains
+    function MCLim(dqL,dqR,dqC) result(dqbar)
+      REAL (rprec), intent(in) :: dqL,dqR,dqC
+      REAL (rprec) :: dqbar
+      REAL (rprec) :: magdq
+
+      if (dqL*dqR <= 0) then
+        !Sign flip, clamp
+        dqbar = 0.0
+      else
+        !Consistent sense, use MC limiter
+        magdq = min(2*abs(dqL),2*abs(dqR),abs(dqC))
+        !SIGN(A,B) returns the value of A with the sign of B
+        dqbar = sign(magdq,dqC)
+      endif
+    end function MCLim
+
+    !Quick and lazy minmod limiter
+    function qkminmod(a,b) result(c)
+      REAL (rprec), intent(in) :: a,b
+      REAL (rprec) :: c
+
+      if (a*b > 0) then
+        !Pick min modulus
+        if (abs(a) < abs(b)) then
+          c = a
+        else
+          c = b
+        endif !No sign flip
+      else
+        c = 0.0
+      endif
+    end function qkminmod
+
+    !Quick and laxy maxmod limiter
+    function qkmaxmod(a,b) result(c)
+      REAL (rprec), intent(in) :: a,b
+      REAL (rprec) :: c
+
+      if (a*b > 0) then
+        !Pick max modulus
+        if (abs(a) < abs(b)) then
+          c = b
+        else
+          c = a
+        endif !No sign flip
+      else
+        c = 0.0
+      endif
+    end function qkmaxmod
+
+end function Deriv_IJ
 
 !=========================================================================
 !

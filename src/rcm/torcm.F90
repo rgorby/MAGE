@@ -5,14 +5,15 @@ MODULE torcm_mod
   USE rice_housekeeping_module, ONLY: use_plasmasphere,LowLatMHD,L_write_vars_debug
   USE rcm_mhd_interfaces
   USE rcmdefs, ONLY : RCMTOPCLOSED,RCMTOPNULL,RCMTOPOPEN,DenPP0
-  USE kdefs, ONLY : TINY,qp
+  USE kdefs, ONLY : TINY
   USE math, ONLY : RampDown
   USE etautils
   implicit none
 
   logical, parameter :: doSmoothEta = .false. !Whether to smooth eeta at boundary
   !Whether to do reverse blend near outer boundary, i.e. nudge RCM to MHD
-  logical, parameter :: doRevBlend  = .false. 
+  logical, parameter :: doRevBlend  = .false.
+  logical, parameter :: doPPSmooth = .false. !Try to smooth plasmapause
   integer(iprec), private, parameter :: NumG = 4 !How many buffer cells to require
 
   contains
@@ -212,8 +213,10 @@ MODULE torcm_mod
       if (use_plasmasphere) then
         call set_plasmasphere(icontrol,isize,jsize,kcsize,xmin,ymin,rmin,vm,eeta,imin_j)
         
-        !Adding some smoothing to the plasmapause
-        call SmoothPPause(eeta(:,:,1),vm,iopen,imin_j)
+        if (doPPSmooth) then
+          !Adding some smoothing to the plasmapause
+          call SmoothPPause(eeta(:,:,1),vm,iopen,imin_j)
+        endif
       endif
 
 
