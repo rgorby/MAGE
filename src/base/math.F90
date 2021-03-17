@@ -253,6 +253,17 @@ module math
 
 !--------------------------------------
 !Geometry stuff
+    !atan2 w/ trap for pi/-pi jump
+    elemental function katan2(a,b) result(c)
+        real(rp), intent(in) :: a,b
+        real(rp) :: c
+
+        c = atan2(a,b)
+        if (c<0) then
+            c = c + 2*PI
+        endif
+    end function katan2
+
     function cross(a, b)
 
         real(rp), dimension(NDIM), intent(in) :: a, b

@@ -153,8 +153,9 @@ module calcdbio
         SphI(:,:,:,TDIR) = acos(gGr%GxyzI(:,:,:,ZDIR)/SphI(:,:,:,RDIR))
         SphC(:,:,:,TDIR) = acos(gGr%GxyzC(:,:,:,ZDIR)/SphC(:,:,:,RDIR))
 
-        SphI(:,:,:,PDIR) = atan2(gGr%GxyzI(:,:,:,YDIR),gGr%GxyzI(:,:,:,XDIR))
-        SphC(:,:,:,PDIR) = atan2(gGr%GxyzC(:,:,:,YDIR),gGr%GxyzC(:,:,:,XDIR))
+        SphI(:,:,:,PDIR) = katan2(gGr%GxyzI(:,:,:,YDIR),gGr%GxyzI(:,:,:,XDIR))
+        SphC(:,:,:,PDIR) = katan2(gGr%GxyzC(:,:,:,YDIR),gGr%GxyzC(:,:,:,XDIR))
+
 
         !Allocate db holders (XYZ)
         allocate(gGr%dbMAG_xyz(gGr%NLat,gGr%NLon,gGr%Nz,NDIM)) !Magnetospheric delta-B
