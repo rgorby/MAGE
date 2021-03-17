@@ -663,11 +663,23 @@ module volthelpers_mpi
 
 ! Functions below for sending and receiving help requests
 
+    subroutine vhRequestType(vApp, rType)
+        type(voltAppMpi_T), intent(in) :: vApp
+        integer, intent(in) :: rType
+
+        integer :: ierr, helpReq = MPI_REQUEST_NULL
+
+        ! async to match waiting helper nodes
+        call mpi_Ibcast(rType, 1, MPI_INT, 0, vApp%vHelpComm, helpReq, ierr)
+        call mpi_wait(helpReq, MPI_STATUS_IGNORE, ierr)
+
+    end subroutine
+
     subroutine vhReqStep(vApp)
         type(voltAppMpi_T), intent(inout) :: vApp
 
         integer :: ierr
-        call mpi_bcast(VHSTEP, 1, MPI_INT, 0, vApp%vHelpComm, ierr)
+        call vhRequestType(vApp, VHSTEP)
         call mpi_bcast(vApp%tFin, 1, MPI_MYFLOAT, 0, vApp%vHelpComm, ierr)
         call mpi_bcast(vApp%time, 1, MPI_MYFLOAT, 0, vApp%vHelpComm, ierr)
     end subroutine
@@ -684,7 +696,7 @@ module volthelpers_mpi
         type(voltAppMpi_T), intent(inout) :: vApp
 
         integer :: ierr
-        call mpi_bcast(VHSQUISHSTART, 1, MPI_INT, 0, vApp%vHelpComm, ierr)
+        call vhRequestType(vApp, VHSQUISHSTART)
 
         ! send eb data
         call sendChimpUpdate(vApp)
@@ -718,7 +730,7 @@ module volthelpers_mpi
 
         integer :: ierr,length,i,ks,ke, oldSizes(4), newSizes(4), offsets(4), newtype
         character( len = MPI_MAX_ERROR_STRING) :: message
-        call mpi_bcast(VHSQUISHEND, 1, MPI_INT, 0, vApp%vHelpComm, ierr)
+        call vhRequestType(vApp, VHSQUISHEND)
 
         oldSizes = shape(vApp%chmp2mhd%xyzSquish)
         newSizes = (/vApp%iDeep+1-vApp%ebTrcApp%ebState%ebGr%is, &
