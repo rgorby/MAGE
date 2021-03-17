@@ -653,6 +653,7 @@ MODULE torcm_mod
 
         !Get MHD bulk density
         dmhd = den(i,j)
+        call eta2DP(eeta(i,j,:),vm(i,j),drc_rcm,dpp_rcm,prc_rcm)
         
         if (.not. use_plasmasphere) then
           dpp = 0.0
@@ -667,7 +668,7 @@ MODULE torcm_mod
         endif
         
       !Get RCM info
-        call eta2DP(eeta(i,j,:),vm(i,j),drc_rcm,dpp_rcm,prc_rcm)
+        
         if (dpp_rcm <= TINY) then
           drc = dmhd
           dpp = 0.0
