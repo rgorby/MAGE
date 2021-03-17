@@ -174,23 +174,24 @@ module calcdbio
 
     !Write grid
         call ClearIO(IOVars)
-        call AddOutVar(IOVars,"X",gGr%GxyzI(:,:,:,XDIR))
-        call AddOutVar(IOVars,"Y",gGr%GxyzI(:,:,:,YDIR))
-        call AddOutVar(IOVars,"Z",gGr%GxyzI(:,:,:,ZDIR))
+        call AddOutVar(IOVars,"X",gGr%GxyzI(:,:,:,XDIR),uStr="Re")
+        call AddOutVar(IOVars,"Y",gGr%GxyzI(:,:,:,YDIR),uStr="Re")
+        call AddOutVar(IOVars,"Z",gGr%GxyzI(:,:,:,ZDIR),uStr="Re")
 
-        call AddOutVar(IOVars,"Xcc",gGr%GxyzC(:,:,:,XDIR))
-        call AddOutVar(IOVars,"Ycc",gGr%GxyzC(:,:,:,YDIR))
-        call AddOutVar(IOVars,"Zcc",gGr%GxyzC(:,:,:,ZDIR))
+        call AddOutVar(IOVars,"Xcc",gGr%GxyzC(:,:,:,XDIR),uStr="Re")
+        call AddOutVar(IOVars,"Ycc",gGr%GxyzC(:,:,:,YDIR),uStr="Re")
+        call AddOutVar(IOVars,"Zcc",gGr%GxyzC(:,:,:,ZDIR),uStr="Re")
 
-        call AddOutVar(IOVars,"Rad",SphI(:,:,:,RDIR))
-        call AddOutVar(IOVars,"Theta",SphI(:,:,:,TDIR))
-        call AddOutVar(IOVars,"Phi",SphI(:,:,:,PDIR))
+        call AddOutVar(IOVars,"Rad"  ,SphI(:,:,:,RDIR),uStr="Re")
+        call AddOutVar(IOVars,"Theta",SphI(:,:,:,TDIR),uStr="Re")
+        call AddOutVar(IOVars,"Phi"  ,SphI(:,:,:,PDIR),uStr="Re")
 
-        call AddOutVar(IOVars,"Radcc",SphC(:,:,:,RDIR))
-        call AddOutVar(IOVars,"Thetacc",SphC(:,:,:,TDIR))
-        call AddOutVar(IOVars,"Phicc",SphC(:,:,:,PDIR))
+        call AddOutVar(IOVars,"Radcc"  ,SphC(:,:,:,RDIR),uStr="Re")
+        call AddOutVar(IOVars,"Thetacc",SphC(:,:,:,TDIR),uStr="Re")
+        call AddOutVar(IOVars,"Phicc"  ,SphC(:,:,:,PDIR),uStr="Re")
 
         call AddOutVar(IOVars,"CoordinatesID",cID)
+        call AddOutVar(IOVars,"Re",Re_km,uStr="km")
 
         call WriteVars(IOVars,.true.,dbOutF)
         call ClearIO(IOVars)
@@ -374,22 +375,20 @@ module calcdbio
 
     !Write out spherical vectors (XDIR:ZDIR = RDIR,TDIR,PDIR)
         if (.not. Model%doSlim) then
-            call AddOutVar(IOVars,"dBrM" ,gGr%dbMAG_rtp(:,:,:,XDIR),"nT")
-            call AddOutVar(IOVars,"dBtM" ,gGr%dbMAG_rtp(:,:,:,YDIR),"nT")
-            call AddOutVar(IOVars,"dBpM" ,gGr%dbMAG_rtp(:,:,:,ZDIR),"nT")
-
-            call AddOutVar(IOVars,"dBrI" ,gGr%dbION_rtp(:,:,:,XDIR),"nT")
-            call AddOutVar(IOVars,"dBtI" ,gGr%dbION_rtp(:,:,:,YDIR),"nT")
-            call AddOutVar(IOVars,"dBpI" ,gGr%dbION_rtp(:,:,:,ZDIR),"nT")
-
-            call AddOutVar(IOVars,"dBrF" ,gGr%dbFAC_rtp(:,:,:,XDIR),"nT")
-            call AddOutVar(IOVars,"dBtF" ,gGr%dbFAC_rtp(:,:,:,YDIR),"nT")
-            call AddOutVar(IOVars,"dBpF" ,gGr%dbFAC_rtp(:,:,:,ZDIR),"nT")
+            call AddOutVar(IOVars,"dBrM" ,gGr%dbMAG_rtp(:,:,:,XDIR),uStr="nT")
+            call AddOutVar(IOVars,"dBtM" ,gGr%dbMAG_rtp(:,:,:,YDIR),uStr="nT")
+            call AddOutVar(IOVars,"dBpM" ,gGr%dbMAG_rtp(:,:,:,ZDIR),uStr="nT")
+            call AddOutVar(IOVars,"dBrI" ,gGr%dbION_rtp(:,:,:,XDIR),uStr="nT")
+            call AddOutVar(IOVars,"dBtI" ,gGr%dbION_rtp(:,:,:,YDIR),uStr="nT")
+            call AddOutVar(IOVars,"dBpI" ,gGr%dbION_rtp(:,:,:,ZDIR),uStr="nT")
+            call AddOutVar(IOVars,"dBrF" ,gGr%dbFAC_rtp(:,:,:,XDIR),uStr="nT")
+            call AddOutVar(IOVars,"dBtF" ,gGr%dbFAC_rtp(:,:,:,YDIR),uStr="nT")
+            call AddOutVar(IOVars,"dBpF" ,gGr%dbFAC_rtp(:,:,:,ZDIR),uStr="nT")
         endif
         
-        call AddOutVar(IOVars,"dBr" ,dbRTP(:,:,:,XDIR),"nT")
-        call AddOutVar(IOVars,"dBt" ,dbRTP(:,:,:,YDIR),"nT")
-        call AddOutVar(IOVars,"dBp" ,dbRTP(:,:,:,ZDIR),"nT")
+        call AddOutVar(IOVars,"dBr" ,dbRTP(:,:,:,XDIR),uStr="nT")
+        call AddOutVar(IOVars,"dBt" ,dbRTP(:,:,:,YDIR),uStr="nT")
+        call AddOutVar(IOVars,"dBp" ,dbRTP(:,:,:,ZDIR),uStr="nT")
 
         call WriteVars(IOVars,.true.,dbOutF,gStr)
         call ClearIO(IOVars)
