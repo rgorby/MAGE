@@ -374,8 +374,8 @@ with h5py.File(os.path.join(prm.IbcDir,prm.gameraIbcFile),'w') as hf:
             grp.attrs.create("time", time_sec)
             grp.attrs.create("MJD", mjd_c)
             grp.create_dataset("vr",data=vrp) #cc
-            grp.create_dataset("vp",data=vp) #cc
-            grp.create_dataset("vt",data=vt) #cc
+            grp.create_dataset("vp",data=vp) #cc !zeros
+            grp.create_dataset("vt",data=vt) #cc !zeros
             #hf.create_dataset("vr_kface",data=vr_kface) #kface
             grp.create_dataset("rho",data=rhop) #cc
             grp.create_dataset("cs",data=csp) #cc

@@ -30,7 +30,6 @@ module usergamic
     endenum 
 
     ![EP] data structure for TD
-    ![EP] should that be 'type, extends(baseBC_T)' ??
     type :: wsaData_T 
 
         type(ebTab_T)   :: ebTab
@@ -39,10 +38,10 @@ module usergamic
         !real(rp), dimension(:,:), allocatable :: X,Y
         real(rp) :: wsaT1,wsaT2 !Times of two data slices
         integer  :: wsaN1,wsaN2 !Indices of two data slices
+        !vars from time slice in innerbc.h5
         real(rp), dimension(:,:,:,:), allocatable :: ibcVarsW1,ibcVarsW2
 
     end type wsaData_T
-
 
     integer, private, parameter :: NVARSIN=6 ! SHOULD be the same as the number of vars in the above enumerator
     !for TD
@@ -75,7 +74,7 @@ module usergamic
 
 
     ! type for solar wind BC
-    type, extends(innerIBC_T) :: WSAInnerBC_T
+    type, extends(innerIBC_T) ::WSAInnerBC_T
 
         type(wsaData_T) :: wsaData
         !Main electric field structures
@@ -90,8 +89,7 @@ module usergamic
 
     contains
 
-    subroutine initUser(wsaData,Model,Grid,State,inpXML)
-        type(wsaData_T), intent(inout) :: wsaData
+    subroutine initUser(Model,Grid,State,inpXML)
         type(Model_T), intent(inout) :: Model
         type(Grid_T), intent(inout) :: Grid
         type(State_T), intent(inout) :: State
@@ -101,62 +99,22 @@ module usergamic
         procedure(HackE_T), pointer :: eHack
 
         integer :: i,j,k,nvar,nr,d
-        integer :: Nrr, Nt, Np
-        integer :: n1, n2
-        real(rp) :: w1, w2
+
 
 !        if (.not.allocated(inEijk)) allocate(inEijk(1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1,1:NDIM))
 
-        ! set units and other thins, like Tsolar
+        ! set units and other things, like Tsolar
         call setHeliosphere(Model,inpXML,Tsolar)
 
         ! grab inner 
         call inpXML%Set_Val(wsaFile,"prob/wsaFile","innerbc.h5" )
 
-        ![EP] we need to covert time in seconds to code units so doTSclO=true
-        wsaData%ebTab%bStr = wsaFile
-        ![EP] read times, convert to times to code units, read grid dimensions
-        call rdTab(wsaData%ebTab,inpXML,wsaFile,doTSclO=.true.)
-        ![EP] ebTab%N is a number of time steps
-        if (wsaData%ebTab%N>1) then
-            wsaData%doStatic = .false.
-        endif
-        write(*,*) wsaData%doStatic
-        ![EP] check
-        write(*,*) wsaData%ebTab%N, wsaData%ebTab%dNi, wsaData%ebTab%dNj, wsaData%ebTab%dNk
-        !!!add a check for steady state and time-dep
+        ![EP] for TD get the WSA map for current State%time
+        call initTSlice(wsaFile,inpXML,State)
 
-        ![EP] diemsions of i-ghost grid
-        Nr = wsaData%ebTab%dNi
-        Nt = wsaData%ebTab%dNj
-        Np = wsaData%ebTab%dNk
-        write(*,*) Nrr, Nt, Np
-
-        !allocate ibcVars
-
-        !initialization
-        ![EP] TD: find bounding time slices from ebTab file
-        call findSlc(wsaData%ebTab,State%time,n1,n2)
-        write(*,*) n1, n2
-
-        !read map from Step#n1
-        call rdWSAMap(wsaData,n1,wsaData%ibcVarsW1)
-        wsaData%wsaN1 = n1
-        wsaData%wsaT1 = wsaData%ebTab%times(n1)
-
-        !read map from Step#2
-        call rdWSAMap(wsaData,n2,wsaData%ibcVarsW2)
-        wsaData%wsaN2 = n2
-        wsaData%wsaT2 = wsaData%ebTab%times(n2)
-
-        ![EP]interpolation (a) calculate weights (b) interpolate in time 
-        call tCalcWeights(wsaData,State%time,w1,w2)
-
-        !(interp BR) INTERPOLATE ALL VARS
-        ibcVars(:,:,:,:) = w1*wsaData%ibcVarsW1(:,:,:,:) + w2*wsaData%ibcVarsW2(:,:,:,:)
+        
         !now we have WSA "map" for a current code time
-
-        ![EP] For restart add boundary cases in time
+        ![EP] TODO: For restart add boundary cases in time
 
 
         ! compute global Nkp
@@ -257,7 +215,6 @@ module usergamic
     !Inner-I BC for WSA-Gamera
     subroutine wsaBC(bc,Model,Grid,State)
       class(WSAInnerBC_T), intent(inout) :: bc
-      !type(wsaData_T), intent(inout) :: wsaData
       type(Model_T), intent(in) :: Model
       type(Grid_T), intent(in) :: Grid
       type(State_T), intent(inout) :: State
@@ -267,7 +224,7 @@ module usergamic
       integer :: kg, jg, ig ! global indices (in preparation for MPI)
       integer :: var ! ibcVar variable number
       real(rp) :: a
-      real(rp) :: ibcVarsStatic(NVARSIN)
+      real(rp) :: ibcVarsStatic(NVARSINTD)
       real(rp) :: R, Theta, Phi
       real(rp) :: Theta_kf, R_kf ! kface
       real(rp), dimension(NVAR) :: conVar, pVar
@@ -278,6 +235,7 @@ module usergamic
       !$OMP PARALLEL DO default(shared) &
       !$OMP private(i,j,k,jg,kg,ke,kb,a,var,xyz,R,Theta,Phi,rHat,phiHat) &
       !$OMP private(ibcVarsStatic,pVar,conVar,xyz0,R_kf,Theta_kf)
+      !$OMP private(w1,w2,n1,n2)
       
       if (.not.((State%time >= bc%wsaData%wsaT1) .and. (State%time <= bc%wsaData%wsaT2))) then
          !find bounding slices
@@ -368,8 +326,11 @@ module usergamic
                !no scaling for Bt_jface
                !BRIN=1,VRIN,RHOIN,TIN,BPKFIN,BTJFIN,VTIN,VPIN
                Rfactor = Rbc/norm2(Grid%xfc(Grid%is,j,k,:,IDIR))
+               ![EP] at all i-faces flux should be the same. We re-normalize from cc to face
                State%magFlux(i,j,k,IDIR) = ibcVarsStatic(BRIN)*Rfactor**2*Grid%face(Grid%is,j,k,IDIR)
                State%magFlux(i,j,k,JDIR) = ibcVarsStatic(BTJFIN)*Grid%face(i,j,k,JDIR)
+               ! BRKFIN and VRKFIN for TD???
+               !multiplying by Rbc is not correct. Need to multiply to r_cc
                State%magFlux(i,j,k,KDIR) = - 2*PI/Tsolar*R_kf*sin(Theta_kf)/ibcVarsStatic(VRKFIN)*ibcVarsStatic(BRKFIN)*Grid%face(i,j,k,KDIR) &
                                            + ibcVarsStatic(BPKFIN)*Rbc/norm2(Grid%xfc(i,j,k,:,KDIR))*Grid%face(i,j,k,KDIR)
             end do
@@ -514,13 +475,71 @@ module usergamic
    
     end subroutine readIBC
 
+    subroutine initTSlice(wsaFile,inpXML, State)
+       type(wsaData_T), intent(inout) :: wsaData
+       type(XML_Input_T), intent(in) :: inpXML
+       type(State_T), intent(inout) :: State
+
+       integer :: n1, n2
+       real(rp) :: w1, w2
+
+
+       ![EP] we need to covert time in seconds to code units so doTSclO=true
+       wsaData%ebTab%bStr = wsaFile
+       ![EP] read times, convert to times to code units, read grid dimensions
+       call rdTab(wsaData%ebTab,inpXML,wsaFile,doTSclO=.true.)
+       ![EP] ebTab%N is a number of time steps
+        if (wsaData%ebTab%N>1) then
+            wsaData%doStatic = .false.
+        endif
+        write(*,*) 'doStatic = ', wsaData%doStatic
+        ![EP] check
+        write(*,*) 'rdTab check ', wsaData%ebTab%N, wsaData%ebTab%dNi, wsaData%ebTab%dNj, wsaData%ebTab%dNk
+        !!!add a check for steady state and time-dep
+
+        ![EP] diemsions of i-ghost grid
+        !Nr = wsaData%ebTab%dNi
+        !Nt = wsaData%ebTab%dNj
+        !Np = wsaData%ebTab%dNk
+        !write(*,*) Nrr, Nt, Np
+
+        !TODO allocate ibcVars
+
+        !initialization
+        ![EP] TD: find bounding time slices from ebTab file
+        call findSlc(wsaData%ebTab,State%time,n1,n2)
+        write(*,*) 'Bounding slices ', n1, n2
+
+        !read map from Step#n1
+        call rdWSAMap(wsaData,n1,wsaData%ibcVarsW1)
+        wsaData%wsaN1 = n1
+        wsaData%wsaT1 = wsaData%ebTab%times(n1)
+
+        !read map from Step#2
+        call rdWSAMap(wsaData,n2,wsaData%ibcVarsW2)
+        wsaData%wsaN2 = n2
+        wsaData%wsaT2 = wsaData%ebTab%times(n2)
+
+        ![EP]interpolation (a) calculate weights (b) interpolate in time 
+        call tCalcWeights(wsaData,State%time,w1,w2)
+
+        dims = [wsaData%Nr,wsaData%Nt+1,wsaData%Np+1] !i,j,k
+        write(*,*)'dims in initSlice', dims
+        if (.not.allocated(ibcVars)) allocate(ibcVars(dims(1),dims(2),dims(3),NVARSINTD))
+
+        !INTERPOLATE ALL VARS
+        ibcVars(:,:,:,:) = w1*wsaData%ibcVarsW1(:,:,:,:) + w2*wsaData%ibcVarsW2(:,:,:,:)
+
+
+    end subroutine initTSlice
+
+
     ![EP] reads WSA map for a given time step Step#n in innerbc.h5
     subroutine rdWSAMap(wsaData,n,W)
         type(wsaData_T), intent(inout) :: wsaData
         integer, intent(in) :: n !timeslice
         real(rp), dimension(:,:,:,:), intent(out) :: W
-        !real(rp), dimension(:,:,:,:), allocatable :: ibcVars
-
+        
         integer, parameter :: MAXIOVAR = 50
         type(IOVAR_T), dimension(MAXIOVAR) :: IOVars
 
@@ -552,7 +571,9 @@ module usergamic
 
         call ReadVars(IOVars,.false.,wsaData%ebTab%bStr,wsaData%ebTab%gStrs(n)) 
 
-        dims = [wsaData%Nr,wsaData%Nt,wsaData%Np] !i,j,k
+        !add +1 in j and k because of field components at faces
+        dims = [wsaData%Nr,wsaData%Nt+1,wsaData%Np+1] !i,j,k
+        !dims=IOVars(1)%dims(1:3) ! i,j,k
         write(*,*) dims
         !Allocate W
         !Bp_kface has dim 257, 128, 4
@@ -586,7 +607,7 @@ module usergamic
          !reading MJD
          MJD_c = GetIOReal(IOVars,"MJD")
         
-    end subroutine rdEmpMap
+    end subroutine rdWSAMap
 
     subroutine tCalcWeights(wsaData,t,w1,w2)
         type(wsaData_T), intent(inout) :: wsaData
