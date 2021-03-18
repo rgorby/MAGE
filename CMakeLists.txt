@@ -135,7 +135,7 @@ message("\tIC file is ${GAMIC}")
 add_custom_target(gamera ALL)
 message("\tAdding executable gamera.x")
 add_executable(gamera.x src/drivers/gamerax.F90 ${GAMIC})
-target_link_libraries(gamera.x gamlib baselib)
+target_link_libraries(gamera.x gamlib baselib chimplib)
 add_dependencies(gamera gamera.x)
 
 #-------------
@@ -189,7 +189,7 @@ if(ENABLE_MPI)
     add_custom_target(gamera_mpi ALL)
     message("\tAdding executable gamera_mpi.x")
     add_executable(gamera_mpi.x src/drivers/gamera_mpix.F90 ${GAMIC})
-    target_link_libraries(gamera_mpi.x baselib gamlib basempilib gammpilib)
+    target_link_libraries(gamera_mpi.x baselib gamlib basempilib gammpilib chimplib)
     add_dependencies(gamera_mpi gamera_mpi.x)
 
     #-------------

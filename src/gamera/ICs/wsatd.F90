@@ -13,6 +13,7 @@ module usergamic
     use ebinit
     use ebtypes
     use volttypes
+    use chmpfields
 
     implicit none
 
@@ -237,12 +238,6 @@ module usergamic
       integer :: n1, n2
       integer :: Nr, Nt, Np
   
-      !i-boundaries (IN)
-      !$OMP PARALLEL DO default(shared) &
-      !$OMP private(i,j,k,jg,kg,ke,kb,a,var,xyz,R,Theta,Phi,rHat,phiHat) &
-      !$OMP private(ibcVarsStatic,pVar,conVar,xyz0,R_kf,Theta_kf)
-      !$OMP private(w1,w2,n1,n2)
-      
       if (.not.((State%time >= bc%wsaData%wsaT1) .and. (State%time <= bc%wsaData%wsaT2))) then
          !find bounding slices
          call findSlc(bc%wsaData%ebTab,State%time,n1,n2)
@@ -270,15 +265,20 @@ module usergamic
 
       !To obtain Vr and Br values at k-faces do simple interpolation in a uniform grid
       !Vr_kface for kfaces 1:Nk
-      ibcVars(:,:,2:wsaData%Np,VRKFIN) = 0.5*(ibcVars(:,:,1:wsaData%Np,VRIN)+ ibcVars(:,:,2:wsaData%Np+1,VRIN))
+      ibcVars(:,:,2:bc%wsaData%Np,VRKFIN) = 0.5*(ibcVars(:,:,1:bc%wsaData%Np,VRIN)+ ibcVars(:,:,2:bc%wsaData%Np+1,VRIN))
       !boundary faces k=1 and Np+1
-      ibcVars(:,:,1,VRKFIN) = 0.5*(ibcVars(:,:,1,VRIN) + ibcVars(:,:,wsaData%Np,VRIN))
-      ibcVars(:,:,wsaData%Np+1,VRKFIN) = ibcVars(:,:,1,VRKFIN)
+      ibcVars(:,:,1,VRKFIN) = 0.5*(ibcVars(:,:,1,VRIN) + ibcVars(:,:,bc%wsaData%Np,VRIN))
+      ibcVars(:,:,bc%wsaData%Np+1,VRKFIN) = ibcVars(:,:,1,VRKFIN)
       !br_kface
-      ibcVars(:,:,2:wsaData%Np,BRKFIN) = 0.5*(ibcVars(:,:,1:wsaData%Np,BRIN)+ ibcVars(:,:,2:wsaData%Np+1,BRIN))
-      ibcVars(:,:,1,BRKFIN) = 0.5*(ibcVars(:,:,1,BRIN) + ibcVars(:,:,wsaData%Np,BRIN))
-      ibcVars(:,:,wsaData%Np+1,BRKFIN) = ibcVars(:,:,1,BRKFIN)
+      ibcVars(:,:,2:bc%wsaData%Np,BRKFIN) = 0.5*(ibcVars(:,:,1:bc%wsaData%Np,BRIN)+ ibcVars(:,:,2:bc%wsaData%Np+1,BRIN))
+      ibcVars(:,:,1,BRKFIN) = 0.5*(ibcVars(:,:,1,BRIN) + ibcVars(:,:,bc%wsaData%Np,BRIN))
+      ibcVars(:,:,bc%wsaData%Np+1,BRKFIN) = ibcVars(:,:,1,BRKFIN)
 
+      !i-boundaries (IN)
+      !$OMP PARALLEL DO default(shared) &
+      !$OMP private(i,j,k,jg,kg,ke,kb,a,var,xyz,R,Theta,Phi,rHat,phiHat) &
+      !$OMP private(ibcVarsStatic,pVar,conVar,xyz0,R_kf,Theta_kf) &
+      !$OMP private(w1, w2, n1, n2, Nr, Nt, Np) 
       do k=Grid%ksg,Grid%keg+1  ! note, going all the way to last face for mag fluxes
          kg = k+Grid%ijkShift(KDIR)
          ! map rotating to static grid
@@ -491,12 +491,14 @@ module usergamic
     end subroutine readIBC
 
     subroutine initTSlice(wsaFile,inpXML, State)
-       type(wsaData_T), intent(inout) :: wsaData
+       type(wsaData_T) :: wsaData
        type(XML_Input_T), intent(in) :: inpXML
        type(State_T), intent(inout) :: State
+       character(len=strLen), intent(in) :: wsaFile
 
        integer :: n1, n2
        real(rp) :: w1, w2
+       integer :: dims(3)
 
 
        ![EP] we need to covert time in seconds to code units so doTSclO=true
@@ -553,7 +555,7 @@ module usergamic
     subroutine rdWSAMap(wsaData,n,W)
         type(wsaData_T), intent(inout) :: wsaData
         integer, intent(in) :: n !timeslice
-        real(rp), dimension(:,:,:,:), intent(out) :: W
+        real(rp), dimension(:,:,:,:), intent(out), allocatable :: W
         
         integer, parameter :: MAXIOVAR = 50
         type(IOVAR_T), dimension(MAXIOVAR) :: IOVars
@@ -648,8 +650,8 @@ module usergamic
         else
             dt = wsaData%wsaT2-wsaData%wsaT1
             if (dt>TINY) then
-                w1 = (wsaData%empT2-t)/dt
-                w2 = (t - wsaData%empT1)/dt
+                w1 = (wsaData%wsaT2-t)/dt
+                w2 = (t - wsaData%wsaT1)/dt
             else
                 w1 = 0.5
                 w2 = 0.5
