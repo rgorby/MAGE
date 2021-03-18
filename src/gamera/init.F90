@@ -774,6 +774,12 @@ module init
         real(rp), dimension(NDIM) :: f0,f1,f2,f3, fInt,fInt2,fIntx
         logical :: doQuadFT = .false. !Whether to do quadrature for face system
         
+        !Check for divisibility by veclen
+        if ( mod(Grid%ie-Grid%is+1,VECLEN) /= 0 ) then
+            write(*,*) 'Grid divisibility error, Grid I-size not divisible by VECLEN!'
+            stop
+        endif
+        
         !Set pointers needed for Gaussian integrals
         CdV => CellDV
         fCtr => rVec
