@@ -353,6 +353,7 @@ with h5py.File(os.path.join(prm.IbcDir,prm.gameraIbcFile),'w') as hf:
         csp = cs[:,1:-1,:]
         brp = br[:,1:-1,:]
         bt_jface_a_p = bt_jface_a[:,1:-1,:]
+
         bp_kface_a_p = bp_kface_a[:,1:-1,:]
         et_save_p = et_save[1:-1,:]
         ep_save_p = ep_save[1:-1,:]

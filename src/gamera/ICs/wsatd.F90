@@ -19,14 +19,14 @@ module usergamic
     !enum, bind(C)
     !   ! variables passed via innerbc file
     !   ! Br, Vr, Rho, Temperature, Br @ kface, Vr @ kface
-    !   enumerator :: BRIN=1,VRIN,RHOIN,TIN,BRKFIN,VRKFIN
+    !   enumerator :: BRIN=1,VRIN,RHOIN,TIN,VRKFIN,VRKFIN
     !endenum 
 
     !For TD
     enum, bind(C)
        ! variables passed via innerbc file
        ! Br, Bp_kface, Bt_jface, Vr, Vt, Vp, Rho, Cs (TIN)
-       enumerator :: BRIN=1,VRIN,RHOIN,TIN,BPKFIN,BTJFIN,VTIN,VPIN
+       enumerator :: BRIN=1,VRIN,RHOIN,TIN,BPKFIN,BTJFIN,VTIN,VPIN,BRKFIN,VRKFIN
     endenum 
 
     ![EP] data structure for TD
@@ -43,9 +43,16 @@ module usergamic
 
     end type wsaData_T
 
+    type :: ibcVars
+       real(rp), dimension(:,:,:), allocatable :: Rho, Temp, Vr, Vt, Vp, Br, Bt_jf, Bp_kf
+       !cell-centered Rho, Temp, Vr, Vt, Vp, Br have dimensions (Ni, Nt, Nk)
+       !Bt at j-faces (Ni, Nt+1, Nk)
+       !Bp at k-faces (Ni, Nt, Nk+1)
+    end type ibcVars
+
     integer, private, parameter :: NVARSIN=6 ! SHOULD be the same as the number of vars in the above enumerator
     !for TD
-    integer, parameter :: NVARSINTD = 8
+    integer, parameter :: NVARSINTD = 10
     real(rp), dimension(:,:,:,:), allocatable :: ibcVars
 
     !Various global would go here
@@ -111,8 +118,6 @@ module usergamic
 
         ![EP] for TD get the WSA map for current State%time
         call initTSlice(wsaFile,inpXML,State)
-
-        
         !now we have WSA "map" for a current code time
         ![EP] TODO: For restart add boundary cases in time
 
@@ -230,6 +235,7 @@ module usergamic
       real(rp), dimension(NVAR) :: conVar, pVar
       real(rp) :: w1, w2
       integer :: n1, n2
+      integer :: Nr, Nt, Np
   
       !i-boundaries (IN)
       !$OMP PARALLEL DO default(shared) &
@@ -258,11 +264,20 @@ module usergamic
         call tCalcWeights(bc%wsaData,State%time,w1,w2)
 
         !interpolate in time between two WSA maps (all vars)
-        ibcVars(:,:,:,:) = w1*bc%wsaData%ibcVarsW1(:,:,:,:) + w2*bc%wsaData%ibcVarsW2(:,:,:,:)
+        ibcVars(:,:,:,1:VPIN) = w1*bc%wsaData%ibcVarsW1(:,:,:,:) + w2*bc%wsaData%ibcVarsW2(:,:,:,:)
 
       endif
 
-
+      !To obtain Vr and Br values at k-faces do simple interpolation in a uniform grid
+      !Vr_kface for kfaces 1:Nk
+      ibcVars(:,:,2:wsaData%Np,VRKFIN) = 0.5*(ibcVars(:,:,1:wsaData%Np,VRIN)+ ibcVars(:,:,2:wsaData%Np+1,VRIN))
+      !boundary faces k=1 and Np+1
+      ibcVars(:,:,1,VRKFIN) = 0.5*(ibcVars(:,:,1,VRIN) + ibcVars(:,:,wsaData%Np,VRIN))
+      ibcVars(:,:,wsaData%Np+1,VRKFIN) = ibcVars(:,:,1,VRKFIN)
+      !br_kface
+      ibcVars(:,:,2:wsaData%Np,BRKFIN) = 0.5*(ibcVars(:,:,1:wsaData%Np,BRIN)+ ibcVars(:,:,2:wsaData%Np+1,BRIN))
+      ibcVars(:,:,1,BRKFIN) = 0.5*(ibcVars(:,:,1,BRIN) + ibcVars(:,:,wsaData%Np,BRIN))
+      ibcVars(:,:,wsaData%Np+1,BRKFIN) = ibcVars(:,:,1,BRKFIN)
 
       do k=Grid%ksg,Grid%keg+1  ! note, going all the way to last face for mag fluxes
          kg = k+Grid%ijkShift(KDIR)
@@ -327,9 +342,9 @@ module usergamic
                !BRIN=1,VRIN,RHOIN,TIN,BPKFIN,BTJFIN,VTIN,VPIN
                Rfactor = Rbc/norm2(Grid%xfc(Grid%is,j,k,:,IDIR))
                ![EP] at all i-faces flux should be the same. We re-normalize from cc to face
+               !FIX that
                State%magFlux(i,j,k,IDIR) = ibcVarsStatic(BRIN)*Rfactor**2*Grid%face(Grid%is,j,k,IDIR)
                State%magFlux(i,j,k,JDIR) = ibcVarsStatic(BTJFIN)*Grid%face(i,j,k,JDIR)
-               ! BRKFIN and VRKFIN for TD???
                !multiplying by Rbc is not correct. Need to multiply to r_cc
                State%magFlux(i,j,k,KDIR) = - 2*PI/Tsolar*R_kf*sin(Theta_kf)/ibcVarsStatic(VRKFIN)*ibcVarsStatic(BRKFIN)*Grid%face(i,j,k,KDIR) &
                                            + ibcVarsStatic(BPKFIN)*Rbc/norm2(Grid%xfc(i,j,k,:,KDIR))*Grid%face(i,j,k,KDIR)
@@ -497,11 +512,11 @@ module usergamic
         write(*,*) 'rdTab check ', wsaData%ebTab%N, wsaData%ebTab%dNi, wsaData%ebTab%dNj, wsaData%ebTab%dNk
         !!!add a check for steady state and time-dep
 
-        ![EP] diemsions of i-ghost grid
-        !Nr = wsaData%ebTab%dNi
-        !Nt = wsaData%ebTab%dNj
-        !Np = wsaData%ebTab%dNk
-        !write(*,*) Nrr, Nt, Np
+        ![EP] dimensions of i-ghost grid
+        wsaData%Nr = wsaData%ebTab%dNi
+        wsaData%Nt = wsaData%ebTab%dNj
+        wsaData%Np = wsaData%ebTab%dNk
+        write(*,*) 'Dimensions ', wsaData%Nr, wsaData%Nt, wsaData%Np
 
         !TODO allocate ibcVars
 
@@ -527,8 +542,8 @@ module usergamic
         write(*,*)'dims in initSlice', dims
         if (.not.allocated(ibcVars)) allocate(ibcVars(dims(1),dims(2),dims(3),NVARSINTD))
 
-        !INTERPOLATE ALL VARS
-        ibcVars(:,:,:,:) = w1*wsaData%ibcVarsW1(:,:,:,:) + w2*wsaData%ibcVarsW2(:,:,:,:)
+        !INTERPOLATE ALL VARS that we get from innerbc.h5
+        ibcVars(:,:,:,1:VPIN) = w1*wsaData%ibcVarsW1(:,:,:,:) + w2*wsaData%ibcVarsW2(:,:,:,:)
 
 
     end subroutine initTSlice
@@ -572,17 +587,19 @@ module usergamic
         call ReadVars(IOVars,.false.,wsaData%ebTab%bStr,wsaData%ebTab%gStrs(n)) 
 
         !add +1 in j and k because of field components at faces
-        dims = [wsaData%Nr,wsaData%Nt+1,wsaData%Np+1] !i,j,k
-        !dims=IOVars(1)%dims(1:3) ! i,j,k
-        write(*,*) dims
-        !Allocate W
         !Bp_kface has dim 257, 128, 4
         !Bt_jface has dim 256, 129, 4
+        dims = [wsaData%Nr,wsaData%Nt+1,wsaData%Np+1] !i,j,k
+        !dims=IOVars(1)%dims(1:3) ! i,j,k
+        write(*,*) 'Dimensions of W in rdWSAMap', dims
+        !Allocate W
         if (.not.allocated(W)) allocate(W(dims(1),dims(2),dims(3),NVARSINTD))
+        !zero out
+        W = 0.0
 
         !BRIN=1,VRIN,RHOIN,TIN,BPKFIN,BTJFIN,VTIN,VPIN
 
-        do i=1,NVARSINTD
+        do i=1,NVARSINTD-2
          select case (i)
          case (BRIN)
             nvar= FindIO(IOVars,"br")
@@ -604,6 +621,8 @@ module usergamic
 
          W(:,:,:,i) = reshape(IOVars(nvar)%data,dims)
         end do
+
+
          !reading MJD
          MJD_c = GetIOReal(IOVars,"MJD")
         
