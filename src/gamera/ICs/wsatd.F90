@@ -43,12 +43,12 @@ module usergamic
 
     end type wsaData_T
 
-    type :: ibcVars
-       real(rp), dimension(:,:,:), allocatable :: Rho, Temp, Vr, Vt, Vp, Br, Bt_jf, Bp_kf
-       !cell-centered Rho, Temp, Vr, Vt, Vp, Br have dimensions (Ni, Nt, Nk)
-       !Bt at j-faces (Ni, Nt+1, Nk)
-       !Bp at k-faces (Ni, Nt, Nk+1)
-    end type ibcVars
+    !type :: ibcVars
+    !   real(rp), dimension(:,:,:), allocatable :: Rho, Temp, Vr, Vt, Vp, Br, Bt_jf, Bp_kf
+    !   !cell-centered Rho, Temp, Vr, Vt, Vp, Br have dimensions (Ni, Nt, Nk)
+    !   !Bt at j-faces (Ni, Nt+1, Nk)
+    !   !Bp at k-faces (Ni, Nt, Nk+1)
+    !end type ibcVars
 
     integer, private, parameter :: NVARSIN=6 ! SHOULD be the same as the number of vars in the above enumerator
     !for TD
