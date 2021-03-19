@@ -622,6 +622,186 @@ module volthelpers_mpi
         end if
     end subroutine
 
+! Mhd Chimp Interface Transfer Functions
+
+    subroutine sendMhd2ChmpData(mhd2Chmp, vHelpComm)
+        type(mhd2Chmp_T), intent(in) :: mhd2Chmp
+        integer, intent(in) :: vHelpComm
+
+        integer :: ierr, length
+        character( len = MPI_MAX_ERROR_STRING) :: message
+
+        call mpi_bcast(mhd2Chmp, sizeof(mhd2Chmp), MPI_BYTE, 0, vHelpComm, ierr)
+        if(ierr /= MPI_Success) then
+            call MPI_Error_string( ierr, message, length, ierr)
+            print *,message(1:length)
+            call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+        end if
+
+    end subroutine
+
+    subroutine recvMhd2ChmpData(mhd2Chmp, vHelpComm)
+        type(mhd2Chmp_T), intent(inout) :: mhd2Chmp
+        integer, intent(in) :: vHelpComm
+
+        integer :: ierr, length
+        character( len = MPI_MAX_ERROR_STRING) :: message
+
+        call mpi_bcast(mhd2Chmp, sizeof(mhd2Chmp), MPI_BYTE, 0, vHelpComm, ierr)
+        if(ierr /= MPI_Success) then
+            call MPI_Error_string( ierr, message, length, ierr)
+            print *,message(1:length)
+            call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+        end if
+
+    end subroutine
+
+    subroutine sendChmp2MhdSizeAndData(chmp2Mhd, vHelpComm)
+        type(chmp2Mhd_T), intent(in) :: chmp2Mhd
+        integer, intent(in) :: vHelpComm
+
+        call sendChmp2MhdSize(chmp2Mhd, vHelpComm)
+        call sendChmp2MhdData(chmp2Mhd, vHelpComm)
+    end subroutine
+
+    subroutine sendChmp2MhdSize(chmp2Mhd, vHelpComm)
+        type(chmp2Mhd_T), intent(in) :: chmp2Mhd
+        integer, intent(in) :: vHelpComm
+
+        integer :: ierr, length
+        character( len = MPI_MAX_ERROR_STRING) :: message
+
+        call mpi_bcast(shape(chmp2Mhd%xyzSquish), 4, MPI_INTEGER, 0, vHelpComm, ierr)
+        if(ierr /= MPI_Success) then
+            call MPI_Error_string( ierr, message, length, ierr)
+            print *,message(1:length)
+            call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+        end if
+
+        call mpi_bcast(shape(chmp2Mhd%isGood), 3, MPI_INTEGER, 0, vHelpComm, ierr)
+        if(ierr /= MPI_Success) then
+            call MPI_Error_string( ierr, message, length, ierr)
+            print *,message(1:length)
+            call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+        end if
+
+        call mpi_bcast(shape(chmp2Mhd%isEdible), 3, MPI_INTEGER, 0, vHelpComm, ierr)
+        if(ierr /= MPI_Success) then
+            call MPI_Error_string( ierr, message, length, ierr)
+            print *,message(1:length)
+            call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+        end if
+
+    end subroutine
+
+    subroutine sendChmp2MhdData(chmp2Mhd, vHelpComm)
+        type(chmp2Mhd_T), intent(in) :: chmp2Mhd
+        integer, intent(in) :: vHelpComm
+
+        integer :: ierr, length
+        character( len = MPI_MAX_ERROR_STRING) :: message
+
+        ! don't send fields, recv side will fill with default values
+
+        call mpi_bcast(chmp2Mhd%iMax, 1, MPI_INTEGER, 0, vHelpComm, ierr)
+        if(ierr /= MPI_Success) then
+            call MPI_Error_string( ierr, message, length, ierr)
+            print *,message(1:length)
+            call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+        end if
+
+        call mpi_bcast(chmp2Mhd%epsSquish, 1, MPI_MYFLOAT, 0, vHelpComm, ierr)
+        if(ierr /= MPI_Success) then
+            call MPI_Error_string( ierr, message, length, ierr)
+            print *,message(1:length)
+            call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+        end if
+
+        call mpi_bcast(chmp2Mhd%epsds0, 1, MPI_MYFLOAT, 0, vHelpComm, ierr)
+        if(ierr /= MPI_Success) then
+            call MPI_Error_string( ierr, message, length, ierr)
+            print *,message(1:length)
+            call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+        end if
+
+    end subroutine
+
+    subroutine recvChmp2MhdSizeAndData(chmp2Mhd, vHelpComm)
+        type(chmp2Mhd_T), intent(inout) :: chmp2Mhd
+        integer, intent(in) :: vHelpComm
+
+        call recvChmp2MhdSize(chmp2Mhd, vHelpComm)
+        call recvChmp2MhdData(chmp2Mhd, vHelpComm)
+    end subroutine
+
+    subroutine recvChmp2MhdSize(chmp2Mhd, vHelpComm)
+        type(chmp2Mhd_T), intent(inout) :: chmp2Mhd
+        integer, intent(in) :: vHelpComm
+
+        integer :: ierr, length, sizes(4)
+        character( len = MPI_MAX_ERROR_STRING) :: message
+
+        call mpi_bcast(sizes, 4, MPI_INTEGER, 0, vHelpComm, ierr)
+        if(ierr /= MPI_Success) then
+            call MPI_Error_string( ierr, message, length, ierr)
+            print *,message(1:length)
+            call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+        end if
+        allocate(chmp2Mhd%xyzSquish(sizes(1),sizes(2),sizes(3),sizes(4)))
+
+        call mpi_bcast(sizes, 3, MPI_INTEGER, 0, vHelpComm, ierr)
+        if(ierr /= MPI_Success) then
+            call MPI_Error_string( ierr, message, length, ierr)
+            print *,message(1:length)
+            call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+        end if
+        allocate(chmp2Mhd%isGood(sizes(1),sizes(2),sizes(3)))
+
+        call mpi_bcast(sizes, 3, MPI_INTEGER, 0, vHelpComm, ierr)
+        if(ierr /= MPI_Success) then
+            call MPI_Error_string( ierr, message, length, ierr)
+            print *,message(1:length)
+            call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+        end if
+        allocate(chmp2Mhd%isEdible(sizes(1),sizes(2),sizes(3)))
+
+    end subroutine
+
+    subroutine recvChmp2MhdData(chmp2Mhd, vHelpComm)
+        type(chmp2Mhd_T), intent(inout) :: chmp2Mhd
+        integer, intent(in) :: vHelpComm
+
+        integer :: ierr, length
+        character( len = MPI_MAX_ERROR_STRING) :: message
+
+        ! fill fields with default values
+        chmp2Mhd%xyzSquish = 0.0_rp
+        chmp2Mhd%isGood = .false.
+        chmp2Mhd%isEdible = .false.
+
+        call mpi_bcast(chmp2Mhd%iMax, 1, MPI_INTEGER, 0, vHelpComm, ierr)
+        if(ierr /= MPI_Success) then
+            call MPI_Error_string( ierr, message, length, ierr)
+            print *,message(1:length)
+            call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+        end if
+
+        call mpi_bcast(chmp2Mhd%epsSquish, 1, MPI_MYFLOAT, 0, vHelpComm, ierr)
+        if(ierr /= MPI_Success) then
+            call MPI_Error_string( ierr, message, length, ierr)
+            print *,message(1:length)
+            call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+        end if
+
+        call mpi_bcast(chmp2Mhd%epsds0, 1, MPI_MYFLOAT, 0, vHelpComm, ierr)
+        if(ierr /= MPI_Success) then
+            call MPI_Error_string( ierr, message, length, ierr)
+            print *,message(1:length)
+            call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+        end if
+
+    end subroutine
+
 ! Data initialization and data update functions
 
     subroutine sendChimpInitialization(vApp)
@@ -634,6 +814,11 @@ module volthelpers_mpi
         ! squish is static size, only send data
         call sendChimpSquishData(vApp%ebTrcApp%ebSquish, vApp%vHelpComm)
 
+        ! mhd2Chmp is static size, only send data
+        call sendMhd2ChmpData(vApp%mhd2Chmp, vApp%vHelpComm)
+        ! chmp2Mhd is dynamic size
+        call sendChmp2MhdSizeAndData(vApp%chmp2Mhd, vApp%vHelpComm)
+
     end subroutine
 
     subroutine initializeAndReceiveChimp(vApp)
@@ -642,20 +827,77 @@ module volthelpers_mpi
         call recvChimpModelData(vApp%ebTrcApp%ebModel, vApp%vHelpComm)
         call recvChimpStateSizeAndData(vApp%ebTrcApp%ebState, vApp%vHelpComm)
         call recvChimpSquishData(vApp%ebTrcApp%ebSquish, vApp%vHelpComm)
-
+        call recvMhd2ChmpData(vApp%mhd2Chmp, vApp%vHelpComm)
+        call recvChmp2MhdSizeAndData(vApp%chmp2Mhd, vApp%vHelpComm)
     end subroutine
 
     subroutine sendChimpUpdate(vApp)
         type(voltAppMpi_T), intent(in) :: vApp
 
+        integer :: ierr, length
+        character( len = MPI_MAX_ERROR_STRING) :: message
+
         call sendChimpStateData(vApp%ebTrcApp%ebState, vApp%vHelpComm)
+
+        call mpi_bcast(vApp%iDeep, 1, MPI_INTEGER, 0, vApp%vHelpComm, ierr)
+        if(ierr /= MPI_Success) then
+            call MPI_Error_string( ierr, message, length, ierr)
+            print *,message(1:length)
+            call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+        end if
+        call mpi_bcast(vApp%qkSquishStride, 1, MPI_INTEGER, 0, vApp%vHelpComm, ierr)
+        if(ierr /= MPI_Success) then
+            call MPI_Error_string( ierr, message, length, ierr)
+            print *,message(1:length)
+            call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+        end if
+        call mpi_bcast(vApp%doQkSquish, 1, MPI_LOGICAL, 0, vApp%vHelpComm, ierr)
+        if(ierr /= MPI_Success) then
+            call MPI_Error_string( ierr, message, length, ierr)
+            print *,message(1:length)
+            call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+        end if
+        call mpi_bcast(vApp%rTrc, 1, MPI_MYFLOAT, 0, vApp%vHelpComm, ierr)
+        if(ierr /= MPI_Success) then
+            call MPI_Error_string( ierr, message, length, ierr)
+            print *,message(1:length)
+            call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+        end if
 
     end subroutine
 
     subroutine recvChimpUpdate(vApp)
         type(voltAppMpi_T), intent(inout) :: vApp
 
+        integer :: ierr, length
+        character( len = MPI_MAX_ERROR_STRING) :: message
+
         call recvChimpStateData(vApp%ebTrcApp%ebState, vApp%vHelpComm)
+
+        call mpi_bcast(vApp%iDeep, 1, MPI_INTEGER, 0, vApp%vHelpComm, ierr)
+        if(ierr /= MPI_Success) then
+            call MPI_Error_string( ierr, message, length, ierr)
+            print *,message(1:length)
+            call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+        end if
+        call mpi_bcast(vApp%qkSquishStride, 1, MPI_INTEGER, 0, vApp%vHelpComm, ierr)
+        if(ierr /= MPI_Success) then
+            call MPI_Error_string( ierr, message, length, ierr)
+            print *,message(1:length)
+            call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+        end if
+        call mpi_bcast(vApp%doQkSquish, 1, MPI_LOGICAL, 0, vApp%vHelpComm, ierr)
+        if(ierr /= MPI_Success) then
+            call MPI_Error_string( ierr, message, length, ierr)
+            print *,message(1:length)
+            call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+        end if
+        call mpi_bcast(vApp%rTrc, 1, MPI_MYFLOAT, 0, vApp%vHelpComm, ierr)
+        if(ierr /= MPI_Success) then
+            call MPI_Error_string( ierr, message, length, ierr)
+            print *,message(1:length)
+            call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+        end if
 
     end subroutine
 
@@ -733,26 +975,30 @@ module volthelpers_mpi
         call vhRequestType(vApp, VHSQUISHEND)
 
         oldSizes = shape(vApp%chmp2mhd%xyzSquish)
-        newSizes = (/vApp%iDeep+1-vApp%ebTrcApp%ebState%ebGr%is, &
-                     vApp%ebTrcApp%ebState%ebGr%je+1-vApp%ebTrcApp%ebState%ebGr%js, &
-                     1, 2/)
-        offsets = (/vApp%ebTrcApp%ebState%ebGr%is, vApp%ebTrcApp%ebState%ebGr%js, &
-                    vApp%ebTrcApp%ebState%ebGr%ks, 1/)
+        newSizes = (/vApp%iDeep+2-vApp%ebTrcApp%ebState%ebGr%is, &
+                     vApp%ebTrcApp%ebState%ebGr%je+2-vApp%ebTrcApp%ebState%ebGr%js, &
+                     0, 2/)
+        offsets = (/0, 0, 0, 0/)
 
         ! collect solved squish data
-        do i = 1,vApp%ebTrcApp%ebSquish%numSquishBlocks
+        do i = 1,vApp%ebTrcApp%ebSquish%numSquishBlocks-1
             call GetSquishBds(vApp, ks, ke, i)
-            offsets(3) = ks
-            newSizes(3) = ke-ks
+            offsets(3) = ks-1
+            newSizes(3) = ke+1-ks
 
             call mpi_type_create_subarray(4, oldSizes, newSizes, offsets, MPI_ORDER_FORTRAN, MPI_MYFLOAT, newtype, ierr)
+            if(ierr /= MPI_Success) then
+                call MPI_Error_string( ierr, message, length, ierr)
+                print *,message(1:length)
+                call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+            end if
             call mpi_type_commit(newtype, ierr)
             if(ierr /= MPI_Success) then
                 call MPI_Error_string( ierr, message, length, ierr)
                 print *,message(1:length)
                 call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
             end if
-            call mpi_recv(vApp%chmp2mhd%xyzSquish, 1, newtype, i, 78111, vApp%vHelpComm, ierr)
+            call mpi_recv(vApp%chmp2mhd%xyzSquish, 1, newtype, i, 78111, vApp%vHelpComm, MPI_STATUS_IGNORE, ierr)
             if(ierr /= MPI_Success) then
                 call MPI_Error_string( ierr, message, length, ierr)
                 print *,message(1:length)
@@ -767,13 +1013,18 @@ module volthelpers_mpi
 
             ! isGood is the same size as xyzsquish, but only 3 dimensions
             call mpi_type_create_subarray(3, oldSizes, newSizes, offsets, MPI_ORDER_FORTRAN, MPI_LOGICAL, newtype, ierr)
+            if(ierr /= MPI_Success) then
+                call MPI_Error_string( ierr, message, length, ierr)
+                print *,message(1:length)
+                call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+            end if
             call mpi_type_commit(newtype, ierr)
             if(ierr /= MPI_Success) then
                 call MPI_Error_string( ierr, message, length, ierr)
                 print *,message(1:length)
                 call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
             end if
-            call mpi_recv(vApp%chmp2mhd%isGood, 1, newtype, i, 78112, vApp%vHelpComm, ierr)
+            call mpi_recv(vApp%chmp2mhd%isGood, 1, newtype, i, 78112, vApp%vHelpComm, MPI_STATUS_IGNORE, ierr)
             if(ierr /= MPI_Success) then
                 call MPI_Error_string( ierr, message, length, ierr)
                 print *,message(1:length)
@@ -797,18 +1048,22 @@ module volthelpers_mpi
         character( len = MPI_MAX_ERROR_STRING) :: message
 
         oldSizes = shape(vApp%chmp2mhd%xyzSquish)
-        newSizes = (/vApp%iDeep+1-vApp%ebTrcApp%ebState%ebGr%is, &
-                     vApp%ebTrcApp%ebState%ebGr%je+1-vApp%ebTrcApp%ebState%ebGr%js, &
-                     1, 2/)
-        offsets = (/vApp%ebTrcApp%ebState%ebGr%is, vApp%ebTrcApp%ebState%ebGr%js, &
-                    vApp%ebTrcApp%ebState%ebGr%ks, 1/)
+        newSizes = (/vApp%iDeep+2-vApp%ebTrcApp%ebState%ebGr%is, &
+                     vApp%ebTrcApp%ebState%ebGr%je+2-vApp%ebTrcApp%ebState%ebGr%js, &
+                     0, 2/)
+        offsets = (/0, 0, 0, 0/)
 
         ! send solved squish data
         call GetSquishBds(vApp, ks, ke, vApp%vHelpRank)
-        offsets(3) = ks
-        newSizes(3) = ke-ks
+        offsets(3) = ks-1
+        newSizes(3) = ke+1-ks
 
         call mpi_type_create_subarray(4, oldSizes, newSizes, offsets, MPI_ORDER_FORTRAN, MPI_MYFLOAT, newtype, ierr)
+        if(ierr /= MPI_Success) then
+            call MPI_Error_string( ierr, message, length, ierr)
+            print *,message(1:length)
+            call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+        end if
         call mpi_type_commit(newtype, ierr)
         if(ierr /= MPI_Success) then
             call MPI_Error_string( ierr, message, length, ierr)
@@ -830,6 +1085,11 @@ module volthelpers_mpi
 
         ! isGood is the same size as xyzsquish, but only 3 dimensions
         call mpi_type_create_subarray(3, oldSizes, newSizes, offsets, MPI_ORDER_FORTRAN, MPI_LOGICAL, newtype, ierr)
+        if(ierr /= MPI_Success) then
+            call MPI_Error_string( ierr, message, length, ierr)
+            print *,message(1:length)
+            call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+        end if
         call mpi_type_commit(newtype, ierr)
         if(ierr /= MPI_Success) then
             call MPI_Error_string( ierr, message, length, ierr)
