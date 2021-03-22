@@ -135,9 +135,11 @@ module tputils
         type(chmpModel_T), intent(in) :: Model
 
         real(rp) :: K
-        real(rp) :: gamma,p2
+        real(rp) :: gamma,gm1,g2m1,p2
         gamma = prt%Q(GAMGC)
-        p2 = (Model%m0**2.0)*(gamma**2.0 - 1.0)
+        gm1 = gamma - 1.0
+        g2m1 = gm1**2.0 + 2*gm1
+        p2 = (Model%m0**2.0)*g2m1
         K = (p2/Model%m0)/(gamma+1.0)
 
     end function pGC2K
