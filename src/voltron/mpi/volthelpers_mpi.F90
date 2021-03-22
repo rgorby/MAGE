@@ -58,35 +58,45 @@ module volthelpers_mpi
         type(ebState_T), intent(in) :: ebState
         integer, intent(in) :: vHelpComm
 
-        integer :: ierr, length
+        integer :: ierr, length, sizes(10)
         character( len = MPI_MAX_ERROR_STRING) :: message
 
         ! Grid
-        call mpi_bcast(shape(ebState%ebGr%xyz), 4, MPI_INTEGER, 0, vHelpComm, ierr)
+        sizes(1:4) = lbound(ebState%ebGr%xyz)
+        sizes(5:8) = ubound(ebState%ebGr%xyz)
+        call mpi_bcast(sizes, 8, MPI_INTEGER, 0, vHelpComm, ierr)
         if(ierr /= MPI_Success) then
             call MPI_Error_string( ierr, message, length, ierr)
             print *,message(1:length)
             call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
         end if
-        call mpi_bcast(shape(ebState%ebGr%xyzcc), 4, MPI_INTEGER, 0, vHelpComm, ierr)
+        sizes(1:4) = lbound(ebState%ebGr%xyzcc)
+        sizes(5:8) = ubound(ebState%ebGr%xyzcc)
+        call mpi_bcast(sizes, 8, MPI_INTEGER, 0, vHelpComm, ierr)
         if(ierr /= MPI_Success) then
             call MPI_Error_string( ierr, message, length, ierr)
             print *,message(1:length)
             call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
         end if
-        call mpi_bcast(shape(ebState%ebGr%B0cc), 4, MPI_INTEGER, 0, vHelpComm, ierr)
+        sizes(1:4) = lbound(ebState%ebGr%B0cc)
+        sizes(5:8) = ubound(ebState%ebGr%B0cc)
+        call mpi_bcast(sizes, 8, MPI_INTEGER, 0, vHelpComm, ierr)
         if(ierr /= MPI_Success) then
             call MPI_Error_string( ierr, message, length, ierr)
             print *,message(1:length)
             call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
         end if
-        call mpi_bcast(shape(ebState%ebGr%Txi), 5, MPI_INTEGER, 0, vHelpComm, ierr)
+        sizes(1:5) = lbound(ebState%ebGr%Txi)
+        sizes(6:10) = ubound(ebState%ebGr%Txi)
+        call mpi_bcast(sizes, 10, MPI_INTEGER, 0, vHelpComm, ierr)
         if(ierr /= MPI_Success) then
             call MPI_Error_string( ierr, message, length, ierr)
             print *,message(1:length)
             call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
         end if
-        call mpi_bcast(shape(ebState%ebGr%Tix), 5, MPI_INTEGER, 0, vHelpComm, ierr)
+        sizes(1:5) = lbound(ebState%ebGr%Tix)
+        sizes(6:10) = ubound(ebState%ebGr%Tix)
+        call mpi_bcast(sizes, 10, MPI_INTEGER, 0, vHelpComm, ierr)
         if(ierr /= MPI_Success) then
             call MPI_Error_string( ierr, message, length, ierr)
             print *,message(1:length)
@@ -95,38 +105,50 @@ module volthelpers_mpi
 
         ! Fields
         !  eb1
-        call mpi_bcast(shape(ebState%eb1%dB), 4, MPI_INTEGER, 0, vHelpComm, ierr)
+        sizes(1:4) = lbound(ebState%eb1%dB)
+        sizes(5:8) = ubound(ebState%eb1%dB)
+        call mpi_bcast(sizes, 8, MPI_INTEGER, 0, vHelpComm, ierr)
         if(ierr /= MPI_Success) then
             call MPI_Error_string( ierr, message, length, ierr)
             print *,message(1:length)
             call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
         end if
-        call mpi_bcast(shape(ebState%eb1%E), 4, MPI_INTEGER, 0, vHelpComm, ierr)
+        sizes(1:4) = lbound(ebState%eb1%E)
+        sizes(5:8) = ubound(ebState%eb1%E)
+        call mpi_bcast(sizes, 8, MPI_INTEGER, 0, vHelpComm, ierr)
         if(ierr /= MPI_Success) then
             call MPI_Error_string( ierr, message, length, ierr)
             print *,message(1:length)
             call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
         end if
-        call mpi_bcast(shape(ebState%eb1%W), 4, MPI_INTEGER, 0, vHelpComm, ierr)
+        sizes(1:4) = lbound(ebState%eb1%W)
+        sizes(5:8) = ubound(ebState%eb1%w)
+        call mpi_bcast(sizes, 8, MPI_INTEGER, 0, vHelpComm, ierr)
         if(ierr /= MPI_Success) then
             call MPI_Error_string( ierr, message, length, ierr)
             print *,message(1:length)
             call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
         end if
         !  eb2
-        call mpi_bcast(shape(ebState%eb2%dB), 4, MPI_INTEGER, 0, vHelpComm, ierr)
+        sizes(1:4) = lbound(ebState%eb2%dB)
+        sizes(5:8) = ubound(ebState%eb2%dB)
+        call mpi_bcast(sizes, 8, MPI_INTEGER, 0, vHelpComm, ierr)
         if(ierr /= MPI_Success) then
             call MPI_Error_string( ierr, message, length, ierr)
             print *,message(1:length)
             call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
         end if
-        call mpi_bcast(shape(ebState%eb2%E), 4, MPI_INTEGER, 0, vHelpComm, ierr)
+        sizes(1:4) = lbound(ebState%eb2%E)
+        sizes(5:8) = ubound(ebState%eb2%E)
+        call mpi_bcast(sizes, 8, MPI_INTEGER, 0, vHelpComm, ierr)
         if(ierr /= MPI_Success) then
             call MPI_Error_string( ierr, message, length, ierr)
             print *,message(1:length)
             call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
         end if
-        call mpi_bcast(shape(ebState%eb2%W), 4, MPI_INTEGER, 0, vHelpComm, ierr)
+        sizes(1:4) = lbound(ebState%eb2%W)
+        sizes(5:8) = ubound(ebState%eb2%W)
+        call mpi_bcast(sizes, 8, MPI_INTEGER, 0, vHelpComm, ierr)
         if(ierr /= MPI_Success) then
             call MPI_Error_string( ierr, message, length, ierr)
             print *,message(1:length)
@@ -140,13 +162,17 @@ module volthelpers_mpi
             print *,message(1:length)
             call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
         end if
-        call mpi_bcast(shape(ebState%ebTab%times), 1, MPI_INTEGER, 0, vHelpComm, ierr)
+        sizes(1:1) = lbound(ebState%ebTab%times)
+        sizes(2:2) = ubound(ebState%ebTab%times)
+        call mpi_bcast(sizes, 2, MPI_INTEGER, 0, vHelpComm, ierr)
         if(ierr /= MPI_Success) then
             call MPI_Error_string( ierr, message, length, ierr)
             print *,message(1:length)
             call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
         end if
-        call mpi_bcast(shape(ebState%ebTab%MJDs), 1, MPI_INTEGER, 0, vHelpComm, ierr)
+        sizes(1:1) = lbound(ebState%ebTab%MJDs)
+        sizes(2:2) = ubound(ebState%ebTab%MJDs)
+        call mpi_bcast(sizes, 2, MPI_INTEGER, 0, vHelpComm, ierr)
         if(ierr /= MPI_Success) then
             call MPI_Error_string( ierr, message, length, ierr)
             print *,message(1:length)
@@ -324,91 +350,91 @@ module volthelpers_mpi
         type(ebState_T), intent(inout) :: ebState
         integer, intent(in) :: vHelpComm
 
-        integer :: ierr, length, sizes(5)
+        integer :: ierr, length, sizes(10)
         character( len = MPI_MAX_ERROR_STRING) :: message
 
         ! Grid
-        call mpi_bcast(sizes, 4, MPI_INTEGER, 0, vHelpComm, ierr)
+        call mpi_bcast(sizes, 8, MPI_INTEGER, 0, vHelpComm, ierr)
         if(ierr /= MPI_Success) then
             call MPI_Error_string( ierr, message, length, ierr)
             print *,message(1:length)
             call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
         end if
-        allocate(ebState%ebGr%xyz(sizes(1),sizes(2),sizes(3),sizes(4)))
-        call mpi_bcast(sizes, 4, MPI_INTEGER, 0, vHelpComm, ierr)
+        allocate(ebState%ebGr%xyz(sizes(1):sizes(5),sizes(2):sizes(6),sizes(3):sizes(7),sizes(4):sizes(8)))
+        call mpi_bcast(sizes, 8, MPI_INTEGER, 0, vHelpComm, ierr)
         if(ierr /= MPI_Success) then
             call MPI_Error_string( ierr, message, length, ierr)
             print *,message(1:length)
             call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
         end if
-        allocate(ebState%ebGr%xyzcc(sizes(1),sizes(2),sizes(3),sizes(4)))
-        call mpi_bcast(sizes, 4, MPI_INTEGER, 0, vHelpComm, ierr)
+        allocate(ebState%ebGr%xyzcc(sizes(1):sizes(5),sizes(2):sizes(6),sizes(3):sizes(7),sizes(4):sizes(8)))
+        call mpi_bcast(sizes, 8, MPI_INTEGER, 0, vHelpComm, ierr)
         if(ierr /= MPI_Success) then
             call MPI_Error_string( ierr, message, length, ierr)
             print *,message(1:length)
             call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
         end if
-        allocate(ebState%ebGr%B0cc(sizes(1),sizes(2),sizes(3),sizes(4)))
-        call mpi_bcast(sizes, 5, MPI_INTEGER, 0, vHelpComm, ierr)
+        allocate(ebState%ebGr%B0cc(sizes(1):sizes(5),sizes(2):sizes(6),sizes(3):sizes(7),sizes(4):sizes(8)))
+        call mpi_bcast(sizes, 10, MPI_INTEGER, 0, vHelpComm, ierr)
         if(ierr /= MPI_Success) then
             call MPI_Error_string( ierr, message, length, ierr)
             print *,message(1:length)
             call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
         end if
-        allocate(ebState%ebGr%Txi(sizes(1),sizes(2),sizes(3),sizes(4),sizes(5)))
-        call mpi_bcast(sizes, 5, MPI_INTEGER, 0, vHelpComm, ierr)
+        allocate(ebState%ebGr%Txi(sizes(1):sizes(6),sizes(2):sizes(7),sizes(3):sizes(8),sizes(4):sizes(9),sizes(5):sizes(10)))
+        call mpi_bcast(sizes, 10, MPI_INTEGER, 0, vHelpComm, ierr)
         if(ierr /= MPI_Success) then
             call MPI_Error_string( ierr, message, length, ierr)
             print *,message(1:length)
             call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
         end if
-        allocate(ebState%ebGr%Tix(sizes(1),sizes(2),sizes(3),sizes(4),sizes(5)))
+        allocate(ebState%ebGr%Tix(sizes(1):sizes(6),sizes(2):sizes(7),sizes(3):sizes(8),sizes(4):sizes(9),sizes(5):sizes(10)))
 
         ! Fields
         !  eb1
-        call mpi_bcast(sizes, 4, MPI_INTEGER, 0, vHelpComm, ierr)
+        call mpi_bcast(sizes, 8, MPI_INTEGER, 0, vHelpComm, ierr)
         if(ierr /= MPI_Success) then
             call MPI_Error_string( ierr, message, length, ierr)
             print *,message(1:length)
             call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
         end if
-        allocate(ebState%eb1%dB(sizes(1),sizes(2),sizes(3),sizes(4)))
-        call mpi_bcast(sizes, 4, MPI_INTEGER, 0, vHelpComm, ierr)
+        allocate(ebState%eb1%dB(sizes(1):sizes(5),sizes(2):sizes(6),sizes(3):sizes(7),sizes(4):sizes(8)))
+        call mpi_bcast(sizes, 8, MPI_INTEGER, 0, vHelpComm, ierr)
         if(ierr /= MPI_Success) then
             call MPI_Error_string( ierr, message, length, ierr)
             print *,message(1:length)
             call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
         end if
-        allocate(ebState%eb1%E(sizes(1),sizes(2),sizes(3),sizes(4)))
-        call mpi_bcast(sizes, 4, MPI_INTEGER, 0, vHelpComm, ierr)
+        allocate(ebState%eb1%E(sizes(1):sizes(5),sizes(2):sizes(6),sizes(3):sizes(7),sizes(4):sizes(8)))
+        call mpi_bcast(sizes, 8, MPI_INTEGER, 0, vHelpComm, ierr)
         if(ierr /= MPI_Success) then
             call MPI_Error_string( ierr, message, length, ierr)
             print *,message(1:length)
             call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
         end if
-        allocate(ebState%eb1%W(sizes(1),sizes(2),sizes(3),sizes(4)))
+        allocate(ebState%eb1%W(sizes(1):sizes(5),sizes(2):sizes(6),sizes(3):sizes(7),sizes(4):sizes(8)))
         !  eb2
-        call mpi_bcast(sizes, 4, MPI_INTEGER, 0, vHelpComm, ierr)
+        call mpi_bcast(sizes, 8, MPI_INTEGER, 0, vHelpComm, ierr)
         if(ierr /= MPI_Success) then
             call MPI_Error_string( ierr, message, length, ierr)
             print *,message(1:length)
             call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
         end if
-        allocate(ebState%eb2%dB(sizes(1),sizes(2),sizes(3),sizes(4)))
-        call mpi_bcast(sizes, 4, MPI_INTEGER, 0, vHelpComm, ierr)
+        allocate(ebState%eb2%dB(sizes(1):sizes(5),sizes(2):sizes(6),sizes(3):sizes(7),sizes(4):sizes(8)))
+        call mpi_bcast(sizes, 8, MPI_INTEGER, 0, vHelpComm, ierr)
         if(ierr /= MPI_Success) then
             call MPI_Error_string( ierr, message, length, ierr)
             print *,message(1:length)
             call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
         end if
-        allocate(ebState%eb2%E(sizes(1),sizes(2),sizes(3),sizes(4)))
-        call mpi_bcast(sizes, 4, MPI_INTEGER, 0, vHelpComm, ierr)
+        allocate(ebState%eb2%E(sizes(1):sizes(5),sizes(2):sizes(6),sizes(3):sizes(7),sizes(4):sizes(8)))
+        call mpi_bcast(sizes, 8, MPI_INTEGER, 0, vHelpComm, ierr)
         if(ierr /= MPI_Success) then
             call MPI_Error_string( ierr, message, length, ierr)
             print *,message(1:length)
             call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
         end if
-        allocate(ebState%eb2%W(sizes(1),sizes(2),sizes(3),sizes(4)))
+        allocate(ebState%eb2%W(sizes(1):sizes(5),sizes(2):sizes(6),sizes(3):sizes(7),sizes(4):sizes(8)))
 
         ! Tab
         call mpi_bcast(sizes, 1, MPI_INTEGER, 0, vHelpComm, ierr)
@@ -418,20 +444,20 @@ module volthelpers_mpi
             call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
         end if
         allocate(ebState%ebTab%gStrs(sizes(1)))
-        call mpi_bcast(sizes, 1, MPI_INTEGER, 0, vHelpComm, ierr)
+        call mpi_bcast(sizes, 2, MPI_INTEGER, 0, vHelpComm, ierr)
         if(ierr /= MPI_Success) then
             call MPI_Error_string( ierr, message, length, ierr)
             print *,message(1:length)
             call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
         end if
-        allocate(ebState%ebTab%times(sizes(1)))
-        call mpi_bcast(sizes, 1, MPI_INTEGER, 0, vHelpComm, ierr)
+        allocate(ebState%ebTab%times(sizes(1):sizes(2)))
+        call mpi_bcast(sizes, 2, MPI_INTEGER, 0, vHelpComm, ierr)
         if(ierr /= MPI_Success) then
             call MPI_Error_string( ierr, message, length, ierr)
             print *,message(1:length)
             call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
         end if
-        allocate(ebState%ebTab%MJDs(sizes(1)))
+        allocate(ebState%ebTab%MJDs(sizes(1):sizes(2)))
 
     end subroutine
 
@@ -668,24 +694,28 @@ module volthelpers_mpi
         type(chmp2Mhd_T), intent(in) :: chmp2Mhd
         integer, intent(in) :: vHelpComm
 
-        integer :: ierr, length
+        integer :: ierr, length, sizes(8)
         character( len = MPI_MAX_ERROR_STRING) :: message
 
-        call mpi_bcast(shape(chmp2Mhd%xyzSquish), 4, MPI_INTEGER, 0, vHelpComm, ierr)
+        sizes(1:4) = lbound(chmp2Mhd%xyzSquish)
+        sizes(5:8) = ubound(chmp2Mhd%xyzSquish)
+        call mpi_bcast(sizes, 8, MPI_INTEGER, 0, vHelpComm, ierr)
         if(ierr /= MPI_Success) then
             call MPI_Error_string( ierr, message, length, ierr)
             print *,message(1:length)
             call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
         end if
-
-        call mpi_bcast(shape(chmp2Mhd%isGood), 3, MPI_INTEGER, 0, vHelpComm, ierr)
+        sizes(1:3) = lbound(chmp2Mhd%isGood)
+        sizes(4:6) = ubound(chmp2Mhd%isGood)
+        call mpi_bcast(sizes, 6, MPI_INTEGER, 0, vHelpComm, ierr)
         if(ierr /= MPI_Success) then
             call MPI_Error_string( ierr, message, length, ierr)
             print *,message(1:length)
             call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
         end if
-
-        call mpi_bcast(shape(chmp2Mhd%isEdible), 3, MPI_INTEGER, 0, vHelpComm, ierr)
+        sizes(1:3) = lbound(chmp2Mhd%isEdible)
+        sizes(4:6) = ubound(chmp2Mhd%isEdible)
+        call mpi_bcast(sizes, 6, MPI_INTEGER, 0, vHelpComm, ierr)
         if(ierr /= MPI_Success) then
             call MPI_Error_string( ierr, message, length, ierr)
             print *,message(1:length)
@@ -738,32 +768,30 @@ module volthelpers_mpi
         type(chmp2Mhd_T), intent(inout) :: chmp2Mhd
         integer, intent(in) :: vHelpComm
 
-        integer :: ierr, length, sizes(4)
+        integer :: ierr, length, sizes(8)
         character( len = MPI_MAX_ERROR_STRING) :: message
 
-        call mpi_bcast(sizes, 4, MPI_INTEGER, 0, vHelpComm, ierr)
+        call mpi_bcast(sizes, 8, MPI_INTEGER, 0, vHelpComm, ierr)
         if(ierr /= MPI_Success) then
             call MPI_Error_string( ierr, message, length, ierr)
             print *,message(1:length)
             call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
         end if
-        allocate(chmp2Mhd%xyzSquish(sizes(1),sizes(2),sizes(3),sizes(4)))
-
-        call mpi_bcast(sizes, 3, MPI_INTEGER, 0, vHelpComm, ierr)
+        allocate(chmp2Mhd%xyzSquish(sizes(1):sizes(5),sizes(2):sizes(6),sizes(3):sizes(7),sizes(4):sizes(8)))
+        call mpi_bcast(sizes, 6, MPI_INTEGER, 0, vHelpComm, ierr)
         if(ierr /= MPI_Success) then
             call MPI_Error_string( ierr, message, length, ierr)
             print *,message(1:length)
             call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
         end if
-        allocate(chmp2Mhd%isGood(sizes(1),sizes(2),sizes(3)))
-
-        call mpi_bcast(sizes, 3, MPI_INTEGER, 0, vHelpComm, ierr)
+        allocate(chmp2Mhd%isGood(sizes(1):sizes(4),sizes(2):sizes(5),sizes(3):sizes(6)))
+        call mpi_bcast(sizes, 6, MPI_INTEGER, 0, vHelpComm, ierr)
         if(ierr /= MPI_Success) then
             call MPI_Error_string( ierr, message, length, ierr)
             print *,message(1:length)
             call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
         end if
-        allocate(chmp2Mhd%isEdible(sizes(1),sizes(2),sizes(3)))
+        allocate(chmp2Mhd%isEdible(sizes(1):sizes(4),sizes(2):sizes(5),sizes(3):sizes(6)))
 
     end subroutine
 
@@ -807,6 +835,9 @@ module volthelpers_mpi
     subroutine sendChimpInitialization(vApp)
         type(voltAppMpi_T), intent(in) :: vApp
 
+        integer :: ierr, length
+        character( len = MPI_MAX_ERROR_STRING) :: message
+
         ! model is static size, only send data
         call sendChimpModelData(vApp%ebTrcApp%ebModel, vApp%vHelpComm)
         ! state is dynamic size
@@ -819,16 +850,46 @@ module volthelpers_mpi
         ! chmp2Mhd is dynamic size
         call sendChmp2MhdSizeAndData(vApp%chmp2Mhd, vApp%vHelpComm)
 
+        call mpi_bcast(vApp%imType, 1, MPI_MYFLOAT, 0, vApp%vHelpComm, ierr)
+        if(ierr /= MPI_Success) then
+            call MPI_Error_string( ierr, message, length, ierr)
+            print *,message(1:length)
+            call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+        end if
+        call mpi_bcast(vApp%prType, 1, MPI_MYFLOAT, 0, vApp%vHelpComm, ierr)
+        if(ierr /= MPI_Success) then
+            call MPI_Error_string( ierr, message, length, ierr)
+            print *,message(1:length)
+            call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+        end if
+
     end subroutine
 
     subroutine initializeAndReceiveChimp(vApp)
         type(voltAppMpi_T), intent(inout) :: vApp
+
+        integer :: ierr, length
+        character( len = MPI_MAX_ERROR_STRING) :: message
 
         call recvChimpModelData(vApp%ebTrcApp%ebModel, vApp%vHelpComm)
         call recvChimpStateSizeAndData(vApp%ebTrcApp%ebState, vApp%vHelpComm)
         call recvChimpSquishData(vApp%ebTrcApp%ebSquish, vApp%vHelpComm)
         call recvMhd2ChmpData(vApp%mhd2Chmp, vApp%vHelpComm)
         call recvChmp2MhdSizeAndData(vApp%chmp2Mhd, vApp%vHelpComm)
+
+        call mpi_bcast(vApp%imType, 1, MPI_MYFLOAT, 0, vApp%vHelpComm, ierr)
+        if(ierr /= MPI_Success) then
+            call MPI_Error_string( ierr, message, length, ierr)
+            print *,message(1:length)
+            call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+        end if
+        call mpi_bcast(vApp%prType, 1, MPI_MYFLOAT, 0, vApp%vHelpComm, ierr)
+        if(ierr /= MPI_Success) then
+            call MPI_Error_string( ierr, message, length, ierr)
+            print *,message(1:length)
+            call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+        end if
+
     end subroutine
 
     subroutine sendChimpUpdate(vApp)
@@ -964,6 +1025,10 @@ module volthelpers_mpi
         call mpi_bcast(vApp%ebTrcApp%ebSquish%myNumBlocks, 1, MPI_INT, 0, vApp%vHelpComm, ierr)
         vApp%ebTrcApp%ebSquish%myFirstBlock = vApp%vHelpRank ! work on my own rank block
         vApp%ebTrcApp%ebSquish%curSquishBlock = vApp%ebTrcApp%ebSquish%myFirstBlock
+
+        do while(SquishBlocksRemain(vApp))
+            call DoSquishBlock(vApp)
+        end do
 
     end subroutine
 

@@ -110,7 +110,10 @@ module voltapp_mpi
                 call getIDeckStr(inpXML)
             endif
             call CheckFileOrDie(inpXML,"Error opening input deck in initVoltron_mpi, exiting ...")
-            xmlInp = New_XML_Input(trim(inpXML),'Gamera',.false.)
+            xmlInp = New_XML_Input(trim(inpXML),'Voltron',.false.)
+
+            call SetOMP(xmlInp)
+
             call xmlInp%Set_Val(vApp%useHelpers,"/Voltron/Helpers/useHelpers",.true.)
             call xmlInp%Set_Val(vApp%doSquishHelp,"/Voltron/Helpers/doSquishHelp",.true.)
             call xmlInp%Set_Val(nHelpers,"/Voltron/Helpers/numHelpers",0)

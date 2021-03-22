@@ -68,7 +68,7 @@ module ebsquish
         else
             ! do some blocks
             blockCount = ebSquish%curSquishBlock - ebSquish%myFirstBlock ! blocks completed
-            SquishBlocksRemain = ebSquish%myNumBlocks < blockCount
+            SquishBlocksRemain = blockCount < ebSquish%myNumBlocks
         endif
 
         end associate
