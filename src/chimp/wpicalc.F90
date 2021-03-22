@@ -17,6 +17,9 @@ module wpicalc
     ! to reduce error and not allow large resonance times 
     real(rp), private :: dAalim = 0.0087_rp 
 
+    !scales ratio of e- gyro to plasma frequency in code units to real value
+    real(rp), parameter :: inWScl = (qe_cgs*Re_cgs/vc_cgs/sqrt(Me_cgs))**2.0 ! Assumes L0 = Re_cgs
+
     contains
 
     !FIXME: include capability of particle interaction with multiple waves
@@ -35,7 +38,7 @@ module wpicalc
         real(rp), dimension(NVARMHD) :: Qmhd
         complex(rp), dimension(2) :: quadCoef,dtLim ! used to set subcycle dt given dAlim
         real(rp) :: gamNew,aNew,pNew,MagB,Mu,p11Mag,K,rho,psi,L,phi
-        real(rp) :: Ome,wpe,astar,xHigh,xj,yj,dGDda,Daa,inWScl
+        real(rp) :: Ome,wpe,astar,xHigh,xj,yj,dGDda,Daa
         real(rp) :: dtCum,dtRem,ddt,daMax ! substep used in wpi calculations, not same as ddt in pusher.F90 
         real(rp) :: zEq = 0.0 !Defined Z for equator
         real(rp) :: aCoef,bCoef !coefficients to LangevinEq
@@ -96,8 +99,6 @@ module wpicalc
         endif
 
         !Calulating the ratio of nonrelativistic gyrofrequency to plasma frequency at prt's location
-        !normalization constant to put wpe in code units
-        inWScl = 114704.0207604_rp !(qe_cgs*L0/(vc_cgs*sqrt(Me_cgs)))^2
         Ome = MagB 
         wpe = sqrt(4*PI*rho) 
         astar = Ome**2/((wpe**2)*inWScl)
@@ -127,7 +128,7 @@ module wpicalc
             dGDda = derivGD(wave,wModel,Model%m0,K,pa,astar,MagB)
 
             gamma = prt2Gam(prt,Model%m0)
-            p0 = Model%m0*sqrt(gamma**2.0-1.0)
+            p0 = Model%m0*sqrt(gamma**2.0-1.0) 
             G = sin(pa)*p0*p0
 
             !coefficients for Langevin Equation
@@ -437,6 +438,7 @@ module wpicalc
         real(rp),          intent(in)    :: aCoef,bCoef,dt,astar
         real(rp),          intent(inout) :: a1,p1   ! new pitch-angle and momentum of particle after wpi
         real(rp), intent(in), optional   :: constDA ! use a constant change in pitch angle if desired
+        logical, dimension(6)            :: isRoot ! array to check if any partial step of integrator has no resonant roots
         real(rp) :: eta,da
         real(rp) :: gamma
 
@@ -447,18 +449,34 @@ module wpicalc
             da = aCoef*dt + bCoef*eta*sqrt(dt)
         end if
 
+        !catch to not go past alpha = 90 degrees
+        ! if ((prt%alpha < PI/2 .and. prt%alpha+da > PI/2) .or. (prt%alpha > PI/2 .and. prt%alpha+da < PI/2)) then
+        !     da = aSgn*abs(a1-PI/2)
+        !     write(*,*) 'RKF45: da over 90, fixing:  ',a1,da
+        ! end if
+
         !push back when get to alpha = 90 degrees so dont cross 
         ! if ((prt%alpha < PI/2 .and. prt%alpha+da > PI/2) .or. (prt%alpha > PI/2 .and. prt%alpha+da < PI/2)) then
         !push back when get to alpha = 70 degrees so dont cross 
         ! if ((prt%alpha < 1.22173 .and. prt%alpha+da > 1.22173) .or. (prt%alpha > 2.0944 .and. prt%alpha+da < 2.0944)) then
         ! if ((prt%alpha < 0.698132 .and. prt%alpha+da > 0.698132) .or. (prt%alpha > 2.44346 .and. prt%alpha+da < 2.44346)) then
+
+        !keep between 85 and 70
+        ! if ((prt%alpha > 1.22173 .and. prt%alpha+da < 1.22173) .or. (prt%alpha < 1.48353 .and. prt%alpha+da > 1.48353)) then
         !     da = -1.0*da
         ! end if
 
+        isRoot = .false.
+        do while(.not.all(isRoot))
+            call rkf45(wave,wModel,prt,Model%m0,astar,da,isRoot,p1)
+            if (.not.all(isRoot)) then
+                da = da/2.0_rp ! if da too large, reduce 
+                write(*,*) "lowering da", isRoot
+            end if
+        enddo
+
+        !update pitch angle with final da
         a1 = prt%alpha + da
-        p1 = rkf45(wave,wModel,prt,Model%m0,astar,da)
-        ! gamma = prt2Gam(prt,Model%m0)
-        ! p1 = Model%m0*sqrt(gamma**2.0-1.0)
 
     end subroutine LangevinEq
 
@@ -480,39 +498,33 @@ module wpicalc
 
     ! adaptive step RK following the Runge-Kutta-Fehlberg Method (RKF45)
     ! http://maths.cnam.fr/IMG/pdf/RungeKuttaFehlbergProof.pdf
-    function rkf45(wave,wModel,prt,m0,astar,deltaA) result(p1)
+    subroutine rkf45(wave,wModel,prt,m0,astar,da,isRoot,p1) 
         type(wave_T),   intent(in) :: wave
         type(wModel_T), intent(in) :: wModel
-        type(prt_t),       intent(in)    :: prt
-        real(rp),          intent(in)    :: m0,astar,deltaA
+        type(prt_t),    intent(in) :: prt
+        real(rp),       intent(in) :: m0,astar,da
+        logical, dimension(6), intent(inout) :: isRoot
+        real(rp),       intent(out):: p1
 
-        real(rp) :: u,a1,p1,aStp,pStp,kStp,xStp,yStp,uStp,y1
-        real(rp) :: tol,h,s,dah,daRem,unity,aSgn,gamma,da
+        real(rp) :: u,a1,aStp,pStp,kStp,xStp,yStp,uStp,y1
+        real(rp) :: tol,h,s,dah,daRem,unity,aSgn,gamma
         real(rp) :: k1,k2,k3,k4,k5,k6 
         integer  :: Nmax,i
         logical :: doAllWaves
 
-        tol = 1.0e-2
-        h   = deltaA/100.0 !deltaA & h holds +/- direction 
+        tol = 1.0e-8
+        h   = da/100.0 !da & h holds +/- direction 
         unity = 1.0
         doAllWaves = .true.
 
-        aSgn = sign(unity,deltaA)
+        aSgn = sign(unity,da)
         a1 = prt%alpha
 
         gamma = prt2Gam(prt,m0)
         p1 = m0*sqrt(gamma**2.0-1.0)
 
-        u = prt%xj/prt%yj ! phase velocity of the wave normalized by c
+        ! u = prt%xj/prt%yj ! phase velocity of the wave normalized by c
 
-        !catch to not go past alpha = 90 degrees
-        if ((a1 < PI/2 .and. a1+deltaA > PI/2) .or. (a1 > PI/2 .and. a1+deltaA < PI/2)) then
-            da = aSgn*abs(a1-PI/2)
-            write(*,*) 'RKF45: da over 90, fixing:  ',a1,deltaA,da
-        else
-            da = deltaA
-        end if
-       
         i  = 0
         dah = 0
         do while(abs(dah) < abs(da)) 
@@ -520,15 +532,28 @@ module wpicalc
             if (abs(daRem) < abs(h))then 
                 h = daRem ! So don't overshoot 
             end if
-
             !Apply Runge-Kutta-Fehlberg formulas to find next value of p
-            k1 = h * dpda(a1, p1, m0, u) 
+            aStp = a1
+            pStp = p1
+            kStp = sqrt(pStp**2.+m0**2.) - m0
+            call Resonance(wave,wModel,m0,kStp,aStp,astar,xStp,yStp,doAllWaves)
+            if (xStp == 999) then 
+                isRoot(1) = .false.
+            else
+                isRoot(1) = .true.
+            endif
+            uStp = xStp/yStp
+            k1 = h * dpda(a1, p1, m0, uStp) 
 
             aStp = a1+0.25*h
             pStp = p1+0.25*k1
             kStp = sqrt(pStp**2.+m0**2.) - m0
             call Resonance(wave,wModel,m0,kStp,aStp,astar,xStp,yStp,doAllWaves)
-            if (xStp == 999) write(*,*) 'RKF45_1: No Resonant wave: aStp,pStp,kStp,a1,da:  ',aStp*rad2deg,pStp,(m0*mec2*1.0e+3)*kStp,a1,da
+            if (xStp == 999) then 
+                isRoot(2) = .false.
+            else
+                isRoot(2) = .true.
+            endif
             uStp = xStp/yStp
             k2 = h * dpda(aStp, pStp, m0, uStp) 
 
@@ -536,7 +561,11 @@ module wpicalc
             pStp = p1+0.09375*k1+0.28125*k2
             kStp = sqrt(pStp**2.+m0**2.) - m0
             call Resonance(wave,wModel,m0,kStp,aStp,astar,xStp,yStp,doAllWaves)
-            if (xStp == 999) write(*,*) 'RKF45_2: No Resonant wave: aStp,pStp,kStp,a1,da:  ',aStp*rad2deg,pStp,(m0*mec2*1.0e+3)*kStp,a1,da
+            if (xStp == 999) then 
+                isRoot(3) = .false.
+            else
+                isRoot(3) = .true.
+            endif
             uStp = xStp/yStp
             k3 = h * dpda(aStp, pStp, m0, uStp) 
 
@@ -544,7 +573,11 @@ module wpicalc
             pStp = p1 + (1932*k1-7200*k2+7296*k3)/2197
             kStp = sqrt(pStp**2.+m0**2.) - m0
             call Resonance(wave,wModel,m0,kStp,aStp,astar,xStp,yStp,doAllWaves)
-            if (xStp == 999) write(*,*) 'RKF45_3: No Resonant wave: aStp,pStp,kStp,a1,da:  ',aStp*rad2deg,pStp,(m0*mec2*1.0e+3)*kStp,a1,da
+            if (xStp == 999) then 
+                isRoot(4) = .false.
+            else
+                isRoot(4) = .true.
+            endif
             uStp = xStp/yStp
             k4 = h * dpda(aStp, pStp, m0, uStp)
 
@@ -552,7 +585,11 @@ module wpicalc
             pStp = p1 + (8341*k1-32832*k2+29440*k3-845*k4)/4104
             kStp = sqrt(pStp**2.+m0**2.) - m0
             call Resonance(wave,wModel,m0,kStp,aStp,astar,xStp,yStp,doAllWaves)
-            if (xStp == 999) write(*,*) 'RKF45_4: No Resonant wave: aStp,pStp,kStp,a1,da:  ',aStp*rad2deg,pStp,(m0*mec2*1.0e+3)*kStp,a1,da
+            if (xStp == 999) then 
+                isRoot(5) = .false.
+            else
+                isRoot(5) = .true.
+            endif
             uStp = xStp/yStp 
             k5 = h * dpda(aStp, pStp, m0, uStp) 
 
@@ -560,13 +597,19 @@ module wpicalc
             pStp = p1 + (-6080*k1+41040*k2-28352*k3-9295*k4-5643*k5)/20520
             kStp = sqrt(pStp**2.+m0**2.) - m0
             call Resonance(wave,wModel,m0,kStp,aStp,astar,xStp,yStp,doAllWaves)
-            if (xStp == 999) write(*,*) 'RKF45_5: No Resonant wave: aStp,pStp,kStp,a1,da:  ',aStp*rad2deg,pStp,(m0*mec2*1.0e+3)*kStp,a1,da
+            if (xStp == 999) then 
+                isRoot(6) = .false.
+            else
+                isRoot(6) = .true.
+            endif
             uStp = xStp/yStp
             k6 = h * dpda(aStp, pStp, m0, uStp) 
 
             ! Update next value of p 
             y1 = p1 + (3246625*k1+15397888*k3+15027480*k4-5610168*k5)/28050840
             p1 = p1 + (33440*k1+146432*k3+142805*k4-50787*k5+10260*k6)/282150
+
+            if(.not.all(isRoot)) exit !if encounter no resonant roots break out & reduce da
 
             ! Update next value of a1 
             a1 = a1 + h 
@@ -582,6 +625,6 @@ module wpicalc
             h = s*h
         enddo
 
-    end function rkf45
+    end subroutine rkf45
 
 end module wpicalc
