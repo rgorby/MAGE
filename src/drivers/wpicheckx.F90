@@ -347,14 +347,14 @@ program wpicheck
 
             character(len=strLen) :: outH5 = "singlePrtTest.h5"
 
-            real(rp), dimension(:), allocatable :: kwpi,awpi,xjwpi,yjwpi,p11wpi,gamwpi,muwpi,Nwpi,time
+            real(rp), dimension(:), allocatable :: kwpi,awpi,xjwpi,yjwpi,p11wpi,gamwpi,muwpi,Nwpi,time,dKwpi,dAwpi
             real(rp), dimension(:), allocatable :: kDC,aDC,xjDC,yjDC,p11DC,gamDC,muDC
             real(rp) :: B0,n0
             real(rp) :: K0,alpha0,psi0
-            real(rp) :: t0,t1,dt
+            real(rp) :: t0,t1,dt,modTout
             integer  :: Nt,s,Na,n
             real(rp) :: wpe,inWScl,astar,xj,yj,Daa=0.0001,dGDda=0.5 !Daa,dGDda are not used, using const da
-            real(rp) :: dAlim = 0.0087
+            real(rp) :: dAlim = 0.00087
             real(rp) :: gamNew,aNew,pNew,Mu,p11Mag,Kprt
             integer  :: pSgn=1
 
@@ -408,6 +408,8 @@ program wpicheck
             allocate(muwpi(Nt))
             allocate(Nwpi(Nt))
             allocate(time(Nt))
+            allocate(dKwpi(Nt))
+            allocate(dAwpi(Nt))
 
             do s=1,Nt
                 call PerformWPI(prt,Model%t,Model%dt,Model,ebState,B0,n0) 
@@ -421,6 +423,10 @@ program wpicheck
                 gamwpi(s) = prt%Q(GAMGC)
                 Nwpi(s) = prt%Nwpi
                 time(s) = oTScl*Model%t
+                dKwpi(s)= prt%dKwpi
+                dAwpi(s)= prt%dAwpi
+                ! if (modulo(Model%t,100*inTScl) ==0) write (*,*) time(s), " of mod ", oTScl*Model%tFin
+                ! write (*,*) time(s), " of ", oTScl*Model%tFin
             enddo
 
             ! diffusion curve calculation
@@ -488,6 +494,8 @@ program wpicheck
             call AddOutVar(IOVars,"kwpi",kwpi)
             call AddOutVar(IOVars,"awpi",awpi)
             call AddOutVar(IOVars,"Nwpi",Nwpi)
+            call AddOutVar(IOVars,"dKwpi",dKwpi)
+            call AddOutVar(IOVars,"dAwpi",dAwpi)
             call AddOutVar(IOVars,"xjwpi",xjwpi)
             call AddOutVar(IOVars,"yjwpi",yjwpi)
             call AddOutVar(IOVars,"p11wpi",p11wpi)
