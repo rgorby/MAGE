@@ -274,56 +274,6 @@ module gamutils
 
     end subroutine allocGridVec
 
-    !Wipes a gridVec structure
-    !If doP1, create all dims+1
-    !numDim is the number of vector components (ie, for state vector or spatial vector)
-    subroutine wipeGridVec(Model,Grid,gV,doP1,numDim)
-        type(Model_T), intent(in) :: Model
-        type(Grid_T),  intent(in) :: Grid
-        real(rp), dimension(:,:,:,:),intent(out) :: gV
-        logical, optional, intent(in) :: doP1
-        integer, optional, intent(in) :: numDim
-
-        logical :: doPlus
-        integer :: nD,n,i,j,k,Ni,Nj,Nk
-
-        if (present(doP1)) then
-            doPlus = doP1
-        else
-            doPlus = .false.
-        endif
-
-        !Choose number of elements in vector, default to NDIM
-        if (present(numDim)) then
-            nD = numDim
-        else
-            nD = NDIM
-        endif
-
-        Ni = Grid%Ni
-        Nj = Grid%Nj
-        Nk = Grid%Nk
-
-        if (doPlus) then
-            Ni = Ni +1
-            Nj = Nj +1
-            Nk = Nk +1
-        endif
-
-        !$OMP PARALLEL DO default(shared) collapse(3)
-        !Loop over and wipe array
-        do n=1,nD
-            do k=1,Nk
-                do j=1,Nj
-                    do i=1,Ni
-                        gV(i,j,k,n) = 0.0
-                    enddo
-                enddo
-            enddo
-        enddo
-
-    end subroutine wipeGridVec
-
     !Converts grid of conserved quantities to primitive
     subroutine Con2Prim(Model,Grid,Con,Prim)
         type(Model_T), intent(in) :: Model

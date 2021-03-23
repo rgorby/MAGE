@@ -6,6 +6,7 @@ module lineio
     use streamline
     use ioH5
     use files
+    use ebtabutils
     implicit none
 
     character(len=strLen) :: flOutF
@@ -40,6 +41,8 @@ module lineio
         !Create group and write base data
         write(gStr,'(A,I0)') "Step#", Model%nOut
         call AddOutVar(IOVars,"time",oTScl*Model%t)
+        !call AddOutVar(IOVars,"MJD",MJDAt(ebState%ebTab,Model%t))
+        
         !xxx, any others
         call WriteVars(IOVars,.true.,flOutF,gStr)
         call ClearIO(IOVars)

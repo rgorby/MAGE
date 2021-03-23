@@ -7,6 +7,7 @@ module particleio
     use ebtypes
     use tputils
     use files
+    use ebtabutils
     implicit none
 
     character(len=strLen) :: tpOutF
@@ -142,6 +143,7 @@ module particleio
         
         !Scalar attributes
         call AddOutVar(IOVars,"time",oTScl*Model%t)
+        call AddOutVar(IOVars,"MJD",MJDAt(ebState%ebTab,Model%t))
         call AddOutVar(IOVars,"TimeValue",oTScl*Model%t)
         call WriteVars(IOVars,.true.,tpOutF,gStr)
         call ClearIO(IOVars)

@@ -2,7 +2,7 @@ module calcdbio
 
 	use chmpdefs
 	use chmpunits
-	use chmpfields
+	use ebtabutils
 	use ebtypes
 	use ioH5
 	use xml_input

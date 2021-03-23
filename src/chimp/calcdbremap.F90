@@ -1,5 +1,6 @@
 !Routines to map native source grids to Bios-Savart (ground system) grids
 module calcdbremap
+    use ebtabutils
 	use kdefs
 	use chmpdefs
 	use ebtypes
