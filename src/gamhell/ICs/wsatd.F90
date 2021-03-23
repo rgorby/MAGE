@@ -90,7 +90,7 @@ module usergamic
 
         contains
 
-!        procedure :: doInit => InitIonInner
+        procedure :: doInit => InitwsaBC
           ! TODO: this shoudl be made generic (wsa, mas, etc.) How
         procedure :: doBC => wsaBC
     end type WSAInnerBC_T
@@ -118,7 +118,7 @@ module usergamic
         call inpXML%Set_Val(wsaFile,"prob/wsaFile","innerbc.h5" )
 
         ![EP] for TD get the WSA map for current State%time
-        call initTSlice(wsaFile,inpXML,State)
+        call initTSlice(wsaFile,inpXML,Model,State)
         !now we have WSA "map" for a current code time
         ![EP] TODO: For restart add boundary cases in time
 
@@ -218,6 +218,74 @@ module usergamic
 
     end subroutine initUser
 
+    !Initialization for WSA BCs
+    subroutine InitwsaBC(bc,Model,Grid,State,xmlInp)
+      class(WSAInnerBC_T), intent(inout) :: bc
+      type(Model_T), intent(inout) :: Model
+      type(Grid_T), intent(in) :: Grid
+      type(State_T), intent(in) :: State
+      type(XML_Input_T), intent(in) :: xmlInp
+
+      real(rp) :: w1, w2
+      integer :: n1, n2
+      integer :: Nr, Nt, Np
+      integer :: dims(3)
+
+      !call inpXML%Set_Val(wsaFile,"prob/wsaFile","innerbc.h5" )
+
+      bc%wsaData%ebTab%bStr = wsaFile
+
+      ![EP] read times, convert to times to code units, read grid dimensions
+      call rdTab(bc%wsaData%ebTab,xmlInp,wsaFile,doTSclO=.false.)
+      ![EP] ebTab%N is a number of time steps
+      if (bc%wsaData%ebTab%N>1) then
+            bc%wsaData%doStatic = .false.
+      endif
+      write(*,*) '[EP in InitwsaBC] doStatic = ', bc%wsaData%doStatic
+      ![EP] check
+      write(*,*) '[EP in InitwsaBC] rdTab check ', bc%wsaData%ebTab%N, bc%wsaData%ebTab%dNi, bc%wsaData%ebTab%dNj, bc%wsaData%ebTab%dNk
+      !!!add a check for steady state and time-dep
+      write(*,*) '[EP in InitwsaBC] times in innerbc ', bc%wsaData%ebTab%times
+
+      ![EP] dimensions of i-ghost grid
+      bc%wsaData%Nr = bc%wsaData%ebTab%dNi
+      bc%wsaData%Nt = bc%wsaData%ebTab%dNj
+      bc%wsaData%Np = bc%wsaData%ebTab%dNk
+      write(*,*) '[EP in InitwsaBC] Dimensions ', bc%wsaData%Nr, bc%wsaData%Nt, bc%wsaData%Np
+      write(*,*) '[EP in InitwsaBC] State%time ', State%time
+
+      !initialization
+      ![EP] TD: find bounding time slices from ebTab file
+      call findSlc(bc%wsaData%ebTab,State%time*Model%Units%gT0,n1,n2)
+      write(*,*) '[EP in InitwsaBC] Bounding slices ', n1, n2
+
+        !read map from Step#n1
+        call rdWSAMap(bc%wsaData,n1,bc%wsaData%ibcVarsW1)
+        bc%wsaData%wsaN1 = n1
+        bc%wsaData%wsaT1 = bc%wsaData%ebTab%times(n1)
+
+        !read map from Step#2
+        call rdWSAMap(bc%wsaData,n2,bc%wsaData%ibcVarsW2)
+        bc%wsaData%wsaN2 = n2
+        bc%wsaData%wsaT2 = bc%wsaData%ebTab%times(n2)
+        write(*,*)'[EP in InitwsaBC] Bounding times ', bc%wsaData%wsaT1, bc%wsaData%wsaT2
+
+        ![EP]interpolation (a) calculate weights (b) interpolate in time 
+        call tCalcWeights(bc%wsaData,State%time*Model%Units%gT0,w1,w2)
+         write(*,*) '[EP in InitwsaBC] Bounding weights ', w1, w2
+
+
+        dims = [bc%wsaData%Nr,bc%wsaData%Nt+1,bc%wsaData%Np+1] !i,j,k
+        write(*,*)'[EP in InitwsaBC] dims in initSlice for ibcVars', dims
+        if (.not.allocated(ibcVars)) allocate(ibcVars(dims(1),dims(2),dims(3),NVARSINTD))
+
+        !INTERPOLATE ALL VARS that we get from innerbc.h5
+        ibcVars(:,:,:,1:VPIN) = w1*bc%wsaData%ibcVarsW1(:,:,:,:) + w2*bc%wsaData%ibcVarsW2(:,:,:,:)
+        write(*,*)'[EP in InitwsaBC] filled out ibcVars'  
+
+    end subroutine InitwsaBC
+
+
     !Inner-I BC for WSA-Gamera
     subroutine wsaBC(bc,Model,Grid,State)
       class(WSAInnerBC_T), intent(inout) :: bc
@@ -237,11 +305,14 @@ module usergamic
       real(rp) :: w1, w2
       integer :: n1, n2
       integer :: Nr, Nt, Np
+
+      write(*,*)'[EP in wsaBC] Begin. Time: ', State%time*Model%Units%gT0
   
-      if (.not.((State%time >= bc%wsaData%wsaT1) .and. (State%time <= bc%wsaData%wsaT2))) then
+      if (.not.((State%time*Model%Units%gT0 >= bc%wsaData%wsaT1) .and. (State%time*Model%Units%gT0 <= bc%wsaData%wsaT2))) then
+         write(*,*)'[EP in wsaBC] getting in time backet '
          !find bounding slices
-         call findSlc(bc%wsaData%ebTab,State%time,n1,n2)
-         write(*,*) n1, n2
+         call findSlc(bc%wsaData%ebTab,State%time*Model%Units%gT0,n1,n2)
+         write(*,*) '[EP in wsaBC] Bounding time slice ', n1, n2
 
         !read a map from Step#n1
         call rdWSAMap(bc%wsaData,n1,bc%wsaData%ibcVarsW1)
@@ -256,13 +327,15 @@ module usergamic
         bc%wsaData%wsaT2 = bc%wsaData%ebTab%times(n2)
 
         ![EP]interpolation (a) calculate weights (b) interpolate in time 
-        call tCalcWeights(bc%wsaData,State%time,w1,w2)
+        call tCalcWeights(bc%wsaData,State%time*Model%Units%gT0,w1,w2)
+        write(*,*) '[EP in wsaBC] Bounding weights ', w1, w2
 
         !interpolate in time between two WSA maps (all vars)
         ibcVars(:,:,:,1:VPIN) = w1*bc%wsaData%ibcVarsW1(:,:,:,:) + w2*bc%wsaData%ibcVarsW2(:,:,:,:)
-
+        write(*,*)'[EP in wsaBC] filled ibcVars '
       endif
 
+      write(*,*)'[EP in wsaBC] Adding VRKFIN and BRKFIN to ibcVars '
       !To obtain Vr and Br values at k-faces do simple interpolation in a uniform grid
       !Vr_kface for kfaces 1:Nk
       ibcVars(:,:,2:bc%wsaData%Np,VRKFIN) = 0.5*(ibcVars(:,:,1:bc%wsaData%Np,VRIN)+ ibcVars(:,:,2:bc%wsaData%Np+1,VRIN))
@@ -490,42 +563,43 @@ module usergamic
    
     end subroutine readIBC
 
-    subroutine initTSlice(wsaFile,inpXML, State)
-       type(wsaData_T) :: wsaData
+    subroutine initTSlice(wsaFile,inpXML,Model,State)
        type(XML_Input_T), intent(in) :: inpXML
-       type(State_T), intent(inout) :: State
+       type(Model_T), intent(in) :: Model
+       type(State_T), intent(in) :: State
        character(len=strLen), intent(in) :: wsaFile
 
+       type(wsaData_T) :: wsaData
        integer :: n1, n2
        real(rp) :: w1, w2
        integer :: dims(3)
 
 
-       ![EP] we need to covert time in seconds to code units so doTSclO=true
        wsaData%ebTab%bStr = wsaFile
        ![EP] read times, convert to times to code units, read grid dimensions
-       call rdTab(wsaData%ebTab,inpXML,wsaFile,doTSclO=.true.)
+       call rdTab(wsaData%ebTab,inpXML,wsaFile,doTSclO=.false.)
        ![EP] ebTab%N is a number of time steps
         if (wsaData%ebTab%N>1) then
             wsaData%doStatic = .false.
         endif
-        write(*,*) 'doStatic = ', wsaData%doStatic
+        write(*,*) '[EP in initTSlice] doStatic = ', wsaData%doStatic
         ![EP] check
-        write(*,*) 'rdTab check ', wsaData%ebTab%N, wsaData%ebTab%dNi, wsaData%ebTab%dNj, wsaData%ebTab%dNk
+        write(*,*) '[EP in initTSlice] rdTab check ', wsaData%ebTab%N, wsaData%ebTab%dNi, wsaData%ebTab%dNj, wsaData%ebTab%dNk
         !!!add a check for steady state and time-dep
+        write(*,*) '[EP in initTSlice] times in innerbc ', wsaData%ebTab%times
 
         ![EP] dimensions of i-ghost grid
         wsaData%Nr = wsaData%ebTab%dNi
         wsaData%Nt = wsaData%ebTab%dNj
         wsaData%Np = wsaData%ebTab%dNk
-        write(*,*) 'Dimensions ', wsaData%Nr, wsaData%Nt, wsaData%Np
-
+        write(*,*) '[EP in initTSlice] Dimensions ', wsaData%Nr, wsaData%Nt, wsaData%Np
+        write(*,*) '[EP in initTSlice] State%time ', State%time
         !TODO allocate ibcVars
 
         !initialization
         ![EP] TD: find bounding time slices from ebTab file
-        call findSlc(wsaData%ebTab,State%time,n1,n2)
-        write(*,*) 'Bounding slices ', n1, n2
+        call findSlc(wsaData%ebTab,State%time*Model%Units%gT0,n1,n2)
+        write(*,*) '[EP in initTSlice] Bounding slices ', n1, n2
 
         !read map from Step#n1
         call rdWSAMap(wsaData,n1,wsaData%ibcVarsW1)
@@ -536,17 +610,20 @@ module usergamic
         call rdWSAMap(wsaData,n2,wsaData%ibcVarsW2)
         wsaData%wsaN2 = n2
         wsaData%wsaT2 = wsaData%ebTab%times(n2)
+        write(*,*)'[EP in initTSlice] Bounding times ', wsaData%wsaT1, wsaData%wsaT2 
 
         ![EP]interpolation (a) calculate weights (b) interpolate in time 
-        call tCalcWeights(wsaData,State%time,w1,w2)
+        call tCalcWeights(wsaData,State%time*Model%Units%gT0,w1,w2)
+         write(*,*) '[EP in initTSlice] Bounding weights ', w1, w2
+   
 
         dims = [wsaData%Nr,wsaData%Nt+1,wsaData%Np+1] !i,j,k
-        write(*,*)'dims in initSlice', dims
+        write(*,*)'[EP in initTSlice] dims in initSlice for ibcVars', dims
         if (.not.allocated(ibcVars)) allocate(ibcVars(dims(1),dims(2),dims(3),NVARSINTD))
 
         !INTERPOLATE ALL VARS that we get from innerbc.h5
         ibcVars(:,:,:,1:VPIN) = w1*wsaData%ibcVarsW1(:,:,:,:) + w2*wsaData%ibcVarsW2(:,:,:,:)
-
+        write(*,*)'[EP in initTSlice] filled out ibcVars'
 
     end subroutine initTSlice
 
