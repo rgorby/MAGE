@@ -25,9 +25,12 @@ endif()
 #-------------
 #Set minimum compiler versions
 if(CMAKE_Fortran_COMPILER_ID MATCHES Intel)
-	if(CMAKE_Fortran_COMPILER_VERSION VERSION_LESS 18.0)
+	if(CMAKE_Fortran_COMPILER_VERSION VERSION_LESS 17.0)
 		message("Fortran compiler too old!  What, were you gonna use punch cards?")
-		message(FATAL_ERROR "ifort > 18.0 required")
+		message(FATAL_ERROR "ifort > 17.0 required")
+	elseif( (CMAKE_Fortran_COMPILER_VERSION VERSION_GREATER_EQUAL 17.0) AND (CMAKE_Fortran_COMPILER_VERSION VERSION_LESS 18.0) )
+		message(WARNING "Compiler has incomplete F2008 features, Git hash/compiler information won't be saved to H5 files")
+		add_compile_definitions(__INTEL_COMPILER_OLD)
 	endif()
 elseif(CMAKE_Fortran_COMPILER_ID MATCHES GNU)
 	if(CMAKE_Fortran_COMPILER_VERSION VERSION_LESS 8.0)
@@ -67,7 +70,11 @@ if(CMAKE_Fortran_COMPILER_ID MATCHES Intel)
 		string(APPEND PROD " -march=corei7 -axCORE-AVX2")
 		string(APPEND PRODWITHDEBUGINFO " -march=corei7 -axCORE-AVX2")
 	endif()
-	
+
+	#Check Intel Fortran version
+	if(NOT ALLOW_INVALID_COMPILERS AND CMAKE_Fortran_COMPILER_VERSION VERSION_GREATER "19")
+		message(FATAL_ERROR "Intel Fortran compilers 19 or newer are not supported. Set the ALLOW_INVALID_COMPILERS variable to ON to force compilation at your own risk.")
+	endif()
 
 elseif(CMAKE_Fortran_COMPILER_ID MATCHES GNU)
 	set(dialect "-ffree-form -ffree-line-length-none -fimplicit-none")
@@ -95,7 +102,10 @@ if(ENABLE_MPI)
 	add_definitions(${MPI_Fortran_COMPILE_FLAGS})
 	include_directories(${MPI_Fortran_INCLUDE_PATH})
 	link_directories(${MPI_Fortran_LIBRARIES})
-	string(APPEND CMAKE_Fortran_FLAGS " -mt_mpi")
+	if(CMAKE_Fortran_COMPILER_ID MATCHES Intel)
+		string(APPEND CMAKE_Fortran_FLAGS " -mt_mpi")
+	endif()
+	# no matching flag for GNU
 	set(CMAKE_Fortran_COMPILER ${MPI_Fortran_COMPILER})
 endif()
 

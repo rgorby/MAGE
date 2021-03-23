@@ -33,7 +33,7 @@ program voltronx
     !Coupling
         call Tic("DeepCoupling")
         if ( (vApp%time >= vApp%DeepT) .and. vApp%doDeep ) then
-            call DeepUpdate(vApp, gApp, vApp%time)
+            call DeepUpdate(vApp, gApp)
         endif
         call Toc("DeepCoupling")
 
@@ -42,13 +42,20 @@ program voltronx
             call ShallowUpdate(vApp, gApp, vApp%time)
         endif
         call Toc("IonCoupling")
-        
+
+    !Update coupling DTs
+    vApp%ShallowDT = vApp%TargetShallowDT
+    vApp%DeepDT = vApp%TargetDeepDT
+       
     !IO checks
         call Tic("IO")
         !Console output
         if (vApp%IO%doConsole(vApp%ts)) then
             !Using console output from Gamera
             call consoleOutputV(vApp,gApp)
+            !Timing info
+            if (vApp%IO%doTimerOut) call printClocks()
+            call cleanClocks()
         endif
         !Restart output
         if (vApp%IO%doRestart(vApp%time)) then
@@ -60,12 +67,6 @@ program voltronx
         endif
 
         call Toc("IO")
-
-    !Do timing info
-        if (vApp%IO%doTimer(vApp%ts)) then
-            if (vApp%IO%doTimerOut) call printClocks()
-            call cleanClocks()
-        endif
 
         call Toc("Omega")
 

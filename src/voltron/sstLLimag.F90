@@ -11,7 +11,7 @@ module sstLLimag
 
     implicit none
 
-    type, extends(innerMagBase_T) :: empData_T ! replace "emp" (specific to empuator) with a more descriptive "emp" for "empirical"
+    type, extends(innerMagBase_T) :: empData_T ! replace "emp" (specific to equator) with a more descriptive "emp" for "empirical"
 
         type(ebTab_T)   :: ebTab
         logical :: doStatic = .true.
@@ -69,7 +69,7 @@ module sstLLimag
         imag%Np = imag%ebTab%dNi
         imag%Nt = imag%ebTab%dNj
         
-        imag%rDeep = vApp%rDeep  ! probably, will remain unused
+        imag%rDeep = vApp%rTrc  ! probably, will remain unused
 
         allocate(imag%X(1:imag%Np+1,1:imag%Nt+1))
         allocate(imag%Y(1:imag%Np+1,1:imag%Nt+1))
@@ -117,7 +117,7 @@ module sstLLimag
         ! note, -1 in both dimensions 
         ! -1 in Phi cuts off the periodic point
         ! -1 in Theta removes the last line so we can interpolate from the cell-centered data
-        call init_grid_fromTP(imag%sstG,imag%Y(1:imag%Np,1:imag%Nt),imag%X(1:imag%Np,1:imag%Nt),SOLVER_GRID=.false.)            
+        call init_grid_fromTP(imag%sstG,imag%Y(1:imag%Np,1:imag%Nt),imag%X(1:imag%Np,1:imag%Nt),isSolverGrid=.false.) 
 
     end subroutine initSST
 

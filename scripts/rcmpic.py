@@ -10,14 +10,15 @@ import kaipy.kaiViz as kv
 import matplotlib.gridspec as gridspec
 import numpy as np
 import kaipy.gamera.gampp as gampp
+import kaipy.gamera.rcmpp as rcmpp
 import palettable
 import os
 import numpy.ma as ma
 
 if __name__ == "__main__":
 	#Defaults
-	MHDCol = "red"
-	MHDLW = 0.5
+	MHDCol = rcmpp.MHDCol
+	MHDLW = rcmpp.MHDLW
 	fdir = os.getcwd()
 	ftag = "msphere"
 	nStp = -1
@@ -31,12 +32,34 @@ if __name__ == "__main__":
 	parser.add_argument('-d',type=str,metavar="directory",default=fdir,help="Directory to read from (default: %(default)s)")
 	parser.add_argument('-id',type=str,metavar="runid",default=ftag,help="RunID of data (default: %(default)s)")
 	parser.add_argument('-n' ,type=int,metavar="step" ,default=nStp,help="Time slice to plot (default: %(default)s)")
+	parser.add_argument('-big',action='store_true', default=False,help="Plot entire RCM grid (default: %(default)s)")
+	parser.add_argument('-wgt', action='store_true',default=False,help="Show wRCM instead of FTE (default: %(default)s)")
+	parser.add_argument('-vol', action='store_true',default=False,help="Show FTV instead of FTE (default: %(default)s)")
+	parser.add_argument('-kt' , action='store_true',default=False,help="Show temperature instead of FTE (default: %(default)s)")
+	parser.add_argument('-beta', action='store_true',default=False,help="Show beta instead of FTE (default: %(default)s)")
+	parser.add_argument('-tbnc', action='store_true',default=False,help="Show Tb instead of FTE (default: %(default)s)")
+	parser.add_argument('-elec', action='store_true',default=False,help="Show electron pressure (default: %(default)s)")
+	parser.add_argument('-bmin', action='store_true',default=False,help="Show B-min (default: %(default)s)")
+	parser.add_argument('-fac', action='store_true',default=False,help="Show FAC (default: %(default)s)")
+
 
 	#Finalize parsing
 	args = parser.parse_args()
 	fdir = args.d
 	ftag = args.id + ".mhdrcm"
 	nStp = args.n
+	doBig = args.big
+
+	doWgt = args.wgt
+	doVol = args.vol
+	doT   = args.kt
+	doBeta = args.beta
+	doTb   = args.tbnc
+	doElec = args.elec
+	doBMin = args.bmin
+	doFAC = args.fac
+
+	rcmpp.doEll = not doBig
 
 	#---------
 	#Figure parameters
@@ -52,6 +75,14 @@ if __name__ == "__main__":
 	cLW = 0.5
 	vP = kv.genNorm(1.0e-1,1.0e+2,doLog=True)
 	vS = kv.genNorm(0.0,0.25)
+	vW = kv.genNorm(0,1)
+	vV = kv.genNorm(1.0e-2,1.0,doLog=True)
+	vT = kv.genNorm(0,50)
+	vB = kv.genNorm(1.0e-2,1.0e+2,doLog=True)
+	vI = kv.genNorm(0,180)
+	vBM = kv.genNorm(0,100)
+	vFAC = kv.genNorm(2.0)
+
 	Nc = 10
 	nMin = 1.0
 	nMax = 1.0e+3
@@ -61,6 +92,8 @@ if __name__ == "__main__":
 	pCMap = "viridis"
 	sCMap = "terrain"
 	dCMap = "cool"
+	wCMap = "bwr_r"
+	vCMap = "gnuplot2"
 	#dCMap = palettable.cmocean.sequential.Algae_20_r.mpl_colormap
 	
 	#======
@@ -84,38 +117,64 @@ if __name__ == "__main__":
 	AxC3 = fig.add_subplot(gs[-1,-1])
 	kv.genCB(AxC1,vP,"Pressure [nPa]",cM=pCMap)
 	kv.genCB(AxC2,vD,"Density [#/cc]",cM=dCMap)
-	kv.genCB(AxC3,vS,r"Flux-Tube Entropy [nPa (R$_{E}$/nT)$^{\gamma}$]",cM=sCMap)
+	if (doWgt):
+		kv.genCB(AxC3,vW,r"wRCM",cM=wCMap)
+	elif (doVol):
+		kv.genCB(AxC3,vV,r"Flux-Tube Volume [Re/nT]",cM=vCMap)
+	elif (doT):
+		kv.genCB(AxC3,vT,r"Temperature [keV]",cM=vCMap)
+	elif (doBeta):
+		kv.genCB(AxC3,vB,r"Beta",cM=wCMap)
+	elif (doTb):
+		kv.genCB(AxC3,vI,r"Tb",cM=sCMap)
+	elif (doBMin):
+		kv.genCB(AxC3,vBM,r"B-Minimum [nT]",cM=sCMap)
+	elif (doFAC):
+		kv.genCB(AxC3,vFAC,r"FAC [uA/m2]",cM=wCMap)
+	else:	
+		kv.genCB(AxC3,vS,r"Flux-Tube Entropy [nPa (R$_{E}$/nT)$^{\gamma}$]",cM=sCMap)
 
 	AxL.clear()
 	AxM.clear()
 	AxR.clear()
 
-	bmX = rcmdata.GetVar("xMin",nStp)
-	bmY = rcmdata.GetVar("yMin",nStp)
-	Prcm = rcmdata.GetVar("P",nStp)
-	Pmhd = rcmdata.GetVar("Pmhd",nStp)
-	Nmhd = rcmdata.GetVar("Nmhd",nStp)
-
-	bmin = rcmdata.GetVar("bMin",nStp)
-
-	IOpen = rcmdata.GetVar("IOpen",nStp)
-	toMHD = rcmdata.GetVar("toMHD",nStp)
-	S = rcmdata.GetVar("S",nStp)
-	
-	I = (IOpen > -0.5)
+	bmX,bmY = rcmpp.RCMEq(rcmdata,nStp,doMask=True)
+	I = rcmpp.GetMask(rcmdata,nStp)
 	Ni = (~I).sum()
 	
 	if (Ni == 0):
 		print("No closed field region in RCM, exiting ...")
 		exit()
-	
 
-	bmX = ma.masked_array(bmX,mask=I)
-	bmY = ma.masked_array(bmY,mask=I)
-	Prcm = ma.masked_array(Prcm,mask=I)
-	Pmhd = ma.masked_array(Pmhd,mask=I)
-	Nmhd = ma.masked_array(Nmhd,mask=I)
-	S = ma.masked_array(S,mask=I)
+	if (doElec):
+		Prcm  = rcmpp.GetVarMask(rcmdata,nStp,"Pe"   ,I)
+	else:
+		Prcm  = rcmpp.GetVarMask(rcmdata,nStp,"P"    ,I)
+		
+	Nrcm  = rcmpp.GetVarMask(rcmdata,nStp,"N"    ,I)
+
+	Pmhd  = rcmpp.GetVarMask(rcmdata,nStp,"Pmhd" ,I)
+	Nmhd  = rcmpp.GetVarMask(rcmdata,nStp,"Nmhd" ,I)
+	S     = rcmpp.GetVarMask(rcmdata,nStp,"S"    ,I)
+	toMHD = rcmpp.GetVarMask(rcmdata,nStp,"toMHD",I)
+	
+		
+	if (doWgt):
+		wRCM  = rcmpp.GetVarMask(rcmdata,nStp,"wIMAG" ,I)
+	if (doVol):
+		bVol = rcmpp.GetVarMask(rcmdata,nStp,"bVol" ,I)
+	if (doBeta):
+		beta = rcmpp.GetVarMask(rcmdata,nStp,"beta" ,I)
+	if (doTb):
+		Tb   = rcmpp.GetVarMask(rcmdata,nStp,"Tb" ,I)
+	if (doBMin):
+		Bmin = rcmpp.GetVarMask(rcmdata,nStp,"bMin" ,I)
+	if (doBig):
+		toRCM = rcmpp.GetVarMask(rcmdata,nStp,"IOpen" ,I)
+	if (doFAC):
+		jBirk = rcmpp.GetVarMask(rcmdata,nStp,"birk" ,I)
+
+
 	AxL.set_title("RCM Pressure")
 
 	AxL.pcolor(bmX,bmY,Prcm,norm=vP,cmap=pCMap)
@@ -128,26 +187,52 @@ if __name__ == "__main__":
 	AxM.set_title("MHD Pressure")
 	AxM.pcolor(bmX,bmY,Pmhd,norm=vP,cmap=pCMap)
 	
-	#AxM.plot(bmX,bmY,color=eCol,linewidth=eLW)
-	#AxM.plot(bmX.T,bmY.T,color=eCol,linewidth=eLW)
 	AxM.contour(bmX,bmY,Nmhd,cVals,norm=vD,cmap=dCMap,linewidths=cLW)
 	kv.addEarth2D(ax=AxM)
 	kv.SetAx(xyBds,AxM)
 	Axs = [AxL,AxM,AxR]
+
 	if (nStp>0):
-		for n in range(3):
-			Ax = Axs[n]
-			CS1 = Ax.contour(bmX,bmY,toMHD,[0.5],colors=MHDCol,linewidths=MHDLW)
-			manloc = [(0.0,8.0)]
+		if (doBig):
+			for n in range(3):
+				Ax = Axs[n]
 
-			fmt = {}
-			fmt[0.5] = 'MHD'
-			Ax.clabel(CS1,CS1.levels[::2],inline=True,fmt=fmt,fontsize=5,inline_spacing=25,manual=manloc)
+				CS1 = Ax.contour(bmX,bmY,toMHD,[0.5],colors=MHDCol,linewidths=MHDLW)
+				manloc = [(0.0,8.0)]
 
+				fmt = {}
+				fmt[0.5] = 'MHD'
+				Ax.clabel(CS1,CS1.levels[::2],inline=True,fmt=fmt,fontsize=5,inline_spacing=25,manual=manloc)
+				
+				CS2 = Ax.contour(bmX,bmY,toRCM,[-0.5],colors=rcmpp.rcmCol,linewidths=MHDLW,linestyles='solid')
 
 	#Handle right
-	AxR.set_title("Flux-Tube Entropy")
-	AxR.pcolor(bmX,bmY,S,norm=vS,cmap=sCMap)
+	if (doWgt):
+		AxR.set_title("RCM Weight")
+		AxR.pcolor(bmX,bmY,wRCM,norm=vW,cmap=wCMap)
+	elif (doVol):
+		AxR.set_title("Flux-tube Volume")
+		AxR.pcolor(bmX,bmY,bVol,norm=vV,cmap=vCMap)
+	elif (doT):
+		kT = 6.25*Prcm/Nrcm
+		AxR.set_title("RCM Temperature")
+		AxR.pcolor(bmX,bmY,kT,norm=vT,cmap=vCMap)
+	elif (doBeta):
+		AxR.set_title("Average Beta")
+		AxR.pcolor(bmX,bmY,beta,norm=vB,cmap=wCMap)
+	elif (doTb):
+		AxR.set_title("Ingestion timescale")
+		AxR.pcolor(bmX,bmY,Tb,norm=vI,cmap=sCMap)
+	elif (doBMin):
+		AxR.set_title("B Minimum")
+		AxR.pcolor(bmX,bmY,1.0e+9*Bmin,norm=vBM,cmap=sCMap)
+	elif (doFAC):
+		AxR.set_title("Vasyliunas FAC")
+		AxR.pcolor(bmX,bmY,jBirk,norm=vFAC,cmap=wCMap)
+
+	else:	
+		AxR.set_title("Flux-Tube Entropy")
+		AxR.pcolor(bmX,bmY,S,norm=vS,cmap=sCMap)
 	
 	AxR.plot(bmX,bmY,color=eCol,linewidth=eLW)
 	AxR.plot(bmX.T,bmY.T,color=eCol,linewidth=eLW)

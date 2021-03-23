@@ -251,6 +251,101 @@ def GenKSph(Ni=Ni0,Nj=Nj0,Nk=Nk0,Rin=5,Rout=40,tMin=0.2,tMax=0.8):
 
 	return X3,Y3,Z3
 
+#Generate 3D spherical grid with non-uniform grid in r and with Z-axis north pole
+#Spherical :: r,theta,phi = ijk
+#theta = [0,1] -> [0,pi]
+#phi = [0,1] -> [0,2pi]
+def GenKSphNonU(Ni=Ni0,Nj=Nj0,Nk=Nk0,Rin=5,Rout=40,tMin=0.2,tMax=0.8):
+        #Number of nodes with ghost corners
+        Ngi = Ni+1+2*Ng
+        Ngj = Nj+1+2*Ng
+        Ngk = Nk+1+2*Ng
+
+        dx2 = (tMax-tMin)/Nj
+        dx3 = (1.0 - 0.0)/Nk
+
+        # check that ghosts don't take us across the axis
+        # need to generalize later to include the axis (do full 4pi)
+        if ((tMin-Ng*dx2)<=0) or ((tMax+Ng*dx2)>=1.):
+                sys.exit("Ghost cell region includes the spherical axis. This is not implemented yet.")
+
+        nu = np.linspace(0,1,Ni+1)
+        r0 = []
+        r1 = [((Rout - Rin)*(x*x+x)/2. + Rin) for x in nu]
+        dxN = Rout - ((Rout-Rin)*(nu[Ni-1]*nu[Ni-1]+nu[Ni-1])/2. + Rin)
+        dx0 = (Rout-Rin)*(nu[1]*nu[1]+nu[1])/2.
+        for i in range(Ng):
+                r1.append(Rout + (i+1)*dxN)
+                r0.append(Rin - (Ng-i)*dx0)
+        r = r0 + r1
+
+        t = np.linspace(tMin-Ng*dx2,tMax+Ng*dx2,Ngj)*np.pi
+        p = np.linspace(-Ng*dx3,1.+Ng*dx3,Ngk)*2*np.pi
+
+        # note the indexing flag for proper ordering for writeGrid later
+        R,T,P = np.meshgrid(r,t,p,indexing='ij')
+
+        X3 = R*np.sin(T)*np.cos(P)
+        Y3 = R*np.sin(T)*np.sin(P)
+        Z3 = R*np.cos(T)
+
+        return X3,Y3,Z3
+
+#Generate 3D spherical grid with non-uniform grid in r and with Z-axis north pole
+#Spherical :: r,theta,phi = ijk
+#theta = [0,1] -> [0,pi]
+#phi = [0,1] -> [0,2pi]
+def GenKSphNonUGL(Ni=Ni0,Nj=Nj0,Nk=Nk0,Rin=5,Rout=40,tMin=0.2,tMax=0.8):
+        #Number of nodes with ghost corners
+        Ngi = Ni+1+2*Ng
+        Ngj = Nj+1+2*Ng
+        Ngk = Nk+1+2*Ng
+
+        dx2 = (tMax-tMin)/Nj
+        dx3 = (1.0 - 0.0)/Nk
+
+        # check that ghosts don't take us across the axis
+        # need to generalize later to include the axis (do full 4pi)
+        if ((tMin-Ng*dx2)<=0) or ((tMax+Ng*dx2)>=1.):
+                sys.exit("Ghost cell region includes the spherical axis. This is not implemented yet.")
+
+        #grid in r
+        Nwl = 194
+        Rmid = 64.5
+        dtau = np.arctan((Rmid-Rin)/Rin)/Nwl  #dtau in radians
+        r1 = [Rin + Rin*(np.tan(i*dtau)) for i in range(Nwl+1)] #194 cells
+
+        Nout = Ni - Nwl
+        coeff = (Rout-Rmid)/Nout*2.-0.9-0.9
+        dr = [0.9 + coeff*i/(Nout-1) for i in range(Nout)]
+
+        r = Rmid
+        for i in range(Nout):
+                r = r + dr[i]
+                r1.append(r)
+
+        dx0 = r1[1] - r1[0]
+        dxN = r1[Ni] - r1[Ni-1]
+        r0 = [ ]
+
+        for i in range(Ng):
+                r1.append(Rout + (i+1)*dxN)
+                r0.append(Rin - (Ng-i)*dx0)
+        r = r0 + r1
+
+        t = np.linspace(tMin-Ng*dx2,tMax+Ng*dx2,Ngj)*np.pi
+        p = np.linspace(-Ng*dx3,1.+Ng*dx3,Ngk)*2*np.pi
+
+        # note the indexing flag for proper ordering for writeGrid later
+        R,T,P = np.meshgrid(r,t,p,indexing='ij')
+
+        X3 = R*np.sin(T)*np.cos(P)
+        Y3 = R*np.sin(T)*np.sin(P)
+        Z3 = R*np.cos(T)
+
+        return X3,Y3,Z3
+
+
 #Now have 2D grid, augment with ghosts
 #KeepOut => Keep inner boundary outside of R=1 (i.e. planet)
 def Aug2D(XX,YY,doEps=False,TINY=1.0e-8,KeepOut=True,Rpx=1.15):
@@ -265,6 +360,9 @@ def Aug2D(XX,YY,doEps=False,TINY=1.0e-8,KeepOut=True,Rpx=1.15):
 	PP = np.arctan2(YY,XX)
 
 	R0 = RR.min()
+	if (R0<=Rpx):
+		print("Inner boundary below critical (%f), bailing ..."%(Rpx))
+		quit()
 	#print("Radial domain = [%3.2f,%3.2f]"%(R0,RR.max()))
 	xs = RR[:,0]
 	xe = RR[:,-1]
@@ -608,16 +706,38 @@ def LoadTabG(fIn="lfmG",Nc=0):
 	return xxi,yyi
 
 #Regrid xx/yy (corners) to new size
-def regrid(xxi,yyi,Ni,Nj,TINY=1.0e-8,scale=False):
+def regrid(xxi,yyi,Ni,Nj,Rin=0.0,Rout=0.0,TINY=1.0e-8,scale=False):
+
 	Ni0 = xxi.shape[0]-1
 	Nj0 = xxi.shape[1]-1
 	rr0 = np.sqrt(xxi**2.0 + yyi**2.0)
 	pp0 = np.arctan2(yyi,xxi)
-	
-	#Create interpolants
+
 	#index space -> (r,phi)
 	iLFM = np.linspace(0,1,Ni0+1)
 	jLFM = np.linspace(0,1,Nj0+1)
+
+	if ( (Rin>TINY) or (Rout>TINY) ):
+		#Rescale radial range
+		xMin = rr0.min()
+		xMax = xxi.max()
+
+		if (Rin>TINY):
+			xSclIn = Rin/xMin
+		else:
+			xSclIn = 1.0
+
+		if (Rout>TINY):
+			xSclOut = Rout/xMax
+		else:
+			xSclOut = 1.0
+		dxScl = (xSclOut-xSclIn)
+
+		#Now rescale each i shell
+		for i in range(Ni0+1):
+			rScl = xSclIn + iLFM[i]*dxScl
+			rr0[i,:] = rScl*rr0[i,:]
+	#Create interpolants
 	fR = interpolate.interp2d(iLFM,jLFM,rr0.T,kind='cubic',fill_value=None)
 	fP = interpolate.interp2d(iLFM,jLFM,pp0.T,kind='cubic',fill_value=None)
 

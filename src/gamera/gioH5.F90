@@ -15,6 +15,7 @@ module gioH5
     integer, parameter, private :: MAXIOVAR = 50
     type(IOVAR_T), dimension(MAXIOVAR), private :: IOVars
     logical, private :: doRoot = .true. !Whether root variables need to be written
+    logical, private :: doFat = .false. !Whether to output lots of extra data
 
     !Necessary for IO routines
     character(len=strLen) ,public:: GamH5File
@@ -26,7 +27,6 @@ module gioH5
         type(Grid_T), intent(inout) :: Grid
         character(len=*), intent(in) :: inH5
 
-        integer :: Nd
         integer, dimension(NDIM) :: dims        
 
         !Reset IO chain
@@ -34,19 +34,7 @@ module gioH5
 
         call CheckFileOrDie(inH5,"Unable to open input mesh, exiting ...")
 
-        !Setup input chain
-        call AddInVar(IOVars,"X")
-        call AddInVar(IOVars,"Y")
-        call AddInVar(IOVars,"Z")
-
-        call ReadVars(IOVars,.false.,inH5) !Don't use io precision
-
-        Nd = IOVars(1)%Nr !Dimension
-        if (Nd <3) then
-            write(*,*) "Number of dimensions not supported"
-            stop
-        endif
-        dims = IOVars(1)%dims(1:Nd)
+        dims = GridSizeH5(inH5)
 
         !Start with main indices, convert # of ghost corners to active
         Grid%Nip = dims(1) - 2*Model%nG - 1
@@ -67,15 +55,60 @@ module gioH5
         Grid%jeg = Grid%je+Model%nG
         Grid%ksg = Grid%ks-Model%nG
         Grid%keg = Grid%ke+Model%nG
-    
-        allocate(Grid%x(Grid%isg:Grid%ieg+1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1))
-        allocate(Grid%y(Grid%isg:Grid%ieg+1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1))
-        allocate(Grid%z(Grid%isg:Grid%ieg+1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1))
 
-        Grid%x = reshape(IOVars(XDIR)%data,[Grid%Ni+1,Grid%Nj+1,Grid%Nk+1])
-        Grid%y = reshape(IOVars(YDIR)%data,[Grid%Ni+1,Grid%Nj+1,Grid%Nk+1])
-        Grid%z = reshape(IOVars(ZDIR)%data,[Grid%Ni+1,Grid%Nj+1,Grid%Nk+1])
+        Grid%ijkShift(IDIR) = Grid%Nip*Grid%Ri
+        Grid%ijkShift(JDIR) = Grid%Njp*Grid%Rj
+        Grid%ijkShift(KDIR) = Grid%Nkp*Grid%Rk
 
+        if( Model%isRestart .or. .not. Grid%isTiled ) then
+            !Read the entire grid
+
+            !Setup input chain
+            call AddInVar(IOVars,"X")
+            call AddInVar(IOVars,"Y")
+            call AddInVar(IOVars,"Z")
+        else
+            !Read only the part of the grid for this tile
+
+            !Adjust the grid values for this tile
+            Grid%Nip = Grid%Nip/Grid%NumRi
+            Grid%Njp = Grid%Njp/Grid%NumRj
+            Grid%Nkp = Grid%Nkp/Grid%NumRk
+
+            Grid%ijkShift(IDIR) = Grid%Nip*Grid%Ri
+            Grid%ijkShift(JDIR) = Grid%Njp*Grid%Rj
+            Grid%ijkShift(KDIR) = Grid%Nkp*Grid%Rk
+
+            Grid%Ni = Grid%Nip + 2*Model%nG
+            Grid%Nj = Grid%Njp + 2*Model%nG
+            Grid%Nk = Grid%Nkp + 2*Model%nG
+
+            Grid%is = 1; Grid%ie = Grid%Nip
+            Grid%js = 1; Grid%je = Grid%Njp
+            Grid%ks = 1; Grid%ke = Grid%Nkp
+
+            Grid%isg = Grid%is-Model%nG
+            Grid%ieg = Grid%ie+Model%nG
+
+            Grid%jsg = Grid%js-Model%nG
+            Grid%jeg = Grid%je+Model%nG
+
+            Grid%ksg = Grid%ks-Model%nG
+            Grid%keg = Grid%ke+Model%nG
+
+            !Setup input chain
+            call AddInVarHyper(IOVars,"X",Grid%ijkShift,(/ Grid%Ni+1,Grid%Nj+1,Grid%Nk+1 /))
+            call AddInVarHyper(IOVars,"Y",Grid%ijkShift,(/ Grid%Ni+1,Grid%Nj+1,Grid%Nk+1 /))
+            call AddInVarHyper(IOVars,"Z",Grid%ijkShift,(/ Grid%Ni+1,Grid%Nj+1,Grid%Nk+1 /))
+        endif
+
+        call ReadVars(IOVars,.false.,inH5) !Don't use io precision
+
+        call allocGrid(Model,Grid)
+        
+        Grid%xyz(:,:,:,XDIR) = reshape(IOVars(XDIR)%data,[Grid%Ni+1,Grid%Nj+1,Grid%Nk+1])
+        Grid%xyz(:,:,:,YDIR) = reshape(IOVars(YDIR)%data,[Grid%Ni+1,Grid%Nj+1,Grid%Nk+1])
+        Grid%xyz(:,:,:,ZDIR) = reshape(IOVars(ZDIR)%data,[Grid%Ni+1,Grid%Nj+1,Grid%Nk+1])
     
     end subroutine readH5Grid
 
@@ -132,18 +165,20 @@ module gioH5
         !Fill IO chain, start with coordinates
         if (Gr%Nkp > 1) then
             !3D problem
-            call AddOutVar(IOVars,"X",Gr%x(iMin:iMax+1,jMin:jMax+1,kMin:kMax+1))
-            call AddOutVar(IOVars,"Y",Gr%y(iMin:iMax+1,jMin:jMax+1,kMin:kMax+1))
-            call AddOutVar(IOVars,"Z",Gr%z(iMin:iMax+1,jMin:jMax+1,kMin:kMax+1))
+            call AddOutVar(IOVars,"X",Gr%xyz(iMin:iMax+1,jMin:jMax+1,kMin:kMax+1,XDIR))
+            call AddOutVar(IOVars,"Y",Gr%xyz(iMin:iMax+1,jMin:jMax+1,kMin:kMax+1,YDIR))
+            call AddOutVar(IOVars,"Z",Gr%xyz(iMin:iMax+1,jMin:jMax+1,kMin:kMax+1,ZDIR))
         else
             !2D problem
             !Squash corner arrays to 2D
-            call AddOutVar(IOVars,"X",reshape(Gr%x(iMin:iMax+1,jMin:jMax+1,kMin:kMin),[iMax-iMin+2,jMax-jMin+2]))
-            call AddOutVar(IOVars,"Y",reshape(Gr%y(iMin:iMax+1,jMin:jMax+1,kMin:kMin),[iMax-iMin+2,jMax-jMin+2]))
+            call AddOutVar(IOVars,"X",reshape(Gr%xyz(iMin:iMax+1,jMin:jMax+1,kMin:kMin,XDIR),[iMax-iMin+2,jMax-jMin+2]))
+            call AddOutVar(IOVars,"Y",reshape(Gr%xyz(iMin:iMax+1,jMin:jMax+1,kMin:kMin,YDIR),[iMax-iMin+2,jMax-jMin+2]))
         endif
 
         call AddOutVar(IOVars,"dV",Gr%volume(iMin:iMax,jMin:jMax,kMin:kMax))
-        call AddOutVar(IOVars,"gQ",       gQ(iMin:iMax,jMin:jMax,kMin:kMax))
+        if (doFat) then
+            call AddOutVar(IOVars,"gQ",       gQ(iMin:iMax,jMin:jMax,kMin:kMax))
+        endif
         if (Model%doMHD .and. Model%doBackground) then
             !Write out background field and force density
             associate(gamOut=>Model%gamOut)
@@ -152,11 +187,13 @@ module gioH5
             call GameraOut("Bz0",gamOut%bID,gamOut%bScl,Gr%B0(iMin:iMax,jMin:jMax,kMin:kMax,ZDIR))
             end associate
 
-            call AddOutVar(IOVars,"dPxB0",Gr%dpB0(iMin:iMax,jMin:jMax,kMin:kMax,XDIR))
-            call AddOutVar(IOVars,"dPyB0",Gr%dpB0(iMin:iMax,jMin:jMax,kMin:kMax,YDIR))
-            call AddOutVar(IOVars,"dPzB0",Gr%dpB0(iMin:iMax,jMin:jMax,kMin:kMax,ZDIR))
+            if (doFat) then
+                call AddOutVar(IOVars,"dPxB0",Gr%dpB0(iMin:iMax,jMin:jMax,kMin:kMax,XDIR))
+                call AddOutVar(IOVars,"dPyB0",Gr%dpB0(iMin:iMax,jMin:jMax,kMin:kMax,YDIR))
+                call AddOutVar(IOVars,"dPzB0",Gr%dpB0(iMin:iMax,jMin:jMax,kMin:kMax,ZDIR))
+            endif
         endif
-        if (Model%doGrav) then
+        if (Model%doGrav .and. doFat) then
             !Write out grav accelerations
             call AddOutVar(IOVars,"gx",Gr%gxyz(iMin:iMax,jMin:jMax,kMin:kMax,XDIR))
             call AddOutVar(IOVars,"gy",Gr%gxyz(iMin:iMax,jMin:jMax,kMin:kMax,YDIR))
@@ -165,6 +202,9 @@ module gioH5
         endif
 
         if (Model%doMHD .and. Model%isMagsphere) then
+            !Add mag moment
+            call AddOutVar(IOVars,"MagM0",Model%MagM0*Model%gamOut%bScl)
+            
             !Write out dipole field values
             allocate(gVec (iMin:iMax,jMin:jMax,kMin:kMax,1:NDIM))
             !Subtract dipole before calculating current
@@ -347,6 +387,7 @@ module gioH5
                 call AddOutVar(IOVars,"Jz",gVec(:,:,:,ZDIR))
             else
                 !Do full current
+                VecA = State%Bxyz
                 call bFld2Jxyz(Model,Gr,VecA,VecB)
                 gVec(:,:,:,:) = VecB(iMin:iMax,jMin:jMax,kMin:kMax,XDIR:ZDIR)
 
@@ -373,10 +414,12 @@ module gioH5
             call Eijk2xyz(Model,Gr,VecA,VecB)
             gVec(:,:,:,:) = VecB(iMin:iMax,jMin:jMax,kMin:kMax,XDIR:ZDIR)
             call FixRAVec(gVec(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,1:NDIM))
-            call AddOutVar(IOVars,"Ex",gVec(:,:,:,XDIR))
-            call AddOutVar(IOVars,"Ey",gVec(:,:,:,YDIR))
-            call AddOutVar(IOVars,"Ez",gVec(:,:,:,ZDIR))
-            
+            if (doFat) then
+                call AddOutVar(IOVars,"Ex",gVec(:,:,:,XDIR))
+                call AddOutVar(IOVars,"Ey",gVec(:,:,:,YDIR))
+                call AddOutVar(IOVars,"Ez",gVec(:,:,:,ZDIR))
+            endif
+
             if (Model%doSource) then
                 call GameraOut("SrcD" ,gamOut%dID,gamOut%dScl,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,DEN     ,BLK))
                 call GameraOut("SrcP" ,gamOut%pID,gamOut%pScl,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,PRESSURE,BLK))
@@ -399,7 +442,7 @@ module gioH5
             end if
 
             !Write divergence if necessary
-            if (Model%doDivB) then
+            if (Model%doDivB .and. doFat) then
                 call allocGridVar(Model,Gr,DivBcc)
                 call DivB(Model,Gr,State,totDivB,DivBcc,doTotO=.true.)
                 gVar = DivBcc(iMin:iMax,jMin:jMax,kMin:kMax)
@@ -541,9 +584,9 @@ module gioH5
         endif
 
         !Coordinates of corners
-        call AddOutVar(IOVars,"X",Gr%x)
-        call AddOutVar(IOVars,"Y",Gr%y)
-        call AddOutVar(IOVars,"Z",Gr%z)
+        call AddOutVar(IOVars,"X",Gr%xyz(:,:,:,XDIR))
+        call AddOutVar(IOVars,"Y",Gr%xyz(:,:,:,YDIR))
+        call AddOutVar(IOVars,"Z",Gr%xyz(:,:,:,ZDIR))
 
         !State variable
         call AddOutVar(IOVars,"Gas",State%Gas(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,:,:))

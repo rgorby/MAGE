@@ -15,11 +15,20 @@ module ebinit
 
     ! A version of the above
     !Reads from MHD Grid received via coupling
-    subroutine ebInit_fromMHDGrid(Model,ebState,inpXML,mhdGridCorners)
+    subroutine ebInit_fromMHDGrid(Model,ebState,inpXML,mhdGridCorners,doStaticO)
         type(chmpModel_T), intent(inout) :: Model
         type(ebState_T), intent(inout)   :: ebState
         type(XML_Input_T), intent(inout) :: inpXML
-        real(rp), dimension(:,:,:,:),optional, intent(in) :: mhdGridCorners
+        real(rp), dimension(:,:,:,:), intent(in) :: mhdGridCorners
+        logical, optional, intent(in) :: doStaticO
+
+        logical :: doStatic
+
+        if (present(doStaticO)) then
+            doStatic = doStaticO
+        else
+            doStatic = .true.
+        endif
 
         associate( ebGr=>ebState%ebGr,ebTab=>ebState%ebTab,eb1=>ebState%eb1,eb2=>ebState%eb2 )
 
@@ -27,14 +36,21 @@ module ebinit
         call getGridFromMHD(Model,ebGr,inpXML,mhdGridCorners)
 
         !Allocate eb data (includes space for ghosts)
+        !Always do eb1
         call allocEB(Model,ebGr,eb1)
-        call allocEB(Model,ebGr,eb2)
-
         eb1%E  = 0.0
         eb1%dB = 0.0
-        eb2%E  = 0.0
-        eb2%dB = 0.0
-        ebState%doStatic = .true.
+
+        if (doStatic) then
+            ebState%doStatic = .true.
+        else
+            call allocEB(Model,ebGr,eb2)
+
+            eb2%E  = 0.0
+            eb2%dB = 0.0
+            ebState%doStatic = .false.
+        endif
+
         
         end associate
     end subroutine ebInit_fromMHDGrid
@@ -68,11 +84,14 @@ module ebinit
         allocate(ebGr%B0cc (ebGr%isg:ebGr%ieg,ebGr%jsg:ebGr%jeg,ebGr%ksg:ebGr%keg,NDIM))
         allocate(ebGr%Tix  (ebGr%isg:ebGr%ieg,ebGr%jsg:ebGr%jeg,ebGr%ksg:ebGr%keg,NDIM,NDIM))
         allocate(ebGr%Txi  (ebGr%isg:ebGr%ieg,ebGr%jsg:ebGr%jeg,ebGr%ksg:ebGr%keg,NDIM,NDIM))
+        allocate(ebGr%dV   (ebGr%isg:ebGr%ieg,ebGr%jsg:ebGr%jeg,ebGr%ksg:ebGr%keg))
 
         !Zero out initial values
         ebGr%xyz = 0.0 ; ebGr%xyzcc = 0.0
         ebGr%B0cc = 0.0
         ebGr%Tix = 0.0 ; ebGr%Txi = 0.0
+        ebGr%dV = 0.0
+
     end subroutine setGrid
 
     subroutine fixGrid(Model,ebGr,inpXML)
@@ -117,7 +136,7 @@ module ebinit
 
         integer :: i,j,k,is,ie,js,je,ks,ke
         character(len=strLen) :: ebFile
-        integer :: dims(NDIM)
+        integer :: dims(NDIM),dimscc(NDIM)
 
 
         ebGr%Nip = ebTab%Ri*ebTab%dNi 
@@ -126,7 +145,8 @@ module ebinit
         !requires that the above be set (Nip,Njp,Nkp)
         call setGrid(Model,ebGr)
 
-        dims = [ebTab%dNi+1,ebTab%dNj+1,ebTab%dNk+1]
+        dims   = [ebTab%dNi+1,ebTab%dNj+1,ebTab%dNk+1]
+        dimscc = [ebTab%dNi  ,ebTab%dNj  ,ebTab%dNk  ]
 
         !------------
         !Loop over grid pieces and get sub-grids
@@ -145,6 +165,8 @@ module ebinit
                     call AddInVar(ebIOs,"X")
                     call AddInVar(ebIOs,"Y")
                     call AddInVar(ebIOs,"Z")
+                    call AddInVar(ebIOs,"dV")
+
                     call ReadVars(ebIOs,.false.,ebFile) !Use IO precision
 
                     !Push piece to grid
@@ -158,7 +180,8 @@ module ebinit
                     ebGr%xyz(is:ie+1,js:je+1,ks:ke+1,XDIR) = reshape(ebIOs(XDIR)%data,dims)
                     ebGr%xyz(is:ie+1,js:je+1,ks:ke+1,YDIR) = reshape(ebIOs(YDIR)%data,dims)
                     ebGr%xyz(is:ie+1,js:je+1,ks:ke+1,ZDIR) = reshape(ebIOs(ZDIR)%data,dims)
-                    
+                    ebGr%dV (is:ie  ,js:je  ,ks:ke       ) = reshape(ebIOs(NDIM+1)%data,dimscc)
+
                 enddo
             enddo
         enddo

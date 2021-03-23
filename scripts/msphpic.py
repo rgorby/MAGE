@@ -26,6 +26,9 @@ if __name__ == "__main__":
 	doDen = False
 	noIon = False
 	noMPI = False
+	doJy = False
+	doBz = False
+	doBigRCM = False
 
 	MainS = """Creates simple multi-panel figure for Gamera magnetosphere run
 	Top Panel - Residual vertical magnetic field
@@ -36,9 +39,13 @@ if __name__ == "__main__":
 	parser.add_argument('-d',type=str,metavar="directory",default=fdir,help="Directory to read from (default: %(default)s)")
 	parser.add_argument('-id',type=str,metavar="runid",default=ftag,help="RunID of data (default: %(default)s)")
 	parser.add_argument('-n' ,type=int,metavar="step" ,default=nStp,help="Time slice to plot (default: %(default)s)")
-	parser.add_argument('-den', action='store_true', default=doDen,help="Show density instead of pressure (default: %(default)s)")
+	parser.add_argument('-bz'   , action='store_true', default=doBz ,help="Show Bz instead of dBz (default: %(default)s)")
+	parser.add_argument('-den'  , action='store_true', default=doDen,help="Show density instead of pressure (default: %(default)s)")
+	parser.add_argument('-jy'   , action='store_true', default=doJy ,help="Show Jy instead of pressure (default: %(default)s)")
 	parser.add_argument('-noion', action='store_true', default=noIon,help="Don't show ReMIX data (default: %(default)s)")
 	parser.add_argument('-nompi', action='store_true', default=noMPI,help="Don't show MPI boundaries (default: %(default)s)")
+	parser.add_argument('-bigrcm', action='store_true',default=doBigRCM,help="Show entire RCM domain (default: %(default)s)")
+
 
 	mviz.AddSizeArgs(parser)
 
@@ -51,9 +58,12 @@ if __name__ == "__main__":
 	noIon = args.noion
 	noMPI = args.nompi
 	doMPI = (not noMPI)
-	
+	doJy = args.jy
+	doBz = args.bz
+	doBigRCM = args.bigrcm
 	#Get domain size
 	xyBds = mviz.GetSizeBds(args)
+
 
 	#---------------------
 	#Do work
@@ -81,7 +91,8 @@ if __name__ == "__main__":
 	if (doRCM):
 		print("Found RCM data")
 		rcmdata = gampp.GameraPipe(fdir,ftag+".mhdrcm")
-
+		mviz.vP = kv.genNorm(1.0e-2,100.0,doLog=True)
+		rcmpp.doEll = not doBigRCM
 	if (doMIX):
 		print("Found ReMIX data")
 		ion = remix.remix(rmxChk,nStp)
@@ -104,10 +115,13 @@ if __name__ == "__main__":
 	AxC2.xaxis.set_ticks_position('top')
 
 	
-	mviz.PlotEqB(gsph,nStp,xyBds,AxL,AxC1)
+	Bz = mviz.PlotEqB(gsph,nStp,xyBds,AxL,AxC1,doBz=doBz)
 
-	mviz.PlotMerid(gsph,nStp,xyBds,AxR,doDen,doRCM,AxC3)
-	#mviz.PlotJyXZ(gsph,nStp,xyBds,AxR,AxC3)
+	if (doJy):
+		mviz.PlotJyXZ(gsph,nStp,xyBds,AxR,AxC3)
+	else:
+		mviz.PlotMerid(gsph,nStp,xyBds,AxR,doDen,doRCM,AxC3)
+	
 
 	gsph.AddTime(nStp,AxL,xy=[0.025,0.89],fs="x-large")
 	gsph.AddSW(nStp,AxL,xy=[0.625,0.025],fs="small")
@@ -116,6 +130,9 @@ if __name__ == "__main__":
 	if (doRCM):
 		AxRCM = inset_axes(AxL,width="30%",height="30%",loc=3)
 		rcmpp.RCMInset(AxRCM,rcmdata,nStp,mviz.vP)
+		#Add some dBz contours
+		AxRCM.contour(kv.reWrap(gsph.xxc),kv.reWrap(gsph.yyc),kv.reWrap(Bz),[0.0],colors=mviz.bz0Col,linewidths=mviz.cLW)
+		#AxRCM.contour(kv.reWrap(gsph.xxc),kv.reWrap(gsph.yyc),kv.reWrap(dBz),dbzVals,norm=vDB,cmap=mviz.dbCM,linewidths=0.25)
 		rcmpp.AddRCMBox(AxL)
 
 	if (doIon):

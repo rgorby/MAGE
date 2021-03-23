@@ -1,6 +1,7 @@
 !Base types and definitions for HDF5 IO
 module ioH5types
     use kdefs
+    use hdf5, ONLY : HSIZE_T
     
     implicit none
 
@@ -24,7 +25,9 @@ module ioH5types
 
     type IOVAR_T
         character(len=strLen) :: idStr="NONE",unitStr="CODE"
-        integer :: dims(MAXIODIM) = 0 !Dimension information
+        integer(HSIZE_T) :: dims(MAXIODIM) = 0 !Dimension information
+        integer(HSIZE_T) :: offsets(MAXIODIM) = 0 !Offset for reading/writing a hyperslab, optional
+        logical :: useHyperslab=.false.
         integer :: Nr = 0 !Number of ranks
         integer :: N = 0 !Total number of elements
         real(rp), dimension(:), allocatable :: data !1D holder for data

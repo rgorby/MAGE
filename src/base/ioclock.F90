@@ -8,13 +8,13 @@ module ioclock
         !Output/restart (cadence/next output)
         real(rp) :: dtOut,tOut
         real(rp) :: dtRes,tRes
-        integer :: tsOut,tsNext !Timestep console output
+        integer :: tsOut,tsNext !Timestep console output cadence/next time
         integer :: nOut=0,nRes=0 !Output numbering for output/restarts
 
         logical :: doResOut,doConOut,doDataOut,doTimerOut !Logical flags to do various outputs
         logical :: doFat,doSlim !Not yet used generically
         logical :: isTop = .true. !Not used yet
-
+        
         contains
 
             procedure :: init => IOClockInit
@@ -34,7 +34,7 @@ module ioclock
         real(rp), intent(in) :: time
         integer, intent(in) :: ts
 
-        call iXML%Set_Val(this%tsOut,'output/tsOut' ,10)
+        call iXML%Set_Val(this%tsOut,'output/tsOut' ,100)
         call iXML%Set_Val(this%dtOut,'output/dtOut' ,10.0)
         call iXML%Set_Val(this%dtRes,'restart/dtRes',100.0)
 

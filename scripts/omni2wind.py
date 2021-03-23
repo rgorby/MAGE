@@ -51,8 +51,8 @@ def bxFit(sw, fileType, filename):
 if __name__ == "__main__":
         fOut = "bcwind.h5"
         mod = "LFM"
-        t0="2010-01-01T00:00:00"
-        t1="2010-01-01T02:00:00"
+        t0Str="2010-01-01T00:00:00"
+        t1Str="2010-01-01T02:00:00"
         Ts = 0.0
         obs="OMNI"
         MainS = """ This script does several things:
@@ -69,14 +69,15 @@ if __name__ == "__main__":
         """
 
         parser = argparse.ArgumentParser(description=MainS, formatter_class=RawTextHelpFormatter)
-        parser.add_argument('-t0',type=str,metavar="TStart",default=t0,help="Start time in 'YYYY-MM-DDThh:mm:ss' (default: %(default)s)")
-        parser.add_argument('-t1',type=str,metavar="TStop",default=t1,help="End time in 'YYYY-MM-DDThh:mm:ss' (default: %(default)s)")
+        parser.add_argument('-t0',type=str,metavar="TStart",default=t0Str,help="Start time in 'YYYY-MM-DDThh:mm:ss' (default: %(default)s)")
+        parser.add_argument('-t1',type=str,metavar="TStop",default=t1Str,help="End time in 'YYYY-MM-DDThh:mm:ss' (default: %(default)s)")
         parser.add_argument('-obs',type=str,metavar="OMNI",default=obs,help="Select spacecraft to obtain observations from (default: %(default)s)")
         parser.add_argument('-o',type=str,metavar="wind.h5",default=fOut,help="Output Gamera wind file (default: %(default)s)")
         parser.add_argument('-m',type=str,metavar="LFM",default=mod,help="Format to write.  Options are LFM or TIEGCM (default: %(default)s)")
         parser.add_argument('-TsG',type=float,metavar="TStart",default=Ts,help="Gamera start time [min] (default: %(default)s)")
         parser.add_argument('-TsL',type=float,metavar="TStart",default=Ts,help="LFM start time [min] (default: %(default)s)")
-        parser.add_argument('-bx', action='store_true',default=False,help="Include Bx through ByC and BzC fit coefficients(default: %(default)s)")
+        parser.add_argument('-bx', action='store_true',default=False,help="Include Bx through ByC and BzC fit coefficients (default: %(default)s)")
+        parser.add_argument('-interp', action='store_true',default=False,help="Include shaded region on plots where data is interpolated (default: %(default)s)")
         #Finalize parsing
         args = parser.parse_args()
 
@@ -85,11 +86,15 @@ if __name__ == "__main__":
         TsG = args.TsG
         TsL = args.TsL
         includeBx = args.bx
+        plotInterped = args.interp
 
-        t0 = args.t0
-        t1 = args.t1
+        t0Str = args.t0
+        t1Str = args.t1
 
         fmt='%Y-%m-%dT%H:%M:%S'
+
+        t0 = datetime.datetime.strptime(t0Str,fmt)
+        t1 = datetime.datetime.strptime(t1Str,fmt)
 
         # calculating average F10.7 over specified time period, can be converted into a timeseries
         # pulling data from CDAWeb database
@@ -97,27 +102,37 @@ if __name__ == "__main__":
         data = cdas.get_data(
            'sp_phys',
            'OMNI2_H0_MRG1HR',
-           datetime.datetime.strptime(t0,fmt),
-           datetime.datetime.strptime(t1,fmt),
-           ['F10_INDEX1800']
+           t0,
+           t1, 
+           ['F10_INDEX1800','KP1800']
         )
+
+        totalMin = (t1-t0).days*24.0*60.0+(t1-t0).seconds/60
+        tmin = np.arange(totalMin)
+        t107 = data.get('TIME_AT_CENTER_OF_HOUR')
+        t107min = np.zeros(len(t107))
+        for i in range(len(t107)):
+            t107min[i]=(t107[i]-t0).days*24.0*60.0+(t107[i]-t0).seconds/60
+
         f107=data.get('DAILY_F10.7')
         f107[f107 == 999.9] = np.nan # removing bad values from mean calculation
         avgF107 = np.nanmean(f107)
         print("Average f10.7: ", avgF107)
- 
-        #converting hourly cadence to minutes 
-        f107min = np.zeros(len(f107)*60)
+
         if (f107[0] == np.nan):
             f107[0] = avgF107
             print('!!!!!!!!!! Warning: f10.7 starts with a bad value, setting to average value: %d !!!!!!!!!!'%(avgF107))
 
-        for i in range(len(f107)*60):
-            if (f107[int(i/60.)] == np.nan):
-                f107min[i] = f107[int(i/60.)-1]
-            else:
-                f107min[i] = f107[int(i/60.)]
+        kp = data.get('3-H_KP*10') 
 
+        #Linearly interpolating and converting hourly cadence to minutes
+        f107min = np.interp(tmin, t107min[~np.isnan(f107)], f107[~np.isnan(f107)])
+
+        if (np.all(kp == 99)):
+            kpmin   = np.interp(tmin, t107min, kp) # if no good values, setting all to bad values
+            print("!!!!!!!!!! Warning: No valid Kp data, setting all values in array to 99 !!!!!!!!!!")
+        else:
+            kpmin   = np.interp(tmin, t107min[kp != 99], kp[kp!=99]/10.0)
 
         if (obs == 'OMNI'):
             fileType = 'OMNI'
@@ -128,8 +143,8 @@ if __name__ == "__main__":
             fIn = cdas.get_data(
                'sp_phys',
                'OMNI_HRO_1MIN',
-               datetime.datetime.strptime(t0,fmt),
-               datetime.datetime.strptime(t1,fmt),
+               t0,
+               t1,
                ['BX_GSE,BY_GSE,BZ_GSE,Vx,Vy,Vz,proton_density,T,AE_INDEX,AL_INDEX,AU_INDEX,SYM_H']
             )
 
@@ -174,6 +189,23 @@ if __name__ == "__main__":
             al    = np.interp(time_1minute, sw.data.getData('time_min'), sw.data.getData('al'))
             au    = np.interp(time_1minute, sw.data.getData('time_min'), sw.data.getData('au'))
             symh    = np.interp(time_1minute, sw.data.getData('time_min'), sw.data.getData('symh'))
+          
+            #grab info on where data is interpolated to include on plots if wanted
+            interped = np.zeros((8,len(symh)))
+            interped[0,:] =np.interp(time_1minute, sw.data.getData('time_min'), sw.data.getData('isBxInterped'))
+            interped[1,:] =np.interp(time_1minute, sw.data.getData('time_min'), sw.data.getData('isByInterped'))
+            interped[2,:] =np.interp(time_1minute, sw.data.getData('time_min'), sw.data.getData('isBzInterped'))
+            interped[3,:] =np.interp(time_1minute, sw.data.getData('time_min'), sw.data.getData('isVxInterped'))
+            interped[4,:] =np.interp(time_1minute, sw.data.getData('time_min'), sw.data.getData('isVyInterped'))
+            interped[5,:] =np.interp(time_1minute, sw.data.getData('time_min'), sw.data.getData('isVzInterped'))
+            interped[6,:] =np.interp(time_1minute, sw.data.getData('time_min'), sw.data.getData('isNInterped'))
+            interped[7,:] =np.interp(time_1minute, sw.data.getData('time_min'), sw.data.getData('isTInterped'))
+
+            #finding locations where any variable is interpolated
+            isInterp=np.any(interped,axis=0)
+            pltInterp = np.zeros(len(isInterp),dtype=bool)
+            if (plotInterped):
+                pltInterp = isInterp
 
             # calculating fast magnetosonic mach number
             mfast = np.sqrt((vx**2+vy**2+vz**2)/(cs**2+va**2))
@@ -204,26 +236,6 @@ if __name__ == "__main__":
             print("Converting to Gamera solar wind file")
             Nt,Nv = lfmD.shape
             print("\tFound %d variables and %d lines"%(Nv,Nt))
-            
-            #Create holders for Gamera data
-            T  = np.zeros(Nt)
-            D  = np.zeros(Nt)
-            P  = np.zeros(Nt)
-            Vx = np.zeros(Nt)
-            Vy = np.zeros(Nt)
-            Vz = np.zeros(Nt)
-            Bx = np.zeros(Nt)
-            By = np.zeros(Nt)
-            Bz = np.zeros(Nt)
-            ThT= np.zeros(Nt) #Tilt
-            AE = np.zeros(Nt)
-            AL = np.zeros(Nt)
-            AU = np.zeros(Nt)
-            SYMH = np.zeros(Nt)
-            Mfast = np.zeros(Nt)
-            Va = np.zeros(Nt)
-            Temp = np.zeros(Nt)
-            Cs = np.zeros(Nt)
 
             #Convert LFM time to seconds and reset to start at 0
             print("\tOffsetting from LFM start (%5.2f min) to Gamera start (%5.2f min)"%(TsL,TsG))
@@ -269,7 +281,7 @@ if __name__ == "__main__":
             # Save a plot of the solar wind data.
             swPlotFilename = os.path.basename(filename) + '.png'
             print('Saving "%s"' % swPlotFilename)
-            kaipy.solarWind.swBCplots.swQuickPlot(UT,D,Temp,Vx,Vy,Vz,Bx,By,Bz,SYMH,swPlotFilename)
+            kaipy.solarWind.swBCplots.swQuickPlot(UT,D,Temp,Vx,Vy,Vz,Bx,By,Bz,SYMH,pltInterp,swPlotFilename)
 
             print("Writing Gamera solar wind to %s"%(fOut))
             with h5py.File(fOut,'w') as hf:
@@ -289,7 +301,9 @@ if __name__ == "__main__":
                 hf.create_dataset("al",data=AL)
                 hf.create_dataset("au",data=AU)
                 hf.create_dataset("symh",data=SYMH)
+                hf.create_dataset("Interped",data=1*isInterp)
                 hf.create_dataset("f10.7",data=f107min)
+                hf.create_dataset("Kp",data=kpmin)
                 hf.create_dataset("Bx0",data=bCoef[0])
                 hf.create_dataset("ByC",data=bCoef[1])
                 hf.create_dataset("BzC",data=bCoef[2])

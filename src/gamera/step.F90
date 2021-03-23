@@ -57,13 +57,14 @@ module step
     function CalcDT(Model,Gr,State)
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Gr
-        type(State_T), intent(in) :: State
+        type(State_T), intent(inout) :: State
         real(rp) :: CalcDT
 
         real(rp) :: dtMin,dtOld,dtijk
         integer :: i,j,k
         integer :: is,ie,js,je,ks,ke
-        logical :: isDisaster
+        logical :: isDisaster,isBad
+        character(len=strLen) :: eStr
 
         if(Model%fixedTimestep) then
             CalcDT = Model%dt
@@ -94,40 +95,63 @@ module step
             enddo
         enddo
 
-        CalcDT = dtMin
-        isDisaster = .false.
-        if (Model%ts > 0) then
-        !Check for horrible things
+        if(dtMin == HUGE) then
+            write(*,*) "<No timestep was smaller than HUGE, exiting ...>"
+            isDisaster = .true.
+        endif
 
+        CalcDT = dtMin
+
+        !Whether to crash or resort to desperate measures
+        isDisaster = .false. 
+        isBad      = .false.
+
+        !Check for horrible things
+        if (Model%ts > 0) then
             !Check for sudden drop in dt
             if (dtOld/dtMin >= 10) then
-                write(*,*) "<Drop in timestep by 10x (",dtOld,"=>",dtMin,"), exiting ...>"
-                isDisaster = .true.
+                write(eStr,*) "<Drop in timestep by 10x (",dtOld,"=>",dtMin,"), exiting ...>"
+                isBad = .true.
             endif
 
             !Check for too small dt
             if (dtMin <= TINY) then
-                write(*,*) "<Timestep too small (",dtMin,"), exiting ...>"
-                isDisaster = .true.
+                write(eStr,*) "<Timestep too small (",dtMin,"), exiting ...>"
+                isDisaster = .true. !We're boned
             endif
 
             !Check for slower but significant timestep drop
-            if ( (Model%dt0>TINY) .and. (Model%dt0/dtMin >=100) ) then
-                write(*,*) "<Timestep less than 1% of initial (",Model%dt0,"=>",&
-                    dtMin,"), exiting ...>"
-                isDisaster = .true.
+            if ( (Model%dt0>TINY) .and. (dtMin/Model%dt0 <= Model%limDT0) ) then
+                write(eStr,*) "<Timestep less than limDT0 of initial (",Model%dt0,"=>",dtMin,"), exiting ...>"
+                isBad = .true.
             endif
 
-            !Call black box and implode
-            if (isDisaster) then
-                call BlackBox(Model,Gr,State,dtOld)
-                write(*,*) 'Commiting suicide in 120s ...'
-                call sleep(120) !Sleep for 2 minuts before blowing up
-                write(*,*) 'Goodbye cruel world'
-                stop
-            endif !Self-destruct
+            if ( Model%doCPR .and. (Model%dt0>TINY) .and. (dtMin/Model%dt0 <= Model%limCPR) ) then
+                !Patient is dying, attempt CPR to keep patient alive
+                write(eStr,*) "<Patient is dying, trying to resuscitate. Clear!>"
+                isBad = .true.
+            endif
 
-        endif !Disaster check
+            !Done testing, now is the time for action!
+            if (isDisaster .or. isBad) then
+
+                if (Model%doCPR .and. isBad .and. (.not. isDisaster)) then
+                !Doing CPR, it's bad but not a disaster. Try to save the patient
+                    call StateCPR(Model,Gr,State)
+                else
+                !Meh, let it die
+                    write(*,*) trim(eStr)
+                    !Call black box and implode
+                    call BlackBox(Model,Gr,State,dtOld)
+                    write(*,*) 'Commiting suicide in 300s ...'
+                    call sleep(300) !Sleep before blowing up
+                    write(*,*) 'Goodbye cruel world'
+                    stop !Self destruct
+
+                endif
+            endif !isDis or isBad
+
+        endif !Terrible things check
 
         !Make sure we don't overstep the end of the simulation
         if ( (Model%t+CalcDT) > Model%tFin ) then
@@ -230,6 +254,124 @@ module step
         endif
 
     end subroutine ChkCell
+
+    !Try to do CPR on the plasma state, slow down fastest speeds
+    subroutine StateCPR(Model,Gr,State)
+        type(Model_T), intent(in) :: Model
+        type(Grid_T), intent(in) :: Gr
+        type(State_T), intent(inout) :: State
+
+        integer :: i,j,k
+        real(rp) :: dtijk
+
+        if (Model%doMultiF .or. Model%doResistive) then
+            write(*,*) 'CPR not yet implemented for these options, bailing ...'
+            stop
+        endif
+        
+        
+        !$OMP PARALLEL DO default(shared) collapse(2) &
+        !$OMP private(i,j,k,dtijk)
+        do k=Gr%ks,Gr%ke
+            do j=Gr%js,Gr%je
+                do i=Gr%is,Gr%ie
+                    call CellDT(Model,Gr,State,i,j,k,dtijk)
+                    if (dtijk/Model%dt0 <= Model%limCPR) then
+                        !Fix this cell
+                        call CellCPR(Model,Gr,State,i,j,k)
+                    endif
+                    
+                enddo
+            enddo
+        enddo
+
+    end subroutine StateCPR
+
+    !Perform CPR on a cell, try to nudge the timestep up a bit
+    subroutine CellCPR(Model,Gr,State,i,j,k)
+        integer, intent(in) :: i,j,k
+        type(Model_T), intent(in) :: Model
+        type(Grid_T), intent(in) :: Gr
+        type(State_T), intent(inout) :: State
+        
+
+        real(rp), parameter :: alpha = 0.9 !Slow-down factor
+        real(rp) :: D,Vf,Va,Cs,MagB
+        real(rp), dimension(NVAR) :: pCon,pW
+        real(rp), dimension(NDIM) :: B
+        logical :: doVa,doCs,doVf,isFloored !Which speeds to slow
+    
+    !TODO: Remove this replicated code
+    !Get three speeds, fluid/sound/alfven
+        pCon = State%Gas(i,j,k,:,BLK)
+        call CellC2P(Model,pCon,pW)
+        Vf = norm2(pW(VELX:VELZ))
+
+        call CellPress2Cs(Model,pCon,Cs)
+
+        Va = 0.0
+        D = pCon(DEN)
+
+        if (Model%doMHD) then
+            B = State%Bxyz(i,j,k,:)
+
+            if (Model%doBackground) then
+                B = B + Gr%B0(i,j,k,:)
+            endif
+
+            MagB = norm2(B)
+            Va = MagB/sqrt(D)
+            !Boris correct Alfven speed
+            if (Model%doBoris) then
+                Va = Model%Ca*Va/sqrt(Model%Ca**2.0 + Va**2.0)
+            endif
+        endif !doMHD
+
+    !Identify which speeds are too fast
+        doVa = .false.
+        doCs = .false.
+        doVf = .false.
+        !Decide which speed is the problem
+        if ( (Vf>=Cs) .and. (Vf>=Va) ) then
+            !Fast flow speed
+            doVf = .true.
+        else if ( (Cs>=Va) .and. (Cs>=Va) ) then
+            doCs = .true.
+        else if ( (Va>=Cs) .and. (Va>=Vf) ) then
+            !Fast Alfven speed
+            doVa = .true.
+        endif
+
+        !For now disabling doing anything about Va
+        doVa = .false.
+        
+    !Slow down speeds by a bit
+        if (doVf) then
+            !Directly slow speed
+            pW(VELX:VELZ) = alpha*pW(VELX:VELZ)
+        endif
+
+        if (doCs) then
+            !Reduce pressure
+            pW(PRESSURE) = alpha*alpha*pW(PRESSURE)
+        endif
+
+        if (doVa) then
+            !Nudge up density
+            pW(DEN) = pW(DEN)/(alpha*alpha)
+        endif
+    !Check for floored cell
+        isFloored = (pW(DEN)     <dFloor+TINY) .or. &
+                  & (pW(PRESSURE)<pFloor+TINY)
+        if (isFloored) then
+            !This cell was just floored and it's causing us problems, so take away its velocity
+            pW(VELX:VELZ) = 0.0
+        endif          
+
+    !Store changed values
+        call CellP2C(Model,pW,pCon)
+        State%Gas(i,j,k,:,BLK) = pCon
+    end subroutine CellCPR
 
     subroutine CellDT(Model,Gr,State,i,j,k,dtijk)
         integer, intent(in) :: i,j,k

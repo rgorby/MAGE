@@ -31,7 +31,7 @@ program MIX
   call run_mix(remixApp%ion,tilt)
   call writeMIX(remixApp%ion,0,1344._rp,1555._rp)
 
-  call init_uniform(rcmG,jsize,isize,rcmLowLat*pi/180._rp,rcmHighLat*pi/180._rp,SOLVER_GRID=.false.)
+  call init_uniform(rcmG,jsize,isize,rcmLowLat*pi/180._rp,rcmHighLat*pi/180._rp,isSolverGrid=.false.)
   call mix_set_map(remixApp%ion(NORTH)%G,rcmG,rcmMap)
   call mix_map_grids(rcmMap,remixApp%ion(NORTH)%St%Vars(:,:,POT),rcmPsi)
 

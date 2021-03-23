@@ -29,7 +29,7 @@ class remix:
 						 'energy'    : {'min':0,
 										'max':20},
 						 'flux'      : {'min':0,
-										'max':1.e10},
+										'max':1.e9},
 						 'eflux'     : {'min':0,
 										'max':10.},
 						 'efield'    : {'min':-1,
@@ -49,7 +49,13 @@ class remix:
 						 'Dflux'      : {'min':0,
 										'max':1.e10},
 						 'Deflux'     : {'min':0,
-										'max':10.}
+										'max':10.},
+						 'Penergy'    : {'min':0,
+										'max':240},
+						 'Pflux'      : {'min':0,
+										'max':1.e7},
+						 'Peflux'     : {'min':0,
+										'max':1.}
 						 }
 
 	def get_data(self,h5file,step):
@@ -90,6 +96,13 @@ class remix:
 				self.variables['Denergy']['data'][np.isnan(self.variables['Denergy']['data'])] = 1.e-20
 				self.variables['Dflux']['data']   = self.variables['Deflux']['data']/self.variables['Denergy']['data']/(1.6e-9)
 				self.variables['Dflux']['data'][self.variables['Denergy']['data']==1.e-20] = 0.
+			if 'IM average energy proton '+h in self.ion.keys():
+				self.variables['Penergy']['data'] = self.ion['IM average energy proton '+h]
+				self.variables['Peflux']['data']  = self.ion['IM Energy flux proton '+h]
+				self.variables['Penergy']['data'][self.variables['Penergy']['data']==0] = 1.e-20
+				self.variables['Penergy']['data'][np.isnan(self.variables['Penergy']['data'])] = 1.e-20
+				self.variables['Pflux']['data']   = self.variables['Peflux']['data']/self.variables['Penergy']['data']/(1.6e-9)
+				self.variables['Pflux']['data'][self.variables['Penergy']['data']==1.e-20] = 0.
 		else:  # note flipping the y(phi)-axis
 			self.variables['potential']['data'] = self.ion['Potential '+h][:,::-1]
 			self.variables['current']['data']   = self.ion['Field-aligned current '+h][:,::-1]
@@ -108,6 +121,13 @@ class remix:
 				self.variables['Denergy']['data'][np.isnan(self.variables['Denergy']['data'])] = 1.e-20
 				self.variables['Dflux']['data']   = self.variables['Deflux']['data']/self.variables['Denergy']['data']/(1.6e-9)
 				self.variables['Dflux']['data'][self.variables['Denergy']['data']==1.e-20] = 0.
+			if 'IM average energy proton '+h in self.ion.keys():
+				self.variables['Penergy']['data'] = self.ion['IM average energy proton '+h][:,::-1]
+				self.variables['Peflux']['data']  = self.ion['IM Energy flux proton '+h][:,::-1]
+				self.variables['Penergy']['data'][self.variables['Penergy']['data']==0] = 1.e-20
+				self.variables['Penergy']['data'][np.isnan(self.variables['Penergy']['data'])] = 1.e-20
+				self.variables['Pflux']['data']   = self.variables['Peflux']['data']/self.variables['Penergy']['data']/(1.6e-9)
+				self.variables['Pflux']['data'][self.variables['Penergy']['data']==1.e-20] = 0.
 
 		# convert energy flux to erg/cm2/s to conform to Newell++, doi:10.1029/2009JA014326, 2009
 		self.variables['eflux']['data'] = self.variables['energy']['data']*self.variables['flux']['data']*1.6e-9 
@@ -160,7 +180,7 @@ class remix:
 	def plot(self,varname,
 			 ncontours=16,   # default number of potential contours
 			 addlabels={},
-			 gs=None,doInset=False):
+			 gs=None,doInset=False,doCB=True,doCBVert=True):
 
 		# define function for potential contour overplotting
 		# to keep code below clean and compact
@@ -227,7 +247,10 @@ class remix:
 					'Meflux'     : r'Mono Energy flux [erg/cm$^2$s]',
 					'Denergy'    : r'Diffuse Energy [keV]',
 					'Dflux'      : r'Diffuse Flux [1/cm$^2$s]',
-					'Deflux'     : r'Diffuse Energy flux [erg/cm$^2$s]'
+					'Deflux'     : r'Diffuse Energy flux [erg/cm$^2$s]',
+					'Penergy'    : r'Diffuse Proton Energy [keV]',
+					'Pflux'      : r'Diffuse Proton Flux [1/cm$^2$s]',
+					'Peflux'     : r'Diffuse Proton Energy flux [erg/cm$^2$s]'
 					}
 		cblabels.update(addlabels)  # a way to add cb labels directly through function arguments (e.g., for new variables)
 
@@ -243,7 +266,7 @@ class remix:
 			upper = self.variables[varname]['data'].max()
 
 		# define number format string for min/max labels
-		if varname !='flux': 
+		if varname !='flux' and varname !='Pflux': 
 			if varname == 'jped':
 				format_str = '%.2f'
 			else:
@@ -251,10 +274,9 @@ class remix:
 		else:
 			format_str = '%.1e'
 
-
 		if (varname == 'potential') or (varname == 'current'):
 			cmap=facCM
-		elif varname in ['flux','energy','eflux','joule','Mflux','Menergy','Meflux','Dflux','Denergy','Deflux']:
+		elif varname in ['flux','energy','eflux','joule','Mflux','Menergy','Meflux','Dflux','Denergy','Deflux','Pflux','Penergy','Peflux']:
 			cmap=cm.inferno			
 			latlblclr = 'white'
 		elif (varname == 'velocity'): 
@@ -266,7 +288,7 @@ class remix:
 		else:
 			cmap=None # default is used
 		
-		if varname in ['eflux','Meflux','Deflux']:
+		if varname in ['eflux','Meflux','Deflux','Peflux']:
 			ri=6500.e3
 			areaMixGrid = self.calcFaceAreas(x,y)*ri*ri
 			hp = areaMixGrid*self.variables[varname]['data'][:,:]/(1.6e-9)
@@ -314,11 +336,15 @@ class remix:
 		p=ax.pcolormesh(theta+tOff,r,variable,cmap=cmap,vmin=lower,vmax=upper)
 
 		if (not doInset):
-			cb=plt.colorbar(p,ax=ax,pad=0.1,shrink=0.85)  
-			cb.set_label(cblabels[varname])
+			if (doCB):
+				if (doCBVert):
+					cb=plt.colorbar(p,ax=ax,pad=0.1,shrink=0.85,orientation="vertical")
+				else:
+					cb=plt.colorbar(p,ax=ax,pad=0.1,shrink=0.85,orientation="horizontal")
+				cb.set_label(cblabels[varname])
 
-			ax.text(-75.*np.pi/180.,1.2*r.max(),('min: '+format_str+'\nmax: ' +format_str) % 
-				  (variable.min() ,variable.max()))
+				ax.text(-75.*np.pi/180.,1.2*r.max(),('min: '+format_str+'\nmax: ' +format_str) % 
+					  (variable.min() ,variable.max()))
 			
 		lines, labels = plt.thetagrids((0.,90.,180.,270.),hour_labels)
 		lines, labels = plt.rgrids(circles,lbls,fontsize=8,color=latlblclr)
@@ -327,12 +353,13 @@ class remix:
 
 		ax.grid(True,linewidth=LW)
 		ax.axis([0,2*np.pi,0,r.max()],'tight')
-		ax.text(-75.*np.pi/180.,1.2*r.max(),('min: '+format_str+'\nmax: ' +format_str) % 
-			  (variable.min() ,variable.max()))
-		if varname in ['eflux','Meflux','Deflux']:
-			ax.text(75.*np.pi/180.,1.3*r.max(),('GW: '+format_str) % power)
-		if (varname == 'current'):
-			ax.text(-(73.+45.)*np.pi/180.,1.3*r.max(),('MA: '+format_str) % pfac)
+		if (not doInset):
+			ax.text(-75.*np.pi/180.,1.2*r.max(),('min: '+format_str+'\nmax: ' +format_str) % 
+				  (variable.min() ,variable.max()))
+			if varname in ['eflux','Meflux','Deflux','Peflux']:
+				ax.text(75.*np.pi/180.,1.3*r.max(),('GW: '+format_str) % power)
+			if (varname == 'current'):
+				ax.text(-(73.+45.)*np.pi/180.,1.3*r.max(),('MA: '+format_str) % pfac)
 		ax.grid(True)
 
 		if varname=='current': 
@@ -454,13 +481,15 @@ class remix:
 		Jp_theta =  SigmaP*etheta/cosDipAngle**2
 		Jp_phi   =  SigmaP*ephi
 
+
 		# current above is in SI units [A/m]
 		# i.e., height-integrated current density
 		return(xc,yc,theta,phi,dtheta,dphi,Jh_theta,Jh_phi,Jp_theta,Jp_phi,cosDipAngle)
 
 	# Main function to compute magnetic perturbations using the Biot-Savart integration
-	# This includes Hall, Pedersen and FAC with the option to do Hall only 
-	def dB(self,xyz,hallOnly=True):
+	# This includes Hall, Pedersen and FAC with the option to do Hall only
+	# Rin = Inner boundary of MHD grid [Re]
+	def dB(self,xyz,hallOnly=True,Rin=2.0,rsegments=10):
 		# xyz = array of points where to compute dB
 		# xyz.shape should be (N,3), where N is the number of points
 		# xyz = (x,y,z) in units of Ri
@@ -541,7 +570,7 @@ class remix:
 		dBz = mu0o4pi*np.sum( (jx*Ry - jy*Rx)*dA/R**3,axis=(0,1))
 
 		if not hallOnly:
-			intx,inty,intz = self.BSFluxTubeInt(xyz)
+			intx,inty,intz = self.BSFluxTubeInt(xyz,Rinner=Rin*Re/Ri,rsegments=rsegments)
 			# FIXME: don't fix sign for south
 			jpara = -self.variables['current']['data'] # note, the sign was inverted by the reader for north, put it back to recover true FAC 
 			jpara = jpara[:,:,np.newaxis]
@@ -567,13 +596,11 @@ class remix:
 		dBr     = dBx*np.sin(tDest)*np.cos(pDest) + dBy*np.sin(tDest)*np.sin(pDest) + dBz*np.cos(tDest)
 		dBtheta = dBx*np.cos(tDest)*np.cos(pDest) + dBy*np.cos(tDest)*np.sin(pDest) - dBz*np.sin(tDest)	
 		dBphi   =-dBx*np.sin(pDest) + dBy*np.cos(pDest)
-		
-
 		return(dBr,dBtheta,dBphi)
 
 	# FIXME: Make work for SOUTH
 	# Flux-tube Biot-Savart integral \int dl bhat x r'/|r'|^3
-	def BSFluxTubeInt(self,xyz,Rinner=2.*Re/Ri,rsegments = 10):
+	def BSFluxTubeInt(self,xyz,Rinner,rsegments = 10):
 		# xyz = array of points where to compute dB  (same as above in dB)
 		# xyz.shape should be (N,3), where N is the number of points
 		# xyz = (x,y,z) in units of Ri

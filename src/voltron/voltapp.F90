@@ -55,7 +55,7 @@ module voltapp
         endif
 
         ! read number of squish blocks
-        call xmlInp%Set_Val(numSB,"coupling/numSquishBlocks",3)
+        call xmlInp%Set_Val(numSB,"coupling/numSquishBlocks",4)
         call setNumSquishBlocks(numSB)
 
     !Initialize state information
@@ -73,7 +73,7 @@ module voltapp
         doDelayIO = .false.
         if (doSpin .and. (.not. gApp%Model%isRestart)) then
             !Doing spinup and not a restart
-            call xmlInp%Set_Val(tSpin,"spinup/tSpin",3600.0) !Default two hours
+            call xmlInp%Set_Val(tSpin,"spinup/tSpin",7200.0) !Default two hours
             !Rewind Gamera time to negative tSpin (seconds)
             gApp%Model%t = -tSpin/gTScl 
             !Reset State/oState
@@ -110,6 +110,7 @@ module voltapp
         vApp%IO%nRes = gApp%Model%IO%nRes
         vApp%IO%nOut = gApp%Model%IO%nOut
         vApp%IO%tsNext = gApp%Model%IO%tsNext
+        
         !Force Gamera IO times to match Voltron IO
         call IOSync(vApp%IO,gApp%Model%IO,1.0/gTScl)
 
@@ -117,6 +118,7 @@ module voltapp
         !Start shallow coupling immediately
         vApp%ShallowT = vApp%time
         call xmlInp%Set_Val(vApp%ShallowDT ,"coupling/dt" , 0.1_rp)
+        vApp%TargetShallowDT = vApp%ShallowDT
         call xmlInp%Set_Val(vApp%doGCM, "coupling/doGCM",.false.)
 
         if (vApp%doGCM) then
@@ -126,8 +128,8 @@ module voltapp
     !Deep coupling
         vApp%DeepT = 0.0_rp
         call xmlInp%Set_Val(vApp%DeepDT, "coupling/dtDeep", -1.0_rp)
-        call xmlInp%Set_Val(vApp%rDeep,  "coupling/rDeep" , 10.0_rp)
-        call xmlInp%Set_Val(vApp%rTrc,   "coupling/rTrc"  , 2.0*vApp%rDeep)
+        vApp%TargetDeepDT = vApp%DeepDT
+        call xmlInp%Set_Val(vApp%rTrc,   "coupling/rTrc"  , 40.0)
 
         if (vApp%DeepDT>0) then
             vApp%doDeep = .true.
@@ -135,9 +137,21 @@ module voltapp
             vApp%doDeep = .false.
         endif
 
+        ! Deep enabled, not restart, not spinup is an error. Restart or spinup is required
+        if (vApp%doDeep .and. (.not. gApp%Model%isRestart) .and. (.not. doSpin) ) then
+            write(*,*) 'Spinup is required with deep coupling. Please enable the spinup/doSpin option. At least 1 minute of spinup is recommended.'
+            stop
+        endif
+
         if (vApp%doDeep) then
             !Whether to do fast eb-squishing
             call xmlInp%Set_Val(vApp%doQkSquish,"coupling/doQkSquish",.false.)
+            call xmlInp%Set_Val(vApp%qkSquishStride,"coupling/qkSquishStride", 2)
+            if(vApp%doQkSquish .and. popcnt(vApp%qkSquishStride) /= 1) then
+                write(*,*) 'Quick Squish Stride must be a power of 2'
+                stop
+            endif
+            call xmlInp%Set_Val(vApp%chmp2mhd%epsSquish,"ebsquish/epsSquish",0.05)
 
             !Verify that Gamera has location to hold source info
             if (.not. gApp%Model%doSource) then
@@ -161,10 +175,12 @@ module voltapp
             if(.not. vApp%isSeparate .and. vApp%time > vApp%DeepT) vApp%DeepT = vApp%time
 
             !Initialize deep coupling type/inner magnetosphere model
-            !call InitInnerMag(vApp,gApp%Model%isRestart,xmlInp)
             call InitInnerMag(vApp,gApp,xmlInp)
         endif
 
+        !Check for dynamic coupling cadence
+        call xmlInp%Set_Val(vApp%doDynCplDT ,"coupling/doDynDT" , .false.)
+        
         if(present(optFilename)) then
             ! read from the prescribed file
             call initializeFromGamera(vApp, gApp, optFilename)
@@ -180,7 +196,7 @@ module voltapp
         
             if (vApp%doDeep .and. (vApp%time>=vApp%DeepT)) then
                 call Tic("DeepCoupling")
-                call DeepUpdate(vApp,gApp,vApp%time)
+                call DeepUpdate(vApp,gApp)
                 call Toc("DeepCoupling")
             endif
         endif
@@ -189,6 +205,9 @@ module voltapp
         gApp%Model%dt = CalcDT(gApp%Model,gApp%Grid,gApp%State)
         if (gApp%Model%dt0<TINY) gApp%Model%dt0 = gApp%Model%dt
         
+        !Bring overview info
+        call printConfigStamp()
+
         !Finally do first output stuff
         !console output
         if (vApp%isSeparate) then
@@ -227,7 +246,7 @@ module voltapp
         type(TimeSeries_T) :: f107
 
         logical :: isRestart
-        real(rp) :: maxF107
+        real(rp) :: maxF107,Rin
         integer :: n
 
         isRestart = gApp%Model%isRestart
@@ -236,6 +255,10 @@ module voltapp
         call InitVoltIO(vApp,gApp)
         
     !Remix from Gamera
+        !Set mix default grid before initializing
+        Rin = norm2(gApp%Grid%xyz(1,1,1,:)) !Inner radius
+        call SetMixGrid0(Rin,gApp%Grid%Nkp)
+
         if(present(optFilename)) then
             ! read from the prescribed file
             call init_mix(vApp%remixApp%ion,[NORTH, SOUTH],optFilename=optFilename,RunID=RunID,isRestart=isRestart,nRes=vApp%IO%nRes)
@@ -327,19 +350,16 @@ module voltapp
         ! determining the current dipole tilt
         call vApp%tilt%getValue(vApp%time,curTilt)
 
-        if (vApp%doGCM .and. time >=0) then
+        if (vApp%doGCM .and. time >=0 .and. .not.(vApp%gcm%isRestart)) then
             call coupleGCM2MIX(vApp%gcm,vApp%remixApp%ion,vApp%doGCM,mjd=vApp%MJD,time=vApp%time)
         end if
 
         ! solve for remix output
         if (time<=0) then
-            !write(*,*) " I AM HERE@ "
             call run_mix(vApp%remixApp%ion,curTilt,doModelOpt=.false.)
         else if (vApp%doGCM) then
-            !write(*,*) " I AM HERE! "
             call run_mix(vApp%remixApp%ion,curTilt,gcm=vApp%gcm)
-        else 
-            !write(*,*) " I AM HERE? "
+        else
             call run_mix(vApp%remixApp%ion,curTilt,doModelOpt=.true.)
         endif
 
@@ -350,10 +370,9 @@ module voltapp
 
 !----------
 !Deep coupling stuff (time coming from vApp%time, so in seconds)
-    subroutine DeepUpdate(vApp, gApp, time)
+    subroutine DeepUpdate(vApp, gApp)
         type(gamApp_T) , intent(inout) :: gApp
         class(voltApp_T), intent(inout) :: vApp
-        real(rp), intent(in) :: time
 
         if (.not. vApp%doDeep) then
             !Why are you even here?
@@ -366,7 +385,7 @@ module voltapp
         call DoSquish(vApp)
 
         call PostSquishDeep(vApp, gApp)
-
+        
     end subroutine DeepUpdate
 
     subroutine PreSquishDeep(vApp, gApp)
@@ -376,6 +395,9 @@ module voltapp
         !Update coupling time now so that voltron knows what to expect
         vApp%DeepT = vApp%DeepT + vApp%DeepDT
 
+        !Update i-shell to trace within in case rTrc has changed
+        vApp%iDeep = ShellBoundary(gApp%Model,gApp%Grid,vApp%rTrc)
+        
         !Pull in updated fields to CHIMP
         call Tic("G2C")
         call convertGameraToChimp(vApp%mhd2chmp,gApp,vApp%ebTrcApp)
@@ -383,13 +405,13 @@ module voltapp
 
         !Advance inner magnetosphere model to tAdv
         call Tic("InnerMag")
-        call AdvanceInnerMag(vApp,vApp%DeepT)
+        call vApp%imagApp%doAdvance(vApp,vApp%DeepT)
         call Toc("InnerMag")
 
         call Tic("Squish")
         call SquishStart(vApp)
         call Toc("Squish")
-
+        
     end subroutine
 
     subroutine DoSquish(vApp)
@@ -417,6 +439,65 @@ module voltapp
         call Toc("IM2G")
     end subroutine
 
+    subroutine CheckQuickSquishError(vApp, gApp, x2Err, x4Err)
+        type(gamApp_T) , intent(inout) :: gApp
+        class(voltApp_T), intent(inout) :: vApp
+        real(rp), intent(out) :: x2Err, x4Err
+
+        integer :: i,j,k,baseQkSqStr
+        logical :: baseDoQkSq
+        real(rp), dimension(:,:,:,:), allocatable :: baseXyzSquish
+        real(rp), dimension(2) :: posErr
+
+        associate(ebGr=>vApp%ebTrcApp%ebState%ebGr)
+
+        allocate(baseXyzSquish,  MOLD=vApp%chmp2mhd%xyzSquish)
+        baseQkSqStr = vApp%qkSquishStride
+        baseDoQkSq = vApp%doQkSquish
+
+        ! squish with no quick squish stride
+        vApp%qkSquishStride = 1
+        vApp%doQkSquish = .false.
+        call DeepUpdate(vApp, gApp)
+        baseXyzSquish = vApp%chmp2mhd%xyzSquish
+
+        ! squish with 2x quick squish stride
+        vApp%qkSquishStride = 2
+        vApp%doQkSquish = .true.
+        call DeepUpdate(vApp, gApp)
+        x2Err = 0
+        do i=ebGr%is,vApp%iDeep+1
+            do j=ebGr%js,ebGr%je+1
+                do k=ebGr%ks,ebGr%ke+1
+                    posErr = abs(baseXyzSquish(i,j,k,:) - vApp%chmp2mhd%xyzSquish(i,j,k,:))
+                    if(posErr(2) > PI) posErr(2) = 2*PI - posErr(2)
+                    x2Err = x2Err + NORM2(posErr)
+                enddo
+            enddo
+        enddo
+
+        ! squish with 4x quick squish stride
+        vApp%qkSquishStride = 4
+        call DeepUpdate(vApp, gApp)
+        x4Err = 0
+        do i=ebGr%is,vApp%iDeep+1
+            do j=ebGr%js,ebGr%je+1
+                do k=ebGr%ks,ebGr%ke+1
+                    posErr = abs(baseXyzSquish(i,j,k,:) - vApp%chmp2mhd%xyzSquish(i,j,k,:))
+                    if(posErr(2) > PI) posErr(2) = 2*PI - posErr(2)
+                    x4Err = x4Err + NORM2(posErr)
+                enddo
+            enddo
+        enddo
+
+        vApp%qkSquishStride = baseQkSqStr
+        vApp%doQkSquish = baseDoQkSq
+        deallocate(baseXyzSquish)
+
+        end associate
+
+    end subroutine
+
     !Initialize CHIMP data structure
     subroutine init_volt2Chmp(ebTrcApp,gApp,optFilename)
         type(ebTrcApp_T), intent(inout) :: ebTrcApp
@@ -425,7 +506,8 @@ module voltapp
 
         character(len=strLen) :: xmlStr
         type(XML_Input_T) :: inpXML
-        
+        real(rp) :: xyz0(NDIM)
+
     !Create input XML object
         if (present(optFilename)) then
             xmlStr = trim(optFilename)
@@ -435,7 +517,7 @@ module voltapp
         inpXML = New_XML_Input(trim(xmlStr),"Chimp",.true.)
 
     !Initialize model
-        associate(Model=>ebTrcApp%ebModel,ebState=>ebTrcApp%ebState,Gr=>gApp%Grid)
+        associate(Model=>ebTrcApp%ebModel,ebState=>ebTrcApp%ebState,ebGr=>ebTrcApp%ebState%ebGr,Gr=>gApp%Grid)
         call setUnits (Model,inpXML)
         Model%T0   = 0.0
         Model%tFin = 0.0
@@ -449,7 +531,18 @@ module voltapp
     !Initialize ebState
         !CHIMP grid is initialized from Gamera's active corners
         call ebInit_fromMHDGrid(Model,ebState,inpXML,Gr%xyz(Gr%is:Gr%ie+1,Gr%js:Gr%je+1,Gr%ks:Gr%ke+1,1:NDIM))
+        !Replace CHIMP 8-point average centers w/ more accurate Gamera quadrature centers        
+        ebGr%xyzcc(ebGr%is:ebGr%ie,ebGr%js:ebGr%je,ebGr%ks:ebGr%ke,:) = Gr%xyzcc(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,:)
+
         call InitLoc(Model,ebState%ebGr,inpXML)
+
+        !Do simple test to make sure locator is reasonable
+        xyz0 = Gr%xyz(Gr%is+1,Gr%js,Gr%ks,:)
+        if (.not. inDomain(xyz0,Model,ebState%ebGr) ) then
+            write(*,*) 'Configuration error: CHIMP Domain incorrect'
+            stop
+        endif
+
         end associate
 
     end subroutine init_volt2Chmp

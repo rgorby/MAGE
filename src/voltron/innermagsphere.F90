@@ -63,18 +63,6 @@ module innermagsphere
 
     end subroutine InitInnerMag
 
-
-    !Advance inner magnetosphere model to tAdv
-    subroutine AdvanceInnerMag(vApp,tAdv)
-        type(voltApp_T), intent(inout) :: vApp
-        real(rp), intent(in) :: tAdv
-
-        if (.not. vApp%doDeep) return !Why are you even here?
-
-        call vApp%imagApp%doAdvance(vApp,tAdv)
-
-    end subroutine AdvanceInnerMag
-
     !Use inner mag model to prepare Gamera source terms
     subroutine InnerMag2Gamera(vApp,gApp)
         type(voltApp_T), intent(inout) :: vApp
@@ -219,21 +207,5 @@ module innermagsphere
             end function AvgOverGood
 
     end subroutine InnerMag2Gamera
-
-    subroutine InnerMagIO(vApp,nOut)
-        type(voltApp_T), intent(inout) :: vApp
-        integer, intent(in) :: nOut
-
-        call vApp%imagApp%doIO(nOut,vApp%MJD,vApp%time)
-
-    end subroutine InnerMagIO
-
-    subroutine InnerMagRestart(vApp,nRes)
-        type(voltApp_T), intent(inout) :: vApp
-        integer, intent(in) :: nRes
-
-        call vApp%imagApp%doRestart(nRes,vApp%MJD,vApp%time)
-
-    end subroutine InnerMagRestart
 
 end module innermagsphere

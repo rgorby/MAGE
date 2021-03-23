@@ -6,8 +6,6 @@ program remix2remix
   use mixdefs
   use mixmain
   use mixio
-  use gcmtypes
-  use gcminterp
 
   use xml_input  
   use files
@@ -25,7 +23,6 @@ program remix2remix
   integer,parameter :: hmsphrs(2) = [NORTH,SOUTH]
   integer :: Step 
   type(XML_Input_T) :: xmlInp  
-  type(gcm_T) :: gcmT
 
   call readArgs(inpXML)
 
@@ -37,20 +34,14 @@ program remix2remix
   ! get output H5 file name
   call xmlInp%Set_Val(outH5,"remix2remix/outH5","outH5.h5")  
   ! get time step
-  call xmlInp%Set_Val(Step,"remix2remix/Step",5)
-  !inH5 = "inH5.h5"
-  write(*,*) trim(inH5)
+  call xmlInp%Set_Val(Step,"remix2remix/Step",0)
+
   call CheckFileOrDie(inH5,"Couldn't find input h5 file. Exiting...")
   call CheckAndKill(outH5)
 
   call readMIX(trim(inH5),Step,mixIOobj)
-  write(*,*) 'Init Mix: ',trim(inpXML)
   call init_mix(I,hmsphrs,inpXML,outH5,.false.,mixIOobj)
-  call init_gcm_mix(gcmT,I)
-  call mapGCM2MIX(gcmT,I)
-  write(*,*) 'Run Mix'
-  call run_mix(I,mixIOobj%tilt,gcm=gcmT)
-  write(*,*) 'Write Mix'
+  call run_mix(I,mixIOobj%tilt)
   call writeMIX(I,0,mixIOobj%mjd,mixIOobj%time)
 
 contains

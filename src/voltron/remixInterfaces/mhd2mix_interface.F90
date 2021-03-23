@@ -29,7 +29,7 @@ module mhd2mix_interface
         real(rp) :: xc,yc,zc, mhd_Rin
         real(rp), allocatable, dimension(:,:,:,:,:) :: mhdJGrid
         real(rp), allocatable, dimension(:,:) :: mhdt, mhdp, mhdtFpd, mhdpFpd
-        type(mixGrid_T) :: mhdGfpd,mhdG
+        type(mixGrid_T) :: mhdGfpd
         type(Map_T) :: Map
 
         Rion = RadIonosphere()
@@ -38,7 +38,7 @@ module mhd2mix_interface
         allocate(mhd2Mix%gJ(1:mhd2Mix%JShells, gameraApp%Grid%js:gameraApp%Grid%je, gameraApp%Grid%ks:GameraApp%Grid%ke, 1:NDIM))
         allocate(mhdJGrid(1:mhd2Mix%JShells, gameraApp%Grid%js:gameraApp%Grid%je, gameraApp%Grid%ks:gameraApp%Grid%ke/2, 1:3, 1:2))
         allocate(mhd2Mix%mixInput(1:mhd2Mix%JShells, gameraApp%Grid%js:gameraApp%Grid%je, gameraApp%Grid%ks:gameraApp%Grid%ke/2, 1:mhd2mix_varn, 1:2))
-        allocate(mhd2Mix%JMaps(mhd2Mix%JShells))
+        allocate(mhd2Mix%JMaps(mhd2Mix%JShells,size(remixApp%ion)))
 
         ! get those grid coordinates (cell centers for Jp)
         do k=gameraApp%Grid%ks,gameraApp%Grid%ke
@@ -62,19 +62,19 @@ module mhd2mix_interface
            ! set up interpolation map(s) for mhd2mix
            do l=1,mhd2mix%JShells
                call mix_mhd_grid(mhdJGrid(l,:,:,:,h),mhdt,mhdp,mhdtFpd,mhdpFpd,mhd_Rin)
-               call init_grid_fromTP(mhdGfpd,mhdtFpd,mhdpFpd,.false.)
-               call flip_grid(remixApp%ion(h)%G,mhd2mix%mixGfpd,mhd_Rin) ! storing flipped
+               call init_grid_fromTP(mhdGfpd,mhdtFpd,mhdpFpd,isSolverGrid=.false.,isPeriodic=.false.)
+               call flip_grid(remixApp%ion(h)%G,remixApp%ion(h)%mixGfpd,mhd_Rin) ! storing flipped
                ! grid for MIX only to
                ! use in mhd2mix
                ! below for zeroing
                ! out equatorward of
                ! MHD boundary, if
                ! necessary
-               call mix_set_map(mhdGfpd,mhd2mix%mixGfpd,Map)
-               mhd2mix%JMaps(l) = Map
+               call mix_set_map(mhdGfpd,remixApp%ion(h)%mixGfpd,Map)
+               mhd2mix%JMaps(l,h) = Map
            end do
         end do
-
+        
         deallocate(mhdJGrid)
 
     end subroutine init_mhd2Mix
@@ -159,18 +159,18 @@ module mhd2mix_interface
        do v=1,size(mhd2mix%mixInput,4)
           do l=1,mhd2mix%JShells ! here we loop over Jshells but always use the last one (F)
              ! note the transpose to conform to the MIX layout (phi,theta)
-             call mix_map_grids(mhd2mix%JMaps(l),transpose(mhd2mix%mixInput(l,:,:,v,h)),F)
+             call mix_map_grids(mhd2mix%JMaps(l,h),transpose(mhd2mix%mixInput(l,:,:,v,h)),F)
 
              ! note, cleaning MHD vars equatorward of the MHD boundary
              ! if the MIX boundary is equatorward of MHD boundary
              select case (v)
              case (MHDJ)
                 ! zero out the current
-                where (mhd2mix%mixGfpd%mask.eq.-1) F=0._rp
+                where (remixApp%ion(h)%mixGfpd%mask.eq.-1) F=0._rp
              case (MHDD, MHDC)
                 ! set density and sound speed to min values
                 ! this helps with conductdance calculation
-                where (mhd2mix%mixGfpd%mask.eq.-1) F=minval(mhd2mix%mixInput(l,:,:,v,h))
+                where (remixApp%ion(h)%mixGfpd%mask.eq.-1) F=minval(mhd2mix%mixInput(l,:,:,v,h))
              end select
           end do
 

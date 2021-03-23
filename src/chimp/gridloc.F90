@@ -74,9 +74,9 @@ module gridloc
         if(allocated(locAux%rMax)) deallocate(locAux%rMax)
         if(allocated(locAux%pMin)) deallocate(locAux%pMin)
         if(allocated(locAux%pMax)) deallocate(locAux%pMax)
-        if(allocated(locAux%rrI)) deallocate(locAux%rrI)
-        if(allocated(locAux%xxC)) deallocate(locAux%xxC)
-        if(allocated(locAux%yyC)) deallocate(locAux%yyC)
+        if(allocated(locAux%rrI))  deallocate(locAux%rrI)
+        if(allocated(locAux%xxC))  deallocate(locAux%xxC)
+        if(allocated(locAux%yyC))  deallocate(locAux%yyC)
     end subroutine CleanupLoc
 
     !Initialize various things for grid localization
@@ -171,6 +171,14 @@ module gridloc
                 call inpXML%Set_Val(DomE(1),'domain/xSun' ,30.0_rp)
                 call inpXML%Set_Val(DomE(2),'domain/xTail',-100.0_rp)
                 call inpXML%Set_Val(DomE(3),'domain/yzMax',40.0_rp)
+            case("MAGE")
+                write(*,*) 'Using MAGE inDomain'
+                inDomain=>inDomain_LFM
+                !Set bounds for yz-cylinder grid
+                !Choose appropriate for RCM coupling
+                call inpXML%Set_Val(DomE(1),'domain/xSun' ,  25.0_rp)
+                call inpXML%Set_Val(DomE(2),'domain/xTail',-100.0_rp)
+                call inpXML%Set_Val(DomE(3),'domain/yzMax',  40.0_rp)
             case("EGG")
                 write(*,*) 'Using EGG inDomain'
                 inDomain=>inDomain_Egg
@@ -341,9 +349,54 @@ module gridloc
         logical, intent(out), optional :: isInO
         integer, intent(in), optional :: ijkO(NDIM)
 
+
+        logical :: isIn
+        real(rp) :: helioC(NDIM)
+        !For evenly spaced grid in three dimensions
+        real(rp) :: dphi,dtheta,dr, thetaMin, rMin
+        integer :: i0,j0,k0
+
         !E: Add localization routine here
         ijk = 0
         isInO = .false.
+  
+        !Always check is in first
+        isIn = inDomain(xyz,Model,ebGr)
+        if (present(isInO)) isInO = isIn
+
+        if (.not. isIn) then
+            return
+        endif
+
+        !Calculate helioCoords
+        helioC = helioCoords(xyz)
+
+        !Even spacing in k
+        dphi = 2*PI/ebGr%Nkp
+        !dtheta = theta2 - theta1 for even spacing in j
+        dtheta = acos(ebGr%xyz(ebGr%is,ebGr%js+1,ebGr%ks,ZDIR)/norm2(ebGr%xyz(ebGr%is,ebGr%js+1,ebGr%ks,:))) &
+               - acos(ebGr%xyz(ebGr%is,ebGr%js,  ebGr%ks,ZDIR)/norm2(ebGr%xyz(ebGr%is,ebGr%js,  ebGr%ks,:)))
+        !dr = r2-r1 for even spacing in r
+        dr = norm2(ebGr%xyz(ebGr%is+1,ebGr%js,ebGr%ks,:)) - norm2(ebGr%xyz(ebGr%is,ebGr%js,ebGr%ks,:))
+        
+        thetaMin = acos(ebGr%xyz(ebGr%is,ebGr%js,ebGr%ks,ZDIR)/norm2(ebGr%xyz(ebGr%is,ebGr%js,ebGr%ks,:)))
+        rMin = norm2(ebGr%xyz(ebGr%is,ebGr%js,ebGr%ks,:)) 
+
+        !write(*,*) 'dr, dtheta, dphi', dr, dtheta, dphi
+        !write(*,*) 'thetaMin, rMin', thetaMin, rMin
+ 
+        ! pick the closest one
+        i0 = min(floor((helioC(IDIR)-rMin)/dr) + 1,ebGr%Nip) !Evenly spaced i
+        j0 = min(floor((helioC(JDIR)-thetaMin)/dtheta) + 1,ebGr%Njp) !Evenly spaced j
+        k0 = min(floor(helioC(KDIR)/dphi) + 1,ebGr%Nkp) !Evenly spaced k
+
+        ijk(IDIR) = i0
+        ijk(JDIR) = j0
+        ijk(KDIR) = k0
+        
+        !write(*,*) 'Mapped xyz -> HelioC ', xyz, helioC
+        !write(*,*) 'Mapped xyz -> ijk ', xyz, ijk
+
     end subroutine Loc_SPH
 !---------------------------------------
 !inDomain functions
@@ -508,4 +561,27 @@ module gridloc
         lfmC(KDIR) = ThX
 
     end function lfmCoords
+
+    !Convert xyz into Helio spherical (r, theta, phi) coords
+    !theta is angle from z axis, phi is angle from x axis around z axis 
+    function helioCoords(xyz) result(helioC)
+        real(rp), intent(in) :: xyz(NDIM)
+        real(rp) :: helioC(NDIM)
+
+        real(rp) :: zs,rxy,phi
+
+        zs = xyz(ZDIR)
+        rxy = sqrt(xyz(XDIR)**2.0 + xyz(YDIR)**2.0)
+
+        helioC(IDIR) = sqrt(zs**2.0 + rxy**2.0)
+        !Calculate theta [0, pi]
+        helioC(JDIR) = acos(zs/sqrt(zs**2.0 + rxy**2.0)) 
+
+        !Calculate phi
+        phi = atan2(xyz(YDIR),xyz(XDIR))
+        !Force to 0,2pi
+        if (phi<0) phi=phi+2*PI
+        helioC(KDIR) = phi
+
+    end function helioCoords
 end module gridloc

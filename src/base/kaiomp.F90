@@ -49,8 +49,8 @@ module kaiomp
         MaxTh = omp_get_max_threads()
         NumP  = omp_get_num_procs() 
 #else
-        MaxTh = 0 !This shouldn't happen
-        NumP  = 0
+        MaxTh = 1 !This shouldn't happen
+        NumP  = 1
 #endif
         call xmlInp%Set_Val(NumTh,"threading/NumTh",MaxTh)
         !Check for secret values (-x => x/core)
@@ -72,13 +72,13 @@ module kaiomp
 
     end subroutine SetOMP
 
-    !Returns default number of threads
+    !Returns current number of threads
     function NumOMP()
         integer :: NumOMP
 #ifdef _OPENMP
-        NumOMP = omp_get_num_threads()
+        NumOMP = omp_get_max_threads()
 #else
-        NumOMP = 0
+        NumOMP = 1
 #endif
     end function NumOMP
 

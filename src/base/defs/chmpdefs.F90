@@ -23,6 +23,7 @@ module chmpdefs
         logical :: doLL=.false. !Output lat-lon projection
         logical :: do2D=.false. !Force 2D tp integration
         logical :: doMHD=.false. !Do full MHD variables instead of just E/B
+        logical :: doJ=.false. !Deal w/ currents in addition to just E/B
         real(rp) :: tOut,dtOut
         integer :: Nblk=1,Ng=1
         real(rp) :: epsht !Small number for timestep calculation
@@ -31,7 +32,6 @@ module chmpdefs
         
         logical :: doEBInit=.false. !Initialize particles to have specified energy in ExB frame (instead of lab)
         logical :: doEBFix=.true. !Enforce E.B=0
-        real(rp) :: rmin, rmax ! in case min and max radii of the domain are specified in the xml file
 
         integer  :: MaxIter !Maximum iterations
         real(rp) :: TolGC !Tolerance for GC iteration
@@ -201,4 +201,14 @@ module chmpdefs
         enddo
 
     end subroutine getDim
+
+    !Does the obvious
+    subroutine SetTrcEpsilon(Model,epsds)
+        type(chmpModel_T), intent(inout) :: Model
+        real(rp), intent(in) :: epsds
+        
+        Model%epsds = epsds
+
+    end subroutine SetTrcEpsilon
+
 end module chmpdefs

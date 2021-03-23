@@ -5,7 +5,7 @@ module msphutils
     use gamtypes
     use volttypes
     use gamutils
-    use math, magRampDown => CubicRampDown
+    use math, magRampDown => PenticRampDown
     use gridutils
     use output
     use background
@@ -36,14 +36,17 @@ module msphutils
     real(rp), private :: tScl !Needed for time output, TODO: Fix this
     real(rp), private :: Rion ! Planetary ionosphere radius
     !Chill out parameters
+    logical , private :: doLFMChill = .true. !Do LFM-style chilling
+    logical , private :: doGAMChill = .true. !Do GAM-style chilling
     real(rp), private :: RhoCO = 1.0e-3 ! Number density
     real(rp), private :: CsCO  = 1.0e-2  ! Cs chillout, m/s
-    real(rp), parameter, private :: cLim = 1.5 ! Cool when sound speed is above cLim*Ca
-    logical , parameter, private :: doLFMChill = .true. !Do LFM-style chilling
+    real(rp), private :: cLim = 1.5 ! Cool when sound speed is above cLim*Ca
+    
     
     !Dipole cut values
     !real(rp), private :: rCut=4.5, lCut=3.5 !LFM values
     real(rp), private :: rCut=16.0,lCut=8.0
+    real(rp), private :: dcScl=4.0 !Tailward dipole cut = dcScl x rCut, dawn/dusk = dcScl x rCut/2
     real(rp), private :: xSun,xTail,yMax
     real(rp), private :: x0,Aq,Bq,sInner
 
@@ -54,7 +57,8 @@ module msphutils
 
     !Ingestion switch
     logical, private :: doIngest = .true.
-
+    logical, private :: doBorisIngest = .false. !Whether to try and preserve Boris momentum when ingesting
+    
     contains
 
     !Set magnetosphere parameters
@@ -91,6 +95,14 @@ module msphutils
             Psi0 = EarthPsi0 !kV
             Rion = RionE*1.e6/gx0 ! Radius of ionosphere in code units (RionE defined in kdefs in 1000km)
             Model%doGrav = .true.
+        !For Earth redo some XML parameters w/ different defaults
+            call SetFloorsWDefs(Model,xmlInp,1.0e-4_rp,1.0e-6_rp)
+            call xmlInp%Set_Val(Model%doCPR,'timestep/doCPR',.true.)
+            if (Model%doCPR) then
+                !Ratio of dt0 to start CPR
+                call xmlInp%Set_Val(Model%limCPR,'timestep/limCPR',0.25)
+            endif
+
         case("Saturn","saturn","SATURN")
             gx0 = RSaturnXE*REarth  ! [m]
             gv0 = 100.0e+3    ! [m/s]
@@ -133,9 +145,29 @@ module msphutils
             call xmlInp%Set_Val(Model%doGrav,"prob/doGrav",.true.)
         end select
 
-        !Whether to ignore ingestion (if set)
-        call xmlInp%Set_Val(doIngest,"source/doIngest",.true.)
+        !Set some chilling parameters
+        !If we're using source term set default as chilling off
+        if (Model%doSource) then
+            doGAMChill = .false.
+            doLFMChill = .false.
+        endif
+        !Now read XML parameters w/ default options
+        call xmlInp%Set_Val(doGAMChill,"chill/doGAMChill",doGAMChill)
+        call xmlInp%Set_Val(doLFMChill,"chill/doLFMChill",doLFMChill)
+        if (doLFMChill) then
+            call xmlInp%Set_Val(RhoCO,"chill/RhoCO",RhoCO)
+        endif
+        if (doGAMChill) then
+            call xmlInp%Set_Val(cLim,"chill/cLim",cLim)
+        endif
 
+        !Whether to ignore ingestion (if set)
+        if (Model%doSource) then
+            call xmlInp%Set_Val(doIngest,"source/doIngest",.true.)
+            call xmlInp%Set_Val(doBorisIngest,"source/doBorisIngest",doBorisIngest)
+
+        endif
+        
         call xmlInp%Set_Val(doCorot,"prob/doCorot",.true.)
         if (.not. doCorot) then
             !Zero out corotation potential
@@ -332,6 +364,11 @@ module msphutils
         real(rp) :: D,P,CsC,Pc,Leq,tau
         logical :: doChill
 
+        !Check if there's no chill and get out
+        if ( (.not. doLFMChill) .and. (.not. doGAMChill) ) then
+            return
+        endif
+
         RhoMin(BLK) = 0.0
         if (Model%doMultiF) then
             !Don't do bulk
@@ -389,7 +426,7 @@ module msphutils
                         endif
 
                         !If sound speed is faster than "light", chill the fuck out
-                        doChill = Model%doBoris .and. (CsC>cLim*Model%Ca)
+                        doChill = Model%doBoris .and. (CsC>cLim*Model%Ca) .and. (doGAMChill)
                         if (doChill .and. Model%doSource) then
                             !If this is a pressure ingestion region, then let the pressure go wild
                             if (Grid%Gas0(i,j,k,IMPR ,BLK)>TINY) doChill = .false.
@@ -437,21 +474,27 @@ module msphutils
 
         integer :: i,j,k
         real(rp), dimension(8,NDIM) :: xyzC
-        real(rp) :: rI(8),rMax,rMin,MagP,rCC
+        real(rp) :: rMax,rMin,MagP
 
         !Get values for initial field cutoffs
 
-        !LFM values
+        ! !LFM values
+        ! call xmlInp%Set_Val(xSun  ,"prob/xMax",20.0_rp  )
+        ! call xmlInp%Set_Val(yMax  ,"prob/yMax",75.0_rp  )
+        ! call xmlInp%Set_Val(xTail ,"prob/xMin",-185.0_rp)
+        
+        !Gamera values
         call xmlInp%Set_Val(xSun  ,"prob/xMax",20.0_rp  )
         call xmlInp%Set_Val(yMax  ,"prob/yMax",75.0_rp  )
-        call xmlInp%Set_Val(xTail ,"prob/xMin",-185.0_rp)
-        
+        call xmlInp%Set_Val(xTail ,"prob/xMin",-225.0_rp)
+
         call xmlInp%Set_Val(sInner,"prob/sIn" ,0.96_rp  )
 
         !Get cut dipole values
-        call xmlInp%Set_Val(rCut,"prob/rCut",rCut)
-        call xmlInp%Set_Val(lCut,"prob/lCut",lCut)
-        
+        call xmlInp%Set_Val(rCut ,"background/rCut" ,rCut)
+        call xmlInp%Set_Val(lCut ,"background/lCut" ,lCut)
+        call xmlInp%Set_Val(dcScl,"background/dcScl",dcScl)
+
         !Calculate some derived quantities/alloc arrays
         Aq = 0.5*(xSun-xTail)
         x0 = Aq - xSun
@@ -472,15 +515,18 @@ module msphutils
 
         !Be careful and forcibly zero out cut dipole forces near Earth
         !$OMP PARALLEL DO default(shared) collapse(2) &
-        !$OMP private(i,j,k,rCC)
+        !$OMP private(i,j,k,xyzC,rMin,rMax)
         do k=Grid%ks, Grid%ke
             do j=Grid%js, Grid%je
                 do i=Grid%is, Grid%ie
-                    rCC = norm2(Grid%xyzcc(i,j,k,:))
-                    if (rCC <= 0.75*rCut) then
-                        !Force hard zero
-                        Grid%dpB0(i,j,k,:) = 0.0
-                    endif
+                    !Get 8 cell corners
+                    call cellCoords(Model,Grid,i,j,k,xyzC)
+                    rMin = minval(norm2(xyzC,dim=2))
+                    rMax = maxval(norm2(xyzC,dim=2))
+                    !Force hard zero outside of dipole cut region (can be non-zero due to quadrature error)
+                    if (rMin + TINY < rCut       ) Grid%dpB0(i,j,k,:) = 0.0
+                    !if (rMax - TINY > rCut + lCut) Grid%dpB0(i,j,k,:) = 0.0
+
                 enddo
             enddo
         enddo
@@ -565,11 +611,16 @@ module msphutils
         real(rp), intent(in) :: x,y,z
         real(rp), intent(out) :: Ax,Ay,Az
    
-        real(rp) :: r,M
+        real(rp) :: r,M,phid,rScl,yp
         r = sqrt(x**2.0 + y**2.0 + z**2.0)
 
         call Dipole(x,y,z,Ax,Ay,Az)
-        M = magRampDown(r,rCut,lCut)
+        !Get mollifier term
+        yp = sqrt(y**2.0 + z**2.0)
+        phid = atan2(yp,x)*180.0/PI
+        rScl = 1.0 + RampUp(phid,0.0_rp,180.0_rp)*(dcScl-1.0) !Between 1,dcScl
+        M = magRampDown(r,rCut*rScl,lCut*rScl)
+        !M = magRampDown(r,rCut,lCut)
 
         Ax = M*Ax
         Ay = M*Ay
@@ -587,8 +638,10 @@ module msphutils
         integer :: i,j,k
         real(rp), dimension(NVAR) :: pW, pCon
 
-        real(rp) :: M0,Mf
         real(rp) :: Tau,dRho,dP,Pmhd,Prcm
+        real(rp), dimension(NDIM) :: Mxyz,Vxyz,B
+        real(rp), dimension(NDIM,NDIM) :: Lam,Laminv
+
         logical  :: doIngestIJK,doInD,doInP
 
         if (Model%doMultiF) then
@@ -596,20 +649,19 @@ module msphutils
             stop
         endif
 
-        if (Model%t<=0) return
+        if (Model%t<=0) return !You'll spoil your appetite
 
         if (.not. doIngest) return
-        
-        !M0 = sum(State%Gas(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,DEN,BLK)*Gr%volume(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke))
 
        !$OMP PARALLEL DO default(shared) collapse(2) &
        !$OMP private(i,j,k,doInD,doInP,doIngestIJK,pCon,pW) &
-       !$OMP private(Tau,dRho,dP,Pmhd,Prcm)
+       !$OMP private(Tau,dRho,dP,Pmhd,Prcm,Mxyz,Vxyz,B) &
+       !$OMP private(Lam,Laminv)
         do k=Gr%ks,Gr%ke
             do j=Gr%js,Gr%je
                 do i=Gr%is,Gr%ie
-                    doInD = (Gr%Gas0(i,j,k,IMDEN,BLK)>TINY)
-                    doInP = (Gr%Gas0(i,j,k,IMPR ,BLK)>TINY)
+                    doInD = (Gr%Gas0(i,j,k,IMDEN,BLK)>dFloor)
+                    doInP = (Gr%Gas0(i,j,k,IMPR ,BLK)>pFloor)
                     doIngestIJK = doInD .or. doInP
 
                     if (.not. doIngestIJK) cycle
@@ -617,6 +669,15 @@ module msphutils
                     pCon = State%Gas(i,j,k,:,BLK)
                     call CellC2P(Model,pCon,pW)
                     Pmhd = pW(PRESSURE)
+
+                    if (Model%doBoris .and. doBorisIngest) then
+                        !Calculate semi-rel momentum (identical to momentum if no boris correction)
+                        B = State%Bxyz(i,j,k,:)
+                        call Mom2Rel(Model,pW(DEN),B,Lam)
+                        Mxyz = matmul(Lam,pCon(MOMX:MOMZ)) !semi-relativistic momentum
+                    else
+                        Mxyz = pCon(MOMX:MOMZ) !Classical momentum
+                    endif
 
                     !Get timescale, taking directly from Gas0
                     Tau = Gr%Gas0(i,j,k,IMTSCL,BLK)
@@ -632,9 +693,23 @@ module msphutils
                         Prcm = Gr%Gas0(i,j,k,IMPR,BLK)
                         !Assume already wolf-limited or not
                         dP = Prcm - Pmhd
-                        
                         pW(PRESSURE) = pW(PRESSURE) + (Model%dt/Tau)*dP
                     endif
+
+                    if (Model%doBoris .and. doBorisIngest) then
+                        !Get new velocity, start w/ updated inverse matrix
+                        call Rel2Mom(Model,pW(DEN),B,Laminv)
+                        Vxyz = matmul(Laminv,Mxyz)/max(pW(DEN),dFloor)
+                        pW(VELX:VELZ) = Vxyz
+                    else
+                        Vxyz = Mxyz/max(pW(DEN),dFloor) !Conserve classical momentum
+                        !Don't allow mass ingestion to speed things up
+                        if ( norm2(Vxyz) <= norm2(pW(VELX:VELZ)) ) then
+                            !Conserve momentum if it doesn't increase speed
+                            pW(VELX:VELZ) = Vxyz
+                        endif
+
+                    endif 
 
                     !Now put back
                     call CellP2C(Model,pW,pCon)
@@ -643,50 +718,7 @@ module msphutils
             enddo
         enddo
                     
-        !Mf = sum(State%Gas(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,DEN,BLK)*Gr%volume(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke))
-        !write(*,*) 'Before / After / Delta = ', M0,Mf,Mf-M0
-
     end subroutine MagsphereIngest
-
-    !Calculate weight for imag ingestion, Va/Vfast
-    function IMagWgt(Model,pW,Bxyz) result(w)
-        type(Model_T), intent(in) :: Model
-        real(rp), dimension(NVAR), intent(in) :: pW
-        real(rp), dimension(NDIM), intent(in) :: Bxyz
-        real(rp) :: w
-
-        real(rp) :: D,P,MagV,MagB,Va,Cs,Vf
-
-        D = pW(DEN)
-        P = pW(PRESSURE)
-
-        MagV = norm2(pW(VELX:VELZ))
-        MagB = norm2(Bxyz)
-        !Alfven speed
-        Va = MagB/sqrt(D)
-        if (Model%doBoris) then
-            Va = Model%Ca*Va/sqrt(Model%Ca*Model%Ca + Va*Va)
-        endif
-        !Fastest signal
-        Cs = sqrt(Model%gamma*P/D)
-        Vf = MagV + sqrt(Cs**2.0 + Va**2.0)
-
-        w = Va/Vf
-    end function IMagWgt
-
-    function BouncePeriod(Model,xyz) result(Tau)
-        type(Model_T), intent(in) :: Model
-        real(rp), dimension(NDIM), intent(in) :: xyz
-        real(rp) :: Tau
-
-        real(rp) :: Leq,V
-
-        Leq = DipoleL(xyz)
-        V = Model%Ca
-        !Convert to m/(m/s)/(code time)
-        Tau = (Leq*Model%Units%gx0)/(V*Model%Units%gv0*Model%Units%gT0)
-
-    end function BouncePeriod
 
     !Set gPsi (corotation potential)
     subroutine CorotationPot(Model,Grid,gPsi)

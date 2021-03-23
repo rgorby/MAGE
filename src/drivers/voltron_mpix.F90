@@ -164,6 +164,8 @@ program voltron_mpix
 
         end do
 
+        call endGam2VoltWaits(g2vComm, gApp)
+
     else
         call initVoltron_mpi(vApp, userInitFunc, MPI_COMM_WORLD)
 
@@ -180,19 +182,15 @@ program voltron_mpix
                 call Toc("StepVoltronAndWait")
 
                 !Coupling
+                call Tic("Coupling")
                 if(vApp%doDeep .and. vApp%time >= vApp%DeepT .and. vApp%time >= vApp%ShallowT) then ! both
-                    call Tic("Coupling")
                     call shallowAndDeepUpdate_Mpi(vApp, vApp%time)
-                    call Toc("Coupling")
                 elseif (vApp%time >= vApp%DeepT .and. vApp%doDeep ) then
-                    call Tic("Coupling")
                     call DeepUpdate_mpi(vApp, vApp%time)
-                    call Toc("Coupling")
                 elseif (vApp%time >= vApp%ShallowT) then
-                    call Tic("Coupling")
                     call ShallowUpdate_mpi(vApp, vApp%time)
-                    call Toc("Coupling")
                 endif
+                call Toc("Coupling")
 
                 !IO checks
                 call Tic("IO")
@@ -215,11 +213,14 @@ program voltron_mpix
 
                 call Toc("IO")
 
-            else
+            elseif(deepInProgress(vApp)) then
                 ! If we did not couple, check for deep work to be done
-                if(deepInProgress(vApp)) then
-                    call doDeepBlock(vApp)
-                endif
+                call Tic("Coupling")
+                call doDeepBlock(vApp)
+                call Toc("Coupling")
+            else
+                ! Gamera wasn't ready and we don't have deep work to do, wait for gamera
+                call waitForGameraStep(vApp)
             endif
 
             call Toc("Omega")

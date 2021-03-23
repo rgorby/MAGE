@@ -45,6 +45,7 @@ module ringutils
         integer :: NCh0, iR, Nr, dJ, iLim
         integer, dimension(:), allocatable :: NCr !Default number of chunks/ring
         character(len=strLen) :: ChunkID
+        logical :: doAggressive
 
         Nx = [Grid%Nip,Grid%Njp,Grid%Nkp]
         Model%Ring%NumR = 1 !Fake value for now
@@ -87,6 +88,14 @@ module ringutils
                 write(*,*) 'Bailing ...'
             endif
             stop
+        endif
+
+        !Choose safe vs. dangerous defaults
+        call xmlInp%Set_Val(doAggressive,"ring/doAggressive",.false.)
+        if (doAggressive .and. Model%isLoud) then
+            write(*,*) ANSIRED
+            write(*,*) "<Using aggressive ring configuration, that could be dangerous ...>"
+            write(*,'(a)',advance="no") ANSIRESET, ''
         endif
 
     !Set singularity information and default ring configurations
@@ -136,23 +145,45 @@ module ringutils
                     NCr = [8,16,32,32]
                 case(128)
                     !QUAD res
-                    Nr = 8
-                    allocate(NCr(Nr))
-                    NCr = [8,16,32,32,64,64,64,64]
+                    if (doAggressive) then
+                        !Use possibly dangerous config
+                        Nr = 12
+                        allocate(NCr(Nr))
+                        NCr = [8,16,32,32,64,64,64,64,64,64,64,64]
+                    else
+                        Nr = 8
+                        allocate(NCr(Nr))
+                        NCr = [8,16,32,32,64,64,64,64]
+                    endif
                 case(256)
                     !OCT res
-                    Nr = 12
-                    allocate(NCr(Nr))
-                    NCr = [8,16,32,32,64,64,64,64,128,128,128,128]
-                    !Old LFM values
-                    !Nr = 16
-                    !NCr = [8,16,32,32,64,64,64,64,128,128,128,128,128,128,128,128]
+                    if (doAggressive) then
+                        !Use old LFM config
+                        Nr = 16
+                        allocate(NCr(Nr))
+                        NCr = [8,16,32,32,64,64,64,64,128,128,128,128,128,128,128,128]
+                    else
+                        !Use safer gamera defaults
+                        Nr = 12
+                        allocate(NCr(Nr))
+                        NCr = [8,16,32,32,64,64,64,64,128,128,128,128]
+                    endif
 
                 case(512)
                     !Default HEX case
-                    Nr = 16
-                    allocate(NCr(Nr))
-                    NCr = [8,16,32,32,64,64,64,64,128,128,128,128,256,256,256,256]
+                    if (doAggressive) then
+                        !Use dangerous hex config
+                        Nr = 22
+                        allocate(NCr(Nr))
+                        ! 8x1,16x1,32x2,64x4,128x6,256x8
+                        NCr = [8,16,32,32,64,64,64,64,128,128,128,128,128,128,256,256,256,256,256,256,256,256]
+                    else
+                        !Use safer defaults
+                        Nr = 16
+                        allocate(NCr(Nr))
+                        ! 8x1,16x1,32x2,64x4,128x4,256x4
+                        NCr = [8,16,32,32,64,64,64,64,128,128,128,128,256,256,256,256]
+                    endif
                 case default
                     write(*,*) 'Unsupported LFM-Nk, no default ...'
                 end select
@@ -182,8 +213,8 @@ module ringutils
             !------------------
             case ("lfm")
                 !Test that we haven't over-refined past ring avg chunks
-                if (Model%Ring%NumR>Grid%Njp) then
-                    write(*,*) 'Number of rings is larger than J cells per grid!'
+                if (Model%Ring%NumR>=Grid%Njp) then
+                    write(*,*) 'Number of rings is larger than J cells per rank!'
                     stop
                 endif
                 if (.not. (Grid%hasUpperBC(KDIR) .and. Grid%hasLowerBC(KDIR)) ) then
@@ -207,7 +238,6 @@ module ringutils
         integer :: iR,dJ,Np2
         integer :: n,dNorm,T1,T2
         integer :: jxP,jxM
-
 
         associate(NumR=>Model%Ring%NumR,Np=>Model%Ring%Np)
 
@@ -262,9 +292,11 @@ module ringutils
                         Gr%dj(ig,jg,kg) = Gr%dj(ip,jp,kp)
                         Gr%dk(ig,jg,kg) = Gr%dk(ip,jp,kp)
                         
-                        Gr%Tf(ig,jg,kg,NORMX:NORMZ,IDIR) = -Gr%Tf(ip+1,jp,kp,NORMX:NORMZ,IDIR)
-                        Gr%Tf(ig,jg,kg,NORMX:NORMZ,JDIR) = -Gr%Tf(ip  ,jp,kp,NORMX:NORMZ,JDIR)
-                        Gr%Tf(ig,jg,kg,NORMX:NORMZ,KDIR) =  Gr%Tf(ip  ,jp,kp,NORMX:NORMZ,KDIR)
+                        if (.not. Gr%lowMem) then
+                            Gr%Tf(ig,jg,kg,NORMX:NORMZ,IDIR) = -Gr%Tf(ip+1,jp,kp,NORMX:NORMZ,IDIR)
+                            Gr%Tf(ig,jg,kg,NORMX:NORMZ,JDIR) = -Gr%Tf(ip  ,jp,kp,NORMX:NORMZ,JDIR)
+                            Gr%Tf(ig,jg,kg,NORMX:NORMZ,KDIR) =  Gr%Tf(ip  ,jp,kp,NORMX:NORMZ,KDIR)
+                        endif
 
                         ! Gr%face(ig,jg,kg,IDIR) = Gr%face(ip+1,jp,kp,IDIR)
                         ! Gr%face(ig,jg,kg,JDIR) = Gr%face(ip  ,jp,kp,JDIR)
@@ -296,16 +328,16 @@ module ringutils
                             !Do faces
                             !I face (+ signature)
                             call lfmIJKfc(Model,Gr,IDIR,ig,jg,kg,ip,jp,kp)
-                            Gr%Tf  (ig,jg,kg,NORMX:NORMZ,IDIR) = Gr%Tf  (ip,jp,kp,NORMX:NORMZ,IDIR)
+                            if (.not. Gr%lowMem) Gr%Tf  (ig,jg,kg,NORMX:NORMZ,IDIR) = Gr%Tf  (ip,jp,kp,NORMX:NORMZ,IDIR)
                             Gr%face(ig,jg,kg,            IDIR) = Gr%face(ip,jp,kp,            IDIR)
                             !J face (- signature)
                             call lfmIJKfc(Model,Gr,JDIR,ig,jg,kg,ip,jp,kp)
-                            Gr%Tf  (ig,jg,kg,NORMX:NORMZ,JDIR) = -Gr%Tf  (ip,jp,kp,NORMX:NORMZ,JDIR)
+                            if (.not. Gr%lowMem) Gr%Tf  (ig,jg,kg,NORMX:NORMZ,JDIR) = -Gr%Tf  (ip,jp,kp,NORMX:NORMZ,JDIR)
                             Gr%face(ig,jg,kg,            JDIR) =  Gr%face(ip,jp,kp,            JDIR)
 
                             !K face (- signature)
                             call lfmIJKfc(Model,Gr,KDIR,ig,jg,kg,ip,jp,kp)
-                            Gr%Tf  (ig,jg,kg,NORMX:NORMZ,KDIR) = -Gr%Tf  (ip,jp,kp,NORMX:NORMZ,KDIR)
+                            if (.not. Gr%lowMem) Gr%Tf  (ig,jg,kg,NORMX:NORMZ,KDIR) = -Gr%Tf  (ip,jp,kp,NORMX:NORMZ,KDIR)
                             Gr%face(ig,jg,kg,            KDIR) =  Gr%face(ip,jp,kp,            KDIR)
 
                         endif !doS
@@ -327,17 +359,17 @@ module ringutils
                             !Do faces
                             !I face (+ signature)
                             call lfmIJKfc(Model,Gr,IDIR,ig,jg,kg,ip,jp,kp)
-                            Gr%Tf  (ig,jg,kg,NORMX:NORMZ,IDIR) = Gr%Tf  (ip,jp,kp,NORMX:NORMZ,IDIR)
+                            if (.not. Gr%lowMem) Gr%Tf  (ig,jg,kg,NORMX:NORMZ,IDIR) = Gr%Tf  (ip,jp,kp,NORMX:NORMZ,IDIR)
                             Gr%face(ig,jg,kg,            IDIR) = Gr%face(ip,jp,kp,            IDIR)
 
                             !J face (- signature), first active is je+1+1
                             call lfmIJKfc(Model,Gr,JDIR,ig,jg+1,kg,ip,jp,kp)
-                            Gr%Tf  (ig,jg+1,kg,NORMX:NORMZ,JDIR) = -Gr%Tf  (ip,jp,kp,NORMX:NORMZ,JDIR)
+                            if (.not. Gr%lowMem) Gr%Tf  (ig,jg+1,kg,NORMX:NORMZ,JDIR) = -Gr%Tf  (ip,jp,kp,NORMX:NORMZ,JDIR)
                             Gr%face(ig,jg+1,kg,            JDIR) =  Gr%face(ip,jp,kp,            JDIR)
 
                             !K face (- signature)
                             call lfmIJKfc(Model,Gr,KDIR,ig,jg,kg,ip,jp,kp)
-                            Gr%Tf  (ig,jg,kg,NORMX:NORMZ,KDIR) = -Gr%Tf  (ip,jp,kp,NORMX:NORMZ,KDIR)
+                            if (.not. Gr%lowMem) Gr%Tf  (ig,jg,kg,NORMX:NORMZ,KDIR) = -Gr%Tf  (ip,jp,kp,NORMX:NORMZ,KDIR)
                             Gr%face(ig,jg,kg,            KDIR) =  Gr%face(ip,jp,kp,            KDIR)
                         endif !doE
 

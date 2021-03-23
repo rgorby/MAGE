@@ -6,6 +6,7 @@ module mixsolver
   use mixdefs
   use mixtypes
   use mgmres
+  use clocks
 #ifdef USEMKL
   use mkl_pardiso
 #endif
@@ -13,7 +14,6 @@ module mixsolver
   implicit none
 
   logical, private :: isSolverInit=.false.
-  integer, private :: MKLMSGLVL=0
 
   contains
     ! running index
@@ -258,12 +258,13 @@ module mixsolver
       integer :: maxfct,mnum,phase !pardiso control params
       ! see description of parameters here: https://software.intel.com/en-us/node/470284#E44B4021-701A-48DA-BA29-70CFA20766AA
 
-      if (MKLMSGLVL > 0) then
+      if (P%mklmsglvl > 0) then
         write(*,*) 'Running MKL-Pardiso'
       endif
 
       mtype = 11 ! real nonsymmetric matrix
 
+      call Tic("MKL-Init")
       !Always initialize/tear-down
       call pardisoinit(pt,mtype,iparm)
 
@@ -280,9 +281,11 @@ module mixsolver
       maxfct = 1
       mnum   = 1
       nrhs   = 1
-      msglvl = MKLMSGLVL  ! no verbosity
+      msglvl = P%mklmsglvl  ! no verbosity
+      call Toc("MKL-Init")
 
       phase = 13 !Analysis, numerical factorization, solve, iterative refinement
+      call Tic("MKL-Solve")
       !Call solver
       call pardiso(pt,maxfct,mnum,mtype,phase,Npt, &
                    S%data,S%rowI,S%JJ,perm, &
@@ -293,16 +296,19 @@ module mixsolver
         write(*,*) 'MKL-Pardiso error, you should deal with that'
         stop
       endif
+      call Toc("MKL-Solve")
 
+      call Tic("MKL-Fin")
       !Release memory
       phase =-1  ! release
       call pardiso(pt,maxfct,mnum,mtype,phase,Npt, &
                    S%data,S%rowI,S%JJ,perm, &
                    nrhs,iparm,msglvl, &
                    S%RHS,S%solution,error)
+      call Toc("MKL-Fin")
 
     end subroutine MKLSolve
 
-#endif USEMKL
+#endif
 
 end module mixsolver

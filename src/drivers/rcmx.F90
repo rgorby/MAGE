@@ -75,9 +75,11 @@ program rcmx
     !Set boundaries    
     rcm_boundary_s =35
     rcm_boundary_e =2
-    
+   
+    mhdtime = mhd_time_start 
     ! now run 
-    do mhdtime=mhd_time_start,mhd_time_end-mhd_dt,mhd_dt
+!    do mhdtime=mhd_time_start,mhd_time_end-mhd_dt,mhd_dt
+     do while (mhdtime <= mhd_time_end)
         IF(.not.doRestart)then
         rcmbndy = nint(rcm_boundary_s +&
             (rcm_boundary_e-rcm_boundary_s)*(mhdtime-mhd_time_start)/(mhd_time_end-mhd_time_start),iprec)
@@ -142,7 +144,9 @@ program rcmx
         call WriteRCM(RM,RM%rcm_nOut,mhdtime,mhdtime)
         write(*,*) 'Total pressure = ', sum(RM%Prcm)
         RM%rcm_nOut = RM%rcm_nOut+1
-    end do
+
+        mhdtime = mhdtime + mhd_dt
+    end do 
 
     ! done now close out
     call rcm_mhd(mhdtime,mhd_dt,RM,RCMWRITETIMING)
