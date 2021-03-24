@@ -59,6 +59,11 @@ os.chdir('ICBuilds')
 # Split file list into an actual list
 fileList = fileList.splitlines()
 
+# Ignore old IC files in the "deprecated" directory
+fileList.remove('deprecated')
+print(fileList)
+
+
 for line in modules:
     if (line.strip() == "##NEW ENVIRONMENT##"):
         for element in fileList:
