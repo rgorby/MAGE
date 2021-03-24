@@ -515,14 +515,14 @@ module rcmimag
         !Do last short cut
         if (.not. all(isGs)) return
 
-        prcm = rcmPScl*AvgQ(RCMApp%Prcm ,IJs,Ws,Ni,Np)
-        nrcm = rcmNScl*AvgQ(RCMApp%Nrcm ,IJs,Ws,Ni,Np)
-        npp  = rcmNScl*AvgQ(RCMApp%Npsph,IJs,Ws,Ni,Np)
-        pmhd = rcmPScl*AvgQ(RCMApp%Pave ,IJs,Ws,Ni,Np)
-        nmhd = rcmNScl*AvgQ(RCMApp%Nave ,IJs,Ws,Ni,Np)
-        beta = AvgQ(RCMApp%beta_average ,IJs,Ws,Ni,Np)
-        wIM  = AvgQ(RCMApp%wImag        ,IJs,Ws,Ni,Np)
-        Tb   = AvgQ(RCMApp%Tb           ,IJs,Ws,Ni,Np)
+        prcm = rcmPScl*AvgQ(RCMApp%Prcm)
+        nrcm = rcmNScl*AvgQ(RCMApp%Nrcm)
+        npp  = rcmNScl*AvgQ(RCMApp%Npsph)
+        pmhd = rcmPScl*AvgQ(RCMApp%Pave)
+        nmhd = rcmNScl*AvgQ(RCMApp%Nave)
+        beta = AvgQ(RCMApp%beta_average)
+        wIM  = AvgQ(RCMApp%wImag)
+        Tb   = AvgQ(RCMApp%Tb)
 
         nlim = 0.0
         plim = 0.0
@@ -630,10 +630,7 @@ module rcmimag
           if (ez>+0.5) ez = +0.5
         end subroutine ClampMap
 
-        function AvgQ(Q,IJs,Ws,Ni,Nj) 
-            integer , intent(in) :: Ni,Nj
-            integer , intent(in) :: IJs(Np,2)
-            real(rp), intent(in) :: Ws(Np)
+        function AvgQ(Q) 
             real(rp), intent(in) :: Q(Ni,Nj)
 
             real(rp) :: AvgQ
