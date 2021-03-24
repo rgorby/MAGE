@@ -103,6 +103,9 @@ module voltapp_mpi
 
         ! helpers don't do full voltron initialization
         if(vApp%amHelper) then
+            vApp%isLoud = .false.
+            vApp%writeFiles = .false.
+
             ! read helper XML options
             if(present(optFilename)) then
                 inpXML = optFilename
@@ -110,9 +113,7 @@ module voltapp_mpi
                 call getIDeckStr(inpXML)
             endif
             call CheckFileOrDie(inpXML,"Error opening input deck in initVoltron_mpi, exiting ...")
-            xmlInp = New_XML_Input(trim(inpXML),'Voltron',.false.)
-
-            call SetOMP(xmlInp)
+            xmlInp = New_XML_Input(trim(inpXML),'Gamera',.false.)
 
             call xmlInp%Set_Val(vApp%useHelpers,"/Voltron/Helpers/useHelpers",.true.)
             call xmlInp%Set_Val(vApp%doSquishHelp,"/Voltron/Helpers/doSquishHelp",.true.)
@@ -134,11 +135,25 @@ module voltapp_mpi
                 call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
             endif
 
+            ! initialize a full baby voltron
+            vApp%gAppLocal%Grid%ijkShift(1:3) = 0
+            call ReadCorners(vApp%gAppLocal%Model,vApp%gAppLocal%Grid,xmlInp,childGameraOpt=.true.)
+            call SetRings(vApp%gAppLocal%Model,vApp%gAppLocal%Grid,xmlInp)
+            call Corners2Grid(vApp%gAppLocal%Model,vApp%gAppLocal%Grid)
+            call DefaultBCs(vApp%gAppLocal%Model,vApp%gAppLocal%Grid)
+            call PrepState(vApp%gAppLocal%Model,vApp%gAppLocal%Grid,&
+                vApp%gAppLocal%oState,vAPp%gApplocal%State,xmlInp,userInitFunc)
+
+            ! now initialize basic voltron structures from gamera data
+            if(present(optFilename)) then
+                call initVoltron(vApp, vApp%gAppLocal, optFilename)
+            else
+                call initVoltron(vApp, vApp%gAppLocal)
+            endif
+
             ! get starting time values from master voltron rank
             call mpi_bcast(vApp%tFin, 1, MPI_MYFLOAT, 0, vApp%vHelpComm, ierr)
             call mpi_bcast(vApp%time, 1, MPI_MYFLOAT, 0, vApp%vHelpComm, ierr)
-
-            if(vApp%doSquishHelp) call initializeAndReceiveChimp(vApp)
 
             return
         endif
@@ -335,7 +350,6 @@ module voltapp_mpi
             ! send initial timing data to helper voltron ranks
             call mpi_bcast(vApp%tFin, 1, MPI_MYFLOAT, 0, vApp%vHelpComm, ierr)
             call mpi_bcast(vApp%time, 1, MPI_MYFLOAT, 0, vApp%vHelpComm, ierr)
-            if(vApp%doSquishHelp) call sendChimpInitialization(vApp)
         endif
 
         ! create the MPI datatypes needed to transfer state data
