@@ -102,9 +102,10 @@ et_save = np.zeros( (nj+2,nk+1) )
 ep_save = np.zeros( (nj+1+2,nk) )
 
 #Normalization
-Vnorm = 1.e5*150 #cm/s
-Nnorm = 200.*1.67e-24 #gcm-3
-Bnorm = 100.*1.e-5 #in Gs
+Vnorm = 1.e5 #cm/s => km/s
+Bnorm = 1.e-5 #Gs => nT
+mp = 1.67e-24
+kblts = 1.38e-16
 
 #open innerbcTD.h5 for ouput
 with h5py.File(os.path.join(prm.IbcDir,prm.gameraIbcFile),'w') as hf:
@@ -117,9 +118,10 @@ with h5py.File(os.path.join(prm.IbcDir,prm.gameraIbcFile),'w') as hf:
        	#[EP] reading WSA file
         jd_c,phi_wsa_v,theta_wsa_v,phi_wsa_c,theta_wsa_c,bi_wsa,v_wsa,n_wsa,T_wsa = wsa.read(wsaFile,prm.densTempInfile,prm.normalized, verbose = isFirstFile)
         #bi_wsa in Gs CGS units
-	#v_wsa in cm/s
-	#n_wsa in g/cm-3
-	#T_wsa in K
+	    #v_wsa in cm/s
+	    #n_wsa in g/cm-3
+	    #T_wsa in K
+
 
         #convert julian date from wsa fits into modified julian date
         mjd_c = jd_c - 2400000.5
@@ -240,7 +242,8 @@ with h5py.File(os.path.join(prm.IbcDir,prm.gameraIbcFile),'w') as hf:
         #assuming uniform total pressure Rho_max*k*T0 = p+Br^2/8pi
 
         T0 = 0.8e6 #8e5 in wsa.py
-        cs = np.sqrt(prm.gamma/rho*(rho.max()*1.38e-16*T0/1.67e-24-br**2/8/np.pi))
+        #cs = np.sqrt(prm.gamma/rho*(rho.max()*1.38e-16*T0/1.67e-24-br**2/8/np.pi))
+        Temp = mp/rho/kblts*(rho.max()*kblts*T0/mp-br**2/8/np.pi)
 
         # Poisson solver after interpolation onto GAMERA grid
         if fcount>0:
@@ -333,8 +336,9 @@ with h5py.File(os.path.join(prm.IbcDir,prm.gameraIbcFile),'w') as hf:
 
         # Scale inside ghost region
         #print(rho.shape)
-        (vr,rho,cs,br,bp_kface_a,bt_jface_a) = [np.dstack(prm.NO2*[var]) for var in (vr,rho,cs,br,bp_kface_a,bt_jface_a)]
+        (vr,rho,Temp,br,bp_kface_a,bt_jface_a) = [np.dstack(prm.NO2*[var]) for var in (vr,rho,Temp,br,bp_kface_a,bt_jface_a)]
         rho*=(R0/Rc[0,0,:Ng])**2
+        Temp *= (R0/Rc[0,0,:Ng])
         br*=(R0/Rc[0,0,:Ng])**2
         bp_kface_a*=(R0/Rc[0,0,:Ng])
 
@@ -344,17 +348,23 @@ with h5py.File(os.path.join(prm.IbcDir,prm.gameraIbcFile),'w') as hf:
 
         #print vr.shape, rho.shape, cs.shape, br.shape, bt_jface_a.shape, bp_kface_a.shape
         #print et_save.shape, ep_save.shape
-        print (wsaFile)
-        #
-        vrp = vr[:,1:-1,:]
-        vp = np.zeros_like(vrp)
-        vt = np.zeros_like(vrp)
-        rhop = rho[:,1:-1,:]
-        csp = cs[:,1:-1,:]
-        brp = br[:,1:-1,:]
-        bt_jface_a_p = bt_jface_a[:,1:-1,:]
 
-        bp_kface_a_p = bp_kface_a[:,1:-1,:]
+        #Agreement. For innerbcTD.h5 the output units are V[km/s], Rho[cm-3], T[K], B[nT]
+        #v_wsa /= Vnorm
+        #n_wsa /= mp
+        #bi_wsa /= Bnorm 
+
+        print (wsaFile)
+        #removing two bounding cells in theta and normalizing
+        vrp = vr[:,1:-1,:]/Vnorm
+        vp = np.zeros_like(vrp)/Vnorm
+        vt = np.zeros_like(vrp)/Vnorm
+        rhop = rho[:,1:-1,:]/mp
+        Tempp = Temp[:,1:-1,:]
+        brp = br[:,1:-1,:]/Bnorm
+        bt_jface_a_p = bt_jface_a[:,1:-1,:]/Bnorm
+
+        bp_kface_a_p = bp_kface_a[:,1:-1,:]/Bnorm
         et_save_p = et_save[1:-1,:]
         ep_save_p = ep_save[1:-1,:]
 
@@ -379,7 +389,7 @@ with h5py.File(os.path.join(prm.IbcDir,prm.gameraIbcFile),'w') as hf:
             grp.create_dataset("vt",data=vt) #cc !zeros
             #hf.create_dataset("vr_kface",data=vr_kface) #kface
             grp.create_dataset("rho",data=rhop) #cc
-            grp.create_dataset("cs",data=csp) #cc
+            grp.create_dataset("T",data=Tempp) #cc
             grp.create_dataset("br",data=brp) #cc
             #hf.create_dataset("br_kface",data=br_kface) #kface 
             #hf.create_dataset("bp",data=bp_a) #cc
