@@ -29,6 +29,7 @@ program voltron_mpix
     integer :: required=MPI_THREAD_MULTIPLE
     character( len = MPI_MAX_ERROR_STRING) :: message
     character(len=strLen) :: inpXML, numHelpersBuf
+    logical :: helperQuit
 
     ! initialize MPI
     !Set up MPI with or without thread support
@@ -169,17 +170,21 @@ program voltron_mpix
 
         call endGam2VoltWaits(g2vComm, gApp)
 
-    else
+    else 
+        ! voltron
         call initVoltron_mpi(vApp, userInitFunc, voltComm, MPI_COMM_WORLD)
 
-        ! voltron run loop
-        do while (vApp%time < vApp%tFin)
-            !Start root timer
-            call Tic("Omega")
-            if(vApp%amHelper) then
-                ! do helper loop
-                call helpVoltron(vApp)
-            else
+        if(vApp%amHelper) then
+            ! do helper loop
+            helperQuit = .false.
+            do while(.not. helperQuit)
+                call helpVoltron(vApp, helperQuit)
+            end do
+        else
+            ! voltron run loop
+            do while (vApp%time < vApp%tFin)
+                !Start root timer
+                call Tic("Omega")
                 !If coupling from Gamera is ready
                 if(gameraStepReady(vApp)) then
                     !Do any updates to Voltron
@@ -228,9 +233,11 @@ program voltron_mpix
                     ! Gamera wasn't ready and we don't have deep work to do, wait for gamera
                     call waitForGameraStep(vApp)
                 endif
-            endif
-            call Toc("Omega")
-        enddo
+                call Toc("Omega")
+            enddo
+            ! if using helpers, tell them to quit
+            if(vApp%useHelpers) call vhReqHelperQuit(vApp)
+        endif ! end all voltron loops
         call endVoltronWaits(vApp)
     endif
 

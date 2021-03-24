@@ -9,7 +9,7 @@ module volthelpers_mpi
     implicit none
 
     enum, bind(C)
-        enumerator :: VHSTEP=1,VHSQUISHSTART,VHSQUISHEND
+        enumerator :: VHSTEP=1,VHSQUISHSTART,VHSQUISHEND,VHQUIT
     endenum
 
     contains
@@ -431,6 +431,14 @@ module volthelpers_mpi
             print *,message(1:length)
             call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
         end if
+
+    end subroutine
+
+    subroutine vhReqHelperQuit(vApp)
+        type(voltAppMpi_T), intent(inout) :: vApp
+
+        integer :: ierr
+        call vhRequestType(vApp, VHQUIT)
 
     end subroutine
 

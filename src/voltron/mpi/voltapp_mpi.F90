@@ -1263,10 +1263,12 @@ module voltapp_mpi
 
     end subroutine createVoltDataTypes
 
-    subroutine helpVoltron(vApp)
+    subroutine helpVoltron(vApp, helperQuit)
         type(voltAppMpi_T), intent(inout) :: vApp
+        logical, intent(out) :: helperQuit ! should the helper quit
 
         integer :: ierr, helpType, helpReq = MPI_REQUEST_NULL
+        helperQuit = .false. ! don't quit normally
 
         ! assumed to only be in this function if helpers are enabled
 
@@ -1282,6 +1284,8 @@ module voltapp_mpi
                 call vhHandleSquishStart(vApp)
             CASE (VHSQUISHEND)
                 call vhHandleSquishEnd(vApp)
+            case (VHQUIT)
+                helperQuit = .true.
             CASE DEFAULT
                 print *,"Unknown voltron helper request type received."
                 stop
