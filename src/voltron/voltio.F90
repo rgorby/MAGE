@@ -178,11 +178,14 @@ module voltio
     subroutine resOutputVOnly(vApp)
         class(voltApp_T), intent(inout) :: vApp
 
-        call writeMIXRestart(vApp%remixApp%ion,vApp%IO%nRes,mjd=vApp%MJD,time=vApp%time)
-        !Write inner mag restart
-        if (vApp%doDeep) then
-            call vApp%imagApp%doRestart(vApp%IO%nRes,vApp%MJD,vApp%time)
+        if (vApp%writeFiles) then
+            call writeMIXRestart(vApp%remixApp%ion,vApp%IO%nRes,mjd=vApp%MJD,time=vApp%time)
+            !Write inner mag restart
+            if (vApp%doDeep) then
+                call vApp%imagApp%doRestart(vApp%IO%nRes,vApp%MJD,vApp%time)
+            endif
         endif
+
         if (vApp%time>vApp%IO%tRes) then
             vApp%IO%tRes = vApp%IO%tRes + vApp%IO%dtRes
         endif
@@ -205,16 +208,18 @@ module voltio
     subroutine fOutputVOnly(vApp,gApp)
         class(voltApp_T), intent(inout) :: vApp
         class(gamApp_T) , intent(inout) :: gApp
+        
+        if(vApp%writeFiles) then
+            !Write ReMIX data
+            call writeMix(vApp%remixApp%ion,vApp%IO%nOut,mjd=vApp%MJD,time=vApp%time)
 
-        !Write ReMIX data
-        call writeMix(vApp%remixApp%ion,vApp%IO%nOut,mjd=vApp%MJD,time=vApp%time)
+            !Write inner mag IO if needed
+            if (vApp%doDeep) then
+                call vApp%imagApp%doIO(vApp%IO%nOut,vApp%MJD,vApp%time)
+            endif
 
-        !Write inner mag IO if needed
-        if (vApp%doDeep) then
-            call vApp%imagApp%doIO(vApp%IO%nOut,vApp%MJD,vApp%time)
+            call WriteVolt(vApp,gApp,vApp%IO%nOut)
         endif
-
-        call WriteVolt(vApp,gApp,vApp%IO%nOut)
 
         if (vApp%time>vApp%IO%tOut) then
             vApp%IO%tOut = vApp%IO%tOut + vApp%IO%dtOut
