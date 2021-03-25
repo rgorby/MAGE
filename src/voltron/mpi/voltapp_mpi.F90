@@ -1276,6 +1276,8 @@ module voltapp_mpi
         call mpi_Ibcast(helpType, 1, MPI_INT, 0, vApp%vHelpComm, helpReq, ierr)
         call mpi_wait(helpReq, MPI_STATUS_IGNORE, ierr)
 
+        !write (*,*) 'Helper got request type: ', helpType
+
         ! then call appropriate function to deal with command
         select case(helpType)
             CASE (VHSTEP)

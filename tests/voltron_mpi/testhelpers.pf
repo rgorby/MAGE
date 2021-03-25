@@ -69,46 +69,51 @@ contains
   end subroutine teardown
 
   subroutine runApplication()
+      logical :: helperQuit
 
       if(isGamera) then
           do while (g2vCommMpi%time < g2vCommMpi%tFin)
-            call stepGamera_mpi(gamAppMpi)
-            call localStepVoltronTime(g2vCommMpi, gamAppMpi)
-            if( (g2vCommMpi%time >= g2vCommMpi%DeepT .and. g2vCommMpi%doDeep) .or. &
-                (g2vCommMpi%time >= g2vCommMpi%ShallowT) .or. &
-                (g2vCommMpi%time >= g2vCommMpi%tFin)) then
-                call performStepVoltron(g2vCommMpi,gamAppMpi)
-                if(g2vCommMpi%doDeep .and. g2vCommMpi%time >= g2vCommMpi%DeepT .and. g2vCommMpi%time >= g2vCommMpi%ShallowT) then
-                    call performShallowAndDeepUpdate(g2vCommMpi, gamAppMpi)
-                elseif ( g2vCommMpi%time >= g2vCommMpi%DeepT .and. g2vCommMpi%doDeep ) then
-                    call performDeepUpdate(g2vCommMpi, gamAppMpi)
-                elseif (g2vCommMpi%time >= g2vCommMpi%ShallowT) then
-                    call performShallowUpdate(g2vCommMpi, gamAppMpi)
-                endif
-            endif
+              call stepGamera_mpi(gamAppMpi)
+              call localStepVoltronTime(g2vCommMpi, gamAppMpi)
+              if( (g2vCommMpi%time >= g2vCommMpi%DeepT .and. g2vCommMpi%doDeep) .or. &
+                  (g2vCommMpi%time >= g2vCommMpi%ShallowT) .or. &
+                  (g2vCommMpi%time >= g2vCommMpi%tFin)) then
+                  call performStepVoltron(g2vCommMpi,gamAppMpi)
+                  if(g2vCommMpi%doDeep .and. g2vCommMpi%time >= g2vCommMpi%DeepT .and. g2vCommMpi%time >= g2vCommMpi%ShallowT) then
+                      call performShallowAndDeepUpdate(g2vCommMpi, gamAppMpi)
+                  elseif ( g2vCommMpi%time >= g2vCommMpi%DeepT .and. g2vCommMpi%doDeep ) then
+                      call performDeepUpdate(g2vCommMpi, gamAppMpi)
+                  elseif (g2vCommMpi%time >= g2vCommMpi%ShallowT) then
+                      call performShallowUpdate(g2vCommMpi, gamAppMpi)
+                  endif
+              endif
           end do
       else
-          do while (voltAppMpi%time < voltAppMpi%tFin)
-            if(voltAppMpi%amHelper) then
-                call helpVoltron(voltAppMpi)
-            else
-                if(gameraStepReady(voltAppMpi)) then
-                    call stepVoltron_mpi(voltAppMpi)
-                    write (*,'(a,f8.3)') '    Time = ',voltAppMpi%time
-                    if(voltAppMpi%doDeep .and. voltAppMpi%time >= voltAppMpi%DeepT .and. voltAppMpi%time >= voltAppMpi%ShallowT) then ! both
-                        call shallowAndDeepUpdate_Mpi(voltAppMpi, voltAppMpi%time)
-                    elseif (voltAppMpi%time >= voltAppMpi%DeepT .and. voltAppMpi%doDeep ) then
-                        call DeepUpdate_mpi(voltAppMpi, voltAppMpi%time)
-                    elseif (voltAppMpi%time >= voltAppMpi%ShallowT) then
-                        call ShallowUpdate_mpi(voltAppMpi, voltAppMpi%time)
-                    endif
-                elseif(deepInProgress(voltAppMpi)) then
-                    call doDeepBlock(voltAppMpi)
-                else
-                    call waitForGameraStep(voltAppMpi)
-                endif
-            endif
-        end do
+          if(voltAppMpi%amHelper) then
+              helperQuit = .false.
+              do while(.not. helperQuit)
+                  call helpVoltron(voltAppMpi, helperQuit)
+              end do
+          else
+              do while (voltAppMpi%time < voltAppMpi%tFin)
+                  if(gameraStepReady(voltAppMpi)) then
+                      call stepVoltron_mpi(voltAppMpi)
+                      write (*,'(a,f8.3)') '    Time = ',voltAppMpi%time
+                      if(voltAppMpi%doDeep .and. voltAppMpi%time >= voltAppMpi%DeepT .and. voltAppMpi%time >= voltAppMpi%ShallowT) then ! both
+                          call shallowAndDeepUpdate_Mpi(voltAppMpi, voltAppMpi%time)
+                      elseif (voltAppMpi%time >= voltAppMpi%DeepT .and. voltAppMpi%doDeep ) then
+                          call DeepUpdate_mpi(voltAppMpi, voltAppMpi%time)
+                      elseif (voltAppMpi%time >= voltAppMpi%ShallowT) then
+                          call ShallowUpdate_mpi(voltAppMpi, voltAppMpi%time)
+                      endif
+                  elseif(deepInProgress(voltAppMpi)) then
+                      call doDeepBlock(voltAppMpi)
+                  else
+                      call waitForGameraStep(voltAppMpi)
+                  endif
+              enddo
+              if(voltAppMpi%useHelpers) call vhReqHelperQuit(voltAppMpi)
+          endif
       endif
 
   end subroutine runApplication
@@ -133,6 +138,12 @@ contains
   subroutine testHelpSquish(this)
       class (MpiTestMethod), intent(inout) :: this
 
+      real(rp), dimension(:,:,:,:), allocatable :: distSquish
+      real(rp), dimension(2) :: posErr
+      real(rp) :: sqErr, maxSqErr
+      integer :: i,j,k
+      logical :: helperQuit = .false. ! placeholder argument
+
       write (*,'(a,I0)') 'Testing HelpSquish ',this%getNumProcesses()
 
       call manualSetup(this, 'testHelpersSquish_4.xml')
@@ -141,6 +152,49 @@ contains
           call runApplication()
       else
           call runApplication()
+      endif
+
+      ! Now compare distributed squish results to local-only squish results
+      if(.not. isGamera) then
+          if(.not. voltAppMpi%amHelper) then
+              
+              ! calculate distributed squish from most recent results
+              call startDeep(voltAppMpi)
+              do while(deepInProgress(voltAppMpi))
+                  call doDeepBlock(voltAppMpi)
+              enddo
+              allocate(distSquish,  MOLD=voltAppMpi%chmp2mhd%xyzSquish)
+              distSquish = voltAppMpi%chmp2mhd%xyzSquish
+
+              ! now calculate local-only squish
+              voltAppMpi%ebTrcApp%ebSquish%myNumBlocks = -1 ! I do all blocks
+              voltAppMpi%ebTrcApp%ebSquish%myFirstBlock = 0 ! ensure I start with the first block
+              call DeepUpdate(voltAppMpi, voltAppMpi%gAppLocal)
+
+              sqErr = 0
+              maxSqErr = 0
+              do i=voltAppMpi%ebTrcApp%ebState%ebGr%is,voltAppMpi%iDeep+1
+                  do j=voltAppMpi%ebTrcApp%ebState%ebGr%js,voltAppMpi%ebTrcApp%ebState%ebGr%je+1
+                      do k=voltAppMpi%ebTrcApp%ebState%ebGr%ks,voltAppMpi%ebTrcApp%ebState%ebGr%ke+1
+                          posErr = abs(distSquish(i,j,k,:) - voltAppMpi%chmp2mhd%xyzSquish(i,j,k,:))
+                          if(posErr(2) > PI) posErr(2) = 2*PI - posErr(2)
+                          sqErr = sqErr + NORM2(posErr)
+                          maxSqErr = MAX(maxSqErr, NORM2(posErr))
+                      enddo
+                  enddo
+              enddo
+
+              deallocate(distSquish)
+
+              ! Floating point error rounding
+              @assertLessThan(sqErr, 1.0e-15_rp, trim("Total Distributed Squish Error Too Large"))
+              @assertLessThan(maxSqErr, 1.0e-15_rp, trim("Per Cell Distributed Squish Error Too Large"))
+
+          else
+              ! helpers
+              call helpVoltron(voltAppMpi, helperQuit) ! start squish
+              call helpVoltron(voltAppMpi, helperQuit) ! end squish
+          endif
       endif
 
   end subroutine
