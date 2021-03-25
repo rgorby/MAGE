@@ -57,7 +57,11 @@ module usergamic
     real(rp), dimension(:,:,:,:), allocatable :: ibcVars
 
     !Various global would go here
-    real (rp) :: Rho0, P0, Vslow,Vfast, wScl, Cs0, B0, MJD_c
+    real (rp) :: Rho0, P0, Vslow, Vfast, wScl, Cs0, B0, MJD_c
+
+    !Scaling from innerbc to CGS
+    real (rp) :: km2cm = 1.e5
+    real (rp) :: nT2Gs = 1.e-5
 
     ! things we keep reusing
     real(rp), dimension(NDIM) :: xyz,xyz0,rHat,phiHat
@@ -262,12 +266,12 @@ module usergamic
         !read map from Step#n1
         call rdWSAMap(bc%wsaData,n1,bc%wsaData%ibcVarsW1)
         bc%wsaData%wsaN1 = n1
-        bc%wsaData%wsaT1 = bc%wsaData%ebTab%times(n1)
+        bc%wsaData%wsaT1 = bc%wsaData%ebTab%times(n1) ! in sec
 
         !read map from Step#2
         call rdWSAMap(bc%wsaData,n2,bc%wsaData%ibcVarsW2)
         bc%wsaData%wsaN2 = n2
-        bc%wsaData%wsaT2 = bc%wsaData%ebTab%times(n2)
+        bc%wsaData%wsaT2 = bc%wsaData%ebTab%times(n2) !in sec
         write(*,*)'[EP in InitwsaBC] Bounding times ', bc%wsaData%wsaT1, bc%wsaData%wsaT2
 
         ![EP]interpolation (a) calculate weights (b) interpolate in time 
@@ -651,17 +655,16 @@ module usergamic
         call ClearIO(IOVars)
 
         !Setup input chain
-        call AddInVar(IOVars,"vr")
-        call AddInVar(IOVars,"vt")
-        call AddInVar(IOVars,"vp")
-        call AddInVar(IOVars,"rho")
-        !SOUND SPEED
-        call AddInVar(IOVars,"cs")
-        call AddInVar(IOVars,"br")
-        call AddInVar(IOVars,"bp_kface")
-        call AddInVar(IOVars,"bt_jface")
+        call AddInVar(IOVars,"vr", km2cm/Model%Units%gv0)
+        call AddInVar(IOVars,"vt", km2cm/Model%Units%gv0)
+        call AddInVar(IOVars,"vp", km2cm/Model%Units%gv0)
+        call AddInVar(IOVars,"rho", Model%Units%gD0)
+        call AddInVar(IOVars,"T") !Temp in K 
+        call AddInVar(IOVars,"br", nT2Gs/Model%Units%gB0)
+        call AddInVar(IOVars,"bp_kface", nT2Gs/Model%Units%gB0)
+        call AddInVar(IOVars,"bt_jface", nT2Gs/Model%Units%gB0)
         call AddInVar(IOVars,"MJD")
-        call AddInVar(IOVars,"time")
+        call AddInVar(IOVars,"time", Model%Units%gT0)
 
         call ReadVars(IOVars,.false.,wsaData%ebTab%bStr,wsaData%ebTab%gStrs(n)) 
 
@@ -687,7 +690,7 @@ module usergamic
          case (RHOIN)
             nvar= FindIO(IOVars,"rho")
          case (TIN)
-            nvar= FindIO(IOVars,"cs")
+            nvar= FindIO(IOVars,"T")
          case (BPKFIN)
             nvar= FindIO(IOVars,"bp_kface")
          case (BTJFIN)
