@@ -576,7 +576,8 @@ module wind
         logical :: isByC,isBzC
         real(rp) :: BCoef(3)
         real(rp), parameter :: ergcc2nPa = 1.0e8
-        real(rp) :: dtMin,dtMax
+        real(rp) :: dtMin,dtMax,vMax,minVMach
+
         type(IOVAR_T), dimension(MAXWINDVARS) :: IOVars
 
         if (Model%isLoud) then
@@ -672,12 +673,27 @@ module wind
 
         windBC%B(:,XDIR) = windBC%Bx0 + windBC%ByC*windBC%B(:,YDIR) + windBC%BzC*windBC%B(:,ZDIR) 
 
+        !Find max SW speed and check against Boris
+        vMax = maxval(norm2(windBC%Q(:,VELX:VELZ),dim=2))
+        if (Model%doBoris .and. (vMax>= Model%Ca)) then
+            !Solar wind is faster than boris, not cool
+            write(*,*) 'Solar wind speed is faster than Boris speed of light, how could you let that happen?'
+            write(*,*) 'SW/Boris speeds [m/s]: ', Model%Units%gv0*vMax,Model%Units%gv0*Model%Ca
+            write(*,*) 'Bailing ...'
+            stop
+        endif
+
+        !Find min solar wind mach number
+        minVMach = minval(  sqrt(windBC%Q(:,DEN))*norm2(windBC%Q(:,VELX:VELZ),dim=2) &
+                          / norm2(windBC%B(:,XDIR:ZDIR),dim=2) )
+
         if (Model%isLoud) then
             write(*,'(a,3f8.3)') ' SW Coefficients (Bx0,ByC,BzC) = ', BCoef(3),BCoef(1),BCoef(2)
-
+            write(*,'(a,3f8.3)') 'Min solar wind Alfvenic Mach number = ', minVMach
             write(*,*) "Finished reading solar wind data"
             write(*,*) "---------------"
-        endif        
+        endif
+
     end subroutine readWind
 
     !Interpolate from qWind data to provide wind BC
