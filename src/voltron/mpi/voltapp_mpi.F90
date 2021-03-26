@@ -115,7 +115,7 @@ module voltapp_mpi
             call CheckFileOrDie(inpXML,"Error opening input deck in initVoltron_mpi, exiting ...")
             xmlInp = New_XML_Input(trim(inpXML),'Gamera',.false.)
 
-            call xmlInp%Set_Val(vApp%useHelpers,"/Voltron/Helpers/useHelpers",.true.)
+            call xmlInp%Set_Val(vApp%useHelpers,"/Voltron/Helpers/useHelpers",.false.)
             call xmlInp%Set_Val(vApp%doSquishHelp,"/Voltron/Helpers/doSquishHelp",.true.)
             call xmlInp%Set_Val(nHelpers,"/Voltron/Helpers/numHelpers",0)
             call MPI_Comm_Size(vApp%vHelpComm, commSize, ierr)
@@ -124,14 +124,14 @@ module voltapp_mpi
                 print *,message(1:length)
                 call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
             end if
-            if(nHelpers .ne. commSize-1) then
-                print *,"The number of voltron helpers is not correct."
-                call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
-            endif
             if(.not. vApp%useHelpers) then
                 print *,"Voltron helpers were created, but the helping option is disabled."
                 print *,"Please either turn the /Voltron/Helpers/useHelpers option on, or "
                 print *,"  remove the unnecessary Voltron helper ranks."
+                call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+            endif
+            if(nHelpers .ne. commSize-1) then
+                print *,"The number of voltron helpers is not correct."
                 call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
             endif
 
@@ -258,7 +258,7 @@ module voltapp_mpi
         xmlInp = New_XML_Input(trim(inpXML),'Gamera',.true.)
         call xmlInp%Set_Val(vApp%doSerialVoltron,"/Voltron/coupling/doSerial",.false.)
         call xmlInp%Set_Val(vApp%doAsyncShallow, "/Voltron/coupling/doAsyncShallow",.true.)
-        call xmlInp%Set_Val(vApp%useHelpers,"/Voltron/Helpers/useHelpers",.true.)
+        call xmlInp%Set_Val(vApp%useHelpers,"/Voltron/Helpers/useHelpers",.false.)
         call xmlInp%Set_Val(vApp%doSquishHelp,"/Voltron/Helpers/doSquishHelp",.true.)
         call xmlInp%Set_Val(nHelpers,"/Voltron/Helpers/numHelpers",0)
         call MPI_Comm_Size(vApp%vHelpComm, commSize, ierr)
@@ -267,11 +267,12 @@ module voltapp_mpi
             print *,message(1:length)
             call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
         end if
+        if(.not. vApp%useHelpers) nHelpers = 0
+        if(nHelpers .eq. 0) vApp%useHelpers = .false.
         if(nHelpers .ne. commSize-1) then
             print *,"The number of voltron helpers is not correct."
             call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
         endif
-        if(nHelpers .le. 0) vApp%useHelpers = .false.
 
         if(vApp%doSerialVoltron) then
             ! don't do asynchronous shallow if comms are serial

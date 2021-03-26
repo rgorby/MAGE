@@ -25,11 +25,11 @@ program voltron_mpix
 
     procedure(StateIC_T), pointer :: userInitFunc => initUser
 
-    integer :: ierror, length, provided, worldSize, worldRank, gamComm, voltComm, numHelpersInt
+    integer :: ierror, length, provided, worldSize, worldRank, gamComm, voltComm, numHelpers
     integer :: required=MPI_THREAD_MULTIPLE
     character( len = MPI_MAX_ERROR_STRING) :: message
-    character(len=strLen) :: inpXML, numHelpersBuf
-    logical :: helperQuit
+    character(len=strLen) :: inpXML, helpersBuf
+    logical :: useHelpers, helperQuit
 
     ! initialize MPI
     !Set up MPI with or without thread support
@@ -60,8 +60,11 @@ program voltron_mpix
 
     ! need to know how many voltron helpers there are
     call getIDeckStr(inpXML)
-    call ReadXmlImmediate(trim(inpXML),'/Voltron/Helpers/numHelpers',numHelpersBuf,'0',.false.)
-    read(numHelpersBuf,*) numHelpersInt
+    call ReadXmlImmediate(trim(inpXML),'/Voltron/Helpers/useHelpers',helpersBuf,'F',.false.)
+    read(helpersBuf,*) useHelpers
+    call ReadXmlImmediate(trim(inpXML),'/Voltron/Helpers/numHelpers',helpersBuf,'0',.false.)
+    read(helpersBuf,*) numHelpers
+    if(.not. useHelpers) numHelpers = 0
 
     ! create a new MPI communicator for just Gamera
     !    for now this is always all ranks excep the last one (which is reserved for voltron)
@@ -77,7 +80,7 @@ program voltron_mpix
         print *,message(1:length)
         call mpi_Abort(MPI_COMM_WORLD, 1, ierror)
     end if
-    if(worldRank .ge. (worldSize-1-numHelpersInt)) then
+    if(worldRank .ge. (worldSize-1-numHelpers)) then
         ! voltron rank
         isGamera = .false.
         call MPI_Comm_Split(MPI_COMM_WORLD, 1, worldRank, voltComm, ierror)
@@ -98,8 +101,10 @@ program voltron_mpix
     endif
 
     if(isGamera) then
+        call Tic("Omega")
         call initGamera_mpi(gApp,userInitFunc,gamComm,doIO=.false.)
         call initGam2Volt(g2vComm,gApp,MPI_COMM_WORLD)
+        call Toc("Omega")
 
         do while (g2vComm%time < g2vComm%tFin)
             !Start root timer
@@ -172,13 +177,17 @@ program voltron_mpix
 
     else 
         ! voltron
+        call Tic("Omega")
         call initVoltron_mpi(vApp, userInitFunc, voltComm, MPI_COMM_WORLD)
+        call Toc("Omega")
 
         if(vApp%amHelper) then
             ! do helper loop
             helperQuit = .false.
             do while(.not. helperQuit)
+                call Tic("Omega")
                 call helpVoltron(vApp, helperQuit)
+                call Toc("Omega")
             end do
         else
             ! voltron run loop
