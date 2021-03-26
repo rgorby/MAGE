@@ -264,12 +264,12 @@ module usergamic
       write(*,*) '[EP in InitwsaBC] Bounding slices ', n1, n2
 
         !read map from Step#n1
-        call rdWSAMap(bc%wsaData,n1,bc%wsaData%ibcVarsW1)
+        call rdWSAMap(bc%wsaData,Model,n1,bc%wsaData%ibcVarsW1)
         bc%wsaData%wsaN1 = n1
         bc%wsaData%wsaT1 = bc%wsaData%ebTab%times(n1) ! in sec
 
         !read map from Step#2
-        call rdWSAMap(bc%wsaData,n2,bc%wsaData%ibcVarsW2)
+        call rdWSAMap(bc%wsaData,Model,n2,bc%wsaData%ibcVarsW2)
         bc%wsaData%wsaN2 = n2
         bc%wsaData%wsaT2 = bc%wsaData%ebTab%times(n2) !in sec
         write(*,*)'[EP in InitwsaBC] Bounding times ', bc%wsaData%wsaT1, bc%wsaData%wsaT2
@@ -319,13 +319,13 @@ module usergamic
          write(*,*) '[EP in wsaBC] Bounding time slice ', n1, n2
 
         !read a map from Step#n1
-        call rdWSAMap(bc%wsaData,n1,bc%wsaData%ibcVarsW1)
+        call rdWSAMap(bc%wsaData,Model,n1,bc%wsaData%ibcVarsW1)
         bc%wsaData%wsaN1 = n1
         !time from Step#n1
         bc%wsaData%wsaT1 = bc%wsaData%ebTab%times(n1)
 
         !read a map from Step#2
-        call rdWSAMap(bc%wsaData,n2,bc%wsaData%ibcVarsW2)
+        call rdWSAMap(bc%wsaData,Model,n2,bc%wsaData%ibcVarsW2)
         bc%wsaData%wsaN2 = n2
         !time from Step#n2
         bc%wsaData%wsaT2 = bc%wsaData%ebTab%times(n2)
@@ -606,12 +606,12 @@ module usergamic
         write(*,*) '[EP in initTSlice] Bounding slices ', n1, n2
 
         !read map from Step#n1
-        call rdWSAMap(wsaData,n1,wsaData%ibcVarsW1)
+        call rdWSAMap(wsaData,Model,n1,wsaData%ibcVarsW1)
         wsaData%wsaN1 = n1
         wsaData%wsaT1 = wsaData%ebTab%times(n1)
 
         !read map from Step#2
-        call rdWSAMap(wsaData,n2,wsaData%ibcVarsW2)
+        call rdWSAMap(wsaData,Model,n2,wsaData%ibcVarsW2)
         wsaData%wsaN2 = n2
         wsaData%wsaT2 = wsaData%ebTab%times(n2)
         write(*,*)'[EP in initTSlice] Bounding times ', wsaData%wsaT1, wsaData%wsaT2 
@@ -633,8 +633,9 @@ module usergamic
 
 
     ![EP] reads WSA map for a given time step Step#n in innerbc.h5
-    subroutine rdWSAMap(wsaData,n,W)
+    subroutine rdWSAMap(wsaData,Model,n,W)
         type(wsaData_T), intent(inout) :: wsaData
+        type(Model_T), intent(in) :: Model
         integer, intent(in) :: n !timeslice
         real(rp), dimension(:,:,:,:), intent(out), allocatable :: W
         
@@ -655,23 +656,27 @@ module usergamic
         call ClearIO(IOVars)
 
         !Setup input chain
-        call AddInVar(IOVars,"vr", km2cm/Model%Units%gv0)
-        call AddInVar(IOVars,"vt", km2cm/Model%Units%gv0)
-        call AddInVar(IOVars,"vp", km2cm/Model%Units%gv0)
-        call AddInVar(IOVars,"rho", Model%Units%gD0)
+        call AddInVar(IOVars,"vr",vSclO=km2cm/Model%Units%gv0)
+        call AddInVar(IOVars,"vt",vSclO=km2cm/Model%Units%gv0)
+        call AddInVar(IOVars,"vp",vSclO=km2cm/Model%Units%gv0)
+        call AddInVar(IOVars,"rho",vSclO=1/Model%Units%gD0)
         call AddInVar(IOVars,"T") !Temp in K 
-        call AddInVar(IOVars,"br", nT2Gs/Model%Units%gB0)
-        call AddInVar(IOVars,"bp_kface", nT2Gs/Model%Units%gB0)
-        call AddInVar(IOVars,"bt_jface", nT2Gs/Model%Units%gB0)
+        call AddInVar(IOVars,"br",vSclO=nT2Gs/Model%Units%gB0)
+        call AddInVar(IOVars,"bp_kface",vSclO=nT2Gs/Model%Units%gB0)
+        call AddInVar(IOVars,"bt_jface",vSclO=nT2Gs/Model%Units%gB0)
         call AddInVar(IOVars,"MJD")
-        call AddInVar(IOVars,"time", Model%Units%gT0)
+        call AddInVar(IOVars,"time",vSclO=1/Model%Units%gT0)
 
         call ReadVars(IOVars,.false.,wsaData%ebTab%bStr,wsaData%ebTab%gStrs(n)) 
+
+        do i=1,10
+           write(*,*)'[EP in rdWSAMap] IOVars%dims', IOVars(i)%dims(1:3)
+        end do 
 
         !add +1 in j and k because of field components at faces
         !Bp_kface has dim 257, 128, 4
         !Bt_jface has dim 256, 129, 4
-        dims = [wsaData%Nr,wsaData%Nt+1,wsaData%Np+1] !i,j,k
+        dims = [wsaData%Nr,wsaData%Nt,wsaData%Np] !i,j,k
         !dims=IOVars(1)%dims(1:3) ! i,j,k
         write(*,*) 'Dimensions of W in rdWSAMap', dims
         !Allocate W
@@ -701,9 +706,12 @@ module usergamic
             nvar= FindIO(IOVars,"vp")
          end select
 
-         W(:,:,:,i) = reshape(IOVars(nvar)%data,dims)
+         !Scale from innerbc units (km/s, cm-3, nT, K) to code dim-less units
+         W(:,:,:,i) = reshape(IOVars(nvar)%data*IOVars(nvar)%scale,dims)
         end do
 
+        write(*,*)"[EP in rdWSAMap] i=1 Vr k=255 i=1 values ", W(1,:,255,VRIN)
+        
 
          !reading MJD
          MJD_c = GetIOReal(IOVars,"MJD")
