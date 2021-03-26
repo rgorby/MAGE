@@ -79,8 +79,3 @@ set(allTestLibs baselib gamlib remixlib voltlib basempilib gammpilib voltmpilib 
 add_pfunit_ctest (allTests TEST_SOURCES ${allTestFiles} LINK_LIBRARIES ${allTestLibs} MAX_PES 64)
 add_dependencies(allTests CopyInputs CopyGrids caseTests gamTests mixTests voltTests gamMpiTests baseMpiTests caseMpiTests voltMpiTests ${allTestLibs})
 
-# temporary test executable for helper tests only
-file(GLOB voltMpiHelperTestFiles "${CMAKE_CURRENT_SOURCE_DIR}/voltron_mpi/testhelpers.pf")
-add_pfunit_ctest (voltMpiHelperTests TEST_SOURCES ${voltMpiHelperTestFiles} LINK_LIBRARIES ${voltMpiTestLibs} MAX_PES 17)
-add_dependencies(voltMpiHelperTests ${voltMpiTestLibs})
-
