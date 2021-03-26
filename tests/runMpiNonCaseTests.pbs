@@ -1,0 +1,39 @@
+#!/bin/bash
+#PBS -A UJHB0015
+#PBS -N mpiNonCaseTests
+#PBS -j oe
+#PBS -q regular
+#PBS -l walltime=12:00:00
+#PBS -l select=1:ncpus=36:mpiprocs=64:ompthreads=72
+
+source ~/.bashrc
+
+module list
+hostname
+export OMP_NUM_THREADS=72
+export KMP_STACKSIZE=128M
+
+echo ""
+echo "Running Base MPI Tests"
+date
+mpirun ./baseMpiTests > baseMpiTests.out
+date
+echo "Base MPI Tests Complete"
+echo | tail -n 2 ./baseMpiTests.out
+
+echo ""
+echo "Running Gamera MPI Tests"
+date
+mpirun ./gamMpiTests > gamMpiTests.out
+date
+echo "Gamera MPI Tests Complete"
+echo | tail -n 2 ./gamMpiTests.out
+
+echo ""
+echo "Running Voltron MPI Tests"
+date
+mpirun ./voltMpiTests > voltMpiTests.out
+date
+echo "Voltron MPI Tests Complete"
+echo | tail -n 2 ./voltMpiTests.out
+
