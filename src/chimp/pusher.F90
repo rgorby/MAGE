@@ -99,8 +99,6 @@ module pusher
         real(rp) :: htOld,htNew, p11,pMag, eGCs(Nrk)
         real(rp), dimension(NVARTP) :: xGC,dxGC1,dxGC2,dxGC3,dxGC4,dQ,oQ
 
-
-
         xGC = prt%Q !GC configuration
         ijk = prt%ijk0
 

@@ -109,11 +109,16 @@ module ioH5Overload
         real(rp), dimension(:,:,:), intent(inout) :: Q
 
         integer :: nvar
+        integer :: ndims(3)
+
         nvar = FindIO(IOVars,vID,.true.)
         if (.not. IOVars(nvar)%isDone) call FailArrayFill(vID)
 
-        Q = reshape(IOVars(nvar)%data,[IOVars(nvar)%dims(1),IOVars(nvar)%dims(2),IOVars(nvar)%dims(3)])
+        ndims = [IOVars(nvar)%dims(1),IOVars(nvar)%dims(2),IOVars(nvar)%dims(3)]
+        Q = reshape(IOVars(nvar)%data,ndims)
+
     end subroutine IOArray3DFill
+
 
     subroutine FailArrayFill(vID)
         character(len=*), intent(in) :: vID

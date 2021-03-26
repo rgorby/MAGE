@@ -62,6 +62,7 @@ program calcdbx
 
     call BSGridInit(Model,ebState,rmState,magBS,ionBS,facBS)
 
+    write(*,*) "Initialization complete, let's do this thing!"
     !Loop from T0 -> tFin
     Model%t = Model%T0
     

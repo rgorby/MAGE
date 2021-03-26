@@ -31,21 +31,37 @@ module calcdbio
         integer, intent(inout) :: NumP
 
         type(IOVAR_T), dimension(MAXDBVS) :: IOVars
-        character(len=strLen) :: cID
+        character(len=strLen) :: cID,inH5
 
         integer :: i,j,k,NLat,NLon,Nz,dOut
+        integer, dimension(NDIM) :: Nijk
         real(rp) :: z,R,lat,phi
         real(rp) :: dtB,T0
         real(rp), dimension(:,:,:,:), allocatable :: SphI,SphC !Spherical coordinates
+        logical :: doH5g
 
         associate( ebGr=>ebState%ebGr )
         !Equate dtout/dt since the difference doesn't matter here
         Model%dtOut = Model%dt
 
     !Read info from XML
-        call inpXML%Set_Val(NLat,'Grid/NLat',45) !Number of latitudinal cells
-        call inpXML%Set_Val(NLon,'Grid/NLon',90) !Number of longitudinal cells
-        call inpXML%Set_Val(Nz  ,'Grid/Nz'  , 2) !Number of longitudinal cells
+        call inpXML%Set_Val(doH5g,'Grid/doH5g',.false.)
+        if (doH5g) then
+            call inpXML%Set_Val(inH5,"Grid/H5Grid","grid.h5")
+            call CheckFileOrDie(inH5,"Input grid file not found")
+            Nijk = GridSizeH5(inH5)
+            
+            NLat = Nijk(IDIR)-1
+            NLon = Nijk(JDIR)-1
+            Nz   = Nijk(KDIR)-1
+        else
+            !Generate grid
+            call inpXML%Set_Val(NLat,'Grid/NLat',45) !Number of latitudinal cells
+            call inpXML%Set_Val(NLon,'Grid/NLon',90) !Number of longitudinal cells
+            call inpXML%Set_Val(Nz  ,'Grid/Nz'  , 2) !Number of longitudinal cells
+        endif
+
+        !Stuff to read for either grid type
         call inpXML%Set_Val(gGr%rMax,'CalcDB/rMax',gGr%rMax)
         call inpXML%Set_Val(gGr%doGEO,'Grid/doGEO',gGr%doGEO) !Whether to do GEO on ground
         if (gGr%doGEO) then
@@ -110,36 +126,66 @@ module calcdbio
         allocate(gGr%GxyzC (NLat  ,NLon  ,Nz  ,NDIM))
         allocate(gGr%SMxyzC(NLat  ,NLon  ,Nz  ,NDIM))
 
-        !Do corners
-        do k=1,Nz+1
-        	z = -0.5*dzGG + (k-1)*dzGG !km above ground
-        	z = (1.0e+5)*z !cm above ground
-        	R = 1.0 + z/Re_cgs !Assuming Earth here
+        if (doH5g) then
+        !Read grid from file
+            write(*,*) "Reading grid from file ..."
+            call ClearIO(IOVars)
 
-        	do j=1,NLon+1
-        		phi = (j-1)*360.0/NLon 
-        		do i=1,NLat+1
-        			lat = -90.0 + (i-1)*180.0/NLat
-        			gGr%GxyzI(i,j,k,XDIR) = R*cos(lat*PI/180.0)*cos(phi*PI/180.0)
-        			gGr%GxyzI(i,j,k,YDIR) = R*cos(lat*PI/180.0)*sin(phi*PI/180.0)
-        			gGr%GxyzI(i,j,k,ZDIR) = R*sin(lat*PI/180.0)
+            call AddInVar(IOVars,"X")
+            call AddInVar(IOVars,"Y")
+            call AddInVar(IOVars,"Z")
 
-        		enddo !i
-        	enddo !j
-        enddo
+            call AddInVar(IOVars,"Xcc")
+            call AddInVar(IOVars,"Ycc")
+            call AddInVar(IOVars,"Zcc")
 
-        !Do centers
-        do k=1,Nz
-        	do j=1,NLon
-        		do i=1,NLat
-        			gGr%GxyzC(i,j,k,:) = 0.125*( gGr%GxyzI(i  ,j  ,k  ,:) + gGr%GxyzI(i+1,j  ,k  ,:) &
-                                               + gGr%GxyzI(i  ,j+1,k  ,:) + gGr%GxyzI(i  ,j  ,k+1,:) &
-                                               + gGr%GxyzI(i+1,j+1,k  ,:) + gGr%GxyzI(i+1,j  ,k+1,:) &
-                                               + gGr%GxyzI(i  ,j+1,k+1,:) + gGr%GxyzI(i+1,j+1,k+1,:) )
-                    gGr%SMxyzC(i,j,k,:) = gGr%GxyzC(i,j,k,:) !Just set SM=G for now
-        		enddo
-        	enddo
-        enddo
+            call ReadVars(IOVars,.false.,inH5) !Don't use io precision
+
+            !Now reshape and store
+            call IOArray3DFill(IOVars,"X"  ,gGr%GxyzI(:,:,:,XDIR))
+            call IOArray3DFill(IOVars,"Y"  ,gGr%GxyzI(:,:,:,YDIR))
+            call IOArray3DFill(IOVars,"Z"  ,gGr%GxyzI(:,:,:,ZDIR))
+
+            call IOArray3DFill(IOVars,"Xcc",gGr%GxyzC(:,:,:,XDIR))
+            call IOArray3DFill(IOVars,"Ycc",gGr%GxyzC(:,:,:,YDIR))
+            call IOArray3DFill(IOVars,"Zcc",gGr%GxyzC(:,:,:,ZDIR))
+
+        else
+        !Generate grid
+            write(*,*) "Generating grid ..."
+            !Do corners
+            do k=1,Nz+1
+            	z = -0.5*dzGG + (k-1)*dzGG !km above ground
+            	z = (1.0e+5)*z !cm above ground
+            	R = 1.0 + z/Re_cgs !Assuming Earth here
+
+            	do j=1,NLon+1
+            		phi = (j-1)*360.0/NLon 
+            		do i=1,NLat+1
+            			lat = -90.0 + (i-1)*180.0/NLat
+            			gGr%GxyzI(i,j,k,XDIR) = R*cos(lat*PI/180.0)*cos(phi*PI/180.0)
+            			gGr%GxyzI(i,j,k,YDIR) = R*cos(lat*PI/180.0)*sin(phi*PI/180.0)
+            			gGr%GxyzI(i,j,k,ZDIR) = R*sin(lat*PI/180.0)
+
+            		enddo !i
+            	enddo !j
+            enddo
+
+            !Do centers
+            do k=1,Nz
+            	do j=1,NLon
+            		do i=1,NLat
+            			gGr%GxyzC(i,j,k,:) = 0.125*( gGr%GxyzI(i  ,j  ,k  ,:) + gGr%GxyzI(i+1,j  ,k  ,:) &
+                                                   + gGr%GxyzI(i  ,j+1,k  ,:) + gGr%GxyzI(i  ,j  ,k+1,:) &
+                                                   + gGr%GxyzI(i+1,j+1,k  ,:) + gGr%GxyzI(i+1,j  ,k+1,:) &
+                                                   + gGr%GxyzI(i  ,j+1,k+1,:) + gGr%GxyzI(i+1,j+1,k+1,:) )
+            		enddo
+            	enddo
+            enddo
+        endif !Grid generation, doH5g
+
+        !Just set SM=G for now
+        gGr%SMxyzC = gGr%GxyzC
 
         end associate
 
