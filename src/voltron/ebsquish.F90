@@ -6,6 +6,7 @@ module ebsquish
     use volttypes
     use streamline
     use earthhelper
+    use clocks, only: Tic,Toc
     
     implicit none
 
@@ -48,9 +49,11 @@ module ebsquish
     subroutine Squish(vApp)
         class(voltApp_T), intent(inout) :: vApp
 
+        call Tic("Squish")
         do while(SquishBlocksRemain(vApp))
             call DoSquishBlock(vApp)
         enddo
+        call Toc("Squish")
 
     end subroutine Squish
 
@@ -79,6 +82,7 @@ module ebsquish
     subroutine SquishStart(vApp)
         class(voltApp_T), intent(inout) :: vApp
         
+        call Tic("Squish")
         associate(ebGr=>vApp%ebTrcApp%ebState%ebGr, &                  
                   xyzSquish=>vApp%chmp2mhd%xyzSquish,isGood=>vApp%chmp2mhd%isGood, &
                   ebSquish=>vApp%ebTrcApp%ebSquish)
@@ -94,6 +98,7 @@ module ebsquish
         ebSquish%curSquishBlock = ebSquish%myFirstBlock
 
         end associate
+        call Toc("Squish")
 
     end subroutine SquishStart
 
@@ -218,6 +223,7 @@ module ebsquish
 
         integer :: i,Nk
 
+        call Tic("Squish")
         associate(ebModel=>vApp%ebTrcApp%ebModel,ebGr=>vApp%ebTrcApp%ebState%ebGr, &
                   xyzSquish=>vApp%chmp2mhd%xyzSquish,isGood=>vApp%chmp2mhd%isGood, &
                   ebSquish=>vApp%ebTrcApp%ebSquish)
@@ -244,6 +250,7 @@ module ebsquish
         vApp%chmp2mhd%iMax = vApp%iDeep
         
         end associate
+        call Toc("Squish")
 
     end subroutine SquishEnd
 

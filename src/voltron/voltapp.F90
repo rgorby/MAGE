@@ -377,16 +377,16 @@ module voltapp
             return
         endif
 
-        call PreSquishDeep(vApp, gApp)
+        call PreDeep(vApp, gApp)
+          call DoImag(vApp)
+          call SquishStart(vApp)
+            call Squish(vApp) ! do all squish blocks here
+          call SquishEnd(vApp)
+        call PostDeep(vApp, gApp)
 
-        ! do all squish blocks here
-        call DoSquish(vApp)
-
-        call PostSquishDeep(vApp, gApp)
-        
     end subroutine DeepUpdate
 
-    subroutine PreSquishDeep(vApp, gApp)
+    subroutine PreDeep(vApp, gApp)
         type(gamApp_T) , intent(inout) :: gApp
         class(voltApp_T), intent(inout) :: vApp
 
@@ -401,40 +401,27 @@ module voltapp
         call convertGameraToChimp(vApp%mhd2chmp,gApp,vApp%ebTrcApp)
         call Toc("G2C")
 
+    end subroutine
+
+    subroutine DoImag(vApp)
+        class(voltApp_T), intent(inout) :: vApp
+
         !Advance inner magnetosphere model to tAdv
         call Tic("InnerMag")
         call vApp%imagApp%doAdvance(vApp,vApp%DeepT)
         call Toc("InnerMag")
 
-        call Tic("Squish")
-        call SquishStart(vApp)
-        call Toc("Squish")
-        
     end subroutine
 
-    subroutine DoSquish(vApp)
-        class(voltApp_T), intent(inout) :: vApp
-
-        !Squish 3D data to 2D IMAG grid (either RP or lat-lon)
-        !Doing field projection at current time
-        call Tic("Squish")
-        call Squish(vApp)
-        call Toc("Squish")
-
-    end subroutine DoSquish
-
-    subroutine PostSquishDeep(vApp, gApp)
+    subroutine PostDeep(vApp, gApp)
         type(gamApp_T) , intent(inout) :: gApp
         class(voltApp_T), intent(inout) :: vApp
-
-        call Tic("Squish")
-        call SquishEnd(vApp)
-        call Toc("Squish")
 
         !Now use imag model and squished coordinates to fill Gamera source terms
         call Tic("IM2G")
         call InnerMag2Gamera(vApp,gApp)
         call Toc("IM2G")
+
     end subroutine
 
     subroutine CheckQuickSquishError(vApp, gApp, x2Err, x4Err)

@@ -11,8 +11,10 @@ module voltmpitypes
         ! voltron to helpers comms variables
         integer :: vHelpComm = MPI_COMM_NULL
         integer :: vHelpRank
+        integer :: vHelpWin = MPI_WIN_NULL
+        integer, dimension(:), allocatable :: vHelpIdle
         logical :: amHelper = .false., useHelpers = .false.
-        logical :: doSquishHelp = .false.
+        logical :: doSquishHelp = .false., masterSquish = .false.
 
         ! voltron to gamera comms variables
         integer :: voltMpiComm = MPI_COMM_NULL

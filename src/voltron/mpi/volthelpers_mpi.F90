@@ -264,10 +264,16 @@ module volthelpers_mpi
 
         ! send which sections of squish data to solve
         call MPI_Comm_Size(vApp%vHelpComm, vApp%ebTrcApp%ebSquish%numSquishBlocks, ierr)
-        vApp%ebTrcApp%ebSquish%myNumBlocks = 1 ! 1 block per volton rank, including master and helpers
+        if(vApp%masterSquish) then
+             ! 1 block per volton rank, including master and helpers
+            vApp%ebTrcApp%ebSquish%myNumBlocks = 1
+        else
+            ! 1 block per helper, none for master
+            vApp%ebTrcApp%ebSquish%numSquishBlocks = vApp%ebTrcApp%ebSquish%numSquishBlocks - 1
+            vApp%ebTrcApp%ebSquish%myNumBlocks = 0
+        endif
         call mpi_bcast(vApp%ebTrcApp%ebSquish%numSquishBlocks, 1, MPI_INT, 0, vApp%vHelpComm, ierr)
-        call mpi_bcast(vApp%ebTrcApp%ebSquish%myNumBlocks, 1, MPI_INT, 0, vApp%vHelpComm, ierr)
-        vApp%ebTrcApp%ebSquish%myFirstBlock = vApp%vHelpRank ! work on my own rank block
+        vApp%ebTrcApp%ebSquish%myFirstBlock = 0 ! master is always the first block, if it has one
         vApp%ebTrcApp%ebSquish%curSquishBlock = vApp%ebTrcApp%ebSquish%myFirstBlock
 
     end subroutine
@@ -280,8 +286,14 @@ module volthelpers_mpi
         call recvChimpUpdate(vApp)
 
         call mpi_bcast(vApp%ebTrcApp%ebSquish%numSquishBlocks, 1, MPI_INT, 0, vApp%vHelpComm, ierr)
-        call mpi_bcast(vApp%ebTrcApp%ebSquish%myNumBlocks, 1, MPI_INT, 0, vApp%vHelpComm, ierr)
-        vApp%ebTrcApp%ebSquish%myFirstBlock = vApp%vHelpRank ! work on my own rank block
+        vApp%ebTrcApp%ebSquish%myNumBlocks = 1 ! helpers always have 1 block
+        if(vApp%masterSquish) then
+            ! master voltron rank is helping, work on my own rank block
+            vApp%ebTrcApp%ebSquish%myFirstBlock = vApp%vHelpRank
+        else
+            ! master voltron rank is not helping, my block index is reduced by 1
+            vApp%ebTrcApp%ebSquish%myFirstBlock = vApp%vHelpRank - 1
+        endif
         vApp%ebTrcApp%ebSquish%curSquishBlock = vApp%ebTrcApp%ebSquish%myFirstBlock
 
         do while(SquishBlocksRemain(vApp))
@@ -293,7 +305,7 @@ module volthelpers_mpi
     subroutine vhReqSquishEnd(vApp)
         type(voltAppMpi_T), intent(inout) :: vApp
 
-        integer :: ierr,length,i,ks,ke, oldSizes(4), newSizes(4), offsets(4), newtype
+        integer :: ierr,length,i,firstBlock,ks,ke, oldSizes(4), newSizes(4), offsets(4), newtype
         character( len = MPI_MAX_ERROR_STRING) :: message
         call vhRequestType(vApp, VHSQUISHEND)
 
@@ -304,7 +316,12 @@ module volthelpers_mpi
         offsets = (/0, 0, 0, 0/)
 
         ! collect solved squish data
-        do i = 1,vApp%ebTrcApp%ebSquish%numSquishBlocks-1
+        if(vApp%masterSquish) then
+            firstBlock = 1 ! master rank handles block 0
+        else
+            firstBlock = 0 ! collect all data
+        endif
+        do i = firstBlock,vApp%ebTrcApp%ebSquish%numSquishBlocks-1
             call GetSquishBds(vApp, ks, ke, i)
             offsets(3) = ks-1
             newSizes(3) = ke+1-ks
@@ -377,7 +394,7 @@ module volthelpers_mpi
         offsets = (/0, 0, 0, 0/)
 
         ! send solved squish data
-        call GetSquishBds(vApp, ks, ke, vApp%vHelpRank)
+        call GetSquishBds(vApp, ks, ke, vApp%ebTrcApp%ebSquish%myFirstBlock)
         offsets(3) = ks-1
         newSizes(3) = ke+1-ks
 

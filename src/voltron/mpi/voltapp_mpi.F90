@@ -61,6 +61,10 @@ module voltapp_mpi
             endif
         endif
 
+        if(vApp%vHelpWin /= MPI_WIN_NULL) then
+            call MPI_WIN_FREE(vApp%vHelpWin, ierr)
+        endif
+
     end subroutine endVoltronWaits
 
     !Initialize Voltron (after Gamera has already been initialized)
@@ -117,6 +121,7 @@ module voltapp_mpi
 
             call xmlInp%Set_Val(vApp%useHelpers,"/Voltron/Helpers/useHelpers",.false.)
             call xmlInp%Set_Val(vApp%doSquishHelp,"/Voltron/Helpers/doSquishHelp",.true.)
+            call xmlInp%Set_Val(vApp%masterSquish,"/Voltron/Helpers/masterSquish",.false.)
             call xmlInp%Set_Val(nHelpers,"/Voltron/Helpers/numHelpers",0)
             call MPI_Comm_Size(vApp%vHelpComm, commSize, ierr)
             if(ierr /= MPI_Success) then
@@ -154,6 +159,14 @@ module voltapp_mpi
             ! get starting time values from master voltron rank
             call mpi_bcast(vApp%tFin, 1, MPI_MYFLOAT, 0, vApp%vHelpComm, ierr)
             call mpi_bcast(vApp%time, 1, MPI_MYFLOAT, 0, vApp%vHelpComm, ierr)
+
+            ! accept the mpi window on the voltron master rank, expose none of my own memory
+            call mpi_win_create(0, 0, 0, MPI_INFO_NULL, vApp%vHelpComm, vApp%vHelpWin, ierr)
+            if(ierr /= MPI_Success) then
+                call MPI_Error_string( ierr, message, length, ierr)
+                print *,message(1:length)
+                call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+            end if
 
             return
         endif
@@ -260,6 +273,7 @@ module voltapp_mpi
         call xmlInp%Set_Val(vApp%doAsyncShallow, "/Voltron/coupling/doAsyncShallow",.true.)
         call xmlInp%Set_Val(vApp%useHelpers,"/Voltron/Helpers/useHelpers",.false.)
         call xmlInp%Set_Val(vApp%doSquishHelp,"/Voltron/Helpers/doSquishHelp",.true.)
+        call xmlInp%Set_Val(vApp%masterSquish,"/Voltron/Helpers/masterSquish",.false.)
         call xmlInp%Set_Val(nHelpers,"/Voltron/Helpers/numHelpers",0)
         call MPI_Comm_Size(vApp%vHelpComm, commSize, ierr)
         if(ierr /= MPI_Success) then
@@ -351,6 +365,16 @@ module voltapp_mpi
             ! send initial timing data to helper voltron ranks
             call mpi_bcast(vApp%tFin, 1, MPI_MYFLOAT, 0, vApp%vHelpComm, ierr)
             call mpi_bcast(vApp%time, 1, MPI_MYFLOAT, 0, vApp%vHelpComm, ierr)
+
+            ! allocate data for helpers to set status, and share wit them
+            allocate(vApp%vHelpIdle(nHelpers))
+            call mpi_type_extent(MPI_INTEGER, length, ierr) ! size of integer
+            call mpi_win_create(vApp%vHelpIdle, nHelpers*length, length, MPI_INFO_NULL, vApp%vHelpComm, vApp%vHelpWin, ierr)
+            if(ierr /= MPI_Success) then
+                call MPI_Error_string( ierr, message, length, ierr)
+                print *,message(1:length)
+                call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+            end if
         endif
 
         ! create the MPI datatypes needed to transfer state data
@@ -428,7 +452,11 @@ module voltapp_mpi
             call mpi_Irecv(vApp%timeStepBuffer, 1, MPI_INT, MPI_ANY_SOURCE, 97700, vApp%voltMpiComm, vApp%timeStepReq, ierr)
         endif
 
-        if(vApp%useHelpers) call vhReqStep(vApp)
+        if(vApp%useHelpers) then
+            call Tic("VoltHelpers")
+            call vhReqStep(vApp)
+            call Toc("VoltHelpers")
+        endif
 
     end subroutine stepVoltron_mpi
 
@@ -806,11 +834,18 @@ module voltapp_mpi
         type(voltAppMpi_T), intent(inout) :: vApp
 
         call Tic("DeepUpdate")
-        call PreSquishDeep(vApp, vApp%gAppLocal)
+        call PreDeep(vApp, vApp%gAppLocal)
+        !call DoImag(vApp)
+        call SquishStart(vApp)
 
         if(vApp%useHelpers .and. vApp%doSquishHelp) then
+            call Tic("VoltHelpers")
             call vhReqSquishStart(vApp)
+            call Toc("VoltHelpers")
         endif
+
+        ! moving this to after voltron helpers are started
+        call DoImag(vApp)
 
         vApp%deepProcessingInProgress = .true.
         call Toc("DeepUpdate")
@@ -824,10 +859,13 @@ module voltapp_mpi
         vApp%deepProcessingInProgress = .false.
 
         if(vApp%useHelpers .and. vApp%doSquishHelp) then
+            call Tic("VoltHelpers")
             call vhReqSquishEnd(vApp)
+            call Toc("VoltHelpers")
         endif
 
-        call PostSquishDeep(vApp, vApp%gAppLocal)
+        call SquishEnd(vApp)
+        call PostDeep(vApp, vApp%gAppLocal)
         call Toc("DeepUpdate")
 
     end subroutine endDeep
@@ -845,14 +883,20 @@ module voltapp_mpi
 
         if(.not. vApp%deepProcessingInProgress) return
 
-        call Tic("DeepUpdate")
-        call Tic("Squish")
-        call DoSquishBlock(vApp)
-        call Toc("Squish")
-        call Toc("DeepUpdate")
+        if(SquishBlocksRemain(vApp)) then
+            call Tic("DeepUpdate")
+            call Tic("Squish")
+            call DoSquishBlock(vApp)
+            call Toc("Squish")
+            call Toc("DeepUpdate")
+        endif
 
         if(.not. SquishBlocksRemain(vApp)) then
-            call endDeep(vApp)
+            if((.not. vApp%useHelpers) .or. &
+               (vApp%useHelpers .and. .not. vApp%doSquishHelp) .or. &
+               (vApp%useHelpers .and. vApp%doSquishHelp .and. allHelpersIdle(vApp)) ) then
+                call endDeep(vApp)
+            endif
         endif
 
     end subroutine doDeepBlock
@@ -1268,7 +1312,8 @@ module voltapp_mpi
         type(voltAppMpi_T), intent(inout) :: vApp
         logical, intent(out) :: helperQuit ! should the helper quit
 
-        integer :: ierr, helpType, helpReq = MPI_REQUEST_NULL
+        integer :: ierr, newState, length, helpType, helpReq = MPI_REQUEST_NULL
+        character( len = MPI_MAX_ERROR_STRING) :: message
         helperQuit = .false. ! don't quit normally
 
         ! assumed to only be in this function if helpers are enabled
@@ -1278,6 +1323,15 @@ module voltapp_mpi
         call mpi_wait(helpReq, MPI_STATUS_IGNORE, ierr)
 
         !write (*,*) 'Helper got request type: ', helpType
+
+        ! not idle now
+        newState = helpType
+        call mpi_put(newState, 1, MPI_INTEGER, 0, vApp%vHelpRank-1, 1, MPI_INTEGER, vApp%vHelpWin, ierr)
+        if(ierr /= MPI_Success) then
+            call MPI_Error_string( ierr, message, length, ierr)
+            print *,message(1:length)
+            call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+        end if
 
         ! then call appropriate function to deal with command
         select case(helpType)
@@ -1294,7 +1348,30 @@ module voltapp_mpi
                 stop
         end select
 
+        ! idle now
+        newState = 0
+        call mpi_put(newState, 1, MPI_INTEGER, 0, vApp%vHelpRank-1, 1, MPI_INTEGER, vApp%vHelpWin, ierr)
+        if(ierr /= MPI_Success) then
+            call MPI_Error_string( ierr, message, length, ierr)
+            print *,message(1:length)
+            call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+        end if
+
     end subroutine
+
+    ! are all voltron helpers currently idle
+    function allHelpersIdle(vApp)
+        type(voltAppMpi_T), intent(in) :: vApp
+
+        logical :: allHelpersIdle
+
+        call Tic("VoltHelpers")
+        call Tic("VHWait")
+        allHelpersIdle = all(vApp%vHelpIdle .le. 0)
+        call Toc("VHWait")
+        call Toc("VoltHelpers")
+
+    end function
 
 end module voltapp_mpi
 
