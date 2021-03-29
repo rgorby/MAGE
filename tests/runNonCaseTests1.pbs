@@ -1,6 +1,6 @@
 #!/bin/bash
 #PBS -A UJHB0015
-#PBS -N nonCaseTests
+#PBS -N nonCaseTests1
 #PBS -j oe
 #PBS -q regular
 #PBS -l walltime=12:00:00
@@ -36,4 +36,20 @@ date
 date
 echo "Voltron Tests Complete"
 echo | tail -n 2 ./voltTests.out
+
+echo ""
+echo "Running Base MPI Tests"
+date
+mpirun ./baseMpiTests > baseMpiTests.out
+date
+echo "Base MPI Tests Complete"
+echo | tail -n 2 ./baseMpiTests.out
+
+echo ""
+echo "Running Gamera MPI Tests"
+date
+mpirun ./gamMpiTests > gamMpiTests.out
+date
+echo "Gamera MPI Tests Complete"
+echo | tail -n 2 ./gamMpiTests.out
 

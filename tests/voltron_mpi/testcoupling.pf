@@ -347,7 +347,9 @@ contains
       endif
   end subroutine testQuickSquish
 
-  @test(npes=[2,5,17])
+  ! this test is too slow right now, only run one of them
+  !@test(npes=[2,5,17])
+  @test(npes=[17])
   subroutine testQuickSquishStorm(this)
       class (MpiTestMethod), intent(inout) :: this
 
