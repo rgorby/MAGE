@@ -689,7 +689,7 @@ module wind
 
         if (Model%isLoud) then
             write(*,'(a,3f8.3)') ' SW Coefficients (Bx0,ByC,BzC) = ', BCoef(3),BCoef(1),BCoef(2)
-            write(*,'(a,3f8.3)') 'Min solar wind Alfvenic Mach number = ', minVMach
+            write(*,'(a,3f8.3)') ' Min solar wind Alfvenic Mach number = ', minVMach
             write(*,*) "Finished reading solar wind data"
             write(*,*) "---------------"
         endif
