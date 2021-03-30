@@ -23,6 +23,12 @@ module volthelpers_mpi
         integer :: ierr, length
         character( len = MPI_MAX_ERROR_STRING) :: message
 
+        if (.not. vApp%useHelpers) then
+            ! shouldn't be here
+            allHelpersIdle = .true.
+            return
+        endif
+
         call Tic("VoltHelpers")
         call Tic("VHWait")
 
