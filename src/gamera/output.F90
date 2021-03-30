@@ -59,7 +59,7 @@ contains
         !Calculate zone-cycles per second
         if (Model%ts > 0) then
             ZCs = Model%IO%tsOut*Grid%Nip*Grid%Njp*Grid%Nkp/wTime
-            voltWait = 0.8*voltWait + 0.2*(readClock('ShallowRecv')+readClock('DeepRecv'))/(kClocks(1)%tElap+TINY) ! Weighted average to self-correct
+            voltWait = 0.8*voltWait + 0.2*(readClock('VoltSync'))/(kClocks(1)%tElap+TINY) ! Weighted average to self-correct
         else
             ZCs = 0.0
             voltWait = 0

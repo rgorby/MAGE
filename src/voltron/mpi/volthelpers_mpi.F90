@@ -14,6 +14,77 @@ module volthelpers_mpi
 
     contains
 
+    ! helpers idle status functions
+
+    function allHelpersIdle(vApp)
+        type(voltAppMpi_T), intent(in) :: vApp
+        logical :: allHelpersIdle
+
+        integer :: ierr, length
+        character( len = MPI_MAX_ERROR_STRING) :: message
+
+        call Tic("VoltHelpers")
+        call Tic("VHWait")
+
+        ! lock the data window to read status
+        call mpi_win_lock(MPI_LOCK_SHARED, 0, 0, vApp%vHelpWin, ierr)
+        if(ierr /= MPI_Success) then
+            call MPI_Error_string( ierr, message, length, ierr)
+            print *,message(1:length)
+            call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+        end if
+
+        allHelpersIdle = all(vApp%vHelpIdle .le. 0)
+
+        ! unlock the data window
+        call mpi_win_unlock(0, vApp%vHelpWin, ierr)
+        if(ierr /= MPI_Success) then
+            call MPI_Error_string( ierr, message, length, ierr)
+            print *,message(1:length)
+            call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+        end if
+
+        call Toc("VHWait")
+        call Toc("VoltHelpers")
+
+    end function
+
+    subroutine setIdleStatus(vApp, newStatus)
+        type(voltAppMpi_T), intent(inout) :: vApp
+        integer, intent(in) :: newStatus
+
+        integer :: ierr, length
+        character( len = MPI_MAX_ERROR_STRING) :: message
+        integer(KIND=MPI_ADDRESS_KIND) :: disp
+
+        ! lock the data window to set my status
+        call mpi_win_lock(MPI_LOCK_EXCLUSIVE, 0, 0, vApp%vHelpWin, ierr)
+        if(ierr /= MPI_Success) then
+            call MPI_Error_string( ierr, message, length, ierr)
+            print *,message(1:length)
+            call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+        end if
+
+        disp = vApp%vHelpRank-1 ! my slot in the target's array
+        call mpi_put(newStatus, 1, MPI_INTEGER, 0, disp, 1, MPI_INTEGER, vApp%vHelpWin, ierr)
+        if(ierr /= MPI_Success) then
+            call MPI_Error_string( ierr, message, length, ierr)
+            print *,message(1:length)
+            call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+        end if
+
+        ! if desired, could try to use mpi_win_flush_local here to allow this rank to move on
+
+        ! unlock the data window
+        call mpi_win_unlock(0, vApp%vHelpWin, ierr)
+        if(ierr /= MPI_Success) then
+            call MPI_Error_string( ierr, message, length, ierr)
+            print *,message(1:length)
+            call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+        end if
+
+    end subroutine
+
     ! chimp data update functions
 
     subroutine sendChimpStateData(ebState, vHelpComm)
@@ -338,7 +409,7 @@ module volthelpers_mpi
                 print *,message(1:length)
                 call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
             end if
-            call mpi_recv(vApp%chmp2mhd%xyzSquish, 1, newtype, i, 78111, vApp%vHelpComm, MPI_STATUS_IGNORE, ierr)
+            call mpi_recv(vApp%chmp2mhd%xyzSquish, 1, newtype, i-firstBlock+1, 78111, vApp%vHelpComm, MPI_STATUS_IGNORE, ierr)
             if(ierr /= MPI_Success) then
                 call MPI_Error_string( ierr, message, length, ierr)
                 print *,message(1:length)
@@ -364,7 +435,7 @@ module volthelpers_mpi
                 print *,message(1:length)
                 call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
             end if
-            call mpi_recv(vApp%chmp2mhd%isGood, 1, newtype, i, 78112, vApp%vHelpComm, MPI_STATUS_IGNORE, ierr)
+            call mpi_recv(vApp%chmp2mhd%isGood, 1, newtype, i-firstBlock+1, 78112, vApp%vHelpComm, MPI_STATUS_IGNORE, ierr)
             if(ierr /= MPI_Success) then
                 call MPI_Error_string( ierr, message, length, ierr)
                 print *,message(1:length)

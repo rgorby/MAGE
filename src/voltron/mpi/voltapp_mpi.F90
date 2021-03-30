@@ -83,6 +83,7 @@ module voltapp_mpi
         logical :: reorder, wasWeighted
         integer, allocatable, dimension(:) :: neighborRanks, inData, outData
         integer, allocatable, dimension(:) :: iRanks, jRanks, kRanks
+        integer(KIND=MPI_ADDRESS_KIND) :: winsize
 
         vApp%isSeparate = .true. ! running on a different process from the actual gamera ranks
         vApp%gAppLocal%Grid%lowMem = .true. ! tell Gamera to limit its memory usage
@@ -161,7 +162,8 @@ module voltapp_mpi
             call mpi_bcast(vApp%time, 1, MPI_MYFLOAT, 0, vApp%vHelpComm, ierr)
 
             ! accept the mpi window on the voltron master rank, expose none of my own memory
-            call mpi_win_create(0, 0, 0, MPI_INFO_NULL, vApp%vHelpComm, vApp%vHelpWin, ierr)
+            winsize = 0 ! have to use this because it's an odd size integer
+            call mpi_win_create(MPI_BOTTOM, winsize, 1, MPI_INFO_NULL, vApp%vHelpComm, vApp%vHelpWin, ierr)
             if(ierr /= MPI_Success) then
                 call MPI_Error_string( ierr, message, length, ierr)
                 print *,message(1:length)
@@ -366,10 +368,12 @@ module voltapp_mpi
             call mpi_bcast(vApp%tFin, 1, MPI_MYFLOAT, 0, vApp%vHelpComm, ierr)
             call mpi_bcast(vApp%time, 1, MPI_MYFLOAT, 0, vApp%vHelpComm, ierr)
 
-            ! allocate data for helpers to set status, and share wit them
+            ! allocate data for helpers to set status, and share with them
             allocate(vApp%vHelpIdle(nHelpers))
+            vApp%vHelpIdle = 0
             call mpi_type_extent(MPI_INTEGER, length, ierr) ! size of integer
-            call mpi_win_create(vApp%vHelpIdle, nHelpers*length, length, MPI_INFO_NULL, vApp%vHelpComm, vApp%vHelpWin, ierr)
+            winsize = nHelpers*length ! have to use this because it's an odd size integer
+            call mpi_win_create(vApp%vHelpIdle, winsize, length, MPI_INFO_NULL, vApp%vHelpComm, vApp%vHelpWin, ierr)
             if(ierr /= MPI_Success) then
                 call MPI_Error_string( ierr, message, length, ierr)
                 print *,message(1:length)
@@ -1312,8 +1316,7 @@ module voltapp_mpi
         type(voltAppMpi_T), intent(inout) :: vApp
         logical, intent(out) :: helperQuit ! should the helper quit
 
-        integer :: ierr, newState, length, helpType, helpReq = MPI_REQUEST_NULL
-        character( len = MPI_MAX_ERROR_STRING) :: message
+        integer :: ierr, helpType, helpReq = MPI_REQUEST_NULL
         helperQuit = .false. ! don't quit normally
 
         ! assumed to only be in this function if helpers are enabled
@@ -1325,13 +1328,7 @@ module voltapp_mpi
         !write (*,*) 'Helper got request type: ', helpType
 
         ! not idle now
-        newState = helpType
-        call mpi_put(newState, 1, MPI_INTEGER, 0, vApp%vHelpRank-1, 1, MPI_INTEGER, vApp%vHelpWin, ierr)
-        if(ierr /= MPI_Success) then
-            call MPI_Error_string( ierr, message, length, ierr)
-            print *,message(1:length)
-            call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
-        end if
+        call setIdleStatus(vApp, helpType)
 
         ! then call appropriate function to deal with command
         select case(helpType)
@@ -1349,29 +1346,9 @@ module voltapp_mpi
         end select
 
         ! idle now
-        newState = 0
-        call mpi_put(newState, 1, MPI_INTEGER, 0, vApp%vHelpRank-1, 1, MPI_INTEGER, vApp%vHelpWin, ierr)
-        if(ierr /= MPI_Success) then
-            call MPI_Error_string( ierr, message, length, ierr)
-            print *,message(1:length)
-            call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
-        end if
+        call setIdleStatus(vApp, 0)
 
     end subroutine
-
-    ! are all voltron helpers currently idle
-    function allHelpersIdle(vApp)
-        type(voltAppMpi_T), intent(in) :: vApp
-
-        logical :: allHelpersIdle
-
-        call Tic("VoltHelpers")
-        call Tic("VHWait")
-        allHelpersIdle = all(vApp%vHelpIdle .le. 0)
-        call Toc("VHWait")
-        call Toc("VoltHelpers")
-
-    end function
 
 end module voltapp_mpi
 

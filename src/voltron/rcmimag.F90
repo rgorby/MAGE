@@ -131,7 +131,7 @@ module rcmimag
         allocate(imag%rcmFLs(RCMApp%nLat_ion,RCMApp%nLon_ion))
 
         !Start up IO
-        call initRCMIO(RCMApp,isRestart)
+        if(vApp%writeFiles) call initRCMIO(RCMApp,isRestart)
 
         end associate
 
