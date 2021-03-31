@@ -524,7 +524,7 @@ contains
       real(rp) :: xc,yc,zc,deltaSum,rval,lambda,Psi0,RIn,errorThresh
       real(rp), dimension(NDIM) :: rHatP,eHat,xyz,Exyz,ccEijk
 
-      type(IOVAR_T), dimension(MAXIOVAR) :: debugHDF
+      !type(IOVAR_T), dimension(MAXMIXIOVAR) :: debugHDF
 
       !Setting some values for inner shell
       RIn  = 1.0
