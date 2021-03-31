@@ -8,10 +8,10 @@ module mixconductance
   
   implicit none
 
-  real(rp), dimension(:,:), allocatable :: tmpD,tmpC ! used for chilling in Fedder95. Declare it here so we can allocate in init.
-  real(rp), dimension(:,:), allocatable :: JF0,RM,RRdi ! used for zhang15
-  real(rp), dimension(:,:), allocatable :: tmpE,tmpF ! used for smoothing precipitation avg_eng and num_flux
-  real(rp), dimension(:,:), allocatable :: Kc ! used for multi-reflection modification
+  real(rp), dimension(:,:), allocatable, private :: tmpD,tmpC ! used for chilling in Fedder95. Declare it here so we can allocate in init.
+  real(rp), dimension(:,:), allocatable, private :: JF0,RM,RRdi ! used for zhang15
+  real(rp), dimension(:,:), allocatable, private :: tmpE,tmpF ! used for smoothing precipitation avg_eng and num_flux
+  real(rp), dimension(:,:), allocatable, private :: Kc ! used for multi-reflection modification
 
   contains
     subroutine conductance_init(conductance,Params,G)
@@ -152,6 +152,9 @@ module mixconductance
       real(rp) :: Rout = 6.D0, Rin = 1.2D0
       real(rp) :: rhoFactor = 3.3D-24*0.5D0
 
+      tmpC = 0.D0
+      tmpD = 0.D0
+
       if (St%hemisphere==NORTH) then
          signOfY = -1  ! note, factor2 (dawn-dusk asymmetry is not
                            ! implemented since factor2 in the old
@@ -219,6 +222,10 @@ module mixconductance
       type(mixState_T), intent(inout) :: St
       
       real(rp) :: signOfY, signOfJ
+
+      tmpC = 0.D0
+      tmpD = 0.D0
+      JF0 = 0.D0
       
       if (St%hemisphere==NORTH) then
          signOfY = -1  ! note, factor2 (dawn-dusk asymmetry is not
@@ -407,6 +414,7 @@ module mixconductance
       Radi = Rady**2 ! Rio**2*(1-cos(alp-al0)*cos(alp-al0))
       order = 2.0
       
+      RRdi = 0.D0
       RRdi = (G%y-0.03*signOfY)**2 + ( G%x/cos(al0) - Rio*cos(alp-al0)*tan(al0) )**2
       where(RRdi < Radi)
          conductance%AuroraMask = cos((RRdi/Radi)**order*conductance%PI2)+0.D0
@@ -428,6 +436,11 @@ module mixconductance
       logical :: smthDEPonly = .true.
       integer :: smthE
       smthE = 1 ! 1. smooth EFLUX; 2. smooth EAVG
+
+      tmpC = 0.D0
+      tmpD = 0.D0
+      tmpE = 0.D0
+      tmpF = 0.D0
 
       ! Test only smoothing diffuse precipitation.
       ! Diffuse mask is St%Vars(:,:,Z_NFLUX)<0.
