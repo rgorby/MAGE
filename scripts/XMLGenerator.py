@@ -1,3 +1,4 @@
+import sys
 import configparser
 import xml.etree.ElementTree as ET
 
@@ -18,8 +19,20 @@ def indent(elem, level=0):
         if level and (not elem.tail or not elem.tail.strip()):
             elem.tail = i
 
+# Check number of command line arguments
+if (len(sys.argv) < 2):
+	print("ERROR: Too few arguments")
+	exit()
+
+if (len(sys.argv) > 2):
+	print("ERROR: Too many arguments")
+	exit()
+
+# Get output file name
+output = sys.argv[1]
+
 # Read in default settings
-tree = ET.parse('test.xml')
+tree = ET.parse('voltron.xml')
 root = tree.getroot()
 
 # Initilization
@@ -29,7 +42,7 @@ user = configparser.RawConfigParser()
 user.optionxform = lambda option: option
 
 # Read user-defined options in
-user.read('config.ini')
+user.read('voltron.ini')
 
 # Get all sections of user config file
 sections = user.sections()
@@ -59,4 +72,4 @@ for element in sections:
 indent(root)
 
 # Write the XML file
-tree.write('output.xml')
+tree.write(output)
