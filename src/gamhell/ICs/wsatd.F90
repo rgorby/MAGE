@@ -309,23 +309,23 @@ module usergamic
       ! local variables
       integer :: i,j,k, kb, ke
       integer :: kg, jg, ig ! global indices (in preparation for MPI)
-      integer :: var ! ibcVar variable number
+      integer :: var, vark ! ibcVar variable number
       real(rp) :: a
-      real(rp) :: ibcVarsStatic(NVARSINTD)
+      real(rp) :: ibcVarsStatic(10)
       real(rp) :: R, Theta, Phi
       real(rp) :: Theta_kf, R_kf ! kface
       real(rp), dimension(NVAR) :: conVar, pVar
       real(rp) :: w1, w2
       integer :: n1, n2
       integer :: Nr, Nt, Np
+      integer :: dims_cc(3), dims_jf(3), dims_kf(3)
 
-      write(*,*)'[EP in wsaBC] Begin. Time: ', State%time*Model%Units%gT0
+      write(*,*)'[EP in wsaBC] Begin. Time: ', State%time*Model%Units%gT0, bc%wsaData%wsaT1, bc%wsaData%wsaT2
   
       if (.not.((State%time*Model%Units%gT0 >= bc%wsaData%wsaT1) .and. (State%time*Model%Units%gT0 <= bc%wsaData%wsaT2))) then
-         write(*,*)'[EP in wsaBC] getting in a new time backet '
          !find bounding slices
          call findSlc(bc%wsaData%ebTab,State%time*Model%Units%gT0,n1,n2)
-         write(*,*) '[EP in wsaBC] Bounding time slice ', n1, n2
+         write(*,*) '[EP in wsaBC] getting in a new time backet', n1, n2
 
         !read a map from Step#n1
         call rdWSAMap(bc%wsaData,Model,n1,bc%wsaData%ibcMap1)
@@ -345,40 +345,41 @@ module usergamic
       ![EP]interpolation (a) calculate weights (b) interpolate in time 
       call tCalcWeights(bc%wsaData,State%time*Model%Units%gT0,w1,w2)
       write(*,*) '[EP in wsaBC] Bounding weights ', w1, w2
-
       
-      !type :: ibcMap_T
-        !real(rp), dimension(:,:,:,:), allocatable :: ccVars !6 cell-center vars
-        !real(rp), dimension(:,:,:), allocatable :: jfVars !1 j-face
-        !real(rp), dimension(:,:,:), allocatable :: kfVars !1 k-face
-      !end type ibcMap_T
+      dims_cc = [bc%wsaData%Nr,bc%wsaData%Nt,bc%wsaData%Np] !i,j,k
+      dims_jf = [bc%wsaData%Nr,bc%wsaData%Nt+1,bc%wsaData%Np]
+      dims_kf = [bc%wsaData%Nr,bc%wsaData%Nt,bc%wsaData%Np+1]
 
-      !ALLOCATE ibcVars arrays
-      !interpolate in time between two WSA maps (all vars)
-      ibcVars%ccVars(:,:,:,:) = w1*bc%wsaData%ibcMap1%ccVars(:,:,:,:) + w2*bc%wsaData%ibcMap2%ccVars(:,:,:,:)
-      ibcVars%jfVars(:,:,:) = w1*bc%wsaData%ibcMap1%jfVars(:,:,:) + w2*bc%wsaData%ibcMap2%jfVars(:,:,:)
+      ! allocate ibcVars 
+      if (.not.allocated(ibcVars%ccVars)) allocate(ibcVars%ccVars(dims_cc(1),dims_cc(2),dims_cc(3),NVARSCC))
+      if (.not.allocated(ibcVars%jfVars)) allocate(ibcVars%jfVars(dims_jf(1),dims_jf(2),dims_jf(3)))
+      if (.not.allocated(ibcVars%kfVars)) allocate(ibcVars%kfVars(dims_kf(1),dims_kf(2),dims_kf(3),3))
+
+      ! interpolate in time
+      ibcVars%ccVars = w1*bc%wsaData%ibcMap1%ccVars + w2*bc%wsaData%ibcMap2%ccVars
+      ibcVars%jfVars = w1*bc%wsaData%ibcMap1%jfVars + w2*bc%wsaData%ibcMap2%jfVars
       ibcVars%kfVars(:,:,:,1) = w1*bc%wsaData%ibcMap1%kfVars(:,:,:,1) + w2*bc%wsaData%ibcMap2%kfVars(:,:,:,1)
       write(*,*)'[EP in wsaBC] filled ibcVars '
       
-
-      write(*,*)'[EP in wsaBC] Adding VRKFIN and BRKFIN to ibcVars '
       !To obtain Vr and Br values at k-faces do simple interpolation in a uniform grid
       !Vr_kface for kfaces 1:Nk
       !TODO: Make enumerator for k-Face Vars 1 - BpK, 2 - VrK, 3 - BrK
-      ibcVars%kfVars(:,:,2:bc%wsaData%Np,2) = 0.5*(ibcVars%ccVars(:,:,1:bc%wsaData%Np,VRIN)+ ibcVars%ccVars(:,:,2:bc%wsaData%Np+1,VRIN))
+      ibcVars%kfVars(:,:,2:bc%wsaData%Np,2) = 0.5*(ibcVars%ccVars(:,:,1:bc%wsaData%Np-1,VRIN)+ ibcVars%ccVars(:,:,2:bc%wsaData%Np,VRIN))
       !boundary faces k=1 and Np+1
       ibcVars%kfVars(:,:,1,2) = 0.5*(ibcVars%ccVars(:,:,1,VRIN) + ibcVars%ccVars(:,:,bc%wsaData%Np,VRIN))
       ibcVars%kfVars(:,:,bc%wsaData%Np+1,2) = ibcVars%kfVars(:,:,1,2)
 
       !br_kface
-      ibcVars%kfVars(:,:,2:bc%wsaData%Np,3) = 0.5*(ibcVars%ccVars(:,:,1:bc%wsaData%Np,BRIN)+ ibcVars%ccVars(:,:,2:bc%wsaData%Np+1,BRIN))
+      ibcVars%kfVars(:,:,2:bc%wsaData%Np,3) = 0.5*(ibcVars%ccVars(:,:,1:bc%wsaData%Np-1,BRIN)+ ibcVars%ccVars(:,:,2:bc%wsaData%Np,BRIN))
       ibcVars%kfVars(:,:,1,3) = 0.5*(ibcVars%ccVars(:,:,1,BRIN) + ibcVars%ccVars(:,:,bc%wsaData%Np,BRIN))
       ibcVars%kfVars(:,:,bc%wsaData%Np+1,3) = ibcVars%kfVars(:,:,1,3)
+ 
 
+      write(*,*)'[EP in wsaBC] Added VRKFIN and BRKFIN to ibcVars. Beginning a big loop. '
       !i-boundaries (IN)
       !$OMP PARALLEL DO default(shared) &
-      !$OMP private(i,j,k,jg,kg,ke,kb,a,var,xyz,R,Theta,Phi,rHat,phiHat) &
-      !$OMP private(ibcVarsStatic,pVar,conVar,xyz0,R_kf,Theta_kf) &
+      !$OMP private(i,j,k,jg,kg,ke,kb,a,vark,var,xyz,R,Theta,Phi,rHat,phiHat) &
+      !$OMP private(ibcVarsStatic,pVar,conVar,xyz0,R_kf,Theta_kf,ibcVars) &
       !$OMP private(w1, w2, n1, n2, Nr, Nt, Np) 
       do k=Grid%ksg,Grid%keg+1  ! note, going all the way to last face for mag fluxes
          kg = k+Grid%ijkShift(KDIR)
@@ -397,22 +398,24 @@ module usergamic
                ! we then apply the j-boundary after i boundary anyway, so the corners will be overwritten
                ibcVarsStatic = 1._rp  
 
-               !enumerator :: BRIN=1,VRIN,VTIN,VPIN,RHOIN,TIN,BTJFIN,BPKFIN,BRKFIN,VRKFIN
-
                ! otherwise
                ! interpolate linearly from rotating to inertial frame 
-               if ( (jg>=Grid%js).and.(jg<=size(ibcVars,2)) ) then
-                  do var=1,VRKFIN !8 in innerbc +2 brkf and vrkf
-                     if (var <= NVARCC) then
+               if ( (jg>=Grid%js).and.(jg<=size(ibcVars%ccVars,2) )) then
+
+                  do var = 1,VRKFIN !8 in innerbc +2 brkf and vrkf
+                  write(*,*)'[EP in wsaBC] var,k,j,ig ', var,k,j,ig
+                     if (var <= NVARSCC) then
                         ibcVarsStatic(var) = a*ibcVars%ccVars(ig,jg,kb,var)+(1-a)*ibcVars%ccVars(ig,jg,ke,var)
                      else if (var == BTJFIN) then
                         ibcVarsStatic(var) = a*ibcVars%jfVars(ig,jg,kb)+(1-a)*ibcVars%jfVars(ig,jg,ke)
                      else 
                         vark = var - BTJFIN
                         ibcVarsStatic(var) = a*ibcVars%kfVars(ig,jg,kb,vark)+(1-a)*ibcVars%kfVars(ig,jg,ke,vark)
-                     end if
+                     endif
                   end do
-               end if
+                   !write(*,*)'[EP in wsaBC] k,j,ig,ibcVarsStatic ', k,j,ig,ibcVarsStatic
+
+                endif
 
                ! do cell centered things for cell-centers only
                if ( (j/=Grid%jeg+1).and.(k/=Grid%keg+1) ) then
@@ -424,8 +427,8 @@ module usergamic
                   rHat = xyz/R
                   phiHat = [-sin(phi),cos(phi),0._rp]
 
-                  ! NOTE, WSA data were already scaled appropriately in the python code
-                  ! TODO: save them in the innerbc hdf file and set in helioutils appropriately
+                  ! [VGM] NOTE, WSA data were already scaled appropriately in the python code
+                  ! [VGM] TODO: save them in the innerbc hdf file and set in helioutils appropriately
 
                   !Set primitives
                   pVar(VELX:VELZ) = rHat*ibcVarsStatic(VRIN)
@@ -458,6 +461,7 @@ module usergamic
                !multiplying by Rbc is not correct. Need to multiply to r_cc
                State%magFlux(i,j,k,KDIR) = - 2*PI/Tsolar*R_kf*sin(Theta_kf)/ibcVarsStatic(VRKFIN)*ibcVarsStatic(BRKFIN)*Grid%face(i,j,k,KDIR) &
                                            + ibcVarsStatic(BPKFIN)*Rbc/norm2(Grid%xfc(i,j,k,:,KDIR))*Grid%face(i,j,k,KDIR)
+               write(*,*)"[EP in wsaBC] end of the loop"
             end do
          end do
       end do
@@ -575,7 +579,7 @@ module usergamic
       ! NOTE, assuming they all have the same dimesnions here (NO2,NJ,NK)
       ! see wsa2gamera
       dims=IOVars(1)%dims(1:3) ! i,j,k
-      if (.not.allocated(ibcVars)) allocate(ibcVars(dims(1),dims(2),dims(3),NVARSIN))
+      !if (.not.allocated(ibcVars)) allocate(ibcVars(dims(1),dims(2),dims(3),NVARSIN))
 
       do i=1,NVARSIN
          select case (i)
@@ -593,7 +597,7 @@ module usergamic
             nvar= FindIO(IOVars,"vr_kface")
          end select
 
-         ibcVars(:,:,:,i) = reshape(IOVars(nvar)%data,dims)
+         !ibcVars(:,:,:,i) = reshape(IOVars(nvar)%data,dims)
       end do
          !reading modified julian date from innerbc
          MJD_c = GetIOReal(IOVars,"MJD")
@@ -641,12 +645,12 @@ module usergamic
         write(*,*) '[EP in initTSlice] Bounding slices ', n1, n2
 
         !read map from Step#n1
-        call rdWSAMap(wsaData,Model,n1,bc%wsaData%ibcMap1)
+        call rdWSAMap(wsaData,Model,n1,wsaData%ibcMap1)
         wsaData%wsaN1 = n1
         wsaData%wsaT1 = wsaData%ebTab%times(n1)
 
         !read map from Step#2
-        call rdWSAMap(wsaData,Model,n2,bc%wsaData%ibcMap2)
+        call rdWSAMap(wsaData,Model,n2,wsaData%ibcMap2)
         wsaData%wsaN2 = n2
         wsaData%wsaT2 = wsaData%ebTab%times(n2)
         write(*,*)'[EP in initTSlice] Bounding times ', wsaData%wsaT1, wsaData%wsaT2 
@@ -661,8 +665,8 @@ module usergamic
         if (.not.allocated(ibcBr)) allocate(ibcBr(dims(1),dims(2),dims(3)))
 
         !INTERPOLATE BRIN that we get from innerbc.h5
-        ibcBr(:,:,:) = w1*bc%wsaData%ibcMap1*ccVars(:,:,:,BRIN) + w2*bc%wsaData%ibcMap1*ccVars(:,:,:,BRIN)
-        write(*,*)'[EP in initTSlice] Filled out ibcBr, checking ibcBr(4,:,1), ibc(4,64,:)', ibcBr(4,:,1), ibcBr(4,64,:)
+        ibcBr(:,:,:) = w1*wsaData%ibcMap1%ccVars(:,:,:,BRIN) + w2*wsaData%ibcMap2%ccVars(:,:,:,BRIN)
+        !write(*,*)'[EP in initTSlice] Filled out ibcBr, checking ibcBr(4,:,1), ibc(4,64,:)', ibcBr(4,:,1), ibcBr(4,64,:)
 
         write(*,*)'[EP in initTSlice] filled out ibcBr'
 
@@ -694,22 +698,22 @@ module usergamic
         call ClearIO(IOVars)
 
         !Setup input chain
+        call AddInVar(IOVars,"br",vSclO=nT2Gs/Model%Units%gB0)
         call AddInVar(IOVars,"vr",vSclO=km2cm/Model%Units%gv0)
         call AddInVar(IOVars,"vt",vSclO=km2cm/Model%Units%gv0)
         call AddInVar(IOVars,"vp",vSclO=km2cm/Model%Units%gv0)
         call AddInVar(IOVars,"rho",vSclO=1/Model%Units%gD0)
         call AddInVar(IOVars,"T") !Temp in K 
-        call AddInVar(IOVars,"br",vSclO=nT2Gs/Model%Units%gB0)
-        call AddInVar(IOVars,"bp_kface",vSclO=nT2Gs/Model%Units%gB0)
         call AddInVar(IOVars,"bt_jface",vSclO=nT2Gs/Model%Units%gB0)
+        call AddInVar(IOVars,"bp_kface",vSclO=nT2Gs/Model%Units%gB0)
         call AddInVar(IOVars,"MJD")
         call AddInVar(IOVars,"time",vSclO=1/Model%Units%gT0)
 
         call ReadVars(IOVars,.false.,wsaData%ebTab%bStr,wsaData%ebTab%gStrs(n)) 
 
-        do i=1,10
-           write(*,*)'[EP in rdWSAMap]  IOVars%dims', IOVars(i)%dims(1:3)
-        end do 
+        !do i=1,10
+        !   write(*,*)'[EP in rdWSAMap]  IOVars%dims', IOVars(i)%dims(1:3)
+        !end do 
 
         !add +1 in j and k because of field components at faces
         !Bp_kface has dim 257, 128, 4
@@ -723,6 +727,7 @@ module usergamic
         if (.not.allocated(ibcMap%ccVars)) allocate(ibcMap%ccVars(dims_cc(1),dims_cc(2),dims_cc(3),NVARSCC))
         if (.not.allocated(ibcMap%jfVars)) allocate(ibcMap%jfVars(dims_jf(1),dims_jf(2),dims_jf(3)))
         if (.not.allocated(ibcMap%kfVars)) allocate(ibcMap%kfVars(dims_kf(1),dims_kf(2),dims_kf(3),3))
+
         !zero out
         ibcMap%ccVars = 0.
         ibcMap%jfVars = 0.
@@ -752,22 +757,16 @@ module usergamic
          end select
 
          !Scale from innerbc units (km/s, cm-3, nT, K) to code dim-less units
-         if (i<=NVARCC) then
+         if (i<=NVARSCC) then
             ibcMap%ccVars(:,:,:,i) = reshape(IOVars(nvar)%data*IOVars(nvar)%scale,dims_cc)
-            write(*,*) '[EP in rdWSAMap] Writing wsaData%ibcMap%ccVars'
          else if (i == BTJFIN) then
             ibcMap%jfVars(:,:,:) = reshape(IOVars(nvar)%data*IOVars(nvar)%scale,dims_jf)
-            write(*,*) '[EP in rdWSAMap] Writing wsaData%ibcMap%kfVars'
          else if (i == BPKFIN) then
             ibcMap%kfVars(:,:,:,1) = reshape(IOVars(nvar)%data*IOVars(nvar)%scale,dims_kf)
-            write(*,*) '[EP in rdWSAMap] Writing wsaData%ibcMap%jfVars'
          end if
 
          !W(:,:,:,i) = reshape(IOVars(nvar)%data*IOVars(nvar)%scale,dims)
-        end do
-
-        write(*,*)"[EP in rdWSAMap] Random check of ibcMap(4,:,256,VRIN) ", ibcMap%ccVars(4,:,256,VRIN)
-        
+       end do
 
          !reading MJD
          MJD_c = GetIOReal(IOVars,"MJD")
