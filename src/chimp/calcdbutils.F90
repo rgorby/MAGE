@@ -3,7 +3,7 @@ module calcdbutils
 	use chmpdefs
 	use ebtypes
     use calcdbtypes
-    
+
 	implicit none
 
 	real(rp) :: dzGG = 60.0 !Default height spacing [km]
@@ -49,6 +49,9 @@ module calcdbutils
 
         !Get radial spacing
         rMHD = norm2(ebState%ebGr%xyz(1,1,1,XDIR:ZDIR))
+        !Using the current closure in the 2nd cell center
+        !rMHD = norm2(ebState%ebGr%xyzcc(2,1,1,XDIR:ZDIR))
+
         rIon = (RionE*1.0e+6)/REarth !Ionospheric radius in units of Re, ~1.01880
 
         dr = (rMHD-rIon)/rSegs
@@ -126,7 +129,7 @@ module calcdbutils
         integer :: i,j
         real(rp), dimension(:,:), allocatable :: Z
         real(rp) :: R0,theta,phi,thesp,phisp
-        real(rp) :: phi0,dp,th0,dth
+        real(rp) :: phi0,dp,th0,dth,th1,th2
 
         Np = rmState%Np
         Nth = rmState%Nth
@@ -156,7 +159,12 @@ module calcdbutils
 
         th0 = acos(Z(1,1))
         dth = acos(Z(1,2)) - acos(Z(1,1))
-        
+        !Doing some dumb angle rounding to force sensible values from janky remix grid
+        th0 = RoundAng(th0)
+        dth = RoundAng(dth)
+
+        write(*,*) 'ReMIX Low-latitude = ', ang2deg(acos(Z(1,Nth))),ang2deg(RoundAng(acos(Z(1,Nth))))
+
         ionGrid%dt = dth
         ionGrid%dp = dp
 
@@ -164,10 +172,18 @@ module calcdbutils
 
         !Get coordinates and dS
         !$OMP PARALLEL DO default(shared) &
-        !$OMP private(i,j,phi,theta,thesp,phisp)
+        !$OMP private(i,j,phi,theta,thesp,phisp,th1,th2)
         do j=1,ionGrid%Nth !Theta
+
             !Get NH theta (cc)
             theta = th0 + 0.5*dth + dth*(j-1)
+            th1 = theta-0.5*dth
+            th2 = theta+0.5*dth
+
+            !Fix hole at pole
+            if (j == 1) then
+                th1 = 0.0 !Make sure highest cell goes up to pole
+            endif
 
             do i=1,ionGrid%Np !phi
                 !cell-centered phi
@@ -188,8 +204,8 @@ module calcdbutils
                 ionGrid%XYZcc(i,j,SOUTH,ZDIR) = R0*cos(thesp)
 
                 !Store surface area elements
-                ionGrid%dS(i,j,NORTH) = (R0**2.0)*sin(theta)*dth*dp
-                ionGrid%dS(i,j,SOUTH) = (R0**2.0)*sin(thesp)*dth*dp
+                ionGrid%dS(i,j,NORTH) = (R0**2.0)*sin(theta)*(th2-th1)*dp
+                ionGrid%dS(i,j,SOUTH) = (R0**2.0)*sin(thesp)*(th2-th1)*dp
 
                 !Store cell-centered angles
                 ionGrid%pcc(i,j,NORTH) = phi
@@ -199,6 +215,15 @@ module calcdbutils
 
             enddo
         enddo
+
+        contains 
+            function RoundAng(inAng)
+                real(rp), intent(in) :: inAng
+                real(rp) :: RoundAng
+                real(rp) :: inAngD
+                inAngD = inAng*180.0/PI
+                RoundAng = (PI/180.0)*nint(inAngD*8.0)/8.0
+            end function RoundAng
 
     end subroutine ionGridInit
 
@@ -218,7 +243,6 @@ module calcdbutils
         call BSSubInit(magBS,NMag)
         magBS%jScl = B0/(4.0*PI) !Scaling factor
 
-        !CALCDB-TODO: Add ionBS%jScl and facBS%jScl values
     !Ion BS grid
         !Number of cells
         NIon = (rmState%Np)*(rmState%Nth)*(2) !Include N/S hemispheres
@@ -377,8 +401,9 @@ module calcdbutils
                     sEt = -( rmState%sPot(i,j+1)-rmState%sPot(i,j) )/(R0*dth)
                     sEt = -sEt !Flip direction
                 else if (j == ionGrid%Nth) then
-                    nEt = 0.0
-                    sEt = 0.0
+                    nEt = -( rmState%nPot(i,j)-rmState%nPot(i,j-1) )/(R0*dth)
+                    sEt = -( rmState%sPot(i,j)-rmState%sPot(i,j-1) )/(R0*dth)
+                    sEt = -sEt !Flip direction
                 else
                     nEt = -( rmState%nPot(i,j+1)-rmState%nPot(i,j-1) )/(R0*2*dth)
                     sEt = -( rmState%sPot(i,j+1)-rmState%sPot(i,j-1) )/(R0*2*dth)
@@ -460,6 +485,18 @@ module calcdbutils
             enddo
 
         enddo !j,Nth
+
+        ! write(*,*) "North hJ-Theta"
+        ! write(*,*) ionGrid%hJ(:,ionGrid%Nth,NORTH,TDIR)
+
+        write(*,*) "North pJ-Theta"
+        write(*,*) minval(ionGrid%pJ(:,ionGrid%Nth,NORTH,TDIR)),maxval(ionGrid%pJ(:,ionGrid%Nth,NORTH,TDIR))
+
+        ! write(*,*) "South hJ-Theta"
+        ! write(*,*) ionGrid%hJ(:,ionGrid%Nth,SOUTH,TDIR)
+
+        write(*,*) "South pJ-Theta"
+        write(*,*) minval(ionGrid%pJ(:,ionGrid%Nth,SOUTH,TDIR)),maxval(ionGrid%pJ(:,ionGrid%Nth,SOUTH,TDIR))
 
         ! write(*,*) 'Hall '
         ! write(*,*) '   Theta: ',minval(ionGrid%hJ(:,:,NORTH,TDIR)),maxval(ionGrid%hJ(:,:,NORTH,TDIR))

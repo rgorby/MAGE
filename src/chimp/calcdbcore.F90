@@ -5,18 +5,22 @@ module calcdbcore
     use calcdbutils
     use clocks
     use geopack
-
+    use ebtabutils
+    
 	implicit none
 
 	contains
 
     !Calculate contribution from BSGrid to ground
-    subroutine BS2Gr(Model,magBS,ionBS,facBS,gGr)
+    subroutine BS2Gr(Model,t,ebState,magBS,ionBS,facBS,gGr)
         type(chmpModel_T), intent(in) :: Model
+        real(rp)         , intent(in) :: t
+        type(ebState_T)  , intent(in) :: ebState
         type(BSGrid_T), intent(inout) :: magBS,ionBS,facBS
         type(grGrid_T), intent(inout) :: gGr
 
         type(BSGrid_T) :: magltBS !Squashed magBS
+        real(rp) :: mjd
 
         !Remove far away points in magnetospheric grid and make remaining contiguous
         call Tic("Compactify")
@@ -36,6 +40,9 @@ module calcdbcore
         call Toc("BSFac")
 
         if (gGr%doGEO) then
+            mjd = MJDAt(ebState%ebTab,t)
+            call MJDRecalc(mjd) !Setup geopack for this time
+            
             call Tic("BSRemap")
             call BSRemap(gGr,gGr%dbMAG_xyz)
             call BSRemap(gGr,gGr%dbION_xyz)
@@ -128,18 +135,17 @@ module calcdbcore
 
                     do nS=1,xBS%NumP
                         xCC = xBS%XYZcc(nS,:) !Location of source contribution
+                        R = x0-xCC !Vector pointing from source to destination/station
                         
-                        R = xCC-x0 !R = x_src - x_station
                         r3 = norm2(R)**3.0
                         dV = xBS%dV(nS)
                         J = xBS%Jxyz(nS,:) !Current contribution
 
                         !Avoid array temporary
                         !NOTE: This current vector is in SM coordinates
-                        !NOTE: flipped R
-                        ddB(XDIR) = -( J(YDIR)*R(ZDIR) - J(ZDIR)*R(YDIR) )/r3
-                        ddB(YDIR) = -( J(ZDIR)*R(XDIR) - J(XDIR)*R(ZDIR) )/r3
-                        ddB(ZDIR) = -( J(XDIR)*R(YDIR) - J(YDIR)*R(XDIR) )/r3
+                        ddB(XDIR) = ( J(YDIR)*R(ZDIR) - J(ZDIR)*R(YDIR) )/r3
+                        ddB(YDIR) = ( J(ZDIR)*R(XDIR) - J(XDIR)*R(ZDIR) )/r3
+                        ddB(ZDIR) = ( J(XDIR)*R(YDIR) - J(YDIR)*R(XDIR) )/r3
 
                         !dbXYZ(iG,jG,kG,:) = dbXYZ(iG,jG,kG,:) + xBS%jScl*dV*ddB
                         dbXYZ(iG,jG,kG,:) = dbXYZ(iG,jG,kG,:) + dV*ddB !Pull out overall scaling

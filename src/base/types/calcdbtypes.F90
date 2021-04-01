@@ -32,7 +32,7 @@ module calcdbtypes
     end type rmState_T
 
 	INTEGER, parameter :: NORTH=1,SOUTH=2
-	INTEGER, parameter :: rSegs=10
+	INTEGER, parameter :: rSegs=20
 
 !--------
 !Native source grids (SM coords)
@@ -99,7 +99,7 @@ module calcdbtypes
         real(rp), dimension(:,:,:,:), allocatable :: dbMAG_rtp,dbION_rtp,dbFAC_rtp
 
         !Some parameters for calculation
-        real(rp) :: rMax=15.0 !Radius of magnetospheric ball to integrate over [Re]
+        real(rp) :: rMax=60.0 !Radius of magnetospheric ball to integrate over [Re]
 
 	end type grGrid_T
 

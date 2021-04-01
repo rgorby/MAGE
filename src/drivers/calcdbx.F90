@@ -99,7 +99,7 @@ program calcdbx
 
     !Compute BS integrals (SM) on ground and remap dB to GEO
         call Tic("ComputeBS")
-        call BS2Gr(Model,magBS,ionBS,facBS,gGr)
+        call BS2Gr(Model,Model%t,ebState,magBS,ionBS,facBS,gGr)
         call Toc("ComputeBS")
 
         !Calc/write DB on grid

@@ -172,13 +172,21 @@ module calcdbio
             enddo
 
             !Do centers
+            !Not using 8-pt average due to non-uniform radius
+
             do k=1,Nz
+                z = (k-1)*dzGG !km above ground
+                z = (1.0e+5)*z !cm above ground
+                R = 1.0 + z/Re_cgs !Assuming Earth here
+
             	do j=1,NLon
+                    phi = (j-0.5)*360.0/NLon
             		do i=1,NLat
-            			gGr%GxyzC(i,j,k,:) = 0.125*( gGr%GxyzI(i  ,j  ,k  ,:) + gGr%GxyzI(i+1,j  ,k  ,:) &
-                                                   + gGr%GxyzI(i  ,j+1,k  ,:) + gGr%GxyzI(i  ,j  ,k+1,:) &
-                                                   + gGr%GxyzI(i+1,j+1,k  ,:) + gGr%GxyzI(i+1,j  ,k+1,:) &
-                                                   + gGr%GxyzI(i  ,j+1,k+1,:) + gGr%GxyzI(i+1,j+1,k+1,:) )
+                        lat = -90.0 + (i-0.5)*180.0/NLat
+                        gGr%GxyzC(i,j,k,XDIR) = R*cos(lat*PI/180.0)*cos(phi*PI/180.0)
+                        gGr%GxyzC(i,j,k,YDIR) = R*cos(lat*PI/180.0)*sin(phi*PI/180.0)
+                        gGr%GxyzC(i,j,k,ZDIR) = R*sin(lat*PI/180.0)
+
             		enddo
             	enddo
             enddo
@@ -400,6 +408,7 @@ module calcdbio
         type(IOVAR_T), dimension(MAXDBVS) :: IOVars
         real(rp) :: mjd
         real(rp), dimension(:,:,:,:), allocatable :: dbRTP
+        real(rp), dimension(:,:,:)  , allocatable :: dbJ
 
         write(*,*) 'Writing ', trim(gStr)
 
@@ -412,9 +421,13 @@ module calcdbio
 
         !Get total perturbation
         allocate(dbRTP(gGr%NLat,gGr%NLon,gGr%Nz,NDIM))
+        allocate(dbJ  (gGr%NLat,gGr%NLon,gGr%Nz))
+
         !$OMP PARALLEL WORKSHARE
         dbRTP = gGr%dbMAG_rtp + gGr%dbION_rtp + gGr%dbFAC_rtp
         !$OMP END PARALLEL WORKSHARE
+
+        
 
         call ClearIO(IOVars)
         call AddOutVar(IOVars,"time",oTScl*Model%t)
@@ -422,24 +435,37 @@ module calcdbio
 
     !Write out spherical vectors (XDIR:ZDIR = RDIR,TDIR,PDIR)
         if (.not. Model%doSlim) then
-            call AddOutVar(IOVars,"dBrM" ,gGr%dbMAG_rtp(:,:,:,XDIR),uStr="nT")
-            call AddOutVar(IOVars,"dBtM" ,gGr%dbMAG_rtp(:,:,:,YDIR),uStr="nT")
-            call AddOutVar(IOVars,"dBpM" ,gGr%dbMAG_rtp(:,:,:,ZDIR),uStr="nT")
-            call AddOutVar(IOVars,"dBrI" ,gGr%dbION_rtp(:,:,:,XDIR),uStr="nT")
-            call AddOutVar(IOVars,"dBtI" ,gGr%dbION_rtp(:,:,:,YDIR),uStr="nT")
-            call AddOutVar(IOVars,"dBpI" ,gGr%dbION_rtp(:,:,:,ZDIR),uStr="nT")
-            call AddOutVar(IOVars,"dBrF" ,gGr%dbFAC_rtp(:,:,:,XDIR),uStr="nT")
-            call AddOutVar(IOVars,"dBtF" ,gGr%dbFAC_rtp(:,:,:,YDIR),uStr="nT")
-            call AddOutVar(IOVars,"dBpF" ,gGr%dbFAC_rtp(:,:,:,ZDIR),uStr="nT")
+            !Magnetospheric
+            call AddOutVar(IOVars,"dBrM" ,gGr%dbMAG_rtp(:,:,:,RDIR),uStr="nT")
+            call AddOutVar(IOVars,"dBtM" ,gGr%dbMAG_rtp(:,:,:,TDIR),uStr="nT")
+            call AddOutVar(IOVars,"dBpM" ,gGr%dbMAG_rtp(:,:,:,PDIR),uStr="nT")
+            call CalcJdb(gGr,gGr%dbMAG_rtp,dbJ,"MAG")
+            call AddOutVar(IOVars,"dbJM" ,dbJ,uStr="microA/m2")
+            !Ionospheric
+            call AddOutVar(IOVars,"dBrI" ,gGr%dbION_rtp(:,:,:,RDIR),uStr="nT")
+            call AddOutVar(IOVars,"dBtI" ,gGr%dbION_rtp(:,:,:,TDIR),uStr="nT")
+            call AddOutVar(IOVars,"dBpI" ,gGr%dbION_rtp(:,:,:,PDIR),uStr="nT")
+            call CalcJdb(gGr,gGr%dbION_rtp,dbJ,"ION")
+            call AddOutVar(IOVars,"dbJI" ,dbJ,uStr="microA/m2")
+            !Field-aligned
+            call AddOutVar(IOVars,"dBrF" ,gGr%dbFAC_rtp(:,:,:,RDIR),uStr="nT")
+            call AddOutVar(IOVars,"dBtF" ,gGr%dbFAC_rtp(:,:,:,TDIR),uStr="nT")
+            call AddOutVar(IOVars,"dBpF" ,gGr%dbFAC_rtp(:,:,:,PDIR),uStr="nT")
+            call CalcJdb(gGr,gGr%dbFAC_rtp,dbJ,"FAC")
+            call AddOutVar(IOVars,"dbJF" ,dbJ,uStr="microA/m2")
+
         endif
         
-        call AddOutVar(IOVars,"dBr" ,dbRTP(:,:,:,XDIR),uStr="nT")
-        call AddOutVar(IOVars,"dBt" ,dbRTP(:,:,:,YDIR),uStr="nT")
-        call AddOutVar(IOVars,"dBp" ,dbRTP(:,:,:,ZDIR),uStr="nT")
+        call AddOutVar(IOVars,"dBr" ,dbRTP(:,:,:,RDIR),uStr="nT")
+        call AddOutVar(IOVars,"dBt" ,dbRTP(:,:,:,TDIR),uStr="nT")
+        call AddOutVar(IOVars,"dBp" ,dbRTP(:,:,:,PDIR),uStr="nT")
+        call CalcJdb(gGr,dbRTP,dbJ,"TOT")
+        call AddOutVar(IOVars,"dbJ" ,dbJ,uStr="microA/m2")
 
         call WriteVars(IOVars,.true.,dbOutF,gStr)
         call ClearIO(IOVars)
         
+
     end subroutine writeDB
 
     !Convert XYZ to RTP vectors
@@ -465,9 +491,9 @@ module calcdbio
                     dBz = dbXYZ(i,j,k,ZDIR)
 
                     !Radial,Theta,Phi system
-                    dbRTP(i,j,k,1) =  dbX*sin(theta)*cos(phi) + dBy*sin(theta)*sin(phi) + dBz*cos(theta)
-                    dbRTP(i,j,k,2) =  dbX*cos(theta)*cos(phi) + dBy*cos(theta)*sin(phi) - dBz*sin(theta)
-                    dbRTP(i,j,k,3) = -dbX           *sin(phi) + dBy           *cos(phi) 
+                    dbRTP(i,j,k,RDIR) =  dbX*sin(theta)*cos(phi) + dBy*sin(theta)*sin(phi) + dBz*cos(theta)
+                    dbRTP(i,j,k,TDIR) =  dbX*cos(theta)*cos(phi) + dBy*cos(theta)*sin(phi) - dBz*sin(theta)
+                    dbRTP(i,j,k,PDIR) = -dbX           *sin(phi) + dBy           *cos(phi) 
 
                 enddo
             enddo
@@ -475,5 +501,59 @@ module calcdbio
 
     end subroutine xyz2rtp
     
+    subroutine CalcJdb(gGr,dbRTP,dbJ,jID)
+        type(grGrid_T), intent(in) :: gGr
+        real(rp), intent(in)  :: dbRTP(gGr%NLat,gGr%NLon,gGr%Nz,NDIM)
+        real(rp), intent(out) :: dbJ  (gGr%NLat,gGr%NLon,gGr%Nz)
+        character(len=*),intent(in) :: jID
+
+        integer :: i,j,k,jP,jM
+        real(rp) :: rad,theta,thP,thM,dth,dphi,DelA,DelB
+        real(rp) :: jScl,jMin,jMax,jRMS
+
+        dbJ = 0.0
+        
+        !$OMP PARALLEL DO default(shared) collapse(2) &
+        !$OMP private(i,j,k,jP,jM,rad,theta,thP,thM,dth,dphi,DelA,DelB)
+        do k=1,gGr%Nz
+            do j=1,gGr%NLon
+                do i=1+1,gGr%NLat-1
+                    rad  = norm2(gGr%GxyzC(i,j,k,:))
+                    theta = acos(gGr%GxyzC(i,j,k,ZDIR)/rad)
+                    
+                    thP = acos(gGr%GxyzC(i+1,j,k,ZDIR)/rad)
+                    thM = acos(gGr%GxyzC(i-1,j,k,ZDIR)/rad)
+                    dth =  thP - thM
+                    dphi = 2*2*PI/gGr%NLon !Assuming uniform longitude and centered difference
+
+                    DelA = ( sin(thP)*dbRTP(i+1,j,k,PDIR) - sin(thM)*dbRTP(i-1,j,k,PDIR) )/dth
+                    if (j == 1) then
+                        jM = gGr%NLon
+                        jP = j+1
+                    else if (j == gGr%NLon) then
+                        jM = j-1
+                        jP = 1
+                    else
+                        jP = j+1
+                        jM = j-1
+                    endif
+                    DelB = ( dbRTP(i,jP,k,TDIR) - dbRTP(i,jM,k,TDIR) )/dphi
+                    dbJ(i,j,k) = (DelA-DelB)/(rad*sin(theta))
+                enddo
+            enddo
+        enddo
+
+        !This is raw curl, nT/Re
+        !Convert to current, ie convert nT/Re => T/m, multiply by Mu0 = 4pi x 10^-7 Tm/A
+        jScl = (1.0e-9)/(Re_cgs*1.0e-2)/Mu0 !Converts to A/m2
+        dbJ = (1.0e+6)*jScl*dbJ !microA/m2
+
+        jMin = minval(dbJ)
+        jMax = maxval(dbJ)
+        jRMS = norm2(dbJ)/sqrt(1.0*size(dbJ))
+
+        write(*,'(a,a,f8.3,f8.3,f8.3,a)') trim(jID),' anomalous current [microA/m2]: ',jMin,jMax,jRMS,' (Min/Max/RMS)'
+
+    end subroutine CalcJdb
 
 end module calcdbio

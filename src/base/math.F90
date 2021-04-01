@@ -354,6 +354,13 @@ module math
 
     end function
 
+    !Simple function for print statements
+    function ang2deg(a)
+        real(rp), intent(in) :: a
+        real(rp) :: ang2deg
+        ang2deg = a*180.0/PI
+    end function
+    
     !Return // (to nhat) component of vector A
     !Assuming nhat is already unit vector
     function Vec2Para(A, nhat) result(Apara)
