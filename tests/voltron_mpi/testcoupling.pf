@@ -20,7 +20,7 @@ contains
       class (MpiTestMethod), intent(inout) :: this
       character(len=strLen) :: caseFile
 
-      integer :: ierror, gamComm = MPI_COMM_NULL
+      integer :: ierror, gamComm = MPI_COMM_NULL, voltComm = MPI_COMM_NULL
 
       call setMpiReal()
 
@@ -42,9 +42,9 @@ contains
           allocate(voltAppMpi)
 
           ! make gamera-only mpi communicator
-          call MPI_Comm_Split(this%getMpiCommunicator(), MPI_UNDEFINED, this%getProcessRank(), gamComm, ierror)
+          call MPI_Comm_Split(this%getMpiCommunicator(), 1, this%getProcessRank(), voltComm, ierror)
 
-          call initVoltron_mpi(voltAppMpi, initUser, this%getMpiCommunicator(), caseFile)
+          call initVoltron_mpi(voltAppMpi, initUser, voltComm, this%getMpiCommunicator(), caseFile)
       endif
 
   end subroutine setup
@@ -347,7 +347,9 @@ contains
       endif
   end subroutine testQuickSquish
 
-  @test(npes=[2,5,17])
+  ! this test is too slow right now, only run one of them
+  !@test(npes=[2,5,17])
+  @test(npes=[17])
   subroutine testQuickSquishStorm(this)
       class (MpiTestMethod), intent(inout) :: this
 
