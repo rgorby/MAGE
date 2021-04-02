@@ -1,7 +1,6 @@
 import os
 import sys
 import subprocess
-from os.path import expanduser
 sys.path.insert(1, "./python-slackclient")
 from slack import WebClient
 from slack.errors import SlackApiError
@@ -14,12 +13,14 @@ slack_token = os.environ["SLACK_BOT_TOKEN"]
 print(slack_token)
 client = WebClient(token=slack_token)
 
-# Get the home directory
-home = expanduser("~")
-
 # Get CWD and move to the main Kaiju folder
+calledFrom = os.path.dirname(os.path.abspath(__file__))
 origCWD = os.getcwd()
-os.chdir("..")
+os.chdir(calledFrom)
+os.chdir('..')
+home = os.getcwd()
+print("I am the master script. This is my current working directory: ")
+print(home)
 
 # Delete all build folders
 os.system("rm -rf build*/")
@@ -60,20 +61,32 @@ elif(str(sys.argv[1]) == '-t'):
 
 os.chdir("testingScripts")
 
+print("I made it this far!")
+print(os.path.dirname(os.path.abspath(__file__)))
+
 if (isTest == True):
     buildTest = subprocess.Popen("python3 buildTest.py -t", shell = True)
 
 elif (not len(sys.argv) < 2):
     buildTest = subprocess.Popen("python3 buildTest.py -f", shell = True)
+    buildTest.wait()
     unitTest = subprocess.Popen("python3 unitTest.py", shell = True)
+    buildTest.wait()
     intelTest = subprocess.Popen("python3 intelChecks.py", shell=True)
+    intelTest.wait()
     ICTest = subprocess.Popen("python3 ICtest.py", shell=True)
-    ICReport = subprocess.Popen("python3 ICTestReport.py", shell=True)
+    ICTest.wait()
+    ICReport = subprocess.Popen("python3 ICtestReport.py", shell=True)
+    ICReport.wait()
 
 else:
     buildTest = subprocess.Popen("python3 buildTest.py", shell = True)
+    buildTest.wait()
     unitTest = subprocess.Popen("python3 unitTest.py", shell = True)
+    unitTest.wait()
     intelTest = subprocess.Popen("python3 intelChecks.py", shell=True)
+    intelTest.wait()
     ICTest = subprocess.Popen("python3 ICtest.py", shell=True)
-    ICReport = subprocess.Popen("python3 ICTestReport.py", shell=True)
-
+    ICTest.wait()
+    ICReport = subprocess.Popen("python3 ICtestReport.py", shell=True)
+    ICReport.wait()

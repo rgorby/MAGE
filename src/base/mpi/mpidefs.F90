@@ -16,7 +16,15 @@ contains
 
   end subroutine setMpiReal
 
-  ! helper function to print info about custom MPI datatypes
+  ! helper functions to print info about custom MPI datatypes
+  subroutine simplePrintDataType(datatype)
+      integer, intent(in) :: datatype
+
+      logical :: typeUsed
+      typeUsed = printDataType(datatype)
+
+  end subroutine
+
   recursive function printDataType(datatype) result(retVal)
       integer, intent(in) :: datatype
       logical :: retVal
@@ -95,7 +103,29 @@ contains
               allocate(arrayDTs(numDTs))
               call mpi_type_get_contents(datatype, numInts, numAdds, numDTs, &
                                          arrayInts, arrayAdds, arrayDTs, ierr)
-              write (*,*) 'Datatype is contiguous conaining ',arrayInts(1),' repetitions of datatype:'
+              write (*,*) 'Datatype is contiguous containing ',arrayInts(1),' repetitions of datatype:'
+              if (printDataType(arrayDTs(1))) then
+                  call mpi_type_free(arrayDTs(1), ierr)
+              endif
+              deallocate(arrayInts)
+              deallocate(arrayAdds)
+              deallocate(arrayDTs)
+          CASE (MPI_COMBINER_SUBARRAY)
+              allocate(arrayInts(numInts))
+              allocate(arrayAdds(numAdds))
+              allocate(arrayDTs(numDTs))
+              call mpi_type_get_contents(datatype, numInts, numAdds, numDTs, &
+                                         arrayInts, arrayAdds, arrayDTs, ierr)
+              write (*,*) 'Datatype is subarray containing ',arrayInts(1),' dimensions:'
+              do i=1,arrayInts(1)
+                  write (*,*) 'size ',arrayInts(1+i),' subsize ',arrayInts(arrayInts(1)+1+i),' start ',arrayInts(2*arrayInts(1)+1+i)
+              enddo
+              if(arrayInts(3*arrayInts(1)+2) .eq. MPI_ORDER_FORTRAN) then
+                  write (*,*) 'data order is FORTRAN'
+              else
+                  write (*,*) 'data order is ',arrayInts(3*arrayInts(1)+2)
+              endif
+              write (*,*) 'subarray datatype:'
               if (printDataType(arrayDTs(1))) then
                   call mpi_type_free(arrayDTs(1), ierr)
               endif
