@@ -30,7 +30,7 @@ module rcmimag
     logical , private :: doBounceDT = .true. !Whether to use Alfven bounce in dt-ingest
     logical , private :: doHotBounce= .false. !Whether to limit Alfven speed density to only hot (RC) population
     logical , private :: doTrickyTubes = .true.  !Whether to poison bad flux tubes
-    logical , private :: doSmoothTubes = .true.  !Whether to smooth potential/FTV on torcm grid
+    logical , private :: doSmoothTubes = .false.  !Whether to smooth potential/FTV on torcm grid
     real(rp), private :: nBounce = 2.0 !Scaling factor for Alfven transit
     real(rp), private :: maxBetaLim = 6.0/5.0
 
@@ -283,9 +283,11 @@ module rcmimag
             call TrickyTubes(RCMApp)
         endif
 
-        !Smooth out FTV/potential on tubes b/c RCM will take gradient
-        call SmoothTubes(RCMApp,vApp)
-
+        if (doSmoothTubes) then
+            !Smooth out FTV/potential on tubes b/c RCM will take gradient
+            call SmoothTubes(RCMApp,vApp)
+        endif 
+ 
     !Advance from vApp%time to tAdv
         call Tic("AdvRCM")
         dtAdv = tAdv-vApp%time !RCM-DT
