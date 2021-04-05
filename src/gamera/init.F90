@@ -18,7 +18,6 @@ module init
     use multifluid
     use files    
     use step
-    use outflow
     
     implicit none
 
@@ -51,11 +50,10 @@ module init
 
         ! call appropriate subroutines to read corner info and mesh size data
         call ReadCorners(Model,Grid,xmlInp,endTime)
-        write(6,*) 'O.K. to here, Bill, ReadCorn'
 
         ! call appropriate subroutines to calculate all appropriate grid data from the corner data
         call CalcGridInfo(Model,Grid,State,oState,Solver,xmlInp,userInitFunc)
-        write(6,*) 'O.K. to here, Bill, init complete!'
+
         !Initialization complete!
         
     end subroutine Hatch
@@ -185,19 +183,18 @@ module init
 
         !Figure out ring avg (if using) before C2G
         call SetRings(Model,Grid,xmlInp)
-        Write(6,*) 'O.K.to here, Bill, set rings'
+
         !Turn corners into grid
         call Corners2Grid(Model,Grid)
 
         !Set default BCs (after C2G)
         call DefaultBCs(Model,Grid)
-        write(6,*) 'O.K. to here, Bill, BCS'
+
 !--------------------------------------------
         !Initialize state data
         !First prep state, then do restart if necessary, then finish state
 
         call PrepState(Model,Grid,oState,State,xmlInp,userInitFunc)
-        write(6,*) 'O.K. to here, Bill, Prep'
 
         if (Model%isRestart) then
             !If restart replace State variable w/ restart file
@@ -218,7 +215,6 @@ module init
         !Do remaining things to finish state
         !ie add B0/Grav and do bFlux2Fld
         call DoneState(Model,Grid,oState,State)
-        write(6,*) 'O.K. to here, Bill, Done St'
 
         !Finalize setup
         !Enforce initial BC's
@@ -227,11 +223,6 @@ module init
         oState = State
         call Toc("BCs")
 
-!!! initialize outflow
-        if ( Model%doMFOutflow ) then
-           call outflow_init(Model,Grid,State,xmlInp)
-        endif
-        
         !Setup timestep and initial previous state for predictor
         Model%dt = CalcDT(Model,Grid,State)
         oState%time = State%time-Model%dt !Initial old state
@@ -429,9 +420,7 @@ module init
         call xmlInp%Set_Val(Model%doMultiF,'multifluid/doMF',.false.)
         if (Model%doMultiF) then
             call InitMultiF(Model,xmlInp)
-         endif
-         call xmlInp%Set_Val(Model%doMFOutFlow,'mfoutflow/doMFOutFlow',.false.)
-    !! outflow code is attached to earthcmi
+        endif
     !Source terms
         call xmlInp%Set_Val(Model%doSource,'source/doSource',.false.)
 
