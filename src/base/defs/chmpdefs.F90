@@ -23,6 +23,7 @@ module chmpdefs
         logical :: doLL=.false. !Output lat-lon projection
         logical :: do2D=.false. !Force 2D tp integration
         logical :: doMHD=.false. !Do full MHD variables instead of just E/B
+        logical :: doJ=.false. !Deal w/ currents in addition to just E/B
         real(rp) :: tOut,dtOut
         integer :: Nblk=1,Ng=1
         real(rp) :: epsht !Small number for timestep calculation

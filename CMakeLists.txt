@@ -5,7 +5,7 @@ project(Kaiju Fortran)
 #   variables when looking for packages
 cmake_policy(SET CMP0074 NEW)
 
-# add and search for pfunit
+# add and search for pfunit (fingers crossed)
 list(APPEND CMAKE_PREFIX_PATH "./external")
 find_package(PFUNIT QUIET)
 if(PFUNIT_FOUND)
@@ -114,7 +114,7 @@ add_subdirectory(src/chimp)
 add_custom_target(chimp ALL)
 message("\tEB IC file is ${EBIC}")
 message("\tTP IC file is ${TPIC}")
-set(chimpX "project;psd;push;slice;chop;trace;sctrack")
+set(chimpX "project;psd;push;slice;chop;trace;sctrack;calcdb")
 foreach (EXE ${chimpX})
 	message("\tAdding executable ${EXE}.x")
 	add_executable(${EXE}.x src/drivers/${EXE}x.F90)
@@ -212,4 +212,10 @@ if(PFUNIT_FOUND)
 	add_subdirectory(tests)
 	add_dependencies(allTests baselib gamlib remixlib chimplib voltlib)
 endif()
+
+# copy git hook scripts into .git/hooks
+file(GLOB HOOK_SCRIPTS gitHookScripts/*)
+if (HOOK_SCRIPTS)
+    file(COPY ${HOOK_SCRIPTS} DESTINATION ${CMAKE_SOURCE_DIR}/.git/hooks) 
+endif (HOOK_SCRIPTS)
 

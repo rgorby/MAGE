@@ -6,15 +6,15 @@ module ebsquish
     use volttypes
     use streamline
     use earthhelper
+    use clocks, only: Tic,Toc
     
     implicit none
 
     !Projection type
     abstract interface
-        subroutine Projection_T(ebModel,ebState,xyz,t,x1,x2)
-            Import :: rp,NDIM,chmpModel_T,ebState_T
-            type(chmpModel_T), intent(in) :: ebModel
-            type(ebState_T)  , intent(in) :: ebState
+        subroutine Projection_T(ebApp,xyz,t,x1,x2)
+            Import :: rp,NDIM,ebTrcApp_T
+            type(ebTrcApp_T), intent(in) :: ebApp
             real(rp), intent(in)  :: xyz(NDIM), t
             real(rp), intent(out) :: x1,x2
         end subroutine Projection_T
@@ -22,9 +22,6 @@ module ebsquish
 
     real(rp), parameter, private :: startEps = 0.05
     real(rp), parameter, private :: rEps = 0.125
-    real(rp), private :: Rinner
-    integer, private :: numSquishBlocks = 3
-    integer, private :: curSquishBlock = 0
 
     contains
 
@@ -50,36 +47,47 @@ module ebsquish
 
     ! Helper subroutine to perform all squish blocks
     subroutine Squish(vApp)
-        type(voltApp_T), intent(inout) :: vApp
+        class(voltApp_T), intent(inout) :: vApp
 
-        do while(curSquishBlock < numSquishBlocks)
+        call Tic("Squish")
+        do while(SquishBlocksRemain(vApp))
             call DoSquishBlock(vApp)
         enddo
+        call Toc("Squish")
 
     end subroutine Squish
 
-    subroutine setNumSquishBlocks(numSB)
-        integer, intent(in) :: numSB
-
-        numSquishBlocks = numSB
-
-    end subroutine setNumSquishBlocks
-
-    function SquishBlocksRemain()
+    function SquishBlocksRemain(vApp)
+        class(voltApp_T), intent(in) :: vApp
         logical :: SquishBlocksRemain
 
-        SquishBlocksRemain = curSquishBlock < numSquishBlocks
+        integer :: blockCount
+
+        associate(ebSquish=>vApp%ebTrcApp%ebSquish)
+
+        if(ebSquish%myNumBlocks < 0) then
+            ! do all blocks
+            SquishBlocksRemain = ebSquish%curSquishBlock < ebSquish%numSquishBlocks
+        else
+            ! do some blocks
+            blockCount = ebSquish%curSquishBlock - ebSquish%myFirstBlock ! blocks completed
+            SquishBlocksRemain = blockCount < ebSquish%myNumBlocks
+        endif
+
+        end associate
 
     end function
 
     !Setup squishy data
     subroutine SquishStart(vApp)
-        type(voltApp_T), intent(inout) :: vApp
+        class(voltApp_T), intent(inout) :: vApp
         
+        call Tic("Squish")
         associate(ebGr=>vApp%ebTrcApp%ebState%ebGr, &                  
-                  xyzSquish=>vApp%chmp2mhd%xyzSquish,isGood=>vApp%chmp2mhd%isGood)
+                  xyzSquish=>vApp%chmp2mhd%xyzSquish,isGood=>vApp%chmp2mhd%isGood, &
+                  ebSquish=>vApp%ebTrcApp%ebSquish)
 
-        Rinner = norm2(ebGr%xyz(ebGr%is,ebGr%js,ebGr%ks,XDIR:ZDIR))
+        ebSquish%Rinner = norm2(ebGr%xyz(ebGr%is,ebGr%js,ebGr%ks,XDIR:ZDIR))
 
         xyzSquish = 0.0
         isGood = .false.
@@ -87,9 +95,10 @@ module ebsquish
         !Force iDeep to be even
         vApp%iDeep = 2*ceiling(vApp%iDeep/2.0)
 
-        curSquishBlock = 0
+        ebSquish%curSquishBlock = ebSquish%myFirstBlock
 
         end associate
+        call Toc("Squish")
 
     end subroutine SquishStart
 
@@ -104,7 +113,8 @@ module ebsquish
         procedure(Projection_T), pointer :: ProjectXYZ
 
         associate(ebModel=>vApp%ebTrcApp%ebModel,ebGr=>vApp%ebTrcApp%ebState%ebGr,ebState=>vApp%ebTrcApp%ebState, &
-                  xyzSquish=>vApp%chmp2mhd%xyzSquish,isGood=>vApp%chmp2mhd%isGood)
+                  xyzSquish=>vApp%chmp2mhd%xyzSquish,isGood=>vApp%chmp2mhd%isGood, &
+                  ebSquish=>vApp%ebTrcApp%ebSquish)
 
         ProjectXYZ => NULL()
 
@@ -129,7 +139,7 @@ module ebsquish
             nSkp = 1
         endif
 
-        call GetSquishBds(curSquishBlock,numSquishBlocks,nSkp,ebGr%ks,ebGr%ke+1,ksB,keB)
+        call GetSquishBds(vApp,ksB,keB)
 
         !$OMP PARALLEL DO default(shared) collapse(2) &
         !$OMP schedule(dynamic) &
@@ -140,7 +150,7 @@ module ebsquish
                     xyz = ebGr%xyz(i,j,k,XDIR:ZDIR)
                     if (norm2(xyz) <= vApp%rTrc) then
                         !Do projection
-                        call ProjectXYZ(ebModel,ebState,xyz,t,x1,x2)
+                        call ProjectXYZ(vApp%ebTrcApp,xyz,t,x1,x2)
                     else
                         !Set null projection because outside radius
                         x1 = 0.0
@@ -161,42 +171,62 @@ module ebsquish
         !Reset tolerance
         call SetTrcEpsilon(ebModel,vApp%chmp2mhd%epsds0)
 
-        curSquishBlock = curSquishBlock + 1
+        ebSquish%curSquishBlock = ebSquish%curSquishBlock + 1
 
         end associate
 
-        contains
-            !Get squish bounds for block n (out of Nblk)
-            !ksGr and keGr are the start/stop of indices
-            !ksB and keB are the bounds of this block
-            !n \in [0,Nblk-1] (because Jeff)
-            subroutine GetSquishBds(n,Nblk,nSkp,ksGr,keGr,ksB,keB)
-                integer, intent(in)  :: n,Nblk,nSkp,ksGr,keGr
-                integer, intent(out) :: ksB,keB
-
-                integer :: Nk,dN
-                Nk = keGr - ksGr + 1
-                dN = Nk/numSquishBlocks !Integer division
-                dN = dN - MOD(dN,nSkp)
-
-                ksB = ksGr + n*dN
-                keB = ksB+dN
-                if (n == (Nblk-1)) then
-                    keB = keGr !Make sure last block finishes everything
-                endif
-
-            end subroutine GetSquishBds
-
     end subroutine DoSquishBlock
+
+    !Get squish bounds for block n (out of Nblk)
+    !ksGr and keGr are the start/stop of indices
+    !ksB and keB are the bounds of this block
+    !n \in [0,Nblk-1] (because Jeff)
+    subroutine GetSquishBds(vApp,ksB,keB,blockNum)
+        class(voltApp_T), intent(in) :: vApp
+        integer, intent(out) :: ksB,keB
+        integer, optional, intent(in) :: blockNum
+
+        integer :: Nk,dN,nSkp
+        integer :: curB
+
+        associate(ebSquish=>vApp%ebTrcApp%ebSquish,ebGr=>vApp%ebTrcApp%ebState%ebGr)
+
+        if(present(blockNum)) then
+            curB = blockNum
+        else
+            curB = ebSquish%curSquishBlock
+        endif
+
+        if (vApp%doQkSquish) then
+            nSkp = vApp%qkSquishStride !Stride through grid for projections
+        else
+            nSkp = 1
+        endif
+
+        Nk = ebGr%ke+1 - ebGr%ks + 1
+        dN = Nk/ebSquish%numSquishBlocks !Integer division
+        dN = dN - MOD(dN,nSkp)
+
+        ksB = ebGr%ks + curB*dN
+        keB = ksB+dN
+        if (curB == (ebSquish%numSquishBlocks-1)) then
+            keB = ebGr%ke+1 !Make sure last block finishes everything
+        endif
+
+        end associate
+
+    end subroutine GetSquishBds
 
     ! Perform final operations on squishy data
     subroutine SquishEnd(vApp)
-        type(voltApp_T), intent(inout) :: vApp
+        class(voltApp_T), intent(inout) :: vApp
 
         integer :: i,Nk
 
+        call Tic("Squish")
         associate(ebModel=>vApp%ebTrcApp%ebModel,ebGr=>vApp%ebTrcApp%ebState%ebGr, &
-                  xyzSquish=>vApp%chmp2mhd%xyzSquish,isGood=>vApp%chmp2mhd%isGood)
+                  xyzSquish=>vApp%chmp2mhd%xyzSquish,isGood=>vApp%chmp2mhd%isGood, &
+                  ebSquish=>vApp%ebTrcApp%ebSquish)
 
         if (vApp%doQkSquish) then
             call FillSkips(ebModel,ebGr,vApp%iDeep,xyzSquish,isGood,vApp%qkSquishStride)
@@ -220,6 +250,7 @@ module ebsquish
         vApp%chmp2mhd%iMax = vApp%iDeep
         
         end associate
+        call Toc("Squish")
 
     end subroutine SquishEnd
 
@@ -234,9 +265,11 @@ module ebsquish
 
         integer :: i,j,k
         real(rp), dimension(2) :: X1s,X2s
+        
 
         integer :: hSkp
         hSkp = nSkp/2
+
 
         !Start w/ i edge sweep
         !$OMP PARALLEL DO default(shared) collapse(2) &
@@ -249,6 +282,7 @@ module ebsquish
                         X2s = [xyzSquish(i-hSkp,j,k,2),xyzSquish(i+hSkp,j,k,2)]
                         xyzSquish(i,j,k,1) = ArithMean(X1s)
                         xyzSquish(i,j,k,2) = CircMean (X2s)
+
                         isGood(i,j,k) = .true.
                     endif
                 enddo
@@ -266,6 +300,7 @@ module ebsquish
                         X2s = [xyzSquish(i,j-hSkp,k,2),xyzSquish(i,j+hSkp,k,2)]
                         xyzSquish(i,j,k,1) = ArithMean(X1s)
                         xyzSquish(i,j,k,2) = CircMean (X2s)
+
                         isGood(i,j,k) = .true.
                     endif
                 enddo
@@ -283,6 +318,7 @@ module ebsquish
                         X2s = [xyzSquish(i,j,k-hSkp,2),xyzSquish(i,j,k+hSkp,2)]
                         xyzSquish(i,j,k,1) = ArithMean(X1s)
                         xyzSquish(i,j,k,2) = CircMean (X2s)
+
                         isGood(i,j,k) = .true.
                     endif
 
@@ -295,9 +331,8 @@ module ebsquish
     end subroutine FillSkips
 
     !Project XYZ to R,phi at Z=0 plane
-    subroutine Proj2LP(ebModel,ebState,xyz,t,x1,x2)
-        type(chmpModel_T), intent(in) :: ebModel
-        type(ebState_T)  , intent(in) :: ebState
+    subroutine Proj2LP(ebApp,xyz,t,x1,x2)
+        type(ebTrcApp_T)  , intent(in) :: ebApp
         real(rp), dimension(NDIM), intent(in) :: xyz
         real(rp), intent(in) :: t
         real(rp), intent(out) :: x1,x2
@@ -307,7 +342,7 @@ module ebsquish
 
         ! trap for when we're within epsilon of the inner boundary
         ! (really, it's probably only the first shell of nodes at R=Rinner_boundary that doesn't trace correctly)
-        if ( (norm2(xyz)-Rinner)/Rinner < startEps ) then
+        if ( (norm2(xyz)-ebApp%ebSquish%Rinner)/ebApp%ebSquish%Rinner < startEps ) then
            ! dipole-shift to startEps
            xyzSeed = DipoleShift(xyz,norm2(xyz)+startEps)
         else
@@ -316,7 +351,7 @@ module ebsquish
 
         ! note, this assumes internally tracing along -B for z>0 and along B for z<0
         ! if that fails, it returns xy0=HUGE
-        call getEquatorProjection(ebModel,ebState,xyzSeed,t,xy0)
+        call getEquatorProjection(ebApp%ebModel,ebApp%ebState,xyzSeed,t,xy0)
 
         !Map projection to L,phi
         L = sqrt(xy0(XDIR)**2.0+xy0(YDIR)**2.0)
@@ -328,9 +363,54 @@ module ebsquish
     end subroutine Proj2LP
 
     !Project XYZ to lat-lon on ionosphere
-    subroutine Proj2LL(ebModel,ebState,xyz,t,x1,x2)
-        type(chmpModel_T), intent(in) :: ebModel
-        type(ebState_T)  , intent(in) :: ebState
+    subroutine Proj2LL(ebApp,xyz,t,x1,x2)
+        type(ebTrcApp_T), intent(in) :: ebApp
+        real(rp), dimension(NDIM), intent(in) :: xyz
+        real(rp), intent(in) :: t
+        real(rp), intent(out) :: x1,x2
+
+        real(rp), dimension(NDIM) :: xE,xyz0
+        integer :: Np
+        logical :: isGood,isGP
+        real(rp) :: dX,rC
+        real(rp) :: x11,x22
+
+        x1 = 0.0
+        x2 = 0.0
+
+        ! trap for when we're within epsilon of the inner boundary
+        ! (really, it's probably only the first shell of nodes at R=Rinner_boundary that doesn't trace correctly)
+        if ( (norm2(xyz)-ebApp%ebSquish%Rinner)/ebApp%ebSquish%Rinner < startEps ) then
+           ! dipole-shift to startEps
+           xyz0 = DipoleShift(xyz,norm2(xyz)+startEps)
+        else
+           xyz0 = xyz
+        end if
+
+        call mageproject(ebApp%ebModel,ebApp%ebState,xyz0,t,xE,Np,isGP)
+        
+        dX = norm2(xyz0-xE)
+        rC = ebApp%ebSquish%Rinner*(1.+rEps)
+
+        isGood = isGP .and. (dX>TINY) .and. (xE(ZDIR)>0.0) .and. (norm2(xE)<rC)
+
+        if (isGood) then
+            !Get invariant lat/lon
+            x1 = InvLatitude(xE)
+            x2 = atan2(xE(YDIR),xE(XDIR))
+            if (x2 < 0) x2 = x2 + 2*PI
+        else
+            x1 = 0.0
+            x2 = 0.0
+        endif
+
+        !call Proj2LL_OLD(ebApp%ebModel,ebApp%ebState,xyz,t,x11,x22)
+        !call Proj2LL_OLD(ebApp%ebModel,ebApp%ebState,xyz,t,x1,x2)
+
+    end subroutine Proj2LL
+
+    subroutine Proj2LL_OLD(ebApp,xyz,t,x1,x2)
+        type(ebTrcApp_T), intent(in) :: ebApp
         real(rp), dimension(NDIM), intent(in) :: xyz
         real(rp), intent(in) :: t
         real(rp), intent(out) :: x1,x2
@@ -344,7 +424,7 @@ module ebsquish
 
         ! trap for when we're within epsilon of the inner boundary
         ! (really, it's probably only the first shell of nodes at R=Rinner_boundary that doesn't trace correctly)
-        if ( (norm2(xyz)-Rinner)/Rinner < startEps ) then
+        if ( (norm2(xyz)-ebApp%ebSquish%Rinner)/ebApp%ebSquish%Rinner < startEps ) then
            ! dipole-shift to startEps
            xyz0 = DipoleShift(xyz,norm2(xyz)+startEps)
         else
@@ -353,10 +433,10 @@ module ebsquish
 
         !Use one-sided projection routine from chimp
         !Trace along field line (i.e. to northern hemisphere)
-        call project(ebModel,ebState,xyz0,t,xE,+1,toEquator=.false.)
+        call project(ebApp%ebModel,ebApp%ebState,xyz0,t,xE,+1,toEquator=.false.)
 
         dX = norm2(xyz0-xE)
-        rC = Rinner*(1.+rEps)
+        rC = ebApp%ebSquish%Rinner*(1.+rEps)
         isGood = (dX>TINY) .and. (norm2(xE) <= rC) .and. (xE(ZDIR) > 0)
 
         if (isGood) then
@@ -371,6 +451,6 @@ module ebsquish
             x2 = 0.0
         endif
 
-    end subroutine Proj2LL
+    end subroutine Proj2LL_OLD
 
 end module ebsquish

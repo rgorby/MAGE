@@ -140,7 +140,7 @@ module userebic
             eb1%dB   = eb2%dB
             eb1%E    = eb2%E
             if (Model%doMHD) eb1%W = eb2%W
-
+            if (Model%doJ) eb1%Jxyz = eb2%Jxyz
             !Bail out
             return        
         endif

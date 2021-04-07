@@ -13,7 +13,7 @@ module mixmain
 
   contains
 
-    subroutine init_mix(I,hmsphrs,optFilename,RunID,isRestart,mixIOobj,nRes)
+    subroutine init_mix(I,hmsphrs,optFilename,RunID,isRestart,mixIOobj,nRes,optIO)
       type(mixIon_T),dimension(:),allocatable,intent(inout) :: I ! I for ionosphere (is an array of 1 or 2 elements for north and south) or it can be artibrarily many, e.g., for different solves done in loop
       integer, dimension(:), intent(in) :: hmsphrs       
       character(len=*), optional, intent(in) :: optFilename
@@ -21,14 +21,21 @@ module mixmain
       logical,optional, intent(in) :: isRestart
       type(mixIO_T),optional, intent(in) :: mixIOobj  
       integer,optional,intent(in) :: nRes
+      logical,optional,intent(in) :: optIO
       integer :: mixnRes    
       logical :: doRestart
       integer :: h
+      logical :: doIO ! do IO initialziaiton
 
       if (.not.allocated(I)) allocate(I(size(hmsphrs)))
       
       I%rad_iono_m = RIonE*1.e+6 ! Default to RIonE. To change, overwrite directly after the init_mix call
       if (present(isRestart)) doRestart = isRestart
+      if (present(optIO)) then
+          doIO = optIO
+      else
+          doIO = .true. ! IO enabled default
+      endif
 
       do h=1,size(I)
          I(h)%St%hemisphere = hmsphrs(h)
@@ -70,10 +77,18 @@ module mixmain
         !call xmlInp%Set_Val(mixnRes ,"/gamera/restart/nRes" ,-1)
         mixnRes = I(1)%P%nRes
         write(*,*) "InitMIXIO with restart"
-        call initMIXIO(I,RunID,isRestart,mixnRes)
+        if(doIO) then
+            call initMIXIO(I,RunID,isRestart,mixnRes)
+        else
+            call initMIXNames()
+        endif
       else
         write(*,*) "InitMIXIO without restart"
-        call initMIXIO(I,RunID,isRestart)
+        if(doIO) then
+            call initMIXIO(I,RunID,isRestart)
+        else
+            call initMIXNames()
+        endif
       end if
     end subroutine init_mix
 

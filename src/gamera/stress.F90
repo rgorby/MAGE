@@ -19,6 +19,7 @@ module stress
     integer, parameter, dimension(2), private :: SgnLR=[-1,1]
     logical, parameter, private :: doNuke = .true. !Do nuclear option
     logical, parameter, private :: doHogs11 = .true. !Do // magnetic hogs diffusion
+    logical, parameter, private :: doCCB0 = .true. !Whether to do volume-averaged/cell-center or face-center B0 force
 
     !cLim: Vile magic number, when to apply nuclear option (v>cLim*Ca)
     !LFM uses 1.5
@@ -132,6 +133,7 @@ module stress
 
         !Do various hacks to fluxes before conversion to deltas
         !Fix fluxes on ring if necessary
+
         call Tic("HackFlux")
         if (Model%doRing) then
             call RingFlux(Model,Gr,gFlx,mFlx)
@@ -165,10 +167,11 @@ module stress
                                                   + mFlx(i,j,k,XDIR:ZDIR,JDIR) - mFlx(i,j+1,k,XDIR:ZDIR,JDIR) &
                                                   + mFlx(i,j,k,XDIR:ZDIR,KDIR) - mFlx(i,j,k+1,XDIR:ZDIR,KDIR) )/dV
                         
-                        if (Model%doBackground) then
+                        if (Model%doBackground .and. doCCB0) then
                             !Add background field force terms
                             dGasM(i,j,k,XDIR:ZDIR) = dGasM(i,j,k,XDIR:ZDIR) + Gr%dpB0(i,j,k,XDIR:ZDIR)
                         endif
+
                     endif !doMax
                 enddo ! i loop
             enddo !J loop
@@ -581,9 +584,18 @@ module stress
             if (Model%doBackground) then
                 !Start by adding cross-terms
                 BdB0 = B0x*Bx + B0y*By + B0z*Bz
-                mFlxB(i,XDIR) = mFlxB(i,XDIR) + Vn0*( -B0x*Bn(i) - Bx*B0n(i) + BdB0*Nx) !+ 0.5*(- B0x*B0n(i) + Pb0(i)*Nx)
-                mFlxB(i,YDIR) = mFlxB(i,YDIR) + Vn0*( -B0y*Bn(i) - By*B0n(i) + BdB0*Ny) !+ 0.5*(- B0y*B0n(i) + Pb0(i)*Ny)
-                mFlxB(i,ZDIR) = mFlxB(i,ZDIR) + Vn0*( -B0z*Bn(i) - Bz*B0n(i) + BdB0*Nz) !+ 0.5*(- B0z*B0n(i) + Pb0(i)*Nz)
+                
+                mFlxB(i,XDIR) = mFlxB(i,XDIR) + Vn0*( -B0x*Bn(i) - Bx*B0n(i) + BdB0*Nx )
+                mFlxB(i,YDIR) = mFlxB(i,YDIR) + Vn0*( -B0y*Bn(i) - By*B0n(i) + BdB0*Ny )
+                mFlxB(i,ZDIR) = mFlxB(i,ZDIR) + Vn0*( -B0z*Bn(i) - Bz*B0n(i) + BdB0*Nz )
+                if (.not. doCCB0) then
+                    !Add B0 JxB force to faces instead of cell center
+                    Pb0 = 0.5*(B0x**2.0 + B0y**2.0 + B0z**2.0)
+                    mFlxB(i,XDIR) = mFlxB(i,XDIR) + Vn0*( Pb0*Nx - B0x*B0n(i) )
+                    mFlxB(i,YDIR) = mFlxB(i,YDIR) + Vn0*( Pb0*Ny - B0y*B0n(i) )
+                    mFlxB(i,ZDIR) = mFlxB(i,ZDIR) + Vn0*( Pb0*Nz - B0z*B0n(i) )
+
+                endif !doCCB0
             endif
 
         enddo

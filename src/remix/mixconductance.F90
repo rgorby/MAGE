@@ -8,10 +8,10 @@ module mixconductance
   
   implicit none
 
-  real(rp), dimension(:,:), allocatable :: tmpD,tmpC ! used for chilling in Fedder95. Declare it here so we can allocate in init.
-  real(rp), dimension(:,:), allocatable :: JF0,RM,RRdi ! used for zhang15
-  real(rp), dimension(:,:), allocatable :: tmpE,tmpF ! used for smoothing precipitation avg_eng and num_flux
-  real(rp), dimension(:,:), allocatable :: Kc ! used for multi-reflection modification
+  real(rp), dimension(:,:), allocatable, private :: tmpD,tmpC ! used for chilling in Fedder95. Declare it here so we can allocate in init.
+  real(rp), dimension(:,:), allocatable, private :: JF0,RM,RRdi ! used for zhang15
+  real(rp), dimension(:,:), allocatable, private :: tmpE,tmpF ! used for smoothing precipitation avg_eng and num_flux
+  real(rp), dimension(:,:), allocatable, private :: Kc ! used for multi-reflection modification
 
   contains
     subroutine conductance_init(conductance,Params,G)
@@ -79,8 +79,8 @@ module mixconductance
       if (.not. allocated(JF0)) allocate(JF0(G%Np,G%Nt))      
       if (.not. allocated(RM)) allocate(RM(G%Np,G%Nt))      
       if (.not. allocated(RRdi)) allocate(RRdi(G%Np,G%Nt))      
-      if (.not. allocated(tmpE)) allocate(tmpE(G%Np,G%Nt))
-      if (.not. allocated(tmpF)) allocate(tmpF(G%Np,G%Nt))
+      if (.not. allocated(tmpE)) allocate(tmpE(G%Np+4,G%Nt+4)) ! for boundary processing.
+      if (.not. allocated(tmpF)) allocate(tmpF(G%Np+4,G%Nt+4))
       if (.not. allocated(Kc)) allocate(Kc(G%Np,G%Nt))
 
     end subroutine conductance_init
@@ -152,6 +152,9 @@ module mixconductance
       real(rp) :: Rout = 6.D0, Rin = 1.2D0
       real(rp) :: rhoFactor = 3.3D-24*0.5D0
 
+      tmpC = 0.D0
+      tmpD = 0.D0
+
       if (St%hemisphere==NORTH) then
          signOfY = -1  ! note, factor2 (dawn-dusk asymmetry is not
                            ! implemented since factor2 in the old
@@ -219,6 +222,10 @@ module mixconductance
       type(mixState_T), intent(inout) :: St
       
       real(rp) :: signOfY, signOfJ
+
+      tmpC = 0.D0
+      tmpD = 0.D0
+      JF0 = 0.D0
       
       if (St%hemisphere==NORTH) then
          signOfY = -1  ! note, factor2 (dawn-dusk asymmetry is not
@@ -282,7 +289,7 @@ module mixconductance
       where(conductance%deltaE<=0.0)
          St%Vars(:,:,AVG_ENG)  = max(St%Vars(:,:,IM_EAVG),1.D-8) ! [keV]
          St%Vars(:,:,NUM_FLUX) = St%Vars(:,:,IM_EFLUX)/(St%Vars(:,:,AVG_ENG)*kev2erg) ! [ergs/cm^2/s]
-         St%Vars(:,:,Z_NFLUX)  = 0.0 ! for diagnostic purposes since full Z15 does not currently work.
+         St%Vars(:,:,Z_NFLUX)  = -1.0 ! for diagnostic purposes since full Z15 does not currently work.
       end where
 
     end subroutine conductance_rcmono
@@ -349,7 +356,7 @@ module mixconductance
       if (conductance%doMR) call conductance_mr(conductance,St)
 
       ! Smooth precipitation energy and flux before calculating conductance.
-      if (conductance%doAuroralSmooth) call conductance_auroralsmooth(St,G)
+      if (conductance%doAuroralSmooth) call conductance_auroralsmooth(St,G,conductance)
       
       if (present(gcm)) then
          !write(*,*) 'going to apply!'
@@ -407,6 +414,7 @@ module mixconductance
       Radi = Rady**2 ! Rio**2*(1-cos(alp-al0)*cos(alp-al0))
       order = 2.0
       
+      RRdi = 0.D0
       RRdi = (G%y-0.03*signOfY)**2 + ( G%x/cos(al0) - Rio*cos(alp-al0)*tan(al0) )**2
       where(RRdi < Radi)
          conductance%AuroraMask = cos((RRdi/Radi)**order*conductance%PI2)+0.D0
@@ -420,22 +428,80 @@ module mixconductance
       end where
     end subroutine conductance_auroralmask
 
-    subroutine conductance_auroralsmooth(St,G)
+    subroutine conductance_auroralsmooth(St,G,conductance)
       type(mixState_T), intent(inout) :: St
       type(mixGrid_T), intent(in) :: G      
+      type(mixConductance_T), intent(inout) :: conductance
       integer :: i, j
+      logical :: smthDEPonly = .true.
+      integer :: smthE
+      smthE = 1 ! 1. smooth EFLUX; 2. smooth EAVG
 
-      tmpE = St%Vars(:,:,AVG_ENG)  ! tmpE(G%Np,G%Nt)
-      tmpF = St%Vars(:,:,NUM_FLUX)
-      !$OMP PARALLEL DO default(shared) collapse(2) &
-      !$OMP private(i,j)
-      do j=3,G%Nt-2
-         do i=3,G%Np-2
-            ! SmoothOperator55(Q,isGO)
-            St%Vars(i,j,AVG_ENG) =SmoothOperator55(tmpE(i-2:i+2,j-2:j+2))
-            St%Vars(i,j,NUM_FLUX)=SmoothOperator55(tmpF(i-2:i+2,j-2:j+2))
-         end do
+      tmpC = 0.D0
+      tmpD = 0.D0
+      tmpE = 0.D0
+      tmpF = 0.D0
+
+      ! Test only smoothing diffuse precipitation.
+      ! Diffuse mask is St%Vars(:,:,Z_NFLUX)<0.
+      ! Get AVG_ENG*mask and NUM_FLUX*mask for smoothing.
+      ! Fill AVG_ENG and NUM_FLUX with smoothed where mask is true.
+      ! this domain of conductance is never used. Here it's used for diffuse precipitation mask. Be careful if not in RCMONO mode.
+      conductance%PrecipMask = 1.D0 
+      if(smthDEPonly) then
+        where(St%Vars(:,:,Z_NFLUX)>=0)
+          conductance%PrecipMask = 0.D0
+        end where
+        ! back up mono
+        tmpC = St%Vars(:,:,AVG_ENG)
+        tmpD = St%Vars(:,:,NUM_FLUX)
+      endif
+
+      ! get expanded diffuse with margin grid (ghost cells)
+      if(smthE==1) then
+        call conductance_margin(G,St%Vars(:,:,AVG_ENG)*St%Vars(:,:,NUM_FLUX)*conductance%PrecipMask, tmpE)
+      else
+        call conductance_margin(G,St%Vars(:,:,AVG_ENG)*conductance%PrecipMask, tmpE)
+      end if
+      call conductance_margin(G,St%Vars(:,:,NUM_FLUX)*conductance%PrecipMask, tmpF)
+
+      ! do smoothing
+    !$OMP PARALLEL DO default(shared) collapse(2) &
+    !$OMP private(i,j)
+      do j=1,G%Nt
+        do i=1,G%Np
+          ! SmoothOperator55(Q,isGO)
+          St%Vars(i,j,NUM_FLUX)=SmoothOperator55(tmpF(i:i+4,j:j+4))
+          if(smthE==1) then
+            St%Vars(i,j,AVG_ENG) = max(SmoothOperator55(tmpE(i:i+4,j:j+4))/St%Vars(i,j,NUM_FLUX),1.D-8)
+          else
+            St%Vars(i,j,AVG_ENG) = max(SmoothOperator55(tmpE(i:i+4,j:j+4)),1.D-8)
+          end if
+        end do
       end do
+
+      if(smthDEPonly) then
+        ! combine smoothed diffuse and unsmoothed mono
+        where(St%Vars(:,:,Z_NFLUX)>=0)
+          St%Vars(:,:,AVG_ENG)  = tmpC
+          St%Vars(:,:,NUM_FLUX) = tmpD
+        end where
+      endif
     end subroutine conductance_auroralsmooth
+
+    subroutine conductance_margin(G,array,arraymar)
+      type(mixGrid_T), intent(in) :: G      
+      real(rp),dimension(G%Np,G%Nt), intent(in) :: array
+      real(rp),dimension(G%Np+4,G%Nt+4), intent(out) :: arraymar
+      arraymar(3:G%Np+2,3:G%Nt+2) = array
+      ! reflective BC for lat
+      arraymar(3:G%Np+2,1) = array(:,3)
+      arraymar(3:G%Np+2,2) = array(:,2)
+      arraymar(3:G%Np+2,G%Nt+3) = array(:,G%Nt-1)
+      arraymar(3:G%Np+2,G%Nt+4) = array(:,G%Nt-2)
+      ! periodic BC for lon
+      arraymar(1:2,:) = arraymar(G%Np+1:G%Np+2,:)
+      arraymar(G%Np+3:G%Np+4,:) = arraymar(3:4,:)
+    end subroutine conductance_margin
 
   end module mixconductance

@@ -26,8 +26,11 @@ if __name__ == "__main__":
 	doDen = False
 	noIon = False
 	noMPI = False
+	noRCM = False
 	doJy = False
 	doBz = False
+	doBigRCM = False
+
 	MainS = """Creates simple multi-panel figure for Gamera magnetosphere run
 	Top Panel - Residual vertical magnetic field
 	Bottom Panel - Pressure (or density) and hemispherical insets
@@ -42,7 +45,8 @@ if __name__ == "__main__":
 	parser.add_argument('-jy'   , action='store_true', default=doJy ,help="Show Jy instead of pressure (default: %(default)s)")
 	parser.add_argument('-noion', action='store_true', default=noIon,help="Don't show ReMIX data (default: %(default)s)")
 	parser.add_argument('-nompi', action='store_true', default=noMPI,help="Don't show MPI boundaries (default: %(default)s)")
-	
+	parser.add_argument('-norcm', action='store_true', default=noRCM,help="Don't show RCM data (default: %(default)s)")
+	parser.add_argument('-bigrcm', action='store_true',default=doBigRCM,help="Show entire RCM domain (default: %(default)s)")
 
 	mviz.AddSizeArgs(parser)
 
@@ -57,6 +61,9 @@ if __name__ == "__main__":
 	doMPI = (not noMPI)
 	doJy = args.jy
 	doBz = args.bz
+	noRCM = args.norcm
+	doBigRCM = args.bigrcm
+
 	#Get domain size
 	xyBds = mviz.GetSizeBds(args)
 
@@ -88,6 +95,7 @@ if __name__ == "__main__":
 		print("Found RCM data")
 		rcmdata = gampp.GameraPipe(fdir,ftag+".mhdrcm")
 		mviz.vP = kv.genNorm(1.0e-2,100.0,doLog=True)
+		rcmpp.doEll = not doBigRCM
 	if (doMIX):
 		print("Found ReMIX data")
 		ion = remix.remix(rmxChk,nStp)
@@ -122,7 +130,7 @@ if __name__ == "__main__":
 	gsph.AddSW(nStp,AxL,xy=[0.625,0.025],fs="small")
 
 	#Add inset RCM plot
-	if (doRCM):
+	if (not noRCM):
 		AxRCM = inset_axes(AxL,width="30%",height="30%",loc=3)
 		rcmpp.RCMInset(AxRCM,rcmdata,nStp,mviz.vP)
 		#Add some dBz contours

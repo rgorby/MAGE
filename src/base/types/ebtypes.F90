@@ -8,6 +8,18 @@ module ebtypes
     !Primitive variables
     integer, parameter :: NVARMHD = 5
 
+    !Data necessary for CHIMP 2D<->3D mapping for deep coupling
+    type ebSquish_T
+        ! base variables
+        real(rp) :: Rinner
+        ! block tracking for splitting up calculations and dividing work
+        integer :: numSquishBlocks = 3 ! total blocks to divide work into
+        integer :: curSquishBlock = 0
+        ! start and end blocks in case work is divided across multiple ranks
+        integer :: myFirstBlock = 0 ! first block for me to work on
+        integer :: myNumBlocks = -1 ! how many blocks I should solve
+    end type ebSquish_T
+
     !Data necessary to update fields, ie time->field data file mapping
     !File: bStr + gStr (base+group)
     type ebTab_T
@@ -27,6 +39,7 @@ module ebtypes
     type ebField_T
         real(rp), dimension(:,:,:,:), allocatable :: dB,E !Fields
         real(rp), dimension(:,:,:,:), allocatable :: W !Primitive MHD variables
+        real(rp), dimension(:,:,:,:), allocatable :: Jxyz !Currents
         real(rp) :: time !Time in code units for this slice
     end type ebField_T
 
@@ -40,6 +53,9 @@ module ebtypes
         !4D cell corners, cell centers
         !(isg:ieg,jsg:jeg,ksg:keg,1:NDIM)
         real(rp), dimension(:,:,:,:), allocatable :: xyz,xyzcc,B0cc
+        !3D cell centered dV
+        real(rp), dimension(:,:,:), allocatable :: dV
+
         !Cell-centered Jacobians.  Txi: (xyz),ijk / Tix: (ijk),xyz
         !Ie, Txi(XDIR,JDIR) = dx/dj
         !(isg:ieg,jsg:jeg,ksg:keg,1:NDIM,1:NDIM)
@@ -58,6 +74,7 @@ module ebtypes
     type ebTrcApp_T
         type(chmpModel_T) :: ebModel
         type(ebState_T)   :: ebState
+        type(ebSquish_T)  :: ebSquish
     end type ebTrcApp_T
 
     !Data holder for doing field line tracing at point
@@ -98,7 +115,7 @@ module ebtypes
         integer, allocatable, dimension(:,:) :: ijk
 
         !Whether this is a degenerate line (seed point not in domain)
-        logical :: isGood
+        logical :: isGood = .false.
     end type fLine_T
         
     contains
@@ -125,7 +142,11 @@ module ebtypes
             allocate(ebF%W(ebGr%isg:ebGr%ieg,ebGr%jsg:ebGr%jeg,ebGr%ksg:ebGr%keg,NVARMHD))
             ebF%W = 0.0
         endif
-        
+        if (Model%doJ .and. (.not. allocated(ebF%Jxyz))) then
+            allocate(ebF%Jxyz(ebGr%isg:ebGr%ieg,ebGr%jsg:ebGr%jeg,ebGr%ksg:ebGr%keg,NDIM))
+            ebF%Jxyz = 0.0
+        endif
+
     end subroutine allocEB
     
 end module ebtypes

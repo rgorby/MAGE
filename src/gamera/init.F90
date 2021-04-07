@@ -349,7 +349,7 @@ module init
         !Start by reading PDMB, set CFL based on that but limit to max 0.3
         !Set global pdmb value used in recon
         !Set Vd0, the coefficient of the diffusive electric field
-        call xmlInp%Set_Val(pdmb,'sim/pdmb',1.0_rp)
+        call xmlInp%Set_Val(pdmb,'sim/pdmb',0.75_rp) !Standard msphere value
         C0 = min(0.5/(pdmb+0.5) ,MaxCFL) !Set CFL based on PDM
         call SetFloors(Model,xmlInp)
 

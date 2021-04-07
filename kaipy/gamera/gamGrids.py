@@ -251,6 +251,101 @@ def GenKSph(Ni=Ni0,Nj=Nj0,Nk=Nk0,Rin=5,Rout=40,tMin=0.2,tMax=0.8):
 
 	return X3,Y3,Z3
 
+#Generate 3D spherical grid with non-uniform grid in r and with Z-axis north pole
+#Spherical :: r,theta,phi = ijk
+#theta = [0,1] -> [0,pi]
+#phi = [0,1] -> [0,2pi]
+def GenKSphNonU(Ni=Ni0,Nj=Nj0,Nk=Nk0,Rin=5,Rout=40,tMin=0.2,tMax=0.8):
+        #Number of nodes with ghost corners
+        Ngi = Ni+1+2*Ng
+        Ngj = Nj+1+2*Ng
+        Ngk = Nk+1+2*Ng
+
+        dx2 = (tMax-tMin)/Nj
+        dx3 = (1.0 - 0.0)/Nk
+
+        # check that ghosts don't take us across the axis
+        # need to generalize later to include the axis (do full 4pi)
+        if ((tMin-Ng*dx2)<=0) or ((tMax+Ng*dx2)>=1.):
+                sys.exit("Ghost cell region includes the spherical axis. This is not implemented yet.")
+
+        nu = np.linspace(0,1,Ni+1)
+        r0 = []
+        r1 = [((Rout - Rin)*(x*x+x)/2. + Rin) for x in nu]
+        dxN = Rout - ((Rout-Rin)*(nu[Ni-1]*nu[Ni-1]+nu[Ni-1])/2. + Rin)
+        dx0 = (Rout-Rin)*(nu[1]*nu[1]+nu[1])/2.
+        for i in range(Ng):
+                r1.append(Rout + (i+1)*dxN)
+                r0.append(Rin - (Ng-i)*dx0)
+        r = r0 + r1
+
+        t = np.linspace(tMin-Ng*dx2,tMax+Ng*dx2,Ngj)*np.pi
+        p = np.linspace(-Ng*dx3,1.+Ng*dx3,Ngk)*2*np.pi
+
+        # note the indexing flag for proper ordering for writeGrid later
+        R,T,P = np.meshgrid(r,t,p,indexing='ij')
+
+        X3 = R*np.sin(T)*np.cos(P)
+        Y3 = R*np.sin(T)*np.sin(P)
+        Z3 = R*np.cos(T)
+
+        return X3,Y3,Z3
+
+#Generate 3D spherical grid with non-uniform grid in r and with Z-axis north pole
+#Spherical :: r,theta,phi = ijk
+#theta = [0,1] -> [0,pi]
+#phi = [0,1] -> [0,2pi]
+def GenKSphNonUGL(Ni=Ni0,Nj=Nj0,Nk=Nk0,Rin=5,Rout=40,tMin=0.2,tMax=0.8):
+        #Number of nodes with ghost corners
+        Ngi = Ni+1+2*Ng
+        Ngj = Nj+1+2*Ng
+        Ngk = Nk+1+2*Ng
+
+        dx2 = (tMax-tMin)/Nj
+        dx3 = (1.0 - 0.0)/Nk
+
+        # check that ghosts don't take us across the axis
+        # need to generalize later to include the axis (do full 4pi)
+        if ((tMin-Ng*dx2)<=0) or ((tMax+Ng*dx2)>=1.):
+                sys.exit("Ghost cell region includes the spherical axis. This is not implemented yet.")
+
+        #grid in r
+        Nwl = 194
+        Rmid = 64.5
+        dtau = np.arctan((Rmid-Rin)/Rin)/Nwl  #dtau in radians
+        r1 = [Rin + Rin*(np.tan(i*dtau)) for i in range(Nwl+1)] #194 cells
+
+        Nout = Ni - Nwl
+        coeff = (Rout-Rmid)/Nout*2.-0.9-0.9
+        dr = [0.9 + coeff*i/(Nout-1) for i in range(Nout)]
+
+        r = Rmid
+        for i in range(Nout):
+                r = r + dr[i]
+                r1.append(r)
+
+        dx0 = r1[1] - r1[0]
+        dxN = r1[Ni] - r1[Ni-1]
+        r0 = [ ]
+
+        for i in range(Ng):
+                r1.append(Rout + (i+1)*dxN)
+                r0.append(Rin - (Ng-i)*dx0)
+        r = r0 + r1
+
+        t = np.linspace(tMin-Ng*dx2,tMax+Ng*dx2,Ngj)*np.pi
+        p = np.linspace(-Ng*dx3,1.+Ng*dx3,Ngk)*2*np.pi
+
+        # note the indexing flag for proper ordering for writeGrid later
+        R,T,P = np.meshgrid(r,t,p,indexing='ij')
+
+        X3 = R*np.sin(T)*np.cos(P)
+        Y3 = R*np.sin(T)*np.sin(P)
+        Z3 = R*np.cos(T)
+
+        return X3,Y3,Z3
+
+
 #Now have 2D grid, augment with ghosts
 #KeepOut => Keep inner boundary outside of R=1 (i.e. planet)
 def Aug2D(XX,YY,doEps=False,TINY=1.0e-8,KeepOut=True,Rpx=1.15):

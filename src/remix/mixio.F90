@@ -7,11 +7,11 @@ module mixio
   use files
   implicit none
   
-  integer, parameter :: MAXIOVAR = 50
-  type(IOVAR_T), dimension(MAXIOVAR) :: IOVars
-  character(len=strLen) :: h5File,h5RunID
-  character(len=strLen), dimension(nVars) :: mixVarNames
-  character(len=strLen), dimension(nVars) :: mixUnitNames   
+  integer, parameter :: MAXMIXIOVAR = 50
+  type(IOVAR_T), dimension(MAXMIXIOVAR), private :: IOVars
+  character(len=strLen), private :: h5File,h5RunID
+  character(len=strLen), dimension(nVars), private :: mixVarNames
+  character(len=strLen), dimension(nVars), private :: mixUnitNames   
 
 contains
 
@@ -88,7 +88,7 @@ contains
        call AddOutVar(IOVars,"UnitsID","ReMIX")
                 
        !Write out the chain (to root)
-       call WriteVars(IOVars,.true.,h5File)
+       call WriteVars(IOVars,.false.,h5File)
        call initMIXNames()
 
     else
@@ -200,7 +200,7 @@ contains
     
     !Write out the chain (to root)
     write(gStr,'(A,I0)') "Step#", Step
-    call WriteVars(IOVars,.true.,h5File,gStr)
+    call WriteVars(IOVars,.false.,h5File,gStr)
   end subroutine writeMIX
 
   subroutine writeMIX2GCM(I,cplStr,lockStr,cplStep,mjd,time)
@@ -250,7 +250,7 @@ contains
     !call AddOutVar(IOVars,"UnitsID","ReMIX")
     
     !Write out the chain (to root)
-    !call WriteVars(IOVars,.true.,cplStr)
+    !call WriteVars(IOVars,.false.,cplStr)
 
     !Reset IO chain
     !call ClearIO(IOVars)
