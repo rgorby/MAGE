@@ -665,7 +665,7 @@ module rcmimag
             !Get colat point
             colat = PI/2 - lat
 !Use findloc w/ intel for speed
-#ifdef __INTEL_COMPILER
+#if defined __INTEL_COMPILER && __INTEL_COMPILER >= 1800
             iC = findloc(gcolat >= colat,.true.,dim=1) - 1
 #else 
 !Bypass as findloc does not work for gfortran<9    
