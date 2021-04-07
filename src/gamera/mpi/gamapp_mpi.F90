@@ -88,7 +88,7 @@ module gamapp_mpi
         integer, intent(in) :: gamComm
         real(rp), optional, intent(in) :: endTime
 
-        integer :: numNeighbors, ierr, length, commSize, rank, ic, jc, kc
+        integer :: numNeighbors, ierr, length, commSize, rank, ic, jc, kc, rn
         integer :: targetRank, sendNumber, numInNeighbors, numOutNeighbors, listIndex
         integer, dimension(27) :: sourceRanks, sourceData
         logical :: reorder,periodicI,periodicJ,periodicK,wasWeighted
@@ -209,7 +209,19 @@ module gamapp_mpi
                         endif
                        
                         if(targetRank /= rank) then ! ensure I'm not talking to myself
-                            listIndex = findloc(sourceRanks, targetRank, 1)
+#if defined __INTEL_COMPILER && __INTEL_COMPILER >= 1800
+                        listIndex = findloc(sourceRanks, targetRank, 1)
+#else
+                        !Bypass as findloc does not work for gfortran<9
+                        !Work-around code
+                        listIndex = 0
+                        do rn=1,size(sourceRanks)
+                            if (sourceRanks(rn) .eq. targetRank) then
+                                listIndex = rn
+                                exit
+                            endif
+                        enddo
+#endif
                             if(listIndex == 0) then ! this rank not in the list yet
                                 numNeighbors = numNeighbors+1
                                 listIndex = numNeighbors
