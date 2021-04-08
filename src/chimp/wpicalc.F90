@@ -44,7 +44,7 @@ module wpicalc
         real(rp) :: dtCum,dtRem,ddt,daMax ! substep used in wpi calculations, not same as ddt in pusher.F90 
         real(rp) :: zEq = 0.0 !Defined Z for equator
         real(rp) :: aCoef,bCoef !coefficients to LangevinEq
-        real(rp) :: p0,G,gamma
+        real(rp) :: p0,G,gamma,ebGam0,p0eb,pMagEB
         integer  :: pSgn
 
         real(rp) :: pa,Kprt ! pitch-angle and energy of particle in subcycle loop
@@ -189,34 +189,30 @@ module wpicalc
             prt%dAwpi = prt%dAwpi + da
             K0 = prt2kev(Model,prt)
 
-            !!!!!!!!!!!!!!!!!! include EXB correction !!!!!!!!!!!!!!!!!!!!
             if (prt%isGC) then
                 !Scatter GC particle
-                p11Mag = pSgn*pNew*sqrt( 1 - sin(aNew)**2.0 )
-
-                ! for gamma update 
-                ! dp = pNew - p0
-                ! dgam = dp*(p0/(Model%m0*Model%m0*gamma))
-                ! write(*,*) 'Energy Update:: from dp (update, dGam): ',gamma+dgam,dgam
-                ! Kold = sqrt(p0**2.+Model%m0**2.) - Model%m0
                 K1 = sqrt(pNew**2.+Model%m0**2.) - Model%m0
                 dK = K1-Kprt
                 dgam = dK/Model%m0
                 gamNew = gamma+dgam
-                ! write(*,*) 'Energy Update:: from dK (update, dGam): ',gamma+dK/Model%m0,dK/Model%m0
                 ! gamNew = sqrt(1+(pNew/Model%m0)**2.0)
-                ! write(*,*) 'Energy Update:: full calc   (new,dGam): ',gamNew,gamNew-gamma
-                ! write(*,*) ' '
 
+                p11Mag = pSgn*pNew*sqrt( 1 - sin(aNew)**2.0 )
+                
+                ! Mu update occurs in ExB frame 
+                ebGam = max(1.0,gamNew - 0.5*dot_product(vExB,vExB))
+                pMagEB = Model%m0*sqrt(ebGam**2.0 - 1.0)
+                ! p11eb = pSgn*pMagEB*sqrt( 1 - sin(aNew)**2.0 )
 
-                ! for mu update
-                p110 = prt%Q(P11GC)
-                Pperp20 = p0*p0-p110*p110
-                Pperp21 = pNew*pNew-p11Mag*p11Mag
                 mu0 = prt%Q(MUGC )
+                ebGam0 = max(1.0,gamma - 0.5*dot_product(vExB,vExB))
+                p0eb = Model%m0*sqrt(ebGam0**2.0 - 1.0)
+                p110 = prt%Q(P11GC)
+                Pperp20 = p0eb*p0eb-p110*p110
+                Pperp21 = pMagEB*pMagEB-p11Mag*p11Mag
 
                 !Old 
-                ! Mu = ( (Model%m0**2)*(gamNew**2.0 - 1.0) - p11Mag*p11Mag) / (2*Model%m0*MagB)
+                ! Mu = ( (Model%m0**2)*(ebGam**2.0 - 1.0) - p11Mag*p11Mag) / (2*Model%m0*MagB)
                 if (Pperp20 < TINY) then
                     !particle will most likely precipitate
                     Mu = ( Pperp21) / (2*Model%m0*MagB)
@@ -245,15 +241,15 @@ module wpicalc
 
                 !Calculate new Timestep, dt ~ |p|/F, F = Lorentz(vGC) + dP11/dt
                 ! htgcT = m0*sqrt(gamma**2.0-1) ! |P|
-                q  = Model%q0
+                ! q  = Model%q0
                 !!!!!!! Need to use effective B* and E* as in gcutils:DerivGC?!!!!!!!!!!!!!
-                B11 = dot_product(bhat,B) !Parallel comp. of B
-                ebGam = max(1.0,gamNew - 0.5*dot_product(vExB,vExB))
-                vGC(XPOS:ZPOS) = cross(E,bhat)/B11 + p11Mag*B/(Model%m0*ebGam*B11)
-                vGC(P11GC)     = q*dot_product(B,E)/B11
-                vxb = q*cross(vGC(XDIR:ZDIR),B) !Lorentz force on GC velocity
-                htwpiB = sqrt( norm2(vxb)**2.0 + norm2(q*E)**2.0 + vGC(P11GC)**2.0 )
-                htNew = Model%epsht*(pNew/max(htwpiB,TINY))
+                ! B11 = dot_product(bhat,B) !Parallel comp. of B
+                ! ebGam = max(1.0,gamNew - 0.5*dot_product(vExB,vExB))
+                ! vGC(XPOS:ZPOS) = cross(E,bhat)/B11 + p11Mag*B/(Model%m0*ebGam*B11)
+                ! vGC(P11GC)     = q*dot_product(B,E)/B11
+                ! vxb = q*cross(vGC(XDIR:ZDIR),B) !Lorentz force on GC velocity
+                ! htwpiB = sqrt( norm2(vxb)**2.0 + norm2(q*E)**2.0 + vGC(P11GC)**2.0 )
+                ! htNew = Model%epsht*(pNew/max(htwpiB,TINY))
             else                
                 !Update momentum for FO particle
                 p11 = pSgn*pNew*sqrt( 1 - sin(aNew)**2.0 )
@@ -272,8 +268,8 @@ module wpicalc
         !     ddt = prt%ddt*(vMag_old/vMag_new)
         ! end if
 
-        htOld = prt%ddt
-        prt%ddt = min(htNew,dtW*htOld)
+        ! htOld = prt%ddt
+        ! prt%ddt = min(htNew,dtW*htOld)
     end subroutine PerformWPI
 
     !Check to see if waves are present at location 
