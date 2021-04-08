@@ -17,6 +17,8 @@ module wpicalc
     ! to reduce error and not allow large resonance times 
     real(rp), private :: dAalim = 0.0087_rp 
 
+    real(rp), parameter :: dtW = 2.0 !Max increase in timestep, dtNew <= dtX*dtOld
+
     !scales ratio of e- gyro to plasma frequency in code units to real value
     real(rp), parameter :: inWScl = (qe_cgs*Re_cgs/vc_cgs/sqrt(Me_cgs))**2.0 ! Assumes L0 = Re_cgs
 
@@ -33,11 +35,11 @@ module wpicalc
         type(wave_T) :: wave
         type(wModel_T) :: wModel
         
-        real(rp), dimension(NDIM) :: r,p,E,B,xhat,yhat,bhat,req
+        real(rp), dimension(NDIM) :: r,p,E,B,vxb,xhat,yhat,bhat,req
         real(rp), dimension(NDIM) :: p11,pxy,vExB
         real(rp), dimension(NVARMHD) :: Qmhd
         complex(rp), dimension(2) :: quadCoef,dtLim ! used to set subcycle dt given dAlim
-        real(rp) :: gamNew,aNew,pNew,MagB,Mu,p11Mag,K,rho,psi,L,phi
+        real(rp) :: ebGam,gamNew,aNew,pNew,MagB,Mu,p11Mag,K,rho,psi,L,phi
         real(rp) :: Ome,wpe,astar,xHigh,xj,yj,dGDda,Daa
         real(rp) :: dtCum,dtRem,ddt,daMax ! substep used in wpi calculations, not same as ddt in pusher.F90 
         real(rp) :: zEq = 0.0 !Defined Z for equator
@@ -48,6 +50,8 @@ module wpicalc
         real(rp) :: pa,Kprt ! pitch-angle and energy of particle in subcycle loop
         real(rp) :: da,dp,dK,dgam !Changes due to wpi
         real(rp) :: K0,K1,mu0,p110,Pperp20,Pperp21 ! energy before and after wpi
+        real(rp) :: htwpiB,q,B11,vWPI,htNew,htOld
+        real(rp) :: vGC(NVARTP)
 
         ! helps sets subcycling limit in change pitch-angle to be below this value 
         ! to reduce error in change in energy not to be to large
@@ -59,6 +63,7 @@ module wpicalc
 
         !initializing some variables
         pSgn = 1; da=0.0; dK=0.0; epsp = 0.005_rp ! change in momentum is below this limit
+        vGC = 0.0
 
         ! pulling wave information
         wave = ebState%ebWave
@@ -92,12 +97,13 @@ module wpicalc
         !pull background magnetic field strength
         if (present(constB0)) then
             MagB = constB0
+            vExB = 0.0_rp
+            E = 0.0_rp
         else 
             call ebFields(r,t,Model,ebState,E,B,ijkO=prt%ijk0,vExB=vExB)
             call MagTriad(r,B,xhat,yhat,bhat)
             MagB = max(norm2(B),TINY)
         endif
-
         !Calulating the ratio of nonrelativistic gyrofrequency to plasma frequency at prt's location
         Ome = MagB 
         wpe = sqrt(4*PI*rho) 
@@ -183,6 +189,7 @@ module wpicalc
             prt%dAwpi = prt%dAwpi + da
             K0 = prt2kev(Model,prt)
 
+            !!!!!!!!!!!!!!!!!! include EXB correction !!!!!!!!!!!!!!!!!!!!
             if (prt%isGC) then
                 !Scatter GC particle
                 p11Mag = pSgn*pNew*sqrt( 1 - sin(aNew)**2.0 )
@@ -192,12 +199,12 @@ module wpicalc
                 ! dgam = dp*(p0/(Model%m0*Model%m0*gamma))
                 ! write(*,*) 'Energy Update:: from dp (update, dGam): ',gamma+dgam,dgam
                 ! Kold = sqrt(p0**2.+Model%m0**2.) - Model%m0
-                ! K1 = sqrt(pNew**2.+Model%m0**2.) - Model%m0
-                ! dK = K1-Kprt
-                ! dgam = dK/Model%m0
-                ! gamNew = gamma+dgam
+                K1 = sqrt(pNew**2.+Model%m0**2.) - Model%m0
+                dK = K1-Kprt
+                dgam = dK/Model%m0
+                gamNew = gamma+dgam
                 ! write(*,*) 'Energy Update:: from dK (update, dGam): ',gamma+dK/Model%m0,dK/Model%m0
-                gamNew = sqrt(1+(pNew/Model%m0)**2.0)
+                ! gamNew = sqrt(1+(pNew/Model%m0)**2.0)
                 ! write(*,*) 'Energy Update:: full calc   (new,dGam): ',gamNew,gamNew-gamma
                 ! write(*,*) ' '
 
@@ -235,6 +242,18 @@ module wpicalc
                     write(*,*) 'new p11 and gamma of tp: ', p11Mag,gamNew
                     stop
                 endif
+
+                !Calculate new Timestep, dt ~ |p|/F, F = Lorentz(vGC) + dP11/dt
+                ! htgcT = m0*sqrt(gamma**2.0-1) ! |P|
+                q  = Model%q0
+                !!!!!!! Need to use effective B* and E* as in gcutils:DerivGC?!!!!!!!!!!!!!
+                B11 = dot_product(bhat,B) !Parallel comp. of B
+                ebGam = max(1.0,gamNew - 0.5*dot_product(vExB,vExB))
+                vGC(XPOS:ZPOS) = cross(E,bhat)/B11 + p11Mag*B/(Model%m0*ebGam*B11)
+                vGC(P11GC)     = q*dot_product(B,E)/B11
+                vxb = q*cross(vGC(XDIR:ZDIR),B) !Lorentz force on GC velocity
+                htwpiB = sqrt( norm2(vxb)**2.0 + norm2(q*E)**2.0 + vGC(P11GC)**2.0 )
+                htNew = Model%epsht*(pNew/max(htwpiB,TINY))
             else                
                 !Update momentum for FO particle
                 p11 = pSgn*pNew*sqrt( 1 - sin(aNew)**2.0 )
@@ -247,10 +266,14 @@ module wpicalc
                 
             endif
             prt%Nwpi = prt%Nwpi + 1
-            ! write(*,*) 'new pa and p of tp: ', aNew,pNew
-            ! write(*,*) 'Particle Energy [keV]: ', prt2kev(Model,prt)
         enddo
-        ! write(*,*) 'End PerformWPI'
+        !update particle time-step
+        ! if (pNew > p0) then
+        !     ddt = prt%ddt*(vMag_old/vMag_new)
+        ! end if
+
+        htOld = prt%ddt
+        prt%ddt = min(htNew,dtW*htOld)
     end subroutine PerformWPI
 
     !Check to see if waves are present at location 
@@ -463,6 +486,7 @@ module wpicalc
 
         !keep between 85 and 70
         ! if ((prt%alpha > 1.22173 .and. prt%alpha+da < 1.22173) .or. (prt%alpha < 1.48353 .and. prt%alpha+da > 1.48353)) then
+        ! if ((prt%alpha > 1.6581 .and. prt%alpha+da < 1.6581) .or. (prt%alpha < 1.9199 .and. prt%alpha+da > 1.9199)) then
         !     da = -1.0*da
         ! end if
 
