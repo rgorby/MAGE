@@ -25,13 +25,13 @@ module rcmimag
     real(rp), private :: rTrc0 = 2.0 !Padding factor for RCM domain to ebsquish radius
     logical , private, parameter :: doKillRCMDir = .true. !Whether to always kill RCMdir before starting
     integer, parameter, private :: MHDPad = 0 !Number of padding cells between RCM domain and MHD ingestion
-    logical , private :: doWolfLim   = .false. !Whether to do wolf-limiting
+    logical , private :: doWolfLim   = .true. !Whether to do wolf-limiting
     logical , private :: doWolfNLim  = .false.  !If wolf-limiting whether to do wolf-limiting on density as well
     logical , private :: doBounceDT = .true. !Whether to use Alfven bounce in dt-ingest
     logical , private :: doHotBounce= .false. !Whether to limit Alfven speed density to only hot (RC) population
     logical , private :: doTrickyTubes = .true.  !Whether to poison bad flux tubes
-    logical , private :: doSmoothTubes = .true.  !Whether to smooth potential/FTV on torcm grid
-    real(rp), private :: nBounce = 1.0 !Scaling factor for Alfven transit
+    logical , private :: doSmoothTubes = .false.  !Whether to smooth potential/FTV on torcm grid
+    real(rp), private :: nBounce = 2.0 !Scaling factor for Alfven transit
     real(rp), private :: maxBetaLim = 6.0/5.0
 
     real(rp), dimension(:,:), allocatable, private :: mixPot
@@ -131,7 +131,7 @@ module rcmimag
         allocate(imag%rcmFLs(RCMApp%nLat_ion,RCMApp%nLon_ion))
 
         !Start up IO
-        call initRCMIO(RCMApp,isRestart)
+        if(vApp%writeFiles) call initRCMIO(RCMApp,isRestart)
 
         end associate
 
@@ -283,9 +283,11 @@ module rcmimag
             call TrickyTubes(RCMApp)
         endif
 
-        !Smooth out FTV/potential on tubes b/c RCM will take gradient
-        call SmoothTubes(RCMApp,vApp)
-
+        if (doSmoothTubes) then
+            !Smooth out FTV/potential on tubes b/c RCM will take gradient
+            call SmoothTubes(RCMApp,vApp)
+        endif 
+ 
     !Advance from vApp%time to tAdv
         call Tic("AdvRCM")
         dtAdv = tAdv-vApp%time !RCM-DT
@@ -515,14 +517,14 @@ module rcmimag
         !Do last short cut
         if (.not. all(isGs)) return
 
-        prcm = rcmPScl*AvgQ(RCMApp%Prcm ,IJs,Ws,Ni,Np)
-        nrcm = rcmNScl*AvgQ(RCMApp%Nrcm ,IJs,Ws,Ni,Np)
-        npp  = rcmNScl*AvgQ(RCMApp%Npsph,IJs,Ws,Ni,Np)
-        pmhd = rcmPScl*AvgQ(RCMApp%Pave ,IJs,Ws,Ni,Np)
-        nmhd = rcmNScl*AvgQ(RCMApp%Nave ,IJs,Ws,Ni,Np)
-        beta = AvgQ(RCMApp%beta_average ,IJs,Ws,Ni,Np)
-        wIM  = AvgQ(RCMApp%wImag        ,IJs,Ws,Ni,Np)
-        Tb   = AvgQ(RCMApp%Tb           ,IJs,Ws,Ni,Np)
+        prcm = rcmPScl*AvgQ(RCMApp%Prcm)
+        nrcm = rcmNScl*AvgQ(RCMApp%Nrcm)
+        npp  = rcmNScl*AvgQ(RCMApp%Npsph)
+        pmhd = rcmPScl*AvgQ(RCMApp%Pave)
+        nmhd = rcmNScl*AvgQ(RCMApp%Nave)
+        beta = AvgQ(RCMApp%beta_average)
+        wIM  = AvgQ(RCMApp%wImag)
+        Tb   = AvgQ(RCMApp%Tb)
 
         nlim = 0.0
         plim = 0.0
@@ -630,10 +632,7 @@ module rcmimag
           if (ez>+0.5) ez = +0.5
         end subroutine ClampMap
 
-        function AvgQ(Q,IJs,Ws,Ni,Nj) 
-            integer , intent(in) :: Ni,Nj
-            integer , intent(in) :: IJs(Np,2)
-            real(rp), intent(in) :: Ws(Np)
+        function AvgQ(Q) 
             real(rp), intent(in) :: Q(Ni,Nj)
 
             real(rp) :: AvgQ
@@ -666,7 +665,7 @@ module rcmimag
             !Get colat point
             colat = PI/2 - lat
 !Use findloc w/ intel for speed
-#ifdef __INTEL_COMPILER
+#if defined __INTEL_COMPILER && __INTEL_COMPILER >= 1800
             iC = findloc(gcolat >= colat,.true.,dim=1) - 1
 #else 
 !Bypass as findloc does not work for gfortran<9    

@@ -113,6 +113,8 @@ module volttypes
         !Voltron output/restart info
         type (IOClock_T) :: IO
         logical :: isLoud = .true. !Console output
+        logical :: writeFiles = .true. !File output
+
         !Apps
         type(mixApp_T) :: remixApp
         type(mhd2Mix_T) :: mhd2mix

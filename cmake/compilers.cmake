@@ -25,9 +25,12 @@ endif()
 #-------------
 #Set minimum compiler versions
 if(CMAKE_Fortran_COMPILER_ID MATCHES Intel)
-	if(CMAKE_Fortran_COMPILER_VERSION VERSION_LESS 18.0)
+	if(CMAKE_Fortran_COMPILER_VERSION VERSION_LESS 17.0)
 		message("Fortran compiler too old!  What, were you gonna use punch cards?")
-		message(FATAL_ERROR "ifort > 18.0 required")
+		message(FATAL_ERROR "ifort > 17.0 required")
+	elseif( (CMAKE_Fortran_COMPILER_VERSION VERSION_GREATER_EQUAL 17.0) AND (CMAKE_Fortran_COMPILER_VERSION VERSION_LESS 18.0) )
+		message(WARNING "Compiler has incomplete F2008 features, Git hash/compiler information won't be saved to H5 files")
+		add_compile_definitions(__INTEL_COMPILER_OLD)
 	endif()
 elseif(CMAKE_Fortran_COMPILER_ID MATCHES GNU)
 	if(CMAKE_Fortran_COMPILER_VERSION VERSION_LESS 8.0)
@@ -50,7 +53,7 @@ if(CMAKE_Fortran_COMPILER_ID MATCHES Intel)
 	#Production
 	set(PROD "-align array64byte -align rec32byte -no-prec-div -fast-transcendentals")
 	#Debug
-	set(DEBUG "-g -traceback -check bounds -check uninit -debug all -gen-interfaces -warn interfaces -fp-stack-check -fpe-all=0")
+	set(DEBUG "-g -traceback -check bounds -check uninit -debug all -gen-interfaces -warn interfaces -fp-stack-check")
 	set(PRODWITHDEBUGINFO "-O3 -g -traceback -debug all -align array64byte -align rec32byte -no-prec-div -fast-transcendentals")
 
 	#Now do OS-dep options

@@ -10,11 +10,7 @@
 !
 !
     INTEGER, PARAMETER :: LUN = 11 !, LUN_2 = 12, LUN_3 = 13
-!    INTEGER, PARAMETER :: iprec = SELECTED_INT_KIND (9)
-!    INTEGER, PARAMETER :: rprec = SELECTED_REAL_KIND (6,37)
-! use gamera precision
-!    INTEGER, PARAMETER :: iprec = ip
-!    INTEGER, PARAMETER :: rprec = rp
+
 !
 !
 !
@@ -62,7 +58,7 @@
 !
 !   Potential solver GMRESM tolerance:
     REAL (rprec) :: tol_gmres
-    logical :: doRCMVerbose = .TRUE.    
+    logical :: doRCMVerbose = .FALSE.    
 !
 !
 !
@@ -97,8 +93,9 @@
 !
 !
     LOGICAL ::  L_move_plasma_grid = .TRUE.
-    LOGICAL ::  L_doOMPClaw        = .FALSE.
+    LOGICAL ::  L_doOMPClaw        = .TRUE.
     LOGICAL ::  L_doOMPprecip      = .FALSE.
+    LOGICAL ::  doVAvgInit         = .TRUE. !Whether we need to initialize v_avg
 !
 !
 !   Plasma on grid:
@@ -109,7 +106,8 @@
     LOGICAL :: L_dktime
     INTEGER (iprec), PARAMETER :: irdk=18, inrgdk=13, isodk=2, iondk=2
     REAL (rprec) :: dktime (irdk, inrgdk, isodk, iondk), sunspot_number
- 
+    REAL (rprec) :: dtAvg_v
+
      logical :: kill_fudge
 !
 !
@@ -1362,9 +1360,8 @@
 !      REAL (rprec), SAVE :: itout1, itout2,  itcln,  i_time
       INTEGER (iprec), SAVE :: idebug, k, kc, n, nstep
       INTEGER (iprec) :: i_avg, i_step
-      REAL (rprec) :: dt
+      REAL (rprec) :: dt,wAvg
       REAL (rprec), PARAMETER :: tinyT = 1e-6     !10.0*machine_tiny 
-
 
       CALL SYSTEM_CLOCK (timer_start(1), count_rate)
 
@@ -1461,7 +1458,20 @@
       
       CALL SYSTEM_CLOCK (timer_start(2), count_rate)
 
-      v_avg    = zero
+      !NOTE: v_avg behaves differently than birk_avg
+      !v_avg is the running average over numerous rcm couplings, birk_avg is over just the current one
+
+      if (doVAvgInit) then
+        v_avg = v !Initialize v_avg = v at first time
+        doVAvgInit = .FALSE.
+      else
+        !Figure out weighting for exponential moving average (EMA)
+        !Want weighting such that ~95% of the weight comes from the last dtAvg seconds
+        dt = (itimef-itimei) !Full RCM step
+        wAvg = 1.0 - exp(-3*dt/max(dtAvg_v,dt))
+        v_avg = wAvg*v + (1-wAvg)*v_avg
+      endif
+
       birk_avg = zero
       eeta_avg = zero
       i_avg    = 0
@@ -1469,7 +1479,7 @@
 !*******************  main time loop  *************************
 !
 
-      dt = (itimef - itimei)/REAl(nstep) 
+      dt = (itimef - itimei)/REAL(nstep) 
 
       if (doRCMVerbose) then
          write(6,*)'RCM: substep length = ',dt,' seconds'
@@ -1478,7 +1488,6 @@
       !Q: Does this have any point since it gets recalculated in move-plasma?
       fac = 1.0E-3_rprec * bir * alpha * beta * dlam * dpsi * ri**2 * signbe
 !
-      v_avg    = v_avg    + v
       birk_avg = birk_avg + birk
  
       IF (nstep < 1) STOP 'Number of substep in RCM should be at least 1'
@@ -1500,8 +1509,7 @@
       if (doRCMVerbose) then
          write(6,*)'RCM: : finishing Comput'
       endif
-      birk_avg = (birk_avg + birk)/2.     ! brik_avg and v_avg take two data points at itimei and itimef
-      v_avg    = (v_avg    + v)/2.
+      birk_avg = (birk_avg + birk)/2.     ! brik_avg takes two data points at itimei and itimef
 
       
       CALL SYSTEM_CLOCK (timer_stop(1), count_rate)      
@@ -1626,6 +1634,8 @@
           
           call IOArray2DFill(IOVars,"rcmv",v)
           call IOArray2DFill(IOVars,"rcmvavg",v_avg)
+          doVAvgInit = .FALSE. !Don't need to start fresh v_avg
+
           call IOArray2DFill(IOVars,"rcmvm",vm)
 
           call IOArray2DFill(IOVars,"rcmbirk",birk)
@@ -1796,6 +1806,9 @@
 
           !Clawpack options
           call xmlInp%Set_Val(L_doOMPClaw,"clawpack/doOMPClaw",L_doOMPClaw)
+
+          !Averaging timescale for plasmasphere
+          call xmlInp%Set_Val(dtAvg_v,"plasmasphere/tAvg",300.0)
 
           !Some values just setting
           tol_gmres = 1.0e-5
@@ -2066,6 +2079,8 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
   REAL (rprec), dimension(-1:isize+2,-1:jsize-1) :: didt,djdt,etaC,rateC
   !RCM-sized grids
   REAL (rprec), dimension( 1:isize  , 1:jsize  ) :: rate,dvedi,dvedj,vv,dvvdi,dvvdj,dvmdi,dvmdj
+  REAL (rprec), dimension( 1:isize  , 1:jsize  ) :: vv_avg,dvvdi_avg,dvvdj_avg
+
   REAL (rprec), dimension( 1:isize  , 1:jsize  ) :: ftv,dftvi,dftvj
 
   LOGICAL, dimension(1:isize,1:jsize) :: isOpen
@@ -2137,7 +2152,9 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
   !Do array-sized prep work
   !$OMP PARALLEL WORKSHARE if (L_doOMPClaw)
   fac = 1.0E-3*signbe*bir*alpha*beta*dlam*dpsi*ri**2
-  vv = v + vcorot - vpar
+  vv     = v + vcorot - vpar !Current potential
+  vv_avg = v_avg + vcorot !Time-averaged potential for plasmasphere
+
   where (.not. isOpen)
     !Using ftv directly w/ possible intermediate smoothing
     ftv = vm**(-3.0/2)
@@ -2146,7 +2163,10 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
   endwhere
   !$OMP END PARALLEL WORKSHARE
 
-  call Grad_IJ(vv,isOpen,dvvdi,dvvdj)
+  !Get IJ gradients of potential
+  call Grad_IJ(vv    ,isOpen,dvvdi    ,dvvdj    )
+  call Grad_IJ(vv_avg,isOpen,dvvdi_avg,dvvdj_avg)
+
   !Now get energy-dep. portion, grad_ij vm
   call FTVGrad(ftv,isOpen,dftvi,dftvj)
 
@@ -2168,10 +2188,11 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
   !$OMP PRIVATE(didt,djdt,etaC,rateC,rate,dvedi,dvedj) &
   !$OMP PRIVATE(mass_factor,r_dist,CLAWiter,T1k,T2k) &
   !$OMP PRIVATE(lossCX,lossFLC,lossFDG) &
-  !$OMP SHARED(isOpen,iOCB_j,alamc,eeta,v,vcorot,vpar,vm,imin_j,j1,j2,joff) &
-  !$OMP SHARED(dvvdi,dvvdj,dvmdi,dvmdj,doOCBLoss,doFLCLoss,doNewCX,dp_on,doPPRefill) &
+  !$OMP SHARED(isOpen,iOCB_j,alamc,eeta,vm,imin_j,j1,j2,joff) &
+  !$OMP SHARED(doOCBLoss,doFLCLoss,doNewCX,dp_on,doPPRefill) &
+  !$OMP SHARED(dvvdi,dvvdj,dvmdi,dvmdj,dvvdi_avg,dvvdj_avg) &
   !$OMP SHARED(xmin,ymin,rmin,fac,fudgec,bir,sini,L_dktime,dktime,sunspot_number) &
-  !$OMP SHARED(aloct,xlower,xupper,ylower,yupper,dt,T1,T2,iMHD,bmin,radcurv,losscone,vv) 
+  !$OMP SHARED(aloct,xlower,xupper,ylower,yupper,dt,T1,T2,iMHD,bmin,radcurv,losscone) 
   DO kc = 1, kcsize
     
     !If oxygen is to be added, must change this!
@@ -2191,9 +2212,15 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
   !---
   !Get "interface" velocities on clawpack grid, |-1:isize+2,-1:jsize-1|
     !Start by calculating dvedi,dvedj = grad_ij (veff) = grad_ij (vv) + alamc(k)*grad_ij vm
-    dvedi = dvvdi + alamc(kc)*dvmdi
-    dvedj = dvvdj + alamc(kc)*dvmdj
-
+    if (abs(alamc(kc))<TINY) then
+      !Do plasmasphere effective potential, uses averaged potential and no energy dep. portion
+      dvedi = dvvdi_avg
+      dvedj = dvvdj_avg
+    else
+      !Any other RC channel
+      dvedi = dvvdi + alamc(kc)*dvmdi
+      dvedj = dvvdj + alamc(kc)*dvmdj
+    endif
     !Now loop over clawpack grid interfaces and calculate velocities
     didt = 0.0
     djdt = 0.0

@@ -50,19 +50,24 @@ module gam2VoltComm_mpi
     contains
 
     ! setup the MPI communicator to talk to voltron, and send grid data
-    subroutine initGam2Volt(g2vComm, gApp, voltComm, optFilename, doIO)
+    subroutine initGam2Volt(g2vComm, gApp, allComm, optFilename, doIO)
         type(gam2VoltCommMpi_T), intent(inout) :: g2vComm
         type(gamAppMpi_T), intent(inout) :: gApp
-        integer, intent(in) :: voltComm
+        integer, intent(in) :: allComm
         character(len=*), optional, intent(in) :: optFilename
         logical, optional, intent(in) :: doIO
 
-        integer :: length, commSize, ierr, numCells, dataCount, numInNeighbors, numOutNeighbors
+        integer :: length, commSize, ierr, numCells, dataCount, numInNeighbors, numOutNeighbors, voltComm
         character( len = MPI_MAX_ERROR_STRING) :: message
         logical :: reorder, wasWeighted, doIOX
         character(len=strLen) :: inpXML
         type(XML_Input_T) :: xmlInp
         integer, dimension(1) :: rankArray, weightArray
+
+        ! split voltron helpers off of the communicator
+        ! split allComm into a communicator with only the non-helper voltron rank
+        call MPI_Comm_rank(allComm, commSize, ierr)
+        call MPI_comm_split(allComm, 0, commSize, voltComm, ierr)
 
         if(present(optFilename)) then
             ! read from the prescribed file
@@ -485,11 +490,13 @@ module gam2VoltComm_mpi
                     iiBC%inExyz(:,:,:,:) = IEEE_VALUE(nanValue, IEEE_SIGNALING_NAN)
 
                     ! Recv Shallow inEijk Data
+                    call Tic("VoltSync")
                     call mpi_neighbor_alltoallw(0, g2vComm%zeroArrayCounts, &
                                                 g2vComm%zeroArrayDispls, g2vComm%zeroArrayTypes, &
                                                 iiBC%inEijk, g2vComm%recvCountsIneijkShallow, &
                                                 g2vComm%recvDisplsIneijkShallow, g2vComm%recvTypesIneijkShallow, &
                                                 g2vComm%voltMpiComm, ierr)
+                    call Toc("VoltSync")
 
                     ! Recv Shallow inExyz Data
                     call mpi_neighbor_alltoallw(0, g2vComm%zeroArrayCounts, &
@@ -504,11 +511,13 @@ module gam2VoltComm_mpi
         else
             ! not a rank with remix BC, but still need to call mpi_neighbor_alltoallw
             ! Recv nothing step 1
+            call Tic("VoltSync")
             call mpi_neighbor_alltoallw(0, g2vComm%zeroArrayCounts, &
                                         g2vComm%zeroArrayDispls, g2vComm%zeroArrayTypes, &
                                         0, g2vComm%zeroArrayCounts, &
                                         g2vComm%zeroArrayDispls, g2vComm%zeroArrayTypes, &
                                         g2vComm%voltMpiComm, ierr)
+            call Toc("VoltSync")
 
             ! Recv nothing step 2
             call mpi_neighbor_alltoallw(0, g2vComm%zeroArrayCounts, &
@@ -624,11 +633,13 @@ module gam2VoltComm_mpi
 
         ! Receive updated data from Voltron
         ! Receive Deep Gas0 Data
+        call Tic("VoltSync")
         call mpi_neighbor_alltoallw(gApp%Grid%Gas0, g2vComm%zeroArrayCounts, &
                                     g2vComm%zeroArrayDispls, g2vComm%zeroArrayTypes, &
                                     gApp%Grid%Gas0, g2vComm%recvCountsGas0Deep, &
                                     g2vComm%recvDisplsGas0Deep, g2vComm%recvTypesGas0Deep, &
                                     g2vComm%voltMpiComm, ierr)
+        call Toc("VoltSync")
 
     end subroutine recvDeepData
 

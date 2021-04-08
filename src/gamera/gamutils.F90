@@ -434,6 +434,19 @@ module gamutils
 
     end subroutine SetFloors
 
+    subroutine SetFloorsWDefs(Model,iXML,dFDef,pFDef)
+        type(Model_T)    , intent(in) :: Model
+        type(XML_Input_T), intent(in) :: iXML
+        real(rp)         , intent(in) :: dFDef,pFDef
+
+        if (iXML%Exists("sim/dFloor"   )) call iXML%Set_Val(dFloor,"sim/dFloor"   ,dFDef)
+        if (iXML%Exists("floors/dFloor")) call iXML%Set_Val(dFloor,"floors/dFloor",dFDef)
+
+        if (iXML%Exists("sim/pFloor"   )) call iXML%Set_Val(pFloor,"sim/pFloor"   ,pFDef)
+        if (iXML%Exists("floors/pFloor")) call iXML%Set_Val(pFloor,"floors/pFloor",pFDef)
+
+    end subroutine SetFloorsWDefs
+
     !Calculate semi-relativistic transform
     !m = Lam*(rho x u)
     subroutine Mom2Rel(Model,D,B,Lam)

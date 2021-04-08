@@ -213,3 +213,9 @@ if(PFUNIT_FOUND)
 	add_dependencies(allTests baselib gamlib remixlib chimplib voltlib)
 endif()
 
+# copy git hook scripts into .git/hooks
+file(GLOB HOOK_SCRIPTS gitHookScripts/*)
+if (HOOK_SCRIPTS)
+    file(COPY ${HOOK_SCRIPTS} DESTINATION ${CMAKE_SOURCE_DIR}/.git/hooks) 
+endif (HOOK_SCRIPTS)
+

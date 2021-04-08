@@ -105,6 +105,11 @@ def SetAxLabs(Ax,xLab,yLab,doBot=True,doLeft=True,fs="medium"):
 		Ax.yaxis.set_visible(False)
 		plt.setp(Ax.get_yticklabels(),visible=False)
 
+#Set X axis to labels to well formatted date time
+def SetAxDate(Ax,fmt='%H:%M \n%Y-%m-%d'):
+	Ax.xaxis_date()
+	Ax.xaxis.set_major_formatter(mpl.dates.DateFormatter(fmt))
+
 #Adds 2D earth w/ dawn/dusk
 def addEarth2D(Re=1, angle=-90, ax=None):
 	from matplotlib.patches import Wedge

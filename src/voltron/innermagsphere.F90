@@ -85,7 +85,7 @@ module innermagsphere
         associate(Gr=>gApp%Grid,chmp2mhd=>vApp%chmp2mhd)
 
         !Create local storage for cell corner imW's
-        allocate(SrcNC(Gr%is:Gr%is+chmp2mhd%iMax+1,Gr%js:Gr%je+1,Gr%ks:Gr%ke+1,1:NVARIMAG))
+        allocate(SrcNC(Gr%is:chmp2mhd%iMax+1,Gr%js:Gr%je+1,Gr%ks:Gr%ke+1,1:NVARIMAG))
         SrcNC = 0.0
         chmp2mhd%isEdible = .false.
       
@@ -95,7 +95,7 @@ module innermagsphere
         !$OMP private(i,j,k,x1,x2,imW,isTasty)
         do k=Gr%ks,Gr%ke+1
             do j=Gr%js,Gr%je+1
-                do i=Gr%is,Gr%is+chmp2mhd%iMax+1
+                do i=Gr%is,chmp2mhd%iMax+1
 
                     if (chmp2mhd%isGood(i,j,k)) then
                         !Good projection, let's get some values
@@ -123,7 +123,7 @@ module innermagsphere
         !$OMP private(i,j,k,imW,Qs)
         do k=Gr%ks,Gr%ke
             do j=Gr%js,Gr%je
-                do i=Gr%is,Gr%is+chmp2mhd%iMax
+                do i=Gr%is,chmp2mhd%iMax
 
                     if ( all(chmp2mhd%isEdible(i:i+1,j:j+1,k:k+1)) ) then
                     !Density and pressure
@@ -173,7 +173,7 @@ module innermagsphere
         Nk = Gr%ke-Gr%ks+1
         !$OMP PARALLEL DO default(shared) &
         !$OMP private(i,imW)
-        do i=Gr%is,Gr%is+chmp2mhd%iMax
+        do i=Gr%is,chmp2mhd%iMax
             !+X pole
             imW(IMDEN) = AvgOverGood(Gr%Gas0(i,Gr%js,Gr%ks:Gr%ke,IMDEN,BLK),Nk)
             imW(IMPR ) = AvgOverGood(Gr%Gas0(i,Gr%js,Gr%ks:Gr%ke,IMPR ,BLK),Nk)

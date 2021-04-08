@@ -50,11 +50,6 @@ module rcm_mhd_mod
         real(rprec) :: itimef_old = -1
         !using nSubstep from rice_housekeeping_module  !> RCM(...) param:  number of sub-time steps in program
 
-        !integer(iprec) :: idt   !> RCM(...) param:  basic time step in program
-        !real(rprec) :: idt1  !> RCM(...) param:  time step for
-                              !! changing disk & write records
-        !real(rprec) :: idt2  !> RCM(...) param:  time step for
-                              !! writting formatted output
 
         real(rprec) :: t1, t2  !> Used for performance timing
 
@@ -160,22 +155,6 @@ module rcm_mhd_mod
                 WRITE (6,'(//)')
             endif
          
-            !idt = real(Idt_overwrite) ! RCM internal time step in seconds
-            ! Frequency (in seconds) to change disk & write records
-            ! idt1 = itimef - itimei
-
-            !!!Ensure no problem w/ RCM's integer time
-            !!idt must divide advance time
-            !if ( (mod(idt1,idt)) /= 0) then
-            !    write(*,*) 'RCM Integer Time Divisibility Error ...'
-            !    stop
-            !endif
-
-            ! Frequency (in seconds) to write formatted output
-            !idt2 = idt1
-
-            ! now round to to fit the correct number rcm timesteps
-            !itimef = itimei + idt *((itimef-itimei)/idt)
             itimef_old = itimef
 
 

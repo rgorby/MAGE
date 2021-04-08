@@ -71,7 +71,7 @@ MODULE rice_housekeeping_module
   
   type RCMEllipse_T
       !Ellipse parameters
-      real(rprec) :: xSun=10.0,xTail=-15.0,yDD=10.0
+      real(rprec) :: xSun=12.5,xTail=-15.0,yDD=15.0
       logical  :: isDynamic=.true. !Whether to update parameters
           
   end type RCMEllipse_T
@@ -79,37 +79,6 @@ MODULE rice_housekeeping_module
 
   CONTAINS
   
-!      SUBROUTINE Read_rcm_mhd_params
-
-!      IMPLICIT NONE
-
-!      INTEGER, PARAMETER :: Lun = 10
-!      LOGICAL :: L_flag
-
-!      INQUIRE (FILE='rcm_mhd.params',EXIST=L_flag)
-
-!      IF (.NOT.L_flag) THEN
-!         WRITE (*,*) ' RCM_MHD: no rcm_mhd.params file found, default values will be used'
-
-!      ELSE
-!         OPEN (LUN, FILE='rcm_mhd.params', STATUS='OLD')
-!         READ (LUN,*) L_write_rcmu_torcm
-!         READ (LUN,*) L_write_rcmu
-!         READ (LUN,*) L_write_vars_debug
-!         READ (LUN,*) Idt_overwrite
-!         READ (LUN,*) rcm_tilted
-!      END IF
-
-!      WRITE (*,*)
-!      WRITE (*,'(A,L7)') ' RCM_MHD:  rcmu_torcm.dat file      (in TORCM) will be written?_____', L_write_rcmu_torcm
-!      WRITE (*,'(A,L7)') ' RCM_MHD:  rcmu.dat  file      (in TOMHD) will be written?_____', L_write_rcmu    
-!      WRITE (*,'(A,L7)') ' RCM_MHD:  debug vars print to stdout (in TORCM,TOMHD)   ?_____', L_write_vars_debug
-!      WRITE (*,'(A,I5)') ' RCM_MHD:  Internal RCM time step (in s)  will be set to ?_____', Idt_overwrite
-!      WRITE (*,'(A,L7)') ' RCM_MHD:  Running RCM in tilted mode   ?______________________',rcm_tilted
-!      WRITE (*,*)
-
-!      RETURN
-!      END SUBROUTINE Read_rcm_mhd_params
 
       !Get RCM params from Kaiju-style XML file
       subroutine RCM_MHD_Params_XML(iXML)
@@ -138,8 +107,8 @@ MODULE rice_housekeeping_module
 
         !Grid bounds
         call xmlInp%Set_Val(HighLatBD,"grid/HiLat" ,75.0_rprec)
-        call xmlInp%Set_Val(LowLatBD ,"grid/LowLat",15.0_rprec)
-        call xmlInp%Set_Val(doLatStretch ,"grid/doLatStretch",.true.)
+        call xmlInp%Set_Val(LowLatBD ,"grid/LowLat",30.0_rprec)
+        call xmlInp%Set_Val(doLatStretch ,"grid/doLatStretch",.false.)
 
         !Ellipse parameters
         call xmlInp%Set_Val(ellBdry%xSun ,"ellipse/xSun" ,ellBdry%xSun )

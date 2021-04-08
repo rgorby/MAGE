@@ -30,7 +30,7 @@ contains
     real(rp) :: Psi0,RIn,errorThresh
     integer :: h,ip,it,k,j,jp,kp,n,np,i,ig
 
-    type(IOVAR_T), dimension(MAXIOVAR) :: debugHDF
+    !type(IOVAR_T), dimension(MAXMIXIOVAR) :: debugHDF
 
     write(*,*) 'Running corotationTest ...'
     !Setting some values for inner shell

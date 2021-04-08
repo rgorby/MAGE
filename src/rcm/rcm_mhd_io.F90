@@ -257,7 +257,6 @@ module rcm_mhd_io
         type(fLine_T), intent(in) :: fL
         character(len=strLen), intent(in) :: gStr,lnStr
         type(IOVAR_T), intent(inout), dimension(MAXRCMIOVAR) :: IOVars
-        real(rp), allocatable, dimension(:,:) :: LCon
         integer :: i,Np,Npp,n0
         
         call ClearIO(IOVars)
@@ -282,20 +281,6 @@ module rcm_mhd_io
         call AddOutVar(IOVars,"B",fL%lnVars(0)       %V(0:-n0:-nSkipFL),uStr="nT")
         call AddOutVar(IOVars,"D",fL%lnVars(DEN)     %V(0:-n0:-nSkipFL),uStr="#/cc")
         call AddOutVar(IOVars,"P",fL%lnVars(PRESSURE)%V(0:-n0:-nSkipFL),uStr="nPa")
-
-
-        !Create connectivity data (cast to int before write)
-        !TODO: There must be a better way to do this?
-        allocate(LCon(Npp-1,2))
-        
-        do i=1,Npp-1
-            LCon(i,1) = i-1
-            LCon(i,2) = i
-        enddo
-
-        call AddOutVar(IOVars,"LCon",transpose(LCon))
-        i = FindIO(IOVars,"LCon")
-        IOVars(i)%vType = IOINT
 
         !Write output chain
         call WriteVars(IOVars,.true.,FLH5,gStr,lnStr)

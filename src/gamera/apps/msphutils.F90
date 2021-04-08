@@ -95,6 +95,14 @@ module msphutils
             Psi0 = EarthPsi0 !kV
             Rion = RionE*1.e6/gx0 ! Radius of ionosphere in code units (RionE defined in kdefs in 1000km)
             Model%doGrav = .true.
+        !For Earth redo some XML parameters w/ different defaults
+            call SetFloorsWDefs(Model,xmlInp,1.0e-4_rp,1.0e-6_rp)
+            call xmlInp%Set_Val(Model%doCPR,'timestep/doCPR',.true.)
+            if (Model%doCPR) then
+                !Ratio of dt0 to start CPR
+                call xmlInp%Set_Val(Model%limCPR,'timestep/limCPR',0.25)
+            endif
+
         case("Saturn","saturn","SATURN")
             gx0 = RSaturnXE*REarth  ! [m]
             gv0 = 100.0e+3    ! [m/s]
@@ -667,6 +675,8 @@ module msphutils
                         B = State%Bxyz(i,j,k,:)
                         call Mom2Rel(Model,pW(DEN),B,Lam)
                         Mxyz = matmul(Lam,pCon(MOMX:MOMZ)) !semi-relativistic momentum
+                    else
+                        Mxyz = pCon(MOMX:MOMZ) !Classical momentum
                     endif
 
                     !Get timescale, taking directly from Gas0
@@ -691,7 +701,15 @@ module msphutils
                         call Rel2Mom(Model,pW(DEN),B,Laminv)
                         Vxyz = matmul(Laminv,Mxyz)/max(pW(DEN),dFloor)
                         pW(VELX:VELZ) = Vxyz
-                    endif !Otherwise leave primitive state (VELX:VELZ) unchanged
+                    else
+                        Vxyz = Mxyz/max(pW(DEN),dFloor) !Conserve classical momentum
+                        !Don't allow mass ingestion to speed things up
+                        if ( norm2(Vxyz) <= norm2(pW(VELX:VELZ)) ) then
+                            !Conserve momentum if it doesn't increase speed
+                            pW(VELX:VELZ) = Vxyz
+                        endif
+
+                    endif 
 
                     !Now put back
                     call CellP2C(Model,pW,pCon)

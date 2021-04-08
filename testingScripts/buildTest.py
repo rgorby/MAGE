@@ -15,8 +15,11 @@ client = WebClient(token=slack_token)
 
 # Get CWD and move to main kaiju folder
 origCWD = os.getcwd()
+print(origCWD)
 os.chdir('..')
 home = os.getcwd()
+print("I am the build script. This is my home directory: ")
+print(home)
 
 # Delete all build folders
 os.system("rm -rf build*/")
@@ -46,8 +49,15 @@ elif(str(sys.argv[1]) == '-t'):
 os.chdir(home)
 os.system("mkdir testFolder")
 os.chdir("testFolder")
+
+# Set up some MPI modules in order to ask for the correct set of executables
+testModules = "module purge; module load intel/18.0.5; module load impi/2018.4.274; module load ncarenv/1.3;"
+testModules = testModules + "module load ncarcompilers/0.5.0; module load python/2.7.16;" 
+testModules = testModules + "module load cmake/3.14.4; module load hdf5-mpi/1.10.5; module load git/2.22.0;"
+testModules = testModules + "module load mkl/2018.0.5"
+
 os.system("cmake ..")
-listProcess = subprocess.Popen("make help | grep '\.x'", shell=True, stdout=subprocess.PIPE)
+listProcess = subprocess.Popen(testModules + "make help | grep '\.x'", shell=True, stdout=subprocess.PIPE)
 executableString = listProcess.stdout.read()
 executableString = executableString.decode('ascii')
 executableList = executableString.splitlines()
@@ -63,6 +73,7 @@ os.system("rm -rf testFolder")
 os.chdir("testingScripts")
 
 iteration = 1
+
 
 # Read in modules.txt and load only the requested modules
 file = open('modules1.txt', 'r')
