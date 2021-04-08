@@ -320,7 +320,7 @@ module usergamic
       integer :: Nr, Nt, Np
       integer :: dims_cc(3), dims_jf(3), dims_kf(3)
 
-      write(*,*)'[EP in wsaBC] Begin. Time: ', State%time*Model%Units%gT0, bc%wsaData%wsaT1, bc%wsaData%wsaT2
+      !write(*,*)'[EP in wsaBC] Begin. Time: ', State%time*Model%Units%gT0, bc%wsaData%wsaT1, bc%wsaData%wsaT2
   
       if (.not.((State%time*Model%Units%gT0 >= bc%wsaData%wsaT1) .and. (State%time*Model%Units%gT0 <= bc%wsaData%wsaT2))) then
          !find bounding slices
@@ -356,10 +356,10 @@ module usergamic
       if (.not.allocated(ibcVars%kfVars)) allocate(ibcVars%kfVars(dims_kf(1),dims_kf(2),dims_kf(3),3))
 
       ! interpolate in time
-      ibcVars%ccVars = w1*bc%wsaData%ibcMap1%ccVars + w2*bc%wsaData%ibcMap2%ccVars
-      ibcVars%jfVars = w1*bc%wsaData%ibcMap1%jfVars + w2*bc%wsaData%ibcMap2%jfVars
+      ibcVars%ccVars(:,:,:,:) = w1*bc%wsaData%ibcMap1%ccVars(:,:,:,:) + w2*bc%wsaData%ibcMap2%ccVars(:,:,:,:)
+      ibcVars%jfVars(:,:,:) = w1*bc%wsaData%ibcMap1%jfVars(:,:,:) + w2*bc%wsaData%ibcMap2%jfVars(:,:,:)
       ibcVars%kfVars(:,:,:,1) = w1*bc%wsaData%ibcMap1%kfVars(:,:,:,1) + w2*bc%wsaData%ibcMap2%kfVars(:,:,:,1)
-      write(*,*)'[EP in wsaBC] filled ibcVars '
+      !write(*,*)'[EP in wsaBC] filled ibcVars '
       
       !To obtain Vr and Br values at k-faces do simple interpolation in a uniform grid
       !Vr_kface for kfaces 1:Nk
@@ -373,14 +373,13 @@ module usergamic
       ibcVars%kfVars(:,:,2:bc%wsaData%Np,3) = 0.5*(ibcVars%ccVars(:,:,1:bc%wsaData%Np-1,BRIN)+ ibcVars%ccVars(:,:,2:bc%wsaData%Np,BRIN))
       ibcVars%kfVars(:,:,1,3) = 0.5*(ibcVars%ccVars(:,:,1,BRIN) + ibcVars%ccVars(:,:,bc%wsaData%Np,BRIN))
       ibcVars%kfVars(:,:,bc%wsaData%Np+1,3) = ibcVars%kfVars(:,:,1,3)
- 
 
-      write(*,*)'[EP in wsaBC] Added VRKFIN and BRKFIN to ibcVars. Beginning a big loop. '
+      !write(*,*)'[EP in wsaBC] Added VRKFIN and BRKFIN to ibcVars. Beginning a big loop. '
       !i-boundaries (IN)
-      !$OMP PARALLEL DO default(shared) &
-      !$OMP private(i,j,k,jg,kg,ke,kb,a,vark,var,xyz,R,Theta,Phi,rHat,phiHat) &
-      !$OMP private(ibcVarsStatic,pVar,conVar,xyz0,R_kf,Theta_kf,ibcVars) &
-      !$OMP private(w1, w2, n1, n2, Nr, Nt, Np) 
+      !!$OMP PARALLEL DO default(shared) &
+      !!$OMP private(i,j,k,jg,kg,ke,kb,a,vark,var,xyz,R,Theta,Phi,rHat,phiHat) &
+      !!$OMP private(ibcVarsStatic,pVar,conVar,xyz0,R_kf,Theta_kf) &
+      !!$OMP private(w1, w2, n1, n2, Nr, Nt, Np) 
       do k=Grid%ksg,Grid%keg+1  ! note, going all the way to last face for mag fluxes
          kg = k+Grid%ijkShift(KDIR)
          ! map rotating to static grid
@@ -400,22 +399,13 @@ module usergamic
 
                ! otherwise
                ! interpolate linearly from rotating to inertial frame 
-               if ( (jg>=Grid%js).and.(jg<=size(ibcVars%ccVars,2) )) then
-
-                  do var = 1,VRKFIN !8 in innerbc +2 brkf and vrkf
-                  write(*,*)'[EP in wsaBC] var,k,j,ig ', var,k,j,ig
-                     if (var <= NVARSCC) then
-                        ibcVarsStatic(var) = a*ibcVars%ccVars(ig,jg,kb,var)+(1-a)*ibcVars%ccVars(ig,jg,ke,var)
-                     else if (var == BTJFIN) then
-                        ibcVarsStatic(var) = a*ibcVars%jfVars(ig,jg,kb)+(1-a)*ibcVars%jfVars(ig,jg,ke)
-                     else 
-                        vark = var - BTJFIN
-                        ibcVarsStatic(var) = a*ibcVars%kfVars(ig,jg,kb,vark)+(1-a)*ibcVars%kfVars(ig,jg,ke,vark)
-                     endif
-                  end do
-                   !write(*,*)'[EP in wsaBC] k,j,ig,ibcVarsStatic ', k,j,ig,ibcVarsStatic
-
+               !if ( (jg>=Grid%js).and.(jg<=size(ibcVars%ccVars,2) )) then
+               if (.not.((Grid%hasUpperBC(JDIR)==.True.).and.(j==Grid%je+1))) then 
+                  ibcVarsStatic(1:NVARSCC) = a*ibcVars%ccVars(ig,jg,kb,:)+(1-a)*ibcVars%ccVars(ig,jg,ke,:)
+                  ibcVarsStatic(BPKFIN:VRKFIN) = a*ibcVars%kfVars(ig,jg,kb,:)+(1-a)*ibcVars%kfVars(ig,jg,ke,:)
                 endif
+
+                ibcVarsStatic(BTJFIN) = a*ibcVars%jfVars(ig,jg,kb)+(1-a)*ibcVars%jfVars(ig,jg,ke)
 
                ! do cell centered things for cell-centers only
                if ( (j/=Grid%jeg+1).and.(k/=Grid%keg+1) ) then
@@ -443,6 +433,10 @@ module usergamic
                   ! note, don't need cc Bxyz because we run flux2field through ghosts
                end if
 
+               if (i==0.and.j==64.and.k==64) then
+                  write(*,*) '[EP in wsaBC] ibcVarsStatic', ibcVarsStatic(:)
+               end if
+
                ! also need theta at k-face for k-flux
                ! although we're assuming theta and R don't change from cell to k-face center,
                ! xyzcc used under if statement above is only defined for cell centers so need to define it here
@@ -457,11 +451,12 @@ module usergamic
                ![EP] at all i-faces flux should be the same. We re-normalize from cc to face
                !FIX that
                State%magFlux(i,j,k,IDIR) = ibcVarsStatic(BRIN)*Rfactor**2*Grid%face(Grid%is,j,k,IDIR)
-               State%magFlux(i,j,k,JDIR) = ibcVarsStatic(BTJFIN)*Grid%face(i,j,k,JDIR)
+               !State%magFlux(i,j,k,JDIR) = ibcVarsStatic(BTJFIN)*Grid%face(i,j,k,JDIR)
+               State%magFlux(i,j,k,JDIR) = 0.0
                !multiplying by Rbc is not correct. Need to multiply to r_cc
-               State%magFlux(i,j,k,KDIR) = - 2*PI/Tsolar*R_kf*sin(Theta_kf)/ibcVarsStatic(VRKFIN)*ibcVarsStatic(BRKFIN)*Grid%face(i,j,k,KDIR) &
-                                           + ibcVarsStatic(BPKFIN)*Rbc/norm2(Grid%xfc(i,j,k,:,KDIR))*Grid%face(i,j,k,KDIR)
-               write(*,*)"[EP in wsaBC] end of the loop"
+               !State%magFlux(i,j,k,KDIR) = - 2*PI/Tsolar*R_kf*sin(Theta_kf)/ibcVarsStatic(VRKFIN)*ibcVarsStatic(BRKFIN)*Grid%face(i,j,k,KDIR) &
+               !                            + ibcVarsStatic(BPKFIN)*Rbc/norm2(Grid%xfc(i,j,k,:,KDIR))*Grid%face(i,j,k,KDIR)
+                State%magFlux(i,j,k,KDIR) = - 2*PI/Tsolar*R_kf*sin(Theta_kf)/ibcVarsStatic(VRKFIN)*ibcVarsStatic(BRKFIN)*Grid%face(i,j,k,KDIR)
             end do
          end do
       end do
