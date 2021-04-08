@@ -2,6 +2,7 @@
 #Get data from serial/MPI gamera output
 import glob
 import numpy as np
+from kaipy.kaiTools import MJD2UT
 
 #Object to use to pull data from HDF5 structure (serial or mpi)
 
@@ -19,11 +20,11 @@ class GameraPipe(object):
 	#fdir = directory to h5 files
 	#ftag = stub of h5 files
 	def __init__(self,fdir,ftag,doFast=False,doVerbose=True):
-	
+
 		self.fdir = fdir
 		self.ftag = ftag
 
-		#Here just create variables	
+		#Here just create variables
 		#-----------
 		#Ranks
 		self.isMPI = False
@@ -52,6 +53,10 @@ class GameraPipe(object):
 		self.hasMJD = False
 		self.MJDs = []
 
+		#Stub for UT date time object
+		self.hasUT = False
+		self.UT = []
+
 		#Scrape data from directory
 		self.OpenPipe(doVerbose)
 
@@ -63,7 +68,7 @@ class GameraPipe(object):
 		#Test for serial (either old or new naming convention)
 		fOld    = "%s/%s.h5"%(self.fdir,self.ftag)
 		fNew    = "%s/%s.gam.h5"%(self.fdir,self.ftag)
-		
+
 		if ( len(glob.glob(fOld)) == 1):
 			#Found old-style serial
 			self.isMPI = False
@@ -81,7 +86,7 @@ class GameraPipe(object):
 			print("%s not found, looking for MPI database"%(fOld))
 			self.isMPI = True
 			sStr = "%s/%s_*%s"%(self.fdir,self.ftag,idStr)
-			
+
 			fIns = glob.glob(sStr)
 			if (len(fIns)>1):
 				print("This shouldn't happen, bailing ...")
@@ -97,7 +102,7 @@ class GameraPipe(object):
 			self.Nr = self.Ri*self.Rj*self.Rk
 			if (doVerbose):
 				print("\tFound %d = (%d,%d,%d) ranks"%(self.Nr,self.Ri,self.Rj,self.Rk))
-		
+
 		#In either case, f0 is defined.  use it to get per file stuff
 		self.Nt,sids = kh5.cntSteps(f0)
 		if (self.doFast):
@@ -110,12 +115,15 @@ class GameraPipe(object):
 		if (doVerbose):
 			print("Found %d timesteps\n\tTime = [%f,%f]"%(self.Nt,self.T.min(),self.T.max()))
 			print("\tSteps = [%d,%d]"%(sids.min(),sids.max()))
-		
+
 		#Get MJD if present
 		MJDs = kh5.getTs(f0,sids,"MJD",-np.inf)
 		if (MJDs.max()>0):
 			self.hasMJD = True
 			self.MJDs = MJDs
+			self.hasUT = True
+			self.UT = MJD2UT(MJDs)
+
 
 		#Get grid stuff
 		Dims = kh5.getDims(f0)
@@ -124,7 +132,7 @@ class GameraPipe(object):
 		self.dNj = Dims[1]-1
 		if (Nd>2):
 			self.dNk = Dims[2]-1
-			
+
 		else:
 			self.dNk = 0
 			self.Rk = 1
@@ -132,7 +140,7 @@ class GameraPipe(object):
 		self.Nj = self.dNj*self.Rj
 		self.Nk = self.dNk*self.Rk
 
-		
+
 		#Variables
 		self.v0IDs = kh5.getRootVars(f0)
 		self.vIDs  = kh5.getVars(f0,sids.min())
@@ -152,21 +160,21 @@ class GameraPipe(object):
 			print("Variables (Root/Step) = (%d,%d)"%(self.Nv0,self.Nv))
 			print("\tRoot: %s"%(self.v0IDs))
 			print("\tStep: %s"%(self.vIDs))
-		
+
 		self.SetUnits(f0)
 		if (doVerbose):
 			print("Units Type = %s"%(self.UnitsID))
 			print("Pulling grid ...")
 		self.GetGrid(doVerbose)
 		self.f0 = f0
-		
+
 	def SetUnits(self,f0):
 		import h5py
 		with h5py.File(f0,'r') as hf:
 			uID = hf.attrs.get("UnitsID","CODE")
 		if (not isinstance(uID,str)):
 			self.UnitsID = uID.decode('utf-8')
-		
+
 	def GetGrid(self,doVerbose):
 		import kaipy.kaiH5 as kh5
 		if (self.is2D):
@@ -206,7 +214,7 @@ class GameraPipe(object):
 		if (doVerb):
 			if (sID is None):
 				print("Reading %s/%s"%(self.ftag,vID))
-			else:	
+			else:
 				print("Reading %s/Step#%d/%s"%(self.ftag,sID,vID))
 
 		if (self.is2D):
@@ -228,15 +236,15 @@ class GameraPipe(object):
 						fIn = self.fdir + "/" + kh5.genName(self.ftag,i,j,k,self.Ri,self.Rj,self.Rk)
 					else:
 						fIn = self.fdir + "/" + self.ftag + ".h5"
-					
+
 					if (self.is2D):
 						V[iS:iE,jS:jE] = kh5.PullVar(fIn,vID,sID)
-						
+
 					else:
 						V[iS:iE,jS:jE,kS:kE] = kh5.PullVar(fIn,vID,sID)
 		if (vScl is not None):
 			V = vScl*V
-		return V				
+		return V
 
 	#Get variable slice of constant i,j,k
 	#Directions = idir/jdir/kdir strings
