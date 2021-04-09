@@ -127,7 +127,7 @@ module rcmimag
         allocate(imag%rcmFLs(RCMApp%nLat_ion,RCMApp%nLon_ion))
 
         !Start up IO
-        call initRCMIO(RCMApp,isRestart)
+        if(vApp%writeFiles) call initRCMIO(RCMApp,isRestart)
 
         end associate
 
@@ -282,8 +282,9 @@ module rcmimag
         if (doSmoothTubes) then
             !Smooth out FTV/potential on tubes b/c RCM will take gradient
             call SmoothTubes(RCMApp,vApp)
+
         endif
-        
+
     !Advance from vApp%time to tAdv
         call Tic("AdvRCM")
         dtAdv = tAdv-vApp%time !RCM-DT
@@ -417,6 +418,207 @@ module rcmimag
 
         !Do quick short circuit test
         if (x1 < TINY) return !lat < TINY
+
+        colat = PI/2 - lat
+
+        !Do 1st short cut tests
+        isEdible =  (colat >= RCMApp%gcolat(1)) .and. (colat <= RCMApp%gcolat(RCMApp%nLat_ion)) &
+                    .and. (lat > TINY)
+
+        if (.not. isEdible) return
+
+        !If still here, find mapping (i,j) on RCM grid of point
+        call GetRCMLoc(lat,lon,ij0)
+
+        !Do second short cut tests
+        isEdible = RCMApp%toMHD(ij0(1),ij0(2))
+        if (.not. isEdible) return
+
+        call GetInterp(lat,lon,ij0,IJs,Ws,isGs)
+        !Do last short cut
+        if (.not. all(isGs)) return
+
+        prcm = rcmPScl*AvgQ(RCMApp%Prcm)
+        nrcm = rcmNScl*AvgQ(RCMApp%Nrcm)
+        npp  = rcmNScl*AvgQ(RCMApp%Npsph)
+        pmhd = rcmPScl*AvgQ(RCMApp%Pave)
+        nmhd = rcmNScl*AvgQ(RCMApp%Nave)
+        beta = AvgQ(RCMApp%beta_average)
+        wIM  = AvgQ(RCMApp%wImag)
+        Tb   = AvgQ(RCMApp%Tb)
+
+        nlim = 0.0
+        plim = 0.0
+
+        if (doWolfLim) then
+            call WolfLimit(nrcm,prcm,npp,nmhd,pmhd,beta,nlim,plim)
+        else
+            !Just lazyily use same function w/ beta=0
+            call WolfLimit(nrcm,prcm,npp,nmhd,pmhd,0.0_rp,nlim,plim)
+        endif
+
+        !Store values
+        imW(IMDEN) = nlim
+        imW(IMPR)  = plim
+
+        if (doBounceDT) then
+            !Use Alfven bounce timescale
+            imW(IMTSCL) = nBounce*RCMApp%Tb(ij0(1),ij0(2))
+        endif
+
+        imW(IMX1)   = rad2deg*lat
+        imW(IMX2)   = rad2deg*lon
+
+        end associate
+
+        contains
+
+        !Get ij's of stencil points and weights
+        subroutine GetInterp(lat,lon,ij0,IJs,Ws,isGs)
+            real(rp), intent(in)  :: lat,lon
+            integer , intent(in)  :: ij0(2)
+            integer , intent(out) :: IJs(Np,2)
+            real(rp), intent(out) :: Ws(Np)
+            logical , intent(out) :: isGs(Np)
+
+            integer :: i0,j0,n,di,dj,ip,jp
+            real(rp) :: colat,dcolat,dlon,eta,zeta
+            real(rp), dimension(-1:+1) :: wE,wZ
+
+            !Single point
+            isGs = .true.
+            IJs(:,:) = 1
+            Ws = 0.0
+            IJs(1,:) = [ij0]
+            Ws (1  ) = 1.0
+            associate(gcolat=>imag%rcmCpl%gcolat,glong=>imag%rcmCpl%glong, &
+                      nLat=>imag%rcmCpl%nLat_ion,nLon=>imag%rcmCpl%nLon_ion,toMHD=>imag%rcmCpl%toMHD)
+
+            i0 = ij0(1)
+            j0 = ij0(2)
+
+            if ( (i0==1) .or. (i0==nLat) ) return !Don't bother if you're next to lat boundary
+            
+            !Get index space mapping: eta,zeta in [-0.5,0.5]
+            colat = PI/2 - lat
+            dcolat = ( gcolat(i0+1)-gcolat(i0-1) )/2
+            dlon  = glong(2)-glong(1) !Assuming constant spacing
+
+            eta  = ( colat - gcolat(i0) )/ dcolat
+            zeta = ( lon - glong(j0) )/dlon
+
+            !Clamp mappings
+            call ClampMap(eta)
+            call ClampMap(zeta)
+            !Calculate weights
+            call weight1D(eta,wE)
+            call weight1D(zeta,wZ)
+
+            n = 1
+            do dj=-1,+1
+                do di=-1,+1
+                    ip = i0+di
+                    jp = j0+dj
+                    !Wrap around boundary, repeated point at 1/isize
+                    if (jp<1)    jp = nLon-1
+                    if (jp>nLon) jp = 2
+                    IJs(n,:) = [ip,jp]
+                    Ws(n) = wE(di)*wE(dj)
+                    isGs(n) = toMHD(ip,jp)
+                    n = n + 1
+                enddo
+            enddo !dj
+
+            end associate            
+        end subroutine GetInterp
+
+        !1D triangular shaped cloud weights
+        !1D weights for triangular shaped cloud interpolation
+        !Assuming on -1,1 reference element, dx=1
+        !Check for degenerate cases ( |eta| > 0.5 )
+        subroutine weight1D(eta,wE)
+            real(rp), intent(in)  :: eta
+            real(rp), intent(out) :: wE(-1:1)
+
+            wE(-1) = 0.5*(0.5-eta)**2.0
+            wE( 1) = 0.5*(0.5+eta)**2.0
+            wE( 0) = 0.75 - eta**2.0
+
+        end subroutine weight1D
+
+        !Clamps mapping in [-0.5,0.5]
+        subroutine ClampMap(ez)
+          REAL(rprec), intent(inout) :: ez
+          if (ez<-0.5) ez = -0.5
+          if (ez>+0.5) ez = +0.5
+        end subroutine ClampMap
+
+        function AvgQ(Q) 
+            real(rp), intent(in) :: Q(Ni,Nj)
+
+            real(rp) :: AvgQ
+            integer :: n,i0,j0
+            real(rp) :: Qs(Np)
+            AvgQ = 0.0
+
+            do n=1,Np
+                i0 = IJs(n,1)
+                j0 = IJs(n,2)
+                Qs(n) = Q(i0,j0)
+            enddo
+            AvgQ = dot_product(Qs,Ws)
+
+        end function AvgQ
+
+        subroutine GetRCMLoc(lat,lon,ij0)
+            real(rp), intent(in) :: lat,lon
+            integer, intent(out) :: ij0(2)
+
+            integer :: iX,jX,iC,n
+            real(rp) :: colat,dp,dcol,dI,dJ
+
+            associate(gcolat=>imag%rcmCpl%gcolat,glong=>imag%rcmCpl%glong, &
+                      nLat=>imag%rcmCpl%nLat_ion,nLon=>imag%rcmCpl%nLon_ion)
+
+            !Assuming constant lon spacing
+            dp = glong(2) - glong(1)
+
+            !Get colat point
+            colat = PI/2 - lat
+!Use findloc w/ intel for speed
+#if defined __INTEL_COMPILER && __INTEL_COMPILER >= 1800
+            iC = findloc(gcolat >= colat,.true.,dim=1) - 1
+#else 
+!Bypass as findloc does not work for gfortran<9    
+           !Work-around code        
+            do n=1,nLat
+                if (gcolat(n) >= colat) exit
+            enddo
+            iC = n-1
+#endif
+            dcol = gcolat(iC+1)-gcolat(iC)
+            dI = (colat-gcolat(iC))/dcol
+            if (dI <= 0.5) then
+                iX = iC
+            else
+                iX = iC+1
+            endif
+
+            !Get lon point
+            dJ = lon/dp
+            if ( (dJ-floor(dJ)) <= 0.5 ) then
+                jX = floor(dJ)+1
+            else
+                jX = floor(dJ)+2
+            endif
+            
+            !Impose bounds just in case
+            iX = max(iX,1)
+            iX = min(iX,nLat)
+            jX = max(jX,1)
+            jX = min(jX,nLon)
+
+            ij0 = [iX,jX]
 
         !Call wrapper for RCM interpolatioon
         call InterpRCM(imag%rcmCpl,x1,x2,t,imW,isEdible)

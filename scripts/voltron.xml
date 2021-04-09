@@ -1,0 +1,8 @@
+<VOLTRON>
+	<time tFin="3601.0"/>
+	<output dtOut="60" tsOut="100" doTimer="F"/>
+	<spinup doSpin="T" tSpin="1800.0" tIO="0.0"/>
+	<restart dtRes="1800.0"/>
+	<imag doInit="T"/>
+	<coupling dt="5.0" doGCM="T" dtDeep="15.0" rTrc="40.0" imType="RCM" doQkSquish="T"/>
+</VOLTRON>

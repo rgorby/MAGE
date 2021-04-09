@@ -7,11 +7,11 @@ module mixio
   use files
   implicit none
   
-  integer, parameter :: MAXIOVAR = 50
-  type(IOVAR_T), dimension(MAXIOVAR) :: IOVars
-  character(len=strLen) :: h5File,h5RunID
-  character(len=strLen), dimension(nVars) :: mixVarNames
-  character(len=strLen), dimension(nVars) :: mixUnitNames   
+  integer, parameter :: MAXMIXIOVAR = 50
+  type(IOVAR_T), dimension(MAXMIXIOVAR), private :: IOVars
+  character(len=strLen), private :: h5File,h5RunID
+  character(len=strLen), dimension(nVars), private :: mixVarNames
+  character(len=strLen), dimension(nVars), private :: mixUnitNames   
 
 contains
 
