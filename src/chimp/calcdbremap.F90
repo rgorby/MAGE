@@ -11,7 +11,7 @@ module calcdbremap
 
     implicit none
 
-    integer, parameter, private :: i0 = 3
+    integer, parameter, private :: i0 = 2
     logical, parameter, private :: doTest = .false.
 
     contains

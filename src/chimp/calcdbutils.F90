@@ -25,7 +25,8 @@ module calcdbutils
         real(rp) :: rMHD,rIon,dr,dV
         real(rp), dimension(:), allocatable :: rC
         real(rp) :: phi,theta,ionlat,c2lat,lat
-        real(rp) :: latC,latP,latM,dlat
+        real(rp) :: latC,thGap,thIon,dl
+        real(rp) :: latP,latM,dlat
         Np = rmState%Np
         Nth = rmState%Nth
 
@@ -89,33 +90,25 @@ module calcdbutils
             enddo !n
         enddo !l
 
+        !J dA dl = J_ion dA_ion dl = J11_ion dA_ion cos(dip) dl
+        !dV = dA_ion cos(dip) dl
         !Get dV, do northern hemisphere then copy
+
         !$OMP PARALLEL DO default(shared) &
-        !$OMP private(j,n,latC,latM,latP,dlat,dV)
+        !$OMP private(j,n,latC,thGap,thIon,dl,dV)
         do n=1,rSegs
             do j=1,Nth
                 latC = xyz2lat(facGrid%XYZcc(1,j,n,NORTH,:))
+                thGap = PI/2 - latC !theta of this cell-center in gap region
+                thIon = facGrid%tcc(1,j,NORTH) !Ionospheric theta
 
-                if (j==1) then
-                    latM = latC
-                    latP = xyz2lat(facGrid%XYZcc(1,j+1,n,NORTH,:))
-                    dlat = abs(latP-latM)
-                else if (j == Nth) then
-                    latP = latC
-                    latM = xyz2lat(facGrid%XYZcc(1,j-1,n,NORTH,:))
-                    dlat = abs(latP-latM)
-                else
-                    latP = xyz2lat(facGrid%XYZcc(1,j+1,n,NORTH,:))
-                    latM = xyz2lat(facGrid%XYZcc(1,j-1,n,NORTH,:))
-                    dlat = abs(latP-latM)/2.0
-                endif
+                !Arc length along dipole at this radius/theta
+                dl = dr * sqrt(1.0 + 3.0*(cos(thGap)**2.0))/2/cos(thGap)
+                dV = dl*ionGrid%dS(1,j,NORTH)*abs(CosDip(thIon))
 
-                !Note: This includes extra dphi missing from Eqn 6 in Rastatter+ 2014
-                dV = (dr*rC(n)**2.0)*dlat*facGrid%dp*cos(latC)
                 facGrid%dV(:,j,n,:) = dV
             enddo
         enddo
-
 
 	end subroutine facGridInit
 
@@ -282,7 +275,6 @@ module calcdbutils
         real(rp), dimension(NDIM) :: xC,bhat
         real(rp) :: rIon,J11i,J11m,Biom
 
-        !CALCDB-TODO: Write this
         facGrid%Jxyz = 0.0
 
         rIon = (RionE*1.0e+6)/REarth !Ionospheric radius in units of Re, ~1.01880
@@ -303,11 +295,11 @@ module calcdbutils
                         else
                             J11i = rmState%sFac(i,j)
                         endif
+
                         !Calculate current in A/m2
                         J11i = (1.0e-6)*J11i
-
-                        !Get J11 at this point using j11/B = const,
-                        J11m = J11i/Biom
+                        !Use same gap region J11 as ion, scaling has been included in dV
+                        J11m = J11i
 
                         !Now get local bhat
                         bhat = bhatXYZ(xC)
@@ -521,6 +513,12 @@ module calcdbutils
         Jxyz = that*Jt + phat*Jp
 
     end function tp2xyz
+
+    function CosDip(theta) result(cosd)
+        real(rp), intent(in) :: theta
+        real(rp) :: cosd
+        cosd = -2*cos(theta)/sqrt(1.0 + 3*cos(theta)*cos(theta))
+    end function CosDip
 
     !Set rmState given properly set 4 hemispheres and temporal weights
     subroutine hemi2rm(rmState,w1,w2)
