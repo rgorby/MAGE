@@ -150,13 +150,6 @@ module volttypes
         !Dynamic coupling info
         logical :: doDynCplDT = .false. !Whether to do dynamic coupling cadence
 
-        contains
-
-        procedure baseVoltInit
-
-        ! functions to be over-written by specific implementation
-        procedure :: doInitVoltron => baseVoltInit
-
     end type voltApp_T
 
     contains

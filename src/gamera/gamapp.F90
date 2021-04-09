@@ -14,13 +14,6 @@ module gamapp
         type(State_T)  :: State, oState
         type(Solver_T) :: Solver
 
-        contains
-
-        procedure initGamera
-
-        ! functions to be over-written by specific implementation
-        procedure :: doInitGamera => initGamera
-
     end type gamApp_T
 
     contains
