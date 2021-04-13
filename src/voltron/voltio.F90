@@ -104,8 +104,8 @@ module voltio
             write (*, '(a,1f8.3,a)')             '      tilt = ' , dpT, ' [deg]'
             write (*, '(a,2f8.3,a)')             '      CPCP = ' , cpcp(NORTH), cpcp(SOUTH), ' [kV, N/S]'
             write (*, '(a, f8.3,a)')             '    Sym-H  = ' , symh  , ' [nT]'
-            !write (*, '(a, f8.3,a)')             '    BSDst  ~ ' , BSDst , ' [nT]'
-            write (*, '(a,2f8.3,a)')             '    BSDst  ~ ' , BSDst, AvgDst, ' [nT, ORI/AVG]'
+            write (*, '(a, f8.3,a)')             '    BSDst  ~ ' , BSDst , ' [nT]'
+            !write (*, '(a,2f8.3,a)')             '    BSDst  ~ ' , BSDst, AvgDst, ' [nT, ORI/AVG]'
             write (*, '(a, f8.3,a)')             '   DPSDst  ~ ' , DPSDst, ' [nT]'
 
 

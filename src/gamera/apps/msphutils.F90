@@ -564,7 +564,6 @@ module msphutils
     end subroutine VP_Init
 
     subroutine VP_Dipole(x,y,z,Ax,Ay,Az)
-        
         real(rp), intent(in) :: x,y,z
         real(rp), intent(out) :: Ax,Ay,Az
 
@@ -580,7 +579,6 @@ module msphutils
     end subroutine VP_Dipole
 
     subroutine Dipole(x,y,z,Ax,Ay,Az)
-        
         real(rp), intent(in) :: x,y,z
         real(rp), intent(out) :: Ax,Ay,Az
 
@@ -620,13 +618,20 @@ module msphutils
         phid = atan2(yp,x)*180.0/PI
         rScl = 1.0 + RampUp(phid,0.0_rp,180.0_rp)*(dcScl-1.0) !Between 1,dcScl
         M = magRampDown(r,rCut*rScl,lCut*rScl)
-        !M = magRampDown(r,rCut,lCut)
 
         Ax = M*Ax
         Ay = M*Ay
         Az = M*Az
 
     end subroutine cutDipole
+
+    !Silly vector wrapper to make a dipole function
+    function VecCutDipole(xyz) result(Bdc)
+        real(rp), intent(in) :: xyz(NDIM)
+        real(rp), dimension(NDIM) :: Bdc
+        call cutDipole(xyz(XDIR),xyz(YDIR),xyz(ZDIR),Bdc(XDIR),Bdc(YDIR),Bdc(ZDIR))
+
+    end function VecCutDipole
 
     !Ingest density/pressure information from Grid%Gas0
     !Treat Gas0 as target value

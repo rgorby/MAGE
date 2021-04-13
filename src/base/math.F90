@@ -265,7 +265,7 @@ module math
     end function katan2
 
     function cross(a, b)
-
+        !DEC$ ATTRIBUTES NOINLINE :: cross
         real(rp), dimension(NDIM), intent(in) :: a, b
         real(rp), dimension(NDIM) :: cross
 
