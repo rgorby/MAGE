@@ -415,9 +415,9 @@ module calcdbio
         mjd = MJDAt(ebState%ebTab,Model%t)
         
         !Do conversion to spherical
-        call xyz2rtp(gGr,gGr%dbMAG_xyz,gGr%dbMAG_rtp)
-        call xyz2rtp(gGr,gGr%dbION_xyz,gGr%dbION_rtp)
-        call xyz2rtp(gGr,gGr%dbFAC_xyz,gGr%dbFAC_rtp)
+        call Grxyz2rtp(gGr,gGr%dbMAG_xyz,gGr%dbMAG_rtp)
+        call Grxyz2rtp(gGr,gGr%dbION_xyz,gGr%dbION_rtp)
+        call Grxyz2rtp(gGr,gGr%dbFAC_xyz,gGr%dbFAC_rtp)
 
         !Get total perturbation
         allocate(dbRTP(gGr%NLat,gGr%NLon,gGr%Nz,NDIM))
@@ -469,7 +469,7 @@ module calcdbio
     end subroutine writeDB
 
     !Convert XYZ to RTP vectors
-    subroutine xyz2rtp(gGr,dbXYZ,dbRTP)
+    subroutine Grxyz2rtp(gGr,dbXYZ,dbRTP)
         type(grGrid_T), intent(in) :: gGr
         real(rp), dimension(:,:,:,:), intent(in ) :: dbXYZ
         real(rp), dimension(:,:,:,:), intent(out) :: dbRTP
@@ -491,15 +491,15 @@ module calcdbio
                     dBz = dbXYZ(i,j,k,ZDIR)
 
                     !Radial,Theta,Phi system
-                    dbRTP(i,j,k,RDIR) =  dbX*sin(theta)*cos(phi) + dBy*sin(theta)*sin(phi) + dBz*cos(theta)
-                    dbRTP(i,j,k,TDIR) =  dbX*cos(theta)*cos(phi) + dBy*cos(theta)*sin(phi) - dBz*sin(theta)
-                    dbRTP(i,j,k,PDIR) = -dbX           *sin(phi) + dBy           *cos(phi) 
+                    dbRTP(i,j,k,RDIR) =  dBx*sin(theta)*cos(phi) + dBy*sin(theta)*sin(phi) + dBz*cos(theta)
+                    dbRTP(i,j,k,TDIR) =  dBx*cos(theta)*cos(phi) + dBy*cos(theta)*sin(phi) - dBz*sin(theta)
+                    dbRTP(i,j,k,PDIR) = -dBx           *sin(phi) + dBy           *cos(phi) 
 
                 enddo
             enddo
         enddo
 
-    end subroutine xyz2rtp
+    end subroutine Grxyz2rtp
     
     subroutine CalcJdb(gGr,dbRTP,dbJ,jID)
         type(grGrid_T), intent(in) :: gGr
@@ -507,12 +507,13 @@ module calcdbio
         real(rp), intent(out) :: dbJ  (gGr%NLat,gGr%NLon,gGr%Nz)
         character(len=*),intent(in) :: jID
 
-        integer :: i,j,k,jP,jM
+        integer :: i,j,k,jP,jM,k0
         real(rp) :: rad,theta,thP,thM,dth,dphi,DelA,DelB
         real(rp) :: jScl,jMin,jMax,jRMS
 
         dbJ = 0.0
-        
+        k0 = 1
+
         !$OMP PARALLEL DO default(shared) collapse(2) &
         !$OMP private(i,j,k,jP,jM,rad,theta,thP,thM,dth,dphi,DelA,DelB)
         do k=1,gGr%Nz
@@ -548,9 +549,9 @@ module calcdbio
         jScl = (1.0e-9)/(Re_cgs*1.0e-2)/Mu0 !Converts to A/m2
         dbJ = (1.0e+6)*jScl*dbJ !microA/m2
 
-        jMin = minval(dbJ)
-        jMax = maxval(dbJ)
-        jRMS = norm2(dbJ)/sqrt(1.0*size(dbJ))
+        jMin = minval(dbJ(:,:,k0))
+        jMax = maxval(dbJ(:,:,k0))
+        jRMS = norm2(dbJ(:,:,k0))/sqrt(1.0*size(dbJ(:,:,k0)))
 
         write(*,'(a,a,f8.3,f8.3,f8.3,a)') trim(jID),' anomalous current [microA/m2]: ',jMin,jMax,jRMS,' (Min/Max/RMS)'
 

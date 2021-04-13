@@ -269,8 +269,9 @@ module step
         real(rp) :: dtijk
 
         if (Model%doMultiF .or. Model%doResistive) then
-            write(*,*) 'CPR not yet implemented for these options, bailing ...'
-            stop
+            return
+            !write(*,*) 'CPR not yet implemented for these options, bailing ...'
+            !stop
         endif
         
         

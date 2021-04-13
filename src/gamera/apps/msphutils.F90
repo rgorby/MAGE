@@ -649,14 +649,15 @@ module msphutils
 
         logical  :: doIngestIJK,doInD,doInP
 
+        if (Model%t<=0) return !You'll spoil your appetite
+
+        if (.not. doIngest) return
+
         if (Model%doMultiF) then
             write(*,*) 'Source ingestion not implemented for multifluid, you should do that'
             stop
         endif
 
-        if (Model%t<=0) return !You'll spoil your appetite
-
-        if (.not. doIngest) return
 
        !$OMP PARALLEL DO default(shared) collapse(2) &
        !$OMP private(i,j,k,doInD,doInP,doIngestIJK,pCon,pW) &

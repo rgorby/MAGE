@@ -6,11 +6,13 @@ module calcdbutils
 
 	implicit none
 
-	real(rp) :: dzGG = 60.0 !Default height spacing [km]
+	real(rp) :: dzGG = 30.0 !Default height spacing [km]
     logical, private, parameter :: doHall = .true.
     logical, private, parameter :: doPed  = .true.
+    logical, private, parameter :: doAmm  = .true.
 
     integer, private, parameter :: TDIR=1,PDIR=2
+    integer, private, parameter :: Ngm = 4 !Stencil for gradient
 
 	contains
 
@@ -364,7 +366,7 @@ module calcdbutils
         type(ionGrid_T)  , intent(inout) :: ionGrid
 
         real(rp) :: nEp,nEt,sEp,sEt
-        integer :: i,j,im,ip
+        integer :: i,j
         real(rp) :: R0,dth,dph,thnh,thsh,phnh,phsh
         real(rp) :: nhcdip,shcdip,nJt,sJt,nJp,sJp
 
@@ -379,49 +381,30 @@ module calcdbutils
         dph = ionGrid%dp
 
         !$OMP PARALLEL DO default(shared) &
-        !$OMP private(i,j,im,ip,nJ,sJ) &
+        !$OMP private(i,j,nJ,sJ) &
         !$OMP private(nEp,nEt,sEp,sEt,thnh,thsh,phnh,phsh) &
-        !$OMP private(nhcdip,shcdip,nJt,sJt,nJp,sJp) 
+        !$OMP private(nhcdip,shcdip,nJt,sJt,nJp,sJp)
         do j=1,ionGrid%Nth !Theta
             do i=1,ionGrid%Np !phi
             !Start w/ E field via gradient    
             !E = -grad(pot), kV/Re
 
                 !Theta derivatives
-                if (j == 1) then
-                    nEt = -( rmState%nPot(i,j+1)-rmState%nPot(i,j) )/(R0*dth)
-                    sEt = -( rmState%sPot(i,j+1)-rmState%sPot(i,j) )/(R0*dth)
-                    sEt = -sEt !Flip direction
-                else if (j == ionGrid%Nth) then
-                    nEt = -( rmState%nPot(i,j)-rmState%nPot(i,j-1) )/(R0*dth)
-                    sEt = -( rmState%sPot(i,j)-rmState%sPot(i,j-1) )/(R0*dth)
-                    sEt = -sEt !Flip direction
-                else
-                    nEt = -( rmState%nPot(i,j+1)-rmState%nPot(i,j-1) )/(R0*2*dth)
-                    sEt = -( rmState%sPot(i,j+1)-rmState%sPot(i,j-1) )/(R0*2*dth)
-                    sEt = -sEt !Flip direction
-                endif
+                nEt = -GradTheta(rmState%nPot(i,:),j,ionGrid%Nth)/(R0*dth)
+                sEt = -GradTheta(rmState%sPot(i,:),j,ionGrid%Nth)/(R0*dth)
+                sEt = -sEt !Flip direction
 
                 !Phi derivatives
-                if (i == 1) then
-                    im = ionGrid%Np
-                else
-                    im = i-1
-                endif
-                if (i == ionGrid%Np) then
-                    ip = 1
-                else
-                    ip = i+1
-                endif
                 thnh = ionGrid%tcc(i,j,NORTH)
                 thsh = ionGrid%tcc(i,j,SOUTH)
 
                 phnh = ionGrid%pcc(i,j,NORTH)
                 phsh = ionGrid%pcc(i,j,SOUTH)
 
-                nEp = -(rmState%nPot(ip,j)-rmState%nPot(im,j))/(R0*sin(thnh)*2*dph)
-                sEp = -(rmState%sPot(im,j)-rmState%sPot(ip,j))/(R0*sin(thsh)*2*dph)
-                
+                nEp = -GradPhi(rmState%nPot(:,j),i,ionGrid%Np)/(R0*sin(thnh)*dph)
+                sEp = -GradPhi(rmState%sPot(:,j),i,ionGrid%Np)/(R0*sin(thsh)*dph)
+                sEp = -sEp !Flip direction
+
                 !Convert E [kV/Re] to [V/m]
                 nEp = (1.0e+3)*nEp/REarth
                 nEt = (1.0e+3)*nEt/REarth
@@ -437,8 +420,13 @@ module calcdbutils
             !Now have E fields [V/m], calculate currents
                 !Get cos of dip angles for both
                 !CALCDB-TODO: Check dip angle formula in SH?
-                nhcdip = -2*cos(thnh)/sqrt(1.0 + 3*cos(thnh)*cos(thnh))
-                shcdip = -2*cos(thsh)/sqrt(1.0 + 3*cos(thsh)*cos(thsh))
+                if (doAmm) then
+                    nhcdip = -2*cos(thnh)/sqrt(1.0 + 3*cos(thnh)*cos(thnh))
+                    shcdip = -2*cos(thsh)/sqrt(1.0 + 3*cos(thsh)*cos(thsh))
+                else
+                    nhcdip = -1.0
+                    shcdip = +1.0
+                endif
 
                 !Get theta/phi currents from Hall/Pederson
                 !Conductance units are S = A/V, so currents are J = A/m
@@ -497,6 +485,87 @@ module calcdbutils
         ! write(*,*) 'Pede '
         ! write(*,*) '   Theta: ',minval(ionGrid%pJ(:,:,NORTH,TDIR)),maxval(ionGrid%pJ(:,:,NORTH,TDIR))
         ! write(*,*) '   Phi  : ',minval(ionGrid%pJ(:,:,NORTH,PDIR)),maxval(ionGrid%pJ(:,:,NORTH,PDIR))
+
+        contains
+            function GradTheta(Q,i0,Ni) result(Qp)
+                real(rp), intent(in) :: Q(Ni)
+                integer , intent(in) :: i0,Ni
+                real(rp) :: Qp
+
+                real(rp) :: Qblk(Ngm),c(Ngm)
+                integer :: is,ie
+                is = 1
+                ie = Ni
+                if (i0 == is) then
+                    !Forward
+                    Qblk = [Q(is),Q(is+1),Q(is+2),Q(is+3)]
+                    c = [-11.0,18.0,-9.0,2.0]/6.0
+                else if (i0 == is+1) then
+                    !1 back
+                    Qblk = [Q(is),Q(is+1),Q(is+2),Q(is+3)]
+                    c = [-2.0,-3.0,6.0,-1.0]/6.0
+                else if (i0 == ie) then
+                    Qblk = [Q(ie-3),Q(ie-2),Q(ie-1),Q(ie)]
+                    c = [-2.0,9.0,-18.0,11.0]/6.0
+                else if (i0 == ie-1) then
+                    Qblk = [Q(ie-3),Q(ie-2),Q(ie-1),Q(ie)]
+                    c = [1.0,-6.0,3.0,2.0]/6.0
+                else
+                    !Centered
+                    Qblk = [Q(i0-2),Q(i0-1),Q(i0+1),Q(i0+2)]
+                    c = [1.0,-8.0,8.0,-1.0]/12.0
+                endif
+                Qp = dot_product(Qblk,c)
+            end function GradTheta
+
+            function GradPhi(Q,i0,Ni) result(Qp)
+                real(rp), intent(in) :: Q(Ni)
+                integer , intent(in) :: i0,Ni
+                real(rp) :: Qp
+
+                real(rp) :: Qblk(Ngm),c(Ngm)
+                integer :: ip,ipp,im,imm
+                integer :: is,ie
+                is = 1
+                ie = Ni
+
+                !Always centered b/c of periodicity
+                c = [1.0,-8.0,8.0,-1.0]/12.0
+                if (i0 == is) then
+                    ip  = i0+1
+                    ipp = i0+2
+                    im  = ie
+                    imm = ie-1
+                    
+                else if (i0 == is+1) then
+                    ip  = i0+1
+                    ipp = i0+2
+                    im  = is
+                    imm = ie
+                else if (i0 == ie) then
+                    ip  = is
+                    ipp = is+1
+                    im  = i0-1
+                    imm = i0-2
+
+                else if (i0 == ie-1) then
+                    ip  = ie
+                    ipp = is
+                    im  = i0-1
+                    imm = i0-2
+                else
+                    !Centered
+                    ip  = i0+1
+                    ipp = i0+2
+                    im  = i0-1
+                    imm = i0-2
+
+                    Qblk = [Q(i0-2),Q(i0-1),Q(i0+1),Q(i0+2)]
+                    c = [1.0,-8.0,8.0,-1.0]/12.0
+                endif
+                Qblk = [Q(imm),Q(im),Q(ip),Q(ipp)]
+                Qp = dot_product(Qblk,c)
+            end function GradPhi
 
     end subroutine ionGridUpdate
 

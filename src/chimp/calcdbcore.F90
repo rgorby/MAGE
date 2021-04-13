@@ -107,12 +107,29 @@ module calcdbcore
                     sm = dbXYZ(i,j,k,:) !SM ground dB
                     call SM2GEO(sm(XDIR),sm(YDIR),sm(ZDIR),geo(XDIR),geo(YDIR),geo(ZDIR))
                     dbXYZ(i,j,k,:) = geo
+                    !call TestXForm(sm,geo)
                 enddo
             enddo
         enddo !k
 
     end subroutine BSRemap
     
+    subroutine TestXForm(smXYZ,geoXYZ)
+        real(rp), dimension(NDIM), intent(in) :: smXYZ,geoXYZ
+        real(rp), dimension(NDIM) :: smRTP,geoRTP
+
+        real(rp) :: dA,dAr
+        dA = norm2(smXYZ)-norm2(geoXYZ)
+        smRTP = xyz2rtp(smXYZ)
+        geoRTP = xyz2rtp(geoXYZ)
+        dAr = smRTP(1)-geoRTP(1)
+
+        write(*,*) 'sm / geo = ', smXYZ,geoXYZ
+        if ( (dA>TINY) .or. (abs(dAr)>TINY) ) then
+            write(*,*) 'dA / Ars = ', dA,smRTP(1),geoRTP(1)
+        endif
+    end subroutine TestXForm
+
     !Do individual BS integral using BSGr
     subroutine BSIntegral(xBS,gGr,dbXYZ)
         type(BSGrid_T), intent(in) :: xBS

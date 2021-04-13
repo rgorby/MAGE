@@ -505,7 +505,7 @@ module uservoltic
 
         if (Model%doMultiF) then
             write(*,*) 'PushIon not implemented for MF yet ...'
-            stop
+            !stop
         endif
 
         PsiShells = PsiSh !Coming from cmidefs

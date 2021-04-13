@@ -416,6 +416,27 @@ module math
         InTri = (s >= 0) .and. (t >= 0) .and. ((1 - s - t) >= 0)
         !write(*,*) 's,t,1-s-t = ',s,t,1-s-t
     end function inTri
+
+    !Convert XYZ to spherical (RTP) vector
+    function xyz2rtp(Axyz) result(Artp)
+        real(rp), dimension(NDIM), intent(in) :: Axyz
+        real(rp), dimension(NDIM) :: Artp
+
+        real(rp) :: Ax,Ay,Az,Ar,At,Ap,rad,theta,phi
+        Ax = Axyz(1)
+        Ay = Axyz(2)
+        Az = Axyz(3)
+
+        rad = norm2(Axyz)
+        theta = acos(Az/rad)
+        phi = atan2(Ay,Ax)
+
+        Ar =  Ax*sin(theta)*cos(phi) + Ay*sin(theta)*sin(phi) + Az*cos(theta)
+        At =  Ax*cos(theta)*cos(phi) + Ay*cos(theta)*sin(phi) - Az*sin(theta)
+        Ap = -Ax           *sin(phi) + Ay           *cos(phi) 
+        Artp = [Ar,At,Ap]
+    end function xyz2rtp
+    
 !--------------------------------------
 !Linear algebra stuff
     !Calculate determinant of 3X3 matrix
