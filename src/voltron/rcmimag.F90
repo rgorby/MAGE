@@ -304,8 +304,12 @@ module rcmimag
             RCMApp%toMHD = .not. (RCMApp%iopen == RCMTOPOPEN)
         else
             call SetIngestion(RCMApp)
-            !Find maximum extent of RCM domain (RCMTOPCLOSED but not RCMTOPNULL)
-            maxRad = maxval(norm2(RCMApp%X_bmin,dim=3),mask=(RCMApp%iopen == RCMTOPCLOSED))
+            !!Find maximum extent of RCM domain (RCMTOPCLOSED but not RCMTOPNULL)
+            !maxRad = maxval(norm2(RCMApp%X_bmin,dim=3),mask=(RCMApp%iopen == RCMTOPCLOSED))
+            !Figure out max value of closed field domain
+            maxRad = maxval(norm2(RCMApp%X_bmin,dim=3), &
+                            mask=(.not. (RCMApp%iopen == RCMTOPOPEN)) )
+            
             maxRad = maxRad/Rp_m
             vApp%rTrc = rTrc0*maxRad
         endif
