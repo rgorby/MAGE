@@ -94,14 +94,17 @@ module calcdbio
                 !Cut off a bit from TFin to avoid overlap w/ start of next
                 Model%tFin = Model%tFin-0.01*dtB
             endif
-            !Get step# offset
-            !NOTE: Assuming here nice divisibility
-            dOut = nint(dtB/Model%dtOut)
-            Model%nOut = (Model%Nblk-1)*dOut + 0
-            write(*,*) 'Offsetting Step# by ', Model%nOut
 
-            write(dbOutF,'(a,a,I0.4,a)') trim(adjustl(Model%RunID)),'.',Model%Nblk,'.deltab.h5'
-            write(*,*) '------'
+            !Don't bother offsetting, let the concatenating script handle it
+            
+            ! !Get step# offset
+            ! !NOTE: Assuming here nice divisibility
+            ! dOut = nint(dtB/Model%dtOut)
+            ! Model%nOut = (Model%Nblk-1)*dOut + 0
+            ! write(*,*) 'Offsetting Step# by ', Model%nOut
+
+            ! write(dbOutF,'(a,a,I0.4,a)') trim(adjustl(Model%RunID)),'.',Model%Nblk,'.deltab.h5'
+            ! write(*,*) '------'
 
         else
             doParInT = .false.
