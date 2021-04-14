@@ -774,9 +774,15 @@ module init
         real(rp), dimension(NDIM) :: f0,f1,f2,f3, fInt,fInt2,fIntx
         logical :: doQuadFT = .false. !Whether to do quadrature for face system
         
-        !Check for divisibility by veclen
-        if ( mod(Grid%ie-Grid%is+1,VECLEN) /= 0 ) then
-            write(*,*) 'Grid divisibility error, Grid I-size not divisible by VECLEN!'
+        !Check for min length veclen
+        if ( (Grid%ie-Grid%is+1) < VECLEN ) then
+            write(*,*) 'Grid I-size smaller than VECLEN!'
+            stop
+        endif
+
+        !Check for divisibility by double prec
+        if ( mod(Grid%ie-Grid%is+1,ALIGN/8) /= 0 ) then
+            write(*,*) 'Grid divisibility error, Grid I-size not divisible by ', ALIGN/8
             stop
         endif
         
