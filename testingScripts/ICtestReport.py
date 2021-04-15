@@ -80,7 +80,10 @@ myText = ""
 for element in incorrectList:
     myText = myText + element + "\n"
 
-# Add the module lists
+# Add the module lists, unless there were no errors
+if not incorrectList:
+	print("I quit because there was nothing wrong")
+	exit()
 
 myText = myText + "\nModule Set 1:\n" + moduleList[0]
 myText = myText + "\nModule Set 2:\n" + moduleList[1]

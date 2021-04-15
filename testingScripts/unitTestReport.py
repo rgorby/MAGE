@@ -37,11 +37,14 @@ job1 = file.readline()
 job1 = job1.strip()
 job2 = file.readline()
 job2 = job2.strip()
+job3 = file.readline()
+job3 = job3.strip()
 file.close()
 
 # Take the two output files and slap them together
 extension1 = "o" + job1
 extension2 = "o" + job2
+extension3 = "0" + job3
 
 # Case Tests
 file = open('caseTests.' + extension1, 'r')
@@ -49,11 +52,18 @@ bigFile = file.readlines()
 file.close()
 bigFile.append("\n\n\n")
 
-# Non Case Tests
-file = open('nonCaseTests.' + extension2, 'r')
+# Non Case Tests 1
+file = open('nonCaseTests1.' + extension2, 'r')
 nextFile = file.readlines()
 file.close()
 bigFile = bigFile + nextFile
+bigFile.append("\n\n\n")
+
+#Non Case Tests 2
+file = open('nonCaseTests2.' + extension3, 'r')
+finalFile = file.readlines()
+file.close()
+bigFile = bigFile + finalFile
 
 # Scan through for some key things like "error" and "job killed"
 myError = False
