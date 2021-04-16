@@ -405,6 +405,8 @@ module ebinterp
 
         iQ = 0.0 !Interpolated values
 
+        !AM: Add inBuffer trap here
+        
         if (.not. Model%doMHD) return
 
         if (present(ijkO)) then
