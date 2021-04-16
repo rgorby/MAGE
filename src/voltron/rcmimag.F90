@@ -26,7 +26,6 @@ module rcmimag
     logical , private, parameter :: doKillRCMDir = .true. !Whether to always kill RCMdir before starting
     integer, parameter, private :: MHDPad = 0 !Number of padding cells between RCM domain and MHD ingestion
     
-    logical , private :: doHotBounce= .false. !Whether to limit Alfven speed density to only hot (RC) population
     logical , private :: doTrickyTubes = .true.  !Whether to poison bad flux tubes
     logical , private :: doSmoothTubes = .false.  !Whether to smooth potential/FTV on torcm grid
 
@@ -304,11 +303,8 @@ module rcmimag
             RCMApp%toMHD = .not. (RCMApp%iopen == RCMTOPOPEN)
         else
             call SetIngestion(RCMApp)
-            !!Find maximum extent of RCM domain (RCMTOPCLOSED but not RCMTOPNULL)
-            !maxRad = maxval(norm2(RCMApp%X_bmin,dim=3),mask=(RCMApp%iopen == RCMTOPCLOSED))
-            !Figure out max value of closed field domain
-            maxRad = maxval(norm2(RCMApp%X_bmin,dim=3), &
-                            mask=(.not. (RCMApp%iopen == RCMTOPOPEN)) )
+            !Find maximum extent of RCM domain (RCMTOPCLOSED but not RCMTOPNULL)
+            maxRad = maxval(norm2(RCMApp%X_bmin,dim=3),mask=(RCMApp%iopen == RCMTOPCLOSED))
             
             maxRad = maxRad/Rp_m
             vApp%rTrc = rTrc0*maxRad
@@ -363,24 +359,6 @@ module rcmimag
 
         enddo
         
-        if (doHotBounce) then
-            do j=1,RCMApp%nLon_ion
-                do i = 1,RCMApp%nLat_ion
-                    if (RCMApp%iopen(i,j) == RCMTOPOPEN) cycle
-                    Tbnc = RCMApp%Tb(i,j)
-                    if ((RCMApp%Nrcm(i,j) > TINY) .and. (RCMApp%Nave(i,j) > TINY)) then
-                        !Have some RC density
-                        !RCMApp%Tb(i,j) = AlfvenBounce(RCMApp%Nrcm(i,j),RCMApp%bmin(i,j),RCMApp%Lb(i,j))
-                        !Rescale bounce timescale to mock up only hot component
-                        RCMApp%Tb(i,j) = sqrt(RCMApp%Nrcm(i,j)/RCMApp%Nave(i,j))*RCMApp%Tb(i,j)
-                    else
-                        RCMApp%Tb(i,j) = 0.0
-                    endif
-                    !write(*,*) "Tb (Old/New) = ", Tbnc,RCMApp%Tb(i,j)
-                enddo !i
-            enddo !j
-        endif
-
         contains
             !Calculate Alfven bounce timescale
             !D = #/m3, B = T, L = Rp

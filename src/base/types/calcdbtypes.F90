@@ -28,7 +28,7 @@ module calcdbtypes
         
         !Holds N/S hemisphere at i1/i2
         type(rmHemi_T) :: rmN1,rmN2,rmS1,rmS2
-
+        logical :: doCorot,doPed,doHall
     end type rmState_T
 
 	INTEGER, parameter :: NORTH=1,SOUTH=2
@@ -68,7 +68,6 @@ module calcdbtypes
         real(rp), dimension(:,:,:,:), allocatable :: Etp !E field, theta/phi components
         real(rp), dimension(:,:,:,:), allocatable :: hJ  !Hall current, theta/phi components
         real(rp), dimension(:,:,:,:), allocatable :: pJ  !Pede current, theta/phi components
-
     end type ionGrid_T
 
 !--------

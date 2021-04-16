@@ -86,7 +86,7 @@ if __name__ == "__main__":
 			ogStr = "Step#%d"%(s-nS+s0)
 
 			oH5.create_group(ogStr)
-			print("Copying %s to %s"%(igStr,ogStr))
+			#print("Copying %s to %s"%(igStr,ogStr))
 
 			#Group atts
 			for k in iH5[igStr].attrs.keys():

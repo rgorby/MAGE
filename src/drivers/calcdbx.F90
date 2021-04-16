@@ -55,7 +55,7 @@ program calcdbx
     !----------------------------
     !Initialize data structures
     call initDBio(Model,ebState,gGr,inpXML,NumP)
-    call initRM(Model,ebState,rmState)
+    call initRM(Model,ebState,rmState,inpXML)
 
     call ionGridInit(Model,ebState,rmState,ionGrid)
     call facGridInit(Model,ebState,rmState,ionGrid,facGrid)

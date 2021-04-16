@@ -53,6 +53,9 @@ module gridloc
 
     procedure(Loc_T)  , pointer :: locate=>NULL()
     procedure(inDom_T), pointer :: inDomain=>inDomain_Sph
+    procedure(inDom_T), pointer :: inBuffer=>inBuffer_Default
+    !AM: Add XML option to have different inBuffer, ie distinction between indomain and ingrid
+    
     type(LocAux_T) :: locAux
 
     integer, parameter :: NSnake = 25
@@ -489,6 +492,17 @@ module gridloc
         endif
 
     end function inDomain_Egg
+
+    !Default inBuffer is always F
+    function inBuffer_Default(xyz,Model,ebGr) result(inDom)
+        real(rp), intent(in) :: xyz(NDIM)
+        type(chmpModel_T), intent(in) :: Model
+        type(ebGrid_T), intent(in) :: ebGr
+        logical :: inDom
+
+        inDom = .false.
+
+    end function inBuffer_Default
 
     !Lazy hard-wired function to decide if foot-point is closed
     function isClosed(xyz,Model) result(inDom)

@@ -256,15 +256,21 @@ module calcdbio
 
     end subroutine initDBio
 
-    subroutine initRM(Model,ebState,rmState)
+    subroutine initRM(Model,ebState,rmState,inpXML)
         type(chmpModel_T), intent(in) :: Model
         type(ebState_T), intent(in)   :: ebState
         type(rmState_T), intent(inout) :: rmState
-        
+        type(XML_Input_T), intent(in) :: inpXML
+
         type(IOVAR_T), dimension(MAXDBVS) :: IOVars
         integer :: Ni,Nj
         character(len=strLen) :: rmF !Remix file
         write(rmF,'(2a)') trim(adjustl(ebState%ebTab%bStr)),'.mix.h5'
+
+        !Decide whether to add corotation potential
+        call inpXML%Set_Val(rmState%doCorot,'CalcDB/doCorot',.false.)
+        call inpXML%Set_Val(rmState%doHall ,'CalcDB/doHall' ,.true. ) 
+        call inpXML%Set_Val(rmState%doPed  ,'CalcDB/doPed. ',.true. )
 
         write(*,*) 'Initializing w/ ', trim(rmF)
 

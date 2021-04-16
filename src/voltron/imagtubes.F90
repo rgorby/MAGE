@@ -17,7 +17,7 @@ module imagtubes
     !Some threshold values for poisoning tubes
     !TODO: Make these XML parameters
     real(rp), private :: wImag_C = 0.15 ![0,1]
-    real(rp), private :: bMin_C  = 2.5 !nT
+    real(rp), private :: bMin_C  = 1.0 !nT
 
 !Information taken from MHD flux tubes
     !Pave = Average pressure [Pa]
@@ -149,12 +149,6 @@ module imagtubes
         CsMKS = 9.79*sqrt((5.0/3)*TiEV)
 
         ijTube%wIMAG = VaMKS/( sqrt(VaMKS**2.0 + CsMKS**2.0) + VebMKS)
-
-    !Do different calculation of beta if desired
-        ! if (doNewBeta) then
-        !     bBeta = 2.0*(CsMKS/VaMKS)**2.0 !alternative beta definition
-        !     ijTube%beta_average = bBeta
-        ! endif
 
         end associate
     end subroutine MHDTube

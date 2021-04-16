@@ -7,9 +7,7 @@ module calcdbutils
 	implicit none
 
 	real(rp) :: dzGG = 30.0 !Default height spacing [km]
-    logical, private, parameter :: doHall = .true.
-    logical, private, parameter :: doPed  = .true.
-    logical, private, parameter :: doAmm  = .true.
+    logical, private, parameter :: doAmm   = .true.
 
     integer, private, parameter :: TDIR=1,PDIR=2
     integer, private, parameter :: Ngm = 4 !Stencil for gradient
@@ -362,7 +360,7 @@ module calcdbutils
     subroutine ionGridUpdate(Model,ebState,rmState,ionGrid)
         type(chmpModel_T), intent(in) :: Model
         type(ebState_T)  , intent(in) :: ebState
-        type(rmState_T)  , intent(in) :: rmState
+        type(rmState_T)  , intent(inout) :: rmState
         type(ionGrid_T)  , intent(inout) :: ionGrid
 
         real(rp) :: nEp,nEt,sEp,sEt
@@ -379,6 +377,14 @@ module calcdbutils
         R0 = (RionE*1.0e+6)/REarth !Ionospheric radius in units of Re, ~1.01880
         dth = ionGrid%dt
         dph = ionGrid%dp
+
+        if (rmState%doCorot) then
+            !Add corotation potential before taking gradient
+            !ReMix potential is in kV
+            !vcorot = -Psi0 *(Re / Ri)*SIN(colat)**2            
+            rmState%nPot = rmState%nPot - EarthPsi0*R0*( sin(ionGrid%tcc(:,:,NORTH))**2.0 )
+            rmState%sPot = rmState%sPot - EarthPsi0*R0*( sin(ionGrid%tcc(:,:,SOUTH))**2.0 )
+        endif
 
         !$OMP PARALLEL DO default(shared) &
         !$OMP private(i,j,nJ,sJ) &
@@ -442,13 +448,13 @@ module calcdbutils
 
 
                 nJt = 0.0 ; nJp = 0.0 ; sJt = 0.0 ; sJp = 0.0
-                if (doHall) then
+                if (rmState%doHall) then
                     nJt = nJt + ionGrid%hJ(i,j,NORTH,TDIR)
                     nJp = nJp + ionGrid%hJ(i,j,NORTH,PDIR)
                     sJt = sJt + ionGrid%hJ(i,j,SOUTH,TDIR)
                     sJp = sJp + ionGrid%hJ(i,j,SOUTH,PDIR)
                 endif
-                if (doPed) then
+                if (rmState%doPed) then
                     nJt = nJt + ionGrid%pJ(i,j,NORTH,TDIR)
                     nJp = nJp + ionGrid%pJ(i,j,NORTH,PDIR)
                     sJt = sJt + ionGrid%pJ(i,j,SOUTH,TDIR)
@@ -477,14 +483,6 @@ module calcdbutils
 
         write(*,*) "South pJ-Theta"
         write(*,*) minval(ionGrid%pJ(:,ionGrid%Nth,SOUTH,TDIR)),maxval(ionGrid%pJ(:,ionGrid%Nth,SOUTH,TDIR))
-
-        ! write(*,*) 'Hall '
-        ! write(*,*) '   Theta: ',minval(ionGrid%hJ(:,:,NORTH,TDIR)),maxval(ionGrid%hJ(:,:,NORTH,TDIR))
-        ! write(*,*) '   Phi  : ',minval(ionGrid%hJ(:,:,NORTH,PDIR)),maxval(ionGrid%hJ(:,:,NORTH,PDIR))
-
-        ! write(*,*) 'Pede '
-        ! write(*,*) '   Theta: ',minval(ionGrid%pJ(:,:,NORTH,TDIR)),maxval(ionGrid%pJ(:,:,NORTH,TDIR))
-        ! write(*,*) '   Phi  : ',minval(ionGrid%pJ(:,:,NORTH,PDIR)),maxval(ionGrid%pJ(:,:,NORTH,PDIR))
 
         contains
             function GradTheta(Q,i0,Ni) result(Qp)

@@ -39,6 +39,13 @@ module ebinterp
         associate( ebGr=>ebState%ebGr,ebTab=>ebState%ebTab,eb1=>ebState%eb1,eb2=>ebState%eb2 )
 
         V = 0.0
+        !AM: Add trap for inbuffer here
+        if (inBuffer(xyz,Model,ebGr)) then
+            !Handle cases here then return to avoid rest
+            V = 0.0
+            return
+
+        endif
         !Start by doing localization
         if (present(ijkO)) then
             !Use supplied guess
@@ -161,6 +168,13 @@ module ebinterp
             doJacob = .false.
         endif
 
+        !AM: Add trap for inbuffer here
+        if (inBuffer(xyz,Model,ebGr)) then
+            !Handle cases here then return to avoid rest
+            
+            return
+            
+        endif
 
     !Start w/ localization
         if (present(ijkO)) then
