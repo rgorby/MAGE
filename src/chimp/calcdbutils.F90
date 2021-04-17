@@ -472,17 +472,17 @@ module calcdbutils
 
         enddo !j,Nth
 
-        ! write(*,*) "North hJ-Theta"
-        ! write(*,*) ionGrid%hJ(:,ionGrid%Nth,NORTH,TDIR)
+        ! ! write(*,*) "North hJ-Theta"
+        ! ! write(*,*) ionGrid%hJ(:,ionGrid%Nth,NORTH,TDIR)
 
-        write(*,*) "North pJ-Theta"
-        write(*,*) minval(ionGrid%pJ(:,ionGrid%Nth,NORTH,TDIR)),maxval(ionGrid%pJ(:,ionGrid%Nth,NORTH,TDIR))
+        ! write(*,*) "North pJ-Theta"
+        ! write(*,*) minval(ionGrid%pJ(:,ionGrid%Nth,NORTH,TDIR)),maxval(ionGrid%pJ(:,ionGrid%Nth,NORTH,TDIR))
 
-        ! write(*,*) "South hJ-Theta"
-        ! write(*,*) ionGrid%hJ(:,ionGrid%Nth,SOUTH,TDIR)
+        ! ! write(*,*) "South hJ-Theta"
+        ! ! write(*,*) ionGrid%hJ(:,ionGrid%Nth,SOUTH,TDIR)
 
-        write(*,*) "South pJ-Theta"
-        write(*,*) minval(ionGrid%pJ(:,ionGrid%Nth,SOUTH,TDIR)),maxval(ionGrid%pJ(:,ionGrid%Nth,SOUTH,TDIR))
+        ! write(*,*) "South pJ-Theta"
+        ! write(*,*) minval(ionGrid%pJ(:,ionGrid%Nth,SOUTH,TDIR)),maxval(ionGrid%pJ(:,ionGrid%Nth,SOUTH,TDIR))
 
         contains
             function GradTheta(Q,i0,Ni) result(Qp)

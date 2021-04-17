@@ -9,6 +9,10 @@ module calcdbcore
     
 	implicit none
 
+    !Bounds for supermag indices [geomagnetic latitude]
+    real(rp), parameter, private :: SMLowLat = +40.0
+    real(rp), parameter, private :: SMHiLat  = +80.0
+
 	contains
 
     !Calculate contribution from BSGrid to ground
@@ -39,6 +43,11 @@ module calcdbcore
         call BSIntegral(facBS,gGr,gGr%dbFAC_xyz)
         call Toc("BSFac")
 
+        !We've done all the work to get dB-XYZ (SM)
+        !Before doing anything else calculate auroral indices
+        call CalcAuroralIndices(Model,t,gGr)
+
+        !Map dB-XYZ (SM) to dB-XYZ (GEO) if desired
         if (gGr%doGEO) then
             mjd = MJDAt(ebState%ebTab,t)
             call MJDRecalc(mjd) !Setup geopack for this time
@@ -107,29 +116,12 @@ module calcdbcore
                     sm = dbXYZ(i,j,k,:) !SM ground dB
                     call SM2GEO(sm(XDIR),sm(YDIR),sm(ZDIR),geo(XDIR),geo(YDIR),geo(ZDIR))
                     dbXYZ(i,j,k,:) = geo
-                    !call TestXForm(sm,geo)
                 enddo
             enddo
         enddo !k
 
     end subroutine BSRemap
     
-    subroutine TestXForm(smXYZ,geoXYZ)
-        real(rp), dimension(NDIM), intent(in) :: smXYZ,geoXYZ
-        real(rp), dimension(NDIM) :: smRTP,geoRTP
-
-        real(rp) :: dA,dAr
-        dA = norm2(smXYZ)-norm2(geoXYZ)
-        smRTP = xyz2rtp(smXYZ)
-        geoRTP = xyz2rtp(geoXYZ)
-        dAr = smRTP(1)-geoRTP(1)
-
-        write(*,*) 'sm / geo = ', smXYZ,geoXYZ
-        if ( (dA>TINY) .or. (abs(dAr)>TINY) ) then
-            write(*,*) 'dA / Ars = ', dA,smRTP(1),geoRTP(1)
-        endif
-    end subroutine TestXForm
-
     !Do individual BS integral using BSGr
     subroutine BSIntegral(xBS,gGr,dbXYZ)
         type(BSGrid_T), intent(in) :: xBS
@@ -176,5 +168,52 @@ module calcdbcore
 
     end subroutine BSIntegral
 
+    !Calculate auroral indices
+    subroutine CalcAuroralIndices(Model,t,gGr)
+        type(chmpModel_T), intent(in) :: Model
+        real(rp)         , intent(in) :: t
+        type(grGrid_T), intent(inout) :: gGr
 
+        integer :: i,j,k
+        real(rp), dimension(NDIM) :: x0,dBxyz,dBrtp
+        real(rp) :: smlat,Bn,SMU,SML
+
+        SMU = 0.0
+        SML = 0.0
+
+        !Loop over all SM ground grid points and identify which ones are between supermag bounds
+        k = 1 !Do calculation at lowest level
+
+       !$OMP PARALLEL DO default(shared) &
+       !$OMP schedule(dynamic) &
+       !$OMP private(i,j,x0,dBxyz,dBrtp,smlat,Bn) &
+       !$OMP REDUCTION(min:SML) &
+       !$OMP REDUCTION(max:SMU)
+        do j=1,gGr%NLon
+            do i=1,gGr%NLat
+                x0 = gGr%SMxyzC(i,j,k,:) !Cell center of ground grid
+                if (x0(ZDIR)<=0) cycle
+                smlat = asin(x0(ZDIR)/norm2(x0))*180.0/PI !geomagnetic latitude
+                
+                if ( (smlat>=SMLowLat) .and. (smlat<=SMHiLat) ) then
+                    !Get total SM-XYZ deflection
+                    dBxyz = gGr%dbMAG_xyz(i,j,k,:) + gGr%dbION_xyz(i,j,k,:) + gGr%dbFAC_xyz(i,j,k,:)
+                    !Convert to spherical coordinates
+                    dBrtp = xyz2rtp(x0,dBxyz)
+                    !Bn = -dB_theta-SM
+                    Bn = -dBrtp(2) !Deflection in direction of geomagnetic north
+                    !Test for new min/max
+                    SMU = max(SMU,Bn)
+                    SML = min(SML,Bn)
+                endif
+
+            enddo
+        enddo !j loop
+
+        gGr%SMU = SMU
+        gGr%SML = SML
+        gGr%SME = SMU - SML
+        gGr%SMO = (SMU+SML)/2
+
+    end subroutine CalcAuroralIndices
 end module calcdbcore

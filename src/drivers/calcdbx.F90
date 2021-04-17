@@ -120,6 +120,10 @@ program calcdbx
 
             wT = readClock("MagDB")
             write(*,'(a,a)')       'UT = ', trim(utStr)
+            write(*,'(a,f12.3,a)') '     SMU = ', gGr%SMU, ' [nT]'
+            write(*,'(a,f12.3,a)') '     SML = ', gGr%SML, ' [nT]'
+            write(*,'(a,f12.3,a)') '     SME = ', gGr%SME, ' [nT]'
+
             write(*,'(a,f12.3,a)') '       T = ', Model%t*oTScl, ' ' // trim(tStr)
             write(*,'(a,f8.3)')    '   kDBps = ', 1.0e-3*NumP*Model%tsOut/wT
         endif

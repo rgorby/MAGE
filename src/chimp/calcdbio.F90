@@ -15,7 +15,7 @@ module calcdbio
 	implicit none
 
     character(len=strLen), private :: dbOutF
-    integer, parameter, private :: MAXDBVS = 20
+    integer, parameter, private :: MAXDBVS = 30
     logical, private :: doParInT = .false. !// in time
     integer, private :: NumB = 0
 
@@ -270,7 +270,7 @@ module calcdbio
         !Decide whether to add corotation potential
         call inpXML%Set_Val(rmState%doCorot,'CalcDB/doCorot',.false.)
         call inpXML%Set_Val(rmState%doHall ,'CalcDB/doHall' ,.true. ) 
-        call inpXML%Set_Val(rmState%doPed  ,'CalcDB/doPed. ',.true. )
+        call inpXML%Set_Val(rmState%doPed  ,'CalcDB/doPed'  ,.true. )
 
         write(*,*) 'Initializing w/ ', trim(rmF)
 
@@ -441,6 +441,11 @@ module calcdbio
         call ClearIO(IOVars)
         call AddOutVar(IOVars,"time",oTScl*Model%t)
         call AddOutVar(IOVars,"MJD",mjd)
+
+        call AddOutVar(IOVars,"SMU",gGr%SMU,uStr="nT")
+        call AddOutVar(IOVars,"SML",gGr%SML,uStr="nT")
+        call AddOutVar(IOVars,"SME",gGr%SME,uStr="nT")
+        call AddOutVar(IOVars,"SMO",gGr%SMO,uStr="nT")
 
     !Write out spherical vectors (XDIR:ZDIR = RDIR,TDIR,PDIR)
         if (.not. Model%doSlim) then

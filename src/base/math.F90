@@ -417,19 +417,20 @@ module math
         !write(*,*) 's,t,1-s-t = ',s,t,1-s-t
     end function inTri
 
-    !Convert XYZ to spherical (RTP) vector
-    function xyz2rtp(Axyz) result(Artp)
-        real(rp), dimension(NDIM), intent(in) :: Axyz
+    !Convert XYZ to spherical (RTP) vector at given point
+    function xyz2rtp(xyz,Axyz) result(Artp)
+        real(rp), dimension(NDIM), intent(in) :: xyz,Axyz
         real(rp), dimension(NDIM) :: Artp
 
         real(rp) :: Ax,Ay,Az,Ar,At,Ap,rad,theta,phi
-        Ax = Axyz(1)
-        Ay = Axyz(2)
-        Az = Axyz(3)
+        Ax = Axyz(XDIR)
+        Ay = Axyz(YDIR)
+        Az = Axyz(ZDIR)
 
-        rad = norm2(Axyz)
-        theta = acos(Az/rad)
-        phi = atan2(Ay,Ax)
+
+        rad = norm2(xyz)
+        theta = acos(xyz(ZDIR)/rad)
+        phi = atan2(xyz(YDIR),xyz(XDIR))
 
         Ar =  Ax*sin(theta)*cos(phi) + Ay*sin(theta)*sin(phi) + Az*cos(theta)
         At =  Ax*cos(theta)*cos(phi) + Ay*cos(theta)*sin(phi) - Az*sin(theta)

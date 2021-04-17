@@ -98,7 +98,10 @@ module calcdbtypes
         real(rp), dimension(:,:,:,:), allocatable :: dbMAG_rtp,dbION_rtp,dbFAC_rtp
 
         !Some parameters for calculation
-        real(rp) :: rMax=60.0 !Radius of magnetospheric ball to integrate over [Re]
+        real(rp) :: rMax=40.0 !Radius of magnetospheric ball to integrate over [Re]
+
+        !Auroral indices
+        real(rp) :: SML=0,SMU=0,SME=0,SMO=0
 
 	end type grGrid_T
 
