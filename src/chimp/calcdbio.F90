@@ -15,7 +15,7 @@ module calcdbio
 	implicit none
 
     character(len=strLen), private :: dbOutF
-    integer, parameter, private :: MAXDBVS = 30
+    integer, parameter, private :: MAXDBVS = 40
     logical, private :: doParInT = .false. !// in time
     integer, private :: NumB = 0
 
@@ -436,16 +436,28 @@ module calcdbio
         dbRTP = gGr%dbMAG_rtp + gGr%dbION_rtp + gGr%dbFAC_rtp
         !$OMP END PARALLEL WORKSHARE
 
-        
-
+        !Write output data
         call ClearIO(IOVars)
         call AddOutVar(IOVars,"time",oTScl*Model%t)
         call AddOutVar(IOVars,"MJD",mjd)
 
-        call AddOutVar(IOVars,"SMU",gGr%SMU,uStr="nT")
-        call AddOutVar(IOVars,"SML",gGr%SML,uStr="nT")
+        !Indices
+        call AddOutVar(IOVars,"SML"     ,gGr%SML      ,uStr="nT")
+        call AddOutVar(IOVars,"SML_MLat",gGr%SML_MLat,uStr="deg")
+        call AddOutVar(IOVars,"SML_MLon",gGr%SML_MLon,uStr="deg")
+
+        call AddOutVar(IOVars,"SMU"     ,gGr%SMU      ,uStr="nT")
+        call AddOutVar(IOVars,"SMU_MLat",gGr%SMU_MLat,uStr="deg")
+        call AddOutVar(IOVars,"SMU_MLon",gGr%SMU_MLon,uStr="deg")
+
         call AddOutVar(IOVars,"SME",gGr%SME,uStr="nT")
         call AddOutVar(IOVars,"SMO",gGr%SMO,uStr="nT")
+        call AddOutVar(IOVars,"SMR",gGr%SMR,uStr="nT")
+
+        call AddOutVar(IOVars,"SMR_00",gGr%SMR_00,uStr="nT")
+        call AddOutVar(IOVars,"SMR_06",gGr%SMR_06,uStr="nT")
+        call AddOutVar(IOVars,"SMR_12",gGr%SMR_12,uStr="nT")
+        call AddOutVar(IOVars,"SMR_18",gGr%SMR_18,uStr="nT")
 
     !Write out spherical vectors (XDIR:ZDIR = RDIR,TDIR,PDIR)
         if (.not. Model%doSlim) then

@@ -101,7 +101,13 @@ module calcdbtypes
         real(rp) :: rMax=40.0 !Radius of magnetospheric ball to integrate over [Re]
 
         !Auroral indices
-        real(rp) :: SML=0,SMU=0,SME=0,SMO=0
+        real(rp) :: SML,SML_MLat,SML_MLon
+        real(rp) :: SMU,SMU_MLat,SMU_MLon
+        real(rp) :: SMR_00,SMR_06,SMR_12,SMR_18
+        !Derived indices
+        real(rp) :: SMR,SME,SMO
+
+        
 
 	end type grGrid_T
 

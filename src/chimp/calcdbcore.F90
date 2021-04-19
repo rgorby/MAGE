@@ -12,6 +12,7 @@ module calcdbcore
     !Bounds for supermag indices [geomagnetic latitude]
     real(rp), parameter, private :: SMLowLat = +40.0
     real(rp), parameter, private :: SMHiLat  = +80.0
+    real(rp), parameter, private :: SMRLat   =  50.0
 
 	contains
 
@@ -175,45 +176,88 @@ module calcdbcore
         type(grGrid_T), intent(inout) :: gGr
 
         integer :: i,j,k
+        integer, dimension(2) :: ijC
         real(rp), dimension(NDIM) :: x0,dBxyz,dBrtp
-        real(rp) :: smlat,Bn,SMU,SML
+        real(rp) :: Bn
+        real(rp), dimension(:,:), allocatable :: mlatIJ,mlonIJ,BnIJ,BncorrIJ
+        logical , dimension(:,:), allocatable :: I_UL,I_R,I_00,I_06,I_12,I_18,IRLT
 
-        SMU = 0.0
-        SML = 0.0
-
-        !Loop over all SM ground grid points and identify which ones are between supermag bounds
         k = 1 !Do calculation at lowest level
 
-       !$OMP PARALLEL DO default(shared) &
-       !$OMP schedule(dynamic) &
-       !$OMP private(i,j,x0,dBxyz,dBrtp,smlat,Bn) &
-       !$OMP REDUCTION(min:SML) &
-       !$OMP REDUCTION(max:SMU)
+        !Allocate arrays
+        allocate(mlatIJ  (gGr%NLat,gGr%NLon))
+        allocate(mlonIJ  (gGr%NLat,gGr%NLon))
+        allocate(BnIJ    (gGr%NLat,gGr%NLon))
+        allocate(BncorrIJ(gGr%NLat,gGr%NLon))
+
+        !Logical masks for different regions
+        allocate(I_UL(gGr%NLat,gGr%NLon))
+        allocate(I_R (gGr%NLat,gGr%NLon))
+        allocate(I_00(gGr%NLat,gGr%NLon))
+        allocate(I_06(gGr%NLat,gGr%NLon))
+        allocate(I_12(gGr%NLat,gGr%NLon))
+        allocate(I_18(gGr%NLat,gGr%NLon))
+        allocate(IRLT(gGr%NLat,gGr%NLon))
+
+        !Get array values (to easily do minloc/maxloc)
+        !$OMP PARALLEL DO default(shared) &
+        !$OMP private(i,j,x0,dBxyz,dBrtp,Bn)
         do j=1,gGr%NLon
             do i=1,gGr%NLat
                 x0 = gGr%SMxyzC(i,j,k,:) !Cell center of ground grid
-                if (x0(ZDIR)<=0) cycle
-                smlat = asin(x0(ZDIR)/norm2(x0))*180.0/PI !geomagnetic latitude
-                
-                if ( (smlat>=SMLowLat) .and. (smlat<=SMHiLat) ) then
-                    !Get total SM-XYZ deflection
-                    dBxyz = gGr%dbMAG_xyz(i,j,k,:) + gGr%dbION_xyz(i,j,k,:) + gGr%dbFAC_xyz(i,j,k,:)
-                    !Convert to spherical coordinates
-                    dBrtp = xyz2rtp(x0,dBxyz)
-                    !Bn = -dB_theta-SM
-                    Bn = -dBrtp(2) !Deflection in direction of geomagnetic north
-                    !Test for new min/max
-                    SMU = max(SMU,Bn)
-                    SML = min(SML,Bn)
-                endif
+                mlatIJ(i,j) = asin(x0(ZDIR)/norm2(x0)) *180.0/PI !geomagnetic latitude
+                mlonIJ(i,j) = katan2(x0(YDIR),x0(XDIR))*180.0/PI !geomagnetic longitude
+                !Get total SM-XYZ deflection
+                dBxyz = gGr%dbMAG_xyz(i,j,k,:) + gGr%dbION_xyz(i,j,k,:) + gGr%dbFAC_xyz(i,j,k,:)
+                !Convert to spherical coordinates
+                dBrtp = xyz2rtp(x0,dBxyz)
+                !Bn = -dB_theta-SM
+                Bn = -dBrtp(2) !Deflection in direction of geomagnetic north
+                BnIJ(i,j) = Bn
+                BncorrIJ(i,j) = Bn/cos(mlatIJ(i,j))
 
             enddo
-        enddo !j loop
+        enddo
 
-        gGr%SMU = SMU
-        gGr%SML = SML
-        gGr%SME = SMU - SML
-        gGr%SMO = (SMU+SML)/2
+        !Create mask arrays
+        I_UL = (mlatIJ <= SMHiLat) .and. (mlatIJ >= SMLowLat)
+        I_R  = (mlatIJ <= +SMRLat) .and. (mlatIJ >=  -SMRLat)
+
+        I_00 = (mlonIJ >= 135) .and. (mlonIJ <= 225)
+        I_06 = (mlonIJ >= 225) .and. (mlonIJ <= 315)
+        I_12 = (mlonIJ >= 315) .or.  (mlonIJ <=  45) !Straddling mlon=0
+        I_18 = (mlonIJ >=  45) .and. (mlonIJ <= 135)
+
+    !Get indices
+        !AL
+        ijC = minloc(BnIJ,mask=I_UL)
+        gGr%SML      = BnIJ  (ijC(1),ijC(2))
+        gGr%SML_MLat = mlatIJ(ijC(1),ijC(2))
+        gGr%SML_MLon = mlonIJ(ijC(1),ijC(2))
+        !AU
+        ijC = maxloc(BnIJ,mask=I_UL)
+        gGr%SMU      = BnIJ  (ijC(1),ijC(2))
+        gGr%SMU_MLat = mlatIJ(ijC(1),ijC(2))
+        gGr%SMU_MLon = mlonIJ(ijC(1),ijC(2))
+
+        !SMR-LTs
+        IRLT = I_R .and. I_00
+        gGr%SMR_00 = sum(BnIJ,mask=IRLT)/count(IRLT)
+
+        IRLT = I_R .and. I_06
+        gGr%SMR_06 = sum(BnIJ,mask=IRLT)/count(IRLT)
+
+        IRLT = I_R .and. I_12
+        gGr%SMR_12 = sum(BnIJ,mask=IRLT)/count(IRLT)
+
+        IRLT = I_R .and. I_18
+        gGr%SMR_18 = sum(BnIJ,mask=IRLT)/count(IRLT)
+
+    !Calculate derived indices
+        gGr%SME =  gGr%SMU - gGr%SML
+        gGr%SMO = (gGr%SMU + gGr%SML)/2
+        gGr%SMR = 0.25*(gGr%SMR_00+gGr%SMR_06+gGr%SMR_12+gGr%SMR_18)
 
     end subroutine CalcAuroralIndices
+
 end module calcdbcore
