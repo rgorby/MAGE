@@ -558,6 +558,8 @@ program wpicheck
             prt%Qeq(EQKEV) = prt2kev(Model,prt)
             prt%Qeq(EQALP) = prt%alpha
 
+            prt%ddt = Model%dt
+
             !allocate arrays to hold output
             allocate(kwpi(Nt))
             allocate(awpi(Nt))
@@ -603,7 +605,7 @@ program wpicheck
                 ! prt%Q(MUGC ) = Mu 
 
                 ! WPI calculations
-                call PerformWPI(prt,Model%t,Model%dt,Model,ebState,Bcurr,n0)
+                call PerformWPI(prt,Model%t,Model,ebState,Bcurr,n0)
 
                 !check for equatoria crossing
                 if ((s > 1) .and. (z(s-1)*z(s) <=0)) then

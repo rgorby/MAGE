@@ -90,6 +90,28 @@ module tputils
         bScl = MagB/sqrt(sum(JacB**2.0))
         eps = rgScl/bScl
     end function eGC_p
+
+!---------------------------------
+!update pitch angle of particle
+    function p2alpha(prt,Model,ebState) result(alpha)
+        type(prt_T), intent(inout) :: prt
+        type(chmpModel_T), intent(in) :: Model
+        type(ebState_T), intent(in)   :: ebState
+        real(rp), dimension(NDIM) :: E,B,r
+        real(rp) :: p11,pMag
+        real(rp) :: alpha
+        if (prt%isGC) then
+            p11 = prt%Q(P11GC)
+            pMag = Model%m0*sqrt( prt%Q(GAMGC)**2.0 - 1.0 )
+            alpha = acos( p11/max(pMag,abs(p11)) )
+        else
+            r = prt%Q(XPOS:ZPOS)
+            call ebFields(r,Model%t,Model,ebState,E,B,ijkO=prt%ijk0)
+            alpha = angVec(B,prt%Q(PXFO:PZFO))
+        endif
+
+    end function p2alpha
+
 !---------------------------------
 !Energy calculations, p->K [code] or K [keV]
     !K = (gamma-1)*m*c2 = m*(gamma*v)^2/(gamma+1)

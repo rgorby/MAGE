@@ -64,7 +64,7 @@ module pusher
 
             !Check for wave particle interaction
             if ( Model%doWPI .and. isGood .and. prt%isIn) then
-                call PerformWPI(prt,t+dtCum,ddt,Model,ebState)
+                call AdvanceWPI(oprt,prt,t+dtCum,Model,ebState)
             endif
 
             !Check for equatorial crossing

@@ -24,11 +24,47 @@ module wpicalc
 
     contains
 
+    ! Using the average state over the push to calculate wpi to reduce error in operator splitting
+    subroutine AdvanceWPI(oprt,prt,t,Model,ebState)
+        type(prt_t), intent(inout) :: oprt,prt
+        real(rp), intent(in) :: t ! Note: dt is substep size for particle (ddt in pusher.F90)
+        type(chmpModel_T), intent(in) :: Model
+        type(ebState_T), intent(in)   :: ebState
+
+        type(prt_t) :: prtAvg
+        real(rp), dimension(NVARTP) :: dQkick,Qavg !,dQpush
+
+        ! dQpush = prt%Q - oprt%Q
+
+        ! taking average state over push
+        Qavg = (prt%Q + oprt%Q)/2.0
+        prtAvg = prt
+        prtAvg%Q = Qavg
+        prtAvg%ddt = oprt%ddt ! use original time step b/c thats how much it adavced over push when wpi occurs
+        prtAvg%alpha = p2alpha(prtAvg,Model,ebState)
+        ! pitch angle update for half step occurs in performWPI
+        call PerformWPI(prtAvg,t,Model,ebState)
+
+        ! WPI does not change position, only momentum
+        dQkick = prtAvg%Q - Qavg
+
+        ! Update final state of the particle using both push and kick
+        ! prt%Q = oprt%Q + dQpush + dQkick
+        prt%Q = prt%Q + dQkick
+
+        !update non-State variables
+        prt%alpha = p2alpha(prt,Model,ebState)
+        prt%dAwpi = prtAvg%dAwpi
+        prt%dKwpi = prtAvg%dKwpi
+        prt%Nwpi  = prtAvg%Nwpi
+
+    end subroutine AdvanceWPI
+
     !FIXME: include capability of particle interaction with multiple waves
     !Main subroutine for wave particle inteactions
-    subroutine PerformWPI(prt,t,dt,Model,ebState,constB0,constNe)
+    subroutine PerformWPI(prt,t,Model,ebState,constB0,constNe)
         type(prt_t), intent(inout) :: prt
-        real(rp), intent(in) :: t,dt ! Note: dt is substep size for particle (ddt in pusher.F90)
+        real(rp), intent(in) :: t
         type(chmpModel_T), intent(in) :: Model
         type(ebState_T), intent(in)   :: ebState
         real(rp), optional, intent(in)   :: constB0,constNe ! use constant values for B0 and ne, usefull for testing
@@ -41,7 +77,7 @@ module wpicalc
         complex(rp), dimension(2) :: quadCoef,dtLim ! used to set subcycle dt given dAlim
         real(rp) :: ebGam,gamNew,aNew,pNew,MagB,Mu,p11Mag,K,rho,psi,L,phi
         real(rp) :: Ome,wpe,astar,xHigh,xj,yj,dGDda,Daa
-        real(rp) :: dtCum,dtRem,ddt,daMax ! substep used in wpi calculations, not same as ddt in pusher.F90 
+        real(rp) :: dt,dtCum,dtRem,ddt,daMax ! ddt is substep used in wpi calculations, not same as ddt in pusher.F90
         real(rp) :: zEq = 0.0 !Defined Z for equator
         real(rp) :: aCoef,bCoef !coefficients to LangevinEq
         real(rp) :: p0,G,gamma,ebGam0,p0eb,pMagEB
@@ -104,6 +140,7 @@ module wpicalc
             call MagTriad(r,B,xhat,yhat,bhat)
             MagB = max(norm2(B),TINY)
         endif
+
         !Calulating the ratio of nonrelativistic gyrofrequency to plasma frequency at prt's location
         Ome = MagB 
         wpe = sqrt(4*PI*rho) 
@@ -118,6 +155,7 @@ module wpicalc
         if (K < wave%emin) return
 
         !Setting adaptive time-step/particle sub-stepping to limit da and reduce error
+        dt = prt%ddt ! Note: dt is substep size for particle
         dtCum = 0.0 !How far we've advanced
         ! ddt = dt
         do while (dtCum<dt)
