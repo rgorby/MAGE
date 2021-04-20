@@ -39,6 +39,13 @@ module ebinterp
         associate( ebGr=>ebState%ebGr,ebTab=>ebState%ebTab,eb1=>ebState%eb1,eb2=>ebState%eb2 )
 
         V = 0.0
+        !AM: Add trap for inbuffer here
+        if (inBuffer(xyz,Model,ebGr)) then
+            !Handle cases here then return to avoid rest
+            V = 0.0
+            return
+
+        endif
         !Start by doing localization
         if (present(ijkO)) then
             !Use supplied guess
@@ -161,6 +168,13 @@ module ebinterp
             doJacob = .false.
         endif
 
+        !AM: Add trap for inbuffer here
+        if (inBuffer(xyz,Model,ebGr)) then
+            !Handle cases here then return to avoid rest
+            
+            return
+            
+        endif
 
     !Start w/ localization
         if (present(ijkO)) then
@@ -189,7 +203,6 @@ module ebinterp
         endif
 
         isAxis = isAxisS .or. isAxisE
-        isAxis = .false.
 
     !Get mapping and weights
         !Map to ezp
@@ -288,6 +301,8 @@ module ebinterp
                     wAx = norm2(Xm-Xc)/norm2(Xp-Xm)
                 endif !isAxisS
                 
+                !Interpolate dJac across the axis
+                !Add JacB0 at true point
                 JacE = wAx*gcFieldsAxP%JacE + (1-wAx)*gcFieldsAxM%JacE
                 JacB =     wAx *( gcFieldsAxP%JacB - Model%JacB0(Xp) ) + &
                         (1-wAx)*( gcFieldsAxM%JacB - Model%JacB0(Xm) ) + &
@@ -341,10 +356,10 @@ module ebinterp
 
                     enddo
                 enddo
-
+                
+                !Add background to dJacB
+                JacB = JacB + Model%JacB0(xyz)
             endif !isAxis
-
-            JacB = JacB + Model%JacB0(xyz)
 
             !Time derivatives
             !Either use Curl(E) or linear derivative for bdot
@@ -392,6 +407,8 @@ module ebinterp
 
         iQ = 0.0 !Interpolated values
 
+        !AM: Add inBuffer trap here
+        
         if (.not. Model%doMHD) return
 
         if (present(ijkO)) then
