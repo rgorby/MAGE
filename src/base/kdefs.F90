@@ -28,10 +28,10 @@ module kdefs
     integer, parameter :: rseed0=31337 !Default random seed
     
     !CGS Constants
-    real(rp), parameter :: vc_cgs = 2.99792458E+10 ![cm/s], speed of light
-    real(rp), parameter :: qe_cgs = 4.80320425E-10 ![CGS], electron charge
-    real(rp), parameter :: Re_cgs = 6.3781E8     ![cm]    Earth's radius
-    real(rp), parameter :: Me_cgs = 9.1093837015E-28 ![g] Electron mass
+    real(rp), parameter :: vc_cgs = 2.99792458D+10 ![cm/s], speed of light
+    real(rp), parameter :: qe_cgs = 4.80320425D-10 ![CGS], electron charge
+    real(rp), parameter :: Re_cgs = 6.3781D8     ![cm]    Earth's radius
+    real(rp), parameter :: Me_cgs = 9.1093837015D-28 ![g] Electron mass
     real(rp), parameter :: Mp_cgs = 1.67262192369D-24 ![g] Proton mass
 
     !MKS Constants
@@ -40,7 +40,7 @@ module kdefs
     !Helper conversions
     real(rp), parameter :: G2nT = 1.0E+5 !Gauss->nT
     real(rp), parameter :: G2T = 1.0E-4 !Gauss->T
-    real(rp), parameter :: kev2J = 1.602176634E-16 !keV->J
+    real(rp), parameter :: kev2J = 1.602176634D-16 !keV->J
     real(rp), parameter :: kev2erg = kev2J*1.0e+7
     real(rp), parameter :: erg2kev = 1.0/kev2erg
     real(rp), parameter :: Re_km = Re_cgs*(1.0e-2)*(1.0e-3) !km
