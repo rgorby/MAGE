@@ -301,6 +301,8 @@ module ebinterp
                     wAx = norm2(Xm-Xc)/norm2(Xp-Xm)
                 endif !isAxisS
                 
+                !Interpolate dJac across the axis
+                !Add JacB0 at true point
                 JacE = wAx*gcFieldsAxP%JacE + (1-wAx)*gcFieldsAxM%JacE
                 JacB =     wAx *( gcFieldsAxP%JacB - Model%JacB0(Xp) ) + &
                         (1-wAx)*( gcFieldsAxM%JacB - Model%JacB0(Xm) ) + &
@@ -354,10 +356,10 @@ module ebinterp
 
                     enddo
                 enddo
-
+                
+                !Add background to dJacB
+                JacB = JacB + Model%JacB0(xyz)
             endif !isAxis
-
-            JacB = JacB + Model%JacB0(xyz)
 
             !Time derivatives
             !Either use Curl(E) or linear derivative for bdot
