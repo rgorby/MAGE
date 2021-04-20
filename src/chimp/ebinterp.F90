@@ -39,13 +39,19 @@ module ebinterp
         associate( ebGr=>ebState%ebGr,ebTab=>ebState%ebTab,eb1=>ebState%eb1,eb2=>ebState%eb2 )
 
         V = 0.0
-        !AM: Add trap for inbuffer here
-        if (inBuffer(xyz,Model,ebGr)) then
-            !Handle cases here then return to avoid rest
-            V = 0.0
-            return
 
+        ! if within inner boundary of grid, use pure dipole
+        if (inGap(xyz,Model,ebGr)) then
+            !Handle cases here then return to avoid rest
+            select case(FLD)
+            case(EFLD,DBFLD)
+                V = 0.0
+            case(BFLD)
+                V = Model%B0(xyz)
+            end select
+            return
         endif
+
         !Start by doing localization
         if (present(ijkO)) then
             !Use supplied guess
@@ -168,13 +174,8 @@ module ebinterp
             doJacob = .false.
         endif
 
-        !AM: Add trap for inbuffer here
-        if (inBuffer(xyz,Model,ebGr)) then
-            !Handle cases here then return to avoid rest
-            
-            return
-            
-        endif
+        ! if within inner boundary of grid, use pure dipole
+        if (inGap(xyz,Model,ebGr)) return
 
     !Start w/ localization
         if (present(ijkO)) then
@@ -356,7 +357,7 @@ module ebinterp
 
                     enddo
                 enddo
-                
+
                 !Add background to dJacB
                 JacB = JacB + Model%JacB0(xyz)
             endif !isAxis
@@ -407,8 +408,9 @@ module ebinterp
 
         iQ = 0.0 !Interpolated values
 
-        !AM: Add inBuffer trap here
-        
+        ! if within inner boundary set everything to 0 and exit
+        if (inGap(xyz,Model,ebGr)) return
+
         if (.not. Model%doMHD) return
 
         if (present(ijkO)) then

@@ -109,6 +109,9 @@ module wpicalc
         r = prt%Q(XPOS:ZPOS)
         req = [prt%Qeq(EQX),prt%Qeq(EQY),zEq] ! defining magnetic equator at z=0
 
+        !No wpi in region between MHD grid and ionosphere
+        if (inGap(r,Model,ebState%ebGr)) return
+
         !Check to see if waves are present
         call ChkWave(wModel,r,req,prt%alpha,doWave)
         if (.not. doWave) return ! no waves so exit
