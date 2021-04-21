@@ -327,6 +327,8 @@ module usergamic
          call findSlc(bc%wsaData%ebTab,State%time*Model%Units%gT0,n1,n2)
          write(*,*) '[EP in wsaBC] getting in a new time backet', n1, n2
 
+        !n1=1
+        !n2=2
         !read a map from Step#n1
         call rdWSAMap(bc%wsaData,Model,n1,bc%wsaData%ibcMap1)
         bc%wsaData%wsaN1 = n1
@@ -346,6 +348,9 @@ module usergamic
       call tCalcWeights(bc%wsaData,State%time*Model%Units%gT0,w1,w2)
       write(*,*) '[EP in wsaBC] Bounding weights ', w1, w2
       
+      !Always first map
+      !w1 = 1.
+      !w2 = 0.
       dims_cc = [bc%wsaData%Nr,bc%wsaData%Nt,bc%wsaData%Np] !i,j,k
       dims_jf = [bc%wsaData%Nr,bc%wsaData%Nt+1,bc%wsaData%Np]
       dims_kf = [bc%wsaData%Nr,bc%wsaData%Nt,bc%wsaData%Np+1]
@@ -362,16 +367,17 @@ module usergamic
       !write(*,*)'[EP in wsaBC] filled ibcVars '
       
       !To obtain Vr and Br values at k-faces do simple interpolation in a uniform grid
-      !Vr_kface for kfaces 1:Nk
-      !TODO: Make enumerator for k-Face Vars 1 - BpK, 2 - VrK, 3 - BrK
-      ibcVars%kfVars(:,:,2:bc%wsaData%Np,2) = 0.5*(ibcVars%ccVars(:,:,1:bc%wsaData%Np-1,VRIN)+ ibcVars%ccVars(:,:,2:bc%wsaData%Np,VRIN))
+      !Br_kface for kfaces 1:Nk
+      !TODO: Make enumerator for k-Face Vars 1 - BpK, 2 - BrK, 3 - VrK
+      ibcVars%kfVars(:,:,2:bc%wsaData%Np,2) = 0.5*(ibcVars%ccVars(:,:,1:bc%wsaData%Np-1,BRIN)+ ibcVars%ccVars(:,:,2:bc%wsaData%Np,BRIN))
       !boundary faces k=1 and Np+1
-      ibcVars%kfVars(:,:,1,2) = 0.5*(ibcVars%ccVars(:,:,1,VRIN) + ibcVars%ccVars(:,:,bc%wsaData%Np,VRIN))
+      !periodic conditions
+      ibcVars%kfVars(:,:,1,2) = 0.5*(ibcVars%ccVars(:,:,1,BRIN) + ibcVars%ccVars(:,:,bc%wsaData%Np,BRIN))
       ibcVars%kfVars(:,:,bc%wsaData%Np+1,2) = ibcVars%kfVars(:,:,1,2)
 
-      !br_kface
-      ibcVars%kfVars(:,:,2:bc%wsaData%Np,3) = 0.5*(ibcVars%ccVars(:,:,1:bc%wsaData%Np-1,BRIN)+ ibcVars%ccVars(:,:,2:bc%wsaData%Np,BRIN))
-      ibcVars%kfVars(:,:,1,3) = 0.5*(ibcVars%ccVars(:,:,1,BRIN) + ibcVars%ccVars(:,:,bc%wsaData%Np,BRIN))
+      !Vr_kface
+      ibcVars%kfVars(:,:,2:bc%wsaData%Np,3) = 0.5*(ibcVars%ccVars(:,:,1:bc%wsaData%Np-1,VRIN)+ ibcVars%ccVars(:,:,2:bc%wsaData%Np,VRIN))
+      ibcVars%kfVars(:,:,1,3) = 0.5*(ibcVars%ccVars(:,:,1,VRIN) + ibcVars%ccVars(:,:,bc%wsaData%Np,VRIN))
       ibcVars%kfVars(:,:,bc%wsaData%Np+1,3) = ibcVars%kfVars(:,:,1,3)
 
       !write(*,*)'[EP in wsaBC] Added VRKFIN and BRKFIN to ibcVars. Beginning a big loop. '
@@ -422,10 +428,12 @@ module usergamic
 
                   !Set primitives
                   pVar(VELX:VELZ) = rHat*ibcVarsStatic(VRIN)
+                   !pVar(VELX:VELZ) = rHat*3.0
                   ! note conversion to my units with B0^2/4pi in the denominator
                   pVar(PRESSURE)  = ibcVarsStatic(RHOIN)*Model%Units%gD0*Kbltz*ibcVarsStatic(TIN)/(Model%Units%gP0)
-                  pVar(DEN)       = ibcVarsStatic(RHOIN)
-
+                  !pVar(PRESSURE)  = 5.* Model%Units%gD0*Kbltz*1.e6/(Model%Units%gP0)
+                  pVar(DEN)      = ibcVarsStatic(RHOIN)
+                   !pVar(DEN)      = 5.
                   !Swap prim->con in ghost variables
                   call CellP2C(Model,pVar,conVar)
                   State%Gas(i,j,k,:,BLK) = conVar
@@ -451,12 +459,14 @@ module usergamic
                ![EP] at all i-faces flux should be the same. We re-normalize from cc to face
                !FIX that
                State%magFlux(i,j,k,IDIR) = ibcVarsStatic(BRIN)*Rfactor**2*Grid%face(Grid%is,j,k,IDIR)
-               !State%magFlux(i,j,k,JDIR) = ibcVarsStatic(BTJFIN)*Grid%face(i,j,k,JDIR)
-               State%magFlux(i,j,k,JDIR) = 0.0
+               !State%magFlux(i,j,k,IDIR) = 1.*Rfactor**2*Grid%face(Grid%is,j,k,IDIR)
+               State%magFlux(i,j,k,JDIR) = ibcVarsStatic(BTJFIN)*Grid%face(i,j,k,JDIR)
+               !State%magFlux(i,j,k,JDIR) = 0.0
                !multiplying by Rbc is not correct. Need to multiply to r_cc
-               !State%magFlux(i,j,k,KDIR) = - 2*PI/Tsolar*R_kf*sin(Theta_kf)/ibcVarsStatic(VRKFIN)*ibcVarsStatic(BRKFIN)*Grid%face(i,j,k,KDIR) &
-               !                            + ibcVarsStatic(BPKFIN)*Rbc/norm2(Grid%xfc(i,j,k,:,KDIR))*Grid%face(i,j,k,KDIR)
-                State%magFlux(i,j,k,KDIR) = - 2*PI/Tsolar*R_kf*sin(Theta_kf)/ibcVarsStatic(VRKFIN)*ibcVarsStatic(BRKFIN)*Grid%face(i,j,k,KDIR)
+               State%magFlux(i,j,k,KDIR) = - 2*PI/Tsolar*R_kf*sin(Theta_kf)/ibcVarsStatic(VRKFIN)*ibcVarsStatic(BRKFIN)*Grid%face(i,j,k,KDIR) &
+                                           + ibcVarsStatic(BPKFIN)*Rbc/norm2(Grid%xfc(i,j,k,:,KDIR))*Grid%face(i,j,k,KDIR)
+               !State%magFlux(i,j,k,KDIR) = - 2*PI/Tsolar*R_kf*sin(Theta_kf)/ibcVarsStatic(VRKFIN)*ibcVarsStatic(BRKFIN)*Grid%face(i,j,k,KDIR)
+                !State%magFlux(i,j,k,KDIR) = 0.0
             end do
          end do
       end do
