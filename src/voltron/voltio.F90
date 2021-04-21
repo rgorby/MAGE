@@ -224,6 +224,43 @@ module voltio
 
     end subroutine writeVoltRestart
 
+    subroutine readVoltronRestart(vApp,inH5)
+        class(voltApp_T), intent(inout) :: vApp
+        character(len=*), intent(in) :: inH5
+
+        type(IOVAR_T), dimension(MAXVOLTIOVAR) :: IOVars
+
+        write(*,*) 'Reading Voltron restart from ', trim(inH5)
+        inquire(file=inH5,exist=fExist)
+        if (.not. fExist) then
+            !Error out and leave
+            write(*,*) 'Unable to open input voltron restart file, exiting'
+            stop
+        endif
+
+        call ClearIO(IOVars)
+
+        call AddInVar(IOVars,"nOut"    ,vTypeO=IOINT)
+        call AddInVar(IOVars,"nRes"    ,vTypeO=IOINT)
+        call AddInVar(IOVars,"ts"      ,vTypeO=IOINT)
+        call AddInVar(IOVars,"MJD"     ,vTypeO=IOREAL)
+        call AddInVar(IOVars,"time"    ,vTypeO=IOREAL)
+        call AddInVar(IOVars,"ShallowT",vTypeO=IOREAL)
+        call AddInVar(IOVars,"DeepT"   ,vTypeO=IOREAL)
+
+        !Get data
+        call ReadVars(IOVars,.false.,inH5)
+
+        vApp%IO%nOut  = GetIOInt(IOVars,"nOut")
+        vApp%IO%nRes  = GetIOInt(IOVars,"nRes") + 1
+        vApp%ts       = GetIOInt(IOVars,"ts")
+        vApp%MJD      = GetIOReal(IOVars,"MJD")
+        vApp%time     = GetIOReal(IOVars,"time")
+        vApp%ShallowT = GetIOReal(IOVars,"ShallowT")
+        vApp%DeepT    = GetIOReal(IOVars,"DeepT")
+
+    end subroutine
+
     subroutine fOutputV(vApp,gApp)
         class(gamApp_T) , intent(inout) :: gApp
         class(voltApp_T), intent(inout) :: vApp

@@ -82,16 +82,11 @@ module voltapp
             call xmlInp%Set_Val(tIO,"spinup/tIO",0.0) !Time of first restart
         endif
 
-        vApp%time = gApp%Model%t*gTScl !Time in seconds
-        vApp%ts   = gApp%Model%ts !Timestep
-
         !Use MJD from time series
         tsMJD%wID = vApp%tilt%wID
         call tsMJD%initTS("MJD",doLoudO=.false.)
         gApp%Model%MJD0 = tsMJD%evalAt(0.0_rp) !Evaluate at T=0
         
-        vApp%MJD = T2MJD(vApp%time,gApp%Model%MJD0)
-
     !Time options
         call xmlInp%Set_Val(vApp%tFin,'time/tFin',1.0_rp)
         !Sync Gamera to Voltron endtime
@@ -105,16 +100,12 @@ module voltapp
         endif
         
         !Pull numbering from Gamera
-        vApp%IO%nRes = gApp%Model%IO%nRes
-        vApp%IO%nOut = gApp%Model%IO%nOut
         vApp%IO%tsNext = gApp%Model%IO%tsNext
         
         !Force Gamera IO times to match Voltron IO
         call IOSync(vApp%IO,gApp%Model%IO,1.0/gTScl)
 
     !Shallow coupling
-        !Start shallow coupling immediately
-        vApp%ShallowT = vApp%time
         call xmlInp%Set_Val(vApp%ShallowDT ,"coupling/dt" , 0.1_rp)
         vApp%TargetShallowDT = vApp%ShallowDT
         call xmlInp%Set_Val(vApp%doGCM, "coupling/doGCM",.false.)
@@ -124,7 +115,6 @@ module voltapp
         end if
 
     !Deep coupling
-        vApp%DeepT = 0.0_rp
         call xmlInp%Set_Val(vApp%DeepDT, "coupling/dtDeep", -1.0_rp)
         vApp%TargetDeepDT = vApp%DeepDT
         call xmlInp%Set_Val(vApp%rTrc,   "coupling/rTrc"  , 40.0)
@@ -139,6 +129,20 @@ module voltapp
         if (vApp%doDeep .and. (.not. gApp%Model%isRestart) .and. (.not. doSpin) ) then
             write(*,*) 'Spinup is required with deep coupling. Please enable the spinup/doSpin option. At least 1 minute of spinup is recommended.'
             stop
+        endif
+
+        if(gApp%Model%isRestart) then
+            call readVoltronRestart(vApp, h5Filename)
+        else
+            ! non-restart initialization
+            vApp%time = gApp%Model%t*gTScl !Time in seconds
+            vApp%ts   = gApp%Model%ts !Timestep
+            vApp%IO%nRes = gApp%Model%IO%nRes
+            vApp%IO%nOut = gApp%Model%IO%nOut
+            vApp%MJD = T2MJD(vApp%time,gApp%Model%MJD0)
+            vApp%ShallowT = vApp%time
+            !Set first deep coupling (defaulting to 0)
+            call xmlInp%Set_Val(vApp%DeepT, "coupling/tDeep", 0.0_rp)
         endif
 
         if (vApp%doDeep) then
@@ -164,14 +168,7 @@ module voltapp
                 write(*,*) 'Necessary CHIMP XML paramters not found, sort that out ...'
                 stop
             endif
-             
-            !Set first deep coupling (defaulting to 0)
-            call xmlInp%Set_Val(vApp%DeepT, "coupling/tDeep", 0.0_rp)
-
-            ! correct tDeep on restart for the serial version
-            ! mpi version corrects on its own in voltapp_mpi
-            if(.not. vApp%isSeparate .and. vApp%time > vApp%DeepT) vApp%DeepT = vApp%time
-
+            
             !Initialize deep coupling type/inner magnetosphere model
             call InitInnerMag(vApp,gApp,xmlInp)
         endif
@@ -306,7 +303,6 @@ module voltapp
         endif !doDeep
 
     end subroutine initializeFromGamera
-
 
 !----------
 !Shallow coupling stuff
