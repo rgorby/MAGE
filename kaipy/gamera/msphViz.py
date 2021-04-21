@@ -87,19 +87,31 @@ def PlotEqB(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True,doBz=False):
 		Ax.set_ylabel('SM-Y [Re]')
 	return Bz
 
-def PlotMerid(gsph,nStp,xyBds,Ax,doDen=False,doRCM=False,AxCB=None,doClear=True,doDeco=True):
+def PlotMerid(gsph,nStp,xyBds,Ax,doDen=False,doRCM=False,AxCB=None,doClear=True,doDeco=True,doSrc=False):
 	CMx = "viridis"
 	if (doDen):
-		cbStr = "Density [#/cc]"
+		
 		if (doRCM):
 			vN = kv.genNorm(1.0,1.0e+3,doLog=True)
 		else:
 			vN = kv.genNorm(0,25)
-		Q = gsph.EggSlice("D",nStp,doEq=False)
+		if (doSrc):
+			vID = "SrcD"
+			cbStr = "Source Density [#/cc]"
+			
+		else:
+			vID = "D"
+			cbStr = "Density [#/cc]"
+		Q = gsph.EggSlice(vID,nStp,doEq=False)
 	else:
-		cbStr = "Pressure [nPa]"
 		vN = vP
-		Q = gsph.EggSlice("P",nStp,doEq=False)
+		if (doSrc):
+			vID = "SrcP"
+			cbStr = "Source Pressure [nPa]"
+		else:
+			vID = "P"
+			cbStr = "Pressure [nPa]"
+		Q = gsph.EggSlice(vID,nStp,doEq=False)
 	if (AxCB is not None):
 		#Add the colorbar to AxCB
 		AxCB.clear()
