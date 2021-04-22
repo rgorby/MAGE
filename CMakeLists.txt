@@ -69,6 +69,16 @@ set(EBIC ${EBICDEF} CACHE FILEPATH "CHIMP EB IC file")
 #Include user cmake file if present
 include(cmake/user.cmake OPTIONAL)
 
+if(ENABLE_MPI)
+    if(MPI_ADDRESS_SIZE)
+        # user is using MPI and over-riding MPI address size
+        add_compile_definitions(MPI_ADDRESS_SIZE=${MPI_ADDRESS_SIZE})
+        message("Over-riding default MPI Address Size with new value of ${MPI_ADDRESS_SIZE}")
+    else()
+        message("Using default MPI Address Size of MPI_ADDRESS_KIND")
+    endif()
+endif()
+
 if(ENABLE_MKL)
     add_compile_definitions(USEMKL)
 endif()
