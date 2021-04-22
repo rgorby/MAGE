@@ -183,6 +183,9 @@ module chmpfields
         i = FindIO(ebIOs,"time")
         ebF%time = inTScl*ebIOs(i)%data(1)
 
+        !inclde step info
+        ebF%gStr = gStr
+
         !------------
         !Pull data into ebField
         ebF%dB = 0.0

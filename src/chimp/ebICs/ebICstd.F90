@@ -143,6 +143,7 @@ module userebic
             ebState%doStatic = .true.
 
             !Copy eb2->eb1
+            eb1%gStr = eb2%gStr
             eb1%time = eb2%time
             eb1%dB   = eb2%dB
             eb1%E    = eb2%E
@@ -156,8 +157,20 @@ module userebic
         !Go ahead and reread both (lazy way of avoiding corner cases)
         call findSlc(ebState%ebTab,t,i1,i2)
 
-        !Read eb1
-        call readEB(Model,ebGr,ebTab,eb1,ebTab%gStrs(i1))
+        ! Put in a trap so copies 2 to 1 and doesnt reread step
+        if ( trim(eb2%gStr) == trim(ebTab%gStrs(i1)) ) then
+            !Copy eb2->eb1
+            eb1%gStr = eb2%gStr
+            eb1%time = eb2%time
+            eb1%dB   = eb2%dB
+            eb1%E    = eb2%E
+            if (Model%doMHD) eb1%W = eb2%W
+            if (Model%doJ) eb1%Jxyz = eb2%Jxyz
+            write(*,'(5a)') '<Copying eb1 from ', trim(ebTab%bStr), '/', trim(ebTab%gStrs(i1)), '>'
+        else
+            !Read eb1
+            call readEB(Model,ebGr,ebTab,eb1,ebTab%gStrs(i1))
+        end if
 
         !Read eb2
         call readEB(Model,ebGr,ebTab,eb2,ebTab%gStrs(i2))
