@@ -63,6 +63,48 @@ def getScIds():
 						'magData': 'B_GSM_c',
 						'magCoordSys': 'GSM'
 						}
+	scDic['GEOTAIL'] = {'ephemId':'GE_K0_MGF',
+						'ephemData':'POS',
+						'ephemCoordSys':'GSE',
+						'denId':'GE_H0_CPI',
+						'denData':'SW_P_Den',
+						'presId': None,
+						'presData': None,
+						'velId': 'GE_H0_CPI',
+						'velData':'SW_Vc',
+						'velCoordSys':'GSE',
+						'magId': 'GE_K0_MGF',
+						'magData': 'IB_vector',
+						'magCoordSys': 'GSE'
+						}
+	scDic['RBSPA'] = {'ephemId':'RBSP-A_MAGNETOMETER_1SEC-GSM_EMFISIS-L3',
+						'ephemData':'coordinates',
+						'ephemCoordSys':'GSM',
+						'denId':'RBSPA_REL04_ECT-HOPE-MOM-L3',
+						'denData':'Dens_p_30',
+						'presId': None,
+						'presData': None,
+						'velId': None,
+						'velData':None,
+						'velCoordSys':None,
+						'magId': 'RBSP-A_MAGNETOMETER_1SEC-GSM_EMFISIS-L3',
+						'magData': 'B_vec_xyz_gse__C1_CP_FGM_SPIN',
+						'magCoordSys': 'GSE'
+						}
+	scDic['CLUSTER1'] = {'ephemId':'C1_CP_FGM_SPIN',
+						'ephemData':'sc_pos_xyz_gse__C1_CP_FGM_SPIN',
+						'ephemCoordSys':'GSE',
+						'denId':'C1_PP_CIS',
+						'denData':'N_p__C1_PP_CIS',
+						'presId': None,
+						'presData': None,
+						'velId': 'C1_PP_CIS',
+						'velData':'V_p_xyz_gse__C1_PP_CIS',
+						'velCoordSys':'GSE',
+						'magId': 'C1_CP_FGM_SPIN',
+						'magData': 'B_vec_xyz_gse__C1_CP_FGM_SPIN',
+						'magCoordSys': 'GSE'
+						}
 	scDic['MMS1'] = {'ephemId':'MMS1_FGM_SRVY_L2',
 						'ephemData':'mms1_fgm_r_gsm_srvy_l2',
 						'ephemCoordSys':'GSM',
@@ -184,6 +226,7 @@ def labelStr(data, key, vecComp):
 	return label
 
 def itemPlot(Ax,data,key,plotNum,numPlots,vecComp=-1):
+	#print(key,vecComp)
 	if -1 == vecComp:
 		Ax.plot(data['Epoch_bin'],data[key][:])
 		Ax.plot(data['Epoch_bin'],data['GAMERA_'+key][:])
@@ -207,6 +250,7 @@ def compPlot(plotname,scId,data):
 	numPlots = 0
 	keysToPlot = []
 	keys = data.keys()
+	#print(keys)
 	if 'Density' in keys:
 		numPlots = numPlots + 1
 		keysToPlot.append('Density')
@@ -228,7 +272,7 @@ def compPlot(plotname,scId,data):
 	gs = fig.add_gridspec(numPlots,1)
 	plotNum = 0
 	for key in keysToPlot:
-		#print(key)
+		#print('Plotting',key)
 		if 'MagneticField' == key or 'Velocity' == key:
 			doVecPlot = True
 		else:
@@ -288,7 +332,7 @@ def extractGAMERA(data,scDic,mjd0,fdir,cmd):
 			smpos = scpos.convert('SM','car')
 		elif 'GSE'== scDic['ephemCoordSys']:
 			scpos = Coords(data['Ephemeris']*toRe,'GSE','car')
-			scpos.ticks = Ticktock(data['Epoch'])
+			scpos.ticks = Ticktock(data['Epoch_bin'])
 			smpos = scpos.convert('SM','car')
 		else:
 			print('Coordinate system transformation failed')
@@ -398,7 +442,7 @@ if __name__ == '__main__':
 	#print('Extracting GAMERA data along',scId, 'trajectory')
 	#cmd = "/Users/wiltbemj/src/kaiju/build/bin/sctrack.x"
 	#Pull the timestep information from the magnetosphere files
-	fname = os.path.join(fdir,ftag+'.gam.h5')
+	fname = os.path.join(fdir,ftag+'.mix.h5')
 	nsteps,sIds=kaiH5.cntSteps(fname)
 	gamMJD=kaiH5.getTs(fname,sIds,aID='MJD')
 	gamT=kaiH5.getTs(fname,sIds,aID='time')
@@ -411,7 +455,9 @@ if __name__ == '__main__':
 	deltaT = np.round(gamT[loc+1]-gamT[loc])
 	mjd0 = gamMJD[loc]
 
-	for scId in scIds:
+	#scToDo =['CLUSTER1']
+	scToDo = scIds
+	for scId in scToDo:
 		print('Getting spacecraft data for', scId)
 		status,data = getSatData(scIds[scId],
 			t0.strftime("%Y-%m-%dT%H:%M:%SZ"),
