@@ -224,7 +224,7 @@ program voltron_mpix
                     endif
                     !Restart output
                     if (vApp%IO%doRestart(vApp%time)) then
-                        call resOutputVOnly(vApp)
+                        call resOutputVOnly(vApp,vApp%gAppLocal)
                     endif
                     !Data output
                     if (vApp%IO%doOutput(vApp%time)) then

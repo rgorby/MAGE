@@ -132,7 +132,7 @@ module voltapp
         endif
 
         if(gApp%Model%isRestart) then
-            call readVoltronRestart(vApp, h5Filename)
+            call readVoltronRestart(vApp, xmlInp)
         else
             ! non-restart initialization
             vApp%time = gApp%Model%t*gTScl !Time in seconds

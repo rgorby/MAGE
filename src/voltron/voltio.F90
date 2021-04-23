@@ -175,7 +175,7 @@ module voltio
 
     end subroutine resOutputV
 
-    subroutine resOutputVOnly(vApp)
+    subroutine resOutputVOnly(vApp, gApp)
         class(voltApp_T), intent(inout) :: vApp
         class(gamApp_T) , intent(inout) :: gApp
 
@@ -224,14 +224,27 @@ module voltio
 
     end subroutine writeVoltRestart
 
-    subroutine readVoltronRestart(vApp,inH5)
+    subroutine readVoltronRestart(vApp,xmlInp)
         class(voltApp_T), intent(inout) :: vApp
-        character(len=*), intent(in) :: inH5
+        type(XML_Input_T), intent(inout) :: xmlInp
 
+        character(len=strLen) :: ResF,resID,nStr
         type(IOVAR_T), dimension(MAXVOLTIOVAR) :: IOVars
+        logical :: fExist
+        integer :: nRes
 
-        write(*,*) 'Reading Voltron restart from ', trim(inH5)
-        inquire(file=inH5,exist=fExist)
+        call xmlInp%Set_Val(resID,"restart/resID","msphere")
+        call xmlInp%Set_Val(nRes,"restart/nRes" ,-1)
+        !Get number string
+        if (nRes == -1) then
+            nStr = "XXXXX"
+        else
+            write (nStr,'(I0.5)') nRes
+        endif
+
+        write (ResF, '(A,A,A,A)') trim(resID), ".volt.Res.", trim(nStr), ".h5"
+        write(*,*) 'Reading Voltron restart from ', trim(ResF)
+        inquire(file=ResF,exist=fExist)
         if (.not. fExist) then
             !Error out and leave
             write(*,*) 'Unable to open input voltron restart file, exiting'
@@ -249,7 +262,7 @@ module voltio
         call AddInVar(IOVars,"DeepT"   ,vTypeO=IOREAL)
 
         !Get data
-        call ReadVars(IOVars,.false.,inH5)
+        call ReadVars(IOVars,.false.,ResF)
 
         vApp%IO%nOut  = GetIOInt(IOVars,"nOut")
         vApp%IO%nRes  = GetIOInt(IOVars,"nRes") + 1
