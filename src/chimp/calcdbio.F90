@@ -99,13 +99,6 @@ module calcdbio
             write(dbOutF,'(a,a,I0.4,a)') trim(adjustl(Model%RunID)),'.',Model%Nblk,'.deltab.h5'
             write(*,*) '------'
             
-            ! !Get step# offset
-            ! !NOTE: Assuming here nice divisibility
-            ! dOut = nint(dtB/Model%dtOut)
-            ! Model%nOut = (Model%Nblk-1)*dOut + 0
-            ! write(*,*) 'Offsetting Step# by ', Model%nOut
-
-
         else
             doParInT = .false.
             NumB = 0
@@ -230,6 +223,15 @@ module calcdbio
         gGr%dbION_rtp = 0.0
         gGr%dbFAC_rtp = 0.0
 
+        !Allocate possibly time-varying coordinates for geomagnetic lat/lon and northward deflection
+        allocate(gGr%smlat(gGr%NLat,gGr%NLon,gGr%Nz))
+        allocate(gGr%smlon(gGr%NLat,gGr%NLon,gGr%Nz))
+        allocate(gGr%dBn  (gGr%NLat,gGr%NLon,gGr%Nz))
+
+        gGr%smlat = 0.0
+        gGr%smlon = 0.0
+        gGr%dBn   = 0.0
+        
     !Write grid
         call ClearIO(IOVars)
         call AddOutVar(IOVars,"X",gGr%GxyzI(:,:,:,XDIR),uStr="Re")
@@ -460,7 +462,7 @@ module calcdbio
         call AddOutVar(IOVars,"SMR_18",gGr%SMR_18,uStr="nT")
 
     !Write out spherical vectors (XDIR:ZDIR = RDIR,TDIR,PDIR)
-        if (.not. Model%doSlim) then
+        if (Model%doFat) then
             !Magnetospheric
             call AddOutVar(IOVars,"dBrM" ,gGr%dbMAG_rtp(:,:,:,RDIR),uStr="nT")
             call AddOutVar(IOVars,"dBtM" ,gGr%dbMAG_rtp(:,:,:,TDIR),uStr="nT")
@@ -482,6 +484,12 @@ module calcdbio
 
         endif
         
+        if (.not. Model%doSlim) then
+            call AddOutVar(IOVars,"smlat" ,gGr%smlat,uStr="deg")
+            call AddOutVar(IOVars,"smlon" ,gGr%smlon,uStr="deg")
+            call AddOutVar(IOVars,"dBn"   ,gGr%dBn  ,uStr="nT" )
+        endif
+
         call AddOutVar(IOVars,"dBr" ,dbRTP(:,:,:,RDIR),uStr="nT")
         call AddOutVar(IOVars,"dBt" ,dbRTP(:,:,:,TDIR),uStr="nT")
         call AddOutVar(IOVars,"dBp" ,dbRTP(:,:,:,PDIR),uStr="nT")
@@ -491,7 +499,6 @@ module calcdbio
         call WriteVars(IOVars,.true.,dbOutF,gStr)
         call ClearIO(IOVars)
         
-
     end subroutine writeDB
 
     !Convert XYZ to RTP vectors

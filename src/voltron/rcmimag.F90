@@ -359,24 +359,6 @@ module rcmimag
 
         enddo
         
-        contains
-            !Calculate Alfven bounce timescale
-            !D = #/m3, B = T, L = Rp
-            function AlfvenBounce(D,B,L) result(dTb)
-                real(rp), intent(in) :: D,B,L
-                real(rp) :: dTb
-
-                real(rp) :: Va,nCC,bNT
-
-                if ( (D<TINY) .or. (L<TINY) ) then
-                    dTb = 0.0
-                    return
-                endif
-                nCC = D*rcmNScl !Get n in #/cc
-                bNT = B*1.0e+9 !Convert B to nT
-                Va = 22.0*bNT/sqrt(nCC) !km/s, from NRL plasma formulary
-                dTb = (L*Rp_m*1.0e-3)/Va
-            end function AlfvenBounce
     end subroutine SetIngestion
 
 !-------------

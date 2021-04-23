@@ -46,7 +46,7 @@ module calcdbcore
 
         !We've done all the work to get dB-XYZ (SM)
         !Before doing anything else calculate auroral indices
-        call CalcAuroralIndices(Model,t,gGr)
+        call CalcSuperMAGIndices(Model,t,gGr)
 
         !Map dB-XYZ (SM) to dB-XYZ (GEO) if desired
         if (gGr%doGEO) then
@@ -169,8 +169,8 @@ module calcdbcore
 
     end subroutine BSIntegral
 
-    !Calculate auroral indices
-    subroutine CalcAuroralIndices(Model,t,gGr)
+    !Calculate supermag indices
+    subroutine CalcSuperMAGIndices(Model,t,gGr)
         type(chmpModel_T), intent(in) :: Model
         real(rp)         , intent(in) :: t
         type(grGrid_T), intent(inout) :: gGr
@@ -179,16 +179,19 @@ module calcdbcore
         integer, dimension(2) :: ijC
         real(rp), dimension(NDIM) :: x0,dBxyz,dBrtp
         real(rp) :: Bn
-        real(rp), dimension(:,:), allocatable :: mlatIJ,mlonIJ,BnIJ,BncorrIJ
+        real(rp), dimension(:,:,:), allocatable :: Bncorr
+        real(rp), dimension(:,:), allocatable :: mlatIJ,mlonIJ,BnIJ,BncIJ
         logical , dimension(:,:), allocatable :: I_UL,I_R,I_00,I_06,I_12,I_18,IRLT
 
-        k = 1 !Do calculation at lowest level
+        
 
-        !Allocate arrays
+    !Allocate arrays
+        allocate(Bncorr(gGr%NLat,gGr%NLon,gGr%Nz))
+        !Sliced down arrays
         allocate(mlatIJ  (gGr%NLat,gGr%NLon))
         allocate(mlonIJ  (gGr%NLat,gGr%NLon))
         allocate(BnIJ    (gGr%NLat,gGr%NLon))
-        allocate(BncorrIJ(gGr%NLat,gGr%NLon))
+        allocate(BncIJ   (gGr%NLat,gGr%NLon))
 
         !Logical masks for different regions
         allocate(I_UL(gGr%NLat,gGr%NLon))
@@ -199,25 +202,34 @@ module calcdbcore
         allocate(I_18(gGr%NLat,gGr%NLon))
         allocate(IRLT(gGr%NLat,gGr%NLon))
 
-        !Get array values (to easily do minloc/maxloc)
-        !$OMP PARALLEL DO default(shared) &
-        !$OMP private(i,j,x0,dBxyz,dBrtp,Bn)
-        do j=1,gGr%NLon
-            do i=1,gGr%NLat
-                x0 = gGr%SMxyzC(i,j,k,:) !Cell center of ground grid
-                mlatIJ(i,j) = asin(x0(ZDIR)/norm2(x0)) *180.0/PI !geomagnetic latitude
-                mlonIJ(i,j) = katan2(x0(YDIR),x0(XDIR))*180.0/PI !geomagnetic longitude
-                !Get total SM-XYZ deflection
-                dBxyz = gGr%dbMAG_xyz(i,j,k,:) + gGr%dbION_xyz(i,j,k,:) + gGr%dbFAC_xyz(i,j,k,:)
-                !Convert to spherical coordinates
-                dBrtp = xyz2rtp(x0,dBxyz)
-                !Bn = -dB_theta-SM
-                Bn = -dBrtp(2) !Deflection in direction of geomagnetic north
-                BnIJ(i,j) = Bn
-                BncorrIJ(i,j) = Bn/cos(mlatIJ(i,j))
-
+    !Get array values (to easily do minloc/maxloc)
+        !$OMP PARALLEL DO default(shared) collapse(2) &
+        !$OMP private(i,j,k,x0,dBxyz,dBrtp,Bn)
+        do k=1,gGr%Nz
+            do j=1,gGr%NLon
+                do i=1,gGr%NLat
+                    x0 = gGr%SMxyzC(i,j,k,:) !Cell center of ground grid
+                    gGr%smlat(i,j,k) = asin(x0(ZDIR)/norm2(x0)) *180.0/PI !geomagnetic latitude
+                    gGr%smlon(i,j,k) = katan2(x0(YDIR),x0(XDIR))*180.0/PI !geomagnetic longitude
+                    !Get total SM-XYZ deflection
+                    dBxyz = gGr%dbMAG_xyz(i,j,k,:) + gGr%dbION_xyz(i,j,k,:) + gGr%dbFAC_xyz(i,j,k,:)
+                    !Convert to spherical coordinates
+                    dBrtp = xyz2rtp(x0,dBxyz)
+                    !Bn = -dB_theta-SM
+                    Bn = -dBrtp(2) !Deflection in direction of geomagnetic north
+                    gGr%dBn(i,j,k) = Bn
+                    Bncorr(i,j,k)  = Bn/cos(gGr%smlat(i,j,k)*PI/180.0) !Corrected northward
+                enddo
             enddo
         enddo
+
+    !Slice down to specific level
+        k = 1 !Do calculation at lowest level
+
+        mlatIJ = gGr%smlat(:,:,k)
+        mlonIJ = gGr%smlon(:,:,k)
+        BnIJ   = gGr%dBn  (:,:,k)
+        BncIJ  = Bncorr   (:,:,k)
 
         !Create mask arrays
         I_UL = (mlatIJ <= SMHiLat) .and. (mlatIJ >= SMLowLat)
@@ -242,22 +254,22 @@ module calcdbcore
 
         !SMR-LTs
         IRLT = I_R .and. I_00
-        gGr%SMR_00 = sum(BnIJ,mask=IRLT)/count(IRLT)
+        gGr%SMR_00 = sum(BncIJ,mask=IRLT)/count(IRLT)
 
         IRLT = I_R .and. I_06
-        gGr%SMR_06 = sum(BnIJ,mask=IRLT)/count(IRLT)
+        gGr%SMR_06 = sum(BncIJ,mask=IRLT)/count(IRLT)
 
         IRLT = I_R .and. I_12
-        gGr%SMR_12 = sum(BnIJ,mask=IRLT)/count(IRLT)
+        gGr%SMR_12 = sum(BncIJ,mask=IRLT)/count(IRLT)
 
         IRLT = I_R .and. I_18
-        gGr%SMR_18 = sum(BnIJ,mask=IRLT)/count(IRLT)
+        gGr%SMR_18 = sum(BncIJ,mask=IRLT)/count(IRLT)
 
     !Calculate derived indices
         gGr%SME =  gGr%SMU - gGr%SML
         gGr%SMO = (gGr%SMU + gGr%SML)/2
         gGr%SMR = 0.25*(gGr%SMR_00+gGr%SMR_06+gGr%SMR_12+gGr%SMR_18)
 
-    end subroutine CalcAuroralIndices
+    end subroutine CalcSuperMAGIndices
 
 end module calcdbcore

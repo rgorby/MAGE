@@ -93,12 +93,15 @@ module calcdbtypes
 		real(rp), dimension(:,:,:,:), allocatable :: GxyzI,GxyzC !Corner/Center points, ground coordinates
         real(rp), dimension(:,:,:,:), allocatable :: SMxyzC !Center points, SM
         logical :: doGEO = .true. !Do GEO coordinates on ground
+        !Ground geomagnetic information (possibly redundant, meh)
+        real(rp), dimension(:,:,:), allocatable :: smlat,smlon,dBn
+
         !Individual ground perturbations
         real(rp), dimension(:,:,:,:), allocatable :: dbMAG_xyz,dbION_xyz,dbFAC_xyz
         real(rp), dimension(:,:,:,:), allocatable :: dbMAG_rtp,dbION_rtp,dbFAC_rtp
 
         !Some parameters for calculation
-        real(rp) :: rMax=40.0 !Radius of magnetospheric ball to integrate over [Re]
+        real(rp) :: rMax=30.0 !Radius of magnetospheric ball to integrate over [Re]
 
         !Auroral indices
         real(rp) :: SML,SML_MLat,SML_MLon

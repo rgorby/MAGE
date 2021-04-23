@@ -165,7 +165,8 @@ module msphingest
                     call CellC2P(Model,pCon,pW)
                     Pmhd = pW(PRESSURE)
                     Mxyz = pCon(MOMX:MOMZ) !Classical momentum
-                                        
+                    Vxyz = pW(VELX:VELZ) !Velocity pre-ingestion
+
                     if (Tau<Model%dt) Tau = Model%dt !Unlikely to happen
 
                     if (doInD) then
@@ -180,12 +181,8 @@ module msphingest
                         pW(PRESSURE) = pW(PRESSURE) + (Model%dt/Tau)*dP
                     endif
 
-                    Vxyz = Mxyz/max(pW(DEN),dFloor) !Conserve classical momentum
-                    !Don't allow mass ingestion to speed things up
-                    if ( norm2(Vxyz) <= norm2(pW(VELX:VELZ)) ) then
-                        !Conserve momentum if it doesn't increase speed
-                        pW(VELX:VELZ) = Vxyz
-                    endif
+                    !Preserve velocity during ingestion, ie ingesting in the moving frame
+                    pW(VELX:VELZ) = Vxyz
 
                     !Now put back
                     call CellP2C(Model,pW,pCon)

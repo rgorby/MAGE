@@ -15,6 +15,7 @@ module rcm_mhd_interfaces
     !Scaling parameters
     real(rprec), parameter :: rcmPScl = 1.0e+9 !Convert Pa->nPa
     real(rprec), parameter :: rcmNScl = 1.0e-6 !Convert #/m3 => #/cc
+    real(rprec), parameter :: rcmBScl = 1.0e+9 !Convert T to nT
 
     type rcm_mhd_T
         real(rprec) :: llBC !MHD low-latitude boundary (radians)
