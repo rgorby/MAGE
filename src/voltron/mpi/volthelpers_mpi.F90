@@ -61,7 +61,7 @@ module volthelpers_mpi
 
         integer :: ierr, length
         character( len = MPI_MAX_ERROR_STRING) :: message
-        integer(KIND=MPI_MYADDRESS) :: disp
+        integer(KIND=MPI_BASE_MYADDR) :: disp
 
         ! lock the data window to set my status
         call mpi_win_lock(MPI_LOCK_EXCLUSIVE, 0, 0, vApp%vHelpWin, ierr)

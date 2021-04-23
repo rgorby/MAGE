@@ -25,7 +25,7 @@ module voltmpitypes
 
         ! array of all zeroes to simplify various send/receive calls
         integer, dimension(:), allocatable :: zeroArrayCounts, zeroArrayTypes
-        integer(kind=MPI_MYADDRESS), dimension(:), allocatable ::  zeroArrayDispls
+        integer(kind=MPI_AN_MYADDR), dimension(:), allocatable ::  zeroArrayDispls
 
         ! list of gamera ranks to communicate with
         integer, dimension(:), allocatable :: sendRanks, recvRanks
@@ -37,24 +37,24 @@ module voltmpitypes
 
         ! SHALLOW COUPLING VARIABLES
         integer, dimension(:), allocatable :: recvCountsGasShallow, recvTypesGasShallow
-        integer(kind=MPI_MYADDRESS), dimension(:), allocatable :: recvDisplsGasShallow
+        integer(kind=MPI_AN_MYADDR), dimension(:), allocatable :: recvDisplsGasShallow
         integer, dimension(:), allocatable :: recvCountsBxyzShallow, recvTypesBxyzShallow
-        integer(kind=MPI_MYADDRESS), dimension(:), allocatable :: recvDisplsBxyzShallow
+        integer(kind=MPI_AN_MYADDR), dimension(:), allocatable :: recvDisplsBxyzShallow
         integer, dimension(:), allocatable :: sendCountsIneijkShallow, sendTypesIneijkShallow
-        integer(kind=MPI_MYADDRESS), dimension(:), allocatable :: sendDisplsIneijkShallow
+        integer(kind=MPI_AN_MYADDR), dimension(:), allocatable :: sendDisplsIneijkShallow
         integer, dimension(:), allocatable :: sendCountsInexyzShallow, sendTypesInexyzShallow
-        integer(kind=MPI_MYADDRESS), dimension(:), allocatable :: sendDisplsInexyzShallow
+        integer(kind=MPI_AN_MYADDR), dimension(:), allocatable :: sendDisplsInexyzShallow
         ! SHALLOW ASYNCHRONOUS VARIABLES
         integer :: shallowIneijkSendReq=MPI_REQUEST_NULL, shallowInexyzSendReq=MPI_REQUEST_NULL
         integer :: asyncShallowBcastReq=MPI_REQUEST_NULL
 
         ! DEEP COUPLING VARIABLES
         integer, dimension(:), allocatable :: recvCountsGasDeep, recvTypesGasDeep
-        integer(kind=MPI_MYADDRESS), dimension(:), allocatable :: recvDisplsGasDeep
+        integer(kind=MPI_AN_MYADDR), dimension(:), allocatable :: recvDisplsGasDeep
         integer, dimension(:), allocatable :: recvCountsBxyzDeep, recvTypesBxyzDeep
-        integer(kind=MPI_MYADDRESS), dimension(:), allocatable :: recvDisplsBxyzDeep
+        integer(kind=MPI_AN_MYADDR), dimension(:), allocatable :: recvDisplsBxyzDeep
         integer, dimension(:), allocatable :: sendCountsGas0Deep, sendTypesGas0Deep
-        integer(kind=MPI_MYADDRESS), dimension(:), allocatable :: sendDisplsGas0Deep
+        integer(kind=MPI_AN_MYADDR), dimension(:), allocatable :: sendDisplsGas0Deep
         logical :: deepProcessingInProgress = .false.
 
     end type voltAppMpi_T

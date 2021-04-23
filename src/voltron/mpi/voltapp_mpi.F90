@@ -83,7 +83,7 @@ module voltapp_mpi
         logical :: reorder, wasWeighted
         integer, allocatable, dimension(:) :: neighborRanks, inData, outData
         integer, allocatable, dimension(:) :: iRanks, jRanks, kRanks
-        integer(KIND=MPI_MYADDRESS) :: winsize
+        integer(KIND=MPI_BASE_MYADDR) :: winsize
 
         vApp%isSeparate = .true. ! running on a different process from the actual gamera ranks
         vApp%gAppLocal%Grid%lowMem = .true. ! tell Gamera to limit its memory usage

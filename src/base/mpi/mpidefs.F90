@@ -7,10 +7,16 @@ module mpidefs
 
   integer, public :: MPI_MYFLOAT
 
-#ifdef MPI_ADDRESS_SIZE
-  integer, parameter :: MPI_MYADDRESS = MPI_ADDRESS_SIZE
+#ifdef MPI_BASE_ADDR_SIZE
+  integer, parameter :: MPI_BASE_MYADDR = MPI_BASE_ADDR_SIZE
 #else
-  integer, parameter :: MPI_MYADDRESS = MPI_ADDRESS_KIND ! this is the default
+  integer, parameter :: MPI_BASE_MYADDR = MPI_ADDRESS_KIND ! this is the default
+#endif
+
+#ifdef MPI_AN_ADDR_SIZE
+  integer, parameter :: MPI_AN_MYADDR   = MPI_AN_ADDR_SIZE
+#else
+  integer, parameter :: MPI_AN_MYADDR   = MPI_ADDRESS_KIND ! this is the default
 #endif
 
 contains
@@ -37,7 +43,7 @@ contains
 
       integer :: numInts, numAdds, numDTs, combiner, ierr, i
       integer, dimension(:), allocatable :: arrayInts, arrayDTs
-      integer(kind=MPI_MYADDRESS), dimension(:), allocatable :: arrayAdds
+      integer(kind=MPI_BASE_MYADDR), dimension(:), allocatable :: arrayAdds
       call mpi_type_get_envelope(datatype, numInts, numAdds, numDTs, combiner, ierr)
 
       SELECT CASE(combiner)

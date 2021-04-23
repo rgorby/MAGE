@@ -21,17 +21,17 @@ module gam2VoltComm_mpi
 
         ! array of all zeroes to simplify various send/receive calls
         integer, dimension(1) :: zeroArrayCounts = (/ 0 /), zeroArrayTypes = (/ MPI_INT /)
-        integer(kind=MPI_MYADDRESS), dimension(1) :: zeroArrayDispls = (/ 0 /)
+        integer(kind=MPI_AN_MYADDR), dimension(1) :: zeroArrayDispls = (/ 0 /)
 
         ! SHALLOW COUPLING VARIABLES
         integer, dimension(1) :: sendCountsGasShallow, sendTypesGasShallow
-        integer(kind=MPI_MYADDRESS), dimension(1) :: sendDisplsGasShallow
+        integer(kind=MPI_AN_MYADDR), dimension(1) :: sendDisplsGasShallow
         integer, dimension(1) :: sendCountsBxyzShallow, sendTypesBxyzShallow
-        integer(kind=MPI_MYADDRESS), dimension(1) :: sendDisplsBxyzShallow
+        integer(kind=MPI_AN_MYADDR), dimension(1) :: sendDisplsBxyzShallow
         integer, dimension(1) :: recvCountsIneijkShallow, recvTypesIneijkShallow
-        integer(kind=MPI_MYADDRESS), dimension(1) :: recvDisplsIneijkShallow
+        integer(kind=MPI_AN_MYADDR), dimension(1) :: recvDisplsIneijkShallow
         integer, dimension(1) :: recvCountsInexyzShallow, recvTypesInexyzShallow
-        integer(kind=MPI_MYADDRESS), dimension(1) :: recvDisplsInexyzShallow
+        integer(kind=MPI_AN_MYADDR), dimension(1) :: recvDisplsInexyzShallow
         ! SHALLOW ASYNCHRONOUS VARIABLES
         integer :: shallowGasSendReq=MPI_REQUEST_NULL, shallowBxyzSendReq=MPI_REQUEST_NULL, shallowTimeBcastReq=MPI_REQUEST_NULL
         real(rp), dimension(:,:,:,:,:), allocatable :: gasBuffer
@@ -39,11 +39,11 @@ module gam2VoltComm_mpi
         
         ! DEEP COUPLING VARIABLES
         integer, dimension(1) :: sendCountsGasDeep, sendTypesGasDeep
-        integer(kind=MPI_MYADDRESS), dimension(1) :: sendDisplsGasDeep
+        integer(kind=MPI_AN_MYADDR), dimension(1) :: sendDisplsGasDeep
         integer, dimension(1) :: sendCountsBxyzDeep, sendTypesBxyzDeep
-        integer(kind=MPI_MYADDRESS), dimension(1) :: sendDisplsBxyzDeep
+        integer(kind=MPI_AN_MYADDR), dimension(1) :: sendDisplsBxyzDeep
         integer, dimension(1) :: recvCountsGas0Deep, recvTypesGas0Deep
-        integer(kind=MPI_MYADDRESS), dimension(1) :: recvDisplsGas0Deep
+        integer(kind=MPI_AN_MYADDR), dimension(1) :: recvDisplsGas0Deep
 
     end type gam2VoltCommMpi_T
 
