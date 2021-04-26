@@ -32,7 +32,7 @@ module voltapp
         type(XML_Input_T) :: xmlInp
         type(TimeSeries_T) :: tsMJD
         real(rp) :: gTScl,tSpin,tIO
-        logical :: doSpin,doDelayIO
+        logical :: doSpin
 
         if(present(optFilename)) then
             ! read from the prescribed file
@@ -67,9 +67,7 @@ module voltapp
 
         !Check for spinup info
         call xmlInp%Set_Val(doSpin,"spinup/doSpin",.true.)
-        tIO = 0.0
-        doDelayIO = .false.
-        if (doSpin .and. (.not. gApp%Model%isRestart)) then
+        if (doSpin) then
             !Doing spinup and not a restart
             call xmlInp%Set_Val(tSpin,"spinup/tSpin",7200.0) !Default two hours
             !Rewind Gamera time to negative tSpin (seconds)
@@ -77,9 +75,6 @@ module voltapp
             !Reset State/oState
             gApp% State%time  = gApp%Model%t
             gApp%oState%time  = gApp%Model%t-gApp%Model%dt
-
-            doDelayIO = .true.
-            call xmlInp%Set_Val(tIO,"spinup/tIO",0.0) !Time of first restart
         endif
 
         !Use MJD from time series
@@ -92,12 +87,7 @@ module voltapp
         !Sync Gamera to Voltron endtime
         gApp%Model%tFin = vApp%tFin/gTScl
         
-    !IO/Restart options
-        if (doDelayIO) then
-            call vApp%IO%init(xmlInp,tIO,vApp%ts)
-        else
-            call vApp%IO%init(xmlInp,vApp%time,vApp%ts)
-        endif
+        call vApp%IO%init(xmlInp,vApp%time,vApp%ts)
         
         !Pull numbering from Gamera
         vApp%IO%tsNext = gApp%Model%IO%tsNext
@@ -125,22 +115,43 @@ module voltapp
             vApp%doDeep = .false.
         endif
 
-        ! Deep enabled, not restart, not spinup is an error. Restart or spinup is required
-        if (vApp%doDeep .and. (.not. gApp%Model%isRestart) .and. (.not. doSpin) ) then
-            write(*,*) 'Spinup is required with deep coupling. Please enable the spinup/doSpin option. At least 1 minute of spinup is recommended.'
-            stop
-        endif
-
         if(gApp%Model%isRestart) then
             call readVoltronRestart(vApp, xmlInp)
+            vApp%IO%tOut = floor(vApp%time/vApp%IO%dtOut)*vApp%IO%dtOut
+            vApp%IO%tRes = vApp%time + vApp%IO%dtRes
+            vApp%IO%tsNext = vApp%ts
+            if(vApp%isSeparate) then
+                gApp%Model%ts = vApp%ts
+                gApp%Model%t  = vApp%time/gTScl
+                gApp% State%time  = gApp%Model%t
+                gApp%oState%time  = gApp%Model%t-gApp%Model%dt
+            endif
         else
             ! non-restart initialization
+            !Check for spinup info
+            call xmlInp%Set_Val(doSpin,"spinup/doSpin",.true.)
+            ! Deep enabled, not restart, not spinup is an error. Restart or spinup is required
+            if (vApp%doDeep .and. (.not. doSpin) ) then
+                write(*,*) 'Spinup is required with deep coupling. Please enable the spinup/doSpin option. At least 1 minute of spinup is recommended.'
+                stop
+            endif
+            if (doSpin) then
+                call xmlInp%Set_Val(tSpin,"spinup/tSpin",7200.0) !Default two hours
+                !Rewind Gamera time to negative tSpin (seconds)
+                gApp%Model%t = -tSpin/gTScl
+                !Reset State/oState
+                gApp% State%time  = gApp%Model%t
+                gApp%oState%time  = gApp%Model%t-gApp%Model%dt
+                call xmlInp%Set_Val(tIO,"spinup/tIO",gApp%Model%t*gTScl) !Time of first restart and output
+                gApp%Model%IO%tRes = tIO/gTScl
+                gApp%Model%IO%tOut = tIO/gTScl
+                vApp%IO%tRes = tIO
+                vApp%IO%tOut = tIO
+            endif
             vApp%time = gApp%Model%t*gTScl !Time in seconds
             vApp%ts   = gApp%Model%ts !Timestep
-            vApp%IO%nRes = gApp%Model%IO%nRes
-            vApp%IO%nOut = gApp%Model%IO%nOut
             vApp%MJD = T2MJD(vApp%time,gApp%Model%MJD0)
-            vApp%ShallowT = vApp%time
+            vApp%ShallowT = vApp%time ! shallow coupling immediately
             !Set first deep coupling (defaulting to 0)
             call xmlInp%Set_Val(vApp%DeepT, "coupling/tDeep", 0.0_rp)
         endif
