@@ -336,7 +336,7 @@ module rcmimag
         integer , dimension(:), allocatable :: jBnd
         integer :: i,j
         logical :: inMHD,isClosed
-        real(rp) :: Tbnc
+        real(rp) :: Drc,bEq,Lb
 
         RCMApp%toMHD(:,:) = .false.
         !Testing lazy quick boundary
@@ -344,7 +344,11 @@ module rcmimag
         !Now find nominal current boundary
         jBnd(:) = RCMApp%nLat_ion-1
 
+       !$OMP PARALLEL DO default(shared) &
+       !$OMP private(i,j,inMHD,isClosed,Drc,bEq,Lb)
         do j=1,RCMApp%nLon_ion
+            !Zero out ingestion timescale
+            RCMApp%Tb(:,j) = 0.0
             do i = RCMApp%nLat_ion,1,-1
                 inMHD = RCMApp%toMHD(i,j)
                 isClosed = (RCMApp%iopen(i,j) == RCMTOPCLOSED)
@@ -357,8 +361,34 @@ module rcmimag
             RCMApp%toMHD(:,j) = .false.
             RCMApp%toMHD(jBnd(j):,j) = .true.
 
+            !Calculate ingestion timescale in this longitude
+            !Use only hot population from RCM
+            do i = jBnd(j),RCMApp%nLat_ion
+                Drc = rcmNScl*RCMApp%Nrcm (i,j) !#/cc
+                Drc = max(Drc,TINY)
+                bEq = rcmBScl*RCMApp%Bmin (i,j) !Mag field [nT]
+                Lb  = (RCMApp%planet_radius)*(1.0e-3)*RCMApp%Lb(i,j) !Lengthscale [km]
+                RCMApp%Tb(i,j) = AlfBounce(Drc,bEq,Lb)
+            enddo
+
         enddo
-        
+
+        contains
+        !Calculate Alfven bounce timescale
+        !D = #/cc, B = nT, L = km
+        function AlfBounce(Dcc,BnT,Lkm) result(dTb)
+            real(rp), intent(in) :: Dcc,BnT,Lkm
+            real(rp) :: dTb
+
+            real(rp) :: Va
+            if ( (Dcc<TINY) .or. (Lkm<TINY) ) then
+                dTb = 0.0
+                return
+            endif
+            Va = 22.0*BnT/sqrt(Dcc) !km/s, from NRL plasma formulary
+            dTb = Lkm/Va
+        end function AlfBounce
+
     end subroutine SetIngestion
 
 !-------------

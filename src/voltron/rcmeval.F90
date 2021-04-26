@@ -98,7 +98,7 @@ module rcmeval
         integer , dimension(Np,2) :: IJs
         real(rp), dimension(Np) :: Ws,nLims,pLims,Tbs
         logical , dimension(Np) :: isGs
-        real(rp) :: colat,npp,nrcm,nmhd,prcm,pmhd,beta,bEq,Lb
+        real(rp) :: colat,npp,nrcm,nmhd,prcm,pmhd,beta
 
         Ni = RCMApp%nLat_ion
         Nj = RCMApp%nLon_ion
@@ -145,11 +145,6 @@ module rcmeval
             !Pressure [nPa]
             prcm = rcmPScl*RCMApp%Prcm (ip,jp)
             pmhd = rcmPScl*RCMApp%Pave (ip,jp)
-            !Mag field [nT]
-            bEq  = rcmBScl*RCMApp%Bmin (ip,jp)
-            !Field line length [Rp]
-            Lb   =         RCMApp%Lb   (ip,jp)
-            Lb = (RCMApp%planet_radius)*(1.0e-3)*Lb !Field line length [km]
 
             beta = RCMApp%beta_average(ip,jp)
 
@@ -161,10 +156,7 @@ module rcmeval
                 call WolfLimit(nrcm,prcm,npp,nmhd,pmhd,0.0_rp,nLims(n),pLims(n))
             endif
 
-            !Tbs(n) = RcMApp%Tb(ip,jp)
-            !Changing Tb to use Alfven based only on hot population
-            Tbs(n) = AlfBounce(max(TINY,nrcm),bEq,Lb)
-
+            Tbs(n) = RcMApp%Tb(ip,jp)
         enddo
     !Get final ingestion values
         imW(IMDEN) = dot_product(nLims,Ws)
@@ -182,38 +174,6 @@ module rcmeval
     !--------
     !Internal routines
         contains
-        !Calculate Alfven bounce timescale
-        !D = #/cc, B = nT, L = km
-        function AlfBounce(Dcc,BnT,Lkm) result(dTb)
-            real(rp), intent(in) :: Dcc,BnT,Lkm
-            real(rp) :: dTb
-
-            real(rp) :: Va
-            if ( (Dcc<TINY) .or. (Lkm<TINY) ) then
-                dTb = 0.0
-                return
-            endif
-            Va = 22.0*BnT/sqrt(Dcc) !km/s, from NRL plasma formulary
-            dTb = Lkm/Va
-        end function AlfBounce
-
-        ! !Calculate Alfven bounce timescale
-        ! !D = #/m3, B = T, L = Rp
-        ! function AlfvenBounce(D,B,L) result(dTb)
-        !     real(rp), intent(in) :: D,B,L
-        !     real(rp) :: dTb
-
-        !     real(rp) :: Va,nCC,bNT
-
-        !     if ( (D<TINY) .or. (L<TINY) ) then
-        !         dTb = 0.0
-        !         return
-        !     endif
-        !     nCC = D*rcmNScl !Get n in #/cc
-        !     bNT = B*1.0e+9 !Convert B to nT
-        !     Va = 22.0*bNT/sqrt(nCC) !km/s, from NRL plasma formulary
-        !     dTb = (L*Rp_m*1.0e-3)/Va
-        ! end function AlfvenBounce
 
         !Get ij's of stencil points and weights
         subroutine GetInterpTSC(lat,lon,ij0,IJs,Ws,isGs)

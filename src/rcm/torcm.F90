@@ -13,7 +13,7 @@ MODULE torcm_mod
   logical, parameter :: doSmoothEta = .false. !Whether to smooth eeta at boundary
   !Whether to do reverse blend near outer boundary, i.e. nudge RCM to MHD
   logical, parameter :: doRevBlend  = .false.
-  logical, parameter :: doPPSmooth = .false. !Try to smooth plasmapause
+  logical, parameter :: doPPSmooth = .true. !Try to smooth plasmapause
   integer(iprec), private, parameter :: NumG = 4 !How many buffer cells to require
 
   contains
@@ -215,7 +215,7 @@ MODULE torcm_mod
         
         if (doPPSmooth) then
           !Adding some smoothing to the plasmapause
-          call SmoothPPause(eeta(:,:,1),vm,iopen,imin_j)
+          call SmoothPPause(eeta(:,:,1),vm,iopen,imin_j,RM%dtCpl)
         endif
       endif
 
@@ -316,18 +316,21 @@ MODULE torcm_mod
 
       !Smooth ragged edges at the plasmapause
 !----------------------------------------------------------
-      SUBROUTINE SmoothPPause(etapp,vm,iopen,imin_j)
+      SUBROUTINE SmoothPPause(etapp,vm,iopen,imin_j,dtCpl)
         USE rcmdefs,ONLY : isize,jsize
+        USE RCM_mod_subs,ONLY : dtAvg_v
+
         IMPLICIT NONE
         REAL(rprec)   , INTENT(INOUT) :: etapp(isize,jsize)
         REAL(rprec)   , INTENT(IN)    :: vm(isize,jsize)
         INTEGER(iprec), INTENT(IN)    :: iopen(isize,jsize)
         INTEGER(iprec), INTENT(IN)    :: imin_j(jsize)
+        REAL(rprec)   , INTENT(IN)    :: dtCpl
 
         REAL(rprec) :: bndlocpp(jsize),bndlocpp_new(jsize)
         INTEGER(iprec) :: imin_jpp(jsize)
         INTEGER(iprec) :: i,j,n,n_smooth,di
-        REAL(rprec) :: dpp,Ac(3)
+        REAL(rprec) :: dpp,Ac(3),ppscl
         INTEGER(iprec), parameter :: NumI = NumG
 
         !Find plasmapause
@@ -362,9 +365,13 @@ MODULE torcm_mod
         !   call SmoothJEta(etapp,iopen,imin_jpp,di,Ac)
         ! enddo
 
-        !Zero out below plasmapause
+      !Deplete below plasmapause
+        !Attenuate so that ~95% is lost over dtAvg_v
+        ppscl = exp(-3*dtCpl/max(dtAvg_v,dtCpl))
         do j=1,jsize
-          etapp(1:imin_jpp(j)+1,j) = 0.0 !Zero out below this
+          do i=1,imin_jpp(j)+1
+            etapp(i,j) = ppscl*etapp(i,j)
+          enddo
         enddo
 
       END SUBROUTINE SmoothPPause

@@ -135,6 +135,7 @@ module imagtubes
         ijTube%lonc = modulo( atan2(xyzIonC(YDIR),xyzIonC(XDIR)),2*PI )
         ijTube%Lb = FLArc(ebModel,ebGr,bTrc)
         ijTube%Tb = FLAlfvenX(ebModel,ebGr,bTrc)
+        
         ijTube%losscone = asin(sqrt(bMin/bIon))
 
         !Get curvature radius and ExB velocity [km/s]

@@ -1714,7 +1714,7 @@
           call xmlInp%Set_Val(L_doOMPClaw,"clawpack/doOMPClaw",L_doOMPClaw)
 
           !Averaging timescale for plasmasphere
-          call xmlInp%Set_Val(dtAvg_v,"plasmasphere/tAvg",0.0)
+          call xmlInp%Set_Val(dtAvg_v,"plasmasphere/tAvg",600.0)
 
           !Some values just setting
           tol_gmres = 1.0e-5
@@ -2057,8 +2057,8 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
   !Do array-sized prep work
   !$OMP PARALLEL WORKSHARE if (L_doOMPClaw)
   fac = 1.0E-3*signbe*bir*alpha*beta*dlam*dpsi*ri**2
-  vv     = v + vcorot - vpar !Current potential
-  vv_avg = v_avg + vcorot !Time-averaged potential for plasmasphere
+  vv     = v     + vcorot - vpar !Current potential
+  vv_avg = v_avg + vcorot - vpar !Time-averaged potential for plasmasphere
 
   where (.not. isOpen)
     !Using ftv directly w/ possible intermediate smoothing
@@ -2801,7 +2801,7 @@ SUBROUTINE Kaiju_Plasmasphere_Refill(eeta0,rmin,aloct,vm,imin_j,idt)
 
       !Now calculate refilling
       dndt = 10.0**(3.48-0.331*rmin(i,j)) !cm^-3/day, Denton+ 2012 eqn 1
-      !dndt = (cos(aloct(i,j))+1)*dndt !Bias refilling towards dayside
+      dndt = (cos(aloct(i,j))+1)*dndt !Bias refilling towards dayside
 
       deta = (idt*s2day)*dndt/eta2cc !Change in eta over idt
       deta = min(deta,etaT-eeta0(i,j)) !Don't overfill
