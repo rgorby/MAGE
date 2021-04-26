@@ -366,10 +366,11 @@ MODULE torcm_mod
         ! enddo
 
       !Deplete below plasmapause
-        !Attenuate so that ~95% is lost over dtAvg_v
-        ppscl = exp(-3*dtCpl/max(dtAvg_v,dtCpl))
+        !Attenuate over dtAvg_v
+        ppscl = exp(-dtCpl/max(dtAvg_v,dtCpl))
+
         do j=1,jsize
-          do i=1,imin_jpp(j)+1
+          do i=1,imin_jpp(j)
             etapp(i,j) = ppscl*etapp(i,j)
           enddo
         enddo
