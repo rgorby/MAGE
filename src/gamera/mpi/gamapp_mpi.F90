@@ -19,12 +19,12 @@ module gamapp_mpi
         ! Gas Data Transfer Variables
         integer, dimension(:), allocatable :: sendCountsGas, sendTypesGas
         integer, dimension(:), allocatable :: recvCountsGas, recvTypesGas
-        integer(MPI_ADDRESS_KIND), dimension(:), allocatable :: sendDisplsGas, recvDisplsGas
+        integer(kind=MPI_AN_MYADDR), dimension(:), allocatable :: sendDisplsGas, recvDisplsGas
 
         ! Magnetic Flux Data Transfer Variables
         integer, dimension(:), allocatable :: sendCountsMagFlux, sendTypesMagFlux
         integer, dimension(:), allocatable :: recvCountsMagFlux, recvTypesMagFlux
-        integer(MPI_ADDRESS_KIND), dimension(:), allocatable :: sendDisplsMagFlux, recvDisplsMagFlux
+        integer(kind=MPI_AN_MYADDR), dimension(:), allocatable :: sendDisplsMagFlux, recvDisplsMagFlux
 
         ! Debugging flags
         logical :: printMagFluxFaceError = .false.
@@ -1359,7 +1359,7 @@ module gamapp_mpi
         integer :: offsetI, offsetJ, offsetK, dataSum, ierr, dataSize
         logical :: anyMaxDim,sendSharedFace
         integer :: countArray(3)
-        integer(MPI_ADDRESS_KIND) :: offsetArray(3)
+        integer(kind=MPI_BASE_MYADDR) :: offsetArray(3)
 
         associate(Grid=>gamAppMpi%Grid,Model=>gamAppMpi%Model)
 
@@ -1471,7 +1471,7 @@ module gamapp_mpi
 
         ! default counts and offsets
         countArray = (/1,1,1/)
-        offsetArray = (/integer(MPI_ADDRESS_KIND):: offsetI, offsetJ, offsetK /)
+        offsetArray = (/integer(kind=MPI_BASE_MYADDR):: offsetI, offsetJ, offsetK /)
         if(sendSharedFace) then
             ! this is only sending data for shared faces with an adjacent type
             if(iData /= 1) then
@@ -1502,14 +1502,14 @@ module gamapp_mpi
         integer, intent(in) :: dType, offset
 
         integer :: ierr
-        integer(kind=MPI_ADDRESS_KIND) :: tempOffsets(2)
+        integer(kind=MPI_BASE_MYADDR) :: tempOffsets(2)
 
         if(appendType == MPI_DATATYPE_NULL) then
             ! the root datatype is empty, just add the new type and offset
             call mpi_type_hindexed(1, (/ 1 /), (/ offset /), dType, appendType, ierr)
         else
             ! the root datatype already has defined structure, so merge with the new one into a struct
-            ! need to use a temporary array so that the ints are of type MPI_ADDRESS_KIND
+            ! need to use a temporary array so that the ints are of type MPI_BASE_MYADDR
             tempOffsets = (/ 0, offset /)
             call mpi_type_create_struct(2, (/ 1, 1 /), tempOffsets, (/ appendType, dType /), appendType, ierr)
         endif

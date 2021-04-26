@@ -211,7 +211,7 @@ def plotXY(gsph,nStp,xyBds,Ax,AxCB,var='D',vMin=None,vMax=None,doDeco=True,cmap=
 
 def plotXZ(gsph,nStp,xzBds,Ax,AxCB,var='D',vMin=None,vMax=None,doDeco=True,cmap='viridis',doLog=False,midp=None):
 	data = gsph.EggSlice(var,nStp,doEq=False)
-	plotPlane(gsph,data,xyBds,Ax,AxCB,var,vMin=vMin,vMax=vMax,doDeco=doDeco,cmap=cmap,doLog=doLog,midp=midp)
+	plotPlane(gsph,data,xzBds,Ax,AxCB,var,vMin=vMin,vMax=vMax,doDeco=doDeco,cmap=cmap,doLog=doLog,midp=midp)
 	if (doDeco):
 		kv.addEarth2D(ax=Ax)
 		Ax.set_xlabel('SM_X [Re]')
