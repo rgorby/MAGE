@@ -1714,7 +1714,7 @@
           call xmlInp%Set_Val(L_doOMPClaw,"clawpack/doOMPClaw",L_doOMPClaw)
 
           !Averaging timescale for plasmasphere
-          call xmlInp%Set_Val(dtAvg_v,"plasmasphere/tAvg",300.0)
+          call xmlInp%Set_Val(dtAvg_v,"plasmasphere/tAvg",0.0)
 
           !Some values just setting
           tol_gmres = 1.0e-5
@@ -2095,7 +2095,7 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
   !$OMP PRIVATE(lossCX,lossFLC,lossFDG) &
   !$OMP SHARED(isOpen,iOCB_j,alamc,eeta,vm,imin_j,j1,j2,joff) &
   !$OMP SHARED(doOCBLoss,doFLCLoss,doNewCX,dp_on,doPPRefill) &
-  !$OMP SHARED(dvvdi,dvvdj,dvmdi,dvmdj,dvvdi_avg,dvvdj_avg) &
+  !$OMP SHARED(dvvdi,dvvdj,dvmdi,dvmdj,dvvdi_avg,dvvdj_avg,dtAvg_v) &
   !$OMP SHARED(xmin,ymin,rmin,fac,fudgec,bir,sini,L_dktime,dktime,sunspot_number) &
   !$OMP SHARED(aloct,xlower,xupper,ylower,yupper,dt,T1,T2,iMHD,bmin,radcurv,losscone) 
   DO kc = 1, kcsize
@@ -2117,7 +2117,7 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
   !---
   !Get "interface" velocities on clawpack grid, |-1:isize+2,-1:jsize-1|
     !Start by calculating dvedi,dvedj = grad_ij (veff) = grad_ij (vv) + alamc(k)*grad_ij vm
-    if (abs(alamc(kc))<TINY) then
+    if ( (abs(alamc(kc))<TINY) .and. (dtAvg_v>TINY) ) then
       !Do plasmasphere effective potential, uses averaged potential and no energy dep. portion
       dvedi = dvvdi_avg
       dvedj = dvvdj_avg
@@ -2775,7 +2775,8 @@ SUBROUTINE Kaiju_Plasmasphere_Refill(eeta0,rmin,aloct,vm,imin_j,idt)
   REAL (rprec) :: dppT,dpsph,eta2cc,tau,etaT,deta,dndt
   REAL (rprec) :: dpp0
 
-  dpp0 = 10*DenPP0 !Use 10x the plasmasphere cutoff density to decide on refilling
+  !dpp0 = 10*DenPP0 !Use 10x the plasmasphere cutoff density to decide on refilling
+  dpp0 = DenPP0
 
   do j=1,jsize
     do i=1,isize
@@ -2800,20 +2801,12 @@ SUBROUTINE Kaiju_Plasmasphere_Refill(eeta0,rmin,aloct,vm,imin_j,idt)
 
       !Now calculate refilling
       dndt = 10.0**(3.48-0.331*rmin(i,j)) !cm^-3/day, Denton+ 2012 eqn 1
-      dndt = (cos(aloct(i,j))+1)*dndt !Bias refilling towards dayside
+      !dndt = (cos(aloct(i,j))+1)*dndt !Bias refilling towards dayside
+
       deta = (idt*s2day)*dndt/eta2cc !Change in eta over idt
       deta = min(deta,etaT-eeta0(i,j)) !Don't overfill
 
       eeta0(i,j) = eeta0(i,j) + deta
-
-      ! deta = etaT-eeta0(i,j)
-
-      ! !Using timescale [days] from Denton+ 2012, equation 3
-      ! !tau = (2.63*day2s)*10**(0.016*rmin(i,j)) !Refilling timescale [s]
-
-      ! dndt = 10.0**(3.48-0.331*rmin(i,j)) !cm^-3/day, Denton+ 2012 eqn 1
-      ! tau = day2s*(dppT-dpsph)/dndt
-      ! eeta0(i,j) = eeta0(i,j) + min(idt/tau,1.0)*max(deta,0.0) !Make sure not to overfill but unlikely
 
     enddo
   enddo

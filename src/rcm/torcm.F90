@@ -348,23 +348,24 @@ MODULE torcm_mod
 
         do n=1,n_smooth
           call SmoothJBnd(bndlocpp,bndlocpp_new)
-          !Store back w/ trap for only earthward
-          bndlocpp = max(bndlocpp,bndlocpp_new)
+          !!Store back w/ trap for only earthward
+          !bndlocpp = max(bndlocpp,bndlocpp_new)
+          bndlocpp = bndlocpp_new
         enddo
 
         !Convert to indices
         imin_jpp = ceiling(bndlocpp)
         
-        !Smooth around estimated plasmapause
-        Ac = [0.25,0.5,1.0] !Smoothing coefficients
-        do di = -NumI/2,+NumI/2
-          call SmoothJEta(etapp,iopen,imin_jpp,di,Ac)
-        enddo
-
-        ! !Zero out below plasmapause
-        ! do j=1,jsize
-        !   etapp(1:imin_jpp(j),j) = 0.0 !Zero out below this
+      !Smooth around estimated plasmapause
+        ! Ac = [0.25,0.5,1.0] !Smoothing coefficients
+        ! do di = -NumI/2,+NumI/2
+        !   call SmoothJEta(etapp,iopen,imin_jpp,di,Ac)
         ! enddo
+
+        !Zero out below plasmapause
+        do j=1,jsize
+          etapp(1:imin_jpp(j)+1,j) = 0.0 !Zero out below this
+        enddo
 
       END SUBROUTINE SmoothPPause
 
