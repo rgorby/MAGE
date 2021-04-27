@@ -107,5 +107,7 @@ if(ENABLE_MPI)
 	endif()
 	# no matching flag for GNU
 	set(CMAKE_Fortran_COMPILER ${MPI_Fortran_COMPILER})
+	# we changed compiler, link HDF5 libraries
+	link_libraries(${HDF5_Fortran_LIBRARIES} ${HDF5_Fortran_HL_LIBRARIES})
 endif()
 
