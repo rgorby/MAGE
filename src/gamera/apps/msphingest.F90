@@ -134,7 +134,10 @@ module msphingest
         if (.not. doIngest) return
         if ( (Model%t<=0) .and. (.not. doAppetizer) ) return !You'll spoil your appetite
 
-    	if ( (Model%t<0) .and. (Model%ts>1) .and. doAppetizer .and. TM03%doInit) then
+    	!if ( (Model%t<0) .and. (Model%ts>1) .and. doAppetizer .and. TM03%doInit) then
+        !For now redoing every 100 timesteps to make sure voltron doesn't overwrite (bit silly)
+        !TODO: Remove this after overhauling source ingestion
+        if ( (Model%t<0) .and. (modulo(Model%ts,100) == 0) .and. doAppetizer ) then
     		!Load TM03 into Gas0 for ingestion during spinup
     		call LoadSpinupGas0(Model,Gr)
     	endif
