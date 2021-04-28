@@ -127,18 +127,13 @@ module mixmain
           I(h)%conductance%const_sigma = .true.            
         end if
 
-        call Tic("MIX-COND")
         if (present(gcm) .and. isRestart) then
           !write(*,*) "conductance: restart"
           !we read the conductance from file, so we're going to skip
           gcm%isRestart = .false.
           !write(*,*) "Get rePOT: ", maxval(I(h)%St%Vars(:,:,POT)),minval(I(h)%St%Vars(:,:,POT))
-          call Toc("MIX-COND")
-          call Tic("MIX-SOLVE")
-          call Toc("MIX-SOLVE")
-          call Tic("MIX-POT")
-          call Toc("MIX-POT")
         else
+          call Tic("MIX-COND")
           if (present(gcm)) then
             !write(*,*) 'doGCM!'
             call conductance_total(I(h)%conductance,I(h)%G,I(h)%St,gcm,h)
@@ -147,16 +142,17 @@ module mixmain
             call conductance_total(I(h)%conductance,I(h)%G,I(h)%St)
           end if
           call Toc("MIX-COND")
+
           call Tic("MIX-SOLVE")
           call run_solver(I(h)%P,I(h)%G,I(h)%St,I(h)%S)
           call Toc("MIX-SOLVE")
+
           call Tic("MIX-POT")
           call get_potential(I(h))
           call Toc("MIX-POT")
         end if
+
       end do
     end subroutine run_mix
-
-
 
 end module mixmain
