@@ -43,6 +43,7 @@ module chmpdefs
         logical :: doWPI=.false. !Include wave particle interactions
         logical :: doEQScat=.false. !Do equatorial PA scattering
         real(rp) :: reqScat
+        logical :: doPP=.false. !Include plasmapaus location calculations
 
         !Background field pointers
         procedure(B0_T)   , pointer, nopass :: B0

@@ -3,6 +3,7 @@ module chmpfields
     use chmpunits
     use ebtypes
     use ebutils
+    use pputils
     use ioH5
     use math
 
@@ -75,8 +76,9 @@ module chmpfields
     !Reads specific slice given by group string
     !File: bStr, Group: gStr
     !NOTE: Calculating convective electric field to avoid diffusive terms
-    subroutine readEB(Model,ebGr,ebTab,ebF,gStr)
+    subroutine readEB(Model,ebState,ebGr,ebTab,ebF,gStr)
         type(chmpModel_T), intent(in)     :: Model
+        type(ebState_T), intent(inout)   :: ebState
         type(   ebGrid_T), intent(in)     :: ebGr
         type(ebTab_T), intent(in) :: ebTab
         type(  ebField_T), intent(inout)  :: ebF
@@ -229,6 +231,10 @@ module chmpfields
         !------------
         !Fill in ghosts
         call ebGhosts(Model,ebGr,ebF)
+
+        !------------
+        !Calculate Lpp(MLT) if needed
+        if (Model%doPP) call calcLppMLT(Model,ebState,ebF%time,ebF%Lpp)
         
         !------------
         !Clean up

@@ -150,6 +150,9 @@ module starter
         call inpXML%Set_Val(Model%doEQScat,'wpi/doEQScat',.false.)
         !Outer boundary of scattering
         call inpXML%Set_Val(Model%reqScat, 'wpi/reqScat' ,HUGE)
+
+    !Plasmapause
+        call inpXML%Set_Val(Model%doPP,'pp/doPP',.false.)
         !Basic setup
         Model%t    = Model%T0
         Model%tOut = T0Out

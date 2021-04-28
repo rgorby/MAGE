@@ -66,6 +66,9 @@ module userebic
         !Do various types of initialization
         !ie, static, numb0, etc
 
+        !Initialize and allocate plasmapause parameters
+        if (Model%doPP) call initPP(ebState,inpXML)
+
         !Initialize wave particle interactions if present
         if ( Model%doWPI ) then
             call initWPI(ebState%ebWmodel,ebState%ebWave,inpXML)
@@ -105,8 +108,8 @@ module userebic
         
         !Initialize eb data, find time slices
         call findSlc(ebTab,Model%T0,i1,i2)
-        call readEB(Model,ebGr,ebTab,eb1,ebTab%gStrs(i1))
-        call readEB(Model,ebGr,ebTab,eb2,ebTab%gStrs(i2))
+        call readEB(Model,ebState,ebGr,ebTab,eb1,ebTab%gStrs(i1))
+        call readEB(Model,ebState,ebGr,ebTab,eb2,ebTab%gStrs(i2))
         if (ebTab%N == 1) ebState%doStatic = .true.
         end associate
     end subroutine initFields
@@ -169,11 +172,11 @@ module userebic
             write(*,'(5a)') '<Copying eb1 from ', trim(ebTab%bStr), '/', trim(ebTab%gStrs(i1)), '>'
         else
             !Read eb1
-            call readEB(Model,ebGr,ebTab,eb1,ebTab%gStrs(i1))
+            call readEB(Model,ebState,ebGr,ebTab,eb1,ebTab%gStrs(i1))
         end if
 
         !Read eb2
-        call readEB(Model,ebGr,ebTab,eb2,ebTab%gStrs(i2))
+        call readEB(Model,ebState,ebGr,ebTab,eb2,ebTab%gStrs(i2))
 
         end associate
 

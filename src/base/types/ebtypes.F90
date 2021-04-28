@@ -41,6 +41,7 @@ module ebtypes
         real(rp), dimension(:,:,:,:), allocatable :: dB,E !Fields
         real(rp), dimension(:,:,:,:), allocatable :: W !Primitive MHD variables
         real(rp), dimension(:,:,:,:), allocatable :: Jxyz !Currents
+        real(rp), dimension(:), allocatable :: Lpp !Plasmapause location,Lpp(MLT)
         real(rp) :: time !Time in code units for this slice
         character(len=strLen) :: gStr ! holds step in 'Step#N'
     end type ebField_T

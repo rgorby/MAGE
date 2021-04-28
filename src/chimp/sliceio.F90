@@ -7,6 +7,7 @@ module sliceio
     use ioH5
     use xml_input
     use files
+    use pputils
     implicit none
 
     character(len=strLen) :: ebOutF
@@ -231,7 +232,7 @@ module sliceio
 
         type(IOVAR_T), dimension(MAXEBVS) :: IOVars
         real(rp), dimension(:,:,:), allocatable :: dB2D,E2D,Q,J2D
-        real(rp), dimension(:,:), allocatable :: Vr,Lb,LbXY
+        real(rp), dimension(:,:), allocatable :: Vr,Lb,LbXY,dLpp
 
         integer :: i,j
         real(rp), dimension(NDIM) :: xp,xm,dB,Ep,Em,Bp,Bm
@@ -256,6 +257,11 @@ module sliceio
         if (Model%doTrc) then
             !Create an ebTrc for each point on slice
             allocate(ebTrcIJ(Nx1,Nx2))
+        endif
+
+        if (Model%doPP) then
+            allocate(dLpp(Nx1,Nx2))
+            dLpp = 10.0 ! not 0, which corresponds to PP location
         endif
 
         dB2D  = 0.0
@@ -323,6 +329,11 @@ module sliceio
                     call SliceFL(Model,ebState,0.5*(xp+xm),Model%t,ebTrcIJ(i,j))
 
                 endif
+
+                if (Model%doPP) then
+                    !Get distance to plasmapause for each cell
+                    call deltaLpp(ebState,0.5*(xp+xm),Model%t,dLpp(i,j))
+                endif
             enddo
         enddo
 
@@ -336,6 +347,10 @@ module sliceio
         call AddOutVar(IOVars,"dBz" ,db2D(:,:,ZDIR))
         call AddOutVar(IOVars,"Lb"  ,Lb  (:,:)     )
         call AddOutVar(IOVars,"LbXY",LbXY(:,:)     )
+
+        if (Model%doPP) then
+            call AddOutVar(IOVars,"dLppeq",dLpp(:,:))
+        end if
 
         if (Model%doTrc) then
             !Field line tracing metrics
