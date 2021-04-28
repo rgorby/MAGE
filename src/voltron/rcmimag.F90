@@ -29,6 +29,8 @@ module rcmimag
     logical , private :: doTrickyTubes = .true.  !Whether to poison bad flux tubes
     logical , private :: doSmoothTubes = .false.  !Whether to smooth potential/FTV on torcm grid
 
+    logical , private :: doBigMono = .true. !Whether to send MHD buffer information to remix
+
     real(rp), dimension(:,:), allocatable, private :: mixPot
 
 
@@ -312,7 +314,13 @@ module rcmimag
 
     !Pull data from RCM state for conductance calculations
         !NOTE: this is not the closed field region, this is actually the RCM domain
-        vApp%imag2mix%inIMag = (RCMApp%iopen == RCMTOPCLOSED)
+        !How much RCM info to use
+        if (doBigMono) then
+            !Pass buffer region to remix
+            vApp%imag2mix%inIMag = .not. (RCMApp%iopen == RCMTOPOPEN)
+        else    
+            vApp%imag2mix%inIMag = (RCMApp%iopen == RCMTOPCLOSED)
+        endif
         vApp%imag2mix%latc = RCMApp%latc
         vApp%imag2mix%lonc = RCMApp%lonc
 
