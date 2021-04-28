@@ -32,7 +32,7 @@ module wind
         procedure(WindTS_T), pointer, nopass :: getWind => NULL()
 
         !Holder for discrete data
-        real(rp), allocatable :: tW(:), Q(:,:), B(:,:)
+        real(rp), allocatable :: tW(:), Q(:,:), B(:,:), xyzBS(:,:)
         real(rp) :: tMin,tMax,dtW
         integer :: NumT
 
@@ -122,6 +122,10 @@ module wind
         real(rp) :: CosF,SinF,CosBp,SinBp
         real(rp) :: bcc,btt, vMag
         integer :: n,ip,j,k
+
+
+        !Set location
+        call PlaceWind(windBC,Model,Model%t)
 
         !Find current wind info
         call windBC%getWind(windBC,Model,Model%t,D,P,V0,B)
@@ -618,6 +622,7 @@ module wind
         allocate(windBC%tW(N))
         allocate(windBC%Q(N,NVAR))
         allocate(windBC%B(N,NDIM))
+        allocate(windBC%xyzBS(N,NDIM))
 
         windBC%tW            = (1/Model%Units%gT0)*IOVars(1)%data
         windBC%Q(:,DEN)      = (1/1.0)*IOVars(2)%data
@@ -634,6 +639,9 @@ module wind
 
         windBC%tMin = minval(windBC%tW)
         windBC%tMax = maxval(windBC%tW)
+
+        !Set bow shock location to X=0 by default
+        windBC%xyzBS(:,:) = 0.0
 
         !Check if uniform spacing
         dtMin = minval(windBC%tW(2:N)-windBC%tW(1:N-1))
@@ -672,6 +680,19 @@ module wind
         !Bx = Bx0 + ByC*By + BzC*Bz
 
         windBC%B(:,XDIR) = windBC%Bx0 + windBC%ByC*windBC%B(:,YDIR) + windBC%BzC*windBC%B(:,ZDIR) 
+    !Get bow shock info from bcwind if possible
+        !Check for variable, assume in units of Rx
+        if ( ioExist(trim(windBC%wID),"xBS") ) then
+            call ClearIO(IOVars)
+            call AddInVar(IOVars,"xBS",vTypeO=IOREAL)
+            call AddInVar(IOVars,"yBS",vTypeO=IOREAL)
+            call AddInVar(IOVars,"zBS",vTypeO=IOREAL)
+            !Read data, don't use IO precision
+            call ReadVars(IOVars,.false.,windBC%wID)
+            windBC%xyzBS(:,XDIR)     = IOVars(1)%data
+            windBC%xyzBS(:,YDIR)     = IOVars(2)%data
+            windBC%xyzBS(:,ZDIR)     = IOVars(3)%data
+        endif
 
         !Find max SW speed and check against Boris
         vMax = maxval(norm2(windBC%Q(:,VELX:VELZ),dim=2))
@@ -706,10 +727,64 @@ module wind
 
         integer :: i0,i1
         real(rp) :: w0,w1,dT
+
         Rho = 0.0
         Pr = 0.0
         V = 0.0
         B = 0.0
+
+        call InterpWgts(windBC,Model,t,w0,w1,i0,i1)
+
+        Rho = w0*windBC%Q(i0,DEN      ) + w1*windBC%Q(i1,DEN      )
+        Pr  = w0*windBC%Q(i0,PRESSURE ) + w1*windBC%Q(i1,PRESSURE )
+        V   = w0*windBC%Q(i0,VELX:VELZ) + w1*windBC%Q(i1,VELX:VELZ)
+        B   = w0*windBC%B(i0,:        ) + w1*windBC%B(i1,:        )
+
+        !Replace Bx w/ coefficient expansion
+        B(XDIR) = windBC%Bx0 + windBC%ByC*B(YDIR) + windBC%BzC*B(ZDIR)
+        if (t <= windBC%tMin) then
+            if (windBC%doSeq) then
+                !Set wind to spinup sequence
+                dT = (t - windBC%tMin)*Model%Units%gT0/(60.0*60) !Hours
+                
+                if (dT <= -4.0) then
+                    B(:) = 0.0
+                else if (dT <= -2.0) then
+                    B(:) = 0.0
+                    B(ZDIR) = -5.0*(1/Model%Units%gB0)
+                else
+                    B(:) = 0.0
+                    B(ZDIR) = +5.0*(1/Model%Units%gB0)
+                endif
+            else
+                !Just null wind
+                B(:) = 0.0
+            endif
+        endif
+    end subroutine InterpWind
+
+    !Set location of solar wind marker
+    subroutine PlaceWind(windBC,Model,t)
+        class(WindBC_T), intent(inout) :: windBC
+        type(Model_T), intent(in) :: Model
+        real(rp), intent(in) :: t
+
+        integer :: i0,i1
+        real(rp) :: w0,w1
+
+        call InterpWgts(windBC,Model,t,w0,w1,i0,i1)
+        windBC%xyzW = w0*windBC%xyzBS(i0,XDIR:ZDIR)  + w1*windBC%xyzBS(i1,XDIR:ZDIR) 
+    end subroutine PlaceWind
+
+    !Get coefficients/slices for interpolation
+    subroutine InterpWgts(windBC,Model,t,w0,w1,i0,i1)
+        class(WindBC_T), intent(in) :: windBC
+        type(Model_T), intent(in) :: Model
+        real(rp), intent(in)  :: t
+        real(rp), intent(out) :: w0,w1
+        integer , intent(out) :: i0,i1
+
+        real(rp) :: dT
 
         if (t >= windBC%tMax) then
             i0 = windBC%NumT
@@ -745,32 +820,5 @@ module wind
             w1 = 0.0
         endif
 
-        Rho = w0*windBC%Q(i0,DEN      ) + w1*windBC%Q(i1,DEN      )
-        Pr  = w0*windBC%Q(i0,PRESSURE ) + w1*windBC%Q(i1,PRESSURE )
-        V   = w0*windBC%Q(i0,VELX:VELZ) + w1*windBC%Q(i1,VELX:VELZ)
-        B   = w0*windBC%B(i0,:        ) + w1*windBC%B(i1,:        )
-
-        !Replace Bx w/ coefficient expansion
-        B(XDIR) = windBC%Bx0 + windBC%ByC*B(YDIR) + windBC%BzC*B(ZDIR)
-        if (t <= windBC%tMin) then
-            if (windBC%doSeq) then
-                !Set wind to spinup sequence
-                dT = (t - windBC%tMin)*Model%Units%gT0/(60.0*60) !Hours
-                
-                if (dT <= -4.0) then
-                    B(:) = 0.0
-                else if (dT <= -2.0) then
-                    B(:) = 0.0
-                    B(ZDIR) = -5.0*(1/Model%Units%gB0)
-                else
-                    B(:) = 0.0
-                    B(ZDIR) = +5.0*(1/Model%Units%gB0)
-                endif
-            else
-                !Just null wind
-                B(:) = 0.0
-            endif
-        endif
-    end subroutine InterpWind
-
+    end subroutine InterpWgts
 end module wind
