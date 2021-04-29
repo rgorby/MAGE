@@ -62,6 +62,12 @@ module starter
             
             !Also do localization init
             call InitLoc(Model,ebState%ebGr,inpXML)
+
+            !Calculate Lpp(MLT) if needed
+            if (Model%doPP) then
+                call calcLppMLT(Model,ebState,ebState%eb1%time,ebState%eb1%Lpp)
+                call calcLppMLT(Model,ebState,ebState%eb2%time,ebState%eb2%Lpp)
+            endif
         endif
     !----------------------------
     !Set and call TP ICs
@@ -152,7 +158,7 @@ module starter
         call inpXML%Set_Val(Model%reqScat, 'wpi/reqScat' ,HUGE)
 
     !Plasmapause
-        call inpXML%Set_Val(Model%doPP,'pp/doPP',.false.)
+        call inpXML%Set_Val(Model%doPP,'plasmapause/doPP',.false.)
         !Basic setup
         Model%t    = Model%T0
         Model%tOut = T0Out

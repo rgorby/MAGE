@@ -7,7 +7,7 @@ module ebinit
     use xml_input
     use ioH5
     use chmpfields
-    use pputils
+    use plasmaputils
     
     implicit none
     integer, parameter :: Ngm = 4 !Order for metric differencing

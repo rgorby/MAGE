@@ -27,6 +27,8 @@ module userebic
         integer :: Ni,Nj,Nk
         integer :: i1,i2
 
+        logical :: doCalcLpp = .false.
+
         associate( ebGr=>ebState%ebGr,ebTab=>ebState%ebTab,eb1=>ebState%eb1,eb2=>ebState%eb2 )
 
         !Get info for input data
@@ -108,8 +110,8 @@ module userebic
         
         !Initialize eb data, find time slices
         call findSlc(ebTab,Model%T0,i1,i2)
-        call readEB(Model,ebState,ebGr,ebTab,eb1,ebTab%gStrs(i1))
-        call readEB(Model,ebState,ebGr,ebTab,eb2,ebTab%gStrs(i2))
+        call readEB(Model,ebState,ebGr,ebTab,eb1,ebTab%gStrs(i1),doCalcLpp)
+        call readEB(Model,ebState,ebGr,ebTab,eb2,ebTab%gStrs(i2),doCalcLpp)
         if (ebTab%N == 1) ebState%doStatic = .true.
         end associate
     end subroutine initFields

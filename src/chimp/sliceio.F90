@@ -7,7 +7,7 @@ module sliceio
     use ioH5
     use xml_input
     use files
-    use pputils
+    use plasmaputils
     implicit none
 
     character(len=strLen) :: ebOutF

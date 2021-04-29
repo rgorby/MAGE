@@ -3,7 +3,7 @@ module chmpfields
     use chmpunits
     use ebtypes
     use ebutils
-    use pputils
+    use plasmaputils
     use ioH5
     use math
 
@@ -76,13 +76,14 @@ module chmpfields
     !Reads specific slice given by group string
     !File: bStr, Group: gStr
     !NOTE: Calculating convective electric field to avoid diffusive terms
-    subroutine readEB(Model,ebState,ebGr,ebTab,ebF,gStr)
+    subroutine readEB(Model,ebState,ebGr,ebTab,ebF,gStr,doCalcLppO)
         type(chmpModel_T), intent(in)     :: Model
         type(ebState_T), intent(inout)   :: ebState
         type(   ebGrid_T), intent(in)     :: ebGr
         type(ebTab_T), intent(in) :: ebTab
         type(  ebField_T), intent(inout)  :: ebF
         character(len=strLen), intent(in) :: gStr
+        logical, optional, intent(in) :: doCalcLppO
 
         character(len=strLen) :: ebFile
 
@@ -92,6 +93,15 @@ module chmpfields
         integer :: dN(NDIM)
         integer :: nioD,nioP,nioJx,nioJy,nioJz
         real(rp), dimension(NDIM) :: B0xyz, Vxyz,Bxyz,Exyz,xcc,Jxyz
+
+        logical :: doCalcLpp
+
+        if (present(doCalcLppO)) then
+            doCalcLpp = doCalcLppO
+        else
+            doCalcLpp = .true.
+        endif
+
 
         write(*,'(5a)') '<Reading eb from ', trim(ebTab%bStr), '/', trim(gStr), '>'
 
@@ -234,7 +244,7 @@ module chmpfields
 
         !------------
         !Calculate Lpp(MLT) if needed
-        if (Model%doPP) call calcLppMLT(Model,ebState,ebF%time,ebF%Lpp)
+        if (Model%doPP .and. doCalcLpp) call calcLppMLT(Model,ebState,ebF%time,ebF%Lpp)
         
         !------------
         !Clean up

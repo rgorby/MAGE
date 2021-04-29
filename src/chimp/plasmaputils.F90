@@ -1,5 +1,5 @@
 !Various routines to handle plasmapuase location in CHIMP
-module pputils
+module plasmaputils
     use kdefs
     use chmpdefs
     use chmpunits
@@ -42,11 +42,11 @@ module pputils
 
         !Allocate arrays that holds PP information
         !Always do eb1
-        allocate(ebState%eb1%Lpp(Nphi))
+        allocate(ebState%eb1%Lpp(Nphi+1))
         ebState%eb1%Lpp = 0.0
 
         if (.not. doStatic) then
-            allocate(ebState%eb2%Lpp(Nphi))
+            allocate(ebState%eb2%Lpp(Nphi+1))
             ebState%eb2%Lpp = 0.0
         end if
 
@@ -63,8 +63,12 @@ module pputils
         integer :: i
 
         ! loop through MLT and L in equatorial plane
-        do i=1, Nphi
-            phi = phi0+i*dPhi
+        !$OMP PARALLEL DO default(none) &
+        !$OMP schedule(dynamic) &
+        !$OMP private(i,phi) &
+        !$OMP shared (Nphi,phi0,dPhi,Lpp,t,ebState,Model)
+        do i=1, Nphi+1
+            phi = phi0+(i-1)*dPhi
             call findLpp(Model,ebState,t,phi,Lpp(i))
         end do
 
@@ -98,7 +102,6 @@ module pputils
             ! if (gradD <= gradPP) then ! Check if pp location criteria is met
             if (bD(2) <= 50.0_rp .and. L > 3.0) then !using characteristic density for now
                 Lpp = L
-                ! write(*,*) "flux tube density at pp ",bD(2),L,t
                 exit
             else
                 bD(1) = bD(2) !copy current state to previous state
@@ -126,8 +129,8 @@ module pputils
         if (phi <= 0) phi = phi + 2.0*PI ! to make 0-2pi range
 
         !get indices of MLT that point is between
-        i0 = floor(phi/dPhi)
-        i1 = ceiling(phi/dPhi)
+        i0 = floor(phi/dPhi)+1
+        i1 = ceiling(phi/dPhi)+1
 
         !FIX ME: Check if doStatic case is done correctly
         if (ebState%doStatic) then
@@ -153,4 +156,4 @@ module pputils
         end associate
     end subroutine deltaLpp
 
-end module pputils
+end module plasmaputils
