@@ -146,9 +146,6 @@ module plasmaputils
             dt = eb2%time-eb1%time
             wt = (t-eb1%time)/dt
             Lpp = Lpp1+wt*(Lpp2-Lpp1)
-            ! write(*,*) "eb1%time, eb2%time ", eb1%time,eb2%time
-            ! write(*,*) "eb1Lpp(i0),eb1Lpp(i1),eb2Lpp(i0),eb2Lpp(i1)",eb1%Lpp(i0),eb1%Lpp(i1),eb2%Lpp(i0),eb2%Lpp(i1)
-            ! write(*,*) "Lpp1,Lpp2,Lpp",Lpp1,Lpp2,Lpp
         end if
 
         dLpp = L-Lpp
