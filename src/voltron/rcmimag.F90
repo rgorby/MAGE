@@ -29,7 +29,7 @@ module rcmimag
     logical , private :: doTrickyTubes = .true.  !Whether to poison bad flux tubes
     logical , private :: doSmoothTubes = .false.  !Whether to smooth potential/FTV on torcm grid
 
-    logical , private :: doBigMono = .true. !Whether to send MHD buffer information to remix
+    logical , private :: doBigMono = .false. !Whether to send MHD buffer information to remix
 
     real(rp), dimension(:,:), allocatable, private :: mixPot
 
