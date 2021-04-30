@@ -10,6 +10,7 @@ module rcmimag
     use files
     use earthhelper
     use imagtubes
+    use imaghelper
     use rcm_mhd_interfaces
     use rcm_mix_interface
     use clocks
@@ -29,7 +30,7 @@ module rcmimag
     logical , private :: doTrickyTubes = .true.  !Whether to poison bad flux tubes
     logical , private :: doSmoothTubes = .false.  !Whether to smooth potential/FTV on torcm grid
 
-    logical , private :: doBigMono = .false. !Whether to send MHD buffer information to remix
+    logical , private :: doBigMono = .true. !Whether to send MHD buffer information to remix
 
     real(rp), dimension(:,:), allocatable, private :: mixPot
 
@@ -152,7 +153,7 @@ module rcmimag
         real(rp) :: t0
         
         call iXML%Set_Val(RCMICs%doIC,"imag/doInit",.false.)
-        t0 = 0.0
+        t0 = TINY
         if (RCMICs%doIC) then
             !Want initial dst0
             RCMICs%dst0 = GetSWVal("symh",vApp%tilt%wID,t0)
@@ -171,6 +172,9 @@ module rcmimag
             !Zero out any additional ring current
             call SetQTRC(0.0_rp)
         endif
+
+        !Also initialize TM03
+        call InitTM03(vApp%tilt%wID,t0)
 
         contains
 
@@ -355,8 +359,6 @@ module rcmimag
        !$OMP PARALLEL DO default(shared) &
        !$OMP private(i,j,inMHD,isClosed,Drc,bEq,Lb)
         do j=1,RCMApp%nLon_ion
-            !Zero out ingestion timescale
-            RCMApp%Tb(:,j) = 0.0
             do i = RCMApp%nLat_ion,1,-1
                 inMHD = RCMApp%toMHD(i,j)
                 isClosed = (RCMApp%iopen(i,j) == RCMTOPCLOSED)
@@ -369,15 +371,15 @@ module rcmimag
             RCMApp%toMHD(:,j) = .false.
             RCMApp%toMHD(jBnd(j):,j) = .true.
 
-            !Calculate ingestion timescale in this longitude
-            !Use only hot population from RCM
-            do i = jBnd(j),RCMApp%nLat_ion
-                Drc = rcmNScl*RCMApp%Nrcm (i,j) !#/cc
-                Drc = max(Drc,TINY)
-                bEq = rcmBScl*RCMApp%Bmin (i,j) !Mag field [nT]
-                Lb  = (RCMApp%planet_radius)*(1.0e-3)*RCMApp%Lb(i,j) !Lengthscale [km]
-                RCMApp%Tb(i,j) = AlfBounce(Drc,bEq,Lb)
-            enddo
+            ! !Calculate ingestion timescale in this longitude
+            ! !Use only hot population from RCM
+            ! do i = jBnd(j),RCMApp%nLat_ion
+            !     Drc = rcmNScl*RCMApp%Nrcm (i,j) !#/cc
+            !     Drc = max(Drc,TINY)
+            !     bEq = rcmBScl*RCMApp%Bmin (i,j) !Mag field [nT]
+            !     Lb  = (RCMApp%planet_radius)*(1.0e-3)*RCMApp%Lb(i,j) !Lengthscale [km]
+            !     RCMApp%Tb(i,j) = AlfBounce(Drc,bEq,Lb)
+            ! enddo
 
         enddo
 
@@ -489,7 +491,7 @@ module rcmimag
         wTMin = 100.0*minval(RCMApp%wIMAG,mask=RCMApp%toMHD)
 
     !Do some output
-        if (maxPRCM<TINY) return
+        if ((maxPRCM<TINY) .or. (time<0)) return
 
         write(*,*) ANSIYELLOW
         write(*,*) 'RCM'

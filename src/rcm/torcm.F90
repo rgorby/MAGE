@@ -1036,7 +1036,8 @@ MODULE torcm_mod
       USE earthhelper, ONLY : GallagherXY
       USE rice_housekeeping_module, ONLY: InitKp, staticR
       USE kdefs, ONLY : TINY
-      
+      USE RCM_mod_subs, ONLY : colat,aloct
+
       IMPLICIT NONE
 
       integer(iprec) :: idim,jdim,kdim,icontrol
@@ -1044,6 +1045,7 @@ MODULE torcm_mod
       integer(iprec) :: imin_j(jdim)
       real(rprec) :: vm(idim,jdim),xmin(idim,jdim),ymin(idim,jdim),rmin(idim,jdim)
       real(rprec) :: eeta(idim,jdim,kdim)
+      real(rprec) :: xeq,yeq,L
 
       integer(iprec) :: i,j,k
 
@@ -1062,12 +1064,16 @@ MODULE torcm_mod
         if (staticR > TINY) then
           !$OMP PARALLEL DO default(shared) &
           !$OMP schedule(dynamic) &
-          !$OMP private(i,j,dens_gal)
+          !$OMP private(i,j,dens_gal,xeq,yeq,L)
           do j=1,jdim
             do i=imin_j(j),idim
-              if(rmin(i,j) <= staticR .and. vm(i,j) > 0.0)then
-                !eeta (i,j,1) = eeta_pls0 (i,j)
-                dens_gal = GallagherXY(xmin(i,j),ymin(i,j),InitKp)*1.0e6
+              !Use dipole for staticR density evaluation
+              L = 1.0/sin(colat(i,j))**2.0
+              if(L <= staticR .and. vm(i,j) > 0.0)then
+                xeq = L*cos(aloct(i,j))
+                yeq = L*sin(aloct(i,j))
+                dens_gal = GallagherXY(xeq,yeq,InitKp)*1.0e6
+                !dens_gal = GallagherXY(xmin(i,j),ymin(i,j),InitKp)*1.0e6
                 eeta(i,j,1) = dens_gal/(GetDensityFactor()*vm(i,j)**1.5)
               end if
             end do
@@ -1129,8 +1135,6 @@ MODULE torcm_mod
 
       end subroutine reset_rcm_vm
 
-
-!
 !======================================
       subroutine allocate_conversion_arrays(isz,jsz,kcsz)
 ! used to allocate memory for the exchange arrays      

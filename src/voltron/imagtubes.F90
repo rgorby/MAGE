@@ -5,7 +5,8 @@ module imagtubes
     use rcm_mhd_interfaces
     use streamline
     use chmpdbz, ONLY : DipoleB0
-
+    use imaghelper
+    
 	implicit none
 
     !TODO: Get rid of these ugly globals
@@ -16,7 +17,7 @@ module imagtubes
 
     !Some threshold values for poisoning tubes
     !TODO: Make these XML parameters
-    real(rp), private :: wImag_C = 0.15 ![0,1]
+    real(rp), private :: wImag_C = 0.05 ![0,1]
     real(rp), private :: bMin_C  = 1.0 !nT
 
 !Information taken from MHD flux tubes
@@ -134,7 +135,10 @@ module imagtubes
         ijTube%latc = asin(xyzIonC(ZDIR)/norm2(xyzIonC))
         ijTube%lonc = modulo( atan2(xyzIonC(YDIR),xyzIonC(XDIR)),2*PI )
         ijTube%Lb = FLArc(ebModel,ebGr,bTrc)
-        ijTube%Tb = FLAlfvenX(ebModel,ebGr,bTrc)
+        !ijTube%Tb = FLAlfvenX(ebModel,ebGr,bTrc)
+        ijTube%Tb = FLFastX(ebModel,ebGr,bTrc)
+
+        !write(*,*) 'Bounce compare: = ', FLFastX(ebModel,ebGr,bTrc)/FLAlfvenX(ebModel,ebGr,bTrc)
         
         ijTube%losscone = asin(sqrt(bMin/bIon))
 
@@ -339,7 +343,11 @@ module imagtubes
         real(rp) :: llBC,lat,colat,lon,LPk
         logical :: isLL
 
-        real(rp) :: L,Pmhd,Dmhd,P0_rc,N0_rc,N0_ps,P0_ps,N,P
+        real(rp) :: Pmhd,Dmhd,P0_rc,N0_rc,N0_ps,P0_ps,N,P,L
+        real(rp) :: xyzSM(NDIM)
+        
+        logical :: isInTM03
+
         !Loop through active region and reset things
         llBC = vApp%mhd2chmp%lowlatBC
 
@@ -361,14 +369,19 @@ module imagtubes
                 Pmhd = rcmPScl*RCMApp%Pave(i,j)
                 Dmhd = rcmNScl*RCMApp%Nave(i,j)
                 L    = norm2( RCMApp%X_bmin(i,j,:) )/Rp_m
+                xyzSM(:) = RCMApp%X_bmin(i,j,:)/Rp_m
 
             !Quiet-time ring current
                 P0_rc = P_QTRC(L)
                 !Get density from pressure and target temperature
                 N0_rc = PkT2Den(P0_rc,RCMICs%ktRC)
-            !Statistical plasma sheet numbers
-                N0_ps = RCMICs%dPS
-                P0_ps = DkT2P(N0_ps,RCMICs%kTPS)
+            !Get plasma sheet values
+                !Prefer TM03 but use Borovsky statistical values otherwise
+                call EvalTM03_SM(xyzSM,N0_ps,P0_ps,isInTM03)
+                if (.not. isInTM03) then
+                    N0_ps = RCMICs%dPS
+                    P0_ps = DkT2P(N0_ps,RCMICs%kTPS)
+                endif
 
                 if ( P0_ps>P0_rc ) then
                     !Use PS values
@@ -380,9 +393,9 @@ module imagtubes
                     N = N0_rc
                 endif
 
-                !Now test against MHD
-                P = max(P,Pmhd)
-                N = max(N,Dmhd)
+                ! !Now test against MHD
+                ! P = max(P,Pmhd)
+                ! N = max(N,Dmhd)
 
                 !Now store them
                 RCMApp%Pave(i,j) = P/rcmPScl
