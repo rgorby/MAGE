@@ -135,8 +135,8 @@ module imagtubes
         ijTube%latc = asin(xyzIonC(ZDIR)/norm2(xyzIonC))
         ijTube%lonc = modulo( atan2(xyzIonC(YDIR),xyzIonC(XDIR)),2*PI )
         ijTube%Lb = FLArc(ebModel,ebGr,bTrc)
-        !ijTube%Tb = FLAlfvenX(ebModel,ebGr,bTrc)
-        ijTube%Tb = FLFastX(ebModel,ebGr,bTrc)
+        ijTube%Tb = FLAlfvenX(ebModel,ebGr,bTrc)
+        !ijTube%Tb = FLFastX(ebModel,ebGr,bTrc)
 
         !write(*,*) 'Bounce compare: = ', FLFastX(ebModel,ebGr,bTrc)/FLAlfvenX(ebModel,ebGr,bTrc)
         
