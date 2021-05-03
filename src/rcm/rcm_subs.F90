@@ -446,9 +446,11 @@
 
       INTEGER (iprec) :: i, j, ie, iedim_local, kc
       REAL (rprec)    :: en, ekt, therm, sum1 (iesize), sum2 (iesize)
-!                                                                       
-!
-!                                  
+      LOGICAL, dimension(1:isize,1:jsize) :: isOpen
+
+      !Try to do calculation everywhere possible including MHD buffer region
+      isOpen = (vm < 0)
+
       iedim_local = 2
 !
       vpar  (:,:)   = zero
@@ -461,10 +463,13 @@
       !$OMP DEFAULT (NONE) &
       !$OMP PRIVATE(i,j,kc,ie,sum1,sum2) &
       !$OMP PRIVATE(en,ekt,therm) &
-      !$OMP SHARED(j1,j2,iedim_local,imin_j,alamc,eeta,vpar,vm,fudgec,birk,eflux,eavg) 
+      !$OMP SHARED(j1,j2,iedim_local,imin_j,alamc,eeta) &
+      !$OMP SHARED(vpar,vm,fudgec,birk,eflux,eavg,isOpen) 
 
       loop_j: DO j = j1, j2
-      loop_i: DO i = imin_j(j), isize
+      !loop_i: DO i = imin_j(j), isize
+      loop_i: DO i = 1, isize
+            if (isOpen(i,j)) CYCLE
 !
 !           For each grid point, clear sum1 and sum2:
 !
@@ -526,8 +531,14 @@
                END IF 
                ! corrections to eavg at eflux(i,j) == 0.0     sbao 07/2019 
                ! == does not work well with real number, use lt threshold instead. ldong 04/2020
-               IF (eflux(i,j,ie) .lt. 0.01) eavg(i,j,ie) = 0.0
-               IF (eavg(i,j,ie) .lt. 0.01) eflux(i,j,ie) = 0.0
+               if ( (eflux(i,j,ie) .lt. 0.01) .or. (eavg(i,j,ie) .lt. 0.01) ) then
+                  !Do both or neither
+                  eavg(i,j,ie) = 0.0
+                  eflux(i,j,ie) = 0.0
+               endif
+
+               ! IF (eflux(i,j,ie) .lt. 0.01) eavg(i,j,ie) = 0.0
+               ! IF (eavg(i,j,ie) .lt. 0.01) eflux(i,j,ie) = 0.0
 !                                                                       
             END DO
 !
@@ -2000,7 +2011,9 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
   
   REAL (rprec) :: T1k,T2k !Local loop variables b/c clawpack alters input
   LOGICAL, save :: FirstTime=.true.
-  
+  !Whether to smooth ij deriv of residual FTV
+  !NOTE: Weirdly smoothing this seems to help even though smoothing potential seems to hurt
+  LOGICAL, parameter :: doSmoothDDV = .true. 
 
   call Tic("Move_Plasma_Init")
   if (jwrap /= 3) then
@@ -2286,8 +2299,10 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
       call Grad_IJ(dV,isOpen,ddVi,ddVj,doLimO=.true. )
 
       !Possibly smooth grad of perturbation
-      !call Smooth_IJ(ddVi,isOpen)
-      !call Smooth_IJ(ddVj,isOpen)
+      if (doSmoothDDV) then
+        call Smooth_IJ(ddVi,isOpen)
+        call Smooth_IJ(ddVj,isOpen)
+      endif
 
       !Recombine pieces
       dftvdi = dV0i + ddVi

@@ -17,7 +17,7 @@ module imagtubes
 
     !Some threshold values for poisoning tubes
     !TODO: Make these XML parameters
-    real(rp), private :: wImag_C = 0.05 ![0,1]
+    real(rp), private :: wImag_C = 0.15 ![0,1]
     real(rp), private :: bMin_C  = 1.0 !nT
 
 !Information taken from MHD flux tubes
@@ -238,56 +238,65 @@ module imagtubes
         real(rp) :: dphi_mix,dphi_rcm
         real(rp) :: colat
 
-    !Choose number of smoothing iterations
+    !Setup domain
         Ni = RCMApp%nLat_ion
         Nj = RCMApp%nLon_ion
-
-        !Based on ratio of mix vs. rcm coupling
-        !Ns = nint(vApp%DeepDT/vApp%ShallowDT) - 1
-
-        !Based on ratio of mix/RCM resolutions
-        dphi_mix = 360.0/vApp%remixApp%ion(1)%G%Np
-        dphi_rcm = 360.0/Nj
-
-        Ns = nint( (dphi_rcm/dphi_mix)/2 )
-
-        if (Ns<=0) return
 
     !Prep for smoothing
         allocate(isG(Ni,Nj))
         isG = .not. (RCMApp%iopen == RCMTOPOPEN)
 
-        allocate(V0(Ni,Nj))
-        allocate(dV(Ni,Nj))
-        V0 = 0.0
-        dV = 0.0
-
-        !Calculate dV, non-dipolar part of FTV
-        do n=1,Ni
-            colat = RCMApp%gcolat(n)
-            V0(n,:) = DipFTV_colat(colat,planetM0g)*1.0e+9
-        enddo
-
-        where (isG)
-            dV = RCMApp%Vol - V0
-        endwhere
-        
     !Smooth some tubes
-
-        !K: Tweaking to simply do 1 iteration of smoothing
-        call Smooth2D(dV) !Smooth dV
-        call Smooth2D(RCMApp%pot) !Electrostatic potential
+        !Currently only smoothing ingestion timescale
         call Smooth2D(RCMApp%Tb) !Bounce timescale for ingestion
         
-        ! do n=1,Ns
-        !     !call Smooth2D(RCMApp%pot) !Electrostatic potential
-        !     !call Smooth2D(RCMApp%Vol) !Flux-tube volume
-        !     call Smooth2D(dV) !Smooth dV
-        ! enddo
 
-        where (isG)
-            RCMApp%Vol = V0 + dV
-        endwhere
+    !     !Based on ratio of mix vs. rcm coupling
+    !     !Ns = nint(vApp%DeepDT/vApp%ShallowDT) - 1
+
+    !     !Based on ratio of mix/RCM resolutions
+    !     dphi_mix = 360.0/vApp%remixApp%ion(1)%G%Np
+    !     dphi_rcm = 360.0/Nj
+
+    !     Ns = nint( (dphi_rcm/dphi_mix)/2 )
+
+    !     if (Ns<=0) return
+
+    ! !Prep for smoothing
+    !     allocate(isG(Ni,Nj))
+    !     isG = .not. (RCMApp%iopen == RCMTOPOPEN)
+
+    !     allocate(V0(Ni,Nj))
+    !     allocate(dV(Ni,Nj))
+    !     V0 = 0.0
+    !     dV = 0.0
+
+    !     !Calculate dV, non-dipolar part of FTV
+    !     do n=1,Ni
+    !         colat = RCMApp%gcolat(n)
+    !         V0(n,:) = DipFTV_colat(colat,planetM0g)*1.0e+9
+    !     enddo
+
+    !     where (isG)
+    !         dV = RCMApp%Vol - V0
+    !     endwhere
+        
+    ! !Smooth some tubes
+
+    !     !K: Tweaking to simply do 1 iteration of smoothing
+    !     call Smooth2D(dV) !Smooth dV
+    !     call Smooth2D(RCMApp%pot) !Electrostatic potential
+    !     call Smooth2D(RCMApp%Tb) !Bounce timescale for ingestion
+        
+    !     ! do n=1,Ns
+    !     !     !call Smooth2D(RCMApp%pot) !Electrostatic potential
+    !     !     !call Smooth2D(RCMApp%Vol) !Flux-tube volume
+    !     !     call Smooth2D(dV) !Smooth dV
+    !     ! enddo
+
+    !     where (isG)
+    !         RCMApp%Vol = V0 + dV
+    !     endwhere
 
         contains
         subroutine Smooth2D(Q)

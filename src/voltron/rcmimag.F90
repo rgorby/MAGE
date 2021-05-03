@@ -28,9 +28,12 @@ module rcmimag
     integer, parameter, private :: MHDPad = 0 !Number of padding cells between RCM domain and MHD ingestion
     
     logical , private :: doTrickyTubes = .true.  !Whether to poison bad flux tubes
-    logical , private :: doSmoothTubes = .false.  !Whether to smooth potential/FTV on torcm grid
 
-    logical , private :: doBigMono = .false. !Whether to send MHD buffer information to remix
+    !Whether to call smooth tubes routine at all, see imagtubes for specific options
+    logical , private :: doSmoothTubes = .true. 
+    
+    !Whether to send MHD buffer information to remix
+    logical , private :: doBigMono = .true. 
 
     real(rp), dimension(:,:), allocatable, private :: mixPot
 
@@ -93,6 +96,7 @@ module rcmimag
         call iXML%Set_Val(doBounceDT,"/gamera/source/doBounceDT",doBounceDT)
         call iXML%Set_Val(nBounce   ,"/gamera/source/nBounce"   ,nBounce   )
         call iXML%Set_Val(maxBetaLim,"/gamera/source/betamax"   ,maxBetaLim)
+        call iXML%Set_Val(doBigMono ,"imag2ion/doBigMono",doBigMono)
 
         if (isRestart) then
             if (doKillRCMDir) then
