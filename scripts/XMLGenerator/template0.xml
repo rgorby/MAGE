@@ -1,0 +1,45 @@
+<Kaiju>
+	<VOLTRON>
+  		<time tFin="18005.0"/>
+  		<spinup doSpin="T" tSpin="3600.0" tIO="0.0" doSeq="F"/>
+  		<output dtOut="15.0" tsOut="100"/>
+  		<coupling dt="5.0" dtDeep="10.0" rTrc="40.0" imType="RCM" doQkSquish="F" doDynDT="T" doAsyncShallow="T" qkSquishStride="2"/>
+  		<restart dtRes="1800.0"/>
+  		<imag doInit="T"/>
+  		<ebsquish epsSquish="0.05"/>
+  		<threading NumTh="36"/>
+	</VOLTRON>
+	<Gamera>
+  		<sim runid="msphere" doH5g="T" H5Grid="lfmO.h5" icType="user" pdmb="0.75" rmeth="7UP"/>
+  		<floors dFloor="1.0e-4" pFloor="1.0e-6"/>
+  		<timestep doCPR="T" limCPR="0.25"/>
+  		<restart doRes="F" resID="msphere" nRes="6"/>
+  		<physics doMHD="T" doBoris="T" Ca="10.0"/>
+  		<ring gid="lfm" doRing="T"/>
+  		<ringknobs doVClean="T"/>
+  		<wind tsfile="bcwind.h5"/>
+  		<source doSource="T" doWolfLim="T" doBounceDT="T" nBounce="1.0"/>
+  		<iPdir N="8" bcPeriodic="F"/>
+  		<jPdir N="8" bcPeriodic="F"/>
+  		<kPdir N="1" bcPeriodic="T"/>
+  		<threading NumTh="18"/>
+	</Gamera>
+	<CHIMP>
+  		<units uid="EARTHCODE"/>
+  		<fields grType="LFM"/>
+  		<domain dtype="MAGE" xSun="25.0" yzMax="40.0" xTail="-100.0"/>
+  		<tracer epsds="0.025"/>
+	</CHIMP>
+	<REMIX>
+  		<grid Np="720" Nt="90" LowLatBoundary="45.0"/>
+  		<conductance doStarlight="T" doRamp="F" doMR="T"/>
+  		<precipitation aurora_model_type="RCMONO" alpha="0.2" beta="0.4" doAuroralSmooth="F"/>
+	</REMIX>
+	<RCM>
+  		<ellipse xSun="12.5" yDD="15.0" xTail="-15.0" isDynamic="T"/>
+  		<grid LowLat="30.0" HiLat="75.0" doLatStretch="F"/>
+  		<tomhd doAvg2MHD="T"/>
+  		<plasmasphere isDynamic="T" initKp="3" doRefill="F" DenPP0="5.0" staticR="3.0"/>
+  		<loss doRelax="T" doNewCX="T"/>
+	</RCM>
+</Kaiju>
