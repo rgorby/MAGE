@@ -75,7 +75,10 @@ program pushx
         if (modulo(Model%ts,Model%tsOut) ==0) then
             call cOutput(Model,ebState,tpState)
         endif
-        if (Model%t >= Model%tOut) then
+        if (Model%IO%doRestart(Model%t)) then
+            call resOutput(Model,ebState,tpState)
+        endif
+        if (Model%IO%doOutput(Model%t)) then
             call fOutput(Model,ebState,tpState)
         endif
         call Toc("Output")

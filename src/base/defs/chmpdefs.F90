@@ -4,6 +4,7 @@ module chmpdefs
     use kdefs
     use math
     use xml_input
+    use ioclock
     implicit none
 
     !Algorithmic/Run options
@@ -44,6 +45,11 @@ module chmpdefs
         logical :: doEQScat=.false. !Do equatorial PA scattering
         real(rp) :: reqScat
         logical :: doPP=.false. !Include plasmapaus location calculations
+
+        logical :: isRestart=.false.
+
+        !Output info
+        type (IOClock_T) :: IO
 
         !Background field pointers
         procedure(B0_T)   , pointer, nopass :: B0
