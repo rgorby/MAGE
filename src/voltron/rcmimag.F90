@@ -30,10 +30,10 @@ module rcmimag
     logical , private :: doTrickyTubes = .true.  !Whether to poison bad flux tubes
 
     !Whether to call smooth tubes routine at all, see imagtubes for specific options
-    logical , private :: doSmoothTubes = .true. 
+    logical , private :: doSmoothTubes = .false. 
     
     !Whether to send MHD buffer information to remix
-    logical , private :: doBigMono = .true. 
+    logical , private :: doBigIMag2Ion = .false. 
 
     real(rp), dimension(:,:), allocatable, private :: mixPot
 
@@ -96,7 +96,7 @@ module rcmimag
         call iXML%Set_Val(doBounceDT,"/gamera/source/doBounceDT",doBounceDT)
         call iXML%Set_Val(nBounce   ,"/gamera/source/nBounce"   ,nBounce   )
         call iXML%Set_Val(maxBetaLim,"/gamera/source/betamax"   ,maxBetaLim)
-        call iXML%Set_Val(doBigMono ,"imag2ion/doBigMono",doBigMono)
+        call iXML%Set_Val(doBigIMag2Ion ,"imag2ion/doBigIMag2Ion",doBigIMag2Ion)
 
         if (isRestart) then
             if (doKillRCMDir) then
@@ -323,7 +323,7 @@ module rcmimag
     !Pull data from RCM state for conductance calculations
         !NOTE: this is not the closed field region, this is actually the RCM domain
         !How much RCM info to use
-        if (doBigMono) then
+        if (doBigIMag2Ion) then
             !Pass buffer region to remix
             vApp%imag2mix%inIMag = .not. (RCMApp%iopen == RCMTOPOPEN)
         else    

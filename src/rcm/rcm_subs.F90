@@ -1741,23 +1741,6 @@
       END SUBROUTINE Rcm
 !
 !
-!
-!
-    SUBROUTINE Read_dktime (L_dktime)
-    IMPLICIT NONE
-    LOGICAL, INTENT (IN) :: L_dktime
-!
-!
-    IF (L_dktime) THEN
-       OPEN (LUN, FILE=rcmdir//'dktable', STATUS='OLD', ACTION='READ')
-       READ (LUN,800) dktime
- 800   FORMAT (8(E10.3))
-       CLOSE (LUN)
-    ELSE
-        dktime = 0.0
-    END IF
-    RETURN
-    END SUBROUTINE Read_dktime
 
     !K: HDF5 version of lifetime reader
     SUBROUTINE Read_dktime_H5(L_dktime)
@@ -1784,10 +1767,7 @@
     END SUBROUTINE Read_dktime_H5
 
 
-    
-!
-!
-!
+
       FUNCTION Cexrat (isp,enrg,rloc,ssn,dktime,irdk,inrgdk,isoldk, &
                        iondk)
       IMPLICIT NONE
@@ -1987,7 +1967,7 @@
 !=========================================================================
 !
 SUBROUTINE Move_plasma_grid_MHD (dt)
-  use rice_housekeeping_module, ONLY : LowLatMHD,doOCBLoss,doNewCX,doFLCLoss,dp_on,doPPRefill
+  use rice_housekeeping_module, ONLY : LowLatMHD,doOCBLoss,doNewCX,doFLCLoss,dp_on,doPPRefill,doSmoothDDV
   use math, ONLY : SmoothOpTSC,SmoothOperator33
   use lossutils, ONLY : CXKaiju,FLCRat,DepleteOCB
   use earthhelper, ONLY : DipFTV_colat,DerivDipFTV
@@ -2011,9 +1991,6 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
   
   REAL (rprec) :: T1k,T2k !Local loop variables b/c clawpack alters input
   LOGICAL, save :: FirstTime=.true.
-  !Whether to smooth ij deriv of residual FTV
-  !NOTE: Weirdly smoothing this seems to help even though smoothing potential seems to hurt
-  LOGICAL, parameter :: doSmoothDDV = .true. 
 
   call Tic("Move_Plasma_Init")
   if (jwrap /= 3) then

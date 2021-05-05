@@ -51,6 +51,7 @@ MODULE rice_housekeeping_module
   LOGICAL :: doOCBLoss = .false.
   LOGICAL :: doFLCLoss = .true. !Use FLC losses
   LOGICAL :: doNewCX = .true. !Use newer CX loss estimate
+  LOGICAL :: doSmoothDDV = .false. !Whether to smooth ij deriv of residual FTV
 
 ! set this to true to tilt the dipole, must turn off corotation also
   LOGICAL :: rcm_tilted = .false.
@@ -137,9 +138,10 @@ MODULE rice_housekeeping_module
         call xmlInp%Set_Val(doSmoothIJ,"tomhd/doSmoothIJ",doSmoothIJ)
 
         !Advance parameters
-        !call xmlInp%Set_Val(Idt_overwrite,"sim/idt",Idt_overwrite)
         call xmlInp%Set_Val(nSubstep,"sim/nSubstep", nSubstep)
 
+        !Advection
+        call xmlInp%Set_Val(doSmoothDDV,"advect/doSmoothDDV",doSmoothDDV)
       end subroutine RCM_MHD_Params_XML
 
 END MODULE rice_housekeeping_module

@@ -178,7 +178,7 @@ MODULE torcm_mod
       !     On open field lines, values of ETA will be zero:
       CALL Gettemp (ierr)
       IF (ierr < 0) RETURN
-      CALL Press2eta()       ! this populates EETA_NEW array
+      CALL Press2eta(RM)       ! this populates EETA_NEW array
       
       if ( (maxval(eeta_new) <=0) .or. any(isnan(eeta_new)) ) then
         write(6,*)' something is wrong in eeta_new'
@@ -749,34 +749,55 @@ MODULE torcm_mod
       END SUBROUTINE PartFluid
 !
 !===================================================================      
-      SUBROUTINE Press2eta() 
+      SUBROUTINE Press2eta(RM) 
       USE conversion_module      
       USE RCM_mod_subs, ONLY : ikflavc,vm,alamc,isize,jsize,kcsize,eeta
       USE rcm_precision
       IMPLICIT NONE
-      
-      real(rprec) :: drc,dpp,prc
+      type(rcm_mhd_T), intent(inout) :: RM
+
+      real(rprec), dimension(isize,jsize) :: errD,errP
+      real(rprec) :: drc,dpp,prc,drc_p,dpp_p,prc_p
       integer(iprec) :: i,j
 
+      !Note: RM%errX is different size than errX for some reason
+      errD    = 0.0
+      errP    = 0.0
+      RM%errD = 0.0
+      RM%errP = 0.0
 
       !$OMP PARALLEL DO default(shared) &
       !$OMP schedule(dynamic) &
-      !$OMP private(i,j,drc,dpp,prc)
+      !$OMP private(i,j,drc,dpp,prc,drc_p,dpp_p,prc_p)
       do j=1,jsize
         do i=1,isize
           !Get corrected density from MHD
           call PartFluid(i,j,drc,dpp)
 
           if ( (iopen(i,j) /= RCMTOPOPEN) .and. (drc>TINY) .and. (ti(i,j)>TINY) ) then
-            !Good stuff, let's go
+          !Good stuff, let's go
             prc = press(i,j)
-            call DP2eta(drc,prc,vm(i,j),eeta_new(i,j,:))
+            !TODO: Remove the silly redundant calculation here to get the error
+            !Do D,P => eta => D',P' for error
+            call DP2eta(drc,prc,vm(i,j),eeta_new(i,j,:),doRescaleO=.false.)
+            call eta2DP(eeta_new(i,j,:),vm(i,j),drc_p,dpp_p,prc_p)
+            !Now save error
+            errD(i,j) = drc_p/drc
+            errP(i,j) = prc_p/prc
+
+            !Now just redo it w/ scaling (independently scale ions and electrons)
+            call DP2eta(drc,prc,vm(i,j),eeta_new(i,j,:),doRescaleO=.true.)
+
         !Not good MHD
           else
             eeta_new(i,j,:) = 0.0
           endif
         enddo
       enddo !J loop
+
+      !Copy to MHD-RCM object for output
+      call Unbiggen(errD,RM%errD)
+      call Unbiggen(errP,RM%errP)
 
       END SUBROUTINE Press2eta
       
