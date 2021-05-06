@@ -135,6 +135,7 @@ module imagtubes
         ijTube%latc = asin(xyzIonC(ZDIR)/norm2(xyzIonC))
         ijTube%lonc = modulo( atan2(xyzIonC(YDIR),xyzIonC(XDIR)),2*PI )
         ijTube%Lb = FLArc(ebModel,ebGr,bTrc)
+        !NOTE: Bounce timescale may be altered to use RCM hot density
         ijTube%Tb = FLAlfvenX(ebModel,ebGr,bTrc)
         !ijTube%Tb = FLFastX(ebModel,ebGr,bTrc)
 

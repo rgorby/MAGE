@@ -138,6 +138,11 @@ module msphingest
                     if (doInD) then
                         dRho = D0 - pW(DEN)
                         pW(DEN) = pW(DEN) + (Model%dt/Tau)*dRho
+                        if (dRho>0) then
+                            !If we're gaining mass, conserve momentum
+                            !Don't increase speed if mass decreases
+                            Vxyz = Mxyz/pW(DEN)
+                        endif
                     endif
 
                     if (doInP) then

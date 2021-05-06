@@ -9,7 +9,7 @@ module rcmeval
     implicit none
     logical  :: doWolfLim   = .true. !Whether to do wolf-limiting
     logical  :: doWolfNLim  = .false.  !If wolf-limiting whether to do wolf-limiting on density as well
-    real(rp) :: nBounce     = 2.0 !Scaling factor for Alfven transit
+    real(rp) :: nBounce     = 1.0 !Scaling factor for Alfven transit
     real(rp) :: maxBetaLim  = 6.0/5.0 !Largest beta to use in weighting formula
 	logical  :: doBounceDT = .true. !Whether to use Alfven bounce in dt-ingest
 

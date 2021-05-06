@@ -1,6 +1,6 @@
 !
     MODULE Rcm_mod_subs
-    use kdefs, ONLY : PI,Mp_cgs,Me_cgs
+    use kdefs, ONLY : PI,Mp_cgs,Me_cgs,EarthM0g,eCharge
     use rcmdefs
     use rcm_precision
     use clocks
@@ -11,10 +11,6 @@
 !
     INTEGER, PARAMETER :: LUN = 11 !, LUN_2 = 12, LUN_3 = 13
 
-!
-!
-!
-!
 !      Define a number of universal useful constants and parameters:
 !      Part 1 is machine-dependent parameters and they should not be changed
 !      under any circumstances.
@@ -48,10 +44,12 @@
                                xmass(RCMNUMFLAV) = [Me_cgs*1.0e-3,Mp_cgs*1.0e-3], &
                                !xmass (2)    = (/ 9.1E-31_rprec, &
                                !                  1.67E-27_rprec /), &
-                               besu         = 3.0584E+4_rprec, &
+                               !besu         = 3.0584E+4_rprec, &
+                               besu         = EarthM0g*1.0e+5, & !Use consistent moment, G => nT
                                signbe       = one, &
                                romeca       = zero, &
-                               charge_e     = 1.6E-19_rprec, &
+                               !charge_e     = 1.6E-19_rprec, &
+                               charge_e     = eCharge, & !Take from kdefs
                                sgn (ksize)  = one
                   INTEGER (iprec) :: ie_el = 1, ie_hd = 2 ! coding for e and proton
 !
@@ -1727,7 +1725,7 @@
           call xmlInp%Set_Val(L_doOMPClaw,"clawpack/doOMPClaw",L_doOMPClaw)
 
           !Averaging timescale for plasmasphere
-          call xmlInp%Set_Val(dtAvg_v,"plasmasphere/tAvg",600.0)
+          call xmlInp%Set_Val(dtAvg_v,"plasmasphere/tAvg",300.0)
 
           !Some values just setting
           tol_gmres = 1.0e-5
@@ -2755,6 +2753,7 @@ end function Deriv_IJ
 !Adapted by K: from S. Bao's adaptation of Colby Lemon's code, 09/20
 
 SUBROUTINE Kaiju_Plasmasphere_Refill(eeta0,xmin,ymin,aloct,vm,imin_j,idt)
+  use rice_housekeeping_module, ONLY : NowKp
   use constants, ONLY : density_factor
   use earthhelper, ONLY : GallagherXY
   use rcmdefs, ONLY : DenPP0
@@ -2774,7 +2773,6 @@ SUBROUTINE Kaiju_Plasmasphere_Refill(eeta0,xmin,ymin,aloct,vm,imin_j,idt)
   dpp0 = 10*DenPP0 !Use 10x the plasmasphere cutoff density to decide on refilling
   maxX = 2.0 !Max over-filling relative to target, i.e. don't go above maxX x den-target
 
-  !dpp0 = DenPP0
   do j=1,jsize
     do i=1,isize
       if (vm(i,j) <= 0) cycle
@@ -2783,9 +2781,9 @@ SUBROUTINE Kaiju_Plasmasphere_Refill(eeta0,xmin,ymin,aloct,vm,imin_j,idt)
       rad = sqrt( xmin(i,j)**2.0 + ymin(i,j)**2.0 )
 
       !Closed field line, calculate Berbue+ 2005 density (#/cc)
-      !Or use Gallagher on nightside w/ currently set default Kp
+      !Or use Gallagher on nightside w/ NowKp (current Kp)
       !dppT = 10.0**(-0.66*rad + 4.89) !Target refilled density [#/cc]
-      dppT = GallagherXY(xmin(i,j),ymin(i,j))
+      dppT = GallagherXY(xmin(i,j),ymin(i,j),NowKp)
       
       eta2cc = (1.0e-6)*density_factor*vm(i,j)**1.5 !Convert eta to #/cc
       dpsph = eta2cc*eeta0(i,j) !Current plasmasphere density [#/cc]

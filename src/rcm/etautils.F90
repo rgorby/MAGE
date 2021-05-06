@@ -8,17 +8,20 @@ MODULE etautils
   USE constants, ONLY : mass_proton,mass_electron,nt,ev,tiote,boltz
   USE Rcm_mod_subs, ONLY : kcsize,alamc,ikflavc
   USE rcm_mhd_interfaces, ONLY : rcmPScl
-
+  USE conversion_module, ONLY : erfexpdiff
   implicit none
 
   real(rp), private :: density_factor = 0.0 !module private density_factor using planet radius
   real(rp), private :: pressure_factor = 0.0
   logical , private :: doRescaleDef = .true. !Whether to rescale D,P => eta
+  logical , private :: doKapDef     = .false. !Whether to do kappa by default
+
   real(rprec), private :: sclmass(RCMNUMFLAV) !xmass prescaled to proton
   !Kind of hacky limits to Ti/Te ratio
   real(rp), private, parameter :: TioTeMax = 20.0
   real(rp), private, parameter :: TioTeMin = 0.25
-  
+  real(rp), private, parameter :: kapDefault = 6.0
+
   contains
 
   !Set density/pressure factors using planet radius
@@ -160,26 +163,57 @@ MODULE etautils
     endif
   end function GetTioTe
 
+  subroutine MaxVsKap(Drc,Prc,vm)
+    REAL(rprec), intent(in)  :: Drc,Prc,vm
+
+    REAL(rprec), dimension(kcsize) :: etaMax,etaKap
+    REAL(rprec) :: Dm,Dk,Pm,Pk,Dpp
+
+    call DP2eta(Drc,Prc,vm,etaMax,doRescaleO=.false.,doKapO=.false.)
+    call DP2eta(Drc,Prc,vm,etaKap,doRescaleO=.false.,doKapO=.true. )
+
+    call eta2DP(etaMax,vm,Dm,Dpp,Pm)
+    call eta2DP(etaKap,vm,Dk,Dpp,Pk)
+
+    write(*,*) 'Max/Kap: D/P = ', Drc*1.0e-6,Dm*1.0e-6,Dk*1.0e-6,Prc*1.0e+9,Pm*1.0e+9,Pk*1.0e+9
+
+  end subroutine MaxVsKap
   !Convert given single density/pressure to eeta
   !Optional flag to rescale moments or provide different Ti/Te
-  SUBROUTINE DP2eta(Drc,Prc,vm,eta,doRescaleO,tioteO)
+  SUBROUTINE DP2eta(Drc,Prc,vm,eta,doRescaleO,tioteO,doKapO,kapO)
     USE conversion_module, ONLY : almmax,almmin,erfexpdiff
     REAL(rprec), intent(in)  :: Drc,Prc,vm
     REAL(rprec), intent(out) :: eta(kcsize)
-    logical    , intent(in), optional :: doRescaleO
-    REAL(rprec), intent(in), optional :: tioteO 
+    logical    , intent(in), optional :: doRescaleO,doKapO
+    REAL(rprec), intent(in), optional :: tioteO,kapO
 
-    REAL(rprec) :: fac,TiovTe,Pion,Pele
-    logical :: doRescale
+    REAL(rprec) :: fac,TiovTe,Pion,Pele,kap
+    logical :: doRescale,doKap
 
     eta = 0.0
+    kap = 0.0
+
     if ( (vm<0) .or. (Drc<TINY) ) return
     if (present(doRescaleO)) then
       doRescale = doRescaleO
     else
       doRescale = .true.
     endif
- 
+
+    if (present(doKapO)) then
+      doKap = doKapO
+    else
+      doKap = doKapDef
+    endif
+
+    if (doKap) then
+      if (present(kapO)) then
+        kap = kapO
+      else
+        kap = kapDefault
+      endif
+    endif
+
     if (present(tioteO)) then !Use specified Ti/Te
       TiovTe = tioteO
       call ClampTioTe(TiovTe) !Ensure reasonable number
@@ -191,22 +225,23 @@ MODULE etautils
     Pion = Prc*TiovTe/(1.0+TiovTe) !Desired ion pressure
     Pele = Prc*   1.0/(1.0+TiovTe) !Desired elec pressure
 
-    call DPP2eta(Drc,Pion,Pele,vm,eta,doRescale)
+    call DPP2eta(Drc,Pion,Pele,vm,eta,doRescale,doKap,kap)
 
   END SUBROUTINE DP2eta
 
   !Like DP2eta but take both desired ion and electron pressure
   !Optional flag to rescale pressure
-  SUBROUTINE DPP2eta(Drc,Pion,Pele,vm,eta,doRescaleO)
-    USE conversion_module, ONLY : almmax,almmin,erfexpdiff
+  SUBROUTINE DPP2eta(Drc,Pion,Pele,vm,eta,doRescaleO,doKapO,kapO)
+    USE conversion_module, ONLY : almmax,almmin
     REAL(rprec), intent(in)  :: Drc,Pion,Pele,vm
     REAL(rprec), intent(out) :: eta(kcsize)
-    logical    , intent(in), optional :: doRescaleO
+    logical    , intent(in), optional :: doRescaleO,doKapO
+    real(rp)   , intent(in), optional :: kapO
 
-    REAL(rprec) :: Tk,ti,te,A0,prcmI,prcmE
-    REAL(rprec) :: xp,xm,pcon,psclI,psclE
+    REAL(rprec) :: Tk,ti,te,prcmI,prcmE,kap
+    REAL(rprec) :: pcon,psclI,psclE
     INTEGER(iprec) :: k,klow
-    logical :: isIon,doRescale
+    logical :: isIon,doRescale,doKap
 
     eta = 0.0
     if ( (vm<0) .or. (Drc<TINY) ) return
@@ -214,6 +249,20 @@ MODULE etautils
       doRescale = doRescaleO
     else
       doRescale = .true.
+    endif
+
+    if (present(doKapO)) then
+      doKap = doKapO
+    else
+      doKap = doKapDef
+    endif
+
+    if (doKap) then
+      if (present(kapO)) then
+        kap = kapO
+      else
+        kap = kapDefault
+      endif
     endif
 
     !Set lowest RC channel
@@ -227,7 +276,6 @@ MODULE etautils
     ti = Pion/Drc/boltz
     te = Pele/Drc/boltz
 
-    A0 = (Drc/density_factor)/(vm**1.5)
     prcmI = 0.0 !Cumulative ion pressure
     prcmE = 0.0 !Cumulative electron pressure
 
@@ -247,11 +295,12 @@ MODULE etautils
         cycle
       endif
 
-      xp = SQRT(ev*ABS(almmax(k))*vm/boltz/Tk)
-      xm = SQRT(ev*ABS(almmin(k))*vm/boltz/Tk)
-      !Use quad prec calc of erf/exp differences, Pembroke+ Eqn B5
-      eta(k) = erfexpdiff(A0,xp,xm)
-      
+      if (doKap) then
+        eta(k) = Kappa2Eta  (Drc,vm,Tk,almmin(k),almmax(k),alamc(k),kap)
+      else
+        eta(k) = Maxwell2Eta(Drc,vm,Tk,almmin(k),almmax(k),alamc(k))
+      endif
+
       !Pressure contribution from this channel
       pcon = pressure_factor*ABS(alamc(k))*eta(k)*vm**2.5
 
@@ -299,5 +348,70 @@ MODULE etautils
     if (TiovTe<TioTeMin) TiovTe = TioTeMin
     if (TiovTe>TioTeMax) TiovTe = TioTeMax
   END SUBROUTINE ClampTioTe
+
+!======
+  !Specific PSD types
+  !General form: Maxwell2Eta(Drc,vm,Tk,almin,almax,almc)
+  !almin/max/c are min/max and center of lambda bin
+  !Drc = Density [#/m3]
+  !vm  = (nt/re)^0.667
+  !Tk  = Temperature [K]
+
+  function Maxwell2Eta(Drc,vm,Tk,almin,almax,almc) result(etak)
+    real(rp), intent(in) :: Drc,vm,Tk,almin,almax,almc
+    real(rp) :: etak
+
+    real(rp) :: A0,xp,xm
+
+    A0 = (Drc/density_factor)/(vm**1.5)
+    xp = SQRT(ev*ABS(almax)*vm/boltz/Tk)
+    xm = SQRT(ev*ABS(almin)*vm/boltz/Tk)
+
+    !Use quad prec calc of erf/exp differences, Pembroke+ Eqn B5
+    etak = erfexpdiff(A0,xp,xm)
+
+  end function Maxwell2Eta
+
+  !NOTE: This is just copied from other RCM code, seems to be eqn 3.12 from 10.1007/s11214-013-9982-9
+
+  function Kappa2Eta(Drc,vm,Tk,almin,almax,almc,kapO) result(etak)
+    real(rp), intent(in) :: Drc,vm,Tk,almin,almax,almc
+    real(rp), intent(in), optional :: kapO
+    real(rp) :: etak
+
+    real(rp) :: kap,ftv,Tkev,Pnpa,tV,pV,kap15,kapgam
+    real(rp) :: trans,tran23,A0,Px,Tx,Kx,dLamx,kArg
+
+    if (present(kapO)) then
+      kap = kapO
+    else
+      kap = kapDefault
+    endif
+    !Start by converting to same units as RCM code
+    !tV = ti x ftv^(2/3) = keV [Re/nT]^2/3
+    !pV = pi x ftv^(5/3) = nPa [Re/nT]^5/3
+
+    ftv = vm**(-3.0/2) ! Re/nT
+    Tkev = Tk*Kbltz*erg2kev
+    Pnpa = (Tk*boltz*Drc)*(1.0e+9) !P => nPa
+
+    tV = (Tkev)*(ftv**(2.0/3))
+    pV = (Pnpa)*(ftv**(5.0/3))
+
+    kap15 = kap-1.5
+    kapgam = gamma(kap+1.0)/gamma(kap-0.5)
+
+    trans = 1/density_factor
+    tran23 = trans**(2.0/3)
+    A0 = (2.0/sqrt(PI))*(kap15**-1.5)*kapgam
+    Px = (pV*(1.0e-9*trans**(5.0/3)))
+    Tx = ((tV*kev2J*tran23)**-2.5)
+    Kx = sqrt(abs(almc))*tran23*(kev2J*1.0e-3)
+    dLamx = (almax-almin)*tran23*(kev2J*1.0e-3)
+
+    kArg = 1.0 + abs(almc)/(kap15*tV*1.0e+3)
+
+    etak = A0*Px*Tx*Kx*dLamx * ((kArg)**(-kap-1.0))
+  end function Kappa2Eta
 
 END MODULE etautils

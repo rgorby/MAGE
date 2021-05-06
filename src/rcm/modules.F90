@@ -33,6 +33,7 @@ MODULE rice_housekeeping_module
   USE kdefs, ONLY : strLen
   USE rcm_precision, only : iprec,rprec
   use xml_input
+  use kronos
   use strings
   use earthhelper, ONLY : SetKp0
   use rcmdefs, ONLY : DenPP0
@@ -51,7 +52,7 @@ MODULE rice_housekeeping_module
   LOGICAL :: doOCBLoss = .false.
   LOGICAL :: doFLCLoss = .true. !Use FLC losses
   LOGICAL :: doNewCX = .true. !Use newer CX loss estimate
-  LOGICAL :: doSmoothDDV = .false. !Whether to smooth ij deriv of residual FTV
+  LOGICAL :: doSmoothDDV = .true. !Whether to smooth ij deriv of residual FTV
 
 ! set this to true to tilt the dipole, must turn off corotation also
   LOGICAL :: rcm_tilted = .false.
@@ -63,7 +64,7 @@ MODULE rice_housekeeping_module
   LOGICAL :: doRelax    = .true. !Whether to relax energy distribution
   LOGICAL :: doSmoothIJ = .false. !Whether to smooth individual eta channels
 
-  INTEGER(iprec) :: InitKp = 1
+  INTEGER(iprec) :: InitKp = 1, NowKp
   LOGICAL :: doFLOut = .false. !Whether to output field lines (slow)
   INTEGER(iprec) :: nSkipFL = 8 !Stride for outputting field lines
 
@@ -73,13 +74,13 @@ MODULE rice_housekeeping_module
   type RCMEllipse_T
       !Ellipse parameters
       real(rprec) :: xSun=12.5,xTail=-15.0,yDD=15.0
-      logical  :: isDynamic=.true. !Whether to update parameters
-          
+      logical  :: isDynamic=.true. !Whether to update parameters  
   end type RCMEllipse_T
+
   type(RCMEllipse_T) :: ellBdry
+  type(TimeSeries_T), private :: KpTS
 
   CONTAINS
-  
 
       !Get RCM params from Kaiju-style XML file
       subroutine RCM_MHD_Params_XML(iXML)
@@ -125,6 +126,7 @@ MODULE rice_housekeeping_module
         call xmlInp%Set_Val(DenPP0  ,'plasmasphere/DenPP0',DenPP0)
 
         call SetKp0(InitKp)
+        NowKp = InitKp
 
         !Loss options
         call xmlInp%Set_Val(doOCBLoss,"loss/doOCBLoss",doOCBLoss)
@@ -142,6 +144,28 @@ MODULE rice_housekeeping_module
 
         !Advection
         call xmlInp%Set_Val(doSmoothDDV,"advect/doSmoothDDV",doSmoothDDV)
+
+      !Initialize Kp (and maybe other indices) time series
+        call xmlInp%Set_Val(KpTS%wID,"/Gamera/wind/tsfile","NONE")
+        call KpTS%initTS("Kp",doLoudO=.false.)
+
       end subroutine RCM_MHD_Params_XML
+
+      !Update any indices in RCM that may be necessary
+      subroutine UpdateRCMIndices(time)
+        REAL(rprec), intent(in) :: time
+        INTEGER(iprec) :: n,KpI
+        REAL(rprec)    :: t0,t,KpMax
+
+        if (time<=0) return
+
+        t0 = time
+        !Loop over 15min increments -1/+1 hour, find max Kp
+        do n=-4,+4
+            t = t0 + 15.0*60.0*n
+            KpMax = max(KpMax,KpTS%evalAt(t))
+        enddo
+        NowKp = nint(KpMax) !Cast to integer        
+      end subroutine UpdateRCMIndices
 
 END MODULE rice_housekeeping_module

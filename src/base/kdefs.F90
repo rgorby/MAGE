@@ -48,7 +48,7 @@ module kdefs
 
     !Misc
     real(rp), parameter :: Mu0 = 4*PI*1.0e-7 ! Tm/A
-    real(rp), parameter :: Kbltz = 1.38e-16      ![cm^2 g /s^2/K=erg/K] Boltzmann constant
+    real(rp), parameter :: Kbltz = 1.380649D-16      ![cm^2 g /s^2/K=erg/K] Boltzmann constant
     real(rp), parameter :: mec2 = (Me_cgs*vc_cgs**2.0)*1.0E-3/kev2erg ! [MeV] electron rest mass
     real(rp), parameter :: heFrac= 1.16D0       ! Accounts for 4% helium
     real(rp), parameter :: eCharge= 1.602D-19  ! Charge of electron

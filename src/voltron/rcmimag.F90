@@ -35,6 +35,9 @@ module rcmimag
     !Whether to send MHD buffer information to remix
     logical , private :: doBigIMag2Ion = .false. 
 
+    !Whether to use MHD Alfven bounce or RCM hot population bounce
+    logical, private :: doHotBounce = .true.
+
     real(rp), dimension(:,:), allocatable, private :: mixPot
 
 
@@ -94,6 +97,7 @@ module rcmimag
         endif
 
         call iXML%Set_Val(doBounceDT,"/gamera/source/doBounceDT",doBounceDT)
+        call iXML%Set_Val(doHotBounce,"/gamera/source/doHotBounce",doHotBounce)
         call iXML%Set_Val(nBounce   ,"/gamera/source/nBounce"   ,nBounce   )
         call iXML%Set_Val(maxBetaLim,"/gamera/source/betamax"   ,maxBetaLim)
         call iXML%Set_Val(doBigIMag2Ion ,"imag2ion/doBigIMag2Ion",doBigIMag2Ion)
@@ -257,8 +261,6 @@ module rcmimag
                 RCMApp%losscone(i,j)     = ijTube%losscone
                 RCMApp%Lb(i,j)           = ijTube%Lb
                 RCMApp%radcurv(i,j)      = ijTube%rCurv
-                !Get some kind of bounce timscale, either real integrated value or lazy average
-                !RCMApp%Tb(i,j)           = AlfvenBounce(ijTube%Nave,ijTube%bmin,ijTube%Lb)
                 RCMApp%Tb(i,j)           = ijTube%Tb
                 RCMApp%wIMAG(i,j)        = ijTube%wIMAG
 
@@ -375,15 +377,17 @@ module rcmimag
             RCMApp%toMHD(:,j) = .false.
             RCMApp%toMHD(jBnd(j):,j) = .true.
 
-            ! !Calculate ingestion timescale in this longitude
-            ! !Use only hot population from RCM
-            ! do i = jBnd(j),RCMApp%nLat_ion
-            !     Drc = rcmNScl*RCMApp%Nrcm (i,j) !#/cc
-            !     Drc = max(Drc,TINY)
-            !     bEq = rcmBScl*RCMApp%Bmin (i,j) !Mag field [nT]
-            !     Lb  = (RCMApp%planet_radius)*(1.0e-3)*RCMApp%Lb(i,j) !Lengthscale [km]
-            !     RCMApp%Tb(i,j) = AlfBounce(Drc,bEq,Lb)
-            ! enddo
+            !Replace bounce timescale w/ one using RCM hot population and equatorial B
+            if (doHotBounce) then
+                !Calculate ingestion timescale in this longitude
+                do i = jBnd(j),RCMApp%nLat_ion
+                    Drc = rcmNScl*RCMApp%Nrcm (i,j) !#/cc
+                    Drc = max(Drc,TINY)
+                    bEq = rcmBScl*RCMApp%Bmin (i,j) !Mag field [nT]
+                    Lb  = (RCMApp%planet_radius)*(1.0e-3)*RCMApp%Lb(i,j) !Lengthscale [km]
+                    RCMApp%Tb(i,j) = AlfBounce(Drc,bEq,Lb)
+                enddo
+            endif
 
         enddo
 
