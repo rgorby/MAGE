@@ -171,12 +171,13 @@ module voltio
         call resOutput(gApp%Model,gApp%Grid,gApp%State)
 
         !Write Voltron restart data
-        call resOutputVOnly(vApp)
+        call resOutputVOnly(vApp,gApp)
 
     end subroutine resOutputV
 
-    subroutine resOutputVOnly(vApp)
+    subroutine resOutputVOnly(vApp, gApp)
         class(voltApp_T), intent(inout) :: vApp
+        class(gamApp_T) , intent(inout) :: gApp
 
         if (vApp%writeFiles) then
             call writeMIXRestart(vApp%remixApp%ion,vApp%IO%nRes,mjd=vApp%MJD,time=vApp%time)
@@ -184,6 +185,7 @@ module voltio
             if (vApp%doDeep) then
                 call vApp%imagApp%doRestart(vApp%IO%nRes,vApp%MJD,vApp%time)
             endif
+            call writeVoltRestart(vApp,gApp)
         endif
 
         if (vApp%time>vApp%IO%tRes) then
@@ -192,6 +194,85 @@ module voltio
         vApp%IO%nRes = vApp%IO%nRes + 1
 
     end subroutine resOutputVOnly
+
+    subroutine writeVoltRestart(vApp,gApp)
+        class(voltApp_T), intent(in) :: vApp
+        class(gamApp_T) , intent(in) :: gApp
+
+        character(len=strLen) :: ResF
+        type(IOVAR_T), dimension(MAXVOLTIOVAR) :: IOVars
+
+        write (ResF, '(A,A,I0.5,A)') trim(gApp%Model%RunID), ".volt.Res.", vApp%IO%nRes, ".h5"
+        call CheckAndKill(ResF)
+
+        call StampIO(ResF)
+
+        call ClearIO(IOVars)
+
+        !Main attributes
+        call AddOutVar(IOVars,"nOut",vApp%IO%nOut)
+        call AddOutVar(IOVars,"nRes",vApp%IO%nRes)
+        call AddOutVar(IOVars,"ts"  ,vApp%ts)
+        call AddOutVar(IOVars,"MJD" ,vApp%MJD)
+        call AddOutVar(IOVars,"time",vApp%time)
+
+        !Coupling info
+        call AddOutVar(IOVars,"ShallowT",vApp%ShallowT)
+        call AddOutVar(IOVars,"DeepT"   ,vApp%DeepT)
+
+        call WriteVars(IOVars,.false.,ResF)
+
+    end subroutine writeVoltRestart
+
+    subroutine readVoltronRestart(vApp,xmlInp)
+        class(voltApp_T), intent(inout) :: vApp
+        type(XML_Input_T), intent(inout) :: xmlInp
+
+        character(len=strLen) :: ResF,resID,nStr
+        type(IOVAR_T), dimension(MAXVOLTIOVAR) :: IOVars
+        logical :: fExist
+        integer :: nRes
+
+        call xmlInp%Set_Val(resID,"/gamera/restart/resID","msphere")
+        call xmlInp%Set_Val(nRes,"/gamera/restart/nRes" ,-1)
+        !Get number string
+        if (nRes == -1) then
+            nStr = "XXXXX"
+        else
+            write (nStr,'(I0.5)') nRes
+        endif
+
+        write (ResF, '(A,A,A,A)') trim(resID), ".volt.Res.", trim(nStr), ".h5"
+        write(*,*) 'Reading Voltron restart from ', trim(ResF)
+        inquire(file=ResF,exist=fExist)
+        if (.not. fExist) then
+            !Error out and leave
+            write(*,*) 'Unable to open input voltron restart file, exiting'
+            stop
+        endif
+
+        call ClearIO(IOVars)
+
+        call AddInVar(IOVars,"nOut"    ,vTypeO=IOINT)
+        call AddInVar(IOVars,"nRes"    ,vTypeO=IOINT)
+        call AddInVar(IOVars,"ts"      ,vTypeO=IOINT)
+        call AddInVar(IOVars,"MJD"     ,vTypeO=IOREAL)
+        call AddInVar(IOVars,"time"    ,vTypeO=IOREAL)
+        call AddInVar(IOVars,"ShallowT",vTypeO=IOREAL)
+        call AddInVar(IOVars,"DeepT"   ,vTypeO=IOREAL)
+
+        !Get data
+        call ReadVars(IOVars,.false.,ResF)
+
+        vApp%IO%nOut  = GetIOInt(IOVars,"nOut")
+        vApp%IO%nRes  = GetIOInt(IOVars,"nRes") + 1
+        vApp%ts       = GetIOInt(IOVars,"ts")
+        vApp%MJD      = GetIOReal(IOVars,"MJD")
+        vApp%time     = GetIOReal(IOVars,"time")
+        vApp%ShallowT = GetIOReal(IOVars,"ShallowT")
+        vApp%DeepT    = GetIOReal(IOVars,"DeepT")
+
+    end subroutine
 
     subroutine fOutputV(vApp,gApp)
         class(gamApp_T) , intent(inout) :: gApp
