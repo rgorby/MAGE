@@ -199,7 +199,7 @@ module voltio
         class(voltApp_T), intent(in) :: vApp
         class(gamApp_T) , intent(in) :: gApp
 
-        character(len=strLen) :: ResF
+        character(len=strLen) :: ResF,lnResF
         type(IOVAR_T), dimension(MAXVOLTIOVAR) :: IOVars
 
         write (ResF, '(A,A,I0.5,A)') trim(gApp%Model%RunID), ".volt.Res.", vApp%IO%nRes, ".h5"
@@ -221,6 +221,9 @@ module voltio
         call AddOutVar(IOVars,"DeepT"   ,vApp%DeepT)
 
         call WriteVars(IOVars,.false.,ResF)
+        !Create link to latest restart
+        write (lnResF, '(A,A,A,A)') trim(gApp%Model%RunID), ".volt.Res.", "XXXXX", ".h5"
+        call MapSymLink(ResF,lnResF)
 
     end subroutine writeVoltRestart
 
