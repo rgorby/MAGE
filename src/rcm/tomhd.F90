@@ -46,6 +46,7 @@ MODULE tomhd_mod
       INTEGER(iprec), INTENT (OUT) :: ierr
 
       REAL(rprec), dimension(isize,jsize) :: Pircm,Percm
+      integer :: n
 
       !Always set p/d_factors
       call SetFactors(RM%planet_radius)
@@ -68,14 +69,18 @@ MODULE tomhd_mod
 
       RM%MaxAlam = maxval(alamc)
       
-!     now update the pressure and density in the mhd code  
-      RM%Prcm    = pressrcm(:,jwrap:jsize)
-      RM%Nrcm    = densrcm (:,jwrap:jsize)
-      RM%Npsph   = denspsph(:,jwrap:jsize)
-      RM%flux    = eflux   (:,jwrap:jsize,:)
-      RM%eng_avg = eavg    (:,jwrap:jsize,:)
-      RM%fac     = birk    (:,jwrap:jsize)
-      RM%Percm   = Percm   (:,jwrap:jsize)
+      !Update arrays in the MHD-RCM object
+      call Unbiggen(pressrcm,RM%Prcm )
+      call Unbiggen(Percm   ,RM%Percm)
+
+      call Unbiggen(densrcm ,RM%Nrcm )
+      call Unbiggen(denspsph,RM%Npsph)
+      call Unbiggen(birk    ,RM%fac  )
+      do n=1,2
+        call Unbiggen(eflux(:,:,n),RM%flux   (:,:,n))
+        call Unbiggen(eavg (:,:,n),RM%eng_avg(:,:,n))
+      enddo
+      
       ierr = 0
 
     END SUBROUTINE tomhd
@@ -249,7 +254,7 @@ MODULE tomhd_mod
               else
                 etaNew(k) = etaOld(k)
               endif !Pion>TINY
-            else if (alamc(k)<TINY) then
+            else if (alamc(k)<-TINY) then
               !Electrons
               if (Pele(i,j)>TINY) then
                 etaNew(k) = (1-wgt)*etaOld(k) + wgt*etaMax(k)

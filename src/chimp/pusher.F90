@@ -6,6 +6,7 @@ module pusher
     use gridloc
     use pxing
     use gcutils
+    use wpicalc
     implicit none
 
     real(rp), parameter :: dtX = 2.0 !Max increase in timestep, dtNew <= dtX*dtOld
@@ -73,6 +74,10 @@ module pusher
                 !Test adiabaticity (and update alpha)
                 call Upgrade2GC(prt,t+dtCum,Model,ebState)
             endif
+            !Check for wave particle interaction
+            if ( Model%doWPI .and. isGood .and. prt%isIn) then
+                call PerformWPI(prt,t+dtCum,ddt,Model,ebState)
+            endif
 
         enddo
     !---------------------------
@@ -93,8 +98,6 @@ module pusher
         integer :: n, ijk(NDIM)
         real(rp) :: htOld,htNew, p11,pMag, eGCs(Nrk)
         real(rp), dimension(NVARTP) :: xGC,dxGC1,dxGC2,dxGC3,dxGC4,dQ,oQ
-
-
 
         xGC = prt%Q !GC configuration
         ijk = prt%ijk0

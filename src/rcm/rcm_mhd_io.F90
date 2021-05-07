@@ -7,7 +7,7 @@ module rcm_mhd_io
 
     implicit none
 
-    integer, parameter   , private :: MAXRCMIOVAR = 35
+    integer, parameter   , private :: MAXRCMIOVAR = 40
     character(len=strLen), private :: h5File,RCMH5,FLH5
     real(rp), parameter  , private :: IMGAMMA = 5.0/3.0
     
@@ -147,7 +147,8 @@ module rcm_mhd_io
         call AddOutVar(IOVars,"birk",RCMApp%fac,uStr="uA/m2")
 
         call AddOutVar(IOVars,"toMHD",merge(1.0_rp,0.0_rp,RCMApp%toMHD))
-
+        call AddOutVar(IOVars,"errD",RCMApp%errD,uStr="X'/X")
+        call AddOutVar(IOVars,"errP",RCMApp%errP,uStr="X'/X")
 
         call AddOutVar(IOVars,"colat",colat(:,jwrap:jsize))
         call AddOutVar(IOVars,"aloct",aloct(:,jwrap:jsize))

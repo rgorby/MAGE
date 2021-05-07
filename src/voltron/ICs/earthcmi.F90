@@ -11,6 +11,7 @@ module uservoltic
     use bcs
     use background
     use msphutils
+    use msphingest
     use wind
     use multifluid
 
@@ -394,6 +395,7 @@ module uservoltic
         integer :: ig,ip,idip,j,k,jp,kp,n,np,d
         integer, dimension(NDIM) :: dApm
 
+        
         !Are we on the inner (REMIX) boundary
         if (.not. Grid%hasLowerBC(IDIR)) return
 
@@ -456,6 +458,7 @@ module uservoltic
 
                         !dA = Grid%face(ig,j,k,d)/Grid%face(Grid%is,jp,kp,d)
                         dA = 1.0 !Using dA=1 for smoother magflux stencil
+
                         if((d == IDIR .and. j .le. Grid%jsg .and. k .le. Grid%ksg) .or. &
                            (d == JDIR .and. ig .le. Grid%isg .and. k .le. Grid%ksg) .or. &
                            (d == KDIR .and. ig .le. Grid%isg .and. j .le. Grid%jsg)) then
@@ -466,6 +469,8 @@ module uservoltic
                                 State%magFlux(ig,j,k,d) = dApm(d)*dA*State%magFlux(Grid%is,jp,kp,d)
                             endif
                         endif
+
+
                     enddo
                 enddo !n loop (ig)
             enddo !j loop
@@ -501,7 +506,7 @@ module uservoltic
 
         if (Model%doMultiF) then
             write(*,*) 'PushIon not implemented for MF yet ...'
-            stop
+            !stop
         endif
 
         PsiShells = PsiSh !Coming from cmidefs

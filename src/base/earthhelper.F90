@@ -497,6 +497,13 @@ module earthhelper
         kT = 6.25*P/max(D,TINY)
     end function DP2kT
     
+    !Turn density [#/cc] and velocity [km/s] to dynamic pressure
+    function PV2PDyn(D,V) result(PDyn)
+        real(rp), intent(in) :: D,V
+        real(rp) :: PDyn
+
+        PDyn = (1.94e-6)*(D*V*V) !nPa
+    end function PV2PDyn
 
 !Some routines for flux-tube volume
     

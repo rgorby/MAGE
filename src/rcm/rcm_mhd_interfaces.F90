@@ -15,6 +15,7 @@ module rcm_mhd_interfaces
     !Scaling parameters
     real(rprec), parameter :: rcmPScl = 1.0e+9 !Convert Pa->nPa
     real(rprec), parameter :: rcmNScl = 1.0e-6 !Convert #/m3 => #/cc
+    real(rprec), parameter :: rcmBScl = 1.0e+9 !Convert T to nT
 
     type rcm_mhd_T
         real(rprec) :: llBC !MHD low-latitude boundary (radians)
@@ -61,6 +62,9 @@ module rcm_mhd_interfaces
         !RCM confidence weight, [0,1]
         real(rprec),allocatable :: wIMAG(:,:)
 
+        !Arrays to hold error in D,P => eta => D',P'. Storing X'/X
+        real(rprec), allocatable,dimension(:,:) :: errD,errP
+        
         !Information to sync restarts w/ MHD
         integer(iprec) :: rcm_nOut,rcm_nRes !Indices for output/restart
         character(len=strLen) :: rcm_runid
@@ -101,4 +105,13 @@ module rcm_mhd_interfaces
 
         end subroutine EmbiggenWrapI
         
+        !Copy rcmA (RCM-sized) into rmA (RCM/MHD-sized)
+        subroutine Unbiggen(rcmA,rmA)
+          REAL(rprec), intent(in)       :: rcmA(isize,jsize)
+          REAL(rprec), intent(inout)    :: rmA (isize,jsize-jwrap+1)
+          
+          rmA(:,:) = rcmA(:,jwrap:jsize)
+
+      end subroutine Unbiggen
+
 end module rcm_mhd_interfaces

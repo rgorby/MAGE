@@ -17,7 +17,7 @@ module kdefs
 !Globals
     real(rp), parameter :: PI  = 4.0D0 *atan(1.0D0)
     real(qp), parameter :: QPI = 4.0_qp*atan(1.0_qp)
-    real(rp), parameter :: TINY=1.0e-12, HUGE=1.0e+12
+    real(rp), parameter :: TINY=1.0D-12, HUGE=1.0D+12
     real(rp), parameter :: rad2deg = 180.0/PI
     real(rp), parameter :: deg2rad = PI/180.0
     
@@ -26,20 +26,14 @@ module kdefs
     integer, parameter :: ALIGN = 64 !Compiler-directive alignment
     integer, parameter :: NDIM=3 !Number of dimensions, size of vector
     integer, parameter :: rseed0=31337 !Default random seed
-    
+
 !Physical constants
-    real(rp), parameter :: Mu0 = 4*PI*1.0e-7 ! Tm/A
-    real(rp), parameter :: Kbltz = 1.38e-16      ![cm^2 g /s^2/K=erg/K] Boltzmann constant
-    real(rp), parameter :: mec2 = 0.511 ! [MeV] electron rest mass
-    real(rp), parameter :: heFrac= 1.16D0       ! Accounts for 4% helium
-    real(rp), parameter :: eCharge= 1.602D-19  ! Charge of electron
-    
     !CGS Constants
-    real(rp), parameter :: vc_cgs = 2.9979E+10 ![cm/s], speed of light
-    real(rp), parameter :: qe_cgs = 4.8032E-10 ![CGS], electron charge
-    real(rp), parameter :: Re_cgs = 6.38E8     ![cm]    Earth's radius
-    real(rp), parameter :: Me_cgs = 9.1094E-28 ![g] Electron mass
-    real(rp), parameter :: Mp_cgs = 1.6726D-24 ![g] Proton mass
+    real(rp), parameter :: vc_cgs = 2.99792458D+10 ![cm/s], speed of light
+    real(rp), parameter :: qe_cgs = 4.80320425D-10 ![CGS], electron charge
+    real(rp), parameter :: Re_cgs = 6.3781D8     ![cm]    Earth's radius
+    real(rp), parameter :: Me_cgs = 9.1093837015D-28 ![g] Electron mass
+    real(rp), parameter :: Mp_cgs = 1.67262192369D-24 ![g] Proton mass
 
     !MKS Constants
     real(rp), parameter :: vc_mks = vc_cgs*(1.0e-2) ![m/s], Speed of light
@@ -47,10 +41,17 @@ module kdefs
     !Helper conversions
     real(rp), parameter :: G2nT = 1.0E+5 !Gauss->nT
     real(rp), parameter :: G2T = 1.0E-4 !Gauss->T
-    real(rp), parameter :: kev2J = 1.60218E-16 !keV->J
+    real(rp), parameter :: kev2J = 1.602176634D-16 !keV->J
     real(rp), parameter :: kev2erg = kev2J*1.0e+7
     real(rp), parameter :: erg2kev = 1.0/kev2erg
     real(rp), parameter :: Re_km = Re_cgs*(1.0e-2)*(1.0e-3) !km
+
+    !Misc
+    real(rp), parameter :: Mu0 = 4*PI*1.0e-7 ! Tm/A
+    real(rp), parameter :: Kbltz = 1.380649D-16      ![cm^2 g /s^2/K=erg/K] Boltzmann constant
+    real(rp), parameter :: mec2 = (Me_cgs*vc_cgs**2.0)*1.0E-3/kev2erg ! [MeV] electron rest mass
+    real(rp), parameter :: heFrac= 1.16D0       ! Accounts for 4% helium
+    real(rp), parameter :: eCharge= 1.602D-19  ! Charge of electron
 
 !Planetary constants
     !Earth
@@ -76,7 +77,7 @@ module kdefs
     real(rp), parameter :: RNeptuneXE = 3.860  !Rx = X*Re
 
 !Helio constants
-    real(rp), parameter :: Rsolar = 6.956e5 ! [km] Solar radius
+    real(rp), parameter :: Rsolar = 6.956D5 ! [km] Solar radius
 
 !Numbered accessors
     !Directions

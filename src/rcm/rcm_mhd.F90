@@ -30,7 +30,7 @@ module rcm_mhd_mod
 
 
     ! 2/19 frt
-
+        !TODO: Remove unused variables
         implicit none
         type(XML_Input_T), intent(in), optional :: iXML
         type(rcm_mhd_T),intent(inout) :: RM
@@ -38,10 +38,6 @@ module rcm_mhd_mod
         integer(iprec), intent(in) :: iflag
 
         integer(iprec) :: ierr   !> Error code...
-        integer(iprec) :: system !> This code makes a call to the
-                               !! non-standard SYSTEM function.  Must
-                               !! define as integer to avoid compile error.
-
 
         real(rprec) :: itimei !> RCM(...) param:  start time   sbaotime
         real(rprec) :: itimef !> RCM(...) param:  end time
@@ -49,8 +45,6 @@ module rcm_mhd_mod
         real(rprec) :: ircm_dt
         real(rprec) :: itimef_old = -1
         !using nSubstep from rice_housekeeping_module  !> RCM(...) param:  number of sub-time steps in program
-
-
         real(rprec) :: t1, t2  !> Used for performance timing
 
         !> Model coupling variables
@@ -162,6 +156,7 @@ module rcm_mhd_mod
                 call rcm (itimei, itimef, nSubstep, icontrol=3_iprec)
             end if
 
+            call UpdateRCMIndices(mhdtime)
 
             !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
             ! Import data from MIX
@@ -236,7 +231,6 @@ module rcm_mhd_mod
 
         if (iflag==RCMRESTART)then ! stop
             call rcm (itimei,itimef,nSubstep,icontrol=5_iprec)
-            !  call Finalize()    ! Matches Initialize() above
             call tearDownIon(RM) ! Matches setupIon() above
         end if
 

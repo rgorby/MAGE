@@ -134,8 +134,7 @@ module background
                     call cellCoords(Model,Grid,i,j,k,xyzC)
 
                     ijkB = GaussianVolumeIntegral(xyzC,Wxyz)/Grid%volume(i,j,k)
-                    Grid%B0(i,j,k,:) = ijkB(1:3)              
-
+                    Grid%B0(i,j,k,:) = ijkB(1:3)
                 enddo
             enddo
         enddo       

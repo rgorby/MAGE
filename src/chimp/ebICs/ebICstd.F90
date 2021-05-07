@@ -9,6 +9,7 @@ module userebic
     use ioH5
     use chmpfields
     use ebinit
+    use wpihelper
     
     implicit none
 
@@ -64,6 +65,12 @@ module userebic
 
         !Do various types of initialization
         !ie, static, numb0, etc
+
+        !Initialize wave particle interactions if present
+        if ( Model%doWPI ) then
+            call initWPI(ebState%ebWmodel,ebState%ebWave,inpXML)
+        endif
+
     !Numerical background, put B0 field on grid
         if (Model%doNumB0) then
             write(*,*) '<Setting Numerical B0>'

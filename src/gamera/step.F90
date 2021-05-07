@@ -66,6 +66,10 @@ module step
         logical :: isDisaster,isBad
         character(len=strLen) :: eStr
 
+        !Whether to crash or resort to desperate measures
+        isDisaster = .false. 
+        isBad      = .false.
+
         if(Model%fixedTimestep) then
             CalcDT = Model%dt
             return
@@ -102,9 +106,6 @@ module step
 
         CalcDT = dtMin
 
-        !Whether to crash or resort to desperate measures
-        isDisaster = .false. 
-        isBad      = .false.
 
         !Check for horrible things
         if (Model%ts > 0) then
@@ -217,7 +218,10 @@ module step
         isBad = .false.
 
         call CellDT(Model,Gr,State,i,j,k,dtijk)
-        isBad = ( (dt0/dtijk)>10 ) .or. (dtijk < TINY)
+        isBad = ( (dt0/dtijk)>10 ) .or. (dtijk < TINY) .or. (dtijk == HUGE) &
+                  .or. (any(isnan(State%Bxyz(i,j,k,:  )))) &
+                  .or. (any(isnan(State%Gas (i,j,k,:,:)))) 
+
         if (isBad) then
             !Display information
             !$OMP CRITICAL
@@ -265,8 +269,9 @@ module step
         real(rp) :: dtijk
 
         if (Model%doMultiF .or. Model%doResistive) then
-            write(*,*) 'CPR not yet implemented for these options, bailing ...'
-            stop
+            return
+            !write(*,*) 'CPR not yet implemented for these options, bailing ...'
+            !stop
         endif
         
         

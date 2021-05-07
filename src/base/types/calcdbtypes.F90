@@ -28,11 +28,11 @@ module calcdbtypes
         
         !Holds N/S hemisphere at i1/i2
         type(rmHemi_T) :: rmN1,rmN2,rmS1,rmS2
-
+        logical :: doCorot,doPed,doHall
     end type rmState_T
 
 	INTEGER, parameter :: NORTH=1,SOUTH=2
-	INTEGER, parameter :: rSegs=10
+	INTEGER, parameter :: rSegs=20
 
 !--------
 !Native source grids (SM coords)
@@ -68,7 +68,6 @@ module calcdbtypes
         real(rp), dimension(:,:,:,:), allocatable :: Etp !E field, theta/phi components
         real(rp), dimension(:,:,:,:), allocatable :: hJ  !Hall current, theta/phi components
         real(rp), dimension(:,:,:,:), allocatable :: pJ  !Pede current, theta/phi components
-
     end type ionGrid_T
 
 !--------
@@ -94,12 +93,24 @@ module calcdbtypes
 		real(rp), dimension(:,:,:,:), allocatable :: GxyzI,GxyzC !Corner/Center points, ground coordinates
         real(rp), dimension(:,:,:,:), allocatable :: SMxyzC !Center points, SM
         logical :: doGEO = .true. !Do GEO coordinates on ground
+        !Ground geomagnetic information (possibly redundant, meh)
+        real(rp), dimension(:,:,:), allocatable :: smlat,smlon,dBn
+
         !Individual ground perturbations
         real(rp), dimension(:,:,:,:), allocatable :: dbMAG_xyz,dbION_xyz,dbFAC_xyz
         real(rp), dimension(:,:,:,:), allocatable :: dbMAG_rtp,dbION_rtp,dbFAC_rtp
 
         !Some parameters for calculation
-        real(rp) :: rMax=15.0 !Radius of magnetospheric ball to integrate over [Re]
+        real(rp) :: rMax=30.0 !Radius of magnetospheric ball to integrate over [Re]
+
+        !Auroral indices
+        real(rp) :: SML,SML_MLat,SML_MLon
+        real(rp) :: SMU,SMU_MLat,SMU_MLon
+        real(rp) :: SMR_00,SMR_06,SMR_12,SMR_18
+        !Derived indices
+        real(rp) :: SMR,SME,SMO
+
+        
 
 	end type grGrid_T
 

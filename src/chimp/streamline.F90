@@ -206,6 +206,37 @@ module streamline
 
     end function FLAlfvenX
 
+    !Calculate Alfven+Sound crossing time on line
+    function FLFastX(Model,ebGr,bTrc) result(dtX)
+        type(chmpModel_T), intent(in) :: Model
+        type(ebGrid_T), intent(in) :: ebGr
+        type(fLine_T), intent(in) :: bTrc
+        real(rp) :: dtX
+
+        integer :: k
+        real(rp) :: dL,eD,eP,TiEV,bMag,Va,Cs
+
+        dtX = 0.0
+        if (.not. bTrc%isGood) return
+        do k=-bTrc%Nm,bTrc%Np-1
+            dL = norm2(bTrc%xyz(k+1,:)-bTrc%xyz(k,:))
+            dL = dL*L0*1.0e-5 !Corner units to km
+            !Get egde-centered quantities
+            eD   = 0.5*(bTrc%lnVars(DEN)     %V(k+1) + bTrc%lnVars(DEN)     %V(k))
+            eP   = 0.5*(bTrc%lnVars(PRESSURE)%V(k+1) + bTrc%lnVars(PRESSURE)%V(k))
+            bMag = 0.5*(bTrc%lnVars(0)       %V(k+1) + bTrc%lnVars(0)       %V(k))
+
+            !Convert B to nT, eD in #/cc, eP in nPa
+            bMag = oBScl*bMag
+            Va = 22.0*bMag/sqrt(eD) !Alfven speed in km/s, NRL formulary
+            !CsMKS = 9.79 x sqrt(5/3 * Ti) km/s, Ti eV
+            TiEV = (1.0e+3)*DP2kT(eD,eP) !Temp in eV
+            Cs = 9.79*sqrt((5.0/3)*TiEV)
+            dtX = dtX + dL/(Va+Cs)
+        enddo
+
+    end function FLFastX
+
     !Averaged density/pressure
     subroutine FLThermo(Model,ebGr,bTrc,bD,bP,dvB,bBetaO)
         type(chmpModel_T), intent(in) :: Model
@@ -559,7 +590,7 @@ module streamline
         if (isGood) then
             !Get invariant lat/lon
             x1 = InvLatitude(xE)
-            x2 = atan2(xE(YDIR),xE(XDIR))
+            x2 = katan2(xE(YDIR),xE(XDIR))
             if (x2 < 0) x2 = x2 + 2*PI
         else
             !Set 0/0 for projection failure

@@ -2,7 +2,7 @@ module calcdbio
 
 	use chmpdefs
 	use chmpunits
-	use chmpfields
+	use ebtabutils
 	use ebtypes
 	use ioH5
 	use xml_input
@@ -15,9 +15,11 @@ module calcdbio
 	implicit none
 
     character(len=strLen), private :: dbOutF
-    integer, parameter, private :: MAXDBVS = 20
+    integer, parameter, private :: MAXDBVS = 40
     logical, private :: doParInT = .false. !// in time
     integer, private :: NumB = 0
+
+    integer, parameter, private :: RDIR=1,TDIR=2,PDIR=3
 
     contains
 
@@ -29,20 +31,37 @@ module calcdbio
         integer, intent(inout) :: NumP
 
         type(IOVAR_T), dimension(MAXDBVS) :: IOVars
-        character(len=strLen) :: cID
+        character(len=strLen) :: cID,inH5
 
         integer :: i,j,k,NLat,NLon,Nz,dOut
+        integer, dimension(NDIM) :: Nijk
         real(rp) :: z,R,lat,phi
         real(rp) :: dtB,T0
+        real(rp), dimension(:,:,:,:), allocatable :: SphI,SphC !Spherical coordinates
+        logical :: doH5g
 
         associate( ebGr=>ebState%ebGr )
         !Equate dtout/dt since the difference doesn't matter here
         Model%dtOut = Model%dt
 
     !Read info from XML
-        call inpXML%Set_Val(NLat,'Grid/NLat',45) !Number of latitudinal cells
-        call inpXML%Set_Val(NLon,'Grid/NLon',90) !Number of longitudinal cells
-        call inpXML%Set_Val(Nz  ,'Grid/Nz'  , 2) !Number of longitudinal cells
+        call inpXML%Set_Val(doH5g,'Grid/doH5g',.false.)
+        if (doH5g) then
+            call inpXML%Set_Val(inH5,"Grid/H5Grid","grid.h5")
+            call CheckFileOrDie(inH5,"Input grid file not found")
+            Nijk = GridSizeH5(inH5)
+            
+            NLat = Nijk(IDIR)-1
+            NLon = Nijk(JDIR)-1
+            Nz   = Nijk(KDIR)-1
+        else
+            !Generate grid
+            call inpXML%Set_Val(NLat,'Grid/NLat',45) !Number of latitudinal cells
+            call inpXML%Set_Val(NLon,'Grid/NLon',90) !Number of longitudinal cells
+            call inpXML%Set_Val(Nz  ,'Grid/Nz'  , 2) !Number of longitudinal cells
+        endif
+
+        !Stuff to read for either grid type
         call inpXML%Set_Val(gGr%rMax,'CalcDB/rMax',gGr%rMax)
         call inpXML%Set_Val(gGr%doGEO,'Grid/doGEO',gGr%doGEO) !Whether to do GEO on ground
         if (gGr%doGEO) then
@@ -75,15 +94,11 @@ module calcdbio
                 !Cut off a bit from TFin to avoid overlap w/ start of next
                 Model%tFin = Model%tFin-0.01*dtB
             endif
-            !Get step# offset
-            !NOTE: Assuming here nice divisibility
-            dOut = nint(dtB/Model%dtOut)
-            Model%nOut = (Model%Nblk-1)*dOut + 0
-            write(*,*) 'Offsetting Step# by ', Model%nOut
 
+            !Don't bother offsetting, let the concatenating script handle it
             write(dbOutF,'(a,a,I0.4,a)') trim(adjustl(Model%RunID)),'.',Model%Nblk,'.deltab.h5'
             write(*,*) '------'
-
+            
         else
             doParInT = .false.
             NumB = 0
@@ -107,38 +122,90 @@ module calcdbio
         allocate(gGr%GxyzC (NLat  ,NLon  ,Nz  ,NDIM))
         allocate(gGr%SMxyzC(NLat  ,NLon  ,Nz  ,NDIM))
 
-        !Do corners
-        do k=1,Nz+1
-        	z = -0.5*dzGG + (k-1)*dzGG !km above ground
-        	z = (1.0e+5)*z !cm above ground
-        	R = 1.0 + z/Re_cgs !Assuming Earth here
+        if (doH5g) then
+        !Read grid from file
+            write(*,*) "Reading grid from file ..."
+            call ClearIO(IOVars)
 
-        	do j=1,NLon+1
-        		phi = (j-1)*360.0/NLon 
-        		do i=1,NLat+1
-        			lat = -90.0 + (i-1)*180.0/NLat
-        			gGr%GxyzI(i,j,k,XDIR) = R*cos(lat*PI/180.0)*cos(phi*PI/180.0)
-        			gGr%GxyzI(i,j,k,YDIR) = R*cos(lat*PI/180.0)*sin(phi*PI/180.0)
-        			gGr%GxyzI(i,j,k,ZDIR) = R*sin(lat*PI/180.0)
+            call AddInVar(IOVars,"X")
+            call AddInVar(IOVars,"Y")
+            call AddInVar(IOVars,"Z")
 
-        		enddo !i
-        	enddo !j
-        enddo
+            call AddInVar(IOVars,"Xcc")
+            call AddInVar(IOVars,"Ycc")
+            call AddInVar(IOVars,"Zcc")
 
-        !Do centers
-        do k=1,Nz
-        	do j=1,NLon
-        		do i=1,NLat
-        			gGr%GxyzC(i,j,k,:) = 0.125*( gGr%GxyzI(i  ,j  ,k  ,:) + gGr%GxyzI(i+1,j  ,k  ,:) &
-                                               + gGr%GxyzI(i  ,j+1,k  ,:) + gGr%GxyzI(i  ,j  ,k+1,:) &
-                                               + gGr%GxyzI(i+1,j+1,k  ,:) + gGr%GxyzI(i+1,j  ,k+1,:) &
-                                               + gGr%GxyzI(i  ,j+1,k+1,:) + gGr%GxyzI(i+1,j+1,k+1,:) )
-                    gGr%SMxyzC(i,j,k,:) = gGr%GxyzC(i,j,k,:) !Just set SM=G for now
-        		enddo
-        	enddo
-        enddo
+            call ReadVars(IOVars,.false.,inH5) !Don't use io precision
+
+            !Now reshape and store
+            call IOArray3DFill(IOVars,"X"  ,gGr%GxyzI(:,:,:,XDIR))
+            call IOArray3DFill(IOVars,"Y"  ,gGr%GxyzI(:,:,:,YDIR))
+            call IOArray3DFill(IOVars,"Z"  ,gGr%GxyzI(:,:,:,ZDIR))
+
+            call IOArray3DFill(IOVars,"Xcc",gGr%GxyzC(:,:,:,XDIR))
+            call IOArray3DFill(IOVars,"Ycc",gGr%GxyzC(:,:,:,YDIR))
+            call IOArray3DFill(IOVars,"Zcc",gGr%GxyzC(:,:,:,ZDIR))
+
+        else
+        !Generate grid
+            write(*,*) "Generating grid ..."
+            !Do corners
+            do k=1,Nz+1
+            	z = -0.5*dzGG + (k-1)*dzGG !km above ground
+            	z = (1.0e+5)*z !cm above ground
+            	R = 1.0 + z/Re_cgs !Assuming Earth here
+
+            	do j=1,NLon+1
+            		phi = (j-1)*360.0/NLon 
+            		do i=1,NLat+1
+            			lat = -90.0 + (i-1)*180.0/NLat
+            			gGr%GxyzI(i,j,k,XDIR) = R*cos(lat*PI/180.0)*cos(phi*PI/180.0)
+            			gGr%GxyzI(i,j,k,YDIR) = R*cos(lat*PI/180.0)*sin(phi*PI/180.0)
+            			gGr%GxyzI(i,j,k,ZDIR) = R*sin(lat*PI/180.0)
+
+            		enddo !i
+            	enddo !j
+            enddo
+
+            !Do centers
+            !Not using 8-pt average due to non-uniform radius
+
+            do k=1,Nz
+                z = (k-1)*dzGG !km above ground
+                z = (1.0e+5)*z !cm above ground
+                R = 1.0 + z/Re_cgs !Assuming Earth here
+
+            	do j=1,NLon
+                    phi = (j-0.5)*360.0/NLon
+            		do i=1,NLat
+                        lat = -90.0 + (i-0.5)*180.0/NLat
+                        gGr%GxyzC(i,j,k,XDIR) = R*cos(lat*PI/180.0)*cos(phi*PI/180.0)
+                        gGr%GxyzC(i,j,k,YDIR) = R*cos(lat*PI/180.0)*sin(phi*PI/180.0)
+                        gGr%GxyzC(i,j,k,ZDIR) = R*sin(lat*PI/180.0)
+
+            		enddo
+            	enddo
+            enddo
+        endif !Grid generation, doH5g
+
+        !Just set SM=G for now
+        gGr%SMxyzC = gGr%GxyzC
 
         end associate
+
+    !Get matching spherical grids
+        allocate(SphI(NLat+1,NLon+1,Nz+1,NDIM))
+        allocate(SphC(NLat  ,NLon  ,Nz  ,NDIM))
+
+        SphI(:,:,:,RDIR) = norm2(gGr%GxyzI,dim=4)
+        SphC(:,:,:,RDIR) = norm2(gGr%GxyzC,dim=4)
+
+        SphI(:,:,:,TDIR) = acos(gGr%GxyzI(:,:,:,ZDIR)/SphI(:,:,:,RDIR))
+        SphC(:,:,:,TDIR) = acos(gGr%GxyzC(:,:,:,ZDIR)/SphC(:,:,:,RDIR))
+
+        SphI(:,:,:,PDIR) = katan2(gGr%GxyzI(:,:,:,YDIR),gGr%GxyzI(:,:,:,XDIR))
+        SphC(:,:,:,PDIR) = katan2(gGr%GxyzC(:,:,:,YDIR),gGr%GxyzC(:,:,:,XDIR))
+
 
         !Allocate db holders (XYZ)
         allocate(gGr%dbMAG_xyz(gGr%NLat,gGr%NLon,gGr%Nz,NDIM)) !Magnetospheric delta-B
@@ -156,32 +223,56 @@ module calcdbio
         gGr%dbION_rtp = 0.0
         gGr%dbFAC_rtp = 0.0
 
-        !Write grid
-        call ClearIO(IOVars)
-        call AddOutVar(IOVars,"X",gGr%GxyzI(:,:,:,XDIR))
-        call AddOutVar(IOVars,"Y",gGr%GxyzI(:,:,:,YDIR))
-        call AddOutVar(IOVars,"Z",gGr%GxyzI(:,:,:,ZDIR))
+        !Allocate possibly time-varying coordinates for geomagnetic lat/lon and northward deflection
+        allocate(gGr%smlat(gGr%NLat,gGr%NLon,gGr%Nz))
+        allocate(gGr%smlon(gGr%NLat,gGr%NLon,gGr%Nz))
+        allocate(gGr%dBn  (gGr%NLat,gGr%NLon,gGr%Nz))
 
-        call AddOutVar(IOVars,"Xcc",gGr%GxyzC(:,:,:,XDIR))
-        call AddOutVar(IOVars,"Ycc",gGr%GxyzC(:,:,:,YDIR))
-        call AddOutVar(IOVars,"Zcc",gGr%GxyzC(:,:,:,ZDIR))
+        gGr%smlat = 0.0
+        gGr%smlon = 0.0
+        gGr%dBn   = 0.0
+        
+    !Write grid
+        call ClearIO(IOVars)
+        call AddOutVar(IOVars,"X",gGr%GxyzI(:,:,:,XDIR),uStr="Re")
+        call AddOutVar(IOVars,"Y",gGr%GxyzI(:,:,:,YDIR),uStr="Re")
+        call AddOutVar(IOVars,"Z",gGr%GxyzI(:,:,:,ZDIR),uStr="Re")
+
+        call AddOutVar(IOVars,"Xcc",gGr%GxyzC(:,:,:,XDIR),uStr="Re")
+        call AddOutVar(IOVars,"Ycc",gGr%GxyzC(:,:,:,YDIR),uStr="Re")
+        call AddOutVar(IOVars,"Zcc",gGr%GxyzC(:,:,:,ZDIR),uStr="Re")
+
+        call AddOutVar(IOVars,"Rad"  ,SphI(:,:,:,RDIR),uStr="Re")
+        call AddOutVar(IOVars,"Theta",SphI(:,:,:,TDIR),uStr="Re")
+        call AddOutVar(IOVars,"Phi"  ,SphI(:,:,:,PDIR),uStr="Re")
+
+        call AddOutVar(IOVars,"Radcc"  ,SphC(:,:,:,RDIR),uStr="Re")
+        call AddOutVar(IOVars,"Thetacc",SphC(:,:,:,TDIR),uStr="Re")
+        call AddOutVar(IOVars,"Phicc"  ,SphC(:,:,:,PDIR),uStr="Re")
 
         call AddOutVar(IOVars,"CoordinatesID",cID)
+        call AddOutVar(IOVars,"Re",Re_km,uStr="km")
 
         call WriteVars(IOVars,.true.,dbOutF)
         call ClearIO(IOVars)
 
     end subroutine initDBio
 
-    subroutine initRM(Model,ebState,rmState)
+    subroutine initRM(Model,ebState,rmState,inpXML)
         type(chmpModel_T), intent(in) :: Model
         type(ebState_T), intent(in)   :: ebState
         type(rmState_T), intent(inout) :: rmState
-        
+        type(XML_Input_T), intent(in) :: inpXML
+
         type(IOVAR_T), dimension(MAXDBVS) :: IOVars
         integer :: Ni,Nj
         character(len=strLen) :: rmF !Remix file
         write(rmF,'(2a)') trim(adjustl(ebState%ebTab%bStr)),'.mix.h5'
+
+        !Decide whether to add corotation potential
+        call inpXML%Set_Val(rmState%doCorot,'CalcDB/doCorot',.false.)
+        call inpXML%Set_Val(rmState%doHall ,'CalcDB/doHall' ,.true. ) 
+        call inpXML%Set_Val(rmState%doPed  ,'CalcDB/doPed'  ,.true. )
 
         write(*,*) 'Initializing w/ ', trim(rmF)
 
@@ -328,44 +419,82 @@ module calcdbio
         type(IOVAR_T), dimension(MAXDBVS) :: IOVars
         real(rp) :: mjd
         real(rp), dimension(:,:,:,:), allocatable :: dbRTP
+        real(rp), dimension(:,:,:)  , allocatable :: dbJ
 
         write(*,*) 'Writing ', trim(gStr)
 
         mjd = MJDAt(ebState%ebTab,Model%t)
         
         !Do conversion to spherical
-        call xyz2rtp(gGr,gGr%dbMAG_xyz,gGr%dbMAG_rtp)
-        call xyz2rtp(gGr,gGr%dbION_xyz,gGr%dbION_rtp)
-        call xyz2rtp(gGr,gGr%dbFAC_xyz,gGr%dbFAC_rtp)
+        call Grxyz2rtp(gGr,gGr%dbMAG_xyz,gGr%dbMAG_rtp)
+        call Grxyz2rtp(gGr,gGr%dbION_xyz,gGr%dbION_rtp)
+        call Grxyz2rtp(gGr,gGr%dbFAC_xyz,gGr%dbFAC_rtp)
 
         !Get total perturbation
         allocate(dbRTP(gGr%NLat,gGr%NLon,gGr%Nz,NDIM))
+        allocate(dbJ  (gGr%NLat,gGr%NLon,gGr%Nz))
+
         !$OMP PARALLEL WORKSHARE
         dbRTP = gGr%dbMAG_rtp + gGr%dbION_rtp + gGr%dbFAC_rtp
         !$OMP END PARALLEL WORKSHARE
 
+        !Write output data
         call ClearIO(IOVars)
         call AddOutVar(IOVars,"time",oTScl*Model%t)
         call AddOutVar(IOVars,"MJD",mjd)
 
+        !Indices
+        call AddOutVar(IOVars,"SML"     ,gGr%SML      ,uStr="nT")
+        call AddOutVar(IOVars,"SML_MLat",gGr%SML_MLat,uStr="deg")
+        call AddOutVar(IOVars,"SML_MLon",gGr%SML_MLon,uStr="deg")
+
+        call AddOutVar(IOVars,"SMU"     ,gGr%SMU      ,uStr="nT")
+        call AddOutVar(IOVars,"SMU_MLat",gGr%SMU_MLat,uStr="deg")
+        call AddOutVar(IOVars,"SMU_MLon",gGr%SMU_MLon,uStr="deg")
+
+        call AddOutVar(IOVars,"SME",gGr%SME,uStr="nT")
+        call AddOutVar(IOVars,"SMO",gGr%SMO,uStr="nT")
+        call AddOutVar(IOVars,"SMR",gGr%SMR,uStr="nT")
+
+        call AddOutVar(IOVars,"SMR_00",gGr%SMR_00,uStr="nT")
+        call AddOutVar(IOVars,"SMR_06",gGr%SMR_06,uStr="nT")
+        call AddOutVar(IOVars,"SMR_12",gGr%SMR_12,uStr="nT")
+        call AddOutVar(IOVars,"SMR_18",gGr%SMR_18,uStr="nT")
+
     !Write out spherical vectors (XDIR:ZDIR = RDIR,TDIR,PDIR)
-        if (.not. Model%doSlim) then
-            call AddOutVar(IOVars,"dBrM" ,gGr%dbMAG_rtp(:,:,:,XDIR),"nT")
-            call AddOutVar(IOVars,"dBtM" ,gGr%dbMAG_rtp(:,:,:,YDIR),"nT")
-            call AddOutVar(IOVars,"dBpM" ,gGr%dbMAG_rtp(:,:,:,ZDIR),"nT")
+        if (Model%doFat) then
+            !Magnetospheric
+            call AddOutVar(IOVars,"dBrM" ,gGr%dbMAG_rtp(:,:,:,RDIR),uStr="nT")
+            call AddOutVar(IOVars,"dBtM" ,gGr%dbMAG_rtp(:,:,:,TDIR),uStr="nT")
+            call AddOutVar(IOVars,"dBpM" ,gGr%dbMAG_rtp(:,:,:,PDIR),uStr="nT")
+            call CalcJdb(gGr,gGr%dbMAG_rtp,dbJ,"MAG")
+            call AddOutVar(IOVars,"dbJM" ,dbJ,uStr="microA/m2")
+            !Ionospheric
+            call AddOutVar(IOVars,"dBrI" ,gGr%dbION_rtp(:,:,:,RDIR),uStr="nT")
+            call AddOutVar(IOVars,"dBtI" ,gGr%dbION_rtp(:,:,:,TDIR),uStr="nT")
+            call AddOutVar(IOVars,"dBpI" ,gGr%dbION_rtp(:,:,:,PDIR),uStr="nT")
+            call CalcJdb(gGr,gGr%dbION_rtp,dbJ,"ION")
+            call AddOutVar(IOVars,"dbJI" ,dbJ,uStr="microA/m2")
+            !Field-aligned
+            call AddOutVar(IOVars,"dBrF" ,gGr%dbFAC_rtp(:,:,:,RDIR),uStr="nT")
+            call AddOutVar(IOVars,"dBtF" ,gGr%dbFAC_rtp(:,:,:,TDIR),uStr="nT")
+            call AddOutVar(IOVars,"dBpF" ,gGr%dbFAC_rtp(:,:,:,PDIR),uStr="nT")
+            call CalcJdb(gGr,gGr%dbFAC_rtp,dbJ,"FAC")
+            call AddOutVar(IOVars,"dbJF" ,dbJ,uStr="microA/m2")
 
-            call AddOutVar(IOVars,"dBrI" ,gGr%dbION_rtp(:,:,:,XDIR),"nT")
-            call AddOutVar(IOVars,"dBtI" ,gGr%dbION_rtp(:,:,:,YDIR),"nT")
-            call AddOutVar(IOVars,"dBpI" ,gGr%dbION_rtp(:,:,:,ZDIR),"nT")
-
-            call AddOutVar(IOVars,"dBrF" ,gGr%dbFAC_rtp(:,:,:,XDIR),"nT")
-            call AddOutVar(IOVars,"dBtF" ,gGr%dbFAC_rtp(:,:,:,YDIR),"nT")
-            call AddOutVar(IOVars,"dBpF" ,gGr%dbFAC_rtp(:,:,:,ZDIR),"nT")
         endif
         
-        call AddOutVar(IOVars,"dBr" ,dbRTP(:,:,:,XDIR),"nT")
-        call AddOutVar(IOVars,"dBt" ,dbRTP(:,:,:,YDIR),"nT")
-        call AddOutVar(IOVars,"dBp" ,dbRTP(:,:,:,ZDIR),"nT")
+        if (.not. Model%doSlim) then
+            call AddOutVar(IOVars,"smlat" ,gGr%smlat,uStr="deg")
+            call AddOutVar(IOVars,"smlon" ,gGr%smlon,uStr="deg")
+            call AddOutVar(IOVars,"dBn"   ,gGr%dBn  ,uStr="nT" )
+        endif
+
+        call AddOutVar(IOVars,"dBr" ,dbRTP(:,:,:,RDIR),uStr="nT")
+        call AddOutVar(IOVars,"dBt" ,dbRTP(:,:,:,TDIR),uStr="nT")
+        call AddOutVar(IOVars,"dBp" ,dbRTP(:,:,:,PDIR),uStr="nT")
+        call CalcJdb(gGr,dbRTP,dbJ,"TOT")
+        call AddOutVar(IOVars,"dbJ" ,dbJ,uStr="microA/m2")
 
         call WriteVars(IOVars,.true.,dbOutF,gStr)
         call ClearIO(IOVars)
@@ -373,7 +502,7 @@ module calcdbio
     end subroutine writeDB
 
     !Convert XYZ to RTP vectors
-    subroutine xyz2rtp(gGr,dbXYZ,dbRTP)
+    subroutine Grxyz2rtp(gGr,dbXYZ,dbRTP)
         type(grGrid_T), intent(in) :: gGr
         real(rp), dimension(:,:,:,:), intent(in ) :: dbXYZ
         real(rp), dimension(:,:,:,:), intent(out) :: dbRTP
@@ -395,15 +524,70 @@ module calcdbio
                     dBz = dbXYZ(i,j,k,ZDIR)
 
                     !Radial,Theta,Phi system
-                    dbRTP(i,j,k,1) =  dbX*sin(theta)*cos(phi) + dBy*sin(theta)*sin(phi) + dBz*cos(theta)
-                    dbRTP(i,j,k,2) =  dbX*cos(theta)*cos(phi) + dBy*cos(theta)*sin(phi) - dBz*sin(theta)
-                    dbRTP(i,j,k,3) = -dbX           *sin(phi) + dBy           *cos(phi) 
+                    dbRTP(i,j,k,RDIR) =  dBx*sin(theta)*cos(phi) + dBy*sin(theta)*sin(phi) + dBz*cos(theta)
+                    dbRTP(i,j,k,TDIR) =  dBx*cos(theta)*cos(phi) + dBy*cos(theta)*sin(phi) - dBz*sin(theta)
+                    dbRTP(i,j,k,PDIR) = -dBx           *sin(phi) + dBy           *cos(phi) 
 
                 enddo
             enddo
         enddo
 
-    end subroutine xyz2rtp
+    end subroutine Grxyz2rtp
     
+    subroutine CalcJdb(gGr,dbRTP,dbJ,jID)
+        type(grGrid_T), intent(in) :: gGr
+        real(rp), intent(in)  :: dbRTP(gGr%NLat,gGr%NLon,gGr%Nz,NDIM)
+        real(rp), intent(out) :: dbJ  (gGr%NLat,gGr%NLon,gGr%Nz)
+        character(len=*),intent(in) :: jID
+
+        integer :: i,j,k,jP,jM,k0
+        real(rp) :: rad,theta,thP,thM,dth,dphi,DelA,DelB
+        real(rp) :: jScl,jMin,jMax,jRMS
+
+        dbJ = 0.0
+        k0 = 1
+
+        !$OMP PARALLEL DO default(shared) collapse(2) &
+        !$OMP private(i,j,k,jP,jM,rad,theta,thP,thM,dth,dphi,DelA,DelB)
+        do k=1,gGr%Nz
+            do j=1,gGr%NLon
+                do i=1+1,gGr%NLat-1
+                    rad  = norm2(gGr%GxyzC(i,j,k,:))
+                    theta = acos(gGr%GxyzC(i,j,k,ZDIR)/rad)
+                    
+                    thP = acos(gGr%GxyzC(i+1,j,k,ZDIR)/rad)
+                    thM = acos(gGr%GxyzC(i-1,j,k,ZDIR)/rad)
+                    dth =  thP - thM
+                    dphi = 2*2*PI/gGr%NLon !Assuming uniform longitude and centered difference
+
+                    DelA = ( sin(thP)*dbRTP(i+1,j,k,PDIR) - sin(thM)*dbRTP(i-1,j,k,PDIR) )/dth
+                    if (j == 1) then
+                        jM = gGr%NLon
+                        jP = j+1
+                    else if (j == gGr%NLon) then
+                        jM = j-1
+                        jP = 1
+                    else
+                        jP = j+1
+                        jM = j-1
+                    endif
+                    DelB = ( dbRTP(i,jP,k,TDIR) - dbRTP(i,jM,k,TDIR) )/dphi
+                    dbJ(i,j,k) = (DelA-DelB)/(rad*sin(theta))
+                enddo
+            enddo
+        enddo
+
+        !This is raw curl, nT/Re
+        !Convert to current, ie convert nT/Re => T/m, multiply by Mu0 = 4pi x 10^-7 Tm/A
+        jScl = (1.0e-9)/(Re_cgs*1.0e-2)/Mu0 !Converts to A/m2
+        dbJ = (1.0e+6)*jScl*dbJ !microA/m2
+
+        jMin = minval(dbJ(:,:,k0))
+        jMax = maxval(dbJ(:,:,k0))
+        jRMS = norm2(dbJ(:,:,k0))/sqrt(1.0*size(dbJ(:,:,k0)))
+
+        write(*,'(a,a,f8.3,f8.3,f8.3,a)') trim(jID),' anomalous current [microA/m2]: ',jMin,jMax,jRMS,' (Min/Max/RMS)'
+
+    end subroutine CalcJdb
 
 end module calcdbio

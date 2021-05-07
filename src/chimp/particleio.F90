@@ -7,6 +7,7 @@ module particleio
     use ebtypes
     use tputils
     use files
+    use ebtabutils
     implicit none
 
     character(len=strLen) :: tpOutF
@@ -102,13 +103,12 @@ module particleio
         enddo
 
         call ClearIO(IOVars)
-
         call AddOutVar(IOVars,"id",1.0_dp*tpState%TPs(:)%id)
         call AddOutVar(IOVars,"x",TPs(:)%Q(XPOS))
         call AddOutVar(IOVars,"y",TPs(:)%Q(YPOS))
         call AddOutVar(IOVars,"z",TPs(:)%Q(ZPOS))
         call AddOutVar(IOVars,"K",Kev)
-        call AddOutVar(IOVars,"Mu",Mu)
+        call AddOutVar(IOVars,"Mu",Mu,uStr="keV/nT")
         call AddOutVar(IOVars,"A" ,rad2deg*TPs(:)%alpha)
         
         !Equatorial values
@@ -127,6 +127,12 @@ module particleio
         !Topology (always outputting)
         call AddOutVar(IOVars,"OCb",1.0_dp*OCb)
 
+        !Wave-particle values
+        if (Model%doWPI) then
+            call AddOutVar(IOVars,"dAwpi",rad2deg*TPs(:)%dAwpi)
+            call AddOutVar(IOVars,"dKwpi",K2kev*TPs(:)%dKwpi)
+        endif
+
         !Logical values
         call AddOutVar(IOVars,"isIn",merge(1.0_rp,0.0_rp,TPs(:)%isIn))
 
@@ -137,6 +143,7 @@ module particleio
         
         !Scalar attributes
         call AddOutVar(IOVars,"time",oTScl*Model%t)
+        call AddOutVar(IOVars,"MJD",MJDAt(ebState%ebTab,Model%t))
         call AddOutVar(IOVars,"TimeValue",oTScl*Model%t)
         call WriteVars(IOVars,.true.,tpOutF,gStr)
         call ClearIO(IOVars)

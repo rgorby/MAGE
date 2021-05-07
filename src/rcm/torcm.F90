@@ -5,12 +5,15 @@ MODULE torcm_mod
   USE rice_housekeeping_module, ONLY: use_plasmasphere,LowLatMHD,L_write_vars_debug
   USE rcm_mhd_interfaces
   USE rcmdefs, ONLY : RCMTOPCLOSED,RCMTOPNULL,RCMTOPOPEN,DenPP0
-  USE kdefs, ONLY : TINY,qp
+  USE kdefs, ONLY : TINY
   USE math, ONLY : RampDown
   USE etautils
   implicit none
 
-  logical, parameter :: doSmoothEta = .true. !Whether to smooth eeta at boundary
+  logical, parameter :: doSmoothEta = .false. !Whether to smooth eeta at boundary
+  !Whether to do reverse blend near outer boundary, i.e. nudge RCM to MHD
+  logical, parameter :: doRevBlend  = .false.
+  logical, parameter :: doPPSmooth = .true. !Try to smooth plasmapause
   integer(iprec), private, parameter :: NumG = 4 !How many buffer cells to require
 
   contains
@@ -173,9 +176,8 @@ MODULE torcm_mod
 
       !---->Set new EETA from MHD code pressure. 
       !     On open field lines, values of ETA will be zero:
-      CALL Gettemp (ierr)
+      call MHD2eta(RM,ierr)
       IF (ierr < 0) RETURN
-      CALL Press2eta()       ! this populates EETA_NEW array
       
       if ( (maxval(eeta_new) <=0) .or. any(isnan(eeta_new)) ) then
         write(6,*)' something is wrong in eeta_new'
@@ -192,13 +194,15 @@ MODULE torcm_mod
         imin_j_old = imin_j
         !Now set RCM domain values to MHD state values
         do j=1,jsize
-          do i=imin_j(j),isize
-            !These will all be closed cells
+          do i=1,isize
             !Don't worry about plasmasphere, that channel will get reset anyways
-            eeta(i,j,:) = eeta_new(i,j,:)
+            if (iopen(i,j) == RCMTOPOPEN) then
+              eeta(i,j,:) = 0.0
+            else
+              eeta(i,j,:) = eeta_new(i,j,:)
+            endif
           enddo
         enddo
-
       ENDIF
 
       ! just in case:
@@ -210,8 +214,10 @@ MODULE torcm_mod
       if (use_plasmasphere) then
         call set_plasmasphere(icontrol,isize,jsize,kcsize,xmin,ymin,rmin,vm,eeta,imin_j)
         
-        !Adding some smoothing to the plasmapause
-        call SmoothPPause(eeta(:,:,1),vm,iopen,imin_j)
+        if (doPPSmooth) then
+          !Adding some smoothing to the plasmapause
+          call SmoothPPause(eeta(:,:,1),vm,iopen,imin_j,RM%dtCpl)
+        endif
       endif
 
 
@@ -258,21 +264,23 @@ MODULE torcm_mod
         enddo !i
       enddo !j
 
-      !Do some reverse-blending near RCM outer boundary
-      n = NumG
-      do j=1,jsize
-        do i=0,n
-          ip = imin_j(j)+i !i cell
-          if (ip<isize) then
-            wRCM = 1.0/(1.0 + 5.0*beta_average(ip,j)/6.0)
-            wMHD = (1-wRCM)/(2.0**i)
-            wRCM = (1-wMHD)
+      if (doRevBlend) then
+        !Do some reverse-blending near RCM outer boundary
+        n = NumG
+        do j=1,jsize
+          do i=0,n
+            ip = imin_j(j)+i !i cell
+            if (ip<isize) then
+              wRCM = 1.0/(1.0 + 5.0*beta_average(ip,j)/6.0)
+              wMHD = (1-wRCM)/(2.0**i)
+              wRCM = (1-wMHD)
 
-            eeta(ip,j,klow:) = wRCM*eeta(ip,j,klow:) + wMHD*eeta_new(ip,j,klow:)
-          endif
-        enddo !i loop
-      enddo !j loop
-
+              eeta(ip,j,klow:) = wRCM*eeta(ip,j,klow:) + wMHD*eeta_new(ip,j,klow:)
+            endif
+          enddo !i loop
+        enddo !j loop
+      endif
+      
       if (doSmoothEta) then
         ! smooth eeta at the boundary
         CALL Smooth_eta_at_boundary(isize,jsize,kcsize,jwrap,eeta,iopen,imin_j)
@@ -309,18 +317,21 @@ MODULE torcm_mod
 
       !Smooth ragged edges at the plasmapause
 !----------------------------------------------------------
-      SUBROUTINE SmoothPPause(etapp,vm,iopen,imin_j)
+      SUBROUTINE SmoothPPause(etapp,vm,iopen,imin_j,dtCpl)
         USE rcmdefs,ONLY : isize,jsize
+        USE RCM_mod_subs,ONLY : dtAvg_v
+
         IMPLICIT NONE
         REAL(rprec)   , INTENT(INOUT) :: etapp(isize,jsize)
         REAL(rprec)   , INTENT(IN)    :: vm(isize,jsize)
         INTEGER(iprec), INTENT(IN)    :: iopen(isize,jsize)
         INTEGER(iprec), INTENT(IN)    :: imin_j(jsize)
+        REAL(rprec)   , INTENT(IN)    :: dtCpl
 
         REAL(rprec) :: bndlocpp(jsize),bndlocpp_new(jsize)
         INTEGER(iprec) :: imin_jpp(jsize)
         INTEGER(iprec) :: i,j,n,n_smooth,di
-        REAL(rprec) :: dpp,Ac(3)
+        REAL(rprec) :: dpp,Ac(3),ppscl
         INTEGER(iprec), parameter :: NumI = NumG
 
         !Find plasmapause
@@ -341,23 +352,29 @@ MODULE torcm_mod
 
         do n=1,n_smooth
           call SmoothJBnd(bndlocpp,bndlocpp_new)
-          !Store back w/ trap for only earthward
-          bndlocpp = max(bndlocpp,bndlocpp_new)
+          !!Store back w/ trap for only earthward
+          !bndlocpp = max(bndlocpp,bndlocpp_new)
+          bndlocpp = bndlocpp_new
         enddo
 
         !Convert to indices
         imin_jpp = ceiling(bndlocpp)
         
-        !Smooth around estimated plasmapause
-        Ac = [0.25,0.5,1.0] !Smoothing coefficients
-        do di = -NumI/2,+NumI/2
-          call SmoothJEta(etapp,iopen,imin_jpp,di,Ac)
-        enddo
-
-        ! !Zero out below plasmapause
-        ! do j=1,jsize
-        !   etapp(1:imin_jpp(j),j) = 0.0 !Zero out below this
+      !Smooth around estimated plasmapause
+        ! Ac = [0.25,0.5,1.0] !Smoothing coefficients
+        ! do di = -NumI/2,+NumI/2
+        !   call SmoothJEta(etapp,iopen,imin_jpp,di,Ac)
         ! enddo
+
+      !Deplete below plasmapause
+        !Attenuate over dtAvg_v
+        ppscl = exp(-dtCpl/max(dtAvg_v,dtCpl))
+
+        do j=1,jsize
+          do i=1,imin_jpp(j)
+            etapp(i,j) = ppscl*etapp(i,j)
+          enddo
+        enddo
 
       END SUBROUTINE SmoothPPause
 
@@ -562,64 +579,60 @@ MODULE torcm_mod
 
 !--------------------------------------------------
 !
-      SUBROUTINE Gettemp (ierr)
-!
-! routine to compute an estimate for temperature given
-! the pressure assume that alam*vm = energy = kt
-! 2/00 frt
-! bug fix to fac 2/19 frt
-! K: 8/20 - fix to temperature to remove plasmasphere contribution
-! inputs:
-! isize,jsize - rcm grid dimensions
-!       r,p - equatorial mapping location of a grid point in Re and rad
-!     press - press in Pa
-!        vm - flux tube volume^(-2/3) in (nt/Re/^(-2/3)   
-!      open - open/closed flag (-1 = closed)
-!       den - ple density in ple/m^3
-! outputs:
-!      ti,te - temperaure if ions and electrons in kelvin
-!      ierr  - error flag
-!
-!-------------------------------------------------
-      USE Rcm_mod_subs, ONLY : isize,jsize,eeta,vm
-      use conversion_module
-      IMPLICIT NONE
-!
-      REAL(rprec), PARAMETER :: fac = tiote/(1.+tiote)
-      REAL(rprec) :: dmhd,dpp
-!
-      INTEGER(iprec) :: i,j,ierr
-      
-!
-!    set the temperature:
 
-      !$OMP PARALLEL DO default(shared) &
-      !$OMP schedule(dynamic) &
-      !$OMP private(i,j,dmhd,dpp)
-      DO j=1,jsize
-        DO i=1,isize
-          !Get corrected density from MHD
-          call PartFluid(i,j,dmhd,dpp)
-          IF ( (iopen(i,j) /= RCMTOPOPEN) .and. (dmhd>TINY) ) THEN
-            ti(i,j) = fac*press(i,j)/dmhd/boltz
-            te(i,j) = ti(i,j)/tiote
-          ELSE
-            ti(i,j) = 0.0
-            te(i,j) = 0.0
-          ENDIF
+      SUBROUTINE MHD2eta(RM,ierr)
+        USE conversion_module      
+        USE RCM_mod_subs, ONLY : ikflavc,vm,alamc,isize,jsize,kcsize,eeta
+        USE rcm_precision
+        IMPLICIT NONE
+        type(rcm_mhd_T), intent(inout) :: RM
+        integer        , intent(inout) :: ierr
 
-        ENDDO
-      ENDDO
+        real(rprec), dimension(isize,jsize) :: errD,errP
+        real(rprec) :: drc,dpp,prc,drc_p,dpp_p,prc_p
+        integer(iprec) :: i,j
 
-      ierr = 0
+        !Note: RM%errX is different size than errX for some reason
+        errD    = 0.0
+        errP    = 0.0
+        RM%errD = 0.0
+        RM%errP = 0.0
 
-      if (maxval(press) <=0.) then
-        write(6,*)' maxval pressure < 0 in gettemp'
-        ierr = -1
-      end if
-!
-      RETURN
-      END SUBROUTINE Gettemp
+        !$OMP PARALLEL DO default(shared) &
+        !$OMP schedule(dynamic) &
+        !$OMP private(i,j,drc,dpp,prc,drc_p,dpp_p,prc_p)
+        do j=1,jsize
+          do i=1,isize
+            !Get corrected density from MHD
+            call PartFluid(i,j,drc,dpp)
+            prc = press(i,j)
+            if ( (iopen(i,j) /= RCMTOPOPEN) .and. (drc>TINY) .and. (prc>TINY) ) then
+            !Good stuff, let's go
+              !TODO: Remove the silly redundant calculation here to get the error
+              !Do D,P => eta => D',P' for error
+              call DP2eta(drc,prc,vm(i,j),eeta_new(i,j,:),doRescaleO=.false.)
+              call eta2DP(eeta_new(i,j,:),vm(i,j),drc_p,dpp_p,prc_p)
+              !Now save error
+              errD(i,j) = drc_p/drc
+              errP(i,j) = prc_p/prc
+
+              !Now just redo it w/ scaling (independently scale ions and electrons)
+              call DP2eta(drc,prc,vm(i,j),eeta_new(i,j,:),doRescaleO=.true.)
+              
+              !call MaxVsKap(drc,prc,vm(i,j))
+          !Not good MHD
+            else
+              eeta_new(i,j,:) = 0.0
+            endif
+          enddo
+        enddo !J loop
+
+        !Copy to MHD-RCM object for output
+        call Unbiggen(errD,RM%errD)
+        call Unbiggen(errP,RM%errP)
+
+        ierr = 0
+      END SUBROUTINE MHD2eta
 
 !
 !===================================================================
@@ -731,40 +744,8 @@ MODULE torcm_mod
 
         !write(*,*) 'M: dmhd / drc / dpp = ', doM1,1.0e-6*dmhd,1.0e-6*drc,1.0e-6*dpp
       END SUBROUTINE PartFluid
-!
-!===================================================================      
-      SUBROUTINE Press2eta() 
-      USE conversion_module      
-      USE RCM_mod_subs, ONLY : ikflavc,vm,alamc,isize,jsize,kcsize,eeta
-      USE rcm_precision
-      IMPLICIT NONE
+
       
-      real(rprec) :: drc,dpp,prc
-      integer(iprec) :: i,j
-
-
-      !$OMP PARALLEL DO default(shared) &
-      !$OMP schedule(dynamic) &
-      !$OMP private(i,j,drc,dpp,prc)
-      do j=1,jsize
-        do i=1,isize
-          !Get corrected density from MHD
-          call PartFluid(i,j,drc,dpp)
-
-          if ( (iopen(i,j) /= RCMTOPOPEN) .and. (drc>TINY) .and. (ti(i,j)>TINY) ) then
-            !Good stuff, let's go
-            prc = press(i,j)
-            call DP2eta(drc,prc,vm(i,j),eeta_new(i,j,:))
-        !Not good MHD
-          else
-            eeta_new(i,j,:) = 0.0
-          endif
-        enddo
-      enddo !J loop
-
-      END SUBROUTINE Press2eta
-      
-
 !===================================================================
     SUBROUTINE Set_ellipse(idim,jdim,rmin,pmin,vm,big_vm,bndloc,iopen)
 
@@ -1020,7 +1001,8 @@ MODULE torcm_mod
       USE earthhelper, ONLY : GallagherXY
       USE rice_housekeeping_module, ONLY: InitKp, staticR
       USE kdefs, ONLY : TINY
-      
+      USE RCM_mod_subs, ONLY : colat,aloct
+
       IMPLICIT NONE
 
       integer(iprec) :: idim,jdim,kdim,icontrol
@@ -1028,6 +1010,7 @@ MODULE torcm_mod
       integer(iprec) :: imin_j(jdim)
       real(rprec) :: vm(idim,jdim),xmin(idim,jdim),ymin(idim,jdim),rmin(idim,jdim)
       real(rprec) :: eeta(idim,jdim,kdim)
+      real(rprec) :: xeq,yeq,L
 
       integer(iprec) :: i,j,k
 
@@ -1046,12 +1029,16 @@ MODULE torcm_mod
         if (staticR > TINY) then
           !$OMP PARALLEL DO default(shared) &
           !$OMP schedule(dynamic) &
-          !$OMP private(i,j,dens_gal)
+          !$OMP private(i,j,dens_gal,xeq,yeq,L)
           do j=1,jdim
             do i=imin_j(j),idim
-              if(rmin(i,j) <= staticR .and. vm(i,j) > 0.0)then
-                !eeta (i,j,1) = eeta_pls0 (i,j)
-                dens_gal = GallagherXY(xmin(i,j),ymin(i,j),InitKp)*1.0e6
+              !Use dipole for staticR density evaluation
+              L = 1.0/sin(colat(i,j))**2.0
+              if(L <= staticR .and. vm(i,j) > 0.0)then
+                xeq = L*cos(aloct(i,j))
+                yeq = L*sin(aloct(i,j))
+                dens_gal = GallagherXY(xeq,yeq,InitKp)*1.0e6
+                !dens_gal = GallagherXY(xmin(i,j),ymin(i,j),InitKp)*1.0e6
                 eeta(i,j,1) = dens_gal/(GetDensityFactor()*vm(i,j)**1.5)
               end if
             end do
@@ -1113,8 +1100,6 @@ MODULE torcm_mod
 
       end subroutine reset_rcm_vm
 
-
-!
 !======================================
       subroutine allocate_conversion_arrays(isz,jsz,kcsz)
 ! used to allocate memory for the exchange arrays      
@@ -1150,8 +1135,6 @@ MODULE torcm_mod
       allocate(press(idim,jdim))
       allocate(deno(idim,jdim))
       allocate(presso(idim,jdim))
-      allocate(te(idim,jdim))
-      allocate(ti(idim,jdim))
       allocate(to(idim,jdim))
       allocate(beta_average(idim,jdim))
       allocate(iopen(idim,jdim))

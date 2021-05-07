@@ -396,25 +396,26 @@ module gioH5
                 call AddOutVar(IOVars,"Jz",gVec(:,:,:,ZDIR))
             endif
 
-
             !Calculate/Write xyz electric fields
-            !Divide by edge-length to go from potential to field
-            !$OMP PARALLEL DO default(shared) collapse(2)
-            do k=Gr%ksg,Gr%keg
-                do j=Gr%jsg,Gr%jeg
-                    do i=Gr%isg,Gr%ieg
-                        if(any(Gr%Edge(i,j,k,:) == 0)) then
-                             VecA(i,j,k,:) = 0.0
-                        else
-                             VecA(i,j,k,:) = State%Efld(i,j,k,:)/Gr%Edge(i,j,k,:)
-                        end if
+            if (doFat) then
+            
+                !Divide by edge-length to go from potential to field
+                !$OMP PARALLEL DO default(shared) collapse(2)
+                do k=Gr%ksg,Gr%keg
+                    do j=Gr%jsg,Gr%jeg
+                        do i=Gr%isg,Gr%ieg
+                            if(any(Gr%Edge(i,j,k,:) == 0)) then
+                                 VecA(i,j,k,:) = 0.0
+                            else
+                                 VecA(i,j,k,:) = State%Efld(i,j,k,:)/Gr%Edge(i,j,k,:)
+                            end if
+                        enddo
                     enddo
                 enddo
-            enddo
-            call Eijk2xyz(Model,Gr,VecA,VecB)
-            gVec(:,:,:,:) = VecB(iMin:iMax,jMin:jMax,kMin:kMax,XDIR:ZDIR)
-            call FixRAVec(gVec(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,1:NDIM))
-            if (doFat) then
+                call Eijk2xyz(Model,Gr,VecA,VecB)
+                gVec(:,:,:,:) = VecB(iMin:iMax,jMin:jMax,kMin:kMax,XDIR:ZDIR)
+                call FixRAVec(gVec(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,1:NDIM))
+            
                 call AddOutVar(IOVars,"Ex",gVec(:,:,:,XDIR))
                 call AddOutVar(IOVars,"Ey",gVec(:,:,:,YDIR))
                 call AddOutVar(IOVars,"Ez",gVec(:,:,:,ZDIR))
@@ -471,6 +472,7 @@ module gioH5
             MJD = T2MJD(Model%t*Model%Units%gT0,Model%MJD0)
             call AddOutVar(IOVars,"MJD",MJD)
         endif
+        call AddOutVar(IOVars,"nSpc",Model%nSpc)
 
         !---------------------
         !Call user routine

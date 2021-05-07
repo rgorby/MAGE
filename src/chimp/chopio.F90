@@ -8,6 +8,7 @@ module chopio
     use ebinterp
     use files
     use streamline
+    use ebtabutils
     
     implicit none
 
@@ -250,6 +251,7 @@ module chopio
         !-------------------
         !Variables to always output
         call AddOutVar(IOVars,"time",oTScl*Model%t)
+        call AddOutVar(IOVars,"MJD",MJDAt(ebState%ebTab,Model%t))
         call AddOutVar(IOVars,"Bx"  ,oBScl*B(:,:,:,XDIR))
         call AddOutVar(IOVars,"By"  ,oBScl*B(:,:,:,YDIR))
         call AddOutVar(IOVars,"Bz"  ,oBScl*B(:,:,:,ZDIR))

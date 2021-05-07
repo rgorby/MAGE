@@ -161,9 +161,9 @@ module psdinit
         psPop%tx  = 0.0 !Particle marking time
 
         !For now just set Model%dt and Model%dtOut to dtStp
-        write(*,*) "Setting dt/dtOut to dtStp ..."
-        Model%dt    = dtStp
-        Model%dtOut = dtStp
+        !write(*,*) "Setting dt/dtOut to dtStp ..."
+        !Model%dt    = dtStp
+        !Model%dtOut = dtStp
 
         if (Model%doStream) then
             !call inpXML%Set_Val(psPop%dTau,"stream/dTau",dtStp/inTScl)

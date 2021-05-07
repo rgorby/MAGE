@@ -30,6 +30,7 @@ if __name__ == "__main__":
 	doJy = False
 	doBz = False
 	doBigRCM = False
+	doSrc = False
 
 	MainS = """Creates simple multi-panel figure for Gamera magnetosphere run
 	Top Panel - Residual vertical magnetic field
@@ -47,6 +48,7 @@ if __name__ == "__main__":
 	parser.add_argument('-nompi', action='store_true', default=noMPI,help="Don't show MPI boundaries (default: %(default)s)")
 	parser.add_argument('-norcm', action='store_true', default=noRCM,help="Don't show RCM data (default: %(default)s)")
 	parser.add_argument('-bigrcm', action='store_true',default=doBigRCM,help="Show entire RCM domain (default: %(default)s)")
+	parser.add_argument('-src'   , action='store_true', default=doSrc ,help="Show source term (default: %(default)s)")
 
 	mviz.AddSizeArgs(parser)
 
@@ -60,6 +62,7 @@ if __name__ == "__main__":
 	noMPI = args.nompi
 	doMPI = (not noMPI)
 	doJy = args.jy
+	doSrc = args.src
 	doBz = args.bz
 	noRCM = args.norcm
 	doBigRCM = args.bigrcm
@@ -123,7 +126,7 @@ if __name__ == "__main__":
 	if (doJy):
 		mviz.PlotJyXZ(gsph,nStp,xyBds,AxR,AxC3)
 	else:
-		mviz.PlotMerid(gsph,nStp,xyBds,AxR,doDen,doRCM,AxC3)
+		mviz.PlotMerid(gsph,nStp,xyBds,AxR,doDen,doRCM,AxC3,doSrc=doSrc)
 	
 
 	gsph.AddTime(nStp,AxL,xy=[0.025,0.89],fs="x-large")

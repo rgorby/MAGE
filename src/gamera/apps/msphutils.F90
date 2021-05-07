@@ -3,7 +3,6 @@
 module msphutils
     use kdefs
     use gamtypes
-    use volttypes
     use gamutils
     use math, magRampDown => PenticRampDown
     use gridutils
@@ -11,6 +10,7 @@ module msphutils
     use background
     use multifluid
     use earthhelper
+    use msphingest
 
     implicit none
 
@@ -54,10 +54,6 @@ module msphutils
     real(rp), private :: GM0  = 0.0 !Gravitational force coefficient
     real(rp), private :: Psi0 = 0.0 ! corotation potential coef
     real(rp), private :: M0   = 0.0 !Magnetic moment
-
-    !Ingestion switch
-    logical, private :: doIngest = .true.
-    logical, private :: doBorisIngest = .false. !Whether to try and preserve Boris momentum when ingesting
     
     contains
 
@@ -161,13 +157,6 @@ module msphutils
             call xmlInp%Set_Val(cLim,"chill/cLim",cLim)
         endif
 
-        !Whether to ignore ingestion (if set)
-        if (Model%doSource) then
-            call xmlInp%Set_Val(doIngest,"source/doIngest",.true.)
-            call xmlInp%Set_Val(doBorisIngest,"source/doBorisIngest",doBorisIngest)
-
-        endif
-        
         call xmlInp%Set_Val(doCorot,"prob/doCorot",.true.)
         if (.not. doCorot) then
             !Zero out corotation potential
@@ -232,6 +221,12 @@ module msphutils
 
         !Reinterpret pressure floor as nPa
         pFloor = pFloor/gP0
+
+        !Setup ingestion parameters
+        if (Model%doSource) then
+            call setIngestion(Model,xmlInp,pID)
+        endif
+        
     end subroutine
 
     subroutine magsphereTime(T,tStr)
@@ -564,7 +559,6 @@ module msphutils
     end subroutine VP_Init
 
     subroutine VP_Dipole(x,y,z,Ax,Ay,Az)
-        
         real(rp), intent(in) :: x,y,z
         real(rp), intent(out) :: Ax,Ay,Az
 
@@ -580,7 +574,6 @@ module msphutils
     end subroutine VP_Dipole
 
     subroutine Dipole(x,y,z,Ax,Ay,Az)
-        
         real(rp), intent(in) :: x,y,z
         real(rp), intent(out) :: Ax,Ay,Az
 
@@ -620,7 +613,6 @@ module msphutils
         phid = atan2(yp,x)*180.0/PI
         rScl = 1.0 + RampUp(phid,0.0_rp,180.0_rp)*(dcScl-1.0) !Between 1,dcScl
         M = magRampDown(r,rCut*rScl,lCut*rScl)
-        !M = magRampDown(r,rCut,lCut)
 
         Ax = M*Ax
         Ay = M*Ay
@@ -628,97 +620,13 @@ module msphutils
 
     end subroutine cutDipole
 
-    !Ingest density/pressure information from Grid%Gas0
-    !Treat Gas0 as target value
-    subroutine MagsphereIngest(Model,Gr,State)
-        type(Model_T), intent(in) :: Model
-        type(Grid_T), intent(in) :: Gr
-        type(State_T), intent(inout) :: State
+    !Silly vector wrapper to make a dipole function
+    function VecCutDipole(xyz) result(Bdc)
+        real(rp), intent(in) :: xyz(NDIM)
+        real(rp), dimension(NDIM) :: Bdc
+        call cutDipole(xyz(XDIR),xyz(YDIR),xyz(ZDIR),Bdc(XDIR),Bdc(YDIR),Bdc(ZDIR))
 
-        integer :: i,j,k
-        real(rp), dimension(NVAR) :: pW, pCon
-
-        real(rp) :: Tau,dRho,dP,Pmhd,Prcm
-        real(rp), dimension(NDIM) :: Mxyz,Vxyz,B
-        real(rp), dimension(NDIM,NDIM) :: Lam,Laminv
-
-        logical  :: doIngestIJK,doInD,doInP
-
-        if (Model%doMultiF) then
-            write(*,*) 'Source ingestion not implemented for multifluid, you should do that'
-            stop
-        endif
-
-        if (Model%t<=0) return !You'll spoil your appetite
-
-        if (.not. doIngest) return
-
-       !$OMP PARALLEL DO default(shared) collapse(2) &
-       !$OMP private(i,j,k,doInD,doInP,doIngestIJK,pCon,pW) &
-       !$OMP private(Tau,dRho,dP,Pmhd,Prcm,Mxyz,Vxyz,B) &
-       !$OMP private(Lam,Laminv)
-        do k=Gr%ks,Gr%ke
-            do j=Gr%js,Gr%je
-                do i=Gr%is,Gr%ie
-                    doInD = (Gr%Gas0(i,j,k,IMDEN,BLK)>dFloor)
-                    doInP = (Gr%Gas0(i,j,k,IMPR ,BLK)>pFloor)
-                    doIngestIJK = doInD .or. doInP
-
-                    if (.not. doIngestIJK) cycle
-
-                    pCon = State%Gas(i,j,k,:,BLK)
-                    call CellC2P(Model,pCon,pW)
-                    Pmhd = pW(PRESSURE)
-
-                    if (Model%doBoris .and. doBorisIngest) then
-                        !Calculate semi-rel momentum (identical to momentum if no boris correction)
-                        B = State%Bxyz(i,j,k,:)
-                        call Mom2Rel(Model,pW(DEN),B,Lam)
-                        Mxyz = matmul(Lam,pCon(MOMX:MOMZ)) !semi-relativistic momentum
-                    else
-                        Mxyz = pCon(MOMX:MOMZ) !Classical momentum
-                    endif
-
-                    !Get timescale, taking directly from Gas0
-                    Tau = Gr%Gas0(i,j,k,IMTSCL,BLK)
-                                        
-                    if (Tau<Model%dt) Tau = Model%dt !Unlikely to happen
-
-                    if (doInD) then
-                        dRho = Gr%Gas0(i,j,k,IMDEN,BLK) - pW(DEN)
-                        pW(DEN) = pW(DEN) + (Model%dt/Tau)*dRho
-                    endif
-
-                    if (doInP) then
-                        Prcm = Gr%Gas0(i,j,k,IMPR,BLK)
-                        !Assume already wolf-limited or not
-                        dP = Prcm - Pmhd
-                        pW(PRESSURE) = pW(PRESSURE) + (Model%dt/Tau)*dP
-                    endif
-
-                    if (Model%doBoris .and. doBorisIngest) then
-                        !Get new velocity, start w/ updated inverse matrix
-                        call Rel2Mom(Model,pW(DEN),B,Laminv)
-                        Vxyz = matmul(Laminv,Mxyz)/max(pW(DEN),dFloor)
-                        pW(VELX:VELZ) = Vxyz
-                    else
-                        Vxyz = Mxyz/max(pW(DEN),dFloor) !Conserve classical momentum
-                        !Don't allow mass ingestion to speed things up
-                        if ( norm2(Vxyz) <= norm2(pW(VELX:VELZ)) ) then
-                            !Conserve momentum if it doesn't increase speed
-                            pW(VELX:VELZ) = Vxyz
-                        endif
-
-                    endif 
-
-                    !Now put back
-                    call CellP2C(Model,pW,pCon)
-                    State%Gas(i,j,k,:,BLK) = pCon
-                enddo
-            enddo
-        enddo
-                    
-    end subroutine MagsphereIngest
+    end function VecCutDipole
 
     !Set gPsi (corotation potential)
     subroutine CorotationPot(Model,Grid,gPsi)

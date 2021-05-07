@@ -2,6 +2,7 @@
 
 module ebtypes
     use chmpdefs
+    use wpitypes
     
     implicit none
 
@@ -67,6 +68,8 @@ module ebtypes
         type(ebGrid_T)  :: ebGr
         type(ebField_T) :: eb1,eb2 !Two slices of field data
         type(ebTab_T)   :: ebTab
+        type(wave_T)    :: ebWave
+        type(wModel_T)  :: ebWmodel
         logical :: doStatic = .false.
     end type ebState_T
     

@@ -7,6 +7,7 @@ module sliceio
     use ioH5
     use xml_input
     use files
+    use ebtabutils
     implicit none
 
     character(len=strLen) :: ebOutF
@@ -331,6 +332,8 @@ module sliceio
         !-------------------
         !Variables to always output
         call AddOutVar(IOVars,"time",oTScl*Model%t)
+        call AddOutVar(IOVars,"MJD",MJDAt(ebState%ebTab,Model%t))
+
         call AddOutVar(IOVars,"dBx" ,db2D(:,:,XDIR))
         call AddOutVar(IOVars,"dBy" ,db2D(:,:,YDIR))
         call AddOutVar(IOVars,"dBz" ,db2D(:,:,ZDIR))

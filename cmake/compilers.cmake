@@ -23,6 +23,10 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 #-------------
+#Set base release options
+set(CMAKE_DEFOPT "-O3") #Default optimization
+
+#-------------
 #Set minimum compiler versions
 if(CMAKE_Fortran_COMPILER_ID MATCHES Intel)
 	if(CMAKE_Fortran_COMPILER_VERSION VERSION_LESS 17.0)
@@ -31,6 +35,9 @@ if(CMAKE_Fortran_COMPILER_ID MATCHES Intel)
 	elseif( (CMAKE_Fortran_COMPILER_VERSION VERSION_GREATER_EQUAL 17.0) AND (CMAKE_Fortran_COMPILER_VERSION VERSION_LESS 18.0) )
 		message(WARNING "Compiler has incomplete F2008 features, Git hash/compiler information won't be saved to H5 files")
 		add_compile_definitions(__INTEL_COMPILER_OLD)
+	elseif( (CMAKE_Fortran_COMPILER_VERSION VERSION_GREATER_EQUAL 20.0) )
+		message(WARNING "Setting default optimization to O2 to avoid certain Intel compiler bugs")
+		set(CMAKE_DEFOPT "-O2")
 	endif()
 elseif(CMAKE_Fortran_COMPILER_ID MATCHES GNU)
 	if(CMAKE_Fortran_COMPILER_VERSION VERSION_LESS 8.0)
@@ -39,11 +46,9 @@ elseif(CMAKE_Fortran_COMPILER_ID MATCHES GNU)
 	endif()
 endif()
 
-#-------------
-#Set base release options
 set(CMAKE_Fortran_FLAGS_DEBUG "-g")
-set(CMAKE_Fortran_FLAGS_RELEASE "-O3")
-set(CMAKE_Fortran_FLAGS_RELWITHDEBINFO "-O3 -g")
+set(CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_DEFOPT}")
+set(CMAKE_Fortran_FLAGS_RELWITHDEBINFO "${CMAKE_DEFOPT} -g")
 
 #Do compiler specific options
 if(CMAKE_Fortran_COMPILER_ID MATCHES Intel)
@@ -54,7 +59,7 @@ if(CMAKE_Fortran_COMPILER_ID MATCHES Intel)
 	set(PROD "-align array64byte -align rec32byte -no-prec-div -fast-transcendentals")
 	#Debug
 	set(DEBUG "-g -traceback -check bounds -check uninit -debug all -gen-interfaces -warn interfaces -fp-stack-check")
-	set(PRODWITHDEBUGINFO "-O3 -g -traceback -debug all -align array64byte -align rec32byte -no-prec-div -fast-transcendentals")
+	set(PRODWITHDEBUGINFO "${CMAKE_DEFOPT} -g -traceback -debug all -align array64byte -align rec32byte -no-prec-div -fast-transcendentals")
 
 	#Now do OS-dep options
 	if (CMAKE_SYSTEM_NAME MATCHES Darwin)

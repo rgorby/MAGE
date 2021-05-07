@@ -1,6 +1,6 @@
 !
     MODULE Rcm_mod_subs
-    use kdefs, ONLY : PI,Mp_cgs,Me_cgs
+    use kdefs, ONLY : PI,Mp_cgs,Me_cgs,EarthM0g,eCharge
     use rcmdefs
     use rcm_precision
     use clocks
@@ -11,10 +11,6 @@
 !
     INTEGER, PARAMETER :: LUN = 11 !, LUN_2 = 12, LUN_3 = 13
 
-!
-!
-!
-!
 !      Define a number of universal useful constants and parameters:
 !      Part 1 is machine-dependent parameters and they should not be changed
 !      under any circumstances.
@@ -48,10 +44,12 @@
                                xmass(RCMNUMFLAV) = [Me_cgs*1.0e-3,Mp_cgs*1.0e-3], &
                                !xmass (2)    = (/ 9.1E-31_rprec, &
                                !                  1.67E-27_rprec /), &
-                               besu         = 3.0584E+4_rprec, &
+                               !besu         = 3.0584E+4_rprec, &
+                               besu         = EarthM0g*1.0e+5, & !Use consistent moment, G => nT
                                signbe       = one, &
                                romeca       = zero, &
-                               charge_e     = 1.6E-19_rprec, &
+                               !charge_e     = 1.6E-19_rprec, &
+                               charge_e     = eCharge, & !Take from kdefs
                                sgn (ksize)  = one
                   INTEGER (iprec) :: ie_el = 1, ie_hd = 2 ! coding for e and proton
 !
@@ -199,28 +197,21 @@
       REAL (rprec)  ::  a(3), b(3), dx(3), dy(3), deqdt
 !
 !
-      IF (i_birk == 1) THEN
-         CALL Tic("GET_JBIRK")
-         CALL Get_jbirk
-         if (doRCMVerbose) then
-            write(6,*)'RCM: finish getting jbirk' 
-         endif
-         CALL Toc("GET_JBIRK")
-      ELSE IF (i_birk == 2) THEN
-         stop 'do not use'
-      ELSE IF (i_birk ==3) THEN
-         CALL Get_jbirk2
-      ELSE
-          STOP 'ILLEGAL VALUE OF BIRK'
-      END IF
-      CALL Tic("PRECIP")
-      CALL diffusePrecip ()
-      if (doRCMVerbose) then
-         write(6,*)'RCM: finish getting diffuse precipitation'
-      endif
-      CALL Toc("PRECIP")
-!
-!
+
+    CALL Tic("GET_JBIRK")
+    CALL Get_jbirk
+    if (doRCMVerbose) then
+      write(6,*)'RCM: finish getting jbirk' 
+    endif
+    CALL Toc("GET_JBIRK")
+
+    CALL Tic("PRECIP")
+    CALL diffusePrecip ()
+    if (doRCMVerbose) then
+      write(6,*)'RCM: finish getting diffuse precipitation'
+    endif
+    CALL Toc("PRECIP")
+
       IF (ibnd_type == 4) THEN
 !        DO NOTHING, VBND IS ALREADY SET
          DO j = 1, jsize
@@ -283,65 +274,46 @@
                       vmkl, vmnext, sum, b1, b2, x, y, el, umax, umin, ss, &
                       z, dg1, dg2, dg3, qmin, qmax, qn, qx,  &
                       denom, a1, a2, bjm, range, bim, gkl (5000)
+      LOGICAL, dimension(1:isize,1:jsize) :: isOpen
+
 !                                                                       
 !
       birk (:,:) = zero
 !
 !
 !     Compute J_parallel due to continuous channel:
-!                                                                       
-      dvmdi  = Deriv_i (vm, imin_j)
-      dvmdj  = Deriv_j (vm, imin_j, j1, j2, 1.0E+25_rprec)
-      WHERE (ABS(dvmdj) > 1.0E+24)  ! to prevent artificial inflows on bndy
-          dvmdi = 0.0
-          dvmdj = 0.0
-      END WHERE
-!
+!             
+      !Replacing gradient w/ slope-limited gradient used in advection       
+      isOpen = (vm < 0)
+      call Grad_IJ(vm,isOpen,dvmdi,dvmdj)
 
-      !$OMP PARALLEL DO if (L_doOMPprecip) &
-      !$OMP schedule(dynamic) &
-      !$OMP DEFAULT (NONE) &
-      !$OMP PRIVATE(i,j,kc) &
-      !$OMP PRIVATE(dbirk) &
-      !$OMP SHARED(j1,j2,i2,imin_j,alamc,dlam,dpsi,Ri) &
-      !$OMP SHARED(alpha,beta,detadi,detadj,dvmdj,dvmdi,eeta,birk) 
-      DO kc = 1, kcsize
-!
-         detadi = Deriv_i (eeta (:,:,kc), imin_j)
-         detadj = Deriv_j (eeta (:,:,kc), imin_j, j1, j2, 1.0E+32_rprec)
-         WHERE (ABS(detadj) > 1.0E+31)
-           detadi = 0.0
-           detadj = 0.0
-         END WHERE
-!
+      do kc=1,kcsize
+        !Using new gradient, Grad_IJ is internally threaded so don't call it from OMP loop
+        call Grad_IJ(eeta(:,:,kc),isOpen,detadi,detadj)
 
-         DO  j = j1, j2 
-            DO  i = imin_j(j)+1, i2
-!              IF (i < imin_j(j) + 3) CYCLE
-!              IF (i <= imin_j(j-1) .or. i<=imin_j(j-2).or.&
-!                 i<=imin_j(Bjmod_int(j-3,jwrap,jsize)) ) CYCLE
-!              IF (i <= imin_j(j+1) .or. i<=imin_j(Bjmod_int(j+2,jwrap,jsize))&
-!                  .or. i<=imin_j(Bjmod_int(j+3,jwrap,jsize))) CYCLE
-               dbirk  = charge_e * signbe * ABS(alamc(kc)) * &
-                        (detadj(i,j) * dvmdi(i,j) - detadi(i,j)*dvmdj(i,j)) / &
-                        (alpha(i,j)*beta(i,j)*dlam*dpsi*Ri**2)
-               birk (i, j) = birk (i, j) + dbirk 
-            END DO 
-         END DO 
-      END DO 
-!     pause
-!     print *,birk
-!        DO  j = j1, j2 
-!           DO  i = imin_j(j)+1, i2
-!              birk (i, j) = MIN (birk(i,j),10.)
-!              birk (i, j) = MAX (birk(i,j),-10.)
-!        END DO 
-!     END DO 
-!     
-      
+        !NOTE: Not great to have OMP inside k loop but easier than writing an unthreaded Grad_IJ
+        !$OMP PARALLEL DO &
+        !$OMP schedule(dynamic) &
+        !$OMP DEFAULT (NONE) &
+        !$OMP PRIVATE(i,j,dbirk) &
+        !$OMP SHARED(kc,j1,j2,i2,alamc,dlam,dpsi,Ri) &
+        !$OMP SHARED(alpha,beta,detadi,detadj,dvmdj,dvmdi,eeta,birk,isOpen)
+        DO  j = j1, j2
+          !Calculate Vasyliunas FAC wherever possible, even using MHD buffer cells  
+          DO i = 1,i2
+            if (isOpen(i,j)) CYCLE
+
+            dbirk  = charge_e * signbe * ABS(alamc(kc)) * &
+                     (detadj(i,j) * dvmdi(i,j) - detadi(i,j)*dvmdj(i,j)) / &
+                     (alpha(i,j)*beta(i,j)*dlam*dpsi*Ri**2)
+            birk (i, j) = birk (i, j) + dbirk    
+          ENDDO !i
+        ENDDO !j
+
+      enddo
+
       CALL Circle (birk)
-!
-      RETURN 
+
       END SUBROUTINE Get_jbirk
 !
 !
@@ -472,9 +444,11 @@
 
       INTEGER (iprec) :: i, j, ie, iedim_local, kc
       REAL (rprec)    :: en, ekt, therm, sum1 (iesize), sum2 (iesize)
-!                                                                       
-!
-!                                  
+      LOGICAL, dimension(1:isize,1:jsize) :: isOpen
+
+      !Try to do calculation everywhere possible including MHD buffer region
+      isOpen = (vm < 0)
+
       iedim_local = 2
 !
       vpar  (:,:)   = zero
@@ -487,10 +461,13 @@
       !$OMP DEFAULT (NONE) &
       !$OMP PRIVATE(i,j,kc,ie,sum1,sum2) &
       !$OMP PRIVATE(en,ekt,therm) &
-      !$OMP SHARED(j1,j2,iedim_local,imin_j,alamc,eeta,vpar,vm,fudgec,birk,eflux,eavg) 
+      !$OMP SHARED(j1,j2,iedim_local,imin_j,alamc,eeta) &
+      !$OMP SHARED(vpar,vm,fudgec,birk,eflux,eavg,isOpen) 
 
       loop_j: DO j = j1, j2
-      loop_i: DO i = imin_j(j), isize
+      !loop_i: DO i = imin_j(j), isize
+      loop_i: DO i = 1, isize
+            if (isOpen(i,j)) CYCLE
 !
 !           For each grid point, clear sum1 and sum2:
 !
@@ -552,8 +529,14 @@
                END IF 
                ! corrections to eavg at eflux(i,j) == 0.0     sbao 07/2019 
                ! == does not work well with real number, use lt threshold instead. ldong 04/2020
-               IF (eflux(i,j,ie) .lt. 0.01) eavg(i,j,ie) = 0.0
-               IF (eavg(i,j,ie) .lt. 0.01) eflux(i,j,ie) = 0.0
+               if ( (eflux(i,j,ie) .lt. 0.01) .or. (eavg(i,j,ie) .lt. 0.01) ) then
+                  !Do both or neither
+                  eavg(i,j,ie) = 0.0
+                  eflux(i,j,ie) = 0.0
+               endif
+
+               ! IF (eflux(i,j,ie) .lt. 0.01) eavg(i,j,ie) = 0.0
+               ! IF (eavg(i,j,ie) .lt. 0.01) eflux(i,j,ie) = 0.0
 !                                                                       
             END DO
 !
@@ -778,23 +761,26 @@
 !_____________________________________________________________________________
 !
 !
-  call Tic("Move_Plasma") 
-  IF (L_move_plasma_grid) THEN
-    IF (i_advect == 1) THEN
-       CALL Move_plasma_grid  (dt, 1_iprec, isize, j1, j2, 1_iprec)
-       CALL Move_plasma_grid  (dt, 1_iprec, isize, j1, j2, 2_iprec)
-    ELSE IF (i_advect == 2) THEN
-!      CALL Move_plasma_grid (dt, 1, isize, j1, j2, 1)
-       STOP 'This option is no longer available, aborting RCM'
-    ELSE IF (i_advect == 3) THEN
-        !CALL Move_plasma_grid_new (dt)
-        CALL Move_plasma_grid_MHD (dt)
-
-    ELSE
-       STOP 'ILLEGAL I_ADVECT IN MOVING PLASMA'
-    END IF
-  END IF
+  call Tic("Move_Plasma")
+  CALL Move_plasma_grid_MHD (dt)
   call Toc("Move_Plasma")
+
+!   IF (L_move_plasma_grid) THEN
+!     IF (i_advect == 1) THEN
+!        CALL Move_plasma_grid  (dt, 1_iprec, isize, j1, j2, 1_iprec)
+!        CALL Move_plasma_grid  (dt, 1_iprec, isize, j1, j2, 2_iprec)
+!     ELSE IF (i_advect == 2) THEN
+! !      CALL Move_plasma_grid (dt, 1, isize, j1, j2, 1)
+!        STOP 'This option is no longer available, aborting RCM'
+!     ELSE IF (i_advect == 3) THEN
+!         !CALL Move_plasma_grid_new (dt)
+        
+
+!     ELSE
+!        STOP 'ILLEGAL I_ADVECT IN MOVING PLASMA'
+!     END IF
+!   END IF
+!   call Toc("Move_Plasma")
 !
     RETURN
     END SUBROUTINE Move_plasma
@@ -1085,75 +1071,7 @@
      END IF
      RETURN
      END FUNCTION Lt_from_aloct
-!
-!
-!- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-!
-!
-      SUBROUTINE Read_grid ( )
-      IMPLICIT NONE
-      INTEGER (iprec) :: istat, isize_pr, jsize_pr, jwrap_pr
-      CHARACTER (LEN=80) :: form_length
-      OPEN (UNIT = LUN, STATUS = 'OLD', FORM = 'FORMATTED', &
-            FILE = rcmdir//'rcmcrd11', IOSTAT = istat)
-         IF (istat /= 0) STOP 'ERROR OPENING RCMCRD11'
-         READ (LUN, '(A80)') form_length
-         READ (UNIT = LUN, FMT = form_length) isize_pr, jsize_pr, jwrap_pr, dlam, dpsi, ri, re
-      CLOSE (UNIT = LUN)
-!
-!
-      IF (isize /= isize_pr .OR. jsize /= jsize_pr .OR. jwrap /= jwrap_pr) THEN
-         WRITE (*,*) ' GRID SIZES IN rcmcrd11 DO NOT MATCH THOSE IN THE CODE'
-         STOP
-      END IF
-!
-!
-      OPEN (UNIT = LUN, STATUS = 'OLD', FORM = 'FORMATTED', &
-            FILE = rcmdir//'rcmcrd21', IOSTAT = istat)
-         IF (istat /= 0) STOP 'ERROR OPENING RCMCRD21'
-         READ (LUN, '(A80)') form_length
-         READ (UNIT=LUN, FMT = form_length) alpha
-         READ (UNIT=LUN, FMT = form_length) beta
-         READ (UNIT=LUN, FMT = form_length) colat
-         READ (UNIT=LUN, FMT = form_length) aloct
-         READ (UNIT=LUN, FMT = form_length) vcorot
-         READ (UNIT=LUN, FMT = form_length) bir
-         READ (UNIT=LUN, FMT = form_length) sini
-      CLOSE (UNIT = LUN)
-      RETURN
-      END SUBROUTINE Read_grid
-!
-!
-!
-      SUBROUTINE Write_grid ( )
-      IMPLICIT NONE
-      INTEGER (iprec) :: istat, isize_pr, jsize_pr, jwrap_pr
-      CHARACTER (LEN=80) :: form_string
-      OPEN (UNIT = LUN, STATUS = 'REPLACE', FORM = 'FORMATTED', &
-            FILE = rcmdir//'rcmcrd11', IOSTAT = istat)
-         IF (istat /= 0) STOP 'ERROR OPENING RCMCRD11'
-       form_string = '(3(TR2,I10),4(TR2,ES23.15))'
-       WRITE (UNIT = LUN, FMT = '(A80)') form_string
-       WRITE (UNIT = LUN, FMT=form_string) &
-              isize, jsize, jwrap, dlam, dpsi, Re, Ri
-      CLOSE (UNIT = LUN)
-!
-!
-      OPEN (UNIT = LUN, STATUS = 'REPLACE', FORM = 'FORMATTED', &
-            FILE = rcmdir//'rcmcrd21', IOSTAT = istat)
-         IF (istat /= 0) STOP 'ERROR OPENING RCMCRD21'
-       form_string = '(3(TR2,ES23.15))'
-       WRITE (LUN, '(A80)') form_string
-       WRITE (LUN, form_string) alpha
-       WRITE (LUN, form_string) beta
-       WRITE (LUN, form_string) colat
-       WRITE (LUN, form_string) aloct
-       WRITE (LUN, form_string) vcorot
-       WRITE (LUN, form_string) bir
-       WRITE (LUN, form_string) sini
-      CLOSE (UNIT = LUN)
-      RETURN
-      END SUBROUTINE Write_grid
+
 !
 !
       SUBROUTINE Read_plasma_H5
@@ -1424,7 +1342,6 @@
         call RCM_Params_XML()
       endif
       CALL Read_dktime_H5(L_dktime)
-
 
       CALL SYSTEM_CLOCK (timer_stop(1), count_rate)      
       timer_values (1) = (timer_stop (1) - timer_start (1))/count_rate + timer_values(1)
@@ -1822,23 +1739,6 @@
       END SUBROUTINE Rcm
 !
 !
-!
-!
-    SUBROUTINE Read_dktime (L_dktime)
-    IMPLICIT NONE
-    LOGICAL, INTENT (IN) :: L_dktime
-!
-!
-    IF (L_dktime) THEN
-       OPEN (LUN, FILE=rcmdir//'dktable', STATUS='OLD', ACTION='READ')
-       READ (LUN,800) dktime
- 800   FORMAT (8(E10.3))
-       CLOSE (LUN)
-    ELSE
-        dktime = 0.0
-    END IF
-    RETURN
-    END SUBROUTINE Read_dktime
 
     !K: HDF5 version of lifetime reader
     SUBROUTINE Read_dktime_H5(L_dktime)
@@ -1865,10 +1765,7 @@
     END SUBROUTINE Read_dktime_H5
 
 
-    
-!
-!
-!
+
       FUNCTION Cexrat (isp,enrg,rloc,ssn,dktime,irdk,inrgdk,isoldk, &
                        iondk)
       IMPLICIT NONE
@@ -2068,7 +1965,7 @@
 !=========================================================================
 !
 SUBROUTINE Move_plasma_grid_MHD (dt)
-  use rice_housekeeping_module, ONLY : LowLatMHD,doOCBLoss,doNewCX,doFLCLoss,dp_on,doPPRefill
+  use rice_housekeeping_module, ONLY : LowLatMHD,doOCBLoss,doNewCX,doFLCLoss,dp_on,doPPRefill,doSmoothDDV
   use math, ONLY : SmoothOpTSC,SmoothOperator33
   use lossutils, ONLY : CXKaiju,FLCRat,DepleteOCB
   use earthhelper, ONLY : DipFTV_colat,DerivDipFTV
@@ -2092,8 +1989,6 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
   
   REAL (rprec) :: T1k,T2k !Local loop variables b/c clawpack alters input
   LOGICAL, save :: FirstTime=.true.
-  LOGICAL, parameter :: doSuperBee = .false. !Use superbee (instead of minmod/MC)
-  
 
   call Tic("Move_Plasma_Init")
   if (jwrap /= 3) then
@@ -2152,8 +2047,8 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
   !Do array-sized prep work
   !$OMP PARALLEL WORKSHARE if (L_doOMPClaw)
   fac = 1.0E-3*signbe*bir*alpha*beta*dlam*dpsi*ri**2
-  vv     = v + vcorot - vpar !Current potential
-  vv_avg = v_avg + vcorot !Time-averaged potential for plasmasphere
+  vv     = v     + vcorot - vpar !Current potential
+  vv_avg = v_avg + vcorot - vpar !Time-averaged potential for plasmasphere
 
   where (.not. isOpen)
     !Using ftv directly w/ possible intermediate smoothing
@@ -2190,8 +2085,8 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
   !$OMP PRIVATE(lossCX,lossFLC,lossFDG) &
   !$OMP SHARED(isOpen,iOCB_j,alamc,eeta,vm,imin_j,j1,j2,joff) &
   !$OMP SHARED(doOCBLoss,doFLCLoss,doNewCX,dp_on,doPPRefill) &
-  !$OMP SHARED(dvvdi,dvvdj,dvmdi,dvmdj,dvvdi_avg,dvvdj_avg) &
-  !$OMP SHARED(xmin,ymin,rmin,fac,fudgec,bir,sini,L_dktime,dktime,sunspot_number) &
+  !$OMP SHARED(dvvdi,dvvdj,dvmdi,dvmdj,dvvdi_avg,dvvdj_avg,dtAvg_v) &
+  !$OMP SHARED(xmin,ymin,fac,fudgec,bir,sini,L_dktime,dktime,sunspot_number) &
   !$OMP SHARED(aloct,xlower,xupper,ylower,yupper,dt,T1,T2,iMHD,bmin,radcurv,losscone) 
   DO kc = 1, kcsize
     
@@ -2212,7 +2107,7 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
   !---
   !Get "interface" velocities on clawpack grid, |-1:isize+2,-1:jsize-1|
     !Start by calculating dvedi,dvedj = grad_ij (veff) = grad_ij (vv) + alamc(k)*grad_ij vm
-    if (abs(alamc(kc))<TINY) then
+    if ( (abs(alamc(kc))<TINY) .and. (dtAvg_v>TINY) ) then
       !Do plasmasphere effective potential, uses averaged potential and no energy dep. portion
       dvedi = dvvdi_avg
       dvedj = dvvdj_avg
@@ -2330,7 +2225,7 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
     if ( (kc==1) .and. dp_on .and. doPPRefill) then
       !refill the plasmasphere  04012020 sbao
       !K: Added kc==1 check 8/11/20
-      call Kaiju_Plasmasphere_Refill(eeta(:,:,1), rmin, aloct, vm, imin_j,dt)
+      call Kaiju_Plasmasphere_Refill(eeta(:,:,1), xmin,ymin, aloct, vm, imin_j,dt)
       call circle(eeta(:,:,kc)) !Probably don't need to re-circle
     endif
     
@@ -2375,10 +2270,14 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
         dV0i(i,:) = dv0dcl*dcldi
       enddo
       
-      !Grad of perturbation, smooth this
+      !Grad of perturbation
       call Grad_IJ(dV,isOpen,ddVi,ddVj,doLimO=.true. )
-      call Smooth_IJ(ddVi,isOpen)
-      call Smooth_IJ(ddVj,isOpen)
+
+      !Possibly smooth grad of perturbation
+      if (doSmoothDDV) then
+        call Smooth_IJ(ddVi,isOpen)
+        call Smooth_IJ(ddVj,isOpen)
+      endif
 
       !Recombine pieces
       dftvdi = dV0i + ddVi
@@ -2389,108 +2288,6 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
 
     end subroutine FTVGrad
 
-    !Calculate RCM-node centered gradient of veff
-    subroutine Grad_IJ(veff,isOpen,dvedi,dvedj,doLimO)
-      REAL (rprec), dimension(1:isize,1:jsize), intent(IN)  :: veff
-      REAL (rprec), dimension(1:isize,1:jsize), intent(OUT) :: dvedi,dvedj
-      LOGICAL     , dimension(1:isize,1:jsize), intent(IN)  :: isOpen
-      LOGICAL, intent(in), optional :: doLimO
-
-      INTEGER (iprec) :: i,j
-
-      LOGICAL :: isOp(3),doLim
-      REAL (rprec) :: Q(3)
-
-      if (present(doLimO)) then
-        doLim = doLimO
-      else
-        doLim = .true.
-      endif
-
-      dvedi = 0.0
-      dvedj = 0.0
-
-      !$OMP PARALLEL DO if (L_doOMPClaw) &
-      !$OMP DEFAULT (NONE) &
-      !$OMP PRIVATE(i,j,isOp,Q) &
-      !$OMP SHARED(dvedi,dvedj,veff,isOpen,doLim)
-      do j=2,jsize-1
-        do i=2,isize-1
-          !Do I deriv
-          Q          = veff  (i-1:i+1,j)
-          isOp       = isOpen(i-1:i+1,j)
-          dvedi(i,j) = Deriv_IJ(Q,isOp,doLim)
-
-          !Do J deriv
-          Q          = veff  (i,j-1:j+1)
-          isOp       = isOpen(i,j-1:j+1)
-          dvedj(i,j) = Deriv_IJ(Q,isOp,doLim)
-        enddo
-      enddo
-
-    !Lower/Upper boundary
-      dvedi(1,:) = dvedi(2,:)
-      dvedj(1,:) = dvedj(2,:)
-
-      dvedi(isize,:) = dvedi(isize-1,:)
-      dvedj(isize,:) = dvedj(isize-1,:)
-    !Periodic
-      dvedi(:,jsize) = dvedi(:,jwrap  )
-      dvedi(:,1    ) = dvedi(:,jsize-2)
-
-      dvedj(:,jsize) = dvedj(:,jwrap  )
-      dvedj(:,1    ) = dvedj(:,jsize-2)
-    end subroutine Grad_IJ
-
-    !Take derivative from 3-point stencil if possible
-    function Deriv_IJ(Q,isOp,doLim) result(dvdx)
-      LOGICAL     , intent(IN) :: isOp(-1:+1)
-      REAL (rprec), intent(IN) ::    Q(-1:+1)
-      LOGICAL     , intent(IN)  :: doLim
-
-      REAL (rprec) :: dvdx
-      REAL (rprec) :: dvL,dvR,dvC
-      dvdx = 0.0
-
-      if (isOp(0)) return
-
-      !If still here then central point is closed
-      if (isOp(-1) .and. isOp(+1)) then
-        !Nothing to work with
-        return
-      endif
-      !Have at least two points
-      if ((.not. isOp(-1)) .and. (.not. isOp(+1))) then
-        !Both sides closed
-        
-        !dvdx = 0.5*(Q(+1)-Q(-1)) !Straight up centered derivative
-        dvL =       Q( 0) - Q(-1)
-        dvR =       Q(+1) - Q( 0)
-        dvC = 0.5*( Q(+1) - Q(-1) )
-
-        if (doLim) then
-          !Do slope limiter, either minmod or superbee
-          if (doSuperBee) then
-            !Superbee slope-lim on gradient
-            dvdx = qkmaxmod( qkminmod(dvR,2*dvL),qkminmod(2*dvR,dvL) )
-          else
-            dvdx = MCLim(dvL,dvR,dvC)
-            !dvdx = qkminmod(dvL,dvR) !Just minmod lim
-          endif
-        else
-          !Take straight centered difference
-          dvdx = dvC
-        endif
-
-      else if (.not. isOp(-1)) then
-        !-1 is closed, do backward difference
-        dvdx = Q(0)-Q(-1)
-      else
-        !+1 is closed, do forward difference
-        dvdx = Q(+1)-Q(0)
-      endif
-
-    end function Deriv_IJ
 
     !Do smoothing window on RCM grid quantity
     subroutine Smooth_IJ(Q,isOpen)
@@ -2520,56 +2317,6 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
       Q = Qs !Save back smoothed array
 
     end subroutine Smooth_IJ
-
-    function MCLim(dqL,dqR,dqC) result(dqbar)
-      REAL (rprec), intent(in) :: dqL,dqR,dqC
-      REAL (rprec) :: dqbar
-      REAL (rprec) :: magdq
-
-      if (dqL*dqR <= 0) then
-        !Sign flip, clamp
-        dqbar = 0.0
-      else
-        !Consistent sense, use MC limiter
-        magdq = min(2*abs(dqL),2*abs(dqR),abs(dqC))
-        !SIGN(A,B) returns the value of A with the sign of B
-        dqbar = sign(magdq,dqC)
-      endif
-    end function MCLim
-
-    !Quick and lazy minmod limiter
-    function qkminmod(a,b) result(c)
-      REAL (rprec), intent(in) :: a,b
-      REAL (rprec) :: c
-
-      if (a*b > 0) then
-        !Pick min modulus
-        if (abs(a) < abs(b)) then
-          c = a
-        else
-          c = b
-        endif !No sign flip
-      else
-        c = 0.0
-      endif
-    end function qkminmod
-
-    !Quick and laxy maxmod limiter
-    function qkmaxmod(a,b) result(c)
-      REAL (rprec), intent(in) :: a,b
-      REAL (rprec) :: c
-
-      if (a*b > 0) then
-        !Pick max modulus
-        if (abs(a) < abs(b)) then
-          c = b
-        else
-          c = a
-        endif !No sign flip
-      else
-        c = 0.0
-      endif
-    end function qkmaxmod
 
     !Copy variable from rcm to clawpack grid
     subroutine rcm2claw(qR,qC)
@@ -2643,269 +2390,419 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
 
 END SUBROUTINE Move_plasma_grid_MHD
 
-!=========================================================================
-!
-SUBROUTINE Move_plasma_grid_NEW (dt)
-  IMPLICIT NONE
-  REAL (rprec), INTENT (IN) :: dt
-!_____________________________________________________________________________
-!   Subroutine to advance eta distribution for a time step
-!   by using new CLAWPACK advection routines
-!                                                                       
-!   Created:     12-05-00
-!_____________________________________________________________________________
-!
-!
+!Calculate RCM-node centered gradient of veff
+subroutine Grad_IJ(veff,isOpen,dvedi,dvedj,doLimO)
+  REAL (rprec), dimension(1:isize,1:jsize), intent(IN)  :: veff
+  REAL (rprec), dimension(1:isize,1:jsize), intent(OUT) :: dvedi,dvedj
+  LOGICAL     , dimension(1:isize,1:jsize), intent(IN)  :: isOpen
+  LOGICAL, intent(in), optional :: doLimO
 
-  REAL (rprec) :: mass_factor, max_eeta, eps = 0.0 !sbao 07/2019
-  INTEGER (iprec) :: i, j, kc, ie
-  INTEGER (iprec) :: CLAWiter, joff, icut
-  REAL (rprec), dimension(isize,jsize) :: eeta2,veff,dvefdi,dvefdj
-  REAL (rprec), dimension(-1:isize+2,-1:jsize-1) :: loc_didt,loc_djdt,loc_Eta,loc_rate
-  REAL (rprec), save :: xlower,xupper,ylower,yupper, T1,T2
-  REAL (rprec) :: T1k,T2k !Local loop variables b/c clawpack alters input
-  REAL (rprec) :: r_dist
-  INTEGER (iprec) :: ii,istop
-  LOGICAL, save :: FirstTime=.true.
-  
-  joff=jwrap-1
-  
-  if (FirstTime) then
-    T1=0.
-    FirstTime = .false.
+  INTEGER (iprec) :: i,j
+
+  LOGICAL :: isOp(3),doLim
+  REAL (rprec) :: Q(3)
+
+  if (present(doLimO)) then
+    doLim = doLimO
   else
-    T1=T2
-  end if
+    doLim = .true.
+  endif
 
-  T2=T1+dt
+  dvedi = 0.0
+  dvedj = 0.0
 
-  xlower = 1
-  xupper = isize
-  ylower = zero
-  yupper = jsize-3
-
-  fac = 1.0E-3*signbe*bir*alpha*beta*dlam*dpsi*ri**2
-
-
-  !K: Trying to fix omp bindings
-  !Fixing private/shared and vars altered by clawpack
-  !NOTE: T1k/T2k need to be private b/c they're altered by claw2ez
-  
   !$OMP PARALLEL DO if (L_doOMPClaw) &
   !$OMP DEFAULT (NONE) &
-  !$OMP PRIVATE(i,j,kc,icut,ie) &
-  !$OMP PRIVATE(eeta2,veff,dvefdi,dvefdj,loc_didt,loc_djdt,loc_Eta,loc_rate) &
-  !$OMP PRIVATE(mass_factor,r_dist,max_eeta,CLAWiter,T1k,T2k) &
-  !$OMP SHARED(alamc,eeta,v,vcorot,vpar,vm,imin_j,j1,j2,joff) &
-  !$OMP SHARED(xmin,ymin,rmin,fac,fudgec,bir,sini,L_dktime,dktime,sunspot_number) &
-  !$OMP SHARED(aloct,xlower,xupper,ylower,yupper,eps,dt,T1,T2)
+  !$OMP PRIVATE(i,j,isOp,Q) &
+  !$OMP SHARED(dvedi,dvedj,veff,isOpen,doLim)
+  do j=2,jsize-1
+    do i=2,isize-1
+      !Do I deriv
+      Q          = veff  (i-1:i+1,j)
+      isOp       = isOpen(i-1:i+1,j)
+      dvedi(i,j) = Deriv_IJ(Q,isOp,doLim)
 
-  DO kc = 1, kcsize
-    !If oxygen is to be added, must change this!
-    IF (alamc(kc) <= 0.0) THEN
-      ie = 1  ! electrons
-    ELSE
-      ie = 2  ! protons
-    END IF
+      !Do J deriv
+      Q          = veff  (i,j-1:j+1)
+      isOp       = isOpen(i,j-1:j+1)
+      dvedj(i,j) = Deriv_IJ(Q,isOp,doLim)
+    enddo
+  enddo
 
-    IF (MAXVAL(eeta(:,:,kc)) == 0.0) CYCLE
+!Lower/Upper boundary
+  dvedi(1,:) = dvedi(2,:)
+  dvedj(1,:) = dvedj(2,:)
 
-    mass_factor = SQRT (xmass(1)/xmass(ie))
+  dvedi(isize,:) = dvedi(isize-1,:)
+  dvedj(isize,:) = dvedj(isize-1,:)
+!Periodic
+  dvedi(:,jsize) = dvedi(:,jwrap  )
+  dvedi(:,1    ) = dvedi(:,jsize-2)
 
-  !1. Compute the effective potential for the kc energy channel:
-    !K: Here we're adding corotation to total effective potential
-    veff = v +vcorot - vpar + vm*alamc(kc)
+  dvedj(:,jsize) = dvedj(:,jwrap  )
+  dvedj(:,1    ) = dvedj(:,jsize-2)
+end subroutine Grad_IJ
 
-  !2. Differentiate Veff with respect to I and J:
+!Take derivative from 3-point stencil if possible
+function Deriv_IJ(Q,isOp,doLim) result(dvdx)
+  LOGICAL     , intent(IN) :: isOp(-1:+1)
+  REAL (rprec), intent(IN) ::    Q(-1:+1)
+  LOGICAL     , intent(IN)  :: doLim
 
-    !!!CALL Deriv_i_new (veff, isize, jsize, j1, j2, imin_J, dvefdi)
-    !!!CALL Deriv_j_new (veff, isize, jsize, j1, j2, imin_J, dvefdj)
-    dvefdi = Deriv_i (veff, imin_j)
-    dvefdj = Deriv_j (veff, imin_j, j1, j2, 1.0E+26_rprec)
-    WHERE (dvefdj > 1.0E+20)
-      dvefdj = 0.0
-    END WHERE
-    !Zero out local arrays
-    loc_Eta  = 0.0
-    loc_didt = 0.0
-    loc_djdt = 0.0
-    loc_rate = 0.0
+  LOGICAL, parameter :: doSuperBee = .false. !Use superbee (instead of minmod/MC)
+  REAL (rprec) :: dvdx
+  REAL (rprec) :: dvL,dvR,dvC
+  dvdx = 0.0
 
-    icut=0
-    do j=j1,j2
-      icut=max(icut,imin_j(j))
-      do i=imin_j(j),isize-1
-        if (eeta(i,j,kc) > 1.) icut=max(icut,i)
-      end do
-    end do !j
-    icut=icut+5
+  if (isOp(0)) return
 
-    DO j = j1, j2
-      DO i = 2, isize-1
-        loc_didt (i,j-joff) = + dvefdj (i-1,j) / fac(i-1,j)
-        loc_djdt (i,j-joff) = - dvefdi (i,j-1) / fac(i-1,j)
-        IF (i > icut) THEN
-          loc_didt(i,j-joff) = 0.0
-          loc_djdt(i,j-joff) = 0.0
-        END IF
-!
-        IF (ie == RCMELECTRON) THEN
+  !If still here then central point is closed
+  if (isOp(-1) .and. isOp(+1)) then
+    !Nothing to work with
+    return
+  endif
+  !Have at least two points
+  if ((.not. isOp(-1)) .and. (.not. isOp(+1))) then
+    !Both sides closed
+    
+    !dvdx = 0.5*(Q(+1)-Q(-1)) !Straight up centered derivative
+    dvL =       Q( 0) - Q(-1)
+    dvR =       Q(+1) - Q( 0)
+    dvC = 0.5*( Q(+1) - Q(-1) )
 
-          loc_rate(i,j-joff) = Ratefn (fudgec(kc), alamc(kc), sini(i,j),&
-                                       bir (i,j), vm(i,j), mass_factor)
-        ELSE IF (ie == RCMPROTON) THEN
+    if (doLim) then
+      !Do slope limiter, either minmod or superbee
+      if (doSuperBee) then
+        !Superbee slope-lim on gradient
+        dvdx = qkmaxmod( qkminmod(dvR,2*dvL),qkminmod(2*dvR,dvL) )
+      else
+        dvdx = MCLim(dvL,dvR,dvC)
+        !dvdx = qkminmod(dvL,dvR) !Just minmod lim
+      endif
+    else
+      !Take straight centered difference
+      dvdx = dvC
+    endif
 
-          IF (L_dktime .AND. i >= imin_j(j)) THEN
-            r_dist = SQRT(xmin(i,j)**2+ymin(i,j)**2)
-            loc_rate(i,j-joff) = Cexrat (ie, ABS(alamc(kc))*vm(i,j), &
-                                         R_dist, &
-                                         sunspot_number, dktime, &
-                                         irdk,inrgdk,isodk,iondk)
-          ELSE
-            loc_rate(i,j-joff) = 0.0
-          END IF
+  else if (.not. isOp(-1)) then
+    !-1 is closed, do backward difference
+    dvdx = Q(0)-Q(-1)
+  else
+    !+1 is closed, do forward difference
+    dvdx = Q(+1)-Q(0)
+  endif
 
-        ELSE
-          STOP 'UNKNOWN IE IN COMPUTING LOSS'
-        END IF !ie
+  contains
+    function MCLim(dqL,dqR,dqC) result(dqbar)
+      REAL (rprec), intent(in) :: dqL,dqR,dqC
+      REAL (rprec) :: dqbar
+      REAL (rprec) :: magdq
 
-      END DO !i loop
+      if (dqL*dqR <= 0) then
+        !Sign flip, clamp
+        dqbar = 0.0
+      else
+        !Consistent sense, use MC limiter
+        magdq = min(2*abs(dqL),2*abs(dqR),abs(dqC))
+        !SIGN(A,B) returns the value of A with the sign of B
+        dqbar = sign(magdq,dqC)
+      endif
+    end function MCLim
 
-      loc_didt(isize,j-joff) = loc_didt(isize-1,j-joff)
-      loc_djdt(isize,j-joff) = loc_djdt(isize-1,j-joff)
-      loc_rate(isize,j-joff) = loc_rate(isize-1,j-joff)
-    END DO !j loop
+    !Quick and lazy minmod limiter
+    function qkminmod(a,b) result(c)
+      REAL (rprec), intent(in) :: a,b
+      REAL (rprec) :: c
 
-  !Copy to local variables
-    loc_Eta (1:isize, 1:jsize-jwrap) = eeta (1:isize, jwrap:jsize-1, kc)
+      if (a*b > 0) then
+        !Pick min modulus
+        if (abs(a) < abs(b)) then
+          c = a
+        else
+          c = b
+        endif !No sign flip
+      else
+        c = 0.0
+      endif
+    end function qkminmod
 
-  !Call clawpack
-    !Always calling as FirstTime
-    T1k = T1
-    T2k = T2
-    CALL Claw2ez (.true., T1k,T2k, xlower,xupper, ylower,yupper, &
-                  CLAWiter, 2,isize-1+1,jsize-3, &
-                  loc_Eta, loc_didt, loc_djdt, loc_rate)
+    !Quick and laxy maxmod limiter
+    function qkmaxmod(a,b) result(c)
+      REAL (rprec), intent(in) :: a,b
+      REAL (rprec) :: c
 
-    !Copy out
-    DO j = j1, j2
-      DO i = imin_j(j)+1, isize-1
-        eeta (i, j, kc) = loc_Eta (i, j-joff)
-      END DO
-    END DO
-    DO j = j1, j2
-      IF (veff(imin_j(j+1),j+1)-veff(imin_j(j-1),j-1) < 0.0) THEN
-        eeta (imin_j(j),j,kc) = loc_eta (imin_j(j),j-joff)
-      END IF
-    END DO
+      if (a*b > 0) then
+        !Pick max modulus
+        if (abs(a) < abs(b)) then
+          c = b
+        else
+          c = a
+        endif !No sign flip
+      else
+        c = 0.0
+      endif
+    end function qkmaxmod
 
-    ! floor eeta 12/06 frt
-    max_eeta = maxval(eeta(:,:,kc))
-    eeta(:,:,kc) = MAX(eps*max_eeta,eeta(:,:,kc))
+end function Deriv_IJ
+
+! !=========================================================================
+! !
+! SUBROUTINE Move_plasma_grid_NEW (dt)
+!   IMPLICIT NONE
+!   REAL (rprec), INTENT (IN) :: dt
+! !_____________________________________________________________________________
+! !   Subroutine to advance eta distribution for a time step
+! !   by using new CLAWPACK advection routines
+! !                                                                       
+! !   Created:     12-05-00
+! !_____________________________________________________________________________
+! !
+! !
+
+!   REAL (rprec) :: mass_factor, max_eeta, eps = 0.0 !sbao 07/2019
+!   INTEGER (iprec) :: i, j, kc, ie
+!   INTEGER (iprec) :: CLAWiter, joff, icut
+!   REAL (rprec), dimension(isize,jsize) :: eeta2,veff,dvefdi,dvefdj
+!   REAL (rprec), dimension(-1:isize+2,-1:jsize-1) :: loc_didt,loc_djdt,loc_Eta,loc_rate
+!   REAL (rprec), save :: xlower,xupper,ylower,yupper, T1,T2
+!   REAL (rprec) :: T1k,T2k !Local loop variables b/c clawpack alters input
+!   REAL (rprec) :: r_dist
+!   INTEGER (iprec) :: ii,istop
+!   LOGICAL, save :: FirstTime=.true.
+  
+!   joff=jwrap-1
+  
+!   if (FirstTime) then
+!     T1=0.
+!     FirstTime = .false.
+!   else
+!     T1=T2
+!   end if
+
+!   T2=T1+dt
+
+!   xlower = 1
+!   xupper = isize
+!   ylower = zero
+!   yupper = jsize-3
+
+!   fac = 1.0E-3*signbe*bir*alpha*beta*dlam*dpsi*ri**2
+
+
+!   !K: Trying to fix omp bindings
+!   !Fixing private/shared and vars altered by clawpack
+!   !NOTE: T1k/T2k need to be private b/c they're altered by claw2ez
+  
+!   !$OMP PARALLEL DO if (L_doOMPClaw) &
+!   !$OMP DEFAULT (NONE) &
+!   !$OMP PRIVATE(i,j,kc,icut,ie) &
+!   !$OMP PRIVATE(eeta2,veff,dvefdi,dvefdj,loc_didt,loc_djdt,loc_Eta,loc_rate) &
+!   !$OMP PRIVATE(mass_factor,r_dist,max_eeta,CLAWiter,T1k,T2k) &
+!   !$OMP SHARED(alamc,eeta,v,vcorot,vpar,vm,imin_j,j1,j2,joff) &
+!   !$OMP SHARED(xmin,ymin,rmin,fac,fudgec,bir,sini,L_dktime,dktime,sunspot_number) &
+!   !$OMP SHARED(aloct,xlower,xupper,ylower,yupper,eps,dt,T1,T2)
+
+!   DO kc = 1, kcsize
+!     !If oxygen is to be added, must change this!
+!     IF (alamc(kc) <= 0.0) THEN
+!       ie = 1  ! electrons
+!     ELSE
+!       ie = 2  ! protons
+!     END IF
+
+!     IF (MAXVAL(eeta(:,:,kc)) == 0.0) CYCLE
+
+!     mass_factor = SQRT (xmass(1)/xmass(ie))
+
+!   !1. Compute the effective potential for the kc energy channel:
+!     !K: Here we're adding corotation to total effective potential
+!     veff = v +vcorot - vpar + vm*alamc(kc)
+
+!   !2. Differentiate Veff with respect to I and J:
+
+!     !!!CALL Deriv_i_new (veff, isize, jsize, j1, j2, imin_J, dvefdi)
+!     !!!CALL Deriv_j_new (veff, isize, jsize, j1, j2, imin_J, dvefdj)
+!     dvefdi = Deriv_i (veff, imin_j)
+!     dvefdj = Deriv_j (veff, imin_j, j1, j2, 1.0E+26_rprec)
+!     WHERE (dvefdj > 1.0E+20)
+!       dvefdj = 0.0
+!     END WHERE
+!     !Zero out local arrays
+!     loc_Eta  = 0.0
+!     loc_didt = 0.0
+!     loc_djdt = 0.0
+!     loc_rate = 0.0
+
+!     icut=0
+!     do j=j1,j2
+!       icut=max(icut,imin_j(j))
+!       do i=imin_j(j),isize-1
+!         if (eeta(i,j,kc) > 1.) icut=max(icut,i)
+!       end do
+!     end do !j
+!     icut=icut+5
+
+!     DO j = j1, j2
+!       DO i = 2, isize-1
+!         loc_didt (i,j-joff) = + dvefdj (i-1,j) / fac(i-1,j)
+!         loc_djdt (i,j-joff) = - dvefdi (i,j-1) / fac(i-1,j)
+!         IF (i > icut) THEN
+!           loc_didt(i,j-joff) = 0.0
+!           loc_djdt(i,j-joff) = 0.0
+!         END IF
+! !
+!         IF (ie == RCMELECTRON) THEN
+
+!           loc_rate(i,j-joff) = Ratefn (fudgec(kc), alamc(kc), sini(i,j),&
+!                                        bir (i,j), vm(i,j), mass_factor)
+!         ELSE IF (ie == RCMPROTON) THEN
+
+!           IF (L_dktime .AND. i >= imin_j(j)) THEN
+!             r_dist = SQRT(xmin(i,j)**2+ymin(i,j)**2)
+!             loc_rate(i,j-joff) = Cexrat (ie, ABS(alamc(kc))*vm(i,j), &
+!                                          R_dist, &
+!                                          sunspot_number, dktime, &
+!                                          irdk,inrgdk,isodk,iondk)
+!           ELSE
+!             loc_rate(i,j-joff) = 0.0
+!           END IF
+
+!         ELSE
+!           STOP 'UNKNOWN IE IN COMPUTING LOSS'
+!         END IF !ie
+
+!       END DO !i loop
+
+!       loc_didt(isize,j-joff) = loc_didt(isize-1,j-joff)
+!       loc_djdt(isize,j-joff) = loc_djdt(isize-1,j-joff)
+!       loc_rate(isize,j-joff) = loc_rate(isize-1,j-joff)
+!     END DO !j loop
+
+!   !Copy to local variables
+!     loc_Eta (1:isize, 1:jsize-jwrap) = eeta (1:isize, jwrap:jsize-1, kc)
+
+!   !Call clawpack
+!     !Always calling as FirstTime
+!     T1k = T1
+!     T2k = T2
+!     CALL Claw2ez (.true., T1k,T2k, xlower,xupper, ylower,yupper, &
+!                   CLAWiter, 2,isize-1+1,jsize-3, &
+!                   loc_Eta, loc_didt, loc_djdt, loc_rate)
+
+!     !Copy out
+!     DO j = j1, j2
+!       DO i = imin_j(j)+1, isize-1
+!         eeta (i, j, kc) = loc_Eta (i, j-joff)
+!       END DO
+!     END DO
+!     DO j = j1, j2
+!       IF (veff(imin_j(j+1),j+1)-veff(imin_j(j-1),j-1) < 0.0) THEN
+!         eeta (imin_j(j),j,kc) = loc_eta (imin_j(j),j-joff)
+!       END IF
+!     END DO
+
+!     ! floor eeta 12/06 frt
+!     max_eeta = maxval(eeta(:,:,kc))
+!     eeta(:,:,kc) = MAX(eps*max_eeta,eeta(:,:,kc))
 
     
-    if (kc == 1) then
-      !refill the plasmasphere  04012020 sbao
-      !K: Added kc==1 check 8/11/20
-      CALL Plasmasphere_Refilling_Model(eeta(:,:,1), rmin, aloct, vm, dt)
-    endif
-    CALL Circle (eeta(:,:,kc))
+!     if (kc == 1) then
+!       !refill the plasmasphere  04012020 sbao
+!       !K: Added kc==1 check 8/11/20
+!       CALL Plasmasphere_Refilling_Model(eeta(:,:,1), rmin, aloct, vm, dt)
+!     endif
+!     CALL Circle (eeta(:,:,kc))
 
-  END DO !Main kc loop
+!   END DO !Main kc loop
 
 
-  RETURN
+!   RETURN
 
-  !OLD BC CODE:
-!
-! boundary condition correction:
-!    DO j = j1, j2
-!       IF (loc_didt(imin_j(j),j-joff) < 0.0) THEN
-!          eeta(imin_j(j),j,:) = eeta(imin_j(j)+1,j,:)
-!       END IF
-!    END DO
-!
-!    !Set ghost cell values for clawpack solver
-!    !  Pole
-!    do i=1-2, 1-1
-!       loc_Eta (i,j1-joff:j2-joff) = loc_Eta (1,j1-joff:j2-joff)
-!       loc_didt(i,j1-joff:j2-joff) = loc_didt(1,j1-joff:j2-joff)
-!       loc_djdt(i,j1-joff:j2-joff) = loc_djdt(1,j1-joff:j2-joff)
-!    end do
-!    !  Equator
-!    do i=isize+1,isize+2
-!       loc_Eta (i,j1-joff:j2-joff) = loc_Eta (isize,j1-joff:j2-joff)
-!       loc_didt(i,j1-joff:j2-joff) = loc_didt(isize,j1-joff:j2-joff)
-!       loc_djdt(i,j1-joff:j2-joff) = loc_djdt(isize,j1-joff:j2-joff)
-!    end do
-!    !  Periodic
-!    loc_Eta (-1:isize+1,-1:0) = loc_Eta (-1:isize+1,jsize-4:jsize-3)
-!    loc_didt(-1:isize+1,-1:0) = loc_didt(-1:isize+1,jsize-4:jsize-3)
-!    loc_djdt(-1:isize+1,-1:0) = loc_djdt(-1:isize+1,jsize-4:jsize-3)
-!    loc_Eta (-1:isize+1,jsize-joff:jsize-joff+1) = loc_Eta (-1:isize+1,1:2)
-!    loc_didt(-1:isize+1,jsize-joff:jsize-joff+1) = loc_didt(-1:isize+1,1:2)
-!    loc_djdt(-1:isize+1,jsize-joff:jsize-joff+1) = loc_djdt(-1:isize+1,1:2)
+!   !OLD BC CODE:
+! !
+! ! boundary condition correction:
+! !    DO j = j1, j2
+! !       IF (loc_didt(imin_j(j),j-joff) < 0.0) THEN
+! !          eeta(imin_j(j),j,:) = eeta(imin_j(j)+1,j,:)
+! !       END IF
+! !    END DO
+! !
+! !    !Set ghost cell values for clawpack solver
+! !    !  Pole
+! !    do i=1-2, 1-1
+! !       loc_Eta (i,j1-joff:j2-joff) = loc_Eta (1,j1-joff:j2-joff)
+! !       loc_didt(i,j1-joff:j2-joff) = loc_didt(1,j1-joff:j2-joff)
+! !       loc_djdt(i,j1-joff:j2-joff) = loc_djdt(1,j1-joff:j2-joff)
+! !    end do
+! !    !  Equator
+! !    do i=isize+1,isize+2
+! !       loc_Eta (i,j1-joff:j2-joff) = loc_Eta (isize,j1-joff:j2-joff)
+! !       loc_didt(i,j1-joff:j2-joff) = loc_didt(isize,j1-joff:j2-joff)
+! !       loc_djdt(i,j1-joff:j2-joff) = loc_djdt(isize,j1-joff:j2-joff)
+! !    end do
+! !    !  Periodic
+! !    loc_Eta (-1:isize+1,-1:0) = loc_Eta (-1:isize+1,jsize-4:jsize-3)
+! !    loc_didt(-1:isize+1,-1:0) = loc_didt(-1:isize+1,jsize-4:jsize-3)
+! !    loc_djdt(-1:isize+1,-1:0) = loc_djdt(-1:isize+1,jsize-4:jsize-3)
+! !    loc_Eta (-1:isize+1,jsize-joff:jsize-joff+1) = loc_Eta (-1:isize+1,1:2)
+! !    loc_didt(-1:isize+1,jsize-joff:jsize-joff+1) = loc_didt(-1:isize+1,1:2)
+! !    loc_djdt(-1:isize+1,jsize-joff:jsize-joff+1) = loc_djdt(-1:isize+1,1:2)
 
-END SUBROUTINE Move_plasma_grid_NEW
+! END SUBROUTINE Move_plasma_grid_NEW
 
 !Adapted by K: from S. Bao's adaptation of Colby Lemon's code, 09/20
 
-SUBROUTINE Kaiju_Plasmasphere_Refill(eeta0,rmin,aloct,vm,imin_j,idt)
+SUBROUTINE Kaiju_Plasmasphere_Refill(eeta0,xmin,ymin,aloct,vm,imin_j,idt)
+  use rice_housekeeping_module, ONLY : NowKp
   use constants, ONLY : density_factor
-  use earthhelper, ONLY : GallagherRP
+  use earthhelper, ONLY : GallagherXY
   use rcmdefs, ONLY : DenPP0
 
   implicit none
 
   REAL (rprec), intent(inout), dimension(isize,jsize) :: eeta0
-  REAL (rprec), intent(in), dimension(isize,jsize) :: rmin, aloct, vm
+  REAL (rprec), intent(in), dimension(isize,jsize) :: xmin,ymin, aloct, vm
   REAL (rprec), intent(in)  :: idt
   INTEGER (iprec), intent(in), dimension(jsize) :: imin_j
 
   integer :: i,j
   REAL (rprec) , parameter :: day2s = 24.0*60.0*60,s2day=1.0/day2s
   REAL (rprec) :: dppT,dpsph,eta2cc,tau,etaT,deta,dndt
-  REAL (rprec) :: dpp0
+  REAL (rprec) :: dpp0,rad,maxX
 
   dpp0 = 10*DenPP0 !Use 10x the plasmasphere cutoff density to decide on refilling
+  maxX = 2.0 !Max over-filling relative to target, i.e. don't go above maxX x den-target
 
   do j=1,jsize
     do i=1,isize
       if (vm(i,j) <= 0) cycle
       if (i < imin_j(j)+1) cycle !Don't refill outside active domain
 
-      !Closed field line, calculate Berbue+ 2005 density (#/cc)
-      dppT = 10.0**(-0.66*rmin(i,j) + 4.89) !Target refilled density [#/cc]
-      
-      !Or use Gallagher on nightside w/ currently set default Kp
-      !dppT = GallagherRP(rmin(i,j),PI)
+      rad = sqrt( xmin(i,j)**2.0 + ymin(i,j)**2.0 )
 
+      !Closed field line, calculate Berbue+ 2005 density (#/cc)
+      !Or use Gallagher on nightside w/ NowKp (current Kp)
+      !dppT = 10.0**(-0.66*rad + 4.89) !Target refilled density [#/cc]
+      dppT = GallagherXY(xmin(i,j),ymin(i,j),NowKp)
+      
       eta2cc = (1.0e-6)*density_factor*vm(i,j)**1.5 !Convert eta to #/cc
       dpsph = eta2cc*eeta0(i,j) !Current plasmasphere density [#/cc]
 
       !Check for other outs before doing anything
       if (dppT  <  dpp0) cycle !Target too low
-      if (dpsph <  dpp0) cycle !Current density too low to bother w/
-      if (dpsph >= dppT) cycle !Already above refilling target
+      !if (dpsph <  dpp0) cycle !Current density too low to bother w/
+      if (dpsph >= maxX*dppT) cycle !Too much already there
 
       etaT = dppT/eta2cc !Target eta for refilling
 
       !Now calculate refilling
-      dndt = 10.0**(3.48-0.331*rmin(i,j)) !cm^-3/day, Denton+ 2012 eqn 1
-      dndt = (cos(aloct(i,j))+1)*dndt !Bias refilling towards dayside
+      dndt = 10.0**(3.48-0.331*rad) !cm^-3/day, Denton+ 2012 eqn 1
+      !dndt = (cos(aloct(i,j))+1)*dndt !Bias refilling towards dayside
+
       deta = (idt*s2day)*dndt/eta2cc !Change in eta over idt
-      deta = min(deta,etaT-eeta0(i,j)) !Don't overfill
+      !deta = min(deta,etaT-eeta0(i,j)) !Don't overfill
 
       eeta0(i,j) = eeta0(i,j) + deta
-
-      ! deta = etaT-eeta0(i,j)
-
-      ! !Using timescale [days] from Denton+ 2012, equation 3
-      ! !tau = (2.63*day2s)*10**(0.016*rmin(i,j)) !Refilling timescale [s]
-
-      ! dndt = 10.0**(3.48-0.331*rmin(i,j)) !cm^-3/day, Denton+ 2012 eqn 1
-      ! tau = day2s*(dppT-dpsph)/dndt
-      ! eeta0(i,j) = eeta0(i,j) + min(idt/tau,1.0)*max(deta,0.0) !Make sure not to overfill but unlikely
 
     enddo
   enddo
