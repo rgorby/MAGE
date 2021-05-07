@@ -12,6 +12,7 @@ module starter
     use usertpic
     use userebic
     use kaiomp
+    use particleio
     
     implicit none
 
@@ -62,6 +63,12 @@ module starter
             
             !Also do localization init
             call InitLoc(Model,ebState%ebGr,inpXML)
+
+            !Calculate Lpp(MLT) if needed
+            if (Model%doPP) then
+                call calcLppMLT(Model,ebState,ebState%eb1%time,ebState%eb1%Lpp)
+                call calcLppMLT(Model,ebState,ebState%eb2%time,ebState%eb2%Lpp)
+            endif
         endif
     !----------------------------
     !Set and call TP ICs
@@ -69,7 +76,19 @@ module starter
             write(*,*) '----------------------------'
             write(*,*) 'Initializing particles ...'
 
-            call initParticles(Model,ebState,tpState,inpXML)
+            if (Model%isRestart) then
+                call readTPrestart(Model,ebState,tpState,inpXML)
+
+                ! to make sure ebfields and TPs are at the same time
+                call updateFields(Model,ebState,Model%t)
+
+                if (Model%doStream) then
+                    call addIncoming(Model,ebState,tpState)
+                endif
+            else
+                call initParticles(Model,ebState,tpState,inpXML)
+            endif
+
         endif
     end subroutine goApe
 
@@ -127,6 +146,15 @@ module starter
         Model%dtOut = inTScl*Model%dtOut
         T0Out = inTScl*T0Out
 
+        ! Initialize IOCLOCK
+        call Model%IO%init(inpXML,T0Out,Model%ts)
+
+        !Whether to read restart
+        call inpXML%Set_Val(Model%isRestart,'restart/doRes',.false.)
+
+        Model%IO%dtOut = inTScl*Model%IO%dtOut
+        Model%IO%dtRes = inTScl*Model%IO%dtRes
+
     !Run info
         call inpXML%Set_Val(Model%RunID,'sim/runid',"Sim")
 
@@ -150,6 +178,9 @@ module starter
         call inpXML%Set_Val(Model%doEQScat,'wpi/doEQScat',.false.)
         !Outer boundary of scattering
         call inpXML%Set_Val(Model%reqScat, 'wpi/reqScat' ,HUGE)
+
+    !Plasmapause
+        call inpXML%Set_Val(Model%doPP,'plasmapause/doPP',.false.)
         !Basic setup
         Model%t    = Model%T0
         Model%tOut = T0Out

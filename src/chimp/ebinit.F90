@@ -7,6 +7,7 @@ module ebinit
     use xml_input
     use ioH5
     use chmpfields
+    use plasmaputils
     
     implicit none
     integer, parameter :: Ngm = 4 !Order for metric differencing
@@ -50,6 +51,9 @@ module ebinit
             eb2%dB = 0.0
             ebState%doStatic = .false.
         endif
+
+        !Initialize and allocate plasmapause parameters
+        if (Model%doPP) call initPP(ebState,inpXML,doStatic)
 
         
         end associate

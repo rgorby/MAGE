@@ -62,6 +62,11 @@ module pusher
                 call KillParticle(Model,prt)
             endif
 
+            !Check for wave particle interaction
+            if ( Model%doWPI .and. isGood .and. prt%isIn) then
+                call AdvanceWPI(oprt,prt,t+dtCum,Model,ebState)
+            endif
+
             !Check for equatorial crossing
             if (isGood .and. prt%isIn) then     
                 !OldP/t1 and prt/t2
@@ -73,10 +78,6 @@ module pusher
             if ( Model%isDynamic .and. (.not. prt%isGC) .and. prt%isIn) then
                 !Test adiabaticity (and update alpha)
                 call Upgrade2GC(prt,t+dtCum,Model,ebState)
-            endif
-            !Check for wave particle interaction
-            if ( Model%doWPI .and. isGood .and. prt%isIn) then
-                call PerformWPI(prt,t+dtCum,ddt,Model,ebState)
             endif
 
         enddo
