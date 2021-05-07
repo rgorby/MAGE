@@ -17,6 +17,7 @@ program sctrackx
         integer :: NumP !Number of points
         real(rp), dimension(:), allocatable :: X,Y,Z,T,MJDs
         real(rp), dimension(:,:), allocatable :: Q,E,B !MHD vars
+        real(rp), dimension(:,:), allocatable :: xyz2EQ,xyz2NH !Projection variables
         real(rp), dimension(:), allocatable :: inDom !Lazy real-valued boolean
         logical :: doSmooth
         integer :: Ns=0
@@ -29,9 +30,11 @@ program sctrackx
     type(SCTrack_T)   :: SCTrack
 
     integer :: n
+    integer , dimension(NDIM) :: ijkG !ijk location guess
     real(rp), dimension(NDIM) :: xyz,Et,Bt
     real(rp), dimension(NVARMHD) :: Qt
-    real(rp) :: R0,R
+    real(rp) :: R0,R,mlat,mlon,xyzEQ(NDIM)
+    logical  :: isIn
 
     !Setup timers
     call initClocks()
@@ -64,26 +67,41 @@ program sctrackx
     !Evaluate at specific point on trajectory
         call Tic("Eval")
         xyz = [SCTrack%X(n),SCTrack%Y(n),SCTrack%Z(n)]
+
+        if (n == 1) then
+            !Do locate on first try
+            call locate(xyz,ijkG,Model,ebState%ebGr,isIn)
+        endif
+        
         R = norm2(xyz)
+
         if (R>R0) then
             !Inside domain
             SCTrack%inDom(n) = 1.0
-            call ebFields(xyz,Model%t,Model,ebState,Et,Bt)
-            Qt = mhdInterp(xyz,Model%t,Model,ebState)
+            call ebFields (xyz,Model%t,Model,ebState,Et,Bt,ijkO=ijkG)
+            Qt = mhdInterp(xyz,Model%t,Model,ebState,ijkO=ijkG)
+
+            call getEquatorProjection(Model,ebState,xyz,Model%t,xyzEQ)
+            call Map2NH(Model,ebState,xyz,Model%t,mlat,mlon)
         else
             !Outside domain
             SCTrack%inDom(n) = 0.0
             Et = 0.0
             Bt = 0.0
             Qt = 0.0
+            xyzEQ = 0.0
+            mlat = 0.0; mlon = 0.0
         endif
+
         SCTrack%MJDs(n) = MJDAt(ebState%ebTab,Model%t)
 
         !Store values
         SCTrack%Q(n,:) = Qt
         SCTrack%B(n,:) = Bt
         SCTrack%E(n,:) = Et
-
+        SCTrack%xyz2NH(n,:) = (180.0/PI)*[mlat,mlon]
+        SCTrack%xyz2EQ(n,:) = [xyzEQ(XDIR),xyzEQ(YDIR)]
+        
         call Toc("Eval")
 
         call Toc("Omega")
@@ -142,6 +160,12 @@ program sctrackx
             call AddOutVar(IOVars,"Vy",oVScl*SCTrack%Q(:,VELY),uStr="km/s")
             call AddOutVar(IOVars,"Vz",oVScl*SCTrack%Q(:,VELZ),uStr="km/s")
 
+            !Output projection variables
+            call AddOutVar(IOVars,"xeq" ,SCTrack%xyz2EQ(:,1),uStr="SM-Re")
+            call AddOutVar(IOVars,"yeq" ,SCTrack%xyz2EQ(:,2),uStr="SM-Re")
+            call AddOutVar(IOVars,"MLAT",SCTrack%xyz2NH(:,1),uStr="deg")
+            call AddOutVar(IOVars,"MLON",SCTrack%xyz2NH(:,2),uStr="deg")
+
             !Let loose (do double precision)
             call WriteVars(IOVars,.false.,H5Out)
 
@@ -186,7 +210,9 @@ program sctrackx
             allocate(SCTrack%Q(Nt,NVARMHD))
             allocate(SCTrack%E(Nt,NDIM))
             allocate(SCTrack%B(Nt,NDIM))
-
+            allocate(SCTrack%xyz2EQ(Nt,2))
+            allocate(SCTrack%xyz2NH(Nt,2))
+            
             call IOArray1DFill(IOVars,"X",SCTrack%X)
             call IOArray1DFill(IOVars,"Y",SCTrack%Y)
             call IOArray1DFill(IOVars,"Z",SCTrack%Z)

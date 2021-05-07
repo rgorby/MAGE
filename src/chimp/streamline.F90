@@ -590,7 +590,7 @@ module streamline
         if (isGood) then
             !Get invariant lat/lon
             x1 = InvLatitude(xE)
-            x2 = atan2(xE(YDIR),xE(XDIR))
+            x2 = katan2(xE(YDIR),xE(XDIR))
             if (x2 < 0) x2 = x2 + 2*PI
         else
             !Set 0/0 for projection failure
