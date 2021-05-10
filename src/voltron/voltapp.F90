@@ -142,7 +142,7 @@ module voltapp
                 !Reset State/oState
                 gApp% State%time  = gApp%Model%t
                 gApp%oState%time  = gApp%Model%t-gApp%Model%dt
-                call xmlInp%Set_Val(tIO,"spinup/tIO",gApp%Model%t*gTScl) !Time of first restart and output
+                call xmlInp%Set_Val(tIO,"spinup/tIO",0.0) !Time of first restart and output
                 gApp%Model%IO%tRes = tIO/gTScl
                 gApp%Model%IO%tOut = tIO/gTScl
                 vApp%IO%tRes = tIO
