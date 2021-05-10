@@ -99,7 +99,8 @@
 !   Plasma on grid:
     REAL (rprec) :: alamc (kcsize), etac (kcsize), fudgec (kcsize), &
                     eeta (isize,jsize,kcsize), eeta_cutoff, cmax, &
-                    eeta_avg (isize,jsize,kcsize)
+                    eeta_avg (isize,jsize,kcsize), deleeta(isize,jsize,kcsize)
+
     INTEGER (iprec) :: ikflavc (kcsize), i_advect, i_eta_bc, i_birk
     LOGICAL :: L_dktime
     INTEGER (iprec), PARAMETER :: irdk=18, inrgdk=13, isodk=2, iondk=2
@@ -1392,7 +1393,9 @@
       birk_avg = zero
       eeta_avg = zero
       i_avg    = 0
-!
+
+      deleeta = 0.0
+
 !*******************  main time loop  *************************
 !
 
@@ -1982,7 +1985,7 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
 
   LOGICAL, dimension(1:isize,1:jsize) :: isOpen
   INTEGER (iprec) :: iOCB_j(1:jsize)
-  REAL (rprec) :: mass_factor,r_dist,lossCX,lossFLC,lossFDG
+  REAL (rprec) :: mass_factor,r_dist,lossCX,lossFLC,lossFDG,preciprate
   REAL (rprec), save :: xlower,xupper,ylower,yupper, T1,T2 !Does this need save?
   INTEGER (iprec) :: i, j, kc, ie, iL,jL,iR,jR,iMHD
   INTEGER (iprec) :: CLAWiter, joff
@@ -2082,9 +2085,9 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
   !$OMP PRIVATE(i,j,kc,ie,iL,jL,iR,jR) &
   !$OMP PRIVATE(didt,djdt,etaC,rateC,rate,dvedi,dvedj) &
   !$OMP PRIVATE(mass_factor,r_dist,CLAWiter,T1k,T2k) &
-  !$OMP PRIVATE(lossCX,lossFLC,lossFDG) &
+  !$OMP PRIVATE(lossCX,lossFLC,lossFDG,preciprate) &
   !$OMP SHARED(isOpen,iOCB_j,alamc,eeta,vm,imin_j,j1,j2,joff) &
-  !$OMP SHARED(doOCBLoss,doFLCLoss,doNewCX,dp_on,doPPRefill) &
+  !$OMP SHARED(doOCBLoss,doFLCLoss,doNewCX,dp_on,doPPRefill,deleeta) &
   !$OMP SHARED(dvvdi,dvvdj,dvmdi,dvmdj,dvvdi_avg,dvvdj_avg,dtAvg_v) &
   !$OMP SHARED(xmin,ymin,fac,fudgec,bir,sini,L_dktime,dktime,sunspot_number) &
   !$OMP SHARED(aloct,xlower,xupper,ylower,yupper,dt,T1,T2,iMHD,bmin,radcurv,losscone) 
@@ -2189,6 +2192,9 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
         endif !flavor
 
         rate(i,j) = max(lossCX + lossFLC + lossFDG,0.0)
+        preciprate = lossFLC + lossFDG !Losses for precipitation
+        deleeta(i,j,kc) = deleeta(i,j,kc) + eeta(i,j,kc)*(1.0 - exp(-preciprate*dt))
+
       enddo !i loop
       
     enddo !j loop
