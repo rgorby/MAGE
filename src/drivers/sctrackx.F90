@@ -30,12 +30,12 @@ program sctrackx
     type(XML_Input_T) :: inpXML
     type(SCTrack_T)   :: SCTrack
 
-    integer :: n,topo
+    integer :: n,topo,nS,nE
     integer , dimension(NDIM) :: ijkG !ijk location guess
     real(rp), dimension(NDIM) :: xyz,Et,Bt,xyzEQ,xyzMin
     real(rp), dimension(NVARMHD) :: Qt
     real(rp) :: R0,R,mlat,mlon,Beq
-    logical  :: isIn
+    logical  :: isIn,doParInT
 
     !Setup timers
     call initClocks()
@@ -47,6 +47,8 @@ program sctrackx
     !----------------------------
     !Read SC trajectory data
     call GetTrack(inpXML,SCTrack)
+
+    call GetBounds(inpXML,SCTrack,nS,nE)
 
     !Find inner radius of grid
     R0 = norm2(ebState%ebGr%xyz(1,1,1,XDIR:ZDIR))
@@ -116,21 +118,27 @@ program sctrackx
     
     write(*,*) 'Done trajectory cut, outputting ...'
     !Done scraping trajectory, now output data
-    call OutputTrack(Model,SCTrack)
+    call OutputTrack(Model,SCTrack,nS,nE)
 
     contains
 
-        subroutine OutputTrack(Model,SCTrack)
+        subroutine OutputTrack(Model,SCTrack,nS,nE)
             type(chmpModel_T), intent(in) :: Model
             type(SCTrack_T)  , intent(inout)   :: SCTrack
             character(len=strLen) :: H5Out
             type(IOVAR_T), dimension(MAXIOVAR) :: IOVars
+            integer, intent(in) :: nS,nE
 
             integer :: n
-            write(H5Out,'(2a)') trim(adjustl(Model%RunID)),'.sc.h5'
+            if (doParInT) then
+                write(H5Out,'(a,a,I0.4,a)') trim(adjustl(Model%RunID)),'.',Model%Nblk,'.sc.h5'
+            else
+                write(H5Out,'(2a)') trim(adjustl(Model%RunID)),'.sc.h5'
+            endif
+
             call CheckAndKill(H5Out)
 
-            if (SCTrack%doSmooth) then
+            if (SCTrack%doSmooth .and. (.not. doParInT) ) then
                 write(*,*) 'Smoothing data ...'
                 do n=1,NVARMHD
                     call SmoothTS(SCTrack%Q(:,n),SCTrack%inDom,SCTrack%NumP,SCTrack%Ns)
@@ -143,43 +151,89 @@ program sctrackx
             
             !Setup output chain
             call ClearIO(IOVars)
-            
-            call AddOutVar(IOVars,"X",SCTrack%X,uStr="SM-Re")
-            call AddOutVar(IOVars,"Y",SCTrack%Y,uStr="SM-Re")
-            call AddOutVar(IOVars,"Z",SCTrack%Z,uStr="SM-Re")
-            call AddOutVar(IOVars,"T",oTScl*SCTrack%T,uStr="s")
-            call AddOutVar(IOVars,"MJDs",SCTrack%MJDs)
-            call AddOutVar(IOVars,"inDom",SCTrack%inDom,uStr="BOOLEAN")
+            call AddOutVar(IOVars,"nS",nS)
+            call AddOutVar(IOVars,"nE",nE)
+            call AddOutVar(IOVars,"NumP",SCTrack%NumP)
+
+            call AddOutVar(IOVars,"X"    ,SCTrack%X       (nS:nE),uStr="SM-Re")
+            call AddOutVar(IOVars,"Y"    ,SCTrack%Y       (nS:nE),uStr="SM-Re")
+            call AddOutVar(IOVars,"Z"    ,SCTrack%Z       (nS:nE),uStr="SM-Re")
+            call AddOutVar(IOVars,"T"    ,oTScl*SCTrack%T (nS:nE),uStr="s")
+            call AddOutVar(IOVars,"MJDs" ,SCTrack%MJDs    (nS:nE),uStr="days")
+            call AddOutVar(IOVars,"inDom",SCTrack%inDom   (nS:nE),uStr="BOOLEAN")
 
             !Output field variables
-            call AddOutVar(IOVars,"Bx",oBScl*SCTrack%B(:,XDIR),uStr="nT")
-            call AddOutVar(IOVars,"By",oBScl*SCTrack%B(:,YDIR),uStr="nT")
-            call AddOutVar(IOVars,"Bz",oBScl*SCTrack%B(:,ZDIR),uStr="nT")
+            call AddOutVar(IOVars,"Bx",oBScl*SCTrack%B(nS:nE,XDIR),uStr="nT")
+            call AddOutVar(IOVars,"By",oBScl*SCTrack%B(nS:nE,YDIR),uStr="nT")
+            call AddOutVar(IOVars,"Bz",oBScl*SCTrack%B(nS:nE,ZDIR),uStr="nT")
 
-            call AddOutVar(IOVars,"Beq",oBScl*SCTrack%Beq(:),uStr="nT")
-            call AddOutVar(IOVars,"OCb",oBScl*SCTrack%Beq(:),uStr="Topo")
+            call AddOutVar(IOVars,"Beq",oBScl*SCTrack%Beq(nS:nE),uStr="nT")
+            call AddOutVar(IOVars,"OCb",oBScl*SCTrack%OCb(nS:nE),uStr="Topo")
 
-            call AddOutVar(IOVars,"Ex",oEScl*SCTrack%E(:,XDIR),uStr="mV/m")
-            call AddOutVar(IOVars,"Ey",oEScl*SCTrack%E(:,YDIR),uStr="mV/m")
-            call AddOutVar(IOVars,"Ez",oEScl*SCTrack%E(:,ZDIR),uStr="mV/m")
+            call AddOutVar(IOVars,"Ex",oEScl*SCTrack%E(nS:nE,XDIR),uStr="mV/m")
+            call AddOutVar(IOVars,"Ey",oEScl*SCTrack%E(nS:nE,YDIR),uStr="mV/m")
+            call AddOutVar(IOVars,"Ez",oEScl*SCTrack%E(nS:nE,ZDIR),uStr="mV/m")
 
             !Output fluid variables
-            call AddOutVar(IOVars,"D" ,SCTrack%Q(:,DEN),uStr="#/cc")
-            call AddOutVar(IOVars,"P" ,SCTrack%Q(:,PRESSURE),uStr="nPa")
-            call AddOutVar(IOVars,"Vx",oVScl*SCTrack%Q(:,VELX),uStr="km/s")
-            call AddOutVar(IOVars,"Vy",oVScl*SCTrack%Q(:,VELY),uStr="km/s")
-            call AddOutVar(IOVars,"Vz",oVScl*SCTrack%Q(:,VELZ),uStr="km/s")
+            call AddOutVar(IOVars,"D"       ,SCTrack%Q(nS:nE,DEN),uStr="#/cc")
+            call AddOutVar(IOVars,"P"       ,SCTrack%Q(nS:nE,PRESSURE),uStr="nPa")
+            call AddOutVar(IOVars,"Vx",oVScl*SCTrack%Q(nS:nE,VELX),uStr="km/s")
+            call AddOutVar(IOVars,"Vy",oVScl*SCTrack%Q(nS:nE,VELY),uStr="km/s")
+            call AddOutVar(IOVars,"Vz",oVScl*SCTrack%Q(nS:nE,VELZ),uStr="km/s")
 
             !Output projection variables
-            call AddOutVar(IOVars,"xeq" ,SCTrack%xyz2EQ(:,1),uStr="SM-Re")
-            call AddOutVar(IOVars,"yeq" ,SCTrack%xyz2EQ(:,2),uStr="SM-Re")
-            call AddOutVar(IOVars,"MLAT",SCTrack%xyz2NH(:,1),uStr="deg")
-            call AddOutVar(IOVars,"MLON",SCTrack%xyz2NH(:,2),uStr="deg")
+            call AddOutVar(IOVars,"xeq" ,SCTrack%xyz2EQ(nS:nE,1),uStr="SM-Re")
+            call AddOutVar(IOVars,"yeq" ,SCTrack%xyz2EQ(nS:nE,2),uStr="SM-Re")
+            call AddOutVar(IOVars,"MLAT",SCTrack%xyz2NH(nS:nE,1),uStr="deg")
+            call AddOutVar(IOVars,"MLON",SCTrack%xyz2NH(nS:nE,2),uStr="deg")
 
             !Let loose (do double precision)
             call WriteVars(IOVars,.false.,H5Out)
 
         end subroutine OutputTrack
+
+        !Get bounds if doing parallel in time
+        subroutine GetBounds(inpXML,SCTrack,nS,nE)
+            type(XML_Input_T), intent(in ) :: inpXML
+            type(SCTrack_T)  , intent(in ) :: SCTrack
+            integer          , intent(out) :: nS,nE
+
+            integer :: NumB,dN
+
+            call inpXML%Set_Val(NumB,'parintime/NumB',NumB)
+            if (NumB > 1) then
+                doParInT = .true.
+                if ( (Model%Nblk>NumB) .or. (Model%Nblk<1) ) then
+                    write(*,*) "This block outside of acceptable bounds"
+                    write(*,*) "Block = ",Model%Nblk
+                    write(*,*) "Bounds = ",1,NumB
+                    write(*,*) "Bailing ..."
+                    stop
+                endif
+
+                !Now set nS,nE for this part of work
+                dN = nint(1.0*SCTrack%NumP/NumB)
+                nS = (Model%Nblk-1)*dN + 1 !Always start at 1
+                nE = nS+dN-1
+
+                if (NumB == 1) nS = 1
+                if (NumB == Model%Nblk) nE = SCTrack%NumP
+
+                write(*,*) '// In Time'
+                write(*,*) '   Doing ', nS,nE, ' out of ', SCTrack%NumP
+            else
+                doParInT = .false.
+                !Not // in time
+                nS = 1
+                nE = SCTrack%NumP
+            endif
+
+            if (SCTrack%doSmooth .and. doParInT) then
+                write(*,*) 'Warning, smoothing and // in time not implemented (why not do that?)'
+                stop
+            endif
+
+        end subroutine GetBounds
 
         subroutine GetTrack(inpXML,SCTrack)
             type(XML_Input_T), intent(in)      :: inpXML
