@@ -17,6 +17,7 @@ program sctrackx
         integer :: NumP !Number of points
         real(rp), dimension(:), allocatable :: X,Y,Z,T,MJDs
         real(rp), dimension(:,:), allocatable :: Q,E,B !MHD vars
+        real(rp), dimension(:)  , allocatable :: Beq,OCb
         real(rp), dimension(:,:), allocatable :: xyz2EQ,xyz2NH !Projection variables
         real(rp), dimension(:), allocatable :: inDom !Lazy real-valued boolean
         logical :: doSmooth
@@ -29,11 +30,11 @@ program sctrackx
     type(XML_Input_T) :: inpXML
     type(SCTrack_T)   :: SCTrack
 
-    integer :: n
+    integer :: n,topo
     integer , dimension(NDIM) :: ijkG !ijk location guess
-    real(rp), dimension(NDIM) :: xyz,Et,Bt
+    real(rp), dimension(NDIM) :: xyz,Et,Bt,xyzEQ,xyzMin
     real(rp), dimension(NVARMHD) :: Qt
-    real(rp) :: R0,R,mlat,mlon,xyzEQ(NDIM)
+    real(rp) :: R0,R,mlat,mlon,Beq
     logical  :: isIn
 
     !Setup timers
@@ -82,7 +83,9 @@ program sctrackx
             Qt = mhdInterp(xyz,Model%t,Model,ebState,ijkO=ijkG)
 
             call getEquatorProjection(Model,ebState,xyz,Model%t,xyzEQ)
+            call getMagEQ(Model,ebState,xyz,Model%t,xyzMin,Beq,topo)
             call Map2NH(Model,ebState,xyz,Model%t,mlat,mlon)
+
         else
             !Outside domain
             SCTrack%inDom(n) = 0.0
@@ -91,6 +94,9 @@ program sctrackx
             Qt = 0.0
             xyzEQ = 0.0
             mlat = 0.0; mlon = 0.0
+            xyzMin = 0.0
+            Beq = 0.0
+            topo = 0
         endif
 
         SCTrack%MJDs(n) = MJDAt(ebState%ebTab,Model%t)
@@ -101,7 +107,8 @@ program sctrackx
         SCTrack%E(n,:) = Et
         SCTrack%xyz2NH(n,:) = (180.0/PI)*[mlat,mlon]
         SCTrack%xyz2EQ(n,:) = [xyzEQ(XDIR),xyzEQ(YDIR)]
-        
+        SCTrack%Beq(n) = Beq
+        SCTrack%OCb(n) = 1.0*topo !Lazily storing integer as real
         call Toc("Eval")
 
         call Toc("Omega")
@@ -148,6 +155,9 @@ program sctrackx
             call AddOutVar(IOVars,"Bx",oBScl*SCTrack%B(:,XDIR),uStr="nT")
             call AddOutVar(IOVars,"By",oBScl*SCTrack%B(:,YDIR),uStr="nT")
             call AddOutVar(IOVars,"Bz",oBScl*SCTrack%B(:,ZDIR),uStr="nT")
+
+            call AddOutVar(IOVars,"Beq",oBScl*SCTrack%Beq(:),uStr="nT")
+            call AddOutVar(IOVars,"OCb",oBScl*SCTrack%Beq(:),uStr="Topo")
 
             call AddOutVar(IOVars,"Ex",oEScl*SCTrack%E(:,XDIR),uStr="mV/m")
             call AddOutVar(IOVars,"Ey",oEScl*SCTrack%E(:,YDIR),uStr="mV/m")
@@ -206,6 +216,9 @@ program sctrackx
             allocate(SCTrack%T(Nt))
             allocate(SCTrack%MJDs(Nt))
             allocate(SCTrack%inDom(Nt))
+
+            allocate(SCTrack%Beq(Nt))
+            allocate(SCTrack%OCb(Nt))
 
             allocate(SCTrack%Q(Nt,NVARMHD))
             allocate(SCTrack%E(Nt,NDIM))
