@@ -48,3 +48,6 @@ tests/*/*.F90
 
 # Mac nonsense
 *.DS_STORE
+
+#Notebook checkpoints
+analysis/notebooks/Tutorial/.ipynb_checkpoints
