@@ -9,7 +9,7 @@ program sctrackx
   
     implicit none
 
-    integer, parameter :: MAXIOVAR = 25
+    integer, parameter :: MAXIOVAR = 35
 
     !Spacecraft trajectory type
     type SCTrack_T
