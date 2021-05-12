@@ -17,8 +17,10 @@ DMax = 150.
 DMin = 2000.
 DCM = "copper_r"
 
-D0Max = 15.
-D0Min = 1.
+#D0Max = 15.
+#D0Min = 1.
+D0Max = 1000.
+D0Min = 300.
 D0CM = "copper_r"
 
 TMax = 1.
@@ -44,6 +46,8 @@ def GetSizeBds(pic):
 		xyBds = [-216.,216.,-216.,216.]
 	elif (pic == "pic3"):
 		xyBds = [0.,360.,-75.,75.]
+	elif (pic == "pic4"):
+                xyBds = [0.,360.,-90.,90.]
 	else:		
 		print ("No pic type specified.")
 	return xyBds
@@ -285,8 +289,8 @@ def PlotiSlD(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
 
 #Plot Br and current sheet (Br=0) at 1 AU
 def PlotiSlBr(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
-	BMin = -5.
-	BMax = 5.
+	BMin = -150.
+	BMax = 150.
 	vB = kv.genNorm(BMin, BMax, doLog=False, midP=None)
 	if (AxCB is not None):
 		AxCB.clear()
@@ -309,13 +313,77 @@ def PlotiSlBr(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
 		Ax.set_ylabel('Latitude')
 		Ax.yaxis.tick_right()
 		Ax.yaxis.set_label_position('right')
+		#for pic4
+		Ax.set_aspect('equal')
 	return Br
+
+#Plot Br and current sheet (Br=0) at certain distance set in iSliceBr
+def PlotiSlBrRotatingFrame(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
+
+	BMin = -150.
+	BMax = 150.
+	vB = kv.genNorm(BMin, BMax, doLog=False, midP=None)
+	if (AxCB is not None):
+		AxCB.clear()
+		kv.genCB(AxCB,vB,"Radial magnetic field [nT]",cM=BCM,Ntk=7)
+	if (doClear):
+		Ax.clear()
+
+	#print ('nStp = ', nStp)
+
+	Br = gsph.iSliceBrBound(nStp)
+	lat, lon = gsph.iSliceGrid()
+	
+	#transform into rotating frame
+	#Julian date of the initial map
+	jd0 = 58418.523038445
+	jd_c = gsph.MJDs[nStp]
+	print (jd0, jd_c)
+	#Julian date of the current solution
+	time_days = (jd_c - jd0)
+	print (time_days)
+	omega=2*180./25.38
+
+	#for contour cell-centered lon lat coordinates
+	lon_c = 0.25*( lon[:-1,:-1]+lon[:-1,1:]+lon[1:,:-1]+lon[1:,1:] )
+	lat_c = 0.25*( lat[:-1,:-1]+lat[:-1,1:]+lat[1:,:-1]+lat[1:,1:] )
+
+	phi = lon_c[0,:] 
+	print (phi)
+	phi_prime = (phi-omega*time_days)%(2*180.)
+
+	if np.where(np.ediff1d(phi_prime)<0)[0].size!=0: #for the first map size =0, for other maps size=1
+		ind0=np.where(np.ediff1d(phi_prime)<0)[0][0]+1
+		#print 'ind = ', ind0
+	else:
+		ind0=0 # this is for the first map
+	print('ind0 = ', ind0)
+
+	#lon_c = np.roll(lon_c, -ind0, axis = 1)
+	Br = np.roll(Br, -ind0, axis = 1)
+	#lon = np.roll(lon, -ind0, axis = 1)
+
+	Ax.pcolormesh(lon,lat,Br,cmap=BCM,norm=vB)
+	Ax.contour(lon_c, lat_c,Br,[0.],colors='black')
+	kv.SetAx(xyBds,Ax)
+
+	if (doDeco):
+		Ax.set_xlabel('Longitude')
+		Ax.set_ylabel('Latitude')
+		Ax.yaxis.tick_right()
+		Ax.yaxis.set_label_position('right')
+		#for pic4
+		Ax.set_aspect('equal')
+	return Br
+
 
 #Plot Temperature at 1 AU
 def PlotiSlTemp(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
 	#colorbar limits
-	TMin = 0.02
-	TMax = 0.12
+	#TMin = 0.02
+	#TMax = 0.12
+	TMin = 0.1
+	TMax = 1.
 	vT = kv.genNorm(TMin, TMax, doLog=False, midP=None)
 
 	if (AxCB is not None):

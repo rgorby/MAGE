@@ -37,7 +37,7 @@ module usergamic
     !real(rp), dimension(:,:,:,:), allocatable :: ibcVars
 
     !Various global would go here
-    real (rp) :: Rho0, P0, Vslow, Vfast, wScl, Cs0, B0, MJD_c
+    real (rp) :: Rho0, P0, Vslow, Vfast, wScl, Cs0, B0, MJD_c, MJD_c1
 
     !Scaling from innerbc to CGS
     real (rp) :: km2cm = 1.e5
@@ -66,6 +66,7 @@ module usergamic
         real(rp), dimension(:,:,:,:), allocatable :: ccVars !6 cell-center vars
         real(rp), dimension(:,:,:), allocatable :: jfVars !1 j-face
         real(rp), dimension(:,:,:,:), allocatable :: kfVars !3 k-face Bp, Br, Vr
+        real(rp) :: MJD_c !MJD for center of map
        !real(rp), dimension(:,:,:), allocatable :: Rho, Temp, Vr, Vt, Vp, Br, Bt_jf, Bp_kf, Br_kf, Vr_kf
     !   !6 cell-centered variables Rho, Temp, Vr, Vt, Vp, Br have dimensions (Ni, Nt, Nk)
     !   !Bt at j-faces (Ni, Nt+1, Nk)
@@ -113,6 +114,7 @@ module usergamic
         procedure(HackE_T), pointer :: eHack
 
         real(rp), dimension(:,:,:), allocatable :: ibcBr
+        real(rp) :: MJD_c0
 
 
         integer :: i,j,k,nvar,nr,d
@@ -128,7 +130,7 @@ module usergamic
 
         ![EP] get the WSA map for current State%time
         ibcBr = 0.0
-        call initTSlice(wsaFile,inpXML,Model,State,ibcBr)
+        call initTSlice(wsaFile,inpXML,Model,State,ibcBr,MJD_c0)
         !now we have WSA "map" for a current code time
         ![EP] TODO: For restart add boundary cases in time
 
@@ -174,7 +176,7 @@ module usergamic
         ! everybody reads WSA data
         !call readIBC(wsaFile)
 
-        Model%MJD0 = MJD_c
+        Model%MJD0 = MJD_c0
 
         !Map IC to grid
         Wxyz => GasIC
@@ -609,13 +611,14 @@ module usergamic
    
     end subroutine readIBC
 
-    subroutine initTSlice(wsaFile,inpXML,Model,State,ibcBr)
+    subroutine initTSlice(wsaFile,inpXML,Model,State,ibcBr,MJD_c0)
        type(XML_Input_T), intent(in) :: inpXML
        type(Model_T), intent(in) :: Model
        type(State_T), intent(in) :: State
        character(len=strLen), intent(in) :: wsaFile
        real(rp), dimension(:,:,:), intent(out), allocatable :: ibcBr
-
+       real(rp) :: MJD_c0
+ 
        type(wsaData_T) :: wsaData
        integer :: n1, n2
        real(rp) :: w1, w2
@@ -658,6 +661,7 @@ module usergamic
         call rdWSAMap(wsaData,Model,n2,wsaData%ibcMap2)
         wsaData%wsaN2 = n2
         wsaData%wsaT2 = wsaData%ebTab%times(n2)
+        
         write(*,*)'[EP in initTSlice] Bounding times ', wsaData%wsaT1, wsaData%wsaT2 
 
         ![EP]interpolation (a) calculate weights (b) interpolate in time 
@@ -671,9 +675,11 @@ module usergamic
 
         !INTERPOLATE BRIN that we get from innerbc.h5
         ibcBr(:,:,:) = w1*wsaData%ibcMap1%ccVars(:,:,:,BRIN) + w2*wsaData%ibcMap2%ccVars(:,:,:,BRIN)
-        !write(*,*)'[EP in initTSlice] Filled out ibcBr, checking ibcBr(4,:,1), ibc(4,64,:)', ibcBr(4,:,1), ibcBr(4,64,:)
+        !write(*,*)'[EP in initTSlice] Filled out ibcBr, checking ibcBr(4,:,1), ibc(4,64,:)', ibcBr(4,:,1), ibcBr(4,64,:)     
 
         write(*,*)'[EP in initTSlice] filled out ibcBr'
+
+        MJD_c0 = w1*wsaData%ibcMap1%MJD_c + w2*wsaData%ibcMap2%MJD_c
 
     end subroutine initTSlice
 
@@ -773,8 +779,8 @@ module usergamic
          !W(:,:,:,i) = reshape(IOVars(nvar)%data*IOVars(nvar)%scale,dims)
        end do
 
-         !reading MJD
-         MJD_c = GetIOReal(IOVars,"MJD")
+         !reading MJD for center of the map
+         ibcMap%MJD_c = GetIOReal(IOVars,"MJD")
         
     end subroutine rdWSAMap
 

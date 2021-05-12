@@ -158,12 +158,14 @@ class GamsphPipe(GameraPipe):
 		theta = np.arctan2(rxy,self.Z)
 		phi = np.arctan2(self.Y,self.X)
 
-		theta = 90. - theta*180./np.pi
+		#theta [theta < 0] += np.pi/2.
+		theta += -np.pi/2.
+		theta = theta*180./np.pi
 		phi [phi < 0] += 2*np.pi
 		phi = phi*180./np.pi
 
 		#last i-index == face of the last cell
-		lat = theta[-1,:,:]
+		lat = theta[-1,::-1,:]
 		lon = phi[-1,:,:]
 		#these are corners
 
@@ -195,8 +197,12 @@ class GamsphPipe(GameraPipe):
 		#Get full 3D variable first
 		Q = self.GetVar(vID,sID,vScl,doVerb)
 
-		#cell centered valies from the last cell
-		Qi = Q[-1,:,:]
+		#cell centered values from the last cell
+		#Qi = Q[-1,:,:]
+                #cell centered values from the first cell
+		Qi = Q[0,:,:]
+		#jd_c = self.MJDs[sID]
+		#print ('jd_c = ', jd_c)
 		return Qi
 
 	#Speed at 1 AU
@@ -229,6 +235,25 @@ class GamsphPipe(GameraPipe):
 		z_c = 0.25*( z[:-1,:-1]+z[:-1,1:]+z[1:,:-1]+z[1:,1:] )
 		Br = self.bScl*(Bx*x_c + By*y_c + Bz*z_c)/np.sqrt(x_c**2.+y_c**2.+z_c**2.)
 		return Br
+
+	#Br at first cell
+	def iSliceBrBound(self,s0=0):
+		Bx = self.iSliceVar("Bx",s0) #Unscaled
+		By = self.iSliceVar("By",s0) #Unscaled
+		Bz = self.iSliceVar("Bz",s0) #Unscaled
+
+		self.GetGrid(doVerbose=True)
+		x = self.X[0,:,:]
+		y = self.Y[0,:,:]
+		z = self.Z[0,:,:]
+		#centers
+		x_c = 0.25*( x[:-1,:-1]+x[:-1,1:]+x[1:,:-1]+x[1:,1:] )
+		y_c = 0.25*( y[:-1,:-1]+y[:-1,1:]+y[1:,:-1]+y[1:,1:] )
+		z_c = 0.25*( z[:-1,:-1]+z[:-1,1:]+z[1:,:-1]+z[1:,1:] )
+		Br = self.bScl*(Bx*x_c + By*y_c + Bz*z_c)/np.sqrt(x_c**2.+y_c**2.+z_c**2.)
+
+		return Br
+
 
 	#temperature at 1 AU
 	def iSliceT(self,s0=0):

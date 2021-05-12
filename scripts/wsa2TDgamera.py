@@ -18,20 +18,29 @@ import kaipy.gamhelio.lib.poisson as poisson
 #plotting function for debug
 def plot(wsa_file, var_wsa, var_wsa_rolled):
     import matplotlib.pyplot as plt
-    fig=plt.figure(figsize=(16,12))
-    ax1 = plt.subplot(211)
-    #p1=ax1.pcolormesh(var_wsa)
-    p1=ax1.pcolormesh(var_wsa,cmap='RdBu_r',vmin=var_wsa.min(),vmax=-var_wsa.min())
-    plt.colorbar(p1,ax=ax1).set_label('Br')
+    import matplotlib.gridspec as gridspec
+ 
+    #fig=plt.figure(figsize=(16,12))
+    fig=plt.figure(figsize=(10,6.))
+    gs = gridspec.GridSpec(2,1,height_ratios=[20,1])
+    ax1 = fig.add_subplot(gs[0,0])
+    axc = fig.add_subplot(gs[1,0])
+    p1=ax1.pcolormesh(var_wsa_rolled[::-1,:]*1.e5,cmap='RdBu_r',vmin=-150.,vmax=150.)
+    ax1.contour(var_wsa_rolled[::-1,:],[0.],colors='white')
+
+    plt.colorbar(p1,cax=axc, orientation = 'horizontal').set_label('Br [nT]')
+
     ax1.set_xlim((0,var_wsa.shape[1]))
     ax1.set_ylim((0,var_wsa.shape[0]))
+    ax1.set_aspect("equal")
 
-    ax2 = plt.subplot(212,sharex=ax1)
-    #p2=ax2.pcolormesh(var_wsa_rolled)
-    p2=ax2.pcolormesh(var_wsa_rolled,cmap='RdBu_r',vmin=var_wsa_rolled.min(),vmax=-var_wsa_rolled.min())
-    plt.colorbar(p2,ax=ax2).set_label('V')
-    ax2.set_xlim((0,var_wsa_rolled.shape[1]))
-    ax2.set_ylim((0,var_wsa_rolled.shape[0]))
+    ##in rotating system of coordinates
+    #ax2 = plt.subplot(212,sharex=ax1)
+    ##p2=ax2.pcolormesh(var_wsa_rolled)
+    #p2=ax2.pcolormesh(var_wsa_rolled[::-1,:],cmap='RdBu_r',vmin=var_wsa_rolled.min(),vmax=-var_wsa_rolled.min())
+    #plt.colorbar(p2,ax=ax2).set_label('V')
+    #ax2.set_xlim((0,var_wsa_rolled.shape[1]))
+    #ax2.set_ylim((0,var_wsa_rolled.shape[0]))
 
     fig.suptitle(wsaFile)
     plt.savefig(wsaFile[:-4]+'png')
@@ -46,13 +55,9 @@ def plotBc(wsa_file, phi, theta, var1, var2, var3, var4):
     gs = gridspec.GridSpec(2,2,wspace=0.2, hspace =0.1)
 
     phi = phi*180./np.pi
-    theta = theta*180./np.pi-90
+    theta = (np.pi/2.-theta)*180./np.pi
 
-    var1 = var1/1.e5 #km/s
-    var2 = var2*1.e5 #nT
-    var3 = var3/1.67e-24 #cm-3
-    var4 = var4/1.e5 #km/s
-
+    var4 = var4/1.e6 #temp in MK
     
     ax1 = plt.subplot(gs[0,0], aspect='equal')
     p1=ax1.pcolormesh(phi, theta, var1.T, cmap = 'rainbow', vmin = 300, vmax = 850)
@@ -67,8 +72,8 @@ def plotBc(wsa_file, phi, theta, var1, var2, var3, var4):
     plt.colorbar(p3,ax=ax3,aspect = 15, orientation = 'horizontal').set_label(r'$Rho, cm^{-3}$')
 
     ax4 = plt.subplot(gs[1,1],sharex=ax1, aspect='equal')
-    p4=ax4.pcolormesh(phi, theta, var4.T,cmap = 'copper', vmin = 60, vmax = 130)
-    plt.colorbar(p4,ax=ax4,aspect = 15, orientation = 'horizontal').set_label('Sound speed, km/s')
+    p4=ax4.pcolormesh(phi, theta, var4.T,cmap = 'copper', vmin = 0.5, vmax = 2.5)
+    plt.colorbar(p4,ax=ax4,aspect = 15, orientation = 'horizontal').set_label('Temperature, K')
     
     date = wsa_file.split('/')[-1][4:12]
     year = date[0:4] 
@@ -220,7 +225,7 @@ with h5py.File(os.path.join(prm.IbcDir,prm.gameraIbcFile),'w') as hf:
         #plot br from original wsa map (top plot) and shifted to the origin map(bottom plot)
         #changes in time in the bottom plot are purely due to time-dependent variations of B_r (rotation is eliminted) 
         
-        #plot(wsaFile, bi_wsa, bi_wsa_rolled)
+        plot(wsaFile, bi_wsa, bi_wsa_rolled)
         ##plot(wsaFile, v_wsa, v_wsa_rolled)
 
         ###INTERPOLATION OF ROLLED WSA MAPS TO GAMERA GRID phi-theta####
@@ -400,7 +405,7 @@ with h5py.File(os.path.join(prm.IbcDir,prm.gameraIbcFile),'w') as hf:
             #grp.create_dataset("et",data=et_save_p) #k-edges
             #grp.create_dataset("ep",data=ep_save_p) #j-edges
 
-        #plotBc(wsaFile,phi, theta[1:-1], vrp[:,:,Ng-1], brp[:,:,Ng-1], rhop[:,:,Ng-1], csp[:,:,Ng-1])
+        plotBc(wsaFile,phi, theta[1:-1], vrp[:,:,Ng-1], brp[:,:,Ng-1], rhop[:,:,Ng-1], Tempp[:,:,Ng-1])
         
 
         # [EP] test if calculated tengential electric fields give Br from wsa
