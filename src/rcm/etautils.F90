@@ -49,12 +49,22 @@ MODULE etautils
   end function GetPressureFactor
 
   !Convert single eta to density (RC/plasmasphere) and pressure
-  subroutine eta2DP(eta,vm,Drc,Dpp,Prc)
+  subroutine eta2DP(eta,vm,Drc,Dpp,Prc,doCharge0)
     REAL(rprec), intent(in)  :: eta(kcsize)
     REAL(rprec), intent(in)  :: vm
     REAL(rprec), intent(out) :: Drc,Dpp,Prc
-
+    logical    , intent(in), optional :: doCharge0
+    
     integer :: klow
+    logical :: doC0
+
+    if (present(doCharge0)) then
+      doC0 = doCharge0
+    else
+      doC0 = .false.
+    endif
+
+    
     
     !Set lowest RC channel
     if (use_plasmasphere) then
@@ -71,7 +81,7 @@ MODULE etautils
 
     !Do RC channels
     Prc = IntegratePressure(eta,vm,klow,kcsize)
-    Drc = IntegrateDensity (eta,vm,klow,kcsize)
+    Drc = IntegrateDensity (eta,vm,klow,kcsize,doC0)
 
     !Handle plasmasphere
     if (use_plasmasphere) then
@@ -99,22 +109,45 @@ MODULE etautils
     enddo
   end function IntegratePressure
 
-  !Integrate density from eta between channels k1,k2
-  function IntegrateDensity(eta,vm,k1,k2) result(D)
+  !Integrate density from eta between channels k1,k2 (neglect cold species)
+  !doCharge0: optional argument, whether to attempt to mock up charge neutrality mass in electron regions
+  function IntegrateDensity(eta,vm,k1,k2,doCharge0) result(D)
     REAL(rprec), intent(in)  :: eta(kcsize)
     REAL(rprec), intent(in)  :: vm
     integer    , intent(in)  :: k1,k2
-    REAL(rprec) :: D
+    logical    , intent(in), optional :: doCharge0
+
+    real(rp) :: D
+    logical :: doC0
+    REAL(rprec) :: Di,De
     integer :: k
 
-    D = 0.0
+    if (present(doCharge0)) then
+      doC0 = doCharge0
+    else
+      doC0 = .false.
+    endif
+
+    Di = 0.0
+    De = 0.0
     if (vm <= 0) return
     do k=k1,k2
       !Density calc 
-      if (alamc(k) > 0.0) then ! only add the ion contribution
-        D = D + density_factor*sclmass(ikflavc(k))*eta(k)*vm**1.5
+      if (alamc(k) > TINY) then 
+        !Hot ion contribution
+        Di = Di + density_factor*sclmass(ikflavc(k))*eta(k)*vm**1.5
+      else if (alamc(k) < TINY) then
+        !Cold ion counterparts to hot electrons
+        De = De +  density_factor*sclmass(RCMPROTON)*eta(k)*vm**1.5
       endif
+
     enddo !k loop
+
+    if (doC0) then
+      D = max(Di,De) !Include mass from cold counterparts to hot electrons if needed
+    else
+      D = Di
+    endif
 
   end function IntegrateDensity
 
