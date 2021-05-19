@@ -65,18 +65,6 @@ module voltapp
 
         gTScl = gApp%Model%Units%gT0
 
-        !Check for spinup info
-        call xmlInp%Set_Val(doSpin,"spinup/doSpin",.true.)
-        if (doSpin) then
-            !Doing spinup and not a restart
-            call xmlInp%Set_Val(tSpin,"spinup/tSpin",7200.0) !Default two hours
-            !Rewind Gamera time to negative tSpin (seconds)
-            gApp%Model%t = -tSpin/gTScl 
-            !Reset State/oState
-            gApp% State%time  = gApp%Model%t
-            gApp%oState%time  = gApp%Model%t-gApp%Model%dt
-        endif
-
         !Use MJD from time series
         tsMJD%wID = vApp%tilt%wID
         call tsMJD%initTS("MJD",doLoudO=.false.)

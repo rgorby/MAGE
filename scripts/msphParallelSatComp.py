@@ -76,14 +76,26 @@ if __name__ == '__main__':
     scIds = kaiTools.getScIds()
 
     process = []
+    logs = []
+    errs = []
+    # Open log files
 
     for scId in scIds:
+        logfile = open(os.path.join(fdir,'log.'+scId+'.txt'),'w')
+        errfile = open(os.path.join(fdir,'err.'+scId+'.txt'),'w')
         cmdList = [satCmd,'-id',ftag,'-path',fdir,'-cmd',cmd,'-satId',scId]
         if keep:
             cmdList.append('--keep')
         print(cmdList)
         process.append(subprocess.Popen(cmdList,
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE))
+            stdout=logfile, stderr=errfile))
+        logs.append(logfile)
+        errs.append(errfile)
     for proc in process:
         proc.communicate()
+    for log in logs:
+        log.close()
+    for err in errs:
+        err.close()
+
     print('All done!')
