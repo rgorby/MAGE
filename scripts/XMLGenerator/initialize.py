@@ -2,6 +2,50 @@ import sys
 import os
 from string import ascii_letters
 
+def convertUnits(myLine):
+	# Check if just a comment
+	if ("[" not in myLine):
+		return myLine.split("#")[0]
+
+	# Get units
+	unitString = myLine.split("#")[1]
+	
+	# Set multiplier for units
+	multiplier = 0
+	
+	if ("[sec]" in unitString):
+		multiplier = 1
+
+	elif ("[min]" in unitString):
+		multiplier = 60
+
+	elif ("[hrs]" in unitString):
+		multiplier = 3600
+
+	else:
+		print("ERROR: Incorrect unit type for conversion")
+		exit()
+
+	# Get the setting
+	settingString = myLine.split("=")[0]
+
+	# Get the number
+	numberList = []
+	for t in myLine.split():
+		try:
+			numberList.append(float(t))
+		except:
+			pass
+
+	# Multiply
+	actualNumber = numberList[0] * multiplier
+
+	# Set this to the number string
+	numberString = str(actualNumber)
+
+	# Put the whole thing back together and return
+	return (settingString + "= " + numberString)
+
 # Check number of arguments
 if (len(sys.argv) < 2):
 	print("ERROR: Too few arguments")
@@ -53,10 +97,19 @@ for line in contentSplit:
 		temporary = ""
 	elif (pos == (len(contentSplit) - 1)):
 		# Last one, add line then write everything out!
-		temporary = temporary + line + "\n"
+		# Check for converting!
+		if ("#" in line):
+			temporary = temporary + convertUnits(line) + "\n"
+
+		else:
+			temporary = temporary + line + "\n"
+
 		tempFile = open(name + ".ini", "w")
 		tempFile.write(temporary)
 		tempFile.close()
+	# Check for conversion
+	elif ("#" in line):
+		temporary = temporary + convertUnits(line) + "\n"
 	else:
 		# Add line to temporary
 		temporary = temporary + line + "\n"
