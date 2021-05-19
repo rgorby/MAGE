@@ -73,8 +73,8 @@ if __name__ == '__main__':
 	t0 = gamUT[loc]
 	t1 = gamUT[-1]
 	deltaT = np.round(gamT[loc+1]-gamT[loc])
-	mjd0 = gamMJD[loc]
-	sec0 = gamT[loc]
+	mjdFileStart = gamMJD[loc]
+	secFileStart = gamT[loc]
 
 	#scToDo =['CLUSTER1']
 	if None == scRequested:
@@ -93,7 +93,8 @@ if __name__ == '__main__':
 			print('No data available for', scId)
 		else:
 			print('Extracting GAMERA data')
-			kaiTools.extractGAMERA(data,scIds[scId],mjd0,sec0,fdir,
+			kaiTools.extractGAMERA(data,scIds[scId],
+				mjdFileStart,secFileStart,fdir,
 				ftag,cmd,keep)
 			cdfname = os.path.join(fdir, scId + '.comp.cdf')
 			if os.path.exists(cdfname):

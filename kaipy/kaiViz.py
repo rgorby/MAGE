@@ -318,7 +318,7 @@ def compPlot(plotname,scId,data):
 		if 0 == plotNum:
 			Ax1 = fig.add_subplot(gs[plotNum,0])
 			if doVecPlot:
-				print('key',key,'plotNum',plotNum)
+				#print('key',key,'plotNum',plotNum)
 				itemPlot(Ax1,data,key,plotNum,numPlots,vecComp=0)
 				plotNum = plotNum + 1
 				Ax = fig.add_subplot(gs[plotNum,0],sharex=Ax1)
@@ -328,13 +328,13 @@ def compPlot(plotname,scId,data):
 				itemPlot(Ax,data,key,plotNum,numPlots,vecComp=2)
 				plotNum = plotNum + 1
 			else:
-				print('key',key,'plotNum',plotNum)
+				#print('key',key,'plotNum',plotNum)
 				itemPlot(Ax1,data,key,plotNum,numPlots)
 				plotNum = plotNum + 1
 		else:
 			Ax = fig.add_subplot(gs[plotNum,0],sharex=Ax1)
 			if doVecPlot:
-				print('key',key,'plotNum',plotNum)
+				#print('key',key,'plotNum',plotNum)
 				itemPlot(Ax,data,key,plotNum,numPlots,vecComp=0)
 				plotNum = plotNum + 1
 				Ax = fig.add_subplot(gs[plotNum,0],sharex=Ax1)
@@ -344,7 +344,7 @@ def compPlot(plotname,scId,data):
 				itemPlot(Ax,data,key,plotNum,numPlots,vecComp=2)
 				plotNum = plotNum + 1
 			else:
-				print('key',key,'plotNum',plotNum)
+				#print('key',key,'plotNum',plotNum)
 				itemPlot(Ax,data,key,plotNum,numPlots)
 				plotNum = plotNum + 1
 
