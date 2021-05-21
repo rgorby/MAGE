@@ -61,14 +61,14 @@ whiteList = set(ascii_letters)
 settings = sys.argv[1] # First argument is input file name
 
 # Create a sub-folder called "Parsed Settings", or something
-os.system("mkdir Settings")
+os.system("mkdir .Settings")
 
 # Go through the settings file and check for section flags
 with open(settings, 'r') as file:
 	content = file.read()
 
 # Move to subfilder
-os.chdir("Settings")
+os.chdir(".Settings")
 
 # Put everything between section flags in it's own subfile in the created directory.
 # The name should correspond to the section.
