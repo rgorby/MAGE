@@ -9,6 +9,8 @@ import kaipy.kaiViz as kv
 import kaipy.gamhelio.heliosphere as hsph
 import os
 
+Tsolar = 1.e6
+
 VMax = 800.
 VMin = 300.
 MagVCM = "inferno"
@@ -319,7 +321,6 @@ def PlotiSlBr(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
 
 #Plot Br and current sheet (Br=0) at certain distance set in iSliceBr
 def PlotiSlBrRotatingFrame(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
-
 	BMin = -150.
 	BMax = 150.
 	vB = kv.genNorm(BMin, BMax, doLog=False, midP=None)
@@ -329,27 +330,25 @@ def PlotiSlBrRotatingFrame(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True
 	if (doClear):
 		Ax.clear()
 
-	#print ('nStp = ', nStp)
-
+	#Br from the i=0
 	Br = gsph.iSliceBrBound(nStp)
 	lat, lon = gsph.iSliceGrid()
 	
 	#transform into rotating frame
 	#Julian date of the initial map
-	jd0 = 58418.523038445
+	jd0 = gsph.MJDs.min()
 	jd_c = gsph.MJDs[nStp]
 	print (jd0, jd_c)
 	#Julian date of the current solution
 	time_days = (jd_c - jd0)
 	print (time_days)
-	omega=2*180./25.38
+	omega=2*180./Tsolar
 
 	#for contour cell-centered lon lat coordinates
 	lon_c = 0.25*( lon[:-1,:-1]+lon[:-1,1:]+lon[1:,:-1]+lon[1:,1:] )
 	lat_c = 0.25*( lat[:-1,:-1]+lat[:-1,1:]+lat[1:,:-1]+lat[1:,1:] )
 
 	phi = lon_c[0,:] 
-	print (phi)
 	phi_prime = (phi-omega*time_days)%(2*180.)
 
 	if np.where(np.ediff1d(phi_prime)<0)[0].size!=0: #for the first map size =0, for other maps size=1
@@ -359,9 +358,7 @@ def PlotiSlBrRotatingFrame(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True
 		ind0=0 # this is for the first map
 	print('ind0 = ', ind0)
 
-	#lon_c = np.roll(lon_c, -ind0, axis = 1)
 	Br = np.roll(Br, -ind0, axis = 1)
-	#lon = np.roll(lon, -ind0, axis = 1)
 
 	Ax.pcolormesh(lon,lat,Br,cmap=BCM,norm=vB)
 	Ax.contour(lon_c, lat_c,Br,[0.],colors='black')
