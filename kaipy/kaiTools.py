@@ -25,7 +25,7 @@ def MJD2UT(mjd):
 	return utall
 
 def genSCXML(fdir,ftag,
-	scid="sctrack_A",h5traj="sctrack_A.h5"):
+	scid="sctrack_A",h5traj="sctrack_A.h5",numSegments=1):
 
 	(fname,isMPI,Ri,Rj,Rk) = getRunInfo(fdir,ftag)
 	root = minidom.Document()
@@ -52,8 +52,12 @@ def genSCXML(fdir,ftag,
 	xml.appendChild(unitsChild)
 	trajChild = root.createElement("trajectory")
 	trajChild.setAttribute("H5Traj",h5traj)
-	trajChild.setAttribute("doSmooth","T")
+	trajChild.setAttribute("doSmooth","F")
 	xml.appendChild(trajChild)
+	if numSegments > 1:
+		parInTimeChild = root.createElement("parintime")
+		parInTimeChild.setAttribute("NumB","%d"%numSegments)
+		xml.appendChild(parInTimeChild)
 
 	return root
 
@@ -359,7 +363,7 @@ def convertGameraVec(x,y,z,ut,fromSys,fromType,toSys,toType):
 	outvec = invec.convert(toSys,toType)
 	return outvec
 
-def extractGAMERA(data,scDic,mjd0,sec0,fdir,ftag,cmd,keep):
+def extractGAMERA(data,scDic,mjd0,sec0,fdir,ftag,cmd,numSegments,keep):
 	Re = 6380.0
 	toRe = 1.0
 	if 'UNITS' in data['Ephemeris'].attrs:
@@ -372,6 +376,9 @@ def extractGAMERA(data,scDic,mjd0,sec0,fdir,ftag,cmd,keep):
 		smpos = Coords(data['Ephemeris'][:,0:3]*toRe,'SM','car')
 		smpos.ticks = Ticktock(data['Epoch_bin'])
 	elif 'GSM' == scDic['ephemCoordSys'] :
+		scpos = Coords(data['Ephemeris'][:,0:3]*toRe,'GSM','car')
+		scpos.ticks = Ticktock(data['Epoch_bin'])
+		smpos = scpos.convert('GSE','car')
 		scpos = Coords(data['Ephemeris'][:,0:3]*toRe,'GSM','car')
 		scpos.ticks = Ticktock(data['Epoch_bin'])
 		smpos = scpos.convert('SM','car')
@@ -391,14 +398,35 @@ def extractGAMERA(data,scDic,mjd0,sec0,fdir,ftag,cmd,keep):
 		hf.create_dataset("Y" ,data=smpos.y)
 		hf.create_dataset("Z" ,data=smpos.z)
 	chimpxml = genSCXML(fdir,ftag,
-		scid=scId,h5traj=os.path.basename(fOut))
+		scid=scId,h5traj=os.path.basename(fOut),numSegments=numSegments)
 	xmlfile = os.path.join(fdir,scId+'.xml')
 	with open(xmlfile,"w") as f:
 		f.write(chimpxml.toprettyxml())
 
-	sctrack = subprocess.run([cmd, xmlfile], cwd=fdir,
+	if 1 == numSegments:
+		sctrack = subprocess.run([cmd, xmlfile], cwd=fdir,
 							stdout=subprocess.PIPE, stderr=subprocess.PIPE,
 							text=True)
+
+	else:
+		process = []
+		for seg in range(1,numSegments+1):
+			process.append(subprocess.Popen([cmd, xmlfile,str(seg)], 
+							cwd=fdir,
+							stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+							text=True))
+		for proc in process:
+			proc.communicate()
+		seg = 1
+		inH5Name = os.path.join(fdir,scId+'.%04d'%seg+'.sc.h5')
+		mergeH5Name = os.path.join(fdir,scId+'.sc.h5')
+		mergeH5 = createMergeFile(inH5Name,mergeH5Name)
+		for seg in range(2,numSegments+1):
+			nextH5Name = os.path.join(fdir,scId+'.%04d'%seg+'.sc.h5')
+			nextH5 = h5py.File(nextH5Name)
+			addFileToMerge(mergeH5,nextH5)
+
+
 
 	h5name = os.path.join(fdir, scId + '.sc.h5')
 	h5file = h5py.File(h5name, 'r')
@@ -448,8 +476,34 @@ def extractGAMERA(data,scDic,mjd0,sec0,fdir,ftag,cmd,keep):
 		subprocess.run(['rm',h5name])
 		subprocess.run(['rm',xmlfile])
 		subprocess.run(['rm',fOut])
+		if numSegments > 1:
+			h5parts = os.path.join(fdir,scId+'.*.sc.h5')
+			subprocess.run(['rm',h5parts])
 	return
 
+def copy_attributes(in_object, out_object):
+	'''Copy attributes between 2 HDF5 objects.'''
+	for key, value in list(in_object.attrs.items()):
+		out_object.attrs[key] = value
+
+
+def createMergeFile(fIn,fOut):
+	iH5 = h5py.File(fIn,'r')
+	oH5 = h5py.File(fOut,'w')
+	copy_attributes(iH5,oH5)
+	for Q in iH5.keys():
+		oH5.create_dataset(Q,data=iH5[Q],maxshape=(None,))
+		copy_attributes(iH5[Q],oH5[Q])
+	iH5.close()
+	return oH5
+
+def addFileToMerge(mergeH5,nextH5):
+	for varname in mergeH5.keys():
+		dset = mergeH5[varname]
+		dset.resize(dset.shape[0]+nextH5[varname].shape[0],axis=0)
+		dset[-nextH5[varname].shape[0]:]=nextH5[varname][:]
+	return
+	
 
 
 
