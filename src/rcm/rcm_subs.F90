@@ -1965,7 +1965,7 @@
 !=========================================================================
 !
 SUBROUTINE Move_plasma_grid_MHD (dt)
-  use rice_housekeeping_module, ONLY : LowLatMHD,doOCBLoss,doNewCX,doFLCLoss,dp_on,doPPRefill,doSmoothDDV
+  use rice_housekeeping_module, ONLY : LowLatMHD,doOCBLoss,doNewCX,doFLCLoss,dp_on,doPPRefill,doSmoothDDV,staticR
   use math, ONLY : SmoothOpTSC,SmoothOperator33
   use lossutils, ONLY : CXKaiju,FLCRat,DepleteOCB
   use earthhelper, ONLY : DipFTV_colat,DerivDipFTV
@@ -2061,6 +2061,14 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
   !Get IJ gradients of potential
   call Grad_IJ(vv    ,isOpen,dvvdi    ,dvvdj    )
   call Grad_IJ(vv_avg,isOpen,dvvdi_avg,dvvdj_avg)
+
+  !Zero out velocities below staticR if necessary
+  if (staticR > TINY) then
+    where ( rmin <= staticR )
+      dvvdi_avg = 0.0
+      dvvdj_avg = 0.0
+    endwhere
+  endif
 
   !Now get energy-dep. portion, grad_ij vm
   call FTVGrad(ftv,isOpen,dftvi,dftvj)

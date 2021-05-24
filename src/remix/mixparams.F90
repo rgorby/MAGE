@@ -7,7 +7,7 @@ module mixparams
 
   !Grid default parameter type
   type MixGrid0_T
-    integer :: Np=256,Nt=128
+    integer  :: Np=256,Nt=128
     real(rp) :: LowLatBC = 45.0
   end type MixGrid0_T
 
@@ -25,6 +25,7 @@ module mixparams
       MixGrid0%LowLatBC = asin(sqrt(1.0/Rin))*180.0/PI
       !Set default grid resolution (in degrees)
       if (Nk<=128) then
+        !QUAD
         dDeg = 1.0
       else if (Nk<=256) then
         !OCT
