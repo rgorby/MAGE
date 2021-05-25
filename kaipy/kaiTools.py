@@ -146,8 +146,8 @@ def getScIds():
 						'velData':None,
 						'velCoordSys':None,
 						'magId': 'RBSP-A_MAGNETOMETER_1SEC-GSM_EMFISIS-L3',
-						'magData': 'B_vec_xyz_gse__C1_CP_FGM_SPIN',
-						'magCoordSys': 'GSE'
+						'magData': 'Mag',
+						'magCoordSys': 'GSM'
 						}
 	scDic['RBSPB'] = {'ephemId':'RBSP-B_MAGNETOMETER_1SEC-GSM_EMFISIS-L3',
 						'ephemData':'coordinates',
@@ -160,8 +160,8 @@ def getScIds():
 						'velData':None,
 						'velCoordSys':None,
 						'magId': 'RBSP-B_MAGNETOMETER_1SEC-GSM_EMFISIS-L3',
-						'magData': 'B_vec_xyz_gse__C1_CP_FGM_SPIN',
-						'magCoordSys': 'GSE'
+						'magData': 'Mag',
+						'magCoordSys': 'GSM'
 						}
 	scDic['CLUSTER1'] = {'ephemId':'C1_CP_FGM_SPIN',
 						'ephemData':'sc_pos_xyz_gse__C1_CP_FGM_SPIN',
