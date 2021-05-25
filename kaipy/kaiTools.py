@@ -353,7 +353,12 @@ def getSatData(scDic,t0,t1,deltaT):
 		search_key = 'metavar'
 		res = [key for key,val in data.items() if search_key in key]
 		for name in res:
-			mydata[name] = dm.dmarray(data[name],attrs=data[name].attrs)
+			try:
+				len(mydata[name])
+			except:
+				mydata[name] = dm.dmarray([data[name]],attrs=data[name].attrs)
+			else:
+				mydata[name] = dm.dmarray(data[name],attrs=data[name].attrs)
 
 	return status,mydata
 
