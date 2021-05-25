@@ -363,8 +363,8 @@ MODULE tomhd_mod
       !$OMP private(i,j)
       DO j = 1, jsize
         DO i = 1, isize
-
-          call eta2DP(eta(i,j,:),vm(i,j),Drc(i,j),Dpp(i,j),Prc(i,j))
+          !Get density and pressure, possibly w/ extra charge neutrality assumption
+          call eta2DP(eta(i,j,:),vm(i,j),Drc(i,j),Dpp(i,j),Prc(i,j),doQ0)
           if (doIE) then
             call IntegratePressureIE(eta(i,j,:),vm(i,j),Pion(i,j),Pele(i,j)) !Get separated pressures
           endif
