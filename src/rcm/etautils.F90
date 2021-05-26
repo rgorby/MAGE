@@ -14,15 +14,18 @@ MODULE etautils
     real(rp), private :: density_factor = 0.0 !module private density_factor using planet radius
     real(rp), private :: pressure_factor = 0.0
     logical , private :: doRescaleDef = .true. !Whether to rescale D,P => eta
-    logical , private :: doKapDef     = .false. !Whether to do kappa by default
 
     real(rprec), private :: sclmass(RCMNUMFLAV) !xmass prescaled to proton
     integer    , private, dimension(RCMNUMFLAV,2) :: flavorBnds
 
+    real(rp), private, parameter :: kapDefault = 6.0
+
+    real(rp), private, dimension(RCMNUMFLAV) :: kapDefs
+
     !Kind of hacky limits to Ti/Te ratio
     real(rp), private, parameter :: TioTeMax = 20.0
     real(rp), private, parameter :: TioTeMin = 0.25
-    real(rp), private, parameter :: kapDefault = 6.0
+    
 
     contains
 
@@ -59,6 +62,10 @@ MODULE etautils
             !Bump up electron min to avoid plasmasphere channel
             flavorBnds(RCMELECTRON,1) = flavorBnds(RCMELECTRON,1) + 1
         endif
+
+        !Set default kappa values if using kappa
+        kapDefs(RCMELECTRON) = 4.0
+        kapDefs(RCMPROTON  ) = 6.0
 
     end subroutine SetFactors
 
@@ -352,6 +359,8 @@ MODULE etautils
             endif
 
             if (doKap) then
+                !Replace kap-default w/ species specific value
+                kap = kapDefs(ikflavc(k))
                 eta(k) = Kappa2Eta  (Drc,vm,Tk,almmin(k),almmax(k),alamc(k),kap)
             else
                 eta(k) = Maxwell2Eta(Drc,vm,Tk,almmin(k),almmax(k),alamc(k))
@@ -439,8 +448,8 @@ MODULE etautils
         endif
 
         kmax = k2
-        AlphaD = GetDensityFactor()*Mu*(vm**1.5)
-        AlphaP = GetPressureFactor()  *(vm**2.5)
+        AlphaD = density_factor*Mu*(vm**1.5)
+        AlphaP = pressure_factor  *(vm**2.5)
 
         DoA = D/AlphaD
         PoA = P/AlphaP
@@ -510,45 +519,40 @@ MODULE etautils
 
     end function Maxwell2Eta
 
-    !NOTE: This is just copied from other RCM code, seems to be eqn 3.12 from 10.1007/s11214-013-9982-9
+    !NOTE: This is just adaped from other RCM code, seems to be eqn 3.12 from 10.1007/s11214-013-9982-9
     function Kappa2Eta(Drc,vm,Tk,almin,almax,almc,kapO) result(etak)
         real(rp), intent(in) :: Drc,vm,Tk,almin,almax,almc
         real(rp), intent(in), optional :: kapO
         real(rp) :: etak
 
-        real(rp) :: kap,ftv,Tkev,Pnpa,tV,pV,kap15,kapgam
-        real(rp) :: trans,tran23,A0,Px,Tx,Kx,dLamx,kArg
+        real(rp) :: kap,kap15,Tev,E0_ev,E_ev
+        real(rp) :: A0,kapgam,kapbar,kArg,delscl
 
         if (present(kapO)) then
             kap = kapO
         else
             kap = kapDefault
         endif
-        !Start by converting to same units as RCM code
-        !tV = ti x ftv^(2/3) = keV [Re/nT]^2/3
-        !pV = pi x ftv^(5/3) = nPa [Re/nT]^5/3
-
-        ftv = vm**(-3.0/2) ! Re/nT
-        Tkev = Tk*Kbltz*erg2kev
-        Pnpa = (Tk*boltz*Drc)*(1.0e+9) !P => nPa
-
-        tV = (Tkev)*(ftv**(2.0/3))
-        pV = (Pnpa)*(ftv**(5.0/3))
-
+        
         kap15 = kap-1.5
+        Tev = Tk*Kbltz*erg2kev*(1.0e+3) !temperature in eV
+        E0_ev = Tev*kap15/kap
+
+        E_ev = abs(almc)*vm !eV
+
+        A0 = (2.0/sqrt(PI))*(Drc/density_factor)/(vm**1.5)
+        !TODO: Double check this extra factor of 2
+        A0 = 2.0*A0
+
         kapgam = gamma(kap+1.0)/gamma(kap-0.5)
+        !TODO: Figure out k_0 vs. kappa where kappa - 1.5 = kappa_0
+        kapbar = kap15 !Should be kap-3/2 or kap
+        !kapbar = kap !Using kap consistent w/ 10.1002/2015JA021166
 
-        trans = 1/density_factor
-        tran23 = trans**(2.0/3)
-        A0 = (2.0/sqrt(PI))*(kap15**-1.5)*kapgam
-        Px = (pV*(1.0e-9*trans**(5.0/3)))
-        Tx = ((tV*kev2J*tran23)**-2.5)
-        Kx = sqrt(abs(almc))*tran23*(kev2J*1.0e-3)
-        dLamx = (almax-almin)*tran23*(kev2J*1.0e-3)
+        kArg = 1.0 + (E_ev/E0_ev)/kapbar
+        delscl = (almax-almin)/E0_ev
+        etak = A0*kapgam/(kapbar**1.5) * sqrt(E_ev/E0_ev)*delscl*((kArg)**(-kap-1.0))
 
-        kArg = 1.0 + abs(almc)/(kap15*tV*1.0e+3)
-
-        etak = A0*Px*Tx*Kx*dLamx * ((kArg)**(-kap-1.0))
     end function Kappa2Eta
 
 END MODULE etautils

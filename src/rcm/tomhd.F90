@@ -235,7 +235,7 @@ MODULE tomhd_mod
           IF (vm (i,j) < 0.0) CYCLE
           IF (Drc(i,j) < TINY) CYCLE
 
-        !Get Maxwellian to blend with
+        !Get Maxwellian (or kappa) to blend with
           call DPP2eta(Drc(i,j),Pion(i,j),Pele(i,j),vm(i,j),etaMax,doRescaleO=.true.)
         !Get timescale to blend over
           TauDP = DriftPeriod(Drc(i,j),Prc(i,j),rmin(i,j),RCMApp%Bmin(i,jp),RCMApp%radcurv(i,jp),RCMApp%planet_radius)

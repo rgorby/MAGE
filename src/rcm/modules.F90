@@ -59,6 +59,8 @@ MODULE rice_housekeeping_module
   LOGICAL :: doFLOut = .false. !Whether to output field lines (slow)
   INTEGER(iprec) :: nSkipFL = 8 !Stride for outputting field lines
 
+  LOGICAL :: doKapDef = .true. !Whether to do kappa by default
+
   REAL(rprec) :: staticR = 0.0
   REAL(rprec) :: LowLatMHD = 0.0
   
@@ -129,6 +131,9 @@ MODULE rice_housekeeping_module
         call xmlInp%Set_Val(doRelax   ,"tomhd/doRelax"   ,doRelax   )
         call xmlInp%Set_Val(doSmoothIJ,"tomhd/doSmoothIJ",doSmoothIJ)
         call xmlInp%Set_Val(doQ0      ,"tomhd/doQ0"      ,doQ0      )
+
+        !Torcm parameters
+        call xmlInp%Set_Val(doKapDef ,"torcm/doKappa" ,doKapDef )
 
         !Advance parameters
         call xmlInp%Set_Val(nSubstep,"sim/nSubstep", nSubstep)
