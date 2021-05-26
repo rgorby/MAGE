@@ -73,7 +73,7 @@ program psdx
 
         call Tic("Output")
         if (Model%t >= Model%tOut) then
-            call fOutPSD(Model,psGr,psPop)
+            call fOutPSD(Model,ebState,psGr,psPop)
         endif
         
         call Toc("Output")

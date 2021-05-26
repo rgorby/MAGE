@@ -22,8 +22,9 @@ module psdio
 
     contains
 
-    subroutine fOutPSD(Model,psGr,psPop)
+    subroutine fOutPSD(Model,ebState,psGr,psPop)
         type(chmpModel_T), intent(inout) :: Model
+        type(ebState_T), intent(in)   :: ebState
         type(PSEq_T), intent(in) :: psGr
         type(psdPop_T), intent(in) :: psPop
         character(len=strLen) :: gStr
@@ -42,7 +43,7 @@ module psdio
         Nfl = size(psGr%bLns)
         !write(*,*) 'Writing N lines, N = ',Nfl
         write(gStr,'(A,I0)') "Step#", Model%nOut
-        call writePSD(Model,psGr,psPop,gStr)
+        call writePSD(Model,ebState,psGr,psPop,gStr)
         if (doPSLines) then
             write(*,*) 'PSLines Not yet implemented!'
             stop
@@ -55,8 +56,9 @@ module psdio
 
     end subroutine fOutPSD
 
-    subroutine writePSD(Model,psGr,psPop,gStr)
+    subroutine writePSD(Model,ebState,psGr,psPop,gStr)
         type(chmpModel_T), intent(inout) :: Model
+        type(ebState_T), intent(in)   :: ebState
         type(PSEq_T), intent(in) :: psGr
         type(psdPop_T), intent(in) :: psPop
         character(len=strLen), intent(in) :: gStr
@@ -108,7 +110,7 @@ module psdio
             call AddOutVar(IOVars,"dGx",dGx)
             call AddOutVar(IOVars,"dGp",dGp)
             call AddOutVar(IOVars,"time",oTScl*Model%t)
-            !call AddOutVar(IOVars,"MJD",MJDAt(ebState%ebTab,Model%t))
+            call AddOutVar(IOVars,"MJD",MJDAt(ebState%ebTab,Model%t))
             call WriteVars(IOVars,.true.,ps4OutF,gStr)
         endif
     !Do 3D variables
@@ -151,7 +153,7 @@ module psdio
         call AddOutVar(IOVars,"jPSD",jP)
         call AddOutVar(IOVars,"dG",dG)
         call AddOutVar(IOVars,"time",oTScl*Model%t)
-        !call AddOutVar(IOVars,"MJD",MJDAt(ebState%ebTab,Model%t))
+        call AddOutVar(IOVars,"MJD",MJDAt(ebState%ebTab,Model%t))
         call WriteVars(IOVars,.true.,psOutF,gStr)
 
     !Do 2D variables
@@ -206,7 +208,7 @@ module psdio
         call AddOutVar(IOVars,"kT",psGr%kTeq)
         call AddOutVar(IOVars,"Vr",oVScl*psGr%Vreq)
         call AddOutVar(IOVars,"time",oTScl*Model%t)
-        !call AddOutVar(IOVars,"MJD",MJDAt(ebState%ebTab,Model%t))
+        call AddOutVar(IOVars,"MJD",MJDAt(ebState%ebTab,Model%t))
         call WriteVars(IOVars,.true.,pseqOutF,gStr)
 
         !Write some text to screen

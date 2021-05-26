@@ -188,9 +188,7 @@ module voltio
             call writeVoltRestart(vApp,gApp)
         endif
 
-        if (vApp%time>vApp%IO%tRes) then
-            vApp%IO%tRes = vApp%IO%tRes + vApp%IO%dtRes
-        endif
+        vApp%IO%tRes = vApp%IO%tRes + vApp%IO%dtRes
         vApp%IO%nRes = vApp%IO%nRes + 1
 
     end subroutine resOutputVOnly
@@ -305,9 +303,7 @@ module voltio
             call WriteVolt(vApp,gApp,vApp%IO%nOut)
         endif
 
-        if (vApp%time>vApp%IO%tOut) then
-            vApp%IO%tOut = vApp%IO%tOut + vApp%IO%dtOut
-        endif
+        vApp%IO%tOut = vApp%IO%tOut + vApp%IO%dtOut
         vApp%IO%nOut = vApp%IO%nOut + 1
 
     end subroutine fOutputVOnly
