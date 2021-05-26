@@ -40,7 +40,6 @@ MODULE rice_housekeeping_module
   INTEGER(iprec) :: rcm_record
   REAL(rprec) :: HighLatBD,LowLatBD
   LOGICAL :: doLatStretch = .true.
-  LOGICAL :: doOCBLoss = .false.
   LOGICAL :: doFLCLoss = .true. !Use FLC losses
   LOGICAL :: doNewCX = .true. !Use newer CX loss estimate
   LOGICAL :: doSmoothDDV = .true. !Whether to smooth ij deriv of residual FTV
@@ -121,7 +120,6 @@ MODULE rice_housekeeping_module
         NowKp = InitKp
 
         !Loss options
-        call xmlInp%Set_Val(doOCBLoss,"loss/doOCBLoss",doOCBLoss)
         call xmlInp%Set_Val(doFLCLoss,"loss/doFLCLoss",doFLCLoss)
         call xmlInp%Set_Val(doNewCX  ,"loss/doNewCX"  ,doNewCX  )
         call xmlInp%Set_Val(doRelax  ,"loss/doRelax"  ,doRelax  )

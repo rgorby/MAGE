@@ -17,6 +17,8 @@ MODULE etautils
     logical , private :: doKapDef     = .false. !Whether to do kappa by default
 
     real(rprec), private :: sclmass(RCMNUMFLAV) !xmass prescaled to proton
+    integer    , private, dimension(RCMNUMFLAV,2) :: flavorBnds
+
     !Kind of hacky limits to Ti/Te ratio
     real(rp), private, parameter :: TioTeMax = 20.0
     real(rp), private, parameter :: TioTeMin = 0.25
@@ -27,6 +29,7 @@ MODULE etautils
     !Set density/pressure factors using planet radius
     subroutine SetFactors(Rx)
         real(rp), intent(in) :: Rx
+        integer :: n,k
 
         pressure_factor = 2./3.*ev/Rx*nt
         density_factor = nt/Rx
@@ -34,6 +37,28 @@ MODULE etautils
         !Set scaled mass by hand here to avoid precision issues
         sclmass(RCMELECTRON) = Me_cgs/Mp_cgs
         sclmass(RCMPROTON) = 1.0
+
+        !Get flavor bounds
+        do n=1,RCMNUMFLAV
+        !NOTE: Doing stupid code to avoid findloc
+
+            !Find first value
+            do k=1,kcsize
+                if (ikflavc(k) == n) exit
+            enddo
+            flavorBnds(n,1) = k
+            !Find last value
+            do k=flavorBnds(n,1),kcsize
+                if (ikflavc(k) /= n) exit
+            enddo
+            flavorBnds(n,2) = k-1
+        enddo
+
+        !Do fixes
+        if (use_plasmasphere) then
+            !Bump up electron min to avoid plasmasphere channel
+            flavorBnds(RCMELECTRON,1) = flavorBnds(RCMELECTRON,1) + 1
+        endif
 
     end subroutine SetFactors
 
@@ -269,10 +294,13 @@ MODULE etautils
         logical    , intent(in), optional :: doRescaleO,doKapO
         real(rp)   , intent(in), optional :: kapO
 
-        REAL(rprec) :: Tk,ti,te,prcmI,prcmE,kap
-        REAL(rprec) :: pcon,psclI,psclE
-        INTEGER(iprec) :: k,klow
+        REAL(rprec) :: Tk,ti,te,kap
+        INTEGER(iprec) :: k,klow,n,k1,k2
         logical :: isIon,doRescale,doKap
+        REAL(rprec), dimension(RCMNUMFLAV) :: Ds,Ps
+
+        !DEBUG:
+        !REAL(rprec) :: Dt,Pit,Pet,Db,Pib,Peb,Da,Pia,Pea
 
         eta = 0.0
         if ( (vm<0) .or. (Drc<TINY) ) return
@@ -307,9 +335,6 @@ MODULE etautils
         ti = Pion/Drc/boltz
         te = Pele/Drc/boltz
 
-        prcmI = 0.0 !Cumulative ion pressure
-        prcmE = 0.0 !Cumulative electron pressure
-
         !Loop over non-zero channels
         do k=klow,kcsize
             !Get right temperature
@@ -332,47 +357,129 @@ MODULE etautils
                 eta(k) = Maxwell2Eta(Drc,vm,Tk,almmin(k),almmax(k),alamc(k))
             endif
 
-            !Pressure contribution from this channel
-            pcon = pressure_factor*ABS(alamc(k))*eta(k)*vm**2.5
-
-            if (isIon) then
-                prcmI = prcmI + pcon
-            else
-                prcmE = prcmE + pcon
-            endif
-
         enddo !k loop
 
         if (.not. doRescale) return !We're done here
 
-        !Now rescale to get desired Pi and Pe
-        !NOTE: This will affect density
-        !Check if pressures are above TINY nPa
-        if (prcmI*rcmPScl > TINY) then
-            psclI = Pion/prcmI
-        else
-            psclI = 0.0
-        endif
+    !Now rescale to get desired Pi and Pe, it's a whole thing
+        !Set target density/pressure
+        Ds(RCMELECTRON:RCMPROTON) = Drc !Both use Drc
+        Ps(RCMELECTRON) = Pele
+        Ps(RCMPROTON  ) = Pion
 
-        if (prcmE*rcmPScl > TINY) then
-            psclE = Pele/prcmE
-        else
-            psclE = 0.0
-        endif
+        ! !DEBUG:
+        ! Db =  IntegrateDensity(eta,vm,klow,kcsize)
+        ! call IntegratePressureIE(eta,vm,Pib,Peb)
+        ! Dt = Drc
+        ! Pet = Pele
+        ! Pit = Pion
 
-        !Loop over channels and rescale      
-        do k=klow,kcsize
-            IF (ikflavc(k) == RCMELECTRON) THEN  ! electrons
-                eta(k) = psclE*eta(k)
-            ELSE IF (ikflavc(k) == RCMPROTON) THEN ! ions (protons)
-                eta(k) = psclI*eta(k)
-            ELSE
-                write(*,*) 'Unknown species!'
-                eta(k) = 0.0
-            ENDIF
+        do n=1,RCMNUMFLAV
+            !Rescale each flavor
+            k1 = flavorBnds(n,1)
+            k2 = flavorBnds(n,2)
+            call RescaleEta(eta,k1,k2,Ds(n),Ps(n),vm)
         enddo
 
+        ! Da =  IntegrateDensity(eta,vm,klow,kcsize)
+        ! call IntegratePressureIE(eta,vm,Pia,Pea)
+
+        ! !$OMP CRITICAL
+        ! write(*,*) '---'
+        ! write(*,*) 'Target: ', Dt,Pet,Pit
+        ! write(*,*) "Before: ", Db/Dt,Peb/Pet,Pib/Pit
+        ! write(*,*) "After : ", Da/Dt,Pea/Pet,Pia/Pit
+        ! write(*,*) '---'
+        ! !$OMP END CRITICAL
+
     END SUBROUTINE DPP2eta
+
+    !Rescale eta(k1:k2) to have moments D,P
+    !Adapted from code in different RCM
+    SUBROUTINE RescaleEta(eta,k1,k2,D,P,vm)
+        REAL(rprec), intent(inout) :: eta(kcsize)
+        integer, intent(in) :: k1,k2
+        real(rprec), intent(in) :: D,P,vm
+
+        real(rprec) :: A,B
+        integer :: k,kmax
+
+        !Calculate coefficients to rescale
+        !eta' = eta x (A + |lam| B)
+        !between k1,kmax and 0 between kmax,k2
+
+        call GetRescaleAB(eta,k1,k2,D,P,vm,A,B,kmax)
+
+        do k=k1,kmax
+            eta(k) = eta(k) * (A + B*abs(alamc(k)))
+        enddo
+        do k=kmax+1,k2
+            eta(k) = 0.0
+        enddo
+
+    END SUBROUTINE RescaleEta
+
+    !Get rescaling coefficients
+    SUBROUTINE GetRescaleAB(eta,k1,k2,D,P,vm,A,B,kmax)
+        REAL(rprec), intent(in) :: eta(kcsize)
+        real(rprec), intent(in) :: D,P,vm
+        integer, intent(in) :: k1,k2
+        real(rprec), intent(out) :: A,B
+        integer, intent(out) :: kmax
+
+        real(rprec) :: etaP,Sig0,Sig1,Sig2,siggy,minScl
+        real(rprec) :: AlphaD,AlphaP,DoA,PoA,Mu
+        integer :: iflv
+
+        iflv = ikflavc(k1)
+        if (iflv == RCMELECTRON) then
+            Mu = 1.0
+        else
+            Mu = sclmass(iflv)
+        endif
+
+        kmax = k2
+        AlphaD = GetDensityFactor()*Mu*(vm**1.5)
+        AlphaP = GetPressureFactor()  *(vm**2.5)
+
+        DoA = D/AlphaD
+        PoA = P/AlphaP
+
+        do kmax=k2,k1+1,-1
+            !Get trial A,B coefficients
+            Sig0 = sum(eta(k1:kmax))
+            Sig1 = sum( eta(k1:kmax)*abs(alamc(k1:kmax)) )
+            Sig2 = sum( eta(k1:kmax)*abs(alamc(k1:kmax))*abs(alamc(k1:kmax)) )
+
+            siggy = Sig2*Sig0 - Sig1**2.0
+            if (siggy < TINY) cycle
+
+            A = (1/siggy)*( Sig2*DoA - Sig1*PoA )
+            B = PoA/Sig2 - A*Sig1/Sig2
+
+            !Check A,B: Require A + |lam|B >= 0 forall lam
+            minScl = minval( A + B*abs(alamc(k1:kmax)) )
+            if (minScl <= 0) then
+                !Bad A,B keep trying
+                cycle
+            else
+                !This is good, let's get out of here
+                return
+            endif
+        enddo
+
+    !If still here, nothing worked. Use single moment rescaling
+        B = 0.0
+        kmax = k2
+        etaP = IntegratePressure(eta,vm,k1,k2)
+
+        if (etaP*rcmPScl > TINY) then
+            A = P/etaP
+        else
+            A = 0.0
+        endif
+
+    END SUBROUTINE GetRescaleAB
 
     SUBROUTINE ClampTioTe(TiovTe)
         REAL(rprec), intent(inout)  :: TiovTe

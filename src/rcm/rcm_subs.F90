@@ -1965,9 +1965,9 @@
 !=========================================================================
 !
 SUBROUTINE Move_plasma_grid_MHD (dt)
-  use rice_housekeeping_module, ONLY : LowLatMHD,doOCBLoss,doNewCX,doFLCLoss,dp_on,doPPRefill,doSmoothDDV,staticR
+  use rice_housekeeping_module, ONLY : LowLatMHD,doNewCX,doFLCLoss,dp_on,doPPRefill,doSmoothDDV,staticR
   use math, ONLY : SmoothOpTSC,SmoothOperator33
-  use lossutils, ONLY : CXKaiju,FLCRat,DepleteOCB
+  use lossutils, ONLY : CXKaiju,FLCRat
   use earthhelper, ONLY : DipFTV_colat,DerivDipFTV
   IMPLICIT NONE
   REAL (rprec), INTENT (IN) :: dt
@@ -2092,7 +2092,7 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
   !$OMP PRIVATE(mass_factor,r_dist,CLAWiter,T1k,T2k) &
   !$OMP PRIVATE(lossCX,lossFLC,lossFDG) &
   !$OMP SHARED(isOpen,iOCB_j,alamc,eeta,vm,imin_j,j1,j2,joff) &
-  !$OMP SHARED(doOCBLoss,doFLCLoss,doNewCX,dp_on,doPPRefill) &
+  !$OMP SHARED(doFLCLoss,doNewCX,dp_on,doPPRefill) &
   !$OMP SHARED(dvvdi,dvvdj,dvmdi,dvmdj,dvvdi_avg,dvvdj_avg,dtAvg_v) &
   !$OMP SHARED(xmin,ymin,fac,fudgec,bir,sini,L_dktime,dktime,sunspot_number) &
   !$OMP SHARED(aloct,xlower,xupper,ylower,yupper,dt,T1,T2,iMHD,bmin,radcurv,losscone) 
