@@ -55,7 +55,7 @@ program sctrackx
     write(*,*) 'Chopping out values inside of R0 = ', R0
 
     !Loop over trajectory positions/times
-    do n=1,SCTrack%NumP
+    do n=nS,nE
         !Updates
         Model%t = SCTrack%T(n)
         Model%ts = Model%ts+1
@@ -201,7 +201,8 @@ program sctrackx
             integer :: NumB,dN
 
             call inpXML%Set_Val(NumB,'parintime/NumB',NumB)
-            if (NumB > 1) then
+            write(*,*) "XML NumB",NumB
+             if (NumB > 1) then
                 doParInT = .true.
                 if ( (Model%Nblk>NumB) .or. (Model%Nblk<1) ) then
                     write(*,*) "This block outside of acceptable bounds"

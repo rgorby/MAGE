@@ -35,6 +35,8 @@ if __name__ == '__main__':
 		help='Full path to sctrack.x command')
 	parser.add_argument('-satId',type=str,metavar='Satellite Id',
 		default=None,help='Name of Satellite to compare')
+	parser.add_argument('-numSeg',type=int,metavar='Number of segments',
+		default=1,help='Number of segments to simulateously process')
 	parser.add_argument('--keep',action='store_true',
 		help='Keep intermediate files')
 
@@ -44,6 +46,7 @@ if __name__ == '__main__':
 	ftag = args.id
 	cmd = args.cmd
 	scRequested = args.satId
+	numSegments = args.numSeg
 	keep = args.keep
 
 	if fdir == '.':
@@ -95,7 +98,7 @@ if __name__ == '__main__':
 			print('Extracting GAMERA data')
 			kaiTools.extractGAMERA(data,scIds[scId],
 				mjdFileStart,secFileStart,fdir,
-				ftag,cmd,keep)
+				ftag,cmd,numSegments,keep)
 			cdfname = os.path.join(fdir, scId + '.comp.cdf')
 			if os.path.exists(cdfname):
 				print('Deleting %s' % cdfname)
