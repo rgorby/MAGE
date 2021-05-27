@@ -48,6 +48,8 @@ if __name__ == '__main__':
         help='Path to directory containing REMIX files (default: %(default)s)')
     parser.add_argument('-cmd',type=str,metavar='command',default=None,
         help='Full path to sctrack.x command')
+    parser.add_argument('-numSeg',type=int,metavar='Number of segments',
+        default=1,help='Number of segments to simulateously process')
     parser.add_argument('--keep',action='store_true',
         help='Keep intermediate files')
 
@@ -57,6 +59,7 @@ if __name__ == '__main__':
     ftag = args.id
     cmd = args.cmd
     keep = args.keep
+    numSegments = args.numSeg
 
     if fdir == '.':
         fdir = os.getcwd()
@@ -86,6 +89,9 @@ if __name__ == '__main__':
         cmdList = [satCmd,'-id',ftag,'-path',fdir,'-cmd',cmd,'-satId',scId]
         if keep:
             cmdList.append('--keep')
+        if numSegments != 1:
+            cmdList.append('-numSeg')
+            cmdList.append(str(numSegments))
         print(cmdList)
         process.append(subprocess.Popen(cmdList,
             stdout=logfile, stderr=errfile))
@@ -97,5 +103,9 @@ if __name__ == '__main__':
         log.close()
     for err in errs:
         err.close()
+
+    if not keep:
+        subprocess.run(['rm',os.path.join(fdir,'log.*.txt')])
+        subprocess.run(['rm',os.path.join(fdir,'err.*.txt')])
 
     print('All done!')
