@@ -1,6 +1,8 @@
 !
     MODULE Rcm_mod_subs
     use kdefs, ONLY : PI,Mp_cgs,Me_cgs,EarthM0g,eCharge
+    use conversion_module, ONLY : almdel
+    use rice_housekeeping_module, ONLY: use_plasmasphere
     use rcmdefs
     use rcm_precision
     use clocks
@@ -99,7 +101,8 @@
 !   Plasma on grid:
     REAL (rprec) :: alamc (kcsize), etac (kcsize), fudgec (kcsize), &
                     eeta (isize,jsize,kcsize), eeta_cutoff, cmax, &
-                    eeta_avg (isize,jsize,kcsize), deleeta(isize,jsize,kcsize)
+                    eeta_avg (isize,jsize,kcsize), deleeta(isize,jsize,kcsize), &
+                    energy(isize,jsize,kcsize)
 
     INTEGER (iprec) :: ikflavc (kcsize), i_advect, i_eta_bc, i_birk
     LOGICAL :: L_dktime
@@ -189,11 +192,12 @@
 !
 !
 !      SUBROUTINE Comput (jtime, dt )
-      SUBROUTINE Comput ()
+      SUBROUTINE Comput (dtCpl)
       IMPLICIT NONE
 !      INTEGER (iprec), INTENT (IN) :: jtime
 !      REAL (rprec),    INTENT (IN) :: dt
 !
+      REAL (rprec), INTENT(IN)  :: dtCpl
       INTEGER (iprec) :: j
       REAL (rprec)  ::  a(3), b(3), dx(3), dy(3), deqdt
 !
@@ -207,7 +211,7 @@
     CALL Toc("GET_JBIRK")
 
     CALL Tic("PRECIP")
-    CALL diffusePrecip ()
+    CALL diffusePrecip (dtCpl)
     if (doRCMVerbose) then
       write(6,*)'RCM: finish getting diffuse precipitation'
     endif
@@ -435,13 +439,105 @@
 !*************************************************************************
 !
 !
+      SUBROUTINE diffusePrecip (dtCpl)
+      IMPLICIT NONE
 
-      SUBROUTINE diffusePrecip ()
+!--------------------------------------------------------------------------
+! sbao 05/2021
+! This subroutine calculates diffuse electron precipitation using deleeta
+! The equation of the differential flux is adapted from M. Gkioulidou et al (doi:10.1029/2012JA018032)
+      REAL (rprec), INTENT(IN)  :: dtCpl
+      INTEGER (iprec) :: i, j, ie, iedim_local, kc, klow
+      REAL (rprec)    :: en, delEn, Jk, sum1 (iesize), sum2 (iesize)
+      LOGICAL, dimension(1:isize,1:jsize) :: isOpen
+
+      !Try to do calculation everywhere possible including MHD buffer region
+      isOpen = (vm < 0)
+ 
+      !Set lowest RC channel
+      if (use_plasmasphere) then
+         klow = 2
+      else
+         klow = 1
+      endif
+
+      iedim_local = 2
+!
+      eavg  (:,:,:) = zero
+      eflux (:,:,:) = zero
+
+      loop_j: DO j = j1, j2
+      !loop_i: DO i = imin_j(j), isize
+      loop_i: DO i = 1, isize
+            if (isOpen(i,j)) CYCLE
+!           Now for each grid point, consider all species
+!           present at that grid point, and compute sum1 and
+!           sum2 for positive and negative particles separately:
+!
+            GRID_BASED: DO kc = klow, kcsize
+              IF (alamc (kc) < zero) THEN
+                 ie = 1
+              ELSE
+                 ie = 2
+              END IF
+              en = ABS(alamc(kc))*vm(i,j)
+              delEn = ABS(almdel(kc))*vm(i,j) 
+              Jk = SQRT(ABS(alamc(kc)))*deleeta(i,j,kc)/dtCpl*vm(i,j)/almdel(kc)
+              sum1(ie) = sum1(ie) + en*Jk*delEn
+              sum2(ie) = sum2(ie) + Jk*delEn
+            END DO GRID_BASED
+              
+            DO ie = 1, iedim_local
+!                                                                       
+               IF (sum2 (ie) > 10.*machine_tiny) THEN  ! zero  sbao 07/2019
+!
+!                compute thermal electron current, field-aligned
+!                potential drop, electron energy flux,
+!                and average electron energy at (i,j):          
+!
+                  eflux(i,j,ie) = 7.39e-16*pi*sum1(ie) !in erg/(cm^2 s)
+                  eavg(i,j,ie) = sum1(ie)/sum2(ie)  ! in eV
+                 
+               ELSE
+!                                                                       
+!                 we want eflux=0 and eavg=0 for no precipitation.
+!
+                  eflux (i, j, ie) = zero
+                  eavg  (i, j, ie) = zero
+!
+               END IF
+
+      END DO loop_i
+      END DO loop_j
+
+      CALL Circle (eflux (:, :, ie_el))
+      CALL Circle (eavg  (:, :, ie_el))
+      CALL Circle (eflux (:, :, ie_hd))
+      CALL Circle (eavg  (:, :, ie_hd))
+
+      END SUBROUTINE diffusePrecip
+      
+      SUBROUTINE diffusePrecipChannel ()
+      IMPLICIT NONE
+
+!--------------------------------------------------------------------------
+! sbao 05/2021
+! This subroutine calculates diffuse electron precipitation using deleeta for each energy channel
+! The equation of the differential flux is adapted M. Gkioulidou et al (doi:10.1029/2012JA018032)
+
+
+
+
+
+      END SUBROUTINE diffusePrecipChannel
+
+
+      SUBROUTINE diffusePrecipMaxwellian ()
       IMPLICIT NONE
 
 !--------------------------------------------------------------------------
 ! sbao 01/2021
-! This subroutine calculates diffuse electron precipitation, adapted from Get_vparallel
+! This subroutine calculates diffuse electron precipitation using Maxwellian distribuiton, adapted from Get_vparallel
 
       INTEGER (iprec) :: i, j, ie, iedim_local, kc
       REAL (rprec)    :: en, ekt, therm, sum1 (iesize), sum2 (iesize)
@@ -515,7 +611,6 @@
                   eavg(i,j,ie) = two*ekt
                   ! sbao 6/19 detect Nan 
                   if (ISNAN(eflux(i,j,ie)))then
-                       if (.not. doQuietRCM) write(*,*)'eflux,i,j,therm,ekt,vpar,sum1,sum2,vm',eflux(i,j,ie),i,j,therm,ekt,sum1(ie),sum2(ie),vm(i,j)
                        eflux(i,j,ie) = 0.0
                        eavg(i,j,ie) = 0.0
                   end if
@@ -551,7 +646,7 @@
       CALL Circle (eavg  (:, :, ie_hd))
 !
       RETURN
-      END SUBROUTINE diffusePrecip
+      END SUBROUTINE diffusePrecipMaxwellian
 !
 !
 !==============================================================================
@@ -1425,7 +1520,7 @@
       eeta_avg = (eeta_avg + eeta)/REAL(nstep + 1)     ! eeta_avg takes data points at itimei,itimei+dt,...,itimef, nstep+1 points in total 
   
       
-      CALL Comput ()
+      CALL Comput (itimef-itimei)
       if (doRCMVerbose) then
          write(6,*)'RCM: : finishing Comput'
       endif
