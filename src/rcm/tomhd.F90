@@ -235,7 +235,7 @@ MODULE tomhd_mod
           IF (vm (i,j) < 0.0) CYCLE
           IF (Drc(i,j) < TINY) CYCLE
 
-        !Get Maxwellian to blend with
+        !Get Maxwellian (or kappa) to blend with
           call DPP2eta(Drc(i,j),Pion(i,j),Pele(i,j),vm(i,j),etaMax,doRescaleO=.true.)
         !Get timescale to blend over
           TauDP = DriftPeriod(Drc(i,j),Prc(i,j),rmin(i,j),RCMApp%Bmin(i,jp),RCMApp%radcurv(i,jp),RCMApp%planet_radius)
@@ -363,8 +363,8 @@ MODULE tomhd_mod
       !$OMP private(i,j)
       DO j = 1, jsize
         DO i = 1, isize
-
-          call eta2DP(eta(i,j,:),vm(i,j),Drc(i,j),Dpp(i,j),Prc(i,j))
+          !Get density and pressure, possibly w/ extra charge neutrality assumption
+          call eta2DP(eta(i,j,:),vm(i,j),Drc(i,j),Dpp(i,j),Prc(i,j),doQ0)
           if (doIE) then
             call IntegratePressureIE(eta(i,j,:),vm(i,j),Pion(i,j),Pele(i,j)) !Get separated pressures
           endif

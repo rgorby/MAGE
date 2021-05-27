@@ -75,10 +75,13 @@ def getRootVars(fname):
 			if ((vID == "X") or (vID=="Y") or (vID=="Z")):
 				doV = False
 			if (doV):
-				vIds.append(vID)
 				Nv = hf[k].shape
 				vLoc = getLoc(Dims,Nv)
-				vLocs.append(vLoc)
+				if (vLoc == "Cell"):
+					vIds.append(vID)
+					vLocs.append(vLoc)
+				else:
+					print("Excluding %s"%(vID))
 
 	return vIds,vLocs
 
@@ -92,11 +95,14 @@ def getVars(fname,s0):
 		vIds = []
 		vLocs = []
 		for k in stp0.keys():
+			vID = str(k)
 			Nv = stp0[k].shape
 			vLoc = getLoc(Dims,Nv)
-			
-			vLocs.append(vLoc)
-			vIds.append(str(k))			
+			if (vLoc == "Cell"):
+				vIds.append(vID)
+				vLocs.append(vLoc)
+			else:
+				print("Excluding %s"%(vID))
 	return vIds,vLocs
 
 def AddVectors(Grid,fname,vIds,cDims,vDims,Nd,nStp):

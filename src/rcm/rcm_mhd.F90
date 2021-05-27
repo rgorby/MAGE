@@ -7,7 +7,6 @@ module rcm_mhd_mod
     use tomhd_mod
     use rcm_mhd_io
     use ionosphere_exchange, only : setupIon, tearDownIon
-    use constants, ONLY : radius_earth_m, radius_iono_m
     use rice_housekeeping_module
     use rcm_timing_module
     use files

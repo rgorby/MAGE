@@ -1965,9 +1965,9 @@
 !=========================================================================
 !
 SUBROUTINE Move_plasma_grid_MHD (dt)
-  use rice_housekeeping_module, ONLY : LowLatMHD,doOCBLoss,doNewCX,doFLCLoss,dp_on,doPPRefill,doSmoothDDV
+  use rice_housekeeping_module, ONLY : LowLatMHD,doNewCX,doFLCLoss,dp_on,doPPRefill,doSmoothDDV,staticR
   use math, ONLY : SmoothOpTSC,SmoothOperator33
-  use lossutils, ONLY : CXKaiju,FLCRat,DepleteOCB
+  use lossutils, ONLY : CXKaiju,FLCRat
   use earthhelper, ONLY : DipFTV_colat,DerivDipFTV
   IMPLICIT NONE
   REAL (rprec), INTENT (IN) :: dt
@@ -2062,6 +2062,14 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
   call Grad_IJ(vv    ,isOpen,dvvdi    ,dvvdj    )
   call Grad_IJ(vv_avg,isOpen,dvvdi_avg,dvvdj_avg)
 
+  !Zero out velocities below staticR if necessary
+  if (staticR > TINY) then
+    where ( rmin <= staticR )
+      dvvdi_avg = 0.0
+      dvvdj_avg = 0.0
+    endwhere
+  endif
+
   !Now get energy-dep. portion, grad_ij vm
   call FTVGrad(ftv,isOpen,dftvi,dftvj)
 
@@ -2084,7 +2092,7 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
   !$OMP PRIVATE(mass_factor,r_dist,CLAWiter,T1k,T2k) &
   !$OMP PRIVATE(lossCX,lossFLC,lossFDG) &
   !$OMP SHARED(isOpen,iOCB_j,alamc,eeta,vm,imin_j,j1,j2,joff) &
-  !$OMP SHARED(doOCBLoss,doFLCLoss,doNewCX,dp_on,doPPRefill) &
+  !$OMP SHARED(doFLCLoss,doNewCX,dp_on,doPPRefill) &
   !$OMP SHARED(dvvdi,dvvdj,dvmdi,dvmdj,dvvdi_avg,dvvdj_avg,dtAvg_v) &
   !$OMP SHARED(xmin,ymin,fac,fudgec,bir,sini,L_dktime,dktime,sunspot_number) &
   !$OMP SHARED(aloct,xlower,xupper,ylower,yupper,dt,T1,T2,iMHD,bmin,radcurv,losscone) 
@@ -2545,6 +2553,113 @@ function Deriv_IJ(Q,isOp,doLim) result(dvdx)
 
 end function Deriv_IJ
 
+!Adapted by K: from S. Bao's adaptation of Colby Lemon's code, 09/20
+
+SUBROUTINE Kaiju_Plasmasphere_Refill(eeta0,xmin,ymin,aloct,vm,imin_j,idt)
+  use rice_housekeeping_module, ONLY : NowKp
+  use constants, ONLY : nt,radius_earth_m
+  use earthhelper, ONLY : GallagherXY
+  use rcmdefs, ONLY : DenPP0
+
+  implicit none
+
+  REAL (rprec), intent(inout), dimension(isize,jsize) :: eeta0
+  REAL (rprec), intent(in), dimension(isize,jsize) :: xmin,ymin, aloct, vm
+  REAL (rprec), intent(in)  :: idt
+  INTEGER (iprec), intent(in), dimension(jsize) :: imin_j
+
+  integer :: i,j
+  REAL (rprec) , parameter :: day2s = 24.0*60.0*60,s2day=1.0/day2s
+  REAL (rprec) :: dppT,dpsph,eta2cc,tau,etaT,deta,dndt
+  REAL (rprec) :: dpp0,rad,maxX,dfactor
+
+  dpp0 = 10*DenPP0 !Use 10x the plasmasphere cutoff density to decide on refilling
+  maxX = 2.0 !Max over-filling relative to target, i.e. don't go above maxX x den-target
+
+  !NOTE: This is hard-wired to Earth
+  dfactor = nt/radius_earth_m
+
+  do j=1,jsize
+    do i=1,isize
+      if (vm(i,j) <= 0) cycle
+      if (i < imin_j(j)+1) cycle !Don't refill outside active domain
+
+      rad = sqrt( xmin(i,j)**2.0 + ymin(i,j)**2.0 )
+
+      !Closed field line, calculate Berbue+ 2005 density (#/cc)
+      !Or use Gallagher on nightside w/ NowKp (current Kp)
+      !dppT = 10.0**(-0.66*rad + 4.89) !Target refilled density [#/cc]
+      dppT = GallagherXY(xmin(i,j),ymin(i,j),NowKp)
+      
+      eta2cc = (1.0e-6)*dfactor*vm(i,j)**1.5 !Convert eta to #/cc
+      dpsph = eta2cc*eeta0(i,j) !Current plasmasphere density [#/cc]
+
+      !Check for other outs before doing anything
+      if (dppT  <  dpp0) cycle !Target too low
+      !if (dpsph <  dpp0) cycle !Current density too low to bother w/
+      if (dpsph >= maxX*dppT) cycle !Too much already there
+
+      etaT = dppT/eta2cc !Target eta for refilling
+
+      !Now calculate refilling
+      dndt = 10.0**(3.48-0.331*rad) !cm^-3/day, Denton+ 2012 eqn 1
+      !dndt = (cos(aloct(i,j))+1)*dndt !Bias refilling towards dayside
+
+      deta = (idt*s2day)*dndt/eta2cc !Change in eta over idt
+      !deta = min(deta,etaT-eeta0(i,j)) !Don't overfill
+
+      eeta0(i,j) = eeta0(i,j) + deta
+
+    enddo
+  enddo
+
+END SUBROUTINE Kaiju_Plasmasphere_Refill
+
+!Adapted by S.Bao from Colby Lemon's original code. 04012020 sbao
+SUBROUTINE Plasmasphere_Refilling_Model(eeta0, rmin, aloct, vm, idt)
+
+      implicit none
+      REAL (rprec), intent(inout), dimension(isize,jsize) :: eeta0
+      REAL (rprec), intent(in), dimension(isize,jsize) :: rmin, aloct, vm
+      REAL (rprec) :: den_increase(isize, jsize), ftv(isize,jsize)
+      REAL (rprec) :: idt
+      REAL (rprec) , parameter :: m_per_Re = 6380.e3
+      REAL (rprec) , parameter :: nT_per_T = 1.e9
+      REAL (rprec) , parameter :: cm_per_m = 1.e2
+      where (vm > 0)
+        ftv = vm**(-3.0/2.0)
+      elsewhere
+        ftv = 0.0  ! open field lines, most likely. Set ftv to zero because we want eeta to be zero there
+      end where
+
+      den_increase = (idt/1000.0/(24*60*60)) * 10**(3.01 - 0.322*rmin) * ftv * (m_per_Re * nT_per_T * cm_per_m**3)   ! ple/cc
+      where (aloct < pi/2 .OR. aloct > 3*pi/2)  ! If we are on the dayside
+        eeta0 = eeta0 + 1.8 * den_increase
+      elsewhere
+        eeta0 = eeta0 + 0.2 * den_increase
+      end where
+
+
+    ! Keep eeta0 between 0 and two times the Berube et al. 2005 density.
+      eeta0 = min(eeta0, 2*10**(4.56 - 0.51*rmin) * ftv * (m_per_Re*nT_per_T*cm_per_m**3))
+      eeta0 = max(eeta0, 0.0)
+
+END SUBROUTINE
+
+FUNCTION Ratefn (fudgx, alamx, sinix, birx, vmx, xmfact)
+  IMPLICIT NONE
+  REAL (rprec), INTENT (IN) :: fudgx,alamx,sinix,birx,vmx,xmfact
+  REAL (rprec)              :: Ratefn
+  !                                                                       
+  !   Function subprogram to compute precipitation rate
+  !   Last update:  04-04-88
+  !
+  Ratefn = 0.0466_rprec*fudgx*SQRT(ABS(alamx))*(sinix/birx)*vmx**2
+  Ratefn = xmfact * ratefn
+  RETURN
+END FUNCTION Ratefn
+
+
 ! !=========================================================================
 ! !
 ! SUBROUTINE Move_plasma_grid_NEW (dt)
@@ -2749,110 +2864,6 @@ end function Deriv_IJ
 ! !    loc_djdt(-1:isize+1,jsize-joff:jsize-joff+1) = loc_djdt(-1:isize+1,1:2)
 
 ! END SUBROUTINE Move_plasma_grid_NEW
-
-!Adapted by K: from S. Bao's adaptation of Colby Lemon's code, 09/20
-
-SUBROUTINE Kaiju_Plasmasphere_Refill(eeta0,xmin,ymin,aloct,vm,imin_j,idt)
-  use rice_housekeeping_module, ONLY : NowKp
-  use constants, ONLY : density_factor
-  use earthhelper, ONLY : GallagherXY
-  use rcmdefs, ONLY : DenPP0
-
-  implicit none
-
-  REAL (rprec), intent(inout), dimension(isize,jsize) :: eeta0
-  REAL (rprec), intent(in), dimension(isize,jsize) :: xmin,ymin, aloct, vm
-  REAL (rprec), intent(in)  :: idt
-  INTEGER (iprec), intent(in), dimension(jsize) :: imin_j
-
-  integer :: i,j
-  REAL (rprec) , parameter :: day2s = 24.0*60.0*60,s2day=1.0/day2s
-  REAL (rprec) :: dppT,dpsph,eta2cc,tau,etaT,deta,dndt
-  REAL (rprec) :: dpp0,rad,maxX
-
-  dpp0 = 10*DenPP0 !Use 10x the plasmasphere cutoff density to decide on refilling
-  maxX = 2.0 !Max over-filling relative to target, i.e. don't go above maxX x den-target
-
-  do j=1,jsize
-    do i=1,isize
-      if (vm(i,j) <= 0) cycle
-      if (i < imin_j(j)+1) cycle !Don't refill outside active domain
-
-      rad = sqrt( xmin(i,j)**2.0 + ymin(i,j)**2.0 )
-
-      !Closed field line, calculate Berbue+ 2005 density (#/cc)
-      !Or use Gallagher on nightside w/ NowKp (current Kp)
-      !dppT = 10.0**(-0.66*rad + 4.89) !Target refilled density [#/cc]
-      dppT = GallagherXY(xmin(i,j),ymin(i,j),NowKp)
-      
-      eta2cc = (1.0e-6)*density_factor*vm(i,j)**1.5 !Convert eta to #/cc
-      dpsph = eta2cc*eeta0(i,j) !Current plasmasphere density [#/cc]
-
-      !Check for other outs before doing anything
-      if (dppT  <  dpp0) cycle !Target too low
-      !if (dpsph <  dpp0) cycle !Current density too low to bother w/
-      if (dpsph >= maxX*dppT) cycle !Too much already there
-
-      etaT = dppT/eta2cc !Target eta for refilling
-
-      !Now calculate refilling
-      dndt = 10.0**(3.48-0.331*rad) !cm^-3/day, Denton+ 2012 eqn 1
-      !dndt = (cos(aloct(i,j))+1)*dndt !Bias refilling towards dayside
-
-      deta = (idt*s2day)*dndt/eta2cc !Change in eta over idt
-      !deta = min(deta,etaT-eeta0(i,j)) !Don't overfill
-
-      eeta0(i,j) = eeta0(i,j) + deta
-
-    enddo
-  enddo
-
-END SUBROUTINE Kaiju_Plasmasphere_Refill
-
-!Adapted by S.Bao from Colby Lemon's original code. 04012020 sbao
-SUBROUTINE Plasmasphere_Refilling_Model(eeta0, rmin, aloct, vm, idt)
-
-      implicit none
-      REAL (rprec), intent(inout), dimension(isize,jsize) :: eeta0
-      REAL (rprec), intent(in), dimension(isize,jsize) :: rmin, aloct, vm
-      REAL (rprec) :: den_increase(isize, jsize), ftv(isize,jsize)
-      REAL (rprec) :: idt
-      REAL (rprec) , parameter :: m_per_Re = 6380.e3
-      REAL (rprec) , parameter :: nT_per_T = 1.e9
-      REAL (rprec) , parameter :: cm_per_m = 1.e2
-      where (vm > 0)
-        ftv = vm**(-3.0/2.0)
-      elsewhere
-        ftv = 0.0  ! open field lines, most likely. Set ftv to zero because we want eeta to be zero there
-      end where
-
-      den_increase = (idt/1000.0/(24*60*60)) * 10**(3.01 - 0.322*rmin) * ftv * (m_per_Re * nT_per_T * cm_per_m**3)   ! ple/cc
-      where (aloct < pi/2 .OR. aloct > 3*pi/2)  ! If we are on the dayside
-        eeta0 = eeta0 + 1.8 * den_increase
-      elsewhere
-        eeta0 = eeta0 + 0.2 * den_increase
-      end where
-
-
-    ! Keep eeta0 between 0 and two times the Berube et al. 2005 density.
-      eeta0 = min(eeta0, 2*10**(4.56 - 0.51*rmin) * ftv * (m_per_Re*nT_per_T*cm_per_m**3))
-      eeta0 = max(eeta0, 0.0)
-
-END SUBROUTINE
-
-FUNCTION Ratefn (fudgx, alamx, sinix, birx, vmx, xmfact)
-  IMPLICIT NONE
-  REAL (rprec), INTENT (IN) :: fudgx,alamx,sinix,birx,vmx,xmfact
-  REAL (rprec)              :: Ratefn
-  !                                                                       
-  !   Function subprogram to compute precipitation rate
-  !   Last update:  04-04-88
-  !
-  Ratefn = 0.0466_rprec*fudgx*SQRT(ABS(alamx))*(sinix/birx)*vmx**2
-  Ratefn = xmfact * ratefn
-  RETURN
-END FUNCTION Ratefn
-
 
   SUBROUTINE Deriv_i_NEW (array, isize, jsize, j1, j2, imin_j, derivi)
 !   USE Rcm_mod_subs, ONLY : iprec, rprec

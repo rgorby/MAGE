@@ -5,7 +5,6 @@ MODULE CONSTANTS
   USE kdefs, ONLY : EarthPsi0,Re_cgs,Me_cgs,Mp_cgs,Mu0,Kbltz,eCharge
   use rcmdefs, ONLY : isize,jsize,jwrap
   REAL(rprec),PARAMETER :: radius_earth_m = Re_cgs*1.0e-2 ! Earth's radius in meters
-  REAL(rprec),PARAMETER :: radius_iono_m  = radius_earth_m + 100.e3 + 20.e3 ! ionosphere radius in meters
   REAL(rprec),PARAMETER :: boltz = Kbltz*1.0e-7
   REAl(rprec),PARAMETER :: mass_proton =Mp_cgs*1.0e-3
   REAL(rprec),PARAMETER :: mass_electron=Me_cgs*1.0e-3
@@ -15,15 +14,7 @@ MODULE CONSTANTS
   REAL(rprec),PARAMETER :: nt = 1.0e-9
   !REAL(rprec),PARAMETER :: tiote = 7.8
   REAL(rprec),PARAMETER :: tiote = 4.0 !Changed by K 5/9/20
-  REAL(rprec),PARAMETER :: pressure_factor = 2./3.*ev/radius_earth_m*nt
-  REAL(rprec),PARAMETER :: density_factor = nt/radius_earth_m
   REAL(rprec),PARAMETER :: RCMCorot = EarthPsi0*1.0e+3 ! Convert corotation to V
-  !Old values
-  !REAL(rprec),PARAMETER :: boltz = 1.38E-23
-  !REAl(rprec),PARAMETER :: mass_proton=1.6726e-27
-  !REAL(rprec),PARAMETER :: mass_electron=9.1094e-31
-  !REAL(rprec),PARAMETER :: ev=1.6022e-19
-  !REAL(rprec),PARAMETER :: radius_earth_m = 6380.e3 ! Earth's radius in meters
 
 END MODULE CONSTANTS
 
@@ -49,7 +40,6 @@ MODULE rice_housekeeping_module
   INTEGER(iprec) :: rcm_record
   REAL(rprec) :: HighLatBD,LowLatBD
   LOGICAL :: doLatStretch = .true.
-  LOGICAL :: doOCBLoss = .false.
   LOGICAL :: doFLCLoss = .true. !Use FLC losses
   LOGICAL :: doNewCX = .true. !Use newer CX loss estimate
   LOGICAL :: doSmoothDDV = .true. !Whether to smooth ij deriv of residual FTV
@@ -63,10 +53,13 @@ MODULE rice_housekeeping_module
   LOGICAL :: doPPRefill = .false.!Whether to refill plasmasphere
   LOGICAL :: doRelax    = .true. !Whether to relax energy distribution
   LOGICAL :: doSmoothIJ = .false. !Whether to smooth individual eta channels
+  LOGICAL :: doQ0 = .true. !Whether to include implicit cold ions in tomhd moments
 
   INTEGER(iprec) :: InitKp = 1, NowKp
   LOGICAL :: doFLOut = .false. !Whether to output field lines (slow)
   INTEGER(iprec) :: nSkipFL = 8 !Stride for outputting field lines
+
+  LOGICAL :: doKapDef = .true. !Whether to do kappa by default
 
   REAL(rprec) :: staticR = 0.0
   REAL(rprec) :: LowLatMHD = 0.0
@@ -129,7 +122,6 @@ MODULE rice_housekeeping_module
         NowKp = InitKp
 
         !Loss options
-        call xmlInp%Set_Val(doOCBLoss,"loss/doOCBLoss",doOCBLoss)
         call xmlInp%Set_Val(doFLCLoss,"loss/doFLCLoss",doFLCLoss)
         call xmlInp%Set_Val(doNewCX  ,"loss/doNewCX"  ,doNewCX  )
         call xmlInp%Set_Val(doRelax  ,"loss/doRelax"  ,doRelax  )
@@ -138,6 +130,10 @@ MODULE rice_housekeeping_module
         call xmlInp%Set_Val(doAvg2MHD ,"tomhd/doAvg2MHD" ,doAvg2MHD )
         call xmlInp%Set_Val(doRelax   ,"tomhd/doRelax"   ,doRelax   )
         call xmlInp%Set_Val(doSmoothIJ,"tomhd/doSmoothIJ",doSmoothIJ)
+        call xmlInp%Set_Val(doQ0      ,"tomhd/doQ0"      ,doQ0      )
+
+        !Torcm parameters
+        call xmlInp%Set_Val(doKapDef ,"torcm/doKappa" ,doKapDef )
 
         !Advance parameters
         call xmlInp%Set_Val(nSubstep,"sim/nSubstep", nSubstep)
