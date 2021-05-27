@@ -101,9 +101,8 @@
 !   Plasma on grid:
     REAL (rprec) :: alamc (kcsize), etac (kcsize), fudgec (kcsize), &
                     eeta (isize,jsize,kcsize), eeta_cutoff, cmax, &
-                    eeta_avg (isize,jsize,kcsize), deleeta(isize,jsize,kcsize), &
-                    energy(isize,jsize,kcsize)
-
+                    eeta_avg (isize,jsize,kcsize), deleeta(isize,jsize,kcsize)
+                    
     INTEGER (iprec) :: ikflavc (kcsize), i_advect, i_eta_bc, i_birk
     LOGICAL :: L_dktime
     INTEGER (iprec), PARAMETER :: irdk=18, inrgdk=13, isodk=2, iondk=2
@@ -139,7 +138,8 @@
                     pwe (isize,jsize), pwn (isize,jsize), &
                     hwe (isize,jsize), hwn (isize,jsize), &
                     sw  (jsize), &
-                    eflux (isize,jsize,iesize), eavg (isize,jsize,iesize)
+                    eflux (isize,jsize,iesize), eavg (isize,jsize,iesize), &
+                    efluxk (isize,jsize,kcsize,iesize), eavgk (isize,jsize,kcsize,iesize)
     INTEGER (iprec) :: icond, nsmthi, nsmthj, iwind
     LOGICAL :: ifloor, icorrect
 !
@@ -506,6 +506,8 @@
                   eavg  (i, j, ie) = zero
 !
                END IF
+           
+            END DO
 
       END DO loop_i
       END DO loop_j
