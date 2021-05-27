@@ -2078,7 +2078,7 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
   REAL (rprec), dimension( 1:isize  , 1:jsize  ) :: rate,dvedi,dvedj,vv,dvvdi,dvvdj,dvmdi,dvmdj
   REAL (rprec), dimension( 1:isize  , 1:jsize  ) :: vv_avg,dvvdi_avg,dvvdj_avg
 
-  REAL (rprec), dimension( 1:isize  , 1:jsize  ) :: ftv,dftvi,dftvj
+  REAL (rprec), dimension( 1:isize  , 1:jsize  ) :: ftv,dftvi,dftvj,Dpp
 
   LOGICAL, dimension(1:isize,1:jsize) :: isOpen
   INTEGER (iprec) :: iOCB_j(1:jsize)
@@ -2178,6 +2178,9 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
   dvmdj = (-2.0/3.0)*(ftv**(-5.0/3.0))*dftvj
   !$OMP END PARALLEL WORKSHARE
 
+  !Calculate plasmasphere density forall i,j once 
+  Dpp = (1.0e-6)*eeta(:,:,1)*dfactor*vm(i,j)**1.5 !Convert eta to #/cc
+
   call Toc("Move_Plasma_Init")
 
   call Tic("Move_Plasma_Adv")
@@ -2191,7 +2194,7 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
   !$OMP PRIVATE(didt,djdt,etaC,rateC,rate,dvedi,dvedj) &
   !$OMP PRIVATE(mass_factor,r_dist,CLAWiter,T1k,T2k) &
   !$OMP PRIVATE(lossCX,lossFLC,lossFDG,preciprate) &
-  !$OMP SHARED(isOpen,iOCB_j,alamc,eeta,vm,imin_j,j1,j2,joff) &
+  !$OMP SHARED(isOpen,iOCB_j,alamc,eeta,vm,imin_j,j1,j2,joff,Dpp) &
   !$OMP SHARED(doFLCLoss,doNewCX,dp_on,doPPRefill,deleeta) &
   !$OMP SHARED(dvvdi,dvvdj,dvmdi,dvmdj,dvvdi_avg,dvvdj_avg,dtAvg_v) &
   !$OMP SHARED(xmin,ymin,fac,fudgec,bir,sini,L_dktime,dktime,sunspot_number) &
@@ -2272,8 +2275,11 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
         lossCX  = 0.0
         lossFLC = 0.0
         lossFDG = 0.0
-        if ( ie == RCMELECTRON ) then
+        !TODO: Need to exclude plasmasphere here
+        if ( ie == RCMELECTRON .and. not-plasmasphere-man) then
           if ( .not. isOpen(i,j) ) then
+            !NOTE: Add Dpp(i,j) to argument list to pass psph density (#/cc)
+            !NOTE: Also pass KpNow value if you need Kp dep. stuff
             lossFDG = Ratefn(fudgec(kc),alamc(kc),sini(i,j),bir(i,j),vm(i,j),mass_factor)
           endif !not open
         else if (ie == RCMPROTON) then
@@ -2296,6 +2302,7 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
           write(*,*) 'Unknown flavor, ie = ', ie
         endif !flavor
 
+        !NOTE: Any loss terms that contribute to precipitation need to be added to preciprate
         rate(i,j) = max(lossCX + lossFLC + lossFDG,0.0)
         preciprate = lossFLC + lossFDG !Losses for precipitation
         deleeta(i,j,kc) = deleeta(i,j,kc) + eeta(i,j,kc)*(1.0 - exp(-preciprate*dt))
