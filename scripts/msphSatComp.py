@@ -96,7 +96,7 @@ if __name__ == '__main__':
 			print('No data available for', scId)
 		else:
 			print('Extracting GAMERA data')
-			kaiTools.extractGAMERA(data,scIds[scId],
+			kaiTools.extractGAMERA(data,scIds[scId],scId,
 				mjdFileStart,secFileStart,fdir,
 				ftag,cmd,numSegments,keep)
 			cdfname = os.path.join(fdir, scId + '.comp.cdf')
@@ -108,20 +108,3 @@ if __name__ == '__main__':
 			plotname = os.path.join(fdir,scId+'.png')
 			print('Plotting results to',plotname)
 			kv.compPlot(plotname,scId,data)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

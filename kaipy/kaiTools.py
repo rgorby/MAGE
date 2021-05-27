@@ -2,6 +2,7 @@ import numpy as np
 import datetime
 import os
 import glob
+import sys
 import subprocess
 from xml.dom import minidom
 
@@ -368,7 +369,7 @@ def convertGameraVec(x,y,z,ut,fromSys,fromType,toSys,toType):
 	outvec = invec.convert(toSys,toType)
 	return outvec
 
-def extractGAMERA(data,scDic,mjd0,sec0,fdir,ftag,cmd,numSegments,keep):
+def createInputFiles(data,scDic,scId,mjd0,sec0,fdir,ftag,numSegments):
 	Re = 6380.0
 	toRe = 1.0
 	if 'UNITS' in data['Ephemeris'].attrs:
@@ -395,45 +396,21 @@ def extractGAMERA(data,scDic,mjd0,sec0,fdir,ftag,cmd,numSegments,keep):
 		print('Coordinate system transformation failed')
 		return
 	elapsedSecs = (smpos.ticks.getMJD()-mjd0)*86400.0+sec0
-	scId = scDic['ephemId']
-	fOut = os.path.join(fdir,scId+"sctrack.h5")
-	with h5py.File(fOut,'w') as hf:
+	scTrackName = os.path.join(fdir,scId+".sctrack.h5")
+	with h5py.File(scTrackName,'w') as hf:
 		hf.create_dataset("T" ,data=elapsedSecs)
 		hf.create_dataset("X" ,data=smpos.x)
 		hf.create_dataset("Y" ,data=smpos.y)
 		hf.create_dataset("Z" ,data=smpos.z)
 	chimpxml = genSCXML(fdir,ftag,
-		scid=scId,h5traj=os.path.basename(fOut),numSegments=numSegments)
-	xmlfile = os.path.join(fdir,scId+'.xml')
-	with open(xmlfile,"w") as f:
+		scid=scId,h5traj=os.path.basename(scTrackName),numSegments=numSegments)
+	xmlFileName = os.path.join(fdir,scId+'.xml')
+	with open(xmlFileName,"w") as f:
 		f.write(chimpxml.toprettyxml())
 
-	if 1 == numSegments:
-		sctrack = subprocess.run([cmd, xmlfile], cwd=fdir,
-							stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-							text=True)
+	return (scTrackName,xmlFileName)
 
-	else:
-		process = []
-		for seg in range(1,numSegments+1):
-			process.append(subprocess.Popen([cmd, xmlfile,str(seg)], 
-							cwd=fdir,
-							stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-							text=True))
-		for proc in process:
-			proc.communicate()
-		seg = 1
-		inH5Name = os.path.join(fdir,scId+'.%04d'%seg+'.sc.h5')
-		mergeH5Name = os.path.join(fdir,scId+'.sc.h5')
-		mergeH5 = createMergeFile(inH5Name,mergeH5Name)
-		for seg in range(2,numSegments+1):
-			nextH5Name = os.path.join(fdir,scId+'.%04d'%seg+'.sc.h5')
-			nextH5 = h5py.File(nextH5Name)
-			addFileToMerge(mergeH5,nextH5)
-
-
-
-	h5name = os.path.join(fdir, scId + '.sc.h5')
+def addGAMERA(data,scDic,h5name):
 	h5file = h5py.File(h5name, 'r')
 	ut = MJD2UT(h5file['MJDs'][:])
 
@@ -476,11 +453,37 @@ def extractGAMERA(data,scDic,mjd0,sec0,fdir,ftag,cmd,numSegments,keep):
 		attrs={'UNITS':pres.attrs['Units'],
 		'CATDESC':'Temperature','FIELDNAM':"Temperature",
 		'AXISLABEL':'T'})
+	return
+
+def extractGAMERA(data,scDic,scId,mjd0,sec0,fdir,ftag,cmd,numSegments,keep):
+
+	(scTrackName,xmlFileName) = createInputFiles(data,scDic,scId,
+		mjd0,sec0,fdir,ftag,numSegments)
+
+	if 1 == numSegments:
+		sctrack = subprocess.run([cmd, xmlFileName], cwd=fdir,
+							stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+							text=True)
+		h5name = os.path.join(fdir, scId + '.sc.h5')
+
+	else:
+		process = []
+		for seg in range(1,numSegments+1):
+			process.append(subprocess.Popen([cmd, xmlFileName,str(seg)],
+							cwd=fdir,
+							stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+							text=True))
+		for proc in process:
+			proc.communicate()
+		h5name = mergeFiles(fdir,scId,numSegments)
+
+
+	addGAMERA(data,scDic,h5name)
 
 	if not keep:
 		subprocess.run(['rm',h5name])
-		subprocess.run(['rm',xmlfile])
-		subprocess.run(['rm',fOut])
+		subprocess.run(['rm',xmlFileName])
+		subprocess.run(['rm',scTrackName])
 		if numSegments > 1:
 			h5parts = os.path.join(fdir,scId+'.*.sc.h5')
 			subprocess.run(['rm',h5parts])
@@ -508,7 +511,18 @@ def addFileToMerge(mergeH5,nextH5):
 		dset.resize(dset.shape[0]+nextH5[varname].shape[0],axis=0)
 		dset[-nextH5[varname].shape[0]:]=nextH5[varname][:]
 	return
-	
+
+def mergeFiles(fdir,scId,numSegments):
+	seg = 1
+	inH5Name = os.path.join(fdir,scId+'.%04d'%seg+'.sc.h5')
+	mergeH5Name = os.path.join(fdir,scId+'.sc.h5')
+	mergeH5 = createMergeFile(inH5Name,mergeH5Name)
+	for seg in range(2,numSegments+1):
+		nextH5Name = os.path.join(fdir,scId+'.%04d'%seg+'.sc.h5')
+		nextH5 = h5py.File(nextH5Name)
+		addFileToMerge(mergeH5,nextH5)
+
+	return mergeH5Name
 
 
 
