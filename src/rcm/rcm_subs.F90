@@ -2275,13 +2275,17 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
         lossCX  = 0.0
         lossFLC = 0.0
         lossFDG = 0.0
-        !TODO: Need to exclude plasmasphere here
         if ( ie == RCMELECTRON .and. not-plasmasphere-man) then
-          if ( .not. isOpen(i,j) ) then
-            !NOTE: Add Dpp(i,j) to argument list to pass psph density (#/cc)
-            !NOTE: Also pass KpNow value if you need Kp dep. stuff
-            lossFDG = Ratefn(fudgec(kc),alamc(kc),sini(i,j),bir(i,j),vm(i,j),mass_factor)
-          endif !not open
+          !Need to exclude plasmasphere here
+          if (kc == 1) then
+             lossFDG = 0.0
+          else      
+             if ( .not. isOpen(i,j) ) then
+                !NOTE: Add Dpp(i,j) to argument list to pass psph density (#/cc)
+                !NOTE: Also pass KpNow value if you need Kp dep. stuff
+                lossFDG = Ratefn(fudgec(kc),alamc(kc),sini(i,j),bir(i,j),vm(i,j),mass_factor)
+             endif !not open
+          endif
         else if (ie == RCMPROTON) then
           if ( L_dktime .and. (.not. isOpen(i,j)) ) then
             !Do losses even in buffer region in case stuff moves in/out
