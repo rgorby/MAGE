@@ -490,7 +490,6 @@
               en = ABS(alamc(kc))*vm(i,j) ! channel energy in eV
               delEn = ABS(almdel(kc))*vm(i,j) ! channel width in eV 
               JkConst = 1./(SQRT(8.*xmass(ie))*pi)*SQRT(charge_e)*nt/m2cm**2/radius_earth_m ! Constant for Jk
-              write(6,*)"JkConst for species ie =",ie, JkConst
               Jk = JkConst*SQRT(ABS(alamc(kc)))* deleeta(i,j,kc)/dtCpl*vm(i,j)/almdel(kc)   ! differential energy flux in 1/(eV cm^2 s sr)
               sum1(ie) = sum1(ie) + en*Jk*delEn !  in eV/(cm^2 s sr)
               sum2(ie) = sum2(ie) + Jk*delEn ! in 1/(cm^2 s sr)
