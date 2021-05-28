@@ -26,10 +26,10 @@ module mixparams
       MixGrid0%LowLatBC = asin(sqrt(1.0/Rin))*180.0/PI
       !Set default grid resolution (in degrees)
       if (Nk<=64 ) then
-         !DBL
-         dDeg = 1.0
-         MixGrid0%R0 = 0.08
-      if (Nk<=128) then
+        !DBL
+        dDeg = 1.0
+        MixGrid0%R0 = 0.08
+      else if (Nk<=128) then
         !QUAD
         dDeg = 1.0
         MixGrid0%R0 = 0.04
