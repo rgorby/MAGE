@@ -2283,37 +2283,25 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
         lossCX  = 0.0
         lossFLC = 0.0
         lossFDG = 0.0
-        if ( ie == RCMELECTRON .and. not-plasmasphere-man) then
-          !Need to exclude plasmasphere here
-          if (kc == 1) then
-             lossFDG = 0.0
-          else      
-             if ( .not. isOpen(i,j) ) then
-                !NOTE: Add Dpp(i,j) to argument list to pass psph density (#/cc)
-                !NOTE: Also pass KpNow value if you need Kp dep. stuff
-                lossFDG = Ratefn(fudgec(kc),alamc(kc),sini(i,j),bir(i,j),vm(i,j),mass_factor)
-             endif !not open
-          endif
-        else if (ie == RCMPROTON) then
-          if ( L_dktime .and. (.not. isOpen(i,j)) ) then
-            !Do losses even in buffer region in case stuff moves in/out
+
+        if ( (ie == RCMELECTRON) .and. (.not. isOpen(i,j)) .and. (kc /= 1) ) then
+        !Do electron losses
+            !NOTE: Add Dpp(i,j) to argument list to pass psph density (#/cc)
+            !NOTE: Also pass KpNow value if you need Kp dep. stuff
+            lossFDG = Ratefn(fudgec(kc),alamc(kc),sini(i,j),bir(i,j),vm(i,j),mass_factor)
+        endif
+
+        if ( (ie == RCMPROTON) .and. (.not. isOpen(i,j)) ) then
+        !Do ion losses
             r_dist = sqrt(xmin(i,j)**2+ymin(i,j)**2)
-            if (doNewCX) then
-              lossCX = CXKaiju(ie,abs(alamc(kc))*vm(i,j),r_dist)
-            else
-              lossCX = Cexrat(ie,abs(alamc(kc))*vm(i,j),r_dist,sunspot_number, &
-                              dktime,irdk,inrgdk,isodk,iondk)
+            if ( L_dktime ) then
+                lossCX = CXKaiju(ie,abs(alamc(kc))*vm(i,j),r_dist)
             endif
             if (doFLCLoss) then
-              !Placeholder for FLC loss, uses radcurv(i,j) [Re]
-              lossFLC = FLCRat(ie,alamc(kc),vm(i,j),bmin(i,j),radcurv(i,j),losscone(i,j))
+                lossFLC = FLCRat(ie,alamc(kc),vm(i,j),bmin(i,j),radcurv(i,j),losscone(i,j))
             endif
-          endif
-        else !ie = X
-          !Unknown flavor
-          write(*,*) 'Unknown flavor, ie = ', ie
-        endif !flavor
-
+        endif
+        
         !NOTE: Any loss terms that contribute to precipitation need to be added to preciprate
         rate(i,j) = max(lossCX + lossFLC + lossFDG,0.0)
         preciprate = lossFLC + lossFDG !Losses for precipitation
