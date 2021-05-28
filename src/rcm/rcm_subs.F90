@@ -53,12 +53,12 @@
                                romeca       = zero, &
                                !charge_e     = 1.6E-19_rprec, &
                                charge_e     = eCharge, & !Take from kdefs
-                               sgn (ksize)  = one
+                               sgn (ksize)  = one, &
 !                 Part 3: conversion constants 
                                ev2erg       = kev2erg*1.0e-3, & ! conversion from eV to erg
-                               m2cm         = 100.
-                               nT2T         = nt
-                                                              
+                               m2cm         = 100., & ! conversion from meter to centimeter
+                               nT2T         = nt, &  ! conversion from nT to T  
+                               dfactor      = nt/radius_earth_m ! conversion for density
                   INTEGER (iprec) :: ie_el = 1, ie_hd = 2 ! coding for e and proton
 !
 !
@@ -489,7 +489,7 @@
               END IF
               en = ABS(alamc(kc))*vm(i,j) ! channel energy in eV
               delEn = ABS(almdel(kc))*vm(i,j) ! channel width in eV 
-              JkConst = 1./(SQRT(8.*xmass(ie))*pi)*np.sqrt(charge_e)*nt/m2cm**2/radius_earth_m ! Constant for Jk
+              JkConst = 1./(SQRT(8.*xmass(ie))*pi)*SQRT(charge_e)*nt/m2cm**2/radius_earth_m ! Constant for Jk
               write(6,*)"JkConst for species ie =",ie, JkConst
               Jk = JkConst*SQRT(ABS(alamc(kc)))* deleeta(i,j,kc)/dtCpl*vm(i,j)/almdel(kc)   ! differential energy flux in 1/(eV cm^2 s sr)
               sum1(ie) = sum1(ie) + en*Jk*delEn !  in eV/(cm^2 s sr)
@@ -2667,7 +2667,6 @@ end function Deriv_IJ
 
 SUBROUTINE Kaiju_Plasmasphere_Refill(eeta0,xmin,ymin,aloct,vm,imin_j,idt)
   use rice_housekeeping_module, ONLY : NowKp
-  use constants, ONLY : nt,radius_earth_m
   use earthhelper, ONLY : GallagherXY
   use rcmdefs, ONLY : DenPP0
 
@@ -2681,13 +2680,11 @@ SUBROUTINE Kaiju_Plasmasphere_Refill(eeta0,xmin,ymin,aloct,vm,imin_j,idt)
   integer :: i,j
   REAL (rprec) , parameter :: day2s = 24.0*60.0*60,s2day=1.0/day2s
   REAL (rprec) :: dppT,dpsph,eta2cc,tau,etaT,deta,dndt
-  REAL (rprec) :: dpp0,rad,maxX,dfactor
+  REAL (rprec) :: dpp0,rad,maxX
 
   dpp0 = 10*DenPP0 !Use 10x the plasmasphere cutoff density to decide on refilling
   maxX = 2.0 !Max over-filling relative to target, i.e. don't go above maxX x den-target
 
-  !NOTE: This is hard-wired to Earth
-  dfactor = nt/radius_earth_m
 
   do j=1,jsize
     do i=1,isize
