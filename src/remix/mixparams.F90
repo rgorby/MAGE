@@ -101,8 +101,10 @@ module mixparams
               Params%aurora_model_type = ZHANG
            case ("RCMONO")
               Params%aurora_model_type = RCMONO
+           case ("RCMFED")
+              Params%aurora_model_type = RCMFED
            case default 
-              stop "The aurora model type entered is not supported (Available options: FEDDER, ZHANG, RCMONO)."
+              stop "The aurora model type entered is not supported (Available options: FEDDER, ZHANG, RCMONO, RCMFED)."
         end select
 
         ! Numerical constants
