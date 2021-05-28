@@ -1,8 +1,9 @@
 !
     MODULE Rcm_mod_subs
-    use kdefs, ONLY : PI,Mp_cgs,Me_cgs,EarthM0g,eCharge
+    use kdefs, ONLY : PI,Mp_cgs,Me_cgs,EarthM0g,eCharge,kev2erg
     use conversion_module, ONLY : almdel
     use rice_housekeeping_module, ONLY: use_plasmasphere
+    use constants, ONLY: nt, radius_earth_m
     use rcmdefs
     use rcm_precision
     use clocks
@@ -53,13 +54,17 @@
                                !charge_e     = 1.6E-19_rprec, &
                                charge_e     = eCharge, & !Take from kdefs
                                sgn (ksize)  = one
+!                 Part 3: conversion constants 
+                               ev2erg       = kev2erg*1.0e-3, & ! conversion from eV to erg
+                               m2cm         = 100.
+                               nT2T         = nt
+                                                              
                   INTEGER (iprec) :: ie_el = 1, ie_hd = 2 ! coding for e and proton
 !
 !
 !   Potential solver GMRESM tolerance:
     REAL (rprec) :: tol_gmres
     logical :: doRCMVerbose = .FALSE.    
-!
 !
 !
 !   This is a definition of the label structure, for I/O:
@@ -450,6 +455,8 @@
       INTEGER (iprec) :: i, j, ie, iedim_local, kc, klow
       REAL (rprec)    :: en, delEn, Jk, sum1 (iesize), sum2 (iesize)
       LOGICAL, dimension(1:isize,1:jsize) :: isOpen
+      REAL (rprec) :: JkConst 
+
 
       !Try to do calculation everywhere possible including MHD buffer region
       isOpen = (vm < 0)
@@ -461,7 +468,7 @@
          klow = 1
       endif
 
-      iedim_local = 2
+      iedim_local = 2 ! # of species, electron and proton
 !
       eavg  (:,:,:) = zero
       eflux (:,:,:) = zero
@@ -476,15 +483,17 @@
 !
             GRID_BASED: DO kc = klow, kcsize
               IF (alamc (kc) < zero) THEN
-                 ie = 1
+                 ie = 1  ! electron
               ELSE
-                 ie = 2
+                 ie = 2  ! proton 
               END IF
-              en = ABS(alamc(kc))*vm(i,j)
-              delEn = ABS(almdel(kc))*vm(i,j) 
-              Jk = SQRT(ABS(alamc(kc)))*deleeta(i,j,kc)/dtCpl*vm(i,j)/almdel(kc)
-              sum1(ie) = sum1(ie) + en*Jk*delEn
-              sum2(ie) = sum2(ie) + Jk*delEn
+              en = ABS(alamc(kc))*vm(i,j) ! channel energy in eV
+              delEn = ABS(almdel(kc))*vm(i,j) ! channel width in eV 
+              JkConst = 1./(SQRT(8.*xmass(ie))*pi)*np.sqrt(charge_e)*nt/m2cm**2/radius_earth_m ! Constant for Jk
+              write(6,*)"JkConst for species ie =",ie, JkConst
+              Jk = JkConst*SQRT(ABS(alamc(kc)))* deleeta(i,j,kc)/dtCpl*vm(i,j)/almdel(kc)   ! differential energy flux in 1/(eV cm^2 s sr)
+              sum1(ie) = sum1(ie) + en*Jk*delEn !  in eV/(cm^2 s sr)
+              sum2(ie) = sum2(ie) + Jk*delEn ! in 1/(cm^2 s sr)
             END DO GRID_BASED
               
             DO ie = 1, iedim_local
@@ -495,13 +504,12 @@
 !                potential drop, electron energy flux,
 !                and average electron energy at (i,j):          
 !
-                  eflux(i,j,ie) = 7.39e-16*pi*sum1(ie) !in erg/(cm^2 s)
-                  eavg(i,j,ie) = sum1(ie)/sum2(ie)  ! in eV
+                  eflux(i,j,ie) = ev2erg*pi*sum1(ie) ! energy flux in erg/(cm^2 s), pi??
+                  eavg(i,j,ie) = sum1(ie)/sum2(ie)  ! averge energy in eV
                  
                ELSE
 !                                                                       
 !                 we want eflux=0 and eavg=0 for no precipitation.
-!
                   eflux (i, j, ie) = zero
                   eavg  (i, j, ie) = zero
 !
