@@ -294,6 +294,29 @@ module mixconductance
 
     end subroutine conductance_rcmono
 
+    subroutine conductance_rcmfed(conductance,G,St)
+      type(mixConductance_T), intent(inout) :: conductance
+      type(mixGrid_T), intent(in) :: G
+      type(mixState_T), intent(inout) :: St
+      real(rp) :: E2Th, E2Tl
+      E2Th = 2.0
+      E2Tl = 1.0
+
+      ! Use totally Fedder precipitation if deltaE > 2Te.
+      call conductance_fedder95(conductance,G,St)
+      tmpC = conductance%deltaE/conductance%E0
+      where(tmpC<=E2Th.and.tmpC>=E2Tl) ! Linearly combine RCM and Fedder where 1<=deltaE/Te<=2.
+         St%Vars(:,:,AVG_ENG)  = max(((E2Th-tmpC)*St%Vars(:,:,IM_EAVG)+(tmpC-E2Tl)*St%Vars(:,:,AVG_ENG))/(E2Th-E2Tl),1.D-8) ! [keV]
+         St%Vars(:,:,NUM_FLUX) = ((E2Th-tmpC)*St%Vars(:,:,IM_EFLUX)/(St%Vars(:,:,AVG_ENG)*kev2erg)+(tmpC-E2Tl)*St%Vars(:,:,NUM_FLUX))/(E2Th-E2Tl) ! [ergs/cm^2/s]/[ergs]
+         St%Vars(:,:,Z_NFLUX)  = -0.5 ! for diagnostic purposes since full Z15 does not currently work.
+      elsewhere(tmpC<E2Tl) ! Use totally RCM precipitation if deltaE<Te.
+         St%Vars(:,:,AVG_ENG)  = max(St%Vars(:,:,IM_EAVG),1.D-8) ! [keV]
+         St%Vars(:,:,NUM_FLUX) = St%Vars(:,:,IM_EFLUX)/(St%Vars(:,:,AVG_ENG)*kev2erg) ! [ergs/cm^2/s]
+         St%Vars(:,:,Z_NFLUX)  = -1.0 ! for diagnostic purposes since full Z15 does not currently work.
+      end where
+
+    end subroutine conductance_rcmfed
+
     subroutine conductance_aurora(conductance,G,St)
       type(mixConductance_T), intent(inout) :: conductance
       type(mixGrid_T), intent(in) :: G
@@ -348,6 +371,8 @@ module mixconductance
             call conductance_zhang15(conductance,G,St)
          case (RCMONO)
             call conductance_rcmono(conductance,G,St)
+         case (RCMFED)
+            call conductance_rcmfed(conductance,G,St)
          case default
             stop "The aurora precipitation model type entered is not supported."
       end select
