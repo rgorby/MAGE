@@ -475,7 +475,7 @@ def extractGAMERA(data,scDic,scId,mjd0,sec0,fdir,ftag,cmd,numSegments,keep):
 							text=True))
 		for proc in process:
 			proc.communicate()
-		h5name = mergeFiles(fdir,scId,numSegments)
+		h5name = mergeFiles(scId,fdir,numSegments)
 
 
 	addGAMERA(data,scDic,h5name)
@@ -512,17 +512,74 @@ def addFileToMerge(mergeH5,nextH5):
 		dset[-nextH5[varname].shape[0]:]=nextH5[varname][:]
 	return
 
-def mergeFiles(fdir,scId,numSegments):
+def mergeFiles(scId,fdir,numSegments):
 	seg = 1
 	inH5Name = os.path.join(fdir,scId+'.%04d'%seg+'.sc.h5')
 	mergeH5Name = os.path.join(fdir,scId+'.sc.h5')
 	mergeH5 = createMergeFile(inH5Name,mergeH5Name)
+	print(inH5Name,mergeH5Name)
 	for seg in range(2,numSegments+1):
 		nextH5Name = os.path.join(fdir,scId+'.%04d'%seg+'.sc.h5')
-		nextH5 = h5py.File(nextH5Name)
+		nextH5 = h5py.File(nextH5Name,'r')
 		addFileToMerge(mergeH5,nextH5)
 
 	return mergeH5Name
+
+def genSatCompPbsScript(scId,fdir,cmd,account='P28100045'):
+	headerString = """#!/bin/tcsh
+#PBS -A %s
+#PBS -N %s
+#PBS -j oe
+#PBS -q casper
+#PBS -l walltime=1:00:00
+#PBS -l select=1:ncpus=1
+"""
+	moduleString = """module purge
+module load git/2.22.0 intel/18.0.5 hdf5/1.10.5 impi/2018.4.274
+module load ncarenv/1.3 ncarcompilers/0.5.0 python/3.7.9 cmake/3.14.4
+module load ffmpeg/4.1.3 paraview/5.8.1 mkl/2018.0.5
+ncar_pylib /glade/p/hao/msphere/gamshare/casper_satcomp_pylib
+module list
+"""
+	commandString = """cd %s
+setenv JNUM ${PBS_ARRAY_INDEX}
+date
+echo 'Running analysis'
+%s %s $JNUM
+sleep 60
+date
+"""
+	xmlFileName = os.path.join(fdir,scId+'.xml')
+	pbsFileName = os.path.join(fdir,scId+'.pbs')
+	pbsFile = open(pbsFileName,'w')
+	pbsFile.write(headerString%(account,scId))
+	pbsFile.write(moduleString)
+	pbsFile.write(commandString%(fdir,cmd,xmlFileName))
+	pbsFile.close()
+
+	return pbsFileName
+
+def genSatCompLockScript(scId,fdir,account='P28100045'):
+	headerString = """#!/bin/tcsh
+#PBS -A %s
+#PBS -N %s
+#PBS -j oe
+#PBS -q casper
+#PBS -l walltime=0:15:00
+#PBS -l select=1:ncpus=1
+"""
+	commandString = """cd %s
+touch %s
+"""
+	pbsFileName = os.path.join(fdir,scId+'.done.pbs')
+	pbsFile = open(pbsFileName,'w')
+	pbsFile.write(headerString%(account,scId))
+	pbsFile.write(commandString%(fdir,scId+'.lock'))
+	pbsFile.close()
+
+	return pbsFileName
+
+
 
 
 
