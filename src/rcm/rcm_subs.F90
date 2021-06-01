@@ -1,8 +1,9 @@
 !
     MODULE Rcm_mod_subs
-    use kdefs, ONLY : PI,Mp_cgs,Me_cgs,EarthM0g,eCharge
+    use kdefs, ONLY : PI,Mp_cgs,Me_cgs,EarthM0g,eCharge,kev2erg
     use conversion_module, ONLY : almdel
     use rice_housekeeping_module, ONLY: use_plasmasphere
+    use constants, ONLY: nt, radius_earth_m
     use rcmdefs
     use rcm_precision
     use clocks
@@ -52,14 +53,18 @@
                                romeca       = zero, &
                                !charge_e     = 1.6E-19_rprec, &
                                charge_e     = eCharge, & !Take from kdefs
-                               sgn (ksize)  = one
+                               sgn (ksize)  = one, &
+!                 Part 3: conversion constants 
+                               ev2erg       = kev2erg*1.0e-3, & ! conversion from eV to erg
+                               m2cm         = 100., & ! conversion from meter to centimeter
+                               nT2T         = nt, &  ! conversion from nT to T  
+                               dfactor      = nt/radius_earth_m ! conversion for density
                   INTEGER (iprec) :: ie_el = 1, ie_hd = 2 ! coding for e and proton
 !
 !
 !   Potential solver GMRESM tolerance:
     REAL (rprec) :: tol_gmres
     logical :: doRCMVerbose = .FALSE.    
-!
 !
 !
 !   This is a definition of the label structure, for I/O:
@@ -450,6 +455,8 @@
       INTEGER (iprec) :: i, j, ie, iedim_local, kc, klow
       REAL (rprec)    :: en, delEn, Jk, sum1 (iesize), sum2 (iesize)
       LOGICAL, dimension(1:isize,1:jsize) :: isOpen
+      REAL (rprec) :: JkConst 
+
 
       !Try to do calculation everywhere possible including MHD buffer region
       isOpen = (vm < 0)
@@ -461,7 +468,7 @@
          klow = 1
       endif
 
-      iedim_local = 2
+      iedim_local = 2 ! # of species, electron and proton
 !
       eavg  (:,:,:) = zero
       eflux (:,:,:) = zero
@@ -473,18 +480,24 @@
 !           Now for each grid point, consider all species
 !           present at that grid point, and compute sum1 and
 !           sum2 for positive and negative particles separately:
+
+!           For each grid point, clear sum1 and sum2:
+!
+            sum1 (1:iedim_local) = zero
+            sum2 (1:iedim_local) = zero
 !
             GRID_BASED: DO kc = klow, kcsize
               IF (alamc (kc) < zero) THEN
-                 ie = 1
+                 ie = 1  ! electron
               ELSE
-                 ie = 2
+                 ie = 2  ! proton 
               END IF
-              en = ABS(alamc(kc))*vm(i,j)
-              delEn = ABS(almdel(kc))*vm(i,j) 
-              Jk = SQRT(ABS(alamc(kc)))*deleeta(i,j,kc)/dtCpl*vm(i,j)/almdel(kc)
-              sum1(ie) = sum1(ie) + en*Jk*delEn
-              sum2(ie) = sum2(ie) + Jk*delEn
+              en = ABS(alamc(kc))*vm(i,j) ! channel energy in eV
+              delEn = ABS(almdel(kc))*vm(i,j) ! channel width in eV 
+              JkConst = 1./(SQRT(8.*xmass(ie))*pi)*SQRT(charge_e)*nt/m2cm**2/radius_earth_m ! Constant for Jk
+              Jk = JkConst*SQRT(ABS(alamc(kc)))* deleeta(i,j,kc)/dtCpl*vm(i,j)/almdel(kc)   ! differential energy flux in 1/(eV cm^2 s sr)
+              sum1(ie) = sum1(ie) + en*Jk*delEn !  in eV/(cm^2 s sr)
+              sum2(ie) = sum2(ie) + Jk*delEn ! in 1/(cm^2 s sr)
             END DO GRID_BASED
               
             DO ie = 1, iedim_local
@@ -495,13 +508,11 @@
 !                potential drop, electron energy flux,
 !                and average electron energy at (i,j):          
 !
-                  eflux(i,j,ie) = 7.39e-16*pi*sum1(ie) !in erg/(cm^2 s)
-                  eavg(i,j,ie) = sum1(ie)/sum2(ie)  ! in eV
+                  eflux(i,j,ie) = ev2erg*pi*sum1(ie) ! energy flux in erg/(cm^2 s), pi??
+                  eavg(i,j,ie) = sum1(ie)/sum2(ie)  ! averge energy in eV
                  
                ELSE
-!                                                                       
 !                 we want eflux=0 and eavg=0 for no precipitation.
-!
                   eflux (i, j, ie) = zero
                   eavg  (i, j, ie) = zero
 !
@@ -526,9 +537,6 @@
 ! sbao 05/2021
 ! This subroutine calculates diffuse electron precipitation using deleeta for each energy channel
 ! The equation of the differential flux is adapted M. Gkioulidou et al (doi:10.1029/2012JA018032)
-
-
-
 
 
       END SUBROUTINE diffusePrecipChannel
@@ -1736,6 +1744,7 @@
           call AddOutVar(IOVars,"rcmetac"   ,etac)
           call AddOutVar(IOVars,"rcmeeta"   ,eeta)
           call AddOutVar(IOVars,"rcmeetaavg",eeta_avg)
+          call AddOutVar(IOVars,"rcmdeleeta",deleeta)
 
           call AddOutVar(IOVars,"rcmpedlam" ,pedlam  )
           call AddOutVar(IOVars,"rcmpedpsi" ,pedpsi  )
@@ -2302,6 +2311,7 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
       enddo !i loop
       
     enddo !j loop
+    call circle(deleeta(:,:,kc))
 
     !Have loss on RCM grid, now get claw grid
     call rcm2claw(rate,rateC)
@@ -2659,7 +2669,6 @@ end function Deriv_IJ
 
 SUBROUTINE Kaiju_Plasmasphere_Refill(eeta0,xmin,ymin,aloct,vm,imin_j,idt)
   use rice_housekeeping_module, ONLY : NowKp
-  use constants, ONLY : nt,radius_earth_m
   use earthhelper, ONLY : GallagherXY
   use rcmdefs, ONLY : DenPP0
 
@@ -2673,13 +2682,11 @@ SUBROUTINE Kaiju_Plasmasphere_Refill(eeta0,xmin,ymin,aloct,vm,imin_j,idt)
   integer :: i,j
   REAL (rprec) , parameter :: day2s = 24.0*60.0*60,s2day=1.0/day2s
   REAL (rprec) :: dppT,dpsph,eta2cc,tau,etaT,deta,dndt
-  REAL (rprec) :: dpp0,rad,maxX,dfactor
+  REAL (rprec) :: dpp0,rad,maxX
 
   dpp0 = 10*DenPP0 !Use 10x the plasmasphere cutoff density to decide on refilling
   maxX = 2.0 !Max over-filling relative to target, i.e. don't go above maxX x den-target
 
-  !NOTE: This is hard-wired to Earth
-  dfactor = nt/radius_earth_m
 
   do j=1,jsize
     do i=1,isize
