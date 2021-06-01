@@ -480,6 +480,11 @@
 !           Now for each grid point, consider all species
 !           present at that grid point, and compute sum1 and
 !           sum2 for positive and negative particles separately:
+
+!           For each grid point, clear sum1 and sum2:
+!
+            sum1 (1:iedim_local) = zero
+            sum2 (1:iedim_local) = zero
 !
             GRID_BASED: DO kc = klow, kcsize
               IF (alamc (kc) < zero) THEN
@@ -507,7 +512,6 @@
                   eavg(i,j,ie) = sum1(ie)/sum2(ie)  ! averge energy in eV
                  
                ELSE
-!                                                                       
 !                 we want eflux=0 and eavg=0 for no precipitation.
                   eflux (i, j, ie) = zero
                   eavg  (i, j, ie) = zero
@@ -533,9 +537,6 @@
 ! sbao 05/2021
 ! This subroutine calculates diffuse electron precipitation using deleeta for each energy channel
 ! The equation of the differential flux is adapted M. Gkioulidou et al (doi:10.1029/2012JA018032)
-
-
-
 
 
       END SUBROUTINE diffusePrecipChannel
@@ -1743,6 +1744,7 @@
           call AddOutVar(IOVars,"rcmetac"   ,etac)
           call AddOutVar(IOVars,"rcmeeta"   ,eeta)
           call AddOutVar(IOVars,"rcmeetaavg",eeta_avg)
+          call AddOutVar(IOVars,"rcmdeleeta",deleeta)
 
           call AddOutVar(IOVars,"rcmpedlam" ,pedlam  )
           call AddOutVar(IOVars,"rcmpedpsi" ,pedpsi  )
@@ -2309,6 +2311,7 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
       enddo !i loop
       
     enddo !j loop
+    call circle(deleeta(:,:,kc))
 
     !Have loss on RCM grid, now get claw grid
     call rcm2claw(rate,rateC)
