@@ -2237,7 +2237,10 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
   !$OMP END PARALLEL WORKSHARE
 
   !Calculate plasmasphere density forall i,j once 
+<<<<<<< HEAD
   dfactor = nt/radius_earth_m
+=======
+>>>>>>> 9cba8651bbb7509cd74fcdd9ec78b651910ca2d0
   Dpp = (1.0e-6)*eeta(:,:,1)*dfactor*vm**1.5 !Convert eta to #/cc
 
   call Toc("Move_Plasma_Init")
