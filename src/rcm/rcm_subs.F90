@@ -106,7 +106,7 @@
 !   Plasma on grid:
     REAL (rprec) :: alamc (kcsize), etac (kcsize), fudgec (kcsize), &
                     eeta (isize,jsize,kcsize), eeta_cutoff, cmax, &
-                    eeta_avg (isize,jsize,kcsize), deleeta(isize,jsize,kcsize)
+                    eeta_avg (isize,jsize,kcsize), deleeta(isize,jsize,kcsize), lossratep(isize,jsize,kcsize)
                     
     INTEGER (iprec) :: ikflavc (kcsize), i_advect, i_eta_bc, i_birk
     LOGICAL :: L_dktime
@@ -218,6 +218,7 @@
     CALL Tic("PRECIP")
     CALL kdiffPrecip(dtCpl)
     !CALL diffusePrecip (dtCpl)
+    !Call diffusePrecipMaxwellian ()
     if (doRCMVerbose) then
       write(6,*)'RCM: finish getting diffuse precipitation'
     endif
@@ -1547,6 +1548,7 @@
       i_avg    = 0
 
       deleeta = 0.0
+      lossratep = 0.0
 
 !*******************  main time loop  *************************
 !
@@ -1657,6 +1659,7 @@
           call AddInVar(IOVars,"rcmetac"   )
           call AddInVar(IOVars,"rcmeeta"   )
           call AddInVar(IOVars,"rcmeetaavg")
+          call AddInVar(IOVars,"rcmlosspre")
 
           call AddInVar(IOVars,"rcmpedlam" )
           call AddInVar(IOVars,"rcmpedpsi" )
@@ -1665,10 +1668,6 @@
           call AddInVar(IOVars,"rcmeflux"  )
           call AddInVar(IOVars,"rcmbirk"   )
           call AddInVar(IOVars,"rcmbirkavg")
-
-          call AddInVar(IOVars,"rcmetac")
-          call AddInVar(IOVars,"rcmeeta")
-          call AddInVar(IOVars,"rcmeetaavg")
 
           call AddInVar(IOVars,"rcmv")
           call AddInVar(IOVars,"rcmvavg")
@@ -1735,6 +1734,7 @@
           call IOArray3DFill(IOVars,"rcmeeta",eeta)
           call IOArray3DFill(IOVars,"rcmeetaavg",eeta_avg)
           call IOArray3DFill(IOVars,"rcmeflux",eflux)
+          call IOArray3DFill(IOVars,"rcmlosspre",lossratep)
           
         end subroutine ReadRCMRestart
 
@@ -1792,6 +1792,7 @@
           call AddOutVar(IOVars,"rcmeeta"   ,eeta)
           call AddOutVar(IOVars,"rcmeetaavg",eeta_avg)
           call AddOutVar(IOVars,"rcmdeleeta",deleeta)
+          call AddOutVar(IOVars,"rcmlosspre",lossratep)
 
           call AddOutVar(IOVars,"rcmpedlam" ,pedlam  )
           call AddOutVar(IOVars,"rcmpedpsi" ,pedpsi  )
@@ -2121,10 +2122,11 @@
 !=========================================================================
 !
 SUBROUTINE Move_plasma_grid_MHD (dt)
-  use rice_housekeeping_module, ONLY : LowLatMHD,doNewCX,doFLCLoss,dp_on,doPPRefill,doSmoothDDV,staticR
+  use rice_housekeeping_module, ONLY : LowLatMHD,doNewCX,doFLCLoss,dp_on,doPPRefill,doSmoothDDV,staticR,NowKp
   use math, ONLY : SmoothOpTSC,SmoothOperator33
   use lossutils, ONLY : CXKaiju,FLCRat
   use earthhelper, ONLY : DipFTV_colat,DerivDipFTV
+  use constants, ONLY : nt,radius_earth_m
   IMPLICIT NONE
   REAL (rprec), INTENT (IN) :: dt
 
@@ -2141,7 +2143,7 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
   REAL (rprec) :: mass_factor,r_dist,lossCX,lossFLC,lossFDG,preciprate
   REAL (rprec), save :: xlower,xupper,ylower,yupper, T1,T2 !Does this need save?
   INTEGER (iprec) :: i, j, kc, ie, iL,jL,iR,jR,iMHD
-  INTEGER (iprec) :: CLAWiter, joff
+  INTEGER (iprec) :: CLAWiter, joff, dfactor
   
   REAL (rprec) :: T1k,T2k !Local loop variables b/c clawpack alters input
   LOGICAL, save :: FirstTime=.true.
@@ -2235,7 +2237,8 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
   !$OMP END PARALLEL WORKSHARE
 
   !Calculate plasmasphere density forall i,j once 
-  Dpp = (1.0e-6)*eeta(:,:,1)*dfactor*vm(i,j)**1.5 !Convert eta to #/cc
+  dfactor = nt/radius_earth_m
+  Dpp = (1.0e-6)*eeta(:,:,1)*dfactor*vm**1.5 !Convert eta to #/cc
 
   call Toc("Move_Plasma_Init")
 
@@ -2251,7 +2254,7 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
   !$OMP PRIVATE(mass_factor,r_dist,CLAWiter,T1k,T2k) &
   !$OMP PRIVATE(lossCX,lossFLC,lossFDG,preciprate) &
   !$OMP SHARED(isOpen,iOCB_j,alamc,eeta,vm,imin_j,j1,j2,joff,Dpp) &
-  !$OMP SHARED(doFLCLoss,doNewCX,dp_on,doPPRefill,deleeta) &
+  !$OMP SHARED(doFLCLoss,doNewCX,dp_on,doPPRefill,deleeta,NowKp,lossratep) &
   !$OMP SHARED(dvvdi,dvvdj,dvmdi,dvmdj,dvvdi_avg,dvvdj_avg,dtAvg_v) &
   !$OMP SHARED(xmin,ymin,fac,fudgec,bir,sini,L_dktime,dktime,sunspot_number) &
   !$OMP SHARED(aloct,xlower,xupper,ylower,yupper,dt,T1,T2,iMHD,bmin,radcurv,losscone) 
@@ -2336,7 +2339,8 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
         !Do electron losses
             !NOTE: Add Dpp(i,j) to argument list to pass psph density (#/cc)
             !NOTE: Also pass KpNow value if you need Kp dep. stuff
-            lossFDG = Ratefn(fudgec(kc),alamc(kc),sini(i,j),bir(i,j),vm(i,j),mass_factor)
+!            lossFDG = Ratefn(fudgec(kc),alamc(kc),sini(i,j),bir(i,j),vm(i,j),mass_factor)
+            lossFDG = RatefnC(xmin(i,j),ymin(i,j),alamc(kc),vm(i,j),bmin(i,j),losscone(i,j),Dpp(i,j),dble(NowKp))
         endif
 
         if ( (ie == RCMPROTON) .and. (.not. isOpen(i,j)) ) then
@@ -2354,11 +2358,15 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
         rate(i,j) = max(lossCX + lossFLC + lossFDG,0.0)
         preciprate = lossFLC + lossFDG !Losses for precipitation
         deleeta(i,j,kc) = deleeta(i,j,kc) + eeta(i,j,kc)*(1.0 - exp(-preciprate*dt))
+        lossratep(i,j,kc) = lossFDG
 
       enddo !i loop
       
     enddo !j loop
     call circle(deleeta(:,:,kc))
+    if(ie == RCMELECTRON) then
+      print *,"kc=",kc," lossratep min=",minval(lossratep(:,:,kc))," max=",maxval(lossratep(:,:,kc))
+    endif
 
     !Have loss on RCM grid, now get claw grid
     call rcm2claw(rate,rateC)
@@ -2815,6 +2823,55 @@ FUNCTION Ratefn (fudgx, alamx, sinix, birx, vmx, xmfact)
   RETURN
 END FUNCTION Ratefn
 
+FUNCTION RatefnC (xx,yy,alamx,vmx,beqx,losscx,nex,kpx)
+! Function to calculate diffuse electron precipitation loss rate using eq(10) of MW Chen et al. 2019.
+! loss rate = 1/tau. Need to find tau.
+! tau = (1+lambda_w*tau_s)/lambda_w for ne<10/cc, 0<=MLT<=15 and 21<=MLT<=24, (outside PP).
+! tau = (1+lambda_h*tau_s)/lambda_h for ne>100/cc, 3<=R0<=6 and all MLTs, (inside PP).
+! tau = (log(100)-1og(ne))/(log(100)-log(10))*(1+tau_w*tau_s)/lambda_w + (log(ne)-log(10))/(log(100)-log(10))*(1+lambda_h*tau_s)/lambda_h, for 10/cc<ne<100/cc, 3<=R0<=6, -3<=MLT<=15.
+! tau = 1/(1+a1*sin(phi+phi0)+a2*cos(2*(phi+phi0)))/lambda0, for all other non-specified MLTs and Rs.
+! Simplify:
+!    tau_w = 1/lambda_w + tau_s
+!    tau_h = 1/lambda_h + tau_s
+!    tau = log(nh/ne)/log(nh/nl)*tau_w + log(ne/nl)/log(nh/nl)*tau_h, where nh=100; nl=10; 
+! where tau_s = 2*vm*Bh/fudge*gamma*m/p, here vm is FTV, Bh is |B| at field line foot points, 
+! fudge=1-2/3 and 2/3 is backscatter coef at altitude h. gamma=m/m0 is the relativisitic factor.
+! lambda_w is the empirical scattering rate from whistler mode chorus waves outside the plasmasphere [Orlova and Shprits, 2014].
+
+  use lossutils, ONLY : RatefnC_tau_s,RatefnC_lambda,RatefnC_lambda_w,RatefnC_lambda_h
+  IMPLICIT NONE
+  REAL (rprec), INTENT (IN) :: xx,yy,alamx,vmx,beqx,losscx,nex,kpx
+  REAL (rprec) :: RatefnC
+  REAL (rprec) :: nhigh, nlow, L, MLT, K, tau, tau_s, tau_w, tau_h
+
+  nhigh = 100.D0 ! [/cc] ne>nhigh indicates inside plasmasphere.
+  nlow  = 10.D0  ! [/cc] ne<nlow indicates outside plasmasphere.
+  L = sqrt(xx**2+yy**2)
+  MLT = atan2(yy,xx)/pi*12.D0+12.D0
+  K = abs(alamx*vmx*1.0e-6) !Energy [MeV]
+  ! lifetime under strong diffusion assumption [Schulz, 1974b, 1998].
+  tau_s = RatefnC_tau_s(alamx,vmx,beqx,losscx)
+
+  ! Leave only density criteria for inside/outside plasmasphere.
+  if(nex<nlow) then 
+    tau = tau_s + 1.D0/(RatefnC_lambda_w(MLT,K,L,kpx)+1.D-20) ! mltx,engx,kpx,Lshx
+  elseif(nex>nhigh) then
+    tau = tau_s + 1.D0/(RatefnC_lambda_h(MLT,K,L,kpx)+1.D-20) ! mltx,engx,kpx,Lshx
+  else
+    tau_w = tau_s + 1.D0/(RatefnC_lambda_w(MLT,K,L,kpx)+1.D-20)
+    tau_h = tau_s + 1.D0/(RatefnC_lambda_h(MLT,K,L,kpx)+1.D-20)
+    tau = (dlog(nhigh/nex)*tau_w+dlog(nex/nlow)*tau_h)/dlog(nhigh/nlow)
+  endif
+
+  ! default MLT dependent scattering rate based on Chen+2005 for non-specified MLTs etc.
+  ! Note there are special situations dealt with by lambda_w and lambda_h which returns zero lambda.
+  if(tau>1.D10) then 
+    tau = tau_s + 1.D0/(RatefnC_lambda(MLT,K,L)+1.D-20) ! mltx,engx,Lshx
+  endif
+  RatefnC = 1.D0/tau
+!  write(*,"(4(a,1x,e25.10))") "tau_s=",tau_s," tau=",tau," lambda=",RatefnC_lambda(MLT,K,L)," RatefnC=",RatefnC
+  RETURN
+END FUNCTION RatefnC
 
 ! !=========================================================================
 ! !
