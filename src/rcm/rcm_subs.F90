@@ -216,7 +216,8 @@
     CALL Toc("GET_JBIRK")
 
     CALL Tic("PRECIP")
-    CALL diffusePrecip (dtCpl)
+    CALL kdiffPrecip(dtCpl)
+    !CALL diffusePrecip (dtCpl)
     if (doRCMVerbose) then
       write(6,*)'RCM: finish getting diffuse precipitation'
     endif
@@ -508,7 +509,7 @@
 !                potential drop, electron energy flux,
 !                and average electron energy at (i,j):          
 !
-                  eflux(i,j,ie) = ev2erg*pi*sum1(ie) ! energy flux in erg/(cm^2 s), pi??
+                  eflux(i,j,ie) = ev2erg*pi*sum1(ie) ! energy flux in erg/(cm^2 s), pi comes from the vel. space integral 
                   eavg(i,j,ie) = sum1(ie)/sum2(ie)  ! averge energy in eV
                  
                ELSE
@@ -529,7 +530,53 @@
       CALL Circle (eavg  (:, :, ie_hd))
 
       END SUBROUTINE diffusePrecip
-      
+
+      ! K: A brute force diffuse precipitation.
+      ! Particles lost through scattering should precipitate
+      subroutine kdiffPrecip(dtCpl)
+        IMPLICIT NONE
+        REAL (rprec), INTENT(IN)  :: dtCpl
+        LOGICAL, dimension(1:isize,1:jsize) :: isOpen
+        real(rprec), dimension(RCMNUMFLAV) :: nflx,eflx
+        integer(iprec) :: klow,i,j,k,ie
+        real(rprec) :: eta2cc,ftv,dn
+        !Try to do calculation everywhere possible including MHD buffer region
+        isOpen = (vm < 0)
+        !Set lowest RC channel
+        if (use_plasmasphere) then
+            klow = 2
+        else
+            klow = 1
+        endif
+        eavg  (:,:,:) = 0.0
+        eflux (:,:,:) = 0.0
+        do j=1,jsize
+            do i=1,isize
+                if (isOpen(i,j)) CYCLE
+                nflx = 0.0
+                eflx = 0.0
+                eta2cc = (1.0e-6)*dfactor*vm(i,j)**1.5
+                ftv = (1.0/vm(i,j))**(3.0/2.0) !flux-tube volume Re/nT
+                do k=klow,kcsize
+                    IF (alamc (k) < -TINY) THEN
+                        ie = RCMELECTRON
+                    else if (alamc (k) > +TINY) then
+                        ie = RCMPROTON
+                    else
+                        cycle
+                    endif
+                    !Now accumulate, for single hemisphere
+                    dn = 0.5*sini(i,j)*deleeta(i,j,k)*eta2cc*abs(bir(i,j))*(ftv*radius_earth_m*1.0e+2)/dtCpl ! #/cm2/s
+                    nflx(ie) = nflx(ie) + dn !Num flux, #/cm2/s
+                    eflx(ie) = eflx(ie) + dn*ABS(alamc(k))*vm(i,j) !Energy flux, eV/cm2/s
+                enddo
+                eflux(i,j,:) = eflx*ev2erg
+                eavg (i,j,:) = eflx/nflx 
+            enddo
+        enddo
+      end subroutine kdiffPrecip
+
+ 
       SUBROUTINE diffusePrecipChannel ()
       IMPLICIT NONE
 
