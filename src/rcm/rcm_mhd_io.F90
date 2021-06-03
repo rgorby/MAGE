@@ -4,7 +4,8 @@ module rcm_mhd_io
     use xml_input
     use rcm_mod_subs, ONLY : colat, aloct
     use rice_housekeeping_module, ONLY : nSkipFL,doFLOut
-
+    use rcmdefs
+    
     implicit none
 
     integer, parameter   , private :: MAXRCMIOVAR = 40
@@ -140,10 +141,11 @@ module rcm_mhd_io
         call AddOutVar(IOVars,"radcurv"  ,RCMApp%radcurv,uStr="Re")
         call AddOutVar(IOVars,"wIMAG"  ,RCMApp%wIMAG,uStr="weight")
 
-        call AddOutVar(IOVars,"eeavg",RCMApp%eng_avg(:,:,1)*1.0e-3,uStr="keV") !ev->keV electrons
-        call AddOutVar(IOVars,"eeflux",RCMApp%flux(:,:,1),uStr="ergs/cm2")
-        call AddOutVar(IOVars,"ieavg",RCMApp%eng_avg(:,:,2)*1.0e-3,uStr="keV") !ev->keV ions
-        call AddOutVar(IOVars,"ieflux",RCMApp%flux(:,:,2),uStr="ergs/cm2")
+        call AddOutVar(IOVars,"eeavg" ,RCMApp%eng_avg(:,:,RCMELECTRON)*1.0e-3,uStr="keV") !ev->keV electrons
+        call AddOutVar(IOVars,"eeflux",RCMApp%flux   (:,:,RCMELECTRON),uStr="ergs/cm2")
+        call AddOutVar(IOVars,"ieavg" ,RCMApp%eng_avg(:,:,RCMPROTON)*1.0e-3,uStr="keV") !ev->keV ions
+        call AddOutVar(IOVars,"ieflux",RCMApp%flux   (:,:,RCMPROTON),uStr="ergs/cm2")
+
         call AddOutVar(IOVars,"birk",RCMApp%fac,uStr="uA/m2")
 
         call AddOutVar(IOVars,"toMHD",merge(1.0_rp,0.0_rp,RCMApp%toMHD))
