@@ -77,7 +77,7 @@ if __name__ == '__main__':
 	mjdFileStart = gamMJD[loc]
 	secFileStart = gamT[loc]
 	numPer = 10
-	numSegments=int(np.floor(len(gamT)/numPer))
+	numSegments=int(np.floor(((t1-t0).total_seconds()/deltaT)/numPer))
 
 	if None == scRequested:
 		scToDo = scIds

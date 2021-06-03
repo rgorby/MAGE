@@ -546,7 +546,6 @@ setenv JNUM ${PBS_ARRAY_INDEX}
 date
 echo 'Running analysis'
 %s %s $JNUM
-sleep 60
 date
 """
 	xmlFileName = os.path.join(fdir,scId+'.xml')
