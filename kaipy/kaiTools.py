@@ -543,10 +543,12 @@ def createMergeFile(fIn,fOut):
 	return oH5
 
 def addFileToMerge(mergeH5,nextH5):
+	nS = nextH5.attrs['nS']
+	nE = nextH5.attrs['nE']
 	for varname in mergeH5.keys():
 		dset = mergeH5[varname]
 		dset.resize(dset.shape[0]+nextH5[varname].shape[0],axis=0)
-		dset[-nextH5[varname].shape[0]:]=nextH5[varname][:]
+		dset[nS-1:nE]=nextH5[varname][:]
 	return
 
 def mergeFiles(scId,fdir,numSegments):
@@ -554,7 +556,7 @@ def mergeFiles(scId,fdir,numSegments):
 	inH5Name = os.path.join(fdir,scId+'.%04d'%seg+'.sc.h5')
 	mergeH5Name = os.path.join(fdir,scId+'.sc.h5')
 	mergeH5 = createMergeFile(inH5Name,mergeH5Name)
-	print(inH5Name,mergeH5Name)
+	#print(inH5Name,mergeH5Name)
 	for seg in range(2,numSegments+1):
 		nextH5Name = os.path.join(fdir,scId+'.%04d'%seg+'.sc.h5')
 		nextH5 = h5py.File(nextH5Name,'r')
