@@ -234,8 +234,8 @@ module voltio
         logical :: fExist
         integer :: nRes
 
-        call xmlInp%Set_Val(resID,"/gamera/restart/resID","msphere")
-        call xmlInp%Set_Val(nRes,"/gamera/restart/nRes" ,-1)
+        call xmlInp%Set_Val(resID,"/Kaiju/gamera/restart/resID","msphere")
+        call xmlInp%Set_Val(nRes,"/Kaiju/gamera/restart/nRes" ,-1)
         !Get number string
         if (nRes == -1) then
             nStr = "XXXXX"

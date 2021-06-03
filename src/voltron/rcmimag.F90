@@ -86,20 +86,20 @@ module rcmimag
 
         planetM0g = M0g
         
-        call iXML%Set_Val(RunID,"/gamera/sim/runid","sim")
+        call iXML%Set_Val(RunID,"/Kaiju/gamera/sim/runid","sim")
         RCMApp%rcm_runid = trim(RunID)
 
-        call iXML%Set_Val(doWolfLim ,"/gamera/source/doWolfLim" ,doWolfLim )
+        call iXML%Set_Val(doWolfLim ,"/Kaiju/gamera/source/doWolfLim" ,doWolfLim )
         if (doWolfLim) then
-            call iXML%Set_Val(doWolfNLim ,"/gamera/source/doWolfNLim" ,doWolfNLim )
+            call iXML%Set_Val(doWolfNLim ,"/Kaiju/gamera/source/doWolfNLim" ,doWolfNLim )
         else
             doWolfNLim = .false.
         endif
 
-        call iXML%Set_Val(doBounceDT,"/gamera/source/doBounceDT",doBounceDT)
-        call iXML%Set_Val(doHotBounce,"/gamera/source/doHotBounce",doHotBounce)
-        call iXML%Set_Val(nBounce   ,"/gamera/source/nBounce"   ,nBounce   )
-        call iXML%Set_Val(maxBetaLim,"/gamera/source/betamax"   ,maxBetaLim)
+        call iXML%Set_Val(doBounceDT,"/Kaiju/gamera/source/doBounceDT",doBounceDT)
+        call iXML%Set_Val(doHotBounce,"/Kaiju/gamera/source/doHotBounce",doHotBounce)
+        call iXML%Set_Val(nBounce   ,"/Kaiju/gamera/source/nBounce"   ,nBounce   )
+        call iXML%Set_Val(maxBetaLim,"/Kaiju/gamera/source/betamax"   ,maxBetaLim)
         call iXML%Set_Val(doBigIMag2Ion ,"imag2ion/doBigIMag2Ion",doBigIMag2Ion)
 
         if (isRestart) then

@@ -373,7 +373,7 @@ module uservoltic
             Model%HackE => eHack
             Model%HackFlux => IonFlux
             !Set value of coupling timescale
-            call xmlInp%Set_Val(dtXML,"/voltron/coupling/dt",5.0)
+            call xmlInp%Set_Val(dtXML,"/Kaiju/voltron/coupling/dt",5.0)
             bc%dtCpl = dtXML/Model%Units%gT0
             !Get knobs for pushing
             call xmlInp%Set_Val(bc%doIonPush,"ibc/doIonPush",.true.)

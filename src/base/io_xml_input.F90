@@ -820,6 +820,14 @@ contains
             return
          endif
          xmld%root = this%root ! otherwise, set the root using default
+         ! deal with the edge case that the root has more than entry in it
+         pos = scan(trim(this%root), '/')
+         if(pos .gt. 0) then
+             ! the root contains a '/'
+             xmld%root = this%root(1:pos-1);
+             ! combine the rest of the root into the buffer that goes into the key
+             buf = trim(this%root(pos+1:)) // '/' // trim(buf(:))
+         endif
       else
          ! If however, it 'is' in the first position, parse
          ! the string and set root

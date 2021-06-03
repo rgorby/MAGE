@@ -74,7 +74,7 @@ module mixmain
 
       ! initialize the mix dump file
       if (present(isRestart) .and. doRestart) then
-        !call xmlInp%Set_Val(mixnRes ,"/gamera/restart/nRes" ,-1)
+        !call xmlInp%Set_Val(mixnRes ,"/Kaiju/gamera/restart/nRes" ,-1)
         mixnRes = I(1)%P%nRes
         write(*,*) "InitMIXIO with restart"
         if(doIO) then

@@ -1,12 +1,14 @@
 <?xml version="1.0"?>
 <!-- GEM reconnection 2D -->
-<Gamera>
-    <sim runid="gem" doH5init="F" icType="GEM" cfl="0.3" pdmb="1.0" rmeth="8Cent"/>
-    <idir min="0.0" max="25.6" N="256"/>
-    <jdir min="-6.4" max="6.4" N="128"/>
-    <kdir min="-0.5" max="0.5" N="1"/>
-    <time tFin="100"/>
-    <output dtOut="0.2" tsOut="100"/>
-    <physics doMHD="T"/>
-    <prob doHarris="F"/>
-</Gamera>
+<Kaiju>
+  <Gamera>
+      <sim runid="gem" doH5init="F" icType="GEM" cfl="0.3" pdmb="1.0" rmeth="8Cent"/>
+      <idir min="0.0" max="25.6" N="256"/>
+      <jdir min="-6.4" max="6.4" N="128"/>
+      <kdir min="-0.5" max="0.5" N="1"/>
+      <time tFin="100"/>
+      <output dtOut="0.2" tsOut="100"/>
+      <physics doMHD="T"/>
+      <prob doHarris="F"/>
+  </Gamera>
+</Kaiju>

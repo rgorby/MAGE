@@ -62,7 +62,7 @@ module gamapp_mpi
 
         !Create XML reader
         write(*,*) 'Reading input deck from ', trim(inpXML)
-        xmlInp = New_XML_Input(trim(inpXML),'Gamera',.true.)
+        xmlInp = New_XML_Input(trim(inpXML),'Kaiju/Gamera',.true.)
 
         ! read debug flags
         call xmlInp%Set_Val(writeGhosts,"debug/writeGhosts",.false.)

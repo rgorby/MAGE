@@ -78,7 +78,7 @@ module gam2VoltComm_mpi
         endif
         call CheckFileOrDie(inpXML,"Error opening input deck, exiting ...")
         write(*,*) 'Reading input deck from ', trim(inpXML)
-        xmlInp = New_XML_Input(trim(inpXML),'Voltron',.true.)
+        xmlInp = New_XML_Input(trim(inpXML),'Kaiju/Voltron',.true.)
         call xmlInp%Set_Val(g2vComm%doSerialVoltron,"coupling/doSerial",.false.)
         call xmlInp%Set_Val(g2vComm%doAsyncShallow,"coupling/doAsyncShallow",.true.)
         if(g2vComm%doSerialVoltron) then

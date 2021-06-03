@@ -50,7 +50,7 @@ program MIX
     endif
 
     !Partial inclusion of new XML reader
-    xmlInp = New_XML_Input(trim(inpXML),'Gamera',.true.)
+    xmlInp = New_XML_Input(trim(inpXML),'Kaiju/Gamera',.true.)
     !--------------------------------------------
 
     inH5 = "/glade/scratch/skareem/octruntemp/msphere_0013_0001_0001_0000_0000_0000_000000000000.Res.00136.h5"
