@@ -99,6 +99,7 @@ if __name__ == '__main__':
 			kaiTools.extractGAMERA(data,scIds[scId],scId,
 				mjdFileStart,secFileStart,fdir,
 				ftag,cmd,numSegments,keep)
+			kaiTools.matchUnits(data)
 			cdfname = os.path.join(fdir, scId + '.comp.cdf')
 			if os.path.exists(cdfname):
 				print('Deleting %s' % cdfname)

@@ -455,6 +455,43 @@ def addGAMERA(data,scDic,h5name):
 		'AXISLABEL':'T'})
 	return
 
+def matchUnits(data):
+    vars = ['Density','Pressure','Temperature','Velocity','MagneticField']
+    for var in vars:
+        try:
+            data[var]
+        except:
+            print(var,'not in data')
+        else:
+            if (data[var].attrs['UNITS'] == data['GAMERA_'+var].attrs['UNITS'].decode()):
+                print(var,'units match')
+            else:
+                if 'Density' == var:
+                    if (data[var].attrs['UNITS'] == 'cm^-3' or data[var].attrs['UNITS'] == '/cc'):
+                        data[var].attrs['UNITS'] = data['GAMERA_'+var].attrs['UNITS']
+                        print(var,'units match')
+                    else:
+                        print('WARNING ',var,'units do not match')
+                if 'Velocity' == var:
+                    if (data[var].attrs['UNITS'] == 'km/sec'):
+                        data[var].attrs['UNITS'] = data['GAMERA_'+var].attrs['UNITS']
+                        print(var,'units match')
+                    else:
+                        print('WARNING ',var,'units do not match')
+                if 'MagneticField' == var:
+                    if (data[var].attrs['UNITS'] == '0.1nT'):
+                        print('Magnetic Field converted from 0.1nT to nT')
+                        data[var]=data[var]/10.0
+                        data[var].attrs['UNITS'] = 'nT'
+                    else:
+                        print('WARNING ',var,'units do not match')
+                if 'Pressure' == var:
+                    print('WARNING ',var,'units do not match')
+                if 'Temperature' == var:
+                    print('WARNING ',var,'units do not match')
+                    
+    return
+    
 def extractGAMERA(data,scDic,scId,mjd0,sec0,fdir,ftag,cmd,numSegments,keep):
 
 	(scTrackName,xmlFileName) = createInputFiles(data,scDic,scId,

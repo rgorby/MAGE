@@ -115,6 +115,7 @@ if __name__ == '__main__':
 				time.sleep(10)
 			h5name = kaiTools.mergeFiles(scId,fdir,numSegments)
 			kaiTools.addGAMERA(data,scIds[scId],h5name)
+			kaiTools.matchUnits(data)
 			cdfname = os.path.join(fdir, scId + '.comp.cdf')
 			if os.path.exists(cdfname):
 				print('Deleting %s' % cdfname)
