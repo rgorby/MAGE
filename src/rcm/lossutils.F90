@@ -4,7 +4,7 @@ MODULE lossutils
     USE kdefs, ONLY : TINY,PI,Mp_cgs,kev2J
     USE rcm_precision
     USE rcmdefs
-    use math, ONLY : SmoothOpTSC,SmoothOperator33,ClampValue
+    use math, ONLY : SmoothOpTSC,SmoothOperator33,ClampValue,RampUp
 
     implicit none
 
@@ -107,8 +107,7 @@ MODULE lossutils
         integer(iprec), intent(in) :: ie
         real(rprec), intent(in) :: alam,vm,beq,rcurv,lossc
         real(rprec) :: lossFLC
-
-        real(rprec) :: Np,bfp,ftv,K,V,TauSS,Rgyro,eps,xSS,TauFLC,earg
+        real(rprec) :: Np,bfp,ftv,K,V,TauSS,Rgyro,eps,xSS,xC
 
         bfp = beq/(sin(lossc)**2.0) !Foot point field strength, nT
         ftv = (1.0/vm)**(3.0/2.0) !flux-tube volume Re/nT
@@ -130,15 +129,17 @@ MODULE lossutils
 
         Rgyro = (4.6e+3)*sqrt(K)/beq !Gyroradius of proton [km], assuming K in keV and beq in nT
         Rgyro = Rgyro/(radius_earth_m*1.0e-3) !In terms of Re
+        eps = Rgyro/rcurv
 
         !Gilson criteria, use Chen Tau_SS
-        if (rcurv <= 64.0*Rgyro) then
-            TauFLC = TauSS
-            lossFLC = 1.0/TauFLC !Rate, 1/s
+        !Ramp up to LossSS between kappa <= sqrt(8) and 1
+        xC = 1.0/8.0
+        if (eps >= xC) then
+            xSS = RampUp(eps,xC,1.0-xC)
+            lossFLC = xSS*(1.0/TauSS) !Rate, 1/s
         else
             lossFLC = 0.0 !None
         endif
-        
         ! eps = Rgyro/rcurv
 
         ! !Chen+ 2019
