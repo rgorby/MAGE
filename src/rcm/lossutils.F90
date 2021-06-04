@@ -108,38 +108,48 @@ MODULE lossutils
         real(rprec), intent(in) :: alam,vm,beq,rcurv,lossc
         real(rprec) :: lossFLC
 
-        real(rprec) :: bfp,ftv,K,V,TauSS,Rgyro,eps,xSS,TauFLC,earg
+        real(rprec) :: Np,bfp,ftv,K,V,TauSS,Rgyro,eps,xSS,TauFLC,earg
 
         bfp = beq/(sin(lossc)**2.0) !Foot point field strength, nT
         ftv = (1.0/vm)**(3.0/2.0) !flux-tube volume Re/nT
         K = alam*vm*1.0e-3 !Energy [keV]
 
         if (ie == RCMPROTON) then
-            V = (3.1e+2)*sqrt(K) !km/s
+            Np = 1 !Number of nucleons
         else
             lossFLC = 0.0
             return
         endif
 
-        !Convert V from km/s to Re/s
-        V = V/(radius_earth_m*1.0e-3)
+        V = sqrt(2*K/Np)*sqrt(kev2J/(Mp_cgs*1.0e-3)) !V in m/s
+
+        !Convert V from m/s to Re/s
+        V = V/radius_earth_m
 
         TauSS = 3*2*ftv*bfp/V !Strong scattering lifetime [s], assuming ion w/ gamma=1
 
         Rgyro = (4.6e+3)*sqrt(K)/beq !Gyroradius of proton [km], assuming K in keV and beq in nT
         Rgyro = Rgyro/(radius_earth_m*1.0e-3) !In terms of Re
 
-        eps = Rgyro/rcurv
+        !Gilson criteria, use Chen Tau_SS
+        if (rcurv <= 64.0*Rgyro) then
+            TauFLC = TauSS
+            lossFLC = 1.0/TauFLC !Rate, 1/s
+        else
+            lossFLC = 0.0 !None
+        endif
+        
+        ! eps = Rgyro/rcurv
 
-        !Chen+ 2019
+        ! !Chen+ 2019
 
-        !K: Mockup between Chen/Gibson, transition between eps^-5 dep. and strong scattering at kappa = sqrt(8)
-        !xSS = max( (8.0*eps)**(-5.0), 1.0 )
-        earg = eps**(-5.0)
-        xSS = max(100.0*earg,1.0)
+        ! !K: Mockup between Chen/Gilson, transition between eps^-5 dep. and strong scattering at kappa = sqrt(8)
+        ! !xSS = max( (8.0*eps)**(-5.0), 1.0 )
+        ! earg = eps**(-5.0)
+        ! xSS = max(100.0*earg,1.0)
 
-        TauFLC = xSS*TauSS
-        lossFLC = 1.0/TauFLC !Rate, 1/s
+        ! TauFLC = xSS*TauSS
+        ! lossFLC = 1.0/TauFLC !Rate, 1/s
 
     END FUNCTION FLCRat
 
