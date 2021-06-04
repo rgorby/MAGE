@@ -543,9 +543,17 @@ contains
       character(len=strLen) :: bStr,srcStr
       character(len=*), parameter :: formt  = '(2X, a25, a1, 2X, a12, a10)'
       character(len=*), parameter :: formtC = '(2X, a25, a1, 2X, a12, a,a10,a)'
+      integer :: pos
 
       if ( (.not. doVerb) .or. (doQuiet) ) return
-      bStr = trim(toUpper(rStr)) // '/' // trim(xStr)
+      pos = scan(trim(xStr), '/')
+      if (pos /= 1) then
+          ! key is relative to root
+          bStr = trim(toUpper(rStr)) // '/' // trim(xStr)
+      else
+          ! key is absolute
+          bStr = trim(xStr)
+      endif
       
       if (isXML) then
          srcStr = "(XML)"
@@ -710,6 +718,8 @@ contains
 
          if(pos > 0) then
            pth = trim(pth(1:pos-1))
+         else
+           pth = "" ! no longer in anything but root
          endif
 
        ! Finally, if '=' is found; it's a section containing key/value pairs.
@@ -844,7 +854,6 @@ contains
       ! Now, search through the internal xml_data type
       ! to extract the value. If the value is not found,
       ! return an empty string
-
       do i = 1, size(this%xmld), 1
          if (Is_Matched(this%xmld(i), xmld)) then
             sout = this%xmld(i)%val
