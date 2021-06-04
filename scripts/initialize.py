@@ -3,8 +3,14 @@ import os
 from string import ascii_letters
 
 def convertUnits(myLine):
+	# Check if delete
+	if ("DEL!" in myLine):
+		# Get the setting
+		settingString = myLine.split("=")[0]
+		return (settingString + "= DEL!")
+
 	# Check if just a comment
-	if ("[" not in myLine):
+	elif ("[" not in myLine):
 		return myLine.split("#")[0]
 
 	# Get units
@@ -23,7 +29,10 @@ def convertUnits(myLine):
 		multiplier = 3600
 
 	else:
-		print("ERROR: Incorrect unit type for conversion")
+		# Find what is in unit string an tell the user it is incorrect
+		incorrectUnit = unitString.split("[")[1]
+		incorrectUnit = incorrectUnit.split("]")[0]
+		print("ERROR: Incorrect unit type for conversion: " + incorrectUnit)
 		exit()
 
 	# Get the setting
@@ -114,5 +123,5 @@ for line in contentSplit:
 		# Add line to temporary
 		temporary = temporary + line + "\n"
 	
-print(contentSplit)
+# print(contentSplit)
 
