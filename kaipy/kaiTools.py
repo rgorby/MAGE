@@ -220,19 +220,76 @@ def getScIds():
 						'magData': 'B_vec_xyz_gse__C4_CP_FGM_SPIN',
 						'magCoordSys': 'GSE'
 						}
-#	scDic['THEMISA'] = {'ephemId':'THA_L1_STATE',
-#						'ephemData':'tha_pos_gsmV',
-#						'ephemCoordSys':'GSM',
-#						'denId':'THA_L2_MOM',
-#						'denData':'tha_peim_density',
-#						'presId': 'THA_L2_MOM',
-#						'presData': 'tha_peim_ptot',
-#						'velId': 'THA_L2_MOM',
-#						'velData':'tha_peim_velocity_gsm',
-#						'velCoordSys':'GSM',
-#						'magId': 'THA_L2_MOM',
-#						'magCoordSys': 'GSM'
-#						}
+	scDic['THEMISA'] = {'ephemId':'THA_OR_SSC',
+						'ephemData':'XYZ_GSM',
+						'ephemCoordSys':'GSM',
+						'denId':'THA_L2_MOM',
+						'denData':'tha_peim_density',
+						'presId': 'THA_L2_MOM',
+						'presData': 'tha_peim_ptot',
+						'velId': 'THA_L2_MOM',
+						'velData':'tha_peim_velocity_gsm',
+						'velCoordSys':'GSM',
+						'magId': 'THA_L2_FGM',
+						'magData': 'tha_fgs_gsm',
+						'magCoordSys': 'GSM'
+						}
+	scDic['THEMISB'] = {'ephemId':'THB_OR_SSC',
+						'ephemData':'XYZ_GSM',
+						'ephemCoordSys':'GSM',
+						'denId':'THB_L2_MOM',
+						'denData':'thb_peim_density',
+						'presId': 'THB_L2_MOM',
+						'presData': 'thb_peim_ptot',
+						'velId': 'THB_L2_MOM',
+						'velData':'thb_peim_velocity_gsm',
+						'velCoordSys':'GSM',
+						'magId': 'THB_L2_FGM',
+						'magData': 'thb_fgs_gsm',
+						'magCoordSys': 'GSM'
+						}
+	scDic['THEMISC'] = {'ephemId':'THC_OR_SSC',
+						'ephemData':'XYZ_GSM',
+						'ephemCoordSys':'GSM',
+						'denId':'THC_L2_MOM',
+						'denData':'thc_peim_density',
+						'presId': 'THC_L2_MOM',
+						'presData': 'thc_peim_ptot',
+						'velId': 'THC_L2_MOM',
+						'velData':'thc_peim_velocity_gsm',
+						'velCoordSys':'GSM',
+						'magId': 'THC_L2_FGM',
+						'magData': 'thc_fgs_gsm',
+						'magCoordSys': 'GSM'
+						}
+	scDic['THEMISD'] = {'ephemId':'THD_OR_SSC',
+						'ephemData':'XYZ_GSM',
+						'ephemCoordSys':'GSM',
+						'denId':'THD_L2_MOM',
+						'denData':'thd_peim_density',
+						'presId': 'THD_L2_MOM',
+						'presData': 'thd_peim_ptot',
+						'velId': 'THD_L2_MOM',
+						'velData':'thd_peim_velocity_gsm',
+						'velCoordSys':'GSM',
+						'magId': 'THD_L2_FGM',
+						'magData': 'thd_fgs_gsm',
+						'magCoordSys': 'GSM'
+						}
+	scDic['THEMISE'] = {'ephemId':'THE_OR_SSC',
+						'ephemData':'XYZ_GSM',
+						'ephemCoordSys':'GSM',
+						'denId':'THE_L2_MOM',
+						'denData':'the_peim_density',
+						'presId': 'THE_L2_MOM',
+						'presData': 'the_peim_ptot',
+						'velId': 'THE_L2_MOM',
+						'velData':'the_peim_velocity_gsm',
+						'velCoordSys':'GSM',
+						'magId': 'THE_L2_FGM',
+						'magData': 'the_fgs_gsm',
+						'magCoordSys': 'GSM'
+						}
 	scDic['MMS1'] = {'ephemId':'MMS1_FGM_SRVY_L2',
 						'ephemData':'mms1_fgm_r_gsm_srvy_l2',
 						'ephemCoordSys':'GSM',
@@ -247,6 +304,7 @@ def getScIds():
 						'magData': 'mms1_fgm_b_gsm_srvy_l2',
 						'magCoordSys': 'GSM'
 						}
+
 	scDic['MMS2'] = {'ephemId':'MMS2_FGM_SRVY_L2',
 						'ephemData':'mms2_fgm_r_gsm_srvy_l2',
 						'ephemCoordSys':'GSM',
