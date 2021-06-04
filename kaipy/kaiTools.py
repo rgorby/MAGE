@@ -413,10 +413,11 @@ def createInputFiles(data,scDic,scId,mjd0,sec0,fdir,ftag,numSegments):
 def addGAMERA(data,scDic,h5name):
 	h5file = h5py.File(h5name, 'r')
 	ut = MJD2UT(h5file['MJDs'][:])
-
+	
 	bx = h5file['Bx']
 	by = h5file['By']
 	bz = h5file['Bz']
+
 	if scDic['magCoordSys'] is None:
 		toCoordSys = 'GSM'
 	else:
@@ -453,6 +454,11 @@ def addGAMERA(data,scDic,h5name):
 		attrs={'UNITS':pres.attrs['Units'],
 		'CATDESC':'Temperature','FIELDNAM':"Temperature",
 		'AXISLABEL':'T'})
+	inDom = h5file['inDom']
+	data['GAMERA_inDom'] = dm.dmarray(inDom[:],
+		attrs={'UNITS':inDom.attrs['Units'],
+		'CATDESC':'In GAMERA Domain','FIELDNAM':"InDom",
+		'AXISLABEL':'In Domain'})
 	return
 
 def matchUnits(data):

@@ -266,11 +266,19 @@ def labelStr(data, key, vecComp):
 def itemPlot(Ax,data,key,plotNum,numPlots,vecComp=-1):
 	#print(key,vecComp)
 	if -1 == vecComp:
-		Ax.plot(data['Epoch_bin'],data[key][:])
-		Ax.plot(data['Epoch_bin'],data['GAMERA_'+key][:])
+		maskedData = np.ma.masked_where(data['GAMERA_inDom'][:]==0.0,
+			data[key][:])
+		Ax.plot(data['Epoch_bin'],maskedData)
+		maskedGamera = np.ma.masked_where(data['GAMERA_inDom'][:]==0.0,
+			data['GAMERA_'+key][:])
+		Ax.plot(data['Epoch_bin'],maskedGamera)
 	else:
-		Ax.plot(data['Epoch_bin'],data[key][:,vecComp])
-		Ax.plot(data['Epoch_bin'],data['GAMERA_'+key][:,vecComp])
+		maskedData = np.ma.masked_where(data['GAMERA_inDom'][:]==0.0,
+			data[key][:,vecComp])
+		Ax.plot(data['Epoch_bin'],maskedData)
+		maskedGamera = np.ma.masked_where(data['GAMERA_inDom'][:]==0.0,
+			data['GAMERA_'+key][:,vecComp])
+		Ax.plot(data['Epoch_bin'],maskedGamera)
 	if (plotNum % 2) == 0:
 		left = True
 	else:
