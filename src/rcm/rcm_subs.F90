@@ -496,7 +496,8 @@
               en = ABS(alamc(kc))*vm(i,j) ! channel energy in eV
               delEn = ABS(almdel(kc))*vm(i,j) ! channel width in eV 
               JkConst = 1./(SQRT(8.*xmass(ie))*pi)*SQRT(charge_e)*nt/m2cm**2/radius_earth_m ! Constant for Jk
-              Jk = JkConst*SQRT(ABS(alamc(kc)))* deleeta(i,j,kc)/dtCpl*vm(i,j)/almdel(kc)   ! differential energy flux in 1/(eV cm^2 s sr)
+              !Jk = JkConst*SQRT(ABS(alamc(kc)))* deleeta(i,j,kc)/dtCpl*vm(i,j)/almdel(kc)   ! differential energy flux in 1/(eV cm^2 s sr)
+              Jk = JkConst*SQRT(ABS(alamc(kc)))* 1./3.*eeta(i,j,kc)/dtCpl*vm(i,j)/almdel(kc)
               sum1(ie) = sum1(ie) + en*Jk*delEn !  in eV/(cm^2 s sr)
               sum2(ie) = sum2(ie) + Jk*delEn ! in 1/(cm^2 s sr)
             END DO GRID_BASED
@@ -570,10 +571,28 @@
                     nflx(ie) = nflx(ie) + dn !Num flux, #/cm2/s
                     eflx(ie) = eflx(ie) + dn*ABS(alamc(k))*vm(i,j) !Energy flux, eV/cm2/s
                 enddo
-                eflux(i,j,:) = eflx*ev2erg
-                eavg (i,j,:) = eflx/nflx 
+                eflux(i,j,:) = eflx*ev2erg  ! energy flux in erg/(cm^2 s)
+                eavg (i,j,:) = eflx/nflx ! Average energy in eV
+               
+                DO ie = 1, RCMNUMFLAV
+                      IF (nflx (ie) > 10.*machine_tiny) THEN  ! zero  sbao 07/2019
+                          eavg (i,j,ie) = eflx(ie)/nflx(ie) ! Average energy in eV
+                      ELSE
+!                         we want eflux=0 and eavg=0 for no precipitation.
+                          eflux (i, j, ie) = zero
+                          eavg  (i, j, ie) = zero
+!
+                      END IF
+                END DO
+
             enddo
         enddo
+        
+        CALL Circle (eflux (:, :, ie_el))
+        CALL Circle (eavg  (:, :, ie_el))
+        CALL Circle (eflux (:, :, ie_hd))
+        CALL Circle (eavg  (:, :, ie_hd))
+
       end subroutine kdiffPrecip
 
  
