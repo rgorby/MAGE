@@ -335,11 +335,11 @@ module rcmimag
         vApp%imag2mix%lonc = RCMApp%lonc
 
     ! electrons precipitation
-        vApp%imag2mix%eflux = RCMApp%flux(:,:,1)
-        vApp%imag2mix%eavg  = RCMApp%eng_avg(:,:,1)
+        vApp%imag2mix%eflux = RCMApp%flux   (:,:,RCMELECTRON)
+        vApp%imag2mix%eavg  = RCMApp%eng_avg(:,:,RCMELECTRON)
     ! ion precipitation
-        vApp%imag2mix%iflux = RCMApp%flux(:,:,2)
-        vApp%imag2mix%iavg  = RCMApp%eng_avg(:,:,2)
+        vApp%imag2mix%iflux = RCMApp%flux   (:,:,RCMPROTON)
+        vApp%imag2mix%iavg  = RCMApp%eng_avg(:,:,RCMPROTON)
 
         vApp%imag2mix%isFresh = .true.
 
