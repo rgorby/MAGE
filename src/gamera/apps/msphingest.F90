@@ -13,9 +13,9 @@ module msphingest
 	implicit none
 
     !Ingestion switch
-    logical, private :: doIngest = .true. !Whether to ignore ingestion value, ie 1-way coupling to RCM
-    logical, private :: doAppetizer = .false. !Whether to ingest plasmasheet values during spinup
-    logical, private :: dtAppetizer = 300 ![s], fiducial timescale for plasmasheet ingestion
+    logical , private :: doIngest = .true. !Whether to ignore ingestion value, ie 1-way coupling to RCM
+    logical , private :: doAppetizer = .false. !Whether to ingest plasmasheet values during spinup
+    real(rp), private :: dtAppetizer = 300 ![s], fiducial timescale for plasmasheet ingestion
 
     
     !Parameters for appetizer
