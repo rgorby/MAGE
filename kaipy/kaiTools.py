@@ -37,7 +37,7 @@ def genSCXML(fdir,ftag,
 	xml.appendChild(scChild)
 	fieldsChild = root.createElement("fields")
 	fieldsChild.setAttribute("doMHD","T")
-	fieldsChild.setAttribute("grType","LFM")
+	fieldsChild.setAttribute("grType","MAGE")
 	fieldsChild.setAttribute("ebfile",ftag)
 	if isMPI:
 		fieldsChild.setAttribute("isMPI","T")
