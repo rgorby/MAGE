@@ -542,7 +542,7 @@ MODULE etautils
 
         A0 = (2.0/sqrt(PI))*(Drc/density_factor)/(vm**1.5)
         !TODO: Double check this extra factor of 2
-        A0 = 2.0*A0
+        !A0 = 2.0*A0
 
         kapgam = gamma(kap+1.0)/gamma(kap-0.5)
         !TODO: Figure out k_0 vs. kappa where kappa - 1.5 = kappa_0
@@ -550,7 +550,7 @@ MODULE etautils
         !kapbar = kap !Using kap consistent w/ 10.1002/2015JA021166
 
         kArg = 1.0 + (E_ev/E0_ev)/kapbar
-        delscl = (almax-almin)/E0_ev
+        delscl = vm*(almax-almin)/E0_ev
         etak = A0*kapgam/(kapbar**1.5) * sqrt(E_ev/E0_ev)*delscl*((kArg)**(-kap-1.0))
 
     end function Kappa2Eta

@@ -78,7 +78,7 @@ program sctrackx
         
         R = norm2(xyz)
 
-        if (R>R0) then
+        if ( (R>R0) .and. inDomain(xyz,Model,ebState%ebGr) ) then
             !Inside domain
             SCTrack%inDom(n) = 1.0
             call ebFields (xyz,Model%t,Model,ebState,Et,Bt,ijkO=ijkG)
