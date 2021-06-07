@@ -1,3 +1,5 @@
+#!/usr/bin/python3
+
 import sys
 import configparser
 import subprocess
@@ -35,6 +37,14 @@ def createXML():
 	# Run Initialization for Settings
 	p1 = subprocess.Popen("python3 initialize.py " + settings, shell=True)
 	p1.wait()
+
+	# Check if initialize failed/didn't produce output
+	settingsFolder = os.listdir(".Settings")
+	if (len(settingsFolder) == 0):
+		print("Initialization failed. Aborting.")
+		# Cleanup Settigns folder
+		subprocess.Popen("rm -rf .Settings/", shell=True)
+		exit(1)
 
 	# Read in default settings for this template
 	tree = ET.parse(template)
@@ -75,11 +85,11 @@ def createXML():
 			ET.SubElement(temp, deeperTemp.tag, deeperTemp.attrib)
 		top.append(temp)
 
-	ET.dump(top)
+	# ET.dump(top)
 
 	# Go through the new settings and see if they match elements in the default
 	for child in top:
-		print(child.tag)
+		#print(child.tag)
 		# Try to find that child tag in the default tree
 		if (templateRoot.find(child.tag) is not None):
 			# If it exists, go one level down and iterate through those nodes
@@ -87,14 +97,35 @@ def createXML():
 			for lower in child:
 				# Find the corresponding tag in the default
 				nextLevel = firstLevel.find(lower.tag)
-				print(nextLevel)
-				print(lower)
 				# Check if that tag exists. If not, just add it
 				if  (nextLevel is not None):
 					for item in lower.keys():
-						nextLevel.set(item, lower.get(item))
+						# Check for the delete flag
+						if ("DEL!" in lower.get(item)):
+							# Check if that option exists.
+							if (nextLevel.get(item) is None):
+								# Just print Debug statements
+								#print(nextLevel)
+								#print(item)
+								#print(lower.get(item))
+								#print(nextLevel.attrib)
+								continue
+							
+							else:
+								del nextLevel.attrib[item]
+						
+						else:
+							nextLevel.set(item, lower.get(item))
 				else:
-					ET.SubElement(firstLevel, lower.tag, lower.attrib)
+					# Check for the delete flag
+					if ("DEL!" in lower.attrib):
+						# print(lower.tag)
+						# print(lower.attrib)
+						# Don't add anything
+						continue
+
+					else:
+						ET.SubElement(firstLevel, lower.tag, lower.attrib)
 		else:
 			# Else, just add that element to the root
 			templateRoot.insert(child)
@@ -127,6 +158,8 @@ def createXML():
 
 	# Cleanup Settigns folder
 	subprocess.Popen("rm -rf .Settings/", shell=True)
+
+	print("\n\nXML generation complete!\n\n")
 
 def createTemplate():
 	# Get settings file name
@@ -164,15 +197,18 @@ def createTemplate():
 
 	for key in inputDicts.keys():
 		temp = Element(key)
-		ET.dump(temp)
+		# ET.dump(temp)
 		for section in inputDicts[key].sections():
 			deeperTemp = Element(section)
 			for option in inputDicts[key].options(section):
-				deeperTemp.set(option, inputDicts[key].get(section, option))
+				if ("DEL!" in inputDicts[key].get(section, option)):
+					continue
+				else:
+					deeperTemp.set(option, inputDicts[key].get(section, option))
 			ET.SubElement(temp, deeperTemp.tag, deeperTemp.attrib)
 		top.append(temp)
 
-	ET.dump(top)
+	# ET.dump(top)
 
 	# Run root through the indentation function
 	indent(top)
@@ -188,7 +224,15 @@ def createTemplate():
 	# Cleanup Settigns folder
 	subprocess.Popen("rm -rf .Settings/", shell=True)
 
+	print("\n\nTemplate creation complete!\n\n")
+
 # Check number of command line arguments
+if (len(sys.argv) == 1):
+	print('\x1b[0;31;40m' + "\nTo create a NEW .xml template use the following arguments:\n" + '\x1b[0m')
+	print('\x1b[6;30;40m' + "XMLGenerator.py <.ini file> <outputFile.xml>" + '\x1b[0m')
+	print('\x1b[0;31;40m' + "\nTo create a xml file based on a template use the following arguments:\n" + '\x1b[0m')
+	print('\x1b[6;30;40m' + "XMLGenerator.py <.ini file> <templateFile.xml> <outputFile.xml>\n" + '\x1b[0m')
+	exit()
 if (len(sys.argv) < 3):
 	print("ERROR: Too few arguments")
 	exit()
