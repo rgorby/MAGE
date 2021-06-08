@@ -1678,7 +1678,7 @@
           call AddInVar(IOVars,"rcmetac"   )
           call AddInVar(IOVars,"rcmeeta"   )
           call AddInVar(IOVars,"rcmeetaavg")
-          call AddInVar(IOVars,"rcmlosspre")
+          !call AddInVar(IOVars,"rcmlosspre")
 
           call AddInVar(IOVars,"rcmpedlam" )
           call AddInVar(IOVars,"rcmpedpsi" )
@@ -1753,7 +1753,7 @@
           call IOArray3DFill(IOVars,"rcmeeta",eeta)
           call IOArray3DFill(IOVars,"rcmeetaavg",eeta_avg)
           call IOArray3DFill(IOVars,"rcmeflux",eflux)
-          call IOArray3DFill(IOVars,"rcmlosspre",lossratep)
+          !call IOArray3DFill(IOVars,"rcmlosspre",lossratep)
           
         end subroutine ReadRCMRestart
 
@@ -2358,8 +2358,8 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
         !Do electron losses
             !NOTE: Add Dpp(i,j) to argument list to pass psph density (#/cc)
             !NOTE: Also pass KpNow value if you need Kp dep. stuff
-!            lossFDG = Ratefn(fudgec(kc),alamc(kc),sini(i,j),bir(i,j),vm(i,j),mass_factor)
-            lossFDG = RatefnC(xmin(i,j),ymin(i,j),alamc(kc),vm(i,j),bmin(i,j),losscone(i,j),Dpp(i,j),dble(NowKp))
+            lossFDG = Ratefn(fudgec(kc),alamc(kc),sini(i,j),bir(i,j),vm(i,j),mass_factor)
+            !lossFDG = RatefnC(xmin(i,j),ymin(i,j),alamc(kc),vm(i,j),bmin(i,j),losscone(i,j),Dpp(i,j),dble(NowKp))
         endif
 
         if ( (ie == RCMPROTON) .and. (.not. isOpen(i,j)) ) then
@@ -2383,9 +2383,6 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
       
     enddo !j loop
     call circle(deleeta(:,:,kc))
-    if(ie == RCMELECTRON) then
-      print *,"kc=",kc," lossratep min=",minval(lossratep(:,:,kc))," max=",maxval(lossratep(:,:,kc))
-    endif
 
     !Have loss on RCM grid, now get claw grid
     call rcm2claw(rate,rateC)
