@@ -131,15 +131,24 @@ MODULE lossutils
         Rgyro = Rgyro/(radius_earth_m*1.0e-3) !In terms of Re
         eps = Rgyro/rcurv
 
-        !Gilson criteria, use Chen Tau_SS
-        !Ramp up to LossSS between kappa <= sqrt(8) and 1
-        xC = 1.0/8.0
-        if (eps >= xC) then
-            xSS = LinRampUp(eps,xC,1.0-xC)
-            lossFLC = xSS*(1.0/TauSS) !Rate, 1/s
+        !Chen+ 2019, w/ correction
+        if (eps>TINY) then
+            !1/TauSS = Strong scattering loss rate
+            earg = eps**5.0
+            lossFLC = min(1.0,100.0*earg)*(1/TauSS) !Rate, 1/s
         else
-            lossFLC = 0.0 !None
+            lossFLC = 0.0
         endif
+
+        ! !Gilson criteria, use Chen Tau_SS
+        ! !Ramp up to LossSS between kappa <= sqrt(8) and 1
+        ! xC = 1.0/8.0
+        ! if (eps >= xC) then
+        !     xSS = LinRampUp(eps,xC,1.0-xC)
+        !     lossFLC = xSS*(1.0/TauSS) !Rate, 1/s
+        ! else
+        !     lossFLC = 0.0 !None
+        ! endif
         ! eps = Rgyro/rcurv
 
         ! !Chen+ 2019

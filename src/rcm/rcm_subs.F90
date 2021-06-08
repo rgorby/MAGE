@@ -1076,22 +1076,6 @@
        CALL Circle (eeta(:,:,1))
 
     RETURN
-!
-      !K: This function gets defined again identically further down?!
-!     CONTAINS
-! !
-!     FUNCTION Ratefn (fudgx, alamx, sinix, birx, vmx, xmfact)
-!     IMPLICIT NONE
-!     REAL (rprec), INTENT (IN) :: fudgx,alamx,sinix,birx,vmx,xmfact
-!     REAL (rprec)              :: Ratefn
-! !                                                                       
-! !   Function subprogram to compute precipitation rate
-! !   Last update:  04-04-88
-! !
-!     Ratefn = 0.0466_rprec*fudgx*SQRT(ABS(alamx))*(sinix/birx)*vmx**2
-!     Ratefn = xmfact * ratefn
-!     RETURN
-!     END FUNCTION Ratefn
 
     END SUBROUTINE Move_plasma_grid
 !
