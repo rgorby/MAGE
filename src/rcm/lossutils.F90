@@ -107,7 +107,7 @@ MODULE lossutils
         integer(iprec), intent(in) :: ie
         real(rprec), intent(in) :: alam,vm,beq,rcurv,lossc
         real(rprec) :: lossFLC
-        real(rprec) :: Np,bfp,ftv,K,V,TauSS,Rgyro,eps,xSS,xC
+        real(rprec) :: Np,bfp,ftv,K,V,TauSS,Rgyro,eps,xSS,earg
 
         bfp = beq/(sin(lossc)**2.0) !Foot point field strength, nT
         ftv = (1.0/vm)**(3.0/2.0) !flux-tube volume Re/nT
