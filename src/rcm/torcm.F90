@@ -618,7 +618,7 @@ MODULE torcm_mod
 
               !Now just redo it w/ scaling (independently scale ions and electrons)
               call DP2eta(drc,prc,vm(i,j),eeta_new(i,j,:),doRescaleO=.true.)
-              call MaxVsKap(drc,prc,vm(i,j))
+              !call MaxVsKap(drc,prc,vm(i,j))
           !Not good MHD
             else
               eeta_new(i,j,:) = 0.0

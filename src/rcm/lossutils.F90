@@ -4,7 +4,7 @@ MODULE lossutils
     USE kdefs, ONLY : TINY,PI,Mp_cgs,kev2J
     USE rcm_precision
     USE rcmdefs
-    use math, ONLY : SmoothOpTSC,SmoothOperator33,ClampValue,RampUp
+    use math, ONLY : SmoothOpTSC,SmoothOperator33,ClampValue,LinRampUp
 
     implicit none
 
@@ -135,7 +135,7 @@ MODULE lossutils
         !Ramp up to LossSS between kappa <= sqrt(8) and 1
         xC = 1.0/8.0
         if (eps >= xC) then
-            xSS = RampUp(eps,xC,1.0-xC)
+            xSS = LinRampUp(eps,xC,1.0-xC)
             lossFLC = xSS*(1.0/TauSS) !Rate, 1/s
         else
             lossFLC = 0.0 !None
