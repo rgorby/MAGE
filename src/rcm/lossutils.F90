@@ -1,7 +1,7 @@
 !Utilities for loss calculations
 
 MODULE lossutils
-    USE kdefs, ONLY : TINY,PI,Mp_cgs,kev2J
+    USE kdefs, ONLY : TINY,PI,Mp_cgs,kev2J,Me_cgs,vc_cgs
     USE rcm_precision
     USE rcmdefs
     use math, ONLY : SmoothOpTSC,SmoothOperator33,ClampValue,LinRampUp
@@ -155,26 +155,36 @@ MODULE lossutils
     END FUNCTION FLCRat
 
     FUNCTION RatefnC_tau_s(alam,vm,beq,lossc) result(TauSS)
+    ! Strong diffusion lifetime based on Schulz, 1974, 1998.
+    ! tau_s ~ [2*Psi*Bh/(1-eta)](gamma*m/p), where Psi is flux tube volume, Bh is |B| at field line foot point.
+    ! eta is backscatter rate at alitude h, here eta=2/3.
+    ! gamma = m/m0 is relativisitc factor, p is particle momentum.
+    ! Derivation: gamma=E/(m0*c^2), E^2=(pc)^2+(m0*c^2)^2, p=sqrt(gamma^2-1)*m0*c
+    ! or gamma = 1/sqrt(1-v^2/c^2) -> v=c*sqrt(1-1/gamma^2)
+    ! gamma*m/p = gamma^2/sqrt(gamma^2-1)/c
+    ! gammar2 = (K/mec2)**2 ! mec2=0.511 is me*c^2 in MeV
+    ! V = gammar2/sqrt(gammar2-1)
         use constants, only : radius_earth_m
         use kdefs, only : TINY
         use math, only : RampUp
         IMPLICIT NONE
         real(rprec), intent(in) :: alam,vm,beq,lossc
         real(rprec) :: TauSS
-        real(rprec) :: bfp,ftv,K,V
+        real(rprec) :: bfp,ftv,K,V,gammar
         bfp = beq/(sin(lossc)**2.0) !Foot point field strength, nT
         ftv = (1.0/vm)**(3.0/2.0) !flux-tube volume Re/nT
-        K = alam*vm*1.0e-3 !Energy [keV]
-        V = (3.1e+2)*sqrt(abs(K)) !km/s
-        !Convert V from km/s to Re/s
-        V = V/(radius_earth_m*1.0e-3)
-        TauSS = 3.D0*2.D0*ftv*bfp/V !Strong scattering lifetime [s], assuming gamma=1 and eta=2/3. Need to include relativisitc factor.
+        K = abs(alam)*vm*1.0e-3 !Energy [keV]
+        V = sqrt(2*K)*sqrt(kev2J/(Me_cgs*1.0e-3)) !V in m/s
+        gammar = 1.0/sqrt(1-(V*1e2/vc_cgs)**2)
+        !Convert V from m/s to Re/s
+        V = V/radius_earth_m
+        TauSS = 3.D0*2.D0*ftv*bfp/V*gammar !Strong scattering lifetime [s], assuming gamma=1 and eta=2/3. Need to include relativisitc factor.
 !        write(*,"(a,1x,5e25.10)") "In RatefnC_tau_s",bfp,ftv,K,V,TauSS
     END FUNCTION RatefnC_tau_s
 
-    FUNCTION RatefnC_lambda(mltx,engx,Lshx) result(lambda)
+    FUNCTION RatefnC_tau_C05(mltx,engx,Lshx) result(tau)
     ! default scattering rate lambda based on Chen et al. 2005.
-    ! tau = 1/(1+a1*sin(phi+phi0)+a2*cos(2*(phi+phi0)))/lambda0, 
+    ! lambda(E,L,phi) = (1+a1*sin(phi+phi0)+a2*cos(2*(phi+phi0)))*lambda0, 
     ! where lambda0 = min(0.08*E[MeV]^(-1.32), 0.4*10^(2L-6+0.4*log_2(E)))/day, a1=1.2, a2=-0.25*a1, phi0=pi/6.
     ! lambda max = 2.6*lambda0 at 04MLT, and min = 0.6 lambda0 at 22 MLT.
         IMPLICIT NONE
@@ -187,16 +197,19 @@ MODULE lossutils
         phi0 = pi/6.D0
         phi = (mltx-0.D0)/12.D0*pi+phi0
         lambda = (1.D0+a1*sin(phi)+a2*cos(2.D0*phi))*lambda0
-    END FUNCTION RatefnC_lambda
+        tau = 1.D0/lambda
+    END FUNCTION RatefnC_tau_C05
     
-    FUNCTION RatefnC_lambda_w(mltx,engx,Lshx,kpx) result(lambda)
-    ! empirical scattering rate lambda based on Orlova and Shprits, 2014.
+    FUNCTION RatefnC_tau_w(mltx,engx,Lshx,kpx) result(tau)
+    ! Empirical electron lifetime against whistler mode chorus inside the plasmasphere, based on Orlova and Shprits, 2013JA019596.
+    ! log10(tau[days]) = a1+...+a33*E^4, R=R0, K=Kp+1, E=Ek[MeV], valid for 21<MLT<=15
         IMPLICIT NONE
         REAL (rprec), INTENT (IN) :: mltx,engx,kpx,Lshx ! engx in MeV.
-        REAL (rprec) :: lambda, R, K, E, RK, KE, RE, RKE, R2, K2, E2
+        REAL (rprec) :: lambda, tau, R, K, E, RK, KE, RE, RKE, R2, K2, E2
         REAL (rprec), DIMENSION(33) :: a1_33, rke_pol
 
-        lambda = 0.0
+        lambda = 0.D0
+        tau = 1.D10 ! default lifetime is 10^10s ~ 10^3 years.
         if(mltx<=21.0 .and. mltx>15.0) then
             return
         endif
@@ -309,14 +322,16 @@ MODULE lossutils
         K2 = K*K
         E2 = E*E
         rke_pol = (/1.D0,R,RK,RKE,RKE*E,RK*K,RK*KE,RK*K2,RE,RE*E,RE*E2,R2,R*RK,R*RKE,RK*RK,R*RE,RE*RE,R*R2,R2*RK,R2*RE,K,KE,KE*E,KE*E2,K2,K*KE,KE*KE,K*K2,K2*KE,E,E2,E*E2,E2*E2/)
-        ! log(tau) = a1+a2*R+...
-        lambda = 10.0**(-dot_product(a1_33,rke_pol))
-    END FUNCTION RatefnC_lambda_w
+        ! log(tau) = a1+a2*R+..., note tau is in days.
+        tau = 10.0**(dot_product(a1_33,rke_pol))*86400.D0 ! seconds.
+        lambda = 1.D0/tau ! 1/s
+    END FUNCTION RatefnC_tau_w
 
-    FUNCTION RatefnC_lambda_h(mltx,engx,Lshx,kpx) result(lambda)
-    ! empirical scattering rate lambda based on Orlova and Shprits, 2014.
-    ! Inside plasmasphere, lambda_h=Dhaa, Kp and MLT parameterized PA diffusion coef 
-    ! against Pspheric hiss for energies of 1 keV to 10 MeV from R0 of 3 to 6.
+    FUNCTION RatefnC_tau_h(mltx,engx,Lshx,kpx) result(tau)
+    ! Empirical lifetime against plasmaspheric hiss pitch angle diffusion, based on Orlova et al. 2014GL060100.
+    ! 6-21 MLT, dayside: log10(tau) = g(E,L)+y(Kp), valid for L=3-6, Kp<=6, Ek=1keV-10MeV, log10(Ek[MeV])>f(L).
+    ! 21-6 MLT, nightside: log10(tau) = a1+...+a59*L*E^7*Kp, valid for L=3-6, Kp<=6, Ek<=10MeV, log10(Ek[MeV])>f(L).
+    ! For Kp>6, lifetimes are >100 days. Loss rate becomes negligible.
         IMPLICIT NONE
         REAL (rprec), INTENT (IN) :: mltx,engx,kpx,Lshx ! engx in MeV.
         REAL (rprec) :: lambda, tau, gEL, yKp, fL
@@ -324,15 +339,16 @@ MODULE lossutils
         REAL (rprec), DIMENSION(28) :: a1_28, le_pol
         REAL (rprec), DIMENSION(59) :: a1_59, lek_pol
 
-        lambda = 0.0
+        lambda = 0.D0
+        tau = 1.D10
         L = Lshx ! L=3-6
-        E = engx
+        E = log10(engx) ! engx is Ek in MeV
         K = kpx
         L2 = L*L
         L3 = L2*L
         L4 = L3*L
         fL = -0.2573*L4 + 4.2781*L3 - 25.9348*L2 + 66.8113*L - 66.1182
-        if(L>6.0 .or. L<3.0 .or. K>6.0 .or. E>10.0 .or. E<1.0e-3 .or. E<fL) then
+        if(L>6.0 .or. L<3.0 .or. K>6.0 .or. E>1.0 .or. E<-3.0 .or. E<fL) then ! Both sectors are only valid for Kp<=6, log10(Ek)>=f(L), 1keV<Ek<10MeV, 3<=L<=6.
             return
         endif
         E2 = E*E
@@ -344,18 +360,16 @@ MODULE lossutils
         LK = L*K
         EK = E*K
         LEK= LE*K
-        if(mltx<=21 .and. mltx>=6) then ! Dayside, Ek = 1 keV - 10 MeV and > f(L), Kp<=6, Coefficients for g(E,L) parameterization on the dayside (Eq. 7 in the main text).
-            if(E>fL .and. kpx<=6 .and. E<=10.0 .and. E>=1.0e-3) then
-                a1_28 = [ &
-                4.32340e+01, -3.70570e+01, -1.09340e+02,  1.16160e+01,  8.29830e+01,  3.57260e+01, -1.58030e+00, -2.26630e+01, -1.60060e+01,  3.51250e+01,  & 
-                7.99240e-02,  2.67740e+00,  2.13960e+00, -2.41070e+01, -3.50920e+00, -1.15310e-01, -7.43760e-02,  5.16590e+00, -2.04880e+00, -4.52050e+00,  & 
-               -3.52900e-01,  1.25340e+00,  2.32240e+00,  7.00390e-01, -1.36660e-01, -2.71340e-01, -1.41940e-01, -2.09270e-02 ]
-                le_pol = (/1.D0,L,E,L2,LE,E2,L3,L2*E,L*E2,E3,L4,L3*E,L2*E2,L*E3,E4,L3*LE,L3*E2,L2*E3,L*E4,E5,L3*E3,L2*E4,L*E5,E3*E3,L3*E4,L2*E5,LE*E5,E2*E5/)
-                gEL = dot_product(a1_28,le_pol) ! only valid for E>f(L)
-                yKp = 0.015465*kpx*kpx - 0.26074*kpx + 1.0077
-                tau = 10**(gEL+yKp)
-            endif
-        else ! Nightside, 21<MLT<6, Kp<=6, f(L) < Ek < 10 MeV, Eq. S1 in the supporting material.
+        if(mltx<=21 .and. mltx>=6) then ! Dayside, 6<=MLT<=21
+            a1_28 = [ &
+            4.32340e+01, -3.70570e+01, -1.09340e+02,  1.16160e+01,  8.29830e+01,  3.57260e+01, -1.58030e+00, -2.26630e+01, -1.60060e+01,  3.51250e+01,  & 
+            7.99240e-02,  2.67740e+00,  2.13960e+00, -2.41070e+01, -3.50920e+00, -1.15310e-01, -7.43760e-02,  5.16590e+00, -2.04880e+00, -4.52050e+00,  & 
+           -3.52900e-01,  1.25340e+00,  2.32240e+00,  7.00390e-01, -1.36660e-01, -2.71340e-01, -1.41940e-01, -2.09270e-02 ]
+            le_pol = (/1.D0,L,E,L2,LE,E2,L3,L2*E,L*E2,E3,L4,L3*E,L2*E2,L*E3,E4,L3*LE,L3*E2,L2*E3,L*E4,E5,L3*E3,L2*E4,L*E5,E3*E3,L3*E4,L2*E5,LE*E5,E2*E5/)
+            gEL = dot_product(a1_28,le_pol)
+            yKp = 0.015465*kpx*kpx - 0.26074*kpx + 1.0077
+            tau = 10**(gEL+yKp)*86400.D0 ! seconds
+        else ! Nightside, 21<MLT<6
             a1_59 = [ &
             5.35120e+01, -4.62820e+01, -1.30630e+02, -1.69970e+00,  1.51270e+01,  1.08050e+02,  5.42210e+01,  1.22940e+00, -1.66680e+00, -4.14470e-02,  & 
            -2.16170e+00, -3.27550e+01, -2.86350e+01,  3.67450e+00, -2.36980e-01,  1.75970e+00,  4.50400e+00,  1.14840e-01,  4.38180e+00,  4.99730e+00,  & 
@@ -365,8 +379,8 @@ MODULE lossutils
             9.45330e-04, -2.49520e-01,  1.06160e-01,  1.82980e-02,  1.79470e-03,  1.89430e-02, -3.98110e-02, -1.36410e-02, -2.73280e-03 ]
             lek_pol = (/1.D0,L,E,K,L2,LE,E2,LK,EK,K2,L3,L2*E,L*E2,E3,L2*K,LE*K,E2*K,L4,L3*E,L2*E2,L*E3,E4,L3*K,L2*EK,LE*EK,E3*K,L4*E,L3*E2,L2*E3,L*E4,E5,L3*EK,L2*E2*K,LK*E3,E4*K &
                 ,L3*E3,L2*E4,L*E5,E3*E3,L3*E2*K,L2*E3*K,LK*E4,E5*K,L3*E4,L2*E5,LE*E5,E3*E4,L3*E3*K,L2*E4*K,LEK*E4,E5*EK,L*E3*E4,E4*E4,L2*E5*K,LEK*E5,E3*E3*EK,LE*E3*E4,E4*E5,LEK*E3*E3/)
-            tau = 10**(dot_product(a1_59,lek_pol))
+            tau = 10**(dot_product(a1_59,lek_pol))*86400.D0 ! seconds
         endif
-        lambda = 1.D0/tau
-    END FUNCTION RatefnC_lambda_h
+        lambda = 1.D0/tau ! 1/s
+    END FUNCTION RatefnC_tau_h
 END MODULE lossutils
