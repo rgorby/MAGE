@@ -113,6 +113,7 @@
     INTEGER (iprec), PARAMETER :: irdk=18, inrgdk=13, isodk=2, iondk=2
     REAL (rprec) :: dktime (irdk, inrgdk, isodk, iondk), sunspot_number
     REAL (rprec) :: dtAvg_v
+    LOGICAL :: advChannel(kcsize) = .true. !Which channels to advance
 
      logical :: kill_fudge
 !
@@ -938,22 +939,6 @@
   CALL Move_plasma_grid_MHD (dt)
   call Toc("Move_Plasma")
 
-!   IF (L_move_plasma_grid) THEN
-!     IF (i_advect == 1) THEN
-!        CALL Move_plasma_grid  (dt, 1_iprec, isize, j1, j2, 1_iprec)
-!        CALL Move_plasma_grid  (dt, 1_iprec, isize, j1, j2, 2_iprec)
-!     ELSE IF (i_advect == 2) THEN
-! !      CALL Move_plasma_grid (dt, 1, isize, j1, j2, 1)
-!        STOP 'This option is no longer available, aborting RCM'
-!     ELSE IF (i_advect == 3) THEN
-!         !CALL Move_plasma_grid_new (dt)
-        
-
-!     ELSE
-!        STOP 'ILLEGAL I_ADVECT IN MOVING PLASMA'
-!     END IF
-!   END IF
-!   call Toc("Move_Plasma")
 !
     RETURN
     END SUBROUTINE Move_plasma
@@ -1530,6 +1515,12 @@
    IF (icontrol == 4) then  ! run RCM from itimei to itimef with time step idt, quit:
       call Tic("Main_Loop")
       
+      !Do check
+      if (.not. any(advChannel)) then
+        write(*,*) "RCM has no good channels, dying"
+        stop
+      endif
+
       CALL SYSTEM_CLOCK (timer_start(2), count_rate)
 
       !NOTE: v_avg behaves differently than birk_avg
@@ -2258,11 +2249,18 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
   !$OMP PRIVATE(lossCX,lossFLC,lossFDG,preciprate) &
   !$OMP SHARED(isOpen,iOCB_j,alamc,eeta,vm,imin_j,j1,j2,joff,Dpp) &
   !$OMP SHARED(doFLCLoss,doNewCX,dp_on,doPPRefill,deleeta,NowKp,lossratep) &
-  !$OMP SHARED(dvvdi,dvvdj,dvmdi,dvmdj,dvvdi_avg,dvvdj_avg,dtAvg_v) &
+  !$OMP SHARED(dvvdi,dvvdj,dvmdi,dvmdj,dvvdi_avg,dvvdj_avg,dtAvg_v,advChannel) &
   !$OMP SHARED(xmin,ymin,fac,fudgec,bir,sini,L_dktime,dktime,sunspot_number) &
   !$OMP SHARED(aloct,xlower,xupper,ylower,yupper,dt,T1,T2,iMHD,bmin,radcurv,losscone) 
-  DO kc = 1, kcsize
+  DO kc = kcsize,1,-1
     
+    !Skip boring channels
+    IF (.not. advChannel(kc)) CYCLE
+    IF (MAXVAL(eeta(:,:,kc)) < machine_tiny) THEN
+        eeta(:,:,kc) = 0.0
+        CYCLE
+    ENDIF
+
     !If oxygen is to be added, must change this!
     IF (alamc(kc) <= 0.0) THEN
       ie = RCMELECTRON
@@ -2270,11 +2268,6 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
       ie = RCMPROTON
     END IF
 
-    IF (MAXVAL(eeta(:,:,kc)) < machine_tiny) then
-      !Skip boring channels
-      eeta(:,:,kc) = 0.0
-      CYCLE
-    END IF
     mass_factor = SQRT (xmass(1)/xmass(ie))
 
   !---

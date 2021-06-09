@@ -12,7 +12,7 @@ MODULE torcm_mod
 
   logical, parameter :: doSmoothEta = .false. !Whether to smooth eeta at boundary
   !Whether to do reverse blend near outer boundary, i.e. nudge RCM to MHD
-  logical, parameter :: doRevBlend  = .false.
+  
   logical, parameter :: doPPSmooth = .true. !Try to smooth plasmapause
   integer(iprec), private, parameter :: NumG = 4 !How many buffer cells to require
 
@@ -264,28 +264,15 @@ MODULE torcm_mod
         enddo !i
       enddo !j
 
-      if (doRevBlend) then
-        !Do some reverse-blending near RCM outer boundary
-        n = NumG
-        do j=1,jsize
-          do i=0,n
-            ip = imin_j(j)+i !i cell
-            if (ip<isize) then
-              wRCM = 1.0/(1.0 + 5.0*beta_average(ip,j)/6.0)
-              wMHD = (1-wRCM)/(2.0**i)
-              wRCM = (1-wMHD)
-
-              eeta(ip,j,klow:) = wRCM*eeta(ip,j,klow:) + wMHD*eeta_new(ip,j,klow:)
-            endif
-          enddo !i loop
-        enddo !j loop
-      endif
       
       if (doSmoothEta) then
         ! smooth eeta at the boundary
         CALL Smooth_eta_at_boundary(isize,jsize,kcsize,jwrap,eeta,iopen,imin_j)
       endif
 
+      !Finally decide which channels are worth advancing (ie contribute an interesting amount)
+      call SetKBounds()
+      
     !-----
     !Finish up and get out of here
 
@@ -352,19 +339,11 @@ MODULE torcm_mod
 
         do n=1,n_smooth
           call SmoothJBnd(bndlocpp,bndlocpp_new)
-          !!Store back w/ trap for only earthward
-          !bndlocpp = max(bndlocpp,bndlocpp_new)
           bndlocpp = bndlocpp_new
         enddo
 
         !Convert to indices
         imin_jpp = ceiling(bndlocpp)
-        
-      !Smooth around estimated plasmapause
-        ! Ac = [0.25,0.5,1.0] !Smoothing coefficients
-        ! do di = -NumI/2,+NumI/2
-        !   call SmoothJEta(etapp,iopen,imin_jpp,di,Ac)
-        ! enddo
 
       !Deplete below plasmapause
         !Attenuate over dtAvg_v
@@ -869,6 +848,53 @@ MODULE torcm_mod
 
     end subroutine Set_ellipse
 
+!------------------------------------
+    !Decide on which channels are worth advancing in clawpack
+    SUBROUTINE SetKBounds()
+      USE conversion_module
+      USE RCM_mod_subs, ONLY : ikflavc,vm,alamc,isize,jsize,kcsize,eeta,advChannel
+      USE rice_housekeeping_module, ONLY : epsPk
+      IMPLICIT NONE
+
+      integer(iprec) :: i,j,k
+      real(rprec) :: P,cPk,ijPk(kcsize)
+      real(rprec), dimension(isize,jsize,kcsize) :: PkoP
+      !Pk = int_1,k dP(k) = pressure contribution up to channel k
+      
+      PkoP = 0.0
+
+      do j=1,jsize
+        do i=1,isize
+          if (iopen(i,j) == RCMTOPOPEN) CYCLE
+          call eta2Pk(eeta(i,j,:),vm(i,j),ijPk)
+          P = sum(ijPk)
+          do k=1,kcsize
+            PkoP(i,j,k) = sum(ijPk(1:k))/P !Cumulative fraction
+          enddo
+
+        enddo !i
+      enddo !j
+
+      !Now have cumulative fractions, for each k see how important it is
+      do k=1,kcsize
+        !1-PkoP = contribution from channels k+1,Nk
+        cPk = maxval(1-PkoP(:,:,k),mask = (iopen /= RCMTOPOPEN) ) !Max importance over ij
+        
+        if (cPk<epsPk) exit !Nowhere is the contribution of k+1,Nk more than epsPk
+
+      enddo
+
+      !Now set interesting channels
+      advChannel = .true. !Assume all at first
+      if (k < kcsize) then
+        !Loop stopped early so there's some useless channels
+        advChannel(k+1:) = .false.
+        eeta(:,:,k+1:) = 0.0
+      endif
+
+      !write(*,*) 'Advancing X/Nk channels = ', count(advChannel),kcsize
+
+    END SUBROUTINE SetKBounds
 
 !------------------------------------
 

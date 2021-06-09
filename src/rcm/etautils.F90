@@ -122,6 +122,24 @@ MODULE etautils
 
     end subroutine eta2DP
 
+    !Get Pk - Pressure contribution from each channel
+    subroutine eta2Pk(eta,vm,Pk)
+        REAL(rprec), intent(in)  :: eta(kcsize)
+        REAL(rprec), intent(in)  :: vm
+        REAL(rprec), intent(out) :: Pk(kcsize)
+
+        integer :: k
+        REAL(rprec) :: dP
+
+        Pk = 0.0
+        if (vm <= 0) return
+
+        do k=1,kcsize
+            dP = pressure_factor*ABS(alamc(k))*eta(k)*vm**2.5
+            Pk(k) = dP
+        enddo
+    end subroutine eta2Pk
+
     !Integrate pressure from eta between channels k1,k2
     function IntegratePressure(eta,vm,k1,k2) result(P)
         REAL(rprec), intent(in)  :: eta(kcsize)
