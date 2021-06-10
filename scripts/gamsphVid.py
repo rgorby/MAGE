@@ -177,13 +177,13 @@ if __name__ == "__main__":
 
 			
 		#Add inset RCM plot
-		if (doRCM):
+		if (doRCM and (not args.norcm)):
 			AxRCM = inset_axes(AxL,width="30%",height="30%",loc=3)
 			rcmpp.RCMInset(AxRCM,rcmdata,nStp,mviz.vP)
 			AxRCM.contour(kv.reWrap(gsph.xxc),kv.reWrap(gsph.yyc),kv.reWrap(Bz),[0.0],colors=mviz.bz0Col,linewidths=mviz.cLW)
 			rcmpp.AddRCMBox(AxL)
 
-		if (doMIX):
+		if (doMIX and (not args.noion)):
 			ion = remix.remix(rmxChk,nStp)
 			gsph.AddCPCP(nStp,AxR,xy=[0.610,0.925])
 			mviz.AddIonBoxes(gs[0,3:],ion)		
