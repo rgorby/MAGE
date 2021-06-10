@@ -30,6 +30,8 @@ if __name__ == "__main__":
 	te = 200  #[min]
 	dt = 60.0 #[sec]
 	doBig = False #[Use big window]
+	noIon = False
+	noRCM = False
 	doMPI = False #[Add MPI tiling]
 	Nblk = 1 #Number of blocks
 	nID = 1 #Block ID of this job
@@ -56,6 +58,8 @@ if __name__ == "__main__":
 	parser.add_argument('-bz'   , action='store_true', default=doBz ,help="Show Bz instead of dBz (default: %(default)s)")
 	parser.add_argument('-jy'   , action='store_true', default=doJy ,help="Show Jy instead of pressure (default: %(default)s)")
 	parser.add_argument('-bigrcm', action='store_true',default=doBigRCM,help="Show entire RCM domain (default: %(default)s)")
+	parser.add_argument('-noion', action='store_true', default=noIon,help="Don't show ReMIX data (default: %(default)s)")
+	parser.add_argument('-norcm', action='store_true', default=noRCM,help="Don't show RCM data (default: %(default)s)")
 
 	mviz.AddSizeArgs(parser)
 
@@ -126,12 +130,12 @@ if __name__ == "__main__":
 	doRCM = os.path.exists(rcmChk)
 	doMIX = os.path.exists(rmxChk)
 
-	if (doRCM):
+	if (doRCM and (not args.norcm)):
 		print("Found RCM data")
 		rcmdata = gampp.GameraPipe(fdir,ftag+".mhdrcm")
 		mviz.vP = kv.genNorm(1.0e-2,100.0,doLog=True)
 		rcmpp.doEll = not doBigRCM
-	if (doMIX):
+	if (doMIX and (not args.noion)):
 		print("Found ReMIX data")
 		
 		
