@@ -152,18 +152,21 @@ MODULE rice_housekeeping_module
       !Update any indices in RCM that may be necessary
       subroutine UpdateRCMIndices(time)
         REAL(rprec), intent(in) :: time
-        INTEGER(iprec) :: n,KpI
+        INTEGER(iprec) :: n
         REAL(rprec)    :: t0,t,KpMax
 
+        NowKp = InitKp
         if (time<=0) return
 
         t0 = time
-        !Loop over 15min increments -1/+1 hour, find max Kp
-        do n=-4,+4
-            t = t0 + 15.0*60.0*n
-            KpMax = max(KpMax,KpTS%evalAt(t))
+        KpMax = 0.0
+        !Loop over +/- 15min, find max Kp
+        do n=-1,+1
+          t = t0 + 15.0*60.0*n
+          KpMax = max(KpMax,KpTS%evalAt(t))
         enddo
-        NowKp = nint(KpMax) !Cast to integer        
+        NowKp = nint(KpMax) !Cast to integer
+
       end subroutine UpdateRCMIndices
 
 END MODULE rice_housekeeping_module
