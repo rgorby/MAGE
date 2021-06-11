@@ -106,7 +106,7 @@
 !   Plasma on grid:
     REAL (rprec) :: alamc (kcsize), etac (kcsize), fudgec (kcsize), &
                     eeta (isize,jsize,kcsize), eeta_cutoff, cmax, &
-                    eeta_avg (isize,jsize,kcsize), deleeta(isize,jsize,kcsize), lossratep(isize,jsize,kcsize), lossratep0(isize,jsize,kcsize)
+                    eeta_avg (isize,jsize,kcsize), deleeta(isize,jsize,kcsize), lossratep(isize,jsize,kcsize), lossmodel(isize,jsize,kcsize), Dpp(isize,jsize)
                     
     INTEGER (iprec) :: ikflavc (kcsize), i_advect, i_eta_bc, i_birk
     LOGICAL :: L_dktime
@@ -594,11 +594,11 @@
         CALL Circle (eflux (:, :, ie_hd))
         CALL Circle (eavg  (:, :, ie_hd))
 
-!        where(eflux<0.01 .or. eavg<0.01)
-!        !Do both or neither
-!          eavg  = 0.0
-!          eflux = 0.0
-!        end where
+        where(eflux<0.01 .or. eavg<0.01)
+        !Do both or neither
+          eavg  = 0.0
+          eflux = 0.0
+        end where
       end subroutine kdiffPrecip
 
  
@@ -1573,7 +1573,7 @@
 
       deleeta = 0.0
       lossratep = 0.0
-      lossratep0= 0.0
+      lossmodel= -1.0
 
 !*******************  main time loop  *************************
 !
@@ -1685,6 +1685,8 @@
           call AddInVar(IOVars,"rcmeeta"   )
           call AddInVar(IOVars,"rcmeetaavg")
           call AddInVar(IOVars,"rcmlosspre")
+          call AddInVar(IOVars,"rcmlossmod")
+          call AddInVar(IOVars,"rcmDpp")
 
           call AddInVar(IOVars,"rcmpedlam" )
           call AddInVar(IOVars,"rcmpedpsi" )
@@ -1747,6 +1749,7 @@
           call IOArray2DFill(IOVars,"beta",beta)
           call IOArray2DFill(IOVars,"bir",bir)
           call IOArray2DFill(IOVars,"sini",sini)
+          !call IOArray2DFill(IOVars,"rcmDpp",Dpp)
 
 
           !Pull 1D arrays
@@ -1760,6 +1763,7 @@
           call IOArray3DFill(IOVars,"rcmeetaavg",eeta_avg)
           call IOArray3DFill(IOVars,"rcmeflux",eflux)
           call IOArray3DFill(IOVars,"rcmlosspre",lossratep)
+          !call IOArray3DFill(IOVars,"rcmlossmod",lossmodel) ! uncomment this when done with restarting tests.
           
         end subroutine ReadRCMRestart
 
@@ -1818,7 +1822,8 @@
           call AddOutVar(IOVars,"rcmeetaavg",eeta_avg)
           call AddOutVar(IOVars,"rcmdeleeta",deleeta)
           call AddOutVar(IOVars,"rcmlosspre",lossratep)
-          call AddOutVar(IOVars,"rcmlosspre0",lossratep0)
+          call AddOutVar(IOVars,"rcmDpp",Dpp)
+          call AddOutVar(IOVars,"rcmlossmod",lossmodel)
 
           call AddOutVar(IOVars,"rcmpedlam" ,pedlam  )
           call AddOutVar(IOVars,"rcmpedpsi" ,pedpsi  )
@@ -2162,14 +2167,15 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
   REAL (rprec), dimension( 1:isize  , 1:jsize  ) :: rate,dvedi,dvedj,vv,dvvdi,dvvdj,dvmdi,dvmdj
   REAL (rprec), dimension( 1:isize  , 1:jsize  ) :: vv_avg,dvvdi_avg,dvvdj_avg
 
-  REAL (rprec), dimension( 1:isize  , 1:jsize  ) :: ftv,dftvi,dftvj,Dpp
+  REAL (rprec), dimension( 1:isize  , 1:jsize  ) :: ftv,dftvi,dftvj!,Dpp
 
   LOGICAL, dimension(1:isize,1:jsize) :: isOpen
   INTEGER (iprec) :: iOCB_j(1:jsize)
   REAL (rprec) :: mass_factor,r_dist,lossCX,lossFLC,lossFDG,preciprate,lossFDG0
+  REAL (rprec), dimension(2) :: lossFT
   REAL (rprec), save :: xlower,xupper,ylower,yupper, T1,T2 !Does this need save?
   INTEGER (iprec) :: i, j, kc, ie, iL,jL,iR,jR,iMHD
-  INTEGER (iprec) :: CLAWiter, joff, dfactor
+  INTEGER (iprec) :: CLAWiter, joff
   
   REAL (rprec) :: T1k,T2k !Local loop variables b/c clawpack alters input
   LOGICAL, save :: FirstTime=.true.
@@ -2263,7 +2269,6 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
   !$OMP END PARALLEL WORKSHARE
 
   !Calculate plasmasphere density forall i,j once 
-  dfactor = nt/radius_earth_m
   Dpp = (1.0e-6)*eeta(:,:,1)*dfactor*vm**1.5 !Convert eta to #/cc
 
   call Toc("Move_Plasma_Init")
@@ -2278,9 +2283,9 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
   !$OMP PRIVATE(i,j,kc,ie,iL,jL,iR,jR) &
   !$OMP PRIVATE(didt,djdt,etaC,rateC,rate,dvedi,dvedj) &
   !$OMP PRIVATE(mass_factor,r_dist,CLAWiter,T1k,T2k) &
-  !$OMP PRIVATE(lossCX,lossFLC,lossFDG,preciprate,lossFDG0) &
+  !$OMP PRIVATE(lossCX,lossFLC,lossFDG,preciprate,lossFDG0,lossFT) &
   !$OMP SHARED(isOpen,iOCB_j,alamc,eeta,vm,imin_j,j1,j2,joff,Dpp) &
-  !$OMP SHARED(doFLCLoss,doNewCX,dp_on,doPPRefill,deleeta,NowKp,lossratep,lossratep0) &
+  !$OMP SHARED(doFLCLoss,doNewCX,dp_on,doPPRefill,deleeta,NowKp,lossratep,lossmodel) &
   !$OMP SHARED(dvvdi,dvvdj,dvmdi,dvmdj,dvvdi_avg,dvvdj_avg,dtAvg_v) &
   !$OMP SHARED(xmin,ymin,fac,fudgec,bir,sini,L_dktime,dktime,sunspot_number) &
   !$OMP SHARED(aloct,xlower,xupper,ylower,yupper,dt,T1,T2,iMHD,bmin,radcurv,losscone) 
@@ -2366,8 +2371,9 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
         !Do electron losses
             !NOTE: Add Dpp(i,j) to argument list to pass psph density (#/cc)
             !NOTE: Also pass KpNow value if you need Kp dep. stuff
-            lossFDG0 = Ratefn(fudgec(kc),alamc(kc),sini(i,j),bir(i,j),vm(i,j),mass_factor)
-            lossFDG = RatefnC(xmin(i,j),ymin(i,j),alamc(kc),vm(i,j),bmin(i,j),losscone(i,j),Dpp(i,j),dble(NowKp))
+!            lossFDG0 = Ratefn(fudgec(kc),alamc(kc),sini(i,j),bir(i,j),vm(i,j),mass_factor)
+            lossFT = RatefnC(xmin(i,j),ymin(i,j),alamc(kc),vm(i,j),bmin(i,j),losscone(i,j),Dpp(i,j),dble(NowKp))
+            lossFDG = lossFT(1)
             
         endif
 
@@ -2383,11 +2389,12 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
         endif
         
         !NOTE: Any loss terms that contribute to precipitation need to be added to preciprate
-        if(lossFDG>10.0*lossFDG0) then
-          write(*,"(3(a,i4,1x),2(a,e25.15))") 'RatefnC too large at i=',i,' j=',j,' kc=',kc,' lossFDG=',lossFDG,' lossFDG0=',lossFDG0
-        endif
+!        if(lossFDG>10.0*lossFDG0) then
+!          write(*,"(3(a,i4,1x),2(a,e25.15))") 'RatefnC too large at i=',i,' j=',j,' kc=',kc,' lossFDG=',lossFDG,' lossFDG0=',lossFDG0
+!        endif
         lossratep(i,j,kc) = lossFDG
-        lossFDG = min(lossFDG,lossFDG0*10.0)
+        lossmodel(i,j,kc) = lossFT(2)
+!        lossFDG = min(lossFDG,lossFDG0*10.0)
         rate(i,j) = max(lossCX + lossFLC + lossFDG,0.0)
         preciprate = lossFLC + lossFDG !Losses for precipitation
         deleeta(i,j,kc) = deleeta(i,j,kc) + eeta(i,j,kc)*(1.0 - exp(-preciprate*dt))
@@ -2872,7 +2879,7 @@ FUNCTION RatefnC (xx,yy,alamx,vmx,beqx,losscx,nex,kpx)
   use lossutils, ONLY : RatefnC_tau_s,RatefnC_tau_C05,RatefnC_tau_w,RatefnC_tau_h
   IMPLICIT NONE
   REAL (rprec), INTENT (IN) :: xx,yy,alamx,vmx,beqx,losscx,nex,kpx
-  REAL (rprec) :: RatefnC
+  REAL (rprec), dimension(2) :: RatefnC
   REAL (rprec) :: nhigh, nlow, L, MLT, K, tau, tau_s, E, fL
 
   nhigh = 100.D0 ! [/cc] ne>nhigh indicates inside plasmasphere.
@@ -2882,28 +2889,34 @@ FUNCTION RatefnC (xx,yy,alamx,vmx,beqx,losscx,nex,kpx)
   K = abs(alamx*vmx*1.0e-6) !Energy [MeV]
   ! lifetime under strong diffusion assumption [Schulz, 1974b, 1998].
   tau_s = RatefnC_tau_s(alamx,vmx,beqx,losscx)
+  RatefnC(1) = 1.D10
+  RatefnC(2) = -1.0
 
   ! Leave only density criteria for inside/outside plasmasphere.
   ! If 15<MLT<=21, RatefnC_tau_w will return tau=1.D10.
   ! If L>6 or L<3 or Kp>6 or Ek>10MeV or Ek<1keV or log10(Ek[MeV])<f(L), RatefnC_tau_h will return tau=1.D10.
   if(nex<nlow) then 
     tau = tau_s + RatefnC_tau_w(MLT,K,L,kpx) ! mltx,engx,kpx,Lshx
+    RatefnC(2) = 1.0
   elseif(nex>nhigh) then
     tau = tau_s + RatefnC_tau_h(MLT,K,L,kpx) ! mltx,engx,kpx,Lshx
+    RatefnC(2) = 2.0
   else
     tau = tau_s + (dlog(nhigh/nex)*RatefnC_tau_w(MLT,K,L,kpx) + dlog(nex/nlow)*RatefnC_tau_h(MLT,K,L,kpx))/dlog(nhigh/nlow)
+    RatefnC(2) = 3.0
   endif
 
   ! default MLT dependent scattering rate based on Chen+2005 for non-specified MLTs etc.
 !  if(tau>1.D10) then 
   E = log10(K)
   fL = -0.2573*L**4 + 4.2781*L**3 - 25.9348*L*L + 66.8113*L - 66.1182
-  if((MLT<=21.0.and.MLT>15.0).or.L>6.0 .or. L<3.0 .or. kpx>6.0 .or. E>1.0 .or. E<-3.0 .or. E<fL) then 
-!    if(tau<1.D10) write(*,"(4(a,e25.15))") 'tau<1.D10 when not covered, MLT=',MLT,' L=',L,' Kp=',kpx,' Ek=',K
+  if((nex<nlow.and.MLT<=21.0.and.MLT>15.0).or.(nex>nhigh.and.(L>6.0 .or. L<3.0 .or. kpx>6.0 .or. E>1.0 .or. E<-3.0 .or. E<fL))) then 
+!    if(nex>nhigh) write(*,"(6(a,e25.15))") 'C05 triggered: nex=',nex,' L=',L,' Kp=',kpx,' E=',E,' fL=',fL,' RatefnC(2)=',RatefnC(2)
     tau = tau_s + RatefnC_tau_C05(MLT,K,L) ! mltx,engx,Lshx
+    RatefnC(2) = 0.0
   endif
 
-  RatefnC = 1.D0/tau !/s
+  RatefnC(1) = 1.D0/tau !/s
   RETURN
 END FUNCTION RatefnC
 

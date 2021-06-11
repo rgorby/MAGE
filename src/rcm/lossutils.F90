@@ -343,7 +343,7 @@ MODULE lossutils
         tau = 1.D10
         L = Lshx ! L=3-6
         E = log10(engx) ! engx is Ek in MeV
-        K = kpx
+        K = min(kpx,6.0) ! use Kp6 results for Kp>6.
         L2 = L*L
         L3 = L2*L
         L4 = L3*L
