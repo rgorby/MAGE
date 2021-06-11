@@ -144,7 +144,7 @@ contains
     real(rp), dimension(:,:), allocatable, intent(inout) :: efluxS, eavgS
     real(rp), dimension(:,:), allocatable :: colatc, glongc, rcmt, rcmp, Ainvdwgt2
     real(rp) :: dlat, delt, delp, invdwgt
-    integer :: i, j, Np, Nt, i0, j0, NpS, NtS, jl, ju, il, iu, jp
+    integer :: i, j, Np, Nt, i0, j0, NpS, NtS, jl, ju, il, iu, jp, dj
 
     Nt = size(imag2mix%latc,1)
     Np = size(imag2mix%latc,2) ! imag2mix%latc (Nt,Np)
@@ -160,6 +160,7 @@ contains
     NpS  = size(rcmt,1)
     NtS  = size(rcmt,2)
     dlat = rcmt(1,2)-rcmt(1,1)
+    dj = nint(dble(NpS)/dble(Np)) ! ratio of rcm dlon to remix dlon.
 
     ! Mapping: remix dlat is ~10x of rcm, dlon is ~1/3.6 of rcm. Remix lat is from 0-45 deg. RCM is from 15-75 deg.
     ! For each rcm SH point, find the nearest remix lat. If it's not too far away (within dlat) then
@@ -189,10 +190,10 @@ contains
              do i0=il,iu 
                 if(abs(rcmt(1,i0)-colatc(i,j))<dlat) then
                    jp = minloc(abs(rcmp(:,1)-glongc(i,j)),1)
-                   jl = max(jp-2,1)
-                   ju = min(jp+2,NpS)
-                   if(jp<3) then  ! The code here may be optimized to be more concise.
-                     do j0=NpS-(2-jp),NpS
+                   jl = max(jp-dj,1) ! dj used to 2.
+                   ju = min(jp+dj,NpS)
+                   if(jp<=dj) then  ! The code here may be optimized to be more concise.
+                     do j0=NpS-(dj-jp),NpS
                        delt = abs(rcmt(j0,i0)-colatc(i,j))
                        delp = abs((rcmp(j0,i0)-glongc(i,j)))*sin(rcmt(j0,i0))
                        invdwgt = 1./sqrt(delt**2+delp**2)
@@ -200,8 +201,8 @@ contains
                        eavgS(i0,j0)  = eavgS(i0,j0)  + imag2mix%eavg(i,j)*invdwgt
                        Ainvdwgt2(i0,j0)  = Ainvdwgt2(i0,j0)  + invdwgt
                      enddo
-                   elseif(jp>NpS-2) then
-                     do j0=1,2-(NpS-jp)
+                   elseif(jp>NpS-dj) then
+                     do j0=1,dj-(NpS-jp)
                        delt = abs(rcmt(j0,i0)-colatc(i,j))
                        delp = abs((rcmp(j0,i0)-glongc(i,j)))*sin(rcmt(j0,i0))
                        invdwgt = 1./sqrt(delt**2+delp**2)
