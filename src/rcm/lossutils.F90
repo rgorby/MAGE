@@ -322,6 +322,28 @@ MODULE lossutils
         lambda = 10.0**(-dot_product(a1_33,rke_pol))
     END FUNCTION RatefnC_lambda_w
 
+    !Quick lazy code by Kareem to smooth out dayside/nightside hiss transition
+    !Discontinuity at MLT=6,21, smooth out over 2hr window
+    FUNCTION RatefnC_lambda_hS(mltx,engx,Lshx,kpx) result(lambda)
+        IMPLICIT NONE
+        REAL (rprec), INTENT (IN) :: mltx,engx,kpx,Lshx ! engx in MeV.
+        REAL (rprec) :: lambda
+        REAL (rprec), parameter, dimension(5) :: sgWgts = [-3.0,12.0,17.0,12.0,-3.0]/35.0 !Savitzky-Golay weights
+        REAL (rprec), parameter :: sWin=1.0
+        INTEGER (iprec) :: n
+        REAL (rprec) :: Lambdas(5),mlt
+
+        do n=-2,2
+            mlt = mltx + (sWin/2.0)*n
+            if (mlt>24.0) mlt = mlt-24.0
+            if (mlt<0.0 ) mlt = mlt+24.0
+            Lambdas(n) = RatefnC_lambda_h(mltx,engx,Lshx,kpx)
+        enddo
+
+        lambda = dot_product(Lambdas,sgWgts)
+
+    END FUNCTION RatefnC_lambda_hS
+
     FUNCTION RatefnC_lambda_h(mltx,engx,Lshx,kpx) result(lambda)
     ! empirical scattering rate lambda based on Orlova and Shprits, 2014.
     ! Inside plasmasphere, lambda_h=Dhaa, Kp and MLT parameterized PA diffusion coef 
