@@ -54,14 +54,15 @@ module voltapp
         call xmlInp%Get_Key_Val("/Gamera/sim/H5Grid",kaijuRoot)
         if(len(trim(kaijuRoot)) /= 0) then
             write(*,*) "The input XML appears to be of an old style."
-            write(*,*) "As of 6/6/21 it needs a root element of <Kaiju>."
+            write(*,*) "As of June 12th, 2021 it needs a root element of <Kaiju>."
             write(*,*) "Please modify your XML config file by adding this line at the top:"
             write(*,*) "<Kaiju>"
             write(*,*) "and this line at the bottom:"
             write(*,*) "</Kaiju>"
             write(*,*) "OR (preferred) convert your configuration to an INI file and use"
-            write(*,*) "the XMLGenerator.py script to create conforming XML files."
-            write(*,*) "Please refer to the python script or wiki for additional info."
+            write(*,*) " the XMLGenerator.py script to create conforming XML files."
+            write(*,*) "Please refer to the python script or"
+            write(*,*) " the [Generating XML Files] wiki page for additional info."
             stop
         endif
 
