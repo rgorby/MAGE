@@ -2888,7 +2888,7 @@ FUNCTION RatefnC (xx,yy,alamx,vmx,beqx,losscx,nex,kpx)
   !K: Adding hack for C05 model for testing
   tau = tau_s + RatefnC_tau_C05(MLT,K,L) ! mltx,engx,Lshx
   RatefnC(2) = 0.0
-  
+
   RatefnC(1) = 1.D0/tau !/s
   RETURN
 END FUNCTION RatefnC

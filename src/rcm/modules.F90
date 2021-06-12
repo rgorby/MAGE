@@ -52,7 +52,6 @@ MODULE rice_housekeeping_module
   LOGICAL :: doAvg2MHD = .true.
   LOGICAL :: doPPRefill = .false.!Whether to refill plasmasphere
   LOGICAL :: doRelax    = .true. !Whether to relax energy distribution
-  LOGICAL :: doSmoothIJ = .false. !Whether to smooth individual eta channels
   LOGICAL :: doQ0 = .true. !Whether to include implicit cold ions in tomhd moments
 
   INTEGER(iprec) :: InitKp = 1, NowKp
@@ -63,7 +62,9 @@ MODULE rice_housekeeping_module
 
   REAL(rprec) :: staticR = 0.0
   REAL(rprec) :: LowLatMHD = 0.0
-  
+  REAL(rprec) :: rcm_pFloor = 1.0e-6 !nPa
+  REAL(rprec) :: rcm_dFloor = 1.0e-4 !#/cc
+
   REAL(rprec), parameter :: epsPk = 1.0e-6
 
   type RCMEllipse_T
@@ -131,8 +132,8 @@ MODULE rice_housekeeping_module
         !Tomhd parameters
         call xmlInp%Set_Val(doAvg2MHD ,"tomhd/doAvg2MHD" ,doAvg2MHD )
         call xmlInp%Set_Val(doRelax   ,"tomhd/doRelax"   ,doRelax   )
-        call xmlInp%Set_Val(doSmoothIJ,"tomhd/doSmoothIJ",doSmoothIJ)
         call xmlInp%Set_Val(doQ0      ,"tomhd/doQ0"      ,doQ0      )
+        
 
         !Torcm parameters
         call xmlInp%Set_Val(doKapDef ,"torcm/doKappa" ,doKapDef )
@@ -146,6 +147,11 @@ MODULE rice_housekeeping_module
       !Initialize Kp (and maybe other indices) time series
         call xmlInp%Set_Val(KpTS%wID,"/Gamera/wind/tsfile","NONE")
         call KpTS%initTS("Kp",doLoudO=.false.)
+
+      !Get floors from gamera part of XML
+        call xmlInp%Set_Val(rcm_pFloor,"/gamera/floors/pFloor",rcm_pFloor)
+        call xmlInp%Set_Val(rcm_dFloor,"/gamera/floors/pFloor",rcm_dFloor)
+
 
       end subroutine RCM_MHD_Params_XML
 
