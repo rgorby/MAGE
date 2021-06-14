@@ -20,6 +20,7 @@ if __name__ == "__main__":
 	#Defaults
 	fdir = os.getcwd()
 	ftag = "msphere"
+	swfname = "bcwind.h5"
 	nSk = 4	 #stride of time steps to calculate Dst
 	tpad = 8 #Number of hours beyond MHD to plot
 	iMax = -1
@@ -32,14 +33,15 @@ if __name__ == "__main__":
 	parser.add_argument('-id',type=str,metavar="runid",default=ftag,help="RunID of data (default: %(default)s)")
 	parser.add_argument('-nsk',type=int,metavar="step stride",default=nSk,help="Stride between steps used to calculate Dst (default: %(default)s)")
 	parser.add_argument('-tpad',type=float,metavar="time padding",default=tpad,help="Time beyond MHD data (in hours) to plot (default: %(default)s)")
-	parser.add_argument('-imax',type=int,metavar="index",default=iMax,help="Maximum i index (default: No limit")
-	
+	parser.add_argument('-imax',type=int,metavar="index",default=iMax,help="Maximum i index (default: No limit)")
+	parser.add_argument('-swfile',type=str,metavar='filename',default=swfname,help="Solar wind file name (default: %(default)s)")
 	#Finalizing parsing
 	args = parser.parse_args()
 	fdir = args.d
 	nSk = args.nsk
 	tpad = args.tpad
 	iMax = args.imax
+	swfname = args.swfile
 
 	#UT formats for plotting
 	isotfmt = '%Y-%m-%dT%H:%M:%S.%f'
@@ -53,7 +55,7 @@ if __name__ == "__main__":
 
 	NumI = len(iS)
 
-	fBC = "%s/bcwind.h5"%(fdir)
+	fBC = os.path.join(fdir, swfname)
 	utD,tD,dstD = dstutils.GetSymH(fBC)
 	ut_symh=[]
 	[ut_symh.append(datetime.datetime.strptime(utD[n].decode('utf-8'),t0fmt)) for n in range(len(utD))]
