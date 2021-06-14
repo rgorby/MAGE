@@ -175,7 +175,8 @@ MODULE lossutils
         ftv = (1.0/vm)**(3.0/2.0) !flux-tube volume Re/nT
         K = abs(alam)*vm*1.0e-3 !Energy [keV]
         V = sqrt(2*K)*sqrt(kev2J/(Me_cgs*1.0e-3)) !V in m/s
-        gammar = 1.0/sqrt(1-(V*1e2/vc_cgs)**2)
+        !gammar = 1.0/sqrt(1-(V*1e2/vc_cgs)**2)
+        gammar = 1.0+K/511.0 ! Use the strict definition of kinetic energy: Ek=m*c^2-m0*c^2=(gamma-1)*m0*c^2
         !Convert V from m/s to Re/s
         V = V/radius_earth_m
         TauSS = 3.D0*2.D0*ftv*bfp/V*gammar !Strong scattering lifetime [s], assuming gamma=1 and eta=2/3. Need to include relativisitc factor.

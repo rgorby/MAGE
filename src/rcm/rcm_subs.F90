@@ -106,8 +106,8 @@
 !   Plasma on grid:
     REAL (rprec) :: alamc (kcsize), etac (kcsize), fudgec (kcsize), &
                     eeta (isize,jsize,kcsize), eeta_cutoff, cmax, &
-                    eeta_avg (isize,jsize,kcsize), deleeta(isize,jsize,kcsize), lossratep(isize,jsize,kcsize), lossmodel(isize,jsize,kcsize), Dpp(isize,jsize)
-                    
+                    eeta_avg (isize,jsize,kcsize), deleeta(isize,jsize,kcsize), lossratep(isize,jsize,kcsize), lossmodel(isize,jsize,kcsize), Dpp(isize,jsize) 
+
     INTEGER (iprec) :: ikflavc (kcsize), i_advect, i_eta_bc, i_birk
     LOGICAL :: L_dktime
     INTEGER (iprec), PARAMETER :: irdk=18, inrgdk=13, isodk=2, iondk=2
@@ -2167,7 +2167,7 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
   REAL (rprec), dimension( 1:isize  , 1:jsize  ) :: rate,dvedi,dvedj,vv,dvvdi,dvvdj,dvmdi,dvmdj
   REAL (rprec), dimension( 1:isize  , 1:jsize  ) :: vv_avg,dvvdi_avg,dvvdj_avg
 
-  REAL (rprec), dimension( 1:isize  , 1:jsize  ) :: ftv,dftvi,dftvj!,Dpp
+  REAL (rprec), dimension( 1:isize  , 1:jsize  ) :: ftv,dftvi,dftvj,lamsmth
 
   LOGICAL, dimension(1:isize,1:jsize) :: isOpen
   INTEGER (iprec) :: iOCB_j(1:jsize)
@@ -2176,6 +2176,7 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
   REAL (rprec), save :: xlower,xupper,ylower,yupper, T1,T2 !Does this need save?
   INTEGER (iprec) :: i, j, kc, ie, iL,jL,iR,jR,iMHD
   INTEGER (iprec) :: CLAWiter, joff
+  INTEGER (iprec) :: jsmth(61),njsmth,njs ! assume RCM lon res is at most 0.5 deg. 61 cells covers 2h MLT.
   
   REAL (rprec) :: T1k,T2k !Local loop variables b/c clawpack alters input
   LOGICAL, save :: FirstTime=.true.
@@ -2276,6 +2277,7 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
   call Tic("Move_Plasma_Adv")
 !---
 !Main channel loop
+  njsmth = nint((pi*1.0/12.0)/(aloct(1,2)-aloct(1,1))) ! # of cells in half smth window, 1h MLT.
   !NOTE: T1k/T2k need to be private b/c they're altered by claw2ez
   !$OMP PARALLEL DO if (L_doOMPClaw) &
   !$OMP schedule(dynamic) &
@@ -2283,8 +2285,8 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
   !$OMP PRIVATE(i,j,kc,ie,iL,jL,iR,jR) &
   !$OMP PRIVATE(didt,djdt,etaC,rateC,rate,dvedi,dvedj) &
   !$OMP PRIVATE(mass_factor,r_dist,CLAWiter,T1k,T2k) &
-  !$OMP PRIVATE(lossCX,lossFLC,lossFDG,preciprate,lossFDG0,lossFT) &
-  !$OMP SHARED(isOpen,iOCB_j,alamc,eeta,vm,imin_j,j1,j2,joff,Dpp) &
+  !$OMP PRIVATE(lossCX,lossFLC,lossFDG,preciprate,lossFDG0,lossFT,lamsmth,jsmth,njs) &
+  !$OMP SHARED(isOpen,iOCB_j,alamc,eeta,vm,imin_j,j1,j2,joff,Dpp,njsmth) &
   !$OMP SHARED(doFLCLoss,doNewCX,dp_on,doPPRefill,deleeta,NowKp,lossratep,lossmodel) &
   !$OMP SHARED(dvvdi,dvvdj,dvmdi,dvmdj,dvvdi_avg,dvvdj_avg,dtAvg_v) &
   !$OMP SHARED(xmin,ymin,fac,fudgec,bir,sini,L_dktime,dktime,sunspot_number) &
@@ -2357,6 +2359,42 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
     call PadClaw(didt)
     call PadClaw(djdt)
 
+    ! get 2d lifetime for kc channel.
+    do j=1,jsize
+      do i=1,isize
+        if ( (ie == RCMELECTRON) .and. (.not. isOpen(i,j)) .and. (kc /= 1) ) then
+        !Do electron losses
+            !NOTE: Add Dpp(i,j) to argument list to pass psph density (#/cc)
+            !NOTE: Also pass KpNow value if you need Kp dep. stuff
+!          lossFDG0 = Ratefn(fudgec(kc),alamc(kc),sini(i,j),bir(i,j),vm(i,j),mass_factor)
+          lossFT = RatefnC(xmin(i,j),ymin(i,j),alamc(kc),vm(i,j),bmin(i,j),losscone(i,j),Dpp(i,j),dble(NowKp))
+          lossratep(i,j,kc) = lossFT(1)
+          lossmodel(i,j,kc) = lossFT(2)
+        endif
+      end do
+    end do
+    ! Smooth lifetime in j/azimuthal dimension.
+    if (ie == RCMELECTRON) then
+      do j=1,jsize
+        jsmth = 1
+        do jL=-njsmth,njsmth ! For each j, find the indiced of j within +/- 1h MLT.
+          jsmth(njsmth+1+jL) = WrapJ(j+jL)
+        end do
+        do i=1,isize
+          lamsmth(i,j) = -10.0 ! default lossrate set to 1e-10/s, lifetime of 1e10 s.
+          njs = 0
+          do jL=1,2*njsmth+1
+            if(.not. isOpen(i,jsmth(jL))) then
+              lamsmth(i,j) = lamsmth(i,j)+log10(lossratep(i,jsmth(jL),kc))
+              njs = njs+1
+            endif
+          end do
+          if(njs>0) lamsmth(i,j) = lamsmth(i,j)/dble(njs)
+        end do
+      end do
+      lossratep(:,:,kc) = 10.0**lamsmth
+    endif
+
   !---
   !Calculate loss terms on clawpack grid
     !Start w/ loss term on RCM grid
@@ -2368,13 +2406,8 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
         lossFDG0= 0.0
 
         if ( (ie == RCMELECTRON) .and. (.not. isOpen(i,j)) .and. (kc /= 1) ) then
-        !Do electron losses
-            !NOTE: Add Dpp(i,j) to argument list to pass psph density (#/cc)
-            !NOTE: Also pass KpNow value if you need Kp dep. stuff
-!            lossFDG0 = Ratefn(fudgec(kc),alamc(kc),sini(i,j),bir(i,j),vm(i,j),mass_factor)
-            lossFT = RatefnC(xmin(i,j),ymin(i,j),alamc(kc),vm(i,j),bmin(i,j),losscone(i,j),Dpp(i,j),dble(NowKp))
-            lossFDG = lossFT(1)
-            
+!            lossFT = RatefnC_smth(xmin(i,j),ymin(i,j),alamc(kc),vm(i,j),bmin(i,j),losscone(i,j),Dpp(i,j),dble(NowKp))
+            lossFDG = lossratep(i,j,kc)
         endif
 
         if ( (ie == RCMPROTON) .and. (.not. isOpen(i,j)) ) then
@@ -2389,12 +2422,6 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
         endif
         
         !NOTE: Any loss terms that contribute to precipitation need to be added to preciprate
-!        if(lossFDG>10.0*lossFDG0) then
-!          write(*,"(3(a,i4,1x),2(a,e25.15))") 'RatefnC too large at i=',i,' j=',j,' kc=',kc,' lossFDG=',lossFDG,' lossFDG0=',lossFDG0
-!        endif
-        lossratep(i,j,kc) = lossFDG
-        lossmodel(i,j,kc) = lossFT(2)
-!        lossFDG = min(lossFDG,lossFDG0*10.0)
         rate(i,j) = max(lossCX + lossFLC + lossFDG,0.0)
         preciprate = lossFLC + lossFDG !Losses for precipitation
         deleeta(i,j,kc) = deleeta(i,j,kc) + eeta(i,j,kc)*(1.0 - exp(-preciprate*dt))
@@ -2403,9 +2430,6 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
       
     enddo !j loop
     call circle(deleeta(:,:,kc))
-    if(ie == RCMELECTRON) then
-!      write(*,"(a,i4,1x,2(a,e25.15))") "kc=",kc," lossratep min=",minval(lossratep(:,:,kc))," max=",maxval(lossratep(:,:,kc))
-    endif
 
     !Have loss on RCM grid, now get claw grid
     call rcm2claw(rate,rateC)
@@ -2910,7 +2934,7 @@ FUNCTION RatefnC (xx,yy,alamx,vmx,beqx,losscx,nex,kpx)
 !  if(tau>1.D10) then 
   E = log10(K)
   fL = -0.2573*L**4 + 4.2781*L**3 - 25.9348*L*L + 66.8113*L - 66.1182
-  if((nex<nlow.and.MLT<=21.0.and.MLT>15.0).or.(nex>nhigh.and.(L>6.0 .or. L<3.0 .or. kpx>6.0 .or. E>1.0 .or. E<-3.0 .or. E<fL))) then 
+  if((nex<nlow.and.MLT<=21.0.and.MLT>15.0).or.(nex>nhigh.and.(L>6.0 .or. L<3.0 .or. E>1.0 .or. E<-3.0 .or. E<fL))) then !  .or. kpx>6.0
 !    if(nex>nhigh) write(*,"(6(a,e25.15))") 'C05 triggered: nex=',nex,' L=',L,' Kp=',kpx,' E=',E,' fL=',fL,' RatefnC(2)=',RatefnC(2)
     tau = tau_s + RatefnC_tau_C05(MLT,K,L) ! mltx,engx,Lshx
     RatefnC(2) = 0.0
@@ -2920,6 +2944,29 @@ FUNCTION RatefnC (xx,yy,alamx,vmx,beqx,losscx,nex,kpx)
   RETURN
 END FUNCTION RatefnC
 
+FUNCTION RatefnC_smth (xx,yy,alamx,vmx,beqx,losscx,nex,kpx)
+  ! Smooth RatefnC in MLT based on Kareem's lazy code.
+  IMPLICIT NONE
+  REAL (rprec), INTENT (IN) :: xx,yy,alamx,vmx,beqx,losscx,nex,kpx
+  REAL (rprec), dimension(2) :: RatefnC_smth,lossFT
+  REAL (rprec), dimension(5) :: lambdas
+  REAL (rprec), parameter, dimension(5) :: sgWgts = [-3.0,12.0,17.0,12.0,-3.0]/35.0 !Savitzky-Golay weights
+  REAL (rprec) :: sWin, L, phi, phin
+  INTEGER (iprec) :: n
+  
+  sWin = pi/12.0 ! 1 hour MLT window.
+  RatefnC_smth = [0.D0,-1.D0] ! default rate is 0, type is -1.
+  L = sqrt(xx**2+yy**2)
+  phi = atan2(yy,xx)
+  do n=-2,2
+    phin = phi+sWin/2.0*n
+    lossFT=RatefnC(L*cos(phin),L*sin(phin),alamx,vmx,beqx,losscx,nex,kpx)
+    lambdas(n) = lossFT(1)
+    if(n.eq.0) RatefnC_smth(2)=lossFT(2) ! Use the central cell model type.
+  enddo
+  RatefnC_smth(1) = dot_product(lambdas,sgWgts)
+  RETURN
+END FUNCTION RatefnC_smth
 ! !=========================================================================
 ! !
 ! SUBROUTINE Move_plasma_grid_NEW (dt)
