@@ -45,7 +45,7 @@ module gamapp
 
         !Create XML reader
         write(*,*) 'Reading input deck from ', trim(inpXML)
-        xmlInp = New_XML_Input(trim(inpXML),'Kaiju/Gamera',.false.)
+        xmlInp = New_XML_Input(trim(inpXML),'Kaiju/Gamera',.true.)
 
         ! try to verify that the XML file has "Kaiju" as a root element
         kaijuRoot = ""
