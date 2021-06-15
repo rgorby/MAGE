@@ -149,8 +149,8 @@ MODULE rice_housekeeping_module
         call KpTS%initTS("Kp",doLoudO=.false.)
 
       !Get floors from gamera part of XML
-        call xmlInp%Set_Val(rcm_pFloor,"/gamera/floors/pFloor",rcm_pFloor)
-        call xmlInp%Set_Val(rcm_dFloor,"/gamera/floors/pFloor",rcm_dFloor)
+        call xmlInp%Set_Val(rcm_pFloor,"/Kaiju/gamera/floors/pFloor",rcm_pFloor)
+        call xmlInp%Set_Val(rcm_dFloor,"/Kaiju/gamera/floors/dFloor",rcm_dFloor)
 
 
       end subroutine RCM_MHD_Params_XML
