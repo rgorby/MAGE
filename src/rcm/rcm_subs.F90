@@ -7,6 +7,7 @@
     use rcmdefs
     use rcm_precision
     use clocks
+    use math
 
     IMPLICIT NONE
     SAVE
@@ -2359,42 +2360,6 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
     call PadClaw(didt)
     call PadClaw(djdt)
 
-    ! get 2d lifetime for kc channel.
-    do j=1,jsize
-      do i=1,isize
-        if ( (ie == RCMELECTRON) .and. (.not. isOpen(i,j)) .and. (kc /= 1) ) then
-        !Do electron losses
-            !NOTE: Add Dpp(i,j) to argument list to pass psph density (#/cc)
-            !NOTE: Also pass KpNow value if you need Kp dep. stuff
-!          lossFDG0 = Ratefn(fudgec(kc),alamc(kc),sini(i,j),bir(i,j),vm(i,j),mass_factor)
-          lossFT = RatefnC(xmin(i,j),ymin(i,j),alamc(kc),vm(i,j),bmin(i,j),losscone(i,j),Dpp(i,j),dble(NowKp))
-          lossratep(i,j,kc) = lossFT(1)
-          lossmodel(i,j,kc) = lossFT(2)
-        endif
-      end do
-    end do
-    ! Smooth lifetime in j/azimuthal dimension.
-    if (ie == RCMELECTRON) then
-      do j=1,jsize
-        jsmth = 1
-        do jL=-njsmth,njsmth ! For each j, find the indiced of j within +/- 1h MLT.
-          jsmth(njsmth+1+jL) = WrapJ(j+jL)
-        end do
-        do i=1,isize
-          lamsmth(i,j) = -10.0 ! default lossrate set to 1e-10/s, lifetime of 1e10 s.
-          njs = 0
-          do jL=1,2*njsmth+1
-            if(.not. isOpen(i,jsmth(jL))) then
-              lamsmth(i,j) = lamsmth(i,j)+log10(lossratep(i,jsmth(jL),kc))
-              njs = njs+1
-            endif
-          end do
-          if(njs>0) lamsmth(i,j) = lamsmth(i,j)/dble(njs)
-        end do
-      end do
-      lossratep(:,:,kc) = 10.0**lamsmth
-    endif
-
   !---
   !Calculate loss terms on clawpack grid
     !Start w/ loss term on RCM grid
@@ -2406,7 +2371,14 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
         lossFDG0= 0.0
 
         if ( (ie == RCMELECTRON) .and. (.not. isOpen(i,j)) .and. (kc /= 1) ) then
-!            lossFT = RatefnC_smth(xmin(i,j),ymin(i,j),alamc(kc),vm(i,j),bmin(i,j),losscone(i,j),Dpp(i,j),dble(NowKp))
+        !Do electron losses
+            !NOTE: Add Dpp(i,j) to argument list to pass psph density (#/cc)
+            !NOTE: Also pass KpNow value if you need Kp dep. stuff
+            !lossratep(i,j,kc) = Ratefn(fudgec(kc),alamc(kc),sini(i,j),bir(i,j),vm(i,j),mass_factor)
+            !lossFT = RatefnC(xmin(i,j),ymin(i,j),alamc(kc),vm(i,j),bmin(i,j),losscone(i,j),Dpp(i,j),dble(NowKp))
+            lossFT = RatefnC_smth(xmin(i,j),ymin(i,j),alamc(kc),vm(i,j),bmin(i,j),losscone(i,j),Dpp(i,j),dble(NowKp))
+            lossratep(i,j,kc) = lossFT(1)
+            lossmodel(i,j,kc) = lossFT(2)
             lossFDG = lossratep(i,j,kc)
         endif
 
@@ -2949,23 +2921,34 @@ FUNCTION RatefnC_smth (xx,yy,alamx,vmx,beqx,losscx,nex,kpx)
   IMPLICIT NONE
   REAL (rprec), INTENT (IN) :: xx,yy,alamx,vmx,beqx,losscx,nex,kpx
   REAL (rprec), dimension(2) :: RatefnC_smth,lossFT
-  REAL (rprec), dimension(5) :: lambdas
-  REAL (rprec), parameter, dimension(5) :: sgWgts = [-3.0,12.0,17.0,12.0,-3.0]/35.0 !Savitzky-Golay weights
-  REAL (rprec) :: sWin, L, phi, phin
-  INTEGER (iprec) :: n
+  REAL (rprec), dimension(-2:2,-2:2) :: Q
+  LOGICAL, dimension(-2:+2,-2:+2) :: isGood
+  REAL (rprec) :: LWin, L, Ln, pWin, phi, phin
+  INTEGER (iprec) :: ni,nj
   
-  sWin = pi/12.0 ! 1 hour MLT window.
-  RatefnC_smth = [0.D0,-1.D0] ! default rate is 0, type is -1.
+  pWin = 1.5*pi/12.0 ! +/-1.5 hour MLT window.
+  LWin = 1.0     ! +/-1.0 L window.
+  RatefnC_smth = [1.D-10,-1.D0] ! default rate is 1e-10/s, type is -1.
   L = sqrt(xx**2+yy**2)
   phi = atan2(yy,xx)
-  do n=-2,2
-    phin = phi+sWin/2.0*n
-    lossFT=RatefnC(L*cos(phin),L*sin(phin),alamx,vmx,beqx,losscx,nex,kpx)
-    lambdas(n) = lossFT(1)
-    if(n.eq.0) RatefnC_smth(2)=lossFT(2) ! Use the central cell model type.
+  Q = 1.D-10
+
+  ! construct 5x5 Q and isGood matrix.
+  isGood = .false.
+  do ni=-2,2
+    do nj=-2,2
+      if(vmx>0.0) then ! vmx<0 if isOpen.
+        phin   = phi+pWin/2.0*nj
+        Ln     = L+LWin/2.0*ni
+        lossFT = RatefnC(Ln*cos(phin),Ln*sin(phin),alamx,vmx,beqx,losscx,nex,kpx)
+        Q(ni,nj) = lossFT(1)
+        isGood(ni,nj)  = .true.
+        if(ni.eq.0 .and. nj.eq.0) RatefnC_smth(2)=lossFT(2) ! Use the central cell model type.
+      endif
+    enddo
   enddo
-  RatefnC_smth(1) = dot_product(lambdas,sgWgts)
-  RETURN
+  RatefnC_smth(1) = 10.0**SmoothOperator55(log10(Q),isGood)
+
 END FUNCTION RatefnC_smth
 ! !=========================================================================
 ! !
