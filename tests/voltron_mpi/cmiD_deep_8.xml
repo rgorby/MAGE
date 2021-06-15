@@ -11,8 +11,8 @@
     <threading NumTh="36"/>
   </voltron>
   <Gamera>
-    <iPdir N="1" bcPeriodic="F"/>
-    <jPdir N="1" bcPeriodic="F"/>
+    <iPdir N="2" bcPeriodic="F"/>
+    <jPdir N="4" bcPeriodic="F"/>
     <kPdir N="1" bcPeriodic="T"/>
     <sim runid="msphere" doH5g="T" H5Grid="lfmD.h5" icType="user" pdmb="0.75" rmeth="7UP"/>
     <floors dFloor="1.0e-6" pFloor="1.0e-6"/>

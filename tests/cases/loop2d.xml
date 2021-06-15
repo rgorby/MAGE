@@ -13,14 +13,15 @@
   With a velocity equal to that, it will take 1 second to complete a loop
 
 -->
-<Gamera>
-    <sim runid="loop2d" doH5init="F" icType="LOOP2D" pdmb="4.0"/>
-    <idir min="-0.5" max="0.5" N="256"/>
-    <jdir min="-0.5" max="0.5" N="256"/>
-    <kdir min="-0.5" max="0.5" N="1"/>
-    <time tFin="1.0"/>
-    <output dtOut="0.1" tsOut="1000000"/>
-    <physics doMHD="T" do25D="T"/>
-    <prob alpha="45.0" V0="1.41421356237"/>
-</Gamera>
-
+<Kaiju>
+  <Gamera>
+      <sim runid="loop2d" doH5init="F" icType="LOOP2D" pdmb="4.0"/>
+      <idir min="-0.5" max="0.5" N="256"/>
+      <jdir min="-0.5" max="0.5" N="256"/>
+      <kdir min="-0.5" max="0.5" N="1"/>
+      <time tFin="1.0"/>
+      <output dtOut="0.1" tsOut="1000000"/>
+      <physics doMHD="T" do25D="T"/>
+      <prob alpha="45.0" V0="1.41421356237"/>
+  </Gamera>
+</Kaiju>

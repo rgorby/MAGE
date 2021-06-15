@@ -1850,7 +1850,7 @@
           endif
           
           !Create new XML reader w/ RCM as root
-          xmlInp = New_XML_Input(trim(inpXML),'RCM',.true.)
+          xmlInp = New_XML_Input(trim(inpXML),'Kaiju/RCM',.true.)
 
           call xmlInp%Set_Val(label%char,"sim/runid","MAGE sim")
 

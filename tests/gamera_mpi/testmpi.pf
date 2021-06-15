@@ -115,7 +115,7 @@ contains
               enddo
               deallocate(allRanks)
 
-              @assertEqual((/gamAppMpi%Grid%Ri*4,0,0/), gamAppMpi%Grid%ijkShift, '4 processor ijkShift wrong')
+              @assertEqual((/gamAppMpi%Grid%Ri*16,0,0/), gamAppMpi%Grid%ijkShift, '4 processor ijkShift wrong')
               if(gamAppMpi%Grid%Ri==0) then
                   @assertTrue(gamAppMpi%Grid%hasLowerBC(IDIR), '4 processor hasLowerBC(IDIR) wrong')
               else
@@ -132,20 +132,20 @@ contains
               @assertTrue(gamAppMpi%Grid%hasUpperBC(KDIR), '4 processor hasUpperBC(KDIR) wrong')
 
               @assertEqual(4,  gamAppMpi%Model%Ng, '4 processor Ng wrong')
-              @assertEqual(4,  gamAppMpi%Grid%Nip, '4 processor Nip wrong')
+              @assertEqual(16, gamAppMpi%Grid%Nip, '4 processor Nip wrong')
               @assertEqual(16, gamAppMpi%Grid%Njp, '4 processor Njp wrong')
               @assertEqual(16, gamAppMpi%Grid%Nkp, '4 processor Nkp wrong')
-              @assertEqual(12, gamAppMpi%Grid%Ni,  '4 processor Ni wrong')
+              @assertEqual(24, gamAppMpi%Grid%Ni,  '4 processor Ni wrong')
               @assertEqual(24, gamAppMpi%Grid%Nj,  '4 processor Nj wrong')
               @assertEqual(24, gamAppMpi%Grid%Nk,  '4 processor Nk wrong')
               @assertEqual(1,  gamAppMpi%Grid%is,  '4 processor is wrong')
-              @assertEqual(4,  gamAppMpi%Grid%ie,  '4 processor ie wrong')
+              @assertEqual(16, gamAppMpi%Grid%ie,  '4 processor ie wrong')
               @assertEqual(1,  gamAppMpi%Grid%js,  '4 processor js wrong')
               @assertEqual(16, gamAppMpi%Grid%je,  '4 processor je wrong')
               @assertEqual(1,  gamAppMpi%Grid%ks,  '4 processor ks wrong')
               @assertEqual(16, gamAppMpi%Grid%ke,  '4 processor ke wrong')
               @assertEqual(-3, gamAppMpi%Grid%isg, '4 processor isg wrong')
-              @assertEqual(8,  gamAppMpi%Grid%ieg, '4 processor ieg wrong')
+              @assertEqual(20, gamAppMpi%Grid%ieg, '4 processor ieg wrong')
               @assertEqual(-3, gamAppMpi%Grid%jsg, '4 processor jsg wrong')
               @assertEqual(20, gamAppMpi%Grid%jeg, '4 processor jeg wrong')
               @assertEqual(-3, gamAppMpi%Grid%ksg, '4 processor ksg wrong')
@@ -154,7 +154,7 @@ contains
               do i=gamAppMpi%Grid%isg,gamAppMpi%Grid%ieg+1
                   do j=gamAppMpi%Grid%jsg,gamAppMpi%Grid%jeg+1
                       do k=gamAppMpi%Grid%ksg,gamAppMpi%Grid%keg+1
-                          checkVal = -0.5_rp+(gamAppMpi%Grid%ijkshift(IDIR)+i-1)*(1.0_rp/16.0_rp)
+                          checkVal = -0.5_rp+(gamAppMpi%Grid%ijkshift(IDIR)+i-1)*(1.0_rp/64.0_rp)
                           write (checkMessage,'(A,I0,A,I0,A,I0,A)') '4 processor x wrong at (',i,',',j,',',k,')'
                           @assertEqual(checkVal, gamAppMpi%Grid%xyz(i,j,k,XDIR), trim(checkMessage))
                           checkVal = -0.5_rp+(j-1)*(1.0_rp/16.0_rp)
@@ -186,7 +186,7 @@ contains
               enddo
               deallocate(allRanks)
 
-              @assertEqual((/gamAppMpi%Grid%Ri*4,gamAppMpi%Grid%Rj*4,0/), gamAppMpi%Grid%ijkShift, '16 processor ijkShift wrong')
+              @assertEqual((/gamAppMpi%Grid%Ri*16,gamAppMpi%Grid%Rj*4,0/), gamAppMpi%Grid%ijkShift, '16 processor ijkShift wrong')
               if(gamAppMpi%Grid%Ri==0) then
                   @assertTrue(gamAppMpi%Grid%hasLowerBC(IDIR), '16 processor hasLowerBC(IDIR) wrong')
               else
@@ -211,20 +211,20 @@ contains
               @assertTrue(gamAppMpi%Grid%hasUpperBC(KDIR), '16 processor hasUpperBC(KDIR) wrong')
 
               @assertEqual(4,  gamAppMpi%Model%Ng, '16 processor Ng wrong')
-              @assertEqual(4,  gamAppMpi%Grid%Nip, '16 processor Nip wrong')
+              @assertEqual(16, gamAppMpi%Grid%Nip, '16 processor Nip wrong')
               @assertEqual(4,  gamAppMpi%Grid%Njp, '16 processor Njp wrong')
               @assertEqual(16, gamAppMpi%Grid%Nkp, '16 processor Nkp wrong')
-              @assertEqual(12, gamAppMpi%Grid%Ni,  '16 processor Ni wrong')
+              @assertEqual(24, gamAppMpi%Grid%Ni,  '16 processor Ni wrong')
               @assertEqual(12, gamAppMpi%Grid%Nj,  '16 processor Nj wrong')
               @assertEqual(24, gamAppMpi%Grid%Nk,  '16 processor Nk wrong')
               @assertEqual(1,  gamAppMpi%Grid%is,  '16 processor is wrong')
-              @assertEqual(4,  gamAppMpi%Grid%ie,  '16 processor ie wrong')
+              @assertEqual(16, gamAppMpi%Grid%ie,  '16 processor ie wrong')
               @assertEqual(1,  gamAppMpi%Grid%js,  '16 processor js wrong')
               @assertEqual(4,  gamAppMpi%Grid%je,  '16 processor je wrong')
               @assertEqual(1,  gamAppMpi%Grid%ks,  '16 processor ks wrong')
               @assertEqual(16, gamAppMpi%Grid%ke,  '16 processor ke wrong')
               @assertEqual(-3, gamAppMpi%Grid%isg, '16 processor isg wrong')
-              @assertEqual(8,  gamAppMpi%Grid%ieg, '16 processor ieg wrong')
+              @assertEqual(20, gamAppMpi%Grid%ieg, '16 processor ieg wrong')
               @assertEqual(-3, gamAppMpi%Grid%jsg, '16 processor jsg wrong')
               @assertEqual(8,  gamAppMpi%Grid%jeg, '16 processor jeg wrong')
               @assertEqual(-3, gamAppMpi%Grid%ksg, '16 processor ksg wrong')
@@ -233,7 +233,7 @@ contains
               do i=gamAppMpi%Grid%isg,gamAppMpi%Grid%ieg+1
                   do j=gamAppMpi%Grid%jsg,gamAppMpi%Grid%jeg+1
                       do k=gamAppMpi%Grid%ksg,gamAppMpi%Grid%keg+1
-                          checkVal = -0.5_rp+(gamAppMpi%Grid%ijkshift(IDIR)+i-1)*(1.0_rp/16.0_rp)
+                          checkVal = -0.5_rp+(gamAppMpi%Grid%ijkshift(IDIR)+i-1)*(1.0_rp/64.0_rp)
                           write (checkMessage,'(A,I0,A,I0,A,I0,A)') '16 processor x wrong at (',i,',',j,',',k,')'
                           @assertEqual(checkVal, gamAppMpi%Grid%xyz(i,j,k,XDIR), trim(checkMessage))
                           checkVal = -0.5_rp+(gamAppMpi%Grid%ijkshift(JDIR)+j-1)*(1.0_rp/16.0_rp)
@@ -265,7 +265,7 @@ contains
               enddo
               deallocate(allRanks)
 
-              @assertEqual((/gamAppMpi%Grid%Ri*4,gamAppMpi%Grid%Rj*4,gamAppMpi%Grid%Rk*4/), gamAppMpi%Grid%ijkShift, '64 processor ijkShift wrong')
+              @assertEqual((/gamAppMpi%Grid%Ri*16,gamAppMpi%Grid%Rj*4,gamAppMpi%Grid%Rk*4/), gamAppMpi%Grid%ijkShift, '64 processor ijkShift wrong')
               if(gamAppMpi%Grid%Ri==0) then
                   @assertTrue(gamAppMpi%Grid%hasLowerBC(IDIR), '64 processor hasLowerBC(IDIR) wrong')
               else
@@ -298,20 +298,20 @@ contains
               endif
 
               @assertEqual(4,  gamAppMpi%Model%Ng, '64 processor Ng wrong')
-              @assertEqual(4,  gamAppMpi%Grid%Nip, '64 processor Nip wrong')
+              @assertEqual(16, gamAppMpi%Grid%Nip, '64 processor Nip wrong')
               @assertEqual(4,  gamAppMpi%Grid%Njp, '64 processor Njp wrong')
               @assertEqual(4,  gamAppMpi%Grid%Nkp, '64 processor Nkp wrong')
-              @assertEqual(12, gamAppMpi%Grid%Ni,  '64 processor Ni wrong')
+              @assertEqual(24, gamAppMpi%Grid%Ni,  '64 processor Ni wrong')
               @assertEqual(12, gamAppMpi%Grid%Nj,  '64 processor Nj wrong')
               @assertEqual(12, gamAppMpi%Grid%Nk,  '64 processor Nk wrong')
               @assertEqual(1,  gamAppMpi%Grid%is,  '64 processor is wrong')
-              @assertEqual(4,  gamAppMpi%Grid%ie,  '64 processor ie wrong')
+              @assertEqual(16, gamAppMpi%Grid%ie,  '64 processor ie wrong')
               @assertEqual(1,  gamAppMpi%Grid%js,  '64 processor js wrong')
               @assertEqual(4,  gamAppMpi%Grid%je,  '64 processor je wrong')
               @assertEqual(1,  gamAppMpi%Grid%ks,  '64 processor ks wrong')
               @assertEqual(4,  gamAppMpi%Grid%ke,  '64 processor ke wrong')
               @assertEqual(-3, gamAppMpi%Grid%isg, '64 processor isg wrong')
-              @assertEqual(8,  gamAppMpi%Grid%ieg, '64 processor ieg wrong')
+              @assertEqual(20, gamAppMpi%Grid%ieg, '64 processor ieg wrong')
               @assertEqual(-3, gamAppMpi%Grid%jsg, '64 processor jsg wrong')
               @assertEqual(8,  gamAppMpi%Grid%jeg, '64 processor jeg wrong')
               @assertEqual(-3, gamAppMpi%Grid%ksg, '64 processor ksg wrong')
@@ -320,7 +320,7 @@ contains
               do i=gamAppMpi%Grid%isg,gamAppMpi%Grid%ieg+1
                   do j=gamAppMpi%Grid%jsg,gamAppMpi%Grid%jeg+1
                       do k=gamAppMpi%Grid%ksg,gamAppMpi%Grid%keg+1
-                          checkVal = -0.5_rp+(gamAppMpi%Grid%ijkshift(IDIR)+i-1)*(1.0_rp/16.0_rp)
+                          checkVal = -0.5_rp+(gamAppMpi%Grid%ijkshift(IDIR)+i-1)*(1.0_rp/64.0_rp)
                           write (checkMessage,'(A,I0,A,I0,A,I0,A)') '64 processor x wrong at (',i,',',j,',',k,')'
                           @assertEqual(checkVal, gamAppMpi%Grid%xyz(i,j,k,XDIR), trim(checkMessage))
                           checkVal = -0.5_rp+(gamAppMpi%Grid%ijkshift(JDIR)+j-1)*(1.0_rp/16.0_rp)
@@ -371,30 +371,30 @@ contains
               call mpi_type_get_extent(gamAppMpi%sendTypesGas(1),lb,extent,ierr)
               @assertEqual(MPI_SUCCESS, ierr, '4 processes minI send get extent failed')
               ! (1,1,1,1,0)
-              @assertEqual(dataSize*1204, lb, '4 processes minI send lb wrong')
+              @assertEqual(dataSize*2404, lb, '4 processes minI send lb wrong')
               ! (4,16,16,5,0) - (1,1,1,1,0) + 1 for extent
-              @assertEqual(dataSize*32152, extent, '4 processes minI send extent wrong')
+              @assertEqual(dataSize*64300, extent, '4 processes minI send extent wrong')
 
               call mpi_type_get_extent(gamAppMpi%sendTypesGas(2),lb,extent,ierr)
               @assertEqual(MPI_SUCCESS, ierr, '4 processes maxI send get extent failed')
-              ! (1,1,1,1,0)
-              @assertEqual(dataSize*1204, lb, '4 processes maxI send lb wrong')
-              ! (4,16,16,5,0) - (1,1,1,1,0) + 1 for extent
-              @assertEqual(dataSize*32152, extent, '4 processes minI send extent wrong')
+              ! (13,1,1,1,0)
+              @assertEqual(dataSize*2416, lb, '4 processes maxI send lb wrong')
+              ! (16,16,16,5,0) - (13,1,1,1,0) + 1 for extent
+              @assertEqual(dataSize*64300, extent, '4 processes maxI send extent wrong')
 
               call mpi_type_get_extent(gamAppMpi%recvTypesGas(1),lb,extent,ierr)
               @assertEqual(MPI_SUCCESS, ierr, '4 processes minI recv get extent failed')
               ! (-3,1,-3,1,0)
-              @assertEqual(dataSize*48, lb, '4 processes minI recv lb wrong')
+              @assertEqual(dataSize*96, lb, '4 processes minI recv lb wrong')
               ! (0,16,20,5,0) - (-3,1,-3,1,0) + 1 for extent
-              @assertEqual(dataSize*34456, extent, '4 processes minI recv extent wrong')
+              @assertEqual(dataSize*68908, extent, '4 processes minI recv extent wrong')
 
               call mpi_type_get_extent(gamAppMpi%recvTypesGas(2),lb,extent,ierr)
               @assertEqual(MPI_SUCCESS, ierr, '4 processes maxI recv get extent failed')
-              ! (5,1,-3,1,0)
-              @assertEqual(dataSize*56, lb, '4 processes maxI recv lb wrong')
-              ! (8,16,20,5,0) - (5,1,-3,1,0) + 1 for extent
-              @assertEqual(dataSize*34456, extent, '4 processes minI send extent wrong')
+              ! (17,1,-3,1,0)
+              @assertEqual(dataSize*116, lb, '4 processes maxI recv lb wrong')
+              ! (20,16,20,5,0) - (17,1,-3,1,0) + 1 for extent
+              @assertEqual(dataSize*68908, extent, '4 processes maxI recv extent wrong')
 
           CASE (16)
               @assertTrue(MPI_COMM_NULL /= gamAppMpi%gamMpiComm, '16 processes gamMpiComm wrong')

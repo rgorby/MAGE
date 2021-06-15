@@ -380,7 +380,6 @@ module init
     !Time options
         !Check both omega/sim/tFin & gamera/time/tFin
         call xmlInp%Set_Val(Model%tFin,'time/tFin',1.0_rp)
-        call xmlInp%Set_Val(Model%tFin,'/omega/sim/tFin',Model%tFin)
         call xmlInp%Set_Val(Model%dt,'time/fixedTimestep', -1.0_rp)
         if(Model%dt > 0) then
             Model%fixedTimestep = .true.

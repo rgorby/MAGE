@@ -95,6 +95,8 @@ module kronos
 
         !Allocate holders
         varTS%NumT = N
+        if(allocated(varTS%tF)) deallocate(varTS%tF)
+        if(allocated(varTS%Q)) deallocate(varTS%Q)
         allocate(varTS%tF(N))
         allocate(varTS%Q(N))
 

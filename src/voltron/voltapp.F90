@@ -28,7 +28,7 @@ module voltapp
         class(voltApp_T), intent(inout) :: vApp
         character(len=*), optional, intent(in) :: optFilename
 
-        character(len=strLen) :: inpXML
+        character(len=strLen) :: inpXML, kaijuRoot
         type(XML_Input_T) :: xmlInp
         type(TimeSeries_T) :: tsMJD
         real(rp) :: gTScl,tSpin,tIO
@@ -47,7 +47,25 @@ module voltapp
         if (.not. vApp%isLoud) call xmlInp%BeQuiet()
 
         !Create XML reader
-        xmlInp = New_XML_Input(trim(inpXML),'Voltron',.true.)
+        xmlInp = New_XML_Input(trim(inpXML),'Kaiju/Voltron',.true.)
+
+        ! try to verify that the XML file has "Kaiju" as a root element
+        kaijuRoot = ""
+        call xmlInp%Get_Key_Val("/Gamera/sim/H5Grid",kaijuRoot, .false.)
+        if(len(trim(kaijuRoot)) /= 0) then
+            write(*,*) "The input XML appears to be of an old style."
+            write(*,*) "As of June 12th, 2021 it needs a root element of <Kaiju>."
+            write(*,*) "Please modify your XML config file by adding this line at the top:"
+            write(*,*) "<Kaiju>"
+            write(*,*) "and this line at the bottom:"
+            write(*,*) "</Kaiju>"
+            write(*,*) "OR (preferred) convert your configuration to an INI file and use"
+            write(*,*) " the XMLGenerator.py script to create conforming XML files."
+            write(*,*) "Please refer to the python script or"
+            write(*,*) " the [Generating XML Files] wiki page for additional info."
+            stop
+        endif
+
         !Setup OMP if on separate node (otherwise can rely on gamera)
         if (vApp%isSeparate) then
             call SetOMP(xmlInp)
@@ -58,7 +76,7 @@ module voltapp
 
     !Initialize state information
         !Set file to read from and pass desired variable name to initTS
-        call xmlInp%Set_Val(vApp%tilt%wID,"/Gamera/wind/tsfile","NONE")
+        call xmlInp%Set_Val(vApp%tilt%wID,"/Kaiju/Gamera/wind/tsfile","NONE")
         call vApp%tilt%initTS("tilt",doLoudO=.false.)
         vApp%symh%wID = vApp%tilt%wID
         call vApp%symh%initTS("symh",doLoudO=.false.)
@@ -494,7 +512,7 @@ module voltapp
         else
             call getIDeckStr(xmlStr)
         endif
-        inpXML = New_XML_Input(trim(xmlStr),"Chimp",.true.)
+        inpXML = New_XML_Input(trim(xmlStr),"Kaiju/Chimp",.true.)
 
     !Initialize model
         associate(Model=>ebTrcApp%ebModel,ebState=>ebTrcApp%ebState,ebGr=>ebTrcApp%ebState%ebGr,Gr=>gApp%Grid)

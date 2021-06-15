@@ -27,7 +27,7 @@ program remix2remix
   call readArgs(inpXML)
 
   ! First set input deck reader
-  xmlInp = New_XML_Input(trim(inpXML),'REMIX',.true.)
+  xmlInp = New_XML_Input(trim(inpXML),'Kaiju/REMIX',.true.)
 
   ! get input H5 file name
   call xmlInp%Set_Val(inH5,"remix2remix/inH5","inH5.h5")  

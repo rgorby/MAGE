@@ -7,5 +7,8 @@
     <physics doMHD="T" doBoris="T" Ca="10.0"/>
     <prob x0="-50.0" y0="30.0" rC="20.0" B0="1.0" pRat="10.0"/>
     <ring gid="lfm" doRing="T" Nr="4" Nc1="8" Nc2="16" Nc3="32" Nc4="32"/>
+    <iPdir N="2" bcPeriodic="F"/>
+    <jPdir N="4" bcPeriodic="F"/>
+    <kPdir N="1" bcPeriodic="T"/>
   </Gamera>
 </Kaiju>
