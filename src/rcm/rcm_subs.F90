@@ -2376,7 +2376,7 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
             !NOTE: Also pass KpNow value if you need Kp dep. stuff
             !lossratep(i,j,kc) = Ratefn(fudgec(kc),alamc(kc),sini(i,j),bir(i,j),vm(i,j),mass_factor)
             !lossFT = RatefnC(xmin(i,j),ymin(i,j),alamc(kc),vm(i,j),bmin(i,j),losscone(i,j),Dpp(i,j),dble(NowKp))
-            lossFT = RatefnC_smth(xmin(i,j),ymin(i,j),alamc(kc),vm(i,j),bmin(i,j),losscone(i,j),Dpp(i,j),dble(NowKp))
+            lossFT = RatefnC_ksmth(xmin(i,j),ymin(i,j),alamc(kc),vm(i,j),bmin(i,j),losscone(i,j),Dpp(i,j),dble(NowKp))
             lossratep(i,j,kc) = lossFT(1)
             lossmodel(i,j,kc) = lossFT(2)
             lossFDG = lossratep(i,j,kc)
@@ -2950,6 +2950,34 @@ FUNCTION RatefnC_smth (xx,yy,alamx,vmx,beqx,losscx,nex,kpx)
   RatefnC_smth(1) = 10.0**SmoothOperator55(log10(Q),isGood)
 
 END FUNCTION RatefnC_smth
+
+FUNCTION RatefnC_ksmth (xx,yy,alamx,vmx,beqx,losscx,nex,kpx)
+  ! Smooth RatefnC in MLT based on Kareem's lazy code.
+  IMPLICIT NONE
+  REAL (rprec), INTENT (IN) :: xx,yy,alamx,vmx,beqx,losscx,nex,kpx
+  REAL (rprec), dimension(2) :: RatefnC_ksmth,lossFT
+  REAL (rprec), parameter, dimension(-4:+4) :: sgWgts = [-21.0,14.0,39.0,54.0,59.0,54.0,39.0,14.0,-21.0]/231.0
+  REAL (rprec), dimension(-4:+4,-4:+4) :: Q
+  REAL (rprec) :: LWin, L, Ln, pWin, phi, phin
+  INTEGER (iprec) :: ni,nj
+  pWin = 15.0*PI/180.0 ! +/- 30deg window
+  LWin = 0.5    ! +/-1.0 L window.
+  RatefnC_ksmth = [1.D-10,-1.D0] ! default rate is 1e-10/s, type is -1.
+  L = sqrt(xx**2+yy**2)
+  phi = atan2(yy,xx)
+  Q = 1.D-10
+  if (vmx<0) return !Nothing to do if bad cell
+  do ni=-4,+4
+    do nj=-4,+4
+        phin   = phi + pWin/4.0*nj
+        Ln     = L   + LWin/4.0*ni
+        lossFT = RatefnC(Ln*cos(phin),Ln*sin(phin),alamx,vmx,beqx,losscx,nex,kpx)
+        Q(ni,nj) = sgWgts(ni)*sgWgts(nj)*log10( lossFT(1) )
+        if ( (ni==0) .and. (nj==0) ) RatefnC_ksmth(2)=lossFT(2) ! Use the central cell model type.
+    enddo
+  enddo
+  RatefnC_ksmth(1) = 10.0**(sum(Q))
+END FUNCTION RatefnC_ksmth
 ! !=========================================================================
 ! !
 ! SUBROUTINE Move_plasma_grid_NEW (dt)
