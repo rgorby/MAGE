@@ -1784,6 +1784,7 @@
           call AddOutVar(IOVars,"fclps" ,fclps )
           call AddOutVar(IOVars,"vdrop" ,vdrop )
           call AddOutVar(IOVars,"i_avg" ,i_avg )
+          call AddOutVar(IOVars,"dtCpl" ,(itimef-itimei) )
 
         !Arrays
           call AddOutVar(IOVars,"rcmxmin",xmin)

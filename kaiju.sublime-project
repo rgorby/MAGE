@@ -36,8 +36,5 @@
 			],
 			"path": "kaipy",
 		},
-		{
-			"path": "src/rcm"
-		},
 	],
 }
