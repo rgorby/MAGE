@@ -15,7 +15,10 @@ KDIR = 2
 
 #Push restart data to an MPI tiling
 #fInA is a restart file to pull attributes from
-def PushRestartMPI(outid,nRes,Ri,Rj,Rk,X,Y,Z,G,M,fInA):
+def PushRestartMPI(outid,nRes,Ri,Rj,Rk,X,Y,Z,G,M,fInA,G0=None):
+	if (G0 is not None):
+		doGas0 = True
+
 	print("Reading attributes from %s"%(fInA))
 	iH5 = h5py.File(fInA,'r')
 
@@ -61,12 +64,15 @@ def PushRestartMPI(outid,nRes,Ri,Rj,Rk,X,Y,Z,G,M,fInA):
 				ijkZ = Z[kSg:kEg,jSg:jEg,iSg:iEg]
 
 				#Slice pieces out of gas and magflux
-				ijkG = G[:,:,kS:kE  ,jS:jE  ,iS:iE  ]
-				ijkM = M[  :,kS:kE+1,jS:jE+1,iS:iE+1]
-
+				ijkG  = G [:,:,kS:kE  ,jS:jE  ,iS:iE  ]
+				ijkM  = M [  :,kS:kE+1,jS:jE+1,iS:iE+1]
+				if (doGas0):
+					ijkG0 = G0[:,:,kS:kE  ,jS:jE  ,iS:iE  ]
 				#Write heavy variables
 				oH5.create_dataset("Gas",data=ijkG)
 				oH5.create_dataset("magFlux",data=ijkM)
+				if (doGas0):
+					oH5.create_dataset("Gas0",data=ijkG0)
 
 				#Write subgrid
 				oH5.create_dataset("X",data=ijkX)
@@ -107,7 +113,10 @@ def PullRestartMPI(bStr,nRes,Ri,Rj,Rk,dIn=None,oH5=None):
 					Nj = Rj*Njp
 					Ni = Ri*Nip
 					G  = np.zeros((Ns,Nv,Nk,Nj,Ni))
-					G0 = np.zeros((Ns,Nv,Nk,Nj,Ni))
+					if (doGas0):
+						G0 = np.zeros((Ns,Nv,Nk,Nj,Ni))
+					else:
+						G0 = None
 					M = np.zeros((3,Nk+1,Nj+1,Ni+1))
 					if (oH5 is not None):
 						for ka in iH5.attrs.keys():

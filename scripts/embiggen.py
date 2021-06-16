@@ -74,6 +74,11 @@ if __name__ == "__main__":
 	#Write main data
 	print("Writing plasma and field data to temp file...")
 	oH5.create_dataset("Gas",data=G)
+	if (G0 is not None):
+		doGas0 = True
+		print("Writing Gas0")
+		oH5.create_dataset("Gas0",data=G0)
+
 	oH5.create_dataset("magFlux",data=M)
 	gVals = ['X','Y','Z']
 
@@ -97,6 +102,9 @@ if __name__ == "__main__":
 	M = np.zeros((3,Nk+1,Nj+1,Ni+1))
 	G[:,:,:,:,:] = iH5['Gas'][:]
 	M[  :,:,:,:] = iH5['magFlux'][:]
+	if (doGas0):
+		G0[:,:,:,:,:] = iH5['Gas0'][:]
+
 	X = iH5['X'][:]
 	Y = iH5['Y'][:]
 	Z = iH5['Z'][:]
@@ -112,6 +120,8 @@ if __name__ == "__main__":
 	Xr,Yr,Zr = upscl.upGrid(X,Y,Z)
 	Gr = upscl.upGas(X,Y,Z,G,Xr.T,Yr.T,Zr.T)
 	FluxR = upscl.upFlux(X,Y,Z,M,Xr,Yr,Zr)
+	if (doGas0):
+		G0r = upscl.upGas(X,Y,Z,G0,Xr.T,Yr.T,Zr.T)
 
 	#Write out grid to restart
 	oH5.create_dataset("X",data=Xr.T)
@@ -121,12 +131,14 @@ if __name__ == "__main__":
 	#Write out gas/flux variables
 	oH5.create_dataset("Gas",data=Gr)
 	oH5.create_dataset("magFlux",data=FluxR)
-	
+	if (doGas0):
+		oH5.create_dataset("Gas0",data=G0r)
+
 	#Close output
 	oH5.close()
 
 #Split up upscaled file
-	upscl.PushRestartMPI(outid,nRes,oRi,oRj,oRk,Xr.T,Yr.T,Zr.T,Gr,FluxR,fTmp2X)
+	upscl.PushRestartMPI(outid,nRes,oRi,oRj,oRk,Xr.T,Yr.T,Zr.T,Gr,FluxR,fTmp2X,G0r)
 
 #Delete temp files
 	os.remove(fTmp)
