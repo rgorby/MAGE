@@ -1,5 +1,6 @@
 <?xml version="1.0"?>
-<Gamera>
+<Kaiju>
+  <Gamera>
     <sim runid="blast3d_mhd_1" doH5init="F" icType="BW" pdmb="4.0"/>
     <idir min="-0.5" max="0.5" N="24"/>
     <jdir min="-0.5" max="0.5" N="24"/>
@@ -11,5 +12,5 @@
     <output dtOut="0.1" tsOut="1000000"/>
     <physics doMHD="T" do25D="F"/>
     <prob alpha="45.0" V0="1.41421356237"/>
-</Gamera>
-
+  </Gamera>
+</Kaiju>

@@ -60,9 +60,9 @@ program voltron_mpix
 
     ! need to know how many voltron helpers there are
     call getIDeckStr(inpXML)
-    call ReadXmlImmediate(trim(inpXML),'/Voltron/Helpers/useHelpers',helpersBuf,'F',.false.)
+    call ReadXmlImmediate(trim(inpXML),'/Kaiju/Voltron/Helpers/useHelpers',helpersBuf,'F',.false.)
     read(helpersBuf,*) useHelpers
-    call ReadXmlImmediate(trim(inpXML),'/Voltron/Helpers/numHelpers',helpersBuf,'0',.false.)
+    call ReadXmlImmediate(trim(inpXML),'/Kaiju/Voltron/Helpers/numHelpers',helpersBuf,'0',.false.)
     read(helpersBuf,*) numHelpers
     if(.not. useHelpers) numHelpers = 0
 

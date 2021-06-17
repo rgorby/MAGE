@@ -24,7 +24,7 @@ module gamapp
         character(len=*), optional, intent(in) :: optFilename
         logical, optional, intent(in) :: doIO
 
-        character(len=strLen) :: inpXML
+        character(len=strLen) :: inpXML,kaijuRoot
         type(XML_Input_T) :: xmlInp
         logical :: doIOX
 
@@ -45,7 +45,24 @@ module gamapp
 
         !Create XML reader
         write(*,*) 'Reading input deck from ', trim(inpXML)
-        xmlInp = New_XML_Input(trim(inpXML),'Gamera',.true.)
+        xmlInp = New_XML_Input(trim(inpXML),'Kaiju/Gamera',.true.)
+
+        ! try to verify that the XML file has "Kaiju" as a root element
+        kaijuRoot = ""
+        call xmlInp%Get_Key_Val("/Gamera/sim/H5Grid",kaijuRoot,.false.)
+        if(len(trim(kaijuRoot)) /= 0) then
+            write(*,*) "The input XML appears to be of an old style."
+            write(*,*) "As of June 12th, 2021 it needs a root element of <Kaiju>."
+            write(*,*) "Please modify your XML config file by adding this line at the top:"
+            write(*,*) "<Kaiju>"
+            write(*,*) "and this line at the bottom:"
+            write(*,*) "</Kaiju>"
+            write(*,*) "OR (preferred) convert your configuration to an INI file and use"
+            write(*,*) " the XMLGenerator.py script to create conforming XML files."
+            write(*,*) "Please refer to the python script or"
+            write(*,*) " the [Generating XML Files] wiki page for additional info."
+            stop
+        endif
 
         ! read debug flags
         call xmlInp%Set_Val(writeGhosts,"debug/writeGhosts",.false.)

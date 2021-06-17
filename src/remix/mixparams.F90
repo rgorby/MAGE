@@ -74,7 +74,7 @@ module mixparams
       endif
 
       !First set input deck reader
-      xmlInp = New_XML_Input(trim(inpXML),'REMIX',.true.)
+      xmlInp = New_XML_Input(trim(inpXML),'Kaiju/REMIX',.true.)
 
         ! =========== CONDUCTANCE MODEL PARAMTERS =================== !
         ! EUV_MODEL_TYPE
@@ -155,7 +155,7 @@ module mixparams
 
         ! =========== IO PARAMTERS =================== !
         call xmlInp%Set_Val(Params%dtOut,"output/dtOut",1.0_rp)
-        call xmlInp%Set_Val(Params%nRes,"/gamera/restart/nRes",-1)
+        call xmlInp%Set_Val(Params%nRes,"/Kaiju/gamera/restart/nRes",-1)
         ! =========== IO PARAMTERS =================== !
 
         ! =========== DEBUG PARAMETERS ================ !

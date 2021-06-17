@@ -180,11 +180,11 @@ module rcm_mhd_io
             isRCM = .false.
         endif
         if (isRCM) then
-            call xmlInp%Set_Val(resID,"/rcm/restart/resID","msphere")
-            call xmlInp%Set_Val(nRes ,"/rcm/restart/nRes" ,-1)
+            call xmlInp%Set_Val(resID,"/Kaiju/rcm/restart/resID","msphere")
+            call xmlInp%Set_Val(nRes ,"/Kaiju/rcm/restart/nRes" ,-1)
         else
-            call xmlInp%Set_Val(resID,"/gamera/restart/resID","msphere")
-            call xmlInp%Set_Val(nRes ,"/gamera/restart/nRes" ,-1)
+            call xmlInp%Set_Val(resID,"/Kaiju/gamera/restart/resID","msphere")
+            call xmlInp%Set_Val(nRes ,"/Kaiju/gamera/restart/nRes" ,-1)
         endif            
         !Get number string
         if (nRes == -1) then

@@ -118,12 +118,12 @@ module voltapp_mpi
                 call getIDeckStr(inpXML)
             endif
             call CheckFileOrDie(inpXML,"Error opening input deck in initVoltron_mpi, exiting ...")
-            xmlInp = New_XML_Input(trim(inpXML),'Gamera',.false.)
+            xmlInp = New_XML_Input(trim(inpXML),'Kaiju/Gamera',.false.)
 
-            call xmlInp%Set_Val(vApp%useHelpers,"/Voltron/Helpers/useHelpers",.false.)
-            call xmlInp%Set_Val(vApp%doSquishHelp,"/Voltron/Helpers/doSquishHelp",.true.)
-            call xmlInp%Set_Val(vApp%masterSquish,"/Voltron/Helpers/masterSquish",.false.)
-            call xmlInp%Set_Val(nHelpers,"/Voltron/Helpers/numHelpers",0)
+            call xmlInp%Set_Val(vApp%useHelpers,"/Kaiju/Voltron/Helpers/useHelpers",.false.)
+            call xmlInp%Set_Val(vApp%doSquishHelp,"/Kaiju/Voltron/Helpers/doSquishHelp",.true.)
+            call xmlInp%Set_Val(vApp%masterSquish,"/Kaiju/Voltron/Helpers/masterSquish",.false.)
+            call xmlInp%Set_Val(nHelpers,"/Kaiju/Voltron/Helpers/numHelpers",0)
             call MPI_Comm_Size(vApp%vHelpComm, commSize, ierr)
             if(ierr /= MPI_Success) then
                 call MPI_Error_string( ierr, message, length, ierr)
@@ -270,13 +270,13 @@ module voltapp_mpi
             call getIDeckStr(inpXML)
         endif
         call CheckFileOrDie(inpXML,"Error opening input deck in initVoltron_mpi, exiting ...")
-        xmlInp = New_XML_Input(trim(inpXML),'Gamera',.true.)
-        call xmlInp%Set_Val(vApp%doSerialVoltron,"/Voltron/coupling/doSerial",.false.)
-        call xmlInp%Set_Val(vApp%doAsyncShallow, "/Voltron/coupling/doAsyncShallow",.true.)
-        call xmlInp%Set_Val(vApp%useHelpers,"/Voltron/Helpers/useHelpers",.false.)
-        call xmlInp%Set_Val(vApp%doSquishHelp,"/Voltron/Helpers/doSquishHelp",.true.)
-        call xmlInp%Set_Val(vApp%masterSquish,"/Voltron/Helpers/masterSquish",.false.)
-        call xmlInp%Set_Val(nHelpers,"/Voltron/Helpers/numHelpers",0)
+        xmlInp = New_XML_Input(trim(inpXML),'Kaiju/Gamera',.true.)
+        call xmlInp%Set_Val(vApp%doSerialVoltron,"/Kaiju/Voltron/coupling/doSerial",.false.)
+        call xmlInp%Set_Val(vApp%doAsyncShallow, "/Kaiju/Voltron/coupling/doAsyncShallow",.true.)
+        call xmlInp%Set_Val(vApp%useHelpers,"/Kaiju/Voltron/Helpers/useHelpers",.false.)
+        call xmlInp%Set_Val(vApp%doSquishHelp,"/Kaiju/Voltron/Helpers/doSquishHelp",.true.)
+        call xmlInp%Set_Val(vApp%masterSquish,"/Kaiju/Voltron/Helpers/masterSquish",.false.)
+        call xmlInp%Set_Val(nHelpers,"/Kaiju/Voltron/Helpers/numHelpers",0)
         call MPI_Comm_Size(vApp%vHelpComm, commSize, ierr)
         if(ierr /= MPI_Success) then
             call MPI_Error_string( ierr, message, length, ierr)

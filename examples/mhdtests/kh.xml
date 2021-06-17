@@ -1,11 +1,13 @@
 <?xml version="1.0"?>
 <!-- Kelvin-Helmholtz -->
-<Gamera>
-    <sim runid="kh" doH5init="F" icType="KH"/>
-    <idir min="-0.5" max="0.5" N="512"/>
-    <jdir min="-0.5" max="0.5" N="512"/>
-    <kdir min="-0.5" max="0.5" N="1"/>
-    <time tFin="5.0"/>
-    <output dtOut="0.01" tsOut="100"/>
-    <physics doMHD="F"/>
-</Gamera>
+<Kaiju>
+  <Gamera>
+      <sim runid="kh" doH5init="F" icType="KH"/>
+      <idir min="-0.5" max="0.5" N="512"/>
+      <jdir min="-0.5" max="0.5" N="512"/>
+      <kdir min="-0.5" max="0.5" N="1"/>
+      <time tFin="5.0"/>
+      <output dtOut="0.01" tsOut="100"/>
+      <physics doMHD="F"/>
+  </Gamera>
+</Kaiju>

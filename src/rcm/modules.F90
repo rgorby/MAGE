@@ -90,7 +90,7 @@ MODULE rice_housekeeping_module
         endif
 
         !Create new XML reader w/ RCM as root
-        xmlInp = New_XML_Input(trim(inpXML),'RCM',.true.)
+        xmlInp = New_XML_Input(trim(inpXML),'Kaiju/RCM',.true.)
 
         !Read various parameters
         call xmlInp%Set_Val(L_write_rcmu_torcm,"output/toRCM",L_write_rcmu_torcm)
@@ -142,7 +142,7 @@ MODULE rice_housekeeping_module
         call xmlInp%Set_Val(doSmoothDDV,"advect/doSmoothDDV",doSmoothDDV)
 
       !Initialize Kp (and maybe other indices) time series
-        call xmlInp%Set_Val(KpTS%wID,"/Gamera/wind/tsfile","NONE")
+        call xmlInp%Set_Val(KpTS%wID,"/Kaiju/Gamera/wind/tsfile","NONE")
         call KpTS%initTS("Kp",doLoudO=.false.)
 
       end subroutine RCM_MHD_Params_XML

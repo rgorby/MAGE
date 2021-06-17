@@ -42,7 +42,7 @@ module msphingest
 
         !Whether to ignore ingestion (if set)
         call xmlInp%Set_Val(doIngest,"source/doIngest",.true.)
-        call xmlInp%Set_Val(doAppetizer,"/voltron/imag/doInit",.false.)
+        call xmlInp%Set_Val(doAppetizer,"/Kaiju/voltron/imag/doInit",.false.)
 
         if (doAppetizer) then
         	call xmlInp%Set_Val(wID,"wind/tsfile","NONE")
