@@ -159,28 +159,21 @@ MODULE lossutils
     ! tau_s ~ [2*Psi*Bh/(1-eta)](gamma*m/p), where Psi is flux tube volume, Bh is |B| at field line foot point.
     ! eta is backscatter rate at alitude h, here eta=2/3.
     ! gamma = m/m0 is relativisitc factor, p is particle momentum.
-    ! Derivation: gamma=E/(m0*c^2), E^2=(pc)^2+(m0*c^2)^2, p=sqrt(gamma^2-1)*m0*c
-    ! or gamma = 1/sqrt(1-v^2/c^2) -> v=c*sqrt(1-1/gamma^2)
-    ! gamma*m/p = gamma^2/sqrt(gamma^2-1)/c
-    ! gammar2 = (K/mec2)**2 ! mec2=0.511 is me*c^2 in MeV
-    ! V = gammar2/sqrt(gammar2-1)
-        use constants, only : radius_earth_m
-        use kdefs, only : TINY
+    !       = mc2/m0c2 = (m0c2+K)/m0c2 = 1+K/mec2 ! mec2=0.511 is me*c^2 in MeV
+    ! m = m0/sqrt(1-v^2/c^2)
+    ! V = c*1/sqrt(1-1/gammar2)
+        use kdefs, only : TINY,vc_cgs,Re_cgs,mec2
         use math, only : RampUp
         IMPLICIT NONE
         real(rprec), intent(in) :: alam,vm,beq,lossc
         real(rprec) :: TauSS
         real(rprec) :: bfp,ftv,K,V,gammar
-        bfp = beq/(sin(lossc)**2.0) !Foot point field strength, nT
-        ftv = (1.0/vm)**(3.0/2.0) !flux-tube volume Re/nT
-        K = abs(alam)*vm*1.0e-3 !Energy [keV]
-        V = sqrt(2*K)*sqrt(kev2J/(Me_cgs*1.0e-3)) !V in m/s
-        !gammar = 1.0/sqrt(1-(V*1e2/vc_cgs)**2)
-        gammar = 1.0+K/511.0 ! Use the strict definition of kinetic energy: Ek=m*c^2-m0*c^2=(gamma-1)*m0*c^2
-        !Convert V from m/s to Re/s
-        V = V/radius_earth_m
-        TauSS = 3.D0*2.D0*ftv*bfp/V*gammar !Strong scattering lifetime [s], assuming gamma=1 and eta=2/3. Need to include relativisitc factor.
-!        write(*,"(a,1x,5e25.10)") "In RatefnC_tau_s",bfp,ftv,K,V,TauSS
+        bfp = beq/(sin(lossc)**2.0)               ! Foot point field strength, nT
+        ftv = (1.0/vm)**(3.0/2.0)                 ! flux-tube volume Re/nT
+        K = abs(alam)*vm*1.0e-6                   ! Energy [MeV]
+        gammar = 1.0+K/mec2
+        V = vc_cgs*sqrt(1.0-1.0/gammar**2)/Re_cgs ! Re/s
+        TauSS = 3.D0*2.D0*ftv*bfp/V*gammar        ! Strong scattering lifetime [s], assuming eta=2/3.
     END FUNCTION RatefnC_tau_s
 
     FUNCTION RatefnC_tau_C05(mltx,engx,Lshx) result(tau)
