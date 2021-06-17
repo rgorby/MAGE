@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from matplotlib import ticker, colors
 import numpy as np
 
-import lambdautils.dpetadp as dpetadp
+import kaipy.rcm.lambdautils.dpetadp as dpetadp
 
 titlesize = 16
 ylabelsize = 22

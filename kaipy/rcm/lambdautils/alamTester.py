@@ -1,9 +1,9 @@
 import numpy as np
 import h5py as h5
 
-from lambdautils.AlamData import AlamData
-from lambdautils.dpetadp import L_to_bVol  # !!!Move function to something lower to avoid circular dependencies in the future
-import lambdautils.dpRangeEval as dpRangeEval
+from kaipy.rcm.lambdautils.AlamData import AlamData
+from kaipy.rcm.lambdautils.dpetadp import L_to_bVol 
+import kaipy.rcm.lambdautils.dpRangeEval as dpRangeEval
 #Constants
 radius_earth_m = 6.371E6
 ev = 1.6e-19  # electron volt

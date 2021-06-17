@@ -2,9 +2,9 @@ import numpy as np
 import argparse
 from argparse import RawTextHelpFormatter
 
-from lambdautils.AlamData import AlamData
-import lambdautils.dpetadp as dpetadp
-import lambdautils.plotter as plotter
+from kaipy.rcm.lambdautils.AlamData import AlamData
+import kaipy.rcm.lambdautils.dpetadp as dpetadp
+import kaipy.rcm.lambdautils.plotter as plotter
 
 #Constants
 boltz = 1.38e-23  # boltzmann constant

@@ -3,10 +3,10 @@ import h5py as h5
 import argparse
 from argparse import RawTextHelpFormatter
 
-from lambdautils.dpetadp import L_to_bVol
-import lambdautils.alamTester as alamTester
-import lambdautils.plotter as plotter
-from lambdautils.AlamData import AlamParams
+from kaipy.rcm.lambdautils.dpetadp import L_to_bVol
+import kaipy.rcm.lambdautils.alamTester as alamTester
+import kaipy.rcm.lambdautils.plotter as plotter
+from kaipy.rcm.lambdautils.AlamData import AlamParams
 
 try:
 	import kaipy.rcm.rcminit as rcminit
