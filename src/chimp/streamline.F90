@@ -723,7 +723,13 @@ module streamline
 
             endif
         enddo
-
+        
+        if (MaxFL == Np) then
+            write(*,*) ANSIRED
+            write(*,*) "<WARNING! genTrace hit max tube size!>"
+            write(*,'(a)',advance="no") ANSIRESET, ''
+        endif
+        
     end subroutine genTrace
 
     !Slimmed down projection to northern hemisphere for MAGE

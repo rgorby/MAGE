@@ -48,6 +48,9 @@ if __name__ == "__main__":
 	parser.add_argument('-oRk',type=int,metavar="oRk",default=oRk,help="Input k-Ranks (default: %(default)s)")
 	
 	parser.add_argument('-grid',type=str,metavar="grid",default=grid,help="inGrid file to read from (default: %(default)s)")
+	parser.add_argument('--keep',action='store_true',default=False,help='Keep intermediate files (default: %(default)s)')
+	parser.add_argument('--down',action='store_true',default=False,help='Downscale instead of upscale (default: %(default)s)')
+
 
 	#Finalize parsing
 	args = parser.parse_args()
@@ -63,7 +66,9 @@ if __name__ == "__main__":
 	oRk = args.oRk
 
 	grid = args.grid
-	
+	doKeep = args.keep
+	doUp = not args.down
+
 #Pull tiled restart, write to temp file
 	#Stupidly writing temp restart to reuse old code
 	fTmp = "tempRes.31337.h5"
@@ -116,12 +121,21 @@ if __name__ == "__main__":
 	#Close input
 	iH5.close()
 
-	#Do upscaling
-	Xr,Yr,Zr = upscl.upGrid(X,Y,Z)
-	Gr = upscl.upGas(X,Y,Z,G,Xr.T,Yr.T,Zr.T)
-	FluxR = upscl.upFlux(X,Y,Z,M,Xr,Yr,Zr)
-	if (doGas0):
-		G0r = upscl.upGas(X,Y,Z,G0,Xr.T,Yr.T,Zr.T)
+	if (doUp):
+		print("Upscaling data ...")
+		#Do upscaling
+		Xr,Yr,Zr = upscl.upGrid(X,Y,Z)
+		Gr = upscl.upGas(X,Y,Z,G,Xr.T,Yr.T,Zr.T)
+		FluxR = upscl.upFlux(X,Y,Z,M,Xr,Yr,Zr)
+		if (doGas0):
+			G0r = upscl.upGas(X,Y,Z,G0,Xr.T,Yr.T,Zr.T)
+	else:
+		print("Downscaling data ...")
+		Xr,Yr,Zr = upscl.downGrid(X,Y,Z)
+		Gr = upscl.downnGas(X,Y,Z,G,Xr.T,Yr.T,Zr.T)
+		FluxR = upscl.downFlux(X,Y,Z,M,Xr,Yr,Zr)
+		if (doGas0):
+			G0r = upscl.downGas(X,Y,Z,G0,Xr.T,Yr.T,Zr.T)
 
 	#Write out grid to restart
 	oH5.create_dataset("X",data=Xr.T)
@@ -141,5 +155,6 @@ if __name__ == "__main__":
 	upscl.PushRestartMPI(outid,nRes,oRi,oRj,oRk,Xr.T,Yr.T,Zr.T,Gr,FluxR,fTmp2X,G0r)
 
 #Delete temp files
-	os.remove(fTmp)
-	os.remove(fTmp2X)
+	if (not doKeep):
+		os.remove(fTmp)
+		os.remove(fTmp2X)

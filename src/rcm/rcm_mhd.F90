@@ -84,8 +84,6 @@ module rcm_mhd_mod
 
     ! initialize
         if( (iflag == RCMINIT) .or. (iflag == RCMRESTART) ) then !Do this for initialization and restart?
-            !Make sure RCM directory exists
-            CALL CheckDirOrMake(Rcmdir)
 
             !Read RCM/MHD params from XML
             if(present(iXML)) then

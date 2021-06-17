@@ -1,5 +1,8 @@
 module files
     use kdefs
+#ifdef __INTEL_COMPILER
+    use ifport
+#endif
 
     implicit none
 
@@ -86,6 +89,14 @@ module files
                 write(*,'(5a)') ANSIRED,'<',trim(fStr),' already exists, deleting ...>',ANSIRESET
             endif
             write (cmd,'(A,A)') 'rm ',trim(fStr)
+#ifdef __INTEL_COMPILER
+            eStat = unlink(fStr)
+            if (eStat) then
+                write(*,*) 'Unlink error: ', eStat
+                stop
+            endif
+#else
+            !System call method
             call EXECUTE_COMMAND_LINE(trim(cmd), wait=.true., exitstat=eStat, cmdstat=cStat, cmdmsg=cMsg)
             if(cStat > 0) then
                 write (*,*) 'Command line "',trim(cmd),'" failed with error: ',trim(cMsg)
@@ -95,6 +106,8 @@ module files
                 write (*,*) 'EXECUTE_COMMAND_LINE not supported'
                 stop
             endif
+#endif
+
         endif
     end subroutine CheckAndKill
 

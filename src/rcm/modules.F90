@@ -62,8 +62,8 @@ MODULE rice_housekeeping_module
 
   REAL(rprec) :: staticR = 0.0
   REAL(rprec) :: LowLatMHD = 0.0
-  REAL(rprec) :: rcm_pFloor = 1.0e-6 !nPa
-  REAL(rprec) :: rcm_dFloor = 1.0e-4 !#/cc
+  REAL(rprec) :: rcm_pFloor = 0.0 !nPa
+  REAL(rprec) :: rcm_dFloor = 0.0 !#/cc
 
   REAL(rprec), parameter :: epsPk = 1.0e-6
 
@@ -149,8 +149,8 @@ MODULE rice_housekeeping_module
         call KpTS%initTS("Kp",doLoudO=.false.)
 
       !Get floors from gamera part of XML
-        call xmlInp%Set_Val(rcm_pFloor,"/Kaiju/gamera/floors/pFloor",rcm_pFloor)
-        call xmlInp%Set_Val(rcm_dFloor,"/Kaiju/gamera/floors/dFloor",rcm_dFloor)
+        ! call xmlInp%Set_Val(rcm_pFloor,"/Kaiju/gamera/floors/pFloor",rcm_pFloor)
+        ! call xmlInp%Set_Val(rcm_dFloor,"/Kaiju/gamera/floors/dFloor",rcm_dFloor)
 
 
       end subroutine RCM_MHD_Params_XML

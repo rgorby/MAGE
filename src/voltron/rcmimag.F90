@@ -24,7 +24,6 @@ module rcmimag
     implicit none
 
     real(rp), private :: rTrc0 = 2.0 !Padding factor for RCM domain to ebsquish radius
-    logical , private, parameter :: doKillRCMDir = .true. !Whether to always kill RCMdir before starting
     integer, parameter, private :: MHDPad = 0 !Number of padding cells between RCM domain and MHD ingestion
     
     logical , private :: doTrickyTubes = .true.  !Whether to poison bad flux tubes
@@ -103,10 +102,6 @@ module rcmimag
         call iXML%Set_Val(doBigIMag2Ion ,"imag2ion/doBigIMag2Ion",doBigIMag2Ion)
 
         if (isRestart) then
-            if (doKillRCMDir) then
-                !Kill RCMFiles directory even on restart
-                call ResetRCMDir()
-            endif
 
             !Get t0 and nRes necessary for RCM restart
             call RCMRestartInfo(RCMApp,iXML,t0)
@@ -124,7 +119,6 @@ module rcmimag
             endif
         else
             t0 = vApp%time
-            call ResetRCMDir()
             write(*,*) 'Initializing RCM ...'
             call InitRCMICs(imag,vApp,iXML)
             call rcm_mhd(t0,dtCpl,RCMApp,RCMINIT,iXML=iXML)
@@ -140,15 +134,6 @@ module rcmimag
         if(vApp%writeFiles) call initRCMIO(RCMApp,isRestart)
 
         end associate
-
-        contains
-            subroutine ResetRCMDir()
-                write(*,*) 'Reset RCMfiles/ ...'
-                CALL SYSTEM("rm -rf RCMfiles > /dev/null 2>&1")
-                CALL SYSTEM("mkdir RCMfiles > /dev/null 2>&1")
-                CALL SYSTEM("touch RCMfiles/rcm.printout > /dev/null 2>&1")
-                CALL SYSTEM("touch RCMfiles/rcm.index > /dev/null 2>&1")
-            end subroutine ResetRCMDir
             
     end subroutine initRCM
 
