@@ -43,7 +43,8 @@ module gamapp_mpi
 
         character(len=strLen) :: inpXML, kaijuRoot
         type(XML_Input_T) :: xmlInp
-        logical :: doIOX
+        logical :: doIOX,doLoud
+        integer :: rank,ierr
 
         if(present(optFilename)) then
             ! read from the prescribed file
@@ -60,9 +61,23 @@ module gamapp_mpi
             doIOX = .true.
         endif
 
-        !Create XML reader
-        write(*,*) 'Reading input deck from ', trim(inpXML)
-        xmlInp = New_XML_Input(trim(inpXML),'Kaiju/Gamera',.true.)
+    !Create XML reader
+        !Verbose for root Gamera rank only
+        !NOTE: Doing this w/ direct MPI call b/c isTiled/etc doesn't get set until later
+        call mpi_comm_rank(gamComm, rank, ierr)
+        if (rank == 0) then
+            doLoud = .true.
+        else
+            doLoud = .false.
+        endif
+
+
+        if (doLoud) then
+            write(*,*) 'Reading input deck from ', trim(inpXML)
+            xmlInp = New_XML_Input(trim(inpXML),'Kaiju/Gamera',.true.)
+        else
+            xmlInp = New_XML_Input(trim(inpXML),'Kaiju/Gamera',.false.)
+        endif
 
         ! try to verify that the XML file has "Kaiju" as a root element
         kaijuRoot = ""

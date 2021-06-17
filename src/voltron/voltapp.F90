@@ -270,6 +270,11 @@ module voltapp
         !Set mix default grid before initializing
         Rin = norm2(gApp%Grid%xyz(1,1,1,:)) !Inner radius
         call SetMixGrid0(Rin,gApp%Grid%Nkp)
+        
+        if (gApp%Grid%Nkp>=512) then
+            !Hex or above
+            call DisableSymLinks()
+        endif
 
         if(present(optFilename)) then
             ! read from the prescribed file

@@ -3,6 +3,9 @@ module files
 
     implicit none
 
+    !Whether to do sym links, can be disabled due to issue w/ virtual mem blowing up
+    logical, private :: doSymLinks = .true. 
+
     contains
 
     function CheckFile(fIn)
@@ -95,12 +98,18 @@ module files
         endif
     end subroutine CheckAndKill
 
+    subroutine DisableSymLinks()
+        doSymLinks = .false.
+    end subroutine
+    
     !Create symlink connecting fReal and fSym
     subroutine MapSymLink(fReal,fSym)
         character(len=*), intent(in) :: fReal,fSym
 
         integer :: eStat,cStat
         character(len=strLen) :: cmd,cMsg
+
+        if (.not. doSymLinks) return
 
         !Kill sym link if it exists
         call CheckAndKill(fSym,.false.)
