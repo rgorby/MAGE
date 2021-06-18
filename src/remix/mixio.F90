@@ -71,35 +71,34 @@ contains
 
     inquire(file=h5File,exist=fExist)
 
-    ! in case it's a restart, we either already have the file, in which case we don't do anything
-    ! or we need to create it because the previous one got moved
-    if ( (.not. isRestart).or.(isRestart.and.(.not.fExist)) ) then
-       call CheckAndKill(h5File)
+    call initMIXNames() !Always do this ... maybe?
 
-       !Reset IO chain
-       call ClearIO(IOVars)
-
-       call genOutGrid(I(NORTH)%G%x,I(NORTH)%G%y,xc,yc)
-       
-       ! save grid only for north
-       call AddOutVar(IOVars,"X",xc,uStr="Ri")
-       call AddOutVar(IOVars,"Y",yc,uStr="Ri")
-
-       call AddOutVar(IOVars,"UnitsID","ReMIX")
-                
-       !Write out the chain (to root)
-       call WriteVars(IOVars,.false.,h5File)
-       call initMIXNames()
-
-    else
-       call initMIXNames()
-       call readMIXrestart(trim(RunID),nRes,I)
+    if (isRestart) then
+      !Read the damn restart if you gotta
+      call readMIXrestart(trim(RunID),nRes,I)
     endif
 
-    ! Finally, set var and unit names
-    ! for use by all subsequent functions
-    ! NOTE: this assumes that initMIXIO ALWAYS gets called in the beginning
-    ! e.g., as part of MIX initialization
+    if (isRestart .and. fExist) then
+      !File is already here and have read restart, let's bounce
+      return
+    endif
+
+    !If we're still here, then not restart or don't have output file
+    !Either way, let's do it
+    call CheckAndKill(h5File)
+    !Reset IO chain
+    call ClearIO(IOVars)
+
+    call genOutGrid(I(NORTH)%G%x,I(NORTH)%G%y,xc,yc)
+    
+    ! save grid only for north
+    call AddOutVar(IOVars,"X",xc,uStr="Ri")
+    call AddOutVar(IOVars,"Y",yc,uStr="Ri")
+
+    call AddOutVar(IOVars,"UnitsID","ReMIX")
+             
+    !Write out the chain (to root)
+    call WriteVars(IOVars,.false.,h5File)
 
   end subroutine initMIXIO
 

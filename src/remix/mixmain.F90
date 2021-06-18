@@ -72,24 +72,21 @@ module mixmain
          if (I(h)%St%hemisphere.eq.SOUTH) I(h)%G%cosd = -I(h)%G%cosd
       end do
 
-      ! initialize the mix dump file
+      call initMIXNames() !Just for luck?
+
+      ! initialize the mix dump file (AND RESTART)
       if (present(isRestart) .and. doRestart) then
         !call xmlInp%Set_Val(mixnRes ,"/Kaiju/gamera/restart/nRes" ,-1)
         mixnRes = I(1)%P%nRes
-        write(*,*) "InitMIXIO with restart"
-        if(doIO) then
-            call initMIXIO(I,RunID,isRestart,mixnRes)
-        else
-            call initMIXNames()
-        endif
-      else
-        write(*,*) "InitMIXIO without restart"
-        if(doIO) then
-            call initMIXIO(I,RunID,isRestart)
-        else
-            call initMIXNames()
-        endif
-      end if
+        !Just restart here and be done with it
+        call readMIXrestart(trim(RunID),nRes,I)
+      endif
+
+      if (doIO) then
+        !NOTE: Leaving superfluous restart in initmixio in case other stuff depends on it
+        call initMIXIO(I,RunID,isRestart,mixnRes)
+      endif
+      
     end subroutine init_mix
 
     subroutine get_potential(I)

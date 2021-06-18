@@ -88,7 +88,6 @@ module rcm_mhd_mod
             !Read RCM/MHD params from XML
             if(present(iXML)) then
                 CALL RCM_MHD_Params_XML(iXML)
-
             else
                 CALL RCM_MHD_Params_XML
             endif

@@ -270,7 +270,11 @@ module voltapp_mpi
             call getIDeckStr(inpXML)
         endif
         call CheckFileOrDie(inpXML,"Error opening input deck in initVoltron_mpi, exiting ...")
-        xmlInp = New_XML_Input(trim(inpXML),'Kaiju/Gamera',.true.)
+        if (vApp%amHelper) then
+            xmlInp = New_XML_Input(trim(inpXML),'Kaiju/Gamera',.false.)
+        else
+            xmlInp = New_XML_Input(trim(inpXML),'Kaiju/Gamera',.true.)
+        endif
         call xmlInp%Set_Val(vApp%doSerialVoltron,"/Kaiju/Voltron/coupling/doSerial",.false.)
         call xmlInp%Set_Val(vApp%doAsyncShallow, "/Kaiju/Voltron/coupling/doAsyncShallow",.true.)
         call xmlInp%Set_Val(vApp%useHelpers,"/Kaiju/Voltron/Helpers/useHelpers",.false.)
