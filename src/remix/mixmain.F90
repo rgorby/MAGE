@@ -73,18 +73,21 @@ module mixmain
       end do
 
       call initMIXNames() !Just for luck?
+      mixnRes = I(1)%P%nRes
+      !NOTE: mixnres comes from I(1)%P%nRes and is the one that should be used not subroutine argument nRes!
+      !Why is nRes even passed to this function then, you might ask.
+      !Good question hypothetical question person, good question.
 
       ! initialize the mix dump file (AND RESTART)
       if (present(isRestart) .and. doRestart) then
         !call xmlInp%Set_Val(mixnRes ,"/Kaiju/gamera/restart/nRes" ,-1)
-        mixnRes = I(1)%P%nRes
+        
         !Just restart here and be done with it
-        call readMIXrestart(trim(RunID),nRes,I)
+        call readMIXrestart(trim(RunID),mixnRes,I)
       endif
 
       if (doIO) then
-        !NOTE: Leaving superfluous restart in initmixio in case other stuff depends on it
-        call initMIXIO(I,RunID,isRestart,mixnRes)
+        call initMIXIO(I,RunID,isRestart)
       endif
       
     end subroutine init_mix

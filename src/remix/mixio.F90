@@ -73,7 +73,7 @@ contains
 
     call initMIXNames() !Always do this ... maybe?
 
-    if (isRestart) then
+    if (isRestart .and. present(nRes)) then
       !Read the damn restart if you gotta
       call readMIXrestart(trim(RunID),nRes,I)
     endif
@@ -467,17 +467,15 @@ contains
     character(len=strLen) :: gStr,hStr,uStr,vStr,nStr,h5Str
 
     ! filling in var and unit names
-    write(*,*) "Restarting from: ", trim(inH5)
     call initMIXNames() 
-    write(*,*) "Restarting from: ", trim(inH5),nRes
-   
+    
     !Get number string
     if (nRes == -1) then
         nStr = "XXXXX"
     else
         write (nStr,'(I0.5)') nRes
     endif 
-    write(*,*) "Restarting from: ", trim(inH5)//'.mix.Res.'// trim(nStr)//'.h5'
+    
     h5Str = trim(inH5)//'.mix.Res.'// trim(nStr)//'.h5'
     write(*,*) "Restarting from: ", trim(h5Str)
 

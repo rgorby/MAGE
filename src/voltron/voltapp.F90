@@ -289,7 +289,6 @@ module voltapp
         call f107%initTS("f10.7",doLoudO=.false.)
         maxF107 = f107%getMax()
         
-
         do n=1,2
             vApp%remixApp%ion(n)%P%f107 = maxF107
         enddo

@@ -724,15 +724,15 @@ module streamline
             endif
         enddo
         
-        if (MaxFL == Np) then
-            !$OMP CRITICAL
-            write(*,*) ANSIRED
-            write(*,*) "<WARNING! genTrace hit max tube size!>"
-            write(*,*) "Seed: ", x0
-            write(*,*) "End : ", xyzn(Np,:)
-            write(*,'(a)',advance="no") ANSIRESET, ''
-            !$OMP END CRITICAL
-        endif
+        ! if (MaxFL == Np) then
+        !     !$OMP CRITICAL
+        !     write(*,*) ANSIRED
+        !     write(*,*) "<WARNING! genTrace hit max tube size!>"
+        !     write(*,*) "Seed: ", x0
+        !     write(*,*) "End : ", xyzn(Np,:)
+        !     write(*,'(a)',advance="no") ANSIRESET, ''
+        !     !$OMP END CRITICAL
+        ! endif
         
     end subroutine genTrace
 
