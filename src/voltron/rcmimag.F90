@@ -34,9 +34,7 @@ module rcmimag
 
     !Whether to use MHD Alfven bounce or RCM hot population bounce
     logical, private :: doHotBounce = .true.
-
     real(rp), dimension(:,:), allocatable, private :: mixPot
-
 
     type, extends(innerMagBase_T) :: rcmIMAG_T
 
@@ -115,6 +113,7 @@ module rcmimag
             else
                 doColdstart = .false. ! set to false if it is a restart
             endif
+            call ReadMHD2IMagRestart(imag%rcmCpl,imag%rcmCpl%rcm_nRes-1) !Subtract 1 for the one to read
         else
             t0 = vApp%time
             write(*,*) 'Initializing RCM ...'
@@ -443,6 +442,7 @@ module rcmimag
 
         imag%rcmCpl%rcm_nRes = nRes
         call rcm_mhd(time,TINY,imag%rcmCpl,RCMWRITERESTART)
+        call WriteMHD2IMagRestart(imag%rcmCpl,nRes,MJD,time)
     end subroutine doRCMRestart
     
 
