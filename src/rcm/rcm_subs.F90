@@ -112,7 +112,7 @@
     LOGICAL :: L_dktime
     INTEGER (iprec), PARAMETER :: irdk=18, inrgdk=13, isodk=2, iondk=2
     REAL (rprec) :: dktime (irdk, inrgdk, isodk, iondk), sunspot_number
-    REAL (rprec) :: dtAvg_v
+    REAL (rprec) :: dtAvg_v,dtMHD
     LOGICAL :: advChannel(kcsize) = .true. !Which channels to advance
 
      logical :: kill_fudge
@@ -1552,7 +1552,8 @@
 
 !*******************  main time loop  *************************
 !
-
+      !Save most recent coupling dt
+      dtMHD = itimef-itimei
       dt = (itimef - itimei)/REAL(nstep) 
 
       if (doRCMVerbose) then
@@ -1606,7 +1607,6 @@
 
       CONTAINS
 !
-!
         !HDF5 Restart reader
         subroutine ReadRCMRestart(runid,nStp)
           use ioh5
@@ -1617,7 +1617,7 @@
           logical :: doSP !Do single precision
           character(len=strLen) :: H5File
           type(IOVAR_T), dimension(RCMIOVARS) :: IOVars !Lazy hard-coding max variables
-          integer(iprec) :: nvar,nres
+          integer(iprec) :: nvar,nres,Ni,Nj,Nk
 
         !Prepare for reading
           doSP = .false. !Restarts are always double precision
@@ -1687,6 +1687,17 @@
           
         !Now do actual reading
           call ReadVars(IOVars,doSP,H5File)
+        !Do some testing to make sure sizes match
+          nvar = FindIO(IOVars,"rcmeeta",doFailO=.true.)
+          Ni = IOVars(nvar)%dims(1)
+          Nj = IOVars(nvar)%dims(2)
+          Nk = IOVars(nvar)%dims(3)
+          if ( (isize /= Ni) .or. (jsize /= Nj) .or. (ksize /= Nk) ) then
+            write(*,*) 'RCM Restart Mismatch!'
+            write(*,*) 'Input size: ',Ni,Nj,Nk
+            write(*,*) 'RCM   size: ',isize,jsize,ksize
+            stop
+          endif
 
         !Parse data and put it where it goes, need to do each variable
           !Scalars
@@ -1784,7 +1795,7 @@
           call AddOutVar(IOVars,"fclps" ,fclps )
           call AddOutVar(IOVars,"vdrop" ,vdrop )
           call AddOutVar(IOVars,"i_avg" ,i_avg )
-          call AddOutVar(IOVars,"dtCpl" ,(itimef-itimei) )
+          call AddOutVar(IOVars,"dtCpl" ,dtMHD )
 
         !Arrays
           call AddOutVar(IOVars,"rcmxmin",xmin)
@@ -1857,7 +1868,7 @@
 
           !Output
           call xmlInp%Set_Val(idebug,"output/idebug",1) ! 6.  0 <=> do disk printout
-
+          call xmlInp%Set_Val(doRCMVerbose,"output/doDebug",doRCMVerbose)
           !eflux
           call xmlInp%Set_Val(ifloor,"eflux/ifloor",.true.) ! 18. if true, install a floor for EFLUX
           call xmlInp%Set_Val(icorrect,"eflux/icorrect",.true.) ! 19. if true, make lat. correction to EFLUX

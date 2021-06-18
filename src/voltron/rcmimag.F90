@@ -23,9 +23,7 @@ module rcmimag
     
     implicit none
 
-    real(rp), private :: rTrc0 = 2.0 !Padding factor for RCM domain to ebsquish radius
     integer, parameter, private :: MHDPad = 0 !Number of padding cells between RCM domain and MHD ingestion
-    
     logical , private :: doTrickyTubes = .true.  !Whether to poison bad flux tubes
 
     !Whether to call smooth tubes routine at all, see imagtubes for specific options
@@ -300,11 +298,12 @@ module rcmimag
             RCMApp%toMHD = .not. (RCMApp%iopen == RCMTOPOPEN)
         else
             call SetIngestion(RCMApp)
-            !Find maximum extent of RCM domain (RCMTOPCLOSED but not RCMTOPNULL)
-            maxRad = maxval(norm2(RCMApp%X_bmin,dim=3),mask=(RCMApp%iopen == RCMTOPCLOSED))
+        !Can try to slim/increase squish domain here, but can be dicey
+            ! !Find maximum extent of RCM domain (RCMTOPCLOSED but not RCMTOPNULL)
+            ! maxRad = maxval(norm2(RCMApp%X_bmin,dim=3),mask=(RCMApp%iopen == RCMTOPCLOSED))
             
-            maxRad = maxRad/Rp_m
-            vApp%rTrc = rTrc0*maxRad
+            ! maxRad = maxRad/Rp_m
+            ! vApp%rTrc = rTrc0*maxRad
         endif
 
     !Pull data from RCM state for conductance calculations
