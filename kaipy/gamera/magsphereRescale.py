@@ -313,7 +313,20 @@ def upMIX(Q):
 			Qr[i0:i0+2,j0:j0+2] = Qij
 	#print(Q.sum(),Qr.sum()/4)
 	return Qr
+#Downscale mix variable
+def downMIX(Q):
+	Ni,Nj = Q.shape
+	Qr = np.zeros((Ni//2,Nj//2))
 
+	#Loop over coarse grid
+	for j in range(Nj//2):
+		for i in range(Ni//2):
+			i0 = 2*i
+			j0 = 2*j
+			Qij = Q[i0:i0+2,j0:j0+2].mean()
+			Qr[i,j] = Qij
+	return Qr
+	
 #Return cell centered volume (active only) from grid X,Y,Z (w/ ghosts)
 def Volume(Xg,Yg,Zg):
 	Ngk,Ngj,Ngi = Xg.shape

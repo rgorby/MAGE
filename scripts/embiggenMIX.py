@@ -61,7 +61,7 @@ if __name__ == "__main__":
 		if (doUp):
 			Qr = upscl.upMIX(Q)
 		else:
-			print("Downscaling not implemented, you should do that ...")
+			Qr = upscl.downMIX(Q)
 		oH5.create_dataset(vID,data=Qr)
 		print(Q.shape)
 		print(Qr.shape)
