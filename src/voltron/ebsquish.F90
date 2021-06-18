@@ -404,9 +404,6 @@ module ebsquish
             x2 = 0.0
         endif
 
-        !call Proj2LL_OLD(ebApp%ebModel,ebApp%ebState,xyz,t,x11,x22)
-        !call Proj2LL_OLD(ebApp%ebModel,ebApp%ebState,xyz,t,x1,x2)
-
     end subroutine Proj2LL
 
     subroutine Proj2LL_OLD(ebApp,xyz,t,x1,x2)

@@ -97,7 +97,7 @@ module ebtypes
 
     end type gcFields_T
 
-    integer, parameter :: MaxFL = 5000 !Reduced for multi-threading speed
+    integer, parameter :: MaxFL = MAXTUBESIZE !Reduced for multi-threading speed
     integer, parameter :: NumVFL = NVARMHD !Number of field line variables (other than |B|)
 
     !Streamline variable

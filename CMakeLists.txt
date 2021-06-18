@@ -39,6 +39,10 @@ set_property(CACHE bricksize PROPERTY STRINGS 8 16 32)
 add_compile_definitions(BRICKSIZE=${bricksize})
 mark_as_advanced(bricksize)
 
+#Hard-coded buffer for holding flux tubes
+set(MAXTUBESIZE 10000 CACHE STRING "Size of array buffer for holding flux tubes")
+add_compile_definitions(MAXTUBESIZE=${MAXTUBESIZE})
+
 #RCM grid size (required to be defined at compile time)
 set(RCMSIZEI 180 CACHE STRING "RCM Grid: Number of Colatitude Cells")
 set(RCMSIZEJ 361 CACHE STRING "RCM Grid: Number of Longitude Cells")
