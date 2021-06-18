@@ -300,6 +300,19 @@ def upGas(X,Y,Z,G,Xu,Yu,Zu):
 			print("\t\tCoarse (Total) = %e"%(G [s,v,:,:,:]* dV).sum())
 			print("\t\tFine   (Total) = %e"%(Gu[s,v,:,:,:]*dVu).sum())
 	return Gu
+#Upscale mix variable
+def upMIX(Q):
+	Ni,Nj = Q.shape
+
+	Qr = np.zeros((2*Ni,2*Nj))
+	for j in range(Nj):
+		for i in range(Ni):
+			Qij = Q[i,j]
+			i0 = 2*i
+			j0 = 2*j
+			Qr[i0:i0+2,j0:j0+2] = Qij
+	#print(Q.sum(),Qr.sum()/4)
+	return Qr
 
 #Return cell centered volume (active only) from grid X,Y,Z (w/ ghosts)
 def Volume(Xg,Yg,Zg):
