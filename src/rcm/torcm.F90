@@ -159,12 +159,14 @@ MODULE torcm_mod
 
       if (doSmoothBNDLOC) then
         n_smooth = nint( 15.0/(360.0/jsize) )
-
-        do ns=1,n_smooth
-          call smooth_boundary_location(isize,jsize,jwrap,bndloc)
-          call reset_rcm_vm(isize,jsize,bndloc,big_vm,imin_j,vm,iopen) ! adjust Imin_j
-        enddo
-      endif      
+      else
+        n_smooth = NumG
+      endif
+      
+      do ns=1,n_smooth
+        call smooth_boundary_location(isize,jsize,jwrap,bndloc)
+        call reset_rcm_vm(isize,jsize,bndloc,big_vm,imin_j,vm,iopen) ! adjust Imin_j
+      enddo   
 
     !-----
     !MHD thermodynamics
