@@ -43,6 +43,8 @@ MODULE rice_housekeeping_module
   LOGICAL :: doFLCLoss = .true. !Use FLC losses
   LOGICAL :: doNewCX = .true. !Use newer CX loss estimate
   LOGICAL :: doSmoothDDV = .true. !Whether to smooth ij deriv of residual FTV
+  LOGICAL :: doSmoothBNDLOC = .true. !Whether to do bndloc smoothing
+  LOGICAL :: doPPSmooth = .true. !Try to smooth plasmapause
 
 ! set this to true to tilt the dipole, must turn off corotation also
   LOGICAL :: rcm_tilted = .false.
@@ -115,11 +117,12 @@ MODULE rice_housekeeping_module
         call xmlInp%Set_Val(ellBdry%isDynamic,"ellipse/isDynamic"  ,.true.)
         
         !Dynamic plasmaspehre parameters
-        call xmlInp%Set_Val(dp_on,"plasmasphere/isDynamic",dp_on)
-        call xmlInp%Set_Val(InitKp ,"plasmasphere/initKp",InitKp) 
-        call xmlInp%Set_Val(staticR ,'plasmasphere/staticR',staticR)
+        call xmlInp%Set_Val(dp_on      ,"plasmasphere/isDynamic",dp_on)
+        call xmlInp%Set_Val(InitKp     ,"plasmasphere/initKp",InitKp) 
+        call xmlInp%Set_Val(staticR    ,'plasmasphere/staticR',staticR)
         call xmlInp%Set_Val(doPPRefill ,'plasmasphere/doRefill',doPPRefill)
-        call xmlInp%Set_Val(DenPP0  ,'plasmasphere/DenPP0',DenPP0)
+        call xmlInp%Set_Val(DenPP0     ,'plasmasphere/DenPP0',DenPP0)
+        call xmlInp%Set_Val(doPPSmooth ,'plasmasphere/doPPSmooth',doPPSmooth)
 
         call SetKp0(InitKp)
         NowKp = InitKp
@@ -136,7 +139,8 @@ MODULE rice_housekeeping_module
         
 
         !Torcm parameters
-        call xmlInp%Set_Val(doKapDef ,"torcm/doKappa" ,doKapDef )
+        call xmlInp%Set_Val(doKapDef      ,"torcm/doKappa"        ,doKapDef      )
+        call xmlInp%Set_Val(doSmoothBNDLOC,"torcm/doSmoothBNDLOC" ,doSmoothBNDLOC)
 
         !Advance parameters
         call xmlInp%Set_Val(nSubstep,"sim/nSubstep", nSubstep)

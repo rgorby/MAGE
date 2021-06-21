@@ -1730,12 +1730,14 @@
           call IOArray2DFill(IOVars,"rcmpedlam",pedlam)
           call IOArray2DFill(IOVars,"rcmpedpsi",pedpsi)
 
-          call IOArray2DFill(IOVars,"alpha",alpha)
-          call IOArray2DFill(IOVars,"aloct",aloct)
-          call IOArray2DFill(IOVars,"colat",colat)
-          call IOArray2DFill(IOVars,"beta",beta)
-          call IOArray2DFill(IOVars,"bir",bir)
-          call IOArray2DFill(IOVars,"sini",sini)
+          !Disable replacing geometry (calculated fresh anyways)
+          !Better for when using upscaled restart
+          !call IOArray2DFill(IOVars,"alpha",alpha)
+          !call IOArray2DFill(IOVars,"aloct",aloct)
+          !call IOArray2DFill(IOVars,"colat",colat)
+          !call IOArray2DFill(IOVars,"beta",beta)
+          !call IOArray2DFill(IOVars,"bir",bir)
+          !call IOArray2DFill(IOVars,"sini",sini)
           !call IOArray2DFill(IOVars,"rcmDpp",Dpp)
 
 

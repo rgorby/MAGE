@@ -92,10 +92,10 @@ def getTs(fname,sIds=None,aID="time",aDef=0.0):
 	return T
 
 #Get shape/dimension of grid
-def getDims(fname,doFlip=True):
+def getDims(fname,vID="X",doFlip=True):
 	CheckOrDie(fname)
 	with h5py.File(fname,'r') as hf:
-		Dims = hf["/"]["X"].shape
+		Dims = hf["/"][vID].shape
 	Ds = np.array(Dims,dtype=np.int)
 	if (doFlip):
 		Ds = np.flip(Ds,axis=0)

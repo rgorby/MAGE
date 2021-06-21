@@ -418,8 +418,9 @@ module rcm_mhd_io
   
     !Unpack data
         !1D
-        call IOArray1DFill(IOVars,"gcolat"      ,RCMApp%gcolat      )
-        call IOArray1DFill(IOVars,"glong"       ,RCMApp%glong       )
+        !Disabling reading geometric stuff (use recalculated value)
+        !call IOArray1DFill(IOVars,"gcolat"      ,RCMApp%gcolat      )
+        !call IOArray1DFill(IOVars,"glong"       ,RCMApp%glong       )
 
         !2D
         call IOArray2DFill(IOVars,"pot"         ,RCMApp%pot         )

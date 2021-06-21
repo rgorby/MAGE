@@ -32,7 +32,7 @@ module voltapp
         type(XML_Input_T) :: xmlInp
         type(TimeSeries_T) :: tsMJD
         real(rp) :: gTScl,tSpin,tIO
-        logical :: doSpin
+        logical :: doSpin,isK
 
         if(present(optFilename)) then
             ! read from the prescribed file
@@ -200,6 +200,16 @@ module voltapp
             call initializeFromGamera(vApp, gApp)
         endif
 
+        if (gApp%Grid%Nkp>=512) then
+        !Hex or above, check for sabotage
+            !For now disabling hex res for people too lazy to grep this error message
+            call xmlInp%Set_Val(isK,"sabotage/isKareem" , .false.)
+            if (.not. isK) then
+                write(*,*) 'Womp womp womp ...'
+                stop
+            endif
+        endif
+
         if(.not. vApp%isSeparate) then
             !Do first couplings if the gamera data is local and therefore uptodate
             call Tic("IonCoupling")
@@ -274,6 +284,8 @@ module voltapp
         if (gApp%Grid%Nkp>=512) then
             !Hex or above
             call DisableSymLinks()
+            !Check for sabotage
+
         endif
 
         if(present(optFilename)) then

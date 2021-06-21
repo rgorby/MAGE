@@ -300,6 +300,72 @@ def upGas(X,Y,Z,G,Xu,Yu,Zu):
 			print("\t\tCoarse (Total) = %e"%(G [s,v,:,:,:]* dV).sum())
 			print("\t\tFine   (Total) = %e"%(Gu[s,v,:,:,:]*dVu).sum())
 	return Gu
+
+#Upscale RCMCPL variable
+def upRCMCpl(Q,N=1):
+	Nd = len(Q.shape)
+	if (Nd>=3):
+		Nk,Ni,Nj = Q.shape
+		Qr = np.zeros((Nk,Ni*2,Nj))
+		for n in range(Nk):
+			Qr[n,:,:] = upRCM1D(Q[n,:,:])
+	elif (Nd == 1):
+		#Just leave it alone
+		if (len(Q) == N):
+			#Upscale the one dimension
+			Q2D = np.zeros((N,1))
+			Q2D[:,0] = Q
+			Qr2D = upRCM1D(Q2D)
+			Qr = Qr2D[:,0]
+		else:
+			Qr = Q
+	else:
+		#2D
+		Qr = upRCM1D(Q)
+	return Qr
+
+#Upscale RCM variable
+def upRCM(Q,Ni=1,Nj=1,Nk=1):
+	Nd = len(Q.shape)
+	if (Nd>=3):
+		Nk = Q.shape[0]
+		Qr = np.zeros((Nk,(Nj-2)*2+2,Ni))
+		for n in range(Nk):
+			Qr[n,:,:] = upRCM1Dw(Q[n,:,:])
+	elif (Nd == 1):
+		if (len(Q) == Nj):
+			Q2D = np.zeros((Nj,1))
+			Q2D[:,0] = Q
+			Qr2D = upRCM1Dw(Q2D)
+			Qr = Qr2D[:,0]
+		else:
+			Qr = Q
+	else:
+		Qr = upRCM1Dw(Q)
+	return Qr
+
+#Upscale first dimension of 2D array w/ strange rcm-wrap
+def upRCM1Dw(Q):
+	Ni,Nj = Q.shape
+	Nip = Ni-2
+	Nri = Nip*2+2
+	Qr = np.zeros((Nri,Nj))
+	Qr[0:Nri-2,:] = upRCM1D(Q[0:-2,:])
+
+	Qr[Nri-2,:] = Qr[0,:]
+	Qr[Nri-1,:] = Qr[1,:]
+	return Qr
+#Upscale just first dimension of 2D array
+def upRCM1D(Q):
+	Ni,Nj = Q.shape
+	Qr = np.zeros((Ni*2,Nj))
+	for j in range(Nj):
+		for i in range(Ni):
+			Qij = Q[i,j]
+			i0 = 2*i
+			j0 = j
+			Qr[i0:i0+2,j0] = Qij
+	return Qr
 #Upscale mix variable
 def upMIX(Q):
 	Ni,Nj = Q.shape
