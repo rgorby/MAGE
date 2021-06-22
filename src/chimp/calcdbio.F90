@@ -2,6 +2,7 @@ module calcdbio
 
 	use chmpdefs
 	use chmpunits
+    use parintime
 	use ebtabutils
 	use ebtypes
 	use ioH5
@@ -16,9 +17,6 @@ module calcdbio
 
     character(len=strLen), private :: dbOutF
     integer, parameter, private :: MAXDBVS = 40
-    logical, private :: doParInT = .false. !// in time
-    integer, private :: NumB = 0
-
     integer, parameter, private :: RDIR=1,TDIR=2,PDIR=3
 
     contains
@@ -36,7 +34,6 @@ module calcdbio
         integer :: i,j,k,NLat,NLon,Nz,dOut
         integer, dimension(NDIM) :: Nijk
         real(rp) :: z,R,lat,phi
-        real(rp) :: dtB,T0
         real(rp), dimension(:,:,:,:), allocatable :: SphI,SphC !Spherical coordinates
         logical :: doH5g
 
@@ -69,43 +66,9 @@ module calcdbio
         else
             cID = "SM"
         endif
+    !Check for time parallelism
+        call InitParInTime(Model,inpXML,"deltab",dbOutF)
 
-    !Possible // in time
-        call inpXML%Set_Val(NumB,'parintime/NumB',NumB)
-        if (NumB > 1) then
-            doParInT = .true.
-            if ( (Model%Nblk>NumB) .or. (Model%Nblk<1) ) then
-                write(*,*) "This block outside of acceptable bounds"
-                write(*,*) "Block = ",Model%Nblk
-                write(*,*) "Bounds = ",1,NumB
-                write(*,*) "Bailing ..."
-                stop
-            endif
-            !Reset time bounds
-            T0 = Model%T0
-            dtB = (Model%tFin-Model%T0)/NumB
-            write(*,*) '------'
-            write(*,*) 'Resetting T0/TFin = ',Model%T0*oTScl,Model%tFin*oTScl
-            write(*,*) 'Using block ', Model%Nblk
-            Model%T0 = (Model%Nblk-1)*dtB + T0
-            Model%tFin = Model%T0 + dtB
-            write(*,*) 'To        T0/TFin = ',Model%T0*oTScl,Model%tFin*oTScl
-            if (Model%Nblk < NumB) then
-                !Cut off a bit from TFin to avoid overlap w/ start of next
-                Model%tFin = Model%tFin-0.01*dtB
-            endif
-
-            !Don't bother offsetting, let the concatenating script handle it
-            write(dbOutF,'(a,a,I0.4,a)') trim(adjustl(Model%RunID)),'.',Model%Nblk,'.deltab.h5'
-            write(*,*) '------'
-            
-        else
-            doParInT = .false.
-            NumB = 0
-            write(dbOutF,'(2a)') trim(adjustl(Model%RunID)),'.deltab.h5'
-        endif
-        write(*,*) "Writing output to ", trim(dbOutF)
-    
     !Setup output file
         call CheckAndKill(dbOutF)
 

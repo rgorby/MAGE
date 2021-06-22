@@ -3,6 +3,7 @@ module chopio
     use chmpdefs
     use chmpunits
     use ebtypes
+    use parintime
     use ioH5
     use xml_input
     use ebinterp
@@ -19,6 +20,7 @@ module chopio
 
     real(rp) :: xyzMax = 10.0 !Default bound
     real(rp), dimension(:,:,:), allocatable :: xxi,yyi,zzi,xxc,yyc,zzc
+    integer, private :: NumB = 0
 
     contains
 
@@ -36,8 +38,9 @@ module chopio
         integer :: iS,iE
         real(rp) :: xcc(NDIM)
 
-        write(eb3DOutF,'(2a)') trim(adjustl(Model%RunID)),'.eb.h5'
-
+    !Check for time parallelism
+        call InitParInTime(Model,inpXML,"eb3",eb3DOutF)
+    !Setup output file
         associate( ebGr=>ebState%ebGr )
         
         call CheckAndKill(eb3DOutF)

@@ -37,25 +37,26 @@ if __name__ == "__main__":
 	dIn = os.getcwd()
 
 	runid = "msphere"
-
-	MainS = """Joins blocks created by calcdb.x into single file
+	typid = "deltab"
+	MainS = """Joins blocks created by calcdb.x (or similar CHIMP routines) into single file
 	
 	runid : Run ID
 
 	"""
 
 	parser = argparse.ArgumentParser(description=MainS, formatter_class=RawTextHelpFormatter)
-	parser.add_argument('-id',type=str,metavar="runid",default=runid,help="Input run ID (default: %(default)s)")
+	parser.add_argument('-runid',type=str,metavar="runid",default=runid,help="Input run ID (default: %(default)s)")
+	parser.add_argument('-typeid',type=str,metavar="typeid",default=typeid,help="Input type ID (default: %(default)s)")
 
 	#Finalize parsing
 	args = parser.parse_args()
-	runid = args.id
-
-	#dbIns = glob.glob('%s/%s.????.deltab.h5'%(dIn,runid))
-	dbIns = glob.glob('%s.????.deltab.h5'%(runid))
+	runid = args.runid
+	typeid = args.typeid
+	
+	dbIns = glob.glob('%s.????.%s.h5'%(runid,typeid))
 	dbIns.sort()
-	#fOut = "%s/%s.deltab.h5"%(dIn,runid)
-	fOut = "%s.deltab.h5"%(runid)
+	
+	fOut = "%s.%s.h5"%(runid,typeid)
 
 	N = len(dbIns)
 	print("Found %d files, writing output to %s"%(N,fOut))
