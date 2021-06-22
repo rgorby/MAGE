@@ -92,7 +92,7 @@ if __name__ == "__main__":
 
 			#Check if this is too close to last value
 			nowTime = kh5.tStep(fIn,s)
-			print(nowTime,oldTime)
+			#print(nowTime,oldTime)
 			if ( np.abs(nowTime-oldTime)<=tEps):
 				print("\tSkipping step %d"%(s))
 				continue
