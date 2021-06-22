@@ -11,6 +11,8 @@ mu0o4pi = 1.e-7 # mu0=4pi*10^-7 => mu0/4pi=10^-7
 #Setting globals here to grab them from other modules
 facMax = 1.5
 facCM = cm.RdBu_r
+flxCM = cm.inferno
+
 class remix:
 	def __init__(self,h5file,step):
 		# create the ion object to store data and coordinates
@@ -277,7 +279,7 @@ class remix:
 		if (varname == 'potential') or (varname == 'current'):
 			cmap=facCM
 		elif varname in ['flux','energy','eflux','joule','Mflux','Menergy','Meflux','Dflux','Denergy','Deflux','Pflux','Penergy','Peflux']:
-			cmap=cm.inferno			
+			cmap=flxCM
 			latlblclr = 'white'
 		elif (varname == 'velocity'): 
 			cmap=cm.YlOrRd

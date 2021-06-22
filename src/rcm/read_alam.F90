@@ -72,40 +72,7 @@
       else
         write(*,*) "This ain't gonna work!"
         stop
-  !       !Do old-style binary records
-  !       INQUIRE (UNIT = lun, EXIST = lflag_1, OPENED = lflag_2)
-  !       IF (.not.lflag_1 .OR. lflag_2) THEN
-  !          STOP 'UNABLE TO USE LUN IN READ_ALAM'
-  !       END IF
-  !       OPEN (LUN, file = rcmdir//'enchan.dat', STATUS = 'old', IOSTAT = k)
-  !       IF (k /= 0 ) THEN
-  !          WRITE (*,'(T2,A)') 'ERROR OPENING FILE IN READ_ALAM'
-  !          ierr = -1
-  !          RETURN
-  !       END IF
-  ! !
-  !       READ (LUN,*) k
-  !       IF (k /= kdim)then
-  !         write(*,*)' k = ',k,' kdim =',kdim
-  !         STOP 'kcsizes inconsistent in READ_ALAM'
-  !       END IF
-  ! !
-  !       DO k = 1, kdim
-  !         READ (LUN,*) iflavin, alamin
-  !         IF (iflavin == 1) THEN
-  !            alam (k) = alamin
-  !            IF (alam(k) > 0.0) alam(k) = - alam(k)
-  !            fudge (k) = 0.3333
-  !            iflav (k) = 1
-  !         ELSE IF (iflavin == 2) THEN
-  !            alam (k) = alamin
-  !            fudge (k) = 0.0000
-  !            iflav (k) = 2
-  !         ELSE
-  !            STOP 'ILLEGAL TYPE OF SPECIES'
-  !         END IF
-  !       END DO
-  !       CLOSE (LUN)
+
       endif !isGAMRCM
 !
 !

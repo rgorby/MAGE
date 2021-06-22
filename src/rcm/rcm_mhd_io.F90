@@ -381,6 +381,8 @@ module rcm_mhd_io
             !Error out and leave
             write(*,*) 'Unable to open MHD2Imag restart file, skipping ...'
             return
+        else
+            write(*,*) 'Found MHD2Imag restart, reading ...'
         endif
 
     !Read data if still here

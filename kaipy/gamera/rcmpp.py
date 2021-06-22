@@ -11,6 +11,8 @@ import numpy.ma as ma
 import matplotlib.patches as patches
 import matplotlib.ticker as plticker
 
+rMin = 1.25
+rMax = 35.0
 rcBds = [-15,10.0,-12.5,12.5]
 pCMap = "viridis"
 eCol = "slategrey"
@@ -59,12 +61,16 @@ def GetMask(rcmdata,nStp):
 		ioCut = -0.5
 	else:
 		ioCut = 0.5
+	bmX = rcmdata.GetVar("xMin",nStp)
+	bmY = rcmdata.GetVar("yMin",nStp)
+	bmR = np.sqrt(bmX*bmX + bmY*bmY)
 
+	Ir = (bmR<rMin) | (bmR>rMax)
 	if (doCut):
 		Prcm = rcmdata.GetVar("P",nStp)
-		I = (IOpen > ioCut) | (Prcm<pCut)
+		I = Ir | (IOpen > ioCut) | (Prcm<pCut)
 	else:
-		I = (IOpen > ioCut)
+		I = Ir | (IOpen > ioCut)
 	return I
 
 #Take axis and rcmdata object and add pressure plot
