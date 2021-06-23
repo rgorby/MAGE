@@ -39,9 +39,9 @@ program voltron_mpix
         print *,"Not support for MPI_THREAD_MULTIPLE, aborting!"
         call abort()
     end if
-    print *,"MPI + OpenMP !!!"
+    !print *,"MPI + OpenMP !!!"
 #else
-    print *," MPI without threading"
+    !print *," MPI without threading"
     call MPI_INIT(ierror)
 #endif
 

@@ -9,7 +9,9 @@ module output
     
     implicit none
 
-    character(len=strLen) :: zcsClk = "Gamera" !Clock ID to use for ZCS calculation
+    character(len=strLen), private :: zcsClk = "Gamera" !Clock ID to use for ZCS calculation
+    character(len=strLen), private :: zcsTot = "Omega" !Clock ID to use for ZCS calculation
+
     real(rp), private :: voltWait = 0.0
 
     !ConOut_T
@@ -45,7 +47,7 @@ contains
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(in) :: State
 
-        real(rp) :: ZCs, wTime
+        real(rp) :: ZCs_gam, ZCs_tot, wTime_gam,wTime_tot
         integer :: nTh
         character(len=strLen) :: tStr
 
@@ -54,14 +56,18 @@ contains
             Model%dt0 = Model%dt
         endif
 
-        wTime = readClock(zcsClk)
+        wTime_gam = readClock(zcsClk)
+        wTime_tot = kClocks(1)%tElap !readClock(zcsTot) 
 
         !Calculate zone-cycles per second
         if (Model%ts > 0) then
-            ZCs = Model%IO%tsOut*Grid%Nip*Grid%Njp*Grid%Nkp/wTime
+            ZCs_gam = Model%IO%tsOut*Grid%Nip*Grid%Njp*Grid%Nkp/wTime_gam
+            ZCs_tot = Model%IO%tsOut*Grid%Nip*Grid%Njp*Grid%Nkp/wTime_tot
+
             voltWait = 0.8*voltWait + 0.2*(readClock('VoltSync'))/(kClocks(1)%tElap+TINY) ! Weighted average to self-correct
         else
-            ZCs = 0.0
+            ZCs_gam = 0.0
+            ZCs_tot = 0.0
             voltWait = 0
         endif
 
@@ -82,7 +88,10 @@ contains
             if (.not. isnan(voltWait)) then
                 write (*, '(a,1f7.1,a)' )    '    Spent ', voltWait*100.0, '% of time waiting for Voltron'
             endif
-            write (*, '(a,f9.2,a,I0,a)') '      kZCs = ', ZCs/1000.0, ' (',nTh,' threads)'
+            if (ZCs_gam>TINY) then
+                !write (*, '(a,f9.2,a,I0,a)') '      kZCs = ', ZCs/1000.0, ' (',nTh,' threads)'
+                write (*, '(a,f9.2,a,f9.2,a,I0,a)') '      kZCs = ', ZCs_gam/1000.0, ' / ', ZCs_tot/1000.0, ' [MHD/TOT] (',nTh,' threads)'
+            endif
             write(*,'(a)',advance="no") ANSIRESET!, ''
         endif
 

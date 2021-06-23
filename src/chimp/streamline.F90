@@ -652,7 +652,7 @@ module streamline
             xyzn(Np,:) = xyz
             ijkn(Np,:) = ijk
             vM  (Np,0) = norm2(B)
-
+            
             if (Model%doMHD) then
                 Q = mhdInterp(xyz,t,Model,ebState,ijk)
                 vM(Np,1:NVARMHD) = Q
@@ -735,6 +735,11 @@ module streamline
             ijkG = ijk !Save correct location for next guess
             call ebFields(xyz,t,Model,ebState,E,B,ijk,gcFields=gcF)
 
+            if (norm2(B) < TINY) then
+                !Hit near-null field, we're boned
+                isG = .false.
+                return
+            endif
             dl = getDiag(ebState%ebGr,ijk)
             call StreamStep(dx,eps,B,gcF%JacB,sgn,dl,eps0)
 
