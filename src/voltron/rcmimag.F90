@@ -337,7 +337,7 @@ module rcmimag
         integer , dimension(:), allocatable :: jBnd
         integer :: i,j
         logical :: inMHD,isClosed
-        real(rp) :: Drc,bEq,Lb
+        real(rp) :: Drc,bEq,Lb,Prc
 
         RCMApp%toMHD(:,:) = .false.
         !Testing lazy quick boundary
@@ -346,7 +346,7 @@ module rcmimag
         jBnd(:) = RCMApp%nLat_ion-1
 
        !$OMP PARALLEL DO default(shared) &
-       !$OMP private(i,j,inMHD,isClosed,Drc,bEq,Lb)
+       !$OMP private(i,j,inMHD,isClosed,Drc,bEq,Lb,Prc)
         do j=1,RCMApp%nLon_ion
             do i = RCMApp%nLat_ion,1,-1
                 inMHD = RCMApp%toMHD(i,j)
@@ -365,10 +365,12 @@ module rcmimag
                 !Calculate ingestion timescale in this longitude
                 do i = jBnd(j),RCMApp%nLat_ion
                     Drc = rcmNScl*RCMApp%Nrcm (i,j) !#/cc
+                    Prc = rcmPScl*RCMApp%Prcm (i,j) !nPa
                     Drc = max(Drc,TINY)
                     bEq = rcmBScl*RCMApp%Bmin (i,j) !Mag field [nT]
                     Lb  = (RCMApp%planet_radius)*(1.0e-3)*RCMApp%Lb(i,j) !Lengthscale [km]
-                    RCMApp%Tb(i,j) = AlfBounce(Drc,bEq,Lb)
+                    !RCMApp%Tb(i,j) = AlfBounce(Drc,bEq,Lb)
+                    RCMApp%Tb(i,j) = FastBounce(Drc,Prc,bEq,Lb)
                 enddo
             endif
 
@@ -389,6 +391,24 @@ module rcmimag
             Va = 22.0*BnT/sqrt(Dcc) !km/s, from NRL plasma formulary
             dTb = Lkm/Va
         end function AlfBounce
+
+        !Calculate "fast wave" bounce timescale
+        !D = #/cc, P = nPa, B = nT, L = km
+        function FastBounce(Dcc,Pnpa,Bnt,Lkm) result(dTb)
+            real(rp), intent(in) :: Dcc,Pnpa,BnT,Lkm
+            real(rp) :: dTb
+
+            real(rp) :: Va,Cs,Tev
+            if ( (Dcc<TINY) .or. (Lkm<TINY) ) then
+                dTb = 0.0
+                return
+            endif
+            Va = 22.0*BnT/sqrt(Dcc) !km/s, from NRL plasma formulary
+            Tev = (1.0e+3)*DP2kT(Dcc,Pnpa) !Temp in eV
+            !CsMKS = 9.79 x sqrt(5/3 * Ti) km/s, Ti eV
+            Cs = 9.79*sqrt( (5.0/3)*Tev )
+            dTb = Lkm/sqrt(Va**2.0 + Cs**2.0)
+        end function FastBounce
 
     end subroutine SetIngestion
 

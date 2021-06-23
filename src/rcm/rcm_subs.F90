@@ -2359,6 +2359,14 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
         lossFDG = 0.0
         lossFDG0= 0.0
 
+        if (isOpen(i,j)) then
+            !Do quick short-circuit
+            lossratep(i,j,kc) = 0.0
+            lossmodel(i,j,kc) = 0
+            rate(i,j) = 0.0
+            cycle
+        endif
+        
         if ( (ie == RCMELECTRON) .and. (.not. isOpen(i,j)) .and. (kc /= 1) ) then
         !Do electron losses
             !NOTE: Add Dpp(i,j) to argument list to pass psph density (#/cc)
