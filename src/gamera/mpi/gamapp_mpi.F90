@@ -792,7 +792,7 @@ module gamapp_mpi
                             ! magFlux does faces, not edges or corners
                             call calcRecvDatatypeOffsetFC(gamAppMpi,gamAppMpi%recvRanks(rankIndex),iData,&
                                                           jData,kData,periodicI,periodicJ,periodicK,dType,offset,&
-                                                          .true.,.false.,.false.)
+                                                          .true.,.true.,.false.)
                             if(dType /= MPI_DATATYPE_NULL) then
                                 ! face centered datatype already has all 4 dimensions
                                 call appendDatatype(gamAppMpi%recvTypesMagFlux(rankIndex),dType,offset)
@@ -800,7 +800,7 @@ module gamapp_mpi
 
                             call calcSendDatatypeOffsetFC(gamAppMpi,gamAppmpi%sendRanks(rankIndex),iData,&
                                                     jData,kData,periodicI,periodicJ,periodicK,dType,offset,&
-                                                    .true.,.false.,.false.)
+                                                    .true.,.true.,.false.)
                             if(dType /= MPI_DATATYPE_NULL) then
                                 ! face centered datatype already has all 4 dimensions
                                 call appendDatatype(gamAppMpi%sendTypesMagFlux(rankIndex),dType,offset)
