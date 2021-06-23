@@ -67,7 +67,7 @@ MODULE rice_housekeeping_module
   REAL(rprec) :: rcm_pFloor = 0.0 !nPa
   REAL(rprec) :: rcm_dFloor = 0.0 !#/cc
 
-  REAL(rprec), parameter :: epsPk = 1.0e-6
+  REAL(rprec) :: epsPk = 1.0e-6
 
   type RCMEllipse_T
       !Ellipse parameters
@@ -147,6 +147,7 @@ MODULE rice_housekeeping_module
 
         !Advection
         call xmlInp%Set_Val(doSmoothDDV,"advect/doSmoothDDV",doSmoothDDV)
+        call xmlInp%Set_Val(epsPk      ,"advect/epsPk      ",epsPk      )
 
       !Initialize Kp (and maybe other indices) time series
         call xmlInp%Set_Val(KpTS%wID,"/Kaiju/Gamera/wind/tsfile","NONE")
