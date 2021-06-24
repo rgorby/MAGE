@@ -28,6 +28,13 @@ eLW = 0.05
 MHDLW = 0.5
 
 doEll = True
+
+Psi0 = 92.4 #kV
+RioRe = 1.018 #Ionosphere height
+doCorot = True #Add corotation potential
+DenPP = 50.0
+ppCol = "orange"
+
 #Get equatorial coordinates, masked if asked to
 def RCMEq(rcmdata,nStp,doMask=False,doXYZ=doXYZ):
 
@@ -52,6 +59,19 @@ def GetVarMask(rcmdata,nStp,Qid="P",I=None):
 	Q = ma.masked_array(Q,mask=I)
 	return Q
 
+def GetPotential(rcmdata,nStp,I=None,NumCP=25):
+	if (I is None):
+		I = GetMask(rcmdata,nStp)
+	pot = (1.0e-3)*rcmdata.GetVar("pot",nStp)
+	pMag = np.abs(pot).max()
+	pVals = np.linspace(-pMag,pMag,NumCP)
+	if (doCorot):
+		#Add corotation potential
+		colat = GetVarMask(rcmdata,nStp,"colat" ,I)
+		pcorot = -Psi0*(RioRe)*(np.sin(colat)**2.0)
+		pot = pot + pcorot
+	return pot,pVals
+
 #Calculate mask
 #doRCM: Do RCM domain or full closed region
 def GetMask(rcmdata,nStp):
@@ -74,7 +94,7 @@ def GetMask(rcmdata,nStp):
 	return I
 
 #Take axis and rcmdata object and add pressure plot
-def RCMInset(AxRCM,rcmdata,nStp,vP):
+def RCMInset(AxRCM,rcmdata,nStp,vP,pCol="k",doPP=True):
 	if (AxRCM is None):
 		AxRCM = plt.gca()
 
@@ -87,12 +107,18 @@ def RCMInset(AxRCM,rcmdata,nStp,vP):
 
 	Prcm  = GetVarMask(rcmdata,nStp,"P"    ,I)
 	toMHD = GetVarMask(rcmdata,nStp,"toMHD",I)
-
+	pot,pVals = GetPotential(rcmdata,nStp,I,NumCP=11)
+	if (doPP):
+		Npp  = GetVarMask(rcmdata,nStp,"Npsph"    ,I)
+		
 	#Start plotting
 	AxRCM.pcolor(bmX,bmY,Prcm,norm=vP,cmap=pCMap)
 	AxRCM.plot(bmX,bmY,color=eCol,linewidth=eLW)
 	AxRCM.plot(bmX.T,bmY.T,color=eCol,linewidth=eLW)
-
+	if (pCol is not None):
+		AxRCM.contour(bmX,bmY,pot,pVals,colors=pCol,linewidths=MHDLW,alpha=0.5)
+	if (doPP):
+		AxRCM.contour(bmX,bmY,Npp,[DenPP],colors=ppCol,linewidths=2*MHDLW,alpha=0.8)
 	doCon = (nStp>0) and (toMHD.min()<0.5) and (toMHD.max()>0.5)
 	#Add MHD ingestion contour
 	if (doCon):
