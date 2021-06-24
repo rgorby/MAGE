@@ -1909,9 +1909,6 @@
           call xmlInp%Set_Val(L_dktime,"chargex/L_dktime",.true.)
           call xmlInp%Set_Val(sunspot_number,"chargex/sunspot_number",96.0)
 
-          !The eletron loss options
-                
-
           !Clawpack options
           call xmlInp%Set_Val(L_doOMPClaw,"clawpack/doOMPClaw",L_doOMPClaw)
 
