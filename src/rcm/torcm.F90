@@ -852,6 +852,7 @@ MODULE torcm_mod
 
       integer(iprec) :: i,j,k
       real(rprec) :: P,cPk,ijPk(kcsize)
+      real(rprec) :: LamI,LamE
       real(rprec), dimension(isize,jsize,kcsize) :: PkoP
       !Pk = int_1,k dP(k) = pressure contribution up to channel k
       
@@ -881,9 +882,18 @@ MODULE torcm_mod
       !Now set interesting channels
       advChannel = .true. !Assume all at first
       if (k < kcsize) then
-        !Loop stopped early so there's some useless channels
+      !Loop stopped early so there's some useless channels
+        !Kill ions
+        LamI = alamc(k+1)
         advChannel(k+1:) = .false.
-        eeta(:,:,k+1:) = 0.0
+        !Kill electrons
+        LamE = -LamI/tiote
+        where (alamc <= LamE)
+          advChannel = .false.
+        endwhere
+        do k=1,kcsize
+          if (.not. advChannel(k)) eeta(:,:,k) = 0.0
+        enddo
       endif
 
       !write(*,*) 'Advancing X/Nk channels = ', count(advChannel),kcsize
