@@ -67,7 +67,7 @@ MODULE rice_housekeeping_module
   REAL(rprec) :: rcm_pFloor = 0.0 !nPa
   REAL(rprec) :: rcm_dFloor = 0.0 !#/cc
 
-  REAL(rprec) :: epsPk = 1.0e-6
+  REAL(rprec) :: epsPk = 1.0e-3
 
   type RCMEllipse_T
       !Ellipse parameters

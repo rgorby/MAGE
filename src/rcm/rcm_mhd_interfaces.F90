@@ -5,7 +5,7 @@
 module rcm_mhd_interfaces
     USE kdefs, ONLY : strLen
     USE rcm_precision
-    USE Rcm_mod_subs, ONLY : isize, jsize, jwrap, doRCMVerbose
+    USE Rcm_mod_subs, ONLY : isize, jsize, kcsize,jwrap, doRCMVerbose
     USE rcmdefs, ONLY : RCMTOPCLOSED,RCMTOPNULL,RCMTOPOPEN
     implicit none
     integer(iprec), parameter :: RCMINIT=0,RCMADVANCE=1,RCMRESTART=2,RCMWRITERESTART=-2,RCMWRITEOUTPUT=-3,RCMWRITETIMING=-1
@@ -74,6 +74,8 @@ module rcm_mhd_interfaces
         
         !Current pressure floor from MHD [nPa]
         real(rprec) :: pFloor = 0.0
+
+        integer(iprec) :: NkT = kcsize !Current number of used channels
     end type rcm_mhd_T
 
     contains

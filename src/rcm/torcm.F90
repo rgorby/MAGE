@@ -265,8 +265,8 @@ MODULE torcm_mod
       enddo !j
 
       !Finally decide which channels are worth advancing (ie contribute an interesting amount)
-      call SetKBounds()
-      
+      call SetKBounds(RM%NkT)
+
     !-----
     !Finish up and get out of here
 
@@ -844,11 +844,12 @@ MODULE torcm_mod
 
 !------------------------------------
     !Decide on which channels are worth advancing in clawpack
-    SUBROUTINE SetKBounds()
+    SUBROUTINE SetKBounds(NkT)
       USE conversion_module
       USE RCM_mod_subs, ONLY : ikflavc,vm,alamc,isize,jsize,kcsize,eeta,advChannel
       USE rice_housekeeping_module, ONLY : epsPk
       IMPLICIT NONE
+      INTEGER(iprec), INTENT(INOUT) :: NkT
 
       integer(iprec) :: i,j,k
       real(rprec) :: P,cPk,ijPk(kcsize)
@@ -895,7 +896,8 @@ MODULE torcm_mod
           if (.not. advChannel(k)) eeta(:,:,k) = 0.0
         enddo
       endif
-
+      NkT = count(advChannel)
+      
       !write(*,*) 'Advancing X/Nk channels = ', count(advChannel),kcsize
 
     END SUBROUTINE SetKBounds

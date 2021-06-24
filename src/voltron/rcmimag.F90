@@ -529,6 +529,7 @@ module rcmimag
         write (*, '(a,1f8.3,a)')             '      w/ T = ' , maxT, ' [keV]'
 
         write (*, '(a,1f8.3,a)')             '  Max RC-D = ' , maxval(RCMApp%Nrcm,mask=RCMApp%toMHD)*rcmNScl,' [#/cc]'
+        write(*,'(a,I4,a,I4)') '  Channels: ', RCMApp%NkT, ' / ', RCMSIZEK
         write(*,'(a)',advance="no") ANSIRESET!, ''
 
         end associate
