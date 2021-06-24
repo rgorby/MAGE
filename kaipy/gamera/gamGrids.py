@@ -707,7 +707,7 @@ def LoadTabG(fIn="lfmG",Nc=0):
 
 #Regrid xx/yy (corners) to new size
 def regrid(xxi,yyi,Ni,Nj,Rin=0.0,Rout=0.0,TINY=1.0e-8,scale=False):
-
+	iMeth = "cubic"
 	Ni0 = xxi.shape[0]-1
 	Nj0 = xxi.shape[1]-1
 	rr0 = np.sqrt(xxi**2.0 + yyi**2.0)
@@ -738,8 +738,8 @@ def regrid(xxi,yyi,Ni,Nj,Rin=0.0,Rout=0.0,TINY=1.0e-8,scale=False):
 			rScl = xSclIn + iLFM[i]*dxScl
 			rr0[i,:] = rScl*rr0[i,:]
 	#Create interpolants
-	fR = interpolate.interp2d(iLFM,jLFM,rr0.T,kind='cubic',fill_value=None)
-	fP = interpolate.interp2d(iLFM,jLFM,pp0.T,kind='cubic',fill_value=None)
+	fR = interpolate.interp2d(iLFM,jLFM,rr0.T,kind=iMeth,fill_value=None)
+	fP = interpolate.interp2d(iLFM,jLFM,pp0.T,kind=iMeth,fill_value=None)
 
 	#Regrid onto new
 	XXi = np.zeros((Ni+1,Nj+1))
