@@ -158,7 +158,6 @@
                     densrcm(isize,jsize),denspsph(isize,jsize)
     INTEGER (iprec) :: ipcp_type, ipot
 !
-!
 !   Input PCP drop and its current value:
     INTEGER (iprec), ALLOCATABLE :: ivtime (:)
     REAL    (rprec), ALLOCATABLE :: vinput (:), vinput_phase(:)
@@ -1021,7 +1020,7 @@
           djdt   = - dvefdi (i,j) / fac (i,j)
           biold  = REAL(i,rprec) - didt * dt 
           bjold  = Bjmod (REAL(j,rprec) - djdt * dt, jwrap, jsize )
-          rate   = Ratefn (fudgec(kc), alamc(kc), sini (i,j), bir (i,j), &
+          rate   = RatefnFDG (fudgec(kc), alamc(kc), sini (i,j), bir (i,j), &
                            vm (i,j), mass_factor)
 !          IF (biold > Bndy(bndloc,bjold)) THEN 
           IF (biold > bndloc(j)) THEN 
@@ -1910,11 +1909,14 @@
           call xmlInp%Set_Val(L_dktime,"chargex/L_dktime",.true.)
           call xmlInp%Set_Val(sunspot_number,"chargex/sunspot_number",96.0)
 
+          !The eletron loss options
+                
+
           !Clawpack options
           call xmlInp%Set_Val(L_doOMPClaw,"clawpack/doOMPClaw",L_doOMPClaw)
 
           !Averaging timescale for plasmasphere
-          call xmlInp%Set_Val(dtAvg_v,"plasmasphere/tAvg",300.0)
+          call xmlInp%Set_Val(dtAvg_v,"plasmasphere/tAvg",0.0)!300.0)
 
           !Some values just setting
           tol_gmres = 1.0e-5
@@ -2154,7 +2156,7 @@
 !=========================================================================
 !
 SUBROUTINE Move_plasma_grid_MHD (dt)
-  use rice_housekeeping_module, ONLY : LowLatMHD,doNewCX,doFLCLoss,dp_on,doPPRefill,doSmoothDDV,staticR,NowKp
+  use rice_housekeeping_module, ONLY : LowLatMHD,doNewCX,ELOSSMETHOD,doFLCLoss,dp_on,doPPRefill,doSmoothDDV,staticR,NowKp
   use math, ONLY : SmoothOpTSC,SmoothOperator33
   use lossutils, ONLY : CXKaiju,FLCRat
   use earthhelper, ONLY : DipFTV_colat,DerivDipFTV
@@ -2288,7 +2290,7 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
   !$OMP PRIVATE(mass_factor,r_dist,CLAWiter,T1k,T2k) &
   !$OMP PRIVATE(lossCX,lossFLC,lossFDG,preciprate,lossFDG0,lossFT,lamsmth,jsmth,njs) &
   !$OMP SHARED(isOpen,iOCB_j,alamc,eeta,vm,imin_j,j1,j2,joff,Dpp,njsmth) &
-  !$OMP SHARED(doFLCLoss,doNewCX,dp_on,doPPRefill,deleeta,NowKp,lossratep,lossmodel) &
+  !$OMP SHARED(doFLCLoss,doNewCX,dp_on,doPPRefill,deleeta,NowKp,lossratep,lossmodel,ELOSSMETHOD) &
   !$OMP SHARED(dvvdi,dvvdj,dvmdi,dvmdj,dvvdi_avg,dvvdj_avg,dtAvg_v) &
   !$OMP SHARED(xmin,ymin,fac,fudgec,bir,sini,L_dktime,dktime,sunspot_number) &
   !$OMP SHARED(aloct,xlower,xupper,ylower,yupper,dt,T1,T2,iMHD,bmin,radcurv,losscone) 
@@ -2375,11 +2377,11 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
             !NOTE: Add Dpp(i,j) to argument list to pass psph density (#/cc)
             !NOTE: Also pass KpNow value if you need Kp dep. stuff
             !lossratep(i,j,kc) = Ratefn(fudgec(kc),alamc(kc),sini(i,j),bir(i,j),vm(i,j),mass_factor)
-            !lossFT = RatefnC(xmin(i,j),ymin(i,j),alamc(kc),vm(i,j),bmin(i,j),losscone(i,j),Dpp(i,j),dble(NowKp))
-            lossFT = RatefnC_ksmth(xmin(i,j),ymin(i,j),alamc(kc),vm(i,j),bmin(i,j),losscone(i,j),Dpp(i,j),dble(NowKp))
+            lossFT = Ratefn(xmin(i,j),ymin(i,j),alamc(kc),vm(i,j),bmin(i,j),losscone(i,j),Dpp(i,j),dble(NowKp),fudgec(kc),sini(i,j),bir(i,j),mass_factor,ELOSSMETHOD)
+            !lossFT = RatefnC_ksmth(xmin(i,j),ymin(i,j),alamc(kc),vm(i,j),bmin(i,j),losscone(i,j),Dpp(i,j),dble(NowKp))
             lossratep(i,j,kc) = lossFT(1)
             lossmodel(i,j,kc) = lossFT(2)
-            lossFDG = lossratep(i,j,kc)
+            !lossFDG = lossratep(i,j,kc)
         endif
 
         if ( (ie == RCMPROTON) .and. (.not. isOpen(i,j)) ) then
@@ -2845,20 +2847,52 @@ SUBROUTINE Plasmasphere_Refilling_Model(eeta0, rmin, aloct, vm, idt)
 
 END SUBROUTINE
 
-FUNCTION Ratefn (fudgx, alamx, sinix, birx, vmx, xmfact)
+FUNCTION RatefnFDG (fudgx, alamx, sinix, birx, vmx, xmfact)
   IMPLICIT NONE
   REAL (rprec), INTENT (IN) :: fudgx,alamx,sinix,birx,vmx,xmfact
-  REAL (rprec)              :: Ratefn
+  REAL (rprec)              :: RatefnFDG
   !                                                                       
   !   Function subprogram to compute precipitation rate
   !   Last update:  04-04-88
   !
-  Ratefn = 0.0466_rprec*fudgx*SQRT(ABS(alamx))*(sinix/birx)*vmx**2
-  Ratefn = xmfact * ratefn
+  RatefnFDG = 0.0466_rprec*fudgx*SQRT(ABS(alamx))*(sinix/birx)*vmx**2
+  RatefnFDG = xmfact * RatefnFDG
   RETURN
+END FUNCTION RatefnFDG
+
+FUNCTION Ratefn (xx,yy,alamx,vmx,beqx,losscx,nex,kpx,fudgx,sinix,birx,xmfact,ELOSSMETHOD)
+
+ use lossutils, ONLY : RatefnC_tau_s,RatefnC_tau_C05
+ IMPLICIT NONE
+ INTEGER (iprec), INTENT (IN) :: ELOSSMETHOD
+ REAL (rprec), INTENT (IN) :: xx,yy,alamx,vmx,beqx,losscx,nex,kpx
+ REAL (rprec), INTENT (IN), OPTIONAL :: fudgx,sinix,birx,xmfact
+ REAL (rprec), dimension(2) :: Ratefn
+ REAL (rprec) :: nhigh, nlow, L, MLT, K, tau, tau_s, E, fL
+
+ Ratefn = [1.D-10,-1.D0] ! default rate is 1e-10/s, type is -1.
+ select case (ELOSSMETHOD)
+         case (ELOSS_FDG)
+            Ratefn(1)= RatefnFDG(fudgx, alamx, sinix, birx, vmx, xmfact) !1/s
+            Ratefn(2)= -2.0 
+         case (ELOSS_SS)
+            tau = RatefnC_tau_s(alamx,vmx,beqx,losscx)
+            Ratefn(1) = 1.D0/tau !/s
+            Ratefn(2) = -1.0
+         case (ELOSS_C05)
+            tau_s = RatefnC_tau_s(alamx,vmx,beqx,losscx)
+            tau = tau_s + RatefnC_tau_C05(MLT,K,L)
+            Ratefn(1) = 1.D0/tau !/s
+            Ratefn(2) = 0.0  
+         case (ELOSS_C19)
+            Ratefn = RatefnC19S(xx,yy,alamx,vmx,beqx,losscx,nex,kpx)
+         case default
+            stop "The electron loss rate model type entered is not supported."
+ end select
+
 END FUNCTION Ratefn
 
-FUNCTION RatefnC (xx,yy,alamx,vmx,beqx,losscx,nex,kpx)
+FUNCTION RatefnC19 (xx,yy,alamx,vmx,beqx,losscx,nex,kpx)
 ! Function to calculate diffuse electron precipitation loss rate using eq(10) of MW Chen et al. 2019.
 ! loss rate = 1/tau. Need to find tau.
 ! tau = (1+lambda_w*tau_s)/lambda_w for ne<10/cc, 0<=MLT<=15 and 21<=MLT<=24, (outside PP).
@@ -2875,7 +2909,7 @@ FUNCTION RatefnC (xx,yy,alamx,vmx,beqx,losscx,nex,kpx)
   use lossutils, ONLY : RatefnC_tau_s,RatefnC_tau_C05,RatefnC_tau_w,RatefnC_tau_h
   IMPLICIT NONE
   REAL (rprec), INTENT (IN) :: xx,yy,alamx,vmx,beqx,losscx,nex,kpx
-  REAL (rprec), dimension(2) :: RatefnC
+  REAL (rprec), dimension(2) :: RatefnC19
   REAL (rprec) :: nhigh, nlow, L, MLT, K, tau, tau_s, E, fL
 
   nhigh = 100.D0 ! [/cc] ne>nhigh indicates inside plasmasphere.
@@ -2885,21 +2919,21 @@ FUNCTION RatefnC (xx,yy,alamx,vmx,beqx,losscx,nex,kpx)
   K = abs(alamx*vmx*1.0e-6) !Energy [MeV]
   ! lifetime under strong diffusion assumption [Schulz, 1974b, 1998].
   tau_s = RatefnC_tau_s(alamx,vmx,beqx,losscx)
-  RatefnC(1) = 1.D10
-  RatefnC(2) = -1.0
+  RatefnC19(1) = 1.D10
+  RatefnC19(2) = -1.0
 
   ! Leave only density criteria for inside/outside plasmasphere.
   ! If 15<MLT<=21, RatefnC_tau_w will return tau=1.D10.
   ! If L>6 or L<3 or Kp>6 or Ek>10MeV or Ek<1keV or log10(Ek[MeV])<f(L), RatefnC_tau_h will return tau=1.D10.
   if(nex<nlow) then 
     tau = tau_s + RatefnC_tau_w(MLT,K,L,kpx) ! mltx,engx,kpx,Lshx
-    RatefnC(2) = 1.0
+    RatefnC19(2) = 1.0
   elseif(nex>nhigh) then
     tau = tau_s + RatefnC_tau_h(MLT,K,L,kpx) ! mltx,engx,kpx,Lshx
-    RatefnC(2) = 2.0
+    RatefnC19(2) = 2.0
   else
     tau = tau_s + (dlog(nhigh/nex)*RatefnC_tau_w(MLT,K,L,kpx) + dlog(nex/nlow)*RatefnC_tau_h(MLT,K,L,kpx))/dlog(nhigh/nlow)
-    RatefnC(2) = 3.0
+    RatefnC19(2) = 3.0
   endif
 
   ! default MLT dependent scattering rate based on Chen+2005 for non-specified MLTs etc.
@@ -2909,12 +2943,12 @@ FUNCTION RatefnC (xx,yy,alamx,vmx,beqx,losscx,nex,kpx)
   if((nex<nlow.and.MLT<=21.0.and.MLT>15.0).or.(nex>nhigh.and.(L>6.0 .or. L<3.0 .or. E>1.0 .or. E<-3.0 .or. E<fL))) then !  .or. kpx>6.0
 !    if(nex>nhigh) write(*,"(6(a,e25.15))") 'C05 triggered: nex=',nex,' L=',L,' Kp=',kpx,' E=',E,' fL=',fL,' RatefnC(2)=',RatefnC(2)
     tau = tau_s + RatefnC_tau_C05(MLT,K,L) ! mltx,engx,Lshx
-    RatefnC(2) = 0.0
+    RatefnC19(2) = 0.0
   endif
 
-  RatefnC(1) = 1.D0/tau !/s
+  RatefnC19(1) = 1.D0/tau !/s
   RETURN
-END FUNCTION RatefnC
+END FUNCTION RatefnC19
 
 FUNCTION RatefnC_smth (xx,yy,alamx,vmx,beqx,losscx,nex,kpx)
   ! Smooth RatefnC in MLT based on Kareem's lazy code.
@@ -2940,7 +2974,7 @@ FUNCTION RatefnC_smth (xx,yy,alamx,vmx,beqx,losscx,nex,kpx)
       if(vmx>0.0) then ! vmx<0 if isOpen.
         phin   = phi+pWin/2.0*nj
         Ln     = L+LWin/2.0*ni
-        lossFT = RatefnC(Ln*cos(phin),Ln*sin(phin),alamx,vmx,beqx,losscx,nex,kpx)
+        lossFT = RatefnC19(Ln*cos(phin),Ln*sin(phin),alamx,vmx,beqx,losscx,nex,kpx)
         Q(ni,nj) = lossFT(1)
         isGood(ni,nj)  = .true.
         if(ni.eq.0 .and. nj.eq.0) RatefnC_smth(2)=lossFT(2) ! Use the central cell model type.
@@ -2951,18 +2985,18 @@ FUNCTION RatefnC_smth (xx,yy,alamx,vmx,beqx,losscx,nex,kpx)
 
 END FUNCTION RatefnC_smth
 
-FUNCTION RatefnC_ksmth (xx,yy,alamx,vmx,beqx,losscx,nex,kpx)
-  ! Smooth RatefnC in MLT based on Kareem's lazy code.
+FUNCTION RatefnC19S (xx,yy,alamx,vmx,beqx,losscx,nex,kpx)
+  ! Smooth RatefnC19 in MLT based on Kareem's lazy code.
   IMPLICIT NONE
   REAL (rprec), INTENT (IN) :: xx,yy,alamx,vmx,beqx,losscx,nex,kpx
-  REAL (rprec), dimension(2) :: RatefnC_ksmth,lossFT
+  REAL (rprec), dimension(2) :: RatefnC19S,lossFT
   REAL (rprec), parameter, dimension(-4:+4) :: sgWgts = [-21.0,14.0,39.0,54.0,59.0,54.0,39.0,14.0,-21.0]/231.0
   REAL (rprec), dimension(-4:+4,-4:+4) :: Q
   REAL (rprec) :: LWin, L, Ln, pWin, phi, phin
   INTEGER (iprec) :: ni,nj
   pWin = 15.0*PI/180.0 ! +/- 30deg window
   LWin = 0.5    ! +/-1.0 L window.
-  RatefnC_ksmth = [1.D-10,-1.D0] ! default rate is 1e-10/s, type is -1.
+  RatefnC19S = [1.D-10,-1.D0] ! default rate is 1e-10/s, type is -1.
   L = sqrt(xx**2+yy**2)
   phi = atan2(yy,xx)
   Q = 1.D-10
@@ -2971,13 +3005,13 @@ FUNCTION RatefnC_ksmth (xx,yy,alamx,vmx,beqx,losscx,nex,kpx)
     do nj=-4,+4
         phin   = phi + pWin/4.0*nj
         Ln     = L   + LWin/4.0*ni
-        lossFT = RatefnC(Ln*cos(phin),Ln*sin(phin),alamx,vmx,beqx,losscx,nex,kpx)
+        lossFT = RatefnC19(Ln*cos(phin),Ln*sin(phin),alamx,vmx,beqx,losscx,nex,kpx)
         Q(ni,nj) = sgWgts(ni)*sgWgts(nj)*log10( lossFT(1) )
-        if ( (ni==0) .and. (nj==0) ) RatefnC_ksmth(2)=lossFT(2) ! Use the central cell model type.
+        if ( (ni==0) .and. (nj==0) ) RatefnC19S(2)=lossFT(2) ! Use the central cell model type.
     enddo
   enddo
-  RatefnC_ksmth(1) = 10.0**(sum(Q))
-END FUNCTION RatefnC_ksmth
+  RatefnC19S(1) = 10.0**(sum(Q))
+END FUNCTION RatefnC19S
 ! !=========================================================================
 ! !
 ! SUBROUTINE Move_plasma_grid_NEW (dt)
