@@ -3,8 +3,8 @@ import argparse
 from argparse import RawTextHelpFormatter
 from math import gamma
 
-from lambdautils.AlamData import AlamData
-import lambdautils.plotter as plotter
+from kaipy.rcm.lambdautils.AlamData import AlamData
+import kaipy.rcm.lambdautils.plotter as plotter
 
 #Constants
 boltz = 1.38e-23  # boltzmann constant

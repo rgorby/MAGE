@@ -51,7 +51,11 @@ def tStep(fname,nStp=0,aID="time",aDef=0.0):
 	CheckOrDie(fname)
 	with h5py.File(fname,'r') as hf:
 		gID = "Step#%d"%(nStp)
-		t = hf[gID].attrs.get(aID,aDef)
+		#t = hf[gID].attrs.get(aID,aDef)
+		if aID in hf[gID].attrs:
+			t = hf[gID].attrs[aID]
+		else:
+			t = aDef
 	return t
 	
 def cntSteps(fname):
