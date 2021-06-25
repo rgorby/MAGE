@@ -203,7 +203,7 @@ module init
 
             !Test for resetting time
             call xmlInp%Set_Val(doReset ,"restart/doReset" ,.false.)
-            call xmlInp%Set_Val(tReset,"restart/tReset",0.0_rp)
+            call xmlInp%Set_Val( tReset ,"restart/tReset"   ,0.0_rp)
 
             !Read restart
             call readH5Restart(Model,Grid,oState,State,inH5,doReset,tReset)
@@ -244,7 +244,7 @@ module init
         call initSolver(Solver, Model, Grid)
 
         !Setup output file
-        GamH5File = genName(Model%RunID, Grid%NumRi, Grid%NumRj, Grid%NumRk, Grid%Ri+1, Grid%Rj+1, Grid%Rk+1)
+        GamH5File   = genName (Model%RunID, Grid%NumRi, Grid%NumRj, Grid%NumRk, Grid%Ri+1, Grid%Rj+1, Grid%Rk+1)
         Model%RunID = genRunId(Model%RunID, Grid%NumRi, Grid%NumRj, Grid%NumRk, Grid%Ri+1, Grid%Rj+1, Grid%Rk+1)
 
         if (.not. Model%isRestart) then

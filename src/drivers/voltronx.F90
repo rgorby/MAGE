@@ -71,7 +71,7 @@ program voltronx
         call Toc("Omega")
 
     end do
-    write(*,*) "If you lived here you'd be home by now"
+    write(*,*) "Fin"
     
 end program voltronx
 

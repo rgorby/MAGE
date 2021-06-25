@@ -48,5 +48,5 @@ program gamerax
 
         call Toc("Omega")
     end do
-
+    write(*,*) "Fin"
 end program gamerax

@@ -717,7 +717,6 @@ module gioH5
             write(*,*) 'Restart error, more species in restart than room in State!'
             stop
         endif
-
         
         if (Model%doMHD) then
 
@@ -734,12 +733,13 @@ module gioH5
             oN = FindIO(IOVars,"omagFlux",.true.)
             nN = FindIO(IOVars, "magFlux",.true.)
 
-
             State %magFlux(Gr%isg:Gr%ieg+1,Gr%jsg:Gr%jeg+1,Gr%ksg:Gr%keg+1,:) = reshape(IOVars(nN)%data,bDims)
             oState%magFlux(Gr%isg:Gr%ieg+1,Gr%jsg:Gr%jeg+1,Gr%ksg:Gr%keg+1,:) = reshape(IOVars(oN)%data,bDims)
         endif !doMHD
 
         !Get main attributes
+        Model%dt = GetIOReal(IOVars, "dt")
+        
         if (doReset) then
             Model%IO%nOut = 0
             Model%IO%nRes = GetIOInt(IOVars,"nRes") + 1
@@ -757,7 +757,6 @@ module gioH5
 
         Model%dt0 = GetIOReal(IOVars,"dt0")
         if (Model%dt0<TINY*10) Model%dt0 = 0.0
-
 
     !Do source term stuff if necessary
         hasSrc = ioExist(inH5,"Gas0")
