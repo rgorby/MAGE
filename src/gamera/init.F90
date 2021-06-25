@@ -210,22 +210,35 @@ module init
         else
             ! set initial dt0 to 0, it will be set once the case settles
             Model%dt0 = 0
+            
+            ! set Bxyz from magFlux
+            if (Model%doMHD) then
+                call bFlux2Fld(Model,Grid,State%magFlux,State%Bxyz)
+            endif
         endif
 
-        !Do remaining things to finish state
-        !ie add B0/Grav and do bFlux2Fld
-        call DoneState(Model,Grid,oState,State)
+        !Incorporate background field, B0, if necessary
+        if (Model%doBackground .and. Grid%doB0Init) then
+            call AddB0(Model,Grid,Model%B0)
+        endif
+        !Incorporate gravity if necessary
+        if (Model%doGrav .and. Grid%doG0Init) then
+            call AddGrav(Model,Grid,Model%Phi)
+        endif
 
-        !Finalize setup
-        !Enforce initial BC's
-        call Tic("BCs")
-        call EnforceBCs(Model,Grid,State)
-        oState = State
-        call Toc("BCs")
+        !If a fresh case, set up the state objects
+        if (.not. Model%isRestart) then
+            !Enforce initial BC's
+            call Tic("BCs")
+            call EnforceBCs(Model,Grid,State)
+            call Toc("BCs")
 
-        !Setup timestep and initial previous state for predictor
-        Model%dt = CalcDT(Model,Grid,State)
-        oState%time = State%time-Model%dt !Initial old state
+            !Setup timestep and initial previous state for predictor
+            Model%dt = CalcDT(Model,Grid,State)
+
+            !Copy State into oState
+            oState = State
+        endif
 
         !Initialize solver data
         call initSolver(Solver, Model, Grid)
@@ -242,29 +255,6 @@ module init
         endif
 
     end subroutine CalcGridInfo
-
-    !Finalize things for state var
-    subroutine DoneState(Model,Grid,oState,State)
-        type(Model_T), intent(inout) :: Model
-        type(Grid_T), intent(inout) :: Grid
-        type(State_T), intent(inout) :: oState,State
-
-        if (Model%doMHD) then
-            call bFlux2Fld(Model,Grid,State%magFlux,State%Bxyz)
-            oState%magFlux = State%magFlux
-            oState%Bxyz    = State%Bxyz
-        endif
-
-        !Incorporate background field, B0, if necessary
-        if (Model%doBackground .and. Grid%doB0Init) then
-            call AddB0(Model,Grid,Model%B0)
-        endif
-        !Incorporate gravity if necessary
-        if (Model%doGrav .and. Grid%doG0Init) then
-            call AddGrav(Model,Grid,Model%Phi)
-        endif
-
-    end subroutine DoneState
 
     !Prepare state and call IC
     subroutine PrepState(Model,Grid,oState,State,xmlInp,userInitFunc)
