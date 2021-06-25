@@ -5,22 +5,21 @@
 			"path": "src",
 		},
 		{
-			"folder_include_patterns":
-			[
-				"*.py"
-			],
 			"path": "scripts",
+			"folder_exclude_patterns": ["__pycache__"],
 		},
 		{
-			"file_exclude_patterns":
-			[
-				"__init__.py"
-			],
-			"folder_exclude_patterns":
-			[
-				"__pycache__"
-			],
 			"path": "kaipy",
+			"folder_exclude_patterns": ["__pycache__"],
+			"file_exclude_patterns": ["__init__.py"],
 		},
 	],
+	"settings":
+	{
+		"indent_subsequent_lines": true,
+		"tab_size": 4,
+		"translate_tabs_to_spaces": true,
+		"trim_automatic_white_space": true,
+	},
+
 }
