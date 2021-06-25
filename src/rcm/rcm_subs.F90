@@ -1903,7 +1903,7 @@
           call xmlInp%Set_Val(L_doOMPClaw,"clawpack/doOMPClaw",L_doOMPClaw)
 
           !Averaging timescale for plasmasphere
-          call xmlInp%Set_Val(dtAvg_v,"plasmasphere/tAvg",0.0)!300.0)
+          call xmlInp%Set_Val(dtAvg_v,"plasmasphere/tAvg",0.0)
 
           !Some values just setting
           tol_gmres = 1.0e-5
