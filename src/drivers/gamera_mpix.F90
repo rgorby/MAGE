@@ -83,7 +83,7 @@ program gamera_mpix
     end do
 
     call MPI_FINALIZE(ierror)
-    print *,"This is the END!"
+    write(*,*) "Fin"
 
 end program gamera_mpix
 
