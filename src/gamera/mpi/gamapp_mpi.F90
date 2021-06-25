@@ -475,18 +475,19 @@ module gamapp_mpi
             ! Make sure BCs are valid and setup for correct directions
             call ValidateBCs(gamAppMpi%Model, gamAppMpi%Grid)
 
-            ! update all ghost values
-            call updateMpiBCs(gamAppMpi)
+            !If a fresh case, MPI correct State and copy into oState
+            if (.not. Model%isRestart) then
+                ! update all ghost values
+                call updateMpiBCs(gamAppMpi)
 
-            !Update the old state
-            gamAppMpi%oState = gamAppMpi%State
+                gamAppMpi%oState = gamAppMpi%State
+            endif
 
             !Ensure all processes have the same starting timestep
             Model%dt = CalcDT(Model,Grid,gamAppMpi%State)
             tmpDT = Model%dt
             call MPI_AllReduce(MPI_IN_PLACE, tmpDT, 1, MPI_MYFLOAT, MPI_MIN, gamAppMpi%gamMpiComm,ierr)
             Model%dt = tmpDT
-            gamAppMpi%oState%time = gamAppMpi%State%time-Model%dt !Initial old state
 
         endif
 
