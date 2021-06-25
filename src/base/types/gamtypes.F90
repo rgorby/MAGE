@@ -129,6 +129,7 @@ module gamtypes
 
     end type Model_T
 
+
 !Overall grid information
     !Nip = # of physical cells, Ni = Nip+2*Ng
     !Sizes of data structures
