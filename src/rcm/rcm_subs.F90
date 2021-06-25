@@ -2359,7 +2359,7 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
         lossFLC = 0.0
         lossFT  = 0.0
         lossratep(i,j,kc) = 0.0
-        lossmodel(i,j,kc) = 0
+        lossmodel(i,j,kc) = -1.0 ! -1: undefined; 0: C05; 1: chorus; 2: hiss; 3: C+H; 4: strong diffusion; 5: fudge; 10: ion FLC.
         rate(i,j) = 0.0
 
         if (isOpen(i,j)) cycle
@@ -2383,6 +2383,7 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
                 lossFLC = FLCRat(ie,alamc(kc),vm(i,j),bmin(i,j),radcurv(i,j),losscone(i,j))
             endif
             lossratep(i,j,kc) = lossratep(i,j,kc) + lossFLC
+            lossmodel(i,j,kc) = 10.0
             rate(i,j) = rate(i,j) + lossFLC + lossCX
         endif
         !Keep track of precip losses in eta
@@ -2862,11 +2863,11 @@ FUNCTION Ratefn (xx,yy,alamx,vmx,beqx,losscx,nex,kpx,fudgx,sinix,birx,xmfact,ELO
  select case (ELOSSMETHOD)
          case (ELOSS_FDG)
             Ratefn(1)= RatefnFDG(fudgx, alamx, sinix, birx, vmx, xmfact) !1/s
-            Ratefn(2)= -2.0 
+            Ratefn(2)= 5.0 
          case (ELOSS_SS)
             tau = RatefnC_tau_s(alamx,vmx,beqx,losscx)
             Ratefn(1) = 1.D0/tau !/s
-            Ratefn(2) = -1.0
+            Ratefn(2) = 4.0
          case (ELOSS_C05)
             tau_s = RatefnC_tau_s(alamx,vmx,beqx,losscx)
             tau = tau_s + RatefnC_tau_C05(MLT,K,L)
