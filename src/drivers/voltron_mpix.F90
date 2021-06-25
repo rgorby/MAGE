@@ -160,7 +160,7 @@ program voltron_mpix
             endif
             !Restart output
             if (gApp%Model%IO%doRestart(gApp%Model%t)) then
-                call resOutput(gApp%Model, gApp%Grid, gApp%State)
+                call resOutput(gApp%Model, gApp%Grid, gApp%oState, gApp%State)
             endif
             !Data output
             if (gApp%Model%IO%doOutput(gApp%Model%t)) then

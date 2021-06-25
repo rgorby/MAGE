@@ -168,7 +168,7 @@ module voltio
         class(voltApp_T), intent(inout) :: vApp
 
         !Write Gamera restart
-        call resOutput(gApp%Model,gApp%Grid,gApp%State)
+        call resOutput(gApp%Model,gApp%Grid,gApp%oState,gApp%State)
 
         !Write Voltron restart data
         call resOutputVOnly(vApp,gApp)

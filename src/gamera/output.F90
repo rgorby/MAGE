@@ -132,15 +132,15 @@ contains
         Model%IO%nOut = Model%IO%nOut + 1
     end subroutine fOutput
 
-    subroutine resOutput(Model, Grid, State)
+    subroutine resOutput(Model,Grid,oState,State)
         type(Model_T), intent(inout) :: Model
         type(Grid_T), intent(in) :: Grid
-        type(State_T), intent(in) :: State
+        type(State_T), intent(in) :: oState,State
 
         character(len=strLen) :: ResF, tStr,lnResF !Name of restart file
         logical :: fExist
 
-        write (ResF, '(A,A,I0.5,A)') trim(Model%RunID), ".Res.", Model%IO%nRes, ".h5"
+        write (ResF, '(A,A,I0.5,A)') trim(Model%RunID), ".gam.Res.", Model%IO%nRes, ".h5"
 
         call CheckAndKill(ResF)
 
@@ -149,13 +149,13 @@ contains
             write (*, '(a,a,a,a,a)') ANSIGREEN, '<Writing HDF5 RESTART @ t = ', trim(tStr), ' >', ANSIRESET
         endif
 
-        call writeH5Res(Model, Grid, State, ResF)
+        call writeH5Res(Model,Grid,oState,State,ResF)
 
         !Setup for next restart
         Model%IO%tRes = Model%IO%tRes + Model%IO%dtRes
         Model%IO%nRes = Model%IO%nRes + 1
 
-        write (lnResF, '(A,A,A,A)') trim(Model%RunID), ".Res.", "XXXXX", ".h5"
+        write (lnResF, '(A,A,A,A)') trim(Model%RunID), ".gam.Res.", "XXXXX", ".h5"
 
         call MapSymLink(ResF,lnResF)
     end subroutine resOutput

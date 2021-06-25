@@ -65,7 +65,7 @@ program gamera_mpix
         endif
 
         if (gameraAppMpi%Model%IO%doRestart(gameraAppMpi%Model%t)) then
-            call resOutput(gameraAppMpi%Model,gameraAppMpi%Grid,gameraAppMpi%State)
+            call resOutput(gameraAppMpi%Model,gameraAppMpi%Grid,gameraAppMpi%oState,gameraAppMpi%State)
         endif
 
         call Toc("IO")

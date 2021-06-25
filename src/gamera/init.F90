@@ -160,7 +160,7 @@ module init
         else
             write (nStr,'(I0.5)') nRes
         endif
-        inH5 = trim(bStr) // ".Res." // trim(nStr) // ".h5"
+        inH5 = trim(bStr) // ".gam.Res." // trim(nStr) // ".h5"
         write(*,*) 'Assigned restart file: ', trim(inH5)
         call CheckFileOrDie(inH5,"Restart file not found ...")
     end subroutine getRestart
@@ -206,7 +206,7 @@ module init
             call xmlInp%Set_Val(tReset,"restart/tReset",0.0_rp)
 
             !Read restart
-            call readH5Restart(Model,Grid,State,inH5,doReset,tReset)
+            call readH5Restart(Model,Grid,oState,State,inH5,doReset,tReset)
         else
             ! set initial dt0 to 0, it will be set once the case settles
             Model%dt0 = 0
