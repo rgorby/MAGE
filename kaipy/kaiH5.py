@@ -136,3 +136,15 @@ def PullVar(fname,vID,s0=None):
 			gId = "/Step#%d"%(s0)
 			V = hf[gId][vID][()].T
 	return V
+
+#Get attribute data from Step#s0 or root (s0=None)
+def PullAtt(fname,vID,s0=None):
+	CheckOrDie(fname)
+	with h5py.File(fname,'r') as hf:
+		if (s0 is None):
+			Q = hf.attrs[vID]
+			
+		else:
+			gID = "/Step#%d"%(s0)
+			Q = hf[gID].attrs[vID]
+	return V	
