@@ -27,7 +27,7 @@ MODULE rice_housekeeping_module
   use kronos
   use strings
   use earthhelper, ONLY : SetKp0
-  use rcmdefs, ONLY : DenPP0
+  use rcmdefs, ONLY : DenPP0, ELOSS_FDG, ELOSS_SS, ELOSS_C05, ELOSS_C19
   
   IMPLICIT NONE
   
@@ -39,7 +39,7 @@ MODULE rice_housekeeping_module
   INTEGER(iprec) :: nSubstep = 4
   INTEGER(iprec) :: rcm_record
   REAL(rprec) :: HighLatBD,LowLatBD
-  LOGICAL :: doLatStretch = .true.
+  LOGICAL :: doLatStretch = .false.
   LOGICAL :: doFLCLoss = .true. !Use FLC losses
   LOGICAL :: doNewCX = .true. !Use newer CX loss estimate
   LOGICAL :: doSmoothDDV = .true. !Whether to smooth ij deriv of residual FTV
@@ -56,6 +56,8 @@ MODULE rice_housekeeping_module
   LOGICAL :: doRelax    = .true. !Whether to relax energy distribution
   LOGICAL :: doQ0 = .true. !Whether to include implicit cold ions in tomhd moments
 
+  character(len=strLen) :: tmpStr 
+  INTEGER(iprec) :: ELOSSMETHOD        
   INTEGER(iprec) :: InitKp = 1, NowKp
   LOGICAL :: doFLOut = .false. !Whether to output field lines (slow)
   INTEGER(iprec) :: nSkipFL = 8 !Stride for outputting field lines
@@ -128,7 +130,21 @@ MODULE rice_housekeeping_module
         NowKp = InitKp
 
         !Loss options
-        call xmlInp%Set_Val(doFLCLoss,"loss/doFLCLoss",doFLCLoss)
+        call xmlInp%Set_Val(doFLCLoss,"loss/doFLCLoss",doFLCLoss) 
+        call xmlInp%Set_Val(tmpStr,"loss/eLossMethod","FDG")
+        select case (tmpSTR)
+           case ("FDG")
+              ELOSSMETHOD = ELOSS_FDG
+           case ("SS")
+              ELOSSMETHOD = ELOSS_SS
+           case ("C05")
+              ELOSSMETHOD = ELOSS_C05
+           case ("C19")
+              ELOSSMETHOD = ELOSS_C19
+           case default
+              stop "The electron loss type entered is not supported (Available options: FDG, SS, C05, C19)."
+        end select
+
         call xmlInp%Set_Val(doNewCX  ,"loss/doNewCX"  ,doNewCX  )
         call xmlInp%Set_Val(doRelax  ,"loss/doRelax"  ,doRelax  )
 

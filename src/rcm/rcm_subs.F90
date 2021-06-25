@@ -7,6 +7,7 @@
     use rcmdefs
     use rcm_precision
     use clocks
+    use math
 
     IMPLICIT NONE
     SAVE
@@ -106,8 +107,8 @@
 !   Plasma on grid:
     REAL (rprec) :: alamc (kcsize), etac (kcsize), fudgec (kcsize), &
                     eeta (isize,jsize,kcsize), eeta_cutoff, cmax, &
-                    eeta_avg (isize,jsize,kcsize), deleeta(isize,jsize,kcsize), lossratep(isize,jsize,kcsize), lossmodel(isize,jsize,kcsize), Dpp(isize,jsize)
-                    
+                    eeta_avg (isize,jsize,kcsize), deleeta(isize,jsize,kcsize), lossratep(isize,jsize,kcsize), lossmodel(isize,jsize,kcsize), Dpp(isize,jsize) 
+
     INTEGER (iprec) :: ikflavc (kcsize), i_advect, i_eta_bc, i_birk
     LOGICAL :: L_dktime
     INTEGER (iprec), PARAMETER :: irdk=18, inrgdk=13, isodk=2, iondk=2
@@ -157,7 +158,6 @@
                     v_avg (isize,jsize), birk_avg (isize,jsize), &
                     densrcm(isize,jsize),denspsph(isize,jsize)
     INTEGER (iprec) :: ipcp_type, ipot
-!
 !
 !   Input PCP drop and its current value:
     INTEGER (iprec), ALLOCATABLE :: ivtime (:)
@@ -1005,7 +1005,7 @@
           djdt   = - dvefdi (i,j) / fac (i,j)
           biold  = REAL(i,rprec) - didt * dt 
           bjold  = Bjmod (REAL(j,rprec) - djdt * dt, jwrap, jsize )
-          rate   = Ratefn (fudgec(kc), alamc(kc), sini (i,j), bir (i,j), &
+          rate   = RatefnFDG (fudgec(kc), alamc(kc), sini (i,j), bir (i,j), &
                            vm (i,j), mass_factor)
 !          IF (biold > Bndy(bndloc,bjold)) THEN 
           IF (biold > bndloc(j)) THEN 
@@ -1903,7 +1903,7 @@
           call xmlInp%Set_Val(L_doOMPClaw,"clawpack/doOMPClaw",L_doOMPClaw)
 
           !Averaging timescale for plasmasphere
-          call xmlInp%Set_Val(dtAvg_v,"plasmasphere/tAvg",300.0)
+          call xmlInp%Set_Val(dtAvg_v,"plasmasphere/tAvg",0.0)!300.0)
 
           !Some values just setting
           tol_gmres = 1.0e-5
@@ -2143,7 +2143,7 @@
 !=========================================================================
 !
 SUBROUTINE Move_plasma_grid_MHD (dt)
-  use rice_housekeeping_module, ONLY : LowLatMHD,doNewCX,doFLCLoss,dp_on,doPPRefill,doSmoothDDV,staticR,NowKp
+  use rice_housekeeping_module, ONLY : LowLatMHD,doNewCX,ELOSSMETHOD,doFLCLoss,dp_on,doPPRefill,doSmoothDDV,staticR,NowKp
   use math, ONLY : SmoothOpTSC,SmoothOperator33
   use lossutils, ONLY : CXKaiju,FLCRat
   use earthhelper, ONLY : DipFTV_colat,DerivDipFTV
@@ -2157,11 +2157,11 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
   REAL (rprec), dimension( 1:isize  , 1:jsize  ) :: rate,dvedi,dvedj,vv,dvvdi,dvvdj,dvmdi,dvmdj
   REAL (rprec), dimension( 1:isize  , 1:jsize  ) :: vv_avg,dvvdi_avg,dvvdj_avg
 
-  REAL (rprec), dimension( 1:isize  , 1:jsize  ) :: ftv,dftvi,dftvj!,Dpp
+  REAL (rprec), dimension( 1:isize  , 1:jsize  ) :: ftv,dftvi,dftvj
 
   LOGICAL, dimension(1:isize,1:jsize) :: isOpen
   INTEGER (iprec) :: iOCB_j(1:jsize)
-  REAL (rprec) :: mass_factor,r_dist,lossCX,lossFLC,lossFDG,preciprate,lossFDG0
+  REAL (rprec) :: mass_factor,r_dist,lossCX,lossFLC
   REAL (rprec), dimension(2) :: lossFT
   REAL (rprec), save :: xlower,xupper,ylower,yupper, T1,T2 !Does this need save?
   INTEGER (iprec) :: i, j, kc, ie, iL,jL,iR,jR,iMHD
@@ -2273,9 +2273,9 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
   !$OMP PRIVATE(i,j,kc,ie,iL,jL,iR,jR) &
   !$OMP PRIVATE(didt,djdt,etaC,rateC,rate,dvedi,dvedj) &
   !$OMP PRIVATE(mass_factor,r_dist,CLAWiter,T1k,T2k) &
-  !$OMP PRIVATE(lossCX,lossFLC,lossFDG,preciprate,lossFDG0,lossFT) &
+  !$OMP PRIVATE(lossCX,lossFLC,lossFT) &
   !$OMP SHARED(isOpen,iOCB_j,alamc,eeta,vm,imin_j,j1,j2,joff,Dpp) &
-  !$OMP SHARED(doFLCLoss,doNewCX,dp_on,doPPRefill,deleeta,NowKp,lossratep,lossmodel) &
+  !$OMP SHARED(doFLCLoss,doNewCX,dp_on,doPPRefill,deleeta,NowKp,lossratep,lossmodel,ELOSSMETHOD) &
   !$OMP SHARED(dvvdi,dvvdj,dvmdi,dvmdj,dvvdi_avg,dvvdj_avg,dtAvg_v,advChannel) &
   !$OMP SHARED(xmin,ymin,fac,fudgec,bir,sini,L_dktime,dktime,sunspot_number) &
   !$OMP SHARED(aloct,xlower,xupper,ylower,yupper,dt,T1,T2,iMHD,bmin,radcurv,losscone) 
@@ -2354,28 +2354,26 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
     !Start w/ loss term on RCM grid
     do j=1,jsize
       do i=1,isize
+        !Do some init
         lossCX  = 0.0
         lossFLC = 0.0
-        lossFDG = 0.0
-        lossFDG0= 0.0
+        lossFT  = 0.0
+        lossratep(i,j,kc) = 0.0
+        lossmodel(i,j,kc) = 0
+        rate(i,j) = 0.0
 
-        if (isOpen(i,j)) then
-            !Do quick short-circuit
-            lossratep(i,j,kc) = 0.0
-            lossmodel(i,j,kc) = 0
-            rate(i,j) = 0.0
-            cycle
-        endif
+        if (isOpen(i,j)) cycle
         
-        if ( (ie == RCMELECTRON) .and. (.not. isOpen(i,j)) .and. (kc /= 1) ) then
+        !Calculate losses and keep track of total losses/precip losses
+        if ( (ie == RCMELECTRON) .and. (kc /= 1) ) then
         !Do electron losses
-            !NOTE: Add Dpp(i,j) to argument list to pass psph density (#/cc)
-            !NOTE: Also pass KpNow value if you need Kp dep. stuff
-            lossFT = RatefnC(xmin(i,j),ymin(i,j),alamc(kc),vm(i,j),bmin(i,j),losscone(i,j),Dpp(i,j),dble(NowKp))
-            lossFDG = lossFT(1)
+            lossFT = Ratefn(xmin(i,j),ymin(i,j),alamc(kc),vm(i,j),bmin(i,j),losscone(i,j),Dpp(i,j),dble(NowKp),fudgec(kc),sini(i,j),bir(i,j),mass_factor,ELOSSMETHOD)
+            lossratep(i,j,kc) = lossratep(i,j,kc) + lossFT(1)
+            lossmodel(i,j,kc) = lossFT(2)
+            rate(i,j) = rate(i,j) + lossFT(1)
         endif
 
-        if ( (ie == RCMPROTON) .and. (.not. isOpen(i,j)) ) then
+        if (ie == RCMPROTON) then
         !Do ion losses
             r_dist = sqrt(xmin(i,j)**2+ymin(i,j)**2)
             if ( L_dktime ) then
@@ -2384,14 +2382,11 @@ SUBROUTINE Move_plasma_grid_MHD (dt)
             if (doFLCLoss) then
                 lossFLC = FLCRat(ie,alamc(kc),vm(i,j),bmin(i,j),radcurv(i,j),losscone(i,j))
             endif
+            lossratep(i,j,kc) = lossratep(i,j,kc) + lossFLC
+            rate(i,j) = rate(i,j) + lossFLC + lossCX
         endif
-        
-        !NOTE: Any loss terms that contribute to precipitation need to be added to preciprate
-        lossratep(i,j,kc) = lossFDG
-        lossmodel(i,j,kc) = lossFT(2)
-        rate(i,j) = max(lossCX + lossFLC + lossFDG,0.0)
-        preciprate = lossFLC + lossFDG !Losses for precipitation
-        deleeta(i,j,kc) = deleeta(i,j,kc) + eeta(i,j,kc)*(1.0 - exp(-preciprate*dt))
+        !Keep track of precip losses in eta
+        deleeta(i,j,kc) = deleeta(i,j,kc) + eeta(i,j,kc)*(1.0 - exp(-lossratep(i,j,kc)*dt))
 
       enddo !i loop
       
@@ -2840,20 +2835,52 @@ SUBROUTINE Plasmasphere_Refilling_Model(eeta0, rmin, aloct, vm, idt)
 
 END SUBROUTINE
 
-FUNCTION Ratefn (fudgx, alamx, sinix, birx, vmx, xmfact)
+FUNCTION RatefnFDG (fudgx, alamx, sinix, birx, vmx, xmfact)
   IMPLICIT NONE
   REAL (rprec), INTENT (IN) :: fudgx,alamx,sinix,birx,vmx,xmfact
-  REAL (rprec)              :: Ratefn
+  REAL (rprec)              :: RatefnFDG
   !                                                                       
   !   Function subprogram to compute precipitation rate
   !   Last update:  04-04-88
   !
-  Ratefn = 0.0466_rprec*fudgx*SQRT(ABS(alamx))*(sinix/birx)*vmx**2
-  Ratefn = xmfact * ratefn
+  RatefnFDG = 0.0466_rprec*fudgx*SQRT(ABS(alamx))*(sinix/birx)*vmx**2
+  RatefnFDG = xmfact * RatefnFDG
   RETURN
+END FUNCTION RatefnFDG
+
+FUNCTION Ratefn (xx,yy,alamx,vmx,beqx,losscx,nex,kpx,fudgx,sinix,birx,xmfact,ELOSSMETHOD)
+
+ use lossutils, ONLY : RatefnC_tau_s,RatefnC_tau_C05
+ IMPLICIT NONE
+ INTEGER (iprec), INTENT (IN) :: ELOSSMETHOD
+ REAL (rprec), INTENT (IN) :: xx,yy,alamx,vmx,beqx,losscx,nex,kpx
+ REAL (rprec), INTENT (IN), OPTIONAL :: fudgx,sinix,birx,xmfact
+ REAL (rprec), dimension(2) :: Ratefn
+ REAL (rprec) :: nhigh, nlow, L, MLT, K, tau, tau_s, E, fL
+
+ Ratefn = [1.D-10,-1.D0] ! default rate is 1e-10/s, type is -1.
+ select case (ELOSSMETHOD)
+         case (ELOSS_FDG)
+            Ratefn(1)= RatefnFDG(fudgx, alamx, sinix, birx, vmx, xmfact) !1/s
+            Ratefn(2)= -2.0 
+         case (ELOSS_SS)
+            tau = RatefnC_tau_s(alamx,vmx,beqx,losscx)
+            Ratefn(1) = 1.D0/tau !/s
+            Ratefn(2) = -1.0
+         case (ELOSS_C05)
+            tau_s = RatefnC_tau_s(alamx,vmx,beqx,losscx)
+            tau = tau_s + RatefnC_tau_C05(MLT,K,L)
+            Ratefn(1) = 1.D0/tau !/s
+            Ratefn(2) = 0.0  
+         case (ELOSS_C19)
+            Ratefn = RatefnC19S(xx,yy,alamx,vmx,beqx,losscx,nex,kpx)
+         case default
+            stop "The electron loss rate model type entered is not supported."
+ end select
+
 END FUNCTION Ratefn
 
-FUNCTION RatefnC (xx,yy,alamx,vmx,beqx,losscx,nex,kpx)
+FUNCTION RatefnC19 (xx,yy,alamx,vmx,beqx,losscx,nex,kpx)
 ! Function to calculate diffuse electron precipitation loss rate using eq(10) of MW Chen et al. 2019.
 ! loss rate = 1/tau. Need to find tau.
 ! tau = (1+lambda_w*tau_s)/lambda_w for ne<10/cc, 0<=MLT<=15 and 21<=MLT<=24, (outside PP).
@@ -2870,7 +2897,7 @@ FUNCTION RatefnC (xx,yy,alamx,vmx,beqx,losscx,nex,kpx)
   use lossutils, ONLY : RatefnC_tau_s,RatefnC_tau_C05,RatefnC_tau_w,RatefnC_tau_h
   IMPLICIT NONE
   REAL (rprec), INTENT (IN) :: xx,yy,alamx,vmx,beqx,losscx,nex,kpx
-  REAL (rprec), dimension(2) :: RatefnC
+  REAL (rprec), dimension(2) :: RatefnC19
   REAL (rprec) :: nhigh, nlow, L, MLT, K, tau, tau_s, E, fL
 
   nhigh = 100.D0 ! [/cc] ne>nhigh indicates inside plasmasphere.
@@ -2880,286 +2907,67 @@ FUNCTION RatefnC (xx,yy,alamx,vmx,beqx,losscx,nex,kpx)
   K = abs(alamx*vmx*1.0e-6) !Energy [MeV]
   ! lifetime under strong diffusion assumption [Schulz, 1974b, 1998].
   tau_s = RatefnC_tau_s(alamx,vmx,beqx,losscx)
-  RatefnC(1) = 1.D10
-  RatefnC(2) = -1.0
+  RatefnC19(1) = 1.D10
+  RatefnC19(2) = -1.0
 
   ! Leave only density criteria for inside/outside plasmasphere.
   ! If 15<MLT<=21, RatefnC_tau_w will return tau=1.D10.
   ! If L>6 or L<3 or Kp>6 or Ek>10MeV or Ek<1keV or log10(Ek[MeV])<f(L), RatefnC_tau_h will return tau=1.D10.
   if(nex<nlow) then 
     tau = tau_s + RatefnC_tau_w(MLT,K,L,kpx) ! mltx,engx,kpx,Lshx
-    RatefnC(2) = 1.0
+    RatefnC19(2) = 1.0
   elseif(nex>nhigh) then
     tau = tau_s + RatefnC_tau_h(MLT,K,L,kpx) ! mltx,engx,kpx,Lshx
-    RatefnC(2) = 2.0
+    RatefnC19(2) = 2.0
   else
     tau = tau_s + (dlog(nhigh/nex)*RatefnC_tau_w(MLT,K,L,kpx) + dlog(nex/nlow)*RatefnC_tau_h(MLT,K,L,kpx))/dlog(nhigh/nlow)
-    RatefnC(2) = 3.0
+    RatefnC19(2) = 3.0
   endif
 
   ! default MLT dependent scattering rate based on Chen+2005 for non-specified MLTs etc.
 !  if(tau>1.D10) then 
   E = log10(K)
   fL = -0.2573*L**4 + 4.2781*L**3 - 25.9348*L*L + 66.8113*L - 66.1182
-  if((nex<nlow.and.MLT<=21.0.and.MLT>15.0).or.(nex>nhigh.and.(L>6.0 .or. L<3.0 .or. kpx>6.0 .or. E>1.0 .or. E<-3.0 .or. E<fL))) then 
+  if((nex<nlow.and.MLT<=21.0.and.MLT>15.0).or.(nex>nhigh.and.(L>6.0 .or. L<3.0 .or. E>1.0 .or. E<-3.0 .or. E<fL))) then !  .or. kpx>6.0
 !    if(nex>nhigh) write(*,"(6(a,e25.15))") 'C05 triggered: nex=',nex,' L=',L,' Kp=',kpx,' E=',E,' fL=',fL,' RatefnC(2)=',RatefnC(2)
     tau = tau_s + RatefnC_tau_C05(MLT,K,L) ! mltx,engx,Lshx
-    RatefnC(2) = 0.0
+    RatefnC19(2) = 0.0
   endif
 
-  !K: Adding hack for C05 model for testing
-  tau = tau_s + RatefnC_tau_C05(MLT,K,L) ! mltx,engx,Lshx
-  RatefnC(2) = 0.0
+  RatefnC19(1) = 1.D0/tau !/s
 
-  RatefnC(1) = 1.D0/tau !/s
   RETURN
-END FUNCTION RatefnC
 
-! !=========================================================================
-! !
-! SUBROUTINE Move_plasma_grid_NEW (dt)
-!   IMPLICIT NONE
-!   REAL (rprec), INTENT (IN) :: dt
-! !_____________________________________________________________________________
-! !   Subroutine to advance eta distribution for a time step
-! !   by using new CLAWPACK advection routines
-! !                                                                       
-! !   Created:     12-05-00
-! !_____________________________________________________________________________
-! !
-! !
+END FUNCTION RatefnC19
 
-!   REAL (rprec) :: mass_factor, max_eeta, eps = 0.0 !sbao 07/2019
-!   INTEGER (iprec) :: i, j, kc, ie
-!   INTEGER (iprec) :: CLAWiter, joff, icut
-!   REAL (rprec), dimension(isize,jsize) :: eeta2,veff,dvefdi,dvefdj
-!   REAL (rprec), dimension(-1:isize+2,-1:jsize-1) :: loc_didt,loc_djdt,loc_Eta,loc_rate
-!   REAL (rprec), save :: xlower,xupper,ylower,yupper, T1,T2
-!   REAL (rprec) :: T1k,T2k !Local loop variables b/c clawpack alters input
-!   REAL (rprec) :: r_dist
-!   INTEGER (iprec) :: ii,istop
-!   LOGICAL, save :: FirstTime=.true.
-  
-!   joff=jwrap-1
-  
-!   if (FirstTime) then
-!     T1=0.
-!     FirstTime = .false.
-!   else
-!     T1=T2
-!   end if
+FUNCTION RatefnC19S (xx,yy,alamx,vmx,beqx,losscx,nex,kpx)
+  ! Smooth RatefnC19 in MLT based on Kareem's lazy code.
+  IMPLICIT NONE
+  REAL (rprec), INTENT (IN) :: xx,yy,alamx,vmx,beqx,losscx,nex,kpx
+  REAL (rprec), dimension(2) :: RatefnC19S,lossFT
+  REAL (rprec), parameter, dimension(-4:+4) :: sgWgts = [-21.0,14.0,39.0,54.0,59.0,54.0,39.0,14.0,-21.0]/231.0
+  REAL (rprec), dimension(-4:+4,-4:+4) :: Q
+  REAL (rprec) :: LWin, L, Ln, pWin, phi, phin
+  INTEGER (iprec) :: ni,nj
+  pWin = 15.0*PI/180.0 ! +/- 30deg window
+  LWin = 0.5    ! +/-1.0 L window.
+  RatefnC19S = [1.D-10,-1.D0] ! default rate is 1e-10/s, type is -1.
+  L = sqrt(xx**2+yy**2)
+  phi = atan2(yy,xx)
+  Q = 1.D-10
+  if (vmx<0) return !Nothing to do if bad cell
+  do ni=-4,+4
+    do nj=-4,+4
+        phin   = phi + pWin/4.0*nj
+        Ln     = L   + LWin/4.0*ni
+        lossFT = RatefnC19(Ln*cos(phin),Ln*sin(phin),alamx,vmx,beqx,losscx,nex,kpx)
+        Q(ni,nj) = sgWgts(ni)*sgWgts(nj)*log10( lossFT(1) )
+        if ( (ni==0) .and. (nj==0) ) RatefnC19S(2)=lossFT(2) ! Use the central cell model type.
+    enddo
+  enddo
+  RatefnC19S(1) = 10.0**(sum(Q))
+END FUNCTION RatefnC19S
 
-!   T2=T1+dt
-
-!   xlower = 1
-!   xupper = isize
-!   ylower = zero
-!   yupper = jsize-3
-
-!   fac = 1.0E-3*signbe*bir*alpha*beta*dlam*dpsi*ri**2
-
-
-!   !K: Trying to fix omp bindings
-!   !Fixing private/shared and vars altered by clawpack
-!   !NOTE: T1k/T2k need to be private b/c they're altered by claw2ez
-  
-!   !$OMP PARALLEL DO if (L_doOMPClaw) &
-!   !$OMP DEFAULT (NONE) &
-!   !$OMP PRIVATE(i,j,kc,icut,ie) &
-!   !$OMP PRIVATE(eeta2,veff,dvefdi,dvefdj,loc_didt,loc_djdt,loc_Eta,loc_rate) &
-!   !$OMP PRIVATE(mass_factor,r_dist,max_eeta,CLAWiter,T1k,T2k) &
-!   !$OMP SHARED(alamc,eeta,v,vcorot,vpar,vm,imin_j,j1,j2,joff) &
-!   !$OMP SHARED(xmin,ymin,rmin,fac,fudgec,bir,sini,L_dktime,dktime,sunspot_number) &
-!   !$OMP SHARED(aloct,xlower,xupper,ylower,yupper,eps,dt,T1,T2)
-
-!   DO kc = 1, kcsize
-!     !If oxygen is to be added, must change this!
-!     IF (alamc(kc) <= 0.0) THEN
-!       ie = 1  ! electrons
-!     ELSE
-!       ie = 2  ! protons
-!     END IF
-
-!     IF (MAXVAL(eeta(:,:,kc)) == 0.0) CYCLE
-
-!     mass_factor = SQRT (xmass(1)/xmass(ie))
-
-!   !1. Compute the effective potential for the kc energy channel:
-!     !K: Here we're adding corotation to total effective potential
-!     veff = v +vcorot - vpar + vm*alamc(kc)
-
-!   !2. Differentiate Veff with respect to I and J:
-
-!     !!!CALL Deriv_i_new (veff, isize, jsize, j1, j2, imin_J, dvefdi)
-!     !!!CALL Deriv_j_new (veff, isize, jsize, j1, j2, imin_J, dvefdj)
-!     dvefdi = Deriv_i (veff, imin_j)
-!     dvefdj = Deriv_j (veff, imin_j, j1, j2, 1.0E+26_rprec)
-!     WHERE (dvefdj > 1.0E+20)
-!       dvefdj = 0.0
-!     END WHERE
-!     !Zero out local arrays
-!     loc_Eta  = 0.0
-!     loc_didt = 0.0
-!     loc_djdt = 0.0
-!     loc_rate = 0.0
-
-!     icut=0
-!     do j=j1,j2
-!       icut=max(icut,imin_j(j))
-!       do i=imin_j(j),isize-1
-!         if (eeta(i,j,kc) > 1.) icut=max(icut,i)
-!       end do
-!     end do !j
-!     icut=icut+5
-
-!     DO j = j1, j2
-!       DO i = 2, isize-1
-!         loc_didt (i,j-joff) = + dvefdj (i-1,j) / fac(i-1,j)
-!         loc_djdt (i,j-joff) = - dvefdi (i,j-1) / fac(i-1,j)
-!         IF (i > icut) THEN
-!           loc_didt(i,j-joff) = 0.0
-!           loc_djdt(i,j-joff) = 0.0
-!         END IF
-! !
-!         IF (ie == RCMELECTRON) THEN
-
-!           loc_rate(i,j-joff) = Ratefn (fudgec(kc), alamc(kc), sini(i,j),&
-!                                        bir (i,j), vm(i,j), mass_factor)
-!         ELSE IF (ie == RCMPROTON) THEN
-
-!           IF (L_dktime .AND. i >= imin_j(j)) THEN
-!             r_dist = SQRT(xmin(i,j)**2+ymin(i,j)**2)
-!             loc_rate(i,j-joff) = Cexrat (ie, ABS(alamc(kc))*vm(i,j), &
-!                                          R_dist, &
-!                                          sunspot_number, dktime, &
-!                                          irdk,inrgdk,isodk,iondk)
-!           ELSE
-!             loc_rate(i,j-joff) = 0.0
-!           END IF
-
-!         ELSE
-!           STOP 'UNKNOWN IE IN COMPUTING LOSS'
-!         END IF !ie
-
-!       END DO !i loop
-
-!       loc_didt(isize,j-joff) = loc_didt(isize-1,j-joff)
-!       loc_djdt(isize,j-joff) = loc_djdt(isize-1,j-joff)
-!       loc_rate(isize,j-joff) = loc_rate(isize-1,j-joff)
-!     END DO !j loop
-
-!   !Copy to local variables
-!     loc_Eta (1:isize, 1:jsize-jwrap) = eeta (1:isize, jwrap:jsize-1, kc)
-
-!   !Call clawpack
-!     !Always calling as FirstTime
-!     T1k = T1
-!     T2k = T2
-!     CALL Claw2ez (.true., T1k,T2k, xlower,xupper, ylower,yupper, &
-!                   CLAWiter, 2,isize-1+1,jsize-3, &
-!                   loc_Eta, loc_didt, loc_djdt, loc_rate)
-
-!     !Copy out
-!     DO j = j1, j2
-!       DO i = imin_j(j)+1, isize-1
-!         eeta (i, j, kc) = loc_Eta (i, j-joff)
-!       END DO
-!     END DO
-!     DO j = j1, j2
-!       IF (veff(imin_j(j+1),j+1)-veff(imin_j(j-1),j-1) < 0.0) THEN
-!         eeta (imin_j(j),j,kc) = loc_eta (imin_j(j),j-joff)
-!       END IF
-!     END DO
-
-!     ! floor eeta 12/06 frt
-!     max_eeta = maxval(eeta(:,:,kc))
-!     eeta(:,:,kc) = MAX(eps*max_eeta,eeta(:,:,kc))
-
-    
-!     if (kc == 1) then
-!       !refill the plasmasphere  04012020 sbao
-!       !K: Added kc==1 check 8/11/20
-!       CALL Plasmasphere_Refilling_Model(eeta(:,:,1), rmin, aloct, vm, dt)
-!     endif
-!     CALL Circle (eeta(:,:,kc))
-
-!   END DO !Main kc loop
-
-
-!   RETURN
-
-!   !OLD BC CODE:
-! !
-! ! boundary condition correction:
-! !    DO j = j1, j2
-! !       IF (loc_didt(imin_j(j),j-joff) < 0.0) THEN
-! !          eeta(imin_j(j),j,:) = eeta(imin_j(j)+1,j,:)
-! !       END IF
-! !    END DO
-! !
-! !    !Set ghost cell values for clawpack solver
-! !    !  Pole
-! !    do i=1-2, 1-1
-! !       loc_Eta (i,j1-joff:j2-joff) = loc_Eta (1,j1-joff:j2-joff)
-! !       loc_didt(i,j1-joff:j2-joff) = loc_didt(1,j1-joff:j2-joff)
-! !       loc_djdt(i,j1-joff:j2-joff) = loc_djdt(1,j1-joff:j2-joff)
-! !    end do
-! !    !  Equator
-! !    do i=isize+1,isize+2
-! !       loc_Eta (i,j1-joff:j2-joff) = loc_Eta (isize,j1-joff:j2-joff)
-! !       loc_didt(i,j1-joff:j2-joff) = loc_didt(isize,j1-joff:j2-joff)
-! !       loc_djdt(i,j1-joff:j2-joff) = loc_djdt(isize,j1-joff:j2-joff)
-! !    end do
-! !    !  Periodic
-! !    loc_Eta (-1:isize+1,-1:0) = loc_Eta (-1:isize+1,jsize-4:jsize-3)
-! !    loc_didt(-1:isize+1,-1:0) = loc_didt(-1:isize+1,jsize-4:jsize-3)
-! !    loc_djdt(-1:isize+1,-1:0) = loc_djdt(-1:isize+1,jsize-4:jsize-3)
-! !    loc_Eta (-1:isize+1,jsize-joff:jsize-joff+1) = loc_Eta (-1:isize+1,1:2)
-! !    loc_didt(-1:isize+1,jsize-joff:jsize-joff+1) = loc_didt(-1:isize+1,1:2)
-! !    loc_djdt(-1:isize+1,jsize-joff:jsize-joff+1) = loc_djdt(-1:isize+1,1:2)
-
-! END SUBROUTINE Move_plasma_grid_NEW
-
-  SUBROUTINE Deriv_i_NEW (array, isize, jsize, j1, j2, imin_j, derivi)
-!   USE Rcm_mod_subs, ONLY : iprec, rprec
-    IMPLICIT NONE
-    INTEGER (iprec), INTENT (IN) :: isize, jsize, j1, j2, imin_j(jsize)
-    REAL (rprec), INTENT (IN) :: array (isize,jsize)
-    REAL (rprec), INTENT (OUT) :: Derivi (isize,jsize)
-!
-    INTEGER (iprec) :: i, j
-!
-    DO j = 1, jsize
-    DO i = 1, isize
-       IF (i == 1) THEN
-          Derivi(i,j) = -1.5*array(i,j) + 2.0*array(i+1,j) - 0.5*array(i+2,j)
-       ELSE IF (i == isize) THEN
-          Derivi (i,j) =  +1.5*array(i,j) - 2.0*array(i-1,j) + 0.5*array(i-2,j)
-       ELSE
-          Derivi(i,j) = 0.5*(array(i+1,j)-array(i-1,j))
-       END IF
-    END DO
-    END DO
-    RETURN
-  END SUBROUTINE Deriv_i_NEW
-  
-  SUBROUTINE Deriv_j_NEW (array, isize, jsize, j1, j2, imin_j, derivJ)
-!   USE rcm_mod_subs, ONLY : iprec, rprec
-    IMPLICIT NONE
-    INTEGER (iprec), INTENT (IN) :: isize, jsize, j1, j2, imin_j(jsize)
-    REAL (rprec), INTENT (IN) :: array (isize,jsize)
-    REAL (rprec), INTENT (OUT) :: Derivj (isize,jsize)
-!
-    INTEGER (iprec) :: i, j
-!
-    DO j = j1, j2
-    DO i = 1, isize
-       Derivj (i,j) = (array(i,j+1)-array(i,j-1))*0.5
-    END DO
-    END DO
-    CALL Circle (Derivj)
-    RETURN
-  END SUBROUTINE Deriv_j_NEW
 !-------------------------------------
     FUNCTION Gntrp_2d_ang (array, bi, bj, ikind)
     IMPLICIT NONE
