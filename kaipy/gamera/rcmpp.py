@@ -63,13 +63,16 @@ def GetPotential(rcmdata,nStp,I=None,NumCP=25):
 	if (I is None):
 		I = GetMask(rcmdata,nStp)
 	pot = (1.0e-3)*rcmdata.GetVar("pot",nStp)
-	pMag = np.abs(pot).max()
-	pVals = np.linspace(-pMag,pMag,NumCP)
+	
+	
 	if (doCorot):
 		#Add corotation potential
 		colat = GetVarMask(rcmdata,nStp,"colat" ,I)
 		pcorot = -Psi0*(RioRe)*(np.sin(colat)**2.0)
 		pot = pot + pcorot
+	pMag = np.abs(pot).max()
+	pVals = np.linspace(-pMag,pMag,NumCP)
+	
 	return pot,pVals
 
 #Calculate mask

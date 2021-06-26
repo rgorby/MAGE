@@ -9,7 +9,7 @@ module voltio
     use wind
     use dyncoupling
     use dstutils
-
+    
     implicit none
 
     integer , parameter, private :: MAXVOLTIOVAR = 35

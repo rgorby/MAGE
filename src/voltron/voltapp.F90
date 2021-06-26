@@ -131,7 +131,16 @@ module voltapp
                 gApp%Model%t  = vApp%time/gTScl
                 gApp% State%time  = gApp%Model%t
                 gApp%oState%time  = gApp%Model%t-gApp%Model%dt
-            endif
+            else
+                !Voltron/gamera on same node, check if they agree
+                if (vApp%IO%nRes /= gApp%Model%IO%nRes) then
+                    write(*,*) "Gamera and Voltron disagree on restart number, you should sort that out."
+                    write(*,*) "Error code: A house divided cannot stand"
+                    write(*,*) "   Voltron nRes = ", vApp%IO%nRes
+                    write(*,*) "   Gamera  nRes = ", gApp%Model%IO%nRes
+                    stop
+                endif
+            endif !isSep and restart
         else
             ! non-restart initialization
             !Check for spinup info
