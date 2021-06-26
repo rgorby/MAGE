@@ -56,7 +56,6 @@ MODULE rice_housekeeping_module
   LOGICAL :: doRelax    = .true. !Whether to relax energy distribution
   LOGICAL :: doQ0 = .true. !Whether to include implicit cold ions in tomhd moments
 
-  character(len=strLen) :: tmpStr 
   INTEGER(iprec) :: ELOSSMETHOD        
   INTEGER(iprec) :: InitKp = 1, NowKp
   LOGICAL :: doFLOut = .false. !Whether to output field lines (slow)
@@ -85,8 +84,7 @@ MODULE rice_housekeeping_module
       !Get RCM params from Kaiju-style XML file
       subroutine RCM_MHD_Params_XML(iXML)
         type(XML_Input_T), intent(in), optional :: iXML
-
-        character(len=strLen) :: inpXML
+        character(len=strLen) :: inpXML,tmpStr
         type(XML_Input_T) :: xmlInp
 
         if(present(iXML)) then

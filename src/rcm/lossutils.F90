@@ -140,27 +140,6 @@ MODULE lossutils
             lossFLC = 0.0
         endif
 
-        ! !Gilson criteria, use Chen Tau_SS
-        ! !Ramp up to LossSS between kappa <= sqrt(8) and 1
-        ! xC = 1.0/8.0
-        ! if (eps >= xC) then
-        !     xSS = LinRampUp(eps,xC,1.0-xC)
-        !     lossFLC = xSS*(1.0/TauSS) !Rate, 1/s
-        ! else
-        !     lossFLC = 0.0 !None
-        ! endif
-        ! eps = Rgyro/rcurv
-
-        ! !Chen+ 2019
-
-        ! !K: Mockup between Chen/Gilson, transition between eps^-5 dep. and strong scattering at kappa = sqrt(8)
-        ! !xSS = max( (8.0*eps)**(-5.0), 1.0 )
-        ! earg = eps**(-5.0)
-        ! xSS = max(100.0*earg,1.0)
-
-        ! TauFLC = xSS*TauSS
-        ! lossFLC = 1.0/TauFLC !Rate, 1/s
-
     END FUNCTION FLCRat
 
     FUNCTION RatefnC_tau_s(alam,vm,beq,lossc) result(TauSS)
