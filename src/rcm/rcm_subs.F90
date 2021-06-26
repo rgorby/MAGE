@@ -2849,15 +2849,36 @@ FUNCTION RatefnFDG (fudgx, alamx, sinix, birx, vmx, xmfact)
   RETURN
 END FUNCTION RatefnFDG
 
-FUNCTION Ratefn (xx,yy,alamx,vmx,beqx,losscx,nex,kpx,fudgx,sinix,birx,xmfact,ELOSSMETHOD)
+FUNCTION Ratefn (xx,yy,alamx,vmx,beqx,losscx,nex,kpx,fudgxO,sinixO,birxO,xmfactO,ELOSSMETHOD)
 
  use lossutils, ONLY : RatefnC_tau_s,RatefnC_tau_C05
  IMPLICIT NONE
  INTEGER (iprec), INTENT (IN) :: ELOSSMETHOD
  REAL (rprec), INTENT (IN) :: xx,yy,alamx,vmx,beqx,losscx,nex,kpx
- REAL (rprec), INTENT (IN), OPTIONAL :: fudgx,sinix,birx,xmfact
+ REAL (rprec), INTENT (IN), OPTIONAL :: fudgxO,sinixO,birxO,xmfactO
+ REAL (rprec) :: fudgx,sinix,birx,xmfact
  REAL (rprec), dimension(2) :: Ratefn
- REAL (rprec) :: nhigh, nlow, L, MLT, K, tau, tau_s, E, fL
+ REAL (rprec) :: L, MLT, K, tau
+  if (present(fudgxO)) then
+    fudgx = fudgxO
+  else
+    fudgx = 0.0
+  endif
+  if (present(sinixO)) then
+    sinix = sinixO
+  else
+    sinix = 0.0
+  endif
+  if (present(birxO)) then
+    birx = birxO
+  else
+    birx = 0.0
+  endif
+  if (present(xmfactO)) then
+    xmfact = xmfactO
+  else
+    xmfact = 0.0
+  endif
 
  Ratefn = [1.D-10,-1.D0] ! default rate is 1e-10/s, type is -1.
  select case (ELOSSMETHOD)
@@ -2869,8 +2890,10 @@ FUNCTION Ratefn (xx,yy,alamx,vmx,beqx,losscx,nex,kpx,fudgx,sinix,birx,xmfact,ELO
             Ratefn(1) = 1.D0/tau !/s
             Ratefn(2) = 4.0
          case (ELOSS_C05)
-            tau_s = RatefnC_tau_s(alamx,vmx,beqx,losscx)
-            tau = tau_s + RatefnC_tau_C05(MLT,K,L)
+            L = sqrt(xx**2+yy**2)
+            MLT = atan2(yy,xx)/pi*12.D0+12.D0
+            K = abs(alamx*vmx*1.0e-6) !Energy [MeV]
+            tau = RatefnC_tau_s(alamx,vmx,beqx,losscx) + RatefnC_tau_C05(MLT,K,L)
             Ratefn(1) = 1.D0/tau !/s
             Ratefn(2) = 0.0  
          case (ELOSS_C19)
