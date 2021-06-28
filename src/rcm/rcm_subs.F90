@@ -924,34 +924,7 @@
 !
 !
 !
-    SUBROUTINE Move_plasma ( dt )
-    IMPLICIT NONE
-    REAL (rprec), INTENT (IN) :: dt
-!_____________________________________________________________________________
-!
-!  Time step subroutine to do simple euler time step                    
-!                                                                       
-!  Last update:
-!   8-29-86                                                 
-!   1-29-96 frt added boundary arrays and calls to bndy     
-!   3-19-97 rws ibtime and nbf added as calling parameters  
-!   10-02-98 sts fudge is sized as kcdim for electrons on grid
-!   may 99 sts removed hardy coeffs--they are in module
-!_____________________________________________________________________________
-!
-!
-  call Tic("Move_Plasma")
-  CALL Move_plasma_grid_MHD (dt)
-  call Toc("Move_Plasma")
 
-!
-    RETURN
-    END SUBROUTINE Move_plasma
-!
-!
-!- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-!
-!
     SUBROUTINE Move_plasma_grid (dt, i_start, i_stop, j_start, j_stop,ie_ask)
     IMPLICIT NONE
     REAL (rprec), INTENT (IN) :: dt
@@ -1561,24 +1534,14 @@
       endif
 !
       !Q: Does this have any point since it gets recalculated in move-plasma?
-      fac = 1.0E-3_rprec * bir * alpha * beta * dlam * dpsi * ri**2 * signbe
+      !fac = 1.0E-3_rprec * bir * alpha * beta * dlam * dpsi * ri**2 * signbe
 !
       birk_avg = birk_avg + birk
  
       IF (nstep < 1) STOP 'Number of substep in RCM should be at least 1'
       
-      DO i_step = 1, nstep
-         if (doRCMVerbose) then
-           write(6,*)'RCM: at substep ',i_step,' with total step ', nstep
-         endif
-         eeta_avg = eeta_avg + eeta
-         CALL Move_plasma (dt)
-         if (doRCMVerbose) then
-           write(6,*)'RCM: finish moving plasma at substep',i_step
-         endif
-      END DO
-      eeta_avg = (eeta_avg + eeta)/REAL(nstep + 1)     ! eeta_avg takes data points at itimei,itimei+dt,...,itimef, nstep+1 points in total 
-  
+      !NOTE: Pushing averaging into move-plasma to avoid multiple recalculations of static arrays
+      call Move_plasma_grid_MHD(dt,nstep)
       
       CALL Comput (itimef-itimei)
       if (doRCMVerbose) then
@@ -1586,13 +1549,11 @@
       endif
       birk_avg = (birk_avg + birk)/2.     ! brik_avg takes two data points at itimei and itimef
 
-      
       CALL SYSTEM_CLOCK (timer_stop(1), count_rate)      
       timer_values (1) = (timer_stop (1) - timer_start (1))/count_rate + timer_values(1)
 
       CALL SYSTEM_CLOCK (timer_stop(2), count_rate)      
       timer_values (2) = (timer_stop (2) - timer_start (2))/count_rate
-
 
       call Toc("Main_Loop")
 
@@ -1603,7 +1564,6 @@
    
    WRITE (*,*) ' RCM was called with an invalid value of Icontrol, aborting ...'
    STOP
-
 
       CONTAINS
 !
@@ -2142,297 +2102,323 @@
 
 !=========================================================================
 !
-SUBROUTINE Move_plasma_grid_MHD (dt)
-  use rice_housekeeping_module, ONLY : LowLatMHD,doNewCX,ELOSSMETHOD,doFLCLoss,dp_on,doPPRefill,doSmoothDDV,staticR,NowKp
-  use math, ONLY : SmoothOpTSC,SmoothOperator33
-  use lossutils, ONLY : CXKaiju,FLCRat
-  use earthhelper, ONLY : DipFTV_colat,DerivDipFTV
-  use constants, ONLY : nt,radius_earth_m
-  IMPLICIT NONE
-  REAL (rprec), INTENT (IN) :: dt
+!Advance eeta by dt nstep times, dtcpl=dt x nstep
 
-  !Clawpack-sized grids
-  REAL (rprec), dimension(-1:isize+2,-1:jsize-1) :: didt,djdt,etaC,rateC
-  !RCM-sized grids
-  REAL (rprec), dimension( 1:isize  , 1:jsize  ) :: rate,dvedi,dvedj,vv,dvvdi,dvvdj,dvmdi,dvmdj
-  REAL (rprec), dimension( 1:isize  , 1:jsize  ) :: vv_avg,dvvdi_avg,dvvdj_avg
+SUBROUTINE Move_plasma_grid_MHD (dt,nstep)
+    use rice_housekeeping_module, ONLY : LowLatMHD,doNewCX,ELOSSMETHOD,doFLCLoss,dp_on,doPPRefill,doSmoothDDV,staticR,NowKp
+    use math, ONLY : SmoothOpTSC,SmoothOperator33
+    use lossutils, ONLY : CXKaiju,FLCRat
+    use earthhelper, ONLY : DipFTV_colat,DerivDipFTV
+    use constants, ONLY : nt,radius_earth_m
+    IMPLICIT NONE
+    REAL (rprec), INTENT (IN) :: dt
+    INTEGER (iprec), INTENT(IN) :: nstep
 
-  REAL (rprec), dimension( 1:isize  , 1:jsize  ) :: ftv,dftvi,dftvj
+    !Clawpack-sized grids
+    REAL (rprec), dimension(-1:isize+2,-1:jsize-1) :: etaC
+    !Clawpack x Nk sized grids
+    REAL (rprec), dimension(-1:isize+2,-1:jsize-1,1:kcsize) :: didt,djdt,rateC
+    !RCM-sized grids
+    REAL (rprec), dimension( 1:isize  , 1:jsize  ) :: rate,dvedi,dvedj,vv,dvvdi,dvvdj,dvmdi,dvmdj
+    REAL (rprec), dimension( 1:isize  , 1:jsize  ) :: vv_avg,dvvdi_avg,dvvdj_avg
 
-  LOGICAL, dimension(1:isize,1:jsize) :: isOpen
-  INTEGER (iprec) :: iOCB_j(1:jsize)
-  REAL (rprec) :: mass_factor,r_dist,lossCX,lossFLC
-  REAL (rprec), dimension(2) :: lossFT
-  REAL (rprec), save :: xlower,xupper,ylower,yupper, T1,T2 !Does this need save?
-  INTEGER (iprec) :: i, j, kc, ie, iL,jL,iR,jR,iMHD
-  INTEGER (iprec) :: CLAWiter, joff
-  
-  REAL (rprec) :: T1k,T2k !Local loop variables b/c clawpack alters input
-  LOGICAL, save :: FirstTime=.true.
+    REAL (rprec), dimension( 1:isize  , 1:jsize  ) :: ftv,dftvi,dftvj
 
-  call Tic("Move_Plasma_Init")
-  if (jwrap /= 3) then
-    write(*,*) 'Somebody should rewrite this code to not assume that jwrap=3'
+    LOGICAL, dimension(1:isize,1:jsize) :: isOpen
+    INTEGER (iprec) :: iOCB_j(1:jsize)
+    REAL (rprec) :: mass_factor,r_dist,lossCX,lossFLC
+    REAL (rprec), dimension(2) :: lossFT
+    REAL (rprec), save :: xlower,xupper,ylower,yupper, T1,T2 !Does this need save?
+    INTEGER (iprec) :: i, j, kc, ie, iL,jL,iR,jR,iMHD,n
+    INTEGER (iprec) :: CLAWiter, joff
+
+    REAL (rprec) :: T1k,T2k !Local loop variables b/c clawpack alters input
+    LOGICAL, save :: FirstTime=.true.
+
+    call Tic("Move_Plasma_Init")
+    if (jwrap /= 3) then
+        write(*,*) 'Somebody should rewrite this code to not assume that jwrap=3'
     stop
-  endif
-
-  !Doing silly thing to find i of MHD's lowlat BC
-  do i=1,isize
-    if (0.5*PI-colat(i,jwrap) <= LowLatMHD) exit
-  enddo
-  iMHD = i !low-lat boundary for MHD on RCM grid
-
-!---
-!Do prep work
-  where (eeta<0)
-    eeta = 0.0
-  endwhere
-
-  joff=jwrap-1
-
-  if (FirstTime) then
-    T1=0.
-    FirstTime = .false.
-  else
-    T1=T2
-  end if
-
-  T2=T1+dt
-
-  xlower = 1
-  xupper = isize
-  ylower = 0.0
-  yupper = jsize-3
-  
-!---
-!Get OCB
-  isOpen = (vm < 0)
-  do j=1,jsize
-    if (any(isOpen(:,j))) then
-      !Some open cells on this column
-      do i=isize,1,-1
-        if (isOpen(i,j)) exit
-      enddo
-      iOCB_j(j) = i
-    else
-      !No open cells here
-      iOCB_j(j) = 0
     endif
-  enddo !j loop
 
-  
-!Calculate node-centered IJ gradients for use inside loop (instead of redoing for each channel)
-  !veff = v + vcorot - vpar + vm*alamc(k) = vv + vm*alamc(k)
-  
-  !Do array-sized prep work
-  !$OMP PARALLEL WORKSHARE if (L_doOMPClaw)
-  fac = 1.0E-3*signbe*bir*alpha*beta*dlam*dpsi*ri**2
-  vv     = v     + vcorot - vpar !Current potential
-  vv_avg = v_avg + vcorot - vpar !Time-averaged potential for plasmasphere
+    !Doing silly thing to find i of MHD's lowlat BC
+    do i=1,isize
+        if (0.5*PI-colat(i,jwrap) <= LowLatMHD) exit
+    enddo
+    iMHD = i !low-lat boundary for MHD on RCM grid
 
-  where (.not. isOpen)
-    !Using ftv directly w/ possible intermediate smoothing
-    ftv = vm**(-3.0/2)
-  elsewhere
-    ftv = 0.0
-  endwhere
-  !$OMP END PARALLEL WORKSHARE
-
-  !Get IJ gradients of potential
-  call Grad_IJ(vv    ,isOpen,dvvdi    ,dvvdj    )
-  call Grad_IJ(vv_avg,isOpen,dvvdi_avg,dvvdj_avg)
-
-  !Zero out velocities below staticR if necessary
-  if (staticR > TINY) then
-    where ( rmin <= staticR )
-      dvvdi_avg = 0.0
-      dvvdj_avg = 0.0
+    !---
+    !Do prep work
+    where (eeta<0)
+        eeta = 0.0
     endwhere
-  endif
 
-  !Now get energy-dep. portion, grad_ij vm
-  call FTVGrad(ftv,isOpen,dftvi,dftvj)
+    eeta_avg = 0.0
+    joff=jwrap-1
 
-  !$OMP PARALLEL WORKSHARE if (L_doOMPClaw)
-  dvmdi = (-2.0/3.0)*(ftv**(-5.0/3.0))*dftvi
-  dvmdj = (-2.0/3.0)*(ftv**(-5.0/3.0))*dftvj
-  !$OMP END PARALLEL WORKSHARE
+    if (FirstTime) then
+        T1=0.
+        FirstTime = .false.
+    else
+        T1=T2
+    end if
 
-  !Calculate plasmasphere density forall i,j once 
-  Dpp = (1.0e-6)*eeta(:,:,1)*dfactor*vm**1.5 !Convert eta to #/cc
+    T2=T1+dt
 
-  call Toc("Move_Plasma_Init")
+    xlower = 1
+    xupper = isize
+    ylower = 0.0
+    yupper = jsize-3
+  
+    !---
+    !Get OCB
+    isOpen = (vm < 0)
+    do j=1,jsize
+        if (any(isOpen(:,j))) then
+            !Some open cells on this column
+            do i=isize,1,-1
+                if (isOpen(i,j)) exit
+            enddo
+            iOCB_j(j) = i
+        else
+            !No open cells here
+            iOCB_j(j) = 0
+        endif
+    enddo !j loop
 
-  call Tic("Move_Plasma_Adv")
+    !---
+    !Calculate node-centered IJ gradients for use inside loop (instead of redoing for each channel)
+    !veff = v + vcorot - vpar + vm*alamc(k) = vv + vm*alamc(k)
+
+    !Do array-sized prep work
+    !$OMP PARALLEL WORKSHARE if (L_doOMPClaw)
+    fac = 1.0E-3*signbe*bir*alpha*beta*dlam*dpsi*ri**2
+    vv     = v     + vcorot - vpar !Current potential
+    vv_avg = v_avg + vcorot - vpar !Time-averaged potential for plasmasphere
+
+    where (.not. isOpen)
+        !Using ftv directly w/ possible intermediate smoothing
+        ftv = vm**(-3.0/2)
+    elsewhere
+        ftv = 0.0
+    endwhere
+    !$OMP END PARALLEL WORKSHARE
+
+    !Get IJ gradients of potential
+    call Grad_IJ(vv    ,isOpen,dvvdi    ,dvvdj    )
+    call Grad_IJ(vv_avg,isOpen,dvvdi_avg,dvvdj_avg)
+
+    !Zero out velocities below staticR if necessary
+    if (staticR > TINY) then
+        where ( rmin <= staticR )
+            dvvdi_avg = 0.0
+            dvvdj_avg = 0.0
+        endwhere
+    endif
+
+    !Now get energy-dep. portion, grad_ij vm
+    call FTVGrad(ftv,isOpen,dftvi,dftvj)
+
+    !$OMP PARALLEL WORKSHARE if (L_doOMPClaw)
+    dvmdi = (-2.0/3.0)*(ftv**(-5.0/3.0))*dftvi
+    dvmdj = (-2.0/3.0)*(ftv**(-5.0/3.0))*dftvj
+    !Calculate plasmasphere density forall i,j once 
+    Dpp = (1.0e-6)*eeta(:,:,1)*dfactor*vm**1.5 !Convert eta to #/cc  
+    !$OMP END PARALLEL WORKSHARE
+
 !---
-!Main channel loop
-  !NOTE: T1k/T2k need to be private b/c they're altered by claw2ez
-  !$OMP PARALLEL DO if (L_doOMPClaw) &
-  !$OMP schedule(dynamic) &
-  !$OMP DEFAULT (NONE) &
-  !$OMP PRIVATE(i,j,kc,ie,iL,jL,iR,jR) &
-  !$OMP PRIVATE(didt,djdt,etaC,rateC,rate,dvedi,dvedj) &
-  !$OMP PRIVATE(mass_factor,r_dist,CLAWiter,T1k,T2k) &
-  !$OMP PRIVATE(lossCX,lossFLC,lossFT) &
-  !$OMP SHARED(isOpen,iOCB_j,alamc,eeta,vm,imin_j,j1,j2,joff,Dpp) &
-  !$OMP SHARED(doFLCLoss,doNewCX,dp_on,doPPRefill,deleeta,NowKp,lossratep,lossmodel,ELOSSMETHOD) &
-  !$OMP SHARED(dvvdi,dvvdj,dvmdi,dvmdj,dvvdi_avg,dvvdj_avg,dtAvg_v,advChannel) &
-  !$OMP SHARED(xmin,ymin,fac,fudgec,bir,sini,L_dktime,dktime,sunspot_number) &
-  !$OMP SHARED(aloct,xlower,xupper,ylower,yupper,dt,T1,T2,iMHD,bmin,radcurv,losscone) 
-  DO kc = kcsize,1,-1
-    
-    !Skip boring channels
-    IF (.not. advChannel(kc)) CYCLE
-    IF (MAXVAL(eeta(:,:,kc)) < machine_tiny) THEN
-        eeta(:,:,kc) = 0.0
-        CYCLE
-    ENDIF
+!Now calculate things that won't change over the substepping
+    !ie, di/dj-dt, lossratep/rate
+    rate = 0.0
+    lossratep = 0.0
+    lossmodel = -1.0
+    didt = 0.0
+    djdt = 0.0
 
-    !If oxygen is to be added, must change this!
-    IF (alamc(kc) <= 0.0) THEN
-      ie = RCMELECTRON
-    ELSE
-      ie = RCMPROTON
-    END IF
+    !$OMP PARALLEL DO if (L_doOMPClaw) &
+    !$OMP schedule(dynamic) &
+    !$OMP DEFAULT(SHARED) &
+    !$OMP private(i,j,kc,ie,iL,jL,iR,jR,rate,dvedi,dvedj) &
+    !$OMP private(mass_factor,r_dist,lossCX,lossFLC,lossFT)
+    DO kc = kcsize,1,-1
+        !Skip boring channels
+        IF (.not. advChannel(kc)) CYCLE
+        IF (MAXVAL(eeta(:,:,kc)) < machine_tiny) THEN
+            eeta(:,:,kc) = 0.0
+            CYCLE
+        ENDIF
 
-    mass_factor = SQRT (xmass(1)/xmass(ie))
+        !If oxygen is to be added, must change this!
+        IF (alamc(kc) <= 0.0) THEN
+            ie = RCMELECTRON
+        ELSE
+            ie = RCMPROTON
+        END IF
+
+        mass_factor = SQRT (xmass(1)/xmass(ie))
 
   !---
   !Get "interface" velocities on clawpack grid, |-1:isize+2,-1:jsize-1|
-    !Start by calculating dvedi,dvedj = grad_ij (veff) = grad_ij (vv) + alamc(k)*grad_ij vm
-    if ( (abs(alamc(kc))<TINY) .and. (dtAvg_v>TINY) ) then
-      !Do plasmasphere effective potential, uses averaged potential and no energy dep. portion
-      dvedi = dvvdi_avg
-      dvedj = dvvdj_avg
-    else
-      !Any other RC channel
-      dvedi = dvvdi + alamc(kc)*dvmdi
-      dvedj = dvvdj + alamc(kc)*dvmdj
-    endif
-    !Now loop over clawpack grid interfaces and calculate velocities
-    didt = 0.0
-    djdt = 0.0
-    
-    do j=1,jsize-1 !clawpack jdim
-      do i=isize,2,-1
-
-      !I interface
-
-        !Clawpack i,j I-interface is betwen RCM nodes i-1,j+jwrap-1 and i,j+wrap-1
-        ! i.e., i,j:I => i-1,j+joff / i,j+joff
-        iL = i-1; jL = WrapJ(j+joff)
-        iR = i  ; jR = WrapJ(j+joff)
-
-        didt(i,j) = CalcInterface(isOpen(iL,jL),dvedj(iL,jL),fac(iL,jL), &
-                                  isOpen(iR,jR),dvedj(iR,jR),fac(iR,jR) )
-
-      !J interface
-        !Clawpack i,j J-interface is between RCM nodes i,j+joff-1 and i,j+joff
-        iL = i; jL = WrapJ(j+joff-1)
-        iR = i; jR = WrapJ(j+joff  )
-        
-        !Note extra - in dvedi part of call
-        djdt(i,j) = CalcInterface(isOpen(iL,jL),-dvedi(iL,jL),fac(iL,jL), &
-                                  isOpen(iR,jR),-dvedi(iR,jR),fac(iR,jR) )
-
-      enddo
-    enddo
-
-    !Freeze flow too close to MHD inner boundary
-    didt(iMHD-1:,:) = 0.0 
-    djdt(iMHD+1:,:) = 0.0
-    
-    !Freeze flow into the domain, only move stuff around from MHD buffer
-    didt(1:2,:) = 0.0
-    djdt(1  ,:) = 0.0
-
-    call PadClaw(didt)
-    call PadClaw(djdt)
-
-  !---
-  !Calculate loss terms on clawpack grid
-    !Start w/ loss term on RCM grid
-    do j=1,jsize
-      do i=1,isize
-        !Do some init
-        lossCX  = 0.0
-        lossFLC = 0.0
-        lossFT  = 0.0
-        lossratep(i,j,kc) = 0.0
-        lossmodel(i,j,kc) = -1.0 ! -1: undefined; 0: C05; 1: chorus; 2: hiss; 3: C+H; 4: strong diffusion; 5: fudge; 10: ion FLC.
-        rate(i,j) = 0.0
-
-        if (isOpen(i,j)) cycle
-        
-        !Calculate losses and keep track of total losses/precip losses
-        if ( (ie == RCMELECTRON) .and. (kc /= 1) ) then
-        !Do electron losses
-            lossFT = Ratefn(xmin(i,j),ymin(i,j),alamc(kc),vm(i,j),bmin(i,j),losscone(i,j),Dpp(i,j),dble(NowKp),fudgec(kc),sini(i,j),bir(i,j),mass_factor,ELOSSMETHOD)
-            lossratep(i,j,kc) = lossratep(i,j,kc) + lossFT(1)
-            lossmodel(i,j,kc) = lossFT(2)
-            rate(i,j) = rate(i,j) + lossFT(1)
-        endif
-
-        if (ie == RCMPROTON) then
-        !Do ion losses
-            r_dist = sqrt(xmin(i,j)**2+ymin(i,j)**2)
-            if ( L_dktime ) then
-                lossCX = CXKaiju(ie,abs(alamc(kc))*vm(i,j),r_dist)
-            endif
-            if (doFLCLoss) then
-                lossFLC = FLCRat(ie,alamc(kc),vm(i,j),bmin(i,j),radcurv(i,j),losscone(i,j))
-            endif
-            lossratep(i,j,kc) = lossratep(i,j,kc) + lossFLC
-            lossmodel(i,j,kc) = 10.0
-            rate(i,j) = rate(i,j) + lossFLC + lossCX
-        endif
-        !Keep track of precip losses in eta
-        deleeta(i,j,kc) = deleeta(i,j,kc) + eeta(i,j,kc)*(1.0 - exp(-lossratep(i,j,kc)*dt))
-
-      enddo !i loop
-      
-    enddo !j loop
-    call circle(deleeta(:,:,kc))
-
-    !Have loss on RCM grid, now get claw grid
-    call rcm2claw(rate,rateC)
-
-  !---
-  !Advect w/ clawpack
-    call rcm2claw(eeta(:,:,kc),etaC)
-    
-    !Call clawpack, always as first time
-    !Need local copies b/c clawpack alters T1/T2
-    T1k = T1
-    T2k = T2
-    call claw2ez(.true.,T1k,T2k,xlower,xupper,ylower,yupper, &
-                 CLAWiter,2,isize-1+1,jsize-3,etaC,didt,djdt,rateC)
-
-  !---
-  !Unpack and finish up
-    !Copy out
-    do j=j1,j2 !jwrap,jsize-1
-      do i=1,isize-1
-        if (isOpen(i,j)) then
-          eeta(i,j,kc) = 0.0
+        !Start by calculating dvedi,dvedj = grad_ij (veff) = grad_ij (vv) + alamc(k)*grad_ij vm
+        if ( (abs(alamc(kc))<TINY) .and. (dtAvg_v>TINY) ) then
+            !Do plasmasphere effective potential, uses averaged potential and no energy dep. portion
+            dvedi = dvvdi_avg
+            dvedj = dvvdj_avg
         else
-          eeta(i,j,kc) = max(etaC(i,j-joff),0.0)
+            !Any other RC channel
+            dvedi = dvvdi + alamc(kc)*dvmdi
+            dvedj = dvvdj + alamc(kc)*dvmdj
         endif
-      enddo
-    enddo
-    eeta(:,jsize,kc) = eeta(:,jwrap,kc)
-    call circle(eeta(:,:,kc))
-
-    if ( (kc==1) .and. dp_on .and. doPPRefill) then
-      !refill the plasmasphere  04012020 sbao
-      !K: Added kc==1 check 8/11/20
-      call Kaiju_Plasmasphere_Refill(eeta(:,:,1), xmin,ymin, aloct, vm, imin_j,dt)
-      call circle(eeta(:,:,kc)) !Probably don't need to re-circle
-    endif
+        !Now loop over clawpack grid interfaces and calculate velocities
+        didt(:,:,kc) = 0.0
+        djdt(:,:,kc) = 0.0
     
-  enddo !Main kc loop
+        do j=1,jsize-1 !clawpack jdim
+            do i=isize,2,-1
 
-  call Toc("Move_Plasma_Adv")
+                !I interface
+
+                !Clawpack i,j I-interface is betwen RCM nodes i-1,j+jwrap-1 and i,j+wrap-1
+                ! i.e., i,j:I => i-1,j+joff / i,j+joff
+                iL = i-1; jL = WrapJ(j+joff)
+                iR = i  ; jR = WrapJ(j+joff)
+
+                didt(i,j,kc) = CalcInterface(isOpen(iL,jL),dvedj(iL,jL),fac(iL,jL), &
+                                             isOpen(iR,jR),dvedj(iR,jR),fac(iR,jR) )
+
+                !J interface
+                !Clawpack i,j J-interface is between RCM nodes i,j+joff-1 and i,j+joff
+                iL = i; jL = WrapJ(j+joff-1)
+                iR = i; jR = WrapJ(j+joff  )
+
+                !Note extra - in dvedi part of call
+                djdt(i,j,kc) = CalcInterface(isOpen(iL,jL),-dvedi(iL,jL),fac(iL,jL), &
+                                             isOpen(iR,jR),-dvedi(iR,jR),fac(iR,jR) )
+
+            enddo
+        enddo !j loop
+
+        !Freeze flow too close to MHD inner boundary
+        didt(iMHD-1:,:,kc) = 0.0 
+        djdt(iMHD+1:,:,kc) = 0.0
+
+        !Freeze flow into the domain, only move stuff around from MHD buffer
+        didt(1:2,:,kc) = 0.0
+        djdt(1  ,:,kc) = 0.0
+
+        call PadClaw(didt(:,:,kc))
+        call PadClaw(djdt(:,:,kc))
+
+        !---
+        !Calculate loss terms on clawpack grid
+        !Start w/ loss term on RCM grid
+        do j=1,jsize
+            do i=1,isize
+                !Do some init
+                lossCX  = 0.0
+                lossFLC = 0.0
+                lossFT  = 0.0
+                lossratep(i,j,kc) = 0.0
+                lossmodel(i,j,kc) = -1.0 ! -1: undefined; 0: C05; 1: chorus; 2: hiss; 3: C+H; 4: strong diffusion; 5: fudge; 10: ion FLC.
+                rate(i,j) = 0.0
+
+                if (isOpen(i,j)) cycle
+
+                !Calculate losses and keep track of total losses/precip losses
+                if ( (ie == RCMELECTRON) .and. (kc /= 1) ) then
+                    !Do electron losses
+                    lossFT = Ratefn(xmin(i,j),ymin(i,j),alamc(kc),vm(i,j),bmin(i,j),losscone(i,j),Dpp(i,j),dble(NowKp),fudgec(kc),sini(i,j),bir(i,j),mass_factor,ELOSSMETHOD)
+                    lossratep(i,j,kc) = lossratep(i,j,kc) + lossFT(1)
+                    lossmodel(i,j,kc) = lossFT(2)
+                    rate(i,j) = rate(i,j) + lossFT(1)
+                endif
+
+                if (ie == RCMPROTON) then
+                !Do ion losses
+                    r_dist = sqrt(xmin(i,j)**2+ymin(i,j)**2)
+                    if ( L_dktime ) then
+                        lossCX = CXKaiju(ie,abs(alamc(kc))*vm(i,j),r_dist)
+                    endif
+                    if (doFLCLoss) then
+                        lossFLC = FLCRat(ie,alamc(kc),vm(i,j),bmin(i,j),radcurv(i,j),losscone(i,j))
+                    endif
+                    lossratep(i,j,kc) = lossratep(i,j,kc) + lossFLC
+                    lossmodel(i,j,kc) = 10.0
+                    rate(i,j) = rate(i,j) + lossFLC + lossCX
+                endif
+
+            enddo !i loop
+        enddo !j loop
+
+        !Have loss on RCM grid, now get claw grid
+        call rcm2claw(rate,rateC(:,:,kc))
+    ENDDO !kc loop
+    call Toc("Move_Plasma_Init")
+
+!Done static (per coupling) things, now substep and advect
+    call Tic("Move_Plasma_Adv")
+    !---
+    !Main channel loop
+    !NOTE: T1k/T2k need to be private b/c they're altered by claw2ez
+
+    !$OMP PARALLEL DO if (L_doOMPClaw) &
+    !$OMP schedule(dynamic) &
+    !$OMP DEFAULT(SHARED) &
+    !$OMP private(i,j,kc,n,T1k,T2k,CLAWiter,etaC)
+    DO kc = kcsize,1,-1
+        !Skip boring channels
+        IF (.not. advChannel(kc)) CYCLE
+        IF (MAXVAL(eeta(:,:,kc)) < machine_tiny) THEN
+            eeta(:,:,kc) = 0.0
+            CYCLE
+        ENDIF
+
+        eeta_avg(:,:,kc) = 0.0
+        eeta_avg(:,:,kc) = eeta_avg(:,:,kc) + eeta(:,:,kc)/(nstep+1)
+        !Sub-step nstep times
+        do n=1,nstep
+            !---
+            !Tally precipitation losses
+            deleeta(:,:,kc) = deleeta(:,:,kc) + eeta(:,:,kc)*(1.0-exp(-lossratep(:,:,kc)*dt))
+            call circle(deleeta(:,:,kc))
+
+        !---
+        !Do clawpack call
+            call rcm2claw(eeta(:,:,kc),etaC)
+            !Call clawpack, always as first time
+            !Need local copies b/c clawpack alters T1/T2
+            T1k = T1
+            T2k = T2
+            call claw2ez(.true.,T1k,T2k,xlower,xupper,ylower,yupper, &
+                         CLAWiter,2,isize-1+1,jsize-3,etaC,didt(:,:,kc),djdt(:,:,kc),rateC(:,:,kc))
+        !---
+        !Unpack and finish up
+            !Copy out
+            do j=j1,j2 !jwrap,jsize-1
+                do i=1,isize-1
+                    if (isOpen(i,j)) then
+                        eeta(i,j,kc) = 0.0
+                    else
+                        eeta(i,j,kc) = max(etaC(i,j-joff),0.0)
+                    endif
+                enddo
+            enddo
+            eeta(:,jsize,kc) = eeta(:,jwrap,kc)
+            call circle(eeta(:,:,kc))
+
+            if ( (kc==1) .and. dp_on .and. doPPRefill) then
+                !refill the plasmasphere  04012020 sbao
+                !K: Added kc==1 check 8/11/20
+                call Kaiju_Plasmasphere_Refill(eeta(:,:,1), xmin,ymin, aloct, vm, imin_j,dt)
+                call circle(eeta(:,:,kc)) !Probably don't need to re-circle
+            endif
+
+            eeta_avg(:,:,kc) = eeta_avg(:,:,kc) + eeta(:,:,kc)/(nstep+1)
+        enddo !substep loop
+
+    enddo !Main kc loop
+
+    call Toc("Move_Plasma_Adv")
 
   contains
 
