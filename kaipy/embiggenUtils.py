@@ -30,7 +30,7 @@ def CompRestarts(iStr,oStr,nRes,Ri,Rj,Rk):
 				kh5.CheckOrDie(fIn2)
 				i2H5 = h5py.File(fIn2,'r')
 
-				print("Rijk = %d,%d,%d"%(i,j,k))
+				#print("Rijk = %d,%d,%d"%(i,j,k))
 				for v in vIDs:
 					Q1 = i1H5[v][:]
 					Q2 = i2H5[v][:]
@@ -226,7 +226,7 @@ def Corner2Global(Q,vID,iH5,i,j,k,Ri,Rj,Rk,Nip,Njp,Nkp):
 	Q[kSg:kEg,jSg:jEg,iSg:iEg] = iH5[vID][:]
 
 #Push restart data w/ ghosts to an output tiling
-def PushRestartMPI(outid,nRes,Ri,Rj,Rk,X,Y,Z,nG,nM,nB,oG,oM,oB,G0,f0):
+def PushRestartMPI(outid,nRes,Ri,Rj,Rk,X,Y,Z,nG,nM,nB,oG,oM,oB,G0,f0,dtScl=1.0):
 	if (G0 is not None):
 		doGas0 = True
 
@@ -255,7 +255,13 @@ def PushRestartMPI(outid,nRes,Ri,Rj,Rk,X,Y,Z,nG,nM,nB,oG,oM,oB,G0,f0):
 				#Transfer attributes to output
 				for ak in iH5.attrs.keys():
 					aStr = str(ak)
-					oH5.attrs.create(ak,iH5.attrs[aStr])
+					#print(aStr)
+					if (aStr == "dt0"):
+						oH5.attrs.create(ak,dtScl*iH5.attrs[aStr])
+						print(dtScl*iH5.attrs[aStr])
+					else:
+						
+						oH5.attrs.create(ak,iH5.attrs[aStr])
 			#Base indices
 				iS =  i*Nip
 				iE = iS+Nip

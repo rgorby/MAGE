@@ -20,7 +20,7 @@ if __name__ == "__main__":
 	oRk = 1
 
 	doFast = True
-
+	doTest = False
 	inid  = "msphere"
 	outid = "msphere"
 
@@ -63,49 +63,54 @@ if __name__ == "__main__":
 #Start by pulling tiled restart into one brick w/ halos
 	X,Y,Z,nG,nM,nB,oG,oM,oB,G0,fIn = upscl.PullRestartMPI(bStr,nRes,iRi,iRj,iRk)
 
-#Do upscaling on all variables
-	#Chop out last 2 cells on each side, then upscale
+	if (doTest):
+		rX = X
+		rY = Y
+		rZ = Z
+		nrG = nG
+		nrM = nM
+		nrB = nB
+		orG = oG
+		orM = oM
+		orB = oB
 
-	#Start w/ grid
-	rX,rY,rZ = upscl.upGrid(X,Y,Z)
+		rG0 = G0
+		upscl.PushRestartMPI(outid,nRes,oRi,oRj,oRk,rX,rY,rZ,nrG,nrM,nrB,orG,orM,orB,rG0,fIn,dtScl=1.0)
+	#Toy check
+		upscl.CompRestarts(bStr,outid,nRes,iRi,iRj,iRk)
 
-	dVr = upscl.Volume(rX,rY,rZ)
-	dV0 = upscl.Volume( X, Y, Z)
-
-	#Face-centered fluxes
-	nrM = upscl.upFlux(nM)
-
-	#Now ready to do cell-centered variables
-	nrG = upscl.upGas(nG,dV0,dVr,"Gas")
-	nrB = upscl.upCCMag(nB,dV0,dVr,"Bxyz")
-	if (G0 is not None):
-		rG0 = upscl.upGas(G0,dV0,dVr,"Gas0")
-
-	if (doFast):
-		#Just replicate for oState
-		orM = nrM
-		orB = nrB
-		orG = nrG
 	else:
-		orM = upscl.upFlux (oM)
-		orB = upscl.upCCMag(oB,dV0,dVr,"Bxyz")
-		orG = upscl.upGas  (oG,dV0,dVr,"Gas")
-		
-#Push back out to arbitrary decomposition
-	upscl.PushRestartMPI(outid,nRes,oRi,oRj,oRk,rX,rY,rZ,nrG,nrM,nrB,orG,orM,orB,rG0,fIn)
 
-# #Do upscaling of all variables
-# 	rX = X
-# 	rY = Y
-# 	rZ = Z
-# 	nrG = nG
-# 	nrM = nM
-# 	nrB = nB
-# 	orG = oG
-# 	orM = oM
-# 	orB = oB
+	#Do upscaling on all variables
+		#Chop out last 2 cells on each side, then upscale
 
-# 	rG0 = G0
+		#Start w/ grid
+		rX,rY,rZ = upscl.upGrid(X,Y,Z)
 
-#Toy check
-	#upscl.CompRestarts(bStr,outid,nRes,iRi,iRj,iRk)
+		dVr = upscl.Volume(rX,rY,rZ)
+		dV0 = upscl.Volume( X, Y, Z)
+
+		#Face-centered fluxes
+		nrM = upscl.upFlux(nM)
+
+		#Now ready to do cell-centered variables
+		nrG = upscl.upGas(nG,dV0,dVr,"Gas")
+		nrB = upscl.upCCMag(nB,dV0,dVr,"Bxyz")
+		if (G0 is not None):
+			rG0 = upscl.upGas(G0,dV0,dVr,"Gas0")
+
+		if (doFast):
+			#Just replicate for oState
+			orM = nrM
+			orB = nrB
+			orG = nrG
+		else:
+			orM = upscl.upFlux (oM)
+			orB = upscl.upCCMag(oB,dV0,dVr,"Bxyz")
+			orG = upscl.upGas  (oG,dV0,dVr,"Gas")
+
+	#Push back out to arbitrary decomposition
+		#Update dt0 by x1/2
+		upscl.PushRestartMPI(outid,nRes,oRi,oRj,oRk,rX,rY,rZ,nrG,nrM,nrB,orG,orM,orB,rG0,fIn,dtScl=0.5)
+
+
