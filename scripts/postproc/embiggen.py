@@ -19,6 +19,8 @@ if __name__ == "__main__":
 	oRj = 8
 	oRk = 1
 
+	doFast = True
+
 	inid  = "msphere"
 	outid = "msphere"
 
@@ -26,7 +28,6 @@ if __name__ == "__main__":
 
 	MainS = """Upscales and retiles a Gamera MPI resart
 
-	
 	(iRi,iRj,iRk) : Input MPI decomposition
 	(oRi,oRj,oRk) : Output MPI decomposition
 	inid/nres : Run ID string and restart number, i.e. input file = inid.MPISTUFF.Res.#nres.h5
@@ -60,110 +61,51 @@ if __name__ == "__main__":
 	doUp = not args.down
 
 #Start by pulling tiled restart into one brick w/ halos
-	X,Y,Z,G,M,B,G0,fIn = upscl.PullRestartMPI(bStr,nRes,iRi,iRj,iRk)
+	X,Y,Z,nG,nM,nB,oG,oM,oB,G0,fIn = upscl.PullRestartMPI(bStr,nRes,iRi,iRj,iRk)
 
+#Do upscaling on all variables
+	#Chop out last 2 cells on each side, then upscale
 
-#Do upscaling of all variables
-	
-	rX = X
-	rY = Y
-	rZ = Z
-	rG = G
-	rM = M
-	rB = B
-	rG0 = G0
+	#Start w/ grid
+	rX,rY,rZ = upscl.upGrid(X,Y,Z)
 
-#Push back out to arbitrary decomposition
-	upscl.PushRestartMPI(outid,nRes,oRi,oRj,oRk,rX,rY,rZ,rG,rM,rB,rG0,fIn)
+	dVr = upscl.Volume(rX,rY,rZ)
+	dV0 = upscl.Volume( X, Y, Z)
+
+	#Face-centered fluxes
+	nrM = upscl.upFlux(nM)
+
+	#Now ready to do cell-centered variables
+	nrG = upscl.upGas(nG,dV0,dVr,"Gas")
+	nrB = upscl.upCCMag(nB,dV0,dVr,"Bxyz")
+	if (G0 is not None):
+		rG0 = upscl.upGas(G0,dV0,dVr,"Gas0")
+
+	if (doFast):
+		#Just replicate for oState
+		orM = nrM
+		orB = nrB
+		orG = nrG
+	else:
+		orM = upscl.upFlux (oM)
+		orB = upscl.upCCMag(oB,dV0,dVr,"Bxyz")
+		orG = upscl.upGas  (oG,dV0,dVr,"Gas")
 		
+#Push back out to arbitrary decomposition
+	upscl.PushRestartMPI(outid,nRes,oRi,oRj,oRk,rX,rY,rZ,nrG,nrM,nrB,orG,orM,orB,rG0,fIn)
 
+# #Do upscaling of all variables
+# 	rX = X
+# 	rY = Y
+# 	rZ = Z
+# 	nrG = nG
+# 	nrM = nM
+# 	nrB = nB
+# 	orG = oG
+# 	orM = oM
+# 	orB = oB
 
-# #Pull tiled restart, write to temp file
-# 	#Stupidly writing temp restart to reuse old code
-# 	fTmp = "tempRes.31337.h5"
-# 	oH5 = h5py.File(fTmp,'w')
+# 	rG0 = G0
 
-# 	G,M,G0 = upscl.PullRestartMPI(bStr,nRes,iRi,iRj,iRk,dIn=None,oH5=oH5)
-
-# 	#Write main data
-# 	print("Writing plasma and field data to temp file...")
-# 	oH5.create_dataset("Gas",data=G)
-# 	if (G0 is not None):
-# 		doGas0 = True
-# 		print("Writing Gas0")
-# 		oH5.create_dataset("Gas0",data=G0)
-
-# 	oH5.create_dataset("magFlux",data=M)
-# 	gVals = ['X','Y','Z']
-
-# 	fGrid = grid
-# 	print("Reading grid from %s ..."%(fGrid))
-	
-# 	iH5 = h5py.File(fGrid,'r')
-# 	for g in gVals:
-# 		oH5.create_dataset(g,data=iH5[g])
-# 	oH5.close()
-
-# #Upscale from temp file
-# 	fTmp2X = "tempRes.31337.2x.h5"
-	
-# 	#Open input and output
-# 	oH5 = h5py.File(fTmp2X,'w')
-# 	iH5 = h5py.File(fTmp,'r')
-
-# 	Ns,Nv,Nk,Nj,Ni = iH5['Gas'].shape
-# 	G = np.zeros((Ns,Nv,Nk,Nj,Ni))
-# 	M = np.zeros((3,Nk+1,Nj+1,Ni+1))
-# 	G[:,:,:,:,:] = iH5['Gas'][:]
-# 	M[  :,:,:,:] = iH5['magFlux'][:]
-# 	if (doGas0):
-# 		G0[:,:,:,:,:] = iH5['Gas0'][:]
-
-# 	X = iH5['X'][:]
-# 	Y = iH5['Y'][:]
-# 	Z = iH5['Z'][:]
-
-# 	#Transfer attributes to output
-# 	for k in iH5.attrs.keys():
-# 		aStr = str(k)
-# 		oH5.attrs.create(k,iH5.attrs[aStr])
-# 	#Close input
-# 	iH5.close()
-
-# 	if (doUp):
-# 		print("Upscaling data ...")
-# 		#Do upscaling
-# 		Xr,Yr,Zr = upscl.upGrid(X,Y,Z)
-# 		Gr = upscl.upGas(X,Y,Z,G,Xr.T,Yr.T,Zr.T)
-# 		FluxR = upscl.upFlux(X,Y,Z,M,Xr,Yr,Zr)
-# 		if (doGas0):
-# 			G0r = upscl.upGas(X,Y,Z,G0,Xr.T,Yr.T,Zr.T)
-# 	else:
-# 		print("Downscaling data ...")
-# 		Xr,Yr,Zr = upscl.downGrid(X,Y,Z)
-# 		Gr = upscl.downGas(X,Y,Z,G,Xr.T,Yr.T,Zr.T)
-# 		FluxR = upscl.downFlux(X,Y,Z,M,Xr,Yr,Zr)
-# 		if (doGas0):
-# 			G0r = upscl.downGas(X,Y,Z,G0,Xr.T,Yr.T,Zr.T)
-
-# 	#Write out grid to restart
-# 	oH5.create_dataset("X",data=Xr.T)
-# 	oH5.create_dataset("Y",data=Yr.T)
-# 	oH5.create_dataset("Z",data=Zr.T)
-
-# 	#Write out gas/flux variables
-# 	oH5.create_dataset("Gas",data=Gr)
-# 	oH5.create_dataset("magFlux",data=FluxR)
-# 	if (doGas0):
-# 		oH5.create_dataset("Gas0",data=G0r)
-
-# 	#Close output
-# 	oH5.close()
-
-# #Split up upscaled file
-# 	upscl.PushRestartMPI(outid,nRes,oRi,oRj,oRk,Xr.T,Yr.T,Zr.T,Gr,FluxR,fTmp2X,G0r)
-
-# #Delete temp files
-# 	if (not doKeep):
-# 		os.remove(fTmp)
-# 		os.remove(fTmp2X)
+#Toy check
+	#upscl.CompRestarts(bStr,outid,nRes,iRi,iRj,iRk)

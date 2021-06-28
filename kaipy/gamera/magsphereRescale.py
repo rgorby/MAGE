@@ -274,6 +274,7 @@ def downGas(X,Y,Z,G,Xd,Yd,Zd):
 			print("\t\tFine   (Total) = %e"%(G [s,v,:,:,:]*dV ).sum())
 
 	return Gd
+	
 #Upscale gas variable (G) on grid X,Y,Z (w/ ghosts) to doubled grid
 def upGas(X,Y,Z,G,Xu,Yu,Zu):
 	Ns,Nv,Nk,Nj,Ni = G.shape
