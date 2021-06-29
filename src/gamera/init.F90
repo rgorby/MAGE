@@ -206,16 +206,19 @@ module init
             call xmlInp%Set_Val( tReset ,"restart/tReset"   ,0.0_rp)
 
             !Read restart
-            call readH5Restart(Model,Grid,oState,State,inH5,doReset,tReset)
+            call readH5Restart(Model,Grid,State,inH5,doReset,tReset)
         else
             ! set initial dt0 to 0, it will be set once the case settles
             Model%dt0 = 0
             
-            ! set Bxyz from magFlux
-            if (Model%doMHD) then
-                call bFlux2Fld(Model,Grid,State%magFlux,State%Bxyz)
-            endif
         endif
+
+        if (Model%doMHD) then
+            call bFlux2Fld(Model,Grid,State%magFlux,State%Bxyz)
+            oState%magFlux = State%magFlux
+            oState%Bxyz    = State%Bxyz
+        endif
+
 
         !Incorporate background field, B0, if necessary
         if (Model%doBackground .and. Grid%doB0Init) then
@@ -226,25 +229,22 @@ module init
             call AddGrav(Model,Grid,Model%Phi)
         endif
 
-        !If a fresh case, set up the state objects
-        if (.not. Model%isRestart) then
-            !Enforce initial BC's
-            call Tic("BCs")
-            call EnforceBCs(Model,Grid,State)
-            call Toc("BCs")
+        !Finalize setup
+        !Enforce initial BC's
+        call Tic("BCs")
+        call EnforceBCs(Model,Grid,State)
+        oState = State
+        call Toc("BCs")
 
-            !Setup timestep and initial previous state for predictor
-            Model%dt = CalcDT(Model,Grid,State)
-
-            !Copy State into oState
-            oState = State
-        endif
+        !Setup timestep and initial previous state for predictor
+        Model%dt = CalcDT(Model,Grid,State)
+        oState%time = State%time-Model%dt !Initial old state
 
         !Initialize solver data
         call initSolver(Solver, Model, Grid)
 
         !Setup output file
-        GamH5File   = genName (Model%RunID, Grid%NumRi, Grid%NumRj, Grid%NumRk, Grid%Ri+1, Grid%Rj+1, Grid%Rk+1)
+        GamH5File = genName(Model%RunID, Grid%NumRi, Grid%NumRj, Grid%NumRk, Grid%Ri+1, Grid%Rj+1, Grid%Rk+1)
         Model%RunID = genRunId(Model%RunID, Grid%NumRi, Grid%NumRj, Grid%NumRk, Grid%Ri+1, Grid%Rj+1, Grid%Rk+1)
 
         if (.not. Model%isRestart) then
@@ -764,7 +764,7 @@ module init
         logical :: doQuadFT = .false. !Whether to do quadrature for face system
         
         !Check for min length veclen
-        if ( (Grid%ie-Grid%is+1) < VECLEN ) then
+        if ( (Grid%ie-Grid%is+1) <= VECLEN ) then
             write(*,*) 'Grid I-size smaller than VECLEN!'
             stop
         endif
