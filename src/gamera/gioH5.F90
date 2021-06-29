@@ -595,19 +595,19 @@ module gioH5
         call AddOutVar(IOVars,"Z",Gr%xyz(:,:,:,ZDIR))
 
         !State variable
-        call AddOutVar(IOVars, "Gas",  State%Gas(Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,:,:))        
-        call AddOutVar(IOVars,"oGas" ,oState%Gas(Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,:,:))
+        call AddOutVar(IOVars, "Gas",  State%Gas(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,:,:))        
+        call AddOutVar(IOVars,"oGas" ,oState%Gas(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,:,:))
 
         if (Model%doMHD) then
-            call AddOutVar(IOVars, "magFlux", State%magFlux(Gr%isg:Gr%ieg+1,Gr%jsg:Gr%jeg+1,Gr%ksg:Gr%keg+1,:))
-            call AddOutVar(IOVars,"omagFlux",oState%magFlux(Gr%isg:Gr%ieg+1,Gr%jsg:Gr%jeg+1,Gr%ksg:Gr%keg+1,:))
-            call AddOutVar(IOVars, "Bxyz"   , State%Bxyz(Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,:  ))
-            call AddOutVar(IOVars,"oBxyz"   ,oState%Bxyz(Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,:  ))
+            call AddOutVar(IOVars, "magFlux", State%magFlux(Gr%is:Gr%ie+1,Gr%js:Gr%je+1,Gr%ks:Gr%ke+1,:))
+            call AddOutVar(IOVars,"omagFlux",oState%magFlux(Gr%is:Gr%ie+1,Gr%js:Gr%je+1,Gr%ks:Gr%ke+1,:))
+            call AddOutVar(IOVars, "Bxyz"   , State%Bxyz(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,:  ))
+            call AddOutVar(IOVars,"oBxyz"   ,oState%Bxyz(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,:  ))
         endif
 
         if (Model%doSource) then
             !Add source terms to output
-            call AddOutVar( IOVars,"Gas0",Gr%Gas0(Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,:,:) )
+            call AddOutVar( IOVars,"Gas0",Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,:,:) )
         endif
 
         !Write out, force real precision
@@ -615,18 +615,18 @@ module gioH5
 
     end subroutine writeH5Res
     
-    subroutine readH5Restart(Model,Gr,oState,State,inH5,doResetO,tResetO)
+    subroutine readH5Restart(Model,Gr,State,inH5,doResetO,tResetO)
         type(Model_T), intent(inout) :: Model
         type(Grid_T),  intent(inout) :: Gr
-        type(State_T), intent(inout) :: oState,State
+        type(State_T), intent(inout) :: State
         character(len=*), intent(in) :: inH5
-        logical , intent(in), optional :: doResetO
+        logical, intent(in), optional :: doResetO
         real(rp), intent(in), optional :: tResetO
 
-        logical :: doReset,fExist,hasSrc,hasOld
+        logical :: doReset,fExist,hasSrc
         real(rp) :: tReset
         integer :: wDims(5),bDims(4)
-        integer :: rSpc,oN,nN
+        integer :: rSpc
 
         !Test for resetting
         if (present(doResetO)) then
@@ -649,114 +649,81 @@ module gioH5
             stop
         endif
 
-        !Check if this is a newer restart w/ oState
-        hasOld = ioExist(inH5,"oGas")
-        if (.not. hasOld) then
-            write(*,*) "As of ... whenever I wrote this, Gamera restart files have been changed to include both State and oState and halos"
-            write(*,*) "Please rerun your sim to create restart files in the new format."
-            write(*,*) "Or just like write a python script to hack it and reuse your old restart file, I'm a warning message not a cop."
-            stop
-        endif
-
         !Reset IO chain
         call ClearIO(IOVars)
 
-        call AddInVar(IOVars, "Gas")
-        call AddInVar(IOVars,"oGas")
-        call AddInVar(IOVars, "magFlux")
-        call AddInVar(IOVars,"omagFlux")
-        call AddInVar(IOVars, "Bxyz")
-        call AddInVar(IOVars,"oBxyz")
-
+        call AddInVar(IOVars,"Gas")    
+        call AddInVar(IOVars,"magFlux")
         call AddInVar(IOVars,"nOut",vTypeO=IOINT)
         call AddInVar(IOVars,"nRes",vTypeO=IOINT)
         call AddInVar(IOVars,"ts"  ,vTypeO=IOINT)
         call AddInVar(IOVars,"t"   ,vTypeO=IOREAL)
-        call AddInVar(IOVars,"dt"  ,vTypeO=IOREAL)
-        call AddInVar(IOVars,"ot"   ,vTypeO=IOREAL)
-        call AddInVar(IOVars,"dt0"  ,vTypeO=IOREAL)
 
         !Get data
         call ReadVars(IOVars,.false.,inH5)
-    
-    !Start scraping data
 
-        !Do gas
         !Find number of species in restart
-        oN = FindIO(IOVars,"oGas",.true.)
-        nN = FindIO(IOVars, "Gas",.true.)
-
-        rSpc = IOVars(nN)%dims(5)-1
+        rSpc = IOVars(1)%dims(5)-1
 
         if (Model%nSpc == rSpc) then
             !Restart and State variable agree
-            wDims = [Gr%Ni,Gr%Nj,Gr%Nk,NVAR,Model%nSpc+1]
-            State %Gas(Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,:,:) = reshape(IOVars(nN)%data,wDims)
-            oState%Gas(Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,:,:) = reshape(IOVars(oN)%data,wDims)
-
+            wDims = [Gr%Nip,Gr%Njp,Gr%Nkp,NVAR,Model%nSpc+1]
+            State%Gas(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,:,:) = reshape(IOVars(1)%data,wDims)
         else if (Model%nSpc > rSpc) then
             !Not enough species in restart, fill as many as possible
-            wDims = [Gr%Ni,Gr%Nj,Gr%Nk,NVAR,rSpc+1]
-            State% Gas(Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,:,0:rSpc) = reshape(IOVars(nN)%data,wDims)
-            oState%Gas(Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,:,0:rSpc) = reshape(IOVars(oN)%data,wDims)
-
+            wDims = [Gr%Nip,Gr%Njp,Gr%Nkp,NVAR,rSpc+1]
+            State%Gas(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,:,0:rSpc) = reshape(IOVars(1)%data,wDims)
             !Now initialize to empty remaining species
-            State% Gas(:,:,:,DEN,rSpc+1:Model%nSpc) = dFloor
-            State% Gas(:,:,:,MOMX:MOMZ,rSpc+1:Model%nSpc) = 0.0
-            State% Gas(:,:,:,ENERGY,rSpc+1:Model%nSpc) = pFloor/(Model%gamma-1)
-            oState%Gas(:,:,:,DEN,rSpc+1:Model%nSpc) = dFloor
-            oState%Gas(:,:,:,MOMX:MOMZ,rSpc+1:Model%nSpc) = 0.0
-            oState%Gas(:,:,:,ENERGY,rSpc+1:Model%nSpc) = pFloor/(Model%gamma-1)
-
+            State%Gas(:,:,:,DEN,rSpc+1:Model%nSpc) = dFloor
+            State%Gas(:,:,:,MOMX:MOMZ,rSpc+1:Model%nSpc) = 0.0
+            State%Gas(:,:,:,ENERGY,rSpc+1:Model%nSpc) = pFloor/(Model%gamma-1)
             !Now reaccumulate
-            call State2Bulk(Model,Gr, State)
-            call State2Bulk(Model,Gr,oState)
-
+            call State2Bulk(Model,Gr,State)
         else
             !Too many species in restart, this isn't good
             write(*,*) 'Restart error, more species in restart than room in State!'
             stop
         endif
-        
-        if (Model%doMHD) then
 
         !Now handle magnetic fields
-            !xyz components
-            bDims = [Gr%Ni,Gr%Nj,Gr%Nk,3]
-            oN = FindIO(IOVars,"oBxyz",.true.)
-            nN = FindIO(IOVars, "Bxyz",.true.)
-            State %Bxyz(Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,:) = reshape(IOVars(nN)%data,bDims)
-            oState%Bxyz(Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,:) = reshape(IOVars(oN)%data,bDims)
+        bDims = [Gr%Nip+1,Gr%Njp+1,Gr%Nkp+1,3]
+        !NOTE: For now, lazily assuming order
+        !Should use FindIO routine
+        State%magFlux(Gr%is:Gr%ie+1,Gr%js:Gr%je+1,Gr%ks:Gr%ke+1,:) = reshape(IOVars(2)%data,bDims)
 
-            !face fluxes
-            bDims = [Gr%Ni+1,Gr%Nj+1,Gr%Nk+1,3]
-            oN = FindIO(IOVars,"omagFlux",.true.)
-            nN = FindIO(IOVars, "magFlux",.true.)
-
-            State %magFlux(Gr%isg:Gr%ieg+1,Gr%jsg:Gr%jeg+1,Gr%ksg:Gr%keg+1,:) = reshape(IOVars(nN)%data,bDims)
-            oState%magFlux(Gr%isg:Gr%ieg+1,Gr%jsg:Gr%jeg+1,Gr%ksg:Gr%keg+1,:) = reshape(IOVars(oN)%data,bDims)
-        endif !doMHD
 
         !Get main attributes
-        Model%dt = GetIOReal(IOVars, "dt")
-        
         if (doReset) then
             Model%IO%nOut = 0
             Model%IO%nRes = GetIOInt(IOVars,"nRes") + 1
             Model%ts      = 0
-            Model%t       = tReset
-
+            Model%t       = tReset            
         else
             Model%IO%nOut = GetIOInt(IOVars,"nOut")
             Model%IO%nRes = GetIOInt(IOVars,"nRes") + 1
             Model%ts      = GetIOInt(IOVars,"ts")
-            Model%t       = GetIOReal(IOVars, "t")
+            Model%t       = GetIOReal(IOVars,"t")
         endif
-        State %time = Model%t
-        oState%time = State%time - ( GetIOReal(IOVars, "t") - GetIOReal(IOVars,"ot") ) !Set this way in case time was reset
+        
+        !Set back to old dt0 if possible
+        if (ioExist(inH5,"dt0")) then
+            call ClearIO(IOVars)
+            call AddInVar(IOVars,"dt0")
+            call ReadVars(IOVars,.false.,inH5)
 
-        Model%dt0 = GetIOReal(IOVars,"dt0")
-        if (Model%dt0<TINY*10) Model%dt0 = 0.0
+            Model%dt0 = GetIOReal(IOVars,"dt0")
+
+            if (Model%dt0<TINY*10) then
+                Model%dt0 = 0.0
+            else
+                if (Model%isLoud) write(*,*) 'Found dt0, setting to ', Model%dt0*Model%Units%gT0
+            endif
+        else
+            if (Model%isLoud) then
+                write(*,*) 'No dt0 found in restart, setting to 0'
+                Model%dt0 = 0.0
+            endif
+        endif
 
     !Do source term stuff if necessary
         hasSrc = ioExist(inH5,"Gas0")
@@ -772,8 +739,8 @@ module gioH5
             rSpc = IOVars(1)%dims(5)-1
             if (Model%nSpc == rSpc) then
                 !Restart and Gas0 species agree, do stuff
-                wDims = [Gr%Ni,Gr%Nj,Gr%Nk,NVAR,Model%nSpc+1]
-                Gr%Gas0(Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,:,:) = reshape(IOVars(1)%data,wDims)
+                wDims = [Gr%Nip,Gr%Njp,Gr%Nkp,NVAR,Model%nSpc+1]
+                Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,:,:) = reshape(IOVars(1)%data,wDims)
             else
                 if (Model%isLoud) write(*,*) 'Gas0 is wrong size, ignoring ...'
             endif
@@ -782,10 +749,12 @@ module gioH5
         endif !Gas0
 
     !Do touchup to data structures
+        State%time = Model%t
         Model%IO%tOut = floor(Model%t/Model%IO%dtOut)*Model%IO%dtOut
         Model%IO%tRes = Model%t + Model%IO%dtRes
 
     end subroutine readH5Restart
+
 
     !Output black box from crash
     subroutine WriteBlackBox(Model,Gr,State)
