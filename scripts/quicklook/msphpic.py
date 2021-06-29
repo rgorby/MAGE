@@ -25,7 +25,7 @@ if __name__ == "__main__":
 	fOut = "qkpic.png"
 	doDen = False
 	noIon = False
-	noMPI = True
+	noMPI = False
 	noRCM = False
 	doJy = False
 	doBz = False
@@ -45,7 +45,7 @@ if __name__ == "__main__":
 	parser.add_argument('-den'  , action='store_true', default=doDen,help="Show density instead of pressure (default: %(default)s)")
 	parser.add_argument('-jy'   , action='store_true', default=doJy ,help="Show Jy instead of pressure (default: %(default)s)")
 	parser.add_argument('-noion', action='store_true', default=noIon,help="Don't show ReMIX data (default: %(default)s)")
-	#parser.add_argument('-nompi', action='store_true', default=noMPI,help="Don't show MPI boundaries (default: %(default)s)")
+	parser.add_argument('-nompi', action='store_true', default=noMPI,help="Don't show MPI boundaries (default: %(default)s)")
 	parser.add_argument('-norcm', action='store_true', default=noRCM,help="Don't show RCM data (default: %(default)s)")
 	parser.add_argument('-bigrcm', action='store_true',default=doBigRCM,help="Show entire RCM domain (default: %(default)s)")
 	parser.add_argument('-src'   , action='store_true', default=doSrc ,help="Show source term (default: %(default)s)")
