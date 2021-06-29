@@ -197,6 +197,21 @@ module voltapp
             
             !Initialize deep coupling type/inner magnetosphere model
             call InitInnerMag(vApp,gApp,xmlInp)
+
+            if(gApp%Model%isRestart) then
+                select type(rcmApp=>vApp%imagApp)
+                    type is (rcmIMAG_T)
+                        !Check if Voltron and RCM have the same restart number
+                        if (vApp%IO%nRes /= rcmApp%rcmCpl%rcm_nRes) then
+                            write(*,*) "Gamera and RCM disagree on restart number, you should sort that out."
+                            write(*,*) "Error code: A house divided cannot stand"
+                            write(*,*) "   Voltron nRes = ", vApp%IO%nRes
+                            write(*,*) "   RCM     nRes = ", rcmApp%rcmCpl%rcm_nRes
+                            stop
+                        endif
+                end select
+            endif
+
         endif
 
         !Check for dynamic coupling cadence
@@ -305,6 +320,15 @@ module voltapp
         endif
         vApp%remixApp%ion%rad_iono_m = RadIonosphere() * gApp%Model%units%gx0 ! [Rp] * [m/Rp]
 
+        !Ensure remix and voltron restart numbers match
+        if (isRestart .and. vApp%IO%nRes /= vApp%remixApp%ion(1)%P%nRes) then
+            write(*,*) "Voltron and Remix disagree on restart number, you should sort that out."
+            write(*,*) "Error code: A house divided cannot stand"
+            write(*,*) "   Voltron nRes = ", vApp%IO%nRes
+            write(*,*) "   Remix   nRes = ", vApp%remixApp%ion(1)%P%nRes
+            stop
+        endif
+
         !Set F10.7 from time series (using max)
         f107%wID = vApp%tilt%wID
         call f107%initTS("f10.7",doLoudO=.false.)
@@ -335,6 +359,15 @@ module voltapp
                 call init_volt2Chmp(ebTrcApp,gApp,optFilename=optFilename)
             else
                 call init_volt2Chmp(ebTrcApp,gApp)
+            endif
+
+            !Ensure chimp and voltron restart numbers match
+            if (isRestart .and. vApp%IO%nRes /= ebTrcApp%ebModel%IO%nRes) then
+                write(*,*) "Voltron and Chimp disagree on restart number, you should sort that out."
+                write(*,*) "Error code: A house divided cannot stand"
+                write(*,*) "   Voltron nRes = ", vApp%IO%nRes
+                write(*,*) "   Chimp   nRes = ", ebTrcApp%ebModel%IO%nRes
+                stop
             endif
 
             call init_mhd2Chmp(vApp%mhd2chmp, gApp, ebTrcApp)

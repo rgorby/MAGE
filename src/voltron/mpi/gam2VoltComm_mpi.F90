@@ -158,6 +158,12 @@ module gam2VoltComm_mpi
         call mpi_gather(gApp%Grid%Rj, 1, MPI_INT, 0, 0, 0, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
         call mpi_gather(gApp%Grid%Rk, 1, MPI_INT, 0, 0, 0, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
 
+        ! Send restart number so that voltron can ensure they have the same number
+        ! only the rank with Ri/Rj/Rk==0 should send the value to voltron
+        if(gApp%Grid%Ri==0 .and. gApp%Grid%Rj==0 .and. gApp%Grid%Rk==0) then
+            call mpi_send(gApp%Model%IO%nRes, 1, MPI_INT, g2vComm%voltRank, 97520, g2vComm%voltMpiComm, ierr)
+        endif
+
         ! initialize all of the starting parameters from the voltron rank
         call mpi_bcast(g2vComm%time, 1, MPI_MYFLOAT, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
         call mpi_bcast(g2vComm%tFin, 1, MPI_MYFLOAT, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)

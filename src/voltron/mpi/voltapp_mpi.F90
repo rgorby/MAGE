@@ -78,7 +78,7 @@ module voltapp_mpi
         character(len=strLen) :: inpXML
         type(XML_Input_T) :: xmlInp
         integer :: commSize, ierr, numCells, length, ic, numInNeighbors, numOutNeighbors
-        integer :: voltComm, nHelpers
+        integer :: voltComm, nHelpers, gamNRES
         character( len = MPI_MAX_ERROR_STRING) :: message
         logical :: reorder, wasWeighted
         integer, allocatable, dimension(:) :: neighborRanks, inData, outData
@@ -311,6 +311,16 @@ module voltapp_mpi
             call initVoltron(vApp, vApp%gAppLocal, optFilename)
         else
             call initVoltron(vApp, vApp%gAppLocal)
+        endif
+
+        ! Receive Gamera's restart number and ensure Voltron has the same restart number
+        call mpi_recv(gamNRES, 1, MPI_INT, MPI_ANY_SOURCE, 97520, vApp%voltMpiComm, MPI_STATUS_IGNORE, ierr)
+        if (vApp%gAppLocal%Model%isRestart .and. vApp%IO%nRes /= gamNRES) then
+            write(*,*) "Gamera and Voltron disagree on restart number, you should sort that out."
+            write(*,*) "Error code: A house divided cannot stand"
+            write(*,*) "   Voltron nRes = ", vApp%IO%nRes
+            write(*,*) "   Gamera  nRes = ", gamNRES
+            stop
         endif
 
         ! send all of the initial voltron parameters to the gamera ranks
