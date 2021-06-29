@@ -362,13 +362,14 @@ module voltapp
             endif
 
             !Ensure chimp and voltron restart numbers match
-            if (isRestart .and. vApp%IO%nRes /= ebTrcApp%ebModel%IO%nRes) then
-                write(*,*) "Voltron and Chimp disagree on restart number, you should sort that out."
-                write(*,*) "Error code: A house divided cannot stand"
-                write(*,*) "   Voltron nRes = ", vApp%IO%nRes
-                write(*,*) "   Chimp   nRes = ", ebTrcApp%ebModel%IO%nRes
-                stop
-            endif
+            ! Actually chimp doesn't write restart files right now
+            !if (isRestart .and. vApp%IO%nRes /= ebTrcApp%ebModel%IO%nRes) then
+            !    write(*,*) "Voltron and Chimp disagree on restart number, you should sort that out."
+            !    write(*,*) "Error code: A house divided cannot stand"
+            !    write(*,*) "   Voltron nRes = ", vApp%IO%nRes
+            !    write(*,*) "   Chimp   nRes = ", ebTrcApp%ebModel%IO%nRes
+            !    stop
+            !endif
 
             call init_mhd2Chmp(vApp%mhd2chmp, gApp, ebTrcApp)
             call init_chmp2Mhd(vApp%chmp2mhd, ebTrcApp, gApp)
