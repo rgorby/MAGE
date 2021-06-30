@@ -487,6 +487,7 @@ contains
     ! read grid corners from root
     call AddInVar(IOVars,"X")
     call AddInVar(IOVars,"Y")
+    call AddInVar(IOVars,"nRes")
     call ReadVars(IOVars,.false.,h5Str)
 
     dims = IOVars(1)%dims(1:2)
@@ -499,6 +500,10 @@ contains
     ! convert to original mix grid
     ! and fill in mixIOobj%x,y
     !call genInGrid(xc,yc,I(NORTH)%G%x,I(NORTH)%G%y)
+
+    ! record the nRes number
+    I(NORTH)%P%nRes = GetIOInt(IOVars,"nRes") + 1
+    I(SOUTH)%P%nRes = GetIOInt(IOVars,"nRes") + 1
 
     ! now read from step
 
@@ -698,6 +703,9 @@ contains
     call AddOutVar(IOVars,"nCPCP",maxval(I(NORTH)%St%Vars(:,:,POT))-minval(I(NORTH)%St%Vars(:,:,POT)))
     call AddOutVar(IOVars,"sCPCP",maxval(I(SOUTH)%St%Vars(:,:,POT))-minval(I(SOUTH)%St%Vars(:,:,POT)))    
     
+    ! add nres
+    call AddOutVar(IOVars,"nRes",nRes)
+
     !Write out the chain (to root)
     call WriteVars(IOVars,.false.,h5Str)
 

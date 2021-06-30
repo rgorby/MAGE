@@ -130,6 +130,7 @@ module gamapp_mpi
         character(len=strLen) :: inH5
         logical :: doH5g
         integer, dimension(NDIM) :: dims
+        integer, dimension(:), allocatable :: gamRestartNumbers
 
         associate(Grid=>gamAppMpi%Grid,Model=>gamAppMpi%Model)
 
@@ -352,6 +353,26 @@ module gamapp_mpi
 
         ! call appropriate subroutines to calculate all appropriate grid data from the corner data
         call CalcGridInfo(Model,Grid,gamAppMpi%State,gamAppMpi%oState,gamAppMpi%Solver,xmlInp,userInitFunc)
+
+        ! All Gamera ranks compare restart numbers to ensure they're the same
+        if(Model%isRestart) then
+            if(Grid%Ri==0 .and. Grid%Rj==0 .and. Grid%Rk==0) then
+                ! master rank receives data
+                allocate(gamRestartNumbers(commSize))
+                call mpi_gather(gamAppMpi%Model%IO%nRes, 1, MPI_INT, gamRestartNumbers, 1, MPI_INT, 0, gamAppMpi%gamMpiComm, ierr)
+                if(.not. all(gamRestartNumbers .eq. minval(gamRestartNumbers))) then
+                    write(*,*) "Gamera ranks did not all agree on restart numbers, you should sort that out."
+                    write(*,*) "Error code: A house divided cannot stand"
+                    write(*,*) "   Minimum Gamera nRes = ", minval(gamRestartNumbers)
+                    write(*,*) "   Maximum Gamera nRes = ", maxval(gamRestartNumbers)
+                    stop
+                endif
+                deallocate(gamRestartNumbers)
+            else
+                ! all other ranks only send data
+                call mpi_gather(gamAppMpi%Model%IO%nRes, 1, MPI_INT, 0, 0, MPI_INT, 0, gamAppMpi%gamMpiComm, ierr)
+            endif
+        endif
 
         if(Grid%isTiled) then
             ! correct boundary conditions if necessary
