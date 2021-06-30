@@ -16,6 +16,7 @@ module imaghelper
     	!#/cc,km/s,nPa,nT
         real(rp) :: dSW,vSW,PdynSW,BxSW,BySW,BzSW,MJD0
         logical :: isInit = .false. !Has it been initialized
+        type(TimeSeries_T) :: tsD,tsVx,tsVy,tsVz,tsBx,tsBy,tsBz,tsMJD
     end type TM03_T
 
 	type(TM03_T), private :: TM03
@@ -35,15 +36,27 @@ module imaghelper
 
     	real(rp) :: D,Vx,Vy,Vz,Bx,By,Bz
 
-        !Get values from SW file
-        D = GetSWVal("D",wID,t0) !#/cc
-        Vx = GetSWVal("Vx",wID,t0)*1.0e-3 !km/s
-        Vy = GetSWVal("Vy",wID,t0)*1.0e-3 !km/s
-        Vz = GetSWVal("Vz",wID,t0)*1.0e-3 !km/s
-        Bx = GetSWVal("Bx",wID,t0) !nT
-        By = GetSWVal("By",wID,t0) !nT
-        Bz = GetSWVal("Bz",wID,t0) !nT
-        TM03%MJD0 = GetSWVal("MJD",wID,t0)
+    	!Get time series for TM03 object
+    	call SetupTS("D" ,wID,TM03%tsD )
+    	call SetupTS("Vx",wID,TM03%tsVx)
+    	call SetupTS("Vy",wID,TM03%tsVy)
+    	call SetupTS("Vz",wID,TM03%tsVz)
+    	call SetupTS("Bx",wID,TM03%tsBx)
+    	call SetupTS("By",wID,TM03%tsBy)
+    	call SetupTS("Bz",wID,TM03%tsBz)
+
+    	call SetupTS("MJD",wID,TM03%tsMJD)
+
+    	!Get initial values
+    	D  = TM03%tsD %evalAt(t0)        !#/cc
+    	Vx = TM03%tsVx%evalAt(t0)*1.0e-3 !km/s
+    	Vy = TM03%tsVy%evalAt(t0)*1.0e-3 !km/s
+    	Vz = TM03%tsVz%evalAt(t0)*1.0e-3 !km/s
+    	Bx = TM03%tsBx%evalAt(t0)        !nT
+    	By = TM03%tsBy%evalAt(t0)        !nT
+    	Bz = TM03%tsBz%evalAt(t0)        !nT
+
+    	TM03%MJD0 = TM03%tsMJD%evalAt(t0)
         !Start storing, want GSM
         TM03%dSW  = D
         TM03%vSW  = norm2([Vx,Vy,Vz])
@@ -57,18 +70,13 @@ module imaghelper
     	TM03%isInit = .true.
 
     	contains
-        	!Very inefficiently get values from solar wind file
-	        function GetSWVal(vID,fID,t0) result(qSW)
-	            character(len=*), intent(in) :: vID,fID
-	            real(rp), intent(in) :: t0
-	            real(rp) :: qSW
+    		subroutine SetupTS(vID,fID,tsQ)
+    			character(len=*)  , intent(in)    :: vID,fID
+    			type(TimeSeries_T), intent(inout) :: tsQ
 
-	            type(TimeSeries_T) :: tsQ
-	            tsQ%wID = trim(fID)
-	            call tsQ%initTS(trim(vID),doLoudO=.false.)
-	            qSW = tsQ%evalAt(t0)
-	        end function GetSWVal
-
+    			tsQ%wID = trim(fID)
+    			call tsQ%initTS(trim(vID),doLoudO=.false.)
+    		end subroutine SetupTS
     end subroutine InitTM03
 
     !Just return current MJD of TM model
