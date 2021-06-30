@@ -764,7 +764,8 @@ module init
         logical :: doQuadFT = .false. !Whether to do quadrature for face system
         
         !Check for min length veclen
-        if ( (Grid%ie-Grid%is+1) <= VECLEN ) then
+        !NOTE: Do we need <= here?
+        if ( (Grid%ie-Grid%is+1) < VECLEN ) then
             write(*,*) 'Grid I-size smaller than VECLEN!'
             stop
         endif
