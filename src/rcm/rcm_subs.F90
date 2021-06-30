@@ -2230,7 +2230,7 @@ SUBROUTINE Move_plasma_grid_MHD (dt,nstep)
 !Now calculate things that won't change over the substepping
     !ie, di/dj-dt, lossratep/rate
     rate = 0.0
-    lossratep = 0.0
+    lossratep =  0.0
     lossmodel = -1.0
     didt = 0.0
     djdt = 0.0

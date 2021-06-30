@@ -616,7 +616,7 @@ module streamline
 
         type(GridPoint_T) :: gPt
         real(rp) :: h
-        real(rp), dimension(NDIM) :: B,dx
+        real(rp), dimension(NDIM) :: B,oB,dx
         real(rp), dimension(NVARMHD) :: Q
         logical :: inDom
 
@@ -634,14 +634,18 @@ module streamline
                 gPt%dl = getDiag(ebState%ebGr,gPt%ijkG)
                 !Pick first h
                 h = sgn*Model%epsds*gPt%dl
+                !Get first B field
+                B = FastMag(gPt%xyz,gPt%t,Model,ebState,inDom,gPt%ijkG)
             else
                 !Locate w/ guess (last known cell)
-                call locate(gPt%xyz,gPt%ijkG,Model,ebState%ebGr,inDom,gPt%ijkG)
+                !call locate(gPt%xyz,gPt%ijkG,Model,ebState%ebGr,inDom,gPt%ijkG)
+                !NOTE: Don't need to re-locate b/c last ijkG is correct from FSAL
                 gPt%dl = getDiag(ebState%ebGr,gPt%ijkG)
             endif
             
         !Get values at this point on the tube
-            B = fldInterp(gPt%xyz,gPt%t,Model,ebState,BFLD,inDom,gPt%ijkG)
+            !Already have B field from FSAL (first same as last) of previous iteration
+            !B = fldInterp(gPt%xyz,gPt%t,Model,ebState,BFLD,inDom,gPt%ijkG)
             xyzn(Np,:) = gPt%xyz
             ijkn(Np,:) = gPt%ijkG
             vM  (Np,0) = norm2(B)
@@ -651,7 +655,9 @@ module streamline
             endif
 
         !Now do step
-            call StreamStep(gPt,Model,ebState,Model%epsds,h,dx)
+            !Call streamstep providing first B and getting last B
+            call StreamStep(gPt,Model,ebState,Model%epsds,h,dx,B,oB)
+            B = oB !Setup B field for next iteration
             gPt%xyz = gPt%xyz + dx
             !Verify sign of h to be sure
             h = sign(h,sgn*1.0_rp)
@@ -688,7 +694,7 @@ module streamline
         type(GridPoint_T) :: gPt
         integer :: sgn
         real(rp) :: Rin,eps,h
-        real(rp), dimension(NDIM) :: dx
+        real(rp), dimension(NDIM) :: dx,B,oB
         logical :: inDom,isSC,isDone
 
         if (present(RinO)) then
@@ -704,7 +710,6 @@ module streamline
         endif
 
         sgn = +1 !Step towards NH
-
         isG = .false.
     !Initialize
         gPt%xyz = x0
@@ -721,14 +726,16 @@ module streamline
                 gPt%dl = getDiag(ebState%ebGr,gPt%ijkG)
                 !Pick first h
                 h = sgn*eps*gPt%dl
+                !Get first B field
+                B = FastMag(gPt%xyz,gPt%t,Model,ebState,inDom,gPt%ijkG)
             else
-                !Locate w/ guess (last known cell)
-                call locate(gPt%xyz,gPt%ijkG,Model,ebState%ebGr,inDom,gPt%ijkG)
+                !Otherwise don't need to locate b/c last ijkG is correct
                 gPt%dl = getDiag(ebState%ebGr,gPt%ijkG)                
             endif
 
         !Now do step
-            call StreamStep(gPt,Model,ebState,eps,h,dx)
+            call StreamStep(gPt,Model,ebState,eps,h,dx,B,oB)
+            B = oB !Setup B field for next iteration
             gPt%xyz = gPt%xyz + dx
             !Verify sign of h to be sure
             h = sign(h,sgn*1.0_rp)
@@ -776,7 +783,6 @@ module streamline
             endif
             return
         endif
-
 
         contains
              

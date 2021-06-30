@@ -406,48 +406,4 @@ module ebsquish
 
     end subroutine Proj2LL
 
-    subroutine Proj2LL_OLD(ebApp,xyz,t,x1,x2)
-        type(ebTrcApp_T), intent(in) :: ebApp
-        real(rp), dimension(NDIM), intent(in) :: xyz
-        real(rp), intent(in) :: t
-        real(rp), intent(out) :: x1,x2
-
-        real(rp), dimension(NDIM) :: xE,xIon,xyz0
-        real(rp) :: dX,rC
-        logical :: isGood
-
-        x1 = 0.0
-        x2 = 0.0
-
-        ! trap for when we're within epsilon of the inner boundary
-        ! (really, it's probably only the first shell of nodes at R=Rinner_boundary that doesn't trace correctly)
-        if ( (norm2(xyz)-ebApp%ebSquish%Rinner)/ebApp%ebSquish%Rinner < startEps ) then
-           ! dipole-shift to startEps
-           xyz0 = DipoleShift(xyz,norm2(xyz)+startEps)
-        else
-           xyz0 = xyz
-        end if
-
-        !Use one-sided projection routine from chimp
-        !Trace along field line (i.e. to northern hemisphere)
-        call project(ebApp%ebModel,ebApp%ebState,xyz0,t,xE,+1,toEquator=.false.)
-
-        dX = norm2(xyz0-xE)
-        rC = ebApp%ebSquish%Rinner*(1.+rEps)
-        isGood = (dX>TINY) .and. (norm2(xE) <= rC) .and. (xE(ZDIR) > 0)
-
-        if (isGood) then
-            !Get invariant lat/lon
-            x1 = InvLatitude(xE)
-            x2 = atan2(xE(YDIR),xE(XDIR))
-            if (x2 < 0) x2 = x2 + 2*PI
-
-        else
-            !Set 0/0 for projection failure
-            x1 = 0.0
-            x2 = 0.0
-        endif
-
-    end subroutine Proj2LL_OLD
-
 end module ebsquish
