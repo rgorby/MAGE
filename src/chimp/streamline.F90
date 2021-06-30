@@ -4,23 +4,9 @@ module streamline
     use math
     use ebinterp
     use earthhelper
-    
+    use streamutils
+
     implicit none
-
-    !Generic one-step streamline routine
-    abstract interface
-        subroutine OneStep_T(dx,eps,B,JacB,sgn,dl,eps0)
-            import :: rp,NDIM
-            real(rp), intent(out)   :: dx(NDIM)
-            real(rp), intent(inout) :: eps
-            real(rp), intent(in) :: B(NDIM),JacB(NDIM,NDIM)
-            real(rp), intent(in) :: dl,eps0
-            integer , intent(in) :: sgn
-
-        end subroutine OneStep_T
-    end interface
-
-    procedure(OneStep_T), pointer :: StreamStep=>StepBS
 
     contains
 
@@ -624,60 +610,66 @@ module streamline
         type(ebState_T), intent(in)   :: ebState
         real(rp), intent(in) :: x0(NDIM),t
         real(rp), intent(inout) :: xyzn(0:MaxFL,NDIM),vM(0:MaxFL,0:NumVFL)
-        integer, intent(inout) :: ijkn(0:MaxFL,NDIM)
-        integer, intent(out) :: Np
-        integer, intent(in) :: sgn
+        integer , intent(inout) :: ijkn(0:MaxFL,NDIM)
+        integer , intent(out) :: Np
+        integer , intent(in) :: sgn
 
-        real(rp) :: eps,eps0,dl
-        integer , dimension(NDIM) :: ijk,ijkG
-        real(rp), dimension(NDIM) :: B,E,dx,xyz
+        type(GridPoint_T) :: gPt
+        real(rp) :: h
+        real(rp), dimension(NDIM) :: B,dx
         real(rp), dimension(NVARMHD) :: Q
-        type(gcFields_T) :: gcF
         logical :: inDom
 
     !Initialize
-        eps = Model%epsds 
-        eps0 = eps !Save initial epsilon  
+        gPt%xyz = x0
+        gPt%t   = t
         Np = 0
-        xyz = x0
-        call locate(xyz,ijkG,Model,ebState%ebGr,inDom)
+        inDom = inDomain(gPt%xyz,Model,ebState%ebGr)
 
     !Start main loop
         do while (inDom .and. Np <= MaxFL)
-            !Try to locate w/ guess
-            call locate(xyz,ijk,Model,ebState%ebGr,inDom,ijkG)
-            !Save correct location for next guess
-            ijkG = ijk !Save correct location for next guess
-            call ebFields(xyz,t,Model,ebState,E,B,ijk,gcFields=gcF)
-            xyzn(Np,:) = xyz
-            ijkn(Np,:) = ijk
-            vM  (Np,0) = norm2(B)
+            if (Np == 0) then
+                !First time don't have guess
+                call locate(gPt%xyz,gPt%ijkG,Model,ebState%ebGr,inDom)
+                gPt%dl = getDiag(ebState%ebGr,gPt%ijkG)
+                !Pick first h
+                h = sgn*Model%epsds*gPt%dl
+            else
+                !Locate w/ guess (last known cell)
+                call locate(gPt%xyz,gPt%ijkG,Model,ebState%ebGr,inDom,gPt%ijkG)
+                gPt%dl = getDiag(ebState%ebGr,gPt%ijkG)
+            endif
             
+        !Get values at this point on the tube
+            B = fldInterp(gPt%xyz,gPt%t,Model,ebState,BFLD,inDom,gPt%ijkG)
+            xyzn(Np,:) = gPt%xyz
+            ijkn(Np,:) = gPt%ijkG
+            vM  (Np,0) = norm2(B)
             if (Model%doMHD) then
-                Q = mhdInterp(xyz,t,Model,ebState,ijk)
+                Q = mhdInterp(gPt%xyz,gPt%t,Model,ebState,gPt%ijkG)
                 vM(Np,1:NVARMHD) = Q
             endif
 
-            !Now do step
-            dl = getDiag(ebState%ebGr,ijk)
-            call StreamStep(dx,eps,B,gcF%JacB,sgn,dl,eps0)
-            xyz = xyz + dx
+        !Now do step
+            call StreamStep(gPt,Model,ebState,Model%epsds,h,dx)
+            gPt%xyz = gPt%xyz + dx
+            !Verify sign of h to be sure
+            h = sign(h,sgn*1.0_rp)
 
-            !Check if we're done
-            inDom = inDomain(xyz,Model,ebState%ebGr)
+        !Check if we're done
+            inDom = inDomain(gPt%xyz,Model,ebState%ebGr) .and. (norm2(dx)>TINY)
             if (inDom) Np = Np + 1
-
         enddo
 
-        ! if (MaxFL == Np) then
-        !     !$OMP CRITICAL
-        !     write(*,*) ANSIRED
-        !     write(*,*) "<WARNING! genTrace hit max tube size!>"
-        !     write(*,*) "Seed: ", x0
-        !     write(*,*) "End : ", xyzn(Np,:)
-        !     write(*,'(a)',advance="no") ANSIRESET, ''
-        !     !$OMP END CRITICAL
-        ! endif
+        if (MaxFL == Np) then
+            !$OMP CRITICAL
+            write(*,*) ANSIRED
+            write(*,*) "<WARNING! genTrace hit max tube size!>"
+            write(*,*) "Seed: ", x0
+            write(*,*) "End : ", xyzn(Np,:)
+            write(*,'(a)',advance="no") ANSIRESET, ''
+            !$OMP END CRITICAL
+        endif
 
     end subroutine genTrace
 
@@ -693,11 +685,10 @@ module streamline
         logical, intent(out) :: isG
         real(rp), intent(in), optional :: RinO,epsO
 
+        type(GridPoint_T) :: gPt
         integer :: sgn
-        real(rp) :: Rin,eps,dl,eps0
-        real(rp), dimension(NDIM) :: B,E,dx
-        integer , dimension(NDIM) :: ijk,ijkG
-        type(gcFields_T) :: gcF
+        real(rp) :: Rin,eps,h
+        real(rp), dimension(NDIM) :: dx
         logical :: inDom,isSC,isDone
 
         if (present(RinO)) then
@@ -712,45 +703,52 @@ module streamline
             eps = Model%epsds
         endif
 
-        !Save initial epsilon
-        eps0 = eps
-
         sgn = +1 !Step towards NH
-        !Initialize output
-        Np = 0
-        isG = .false.
-        xyz = x0
 
-        call CheckDone(Model,ebState,xyz,inDom,isSC,isDone)
+        isG = .false.
+    !Initialize
+        gPt%xyz = x0
+        gPt%t   = t
+        Np = 0
+        call CheckDone(Model,ebState,gPt%xyz,inDom,isSC,isDone)
 
         do while ( (.not. isDone) .and. (Np <= MaxFL) )
         !Locate and get fields
             !Get location in ijk using old ijk as guess if possible
             if (Np == 0) then
                 !First step, no guess yet
-                call locate(xyz,ijk,Model,ebState%ebGr,inDom)
+                call locate(gPt%xyz,gPt%ijkG,Model,ebState%ebGr,inDom)
+                gPt%dl = getDiag(ebState%ebGr,gPt%ijkG)
+                !Pick first h
+                h = sgn*eps*gPt%dl
             else
-                call locate(xyz,ijk,Model,ebState%ebGr,inDom,ijkG)
+                !Locate w/ guess (last known cell)
+                call locate(gPt%xyz,gPt%ijkG,Model,ebState%ebGr,inDom,gPt%ijkG)
+                gPt%dl = getDiag(ebState%ebGr,gPt%ijkG)                
             endif
-            ijkG = ijk !Save correct location for next guess
-            call ebFields(xyz,t,Model,ebState,E,B,ijk,gcFields=gcF)
 
-            if (norm2(B) < TINY) then
-                !Hit near-null field, we're boned
-                isG = .false.
-                return
+        !Now do step
+            call StreamStep(gPt,Model,ebState,eps,h,dx)
+            gPt%xyz = gPt%xyz + dx
+            !Verify sign of h to be sure
+            h = sign(h,sgn*1.0_rp)
+
+        !Check if we're done
+            if (norm2(dx)<TINY) then
+                !Multistep integrator had one out value
+                isDone = .true.
+                inDom  = .false.
+                isSC   = .false.
+            else
+                call CheckDone(Model,ebState,gPt%xyz,inDom,isSC,isDone)
             endif
-            dl = getDiag(ebState%ebGr,ijk)
-            call StreamStep(dx,eps,B,gcF%JacB,sgn,dl,eps0)
-
-            xyz = xyz + dx
-
-            !Check if we're done
-            call CheckDone(Model,ebState,xyz,inDom,isSC,isDone)
             Np = Np + 1
+
         enddo !Main stepping loop
 
+        xyz = gPt%xyz
     !Finished loop somehow, decide if it was good
+        
         !Got to short circuit, we're good
         if (isSC) then
             isG = .true.
@@ -764,7 +762,10 @@ module streamline
         endif
         if (inDom) then
             !This shouldn't happen
+            !$OMP CRITICAL
             write(*,*) 'How did you get here? Bad thing in mageproject'
+            write(*,*) 'x0/Np/h,|dx| = ',x0,xyz,Np,h,norm2(dx)
+            !$OMP END CRITICAL
             stop
         else
             !Left domain, but not sure if left from inner boundary
@@ -806,118 +807,6 @@ module streamline
             end subroutine CheckDone
 
     end subroutine mageproject
-
-!====
-!Some one-step pusher routines
-    !Do one step of linearized RK4
-    subroutine StepRK4(dx,eps,B,JacB,sgn,dl,eps0)
-        real(rp), intent(out)   :: dx(NDIM)
-        real(rp), intent(inout) :: eps
-        real(rp), intent(in) :: B(NDIM),JacB(NDIM,NDIM)
-        real(rp), intent(in) :: dl,eps0
-        integer , intent(in) :: sgn
-
-        real(rp), dimension(NDIM) :: Jb,Jb2,Jb3,F1,F2,F3,F4
-        real(rp) :: ds,dsmag,MagB,MagJb
-
-        MagB = norm2(B)
-        MagJb = norm2(JacB)
-        if (MagJb <= TINY) then
-            !Field is constant-ish, use local grid size
-            dsmag = dl
-        else
-            dsmag = MagB/MagJb
-        endif
-        ds = sgn*eps*min(dl,dsmag)
-        !Convert ds to streamline units
-        ds = ds/max(MagB,TINY)
-
-        !Get powers of jacobian
-        Jb  = matmul(JacB,B  )
-        Jb2 = matmul(JacB,Jb )
-        Jb3 = matmul(JacB,Jb2)
-
-        !Calculate steps
-        F1 = ds*B
-        F2 = F1 + (ds*ds/2)*Jb
-        F3 = F2 + (ds*ds*ds/4)*Jb2
-        F4 = ds*B + ds*ds*Jb + (ds**3.0/2.0)*Jb2 + (ds**4.0/4.0)*Jb3
-
-        !Advance
-        dx = (F1+2*F2+2*F3+F4)/6.0
-
-    end subroutine StepRK4
-
-    !Do one step of Bogacki-Shampine, alter eps using Kutta-Merson style
-    !TODO: Remove duplicated code
-    recursive subroutine StepBS(dx,eps,B,JacB,sgn,dl,eps0)
-        real(rp), intent(out)   :: dx(NDIM)
-        real(rp), intent(inout) :: eps
-        real(rp), intent(in) :: B(NDIM),JacB(NDIM,NDIM)
-        real(rp), intent(in) :: dl,eps0
-        integer , intent(in) :: sgn
-
-        real(rp), dimension(NDIM) :: Jb,Jb2,k1,k2,k3,k4
-        real(rp), dimension(NDIM) :: dxHO,dxLO
-        real(rp) :: ds,dsmag,MagB,MagJb,ddx
-        real(rp) :: epsMin,epsMax
-
-        real(rp), parameter :: eAmp = 10.0 !Max variation from initial eps
-        real(rp), parameter :: eStp0 = 1.0e-3 !Target for adaptive step
-        real(rp), parameter :: eStpX = 1.0e-5 !Threshold to increase step size
-
-        MagB = norm2(B)
-        MagJb = norm2(JacB)
-        if (MagJb <= TINY) then
-            !Field is constant-ish, use local grid size
-            dsmag = dl
-        else
-            dsmag = MagB/MagJb
-        endif
-        ds = sgn*eps*min(dl,dsmag)
-        !Convert ds to streamline units
-        ds = ds/max(MagB,TINY)
-
-        !Get powers of jacobian
-        Jb  = matmul(JacB,B  )
-        Jb2 = matmul(JacB,Jb )
-
-        !Note: Removing ds factor relative to above RK4 code
-        k1 = B
-        k2 = k1 + 0.5*ds*Jb
-        k3 = B + (3.0/4.0)*ds*( Jb + 0.5*ds*Jb2)
-        dxHO = ds*(2*k1 + 3*k2 + 4*k3)/9.0
-        k4 = B + matmul(JacB,dxHO)
-        dxLO = ds*(7*k1 + 6*k2 + 8*k3 + 3*k4)/24.0 !Lower-order
-        
-        !Estimate error in displacement normalized by local cell size
-        ddx = norm2(dxHO-dxLO)/dl
-        epsMin = eps0/eAmp
-        epsMax = eps0*eAmp
-
-        !Check for base case, eps is small so take anything
-        if (eps <= epsMin+TINY) then
-            dx = dxHO
-            eps = epsMin
-            return
-        endif
-
-        !Now test for local errors
-        if (ddx >= eStp0) then
-            !Error is too high, try reducing step
-            eps = 0.5*eps
-            call StepBS(dx,eps,B,JacB,sgn,dl,eps0)
-        else if (ddx <= eStpX) then
-            !Error is great, let's go faster
-            eps = 2.0*eps
-            call ClampValue(eps,epsMin,epsMax)
-            dx = dxHO
-        else
-            !Error is fine, just keep going
-            dx = dxHO
-        endif
-
-    end subroutine StepBS
 
 !====      
     !Calculate one-sided projection (in sgn direction)
@@ -1028,29 +917,5 @@ module streamline
 
     end subroutine project
     
-    function getDiag(ebGr,ijk) result (dl)
-        type(ebGrid_T), intent(in)   :: ebGr
-        integer, intent(in) :: ijk(NDIM)
-        real(rp) :: dl
-        integer :: i,j,k
-        i = ijk(IDIR) ; j = ijk(JDIR) ; k = ijk(KDIR)
 
-        dl = norm2( ebGr%xyz(i+1,j+1,k+1,:)-ebGr%xyz(i,j,k,:) )
-
-    end function getDiag
-
-    subroutine cleanStream(fL)
-        type(fLine_T), intent(inout) :: fL
-
-        integer :: i
-        if (allocated(fL%xyz)) deallocate(fL%xyz)
-        if (allocated(fL%ijk)) deallocate(fL%ijk)
-        do i=0,NumVFL
-            if (allocated(fL%lnVars(i)%V)) deallocate(fL%lnVars(i)%V)
-        enddo
-        fL%x0 = 0.0
-        fL%Nm = 0
-        fL%Np = 0
-        fL%isGood = .false.
-    end subroutine cleanStream
 end module streamline
