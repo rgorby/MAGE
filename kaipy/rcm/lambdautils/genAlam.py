@@ -25,7 +25,10 @@ distTypes = {'lin', 'log'}
 
 # Takes full alams, flavs, fudges, and dktable arrays
 # Writes arrays to file in rcmconfig.h5 format
-def genh5(fname, alams, flavs, fudges):
+def genh5(fname, inputParams, doTests=True, doShowPlot=False):
+
+	alams, flavs, fudges = genAlams(inputParams, doTests=doTests, doShowPlot=doShowPlot)
+	attrs = inputParams.getAttrs()
 
 	f5 = h5.File(fname, 'w')
 	f5.create_dataset('alamc', data=alams)
@@ -36,6 +39,9 @@ def genh5(fname, alams, flavs, fudges):
 		f5.create_dataset('dktable', data=dktab)
 	else:
 		print("Couldn't load kaipy.rcm.init, can't add dktable to rcmconfig file.")
+
+	for key in attrs.keys():
+		f5.attrs[key] = attrs[key]
 	f5.close()
 
 # Adds completely new channel to alamc, ikflavc, and fudgex
