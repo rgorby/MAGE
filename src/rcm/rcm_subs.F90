@@ -2135,6 +2135,11 @@ SUBROUTINE Move_plasma_grid_MHD (dt,nstep)
     REAL (rprec) :: T1k,T2k !Local loop variables b/c clawpack alters input
     LOGICAL, save :: FirstTime=.true.
 
+    !VERY DUMB TEST, REMOVE THIS
+    eeta_avg = eeta
+    write(*,*) 'Skipping rcm-advance ...'
+    return
+    !REMOVE THIS
     call Tic("Move_Plasma_Init")
     if (jwrap /= 3) then
         write(*,*) 'Somebody should rewrite this code to not assume that jwrap=3'
@@ -2226,8 +2231,11 @@ SUBROUTINE Move_plasma_grid_MHD (dt,nstep)
     Dpp = (1.0e-6)*eeta(:,:,1)*dfactor*vm**1.5 !Convert eta to #/cc  
     !$OMP END PARALLEL WORKSHARE
 
+    call Toc("Move_Plasma_Init")
+    
 !---
 !Now calculate things that won't change over the substepping
+    call Tic("Move_Plasma_preAdv")
     !ie, di/dj-dt, lossratep/rate
     rate = 0.0
     lossratep =  0.0
@@ -2245,6 +2253,7 @@ SUBROUTINE Move_plasma_grid_MHD (dt,nstep)
         IF (.not. advChannel(kc)) CYCLE
         IF (MAXVAL(eeta(:,:,kc)) < machine_tiny) THEN
             eeta(:,:,kc) = 0.0
+            advChannel(kc) = .false.
             CYCLE
         ENDIF
 
@@ -2322,7 +2331,10 @@ SUBROUTINE Move_plasma_grid_MHD (dt,nstep)
                 lossmodel(i,j,kc) = -1.0 ! -1: undefined; 0: C05; 1: chorus; 2: hiss; 3: C+H; 4: strong diffusion; 5: fudge; 10: ion FLC.
                 rate(i,j) = 0.0
 
-                if (isOpen(i,j)) cycle
+                if (isOpen(i,j)) then
+                    rate(i,j) = -TINY !Set negative value to signal clawpack source term
+                    cycle
+                endif
 
                 !Calculate losses and keep track of total losses/precip losses
                 if ( (ie == RCMELECTRON) .and. (kc /= 1) ) then
@@ -2353,7 +2365,7 @@ SUBROUTINE Move_plasma_grid_MHD (dt,nstep)
         !Have loss on RCM grid, now get claw grid
         call rcm2claw(rate,rateC(:,:,kc))
     ENDDO !kc loop
-    call Toc("Move_Plasma_Init")
+    call Toc("Move_Plasma_preAdv")
 
 !Done static (per coupling) things, now substep and advect
     call Tic("Move_Plasma_Adv")

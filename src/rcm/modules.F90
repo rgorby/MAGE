@@ -62,7 +62,7 @@ MODULE rice_housekeeping_module
   INTEGER(iprec) :: nSkipFL = 8 !Stride for outputting field lines
 
   LOGICAL :: doKapDef = .true. !Whether to do kappa by default
-
+  LOGICAL :: doRescaleDef = .true. !Whether to rescale D,P=>eta by default
   REAL(rprec) :: staticR = 0.0
   REAL(rprec) :: LowLatMHD = 0.0
   REAL(rprec) :: rcm_pFloor = 0.0 !nPa
@@ -154,6 +154,7 @@ MODULE rice_housekeeping_module
 
         !Torcm parameters
         call xmlInp%Set_Val(doKapDef      ,"torcm/doKappa"        ,doKapDef      )
+        call xmlInp%Set_Val(doRescaleDef  ,"torcm/doRescale" ,doRescaleDef)
         call xmlInp%Set_Val(doSmoothBNDLOC,"torcm/doSmoothBNDLOC" ,doSmoothBNDLOC)
 
         !Advance parameters
