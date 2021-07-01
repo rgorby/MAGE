@@ -502,8 +502,20 @@ contains
     !call genInGrid(xc,yc,I(NORTH)%G%x,I(NORTH)%G%y)
 
     ! record the nRes number
-    I(NORTH)%P%nRes = GetIOInt(IOVars,"nRes") + 1
-    I(SOUTH)%P%nRes = GetIOInt(IOVars,"nRes") + 1
+    if (ioExist(h5Str,"nRes")) then
+        call ClearIO(IOVars)
+        call AddInVar(IOVars,"nRes")
+        call ReadVars(IOVars,.false.,h5Str)
+        I(NORTH)%P%nRes = GetIOInt(IOVars,"nRes") + 1
+        I(SOUTH)%P%nRes = GetIOInt(IOVars,"nRes") + 1
+    else
+        write (*,*) 'Remix now requires that nRes be in its restart files'
+        write (*,*) '  in order to ensure consistent restarts.'
+        write (*,*) 'Please either regenerate the remix restart files, or'
+        write (*,*) '  manually add the nRes value.'
+        write (*,*) 'File: ', trim(h5Str)
+        stop
+    endif
 
     ! now read from step
 
