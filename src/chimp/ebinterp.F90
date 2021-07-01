@@ -10,7 +10,7 @@ module ebinterp
     implicit none
 
     logical, parameter, private :: doCurldbdt = .false.
-    logical, parameter, private :: doAxisFix  = .false. !Axis fix doesn't seem to fix much
+    logical, parameter, private :: doAxisFix  = .true. !Axis fix doesn't seem to fix much
 
     contains
 

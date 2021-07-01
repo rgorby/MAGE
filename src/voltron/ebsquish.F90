@@ -22,7 +22,7 @@ module ebsquish
 
     real(rp), parameter, private :: startEps = 0.05
     real(rp), parameter, private :: rEps = 0.125
-
+    logical , parameter, private :: doDipTest = .true.
     contains
 
     !Find i-index of outer boundary of coupling domain
@@ -377,7 +377,13 @@ module ebsquish
 
         x1 = 0.0
         x2 = 0.0
-
+        if (doDipTest) then
+            xyz0 = DipoleShift(xyz,norm2(xyz)+startEps)
+            x1 = InvLatitude(xE)
+            x2 = atan2(xE(YDIR),xE(XDIR))
+            if (x2 < 0) x2 = x2 + 2*PI
+        endif
+        
         ! trap for when we're within epsilon of the inner boundary
         ! (really, it's probably only the first shell of nodes at R=Rinner_boundary that doesn't trace correctly)
         if ( (norm2(xyz)-ebApp%ebSquish%Rinner)/ebApp%ebSquish%Rinner < startEps ) then

@@ -2135,6 +2135,11 @@ SUBROUTINE Move_plasma_grid_MHD (dt,nstep)
     REAL (rprec) :: T1k,T2k !Local loop variables b/c clawpack alters input
     LOGICAL, save :: FirstTime=.true.
 
+    !VERY DUMB TEST, REMOVE THIS
+    eeta_avg = eeta
+    write(*,*) 'Skipping rcm-advance ...'
+    return
+    !REMOVE THIS
     call Tic("Move_Plasma_Init")
     if (jwrap /= 3) then
         write(*,*) 'Somebody should rewrite this code to not assume that jwrap=3'
