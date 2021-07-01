@@ -140,7 +140,10 @@ module ebsquish
         endif
 
         call GetSquishBds(vApp,ksB,keB)
+        call Tic("SQ-Project")
 
+        if (doDipTest) write(*,*) "Using fake projection for testing!"
+        
         !$OMP PARALLEL DO default(shared) collapse(2) &
         !$OMP schedule(dynamic) &
         !$OMP private(i,j,k,xyz,x1,x2)
@@ -174,7 +177,7 @@ module ebsquish
         ebSquish%curSquishBlock = ebSquish%curSquishBlock + 1
 
         end associate
-
+        call Toc("SQ-Project")
     end subroutine DoSquishBlock
 
     !Get squish bounds for block n (out of Nblk)
@@ -229,7 +232,9 @@ module ebsquish
                   ebSquish=>vApp%ebTrcApp%ebSquish)
 
         if (vApp%doQkSquish) then
+            call Tic("SQ-FillSkip")
             call FillSkips(ebModel,ebGr,vApp%iDeep,xyzSquish,isGood,vApp%qkSquishStride)
+            call Toc("SQ-FillSkip")
         endif
 
         Nk = ebGr%ke-ebGr%ks+1
@@ -382,8 +387,9 @@ module ebsquish
             x1 = InvLatitude(xE)
             x2 = atan2(xE(YDIR),xE(XDIR))
             if (x2 < 0) x2 = x2 + 2*PI
+            return
         endif
-        
+
         ! trap for when we're within epsilon of the inner boundary
         ! (really, it's probably only the first shell of nodes at R=Rinner_boundary that doesn't trace correctly)
         if ( (norm2(xyz)-ebApp%ebSquish%Rinner)/ebApp%ebSquish%Rinner < startEps ) then

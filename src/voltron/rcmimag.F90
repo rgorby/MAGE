@@ -23,6 +23,7 @@ module rcmimag
     
     implicit none
 
+    logical, private, parameter :: doFakeTube=.true. !Only for testing
     integer, parameter, private :: MHDPad = 0 !Number of padding cells between RCM domain and MHD ingestion
     logical , private :: doTrickyTubes = .true.  !Whether to poison bad flux tubes
     real(rp), private :: rTrc0 = 2.0 !Padding factor for RCM domain to ebsquish radius
@@ -208,6 +209,9 @@ module rcmimag
         call Toc("MAP_RCMMIX")
 
         call Tic("RCM_TUBES")
+        if (doFakeTube) write(*,*) "Using fake flux tubes for testing!"
+            
+            
     !Load RCM tubes
        !$OMP PARALLEL DO default(shared) collapse(2) &
        !$OMP schedule(dynamic) &
@@ -226,8 +230,12 @@ module rcmimag
                     !Use mocked up values
                     call DipoleTube(vApp,lat,lon,ijTube,imag%rcmFLs(i,j))
                 else
-                    !Trace through MHD
-                    call MHDTube   (vApp,lat,lon,ijTube,imag%rcmFLs(i,j))
+                    if (doFakeTube) then
+                        call FakeTube   (vApp,lat,lon,ijTube,imag%rcmFLs(i,j))
+                    else
+                        !Trace through MHD
+                        call MHDTube   (vApp,lat,lon,ijTube,imag%rcmFLs(i,j))
+                    endif
                 endif
 
                 !Stuff data into RCM
