@@ -80,6 +80,8 @@ module voltapp
         call vApp%tilt%initTS("tilt",doLoudO=.false.)
         vApp%symh%wID = vApp%tilt%wID
         call vApp%symh%initTS("symh",doLoudO=.false.)
+        !Initialize TM03 model in case we wanna use it
+        call InitTM03(vApp%tilt%wID,0.0_rp)
 
         gTScl = gApp%Model%Units%gT0
 

@@ -6,6 +6,7 @@ module ebsquish
     use volttypes
     use streamline
     use earthhelper
+    use imaghelper
     use clocks, only: Tic,Toc
     
     implicit none
@@ -22,6 +23,7 @@ module ebsquish
 
     real(rp), parameter, private :: startEps = 0.05
     real(rp), parameter, private :: rEps = 0.125
+    real(rp), parameter, private :: ShueScl = 1.5 !Safety factor for Shue MP
     logical , parameter, private :: doDipTest = .true.
     contains
 
@@ -82,6 +84,7 @@ module ebsquish
     subroutine SquishStart(vApp)
         class(voltApp_T), intent(inout) :: vApp
         
+        call UpdateTM03(vApp%time)
         call Tic("Squish")
         associate(ebGr=>vApp%ebTrcApp%ebState%ebGr, &                  
                   xyzSquish=>vApp%chmp2mhd%xyzSquish,isGood=>vApp%chmp2mhd%isGood, &
@@ -143,7 +146,7 @@ module ebsquish
         call Tic("SQ-Project")
 
         if (doDipTest) write(*,*) "Using fake projection for testing!"
-        
+
         !$OMP PARALLEL DO default(shared) collapse(2) &
         !$OMP schedule(dynamic) &
         !$OMP private(i,j,k,xyz,x1,x2)
@@ -382,6 +385,11 @@ module ebsquish
 
         x1 = 0.0
         x2 = 0.0
+
+        !Do quick short-cut to safe us some effort
+        isGood = inShueMP_SM(xyz)
+        if (.not. isGood) return
+        
         if (doDipTest) then
             xyz0 = DipoleShift(xyz,norm2(xyz)+startEps)
             x1 = InvLatitude(xE)

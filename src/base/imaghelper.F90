@@ -34,7 +34,9 @@ module imaghelper
     	character(len=*), intent(in) :: wID
     	real(rp), intent(in) :: t0
 
-    	real(rp) :: D,Vx,Vy,Vz,Bx,By,Bz
+    	if (TM03%isInit) return !Already initialized
+
+    	write(*,*) "Initializing TM03 model ..."
 
     	!Get time series for TM03 object
     	call SetupTS("D" ,wID,TM03%tsD )
@@ -47,27 +49,8 @@ module imaghelper
 
     	call SetupTS("MJD",wID,TM03%tsMJD)
 
-    	!Get initial values
-    	D  = TM03%tsD %evalAt(t0)        !#/cc
-    	Vx = TM03%tsVx%evalAt(t0)*1.0e-3 !km/s
-    	Vy = TM03%tsVy%evalAt(t0)*1.0e-3 !km/s
-    	Vz = TM03%tsVz%evalAt(t0)*1.0e-3 !km/s
-    	Bx = TM03%tsBx%evalAt(t0)        !nT
-    	By = TM03%tsBy%evalAt(t0)        !nT
-    	Bz = TM03%tsBz%evalAt(t0)        !nT
-
-    	TM03%MJD0 = TM03%tsMJD%evalAt(t0)
-        !Start storing, want GSM
-        TM03%dSW  = D
-        TM03%vSW  = norm2([Vx,Vy,Vz])
-        TM03%PdynSW = PV2PDyn(TM03%dSW,TM03%vSW)
-
-        !Do B field transform
-        call mjdRecalc(TM03%MJD0)
-        call SM2GSW(Bx,By,Bz,TM03%BxSW,TM03%BySW,TM03%BzSW)
-
-    	!Now we're done
     	TM03%isInit = .true.
+    	call UpdateTM03(t0)
 
     	contains
     		subroutine SetupTS(vID,fID,tsQ)
@@ -87,27 +70,72 @@ module imaghelper
 
     end function TM03_MJD
 
+    !Update time for TM03
+    subroutine UpdateTM03(t0)
+    	real(rp), intent(in) :: t0
+    	real(rp) :: D,Vx,Vy,Vz,Bx,By,Bz
+
+    	if (.not. TM03%isInit) then
+    		write(*,*) "Attempting to update uninitialized TM03 model, bailing ..."
+    		stop
+    	endif
+    	D  = TM03%tsD %evalAt(t0)        !#/cc
+    	Vx = TM03%tsVx%evalAt(t0)*1.0e-3 !km/s
+    	Vy = TM03%tsVy%evalAt(t0)*1.0e-3 !km/s
+    	Vz = TM03%tsVz%evalAt(t0)*1.0e-3 !km/s
+    	Bx = TM03%tsBx%evalAt(t0)        !nT
+    	By = TM03%tsBy%evalAt(t0)        !nT
+    	Bz = TM03%tsBz%evalAt(t0)        !nT
+
+    	TM03%MJD0 = TM03%tsMJD%evalAt(t0)
+        !Start storing, want GSM
+        TM03%dSW  = D
+        TM03%vSW  = norm2([Vx,Vy,Vz])
+        TM03%PdynSW = PV2PDyn(TM03%dSW,TM03%vSW)
+
+        !Do B field transform
+        call mjdRecalc(TM03%MJD0)
+        call SM2GSW(Bx,By,Bz,TM03%BxSW,TM03%BySW,TM03%BzSW)
+
+    end subroutine UpdateTM03
+
 	!Vectors should properly be in GSM
-	function inShueMP(xyz)
+	!sScl is safety factor, >1 means less likely to be called out
+	function inShueMP(xyz,sSclO)
 		real(rp), intent(in) :: xyz(NDIM)
 		logical :: inShueMP
+		real(rp), intent(in), optional :: sSclO
+		real(rp) :: R,R0,RM,sScl
 
-		real(rp) :: R,theta,CosT,R0,alpha,Rm
-
+		if (present(sSclO)) then
+			sScl = sSclO
+		else
+			sScl = 1.0
+		endif
 		R = norm2(xyz)
-		theta = acos(xyz(XDIR)/R)
-		CosT = cos(theta)
-		
-		R0 = (10.22+1.29*tanh(0.184*(TM03%BzSW+8.14)))*(TM03%PdynSW)**(-1.0/6.6)
-		alpha = (0.58-0.007*TM03%BzSW)*(1.0+0.024*log(TM03%PdynSW))
-		RM = R0*(2.0/max(1.0+CosT,TINY))**(alpha)
-		if (R<RM) then
+		call ShueHelper(xyz,R0,RM)
+		if (R<RM*sScl) then
 			inShueMP = .true.
 		else
 			inShueMP = .false.
 		endif
 
 	end function inShueMP
+
+	function inShueMP_SM(xyzSM,sSclO)
+		real(rp), intent(in) :: xyzSM(NDIM)
+		logical :: inShueMP_SM
+		real(rp), intent(in), optional :: sSclO
+
+		real(rp), dimension(NDIM) :: xyzGSM
+		call SM2GSW(xyzSM(XDIR),xyzSM(YDIR),xyzSM(ZDIR),xyzGSM(XDIR),xyzGSM(YDIR),xyzGSM(ZDIR))
+		if (present(sSclO)) then
+			inShueMP_SM = inShueMP(xyzGSM,sSclO)
+		else
+			inShueMP_SM = inShueMP(xyzGSM)
+		endif
+		
+	end function inSHueMP_SM
 
 	!Map xyz coordinates to dusk along Shue MP contours
 	subroutine ShueMP2Dusk(xyz,xyzD)
@@ -129,6 +157,21 @@ module imaghelper
 		xyzD = [0.0_rp,R0*(2.0**alpha),xyz(ZDIR)]
 
 	end subroutine ShueMP2Dusk
+
+	subroutine ShueHelper(xyz,R0,RM)
+		real(rp), intent(in ) :: xyz (NDIM)
+		real(rp), intent(out) :: R0,RM
+		real(rp) :: R,theta,CosT,alpha
+
+		R = norm2(xyz)
+		theta = acos(xyz(XDIR)/R)
+		CosT = cos(theta)
+		
+		R0 = (10.22+1.29*tanh(0.184*(TM03%BzSW+8.14)))*(TM03%PdynSW)**(-1.0/6.6)
+		alpha = (0.58-0.007*TM03%BzSW)*(1.0+0.024*log(TM03%PdynSW))
+		RM = R0*(2.0/max(1.0+CosT,TINY))**(alpha)
+
+	end subroutine ShueHelper
 
 	!Return density [#/cc] and pressure [nPa] from TM03
 	!Assuming XYZ are in GSM
