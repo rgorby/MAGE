@@ -36,7 +36,7 @@ module streamutils
         end subroutine OneStep_T
     end interface
 
-    procedure(OneStep_T), pointer :: StreamStep=>Step_BS23
+    procedure(OneStep_T), pointer :: StreamStep=>Step_RK4L
 
     contains
 
@@ -130,6 +130,62 @@ module streamutils
         !h = sign(absh,h)
 
     end subroutine Step_BS23
+
+    subroutine Step_RK4L(gpt,Model,ebState,eps,h,dx,iB,oB)
+        type(GridPoint_T), intent(inout) :: gpt
+        type(chmpModel_T), intent(in)    :: Model
+        type(ebState_T)  , intent(in)    :: ebState
+        real(rp), intent(in) :: eps
+        real(rp), intent(inout) :: h,dx(NDIM)
+        real(rp), intent(in) , dimension(NDIM), optional :: iB
+        real(rp), intent(out), dimension(NDIM), optional :: oB
+
+        real(rp), dimension(NDIM) :: Jb,Jb2,Jb3,F1,F2,F3,F4
+        real(rp), dimension(NDIM) :: x0,E,B
+        real(rp) :: ds,dsmag,MagB,MagJb
+        logical :: isGood
+        type(gcFields_T) :: gcF
+
+        x0 = gpt%xyz
+        !Doing full field calc
+        call ebFields(x0,gPt%t,Model,ebState,E,B,gPt%ijkG,gcFields=gcF)
+
+        !Only using sign of h
+        MagB = norm2(B)
+        MagJb = norm2(gcF%JacB)
+        if (MagJb <= TINY) then
+            !Field is constant-ish, use local grid size
+            dsmag = gpt%dl
+        else
+            dsmag = MagB/MagJb
+        endif
+        !ds = sign(1.0_rp,h)*eps*min(gpt%dl,dsmag)
+        ds = sign(1.0_rp,h)*min(gpt%dl,eps*dsmag)
+        !Save step for next round
+        h = ds
+
+        !Convert ds to streamline units
+        ds = ds/max(MagB,TINY)
+
+        !Get powers of jacobian
+        Jb  = matmul(gcF%JacB,B  )
+        Jb2 = matmul(gcF%JacB,Jb )
+        Jb3 = matmul(gcF%JacB,Jb2)
+
+        !Calculate steps
+        F1 = ds*B
+        F2 = F1 + (ds*ds/2)*Jb
+        F3 = F2 + (ds*ds*ds/4)*Jb2
+        F4 = ds*B + ds*ds*Jb + (ds**3.0/2.0)*Jb2 + (ds**4.0/4.0)*Jb3
+
+        !Advance
+        dx = (F1+2*F2+2*F3+F4)/6.0
+ 
+        if (present(oB)) then
+            oB = FastMag(x0+dx,gPt%t,Model,ebState,isGood,gpt%ijkG)
+        endif
+
+    end subroutine Step_RK4L
 
     subroutine Step_RKF45(gpt,Model,ebState,eps,h,dx,iB,oB)
         type(GridPoint_T), intent(inout) :: gpt

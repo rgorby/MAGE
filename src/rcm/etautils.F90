@@ -13,7 +13,6 @@ MODULE etautils
 
     real(rp), private :: density_factor = 0.0 !module private density_factor using planet radius
     real(rp), private :: pressure_factor = 0.0
-    logical , private :: doRescaleDef = .true. !Whether to rescale D,P => eta
 
     real(rprec), private :: sclmass(RCMNUMFLAV) !xmass prescaled to proton
     integer    , private, dimension(RCMNUMFLAV,2) :: flavorBnds
@@ -21,11 +20,6 @@ MODULE etautils
     real(rp), private, parameter :: kapDefault = 6.0
 
     real(rp), private, dimension(RCMNUMFLAV) :: kapDefs
-
-    !Kind of hacky limits to Ti/Te ratio
-    real(rp), private, parameter :: TioTeMax = 20.0
-    real(rp), private, parameter :: TioTeMin = 0.25
-    
 
     contains
 
@@ -278,7 +272,7 @@ MODULE etautils
         if (present(doRescaleO)) then
             doRescale = doRescaleO
         else
-            doRescale = .true.
+            doRescale = doRescaleDef
         endif
 
         if (present(doKapO)) then
@@ -297,7 +291,6 @@ MODULE etautils
 
         if (present(tioteO)) then !Use specified Ti/Te
             TiovTe = tioteO
-            call ClampTioTe(TiovTe) !Ensure reasonable number
         else !Use default from defs
             TiovTe = tiote
         endif
@@ -332,7 +325,7 @@ MODULE etautils
         if (present(doRescaleO)) then
             doRescale = doRescaleO
         else
-            doRescale = .true.
+            doRescale = doRescaleDef
         endif
 
         if (present(doKapO)) then
@@ -507,12 +500,6 @@ MODULE etautils
         endif
 
     END SUBROUTINE GetRescaleAB
-
-    SUBROUTINE ClampTioTe(TiovTe)
-        REAL(rprec), intent(inout)  :: TiovTe
-        if (TiovTe<TioTeMin) TiovTe = TioTeMin
-        if (TiovTe>TioTeMax) TiovTe = TioTeMax
-    END SUBROUTINE ClampTioTe
 
 !======
     !Specific PSD types

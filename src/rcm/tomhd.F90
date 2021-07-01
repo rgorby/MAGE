@@ -92,7 +92,6 @@ MODULE tomhd_mod
       integer :: i,j,jp,klow,k
       REAL(rprec), dimension(kcsize) :: etaMax,etaNew,etaOld
       REAL(rprec) :: TauDP,wDP,wgt
-      LOGICAL :: doBlend
 
       !Set lowest RC channel
       if (use_plasmasphere) then
@@ -120,7 +119,7 @@ MODULE tomhd_mod
       !$OMP PARALLEL DO default(shared) &
       !$OMP schedule(dynamic) &
       !$OMP private(i,j,jp,TauDP,wDP,wgt,k) &
-      !$OMP private(etaMax,etaNew,etaOld,doBlend)
+      !$OMP private(etaMax,etaNew,etaOld)
       DO j = 1, jsize
         !i,j is index in RCM grid
         !i,jp is index in RCM-MHD grid
@@ -141,7 +140,7 @@ MODULE tomhd_mod
           Pion(i,j) = max(Pion(i,j),rcm_pFloor/rcmPScl)
           Pele(i,j) = max(Pele(i,j),rcm_pFloor/rcmPScl)
 
-          call DPP2eta(Drc(i,j),Pion(i,j),Pele(i,j),vm(i,j),etaMax,doRescaleO=.true.)
+          call DPP2eta(Drc(i,j),Pion(i,j),Pele(i,j),vm(i,j),etaMax)
         !Get timescale to blend over
           TauDP = DriftPeriod(Drc(i,j),Prc(i,j),rmin(i,j),RCMApp%Bmin(i,jp),RCMApp%radcurv(i,jp),RCMApp%planet_radius)
           wDP = RCMApp%dtCpl/TauDP !Drift period
