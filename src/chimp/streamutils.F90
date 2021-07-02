@@ -36,8 +36,8 @@ module streamutils
         end subroutine OneStep_T
     end interface
 
-    procedure(OneStep_T), pointer :: StreamStep=>Step_RKF45
-    !procedure(OneStep_T), pointer :: StreamStep=>Step_RK4L
+    !procedure(OneStep_T), pointer :: StreamStep=>Step_RKF45
+    procedure(OneStep_T), pointer :: StreamStep=>Step_RK4L
 
     contains
 
