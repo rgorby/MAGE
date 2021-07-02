@@ -9,20 +9,22 @@ module streamline
 
     implicit none
 
+    real(rp), parameter, private :: ShueScl = 1.5 !Safety factor for Shue MP
     contains
 
-    subroutine genStream(Model,ebState,x0,t,fL,MaxStepsO)
+    subroutine genStream(Model,ebState,x0,t,fL,MaxStepsO,doShueO)
         real(rp), intent(in) :: x0(NDIM),t
         type(chmpModel_T), intent(in) :: Model
         type(ebState_T), intent(in)   :: ebState
         type(fLine_T), intent(inout) :: fL
         integer , intent(in), optional :: MaxStepsO
+        logical , intent(in), optional :: doShueO
 
-        integer :: N1,N2,i,Np,Nm,n
+        integer :: N1,N2,i,Np,Nm,n,MaxN
         real(rp) :: dx(NDIM)
         real(rp) :: Xn(0:MaxFL,NDIM,2),Vn(0:MaxFL,0:NumVFL,2)
         integer :: ijkn(0:MaxFL,NDIM,2)
-        logical :: inDom
+        logical :: inDom,doShue
 
         !Start by emptying line
         call cleanStream(fL)
@@ -50,13 +52,17 @@ module streamline
         endif
 
         if (present(MaxStepsO)) then
-            call genTrace(Model,ebState,x0,t,Xn(:,:,1),ijkn(:,:,1),Vn(:,:,1),N1,-1,MaxStepsO)
-            call genTrace(Model,ebState,x0,t,Xn(:,:,2),ijkn(:,:,2),Vn(:,:,2),N2,+1,MaxStepsO)
-
+            MaxN = MaxStepsO
         else
-            call genTrace(Model,ebState,x0,t,Xn(:,:,1),ijkn(:,:,1),Vn(:,:,1),N1,-1)
-            call genTrace(Model,ebState,x0,t,Xn(:,:,2),ijkn(:,:,2),Vn(:,:,2),N2,+1)
+            MaxN = MaxFL
         endif
+        if (present(doShueO)) then
+            doShue = doShueO
+        else
+            doShue = .false.
+        endif
+        call genTrace(Model,ebState,x0,t,Xn(:,:,1),ijkn(:,:,1),Vn(:,:,1),N1,-1,MaxN,doShue)
+        call genTrace(Model,ebState,x0,t,Xn(:,:,2),ijkn(:,:,2),Vn(:,:,2),N2,+1,MaxN,doShue)
 
         !Create field line
         fL%isGood = .true.
@@ -613,7 +619,7 @@ module streamline
 !Tracing routines
     
     !Calculate one-sided trace (in sgn direction)
-    subroutine genTrace(Model,ebState,x0,t,xyzn,ijkn,vM,Np,sgn,MaxStepsO)
+    subroutine genTrace(Model,ebState,x0,t,xyzn,ijkn,vM,Np,sgn,MaxStepsO,doShueO)
         type(chmpModel_T), intent(in) :: Model
         type(ebState_T), intent(in)   :: ebState
         real(rp), intent(in) :: x0(NDIM),t
@@ -622,18 +628,24 @@ module streamline
         integer , intent(out) :: Np
         integer , intent(in) :: sgn
         integer , intent(in), optional :: MaxStepsO
+        logical , intent(in), optional :: doShueO
 
         integer :: MaxSteps
         type(GridPoint_T) :: gPt
         real(rp) :: h
         real(rp), dimension(NDIM) :: B,oB,dx
         real(rp), dimension(NVARMHD) :: Q
-        logical :: inDom
+        logical :: inDom,doShue
 
         if (present(MaxStepsO)) then
             MaxSteps = MaxStepsO
         else
             MaxSteps = MaxFL
+        endif
+        if (present(doShueO)) then
+            doShue = doShueO
+        else
+            doShue = .false.
         endif
 
     !Initialize
@@ -680,6 +692,10 @@ module streamline
 
         !Check if we're done
             inDom = inDomain(gPt%xyz,Model,ebState%ebGr) .and. (norm2(dx)>TINY)
+            if (doShue) then
+                inDom = inDom .and. inShueMP_SM(gPt%xyz,ShueScl)
+            endif
+
             if (inDom) Np = Np + 1
         enddo
 
@@ -713,7 +729,6 @@ module streamline
         real(rp) :: eps,h
         real(rp), dimension(NDIM) :: dx,B,oB
         logical :: inDom,isSC,isDone
-        real(rp), parameter :: ShueScl = 1.5 !Safety factor for Shue MP
 
         if (present(epsO)) then
             eps = epsO

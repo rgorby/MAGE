@@ -12,7 +12,6 @@ module streamutils
     real(rp), dimension(NumRKF45), parameter, private :: & !Coefficients for RKF45
                     RKF45_LO = [25.0/216,0.0,1408.0/2565 ,2197.0/4104  ,-1.0/5 ,0.0   ], &
                     RKF45_HO = [16.0/216,0.0,6656.0/12825,28561.0/56430,-9.0/50,2.0/55]
-    real(rp), parameter, private :: eMax = 8.0 !Units of local cell
 
     !Holder for data defining point on grid
     type GridPoint_T
@@ -36,10 +35,39 @@ module streamutils
         end subroutine OneStep_T
     end interface
 
-    !procedure(OneStep_T), pointer :: StreamStep=>Step_RKF45
-    procedure(OneStep_T), pointer :: StreamStep=>Step_RK4L
+    procedure(OneStep_T), pointer :: StreamStep=>Step_MAGE
 
     contains
+
+    !Combines speedy method away from the axis w/ more careful stepping nearby
+    subroutine Step_MAGE(gpt,Model,ebState,eps,h,dx,iB,oB)
+        type(GridPoint_T), intent(inout) :: gpt
+        type(chmpModel_T), intent(in)    :: Model
+        type(ebState_T)  , intent(in)    :: ebState
+        real(rp), intent(in) :: eps
+        real(rp), intent(inout) :: h,dx(NDIM)
+        real(rp), intent(in) , dimension(NDIM), optional :: iB
+        real(rp), intent(out), dimension(NDIM), optional :: oB
+
+        integer :: Nr,j0
+        logical :: isAxS,isAxE
+
+        if ( (.not. present(iB)) .or. (.not. present(oB)) ) then
+            write(*,*) "Non-optional error in step_mage"
+            stop
+        endif
+        !Get approx number of rings, 4/8/12/16 (DQOH)
+        Nr = nint( 4*( log(1.0*ebState%ebGr%Nkp/64.0)/log(2.0) + 1) )
+        j0 = gpt%ijkG(JDIR)
+        isAxS = (j0 <= ebState%ebGr%js+Nr)
+        isAxE = (j0 >= ebState%ebGr%je-Nr)
+        
+        if (isAxS .or. isAxE) then
+            call Step_RKF45(gpt,Model,ebState,eps,h,dx,iB,oB)
+        else
+            call Step_RK4L (gpt,Model,ebState,eps,h,dx,iB,oB)
+        endif
+    end subroutine Step_MAGE
 
     subroutine Step_FE(gpt,Model,ebState,eps,h,dx,iB,oB)
         type(GridPoint_T), intent(inout) :: gpt
@@ -67,88 +95,7 @@ module streamutils
 
     end subroutine Step_FE
 
-    subroutine Step_BS23(gpt,Model,ebState,eps,h,dx,iB,oB)
-        type(GridPoint_T), intent(inout) :: gpt
-        type(chmpModel_T), intent(in)    :: Model
-        type(ebState_T)  , intent(in)    :: ebState
-        real(rp), intent(in) :: eps
-        real(rp), intent(inout) :: h,dx(NDIM)
-        real(rp), intent(in) , dimension(NDIM), optional :: iB
-        real(rp), intent(out), dimension(NDIM), optional :: oB
-
-
-        real(rp), dimension(NDIM) :: x0,x2,x3,x4,k1,k2,k3,k4
-        real(rp), dimension(NDIM) :: dxLO,dxHO,B
-        real(rp) :: ddx,sScl,absh
-        logical :: isGoods(NumBS23),isG
-        real(rp), parameter :: eStpT = 1.0e-3
-        real(rp), parameter :: dlMax = 2.0 !Max cell length
-
-        write(*,*) 'This method needs to be debugged!'
-        isGoods = .false.
-        x0 = gpt%xyz
-
-        if (present(iB)) then
-            k1 = h*normVec(iB)
-            isGoods(1) = .true.
-        else
-            k1 = h*FastHat(x0,gPt%t,Model,ebState,isGoods(1),gPt%ijkG)
-        endif
-        if (all(isGoods(1:1))) then
-            x2 = x0 + k1/2.0
-            k2 = h*FastHat(x2,gPt%t,Model,ebState,isGoods(2),gPt%ijkG)
-        endif
-        if (all(isGoods(1:2))) then
-            x3 = x0 + (3.0/4)*k2
-            k3 = h*FastHat(x3,gPt%t,Model,ebState,isGoods(3),gPt%ijkG)
-        endif
-        
-        if (all(isGoods(1:3))) then
-            dxHO = (2*k1+3*k2+4*k3)/9.0
-            x4 = x0 + dxHO !Actual solution
-            B = FastMag(x4,gPt%t,Model,ebState,isGoods(4),gPt%ijkG)
-            if (present(oB)) then
-                oB = B
-            endif
-            k4 = h*normVec(B)
-        endif
-        !Check for failure
-        if (.not. all(isGoods)) then
-            !At least one step was bad
-            dx = 0.0
-            h = 0.0
-            if (present(oB)) oB = 0.0
-            return
-        endif
-    !Now finish up
-        dxLO = (7*k1+6*k2+8*k3+3*k4)/24.0
-        dx = dxHO
-        
-    ! !Kutta-Merson style
-    !     ddx = norm2(dxHO-dxLO)/gpt%dl
-    !     if (ddx >= eStpT) then
-    !         h = h/2.0 !Reduce step
-    !     else if (ddx <= eStpT/64.0) then
-    !         h = 2.0*h !Increase step
-    !     endif
-    !     absh = abs(h)
-    !     call ClampValue(absh,eps*gpt%dl,eMax*gpt%dl)
-        
-
-    !Embedded opt style
-        ! ddx = max( norm2(dxLO-dxHO),TINY )
-        ! !sScl = 0.9*0.7*( (StreamTol/ddx)**(0.5) )
-        ! !sScl = 0.8*(StreamTol/ddx)**(0.25)
-
-        ! !Now calculate new step
-        ! absh = abs(h)*sScl !Optimal value according to math
-        ! !Clamp min/max step based on fraction of cell size
-        ! call ClampValue(absh,eps*gpt%dl,eMax*gpt%dl)
-
-        h = sign(absh,h)
-
-    end subroutine Step_BS23
-
+    !RK4 w/ linearized substeps
     subroutine Step_RK4L(gpt,Model,ebState,eps,h,dx,iB,oB)
         type(GridPoint_T), intent(inout) :: gpt
         type(chmpModel_T), intent(in)    :: Model
@@ -167,7 +114,8 @@ module streamutils
 
         x0 = gpt%xyz
         !Need Jacobian, using streamlined routine
-        JacB = FastJac(x0,gPt%t,Model,ebState,gPt%ijkG)
+        JacB = FastJacDB(x0,gPt%t,Model,ebState,gPt%ijkG) + Model%JacB0(x0) !Add background
+        
         if (present(iB)) then
             B = iB
         else
@@ -196,6 +144,8 @@ module streamutils
         ! <= 3x dsOld, dl
         ! >= eps*dl
         call ClampValue(dsmag,eps*gpt%dl,min(3*dsOld,gpt%dl))
+        !dsmag = min(eps*Lb,3*dsOld,eps*gpt%dl)
+
         h = sig*dsmag !Step length
     !Do step
         ds = h/max(MagB,TINY) !Streamline units
@@ -299,6 +249,88 @@ module streamutils
         endif
     end subroutine Step_RKF45
 
+    subroutine Step_BS23(gpt,Model,ebState,eps,h,dx,iB,oB)
+        type(GridPoint_T), intent(inout) :: gpt
+        type(chmpModel_T), intent(in)    :: Model
+        type(ebState_T)  , intent(in)    :: ebState
+        real(rp), intent(in) :: eps
+        real(rp), intent(inout) :: h,dx(NDIM)
+        real(rp), intent(in) , dimension(NDIM), optional :: iB
+        real(rp), intent(out), dimension(NDIM), optional :: oB
+
+
+        real(rp), dimension(NDIM) :: x0,x2,x3,x4,k1,k2,k3,k4
+        real(rp), dimension(NDIM) :: dxLO,dxHO,B
+        real(rp) :: ddx,sScl,absh
+        logical :: isGoods(NumBS23),isG
+        real(rp), parameter :: eStpT = 1.0e-3
+        real(rp), parameter :: dlMax = 2.0 !Max cell length
+
+        write(*,*) 'This method needs to be debugged!'
+        isGoods = .false.
+        x0 = gpt%xyz
+
+        if (present(iB)) then
+            k1 = h*normVec(iB)
+            isGoods(1) = .true.
+        else
+            k1 = h*FastHat(x0,gPt%t,Model,ebState,isGoods(1),gPt%ijkG)
+        endif
+        if (all(isGoods(1:1))) then
+            x2 = x0 + k1/2.0
+            k2 = h*FastHat(x2,gPt%t,Model,ebState,isGoods(2),gPt%ijkG)
+        endif
+        if (all(isGoods(1:2))) then
+            x3 = x0 + (3.0/4)*k2
+            k3 = h*FastHat(x3,gPt%t,Model,ebState,isGoods(3),gPt%ijkG)
+        endif
+        
+        if (all(isGoods(1:3))) then
+            dxHO = (2*k1+3*k2+4*k3)/9.0
+            x4 = x0 + dxHO !Actual solution
+            B = FastMag(x4,gPt%t,Model,ebState,isGoods(4),gPt%ijkG)
+            if (present(oB)) then
+                oB = B
+            endif
+            k4 = h*normVec(B)
+        endif
+        !Check for failure
+        if (.not. all(isGoods)) then
+            !At least one step was bad
+            dx = 0.0
+            h = 0.0
+            if (present(oB)) oB = 0.0
+            return
+        endif
+    !Now finish up
+        dxLO = (7*k1+6*k2+8*k3+3*k4)/24.0
+        dx = dxHO
+        
+    ! !Kutta-Merson style
+    !     ddx = norm2(dxHO-dxLO)/gpt%dl
+    !     if (ddx >= eStpT) then
+    !         h = h/2.0 !Reduce step
+    !     else if (ddx <= eStpT/64.0) then
+    !         h = 2.0*h !Increase step
+    !     endif
+    !     absh = abs(h)
+    !     call ClampValue(absh,eps*gpt%dl,eMax*gpt%dl)
+        
+
+    !Embedded opt style
+        ! ddx = max( norm2(dxLO-dxHO),TINY )
+        ! !sScl = 0.9*0.7*( (StreamTol/ddx)**(0.5) )
+        ! !sScl = 0.8*(StreamTol/ddx)**(0.25)
+
+        ! !Now calculate new step
+        ! absh = abs(h)*sScl !Optimal value according to math
+        ! !Clamp min/max step based on fraction of cell size
+        ! call ClampValue(absh,eps*gpt%dl,eMax*gpt%dl)
+
+        h = sign(absh,h)
+
+    end subroutine Step_BS23
+
     !Return magnetic field unit vector at given point/time
     function FastHat(xyz,t,Model,ebState,isIn,ijkG) result(bhat)
         real(rp), intent(in) :: xyz(NDIM),t
@@ -363,12 +395,12 @@ module streamutils
     !Return jacobian of B at given point/time
     !NOTE: This assumes ijk is CORRECT and xyz is indomain and eb is static
     !NOTE: This reproduces a lot of ebinterp code but is designed to be streamlined/faster
-    function FastJac(xyz,t,Model,ebState,ijk) result(JacB)
+    recursive function FastJacDB(xyz,t,Model,ebState,ijk) result(JacDB)
         real(rp), intent(in) :: xyz(NDIM),t
         type(chmpModel_T), intent(in) :: Model
         type(ebState_T), intent(in)   :: ebState
         integer, intent(in) :: ijk(NDIM)
-        real(rp), dimension(NDIM,NDIM) :: JacB
+        real(rp), dimension(NDIM,NDIM) :: JacDB
 
         real(rp), dimension(NDIM,NDIM) :: Tix
         real(rp), dimension(NDIM)      :: ezp,wE,wZ,wP,wEp,wZp,wPp
@@ -377,7 +409,65 @@ module streamutils
         real(rp), dimension(Nw,Nw,Nw)  :: dBn !Holder
         integer :: i,j,k,n,m, i0,j0,k0
 
+        !Variables for axis handling
+        integer :: ip,jp,kp,ijkAx(NDIM)
+        real(rp) :: wAx
+        real(rp), dimension(NDIM) :: Xp,Xm,Xc
+        logical :: isAxisS,isAxisE
+        real(rp), dimension(NDIM,NDIM) :: pJacDB,mJacDB
+        integer, parameter :: dAxI=1
+
         i0 = ijk(IDIR) ; j0 = ijk(JDIR) ; k0 = ijk(KDIR)
+
+    !Handle axis
+        isAxisS = .false.
+        isAxisE = .false.
+        if ( j0 <= ebState%ebGr%js+dAxI ) then
+            isAxisS = .true.
+        endif
+        if ( j0 >= ebState%ebGr%je-dAxI ) then
+            isAxisE = .true.
+        endif
+
+        if (isAxisS .or. isAxisE) then
+            associate( ebGr=>ebState%ebGr )
+            !Do different calculation at axis
+            Xc = ebGr%xyzcc(i0,j0,k0,XDIR:ZDIR)
+            if (isAxisS) then
+            !Positive displacement
+                ip = i0;jp = ebGr%js+dAxI+1;kp = k0
+                Xp = ebGr%xyzcc(ip,jp,kp,XDIR:ZDIR)
+                ijkAx = [ip,jp,kp]
+                pJacDB = FastJacDB(Xp,t,Model,ebState,ijkAx)
+            !Negative displacement
+                call ijk2Active(Model,ebGr,i0,ebGr%js-2-dAxI,k0,ip,jp,kp)
+                Xm = ebGr%xyzcc(ip,jp,kp,XDIR:ZDIR)
+                ijkAx = [ip,jp,kp]
+                mJacDB = FastJacDB(Xm,t,Model,ebState,ijkAx)
+            !Weight for P (closer)
+                wAx = norm2(Xm-Xc)/norm2(Xp-Xm)
+            else !Negative axis
+            !Positive displacement, flipping positive (to closer point)   
+                ip = i0;jp = ebGr%je-1-dAxI;kp = k0
+                Xp = ebGr%xyzcc(ip,jp,kp,XDIR:ZDIR)
+                ijkAx = [ip,jp,kp]
+                pJacDB = FastJacDB(Xp,t,Model,ebState,ijkAx)
+            !Negative displacement
+                call ijk2Active(Model,ebGr,i0,ebGr%je+2+dAxI,k0,ip,jp,kp)
+                Xm = ebGr%xyzcc(ip,jp,kp,XDIR:ZDIR)
+                ijkAx = [ip,jp,kp]
+                mJacDB = FastJacDB(Xm,t,Model,ebState,ijkAx)
+            !Weight for P (closer)
+                wAx = norm2(Xm-Xc)/norm2(Xp-Xm)   
+            endif
+
+            !Interpolate dJac across axis (both cases)
+            JacDB = wAx*pJacDB + (1-wAx)*mJacDB
+
+            return !We're done here
+            end associate
+        endif !Axis
+
     !Pull stencil
         dB = ebState%eb1%dB(i0-1:i0+1,j0-1:j0+1,k0-1:k0+1,XDIR:ZDIR)
     !Get mapping and weights
@@ -419,15 +509,13 @@ module streamutils
         do m=1,NDIM !Derivative direction (x,y,z)
             do n=1,NDIM !Vector component
                 dBn = dB(:,:,:,n)
-                JacB(n,m) =   Tix(IDIR,m)*FastColon(eW,dBn)  &
-                            + Tix(JDIR,m)*FastColon(zW,dBn)  &
-                            + Tix(KDIR,m)*FastColon(pW,dBn)
+                JacDB(n,m) =   Tix(IDIR,m)*FastColon(eW,dBn)  &
+                             + Tix(JDIR,m)*FastColon(zW,dBn)  &
+                             + Tix(KDIR,m)*FastColon(pW,dBn)
             enddo
         enddo
 
-        JacB = JacB + Model%JacB0(xyz) !Add background
-
-    end function FastJac
+    end function FastJacDB
 
     function getDiag(ebGr,ijk) result (dl)
         type(ebGrid_T), intent(in)   :: ebGr

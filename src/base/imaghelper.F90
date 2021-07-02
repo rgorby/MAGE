@@ -106,7 +106,7 @@ module imaghelper
 		logical :: inShueMP
 		real(rp), intent(in), optional :: sSclO
 		real(rp) :: R,R0,RM,sScl
-
+		
 		if (present(sSclO)) then
 			sScl = sSclO
 		else

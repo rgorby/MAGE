@@ -198,6 +198,8 @@ module rcmimag
         real(rp) :: maxRad
         logical :: isLL,doHackIC
         
+        call UpdateTM03(vApp%time) !Update plasma sheet model for MP finding and such
+        
         associate(RCMApp => imag%rcmCpl)
 
         RCMApp%llBC  = vApp%mhd2chmp%lowlatBC
@@ -211,7 +213,6 @@ module rcmimag
 
         call Tic("RCM_TUBES")
         if (doFakeTube) write(*,*) "Using fake flux tubes for testing!"
-            
             
     !Load RCM tubes
        !$OMP PARALLEL DO default(shared) collapse(2) &
