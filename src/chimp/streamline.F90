@@ -5,16 +5,18 @@ module streamline
     use ebinterp
     use earthhelper
     use streamutils
+    use imaghelper
 
     implicit none
 
     contains
 
-    subroutine genStream(Model,ebState,x0,t,fL)
+    subroutine genStream(Model,ebState,x0,t,fL,MaxStepsO)
         real(rp), intent(in) :: x0(NDIM),t
         type(chmpModel_T), intent(in) :: Model
         type(ebState_T), intent(in)   :: ebState
         type(fLine_T), intent(inout) :: fL
+        integer , intent(in), optional :: MaxStepsO
 
         integer :: N1,N2,i,Np,Nm,n
         real(rp) :: dx(NDIM)
@@ -47,9 +49,15 @@ module streamline
             fl%lnVars(PRESSURE)%idStr = "P"
         endif
 
-        call genTrace(Model,ebState,x0,t,Xn(:,:,1),ijkn(:,:,1),Vn(:,:,1),N1,-1)
-        call genTrace(Model,ebState,x0,t,Xn(:,:,2),ijkn(:,:,2),Vn(:,:,2),N2,+1)
-        
+        if (present(MaxStepsO)) then
+            call genTrace(Model,ebState,x0,t,Xn(:,:,1),ijkn(:,:,1),Vn(:,:,1),N1,-1,MaxStepsO)
+            call genTrace(Model,ebState,x0,t,Xn(:,:,2),ijkn(:,:,2),Vn(:,:,2),N2,+1,MaxStepsO)
+
+        else
+            call genTrace(Model,ebState,x0,t,Xn(:,:,1),ijkn(:,:,1),Vn(:,:,1),N1,-1)
+            call genTrace(Model,ebState,x0,t,Xn(:,:,2),ijkn(:,:,2),Vn(:,:,2),N2,+1)
+        endif
+
         !Create field line
         fL%isGood = .true.
         fL%Nm = N1
@@ -605,7 +613,7 @@ module streamline
 !Tracing routines
     
     !Calculate one-sided trace (in sgn direction)
-    subroutine genTrace(Model,ebState,x0,t,xyzn,ijkn,vM,Np,sgn)
+    subroutine genTrace(Model,ebState,x0,t,xyzn,ijkn,vM,Np,sgn,MaxStepsO)
         type(chmpModel_T), intent(in) :: Model
         type(ebState_T), intent(in)   :: ebState
         real(rp), intent(in) :: x0(NDIM),t
@@ -613,12 +621,20 @@ module streamline
         integer , intent(inout) :: ijkn(0:MaxFL,NDIM)
         integer , intent(out) :: Np
         integer , intent(in) :: sgn
+        integer , intent(in), optional :: MaxStepsO
 
+        integer :: MaxSteps
         type(GridPoint_T) :: gPt
         real(rp) :: h
         real(rp), dimension(NDIM) :: B,oB,dx
         real(rp), dimension(NVARMHD) :: Q
         logical :: inDom
+
+        if (present(MaxStepsO)) then
+            MaxSteps = MaxStepsO
+        else
+            MaxSteps = MaxFL
+        endif
 
     !Initialize
         gPt%xyz = x0
@@ -627,7 +643,7 @@ module streamline
         inDom = inDomain(gPt%xyz,Model,ebState%ebGr)
 
     !Start main loop
-        do while (inDom .and. Np <= MaxFL)
+        do while (inDom .and. Np <= MaxSteps)
             if (Np == 0) then
                 !First time don't have guess
                 call locate(gPt%xyz,gPt%ijkG,Model,ebState%ebGr,inDom)
@@ -682,31 +698,33 @@ module streamline
     !Slimmed down projection to northern hemisphere for MAGE
     !RinO is optional cut-off inner radius when in northern hemisphere
     !epsO is optional epsilon (otherwise use Model default)
-    subroutine mageproject(Model,ebState,x0,t,xyz,Np,isG,RinO,epsO)
+    subroutine mageproject(Model,ebState,x0,t,xyz,Np,isG,epsO,MaxStepsO)
         type(chmpModel_T), intent(in) :: Model
         type(ebState_T), intent(in)   :: ebState
         real(rp), intent(in) :: x0(NDIM),t
         real(rp), intent(out) :: xyz(NDIM)
         integer, intent(out) :: Np
         logical, intent(out) :: isG
-        real(rp), intent(in), optional :: RinO,epsO
+        real(rp), intent(in), optional :: epsO
+        integer , intent(in), optional :: MaxStepsO
 
         type(GridPoint_T) :: gPt
-        integer :: sgn
-        real(rp) :: Rin,eps,h
+        integer :: sgn,MaxSteps
+        real(rp) :: eps,h
         real(rp), dimension(NDIM) :: dx,B,oB
         logical :: inDom,isSC,isDone
-
-        if (present(RinO)) then
-            Rin = RinO
-        else
-            Rin = 0.0
-        endif
+        real(rp), parameter :: ShueScl = 1.5 !Safety factor for Shue MP
 
         if (present(epsO)) then
             eps = epsO
         else
             eps = Model%epsds
+        endif
+
+        if (present(MaxStepsO)) then
+            MaxSteps = MaxStepsO
+        else
+            MaxSteps = MaxFL
         endif
 
         sgn = +1 !Step towards NH
@@ -717,7 +735,7 @@ module streamline
         Np = 0
         call CheckDone(Model,ebState,gPt%xyz,inDom,isSC,isDone)
 
-        do while ( (.not. isDone) .and. (Np <= MaxFL) )
+        do while ( (.not. isDone) .and. (Np <= MaxSteps) )
         !Locate and get fields
             !Get location in ijk using old ijk as guess if possible
             if (Np == 0) then
@@ -756,22 +774,16 @@ module streamline
         xyz = gPt%xyz
     !Finished loop somehow, decide if it was good
         
-        !Got to short circuit, we're good
-        if (isSC) then
-            isG = .true.
-            return
-        endif
-
-        !Timed out, not good
-        if (Np >= MaxFL) then
+        if (isSC .or. (Np>=MaxSteps)) then
+            !Got short circuited or timed out, not good
             isG = .false.
             return
         endif
+
         if (inDom) then
             !This shouldn't happen
             !$OMP CRITICAL
             write(*,*) 'How did you get here? Bad thing in mageproject'
-            write(*,*) 'x0/Np/h,|dx| = ',x0,xyz,Np,h,norm2(dx)
             !$OMP END CRITICAL
             stop
         else
@@ -791,25 +803,27 @@ module streamline
                 type(ebState_T), intent(in)   :: ebState
                 real(rp), intent(inout) :: xyz(NDIM)
                 logical, intent(out) :: inDom,isSC,isDone
-
-                real(rp) :: rad
+                logical :: inMP
 
                 inDom = inDomain(xyz,Model,ebState%ebGr)
+                inMP  = inShueMP_SM(xyz,ShueScl)
+                
                 if (inDom) then
-                    !in domain, check for short cut to end
-                    rad = norm2(xyz)
-                    if ( (rad <= Rin) .and. (xyz(ZDIR)>=0.0) ) then
-                        isSC = .true. 
-                        xyz = DipoleShift(xyz,1.0_rp) !Dipole project to surface
-                        isDone = .true.
-                    else
-                        isSC = .false.
+                    !In domain, check if in Shue MP w/ safety factor
+                    if (inMP) then
+                        isSC   = .false.
                         isDone = .false.
+                    else
+                        !Not in shue mp
+                        isSC = .true.
+                        isDone = .true.
                     endif
                 else
+                    !Straight up out of domain
                     isSC = .false.
                     isDone = .true.
                 endif
+
             end subroutine CheckDone
 
     end subroutine mageproject

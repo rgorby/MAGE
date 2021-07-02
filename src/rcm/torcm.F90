@@ -189,7 +189,7 @@ MODULE torcm_mod
 
       !Handle cold start, must happen after eeta_new is calculated (temp/press2eta)
       IF (icontrol==RCMCOLDSTART) THEN
-        write(6,*)' TORCM: initializing the RCM arrays at t=',itimei
+        !write(6,*)' TORCM: initializing the RCM arrays at t=',itimei
         bndloc_old = bndloc
         imin_j_old = imin_j
         !Now set RCM domain values to MHD state values

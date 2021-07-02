@@ -36,7 +36,8 @@ module streamutils
         end subroutine OneStep_T
     end interface
 
-    procedure(OneStep_T), pointer :: StreamStep=>Step_RK4L
+    procedure(OneStep_T), pointer :: StreamStep=>Step_RKF45
+    !procedure(OneStep_T), pointer :: StreamStep=>Step_RK4L
 
     contains
 
@@ -80,7 +81,10 @@ module streamutils
         real(rp), dimension(NDIM) :: dxLO,dxHO,B
         real(rp) :: ddx,sScl,absh
         logical :: isGoods(NumBS23),isG
+        real(rp), parameter :: eStpT = 1.0e-3
+        real(rp), parameter :: dlMax = 2.0 !Max cell length
 
+        write(*,*) 'This method needs to be debugged!'
         isGoods = .false.
         x0 = gpt%xyz
 
@@ -119,15 +123,29 @@ module streamutils
     !Now finish up
         dxLO = (7*k1+6*k2+8*k3+3*k4)/24.0
         dx = dxHO
-        ddx = max( norm2(dxLO-dxHO),TINY )
-        !sScl = 0.7*( (StreamTol/ddx)**(0.5) )
-        sScl = 0.8*(StreamTol/ddx)**(0.25)
-        !Now calculate new step
-        absh = abs(h)*sScl !Optimal value according to math
-        !Clamp min/max step based on fraction of cell size
-        call ClampValue(absh,eps*gpt%dl,eMax*gpt%dl)
-        !write(*,*) 'x/dx/h/h = ', x0,dxHO,h,sign(absh,h)
-        !h = sign(absh,h)
+        
+    ! !Kutta-Merson style
+    !     ddx = norm2(dxHO-dxLO)/gpt%dl
+    !     if (ddx >= eStpT) then
+    !         h = h/2.0 !Reduce step
+    !     else if (ddx <= eStpT/64.0) then
+    !         h = 2.0*h !Increase step
+    !     endif
+    !     absh = abs(h)
+    !     call ClampValue(absh,eps*gpt%dl,eMax*gpt%dl)
+        
+
+    !Embedded opt style
+        ! ddx = max( norm2(dxLO-dxHO),TINY )
+        ! !sScl = 0.9*0.7*( (StreamTol/ddx)**(0.5) )
+        ! !sScl = 0.8*(StreamTol/ddx)**(0.25)
+
+        ! !Now calculate new step
+        ! absh = abs(h)*sScl !Optimal value according to math
+        ! !Clamp min/max step based on fraction of cell size
+        ! call ClampValue(absh,eps*gpt%dl,eMax*gpt%dl)
+
+        h = sign(absh,h)
 
     end subroutine Step_BS23
 
@@ -159,8 +177,8 @@ module streamutils
         else
             dsmag = MagB/MagJb
         endif
-        !ds = sign(1.0_rp,h)*eps*min(gpt%dl,dsmag)
-        ds = sign(1.0_rp,h)*min(gpt%dl,eps*dsmag)
+        ds = sign(1.0_rp,h)*eps*min(gpt%dl,dsmag)
+        !ds = sign(1.0_rp,h)*min(gpt%dl,eps*dsmag)
         !Save step for next round
         h = ds
 
@@ -204,7 +222,6 @@ module streamutils
         isGoods = .false.
         x0 = gpt%xyz
 
-
         if (present(iB)) then
             k1 = h*normVec(iB)
             isGoods(1) = .true.
@@ -246,12 +263,15 @@ module streamutils
         dxHO = RKF45_HO(1)*k1 + RKF45_HO(2)*k2 + RKF45_HO(3)*k3 + RKF45_HO(4)*k4 + RKF45_HO(5)*k5 + RKF45_HO(6)*k6
 
         ddx = max( norm2(dxLO-dxHO),TINY )
-        sScl = 0.84*( (StreamTol/ddx)**(0.25) )
+        !sScl = 0.84*( (StreamTol/ddx)**(0.25) )
+        sScl = 0.84*( (StreamTol*gpt%dl/ddx)**(0.25) ) !Relative
 
         !Now calculate new step
-        absh = abs(h)*sScl !Optimal value according to math
+        absh = 0.9*abs(h)*sScl !Optimal value according to math
         !Clamp min/max step based on fraction of cell size
-        call ClampValue(absh,eps*gpt%dl,eMax*gpt%dl)
+        !call ClampValue(absh,eps*gpt%dl,eMax*gpt%dl)
+        call ClampValue(absh,eps*gpt%dl,3*abs(h))
+
         h = sign(absh,h)
 
         !Using HO step (but see some comments about using LO for stiff problems)

@@ -235,7 +235,7 @@ module rcmimag
                         call FakeTube   (vApp,lat,lon,ijTube,imag%rcmFLs(i,j))
                     else
                         !Trace through MHD
-                        call MHDTube   (vApp,lat,lon,ijTube,imag%rcmFLs(i,j))
+                        call MHDTube   (vApp,lat,lon,ijTube,imag%rcmFLs(i,j),vApp%nTrc)
                     endif
                 endif
                 
@@ -307,12 +307,12 @@ module rcmimag
             RCMApp%toMHD = .not. (RCMApp%iopen == RCMTOPOPEN)
         else
             call SetIngestion(RCMApp)
-        !Can try to slim/increase squish domain here, but can be dicey
+            !Try to tailor region to do projections over
             ! !Find maximum extent of RCM domain (RCMTOPCLOSED but not RCMTOPNULL)
-            maxRad = maxval(norm2(RCMApp%X_bmin,dim=3),mask=(RCMApp%iopen == RCMTOPCLOSED))
-            
+            !maxRad = maxval(norm2(RCMApp%X_bmin,dim=3),mask=(RCMApp%iopen == RCMTOPCLOSED))
+            maxRad = maxval(norm2(RCMApp%X_bmin,dim=3),mask=.not. (RCMApp%iopen == RCMTOPOPEN))
+            maxNum = maxval(      RCMApp%nTrc              ,mask=.not. (RCMApp%iopen == RCMTOPOPEN))
             maxRad = maxRad/Rp_m
-            maxNum = maxval(RCMApp%nTrc,mask=.not. (RCMApp%iopen == RCMTOPOPEN))
             vApp%rTrc = imagScl*maxRad
             vApp%nTrc = nint(imagScl*maxNum)
         endif

@@ -13,18 +13,19 @@ module ebsquish
 
     !Projection type
     abstract interface
-        subroutine Projection_T(ebApp,xyz,t,x1,x2)
+        subroutine Projection_T(ebApp,xyz,t,x1,x2,MaxStep)
             Import :: rp,NDIM,ebTrcApp_T
             type(ebTrcApp_T), intent(in) :: ebApp
             real(rp), intent(in)  :: xyz(NDIM), t
             real(rp), intent(out) :: x1,x2
+            integer , intent(in), optional :: MaxStep
         end subroutine Projection_T
     end interface
 
     real(rp), parameter, private :: startEps = 0.05
     real(rp), parameter, private :: rEps = 0.125
     real(rp), parameter, private :: ShueScl = 1.5 !Safety factor for Shue MP
-    logical , parameter, private :: doDipTest = .true.
+    logical , parameter, private :: doDipTest = .false.
     contains
 
     !Find i-index of outer boundary of coupling domain
@@ -156,7 +157,7 @@ module ebsquish
                     xyz = ebGr%xyz(i,j,k,XDIR:ZDIR)
                     if (norm2(xyz) <= vApp%rTrc) then
                         !Do projection
-                        call ProjectXYZ(vApp%ebTrcApp,xyz,t,x1,x2)
+                        call ProjectXYZ(vApp%ebTrcApp,xyz,t,x1,x2,vApp%nTrc)
                     else
                         !Set null projection because outside radius
                         x1 = 0.0
@@ -339,11 +340,12 @@ module ebsquish
     end subroutine FillSkips
 
     !Project XYZ to R,phi at Z=0 plane
-    subroutine Proj2LP(ebApp,xyz,t,x1,x2)
+    subroutine Proj2LP(ebApp,xyz,t,x1,x2,MaxStep)
         type(ebTrcApp_T)  , intent(in) :: ebApp
         real(rp), dimension(NDIM), intent(in) :: xyz
         real(rp), intent(in) :: t
         real(rp), intent(out) :: x1,x2
+        integer , intent(in), optional :: MaxStep
 
         real(rp) :: L,phi,z
         real(rp), dimension(NDIM) :: xyzSeed,xy0
@@ -371,11 +373,12 @@ module ebsquish
     end subroutine Proj2LP
 
     !Project XYZ to lat-lon on ionosphere
-    subroutine Proj2LL(ebApp,xyz,t,x1,x2)
+    subroutine Proj2LL(ebApp,xyz,t,x1,x2,MaxStep)
         type(ebTrcApp_T), intent(in) :: ebApp
         real(rp), dimension(NDIM), intent(in) :: xyz
         real(rp), intent(in) :: t
         real(rp), intent(out) :: x1,x2
+        integer , intent(in), optional :: MaxStep
 
         real(rp), dimension(NDIM) :: xE,xyz0
         integer :: Np
@@ -387,7 +390,7 @@ module ebsquish
         x2 = 0.0
 
         !Do quick short-cut to safe us some effort
-        isGood = inShueMP_SM(xyz)
+        isGood = inShueMP_SM(xyz,ShueScl)
         if (.not. isGood) return
         
         if (doDipTest) then
@@ -406,9 +409,11 @@ module ebsquish
         else
            xyz0 = xyz
         end if
-
-        call mageproject(ebApp%ebModel,ebApp%ebState,xyz0,t,xE,Np,isGP)
-        
+        if (present(MaxStep)) then
+            call mageproject(ebApp%ebModel,ebApp%ebState,xyz0,t,xE,Np,isGP,MaxStepsO=MaxStep)
+        else
+            call mageproject(ebApp%ebModel,ebApp%ebState,xyz0,t,xE,Np,isGP)
+        endif
         dX = norm2(xyz0-xE)
         rC = ebApp%ebSquish%Rinner*(1.+rEps)
 

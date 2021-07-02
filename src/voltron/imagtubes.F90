@@ -94,11 +94,12 @@ module imagtubes
     end subroutine FakeTube
 
     !MHD flux-tube
-    subroutine MHDTube(vApp,lat,lon,ijTube,bTrc)
+    subroutine MHDTube(vApp,lat,lon,ijTube,bTrc,nTrcO)
         type(voltApp_T), intent(in) :: vApp
         real(rp), intent(in) :: lat,lon
         type(RCMTube_T), intent(out) :: ijTube
         type(fLine_T), intent(inout) :: bTrc
+        integer, intent(in), optional :: nTrcO
 
         real(rp) :: t, bMin,bIon
         real(rp), dimension(NDIM) :: x0, bEq, xyzIon
@@ -121,7 +122,12 @@ module imagtubes
 
         t = ebState%eb1%time !Time in CHIMP units
         
-        call genStream(ebModel,ebState,x0,t,bTrc)
+        if (present(nTrcO)) then
+            call genStream(ebModel,ebState,x0,t,bTrc,nTrcO)
+        else
+            call genStream(ebModel,ebState,x0,t,bTrc)
+        endif
+        
         !Topology
         !OCB =  0 (solar wind), 1 (half-closed), 2 (both ends closed)
         OCb = FLTop(ebModel,ebGr,bTrc)
