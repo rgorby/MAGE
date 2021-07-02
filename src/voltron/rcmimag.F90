@@ -23,10 +23,10 @@ module rcmimag
     
     implicit none
 
-    logical, private, parameter :: doFakeTube=.true. !Only for testing
+    logical, private, parameter :: doFakeTube=.false. !Only for testing
     integer, parameter, private :: MHDPad = 0 !Number of padding cells between RCM domain and MHD ingestion
     logical , private :: doTrickyTubes = .true.  !Whether to poison bad flux tubes
-    real(rp), private :: rTrc0 = 2.0 !Padding factor for RCM domain to ebsquish radius
+    real(rp), private :: imagScl = 1.5 !Safety factor for RCM=>ebsquish
     
     !Whether to call smooth tubes routine at all, see imagtubes for specific options
     logical , private :: doSmoothTubes = .false. 
@@ -98,6 +98,7 @@ module rcmimag
         call iXML%Set_Val(nBounce   ,"/Kaiju/gamera/source/nBounce"   ,nBounce   )
         call iXML%Set_Val(maxBetaLim,"/Kaiju/gamera/source/betamax"   ,maxBetaLim)
         call iXML%Set_Val(doBigIMag2Ion ,"imag2ion/doBigIMag2Ion",doBigIMag2Ion)
+        call iXML%Set_Val(imagScl ,"imag/safeScl",imagScl)
 
         if (isRestart) then
 
@@ -189,7 +190,7 @@ module rcmimag
         type(voltApp_T), intent(inout) :: vApp
         real(rp), intent(in) :: tAdv
 
-        integer :: i,j,n,nStp
+        integer :: i,j,n,nStp,maxNum
         real(rp) :: colat,lat,lon
         real(rp) :: dtAdv
         type(RCMTube_T) :: ijTube
@@ -237,7 +238,7 @@ module rcmimag
                         call MHDTube   (vApp,lat,lon,ijTube,imag%rcmFLs(i,j))
                     endif
                 endif
-
+                
                 !Stuff data into RCM
                 RCMApp%Vol(i,j)          = ijTube%Vol
                 RCMApp%bmin(i,j)         = ijTube%bmin
@@ -254,7 +255,7 @@ module rcmimag
                 RCMApp%radcurv(i,j)      = ijTube%rCurv
                 RCMApp%Tb(i,j)           = ijTube%Tb
                 RCMApp%wIMAG(i,j)        = ijTube%wIMAG
-
+                RCMApp%nTrc(i,j)         = imag%rcmFLs(i,j)%Nm+imag%rcmFLs(i,j)%Np
                 !mix variables are stored in this order (longitude,colatitude), hence the index flip
                 RCMApp%pot(i,j)          = mixPot(j,i)
 
@@ -311,7 +312,9 @@ module rcmimag
             maxRad = maxval(norm2(RCMApp%X_bmin,dim=3),mask=(RCMApp%iopen == RCMTOPCLOSED))
             
             maxRad = maxRad/Rp_m
-            vApp%rTrc = rTrc0*maxRad
+            maxNum = maxval(RCMApp%nTrc,mask=.not. (RCMApp%iopen == RCMTOPOPEN))
+            vApp%rTrc = imagScl*maxRad
+            vApp%nTrc = nint(imagScl*maxNum)
         endif
 
     !Pull data from RCM state for conductance calculations
@@ -480,10 +483,10 @@ module rcmimag
         class(rcmIMAG_T), intent(inout) :: imag
         real(rp), intent(in) :: MJD, time
 
-        integer :: i0,j0,maxIJ(2)
+        integer :: i0,j0,maxIJ(2),maxNum
 
         real(rp) :: maxPRCM,maxD,maxDP,maxPMHD,maxDMHD,maxL,maxMLT,maxBeta
-        real(rp) :: limP,limD,wTrust,wTMin,maxT,maxWT,maxLam
+        real(rp) :: limP,limD,wTrust,wTMin,maxT,maxWT,maxLam,maxLen
 
         associate(RCMApp => imag%rcmCpl)
     !Start by getting some data
@@ -510,6 +513,9 @@ module rcmimag
         wTrust = 100.0*wTrust
         !Get min confidence in MHD domain
         wTMin = 100.0*minval(RCMApp%wIMAG,mask=RCMApp%toMHD)
+    !Get some info about size of closed field domain
+        maxNum = maxval(RCMApp%nTrc,mask=.not. (RCMApp%iopen == RCMTOPOPEN))
+        maxLen = maxval(RCMApp%Lb  ,mask=.not. (RCMApp%iopen == RCMTOPOPEN))
 
     !Do some output
         if ((maxPRCM<TINY) .or. (time<0)) return
@@ -537,8 +543,10 @@ module rcmimag
         endif
         write (*, '(a,1f8.3,a)')             '      w/ T = ' , maxT, ' [keV]'
 
-        write (*, '(a,1f8.3,a)')             '  Max RC-D = ' , maxval(RCMApp%Nrcm,mask=RCMApp%toMHD)*rcmNScl,' [#/cc]'
-        write(*,'(a,I4,a,I4)') '  Channels: ', RCMApp%NkT, ' / ', RCMSIZEK
+        write (*, '(a,1f8.3,a)')               '  Max RC-D = ' , maxval(RCMApp%Nrcm,mask=RCMApp%toMHD)*rcmNScl,' [#/cc]'
+        write (*,'(a,1f8.3,I6,a)')             '  Max Tube = ', maxLen, maxNum, ' [Re,pts]'
+        write(*,'(a,I4,a,I4)')                 '  Channels: ', RCMApp%NkT, ' / ', RCMSIZEK
+
         write(*,'(a)',advance="no") ANSIRESET!, ''
 
         end associate

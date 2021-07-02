@@ -109,7 +109,7 @@ module ebtypes
 
     !Individual streamline
     type fLine_T
-        integer :: Nm,Np
+        integer :: Nm=0,Np=0
         real(rp), dimension(NDIM) :: x0 !Seed point
         real(rp), allocatable, dimension(:,:) :: xyz
 

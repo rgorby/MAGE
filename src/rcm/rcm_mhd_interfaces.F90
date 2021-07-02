@@ -62,6 +62,8 @@ module rcm_mhd_interfaces
         !RCM confidence weight, [0,1]
         real(rprec),allocatable :: wIMAG(:,:)
 
+        integer(iprec),allocatable :: nTrc(:,:) !Number of steps on this flux-tube
+
         !Arrays to hold error in D,P => eta => D',P'. Storing X'/X
         real(rprec), allocatable,dimension(:,:) :: errD,errP
         

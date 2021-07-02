@@ -113,9 +113,9 @@ module voltio
                 write (*, '(a)'                 )    '    IMag Ingestion'
                 write (*, '(a,1f7.2,a,1f7.2,a)' )    '       D/P = ', 100.0*DelD,'% /',100.0*DelP,'%'
                 write (*, '(a,1f7.2,a)'         )    '        dt = ', dtIM, ' [s]'
-
+                
+                !write (*,'(a,1f8.3,I6,a)')           '      xTrc = ', vApp%rTrc,vApp%nTrc, ' [r/n]'
             endif
-
             write (*, '(a,1f7.1,a)' ) '    Spent ', gamWait*100.0, '% of time waiting for Gamera'
             if (simRate>TINY) then
                 if (vApp%isSeparate) then

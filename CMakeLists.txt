@@ -41,7 +41,7 @@ add_compile_definitions(BRICKSIZE=${bricksize})
 mark_as_advanced(bricksize)
 
 #Hard-coded buffer for holding flux tubes
-set(MAXTUBESIZE 10000 CACHE STRING "Size of array buffer for holding flux tubes")
+set(MAXTUBESIZE 5000 CACHE STRING "Size of array buffer for holding flux tubes")
 add_compile_definitions(MAXTUBESIZE=${MAXTUBESIZE})
 
 #RCM grid size (required to be defined at compile time)

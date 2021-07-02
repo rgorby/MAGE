@@ -14,6 +14,8 @@ import kaipy.gamera.rcmpp as rcmpp
 import palettable
 import os
 import numpy.ma as ma
+import kaipy.kaiH5 as kh5
+import kaipy.kaiTools as ktools
 
 if __name__ == "__main__":
 	
@@ -173,6 +175,11 @@ if __name__ == "__main__":
 		toRCM = rcmpp.GetVarMask(rcmdata,nStp,"IOpen" ,I)
 	if (doFAC):
 		jBirk = rcmpp.GetVarMask(rcmdata,nStp,"birk" ,I)
+	fStr = fdir + "/" + ftag + ".h5"
+
+	MJD = kh5.tStep(fStr,nStp,aID="MJD")
+	utS = ktools.MJD2UT([MJD])
+	utDT= utS[0]
 	
 	AxL.set_title("RCM Pressure")
 
@@ -239,7 +246,9 @@ if __name__ == "__main__":
 	kv.addEarth2D(ax=AxR)
 	kv.SetAx(xyBds,AxR)
 
-	plt.suptitle("Step#%d"%(nStp),fontsize="x-large")
+	tStr = "\n\n\n" + utDT.strftime("%m/%d/%Y, %H:%M:%S")
+	#plt.suptitle("Step#%d"%(nStp),fontsize="x-large")
+	plt.suptitle(tStr,fontsize="x-large")
 
 	fOut = "qkrcmpic.png"
 	kv.savePic(fOut)

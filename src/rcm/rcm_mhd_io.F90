@@ -147,6 +147,7 @@ module rcm_mhd_io
         call AddOutVar(IOVars,"ieflux",RCMApp%flux   (:,:,RCMPROTON),uStr="ergs/cm2")
 
         call AddOutVar(IOVars,"birk",RCMApp%fac,uStr="uA/m2")
+        call AddOutVar(IOVars,"nTrc",RCMApp%nTrc*1.0_rp,uStr="steps")
 
         call AddOutVar(IOVars,"toMHD",merge(1.0_rp,0.0_rp,RCMApp%toMHD))
         call AddOutVar(IOVars,"errD",RCMApp%errD,uStr="X'/X")
