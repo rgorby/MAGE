@@ -314,7 +314,7 @@ module rcmimag
             maxNum = maxval(      RCMApp%nTrc              ,mask=.not. (RCMApp%iopen == RCMTOPOPEN))
             maxRad = maxRad/Rp_m
             vApp%rTrc = imagScl*maxRad
-            vApp%nTrc = nint(imagScl*maxNum)
+            vApp%nTrc = min( nint(imagScl*maxNum),MaxFL )
         endif
 
     !Pull data from RCM state for conductance calculations

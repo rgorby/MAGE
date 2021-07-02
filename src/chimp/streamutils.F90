@@ -159,46 +159,64 @@ module streamutils
         real(rp), intent(out), dimension(NDIM), optional :: oB
 
         real(rp), dimension(NDIM) :: Jb,Jb2,Jb3,F1,F2,F3,F4
-        real(rp), dimension(NDIM) :: x0,E,B
-        real(rp) :: ds,dsmag,MagB,MagJb
+        real(rp), dimension(NDIM) :: x0,B
+        real(rp), dimension(NDIM,NDIM) :: JacB
+        real(rp) :: dsmag,dsOld,ds,sig,MagB,MagJb,Lb
+        real(rp) :: ds2,ds3,ds4
         logical :: isGood
-        type(gcFields_T) :: gcF
 
         x0 = gpt%xyz
-        !Doing full field calc
-        call ebFields(x0,gPt%t,Model,ebState,E,B,gPt%ijkG,gcFields=gcF)
-
-        !Only using sign of h
-        MagB = norm2(B)
-        MagJb = norm2(gcF%JacB)
-        if (MagJb <= TINY) then
-            !Field is constant-ish, use local grid size
-            dsmag = gpt%dl
+        !Need Jacobian, using streamlined routine
+        JacB = FastJac(x0,gPt%t,Model,ebState,gPt%ijkG)
+        if (present(iB)) then
+            B = iB
         else
-            dsmag = MagB/MagJb
+            B = FastMag(x0,gPt%t,Model,ebState,isGood,gPt%ijkG)
         endif
-        ds = sign(1.0_rp,h)*eps*min(gpt%dl,dsmag)
-        !ds = sign(1.0_rp,h)*min(gpt%dl,eps*dsmag)
-        !Save step for next round
-        h = ds
 
-        !Convert ds to streamline units
-        ds = ds/max(MagB,TINY)
+        MagB = norm2(B)
+        if (MagB<TINY) then
+            !Get outta here
+            dx = 0.0
+            h  = 0.0
+            if (present(oB)) oB = 0.0
+            return
+        endif
 
+        MagJb = norm2(JacB)
+        Lb = MagB/max(MagJb,TINY)
+
+    !Get step length
+        !h is signed step, dsmag is absolute
+        sig = sign(1.0_rp,h)
+        dsOld = abs(h)
+        !Pick ds = eps*Lb
+        dsmag = eps*Lb
+        !Now constrain ds to be:
+        ! <= 3x dsOld, dl
+        ! >= eps*dl
+        call ClampValue(dsmag,eps*gpt%dl,min(3*dsOld,gpt%dl))
+        h = sig*dsmag !Step length
+    !Do step
+        ds = h/max(MagB,TINY) !Streamline units
         !Get powers of jacobian
-        Jb  = matmul(gcF%JacB,B  )
-        Jb2 = matmul(gcF%JacB,Jb )
-        Jb3 = matmul(gcF%JacB,Jb2)
-
+        Jb  = matmul(JacB,B  )
+        Jb2 = matmul(JacB,Jb )
+        Jb3 = matmul(JacB,Jb2)
+        !Get powers of ds
+        ds2 = ds*ds
+        ds3 = ds2*ds
+        ds4 = ds3*ds
         !Calculate steps
         F1 = ds*B
-        F2 = F1 + (ds*ds/2)*Jb
-        F3 = F2 + (ds*ds*ds/4)*Jb2
-        F4 = ds*B + ds*ds*Jb + (ds**3.0/2.0)*Jb2 + (ds**4.0/4.0)*Jb3
+        F2 = F1 + (ds2/2)*Jb
+        F3 = F2 + (ds3/4)*Jb2
+        F4 = 2*F3 - F1 + (ds4/4)*Jb3
+        !F4 = ds*B + ds*ds*Jb + (ds**3.0/2.0)*Jb2 + (ds**4.0/4.0)*Jb3
 
-        !Advance
+    !Advance
         dx = (F1+2*F2+2*F3+F4)/6.0
- 
+    !Finish up
         if (present(oB)) then
             oB = FastMag(x0+dx,gPt%t,Model,ebState,isGood,gpt%ijkG)
         endif
@@ -309,7 +327,7 @@ module streamutils
         real(rp), dimension(NDIM) :: B0
         real(rp), dimension(Nw,Nw,Nw) :: W
         real(rp), dimension(Nw,Nw,Nw,NDIM) :: Qb !Buffer
-        integer :: n,i0,j0,k0,i1,i2,i3
+        integer :: n,i0,j0,k0
 
         !B = fldInterp(xyz,t,Model,ebState,BFLD,isIn,ijkG)
         !Locate w/ guess
@@ -329,17 +347,87 @@ module streamutils
         do n=1,NDIM
             !NOTE: Avoiding doing below to avoid array temporary creation
             !B(n) = sum( W(:,:,:)*Qb(:,:,:,n) ) + B0(n)
-            B(n) = B0(n)
-            do i3=1,Nw
-                do i2=1,Nw
-                    do i1=1,Nw
-                        B(n) = B(n) + W(i1,i2,i3)*Qb(i1,i2,i3,n)
-                    enddo
+            B(n) = B0(n) + FastColon(W,Qb(:,:,:,n))
+        enddo
+
+    end function FastMag
+
+    !Fast tensor contraction, may want to toy w/ this for vectorization
+    function FastColon(A,B) result(ab)
+        real(rp), dimension(NDIM,NDIM), intent(in) :: A,B
+        real(rp) :: ab
+
+        ab = sum(A*B)
+    end function FastColon
+
+    !Return jacobian of B at given point/time
+    !NOTE: This assumes ijk is CORRECT and xyz is indomain and eb is static
+    !NOTE: This reproduces a lot of ebinterp code but is designed to be streamlined/faster
+    function FastJac(xyz,t,Model,ebState,ijk) result(JacB)
+        real(rp), intent(in) :: xyz(NDIM),t
+        type(chmpModel_T), intent(in) :: Model
+        type(ebState_T), intent(in)   :: ebState
+        integer, intent(in) :: ijk(NDIM)
+        real(rp), dimension(NDIM,NDIM) :: JacB
+
+        real(rp), dimension(NDIM,NDIM) :: Tix
+        real(rp), dimension(NDIM)      :: ezp,wE,wZ,wP,wEp,wZp,wPp
+        real(rp), dimension(Nw,Nw,Nw)  :: eW,zW,pW !Interpolation weights
+        real(rp), dimension(Nw,Nw,Nw,NDIM) :: dB  !Interpolation stencils
+        real(rp), dimension(Nw,Nw,Nw)  :: dBn !Holder
+        integer :: i,j,k,n,m, i0,j0,k0
+
+        i0 = ijk(IDIR) ; j0 = ijk(JDIR) ; k0 = ijk(KDIR)
+    !Pull stencil
+        dB = ebState%eb1%dB(i0-1:i0+1,j0-1:j0+1,k0-1:k0+1,XDIR:ZDIR)
+    !Get mapping and weights
+        !Map to ezp
+        ezp = Map2ezp(xyz,ijk,Model,ebState%ebGr)
+
+        !Get 1D spatial weights
+        wE = Wgt1D(ezp(IDIR))
+        wZ = Wgt1D(ezp(JDIR))
+        wP = Wgt1D(ezp(KDIR))
+
+    !Now get JacDB
+        !---------
+        !Get 1D weights for Jacobians            
+        wEp = Wgt1Dp(ezp(IDIR))
+        wZp = Wgt1Dp(ezp(JDIR))
+        wPp = Wgt1Dp(ezp(KDIR))
+
+        !Turn 1D weights into 3D weights
+        do k=1,Nw
+            do j=1,Nw
+                do i=1,Nw
+                    !Partial derivatives of weights wrt eta,zeta,psi
+                    eW(i,j,k) = wEp(i)*wZ (j)*wP (k)
+                    zW(i,j,k) = wE (i)*wZp(j)*wP (k)
+                    pW(i,j,k) = wE (i)*wZ (j)*wPp(k)
                 enddo
             enddo
         enddo
 
-    end function FastMag
+        !Calculate Jacobians
+        !JacA(i,j) = d B_Xi / dXj
+        !Tix(i0,j0,k0,ezp,xyz) = ezp derivs wrt xyz
+
+        !Pull metric terms
+        Tix = ebState%ebGr%Tix(i0,j0,k0,:,:)
+
+        !Do main calculation
+        do m=1,NDIM !Derivative direction (x,y,z)
+            do n=1,NDIM !Vector component
+                dBn = dB(:,:,:,n)
+                JacB(n,m) =   Tix(IDIR,m)*FastColon(eW,dBn)  &
+                            + Tix(JDIR,m)*FastColon(zW,dBn)  &
+                            + Tix(KDIR,m)*FastColon(pW,dBn)
+            enddo
+        enddo
+
+        JacB = JacB + Model%JacB0(xyz) !Add background
+
+    end function FastJac
 
     function getDiag(ebGr,ijk) result (dl)
         type(ebGrid_T), intent(in)   :: ebGr
