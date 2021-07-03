@@ -114,8 +114,9 @@ module streamutils
 
         x0 = gpt%xyz
         !Need Jacobian, using streamlined routine
-        JacB = FastJacDB(x0,gPt%t,Model,ebState,gPt%ijkG) + Model%JacB0(x0) !Add background
-        
+        !JacB = FastJacDB(x0,gPt%t,Model,ebState,gPt%ijkG) + Model%JacB0(x0) !Add background
+        JacB = FastJacB(x0,gPt%t,Model,ebState,gPt%ijkG)
+
         if (present(iB)) then
             B = iB
         else
@@ -346,8 +347,6 @@ module streamutils
         bhat = normVec(B)
     end function FastHat
 
-    !Return magnetic field vector at given point/time
-    !NOTE: This reproduces a lot of ebinterp code but is designed to be streamlined/faster
     function FastMag(xyz,t,Model,ebState,isIn,ijkG) result(B)
         real(rp), intent(in) :: xyz(NDIM),t
         type(chmpModel_T), intent(in) :: Model
@@ -356,166 +355,230 @@ module streamutils
         integer, intent(inout) :: ijkG(NDIM)
         real(rp), dimension(NDIM) :: B
 
-        real(rp), dimension(NDIM) :: B0
-        real(rp), dimension(Nw,Nw,Nw) :: W
-        real(rp), dimension(Nw,Nw,Nw,NDIM) :: Qb !Buffer
-        integer :: n,i0,j0,k0
-
-        !B = fldInterp(xyz,t,Model,ebState,BFLD,isIn,ijkG)
-        !Locate w/ guess
         call locate(xyz,ijkG,Model,ebState%ebGr,isIn,ijkG)
-        if (.not. isIn) then
-            B = Model%B0(xyz)
-            return
-        endif
-
-    !If still here, do work. NOTE: Assuming static field to avoid extra work
-        B0 = Model%B0(xyz)
-        call GetWeights(xyz,ijkG,W,Model,ebState%ebGr)
-        i0 = ijkG(IDIR) ; j0 = ijkG(JDIR) ; k0 = ijkG(KDIR)
-
-        Qb = ebState%eb1%dB(i0-1:i0+1,j0-1:j0+1,k0-1:k0+1,XDIR:ZDIR)
-
-        do n=1,NDIM
-            !NOTE: Avoiding doing below to avoid array temporary creation
-            !B(n) = sum( W(:,:,:)*Qb(:,:,:,n) ) + B0(n)
-            B(n) = B0(n) + FastColon(W,Qb(:,:,:,n))
-        enddo
-
+        B = fldInterp(xyz,t,Model,ebState,BFLD,isIn,ijkG)
     end function FastMag
 
-    !Fast tensor contraction, may want to toy w/ this for vectorization
-    function FastColon(A,B) result(ab)
-        real(rp), dimension(NDIM,NDIM), intent(in) :: A,B
-        real(rp) :: ab
-
-        ab = sum(A*B)
-    end function FastColon
-
-    !Return jacobian of B at given point/time
-    !NOTE: This assumes ijk is CORRECT and xyz is indomain and eb is static
-    !NOTE: This reproduces a lot of ebinterp code but is designed to be streamlined/faster
-    recursive function FastJacDB(xyz,t,Model,ebState,ijk) result(JacDB)
+    function FastJacB(xyz,t,Model,ebState,ijk) result(JacB)
         real(rp), intent(in) :: xyz(NDIM),t
         type(chmpModel_T), intent(in) :: Model
         type(ebState_T), intent(in)   :: ebState
         integer, intent(in) :: ijk(NDIM)
-        real(rp), dimension(NDIM,NDIM) :: JacDB
+        real(rp), dimension(NDIM,NDIM) :: JacB
 
-        real(rp), dimension(NDIM,NDIM) :: Tix
-        real(rp), dimension(NDIM)      :: ezp,wE,wZ,wP,wEp,wZp,wPp
-        real(rp), dimension(Nw,Nw,Nw)  :: eW,zW,pW !Interpolation weights
-        real(rp), dimension(Nw,Nw,Nw,NDIM) :: dB  !Interpolation stencils
-        real(rp), dimension(Nw,Nw,Nw)  :: dBn !Holder
-        integer :: i,j,k,n,m, i0,j0,k0
+        type(gcFields_T) :: gcFields
+        real(rp), dimension(NDIM) :: E,B
 
-        !Variables for axis handling
-        integer :: ip,jp,kp,ijkAx(NDIM)
-        real(rp) :: wAx
-        real(rp), dimension(NDIM) :: Xp,Xm,Xc
-        logical :: isAxisS,isAxisE
-        real(rp), dimension(NDIM,NDIM) :: pJacDB,mJacDB
-        integer, parameter :: dAxI=1
+        call ebFields(xyz,t,Model,ebState,E,B,gcFields=gcFields)
+        JacB = gcFields%JacB
+    end function FastJacB
 
-        i0 = ijk(IDIR) ; j0 = ijk(JDIR) ; k0 = ijk(KDIR)
+    ! !Return magnetic field vector at given point/time
+    ! !NOTE: This reproduces a lot of ebinterp code but is designed to be streamlined/faster
+    ! function FastMag(xyz,t,Model,ebState,isIn,ijkG) result(B)
+    !     real(rp), intent(in) :: xyz(NDIM),t
+    !     type(chmpModel_T), intent(in) :: Model
+    !     type(ebState_T), intent(in)   :: ebState
+    !     logical, intent(out) :: isIn
+    !     integer, intent(inout) :: ijkG(NDIM)
+    !     real(rp), dimension(NDIM) :: B
 
-    !Handle axis
-        isAxisS = .false.
-        isAxisE = .false.
-        if ( j0 <= ebState%ebGr%js+dAxI ) then
-            isAxisS = .true.
-        endif
-        if ( j0 >= ebState%ebGr%je-dAxI ) then
-            isAxisE = .true.
-        endif
+    !     real(rp), dimension(NDIM) :: B0
+    !     real(rp), dimension(Nw,Nw,Nw) :: W
+    !     real(rp), dimension(Nw,Nw,Nw,NDIM) :: Qb !Buffer
+    !     integer :: n,i0,j0,k0
 
-        if (isAxisS .or. isAxisE) then
-            associate( ebGr=>ebState%ebGr )
-            !Do different calculation at axis
-            Xc = ebGr%xyzcc(i0,j0,k0,XDIR:ZDIR)
-            if (isAxisS) then
-            !Positive displacement
-                ip = i0;jp = ebGr%js+dAxI+1;kp = k0
-                Xp = ebGr%xyzcc(ip,jp,kp,XDIR:ZDIR)
-                ijkAx = [ip,jp,kp]
-                pJacDB = FastJacDB(Xp,t,Model,ebState,ijkAx)
-            !Negative displacement
-                call ijk2Active(Model,ebGr,i0,ebGr%js-2-dAxI,k0,ip,jp,kp)
-                Xm = ebGr%xyzcc(ip,jp,kp,XDIR:ZDIR)
-                ijkAx = [ip,jp,kp]
-                mJacDB = FastJacDB(Xm,t,Model,ebState,ijkAx)
-            !Weight for P (closer)
-                wAx = norm2(Xm-Xc)/norm2(Xp-Xm)
-            else !Negative axis
-            !Positive displacement, flipping positive (to closer point)   
-                ip = i0;jp = ebGr%je-1-dAxI;kp = k0
-                Xp = ebGr%xyzcc(ip,jp,kp,XDIR:ZDIR)
-                ijkAx = [ip,jp,kp]
-                pJacDB = FastJacDB(Xp,t,Model,ebState,ijkAx)
-            !Negative displacement
-                call ijk2Active(Model,ebGr,i0,ebGr%je+2+dAxI,k0,ip,jp,kp)
-                Xm = ebGr%xyzcc(ip,jp,kp,XDIR:ZDIR)
-                ijkAx = [ip,jp,kp]
-                mJacDB = FastJacDB(Xm,t,Model,ebState,ijkAx)
-            !Weight for P (closer)
-                wAx = norm2(Xm-Xc)/norm2(Xp-Xm)   
-            endif
+    !     real(rp), dimension(NDIM) :: Bold
+    !     integer :: i1,i2,i3
 
-            !Interpolate dJac across axis (both cases)
-            JacDB = wAx*pJacDB + (1-wAx)*mJacDB
+    !     !Bold = fldInterp(xyz,t,Model,ebState,BFLD,isIn,ijkG)
+    !     B = fldInterp(xyz,t,Model,ebState,BFLD,isIn,ijkG)
 
-            return !We're done here
-            end associate
-        endif !Axis
+    !     return
 
-    !Pull stencil
-        dB = ebState%eb1%dB(i0-1:i0+1,j0-1:j0+1,k0-1:k0+1,XDIR:ZDIR)
-    !Get mapping and weights
-        !Map to ezp
-        ezp = Map2ezp(xyz,ijk,Model,ebState%ebGr)
+    !     !Locate w/ guess
+    !     !call locate(xyz,ijkG,Model,ebState%ebGr,isIn,ijkG)
+    !     if (.not. isIn) then
+    !         B = Model%B0(xyz)
+    !         return
+    !     endif
 
-        !Get 1D spatial weights
-        wE = Wgt1D(ezp(IDIR))
-        wZ = Wgt1D(ezp(JDIR))
-        wP = Wgt1D(ezp(KDIR))
+    ! !If still here, do work. NOTE: Assuming static field to avoid extra work
+    !     B0 = Model%B0(xyz)
+    !     call GetWeights(xyz,ijkG,W,Model,ebState%ebGr)
+    !     i0 = ijkG(IDIR) ; j0 = ijkG(JDIR) ; k0 = ijkG(KDIR)
 
-    !Now get JacDB
-        !---------
-        !Get 1D weights for Jacobians            
-        wEp = Wgt1Dp(ezp(IDIR))
-        wZp = Wgt1Dp(ezp(JDIR))
-        wPp = Wgt1Dp(ezp(KDIR))
+    !     Qb = ebState%eb1%dB(i0-1:i0+1,j0-1:j0+1,k0-1:k0+1,XDIR:ZDIR)
 
-        !Turn 1D weights into 3D weights
-        do k=1,Nw
-            do j=1,Nw
-                do i=1,Nw
-                    !Partial derivatives of weights wrt eta,zeta,psi
-                    eW(i,j,k) = wEp(i)*wZ (j)*wP (k)
-                    zW(i,j,k) = wE (i)*wZp(j)*wP (k)
-                    pW(i,j,k) = wE (i)*wZ (j)*wPp(k)
-                enddo
-            enddo
-        enddo
+    !     ! do n=1,NDIM
+    !     !     !NOTE: Avoiding doing below to avoid array temporary creation
+    !     !     !B(n) = sum( W(:,:,:)*Qb(:,:,:,n) ) + B0(n)
+    !     !     B(n) = B0(n) + FastColon(W,Qb(:,:,:,n))
+    !     ! enddo
 
-        !Calculate Jacobians
-        !JacA(i,j) = d B_Xi / dXj
-        !Tix(i0,j0,k0,ezp,xyz) = ezp derivs wrt xyz
+    !     !Bad!
+    !     ! do n=1,NDIM
+    !     !     B(n) = B0(n) + sum(W*Qb(:,:,:,n))
+    !     ! enddo
 
-        !Pull metric terms
-        Tix = ebState%ebGr%Tix(i0,j0,k0,:,:)
+    !     do n=1,NDIM
+    !         !V(n) = V0(n) + w1*sum(W*v1b(:,:,:,n)) + w2*sum(W*v2b(:,:,:,n))
+    !         B(n) = B0(n)
+    !         do i3=1,Nw
+    !             do i2=1,Nw
+    !                 do i1=1,Nw
+    !                     B(n) = B(n) + W(i1,i2,i3)*Qb(i1,i2,i3,n)
+    !                 enddo
+    !             enddo
+    !         enddo
+    !     enddo
 
-        !Do main calculation
-        do m=1,NDIM !Derivative direction (x,y,z)
-            do n=1,NDIM !Vector component
-                dBn = dB(:,:,:,n)
-                JacDB(n,m) =   Tix(IDIR,m)*FastColon(eW,dBn)  &
-                             + Tix(JDIR,m)*FastColon(zW,dBn)  &
-                             + Tix(KDIR,m)*FastColon(pW,dBn)
-            enddo
-        enddo
+    !     if (norm2(Bold-B) > 1.0e-5) then
+    !         !$OMP CRITICAL
+    !         write(*,*) '---'
+    !         write(*,*) 'dB = ', norm2(Bold-B),Bold,B
+    !         write(*,*) 'dB = ', Bold-B
+    !         write(*,*) 'W = ', W
+    !         do n=1,NDIM
+    !             write(*,*) 'Qbn = ', Qb(:,:,:,n)
+    !         enddo
+    !         write(*,*) '---'
+    !         !$OMP END CRITICAL
+    !     endif
+    ! end function FastMag
 
-    end function FastJacDB
+    ! !Fast tensor contraction, may want to toy w/ this for vectorization
+    ! function FastColon(A,B) result(ab)
+    !     real(rp), dimension(NDIM,NDIM), intent(in) :: A,B
+    !     real(rp) :: ab
+
+    !     ab = sum(A*B)
+    ! end function FastColon
+
+    !Return jacobian of B at given point/time
+    !NOTE: This assumes ijk is CORRECT and xyz is indomain and eb is static
+    !NOTE: This reproduces a lot of ebinterp code but is designed to be streamlined/faster
+    ! recursive function FastJacDB(xyz,t,Model,ebState,ijk) result(JacDB)
+    !     real(rp), intent(in) :: xyz(NDIM),t
+    !     type(chmpModel_T), intent(in) :: Model
+    !     type(ebState_T), intent(in)   :: ebState
+    !     integer, intent(in) :: ijk(NDIM)
+    !     real(rp), dimension(NDIM,NDIM) :: JacDB
+
+    !     real(rp), dimension(NDIM,NDIM) :: Tix
+    !     real(rp), dimension(NDIM)      :: ezp,wE,wZ,wP,wEp,wZp,wPp
+    !     real(rp), dimension(Nw,Nw,Nw)  :: eW,zW,pW !Interpolation weights
+    !     real(rp), dimension(Nw,Nw,Nw,NDIM) :: dB  !Interpolation stencils
+    !     real(rp), dimension(Nw,Nw,Nw)  :: dBn !Holder
+    !     integer :: i,j,k,n,m, i0,j0,k0
+
+    !     !Variables for axis handling
+    !     integer :: ip,jp,kp,ijkAx(NDIM)
+    !     real(rp) :: wAx
+    !     real(rp), dimension(NDIM) :: Xp,Xm,Xc
+    !     logical :: isAxisS,isAxisE
+    !     real(rp), dimension(NDIM,NDIM) :: pJacDB,mJacDB
+    !     integer, parameter :: dAxI=1
+
+    !     i0 = ijk(IDIR) ; j0 = ijk(JDIR) ; k0 = ijk(KDIR)
+
+    ! !Handle axis
+    !     isAxisS = .false.
+    !     isAxisE = .false.
+    !     if ( j0 <= ebState%ebGr%js+dAxI ) then
+    !         isAxisS = .true.
+    !     endif
+    !     if ( j0 >= ebState%ebGr%je-dAxI ) then
+    !         isAxisE = .true.
+    !     endif
+
+    !     if (isAxisS .or. isAxisE) then
+    !         associate( ebGr=>ebState%ebGr )
+    !         !Do different calculation at axis
+    !         Xc = ebGr%xyzcc(i0,j0,k0,XDIR:ZDIR)
+    !         if (isAxisS) then
+    !         !Positive displacement
+    !             ip = i0;jp = ebGr%js+dAxI+1;kp = k0
+    !             Xp = ebGr%xyzcc(ip,jp,kp,XDIR:ZDIR)
+    !             ijkAx = [ip,jp,kp]
+    !             pJacDB = FastJacDB(Xp,t,Model,ebState,ijkAx)
+    !         !Negative displacement
+    !             call ijk2Active(Model,ebGr,i0,ebGr%js-2-dAxI,k0,ip,jp,kp)
+    !             Xm = ebGr%xyzcc(ip,jp,kp,XDIR:ZDIR)
+    !             ijkAx = [ip,jp,kp]
+    !             mJacDB = FastJacDB(Xm,t,Model,ebState,ijkAx)
+    !         !Weight for P (closer)
+    !             wAx = norm2(Xm-Xc)/norm2(Xp-Xm)
+    !         else !Negative axis
+    !         !Positive displacement, flipping positive (to closer point)   
+    !             ip = i0;jp = ebGr%je-1-dAxI;kp = k0
+    !             Xp = ebGr%xyzcc(ip,jp,kp,XDIR:ZDIR)
+    !             ijkAx = [ip,jp,kp]
+    !             pJacDB = FastJacDB(Xp,t,Model,ebState,ijkAx)
+    !         !Negative displacement
+    !             call ijk2Active(Model,ebGr,i0,ebGr%je+2+dAxI,k0,ip,jp,kp)
+    !             Xm = ebGr%xyzcc(ip,jp,kp,XDIR:ZDIR)
+    !             ijkAx = [ip,jp,kp]
+    !             mJacDB = FastJacDB(Xm,t,Model,ebState,ijkAx)
+    !         !Weight for P (closer)
+    !             wAx = norm2(Xm-Xc)/norm2(Xp-Xm)   
+    !         endif
+
+    !         !Interpolate dJac across axis (both cases)
+    !         JacDB = wAx*pJacDB + (1-wAx)*mJacDB
+
+    !         return !We're done here
+    !         end associate
+    !     endif !Axis
+
+    ! !Pull stencil
+    !     dB = ebState%eb1%dB(i0-1:i0+1,j0-1:j0+1,k0-1:k0+1,XDIR:ZDIR)
+    ! !Get mapping and weights
+    !     !Map to ezp
+    !     ezp = Map2ezp(xyz,ijk,Model,ebState%ebGr)
+
+    !     !Get 1D spatial weights
+    !     wE = Wgt1D(ezp(IDIR))
+    !     wZ = Wgt1D(ezp(JDIR))
+    !     wP = Wgt1D(ezp(KDIR))
+
+    ! !Now get JacDB
+    !     !---------
+    !     !Get 1D weights for Jacobians            
+    !     wEp = Wgt1Dp(ezp(IDIR))
+    !     wZp = Wgt1Dp(ezp(JDIR))
+    !     wPp = Wgt1Dp(ezp(KDIR))
+
+    !     !Turn 1D weights into 3D weights
+    !     do k=1,Nw
+    !         do j=1,Nw
+    !             do i=1,Nw
+    !                 !Partial derivatives of weights wrt eta,zeta,psi
+    !                 eW(i,j,k) = wEp(i)*wZ (j)*wP (k)
+    !                 zW(i,j,k) = wE (i)*wZp(j)*wP (k)
+    !                 pW(i,j,k) = wE (i)*wZ (j)*wPp(k)
+    !             enddo
+    !         enddo
+    !     enddo
+
+    !     !Calculate Jacobians
+    !     !JacA(i,j) = d B_Xi / dXj
+    !     !Tix(i0,j0,k0,ezp,xyz) = ezp derivs wrt xyz
+
+    !     !Pull metric terms
+    !     Tix = ebState%ebGr%Tix(i0,j0,k0,:,:)
+
+    !     !Do main calculation
+    !     do m=1,NDIM !Derivative direction (x,y,z)
+    !         do n=1,NDIM !Vector component
+    !             dBn = dB(:,:,:,n)
+    !             JacDB(n,m) =   Tix(IDIR,m)*FastColon(eW,dBn)  &
+    !                          + Tix(JDIR,m)*FastColon(zW,dBn)  &
+    !                          + Tix(KDIR,m)*FastColon(pW,dBn)
+    !         enddo
+    !     enddo
+
+    ! end function FastJacDB
 
     function getDiag(ebGr,ijk) result (dl)
         type(ebGrid_T), intent(in)   :: ebGr
