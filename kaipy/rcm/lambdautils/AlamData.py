@@ -1,5 +1,6 @@
 import h5py as h5
 import numpy as np
+import hashlib
 
 class AlamParams:
 
@@ -21,6 +22,30 @@ class AlamParams:
         self.p1           = p1
         self.p2           = p2
         self.doAddPsphere = addPsphere
+
+    def getAttrs(self):
+        return {
+                'hash': self.getHash(),
+                'distType': self.distType,
+                'num_e': self.num_e,
+                'num_p': self.num_p,
+                'aMin_e': self.aMin_e,
+                'aMin_p': self.aMin_p,
+                'ktMax': self.ktMax,
+                'L_kt': self.L_kt,
+                'tiote': self.tiote,
+                'p1': self.p1,
+                'p2': self.p2,
+                'doAddPsphere': self.doAddPsphere
+        }
+    # Generate an identifier for the current settings
+    def getHash(self):
+        l = [self.num_e, self.num_p, self.aMin_e, self.aMin_p, self.ktMax, 
+                    self.L_kt, self.tiote, self.p1, self.p2, self.doAddPsphere]
+        s = '-'.join(["{:1.2f}".format(i) for i in l]).encode('utf-8')
+        m = hashlib.md5()
+        m.update(s)
+        return m.hexdigest()
 
 class AlamData:
 
