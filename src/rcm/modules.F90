@@ -61,7 +61,7 @@ MODULE rice_housekeeping_module
   LOGICAL :: doFLOut = .false. !Whether to output field lines (slow)
   INTEGER(iprec) :: nSkipFL = 8 !Stride for outputting field lines
 
-  LOGICAL :: doKapDef = .true. !Whether to do kappa by default
+  LOGICAL :: doKapDef = .false. !Whether to do kappa by default
   LOGICAL :: doRescaleDef = .true. !Whether to rescale D,P=>eta by default
   REAL(rprec) :: staticR = 0.0
   REAL(rprec) :: LowLatMHD = 0.0

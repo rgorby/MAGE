@@ -10,21 +10,23 @@ module streamline
     implicit none
 
     real(rp), parameter, private :: ShueScl = 1.5 !Safety factor for Shue MP
+    integer , parameter, private :: NpChk = 20
     contains
 
-    subroutine genStream(Model,ebState,x0,t,fL,MaxStepsO,doShueO)
+    !doNHO = T, assume doing RCM coupling
+    subroutine genStream(Model,ebState,x0,t,fL,MaxStepsO,doShueO,doNHO)
         real(rp), intent(in) :: x0(NDIM),t
         type(chmpModel_T), intent(in) :: Model
         type(ebState_T), intent(in)   :: ebState
         type(fLine_T), intent(inout) :: fL
         integer , intent(in), optional :: MaxStepsO
-        logical , intent(in), optional :: doShueO
+        logical , intent(in), optional :: doShueO,doNHO
 
         integer :: N1,N2,i,Np,Nm,n,MaxN
         real(rp) :: dx(NDIM)
         real(rp) :: Xn(0:MaxFL,NDIM,2),Vn(0:MaxFL,0:NumVFL,2)
         integer :: ijkn(0:MaxFL,NDIM,2)
-        logical :: inDom,doShue
+        logical :: inDom,doShue,doNH
 
         !Start by emptying line
         call cleanStream(fL)
@@ -56,13 +58,25 @@ module streamline
         else
             MaxN = MaxFL
         endif
-        if (present(doShueO)) then
-            doShue = doShueO
+        if ((present(doNHO))) then
+            doNH = doNHO
         else
-            doShue = .false.
+            doNH = .false.
         endif
+
+        doShue = .false.
+        ! if (present(doShueO)) then
+        !     doShue = doShueO
+        ! else
+        !     doShue = .false.
+        ! endif
+
         call genTrace(Model,ebState,x0,t,Xn(:,:,1),ijkn(:,:,1),Vn(:,:,1),N1,-1,MaxN,doShue)
-        call genTrace(Model,ebState,x0,t,Xn(:,:,2),ijkn(:,:,2),Vn(:,:,2),N2,+1,MaxN,doShue)
+        if (doNH) then
+            N2 = 0
+        else
+            call genTrace(Model,ebState,x0,t,Xn(:,:,2),ijkn(:,:,2),Vn(:,:,2),N2,+1,MaxN,doShue)
+        endif
 
         !Create field line
         fL%isGood = .true.
@@ -748,7 +762,7 @@ module streamline
         gPt%xyz = x0
         gPt%t   = t
         Np = 0
-        call CheckDone(Model,ebState,gPt%xyz,inDom,isSC,isDone)
+        call CheckDone(Model,ebState,gPt%xyz,inDom,isSC,isDone,Np)
 
         do while ( (.not. isDone) .and. (Np <= MaxSteps) )
         !Locate and get fields
@@ -780,7 +794,7 @@ module streamline
                 inDom  = .false.
                 isSC   = .false.
             else
-                call CheckDone(Model,ebState,gPt%xyz,inDom,isSC,isDone)
+                call CheckDone(Model,ebState,gPt%xyz,inDom,isSC,isDone,Np)
             endif
             Np = Np + 1
 
@@ -813,15 +827,20 @@ module streamline
 
         contains
              
-            subroutine CheckDone(Model,ebState,xyz,inDom,isSC,isDone)
+            subroutine CheckDone(Model,ebState,xyz,inDom,isSC,isDone,Np)
                 type(chmpModel_T), intent(in) :: Model
                 type(ebState_T), intent(in)   :: ebState
                 real(rp), intent(inout) :: xyz(NDIM)
                 logical, intent(out) :: inDom,isSC,isDone
+                integer, intent(in) :: Np
                 logical :: inMP
 
                 inDom = inDomain(xyz,Model,ebState%ebGr)
-                inMP  = inShueMP_SM(xyz,ShueScl)
+                if (modulo(Np,NpChk) == 0) then
+                    inMP  = inShueMP_SM(xyz,ShueScl)
+                else
+                    inMP = .true.
+                endif
                 
                 if (inDom) then
                     !In domain, check if in Shue MP w/ safety factor

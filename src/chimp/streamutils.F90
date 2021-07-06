@@ -56,12 +56,14 @@ module streamutils
             write(*,*) "Non-optional error in step_mage"
             stop
         endif
-        !Get approx number of rings, 4/8/12/16 (DQOH)
-        Nr = nint( 4*( log(1.0*ebState%ebGr%Nkp/64.0)/log(2.0) + 1) )
-        j0 = gpt%ijkG(JDIR)
-        isAxS = (j0 <= ebState%ebGr%js+Nr)
-        isAxE = (j0 >= ebState%ebGr%je-Nr)
-        
+
+        ! !Get approx number of rings, 4/8/12/16 (DQOH)
+        ! Nr = nint( 4*( log(1.0*ebState%ebGr%Nkp/64.0)/log(2.0) + 1) )
+        ! j0 = gpt%ijkG(JDIR)
+        Nr = 4 !Just using 4 rings
+        isAxS = (j0 < ebState%ebGr%js+Nr)
+        isAxE = (j0 > ebState%ebGr%je-Nr)
+
         if (isAxS .or. isAxE) then
             call Step_RKF45(gpt,Model,ebState,eps,h,dx,iB,oB)
         else
@@ -114,7 +116,6 @@ module streamutils
 
         x0 = gpt%xyz
         !Need Jacobian, using streamlined routine
-        !JacB = FastJacDB(x0,gPt%t,Model,ebState,gPt%ijkG) + Model%JacB0(x0) !Add background
         JacB = FastJacB(x0,gPt%t,Model,ebState,gPt%ijkG)
 
         if (present(iB)) then
@@ -145,7 +146,6 @@ module streamutils
         ! <= 3x dsOld, dl
         ! >= eps*dl
         call ClampValue(dsmag,eps*gpt%dl,min(3*dsOld,gpt%dl))
-        !dsmag = min(eps*Lb,3*dsOld,eps*gpt%dl)
 
         h = sig*dsmag !Step length
     !Do step

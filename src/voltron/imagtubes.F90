@@ -123,9 +123,9 @@ module imagtubes
         t = ebState%eb1%time !Time in CHIMP units
         
         if (present(nTrcO)) then
-            call genStream(ebModel,ebState,x0,t,bTrc,nTrcO,doShueO=.true.)
+            call genStream(ebModel,ebState,x0,t,bTrc,nTrcO,doShueO=.true.,doNHO=.true.)
         else
-            call genStream(ebModel,ebState,x0,t,bTrc,      doShueO=.true.)
+            call genStream(ebModel,ebState,x0,t,bTrc,      doShueO=.true.,doNHO=.true.)
         endif
         
         !Topology
