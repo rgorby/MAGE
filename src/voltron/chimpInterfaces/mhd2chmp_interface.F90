@@ -43,7 +43,6 @@ module mhd2chmp_interface
         real(rp), dimension(NDIM) :: Bxyz,Vxyz
         integer :: i,j,k
 
-    
         associate(Gr=>gamApp%Grid,State=>gamApp%State,ebGr=>ebTrcApp%ebState%ebGr,ebF=>ebTrcApp%ebState%eb1)
         
         !Scrape Gamera MHD data into CHIMP structure

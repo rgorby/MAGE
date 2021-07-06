@@ -310,8 +310,6 @@ module voltapp
         if (gApp%Grid%Nkp>=512) then
             !Hex or above
             call DisableSymLinks()
-            !Check for sabotage
-
         endif
 
         if(present(optFilename)) then

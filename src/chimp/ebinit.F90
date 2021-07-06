@@ -233,7 +233,6 @@ module ebinit
         call fixGrid(Model,ebGr,inpXML)
     end subroutine getGridFromMHD
 
-
     subroutine Corners2ebG(Model,ebGr)
         type(chmpModel_T), intent(in) :: Model
         type(ebGrid_T), intent(inout) :: ebGr
@@ -370,7 +369,6 @@ module ebinit
         else
             doTScl = .true.
         endif
-
 
         call StepInfo(ebFile,s0,sE,Nstp)
 
