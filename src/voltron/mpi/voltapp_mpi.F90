@@ -449,12 +449,6 @@ module voltapp_mpi
             call mpi_Irecv(vApp%timeStepBuffer, 1, MPI_INT, MPI_ANY_SOURCE, 97700, vApp%voltMpiComm, vApp%timeStepReq, ierr)
         endif
 
-        if(vApp%useHelpers) then
-            call Tic("VoltHelpers")
-            call vhReqStep(vApp)
-            call Toc("VoltHelpers")
-        endif
-
     end subroutine stepVoltron_mpi
 
     ! special function for when we need to do both updates
@@ -837,6 +831,7 @@ module voltapp_mpi
 
         if(vApp%useHelpers .and. vApp%doSquishHelp) then
             call Tic("VoltHelpers")
+            call vhReqStep(vApp)
             call vhReqSquishStart(vApp)
             call Toc("VoltHelpers")
         endif
