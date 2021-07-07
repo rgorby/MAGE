@@ -57,9 +57,9 @@ module streamutils
             stop
         endif
 
+        j0 = gpt%ijkG(JDIR)
         ! !Get approx number of rings, 4/8/12/16 (DQOH)
         ! Nr = nint( 4*( log(1.0*ebState%ebGr%Nkp/64.0)/log(2.0) + 1) )
-        ! j0 = gpt%ijkG(JDIR)
         Nr = 4 !Just using 4 rings
         isAxS = (j0 < ebState%ebGr%js+Nr)
         isAxE = (j0 > ebState%ebGr%je-Nr)
@@ -236,9 +236,8 @@ module streamutils
         sScl = 0.84*( (StreamTol*gpt%dl/ddx)**(0.25) ) !Relative
 
         !Now calculate new step
-        absh = 0.9*abs(h)*sScl !Optimal value according to math
-        !Clamp min/max step based on fraction of cell size
-        !call ClampValue(absh,eps*gpt%dl,eMax*gpt%dl)
+        absh = 0.95*abs(h)*sScl !Optimal value according to math
+        !Clamp min/max step based on fraction of cell size and 3x old value
         call ClampValue(absh,eps*gpt%dl,3*abs(h))
 
         h = sign(absh,h)

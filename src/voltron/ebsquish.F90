@@ -22,9 +22,9 @@ module ebsquish
         end subroutine Projection_T
     end interface
 
-    real(rp), parameter, private :: startEps = 0.05
-    real(rp), parameter, private :: rEps = 0.125
-    real(rp), parameter, private :: ShueScl = 1.5 !Safety factor for Shue MP
+    real(rp), parameter, private :: startEps  = 0.05
+    real(rp), parameter, private :: rEps      = 0.125
+    real(rp), parameter, private :: ShueScl   = 1.25 !Safety factor for Shue MP
     logical , parameter, private :: doDipTest = .false.
     contains
 

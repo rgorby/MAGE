@@ -59,7 +59,7 @@ MODULE etautils
 
         !Set default kappa values if using kappa
         kapDefs(RCMELECTRON) = 4.0
-        kapDefs(RCMPROTON  ) = 6.0
+        kapDefs(RCMPROTON  ) = kapDefault
 
     end subroutine SetFactors
 

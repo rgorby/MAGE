@@ -9,8 +9,10 @@ module streamline
 
     implicit none
 
-    real(rp), parameter, private :: ShueScl = 1.5 !Safety factor for Shue MP
-    integer , parameter, private :: NpChk = 20
+    real(rp), parameter, private :: ShueScl = 1.25 !Safety factor for Shue MP
+    real(rp), parameter, private :: rShue   = 6.0  !Radius to start checking Shue
+    integer , parameter, private :: NpChk   = 10   !Cadence for Shue checking
+
     contains
 
     !doNHO = T, assume doing RCM coupling
@@ -64,12 +66,11 @@ module streamline
             doNH = .false.
         endif
 
-        doShue = .false.
-        ! if (present(doShueO)) then
-        !     doShue = doShueO
-        ! else
-        !     doShue = .false.
-        ! endif
+        if (present(doShueO)) then
+            doShue = doShueO
+        else
+            doShue = .false.
+        endif
 
         call genTrace(Model,ebState,x0,t,Xn(:,:,1),ijkn(:,:,1),Vn(:,:,1),N1,-1,MaxN,doShue)
         if (doNH) then
@@ -706,7 +707,7 @@ module streamline
 
         !Check if we're done
             inDom = inDomain(gPt%xyz,Model,ebState%ebGr) .and. (norm2(dx)>TINY)
-            if (doShue) then
+            if ( doShue .and. (modulo(Np,NpChk) == 0) .and. (norm2(gPt%xyz)>=rShue) ) then
                 inDom = inDom .and. inShueMP_SM(gPt%xyz,ShueScl)
             endif
 
@@ -836,7 +837,7 @@ module streamline
                 logical :: inMP
 
                 inDom = inDomain(xyz,Model,ebState%ebGr)
-                if (modulo(Np,NpChk) == 0) then
+                if ( (modulo(Np,NpChk) == 0) .and. (norm2(gPt%xyz)>=rShue) ) then
                     inMP  = inShueMP_SM(xyz,ShueScl)
                 else
                     inMP = .true.
