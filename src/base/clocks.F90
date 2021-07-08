@@ -45,6 +45,11 @@ module clocks
     type(Clock_T), dimension(maxClocks) :: kClocks
     integer, private :: nclk=0 !Current number of clocks
 
+    !interface for reading clock time
+    interface readClock
+        module procedure readClock_str, readClock_int
+    end interface
+
     contains
 
     !Initialize gobal clock array
@@ -151,10 +156,10 @@ module clocks
     end subroutine cleanClocks
 
     !Get specific elapsed time from clock w/ ID cID
-    function readClock(cID) result(wclk)
+    function readClock_str(cID) result(wclk)
         character(len=*), intent(in) :: cID
 
-        integer :: n,iblk,tmpToc
+        integer :: n,iblk
         real :: wclk
 
         iblk = 0
@@ -165,17 +170,28 @@ module clocks
                 iblk = n
             endif
         enddo
+        
+        wclk = readClock_int(iblk)
+
+    end function readClock_str
+
+    function readClock_int(iblk) result(wclk)
+        integer, intent(in) :: iblk
+
+        integer :: tmpToc
+        real :: wclk
+
         if (iblk == 0) then
             wclk = 0.0
         else
             if (kClocks(iblk)%isOn) then
                 call system_clock(count=tmpToc)
-                wclk = real(tmpToc-kClocks(iblk)%iTic)/real(clockRate)                
+                wclk = kClocks(iblk)%tElap + real(tmpToc-kClocks(iblk)%iTic)/real(clockRate)
             else
                 wclk = kClocks(iblk)%tElap
             endif
         endif
-    end function readClock
+    end function readClock_int
 
     !Output clock data
     subroutine printClocks()

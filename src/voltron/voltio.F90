@@ -63,7 +63,7 @@ module voltio
             dtWall = (curCount - oTime)/clockRate
             if(dtWall < 0) dtWall = dtWall + countMax / clockRate
             simRate = dMJD*24.0*60.0*60.0/dtWall !Model seconds per wall second
-            gamWait = 0.8*gamWait + 0.2*readClock('GameraSync')/(kClocks(1)%tElap+TINY) ! Weighted average to self-correct
+            gamWait = 0.8*gamWait + 0.2*readClock('GameraSync')/(readClock(1)+TINY) ! Weighted average to self-correct
         else
             simRate = 0.0
             oMJD = cMJD

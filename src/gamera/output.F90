@@ -57,14 +57,14 @@ contains
         endif
 
         wTime_gam = readClock(zcsClk)
-        wTime_tot = kClocks(1)%tElap !readClock(zcsTot) 
+        wTime_tot = readClock(1)
 
         !Calculate zone-cycles per second
         if (Model%ts > 0) then
             ZCs_gam = Model%IO%tsOut*Grid%Nip*Grid%Njp*Grid%Nkp/wTime_gam
             ZCs_tot = Model%IO%tsOut*Grid%Nip*Grid%Njp*Grid%Nkp/wTime_tot
 
-            voltWait = 0.8*voltWait + 0.2*(readClock('VoltSync'))/(kClocks(1)%tElap+TINY) ! Weighted average to self-correct
+            voltWait = 0.8*voltWait + 0.2*(readClock('VoltSync'))/(readClock(1)+TINY) ! Weighted average to self-correct
         else
             ZCs_gam = 0.0
             ZCs_tot = 0.0
