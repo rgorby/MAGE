@@ -23,12 +23,11 @@ module rcmimag
     
     implicit none
 
-    real(rp), private :: rTrc0 = 2.0 !Padding factor for RCM domain to ebsquish radius
-    logical , private, parameter :: doKillRCMDir = .true. !Whether to always kill RCMdir before starting
+    logical, private, parameter :: doFakeTube=.false. !Only for testing
     integer, parameter, private :: MHDPad = 0 !Number of padding cells between RCM domain and MHD ingestion
-    
     logical , private :: doTrickyTubes = .true.  !Whether to poison bad flux tubes
-
+    real(rp), private :: imagScl = 1.5 !Safety factor for RCM=>ebsquish
+    
     !Whether to call smooth tubes routine at all, see imagtubes for specific options
     logical , private :: doSmoothTubes = .false. 
     
@@ -37,9 +36,7 @@ module rcmimag
 
     !Whether to use MHD Alfven bounce or RCM hot population bounce
     logical, private :: doHotBounce = .true.
-
     real(rp), dimension(:,:), allocatable, private :: mixPot
-
 
     type, extends(innerMagBase_T) :: rcmIMAG_T
 
@@ -101,12 +98,9 @@ module rcmimag
         call iXML%Set_Val(nBounce   ,"/Kaiju/gamera/source/nBounce"   ,nBounce   )
         call iXML%Set_Val(maxBetaLim,"/Kaiju/gamera/source/betamax"   ,maxBetaLim)
         call iXML%Set_Val(doBigIMag2Ion ,"imag2ion/doBigIMag2Ion",doBigIMag2Ion)
+        call iXML%Set_Val(imagScl ,"imag/safeScl",imagScl)
 
         if (isRestart) then
-            if (doKillRCMDir) then
-                !Kill RCMFiles directory even on restart
-                call ResetRCMDir()
-            endif
 
             !Get t0 and nRes necessary for RCM restart
             call RCMRestartInfo(RCMApp,iXML,t0)
@@ -122,9 +116,9 @@ module rcmimag
             else
                 doColdstart = .false. ! set to false if it is a restart
             endif
+            call ReadMHD2IMagRestart(imag%rcmCpl,imag%rcmCpl%rcm_nRes-1) !Subtract 1 for the one to read
         else
             t0 = vApp%time
-            call ResetRCMDir()
             write(*,*) 'Initializing RCM ...'
             call InitRCMICs(imag,vApp,iXML)
             call rcm_mhd(t0,dtCpl,RCMApp,RCMINIT,iXML=iXML)
@@ -140,15 +134,6 @@ module rcmimag
         if(vApp%writeFiles) call initRCMIO(RCMApp,isRestart)
 
         end associate
-
-        contains
-            subroutine ResetRCMDir()
-                write(*,*) 'Reset RCMfiles/ ...'
-                CALL SYSTEM("rm -rf RCMfiles > /dev/null 2>&1")
-                CALL SYSTEM("mkdir RCMfiles > /dev/null 2>&1")
-                CALL SYSTEM("touch RCMfiles/rcm.printout > /dev/null 2>&1")
-                CALL SYSTEM("touch RCMfiles/rcm.index > /dev/null 2>&1")
-            end subroutine ResetRCMDir
             
     end subroutine initRCM
 
@@ -205,13 +190,15 @@ module rcmimag
         type(voltApp_T), intent(inout) :: vApp
         real(rp), intent(in) :: tAdv
 
-        integer :: i,j,n,nStp
+        integer :: i,j,n,nStp,maxNum
         real(rp) :: colat,lat,lon
         real(rp) :: dtAdv
         type(RCMTube_T) :: ijTube
 
         real(rp) :: maxRad
         logical :: isLL,doHackIC
+        
+        call UpdateTM03(vApp%time) !Update plasma sheet model for MP finding and such
         
         associate(RCMApp => imag%rcmCpl)
 
@@ -225,6 +212,8 @@ module rcmimag
         call Toc("MAP_RCMMIX")
 
         call Tic("RCM_TUBES")
+        if (doFakeTube) write(*,*) "Using fake flux tubes for testing!"
+            
     !Load RCM tubes
        !$OMP PARALLEL DO default(shared) collapse(2) &
        !$OMP schedule(dynamic) &
@@ -243,10 +232,14 @@ module rcmimag
                     !Use mocked up values
                     call DipoleTube(vApp,lat,lon,ijTube,imag%rcmFLs(i,j))
                 else
-                    !Trace through MHD
-                    call MHDTube   (vApp,lat,lon,ijTube,imag%rcmFLs(i,j))
+                    if (doFakeTube) then
+                        call FakeTube   (vApp,lat,lon,ijTube,imag%rcmFLs(i,j))
+                    else
+                        !Trace through MHD
+                        call MHDTube   (vApp,lat,lon,ijTube,imag%rcmFLs(i,j),vApp%nTrc)
+                    endif
                 endif
-
+                
                 !Stuff data into RCM
                 RCMApp%Vol(i,j)          = ijTube%Vol
                 RCMApp%bmin(i,j)         = ijTube%bmin
@@ -263,7 +256,7 @@ module rcmimag
                 RCMApp%radcurv(i,j)      = ijTube%rCurv
                 RCMApp%Tb(i,j)           = ijTube%Tb
                 RCMApp%wIMAG(i,j)        = ijTube%wIMAG
-
+                RCMApp%nTrc(i,j)         = imag%rcmFLs(i,j)%Nm+imag%rcmFLs(i,j)%Np
                 !mix variables are stored in this order (longitude,colatitude), hence the index flip
                 RCMApp%pot(i,j)          = mixPot(j,i)
 
@@ -315,11 +308,14 @@ module rcmimag
             RCMApp%toMHD = .not. (RCMApp%iopen == RCMTOPOPEN)
         else
             call SetIngestion(RCMApp)
-            !Find maximum extent of RCM domain (RCMTOPCLOSED but not RCMTOPNULL)
-            maxRad = maxval(norm2(RCMApp%X_bmin,dim=3),mask=(RCMApp%iopen == RCMTOPCLOSED))
-            
+            !Try to tailor region to do projections over
+            ! !Find maximum extent of RCM domain (RCMTOPCLOSED but not RCMTOPNULL)
+            !maxRad = maxval(norm2(RCMApp%X_bmin,dim=3),mask=(RCMApp%iopen == RCMTOPCLOSED))
+            maxRad = maxval(norm2(RCMApp%X_bmin,dim=3),mask=.not. (RCMApp%iopen == RCMTOPOPEN))
+            maxNum = maxval(      RCMApp%nTrc              ,mask=.not. (RCMApp%iopen == RCMTOPOPEN))
             maxRad = maxRad/Rp_m
-            vApp%rTrc = rTrc0*maxRad
+            vApp%rTrc = imagScl*maxRad
+            vApp%nTrc = min( nint(imagScl*maxNum),MaxFL )
         endif
 
     !Pull data from RCM state for conductance calculations
@@ -335,11 +331,11 @@ module rcmimag
         vApp%imag2mix%lonc = RCMApp%lonc
 
     ! electrons precipitation
-        vApp%imag2mix%eflux = RCMApp%flux(:,:,1)
-        vApp%imag2mix%eavg  = RCMApp%eng_avg(:,:,1)
+        vApp%imag2mix%eflux = RCMApp%flux   (:,:,RCMELECTRON)
+        vApp%imag2mix%eavg  = RCMApp%eng_avg(:,:,RCMELECTRON)
     ! ion precipitation
-        vApp%imag2mix%iflux = RCMApp%flux(:,:,2)
-        vApp%imag2mix%iavg  = RCMApp%eng_avg(:,:,2)
+        vApp%imag2mix%iflux = RCMApp%flux   (:,:,RCMPROTON)
+        vApp%imag2mix%iavg  = RCMApp%eng_avg(:,:,RCMPROTON)
 
         vApp%imag2mix%isFresh = .true.
 
@@ -354,7 +350,7 @@ module rcmimag
         integer , dimension(:), allocatable :: jBnd
         integer :: i,j
         logical :: inMHD,isClosed
-        real(rp) :: Drc,bEq,Lb
+        real(rp) :: Drc,bEq,Lb,Prc
 
         RCMApp%toMHD(:,:) = .false.
         !Testing lazy quick boundary
@@ -363,7 +359,7 @@ module rcmimag
         jBnd(:) = RCMApp%nLat_ion-1
 
        !$OMP PARALLEL DO default(shared) &
-       !$OMP private(i,j,inMHD,isClosed,Drc,bEq,Lb)
+       !$OMP private(i,j,inMHD,isClosed,Drc,bEq,Lb,Prc)
         do j=1,RCMApp%nLon_ion
             do i = RCMApp%nLat_ion,1,-1
                 inMHD = RCMApp%toMHD(i,j)
@@ -382,10 +378,12 @@ module rcmimag
                 !Calculate ingestion timescale in this longitude
                 do i = jBnd(j),RCMApp%nLat_ion
                     Drc = rcmNScl*RCMApp%Nrcm (i,j) !#/cc
+                    Prc = rcmPScl*RCMApp%Prcm (i,j) !nPa
                     Drc = max(Drc,TINY)
                     bEq = rcmBScl*RCMApp%Bmin (i,j) !Mag field [nT]
                     Lb  = (RCMApp%planet_radius)*(1.0e-3)*RCMApp%Lb(i,j) !Lengthscale [km]
-                    RCMApp%Tb(i,j) = AlfBounce(Drc,bEq,Lb)
+                    !RCMApp%Tb(i,j) = AlfBounce(Drc,bEq,Lb)
+                    RCMApp%Tb(i,j) = FastBounce(Drc,Prc,bEq,Lb)
                 enddo
             endif
 
@@ -406,6 +404,24 @@ module rcmimag
             Va = 22.0*BnT/sqrt(Dcc) !km/s, from NRL plasma formulary
             dTb = Lkm/Va
         end function AlfBounce
+
+        !Calculate "fast wave" bounce timescale
+        !D = #/cc, P = nPa, B = nT, L = km
+        function FastBounce(Dcc,Pnpa,Bnt,Lkm) result(dTb)
+            real(rp), intent(in) :: Dcc,Pnpa,BnT,Lkm
+            real(rp) :: dTb
+
+            real(rp) :: Va,Cs,Tev
+            if ( (Dcc<TINY) .or. (Lkm<TINY) ) then
+                dTb = 0.0
+                return
+            endif
+            Va = 22.0*BnT/sqrt(Dcc) !km/s, from NRL plasma formulary
+            Tev = (1.0e+3)*DP2kT(Dcc,Pnpa) !Temp in eV
+            !CsMKS = 9.79 x sqrt(5/3 * Ti) km/s, Ti eV
+            Cs = 9.79*sqrt( (5.0/3)*Tev )
+            dTb = Lkm/sqrt(Va**2.0 + Cs**2.0)
+        end function FastBounce
 
     end subroutine SetIngestion
 
@@ -459,6 +475,7 @@ module rcmimag
 
         imag%rcmCpl%rcm_nRes = nRes
         call rcm_mhd(time,TINY,imag%rcmCpl,RCMWRITERESTART)
+        call WriteMHD2IMagRestart(imag%rcmCpl,nRes,MJD,time)
     end subroutine doRCMRestart
     
 
@@ -467,10 +484,10 @@ module rcmimag
         class(rcmIMAG_T), intent(inout) :: imag
         real(rp), intent(in) :: MJD, time
 
-        integer :: i0,j0,maxIJ(2)
+        integer :: i0,j0,maxIJ(2),maxNum
 
         real(rp) :: maxPRCM,maxD,maxDP,maxPMHD,maxDMHD,maxL,maxMLT,maxBeta
-        real(rp) :: limP,limD,wTrust,wTMin,maxT,maxWT,maxLam
+        real(rp) :: limP,limD,wTrust,wTMin,maxT,maxWT,maxLam,maxLen
 
         associate(RCMApp => imag%rcmCpl)
     !Start by getting some data
@@ -497,6 +514,9 @@ module rcmimag
         wTrust = 100.0*wTrust
         !Get min confidence in MHD domain
         wTMin = 100.0*minval(RCMApp%wIMAG,mask=RCMApp%toMHD)
+    !Get some info about size of closed field domain
+        maxNum = maxval(RCMApp%nTrc,mask=.not. (RCMApp%iopen == RCMTOPOPEN))
+        maxLen = maxval(RCMApp%Lb  ,mask=.not. (RCMApp%iopen == RCMTOPOPEN))
 
     !Do some output
         if ((maxPRCM<TINY) .or. (time<0)) return
@@ -524,7 +544,10 @@ module rcmimag
         endif
         write (*, '(a,1f8.3,a)')             '      w/ T = ' , maxT, ' [keV]'
 
-        write (*, '(a,1f8.3,a)')             '  Max RC-D = ' , maxval(RCMApp%Nrcm,mask=RCMApp%toMHD)*rcmNScl,' [#/cc]'
+        write (*, '(a,1f8.3,a)')               '  Max RC-D = ' , maxval(RCMApp%Nrcm,mask=RCMApp%toMHD)*rcmNScl,' [#/cc]'
+        write (*,'(a,1f8.3,I6,a)')             '  Max Tube = ', maxLen, maxNum, ' [Re,pts]'
+        write(*,'(a,I4,a,I4)')                 '  Channels: ', RCMApp%NkT, ' / ', RCMSIZEK
+
         write(*,'(a)',advance="no") ANSIRESET!, ''
 
         end associate

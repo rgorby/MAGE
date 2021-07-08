@@ -160,7 +160,7 @@ module init
         else
             write (nStr,'(I0.5)') nRes
         endif
-        inH5 = trim(bStr) // ".Res." // trim(nStr) // ".h5"
+        inH5 = trim(bStr) // ".gam.Res." // trim(nStr) // ".h5"
         write(*,*) 'Assigned restart file: ', trim(inH5)
         call CheckFileOrDie(inH5,"Restart file not found ...")
     end subroutine getRestart
@@ -203,18 +203,31 @@ module init
 
             !Test for resetting time
             call xmlInp%Set_Val(doReset ,"restart/doReset" ,.false.)
-            call xmlInp%Set_Val(tReset,"restart/tReset",0.0_rp)
+            call xmlInp%Set_Val( tReset ,"restart/tReset"   ,0.0_rp)
 
             !Read restart
             call readH5Restart(Model,Grid,State,inH5,doReset,tReset)
         else
             ! set initial dt0 to 0, it will be set once the case settles
             Model%dt0 = 0
+            
         endif
 
-        !Do remaining things to finish state
-        !ie add B0/Grav and do bFlux2Fld
-        call DoneState(Model,Grid,oState,State)
+        if (Model%doMHD) then
+            call bFlux2Fld(Model,Grid,State%magFlux,State%Bxyz)
+            oState%magFlux = State%magFlux
+            oState%Bxyz    = State%Bxyz
+        endif
+
+
+        !Incorporate background field, B0, if necessary
+        if (Model%doBackground .and. Grid%doB0Init) then
+            call AddB0(Model,Grid,Model%B0)
+        endif
+        !Incorporate gravity if necessary
+        if (Model%doGrav .and. Grid%doG0Init) then
+            call AddGrav(Model,Grid,Model%Phi)
+        endif
 
         !Finalize setup
         !Enforce initial BC's
@@ -242,29 +255,6 @@ module init
         endif
 
     end subroutine CalcGridInfo
-
-    !Finalize things for state var
-    subroutine DoneState(Model,Grid,oState,State)
-        type(Model_T), intent(inout) :: Model
-        type(Grid_T), intent(inout) :: Grid
-        type(State_T), intent(inout) :: oState,State
-
-        if (Model%doMHD) then
-            call bFlux2Fld(Model,Grid,State%magFlux,State%Bxyz)
-            oState%magFlux = State%magFlux
-            oState%Bxyz    = State%Bxyz
-        endif
-
-        !Incorporate background field, B0, if necessary
-        if (Model%doBackground .and. Grid%doB0Init) then
-            call AddB0(Model,Grid,Model%B0)
-        endif
-        !Incorporate gravity if necessary
-        if (Model%doGrav .and. Grid%doG0Init) then
-            call AddGrav(Model,Grid,Model%Phi)
-        endif
-
-    end subroutine DoneState
 
     !Prepare state and call IC
     subroutine PrepState(Model,Grid,oState,State,xmlInp,userInitFunc)
@@ -774,6 +764,7 @@ module init
         logical :: doQuadFT = .false. !Whether to do quadrature for face system
         
         !Check for min length veclen
+        !NOTE: Do we need <= here?
         if ( (Grid%ie-Grid%is+1) < VECLEN ) then
             write(*,*) 'Grid I-size smaller than VECLEN!'
             stop

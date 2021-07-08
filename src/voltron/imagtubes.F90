@@ -55,12 +55,51 @@ module imagtubes
 
 !--------------
 !MHD=>RCM routines
-    !MHD flux-tube
-    subroutine MHDTube(vApp,lat,lon,ijTube,bTrc)
+    !Fake flux-tube to mock up MHD side of coupling
+    subroutine FakeTube(vApp,lat,lon,ijTube,bTrc)
         type(voltApp_T), intent(in) :: vApp
         real(rp), intent(in) :: lat,lon
         type(RCMTube_T), intent(out) :: ijTube
         type(fLine_T), intent(inout) :: bTrc
+
+        real(rp), dimension(NDIM) :: xyzIon,x0,xyzEq
+        real(rp) :: bIon,L,N0_ps,P0_ps,TiEV,CsMKS,VaMKS
+        logical :: isInTM03
+
+    !Need equatorial xyz
+        !Assume lat/lon @ Earth, dipole push to first cell + epsilon
+        xyzIon(XDIR) = RIonRCM*cos(lat)*cos(lon)
+        xyzIon(YDIR) = RIonRCM*cos(lat)*sin(lon)
+        xyzIon(ZDIR) = RIonRCM*sin(lat)
+        x0 = DipoleShift(xyzIon,vApp%mhd2chmp%Rin+TINY)
+        bIon = norm2(DipoleB0(xyzIon))*oBScl*1.0e-9 !EB=>T, ionospheric field strength
+
+        L = DipoleL(xyzIon)
+        xyzEq = DipoleShift(xyzIon,L)
+
+        !Start by filling dipole values
+        call DipoleTube(vApp,lat,lon,ijTube,bTrc)
+        !Get TM03 values
+        call EvalTM03_SM(xyzEq,N0_ps,P0_ps,isInTM03)
+        if (.not. isInTM03) return !Nothing else to do
+
+        !Need to set beta,N,p
+        ijTube%Nave = N0_ps*1.0e+6 !#/cc => #/m3
+        ijTube%Pave = P0_ps*1.0e-9 !nPa=>Pa
+
+        TiEV = (1.0e+3)*DP2kT(N0_ps,P0_ps) !Temp in eV
+        CsMKS = 9.79*sqrt((5.0/3)*TiEV) !km/s
+        VaMKS = 22.0*(ijTube%bmin*1.0e+9)/sqrt(N0_ps) !km/s
+        ijTube%beta_average = 2.0*(CsMKS/VaMKS)**2.0
+    end subroutine FakeTube
+
+    !MHD flux-tube
+    subroutine MHDTube(vApp,lat,lon,ijTube,bTrc,nTrcO)
+        type(voltApp_T), intent(in) :: vApp
+        real(rp), intent(in) :: lat,lon
+        type(RCMTube_T), intent(out) :: ijTube
+        type(fLine_T), intent(inout) :: bTrc
+        integer, intent(in), optional :: nTrcO
 
         real(rp) :: t, bMin,bIon
         real(rp), dimension(NDIM) :: x0, bEq, xyzIon
@@ -83,7 +122,12 @@ module imagtubes
 
         t = ebState%eb1%time !Time in CHIMP units
         
-        call genStream(ebModel,ebState,x0,t,bTrc)
+        if (present(nTrcO)) then
+            call genStream(ebModel,ebState,x0,t,bTrc,nTrcO,doShueO=.true.,doNHO=.true.)
+        else
+            call genStream(ebModel,ebState,x0,t,bTrc,      doShueO=.true.,doNHO=.true.)
+        endif
+        
         !Topology
         !OCB =  0 (solar wind), 1 (half-closed), 2 (both ends closed)
         OCb = FLTop(ebModel,ebGr,bTrc)

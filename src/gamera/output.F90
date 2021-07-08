@@ -9,7 +9,9 @@ module output
     
     implicit none
 
-    character(len=strLen) :: zcsClk = "Gamera" !Clock ID to use for ZCS calculation
+    character(len=strLen), private :: zcsClk = "Gamera" !Clock ID to use for ZCS calculation
+    character(len=strLen), private :: zcsTot = "Omega" !Clock ID to use for ZCS calculation
+
     real(rp), private :: voltWait = 0.0
 
     !ConOut_T
@@ -45,7 +47,7 @@ contains
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(in) :: State
 
-        real(rp) :: ZCs, wTime
+        real(rp) :: ZCs_gam, ZCs_tot, wTime_gam,wTime_tot
         integer :: nTh
         character(len=strLen) :: tStr
 
@@ -54,14 +56,18 @@ contains
             Model%dt0 = Model%dt
         endif
 
-        wTime = readClock(zcsClk)
+        wTime_gam = readClock(zcsClk)
+        wTime_tot = readClock(1)
 
         !Calculate zone-cycles per second
         if (Model%ts > 0) then
-            ZCs = Model%IO%tsOut*Grid%Nip*Grid%Njp*Grid%Nkp/wTime
-            voltWait = 0.8*voltWait + 0.2*(readClock('VoltSync'))/(kClocks(1)%tElap+TINY) ! Weighted average to self-correct
+            ZCs_gam = Model%IO%tsOut*Grid%Nip*Grid%Njp*Grid%Nkp/wTime_gam
+            ZCs_tot = Model%IO%tsOut*Grid%Nip*Grid%Njp*Grid%Nkp/wTime_tot
+
+            voltWait = 0.8*voltWait + 0.2*(readClock('VoltSync'))/(readClock(1)+TINY) ! Weighted average to self-correct
         else
-            ZCs = 0.0
+            ZCs_gam = 0.0
+            ZCs_tot = 0.0
             voltWait = 0
         endif
 
@@ -82,7 +88,10 @@ contains
             if (.not. isnan(voltWait)) then
                 write (*, '(a,1f7.1,a)' )    '    Spent ', voltWait*100.0, '% of time waiting for Voltron'
             endif
-            write (*, '(a,f9.2,a,I0,a)') '      kZCs = ', ZCs/1000.0, ' (',nTh,' threads)'
+            if (ZCs_gam>TINY) then
+                !write (*, '(a,f9.2,a,I0,a)') '      kZCs = ', ZCs/1000.0, ' (',nTh,' threads)'
+                write (*, '(a,f9.2,a,f9.2,a,I0,a)') '      kZCs = ', ZCs_gam/1000.0, ' / ', ZCs_tot/1000.0, ' [MHD/TOT] (',nTh,' threads)'
+            endif
             write(*,'(a)',advance="no") ANSIRESET!, ''
         endif
 
@@ -123,15 +132,15 @@ contains
         Model%IO%nOut = Model%IO%nOut + 1
     end subroutine fOutput
 
-    subroutine resOutput(Model, Grid, State)
+    subroutine resOutput(Model,Grid,oState,State)
         type(Model_T), intent(inout) :: Model
         type(Grid_T), intent(in) :: Grid
-        type(State_T), intent(in) :: State
+        type(State_T), intent(in) :: oState,State
 
         character(len=strLen) :: ResF, tStr,lnResF !Name of restart file
         logical :: fExist
 
-        write (ResF, '(A,A,I0.5,A)') trim(Model%RunID), ".Res.", Model%IO%nRes, ".h5"
+        write (ResF, '(A,A,I0.5,A)') trim(Model%RunID), ".gam.Res.", Model%IO%nRes, ".h5"
 
         call CheckAndKill(ResF)
 
@@ -140,13 +149,13 @@ contains
             write (*, '(a,a,a,a,a)') ANSIGREEN, '<Writing HDF5 RESTART @ t = ', trim(tStr), ' >', ANSIRESET
         endif
 
-        call writeH5Res(Model, Grid, State, ResF)
+        call writeH5Res(Model,Grid,oState,State,ResF)
 
         !Setup for next restart
         Model%IO%tRes = Model%IO%tRes + Model%IO%dtRes
         Model%IO%nRes = Model%IO%nRes + 1
 
-        write (lnResF, '(A,A,A,A)') trim(Model%RunID), ".Res.", "XXXXX", ".h5"
+        write (lnResF, '(A,A,A,A)') trim(Model%RunID), ".gam.Res.", "XXXXX", ".h5"
 
         call MapSymLink(ResF,lnResF)
     end subroutine resOutput

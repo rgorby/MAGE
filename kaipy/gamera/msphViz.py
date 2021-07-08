@@ -20,38 +20,27 @@ jMax = 10.0 #Max current for contours
 
 #Default pressure colorbar
 vP = kv.genNorm(1.0e-2,10.0,doLog=True)
+szStrs = ['small','std','big','dm']
+szBds = {}
+szBds["std"]      = [-40.0 ,20.0,2.0]
+szBds["big"]      = [-100.0,20.0,2.0]
+szBds["bigger"]   = [-200.0,25.0,2.0]
+szBds["small"]    = [-10.0 , 5.0,2.0]
+szBds["dm"]       = [-30.0 ,10.0,40.0/15.0]
 
 #Add different size options to argument
 def AddSizeArgs(parser):
-	parser.add_argument('-small' , action='store_true', default=False,help="Use smaller domain bounds (default: %(default)s)")
-	parser.add_argument('-big'   , action='store_true', default=False,help="Use larger domain bounds (default: %(default)s)")
-	parser.add_argument('-bigger', action='store_true', default=False,help="Use larger-er domain bounds (default: %(default)s)")
-	parser.add_argument('-huge'  , action='store_true', default=False,help="Use huge domain bounds (default: %(default)s)")
+	parser.add_argument('-size',type=str,default="std",choices=szStrs,help="Domain bounds options (default: %(default)s)")
 
 #Return domain size from parsed arguments
 def GetSizeBds(args):
-	doBig = args.big
-	doSmall = args.small
-	doHuge = args.huge
-	doBigger = args.bigger
 
-	if (doSmall):
-		xTail = -10.0
-		xSun = 5.0
-	elif (doBig):
-		xTail = -100.0
-		xSun = 20.0
-	elif (doBigger):
-		xTail = -200.0
-		xSun = 25.0
-	elif (doHuge):
-		xTail = -350.0
-		xSun = 40.0
-	else:
-		xTail = -40.0
-		xSun = 20.0
+	szStr = args.size
+	szBd = szBds[szStr]
 
-	yMax = (xSun-xTail)/2.0
+	xTail = szBd[0]
+	xSun  = szBd[1]
+	yMax = (xSun-xTail)/szBd[2]
 	xyBds = [xTail,xSun,-yMax,yMax]
 
 	return xyBds

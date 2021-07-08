@@ -35,7 +35,7 @@ program gamerax
         endif
 
         if (gApp%Model%IO%doRestart(gApp%Model%t)) then
-            call resOutput(gApp%Model,gApp%Grid,gApp%State)
+            call resOutput(gApp%Model,gApp%Grid,gApp%oState,gApp%State)
         endif
 
         call Toc("IO")
@@ -48,5 +48,5 @@ program gamerax
 
         call Toc("Omega")
     end do
-
+    write(*,*) "Fin"
 end program gamerax

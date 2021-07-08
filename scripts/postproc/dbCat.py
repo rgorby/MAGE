@@ -9,6 +9,8 @@ import os
 import kaipy.kaiH5 as kh5
 import glob
 
+tEps = 1.0e-3 #Small time
+
 #Create new file w/ same root vars/attributes as old
 def createfile(fIn,fOut):
 	print('Creating new output file:',fOut)
@@ -37,25 +39,26 @@ if __name__ == "__main__":
 	dIn = os.getcwd()
 
 	runid = "msphere"
-
-	MainS = """Joins blocks created by calcdb.x into single file
+	typeid = "deltab"
+	MainS = """Joins blocks created by calcdb.x (or similar CHIMP routines) into single file
 	
 	runid : Run ID
 
 	"""
 
 	parser = argparse.ArgumentParser(description=MainS, formatter_class=RawTextHelpFormatter)
-	parser.add_argument('-id',type=str,metavar="runid",default=runid,help="Input run ID (default: %(default)s)")
+	parser.add_argument('-runid',type=str,metavar="runid",default=runid,help="Input run ID (default: %(default)s)")
+	parser.add_argument('-typeid',type=str,metavar="typeid",default=typeid,help="Input type ID (default: %(default)s)")
 
 	#Finalize parsing
 	args = parser.parse_args()
-	runid = args.id
-
-	#dbIns = glob.glob('%s/%s.????.deltab.h5'%(dIn,runid))
-	dbIns = glob.glob('%s.????.deltab.h5'%(runid))
+	runid = args.runid
+	typeid = args.typeid
+	
+	dbIns = glob.glob('%s.????.%s.h5'%(runid,typeid))
 	dbIns.sort()
-	#fOut = "%s/%s.deltab.h5"%(dIn,runid)
-	fOut = "%s.deltab.h5"%(runid)
+	
+	fOut = "%s.%s.h5"%(runid,typeid)
 
 	N = len(dbIns)
 	print("Found %d files, writing output to %s"%(N,fOut))
@@ -66,6 +69,8 @@ if __name__ == "__main__":
 	oH5 = createfile(dbIns[0],fOut)
 
 	s0 = 0 #Current step
+	nowTime = 0.0
+	oldTime = -np.inf
 
 	#Now loop over files
 	for n in range(N):
@@ -83,10 +88,20 @@ if __name__ == "__main__":
 		for s in range(nS,nE+1):
 			#Input
 			igStr = "Step#%d"%(s)
-			ogStr = "Step#%d"%(s-nS+s0)
+			ogStr = "Step#%d"%(s0)
+
+			#Check if this is too close to last value
+			nowTime = kh5.tStep(fIn,s)
+			#print(nowTime,oldTime)
+			if ( np.abs(nowTime-oldTime)<=tEps):
+				print("\tSkipping step %d"%(s))
+				continue
+			else:
+				#Good value, update old time
+				oldTime = nowTime
 
 			oH5.create_group(ogStr)
-			#print("Copying %s to %s"%(igStr,ogStr))
+			print("Copying %s to %s"%(igStr,ogStr))
 
 			#Group atts
 			for k in iH5[igStr].attrs.keys():
@@ -99,9 +114,9 @@ if __name__ == "__main__":
 				sQ = str(Q)
 				#print("\tCopying %s"%(sQ))
 				oH5[ogStr].create_dataset(sQ,data=iH5[igStr][sQ])
+			#Update s0
+			s0 = s0 + 1
 
 		iH5.close()
-		#Update s0
-		s0 = s0 + dN
 	#Done
 	oH5.close()

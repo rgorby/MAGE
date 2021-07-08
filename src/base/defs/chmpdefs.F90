@@ -4,6 +4,7 @@ module chmpdefs
     use kdefs
     use math
     use xml_input
+    use ioclock
     implicit none
 
     !Algorithmic/Run options
@@ -43,6 +44,12 @@ module chmpdefs
         logical :: doWPI=.false. !Include wave particle interactions
         logical :: doEQScat=.false. !Do equatorial PA scattering
         real(rp) :: reqScat
+        logical :: doPP=.false. !Include plasmapaus location calculations
+
+        logical :: isRestart=.false.
+
+        !Output info
+        type (IOClock_T) :: IO
 
         !Background field pointers
         procedure(B0_T)   , pointer, nopass :: B0
@@ -52,7 +59,7 @@ module chmpdefs
 
     !Field types
     enum, bind(C)
-        enumerator :: BFLD=1,EFLD,DBFLD,B0FLD,EXBFLD
+        enumerator :: BFLD=1,EFLD,DBFLD
     endenum
 
     !Grid types

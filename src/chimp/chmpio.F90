@@ -106,7 +106,7 @@ module chmpio
     subroutine fOutput(Model,ebState,tpState,fLines)
         type(chmpModel_T), intent(inout) :: Model
         type(ebState_T), intent(in), optional   :: ebState
-        type(tpState_T), intent(in), optional   :: tpState
+        type(tpState_T), intent(inout), optional   :: tpState
         type(fLine_T),   intent(in), optional   :: fLines(:)
 
         character(len=strLen) :: gStr
@@ -122,7 +122,7 @@ module chmpio
             write(*,*) ''
         endif
 
-        write(gStr,'(A,I0)') "Step#", Model%nOut
+        write(gStr,'(A,I0)') "Step#", Model%IO%nOut
 
         !write(*,'(a,f8.3,a)') '<Writing HDF5 output @ t = ', Model%t, ' >'
         
@@ -135,6 +135,11 @@ module chmpio
         if ( Model%doTPOut .and. present(tpState) .and. present(ebState) ) then
             call Tic("tpOut")
             call writeTP(Model,ebState,tpState,gStr)
+
+            if (Model%doWPI) then
+                tpState%TPs(:)%dAwpi = 0.0 !reset wpi diagnotsitcs every output
+                tpState%TPs(:)%dKwpi = 0.0
+            endif
             call Toc("tpOut")
         endif
 
@@ -148,6 +153,41 @@ module chmpio
         !Setup for next output
         Model%tOut = Model%tOut + Model%dtOut
         Model%nOut = Model%nOut + 1
-        
+
+        Model%IO%tOut = Model%IO%tOut + Model%IO%dtOut
+        Model%IO%nOut = Model%IO%nOut + 1
+
     end subroutine fOutput
+
+    subroutine resOutput(Model,ebState,tpState)
+        type(chmpModel_T), intent(inout) :: Model
+        type(ebState_T), intent(in)   :: ebState
+        type(tpState_T), intent(inout)   :: tpState
+
+        character(len=strLen) :: ResF,oStr,lnResF !Name of restart file
+        logical :: fExist
+
+        write (ResF, '(A,A,I0,A,I0.5,A)') trim(Model%RunID), "." , Model%Nblk, ".Res.", Model%IO%nRes, ".h5"
+
+        call CheckAndKill(ResF)
+
+        if (Model%t>1.0e-2) then
+            write(oStr,'(f9.3,a,a)' ) Model%t*oTScl, ' ', trim(tStr)
+        else
+            write(oStr,'(es9.2,a,a)') Model%t*oTScl, ' ', trim(tStr)
+        endif
+        write (*, '(a,a,a,a,a)') ANSIGREEN, '<Writing HDF5 RESTART @ t = ', trim(oStr), ' >', ANSIRESET
+
+
+        call writeTPRes(Model,ebState,tpState,ResF)
+
+        !Setup for next restart
+        Model%IO%tRes = Model%IO%tRes + Model%IO%dtRes
+        Model%IO%nRes = Model%IO%nRes + 1
+
+        write (lnResF, '(A,A,I0,A,A,A)') trim(Model%RunID), "." , Model%Nblk, ".Res.", "XXXXX", ".h5"
+
+        call MapSymLink(ResF,lnResF)
+
+    end subroutine resOutput
 end module chmpio

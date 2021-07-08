@@ -43,7 +43,8 @@ module gamapp_mpi
 
         character(len=strLen) :: inpXML, kaijuRoot
         type(XML_Input_T) :: xmlInp
-        logical :: doIOX
+        logical :: doIOX,doLoud
+        integer :: rank,ierr
 
         if(present(optFilename)) then
             ! read from the prescribed file
@@ -60,9 +61,23 @@ module gamapp_mpi
             doIOX = .true.
         endif
 
-        !Create XML reader
-        write(*,*) 'Reading input deck from ', trim(inpXML)
-        xmlInp = New_XML_Input(trim(inpXML),'Kaiju/Gamera',.true.)
+    !Create XML reader
+        !Verbose for root Gamera rank only
+        !NOTE: Doing this w/ direct MPI call b/c isTiled/etc doesn't get set until later
+        call mpi_comm_rank(gamComm, rank, ierr)
+        if (rank == 0) then
+            doLoud = .true.
+        else
+            doLoud = .false.
+        endif
+
+
+        if (doLoud) then
+            write(*,*) 'Reading input deck from ', trim(inpXML)
+            xmlInp = New_XML_Input(trim(inpXML),'Kaiju/Gamera',.true.)
+        else
+            xmlInp = New_XML_Input(trim(inpXML),'Kaiju/Gamera',.false.)
+        endif
 
         ! try to verify that the XML file has "Kaiju" as a root element
         kaijuRoot = ""
@@ -115,6 +130,7 @@ module gamapp_mpi
         character(len=strLen) :: inH5
         logical :: doH5g
         integer, dimension(NDIM) :: dims
+        integer, dimension(:), allocatable :: gamRestartNumbers
 
         associate(Grid=>gamAppMpi%Grid,Model=>gamAppMpi%Model)
 
@@ -337,6 +353,26 @@ module gamapp_mpi
 
         ! call appropriate subroutines to calculate all appropriate grid data from the corner data
         call CalcGridInfo(Model,Grid,gamAppMpi%State,gamAppMpi%oState,gamAppMpi%Solver,xmlInp,userInitFunc)
+
+        ! All Gamera ranks compare restart numbers to ensure they're the same
+        if(Model%isRestart) then
+            if(Grid%Ri==0 .and. Grid%Rj==0 .and. Grid%Rk==0) then
+                ! master rank receives data
+                allocate(gamRestartNumbers(commSize))
+                call mpi_gather(gamAppMpi%Model%IO%nRes, 1, MPI_INT, gamRestartNumbers, 1, MPI_INT, 0, gamAppMpi%gamMpiComm, ierr)
+                if(.not. all(gamRestartNumbers .eq. minval(gamRestartNumbers))) then
+                    write(*,*) "Gamera ranks did not all agree on restart numbers, you should sort that out."
+                    write(*,*) "Error code: A house divided cannot stand"
+                    write(*,*) "   Minimum Gamera nRes = ", minval(gamRestartNumbers)
+                    write(*,*) "   Maximum Gamera nRes = ", maxval(gamRestartNumbers)
+                    stop
+                endif
+                deallocate(gamRestartNumbers)
+            else
+                ! all other ranks only send data
+                call mpi_gather(gamAppMpi%Model%IO%nRes, 1, MPI_INT, 0, 0, MPI_INT, 0, gamAppMpi%gamMpiComm, ierr)
+            endif
+        endif
 
         if(Grid%isTiled) then
             ! correct boundary conditions if necessary
@@ -777,7 +813,7 @@ module gamapp_mpi
                             ! magFlux does faces, not edges or corners
                             call calcRecvDatatypeOffsetFC(gamAppMpi,gamAppMpi%recvRanks(rankIndex),iData,&
                                                           jData,kData,periodicI,periodicJ,periodicK,dType,offset,&
-                                                          .true.,.false.,.false.)
+                                                          .true.,.true.,.false.)
                             if(dType /= MPI_DATATYPE_NULL) then
                                 ! face centered datatype already has all 4 dimensions
                                 call appendDatatype(gamAppMpi%recvTypesMagFlux(rankIndex),dType,offset)
@@ -785,7 +821,7 @@ module gamapp_mpi
 
                             call calcSendDatatypeOffsetFC(gamAppMpi,gamAppmpi%sendRanks(rankIndex),iData,&
                                                     jData,kData,periodicI,periodicJ,periodicK,dType,offset,&
-                                                    .true.,.false.,.false.)
+                                                    .true.,.true.,.false.)
                             if(dType /= MPI_DATATYPE_NULL) then
                                 ! face centered datatype already has all 4 dimensions
                                 call appendDatatype(gamAppMpi%sendTypesMagFlux(rankIndex),dType,offset)

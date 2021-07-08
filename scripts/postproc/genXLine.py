@@ -83,10 +83,15 @@ if __name__ == "__main__":
 	kh5.CheckOrDie(fIn)
 	
 	#Count steps and lines
+	
 	Nstp,sIds = cntX(fIn)
-	gID = "Step#%d"%(sIds.min())
+	s0 = sIds.min()
+	if (s0 == 0):
+		s0 = s0+1
+		Nstp = Nstp-1
+	gID = "Step#%d"%(s0)
 	Nl,lIds = cntX(fIn,gID=gID,StrX="Line#")
-	Nv,vIds = getVars(fIn,sIds.min())
+	Nv,vIds = getVars(fIn,s0)
 
 	
 	print("\tFound %d steps"%(Nstp))
@@ -115,7 +120,7 @@ if __name__ == "__main__":
 		#Add time
 		tLab = et.SubElement(lGrid,"Time")
 		tLab.set("Value","%f"%T[n])
-		nStp = n + sIds.min()
+		nStp = n + s0
 		#Loop over individual lines
 		for m in range(Nl):
 			#Get number of points for this step/line

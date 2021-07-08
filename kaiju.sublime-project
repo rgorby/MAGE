@@ -1,40 +1,24 @@
 {
-	"build_systems":
-	[
-		{
-			"file_regex": "/([^/:]+):(\\d+):(\\d+): ",
-			"name": "kaijucmake",
-			"shell_cmd": "echo $PWD;make -C build"
-		},
-		{
-			"file_regex": "^[ ]*File \"(...*?)\", line ([0-9]*)",
-			"name": "Anaconda Python Builder",
-			"selector": "source.python",
-			"shell_cmd": "\"python\" -u \"$file\""
-		}
-	],
 	"folders":
 	[
 		{
-			"path": "src"
+			"path": "src",
 		},
 		{
-			"folder_include_patterns":
-			[
-				"*.py"
-			],
-			"path": "scripts"
+			"path": "scripts",
+			"folder_exclude_patterns": ["__pycache__"],
 		},
 		{
-			"file_exclude_patterns":
-			[
-				"__init__.py"
-			],
-			"folder_exclude_patterns":
-			[
-				"__pycache__"
-			],
-			"path": "kaipy"
-		}
-	]
+			"path": "kaipy",
+			"folder_exclude_patterns": ["__pycache__"],
+			"file_exclude_patterns": ["__init__.py"],
+		},
+	],
+	"settings":
+	{
+		"indent_subsequent_lines": true,
+		"tab_size": 4,
+		"trim_automatic_white_space": true,
+	},
+
 }

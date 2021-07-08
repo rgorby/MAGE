@@ -542,8 +542,8 @@ contains
       character(len=*), intent(in) :: rStr,xStr,vStr
       logical, intent(in) :: doVerb,isXML
       character(len=strLen) :: bStr,srcStr
-      character(len=*), parameter :: formt  = '(2X, a25, a1, 2X, a12, a10)'
-      character(len=*), parameter :: formtC = '(2X, a25, a1, 2X, a12, a,a10,a)'
+      character(len=*), parameter :: formt  = '(2X, a40, a1, 2X, a12, a10)'
+      character(len=*), parameter :: formtC = '(2X, a40, a1, 2X, a12, a,a10,a)'
       integer :: pos
 
       if ( (.not. doVerb) .or. (doQuiet) ) return

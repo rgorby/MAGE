@@ -30,6 +30,8 @@ if __name__ == "__main__":
 	te = 200  #[min]
 	dt = 60.0 #[sec]
 	doBig = False #[Use big window]
+	noIon = False
+	noRCM = False
 	doMPI = False #[Add MPI tiling]
 	Nblk = 1 #Number of blocks
 	nID = 1 #Block ID of this job
@@ -52,10 +54,12 @@ if __name__ == "__main__":
 	parser.add_argument('-dt' ,type=int,metavar="dt"    ,default=dt,help="Cadence       [sec] (default: %(default)s)")
 	parser.add_argument('-Nblk' ,type=int,metavar="Nblk",default=Nblk,help="Number of job blocks (default: %(default)s)")
 	parser.add_argument('-nID' ,type=int,metavar="nID"  ,default=nID,help="Block ID of this job [1-Nblk] (default: %(default)s)")
-	parser.add_argument('-nompi', action='store_true', default=noMPI,help="Don't show MPI boundaries (default: %(default)s)")
+	#parser.add_argument('-nompi', action='store_true', default=noMPI,help="Don't show MPI boundaries (default: %(default)s)")
 	parser.add_argument('-bz'   , action='store_true', default=doBz ,help="Show Bz instead of dBz (default: %(default)s)")
 	parser.add_argument('-jy'   , action='store_true', default=doJy ,help="Show Jy instead of pressure (default: %(default)s)")
 	parser.add_argument('-bigrcm', action='store_true',default=doBigRCM,help="Show entire RCM domain (default: %(default)s)")
+	parser.add_argument('-noion', action='store_true', default=noIon,help="Don't show ReMIX data (default: %(default)s)")
+	parser.add_argument('-norcm', action='store_true', default=noRCM,help="Don't show RCM data (default: %(default)s)")
 
 	mviz.AddSizeArgs(parser)
 
@@ -126,12 +130,12 @@ if __name__ == "__main__":
 	doRCM = os.path.exists(rcmChk)
 	doMIX = os.path.exists(rmxChk)
 
-	if (doRCM):
+	if (doRCM and (not args.norcm)):
 		print("Found RCM data")
 		rcmdata = gampp.GameraPipe(fdir,ftag+".mhdrcm")
 		mviz.vP = kv.genNorm(1.0e-2,100.0,doLog=True)
 		rcmpp.doEll = not doBigRCM
-	if (doMIX):
+	if (doMIX and (not args.noion)):
 		print("Found ReMIX data")
 		
 		
@@ -173,13 +177,13 @@ if __name__ == "__main__":
 
 			
 		#Add inset RCM plot
-		if (doRCM):
+		if (doRCM and (not args.norcm)):
 			AxRCM = inset_axes(AxL,width="30%",height="30%",loc=3)
 			rcmpp.RCMInset(AxRCM,rcmdata,nStp,mviz.vP)
 			AxRCM.contour(kv.reWrap(gsph.xxc),kv.reWrap(gsph.yyc),kv.reWrap(Bz),[0.0],colors=mviz.bz0Col,linewidths=mviz.cLW)
 			rcmpp.AddRCMBox(AxL)
 
-		if (doMIX):
+		if (doMIX and (not args.noion)):
 			ion = remix.remix(rmxChk,nStp)
 			gsph.AddCPCP(nStp,AxR,xy=[0.610,0.925])
 			mviz.AddIonBoxes(gs[0,3:],ion)		

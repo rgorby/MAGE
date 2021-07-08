@@ -23,6 +23,10 @@ module mhdgroup
 
         integer :: n
 
+        !Trap for case (at beginning of run) where oState has same time as state
+        if (abs(oState%time-State%time)<TINY) then
+            oState%time = State%time-Model%dt
+        endif
         !Use predictor to create half state
         call Tic("Predictor")
         call Predictor(Model,Grid,oState,State,Solver%StateHf,0.5*dt)

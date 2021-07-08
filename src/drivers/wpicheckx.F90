@@ -33,7 +33,9 @@ program wpicheck
     !use xml to set up daa test
     call initWPI(wModel_1prt,wave,inpXML)
 
-    call singlePrtDiff(Model,wave,wModel_1prt,inpXML)
+    ! call singlePrtDiff(Model,wave,wModel_1prt,inpXML)
+
+    call diffCruveBounce(Model,wave,wModel_1prt,inpXML)
 
     call DiffCoef_summers05(Model,wave,inpXML)
 
@@ -173,7 +175,7 @@ program wpicheck
             do i=1,Nk
                 do n=1,Np
                     prt = tpState(i)%TPs(n)
-                    Kprt = prt2kev(Model,prt)/(Model%m0*mec2*1.0e+3)
+                    Kprt = pGC2K(Model,prt)
                     call Resonance(wave,wModel,Model%m0,Kprt,prt%alpha,astar(2),xj,yj)
                     if (xj == 999) then
                         xjs_f1(i,n) = xj
@@ -192,7 +194,7 @@ program wpicheck
             do j=1,Nas
                 do n=1,Np
                     prt = tpState(3)%TPs(n) !take 1 MeV particles
-                    Kprt = prt2kev(Model,prt)/(Model%m0*mec2*1.0e+3)
+                    Kprt = pGC2K(Model,prt)
                     call Resonance(wave,wModel,Model%m0,Kprt,prt%alpha,astar(j),xj,yj)
                     if (xj == 999) then
                         daa_f2(j,n) = xj
@@ -289,7 +291,7 @@ program wpicheck
             do i=1,Np 
                 prt = tpState%TPs(i)
                 do j=1,Na
-                    Kprt = prt2kev(Model,prt)/(Model%m0*mec2*1.0e+3)
+                    Kprt = pGC2K(Model,prt)
                     call Resonance(wave,wModel,Model%m0,Kprt,prt%alpha,astar,xj,yj)
                     prt%xj = xj
                     prt%yj = yj
@@ -336,50 +338,151 @@ program wpicheck
             !performing diffusion curve test
         end subroutine diffCurve_summers98
 
-        subroutine resTest(Model,wave,wModel)
-            type(chmpModel_T), intent(in) :: Model
-            type(wave_T),      intent(in) :: wave
-            type(wModel_T),    intent(in) :: wModel
-            type(prt_T)                   :: prt
+        subroutine diffCruveBounce(Model,wave,wModel,inpXML)
+            type(chmpModel_T), intent(inout)    :: Model
+            type(wave_T),      intent(in)       :: wave
+            type(wModel_T),    intent(in)       :: wModel
+            type(XML_Input_T), intent(inout)    :: inpXML
+            type(tpState_T)                     :: tpState
+            type(prt_T)   :: prtDC
+            real(rp), dimension(:), allocatable :: time,B,astar,lat
+            real(rp), dimension(:,:), allocatable :: kDC,aDC,xjDC,yjDC,p11DC,gamDC,muDC
+            real(rp) :: B0,n0
+            real(rp) :: K0,alpha0,psi0
+            real(rp) :: currlat,Bm,Bcurr,Acurr
+            integer :: Na,Np,n,i,j
+            real(rp) :: wpe,inWScl,xj,yj,Daa=0.0001,dGDda=0.5 !Daa,dGDda are not used, using const da
+            real(rp) :: dAlim = -0.00087
+            real(rp) :: gamNew,aNew,pNew,Mu,p11Mag,Kprt
+            integer  :: pSgn=1
 
-            real(rp) :: B0 ![nT] uniform background field (arbitrary)
-            real(rp) :: K0, alpha0,psi0,astar
-            real(rp) :: xj,yj !Daa and ddt not used, using const da
-            real(rp) :: p11,pperp,alpha,K,Daa,Kprt
+            character(len=strLen) :: outH5 = "diffCurveBounce.h5"
 
-            !setting values
-            B0     = 344.0
-            K0     = 100.0
-            alpha0 = 10.0
-            psi0   = 0.0
-            astar  = 0.16
+            logical :: doAllWaves
+
+            doAllWaves = .true.
+
+            !pull K, alpha, psi for prt from xml file 
+            call inpXML%Set_Val(K0,'energy/min',500.0)
+            call inpXML%Set_Val(alpha0,'alpha/min',45.0)
+            call inpXML%Set_Val(psi0,'psi/min',0.0)
+
+            B0     = 156.0_rp
+            n0     = 9.0_rp
 
             !normalizing variables
             B0 = B0*inBScl
             alpha0 = alpha0*deg2rad
-            psi0 = psi0*deg2rad
+            psi0 = psi0*deg2rad                   
+            
+            !Bmirror
+            Bm = B0/(sin(alpha0)**2.0)
 
-            prt%isIn = .true.
-            prt%isGC = .true.
+            ! Na = abs((PI/2)/dAlim)
+            Na = int(abs(alpha0)/abs(dAlim))
+            ! Na = int(abs(alpha0-PI/2)/dAlim)
+            Np = 11 !1 degree resolution in lat from -10 to 0
 
-            call createPrts(Model,prt,K0,alpha0,psi0,B0)
+            !generating test particles for diffusion curve comparison
+            tpState%Np = Np
+            allocate(tpState%TPs(Np))
 
-            Kprt = prt2kev(Model,prt)/(Model%m0*mec2*1.0e+3)
-            call Resonance(wave,wModel,Model%m0,Kprt,prt%alpha,astar,xj,yj)
+            tpState%TPs(:)%isIn = .true.
+            tpState%TPs(:)%isGC = .true.
 
-            Daa = DiffCoef(wave,wModel,Model%m0,Kprt,prt%alpha,astar,B0,xj,yj)
+            !allocate arrays to hold output
+            allocate(B(Np))
+            allocate(time(Np))
+            allocate(lat(Np))
+            allocate(astar(Np))
+            allocate(kDC(Np,Na))
+            allocate(aDC(Np,Na))
+            allocate(xjDC(Np,Na))
+            allocate(yjDC(Np,Na))
+            allocate(p11DC(Np,Na))
+            allocate(muDC(Np,Na))
+            allocate(gamDC(Np,Na))
 
-            p11 = prt%Q(P11GC)
-            alpha = prt%alpha/deg2rad
-            pperp = sqrt(abs(prt%Q(MUGC))*2*B0*Model%m0)
-            K = prt2kev(Model,prt)!/1000.0 ![MeV]
+            ! Create particles for diffusion curve test
+            currlat = -10.0_rp*deg2rad
+            do n=1,Np
+                ! loop through bounce motion to create particles and astar at each latitude 
+                Bcurr = B0*sqrt(1.0+3.0*(sin(currlat)**2.0))/(cos(currlat)**6.0)
+                Acurr = asin(sqrt(Bcurr/Bm))
+                tpState%TPs(n)%id = n
+                call createPrts(Model,tpState%TPs(n),K0,Acurr,psi0,Bcurr)
+                Bcurr = B0
+                write(*,*)"Bcurr,Bm,Acurr,currlat: ",Bcurr*oBScl,Bm*oBScl,Acurr*rad2deg,currlat*rad2deg
+                !Calulating the ratio of nonrelativistic gyrofrequency to plasma frequency at prt's location
+                inWScl = 114704.0207604 !(qe_cgs*L0/(vc_cgs*sqrt(Me_cgs)))^2 
+                wpe = sqrt(4*PI*n0) 
+                astar(n) = Bcurr**2/((wpe**2)*inWScl)
+                B(n) = Bcurr
+                time(n) = n
+                lat(n) = currlat*rad2deg
+                currlat = currlat+1.0_rp*deg2rad
+            enddo
 
-            write(*,*) "ResTest:: K,p11,pperp,alpha: ",K,p11,pperp,alpha
-            write(*,*) "ResTest:: xj,yj: ",xj,yj
-            write(*,*) "ResTest:: astar, Daa: ",astar,Daa, Daa/oTScl
+            ! loop over particles and pitch-angles 
+            do i=1,Np 
+                prtDC = tpState%TPs(i)
+                do j=1, Na
+                    write(*,*) "iteration: ",i,j
+                    Kprt = pGC2K(Model,prtDC)
+                    call Resonance(wave,wModel,Model%m0,Kprt,prtDC%alpha,astar(i),xj,yj,doAllWaves)
+                    prtDC%xj = xj
+                    prtDC%yj = yj
+                    if(xj == 999) cycle
 
+                    !save particle state before Updating
+                    kDC(i,j) = prt2kev(Model,prtDC)
+                    aDC(i,j) = prtDC%alpha*rad2deg
+                    xjDC(i,j)= prtDC%xj
+                    yjDC(i,j)= prtDC%yj
+                    p11DC(i,j) = prtDC%Q(P11GC)
+                    muDC(i,j)  = prtDC%Q(MUGC )
+                    gamDC(i,j) = prtDC%Q(GAMGC)
+                    write(*,*) "B,lat, astar: ",B(i)*oBScl,lat(i),astar(i)
+                    write(*,*) "Energy, pa,xj,yj: ",kDC(i,j),aDC(i,j),xjDC(i,j),yjDC(i,j)
+                    ! Calculate the resulting change in pitch angle and energy of the particle
+                    call LangevinEq(wave,wModel,Model,prtDC,dGDda,Daa,Model%dt,astar(i),aNew,pNew,dAlim)
 
-        end subroutine resTest
+                    if (aNew >= PI/2) exit
+                    !Update the pitch angle
+                    prtDC%alpha = aNew
+
+                    if (aNew <= PI/2) then
+                        pSgn = +1
+                    else
+                        pSgn = -1
+                    endif
+                    !Updating the particle momentum and energy
+                    p11Mag = pSgn*pNew*sqrt( 1 - sin(aNew)**2.0 )
+                    gamNew = sqrt(1+(pNew/Model%m0)**2.0)
+                    Mu = ( (Model%m0**2)*(gamNew**2.0 - 1.0) - p11Mag*p11Mag) / (2*Model%m0*B(i))
+                    prtDC%Q(P11GC) = p11Mag
+                    prtDC%Q(MUGC ) = Mu 
+                    prtDC%Q(GAMGC) = gamNew
+                enddo
+            end do
+
+            !write data to a file
+            call CheckAndKill(outH5)
+            call ClearIO(IOVars)
+            call AddOutVar(IOVars,"time",time)
+            call AddOutVar(IOVars,"lat",lat)
+            call AddOutVar(IOVars,"B",B*oBScl)
+            call AddOutVar(IOVars,"kDC",kDC)
+            call AddOutVar(IOVars,"aDC",aDC)
+            call AddOutVar(IOVars,"xjDC",xjDC)
+            call AddOutVar(IOVars,"yjDC",yjDC)
+            call AddOutVar(IOVars,"p11DC",p11DC)
+            call AddOutVar(IOVars,"muDC",muDC)
+            call AddOutVar(IOVars,"gamDC",gamDC)
+            call WriteVars(IOVars,.true.,outH5)
+            call ClearIO(IOVars)
+
+        end subroutine diffCruveBounce
 
         subroutine singlePrtDiff(Model,wave,wModel,inpXML)
             type(chmpModel_T), intent(inout)    :: Model
@@ -392,16 +495,24 @@ program wpicheck
 
             character(len=strLen) :: outH5 = "singlePrtTest.h5"
 
-            real(rp), dimension(:), allocatable :: kwpi,awpi,xjwpi,yjwpi
-            real(rp), dimension(:), allocatable :: kDC,aDC,xjDC,yjDC
-            real(rp) :: B0,n0
+            real(rp), dimension(:), allocatable :: kwpi,awpi,xjwpi,yjwpi,p11wpi,gamwpi,muwpi,Nwpi,dKwpi,dAwpi
+            real(rp), dimension(:), allocatable :: Keq,Aeq,time,lat,B,z
+            real(rp), dimension(:,:), allocatable :: kDC,aDC,xjDC,yjDC,p11DC,gamDC,muDC
+            real(rp), dimension(:), allocatable :: astar
+            real(rp) :: B0,n0,B1
             real(rp) :: K0,alpha0,psi0
             real(rp) :: t0,t1,dt
-            integer  :: Nt,s,Na,n
-            real(rp) :: wpe,inWScl,astar,xj,yj,Daa=0.0001,dGDda=0.5 !Daa,dGDda are not used, using const da
-            real(rp) :: dAlim = 0.0087
+            real(rp) :: x,currlat,L,r,Bm,Bcurr,Acurr,gamma,pMag
+            real(rp), dimension(NDIM) :: req
+            integer  :: Nt,s,Na,n,i
+            real(rp) :: wpe,inWScl,xj,yj,Daa=0.0001,dGDda=0.5 !Daa,dGDda are not used, using const da
+            real(rp) :: dAlim = 0.00087
             real(rp) :: gamNew,aNew,pNew,Mu,p11Mag,Kprt
             integer  :: pSgn=1
+
+            logical :: doAllWaves
+
+            doAllWaves = .true.
 
             !pull K, alpha, psi for prt from xml file 
             call inpXML%Set_Val(K0,'energy/min',500.0)
@@ -418,9 +529,12 @@ program wpicheck
             ebState%ebWave = wave
             ebState%ebWmodel = wModel
 
-            !setting values
-            B0     = 341.3
-            n0     = 7.0
+            !setting values at equator
+            ! B0     = 341.3
+            ! n0     = 7.0
+            B0     = 156.0_rp
+            n0     = 9.0_rp
+            ! B0     = 312.0
 
             !normalizing variables
             B0 = B0*inBScl
@@ -431,91 +545,309 @@ program wpicheck
             prt%isGC = .true.
             call createPrts(Model,prt,K0,alpha0,psi0,B0)                    
 
-            ! setting position of particle
-            ! not important just need to specify hemisphere
-            prt%Q(XPOS:ZPOS) = [-5.0_rp, -3.0_rp, -0.5_rp] ! Southern hemisphere
-            prt%Qeq(EQX:EQY) = [-5.0_rp, -3.0_rp] 
+            ! setting position of particle, putting at midnight so y=0
+            prt%Q(XPOS:ZPOS) = [-6.0_rp, 0.0_rp, 0.0_rp] 
+            prt%Qeq(EQX:EQY) = [-6.0_rp, 0.0_rp] 
+            req = [prt%Qeq(EQX),prt%Qeq(EQY),0.0_rp]
+            L = norm2(req)
+            
+            !Bmirror
+            Bm = B0/(sin(alpha0)**2.0)
+
+            ! particle initially at equator
+            prt%Qeq(EQKEV) = prt2kev(Model,prt)
+            prt%Qeq(EQALP) = prt%alpha
+
+            prt%ddt = Model%dt
 
             !allocate arrays to hold output
             allocate(kwpi(Nt))
             allocate(awpi(Nt))
             allocate(xjwpi(Nt))
             allocate(yjwpi(Nt))
+            allocate(p11wpi(Nt))
+            allocate(gamwpi(Nt))
+            allocate(muwpi(Nt))
+            allocate(Nwpi(Nt))
+            allocate(time(Nt))
+            allocate(dKwpi(Nt))
+            allocate(dAwpi(Nt))
+
+            allocate(Keq(Nt))
+            allocate(Aeq(Nt))
+            allocate(lat(Nt))
+            allocate(z(Nt))
+            allocate(B(Nt))
 
             do s=1,Nt
-                call PerformWPI(prt,Model%t,Model%dt,Model,ebState,B0,n0) 
+                !moving particle along field line
+                currlat =  sin(s/(20.0*PI))*(PI/7.79) !bounces between +/- 23˚ 
+                Bcurr = B0*sqrt(1.0+3.0*(sin(currlat)**2.0))/(cos(currlat)**6.0)
+                r = L*(cos(currlat)**2.0)
+                z(s) = r*sin(currlat)
+                x = r*cos(currlat)
+                prt%Q(XPOS:ZPOS) = [-x, 0.0_rp, z(s)]
+                ! Acurr = asin(sqrt(Bcurr/Bm))
+
+                ! prt%alpha = Acurr
+
+                ! if (Acurr <= PI/2) then
+                !     pSgn = +1
+                ! else
+                !     pSgn = -1
+                ! endif
+                ! !Energy and mu unchange, assume no vExB 
+                ! gamma = prt%Q(GAMGC)
+                ! pMag = Model%m0*sqrt(gamma**2.0 - 1.0)
+                ! p11Mag = pSgn*pMag*sqrt( 1 - sin(Acurr)**2.0 )
+                ! prt%Q(P11GC) = p11Mag
+                ! Mu = ( (Model%m0**2)*(ebGam**2.0 - 1.0) - p11Mag*p11Mag) / (2*Model%m0*MagB)
+                ! prt%Q(MUGC ) = Mu 
+
+                ! WPI calculations
+                call PerformWPI(prt,Model%t,Model,ebState,Bcurr,n0)
+
+                !check for equatoria crossing
+                if ((s > 1) .and. (z(s-1)*z(s) <=0)) then
+                    prt%Qeq(EQKEV) = prt2kev(Model,prt)
+                    prt%Qeq(EQALP) = prt%alpha
+                end if
+
                 Model%t = Model%t+Model%dt
+
                 kwpi(s) = prt2kev(Model,prt)
                 awpi(s) = prt%alpha*rad2deg
                 xjwpi(s)= prt%xj
                 yjwpi(s)= prt%yj
+                p11wpi(s) = prt%Q(P11GC)
+                muwpi(s)  = prt%Q(MUGC )
+                gamwpi(s) = prt%Q(GAMGC)
+                Nwpi(s) = prt%Nwpi
+                time(s) = oTScl*Model%t
+                lat(s)  = currlat*rad2deg
+                B(s)    = Bcurr*oBScl
+                dKwpi(s)= prt%dKwpi
+                dAwpi(s)= prt%dAwpi
+                Keq(s) = prt%Qeq(EQKEV)
+                Aeq(s) = prt%Qeq(EQALP)*rad2deg
             enddo
 
             ! diffusion curve calculation
             prtDC%isIn = .true.
             prtDC%isGC = .true.
-            call createPrts(Model,prtDC,K0,alpha0,psi0,B0)
-
-            !Calulating the ratio of nonrelativistic gyrofrequency to plasma frequency at prt's location
-            inWScl = 114704.0207604 !(qe_cgs*L0/(vc_cgs*sqrt(Me_cgs)))^2 
-            wpe = sqrt(4*PI*n0) 
-            astar = B0**2/((wpe**2)*inWScl)
+            ! call createPrts(Model,prtDC,K0,alpha0,psi0,B0)
 
             Na = int(abs(alpha0-PI/2)/dAlim)
 
             !allocate arrays to hold output
-            allocate(kDC(Na))
-            allocate(aDC(Na))
-            allocate(xjDC(Na))
-            allocate(yjDC(Na))
+            allocate(kDC(2,Na))
+            allocate(aDC(2,Na))
+            allocate(xjDC(2,Na))
+            allocate(yjDC(2,Na))
+            allocate(p11DC(2,Na))
+            allocate(muDC(2,Na))
+            allocate(gamDC(2,Na))
+            allocate(astar(2))
 
-            do n=1, Na
-                Kprt = prt2kev(Model,prtDC)/(Model%m0*mec2*1.0e+3)
-                call Resonance(wave,wModel,Model%m0,Kprt,prtDC%alpha,astar,xj,yj)
-                prtDC%xj = xj
-                prtDC%yj = yj
+            !Calulating the ratio of nonrelativistic gyrofrequency to plasma frequency at prt's location
+            inWScl = 114704.0207604 !(qe_cgs*L0/(vc_cgs*sqrt(Me_cgs)))^2 
+            wpe = sqrt(4*PI*n0) 
+            astar(1) = B0**2/((wpe**2)*inWScl)
+            B1 = B0*sqrt(1.0+3.0*(sin(PI/18)**2.0))/(cos(PI/18)**6.0)
+            astar(2) = B1**2/((wpe**2)*inWScl)
 
-                !save particle state before Updating
-                kDC(n) = prt2kev(Model,prtDC)
-                aDC(n) = prtDC%alpha*rad2deg
-                xjDC(n)= prtDC%xj
-                yjDC(n)= prtDC%yj
+            write(*,*) "SinglePrtTest:: B0, n0, astar: ",B0*oBScl,n0,astar
 
-                ! Calculate the resulting change in pitch angle and energy of the particle
-                call LangevinEq(wave,wModel,Model,prtDC,dGDda,Daa,Model%dt,astar,aNew,pNew,dAlim)
+            do i=1,2
+                call createPrts(Model,prtDC,K0,alpha0,psi0,B0)
+                do n=1, Na
+                    Kprt = pGC2K(Model,prtDC)
+                    call Resonance(wave,wModel,Model%m0,Kprt,prtDC%alpha,astar(i),xj,yj,doAllWaves)
+                    prtDC%xj = xj
+                    prtDC%yj = yj
 
-                !Update the pitch angle
-                prtDC%alpha = aNew
+                    !save particle state before Updating
+                    kDC(i,n) = prt2kev(Model,prtDC)
+                    aDC(i,n) = prtDC%alpha*rad2deg
+                    xjDC(i,n)= prtDC%xj
+                    yjDC(i,n)= prtDC%yj
+                    p11DC(i,n) = prtDC%Q(P11GC)
+                    muDC(i,n)  = prtDC%Q(MUGC )
+                    gamDC(i,n) = prtDC%Q(GAMGC)
 
-                if (aNew <= PI/2) then
-                    pSgn = +1
-                else
-                    pSgn = -1
-                endif
-                !Updating the particle momentum and energy
-                p11Mag = pSgn*pNew*sqrt( 1 - sin(aNew)**2.0 )
-                gamNew = sqrt(1+(pNew/Model%m0)**2.0)
-                Mu = ( (Model%m0**2)*(gamNew**2.0 - 1.0) - p11Mag*p11Mag) / (2*Model%m0*B0)
-                prtDC%Q(P11GC) = p11Mag
-                prtDC%Q(MUGC ) = Mu 
-                prtDC%Q(GAMGC) = gamNew
+                    ! Calculate the resulting change in pitch angle and energy of the particle
+                    call LangevinEq(wave,wModel,Model,prtDC,dGDda,Daa,Model%dt,astar(i),aNew,pNew,dAlim)
+
+                    !Update the pitch angle
+                    prtDC%alpha = aNew
+
+                    if (aNew <= PI/2) then
+                        pSgn = +1
+                    else
+                        pSgn = -1
+                    endif
+                    !Updating the particle momentum and energy
+                    p11Mag = pSgn*pNew*sqrt( 1 - sin(aNew)**2.0 )
+                    gamNew = sqrt(1+(pNew/Model%m0)**2.0)
+                    Mu = ( (Model%m0**2)*(gamNew**2.0 - 1.0) - p11Mag*p11Mag) / (2*Model%m0*B0)
+                    prtDC%Q(P11GC) = p11Mag
+                    prtDC%Q(MUGC ) = Mu 
+                    prtDC%Q(GAMGC) = gamNew
+                enddo
             enddo
 
             !write data to a file
             call CheckAndKill(outH5)
             call ClearIO(IOVars)
+            call AddOutVar(IOVars,"time",time)
+            call AddOutVar(IOVars,"lat",lat)
+            call AddOutVar(IOVars,"B",B)
+            call AddOutVar(IOVars,"Z",z)
+            call AddOutVar(IOVars,"Keq",Keq)
+            call AddOutVar(IOVars,"Aeq",Aeq)
             call AddOutVar(IOVars,"kwpi",kwpi)
             call AddOutVar(IOVars,"awpi",awpi)
+            call AddOutVar(IOVars,"Nwpi",Nwpi)
+            call AddOutVar(IOVars,"dKwpi",dKwpi)
+            call AddOutVar(IOVars,"dAwpi",dAwpi)
             call AddOutVar(IOVars,"xjwpi",xjwpi)
             call AddOutVar(IOVars,"yjwpi",yjwpi)
+            call AddOutVar(IOVars,"p11wpi",p11wpi)
+            call AddOutVar(IOVars,"muwpi",muwpi)
+            call AddOutVar(IOVars,"gamwpi",gamwpi)
             call AddOutVar(IOVars,"kDC",kDC)
             call AddOutVar(IOVars,"aDC",aDC)
             call AddOutVar(IOVars,"xjDC",xjDC)
             call AddOutVar(IOVars,"yjDC",yjDC)
+            call AddOutVar(IOVars,"p11DC",p11DC)
+            call AddOutVar(IOVars,"muDC",muDC)
+            call AddOutVar(IOVars,"gamDC",gamDC)
             call WriteVars(IOVars,.true.,outH5)
             call ClearIO(IOVars)
 
         end subroutine singlePrtDiff
+
+        subroutine resTest(Model,wave,wModel)
+            type(chmpModel_T), intent(in) :: Model
+            type(wave_T),      intent(in) :: wave
+            type(wModel_T),    intent(in) :: wModel
+            type(prt_T)                   :: prt
+
+            real(rp) :: B0 ![nT] uniform background field (arbitrary)
+            real(rp) :: K0, alpha0,psi0,astar
+            real(rp) :: xj,yj
+            real(rp) :: p11,pperp,alpha,K,Daa,Kprt
+            real(rp), dimension(:), allocatable :: xjs, yjs,x90,y90
+            integer :: n,Na
+            real(rp) :: dAlim
+            real(rp) :: pa
+            real(rp), dimension(:), allocatable :: xroots,yroots,resid,alphas,astars,Ks
+            complex(rp), dimension(:,:), allocatable :: allRoots
+            complex(rp), dimension(NROOTS+1) :: coef
+            logical :: doAllWaves
+
+            character(len=strLen) :: outH5 = "rootTest.h5"
+
+            doAllWaves = .true.
+            
+            !setting values
+            ! B0     = 344.0
+            K0     = 100.0_rp
+            alpha0 = 89.0_rp
+            psi0   = 0.0_rp
+            ! astar  = 0.16_rp
+            B0     = 156.0_rp
+            ! K0 = 136.21044791583898
+            ! alpha0 = 89.999648419152763
+            ! alpha0 = 89.999
+            astar = 0.026!1!0.16!0.026
+
+            !normalizing variables
+            B0 = B0*inBScl
+            alpha0 = alpha0*deg2rad
+            psi0 = psi0*deg2rad
+
+            prt%isIn = .true.
+            prt%isGC = .true.
+
+            call createPrts(Model,prt,K0,alpha0,psi0,B0)
+
+            Kprt = pGC2K(Model,prt)
+
+            ! do n=1, 100000
+            call Resonance(wave,wModel,Model%m0,Kprt,prt%alpha,astar,xj,yj)
+
+            ! call res90deg(wave,Model%m0,Kprt,astar,x90,y90)
+            ! write(*,*) "ResTest::alpha=90:: xjs,yjs: ",x90,y90
+            ! call ResRoots(wave,Model%m0,Kprt,prt%alpha,astar,xjs,yjs)
+            ! write(*,*) "ResTest::All roots:: xjs,yjs: ",xjs,yjs
+
+            Daa = DiffCoef(wave,wModel,Model%m0,Kprt,prt%alpha,astar,B0,xj,yj)
+
+            p11 = prt%Q(P11GC)
+            alpha = prt%alpha/deg2rad
+            pperp = sqrt(abs(prt%Q(MUGC))*2*B0*Model%m0)
+            K = prt2kev(Model,prt)!/1000.0 ![MeV]
+
+            write(*,*) "ResTest:: K,p11,pperp,alpha: ",K,p11,pperp,alpha
+            write(*,*) "ResTest:: xj,yj: ",xj,yj
+            write(*,*) "ResTest:: astar, Daa: ",astar,Daa, Daa/oTScl
+            ! enddo
+
+            ! testing quartic root solver
+            dAlim = 0.0000087_rp
+            Na = int(abs(alpha0-PI/2)/dAlim)
+            allocate(allRoots(Na,NROOTS))
+            allocate(xroots(Na))
+            allocate(yroots(Na))
+            allocate(resid(Na))
+            allocate(alphas(Na))
+
+            do n=1, Na
+                pa = alpha0+(n-1)*dAlim
+                call ResRoots(wave,Model%m0,Kprt,pa,astar,xjs,yjs,coef)
+                call fastQuarticSolver(coef,allRoots(n,:))
+                call selectRoot(wModel,pa,xjs,yjs,xj,yj,doAllWaves)
+                alphas(n) = pa
+                xroots(n) = xj
+                yroots(n) = yj
+                resid(n) = quarticResidual(xj,coef)
+                ! write(*,*) "Resonant Energy and pitch angle: ",K,pa*rad2deg
+                ! write(*,*) allRoots(n,:)
+                ! write(*,*) xj,yj
+                ! write(*,*) " "
+            enddo
+
+            allocate(Ks(2))
+            allocate(astars(2))
+            Ks(:) = K
+            astars(:) = astar
+
+           !write data to a file
+            call CheckAndKill(outH5)
+            call ClearIO(IOVars)
+            call AddOutVar(IOVars,"xroots",xroots)
+            call AddOutVar(IOVars,"yroots",yroots)
+            call AddOutVar(IOVars,"resid",resid)
+            call AddOutVar(IOVars,"alphas",alphas)
+            call AddOutVar(IOVars,"Ks",Ks)
+            call AddOutVar(IOVars,"astars",astars)
+            ! call AddOutVar(IOVars,"allRoots",allRoots)
+            call WriteVars(IOVars,.true.,outH5)
+            call ClearIO(IOVars)
+
+        end subroutine resTest
+
+        function quarticResidual(x,coef) result(resid)
+            real(rp), intent(in) :: x
+            complex(rp), dimension(NROOTS+1), intent(in) :: coef
+
+            real(rp) :: resid
+
+            !calculating value of quartic at a given x for array of coef
+            resid = coef(5)+x*(coef(4)+x*(coef(3)+x*(coef(2)+x*coef(1))))
+
+        end function quarticResidual
 
 
 end program wpicheck

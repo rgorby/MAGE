@@ -7,7 +7,7 @@ module mixparams
 
   !Grid default parameter type
   type MixGrid0_T
-    integer :: Np=256,Nt=128
+    integer  :: Np=256,Nt=128
     real(rp) :: LowLatBC = 45.0
     real(rp) :: R0 = 0.083567956_rp
   end type MixGrid0_T

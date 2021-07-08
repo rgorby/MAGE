@@ -9,7 +9,7 @@ module voltio
     use wind
     use dyncoupling
     use dstutils
-
+    
     implicit none
 
     integer , parameter, private :: MAXVOLTIOVAR = 35
@@ -63,7 +63,7 @@ module voltio
             dtWall = (curCount - oTime)/clockRate
             if(dtWall < 0) dtWall = dtWall + countMax / clockRate
             simRate = dMJD*24.0*60.0*60.0/dtWall !Model seconds per wall second
-            gamWait = 0.8*gamWait + 0.2*readClock('GameraSync')/(kClocks(1)%tElap+TINY) ! Weighted average to self-correct
+            gamWait = 0.8*gamWait + 0.2*readClock('GameraSync')/(readClock(1)+TINY) ! Weighted average to self-correct
         else
             simRate = 0.0
             oMJD = cMJD
@@ -113,9 +113,9 @@ module voltio
                 write (*, '(a)'                 )    '    IMag Ingestion'
                 write (*, '(a,1f7.2,a,1f7.2,a)' )    '       D/P = ', 100.0*DelD,'% /',100.0*DelP,'%'
                 write (*, '(a,1f7.2,a)'         )    '        dt = ', dtIM, ' [s]'
-
+                
+                !write (*,'(a,1f8.3,I6,a)')           '      xTrc = ', vApp%rTrc,vApp%nTrc, ' [r/n]'
             endif
-
             write (*, '(a,1f7.1,a)' ) '    Spent ', gamWait*100.0, '% of time waiting for Gamera'
             if (simRate>TINY) then
                 if (vApp%isSeparate) then
@@ -168,7 +168,7 @@ module voltio
         class(voltApp_T), intent(inout) :: vApp
 
         !Write Gamera restart
-        call resOutput(gApp%Model,gApp%Grid,gApp%State)
+        call resOutput(gApp%Model,gApp%Grid,gApp%oState,gApp%State)
 
         !Write Voltron restart data
         call resOutputVOnly(vApp,gApp)
