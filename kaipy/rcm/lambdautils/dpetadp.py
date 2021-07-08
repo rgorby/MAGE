@@ -4,7 +4,9 @@ from argparse import RawTextHelpFormatter
 from math import gamma
 
 from kaipy.rcm.lambdautils.AlamData import AlamData
+from kaipy.rcm.lambdautils.helperdefs import L_to_bVol
 import kaipy.rcm.lambdautils.plotter as plotter
+
 
 #Constants
 boltz = 1.38e-23  # boltzmann constant
@@ -17,18 +19,6 @@ pressure_factor = 2./3.*ev/radius_earth_m*nt
 density_factor = nt/radius_earth_m
 
 isMain = False
-
-
-def L_to_bVol(L):  # L shell [Re] to V [Re/nT]
-    bsurf_nT = 3.11E4
-    colat = np.arcsin(np.sqrt(1.0/L))
-
-    cSum = 35*np.cos(colat) - 7*np.cos(3*colat) +(7./5.)*np.cos(5*colat) - (1./7.)*np.cos(7*colat)
-    cSum /= 64.
-    s8 = np.sin(colat)**8
-    V = 2*cSum/s8/bsurf_nT
-    return V
-
 
 def erfexpdiff(A, xplus, xminus):
     

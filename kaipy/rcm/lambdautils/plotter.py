@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from matplotlib import ticker, colors
 import numpy as np
 
-import kaipy.rcm.lambdautils.dpetadp as dpetadp
+from kaipy.rcm.lambdautils.helperdefs import L_to_bVol
 
 titlesize = 16
 ylabelsize = 22
@@ -95,7 +95,7 @@ def plotEtas(alamData, etaData, vm, title, doShow=False):
 def plotLambdaVsLShell(alamData, Llow=1.5, Lhigh=10, doShow=False):
     nSamples = 100
     lshell_arr = np.linspace(Llow, Lhigh, nSamples, endpoint=True)
-    vm_arr = np.array([dpetadp.L_to_bVol(L) for L in lshell_arr])**(-2/3)
+    vm_arr = np.array([L_to_bVol(L) for L in lshell_arr])**(-2/3)
     iLams_e = np.array([0, len(alamData.alams['spec1'])-1])
     if np.abs(alamData.alams['spec1'][0]) < 1E-5:
         iLams_e[0] += 1
