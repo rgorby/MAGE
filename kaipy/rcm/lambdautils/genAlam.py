@@ -44,7 +44,7 @@ def genh5(fname, inputParams, doTests=True, doShowPlot=False):
 		f5.attrs[key] = attrs[key]
 	f5.close()
 
-# Adds completely new channel to alamc, ikflavc, and fudgex
+# Adds completely new channel to alamc, ikflavc, and fudges
 def addPsphere(alams, flavs, fudges):
 	alam_wp = np.concatenate(([0], alams))
 	flav_wp = np.concatenate(([1], flavs))

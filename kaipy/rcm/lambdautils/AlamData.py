@@ -6,9 +6,9 @@ class AlamParams:
 
     #All energies in eV
     def __init__(self, distType = 'wolf', 
-                    num_e      = 50   , num_p     = 149,
+                    num_e      = 39   , num_p     = 120,
                     alamMin_e  = -1.0 , alamMin_p = 10, 
-                    ktMax      = 50000, L_kt      = 10, tiote=4.0, 
+                    ktMax      = 15000, L_kt      = 10, tiote=4.0, 
                     p1         = 3.0  , p2        = 1.0,
                     addPsphere = True):
         self.distType     = distType
