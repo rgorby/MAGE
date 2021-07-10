@@ -73,8 +73,6 @@ if __name__ == "__main__":
 	oSub = args.o
 	Nblk = args.Nblk
 	nID = args.nID
-	noMPI = args.nompi
-	doMPI = (not noMPI)
 	doJy = args.jy
 	doBz = args.bz
 	doBigRCM = args.bigrcm
