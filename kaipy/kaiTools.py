@@ -30,36 +30,37 @@ def genSCXML(fdir,ftag,
 
 	(fname,isMPI,Ri,Rj,Rk) = getRunInfo(fdir,ftag)
 	root = minidom.Document()
-	xml = root.createElement('Chimp')
+	xml = root.createElement('Kaiju')
 	root.appendChild(xml)
+	chimpChild = root.createElement('Chimp')
 	scChild = root.createElement("sim")
 	scChild.setAttribute("runid",scid)
-	xml.appendChild(scChild)
+	chimpChild.appendChild(scChild)
 	fieldsChild = root.createElement("fields")
 	fieldsChild.setAttribute("doMHD","T")
-	fieldsChild.setAttribute("grType","MAGE")
+	fieldsChild.setAttribute("grType","LFM")
 	fieldsChild.setAttribute("ebfile",ftag)
 	if isMPI:
 		fieldsChild.setAttribute("isMPI","T")
-	xml.appendChild(fieldsChild)
+	chimpChild.appendChild(fieldsChild)
 	if isMPI:
 		parallelChild = root.createElement("parallel")
 		parallelChild.setAttribute("Ri","%d"%Ri)
 		parallelChild.setAttribute("Rj","%d"%Rj)
 		parallelChild.setAttribute("Rk","%d"%Rk)
-		xml.appendChild(parallelChild)
+		chimpChild.appendChild(parallelChild)
 	unitsChild = root.createElement("units")
 	unitsChild.setAttribute("uid","EARTH")
-	xml.appendChild(unitsChild)
+	chimpChild.appendChild(unitsChild)
 	trajChild = root.createElement("trajectory")
 	trajChild.setAttribute("H5Traj",h5traj)
 	trajChild.setAttribute("doSmooth","F")
-	xml.appendChild(trajChild)
+	chimpChild.appendChild(trajChild)
 	if numSegments > 1:
 		parInTimeChild = root.createElement("parintime")
 		parInTimeChild.setAttribute("NumB","%d"%numSegments)
-		xml.appendChild(parInTimeChild)
-
+		chimpChild.appendChild(parInTimeChild)
+	xml.appendChild(chimpChild)
 	return root
 
 def getRunInfo(fdir,ftag):
@@ -454,7 +455,7 @@ def createInputFiles(data,scDic,scId,mjd0,sec0,fdir,ftag,numSegments):
 		print('Coordinate system transformation failed')
 		return
 	elapsedSecs = (smpos.ticks.getMJD()-mjd0)*86400.0+sec0
-	scTrackName = os.path.join(fdir,scId+".sctrack.h5")
+	scTrackName = os.path.join(fdir,scId+".sc.h5")
 	with h5py.File(scTrackName,'w') as hf:
 		hf.create_dataset("T" ,data=elapsedSecs)
 		hf.create_dataset("X" ,data=smpos.x)
@@ -471,7 +472,7 @@ def createInputFiles(data,scDic,scId,mjd0,sec0,fdir,ftag,numSegments):
 def addGAMERA(data,scDic,h5name):
 	h5file = h5py.File(h5name, 'r')
 	ut = MJD2UT(h5file['MJDs'][:])
-	
+
 	bx = h5file['Bx']
 	by = h5file['By']
 	bz = h5file['Bz']
@@ -520,42 +521,42 @@ def addGAMERA(data,scDic,h5name):
 	return
 
 def matchUnits(data):
-    vars = ['Density','Pressure','Temperature','Velocity','MagneticField']
-    for var in vars:
-        try:
-            data[var]
-        except:
-            print(var,'not in data')
-        else:
-            if (data[var].attrs['UNITS'] == data['GAMERA_'+var].attrs['UNITS'].decode()):
-                print(var,'units match')
-            else:
-                if 'Density' == var:
-                    if (data[var].attrs['UNITS'] == 'cm^-3' or data[var].attrs['UNITS'] == '/cc'):
-                        data[var].attrs['UNITS'] = data['GAMERA_'+var].attrs['UNITS']
-                        print(var,'units match')
-                    else:
-                        print('WARNING ',var,'units do not match')
-                if 'Velocity' == var:
-                    if (data[var].attrs['UNITS'] == 'km/sec'):
-                        data[var].attrs['UNITS'] = data['GAMERA_'+var].attrs['UNITS']
-                        print(var,'units match')
-                    else:
-                        print('WARNING ',var,'units do not match')
-                if 'MagneticField' == var:
-                    if (data[var].attrs['UNITS'] == '0.1nT'):
-                        print('Magnetic Field converted from 0.1nT to nT')
-                        data[var]=data[var]/10.0
-                        data[var].attrs['UNITS'] = 'nT'
-                    else:
-                        print('WARNING ',var,'units do not match')
-                if 'Pressure' == var:
-                    print('WARNING ',var,'units do not match')
-                if 'Temperature' == var:
-                    print('WARNING ',var,'units do not match')
-                    
-    return
-    
+	vars = ['Density','Pressure','Temperature','Velocity','MagneticField']
+	for var in vars:
+		try:
+			data[var]
+		except:
+			print(var,'not in data')
+		else:
+			if (data[var].attrs['UNITS'] == data['GAMERA_'+var].attrs['UNITS'].decode()):
+				print(var,'units match')
+			else:
+				if 'Density' == var:
+					if (data[var].attrs['UNITS'] == 'cm^-3' or data[var].attrs['UNITS'] == '/cc'):
+						data[var].attrs['UNITS'] = data['GAMERA_'+var].attrs['UNITS']
+						print(var,'units match')
+					else:
+						print('WARNING ',var,'units do not match')
+				if 'Velocity' == var:
+					if (data[var].attrs['UNITS'] == 'km/sec'):
+						data[var].attrs['UNITS'] = data['GAMERA_'+var].attrs['UNITS']
+						print(var,'units match')
+					else:
+						print('WARNING ',var,'units do not match')
+				if 'MagneticField' == var:
+					if (data[var].attrs['UNITS'] == '0.1nT'):
+						print('Magnetic Field converted from 0.1nT to nT')
+						data[var]=data[var]/10.0
+						data[var].attrs['UNITS'] = 'nT'
+					else:
+						print('WARNING ',var,'units do not match')
+				if 'Pressure' == var:
+					print('WARNING ',var,'units do not match')
+				if 'Temperature' == var:
+					print('WARNING ',var,'units do not match')
+
+	return
+
 def extractGAMERA(data,scDic,scId,mjd0,sec0,fdir,ftag,cmd,numSegments,keep):
 
 	(scTrackName,xmlFileName) = createInputFiles(data,scDic,scId,
@@ -565,6 +566,7 @@ def extractGAMERA(data,scDic,scId,mjd0,sec0,fdir,ftag,cmd,numSegments,keep):
 		sctrack = subprocess.run([cmd, xmlFileName], cwd=fdir,
 							stdout=subprocess.PIPE, stderr=subprocess.PIPE,
 							text=True)
+		#print(sctrack)
 		h5name = os.path.join(fdir, scId + '.sc.h5')
 
 	else:
