@@ -25,10 +25,10 @@ module mixparams
 
       MixGrid0%LowLatBC = asin(sqrt(1.0/Rin))*180.0/PI
       !Set default grid resolution (in degrees)
-
       if (Nk<=64 ) then
-         dDeg = 1.0
-         MixGrid0%R0 = 0.08
+        !DBL
+        dDeg = 1.0
+        MixGrid0%R0 = 0.08
       else if (Nk<=128) then
         !QUAD
         dDeg = 1.0
@@ -74,7 +74,7 @@ module mixparams
       endif
 
       !First set input deck reader
-      xmlInp = New_XML_Input(trim(inpXML),'REMIX',.true.)
+      xmlInp = New_XML_Input(trim(inpXML),'Kaiju/REMIX',.true.)
 
         ! =========== CONDUCTANCE MODEL PARAMTERS =================== !
         ! EUV_MODEL_TYPE
@@ -155,7 +155,7 @@ module mixparams
 
         ! =========== IO PARAMTERS =================== !
         call xmlInp%Set_Val(Params%dtOut,"output/dtOut",1.0_rp)
-        call xmlInp%Set_Val(Params%nRes,"/gamera/restart/nRes",-1)
+        call xmlInp%Set_Val(Params%nRes,"/Kaiju/gamera/restart/nRes",-1)
         ! =========== IO PARAMTERS =================== !
 
         ! =========== DEBUG PARAMETERS ================ !

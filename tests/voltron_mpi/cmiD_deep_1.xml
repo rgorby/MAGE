@@ -1,45 +1,47 @@
 <?xml version="1.0"?>
 <!-- Gamera Magnetosphere -->
-<voltron>
-  <time tFin="677.115987461"/>
-  <spinup doSpin="T" tSpin="60.0" tIO="0.0"/>
-  <coupling dt="5.0" dtDeep="10.0" rTrc="40.0" imType="RCM" doQkSquish="T" doDynDT="T" doAsyncShallow="F"/>
-  <restart dtRes="1800.0"/>
-  <imag doInit="T"/>
-  <ebsquish epsSquish="0.05"/>
-  <threading NumTh="36"/>
-</VOLTRON>
-<Gamera>
-  <iPdir N="1" bcPeriodic="F"/>
-  <jPdir N="1" bcPeriodic="F"/>
-  <kPdir N="1" bcPeriodic="T"/>
-  <sim runid="msphere" doH5g="T" H5Grid="lfmD.h5" icType="user" pdmb="0.75" rmeth="7UP"/>
-  <floors dFloor="1.0e-6" pFloor="1.0e-6"/>
-  <timestep doCPR="T" limCPR="0.15"/>
-  <restart doRes="F" resID="msphere" nRes="-1"/>
-  <physics doMHD="T" doBoris="T" Ca="10.0"/>
-  <ring gid="lfm" doRing="T"/>
-  <ringknobs doVClean="T"/>
-  <wind tsfile="bcwind.h5"/>
-  <source doSource="T" doBounceDT="T"/>
-  <threading NumTh="18"/>
-</Gamera>
+<Kaiju>
+  <voltron>
+    <time tFin="677.115987461"/>
+    <spinup doSpin="T" tSpin="60.0" tIO="0.0"/>
+    <coupling dt="5.0" dtDeep="10.0" rTrc="40.0" imType="RCM" doQkSquish="T" doDynDT="T" doAsyncShallow="F"/>
+    <restart dtRes="1800.0"/>
+    <imag doInit="T"/>
+    <ebsquish epsSquish="0.05"/>
+    <threading NumTh="36"/>
+  </voltron>
+  <Gamera>
+    <iPdir N="1" bcPeriodic="F"/>
+    <jPdir N="1" bcPeriodic="F"/>
+    <kPdir N="1" bcPeriodic="T"/>
+    <sim runid="msphere" doH5g="T" H5Grid="lfmD.h5" icType="user" pdmb="0.75" rmeth="7UP"/>
+    <floors dFloor="1.0e-6" pFloor="1.0e-6"/>
+    <timestep doCPR="T" limCPR="0.15"/>
+    <restart doRes="F" resID="msphere" nRes="-1"/>
+    <physics doMHD="T" doBoris="T" Ca="10.0"/>
+    <ring gid="lfm" doRing="T"/>
+    <ringknobs doVClean="T"/>
+    <wind tsfile="bcwind.h5"/>
+    <source doSource="T" doBounceDT="T"/>
+    <threading NumTh="18"/>
+  </Gamera>
 <!-- Remix -->
-<REMIX>
-  <grid Np="360" Nt="55" LowLatBoundary="55.0"/>
-  <conductance doStarlight="T" doRamp="F" doMR="T"/>
-  <precipitation aurora_model_type="RCMONO" alpha="0.2" beta="0.4" doAuroralSmooth="T"/>
-</REMIX>
-<CHIMP>
-  <units uid="EARTHCODE"/>
-  <fields grType="LFM"/>
-  <domain dtype="MAGE"/>
-  <tracer epsds="0.05"/>
-</CHIMP>
-<RCM>
-  <output debug="F" toRCM="F" toMHD="F"/>
-  <clawpack doKaiClaw="F" doOMPClaw="T"/>
-  <ellipse xSun="10.0" yDD="12.5" xTail="-15.0" isDynamic="F"/>
-  <grid LowLat="25.0" HiLat="75.0" doLatStretch="F"/>
-  <plasmasphere isDynamic="T" initKp="1"/>
-</RCM>
+  <REMIX>
+    <grid Np="360" Nt="55" LowLatBoundary="55.0"/>
+    <conductance doStarlight="T" doRamp="F" doMR="T"/>
+    <precipitation aurora_model_type="RCMONO" alpha="0.2" beta="0.4" doAuroralSmooth="T"/>
+  </REMIX>
+  <CHIMP>
+    <units uid="EARTHCODE"/>
+    <fields grType="LFM"/>
+    <domain dtype="MAGE"/>
+    <tracer epsds="0.05"/>
+  </CHIMP>
+  <RCM>
+    <output debug="F" toRCM="F" toMHD="F"/>
+    <clawpack doKaiClaw="F" doOMPClaw="T"/>
+    <ellipse xSun="10.0" yDD="12.5" xTail="-15.0" isDynamic="F"/>
+    <grid LowLat="25.0" HiLat="75.0" doLatStretch="F"/>
+    <plasmasphere isDynamic="T" initKp="1"/>
+  </RCM>
+</Kaiju>

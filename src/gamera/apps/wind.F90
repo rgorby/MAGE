@@ -95,11 +95,11 @@ module wind
                 call readWind(bc,Model,xmlInp)
         end select
 
-        call xmlInp%Set_Val(bc%doSeq,"/voltron/spinup/doSeq",.false.)
+        call xmlInp%Set_Val(bc%doSeq,"/Kaiju/voltron/spinup/doSeq",.false.)
         if (bc%doSeq) then
             !Verify other parameters are correct
-            call xmlInp%Set_Val(doSpin,"/voltron/spinup/doSpin",.false.)
-            call xmlInp%Set_Val(tSpin ,"/voltron/spinup/tSpin",0.0)
+            call xmlInp%Set_Val(doSpin,"/Kaiju/voltron/spinup/doSpin",.false.)
+            call xmlInp%Set_Val(tSpin ,"/Kaiju/voltron/spinup/tSpin",0.0)
 
             if ( (.not. doSpin) .or. (tSpin < 5.0*60.0*60) ) then
                 write(*,*) 'For spinup sequence require doSpin and tSpin>5hr'

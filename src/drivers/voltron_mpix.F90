@@ -39,9 +39,9 @@ program voltron_mpix
         print *,"Not support for MPI_THREAD_MULTIPLE, aborting!"
         call abort()
     end if
-    print *,"MPI + OpenMP !!!"
+    !print *,"MPI + OpenMP !!!"
 #else
-    print *," MPI without threading"
+    !print *," MPI without threading"
     call MPI_INIT(ierror)
 #endif
 
@@ -60,9 +60,9 @@ program voltron_mpix
 
     ! need to know how many voltron helpers there are
     call getIDeckStr(inpXML)
-    call ReadXmlImmediate(trim(inpXML),'/Voltron/Helpers/useHelpers',helpersBuf,'F',.false.)
+    call ReadXmlImmediate(trim(inpXML),'/Kaiju/Voltron/Helpers/useHelpers',helpersBuf,'F',.false.)
     read(helpersBuf,*) useHelpers
-    call ReadXmlImmediate(trim(inpXML),'/Voltron/Helpers/numHelpers',helpersBuf,'0',.false.)
+    call ReadXmlImmediate(trim(inpXML),'/Kaiju/Voltron/Helpers/numHelpers',helpersBuf,'0',.false.)
     read(helpersBuf,*) numHelpers
     if(.not. useHelpers) numHelpers = 0
 
@@ -160,7 +160,7 @@ program voltron_mpix
             endif
             !Restart output
             if (gApp%Model%IO%doRestart(gApp%Model%t)) then
-                call resOutput(gApp%Model, gApp%Grid, gApp%State)
+                call resOutput(gApp%Model, gApp%Grid, gApp%oState, gApp%State)
             endif
             !Data output
             if (gApp%Model%IO%doOutput(gApp%Model%t)) then
@@ -251,7 +251,8 @@ program voltron_mpix
     endif
 
     call MPI_FINALIZE(ierror)
-    print *,"This is the END!"
+    write(*,*) "Fin"
+    
 
 end program voltron_mpix
 

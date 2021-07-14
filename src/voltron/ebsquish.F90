@@ -6,23 +6,26 @@ module ebsquish
     use volttypes
     use streamline
     use earthhelper
+    use imaghelper
     use clocks, only: Tic,Toc
     
     implicit none
 
     !Projection type
     abstract interface
-        subroutine Projection_T(ebApp,xyz,t,x1,x2)
+        subroutine Projection_T(ebApp,xyz,t,x1,x2,MaxStep)
             Import :: rp,NDIM,ebTrcApp_T
             type(ebTrcApp_T), intent(in) :: ebApp
             real(rp), intent(in)  :: xyz(NDIM), t
             real(rp), intent(out) :: x1,x2
+            integer , intent(in), optional :: MaxStep
         end subroutine Projection_T
     end interface
 
-    real(rp), parameter, private :: startEps = 0.05
-    real(rp), parameter, private :: rEps = 0.125
-
+    real(rp), parameter, private :: startEps  = 0.05
+    real(rp), parameter, private :: rEps      = 0.125
+    real(rp), parameter, private :: ShueScl   = 1.25 !Safety factor for Shue MP
+    logical , parameter, private :: doDipTest = .false.
     contains
 
     !Find i-index of outer boundary of coupling domain
@@ -82,6 +85,7 @@ module ebsquish
     subroutine SquishStart(vApp)
         class(voltApp_T), intent(inout) :: vApp
         
+        call UpdateTM03(vApp%time)
         call Tic("Squish")
         associate(ebGr=>vApp%ebTrcApp%ebState%ebGr, &                  
                   xyzSquish=>vApp%chmp2mhd%xyzSquish,isGood=>vApp%chmp2mhd%isGood, &
@@ -140,6 +144,9 @@ module ebsquish
         endif
 
         call GetSquishBds(vApp,ksB,keB)
+        call Tic("SQ-Project")
+
+        if (doDipTest) write(*,*) "Using fake projection for testing!"
 
         !$OMP PARALLEL DO default(shared) collapse(2) &
         !$OMP schedule(dynamic) &
@@ -150,7 +157,7 @@ module ebsquish
                     xyz = ebGr%xyz(i,j,k,XDIR:ZDIR)
                     if (norm2(xyz) <= vApp%rTrc) then
                         !Do projection
-                        call ProjectXYZ(vApp%ebTrcApp,xyz,t,x1,x2)
+                        call ProjectXYZ(vApp%ebTrcApp,xyz,t,x1,x2,vApp%nTrc)
                     else
                         !Set null projection because outside radius
                         x1 = 0.0
@@ -174,7 +181,7 @@ module ebsquish
         ebSquish%curSquishBlock = ebSquish%curSquishBlock + 1
 
         end associate
-
+        call Toc("SQ-Project")
     end subroutine DoSquishBlock
 
     !Get squish bounds for block n (out of Nblk)
@@ -229,7 +236,9 @@ module ebsquish
                   ebSquish=>vApp%ebTrcApp%ebSquish)
 
         if (vApp%doQkSquish) then
+            call Tic("SQ-FillSkip")
             call FillSkips(ebModel,ebGr,vApp%iDeep,xyzSquish,isGood,vApp%qkSquishStride)
+            call Toc("SQ-FillSkip")
         endif
 
         Nk = ebGr%ke-ebGr%ks+1
@@ -331,11 +340,12 @@ module ebsquish
     end subroutine FillSkips
 
     !Project XYZ to R,phi at Z=0 plane
-    subroutine Proj2LP(ebApp,xyz,t,x1,x2)
+    subroutine Proj2LP(ebApp,xyz,t,x1,x2,MaxStep)
         type(ebTrcApp_T)  , intent(in) :: ebApp
         real(rp), dimension(NDIM), intent(in) :: xyz
         real(rp), intent(in) :: t
         real(rp), intent(out) :: x1,x2
+        integer , intent(in), optional :: MaxStep
 
         real(rp) :: L,phi,z
         real(rp), dimension(NDIM) :: xyzSeed,xy0
@@ -363,11 +373,12 @@ module ebsquish
     end subroutine Proj2LP
 
     !Project XYZ to lat-lon on ionosphere
-    subroutine Proj2LL(ebApp,xyz,t,x1,x2)
+    subroutine Proj2LL(ebApp,xyz,t,x1,x2,MaxStep)
         type(ebTrcApp_T), intent(in) :: ebApp
         real(rp), dimension(NDIM), intent(in) :: xyz
         real(rp), intent(in) :: t
         real(rp), intent(out) :: x1,x2
+        integer , intent(in), optional :: MaxStep
 
         real(rp), dimension(NDIM) :: xE,xyz0
         integer :: Np
@@ -378,6 +389,18 @@ module ebsquish
         x1 = 0.0
         x2 = 0.0
 
+        !Do quick short-cut to safe us some effort
+        isGood = inShueMP_SM(xyz,ShueScl)
+        if (.not. isGood) return
+        
+        if (doDipTest) then
+            xyz0 = DipoleShift(xyz,norm2(xyz)+startEps)
+            x1 = InvLatitude(xE)
+            x2 = atan2(xE(YDIR),xE(XDIR))
+            if (x2 < 0) x2 = x2 + 2*PI
+            return
+        endif
+
         ! trap for when we're within epsilon of the inner boundary
         ! (really, it's probably only the first shell of nodes at R=Rinner_boundary that doesn't trace correctly)
         if ( (norm2(xyz)-ebApp%ebSquish%Rinner)/ebApp%ebSquish%Rinner < startEps ) then
@@ -386,9 +409,11 @@ module ebsquish
         else
            xyz0 = xyz
         end if
-
-        call mageproject(ebApp%ebModel,ebApp%ebState,xyz0,t,xE,Np,isGP)
-        
+        if (present(MaxStep)) then
+            call mageproject(ebApp%ebModel,ebApp%ebState,xyz0,t,xE,Np,isGP,MaxStepsO=MaxStep)
+        else
+            call mageproject(ebApp%ebModel,ebApp%ebState,xyz0,t,xE,Np,isGP)
+        endif
         dX = norm2(xyz0-xE)
         rC = ebApp%ebSquish%Rinner*(1.+rEps)
 
@@ -404,53 +429,6 @@ module ebsquish
             x2 = 0.0
         endif
 
-        !call Proj2LL_OLD(ebApp%ebModel,ebApp%ebState,xyz,t,x11,x22)
-        !call Proj2LL_OLD(ebApp%ebModel,ebApp%ebState,xyz,t,x1,x2)
-
     end subroutine Proj2LL
-
-    subroutine Proj2LL_OLD(ebApp,xyz,t,x1,x2)
-        type(ebTrcApp_T), intent(in) :: ebApp
-        real(rp), dimension(NDIM), intent(in) :: xyz
-        real(rp), intent(in) :: t
-        real(rp), intent(out) :: x1,x2
-
-        real(rp), dimension(NDIM) :: xE,xIon,xyz0
-        real(rp) :: dX,rC
-        logical :: isGood
-
-        x1 = 0.0
-        x2 = 0.0
-
-        ! trap for when we're within epsilon of the inner boundary
-        ! (really, it's probably only the first shell of nodes at R=Rinner_boundary that doesn't trace correctly)
-        if ( (norm2(xyz)-ebApp%ebSquish%Rinner)/ebApp%ebSquish%Rinner < startEps ) then
-           ! dipole-shift to startEps
-           xyz0 = DipoleShift(xyz,norm2(xyz)+startEps)
-        else
-           xyz0 = xyz
-        end if
-
-        !Use one-sided projection routine from chimp
-        !Trace along field line (i.e. to northern hemisphere)
-        call project(ebApp%ebModel,ebApp%ebState,xyz0,t,xE,+1,toEquator=.false.)
-
-        dX = norm2(xyz0-xE)
-        rC = ebApp%ebSquish%Rinner*(1.+rEps)
-        isGood = (dX>TINY) .and. (norm2(xE) <= rC) .and. (xE(ZDIR) > 0)
-
-        if (isGood) then
-            !Get invariant lat/lon
-            x1 = InvLatitude(xE)
-            x2 = atan2(xE(YDIR),xE(XDIR))
-            if (x2 < 0) x2 = x2 + 2*PI
-
-        else
-            !Set 0/0 for projection failure
-            x1 = 0.0
-            x2 = 0.0
-        endif
-
-    end subroutine Proj2LL_OLD
 
 end module ebsquish

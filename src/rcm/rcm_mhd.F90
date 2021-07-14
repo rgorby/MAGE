@@ -84,13 +84,10 @@ module rcm_mhd_mod
 
     ! initialize
         if( (iflag == RCMINIT) .or. (iflag == RCMRESTART) ) then !Do this for initialization and restart?
-            !Make sure RCM directory exists
-            CALL CheckDirOrMake(Rcmdir)
 
             !Read RCM/MHD params from XML
             if(present(iXML)) then
                 CALL RCM_MHD_Params_XML(iXML)
-
             else
                 CALL RCM_MHD_Params_XML
             endif
@@ -120,14 +117,14 @@ module rcm_mhd_mod
                 CALL Rcm (itimei, itimef, nSubstep, icontrol=ICONRESTART,stropt=RM%rcm_runid,nslcopt=RM%RCM_nRes)
                 exchangeNum = floor(itimef/(itimef-itimei)) ! Need to find another way of calculating exchangeNum
 
+                !Testing call to tomhd here to fill in some moments
+                !call Tomhd (RM, ierr)
                 return
             endif !restart
 
             return !We're done here
 
         end if !RCMINIT or RCMRESTART
-
-
 
         if(iflag==RCMADVANCE.or.iflag==RCMCOLDSTART) then ! run the rcm
 
@@ -228,10 +225,10 @@ module rcm_mhd_mod
 
         end if
 
-        if (iflag==RCMRESTART)then ! stop
-            call rcm (itimei,itimef,nSubstep,icontrol=5_iprec)
-            call tearDownIon(RM) ! Matches setupIon() above
-        end if
+        ! if (iflag==RCMRESTART)then ! stop
+        !     call rcm (itimei,itimef,nSubstep,icontrol=5_iprec)
+        !     call tearDownIon(RM) ! Matches setupIon() above
+        ! end if
 
         return
 

@@ -65,7 +65,7 @@ contains
 
   end subroutine teardown
 
-  @test(npes=[2,5,17])
+  @test(npes=[2,5,9])
   subroutine testMhd2VoltDeepCopy(this)
       class (MpiTestMethod), intent(inout) :: this
 
@@ -168,7 +168,7 @@ contains
 
   end subroutine testMhd2VoltDeepCopy
 
-  @test(npes=[2,5,17])
+  @test(npes=[2,5,9])
   subroutine testVolt2MhdDeepCopy(this)
       class (MpiTestMethod), intent(inout) :: this
 
@@ -236,7 +236,7 @@ contains
       endif
   end subroutine testVolt2MhdDeepCopy
 
-  !@test(npes=[2,5,17])
+  !@test(npes=[2,5,9])
   subroutine testDeepUpdate(this)
       class (MpiTestMethod), intent(inout) :: this
 

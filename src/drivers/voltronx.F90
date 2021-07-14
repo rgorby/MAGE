@@ -71,6 +71,7 @@ program voltronx
         call Toc("Omega")
 
     end do
-
+    write(*,*) "Fin"
+    
 end program voltronx
 

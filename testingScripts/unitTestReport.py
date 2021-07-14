@@ -44,7 +44,7 @@ file.close()
 # Take the two output files and slap them together
 extension1 = "o" + job1
 extension2 = "o" + job2
-extension3 = "0" + job3
+extension3 = "o" + job3
 
 # Case Tests
 file = open('caseTests.' + extension1, 'r')
@@ -68,13 +68,21 @@ bigFile = bigFile + finalFile
 # Scan through for some key things like "error" and "job killed"
 myError = False
 jobKilled = False
+okFailure = False
+okCount = 0
 
 for line in bigFile:
+    if 'OK' in line:
+	okCount += 1
+
     if 'error' in line:
         myError = True
     
     elif 'job killed' in line:
         jobKilled = True
+
+if okCount is not 8:
+    okFailure = True
 
 # Write to a file
 file = open('Results.txt', 'w+')
@@ -104,6 +112,9 @@ if (myError):
 
 if (jobKilled):
     myText = myText + "The job was killed early!\n"
+
+if (okFailure):
+    myText = myText + "There were not the correct amount of OKs!\n"
 
 if (myText == ""):
     exit()

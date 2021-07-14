@@ -1,12 +1,14 @@
 <?xml version="1.0"?>
 <!-- Field loop advection 2D -->
-<Gamera>
-    <sim runid="sheet" doH5init="F" icType="SHEET"/>
-    <idir min="-0.5" max="0.5" N="100"/>
-    <jdir min="-0.5" max="0.5" N="100"/>
-    <kdir min="-0.5" max="0.5" N="1"/>
-    <time tFin="10"/>
-    <output dtOut="0.05" tsOut="100"/>
-    <physics doMHD="T"/>
-    <prob beta="0.1" A="0.1"/>
-</Gamera>
+<Kaiju>
+  <Gamera>
+      <sim runid="sheet" doH5init="F" icType="SHEET"/>
+      <idir min="-0.5" max="0.5" N="100"/>
+      <jdir min="-0.5" max="0.5" N="100"/>
+      <kdir min="-0.5" max="0.5" N="1"/>
+      <time tFin="10"/>
+      <output dtOut="0.05" tsOut="100"/>
+      <physics doMHD="T"/>
+      <prob beta="0.1" A="0.1"/>
+  </Gamera>
+</Kaiju>

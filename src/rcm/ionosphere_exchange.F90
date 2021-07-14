@@ -46,6 +46,7 @@ MODULE ionosphere_exchange
       ALLOCATE( rm%Percm(rm%nLat_ion, rm%nLon_ion) )
       ALLOCATE( rm%errD (rm%nLat_ion, rm%nLon_ion) )
       ALLOCATE( rm%errP (rm%nLat_ion, rm%nLon_ion) )
+      ALLOCATE( rm%nTrc (rm%nLat_ion, rm%nLon_ion) )
 
       rm%gcolat (:) = colat (:,1)
       rm%glong  (:) = aloct (1,jwrap:jsize)
@@ -83,6 +84,7 @@ MODULE ionosphere_exchange
       if (ALLOCATED(rm%wIMAG))        DEALLOCATE(rm%wIMAG)
       if (ALLOCATED(rm%errD))         DEALLOCATE(rm%errD)
       if (ALLOCATED(rm%errP))         DEALLOCATE(rm%errP)
+      if (ALLOCATED(rm%nTrc))         DEALLOCATE(rm%nTrc)
 
     END SUBROUTINE tearDownIon
 

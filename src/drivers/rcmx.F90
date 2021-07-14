@@ -43,7 +43,7 @@ program rcmx
 
     !Get some XML stuff
     call getIDeckStr(XMLStr)
-    inpXML = New_XML_Input(trim(XMLStr),"RCM",.true.)
+    inpXML = New_XML_Input(trim(XMLStr),"Kaiju/RCM",.true.)
     call inpXML%Set_Val(RunID,"sim/runid","rcmx")
     RM%rcm_runid = trim(RunID)
 

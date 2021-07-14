@@ -9,11 +9,7 @@ MODULE torcm_mod
   USE math, ONLY : RampDown
   USE etautils
   implicit none
-
-  logical, parameter :: doSmoothEta = .false. !Whether to smooth eeta at boundary
-  !Whether to do reverse blend near outer boundary, i.e. nudge RCM to MHD
-  logical, parameter :: doRevBlend  = .false.
-  logical, parameter :: doPPSmooth = .true. !Try to smooth plasmapause
+  
   integer(iprec), private, parameter :: NumG = 4 !How many buffer cells to require
 
   contains
@@ -160,13 +156,17 @@ MODULE torcm_mod
       !Calculate number of smoothing iterations based on longitudinal cell size
       !Approx. 1hr MLT
       !n_smooth = 5
-      n_smooth = nint( 15.0/(360.0/jsize) )
 
+      if (doSmoothBNDLOC) then
+        n_smooth = nint( 15.0/(360.0/jsize) )
+      else
+        n_smooth = NumG
+      endif
+      
       do ns=1,n_smooth
         call smooth_boundary_location(isize,jsize,jwrap,bndloc)
         call reset_rcm_vm(isize,jsize,bndloc,big_vm,imin_j,vm,iopen) ! adjust Imin_j
-      enddo
-      
+      enddo   
 
     !-----
     !MHD thermodynamics
@@ -189,7 +189,7 @@ MODULE torcm_mod
 
       !Handle cold start, must happen after eeta_new is calculated (temp/press2eta)
       IF (icontrol==RCMCOLDSTART) THEN
-        write(6,*)' TORCM: initializing the RCM arrays at t=',itimei
+        !write(6,*)' TORCM: initializing the RCM arrays at t=',itimei
         bndloc_old = bndloc
         imin_j_old = imin_j
         !Now set RCM domain values to MHD state values
@@ -264,27 +264,8 @@ MODULE torcm_mod
         enddo !i
       enddo !j
 
-      if (doRevBlend) then
-        !Do some reverse-blending near RCM outer boundary
-        n = NumG
-        do j=1,jsize
-          do i=0,n
-            ip = imin_j(j)+i !i cell
-            if (ip<isize) then
-              wRCM = 1.0/(1.0 + 5.0*beta_average(ip,j)/6.0)
-              wMHD = (1-wRCM)/(2.0**i)
-              wRCM = (1-wMHD)
-
-              eeta(ip,j,klow:) = wRCM*eeta(ip,j,klow:) + wMHD*eeta_new(ip,j,klow:)
-            endif
-          enddo !i loop
-        enddo !j loop
-      endif
-      
-      if (doSmoothEta) then
-        ! smooth eeta at the boundary
-        CALL Smooth_eta_at_boundary(isize,jsize,kcsize,jwrap,eeta,iopen,imin_j)
-      endif
+      !Finally decide which channels are worth advancing (ie contribute an interesting amount)
+      call SetKBounds(RM%NkT)
 
     !-----
     !Finish up and get out of here
@@ -352,19 +333,11 @@ MODULE torcm_mod
 
         do n=1,n_smooth
           call SmoothJBnd(bndlocpp,bndlocpp_new)
-          !!Store back w/ trap for only earthward
-          !bndlocpp = max(bndlocpp,bndlocpp_new)
           bndlocpp = bndlocpp_new
         enddo
 
         !Convert to indices
         imin_jpp = ceiling(bndlocpp)
-        
-      !Smooth around estimated plasmapause
-        ! Ac = [0.25,0.5,1.0] !Smoothing coefficients
-        ! do di = -NumI/2,+NumI/2
-        !   call SmoothJEta(etapp,iopen,imin_jpp,di,Ac)
-        ! enddo
 
       !Deplete below plasmapause
         !Attenuate over dtAvg_v
@@ -618,7 +591,7 @@ MODULE torcm_mod
 
               !Now just redo it w/ scaling (independently scale ions and electrons)
               call DP2eta(drc,prc,vm(i,j),eeta_new(i,j,:),doRescaleO=.true.)
-              call MaxVsKap(drc,prc,vm(i,j))
+              !call MaxVsKap(drc,prc,vm(i,j))
           !Not good MHD
             else
               eeta_new(i,j,:) = 0.0
@@ -869,95 +842,65 @@ MODULE torcm_mod
 
     end subroutine Set_ellipse
 
-
 !------------------------------------
-
-      SUBROUTINE Smooth_eta_at_boundary(idim,jdim,kdim,jwrap,eeta,iopen,imin_j)
-! this routine attempts to smooth out high frequency noise at the boundary
-! of the rcm 
-! written 2/06 frt
+    !Decide on which channels are worth advancing in clawpack
+    SUBROUTINE SetKBounds(NkT)
+      USE conversion_module
+      USE RCM_mod_subs, ONLY : ikflavc,vm,alamc,isize,jsize,kcsize,eeta,advChannel
+      USE rice_housekeeping_module, ONLY : epsPk
       IMPLICIT NONE
-      INTEGER(iprec) :: idim,jdim,kdim,jwrap
-      INTEGER(iprec) :: imin_j(jdim)
-      INTEGER(iprec) :: i,j,k,jm,jmm,jp,jpp
-      REAL(rprec) :: eeta(idim,jdim,kdim)
-      integer(iprec), intent(in) :: iopen(idim,jdim)
-      REAL(rprec) :: eetas2d(jdim,kdim)
-! these are the smoothing weights
-      REAL(rprec) :: a1,a2,a3,a4,a5
-      ! REAL(rprec), PARAMETER :: a1 = 1.0  
-      ! REAL(rprec), PARAMETER :: a2 = 1.0  
-      ! REAL(rprec), PARAMETER :: a3 = 2.0  
-      ! REAL(rprec), PARAMETER :: a4 = 1.0  
-      ! REAL(rprec), PARAMETER :: a5 = 1.0
-      integer(iprec) :: klow,di
-      integer(iprec), parameter :: NumI = NumG
+      INTEGER(iprec), INTENT(INOUT) :: NkT
 
-      logical :: isOpen(5)
-! now do the smoothing
+      integer(iprec) :: i,j,k
+      real(rprec) :: P,cPk,ijPk(kcsize)
+      real(rprec) :: LamI,LamE
+      real(rprec), dimension(isize,jsize,kcsize) :: PkoP
+      !Pk = int_1,k dP(k) = pressure contribution up to channel k
+      
+      PkoP = 0.0
 
+      do j=1,jsize
+        do i=1,isize
+          if (iopen(i,j) == RCMTOPOPEN) CYCLE
+          call eta2Pk(eeta(i,j,:),vm(i,j),ijPk)
+          P = sum(ijPk)
+          do k=1,kcsize
+            PkoP(i,j,k) = sum(ijPk(1:k))/P !Cumulative fraction
+          enddo
 
-      !Smooth RC channels          
-      if (use_plasmasphere) then
-        klow = 2
-      else
-        klow = 1
-      endif
+        enddo !i
+      enddo !j
 
-      !Loop over di levels at boundary and do j-smoothing
-      do di=0,NumI
-        !Use more centered weights as we move into the domain
-        a3 = 1.00
-        a2 = 0.50/(2.0**di)
-        a1 = 0.25/(2.0**di)
-        a4 = a2
-        a5 = a1
+      !Now have cumulative fractions, for each k see how important it is
+      do k=1,kcsize
+        !1-PkoP = contribution from channels k+1,Nk
+        cPk = maxval(1-PkoP(:,:,k),mask = (iopen /= RCMTOPOPEN) ) !Max importance over ij
+        
+        if (cPk<epsPk) exit !Nowhere is the contribution of k+1,Nk more than epsPk
 
-        do j=1,jdim
+      enddo
 
-          ! 1 <=> jdim -jwrap +1
-          ! jdim <=> jwrap
-          jmm = j - 2
-          if(jmm < 1)jmm = jdim - jwrap - 1       
-          jm  = j - 1
-          if(jm < 1) jm = jdim - jwrap       
-          jpp = j + 2
-          if(jpp > jdim)jpp = jwrap + 2
-          jp  = j + 1
-          if(jp > jdim) jp = jwrap + 1
-
-          isOpen(1) = (iopen(imin_j(jmm)+di,jmm) == RCMTOPOPEN)
-          isOpen(2) = (iopen(imin_j(jm )+di,jm ) == RCMTOPOPEN)
-          isOpen(3) = (iopen(imin_j(j  )+di,j  ) == RCMTOPOPEN)
-          isOpen(4) = (iopen(imin_j(jp )+di,jp ) == RCMTOPOPEN)
-          isOpen(5) = (iopen(imin_j(jpp)+di,jpp) == RCMTOPOPEN)
-
-          if ( any(isOpen) ) then
-            !Keep old values b/c too close to OCB
-            eetas2d(j,klow:kdim) = eeta(imin_j(j  )+di,j  ,klow:kdim)
-          else
-            !Only smooth if all closed/null cells
-            !Only smooth RC, plasmasphere would diffuse too much
-            do k=klow,kdim
-              eetas2d(j,k) = ( a1*eeta(imin_j(jmm)+di,jmm,k) + &
-                               a2*eeta(imin_j(jm )+di,jm ,k) + &
-                               a3*eeta(imin_j(j  )+di,j  ,k) + &
-                               a4*eeta(imin_j(jp )+di,jp ,k) + &
-                               a5*eeta(imin_j(jpp)+di,jpp,k) )/(a1+a2+a3+a4+a5)
-            enddo !k loop
-          endif !OCB
-
-        enddo !j loop
-
-        !Now go back and reset values
-        do j=1,jdim
-          eeta(imin_j(j)+di,j,klow:kdim) = eetas2d(j,klow:kdim)
+      !Now set interesting channels
+      advChannel = .true. !Assume all at first
+      if (k < kcsize) then
+      !Loop stopped early so there's some useless channels
+        !Kill ions
+        LamI = alamc(k+1)
+        advChannel(k+1:) = .false.
+        !Kill electrons
+        LamE = -LamI/tiote
+        where (alamc <= LamE)
+          advChannel = .false.
+        endwhere
+        do k=1,kcsize
+          if (.not. advChannel(k)) eeta(:,:,k) = 0.0
         enddo
+      endif
+      NkT = count(advChannel)
+      
+      !write(*,*) 'Advancing X/Nk channels = ', count(advChannel),kcsize
 
-      enddo !di loop
-      
-      
-      END SUBROUTINE Smooth_eta_at_boundary
+    END SUBROUTINE SetKBounds
 
 !------------------------------------
       SUBROUTINE smooth_boundary_location(idim,jdim,jwrap,bndloc)
@@ -986,7 +929,6 @@ MODULE torcm_mod
       return
     
       END SUBROUTINE smooth_boundary_location
-
 !
       subroutine set_plasmasphere(icontrol,idim,jdim,kdim,xmin,ymin,rmin,vm,eeta,imin_j)
 ! subroutine set_plasmasphere(idim,jdim,kdim,rmin,pmin,vm,eeta,imin_j)

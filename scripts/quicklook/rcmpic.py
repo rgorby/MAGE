@@ -14,8 +14,11 @@ import kaipy.gamera.rcmpp as rcmpp
 import palettable
 import os
 import numpy.ma as ma
+import kaipy.kaiH5 as kh5
+import kaipy.kaiTools as ktools
 
 if __name__ == "__main__":
+	
 	#Defaults
 	MHDCol = rcmpp.MHDCol
 	MHDLW = rcmpp.MHDLW
@@ -157,8 +160,7 @@ if __name__ == "__main__":
 	Nmhd  = rcmpp.GetVarMask(rcmdata,nStp,"Nmhd" ,I)
 	S     = rcmpp.GetVarMask(rcmdata,nStp,"S"    ,I)
 	toMHD = rcmpp.GetVarMask(rcmdata,nStp,"toMHD",I)
-	
-		
+	pot,pVals = rcmpp.GetPotential(rcmdata,nStp,I)
 	if (doWgt):
 		wRCM  = rcmpp.GetVarMask(rcmdata,nStp,"wIMAG" ,I)
 	if (doVol):
@@ -173,13 +175,18 @@ if __name__ == "__main__":
 		toRCM = rcmpp.GetVarMask(rcmdata,nStp,"IOpen" ,I)
 	if (doFAC):
 		jBirk = rcmpp.GetVarMask(rcmdata,nStp,"birk" ,I)
+	fStr = fdir + "/" + ftag + ".h5"
 
-
+	MJD = kh5.tStep(fStr,nStp,aID="MJD")
+	utS = ktools.MJD2UT([MJD])
+	utDT= utS[0]
+	
 	AxL.set_title("RCM Pressure")
 
 	AxL.pcolor(bmX,bmY,Prcm,norm=vP,cmap=pCMap)
-	AxL.plot(bmX,bmY,color=eCol,linewidth=eLW)
-	AxL.plot(bmX.T,bmY.T,color=eCol,linewidth=eLW)
+	#AxL.plot(bmX,bmY,color=eCol,linewidth=eLW)
+	#AxL.plot(bmX.T,bmY.T,color=eCol,linewidth=eLW)
+	AxL.contour(bmX,bmY,pot,pVals,colors='grey',linewidths=cLW)
 	kv.addEarth2D(ax=AxL)
 	kv.SetAx(xyBds,AxL)
 
@@ -239,8 +246,9 @@ if __name__ == "__main__":
 	kv.addEarth2D(ax=AxR)
 	kv.SetAx(xyBds,AxR)
 
-
-	plt.suptitle("Step#%d"%(nStp),fontsize="x-large")
+	tStr = "\n\n\n" + utDT.strftime("%m/%d/%Y, %H:%M:%S")
+	#plt.suptitle("Step#%d"%(nStp),fontsize="x-large")
+	plt.suptitle(tStr,fontsize="x-large")
 
 	fOut = "qkrcmpic.png"
 	kv.savePic(fOut)

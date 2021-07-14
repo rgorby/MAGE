@@ -104,3 +104,4 @@ if __name__ == "__main__":
 
 	if (doViz):
 		gg.VizGrid(XX,YY,xxG,yyG,fOut=fOut,doGhost=doVizG)
+	#gg.genRing(XX,YY,Nk=Nk,Tol=1.0,doVerb=True)

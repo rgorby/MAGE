@@ -40,7 +40,7 @@ module starter
         else
             call getIDeckStr(xmlStr)
         endif
-        inpXML = New_XML_Input(trim(xmlStr),"Chimp",.true.)
+        inpXML = New_XML_Input(trim(xmlStr),"Kaiju/Chimp",.true.)
 
         !Send XML object back if optional arg present
         if (present(iXML)) iXML = inpXML

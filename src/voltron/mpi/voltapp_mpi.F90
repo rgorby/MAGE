@@ -78,7 +78,7 @@ module voltapp_mpi
         character(len=strLen) :: inpXML
         type(XML_Input_T) :: xmlInp
         integer :: commSize, ierr, numCells, length, ic, numInNeighbors, numOutNeighbors
-        integer :: voltComm, nHelpers
+        integer :: voltComm, nHelpers, gamNRES
         character( len = MPI_MAX_ERROR_STRING) :: message
         logical :: reorder, wasWeighted
         integer, allocatable, dimension(:) :: neighborRanks, inData, outData
@@ -118,12 +118,12 @@ module voltapp_mpi
                 call getIDeckStr(inpXML)
             endif
             call CheckFileOrDie(inpXML,"Error opening input deck in initVoltron_mpi, exiting ...")
-            xmlInp = New_XML_Input(trim(inpXML),'Gamera',.false.)
+            xmlInp = New_XML_Input(trim(inpXML),'Kaiju/Gamera',.false.)
 
-            call xmlInp%Set_Val(vApp%useHelpers,"/Voltron/Helpers/useHelpers",.false.)
-            call xmlInp%Set_Val(vApp%doSquishHelp,"/Voltron/Helpers/doSquishHelp",.true.)
-            call xmlInp%Set_Val(vApp%masterSquish,"/Voltron/Helpers/masterSquish",.false.)
-            call xmlInp%Set_Val(nHelpers,"/Voltron/Helpers/numHelpers",0)
+            call xmlInp%Set_Val(vApp%useHelpers,"/Kaiju/Voltron/Helpers/useHelpers",.false.)
+            call xmlInp%Set_Val(vApp%doSquishHelp,"/Kaiju/Voltron/Helpers/doSquishHelp",.true.)
+            call xmlInp%Set_Val(vApp%masterSquish,"/Kaiju/Voltron/Helpers/masterSquish",.false.)
+            call xmlInp%Set_Val(nHelpers,"/Kaiju/Voltron/Helpers/numHelpers",0)
             call MPI_Comm_Size(vApp%vHelpComm, commSize, ierr)
             if(ierr /= MPI_Success) then
                 call MPI_Error_string( ierr, message, length, ierr)
@@ -270,13 +270,17 @@ module voltapp_mpi
             call getIDeckStr(inpXML)
         endif
         call CheckFileOrDie(inpXML,"Error opening input deck in initVoltron_mpi, exiting ...")
-        xmlInp = New_XML_Input(trim(inpXML),'Gamera',.true.)
-        call xmlInp%Set_Val(vApp%doSerialVoltron,"/Voltron/coupling/doSerial",.false.)
-        call xmlInp%Set_Val(vApp%doAsyncShallow, "/Voltron/coupling/doAsyncShallow",.true.)
-        call xmlInp%Set_Val(vApp%useHelpers,"/Voltron/Helpers/useHelpers",.false.)
-        call xmlInp%Set_Val(vApp%doSquishHelp,"/Voltron/Helpers/doSquishHelp",.true.)
-        call xmlInp%Set_Val(vApp%masterSquish,"/Voltron/Helpers/masterSquish",.false.)
-        call xmlInp%Set_Val(nHelpers,"/Voltron/Helpers/numHelpers",0)
+        if (vApp%amHelper) then
+            xmlInp = New_XML_Input(trim(inpXML),'Kaiju/Gamera',.false.)
+        else
+            xmlInp = New_XML_Input(trim(inpXML),'Kaiju/Gamera',.true.)
+        endif
+        call xmlInp%Set_Val(vApp%doSerialVoltron,"/Kaiju/Voltron/coupling/doSerial",.false.)
+        call xmlInp%Set_Val(vApp%doAsyncShallow, "/Kaiju/Voltron/coupling/doAsyncShallow",.true.)
+        call xmlInp%Set_Val(vApp%useHelpers,"/Kaiju/Voltron/Helpers/useHelpers",.false.)
+        call xmlInp%Set_Val(vApp%doSquishHelp,"/Kaiju/Voltron/Helpers/doSquishHelp",.true.)
+        call xmlInp%Set_Val(vApp%masterSquish,"/Kaiju/Voltron/Helpers/masterSquish",.false.)
+        call xmlInp%Set_Val(nHelpers,"/Kaiju/Voltron/Helpers/numHelpers",0)
         call MPI_Comm_Size(vApp%vHelpComm, commSize, ierr)
         if(ierr /= MPI_Success) then
             call MPI_Error_string( ierr, message, length, ierr)
@@ -307,6 +311,16 @@ module voltapp_mpi
             call initVoltron(vApp, vApp%gAppLocal, optFilename)
         else
             call initVoltron(vApp, vApp%gAppLocal)
+        endif
+
+        ! Receive Gamera's restart number and ensure Voltron has the same restart number
+        call mpi_recv(gamNRES, 1, MPI_INT, MPI_ANY_SOURCE, 97520, vApp%voltMpiComm, MPI_STATUS_IGNORE, ierr)
+        if (vApp%gAppLocal%Model%isRestart .and. vApp%IO%nRes /= gamNRES) then
+            write(*,*) "Gamera and Voltron disagree on restart number, you should sort that out."
+            write(*,*) "Error code: A house divided cannot stand"
+            write(*,*) "   Voltron nRes = ", vApp%IO%nRes
+            write(*,*) "   Gamera  nRes = ", gamNRES
+            stop
         endif
 
         ! send all of the initial voltron parameters to the gamera ranks
@@ -433,12 +447,6 @@ module voltapp_mpi
             call mpi_Irecv(vApp%timeBuffer, 1, MPI_MYFLOAT, MPI_ANY_SOURCE, 97600, vApp%voltMpiComm, vApp%timeReq, ierr)
 
             call mpi_Irecv(vApp%timeStepBuffer, 1, MPI_INT, MPI_ANY_SOURCE, 97700, vApp%voltMpiComm, vApp%timeStepReq, ierr)
-        endif
-
-        if(vApp%useHelpers) then
-            call Tic("VoltHelpers")
-            call vhReqStep(vApp)
-            call Toc("VoltHelpers")
         endif
 
     end subroutine stepVoltron_mpi
@@ -823,6 +831,7 @@ module voltapp_mpi
 
         if(vApp%useHelpers .and. vApp%doSquishHelp) then
             call Tic("VoltHelpers")
+            call vhReqStep(vApp)
             call vhReqSquishStart(vApp)
             call Toc("VoltHelpers")
         endif

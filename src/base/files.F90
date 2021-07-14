@@ -1,7 +1,13 @@
 module files
     use kdefs
+#ifdef __INTEL_COMPILER
+    use ifport
+#endif
 
     implicit none
+
+    !Whether to do sym links, can be disabled due to issue w/ virtual mem blowing up
+    logical, private :: doSymLinks = .true. 
 
     contains
 
@@ -83,6 +89,14 @@ module files
                 write(*,'(5a)') ANSIRED,'<',trim(fStr),' already exists, deleting ...>',ANSIRESET
             endif
             write (cmd,'(A,A)') 'rm ',trim(fStr)
+#ifdef __INTEL_COMPILER
+            eStat = unlink(fStr)
+            if (eStat) then
+                write(*,*) 'Unlink error: ', eStat
+                stop
+            endif
+#else
+            !System call method
             call EXECUTE_COMMAND_LINE(trim(cmd), wait=.true., exitstat=eStat, cmdstat=cStat, cmdmsg=cMsg)
             if(cStat > 0) then
                 write (*,*) 'Command line "',trim(cmd),'" failed with error: ',trim(cMsg)
@@ -92,15 +106,23 @@ module files
                 write (*,*) 'EXECUTE_COMMAND_LINE not supported'
                 stop
             endif
+#endif
+
         endif
     end subroutine CheckAndKill
 
+    subroutine DisableSymLinks()
+        doSymLinks = .false.
+    end subroutine
+    
     !Create symlink connecting fReal and fSym
     subroutine MapSymLink(fReal,fSym)
         character(len=*), intent(in) :: fReal,fSym
 
         integer :: eStat,cStat
         character(len=strLen) :: cmd,cMsg
+
+        if (.not. doSymLinks) return
 
         !Kill sym link if it exists
         call CheckAndKill(fSym,.false.)

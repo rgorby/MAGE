@@ -45,6 +45,11 @@ module clocks
     type(Clock_T), dimension(maxClocks) :: kClocks
     integer, private :: nclk=0 !Current number of clocks
 
+    !interface for reading clock time
+    interface readClock
+        module procedure readClock_str, readClock_int
+    end interface
+
     contains
 
     !Initialize gobal clock array
@@ -144,15 +149,17 @@ module clocks
 
         do n=1,nclk
             kClocks(n)%tElap = 0
+            ! if the clock is active, reset the tic to right now
+            if(kClocks(n)%isOn) call Tic(kClocks(n)%cID)
         enddo
 
     end subroutine cleanClocks
 
     !Get specific elapsed time from clock w/ ID cID
-    function readClock(cID) result(wclk)
+    function readClock_str(cID) result(wclk)
         character(len=*), intent(in) :: cID
 
-        integer :: n,iblk,tmpToc
+        integer :: n,iblk
         real :: wclk
 
         iblk = 0
@@ -163,17 +170,28 @@ module clocks
                 iblk = n
             endif
         enddo
+        
+        wclk = readClock_int(iblk)
+
+    end function readClock_str
+
+    function readClock_int(iblk) result(wclk)
+        integer, intent(in) :: iblk
+
+        integer :: tmpToc
+        real :: wclk
+
         if (iblk == 0) then
             wclk = 0.0
         else
             if (kClocks(iblk)%isOn) then
                 call system_clock(count=tmpToc)
-                wclk = real(tmpToc-kClocks(iblk)%iTic)/real(clockRate)                
+                wclk = kClocks(iblk)%tElap + real(tmpToc-kClocks(iblk)%iTic)/real(clockRate)
             else
                 wclk = kClocks(iblk)%tElap
             endif
         endif
-    end function readClock
+    end function readClock_int
 
     !Output clock data
     subroutine printClocks()
@@ -185,8 +203,8 @@ module clocks
         !     write(*,*) 'ID/T = ', trim(kClocks(n)%cID),kClocks(n)%tElap
         ! enddo
         !Start w/ Omega
-        tScl = kClocks(1)%tElap
-        write(tStr,'(f8.3)') kClocks(1)%tElap
+        tScl = getClockTime(1)
+        write(tStr,'(f8.3)') tScl
 
         write(*,'(a)') 'Timing Data (' // trim(adjustl(tStr)) // 's)'
         do n=1,maxClocks
@@ -204,18 +222,18 @@ module clocks
                 integer, intent(in) :: pID
         
                 integer :: n,nP,nC,nInd,lev
-                real(rp) :: tF
+                real(rp) :: tF,tS
                 character(len=StrLen) :: sPer,sSec
         
                 lev = kClocks(pID)%level
                 nInd = (lev - clkMinD)+1
                 
-        
-                tF = 100*kClocks(pID)%tElap/tScl
+                tS = getClockTime(pID)
+                tF = 100*tS/tScl
         
                 !if ( (tF > clkMinT) .and. (lev <= clkMaxD) ) then
                     write(sPer,'(f6.2)') tF
-                    write(sSec,'(f8.3)') kClocks(pID)%tElap
+                    write(sSec,'(f8.3)') tS
                     write(*,'(a)') repeat("   ",nInd) // trim(kClocks(pID)%cID) // ' : ' // &
                         trim(adjustl(sPer)) // '% / ' // trim(adjustl(sSec)) // 's'
                     do n=1,maxClocks
@@ -227,7 +245,22 @@ module clocks
                 !endif
         
                 !write(*,*) trim(gTime(pID)%tName), ' : ', gTime(pID)%tElap
-            end subroutine printChildren    
+            end subroutine printChildren
+
+            function getClockTime(clockIndex)
+                integer, intent(in) :: clockIndex
+                real(rp) :: getClockTime,wclk
+                integer :: curT
+
+                getClockTime = kClocks(clockIndex)%tElap
+                if(kClocks(clockIndex)%isOn) then
+                    ! clock is active, include elapsed time
+                    call system_clock(count=curT)
+                    wclk = real(curT-kClocks(clockIndex)%iTic)/real(clockRate)
+                    getClockTime = getClockTime + wclk
+                endif
+
+            end function getClockTime
     end subroutine printClocks
 
     !Basic clock routines

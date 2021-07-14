@@ -59,7 +59,7 @@ if __name__ == "__main__":
 	nStp = args.n
 	doDen = args.den
 	noIon = args.noion
-	noMPI = args.nompi
+	#noMPI = args.nompi
 	doMPI = (not noMPI)
 	doJy = args.jy
 	doSrc = args.src

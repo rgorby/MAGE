@@ -59,7 +59,7 @@ module chmpdefs
 
     !Field types
     enum, bind(C)
-        enumerator :: BFLD=1,EFLD,DBFLD,B0FLD,EXBFLD
+        enumerator :: BFLD=1,EFLD,DBFLD
     endenum
 
     !Grid types

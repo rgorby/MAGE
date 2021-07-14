@@ -247,6 +247,13 @@ module volthelpers_mpi
             print *,message(1:length)
             call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
         end if
+        call mpi_bcast(vApp%nTrc, 1, MPI_INTEGER, 0, vApp%vHelpComm, ierr)
+        if(ierr /= MPI_Success) then
+            call MPI_Error_string( ierr, message, length, ierr)
+            print *,message(1:length)
+            call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+        end if
+
         call mpi_bcast(vApp%ebTrcApp%ebSquish%Rinner, 1, MPI_MYFLOAT, 0, vApp%vHelpComm, ierr)
         if(ierr /= MPI_Success) then
             call MPI_Error_string( ierr, message, length, ierr)
@@ -288,6 +295,12 @@ module volthelpers_mpi
             print *,message(1:length)
             call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
         end if
+        call mpi_bcast(vApp%nTrc, 1, MPI_INTEGER, 0, vApp%vHelpComm, ierr)
+        if(ierr /= MPI_Success) then
+            call MPI_Error_string( ierr, message, length, ierr)
+            print *,message(1:length)
+            call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+        end if        
         call mpi_bcast(vApp%ebTrcApp%ebSquish%Rinner, 1, MPI_MYFLOAT, 0, vApp%vHelpComm, ierr)
         if(ierr /= MPI_Success) then
             call MPI_Error_string( ierr, message, length, ierr)
@@ -317,9 +330,11 @@ module volthelpers_mpi
         type(voltAppMpi_T), intent(inout) :: vApp
 
         integer :: ierr
+        call Tic("VHReqStep")
         call vhRequestType(vApp, VHSTEP)
         call mpi_bcast(vApp%tFin, 1, MPI_MYFLOAT, 0, vApp%vHelpComm, ierr)
         call mpi_bcast(vApp%time, 1, MPI_MYFLOAT, 0, vApp%vHelpComm, ierr)
+        call Toc("VHReqStep")
     end subroutine
 
     subroutine vhHandleStep(vApp)
@@ -334,6 +349,7 @@ module volthelpers_mpi
         type(voltAppMpi_T), intent(inout) :: vApp
 
         integer :: ierr
+        call Tic("VHReqSquishS")
         call vhRequestType(vApp, VHSQUISHSTART)
 
         ! send eb data
@@ -352,6 +368,7 @@ module volthelpers_mpi
         call mpi_bcast(vApp%ebTrcApp%ebSquish%numSquishBlocks, 1, MPI_INT, 0, vApp%vHelpComm, ierr)
         vApp%ebTrcApp%ebSquish%myFirstBlock = 0 ! master is always the first block, if it has one
         vApp%ebTrcApp%ebSquish%curSquishBlock = vApp%ebTrcApp%ebSquish%myFirstBlock
+        call Toc("VHReqSquishS")
 
     end subroutine
 
@@ -384,6 +401,8 @@ module volthelpers_mpi
 
         integer :: ierr,length,i,firstBlock,ks,ke, oldSizes(4), newSizes(4), offsets(4), newtype
         character( len = MPI_MAX_ERROR_STRING) :: message
+
+        call Tic("VHReqSquishE")
         call vhRequestType(vApp, VHSQUISHEND)
 
         oldSizes = shape(vApp%chmp2mhd%xyzSquish)
@@ -455,6 +474,7 @@ module volthelpers_mpi
             end if 
 
         enddo
+        call Toc("VHReqSquishE")
 
     end subroutine
 
