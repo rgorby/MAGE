@@ -8,22 +8,26 @@ module gamapp_mpi
     use gamapp
     use bcs_mpi
     use mpidefs
-    use mpi
+    use mpi_f08
 
     implicit none
 
     type, extends(GamApp_T) :: gamAppMpi_T
-        integer :: gamMpiComm = MPI_COMM_NULL
+        type(MPI_Comm) :: gamMpiComm
         integer, dimension(:), allocatable :: sendRanks, recvRanks
 
         ! Gas Data Transfer Variables
-        integer, dimension(:), allocatable :: sendCountsGas, sendTypesGas
-        integer, dimension(:), allocatable :: recvCountsGas, recvTypesGas
+        integer, dimension(:), allocatable :: sendCountsGas
+        type(MPI_Datatype), dimension(:), allocatable :: sendTypesGas
+        integer, dimension(:), allocatable :: recvCountsGas
+        type(MPI_Datatype), dimension(:), allocatable :: recvTypesGas
         integer(kind=MPI_AN_MYADDR), dimension(:), allocatable :: sendDisplsGas, recvDisplsGas
 
         ! Magnetic Flux Data Transfer Variables
-        integer, dimension(:), allocatable :: sendCountsMagFlux, sendTypesMagFlux
-        integer, dimension(:), allocatable :: recvCountsMagFlux, recvTypesMagFlux
+        integer, dimension(:), allocatable :: sendCountsMagFlux
+        type(MPI_Datatype), dimension(:), allocatable :: sendTypesMagFlux
+        integer, dimension(:), allocatable :: recvCountsMagFlux
+        type(MPI_Datatype), dimension(:), allocatable :: recvTypesMagFlux
         integer(kind=MPI_AN_MYADDR), dimension(:), allocatable :: sendDisplsMagFlux, recvDisplsMagFlux
 
         ! Debugging flags
@@ -37,7 +41,7 @@ module gamapp_mpi
     subroutine initGamera_mpi(gamAppMpi, userInitFunc, gamComm, optFilename, doIO)
         type(gamAppMpi_T), intent(inout) :: gamAppMpi
         procedure(StateIC_T), pointer, intent(in) :: userInitFunc
-        integer, intent(in) :: gamComm
+        type(MPI_Comm), intent(in) :: gamComm
         character(len=*), optional, intent(in) :: optFilename
         logical, optional, intent(in) :: doIO
 
@@ -117,7 +121,7 @@ module gamapp_mpi
         type(gamAppMpi_T), intent(inout) :: gamAppMpi
         type(XML_Input_T), intent(inout) :: xmlInp
         procedure(StateIC_T), pointer, intent(in) :: userInitFunc
-        integer, intent(in) :: gamComm
+        type(MPI_Comm), intent(in) :: gamComm
         real(rp), optional, intent(in) :: endTime
 
         integer :: numNeighbors, ierr, length, commSize, rank, ic, jc, kc, rn
@@ -661,7 +665,7 @@ module gamapp_mpi
         type(gamAppMpi_T), intent(inout) :: gamAppMpi
 
         integer :: ierr, length
-        integer :: gasReq, mfReq
+        type(MPI_Request) :: gasReq, mfReq
         character(len=strLen) :: message
 
         ! arrays for calculating mag flux face error, if applicable
@@ -727,8 +731,8 @@ module gamapp_mpi
         type(gamAppMpi_T), intent(inout) :: gamAppMpi
         logical, intent(in) :: periodicI, periodicJ, periodicK
 
-        integer :: iData,jData,kData,rankIndex,dType,offset,dataSize,ierr
-        integer :: dtGas4,dtGas5
+        integer :: iData,jData,kData,rankIndex,offset,dataSize,ierr
+        type(MPI_Datatype) :: dType,dtGas4,dtGas5
 
         associate(Grid=>gamAppMpi%Grid,Model=>gamAppMpi%Model)
 
@@ -879,7 +883,8 @@ module gamapp_mpi
         type(gamAppMpi_T), intent(in) :: gamAppMpi
         integer, intent(in) :: recvFromRank,iData,jData,kData
         logical, intent(in) :: periodicI, periodicJ, periodicK
-        integer, intent(out) :: dType, offset
+        type(MPI_Datatype), intent(out) :: dType
+        integer, intent(out) :: offset
         logical, intent(in) :: doFace, doEdge, doCorner
 
         integer :: tgtRank, calcOffset, ierr, dataSize
@@ -974,7 +979,8 @@ module gamapp_mpi
         type(gamAppMpi_T), intent(in) :: gamAppMpi
         integer, intent(in) :: sendToRank,iData,jData,kData
         logical, intent(in) :: periodicI, periodicJ, periodicK
-        integer, intent(out) :: dType, offset
+        type(MPI_Datatype), intent(out) :: dType
+        integer, intent(out) :: offset
         logical, intent(in) :: doFace, doEdge, doCorner
 
         integer :: myRank, tempRank, sendToI, sendToJ, sendToK
@@ -1108,10 +1114,11 @@ module gamapp_mpi
                               doFace,doEdge,doCorner)
         type(gamAppMpi_T), intent(in) :: gamAppMpi
         integer, intent(in) :: iData, jData, kData
-        integer, intent(out) :: dType
+        type(MPI_Datatype), intent(out) :: dType
         logical, intent(in) :: doFace, doEdge, doCorner
 
-        integer dType1D,dType2D,dType3D,dataSize,ierr,dataSum
+        type(MPI_Datatype) :: dType1D,dType2D,dType3D
+        integer :: dataSize,ierr,dataSum
 
         associate(Grid=>gamAppMpi%Grid,Model=>gamAppMpi%Model)
 
@@ -1176,7 +1183,8 @@ module gamapp_mpi
         type(gamAppMpi_T), intent(in) :: gamAppMpi
         integer, intent(in) :: recvFromRank,iData,jData,kData
         logical, intent(in) :: periodicI, periodicJ, periodicK
-        integer, intent(out) :: dType, offset
+        type(MPI_Datatype), intent(out) :: dType
+        integer, intent(out) :: offset
         logical, intent(in) :: doFace, doEdge, doCorner
 
         integer :: tgtRank, calcOffset, ierr, dataSize
@@ -1272,7 +1280,8 @@ module gamapp_mpi
         type(gamAppMpi_T), intent(in) :: gamAppMpi
         integer, intent(in) :: sendToRank,iData,jData,kData
         logical, intent(in) :: periodicI, periodicJ, periodicK
-        integer, intent(out) :: dType, offset
+        type(MPI_Datatype), intent(out) :: dType
+        integer, intent(out) :: offset
         logical, intent(in) :: doFace, doEdge, doCorner
 
         integer :: myRank, tempRank, sendToI, sendToJ, sendToK
@@ -1405,10 +1414,10 @@ module gamapp_mpi
     subroutine calcDatatypeFC(gamAppMpi,iData,jData,kData,dType,doFace,doEdge,doCorner)
         type(gamAppMpi_T), intent(in) :: gamAppMpi
         integer, intent(in) :: iData, jData, kData
-        integer, intent(out) :: dType
+        type(MPI_Datatype), intent(out) :: dType
         logical, intent(in) :: doFace, doEdge, doCorner
 
-        integer :: dType1DI,dType1DJ,dType1DK,dType2DI,dType2DJ,dType2DK,dType3DI,dType3DJ,dType3DK
+        type(MPI_Datatype) :: dType1DI,dType1DJ,dType1DK,dType2DI,dType2DJ,dType2DK,dType3DI,dType3DJ,dType3DK
         integer :: offsetI, offsetJ, offsetK, dataSum, ierr, dataSize
         logical :: anyMaxDim,sendSharedFace
         integer :: countArray(3)
@@ -1551,8 +1560,9 @@ module gamapp_mpi
     end subroutine calcDatatypeFC
 
     subroutine appendDatatype(appendType,dType,offset)
-        integer, intent(inout) :: appendType
-        integer, intent(in) :: dType, offset
+        type(MPI_Datatype), intent(inout) :: appendType
+        type(MPI_Datatype), intent(in) :: dType
+        integer, intent(in) :: offset
 
         integer :: ierr
         integer(kind=MPI_BASE_MYADDR) :: tempOffsets(2)

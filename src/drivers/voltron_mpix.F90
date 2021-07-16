@@ -8,7 +8,7 @@ program voltron_mpix
     use output
     use voltio
     use uservoltic
-    use mpi
+    use mpi_f08
     use xml_input
 
     implicit none
@@ -25,7 +25,8 @@ program voltron_mpix
 
     procedure(StateIC_T), pointer :: userInitFunc => initUser
 
-    integer :: ierror, length, provided, worldSize, worldRank, gamComm, voltComm, numHelpers
+    integer :: ierror, length, provided, worldSize, worldRank, numHelpers
+    type(MPI_Comm) :: gamComm, voltComm
     integer :: required=MPI_THREAD_MULTIPLE
     character( len = MPI_MAX_ERROR_STRING) :: message
     character(len=strLen) :: inpXML, helpersBuf

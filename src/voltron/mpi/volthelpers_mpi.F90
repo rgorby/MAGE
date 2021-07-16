@@ -2,7 +2,7 @@
 
 module volthelpers_mpi
     use voltmpitypes
-    use mpi
+    use mpi_f08
     use ebsquish, only : SquishBlocksRemain, DoSquishBlock
     use, intrinsic :: ieee_arithmetic, only: IEEE_VALUE, IEEE_SIGNALING_NAN, IEEE_QUIET_NAN
 
@@ -95,7 +95,7 @@ module volthelpers_mpi
 
     subroutine sendChimpStateData(ebState, vHelpComm)
         type(ebState_T), intent(in) :: ebState
-        integer, intent(in) :: vHelpComm
+        type(MPI_Comm), intent(in) :: vHelpComm
 
         integer :: ierr, length
         character( len = MPI_MAX_ERROR_STRING) :: message
@@ -156,7 +156,7 @@ module volthelpers_mpi
 
     subroutine recvChimpStateData(ebState, vHelpComm)
         type(ebState_T), intent(inout) :: ebState
-        integer, intent(in) :: vHelpComm
+        type(MPI_Comm), intent(in) :: vHelpComm
 
         integer :: ierr, length
         character( len = MPI_MAX_ERROR_STRING) :: message
@@ -318,7 +318,8 @@ module volthelpers_mpi
         type(voltAppMpi_T), intent(in) :: vApp
         integer, intent(in) :: rType
 
-        integer :: ierr, helpReq = MPI_REQUEST_NULL
+        integer :: ierr
+        type(MPI_Request) :: helpReq
 
         ! async to match waiting helper nodes
         call mpi_Ibcast(rType, 1, MPI_INT, 0, vApp%vHelpComm, helpReq, ierr)
@@ -399,7 +400,8 @@ module volthelpers_mpi
     subroutine vhReqSquishEnd(vApp)
         type(voltAppMpi_T), intent(inout) :: vApp
 
-        integer :: ierr,length,i,firstBlock,ks,ke, oldSizes(4), newSizes(4), offsets(4), newtype
+        integer :: ierr,length,i,firstBlock,ks,ke, oldSizes(4), newSizes(4), offsets(4)
+        type(MPI_Datatype) :: newtype
         character( len = MPI_MAX_ERROR_STRING) :: message
 
         call Tic("VHReqSquishE")
@@ -481,7 +483,8 @@ module volthelpers_mpi
     subroutine vhHandleSquishEnd(vApp)
         type(voltAppMpi_T), intent(inout) :: vApp
 
-        integer :: ierr,length,ks,ke, oldSizes(4), newSizes(4), offsets(4), newtype
+        integer :: ierr,length,ks,ke, oldSizes(4), newSizes(4), offsets(4)
+        type(MPI_Datatype) :: newtype
         character( len = MPI_MAX_ERROR_STRING) :: message
 
         oldSizes = shape(vApp%chmp2mhd%xyzSquish)

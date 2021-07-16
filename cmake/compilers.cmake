@@ -13,7 +13,21 @@ set(CMAKE_REQUIRED_FLAGS ${OpenMP_Fortran_FLAGS})
 set(CMAKE_REQUIRED_LIBRARIES ${OpenMP_Fortran_LIBRARIES})
 
 if (ENABLE_MPI)
-	find_package(MPI REQUIRED COMPONENTS Fortran)
+    #mpi is a nightmare
+    #try to find a fortran 2008 specific wrapper first
+    set(MPI_Fortran_COMPILER mpif08)
+	find_package(MPI COMPONENTS Fortran QUIET)
+    if(NOT MPI_FOUND OR NOT MPI_Fortran_HAVE_F08_MODULE)
+        #just look for whatever
+        unset(MPI_Fortran_COMPILER)
+        find_package(MPI REQUIRED COMPONENTS Fortran)
+    else()
+        message("-- Found MPI")
+    endif()
+
+    if(NOT MPI_Fortran_HAVE_F08_MODULE)
+        message(FATAL_ERROR "MPI Library does not support F08 interface")
+    endif()
 endif()
 
 #-------------
@@ -104,13 +118,16 @@ if(ENABLE_OMP)
 	string(APPEND CMAKE_Fortran_FLAGS " ${OpenMP_Fortran_FLAGS}")
 endif()
 if(ENABLE_MPI)
-	add_definitions(${MPI_Fortran_COMPILE_FLAGS})
-	include_directories(${MPI_Fortran_INCLUDE_PATH})
+    add_compile_options(${MPI_Fortran_COMPILE_OPTIONS})
+	add_definitions(${MPI_Fortran_COMPILE_DEFINITIONS})
+	include_directories(${MPI_Fortran_INCLUDE_DIRS})
 	link_directories(${MPI_Fortran_LIBRARIES})
-	if(CMAKE_Fortran_COMPILER_ID MATCHES Intel)
-		string(APPEND CMAKE_Fortran_FLAGS " -mt_mpi")
-	endif()
-	# no matching flag for GNU
+
+    if(MPI_Fortran_COMPILER MATCHES mpiifort)
+        #Using Intel MPI Library
+        string(APPEND CMAKE_Fortran_FLAGS " -mt_mpi")
+    endif()
+
 	set(CMAKE_Fortran_COMPILER ${MPI_Fortran_COMPILER})
 	# we changed compiler, link HDF5 libraries
 	link_libraries(${HDF5_Fortran_LIBRARIES} ${HDF5_Fortran_HL_LIBRARIES})

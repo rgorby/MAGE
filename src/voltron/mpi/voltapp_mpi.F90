@@ -5,7 +5,7 @@ module voltapp_mpi
     use voltmpitypes
     use gamapp_mpi
     use gamapp
-    use mpi
+    use mpi_f08
     use ebsquish, only : SquishBlocksRemain, DoSquishBlock
     use, intrinsic :: ieee_arithmetic, only: IEEE_VALUE, IEEE_SIGNALING_NAN, IEEE_QUIET_NAN
     use volthelpers_mpi
@@ -71,14 +71,15 @@ module voltapp_mpi
     subroutine initVoltron_mpi(vApp, userInitFunc, helperComm, allComm, optFilename)
         type(voltAppMpi_T), intent(inout) :: vApp
         procedure(StateIC_T), pointer, intent(in) :: userInitFunc
-        integer, intent(in) :: helperComm
-        integer, intent(in) :: allComm
+        type(MPI_Comm), intent(in) :: helperComm
+        type(MPI_Comm), intent(in) :: allComm
         character(len=*), optional, intent(in) :: optFilename
 
         character(len=strLen) :: inpXML
         type(XML_Input_T) :: xmlInp
         integer :: commSize, ierr, numCells, length, ic, numInNeighbors, numOutNeighbors
-        integer :: voltComm, nHelpers, gamNRES
+        type(MPI_Comm) :: voltComm
+        integer :: nHelpers, gamNRES
         character( len = MPI_MAX_ERROR_STRING) :: message
         logical :: reorder, wasWeighted
         integer, allocatable, dimension(:) :: neighborRanks, inData, outData
@@ -456,7 +457,8 @@ module voltapp_mpi
         type(voltAppMpi_T), intent(inout) :: vApp
         real(rp), intent(in) :: time
 
-        integer :: ierr, asyncShallowBcastReq
+        integer :: ierr
+        type(MPI_Request) :: asyncShallowBcastReq
 
         if(vApp%firstDeepUpdate .and. vApp%firstShallowUpdate) then
             call firstDeep(vApp)
@@ -1055,13 +1057,14 @@ module voltapp_mpi
         integer, dimension(1:SIZE(vApp%recvRanks)+1), intent(in) :: iRanks, jRanks, kRanks
 
         integer :: ierr, NiRanks, NjRanks, NkRanks, NipT, NjpT, NkpT, dataSize
-        integer :: r, rRank, recvDataOffset, recvDatatype
-        integer :: iJP, iJPjP, iJPjPkP, iJPjPkP4Gas, iJPjPkP5Gas, iJPjPkP4Bxyz, iJPjPkP5Bxyz
-        integer :: iJP3, iJP3jP, iJP3jPG, iJP3jPG2, iJP3jPkPG2, iJP3jPGkPG2, iJP3jPG2kPG2
-        integer :: iJP3jPkPG24Bxyz, iJP3jPGkPG24Bxyz, iJP3jPG2kPG24Bxyz
-        integer :: sRank,sendDataOffset,iPSI,iPSI1,Exyz2,Eijk2,Exyz3,Eijk3,Exyz4,Eijk4
-        integer :: iP,iPjP,iPjPkP,iPjPkP4Bxyz,iPjPkP4Gas,iPjPkP5Gas
-        integer :: iPG2,iPG2jPG2,iPG2jPG2kPG2,iPG2jPG2kPG24Gas,iPG2jPG2kPG25Gas
+        integer :: r, rRank, recvDataOffset, sRank, sendDataOffset
+        type(MPI_Datatype) :: recvDatatype
+        type(MPI_Datatype) :: iJP, iJPjP, iJPjPkP, iJPjPkP4Gas, iJPjPkP5Gas, iJPjPkP4Bxyz, iJPjPkP5Bxyz
+        type(MPI_Datatype) :: iJP3, iJP3jP, iJP3jPG, iJP3jPG2, iJP3jPkPG2, iJP3jPGkPG2, iJP3jPG2kPG2
+        type(MPI_Datatype) :: iJP3jPkPG24Bxyz, iJP3jPGkPG24Bxyz, iJP3jPG2kPG24Bxyz
+        type(MPI_Datatype) :: iPSI,iPSI1,Exyz2,Eijk2,Exyz3,Eijk3,Exyz4,Eijk4
+        type(MPI_Datatype) :: iP,iPjP,iPjPkP,iPjPkP4Bxyz,iPjPkP4Gas,iPjPkP5Gas
+        type(MPI_Datatype) :: iPG2,iPG2jPG2,iPG2jPG2kPG2,iPG2jPG2kPG24Gas,iPG2jPG2kPG25Gas
 
         associate(Grid=>vApp%gAppLocal%Grid,Model=>vApp%gAppLocal%Model, &
                   JpSt=>vApp%mhd2mix%JStart,JpSh=>vApp%mhd2mix%JShells, &
@@ -1304,7 +1307,9 @@ module voltapp_mpi
         type(voltAppMpi_T), intent(inout) :: vApp
         logical, intent(out) :: helperQuit ! should the helper quit
 
-        integer :: ierr, helpType, helpReq = MPI_REQUEST_NULL
+        integer :: ierr, helpType
+        type(MPI_Request) :: helpReq
+
         helperQuit = .false. ! don't quit normally
 
         ! assumed to only be in this function if helpers are enabled
