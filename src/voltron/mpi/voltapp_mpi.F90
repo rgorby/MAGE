@@ -21,44 +21,34 @@ module voltapp_mpi
         logical :: reqStat
         integer :: ierr
 
-        if(vApp%timeReq /= MPI_REQUEST_NULL) then
-            call MPI_REQUEST_GET_STATUS(vApp%timeReq,reqStat,MPI_STATUS_IGNORE,ierr)
-            if(.not. reqStat) then
-                call MPI_CANCEL(vApp%timeReq, ierr)
-                call MPI_WAIT(vApp%timeReq, MPI_STATUS_IGNORE, ierr)
-            endif
+        call MPI_TEST(vApp%timeReq,reqStat,MPI_STATUS_IGNORE,ierr)
+        if(.not. reqStat) then
+            call MPI_CANCEL(vApp%timeReq, ierr)
+            call MPI_WAIT(vApp%timeReq, MPI_STATUS_IGNORE, ierr)
         endif
 
-        if(vApp%timeStepReq /= MPI_REQUEST_NULL) then
-            call MPI_REQUEST_GET_STATUS(vApp%timeStepReq,reqStat,MPI_STATUS_IGNORE,ierr)
-            if(.not. reqStat) then
-                call MPI_CANCEL(vApp%timeStepReq, ierr)
-                call MPI_WAIT(vApp%timeStepReq, MPI_STATUS_IGNORE, ierr)
-            endif
+        call MPI_TEST(vApp%timeStepReq,reqStat,MPI_STATUS_IGNORE,ierr)
+        if(.not. reqStat) then
+            call MPI_CANCEL(vApp%timeStepReq, ierr)
+            call MPI_WAIT(vApp%timeStepReq, MPI_STATUS_IGNORE, ierr)
         endif
 
-        if(vApp%shallowIneijkSendReq /= MPI_REQUEST_NULL) then
-            call MPI_REQUEST_GET_STATUS(vApp%shallowIneijkSendReq,reqStat,MPI_STATUS_IGNORE,ierr)
-            if(.not. reqStat) then
-                ! async neighborhood ops don't support cancel
-                call MPI_WAIT(vApp%shallowIneijkSendReq, MPI_STATUS_IGNORE, ierr)
-            endif
+        call MPI_TEST(vApp%shallowIneijkSendReq,reqStat,MPI_STATUS_IGNORE,ierr)
+        if(.not. reqStat) then
+            ! async neighborhood ops don't support cancel
+            call MPI_WAIT(vApp%shallowIneijkSendReq, MPI_STATUS_IGNORE, ierr)
         endif
 
-        if(vApp%shallowInexyzSendReq /= MPI_REQUEST_NULL) then
-            call MPI_REQUEST_GET_STATUS(vApp%shallowInexyzSendReq,reqStat,MPI_STATUS_IGNORE,ierr)
-            if(.not. reqStat) then
-                ! async neighborhood ops don't support cancel
-                call MPI_WAIT(vApp%shallowInexyzSendReq, MPI_STATUS_IGNORE, ierr)
-            endif
+        call MPI_TEST(vApp%shallowInexyzSendReq,reqStat,MPI_STATUS_IGNORE,ierr)
+        if(.not. reqStat) then
+            ! async neighborhood ops don't support cancel
+            call MPI_WAIT(vApp%shallowInexyzSendReq, MPI_STATUS_IGNORE, ierr)
         endif
 
-        if(vApp%asyncShallowBcastReq /= MPI_REQUEST_NULL) then
-            call MPI_REQUEST_GET_STATUS(vApp%asyncShallowBcastReq,reqStat,MPI_STATUS_IGNORE,ierr)
-            if(.not. reqStat) then
-                call MPI_CANCEL(vApp%asyncShallowBcastReq, ierr)
-                call MPI_WAIT(vApp%asyncShallowBcastReq, MPI_STATUS_IGNORE, ierr)
-            endif
+        call MPI_TEST(vApp%asyncShallowBcastReq,reqStat,MPI_STATUS_IGNORE,ierr)
+        if(.not. reqStat) then
+            call MPI_CANCEL(vApp%asyncShallowBcastReq, ierr)
+            call MPI_WAIT(vApp%asyncShallowBcastReq, MPI_STATUS_IGNORE, ierr)
         endif
 
         if(vApp%vHelpWin /= MPI_WIN_NULL) then
@@ -85,6 +75,16 @@ module voltapp_mpi
         integer, allocatable, dimension(:) :: neighborRanks, inData, outData
         integer, allocatable, dimension(:) :: iRanks, jRanks, kRanks
         integer(KIND=MPI_BASE_MYADDR) :: winsize
+
+        ! initialize F08 MPI objects
+        vApp%vHelpComm = MPI_COMM_NULL
+        vApp%vHelpWin = MPI_WIN_NULL
+        vApp%voltMpiComm = MPI_COMM_NULL
+        vApp%timeReq = MPI_REQUEST_NULL
+        vApp%timeStepReq = MPI_REQUEST_NULL
+        vApp%shallowIneijkSendReq = MPI_REQUEST_NULL
+        vApp%shallowInexyzSendReq = MPI_REQUEST_NULL
+        vApp%asyncShallowBcastReq = MPI_REQUEST_NULL
 
         vApp%isSeparate = .true. ! running on a different process from the actual gamera ranks
         vApp%gAppLocal%Grid%lowMem = .true. ! tell Gamera to limit its memory usage
@@ -394,7 +394,7 @@ module voltapp_mpi
     end subroutine initVoltron_mpi
 
     function gameraStepReady(vApp)
-        type(voltAppMpi_T), intent(in) :: vApp
+        type(voltAppMpi_T), intent(inout) :: vApp
         logical :: gameraStepReady
 
         integer :: ierr
@@ -403,7 +403,7 @@ module voltapp_mpi
         if(vApp%doSerialVoltron) then
             gameraStepReady = .true.
         else
-            call MPI_REQUEST_GET_STATUS(vApp%timeReq,gameraStepReady,MPI_STATUS_IGNORE,ierr)
+            call MPI_TEST(vApp%timeReq,gameraStepReady,MPI_STATUS_IGNORE,ierr)
         endif
         call Toc("GameraSync")
 
@@ -833,7 +833,6 @@ module voltapp_mpi
 
         if(vApp%useHelpers .and. vApp%doSquishHelp) then
             call Tic("VoltHelpers")
-            call vhReqStep(vApp)
             call vhReqSquishStart(vApp)
             call Toc("VoltHelpers")
         endif

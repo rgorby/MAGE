@@ -50,6 +50,9 @@ module gamapp_mpi
         logical :: doIOX,doLoud
         integer :: rank,ierr
 
+        ! initialize F08 MPI objects
+        gamAppMpi%gamMpiComm = MPI_COMM_NULL
+
         if(present(optFilename)) then
             ! read from the prescribed file
             inpXML = optFilename

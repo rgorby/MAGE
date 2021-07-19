@@ -21,7 +21,7 @@ module gam2VoltComm_mpi
 
         ! array of all zeroes to simplify various send/receive calls
         integer, dimension(1) :: zeroArrayCounts = (/ 0 /)
-        type(MPI_Datatype), dimension(1) :: zeroArrayTypes ! this can't be initialized here with mpi_f08, must be later
+        type(MPI_Datatype), dimension(1) :: zeroArrayTypes
         integer(kind=MPI_AN_MYADDR), dimension(1) :: zeroArrayDispls = (/ 0 /)
 
         ! SHALLOW COUPLING VARIABLES
@@ -73,8 +73,12 @@ module gam2VoltComm_mpi
         type(XML_Input_T) :: xmlInp
         integer, dimension(1) :: rankArray, weightArray
 
-        ! initialize the zeroArrayTypes array
-        g2vComm%zeroArrayTypes = (/ MPI_INT /) 
+        ! initialize F08 MPI objects
+        g2vComm%voltMpiComm = MPI_COMM_NULL
+        g2vComm%zeroArraytypes = (/ MPI_DATATYPE_NULL /)
+        g2vComm%shallowGasSendReq = MPI_REQUEST_NULL
+        g2vComm%shallowBxyzSendReq = MPI_REQUEST_NULL
+        g2vComm%shallowTimeBcastReq = MPI_REQUEST_NULL
 
         ! split voltron helpers off of the communicator
         ! split allComm into a communicator with only the non-helper voltron rank
@@ -238,34 +242,27 @@ module gam2VoltComm_mpi
         logical :: reqStat
         integer :: ierr
 
-        if(g2vComm%shallowGasSendReq /= MPI_REQUEST_NULL) then
-            call MPI_REQUEST_GET_STATUS(g2vComm%shallowGasSendReq,reqStat,MPI_STATUS_IGNORE,ierr)
-            if(.not. reqStat) then
-                ! can't cancel neighborhood calls
-                call MPI_WAIT(g2vComm%shallowGasSendReq, MPI_STATUS_IGNORE, ierr)
-            endif
+        call MPI_TEST(g2vComm%shallowGasSendReq,reqStat,MPI_STATUS_IGNORE,ierr)
+        if(.not. reqStat) then
+            ! can't cancel neighborhood calls
+            call MPI_WAIT(g2vComm%shallowGasSendReq, MPI_STATUS_IGNORE, ierr)
         endif
 
-        if(g2vComm%shallowBxyzSendReq /= MPI_REQUEST_NULL) then
-            call MPI_REQUEST_GET_STATUS(g2vComm%shallowBxyzSendReq,reqStat,MPI_STATUS_IGNORE,ierr)
-            if(.not. reqStat) then
-                ! can't cancel neighborhood calls
-                call MPI_WAIT(g2vComm%shallowBxyzSendReq, MPI_STATUS_IGNORE, ierr)
-            endif
+        call MPI_TEST(g2vComm%shallowBxyzSendReq,reqStat,MPI_STATUS_IGNORE,ierr)
+        if(.not. reqStat) then
+            ! can't cancel neighborhood calls
+            call MPI_WAIT(g2vComm%shallowBxyzSendReq, MPI_STATUS_IGNORE, ierr)
         endif
-        call MPI_WAIT(g2vComm%shallowBxyzSendReq, MPI_STATUS_IGNORE, ierr)
 
         if(g2vComm%doAsyncShallow) then
             ! voltron sent shallow data which can't be cancelled
             call recvShallowData(g2vComm, gApp)
         endif
 
-        if(g2vComm%shallowTimeBcastReq /= MPI_REQUEST_NULL) then
-            call MPI_REQUEST_GET_STATUS(g2vComm%shallowTimeBcastReq,reqStat,MPI_STATUS_IGNORE,ierr)
-            if(.not. reqStat) then
-                call MPI_CANCEL(g2vComm%shallowTimeBcastReq, ierr)
-                call MPI_WAIT(g2vComm%shallowTimeBcastReq, MPI_STATUS_IGNORE, ierr)
-            endif
+        call MPI_TEST(g2vComm%shallowTimeBcastReq,reqStat,MPI_STATUS_IGNORE,ierr)
+        if(.not. reqStat) then
+            call MPI_CANCEL(g2vComm%shallowTimeBcastReq, ierr)
+            call MPI_WAIT(g2vComm%shallowTimeBcastReq, MPI_STATUS_IGNORE, ierr)
         endif
 
         if(allocated(g2vComm%gasBuffer)) deallocate(g2vComm%gasBuffer)

@@ -123,8 +123,8 @@ if(ENABLE_MPI)
 	include_directories(${MPI_Fortran_INCLUDE_DIRS})
 	link_directories(${MPI_Fortran_LIBRARIES})
 
-    if(MPI_Fortran_COMPILER MATCHES mpiifort)
-        #Using Intel MPI Library
+    if(CMAKE_Fortran_COMPILER_ID MATCHES Intel)
+        #Using Intel Compiler, use thread safe mpi compiler flag
         string(APPEND CMAKE_Fortran_FLAGS " -mt_mpi")
     endif()
 
