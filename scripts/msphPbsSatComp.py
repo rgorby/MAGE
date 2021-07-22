@@ -50,9 +50,11 @@ if __name__ == '__main__':
 	keep = args.keep
 	acct = args.acct
 
-	if acct == None:
-		print('Must input a valid account to charge, use -acct flag')
-		quit()
+	if None == acct:
+		acct = os.getenv('DAV_PROJECT')
+		if None == acct:
+			print('Must input a valid account to charge, use -acct flag')
+			sys.exit()
 
 	if fdir == '.':
 		fdir = os.getcwd()
