@@ -36,6 +36,8 @@ if __name__ == '__main__':
 		default=None,help='Name of Satellite to compare')
 	parser.add_argument('-cmd',type=str,metavar='command',default=None,
 		help='Full path to sctrack.x command')
+	parser.add_argument('-acct',type=str,metavar='acct',default=None,
+		help='Account number to use in pbs script')
 	parser.add_argument('--keep',action='store_true',
 		help='Keep intermediate files')
 
@@ -46,6 +48,11 @@ if __name__ == '__main__':
 	cmd = args.cmd
 	scRequested = args.satId
 	keep = args.keep
+	acct = args.acct
+
+	if acct == None:
+		print('Must input a valid account to charge, use -acct flag')
+		quit()
 
 	if fdir == '.':
 		fdir = os.getcwd()
@@ -102,11 +109,11 @@ if __name__ == '__main__':
 			fLock.write("#!/bin/bash\ntouch $1")
 			fLock.close()
 			os.chmod(lockCmdName,0o775)
-			pbsName = kaiTools.genSatCompPbsScript(scId,fdir,cmd)
+			pbsName = kaiTools.genSatCompPbsScript(scId,fdir,cmd,account=acct)
 			pbsCmd = ['qsub','-J','1-'+str(numSegments),pbsName]
 			results = subprocess.run(pbsCmd,capture_output=True)
 			jobId = results.stdout.decode('utf-8').split('.')
-			pbsLockName = kaiTools.genSatCompLockScript(scId,fdir)
+			pbsLockName = kaiTools.genSatCompLockScript(scId,fdir,account=acct)
 			pbsLockCmd = ['qsub','-W','depend=afterok:'+jobId[0],pbsLockName]
 			results = subprocess.run(pbsLockCmd,capture_output=True)
 			lockId = results.stdout.decode('utf-8').split('.')
