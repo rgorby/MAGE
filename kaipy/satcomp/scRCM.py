@@ -3,16 +3,16 @@ import numpy as np
 import os
 import progressbar
 import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
 from astropy.time import Time
 import datetime
 
 import kaipy.kaiH5 as kh5
 import kaipy.kaiViz as kv
+import kaipy.kaijson as kj
 
 import kaipy.satcomp.scutils as scutils
-import kaipy.satcomp.kaijson as kj
 
-import matplotlib.gridspec as gridspec
 
 #Optionals
 doProgressBar = True
