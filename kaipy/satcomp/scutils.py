@@ -7,7 +7,12 @@ import datetime
 from cdasws import CdasWs
 from cdasws import TimeInterval
 
+import kaipy.kaijson as kj
+
 TINY = 1.0e-8
+
+
+scstrs_fname = 'sc_cdasws_strs.json'
 
 #======
 #General
@@ -64,6 +69,19 @@ def varMap_1D(og, ng, var):
 #======
 #Cdaweb-related
 #======
+
+def getScIds(doPrint=False):
+	"""Load info from stored file containing strings needed to get certain spacefract datasets from cdaweb
+	"""
+	scdict = kj.load(scstrs_fname)
+
+	if doPrint:
+		print("Retrievable spacecraft data:")
+		for sc in scdict.keys():
+			print('  ' + sc)
+			for v in scdict[sc].keys():
+				print('    ' + v)
+	return scdict
 
 def getCdasData(dsName, dsVars, t0, t1, epochStr="Epoch"):
 	"""Pull dataset from CdasWs

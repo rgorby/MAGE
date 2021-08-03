@@ -1,0 +1,17 @@
+{
+	"RBSPA" : {
+		"Location" : {
+			"Id" : "RBSP-A_MAGNETOMETER_1SEC-GSM_EMFISIS-L3",
+			"Data" : "coordinates",
+			"CoordSys" : "GSM"
+		},
+		"Density" : {
+			"Id" : "RBSPA_REL04_ECT-HOPE-MOM-L3",
+			"Data" : "Dens_p_30"
+		},
+		"Electron_omniflux" : {
+		 	"Id": "RBSP-A-RBSPICE_LEV-3-PAP_ESRHELT",
+		 	"Data": ["FEDU", "FEDU_OmniFlux", "MLT", "L_Eq", "L_Star"]
+		}
+	}
+}

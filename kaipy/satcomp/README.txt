@@ -6,7 +6,7 @@ scutils.py
 			exactly as delivered by Cdaweb
 			or, full days of all days needed, as delivered by Cdawev
 
-scRCM
+scRCM.py
 	getSpecieslambdata:
 		returns:		
 			result{
