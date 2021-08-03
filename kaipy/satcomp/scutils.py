@@ -11,8 +11,9 @@ import kaipy.kaijson as kj
 
 TINY = 1.0e-8
 
+package_directory = os.path.dirname(os.path.abspath(__file__))
 
-scstrs_fname = 'sc_cdasws_strs.json'
+scstrs_fname = os.path.join(package_directory, 'sc_cdasws_strs.json')
 
 #======
 #General
