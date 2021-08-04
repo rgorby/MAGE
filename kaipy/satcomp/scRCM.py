@@ -139,11 +139,11 @@ def get_aspect(ax):
 #Main work
 #======
 
-#Given sc and dataset hook (according to above dict), grab specifically omnidirecitonal differential flux
-def getSCOmniDiffFlux(scName, dSetHook, t0, t1, jdir=None):
+#Given sc and dataset name (according to above dict), grab specifically omnidirecitonal differential flux
+def getSCOmniDiffFlux(scName, dSetName, t0, t1, jdir=None):
 	if jdir is not None:
 		dojson = True
-		jfname = genSCD_jfname(jdir, scName, dSetHook)
+		jfname = genSCD_jfname(jdir, scName, dSetName)
 		if os.path.exists(jfname):
 			print("Grabbing spacecraft data from " + jfname)
 			data = kj.load(jfname)
@@ -163,7 +163,7 @@ def getSCOmniDiffFlux(scName, dSetHook, t0, t1, jdir=None):
 
 		#Pull data
 		ephStrs = SC_str['RBSP']['EPH']
-		dsStrs = SC_str['RBSP'][dSetHook]
+		dsStrs = SC_str['RBSP'][dSetName]
 		ephdata = scutils.getCdasData(ephStrs['DsetName']%(scTag), ephStrs['DsetVar'], t0, t1)
 		data = scutils.getCdasData(dsStrs['DsetName']%(scTag), dsStrs['DsetVar'], t0, t1)
 		#data = getCdasData(SC_str['RBSP']['E-PAP_RBSPICE'])
@@ -174,11 +174,11 @@ def getSCOmniDiffFlux(scName, dSetHook, t0, t1, jdir=None):
 		
 		dataset = {}
 		dataset['name'] = scName
-		species = 'electrons' if 'E' == dSetHook[0] else 'ions'
+		species = 'electrons' if 'E' == dSetName[0] else 'ions'
 		dataset['species'] = species
 		dataset['epoch'] = data[epochStr]
 		#Turn each dataset's data into omniflux
-		if dSetHook == 'E-PAP_RBSPICE' or dSetHook == 'H-PAP_RBSPICE':
+		if dSetName == 'E-PAP_RBSPICE' or dSetName == 'H-PAP_RBSPICE':
 			#Already got omni flux, no problem
 			dataset['OmniDiffFlux'] = data[dfStr]*1E-3  # Diferential flux [1/(MeV-cm^2-s-sr]*[1/MeV -> 1/keV]
 			dataset['energies'] = data[nrgStr]*1E3  # [MeV] -< [keV]

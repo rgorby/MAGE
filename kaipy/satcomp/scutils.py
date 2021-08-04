@@ -84,7 +84,7 @@ def getScIds(doPrint=False):
 				print('    ' + v)
 	return scdict
 
-def getCdasData(dsName, dsVars, t0, t1, epochStr="Epoch"):
+def getCdasData(dsName, dsVars, t0, t1, epochStr="Epoch", doVerbose=False):
 	"""Pull dataset from CdasWs
 		dsName: dataset name
 		dsVars: list of variable (strings) from dataset
@@ -100,12 +100,12 @@ def getCdasData(dsName, dsVars, t0, t1, epochStr="Epoch"):
 		# Handle the case where CdasWs just doesn't work if you give it variables in arg 2
 		# If given empty var list instead, it'll return the full day on day in t0, and that's it
 		# So, call for as many days as we need data for and build one big data object
-		print("Bad pull, trying to build day-by-day")
+		if doVerbose: print("Bad pull, trying to build day-by-day")
 
 		t0dt = datetime.datetime.strptime(t0, "%Y-%m-%dT%H:%M:%SZ")
 		t1dt = datetime.datetime.strptime(t1, "%Y-%m-%dT%H:%M:%SZ")
 		numDays = t1dt.day-t0dt.day + 1 #Number of days we want data from
-		print("numDays: " + str(numDays))
+		if doVerbose: print("numDays: " + str(numDays))
 
 		tstamp_arr = []
 		for i in range(numDays):
@@ -113,12 +113,15 @@ def getCdasData(dsName, dsVars, t0, t1, epochStr="Epoch"):
 		
 		#Get first day
 		status, data = cdas.get_data(dsName, [], tstamp_arr[0], tstamp_arr[1])
-		print("Pulling " + t0)
+		if doVerbose: print("Pulling " + t0)
 		
 		if status['http']['status_code'] != 200:
 			# If it still fails, its some other problem and we'll die
-			print("Still bad pull. Dying.")
-			quit()
+			if doVerbose: print("Still bad pull. Dying.")
+			return {}
+		if data is None:
+			if doVerbose: print("Cdas responded with 200 but returned no data")
+			return {}
 		
 		#Figure out which axes are the epoch axis in each dataset so we can concatenate along it
 		nTime = len(data[epochStr])
@@ -133,7 +136,7 @@ def getCdasData(dsName, dsVars, t0, t1, epochStr="Epoch"):
 
 		#Then append rest of data accordingly
 		for i in range(1,numDays):
-			print("Pulling " + str(tstamp_arr[i]))
+			if doVerbose: print("Pulling " + str(tstamp_arr[i]))
 			status, newdata = cdas.get_data(dsName, [], tstamp_arr[i], tstamp_arr[i])
 			for k in range(len(dk)):
 				if cataxis[k] == -1:
@@ -142,7 +145,7 @@ def getCdasData(dsName, dsVars, t0, t1, epochStr="Epoch"):
 					key = dk[k]
 					data[key] = np.concatenate((data[key], newdata[key]), axis=cataxis[k])
 	else:
-		print("Got data in one pull")
+		if doVerbose: print("Got data in one pull")
 
 	return data
 
