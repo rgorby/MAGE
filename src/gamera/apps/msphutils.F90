@@ -11,6 +11,7 @@ module msphutils
     use multifluid
     use earthhelper
     use msphingest
+    use planethelper
 
     implicit none
 
@@ -68,29 +69,25 @@ module msphutils
         real(rp) :: M0g,rScl
         real(rp) :: gx0,gv0,gD0,gP0,gB0,gT0,gG0
         logical :: doCorot
+        type(planet_T) :: planet
         
         !Set some defaults
         gD0 = 1.67e-21 ! 1 AMU/cc [kg/m3]
         gG0 = 0.0 ! Grav acceleration [m/s2]
+        Rion = 0.0
+        call xmlInp%Set_Val(gv0,"prob/v0",100.e3)
+
 
         if (present(pStrO)) then
-            pID = pStrO
+            call getPlanetParams(planet, xmlInp, pStrO)
         else
-            call xmlInp%Set_Val(pID,"prob/planet","Earth")
+            call getPlanetParams(planet, xmlInp)
         endif
 
-        Rion = 0.0 !Default
+
         select case (trim(toUpper(pID)))
 
         case("Earth","earth","EARTH")
-            gx0 = REarth  ! [m]
-            gv0 = 100.e3  ! [m/s]
-            gG0 = 9.807   ! [m/s2]
-            call xmlInp%Set_Val(M0g,"prob/M0",EarthM0g) !Mag moment [gauss]
-            !Using corotation potential for Earth
-            Psi0 = EarthPsi0 !kV
-            Rion = RionE*1.e6/gx0 ! Radius of ionosphere in code units (RionE defined in kdefs in 1000km)
-            Model%doGrav = .true.
         !For Earth redo some XML parameters w/ different defaults
             call SetFloorsWDefs(Model,xmlInp,1.0e-4_rp,1.0e-6_rp)
             call xmlInp%Set_Val(Model%doCPR,'timestep/doCPR',.true.)
@@ -98,47 +95,6 @@ module msphutils
                 !Ratio of dt0 to start CPR
                 call xmlInp%Set_Val(Model%limCPR,'timestep/limCPR',0.25)
             endif
-
-        case("Saturn","saturn","SATURN")
-            gx0 = RSaturnXE*REarth  ! [m]
-            gv0 = 100.0e+3    ! [m/s]
-            gG0 = 10.43       ! [m/s2]
-            call xmlInp%Set_Val(M0g,"prob/M0",SaturnM0g) !Mag moment [gauss]
-            Psi0 = 137.83*92 !kV
-            Rion = 1.01 !Assuming
-            Model%doGrav = .true.
-        case("JUPITER")
-            gx0 = RJupiterXE*REarth  ! [m]
-            gv0 = 100.0e+3    ! [m/s]
-            gG0 = 24.79       ! [m/s2]
-            call xmlInp%Set_Val(M0g,"prob/M0",JupiterM0g) !Mag moment [gauss]
-            Psi0 = -2.5*1702.9*92.0 !kV
-            Rion = 1.01 !Assuming
-            Model%doGrav = .true.
-        case("Mercury","mercury","MERCURY")
-            gx0 = RMercuryXE*REarth  ! [m]
-            gv0 = 100.0e+3    ! [m/s]
-            gG0 = 0.0       ! [m/s2]
-            call xmlInp%Set_Val(M0g,"prob/M0",MercuryM0g) !Mag moment [gauss]
-            Psi0 = 0.0 !kV
-            Rion = 1.05 !Assuming
-            Model%doGrav = .false.
-        case("Neptune","NEPTUNE")
-            gx0 = RNeptuneXE*REarth
-            gv0 = 100.0e+3    ! [m/s]
-            gG0 = 11.15       ! [m/s2]
-            call xmlInp%Set_Val(M0g,"prob/M0",NeptuneM0g) !Mag moment [gauss]
-            Psi0 = 10.024*92.0 !kV
-            Rion = 1.01 !Assuming
-            Model%doGrav = .false.
-        case("Other","other","OTHER") ! Defaults to Earth values
-            call xmlInp%Set_Val(gx0,"prob/x0",REarth)            ! [m]
-            call xmlInp%Set_Val(gv0,"prob/v0",100.e3)            ! [m/s]
-            call xmlInp%Set_Val(gG0,"prob/G0",9.807)             ! [m/s2] 
-            call xmlInp%Set_Val(M0g,"prob/M0",EarthM0g)          ! [gauss]
-            call xmlInp%Set_Val(Psi0,"prob/Psi0",EarthPsi0)      ! [kV]
-            call xmlInp%Set_Val(Rion,"prob/Rion",RionE*1.e6/gx0) 
-            call xmlInp%Set_Val(Model%doGrav,"prob/doGrav",.true.)
         end select
 
         !Set some chilling parameters
@@ -157,17 +113,16 @@ module msphutils
             call xmlInp%Set_Val(cLim,"chill/cLim",cLim)
         endif
 
-        call xmlInp%Set_Val(doCorot,"prob/doCorot",.true.)
-        if (.not. doCorot) then
-            !Zero out corotation potential
-            Psi0 = 0.0
-        endif
 
-        gT0 = gx0/gv0 !Set time scaling
+        Psi0 = planet%psiCorot
+        RIon = planet%ri_m/planet%rp_m
+
+        gT0 = planet%rp_m/gv0 !Set time scaling
         gB0 = sqrt(Mu0*gD0)*gv0*1.0e+9 !T->nT
         gP0 = gD0*gv0*gv0*1.0e+9 !P->nPa
-        M0  = -M0g*1.0e+5/gB0 !Magnetic moment
-        GM0 = gG0*gx0/(gv0*gv0)
+        M0  = -planet%magMoment*1.0e+5/gB0 !Magnetic moment
+        GM0 = planet%grav*planet%rp_m/(gv0*gv0)
+        Model%doGrav = planet%doGrav
 
         Model%isMagsphere = .true.
         Model%MagM0 = M0
@@ -187,23 +142,24 @@ module msphutils
             write(*,*) '---------------'
             write(*,*) 'Magnetosphere normalization'
             write(*,*) 'T0   [s]    = ', gT0
-            write(*,*) 'x0   [m]    = ', gx0
+            write(*,*) 'x0   [m]    = ', planet%rp_m
             write(*,*) 'v0   [m/s]  = ', gv0
             write(*,*) 'P0   [nPa]  = ', gP0
             write(*,*) 'B0   [nT]   = ', gB0
-            write(*,*) 'g    [m/s2] = ', gG0
+            write(*,*) 'g    [m/s2] = ', planet%grav
             write(*,*) 'psi0 [kV]   = ', Psi0
             write(*,*) '---------------'
+            write(*,*) 'doGrav      = ', Model%doGrav
         endif
         
         !Save scaling to gUnits_T structure in Model
         Model%Units%gT0 = gT0
-        Model%Units%gx0 = gx0
+        Model%Units%gx0 = planet%rp_m
         Model%Units%gv0 = gv0
         Model%Units%gD0 = gD0
         Model%Units%gP0 = gP0
         Model%Units%gB0 = gB0
-        Model%Units%gG0 = gG0
+        Model%Units%gG0 = planet%grav
 
         !Add normalization/labels to output slicing
         Model%gamOut%tScl = gT0

@@ -17,6 +17,7 @@ module voltapp
     use msphutils, only : RadIonosphere
     use gcminterp
     use gcmtypes
+    use planethelper
     
     implicit none
 
@@ -73,6 +74,9 @@ module voltapp
 
         ! read number of squish blocks
         call xmlInp%Set_Val(vApp%ebTrcApp%ebSquish%numSquishBlocks,"coupling/numSquishBlocks",4)
+
+    !Initialize planet information
+        call getPlanetParams(vApp%planet, xmlInp)
 
     !Initialize state information
         !Set file to read from and pass desired variable name to initTS

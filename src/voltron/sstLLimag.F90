@@ -37,16 +37,12 @@ module sstLLimag
 
     contains
 
-    ! VGM 06052020
-    ! TODO: planet parameters added for RCM should be packed into a module for compactness
-    ! and probaly made an optional argument
 
     !Initialize Empirical Map data
-    subroutine initSST(imag,iXML,isRestart,rad_planet_m,rad_iono_m,M0g,vApp)
+    subroutine initSST(imag,iXML,isRestart,vApp)
         class(empData_T), intent(inout) :: imag
         type(XML_Input_T), intent(in) :: iXML
         logical, intent(in) :: isRestart !Do you even care? VGM: NO
-        real(rp), intent(in) :: rad_planet_m,rad_iono_m, M0g ! Specific planet parameters        
         type(voltApp_T), intent(inout) :: vApp
 
         character(len=strLen) :: empFile

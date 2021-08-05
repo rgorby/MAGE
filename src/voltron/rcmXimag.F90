@@ -29,21 +29,17 @@ module rcmXimag
 
     contains 
 
-    ! VGM 06052020
-    ! TODO: planet parameters added for RCM should be packed into a module for compactness
-    ! and probaly made an optional argument
-    subroutine initRCMX(imag,iXML,isRestart,rad_planet_m,rad_iono_m,M0g,vApp)
+    subroutine initRCMX(imag,iXML,isRestart,vApp)
         class(rcmXIMAG_T), intent(inout) :: imag
         type(XML_Input_T), intent(in) :: iXML
         logical, intent(in) :: isRestart
-        real(rp), intent(in) :: rad_planet_m,rad_iono_m, M0g ! Specific planet parameters        
         type(voltApp_T), intent(inout) :: vApp
 
         allocate(rcmIMAG_T :: imag%rcmApp)
         allocate(empData_T :: imag%empApp)
 
-        call imag%rcmApp%doInit(iXML,isRestart,rad_planet_m,rad_iono_m,M0g,vApp)
-        call imag%empApp%doInit(iXML,isRestart,rad_planet_m,rad_iono_m,M0g,vApp)
+        call imag%rcmApp%doInit(iXML,isRestart,vApp)
+        call imag%empApp%doInit(iXML,isRestart,vApp)
 
         ! define rcm grid, store inside the rcmXIMAG class
         call rcmGrid(imag)
