@@ -6,6 +6,7 @@ module helpertypes
     
     ! Types to hold planet-specific information
 	type planet_T
+        character(len=strLen) :: name
         real(rp) :: rp_m  ! Planet radius [m]
         real(rp) :: ri_m  ! Ionosphere radius [m]
         real(rp) :: grav  ! Gravity [m/s2]

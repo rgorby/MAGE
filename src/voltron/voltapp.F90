@@ -360,9 +360,9 @@ module voltapp
             ! initialize chimp
             associate(ebTrcApp=>vApp%ebTrcApp)
             if (present(optFilename)) then
-                call init_volt2Chmp(ebTrcApp,gApp,optFilename=optFilename)
+                call init_volt2Chmp(ebTrcApp,vApp,gApp,optFilename=optFilename)
             else
-                call init_volt2Chmp(ebTrcApp,gApp)
+                call init_volt2Chmp(ebTrcApp,vApp,gApp)
             endif
 
             !Ensure chimp and voltron restart numbers match
@@ -560,8 +560,9 @@ module voltapp
     end subroutine
 
     !Initialize CHIMP data structure
-    subroutine init_volt2Chmp(ebTrcApp,gApp,optFilename)
+    subroutine init_volt2Chmp(ebTrcApp,vApp,gApp,optFilename)
         type(ebTrcApp_T), intent(inout) :: ebTrcApp
+        type(voltApp_T), intent(in) :: vApp
         type(gamApp_T), intent(in) :: gApp
         character(len=*), intent(in), optional     :: optFilename
 
@@ -579,7 +580,7 @@ module voltapp
 
     !Initialize model
         associate(Model=>ebTrcApp%ebModel,ebState=>ebTrcApp%ebState,ebGr=>ebTrcApp%ebState%ebGr,Gr=>gApp%Grid)
-        call setUnits (Model,inpXML)
+        call setChimpUnitsVoltron(vApp%planet)
         Model%T0   = 0.0
         Model%tFin = 0.0
         Model%dt   = 0.0

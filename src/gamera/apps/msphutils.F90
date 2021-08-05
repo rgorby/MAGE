@@ -67,22 +67,14 @@ module msphutils
 
         character(len=strLen) :: pID !Planet ID string
         real(rp) :: M0g,rScl
-        real(rp) :: gx0,gv0,gD0,gP0,gB0,gT0,gG0
+        real(rp) :: gx0,gv0,gD0,gP0,gB0,gT0
         logical :: doCorot
         type(planet_T) :: planet
         
         !Set some defaults
         gD0 = 1.67e-21 ! 1 AMU/cc [kg/m3]
-        gG0 = 0.0 ! Grav acceleration [m/s2]
         Rion = 0.0
         call xmlInp%Set_Val(gv0,"prob/v0",100.e3)
-
-
-        if (present(pStrO)) then
-            call getPlanetParams(planet, xmlInp, pStrO)
-        else
-            call getPlanetParams(planet, xmlInp)
-        endif
 
 
         select case (trim(toUpper(pID)))
@@ -114,14 +106,16 @@ module msphutils
         endif
 
 
+        if (present(pStrO)) then
+            call getPlanetParams(planet, xmlInp, pStrO)
+        else
+            call getPlanetParams(planet, xmlInp)
+        endif
+
         Psi0 = planet%psiCorot
         RIon = planet%ri_m/planet%rp_m
 
-        gT0 = planet%rp_m/gv0 !Set time scaling
-        gB0 = sqrt(Mu0*gD0)*gv0*1.0e+9 !T->nT
-        gP0 = gD0*gv0*gv0*1.0e+9 !P->nPa
-        M0  = -planet%magMoment*1.0e+5/gB0 !Magnetic moment
-        GM0 = planet%grav*planet%rp_m/(gv0*gv0)
+        call getGamNorms(planet, gv0, gT0, gB0, gP0, M0, GM0)
         Model%doGrav = planet%doGrav
 
         Model%isMagsphere = .true.

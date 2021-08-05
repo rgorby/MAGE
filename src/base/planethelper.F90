@@ -16,13 +16,14 @@ module planethelper
         character(len=strLen) :: pID !Planet ID string
         logical :: doCorot
         real(rp) :: RIon
-        
 
         if (present(pStrO)) then
             pID = pStrO
         else
             call xmlInp%Set_Val(pID,"/Kaiju/Gamera/prob/planet","Earth")
         endif
+
+        planet%name = trim(toUpper(pID))
 
         select case (trim(toUpper(pID)))
 
@@ -79,6 +80,23 @@ module planethelper
 
     end subroutine
 
+    !Use planet params to calculate Gamera's normalization values
+    !Placed here so that Chimp can get them easily as well
+    subroutine getGamNorms(planet, gv0, gT0, gB0, gP0, M0, GM0)
+        type(planet_T), intent(inout) :: planet
+        real(rp), intent(in)  :: gv0
+        real(rp), intent(out) :: gT0, gB0, gP0, M0, GM0
 
+        real(rp) :: gD0
+
+        gD0 = 1.67e-21 ! 1 AMU/cc [kg/m3]
+
+        gT0 = planet%rp_m/gv0 !Set time scaling
+        gB0 = sqrt(Mu0*gD0)*gv0*1.0e+9 !T->nT
+        gP0 = gD0*gv0*gv0*1.0e+9 !P->nPa
+        M0  = -planet%magMoment*1.0e+5/gB0 !Magnetic moment
+        GM0 = planet%grav*planet%rp_m/(gv0*gv0)
+
+    end subroutine
 
 end module planethelper

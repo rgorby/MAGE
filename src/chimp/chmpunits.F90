@@ -25,6 +25,7 @@ module chmpunits
     use chmpdefs
     use xml_input
     use strings
+    use planethelper
 
     implicit none
 
@@ -59,8 +60,58 @@ module chmpunits
     real(rp), parameter, private :: gamP0 = 1.670000007587940E-002
     contains
 
+    !AMS 08052021
+    !calculating scales in both functions identically
+    !should maybe be moved to another subroutine so that any changes apply to both 
+
+    !Set CHIMP units based on planet params
+    subroutine setChimpUnitsVoltron(planet)
+        type(planet_T), intent(in) :: planet
+
+        !Things we can get directly from planet params
+        L0 = planet%rp_m*1.e2  ! m -> cm
+        M0g = planet%magMoment  ! [Gauss]
+        in2cms = 100*1.0e+5 ! 100 km/s -> cm/s
+        in2G   = gamB0/G2nT
+        in2s   = L0/in2cms
+        inPScl = gamP0
+
+        !Special treatment for our solar system friends
+        select case (trim(toUpper(planet%name)))
+        case("EARTH")
+            rClosed = 2.25  ! Correspond to EARTHCODE value below
+        case("JUPITER")
+            rClosed = 10.0
+        case("SATURN")
+            rClosed = 5.0
+        end select
+
+        !Set main scaling values
+        ebScl = (qe_cgs*L0/Me_cgs)/(vc_cgs**2.0)
+        inTScl = in2s*vc_cgs/L0
+        inVScl = in2cms/vc_cgs
+        inBScl = in2G*ebScl
+
+        MagM0 = -1.0*M0g*ebScl
+
+        !Set output scaling values
+        oTScl = (L0/vc_cgs)  !/(60*60.0) !ebtime->hrs
+        tStr = "[Seconds]"
+
+        oBScl = G2nT/ebScl !eb->nT
+        oEScl = (G2T*vc_mks*V2mV)/ebScl !eb->mV/m
+        oVScl = vc_cgs*1.0e-5 !eb (1/c) -> km/s
+        write(*,*) '------------'
+        write(*,*) 'CHIMP Units'
+        write(*,*) 'inTScl = ', inTScl
+        write(*,*) 'inBScl = ', inBScl
+        write(*,*) 'inVScl = ', inVScl
+        write(*,*) '------------'
+
+    end subroutine setChimpUnitsVoltron
+
     !Use inpXML to set units unless uStrO is specified
-    subroutine setUnits(Model,inpXML,uStrO)
+    subroutine setChimpUnits(Model,inpXML,uStrO)
         type(chmpModel_T), intent(inout) :: Model
         type(XML_Input_T), intent(in)    :: inpXML
         character(len=*), intent(in), optional :: uStrO
@@ -201,7 +252,8 @@ module chmpunits
         write(*,*) 'inVScl = ', inVScl
         write(*,*) '------------'
         
-    end subroutine SetUnits
+    end subroutine setChimpUnits
+
 
     !Returns species data
     !Set charge (in |e|), mass (in Me)
