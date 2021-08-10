@@ -31,6 +31,8 @@ import h5py
 import kaipy.kaiH5 as kaiH5
 import kaipy.kaiViz as kv
 import kaipy.kaiTools as kaiTools
+import kaipy.kaijson as kj
+import kaipy.satcomp.scutils as scutils
 
 if __name__ == '__main__':
     MainS = """Extracts information from satellite trajectory for various
@@ -76,7 +78,7 @@ if __name__ == '__main__':
     if not (os.path.isfile(satCmd) and os.access(satCmd, os.X_OK)):
         print(satCmd,'either not found or not executable')
         sys.exit()
-    scIds = kaiTools.getScIds()
+    scIds = scutils.getScIds()
 
     process = []
     logs = []
