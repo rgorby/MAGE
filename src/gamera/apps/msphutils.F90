@@ -77,6 +77,13 @@ module msphutils
         call xmlInp%Set_Val(gv0,"prob/v0",100.e3)
 
 
+        if (present(pStrO)) then
+            call getPlanetParams(planet, xmlInp, pStrO)
+        else
+            call getPlanetParams(planet, xmlInp)
+        endif
+
+        pID = planet%name
         select case (trim(toUpper(pID)))
 
         case("Earth","earth","EARTH")
@@ -106,15 +113,10 @@ module msphutils
         endif
 
 
-        if (present(pStrO)) then
-            call getPlanetParams(planet, xmlInp, pStrO)
-        else
-            call getPlanetParams(planet, xmlInp)
-        endif
-
         Psi0 = planet%psiCorot
         RIon = planet%ri_m/planet%rp_m
 
+        !using planet and gv0, set values for gT0, gB0, gP0, M0, GM0
         call getGamNorms(planet, gv0, gT0, gB0, gP0, M0, GM0)
         Model%doGrav = planet%doGrav
 
