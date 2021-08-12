@@ -10,6 +10,7 @@ import datetime
 import kaipy.kaiH5 as kh5
 import kaipy.kaiViz as kv
 import kaipy.kaijson as kj
+import kaipy.kaiTools as kT
 
 import kaipy.satcomp.scutils as scutils
 
@@ -714,7 +715,8 @@ def plt_ODF_Comp(AxSC, AxRCM, AxCB, odfData, mjd=None, cmapName='CMRmap', norm=N
 	rcmTime = odfData['rcm']['time']
 	rcmODF  = odfData['rcm']['diffFlux']
 
-	ut = scutils.mjd_to_ut(rcmTime)
+	#ut = scutils.mjd_to_ut(rcmTime)
+	ut = kT.MJD2UT(rcmTime)
 	
 	if norm is None:
 		vMax = np.max([scODF.max(), rcmODF.max()])
@@ -767,7 +769,8 @@ def plt_tkl(AxTL, AxTKL, AxCB, tkldata, mjd=None, cmapName='CMRmap', norm=None):
 	press_tl = np.array(tkldata['press_tl'][:], dtype=float)  # Need to do this to handle masked stuff
 	press_tl = np.ma.masked_invalid(press_tl)
 	
-	ut = scutils.mjd_to_ut(tkldata['MJD'])
+	#ut = scutils.mjd_to_ut(tkldata['MJD'])
+	ut = kT.MJD2UT(tkldata['MJD'])
 	#utstr = [t.strftime('%m-%d\n%H') for t in ut]
 
 	if norm is None:
@@ -822,7 +825,8 @@ def plt_rcm_eqlatlon(AxLatlon, AxEq, rcmData, satTrackData, AxCB=None, mjd=None,
 	z_sc  = satTrackData['zmin']
 	eq_sc = satTrackData['eqmin']
 
-	ut = scutils.mjd_to_ut(rcmData['MJD'])
+	#ut = scutils.mjd_to_ut(rcmData['MJD'])
+	ut = kT.MJD2UT(rcmData['MJD'])
 	Nt = len(ut)
 
 	if norm is None:

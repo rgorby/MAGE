@@ -9,6 +9,10 @@
 			"Id" : "GOES11_K0_MAG",
 			"Data" : "B_GSM_c",
 			"CoordSys" : "GSM"	
+		},
+		"_testing" : {
+			"t0" : "2010-12-30T00:00:00Z",
+			"t1" : "2010-12-31T00:00:00Z"
 		}
 	},
 	"GOES12" : {
@@ -21,6 +25,10 @@
 			"Id" : "GOES12_K0_MAG",
 			"Data" : "B_GSM_c",
 			"CoordSys" : "GSM"	
+		},
+		"_testing" : {
+			"t0" : "2010-09-23T00:00:00Z",
+			"t1" : "2010-09-24T00:00:00Z"
 		}
 	},
 	"GEOTAIL" : {
@@ -97,12 +105,18 @@
 		},
 		"Density" : {
 			"Id" : "C1_PP_CIS",
-			"Data" : "N_p__C1_PP_CIS"
+			"Data" : "N_p__C1_PP_CIS",
+			"EpochStr" : "Epoch__C1_PP_CIS"
 		},
 		"Velocity" : {
 			"Id" : "C1_PP_CIS",
 			"Data" : "V_p_xyz_gse__C1_PP_CIS",
-			"CoordSys" : "GSE"
+			"CoordSys" : "GSE",
+			"EpochStr" : "Epoch__C1_PP_CIS"
+		},
+		"_testing" : {
+			"t0" : "2018-12-30T00:00:00Z",
+			"t1" : "2018-12-31T00:00:00Z"
 		}
 	},
 	"CLUSTER2" : {
@@ -116,14 +130,9 @@
 			"Data" : "B_vec_xyz_gse__C2_CP_FGM_SPIN",
 			"CoordSys" : "GSE"	
 		},
-		"Density" : {
-			"Id" : "C2_PP_CIS",
-			"Data" : "N_p__C2_PP_CIS"
-		},
-		"Velocity" : {
-			"Id" : "C2_PP_CIS",
-			"Data" : "V_p_xyz_gse__C2_PP_CIS",
-			"CoordSys" : "GSE"
+		"_testing" : {
+			"t0" : "2018-12-30T00:00:00Z",
+			"t1" : "2018-12-31T00:00:00Z"
 		}
 	},
 	"CLUSTER3" : {
@@ -145,6 +154,10 @@
 			"Id" : "C3_PP_CIS",
 			"Data" : "V_p_xyz_gse__C3_PP_CIS",
 			"CoordSys" : "GSE"
+		},
+		"_testing" : {
+			"t0" : "2018-12-30T00:00:00Z",
+			"t1" : "2018-12-31T00:00:00Z"
 		}
 	},
 	"CLUSTER4" : {
@@ -166,6 +179,10 @@
 			"Id" : "C4_PP_CIS",
 			"Data" : "V_p_xyz_gse__C4_PP_CIS",
 			"CoordSys" : "GSE"
+		},
+		"_testing" : {
+			"t0" : "2018-12-30T00:00:00Z",
+			"t1" : "2018-12-31T00:00:00Z"
 		}
 	},
 	"THEMISA" : {

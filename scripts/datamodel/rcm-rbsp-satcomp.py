@@ -11,6 +11,7 @@ import numpy as np
 
 import kaipy.kaiH5 as kh5
 import kaipy.kaiViz as kv
+import kaipy.kaiTools as kT
 import kaipy.satcomp.scutils as scutils
 import kaipy.satcomp.scRCM as scRCM
 
@@ -94,7 +95,8 @@ if __name__=="__main__":
 	#Get start and end times from sctrack file
 	isotfmt = '%Y-%m-%dT%H:%M:%S.%f'
 	scMJDs = kh5.PullVar(trackf5, 'MJDs')
-	ut = scutils.mjd_to_ut(scMJDs)
+	#ut = scutils.mjd_to_ut(scMJDs)
+	ut = kT.MJD2UT(scMJDs)
 	t0r = ut[0].strftime("%Y-%m-%dT%H:%M:%SZ")
 	t1r = ut[-1].strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -139,7 +141,8 @@ if __name__=="__main__":
 	#AxCB_rcm = fig.add_subplot(gs[:, 15])
 
 	odfnorm = kv.genNorm(10E3, 5E6, doLog=True)
-	ut_tkl = scutils.mjd_to_ut(tkldata['MJD'])
+	#ut_tkl = scutils.mjd_to_ut(tkldata['MJD'])
+	ut_tkl = kT.mjd_to_ut(tkldata['MJD'])
 	pressnorm = kv.genNorm(1E-2, 1E2, doLog=True)
 
 	#Movie time

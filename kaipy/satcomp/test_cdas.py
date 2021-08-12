@@ -1,4 +1,5 @@
 
+import datetime
 import kaipy.satcomp.scutils as scutils
 
 #TODO: Need to add "epoch" str for each dataset
@@ -16,17 +17,36 @@ def test_getCdasData():
 	print("Testing if all data in scId dict is retrievable from cdasws")
 
 	scIdDict = scutils.getScIds()
-	t0, t1 = ['2013-03-18T05:00:00Z','2013-03-19T05:00:00Z']
+	#Defaults
+	t0d, t1d = ['2013-03-18T05:00:00Z','2013-03-19T05:00:00Z']
+	#t0d, t1d = ['2010-12-30T00:00:00Z','2010-12-31T00:00:00Z']
 
 	for scName in scIdDict.keys():
 		print(" " + scName)
 		scStrs = scIdDict[scName]
+		
 		for dpStr in scStrs.keys(): 
+			if dpStr == '_testing': continue
 			print("  " + dpStr, end=" : ")
+		
+			#Get valid time interval for dataset
+			tStart, tEnd = scutils.getCdasDsetInterval(scStrs[dpStr]['Id'])
+			#assert tStart != None, "getCdasDsetInterval returned null for dataset " + dpStr
+			if tStart is None: 
+				print("Bad dset")
+				continue
+
+			t0 = tStart
+			t0dt = datetime.datetime.strptime(t0, "%Y-%m-%dT%H:%M:%S.%fZ")
+			t1 = (t0dt + datetime.timedelta(days=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
+
 			dset_id = scStrs[dpStr]['Id']
 			dset_vname = scStrs[dpStr]['Data']
-			cdasResult = scutils.getCdasData(dset_id, dset_vname, t0,t1)
 
+			if "EpochStr" in scStrs[dpStr].keys():
+				cdasResult = scutils.getCdasData(dset_id, dset_vname, t0,t1, epochStr=scStrs[dpStr]["EpochStr"])
+			else:
+				cdasResult = scutils.getCdasData(dset_id, dset_vname, t0,t1)
 			assert cdasResult != {}, "getCdasData returned with no information"
 
 			print("Good")

@@ -17,13 +17,19 @@ from astropy.time import Time
 #import hdf5
 import h5py
 
+isotfmt = '%Y-%m-%dT%H:%M:%S.%f'
+
 def MJD2UT(mjd):
+	""" Leaving in case new way breaks something. I did check and this method and new one give equivalent results but new one is a little faster
 	astroT = Time(mjd,format='mjd').iso
 	utall = []
 	for ut in astroT:
-		utall.append(datetime.datetime.strptime(ut,'%Y-%m-%d %H:%M:%S.%f'))
+		utall.append(datetime.datetime.strptime(ut,isotfmt))
 
 	return utall
+	"""
+	UT = Time(mjd,format='mjd').isot
+	return [datetime.datetime.strptime(UT[n],isotfmt) for n in range(len(UT))]
 
 def getRunInfo(fdir,ftag):
 	idStr = "_0000_0000_0000.gam.h5"

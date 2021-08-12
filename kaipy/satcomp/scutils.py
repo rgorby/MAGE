@@ -33,11 +33,6 @@ scstrs_fname = os.path.join(package_directory, 'sc_cdasws_strs.json')
 #General
 #======
 
-def mjd_to_ut(mjd_arr):
-	isotfmt = '%Y-%m-%dT%H:%M:%S.%f'
-	UT = Time(mjd_arr,format='mjd').isot
-	return [datetime.datetime.strptime(UT[n],isotfmt) for n in range(len(UT))]
-
 def trilinterp(xbnd, ybnd, zbnd, valbnd, x, y, z):
 	"""3D linear interpolation
 		xbnd,ybnd,zbnd: 2-element arrays each of the bounding dimensions
@@ -98,6 +93,15 @@ def getScIds(doPrint=False):
 				print('    ' + v)
 	return scdict
 
+def getCdasDsetInterval(dsName):
+	cdas = CdasWs()
+
+	data = cdas.get_datasets(idPattern=dsName)
+	if len(data) == 0:
+		return None, None
+	tInt = data[0]['TimeInterval']
+	return tInt['Start'], tInt['End']
+
 def getCdasData(dsName, dsVars, t0, t1, epochStr="Epoch", doVerbose=False):
 	"""Pull dataset from CdasWs
 		dsName: dataset name
@@ -107,17 +111,23 @@ def getCdasData(dsName, dsVars, t0, t1, epochStr="Epoch", doVerbose=False):
 		epochStr: name of Epoch variable in dataset (usually "Epoch", but not always)
 	"""
 
+	binData={'interval':1, 'interpolateMissingValues' : True}
+
 	cdas = CdasWs()
 
-	status,data = cdas.get_data(dsName, dsVars, t0, t1)
+	status,data = cdas.get_data(dsName, dsVars, t0, t1, binData=binData)
 	if status['http']['status_code'] != 200:
 		# Handle the case where CdasWs just doesn't work if you give it variables in arg 2
 		# If given empty var list instead, it'll return the full day on day in t0, and that's it
 		# So, call for as many days as we need data for and build one big data object
 		if doVerbose: print("Bad pull, trying to build day-by-day")
 
-		t0dt = datetime.datetime.strptime(t0, "%Y-%m-%dT%H:%M:%SZ")
-		t1dt = datetime.datetime.strptime(t1, "%Y-%m-%dT%H:%M:%SZ")
+		if '.' in t0:
+			t0dt = datetime.datetime.strptime(t0, "%Y-%m-%dT%H:%M:%S.%fZ")
+			t1dt = datetime.datetime.strptime(t1, "%Y-%m-%dT%H:%M:%S.%fZ")
+		else:
+			t0dt = datetime.datetime.strptime(t0, "%Y-%m-%dT%H:%M:%SZ")
+			t1dt = datetime.datetime.strptime(t1, "%Y-%m-%dT%H:%M:%SZ")
 		numDays = t1dt.day-t0dt.day + 1 #Number of days we want data from
 		if doVerbose: print("numDays: " + str(numDays))
 
@@ -126,7 +136,7 @@ def getCdasData(dsName, dsVars, t0, t1, epochStr="Epoch", doVerbose=False):
 			tstamp_arr.append((t0dt + datetime.timedelta(days=i)).strftime("%Y-%m-%dT%H:%M:%SZ"))
 		
 		#Get first day
-		status, data = cdas.get_data(dsName, [], tstamp_arr[0], tstamp_arr[1])
+		status, data = cdas.get_data(dsName, [], tstamp_arr[0], tstamp_arr[1], binData=binData)
 		if doVerbose: print("Pulling " + t0)
 		
 		if status['http']['status_code'] != 200:
@@ -151,7 +161,7 @@ def getCdasData(dsName, dsVars, t0, t1, epochStr="Epoch", doVerbose=False):
 		#Then append rest of data accordingly
 		for i in range(1,numDays):
 			if doVerbose: print("Pulling " + str(tstamp_arr[i]))
-			status, newdata = cdas.get_data(dsName, [], tstamp_arr[i], tstamp_arr[i])
+			status, newdata = cdas.get_data(dsName, [], tstamp_arr[i], tstamp_arr[i], binData=binData)
 			for k in range(len(dk)):
 				if cataxis[k] == -1:
 					continue
