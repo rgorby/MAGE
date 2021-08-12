@@ -37,6 +37,10 @@ RCM_EQLATLON_JFNAME = 'rcm_eqlatlon.json'
 MHDRCM_TIME_JFNAME = 'mhdrcm_times.json'
 
 #Spacecraft strings for cdaweb retrieval
+supportedSats = ["RBSPA", "RBSPB"]
+supportedDsets = ["Hydrogen_omniflux_RBSPICE", "Electron_omniflux_RBSPICE"]
+
+
 SC_str = {
 	'RBSP': {
 	 'E_RBSPICE' : {
@@ -156,33 +160,29 @@ def getSCOmniDiffFlux(scName, dSetName, t0, t1, jdir=None):
 
 	print("Pulling spacecraft data from cdaweb")
 	#TODO: Add all desired datasets
-	if 'RBSP' in scName:
-		#Extract RBSP identifier (A or B)
-		scTag = scName.split('RBSP')[1]
-		if '-' in scTag:
-			scTag = scName.split('-')[1]
 
-		#Pull data
-		ephStrs = SC_str['RBSP']['EPH']
-		dsStrs = SC_str['RBSP'][dSetName]
-		ephdata = scutils.getCdasData(ephStrs['DsetName']%(scTag), ephStrs['DsetVar'], t0, t1)
-		data = scutils.getCdasData(dsStrs['DsetName']%(scTag), dsStrs['DsetVar'], t0, t1)
-		#data = getCdasData(SC_str['RBSP']['E-PAP_RBSPICE'])
-		
-		dfStr = dsStrs['dfStr']
-		nrgStr = dsStrs['nrgStr']
-		epochStr = dsStrs['epochStr']
-		
-		dataset = {}
-		dataset['name'] = scName
-		species = 'electrons' if 'E' == dSetName[0] else 'ions'
-		dataset['species'] = species
-		dataset['epoch'] = data[epochStr]
-		#Turn each dataset's data into omniflux
-		if dSetName == 'E-PAP_RBSPICE' or dSetName == 'H-PAP_RBSPICE':
-			#Already got omni flux, no problem
-			dataset['OmniDiffFlux'] = data[dfStr]*1E-3  # Diferential flux [1/(MeV-cm^2-s-sr]*[1/MeV -> 1/keV]
-			dataset['energies'] = data[nrgStr]*1E3  # [MeV] -< [keV]
+	scStrs = scutils.getScIds()
+	satStrs = scStrs[scName]
+	ephemStrs = satStrs['Ephem']
+	dsetStrs = satStrs[dSetName]
+	epochStr = "Epoch" if "EpochStr" not in dsetStrs.keys() else dsetStrs['EpochStr']
+	ofStr = dsetStrs['OmnifluxStr']
+	energyStr = dsetStrs['EnergyStr']
+
+	#First get ephem data
+	ephdata = scutils.getCdasData(ephemStrs['Id'], ephemStrs['Data'], t0, t1)
+	data = scutils.getCdasData(dsetStrs['Id'], dsetStrs['Data'], t0, t1, doVerbose=True)
+
+	dataset = {}
+	dataset['name'] = scName
+	species = 'electrons' if 'E' == dSetName[0] else 'ions'
+	dataset['species'] = species
+	dataset['epoch'] = data[epochStr]
+	#Turn each dataset's data into omniflux
+	if dSetName == 'Hydrogen_omniflux_RBSPICE' or dSetName == 'Electron_omniflux_RBSPICE':
+		#Already got omni flux, no problem
+		dataset['OmniDiffFlux'] = data[ofStr]*1E-3  # Diferential flux [1/(MeV-cm^2-s-sr]*[1/MeV -> 1/keV]
+		dataset['energies'] = data[energyStr]*1E3  # [MeV] -< [keV]
 
 	#Pause to save to json
 	if dojson:

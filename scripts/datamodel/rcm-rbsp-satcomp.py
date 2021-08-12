@@ -38,7 +38,8 @@ if __name__=="__main__":
 	parser.add_argument('-id',type=str,metavar="runid",default=ftag,help="RunID of model data (default: %(default)s)")
 	parser.add_argument('-trj',type=str,metavar="scTrk",default=trtag,help="spacecraft trajectory file (default: %(default)s)")
 	parser.add_argument('-jdir',type=str,metavar="directory",default=jdir,help="Directory to store and find json files (default: %(default)s")
-	parser.add_argument('-v',type=str,choices=scRCM.SC_str['RBSP'].keys(),default=vTag,help="Dataset to compare to (default: %(default)s")
+	parser.add_argument('-scId', type=str,choices=scRCM.supportedSats[:],default="RBSPB",help="Sat id (default: %(default)s)")
+	parser.add_argument('-v', type=str,choices=scRCM.supportedDsets[:],default="Hydrogen_omniflux_RBSPICE",help="Dataset (default: %(default)s)")
 	parser.add_argument('-tStart',type=int, default=tStart,help="Starting time step for L vs. E calculation (default: First step in RCM data)")
 	parser.add_argument('-tEnd',type=int, default=tEnd,help="Ending time step for L vs. E calculation (default: Last step in RCM data)")
 	parser.add_argument('-tStride',type=int, default=tStride,help="Time step stride for L vs. E calculation (default: %(default)s)")
@@ -51,6 +52,7 @@ if __name__=="__main__":
 	ftag  = args.id
 	trtag = args.trj
 	jdir  = args.jdir
+	scId = args.scId
 	vTag = args.v
 	tStart = args.tStart
 	tEnd = args.tEnd
@@ -101,7 +103,7 @@ if __name__=="__main__":
 	t1r = ut[-1].strftime("%Y-%m-%dT%H:%M:%SZ")
 
 	print("Testing RBSPICE Dataset retreival")
-	ephData, scData = scRCM.getSCOmniDiffFlux("RBSP%s"%(scTag), vTag, t0r, t1r, jdir=jdir)
+	ephData, scData = scRCM.getSCOmniDiffFlux(scId, vTag, t0r, t1r, jdir=jdir)
 
 	print("\n\nTesting time grabbing")
 	rcmTimes = scRCM.getRCMtimes(rcm_fname,mhdrcm_fname,jdir=jdir)

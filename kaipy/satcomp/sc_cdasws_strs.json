@@ -67,9 +67,17 @@
 			"Id" : "RBSPA_REL04_ECT-HOPE-MOM-L3",
 			"Data" : "Dens_p_30"
 		},
-		"Electron_omniflux" : {
+		"Electron_omniflux_RBSPICE" : {
 		 	"Id": "RBSP-A-RBSPICE_LEV-3-PAP_ESRHELT",
-		 	"Data": ["FEDU", "FEDU_OmniFlux", "MLT", "L_Eq", "L_Star"]
+		 	"Data": ["FEDU", "FEDU_OmniFlux", "MLT", "L_Eq", "L_Star"],
+		 	"OmnifluxStr" : "FEDU_OmniFlux",
+		 	"EnergyStr" : "FEDU_Energy"
+		},
+		"Hydrogen_omniflux_RBSPICE" : {
+			"Id" : "RBSP-A-RBSPICE_LEV-3-PAP_TOFXEH",
+			"Data" : ["_bad_"],
+			"OmnifluxStr" : "FPDU_OmniFlux",
+			"EnergyStr" : "FPDU_Energy"
 		}
 	},
 	"RBSPB" : {
@@ -87,9 +95,17 @@
 			"Id" : "RBSPB_REL04_ECT-HOPE-MOM-L3",
 			"Data" : "Dens_p_30"
 		},
-		"Electron_omniflux" : {
+		"Electron_omniflux_RBSPICE" : {
 		 	"Id": "RBSP-B-RBSPICE_LEV-3-PAP_ESRHELT",
-		 	"Data": ["FEDU", "FEDU_OmniFlux", "MLT", "L_Eq", "L_Star"]
+		 	"Data": ["FEDU", "FEDU_OmniFlux", "MLT", "L_Eq", "L_Star"],
+		 	"OmnifluxStr" : "FEDU_OmniFlux",
+		 	"EnergyStr" : "FEDU_Energy"
+		},
+		"Hydrogen_omniflux_RBSPICE" : {
+			"Id" : "RBSP-B-RBSPICE_LEV-3-PAP_TOFXEH",
+			"Data" : ["_bad"],
+			"OmnifluxStr" : "FPDU_OmniFlux",
+			"EnergyStr" : "FPDU_Energy"
 		}
 	},
 	"CLUSTER1" : {
