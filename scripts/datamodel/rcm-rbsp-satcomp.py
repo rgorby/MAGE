@@ -142,7 +142,7 @@ if __name__=="__main__":
 
 	odfnorm = kv.genNorm(10E3, 5E6, doLog=True)
 	#ut_tkl = scutils.mjd_to_ut(tkldata['MJD'])
-	ut_tkl = kT.mjd_to_ut(tkldata['MJD'])
+	ut_tkl = kT.MJD2UT(tkldata['MJD'])
 	pressnorm = kv.genNorm(1E-2, 1E2, doLog=True)
 
 	#Movie time
