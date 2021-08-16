@@ -14,18 +14,22 @@ set(CMAKE_REQUIRED_LIBRARIES ${OpenMP_Fortran_LIBRARIES})
 
 if (ENABLE_MPI)
     #mpi is a nightmare
-    #try to find a fortran 2008 specific wrapper first
-    set(MPI_Fortran_COMPILER mpif08)
-	find_package(MPI COMPONENTS Fortran QUIET)
+    #try to explicitly find intel mpi first
+    set(MPI_Fortran_COMPILER mpiifort)
+    find_package(MPI COMPONENTS Fortran QUIET)
     if(NOT MPI_FOUND OR NOT MPI_Fortran_HAVE_F08_MODULE)
-        #just look for whatever
-        unset(MPI_Fortran_COMPILER)
-        find_package(MPI REQUIRED COMPONENTS Fortran)
-    else()
-        message("-- Found MPI")
+        #try to find a fortran 2008 specific wrapper
+        set(MPI_Fortran_COMPILER mpif08)
+    	find_package(MPI COMPONENTS Fortran QUIET)
+        if(NOT MPI_FOUND OR NOT MPI_Fortran_HAVE_F08_MODULE)
+            #just look for whatever
+            unset(MPI_Fortran_COMPILER)
+            find_package(MPI REQUIRED COMPONENTS Fortran)
+        endif()
     endif()
-
-    if(NOT MPI_Fortran_HAVE_F08_MODULE)
+    if(MPI_Fortran_HAVE_F08_MODULE)
+        message("-- Found MPI")
+    else()
         message(FATAL_ERROR "MPI Library does not support F08 interface")
     endif()
 endif()
@@ -91,8 +95,8 @@ if(CMAKE_Fortran_COMPILER_ID MATCHES Intel)
 	endif()
 
 	#Check Intel Fortran version
-	if(NOT ALLOW_INVALID_COMPILERS AND CMAKE_Fortran_COMPILER_VERSION VERSION_GREATER "19")
-		message(FATAL_ERROR "Intel Fortran compilers 19 or newer are not supported. Set the ALLOW_INVALID_COMPILERS variable to ON to force compilation at your own risk.")
+	if(NOT ALLOW_INVALID_COMPILERS AND CMAKE_Fortran_COMPILER_VERSION VERSION_GREATER "22")
+		message(FATAL_ERROR "Intel Fortran compilers newer than 21 are not supported. Set the ALLOW_INVALID_COMPILERS variable to ON to force compilation at your own risk.")
 	endif()
 
 elseif(CMAKE_Fortran_COMPILER_ID MATCHES GNU)

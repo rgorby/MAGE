@@ -15,6 +15,7 @@ module gamapp_mpi
     type, extends(GamApp_T) :: gamAppMpi_T
         type(MPI_Comm) :: gamMpiComm
         integer, dimension(:), allocatable :: sendRanks, recvRanks
+        logical :: blockHalo = .false.
 
         ! Gas Data Transfer Variables
         integer, dimension(:), allocatable :: sendCountsGas
@@ -102,6 +103,8 @@ module gamapp_mpi
             write(*,*) " the [Generating XML Files] wiki page for additional info."
             stop
         endif
+
+        call xmlInp%Set_Val(gamAppMpi%blockHalo,"coupling/blockHalo",.false.)
 
         ! read debug flags
         call xmlInp%Set_Val(writeGhosts,"debug/writeGhosts",.false.)
@@ -680,11 +683,22 @@ module gamapp_mpi
             ! just tell MPI to use the arrays we defined during initialization to send and receive data!
 
             ! Gas Cell Data
-            call mpi_ineighbor_alltoallw(gamAppMpi%State%Gas, gamAppMpi%sendCountsGas, &
-                                        gamAppMpi%sendDisplsGas, gamAppMpi%sendTypesGas, &
-                                        gamAppMpi%State%Gas, gamAppMpi%recvCountsGas, &
-                                        gamAppMpi%recvDisplsGas, gamAppMpi%recvTypesGas, &
-                                        gamAppMpi%gamMpiComm, gasReq, ierr)
+            if(gamAppMpi%blockHalo) then
+                ! synchronous
+                call mpi_neighbor_alltoallw(gamAppMpi%State%Gas, gamAppMpi%sendCountsGas, &
+                                            gamAppMpi%sendDisplsGas, gamAppMpi%sendTypesGas, &
+                                            gamAppMpi%State%Gas, gamAppMpi%recvCountsGas, &
+                                            gamAppMpi%recvDisplsGas, gamAppMpi%recvTypesGas, &
+                                            gamAppMpi%gamMpiComm, ierr)
+            else
+                !asynchronous
+                call mpi_ineighbor_alltoallw(gamAppMpi%State%Gas, gamAppMpi%sendCountsGas, &
+                                            gamAppMpi%sendDisplsGas, gamAppMpi%sendTypesGas, &
+                                            gamAppMpi%State%Gas, gamAppMpi%recvCountsGas, &
+                                            gamAppMpi%recvDisplsGas, gamAppMpi%recvTypesGas, &
+                                            gamAppMpi%gamMpiComm, gasReq, ierr)
+            endif
+
             if(ierr /= MPI_Success) then
                 call MPI_Error_string( ierr, message, length, ierr)
                 print *,message(1:length)
@@ -702,11 +716,22 @@ module gamapp_mpi
                 endif
 
                 ! Magnetic Face Flux Data
-                call mpi_ineighbor_alltoallw(gamAppMpi%State%magFlux, gamAppMpi%sendCountsMagFlux, &
-                                            gamAppMpi%sendDisplsMagFlux, gamAppMpi%sendTypesMagFlux, &
-                                            gamAppMpi%State%magFlux, gamAppMpi%recvCountsMagFlux, &
-                                            gamAppMpi%recvDisplsMagFlux, gamAppMpi%recvTypesMagFlux, &
-                                            gamAppMpi%gamMpiComm, mfReq, ierr)
+                if(gamAppMpi%blockHalo) then
+                    ! synchronous
+                    call mpi_neighbor_alltoallw(gamAppMpi%State%magFlux, gamAppMpi%sendCountsMagFlux, &
+                                                gamAppMpi%sendDisplsMagFlux, gamAppMpi%sendTypesMagFlux, &
+                                                gamAppMpi%State%magFlux, gamAppMpi%recvCountsMagFlux, &
+                                                gamAppMpi%recvDisplsMagFlux, gamAppMpi%recvTypesMagFlux, &
+                                                gamAppMpi%gamMpiComm, ierr)
+                else
+                    ! asynchronous
+                    call mpi_ineighbor_alltoallw(gamAppMpi%State%magFlux, gamAppMpi%sendCountsMagFlux, &
+                                                gamAppMpi%sendDisplsMagFlux, gamAppMpi%sendTypesMagFlux, &
+                                                gamAppMpi%State%magFlux, gamAppMpi%recvCountsMagFlux, &
+                                                gamAppMpi%recvDisplsMagFlux, gamAppMpi%recvTypesMagFlux, &
+                                                gamAppMpi%gamMpiComm, mfReq, ierr)
+                endif
+
                 if(ierr /= MPI_Success) then
                     call MPI_Error_string( ierr, message, length, ierr)
                     print *,message(1:length)
@@ -721,9 +746,11 @@ module gamapp_mpi
 
             endif
 
-            call mpi_wait(gasReq, MPI_STATUS_IGNORE, ierr)
-            if(gamAppMpi%Model%doMHD) then
-                call mpi_wait(mfReq, MPI_STATUS_IGNORE, ierr)
+            if(.not. gamAppMpi%blockHalo) then
+                call mpi_wait(gasReq, MPI_STATUS_IGNORE, ierr)
+                if(gamAppMpi%Model%doMHD) then
+                    call mpi_wait(mfReq, MPI_STATUS_IGNORE, ierr)
+                endif
             endif
 
         endif
