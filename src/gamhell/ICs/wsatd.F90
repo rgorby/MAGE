@@ -110,7 +110,7 @@ module usergamic
         type(State_T), intent(inout) :: State
         type(XML_Input_T), intent(in) :: inpXML
         procedure(GasIC_T), pointer :: Wxyz
-        procedure(HackStep_T), pointer :: tsHack
+        procedure(HackStep_T), pointer :: tsHack !not used currently
         procedure(HackE_T), pointer :: eHack
 
         real(rp), dimension(:,:,:), allocatable :: ibcBr
@@ -119,6 +119,9 @@ module usergamic
 
         integer :: i,j,k,nvar,nr,d
 
+        !Set user hack functions
+        eHack  => NULL()
+        Model%HackE => eHack
 
 !        if (.not.allocated(inEijk)) allocate(inEijk(1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1,1:NDIM))
 
@@ -170,8 +173,10 @@ module usergamic
         ! Add gravity
 !        tsHack => PerStep
 !        Model%HackStep => tsHack
-!        eHack  => EFix
-!        Model%HackE => eHack
+
+        !Set user hack functions
+        eHack  => EFix
+        Model%HackE => eHack
 
         ! everybody reads WSA data
         !call readIBC(wsaFile)
@@ -232,7 +237,6 @@ module usergamic
     !Initialization for WSA BCs
     ! Here we get times from innerbc, ghost grid dimensions (rdTab func)
     ! Determine time bracket, reading WSA maps from those times
-    ! Fill out ibcVars
     subroutine InitwsaBC(bc,Model,Grid,State,xmlInp)
       class(WSAInnerBC_T), intent(inout) :: bc
       type(Model_T), intent(inout) :: Model
@@ -244,6 +248,7 @@ module usergamic
       integer :: n1, n2
       integer :: Nr, Nt, Np
       integer :: dims(3)
+      procedure(HackE_T), pointer :: eHack
 
       !call inpXML%Set_Val(wsaFile,"prob/wsaFile","innerbc.h5" )
 
@@ -278,7 +283,7 @@ module usergamic
       bc%wsaData%wsaN1 = n1
       bc%wsaData%wsaT1 = bc%wsaData%ebTab%times(n1) ! in sec
 
-      !read map from Step#2
+      !read map from Step#n2
       call rdWSAMap(bc%wsaData,Model,n2,bc%wsaData%ibcMap2)
       bc%wsaData%wsaN2 = n2
       bc%wsaData%wsaT2 = bc%wsaData%ebTab%times(n2) !in sec
@@ -295,6 +300,16 @@ module usergamic
       !!INTERPOLATE ALL VARS that we get from innerbc.h5
       !ibcVars(:,:,:,1:VPIN) = w1*bc%wsaData%ibcVarsW1(:,:,:,:) + w2*bc%wsaData%ibcVarsW2(:,:,:,:)
       !write(*,*)'[EP in InitwsaBC] filled out ibcVars'  
+
+      if (Grid%hasLowerBC(IDIR)) then
+
+        !Create holders for coupling electric field
+        allocate(bc%inEijk(1:bc%wsaData%Nr,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1,1:NDIM))
+      ! allocate(bc%inExyz(1:PsiShells  ,Grid%jsg:Grid%jeg  ,Grid%ksg:Grid%keg  ,1:NDIM))
+        bc%inEijk = 0.0
+        eHack  => EFix
+        Model%HackE => eHack
+      endif
 
     end subroutine InitwsaBC
 
@@ -542,18 +557,22 @@ module usergamic
     !     enddo
     ! end subroutine PerStep
 
-    subroutine eFix(Model,Gr,State)
+    !Fixes electric field before application
+    subroutine EFix(Model,Gr,State)
       type(Model_T), intent(in) :: Model
       type(Grid_T), intent(in) :: Gr
       type(State_T), intent(inout) :: State
+
+      !Fix inner shell
 
       ! see example of how to do this in voltron/ICs/earthcmi.F90
        !Grid%externalBCs(1)%p
 !      State%Efld(Gr%is  ,:,:,JDIR:KDIR) = inEijk(1,:,:,JDIR:KDIR)*Gr%edge(Gr%is  ,:,:,JDIR:KDIR)
 
 
-    end subroutine eFix
+    end subroutine EFix
 
+    !Old
     subroutine readIBC(ibcH5)
       character(len=*), intent(in) :: ibcH5
       logical :: fExist
@@ -611,6 +630,8 @@ module usergamic
    
     end subroutine readIBC
 
+
+    !caculate ibcBr for the intial time whn code starts
     subroutine initTSlice(wsaFile,inpXML,Model,State,ibcBr,MJD_c0)
        type(XML_Input_T), intent(in) :: inpXML
        type(Model_T), intent(in) :: Model
@@ -783,6 +804,7 @@ module usergamic
          ibcMap%MJD_c = GetIOReal(IOVars,"MJD")
         
     end subroutine rdWSAMap
+    
 
     subroutine tCalcWeights(wsaData,t,w1,w2)
         type(wsaData_T), intent(inout) :: wsaData

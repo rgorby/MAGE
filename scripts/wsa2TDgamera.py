@@ -342,7 +342,7 @@ with h5py.File(os.path.join(prm.IbcDir,prm.gameraIbcFile),'w') as hf:
 
         # Scale inside ghost region
         #print(rho.shape)
-        (vr,rho,Temp,br,bp_kface_a,bt_jface_a) = [np.dstack(prm.NO2*[var]) for var in (vr,rho,Temp,br,bp_kface_a,bt_jface_a)]
+        (vr,rho,Temp,br,bp_kface_a,bt_jface_a,et_save,ep_save) = [np.dstack(prm.NO2*[var]) for var in (vr,rho,Temp,br,bp_kface_a,bt_jface_a)]
         rho*=(R0/Rc[0,0,:Ng])**2
         Temp *= (R0/Rc[0,0,:Ng])
         br*=(R0/Rc[0,0,:Ng])**2
@@ -402,8 +402,8 @@ with h5py.File(os.path.join(prm.IbcDir,prm.gameraIbcFile),'w') as hf:
             #hf.create_dataset("bt",data=bt_a) #cc
             grp.create_dataset("bt_jface",data=bt_jface_a_p) #jface
             grp.create_dataset("bp_kface",data=bp_kface_a_p) #kface
-            #grp.create_dataset("et",data=et_save_p) #k-edges
-            #grp.create_dataset("ep",data=ep_save_p) #j-edges
+            grp.create_dataset("et",data=et_save_p) #k-edges
+            grp.create_dataset("ep",data=ep_save_p) #j-edges
 
         plotBc(wsaFile,phi, theta[1:-1], vrp[:,:,Ng-1], brp[:,:,Ng-1], rhop[:,:,Ng-1], Tempp[:,:,Ng-1])
         
