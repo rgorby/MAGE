@@ -37,6 +37,7 @@ RCM_EQLATLON_JFNAME = 'rcm_eqlatlon.json'
 MHDRCM_TIME_JFNAME = 'mhdrcm_times.json'
 
 #Spacecraft strings for cdaweb retrieval
+#Probably shouldn't be hard-coded
 supportedSats = ["RBSPA", "RBSPB"]
 supportedDsets = ["Hydrogen_omniflux_RBSPICE", "Electron_omniflux_RBSPICE"]
 
@@ -126,6 +127,11 @@ def getSpecieslambdata(rcmS0, kStart, kEnd):
 				'lamscl' : lamscl}
 	return result
 
+def genVarNorm(var, doLog=False):
+
+	vMin = np.min(var[var>0])
+	vMax = np.max(var)
+	norm = kv.genNorm(vMin, vMax, doLog=doLog)
 def get_aspect(ax):
 		from operator import sub
 		# Total figure size
@@ -182,7 +188,7 @@ def getSCOmniDiffFlux(scName, dSetName, t0, t1, jdir=None):
 	if dSetName == 'Hydrogen_omniflux_RBSPICE' or dSetName == 'Electron_omniflux_RBSPICE':
 		#Already got omni flux, no problem
 		dataset['OmniDiffFlux'] = data[ofStr]*1E-3  # Diferential flux [1/(MeV-cm^2-s-sr]*[1/MeV -> 1/keV]
-		dataset['energies'] = data[energyStr]*1E3  # [MeV] -< [keV]
+		dataset['energies'] = data[energyStr]*1E3  # [MeV] -> [keV]
 
 	#Pause to save to json
 	if dojson:
@@ -402,8 +408,10 @@ def getRCM_scTrack(trackf5, rcmf5, rcmTimes, jdir=None, scName=""):
 	result['xmin'     ] = xmin
 	result['ymin'     ] = ymin
 	result['zmin'     ] = zmin
-	#TODO: Map to full equator using zmin I think
 	result['eqmin'    ] = np.sqrt(xmin**2+ymin**2)
+	result['xeq'      ] = kh5.PullVar(trackf5, "xeq")
+	result['yeq'      ] = kh5.PullVar(trackf5, "yeq")
+	result['Req'      ] = np.sqrt(result['xeq']**2 + result['yeq']**2)
 	result['electrons'] = sdata['electrons']
 	result['ions'     ] = sdata['ions']
 
@@ -566,28 +574,30 @@ def getIntensitiesVsL(rcmf5, mhdrcmf5, sStart, sEnd, sStride, species='ions', eG
 		iL_arr = np.array([np.abs(lbins-i).argmin() for i in L_arr.flatten()]).reshape((Ni, Nj))
 		iE_arr = np.array([np.abs(eGrid-e).argmin() for e in energies.flatten()]).reshape((Nk, Ni, Nj))
 
-		#diffFlux_Nk = sf_factor*energies*eetas/alamData['lamscl'][:, np.newaxis, np.newaxis]  # [k,i,j]
+		diffFlux_Nk = sf_factor*energies*eetas/alamData['lamscl'][:, np.newaxis, np.newaxis]  # [k,i,j]
 
 		pressure_kij = pressure_factor*alams_kxx*eetas*vms_xij**2.5 * 1E9  # [Pa -> nPa]
 
 		for i in range(Ni):
 			for j in range(Nj):
 				for k in range(Nk):
-					#rcmodf_tkl[n, iE_arr[k,i,j], iL_arr[i,j]] += diffFlux_Nk[k,i,j]
+					rcmodf_tkl[n, iE_arr[k,i,j], iL_arr[i,j]] += diffFlux_Nk[k,i,j]
 					rcmpress_tkl[n, iE_arr[k,i,j], iL_arr[i,j]] += pressure_kij[k,i,j]
 					le_counts[iE_arr[k,i,j], iL_arr[i,j]] += 1
 
-		#Normalize to get avg. pressure per count
+		#Normalize to get avg. per count
+		rcmodf_tkl[n,:,:] /= le_counts
 		rcmpress_tkl[n,:,:] /= le_counts
 
 	#Trim off the extra values
 	lbins = lbins[1:-1]
 	eGrid = eGrid[1:-1]
-	#rcmodf_tkl = rcmodf_tkl[:,1:-1,1:-1]
+	rcmodf_tkl = rcmodf_tkl[:,1:-1,1:-1]
 	rcmpress_tkl = rcmpress_tkl[:,1:-1,1:-1]
 	
-	# Sum across energy to get total avg. pressures per L shell
+	# Sum across energy to get total avg. per L shell
 	rcmpress_tl = np.ma.sum(np.ma.masked_invalid(rcmpress_tkl), axis=1)
+	rcmodf_tl = np.ma.sum(np.ma.masked_invalid(rcmodf_tkl), axis=1)
 
 
 	result = {}
@@ -597,7 +607,8 @@ def getIntensitiesVsL(rcmf5, mhdrcmf5, sStart, sEnd, sStride, species='ions', eG
 	result['L_bins']     = lbins
 	result['energyGrid'] = eGrid
 	#result['nrg_tkl'] = rcmnrg_tkl
-	#result['odf_tkl']    = rcmodf_tkl
+	result['odf_tkl']    = rcmodf_tkl
+	result['odf_tl']    = rcmodf_tl
 	result['press_tkl']  = rcmpress_tkl
 	result['press_tl']  = rcmpress_tl
 
@@ -650,7 +661,7 @@ def getRCM_eqlatlon(mhdrcmf5, rcmTimes, jdir=None):
 	pCut = 1E-8
 	
 	print("Grabbing data...")
-	
+	"""
 	for t in range(len(sIDstrs)):
 		xm = mhdrcm5[sIDstrs[t]]['xMin'][:]
 		ym = mhdrcm5[sIDstrs[t]]['yMin'][:]
@@ -661,7 +672,7 @@ def getRCM_eqlatlon(mhdrcmf5, rcmTimes, jdir=None):
 
 		Ir = (bmR < rMin) | (bmR > rMax)
 		I_m = Ir | (iopen_t > ioCut) | (pm < pCut)
-		
+	"""
 	import kaipy.gamera.gampp as gampp
 	import kaipy.gamera.rcmpp as rcmpp
 	#import kaipy.gamera.msphViz as mviz
@@ -725,7 +736,7 @@ def plt_ODF_Comp(AxSC, AxRCM, AxCB, odfData, mjd=None, cmapName='CMRmap', norm=N
 
 
 	if not axIsPopulated:
-		kv.genCB(AxCB,norm,r'Differential Flux [$cm^{-2} sr^{-1} s^{-1} keV^{-1}$]',cM=cmapName,doVert=True)
+		kv.genCB(AxCB,norm,r'Intensity [$cm^{-2} sr^{-1} s^{-1} keV^{-1}$]',cM=cmapName,doVert=True)
 
 		AxSC.pcolormesh(scTime, eGrid, np.transpose(scODF), norm=norm, shading='nearest', cmap=cmapName)
 		AxSC.set_xlim([ut[0], ut[-1]])
@@ -755,45 +766,33 @@ def plt_ODF_Comp(AxSC, AxRCM, AxCB, odfData, mjd=None, cmapName='CMRmap', norm=N
 		yMin, yMax = AxRCM.get_ylim()
 		AxRCM.plot([lineUT, lineUT], [yMin, yMax], '-k')
 		
-def plt_tkl(AxTL, AxTKL, AxCB, tkldata, mjd=None, cmapName='CMRmap', norm=None):
-	"""If 'mjd' is not provided, make all plots that are vs. time
-	   If 'mjd' is provided:
-	     If we were also given a populated AxTL and AxCB, update with an mjd scroll line
-	     Also generate AxTKL for this mjd step
-	"""
-	tlIsPopulated = not AxTL.get_ylabel() == ''
 
-	k_arr = tkldata['energyGrid']
+def plt_tl(AxTL, tkldata, AxCB=None, mjd=None,cmapName='CMRmap',norm=None):
+
 	L_arr = tkldata['L_bins']
-
+	ut = kT.MJD2UT(tkldata['MJD'])
 	press_tl = np.array(tkldata['press_tl'][:], dtype=float)  # Need to do this to handle masked stuff
 	press_tl = np.ma.masked_invalid(press_tl)
-	
-	#ut = scutils.mjd_to_ut(tkldata['MJD'])
-	ut = kT.MJD2UT(tkldata['MJD'])
-	#utstr = [t.strftime('%m-%d\n%H') for t in ut]
-
-	if norm is None:
-		vMin = np.min(press_tl[press_tl>0])
-		vMax = np.max(press_tl)
-		print(vMin)
-		print(vMax)
-		norm = kv.genNorm(vMin, vMax, doLog=True)
-
 
 	#Initialize static plots if hasn't been done yet
-	if not tlIsPopulated:
+	doPopulateTL =  AxTL.get_ylabel() == ''
+	doPopulateCB = AxCB is not None and AxCB.get_label() == ''
+
+	if norm is None: 
+		norm = genVarNorm(press_tl, doLog=True)
+
+	if doPopulateTL:
 		#L vs. Time
 		AxTL.pcolormesh(ut, L_arr, np.transpose(press_tl), norm=norm, shading='nearest', cmap=cmapName)
 		AxTL.set_xlim([ut[0], ut[-1]])
 		AxTL.set_ylabel('L shell')
 		AxTL.set_xlabel('UT')
+	if doPopulateCB:
 		kv.genCB(AxCB, norm, r'Total pressure [$nPa$]', cM=cmapName, doVert=False)
 
-	#L vs. k for a specific mjd
+	#Time-specific stuff
 	if mjd is not None:
 		if mjd < tkldata['MJD'][0] or mjd > tkldata['MJD'][-1]:
-			print(str(mjd) + "not in tkl data, exiting")
 			return
 		iMJD = np.abs(tkldata['MJD'] - mjd).argmin()
 		lineUT = ut[iMJD]
@@ -803,9 +802,36 @@ def plt_tkl(AxTL, AxTKL, AxCB, tkldata, mjd=None, cmapName='CMRmap', norm=None):
 		yMin, yMax = AxTL.get_ylim()
 		AxTL.plot([lineUT, lineUT], [yMin, yMax], '-k')
 
+def plt_tkl(AxTKL, tkldata, AxCB=None, mjd=None, cmapName='CMRmap', norm=None):
+	"""If 'mjd' is not provided, make all plots that are vs. time
+	   If 'mjd' is provided:
+	     If we were also given a populated AxTL and AxCB, update with an mjd scroll line
+	     Also generate AxTKL for this mjd step
+	"""
+	if AxCB is not None:
+		print("AxCB label: '{}'".format(AxCB.get_label))
+	doPopulateCB = AxCB is not None and AxCB.get_label() == ''
 
-		#energy_arr = tkldata['nrg_tkl'][]
-		klslice = tkldata['press_tkl'][iMJD,:,:]
+	k_arr = tkldata['energyGrid']
+	L_arr = tkldata['L_bins']
+	
+	ut = kT.MJD2UT(tkldata['MJD'])
+
+	if norm is None: 
+		norm = genVarNorm(press_tl, doLog=True)
+
+	if doPopulateCB:
+		kv.genCB(AxCB, norm, r'Intensity [$cm^{-2} sr^{-1} s^{-1} keV^{-1}$]', cM=cmapName, doVert=False)
+
+	#L vs. k for a specific mjd
+	if mjd is not None:
+		if mjd < tkldata['MJD'][0] or mjd > tkldata['MJD'][-1]:
+			print(str(mjd) + "not in tkl data, exiting")
+			return
+		iMJD = np.abs(tkldata['MJD'] - mjd).argmin()
+
+		#klslice = tkldata['press_tkl'][iMJD,:,:]
+		klslice = tkldata['odf_tkl'][iMJD,:,:]
 		AxTKL.pcolormesh(k_arr*1E-3, L_arr, np.transpose(klslice), norm=norm, shading='nearest', cmap=cmapName)
 		#AxTKL.pcolormesh(k_arr, L_arr, np.transpose(klslice), shading='nearest', cmap=cmapName)
 		AxTKL.set_xlabel('Energy [keV]')
@@ -820,25 +846,22 @@ def plt_rcm_eqlatlon(AxLatlon, AxEq, rcmData, satTrackData, AxCB=None, mjd=None,
 	mlon_arr  = rcmData['MLON']
 	press_arr = rcmData['press']
 
-	x_sc  = satTrackData['xmin']
-	y_sc  = satTrackData['ymin']
-	z_sc  = satTrackData['zmin']
-	eq_sc = satTrackData['eqmin']
-
+	#x_sc  = satTrackData['xmin']
+	#y_sc  = satTrackData['ymin']
+	#z_sc  = satTrackData['zmin']
+	#eq_sc = satTrackData['eqmin']
+	x_sc = satTrackData['xeq']
+	y_sc = satTrackData['yeq']
+	req_sc = satTrackData['Req']
 	#ut = scutils.mjd_to_ut(rcmData['MJD'])
 	ut = kT.MJD2UT(rcmData['MJD'])
 	Nt = len(ut)
 
-	if norm is None:
-		vMin = np.min(press_arr[press_arr>0])
-		vMax = np.max(np.ma.masked_invalid(press_arr))
-		print(vMin)
-		print(vMax)
-		norm = kv.genNorm(vMin, vMax, doLog=True)
-
+	if norm is None: 
+		norm = genVarNorm(press_arr, doLog=True)
 
 	#Initialize static plots if hasn't been done yet
-	if AxCB is not None:
+	if AxCB is not None and AxCB.get_label == "":
 		AxCB = kv.genCB(AxCB, norm, r'Pressure [$nPa$]', cM=cmapName, doVert=True)
 
 	if mjd is not None:
@@ -858,11 +881,11 @@ def plt_rcm_eqlatlon(AxLatlon, AxEq, rcmData, satTrackData, AxCB=None, mjd=None,
 		AxLatlon.axis([0, 2*np.pi, 0, 0.7])
 
 		AxEq.pcolor(xmin_arr[iMJD], ymin_arr[iMJD], press_arr[iMJD], norm=norm, shading='auto', cmap=cmapName)
-
+		print("xeq_sc[{}]: {}".format(iMJD, x_sc[iMJD]))
 		#Draw satellite location
-		if eq_sc[iMJD] > 1E-8:
+		if req_sc[iMJD] > 1E-8:
 			leadMax = iMJD
-			while leadMax < min(iMJD+80, Nt) and eq_sc[leadMax] > 1E-8: leadMax += 1 #????
+			while leadMax < min(iMJD+80, Nt) and req_sc[leadMax] > 1E-8: leadMax += 1 #????
 			AxEq.plot(x_sc[iMJD:leadMax], y_sc[iMJD:leadMax], 'k-')
 			
 			satCircle = plt.Circle((x_sc[iMJD], y_sc[iMJD]), 0.15, color='black')

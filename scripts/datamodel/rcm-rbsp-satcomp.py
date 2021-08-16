@@ -127,7 +127,7 @@ if __name__=="__main__":
 	fig = plt.figure(figsize=(20,9))
 	gs = gridspec.GridSpec(8,16, wspace=0.8, hspace=0.6)
 	cmap_odf = "CMRmap"
-	cmap_tkl = 'viridis'
+	cmap_press = 'viridis'
 	cmap_rcm = "CMRmap"
 	
 	AxCB_odf = fig.add_subplot(gs[:,0])
@@ -136,16 +136,16 @@ if __name__=="__main__":
 
 	AxTL = fig.add_subplot(gs[0:2, 8:12])
 	AxTKL = fig.add_subplot(gs[2:7,8:12])
-	AxCB_tkl  = fig.add_subplot(gs[7,8:16])
+	AxCB_press  = fig.add_subplot(gs[7,8:16])
 
 	AxRCMLatLon = fig.add_subplot(gs[:4, 12:16], projection='polar')
 	AxRCMEq = fig.add_subplot(gs[4:7, 12:16])
 	#AxCB_rcm = fig.add_subplot(gs[:, 15])
 
 	odfnorm = kv.genNorm(10E3, 5E6, doLog=True)
-	#ut_tkl = scutils.mjd_to_ut(tkldata['MJD'])
 	ut_tkl = kT.MJD2UT(tkldata['MJD'])
-	pressnorm = kv.genNorm(1E-2, 1E2, doLog=True)
+	#pressnorm = kv.genNorm(1E-2, 1E2, doLog=True)
+	pressnorm = kv.genNorm(1E-2, 150, doLog=False)
 
 	#Movie time
 	outdir = os.path.join(fdir, vidOut)
@@ -164,8 +164,9 @@ if __name__=="__main__":
 	AxRCM.tick_params(axis='y', pad=-1)
 	AxRCM.yaxis.labelpad = -3
 	
-	scRCM.plt_tkl(AxTL, AxTKL, AxCB_tkl, tkldata, mjd=pltmjd, norm=pressnorm, cmapName=cmap_tkl)
-	#scRCM.plt_tkl(AxTL, AxTKL, AxCB_tkl, tkldata, mjd=pltmjd, cmapName=cmap_tkl)
+	#scRCM.plt_tkl(AxTL, AxTKL, AxCB_tkl, tkldata, mjd=pltmjd, norm=pressnorm, cmapName=cmap_tkl)
+	scRCM.plt_tl(AxTL, tkldata, AxCB=AxCB_press, mjd=pltmjd, norm=pressnorm, cmapName=cmap_press)
+	scRCM.plt_tkl(AxTKL, tkldata, mjd=pltmjd, norm=odfnorm, cmapName=cmap_odf)
 	AxTL.xaxis.set_ticks_position('top')
 	AxTL.xaxis.set_label_position('top')
 	AxTL.invert_yaxis()
@@ -180,9 +181,9 @@ if __name__=="__main__":
 	AxTKL.tick_params(axis='x', pad=-1)
 	AxTKL.xaxis.labelpad = -1
 	AxTKL.title.set_text(str(ut_tkl[0]))
-	AxCB_tkl.xaxis.labelpad = -1
+	AxCB_press.xaxis.labelpad = -1
 
-	scRCM.plt_rcm_eqlatlon(AxRCMLatLon, AxRCMEq, rcm_eqlatlon, rcmTrack, mjd=pltmjd, norm=pressnorm, cmapName=cmap_tkl)
+	scRCM.plt_rcm_eqlatlon(AxRCMLatLon, AxRCMEq, rcm_eqlatlon, rcmTrack, mjd=pltmjd, norm=pressnorm, cmapName=cmap_press)
 
 	ticker += 1
 	filename = "{}.{:0>{n}d}.png".format("vid", ticker, n=n_pad)
@@ -196,10 +197,11 @@ if __name__=="__main__":
 		pltmjd = tkldata['MJD'][n]
 		
 		scRCM.plt_ODF_Comp(AxSC, AxRCM, AxCB_odf, consolData, mjd=pltmjd, norm=odfnorm, cmapName=cmap_odf)
-		scRCM.plt_tkl(AxTL, AxTKL, AxCB_tkl, tkldata, mjd=pltmjd, norm=pressnorm, cmapName=cmap_tkl)
+		scRCM.plt_tl(AxTL, tkldata, AxCB=AxCB_press, mjd=pltmjd, norm=pressnorm, cmapName=cmap_press)
+		scRCM.plt_tkl(AxTKL, tkldata, mjd=pltmjd, norm=odfnorm, cmapName=cmap_odf)
 		AxTKL.title.set_text(str(ut_tkl[n]))
 
-		scRCM.plt_rcm_eqlatlon(AxRCMLatLon, AxRCMEq, rcm_eqlatlon, rcmTrack, mjd=pltmjd, norm=pressnorm, cmapName=cmap_tkl)
+		scRCM.plt_rcm_eqlatlon(AxRCMLatLon, AxRCMEq, rcm_eqlatlon, rcmTrack, mjd=pltmjd, norm=pressnorm, cmapName=cmap_press)
 		#Doesn't make labels until show is called (i think)
 		#tickLabels = [s.get_text() for s in AxTL.get_xticklabels()]
 		#AxTL.set_xticklabels(tickLabels)
