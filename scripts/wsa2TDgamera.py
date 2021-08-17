@@ -339,14 +339,18 @@ with h5py.File(os.path.join(prm.IbcDir,prm.gameraIbcFile),'w') as hf:
         bt_jface_a = bt_jface_a.T 
         bp_kface_a = bp_kface_a.T
 
+        et_save = et_save.T
+        ep_save = ep_save.T
+
 
         # Scale inside ghost region
         #print(rho.shape)
-        (vr,rho,Temp,br,bp_kface_a,bt_jface_a,et_save,ep_save) = [np.dstack(prm.NO2*[var]) for var in (vr,rho,Temp,br,bp_kface_a,bt_jface_a)]
+        (vr,rho,Temp,br,bp_kface_a,bt_jface_a,et_save,ep_save) = [np.dstack(prm.NO2*[var]) for var in (vr,rho,Temp,br,bp_kface_a,bt_jface_a,et_save,ep_save)]
         rho*=(R0/Rc[0,0,:Ng])**2
         Temp *= (R0/Rc[0,0,:Ng])
         br*=(R0/Rc[0,0,:Ng])**2
         bp_kface_a*=(R0/Rc[0,0,:Ng])
+        et_save* = (R0/Rc[0,0,:Ng])
 
         #tangential velocities are set to zero
         #vp = zeros_like(vr)
@@ -371,8 +375,8 @@ with h5py.File(os.path.join(prm.IbcDir,prm.gameraIbcFile),'w') as hf:
         bt_jface_a_p = bt_jface_a[:,1:-1,:]/Bnorm
 
         bp_kface_a_p = bp_kface_a[:,1:-1,:]/Bnorm
-        et_save_p = et_save[1:-1,:]
-        ep_save_p = ep_save[1:-1,:]
+        et_save_p = et_save[:,1:-1,:]
+        ep_save_p = ep_save[:,1:-1,:]
 
         #print vrp.shape, rhop.shape, csp.shape, brp.shape, bt_jface_a_p.shape, bp_kface_a_p.shape
         #print et_save_p.shape, ep_save_p.shape
