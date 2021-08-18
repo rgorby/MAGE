@@ -6,15 +6,8 @@ import sys
 import subprocess
 from xml.dom import minidom
 
-#import spacepy and cdasws
-import spacepy
-from spacepy.coordinates import Coords
-from spacepy.time import Ticktock
-import spacepy.datamodel as dm
-from cdasws import CdasWs
 from astropy.time import Time
 
-#import hdf5
 import h5py
 
 isotfmt = '%Y-%m-%dT%H:%M:%S.%f'

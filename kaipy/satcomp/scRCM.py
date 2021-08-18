@@ -1,7 +1,6 @@
 import h5py as h5
 import numpy as np
 import os
-import progressbar
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from astropy.time import Time
@@ -17,6 +16,8 @@ import kaipy.satcomp.scutils as scutils
 
 #Optionals
 doProgressBar = True
+if doProgressBar:
+	import progressbar
 
 #Constants
 massi = 1.67e-27 # mass of ions in kg
