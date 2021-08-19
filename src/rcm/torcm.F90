@@ -929,7 +929,6 @@ MODULE torcm_mod
       return
     
       END SUBROUTINE smooth_boundary_location
-
 !
       subroutine set_plasmasphere(icontrol,idim,jdim,kdim,xmin,ymin,rmin,vm,eeta,imin_j)
 ! subroutine set_plasmasphere(idim,jdim,kdim,rmin,pmin,vm,eeta,imin_j)

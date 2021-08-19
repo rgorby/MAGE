@@ -2,6 +2,7 @@ import numpy as np
 import datetime
 import os
 import glob
+import sys
 import subprocess
 from xml.dom import minidom
 
@@ -29,36 +30,37 @@ def genSCXML(fdir,ftag,
 
 	(fname,isMPI,Ri,Rj,Rk) = getRunInfo(fdir,ftag)
 	root = minidom.Document()
-	xml = root.createElement('Chimp')
+	xml = root.createElement('Kaiju')
 	root.appendChild(xml)
+	chimpChild = root.createElement('Chimp')
 	scChild = root.createElement("sim")
 	scChild.setAttribute("runid",scid)
-	xml.appendChild(scChild)
+	chimpChild.appendChild(scChild)
 	fieldsChild = root.createElement("fields")
 	fieldsChild.setAttribute("doMHD","T")
 	fieldsChild.setAttribute("grType","LFM")
 	fieldsChild.setAttribute("ebfile",ftag)
 	if isMPI:
 		fieldsChild.setAttribute("isMPI","T")
-	xml.appendChild(fieldsChild)
+	chimpChild.appendChild(fieldsChild)
 	if isMPI:
 		parallelChild = root.createElement("parallel")
 		parallelChild.setAttribute("Ri","%d"%Ri)
 		parallelChild.setAttribute("Rj","%d"%Rj)
 		parallelChild.setAttribute("Rk","%d"%Rk)
-		xml.appendChild(parallelChild)
+		chimpChild.appendChild(parallelChild)
 	unitsChild = root.createElement("units")
 	unitsChild.setAttribute("uid","EARTH")
-	xml.appendChild(unitsChild)
+	chimpChild.appendChild(unitsChild)
 	trajChild = root.createElement("trajectory")
 	trajChild.setAttribute("H5Traj",h5traj)
 	trajChild.setAttribute("doSmooth","F")
-	xml.appendChild(trajChild)
+	chimpChild.appendChild(trajChild)
 	if numSegments > 1:
 		parInTimeChild = root.createElement("parintime")
 		parInTimeChild.setAttribute("NumB","%d"%numSegments)
-		xml.appendChild(parInTimeChild)
-
+		chimpChild.appendChild(parInTimeChild)
+	xml.appendChild(chimpChild)
 	return root
 
 def getRunInfo(fdir,ftag):
@@ -219,19 +221,76 @@ def getScIds():
 						'magData': 'B_vec_xyz_gse__C4_CP_FGM_SPIN',
 						'magCoordSys': 'GSE'
 						}
-#	scDic['THEMISA'] = {'ephemId':'THA_L1_STATE',
-#						'ephemData':'tha_pos_gsmV',
-#						'ephemCoordSys':'GSM',
-#						'denId':'THA_L2_MOM',
-#						'denData':'tha_peim_density',
-#						'presId': 'THA_L2_MOM',
-#						'presData': 'tha_peim_ptot',
-#						'velId': 'THA_L2_MOM',
-#						'velData':'tha_peim_velocity_gsm',
-#						'velCoordSys':'GSM',
-#						'magId': 'THA_L2_MOM',
-#						'magCoordSys': 'GSM'
-#						}
+	scDic['THEMISA'] = {'ephemId':'THA_OR_SSC',
+						'ephemData':'XYZ_GSM',
+						'ephemCoordSys':'GSM',
+						'denId':'THA_L2_MOM',
+						'denData':'tha_peim_density',
+						'presId': 'THA_L2_MOM',
+						'presData': 'tha_peim_ptot',
+						'velId': 'THA_L2_MOM',
+						'velData':'tha_peim_velocity_gsm',
+						'velCoordSys':'GSM',
+						'magId': 'THA_L2_FGM',
+						'magData': 'tha_fgs_gsm',
+						'magCoordSys': 'GSM'
+						}
+	scDic['THEMISB'] = {'ephemId':'THB_OR_SSC',
+						'ephemData':'XYZ_GSM',
+						'ephemCoordSys':'GSM',
+						'denId':'THB_L2_MOM',
+						'denData':'thb_peim_density',
+						'presId': 'THB_L2_MOM',
+						'presData': 'thb_peim_ptot',
+						'velId': 'THB_L2_MOM',
+						'velData':'thb_peim_velocity_gsm',
+						'velCoordSys':'GSM',
+						'magId': 'THB_L2_FGM',
+						'magData': 'thb_fgs_gsm',
+						'magCoordSys': 'GSM'
+						}
+	scDic['THEMISC'] = {'ephemId':'THC_OR_SSC',
+						'ephemData':'XYZ_GSM',
+						'ephemCoordSys':'GSM',
+						'denId':'THC_L2_MOM',
+						'denData':'thc_peim_density',
+						'presId': 'THC_L2_MOM',
+						'presData': 'thc_peim_ptot',
+						'velId': 'THC_L2_MOM',
+						'velData':'thc_peim_velocity_gsm',
+						'velCoordSys':'GSM',
+						'magId': 'THC_L2_FGM',
+						'magData': 'thc_fgs_gsm',
+						'magCoordSys': 'GSM'
+						}
+	scDic['THEMISD'] = {'ephemId':'THD_OR_SSC',
+						'ephemData':'XYZ_GSM',
+						'ephemCoordSys':'GSM',
+						'denId':'THD_L2_MOM',
+						'denData':'thd_peim_density',
+						'presId': 'THD_L2_MOM',
+						'presData': 'thd_peim_ptot',
+						'velId': 'THD_L2_MOM',
+						'velData':'thd_peim_velocity_gsm',
+						'velCoordSys':'GSM',
+						'magId': 'THD_L2_FGM',
+						'magData': 'thd_fgs_gsm',
+						'magCoordSys': 'GSM'
+						}
+	scDic['THEMISE'] = {'ephemId':'THE_OR_SSC',
+						'ephemData':'XYZ_GSM',
+						'ephemCoordSys':'GSM',
+						'denId':'THE_L2_MOM',
+						'denData':'the_peim_density',
+						'presId': 'THE_L2_MOM',
+						'presData': 'the_peim_ptot',
+						'velId': 'THE_L2_MOM',
+						'velData':'the_peim_velocity_gsm',
+						'velCoordSys':'GSM',
+						'magId': 'THE_L2_FGM',
+						'magData': 'the_fgs_gsm',
+						'magCoordSys': 'GSM'
+						}
 	scDic['MMS1'] = {'ephemId':'MMS1_FGM_SRVY_L2',
 						'ephemData':'mms1_fgm_r_gsm_srvy_l2',
 						'ephemCoordSys':'GSM',
@@ -246,6 +305,7 @@ def getScIds():
 						'magData': 'mms1_fgm_b_gsm_srvy_l2',
 						'magCoordSys': 'GSM'
 						}
+
 	scDic['MMS2'] = {'ephemId':'MMS2_FGM_SRVY_L2',
 						'ephemData':'mms2_fgm_r_gsm_srvy_l2',
 						'ephemCoordSys':'GSM',
@@ -368,7 +428,7 @@ def convertGameraVec(x,y,z,ut,fromSys,fromType,toSys,toType):
 	outvec = invec.convert(toSys,toType)
 	return outvec
 
-def extractGAMERA(data,scDic,mjd0,sec0,fdir,ftag,cmd,numSegments,keep):
+def createInputFiles(data,scDic,scId,mjd0,sec0,fdir,ftag,numSegments):
 	Re = 6380.0
 	toRe = 1.0
 	if 'UNITS' in data['Ephemeris'].attrs:
@@ -395,51 +455,28 @@ def extractGAMERA(data,scDic,mjd0,sec0,fdir,ftag,cmd,numSegments,keep):
 		print('Coordinate system transformation failed')
 		return
 	elapsedSecs = (smpos.ticks.getMJD()-mjd0)*86400.0+sec0
-	scId = scDic['ephemId']
-	fOut = os.path.join(fdir,scId+"sctrack.h5")
-	with h5py.File(fOut,'w') as hf:
+	scTrackName = os.path.join(fdir,scId+".sc.h5")
+	with h5py.File(scTrackName,'w') as hf:
 		hf.create_dataset("T" ,data=elapsedSecs)
 		hf.create_dataset("X" ,data=smpos.x)
 		hf.create_dataset("Y" ,data=smpos.y)
 		hf.create_dataset("Z" ,data=smpos.z)
 	chimpxml = genSCXML(fdir,ftag,
-		scid=scId,h5traj=os.path.basename(fOut),numSegments=numSegments)
-	xmlfile = os.path.join(fdir,scId+'.xml')
-	with open(xmlfile,"w") as f:
+		scid=scId,h5traj=os.path.basename(scTrackName),numSegments=numSegments)
+	xmlFileName = os.path.join(fdir,scId+'.xml')
+	with open(xmlFileName,"w") as f:
 		f.write(chimpxml.toprettyxml())
 
-	if 1 == numSegments:
-		sctrack = subprocess.run([cmd, xmlfile], cwd=fdir,
-							stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-							text=True)
+	return (scTrackName,xmlFileName)
 
-	else:
-		process = []
-		for seg in range(1,numSegments+1):
-			process.append(subprocess.Popen([cmd, xmlfile,str(seg)], 
-							cwd=fdir,
-							stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-							text=True))
-		for proc in process:
-			proc.communicate()
-		seg = 1
-		inH5Name = os.path.join(fdir,scId+'.%04d'%seg+'.sc.h5')
-		mergeH5Name = os.path.join(fdir,scId+'.sc.h5')
-		mergeH5 = createMergeFile(inH5Name,mergeH5Name)
-		for seg in range(2,numSegments+1):
-			nextH5Name = os.path.join(fdir,scId+'.%04d'%seg+'.sc.h5')
-			nextH5 = h5py.File(nextH5Name)
-			addFileToMerge(mergeH5,nextH5)
-
-
-
-	h5name = os.path.join(fdir, scId + '.sc.h5')
+def addGAMERA(data,scDic,h5name):
 	h5file = h5py.File(h5name, 'r')
 	ut = MJD2UT(h5file['MJDs'][:])
 
 	bx = h5file['Bx']
 	by = h5file['By']
 	bz = h5file['Bz']
+
 	if scDic['magCoordSys'] is None:
 		toCoordSys = 'GSM'
 	else:
@@ -476,11 +513,80 @@ def extractGAMERA(data,scDic,mjd0,sec0,fdir,ftag,cmd,numSegments,keep):
 		attrs={'UNITS':pres.attrs['Units'],
 		'CATDESC':'Temperature','FIELDNAM':"Temperature",
 		'AXISLABEL':'T'})
+	inDom = h5file['inDom']
+	data['GAMERA_inDom'] = dm.dmarray(inDom[:],
+		attrs={'UNITS':inDom.attrs['Units'],
+		'CATDESC':'In GAMERA Domain','FIELDNAM':"InDom",
+		'AXISLABEL':'In Domain'})
+	return
+
+def matchUnits(data):
+	vars = ['Density','Pressure','Temperature','Velocity','MagneticField']
+	for var in vars:
+		try:
+			data[var]
+		except:
+			print(var,'not in data')
+		else:
+			if (data[var].attrs['UNITS'] == data['GAMERA_'+var].attrs['UNITS'].decode()):
+				print(var,'units match')
+			else:
+				if 'Density' == var:
+					if (data[var].attrs['UNITS'] == 'cm^-3' or data[var].attrs['UNITS'] == '/cc'):
+						data[var].attrs['UNITS'] = data['GAMERA_'+var].attrs['UNITS']
+						print(var,'units match')
+					else:
+						print('WARNING ',var,'units do not match')
+				if 'Velocity' == var:
+					if (data[var].attrs['UNITS'] == 'km/sec'):
+						data[var].attrs['UNITS'] = data['GAMERA_'+var].attrs['UNITS']
+						print(var,'units match')
+					else:
+						print('WARNING ',var,'units do not match')
+				if 'MagneticField' == var:
+					if (data[var].attrs['UNITS'] == '0.1nT'):
+						print('Magnetic Field converted from 0.1nT to nT')
+						data[var]=data[var]/10.0
+						data[var].attrs['UNITS'] = 'nT'
+					else:
+						print('WARNING ',var,'units do not match')
+				if 'Pressure' == var:
+					print('WARNING ',var,'units do not match')
+				if 'Temperature' == var:
+					print('WARNING ',var,'units do not match')
+
+	return
+
+def extractGAMERA(data,scDic,scId,mjd0,sec0,fdir,ftag,cmd,numSegments,keep):
+
+	(scTrackName,xmlFileName) = createInputFiles(data,scDic,scId,
+		mjd0,sec0,fdir,ftag,numSegments)
+
+	if 1 == numSegments:
+		sctrack = subprocess.run([cmd, xmlFileName], cwd=fdir,
+							stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+							text=True)
+		#print(sctrack)
+		h5name = os.path.join(fdir, scId + '.sc.h5')
+
+	else:
+		process = []
+		for seg in range(1,numSegments+1):
+			process.append(subprocess.Popen([cmd, xmlFileName,str(seg)],
+							cwd=fdir,
+							stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+							text=True))
+		for proc in process:
+			proc.communicate()
+		h5name = mergeFiles(scId,fdir,numSegments)
+
+
+	addGAMERA(data,scDic,h5name)
 
 	if not keep:
 		subprocess.run(['rm',h5name])
-		subprocess.run(['rm',xmlfile])
-		subprocess.run(['rm',fOut])
+		subprocess.run(['rm',xmlFileName])
+		subprocess.run(['rm',scTrackName])
 		if numSegments > 1:
 			h5parts = os.path.join(fdir,scId+'.*.sc.h5')
 			subprocess.run(['rm',h5parts])
@@ -503,12 +609,81 @@ def createMergeFile(fIn,fOut):
 	return oH5
 
 def addFileToMerge(mergeH5,nextH5):
+	nS = nextH5.attrs['nS']
+	nE = nextH5.attrs['nE']
 	for varname in mergeH5.keys():
 		dset = mergeH5[varname]
 		dset.resize(dset.shape[0]+nextH5[varname].shape[0],axis=0)
-		dset[-nextH5[varname].shape[0]:]=nextH5[varname][:]
+		dset[nS-1:nE]=nextH5[varname][:]
 	return
-	
+
+def mergeFiles(scId,fdir,numSegments):
+	seg = 1
+	inH5Name = os.path.join(fdir,scId+'.%04d'%seg+'.sc.h5')
+	mergeH5Name = os.path.join(fdir,scId+'.sc.h5')
+	mergeH5 = createMergeFile(inH5Name,mergeH5Name)
+	#print(inH5Name,mergeH5Name)
+	for seg in range(2,numSegments+1):
+		nextH5Name = os.path.join(fdir,scId+'.%04d'%seg+'.sc.h5')
+		nextH5 = h5py.File(nextH5Name,'r')
+		addFileToMerge(mergeH5,nextH5)
+
+	return mergeH5Name
+
+def genSatCompPbsScript(scId,fdir,cmd,account='P28100045'):
+	headerString = """#!/bin/tcsh
+#PBS -A %s
+#PBS -N %s
+#PBS -j oe
+#PBS -q casper
+#PBS -l walltime=1:00:00
+#PBS -l select=1:ncpus=1
+"""
+	moduleString = """module purge
+module load git/2.22.0 intel/18.0.5 hdf5/1.10.5 impi/2018.4.274
+module load ncarenv/1.3 ncarcompilers/0.5.0 python/3.7.9 cmake/3.14.4
+module load ffmpeg/4.1.3 paraview/5.8.1 mkl/2018.0.5
+ncar_pylib /glade/p/hao/msphere/gamshare/casper_satcomp_pylib
+module list
+"""
+	commandString = """cd %s
+setenv JNUM ${PBS_ARRAY_INDEX}
+date
+echo 'Running analysis'
+%s %s $JNUM
+date
+"""
+	xmlFileName = os.path.join(fdir,scId+'.xml')
+	pbsFileName = os.path.join(fdir,scId+'.pbs')
+	pbsFile = open(pbsFileName,'w')
+	pbsFile.write(headerString%(account,scId))
+	pbsFile.write(moduleString)
+	pbsFile.write(commandString%(fdir,cmd,xmlFileName))
+	pbsFile.close()
+
+	return pbsFileName
+
+def genSatCompLockScript(scId,fdir,account='P28100045'):
+	headerString = """#!/bin/tcsh
+#PBS -A %s
+#PBS -N %s
+#PBS -j oe
+#PBS -q casper
+#PBS -l walltime=0:15:00
+#PBS -l select=1:ncpus=1
+"""
+	commandString = """cd %s
+touch %s
+"""
+	pbsFileName = os.path.join(fdir,scId+'.done.pbs')
+	pbsFile = open(pbsFileName,'w')
+	pbsFile.write(headerString%(account,scId))
+	pbsFile.write(commandString%(fdir,scId+'.lock'))
+	pbsFile.close()
+
+	return pbsFileName
+
+
 
 
 

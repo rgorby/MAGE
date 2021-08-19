@@ -3,7 +3,10 @@
 #standard python
 import sys
 import os
+import glob
 import argparse
+import subprocess
+import time
 from argparse import RawTextHelpFormatter
 
 #numpy
@@ -17,26 +20,24 @@ import kaipy.kaiViz as kv
 import kaipy.kaiTools as kaiTools
 import spacepy.datamodel as dm
 
-if __name__ == '__main__':
-	MainS = """Extracts information from satellite trajectory for various
-	spacecraft.  Space craft data is pulled from CDAWeb.  Output CDF files
-	contain data pulled from CDAWeb along with data extracted from GAMERA.
-	Image files of satellite comparisons are also produced.
-	"""
 
+
+if __name__ == '__main__':
+	MainS = """Checks the run for satellites with data avilable and then
+	sets up PBS job scripts for running interpolation in parallel."""
 
 	parser = argparse.ArgumentParser(description=MainS,
-		formatter_class=RawTextHelpFormatter)
+	formatter_class=RawTextHelpFormatter)
 	parser.add_argument('-id',type=str,metavar='runid',default='msphere',
 		help='RunID of data (default: %(default)s)')
 	parser.add_argument('-path',type=str,metavar='path',default='.',
-		help='Path to directory containing REMIX files (default: %(default)s)')
-	parser.add_argument('-cmd',type=str,metavar='command',default=None,
-		help='Full path to sctrack.x command')
+		help='Path to directory containing files (default: %(default)s)')
 	parser.add_argument('-satId',type=str,metavar='Satellite Id',
 		default=None,help='Name of Satellite to compare')
-	parser.add_argument('-numSeg',type=int,metavar='Number of segments',
-		default=1,help='Number of segments to simulateously process')
+	parser.add_argument('-cmd',type=str,metavar='command',default=None,
+		help='Full path to sctrack.x command')
+	parser.add_argument('-acct',type=str,metavar='acct',default=None,
+		help='Account number to use in pbs script')
 	parser.add_argument('--keep',action='store_true',
 		help='Keep intermediate files')
 
@@ -46,8 +47,14 @@ if __name__ == '__main__':
 	ftag = args.id
 	cmd = args.cmd
 	scRequested = args.satId
-	numSegments = args.numSeg
 	keep = args.keep
+	acct = args.acct
+
+	if None == acct:
+		acct = os.getenv('DAV_PROJECT')
+		if None == acct:
+			print('Must input a valid account to charge, use -acct flag')
+			sys.exit()
 
 	if fdir == '.':
 		fdir = os.getcwd()
@@ -78,8 +85,9 @@ if __name__ == '__main__':
 	deltaT = np.round(gamT[loc+1]-gamT[loc])
 	mjdFileStart = gamMJD[loc]
 	secFileStart = gamT[loc]
+	numPer = 10
+	numSegments=int(np.floor(((t1-t0).total_seconds()/deltaT)/numPer))
 
-	#scToDo =['CLUSTER1']
 	if None == scRequested:
 		scToDo = scIds
 	else:
@@ -95,10 +103,27 @@ if __name__ == '__main__':
 		if status['http']['status_code'] != 200:
 			print('No data available for', scId)
 		else:
-			print('Extracting GAMERA data')
-			kaiTools.extractGAMERA(data,scIds[scId],scId,
-				mjdFileStart,secFileStart,fdir,
-				ftag,cmd,numSegments,keep)
+			(scTrackName,xmlFileName) = kaiTools.createInputFiles(data,
+				scIds[scId],scId,mjdFileStart,secFileStart,
+				fdir,ftag,numSegments)
+			lockCmdName = os.path.join(fdir,'makeLock.sh')
+			fLock = open(lockCmdName,'w')
+			fLock.write("#!/bin/bash\ntouch $1")
+			fLock.close()
+			os.chmod(lockCmdName,0o775)
+			pbsName = kaiTools.genSatCompPbsScript(scId,fdir,cmd,account=acct)
+			pbsCmd = ['qsub','-J','1-'+str(numSegments),pbsName]
+			results = subprocess.run(pbsCmd,capture_output=True)
+			jobId = results.stdout.decode('utf-8').split('.')
+			pbsLockName = kaiTools.genSatCompLockScript(scId,fdir,account=acct)
+			pbsLockCmd = ['qsub','-W','depend=afterok:'+jobId[0],pbsLockName]
+			results = subprocess.run(pbsLockCmd,capture_output=True)
+			lockId = results.stdout.decode('utf-8').split('.')
+			lockFileName = os.path.join(fdir,scId+'.lock')
+			while not os.path.exists(lockFileName):
+				time.sleep(10)
+			h5name = kaiTools.mergeFiles(scId,fdir,numSegments)
+			kaiTools.addGAMERA(data,scIds[scId],h5name)
 			kaiTools.matchUnits(data)
 			cdfname = os.path.join(fdir, scId + '.comp.cdf')
 			if os.path.exists(cdfname):
@@ -109,3 +134,23 @@ if __name__ == '__main__':
 			plotname = os.path.join(fdir,scId+'.png')
 			print('Plotting results to',plotname)
 			kv.compPlot(plotname,scId,data)
+			if not keep:
+				h5parts = glob.glob(os.path.join(fdir,scId)+'.*.sc.h5')
+				for file in h5parts:
+					os.remove(file)
+				jobParts = glob.glob(os.path.join(fdir,scId)+
+					'.o'+jobId[0].split('[')[0]+'.*')
+				for file in jobParts:
+					os.remove(file)
+				pbsScripts = glob.glob(os.path.join(fdir,scId)+'*pbs')
+				for file in pbsScripts:
+					os.remove(file)
+				lockLog = os.path.join(fdir,scId+'.o'+lockId[0])
+				os.remove(lockLog)
+				lockFile = os.path.join(fdir,scId+'.lock')
+				os.remove(lockFile)
+				lockFile = os.path.join(fdir,scId+'.xml')
+				os.remove(lockFile)
+
+
+

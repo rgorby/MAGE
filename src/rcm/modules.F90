@@ -36,7 +36,7 @@ MODULE rice_housekeeping_module
              L_write_tracing_debug = .false., &
              L_write_vars_debug    = .false.
   
-  INTEGER(iprec) :: nSubstep = 2
+  INTEGER(iprec) :: nSubstep = 4
   INTEGER(iprec) :: rcm_record
   REAL(rprec) :: HighLatBD,LowLatBD
   LOGICAL :: doLatStretch = .false.
