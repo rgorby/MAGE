@@ -1,5 +1,5 @@
 module testBaseMpi
-  use pFUnit
+  use testHelperMpi
   use mpidefs
 
   implicit none
@@ -24,9 +24,10 @@ contains
   subroutine test2ProcNeighborAllgather(this)
       class (MpiTestMethod), intent(inout) :: this
 
-      integer :: neighborRank, newComm, ierr
+      integer :: neighborRank(1), ierr
+      type(MPI_Comm) :: newComm
 
-      real(4) :: outValue, inValue
+      real(rp) :: outValue, inValue
 
       if(this%getProcessRank() == 0) then
           neighborRank = 1
@@ -34,16 +35,16 @@ contains
           neighborRank = 0
       endif
 
-      call mpi_dist_graph_create_adjacent(this%getMpiCommunicator(), &
-                    1,neighborRank,1, &
-                    1,neighborRank,1, &
+      call mpi_dist_graph_create_adjacent(getMpiF08Communicator(this), &
+                    1,neighborRank,(/1/), &
+                    1,neighborRank,(/1/), &
                     MPI_INFO_NULL, .false., newComm, ierr)
       @assertEqual(MPI_SUCCESS,ierr,'create graph failed')
 
       outValue = 1
       inValue = 2
 
-      call mpi_neighbor_allgather(outValue,1,MPI_FLOAT,inValue,1,MPI_FLOAT,newComm,ierr)
+      call mpi_neighbor_allgather(outValue,1,MPI_MYFLOAT,inValue,1,MPI_MYFLOAT,newComm,ierr)
       @assertEqual(MPI_SUCCESS,ierr,'allgather failed')
 
       @assertEqual(1, inValue, 'comms failed')
@@ -54,9 +55,10 @@ contains
   subroutine test2ProcNeighborAllgatherv(this)
       class (MpiTestMethod), intent(inout) :: this
 
-      integer :: neighborRank, newComm, ierr
+      integer :: neighborRank(1), ierr
+      type(MPI_Comm) :: newComm
 
-      real(4) :: outValue, inValue
+      real(rp) :: outValue, inValue
 
       if(this%getProcessRank() == 0) then
           neighborRank = 1
@@ -64,17 +66,17 @@ contains
           neighborRank = 0
       endif
 
-      call mpi_dist_graph_create_adjacent(this%getMpiCommunicator(), &
-                    1,neighborRank,1, &
-                    1,neighborRank,1, &
+      call mpi_dist_graph_create_adjacent(getMpiF08Communicator(this), &
+                    1,neighborRank,(/1/), &
+                    1,neighborRank,(/1/), &
                     MPI_INFO_NULL, .false., newComm, ierr)
       @assertEqual(MPI_SUCCESS,ierr,'create graph failed')
 
       outValue = 1
       inValue = 2
 
-      call mpi_neighbor_allgatherv(outValue,1,MPI_FLOAT,inValue,1,0,MPI_FLOAT,newComm,ierr)
-      @assertEqual(MPI_SUCCESS,ierr,'allgather failed')
+      call mpi_neighbor_allgatherv(outValue,1,MPI_MYFLOAT,inValue,(/1/),(/0/),MPI_MYFLOAT,newComm,ierr)
+      @assertEqual(MPI_SUCCESS,ierr,'allgatherv failed')
 
       @assertEqual(1, inValue, 'comms failed')
 
@@ -84,9 +86,10 @@ contains
   subroutine test2ProcNeighborAlltoall(this)
       class (MpiTestMethod), intent(inout) :: this
 
-      integer :: neighborRank, newComm, ierr
+      integer :: neighborRank(1), ierr
+      type(MPI_Comm) :: newComm
 
-      real(4) :: outValue, inValue
+      real(rp) :: outValue, inValue
 
       if(this%getProcessRank() == 0) then
           neighborRank = 1
@@ -94,19 +97,19 @@ contains
           neighborRank = 0
       endif
 
-      call mpi_dist_graph_create_adjacent(this%getMpiCommunicator(), &
-                    1,neighborRank,1, &
-                    1,neighborRank,1, &
+      call mpi_dist_graph_create_adjacent(getMpiF08Communicator(this), &
+                    1,neighborRank,(/1/), &
+                    1,neighborRank,(/1/), &
                     MPI_INFO_NULL, .false., newComm, ierr)
       @assertEqual(MPI_SUCCESS,ierr,'create graph failed')
 
       outValue = 1
       inValue = 2
 
-      call mpi_neighbor_alltoall(outValue, 1, MPI_FLOAT, &
-                                  inValue,  1, MPI_FLOAT, &
+      call mpi_neighbor_alltoall(outValue, 1, MPI_MYFLOAT, &
+                                  inValue,  1, MPI_MYFLOAT, &
                                   newComm, ierr)
-      @assertEqual(MPI_SUCCESS,ierr,'alltoallw failed')
+      @assertEqual(MPI_SUCCESS,ierr,'alltoall failed')
 
       @assertEqual(1, inValue, 'comms failed')
 
@@ -116,9 +119,10 @@ contains
   subroutine test2ProcNeighborAlltoallv(this)
       class (MpiTestMethod), intent(inout) :: this
 
-      integer :: neighborRank, newComm, ierr
+      integer :: neighborRank(1), ierr
+      type(MPI_Comm) :: newComm
 
-      real(4) :: outValue, inValue
+      real(rp) :: outValue, inValue
 
       if(this%getProcessRank() == 0) then
           neighborRank = 1
@@ -126,19 +130,19 @@ contains
           neighborRank = 0
       endif
 
-      call mpi_dist_graph_create_adjacent(this%getMpiCommunicator(), &
-                    1,neighborRank,1, &
-                    1,neighborRank,1, &
+      call mpi_dist_graph_create_adjacent(getMpiF08Communicator(this), &
+                    1,neighborRank,(/1/), &
+                    1,neighborRank,(/1/), &
                     MPI_INFO_NULL, .false., newComm, ierr)
       @assertEqual(MPI_SUCCESS,ierr,'create graph failed')
 
       outValue = 1
       inValue = 2
 
-      call mpi_neighbor_alltoallv(outValue, 1, 0, MPI_FLOAT, &
-                                  inValue,  1, 0, MPI_FLOAT, &
+      call mpi_neighbor_alltoallv(outValue, (/1/), (/0/), MPI_MYFLOAT, &
+                                  inValue,  (/1/), (/0/), MPI_MYFLOAT, &
                                   newComm, ierr)
-      @assertEqual(MPI_SUCCESS,ierr,'alltoallw failed')
+      @assertEqual(MPI_SUCCESS,ierr,'alltoallv failed')
 
       @assertEqual(1, inValue, 'comms failed')
 
@@ -148,10 +152,11 @@ contains
   subroutine test2ProcNeighborAlltoallw(this)
       class (MpiTestMethod), intent(inout) :: this
 
-      integer :: neighborRank, newComm, ierr
-      integer(MPI_ADDRESS_KIND) :: sDisp,rDisp
+      integer :: neighborRank(1), ierr
+      type(MPI_Comm) :: newComm
+      integer(kind=MPI_AN_MYADDR) :: sDisp(1),rDisp(1)
 
-      real(4) :: outValue, inValue
+      real(rp) :: outValue, inValue
 
       if(this%getProcessRank() == 0) then
           neighborRank = 1
@@ -159,9 +164,9 @@ contains
           neighborRank = 0
       endif
 
-      call mpi_dist_graph_create_adjacent(this%getMpiCommunicator(), &
-                    1,neighborRank,1, &
-                    1,neighborRank,1, &
+      call mpi_dist_graph_create_adjacent(getMpiF08Communicator(this), &
+                    1,neighborRank,(/1/), &
+                    1,neighborRank,(/1/), &
                     MPI_INFO_NULL, .false., newComm, ierr)
       @assertEqual(MPI_SUCCESS,ierr,'create graph failed')
 
@@ -171,8 +176,8 @@ contains
       sDisp = 0
       rDisp = 0
 
-      call mpi_neighbor_alltoallw(outValue, 1, sDisp, MPI_FLOAT, &
-                                  inValue,  1, rDisp, MPI_FLOAT, &
+      call mpi_neighbor_alltoallw(outValue, (/1/), sDisp, (/MPI_MYFLOAT/), &
+                                  inValue,  (/1/), rDisp, (/MPI_MYFLOAT/), &
                                   newComm, ierr)
       @assertEqual(MPI_SUCCESS,ierr,'alltoallw failed')
 
