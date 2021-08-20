@@ -4,25 +4,28 @@ file(GLOB TGIC "${PROJECT_SOURCE_DIR}/src/gamera/ICs/lfmbw.F90")
 add_library(tgiclib ${TGIC})
 add_dependencies(tgiclib baselib gamlib)
 
+# helper files for all testing code
+file(GLOB helperFiles "${PROJECT_SOURCE_DIR}/tests/helperCode/*.F90")
+
 # NON-MPI TESTS GO UP HERE
 file(GLOB caseTestFiles "${CMAKE_CURRENT_SOURCE_DIR}/cases/*.pf")
 set(caseTestLibs baselib gamlib remixlib voltlib tgiclib)
-add_pfunit_ctest (caseTests TEST_SOURCES ${caseTestFiles} LINK_LIBRARIES ${caseTestLibs} MAX_PES 1)
+add_pfunit_ctest (caseTests TEST_SOURCES ${caseTestFiles} OTHER_SOURCES ${helperFiles} LINK_LIBRARIES ${caseTestLibs} MAX_PES 1)
 add_dependencies(caseTests ${caseTestLibs})
 
 file(GLOB gamTestFiles "${CMAKE_CURRENT_SOURCE_DIR}/gamera/*.pf")
 set(gamTestLibs baselib gamlib tgiclib)
-add_pfunit_ctest (gamTests TEST_SOURCES ${gamTestFiles} LINK_LIBRARIES ${gamTestLibs} MAX_PES 1)
+add_pfunit_ctest (gamTests TEST_SOURCES ${gamTestFiles} OTHER_SOURCES ${helperFiles} LINK_LIBRARIES ${gamTestLibs} MAX_PES 1)
 add_dependencies(gamTests ${gamTestLibs})
 
 file(GLOB mixTestFiles "${CMAKE_CURRENT_SOURCE_DIR}/remix/*.pf")
 set(mixTestLibs baselib gamlib remixlib voltlib tgiclib)
-add_pfunit_ctest (mixTests TEST_SOURCES ${mixTestFiles} LINK_LIBRARIES ${mixTestLibs} MAX_PES 1)
+add_pfunit_ctest (mixTests TEST_SOURCES ${mixTestFiles} OTHER_SOURCES ${helperFiles} LINK_LIBRARIES ${mixTestLibs} MAX_PES 1)
 add_dependencies(mixTests ${mixTestLibs})
 
 file(GLOB voltTestFiles "${CMAKE_CURRENT_SOURCE_DIR}/voltron/*.pf")
 set(voltTestLibs baselib gamlib remixlib voltlib tgiclib)
-add_pfunit_ctest (voltTests TEST_SOURCES ${voltTestFiles} LINK_LIBRARIES ${voltTestLibs} MAX_PES 1)
+add_pfunit_ctest (voltTests TEST_SOURCES ${voltTestFiles} OTHER_SOURCES ${helperFiles} LINK_LIBRARIES ${voltTestLibs} MAX_PES 1)
 add_dependencies(voltTests ${voltTestLibs})
 
 # copy input xml files and grid h5 files to binary folder for running
@@ -57,24 +60,27 @@ add_custom_target(CopyGrids DEPENDS ${gridFilesDest})
 if(ENABLE_MPI)
     #MPI TESTS GO IN HERE
 
+    #helper files for mpi testing code
+    file(GLOB helperFilesMpi "${PROJECT_SOURCE_DIR}/tests/helperCode_mpi/*.F90")
+
     file(GLOB caseMpiTestFiles "${CMAKE_CURRENT_SOURCE_DIR}/cases_mpi/*.pf")
     set(caseMpiTestLibs baselib gamlib remixlib voltlib basempilib gammpilib tgiclib)
-    add_pfunit_ctest (caseMpiTests TEST_SOURCES ${caseMpiTestFiles} LINK_LIBRARIES ${caseMpiTestLibs} MAX_PES 64)
+    add_pfunit_ctest (caseMpiTests TEST_SOURCES ${caseMpiTestFiles} OTHER_SOURCES ${helperFiles} ${helperFilesMpi} LINK_LIBRARIES ${caseMpiTestLibs} MAX_PES 64)
     add_dependencies(caseMpiTests ${caseMpiTestLibs})
 
     file(GLOB baseMpiTestFiles "${CMAKE_CURRENT_SOURCE_DIR}/base_mpi/*.pf")
     set(baseMpiTestLibs baselib basempilib)
-    add_pfunit_ctest (baseMpiTests TEST_SOURCES ${baseMpiTestFiles} LINK_LIBRARIES ${baseMpiTestLibs} MAX_PES 64)
+    add_pfunit_ctest (baseMpiTests TEST_SOURCES ${baseMpiTestFiles} OTHER_SOURCES ${helperFiles} ${helperFilesMpi} LINK_LIBRARIES ${baseMpiTestLibs} MAX_PES 64)
     add_dependencies(baseMpiTests ${baseMpiTestLibs})
 
     file(GLOB gamMpiTestFiles "${CMAKE_CURRENT_SOURCE_DIR}/gamera_mpi/*.pf")
     set(gamMpiTestLibs baselib gamlib basempilib gammpilib tgiclib)
-    add_pfunit_ctest (gamMpiTests TEST_SOURCES ${gamMpiTestFiles} LINK_LIBRARIES ${gamMpiTestLibs} MAX_PES 64)
+    add_pfunit_ctest (gamMpiTests TEST_SOURCES ${gamMpiTestFiles} OTHER_SOURCES ${helperFiles} ${helperFilesMpi} LINK_LIBRARIES ${gamMpiTestLibs} MAX_PES 64)
     add_dependencies(gamMpiTests ${gamMpiTestLibs})
 
     file(GLOB voltMpiTestFiles "${CMAKE_CURRENT_SOURCE_DIR}/voltron_mpi/*.pf")
     set(voltMpiTestLibs baselib gamlib basempilib gammpilib voltlib voltmpilib remixlib tgiclib)
-    add_pfunit_ctest (voltMpiTests TEST_SOURCES ${voltMpiTestFiles} LINK_LIBRARIES ${voltMpiTestLibs} MAX_PES 17)
+    add_pfunit_ctest (voltMpiTests TEST_SOURCES ${voltMpiTestFiles} OTHER_SOURCES ${helperFiles} ${helperFilesMpi} LINK_LIBRARIES ${voltMpiTestLibs} MAX_PES 17)
     add_dependencies(voltMpiTests ${voltMpiTestLibs})
 
 endif()
@@ -85,12 +91,13 @@ if(ENABLE_MPI)
     set(allTestFiles ${caseTestFiles} ${gamTestFiles} ${mixTestFiles} ${voltTestFiles} ${caseMpiTestFiles} ${baseMpiTestFiles} ${gamMpiTestFiles} ${voltMpiTestFiles})
     set(allTestLibs baselib gamlib remixlib voltlib basempilib gammpilib voltmpilib tgiclib)
     set(allTestBins caseTests gamTests mixTests voltTests gamMpiTests baseMpiTests caseMpiTests voltMpiTests)
+    add_pfunit_ctest (allTests TEST_SOURCES ${allTestFiles} OTHER_SOURCES ${helperFiles} ${helperFilesMpi} LINK_LIBRARIES ${allTestLibs} MAX_PES 64)
 else()
     # exclude MPI tests
     set(allTestFiles ${caseTestFiles} ${gamTestFiles} ${mixTestFiles} ${voltTestFiles})
     set(allTestLibs baselib gamlib remixlib voltlib tgiclib)
     set(allTestBins caseTests gamTests mixTests voltTests)
+    add_pfunit_ctest (allTests TEST_SOURCES ${allTestFiles} OTHER_SOURCES ${helperFiles} LINK_LIBRARIES ${allTestLibs} MAX_PES 1)
 endif()
-add_pfunit_ctest (allTests TEST_SOURCES ${allTestFiles} LINK_LIBRARIES ${allTestLibs} MAX_PES 64)
 add_dependencies(allTests CopyInputs CopyGrids ${allTestBins} ${allTestLibs})
 

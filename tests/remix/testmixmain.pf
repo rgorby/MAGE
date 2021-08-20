@@ -1,5 +1,5 @@
 module testmixmain
-  use pfUnit
+  use testHelper
   use mixmain
   use mixtypes
   use voltapp
