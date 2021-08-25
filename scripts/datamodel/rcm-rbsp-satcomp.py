@@ -215,10 +215,9 @@ if __name__=="__main__":
 		pltmjd = tkldata['MJD'][n]
 		
 		scRCM.plt_ODF_Comp(AxSC, AxRCM, AxCB_odf, consolData, mjd=pltmjd, norm=odfnorm, cmapName=cmap_odf)
-		#scRCM.plt_tl(AxTL, tkldata, AxCB=AxCB_press, mjd=pltmjd, norm=pressnorm, cmapName=cmap_press)
-		#scRCM.plt_tl(AxTL, tkldata, AxCB=AxCB_press, mjd=pltmjd, norm=parpressnorm, cmapName=cmap_press)
-		#scRCM.plt_tkl(AxTKL, tkldata, mjd=pltmjd, norm=odfnorm, cmapName=cmap_odf)
-		#scRCM.plt_tkl(AxTKL, tkldata, mjd=pltmjd, norm=parpressnorm, cmapName=cmap_press)
+		
+		scRCM.plt_tl(AxTL, tkldata, AxCB=AxCB_press, mjd=pltmjd, norm=pressnorm, cmapName=cmap_press)
+
 		if tklv == 'odf':
 			scRCM.plt_tkl(AxTKL, tkldata, vName=tklv, mjd=pltmjd, norm=odfnorm, cmapName=cmap_odf, satTrackData=rcmTrack)
 		elif tklv == 'press':
