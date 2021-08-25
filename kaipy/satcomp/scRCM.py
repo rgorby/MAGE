@@ -803,12 +803,16 @@ def plt_tl(AxTL, tkldata, AxCB=None, mjd=None,cmapName='CMRmap',norm=None):
 		yMin, yMax = AxTL.get_ylim()
 		AxTL.plot([lineUT, lineUT], [yMin, yMax], '-k')
 
-def plt_tkl(AxTKL, tkldata, AxCB=None, mjd=None, cmapName='CMRmap', norm=None):
+def plt_tkl(AxTKL, tkldata, AxCB=None, mjd=None, cmapName='CMRmap', vName='odf', norm=None, satTrackData=None):
 	"""If 'mjd' is not provided, make all plots that are vs. time
 	   If 'mjd' is provided:
 	     If we were also given a populated AxTL and AxCB, update with an mjd scroll line
 	     Also generate AxTKL for this mjd step
 	"""
+	if vName != 'odf' and vName != 'press':
+		print("scRCM.plt_tkl: Unknown vName, assuming 'odf'")
+		vName = 'odf'
+
 	if AxCB is not None:
 		print("AxCB label: '{}'".format(AxCB.get_label))
 	doPopulateCB = AxCB is not None and AxCB.get_label() == ''
@@ -822,7 +826,10 @@ def plt_tkl(AxTKL, tkldata, AxCB=None, mjd=None, cmapName='CMRmap', norm=None):
 		norm = genVarNorm(press_tl, doLog=True)
 
 	if doPopulateCB:
-		kv.genCB(AxCB, norm, r'Intensity [$cm^{-2} sr^{-1} s^{-1} keV^{-1}$]', cM=cmapName, doVert=False)
+		if vName == 'odf':
+			kv.genCB(AxCB, norm, r'Intensity [$cm^{-2} sr^{-1} s^{-1} keV^{-1}$]', cM=cmapName, doVert=False)
+		elif vName == 'press':
+			kv.genCB(AxCB, norm, r'Pressure [nPa]', cM=cmapName, doVert=False)
 
 	#L vs. k for a specific mjd
 	if mjd is not None:
@@ -831,12 +838,24 @@ def plt_tkl(AxTKL, tkldata, AxCB=None, mjd=None, cmapName='CMRmap', norm=None):
 			return
 		iMJD = np.abs(tkldata['MJD'] - mjd).argmin()
 
-		#klslice = tkldata['press_tkl'][iMJD,:,:]
-		klslice = tkldata['odf_tkl'][iMJD,:,:]
-		AxTKL.pcolormesh(k_arr*1E-3, L_arr, np.transpose(klslice), norm=norm, shading='nearest', cmap=cmapName)
-		#AxTKL.pcolormesh(k_arr, L_arr, np.transpose(klslice), shading='nearest', cmap=cmapName)
+		if vName == 'odf':
+			klslice = tkldata['odf_tkl'][iMJD,:,:]
+			AxTKL.pcolormesh(k_arr, L_arr, np.transpose(klslice), shading='nearest', cmap=cmapName)
+		elif vName == 'press':
+			klslice = tkldata['press_tkl'][iMJD,:,:]
+			AxTKL.pcolormesh(k_arr*1E-3, L_arr, np.transpose(klslice), norm=norm, shading='nearest', cmap=cmapName)
+		
 		AxTKL.set_xlabel('Energy [keV]')
 		AxTKL.set_ylabel('L shell')
+
+		if satTrackData is not None:
+			#Draw line to indicate spacecraft L value
+			req_sc = satTrackData['Req']
+			scL = req_sc[iMJD]
+			if scL > 1E-8:
+				xBounds = np.asarray(AxTKL.get_xlim())
+				AxTKL.plot(xBounds, [scL, scL], 'r-')
+
 
 def plt_rcm_eqlatlon(AxLatlon, AxEq, rcmData, satTrackData, AxCB=None, mjd=None, norm=None, cmapName='viridis'):
 	
