@@ -17,9 +17,6 @@ def test_getCdasData():
 	print("Testing if all data in scId dict is retrievable from cdasws")
 
 	scIdDict = scutils.getScIds()
-	#Defaults
-	t0d, t1d = ['2013-03-18T05:00:00Z','2013-03-19T05:00:00Z']
-	#t0d, t1d = ['2010-12-30T00:00:00Z','2010-12-31T00:00:00Z']
 
 	for scName in scIdDict.keys():
 		print(" " + scName)

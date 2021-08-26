@@ -102,20 +102,23 @@ def getCdasDsetInterval(dsName):
 	tInt = data[0]['TimeInterval']
 	return tInt['Start'], tInt['End']
 
-def getCdasData(dsName, dsVars, t0, t1, epochStr="Epoch", doVerbose=False):
-	"""Pull dataset from CdasWs
-		dsName: dataset name
-		dsVars: list of variable (strings) from dataset
-		t0: start time
-		t1: end time
-		epochStr: name of Epoch variable in dataset (usually "Epoch", but not always)
+def pullVar(cdaObsId,cdaDataId,t0,t1,deltaT=60,epochStr="Epoch",doVerbose=False):
+	"""Pulls info from cdaweb
+		cdaObsId  : [str] Dataset name
+		cdaDataId : [str or list of strs] variables from dataset
+		t0        : [str] start time, formatted as '%Y-%m-%dT%H:%M:%S.%f'
+		t1        : [str] end time, formatted as '%Y-%m-%dT%H:%M:%S.%f'
+		deltaT    : [float] time cadence [sec], used when interping through time with no data
+		epochStr  : [str] name of Epoch var in dataset. Used when needing to build day-by-day
+		doVerbose : [bool] Helpful for debugging/diagnostics
 	"""
 
-	binData={'interval':1, 'interpolateMissingValues' : True}
+	binData={'interval' : deltaT, 
+			 'interpolateMissingValues' : True,
+			 'sigmaMultipler' : 4}
 
 	cdas = CdasWs()
-
-	status,data = cdas.get_data(dsName, dsVars, t0, t1, binData=binData)
+	status,data =  cdas.get_data(cdaObsId,cdaDataId,t0,t1,binData=binData)
 
 	if status['http']['status_code'] != 200 or data is None:
 		# Handle the case where CdasWs just doesn't work if you give it variables in arg 2
@@ -137,7 +140,7 @@ def getCdasData(dsName, dsVars, t0, t1, epochStr="Epoch", doVerbose=False):
 			tstamp_arr.append((t0dt + datetime.timedelta(days=i)).strftime("%Y-%m-%dT%H:%M:%SZ"))
 		
 		#Get first day
-		status, data = cdas.get_data(dsName, [], tstamp_arr[0], tstamp_arr[1], binData=binData)
+		status, data = cdas.get_data(cdaObsId, [], tstamp_arr[0], tstamp_arr[1], binData=binData)
 		if doVerbose: print("Pulling " + t0)
 		
 		if status['http']['status_code'] != 200:
@@ -146,6 +149,9 @@ def getCdasData(dsName, dsVars, t0, t1, epochStr="Epoch", doVerbose=False):
 			return {}
 		if data is None:
 			if doVerbose: print("Cdas responded with 200 but returned no data")
+			return {}
+		if numDays > 1 and epochStr not in data:
+			if doVerbose: print(epochStr + " not in dataset, can't build day-by-day")
 			return {}
 		
 		#Figure out which axes are the epoch axis in each dataset so we can concatenate along it
@@ -162,7 +168,7 @@ def getCdasData(dsName, dsVars, t0, t1, epochStr="Epoch", doVerbose=False):
 		#Then append rest of data accordingly
 		for i in range(1,numDays):
 			if doVerbose: print("Pulling " + str(tstamp_arr[i]))
-			status, newdata = cdas.get_data(dsName, [], tstamp_arr[i], tstamp_arr[i], binData=binData)
+			status, newdata = cdas.get_data(cdaObsId, [], tstamp_arr[i], tstamp_arr[i], binData=binData)
 			for k in range(len(dk)):
 				if cataxis[k] == -1:
 					continue
@@ -172,7 +178,68 @@ def getCdasData(dsName, dsVars, t0, t1, epochStr="Epoch", doVerbose=False):
 	else:
 		if doVerbose: print("Got data in one pull")
 
-	return data
+
+	return status,data
+
+def addVar(mydata,scDic,varname,t0,t1,deltaT):
+	#print(scDic,varname,idname,dataname,scDic[idname])
+	if scDic[varname]['Id'] is not None:
+		status,data = pullVar(scDic[varname]['Id'],scDic[varname]['Data'],t0,t1,deltaT)
+		#print(status)
+		if status['http']['status_code'] == 200:
+			mydata[varname] = dm.dmarray(data[scDic[varname]['Data']],
+										 attrs=data[scDic[varname]['Data']].attrs)
+			#mydata.tree(attrs=True)
+	else:
+		#Mimic the cdasws return code for case when id isn't provided
+		status = {'http': {'status_code': 404}}
+	return status
+
+def getSatData(scDic,t0,t1,deltaT):
+	#First get the empheris data if it doesn't exist return the failed status code and
+	#go no further
+	status,data = pullVar(scDic['Ephem']['Id'],scDic['Ephem']['Data'],
+						  t0,t1,deltaT)
+	if status['http']['status_code'] != 200:
+		print('Unable to get data for ', scDic['Ephem']['Id'])
+		return status,data
+	else:
+		#data.tree(attrs=True)
+		mydata = dm.SpaceData(attrs={'Satellite':data.attrs['Source_name']})
+		if 'Epoch_bin' in data.keys():
+			#print('Using Epoch_bin')
+			mytime = data['Epoch_bin']
+		elif 'Epoch' in data.keys():
+			#print('Using Epoch')
+			mytime = data['Epoch']
+		elif ([key for key in data.keys() if key.endswith('_state_epoch')]):
+			mytime = data[[key for key in data.keys()
+			if key.endswith('_state_epoch')][0]]
+		else:
+			print('Unable to determine time type')
+			status = {'http': {'status_code': 404}}
+			return status,data
+		mydata['Epoch_bin'] = dm.dmarray(mytime,
+										 attrs=mytime.attrs)
+		mydata['Ephemeris'] = dm.dmarray(data[scDic['Ephem']['Data']],
+										 attrs= data[scDic['Ephem']['Data']].attrs)
+		keys = ['MagneticField','Velocity','Density','Pressure']
+		for key in keys:
+			if key in scDic:
+				status1 = addVar(mydata,scDic,key,t0,t1,deltaT)
+
+		#Add any metavar since they might be needed for unit/label determination
+		search_key = 'metavar'
+		res = [key for key,val in data.items() if search_key in key]
+		for name in res:
+			try:
+				len(mydata[name])
+			except:
+				mydata[name] = dm.dmarray([data[name]],attrs=data[name].attrs)
+			else:
+				mydata[name] = dm.dmarray(data[name],attrs=data[name].attrs)
+
+	return status,mydata
 
 
 #======
@@ -248,74 +315,9 @@ def genSCXML(fdir,ftag,
 	return root
 
 
-def pullVar(cdaObsId,cdaDataId,t0,t1,deltaT):
-	cdas = CdasWs()
-	status,data =  cdas.get_data(cdaObsId,cdaDataId,t0,t1,
-								 binData={
-									 'interval': deltaT,
-									 'interpolateMissingValues': True,
-									 'sigmaMultipler': 4})
-	return status,data
-
-def addVar(mydata,scDic,varname,t0,t1,deltaT):
-	#print(scDic,varname,idname,dataname,scDic[idname])
-	if scDic[varname]['Id'] is not None:
-		status,data = pullVar(scDic[varname]['Id'],scDic[varname]['Data'],t0,t1,deltaT)
-		#print(status)
-		if status['http']['status_code'] == 200:
-			mydata[varname] = dm.dmarray(data[scDic[varname]['Data']],
-										 attrs=data[scDic[varname]['Data']].attrs)
-			#mydata.tree(attrs=True)
-	else:
-		#Mimic the cdasws return code for case when id isn't provided
-		status = {'http': {'status_code': 404}}
-	return status
-
-def getSatData(scDic,t0,t1,deltaT):
-	#First get the empheris data if it doesn't exist return the failed status code and
-	#go no further
-	status,data = pullVar(scDic['Ephem']['Id'],scDic['Ephem']['Data'],
-						  t0,t1,deltaT)
-	if status['http']['status_code'] != 200:
-		print('Unable to get data for ', scDic['Ephem']['Id'])
-		return status,data
-	else:
-		#data.tree(attrs=True)
-		mydata = dm.SpaceData(attrs={'Satellite':data.attrs['Source_name']})
-		if 'Epoch_bin' in data.keys():
-			#print('Using Epoch_bin')
-			mytime = data['Epoch_bin']
-		elif 'Epoch' in data.keys():
-			#print('Using Epoch')
-			mytime = data['Epoch']
-		elif ([key for key in data.keys() if key.endswith('_state_epoch')]):
-			mytime = data[[key for key in data.keys()
-			if key.endswith('_state_epoch')][0]]
-		else:
-			print('Unable to determine time type')
-			status = {'http': {'status_code': 404}}
-			return status,data
-		mydata['Epoch_bin'] = dm.dmarray(mytime,
-										 attrs=mytime.attrs)
-		mydata['Ephemeris'] = dm.dmarray(data[scDic['Ephem']['Data']],
-										 attrs= data[scDic['Ephem']['Data']].attrs)
-		keys = ['MagneticField','Velocity','Density','Pressure']
-		for key in keys:
-			if key in scDic:
-				status1 = addVar(mydata,scDic,key,t0,t1,deltaT)
-
-		#Add any metavar since they might be needed for unit/label determination
-		search_key = 'metavar'
-		res = [key for key,val in data.items() if search_key in key]
-		for name in res:
-			try:
-				len(mydata[name])
-			except:
-				mydata[name] = dm.dmarray([data[name]],attrs=data[name].attrs)
-			else:
-				mydata[name] = dm.dmarray(data[name],attrs=data[name].attrs)
-
-	return status,mydata
+#======
+#SCTrack
+#======
 
 def convertGameraVec(x,y,z,ut,fromSys,fromType,toSys,toType):
 	invec = Coords(np.column_stack((x,y,z)),fromSys,fromType)

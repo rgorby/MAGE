@@ -31,6 +31,8 @@ if __name__=="__main__":
 
 	jdir = "jstore"
 
+	pIDs = ['cdas','times','track','tkl']
+
 	MainS = """Pulls RBSP data and compares it to synthetic RBSP intensity measurementsfrom the simulation, 
 	calculated from extracted RBSP trajectory and PSD files.
 	"""
@@ -48,7 +50,7 @@ if __name__=="__main__":
 	parser.add_argument('-plotTag',type=str,default="",help="Extra tag for each plot")
 	parser.add_argument('-vidOut',type=str,default=vidOut,help="Output directory (relative to -d) for video images (default: %(default)s)")
 	parser.add_argument('-tklv', type=str,choices=tklV_choices,default=tklV_choices[0],help="Variable to plot in Lvsk panel (default: %(default)s)")
-
+	parser.add_argument('-forceCalc',type=str,metavar=pIDs,default="",help="Comma-separated process IDs to force recalculation for given process")
 	#Finalize parsing
 	args  = parser.parse_args()
 	fdir  = args.d
@@ -63,6 +65,7 @@ if __name__=="__main__":
 	plotTag = args.plotTag
 	vidOut = args.vidOut
 	tklv = args.tklv
+	fcStr = args.forceCalc
 
 	#Extract RBSP identifier (A or B)
 	scTag = trtag.split('RBSP')[1][:2]
@@ -70,6 +73,11 @@ if __name__=="__main__":
 		scTag = trtag.split('-')[1][0]
 	else:
 		scTag = scTag[0]
+
+	if fcStr == "":
+		fcIDs = []
+	else:
+		fcIDs = fcStr.split(',')
 
 
 	#======
@@ -107,20 +115,20 @@ if __name__=="__main__":
 	t1r = ut[-1].strftime("%Y-%m-%dT%H:%M:%SZ")
 
 	print("Testing RBSPICE Dataset retreival")
-	ephData, scData = scRCM.getSCOmniDiffFlux(scId, vTag, t0r, t1r, jdir=jdir)
+	ephData, scData = scRCM.getSCOmniDiffFlux(scId, vTag, t0r, t1r, jdir=jdir,forceCalc=('cdas' in fcIDs))
 
 	print("\n\nTesting time grabbing")
-	rcmTimes = scRCM.getRCMtimes(rcm_fname,mhdrcm_fname,jdir=jdir)
+	rcmTimes = scRCM.getRCMtimes(rcm_fname,mhdrcm_fname,jdir=jdir,forceCalc=('times' in fcIDs))
 
 	print("\n\nTesting RCM track extraction")
-	rcmTrack = scRCM.getRCM_scTrack(trackf5, rcm_fname, rcmTimes, jdir=jdir, scName="RBSP-B")
+	rcmTrack = scRCM.getRCM_scTrack(trackf5, rcm_fname, rcmTimes, jdir=jdir, forceCalc=('track' in fcIDs), scName="RBSP-B")
 
 	print("\n\nTesting grid consolidation")
 	eGrid = np.logspace(np.log10(40), np.log10(6E2), 200, endpoint=True)
 	consolData = scRCM.consolidateODFs(scData, rcmTrack, eGrid=eGrid)
 
 	print("\n\nTesting tkl calculation")
-	tkldata = scRCM.getIntensitiesVsL('msphere.rcm.h5','msphere.mhdrcm.h5',tStart, tEnd, tStride, jdir=jdir)
+	tkldata = scRCM.getIntensitiesVsL('msphere.rcm.h5','msphere.mhdrcm.h5',tStart, tEnd, tStride, jdir=jdir, forceCalc=('tkl' in fcIDs))
 	#tkldata = scRCM.getIntensitiesVsL('msphere.rcm.h5','msphere.mhdrcm.h5',1201, 1220)
 
 	#Works but very verbose
@@ -215,10 +223,9 @@ if __name__=="__main__":
 		pltmjd = tkldata['MJD'][n]
 		
 		scRCM.plt_ODF_Comp(AxSC, AxRCM, AxCB_odf, consolData, mjd=pltmjd, norm=odfnorm, cmapName=cmap_odf)
-		#scRCM.plt_tl(AxTL, tkldata, AxCB=AxCB_press, mjd=pltmjd, norm=pressnorm, cmapName=cmap_press)
-		#scRCM.plt_tl(AxTL, tkldata, AxCB=AxCB_press, mjd=pltmjd, norm=parpressnorm, cmapName=cmap_press)
-		#scRCM.plt_tkl(AxTKL, tkldata, mjd=pltmjd, norm=odfnorm, cmapName=cmap_odf)
-		#scRCM.plt_tkl(AxTKL, tkldata, mjd=pltmjd, norm=parpressnorm, cmapName=cmap_press)
+		
+		scRCM.plt_tl(AxTL, tkldata, AxCB=AxCB_press, mjd=pltmjd, norm=pressnorm, cmapName=cmap_press)
+
 		if tklv == 'odf':
 			scRCM.plt_tkl(AxTKL, tkldata, vName=tklv, mjd=pltmjd, norm=odfnorm, cmapName=cmap_odf, satTrackData=rcmTrack)
 		elif tklv == 'press':
