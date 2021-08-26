@@ -214,15 +214,18 @@
 		},
 		"Density" : {
 			"Id" : "THA_L2_MOM",
-			"Data" : "tha_peim_density"
+			"Data" : "tha_peim_density",
+			"EpochStr" : "tha_peim_epoch"
 		},
 		"Pressure" : {
 			"Id" : "THA_L2_MOM",
-			"Data" : "tha_peim_ptot"
+			"Data" : "tha_peim_ptot",
+			"EpochStr" : "tha_peim_epoch"
 		},
 		"Velocity" : {
 			"Id" : "THA_L2_MOM",
 			"Data" : "tha_peim_velocity_gsm",
+			"EpochStr" : "tha_peim_epoch",
 			"CoordSys" : "GSM"
 		}
 	},
