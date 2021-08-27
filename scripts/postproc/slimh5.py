@@ -6,15 +6,24 @@ import os
 import h5py
 import numpy as np
 
+def genMPIStr(di,dj,dk,i,j,k,n_pad=4):
+    inpList = [di, dj, dk, i, j, k]
+    sList = ["{:0>{n}d}".format(s, n=n_pad) for s in inpList]
+    mpiStr = '_'.join(sList)
+    return mpiStr
+
 def cntSteps(fname):
     with h5py.File(fname,'r') as hf:
+        """
         grps = hf.values()
         grpNames = [str(grp.name) for grp in grps]
         #Steps = [stp if "/Step#" in stp for stp in grpNames]
         Steps = [stp for stp in grpNames if "/Step#" in stp]
         nSteps = len(Steps)
-
-        sIds = np.array([str.split(s,"#")[-1] for s in Steps],dtype=np.int)
+        """
+        #sIds = np.array([str.split(s,"#")[-1] for s in Steps],dtype=np.int)
+        sIds = np.array([str.split(s,"#")[-1] for s in hf.keys() if "Step#" in s],dtype=np.int)
+        nSteps = len(sIds)
     return nSteps,sIds
 
 def createfile(iH5,fOut):
@@ -32,10 +41,14 @@ def createfile(iH5,fOut):
         if "Step" not in sQ:
             oH5.create_dataset(sQ,data=iH5[sQ])
     return oH5
+
+    
 if __name__ == "__main__":
     #Set defaults
     ns = 0
     ne = -1 #Proxy for last entry
+
+    doMPI = False
     parser = argparse.ArgumentParser(description="Slims down an HDF output file")
 
     parser.add_argument('inH5',metavar='Fat.h5',help="Filename of input fat HDF5 file")
@@ -44,6 +57,7 @@ if __name__ == "__main__":
     parser.add_argument('-e',type=int,metavar="end",default=-1,help="Ending slice (default: N)")
     parser.add_argument('-sk',type=int,metavar="nsk",default=1,help="Stride (default: %(default)s)")
     parser.add_argument('-sf',type=int,metavar="nsf",default=250,help="File write stride (default: %(default)s)")
+    parser.add_argument('-mpi',type=str,metavar="ijk",default="", help="Comma-separated mpi dimensions (example: '4,4,1', default: noMPI)")
     parser.add_argument('--p',choices=('True','False'))
     
     #Finalize parsing
@@ -54,49 +68,81 @@ if __name__ == "__main__":
     Nsk = args.sk
     Nsf = args.sf
     fIn = args.inH5
-    fOut = str(Ns)+'-'+str(Nsf)+args.outH5
+    outTag = args.outH5
     p = args.p == 'True'
-    
-    print(p)
+    mpiIn = args.mpi
 
     N,sIds = cntSteps(fIn)
     if (Ne == -1):
         Ne = N
+    if Nsf == -1:
+        Nsf = Ne
 
-    #Open both files, get to work
-    iH5 = h5py.File(fIn,'r')
-    # oH5 = h5py.File(fOut,'w')
-    oH5=createfile(iH5,fOut)
+    #Designed for 3-dim gamera mpi decomp
+    if mpiIn != "":
+        doMPI = True
+        spl = [int(x) for x in mpiIn.split(',')]
+        if len(spl) != 3:
+            print("Need 3 dimensions for MPI decomp, try again")
+            quit()
+        mi, mj, mk = spl
+        runTag = fIn.split('_')[0]
+        endTag = '.'.join(fIn.split('.')[1:]) #Exclude anyhting before the first '.'
+        inFiles = []
+        outFiles = []
+        for i in range(mi):
+            for j in range(mj):
+                for k in range(mk):
+                    mpiStr = genMPIStr(mi,mj,mk,i,j,k)
+                    fName = runTag+"_"+mpiStr+'.'+endTag
+                    if os.path.exists(fName):
+                        inFiles.append(fName)
+                        outFiles.append("{}-{}_{}_{}.{}".format(Ns,Nsf,runTag,mpiStr,outTag))
+        print(inFiles)
+        print(outFiles)
+        
+    else:
+        inFiles = [fIn]
+        outFiles = [str(Ns)+'-'+str(Nsf)+outTag]
 
+    for i in range(len(inFiles)):
+        fOut = str(Ns)+'-'+str(Nsf)+outTag
 
-#Now loop through steps and do same thing
-    nOut = 0
-    for n in range(Ns,Ne,Nsk):
-        if(p):nOut = n
-        gIn = "Step#%d"%(n)
-        gOut = "Step#%d"%(nOut)
-        if(not p): nOut = nOut+1 # use the same group numbers as originally in file - frt
+        #Open both files, get to work
+        iH5 = h5py.File(inFiles[i],'r')
+        oH5=createfile(iH5,outFiles[i])
 
-        print("Copying %s to %s"%(gIn,gOut))
+        #Now loop through steps and do same thing
+        nOut = 0
+        for n in range(Ns,Ne,Nsk):
+            if(p):nOut = n
+            gIn = "Step#%d"%(n)
+            gOut = "Step#%d"%(nOut)
+            if(not p): nOut = nOut+1 # use the same group numbers as originally in file - frt
 
-        oH5.create_group(gOut)
-        #Root atts
-        for k in iH5[gIn].attrs.keys():
-            aStr = str(k)
-            oH5[gOut].attrs.create(k,iH5[gIn].attrs[aStr])
-        #Root vars
-        for Q in iH5[gIn].keys():
-            sQ = str(Q)
-            #print("\tCopying %s"%(sQ))
-            oH5[gOut].create_dataset(sQ,data=iH5[gIn][sQ])
-    # make a new file every Nsf steps
-        if(n%Nsf==0):
-            oH5.close()
-            fOut = str(n)+'-'+str(Nsf+n)+args.outH5
-            oH5=createfile(iH5,fOut)
+            print("Copying %s to %s"%(gIn,gOut))
 
-    #Close up
-    iH5.close()
-    oH5.close()
+            oH5.create_group(gOut)
+            #Root atts
+            for k in iH5[gIn].attrs.keys():
+                aStr = str(k)
+                oH5[gOut].attrs.create(k,iH5[gIn].attrs[aStr])
+            #Root vars
+            for Q in iH5[gIn].keys():
+                sQ = str(Q)
+                #print("\tCopying %s"%(sQ))
+                oH5[gOut].create_dataset(sQ,data=iH5[gIn][sQ])
+        # make a new file every Nsf steps
+            if(n%Nsf==0 and n != 0):
+                oH5.close()
+                if not doMPI:
+                    fOut = str(n)+'-'+str(Nsf+n)+args.outH5
+                else:
+                    fOut = "{}-{}_{}_{}.{}".format(n,Nsf+n,runTag,mpiStr,outTag)
+                oH5=createfile(iH5,fOut)
+
+        #Close up
+        iH5.close()
+        oH5.close()
 
 

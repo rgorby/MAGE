@@ -27,7 +27,11 @@ if __name__=="__main__":
 	tStride = 10
 	vidOut = "vid_rcm-rbsp-comp"
 
+	tklV_choices = ['odf', 'press']
+
 	jdir = "jstore"
+
+	pIDs = ['cdas','times','track','tkl']
 
 	MainS = """Pulls RBSP data and compares it to synthetic RBSP intensity measurementsfrom the simulation, 
 	calculated from extracted RBSP trajectory and PSD files.
@@ -37,7 +41,7 @@ if __name__=="__main__":
 	parser.add_argument('-d',type=str,metavar="directory",default=fdir,help="Directory to read from (default: %(default)s)")
 	parser.add_argument('-id',type=str,metavar="runid",default=ftag,help="RunID of model data (default: %(default)s)")
 	parser.add_argument('-trj',type=str,metavar="scTrk",default=trtag,help="spacecraft trajectory file (default: %(default)s)")
-	parser.add_argument('-jdir',type=str,metavar="directory",default=jdir,help="Directory to store and find json files (default: %(default)s")
+	parser.add_argument('-jdir',type=str,metavar="directory",default=jdir,help="Directory to store and find json files (default: %(default)s)")
 	parser.add_argument('-scId', type=str,choices=scRCM.supportedSats[:],default="RBSPB",help="Sat id (default: %(default)s)")
 	parser.add_argument('-v', type=str,choices=scRCM.supportedDsets[:],default="Hydrogen_omniflux_RBSPICE",help="Dataset (default: %(default)s)")
 	parser.add_argument('-tStart',type=int, default=tStart,help="Starting time step for L vs. E calculation (default: First step in RCM data)")
@@ -45,7 +49,8 @@ if __name__=="__main__":
 	parser.add_argument('-tStride',type=int, default=tStride,help="Time step stride for L vs. E calculation (default: %(default)s)")
 	parser.add_argument('-plotTag',type=str,default="",help="Extra tag for each plot")
 	parser.add_argument('-vidOut',type=str,default=vidOut,help="Output directory (relative to -d) for video images (default: %(default)s)")
-
+	parser.add_argument('-tklv', type=str,choices=tklV_choices,default=tklV_choices[0],help="Variable to plot in Lvsk panel (default: %(default)s)")
+	parser.add_argument('-forceCalc',type=str,metavar=pIDs,default="",help="Comma-separated process IDs to force recalculation for given process")
 	#Finalize parsing
 	args  = parser.parse_args()
 	fdir  = args.d
@@ -59,6 +64,8 @@ if __name__=="__main__":
 	tStride = args.tStride
 	plotTag = args.plotTag
 	vidOut = args.vidOut
+	tklv = args.tklv
+	fcStr = args.forceCalc
 
 	#Extract RBSP identifier (A or B)
 	scTag = trtag.split('RBSP')[1][:2]
@@ -66,6 +73,11 @@ if __name__=="__main__":
 		scTag = trtag.split('-')[1][0]
 	else:
 		scTag = scTag[0]
+
+	if fcStr == "":
+		fcIDs = []
+	else:
+		fcIDs = fcStr.split(',')
 
 
 	#======
@@ -103,20 +115,20 @@ if __name__=="__main__":
 	t1r = ut[-1].strftime("%Y-%m-%dT%H:%M:%SZ")
 
 	print("Testing RBSPICE Dataset retreival")
-	ephData, scData = scRCM.getSCOmniDiffFlux(scId, vTag, t0r, t1r, jdir=jdir)
+	ephData, scData = scRCM.getSCOmniDiffFlux(scId, vTag, t0r, t1r, jdir=jdir,forceCalc=('cdas' in fcIDs))
 
 	print("\n\nTesting time grabbing")
-	rcmTimes = scRCM.getRCMtimes(rcm_fname,mhdrcm_fname,jdir=jdir)
+	rcmTimes = scRCM.getRCMtimes(rcm_fname,mhdrcm_fname,jdir=jdir,forceCalc=('times' in fcIDs))
 
 	print("\n\nTesting RCM track extraction")
-	rcmTrack = scRCM.getRCM_scTrack(trackf5, rcm_fname, rcmTimes, jdir=jdir, scName="RBSP-B")
+	rcmTrack = scRCM.getRCM_scTrack(trackf5, rcm_fname, rcmTimes, jdir=jdir, forceCalc=('track' in fcIDs), scName="RBSP-B")
 
 	print("\n\nTesting grid consolidation")
 	eGrid = np.logspace(np.log10(40), np.log10(6E2), 200, endpoint=True)
 	consolData = scRCM.consolidateODFs(scData, rcmTrack, eGrid=eGrid)
 
 	print("\n\nTesting tkl calculation")
-	tkldata = scRCM.getIntensitiesVsL('msphere.rcm.h5','msphere.mhdrcm.h5',tStart, tEnd, tStride, jdir=jdir)
+	tkldata = scRCM.getIntensitiesVsL('msphere.rcm.h5','msphere.mhdrcm.h5',tStart, tEnd, tStride, jdir=jdir, forceCalc=('tkl' in fcIDs))
 	#tkldata = scRCM.getIntensitiesVsL('msphere.rcm.h5','msphere.mhdrcm.h5',1201, 1220)
 
 	#Works but very verbose
@@ -128,6 +140,7 @@ if __name__=="__main__":
 	gs = gridspec.GridSpec(8,16, wspace=0.8, hspace=0.6)
 	cmap_odf = "CMRmap"
 	cmap_press = 'viridis'
+	cmap_parpress = 'gnuplot2'
 	cmap_rcm = "CMRmap"
 	
 	AxCB_odf = fig.add_subplot(gs[:,0])
@@ -136,17 +149,24 @@ if __name__=="__main__":
 
 	AxTL = fig.add_subplot(gs[0:2, 8:12])
 	AxTKL = fig.add_subplot(gs[2:7,8:12])
-	AxCB_press  = fig.add_subplot(gs[7,8:16])
+	
 
 	AxRCMLatLon = fig.add_subplot(gs[:4, 12:16], projection='polar')
 	AxRCMEq = fig.add_subplot(gs[4:7, 12:16])
-	#AxCB_rcm = fig.add_subplot(gs[:, 15])
+	
+	#If tkl plot will match Diff Flux colorbar, let it use it and make pressure cbar span tkl and eqlatlon plots
+	if tklv == 'odf':
+		AxCB_press  = fig.add_subplot(gs[7,8:16])
+	elif tklv == 'press':
+		#TKL will actually show partial pressure, which needs its own cbar
+		AxCB_parpress = fig.add_subplot(gs[7,8:12])
+		#Original colorbar only spans eqlatlon plots
+		AxCB_press  = fig.add_subplot(gs[7,12:16])
 
 	odfnorm = kv.genNorm(10E3, 5E6, doLog=True)
 	ut_tkl = kT.MJD2UT(tkldata['MJD'])
-	#pressnorm = kv.genNorm(1E-2, 1E2, doLog=True)
-	pressnorm = kv.genNorm(1E-2, 150, doLog=False)
-
+	pressnorm = kv.genNorm(1E-2, 25, doLog=False)
+	parpressnorm = kv.genNorm(1e-3, 1, doLog=True)
 	#Movie time
 	outdir = os.path.join(fdir, vidOut)
 	kh5.CheckDirOrMake(outdir)
@@ -164,9 +184,15 @@ if __name__=="__main__":
 	AxRCM.tick_params(axis='y', pad=-1)
 	AxRCM.yaxis.labelpad = -3
 	
-	#scRCM.plt_tkl(AxTL, AxTKL, AxCB_tkl, tkldata, mjd=pltmjd, norm=pressnorm, cmapName=cmap_tkl)
 	scRCM.plt_tl(AxTL, tkldata, AxCB=AxCB_press, mjd=pltmjd, norm=pressnorm, cmapName=cmap_press)
-	scRCM.plt_tkl(AxTKL, tkldata, mjd=pltmjd, norm=odfnorm, cmapName=cmap_odf)
+	
+	if tklv == 'odf':
+		scRCM.plt_tkl(AxTKL, tkldata, vName=tklv, mjd=pltmjd, norm=odfnorm, cmapName=cmap_odf)
+	elif tklv == 'press':
+		#Actually partial pressure
+		scRCM.plt_tkl(AxTKL, tkldata, vName=tklv, AxCB=AxCB_parpress, mjd=pltmjd, norm=parpressnorm, cmapName=cmap_parpress)
+	
+
 	AxTL.xaxis.set_ticks_position('top')
 	AxTL.xaxis.set_label_position('top')
 	AxTL.invert_yaxis()
@@ -197,8 +223,14 @@ if __name__=="__main__":
 		pltmjd = tkldata['MJD'][n]
 		
 		scRCM.plt_ODF_Comp(AxSC, AxRCM, AxCB_odf, consolData, mjd=pltmjd, norm=odfnorm, cmapName=cmap_odf)
+		
 		scRCM.plt_tl(AxTL, tkldata, AxCB=AxCB_press, mjd=pltmjd, norm=pressnorm, cmapName=cmap_press)
-		scRCM.plt_tkl(AxTKL, tkldata, mjd=pltmjd, norm=odfnorm, cmapName=cmap_odf)
+
+		if tklv == 'odf':
+			scRCM.plt_tkl(AxTKL, tkldata, vName=tklv, mjd=pltmjd, norm=odfnorm, cmapName=cmap_odf, satTrackData=rcmTrack)
+		elif tklv == 'press':
+			#Actually partial pressure
+			scRCM.plt_tkl(AxTKL, tkldata, vName=tklv, AxCB=AxCB_parpress, mjd=pltmjd, norm=parpressnorm, cmapName=cmap_parpress, satTrackData=rcmTrack)
 		AxTKL.title.set_text(str(ut_tkl[n]))
 
 		scRCM.plt_rcm_eqlatlon(AxRCMLatLon, AxRCMEq, rcm_eqlatlon, rcmTrack, mjd=pltmjd, norm=pressnorm, cmapName=cmap_press)

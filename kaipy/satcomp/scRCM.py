@@ -152,18 +152,20 @@ def get_aspect(ax):
 #======
 
 #Given sc and dataset name (according to above dict), grab specifically omnidirecitonal differential flux
-def getSCOmniDiffFlux(scName, dSetName, t0, t1, jdir=None):
+def getSCOmniDiffFlux(scName, dSetName, t0, t1, jdir=None, forceCalc=False):
 	if jdir is not None:
 		dojson = True
 		jfname = genSCD_jfname(jdir, scName, dSetName)
-		if os.path.exists(jfname):
-			print("Grabbing spacecraft data from " + jfname)
-			data = kj.load(jfname)
-			ephdata = data['ephdata']
-			dataset = data['dataset']
-			return ephdata, dataset
 	else:
 		dojson = False
+
+	if dojson and not forceCalc:
+		if os.path.exists(jfname):
+				print("Grabbing spacecraft data from " + jfname)
+				data = kj.load(jfname)
+				ephdata = data['ephdata']
+				dataset = data['dataset']
+				return ephdata, dataset
 
 	print("Pulling spacecraft data from cdaweb")
 	#TODO: Add all desired datasets
@@ -177,8 +179,8 @@ def getSCOmniDiffFlux(scName, dSetName, t0, t1, jdir=None):
 	energyStr = dsetStrs['EnergyStr']
 
 	#First get ephem data
-	ephdata = scutils.getCdasData(ephemStrs['Id'], ephemStrs['Data'], t0, t1)
-	data = scutils.getCdasData(dsetStrs['Id'], dsetStrs['Data'], t0, t1, doVerbose=True)
+	s, ephdata = scutils.pullVar(ephemStrs['Id'], ephemStrs['Data'], t0, t1)
+	s, data = scutils.pullVar(dsetStrs['Id'], dsetStrs['Data'], t0, t1, doVerbose=True)
 
 	dataset = {}
 	dataset['name'] = scName
@@ -199,7 +201,7 @@ def getSCOmniDiffFlux(scName, dSetName, t0, t1, jdir=None):
 
 	return ephdata, dataset
 
-def getRCMtimes(rcmf5,mhdrcmf5,jdir=None):
+def getRCMtimes(rcmf5,mhdrcmf5,jdir=None, forceCalc=False):
 	"""Grab RCM times, sIDs, and MJDs
 		If jdir given, will try to find the files there
 		If not found there, will pull the data from the hdf5's
@@ -212,7 +214,7 @@ def getRCMtimes(rcmf5,mhdrcmf5,jdir=None):
 	else:
 		dojson = False
 
-	if dojson:
+	if dojson and not forceCalc:
 		if os.path.exists(rcmjfname):
 			print("Grabbing RCM time data from " + rcmjfname)
 			#That's all that's needed, done
@@ -268,7 +270,7 @@ def getRCMtimes(rcmf5,mhdrcmf5,jdir=None):
 	return rcmTimes
 
 #TODO: Add scName to trackfile attrs so we can pull directly from there
-def getRCM_scTrack(trackf5, rcmf5, rcmTimes, jdir=None, scName=""):
+def getRCM_scTrack(trackf5, rcmf5, rcmTimes, jdir=None, forceCalc=False, scName=""):
 	"""Pull RCM data along a given spacecraft track
 		trackfile: big spacecraft trajectory hdf5, generated from sctrack.x
 		rcmf5: <tag>.rcm.h5 file
@@ -282,7 +284,7 @@ def getRCM_scTrack(trackf5, rcmf5, rcmTimes, jdir=None, scName=""):
 	else:
 		dojson = False
 
-	if dojson:
+	if dojson and not forceCalc:
 		if os.path.exists(jfname):
 			print("Grabbing RCM track data from " + jfname)
 			return kj.load(jfname)
@@ -422,7 +424,7 @@ def getRCM_scTrack(trackf5, rcmf5, rcmTimes, jdir=None, scName=""):
 
 #TODO: Energy grid mapping in a nice, jsonizable way
 #      Right now, just need to call this whenever you want it
-def consolidateODFs(scData, rcmTrackData, eGrid=None, jdir=None):
+def consolidateODFs(scData, rcmTrackData, eGrid=None):
 	"""Prepare the spacecraft and rcm track data for comparison
 		Match up energy grids, save all the needed info in one place
 	"""
@@ -483,13 +485,13 @@ def consolidateODFs(scData, rcmTrackData, eGrid=None, jdir=None):
 
 	return result
 
-def getIntensitiesVsL(rcmf5, mhdrcmf5, sStart, sEnd, sStride, species='ions', eGrid=None, AxLvT=None, jdir=None, joverwrite=True):
+def getIntensitiesVsL(rcmf5, mhdrcmf5, sStart, sEnd, sStride, species='ions', eGrid=None, AxLvT=None, jdir=None, forceCalc=False):
 	"""Calculate rcm intensities (summed diff flux)
 		rcmf5: rcm hdf5 filename to pull xmin, ymin, zmin from
 		mhdrcmf5: mhdrcm hdf5 filename to pull IOpen from
 		AxLvT: If given, will plot the resulting L shell vs. time intensity
 		jdir: Give json directory to enable json usage (read/write results to file)
-		joverwrite: If dataset already found in file, re-calc anyways and overwrite it
+		forceCalc: If dataset already found in file, re-calc anyways and overwrite it
 	"""
 
 	if jdir is not None:
@@ -498,7 +500,7 @@ def getIntensitiesVsL(rcmf5, mhdrcmf5, sStart, sEnd, sStride, species='ions', eG
 	else:
 		dojson = False
 
-	if dojson:
+	if dojson and not forceCalc:
 		if os.path.exists(rcmjfname):
 			print("Grabbing RCM tkl data from " + rcmjfname)
 			return kj.load(rcmjfname)
@@ -618,7 +620,7 @@ def getIntensitiesVsL(rcmf5, mhdrcmf5, sStart, sEnd, sStride, species='ions', eG
 	return result
 
 #TODO: Take list of variable strings to pull from rcm.h5 file
-def getRCM_eqlatlon(mhdrcmf5, rcmTimes, jdir=None):
+def getRCM_eqlatlon(mhdrcmf5, rcmTimes, jdir=None, forceCalc=False):
 	"""Grab certain variables along with equatorial and lat-lon grid
 		Can use json but there's not much point if you already have the (mhd)rcm file(s)
 	"""
@@ -628,7 +630,7 @@ def getRCM_eqlatlon(mhdrcmf5, rcmTimes, jdir=None):
 	else:
 		dojson = False
 
-	if dojson:
+	if dojson and not forceCalc:
 		if os.path.exists(rcmjfname):
 			print("Grabbing RCM eq_lat-lon data from " + rcmjfname)
 			return kj.load(rcmjfname)
@@ -803,12 +805,16 @@ def plt_tl(AxTL, tkldata, AxCB=None, mjd=None,cmapName='CMRmap',norm=None):
 		yMin, yMax = AxTL.get_ylim()
 		AxTL.plot([lineUT, lineUT], [yMin, yMax], '-k')
 
-def plt_tkl(AxTKL, tkldata, AxCB=None, mjd=None, cmapName='CMRmap', norm=None):
+def plt_tkl(AxTKL, tkldata, AxCB=None, mjd=None, cmapName='CMRmap', vName='odf', norm=None, satTrackData=None):
 	"""If 'mjd' is not provided, make all plots that are vs. time
 	   If 'mjd' is provided:
 	     If we were also given a populated AxTL and AxCB, update with an mjd scroll line
 	     Also generate AxTKL for this mjd step
 	"""
+	if vName != 'odf' and vName != 'press':
+		print("scRCM.plt_tkl: Unknown vName, assuming 'odf'")
+		vName = 'odf'
+
 	if AxCB is not None:
 		print("AxCB label: '{}'".format(AxCB.get_label))
 	doPopulateCB = AxCB is not None and AxCB.get_label() == ''
@@ -822,7 +828,10 @@ def plt_tkl(AxTKL, tkldata, AxCB=None, mjd=None, cmapName='CMRmap', norm=None):
 		norm = genVarNorm(press_tl, doLog=True)
 
 	if doPopulateCB:
-		kv.genCB(AxCB, norm, r'Intensity [$cm^{-2} sr^{-1} s^{-1} keV^{-1}$]', cM=cmapName, doVert=False)
+		if vName == 'odf':
+			kv.genCB(AxCB, norm, r'Intensity [$cm^{-2} sr^{-1} s^{-1} keV^{-1}$]', cM=cmapName, doVert=False)
+		elif vName == 'press':
+			kv.genCB(AxCB, norm, r'Pressure [nPa]', cM=cmapName, doVert=False)
 
 	#L vs. k for a specific mjd
 	if mjd is not None:
@@ -831,12 +840,24 @@ def plt_tkl(AxTKL, tkldata, AxCB=None, mjd=None, cmapName='CMRmap', norm=None):
 			return
 		iMJD = np.abs(tkldata['MJD'] - mjd).argmin()
 
-		#klslice = tkldata['press_tkl'][iMJD,:,:]
-		klslice = tkldata['odf_tkl'][iMJD,:,:]
-		AxTKL.pcolormesh(k_arr*1E-3, L_arr, np.transpose(klslice), norm=norm, shading='nearest', cmap=cmapName)
-		#AxTKL.pcolormesh(k_arr, L_arr, np.transpose(klslice), shading='nearest', cmap=cmapName)
+		if vName == 'odf':
+			klslice = tkldata['odf_tkl'][iMJD,:,:]
+			AxTKL.pcolormesh(k_arr, L_arr, np.transpose(klslice), shading='nearest', cmap=cmapName)
+		elif vName == 'press':
+			klslice = tkldata['press_tkl'][iMJD,:,:]
+			AxTKL.pcolormesh(k_arr*1E-3, L_arr, np.transpose(klslice), norm=norm, shading='nearest', cmap=cmapName)
+		
 		AxTKL.set_xlabel('Energy [keV]')
 		AxTKL.set_ylabel('L shell')
+
+		if satTrackData is not None:
+			#Draw line to indicate spacecraft L value
+			req_sc = satTrackData['Req']
+			scL = req_sc[iMJD]
+			if scL > 1E-8:
+				xBounds = np.asarray(AxTKL.get_xlim())
+				AxTKL.plot(xBounds, [scL, scL], 'r-')
+
 
 def plt_rcm_eqlatlon(AxLatlon, AxEq, rcmData, satTrackData, AxCB=None, mjd=None, norm=None, cmapName='viridis'):
 	
