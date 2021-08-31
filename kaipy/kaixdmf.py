@@ -149,39 +149,7 @@ def AddVectors(Grid,fname,vIds,cDims,vDims,Nd,nStp):
 #Decide on centering
 def getLoc(gDims,vDims):
 	vDims = np.array(vDims,dtype=np.int)
-	"""
-	Nd = len(vDims)
-	if (Nd == 3):
-		Ngx,Ngy,Ngz = gDims-1
-		Nvx,Nvy,Nvz = vDims
-	elif (Nd==2):
-		Ngx,Ngy = gDims-1
-		Nvx,Nvy = vDims
-		Ngz = -1
-		Nvz = -1
-	elif (Nd==1):
-		Ngx = gDims-1
-		Nvx = vDims
-		Ngy = -1; Ngz = -1
-		Nvy = -1; Nvz = -1
-	else:
-		print("Not enough dimensions!")
-		return "Other"
-	#print("gdims: {}\tvdims: {}".format(gDims,vDims))
-	#For now just testing for cell centers
-	if Ngx == Nvx and Ngy == Nvy:
-		if Nd == 2 or (Nd==3  and Ngz == Nvz):
-			vLoc = "Cell" #Cell-centered data
-	elif Ngx == Nvx-1 and Ngy == Nvy-1:
-		if Nd == 2 or  (Nd==3 and Ngz == Nvz-1):
-			vLoc = "Node"
-	else:
-		vLoc = "Other"
-	return vLoc
-	"""
 	dimLocs = []
-	print(gDims)
-	print(vDims)
 	if len(gDims) != len(vDims):
 		return "Other"
 	for d in range(len(gDims)):
@@ -201,3 +169,23 @@ def getLoc(gDims,vDims):
 		return dimLocs[0]
 	else:
 		return "Other"
+
+def addHyperslab(Grid,vName,dSetDimStr,vdimStr,startStr,strideStr,numStr,origDSetDimStr,fileText):
+	vAtt = et.SubElement(Grid, "Attribute")
+	vAtt.set("Name",vName)
+	vAtt.set("AttributeType","Scalar")
+	vAtt.set("Center","Node")
+	slabDI = et.SubElement(vAtt, "DataItem")
+	slabDI.set("ItemType","HyperSlab")
+	slabDI.set("Dimensions",dSetDimStr)
+	slabDI.set("Type","HyperSlab")  # Not sure if redundant, but it works
+	cutDI = et.SubElement(slabDI,"DataItem")
+	cutDI.set("Dimensions",vdimStr)
+	cutDI.set("Format","XML")
+	cutDI.text = "\n{}\n{}\n{}\n".format(startStr,strideStr,numStr)
+	datDI = et.SubElement(slabDI,"DataItem")
+	datDI.set("Dimensions",origDSetDimStr)
+	datDI.set("DataType","Float")
+	datDI.set("Precision","4")
+	datDI.set("Format","HDF")
+	datDI.text = fileText

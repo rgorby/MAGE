@@ -25,8 +25,19 @@ def getDimInfo(h5fname,s0IDstr,preset):
 		result['geoStr'] = "X_Y"
 		result['topoStr'] = "2DSMesh"
 		result['doAppendStep'] = True
-
-	if preset=="rcm3D":
+	elif preset == "mhdrcm_bmin":
+		gridVars = ['xMin','yMin','zMin']
+		with h5.File(h5fname, 'r') as h5f:
+			gDims = np.asarray(h5f[s0IDstr][gridVars[0]].shape)
+		#gDims = np.append(gDims, 1)
+		result['gridVars'] = gridVars
+		result['gDims'] = gDims
+		result['vDims'] = gDims
+		result['Nd'] = len(gDims)
+		result['geoStr'] = "X_Y_Z"
+		result['topoStr'] = "3DSMesh"
+		result['doAppendStep'] = True
+	elif preset=="rcm3D":
 		gridVars = ["rcmxmin_kji", "rcmymin_kji", "rcmalamc_kji"]
 		with h5.File(h5fname, 'r') as h5f:
 			gDims = np.asarray(h5f[s0IDstr][gridVars[0]].shape)
@@ -37,7 +48,6 @@ def getDimInfo(h5fname,s0IDstr,preset):
 		result['geoStr'] = "X_Y_Z"
 		result['topoStr'] = "3DSMesh"
 		result['doAppendStep'] = True
-
 	else:  # gam, mhdrcm_iono, etc.
 		#Get root-level XY(Z) dimensions
 		#First check to see if they exist
@@ -66,26 +76,6 @@ def getDimInfo(h5fname,s0IDstr,preset):
 	return result
 
 
-def addHyperslab(Grid,vName,dSetDimStr,vdimStr,startStr,strideStr,numStr,origDSetDimStr,fileText):
-	vAtt = et.SubElement(Grid, "Attribute")
-	vAtt.set("Name",vName)
-	vAtt.set("AttributeType","Scalar")
-	vAtt.set("Center","Cell")
-	slabDI = et.SubElement(vAtt, "DataItem")
-	slabDI.set("ItemType","HyperSlab")
-	slabDI.set("Dimensions",dSetDimStr)
-	slabDI.set("Type","HyperSlab")  # Not sure if redundant, but it works
-	cutDI = et.SubElement(slabDI,"DataItem")
-	cutDI.set("Dimensions",vdimStr)
-	cutDI.set("Format","XML")
-	cutDI.text = "\n{}\n{}\n{}\n".format(startStr,strideStr,numStr)
-	datDI = et.SubElement(slabDI,"DataItem")
-	datDI.set("Dimensions",origDSetDimStr)
-	datDI.set("DataType","Float")
-	datDI.set("Precision","4")
-	datDI.set("Format","HDF")
-	datDI.text = fileText
-
 def addRCMVars(Grid, dimInfo, rcmInfo, sID):
 
 	sIDstr = "Step#" + str(sID) 
@@ -101,7 +91,7 @@ def addRCMVars(Grid, dimInfo, rcmInfo, sID):
 	if 'Nk' not in rcmInfo.keys():
 		rcmInfo['Nj'], rcmInfo['Ni'] = rcm5[sIDstr]['aloct'].shape
 		rcmInfo['Nk'] = rcm5[sIDstr]['alamc'].shape[0]
-		print("Adding Nk to rcmInfo")
+		#print("Adding Nk to rcmInfo")
 	Ni = rcmInfo['Ni']
 	Nj = rcmInfo['Nj']
 	Nk = rcmInfo['Nk']
@@ -115,11 +105,6 @@ def addRCMVars(Grid, dimInfo, rcmInfo, sID):
 		r_nDims = len(r_vShape)
 		dimTrim = 0
 	
-		print(rcmVars)
-		print(mr_vDims)
-		print("{},{},{}".format(Nk,Nj,Ni))
-		print(r_nDims)
-		print(doHyperslab)
 		if (r_nDims == 2 and mr_vDims[0] < Nj) or (r_nDims == 3 and mr_vDims[1] < Nj):
 			doHyperslab = True
 			dimTrim = (Nj - mr_vDims[0]) if mr_nDims == 2 else (Nj - mr_vDims[1])
@@ -139,7 +124,7 @@ def addRCMVars(Grid, dimInfo, rcmInfo, sID):
 			text = "{}:/{}/{}".format(rcmh5fname,sIDstr,vName)
 
 			if r_nDims == 2:
-				addHyperslab(Grid,vName,mr_vDimStr,dimStr,startStr,strideStr,numStr,r_vDimStr,text)
+				kxmf.addHyperslab(Grid,vName,mr_vDimStr,dimStr,startStr,strideStr,numStr,r_vDimStr,text)
 				continue
 			elif r_nDims == 3:
 				dimStr = "3 3"
@@ -148,16 +133,19 @@ def addRCMVars(Grid, dimInfo, rcmInfo, sID):
 				for k in rcmKs:
 					startStr = "{} {} 0".format(k,dimTrim)
 					vName_k = vName + "_k{}".format(k)
-					addHyperslab(Grid,vName_k,mr_vDimStr,dimStr,startStr,strideStr,numStr,r_vDimStr,text)
+					kxmf.addHyperslab(Grid,vName_k,mr_vDimStr,dimStr,startStr,strideStr,numStr,r_vDimStr,text)
 
 
 if __name__ == "__main__":
+
+	outfname = ''
 
 	MainS = """Generates XDMF file from non-MPI HDF5 output
 	"""
 
 	parser = argparse.ArgumentParser(description="Generates XDMF file from Gamera HDF5 output")
 	parser.add_argument('h5F',type=str,metavar='model.h5',help="Filename of Kaiju HDF5 Output")
+	parser.add_argument('-outname',type=str,help="Name of generated XMF file")
 	parser.add_argument('-preset', type=str,choices=presets,help="Tell the script what the file is (in case not derivble from name)")
 	parser.add_argument('-rcmf',type=str,default="msphere.rcm.h5",help="rcm.h5 file to use with '-rcmv' and '-rcmk' args (default: %(default)s)")
 	parser.add_argument('-rcmv',type=str,help="Comma-separated rcm.h5 vars to include in an mhdrcm preset (ex: rcmvm, rcmeeta)")
@@ -165,13 +153,17 @@ if __name__ == "__main__":
 	args = parser.parse_args()
 
 	h5fname = args.h5F
+	outfname = args.outname
 	preset = args.preset
 	rcmh5fname = args.rcmf
 	rcmVars = args.rcmv
 	rcmKs = args.rcmk
 
 	pre,ext = os.path.splitext(h5fname)
-	fOutXML = pre + ".xmf"
+	if outfname == "":
+		fOutXML = pre + ".xmf"
+	else:
+		fOutXML = outfname
 
 	#Scrape necessary data from H5 file
 	nSteps,sIDs = kh5.cntSteps(h5fname)
