@@ -97,6 +97,10 @@ module rcmXimag
         ! doEval below converts back to nPa
         imag%rcmApp%rcmCpl%Prcm = 1.0e-9*transpose(empPressureOnRCMGrid)
 
+        ! Manipulate "RCM's" density to be some combination of Nmhd and Npsph
+        call setRCMXDensity(imag%rcmApp%rcmCpl, 2)
+
+
     end subroutine advanceRCMX
 
     subroutine evalRCMX(imag,x1,x2,t,imW,isEdible)
@@ -126,5 +130,38 @@ module rcmXimag
         call imag%rcmApp%doRestart(nRes,MJD,time)
     end subroutine doRCMXRestart
 
+    subroutine setRCMXDensity(rcmCpl,option)
+        class(rcm_mhd_T), intent(inout) :: rcmCpl
+        integer, intent(in) :: option
+
+        integer :: i,j
+
+        select case (option)
+        case(1)
+            ! Use only whatever's in MHD
+            rcmCpl%Nrcm = rcmCpl%Nave
+        case(2)
+            ! Wherever Npsph>Nave, use Npsph
+            ! Else, use Nave
+
+            !$OMP PARALLEL DO default(shared) collapse(2) &
+            !$OMP schedule(dynamic) &
+            !$OMP private(i,j)
+            do j=1,rcmCpl%nLon_ion
+                do i=1,rcmCpl%nLat_ion
+                    
+                    if (rcmCpl%Npsph(i,j) > rcmCpl%Nave(i,j)) then
+                        rcmCpl%Nrcm(i,j) = rcmCpl%Npsph(i,j)
+                    else
+                        rcmCpl%Nrcm(i,j) = rcmCpl%Nave(i,j)
+                    endif
+                enddo
+            enddo
+
+        case DEFAULT
+            !Don't do anything, will use RCM's density
+        end select
+
+    end subroutine setRCMXDensity
 
 end module rcmXimag
