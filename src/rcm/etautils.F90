@@ -352,7 +352,6 @@ MODULE etautils
         !Get ion/electron temperature
         ti = Pion/Drc/boltz
         te = Pele/Drc/boltz
-
         !Loop over non-zero channels
         do k=klow,kcsize
             !Get right temperature
