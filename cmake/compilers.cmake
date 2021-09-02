@@ -5,8 +5,8 @@
 find_package(HDF5 REQUIRED COMPONENTS Fortran Fortran_HL)
 set(CMAKE_REQUIRED_INCLUDES ${HDF5_Fortran_INCLUDE_DIRS})
 set(CMAKE_REQUIRED_LIBRARIES ${HDF5_Fortran_LIBRARIES} ${HDF5_Fortran_HL_LIBRARIES})
-#Use set compiler (below) or link_libraries but not both
-set(CMAKE_Fortran_COMPILER ${HDF5_Fortran_COMPILER_EXECUTABLE})
+# h5 compiler helper can have issues with some preprocessor commands, just link libraries
+link_libraries(${HDF5_Fortran_LIBRARIES} ${HDF5_Fortran_HL_LIBRARIES})
 
 find_package(OpenMP COMPONENTS Fortran)
 set(CMAKE_REQUIRED_FLAGS ${OpenMP_Fortran_FLAGS})
@@ -17,20 +17,24 @@ if (ENABLE_MPI)
     #try to explicitly find intel mpi first
     set(MPI_Fortran_COMPILER mpiifort)
     find_package(MPI COMPONENTS Fortran QUIET)
-    if(NOT MPI_FOUND OR NOT MPI_Fortran_HAVE_F08_MODULE)
+    find_program(MPIEXE mpiifort)
+    if(NOT MPI_FOUND OR NOT MPI_Fortran_HAVE_F08_MODULE OR NOT MPIEXE)
         #try to find a fortran 2008 specific wrapper
         set(MPI_Fortran_COMPILER mpif08)
     	find_package(MPI COMPONENTS Fortran QUIET)
-        if(NOT MPI_FOUND OR NOT MPI_Fortran_HAVE_F08_MODULE)
+        unset(MPIEXE CACHE)
+        unset(MPIEXE-NOTFOUND CACHE)
+        find_program(MPIEXE mpif08)
+        if(NOT MPI_FOUND OR NOT MPI_Fortran_HAVE_F08_MODULE OR NOT MPIEXE)
             #just look for whatever
             unset(MPI_Fortran_COMPILER)
             find_package(MPI REQUIRED COMPONENTS Fortran)
         endif()
     endif()
-    if(MPI_Fortran_HAVE_F08_MODULE)
+    if(MPI_FOUND AND MPI_Fortran_HAVE_F08_MODULE)
         message("-- Found MPI")
     else()
-        message(FATAL_ERROR "MPI Library does not support F08 interface")
+        message(FATAL_ERROR "Could not find an MPI Library that supports the F08 interface")
     endif()
 endif()
 

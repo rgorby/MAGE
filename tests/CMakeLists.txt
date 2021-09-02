@@ -1,3 +1,20 @@
+# Check whether PFUNIT was built with MPI
+if(EXISTS "${PFUNIT_TOP_DIR}/lib/libpfunit.a")
+    #PFUNIT built with MPI
+    if(ENABLE_MPI)
+        add_compile_definitions(PFUNIT_SERIAL_USE=PFUNIT)
+    else()
+        add_compile_definitions(PFUNIT_SERIAL_USE=FUNIT)
+    endif()
+else()
+    #PFUNIT built without MPI
+    if(ENABLE_MPI)
+        message(FATAL_ERROR "pFUnit was built without MPI but MPI is Enabled")
+    else()
+        add_compile_definitions(PFUNIT_SERIAL_USE=FUNIT)
+    endif()
+endif()
+
 # All Tests use the lfmbw IC for Gamera
 file(GLOB TGIC "${PROJECT_SOURCE_DIR}/src/gamera/ICs/lfmbw.F90")
 # compile this Test Gamera IC into a library to be linked into the tests
@@ -10,22 +27,22 @@ file(GLOB helperFiles "${PROJECT_SOURCE_DIR}/tests/helperCode/*.F90")
 # NON-MPI TESTS GO UP HERE
 file(GLOB caseTestFiles "${CMAKE_CURRENT_SOURCE_DIR}/cases/*.pf")
 set(caseTestLibs baselib gamlib remixlib voltlib tgiclib)
-add_pfunit_ctest (caseTests TEST_SOURCES ${caseTestFiles} OTHER_SOURCES ${helperFiles} LINK_LIBRARIES ${caseTestLibs} MAX_PES 1)
+add_pfunit_ctest (caseTests TEST_SOURCES ${caseTestFiles} OTHER_SOURCES ${helperFiles} LINK_LIBRARIES ${caseTestLibs})
 add_dependencies(caseTests ${caseTestLibs})
 
 file(GLOB gamTestFiles "${CMAKE_CURRENT_SOURCE_DIR}/gamera/*.pf")
 set(gamTestLibs baselib gamlib tgiclib)
-add_pfunit_ctest (gamTests TEST_SOURCES ${gamTestFiles} OTHER_SOURCES ${helperFiles} LINK_LIBRARIES ${gamTestLibs} MAX_PES 1)
+add_pfunit_ctest (gamTests TEST_SOURCES ${gamTestFiles} OTHER_SOURCES ${helperFiles} LINK_LIBRARIES ${gamTestLibs})
 add_dependencies(gamTests ${gamTestLibs})
 
 file(GLOB mixTestFiles "${CMAKE_CURRENT_SOURCE_DIR}/remix/*.pf")
 set(mixTestLibs baselib gamlib remixlib voltlib tgiclib)
-add_pfunit_ctest (mixTests TEST_SOURCES ${mixTestFiles} OTHER_SOURCES ${helperFiles} LINK_LIBRARIES ${mixTestLibs} MAX_PES 1)
+add_pfunit_ctest (mixTests TEST_SOURCES ${mixTestFiles} OTHER_SOURCES ${helperFiles} LINK_LIBRARIES ${mixTestLibs})
 add_dependencies(mixTests ${mixTestLibs})
 
 file(GLOB voltTestFiles "${CMAKE_CURRENT_SOURCE_DIR}/voltron/*.pf")
 set(voltTestLibs baselib gamlib remixlib voltlib tgiclib)
-add_pfunit_ctest (voltTests TEST_SOURCES ${voltTestFiles} OTHER_SOURCES ${helperFiles} LINK_LIBRARIES ${voltTestLibs} MAX_PES 1)
+add_pfunit_ctest (voltTests TEST_SOURCES ${voltTestFiles} OTHER_SOURCES ${helperFiles} LINK_LIBRARIES ${voltTestLibs})
 add_dependencies(voltTests ${voltTestLibs})
 
 # copy input xml files and grid h5 files to binary folder for running
@@ -97,7 +114,7 @@ else()
     set(allTestFiles ${caseTestFiles} ${gamTestFiles} ${mixTestFiles} ${voltTestFiles})
     set(allTestLibs baselib gamlib remixlib voltlib tgiclib)
     set(allTestBins caseTests gamTests mixTests voltTests)
-    add_pfunit_ctest (allTests TEST_SOURCES ${allTestFiles} OTHER_SOURCES ${helperFiles} LINK_LIBRARIES ${allTestLibs} MAX_PES 1)
+    add_pfunit_ctest (allTests TEST_SOURCES ${allTestFiles} OTHER_SOURCES ${helperFiles} LINK_LIBRARIES ${allTestLibs})
 endif()
 add_dependencies(allTests CopyInputs CopyGrids ${allTestBins} ${allTestLibs})
 
