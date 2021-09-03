@@ -1,20 +1,3 @@
-# Check whether PFUNIT was built with MPI
-if(EXISTS "${PFUNIT_TOP_DIR}/lib/libpfunit.a")
-    #PFUNIT built with MPI
-    if(ENABLE_MPI)
-        add_compile_definitions(PFUNIT_SERIAL_USE=PFUNIT)
-    else()
-        add_compile_definitions(PFUNIT_SERIAL_USE=FUNIT)
-    endif()
-else()
-    #PFUNIT built without MPI
-    if(ENABLE_MPI)
-        message(FATAL_ERROR "pFUnit was built without MPI but MPI is Enabled")
-    else()
-        add_compile_definitions(PFUNIT_SERIAL_USE=FUNIT)
-    endif()
-endif()
-
 # All Tests use the lfmbw IC for Gamera
 file(GLOB TGIC "${PROJECT_SOURCE_DIR}/src/gamera/ICs/lfmbw.F90")
 # compile this Test Gamera IC into a library to be linked into the tests
