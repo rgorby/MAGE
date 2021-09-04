@@ -34,6 +34,7 @@ TINY = 1.0e-8
 #Hard-coded filenames
 RCM_TIME_JFNAME = 'rcm_times.json'
 RCM_TKL_JFNAME = 'rcm_tkl.json'
+RCM_WEDGE_JFNAME = 'rcm_wedgetkl.json'
 RCM_EQLATLON_JFNAME = 'rcm_eqlatlon.json'
 MHDRCM_TIME_JFNAME = 'mhdrcm_times.json'
 
@@ -45,30 +46,6 @@ supportedDsets = ["Hydrogen_omniflux_RBSPICE", "Electron_omniflux_RBSPICE"]
 
 SC_str = {
 	'RBSP': {
-	 'E_RBSPICE' : {
-	  'DsetName': "RBSP-%s-RBSPICE_LEV-3_ESRHELT",
-	  'DsetVar': ["FEDU", "MLT", 'L_Eq', 'L_Star'],
-	  'dfStr': "FEDU",
-	  'nrgStr': "FEDU_Energy_Fixed",
-	  'epochStr': 'Epoch'}, 
-	 "E-PAP_RBSPICE" : {
-	  'DsetName': "RBSP-%s-RBSPICE_LEV-3-PAP_ESRHELT",
-	  'DsetVar': ["FEDU", "FEDU_OmniFlux", "MLT", 'L_Eq', 'L_Star'],
-	  'dfStr': "FEDU_OmniFlux",
-	  'nrgStr': "FEDU_Energy",
-	  'epochStr': 'Epoch'},
-	 "H_RBSPICE": {
-	  'DsetName': "RBSP-%s-RBSPICE_LEV-3_TOFXEH",
-	  'DsetVar': ["bad"],  # Leave this here so things fail correctly
-	  'dfStr': "FPDU",
-	  'nrgStr': "FPDU_Energy",
-	  'epochStr': 'Epoch'},
-	 "H-PAP_RBSPICE": {
-	  'DsetName': "RBSP-%s-RBSPICE_LEV-3-PAP_TOFXEH",
-	  'DsetVar': ["bad"],  # Leave this here so things fail correctly
-	  'dfStr': "FPDU_OmniFlux",
-	  'nrgStr': "FPDU_Energy",
-	  'epochStr': 'Epoch'},
 	 'E_HOPE' : {
 	  'DsetName': 'RBSP%s_REL04_ECT-HOPE-PA-L3',
 	  'DsetVar': ["FEDU, MLT_Ele"],
@@ -485,7 +462,7 @@ def consolidateODFs(scData, rcmTrackData, eGrid=None):
 
 	return result
 
-def getIntensitiesVsL(rcmf5, mhdrcmf5, sStart, sEnd, sStride, species='ions', eGrid=None, AxLvT=None, jdir=None, forceCalc=False):
+def getIntensitiesVsL(rcmf5, mhdrcmf5, sStart, sEnd, sStride, species='ions', eGrid=None, jdir=None, forceCalc=False):
 	"""Calculate rcm intensities (summed diff flux)
 		rcmf5: rcm hdf5 filename to pull xmin, ymin, zmin from
 		mhdrcmf5: mhdrcm hdf5 filename to pull IOpen from
@@ -618,6 +595,160 @@ def getIntensitiesVsL(rcmf5, mhdrcmf5, sStart, sEnd, sStride, species='ions', eG
 	if dojson: kj.dump(rcmjfname, result)
 
 	return result
+
+
+def getVarWedge(rcmf5, mhdrcmf5, sStart, sEnd, sStride, width_deg, eGrid=None, lGrid=None, jdir=None, forceCalc=False):
+	"""Take a slice/wedge centered along the x axis (eq space), calculate average <var> vs. L and E
+		rcmf5, mhdrcmf5: h5 filenames
+		sStart, sEnd, sStride: step information
+		width_deg: wedge width [deg], centered around x axis in equatorial mapping of RCM data
+		eGrid: Specific energy grid to map k energies to
+		lbins: 1D array of L values to map to
+		jdir: directory to find json files in
+	"""
+
+	if jdir is not None:
+		dojson = True
+		rcmjfname = os.path.join(jdir, RCM_WEDGE_JFNAME)
+	else:
+		dojson = False
+
+	if dojson and not forceCalc:
+		if os.path.exists(rcmjfname):
+			print("Grabbing RCM wedge-tkl data from " + rcmjfname)
+			return kj.load(rcmjfname)
+
+	#Setup
+	rcmTimes = getRCMtimes(rcmf5,mhdrcmf5,jdir=jdir)
+	iTStart = np.abs(rcmTimes['sIDs']-sStart).argmin()
+	iTEnd = np.abs(rcmTimes['sIDs']-sEnd).argmin()
+
+	sIDstrs = rcmTimes['sIDstrs'][iTStart:iTEnd+1:sStride]
+	nSteps = len(sIDstrs)
+	rcm5 = h5.File(rcmf5,'r')
+	rcmS0 = rcm5[sIDstrs[0]]
+	mhdrcm5 = h5.File(mhdrcmf5,'r')
+
+
+	kStart = 1 if rcmS0['alamc'][0] == 0 else 0  # Check channel 0 for plasmasphere
+	kIon = (rcm5[sIDstrs[0]]['alamc'][kStart:]>0).argmax()+kStart
+	if species == 'electrons':
+		kEnd = kIon
+		sf_factor = specFlux_factor_e
+	elif species == 'ions':
+		kStart = kIon
+		kEnd = len(rcm5[sIDstrs[0]]['alamc'])-1
+		sf_factor = specFlux_factor_i
+	alamData = getSpecieslambdata(rcmS0, kStart, kEnd)
+
+	theta_bnds = [[360-width_deg/2, width_deg/2],		# daysie
+				[180+width_deg/2, 180-width_deg/2]] # nightside
+
+	if lGrid is None:
+		lMin = 2
+		lMax = 10
+		Nl = 50
+		lGrid = np.linspace(nMin, lMax, Nl, endpoint=True)
+	Nl = len(lGrid)
+
+	if eGrid is None:
+		eMin = 1E2  # [eV]
+		eMax = 1E6  # [eV]
+		Ne = 50
+		eGrid = np.logspace(np.log10(eMin), np.log10(eMax), Ne, endpoint=True)
+	Ne = len(eGrid)
+
+	rcmodf_tkl = np.zeros((nSteps, Ne, Nl))
+	rcmpress_tkl = np.zeros((nSteps, Ne, Nl))
+
+	if doProgressBar: bar = progressbar.ProgressBar(max_value=nSteps)
+	for n in range(nSteps):
+		if doProgressBar: bar.update(n)
+
+		IOpen = mhdrcmS['IOpen']
+		Ni, Nj = IOpen.shape  # Default should be (179, 90)
+		#Shorten rcm data to match Ni, Nj of mhdrcm5
+		vms = rcmS['rcmvm'][2:, :]
+		xmins = rcmS['rcmxmin'][2:,:]
+		ymins = rcmS['rcmymin'][2:,:]
+		zmins = rcmS['rcmzmin'][2:,:]
+		eetas = rcmS['rcmeeta'][kStart:kEnd,2:,:]
+
+		L_arr = scutils.xyz_to_L(xmins, ymins, zmins)  # [i,j]
+		theta_arr = np.arctan2(ymins,xmins)
+
+		#Collect indicies of points within spatial bounds
+		iPointCloud = np.array([])
+		lPointCloud = np.array([])
+
+		for i in Ni:
+			for j in Nj:
+				#Collect indicies of points within spatial bounds
+				if L_arr[i,j] >= lGrid[0] and L_arr[i,j] <= lGrid[-1]
+				and (theta_arr[i,j] > theta_bnds[0,0] and theta_arr[i,j] < theta_bnds[0,1]
+					or theta_arr[i,j] > theta_bnds[1,0] and theta_arr[i,j] < theta_bnds[1,1]):
+					iPointCloud = np.append(iPointCloud, [i,j])
+					lPointCloud = np.append(lPointCloud, L_arr[i,j])
+
+		#Sort index array in order of ascending L values
+		lSort = lPointCloud.argsort()
+		iPointCloud = iPointCloud[lSort]
+		lPointCloud = lPointCloud[lSort]
+		Npc = len(iPointCloud)
+
+		#Calc distance-based mapping weights for each lGrid index
+		lMapWeights = [ [] for l in range(Nl)] # Nl x nx2 [[weights],[iPC values]]
+		wFlag = 9999
+		iLPC_lower = 0  # iPointCloud/lPointCloud index, 1 grid point below current lGrid index
+		iLPC_upper = 0  # iPointCloud/lPointCloud index, 1 grid point above current lGrid index
+		for iLG in range(Nl):
+			width_lower = lPointCloud[iLG] - lPointCloud[iLG-1] if iLG > 1 else wFlag
+			width_upper = lPointCloud[iLG+1] - lPointCloud[iLG] if iLG < Nl-1 else wFlag
+			if iLG != 0:
+				while lPointCloud[iLPC_lower+1] < lGrid[iLG-1]:
+					iLPC_lower += 1
+			#Set upper iPLC index to next highest lbin value
+			while iLPC_upper+1 < Npc and lPointCloud[iLPC_upper+1] > lGrid[iLG+1]:
+				iLPC_upper += 1
+
+
+			iLG_WM = []  # weight and points for current lGrid index
+			for iLPC in range(iLPC_lower, iLPC_upper+1):
+				# Is this a point below or above current lGrid point
+				if lPointCloud[iLPC] < lGrid[iLG]:
+					weight = (lGrid[iLG] - lPointCloud[iLPC])/width_lower
+				elif lPointCloud[iLPC] > lGrid[iLG]:
+					weight = (lPointCloud[iLPC] - lGrid[iLPC])/width_upper
+				iLG_WM.append([weight,iPointCloud[iLPC]])
+			lMapWeights[iLG] = iLG_WM
+
+
+		#Calc eGrid mapping weights
+		eMapWeights = [ [ [] for e in range(Ne)] for pnt in Npc] # Npc x Ne x (nx2)
+		for iPC in range(len(iPointCloud)):
+			i,j = iPointCloud[iPC]
+			vm = vms[i,j]
+			ke_center = alamData['ilamc']*vm
+			ke_lower = alamData['ilami'][:-1]*vm
+			ke_upper = alamData['ilami'][1:]*vm
+
+			# Iterate over eGrid, grab weights for all overlapping k bins
+			for iEG in range(Ne):
+				e_lower = eGrid[0] if iEG == 0 else (eGrid[iEG-1] + eGrid[iEG])/2
+				e_upper = eGrid[-1] if iEG == Ne-1 else (eGrid[iEG+1] + eGrid[iEG])/2
+				e_width = e_upper-e_lower
+
+				weight_arr = []
+				#Loop through k values, find k bind in 1D collision with current eGrid element
+				for k in range(len(ke_center)):
+					#Does it collide
+					if e_lower < ke_upper and e_upper > ke_lower:
+						#Get overlap bounds
+						o_lower = ke_lower if ke_lower > e_lower else e_lower
+						o_upper = ke_upper if ke_upper < e_upper else e_upper
+						o_width = o_upper-o_lower
+						weight_arr.append([k, eetas[k,i,j]*o_width/ke_width])  # Fraction of k bin that coincides with eGrid bin
+			eMapWeights = weight_arr
 
 #TODO: Take list of variable strings to pull from rcm.h5 file
 def getRCM_eqlatlon(mhdrcmf5, rcmTimes, jdir=None, forceCalc=False):
