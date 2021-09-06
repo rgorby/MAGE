@@ -10,4 +10,4 @@ To use Python tools:
 Assuming $KAIJUDIR is base installation directory, add $KAIJUDIR/scripts to $PATH and $KAIJUDIR to $PYTHONPATH.  
 
 For help, see the wiki at
-https://bitbucket.org/aplkaiju/kaiju/wiki/Home.
+https://bitbucket.org/aplkaiju/kaiju/wiki/Home
