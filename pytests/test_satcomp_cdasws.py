@@ -20,29 +20,6 @@ def test_emphem(key):
     assert 'CoordSys' in scIdDict[key]['Ephem'], \
         '{} lacks Ephem CoordSys key'.format(key)
 
-@pytest.mark.parametrize("key",[key for key in scutils.getScIds().keys()])
-def test_getCdasData(key):
-
-    scIdDict = scutils.getScIds()
-
-    for var in scIdDict[key]:
-        if var != "_testing":
-            tStart, tEnd = scutils.getCdasDsetInterval(scIdDict[key][var]['Id'])
-            assert tStart is not None,\
-                '{} did not have valid start time'.format(key)
-            t0 = tStart
-            t0dt = datetime.datetime.strptime(t0, "%Y-%m-%dT%H:%M:%S.%fZ")
-            t1 = (t0dt + datetime.timedelta(days=1)).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
-
-            dset_id = scIdDict[key][var]['Id']
-            dset_vname = scIdDict[key][var]['Data']
-            if "EpochStr" in scIdDict[key][var].keys():
-                cdasResult = scutils.getCdasData(dset_id, dset_vname, t0,t1,
-                    epochStr=scIdDict[key][var]["EpochStr"])
-            else:
-                cdasResult = scutils.getCdasData(dset_id, dset_vname, t0,t1)
-            assert cdasResult != {}, \
-            "getCdasData returned with no information for {},{}".format(key,var)
 
 @pytest.mark.parametrize("key",[key for key in scutils.getScIds().keys()])
 def test_pullVar(key):
@@ -54,10 +31,12 @@ def test_pullVar(key):
             tStart, tEnd = scutils.getCdasDsetInterval(scIdDict[key][var]['Id'])
             assert tStart is not None,\
                 '{} did not have valid start time'.format(key)
-            t0 = tStart
-            t0dt = datetime.datetime.strptime(t0, "%Y-%m-%dT%H:%M:%S.%fZ")
-            t1 = (t0dt + datetime.timedelta(days=1)).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
-
+            # t0 = tStart
+            # t0dt = datetime.datetime.strptime(t0, "%Y-%m-%dT%H:%M:%S.%fZ")
+            # t1 = (t0dt + datetime.timedelta(days=1)).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+            t1 = tEnd
+            t1dt = datetime.datetime.strptime(t1, "%Y-%m-%dT%H:%M:%S.%fZ")
+            t0 = (t1dt - datetime.timedelta(days=1)).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
             dset_id = scIdDict[key][var]['Id']
             dset_vname = scIdDict[key][var]['Data']
             status,data = scutils.pullVar(scIdDict[key][var]['Id'],scIdDict[key][var]['Data'],
