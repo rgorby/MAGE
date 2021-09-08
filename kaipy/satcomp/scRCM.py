@@ -31,6 +31,9 @@ specFlux_factor_i = 1/np.pi/np.sqrt(8)*np.sqrt(ev/massi)*nt/re/1.0e1  # [units/c
 specFlux_factor_e = 1/np.pi/np.sqrt(8)*np.sqrt(ev/masse)*nt/re/1.0e1  # [units/cm^2/keV/str]
 TINY = 1.0e-8
 
+#Settings that should maybe be elsewhere
+tkl_lInner = 2  # Exclude points within 2 Re
+
 #Hard-coded filenames
 RCM_TIME_JFNAME = 'rcm_times.json'
 RCM_TKL_JFNAME = 'rcm_tkl.json'
@@ -597,7 +600,7 @@ def getIntensitiesVsL(rcmf5, mhdrcmf5, sStart, sEnd, sStride, species='ions', eG
 	return result
 
 
-def getVarWedge(rcmf5, mhdrcmf5, sStart, sEnd, sStride, width_deg, eGrid=None, lGrid=None, jdir=None, forceCalc=False):
+def getVarWedge(rcmf5, mhdrcmf5, sStart, sEnd, sStride, wedge_deg, species='ions',eGrid=None, lGrid=None, jdir=None, forceCalc=False):
 	"""Take a slice/wedge centered along the x axis (eq space), calculate average <var> vs. L and E
 		rcmf5, mhdrcmf5: h5 filenames
 		sStart, sEnd, sStride: step information
@@ -640,16 +643,15 @@ def getVarWedge(rcmf5, mhdrcmf5, sStart, sEnd, sStride, width_deg, eGrid=None, l
 		kEnd = len(rcm5[sIDstrs[0]]['alamc'])-1
 		sf_factor = specFlux_factor_i
 	alamData = getSpecieslambdata(rcmS0, kStart, kEnd)
-
-	theta_bnds = [[360-width_deg/2, width_deg/2],		# daysie
-				[180+width_deg/2, 180-width_deg/2]] # nightside
-
+	Nk = len(alamData['ilamc'])
+	
 	if lGrid is None:
-		lMin = 2
-		lMax = 10
-		Nl = 50
-		lGrid = np.linspace(nMin, lMax, Nl, endpoint=True)
+		lMin = -10
+		lMax = 8
+		Nl = 52
+		lGrid = np.linspace(lMin, lMax, Nl, endpoint=True)
 	Nl = len(lGrid)
+	
 
 	if eGrid is None:
 		eMin = 1E2  # [eV]
@@ -658,12 +660,15 @@ def getVarWedge(rcmf5, mhdrcmf5, sStart, sEnd, sStride, width_deg, eGrid=None, l
 		eGrid = np.logspace(np.log10(eMin), np.log10(eMax), Ne, endpoint=True)
 	Ne = len(eGrid)
 
-	rcmodf_tkl = np.zeros((nSteps, Ne, Nl))
-	rcmpress_tkl = np.zeros((nSteps, Ne, Nl))
+	odf_tkl = np.zeros((nSteps, Ne, Nl))
+	press_tkl = np.zeros((nSteps, Ne, Nl))
 
 	if doProgressBar: bar = progressbar.ProgressBar(max_value=nSteps)
 	for n in range(nSteps):
 		if doProgressBar: bar.update(n)
+
+		mhdrcmS = mhdrcm5[sIDstrs[n]]
+		rcmS = rcm5[sIDstrs[n]]
 
 		IOpen = mhdrcmS['IOpen']
 		Ni, Nj = IOpen.shape  # Default should be (179, 90)
@@ -674,84 +679,177 @@ def getVarWedge(rcmf5, mhdrcmf5, sStart, sEnd, sStride, width_deg, eGrid=None, l
 		zmins = rcmS['rcmzmin'][2:,:]
 		eetas = rcmS['rcmeeta'][kStart:kEnd,2:,:]
 
-		L_arr = scutils.xyz_to_L(xmins, ymins, zmins)  # [i,j]
-		theta_arr = np.arctan2(ymins,xmins)
+		L_arr = scutils.xyz_to_L(xmins, ymins, zmins) # [i,j]
+		theta_arr = np.arctan2(ymins,xmins)*180/np.pi%360
 
 		#Collect indicies of points within spatial bounds
-		iPointCloud = np.array([])
-		lPointCloud = np.array([])
+		iPointCloud = []
+		lPointCloud = []
 
-		for i in Ni:
-			for j in Nj:
+		for i in range(Ni):
+			for j in range(Nj):
+				l_ij = L_arr[i,j]
+				theta_ij = theta_arr[i,j]
 				#Collect indicies of points within spatial bounds
-				if L_arr[i,j] >= lGrid[0] and L_arr[i,j] <= lGrid[-1]
-				and (theta_arr[i,j] > theta_bnds[0,0] and theta_arr[i,j] < theta_bnds[0,1]
-					or theta_arr[i,j] > theta_bnds[1,0] and theta_arr[i,j] < theta_bnds[1,1]):
-					iPointCloud = np.append(iPointCloud, [i,j])
-					lPointCloud = np.append(lPointCloud, L_arr[i,j])
+				
+				if (theta_ij > 360-wedge_deg/2 or theta_ij < wedge_deg/2):  # dayside wedge
+					if l_ij >= lGrid[0] and l_ij <= lGrid[-1] and abs(l_ij) > tkl_lInner:
+						iPointCloud.append([i,j])
+						lPointCloud.append(l_ij)	
+				elif (theta_ij > 180-wedge_deg/2 and theta_ij < 180+wedge_deg/2): #nightside wedge
+					if -l_ij >= lGrid[0] and -l_ij <= lGrid[-1] and abs(l_ij) > tkl_lInner:
+						iPointCloud.append([i,j])
+						lPointCloud.append(-l_ij)
+					
+					#TODO: if vm<0?
+					
+		iPointCloud = np.array(iPointCloud)
+		lPointCloud = np.array(lPointCloud)
 
 		#Sort index array in order of ascending L values
 		lSort = lPointCloud.argsort()
+		
 		iPointCloud = iPointCloud[lSort]
 		lPointCloud = lPointCloud[lSort]
 		Npc = len(iPointCloud)
-
+		
+		if Npc == 0:
+			continue
 		#Calc distance-based mapping weights for each lGrid index
-		lMapWeights = [ [] for l in range(Nl)] # Nl x nx2 [[weights],[iPC values]]
+		lMapWeights = [ [] for l in range(Nl)] # Nl x nx2 ,  nx[iPC, lWeight]
 		wFlag = 9999
-		iLPC_lower = 0  # iPointCloud/lPointCloud index, 1 grid point below current lGrid index
-		iLPC_upper = 0  # iPointCloud/lPointCloud index, 1 grid point above current lGrid index
 		for iLG in range(Nl):
-			width_lower = lPointCloud[iLG] - lPointCloud[iLG-1] if iLG > 1 else wFlag
-			width_upper = lPointCloud[iLG+1] - lPointCloud[iLG] if iLG < Nl-1 else wFlag
-			if iLG != 0:
-				while lPointCloud[iLPC_lower+1] < lGrid[iLG-1]:
+			iLPC_lower = 0  # iPointCloud/lPointCloud index, 1 grid point below current lGrid index
+			iLPC_upper = 0  # iPointCloud/lPointCloud index, 1 grid point above current lGrid index
+			width_lower = abs(lGrid[iLG] - lGrid[iLG-1]) if iLG > 1 else wFlag
+			width_upper = abs(lGrid[iLG+1] - lGrid[iLG]) if iLG < Nl-1 else wFlag
+			if iLG != 0: 
+				while iLPC_lower < Npc-1 and lPointCloud[iLPC_lower] < lGrid[iLG-1]:
 					iLPC_lower += 1
 			#Set upper iPLC index to next highest lbin value
-			while iLPC_upper+1 < Npc and lPointCloud[iLPC_upper+1] > lGrid[iLG+1]:
-				iLPC_upper += 1
-
+			if iLG < Nl-1: 
+				while iLPC_upper+1 < Npc and lPointCloud[iLPC_upper+1] < lGrid[iLG+1]:
+					iLPC_upper += 1
 
 			iLG_WM = []  # weight and points for current lGrid index
+			
 			for iLPC in range(iLPC_lower, iLPC_upper+1):
 				# Is this a point below or above current lGrid point
 				if lPointCloud[iLPC] < lGrid[iLG]:
-					weight = (lGrid[iLG] - lPointCloud[iLPC])/width_lower
+					weight = 1-abs(lGrid[iLG] - lPointCloud[iLPC])/width_lower					
 				elif lPointCloud[iLPC] > lGrid[iLG]:
-					weight = (lPointCloud[iLPC] - lGrid[iLPC])/width_upper
-				iLG_WM.append([weight,iPointCloud[iLPC]])
+					weight = 1-abs(lPointCloud[iLPC] - lGrid[iLG])/width_upper
+
+				#Cheating
+				if abs(weight)>1:
+					weight = 0
+					#print('iLG={} iLPC={} lG[iLG]={} lPC[iLPC]={} weight={}'.format(iLG, iLPC, lGrid[iLG], lPointCloud[iLPC], weight))
+				iLG_WM.append([iLPC, weight])  # Save pointCloud index and associated lbin weight
 			lMapWeights[iLG] = iLG_WM
-
-
+		"""
+		for iLG in range(Nl):
+			print('iLG={}  L={} nP={}'.format(iLG, lGrid[iLG], len(lMapWeights[iLG])))
+			for i in range(len(lMapWeights[iLG])):
+				iPC = lMapWeights[iLG][i][0]
+				print('  Lpc={} iPC={} weight={}'.format(lPointCloud[iPC], iPC, lMapWeights[iLG][i][1]))
+		"""
 		#Calc eGrid mapping weights
-		eMapWeights = [ [ [] for e in range(Ne)] for pnt in Npc] # Npc x Ne x (nx2)
-		for iPC in range(len(iPointCloud)):
+		eMapFracs = [ [ [] for e in range(Ne)] for pnt in range(Npc)] # Npc x Ne x (nx2)
+		for iPC in range(Npc):
 			i,j = iPointCloud[iPC]
 			vm = vms[i,j]
 			ke_center = alamData['ilamc']*vm
 			ke_lower = alamData['ilami'][:-1]*vm
 			ke_upper = alamData['ilami'][1:]*vm
+			ke_width = ke_upper-ke_lower
 
 			# Iterate over eGrid, grab weights for all overlapping k bins
 			for iEG in range(Ne):
 				e_lower = eGrid[0] if iEG == 0 else (eGrid[iEG-1] + eGrid[iEG])/2
 				e_upper = eGrid[-1] if iEG == Ne-1 else (eGrid[iEG+1] + eGrid[iEG])/2
-				e_width = e_upper-e_lower
 
-				weight_arr = []
+				frac_arr = []
 				#Loop through k values, find k bind in 1D collision with current eGrid element
-				for k in range(len(ke_center)):
+				for k in range(Nk):
 					#Does it collide
-					if e_lower < ke_upper and e_upper > ke_lower:
+					if e_lower < ke_upper[k] and e_upper > ke_lower[k]:
 						#Get overlap bounds
-						o_lower = ke_lower if ke_lower > e_lower else e_lower
-						o_upper = ke_upper if ke_upper < e_upper else e_upper
+						o_lower = ke_lower[k] if ke_lower[k] > e_lower else e_lower
+						o_upper = ke_upper[k] if ke_upper[k] < e_upper else e_upper
 						o_width = o_upper-o_lower
-						weight_arr.append([k, eetas[k,i,j]*o_width/ke_width])  # Fraction of k bin that coincides with eGrid bin
-			eMapWeights = weight_arr
+						#frac_arr.append([k, eetas[k,i,j]*o_width/ke_width])  # Fraction of k bin that coincides with eGrid bin
+						frac_arr.append([k, o_width/ke_width[k]])  # Fraction of k bin that coincides with eGrid bin
+				#print('n: {}  arr:{}'.format(len(frac_arr), frac_arr))
+				eMapFracs[iPC][iEG] = frac_arr
+		"""
+		for iPC in range(Npc):
+			print('iPC={}  L={}'.format(iPC, lPointCloud[iPC]))
+			i,j = iPointCloud[iPC]
+			vm = vms[i,j]
+			for e in range(Ne):
+				print('  e={}'.format(eGrid[e]))
+				for i in range(len(eMapFracs[iPC][e])):
+					k = eMapFracs[iPC][e][i][0]
+					print('    k={}  E_k={} frac={}'.format(k, alamData['ilamc'][k]*vm,eMapFracs[iPC][e][i][1]))
+		"""
+
+		#Calculate the desired variables for all of our points
+		odf_pc = np.zeros((Npc,Nk))
+		press_pc = np.zeros((Npc,Nk))
+		for npc in range(Npc):
+			# Single point's values
+			i,j = iPointCloud[npc]
+			vm = vms[i,j]
+			eeta_k = eetas[:,i,j]
+
+			odf_pc[npc,:] =  sf_factor*alamData['ilamc']*vm*eeta_k/alamData['lamscl'] # [Nk]
+			press_pc[npc,:] =  pressure_factor*alamData['ilamc']*eeta_k*vm**2.5 * 1E9  # [Pa -> nPa]
+			#print('nPC={} vm={} odf={} press={}'.format(npc,vm,odf_pc[npc,:],press_pc[npc,:]))
+			
+		#Now we have all necessary info. Map all points to their corresponding L-E grid point
+		odf_EL = np.zeros((Ne,Nl))
+		press_EL = np.zeros((Ne,Nl))
+		for iLG in range(Nl):
+			#print('iLG=' + str(iLG))
+			pointsToMap = lMapWeights[iLG]  # [nx2], nx[pc index, weight]
+			numPoints = len(pointsToMap)
+
+			for i in range(numPoints):
+				iPC = pointsToMap[i][0]
+				lWeight = pointsToMap[i][1]
+				
+				for e in range(Ne):
+					for ik in range(len(eMapFracs[iPC][e])):
+						k = eMapFracs[iPC][e][ik][0]
+						eFrac = eMapFracs[iPC][e][ik][1]
+						odf_EL[e,iLG] += lWeight/numPoints * eFrac * odf_pc[iPC,k]
+						press_EL[e,iLG] += lWeight/numPoints * eFrac * press_pc[iPC,k]
+
+		#Yay we made it
+		odf_tkl[n,:,:] = odf_EL
+		press_tkl[n,:,:] = press_EL
+
+	#Destroy our hard work
+	odf_tl = np.ma.sum(np.ma.masked_invalid(odf_tkl), axis=1)
+	press_tl = np.ma.sum(np.ma.masked_invalid(press_tkl), axis=1)
+		
+	result = {}
+	result['T'         ] = rcmTimes['T'  ][iTStart:iTEnd+1:sStride]
+	result['MJD'       ] = rcmTimes['MJD'][iTStart:iTEnd+1:sStride]
+	result['lambda'    ] = alamData['ilamc']
+	result['L_bins'    ] = lGrid
+	result['energyGrid'] = eGrid
+	result['odf_tkl'   ] = odf_tkl
+	result['odf_tl'    ] = odf_tl
+	result['press_tkl' ] = press_tkl
+	result['press_tl'  ] = press_tl
+
+	if dojson: kj.dump(rcmjfname, result)
+
+	return result
 
 #TODO: Take list of variable strings to pull from rcm.h5 file
-def getRCM_eqlatlon(mhdrcmf5, rcmTimes, jdir=None, forceCalc=False):
+def getRCM_eqlatlon(mhdrcmf5, rcmTimes, sStart, sEnd, sStride, jdir=None, forceCalc=False):
 	"""Grab certain variables along with equatorial and lat-lon grid
 		Can use json but there's not much point if you already have the (mhd)rcm file(s)
 	"""
@@ -767,8 +865,10 @@ def getRCM_eqlatlon(mhdrcmf5, rcmTimes, jdir=None, forceCalc=False):
 			return kj.load(rcmjfname)
 
 	Nt = rcmTimes['Nt']
-	sIDs = rcmTimes['sIDs']
-	sIDstrs = rcmTimes['sIDstrs']
+	iTStart = np.abs(rcmTimes['sIDs']-sStart).argmin()
+	iTEnd = np.abs(rcmTimes['sIDs']-sEnd).argmin()
+	sIDs = rcmTimes['sIDs'][iTStart:iTEnd+1:sStride]
+	sIDstrs = rcmTimes['sIDstrs'][iTStart:iTEnd+1:sStride]
 
 	mhdrcm5 = h5.File(mhdrcmf5,'r')
 	
@@ -835,8 +935,8 @@ def getRCM_eqlatlon(mhdrcmf5, rcmTimes, jdir=None, forceCalc=False):
 			scLoc_latlon[t,:] = [mlat_sc[itime], mlon_sc[itime]]
 	"""
 	result = {}
-	result['T']     = rcmTimes['T']
-	result['MJD']   = rcmTimes['MJD']
+	result['T']     = rcmTimes['T'][iTStart:iTEnd+1:sStride]
+	result['MJD']   = rcmTimes['MJD'][iTStart:iTEnd+1:sStride]
 	result['MLAT']  = mlat_rcm
 	result['MLON']  = mlon_rcm
 	result['xmin']  = xmin_arr
@@ -921,6 +1021,10 @@ def plt_tl(AxTL, tkldata, AxCB=None, mjd=None,cmapName='CMRmap',norm=None):
 		AxTL.set_xlim([ut[0], ut[-1]])
 		AxTL.set_ylabel('L shell')
 		AxTL.set_xlabel('UT')
+		#Sim boundaries
+		xmin,xmax = AxTL.get_xlim()
+		AxTL.plot([xmin,xmax],[-tkl_lInner,-tkl_lInner], 'w--')
+		AxTL.plot([xmin,xmax],[tkl_lInner,tkl_lInner], 'w--')
 	if doPopulateCB:
 		kv.genCB(AxCB, norm, r'Total pressure [$nPa$]', cM=cmapName, doVert=False)
 
@@ -931,8 +1035,8 @@ def plt_tl(AxTL, tkldata, AxCB=None, mjd=None,cmapName='CMRmap',norm=None):
 		iMJD = np.abs(tkldata['MJD'] - mjd).argmin()
 		lineUT = ut[iMJD]
 
-		if len(AxTL.lines) != 0:
-			AxTL.lines.pop(0)  #Remove previous mjd line
+		if len(AxTL.lines) > 2:
+			AxTL.lines.pop(2)  #Remove previous mjd line
 		yMin, yMax = AxTL.get_ylim()
 		AxTL.plot([lineUT, lineUT], [yMin, yMax], '-k')
 
@@ -946,8 +1050,6 @@ def plt_tkl(AxTKL, tkldata, AxCB=None, mjd=None, cmapName='CMRmap', vName='odf',
 		print("scRCM.plt_tkl: Unknown vName, assuming 'odf'")
 		vName = 'odf'
 
-	if AxCB is not None:
-		print("AxCB label: '{}'".format(AxCB.get_label))
 	doPopulateCB = AxCB is not None and AxCB.get_label() == ''
 
 	k_arr = tkldata['energyGrid']
@@ -973,13 +1075,18 @@ def plt_tkl(AxTKL, tkldata, AxCB=None, mjd=None, cmapName='CMRmap', vName='odf',
 
 		if vName == 'odf':
 			klslice = tkldata['odf_tkl'][iMJD,:,:]
-			AxTKL.pcolormesh(k_arr, L_arr, np.transpose(klslice), shading='nearest', cmap=cmapName)
+			AxTKL.pcolormesh(L_arr, k_arr*1E-3, klslice, shading='nearest', cmap=cmapName)
 		elif vName == 'press':
 			klslice = tkldata['press_tkl'][iMJD,:,:]
-			AxTKL.pcolormesh(k_arr*1E-3, L_arr, np.transpose(klslice), norm=norm, shading='nearest', cmap=cmapName)
+			AxTKL.pcolormesh(L_arr, k_arr*1E-3, klslice, norm=norm, shading='nearest', cmap=cmapName)
 		
-		AxTKL.set_xlabel('Energy [keV]')
-		AxTKL.set_ylabel('L shell')
+		#Dashed lines to mark simulation inner boundary
+		ymin,ymax = AxTKL.get_ylim()
+		AxTKL.plot([-tkl_lInner,-tkl_lInner], [ymin,ymax], 'w--')
+		AxTKL.plot([tkl_lInner,tkl_lInner], [ymin,ymax], 'w--')
+
+		AxTKL.set_xlabel('L shell')
+		AxTKL.set_ylabel('Energy [keV]')
 
 		if satTrackData is not None:
 			#Draw line to indicate spacecraft L value
@@ -988,6 +1095,8 @@ def plt_tkl(AxTKL, tkldata, AxCB=None, mjd=None, cmapName='CMRmap', vName='odf',
 			if scL > 1E-8:
 				xBounds = np.asarray(AxTKL.get_xlim())
 				AxTKL.plot(xBounds, [scL, scL], 'r-')
+
+		
 
 
 def plt_rcm_eqlatlon(AxLatlon, AxEq, rcmData, satTrackData, AxCB=None, mjd=None, norm=None, cmapName='viridis'):
@@ -1034,7 +1143,6 @@ def plt_rcm_eqlatlon(AxLatlon, AxEq, rcmData, satTrackData, AxCB=None, mjd=None,
 		AxLatlon.axis([0, 2*np.pi, 0, 0.7])
 
 		AxEq.pcolor(xmin_arr[iMJD], ymin_arr[iMJD], press_arr[iMJD], norm=norm, shading='auto', cmap=cmapName)
-		print("xeq_sc[{}]: {}".format(iMJD, x_sc[iMJD]))
 		#Draw satellite location
 		if req_sc[iMJD] > 1E-8:
 			leadMax = iMJD

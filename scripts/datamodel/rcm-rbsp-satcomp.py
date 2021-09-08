@@ -114,28 +114,28 @@ if __name__=="__main__":
 	t0r = ut[0].strftime("%Y-%m-%dT%H:%M:%SZ")
 	t1r = ut[-1].strftime("%Y-%m-%dT%H:%M:%SZ")
 
-	print("Testing RBSPICE Dataset retreival")
+	print("Retrieving RBSPICE dataset")
 	ephData, scData = scRCM.getSCOmniDiffFlux(scId, vTag, t0r, t1r, jdir=jdir,forceCalc=('cdas' in fcIDs))
 
-	print("\n\nTesting time grabbing")
+	print("\n\nGrabbing RCM time")
 	rcmTimes = scRCM.getRCMtimes(rcm_fname,mhdrcm_fname,jdir=jdir,forceCalc=('times' in fcIDs))
 
-	print("\n\nTesting RCM track extraction")
+	print("\n\nExtracting RCM values along sc trajectory")
 	rcmTrack = scRCM.getRCM_scTrack(trackf5, rcm_fname, rcmTimes, jdir=jdir, forceCalc=('track' in fcIDs), scName="RBSP-B")
 
-	print("\n\nTesting grid consolidation")
+	print("\n\nConsolidating grids")
 	eGrid = np.logspace(np.log10(40), np.log10(6E2), 200, endpoint=True)
 	consolData = scRCM.consolidateODFs(scData, rcmTrack, eGrid=eGrid)
 
-	print("\n\nTesting tkl calculation")
-	tkldata = scRCM.getIntensitiesVsL('msphere.rcm.h5','msphere.mhdrcm.h5',tStart, tEnd, tStride, jdir=jdir, forceCalc=('tkl' in fcIDs))
-	#tkldata = scRCM.getIntensitiesVsL('msphere.rcm.h5','msphere.mhdrcm.h5',1201, 1220)
-
+	print("\n\nCalculating tkl vars(var wedge)")
+	#tkldata = scRCM.getIntensitiesVsL('msphere.rcm.h5','msphere.mhdrcm.h5',tStart, tEnd, tStride, jdir=jdir, forceCalc=('tkl' in fcIDs))
+	tkldata = scRCM.getVarWedge(rcm_fname, mhdrcm_fname, tStart, tEnd, tStride, 5, jdir=jdir, forceCalc=('tkl' in fcIDs))
+	
 	#Works but very verbose
 	#print("\n\nTesting RCM eqlatlon grab")
-	rcm_eqlatlon = scRCM.getRCM_eqlatlon(mhdrcm_fname, rcmTimes)
+	rcm_eqlatlon = scRCM.getRCM_eqlatlon(mhdrcm_fname, rcmTimes, tStart, tEnd, tStride)
 
-	print('\n\nTesting plotting')
+	print('\n\nPlotting')
 	fig = plt.figure(figsize=(20,9))
 	gs = gridspec.GridSpec(8,16, wspace=0.8, hspace=0.6)
 	cmap_odf = "CMRmap"
@@ -166,7 +166,7 @@ if __name__=="__main__":
 	odfnorm = kv.genNorm(10E3, 5E6, doLog=True)
 	ut_tkl = kT.MJD2UT(tkldata['MJD'])
 	pressnorm = kv.genNorm(1E-2, 25, doLog=False)
-	parpressnorm = kv.genNorm(1e-3, 1, doLog=True)
+	parpressnorm = kv.genNorm(1e-3, 5, doLog=True)
 	#Movie time
 	outdir = os.path.join(fdir, vidOut)
 	kh5.CheckDirOrMake(outdir)
@@ -195,15 +195,11 @@ if __name__=="__main__":
 
 	AxTL.xaxis.set_ticks_position('top')
 	AxTL.xaxis.set_label_position('top')
-	AxTL.invert_yaxis()
 	AxTL.tick_params(axis='y', pad=-1)
 	AxTL.yaxis.labelpad = -1 
-	AxTKL.set_xscale('log')
-	#AxTKL.yaxis.set_ticks_position('right')
-	#AxTKL.yaxis.set_label_position('right')
+	AxTKL.set_yscale('log')
 	AxTKL.tick_params(axis='y', pad=-1)
 	AxTKL.yaxis.labelpad = -1
-	AxTKL.invert_yaxis()
 	AxTKL.tick_params(axis='x', pad=-1)
 	AxTKL.xaxis.labelpad = -1
 	AxTKL.title.set_text(str(ut_tkl[0]))
