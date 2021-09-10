@@ -2,6 +2,7 @@
 import datetime
 import kaipy.satcomp.scutils as scutils
 import pytest
+import numpy as np
 
 def test_getscIds():
     scIdDict = scutils.getScIds()
@@ -43,3 +44,21 @@ def test_pullVar(key):
                       t0,t1,60.0)
             assert status['http']['status_code'] == 200, \
                 "pullVar failed to return for {},{}".format(key,var)
+
+@pytest.fixture
+def exampleObs():
+    return np.array([3, -0.5, 2, 7])
+@pytest.fixture
+def examplePred():
+    return np.array([2.5, 0.0, 2, 8])
+
+def test_computeErrors(exampleObs,examplePred):
+    MAE,MSE,RMSE,MAPE,RSE,PE = scutils.computeErrors(exampleObs,examplePred)
+    assert MAE == pytest.approx(0.5)
+    assert MSE == pytest.approx(0.375)
+    assert RMSE == pytest.approx(0.6123724356957945)
+    assert MAPE == pytest.approx(0.3273809523809524)
+    assert RSE == pytest.approx(0.05139186295503212)
+    assert PE == pytest.approx(0.9486081370449679)
+
+    return
