@@ -136,6 +136,9 @@ if __name__ == '__main__':
 			plotname = os.path.join(fdir,scId+'.png')
 			print('Plotting results to',plotname)
 			kv.compPlot(plotname,scId,data)
+			print('Computing Errors')
+			errname = os.path.join(fdir,scId+'-error.txt')
+			scutils.errorReport(errname,scId,data)
 			if not keep:
 				h5parts = glob.glob(os.path.join(fdir,scId)+'.*.sc.h5')
 				for file in h5parts:

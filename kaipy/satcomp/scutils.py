@@ -84,7 +84,6 @@ def computeErrors(obs,pred):
 		np.where(abs(obs) < TINY,TINY,abs(obs)))
 	RSE = (np.sum((obs-pred)**2)/np.sum((obs-np.mean(obs))**2))
 	PE = 1-RSE
-
 	return MAE,MSE,RMSE,MAPE,RSE,PE
 
 #======
@@ -590,6 +589,58 @@ touch %s
 	pbsFile.close()
 
 	return pbsFileName
+
+def errorReport(errorName,scId,data):
+
+	keysToCompute = []
+	keys = data.keys()
+
+	print('Writing Error to ',errorName)
+	f = open(errorName,'w')
+	if 'Density' in keys:
+		keysToCompute.append('Density')
+	if 'Pressue' in keys:
+		keysToCompute.append('Pressue')
+	if 'Temperature' in keys:
+		keysToCompute.append('Temperature')
+	if 'MagneticField' in keys:
+		keysToCompute.append('MagneticField')
+	if 'Velocity' in keys:
+		keysToCompute.append('Velocity')
+
+	for key in keysToCompute:
+		#print('Plotting',key)
+		if 'MagneticField' == key or 'Velocity' == key:
+			for vecComp in range(3):
+				maskedData = np.ma.masked_where(data['GAMERA_inDom'][:]==0.0,
+					data[key][:,vecComp])
+				maskedGamera = np.ma.masked_where(data['GAMERA_inDom'][:]==0.0,
+					data['GAMERA_'+key][:,vecComp])
+				MAE,MSE,RMSE,MAPE,RSE,PE = computeErrors(maskedData,maskedGamera)
+				f.write(f'Errors for: {key},{vecComp}\n')
+				f.write(f'MAE: {MAE}\n')
+				f.write(f'MSE: {MSE}\n')
+				f.write(f'RMSE: {RMSE}\n')
+				f.write(f'MAPE: {MAPE}\n')
+				f.write(f'RSE: {RSE}\n')
+				f.write(f'PE: {PE}\n')
+		else:
+				maskedData = np.ma.masked_where(data['GAMERA_inDom'][:]==0.0,
+					data[key][:])
+				maskedGamera = np.ma.masked_where(data['GAMERA_inDom'][:]==0.0,
+					data['GAMERA_'+key][:])
+				MAE,MSE,RMSE,MAPE,RSE,PE = computeErrors(maskedData,maskedGamera)
+				f.write(f'Errors for: {key}\n')
+				f.write(f'MAE: {MAE}\n')
+				f.write(f'MSE: {MSE}\n')
+				f.write(f'RMSE: {RMSE}\n')
+				f.write(f'MAPE: {MAPE}\n')
+				f.write(f'RSE: {RSE}\n')
+				f.write(f'PE: {PE}\n')
+	f.close()
+	return
+
+
 
 
 
