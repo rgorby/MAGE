@@ -1,5 +1,5 @@
 module testring
-  use pfUnit
+  use testHelper
   use voltapp
   use gamapp
   use uservoltic

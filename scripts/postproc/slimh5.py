@@ -100,9 +100,6 @@ if __name__ == "__main__":
                     if os.path.exists(fName):
                         inFiles.append(fName)
                         outFiles.append("{}-{}_{}_{}.{}".format(Ns,Nsf,runTag,mpiStr,outTag))
-        print(inFiles)
-        print(outFiles)
-        
     else:
         inFiles = [fIn]
         outFiles = [str(Ns)+'-'+str(Nsf)+outTag]

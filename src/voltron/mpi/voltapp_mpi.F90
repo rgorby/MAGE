@@ -5,7 +5,7 @@ module voltapp_mpi
     use voltmpitypes
     use gamapp_mpi
     use gamapp
-    use mpi
+    use mpi_f08
     use ebsquish, only : SquishBlocksRemain, DoSquishBlock
     use, intrinsic :: ieee_arithmetic, only: IEEE_VALUE, IEEE_SIGNALING_NAN, IEEE_QUIET_NAN
     use volthelpers_mpi
@@ -21,44 +21,34 @@ module voltapp_mpi
         logical :: reqStat
         integer :: ierr
 
-        if(vApp%timeReq /= MPI_REQUEST_NULL) then
-            call MPI_REQUEST_GET_STATUS(vApp%timeReq,reqStat,MPI_STATUS_IGNORE,ierr)
-            if(.not. reqStat) then
-                call MPI_CANCEL(vApp%timeReq, ierr)
-                call MPI_WAIT(vApp%timeReq, MPI_STATUS_IGNORE, ierr)
-            endif
+        call MPI_TEST(vApp%timeReq,reqStat,MPI_STATUS_IGNORE,ierr)
+        if(.not. reqStat) then
+            call MPI_CANCEL(vApp%timeReq, ierr)
+            call MPI_WAIT(vApp%timeReq, MPI_STATUS_IGNORE, ierr)
         endif
 
-        if(vApp%timeStepReq /= MPI_REQUEST_NULL) then
-            call MPI_REQUEST_GET_STATUS(vApp%timeStepReq,reqStat,MPI_STATUS_IGNORE,ierr)
-            if(.not. reqStat) then
-                call MPI_CANCEL(vApp%timeStepReq, ierr)
-                call MPI_WAIT(vApp%timeStepReq, MPI_STATUS_IGNORE, ierr)
-            endif
+        call MPI_TEST(vApp%timeStepReq,reqStat,MPI_STATUS_IGNORE,ierr)
+        if(.not. reqStat) then
+            call MPI_CANCEL(vApp%timeStepReq, ierr)
+            call MPI_WAIT(vApp%timeStepReq, MPI_STATUS_IGNORE, ierr)
         endif
 
-        if(vApp%shallowIneijkSendReq /= MPI_REQUEST_NULL) then
-            call MPI_REQUEST_GET_STATUS(vApp%shallowIneijkSendReq,reqStat,MPI_STATUS_IGNORE,ierr)
-            if(.not. reqStat) then
-                ! async neighborhood ops don't support cancel
-                call MPI_WAIT(vApp%shallowIneijkSendReq, MPI_STATUS_IGNORE, ierr)
-            endif
+        call MPI_TEST(vApp%shallowIneijkSendReq,reqStat,MPI_STATUS_IGNORE,ierr)
+        if(.not. reqStat) then
+            ! async neighborhood ops don't support cancel
+            call MPI_WAIT(vApp%shallowIneijkSendReq, MPI_STATUS_IGNORE, ierr)
         endif
 
-        if(vApp%shallowInexyzSendReq /= MPI_REQUEST_NULL) then
-            call MPI_REQUEST_GET_STATUS(vApp%shallowInexyzSendReq,reqStat,MPI_STATUS_IGNORE,ierr)
-            if(.not. reqStat) then
-                ! async neighborhood ops don't support cancel
-                call MPI_WAIT(vApp%shallowInexyzSendReq, MPI_STATUS_IGNORE, ierr)
-            endif
+        call MPI_TEST(vApp%shallowInexyzSendReq,reqStat,MPI_STATUS_IGNORE,ierr)
+        if(.not. reqStat) then
+            ! async neighborhood ops don't support cancel
+            call MPI_WAIT(vApp%shallowInexyzSendReq, MPI_STATUS_IGNORE, ierr)
         endif
 
-        if(vApp%asyncShallowBcastReq /= MPI_REQUEST_NULL) then
-            call MPI_REQUEST_GET_STATUS(vApp%asyncShallowBcastReq,reqStat,MPI_STATUS_IGNORE,ierr)
-            if(.not. reqStat) then
-                call MPI_CANCEL(vApp%asyncShallowBcastReq, ierr)
-                call MPI_WAIT(vApp%asyncShallowBcastReq, MPI_STATUS_IGNORE, ierr)
-            endif
+        call MPI_TEST(vApp%asyncShallowBcastReq,reqStat,MPI_STATUS_IGNORE,ierr)
+        if(.not. reqStat) then
+            call MPI_CANCEL(vApp%asyncShallowBcastReq, ierr)
+            call MPI_WAIT(vApp%asyncShallowBcastReq, MPI_STATUS_IGNORE, ierr)
         endif
 
         if(vApp%vHelpWin /= MPI_WIN_NULL) then
@@ -71,19 +61,30 @@ module voltapp_mpi
     subroutine initVoltron_mpi(vApp, userInitFunc, helperComm, allComm, optFilename)
         type(voltAppMpi_T), intent(inout) :: vApp
         procedure(StateIC_T), pointer, intent(in) :: userInitFunc
-        integer, intent(in) :: helperComm
-        integer, intent(in) :: allComm
+        type(MPI_Comm), intent(in) :: helperComm
+        type(MPI_Comm), intent(in) :: allComm
         character(len=*), optional, intent(in) :: optFilename
 
         character(len=strLen) :: inpXML
         type(XML_Input_T) :: xmlInp
         integer :: commSize, ierr, numCells, length, ic, numInNeighbors, numOutNeighbors
-        integer :: voltComm, nHelpers, gamNRES
+        type(MPI_Comm) :: voltComm
+        integer :: nHelpers, gamNRES
         character( len = MPI_MAX_ERROR_STRING) :: message
         logical :: reorder, wasWeighted
         integer, allocatable, dimension(:) :: neighborRanks, inData, outData
         integer, allocatable, dimension(:) :: iRanks, jRanks, kRanks
         integer(KIND=MPI_BASE_MYADDR) :: winsize
+
+        ! initialize F08 MPI objects
+        vApp%vHelpComm = MPI_COMM_NULL
+        vApp%vHelpWin = MPI_WIN_NULL
+        vApp%voltMpiComm = MPI_COMM_NULL
+        vApp%timeReq = MPI_REQUEST_NULL
+        vApp%timeStepReq = MPI_REQUEST_NULL
+        vApp%shallowIneijkSendReq = MPI_REQUEST_NULL
+        vApp%shallowInexyzSendReq = MPI_REQUEST_NULL
+        vApp%asyncShallowBcastReq = MPI_REQUEST_NULL
 
         vApp%isSeparate = .true. ! running on a different process from the actual gamera ranks
         vApp%gAppLocal%Grid%lowMem = .true. ! tell Gamera to limit its memory usage
@@ -393,7 +394,7 @@ module voltapp_mpi
     end subroutine initVoltron_mpi
 
     function gameraStepReady(vApp)
-        type(voltAppMpi_T), intent(in) :: vApp
+        type(voltAppMpi_T), intent(inout) :: vApp
         logical :: gameraStepReady
 
         integer :: ierr
@@ -402,7 +403,7 @@ module voltapp_mpi
         if(vApp%doSerialVoltron) then
             gameraStepReady = .true.
         else
-            call MPI_REQUEST_GET_STATUS(vApp%timeReq,gameraStepReady,MPI_STATUS_IGNORE,ierr)
+            call MPI_TEST(vApp%timeReq,gameraStepReady,MPI_STATUS_IGNORE,ierr)
         endif
         call Toc("GameraSync")
 
@@ -456,7 +457,8 @@ module voltapp_mpi
         type(voltAppMpi_T), intent(inout) :: vApp
         real(rp), intent(in) :: time
 
-        integer :: ierr, asyncShallowBcastReq
+        integer :: ierr
+        type(MPI_Request) :: asyncShallowBcastReq
 
         if(vApp%firstDeepUpdate .and. vApp%firstShallowUpdate) then
             call firstDeep(vApp)
@@ -831,7 +833,6 @@ module voltapp_mpi
 
         if(vApp%useHelpers .and. vApp%doSquishHelp) then
             call Tic("VoltHelpers")
-            call vhReqStep(vApp)
             call vhReqSquishStart(vApp)
             call Toc("VoltHelpers")
         endif
@@ -1055,13 +1056,14 @@ module voltapp_mpi
         integer, dimension(1:SIZE(vApp%recvRanks)+1), intent(in) :: iRanks, jRanks, kRanks
 
         integer :: ierr, NiRanks, NjRanks, NkRanks, NipT, NjpT, NkpT, dataSize
-        integer :: r, rRank, recvDataOffset, recvDatatype
-        integer :: iJP, iJPjP, iJPjPkP, iJPjPkP4Gas, iJPjPkP5Gas, iJPjPkP4Bxyz, iJPjPkP5Bxyz
-        integer :: iJP3, iJP3jP, iJP3jPG, iJP3jPG2, iJP3jPkPG2, iJP3jPGkPG2, iJP3jPG2kPG2
-        integer :: iJP3jPkPG24Bxyz, iJP3jPGkPG24Bxyz, iJP3jPG2kPG24Bxyz
-        integer :: sRank,sendDataOffset,iPSI,iPSI1,Exyz2,Eijk2,Exyz3,Eijk3,Exyz4,Eijk4
-        integer :: iP,iPjP,iPjPkP,iPjPkP4Bxyz,iPjPkP4Gas,iPjPkP5Gas
-        integer :: iPG2,iPG2jPG2,iPG2jPG2kPG2,iPG2jPG2kPG24Gas,iPG2jPG2kPG25Gas
+        integer :: r, rRank, recvDataOffset, sRank, sendDataOffset
+        type(MPI_Datatype) :: recvDatatype
+        type(MPI_Datatype) :: iJP, iJPjP, iJPjPkP, iJPjPkP4Gas, iJPjPkP5Gas, iJPjPkP4Bxyz, iJPjPkP5Bxyz
+        type(MPI_Datatype) :: iJP3, iJP3jP, iJP3jPG, iJP3jPG2, iJP3jPkPG2, iJP3jPGkPG2, iJP3jPG2kPG2
+        type(MPI_Datatype) :: iJP3jPkPG24Bxyz, iJP3jPGkPG24Bxyz, iJP3jPG2kPG24Bxyz
+        type(MPI_Datatype) :: iPSI,iPSI1,Exyz2,Eijk2,Exyz3,Eijk3,Exyz4,Eijk4
+        type(MPI_Datatype) :: iP,iPjP,iPjPkP,iPjPkP4Bxyz,iPjPkP4Gas,iPjPkP5Gas
+        type(MPI_Datatype) :: iPG2,iPG2jPG2,iPG2jPG2kPG2,iPG2jPG2kPG24Gas,iPG2jPG2kPG25Gas
 
         associate(Grid=>vApp%gAppLocal%Grid,Model=>vApp%gAppLocal%Model, &
                   JpSt=>vApp%mhd2mix%JStart,JpSh=>vApp%mhd2mix%JShells, &
@@ -1304,7 +1306,9 @@ module voltapp_mpi
         type(voltAppMpi_T), intent(inout) :: vApp
         logical, intent(out) :: helperQuit ! should the helper quit
 
-        integer :: ierr, helpType, helpReq = MPI_REQUEST_NULL
+        integer :: ierr, helpType
+        type(MPI_Request) :: helpReq
+
         helperQuit = .false. ! don't quit normally
 
         ! assumed to only be in this function if helpers are enabled

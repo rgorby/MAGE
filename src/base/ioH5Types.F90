@@ -17,14 +17,14 @@ module ioH5types
     !--------------
     !IO array type
     !Holds information for heavy input/output
-    !idStr/unitStr: String description of variable and its units
+    !idStr/unitStr: String name of variable, its units, and its short description
     !Nr is number of ranks, and dims is size in each dimension (unused are 0)
     !data holds the information as a 1D array
     !scale is multiplier prior to output
     !vType: holds info about variable type, only partially implemented
 
     type IOVAR_T
-        character(len=strLen) :: idStr="NONE",unitStr="CODE"
+        character(len=strLen) :: idStr="NONE",unitStr="CODE",descStr="DESCRIPTION"
         integer(HSIZE_T) :: dims(MAXIODIM) = 0 !Dimension information
         integer(HSIZE_T) :: offsets(MAXIODIM) = 0 !Offset for reading/writing a hyperslab, optional
         logical :: useHyperslab=.false.

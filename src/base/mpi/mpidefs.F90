@@ -1,11 +1,11 @@
 module mpidefs
 
-  use mpi
+  use mpi_f08
   use kdefs, ONLY: sp,dp,rp
 
   implicit none
 
-  integer, public :: MPI_MYFLOAT
+  type(MPI_Datatype), public :: MPI_MYFLOAT
 
 #ifdef MPI_BASE_ADDR_SIZE
   integer, parameter :: MPI_BASE_MYADDR = MPI_BASE_ADDR_SIZE
@@ -30,7 +30,7 @@ contains
 
   ! helper functions to print info about custom MPI datatypes
   subroutine simplePrintDataType(datatype)
-      integer, intent(in) :: datatype
+      type(MPI_Datatype), intent(in) :: datatype
 
       logical :: typeUsed
       typeUsed = printDataType(datatype)
@@ -38,28 +38,20 @@ contains
   end subroutine
 
   recursive function printDataType(datatype) result(retVal)
-      integer, intent(in) :: datatype
+      type(MPI_Datatype), intent(in) :: datatype
       logical :: retVal
 
       integer :: numInts, numAdds, numDTs, combiner, ierr, i
-      integer, dimension(:), allocatable :: arrayInts, arrayDTs
+      integer, dimension(:), allocatable :: arrayInts
+      type(MPI_Datatype), dimension(:), allocatable :: arrayDTs
       integer(kind=MPI_BASE_MYADDR), dimension(:), allocatable :: arrayAdds
+      character(len=MPI_MAX_OBJECT_NAME) :: typeName
       call mpi_type_get_envelope(datatype, numInts, numAdds, numDTs, combiner, ierr)
 
       SELECT CASE(combiner)
           CASE (MPI_COMBINER_NAMED)
-              SELECT CASE (datatype)
-                  CASE (MPI_INT)
-                      write (*,*) 'Datatype is named: MPI_INT'
-                  CASE (MPI_FLOAT)
-                      write (*,*) 'Datatype is named: MPI_FLOAT'
-                  CASE (MPI_DOUBLE)
-                      write (*,*) 'Datatype is named: MPI_DOUBLE'
-                  CASE (MPI_DOUBLE_PRECISION)
-                      write (*,*) 'Datatype is named: MPI_DOUBLE_PRECISION'
-                  CASE DEFAULT
-                      write (*,*) 'Unhandled base named datatype in printDataType'
-              ENDSELECT
+              call mpi_type_get_name(datatype, typeName, i, ierr)
+              write (*,*) 'Datatype is named: ', trim(typeName)
               retVal = .false.
               RETURN
           CASE (MPI_COMBINER_STRUCT)

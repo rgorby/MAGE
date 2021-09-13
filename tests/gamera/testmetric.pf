@@ -1,5 +1,5 @@
 module testMetric
-  use pFUnit
+  use testHelper
   use metric
 
   implicit none

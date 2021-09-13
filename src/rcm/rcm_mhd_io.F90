@@ -146,7 +146,7 @@ module rcm_mhd_io
         call AddOutVar(IOVars,"ieavg" ,RCMApp%eng_avg(:,:,RCMPROTON)*1.0e-3,uStr="keV") !ev->keV ions
         call AddOutVar(IOVars,"ieflux",RCMApp%flux   (:,:,RCMPROTON),uStr="ergs/cm2")
 
-        call AddOutVar(IOVars,"birk",RCMApp%fac,uStr="uA/m2")
+        call AddOutVar(IOVars,"birk",RCMApp%fac,uStr="uA/m2",dStr="RCM Vasyliunas FACs")
         call AddOutVar(IOVars,"nTrc",RCMApp%nTrc*1.0_rp,uStr="steps")
 
         call AddOutVar(IOVars,"toMHD",merge(1.0_rp,0.0_rp,RCMApp%toMHD))

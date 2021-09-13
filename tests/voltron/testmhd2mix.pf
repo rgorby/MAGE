@@ -1,5 +1,5 @@
 module testmhd2mix
-  use pfUnit
+  use testHelper
   use voltapp
   use gamapp
   use uservoltic
