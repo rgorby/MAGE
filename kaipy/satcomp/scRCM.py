@@ -467,6 +467,7 @@ def consolidateODFs(scData, rcmTrackData, eGrid=None):
 
 def getIntensitiesVsL(rcmf5, mhdrcmf5, sStart, sEnd, sStride, species='ions', eGrid=None, jdir=None, forceCalc=False):
 	"""Calculate rcm intensities (summed diff flux)
+	   Values are averaged over all MLT
 		rcmf5: rcm hdf5 filename to pull xmin, ymin, zmin from
 		mhdrcmf5: mhdrcm hdf5 filename to pull IOpen from
 		AxLvT: If given, will plot the resulting L shell vs. time intensity
@@ -599,12 +600,14 @@ def getIntensitiesVsL(rcmf5, mhdrcmf5, sStart, sEnd, sStride, species='ions', eG
 
 	return result
 
-
-def getVarWedge(rcmf5, mhdrcmf5, sStart, sEnd, sStride, wedge_deg, species='ions',eGrid=None, lGrid=None, jdir=None, forceCalc=False):
+#TODO: Something odd with odf calculation
+#TODO: Break out interpolator/mapper so they can be tested on their own and used by other functions
+def getVarWedge(rcmf5, mhdrcmf5, sStart, sEnd, sStride, wedge_deg, species='ions', rcmTimes=None, eGrid=None, lGrid=None, jdir=None, forceCalc=False):
 	"""Take a slice/wedge centered along the x axis (eq space), calculate average <var> vs. L and E
 		rcmf5, mhdrcmf5: h5 filenames
 		sStart, sEnd, sStride: step information
 		width_deg: wedge width [deg], centered around x axis in equatorial mapping of RCM data
+		rcmTimes: dict returned from getRCMTimes()
 		eGrid: Specific energy grid to map k energies to
 		lbins: 1D array of L values to map to
 		jdir: directory to find json files in
@@ -622,7 +625,8 @@ def getVarWedge(rcmf5, mhdrcmf5, sStart, sEnd, sStride, wedge_deg, species='ions
 			return kj.load(rcmjfname)
 
 	#Setup
-	rcmTimes = getRCMtimes(rcmf5,mhdrcmf5,jdir=jdir)
+	if rcmTimes is None:
+		rcmTimes = getRCMtimes(rcmf5,mhdrcmf5,jdir=jdir)
 	iTStart = np.abs(rcmTimes['sIDs']-sStart).argmin()
 	iTEnd = np.abs(rcmTimes['sIDs']-sEnd).argmin()
 
@@ -692,6 +696,9 @@ def getVarWedge(rcmf5, mhdrcmf5, sStart, sEnd, sStride, wedge_deg, species='ions
 				theta_ij = theta_arr[i,j]
 				#Collect indicies of points within spatial bounds
 				
+				if IOpen[i,j] >= 0:
+					continue
+
 				if (theta_ij > 360-wedge_deg/2 or theta_ij < wedge_deg/2):  # dayside wedge
 					if l_ij >= lGrid[0] and l_ij <= lGrid[-1] and abs(l_ij) > tkl_lInner:
 						iPointCloud.append([i,j])
@@ -700,15 +707,11 @@ def getVarWedge(rcmf5, mhdrcmf5, sStart, sEnd, sStride, wedge_deg, species='ions
 					if -l_ij >= lGrid[0] and -l_ij <= lGrid[-1] and abs(l_ij) > tkl_lInner:
 						iPointCloud.append([i,j])
 						lPointCloud.append(-l_ij)
-					
-					#TODO: if vm<0?
-					
+	
 		iPointCloud = np.array(iPointCloud)
 		lPointCloud = np.array(lPointCloud)
-
 		#Sort index array in order of ascending L values
 		lSort = lPointCloud.argsort()
-		
 		iPointCloud = iPointCloud[lSort]
 		lPointCloud = lPointCloud[lSort]
 		Npc = len(iPointCloud)
@@ -740,7 +743,7 @@ def getVarWedge(rcmf5, mhdrcmf5, sStart, sEnd, sStride, wedge_deg, species='ions
 				elif lPointCloud[iLPC] > lGrid[iLG]:
 					weight = 1-abs(lPointCloud[iLPC] - lGrid[iLG])/width_upper
 
-				#Cheating
+				#Cheating !! this may be breaking something in odf calc
 				if abs(weight)>1:
 					weight = 0
 					#print('iLG={} iLPC={} lG[iLG]={} lPC[iLPC]={} weight={}'.format(iLG, iLPC, lGrid[iLG], lPointCloud[iLPC], weight))
@@ -947,6 +950,8 @@ def getRCM_eqlatlon(mhdrcmf5, rcmTimes, sStart, sEnd, sStride, jdir=None, forceC
 
 	return result
 
+def getRCM_CumulFrac(rcmh5, evalMJDs, rcmTimes=None):
+	doNothing=1
 #======
 #Plotting
 #======
@@ -1080,6 +1085,9 @@ def plt_tkl(AxTKL, tkldata, AxCB=None, mjd=None, cmapName='CMRmap', vName='odf',
 			klslice = tkldata['press_tkl'][iMJD,:,:]
 			AxTKL.pcolormesh(L_arr, k_arr*1E-3, klslice, norm=norm, shading='nearest', cmap=cmapName)
 		
+		# Remove all lines
+		while len(AxTKL.lines) > 0:
+			AxTKL.lines.pop(0)
 		#Dashed lines to mark simulation inner boundary
 		ymin,ymax = AxTKL.get_ylim()
 		AxTKL.plot([-tkl_lInner,-tkl_lInner], [ymin,ymax], 'w--')
@@ -1089,12 +1097,14 @@ def plt_tkl(AxTKL, tkldata, AxCB=None, mjd=None, cmapName='CMRmap', vName='odf',
 		AxTKL.set_ylabel('Energy [keV]')
 
 		if satTrackData is not None:
+			
+			iscMJD = np.abs(satTrackData['MJD'] - mjd).argmin()
 			#Draw line to indicate spacecraft L value
 			req_sc = satTrackData['Req']
-			scL = req_sc[iMJD]
-			if scL > 1E-8:
-				xBounds = np.asarray(AxTKL.get_xlim())
-				AxTKL.plot(xBounds, [scL, scL], 'r-')
+			xmin_sc = satTrackData['xmin'][iscMJD]
+			if req_sc[iscMJD] > 1E-8:
+				yBounds = np.asarray(AxTKL.get_ylim())
+				AxTKL.plot([xmin_sc, xmin_sc], yBounds, 'r-')
 
 		
 
@@ -1131,6 +1141,7 @@ def plt_rcm_eqlatlon(AxLatlon, AxEq, rcmData, satTrackData, AxCB=None, mjd=None,
 			print(str(mjd) + "not in rcm data, exiting")
 			return
 		iMJD = np.abs(mjd_arr - mjd).argmin()
+		iscMJD = np.abs(satTrackData['MJD'] - mjd).argmin()
 		lineUT = ut[iMJD]
 
 		AxLatlon.clear()
@@ -1144,12 +1155,12 @@ def plt_rcm_eqlatlon(AxLatlon, AxEq, rcmData, satTrackData, AxCB=None, mjd=None,
 
 		AxEq.pcolor(xmin_arr[iMJD], ymin_arr[iMJD], press_arr[iMJD], norm=norm, shading='auto', cmap=cmapName)
 		#Draw satellite location
-		if req_sc[iMJD] > 1E-8:
-			leadMax = iMJD
-			while leadMax < min(iMJD+80, Nt) and req_sc[leadMax] > 1E-8: leadMax += 1 #????
-			AxEq.plot(x_sc[iMJD:leadMax], y_sc[iMJD:leadMax], 'k-')
+		if req_sc[iscMJD] > 1E-8:
+			leadMax = isdMJD
+			while leadMax < min(iscMJD+80, Nt) and req_sc[leadMax] > 1E-8: leadMax += 1 #????
+			AxEq.plot(x_sc[iscMJD:leadMax], y_sc[iscMJD:leadMax], 'k-')
 			
-			satCircle = plt.Circle((x_sc[iMJD], y_sc[iMJD]), 0.15, color='black')
+			satCircle = plt.Circle((x_sc[iscMJD], y_sc[iscMJD]), 0.15, color='black')
 			AxEq.add_patch(satCircle)
 		kv.addEarth2D(ax=AxEq)
 

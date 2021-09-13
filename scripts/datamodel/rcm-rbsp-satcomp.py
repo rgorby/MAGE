@@ -27,7 +27,7 @@ if __name__=="__main__":
 	tStride = 10
 	vidOut = "vid_rcm-rbsp-comp"
 
-	tklV_choices = ['odf', 'press']
+	tklV_choices = ['press', 'odf']
 
 	jdir = "jstore"
 
