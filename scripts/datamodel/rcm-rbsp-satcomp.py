@@ -207,6 +207,9 @@ if __name__=="__main__":
 
 	scRCM.plt_rcm_eqlatlon(AxRCMLatLon, AxRCMEq, rcm_eqlatlon, rcmTrack, mjd=pltmjd, norm=pressnorm, cmapName=cmap_press)
 
+	if plotTag != "":
+		plt.suptitle(plotTag, fontsize=20)
+
 	ticker += 1
 	filename = "{}.{:0>{n}d}.png".format("vid", ticker, n=n_pad)
 	ofname = os.path.join(outdir, filename)
