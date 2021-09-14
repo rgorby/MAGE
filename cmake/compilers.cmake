@@ -140,4 +140,9 @@ if(ENABLE_MPI)
 	# we changed compiler, link HDF5 libraries
 	link_libraries(${HDF5_Fortran_LIBRARIES} ${HDF5_Fortran_HL_LIBRARIES})
 endif()
+if(ENABLE_CODECOV)
+    # track code coverage
+    file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/bin/codecov_prof)
+    string(APPEND CMAKE_Fortran_FLAGS " -prof-gen=srcpos -prof-dir=${CMAKE_BINARY_DIR}/bin/codecov_prof")
+endif()
 

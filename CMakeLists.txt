@@ -31,6 +31,7 @@ add_compile_definitions(GITBRANCH=${GIT_BRANCH})
 option(ENABLE_OMP "Enable OMP parallelization" ON )
 option(ENABLE_MPI "Enable MPI parallelization" OFF)
 option(ENABLE_MKL "Enable Intel MKL usage" OFF)
+option(ENABLE_CODECOV "Enable Code Coverage tracking" OFF)
 option(ALLOW_INVALID_COMPILERS "Allow Invalid Compiler Versions" OFF)
 
 #Vector blocking
