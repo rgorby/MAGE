@@ -15,6 +15,8 @@ import h5py
 import kaipy.kaiH5 as kaiH5
 import kaipy.kaiViz as kv
 import kaipy.kaiTools as kaiTools
+import kaipy.kaijson as kj
+import kaipy.satcomp.scutils as scutils
 import spacepy.datamodel as dm
 
 if __name__ == '__main__':
@@ -59,7 +61,7 @@ if __name__ == '__main__':
 		print(cmd,'either not found or not executable')
 		sys.exit()
 
-	scIds = kaiTools.getScIds()
+	scIds = scutils.getScIds()
 
 	#print(cmddir)
 	#print('Extracting GAMERA data along',scId, 'trajectory')
@@ -88,7 +90,7 @@ if __name__ == '__main__':
 
 	for scId in scToDo:
 		print('Getting spacecraft data for', scId)
-		status,data = kaiTools.getSatData(scIds[scId],
+		status,data = scutils.getSatData(scIds[scId],
 			t0.strftime("%Y-%m-%dT%H:%M:%SZ"),
 			t1.strftime("%Y-%m-%dT%H:%M:%SZ"),deltaT)
 
@@ -96,10 +98,10 @@ if __name__ == '__main__':
 			print('No data available for', scId)
 		else:
 			print('Extracting GAMERA data')
-			kaiTools.extractGAMERA(data,scIds[scId],scId,
+			scutils.extractGAMERA(data,scIds[scId],scId,
 				mjdFileStart,secFileStart,fdir,
 				ftag,cmd,numSegments,keep)
-			kaiTools.matchUnits(data)
+			scutils.matchUnits(data)
 			cdfname = os.path.join(fdir, scId + '.comp.cdf')
 			if os.path.exists(cdfname):
 				print('Deleting %s' % cdfname)
@@ -109,3 +111,6 @@ if __name__ == '__main__':
 			plotname = os.path.join(fdir,scId+'.png')
 			print('Plotting results to',plotname)
 			kv.compPlot(plotname,scId,data)
+			print('Computing Errors')
+			errname = os.path.join(fdir,scId+'-error.txt')
+			scutils.errorReport(errname,scId,data)

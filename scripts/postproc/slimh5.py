@@ -45,7 +45,7 @@ def createfile(iH5,fOut):
     
 if __name__ == "__main__":
     #Set defaults
-    ns = 0
+    ns = -1
     ne = -1 #Proxy for last entry
 
     doMPI = False
@@ -53,7 +53,7 @@ if __name__ == "__main__":
 
     parser.add_argument('inH5',metavar='Fat.h5',help="Filename of input fat HDF5 file")
     parser.add_argument('outH5',metavar='Slim.h5',help="Filename of slimmed HDF5 file")
-    parser.add_argument('-s',type=int,metavar="start",default=ns,help="Starting slice (default: %(default)s)")
+    parser.add_argument('-s',type=int,metavar="start",default=ns,help="Starting slice")
     parser.add_argument('-e',type=int,metavar="end",default=-1,help="Ending slice (default: N)")
     parser.add_argument('-sk',type=int,metavar="nsk",default=1,help="Stride (default: %(default)s)")
     parser.add_argument('-sf',type=int,metavar="nsf",default=250,help="File write stride (default: %(default)s)")
@@ -73,8 +73,10 @@ if __name__ == "__main__":
     mpiIn = args.mpi
 
     N,sIds = cntSteps(fIn)
+    if (Ns == -1):
+        Ns = np.sort(sIds)[0]
     if (Ne == -1):
-        Ne = N
+        Ne = N+np.sort(sIds)[0]
     if Nsf == -1:
         Nsf = Ne
 
@@ -98,9 +100,6 @@ if __name__ == "__main__":
                     if os.path.exists(fName):
                         inFiles.append(fName)
                         outFiles.append("{}-{}_{}_{}.{}".format(Ns,Nsf,runTag,mpiStr,outTag))
-        print(inFiles)
-        print(outFiles)
-        
     else:
         inFiles = [fIn]
         outFiles = [str(Ns)+'-'+str(Nsf)+outTag]
