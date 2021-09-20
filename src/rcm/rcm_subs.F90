@@ -1791,7 +1791,7 @@
 
           call AddOutVar(IOVars,"rcmv",v)
           call AddOutVar(IOVars,"rcmvavg",v_avg)
-          call AddOutVar(IOVars,"rcmveff",last_veff,uStr="Volts")
+          !call AddOutVar(IOVars,"rcmveff",last_veff,uStr="Volts")
 
         !Extra stuff not in write_array
           call AddOutVar(IOVars,"alamc",alamc)
@@ -2210,6 +2210,11 @@ SUBROUTINE Move_plasma_grid_MHD (dt,nstep)
         ftv = 0.0
     endwhere
     !$OMP END PARALLEL WORKSHARE
+
+    !Calc full v_effective
+    !do kc=1,kcsize
+    !    last_veff(:,:,kc) = vv + alamc(kc)*vm
+    !enddo
 
     !Get IJ gradients of potential
     call Grad_IJ(vv    ,isOpen,dvvdi    ,dvvdj    )
