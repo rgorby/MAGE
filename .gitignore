@@ -1,6 +1,7 @@
 # User dependent stuff
 cmake/user.cmake
 build/
+kaiju.sublime-workspace
 
 # Related to unit testing
 external/FARGPARSE-*/

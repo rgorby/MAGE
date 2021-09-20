@@ -1,0 +1,115 @@
+module testgamutils
+    use testHelper
+    use gamTypes
+    use gamutils
+
+    implicit none
+
+    type(Model_T), allocatable :: gamModel
+
+contains
+
+    @before
+    subroutine setup()
+        allocate(gamModel)
+        gamModel%gamma = 5.0_rp/3.0_rp
+    end subroutine
+
+    @after
+    subroutine teardown()
+        deallocate(gamModel)
+    end subroutine
+
+    @test
+    subroutine PrimitiveToConserved()
+        real(rp) :: Con(NVAR)
+        real(rp) :: Prim(NVAR)
+
+        Prim(DEN) = 0.1_rp
+        Prim(VELX) = 0.2_rp
+        Prim(VELY) = 0.3_rp
+        Prim(VELZ) = 0.4_rp
+        Prim(PRESSURE) = 2.0_rp/3.0_rp
+
+        call CellP2C(gamModel,Prim,Con)
+
+        @assertLessThanOrEqual(abs(Con(DEN)-   0.1_rp),     0.0_rp,"P2C Density error too high")
+        @assertLessThanOrEqual(abs(Con(MOMX)-  0.02_rp),  1e-16_rp,"P2C X Momentum error too high")
+        @assertLessThanOrEqual(abs(Con(MOMY)-  0.03_rp),  1e-16_rp,"P2C Y Momentum error too high")
+        @assertLessThanOrEqual(abs(Con(MOMZ)-  0.04_rp),  1e-16_rp,"P2C Z Momentum error too high")
+        @assertLessThanOrEqual(abs(Con(ENERGY)-1.0145_rp),2e-16_rp,"P2C Energy error too high")
+
+    end subroutine
+
+    @test
+    subroutine ConservedToPrimitive()
+        real(rp) :: Con(NVAR)
+        real(rp) :: Prim(NVAR)
+
+        Con(DEN) = 0.1_rp
+        Con(MOMX) = 0.02_rp
+        CON(MOMY) = 0.03_rp
+        Con(MOMZ) = 0.04_rp
+        Con(ENERGY) = 1.0145_rp
+
+        call CellC2P(gamModel,Con,Prim)
+
+        @assertLessThanOrEqual(abs(Prim(DEN)- 0.1_rp),      0.0_rp,"C2P Density error too high")
+        @assertLessThanOrEqual(abs(Prim(VELX)-0.2_rp),    1e-16_rp,"C2P X Velocity error too high")
+        @assertLessThanOrEqual(abs(Prim(VELY)-0.3_rp),    1e-16_rp,"C2P Y Velocity error too high")
+        @assertLessThanOrEqual(abs(Prim(VELZ)-0.4_rp),    1e-16_rp,"C2P Z Velocity error too high")
+        @assertLessThanOrEqual(abs(Prim(PRESSURE)-(2.0_rp/3.0_rp)),2e-16_rp,"C2P Pressure error too high")
+
+    end subroutine
+
+    @test
+    subroutine ConservedToConserved()
+        real(rp) :: Con(NVAR),origCon(NVAR)
+        real(rp) :: Prim(NVAR)
+
+        Con(DEN) = 0.1_rp
+        Con(MOMX) = 0.02_rp
+        CON(MOMY) = 0.03_rp
+        Con(MOMZ) = 0.04_rp
+        Con(ENERGY) = 1.0145_rp
+
+        origCon = Con
+
+        call CellC2P(gamModel,Con,Prim)
+        call CellP2C(gamModel,Prim,Con)
+
+        @assertLessThanOrEqual(abs(Con(DEN)   -origCon(DEN)),     0.0_rp,"C2C Density error too high")
+        @assertLessThanOrEqual(abs(Con(MOMX)  -origCon(MOMX)),  2e-16_rp,"C2C X Momentum error too high")
+        @assertLessThanOrEqual(abs(Con(MOMY)  -origCon(MOMY)),  2e-16_rp,"C2C Y Momentum error too high")
+        @assertLessThanOrEqual(abs(Con(MOMZ)  -origCon(MOMZ)),  2e-16_rp,"C2C Z Momentum error too high")
+        @assertLessThanOrEqual(abs(Con(ENERGY)-origCon(ENERGY)),4e-16_rp,"C2C Energy error too high")
+
+    end subroutine
+
+    @test
+    subroutine PrimitiveToPrimitive()
+        real(rp) :: Con(NVAR)
+        real(rp) :: Prim(NVAR),origPrim(NVAR)
+
+        Prim(DEN) = 0.1_rp
+        Prim(VELX) = 0.2_rp
+        Prim(VELY) = 0.3_rp
+        Prim(VELZ) = 0.4_rp
+        Prim(PRESSURE) = 2.0_rp/3.0_rp
+
+        origPrim = Prim
+
+        call CellP2C(gamModel,Prim,Con)
+        call CellC2P(gamModel,Con,Prim)
+
+        @assertLessThanOrEqual(abs(Prim(DEN)     -origPrim(DEN)),       0.0_rp,"P2P Density error too high")
+        @assertLessThanOrEqual(abs(Prim(VELX)    -origPrim(VELX)),    2e-16_rp,"P2P X Velocity error too high")
+        @assertLessThanOrEqual(abs(Prim(VELY)    -origPrim(VELY)),    2e-16_rp,"P2P Y Velocity error too high")
+        @assertLessThanOrEqual(abs(Prim(VELZ)    -origPrim(VELZ)),    2e-16_rp,"P2P Z Velocity error too high")
+        @assertLessThanOrEqual(abs(Prim(PRESSURE)-origPrim(PRESSURE)),4e-16_rp,"P2P Pressure error too high")
+
+
+    end subroutine
+
+end module
+

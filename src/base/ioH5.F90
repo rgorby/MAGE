@@ -702,7 +702,9 @@ contains
         end select
 
         !Set attached values
-        call h5ltset_attribute_string_f(gId,trim(IOVar%idStr),"Units",trim(IOVar%unitStr),herr)
+        call h5ltset_attribute_string_f(gId,trim(IOVar%idStr),"Units"      ,trim(IOVar%unitStr),herr)
+        call h5ltset_attribute_string_f(gId,trim(IOVar%idStr),"Description",trim(IOVar%descStr),herr)
+
         IOVar%isDone = .true.
     end subroutine WriteHDFVar
 
@@ -780,6 +782,7 @@ contains
         Nv = size(IOVars)
         IOVars(:)%idStr   = "NONE"
         IOVars(:)%unitStr = "CODE"
+        IOVars(:)%descStr = "DESCRIPTION"
         IOVars(:)%dStr    = "UNSET"
         IOVars(:)%Nr      = 0
         IOVars(:)%N       = 0

@@ -1,7 +1,7 @@
 module testHelper
 
     ! limiting namespace pollution from pFUnit
-    use pFUnit, only: SourceLocation,anyExceptions,&
+    use funit, only: SourceLocation,anyExceptions,&
                       assertTrue,assertFalse,assertEqual,assertLessThanOrEqual, &
                       assertLessThan,assertGreaterThan,assertGreaterThanOrEqual, &
                       assertAny,assertAll,assertNotAll,assertIsFinite, &
