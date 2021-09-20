@@ -107,7 +107,9 @@
 !   Plasma on grid:
     REAL (rprec) :: alamc (kcsize), etac (kcsize), fudgec (kcsize), &
                     eeta (isize,jsize,kcsize), eeta_cutoff, cmax, &
-                    eeta_avg (isize,jsize,kcsize), deleeta(isize,jsize,kcsize), lossratep(isize,jsize,kcsize), lossmodel(isize,jsize,kcsize), Dpp(isize,jsize) 
+                    eeta_avg (isize,jsize,kcsize), deleeta(isize,jsize,kcsize), &
+                    lossratep(isize,jsize,kcsize), lossmodel(isize,jsize,kcsize), Dpp(isize,jsize), &
+                    last_veff(isize,jsize,ksize)
 
     INTEGER (iprec) :: ikflavc (kcsize), i_advect, i_eta_bc, i_birk
     LOGICAL :: L_dktime
@@ -960,6 +962,10 @@
        IF (ie /= ie_ask) CYCLE
        mass_factor = SQRT (xmass(1) / xmass(ie))
        veff = v + vcorot - vpar  + alamc(kc)*vm
+       if (kc .eq. 60) then
+        write(*,*) "veff(60)=",veff
+       end if
+       last_veff(:,:,kc) = veff
 !
        dvefdi = Deriv_i (veff, imin_j)
        dvefdj = Deriv_j (veff, imin_j, j1, j2, 1.0E+25_rprec)
@@ -1785,6 +1791,7 @@
 
           call AddOutVar(IOVars,"rcmv",v)
           call AddOutVar(IOVars,"rcmvavg",v_avg)
+          call AddOutVar(IOVars,"rcmveff",last_veff,uStr="Volts")
 
         !Extra stuff not in write_array
           call AddOutVar(IOVars,"alamc",alamc)
