@@ -211,8 +211,8 @@ module gridloc
                 inGap=>inGap_Sph
                 call inpXML%Set_Val(buffR,'domain/rgap',buffR)
 
-                ! Check to make sure gp region at leaset extends to MHD grid
-                if (trim(toUpper(domStr)) == "LFM" .and. buffR < ebGr%xyz(ebGr%is,ebGr%js,ebGr%ks,XDIR)) then
+                ! Check to make sure gap region at leaset extends to MHD grid
+                if (buffR < ebGr%xyz(ebGr%is,ebGr%js,ebGr%ks,XDIR)) then
                     write(*,*) 'Gap region must extend to inner boundary of MHD grid'
                     stop
                 endif
