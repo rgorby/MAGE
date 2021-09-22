@@ -87,7 +87,7 @@ if __name__ == '__main__':
 	deltaT = np.round(gamT[loc+1]-gamT[loc])
 	mjdFileStart = gamMJD[loc]
 	secFileStart = gamT[loc]
-	numPer = 10
+	numPer = 3
 	numSegments=int(np.floor(((t1-t0).total_seconds()/deltaT)/numPer))
 
 	if None == scRequested:

@@ -39,6 +39,7 @@ RCM_TIME_JFNAME = 'rcm_times.json'
 RCM_TKL_JFNAME = 'rcm_tkl.json'
 RCM_WEDGE_JFNAME = 'rcm_wedgetkl.json'
 RCM_EQLATLON_JFNAME = 'rcm_eqlatlon.json'
+RCM_CUMULFRAC_JFNAME = 'rcm_cumulFrac.json'
 MHDRCM_TIME_JFNAME = 'mhdrcm_times.json'
 
 #Spacecraft strings for cdaweb retrieval
@@ -91,7 +92,16 @@ def getVarCube(rcm5, varName, stepLow, stepHigh, ilon, ilat, k=None):
 
 #electrons: kStart = kStart, kEnd = kIon
 #ions: kStart = kIon, kEnd = len(rcmS0['alamc'])
-def getSpecieslambdata(rcmS0, kStart, kEnd):
+def getSpecieslambdata(rcmS0, species='ions'):
+	#Determine what our bounds are
+	kStart = 1 if rcmS0['alamc'][0] == 0 else 0  # Check channel 0 for plasmasphere
+	kIon = (rcmS0['alamc'][kStart:]>0).argmax()+kStart
+	if species == 'electrons':
+		kEnd = kIon
+	elif species == 'ions':
+		kStart = kIon
+		kEnd = len(rcmS0['alamc'])
+
 	ilamc = rcmS0['alamc'][kStart:kEnd]  # Cell centers
 	Nk = len(ilamc)
 	ilami = np.zeros(Nk+1)  # Cell interfaces
@@ -103,7 +113,9 @@ def getSpecieslambdata(rcmS0, kStart, kEnd):
 	ilami = np.abs(ilami)
 	lamscl = np.diff(ilami)*np.sqrt(ilamc)
 
-	result = {'ilamc' : ilamc,
+	result = {	'kStart': kStart,
+				'kEnd' : kEnd,
+				'ilamc' : ilamc,
 				'ilami' : ilami,
 				'lamscl' : lamscl}
 	return result
@@ -299,13 +311,10 @@ def getRCM_scTrack(trackf5, rcmf5, rcmTimes, jdir=None, forceCalc=False, scName=
 	rcmMLAT_min = np.min(rcmMLAT)
 	rcmMLAT_max = np.max(rcmMLAT)
 
-	kStart = 1 if rcmS0['alamc'][0] == 0 else 0  # Check channel 0 for plasmasphere
-	kIon = (rcm5[sIDstrs[0]]['alamc'][kStart:]>0).argmax()+kStart
-
 	#Init electron and ion dicts
 	sdata = {}
-	sdata['electrons'] = getSpecieslambdata(rcmS0, kStart, kIon               )
-	sdata['ions'     ] = getSpecieslambdata(rcmS0, kIon  , len(rcmS0['alamc']))
+	sdata['electrons'] = getSpecieslambdata(rcmS0, 'electrons')
+	sdata['ions'     ] = getSpecieslambdata(rcmS0, 'ions')
 	Nk_e = kIon - kStart
 	Nk_i = len(rcmS0['alamc']) - kIon
 	
@@ -498,17 +507,11 @@ def getIntensitiesVsL(rcmf5, mhdrcmf5, sStart, sEnd, sStride, species='ions', eG
 	rcmS0 = rcm5[sIDstrs[0]]
 	mhdrcm5 = h5.File(mhdrcmf5,'r')
 
-
-	kStart = 1 if rcmS0['alamc'][0] == 0 else 0  # Check channel 0 for plasmasphere
-	kIon = (rcm5[sIDstrs[0]]['alamc'][kStart:]>0).argmax()+kStart
 	if species == 'electrons':
-		kEnd = kIon
 		sf_factor = specFlux_factor_e
 	elif species == 'ions':
-		kStart = kIon
-		kEnd = len(rcm5[sIDstrs[0]]['alamc'])-1
 		sf_factor = specFlux_factor_i
-	alamData = getSpecieslambdata(rcmS0, kStart, kEnd)
+	alamData = getSpecieslambdata(rcmS0, species)
 
 	alams_kxx = alamData['ilamc'][:, np.newaxis, np.newaxis]
 	Nk = kEnd - kStart
@@ -636,17 +639,11 @@ def getVarWedge(rcmf5, mhdrcmf5, sStart, sEnd, sStride, wedge_deg, species='ions
 	rcmS0 = rcm5[sIDstrs[0]]
 	mhdrcm5 = h5.File(mhdrcmf5,'r')
 
-
-	kStart = 1 if rcmS0['alamc'][0] == 0 else 0  # Check channel 0 for plasmasphere
-	kIon = (rcm5[sIDstrs[0]]['alamc'][kStart:]>0).argmax()+kStart
 	if species == 'electrons':
-		kEnd = kIon
 		sf_factor = specFlux_factor_e
 	elif species == 'ions':
-		kStart = kIon
-		kEnd = len(rcm5[sIDstrs[0]]['alamc'])-1
 		sf_factor = specFlux_factor_i
-	alamData = getSpecieslambdata(rcmS0, kStart, kEnd)
+	alamData = getSpecieslambdata(rcmS0, species)
 	Nk = len(alamData['ilamc'])
 	
 	if lGrid is None:
@@ -950,8 +947,119 @@ def getRCM_eqlatlon(mhdrcmf5, rcmTimes, sStart, sEnd, sStride, jdir=None, forceC
 
 	return result
 
-def getRCM_CumulFrac(rcmh5, evalMJDs, rcmTimes=None):
-	doNothing=1
+def getRCM_CumulFrac(rcmf5, rcmTimes, evalMJDs, evalIJs, species='ions', jdir=None,forceCalc=False):
+	"""Calculate cumulative fractions of certain vars (ex. pressure) over energy channels, for each list of points for each given MJD
+		rcmf5: rcm hdf5 filename
+		rcmTimes: dict returned from getRCMTimes()
+		evalMJDs: list of MJDs to evaluate cumulative fractions, size Nt
+		evalIJs: list of ij locations to perform calculation for each MJD, size Nt x A x 2 (A is any, whatever given)
+
+	   Result datastructure:
+	   	result: {
+			'Nt': Nt
+			'MJDs': list of MJDs (evalMJDs)
+			'IJs': list of IJs (evalIJs)
+			'alams': list, len Nk, of rcm lambda channels
+			'Data': list, length Nt, of
+				{'MJD': MJD
+				 'Points': [list, len A, of 
+				 	{
+						'i': i
+						'j': j
+						'lat': lat
+						'lon': lon
+						'xmin': xmin
+						'ymin': ymin
+						'vm': vm
+						'energies': list, len Nk, of rcm energies [eV]
+						'Ptot': total pressure
+						'Ppar': list, Nk, of each channel's individual pressure
+						'Pcum': list, Nk, of each channel's cumulative pressure (summing from k=0)
+				 	}
+				 ]
+				}
+	   	}
+	"""
+
+	if jdir is not None:
+		dojson = True
+		rcmjfname = os.path.join(jdir, RCM_CUMULFRAC_JFNAME)
+	else:
+		dojson = False
+
+	if dojson and not forceCalc:
+		if os.path.exists(rcmjfname):
+			print("Grabbing RCM cumulative fraction data from " + rcmjfname)
+			return kj.load(rcmjfname)
+
+	#Unpack RCM info
+	sIDs = rcmTimes['sIDs']
+	sIDstrs = rcmTimes['sIDstrs']
+	rcmMJDs = rcmTimes['MJD']
+	rcm5 = h5.File(rcmf5,'r')
+	rcmS0 = rcm5[sIDstrs[0]]
+
+	alamData = getSpecieslambdata(rcmS0, species)
+	Nk = len(alamData['ilamc'])
+
+	Nt = len(evalMJDs)
+	#Variable we're gonna return
+	result = {}
+	result['Nt'] = len(evalMJDs)
+	result['MJDs'] = evalMJDs
+	result['IJs'] = evalIJs
+	result['alams'] = alamData['ilamc']
+	result['Data'] = []
+
+	#Calculate some things
+	for n in range(Nt):
+		#Get RCM step closest to desired MJD
+		ircmStep = np.abs(rcmMJDs-evalMJDs[n]).argmin()
+		stepStr = sIDstrs[ircmStep]
+		rcmS5 = rcm5[stepStr]
+
+		dataDict = {}
+		dataDict['MJD'] = evalMJDs[n]
+		dataDict['Points'] = []
+
+		evalPts = evalIJs[n]
+		for pnt in evalPts:
+			point = {}
+			i = pnt[0]
+			j = pnt[1]
+			point['i'] = i
+			point['j'] = j
+			point['lat'] = 90 - rcmS5['colat'][i,j]
+			point['lon'] = 90 - rcmS5['aloct'][i,j]
+			point['xmin'] = rcmS5['rcmxmin'][i,j]
+			point['ymin'] = rcmS5['rcmymin'][i,j]
+			vm = rcmS5['rcmvm'][i,j]
+			point['vm'] = rcmS5['rcmvm'][i,j]
+			point['energies'] = alamData['ilamc']*vm  # [eV]
+
+			eetas = rcmS5['rcmeeta'][alamData['kStart']:alamData['kEnd'],i,j]
+
+			pTot = 0
+			pPar = np.zeros(Nk)
+			pCum = np.zeros(Nk)
+
+			pPar = pressure_factor*alamData['ilamc']*eetas*vm**2.5 * 1E9  # [Pa -> nPa], partial pressures for each channel
+			pCum[0] = pPar[0] # First bin's partial press = cumulative pressure
+			for k in range(1,Nk):
+				pCum[k] = pCum[k-1] + pPar[k]  # Get current cumulative pressure by adding this bin's partial onto last bin's cumulative
+			pTot = pCum[-1] # Last bin's cumulative = total pressure
+
+			point['Ptot'] = pTot
+			point['Ppar'] = pPar
+			point['Pcum'] = pCum
+
+			dataDict['Points'].append(point)
+
+		result['Data'].append(dataDict)
+
+	if dojson: kj.dump(rcmjfname, result)
+
+	return result
 #======
 #Plotting
 #======
@@ -1106,9 +1214,6 @@ def plt_tkl(AxTKL, tkldata, AxCB=None, mjd=None, cmapName='CMRmap', vName='odf',
 				yBounds = np.asarray(AxTKL.get_ylim())
 				AxTKL.plot([xmin_sc, xmin_sc], yBounds, 'r-')
 
-		
-
-
 def plt_rcm_eqlatlon(AxLatlon, AxEq, rcmData, satTrackData, AxCB=None, mjd=None, norm=None, cmapName='viridis'):
 	
 	mjd_arr   = rcmData['MJD']
@@ -1174,3 +1279,49 @@ def plt_rcm_eqlatlon(AxLatlon, AxEq, rcmData, satTrackData, AxCB=None, mjd=None,
 		ybMax = dy/2
 		AxEq.set_xlim([xbMin, xbMax])
 		AxEq.set_ylim([ybMin, ybMax])
+
+def plt_CumulFrac(AxCF, cfData, title=None, labels=None):
+	"""Plot cumulative fraction curves given by getRCM_CumulFrac()
+		cfData = dict['Data'][x], i.e. a single MJD, continaing a list of points
+		title = optional suptitle
+		labels = optional labels for each curve
+	"""
+
+	mjd = cfData['MJD']
+	ut = kT.MJD2UT(mjd)
+
+	AxCF.clear()
+
+	if title is None:
+		title = str(ut)
+
+	AxCF.set_title(title)
+
+	for iPnt in range(len(cfData['Points'])):
+		pnt = cfData['Points'][iPnt]
+		if labels is not None:
+			lbl = labels[iPnt]
+		else:
+			#Just give the R/L value
+			xmin = pnt['xmin']
+			ymin = pnt['ymin']
+			rmin = np.sqrt(xmin**2+ymin**2)
+			lbl = "{:3.1f}".format(rmin)
+
+		energies = pnt['energies']
+		ptot = pnt['Ptot']
+		pcum = pnt['Pcum']
+		pcumFrac = pcum/ptot
+
+		AxCF.plot(energies*1E-3, pcumFrac, label=lbl)
+		#AxCF.scatter(energies*1E-3, pcumFrac)
+
+	AxCF.legend(loc='upper left')
+	AxCF.grid()
+
+
+
+
+
+
+
