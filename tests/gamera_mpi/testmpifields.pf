@@ -1,5 +1,5 @@
 module testMpiFields
-  use pFUnit
+  use testHelperMpi
   use gamapp_mpi
   use usergamic
 
@@ -17,7 +17,7 @@ contains
 
       allocate(gamAppMpi)
 
-      call initGamera_mpi(gamAppMpi,initUser,this%getMpiCommunicator(),'lfmbw_241.xml',.false.)
+      call initGamera_mpi(gamAppMpi,initUser,getMpiF08Communicator(this),'lfmbw_241.xml',.false.)
 
       do while ((gamAppMpi%Model%tFin - gamAppMpi%Model%t) > 1e-15)
            call stepGamera_mpi(gamAppMpi)

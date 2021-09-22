@@ -1,7 +1,6 @@
 import h5py as h5
 import numpy as np
 import os
-import progressbar
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from astropy.time import Time
@@ -10,12 +9,15 @@ import datetime
 import kaipy.kaiH5 as kh5
 import kaipy.kaiViz as kv
 import kaipy.kaijson as kj
+import kaipy.kaiTools as kT
 
 import kaipy.satcomp.scutils as scutils
 
 
 #Optionals
 doProgressBar = True
+if doProgressBar:
+	import progressbar
 
 #Constants
 massi = 1.67e-27 # mass of ions in kg
@@ -29,39 +31,24 @@ specFlux_factor_i = 1/np.pi/np.sqrt(8)*np.sqrt(ev/massi)*nt/re/1.0e1  # [units/c
 specFlux_factor_e = 1/np.pi/np.sqrt(8)*np.sqrt(ev/masse)*nt/re/1.0e1  # [units/cm^2/keV/str]
 TINY = 1.0e-8
 
+#Settings that should maybe be elsewhere
+tkl_lInner = 2  # Exclude points within 2 Re
+
 #Hard-coded filenames
 RCM_TIME_JFNAME = 'rcm_times.json'
 RCM_TKL_JFNAME = 'rcm_tkl.json'
+RCM_WEDGE_JFNAME = 'rcm_wedgetkl.json'
 RCM_EQLATLON_JFNAME = 'rcm_eqlatlon.json'
 MHDRCM_TIME_JFNAME = 'mhdrcm_times.json'
 
 #Spacecraft strings for cdaweb retrieval
+#Probably shouldn't be hard-coded
+supportedSats = ["RBSPA", "RBSPB"]
+supportedDsets = ["Hydrogen_omniflux_RBSPICE", "Electron_omniflux_RBSPICE"]
+
+
 SC_str = {
 	'RBSP': {
-	 'E_RBSPICE' : {
-	  'DsetName': "RBSP-%s-RBSPICE_LEV-3_ESRHELT",
-	  'DsetVar': ["FEDU", "MLT", 'L_Eq', 'L_Star'],
-	  'dfStr': "FEDU",
-	  'nrgStr': "FEDU_Energy_Fixed",
-	  'epochStr': 'Epoch'}, 
-	 "E-PAP_RBSPICE" : {
-	  'DsetName': "RBSP-%s-RBSPICE_LEV-3-PAP_ESRHELT",
-	  'DsetVar': ["FEDU", "FEDU_OmniFlux", "MLT", 'L_Eq', 'L_Star'],
-	  'dfStr': "FEDU_OmniFlux",
-	  'nrgStr': "FEDU_Energy",
-	  'epochStr': 'Epoch'},
-	 "H_RBSPICE": {
-	  'DsetName': "RBSP-%s-RBSPICE_LEV-3_TOFXEH",
-	  'DsetVar': ["bad"],  # Leave this here so things fail correctly
-	  'dfStr': "FPDU",
-	  'nrgStr': "FPDU_Energy",
-	  'epochStr': 'Epoch'},
-	 "H-PAP_RBSPICE": {
-	  'DsetName': "RBSP-%s-RBSPICE_LEV-3-PAP_TOFXEH",
-	  'DsetVar': ["bad"],  # Leave this here so things fail correctly
-	  'dfStr': "FPDU_OmniFlux",
-	  'nrgStr': "FPDU_Energy",
-	  'epochStr': 'Epoch'},
 	 'E_HOPE' : {
 	  'DsetName': 'RBSP%s_REL04_ECT-HOPE-PA-L3',
 	  'DsetVar': ["FEDU, MLT_Ele"],
@@ -121,6 +108,11 @@ def getSpecieslambdata(rcmS0, kStart, kEnd):
 				'lamscl' : lamscl}
 	return result
 
+def genVarNorm(var, doLog=False):
+
+	vMin = np.min(var[var>0])
+	vMax = np.max(var)
+	norm = kv.genNorm(vMin, vMax, doLog=doLog)
 def get_aspect(ax):
 		from operator import sub
 		# Total figure size
@@ -140,48 +132,46 @@ def get_aspect(ax):
 #======
 
 #Given sc and dataset name (according to above dict), grab specifically omnidirecitonal differential flux
-def getSCOmniDiffFlux(scName, dSetName, t0, t1, jdir=None):
+def getSCOmniDiffFlux(scName, dSetName, t0, t1, jdir=None, forceCalc=False):
 	if jdir is not None:
 		dojson = True
 		jfname = genSCD_jfname(jdir, scName, dSetName)
-		if os.path.exists(jfname):
-			print("Grabbing spacecraft data from " + jfname)
-			data = kj.load(jfname)
-			ephdata = data['ephdata']
-			dataset = data['dataset']
-			return ephdata, dataset
 	else:
 		dojson = False
 
+	if dojson and not forceCalc:
+		if os.path.exists(jfname):
+				print("Grabbing spacecraft data from " + jfname)
+				data = kj.load(jfname)
+				ephdata = data['ephdata']
+				dataset = data['dataset']
+				return ephdata, dataset
+
 	print("Pulling spacecraft data from cdaweb")
 	#TODO: Add all desired datasets
-	if 'RBSP' in scName:
-		#Extract RBSP identifier (A or B)
-		scTag = scName.split('RBSP')[1]
-		if '-' in scTag:
-			scTag = scName.split('-')[1]
 
-		#Pull data
-		ephStrs = SC_str['RBSP']['EPH']
-		dsStrs = SC_str['RBSP'][dSetName]
-		ephdata = scutils.getCdasData(ephStrs['DsetName']%(scTag), ephStrs['DsetVar'], t0, t1)
-		data = scutils.getCdasData(dsStrs['DsetName']%(scTag), dsStrs['DsetVar'], t0, t1)
-		#data = getCdasData(SC_str['RBSP']['E-PAP_RBSPICE'])
-		
-		dfStr = dsStrs['dfStr']
-		nrgStr = dsStrs['nrgStr']
-		epochStr = dsStrs['epochStr']
-		
-		dataset = {}
-		dataset['name'] = scName
-		species = 'electrons' if 'E' == dSetName[0] else 'ions'
-		dataset['species'] = species
-		dataset['epoch'] = data[epochStr]
-		#Turn each dataset's data into omniflux
-		if dSetName == 'E-PAP_RBSPICE' or dSetName == 'H-PAP_RBSPICE':
-			#Already got omni flux, no problem
-			dataset['OmniDiffFlux'] = data[dfStr]*1E-3  # Diferential flux [1/(MeV-cm^2-s-sr]*[1/MeV -> 1/keV]
-			dataset['energies'] = data[nrgStr]*1E3  # [MeV] -< [keV]
+	scStrs = scutils.getScIds()
+	satStrs = scStrs[scName]
+	ephemStrs = satStrs['Ephem']
+	dsetStrs = satStrs[dSetName]
+	epochStr = "Epoch" if "EpochStr" not in dsetStrs.keys() else dsetStrs['EpochStr']
+	ofStr = dsetStrs['OmnifluxStr']
+	energyStr = dsetStrs['EnergyStr']
+
+	#First get ephem data
+	s, ephdata = scutils.pullVar(ephemStrs['Id'], ephemStrs['Data'], t0, t1)
+	s, data = scutils.pullVar(dsetStrs['Id'], dsetStrs['Data'], t0, t1, doVerbose=True)
+
+	dataset = {}
+	dataset['name'] = scName
+	species = 'electrons' if 'E' == dSetName[0] else 'ions'
+	dataset['species'] = species
+	dataset['epoch'] = data[epochStr]
+	#Turn each dataset's data into omniflux
+	if dSetName == 'Hydrogen_omniflux_RBSPICE' or dSetName == 'Electron_omniflux_RBSPICE':
+		#Already got omni flux, no problem
+		dataset['OmniDiffFlux'] = data[ofStr]*1E-3  # Diferential flux [1/(MeV-cm^2-s-sr]*[1/MeV -> 1/keV]
+		dataset['energies'] = data[energyStr]*1E3  # [MeV] -> [keV]
 
 	#Pause to save to json
 	if dojson:
@@ -191,7 +181,7 @@ def getSCOmniDiffFlux(scName, dSetName, t0, t1, jdir=None):
 
 	return ephdata, dataset
 
-def getRCMtimes(rcmf5,mhdrcmf5,jdir=None):
+def getRCMtimes(rcmf5,mhdrcmf5,jdir=None, forceCalc=False):
 	"""Grab RCM times, sIDs, and MJDs
 		If jdir given, will try to find the files there
 		If not found there, will pull the data from the hdf5's
@@ -204,7 +194,7 @@ def getRCMtimes(rcmf5,mhdrcmf5,jdir=None):
 	else:
 		dojson = False
 
-	if dojson:
+	if dojson and not forceCalc:
 		if os.path.exists(rcmjfname):
 			print("Grabbing RCM time data from " + rcmjfname)
 			#That's all that's needed, done
@@ -260,7 +250,7 @@ def getRCMtimes(rcmf5,mhdrcmf5,jdir=None):
 	return rcmTimes
 
 #TODO: Add scName to trackfile attrs so we can pull directly from there
-def getRCM_scTrack(trackf5, rcmf5, rcmTimes, jdir=None, scName=""):
+def getRCM_scTrack(trackf5, rcmf5, rcmTimes, jdir=None, forceCalc=False, scName=""):
 	"""Pull RCM data along a given spacecraft track
 		trackfile: big spacecraft trajectory hdf5, generated from sctrack.x
 		rcmf5: <tag>.rcm.h5 file
@@ -274,7 +264,7 @@ def getRCM_scTrack(trackf5, rcmf5, rcmTimes, jdir=None, scName=""):
 	else:
 		dojson = False
 
-	if dojson:
+	if dojson and not forceCalc:
 		if os.path.exists(jfname):
 			print("Grabbing RCM track data from " + jfname)
 			return kj.load(jfname)
@@ -401,8 +391,10 @@ def getRCM_scTrack(trackf5, rcmf5, rcmTimes, jdir=None, scName=""):
 	result['xmin'     ] = xmin
 	result['ymin'     ] = ymin
 	result['zmin'     ] = zmin
-	#TODO: Map to full equator using zmin I think
 	result['eqmin'    ] = np.sqrt(xmin**2+ymin**2)
+	result['xeq'      ] = kh5.PullVar(trackf5, "xeq")
+	result['yeq'      ] = kh5.PullVar(trackf5, "yeq")
+	result['Req'      ] = np.sqrt(result['xeq']**2 + result['yeq']**2)
 	result['electrons'] = sdata['electrons']
 	result['ions'     ] = sdata['ions']
 
@@ -412,7 +404,7 @@ def getRCM_scTrack(trackf5, rcmf5, rcmTimes, jdir=None, scName=""):
 
 #TODO: Energy grid mapping in a nice, jsonizable way
 #      Right now, just need to call this whenever you want it
-def consolidateODFs(scData, rcmTrackData, eGrid=None, jdir=None):
+def consolidateODFs(scData, rcmTrackData, eGrid=None):
 	"""Prepare the spacecraft and rcm track data for comparison
 		Match up energy grids, save all the needed info in one place
 	"""
@@ -473,13 +465,14 @@ def consolidateODFs(scData, rcmTrackData, eGrid=None, jdir=None):
 
 	return result
 
-def getIntensitiesVsL(rcmf5, mhdrcmf5, sStart, sEnd, sStride, species='ions', eGrid=None, AxLvT=None, jdir=None, joverwrite=True):
+def getIntensitiesVsL(rcmf5, mhdrcmf5, sStart, sEnd, sStride, species='ions', eGrid=None, jdir=None, forceCalc=False):
 	"""Calculate rcm intensities (summed diff flux)
+	   Values are averaged over all MLT
 		rcmf5: rcm hdf5 filename to pull xmin, ymin, zmin from
 		mhdrcmf5: mhdrcm hdf5 filename to pull IOpen from
 		AxLvT: If given, will plot the resulting L shell vs. time intensity
 		jdir: Give json directory to enable json usage (read/write results to file)
-		joverwrite: If dataset already found in file, re-calc anyways and overwrite it
+		forceCalc: If dataset already found in file, re-calc anyways and overwrite it
 	"""
 
 	if jdir is not None:
@@ -488,7 +481,7 @@ def getIntensitiesVsL(rcmf5, mhdrcmf5, sStart, sEnd, sStride, species='ions', eG
 	else:
 		dojson = False
 
-	if dojson:
+	if dojson and not forceCalc:
 		if os.path.exists(rcmjfname):
 			print("Grabbing RCM tkl data from " + rcmjfname)
 			return kj.load(rcmjfname)
@@ -565,28 +558,30 @@ def getIntensitiesVsL(rcmf5, mhdrcmf5, sStart, sEnd, sStride, species='ions', eG
 		iL_arr = np.array([np.abs(lbins-i).argmin() for i in L_arr.flatten()]).reshape((Ni, Nj))
 		iE_arr = np.array([np.abs(eGrid-e).argmin() for e in energies.flatten()]).reshape((Nk, Ni, Nj))
 
-		#diffFlux_Nk = sf_factor*energies*eetas/alamData['lamscl'][:, np.newaxis, np.newaxis]  # [k,i,j]
+		diffFlux_Nk = sf_factor*energies*eetas/alamData['lamscl'][:, np.newaxis, np.newaxis]  # [k,i,j]
 
 		pressure_kij = pressure_factor*alams_kxx*eetas*vms_xij**2.5 * 1E9  # [Pa -> nPa]
 
 		for i in range(Ni):
 			for j in range(Nj):
 				for k in range(Nk):
-					#rcmodf_tkl[n, iE_arr[k,i,j], iL_arr[i,j]] += diffFlux_Nk[k,i,j]
+					rcmodf_tkl[n, iE_arr[k,i,j], iL_arr[i,j]] += diffFlux_Nk[k,i,j]
 					rcmpress_tkl[n, iE_arr[k,i,j], iL_arr[i,j]] += pressure_kij[k,i,j]
 					le_counts[iE_arr[k,i,j], iL_arr[i,j]] += 1
 
-		#Normalize to get avg. pressure per count
+		#Normalize to get avg. per count
+		rcmodf_tkl[n,:,:] /= le_counts
 		rcmpress_tkl[n,:,:] /= le_counts
 
 	#Trim off the extra values
 	lbins = lbins[1:-1]
 	eGrid = eGrid[1:-1]
-	#rcmodf_tkl = rcmodf_tkl[:,1:-1,1:-1]
+	rcmodf_tkl = rcmodf_tkl[:,1:-1,1:-1]
 	rcmpress_tkl = rcmpress_tkl[:,1:-1,1:-1]
 	
-	# Sum across energy to get total avg. pressures per L shell
+	# Sum across energy to get total avg. per L shell
 	rcmpress_tl = np.ma.sum(np.ma.masked_invalid(rcmpress_tkl), axis=1)
+	rcmodf_tl = np.ma.sum(np.ma.masked_invalid(rcmodf_tkl), axis=1)
 
 
 	result = {}
@@ -596,7 +591,8 @@ def getIntensitiesVsL(rcmf5, mhdrcmf5, sStart, sEnd, sStride, species='ions', eG
 	result['L_bins']     = lbins
 	result['energyGrid'] = eGrid
 	#result['nrg_tkl'] = rcmnrg_tkl
-	#result['odf_tkl']    = rcmodf_tkl
+	result['odf_tkl']    = rcmodf_tkl
+	result['odf_tl']    = rcmodf_tl
 	result['press_tkl']  = rcmpress_tkl
 	result['press_tl']  = rcmpress_tl
 
@@ -604,8 +600,259 @@ def getIntensitiesVsL(rcmf5, mhdrcmf5, sStart, sEnd, sStride, species='ions', eG
 
 	return result
 
+#TODO: Something odd with odf calculation
+#TODO: Break out interpolator/mapper so they can be tested on their own and used by other functions
+def getVarWedge(rcmf5, mhdrcmf5, sStart, sEnd, sStride, wedge_deg, species='ions', rcmTimes=None, eGrid=None, lGrid=None, jdir=None, forceCalc=False):
+	"""Take a slice/wedge centered along the x axis (eq space), calculate average <var> vs. L and E
+		rcmf5, mhdrcmf5: h5 filenames
+		sStart, sEnd, sStride: step information
+		width_deg: wedge width [deg], centered around x axis in equatorial mapping of RCM data
+		rcmTimes: dict returned from getRCMTimes()
+		eGrid: Specific energy grid to map k energies to
+		lbins: 1D array of L values to map to
+		jdir: directory to find json files in
+	"""
+
+	if jdir is not None:
+		dojson = True
+		rcmjfname = os.path.join(jdir, RCM_WEDGE_JFNAME)
+	else:
+		dojson = False
+
+	if dojson and not forceCalc:
+		if os.path.exists(rcmjfname):
+			print("Grabbing RCM wedge-tkl data from " + rcmjfname)
+			return kj.load(rcmjfname)
+
+	#Setup
+	if rcmTimes is None:
+		rcmTimes = getRCMtimes(rcmf5,mhdrcmf5,jdir=jdir)
+	iTStart = np.abs(rcmTimes['sIDs']-sStart).argmin()
+	iTEnd = np.abs(rcmTimes['sIDs']-sEnd).argmin()
+
+	sIDstrs = rcmTimes['sIDstrs'][iTStart:iTEnd+1:sStride]
+	nSteps = len(sIDstrs)
+	rcm5 = h5.File(rcmf5,'r')
+	rcmS0 = rcm5[sIDstrs[0]]
+	mhdrcm5 = h5.File(mhdrcmf5,'r')
+
+
+	kStart = 1 if rcmS0['alamc'][0] == 0 else 0  # Check channel 0 for plasmasphere
+	kIon = (rcm5[sIDstrs[0]]['alamc'][kStart:]>0).argmax()+kStart
+	if species == 'electrons':
+		kEnd = kIon
+		sf_factor = specFlux_factor_e
+	elif species == 'ions':
+		kStart = kIon
+		kEnd = len(rcm5[sIDstrs[0]]['alamc'])-1
+		sf_factor = specFlux_factor_i
+	alamData = getSpecieslambdata(rcmS0, kStart, kEnd)
+	Nk = len(alamData['ilamc'])
+	
+	if lGrid is None:
+		lMin = -10
+		lMax = 8
+		Nl = 52
+		lGrid = np.linspace(lMin, lMax, Nl, endpoint=True)
+	Nl = len(lGrid)
+	
+
+	if eGrid is None:
+		eMin = 1E2  # [eV]
+		eMax = 1E6  # [eV]
+		Ne = 50
+		eGrid = np.logspace(np.log10(eMin), np.log10(eMax), Ne, endpoint=True)
+	Ne = len(eGrid)
+
+	odf_tkl = np.zeros((nSteps, Ne, Nl))
+	press_tkl = np.zeros((nSteps, Ne, Nl))
+
+	if doProgressBar: bar = progressbar.ProgressBar(max_value=nSteps)
+	for n in range(nSteps):
+		if doProgressBar: bar.update(n)
+
+		mhdrcmS = mhdrcm5[sIDstrs[n]]
+		rcmS = rcm5[sIDstrs[n]]
+
+		IOpen = mhdrcmS['IOpen']
+		Ni, Nj = IOpen.shape  # Default should be (179, 90)
+		#Shorten rcm data to match Ni, Nj of mhdrcm5
+		vms = rcmS['rcmvm'][2:, :]
+		xmins = rcmS['rcmxmin'][2:,:]
+		ymins = rcmS['rcmymin'][2:,:]
+		zmins = rcmS['rcmzmin'][2:,:]
+		eetas = rcmS['rcmeeta'][kStart:kEnd,2:,:]
+
+		L_arr = scutils.xyz_to_L(xmins, ymins, zmins) # [i,j]
+		theta_arr = np.arctan2(ymins,xmins)*180/np.pi%360
+
+		#Collect indicies of points within spatial bounds
+		iPointCloud = []
+		lPointCloud = []
+
+		for i in range(Ni):
+			for j in range(Nj):
+				l_ij = L_arr[i,j]
+				theta_ij = theta_arr[i,j]
+				#Collect indicies of points within spatial bounds
+				
+				if IOpen[i,j] >= 0:
+					continue
+
+				if (theta_ij > 360-wedge_deg/2 or theta_ij < wedge_deg/2):  # dayside wedge
+					if l_ij >= lGrid[0] and l_ij <= lGrid[-1] and abs(l_ij) > tkl_lInner:
+						iPointCloud.append([i,j])
+						lPointCloud.append(l_ij)	
+				elif (theta_ij > 180-wedge_deg/2 and theta_ij < 180+wedge_deg/2): #nightside wedge
+					if -l_ij >= lGrid[0] and -l_ij <= lGrid[-1] and abs(l_ij) > tkl_lInner:
+						iPointCloud.append([i,j])
+						lPointCloud.append(-l_ij)
+	
+		iPointCloud = np.array(iPointCloud)
+		lPointCloud = np.array(lPointCloud)
+		#Sort index array in order of ascending L values
+		lSort = lPointCloud.argsort()
+		iPointCloud = iPointCloud[lSort]
+		lPointCloud = lPointCloud[lSort]
+		Npc = len(iPointCloud)
+		
+		if Npc == 0:
+			continue
+		#Calc distance-based mapping weights for each lGrid index
+		lMapWeights = [ [] for l in range(Nl)] # Nl x nx2 ,  nx[iPC, lWeight]
+		wFlag = 9999
+		for iLG in range(Nl):
+			iLPC_lower = 0  # iPointCloud/lPointCloud index, 1 grid point below current lGrid index
+			iLPC_upper = 0  # iPointCloud/lPointCloud index, 1 grid point above current lGrid index
+			width_lower = abs(lGrid[iLG] - lGrid[iLG-1]) if iLG > 1 else wFlag
+			width_upper = abs(lGrid[iLG+1] - lGrid[iLG]) if iLG < Nl-1 else wFlag
+			if iLG != 0: 
+				while iLPC_lower < Npc-1 and lPointCloud[iLPC_lower] < lGrid[iLG-1]:
+					iLPC_lower += 1
+			#Set upper iPLC index to next highest lbin value
+			if iLG < Nl-1: 
+				while iLPC_upper+1 < Npc and lPointCloud[iLPC_upper+1] < lGrid[iLG+1]:
+					iLPC_upper += 1
+
+			iLG_WM = []  # weight and points for current lGrid index
+			
+			for iLPC in range(iLPC_lower, iLPC_upper+1):
+				# Is this a point below or above current lGrid point
+				if lPointCloud[iLPC] < lGrid[iLG]:
+					weight = 1-abs(lGrid[iLG] - lPointCloud[iLPC])/width_lower					
+				elif lPointCloud[iLPC] > lGrid[iLG]:
+					weight = 1-abs(lPointCloud[iLPC] - lGrid[iLG])/width_upper
+
+				#Cheating !! this may be breaking something in odf calc
+				if abs(weight)>1:
+					weight = 0
+					#print('iLG={} iLPC={} lG[iLG]={} lPC[iLPC]={} weight={}'.format(iLG, iLPC, lGrid[iLG], lPointCloud[iLPC], weight))
+				iLG_WM.append([iLPC, weight])  # Save pointCloud index and associated lbin weight
+			lMapWeights[iLG] = iLG_WM
+		"""
+		for iLG in range(Nl):
+			print('iLG={}  L={} nP={}'.format(iLG, lGrid[iLG], len(lMapWeights[iLG])))
+			for i in range(len(lMapWeights[iLG])):
+				iPC = lMapWeights[iLG][i][0]
+				print('  Lpc={} iPC={} weight={}'.format(lPointCloud[iPC], iPC, lMapWeights[iLG][i][1]))
+		"""
+		#Calc eGrid mapping weights
+		eMapFracs = [ [ [] for e in range(Ne)] for pnt in range(Npc)] # Npc x Ne x (nx2)
+		for iPC in range(Npc):
+			i,j = iPointCloud[iPC]
+			vm = vms[i,j]
+			ke_center = alamData['ilamc']*vm
+			ke_lower = alamData['ilami'][:-1]*vm
+			ke_upper = alamData['ilami'][1:]*vm
+			ke_width = ke_upper-ke_lower
+
+			# Iterate over eGrid, grab weights for all overlapping k bins
+			for iEG in range(Ne):
+				e_lower = eGrid[0] if iEG == 0 else (eGrid[iEG-1] + eGrid[iEG])/2
+				e_upper = eGrid[-1] if iEG == Ne-1 else (eGrid[iEG+1] + eGrid[iEG])/2
+
+				frac_arr = []
+				#Loop through k values, find k bind in 1D collision with current eGrid element
+				for k in range(Nk):
+					#Does it collide
+					if e_lower < ke_upper[k] and e_upper > ke_lower[k]:
+						#Get overlap bounds
+						o_lower = ke_lower[k] if ke_lower[k] > e_lower else e_lower
+						o_upper = ke_upper[k] if ke_upper[k] < e_upper else e_upper
+						o_width = o_upper-o_lower
+						#frac_arr.append([k, eetas[k,i,j]*o_width/ke_width])  # Fraction of k bin that coincides with eGrid bin
+						frac_arr.append([k, o_width/ke_width[k]])  # Fraction of k bin that coincides with eGrid bin
+				#print('n: {}  arr:{}'.format(len(frac_arr), frac_arr))
+				eMapFracs[iPC][iEG] = frac_arr
+		"""
+		for iPC in range(Npc):
+			print('iPC={}  L={}'.format(iPC, lPointCloud[iPC]))
+			i,j = iPointCloud[iPC]
+			vm = vms[i,j]
+			for e in range(Ne):
+				print('  e={}'.format(eGrid[e]))
+				for i in range(len(eMapFracs[iPC][e])):
+					k = eMapFracs[iPC][e][i][0]
+					print('    k={}  E_k={} frac={}'.format(k, alamData['ilamc'][k]*vm,eMapFracs[iPC][e][i][1]))
+		"""
+
+		#Calculate the desired variables for all of our points
+		odf_pc = np.zeros((Npc,Nk))
+		press_pc = np.zeros((Npc,Nk))
+		for npc in range(Npc):
+			# Single point's values
+			i,j = iPointCloud[npc]
+			vm = vms[i,j]
+			eeta_k = eetas[:,i,j]
+
+			odf_pc[npc,:] =  sf_factor*alamData['ilamc']*vm*eeta_k/alamData['lamscl'] # [Nk]
+			press_pc[npc,:] =  pressure_factor*alamData['ilamc']*eeta_k*vm**2.5 * 1E9  # [Pa -> nPa]
+			#print('nPC={} vm={} odf={} press={}'.format(npc,vm,odf_pc[npc,:],press_pc[npc,:]))
+			
+		#Now we have all necessary info. Map all points to their corresponding L-E grid point
+		odf_EL = np.zeros((Ne,Nl))
+		press_EL = np.zeros((Ne,Nl))
+		for iLG in range(Nl):
+			#print('iLG=' + str(iLG))
+			pointsToMap = lMapWeights[iLG]  # [nx2], nx[pc index, weight]
+			numPoints = len(pointsToMap)
+
+			for i in range(numPoints):
+				iPC = pointsToMap[i][0]
+				lWeight = pointsToMap[i][1]
+				
+				for e in range(Ne):
+					for ik in range(len(eMapFracs[iPC][e])):
+						k = eMapFracs[iPC][e][ik][0]
+						eFrac = eMapFracs[iPC][e][ik][1]
+						odf_EL[e,iLG] += lWeight/numPoints * eFrac * odf_pc[iPC,k]
+						press_EL[e,iLG] += lWeight/numPoints * eFrac * press_pc[iPC,k]
+
+		#Yay we made it
+		odf_tkl[n,:,:] = odf_EL
+		press_tkl[n,:,:] = press_EL
+
+	#Destroy our hard work
+	odf_tl = np.ma.sum(np.ma.masked_invalid(odf_tkl), axis=1)
+	press_tl = np.ma.sum(np.ma.masked_invalid(press_tkl), axis=1)
+		
+	result = {}
+	result['T'         ] = rcmTimes['T'  ][iTStart:iTEnd+1:sStride]
+	result['MJD'       ] = rcmTimes['MJD'][iTStart:iTEnd+1:sStride]
+	result['lambda'    ] = alamData['ilamc']
+	result['L_bins'    ] = lGrid
+	result['energyGrid'] = eGrid
+	result['odf_tkl'   ] = odf_tkl
+	result['odf_tl'    ] = odf_tl
+	result['press_tkl' ] = press_tkl
+	result['press_tl'  ] = press_tl
+
+	if dojson: kj.dump(rcmjfname, result)
+
+	return result
+
 #TODO: Take list of variable strings to pull from rcm.h5 file
-def getRCM_eqlatlon(mhdrcmf5, rcmTimes, jdir=None):
+def getRCM_eqlatlon(mhdrcmf5, rcmTimes, sStart, sEnd, sStride, jdir=None, forceCalc=False):
 	"""Grab certain variables along with equatorial and lat-lon grid
 		Can use json but there's not much point if you already have the (mhd)rcm file(s)
 	"""
@@ -615,14 +862,16 @@ def getRCM_eqlatlon(mhdrcmf5, rcmTimes, jdir=None):
 	else:
 		dojson = False
 
-	if dojson:
+	if dojson and not forceCalc:
 		if os.path.exists(rcmjfname):
 			print("Grabbing RCM eq_lat-lon data from " + rcmjfname)
 			return kj.load(rcmjfname)
 
 	Nt = rcmTimes['Nt']
-	sIDs = rcmTimes['sIDs']
-	sIDstrs = rcmTimes['sIDstrs']
+	iTStart = np.abs(rcmTimes['sIDs']-sStart).argmin()
+	iTEnd = np.abs(rcmTimes['sIDs']-sEnd).argmin()
+	sIDs = rcmTimes['sIDs'][iTStart:iTEnd+1:sStride]
+	sIDstrs = rcmTimes['sIDstrs'][iTStart:iTEnd+1:sStride]
 
 	mhdrcm5 = h5.File(mhdrcmf5,'r')
 	
@@ -649,7 +898,7 @@ def getRCM_eqlatlon(mhdrcmf5, rcmTimes, jdir=None):
 	pCut = 1E-8
 	
 	print("Grabbing data...")
-	
+	"""
 	for t in range(len(sIDstrs)):
 		xm = mhdrcm5[sIDstrs[t]]['xMin'][:]
 		ym = mhdrcm5[sIDstrs[t]]['yMin'][:]
@@ -660,7 +909,7 @@ def getRCM_eqlatlon(mhdrcmf5, rcmTimes, jdir=None):
 
 		Ir = (bmR < rMin) | (bmR > rMax)
 		I_m = Ir | (iopen_t > ioCut) | (pm < pCut)
-		
+	"""
 	import kaipy.gamera.gampp as gampp
 	import kaipy.gamera.rcmpp as rcmpp
 	#import kaipy.gamera.msphViz as mviz
@@ -689,8 +938,8 @@ def getRCM_eqlatlon(mhdrcmf5, rcmTimes, jdir=None):
 			scLoc_latlon[t,:] = [mlat_sc[itime], mlon_sc[itime]]
 	"""
 	result = {}
-	result['T']     = rcmTimes['T']
-	result['MJD']   = rcmTimes['MJD']
+	result['T']     = rcmTimes['T'][iTStart:iTEnd+1:sStride]
+	result['MJD']   = rcmTimes['MJD'][iTStart:iTEnd+1:sStride]
 	result['MLAT']  = mlat_rcm
 	result['MLON']  = mlon_rcm
 	result['xmin']  = xmin_arr
@@ -701,6 +950,8 @@ def getRCM_eqlatlon(mhdrcmf5, rcmTimes, jdir=None):
 
 	return result
 
+def getRCM_CumulFrac(rcmh5, evalMJDs, rcmTimes=None):
+	doNothing=1
 #======
 #Plotting
 #======
@@ -714,7 +965,8 @@ def plt_ODF_Comp(AxSC, AxRCM, AxCB, odfData, mjd=None, cmapName='CMRmap', norm=N
 	rcmTime = odfData['rcm']['time']
 	rcmODF  = odfData['rcm']['diffFlux']
 
-	ut = scutils.mjd_to_ut(rcmTime)
+	#ut = scutils.mjd_to_ut(rcmTime)
+	ut = kT.MJD2UT(rcmTime)
 	
 	if norm is None:
 		vMax = np.max([scODF.max(), rcmODF.max()])
@@ -723,7 +975,7 @@ def plt_ODF_Comp(AxSC, AxRCM, AxCB, odfData, mjd=None, cmapName='CMRmap', norm=N
 
 
 	if not axIsPopulated:
-		kv.genCB(AxCB,norm,r'Differential Flux [$cm^{-2} sr^{-1} s^{-1} keV^{-1}$]',cM=cmapName,doVert=True)
+		kv.genCB(AxCB,norm,r'Intensity [$cm^{-2} sr^{-1} s^{-1} keV^{-1}$]',cM=cmapName,doVert=True)
 
 		AxSC.pcolormesh(scTime, eGrid, np.transpose(scODF), norm=norm, shading='nearest', cmap=cmapName)
 		AxSC.set_xlim([ut[0], ut[-1]])
@@ -753,39 +1005,71 @@ def plt_ODF_Comp(AxSC, AxRCM, AxCB, odfData, mjd=None, cmapName='CMRmap', norm=N
 		yMin, yMax = AxRCM.get_ylim()
 		AxRCM.plot([lineUT, lineUT], [yMin, yMax], '-k')
 		
-def plt_tkl(AxTL, AxTKL, AxCB, tkldata, mjd=None, cmapName='CMRmap', norm=None):
-	"""If 'mjd' is not provided, make all plots that are vs. time
-	   If 'mjd' is provided:
-	     If we were also given a populated AxTL and AxCB, update with an mjd scroll line
-	     Also generate AxTKL for this mjd step
-	"""
-	tlIsPopulated = not AxTL.get_ylabel() == ''
 
-	k_arr = tkldata['energyGrid']
+def plt_tl(AxTL, tkldata, AxCB=None, mjd=None,cmapName='CMRmap',norm=None):
+
 	L_arr = tkldata['L_bins']
-
+	ut = kT.MJD2UT(tkldata['MJD'])
 	press_tl = np.array(tkldata['press_tl'][:], dtype=float)  # Need to do this to handle masked stuff
 	press_tl = np.ma.masked_invalid(press_tl)
-	
-	ut = scutils.mjd_to_ut(tkldata['MJD'])
-	#utstr = [t.strftime('%m-%d\n%H') for t in ut]
-
-	if norm is None:
-		vMin = np.min(press_tl[press_tl>0])
-		vMax = np.max(press_tl)
-		print(vMin)
-		print(vMax)
-		norm = kv.genNorm(vMin, vMax, doLog=True)
-
 
 	#Initialize static plots if hasn't been done yet
-	if not tlIsPopulated:
+	doPopulateTL =  AxTL.get_ylabel() == ''
+	doPopulateCB = AxCB is not None and AxCB.get_label() == ''
+
+	if norm is None: 
+		norm = genVarNorm(press_tl, doLog=True)
+
+	if doPopulateTL:
 		#L vs. Time
 		AxTL.pcolormesh(ut, L_arr, np.transpose(press_tl), norm=norm, shading='nearest', cmap=cmapName)
 		AxTL.set_xlim([ut[0], ut[-1]])
 		AxTL.set_ylabel('L shell')
 		AxTL.set_xlabel('UT')
+		#Sim boundaries
+		xmin,xmax = AxTL.get_xlim()
+		AxTL.plot([xmin,xmax],[-tkl_lInner,-tkl_lInner], 'w--')
+		AxTL.plot([xmin,xmax],[tkl_lInner,tkl_lInner], 'w--')
+	if doPopulateCB:
 		kv.genCB(AxCB, norm, r'Total pressure [$nPa$]', cM=cmapName, doVert=False)
+
+	#Time-specific stuff
+	if mjd is not None:
+		if mjd < tkldata['MJD'][0] or mjd > tkldata['MJD'][-1]:
+			return
+		iMJD = np.abs(tkldata['MJD'] - mjd).argmin()
+		lineUT = ut[iMJD]
+
+		if len(AxTL.lines) > 2:
+			AxTL.lines.pop(2)  #Remove previous mjd line
+		yMin, yMax = AxTL.get_ylim()
+		AxTL.plot([lineUT, lineUT], [yMin, yMax], '-k')
+
+def plt_tkl(AxTKL, tkldata, AxCB=None, mjd=None, cmapName='CMRmap', vName='odf', norm=None, satTrackData=None):
+	"""If 'mjd' is not provided, make all plots that are vs. time
+	   If 'mjd' is provided:
+	     If we were also given a populated AxTL and AxCB, update with an mjd scroll line
+	     Also generate AxTKL for this mjd step
+	"""
+	if vName != 'odf' and vName != 'press':
+		print("scRCM.plt_tkl: Unknown vName, assuming 'odf'")
+		vName = 'odf'
+
+	doPopulateCB = AxCB is not None and AxCB.get_label() == ''
+
+	k_arr = tkldata['energyGrid']
+	L_arr = tkldata['L_bins']
+	
+	ut = kT.MJD2UT(tkldata['MJD'])
+
+	if norm is None: 
+		norm = genVarNorm(press_tl, doLog=True)
+
+	if doPopulateCB:
+		if vName == 'odf':
+			kv.genCB(AxCB, norm, r'Intensity [$cm^{-2} sr^{-1} s^{-1} keV^{-1}$]', cM=cmapName, doVert=False)
+		elif vName == 'press':
+			kv.genCB(AxCB, norm, r'Pressure [nPa]', cM=cmapName, doVert=False)
 
 	#L vs. k for a specific mjd
 	if mjd is not None:
@@ -793,20 +1077,37 @@ def plt_tkl(AxTL, AxTKL, AxCB, tkldata, mjd=None, cmapName='CMRmap', norm=None):
 			print(str(mjd) + "not in tkl data, exiting")
 			return
 		iMJD = np.abs(tkldata['MJD'] - mjd).argmin()
-		lineUT = ut[iMJD]
 
-		if len(AxTL.lines) != 0:
-			AxTL.lines.pop(0)  #Remove previous mjd line
-		yMin, yMax = AxTL.get_ylim()
-		AxTL.plot([lineUT, lineUT], [yMin, yMax], '-k')
+		if vName == 'odf':
+			klslice = tkldata['odf_tkl'][iMJD,:,:]
+			AxTKL.pcolormesh(L_arr, k_arr*1E-3, klslice, shading='nearest', cmap=cmapName)
+		elif vName == 'press':
+			klslice = tkldata['press_tkl'][iMJD,:,:]
+			AxTKL.pcolormesh(L_arr, k_arr*1E-3, klslice, norm=norm, shading='nearest', cmap=cmapName)
+		
+		# Remove all lines
+		while len(AxTKL.lines) > 0:
+			AxTKL.lines.pop(0)
+		#Dashed lines to mark simulation inner boundary
+		ymin,ymax = AxTKL.get_ylim()
+		AxTKL.plot([-tkl_lInner,-tkl_lInner], [ymin,ymax], 'w--')
+		AxTKL.plot([tkl_lInner,tkl_lInner], [ymin,ymax], 'w--')
 
+		AxTKL.set_xlabel('L shell')
+		AxTKL.set_ylabel('Energy [keV]')
 
-		#energy_arr = tkldata['nrg_tkl'][]
-		klslice = tkldata['press_tkl'][iMJD,:,:]
-		AxTKL.pcolormesh(k_arr*1E-3, L_arr, np.transpose(klslice), norm=norm, shading='nearest', cmap=cmapName)
-		#AxTKL.pcolormesh(k_arr, L_arr, np.transpose(klslice), shading='nearest', cmap=cmapName)
-		AxTKL.set_xlabel('Energy [keV]')
-		AxTKL.set_ylabel('L shell')
+		if satTrackData is not None:
+			
+			iscMJD = np.abs(satTrackData['MJD'] - mjd).argmin()
+			#Draw line to indicate spacecraft L value
+			req_sc = satTrackData['Req']
+			xmin_sc = satTrackData['xmin'][iscMJD]
+			if req_sc[iscMJD] > 1E-8:
+				yBounds = np.asarray(AxTKL.get_ylim())
+				AxTKL.plot([xmin_sc, xmin_sc], yBounds, 'r-')
+
+		
+
 
 def plt_rcm_eqlatlon(AxLatlon, AxEq, rcmData, satTrackData, AxCB=None, mjd=None, norm=None, cmapName='viridis'):
 	
@@ -817,24 +1118,22 @@ def plt_rcm_eqlatlon(AxLatlon, AxEq, rcmData, satTrackData, AxCB=None, mjd=None,
 	mlon_arr  = rcmData['MLON']
 	press_arr = rcmData['press']
 
-	x_sc  = satTrackData['xmin']
-	y_sc  = satTrackData['ymin']
-	z_sc  = satTrackData['zmin']
-	eq_sc = satTrackData['eqmin']
-
-	ut = scutils.mjd_to_ut(rcmData['MJD'])
+	#x_sc  = satTrackData['xmin']
+	#y_sc  = satTrackData['ymin']
+	#z_sc  = satTrackData['zmin']
+	#eq_sc = satTrackData['eqmin']
+	x_sc = satTrackData['xeq']
+	y_sc = satTrackData['yeq']
+	req_sc = satTrackData['Req']
+	#ut = scutils.mjd_to_ut(rcmData['MJD'])
+	ut = kT.MJD2UT(rcmData['MJD'])
 	Nt = len(ut)
 
-	if norm is None:
-		vMin = np.min(press_arr[press_arr>0])
-		vMax = np.max(np.ma.masked_invalid(press_arr))
-		print(vMin)
-		print(vMax)
-		norm = kv.genNorm(vMin, vMax, doLog=True)
-
+	if norm is None: 
+		norm = genVarNorm(press_arr, doLog=True)
 
 	#Initialize static plots if hasn't been done yet
-	if AxCB is not None:
+	if AxCB is not None and AxCB.get_label == "":
 		AxCB = kv.genCB(AxCB, norm, r'Pressure [$nPa$]', cM=cmapName, doVert=True)
 
 	if mjd is not None:
@@ -842,6 +1141,7 @@ def plt_rcm_eqlatlon(AxLatlon, AxEq, rcmData, satTrackData, AxCB=None, mjd=None,
 			print(str(mjd) + "not in rcm data, exiting")
 			return
 		iMJD = np.abs(mjd_arr - mjd).argmin()
+		iscMJD = np.abs(satTrackData['MJD'] - mjd).argmin()
 		lineUT = ut[iMJD]
 
 		AxLatlon.clear()
@@ -854,14 +1154,13 @@ def plt_rcm_eqlatlon(AxLatlon, AxEq, rcmData, satTrackData, AxCB=None, mjd=None,
 		AxLatlon.axis([0, 2*np.pi, 0, 0.7])
 
 		AxEq.pcolor(xmin_arr[iMJD], ymin_arr[iMJD], press_arr[iMJD], norm=norm, shading='auto', cmap=cmapName)
-
 		#Draw satellite location
-		if eq_sc[iMJD] > 1E-8:
-			leadMax = iMJD
-			while leadMax < min(iMJD+80, Nt) and eq_sc[leadMax] > 1E-8: leadMax += 1 #????
-			AxEq.plot(x_sc[iMJD:leadMax], y_sc[iMJD:leadMax], 'k-')
+		if req_sc[iscMJD] > 1E-8:
+			leadMax = iscMJD
+			while leadMax < min(iscMJD+80, Nt) and req_sc[leadMax] > 1E-8: leadMax += 1 #????
+			AxEq.plot(x_sc[iscMJD:leadMax], y_sc[iscMJD:leadMax], 'k-')
 			
-			satCircle = plt.Circle((x_sc[iMJD], y_sc[iMJD]), 0.15, color='black')
+			satCircle = plt.Circle((x_sc[iscMJD], y_sc[iscMJD]), 0.15, color='black')
 			AxEq.add_patch(satCircle)
 		kv.addEarth2D(ax=AxEq)
 

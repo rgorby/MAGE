@@ -18,6 +18,8 @@ import h5py
 import kaipy.kaiH5 as kaiH5
 import kaipy.kaiViz as kv
 import kaipy.kaiTools as kaiTools
+import kaipy.kaijson as kj
+import kaipy.satcomp.scutils as scutils
 import spacepy.datamodel as dm
 
 
@@ -66,7 +68,7 @@ if __name__ == '__main__':
 		print(cmd,'either not found or not executable')
 		sys.exit()
 
-	scIds = kaiTools.getScIds()
+	scIds = scutils.getScIds()
 
 	#print(cmddir)
 	#print('Extracting GAMERA data along',scId, 'trajectory')
@@ -96,14 +98,14 @@ if __name__ == '__main__':
 
 	for scId in scToDo:
 		print('Getting spacecraft data for', scId)
-		status,data = kaiTools.getSatData(scIds[scId],
+		status,data = scutils.getSatData(scIds[scId],
 			t0.strftime("%Y-%m-%dT%H:%M:%SZ"),
 			t1.strftime("%Y-%m-%dT%H:%M:%SZ"),deltaT)
 
 		if status['http']['status_code'] != 200:
 			print('No data available for', scId)
 		else:
-			(scTrackName,xmlFileName) = kaiTools.createInputFiles(data,
+			(scTrackName,xmlFileName) = scutils.createInputFiles(data,
 				scIds[scId],scId,mjdFileStart,secFileStart,
 				fdir,ftag,numSegments)
 			lockCmdName = os.path.join(fdir,'makeLock.sh')
@@ -111,20 +113,20 @@ if __name__ == '__main__':
 			fLock.write("#!/bin/bash\ntouch $1")
 			fLock.close()
 			os.chmod(lockCmdName,0o775)
-			pbsName = kaiTools.genSatCompPbsScript(scId,fdir,cmd,account=acct)
+			pbsName = scutils.genSatCompPbsScript(scId,fdir,cmd,account=acct)
 			pbsCmd = ['qsub','-J','1-'+str(numSegments),pbsName]
 			results = subprocess.run(pbsCmd,capture_output=True)
 			jobId = results.stdout.decode('utf-8').split('.')
-			pbsLockName = kaiTools.genSatCompLockScript(scId,fdir,account=acct)
+			pbsLockName = scutils.genSatCompLockScript(scId,fdir,account=acct)
 			pbsLockCmd = ['qsub','-W','depend=afterok:'+jobId[0],pbsLockName]
 			results = subprocess.run(pbsLockCmd,capture_output=True)
 			lockId = results.stdout.decode('utf-8').split('.')
 			lockFileName = os.path.join(fdir,scId+'.lock')
 			while not os.path.exists(lockFileName):
 				time.sleep(10)
-			h5name = kaiTools.mergeFiles(scId,fdir,numSegments)
-			kaiTools.addGAMERA(data,scIds[scId],h5name)
-			kaiTools.matchUnits(data)
+			h5name = scutils.mergeFiles(scId,fdir,numSegments)
+			scutils.addGAMERA(data,scIds[scId],h5name)
+			scutils.matchUnits(data)
 			cdfname = os.path.join(fdir, scId + '.comp.cdf')
 			if os.path.exists(cdfname):
 				print('Deleting %s' % cdfname)
@@ -134,6 +136,9 @@ if __name__ == '__main__':
 			plotname = os.path.join(fdir,scId+'.png')
 			print('Plotting results to',plotname)
 			kv.compPlot(plotname,scId,data)
+			print('Computing Errors')
+			errname = os.path.join(fdir,scId+'-error.txt')
+			scutils.errorReport(errname,scId,data)
 			if not keep:
 				h5parts = glob.glob(os.path.join(fdir,scId)+'.*.sc.h5')
 				for file in h5parts:

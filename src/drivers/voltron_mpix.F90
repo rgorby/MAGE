@@ -8,7 +8,7 @@ program voltron_mpix
     use output
     use voltio
     use uservoltic
-    use mpi
+    use mpi_f08
     use xml_input
 
     implicit none
@@ -25,11 +25,14 @@ program voltron_mpix
 
     procedure(StateIC_T), pointer :: userInitFunc => initUser
 
-    integer :: ierror, length, provided, worldSize, worldRank, gamComm, voltComm, numHelpers
+    integer :: ierror, length, provided, worldSize, worldRank, numHelpers
+    type(MPI_Comm) :: gamComm, voltComm
     integer :: required=MPI_THREAD_MULTIPLE
     character( len = MPI_MAX_ERROR_STRING) :: message
     character(len=strLen) :: inpXML, helpersBuf
     logical :: useHelpers, helperQuit
+    integer(KIND=MPI_AN_MYADDR) :: tagMax
+    logical :: tagSet
 
     ! initialize MPI
     !Set up MPI with or without thread support
@@ -55,6 +58,9 @@ program voltron_mpix
     call setMpiReal()
 
     call initClocks()
+
+    call mpi_comm_get_attr(MPI_COMM_WORLD, MPI_TAG_UB, tagMax, tagSet, ierror)
+    print *, 'Tag Upper-Bound = ', tagMax
 
     gApp%Model%isLoud = .true.    
 

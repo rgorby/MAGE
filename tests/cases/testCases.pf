@@ -1,5 +1,5 @@
 module testCases
-  use pFUnit
+  use testHelper
   use gamapp
   use voltapp
   use uservoltic
@@ -205,6 +205,7 @@ contains
     write(*,*) '2D Advection test'
     write(*,*) 'Cells = ', Gr%Nip,Gr%Njp
     write(*,*) 'Symmetry violation = ', dG
+    @assertLessThanOrEqual(dG,1.0e-11_rp,"OTSym Test Failed")
 
     end associate
     

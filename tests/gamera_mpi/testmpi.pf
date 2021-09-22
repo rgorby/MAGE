@@ -1,5 +1,5 @@
 module testMpi
-  use pFUnit
+  use testHelperMpi
   use gamapp_mpi
   use usergamic
 
@@ -19,7 +19,7 @@ contains
       write(caseFile,'(A,I0,A)') 'blast3d_', this%getNumProcesses(), '.xml'
 
       allocate(gamAppMpi)
-      call initGamera_mpi(gamAppMpi, initUser, this%getMpiCommunicator(), caseFile, .false.)
+      call initGamera_mpi(gamAppMpi, initUser, getMpiF08Communicator(this), caseFile, .false.)
 
   end subroutine setup
 
@@ -348,7 +348,7 @@ contains
 
       SELECT CASE(this%getNumProcesses())
           CASE (1)
-              @assertEqual(MPI_COMM_NULL, gamAppMpi%gamMpiComm, 'gamMpiComm should be null with no decomp')
+              @assertTrue(MPI_COMM_NULL == gamAppMpi%gamMpiComm, 'gamMpiComm should be null with no decomp')
               @assertFalse(allocated(gamAppMpi%sendRanks),'sendRanks should not be allocated with no decomp')
               @assertFalse(allocated(gamAppMpi%recvRanks),'recvRanks should not be allocated with no decomp')
               @assertFalse(allocated(gamAppMpi%sendCountsGas),'sendCountsGas should not be allocated with no decomp')

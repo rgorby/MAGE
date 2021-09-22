@@ -2,25 +2,33 @@
 	"GOES11" : {
 		"Ephem" : {
 			"Id" : "GOES11_K0_MAG",
-			"Data" : "Sc_pos_sm",
+			"Data" : "SC_pos_sm",
 			"CoordSys" : "SM"
 		},
-		"Mag" : {
+		"MagneticField" : {
 			"Id" : "GOES11_K0_MAG",
 			"Data" : "B_GSM_c",
 			"CoordSys" : "GSM"	
+		},
+		"_testing" : {
+			"t0" : "2010-12-30T00:00:00Z",
+			"t1" : "2010-12-31T00:00:00Z"
 		}
 	},
 	"GOES12" : {
 		"Ephem" : {
 			"Id" : "GOES12_K0_MAG",
-			"Data" : "Sc_pos_sm",
+			"Data" : "SC_pos_sm",
 			"CoordSys" : "SM"
 		},
-		"Mag" : {
+		"MagneticField" : {
 			"Id" : "GOES12_K0_MAG",
 			"Data" : "B_GSM_c",
 			"CoordSys" : "GSM"	
+		},
+		"_testing" : {
+			"t0" : "2010-09-23T00:00:00Z",
+			"t1" : "2010-09-24T00:00:00Z"
 		}
 	},
 	"GEOTAIL" : {
@@ -29,7 +37,7 @@
 			"Data" : "POS",
 			"CoordSys" : "GSE"
 		},
-		"Mag" : {
+		"MagneticField" : {
 			"Id" : "GE_K0_MGF",
 			"Data" : "IB_vector",
 			"CoordSys" : "GSE"	
@@ -50,7 +58,7 @@
 			"Data" : "coordinates",
 			"CoordSys" : "GSM"
 		},
-		"Mag" : {
+		"MagneticField" : {
 			"Id" : "RBSP-A_MAGNETOMETER_1SEC-GSM_EMFISIS-L3",
 			"Data" : "Mag",
 			"CoordSys" : "GSM"
@@ -59,9 +67,17 @@
 			"Id" : "RBSPA_REL04_ECT-HOPE-MOM-L3",
 			"Data" : "Dens_p_30"
 		},
-		"Electron_omniflux" : {
+		"Electron_omniflux_RBSPICE" : {
 		 	"Id": "RBSP-A-RBSPICE_LEV-3-PAP_ESRHELT",
-		 	"Data": ["FEDU", "FEDU_OmniFlux", "MLT", "L_Eq", "L_Star"]
+		 	"Data": ["FEDU", "FEDU_OmniFlux", "MLT", "L_Eq", "L_Star"],
+		 	"OmnifluxStr" : "FEDU_OmniFlux",
+		 	"EnergyStr" : "FEDU_Energy"
+		},
+		"Hydrogen_omniflux_RBSPICE" : {
+			"Id" : "RBSP-A-RBSPICE_LEV-3-PAP_TOFXEH",
+			"Data" : ["_bad_"],
+			"OmnifluxStr" : "FPDU_OmniFlux",
+			"EnergyStr" : "FPDU_Energy"
 		}
 	},
 	"RBSPB" : {
@@ -70,7 +86,7 @@
 			"Data" : "coordinates",
 			"CoordSys" : "GSM"
 		},
-		"Mag" : {
+		"MagneticField" : {
 			"Id" : "RBSP-B_MAGNETOMETER_1SEC-GSM_EMFISIS-L3",
 			"Data" : "Mag",
 			"CoordSys" : "GSM"
@@ -79,9 +95,17 @@
 			"Id" : "RBSPB_REL04_ECT-HOPE-MOM-L3",
 			"Data" : "Dens_p_30"
 		},
-		"Electron_omniflux" : {
+		"Electron_omniflux_RBSPICE" : {
 		 	"Id": "RBSP-B-RBSPICE_LEV-3-PAP_ESRHELT",
-		 	"Data": ["FEDU", "FEDU_OmniFlux", "MLT", "L_Eq", "L_Star"]
+		 	"Data": ["FEDU", "FEDU_OmniFlux", "MLT", "L_Eq", "L_Star"],
+		 	"OmnifluxStr" : "FEDU_OmniFlux",
+		 	"EnergyStr" : "FEDU_Energy"
+		},
+		"Hydrogen_omniflux_RBSPICE" : {
+			"Id" : "RBSP-B-RBSPICE_LEV-3-PAP_TOFXEH",
+			"Data" : ["_bad"],
+			"OmnifluxStr" : "FPDU_OmniFlux",
+			"EnergyStr" : "FPDU_Energy"
 		}
 	},
 	"CLUSTER1" : {
@@ -90,19 +114,25 @@
 			"Data" : "sc_pos_xyz_gse__C1_CP_FGM_SPIN",
 			"CoordSys" : "GSE"
 		},
-		"Mag" : {
+		"MagneticField" : {
 			"Id" : "C1_CP_FGM_SPIN",
 			"Data" : "B_vec_xyz_gse__C1_CP_FGM_SPIN",
 			"CoordSys" : "GSE"	
 		},
 		"Density" : {
 			"Id" : "C1_PP_CIS",
-			"Data" : "N_p__C1_PP_CIS"
+			"Data" : "N_p__C1_PP_CIS",
+			"EpochStr" : "Epoch__C1_PP_CIS"
 		},
 		"Velocity" : {
 			"Id" : "C1_PP_CIS",
-			"Data" : "V_p_xyz_gse__C1_CP_FGM_CIG",
-			"CoordSys" : "GSE"
+			"Data" : "V_p_xyz_gse__C1_PP_CIS",
+			"CoordSys" : "GSE",
+			"EpochStr" : "Epoch__C1_PP_CIS"
+		},
+		"_testing" : {
+			"t0" : "2018-12-30T00:00:00Z",
+			"t1" : "2018-12-31T00:00:00Z"
 		}
 	},
 	"CLUSTER2" : {
@@ -111,19 +141,14 @@
 			"Data" : "sc_pos_xyz_gse__C2_CP_FGM_SPIN",
 			"CoordSys" : "GSE"
 		},
-		"Mag" : {
+		"MagneticField" : {
 			"Id" : "C2_CP_FGM_SPIN",
 			"Data" : "B_vec_xyz_gse__C2_CP_FGM_SPIN",
 			"CoordSys" : "GSE"	
 		},
-		"Density" : {
-			"Id" : "C2_PP_CIS",
-			"Data" : "N_p__C2_PP_CIS"
-		},
-		"Velocity" : {
-			"Id" : "C2_PP_CIS",
-			"Data" : "V_p_xyz_gse__C2_CP_FGM_CIG",
-			"CoordSys" : "GSE"
+		"_testing" : {
+			"t0" : "2018-12-30T00:00:00Z",
+			"t1" : "2018-12-31T00:00:00Z"
 		}
 	},
 	"CLUSTER3" : {
@@ -132,7 +157,7 @@
 			"Data" : "sc_pos_xyz_gse__C3_CP_FGM_SPIN",
 			"CoordSys" : "GSE"
 		},
-		"Mag" : {
+		"MagneticField" : {
 			"Id" : "C3_CP_FGM_SPIN",
 			"Data" : "B_vec_xyz_gse__C3_CP_FGM_SPIN",
 			"CoordSys" : "GSE"	
@@ -143,8 +168,12 @@
 		},
 		"Velocity" : {
 			"Id" : "C3_PP_CIS",
-			"Data" : "V_p_xyz_gse__C3_CP_FGM_CIG",
+			"Data" : "V_p_xyz_gse__C3_PP_CIS",
 			"CoordSys" : "GSE"
+		},
+		"_testing" : {
+			"t0" : "2018-12-30T00:00:00Z",
+			"t1" : "2018-12-31T00:00:00Z"
 		}
 	},
 	"CLUSTER4" : {
@@ -153,7 +182,7 @@
 			"Data" : "sc_pos_xyz_gse__C4_CP_FGM_SPIN",
 			"CoordSys" : "GSE"
 		},
-		"Mag" : {
+		"MagneticField" : {
 			"Id" : "C4_CP_FGM_SPIN",
 			"Data" : "B_vec_xyz_gse__C4_CP_FGM_SPIN",
 			"CoordSys" : "GSE"	
@@ -164,8 +193,12 @@
 		},
 		"Velocity" : {
 			"Id" : "C4_PP_CIS",
-			"Data" : "V_p_xyz_gse__C4_CP_FGM_CIG",
+			"Data" : "V_p_xyz_gse__C4_PP_CIS",
 			"CoordSys" : "GSE"
+		},
+		"_testing" : {
+			"t0" : "2018-12-30T00:00:00Z",
+			"t1" : "2018-12-31T00:00:00Z"
 		}
 	},
 	"THEMISA" : {
@@ -174,22 +207,25 @@
 			"Data" : "XYZ_GSM",
 			"CoordSys" : "GSM"
 		},
-		"Mag" : {
+		"MagneticField" : {
 			"Id" : "THA_L2_FGM",
 			"Data" : "tha_fgs_gsm",
 			"CoordSys" : "GSM"
 		},
 		"Density" : {
 			"Id" : "THA_L2_MOM",
-			"Data" : "tha_peim_density"
+			"Data" : "tha_peim_density",
+			"EpochStr" : "tha_peim_epoch"
 		},
 		"Pressure" : {
 			"Id" : "THA_L2_MOM",
-			"Data" : "tha_peim_ptot"
+			"Data" : "tha_peim_ptot",
+			"EpochStr" : "tha_peim_epoch"
 		},
 		"Velocity" : {
 			"Id" : "THA_L2_MOM",
 			"Data" : "tha_peim_velocity_gsm",
+			"EpochStr" : "tha_peim_epoch",
 			"CoordSys" : "GSM"
 		}
 	},
@@ -199,7 +235,7 @@
 			"Data" : "XYZ_GSM",
 			"CoordSys" : "GSM"
 		},
-		"Mag" : {
+		"MagneticField" : {
 			"Id" : "THB_L2_FGM",
 			"Data" : "thb_fgs_gsm",
 			"CoordSys" : "GSM"
@@ -224,7 +260,7 @@
 			"Data" : "XYZ_GSM",
 			"CoordSys" : "GSM"
 		},
-		"Mag" : {
+		"MagneticField" : {
 			"Id" : "THC_L2_FGM",
 			"Data" : "thc_fgs_gsm",
 			"CoordSys" : "GSM"
@@ -249,7 +285,7 @@
 			"Data" : "XYZ_GSM",
 			"CoordSys" : "GSM"
 		},
-		"Mag" : {
+		"MagneticField" : {
 			"Id" : "THD_L2_FGM",
 			"Data" : "thd_fgs_gsm",
 			"CoordSys" : "GSM"
@@ -274,7 +310,7 @@
 			"Data" : "XYZ_GSM",
 			"CoordSys" : "GSM"
 		},
-		"Mag" : {
+		"MagneticField" : {
 			"Id" : "THE_L2_FGM",
 			"Data" : "the_fgs_gsm",
 			"CoordSys" : "GSM"
@@ -299,7 +335,7 @@
 			"Data" : "mms1_fgm_r_gsm_srvy_l2",
 			"CoordSys" : "GSM"
 		},
-		"Mag" : {
+		"MagneticField" : {
 			"Id" : "MMS1_FGM_SRVY_L2",
 			"Data" : "mms1_fgm_b_gsm_srvy_l2"
 		},
@@ -323,7 +359,7 @@
 			"Data" : "mms2_fgm_r_gsm_srvy_l2",
 			"CoordSys" : "GSM"
 		},
-		"Mag" : {
+		"MagneticField" : {
 			"Id" : "MMS2_FGM_SRVY_L2",
 			"Data" : "mms2_fgm_b_gsm_srvy_l2"
 		},
@@ -347,7 +383,7 @@
 			"Data" : "mms3_fgm_r_gsm_srvy_l2",
 			"CoordSys" : "GSM"
 		},
-		"Mag" : {
+		"MagneticField" : {
 			"Id" : "MMS3_FGM_SRVY_L2",
 			"Data" : "mms3_fgm_b_gsm_srvy_l2"
 		},
@@ -371,7 +407,7 @@
 			"Data" : "mms4_fgm_r_gsm_srvy_l2",
 			"CoordSys" : "GSM"
 		},
-		"Mag" : {
+		"MagneticField" : {
 			"Id" : "MMS4_FGM_SRVY_L2",
 			"Data" : "mms4_fgm_b_gsm_srvy_l2"
 		},

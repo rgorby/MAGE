@@ -5,15 +5,37 @@
 find_package(HDF5 REQUIRED COMPONENTS Fortran Fortran_HL)
 set(CMAKE_REQUIRED_INCLUDES ${HDF5_Fortran_INCLUDE_DIRS})
 set(CMAKE_REQUIRED_LIBRARIES ${HDF5_Fortran_LIBRARIES} ${HDF5_Fortran_HL_LIBRARIES})
-#Use set compiler (below) or link_libraries but not both
-set(CMAKE_Fortran_COMPILER ${HDF5_Fortran_COMPILER_EXECUTABLE})
+# h5 compiler helper can have issues with some preprocessor commands, just link libraries
+link_libraries(${HDF5_Fortran_LIBRARIES} ${HDF5_Fortran_HL_LIBRARIES})
 
 find_package(OpenMP COMPONENTS Fortran)
 set(CMAKE_REQUIRED_FLAGS ${OpenMP_Fortran_FLAGS})
 set(CMAKE_REQUIRED_LIBRARIES ${OpenMP_Fortran_LIBRARIES})
 
 if (ENABLE_MPI)
-	find_package(MPI REQUIRED COMPONENTS Fortran)
+    #mpi is a nightmare
+    #try to explicitly find intel mpi first
+    set(MPI_Fortran_COMPILER mpiifort)
+    find_package(MPI COMPONENTS Fortran QUIET)
+    find_program(MPIEXE mpiifort)
+    if(NOT MPI_FOUND OR NOT MPI_Fortran_HAVE_F08_MODULE OR NOT MPIEXE)
+        #try to find a fortran 2008 specific wrapper
+        set(MPI_Fortran_COMPILER mpif08)
+    	find_package(MPI COMPONENTS Fortran QUIET)
+        unset(MPIEXE CACHE)
+        unset(MPIEXE-NOTFOUND CACHE)
+        find_program(MPIEXE mpif08)
+        if(NOT MPI_FOUND OR NOT MPI_Fortran_HAVE_F08_MODULE OR NOT MPIEXE)
+            #just look for whatever
+            unset(MPI_Fortran_COMPILER)
+            find_package(MPI REQUIRED COMPONENTS Fortran)
+        endif()
+    endif()
+    if(MPI_FOUND AND MPI_Fortran_HAVE_F08_MODULE)
+        message("-- Found MPI")
+    else()
+        message(FATAL_ERROR "Could not find an MPI Library that supports the F08 interface")
+    endif()
 endif()
 
 #-------------
@@ -77,8 +99,8 @@ if(CMAKE_Fortran_COMPILER_ID MATCHES Intel)
 	endif()
 
 	#Check Intel Fortran version
-	if(NOT ALLOW_INVALID_COMPILERS AND CMAKE_Fortran_COMPILER_VERSION VERSION_GREATER "19")
-		message(FATAL_ERROR "Intel Fortran compilers 19 or newer are not supported. Set the ALLOW_INVALID_COMPILERS variable to ON to force compilation at your own risk.")
+	if(NOT ALLOW_INVALID_COMPILERS AND CMAKE_Fortran_COMPILER_VERSION VERSION_GREATER "22")
+		message(FATAL_ERROR "Intel Fortran compilers newer than 21 are not supported. Set the ALLOW_INVALID_COMPILERS variable to ON to force compilation at your own risk.")
 	endif()
 
 elseif(CMAKE_Fortran_COMPILER_ID MATCHES GNU)
@@ -104,13 +126,16 @@ if(ENABLE_OMP)
 	string(APPEND CMAKE_Fortran_FLAGS " ${OpenMP_Fortran_FLAGS}")
 endif()
 if(ENABLE_MPI)
-	add_definitions(${MPI_Fortran_COMPILE_FLAGS})
-	include_directories(${MPI_Fortran_INCLUDE_PATH})
+    add_compile_options(${MPI_Fortran_COMPILE_OPTIONS})
+	add_definitions(${MPI_Fortran_COMPILE_DEFINITIONS})
+	include_directories(${MPI_Fortran_INCLUDE_DIRS})
 	link_directories(${MPI_Fortran_LIBRARIES})
-	if(CMAKE_Fortran_COMPILER_ID MATCHES Intel)
-		string(APPEND CMAKE_Fortran_FLAGS " -mt_mpi")
-	endif()
-	# no matching flag for GNU
+
+    if(CMAKE_Fortran_COMPILER_ID MATCHES Intel)
+        #Using Intel Compiler, use thread safe mpi compiler flag
+        string(APPEND CMAKE_Fortran_FLAGS " -mt_mpi")
+    endif()
+
 	set(CMAKE_Fortran_COMPILER ${MPI_Fortran_COMPILER})
 	# we changed compiler, link HDF5 libraries
 	link_libraries(${HDF5_Fortran_LIBRARIES} ${HDF5_Fortran_HL_LIBRARIES})

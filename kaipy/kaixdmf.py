@@ -6,28 +6,17 @@ import xml.etree.ElementTree as et
 
 #Add grid info to step
 #Geom is topology subelement, iDims is grid size string
-def AddGrid(fname,Geom,iDims,Nd):
-	xC = et.SubElement(Geom,"DataItem")
-	xC.set("Dimensions",iDims)
-	xC.set("NumberType","Float")
-	xC.set("Precision","4")
-	xC.set("Format","HDF")
-	xC.text = "%s:/X"%(fname)
-
-	yC = et.SubElement(Geom,"DataItem")
-	yC.set("Dimensions",iDims)
-	yC.set("NumberType","Float")
-	yC.set("Precision","4")
-	yC.set("Format","HDF")
-	yC.text = "%s:/Y"%(fname)
-
-	if (Nd == 3):
-		zC = et.SubElement(Geom,"DataItem")
-		zC.set("Dimensions",iDims)
-		zC.set("NumberType","Float")
-		zC.set("Precision","4")
-		zC.set("Format","HDF")
-		zC.text = "%s:/Z"%(fname)
+def AddGrid(fname,Geom,iDims,coordStrs):
+	
+	for coordStr in coordStrs:
+		xC = et.SubElement(Geom,"DataItem")
+		xC.set("Dimensions",iDims)
+		xC.set("NumberType","Float")
+		xC.set("Precision","4")
+		xC.set("Format","HDF")
+		
+		text = fname+":/"+coordStr
+		xC.text = text
 
 #Add data to slice
 def AddData(Grid,fname,vID,vLoc,xDims,s0=None):
@@ -61,8 +50,8 @@ def AddDI(elt,h5F,nStp,cDims,vId):
 		aDI.text ="%s:/%s"%(h5F,vId)
 
 #Get root variables
-def getRootVars(fname):
-	Dims = kh5.getDims(fname,doFlip=False) #Do kji ordering
+def getRootVars(fname,gDims):
+	#Dims = kh5.getDims(fname,doFlip=False) #Do kji ordering
 	with h5py.File(fname,'r') as hf:
 		vIds = []
 		vLocs = []
@@ -76,8 +65,8 @@ def getRootVars(fname):
 				doV = False
 			if (doV):
 				Nv = hf[k].shape
-				vLoc = getLoc(Dims,Nv)
-				if (vLoc == "Cell"):
+				vLoc = getLoc(gDims,Nv)
+				if (vLoc != "Other"):
 					vIds.append(vID)
 					vLocs.append(vLoc)
 				else:
@@ -86,8 +75,7 @@ def getRootVars(fname):
 	return vIds,vLocs
 
 #Get variables in initial Step
-def getVars(fname,s0):
-	Dims = kh5.getDims(fname,doFlip=False) #Do kji ordering
+def getVars(fname,s0,gDims):
 
 	with h5py.File(fname,'r') as hf:
 		gId = "/Step#%d"%(s0)
@@ -97,8 +85,8 @@ def getVars(fname,s0):
 		for k in stp0.keys():
 			vID = str(k)
 			Nv = stp0[k].shape
-			vLoc = getLoc(Dims,Nv)
-			if (vLoc == "Cell"):
+			vLoc = getLoc(gDims,Nv)
+			if (vLoc != "Other"):
 				vIds.append(vID)
 				vLocs.append(vLoc)
 			else:
@@ -161,24 +149,43 @@ def AddVectors(Grid,fname,vIds,cDims,vDims,Nd,nStp):
 #Decide on centering
 def getLoc(gDims,vDims):
 	vDims = np.array(vDims,dtype=np.int)
-	
-	Nd = len(vDims)
-	if (Nd == 3):
-		Ngx,Ngy,Ngz = gDims-1
-		Nvx,Nvy,Nvz = vDims
-	elif (Nd==2):
-		Ngx,Ngy = gDims-1
-		Nvx,Nvy = vDims
-		Ngz = 0
-		Nvz = 0
+	dimLocs = []
+	if len(gDims) != len(vDims):
+		return "Other"
+	for d in range(len(gDims)):
+		Ngd = gDims[d]-1
+		Nvd = vDims[d]
+		if Ngd == Nvd:
+			dimLocs.append("Cell")
+		elif Ngd == Nvd-1:
+			dimLocs.append("Node")
+		else:
+			dimLocs.append("Other")
+
+	if "Other" in dimLocs:
+		return "Other"
+	#If all the same, we have consensus
+	if all(x == dimLocs[0] for x in dimLocs):
+		return dimLocs[0]
 	else:
-		print("Not enough dimensions!")
-		quit()
-	#For now just testing for cell centers
-	if ( (Ngx == Nvx) and (Ngy == Nvy) and (Ngz == Nvz) ):
-		vLoc = "Cell" #Cell-centered data
-	elif ( (Ngx == Nvx+1) and (Ngy == Nvy+1) and (Ngz == Nvz+1) ):
-		vLoc = "Node"
-	else:
-		vLoc = "Other"
-	return vLoc
+		return "Other"
+
+def addHyperslab(Grid,vName,dSetDimStr,vdimStr,startStr,strideStr,numStr,origDSetDimStr,fileText):
+	vAtt = et.SubElement(Grid, "Attribute")
+	vAtt.set("Name",vName)
+	vAtt.set("AttributeType","Scalar")
+	vAtt.set("Center","Node")
+	slabDI = et.SubElement(vAtt, "DataItem")
+	slabDI.set("ItemType","HyperSlab")
+	slabDI.set("Dimensions",dSetDimStr)
+	slabDI.set("Type","HyperSlab")  # Not sure if redundant, but it works
+	cutDI = et.SubElement(slabDI,"DataItem")
+	cutDI.set("Dimensions",vdimStr)
+	cutDI.set("Format","XML")
+	cutDI.text = "\n{}\n{}\n{}\n".format(startStr,strideStr,numStr)
+	datDI = et.SubElement(slabDI,"DataItem")
+	datDI.set("Dimensions",origDSetDimStr)
+	datDI.set("DataType","Float")
+	datDI.set("Precision","4")
+	datDI.set("Format","HDF")
+	datDI.text = fileText
