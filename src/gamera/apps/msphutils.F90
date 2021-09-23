@@ -112,14 +112,8 @@ module msphutils
             call xmlInp%Set_Val(cLim,"chill/cLim",cLim)
         endif
 
-        call xmlInp%Set_Val(doCorot,"prob/doCorot",.true.)
-        if (.not. doCorot) then
-            !Zero out corotation potential
-            Psi0 = 0.0
-        else
-            Psi0 = planet%psiCorot
-        endif
-
+        !doCorot checked in getPlanetParams
+        Psi0 = planet%psiCorot
         RIon = planet%ri_m/planet%rp_m
 
         !using planet and gv0, set values for gT0, gB0, gP0, M0, GM0

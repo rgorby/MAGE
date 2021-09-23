@@ -77,6 +77,7 @@ module voltapp
 
     !Initialize planet information
         call getPlanetParams(vApp%planet, xmlInp)
+        call printPlanetParams(vApp%planet)
 
     !Initialize state information
         !Set file to read from and pass desired variable name to initTS
@@ -322,8 +323,8 @@ module voltapp
         else
             call init_mix(vApp%remixApp%ion,[NORTH, SOUTH],RunID=RunID,isRestart=isRestart,nRes=vApp%IO%nRes,optIO=vApp%writeFiles)
         endif
-        vApp%remixApp%ion%rad_iono_m = RadIonosphere() * gApp%Model%units%gx0 ! [Rp] * [m/Rp]
-
+        !vApp%remixApp%ion%rad_iono_m = RadIonosphere() * gApp%Model%units%gx0 ! [Rp] * [m/Rp]
+        vApp%remixApp%ion%rad_iono_m = vApp%planet%ri_m
         !Ensure remix and voltron restart numbers match
         if (isRestart .and. vApp%IO%nRes /= vApp%remixApp%ion(1)%P%nRes) then
             write(*,*) "Voltron and Remix disagree on restart number, you should sort that out."
