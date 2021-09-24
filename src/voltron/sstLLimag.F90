@@ -125,27 +125,32 @@ module sstLLimag
 
         integer :: n1,n2
 
-        if ( (tAdv >= imag%empT1) .and. (tAdv <= imag%empT2) ) then
+        !This results in EvalSST not being called, so no time interpolation happens while T1 < tAdv < T2
+        !if ( (tAdv >= imag%empT1) .and. (tAdv <= imag%empT2) ) then
             !Nothing to do here
-            return
+        !    return
+        !endif
+
+        !If tAdv is out of range of loaded slices, need to update
+        if (tAdv < imag%empT1 .or. tAdv > imag%empT2) then
+            !Otherwise we need to update
+            call findSlc(imag%ebTab,tAdv,n1,n2)
+            if (imag%empN1 /= n1) then
+                !Read slice
+                call rdEmpMap(imag,n1,imag%empW1)
+                imag%empN1 = n1
+                imag%empT1 = imag%ebTab%times(n1)
+            endif
+
+            if (imag%empN2 /= n2) then
+                !Read slice
+                call rdEmpMap(imag,n2,imag%empW2)
+                imag%empN2 = n2
+                imag%empT2 = imag%ebTab%times(n2)
+            endif
         endif
 
-        !Otherwise we need to update
-        call findSlc(imag%ebTab,tAdv,n1,n2)
-        if (imag%empN1 /= n1) then
-            !Read slice
-            call rdEmpMap(imag,n1,imag%empW1)
-            imag%empN1 = n1
-            imag%empT1 = imag%ebTab%times(n1)
-        endif
-
-        if (imag%empN2 /= n2) then
-            !Read slice
-            call rdEmpMap(imag,n2,imag%empW2)
-            imag%empN2 = n2
-            imag%empT2 = imag%ebTab%times(n2)
-        endif
-
+        !Always want to run this
         call EvalSST(imag,tAdv)
 
     end subroutine AdvanceSST

@@ -227,11 +227,11 @@ module sstimag
         endif
 
         if (t > eqData%eqT2) then
-            w1 = 1.0
-            w2 = 0.0
-        else if (t < eqData%eqT1) then
             w1 = 0.0
             w2 = 1.0
+        else if (t < eqData%eqT1) then
+            w1 = 1.0
+            w2 = 0.0
         else
             dt = eqData%eqT2-eqData%eqT1
             if (dt>TINY) then
