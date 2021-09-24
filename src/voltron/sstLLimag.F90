@@ -133,7 +133,6 @@ module sstLLimag
 
         !If tAdv is out of range of loaded slices, need to update
         if (tAdv < imag%empT1 .or. tAdv > imag%empT2) then
-            !Otherwise we need to update
             call findSlc(imag%ebTab,tAdv,n1,n2)
             if (imag%empN1 /= n1) then
                 !Read slice
