@@ -167,6 +167,23 @@ module gamapp_mpi
                 call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
             endif
 
+            ! read number of physical cells from H5 file or xml
+            if(doH5g .or. Model%isRestart) then
+                ! Read basic grid size info from full grid file
+                call xmlInp%Set_Val(inH5,"sim/H5Grid","gMesh.h5")
+
+                dims = GridSizeH5(inH5)
+
+                ! These assume Model%nG is 4
+                Grid%Nip = dims(1) - 9
+                Grid%Njp = dims(2) - 9
+                Grid%Nkp = dims(3) - 9
+            else
+                call xmlInp%Set_Val(Grid%Nip,"idir/N",1)
+                call xmlInp%Set_Val(Grid%Njp,"jdir/N",1)
+                call xmlInp%Set_Val(Grid%Nkp,"kdir/N",1)
+            endif
+
             if(modulo(Grid%Nip,Grid%NumRi) /= 0) then
                 print *,'Number of cells in i dimension is ',Grid%Nip,' but it must be a multiple of the number of MPI ranks in that dimension, which was ',Grid%NumRi
                 call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
@@ -187,22 +204,6 @@ module gamapp_mpi
             Grid%Rj = modulo(rank, Grid%NumRj)
             rank = (rank-Grid%Rj)/Grid%NumRj
             Grid%Ri = rank
-
-            if(doH5g .or. Model%isRestart) then
-                ! Read basic grid size info from full grid file
-                call xmlInp%Set_Val(inH5,"sim/H5Grid","gMesh.h5")
-
-                dims = GridSizeH5(inH5)
-
-                ! These assume Model%nG is 4
-                Grid%Nip = dims(1) - 9
-                Grid%Njp = dims(2) - 9
-                Grid%Nkp = dims(3) - 9
-            else
-                call xmlInp%Set_Val(Grid%Nip,"idir/N",1)
-                call xmlInp%Set_Val(Grid%Njp,"jdir/N",1)
-                call xmlInp%Set_Val(Grid%Nkp,"kdir/N",1)
-            endif
 
             ! adjust corner information to reflect this individual node's grid data
             Grid%Nip = Grid%Nip/Grid%NumRi
