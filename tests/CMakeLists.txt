@@ -28,6 +28,11 @@ set(voltTestLibs baselib gamlib remixlib voltlib tgiclib)
 add_pfunit_ctest (voltTests TEST_SOURCES ${voltTestFiles} OTHER_SOURCES ${helperFiles} LINK_LIBRARIES ${voltTestLibs})
 add_dependencies(voltTests ${voltTestLibs})
 
+file(GLOB rcmTestFiles "${CMAKE_CURRENT_SOURCE_DIR}/rcm/*.pf")
+set(rcmTestLibs baselib gamlib voltlib remixlib rcmlib tgiclib)
+add_pfunit_ctest(rcmTests TEST_SOURCES ${rcmTestFiles} OTHER_SOURCES ${helperFiles} LINK_LIBRARIES ${rcmTestLibs} MAX_PES 1)
+add_dependencies(rcmTests ${rcmTestLibs})
+
 # copy input xml files and grid h5 files to binary folder for running
 file(GLOB_RECURSE inputFiles "${CMAKE_CURRENT_SOURCE_DIR}/*.xml")
 foreach(inputFile ${inputFiles})
@@ -94,7 +99,7 @@ if(ENABLE_MPI)
     add_pfunit_ctest (allTests TEST_SOURCES ${allTestFiles} OTHER_SOURCES ${helperFiles} ${helperFilesMpi} LINK_LIBRARIES ${allTestLibs} MAX_PES 64)
 else()
     # exclude MPI tests
-    set(allTestFiles ${caseTestFiles} ${gamTestFiles} ${mixTestFiles} ${voltTestFiles})
+    set(allTestFiles ${caseTestFiles} ${gamTestFiles} ${mixTestFiles} ${voltTestFiles} ${rcmTestFiles})
     set(allTestLibs baselib gamlib remixlib voltlib tgiclib)
     set(allTestBins caseTests gamTests mixTests voltTests)
     add_pfunit_ctest (allTests TEST_SOURCES ${allTestFiles} OTHER_SOURCES ${helperFiles} LINK_LIBRARIES ${allTestLibs})
