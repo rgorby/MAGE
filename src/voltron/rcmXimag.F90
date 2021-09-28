@@ -98,7 +98,7 @@ module rcmXimag
         imag%rcmApp%rcmCpl%Prcm = 1.0e-9*transpose(empPressureOnRCMGrid)
 
         ! Manipulate "RCM's" density to be some combination of Nmhd and Npsph
-        call setRCMXDensity(imag%rcmApp%rcmCpl, 3)
+        call setRCMXDensity(imag%rcmApp%rcmCpl, 2)
 
 
     end subroutine advanceRCMX
@@ -157,18 +157,6 @@ module rcmXimag
                     endif
                 enddo
             enddo
-        case(3)
-            ! Do geometric mean everywhere
-
-            !$OMP PARALLEL DO default(shared) collapse(2) &
-            !$OMP schedule(dynamic) &
-            !$OMP private(i,j)
-            do j=1,rcmCpl%nLon_ion
-                do i=1,rcmCpl%nLat_ion
-                    rcmCpl%Nrcm(i,j) = SQRT(rcmCpl%Npsph(i,j)**2 + rcmCpl%Nave(i,j)**2)
-                enddo
-            enddo
-
         case DEFAULT
             !Don't do anything, will use RCM's density
         end select
