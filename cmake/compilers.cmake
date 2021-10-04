@@ -96,6 +96,9 @@ if(CMAKE_Fortran_COMPILER_ID MATCHES Intel)
 	if (HOST MATCHES cheyenne)
 		string(APPEND PROD " -march=corei7 -axCORE-AVX2")
 		string(APPEND PRODWITHDEBUGINFO " -march=corei7 -axCORE-AVX2")
+        elseif(HOST MATCHES pfe)
+                string(APPEND PROD " -march=corei7 -axCORE-AVX2")
+                string(APPEND PRODWITHDEBUGINFO " -march=corei7 -axCORE-AVX2")
 	endif()
 
 	#Check Intel Fortran version
