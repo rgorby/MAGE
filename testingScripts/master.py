@@ -78,6 +78,8 @@ elif (not len(sys.argv) < 2):
     ICTest.wait()
     ICReport = subprocess.Popen("python3 ICtestReport.py", shell=True)
     ICReport.wait()
+    pyunitTest = subprocess.Popen("python3 pyunitTest.py", shell=True)
+    pyunitTest.wait()
 
 else:
     buildTest = subprocess.Popen("python3 buildTest.py", shell = True)
@@ -90,3 +92,5 @@ else:
     ICTest.wait()
     ICReport = subprocess.Popen("python3 ICtestReport.py", shell=True)
     ICReport.wait()
+    pyunitTest = subprocess.Popen("python3 pyunitTest.py", shell=True)
+    pyunitTest.wait()

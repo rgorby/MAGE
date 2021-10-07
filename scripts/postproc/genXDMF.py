@@ -145,7 +145,7 @@ if __name__ == "__main__":
 
 	parser = argparse.ArgumentParser(description="Generates XDMF file from Gamera HDF5 output")
 	parser.add_argument('h5F',type=str,metavar='model.h5',help="Filename of Kaiju HDF5 Output")
-	parser.add_argument('-outname',type=str,help="Name of generated XMF file")
+	parser.add_argument('-outname',type=str,default=outfname,help="Name of generated XMF file")
 	parser.add_argument('-preset', type=str,choices=presets,help="Tell the script what the file is (in case not derivble from name)")
 	parser.add_argument('-rcmf',type=str,default="msphere.rcm.h5",help="rcm.h5 file to use with '-rcmv' and '-rcmk' args (default: %(default)s)")
 	parser.add_argument('-rcmv',type=str,help="Comma-separated rcm.h5 vars to include in an mhdrcm preset (ex: rcmvm, rcmeeta)")
@@ -160,7 +160,7 @@ if __name__ == "__main__":
 	rcmKs = args.rcmk
 
 	pre,ext = os.path.splitext(h5fname)
-	if outfname == "":
+	if outfname is None or outfname == "":
 		fOutXML = pre + ".xmf"
 	else:
 		fOutXML = outfname

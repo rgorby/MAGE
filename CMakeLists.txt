@@ -31,6 +31,7 @@ add_compile_definitions(GITBRANCH=${GIT_BRANCH})
 option(ENABLE_OMP "Enable OMP parallelization" ON )
 option(ENABLE_MPI "Enable MPI parallelization" OFF)
 option(ENABLE_MKL "Enable Intel MKL usage" OFF)
+option(ENABLE_CODECOV "Enable Code Coverage tracking" OFF)
 option(ALLOW_INVALID_COMPILERS "Allow Invalid Compiler Versions" OFF)
 
 #Vector blocking
@@ -201,6 +202,11 @@ if(ENABLE_MPI)
     #Kaiju: Base MPI
     message("Adding Base MPI module ...")
     add_subdirectory(src/base/mpi)
+    add_custom_target(base_mpi ALL)
+    message("\tAdding executable kaitoy_mpi.x")
+    add_executable(kaitoy_mpi.x src/drivers/kaitoy_mpix.F90)
+    target_link_libraries(kaitoy_mpi.x baselib basempilib)
+    add_dependencies(base_mpi kaitoy_mpi.x)
 
     #-------------
     #Kaiju: Gamera MPI
