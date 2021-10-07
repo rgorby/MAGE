@@ -12,12 +12,12 @@ module testetautils
 	contains
 
 	@before
-	subroutine wakeRCM
-	end subroutine wakeRCM
+	subroutine setup()
+	end subroutine teardown
 
 	@after
-	subroutine whatDo
-	end subroutine whatDo
+	subroutine teardown()
+	end subroutine teardown
 
 	!Helpers
 	subroutine initAlams()

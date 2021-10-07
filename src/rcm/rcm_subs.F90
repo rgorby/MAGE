@@ -65,7 +65,8 @@
 !
 !   Potential solver GMRESM tolerance:
     REAL (rprec) :: tol_gmres
-    logical :: doRCMVerbose = .FALSE.    
+    logical :: doRCMVerbose = .FALSE.
+    logical :: doRCMVerboseH5 = .FALSE.
 !
 !
 !   This is a definition of the label structure, for I/O:
@@ -962,10 +963,8 @@
        IF (ie /= ie_ask) CYCLE
        mass_factor = SQRT (xmass(1) / xmass(ie))
        veff = v + vcorot - vpar  + alamc(kc)*vm
-       if (kc .eq. 60) then
-        write(*,*) "veff(60)=",veff
-       end if
-       last_veff(:,:,kc) = veff
+
+       last_veff(:,:,kc) = veff  ! Storing for output
 !
        dvefdi = Deriv_i (veff, imin_j)
        dvefdj = Deriv_j (veff, imin_j, j1, j2, 1.0E+25_rprec)
@@ -1791,7 +1790,6 @@
 
           call AddOutVar(IOVars,"rcmv",v)
           call AddOutVar(IOVars,"rcmvavg",v_avg)
-          !call AddOutVar(IOVars,"rcmveff",last_veff,uStr="Volts")
 
         !Extra stuff not in write_array
           call AddOutVar(IOVars,"alamc",alamc)
@@ -1801,6 +1799,11 @@
           call AddOutVar(IOVars,"beta" ,beta )
           call AddOutVar(IOVars,"bir"  ,bir  )
           call AddOutVar(IOVars,"sini" ,sini )
+
+          if (doRCMVerboseH5) then
+            !Good place to store useful but large 3D outputs
+            call AddOutVar(IOVars,"rcmveff",last_veff,uStr="Volts")
+          endif
           
         !Done staging output, now let er rip
           if (isRestart) then
@@ -1838,6 +1841,7 @@
           !Output
           call xmlInp%Set_Val(idebug,"output/idebug",1) ! 6.  0 <=> do disk printout
           call xmlInp%Set_Val(doRCMVerbose,"output/doDebug",doRCMVerbose)
+          call xmlInp%Set_Val(doRCMVerboseH5,"output/doDebugH5",doRCMVerboseH5)
           !eflux
           call xmlInp%Set_Val(ifloor,"eflux/ifloor",.true.) ! 18. if true, install a floor for EFLUX
           call xmlInp%Set_Val(icorrect,"eflux/icorrect",.true.) ! 19. if true, make lat. correction to EFLUX
@@ -2210,11 +2214,6 @@ SUBROUTINE Move_plasma_grid_MHD (dt,nstep)
         ftv = 0.0
     endwhere
     !$OMP END PARALLEL WORKSHARE
-
-    !Calc full v_effective
-    !do kc=1,kcsize
-    !    last_veff(:,:,kc) = vv + alamc(kc)*vm
-    !enddo
 
     !Get IJ gradients of potential
     call Grad_IJ(vv    ,isOpen,dvvdi    ,dvvdj    )
