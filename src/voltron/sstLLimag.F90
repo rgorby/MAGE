@@ -37,16 +37,12 @@ module sstLLimag
 
     contains
 
-    ! VGM 06052020
-    ! TODO: planet parameters added for RCM should be packed into a module for compactness
-    ! and probaly made an optional argument
 
     !Initialize Empirical Map data
-    subroutine initSST(imag,iXML,isRestart,rad_planet_m,rad_iono_m,M0g,vApp)
+    subroutine initSST(imag,iXML,isRestart,vApp)
         class(empData_T), intent(inout) :: imag
         type(XML_Input_T), intent(in) :: iXML
         logical, intent(in) :: isRestart !Do you even care? VGM: NO
-        real(rp), intent(in) :: rad_planet_m,rad_iono_m, M0g ! Specific planet parameters        
         type(voltApp_T), intent(inout) :: vApp
 
         character(len=strLen) :: empFile
@@ -129,27 +125,31 @@ module sstLLimag
 
         integer :: n1,n2
 
-        if ( (tAdv >= imag%empT1) .and. (tAdv <= imag%empT2) ) then
+        !This results in EvalSST not being called, so no time interpolation happens while T1 < tAdv < T2
+        !if ( (tAdv >= imag%empT1) .and. (tAdv <= imag%empT2) ) then
             !Nothing to do here
-            return
+        !    return
+        !endif
+
+        !If tAdv is out of range of loaded slices, need to update
+        if (tAdv < imag%empT1 .or. tAdv > imag%empT2) then
+            call findSlc(imag%ebTab,tAdv,n1,n2)
+            if (imag%empN1 /= n1) then
+                !Read slice
+                call rdEmpMap(imag,n1,imag%empW1)
+                imag%empN1 = n1
+                imag%empT1 = imag%ebTab%times(n1)
+            endif
+
+            if (imag%empN2 /= n2) then
+                !Read slice
+                call rdEmpMap(imag,n2,imag%empW2)
+                imag%empN2 = n2
+                imag%empT2 = imag%ebTab%times(n2)
+            endif
         endif
 
-        !Otherwise we need to update
-        call findSlc(imag%ebTab,tAdv,n1,n2)
-        if (imag%empN1 /= n1) then
-            !Read slice
-            call rdEmpMap(imag,n1,imag%empW1)
-            imag%empN1 = n1
-            imag%empT1 = imag%ebTab%times(n1)
-        endif
-
-        if (imag%empN2 /= n2) then
-            !Read slice
-            call rdEmpMap(imag,n2,imag%empW2)
-            imag%empN2 = n2
-            imag%empT2 = imag%ebTab%times(n2)
-        endif
-
+        !Always want to run this
         call EvalSST(imag,tAdv)
 
     end subroutine AdvanceSST

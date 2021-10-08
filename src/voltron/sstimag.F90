@@ -34,11 +34,10 @@ module sstimag
     contains
 
     !Initialize EQ Map data
-    subroutine initSST(imag,iXML,isRestart,rad_planet_m,rad_iono_m,M0g,vApp)
+    subroutine initSST(imag,iXML,isRestart,vApp)
         class(eqData_T), intent(inout) :: imag
         type(XML_Input_T), intent(in) :: iXML
         logical, intent(in) :: isRestart !Do you even care?
-        real(rp), intent(in) :: rad_planet_m,rad_iono_m,M0g !Still don't care
         type(voltApp_T), intent(inout) :: vApp
 
         character(len=strLen) :: eqFile
@@ -228,11 +227,11 @@ module sstimag
         endif
 
         if (t > eqData%eqT2) then
-            w1 = 1.0
-            w2 = 0.0
-        else if (t < eqData%eqT1) then
             w1 = 0.0
             w2 = 1.0
+        else if (t < eqData%eqT1) then
+            w1 = 1.0
+            w2 = 0.0
         else
             dt = eqData%eqT2-eqData%eqT1
             if (dt>TINY) then

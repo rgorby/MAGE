@@ -8,6 +8,7 @@ module volttypes
     use mixtypes
     use ebtypes
     use gcmtypes
+    use helpertypes
 
     implicit none
 
@@ -103,6 +104,9 @@ module volttypes
 
     type voltApp_T
 
+        !Planet information
+        type(planet_T) :: planet
+
         !Voltron state information
         type(TimeSeries_T) :: tilt,symh
         real(rp) :: time, MJD,tFin
@@ -156,13 +160,10 @@ module volttypes
     contains
 
     ! null default subroutines for inner mag base type
-    subroutine baseInit(imag,iXML,isRestart,rad_planet_m,rad_iono_m,M0g,vApp)
+    subroutine baseInit(imag,iXML,isRestart,vApp)
         class(innerMagBase_T), intent(inout) :: imag
         type(XML_Input_T), intent(in) :: iXML
         logical, intent(in) :: isRestart
-        real(rp), intent(in) :: rad_planet_m
-        real(rp), intent(in) :: rad_iono_m
-        real(rp), intent(in) :: M0g
         type(voltApp_T), intent(inout) :: vApp
     end subroutine
 

@@ -61,11 +61,10 @@ module rcmimag
     contains
 
     !Initialize RCM inner magnetosphere model
-    subroutine initRCM(imag,iXML,isRestart,rad_planet_m,rad_iono_m,M0g,vApp)
+    subroutine initRCM(imag,iXML,isRestart,vApp)
         class(rcmIMAG_T), intent(inout) :: imag
         type(XML_Input_T), intent(in) :: iXML
         logical, intent(in) :: isRestart
-        real(rp), intent(in) :: rad_planet_m,rad_iono_m, M0g ! Specific planet parameters
         type(voltApp_T), intent(inout) :: vApp
 
         character(len=strLen) :: RunID
@@ -75,13 +74,22 @@ module rcmimag
                   imag2mix => vApp%imag2mix, &
                   t0 => vApp%time, &
                   dtCpl => vApp%DeepDT)
-        !Set radii in RCMApp
-        RCMApp%planet_radius = rad_planet_m
-        RCMApp%iono_radius = rad_iono_m
-        Rp_m = rad_planet_m ! for local use
-        RIonRCM = rad_iono_m/rad_planet_m
 
-        planetM0g = M0g
+        !Set radii in RCMApp
+        RCMApp%planet_radius = vApp%planet%rp_m
+        RCMApp%iono_radius = vApp%planet%ri_m
+        Rp_m = vApp%planet%rp_m  ! For local use
+        RIonRCM = vApp%planet%ri_m/vApp%planet%rp_m
+
+        planetM0g = vApp%planet%magMoment
+
+        write(*,*) '---------------'
+        write(*,*) 'RCM planet params'
+        write(*,*) 'Rp        [m]  = ', Rp_m
+        write(*,*) 'RIon      [Rp] = ', RIonRCM
+        write(*,*) 'RIon      [m]  = ', RIonRCM*Rp_m
+        write(*,*) 'MagMoment [G]  = ', planetM0g
+        write(*,*) '---------------'
         
         call iXML%Set_Val(RunID,"/Kaiju/gamera/sim/runid","sim")
         RCMApp%rcm_runid = trim(RunID)
