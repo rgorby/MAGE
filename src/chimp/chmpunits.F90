@@ -84,6 +84,8 @@ module chmpunits
             rClosed = 10.0
         case("SATURN")
             rClosed = 5.0
+        case DEFAULT
+            rClosed = 2.25
         end select
 
         !Set main scaling values

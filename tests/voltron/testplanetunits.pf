@@ -1,0 +1,78 @@
+module testplanetunits
+  use testHelper
+  use voltapp
+  use gamapp
+  use chmpunits
+  use planethelper
+  use uservoltic
+  use ioH5
+  use kdefs
+  use msphutils, only : RadIonosphere
+
+  implicit none
+
+contains
+
+  @before
+  subroutine firstSerial()
+  end subroutine firstSerial
+
+  @after
+  subroutine lastSerial()
+  end subroutine lastSerial
+
+  @test
+  subroutine testEarth()
+    type(voltApp_T) :: vApp
+    type(gamApp_T) :: gApp
+    character(len=strLen) :: xmlName = 'cmriD_Earth.xml'
+    type(XML_Input_T) :: xmlInp
+    real(rp) :: checkValue = 0
+    ! Gam units
+    real(rp) :: gv0, gT0, gB0, gP0, M0, GM0_t
+    !CHIMP stuff
+    real(rp) :: gamB0 = 4.58103037171500
+    real(rp) :: ebScl !CGS->Code EB units
+
+    write(*,*) "Is this thing on?"
+
+    xmlInp = New_XML_Input(trim(xmlName),'Kaiju/Gamera',.true.)
+
+    call initGamera(gApp, initUser, xmlName)
+    call initVoltron(vApp, gApp, xmlName)
+
+    ! Check data structures to make sure everything equals what it should
+    ! Voltron
+    @assertLessThanOrEqual(vApp%planet%rp_m - REarth    , 1E-8_rp, "Voltron didn't properly set Earth's surface radius")
+    @assertLessThanOrEqual(vApp%planet%rp_m  - RionE*1E6_rp, 1E-8_rp, "Voltron didn't properly set Earth's ionosphere radius")
+    @assertLessThanOrEqual(vApp%planet%grav - 9.807     , 1E-8_rp, "Voltron didn't properly set Earth's gravity")
+    @assertLessThanOrEqual(vApp%planet%magMoment - EarthM0g    , 1E-8_rp, "Voltron didn't properly set Earth's dipole moment")
+    @assertLessThanOrEqual(vApp%planet%psiCorot - EarthPsi0    , 1E-8_rp, "Voltron didn't properly set Earth's corotation potential")
+    @assertLessThanOrEqual(vApp%planet%rp_m - REarth    , 1E-8_rp, "Voltron didn't properly set Earth's surface radius")
+    @assertTrue(vApp%planet%doGrav .eq. .true., "Voltron didn't properly enable doGrav for Earth")
+    !Gamera
+    call xmlInp%Set_Val(gv0,"prob/v0",100.e3)
+    call getGamNorms(vApp%planet, gv0, gT0, gB0, gP0, M0, GM0_t)
+    @assertLessThanOrEqual(gApp%Model%Units%gT0 - gT0, 1E-8_rp, "Gamera didn't get same Time scale as test for Earth")
+    @assertLessThanOrEqual(gApp%Model%Units%gB0 - gB0, 1E-8_rp, "Gamera didn't get same Mag scale as test for Earth")
+    @assertLessThanOrEqual(gApp%Model%Units%gP0 - gP0, 1E-8_rp, "Gamera didn't get same Pressure scale as test for Earth")
+    @assertLessThanOrEqual(gApp%Model%MagM0 - M0, 1E-8_rp, "Gamera didn't get same Dipole as test for Earth")
+    @assertLessThanOrEqual(RadIonosphere() - vApp%planet%ri_m/vApp%planet%rp_m, 1E-8_rp, "Gamera didn't get same ionosphere radius as Voltron for Earth")
+    !RCM
+    select type(rcmApp=>vApp%imagApp)
+        type is (rcmIMAG_T)
+            @assertLessThanOrEqual(rcmApp%rcmCpl%planet_radius - vApp%planet%rp_m, 1E-8_rp, "RCM Planet Radius differs from voltron for Earth")
+            @assertLessThanOrEqual(rcmApp%rcmCpl%iono_radius - vApp%planet%ri_m, 1E-8_rp, "RCM Planet Radius differs from voltron for Earth")
+    end select
+    ! TODO: ways to check planetM0g and RIonRCM where/when its actually used
+    !CHIMP
+    ebScl = (qe_cgs*vApp%planet%rp_m*1.e2/Me_cgs)/(vc_cgs**2.0)
+    @assertLessThanOrEqual(M0g - vApp%planet%magMoment, 1E-8_rp, "CHIMP mag moment differs from voltron for Earth")
+    @assertLessThanOrEqual(inTScl - vc_cgs/in2cms, 1E-8_rp, "CHIMP inTScl differs from calc. via voltron for Earth")
+    @assertLessThanOrEqual(inVScl - 100*1.0e+5/vc_cgs, 1E-8_rp, "CHIMP inVScl differs from calc. via voltron for Earth")
+    @assertLessThanOrEqual(inBScl - gamB0/G2nT*ebScl, 1E-8_rp, "CHIMP inBScl differs from calc. via voltron for Earth")
+  end subroutine testEarth
+
+
+
+end module testplanetunits

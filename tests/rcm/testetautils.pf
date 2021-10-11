@@ -13,7 +13,7 @@ module testetautils
 
 	@before
 	subroutine setup()
-	end subroutine teardown
+	end subroutine setup
 
 	@after
 	subroutine teardown()
