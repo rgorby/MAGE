@@ -34,10 +34,24 @@ text = p.stdout.read()
 text = text.decode('ascii')
 text = text.rstrip()
 print(text)
+
 isTest = False
+doAll = False
+forceRun = False
 
 # Check argument flags
-if (len(sys.argv) < 2):
+if (len(sys.argv) >= 2):
+    if(str(sys.argv[1]) == '-f'):
+        print("Buuuuut you forced me to do it anyway...")
+        forceRun = True
+    elif(str(sys.argv[1]) == '-t'):
+        print("Test Mode: On")
+        isTest = True
+    elif(str(sys.argv[1]) == '-a'):
+        print("Running All Tests")
+        doAll = True
+
+if(len(sys.argv) < 2 or doAll == True):
     # If no arguments, check for update
     if (text == 'Already up to date.'):
         # Try to send Slack message
@@ -51,13 +65,6 @@ if (len(sys.argv) < 2):
             assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
         
         exit()
-# Else check for force flag
-elif(str(sys.argv[1]) == '-f'):
-    print("Buuuuut you forced me to do it anyway...")
-# Else check for testing flag
-elif(str(sys.argv[1]) == '-t'):
-    print("Test Mode: On")
-    isTest = True
 
 os.chdir("testingScripts")
 
@@ -67,7 +74,21 @@ print(os.path.dirname(os.path.abspath(__file__)))
 if (isTest == True):
     buildTest = subprocess.Popen("python3 buildTest.py -t", shell = True)
 
-elif (not len(sys.argv) < 2):
+elif (doAll == True):
+    buildTest = subprocess.Popen("python3 buildTest.py", shell = True)
+    buildTest.wait()
+    unitTest = subprocess.Popen("python3 unitTest.py", shell = True)
+    unitTest.wait()
+    intelTest = subprocess.Popen("python3 intelChecks.py", shell=True)
+    intelTest.wait()
+    ICTest = subprocess.Popen("python3 ICtest.py", shell=True)
+    ICTest.wait()
+    ICReport = subprocess.Popen("python3 ICtestReport.py", shell=True)
+    ICReport.wait()
+    pyunitTest = subprocess.Popen("python3 pyunitTest.py", shell=True)
+    pyunitTest.wait()
+
+elif (forceRun == True):
     buildTest = subprocess.Popen("python3 buildTest.py -f", shell = True)
     buildTest.wait()
     unitTest = subprocess.Popen("python3 unitTest.py", shell = True)
@@ -84,13 +105,14 @@ elif (not len(sys.argv) < 2):
 else:
     buildTest = subprocess.Popen("python3 buildTest.py", shell = True)
     buildTest.wait()
-    unitTest = subprocess.Popen("python3 unitTest.py", shell = True)
-    unitTest.wait()
-    intelTest = subprocess.Popen("python3 intelChecks.py", shell=True)
-    intelTest.wait()
+    #unitTest = subprocess.Popen("python3 unitTest.py", shell = True)
+    #unitTest.wait()
+    #intelTest = subprocess.Popen("python3 intelChecks.py", shell=True)
+    #intelTest.wait()
     ICTest = subprocess.Popen("python3 ICtest.py", shell=True)
     ICTest.wait()
     ICReport = subprocess.Popen("python3 ICtestReport.py", shell=True)
     ICReport.wait()
     pyunitTest = subprocess.Popen("python3 pyunitTest.py", shell=True)
     pyunitTest.wait()
+
