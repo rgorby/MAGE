@@ -543,7 +543,7 @@ def genSatCompPbsScript(scId,fdir,cmd,account='P28100045'):
 #PBS -N %s
 #PBS -j oe
 #PBS -q casper
-#PBS -l walltime=2:00:00
+#PBS -l walltime=1:00:00
 #PBS -l select=1:ncpus=1
 """
 	moduleString = """module purge
