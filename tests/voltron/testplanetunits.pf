@@ -21,58 +21,118 @@ contains
   subroutine lastSerial()
   end subroutine lastSerial
 
+  subroutine checkVoltron(vApp, rp_m, ri_m, grav, magMom, psiCorot, doGrav)
+    type(voltApp_T), intent(in) :: vApp
+    real(rp), intent(in) :: rp_m, ri_m, grav, magMom, psiCorot
+    logical, intent(in) :: doGrav
+
+    associate(pName => vApp%planet%name)
+    @assertLessThanOrEqual(abs(vApp%planet%rp_m - rp_m)        , 1._rp, "Voltron didn't properly set "//trim(pName)//"'s surface radius")
+    @assertLessThanOrEqual(abs(vApp%planet%ri_m  - ri_m)       , 1._rp, "Voltron didn't properly set "//trim(pName)//"'s ionosphere radius")
+    @assertLessThanOrEqual(abs(vApp%planet%grav - grav)        , 1E-3_rp, "Voltron didn't properly set "//trim(pName)//"'s gravity")
+    @assertLessThanOrEqual(abs(vApp%planet%magMoment - magMom) , 1E-3_rp, "Voltron didn't properly set "//trim(pName)//"'s dipole moment")
+    @assertLessThanOrEqual(abs(vApp%planet%psiCorot - psiCorot), 1E-3_rp, "Voltron didn't properly set "//trim(pName)//"'s' corotation potential")
+    @assertTrue(vApp%planet%doGrav .eq. doGrav, "Voltron didn't properly enable doGrav for "//trim(pName))
+    end associate
+  end subroutine checkVoltron
+
+  subroutine checkGamera(vApp, gApp, xmlName)
+    type(voltApp_T), intent(in) :: vApp
+    type(gamApp_T), intent(in) :: gApp
+    character(len=strLen), intent(in) :: xmlName
+    type(XML_Input_T) :: xmlInp
+    ! Gam units
+    real(rp) :: gv0, gT0, gB0, gP0, M0, GM0_t
+    xmlInp = New_XML_Input(trim(xmlName),'Kaiju/Gamera',.true.)
+
+    call xmlInp%Set_Val(gv0,"prob/v0",100.e3)
+    call getGamNorms(vApp%planet, gv0, gT0, gB0, gP0, M0, GM0_t)
+    associate(pName => vApp%planet%name)
+    @assertLessThanOrEqual(abs(gApp%Model%Units%gT0 - gT0), 1E-8_rp, "Gamera didn't get same Time scale as test for "//trim(pName))
+    @assertLessThanOrEqual(abs(gApp%Model%Units%gB0 - gB0), 1E-8_rp, "Gamera didn't get same Mag scale as test for "//trim(pName))
+    @assertLessThanOrEqual(abs(gApp%Model%Units%gP0 - gP0), 1E-8_rp, "Gamera didn't get same Pressure scale as test for "//trim(pName))
+    @assertLessThanOrEqual(abs(gApp%Model%MagM0 - M0)     , 1E-8_rp, "Gamera didn't get same Dipole as test for "//trim(pName))
+    @assertLessThanOrEqual(abs(RadIonosphere() - vApp%planet%ri_m/vApp%planet%rp_m), 1E-8_rp, "Gamera didn't get same ionosphere radius as Voltron for "//trim(pName))
+    end associate
+  end subroutine checkGamera
+
+  subroutine checkRCM(vApp)
+    type(voltApp_T), intent(in) :: vApp
+    associate(pName => vApp%planet%name)
+    select type(rcmApp=>vApp%imagApp)
+        type is (rcmIMAG_T)
+            @assertLessThanOrEqual(abs(rcmApp%rcmCpl%planet_radius - vApp%planet%rp_m), 1E-8_rp, "RCM Planet Radius differs from voltron for "//trim(pName))
+            @assertLessThanOrEqual(abs(rcmApp%rcmCpl%iono_radius - vApp%planet%ri_m), 1E-8_rp, "RCM Planet Radius differs from voltron for "//trim(pName))
+            ! TODO: ways to check planetM0g and RIonRCM where/when its actually used
+    end select
+    end associate
+  end subroutine checkRCM
+
+  subroutine checkChimp(vApp)
+    type(voltApp_T), intent(in) :: vApp
+    real(rp) :: gamB0 = 4.58103037171500
+    real(rp) :: ebScl !CGS->Code EB units
+
+    ebScl = (qe_cgs*vApp%planet%rp_m*1.e2/Me_cgs)/(vc_cgs**2.0)
+    associate(pName => vApp%planet%name)
+    @assertLessThanOrEqual(abs(M0g - vApp%planet%magMoment), 1E-8_rp, "CHIMP mag moment differs from voltron for "//trim(pName))
+    !@assertLessThanOrEqual(abs(inTScl - vc_cgs/in2cms), 1E-8_rp, "CHIMP inTScl differs from calc. via voltron for "//trim(pName))
+    !@assertLessThanOrEqual(abs(inVScl - 100*1.0e+5/vc_cgs), 1E-8_rp, "CHIMP inVScl differs from calc. via voltron for "//trim(pName))
+    @assertLessThanOrEqual(abs(inBScl - gamB0/G2nT*ebScl), 1E-8_rp, "CHIMP inBScl differs from calc. via voltron for "//trim(pName))
+    end associate
+  end subroutine checkChimp
+
   @test
   subroutine testEarth()
     type(voltApp_T) :: vApp
     type(gamApp_T) :: gApp
     character(len=strLen) :: xmlName = 'cmriD_Earth.xml'
-    type(XML_Input_T) :: xmlInp
-    real(rp) :: checkValue = 0
-    ! Gam units
-    real(rp) :: gv0, gT0, gB0, gP0, M0, GM0_t
-    !CHIMP stuff
-    real(rp) :: gamB0 = 4.58103037171500
-    real(rp) :: ebScl !CGS->Code EB units
-
-    write(*,*) "Is this thing on?"
-
-    xmlInp = New_XML_Input(trim(xmlName),'Kaiju/Gamera',.true.)
 
     call initGamera(gApp, initUser, xmlName)
     call initVoltron(vApp, gApp, xmlName)
 
-    ! Check data structures to make sure everything equals what it should
-    ! Voltron
-    @assertLessThanOrEqual(vApp%planet%rp_m - REarth    , 1E-8_rp, "Voltron didn't properly set Earth's surface radius")
-    @assertLessThanOrEqual(vApp%planet%rp_m  - RionE*1E6_rp, 1E-8_rp, "Voltron didn't properly set Earth's ionosphere radius")
-    @assertLessThanOrEqual(vApp%planet%grav - 9.807     , 1E-8_rp, "Voltron didn't properly set Earth's gravity")
-    @assertLessThanOrEqual(vApp%planet%magMoment - EarthM0g    , 1E-8_rp, "Voltron didn't properly set Earth's dipole moment")
-    @assertLessThanOrEqual(vApp%planet%psiCorot - EarthPsi0    , 1E-8_rp, "Voltron didn't properly set Earth's corotation potential")
-    @assertLessThanOrEqual(vApp%planet%rp_m - REarth    , 1E-8_rp, "Voltron didn't properly set Earth's surface radius")
-    @assertTrue(vApp%planet%doGrav .eq. .true., "Voltron didn't properly enable doGrav for Earth")
-    !Gamera
-    call xmlInp%Set_Val(gv0,"prob/v0",100.e3)
-    call getGamNorms(vApp%planet, gv0, gT0, gB0, gP0, M0, GM0_t)
-    @assertLessThanOrEqual(gApp%Model%Units%gT0 - gT0, 1E-8_rp, "Gamera didn't get same Time scale as test for Earth")
-    @assertLessThanOrEqual(gApp%Model%Units%gB0 - gB0, 1E-8_rp, "Gamera didn't get same Mag scale as test for Earth")
-    @assertLessThanOrEqual(gApp%Model%Units%gP0 - gP0, 1E-8_rp, "Gamera didn't get same Pressure scale as test for Earth")
-    @assertLessThanOrEqual(gApp%Model%MagM0 - M0, 1E-8_rp, "Gamera didn't get same Dipole as test for Earth")
-    @assertLessThanOrEqual(RadIonosphere() - vApp%planet%ri_m/vApp%planet%rp_m, 1E-8_rp, "Gamera didn't get same ionosphere radius as Voltron for Earth")
-    !RCM
-    select type(rcmApp=>vApp%imagApp)
-        type is (rcmIMAG_T)
-            @assertLessThanOrEqual(rcmApp%rcmCpl%planet_radius - vApp%planet%rp_m, 1E-8_rp, "RCM Planet Radius differs from voltron for Earth")
-            @assertLessThanOrEqual(rcmApp%rcmCpl%iono_radius - vApp%planet%ri_m, 1E-8_rp, "RCM Planet Radius differs from voltron for Earth")
-    end select
-    ! TODO: ways to check planetM0g and RIonRCM where/when its actually used
-    !CHIMP
-    ebScl = (qe_cgs*vApp%planet%rp_m*1.e2/Me_cgs)/(vc_cgs**2.0)
-    @assertLessThanOrEqual(M0g - vApp%planet%magMoment, 1E-8_rp, "CHIMP mag moment differs from voltron for Earth")
-    @assertLessThanOrEqual(inTScl - vc_cgs/in2cms, 1E-8_rp, "CHIMP inTScl differs from calc. via voltron for Earth")
-    @assertLessThanOrEqual(inVScl - 100*1.0e+5/vc_cgs, 1E-8_rp, "CHIMP inVScl differs from calc. via voltron for Earth")
-    @assertLessThanOrEqual(inBScl - gamB0/G2nT*ebScl, 1E-8_rp, "CHIMP inBScl differs from calc. via voltron for Earth")
+    ! Run tests
+    call checkVoltron(vApp, REarth, RionE*1E6_rp, 9.807_rp, EarthM0g, EarthPsi0, .true.)
+    call checkGamera(vApp, gApp, xmlName)
+    call checkRCM(vApp)
+    !Does REMIX need to be checked? Only relies on msphutil's RadIonosphere() (2021/10/12)
+    call checkChimp(vApp)
+
   end subroutine testEarth
 
+  @test
+  subroutine testJupiter()
+    type(voltApp_T) :: vApp
+    type(gamApp_T) :: gApp
+    character(len=strLen) :: xmlName = 'cmriD_Jupiter.xml'
+    real(rp) :: jupCorot = -2.5*1702.9*92.0
+    call initGamera(gApp, initUser, xmlName)
+    call initVoltron(vApp, gApp, xmlName)
 
+    ! Run tests
+    call checkVoltron(vApp, RJupiterXE*REarth, 1.01*RJupiterXE*REarth, 24.79_rp, JupiterM0g, jupCorot, .true.)
+    call checkGamera(vApp, gApp, xmlName)
+    call checkRCM(vApp)
+    !Does REMIX need to be checked? Only relies on msphutil's RadIonosphere() (2021/10/12)
+    call checkChimp(vApp)
+
+  end subroutine testJupiter
+
+  @test
+  subroutine testNewPlanet() ! Arbitrary, not real planet
+    type(voltApp_T) :: vApp
+    type(gamApp_T) :: gApp
+    character(len=strLen) :: xmlName = 'cmriD_NewPlanet.xml'
+    call initGamera(gApp, initUser, xmlName)
+    call initVoltron(vApp, gApp, xmlName)
+
+    ! Run tests
+    call checkVoltron(vApp, 1.3*REarth, 1.01*1.3*REarth, 12.0_rp, 0.3*EarthM0g, 0.1*EarthPsi0, .true.)
+    call checkGamera(vApp, gApp, xmlName)
+    call checkRCM(vApp)
+    !Does REMIX need to be checked? Only relies on msphutil's RadIonosphere() (2021/10/12)
+    call checkChimp(vApp)
+
+  end subroutine testNewPlanet
 
 end module testplanetunits
