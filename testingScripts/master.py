@@ -41,18 +41,21 @@ forceRun = False
 
 # Check argument flags
 if (len(sys.argv) >= 2):
-    if(str(sys.argv[1]) == '-f'):
-        print("Buuuuut you forced me to do it anyway...")
-        forceRun = True
-    elif(str(sys.argv[1]) == '-t'):
-        print("Test Mode: On")
-        isTest = True
-    elif(str(sys.argv[1]) == '-a'):
-        print("Running All Tests")
-        doAll = True
+    for i in range(1,len(sys.argv)):
+        if(str(sys.argv[i]) == '-f'):
+            print("Buuuuut you forced me to do it anyway...")
+            forceRun = True
+        elif(str(sys.argv[i]) == '-t'):
+            print("Test Mode: On")
+            isTest = True
+        elif(str(sys.argv[i]) == '-a'):
+            print("Running All Tests")
+            doAll = True
+        else:
+            print("Unrecognized argument: ", sys.argv[i])
 
-if(len(sys.argv) < 2 or forceRun == False):
-    # If no arguments, check for update
+if(forceRun == False):
+    # If not forced, check for update
     if (text == 'Already up to date.'):
         # Try to send Slack message
         try:
