@@ -51,7 +51,7 @@ if (len(sys.argv) >= 2):
         print("Running All Tests")
         doAll = True
 
-if(len(sys.argv) < 2 or doAll == True):
+if(len(sys.argv) < 2 or forceRun == False):
     # If no arguments, check for update
     if (text == 'Already up to date.'):
         # Try to send Slack message
@@ -79,20 +79,6 @@ elif (doAll == True):
     buildTest.wait()
     unitTest = subprocess.Popen("python3 unitTest.py", shell = True)
     unitTest.wait()
-    intelTest = subprocess.Popen("python3 intelChecks.py", shell=True)
-    intelTest.wait()
-    ICTest = subprocess.Popen("python3 ICtest.py", shell=True)
-    ICTest.wait()
-    ICReport = subprocess.Popen("python3 ICtestReport.py", shell=True)
-    ICReport.wait()
-    pyunitTest = subprocess.Popen("python3 pyunitTest.py", shell=True)
-    pyunitTest.wait()
-
-elif (forceRun == True):
-    buildTest = subprocess.Popen("python3 buildTest.py -f", shell = True)
-    buildTest.wait()
-    unitTest = subprocess.Popen("python3 unitTest.py", shell = True)
-    buildTest.wait()
     intelTest = subprocess.Popen("python3 intelChecks.py", shell=True)
     intelTest.wait()
     ICTest = subprocess.Popen("python3 ICtest.py", shell=True)
