@@ -133,7 +133,7 @@ if(ENABLE_MPI)
 	add_definitions(${MPI_Fortran_COMPILE_DEFINITIONS})
 	include_directories(${MPI_Fortran_INCLUDE_DIRS})
 	link_directories(${MPI_Fortran_LIBRARIES})
-    string(APPEND CMAKE_Fortran_FLAGS ${MPI_Fortran_LINK_FLAGS})
+    string(APPEND CMAKE_Fortran_FLAGS " ${MPI_Fortran_LINK_FLAGS}")
 
     if(CMAKE_Fortran_COMPILER_ID MATCHES Intel AND MPI_Fortran_COMPILER MATCHES mpiifort)
         #Using Intel Compiler and Intel MPI, use thread safe mpi compiler flag
