@@ -73,7 +73,7 @@ okCount = 0
 
 for line in bigFile:
     if 'OK' in line:
-	okCount += 1
+        okCount += 1
 
     if 'error' in line:
         myError = True

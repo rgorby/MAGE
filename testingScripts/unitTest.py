@@ -27,10 +27,10 @@ os.system('mkdir unitTest2')
 
 # Copy pFUnit stuff into Kaiju External
 os.chdir(home)
-os.system('cp -r /glade/p/hao/msphere/gamshare/FARGPARSE-0.9 external')
-os.system('cp -r /glade/p/hao/msphere/gamshare/GFTL-1.1 external')
-os.system('cp -r /glade/p/hao/msphere/gamshare/GFTL_SHARED-1.0 external')
-os.system('cp -r /glade/p/hao/msphere/gamshare/PFUNIT-4.1 external')
+os.system('cp -r /glade/p/hao/msphere/gamshare/pFUnit-4.2.0/ifort-18/FARGPARSE-1.1 external')
+os.system('cp -r /glade/p/hao/msphere/gamshare/pFUnit-4.2.0/ifort-18/GFTL-1.3 external')
+os.system('cp -r /glade/p/hao/msphere/gamshare/pFUnit-4.2.0/ifort-18/GFTL_SHARED-1.2 external')
+os.system('cp -r /glade/p/hao/msphere/gamshare/pFUnit-4.2.0/ifort-18/PFUNIT-4.2 external')
 
 # Go back to scripts folder
 os.chdir(home)
