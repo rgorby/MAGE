@@ -87,7 +87,7 @@ subprocess.call("cp intelCheckSubmit.pbs ../intelChecks/bin", shell=True)
 # SUBMIT INTEL CHECK JOBS
 os.chdir(home)
 os.chdir('intelChecks/bin')
-arguments = 'qsub intelCheckSubmit.pbs'
+arguments = 'qsub -V intelCheckSubmit.pbs'
 print(arguments)
 submission = subprocess.Popen(arguments, shell=True, stdout=subprocess.PIPE)
 readString = submission.stdout.read()
