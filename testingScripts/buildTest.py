@@ -14,6 +14,8 @@ print(slack_token)
 client = WebClient(token=slack_token)
 
 # Get CWD and move to main kaiju folder
+calledFrom = os.path.dirname(os.path.abspath(__file__))
+os.chdir(calledFrom)
 origCWD = os.getcwd()
 print(origCWD)
 os.chdir('..')

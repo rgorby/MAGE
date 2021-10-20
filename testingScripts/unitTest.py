@@ -14,6 +14,8 @@ print(slack_token)
 client = WebClient(token=slack_token)
 
 # Get CWD and set main kaiju folder to "home"
+calledFrom = os.path.dirname(os.path.abspath(__file__))
+os.chdir(calledFrom)
 orig = os.getcwd()
 os.chdir('..')
 home = os.getcwd()
@@ -27,10 +29,10 @@ os.system('mkdir unitTest2')
 
 # Copy pFUnit stuff into Kaiju External
 os.chdir(home)
-os.system('cp -r /glade/p/hao/msphere/gamshare/pFUnit-4.2.0/ifort-18/FARGPARSE-1.1 external')
-os.system('cp -r /glade/p/hao/msphere/gamshare/pFUnit-4.2.0/ifort-18/GFTL-1.3 external')
-os.system('cp -r /glade/p/hao/msphere/gamshare/pFUnit-4.2.0/ifort-18/GFTL_SHARED-1.2 external')
-os.system('cp -r /glade/p/hao/msphere/gamshare/pFUnit-4.2.0/ifort-18/PFUNIT-4.2 external')
+os.system('cp -r /glade/p/hao/msphere/gamshare/pFUnit-4.2.0/ifort-21-MPT/FARGPARSE-1.1 external')
+os.system('cp -r /glade/p/hao/msphere/gamshare/pFUnit-4.2.0/ifort-21-MPT/GFTL-1.3 external')
+os.system('cp -r /glade/p/hao/msphere/gamshare/pFUnit-4.2.0/ifort-21-MPT/GFTL_SHARED-1.2 external')
+os.system('cp -r /glade/p/hao/msphere/gamshare/pFUnit-4.2.0/ifort-21-MPT/PFUNIT-4.2 external')
 
 # Go back to scripts folder
 os.chdir(home)
@@ -126,7 +128,7 @@ subprocess.call("cp runCaseTests.pbs ../unitTest1/bin", shell=True)
 os.chdir(home)
 os.chdir('unitTest1/bin')
 
-arguments = "qsub runCaseTests.pbs"
+arguments = "qsub -V runCaseTests.pbs"
 print(arguments)
 submission = subprocess.Popen(arguments, shell=True, stdout=subprocess.PIPE)
 readString = submission.stdout.read()
@@ -137,7 +139,7 @@ finalString = readString
 firstJob = readString.split('.')[0]
 print(firstJob)
 
-arguments = "qsub runNonCaseTests1.pbs"
+arguments = "qsub -V runNonCaseTests1.pbs"
 print(arguments)
 submission = subprocess.Popen(arguments, shell=True, stdout=subprocess.PIPE)
 readString = submission.stdout.read()
@@ -149,7 +151,7 @@ finalString = finalString + readString
 secondJob = readString.split('.')[0]
 print (secondJob)
 
-arguments = "qsub runNonCaseTests2.pbs"
+arguments = "qsub -V runNonCaseTests2.pbs"
 print(arguments)
 submission = subprocess.Popen(arguments, shell=True, stdout=subprocess.PIPE)
 readString = submission.stdout.read()
