@@ -205,6 +205,12 @@ module msphutils
         R = Rion
     end function RadIonosphere
 
+    !Just return module private Corotation potential
+    function GamPsiCorot() result(P)
+        real(rp) :: P
+        P = Psi0
+    end function GamPsiCorot
+
     !Fix inner shell electric fields (ijk) to remix values
     subroutine IonEFix(Model,Gr,State,inEijk)
         type(Model_T), intent(in) :: Model
@@ -610,6 +616,12 @@ module msphutils
         enddo !K loop
 
     end subroutine CorotationPot
+
+    !Might be helpful for spinups of planets with large rotation rate
+    subroutine UpdateGamCorot(newPsi0)
+        real(rp), intent(in) :: newPsi0
+        Psi0 = newPsi0
+    end subroutine UpdateGamCorot
 
     subroutine PhiGrav(x,y,z,pot)
         real(rp), intent(in) :: x,y,z
