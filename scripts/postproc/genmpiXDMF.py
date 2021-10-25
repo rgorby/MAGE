@@ -16,6 +16,7 @@ if __name__ == "__main__":
 	fdir = os.getcwd()
 	ftag = "msphere"
 	outid = "sim"
+	sStride = 1
 	MainS = """Creates series of XMF files from MPI-decomposed Gamera run
 	"""
 
@@ -23,6 +24,7 @@ if __name__ == "__main__":
 	parser.add_argument('-d',type=str,metavar="directory",default=fdir,help="Directory to read from (default: %(default)s)")
 	parser.add_argument('-id',type=str,metavar="runid",default=ftag,help="RunID of data (default: %(default)s)")
 	parser.add_argument('-outid',type=str,metavar="outid",default=outid,help="RunID of output XMF files (default: %(default)s)")
+	parser.add_argument('-sS',type=int,metavar="stride",default=sStride,help="Output cadence (default: %(default)s)")
 
 
 	#Finalize parsing
@@ -30,6 +32,7 @@ if __name__ == "__main__":
 	fdir = args.d
 	ftag = args.id
 	outid = args.outid
+	sStride = 1
 
 	#---------------------
 	#Init data
@@ -57,7 +60,7 @@ if __name__ == "__main__":
 	vIDs = ["D","Vx","Vy","Vz","P","Bx","By","Bz"]#,"Jx","Jy","Jz"]	
 
 	Nv = len(vIDs)
-	for n in range(gamData.s0,gamData.sFin+1):
+	for n in range(gamData.s0,gamData.sFin+1,sStride):
 		nslc = n-gamData.s0
 		#print(n,gamData.T[nslc])
 
