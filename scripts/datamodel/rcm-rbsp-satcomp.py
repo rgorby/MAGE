@@ -57,6 +57,7 @@ if __name__=="__main__":
 	parser.add_argument('-vidOut',type=str,default=vidOut,help="Output directory (relative to -d) for video images (default: %(default)s)")
 	parser.add_argument('-tklv', type=str,choices=tklV_choices,default=tklV_choices[0],help="Variable to plot in Lvsk panel (default: %(default)s)")
 	parser.add_argument('-forceCalc',type=str,metavar=pIDs,default="",help="Comma-separated process IDs to force recalculation for given process")
+	parser.add_argument('-HOPESPICE',action='store_true',help="Combine HOPE and RBSPICE hydrogen data")
 	#Finalize parsing
 	args  = parser.parse_args()
 	fdir  = args.d
@@ -72,6 +73,7 @@ if __name__=="__main__":
 	vidOut = args.vidOut
 	tklv = args.tklv
 	fcStr = args.forceCalc
+	doHopeSpice = args.HOPESPICE
 
 	#Extract RBSP identifier (A or B)
 	scTag = trtag.split('RBSP')[1][:2]
@@ -121,7 +123,11 @@ if __name__=="__main__":
 	t1r = ut[-1].strftime("%Y-%m-%dT%H:%M:%SZ")
 
 	print("Retrieving RBSPICE dataset")
-	ephData, scData = scRCM.getSCOmniDiffFlux(scId, vTag, t0r, t1r, jdir=jdir,forceCalc=('cdas' in fcIDs))
+	if doHopeSpice:
+		ephData, scData = scRCM.getSCOmniDiffFlux(scId, "Hydrogen_omniflux_RBSPICE", t0r, t1r, jdir=jdir,forceCalc=('cdas' in fcIDs))
+		hope_ephData, hope_scData = scRCM.getSCOmniDiffFlux(scId, "Hydrogen_PAFlux_HOPE", t0r, t1r, jdir=jdir,forceCalc=('cdas' in fcIDs))
+	else:
+		ephData, scData = scRCM.getSCOmniDiffFlux(scId, vTag, t0r, t1r, jdir=jdir,forceCalc=('cdas' in fcIDs))
 
 	print("\n\nGrabbing RCM time")
 	rcmTimes = scRCM.getRCMtimes(rcm_fname,mhdrcm_fname,jdir=jdir,forceCalc=('times' in fcIDs))
@@ -130,8 +136,19 @@ if __name__=="__main__":
 	rcmTrack = scRCM.getRCM_scTrack(trackf5, rcm_fname, rcmTimes, jdir=jdir, forceCalc=('track' in fcIDs), scName="RBSP-B")
 
 	print("\n\nConsolidating grids")
-	eGrid = np.logspace(np.log10(40), np.log10(6E2), 200, endpoint=True)
-	consolData = scRCM.consolidateODFs(scData, rcmTrack, eGrid=eGrid)
+	if doHopeSpice:
+		scEGrid = scData['energies']
+		hope_scEGrid = hope_scData['energies']
+		species = scData['species']
+		rcmEGrid = rcmTrack[species]['energies']
+		eMax = np.max([scEGrid.max(), hope_scEGrid.max(), rcmEGrid.max()])
+		eMin = np.min([scEGrid[scEGrid>0].min(), hope_scEGrid[hope_scEGrid>0].min(), rcmEGrid[rcmEGrid>0].min()])
+		eGrid = np.logspace(np.log10(eMin), np.log10(eMax), 150, endpoint=True)
+		consolData = scRCM.consolidateODFs(scData, rcmTrack, eGrid=eGrid)
+		hope_consolData = scRCM.consolidateODFs(hope_scData, rcmTrack, eGrid=eGrid)
+	else:
+		eGrid = np.logspace(np.log10(40), np.log10(6E2), 200, endpoint=True)
+		consolData = scRCM.consolidateODFs(scData, rcmTrack)
 
 	print("\n\nCalculating tkl vars(var wedge)")
 	#tkldata = scRCM.getIntensitiesVsL('msphere.rcm.h5','msphere.mhdrcm.h5',tStart, tEnd, tStride, jdir=jdir, forceCalc=('tkl' in fcIDs))
@@ -181,7 +198,11 @@ if __name__=="__main__":
 
 	#Run first iteration manually
 	pltmjd = tkldata['MJD'][0]
-	scRCM.plt_ODF_Comp(AxSC, AxRCM, AxCB_odf, consolData, mjd=pltmjd, norm=odfnorm, cmapName=cmap_odf)
+	if doHopeSpice:
+		scRCM.plt_ODF_Comp(AxSC, AxRCM, AxCB_odf, hope_consolData, mjd=pltmjd, norm=odfnorm, cmapName=cmap_odf)
+		scRCM.plt_ODF_Comp(AxSC, AxRCM, AxCB_odf, consolData, mjd=pltmjd, norm=odfnorm, cmapName=cmap_odf, forcePop=True)
+	else:
+		scRCM.plt_ODF_Comp(AxSC, AxRCM, AxCB_odf, consolData, mjd=pltmjd, norm=odfnorm, cmapName=cmap_odf)
 	AxSC.title.set_text('RBSP RCM Comparison')
 	AxCB_odf.yaxis.set_ticks_position('left')
 	AxCB_odf.yaxis.set_label_position('left')

@@ -45,7 +45,7 @@ MHDRCM_TIME_JFNAME = 'mhdrcm_times.json'
 #Spacecraft strings for cdaweb retrieval
 #Probably shouldn't be hard-coded
 supportedSats = ["RBSPA", "RBSPB"]
-supportedDsets = ["Hydrogen_omniflux_RBSPICE", "Electron_omniflux_RBSPICE"]
+supportedDsets = ["Hydrogen_omniflux_RBSPICE", "Electron_omniflux_RBSPICE", "Hydrogen_PAFlux_HOPE"]
 
 
 SC_str = {
@@ -167,7 +167,6 @@ def getSCOmniDiffFlux(scName, dSetName, t0, t1, jdir=None, forceCalc=False):
 	ephemStrs = satStrs['Ephem']
 	dsetStrs = satStrs[dSetName]
 	epochStr = "Epoch" if "EpochStr" not in dsetStrs.keys() else dsetStrs['EpochStr']
-	ofStr = dsetStrs['OmnifluxStr']
 	energyStr = dsetStrs['EnergyStr']
 
 	#First get ephem data
@@ -182,8 +181,15 @@ def getSCOmniDiffFlux(scName, dSetName, t0, t1, jdir=None, forceCalc=False):
 	#Turn each dataset's data into omniflux
 	if dSetName == 'Hydrogen_omniflux_RBSPICE' or dSetName == 'Electron_omniflux_RBSPICE':
 		#Already got omni flux, no problem
+		ofStr = dsetStrs['OmnifluxStr']
 		dataset['OmniDiffFlux'] = data[ofStr]*1E-3  # Diferential flux [1/(MeV-cm^2-s-sr]*[1/MeV -> 1/keV]
 		dataset['energies'] = data[energyStr]*1E3  # [MeV] -> [keV]
+	elif dSetName == "Hydrogen_PAFlux_HOPE":
+		#!!TODO: Properly calc OmniDiffFlux from FPDU. Currently just using pitch angle
+		fluxStr = dsetStrs['PAFluxStr']
+		iPA = np.abs(data['PITCH_ANGLE'] - 90).argmin()
+		dataset['OmniDiffFlux'] = data[fluxStr][:,iPA,:]  # (epoch, energy)
+		dataset['energies'] = data[energyStr]*1E-3  # [eV -> keV]
 
 	#Pause to save to json
 	if dojson:
@@ -436,12 +442,13 @@ def consolidateODFs(scData, rcmTrackData, eGrid=None):
 	scEGrid = scData['energies']  # Might be 1D (fixed bins) or 2D (different energies over time)
 	rcmEGrid = rcmSpec['energies']
 
+	Nt_sc = len(scData['epoch'])
 	#Manipulate sc EGrid, if 2D, so that time dimension is first index
 	sce_shape = scEGrid.shape
 	if len(sce_shape) > 1:
 		timeAxis = -1
 		
-		for i in range(len(shape)):
+		for i in range(len(sce_shape)):
 			if sce_shape[i] == Nt_sc:
 				timeAxis = i
 		if timeAxis == -1:
@@ -457,7 +464,7 @@ def consolidateODFs(scData, rcmTrackData, eGrid=None):
 		numPoints = 150
 		eGrid = np.logspace(np.log10(eMin), np.log10(eMax), numPoints, endpoint=True)
 
-	Nt_sc = len(scData['epoch'])
+	
 	sc_odf = np.zeros((Nt_sc, len(eGrid)))
 	for n in range(Nt_sc):
 		#Might not need this check
@@ -1073,7 +1080,7 @@ def getRCM_CumulFrac(rcmf5, rcmTimes, evMJD, evalLatLon, species='ions', jdir=No
 #Plotting
 #======
 
-def plt_ODF_Comp(AxSC, AxRCM, AxCB, odfData, mjd=None, cmapName='CMRmap', norm=None):
+def plt_ODF_Comp(AxSC, AxRCM, AxCB, odfData, mjd=None, cmapName='CMRmap', norm=None, forcePop=False):
 	axIsPopulated = not AxSC.get_ylabel() == ''
 
 	eGrid   = odfData['energyGrid']
@@ -1091,7 +1098,7 @@ def plt_ODF_Comp(AxSC, AxRCM, AxCB, odfData, mjd=None, cmapName='CMRmap', norm=N
 		norm = kv.genNorm(vMin,vMax,doLog=True)
 
 
-	if not axIsPopulated:
+	if not axIsPopulated or forcePop:
 		kv.genCB(AxCB,norm,r'Intensity [$cm^{-2} sr^{-1} s^{-1} keV^{-1}$]',cM=cmapName,doVert=True)
 
 		AxSC.pcolormesh(scTime, eGrid, np.transpose(scODF), norm=norm, shading='nearest', cmap=cmapName)
