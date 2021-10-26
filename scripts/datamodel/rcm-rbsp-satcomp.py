@@ -15,7 +15,13 @@ import kaipy.kaiTools as kT
 import kaipy.satcomp.scutils as scutils
 import kaipy.satcomp.scRCM as scRCM
 
-
+def fmtTKL(AxTKL):
+	AxTKL.set_yscale('log')
+	AxTKL.tick_params(axis='y', pad=-1)
+	AxTKL.yaxis.labelpad = -1
+	AxTKL.tick_params(axis='x', pad=-1)
+	AxTKL.xaxis.labelpad = -1
+	AxTKL.title.set_text(str(ut_tkl[0]))
 
 if __name__=="__main__":
 	fdir  = os.getcwd()
@@ -197,12 +203,7 @@ if __name__=="__main__":
 	AxTL.xaxis.set_label_position('top')
 	AxTL.tick_params(axis='y', pad=-1)
 	AxTL.yaxis.labelpad = -1 
-	AxTKL.set_yscale('log')
-	AxTKL.tick_params(axis='y', pad=-1)
-	AxTKL.yaxis.labelpad = -1
-	AxTKL.tick_params(axis='x', pad=-1)
-	AxTKL.xaxis.labelpad = -1
-	AxTKL.title.set_text(str(ut_tkl[0]))
+	fmtTKL(AxTKL)
 	AxCB_press.xaxis.labelpad = -1
 
 	scRCM.plt_rcm_eqlatlon(AxRCMLatLon, AxRCMEq, rcm_eqlatlon, rcmTrack, mjd=pltmjd, norm=pressnorm, cmapName=cmap_press)
@@ -230,6 +231,7 @@ if __name__=="__main__":
 		elif tklv == 'press':
 			#Actually partial pressure
 			scRCM.plt_tkl(AxTKL, tkldata, vName=tklv, AxCB=AxCB_parpress, mjd=pltmjd, norm=parpressnorm, cmapName=cmap_parpress, satTrackData=rcmTrack)
+		fmtTKL(AxTKL)
 		AxTKL.title.set_text(str(ut_tkl[n]))
 
 		scRCM.plt_rcm_eqlatlon(AxRCMLatLon, AxRCMEq, rcm_eqlatlon, rcmTrack, mjd=pltmjd, norm=pressnorm, cmapName=cmap_press)
