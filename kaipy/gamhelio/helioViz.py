@@ -19,18 +19,20 @@ DMax = 150.
 DMin = 2000.
 DCM = "copper_r"
 
-#D0Max = 15.
-#D0Min = 1.
-D0Max = 1000.
-D0Min = 300.
+D0Max = 15.
+D0Min = 1.
+#D0Max = 1000.
+#D0Min = 300.
 D0CM = "copper_r"
 
-TMax = 1.
+TMax = 0.12
 TMin = 0.01
 TCM = "copper"
 
-BMax = 150.
-BMin = -150.
+#BMax = 150.
+#BMin = -150.
+BMax = 5.
+BMin = -5.
 BCM = "coolwarm"
 
 
@@ -291,8 +293,8 @@ def PlotiSlD(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
 
 #Plot Br and current sheet (Br=0) at 1 AU
 def PlotiSlBr(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
-	BMin = -150.
-	BMax = 150.
+	BMin = -5.
+	BMax = 5.
 	vB = kv.genNorm(BMin, BMax, doLog=False, midP=None)
 	if (AxCB is not None):
 		AxCB.clear()
@@ -377,10 +379,8 @@ def PlotiSlBrRotatingFrame(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True
 #Plot Temperature at 1 AU
 def PlotiSlTemp(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
 	#colorbar limits
-	#TMin = 0.02
-	#TMax = 0.12
-	TMin = 0.1
-	TMax = 1.
+	TMin = 0.02
+	TMax = 0.12
 	vT = kv.genNorm(TMin, TMax, doLog=False, midP=None)
 
 	if (AxCB is not None):

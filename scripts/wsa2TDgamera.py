@@ -60,19 +60,19 @@ def plotBc(wsa_file, phi, theta, var1, var2, var3, var4):
     var4 = var4/1.e6 #temp in MK
     
     ax1 = plt.subplot(gs[0,0], aspect='equal')
-    p1=ax1.pcolormesh(phi, theta, var1.T, cmap = 'rainbow', vmin = 300, vmax = 850)
+    p1=ax1.pcolormesh(phi, theta, var1.T, shading = 'auto', cmap = 'rainbow', vmin = 300, vmax = 850)
     plt.colorbar(p1,ax=ax1,aspect = 15, orientation = 'horizontal').set_label(r'$V_r$, km/s')
 
     ax2 = plt.subplot(gs[0,1],sharex=ax1, aspect='equal')
-    p2=ax2.pcolormesh(phi, theta,var2.T,cmap = 'RdBu_r', vmin = -150, vmax = 150)
+    p2=ax2.pcolormesh(phi, theta,var2.T, shading = 'auto', cmap = 'RdBu_r', vmin = -150, vmax = 150)
     plt.colorbar(p2,ax=ax2,aspect = 15, orientation = 'horizontal').set_label(r'$B_r, nT$')
 
     ax3 = plt.subplot(gs[1,0],sharex=ax1, aspect='equal')
-    p3=ax3.pcolormesh(phi, theta,var3.T,cmap = 'copper_r', vmin = 300, vmax = 1200)
+    p3=ax3.pcolormesh(phi, theta,var3.T, shading = 'auto', cmap = 'copper_r', vmin = 300, vmax = 1200)
     plt.colorbar(p3,ax=ax3,aspect = 15, orientation = 'horizontal').set_label(r'$Rho, cm^{-3}$')
 
     ax4 = plt.subplot(gs[1,1],sharex=ax1, aspect='equal')
-    p4=ax4.pcolormesh(phi, theta, var4.T,cmap = 'copper', vmin = 0.5, vmax = 2.5)
+    p4=ax4.pcolormesh(phi, theta, var4.T,shading = 'auto', cmap = 'copper', vmin = 0.5, vmax = 2.5)
     plt.colorbar(p4,ax=ax4,aspect = 15, orientation = 'horizontal').set_label('Temperature, K')
     
     date = wsa_file.split('/')[-1][4:12]
@@ -347,10 +347,10 @@ with h5py.File(os.path.join(prm.IbcDir,prm.gameraIbcFile),'w') as hf:
         #print(rho.shape)
         (vr,rho,Temp,br,bp_kface_a,bt_jface_a,et_save,ep_save) = [np.dstack(prm.NO2*[var]) for var in (vr,rho,Temp,br,bp_kface_a,bt_jface_a,et_save,ep_save)]
         rho*=(R0/Rc[0,0,:Ng])**2
-        Temp *= (R0/Rc[0,0,:Ng])
+        Temp*=(R0/Rc[0,0,:Ng])
         br*=(R0/Rc[0,0,:Ng])**2
         bp_kface_a*=(R0/Rc[0,0,:Ng])
-        et_save* = (R0/Rc[0,0,:Ng])
+        et_save*=(R0/Rc[0,0,:Ng])
 
         #tangential velocities are set to zero
         #vp = zeros_like(vr)

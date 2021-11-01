@@ -36,7 +36,7 @@ if __name__ == "__main__":
 	parser.add_argument('-n' ,type=int,metavar="step" ,default=nStp,help="Time slice to plot (default: %(default)s)")
 	parser.add_argument('-den'  , action='store_true', default=doDen,help="Show density instead of pressure (default: %(default)s)")
 	parser.add_argument('-nompi', action='store_true', default=noMPI,help="Don't show MPI boundaries (default: %(default)s)")
-	#pic1 is equatorial pic2 is meridional pic3 is 1 AU maps
+	#pic1 is equatorial pic2 is meridional pic3 is 1 AU maps pic4 is Br in rotating frame
 	parser.add_argument('-p',type=str,metavar="pictype",default=pic,help="Type of output image (default: %(default)s)")	
 
 	#Finalize parsing
