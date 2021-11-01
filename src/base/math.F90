@@ -253,8 +253,19 @@ module math
 
 !--------------------------------------
 !Geometry stuff
-    function cross(a, b)
+    !atan2 w/ trap for pi/-pi jump
+    elemental function katan2(a,b) result(c)
+        real(rp), intent(in) :: a,b
+        real(rp) :: c
 
+        c = atan2(a,b)
+        if (c<0) then
+            c = c + 2*PI
+        endif
+    end function katan2
+
+    function cross(a, b)
+        !DEC$ ATTRIBUTES NOINLINE :: cross
         real(rp), dimension(NDIM), intent(in) :: a, b
         real(rp), dimension(NDIM) :: cross
 
@@ -343,6 +354,13 @@ module math
 
     end function
 
+    !Simple function for print statements
+    function ang2deg(a)
+        real(rp), intent(in) :: a
+        real(rp) :: ang2deg
+        ang2deg = a*180.0/PI
+    end function
+    
     !Return // (to nhat) component of vector A
     !Assuming nhat is already unit vector
     function Vec2Para(A, nhat) result(Apara)
@@ -398,6 +416,28 @@ module math
         InTri = (s >= 0) .and. (t >= 0) .and. ((1 - s - t) >= 0)
         !write(*,*) 's,t,1-s-t = ',s,t,1-s-t
     end function inTri
+
+    !Convert XYZ to spherical (RTP) vector at given point
+    function xyz2rtp(xyz,Axyz) result(Artp)
+        real(rp), dimension(NDIM), intent(in) :: xyz,Axyz
+        real(rp), dimension(NDIM) :: Artp
+
+        real(rp) :: Ax,Ay,Az,Ar,At,Ap,rad,theta,phi
+        Ax = Axyz(XDIR)
+        Ay = Axyz(YDIR)
+        Az = Axyz(ZDIR)
+
+
+        rad = norm2(xyz)
+        theta = acos(xyz(ZDIR)/rad)
+        phi = atan2(xyz(YDIR),xyz(XDIR))
+
+        Ar =  Ax*sin(theta)*cos(phi) + Ay*sin(theta)*sin(phi) + Az*cos(theta)
+        At =  Ax*cos(theta)*cos(phi) + Ay*cos(theta)*sin(phi) - Az*sin(theta)
+        Ap = -Ax           *sin(phi) + Ay           *cos(phi) 
+        Artp = [Ar,At,Ap]
+    end function xyz2rtp
+    
 !--------------------------------------
 !Linear algebra stuff
     !Calculate determinant of 3X3 matrix

@@ -7,7 +7,7 @@ def genName(bStr,i,j,k,Ri,Rj,Rk,nRes=None):
 	if (nRes is None):
 		fID = bStr + "_%04d_%04d_%04d_%04d_%04d_%04d.gam.h5"%(Ri,Rj,Rk,i,j,k)
 	else:
-		fID = bStr + "_%04d_%04d_%04d_%04d_%04d_%04d"%(Ri,Rj,Rk,i,j,k)+".Res.%05d.h5"%(nRes)
+		fID = bStr + "_%04d_%04d_%04d_%04d_%04d_%04d"%(Ri,Rj,Rk,i,j,k)+".gam.Res.%05d.h5"%(nRes)
 	return fID
 #Generate old-style MPI name
 def genNameOld(bStr,i,j,k,Ri,Rj,Rk,nRes=None):
@@ -51,7 +51,11 @@ def tStep(fname,nStp=0,aID="time",aDef=0.0):
 	CheckOrDie(fname)
 	with h5py.File(fname,'r') as hf:
 		gID = "Step#%d"%(nStp)
-		t = hf[gID].attrs.get(aID,aDef)
+		#t = hf[gID].attrs.get(aID,aDef)
+		if aID in hf[gID].attrs:
+			t = hf[gID].attrs[aID]
+		else:
+			t = aDef
 	return t
 	
 def cntSteps(fname):
@@ -92,10 +96,10 @@ def getTs(fname,sIds=None,aID="time",aDef=0.0):
 	return T
 
 #Get shape/dimension of grid
-def getDims(fname,doFlip=True):
+def getDims(fname,vID="X",doFlip=True):
 	CheckOrDie(fname)
 	with h5py.File(fname,'r') as hf:
-		Dims = hf["/"]["X"].shape
+		Dims = hf["/"][vID].shape
 	Ds = np.array(Dims,dtype=np.int)
 	if (doFlip):
 		Ds = np.flip(Ds,axis=0)
@@ -132,3 +136,15 @@ def PullVar(fname,vID,s0=None):
 			gId = "/Step#%d"%(s0)
 			V = hf[gId][vID][()].T
 	return V
+
+#Get attribute data from Step#s0 or root (s0=None)
+def PullAtt(fname,vID,s0=None):
+	CheckOrDie(fname)
+	with h5py.File(fname,'r') as hf:
+		if (s0 is None):
+			Q = hf.attrs[vID]
+			
+		else:
+			gID = "/Step#%d"%(s0)
+			Q = hf[gID].attrs[vID]
+	return V	

@@ -2,11 +2,24 @@
 
 module ebtypes
     use chmpdefs
+    use wpitypes
     
     implicit none
 
     !Primitive variables
     integer, parameter :: NVARMHD = 5
+
+    !Data necessary for CHIMP 2D<->3D mapping for deep coupling
+    type ebSquish_T
+        ! base variables
+        real(rp) :: Rinner
+        ! block tracking for splitting up calculations and dividing work
+        integer :: numSquishBlocks = 3 ! total blocks to divide work into
+        integer :: curSquishBlock = 0
+        ! start and end blocks in case work is divided across multiple ranks
+        integer :: myFirstBlock = 0 ! first block for me to work on
+        integer :: myNumBlocks = -1 ! how many blocks I should solve
+    end type ebSquish_T
 
     !Data necessary to update fields, ie time->field data file mapping
     !File: bStr + gStr (base+group)
@@ -28,7 +41,9 @@ module ebtypes
         real(rp), dimension(:,:,:,:), allocatable :: dB,E !Fields
         real(rp), dimension(:,:,:,:), allocatable :: W !Primitive MHD variables
         real(rp), dimension(:,:,:,:), allocatable :: Jxyz !Currents
+        real(rp), dimension(:), allocatable :: Lpp !Plasmapause location,Lpp(MLT)
         real(rp) :: time !Time in code units for this slice
+        character(len=strLen) :: gStr ! holds step in 'Step#N'
     end type ebField_T
 
     !Grid data for eb fields
@@ -55,6 +70,8 @@ module ebtypes
         type(ebGrid_T)  :: ebGr
         type(ebField_T) :: eb1,eb2 !Two slices of field data
         type(ebTab_T)   :: ebTab
+        type(wave_T)    :: ebWave
+        type(wModel_T)  :: ebWmodel
         logical :: doStatic = .false.
     end type ebState_T
     
@@ -62,6 +79,7 @@ module ebtypes
     type ebTrcApp_T
         type(chmpModel_T) :: ebModel
         type(ebState_T)   :: ebState
+        type(ebSquish_T)  :: ebSquish
     end type ebTrcApp_T
 
     !Data holder for doing field line tracing at point
@@ -79,7 +97,7 @@ module ebtypes
 
     end type gcFields_T
 
-    integer, parameter :: MaxFL = 5000 !Reduced for multi-threading speed
+    integer, parameter :: MaxFL = MAXTUBESIZE !Reduced for multi-threading speed
     integer, parameter :: NumVFL = NVARMHD !Number of field line variables (other than |B|)
 
     !Streamline variable
@@ -91,7 +109,7 @@ module ebtypes
 
     !Individual streamline
     type fLine_T
-        integer :: Nm,Np
+        integer :: Nm=0,Np=0
         real(rp), dimension(NDIM) :: x0 !Seed point
         real(rp), allocatable, dimension(:,:) :: xyz
 

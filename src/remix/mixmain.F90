@@ -13,7 +13,7 @@ module mixmain
 
   contains
 
-    subroutine init_mix(I,hmsphrs,optFilename,RunID,isRestart,mixIOobj,nRes)
+    subroutine init_mix(I,hmsphrs,optFilename,RunID,isRestart,mixIOobj,nRes,optIO)
       type(mixIon_T),dimension(:),allocatable,intent(inout) :: I ! I for ionosphere (is an array of 1 or 2 elements for north and south) or it can be artibrarily many, e.g., for different solves done in loop
       integer, dimension(:), intent(in) :: hmsphrs       
       character(len=*), optional, intent(in) :: optFilename
@@ -21,14 +21,21 @@ module mixmain
       logical,optional, intent(in) :: isRestart
       type(mixIO_T),optional, intent(in) :: mixIOobj  
       integer,optional,intent(in) :: nRes
+      logical,optional,intent(in) :: optIO
       integer :: mixnRes    
       logical :: doRestart
       integer :: h
+      logical :: doIO ! do IO initialziaiton
 
       if (.not.allocated(I)) allocate(I(size(hmsphrs)))
       
       I%rad_iono_m = RIonE*1.e+6 ! Default to RIonE. To change, overwrite directly after the init_mix call
       if (present(isRestart)) doRestart = isRestart
+      if (present(optIO)) then
+          doIO = optIO
+      else
+          doIO = .true. ! IO enabled default
+      endif
 
       do h=1,size(I)
          I(h)%St%hemisphere = hmsphrs(h)
@@ -65,16 +72,24 @@ module mixmain
          if (I(h)%St%hemisphere.eq.SOUTH) I(h)%G%cosd = -I(h)%G%cosd
       end do
 
-      ! initialize the mix dump file
+      call initMIXNames() !Just for luck?
+      mixnRes = I(1)%P%nRes
+      !NOTE: mixnres comes from I(1)%P%nRes and is the one that should be used not subroutine argument nRes!
+      !Why is nRes even passed to this function then, you might ask.
+      !Good question hypothetical question person, good question.
+
+      ! initialize the mix dump file (AND RESTART)
       if (present(isRestart) .and. doRestart) then
-        !call xmlInp%Set_Val(mixnRes ,"/gamera/restart/nRes" ,-1)
-        mixnRes = I(1)%P%nRes
-        write(*,*) "InitMIXIO with restart"
-        call initMIXIO(I,RunID,isRestart,mixnRes)
-      else
-        write(*,*) "InitMIXIO without restart"
+        !call xmlInp%Set_Val(mixnRes ,"/Kaiju/gamera/restart/nRes" ,-1)
+        
+        !Just restart here and be done with it
+        call readMIXrestart(trim(RunID),mixnRes,I)
+      endif
+
+      if (doIO) then
         call initMIXIO(I,RunID,isRestart)
-      end if
+      endif
+      
     end subroutine init_mix
 
     subroutine get_potential(I)
@@ -112,18 +127,13 @@ module mixmain
           I(h)%conductance%const_sigma = .true.            
         end if
 
-        call Tic("MIX-COND")
         if (present(gcm) .and. isRestart) then
           !write(*,*) "conductance: restart"
           !we read the conductance from file, so we're going to skip
           gcm%isRestart = .false.
           !write(*,*) "Get rePOT: ", maxval(I(h)%St%Vars(:,:,POT)),minval(I(h)%St%Vars(:,:,POT))
-          call Toc("MIX-COND")
-          call Tic("MIX-SOLVE")
-          call Toc("MIX-SOLVE")
-          call Tic("MIX-POT")
-          call Toc("MIX-POT")
         else
+          call Tic("MIX-COND")
           if (present(gcm)) then
             !write(*,*) 'doGCM!'
             call conductance_total(I(h)%conductance,I(h)%G,I(h)%St,gcm,h)
@@ -132,16 +142,17 @@ module mixmain
             call conductance_total(I(h)%conductance,I(h)%G,I(h)%St)
           end if
           call Toc("MIX-COND")
+
           call Tic("MIX-SOLVE")
           call run_solver(I(h)%P,I(h)%G,I(h)%St,I(h)%S)
           call Toc("MIX-SOLVE")
+
           call Tic("MIX-POT")
           call get_potential(I(h))
           call Toc("MIX-POT")
         end if
+
       end do
     end subroutine run_mix
-
-
 
 end module mixmain

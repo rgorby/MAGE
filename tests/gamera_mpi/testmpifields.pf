@@ -1,5 +1,5 @@
 module testMpiFields
-  use pFUnit
+  use testHelperMpi
   use gamapp_mpi
   use usergamic
 
@@ -17,7 +17,7 @@ contains
 
       allocate(gamAppMpi)
 
-      call initGamera_mpi(gamAppMpi,initUser,this%getMpiCommunicator(),'lfmbw_441.xml',.false.)
+      call initGamera_mpi(gamAppMpi,initUser,getMpiF08Communicator(this),'lfmbw_241.xml',.false.)
 
       do while ((gamAppMpi%Model%tFin - gamAppMpi%Model%t) > 1e-15)
            call stepGamera_mpi(gamAppMpi)
@@ -547,7 +547,7 @@ contains
 
   end subroutine verifyEdges5
 
-  @test(npes=[16])
+  @test(npes=[8])
   subroutine testFaceMetricFields(this)
       class (MpiTestMethod), intent(inout) :: this
 
@@ -570,7 +570,7 @@ contains
           gamAppMpi%Grid%ksg,gamAPpMpi%Grid%keg+1) ! g+1,g+1,g+1,DIM
   end subroutine testFaceMetricFields
 
-  @test(npes=[16])
+  @test(npes=[8])
   subroutine testEdgeMetricFields(this)
       class (MpiTestMethod), intent(inout) :: this
 
@@ -601,7 +601,7 @@ contains
           gamAppMpi%Grid%ksg,gamAPpMpi%Grid%keg+1) ! g,g,g,DIM
   end subroutine testEdgeMetricFields
 
-  @test(npes=[16])
+  @test(npes=[8])
   subroutine testFaceDataFields(this)
       class (MpiTestMethod), intent(inout) :: this
 
@@ -616,7 +616,7 @@ contains
           gamAppMpi%Grid%ksg,gamAPpMpi%Grid%keg+1) ! g+1,g+1,g+1,NDIM
   end subroutine testFaceDataFields
 
-  @test(npes=[16])
+  @test(npes=[8])
   subroutine testEdgeDataFields(this)
       class (MpiTestMethod), intent(inout) :: this
 

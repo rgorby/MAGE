@@ -2,57 +2,15 @@
 ! MPI version
 
 module voltapp_mpi
-    use voltapp
+    use voltmpitypes
     use gamapp_mpi
     use gamapp
-    use mpi
+    use mpi_f08
     use ebsquish, only : SquishBlocksRemain, DoSquishBlock
     use, intrinsic :: ieee_arithmetic, only: IEEE_VALUE, IEEE_SIGNALING_NAN, IEEE_QUIET_NAN
+    use volthelpers_mpi
     
     implicit none
-
-    type, extends(voltApp_T) :: voltAppMpi_T
-        integer :: voltMpiComm = MPI_COMM_NULL
-        integer :: myRank
-        type(gamApp_T) :: gAppLocal
-        logical :: doSerialVoltron = .false., doAsyncShallow = .true.
-        logical :: firstShallowUpdate = .true., firstDeepUpdate = .true., firstStepUpdate = .true.
-
-        ! array of all zeroes to simplify various send/receive calls
-        integer, dimension(:), allocatable :: zeroArrayCounts, zeroArrayTypes
-        integer(MPI_ADDRESS_KIND), dimension(:), allocatable ::  zeroArrayDispls
-
-        ! list of gamera ranks to communicate with
-        integer, dimension(:), allocatable :: sendRanks, recvRanks
-
-        ! STEP VOLTRON VARIABLES
-        integer :: timeReq=MPI_REQUEST_NULL, timeStepReq=MPI_REQUEST_NULL
-        real(rp) :: timeBuffer
-        integer :: timeStepBuffer
-
-        ! SHALLOW COUPLING VARIABLES
-        integer, dimension(:), allocatable :: recvCountsGasShallow, recvTypesGasShallow
-        integer(MPI_ADDRESS_KIND), dimension(:), allocatable :: recvDisplsGasShallow
-        integer, dimension(:), allocatable :: recvCountsBxyzShallow, recvTypesBxyzShallow
-        integer(MPI_ADDRESS_KIND), dimension(:), allocatable :: recvDisplsBxyzShallow
-        integer, dimension(:), allocatable :: sendCountsIneijkShallow, sendTypesIneijkShallow
-        integer(MPI_ADDRESS_KIND), dimension(:), allocatable :: sendDisplsIneijkShallow
-        integer, dimension(:), allocatable :: sendCountsInexyzShallow, sendTypesInexyzShallow
-        integer(MPI_ADDRESS_KIND), dimension(:), allocatable :: sendDisplsInexyzShallow
-        ! SHALLOW ASYNCHRONOUS VARIABLES
-        integer :: shallowIneijkSendReq=MPI_REQUEST_NULL, shallowInexyzSendReq=MPI_REQUEST_NULL
-        integer :: asyncShallowBcastReq=MPI_REQUEST_NULL
-
-        ! DEEP COUPLING VARIABLES
-        integer, dimension(:), allocatable :: recvCountsGasDeep, recvTypesGasDeep
-        integer(MPI_ADDRESS_KIND), dimension(:), allocatable :: recvDisplsGasDeep
-        integer, dimension(:), allocatable :: recvCountsBxyzDeep, recvTypesBxyzDeep
-        integer(MPI_ADDRESS_KIND), dimension(:), allocatable :: recvDisplsBxyzDeep
-        integer, dimension(:), allocatable :: sendCountsGas0Deep, sendTypesGas0Deep
-        integer(MPI_ADDRESS_KIND), dimension(:), allocatable :: sendDisplsGas0Deep
-        logical :: deepProcessingInProgress = .false.
-
-    end type voltAppMpi_T
 
     contains
 
@@ -63,65 +21,158 @@ module voltapp_mpi
         logical :: reqStat
         integer :: ierr
 
-        if(vApp%timeReq /= MPI_REQUEST_NULL) then
-            call MPI_REQUEST_GET_STATUS(vApp%timeReq,reqStat,MPI_STATUS_IGNORE,ierr)
-            if(.not. reqStat) then
-                call MPI_CANCEL(vApp%timeReq, ierr)
-                call MPI_WAIT(vApp%timeReq, MPI_STATUS_IGNORE, ierr)
-            endif
+        call MPI_TEST(vApp%timeReq,reqStat,MPI_STATUS_IGNORE,ierr)
+        if(.not. reqStat) then
+            call MPI_CANCEL(vApp%timeReq, ierr)
+            call MPI_WAIT(vApp%timeReq, MPI_STATUS_IGNORE, ierr)
         endif
 
-        if(vApp%timeStepReq /= MPI_REQUEST_NULL) then
-            call MPI_REQUEST_GET_STATUS(vApp%timeStepReq,reqStat,MPI_STATUS_IGNORE,ierr)
-            if(.not. reqStat) then
-                call MPI_CANCEL(vApp%timeStepReq, ierr)
-                call MPI_WAIT(vApp%timeStepReq, MPI_STATUS_IGNORE, ierr)
-            endif
+        call MPI_TEST(vApp%timeStepReq,reqStat,MPI_STATUS_IGNORE,ierr)
+        if(.not. reqStat) then
+            call MPI_CANCEL(vApp%timeStepReq, ierr)
+            call MPI_WAIT(vApp%timeStepReq, MPI_STATUS_IGNORE, ierr)
         endif
 
-        if(vApp%shallowIneijkSendReq /= MPI_REQUEST_NULL) then
-            call MPI_REQUEST_GET_STATUS(vApp%shallowIneijkSendReq,reqStat,MPI_STATUS_IGNORE,ierr)
-            if(.not. reqStat) then
-                ! async neighborhood ops don't support cancel
-                call MPI_WAIT(vApp%shallowIneijkSendReq, MPI_STATUS_IGNORE, ierr)
-            endif
+        call MPI_TEST(vApp%shallowIneijkSendReq,reqStat,MPI_STATUS_IGNORE,ierr)
+        if(.not. reqStat) then
+            ! async neighborhood ops don't support cancel
+            call MPI_WAIT(vApp%shallowIneijkSendReq, MPI_STATUS_IGNORE, ierr)
         endif
 
-        if(vApp%shallowInexyzSendReq /= MPI_REQUEST_NULL) then
-            call MPI_REQUEST_GET_STATUS(vApp%shallowInexyzSendReq,reqStat,MPI_STATUS_IGNORE,ierr)
-            if(.not. reqStat) then
-                ! async neighborhood ops don't support cancel
-                call MPI_WAIT(vApp%shallowInexyzSendReq, MPI_STATUS_IGNORE, ierr)
-            endif
+        call MPI_TEST(vApp%shallowInexyzSendReq,reqStat,MPI_STATUS_IGNORE,ierr)
+        if(.not. reqStat) then
+            ! async neighborhood ops don't support cancel
+            call MPI_WAIT(vApp%shallowInexyzSendReq, MPI_STATUS_IGNORE, ierr)
         endif
 
-        if(vApp%asyncShallowBcastReq /= MPI_REQUEST_NULL) then
-            call MPI_REQUEST_GET_STATUS(vApp%asyncShallowBcastReq,reqStat,MPI_STATUS_IGNORE,ierr)
-            if(.not. reqStat) then
-                call MPI_CANCEL(vApp%asyncShallowBcastReq, ierr)
-                call MPI_WAIT(vApp%asyncShallowBcastReq, MPI_STATUS_IGNORE, ierr)
-            endif
+        call MPI_TEST(vApp%asyncShallowBcastReq,reqStat,MPI_STATUS_IGNORE,ierr)
+        if(.not. reqStat) then
+            call MPI_CANCEL(vApp%asyncShallowBcastReq, ierr)
+            call MPI_WAIT(vApp%asyncShallowBcastReq, MPI_STATUS_IGNORE, ierr)
+        endif
+
+        if(vApp%vHelpWin /= MPI_WIN_NULL) then
+            call MPI_WIN_FREE(vApp%vHelpWin, ierr)
         endif
 
     end subroutine endVoltronWaits
 
     !Initialize Voltron (after Gamera has already been initialized)
-    subroutine initVoltron_mpi(vApp, userInitFunc, voltComm, optFilename)
+    subroutine initVoltron_mpi(vApp, userInitFunc, helperComm, allComm, optFilename)
         type(voltAppMpi_T), intent(inout) :: vApp
         procedure(StateIC_T), pointer, intent(in) :: userInitFunc
-        integer, intent(in) :: voltComm
+        type(MPI_Comm), intent(in) :: helperComm
+        type(MPI_Comm), intent(in) :: allComm
         character(len=*), optional, intent(in) :: optFilename
 
         character(len=strLen) :: inpXML
         type(XML_Input_T) :: xmlInp
         integer :: commSize, ierr, numCells, length, ic, numInNeighbors, numOutNeighbors
+        type(MPI_Comm) :: voltComm
+        integer :: nHelpers, gamNRES
         character( len = MPI_MAX_ERROR_STRING) :: message
         logical :: reorder, wasWeighted
         integer, allocatable, dimension(:) :: neighborRanks, inData, outData
         integer, allocatable, dimension(:) :: iRanks, jRanks, kRanks
+        integer(KIND=MPI_BASE_MYADDR) :: winsize
+
+        ! initialize F08 MPI objects
+        vApp%vHelpComm = MPI_COMM_NULL
+        vApp%vHelpWin = MPI_WIN_NULL
+        vApp%voltMpiComm = MPI_COMM_NULL
+        vApp%timeReq = MPI_REQUEST_NULL
+        vApp%timeStepReq = MPI_REQUEST_NULL
+        vApp%shallowIneijkSendReq = MPI_REQUEST_NULL
+        vApp%shallowInexyzSendReq = MPI_REQUEST_NULL
+        vApp%asyncShallowBcastReq = MPI_REQUEST_NULL
 
         vApp%isSeparate = .true. ! running on a different process from the actual gamera ranks
         vApp%gAppLocal%Grid%lowMem = .true. ! tell Gamera to limit its memory usage
+
+        ! get info about voltron-only mpi communicator
+        vApp%vHelpComm = helperComm
+        call MPI_Comm_rank(vApp%vHelpComm, vApp%vHelpRank, ierr)
+        if(ierr /= MPI_Success) then
+            call MPI_Error_string( ierr, message, length, ierr)
+            print *,message(1:length)
+            call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+        end if
+        if(vApp%vHelpRank > 0) vApp%amHelper = .true.
+
+        ! split allComm into a communicator with only the non-helper voltron rank
+        call MPI_Comm_rank(allComm, commSize, ierr)
+        if(vApp%amHelper) then
+            call MPI_comm_split(allComm, MPI_UNDEFINED, commSize, voltComm, ierr)
+        else
+            call MPI_comm_split(allComm, 0, commSize, voltComm, ierr)
+        endif
+
+        ! helpers don't do full voltron initialization
+        if(vApp%amHelper) then
+            vApp%isLoud = .false.
+            vApp%writeFiles = .false.
+
+            ! read helper XML options
+            if(present(optFilename)) then
+                inpXML = optFilename
+            else
+                call getIDeckStr(inpXML)
+            endif
+            call CheckFileOrDie(inpXML,"Error opening input deck in initVoltron_mpi, exiting ...")
+            xmlInp = New_XML_Input(trim(inpXML),'Kaiju/Gamera',.false.)
+
+            call xmlInp%Set_Val(vApp%useHelpers,"/Kaiju/Voltron/Helpers/useHelpers",.false.)
+            call xmlInp%Set_Val(vApp%doSquishHelp,"/Kaiju/Voltron/Helpers/doSquishHelp",.true.)
+            call xmlInp%Set_Val(vApp%masterSquish,"/Kaiju/Voltron/Helpers/masterSquish",.false.)
+            call xmlInp%Set_Val(nHelpers,"/Kaiju/Voltron/Helpers/numHelpers",0)
+            call MPI_Comm_Size(vApp%vHelpComm, commSize, ierr)
+            if(ierr /= MPI_Success) then
+                call MPI_Error_string( ierr, message, length, ierr)
+                print *,message(1:length)
+                call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+            end if
+            if(.not. vApp%useHelpers) then
+                print *,"Voltron helpers were created, but the helping option is disabled."
+                print *,"Please either turn the /Voltron/Helpers/useHelpers option on, or "
+                print *,"  remove the unnecessary Voltron helper ranks."
+                call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+            endif
+            if(nHelpers .ne. commSize-1) then
+                print *,"The number of voltron helpers is not correct."
+                call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+            endif
+
+            ! initialize a full baby voltron
+            vApp%gAppLocal%Grid%ijkShift(1:3) = 0
+            call ReadCorners(vApp%gAppLocal%Model,vApp%gAppLocal%Grid,xmlInp,childGameraOpt=.true.)
+            call SetRings(vApp%gAppLocal%Model,vApp%gAppLocal%Grid,xmlInp)
+            call Corners2Grid(vApp%gAppLocal%Model,vApp%gAppLocal%Grid)
+            call DefaultBCs(vApp%gAppLocal%Model,vApp%gAppLocal%Grid)
+            call PrepState(vApp%gAppLocal%Model,vApp%gAppLocal%Grid,&
+                vApp%gAppLocal%oState,vAPp%gApplocal%State,xmlInp,userInitFunc)
+
+            ! now initialize basic voltron structures from gamera data
+            if(present(optFilename)) then
+                call initVoltron(vApp, vApp%gAppLocal, optFilename)
+            else
+                call initVoltron(vApp, vApp%gAppLocal)
+            endif
+
+            ! get starting time values from master voltron rank
+            call mpi_bcast(vApp%tFin, 1, MPI_MYFLOAT, 0, vApp%vHelpComm, ierr)
+            call mpi_bcast(vApp%time, 1, MPI_MYFLOAT, 0, vApp%vHelpComm, ierr)
+
+            ! accept the mpi window on the voltron master rank, expose none of my own memory
+            winsize = 0 ! have to use this because it's an odd size integer
+            call mpi_win_create(MPI_BOTTOM, winsize, 1, MPI_INFO_NULL, vApp%vHelpComm, vApp%vHelpWin, ierr)
+            if(ierr /= MPI_Success) then
+                call MPI_Error_string( ierr, message, length, ierr)
+                print *,message(1:length)
+                call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+            end if
+
+            return
+        endif
 
         ! create a new communicator using MPI Topology
         call MPI_Comm_Size(voltComm, commSize, ierr)
@@ -220,9 +271,30 @@ module voltapp_mpi
             call getIDeckStr(inpXML)
         endif
         call CheckFileOrDie(inpXML,"Error opening input deck in initVoltron_mpi, exiting ...")
-        xmlInp = New_XML_Input(trim(inpXML),'Gamera',.true.)
-        call xmlInp%Set_Val(vApp%doSerialVoltron,"/Voltron/coupling/doSerial",.false.)
-        call xmlInp%Set_Val(vApp%doAsyncShallow, "/Voltron/coupling/doAsyncShallow",.true.)
+        if (vApp%amHelper) then
+            xmlInp = New_XML_Input(trim(inpXML),'Kaiju/Gamera',.false.)
+        else
+            xmlInp = New_XML_Input(trim(inpXML),'Kaiju/Gamera',.true.)
+        endif
+        call xmlInp%Set_Val(vApp%doSerialVoltron,"/Kaiju/Voltron/coupling/doSerial",.false.)
+        call xmlInp%Set_Val(vApp%doAsyncShallow, "/Kaiju/Voltron/coupling/doAsyncShallow",.true.)
+        call xmlInp%Set_Val(vApp%useHelpers,"/Kaiju/Voltron/Helpers/useHelpers",.false.)
+        call xmlInp%Set_Val(vApp%doSquishHelp,"/Kaiju/Voltron/Helpers/doSquishHelp",.true.)
+        call xmlInp%Set_Val(vApp%masterSquish,"/Kaiju/Voltron/Helpers/masterSquish",.false.)
+        call xmlInp%Set_Val(nHelpers,"/Kaiju/Voltron/Helpers/numHelpers",0)
+        call MPI_Comm_Size(vApp%vHelpComm, commSize, ierr)
+        if(ierr /= MPI_Success) then
+            call MPI_Error_string( ierr, message, length, ierr)
+            print *,message(1:length)
+            call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+        end if
+        if(.not. vApp%useHelpers) nHelpers = 0
+        if(nHelpers .eq. 0) vApp%useHelpers = .false.
+        if(nHelpers .ne. commSize-1) then
+            print *,"The number of voltron helpers is not correct."
+            call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+        endif
+
         if(vApp%doSerialVoltron) then
             ! don't do asynchronous shallow if comms are serial
             vApp%doAsyncShallow = .false.
@@ -242,21 +314,15 @@ module voltapp_mpi
             call initVoltron(vApp, vApp%gAppLocal)
         endif
 
-        ! receive current time information in case of a restart
-        if(vApp%gAppLocal%Model%isRestart) then
-            call mpi_recv(vApp%IO%nOut, 1, MPI_INT, MPI_ANY_SOURCE, 97520, vApp%voltMpiComm, MPI_STATUS_IGNORE, ierr)
-            call mpi_recv(vApp%IO%nRes, 1, MPI_INT, MPI_ANY_SOURCE, 97530, vApp%voltMpiComm, MPI_STATUS_IGNORE, ierr)
-            call mpi_recv(vApp%gAppLocal%Model%t, 1, MPI_MYFLOAT, MPI_ANY_SOURCE, 97540, vApp%voltMpiComm, MPI_STATUS_IGNORE, ierr)
-            call mpi_recv(vApp%gAppLocal%Model%ts, 1, MPI_INT, MPI_ANY_SOURCE, 97550, vApp%voltMpiComm, MPI_STATUS_IGNORE, ierr)
+        ! Receive Gamera's restart number and ensure Voltron has the same restart number
+        call mpi_recv(gamNRES, 1, MPI_INT, MPI_ANY_SOURCE, 97520, vApp%voltMpiComm, MPI_STATUS_IGNORE, ierr)
+        if (vApp%gAppLocal%Model%isRestart .and. vApp%IO%nRes /= gamNRES) then
+            write(*,*) "Gamera and Voltron disagree on restart number, you should sort that out."
+            write(*,*) "Error code: A house divided cannot stand"
+            write(*,*) "   Voltron nRes = ", vApp%IO%nRes
+            write(*,*) "   Gamera  nRes = ", gamNRES
+            stop
         endif
-
-        ! update voltron app time, MJD and ts values
-        call stepVoltron(vApp, vApp%gAppLocal)
-
-        ! correct initial shallow time, which always starts immediately
-        vApp%ShallowT = vApp%time
-        ! Deep start time is user-defined and may not have occurred before restart
-        if(vApp%time > vApp%DeepT) vApp%DeepT = vApp%time
 
         ! send all of the initial voltron parameters to the gamera ranks
         call mpi_bcast(vApp%time, 1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
@@ -280,11 +346,6 @@ module voltapp_mpi
         ! receive updated gamera parameters from gamera rank
         call mpi_recv(vApp%gAppLocal%Model%dt0, 1, MPI_MYFLOAT, MPI_ANY_SOURCE, 97510, vApp%voltMpiComm, MPI_STATUS_IGNORE, ierr)
 
-        ! calculate what the next output and restart timing should be for gamera
-        if(vApp%gAppLocal%Model%isRestart) then
-            vApp%IO%tOut = floor(vApp%time/vApp%IO%dtOut)*vApp%IO%dtOut
-            vApp%IO%tRes = vApp%time + vApp%IO%dtRes
-        endif
         ! synchronize IO timing
         call mpi_bcast(vApp%IO%tOut/vApp%gAppLocal%Model%Units%gT0, &
                        1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
@@ -295,6 +356,24 @@ module voltapp_mpi
         call mpi_bcast(vApp%IO%dtRes/vApp%gAppLocal%Model%Units%gT0, &
                        1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
         call mpi_bcast(vApp%IO%tsOut, 1, MPI_INT, vApp%myRank, vApp%voltMpiComm, ierr)
+
+        if(vApp%useHelpers) then
+            ! send initial timing data to helper voltron ranks
+            call mpi_bcast(vApp%tFin, 1, MPI_MYFLOAT, 0, vApp%vHelpComm, ierr)
+            call mpi_bcast(vApp%time, 1, MPI_MYFLOAT, 0, vApp%vHelpComm, ierr)
+
+            ! allocate data for helpers to set status, and share with them
+            allocate(vApp%vHelpIdle(nHelpers))
+            vApp%vHelpIdle = 0
+            call mpi_type_extent(MPI_INTEGER, length, ierr) ! size of integer
+            winsize = nHelpers*length ! have to use this because it's an odd size integer
+            call mpi_win_create(vApp%vHelpIdle, winsize, length, MPI_INFO_NULL, vApp%vHelpComm, vApp%vHelpWin, ierr)
+            if(ierr /= MPI_Success) then
+                call MPI_Error_string( ierr, message, length, ierr)
+                print *,message(1:length)
+                call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+            end if
+        endif
 
         ! create the MPI datatypes needed to transfer state data
         call createVoltDataTypes(vApp, iRanks, jRanks, kRanks)
@@ -315,7 +394,7 @@ module voltapp_mpi
     end subroutine initVoltron_mpi
 
     function gameraStepReady(vApp)
-        type(voltAppMpi_T), intent(in) :: vApp
+        type(voltAppMpi_T), intent(inout) :: vApp
         logical :: gameraStepReady
 
         integer :: ierr
@@ -324,7 +403,7 @@ module voltapp_mpi
         if(vApp%doSerialVoltron) then
             gameraStepReady = .true.
         else
-            call MPI_REQUEST_GET_STATUS(vApp%timeReq,gameraStepReady,MPI_STATUS_IGNORE,ierr)
+            call MPI_TEST(vApp%timeReq,gameraStepReady,MPI_STATUS_IGNORE,ierr)
         endif
         call Toc("GameraSync")
 
@@ -378,7 +457,8 @@ module voltapp_mpi
         type(voltAppMpi_T), intent(inout) :: vApp
         real(rp), intent(in) :: time
 
-        integer :: ierr, asyncShallowBcastReq
+        integer :: ierr
+        type(MPI_Request) :: asyncShallowBcastReq
 
         if(vApp%firstDeepUpdate .and. vApp%firstShallowUpdate) then
             call firstDeep(vApp)
@@ -451,11 +531,7 @@ module voltapp_mpi
 
         ! then start deep
         ! setup squish operation but don't yet perform the computations
-        call Tic("DeepUpdate")
-        call PreSquishDeep(vApp, vApp%gAppLocal)
-        call Toc("DeepUpdate")
-        vApp%deepProcessingInProgress = .true.
-
+        call startDeep(vApp)
     end subroutine
 
     subroutine concAsyncSAD_mpi(vApp, time)
@@ -497,11 +573,7 @@ module voltapp_mpi
 
         ! then start deep
         ! setup squish operation but don't yet perform the computations
-        call Tic("DeepUpdate")
-        call PreSquishDeep(vApp, vApp%gAppLocal)
-        call Toc("DeepUpdate")
-        vApp%deepProcessingInProgress = .true.
-
+        call startDeep(vApp)
     end subroutine
 
 !----------
@@ -751,6 +823,46 @@ module voltapp_mpi
 !----------
 !Deep coupling stuff (time coming from vApp%time, so in seconds)
 
+    subroutine startDeep(vApp)
+        type(voltAppMpi_T), intent(inout) :: vApp
+
+        call Tic("DeepUpdate")
+        call PreDeep(vApp, vApp%gAppLocal)
+        !call DoImag(vApp)
+        call SquishStart(vApp)
+
+        if(vApp%useHelpers .and. vApp%doSquishHelp) then
+            call Tic("VoltHelpers")
+            call vhReqSquishStart(vApp)
+            call Toc("VoltHelpers")
+        endif
+
+        ! moving this to after voltron helpers are started
+        call DoImag(vApp)
+
+        vApp%deepProcessingInProgress = .true.
+        call Toc("DeepUpdate")
+
+    end subroutine startDeep
+
+    subroutine endDeep(vApp)
+        type(voltAppMpi_T), intent(inout) :: vApp
+
+        call Tic("DeepUpdate")
+        vApp%deepProcessingInProgress = .false.
+
+        if(vApp%useHelpers .and. vApp%doSquishHelp) then
+            call Tic("VoltHelpers")
+            call vhReqSquishEnd(vApp)
+            call Toc("VoltHelpers")
+        endif
+
+        call SquishEnd(vApp)
+        call PostDeep(vApp, vApp%gAppLocal)
+        call Toc("DeepUpdate")
+
+    end subroutine endDeep
+
     function deepInProgress(vApp)
         type(voltAppMpi_T), intent(in) :: vApp
         logical :: deepInProgress
@@ -764,19 +876,21 @@ module voltapp_mpi
 
         if(.not. vApp%deepProcessingInProgress) return
 
-        call Tic("DeepUpdate")
-        call Tic("Squish")
-        call DoSquishBlock(vApp)
-        call Toc("Squish")
-
-        if(.not. SquishBlocksRemain()) then
-            vApp%deepProcessingInProgress = .false.
+        if(SquishBlocksRemain(vApp)) then
+            call Tic("DeepUpdate")
+            call Tic("Squish")
+            call DoSquishBlock(vApp)
+            call Toc("Squish")
+            call Toc("DeepUpdate")
         endif
 
-        if(.not. vApp%deepProcessingInProgress) then
-            call PostSquishDeep(vApp, vApp%gAppLocal)
+        if(.not. SquishBlocksRemain(vApp)) then
+            if((.not. vApp%useHelpers) .or. &
+               (vApp%useHelpers .and. .not. vApp%doSquishHelp) .or. &
+               (vApp%useHelpers .and. vApp%doSquishHelp .and. allHelpersIdle(vApp)) ) then
+                call endDeep(vApp)
+            endif
         endif
-       call Toc("DeepUpdate")
 
     end subroutine doDeepBlock
 
@@ -796,10 +910,7 @@ module voltapp_mpi
         call recvDeepData_mpi(vApp)
         call Toc("DeepRecv")
         saveDeepT = vApp%DeepT ! save the DeepT so it won't change during initial update
-        call Tic("DeepUpdate")
-        call PreSquishDeep(vApp, vApp%gAppLocal)
-        call Toc("DeepUpdate")
-        vApp%deepProcessingInProgress = .true.
+        call startDeep(vApp)
         vApp%firstDeepUpdate = .false.
         do while(deepInProgress(vApp))
             call doDeepBlock(vApp)
@@ -902,11 +1013,7 @@ module voltapp_mpi
             call Toc("DeepRecv")
 
             ! setup squish operation but don't yet perform the computations
-            call Tic("DeepUpdate")
-            call PreSquishDeep(vApp, vApp%gAppLocal)
-            call Toc("DeepUpdate")
-            vApp%deepProcessingInProgress = .true.
-
+            call startDeep(vApp)
         endif
     end subroutine
 
@@ -949,13 +1056,14 @@ module voltapp_mpi
         integer, dimension(1:SIZE(vApp%recvRanks)+1), intent(in) :: iRanks, jRanks, kRanks
 
         integer :: ierr, NiRanks, NjRanks, NkRanks, NipT, NjpT, NkpT, dataSize
-        integer :: r, rRank, recvDataOffset, recvDatatype
-        integer :: iJP, iJPjP, iJPjPkP, iJPjPkP4Gas, iJPjPkP5Gas, iJPjPkP4Bxyz, iJPjPkP5Bxyz
-        integer :: iJP3, iJP3jP, iJP3jPG, iJP3jPG2, iJP3jPkPG2, iJP3jPGkPG2, iJP3jPG2kPG2
-        integer :: iJP3jPkPG24Bxyz, iJP3jPGkPG24Bxyz, iJP3jPG2kPG24Bxyz
-        integer :: sRank,sendDataOffset,iPSI,iPSI1,Exyz2,Eijk2,Exyz3,Eijk3,Exyz4,Eijk4
-        integer :: iP,iPjP,iPjPkP,iPjPkP4Bxyz,iPjPkP4Gas,iPjPkP5Gas
-        integer :: iPG2,iPG2jPG2,iPG2jPG2kPG2,iPG2jPG2kPG24Gas,iPG2jPG2kPG25Gas
+        integer :: r, rRank, recvDataOffset, sRank, sendDataOffset
+        type(MPI_Datatype) :: recvDatatype
+        type(MPI_Datatype) :: iJP, iJPjP, iJPjPkP, iJPjPkP4Gas, iJPjPkP5Gas, iJPjPkP4Bxyz, iJPjPkP5Bxyz
+        type(MPI_Datatype) :: iJP3, iJP3jP, iJP3jPG, iJP3jPG2, iJP3jPkPG2, iJP3jPGkPG2, iJP3jPG2kPG2
+        type(MPI_Datatype) :: iJP3jPkPG24Bxyz, iJP3jPGkPG24Bxyz, iJP3jPG2kPG24Bxyz
+        type(MPI_Datatype) :: iPSI,iPSI1,Exyz2,Eijk2,Exyz3,Eijk3,Exyz4,Eijk4
+        type(MPI_Datatype) :: iP,iPjP,iPjPkP,iPjPkP4Bxyz,iPjPkP4Gas,iPjPkP5Gas
+        type(MPI_Datatype) :: iPG2,iPG2jPG2,iPG2jPG2kPG2,iPG2jPG2kPG24Gas,iPG2jPG2kPG25Gas
 
         associate(Grid=>vApp%gAppLocal%Grid,Model=>vApp%gAppLocal%Model, &
                   JpSt=>vApp%mhd2mix%JStart,JpSh=>vApp%mhd2mix%JShells, &
@@ -1193,6 +1301,46 @@ module voltapp_mpi
         end associate
 
     end subroutine createVoltDataTypes
+
+    subroutine helpVoltron(vApp, helperQuit)
+        type(voltAppMpi_T), intent(inout) :: vApp
+        logical, intent(out) :: helperQuit ! should the helper quit
+
+        integer :: ierr, helpType
+        type(MPI_Request) :: helpReq
+
+        helperQuit = .false. ! don't quit normally
+
+        ! assumed to only be in this function if helpers are enabled
+
+        ! async wait for command type
+        call mpi_Ibcast(helpType, 1, MPI_INT, 0, vApp%vHelpComm, helpReq, ierr)
+        call mpi_wait(helpReq, MPI_STATUS_IGNORE, ierr)
+
+        !write (*,*) 'Helper got request type: ', helpType
+
+        ! not idle now
+        call setIdleStatus(vApp, helpType)
+
+        ! then call appropriate function to deal with command
+        select case(helpType)
+            CASE (VHSTEP)
+                call vhHandleStep(vApp)
+            CASE (VHSQUISHSTART)
+                call vhHandleSquishStart(vApp)
+            CASE (VHSQUISHEND)
+                call vhHandleSquishEnd(vApp)
+            case (VHQUIT)
+                helperQuit = .true.
+            CASE DEFAULT
+                print *,"Unknown voltron helper request type received."
+                stop
+        end select
+
+        ! idle now
+        call setIdleStatus(vApp, 0)
+
+    end subroutine
 
 end module voltapp_mpi
 

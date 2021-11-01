@@ -7,8 +7,9 @@ module mixparams
 
   !Grid default parameter type
   type MixGrid0_T
-    integer :: Np=256,Nt=128
+    integer  :: Np=256,Nt=128
     real(rp) :: LowLatBC = 45.0
+    real(rp) :: R0 = 0.083567956_rp
   end type MixGrid0_T
 
   type(MixGrid0_T), private :: MixGrid0
@@ -24,14 +25,22 @@ module mixparams
 
       MixGrid0%LowLatBC = asin(sqrt(1.0/Rin))*180.0/PI
       !Set default grid resolution (in degrees)
-      if (Nk<=128) then
+      if (Nk<=64 ) then
+        !DBL
         dDeg = 1.0
+        MixGrid0%R0 = 0.08
+      else if (Nk<=128) then
+        !QUAD
+        dDeg = 1.0
+        MixGrid0%R0 = 0.04
       else if (Nk<=256) then
         !OCT
         dDeg = 0.5
+        MixGrid0%R0 = 0.02
       else
         !HEX or above
         dDeg = 0.25
+        MixGrid0%R0 = 0.02 ! Maybe?
       endif
 
       MixGrid0%Np = nint(360.0/dDeg)
@@ -65,7 +74,7 @@ module mixparams
       endif
 
       !First set input deck reader
-      xmlInp = New_XML_Input(trim(inpXML),'REMIX',.true.)
+      xmlInp = New_XML_Input(trim(inpXML),'Kaiju/REMIX',.true.)
 
         ! =========== CONDUCTANCE MODEL PARAMTERS =================== !
         ! EUV_MODEL_TYPE
@@ -101,14 +110,16 @@ module mixparams
               Params%aurora_model_type = ZHANG
            case ("RCMONO")
               Params%aurora_model_type = RCMONO
+           case ("RCMFED")
+              Params%aurora_model_type = RCMFED
            case default 
-              stop "The aurora model type entered is not supported (Available options: FEDDER, ZHANG, RCMONO)."
+              stop "The aurora model type entered is not supported (Available options: FEDDER, ZHANG, RCMONO, RCMFED)."
         end select
 
         ! Numerical constants
         call xmlInp%Set_Val(Params%alpha,"precipitation/alpha",1.0332467_rp)
         call xmlInp%Set_Val(Params%beta,"precipitation/beta",0.4362323_rp)
-        call xmlInp%Set_Val(Params%R,"precipitation/R",0.083567956_rp)
+        call xmlInp%Set_Val(Params%R,"precipitation/R",MixGrid0%R0)
         call xmlInp%Set_Val(Params%doAuroralSmooth,"precipitation/doAuroralSmooth",.false.)        
         call xmlInp%Set_Val(Params%F107,"conductance/F107",120._rp)
         call xmlInp%Set_Val(Params%pedmin,"conductance/pedmin",2.0_rp)
@@ -144,7 +155,7 @@ module mixparams
 
         ! =========== IO PARAMTERS =================== !
         call xmlInp%Set_Val(Params%dtOut,"output/dtOut",1.0_rp)
-        call xmlInp%Set_Val(Params%nRes,"/gamera/restart/nRes",-1)
+        call xmlInp%Set_Val(Params%nRes,"/Kaiju/gamera/restart/nRes",-1)
         ! =========== IO PARAMTERS =================== !
 
         ! =========== DEBUG PARAMETERS ================ !

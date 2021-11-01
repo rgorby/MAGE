@@ -129,6 +129,7 @@ module gamtypes
 
     end type Model_T
 
+
 !Overall grid information
     !Nip = # of physical cells, Ni = Nip+2*Ng
     !Sizes of data structures
@@ -219,8 +220,8 @@ module gamtypes
         logical :: doB0Init = .true.
         real(rp), dimension(:,:,:,:,:), allocatable :: fcB0
         real(rp), dimension(:,:,:,:,:), allocatable :: edgB0
-        real(rp), dimension(:,:,:,:), allocatable :: B0,bFlux0
-        real(rp), dimension(:,:,:,:), allocatable :: dpB0 !Stress from background field
+        real(rp), dimension(:,:,:,:)  , allocatable :: B0,bFlux0
+        real(rp), dimension(:,:,:,:)  , allocatable :: dpB0 !Stress from background field
     !Gravitational force
         logical :: doG0Init = .true.
         real(rp), dimension(:,:,:,:), allocatable :: gxyz !Gravitational acceleration (cell-centered)
@@ -252,14 +253,14 @@ module gamtypes
         !gFlux = Ni x Nj x Nk x Nv x Nd x Ns
         !mFlux = Ni x Nj x Nk x Nd x Nd
         real(rp), dimension(:,:,:,:,:,:), allocatable :: gFlx
-        real(rp), dimension(:,:,:,:,:), allocatable :: mFlx
+        real(rp), dimension(:,:,:,:,:)  , allocatable :: mFlx
 
         !Vf(i,j,k,XYZ-DIR), XYZ velocities pushed to dT1 faces
         !Vf = (Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,NDIM)
         real(rp), dimension(:,:,:,:), allocatable :: Vf
 
         real(rp), dimension(:,:,:,:,:), allocatable :: dGasH
-        real(rp), dimension(:,:,:,:), allocatable :: dGasM
+        real(rp), dimension(:,:,:,:)  , allocatable :: dGasM
         type(State_T) :: StateHf
 
         !Ensure these arrays are aligned properly
@@ -272,9 +273,9 @@ module gamtypes
     abstract interface
         subroutine StateIC_T(Model,Grid,State,inpXML)
             Import :: Model_T, Grid_T, State_T, strLen, XML_Input_T
-            type(Model_T), intent(inout) :: Model
-            type(Grid_T), intent(inout) :: Grid
-            type(State_T), intent(inout) :: State
+            type(Model_T) , intent(inout) :: Model
+            type(Grid_T)  , intent(inout) :: Grid
+            type(State_T) , intent(inout) :: State
             type(XML_Input_T), intent(in) :: inpXML
         end subroutine StateIC_T
 
@@ -285,7 +286,7 @@ module gamtypes
     abstract interface
         subroutine ScalarFun_T(x,y,z,F)
             Import :: rp
-            real(rp), intent(in) :: x,y,z
+            real(rp), intent(in ) :: x,y,z
             real(rp), intent(out) :: F
         end subroutine ScalarFun_T
     end interface
@@ -295,7 +296,7 @@ module gamtypes
     abstract interface
         subroutine VectorField_T(x,y,z,Ax,Ay,Az)
             Import :: rp
-            real(rp), intent(in) :: x,y,z
+            real(rp), intent(in ) :: x,y,z
             real(rp), intent(out) :: Ax,Ay,Az
         end subroutine VectorField_T
     end interface
@@ -317,7 +318,7 @@ module gamtypes
         subroutine BC_T(Model,Grid,State)
             Import :: Model_T, Grid_T, State_T
             type(Model_T), intent(in) :: Model
-            type(Grid_T), intent(in) :: Grid
+            type(Grid_T) , intent(in) :: Grid
             type(State_T), intent(inout) :: State
 
         end subroutine BC_T
@@ -331,9 +332,9 @@ module gamtypes
         subroutine HackFlux_T(Model,Gr,gFlx,mFlx)
             Import :: rp,NDIM,NVAR,BLK,Model_T, Grid_T
             type(Model_T), intent(in) :: Model
-            type(Grid_T), intent(in) :: Gr
-            real(rp), intent(inout) :: gFlx(Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,1:NVAR,1:NDIM,BLK:Model%nSpc)
-            real(rp), intent(inout), optional :: mFlx(Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,1:NDIM,1:NDIM)
+            type(Grid_T) , intent(in) :: Gr
+            real(rp)  , intent(inout) :: gFlx(Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,1:NVAR,1:NDIM,BLK:Model%nSpc)
+            real(rp) , intent(inout), optional :: mFlx(Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,1:NDIM,1:NDIM)
 
         end subroutine HackFlux_T
     end interface
@@ -358,8 +359,8 @@ module gamtypes
     abstract interface
         subroutine HackStep_T(Model,Grid,State)
             Import :: Model_T, Grid_T, State_T
-            type(Model_T), intent(in) :: Model
-            type(Grid_T), intent(inout) :: Grid
+            type(Model_T), intent(in)    :: Model
+            type(Grid_T) , intent(inout) :: Grid
             type(State_T), intent(inout) :: State
 
         end subroutine HackStep_T
@@ -383,10 +384,10 @@ module gamtypes
     !A null initialization function for BCs that don't require initialization
     subroutine baseInit(bc,Model,Grid,State,xmlInp)
         class(baseBC_T), intent(inout) :: bc
-        type(Model_T), intent(inout) :: Model
-        type(Grid_T), intent(in) :: Grid
-        type(State_T), intent(in) :: State
-        type(XML_Input_T), intent(in) :: xmlInp
+        type(Model_T)  , intent(inout) :: Model
+        type(Grid_T)      , intent(in) :: Grid
+        type(State_T)     , intent(in) :: State
+        type(XML_Input_T) , intent(in) :: xmlInp
     end subroutine baseInit
 
     ! this should never be called

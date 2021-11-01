@@ -113,7 +113,7 @@ module pxing
             !Energy is unchanged, p11 and Mu change
             gamma = prt%Q(GAMGC)
             ebGam = max(1.0,gamma - 0.5*dot_product(vExB,vExB))
-            pMag = Model%m0*sqrt(ebGam**2.0 - 1.0)
+            pMag = Model%m0*sqrt(gamma**2.0 - 1.0)
             p11Mag = pSgn*pMag*sqrt( 1 - sin(aNew)**2.0 )
             Mu = ( (Model%m0**2)*(ebGam**2.0 - 1.0) - p11Mag*p11Mag) / (2*Model%m0*MagB)
 

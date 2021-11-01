@@ -14,6 +14,8 @@ module gridloc
     real(rp) :: DomR(2) !Rin/Rout
     real(rp) :: DomE(3) !xSun,xTail,yMax
 
+    real(rp) :: buffR ! extent of Gap region, assume pure dipole field within this and rmin
+
     !Aux data for grid localization
     type LocAux_T
         real(rp) :: dPhi,dTh !Angular spacing
@@ -53,6 +55,8 @@ module gridloc
 
     procedure(Loc_T)  , pointer :: locate=>NULL()
     procedure(inDom_T), pointer :: inDomain=>inDomain_Sph
+    procedure(inDom_T), pointer :: inGap=>inGap_Default
+
     type(LocAux_T) :: locAux
 
     integer, parameter :: NSnake = 25
@@ -87,7 +91,7 @@ module gridloc
 
         integer :: i,j
         real(rp) :: xJ(NDIM),xJp(NDIM)
-        character(len=strLen) :: domStr
+        character(len=strLen) :: domStr,gapStr
 
         call cleanupLoc()
 
@@ -98,6 +102,9 @@ module gridloc
             DomR(1) = ebGr%xyz(ebGr%is,ebGr%js,ebGr%ks,XDIR)
             !DomR(2) = ebGr%xyz(ebGr%ie+1,ebGr%js,ebGr%ks,XDIR)
             DomR(2) = ebGr%xyz(ebGr%ie,ebGr%js,ebGr%ks,XDIR)
+
+            !set Gap radius from sunward line
+            buffR = ebGr%xyz(ebGr%is+2,ebGr%js,ebGr%ks,XDIR)
 
             !Find min/max r and phi along each line of constant i or j
             allocate(locAux%rMin(ebGr%Nip+1))
@@ -176,9 +183,9 @@ module gridloc
                 inDomain=>inDomain_LFM
                 !Set bounds for yz-cylinder grid
                 !Choose appropriate for RCM coupling
-                call inpXML%Set_Val(DomE(1),'domain/xSun' , 20.0_rp)
-                call inpXML%Set_Val(DomE(2),'domain/xTail',-45.0_rp)
-                call inpXML%Set_Val(DomE(3),'domain/yzMax', 35.0_rp)
+                call inpXML%Set_Val(DomE(1),'domain/xSun' ,  20.0_rp)
+                call inpXML%Set_Val(DomE(2),'domain/xTail', -50.0_rp)
+                call inpXML%Set_Val(DomE(3),'domain/yzMax',  40.0_rp)
             case("EGG")
                 write(*,*) 'Using EGG inDomain'
                 inDomain=>inDomain_Egg
@@ -193,6 +200,24 @@ module gridloc
 
         end select
         
+        ! Gap region options
+        call inpXML%Set_Val(gapStr,'domain/gtype',"NONE")
+        select case (trim(toUpper(gapStr)))
+            case("NONE")
+                write(*,*) 'Not using inGap'
+                inGap=>inGap_Default
+            case("SPH","LFM")
+                write(*,*) 'Using spherical inGap'
+                inGap=>inGap_Sph
+                call inpXML%Set_Val(buffR,'domain/rgap',buffR)
+
+                ! Check to make sure gap region at leaset extends to MHD grid
+                if (buffR < ebGr%xyz(ebGr%is,ebGr%js,ebGr%ks,XDIR)) then
+                    write(*,*) 'Gap region must extend to inner boundary of MHD grid'
+                    stop
+                endif
+
+        end select
     end subroutine InitLoc
 
 !---------------------------------------
@@ -489,6 +514,34 @@ module gridloc
         endif
 
     end function inDomain_Egg
+
+    !Default inGap is always F
+    function inGap_Default(xyz,Model,ebGr) result(inDom)
+        real(rp), intent(in) :: xyz(NDIM)
+        type(chmpModel_T), intent(in) :: Model
+        type(ebGrid_T), intent(in) :: ebGr
+
+        logical  :: inDom
+
+        inDom = .false.
+
+    end function inGap_Default
+
+    function inGap_Sph(xyz,Model,ebGr) result(inDom)
+        real(rp), intent(in) :: xyz(NDIM)
+        type(chmpModel_T), intent(in) :: Model
+        type(ebGrid_T), intent(in) :: ebGr
+        real(rp) :: r
+        logical  :: inDom
+
+        r = norm2(xyz)
+        if (r >= DomR(1) .and. r <= buffR) then
+            inDom = .true.
+        else
+            inDom = .false.
+        endif
+
+    end function inGap_Sph
 
     !Lazy hard-wired function to decide if foot-point is closed
     function isClosed(xyz,Model) result(inDom)

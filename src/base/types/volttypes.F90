@@ -113,6 +113,8 @@ module volttypes
         !Voltron output/restart info
         type (IOClock_T) :: IO
         logical :: isLoud = .true. !Console output
+        logical :: writeFiles = .true. !File output
+
         !Apps
         type(mixApp_T) :: remixApp
         type(mhd2Mix_T) :: mhd2mix
@@ -139,14 +141,15 @@ module volttypes
         real(rp) :: TargetDeepDT ! Desired deep step from Voltron
         logical  :: doDeep = .false. !Whether to do deep coupling
         real(rp) :: rTrc  !Radius to do tracing (ebSquish) inside of
+        integer  :: nTrc = MaxFL !Max number of tracer steps to take (ebSquish)
         integer  :: iDeep  = 0 !Index of max i shell containing deep coupling radius
         integer  :: imType = 0 !Type of inner magnetosphere model (0 = None)
         integer  :: prType = 0 !Type of projection for coupling   (0 = None)
         logical  :: doQkSquish = .false. !Whether or not to do fast squishing
+        integer  :: qkSquishStride = 2 ! Stride to use when fast squishing
 
         !Dynamic coupling info
         logical :: doDynCplDT = .false. !Whether to do dynamic coupling cadence
-        integer  :: qkSquishStride = 2 ! Stride to use when fast squishing
 
     end type voltApp_T
 

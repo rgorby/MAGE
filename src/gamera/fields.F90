@@ -8,6 +8,7 @@ module fields
 
     implicit none
 
+    logical, parameter, private :: doSafeE = .true. !Use safer E field calculation (avoid intel compiler bugs)
     logical, parameter, private :: doVa  = .true. !Use Alfven speed in diffusive velocity
     logical, parameter, private :: doVdA = .true. !Do area scaling for velocity->corner
     logical, parameter, private :: doBdA = .true. !Do area scaling for face flux->edge
@@ -51,6 +52,185 @@ module fields
     end subroutine E2Flux
 
     !Calculates electric field using variables in State (generally predictor state)
+    subroutine CalcElecField(Model,Gr,State,Vf,E)
+        type(Model_T), intent(in) :: Model
+        type(Grid_T), intent(in) :: Gr
+        type(State_T), intent(in) :: State
+        real(rp), dimension(Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,NDIM), intent(inout) :: Vf
+        real(rp), dimension(Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,NDIM), intent(inout) :: E
+
+        E = 0.0
+
+        if (doSafeE) then
+            call CalcElecField_Safe(Model,Gr,State,Vf,E)
+        else
+            call CalcElecField_Fast(Model,Gr,State,Vf,E)
+        endif
+
+    end subroutine CalcElecField
+
+    subroutine CalcElecField_Safe(Model,Gr,State,Vf,E)
+        type(Model_T), intent(in) :: Model
+        type(Grid_T), intent(in) :: Gr
+        type(State_T), intent(in) :: State
+        real(rp), dimension(Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,NDIM), intent(inout) :: Vf
+        real(rp), dimension(Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,NDIM), intent(inout) :: E
+
+        !Vector buffers
+        real(rp), dimension(vecLen) :: v1,v2,b1,b2,Jd,Dc,vDiff
+        real(rp) :: VelB(vecLen,NDIM)
+        real(rp) :: vA
+        integer :: i,iB,ieB,j,k,iG,iMax
+        integer :: ie,je,ke,ksg,keg
+        integer :: eD,eD0,dT1,dT2
+
+        !DIR$ ASSUME_ALIGNED E: ALIGN
+        !DIR$ ASSUME_ALIGNED Vf: ALIGN
+        !DIR$ ATTRIBUTES align : ALIGN :: v1,v2,b1,b2,Jd,Dc,vDiff,VelB
+
+        !Prep bounds for this timestep
+        eD0 = 1 !Starting direction for EMF
+
+        ksg = Gr%ksg
+        keg = Gr%keg
+
+        !Initialize thread-private blocks
+        v1 = 0.0
+        v2 = 0.0
+        b1 = 0.0
+        b2 = 0.0
+        Jd = 0.0
+        Dc = 0.0
+        VelB = 0.0
+
+    !----
+    !Start by getting face V
+        call Tic("Mom2Face")
+        
+        do eD=eD0,NDIM
+            !Use edge normal direction to calculate local triad
+            !Push cell-centered velocities along dT1 to face
+            select case(eD)
+                !Ei fields
+                case(IDIR)
+                    dT1 = JDIR; dT2 = KDIR !Sweep directions
+                    ie = Gr%ie; je = Gr%je+1; ke = Gr%ke+1 !Set last active edges in IJK
+
+                    !$OMP PARALLEL DO default (shared) collapse(2) &
+                    !$OMP private(i,iB,j,k,iMax,ieB,VelB)
+                    do k=ksg,keg
+                        do iB=Gr%isg,Gr%ieg,vecLen !Block loop
+                            do j=Gr%js,Gr%je+1 !J reconstruction
+                            
+                                iMax = min(vecLen,Gr%ieg-iB+1)
+                                ieB = iB+iMax-1
+
+                                call Mom2Face(Model,Gr,State%Gas(:,:,:,:,BLK),VelB,iB,j,k,iMax,dT1)
+
+                                Vf(iB:ieB,j,k,:) = VelB(1:iMax,:)
+                            enddo
+                        enddo
+                    enddo
+
+                case(JDIR)
+                    !Ej fields
+                    dT1 = KDIR; dT2 = IDIR !Sweep directions
+                    ie = Gr%ie+1; je = Gr%je; ke = Gr%ke+1 !Set last active edges in IJK
+
+                    !$OMP PARALLEL DO default (shared) collapse(2) &
+                    !$OMP private(i,iB,j,k,iMax,ieB,VelB)
+                    do j=Gr%jsg,Gr%jeg
+                        do iB=Gr%isg,Gr%ieg,vecLen !Block loop
+                            do k=Gr%ks,Gr%ke+1 !K reconstruction
+                            
+                                iMax = min(vecLen,Gr%ieg-iB+1)
+                                ieB = iB+iMax-1
+
+                                call Mom2Face(Model,Gr,State%Gas(:,:,:,:,BLK),VelB,iB,j,k,iMax,dT1)
+
+                                Vf(iB:ieB,j,k,:) = VelB(1:iMax,:)
+                            enddo
+                        enddo
+                    enddo
+
+                case(KDIR)
+                    !Ek fields
+                    dT1 = IDIR; dT2 = JDIR !Sweep directions
+                    ie = Gr%ie+1; je = Gr%je+1; ke = Gr%ke !Set last active edges in IJK
+
+                    !$OMP PARALLEL DO default (shared) collapse(2) &
+                    !$OMP private(i,iB,j,k,iMax,ieB,VelB)
+                    do k=ksg,keg
+                        do j=Gr%jsg,Gr%jeg
+                            do iB=Gr%is,Gr%ie+1,vecLen !Block loop/I reconstruction
+                            
+                                iMax = min(vecLen,Gr%ie+1-iB+1)
+                                ieB = iB+iMax-1
+
+                                call Mom2Face(Model,Gr,State%Gas(:,:,:,:,BLK),VelB,iB,j,k,iMax,dT1)
+
+                                Vf(iB:ieB,j,k,:) = VelB(1:iMax,:)
+                            enddo
+                        enddo
+                    enddo
+                !NOTE: Each OMP DO has an implicit barrier at the end
+            end select
+            
+            call Toc("Mom2Face")
+            !write(*,*) 'Vf bad = ', count(isnan((Vf)))
+
+    !----
+    !Now get edge VxB
+            call Tic("VxB")
+        
+            !Loop over active edges
+            !$OMP PARALLEL DO default (shared) collapse(2) &
+            !$OMP private(v1,v2,b1,b2,Jd,Dc,vDiff,VelB) &
+            !$OMP private(i,iB,j,k,iG,iMax,vA)
+            do k=Gr%ks, ke
+                do j=Gr%js, je
+                    do iB=Gr%is,ie,vecLen
+                        !Get size of this vector brick
+                        iMax = min(vecLen,ie-iB+1)
+
+                        vDiff = 0.0 !Zero out by default
+                        !Push from face to edge (v1/v2) and get diffusive flow speed (vDiff)
+                        call GetCornerV(Model,Gr,Vf,v1,v2,vDiff,iB,j,k,iMax,eD,dT1,dT2)
+
+                        call GetCornerD(Model,Gr,State%Gas(:,:,:,DEN,BLK),Dc,iB,j,k,iMax,eD)
+                        call GetCornerB(Model,Gr,State%magFlux,b1,b2,Jd,iB,j,k,iMax,eD,dT1,dT2)
+
+                        !Now we have everything, calculate diffusive speed and do field
+                        do i=1,iMax
+                            iG =iB+i-1
+                            
+                            if (doVa) then
+                                !Add Alfven speed to diffusive speed
+                                vA = sqrt(b1(i)**2.0 + b2(i)**2.0)/sqrt(Dc(i))
+                                !Boris correct
+                                if (Model%doBoris) then
+                                    vA = Model%Ca*vA/sqrt(Model%Ca**2.0 + vA**2.0)
+                                endif
+                                vDiff(i) = vDiff(i) + vA
+                                vDiff(i) = min(vDiff(i),Model%CFL*Gr%edge(iG,j,k,eD)/Model%dt)
+                            endif
+
+                            !Final field (w/ edge length)
+                            E(iG,j,k,eD) = -( v1(i)*b2(i) - v2(i)*b1(i) ) + Model%Vd0*vDiff(i)*Jd(i)
+                            E(iG,j,k,eD) = E(iG,j,k,eD)*Gr%edge(iG,j,k,eD)
+                        enddo
+                    enddo !iB loop
+                enddo
+
+            enddo !k loop
+            call Toc("VxB")
+            !write(*,*) 'E bad = ', count(isnan((E)))
+        enddo !eD loop, EMF direction
+        
+        if(Model%doResistive) call resistivity(Model,Gr,State,E)
+
+    end subroutine CalcElecField_Safe
+    !Calculates electric field using variables in State (generally predictor state)
     !General structure of computation
     !Calculate all cell-centered velocities (XYZ)
     !Loop over E-field directions (eD)
@@ -67,7 +247,7 @@ module fields
     !----Calculate diffusive velocity and finish EMF calculation, scale w/ edge length
     !Finally, do any other E field relevant calculations, ie resistivity
 
-    subroutine CalcElecField(Model,Gr,State,Vf,E)
+    subroutine CalcElecField_Fast(Model,Gr,State,Vf,E)
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Gr
         type(State_T), intent(in) :: State
@@ -112,8 +292,6 @@ module fields
             call Tic("Mom2Face")
             !$OMP END SINGLE NOWAIT
 
-
-            
             !Use edge normal direction to calculate local triad
             !Push cell-centered velocities along dT1 to face
             !TODO: Vary loop order for locality
@@ -235,7 +413,7 @@ module fields
 
         if(Model%doResistive) call resistivity(Model,Gr,State,E)
         
-    end subroutine CalcElecField
+    end subroutine CalcElecField_Fast
 
 
     subroutine Mom2Face(Model,Gr,W,VfB,iB,j,k,iMax,dT)
@@ -405,7 +583,6 @@ module fields
                 b1(i) = b1(i) + Gr%edgB0(iG,j,k,1,dN)
                 b2(i) = b2(i) + Gr%edgB0(iG,j,k,2,dN)
             endif
-
 
         enddo
 

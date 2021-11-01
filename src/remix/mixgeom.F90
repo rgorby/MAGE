@@ -84,7 +84,7 @@ module mixgeom
          ! for now always do uniform if grid not passed via mixIOobj
          call init_uniform(I%G,I%P%Np,I%P%Nt,I%P%LowLatBoundary*pi/180._rp,highLatBoundary*pi/180._rp,isSolverGrid=.true.)
       endif
-      call setD0(I%G)  ! pay attention: if the functional form is not axisymmetric, should make sure north and south are treated correctly.      
+      call setD0(I%G,I%St%hemisphere)  ! pay attention: if the functional form is not axisymmetric, should make sure north and south are treated correctly.
     end subroutine init_grid
     
     subroutine init_uniform(G,Np,Nt,LowLatBoundary,HighLatBoundary,isSolverGrid)
@@ -140,11 +140,12 @@ module mixgeom
     end subroutine init_grid_fromXY
 
     
-    subroutine setD0(G)
+    subroutine setD0(G,hemisphere)
       ! pay attention: if the functional form is not axisymmetric, should make sure north and south are treated correctly.
       type(mixGrid_T),intent(inout) :: G
+      integer,intent(in) :: hemisphere
       integer :: i,j
-      real(rp) :: r,L
+      real(rp) :: r,L,phi
       
       ! allocate space for background density
       if (.not.allocated(G%D0)) allocate(G%D0(G%Np,G%Nt))
@@ -152,9 +153,17 @@ module mixgeom
       do i=1,G%Nt
          do j=1,G%Np
             ! compute invariant latitude
-            r = sqrt(G%x(j,i)**2+G%y(j,i)**2)  ! =cos(lambda)
-            L = 1./r**2   ! neglecting the Ri/Re difference here
-            G%D0(j,i) = psphD(L)  ! use Gallagher from earthhelper
+            r = sqrt(G%x(j,i)**2+G%y(j,i)**2)   ! =cos(lambda)
+            L = (1./r**2)*(RionE/REarth)*1.0e+6 ! correcting for the Ri/Re difference
+
+            ! computing phi and flipping in the southern hemisphere
+            if (hemisphere.eq.SOUTH) then
+               phi = 2*pi-G%p(j,i)
+            else
+               phi = G%p(j,i)
+            endif
+
+            G%D0(j,i) = GallagherRP(L,phi)  ! use Gallagher from earthhelper
          enddo
       enddo
       

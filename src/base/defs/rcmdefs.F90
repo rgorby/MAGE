@@ -18,7 +18,6 @@ module rcmdefs
     INTEGER, parameter :: RCMPROTON   = 2
     INTEGER, parameter :: RCMOXYGEN   = 3
     INTEGER, parameter :: RCMNUMFLAV = 2 !Number of RCM flavors
-
     INTEGER, PARAMETER :: isize = RCMSIZEI !RCM grid size in colatitude
     INTEGER, PARAMETER :: jsize = RCMSIZEJ !RCM grid size in longitude
     INTEGER, PARAMETER :: ksize = RCMSIZEK !RCM grid size in lambda
@@ -32,8 +31,12 @@ module rcmdefs
     LOGICAL, PARAMETER :: doQuietRCM = .TRUE.
     LOGICAL, PARAMETER :: doDiskWrite = .FALSE.
     integer(kip), parameter :: RCMTOPCLOSED=-1,RCMTOPOPEN=+1,RCMTOPNULL=0
-    REAL(krp) :: DenPP0 = 10.0 !Defining plasmasphere density cutoff, [#/cc]
+    REAL(krp) :: DenPP0 = 5.0 !Defining plasmasphere density cutoff, [#/cc]
     REAL(krp) :: PSPHKT = 1.0e-3 !Characteristic temperature for plasmasphere [keV]
     REAL(krp), PARAMETER :: machine_tiny = 1.0e-32
+
+    enum, bind(C)
+      enumerator :: ELOSS_FDG=1,ELOSS_SS,ELOSS_C05,ELOSS_C19 !Choice of electron loss model
+    end enum
 
 end module rcmdefs

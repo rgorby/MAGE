@@ -3,14 +3,14 @@ module calcdbutils
 	use chmpdefs
 	use ebtypes
     use calcdbtypes
-    
+
 	implicit none
 
-	real(rp) :: dzGG = 60.0 !Default height spacing [km]
-    logical, private, parameter :: doHall = .true.
-    logical, private, parameter :: doPed  = .true.
+	real(rp) :: dzGG = 30.0 !Default height spacing [km]
+    logical, private, parameter :: doAmm   = .true.
 
     integer, private, parameter :: TDIR=1,PDIR=2
+    integer, private, parameter :: Ngm = 4 !Stencil for gradient
 
 	contains
 
@@ -25,7 +25,8 @@ module calcdbutils
         real(rp) :: rMHD,rIon,dr,dV
         real(rp), dimension(:), allocatable :: rC
         real(rp) :: phi,theta,ionlat,c2lat,lat
-        real(rp) :: latC,latP,latM,dlat
+        real(rp) :: latC,thGap,thIon,dl
+        real(rp) :: latP,latM,dlat
         Np = rmState%Np
         Nth = rmState%Nth
 
@@ -49,6 +50,9 @@ module calcdbutils
 
         !Get radial spacing
         rMHD = norm2(ebState%ebGr%xyz(1,1,1,XDIR:ZDIR))
+        !Using the current closure in the 2nd cell center
+        !rMHD = norm2(ebState%ebGr%xyzcc(2,1,1,XDIR:ZDIR))
+
         rIon = (RionE*1.0e+6)/REarth !Ionospheric radius in units of Re, ~1.01880
 
         dr = (rMHD-rIon)/rSegs
@@ -79,40 +83,32 @@ module calcdbutils
                         facGrid%XYZcc(i,j,n,l,XDIR) = rC(n)*sin(theta)*cos(phi)
                         facGrid%XYZcc(i,j,n,l,YDIR) = rC(n)*sin(theta)*sin(phi)
                         facGrid%XYZcc(i,j,n,l,ZDIR) = rC(n)*cos(theta)
-
+                        
                     enddo !i
 
                 enddo !j
             enddo !n
         enddo !l
 
+        !J dA dl = J_ion dA_ion dl = J11_ion dA_ion cos(dip) dl
+        !dV = dA_ion cos(dip) dl
         !Get dV, do northern hemisphere then copy
+
         !$OMP PARALLEL DO default(shared) &
-        !$OMP private(j,n,latC,latM,latP,dlat,dV)
+        !$OMP private(j,n,latC,thGap,thIon,dl,dV)
         do n=1,rSegs
             do j=1,Nth
                 latC = xyz2lat(facGrid%XYZcc(1,j,n,NORTH,:))
+                thGap = PI/2 - latC !theta of this cell-center in gap region
+                thIon = facGrid%tcc(1,j,NORTH) !Ionospheric theta
 
-                if (j==1) then
-                    latM = latC
-                    latP = xyz2lat(facGrid%XYZcc(1,j+1,n,NORTH,:))
-                    dlat = abs(latP-latM)
-                else if (j == Nth) then
-                    latP = latC
-                    latM = xyz2lat(facGrid%XYZcc(1,j-1,n,NORTH,:))
-                    dlat = abs(latP-latM)
-                else
-                    latP = xyz2lat(facGrid%XYZcc(1,j+1,n,NORTH,:))
-                    latM = xyz2lat(facGrid%XYZcc(1,j-1,n,NORTH,:))
-                    dlat = abs(latP-latM)/2.0
-                endif
+                !Arc length along dipole at this radius/theta
+                dl = dr * sqrt(1.0 + 3.0*(cos(thGap)**2.0))/2/cos(thGap)
+                dV = dl*ionGrid%dS(1,j,NORTH)*abs(CosDip(thIon))
 
-                !Note: This includes extra dphi missing from Eqn 6 in Rastatter+ 2014
-                dV = (dr*rC(n)**2.0)*dlat*facGrid%dp*cos(latC)
                 facGrid%dV(:,j,n,:) = dV
             enddo
         enddo
-
 
 	end subroutine facGridInit
 
@@ -126,7 +122,7 @@ module calcdbutils
         integer :: i,j
         real(rp), dimension(:,:), allocatable :: Z
         real(rp) :: R0,theta,phi,thesp,phisp
-        real(rp) :: phi0,dp,th0,dth
+        real(rp) :: phi0,dp,th0,dth,th1,th2
 
         Np = rmState%Np
         Nth = rmState%Nth
@@ -156,7 +152,12 @@ module calcdbutils
 
         th0 = acos(Z(1,1))
         dth = acos(Z(1,2)) - acos(Z(1,1))
-        
+        !Doing some dumb angle rounding to force sensible values from janky remix grid
+        th0 = RoundAng(th0)
+        dth = RoundAng(dth)
+
+        write(*,*) 'ReMIX Low-latitude = ', ang2deg(acos(Z(1,Nth))),ang2deg(RoundAng(acos(Z(1,Nth))))
+
         ionGrid%dt = dth
         ionGrid%dp = dp
 
@@ -164,10 +165,18 @@ module calcdbutils
 
         !Get coordinates and dS
         !$OMP PARALLEL DO default(shared) &
-        !$OMP private(i,j,phi,theta,thesp,phisp)
+        !$OMP private(i,j,phi,theta,thesp,phisp,th1,th2)
         do j=1,ionGrid%Nth !Theta
+
             !Get NH theta (cc)
             theta = th0 + 0.5*dth + dth*(j-1)
+            th1 = theta-0.5*dth
+            th2 = theta+0.5*dth
+
+            !Fix hole at pole
+            if (j == 1) then
+                th1 = 0.0 !Make sure highest cell goes up to pole
+            endif
 
             do i=1,ionGrid%Np !phi
                 !cell-centered phi
@@ -188,8 +197,8 @@ module calcdbutils
                 ionGrid%XYZcc(i,j,SOUTH,ZDIR) = R0*cos(thesp)
 
                 !Store surface area elements
-                ionGrid%dS(i,j,NORTH) = (R0**2.0)*sin(theta)*dth*dp
-                ionGrid%dS(i,j,SOUTH) = (R0**2.0)*sin(thesp)*dth*dp
+                ionGrid%dS(i,j,NORTH) = (R0**2.0)*sin(theta)*(th2-th1)*dp
+                ionGrid%dS(i,j,SOUTH) = (R0**2.0)*sin(thesp)*(th2-th1)*dp
 
                 !Store cell-centered angles
                 ionGrid%pcc(i,j,NORTH) = phi
@@ -199,6 +208,15 @@ module calcdbutils
 
             enddo
         enddo
+
+        contains 
+            function RoundAng(inAng)
+                real(rp), intent(in) :: inAng
+                real(rp) :: RoundAng
+                real(rp) :: inAngD
+                inAngD = inAng*180.0/PI
+                RoundAng = (PI/180.0)*nint(inAngD*8.0)/8.0
+            end function RoundAng
 
     end subroutine ionGridInit
 
@@ -218,7 +236,6 @@ module calcdbutils
         call BSSubInit(magBS,NMag)
         magBS%jScl = B0/(4.0*PI) !Scaling factor
 
-        !CALCDB-TODO: Add ionBS%jScl and facBS%jScl values
     !Ion BS grid
         !Number of cells
         NIon = (rmState%Np)*(rmState%Nth)*(2) !Include N/S hemispheres
@@ -255,42 +272,87 @@ module calcdbutils
         type(facGrid_T)  , intent(inout) :: facGrid
 
         integer :: i,j,n,l
-        real(rp), dimension(NDIM) :: xC,jhat
-        real(rp) :: rIon,lation,lat,dscl,J11,rscl3
+        real(rp), dimension(NDIM) :: xC,bhat
+        real(rp) :: rIon,J11i,J11m,Biom
 
-        !CALCDB-TODO: Write this
         facGrid%Jxyz = 0.0
 
         rIon = (RionE*1.0e+6)/REarth !Ionospheric radius in units of Re, ~1.01880
 
         !$OMP PARALLEL DO default(shared) collapse (3) &
-        !$OMP private(i,j,n,l,xC,jhat) &
-        !$OMP private(lation,lat,dscl,J11,rscl3)
+        !$OMP private(i,j,n,l,xC,bhat) &
+        !$OMP private(J11i,J11m,Biom)
         do l=1,2
             do n=1,facGrid%rSegs
                 do j=1,facGrid%Nth
                     do i=1,facGrid%Np
                         xC = facGrid%XYZcc(i,j,n,l,XDIR:ZDIR)
                         
-                        rscl3 = (rIon/norm2(xC))**3.0
-                        lation = PI/2 - facGrid%tcc(i,j,l)
-                        lat = xyz2lat(xC)
-                        dscl = sqrt(3*sin(lation)*sin(lation) + 1)
-                        !Get J11, stored in muA/m2
+                        Biom = BionoBm(xC) !Ratio of ionosphere B field and this point
+                        !Get J11,ion stored in muA/m2
                         if (l == NORTH) then
-                            J11 = rmState%nFac(i,j)
+                            J11i = rmState%nFac(i,j)
                         else
-                            J11 = rmState%sFac(i,j)
+                            J11i = rmState%sFac(i,j)
                         endif
-                        J11 = (1.0e-6)*J11 
-                        !Calculate current in A/m2
-                        jhat = [2.0*sin(lat),0.0_rp,-cos(lat)]
 
-                        facGrid%Jxyz(i,j,n,l,:) = jhat*J11*rscl3/dscl 
+                        !Calculate current in A/m2
+                        J11i = (1.0e-6)*J11i
+                        !Use same gap region J11 as ion, scaling has been included in dV
+                        J11m = J11i
+
+                        !Now get local bhat
+                        bhat = bhatXYZ(xC)
+
+                        !J11,bhat,amplification factor
+                        facGrid%Jxyz(i,j,n,l,:) = J11m*bhat
+
                     enddo !i
                 enddo !j
             enddo !k
         enddo !l
+
+        contains
+
+            function bhatXYZ(xyz)
+                real(rp), intent(in) :: xyz(NDIM)
+                real(rp) :: bhatXYZ(NDIM)
+
+                real(rp) :: x,y,z,r,r2,A
+
+                x = xyz(XDIR)
+                y = xyz(YDIR)
+                z = xyz(ZDIR)
+                r = norm2(xyz)
+                r2 = r**2.0
+                A = sqrt( 1 + 3.0*(z/r)**2.0 )
+
+                bhatXYZ(XDIR) = -(1/A)*(3*x*z)/r2
+                bhatXYZ(YDIR) = -(1/A)*(3*y*z)/r2
+                bhatXYZ(ZDIR) =  (1/A)*( -2 + 3*(x**2.0+y**2.0)/r2 )
+
+            end function bhatXYZ
+
+            !Bion/Bm ratio, see mhd2mix code for explanation
+            function BionoBm(xyz)
+                real(rp), intent(in) :: xyz(NDIM)
+                real(rp) :: BionoBm
+
+                real(rp) :: x,y,z,rMag,Rp,zor2,mZ,pZ
+
+                x = xyz(XDIR)
+                y = xyz(YDIR)
+                z = xyz(ZDIR)
+                rMag = norm2(xyz)
+                Rp = rMag/rIon
+                
+                zor2 = (z/rMag)**2.0
+                mZ = (1.0-zor2)/Rp
+                pZ = 1.0+3.0*zor2
+
+                BionoBm = (Rp**3.0)*sqrt( 1.0 + 3.0*(1.0-mZ) )/sqrt(pZ)
+
+            end function BionoBm
 
     end subroutine facGridUpdate
 
@@ -298,11 +360,11 @@ module calcdbutils
     subroutine ionGridUpdate(Model,ebState,rmState,ionGrid)
         type(chmpModel_T), intent(in) :: Model
         type(ebState_T)  , intent(in) :: ebState
-        type(rmState_T)  , intent(in) :: rmState
+        type(rmState_T)  , intent(inout) :: rmState
         type(ionGrid_T)  , intent(inout) :: ionGrid
 
         real(rp) :: nEp,nEt,sEp,sEt
-        integer :: i,j,im,ip
+        integer :: i,j
         real(rp) :: R0,dth,dph,thnh,thsh,phnh,phsh
         real(rp) :: nhcdip,shcdip,nJt,sJt,nJp,sJp
 
@@ -316,49 +378,39 @@ module calcdbutils
         dth = ionGrid%dt
         dph = ionGrid%dp
 
+        if (rmState%doCorot) then
+            !Add corotation potential before taking gradient
+            !ReMix potential is in kV
+            !vcorot = -Psi0 *(Re / Ri)*SIN(colat)**2            
+            rmState%nPot = rmState%nPot - EarthPsi0*R0*( sin(ionGrid%tcc(:,:,NORTH))**2.0 )
+            rmState%sPot = rmState%sPot - EarthPsi0*R0*( sin(ionGrid%tcc(:,:,SOUTH))**2.0 )
+        endif
+
         !$OMP PARALLEL DO default(shared) &
-        !$OMP private(i,j,im,ip,nJ,sJ) &
+        !$OMP private(i,j,nJ,sJ) &
         !$OMP private(nEp,nEt,sEp,sEt,thnh,thsh,phnh,phsh) &
-        !$OMP private(nhcdip,shcdip,nJt,sJt,nJp,sJp) 
+        !$OMP private(nhcdip,shcdip,nJt,sJt,nJp,sJp)
         do j=1,ionGrid%Nth !Theta
             do i=1,ionGrid%Np !phi
             !Start w/ E field via gradient    
             !E = -grad(pot), kV/Re
 
                 !Theta derivatives
-                if (j == 1) then
-                    nEt = -( rmState%nPot(i,j+1)-rmState%nPot(i,j) )/(R0*dth)
-                    sEt = -( rmState%sPot(i,j+1)-rmState%sPot(i,j) )/(R0*dth)
-                    sEt = -sEt !Flip direction
-                else if (j == ionGrid%Nth) then
-                    nEt = 0.0
-                    sEt = 0.0
-                else
-                    nEt = -( rmState%nPot(i,j+1)-rmState%nPot(i,j-1) )/(R0*2*dth)
-                    sEt = -( rmState%sPot(i,j+1)-rmState%sPot(i,j-1) )/(R0*2*dth)
-                    sEt = -sEt !Flip direction
-                endif
+                nEt = -GradTheta(rmState%nPot(i,:),j,ionGrid%Nth)/(R0*dth)
+                sEt = -GradTheta(rmState%sPot(i,:),j,ionGrid%Nth)/(R0*dth)
+                sEt = -sEt !Flip direction
 
                 !Phi derivatives
-                if (i == 1) then
-                    im = ionGrid%Np
-                else
-                    im = i-1
-                endif
-                if (i == ionGrid%Np) then
-                    ip = 1
-                else
-                    ip = i+1
-                endif
                 thnh = ionGrid%tcc(i,j,NORTH)
                 thsh = ionGrid%tcc(i,j,SOUTH)
 
                 phnh = ionGrid%pcc(i,j,NORTH)
                 phsh = ionGrid%pcc(i,j,SOUTH)
 
-                nEp = -(rmState%nPot(ip,j)-rmState%nPot(im,j))/(R0*sin(thnh)*2*dph)
-                sEp = -(rmState%sPot(im,j)-rmState%sPot(ip,j))/(R0*sin(thsh)*2*dph)
-                
+                nEp = -GradPhi(rmState%nPot(:,j),i,ionGrid%Np)/(R0*sin(thnh)*dph)
+                sEp = -GradPhi(rmState%sPot(:,j),i,ionGrid%Np)/(R0*sin(thsh)*dph)
+                sEp = -sEp !Flip direction
+
                 !Convert E [kV/Re] to [V/m]
                 nEp = (1.0e+3)*nEp/REarth
                 nEt = (1.0e+3)*nEt/REarth
@@ -374,8 +426,13 @@ module calcdbutils
             !Now have E fields [V/m], calculate currents
                 !Get cos of dip angles for both
                 !CALCDB-TODO: Check dip angle formula in SH?
-                nhcdip = -2*cos(thnh)/sqrt(1.0 + 3*cos(thnh)*cos(thnh))
-                shcdip = -2*cos(thsh)/sqrt(1.0 + 3*cos(thsh)*cos(thsh))
+                if (doAmm) then
+                    nhcdip = -2*cos(thnh)/sqrt(1.0 + 3*cos(thnh)*cos(thnh))
+                    shcdip = -2*cos(thsh)/sqrt(1.0 + 3*cos(thsh)*cos(thsh))
+                else
+                    nhcdip = -1.0
+                    shcdip = +1.0
+                endif
 
                 !Get theta/phi currents from Hall/Pederson
                 !Conductance units are S = A/V, so currents are J = A/m
@@ -391,13 +448,13 @@ module calcdbutils
 
 
                 nJt = 0.0 ; nJp = 0.0 ; sJt = 0.0 ; sJp = 0.0
-                if (doHall) then
+                if (rmState%doHall) then
                     nJt = nJt + ionGrid%hJ(i,j,NORTH,TDIR)
                     nJp = nJp + ionGrid%hJ(i,j,NORTH,PDIR)
                     sJt = sJt + ionGrid%hJ(i,j,SOUTH,TDIR)
                     sJp = sJp + ionGrid%hJ(i,j,SOUTH,PDIR)
                 endif
-                if (doPed) then
+                if (rmState%doPed) then
                     nJt = nJt + ionGrid%pJ(i,j,NORTH,TDIR)
                     nJp = nJp + ionGrid%pJ(i,j,NORTH,PDIR)
                     sJt = sJt + ionGrid%pJ(i,j,SOUTH,TDIR)
@@ -415,13 +472,98 @@ module calcdbutils
 
         enddo !j,Nth
 
-        ! write(*,*) 'Hall '
-        ! write(*,*) '   Theta: ',minval(ionGrid%hJ(:,:,NORTH,TDIR)),maxval(ionGrid%hJ(:,:,NORTH,TDIR))
-        ! write(*,*) '   Phi  : ',minval(ionGrid%hJ(:,:,NORTH,PDIR)),maxval(ionGrid%hJ(:,:,NORTH,PDIR))
+        ! ! write(*,*) "North hJ-Theta"
+        ! ! write(*,*) ionGrid%hJ(:,ionGrid%Nth,NORTH,TDIR)
 
-        ! write(*,*) 'Pede '
-        ! write(*,*) '   Theta: ',minval(ionGrid%pJ(:,:,NORTH,TDIR)),maxval(ionGrid%pJ(:,:,NORTH,TDIR))
-        ! write(*,*) '   Phi  : ',minval(ionGrid%pJ(:,:,NORTH,PDIR)),maxval(ionGrid%pJ(:,:,NORTH,PDIR))
+        ! write(*,*) "North pJ-Theta"
+        ! write(*,*) minval(ionGrid%pJ(:,ionGrid%Nth,NORTH,TDIR)),maxval(ionGrid%pJ(:,ionGrid%Nth,NORTH,TDIR))
+
+        ! ! write(*,*) "South hJ-Theta"
+        ! ! write(*,*) ionGrid%hJ(:,ionGrid%Nth,SOUTH,TDIR)
+
+        ! write(*,*) "South pJ-Theta"
+        ! write(*,*) minval(ionGrid%pJ(:,ionGrid%Nth,SOUTH,TDIR)),maxval(ionGrid%pJ(:,ionGrid%Nth,SOUTH,TDIR))
+
+        contains
+            function GradTheta(Q,i0,Ni) result(Qp)
+                real(rp), intent(in) :: Q(Ni)
+                integer , intent(in) :: i0,Ni
+                real(rp) :: Qp
+
+                real(rp) :: Qblk(Ngm),c(Ngm)
+                integer :: is,ie
+                is = 1
+                ie = Ni
+                if (i0 == is) then
+                    !Forward
+                    Qblk = [Q(is),Q(is+1),Q(is+2),Q(is+3)]
+                    c = [-11.0,18.0,-9.0,2.0]/6.0
+                else if (i0 == is+1) then
+                    !1 back
+                    Qblk = [Q(is),Q(is+1),Q(is+2),Q(is+3)]
+                    c = [-2.0,-3.0,6.0,-1.0]/6.0
+                else if (i0 == ie) then
+                    Qblk = [Q(ie-3),Q(ie-2),Q(ie-1),Q(ie)]
+                    c = [-2.0,9.0,-18.0,11.0]/6.0
+                else if (i0 == ie-1) then
+                    Qblk = [Q(ie-3),Q(ie-2),Q(ie-1),Q(ie)]
+                    c = [1.0,-6.0,3.0,2.0]/6.0
+                else
+                    !Centered
+                    Qblk = [Q(i0-2),Q(i0-1),Q(i0+1),Q(i0+2)]
+                    c = [1.0,-8.0,8.0,-1.0]/12.0
+                endif
+                Qp = dot_product(Qblk,c)
+            end function GradTheta
+
+            function GradPhi(Q,i0,Ni) result(Qp)
+                real(rp), intent(in) :: Q(Ni)
+                integer , intent(in) :: i0,Ni
+                real(rp) :: Qp
+
+                real(rp) :: Qblk(Ngm),c(Ngm)
+                integer :: ip,ipp,im,imm
+                integer :: is,ie
+                is = 1
+                ie = Ni
+
+                !Always centered b/c of periodicity
+                c = [1.0,-8.0,8.0,-1.0]/12.0
+                if (i0 == is) then
+                    ip  = i0+1
+                    ipp = i0+2
+                    im  = ie
+                    imm = ie-1
+                    
+                else if (i0 == is+1) then
+                    ip  = i0+1
+                    ipp = i0+2
+                    im  = is
+                    imm = ie
+                else if (i0 == ie) then
+                    ip  = is
+                    ipp = is+1
+                    im  = i0-1
+                    imm = i0-2
+
+                else if (i0 == ie-1) then
+                    ip  = ie
+                    ipp = is
+                    im  = i0-1
+                    imm = i0-2
+                else
+                    !Centered
+                    ip  = i0+1
+                    ipp = i0+2
+                    im  = i0-1
+                    imm = i0-2
+
+                    Qblk = [Q(i0-2),Q(i0-1),Q(i0+1),Q(i0+2)]
+                    c = [1.0,-8.0,8.0,-1.0]/12.0
+                endif
+                Qblk = [Q(imm),Q(im),Q(ip),Q(ipp)]
+                Qp = dot_product(Qblk,c)
+            end function GradPhi
 
     end subroutine ionGridUpdate
 
@@ -438,6 +580,12 @@ module calcdbutils
         Jxyz = that*Jt + phat*Jp
 
     end function tp2xyz
+
+    function CosDip(theta) result(cosd)
+        real(rp), intent(in) :: theta
+        real(rp) :: cosd
+        cosd = -2*cos(theta)/sqrt(1.0 + 3*cos(theta)*cos(theta))
+    end function CosDip
 
     !Set rmState given properly set 4 hemispheres and temporal weights
     subroutine hemi2rm(rmState,w1,w2)

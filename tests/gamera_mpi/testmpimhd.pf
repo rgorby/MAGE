@@ -1,5 +1,5 @@
 module testMpiMhd
-  use pFUnit
+  use testHelperMpi
   use gamapp_mpi
   use usergamic
 
@@ -19,7 +19,7 @@ contains
       write(caseFile,'(A,I0,A)') 'blast3d_mhd_', this%getNumProcesses(), '.xml'
 
       allocate(gamAppMpi)
-      call initGamera_mpi(gamAppMpi, initUser, this%getMpiCommunicator(), caseFile, .false.)
+      call initGamera_mpi(gamAppMpi, initUser, getMpiF08Communicator(this), caseFile, .false.)
 
   end subroutine setup
 

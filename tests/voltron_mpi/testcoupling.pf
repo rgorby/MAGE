@@ -1,5 +1,5 @@
 module testCoupling
-  use pFUnit
+  use testHelperMpi
   use gamapp_mpi
   use voltapp_mpi
   use gam2voltcomm_mpi
@@ -20,7 +20,8 @@ contains
       class (MpiTestMethod), intent(inout) :: this
       character(len=strLen) :: caseFile
 
-      integer :: ierror, gamComm = MPI_COMM_NULL
+      integer :: ierror
+      type(MPI_Comm) :: gamComm, voltComm
 
       call setMpiReal()
 
@@ -33,18 +34,18 @@ contains
           allocate(g2vCommMpi)
 
           ! make gamera-only mpi communicator
-          call MPI_Comm_Split(this%getMpiCommunicator(), 0, this%getProcessRank(), gamComm, ierror)
+          call MPI_Comm_Split(getMpiF08Communicator(this), 0, this%getProcessRank(), gamComm, ierror)
 
           call initGamera_mpi(gamAppMpi, initUser, gamComm, caseFile, .false.)
-          call initGam2Volt(g2vCommMpi, gamAppMpi, this%getMpiCommunicator(), caseFile)
+          call initGam2Volt(g2vCommMpi, gamAppMpi, getMpiF08Communicator(this), caseFile)
       else
           isGamera = .false.
           allocate(voltAppMpi)
 
           ! make gamera-only mpi communicator
-          call MPI_Comm_Split(this%getMpiCommunicator(), MPI_UNDEFINED, this%getProcessRank(), gamComm, ierror)
+          call MPI_Comm_Split(getMpiF08Communicator(this), 1, this%getProcessRank(), voltComm, ierror)
 
-          call initVoltron_mpi(voltAppMpi, initUser, this%getMpiCommunicator(), caseFile)
+          call initVoltron_mpi(voltAppMpi, initUser, voltComm, getMpiF08Communicator(this), caseFile)
       endif
 
   end subroutine setup
@@ -107,7 +108,7 @@ contains
 
   end subroutine runApplication
 
-  @test(npes=[2,5,17])
+  @test(npes=[2,5,9])
   subroutine testSerialCoupling(this)
       class (MpiTestMethod), intent(inout) :: this
 
@@ -138,7 +139,7 @@ contains
 
   end subroutine testSerialCoupling
 
-  @test(npes=[2,5,17])
+  @test(npes=[2,5,9])
   subroutine testConcCoupling(this)
       class (MpiTestMethod), intent(inout) :: this
 
@@ -167,7 +168,7 @@ contains
 
   end subroutine testConcCoupling
 
-  @test(npes=[2,5,17])
+  @test(npes=[2,5,9])
   subroutine testAsyncCoupling(this)
       class (MpiTestMethod), intent(inout) :: this
 
@@ -196,7 +197,7 @@ contains
 
   end subroutine testAsyncCoupling
 
-  @test(npes=[2,5,17])
+  @test(npes=[2,5,9])
   subroutine testAdjustShallowCoupling(this)
       class (MpiTestMethod), intent(inout) :: this
 
@@ -250,7 +251,7 @@ contains
 
   end subroutine testAdjustShallowCoupling
 
-  @test(npes=[2,5,17])
+  @test(npes=[2,5,9])
   subroutine testAdjustDeepCoupling(this)
       class (MpiTestMethod), intent(inout) :: this
 
@@ -304,7 +305,7 @@ contains
 
   end subroutine testAdjustDeepCoupling
 
-  @test(npes=[2,5,17])
+  @test(npes=[2,5,9])
   subroutine testQuickSquish(this)
       class (MpiTestMethod), intent(inout) :: this
 
@@ -347,7 +348,9 @@ contains
       endif
   end subroutine testQuickSquish
 
-  @test(npes=[2,5,17])
+  ! this test is too slow right now, only run one of them
+  !@test(npes=[2,5,9])
+  @test(npes=[9])
   subroutine testQuickSquishStorm(this)
       class (MpiTestMethod), intent(inout) :: this
 

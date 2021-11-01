@@ -396,25 +396,26 @@ module gioH5
                 call AddOutVar(IOVars,"Jz",gVec(:,:,:,ZDIR))
             endif
 
-
             !Calculate/Write xyz electric fields
-            !Divide by edge-length to go from potential to field
-            !$OMP PARALLEL DO default(shared) collapse(2)
-            do k=Gr%ksg,Gr%keg
-                do j=Gr%jsg,Gr%jeg
-                    do i=Gr%isg,Gr%ieg
-                        if(any(Gr%Edge(i,j,k,:) == 0)) then
-                             VecA(i,j,k,:) = 0.0
-                        else
-                             VecA(i,j,k,:) = State%Efld(i,j,k,:)/Gr%Edge(i,j,k,:)
-                        end if
+            if (doFat) then
+            
+                !Divide by edge-length to go from potential to field
+                !$OMP PARALLEL DO default(shared) collapse(2)
+                do k=Gr%ksg,Gr%keg
+                    do j=Gr%jsg,Gr%jeg
+                        do i=Gr%isg,Gr%ieg
+                            if(any(Gr%Edge(i,j,k,:) == 0)) then
+                                 VecA(i,j,k,:) = 0.0
+                            else
+                                 VecA(i,j,k,:) = State%Efld(i,j,k,:)/Gr%Edge(i,j,k,:)
+                            end if
+                        enddo
                     enddo
                 enddo
-            enddo
-            call Eijk2xyz(Model,Gr,VecA,VecB)
-            gVec(:,:,:,:) = VecB(iMin:iMax,jMin:jMax,kMin:kMax,XDIR:ZDIR)
-            call FixRAVec(gVec(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,1:NDIM))
-            if (doFat) then
+                call Eijk2xyz(Model,Gr,VecA,VecB)
+                gVec(:,:,:,:) = VecB(iMin:iMax,jMin:jMax,kMin:kMax,XDIR:ZDIR)
+                call FixRAVec(gVec(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,1:NDIM))
+            
                 call AddOutVar(IOVars,"Ex",gVec(:,:,:,XDIR))
                 call AddOutVar(IOVars,"Ey",gVec(:,:,:,YDIR))
                 call AddOutVar(IOVars,"Ez",gVec(:,:,:,ZDIR))
@@ -471,6 +472,7 @@ module gioH5
             MJD = T2MJD(Model%t*Model%Units%gT0,Model%MJD0)
             call AddOutVar(IOVars,"MJD",MJD)
         endif
+        call AddOutVar(IOVars,"nSpc",Model%nSpc)
 
         !---------------------
         !Call user routine
@@ -561,10 +563,11 @@ module gioH5
     end subroutine GridQuality
 
     !Write restart dump to "ResF" output file
-    subroutine writeH5Res(Model,Gr,State,ResF)
+    !NOTE: Rewritten to output full data structure including halos
+    subroutine writeH5Res(Model,Gr,oState,State,ResF)
         type(Model_T), intent(inout) :: Model
         type(Grid_T),  intent(in) :: Gr
-        type(State_T), intent(in) :: State
+        type(State_T), intent(in) :: State,oState
         character(len=*), intent(in) :: ResF
 
         call StampIO(ResF)
@@ -577,6 +580,9 @@ module gioH5
         call AddOutVar(IOVars,"nRes",Model%IO%nRes)
         call AddOutVar(IOVars,"ts"  ,Model%ts)
         call AddOutVar(IOVars,"t"   ,Model%t)
+        call AddOutVar(IOVars,"ot"  ,oState%time)
+        call AddOutVar(IOVars,"dt"  ,Model%dt)
+
         if (Model%dt0 < TINY*10.0) then
             call AddOutVar(IOVars,"dt0"   ,0.0)
         else
@@ -589,9 +595,14 @@ module gioH5
         call AddOutVar(IOVars,"Z",Gr%xyz(:,:,:,ZDIR))
 
         !State variable
-        call AddOutVar(IOVars,"Gas",State%Gas(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,:,:))
+        call AddOutVar(IOVars, "Gas",  State%Gas(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,:,:))        
+        call AddOutVar(IOVars,"oGas" ,oState%Gas(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,:,:))
+
         if (Model%doMHD) then
-            call AddOutVar(IOVars,"magFlux",State%magFlux(Gr%is:Gr%ie+1,Gr%js:Gr%je+1,Gr%ks:Gr%ke+1,:))
+            call AddOutVar(IOVars, "magFlux", State%magFlux(Gr%is:Gr%ie+1,Gr%js:Gr%je+1,Gr%ks:Gr%ke+1,:))
+            call AddOutVar(IOVars,"omagFlux",oState%magFlux(Gr%is:Gr%ie+1,Gr%js:Gr%je+1,Gr%ks:Gr%ke+1,:))
+            call AddOutVar(IOVars, "Bxyz"   , State%Bxyz(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,:  ))
+            call AddOutVar(IOVars,"oBxyz"   ,oState%Bxyz(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,:  ))
         endif
 
         if (Model%doSource) then
@@ -743,6 +754,7 @@ module gioH5
         Model%IO%tRes = Model%t + Model%IO%dtRes
 
     end subroutine readH5Restart
+
 
     !Output black box from crash
     subroutine WriteBlackBox(Model,Gr,State)

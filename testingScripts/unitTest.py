@@ -27,10 +27,10 @@ os.system('mkdir unitTest2')
 
 # Copy pFUnit stuff into Kaiju External
 os.chdir(home)
-os.system('cp -r /glade/p/hao/msphere/gamshare/FARGPARSE-0.9 external')
-os.system('cp -r /glade/p/hao/msphere/gamshare/GFTL-1.1 external')
-os.system('cp -r /glade/p/hao/msphere/gamshare/GFTL_SHARED-1.0 external')
-os.system('cp -r /glade/p/hao/msphere/gamshare/PFUNIT-4.1 external')
+os.system('cp -r /glade/p/hao/msphere/gamshare/pFUnit-4.2.0/ifort-18/FARGPARSE-1.1 external')
+os.system('cp -r /glade/p/hao/msphere/gamshare/pFUnit-4.2.0/ifort-18/GFTL-1.3 external')
+os.system('cp -r /glade/p/hao/msphere/gamshare/pFUnit-4.2.0/ifort-18/GFTL_SHARED-1.2 external')
+os.system('cp -r /glade/p/hao/msphere/gamshare/pFUnit-4.2.0/ifort-18/PFUNIT-4.2 external')
 
 # Go back to scripts folder
 os.chdir(home)
@@ -119,7 +119,8 @@ os.chdir('tests')
 
 #finalString = readString + "\n"
 
-subprocess.call("cp runNonCaseTests.pbs ../unitTest1/bin", shell=True)
+subprocess.call("cp runNonCaseTests1.pbs ../unitTest1/bin", shell=True)
+subprocess.call("cp runNonCaseTests2.pbs ../unitTest1/bin", shell=True)
 subprocess.call("cp runCaseTests.pbs ../unitTest1/bin", shell=True)
 
 os.chdir(home)
@@ -136,7 +137,7 @@ finalString = readString
 firstJob = readString.split('.')[0]
 print(firstJob)
 
-arguments = "qsub runNonCaseTests.pbs"
+arguments = "qsub runNonCaseTests1.pbs"
 print(arguments)
 submission = subprocess.Popen(arguments, shell=True, stdout=subprocess.PIPE)
 readString = submission.stdout.read()
@@ -148,9 +149,23 @@ finalString = finalString + readString
 secondJob = readString.split('.')[0]
 print (secondJob)
 
+arguments = "qsub runNonCaseTests2.pbs"
+print(arguments)
+submission = subprocess.Popen(arguments, shell=True, stdout=subprocess.PIPE)
+readString = submission.stdout.read()
+readString = readString.decode('ascii')
+print(readString)
+
+finalString = finalString + readString
+
+thirdJob = readString.split('.')[0]
+print (secondJob)
+
+
 file = open("jobs.txt", 'w+')
 file.write(firstJob + "\n")
-file.write(secondJob)
+file.write(secondJob + "\n")
+file.write(thirdJob)
 
 # SUBMIT JOB THAT WILL FOLLOW UP ONCE PREVIOUS JOBS HAVE FINISHED
 

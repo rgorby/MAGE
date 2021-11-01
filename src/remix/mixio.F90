@@ -7,11 +7,11 @@ module mixio
   use files
   implicit none
   
-  integer, parameter :: MAXIOVAR = 50
-  type(IOVAR_T), dimension(MAXIOVAR) :: IOVars
-  character(len=strLen) :: h5File,h5RunID
-  character(len=strLen), dimension(nVars) :: mixVarNames
-  character(len=strLen), dimension(nVars) :: mixUnitNames   
+  integer, parameter :: MAXMIXIOVAR = 50
+  type(IOVAR_T), dimension(MAXMIXIOVAR), private :: IOVars
+  character(len=strLen), private :: h5File,h5RunID
+  character(len=strLen), dimension(nVars), private :: mixVarNames
+  character(len=strLen), dimension(nVars), private :: mixUnitNames   
 
 contains
 
@@ -71,35 +71,34 @@ contains
 
     inquire(file=h5File,exist=fExist)
 
-    ! in case it's a restart, we either already have the file, in which case we don't do anything
-    ! or we need to create it because the previous one got moved
-    if ( (.not. isRestart).or.(isRestart.and.(.not.fExist)) ) then
-       call CheckAndKill(h5File)
+    call initMIXNames() !Always do this ... maybe?
 
-       !Reset IO chain
-       call ClearIO(IOVars)
-
-       call genOutGrid(I(NORTH)%G%x,I(NORTH)%G%y,xc,yc)
-       
-       ! save grid only for north
-       call AddOutVar(IOVars,"X",xc,uStr="Ri")
-       call AddOutVar(IOVars,"Y",yc,uStr="Ri")
-
-       call AddOutVar(IOVars,"UnitsID","ReMIX")
-                
-       !Write out the chain (to root)
-       call WriteVars(IOVars,.false.,h5File)
-       call initMIXNames()
-
-    else
-       call initMIXNames()
-       call readMIXrestart(trim(RunID),nRes,I)
+    if (isRestart .and. present(nRes)) then
+      !Read the damn restart if you gotta
+      call readMIXrestart(trim(RunID),nRes,I)
     endif
 
-    ! Finally, set var and unit names
-    ! for use by all subsequent functions
-    ! NOTE: this assumes that initMIXIO ALWAYS gets called in the beginning
-    ! e.g., as part of MIX initialization
+    if (isRestart .and. fExist) then
+      !File is already here and have read restart, let's bounce
+      return
+    endif
+
+    !If we're still here, then not restart or don't have output file
+    !Either way, let's do it
+    call CheckAndKill(h5File)
+    !Reset IO chain
+    call ClearIO(IOVars)
+
+    call genOutGrid(I(NORTH)%G%x,I(NORTH)%G%y,xc,yc)
+    
+    ! save grid only for north
+    call AddOutVar(IOVars,"X",xc,uStr="Ri")
+    call AddOutVar(IOVars,"Y",yc,uStr="Ri")
+
+    call AddOutVar(IOVars,"UnitsID","ReMIX")
+             
+    !Write out the chain (to root)
+    call WriteVars(IOVars,.false.,h5File)
 
   end subroutine initMIXIO
 
@@ -468,17 +467,15 @@ contains
     character(len=strLen) :: gStr,hStr,uStr,vStr,nStr,h5Str
 
     ! filling in var and unit names
-    write(*,*) "Restarting from: ", trim(inH5)
     call initMIXNames() 
-    write(*,*) "Restarting from: ", trim(inH5),nRes
-   
+    
     !Get number string
     if (nRes == -1) then
         nStr = "XXXXX"
     else
         write (nStr,'(I0.5)') nRes
     endif 
-    write(*,*) "Restarting from: ", trim(inH5)//'.mix.Res.'// trim(nStr)//'.h5'
+    
     h5Str = trim(inH5)//'.mix.Res.'// trim(nStr)//'.h5'
     write(*,*) "Restarting from: ", trim(h5Str)
 
@@ -490,6 +487,7 @@ contains
     ! read grid corners from root
     call AddInVar(IOVars,"X")
     call AddInVar(IOVars,"Y")
+    call AddInVar(IOVars,"nRes")
     call ReadVars(IOVars,.false.,h5Str)
 
     dims = IOVars(1)%dims(1:2)
@@ -502,6 +500,22 @@ contains
     ! convert to original mix grid
     ! and fill in mixIOobj%x,y
     !call genInGrid(xc,yc,I(NORTH)%G%x,I(NORTH)%G%y)
+
+    ! record the nRes number
+    if (ioExist(h5Str,"nRes")) then
+        call ClearIO(IOVars)
+        call AddInVar(IOVars,"nRes")
+        call ReadVars(IOVars,.false.,h5Str)
+        I(NORTH)%P%nRes = GetIOInt(IOVars,"nRes") + 1
+        I(SOUTH)%P%nRes = GetIOInt(IOVars,"nRes") + 1
+    else
+        write (*,*) 'Remix now requires that nRes be in its restart files'
+        write (*,*) '  in order to ensure consistent restarts.'
+        write (*,*) 'Please either regenerate the remix restart files, or'
+        write (*,*) '  manually add the nRes value.'
+        write (*,*) 'File: ', trim(h5Str)
+        stop
+    endif
 
     ! now read from step
 
@@ -701,6 +715,9 @@ contains
     call AddOutVar(IOVars,"nCPCP",maxval(I(NORTH)%St%Vars(:,:,POT))-minval(I(NORTH)%St%Vars(:,:,POT)))
     call AddOutVar(IOVars,"sCPCP",maxval(I(SOUTH)%St%Vars(:,:,POT))-minval(I(SOUTH)%St%Vars(:,:,POT)))    
     
+    ! add nres
+    call AddOutVar(IOVars,"nRes",nRes)
+
     !Write out the chain (to root)
     call WriteVars(IOVars,.false.,h5Str)
 

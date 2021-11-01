@@ -4,10 +4,11 @@ module rcm_mhd_io
     use xml_input
     use rcm_mod_subs, ONLY : colat, aloct
     use rice_housekeeping_module, ONLY : nSkipFL,doFLOut
-
+    use rcmdefs
+    
     implicit none
 
-    integer, parameter   , private :: MAXRCMIOVAR = 35
+    integer, parameter   , private :: MAXRCMIOVAR = 40
     character(len=strLen), private :: h5File,RCMH5,FLH5
     real(rp), parameter  , private :: IMGAMMA = 5.0/3.0
     
@@ -140,14 +141,17 @@ module rcm_mhd_io
         call AddOutVar(IOVars,"radcurv"  ,RCMApp%radcurv,uStr="Re")
         call AddOutVar(IOVars,"wIMAG"  ,RCMApp%wIMAG,uStr="weight")
 
-        call AddOutVar(IOVars,"eeavg",RCMApp%eng_avg(:,:,1)*1.0e-3,uStr="keV") !ev->keV electrons
-        call AddOutVar(IOVars,"eeflux",RCMApp%flux(:,:,1),uStr="ergs/cm2")
-        call AddOutVar(IOVars,"ieavg",RCMApp%eng_avg(:,:,2)*1.0e-3,uStr="keV") !ev->keV ions
-        call AddOutVar(IOVars,"ieflux",RCMApp%flux(:,:,2),uStr="ergs/cm2")
-        call AddOutVar(IOVars,"birk",RCMApp%fac,uStr="uA/m2")
+        call AddOutVar(IOVars,"eeavg" ,RCMApp%eng_avg(:,:,RCMELECTRON)*1.0e-3,uStr="keV") !ev->keV electrons
+        call AddOutVar(IOVars,"eeflux",RCMApp%flux   (:,:,RCMELECTRON),uStr="ergs/cm2")
+        call AddOutVar(IOVars,"ieavg" ,RCMApp%eng_avg(:,:,RCMPROTON)*1.0e-3,uStr="keV") !ev->keV ions
+        call AddOutVar(IOVars,"ieflux",RCMApp%flux   (:,:,RCMPROTON),uStr="ergs/cm2")
+
+        call AddOutVar(IOVars,"birk",RCMApp%fac,uStr="uA/m2",dStr="RCM Vasyliunas FACs")
+        call AddOutVar(IOVars,"nTrc",RCMApp%nTrc*1.0_rp,uStr="steps")
 
         call AddOutVar(IOVars,"toMHD",merge(1.0_rp,0.0_rp,RCMApp%toMHD))
-
+        call AddOutVar(IOVars,"errD",RCMApp%errD,uStr="X'/X")
+        call AddOutVar(IOVars,"errP",RCMApp%errP,uStr="X'/X")
 
         call AddOutVar(IOVars,"colat",colat(:,jwrap:jsize))
         call AddOutVar(IOVars,"aloct",aloct(:,jwrap:jsize))
@@ -177,11 +181,11 @@ module rcm_mhd_io
             isRCM = .false.
         endif
         if (isRCM) then
-            call xmlInp%Set_Val(resID,"/rcm/restart/resID","msphere")
-            call xmlInp%Set_Val(nRes ,"/rcm/restart/nRes" ,-1)
+            call xmlInp%Set_Val(resID,"/Kaiju/rcm/restart/resID","msphere")
+            call xmlInp%Set_Val(nRes ,"/Kaiju/rcm/restart/nRes" ,-1)
         else
-            call xmlInp%Set_Val(resID,"/gamera/restart/resID","msphere")
-            call xmlInp%Set_Val(nRes ,"/gamera/restart/nRes" ,-1)
+            call xmlInp%Set_Val(resID,"/Kaiju/gamera/restart/resID","msphere")
+            call xmlInp%Set_Val(nRes ,"/Kaiju/gamera/restart/nRes" ,-1)
         endif            
         !Get number string
         if (nRes == -1) then
@@ -257,7 +261,6 @@ module rcm_mhd_io
         type(fLine_T), intent(in) :: fL
         character(len=strLen), intent(in) :: gStr,lnStr
         type(IOVAR_T), intent(inout), dimension(MAXRCMIOVAR) :: IOVars
-        real(rp), allocatable, dimension(:,:) :: LCon
         integer :: i,Np,Npp,n0
         
         call ClearIO(IOVars)
@@ -283,24 +286,181 @@ module rcm_mhd_io
         call AddOutVar(IOVars,"D",fL%lnVars(DEN)     %V(0:-n0:-nSkipFL),uStr="#/cc")
         call AddOutVar(IOVars,"P",fL%lnVars(PRESSURE)%V(0:-n0:-nSkipFL),uStr="nPa")
 
-
-        !Create connectivity data (cast to int before write)
-        !TODO: There must be a better way to do this?
-        allocate(LCon(Npp-1,2))
-        
-        do i=1,Npp-1
-            LCon(i,1) = i-1
-            LCon(i,2) = i
-        enddo
-
-        call AddOutVar(IOVars,"LCon",transpose(LCon))
-        i = FindIO(IOVars,"LCon")
-        IOVars(i)%vType = IOINT
-
         !Write output chain
         call WriteVars(IOVars,.true.,FLH5,gStr,lnStr)
         call ClearIO(IOVars)
 
     end subroutine OutLine
 
+    subroutine WriteMHD2IMagRestart(RCMApp,nRes,MJD,time)
+        type(rcm_mhd_t)  , intent(inout) :: RCMApp
+        integer, intent(in) :: nRes
+        real(rp), intent(in) :: MJD, time
+
+        type(IOVAR_T), dimension(MAXRCMIOVAR) :: IOVars
+        character(len=strLen) :: ResF,lnResF
+
+        write (ResF, '(A,A,I0.5,A)') trim(RCMApp%rcm_runid), ".mhd2imag.Res.", nRes, ".h5"
+        call CheckAndKill(ResF)
+        call StampIO(ResF)
+        call ClearIO(IOVars)
+
+        !Main attributes
+        call AddOutVar(IOVars,"nRes",nRes)
+        call AddOutVar(IOVars,"MJD" ,MJD)
+        call AddOutVar(IOVars,"time",time)
+        call AddOutVar(IOVars,"llBC",RCMApp%llBC)
+        call AddOutVar(IOVars,"dtCpl",RCMApp%dtCpl)
+        call AddOutVar(IOVars,"planet_radius",RCMApp%planet_radius)
+        call AddOutVar(IOVars,"iono_radius"  ,RCMApp%iono_radius)
+
+        !Variables
+        call AddOutVar(IOVars,"gcolat"      ,RCMApp%gcolat      )
+        call AddOutVar(IOVars,"glong"       ,RCMApp%glong       )  
+        call AddOutVar(IOVars,"pot"         ,RCMApp%pot         )
+        call AddOutVar(IOVars,"eng_avg"     ,RCMApp%eng_avg     )    
+        call AddOutVar(IOVars,"flux"        ,RCMApp%flux        )  
+        call AddOutVar(IOVars,"fac"         ,RCMApp%fac         )  
+        call AddOutVar(IOVars,"Pave"        ,RCMApp%Pave        )   
+        call AddOutVar(IOVars,"Nave"        ,RCMApp%Nave        ) 
+        call AddOutVar(IOVars,"Vol"         ,RCMApp%Vol         )
+        call AddOutVar(IOVars,"X_bmin"      ,RCMApp%X_bmin      )
+        call AddOutVar(IOVars,"Bmin"        ,RCMApp%Bmin        )
+        call AddOutVar(IOVars,"beta_average",RCMApp%beta_average)
+        call AddOutVar(IOVars,"iopen"       ,RCMApp%iopen*1.0_rp)
+
+        call AddOutVar(IOVars,"Prcm"    ,RCMApp%Prcm    )
+        call AddOutVar(IOVars,"Nrcm"    ,RCMApp%Nrcm    )
+        call AddOutVar(IOVars,"Npsph"   ,RCMApp%Npsph   )
+        call AddOutVar(IOVars,"sigmap"  ,RCMApp%sigmap  )
+        call AddOutVar(IOVars,"sigmah"  ,RCMApp%sigmah  )
+        call AddOutVar(IOVars,"oxyfrac" ,RCMApp%oxyfrac )
+        call AddOutVar(IOVars,"Percm"   ,RCMApp%Percm   )
+        call AddOutVar(IOVars,"latc"    ,RCMApp%latc    )
+        call AddOutVar(IOVars,"lonc"    ,RCMApp%lonc    )
+        call AddOutVar(IOVars,"Lb"      ,RCMApp%Lb      )
+        call AddOutVar(IOVars,"Tb"      ,RCMApp%Tb      )
+        call AddOutVar(IOVars,"losscone",RCMApp%losscone)
+        call AddOutVar(IOVars,"radcurv" ,RCMApp%radcurv )
+        call AddOutVar(IOVars,"wIMAG"   ,RCMApp%wIMAG   )
+
+        call AddOutVar(IOVars,"toMHD",merge(1.0_rp,0.0_rp,RCMApp%toMHD))
+        
+        !Let er rip
+        call WriteVars(IOVars,.false.,ResF)
+        !Create link to latest restart
+        write (lnResF, '(A,A,A,A)') trim(RCMApp%rcm_runid), ".mhd2imag.Res.", "XXXXX", ".h5"
+        call MapSymLink(ResF,lnResF)
+
+    end subroutine WriteMHD2IMagRestart
+
+    subroutine ReadMHD2IMagRestart(RCMApp,nRes)
+        type(rcm_mhd_t)  , intent(inout) :: RCMApp
+        integer, intent(in) :: nRes
+
+        type(IOVAR_T), dimension(MAXRCMIOVAR) :: IOVars
+        character(len=strLen) :: ResF,nStr
+        logical :: fExist
+        real(rp), dimension(:,:), allocatable :: iopenX,toMHDX
+        integer :: NLat,NLon
+
+        NLat = RCMApp%nLat_ion
+        NLon = RCMApp%nLon_ion
+
+        !Get number string
+        if (nRes == -1) then
+            nStr = "XXXXX"
+        else
+            write (nStr,'(I0.5)') nRes
+        endif
+
+        write (ResF, '(A,A,A,A)') trim(RCMApp%rcm_runid), ".mhd2imag.Res.", trim(nStr), ".h5"
+        write(*,*) 'Trying to read MHD2Imag restart from ', trim(ResF)
+        inquire(file=ResF,exist=fExist)
+
+        if (.not. fExist) then
+            !Error out and leave
+            write(*,*) 'Unable to open MHD2Imag restart file, skipping ...'
+            return
+        else
+            write(*,*) 'Found MHD2Imag restart, reading ...'
+        endif
+
+    !Read data if still here
+        call ClearIO(IOVars)
+        call AddInVar(IOVars,"gcolat"      )
+        call AddInVar(IOVars,"glong"       )
+        call AddInVar(IOVars,"pot"         )
+        call AddInVar(IOVars,"eng_avg"     )
+        call AddInVar(IOVars,"flux"        )
+        call AddInVar(IOVars,"fac"         )
+        call AddInVar(IOVars,"Pave"        )
+        call AddInVar(IOVars,"Nave"        )
+        call AddInVar(IOVars,"Vol"         )
+        call AddInVar(IOVars,"X_bmin"      )
+        call AddInVar(IOVars,"Bmin"        )
+        call AddInVar(IOVars,"beta_average")
+        call AddInVar(IOVars,"iopen"       )
+        call AddInVar(IOVars,"Prcm"       )
+        call AddInVar(IOVars,"Nrcm"       )
+        call AddInVar(IOVars,"Npsph"      )
+        call AddInVar(IOVars,"sigmap"     )
+        call AddInVar(IOVars,"sigmah"     )
+        call AddInVar(IOVars,"oxyfrac"    )
+        call AddInVar(IOVars,"Percm"      )
+        call AddInVar(IOVars,"latc"       )
+        call AddInVar(IOVars,"lonc"       )
+        call AddInVar(IOVars,"Lb"         )
+        call AddInVar(IOVars,"Tb"         )
+        call AddInVar(IOVars,"losscone"   )
+        call AddInVar(IOVars,"radcurv"    )
+        call AddInVar(IOVars,"wIMAG"      )
+        call AddInVar(IOVars,"toMHD"      )
+        !Get data
+        call ReadVars(IOVars,.false.,ResF)
+  
+    !Unpack data
+        !1D
+        !Disabling reading geometric stuff (use recalculated value)
+        !call IOArray1DFill(IOVars,"gcolat"      ,RCMApp%gcolat      )
+        !call IOArray1DFill(IOVars,"glong"       ,RCMApp%glong       )
+
+        !2D
+        call IOArray2DFill(IOVars,"pot"         ,RCMApp%pot         )
+        call IOArray2DFill(IOVars,"fac"         ,RCMApp%fac         )  
+        call IOArray2DFill(IOVars,"Pave"        ,RCMApp%Pave        )   
+        call IOArray2DFill(IOVars,"Nave"        ,RCMApp%Nave        ) 
+        call IOArray2DFill(IOVars,"Vol"         ,RCMApp%Vol         )
+        call IOArray2DFill(IOVars,"Bmin"        ,RCMApp%Bmin        )
+        call IOArray2DFill(IOVars,"beta_average",RCMApp%beta_average)
+        call IOArray2DFill(IOVars,"Prcm"        ,RCMApp%Prcm        )
+        call IOArray2DFill(IOVars,"Nrcm"        ,RCMApp%Nrcm        )
+        call IOArray2DFill(IOVars,"Npsph"       ,RCMApp%Npsph       )
+        call IOArray2DFill(IOVars,"sigmap"      ,RCMApp%sigmap      )
+        call IOArray2DFill(IOVars,"sigmah"      ,RCMApp%sigmah      )
+        call IOArray2DFill(IOVars,"oxyfrac"     ,RCMApp%oxyfrac     )
+        call IOArray2DFill(IOVars,"Percm"       ,RCMApp%Percm       )
+        call IOArray2DFill(IOVars,"latc"        ,RCMApp%latc        )
+        call IOArray2DFill(IOVars,"lonc"        ,RCMApp%lonc        )
+        call IOArray2DFill(IOVars,"Lb"          ,RCMApp%Lb          )
+        call IOArray2DFill(IOVars,"Tb"          ,RCMApp%Tb          )
+        call IOArray2DFill(IOVars,"losscone"    ,RCMApp%losscone    )
+        call IOArray2DFill(IOVars,"radcurv"     ,RCMApp%radcurv     )
+        call IOArray2DFill(IOVars,"wIMAG"       ,RCMApp%wIMAG       )
+
+        !3D
+        call IOArray3DFill(IOVars,"eng_avg"     ,RCMApp%eng_avg     )    
+        call IOArray3DFill(IOVars,"flux"        ,RCMApp%flux        )  
+        call IOArray3DFill(IOVars,"X_bmin"      ,RCMApp%X_bmin      )
+
+        !Weird data
+        allocate(iopenX(NLat,NLon))
+        allocate(toMHDX(NLat,NLon))
+        call IOArray2DFill(IOVars,"iopen",iopenX)
+        RCMApp%iopen = nint(iopenX)
+        call IOArray2DFill(IOVars,"toMHD",toMHDX)
+        RCMApp%toMHD = (toMHDX>0.5)
+
+        write(*,*) 'Finished reading MHD2Imag restart ...'
+    end subroutine ReadMHD2IMagRestart
 end module rcm_mhd_io

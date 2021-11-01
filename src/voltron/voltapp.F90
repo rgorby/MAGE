@@ -28,12 +28,11 @@ module voltapp
         class(voltApp_T), intent(inout) :: vApp
         character(len=*), optional, intent(in) :: optFilename
 
-        character(len=strLen) :: inpXML
+        character(len=strLen) :: inpXML, kaijuRoot
         type(XML_Input_T) :: xmlInp
         type(TimeSeries_T) :: tsMJD
         real(rp) :: gTScl,tSpin,tIO
-        logical :: doSpin,doDelayIO
-        integer :: numSB
+        logical :: doSpin,isK
 
         if(present(optFilename)) then
             ! read from the prescribed file
@@ -48,75 +47,63 @@ module voltapp
         if (.not. vApp%isLoud) call xmlInp%BeQuiet()
 
         !Create XML reader
-        xmlInp = New_XML_Input(trim(inpXML),'Voltron',.true.)
+        xmlInp = New_XML_Input(trim(inpXML),'Kaiju/Voltron',.true.)
+
+        ! try to verify that the XML file has "Kaiju" as a root element
+        kaijuRoot = ""
+        call xmlInp%Get_Key_Val("/Gamera/sim/H5Grid",kaijuRoot, .false.)
+        if(len(trim(kaijuRoot)) /= 0) then
+            write(*,*) "The input XML appears to be of an old style."
+            write(*,*) "As of June 12th, 2021 it needs a root element of <Kaiju>."
+            write(*,*) "Please modify your XML config file by adding this line at the top:"
+            write(*,*) "<Kaiju>"
+            write(*,*) "and this line at the bottom:"
+            write(*,*) "</Kaiju>"
+            write(*,*) "OR (preferred) convert your configuration to an INI file and use"
+            write(*,*) " the XMLGenerator.py script to create conforming XML files."
+            write(*,*) "Please refer to the python script or"
+            write(*,*) " the [Generating XML Files] wiki page for additional info."
+            stop
+        endif
+
         !Setup OMP if on separate node (otherwise can rely on gamera)
         if (vApp%isSeparate) then
             call SetOMP(xmlInp)
         endif
 
         ! read number of squish blocks
-        call xmlInp%Set_Val(numSB,"coupling/numSquishBlocks",4)
-        call setNumSquishBlocks(numSB)
+        call xmlInp%Set_Val(vApp%ebTrcApp%ebSquish%numSquishBlocks,"coupling/numSquishBlocks",4)
 
     !Initialize state information
         !Set file to read from and pass desired variable name to initTS
-        call xmlInp%Set_Val(vApp%tilt%wID,"/Gamera/wind/tsfile","NONE")
+        call xmlInp%Set_Val(vApp%tilt%wID,"/Kaiju/Gamera/wind/tsfile","NONE")
         call vApp%tilt%initTS("tilt",doLoudO=.false.)
         vApp%symh%wID = vApp%tilt%wID
         call vApp%symh%initTS("symh",doLoudO=.false.)
+        !Initialize TM03 model in case we wanna use it
+        call InitTM03(vApp%tilt%wID,0.0_rp)
 
         gTScl = gApp%Model%Units%gT0
-
-        !Check for spinup info
-        call xmlInp%Set_Val(doSpin,"spinup/doSpin",.true.)
-        tIO = 0.0
-        doDelayIO = .false.
-        if (doSpin .and. (.not. gApp%Model%isRestart)) then
-            !Doing spinup and not a restart
-            call xmlInp%Set_Val(tSpin,"spinup/tSpin",3600.0) !Default two hours
-            !Rewind Gamera time to negative tSpin (seconds)
-            gApp%Model%t = -tSpin/gTScl 
-            !Reset State/oState
-            gApp% State%time  = gApp%Model%t
-            gApp%oState%time  = gApp%Model%t-gApp%Model%dt
-
-            doDelayIO = .true.
-            call xmlInp%Set_Val(tIO,"spinup/tIO",0.0) !Time of first restart
-        endif
-
-        vApp%time = gApp%Model%t*gTScl !Time in seconds
-        vApp%ts   = gApp%Model%ts !Timestep
 
         !Use MJD from time series
         tsMJD%wID = vApp%tilt%wID
         call tsMJD%initTS("MJD",doLoudO=.false.)
         gApp%Model%MJD0 = tsMJD%evalAt(0.0_rp) !Evaluate at T=0
         
-        vApp%MJD = T2MJD(vApp%time,gApp%Model%MJD0)
-
     !Time options
         call xmlInp%Set_Val(vApp%tFin,'time/tFin',1.0_rp)
         !Sync Gamera to Voltron endtime
         gApp%Model%tFin = vApp%tFin/gTScl
         
-    !IO/Restart options
-        if (doDelayIO) then
-            call vApp%IO%init(xmlInp,tIO,vApp%ts)
-        else
-            call vApp%IO%init(xmlInp,vApp%time,vApp%ts)
-        endif
+        call vApp%IO%init(xmlInp,vApp%time,vApp%ts)
         
         !Pull numbering from Gamera
-        vApp%IO%nRes = gApp%Model%IO%nRes
-        vApp%IO%nOut = gApp%Model%IO%nOut
         vApp%IO%tsNext = gApp%Model%IO%tsNext
         
         !Force Gamera IO times to match Voltron IO
         call IOSync(vApp%IO,gApp%Model%IO,1.0/gTScl)
 
     !Shallow coupling
-        !Start shallow coupling immediately
-        vApp%ShallowT = vApp%time
         call xmlInp%Set_Val(vApp%ShallowDT ,"coupling/dt" , 0.1_rp)
         vApp%TargetShallowDT = vApp%ShallowDT
         call xmlInp%Set_Val(vApp%doGCM, "coupling/doGCM",.false.)
@@ -126,7 +113,6 @@ module voltapp
         end if
 
     !Deep coupling
-        vApp%DeepT = 0.0_rp
         call xmlInp%Set_Val(vApp%DeepDT, "coupling/dtDeep", -1.0_rp)
         vApp%TargetDeepDT = vApp%DeepDT
         call xmlInp%Set_Val(vApp%rTrc,   "coupling/rTrc"  , 40.0)
@@ -137,10 +123,54 @@ module voltapp
             vApp%doDeep = .false.
         endif
 
-        ! Deep enabled, not restart, not spinup is an error. Restart or spinup is required
-        if (vApp%doDeep .and. (.not. gApp%Model%isRestart) .and. (.not. doSpin) ) then
-            write(*,*) 'Spinup is required with deep coupling. Please enable the spinup/doSpin option. At least 1 minute of spinup is recommended.'
-            stop
+        if(gApp%Model%isRestart) then
+            call readVoltronRestart(vApp, xmlInp)
+            vApp%IO%tOut = floor(vApp%time/vApp%IO%dtOut)*vApp%IO%dtOut
+            vApp%IO%tRes = vApp%time + vApp%IO%dtRes
+            vApp%IO%tsNext = vApp%ts
+            if(vApp%isSeparate) then
+                gApp%Model%ts = vApp%ts
+                gApp%Model%t  = vApp%time/gTScl
+                gApp% State%time  = gApp%Model%t
+                gApp%oState%time  = gApp%Model%t-gApp%Model%dt
+            else
+                !Voltron/gamera on same node, check if they agree
+                if (vApp%IO%nRes /= gApp%Model%IO%nRes) then
+                    write(*,*) "Gamera and Voltron disagree on restart number, you should sort that out."
+                    write(*,*) "Error code: A house divided cannot stand"
+                    write(*,*) "   Voltron nRes = ", vApp%IO%nRes
+                    write(*,*) "   Gamera  nRes = ", gApp%Model%IO%nRes
+                    stop
+                endif
+            endif !isSep and restart
+        else
+            ! non-restart initialization
+            !Check for spinup info
+            call xmlInp%Set_Val(doSpin,"spinup/doSpin",.true.)
+            ! Deep enabled, not restart, not spinup is an error. Restart or spinup is required
+            if (vApp%doDeep .and. (.not. doSpin) ) then
+                write(*,*) 'Spinup is required with deep coupling. Please enable the spinup/doSpin option. At least 1 minute of spinup is recommended.'
+                stop
+            endif
+            if (doSpin) then
+                call xmlInp%Set_Val(tSpin,"spinup/tSpin",7200.0) !Default two hours
+                !Rewind Gamera time to negative tSpin (seconds)
+                gApp%Model%t = -tSpin/gTScl
+                !Reset State/oState
+                gApp% State%time  = gApp%Model%t
+                gApp%oState%time  = gApp%Model%t-gApp%Model%dt
+                call xmlInp%Set_Val(tIO,"spinup/tIO",0.0) !Time of first restart and output
+                gApp%Model%IO%tRes = tIO/gTScl
+                gApp%Model%IO%tOut = tIO/gTScl
+                vApp%IO%tRes = tIO
+                vApp%IO%tOut = tIO
+            endif
+            vApp%time = gApp%Model%t*gTScl !Time in seconds
+            vApp%ts   = gApp%Model%ts !Timestep
+            vApp%MJD = T2MJD(vApp%time,gApp%Model%MJD0)
+            vApp%ShallowT = vApp%time ! shallow coupling immediately
+            !Set first deep coupling (defaulting to 0)
+            call xmlInp%Set_Val(vApp%DeepT, "coupling/tDeep", 0.0_rp)
         endif
 
         if (vApp%doDeep) then
@@ -166,16 +196,24 @@ module voltapp
                 write(*,*) 'Necessary CHIMP XML paramters not found, sort that out ...'
                 stop
             endif
-             
-            !Set first deep coupling (defaulting to 0)
-            call xmlInp%Set_Val(vApp%DeepT, "coupling/tDeep", 0.0_rp)
-
-            ! correct tDeep on restart for the serial version
-            ! mpi version corrects on its own in voltapp_mpi
-            if(.not. vApp%isSeparate .and. vApp%time > vApp%DeepT) vApp%DeepT = vApp%time
-
+            
             !Initialize deep coupling type/inner magnetosphere model
             call InitInnerMag(vApp,gApp,xmlInp)
+
+            if(gApp%Model%isRestart) then
+                select type(rcmApp=>vApp%imagApp)
+                    type is (rcmIMAG_T)
+                        !Check if Voltron and RCM have the same restart number
+                        if (vApp%IO%nRes /= rcmApp%rcmCpl%rcm_nRes) then
+                            write(*,*) "Gamera and RCM disagree on restart number, you should sort that out."
+                            write(*,*) "Error code: A house divided cannot stand"
+                            write(*,*) "   Voltron nRes = ", vApp%IO%nRes
+                            write(*,*) "   RCM     nRes = ", rcmApp%rcmCpl%rcm_nRes
+                            stop
+                        endif
+                end select
+            endif
+
         endif
 
         !Check for dynamic coupling cadence
@@ -186,6 +224,16 @@ module voltapp
             call initializeFromGamera(vApp, gApp, optFilename)
         else
             call initializeFromGamera(vApp, gApp)
+        endif
+
+        if (gApp%Grid%Nkp>=512) then
+        !Hex or above, check for sabotage
+            !For now disabling hex res for people too lazy to grep this error message
+            call xmlInp%Set_Val(isK,"sabotage/isKareem" , .false.)
+            if (.not. isK) then
+                write(*,*) 'Womp womp womp ...'
+                stop
+            endif
         endif
 
         if(.not. vApp%isSeparate) then
@@ -252,27 +300,40 @@ module voltapp
         isRestart = gApp%Model%isRestart
         RunID = trim(gApp%Model%RunID)
         
-        call InitVoltIO(vApp,gApp)
+        if(vApp%writeFiles) call InitVoltIO(vApp,gApp)
         
     !Remix from Gamera
         !Set mix default grid before initializing
         Rin = norm2(gApp%Grid%xyz(1,1,1,:)) !Inner radius
         call SetMixGrid0(Rin,gApp%Grid%Nkp)
+        
+        if (gApp%Grid%Nkp>=512) then
+            !Hex or above
+            call DisableSymLinks()
+        endif
 
         if(present(optFilename)) then
             ! read from the prescribed file
-            call init_mix(vApp%remixApp%ion,[NORTH, SOUTH],optFilename=optFilename,RunID=RunID,isRestart=isRestart,nRes=vApp%IO%nRes)
+            call init_mix(vApp%remixApp%ion,[NORTH, SOUTH],optFilename=optFilename,RunID=RunID,isRestart=isRestart,nRes=vApp%IO%nRes,optIO=vApp%writeFiles)
         else
-            call init_mix(vApp%remixApp%ion,[NORTH, SOUTH],RunID=RunID,isRestart=isRestart,nRes=vApp%IO%nRes)
+            call init_mix(vApp%remixApp%ion,[NORTH, SOUTH],RunID=RunID,isRestart=isRestart,nRes=vApp%IO%nRes,optIO=vApp%writeFiles)
         endif
         vApp%remixApp%ion%rad_iono_m = RadIonosphere() * gApp%Model%units%gx0 ! [Rp] * [m/Rp]
+
+        !Ensure remix and voltron restart numbers match
+        if (isRestart .and. vApp%IO%nRes /= vApp%remixApp%ion(1)%P%nRes) then
+            write(*,*) "Voltron and Remix disagree on restart number, you should sort that out."
+            write(*,*) "Error code: A house divided cannot stand"
+            write(*,*) "   Voltron nRes = ", vApp%IO%nRes
+            write(*,*) "   Remix   nRes = ", vApp%remixApp%ion(1)%P%nRes
+            stop
+        endif
 
         !Set F10.7 from time series (using max)
         f107%wID = vApp%tilt%wID
         call f107%initTS("f10.7",doLoudO=.false.)
         maxF107 = f107%getMax()
         
-
         do n=1,2
             vApp%remixApp%ion(n)%P%f107 = maxF107
         enddo
@@ -300,6 +361,16 @@ module voltapp
                 call init_volt2Chmp(ebTrcApp,gApp)
             endif
 
+            !Ensure chimp and voltron restart numbers match
+            ! Actually chimp doesn't write restart files right now
+            !if (isRestart .and. vApp%IO%nRes /= ebTrcApp%ebModel%IO%nRes) then
+            !    write(*,*) "Voltron and Chimp disagree on restart number, you should sort that out."
+            !    write(*,*) "Error code: A house divided cannot stand"
+            !    write(*,*) "   Voltron nRes = ", vApp%IO%nRes
+            !    write(*,*) "   Chimp   nRes = ", ebTrcApp%ebModel%IO%nRes
+            !    stop
+            !endif
+
             call init_mhd2Chmp(vApp%mhd2chmp, gApp, ebTrcApp)
             call init_chmp2Mhd(vApp%chmp2mhd, ebTrcApp, gApp)
 
@@ -308,7 +379,6 @@ module voltapp
         endif !doDeep
 
     end subroutine initializeFromGamera
-
 
 !----------
 !Shallow coupling stuff
@@ -379,16 +449,16 @@ module voltapp
             return
         endif
 
-        call PreSquishDeep(vApp, gApp)
+        call PreDeep(vApp, gApp)
+          call DoImag(vApp)
+          call SquishStart(vApp)
+            call Squish(vApp) ! do all squish blocks here
+          call SquishEnd(vApp)
+        call PostDeep(vApp, gApp)
 
-        ! do all squish blocks here
-        call DoSquish(vApp)
-
-        call PostSquishDeep(vApp, gApp)
-        
     end subroutine DeepUpdate
 
-    subroutine PreSquishDeep(vApp, gApp)
+    subroutine PreDeep(vApp, gApp)
         type(gamApp_T) , intent(inout) :: gApp
         class(voltApp_T), intent(inout) :: vApp
 
@@ -403,40 +473,27 @@ module voltapp
         call convertGameraToChimp(vApp%mhd2chmp,gApp,vApp%ebTrcApp)
         call Toc("G2C")
 
+    end subroutine
+
+    subroutine DoImag(vApp)
+        class(voltApp_T), intent(inout) :: vApp
+
         !Advance inner magnetosphere model to tAdv
         call Tic("InnerMag")
         call vApp%imagApp%doAdvance(vApp,vApp%DeepT)
         call Toc("InnerMag")
 
-        call Tic("Squish")
-        call SquishStart(vApp)
-        call Toc("Squish")
-        
     end subroutine
 
-    subroutine DoSquish(vApp)
-        class(voltApp_T), intent(inout) :: vApp
-
-        !Squish 3D data to 2D IMAG grid (either RP or lat-lon)
-        !Doing field projection at current time
-        call Tic("Squish")
-        call Squish(vApp)
-        call Toc("Squish")
-
-    end subroutine DoSquish
-
-    subroutine PostSquishDeep(vApp, gApp)
+    subroutine PostDeep(vApp, gApp)
         type(gamApp_T) , intent(inout) :: gApp
         class(voltApp_T), intent(inout) :: vApp
-
-        call Tic("Squish")
-        call SquishEnd(vApp)
-        call Toc("Squish")
 
         !Now use imag model and squished coordinates to fill Gamera source terms
         call Tic("IM2G")
         call InnerMag2Gamera(vApp,gApp)
         call Toc("IM2G")
+
     end subroutine
 
     subroutine CheckQuickSquishError(vApp, gApp, x2Err, x4Err)
@@ -514,7 +571,7 @@ module voltapp
         else
             call getIDeckStr(xmlStr)
         endif
-        inpXML = New_XML_Input(trim(xmlStr),"Chimp",.true.)
+        inpXML = New_XML_Input(trim(xmlStr),"Kaiju/Chimp",.true.)
 
     !Initialize model
         associate(Model=>ebTrcApp%ebModel,ebState=>ebTrcApp%ebState,ebGr=>ebTrcApp%ebState%ebGr,Gr=>gApp%Grid)

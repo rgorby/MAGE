@@ -194,10 +194,13 @@ module XML_Input
    !   provided, 'Input.XML' is set as the default file name
    !   and no 'root' path is defined.
 
+   public :: ReadXmlImmediate
+
    !-------------------------------------------------------------------
 
    type XML_Input_T
       private
+      character(len=strLen) :: mandatoryRoot ! required root of XML file and requests
       character(len=strLen) :: root ! default XML Root string
       character(len=strLen) :: fname ! fname
       character(len=strLen) :: buf ! string buffer
@@ -539,11 +542,19 @@ contains
       character(len=*), intent(in) :: rStr,xStr,vStr
       logical, intent(in) :: doVerb,isXML
       character(len=strLen) :: bStr,srcStr
-      character(len=*), parameter :: formt  = '(2X, a25, a1, 2X, a12, a10)'
-      character(len=*), parameter :: formtC = '(2X, a25, a1, 2X, a12, a,a10,a)'
+      character(len=*), parameter :: formt  = '(2X, a40, a1, 2X, a12, a10)'
+      character(len=*), parameter :: formtC = '(2X, a40, a1, 2X, a12, a,a10,a)'
+      integer :: pos
 
       if ( (.not. doVerb) .or. (doQuiet) ) return
-      bStr = trim(toUpper(rStr)) // '/' // trim(xStr)
+      pos = scan(trim(xStr), '/')
+      if (pos /= 1) then
+          ! key is relative to root
+          bStr = trim(toUpper(rStr)) // '/' // trim(xStr)
+      else
+          ! key is absolute
+          bStr = trim(xStr)
+      endif
       
       if (isXML) then
          srcStr = "(XML)"
@@ -555,11 +566,13 @@ contains
       !write(*,formt) adjustl(bStr), ':', trim(vStr), trim(srcStr)
    end subroutine xmlOutput
 
-   function New_XML_Input(fname, root, verbOpt)
+   function New_XML_Input(fname, root, verbOpt, fileRoot)
       type(XML_Input_T) :: New_XML_Input
       character(len=*), intent(in) :: fname
       character(len=*), intent(in) :: root
       logical, optional :: verbOpt
+      character(len=*), optional :: fileRoot
+
       integer :: fid
       character(len=strLen) :: buf
 
@@ -575,6 +588,13 @@ contains
       New_XML_Input%vrb = .false.
       if (present(verbOpt)) then
          New_XML_Input%vrb = verbOpt
+      endif
+
+      if (present(fileRoot)) then
+          New_XML_Input%mandatoryRoot = trim(fileRoot)
+      else
+          ! default mandatory root
+          New_XML_Input%mandatoryRoot = "kaiju"
       endif
 
       ! Warn if provided an impty file/root string
@@ -708,6 +728,8 @@ contains
 
          if(pos > 0) then
            pth = trim(pth(1:pos-1))
+         else
+           pth = "" ! no longer in anything but root
          endif
 
        ! Finally, if '=' is found; it's a section containing key/value pairs.
@@ -796,14 +818,23 @@ contains
 
    !------------------------------------------------------------------
 
-   subroutine Get_Key_Val(this, str, sout)
+   subroutine Get_Key_Val(this, str, sout, checkRoot)
       class(XML_Input_T)   :: this
       character(len=*)   :: str
       character(len=strLen), intent(out) :: sout
+      logical, optional :: checkRoot
+
       integer            :: i
       integer            :: pos
       character(len=strLen) :: buf
       type(XML_Data_T)     :: xmld
+      logical            :: doRootCheck
+
+      if(present(checkRoot)) then
+          doRootCheck = checkRoot
+      else
+          doRootCheck = .true. ! default
+      endif
 
       sout = "" ! initialize the result
 
@@ -818,6 +849,14 @@ contains
             return
          endif
          xmld%root = this%root ! otherwise, set the root using default
+         ! deal with the edge case that the root has more than entry in it
+         pos = scan(trim(this%root), '/')
+         if(pos .gt. 0) then
+             ! the root contains a '/'
+             xmld%root = this%root(1:pos-1);
+             ! combine the rest of the root into the buffer that goes into the key
+             buf = trim(this%root(pos+1:)) // '/' // trim(buf(:))
+         endif
       else
          ! If however, it 'is' in the first position, parse
          ! the string and set root
@@ -831,10 +870,22 @@ contains
       ! should be found, and trim(buf) should just be the key
       xmld%key = trim(buf)
     
+      ! check if the search root matches the required root
+      if(doRootcheck .and. len(this%mandatoryRoot) > 0) then
+          if(trim(ToUpper(xmld%root)) /= trim(ToUpper(this%mandatoryRoot))) then
+              write(*,*) "ERROR:"
+              write(*,*) "The root of requested XML keys MUST be '", trim(this%mandatoryRoot), "'"
+              write(*,*) "The following key was requested with an incorrect root:"
+              write(*,*) "  /",trim(xmld%root),"/",trim(xmld%key)
+              write(*,*) "Stopping application."
+              write(*,*) ""
+              stop
+          endif
+      endif
+
       ! Now, search through the internal xml_data type
       ! to extract the value. If the value is not found,
       ! return an empty string
-
       do i = 1, size(this%xmld), 1
          if (Is_Matched(this%xmld(i), xmld)) then
             sout = this%xmld(i)%val
@@ -887,6 +938,30 @@ contains
    subroutine SetAllXML2Quiet()
       doQuiet = .true.
    end subroutine SetAllXML2Quiet
+
+   !------------------------------------------------------------------
+
+   !Helper function to open an xml, read a single parameter, and close it
+   !For when you just need that one parameter, right now
+   subroutine ReadXmlImmediate(fname, keyIn, valOut, dflt, verbOpt)
+      character(len=*), intent(in) :: keyIn
+      character(len=strLen), intent(out) :: valOut
+      character(len=*), intent(in) :: fname
+      character(len=*), intent(in) :: dflt
+      logical, optional            :: verbOpt
+
+      type(XML_Input_T) :: xmlInp
+
+      if (present(verbOpt)) then
+         xmlInp = New_XML_Input(trim(fname),'/',verbOpt)
+      else
+         xmlInp = New_XML_Input(trim(fname),'/')
+      endif
+
+      call xmlInp%Get_Key_Val(trim(keyIn), valOut)
+      if(len(trim(valOut)) == 0) valOut = trim(dflt)
+
+   end subroutine
 
 end module XML_Input
 

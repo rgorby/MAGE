@@ -32,17 +32,23 @@ contains
 !Routine to stamp output file with various information
     subroutine StampIO(fIn)
         character(len=*), intent(in) :: fIn
-        character(len=strLen) :: gStr,dtStr
+        character(len=strLen) :: gStr,dtStr,bStr
         type(IOVAR_T), dimension(10) :: IOVars
 
         call GitHash(gStr)
+        call GitBranch(bStr)
         call DateTimeStr(dtStr)
 
         call ClearIO(IOVars)
         call AddOutVar(IOVars,"GITHASH",gStr)
+        call AddOutVar(IOVars,"GITBRANCH",bStr)
+#ifdef __INTEL_COMPILER_OLD
+        call AddOutVar(IOVars,"COMPILER",gStr)
+        call AddOutVar(IOVars,"COMPILEROPTS",gStr)
+#else
         call AddOutVar(IOVars,"COMPILER",compiler_version())
         call AddOutVar(IOVars,"COMPILEROPTS",compiler_options())
-        
+#endif   
         call AddOutVar(IOVars,"DATETIME",dtStr)
         call WriteVars(IOVars,.true.,fIn)
 
@@ -696,7 +702,9 @@ contains
         end select
 
         !Set attached values
-        call h5ltset_attribute_string_f(gId,trim(IOVar%idStr),"Units",trim(IOVar%unitStr),herr)
+        call h5ltset_attribute_string_f(gId,trim(IOVar%idStr),"Units"      ,trim(IOVar%unitStr),herr)
+        call h5ltset_attribute_string_f(gId,trim(IOVar%idStr),"Description",trim(IOVar%descStr),herr)
+
         IOVar%isDone = .true.
     end subroutine WriteHDFVar
 
@@ -774,6 +782,7 @@ contains
         Nv = size(IOVars)
         IOVars(:)%idStr   = "NONE"
         IOVars(:)%unitStr = "CODE"
+        IOVars(:)%descStr = "DESCRIPTION"
         IOVars(:)%dStr    = "UNSET"
         IOVars(:)%Nr      = 0
         IOVars(:)%N       = 0

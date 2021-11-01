@@ -55,13 +55,14 @@ program calcdbx
     !----------------------------
     !Initialize data structures
     call initDBio(Model,ebState,gGr,inpXML,NumP)
-    call initRM(Model,ebState,rmState)
+    call initRM(Model,ebState,rmState,inpXML)
 
     call ionGridInit(Model,ebState,rmState,ionGrid)
     call facGridInit(Model,ebState,rmState,ionGrid,facGrid)
 
     call BSGridInit(Model,ebState,rmState,magBS,ionBS,facBS)
 
+    write(*,*) "Initialization complete, let's do this thing!"
     !Loop from T0 -> tFin
     Model%t = Model%T0
     
@@ -98,7 +99,7 @@ program calcdbx
 
     !Compute BS integrals (SM) on ground and remap dB to GEO
         call Tic("ComputeBS")
-        call BS2Gr(Model,magBS,ionBS,facBS,gGr)
+        call BS2Gr(Model,Model%t,ebState,magBS,ionBS,facBS,gGr)
         call Toc("ComputeBS")
 
         !Calc/write DB on grid
@@ -119,6 +120,13 @@ program calcdbx
 
             wT = readClock("MagDB")
             write(*,'(a,a)')       'UT = ', trim(utStr)
+            write(*,'(a,f12.3,a)') '     SMU = ', gGr%SMU, ' [nT]'
+            write(*,'(a,2f12.3,a)') '         @ Lat/Lon: ', gGr%SMU_MLat,gGr%SMU_MLon, ' [deg]'
+            write(*,'(a,f12.3,a)') '     SML = ', gGr%SML, ' [nT]'
+            write(*,'(a,2f12.3,a)') '         @ Lat/Lon: ', gGr%SML_MLat,gGr%SML_MLon, ' [deg]'
+            write(*,'(a,f12.3,a)') '     SME = ', gGr%SME, ' [nT]'
+            write(*,'(a,f12.3,a)') '     SMR = ', gGr%SMR, ' [nT]'
+            write(*,'(a,4f12.3,a)') '         SMR-00/06/12/18 = ', gGr%SMR_00,gGr%SMR_06,gGr%SMR_12,gGr%SMR_18, ' [nT]'
             write(*,'(a,f12.3,a)') '       T = ', Model%t*oTScl, ' ' // trim(tStr)
             write(*,'(a,f8.3)')    '   kDBps = ', 1.0e-3*NumP*Model%tsOut/wT
         endif

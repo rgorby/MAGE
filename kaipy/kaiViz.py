@@ -82,7 +82,7 @@ def SetAx(xyBds=[-1,1,-1,1],ax=None,Adj='box'):
 	ax.set_xlim(xyBds[0],xyBds[1])
 	ax.set_ylim(xyBds[2],xyBds[3])
 	ax.set_aspect('equal',adjustable=Adj)
-	
+
 #Set axis labels and locations
 def SetAxLabs(Ax,xLab,yLab,doBot=True,doLeft=True,fs="medium"):
 	Ax.set_xlabel(xLab,fontsize=fs)
@@ -104,6 +104,11 @@ def SetAxLabs(Ax,xLab,yLab,doBot=True,doLeft=True,fs="medium"):
 		Ax.yaxis.label.set_visible(False)
 		Ax.yaxis.set_visible(False)
 		plt.setp(Ax.get_yticklabels(),visible=False)
+
+#Set X axis to labels to well formatted date time
+def SetAxDate(Ax,fmt='%H:%M \n%Y-%m-%d'):
+	Ax.xaxis_date()
+	Ax.xaxis.set_major_formatter(mpl.dates.DateFormatter(fmt))
 
 #Adds 2D earth w/ dawn/dusk
 def addEarth2D(Re=1, angle=-90, ax=None):
@@ -173,11 +178,11 @@ def trimFig(fName,bLenX=20,bLenY=None,doEven=True):
 			ShaveY(fName)
 			Nx,Ny = picSz(fName)
 			#print('\t%d,%d'%(Nx,Ny))
-		
+
 		Nx,Ny = picSz(fName)
 		if ( ((Nx % 2) != 0) or ((Ny % 2) != 0) ):
 			print("Parity failure on pic sizing")
-			print(Nx,Ny)		
+			print(Nx,Ny)
 
 def picSz(fName):
 	from PIL import Image
@@ -241,7 +246,118 @@ def genCB(AxCB,vN,cbT="Title",cM="viridis",doVert=False,cbSz="medium",Ntk=None):
 	if (Ntk is not None):
 		cb.locator = ticker.MaxNLocator(nbins=Ntk)
 		cb.update_ticks()
-		
+
 	cb.set_label(cbT,fontsize=cbSz)
 	cb.ax.tick_params(labelsize=cbSz)
 	return cb
+
+def labelStr(data, key, vecComp):
+	vecLabel=[ 'x', 'y', 'z' ]
+	if (vecComp < 3) and (vecComp > -1):
+		label=(data['GAMERA_'+key].attrs['AXISLABEL']+
+		vecLabel[vecComp]+' ['+
+		data['GAMERA_'+key].attrs['UNITS'].decode()+']')
+	else:
+		label=(data['GAMERA_'+key].attrs['AXISLABEL']+
+		' ['+data['GAMERA_'+key].attrs['UNITS'].decode()+']')
+	return label
+
+
+def itemPlot(Ax,data,key,plotNum,numPlots,vecComp=-1):
+	#print(key,vecComp)
+	if -1 == vecComp:
+		maskedData = np.ma.masked_where(data['GAMERA_inDom'][:]==0.0,
+			data[key][:])
+		Ax.plot(data['Epoch_bin'],maskedData)
+		maskedGamera = np.ma.masked_where(data['GAMERA_inDom'][:]==0.0,
+			data['GAMERA_'+key][:])
+		Ax.plot(data['Epoch_bin'],maskedGamera)
+	else:
+		maskedData = np.ma.masked_where(data['GAMERA_inDom'][:]==0.0,
+			data[key][:,vecComp])
+		Ax.plot(data['Epoch_bin'],maskedData)
+		maskedGamera = np.ma.masked_where(data['GAMERA_inDom'][:]==0.0,
+			data['GAMERA_'+key][:,vecComp])
+		Ax.plot(data['Epoch_bin'],maskedGamera)
+	if (plotNum % 2) == 0:
+		left = True
+	else:
+		left = False
+	label = labelStr(data, key,vecComp)
+	if plotNum == (numPlots-1):
+		SetAxLabs(Ax,'UT',label,doLeft=left)
+		SetAxDate(Ax)
+	else:
+		SetAxLabs(Ax,None,label,doLeft=left)
+	return
+
+def compPlot(plotname,scId,data):
+
+	numPlots = 0
+	keysToPlot = []
+	keys = data.keys()
+	#print(keys)
+	if 'Density' in keys:
+		numPlots = numPlots + 1
+		keysToPlot.append('Density')
+	if 'Pressue' in keys:
+		numPlots = numPlots + 1
+		keysToPlot.append('Pressue')
+	if 'Temperature' in keys:
+		numPlots = numPlots + 1
+		keysToPlot.append('Temperature')
+	if 'MagneticField' in keys:
+		numPlots = numPlots + 3
+		keysToPlot.append('MagneticField')
+	if 'Velocity' in keys:
+		numPlots = numPlots + 3
+		keysToPlot.append('Velocity')
+
+	figsize = (10,10)
+	fig = plt.figure(figsize=figsize)
+	gs = fig.add_gridspec(numPlots,1)
+	plotNum = 0
+	for key in keysToPlot:
+		#print('Plotting',key)
+		if 'MagneticField' == key or 'Velocity' == key:
+			doVecPlot = True
+		else:
+			doVecPlot = False
+		if 0 == plotNum:
+			Ax1 = fig.add_subplot(gs[plotNum,0])
+			if doVecPlot:
+				#print('key',key,'plotNum',plotNum)
+				itemPlot(Ax1,data,key,plotNum,numPlots,vecComp=0)
+				plotNum = plotNum + 1
+				Ax = fig.add_subplot(gs[plotNum,0],sharex=Ax1)
+				itemPlot(Ax,data,key,plotNum,numPlots,vecComp=1)
+				plotNum = plotNum + 1
+				Ax = fig.add_subplot(gs[plotNum,0],sharex=Ax1)
+				itemPlot(Ax,data,key,plotNum,numPlots,vecComp=2)
+				plotNum = plotNum + 1
+			else:
+				#print('key',key,'plotNum',plotNum)
+				itemPlot(Ax1,data,key,plotNum,numPlots)
+				plotNum = plotNum + 1
+		else:
+			Ax = fig.add_subplot(gs[plotNum,0],sharex=Ax1)
+			if doVecPlot:
+				#print('key',key,'plotNum',plotNum)
+				itemPlot(Ax,data,key,plotNum,numPlots,vecComp=0)
+				plotNum = plotNum + 1
+				Ax = fig.add_subplot(gs[plotNum,0],sharex=Ax1)
+				itemPlot(Ax,data,key,plotNum,numPlots,vecComp=1)
+				plotNum = plotNum + 1
+				Ax = fig.add_subplot(gs[plotNum,0],sharex=Ax1)
+				itemPlot(Ax,data,key,plotNum,numPlots,vecComp=2)
+				plotNum = plotNum + 1
+			else:
+				#print('key',key,'plotNum',plotNum)
+				itemPlot(Ax,data,key,plotNum,numPlots)
+				plotNum = plotNum + 1
+
+	Ax1.legend([scId,'GAMERA'],loc='best')
+	Ax1.set_title(plotname)
+	plt.subplots_adjust(hspace=0)
+
+	savePic(plotname)

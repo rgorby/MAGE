@@ -1,5 +1,5 @@
 module testVMpi
-  use pFUnit
+  use testHelperMpi
   use gamapp_mpi
   use voltapp_mpi
   use gam2voltcomm_mpi
@@ -20,7 +20,8 @@ contains
       class (MpiTestMethod), intent(inout) :: this
       character(len=strLen) :: caseFile
 
-      integer :: ierror, gamComm = MPI_COMM_NULL
+      integer :: ierror
+      type(MPI_Comm) :: gamComm, voltComm
 
       call setMpiReal()
 
@@ -33,18 +34,18 @@ contains
           allocate(g2vCommMpi)
 
           ! make gamera-only mpi communicator
-          call MPI_Comm_Split(this%getMpiCommunicator(), 0, this%getProcessRank(), gamComm, ierror)
+          call MPI_Comm_Split(getMpiF08Communicator(this), 0, this%getProcessRank(), gamComm, ierror)
 
           call initGamera_mpi(gamAppMpi, initUser, gamComm, caseFile, .false.)
-          call initGam2Volt(g2vCommMpi, gamAppMpi, this%getMpiCommunicator(), caseFile)
+          call initGam2Volt(g2vCommMpi, gamAppMpi, getMpiF08Communicator(this), caseFile)
       else
           isGamera = .false.
           allocate(voltAppMpi)
 
           ! make gamera-only mpi communicator
-          call MPI_Comm_Split(this%getMpiCommunicator(), MPI_UNDEFINED, this%getProcessRank(), gamComm, ierror)
+          call MPI_Comm_Split(getMpiF08Communicator(this), 1, this%getProcessRank(), voltComm, ierror)
 
-          call initVoltron_mpi(voltAppMpi, initUser, this%getMpiCommunicator(), caseFile)
+          call initVoltron_mpi(voltAppMpi, initUser, voltComm, getMpiF08Communicator(this), caseFile)
       endif
 
   end subroutine setup
@@ -65,7 +66,7 @@ contains
 
   end subroutine teardown
 
-  @test(npes=[2,5,9,17])
+  @test(npes=[2,5,9])
   subroutine testStepUpdate(this)
       class (MpiTestMethod), intent(inout) :: this
 
@@ -107,7 +108,7 @@ contains
 
   end subroutine testStepUpdate
 
-  @test(npes=[2,5,9,17])
+  @test(npes=[2,5,9])
   subroutine testDTypesGasShallow(this)
       class (MpiTestMethod), intent(inout) :: this
 
@@ -237,7 +238,7 @@ contains
 
   end subroutine
 
-  @test(npes=[2,5,9,17])
+  @test(npes=[2,5,9])
   subroutine testMhd2VoltShallowCopy(this)
       class (MpiTestMethod), intent(inout) :: this
 
@@ -351,7 +352,7 @@ contains
 
   end subroutine testMhd2VoltShallowCopy
 
-  @test(npes=[2,5,9,17])
+  @test(npes=[2,5,9])
   subroutine testVolt2MhdShallowCopy(this)
       class (MpiTestMethod), intent(inout) :: this
 
@@ -460,7 +461,7 @@ contains
 
   end subroutine testVolt2MhdShallowCopy
 
-  !@test(npes=[2,5,17])
+  !@test(npes=[2,5,9])
   subroutine testShallowUpdate(this)
       class (MpiTestMethod), intent(inout) :: this
 
@@ -516,7 +517,7 @@ contains
 
   end subroutine testShallowUpdate
 
-  @test(npes=[2,5,9,17])
+  @test(npes=[2,5,9])
   subroutine VMPIcorotationTest(this)
       class (MpiTestMethod), intent(inout) :: this
 
@@ -524,7 +525,7 @@ contains
       real(rp) :: xc,yc,zc,deltaSum,rval,lambda,Psi0,RIn,errorThresh
       real(rp), dimension(NDIM) :: rHatP,eHat,xyz,Exyz,ccEijk
 
-      type(IOVAR_T), dimension(MAXIOVAR) :: debugHDF
+      !type(IOVAR_T), dimension(MAXMIXIOVAR) :: debugHDF
 
       !Setting some values for inner shell
       RIn  = 1.0
@@ -700,7 +701,7 @@ contains
       endif
   end subroutine VMPIcorotationTest
 
-  @test(npes=[2,5,9,17])
+  @test(npes=[2,5,9])
   subroutine VMPIdipoleTest(this)
     class (MpiTestMethod), intent(inout) :: this
 

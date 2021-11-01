@@ -39,6 +39,19 @@ module ebinterp
         associate( ebGr=>ebState%ebGr,ebTab=>ebState%ebTab,eb1=>ebState%eb1,eb2=>ebState%eb2 )
 
         V = 0.0
+
+        ! if within inner boundary of grid, use pure dipole
+        if (inGap(xyz,Model,ebGr)) then
+            !Handle cases here then return to avoid rest
+            select case(FLD)
+            case(EFLD,DBFLD)
+                V = 0.0
+            case(BFLD)
+                V = Model%B0(xyz)
+            end select
+            return
+        endif
+
         !Start by doing localization
         if (present(ijkO)) then
             !Use supplied guess
@@ -160,6 +173,9 @@ module ebinterp
         else
             doJacob = .false.
         endif
+
+        ! if within inner boundary of grid, use pure dipole
+        if (inGap(xyz,Model,ebGr)) return
 
 
     !Start w/ localization
@@ -286,9 +302,13 @@ module ebinterp
                 !Weight for P (closer)
                     wAx = norm2(Xm-Xc)/norm2(Xp-Xm)
                 endif !isAxisS
-                JacB = wAx*gcFieldsAxP%JacB + (1-wAx)*gcFieldsAxM%JacB
+                
+                !Interpolate dJac across the axis
+                !Add JacB0 at true point
                 JacE = wAx*gcFieldsAxP%JacE + (1-wAx)*gcFieldsAxM%JacE
-
+                JacB =     wAx *( gcFieldsAxP%JacB - Model%JacB0(Xp) ) + &
+                        (1-wAx)*( gcFieldsAxM%JacB - Model%JacB0(Xm) ) + &
+                                  Model%JacB0(xyz)
             else
                 !Otherwise do standard thing
 
@@ -338,10 +358,9 @@ module ebinterp
 
                     enddo
                 enddo
-
+                !Add background to dJacB
+                JacB = JacB + Model%JacB0(xyz)
             endif !isAxis
-
-            JacB = JacB + Model%JacB0(xyz)
 
             !Time derivatives
             !Either use Curl(E) or linear derivative for bdot
@@ -389,7 +408,9 @@ module ebinterp
 
         iQ = 0.0 !Interpolated values
 
-        if (.not. Model%doMHD) return
+        ! if within inner boundary set everything to 0 and exit
+        if (inGap(xyz,Model,ebGr)) return
+        if (.not. Model%doMHD)     return
 
         if (present(ijkO)) then
             !Use supplied guess

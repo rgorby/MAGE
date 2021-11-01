@@ -8,23 +8,28 @@ module gamapp_mpi
     use gamapp
     use bcs_mpi
     use mpidefs
-    use mpi
+    use mpi_f08
 
     implicit none
 
     type, extends(GamApp_T) :: gamAppMpi_T
-        integer :: gamMpiComm = MPI_COMM_NULL
+        type(MPI_Comm) :: gamMpiComm
         integer, dimension(:), allocatable :: sendRanks, recvRanks
+        logical :: blockHalo = .false.
 
         ! Gas Data Transfer Variables
-        integer, dimension(:), allocatable :: sendCountsGas, sendTypesGas
-        integer, dimension(:), allocatable :: recvCountsGas, recvTypesGas
-        integer(MPI_ADDRESS_KIND), dimension(:), allocatable :: sendDisplsGas, recvDisplsGas
+        integer, dimension(:), allocatable :: sendCountsGas
+        type(MPI_Datatype), dimension(:), allocatable :: sendTypesGas
+        integer, dimension(:), allocatable :: recvCountsGas
+        type(MPI_Datatype), dimension(:), allocatable :: recvTypesGas
+        integer(kind=MPI_AN_MYADDR), dimension(:), allocatable :: sendDisplsGas, recvDisplsGas
 
         ! Magnetic Flux Data Transfer Variables
-        integer, dimension(:), allocatable :: sendCountsMagFlux, sendTypesMagFlux
-        integer, dimension(:), allocatable :: recvCountsMagFlux, recvTypesMagFlux
-        integer(MPI_ADDRESS_KIND), dimension(:), allocatable :: sendDisplsMagFlux, recvDisplsMagFlux
+        integer, dimension(:), allocatable :: sendCountsMagFlux
+        type(MPI_Datatype), dimension(:), allocatable :: sendTypesMagFlux
+        integer, dimension(:), allocatable :: recvCountsMagFlux
+        type(MPI_Datatype), dimension(:), allocatable :: recvTypesMagFlux
+        integer(kind=MPI_AN_MYADDR), dimension(:), allocatable :: sendDisplsMagFlux, recvDisplsMagFlux
 
         ! Debugging flags
         logical :: printMagFluxFaceError = .false.
@@ -37,13 +42,17 @@ module gamapp_mpi
     subroutine initGamera_mpi(gamAppMpi, userInitFunc, gamComm, optFilename, doIO)
         type(gamAppMpi_T), intent(inout) :: gamAppMpi
         procedure(StateIC_T), pointer, intent(in) :: userInitFunc
-        integer, intent(in) :: gamComm
+        type(MPI_Comm), intent(in) :: gamComm
         character(len=*), optional, intent(in) :: optFilename
         logical, optional, intent(in) :: doIO
 
-        character(len=strLen) :: inpXML
+        character(len=strLen) :: inpXML, kaijuRoot
         type(XML_Input_T) :: xmlInp
-        logical :: doIOX
+        logical :: doIOX,doLoud
+        integer :: rank,ierr
+
+        ! initialize F08 MPI objects
+        gamAppMpi%gamMpiComm = MPI_COMM_NULL
 
         if(present(optFilename)) then
             ! read from the prescribed file
@@ -60,9 +69,42 @@ module gamapp_mpi
             doIOX = .true.
         endif
 
-        !Create XML reader
-        write(*,*) 'Reading input deck from ', trim(inpXML)
-        xmlInp = New_XML_Input(trim(inpXML),'Gamera',.true.)
+    !Create XML reader
+        !Verbose for root Gamera rank only
+        !NOTE: Doing this w/ direct MPI call b/c isTiled/etc doesn't get set until later
+        call mpi_comm_rank(gamComm, rank, ierr)
+        if (rank == 0) then
+            doLoud = .true.
+        else
+            doLoud = .false.
+        endif
+
+
+        if (doLoud) then
+            write(*,*) 'Reading input deck from ', trim(inpXML)
+            xmlInp = New_XML_Input(trim(inpXML),'Kaiju/Gamera',.true.)
+        else
+            xmlInp = New_XML_Input(trim(inpXML),'Kaiju/Gamera',.false.)
+        endif
+
+        ! try to verify that the XML file has "Kaiju" as a root element
+        kaijuRoot = ""
+        call xmlInp%Get_Key_Val("/Gamera/sim/H5Grid",kaijuRoot,.false.)
+        if(len(trim(kaijuRoot)) /= 0) then
+            write(*,*) "The input XML appears to be of an old style."
+            write(*,*) "As of June 12th, 2021 it needs a root element of <Kaiju>."
+            write(*,*) "Please modify your XML config file by adding this line at the top:"
+            write(*,*) "<Kaiju>"
+            write(*,*) "and this line at the bottom:"
+            write(*,*) "</Kaiju>"
+            write(*,*) "OR (preferred) convert your configuration to an INI file and use"
+            write(*,*) " the XMLGenerator.py script to create conforming XML files."
+            write(*,*) "Please refer to the python script or"
+            write(*,*) " the [Generating XML Files] wiki page for additional info."
+            stop
+        endif
+
+        call xmlInp%Set_Val(gamAppMpi%blockHalo,"coupling/blockHalo",.false.)
 
         ! read debug flags
         call xmlInp%Set_Val(writeGhosts,"debug/writeGhosts",.false.)
@@ -85,10 +127,10 @@ module gamapp_mpi
         type(gamAppMpi_T), intent(inout) :: gamAppMpi
         type(XML_Input_T), intent(inout) :: xmlInp
         procedure(StateIC_T), pointer, intent(in) :: userInitFunc
-        integer, intent(in) :: gamComm
+        type(MPI_Comm), intent(in) :: gamComm
         real(rp), optional, intent(in) :: endTime
 
-        integer :: numNeighbors, ierr, length, commSize, rank, ic, jc, kc
+        integer :: numNeighbors, ierr, length, commSize, rank, ic, jc, kc, rn
         integer :: targetRank, sendNumber, numInNeighbors, numOutNeighbors, listIndex
         integer, dimension(27) :: sourceRanks, sourceData
         logical :: reorder,periodicI,periodicJ,periodicK,wasWeighted
@@ -98,6 +140,7 @@ module gamapp_mpi
         character(len=strLen) :: inH5
         logical :: doH5g
         integer, dimension(NDIM) :: dims
+        integer, dimension(:), allocatable :: gamRestartNumbers
 
         associate(Grid=>gamAppMpi%Grid,Model=>gamAppMpi%Model)
 
@@ -124,6 +167,23 @@ module gamapp_mpi
                 call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
             endif
 
+            ! read number of physical cells from H5 file or xml
+            if(doH5g .or. Model%isRestart) then
+                ! Read basic grid size info from full grid file
+                call xmlInp%Set_Val(inH5,"sim/H5Grid","gMesh.h5")
+
+                dims = GridSizeH5(inH5)
+
+                ! These assume Model%nG is 4
+                Grid%Nip = dims(1) - 9
+                Grid%Njp = dims(2) - 9
+                Grid%Nkp = dims(3) - 9
+            else
+                call xmlInp%Set_Val(Grid%Nip,"idir/N",1)
+                call xmlInp%Set_Val(Grid%Njp,"jdir/N",1)
+                call xmlInp%Set_Val(Grid%Nkp,"kdir/N",1)
+            endif
+
             if(modulo(Grid%Nip,Grid%NumRi) /= 0) then
                 print *,'Number of cells in i dimension is ',Grid%Nip,' but it must be a multiple of the number of MPI ranks in that dimension, which was ',Grid%NumRi
                 call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
@@ -144,22 +204,6 @@ module gamapp_mpi
             Grid%Rj = modulo(rank, Grid%NumRj)
             rank = (rank-Grid%Rj)/Grid%NumRj
             Grid%Ri = rank
-
-            if(doH5g .or. Model%isRestart) then
-                ! Read basic grid size info from full grid file
-                call xmlInp%Set_Val(inH5,"sim/H5Grid","gMesh.h5")
-
-                dims = GridSizeH5(inH5)
-
-                ! These assume Model%nG is 4
-                Grid%Nip = dims(1) - 9
-                Grid%Njp = dims(2) - 9
-                Grid%Nkp = dims(3) - 9
-            else
-                call xmlInp%Set_Val(Grid%Nip,"idir/N",1)
-                call xmlInp%Set_Val(Grid%Njp,"jdir/N",1)
-                call xmlInp%Set_Val(Grid%Nkp,"kdir/N",1)
-            endif
 
             ! adjust corner information to reflect this individual node's grid data
             Grid%Nip = Grid%Nip/Grid%NumRi
@@ -209,7 +253,19 @@ module gamapp_mpi
                         endif
                        
                         if(targetRank /= rank) then ! ensure I'm not talking to myself
-                            listIndex = findloc(sourceRanks, targetRank, 1)
+#if defined __INTEL_COMPILER && __INTEL_COMPILER >= 1800
+                        listIndex = findloc(sourceRanks, targetRank, 1)
+#else
+                        !Bypass as findloc does not work for gfortran<9
+                        !Work-around code
+                        listIndex = 0
+                        do rn=1,size(sourceRanks)
+                            if (sourceRanks(rn) .eq. targetRank) then
+                                listIndex = rn
+                                exit
+                            endif
+                        enddo
+#endif
                             if(listIndex == 0) then ! this rank not in the list yet
                                 numNeighbors = numNeighbors+1
                                 listIndex = numNeighbors
@@ -308,6 +364,26 @@ module gamapp_mpi
 
         ! call appropriate subroutines to calculate all appropriate grid data from the corner data
         call CalcGridInfo(Model,Grid,gamAppMpi%State,gamAppMpi%oState,gamAppMpi%Solver,xmlInp,userInitFunc)
+
+        ! All Gamera ranks compare restart numbers to ensure they're the same
+        if(Model%isRestart) then
+            if(Grid%Ri==0 .and. Grid%Rj==0 .and. Grid%Rk==0) then
+                ! master rank receives data
+                allocate(gamRestartNumbers(commSize))
+                call mpi_gather(gamAppMpi%Model%IO%nRes, 1, MPI_INT, gamRestartNumbers, 1, MPI_INT, 0, gamAppMpi%gamMpiComm, ierr)
+                if(.not. all(gamRestartNumbers .eq. minval(gamRestartNumbers))) then
+                    write(*,*) "Gamera ranks did not all agree on restart numbers, you should sort that out."
+                    write(*,*) "Error code: A house divided cannot stand"
+                    write(*,*) "   Minimum Gamera nRes = ", minval(gamRestartNumbers)
+                    write(*,*) "   Maximum Gamera nRes = ", maxval(gamRestartNumbers)
+                    stop
+                endif
+                deallocate(gamRestartNumbers)
+            else
+                ! all other ranks only send data
+                call mpi_gather(gamAppMpi%Model%IO%nRes, 1, MPI_INT, 0, 0, MPI_INT, 0, gamAppMpi%gamMpiComm, ierr)
+            endif
+        endif
 
         if(Grid%isTiled) then
             ! correct boundary conditions if necessary
@@ -596,7 +672,7 @@ module gamapp_mpi
         type(gamAppMpi_T), intent(inout) :: gamAppMpi
 
         integer :: ierr, length
-        integer :: gasReq, mfReq
+        type(MPI_Request) :: gasReq, mfReq
         character(len=strLen) :: message
 
         ! arrays for calculating mag flux face error, if applicable
@@ -608,11 +684,22 @@ module gamapp_mpi
             ! just tell MPI to use the arrays we defined during initialization to send and receive data!
 
             ! Gas Cell Data
-            call mpi_ineighbor_alltoallw(gamAppMpi%State%Gas, gamAppMpi%sendCountsGas, &
-                                        gamAppMpi%sendDisplsGas, gamAppMpi%sendTypesGas, &
-                                        gamAppMpi%State%Gas, gamAppMpi%recvCountsGas, &
-                                        gamAppMpi%recvDisplsGas, gamAppMpi%recvTypesGas, &
-                                        gamAppMpi%gamMpiComm, gasReq, ierr)
+            if(gamAppMpi%blockHalo) then
+                ! synchronous
+                call mpi_neighbor_alltoallw(gamAppMpi%State%Gas, gamAppMpi%sendCountsGas, &
+                                            gamAppMpi%sendDisplsGas, gamAppMpi%sendTypesGas, &
+                                            gamAppMpi%State%Gas, gamAppMpi%recvCountsGas, &
+                                            gamAppMpi%recvDisplsGas, gamAppMpi%recvTypesGas, &
+                                            gamAppMpi%gamMpiComm, ierr)
+            else
+                !asynchronous
+                call mpi_ineighbor_alltoallw(gamAppMpi%State%Gas, gamAppMpi%sendCountsGas, &
+                                            gamAppMpi%sendDisplsGas, gamAppMpi%sendTypesGas, &
+                                            gamAppMpi%State%Gas, gamAppMpi%recvCountsGas, &
+                                            gamAppMpi%recvDisplsGas, gamAppMpi%recvTypesGas, &
+                                            gamAppMpi%gamMpiComm, gasReq, ierr)
+            endif
+
             if(ierr /= MPI_Success) then
                 call MPI_Error_string( ierr, message, length, ierr)
                 print *,message(1:length)
@@ -630,11 +717,22 @@ module gamapp_mpi
                 endif
 
                 ! Magnetic Face Flux Data
-                call mpi_ineighbor_alltoallw(gamAppMpi%State%magFlux, gamAppMpi%sendCountsMagFlux, &
-                                            gamAppMpi%sendDisplsMagFlux, gamAppMpi%sendTypesMagFlux, &
-                                            gamAppMpi%State%magFlux, gamAppMpi%recvCountsMagFlux, &
-                                            gamAppMpi%recvDisplsMagFlux, gamAppMpi%recvTypesMagFlux, &
-                                            gamAppMpi%gamMpiComm, mfReq, ierr)
+                if(gamAppMpi%blockHalo) then
+                    ! synchronous
+                    call mpi_neighbor_alltoallw(gamAppMpi%State%magFlux, gamAppMpi%sendCountsMagFlux, &
+                                                gamAppMpi%sendDisplsMagFlux, gamAppMpi%sendTypesMagFlux, &
+                                                gamAppMpi%State%magFlux, gamAppMpi%recvCountsMagFlux, &
+                                                gamAppMpi%recvDisplsMagFlux, gamAppMpi%recvTypesMagFlux, &
+                                                gamAppMpi%gamMpiComm, ierr)
+                else
+                    ! asynchronous
+                    call mpi_ineighbor_alltoallw(gamAppMpi%State%magFlux, gamAppMpi%sendCountsMagFlux, &
+                                                gamAppMpi%sendDisplsMagFlux, gamAppMpi%sendTypesMagFlux, &
+                                                gamAppMpi%State%magFlux, gamAppMpi%recvCountsMagFlux, &
+                                                gamAppMpi%recvDisplsMagFlux, gamAppMpi%recvTypesMagFlux, &
+                                                gamAppMpi%gamMpiComm, mfReq, ierr)
+                endif
+
                 if(ierr /= MPI_Success) then
                     call MPI_Error_string( ierr, message, length, ierr)
                     print *,message(1:length)
@@ -649,9 +747,11 @@ module gamapp_mpi
 
             endif
 
-            call mpi_wait(gasReq, MPI_STATUS_IGNORE, ierr)
-            if(gamAppMpi%Model%doMHD) then
-                call mpi_wait(mfReq, MPI_STATUS_IGNORE, ierr)
+            if(.not. gamAppMpi%blockHalo) then
+                call mpi_wait(gasReq, MPI_STATUS_IGNORE, ierr)
+                if(gamAppMpi%Model%doMHD) then
+                    call mpi_wait(mfReq, MPI_STATUS_IGNORE, ierr)
+                endif
             endif
 
         endif
@@ -662,8 +762,8 @@ module gamapp_mpi
         type(gamAppMpi_T), intent(inout) :: gamAppMpi
         logical, intent(in) :: periodicI, periodicJ, periodicK
 
-        integer :: iData,jData,kData,rankIndex,dType,offset,dataSize,ierr
-        integer :: dtGas4,dtGas5
+        integer :: iData,jData,kData,rankIndex,offset,dataSize,ierr
+        type(MPI_Datatype) :: dType,dtGas4,dtGas5
 
         associate(Grid=>gamAppMpi%Grid,Model=>gamAppMpi%Model)
 
@@ -748,7 +848,7 @@ module gamapp_mpi
                             ! magFlux does faces, not edges or corners
                             call calcRecvDatatypeOffsetFC(gamAppMpi,gamAppMpi%recvRanks(rankIndex),iData,&
                                                           jData,kData,periodicI,periodicJ,periodicK,dType,offset,&
-                                                          .true.,.false.,.false.)
+                                                          .true.,.true.,.false.)
                             if(dType /= MPI_DATATYPE_NULL) then
                                 ! face centered datatype already has all 4 dimensions
                                 call appendDatatype(gamAppMpi%recvTypesMagFlux(rankIndex),dType,offset)
@@ -756,7 +856,7 @@ module gamapp_mpi
 
                             call calcSendDatatypeOffsetFC(gamAppMpi,gamAppmpi%sendRanks(rankIndex),iData,&
                                                     jData,kData,periodicI,periodicJ,periodicK,dType,offset,&
-                                                    .true.,.false.,.false.)
+                                                    .true.,.true.,.false.)
                             if(dType /= MPI_DATATYPE_NULL) then
                                 ! face centered datatype already has all 4 dimensions
                                 call appendDatatype(gamAppMpi%sendTypesMagFlux(rankIndex),dType,offset)
@@ -814,7 +914,8 @@ module gamapp_mpi
         type(gamAppMpi_T), intent(in) :: gamAppMpi
         integer, intent(in) :: recvFromRank,iData,jData,kData
         logical, intent(in) :: periodicI, periodicJ, periodicK
-        integer, intent(out) :: dType, offset
+        type(MPI_Datatype), intent(out) :: dType
+        integer, intent(out) :: offset
         logical, intent(in) :: doFace, doEdge, doCorner
 
         integer :: tgtRank, calcOffset, ierr, dataSize
@@ -909,7 +1010,8 @@ module gamapp_mpi
         type(gamAppMpi_T), intent(in) :: gamAppMpi
         integer, intent(in) :: sendToRank,iData,jData,kData
         logical, intent(in) :: periodicI, periodicJ, periodicK
-        integer, intent(out) :: dType, offset
+        type(MPI_Datatype), intent(out) :: dType
+        integer, intent(out) :: offset
         logical, intent(in) :: doFace, doEdge, doCorner
 
         integer :: myRank, tempRank, sendToI, sendToJ, sendToK
@@ -1043,10 +1145,11 @@ module gamapp_mpi
                               doFace,doEdge,doCorner)
         type(gamAppMpi_T), intent(in) :: gamAppMpi
         integer, intent(in) :: iData, jData, kData
-        integer, intent(out) :: dType
+        type(MPI_Datatype), intent(out) :: dType
         logical, intent(in) :: doFace, doEdge, doCorner
 
-        integer dType1D,dType2D,dType3D,dataSize,ierr,dataSum
+        type(MPI_Datatype) :: dType1D,dType2D,dType3D
+        integer :: dataSize,ierr,dataSum
 
         associate(Grid=>gamAppMpi%Grid,Model=>gamAppMpi%Model)
 
@@ -1111,7 +1214,8 @@ module gamapp_mpi
         type(gamAppMpi_T), intent(in) :: gamAppMpi
         integer, intent(in) :: recvFromRank,iData,jData,kData
         logical, intent(in) :: periodicI, periodicJ, periodicK
-        integer, intent(out) :: dType, offset
+        type(MPI_Datatype), intent(out) :: dType
+        integer, intent(out) :: offset
         logical, intent(in) :: doFace, doEdge, doCorner
 
         integer :: tgtRank, calcOffset, ierr, dataSize
@@ -1207,7 +1311,8 @@ module gamapp_mpi
         type(gamAppMpi_T), intent(in) :: gamAppMpi
         integer, intent(in) :: sendToRank,iData,jData,kData
         logical, intent(in) :: periodicI, periodicJ, periodicK
-        integer, intent(out) :: dType, offset
+        type(MPI_Datatype), intent(out) :: dType
+        integer, intent(out) :: offset
         logical, intent(in) :: doFace, doEdge, doCorner
 
         integer :: myRank, tempRank, sendToI, sendToJ, sendToK
@@ -1340,14 +1445,14 @@ module gamapp_mpi
     subroutine calcDatatypeFC(gamAppMpi,iData,jData,kData,dType,doFace,doEdge,doCorner)
         type(gamAppMpi_T), intent(in) :: gamAppMpi
         integer, intent(in) :: iData, jData, kData
-        integer, intent(out) :: dType
+        type(MPI_Datatype), intent(out) :: dType
         logical, intent(in) :: doFace, doEdge, doCorner
 
-        integer :: dType1DI,dType1DJ,dType1DK,dType2DI,dType2DJ,dType2DK,dType3DI,dType3DJ,dType3DK
+        type(MPI_Datatype) :: dType1DI,dType1DJ,dType1DK,dType2DI,dType2DJ,dType2DK,dType3DI,dType3DJ,dType3DK
         integer :: offsetI, offsetJ, offsetK, dataSum, ierr, dataSize
         logical :: anyMaxDim,sendSharedFace
         integer :: countArray(3)
-        integer(MPI_ADDRESS_KIND) :: offsetArray(3)
+        integer(kind=MPI_BASE_MYADDR) :: offsetArray(3)
 
         associate(Grid=>gamAppMpi%Grid,Model=>gamAppMpi%Model)
 
@@ -1459,7 +1564,7 @@ module gamapp_mpi
 
         ! default counts and offsets
         countArray = (/1,1,1/)
-        offsetArray = (/integer(MPI_ADDRESS_KIND):: offsetI, offsetJ, offsetK /)
+        offsetArray = (/integer(kind=MPI_BASE_MYADDR):: offsetI, offsetJ, offsetK /)
         if(sendSharedFace) then
             ! this is only sending data for shared faces with an adjacent type
             if(iData /= 1) then
@@ -1486,18 +1591,19 @@ module gamapp_mpi
     end subroutine calcDatatypeFC
 
     subroutine appendDatatype(appendType,dType,offset)
-        integer, intent(inout) :: appendType
-        integer, intent(in) :: dType, offset
+        type(MPI_Datatype), intent(inout) :: appendType
+        type(MPI_Datatype), intent(in) :: dType
+        integer, intent(in) :: offset
 
         integer :: ierr
-        integer(kind=MPI_ADDRESS_KIND) :: tempOffsets(2)
+        integer(kind=MPI_BASE_MYADDR) :: tempOffsets(2)
 
         if(appendType == MPI_DATATYPE_NULL) then
             ! the root datatype is empty, just add the new type and offset
             call mpi_type_hindexed(1, (/ 1 /), (/ offset /), dType, appendType, ierr)
         else
             ! the root datatype already has defined structure, so merge with the new one into a struct
-            ! need to use a temporary array so that the ints are of type MPI_ADDRESS_KIND
+            ! need to use a temporary array so that the ints are of type MPI_BASE_MYADDR
             tempOffsets = (/ 0, offset /)
             call mpi_type_create_struct(2, (/ 1, 1 /), tempOffsets, (/ appendType, dType /), appendType, ierr)
         endif

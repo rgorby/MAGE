@@ -7,7 +7,6 @@ module rcm_mhd_mod
     use tomhd_mod
     use rcm_mhd_io
     use ionosphere_exchange, only : setupIon, tearDownIon
-    use constants, ONLY : radius_earth_m, radius_iono_m
     use rice_housekeeping_module
     use rcm_timing_module
     use files
@@ -30,7 +29,7 @@ module rcm_mhd_mod
 
 
     ! 2/19 frt
-
+        !TODO: Remove unused variables
         implicit none
         type(XML_Input_T), intent(in), optional :: iXML
         type(rcm_mhd_T),intent(inout) :: RM
@@ -38,10 +37,6 @@ module rcm_mhd_mod
         integer(iprec), intent(in) :: iflag
 
         integer(iprec) :: ierr   !> Error code...
-        integer(iprec) :: system !> This code makes a call to the
-                               !! non-standard SYSTEM function.  Must
-                               !! define as integer to avoid compile error.
-
 
         real(rprec) :: itimei !> RCM(...) param:  start time   sbaotime
         real(rprec) :: itimef !> RCM(...) param:  end time
@@ -49,13 +44,6 @@ module rcm_mhd_mod
         real(rprec) :: ircm_dt
         real(rprec) :: itimef_old = -1
         !using nSubstep from rice_housekeeping_module  !> RCM(...) param:  number of sub-time steps in program
-
-        !integer(iprec) :: idt   !> RCM(...) param:  basic time step in program
-        !real(rprec) :: idt1  !> RCM(...) param:  time step for
-                              !! changing disk & write records
-        !real(rprec) :: idt2  !> RCM(...) param:  time step for
-                              !! writting formatted output
-
         real(rprec) :: t1, t2  !> Used for performance timing
 
         !> Model coupling variables
@@ -96,13 +84,10 @@ module rcm_mhd_mod
 
     ! initialize
         if( (iflag == RCMINIT) .or. (iflag == RCMRESTART) ) then !Do this for initialization and restart?
-            !Make sure RCM directory exists
-            CALL CheckDirOrMake(Rcmdir)
 
             !Read RCM/MHD params from XML
             if(present(iXML)) then
                 CALL RCM_MHD_Params_XML(iXML)
-
             else
                 CALL RCM_MHD_Params_XML
             endif
@@ -132,14 +117,14 @@ module rcm_mhd_mod
                 CALL Rcm (itimei, itimef, nSubstep, icontrol=ICONRESTART,stropt=RM%rcm_runid,nslcopt=RM%RCM_nRes)
                 exchangeNum = floor(itimef/(itimef-itimei)) ! Need to find another way of calculating exchangeNum
 
+                !Testing call to tomhd here to fill in some moments
+                !call Tomhd (RM, ierr)
                 return
             endif !restart
 
             return !We're done here
 
         end if !RCMINIT or RCMRESTART
-
-
 
         if(iflag==RCMADVANCE.or.iflag==RCMCOLDSTART) then ! run the rcm
 
@@ -160,22 +145,6 @@ module rcm_mhd_mod
                 WRITE (6,'(//)')
             endif
          
-            !idt = real(Idt_overwrite) ! RCM internal time step in seconds
-            ! Frequency (in seconds) to change disk & write records
-            ! idt1 = itimef - itimei
-
-            !!!Ensure no problem w/ RCM's integer time
-            !!idt must divide advance time
-            !if ( (mod(idt1,idt)) /= 0) then
-            !    write(*,*) 'RCM Integer Time Divisibility Error ...'
-            !    stop
-            !endif
-
-            ! Frequency (in seconds) to write formatted output
-            !idt2 = idt1
-
-            ! now round to to fit the correct number rcm timesteps
-            !itimef = itimei + idt *((itimef-itimei)/idt)
             itimef_old = itimef
 
 
@@ -183,6 +152,7 @@ module rcm_mhd_mod
                 call rcm (itimei, itimef, nSubstep, icontrol=3_iprec)
             end if
 
+            call UpdateRCMIndices(mhdtime)
 
             !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
             ! Import data from MIX
@@ -255,11 +225,10 @@ module rcm_mhd_mod
 
         end if
 
-        if (iflag==RCMRESTART)then ! stop
-            call rcm (itimei,itimef,nSubstep,icontrol=5_iprec)
-            !  call Finalize()    ! Matches Initialize() above
-            call tearDownIon(RM) ! Matches setupIon() above
-        end if
+        ! if (iflag==RCMRESTART)then ! stop
+        !     call rcm (itimei,itimef,nSubstep,icontrol=5_iprec)
+        !     call tearDownIon(RM) ! Matches setupIon() above
+        ! end if
 
         return
 

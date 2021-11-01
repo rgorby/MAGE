@@ -1,0 +1,24 @@
+#!/bin/bash
+#PBS -A UJHB0015
+#PBS -N nonCaseTests2
+#PBS -j oe
+#PBS -q regular
+#PBS -l walltime=12:00:00
+#PBS -l select=2:ncpus=36:mpiprocs=9:ompthreads=36
+
+source ~/.bashrc
+
+module list
+hostname
+export OMP_NUM_THREADS=36
+export KMP_STACKSIZE=128M
+export MPI_TYPE_DEPTH=32
+
+echo ""
+echo "Running Voltron MPI Tests"
+date
+mpirun ./voltMpiTests > voltMpiTests.out
+date
+echo "Voltron MPI Tests Complete"
+echo | tail -n 2 ./voltMpiTests.out
+

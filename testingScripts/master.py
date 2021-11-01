@@ -1,7 +1,6 @@
 import os
 import sys
 import subprocess
-from os.path import expanduser
 sys.path.insert(1, "./python-slackclient")
 from slack import WebClient
 from slack.errors import SlackApiError
@@ -14,12 +13,14 @@ slack_token = os.environ["SLACK_BOT_TOKEN"]
 print(slack_token)
 client = WebClient(token=slack_token)
 
-# Get the home directory
-home = expanduser("~")
-
 # Get CWD and move to the main Kaiju folder
+calledFrom = os.path.dirname(os.path.abspath(__file__))
 origCWD = os.getcwd()
-os.chdir("..")
+os.chdir(calledFrom)
+os.chdir('..')
+home = os.getcwd()
+print("I am the master script. This is my current working directory: ")
+print(home)
 
 # Delete all build folders
 os.system("rm -rf build*/")
@@ -33,47 +34,75 @@ text = p.stdout.read()
 text = text.decode('ascii')
 text = text.rstrip()
 print(text)
+
 isTest = False
+doAll = False
+forceRun = False
 
 # Check argument flags
-if (len(sys.argv) < 2):
-    # If no arguments, check for update
+if (len(sys.argv) >= 2):
+    for i in range(1,len(sys.argv)):
+        if(str(sys.argv[i]) == '-f'):
+            print("Buuuuut you forced me to do it anyway...")
+            forceRun = True
+        elif(str(sys.argv[i]) == '-t'):
+            print("Test Mode: On")
+            isTest = True
+        elif(str(sys.argv[i]) == '-a'):
+            print("Running All Tests")
+            doAll = True
+        else:
+            print("Unrecognized argument: ", sys.argv[i])
+
+if(forceRun == False):
+    # If not forced, check for update
     if (text == 'Already up to date.'):
-        # Try to send Slack message
-        try:
-            response = client.chat_postMessage(
-                channel="#kaijudev",
-                text='No test today. It is already up to date!',
-            )
-        except SlackApiError as e:
-            # You will get a SlackApiError if "ok" is False
-            assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
+        if(isTest == False):
+            # Try to send Slack message
+            try:
+                response = client.chat_postMessage(
+                    channel="#kaijudev",
+                    text='No test today. It is already up to date!',
+                )
+            except SlackApiError as e:
+                # You will get a SlackApiError if "ok" is False
+                assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
         
         exit()
-# Else check for force flag
-elif(str(sys.argv[1]) == '-f'):
-    print("Buuuuut you forced me to do it anyway...")
-# Else check for testing flag
-elif(str(sys.argv[1]) == '-t'):
-    print("Test Mode: On")
-    isTest = True
 
 os.chdir("testingScripts")
+
+print("I made it this far!")
+print(os.path.dirname(os.path.abspath(__file__)))
 
 if (isTest == True):
     buildTest = subprocess.Popen("python3 buildTest.py -t", shell = True)
 
-elif (not len(sys.argv) < 2):
-    buildTest = subprocess.Popen("python3 buildTest.py -f", shell = True)
+elif (doAll == True):
+    buildTest = subprocess.Popen("python3 buildTest.py", shell = True)
+    buildTest.wait()
     unitTest = subprocess.Popen("python3 unitTest.py", shell = True)
+    unitTest.wait()
     intelTest = subprocess.Popen("python3 intelChecks.py", shell=True)
+    intelTest.wait()
     ICTest = subprocess.Popen("python3 ICtest.py", shell=True)
-    ICReport = subprocess.Popen("python3 ICTestReport.py", shell=True)
+    ICTest.wait()
+    ICReport = subprocess.Popen("python3 ICtestReport.py", shell=True)
+    ICReport.wait()
+    pyunitTest = subprocess.Popen("python3 pyunitTest.py", shell=True)
+    pyunitTest.wait()
 
 else:
     buildTest = subprocess.Popen("python3 buildTest.py", shell = True)
-    unitTest = subprocess.Popen("python3 unitTest.py", shell = True)
-    intelTest = subprocess.Popen("python3 intelChecks.py", shell=True)
+    buildTest.wait()
+    #unitTest = subprocess.Popen("python3 unitTest.py", shell = True)
+    #unitTest.wait()
+    #intelTest = subprocess.Popen("python3 intelChecks.py", shell=True)
+    #intelTest.wait()
     ICTest = subprocess.Popen("python3 ICtest.py", shell=True)
-    ICReport = subprocess.Popen("python3 ICTestReport.py", shell=True)
+    ICTest.wait()
+    ICReport = subprocess.Popen("python3 ICtestReport.py", shell=True)
+    ICReport.wait()
+    pyunitTest = subprocess.Popen("python3 pyunitTest.py", shell=True)
+    pyunitTest.wait()
 

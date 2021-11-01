@@ -32,6 +32,8 @@ module mhd2chmp_interface
         mhd2chmp%lowlatBC = 90.0 - rad2deg*asin(sqrt(rIon/mhd2chmp%Rin)) !co-lat -> lat
         mhd2chmp%lowlatBC = mhd2chmp%lowlatBC/rad2deg
         
+        write(*,*) "MAXTUBESIZE = ", MAXTUBESIZE
+        
     end subroutine init_mhd2Chmp
 
     subroutine convertGameraToChimp(mhd2chmp,gamApp,ebTrcApp)
@@ -43,7 +45,6 @@ module mhd2chmp_interface
         real(rp), dimension(NDIM) :: Bxyz,Vxyz
         integer :: i,j,k
 
-    
         associate(Gr=>gamApp%Grid,State=>gamApp%State,ebGr=>ebTrcApp%ebState%ebGr,ebF=>ebTrcApp%ebState%eb1)
         
         !Scrape Gamera MHD data into CHIMP structure

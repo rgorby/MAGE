@@ -1,5 +1,5 @@
 module testring
-  use pfUnit
+  use testHelper
   use voltapp
   use gamapp
   use uservoltic
@@ -124,7 +124,7 @@ contains
         enddo
     enddo
     call DivB(gameraApp%Model, gameraApp%Grid, gameraApp%State, temp)
-    @assertEqual(temp,totalDiv,1e-15,'DivB wrong')
+    @assertEqual(temp,totalDiv,1e-13,'DivB wrong')
 
     deallocate(denSum)
     deallocate(momSumX)

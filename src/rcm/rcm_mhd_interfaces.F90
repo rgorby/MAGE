@@ -5,17 +5,17 @@
 module rcm_mhd_interfaces
     USE kdefs, ONLY : strLen
     USE rcm_precision
-    USE Rcm_mod_subs, ONLY : isize, jsize, jwrap, doRCMVerbose
+    USE Rcm_mod_subs, ONLY : isize, jsize, kcsize,jwrap, doRCMVerbose
     USE rcmdefs, ONLY : RCMTOPCLOSED,RCMTOPNULL,RCMTOPOPEN
     implicit none
     integer(iprec), parameter :: RCMINIT=0,RCMADVANCE=1,RCMRESTART=2,RCMWRITERESTART=-2,RCMWRITEOUTPUT=-3,RCMWRITETIMING=-1
     integer(iprec), parameter :: RCMCOLDSTART=10
-    !logical :: doRCMVerbose = .TRUE.
     logical :: doColdstart =.true.
 
     !Scaling parameters
     real(rprec), parameter :: rcmPScl = 1.0e+9 !Convert Pa->nPa
     real(rprec), parameter :: rcmNScl = 1.0e-6 !Convert #/m3 => #/cc
+    real(rprec), parameter :: rcmBScl = 1.0e+9 !Convert T to nT
 
     type rcm_mhd_T
         real(rprec) :: llBC !MHD low-latitude boundary (radians)
@@ -62,6 +62,11 @@ module rcm_mhd_interfaces
         !RCM confidence weight, [0,1]
         real(rprec),allocatable :: wIMAG(:,:)
 
+        integer(iprec),allocatable :: nTrc(:,:) !Number of steps on this flux-tube
+
+        !Arrays to hold error in D,P => eta => D',P'. Storing X'/X
+        real(rprec), allocatable,dimension(:,:) :: errD,errP
+        
         !Information to sync restarts w/ MHD
         integer(iprec) :: rcm_nOut,rcm_nRes !Indices for output/restart
         character(len=strLen) :: rcm_runid
@@ -71,6 +76,8 @@ module rcm_mhd_interfaces
         
         !Current pressure floor from MHD [nPa]
         real(rprec) :: pFloor = 0.0
+
+        integer(iprec) :: NkT = kcsize !Current number of used channels
     end type rcm_mhd_T
 
     contains
@@ -102,4 +109,13 @@ module rcm_mhd_interfaces
 
         end subroutine EmbiggenWrapI
         
+        !Copy rcmA (RCM-sized) into rmA (RCM/MHD-sized)
+        subroutine Unbiggen(rcmA,rmA)
+          REAL(rprec), intent(in)       :: rcmA(isize,jsize)
+          REAL(rprec), intent(inout)    :: rmA (isize,jsize-jwrap+1)
+          
+          rmA(:,:) = rcmA(:,jwrap:jsize)
+
+      end subroutine Unbiggen
+
 end module rcm_mhd_interfaces

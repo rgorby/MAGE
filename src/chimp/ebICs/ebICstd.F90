@@ -9,6 +9,7 @@ module userebic
     use ioH5
     use chmpfields
     use ebinit
+    use wpihelper
     
     implicit none
 
@@ -25,6 +26,8 @@ module userebic
         logical :: fExist
         integer :: Ni,Nj,Nk
         integer :: i1,i2
+
+        logical :: doCalcLpp = .false.
 
         associate( ebGr=>ebState%ebGr,ebTab=>ebState%ebTab,eb1=>ebState%eb1,eb2=>ebState%eb2 )
 
@@ -64,6 +67,15 @@ module userebic
 
         !Do various types of initialization
         !ie, static, numb0, etc
+
+        !Initialize and allocate plasmapause parameters
+        if (Model%doPP) call initPP(ebState,inpXML)
+
+        !Initialize wave particle interactions if present
+        if ( Model%doWPI ) then
+            call initWPI(ebState%ebWmodel,ebState%ebWave,inpXML)
+        endif
+
     !Numerical background, put B0 field on grid
         if (Model%doNumB0) then
             write(*,*) '<Setting Numerical B0>'
@@ -98,8 +110,8 @@ module userebic
         
         !Initialize eb data, find time slices
         call findSlc(ebTab,Model%T0,i1,i2)
-        call readEB(Model,ebGr,ebTab,eb1,ebTab%gStrs(i1))
-        call readEB(Model,ebGr,ebTab,eb2,ebTab%gStrs(i2))
+        call readEB(Model,ebState,ebGr,ebTab,eb1,ebTab%gStrs(i1),doCalcLpp)
+        call readEB(Model,ebState,ebGr,ebTab,eb2,ebTab%gStrs(i2),doCalcLpp)
         if (ebTab%N == 1) ebState%doStatic = .true.
         end associate
     end subroutine initFields
@@ -136,6 +148,7 @@ module userebic
             ebState%doStatic = .true.
 
             !Copy eb2->eb1
+            eb1%gStr = eb2%gStr
             eb1%time = eb2%time
             eb1%dB   = eb2%dB
             eb1%E    = eb2%E
@@ -149,11 +162,23 @@ module userebic
         !Go ahead and reread both (lazy way of avoiding corner cases)
         call findSlc(ebState%ebTab,t,i1,i2)
 
-        !Read eb1
-        call readEB(Model,ebGr,ebTab,eb1,ebTab%gStrs(i1))
+        ! Put in a trap so copies 2 to 1 and doesnt reread step
+        if ( trim(eb2%gStr) == trim(ebTab%gStrs(i1)) ) then
+            !Copy eb2->eb1
+            eb1%gStr = eb2%gStr
+            eb1%time = eb2%time
+            eb1%dB   = eb2%dB
+            eb1%E    = eb2%E
+            if (Model%doMHD) eb1%W = eb2%W
+            if (Model%doJ) eb1%Jxyz = eb2%Jxyz
+            write(*,'(5a)') '<Copying eb1 from ', trim(ebTab%bStr), '/', trim(ebTab%gStrs(i1)), '>'
+        else
+            !Read eb1
+            call readEB(Model,ebState,ebGr,ebTab,eb1,ebTab%gStrs(i1))
+        end if
 
         !Read eb2
-        call readEB(Model,ebGr,ebTab,eb2,ebTab%gStrs(i2))
+        call readEB(Model,ebState,ebGr,ebTab,eb2,ebTab%gStrs(i2))
 
         end associate
 

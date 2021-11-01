@@ -5,6 +5,7 @@ from argparse import RawTextHelpFormatter
 import matplotlib as mpl
 import numpy as np
 import kaipy.kaiViz as kv
+import kaipy.kaiTools as kt
 import kaipy.gamera.magsphere as msph
 import kaipy.remix.remix as remix
 import os
@@ -18,40 +19,31 @@ mpiCol = "deepskyblue"
 
 jMax = 10.0 #Max current for contours
 
+eMax = 5.0  #Max current for contours
+
 #Default pressure colorbar
 vP = kv.genNorm(1.0e-2,10.0,doLog=True)
+szStrs = ['small','std','big','dm']
+szBds = {}
+szBds["std"]      = [-40.0 ,20.0,2.0]
+szBds["big"]      = [-100.0,20.0,2.0]
+szBds["bigger"]   = [-200.0,25.0,2.0]
+szBds["small"]    = [-10.0 , 5.0,2.0]
+szBds["dm"]       = [-30.0 ,10.0,40.0/15.0]
 
 #Add different size options to argument
 def AddSizeArgs(parser):
-	parser.add_argument('-small' , action='store_true', default=False,help="Use smaller domain bounds (default: %(default)s)")
-	parser.add_argument('-big'   , action='store_true', default=False,help="Use larger domain bounds (default: %(default)s)")
-	parser.add_argument('-bigger', action='store_true', default=False,help="Use larger-er domain bounds (default: %(default)s)")
-	parser.add_argument('-huge'  , action='store_true', default=False,help="Use huge domain bounds (default: %(default)s)")
+	parser.add_argument('-size',type=str,default="std",choices=szStrs,help="Domain bounds options (default: %(default)s)")
 
 #Return domain size from parsed arguments
 def GetSizeBds(args):
-	doBig = args.big
-	doSmall = args.small
-	doHuge = args.huge
-	doBigger = args.bigger
 
-	if (doSmall):
-		xTail = -10.0
-		xSun = 5.0
-	elif (doBig):
-		xTail = -100.0
-		xSun = 20.0
-	elif (doBigger):
-		xTail = -200.0
-		xSun = 25.0
-	elif (doHuge):
-		xTail = -350.0
-		xSun = 40.0
-	else:
-		xTail = -40.0
-		xSun = 20.0
+	szStr = args.size
+	szBd = szBds[szStr]
 
-	yMax = (xSun-xTail)/2.0
+	xTail = szBd[0]
+	xSun  = szBd[1]
+	yMax = (xSun-xTail)/szBd[2]
 	xyBds = [xTail,xSun,-yMax,yMax]
 
 	return xyBds
@@ -60,13 +52,13 @@ def GetSizeBds(args):
 def PlotEqB(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True,doBz=False):
 	vBZ = kv.genNorm(dbMax)
 	vDB = kv.genNorm(dbMax)
-	
+
 	if (AxCB is not None):
 		#Add the colorbar to AxCB
 		AxCB.clear()
 		if (doBz):
 			kv.genCB(AxCB,vBZ,"Vertical Field [nT]",cM=bzCM,Ntk=7)
-		else:	
+		else:
 			kv.genCB(AxCB,vDB,"Residual Field [nT]",cM=dbCM,Ntk=7)
 	#Now do main plotting
 	if (doClear):
@@ -74,7 +66,7 @@ def PlotEqB(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True,doBz=False):
 	Bz = gsph.EggSlice("Bz",nStp,doEq=True)
 	if (doBz):
 		Ax.pcolormesh(gsph.xxi,gsph.yyi,Bz,cmap=bzCM,norm=vBZ)
-	else:	
+	else:
 		dbz = gsph.DelBz(nStp)
 		Ax.pcolormesh(gsph.xxi,gsph.yyi,dbz,cmap=dbCM,norm=vDB)
 	Ax.contour(kv.reWrap(gsph.xxc),kv.reWrap(gsph.yyc),kv.reWrap(Bz),[0.0],colors=bz0Col,linewidths=cLW)
@@ -86,20 +78,32 @@ def PlotEqB(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True,doBz=False):
 		Ax.set_xlabel('SM-X [Re]')
 		Ax.set_ylabel('SM-Y [Re]')
 	return Bz
-	
-def PlotMerid(gsph,nStp,xyBds,Ax,doDen=False,doRCM=False,AxCB=None,doClear=True,doDeco=True):
+
+def PlotMerid(gsph,nStp,xyBds,Ax,doDen=False,doRCM=False,AxCB=None,doClear=True,doDeco=True,doSrc=False):
 	CMx = "viridis"
 	if (doDen):
-		cbStr = "Density [#/cc]"
+		
 		if (doRCM):
 			vN = kv.genNorm(1.0,1.0e+3,doLog=True)
 		else:
 			vN = kv.genNorm(0,25)
-		Q = gsph.EggSlice("D",nStp,doEq=False)
+		if (doSrc):
+			vID = "SrcD"
+			cbStr = "Source Density [#/cc]"
+			
+		else:
+			vID = "D"
+			cbStr = "Density [#/cc]"
+		Q = gsph.EggSlice(vID,nStp,doEq=False)
 	else:
-		cbStr = "Pressure [nPa]"
 		vN = vP
-		Q = gsph.EggSlice("P",nStp,doEq=False)
+		if (doSrc):
+			vID = "SrcP"
+			cbStr = "Source Pressure [nPa]"
+		else:
+			vID = "P"
+			cbStr = "Pressure [nPa]"
+		Q = gsph.EggSlice(vID,nStp,doEq=False)
 	if (AxCB is not None):
 		#Add the colorbar to AxCB
 		AxCB.clear()
@@ -145,6 +149,47 @@ def PlotJyXZ(gsph,nStp,xyBds,Ax,AxCB=None,jScl=None,doDeco=True):
 		Ax.yaxis.tick_right()
 		Ax.yaxis.set_label_position('right')
 
+#Plot equatorial azimuthal electric field
+def PlotEqEphi(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
+	vE = kv.genNorm(eMax)
+	vEMap = "PRGn"
+	if (AxCB is not None):
+		#Add the colorbar to AxCB
+		AxCB.clear()
+		kv.genCB(AxCB,vE,r"E$_{phi}$ [mV/m]",cM=vEMap)
+
+	#Now do main plotting
+	if (doClear):
+		Ax.clear()
+	Bx = gsph.EggSlice("Bx",nStp,doEq=True)
+	By = gsph.EggSlice("By",nStp,doEq=True)
+	Bz = gsph.EggSlice("Bz",nStp,doEq=True)
+	Vx = gsph.EggSlice("Vx",nStp,doEq=True)
+	Vy = gsph.EggSlice("Vy",nStp,doEq=True)
+	Vz = gsph.EggSlice("Vz",nStp,doEq=True)
+
+	# calculating some variables to to plot
+	#E=-VxB
+	Ex = -(Vy*Bz-Vz*By)*0.001 # [mV/m]
+	Ey =  (Vx*Bz-Vz*Bx)*0.001
+	Ez = -(Vx*By-Vy*Bx)*0.001
+
+	# coordinate transform
+	ppc = np.arctan2(gsph.yyc,gsph.xxc)
+	theta = np.pi #eq plane
+	Er,Et,Ep = kt.xyz2rtp(ppc,theta,Ex,Ey,Ez)
+
+	Ax.pcolormesh(gsph.xxi,gsph.yyi,Ep,cmap=vEMap,norm=vE)
+
+	kv.SetAx(xyBds,Ax)
+
+	if (doDeco):
+		kv.addEarth2D(ax=Ax)
+		Ax.set_xlabel('SM-X [Re]')
+		Ax.set_ylabel('SM-Y [Re]')
+		Ax.yaxis.tick_right()
+		Ax.yaxis.set_label_position('right')
+
 #Add MPI contours
 def PlotMPI(gsph,Ax,ashd=0.5):
 	gCol = mpiCol
@@ -162,7 +207,7 @@ def PlotMPI(gsph,Ax,ashd=0.5):
 		#X-axis (-)
 		j0 = (gsph.Rj)*gsph.dNj
 		Ax.plot(gsph.xxi[:,j0], gsph.yyi[:,j0],gCol,linewidth=cLW,alpha=ashd)
-			
+
 def AddIonBoxes(gs,ion):
 	gsRM = gs.subgridspec(20,20)
 
@@ -178,3 +223,43 @@ def AddIonBoxes(gs,ion):
 	#Southern
 	ion.init_vars('SOUTH')
 	ax = ion.plot('current'  ,gs=gsRM[-dY-wXY:-dY,dX:dX+wXY],doInset=True)
+
+def plotPlane(gsph,data,xyBds,Ax,AxCB,var='D',vMin=None,vMax=None,doDeco=True,cmap='viridis',doLog=False,midp=None):
+	if (AxCB is not None):
+		AxCB.clear()
+	if (not midp):
+		if (vMin is None):
+ 			vMin = np.min(data)
+		if (vMax is None):
+			vMax = np.max(data)
+	else:
+		if ((vMin is None) and (vMax is None)):
+			vMax = np.max(np.abs([np.min(data),np.max(data)]))
+			vMin = -1.0*vMax
+
+	vNorm = kv.genNorm(vMin,vMax,doLog,midp)
+	kv.genCB(AxCB,vNorm,cbT=var,cM=cmap,Ntk=7)
+	Ax.pcolormesh(gsph.xxi,gsph.yyi,data,cmap=cmap,norm=vNorm)
+	kv.SetAx(xyBds,Ax)
+
+	return
+
+def plotXY(gsph,nStp,xyBds,Ax,AxCB,var='D',vMin=None,vMax=None,doDeco=True,cmap='viridis',doLog=False,midp=None):
+	data = gsph.EggSlice(var,nStp,doEq=True)
+	plotPlane(gsph,data,xyBds,Ax,AxCB,var,vMin=vMin,vMax=vMax,doDeco=doDeco,cmap=cmap,doLog=doLog,midp=midp)
+	if (doDeco):
+		kv.addEarth2D(ax=Ax)
+		Ax.set_xlabel('SM_X [Re]')
+		Ax.set_ylabel('SM-Y [Re]')
+
+	return data
+
+def plotXZ(gsph,nStp,xzBds,Ax,AxCB,var='D',vMin=None,vMax=None,doDeco=True,cmap='viridis',doLog=False,midp=None):
+	data = gsph.EggSlice(var,nStp,doEq=False)
+	plotPlane(gsph,data,xzBds,Ax,AxCB,var,vMin=vMin,vMax=vMax,doDeco=doDeco,cmap=cmap,doLog=doLog,midp=midp)
+	if (doDeco):
+		kv.addEarth2D(ax=Ax)
+		Ax.set_xlabel('SM_X [Re]')
+		Ax.set_ylabel('SM-Z [Re]')
+
+	return data

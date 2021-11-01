@@ -1,11 +1,23 @@
 module mpidefs
 
-  use mpi
+  use mpi_f08
   use kdefs, ONLY: sp,dp,rp
 
   implicit none
 
-  integer, public :: MPI_MYFLOAT
+  type(MPI_Datatype), public :: MPI_MYFLOAT
+
+#ifdef MPI_BASE_ADDR_SIZE
+  integer, parameter :: MPI_BASE_MYADDR = MPI_BASE_ADDR_SIZE
+#else
+  integer, parameter :: MPI_BASE_MYADDR = MPI_ADDRESS_KIND ! this is the default
+#endif
+
+#ifdef MPI_AN_ADDR_SIZE
+  integer, parameter :: MPI_AN_MYADDR   = MPI_AN_ADDR_SIZE
+#else
+  integer, parameter :: MPI_AN_MYADDR   = MPI_ADDRESS_KIND ! this is the default
+#endif
 
 contains
 
@@ -16,30 +28,30 @@ contains
 
   end subroutine setMpiReal
 
-  ! helper function to print info about custom MPI datatypes
+  ! helper functions to print info about custom MPI datatypes
+  subroutine simplePrintDataType(datatype)
+      type(MPI_Datatype), intent(in) :: datatype
+
+      logical :: typeUsed
+      typeUsed = printDataType(datatype)
+
+  end subroutine
+
   recursive function printDataType(datatype) result(retVal)
-      integer, intent(in) :: datatype
+      type(MPI_Datatype), intent(in) :: datatype
       logical :: retVal
 
       integer :: numInts, numAdds, numDTs, combiner, ierr, i
-      integer, dimension(:), allocatable :: arrayInts, arrayDTs
-      integer(MPI_ADDRESS_KIND), dimension(:), allocatable :: arrayAdds
+      integer, dimension(:), allocatable :: arrayInts
+      type(MPI_Datatype), dimension(:), allocatable :: arrayDTs
+      integer(kind=MPI_BASE_MYADDR), dimension(:), allocatable :: arrayAdds
+      character(len=MPI_MAX_OBJECT_NAME) :: typeName
       call mpi_type_get_envelope(datatype, numInts, numAdds, numDTs, combiner, ierr)
 
       SELECT CASE(combiner)
           CASE (MPI_COMBINER_NAMED)
-              SELECT CASE (datatype)
-                  CASE (MPI_INT)
-                      write (*,*) 'Datatype is named: MPI_INT'
-                  CASE (MPI_FLOAT)
-                      write (*,*) 'Datatype is named: MPI_FLOAT'
-                  CASE (MPI_DOUBLE)
-                      write (*,*) 'Datatype is named: MPI_DOUBLE'
-                  CASE (MPI_DOUBLE_PRECISION)
-                      write (*,*) 'Datatype is named: MPI_DOUBLE_PRECISION'
-                  CASE DEFAULT
-                      write (*,*) 'Unhandled base named datatype in printDataType'
-              ENDSELECT
+              call mpi_type_get_name(datatype, typeName, i, ierr)
+              write (*,*) 'Datatype is named: ', trim(typeName)
               retVal = .false.
               RETURN
           CASE (MPI_COMBINER_STRUCT)
@@ -95,7 +107,29 @@ contains
               allocate(arrayDTs(numDTs))
               call mpi_type_get_contents(datatype, numInts, numAdds, numDTs, &
                                          arrayInts, arrayAdds, arrayDTs, ierr)
-              write (*,*) 'Datatype is contiguous conaining ',arrayInts(1),' repetitions of datatype:'
+              write (*,*) 'Datatype is contiguous containing ',arrayInts(1),' repetitions of datatype:'
+              if (printDataType(arrayDTs(1))) then
+                  call mpi_type_free(arrayDTs(1), ierr)
+              endif
+              deallocate(arrayInts)
+              deallocate(arrayAdds)
+              deallocate(arrayDTs)
+          CASE (MPI_COMBINER_SUBARRAY)
+              allocate(arrayInts(numInts))
+              allocate(arrayAdds(numAdds))
+              allocate(arrayDTs(numDTs))
+              call mpi_type_get_contents(datatype, numInts, numAdds, numDTs, &
+                                         arrayInts, arrayAdds, arrayDTs, ierr)
+              write (*,*) 'Datatype is subarray containing ',arrayInts(1),' dimensions:'
+              do i=1,arrayInts(1)
+                  write (*,*) 'size ',arrayInts(1+i),' subsize ',arrayInts(arrayInts(1)+1+i),' start ',arrayInts(2*arrayInts(1)+1+i)
+              enddo
+              if(arrayInts(3*arrayInts(1)+2) .eq. MPI_ORDER_FORTRAN) then
+                  write (*,*) 'data order is FORTRAN'
+              else
+                  write (*,*) 'data order is ',arrayInts(3*arrayInts(1)+2)
+              endif
+              write (*,*) 'subarray datatype:'
               if (printDataType(arrayDTs(1))) then
                   call mpi_type_free(arrayDTs(1), ierr)
               endif

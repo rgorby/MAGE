@@ -1,18 +1,20 @@
 !Routines to map native source grids to Bios-Savart (ground system) grids
 module calcdbremap
-	use kdefs
-	use chmpdefs
-	use ebtypes
+    use ebtabutils
+    use kdefs
+    use chmpdefs
+    use ebtypes
     use calcdbtypes
     use ebinterp
     use chmpfields
     use geopack
 
-	implicit none
+    implicit none
 
-	integer, parameter, private :: i0 = 1
+    integer, parameter, private :: i0 = 2
+    logical, parameter, private :: doTest = .false.
 
-	contains
+    contains
 
     !Map ground coordinates to SM
     subroutine remapGR(Model,t,ebState,gGr)
@@ -48,7 +50,7 @@ module calcdbremap
     end subroutine remapGR
 
     !Load Bios Savart grids
-	subroutine packBS(Model,t,ebState,ionGrid,facGrid,magBS,ionBS,facBS)
+    subroutine packBS(Model,t,ebState,ionGrid,facGrid,magBS,ionBS,facBS)
         type(chmpModel_T), intent(in) :: Model
         real(rp)         , intent(in) :: t
         type(ebState_T)  , intent(in) :: ebState
@@ -60,82 +62,104 @@ module calcdbremap
         integer :: i,j,k,l,n
         real(rp), dimension(:,:,:,:), allocatable :: Jxyz
 
-  	!----
-  	!Magnetospheric part
-  		
-  	!Start by getting Jxyz at current time
-  		!Jxyz are SM currents at time t
-  		associate(ebGr=>ebState%ebGr)
-  		allocate(Jxyz(ebGr%isg:ebGr%ieg,ebGr%jsg:ebGr%jeg,ebGr%ksg:ebGr%keg,NDIM))
+    !----
+    !Magnetospheric part
+        
+    !Start by getting Jxyz at current time
+        !Jxyz are SM currents at time t
+        associate(ebGr=>ebState%ebGr)
+        allocate(Jxyz(ebGr%isg:ebGr%ieg,ebGr%jsg:ebGr%jeg,ebGr%ksg:ebGr%keg,NDIM))
         call GetTWgts(Model,ebState,t,w1,w2)
         !$OMP PARALLEL WORKSHARE
-    	Jxyz = w1*ebState%eb1%Jxyz + w2*ebState%eb2%Jxyz
+        Jxyz = w1*ebState%eb1%Jxyz + w2*ebState%eb2%Jxyz
         !$OMP END PARALLEL WORKSHARE
         
     !Now do remap and store into BSGrid
         !$OMP PARALLEL DO default(shared) collapse(2) &
         !$OMP private(i,j,k,n,dV)
-    	do k=ebGr%ks,ebGr%ke
-			do j=ebGr%js,ebGr%je
-				do i=ebGr%is,ebGr%ie
-					!Get n-d => 1D index
-					n = ijk2n(i,j,k,ebGr%is,ebGr%ie,ebGr%js,ebGr%je,ebGr%ks,ebGr%ke)
-					dV  = ebGr%dV(i,j,k) !Volume element, Re^3
+        do k=ebGr%ks,ebGr%ke
+            do j=ebGr%js,ebGr%je
+                do i=ebGr%is,ebGr%ie
+                    !Get n-d => 1D index
+                    n = ijk2n(i,j,k,ebGr%is,ebGr%ie,ebGr%js,ebGr%je,ebGr%ks,ebGr%ke)
+                    dV  = ebGr%dV(i,j,k) !Volume element, Re^3
 
-					if (i <= ebGr%is+i0-1) then
-						dV = 0.0
-						!Zap this contribution
-					endif
+                    if (i <= ebGr%is+i0-1) then
+                        dV = 0.0
+                        !Zap this contribution
+                    endif
 
-					magBS%XYZcc(n,XDIR:ZDIR) = ebGr%xyz(i,j,k,:) !Cell-centered MHD grid coordinates (SM)
-					magBS%Jxyz (n,XDIR:ZDIR) = Jxyz(i,j,k,:) !SM current at cell-center
-					magBS%dV   (n)           = dV
+                    magBS%XYZcc(n,XDIR:ZDIR) = ebGr%xyz(i,j,k,:) !Cell-centered MHD grid coordinates (SM)
+                    magBS%Jxyz (n,XDIR:ZDIR) = Jxyz(i,j,k,:) !SM current at cell-center
+                    magBS%dV   (n)           = dV
+                    
+                    if (doTest) then
+                        call MagJTest( magBS%XYZcc(n,XDIR:ZDIR),magBS%Jxyz (n,XDIR:ZDIR) )
+                    endif
+                enddo
+            enddo
+        enddo
 
-				enddo
-			enddo
-		enddo
+        end associate
 
-		end associate
-
-  	!----
-  	!Ionospheric part
+    !----
+    !Ionospheric part
         !$OMP PARALLEL DO default(shared) collapse(2) &
         !$OMP private(i,j,k,n)
-  		do k=1,2 !Hemisphere
-  			do j=1,ionGrid%Nth !Theta
-  				do i=1,ionGrid%Np !phi
+        do k=1,2 !Hemisphere
+            do j=1,ionGrid%Nth !Theta
+                do i=1,ionGrid%Np !phi
                     !Get n-d => 1D index
                     n = ijk2n(i,j,k,1,ionGrid%Np,1,ionGrid%Nth,1,2)
 
-					ionBS%XYZcc(n,XDIR:ZDIR) = ionGrid%XYZcc(i,j,k,:)
-					ionBS%Jxyz (n,XDIR:ZDIR) = ionGrid%Jxyz (i,j,k,:)
-					ionBS%dV   (n)           = ionGrid%dS   (i,j,k)
+                    ionBS%XYZcc(n,XDIR:ZDIR) = ionGrid%XYZcc(i,j,k,:)
+                    ionBS%Jxyz (n,XDIR:ZDIR) = ionGrid%Jxyz (i,j,k,:)
+                    ionBS%dV   (n)           = ionGrid%dS   (i,j,k)
 
-  				enddo
-  			enddo
-  		enddo
+                enddo
+            enddo
+        enddo
 
-  	!----
-  	!FAC part
+    !----
+    !FAC part
         !$OMP PARALLEL DO default(shared) collapse(2) &
         !$OMP private(i,j,k,n,l)
-  		do l=1,2 !Hemisphere
-  			do k=1,facGrid%rSegs
-  				do j=1,facGrid%Nth
-  					do i=1,facGrid%Np
+        do l=1,2 !Hemisphere
+            do k=1,facGrid%rSegs
+                do j=1,facGrid%Nth
+                    do i=1,facGrid%Np
                         !Get n-d => 1D index
                         n = ijkl2n(i,j,k,l,1,ionGrid%Np,1,ionGrid%Nth,1,facGrid%rSegs,1,2)
-  						
-						facBS%XYZcc(n,XDIR:ZDIR) = facGrid%XYZcc(i,j,k,l,:)
-						facBS%Jxyz (n,XDIR:ZDIR) = facGrid%Jxyz (i,j,k,l,:)
-						facBS%   dV(n)           = facGrid%dV   (i,j,k,l)
-					enddo !i
-				enddo
-			enddo
-		enddo !l
+                        
+                        facBS%XYZcc(n,XDIR:ZDIR) = facGrid%XYZcc(i,j,k,l,:)
+                        facBS%Jxyz (n,XDIR:ZDIR) = facGrid%Jxyz (i,j,k,l,:)
+                        facBS%   dV(n)           = facGrid%dV   (i,j,k,l)
+                    enddo !i
+                enddo
+            enddo
+        enddo !l
 
-	end subroutine packBS
+    end subroutine packBS
 
+    !Some test routines
+    subroutine MagJTest(xyz,Jxyz)
+        real(rp), intent(in)  :: xyz(NDIM)
+        real(rp), intent(out) :: Jxyz(NDIM)
+        real(rp) :: x,absY,absZ
+        Jxyz = 0.0
+        x = xyz(XDIR)
+        absY = abs(xyz(YDIR))
+        absZ = abs(xyz(ZDIR))
+
+        if ( (absY<128.0) .and. (absZ<5.0) .and. (x>-20) .and. (x<-10) ) then
+            Jxyz(YDIR) = 1.0*1.0e+3
+        endif
+
+        if ( (absY<128.0) .and. (absZ<5.0) .and. (x<20) .and. (x>10) ) then
+            Jxyz(YDIR) = 1.0*1.0e+3
+        endif
+
+    end subroutine MagJTest
 !=========
 !Index squashing routines
 

@@ -1,5 +1,5 @@
 module testCasesMpi
-  use pFUnit
+  use testHelperMpi
   use gamapp_mpi
   use usergamic
 
@@ -28,7 +28,7 @@ contains
 
       call setMpiReal()
 
-      call initGamera_mpi(gameraAppMpi, initUser, this%getMpiCommunicator(), 'blast3d_large.xml')
+      call initGamera_mpi(gameraAppMpi, initUser, getMpiF08Communicator(this), 'blast3d_large.xml')
 
       do while ((gameraAppMpi%Model%tFin - gameraAppMpi%Model%t) > 1e-15)
         call stepGamera_mpi(gameraAppMpi)

@@ -64,16 +64,20 @@ module dstutils
         xyz0 = 0.0 !Measure at center of Earth
         BSDst  = BSDstAt(Model,Gr,Jxyz,xyz0)
 
-        !Get station averaged Dst
-        do n=1,NumStat
-            phi = (PI/180.0)*SLons(n)
-            lat = (PI/180.0)*SLats(n)
-            xyz0(XDIR) = cos(lat)*cos(phi)
-            xyz0(YDIR) = cos(lat)*sin(phi)
-            xyz0(ZDIR) = sin(lat)
-            StatDSTs(n) = BSDstAt(Model,Gr,Jxyz,xyz0)
-        enddo
-        AvgDst = sum(StatDSTs)/NumStat
+        !Ignore station average for now
+        AvgDst = BSDst
+        return
+        
+        ! !Get station averaged Dst
+        ! do n=1,NumStat
+        !     phi = (PI/180.0)*SLons(n)
+        !     lat = (PI/180.0)*SLats(n)
+        !     xyz0(XDIR) = cos(lat)*cos(phi)
+        !     xyz0(YDIR) = cos(lat)*sin(phi)
+        !     xyz0(ZDIR) = sin(lat)
+        !     StatDSTs(n) = BSDstAt(Model,Gr,Jxyz,xyz0)
+        ! enddo
+        ! AvgDst = sum(StatDSTs)/NumStat
 
     end subroutine EstDST
 

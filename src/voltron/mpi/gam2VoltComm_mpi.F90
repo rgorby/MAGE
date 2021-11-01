@@ -4,13 +4,13 @@ module gam2VoltComm_mpi
     use gamapp_mpi
     use uservoltic
     use mpidefs
-    use mpi
+    use mpi_f08
     use, intrinsic :: ieee_arithmetic, only: IEEE_VALUE, IEEE_SIGNALING_NAN, IEEE_QUIET_NAN
 
     implicit none
 
     type :: gam2VoltCommMpi_T
-        integer :: voltMpiComm = MPI_COMM_NULL
+        type(MPI_Comm) :: voltMpiComm
         integer :: myRank, voltRank
         logical :: doSerialVoltron = .false., doAsyncShallow = .true.
         logical :: firstShallowUpdate = .true., firstDeepUpdate = .true.
@@ -20,49 +20,70 @@ module gam2VoltComm_mpi
         logical :: doDeep
 
         ! array of all zeroes to simplify various send/receive calls
-        integer, dimension(1) :: zeroArrayCounts = (/ 0 /), zeroArrayTypes = (/ MPI_INT /)
-        integer(MPI_ADDRESS_KIND), dimension(1) :: zeroArrayDispls = (/ 0 /)
+        integer, dimension(1) :: zeroArrayCounts = (/ 0 /)
+        type(MPI_Datatype), dimension(1) :: zeroArrayTypes
+        integer(kind=MPI_AN_MYADDR), dimension(1) :: zeroArrayDispls = (/ 0 /)
 
         ! SHALLOW COUPLING VARIABLES
-        integer, dimension(1) :: sendCountsGasShallow, sendTypesGasShallow
-        integer(MPI_ADDRESS_KIND), dimension(1) :: sendDisplsGasShallow
-        integer, dimension(1) :: sendCountsBxyzShallow, sendTypesBxyzShallow
-        integer(MPI_ADDRESS_KIND), dimension(1) :: sendDisplsBxyzShallow
-        integer, dimension(1) :: recvCountsIneijkShallow, recvTypesIneijkShallow
-        integer(MPI_ADDRESS_KIND), dimension(1) :: recvDisplsIneijkShallow
-        integer, dimension(1) :: recvCountsInexyzShallow, recvTypesInexyzShallow
-        integer(MPI_ADDRESS_KIND), dimension(1) :: recvDisplsInexyzShallow
+        integer, dimension(1) :: sendCountsGasShallow
+        type(MPI_Datatype), dimension(1) :: sendTypesGasShallow
+        integer(kind=MPI_AN_MYADDR), dimension(1) :: sendDisplsGasShallow
+        integer, dimension(1) :: sendCountsBxyzShallow
+        type(MPI_Datatype), dimension(1) :: sendTypesBxyzShallow
+        integer(kind=MPI_AN_MYADDR), dimension(1) :: sendDisplsBxyzShallow
+        integer, dimension(1) :: recvCountsIneijkShallow
+        type(MPI_Datatype), dimension(1) :: recvTypesIneijkShallow
+        integer(kind=MPI_AN_MYADDR), dimension(1) :: recvDisplsIneijkShallow
+        integer, dimension(1) :: recvCountsInexyzShallow
+        type(MPI_Datatype), dimension(1) :: recvTypesInexyzShallow
+        integer(kind=MPI_AN_MYADDR), dimension(1) :: recvDisplsInexyzShallow
         ! SHALLOW ASYNCHRONOUS VARIABLES
-        integer :: shallowGasSendReq=MPI_REQUEST_NULL, shallowBxyzSendReq=MPI_REQUEST_NULL, shallowTimeBcastReq=MPI_REQUEST_NULL
+        type(MPI_Request) :: shallowGasSendReq, shallowBxyzSendReq, shallowTimeBcastReq
         real(rp), dimension(:,:,:,:,:), allocatable :: gasBuffer
         real(rp), dimension(:,:,:,:), allocatable   :: bxyzBuffer
         
         ! DEEP COUPLING VARIABLES
-        integer, dimension(1) :: sendCountsGasDeep, sendTypesGasDeep
-        integer(MPI_ADDRESS_KIND), dimension(1) :: sendDisplsGasDeep
-        integer, dimension(1) :: sendCountsBxyzDeep, sendTypesBxyzDeep
-        integer(MPI_ADDRESS_KIND), dimension(1) :: sendDisplsBxyzDeep
-        integer, dimension(1) :: recvCountsGas0Deep, recvTypesGas0Deep
-        integer(MPI_ADDRESS_KIND), dimension(1) :: recvDisplsGas0Deep
+        integer, dimension(1) :: sendCountsGasDeep
+        type(MPI_Datatype), dimension(1) :: sendTypesGasDeep
+        integer(kind=MPI_AN_MYADDR), dimension(1) :: sendDisplsGasDeep
+        integer, dimension(1) :: sendCountsBxyzDeep
+        type(MPI_Datatype), dimension(1) :: sendTypesBxyzDeep
+        integer(kind=MPI_AN_MYADDR), dimension(1) :: sendDisplsBxyzDeep
+        integer, dimension(1) :: recvCountsGas0Deep
+        type(MPI_Datatype), dimension(1) :: recvTypesGas0Deep
+        integer(kind=MPI_AN_MYADDR), dimension(1) :: recvDisplsGas0Deep
 
     end type gam2VoltCommMpi_T
 
     contains
 
     ! setup the MPI communicator to talk to voltron, and send grid data
-    subroutine initGam2Volt(g2vComm, gApp, voltComm, optFilename, doIO)
+    subroutine initGam2Volt(g2vComm, gApp, allComm, optFilename, doIO)
         type(gam2VoltCommMpi_T), intent(inout) :: g2vComm
         type(gamAppMpi_T), intent(inout) :: gApp
-        integer, intent(in) :: voltComm
+        type(MPI_Comm), intent(in) :: allComm
         character(len=*), optional, intent(in) :: optFilename
         logical, optional, intent(in) :: doIO
 
         integer :: length, commSize, ierr, numCells, dataCount, numInNeighbors, numOutNeighbors
+        type(MPI_Comm) :: voltComm
         character( len = MPI_MAX_ERROR_STRING) :: message
         logical :: reorder, wasWeighted, doIOX
         character(len=strLen) :: inpXML
         type(XML_Input_T) :: xmlInp
         integer, dimension(1) :: rankArray, weightArray
+
+        ! initialize F08 MPI objects
+        g2vComm%voltMpiComm = MPI_COMM_NULL
+        g2vComm%zeroArraytypes = (/ MPI_DATATYPE_NULL /)
+        g2vComm%shallowGasSendReq = MPI_REQUEST_NULL
+        g2vComm%shallowBxyzSendReq = MPI_REQUEST_NULL
+        g2vComm%shallowTimeBcastReq = MPI_REQUEST_NULL
+
+        ! split voltron helpers off of the communicator
+        ! split allComm into a communicator with only the non-helper voltron rank
+        call MPI_Comm_rank(allComm, commSize, ierr)
+        call MPI_comm_split(allComm, 0, commSize, voltComm, ierr)
 
         if(present(optFilename)) then
             ! read from the prescribed file
@@ -73,7 +94,7 @@ module gam2VoltComm_mpi
         endif
         call CheckFileOrDie(inpXML,"Error opening input deck, exiting ...")
         write(*,*) 'Reading input deck from ', trim(inpXML)
-        xmlInp = New_XML_Input(trim(inpXML),'Voltron',.true.)
+        xmlInp = New_XML_Input(trim(inpXML),'Kaiju/Voltron',.true.)
         call xmlInp%Set_Val(g2vComm%doSerialVoltron,"coupling/doSerial",.false.)
         call xmlInp%Set_Val(g2vComm%doAsyncShallow,"coupling/doAsyncShallow",.true.)
         if(g2vComm%doSerialVoltron) then
@@ -103,9 +124,9 @@ module gam2VoltComm_mpi
         call MPI_Comm_rank(voltComm, g2vComm%myRank, ierr)
 
         ! send my i/j/k ranks to the voltron rank
-        call mpi_gather(gApp%Grid%Ri, 1, MPI_INT, 0, 0, 0, commSize-1, voltComm, ierr)
-        call mpi_gather(gApp%Grid%Rj, 1, MPI_INT, 0, 0, 0, commSize-1, voltComm, ierr)
-        call mpi_gather(gApp%Grid%Rk, 1, MPI_INT, 0, 0, 0, commSize-1, voltComm, ierr)
+        call mpi_gather(gApp%Grid%Ri, 1, MPI_INT, 0, 0, MPI_DATATYPE_NULL, commSize-1, voltComm, ierr)
+        call mpi_gather(gApp%Grid%Rj, 1, MPI_INT, 0, 0, MPI_DATATYPE_NULL, commSize-1, voltComm, ierr)
+        call mpi_gather(gApp%Grid%Rk, 1, MPI_INT, 0, 0, MPI_DATATYPE_NULL, commSize-1, voltComm, ierr)
 
         numCells = gApp%Grid%Nip*gApp%Grid%Njp*gApp%Grid%Nkp
         ! rank 0 send the number of physical cells to voltron rank
@@ -149,16 +170,14 @@ module gam2VoltComm_mpi
         g2vComm%voltRank = rankArray(1)
 
         ! send i/j/k ranks again since my rank may have changed in the new communicator
-        call mpi_gather(gApp%Grid%Ri, 1, MPI_INT, 0, 0, 0, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
-        call mpi_gather(gApp%Grid%Rj, 1, MPI_INT, 0, 0, 0, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
-        call mpi_gather(gApp%Grid%Rk, 1, MPI_INT, 0, 0, 0, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
+        call mpi_gather(gApp%Grid%Ri, 1, MPI_INT, 0, 0, MPI_DATATYPE_NULL, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
+        call mpi_gather(gApp%Grid%Rj, 1, MPI_INT, 0, 0, MPI_DATATYPE_NULL, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
+        call mpi_gather(gApp%Grid%Rk, 1, MPI_INT, 0, 0, MPI_DATATYPE_NULL, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
 
-        ! sent current time information in case of a restart
-        if(gapp%Model%isRestart .and. gApp%Grid%Ri==0 .and. gApp%Grid%Rj==0 .and. gApp%Grid%Rk==0) then
-            call mpi_send(gApp%Model%IO%nOut, 1, MPI_INT, g2vComm%voltRank, 97520, g2vComm%voltMpiComm, ierr)
-            call mpi_send(gApp%Model%IO%nRes, 1, MPI_INT, g2vComm%voltRank, 97530, g2vComm%voltMpiComm, ierr)
-            call mpi_send(gApp%Model%t, 1, MPI_MYFLOAT, g2vComm%voltRank, 97540, g2vComm%voltMpiComm, ierr)
-            call mpi_send(gApp%Model%ts, 1, MPI_INT, g2vComm%voltRank, 97550, g2vComm%voltMpiComm, ierr)
+        ! Send restart number so that voltron can ensure they have the same number
+        ! only the rank with Ri/Rj/Rk==0 should send the value to voltron
+        if(gApp%Grid%Ri==0 .and. gApp%Grid%Rj==0 .and. gApp%Grid%Rk==0) then
+            call mpi_send(gApp%Model%IO%nRes, 1, MPI_INT, g2vComm%voltRank, 97520, g2vComm%voltMpiComm, ierr)
         endif
 
         ! initialize all of the starting parameters from the voltron rank
@@ -206,7 +225,11 @@ module gam2VoltComm_mpi
         endif
 
         if (doIOX) then
-            if (.not. gApp%Model%isRestart) call fOutput(gApp%Model,gApp%Grid,gApp%State)
+            if (.not. gApp%Model%isRestart) then
+                ! reset tOut before correcting initial file output
+                gApp%Model%IO%tOut = gApp%Model%IO%tOut - gApp%Model%IO%dtOut
+                call fOutput(gApp%Model,gApp%Grid,gApp%State)
+            endif
             call consoleOutput(gApp%Model,gApp%Grid,gApp%State)
         endif
 
@@ -219,34 +242,27 @@ module gam2VoltComm_mpi
         logical :: reqStat
         integer :: ierr
 
-        if(g2vComm%shallowGasSendReq /= MPI_REQUEST_NULL) then
-            call MPI_REQUEST_GET_STATUS(g2vComm%shallowGasSendReq,reqStat,MPI_STATUS_IGNORE,ierr)
-            if(.not. reqStat) then
-                ! can't cancel neighborhood calls
-                call MPI_WAIT(g2vComm%shallowGasSendReq, MPI_STATUS_IGNORE, ierr)
-            endif
+        call MPI_TEST(g2vComm%shallowGasSendReq,reqStat,MPI_STATUS_IGNORE,ierr)
+        if(.not. reqStat) then
+            ! can't cancel neighborhood calls
+            call MPI_WAIT(g2vComm%shallowGasSendReq, MPI_STATUS_IGNORE, ierr)
         endif
 
-        if(g2vComm%shallowBxyzSendReq /= MPI_REQUEST_NULL) then
-            call MPI_REQUEST_GET_STATUS(g2vComm%shallowBxyzSendReq,reqStat,MPI_STATUS_IGNORE,ierr)
-            if(.not. reqStat) then
-                ! can't cancel neighborhood calls
-                call MPI_WAIT(g2vComm%shallowBxyzSendReq, MPI_STATUS_IGNORE, ierr)
-            endif
+        call MPI_TEST(g2vComm%shallowBxyzSendReq,reqStat,MPI_STATUS_IGNORE,ierr)
+        if(.not. reqStat) then
+            ! can't cancel neighborhood calls
+            call MPI_WAIT(g2vComm%shallowBxyzSendReq, MPI_STATUS_IGNORE, ierr)
         endif
-        call MPI_WAIT(g2vComm%shallowBxyzSendReq, MPI_STATUS_IGNORE, ierr)
 
         if(g2vComm%doAsyncShallow) then
             ! voltron sent shallow data which can't be cancelled
             call recvShallowData(g2vComm, gApp)
         endif
 
-        if(g2vComm%shallowTimeBcastReq /= MPI_REQUEST_NULL) then
-            call MPI_REQUEST_GET_STATUS(g2vComm%shallowTimeBcastReq,reqStat,MPI_STATUS_IGNORE,ierr)
-            if(.not. reqStat) then
-                call MPI_CANCEL(g2vComm%shallowTimeBcastReq, ierr)
-                call MPI_WAIT(g2vComm%shallowTimeBcastReq, MPI_STATUS_IGNORE, ierr)
-            endif
+        call MPI_TEST(g2vComm%shallowTimeBcastReq,reqStat,MPI_STATUS_IGNORE,ierr)
+        if(.not. reqStat) then
+            call MPI_CANCEL(g2vComm%shallowTimeBcastReq, ierr)
+            call MPI_WAIT(g2vComm%shallowTimeBcastReq, MPI_STATUS_IGNORE, ierr)
         endif
 
         if(allocated(g2vComm%gasBuffer)) deallocate(g2vComm%gasBuffer)
@@ -485,11 +501,13 @@ module gam2VoltComm_mpi
                     iiBC%inExyz(:,:,:,:) = IEEE_VALUE(nanValue, IEEE_SIGNALING_NAN)
 
                     ! Recv Shallow inEijk Data
+                    call Tic("VoltSync")
                     call mpi_neighbor_alltoallw(0, g2vComm%zeroArrayCounts, &
                                                 g2vComm%zeroArrayDispls, g2vComm%zeroArrayTypes, &
                                                 iiBC%inEijk, g2vComm%recvCountsIneijkShallow, &
                                                 g2vComm%recvDisplsIneijkShallow, g2vComm%recvTypesIneijkShallow, &
                                                 g2vComm%voltMpiComm, ierr)
+                    call Toc("VoltSync")
 
                     ! Recv Shallow inExyz Data
                     call mpi_neighbor_alltoallw(0, g2vComm%zeroArrayCounts, &
@@ -504,11 +522,13 @@ module gam2VoltComm_mpi
         else
             ! not a rank with remix BC, but still need to call mpi_neighbor_alltoallw
             ! Recv nothing step 1
+            call Tic("VoltSync")
             call mpi_neighbor_alltoallw(0, g2vComm%zeroArrayCounts, &
                                         g2vComm%zeroArrayDispls, g2vComm%zeroArrayTypes, &
                                         0, g2vComm%zeroArrayCounts, &
                                         g2vComm%zeroArrayDispls, g2vComm%zeroArrayTypes, &
                                         g2vComm%voltMpiComm, ierr)
+            call Toc("VoltSync")
 
             ! Recv nothing step 2
             call mpi_neighbor_alltoallw(0, g2vComm%zeroArrayCounts, &
@@ -624,11 +644,13 @@ module gam2VoltComm_mpi
 
         ! Receive updated data from Voltron
         ! Receive Deep Gas0 Data
+        call Tic("VoltSync")
         call mpi_neighbor_alltoallw(gApp%Grid%Gas0, g2vComm%zeroArrayCounts, &
                                     g2vComm%zeroArrayDispls, g2vComm%zeroArrayTypes, &
                                     gApp%Grid%Gas0, g2vComm%recvCountsGas0Deep, &
                                     g2vComm%recvDisplsGas0Deep, g2vComm%recvTypesGas0Deep, &
                                     g2vComm%voltMpiComm, ierr)
+        call Toc("VoltSync")
 
     end subroutine recvDeepData
 
@@ -637,10 +659,10 @@ module gam2VoltComm_mpi
         type(gamAppMpi_T), intent(in) :: gApp
 
         integer :: ierr, dataSize, sendDataOffset, recvDataOffset
-        integer :: iJP, iJPjP, iJPjPkP, iJPjPkP4Gas, iJpjPkP5Gas, iJP3, iPSI, iPSI1
-        integer :: Bxyz2, Bxyz3, Bxyz4, Eijk2, EIjk3, Eijk4, Exyz2, Exyz3, Exyz4
-        integer :: iP,iPjP,iPjPkP,iPjPkP4Gas,iPjPkP4Bxyz,iPjPkP5Gas
-        integer :: iPG2,iPG2jPG2,iPG2jPG2kPG2,iPG2jPG2kPG24Gas,iPG2jPG2kPG25Gas
+        type(MPI_Datatype) :: iJP, iJPjP, iJPjPkP, iJPjPkP4Gas, iJpjPkP5Gas, iJP3, iPSI, iPSI1
+        type(MPI_Datatype) :: Bxyz2, Bxyz3, Bxyz4, Eijk2, EIjk3, Eijk4, Exyz2, Exyz3, Exyz4
+        type(MPI_Datatype) :: iP,iPjP,iPjPkP,iPjPkP4Gas,iPjPkP4Bxyz,iPjPkP5Gas
+        type(MPI_Datatype) :: iPG2,iPG2jPG2,iPG2jPG2kPG2,iPG2jPG2kPG24Gas,iPG2jPG2kPG25Gas
 
         associate(Grid=>gApp%Grid,Model=>gApp%Model, &
                   JpSt=>g2vComm%JpSt,JpSh=>g2vComm%JpSh, &

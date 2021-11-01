@@ -113,7 +113,7 @@ module gcminterp
 
     subroutine ReadH5gcm(gcm)
       type(gcm_T), intent(inout) :: gcm
-      type(IOVAR_T), dimension(MAXIOVAR) :: IOVars
+      type(IOVAR_T), dimension(MAXMIXIOVAR) :: IOVars
       character (len=strLen) :: H5file, lockStr
       integer :: ntime,nlon,nlat,nlev,nlathemi,nhemi
       integer :: i,j,t,v,ordering

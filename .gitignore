@@ -1,13 +1,17 @@
 # User dependent stuff
 cmake/user.cmake
 build/
+kaiju.sublime-workspace
 
 # Related to unit testing
-external/FARGPARSE-0.9/
-external/GFTL-1.1/
-external/GFTL_SHARED-1.0/
-external/PFUNIT-4.1/
+external/FARGPARSE-*/
+external/GFTL-*/
+external/GFTL_SHARED-*/
+external/PFUNIT-*/
+# skip F90 files in the tests folder, except in specific subfolders
 tests/*/*.F90
+!tests/helperCode/*.F90
+!tests/helperCode_mpi/*.F90
 
 # Compiled Object files
 *.slo
@@ -48,3 +52,6 @@ tests/*/*.F90
 
 # Mac nonsense
 *.DS_STORE
+
+#Notebook checkpoints
+analysis/notebooks/Tutorial/.ipynb_checkpoints
