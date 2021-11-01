@@ -301,12 +301,12 @@ module uservoltic
                            (d == JDIR .and. ig .le. Grid%isg .and. k .le. Grid%ksg) .or. &
                            (d == KDIR .and. ig .le. Grid%isg .and. j .le. Grid%jsg)) then
                             if ( isLowLat(Grid%xfc(ig,j,k,:,d),llBC) ) then
-                                !State%magFlux(ig,j,k,d) = 0.0
-                                State%magFlux(ig,j,k,d) = dApm(d)*dA*State%magFlux(Grid%is,jp,kp,d)
+                                State%magFlux(ig,j,k,d) = 0.0
+                                !State%magFlux(ig,j,k,d) = dApm(d)*dA*State%magFlux(Grid%is,jp,kp,d)
                             else
                                 !!!Unsure
-                                !State%magFlux(ig,j,k,d) = 0.0
-                                State%magFlux(ig,j,k,d) = dApm(d)*dA*State%magFlux(Grid%is,jp,kp,d)
+                                State%magFlux(ig,j,k,d) = 0.0
+                                !State%magFlux(ig,j,k,d) = dApm(d)*dA*State%magFlux(Grid%is,jp,kp,d)
                             endif
                         endif
 
