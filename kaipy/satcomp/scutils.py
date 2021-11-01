@@ -76,6 +76,39 @@ def varMap_1D(og, ng, var):
 		varnew[e] = var[idx]*(1-d) + var[idx+1]*d
 	return varnew
 
+def getWeights_ConsArea(og, og_lower, og_upper, ng, ng_lower, ng_upper):
+	"""Calculate overlap (weights) to map values on one grid to another,
+		where total width in grid dimension are conserved
+		(i.e. properly map RCM eetas to uniform grid)
+		og, og_lower, og_upper: old grid and lower/upper bounds of each grid point
+		ng, ng_lower, ng_upper: new grid and lower/upper bounds of each grid point
+	"""
+	"""Example:
+		og: || |  |  |   |   |     |     |
+		ng: |  |  |  |  |  |  |  |  |  |  |
+		For each cell center on ng, calc which og cells overlap and the fraction of overlap
+	"""
+
+	Nog = len(og)
+	Nng = len(ng)
+	weightMap = [[] for e in range(Nng) ]  # Ne x (nx2)
+	for iNG in range(Nng):
+		ng_l = ng_lower[iNG]
+		ng_u = ng_upper[iNG]
+		ng_w = ng_u - ng_l  # cell width
+		frac_arr = []
+		for k in range(Nog):
+			#Do these two cells overlap
+			if ng_l <= og_upper[k] and ng_u >= og_lower[k]:
+				#Get overlap bounds and width
+				ovl_lower = og_lower[k] if og_lower[k] > ng_l else ng_l
+				ovl_upper = og_upper[k] if og_upper[k] < ng_u else ng_u
+				ovl_width = ovl_upper - ovl_lower
+				#og_width = og_upper[k] - og_lower[k]
+				frac_arr.append([k, ovl_width/ng_w])
+		weightMap[iNG] = frac_arr
+	return weightMap
+
 def computeErrors(obs,pred):
 	MAE = 1./len(obs) *np.sum(np.abs(obs-pred))
 	MSE = 1./len(obs) * np.sum((obs-pred)**2)
@@ -146,11 +179,13 @@ def pullVar(cdaObsId,cdaDataId,t0,t1,deltaT=60,epochStr="Epoch",doVerbose=False)
 		if doVerbose: print("numDays: " + str(numDays))
 
 		tstamp_arr = []
+		tstamp_deltas = []
 		for i in range(numDays):
 			tstamp_arr.append((t0dt + datetime.timedelta(days=i)).strftime("%Y-%m-%dT%H:%M:%SZ"))
-		
+			tstamp_deltas.append((t0dt + datetime.timedelta(days=i+1)).strftime("%Y-%m-%dT%H:%M:%SZ"))
+		print(tstamp_arr)
 		#Get first day
-		status, data = cdas.get_data(cdaObsId, [], tstamp_arr[0], tstamp_arr[1], binData=binData)
+		status, data = cdas.get_data(cdaObsId, [], tstamp_arr[0], tstamp_deltas[0], binData=binData)
 		if doVerbose: print("Pulling " + t0)
 		
 		if status['http']['status_code'] != 200:

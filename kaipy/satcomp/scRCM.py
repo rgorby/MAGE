@@ -203,7 +203,6 @@ def getRCMtimes(rcmf5,mhdrcmf5,jdir=None, forceCalc=False):
 	"""Grab RCM times, sIDs, and MJDs
 		If jdir given, will try to find the files there
 		If not found there, will pull the data from the hdf5's
-		If those aren't provided, we can't do much
 	"""
 	if jdir is not None:
 		dojson = True
@@ -267,7 +266,6 @@ def getRCMtimes(rcmf5,mhdrcmf5,jdir=None, forceCalc=False):
 
 	return rcmTimes
 
-#TODO: Add scName to trackfile attrs so we can pull directly from there
 def getRCM_scTrack(trackf5, rcmf5, rcmTimes, jdir=None, forceCalc=False, scName=""):
 	"""Pull RCM data along a given spacecraft track
 		trackfile: big spacecraft trajectory hdf5, generated from sctrack.x
@@ -276,6 +274,7 @@ def getRCM_scTrack(trackf5, rcmf5, rcmTimes, jdir=None, forceCalc=False, scName=
 
 		returns: dictionary containing along track: time, mjd, mlat, mlon, vm, e and i energy and eetas
 	"""
+	
 	if jdir is not None:
 		dojson = True
 		jfname = genRCMTrack_jfname(jdir, scName)
@@ -430,14 +429,13 @@ def getRCM_scTrack(trackf5, rcmf5, rcmTimes, jdir=None, forceCalc=False, scName=
 
 #TODO: Energy grid mapping in a nice, jsonizable way
 #      Right now, just need to call this whenever you want it
-def consolidateODFs(scData, rcmTrackData, eGrid=None):
+def consolidateODFs(scData, rcmTrackData, eGrid=None, doPlot=False):
 	"""Prepare the spacecraft and rcm track data for comparison
 		Match up energy grids, save all the needed info in one place
 	"""
 	#scData determines which species we're using
 	species = scData['species']
 	rcmSpec = rcmTrackData[species]
-
 
 	scEGrid = scData['energies']  # Might be 1D (fixed bins) or 2D (different energies over time)
 	rcmEGrid = rcmSpec['energies']
@@ -463,20 +461,64 @@ def consolidateODFs(scData, rcmTrackData, eGrid=None):
 		eMin = np.min([scEGrid[scEGrid>0].min(), rcmEGrid[rcmEGrid>0].min()])
 		numPoints = 150
 		eGrid = np.logspace(np.log10(eMin), np.log10(eMax), numPoints, endpoint=True)
-
+	Ne = len(eGrid)
+	e_lower = np.zeros(Ne)
+	e_upper = np.zeros(Ne)
+	for iEG in range(Ne):
+		e_lower[iEG] = eGrid[0] if iEG == 0 else (eGrid[iEG-1] + eGrid[iEG])/2
+		e_upper[iEG] = eGrid[-1] if iEG == Ne-1 else (eGrid[iEG+1] + eGrid[iEG])/2
 	
-	sc_odf = np.zeros((Nt_sc, len(eGrid)))
+	#Map sc odf on given energy grid new new eGrid
+	sc_odf = np.zeros((Nt_sc, Ne))
 	for n in range(Nt_sc):
+		
 		#Might not need this check
 		if len(sce_shape) > 1:
+			#Assume scEGrid's are evenly spaced	
+			scEG_interfaces = (scEGrid[n,1:]+scEGrid[n,:-1])/2
+			scEG_lower = np.append(scEGrid[n,0], scEG_interfaces)
+			scEG_upper = np.append(scEG_interfaces, scEGrid[n,-1])
+			mapWeights = scutils.getWeights_ConsArea(scEGrid[n], scEG_lower, scEG_upper, eGrid, e_lower, e_upper)
+		else:
+			scEG_interfaces = (scEGrid[1:]+scEGrid[:-1])/2
+			scEG_lower = np.append(scEGrid[0], scEG_interfaces)
+			scEG_upper = np.append(scEG_interfaces, scEGrid[-1])
+			mapWeights = scutils.getWeights_ConsArea(scEGrid, scEG_lower, scEG_upper, eGrid, e_lower, e_upper)
+
+		for e in range(Ne):
+			for ik in range(len(mapWeights[e])):
+				k = mapWeights[e][ik][0]
+				weight = mapWeights[e][ik][1]
+				sc_odf[n,e] += weight*scData['OmniDiffFlux'][n,k]
+		"""
 			sc_odf[n,:] = scutils.varMap_1D(scEGrid[n,:], eGrid, scData['OmniDiffFlux'][n,:])
 		else:
 			sc_odf[n,:] = scutils.varMap_1D(scEGrid, eGrid, scData['OmniDiffFlux'][n,:])
+		"""
 
 	Nt_rcm = len(rcmTrackData['T'])
 	rcm_odf = np.zeros((Nt_rcm, len(eGrid)))
 	for n in range(Nt_rcm):
-		rcm_odf[n,:] = scutils.varMap_1D(rcmEGrid[n,:], eGrid, rcmSpec['diffFlux'][n,:])
+		vm = rcmSpec['energies'][n,-1]/rcmSpec['ilamc'][-1]
+		rcme_lower = rcmSpec['ilami'][:-1]*vm
+		rcme_lower[0] = rcmSpec['energies'][n,0]  # Otherwise its zero, and it makes odd lines
+		rcme_upper = rcmSpec['ilami'][1:]*vm
+		mapWeights = scutils.getWeights_ConsArea(rcmSpec['energies'][n,:], rcme_lower, rcme_upper, eGrid, e_lower, e_upper)
+
+		if doPlot:
+			plt.scatter(eGrid, np.zeros(len(eGrid)), c="black")
+			plt.scatter(e_lower, np.zeros(len(eGrid)), c="red")
+			plt.scatter(rcmSpec['energies'][n], np.ones(len(rcme_lower)), c="black")
+			plt.scatter(rcme_lower, np.ones(len(rcme_lower)), c="red")
+			plt.xscale('log')
+			plt.show()
+
+		for e in range(Ne):
+			for ik in range(len(mapWeights[e])):
+				k = mapWeights[e][ik][0]
+				weight = mapWeights[e][ik][1]
+				rcm_odf[n,e] += weight*rcmSpec['diffFlux'][n,k]
+		#rcm_odf[n,:] = scutils.varMap_1D(rcmEGrid[n,:], eGrid, rcmSpec['diffFlux'][n,:])
 
 	result = {}
 	result['energyGrid'] = eGrid
@@ -780,7 +822,16 @@ def getVarWedge(rcmf5, mhdrcmf5, sStart, sEnd, sStride, wedge_deg, species='ions
 			ke_upper = alamData['ilami'][1:]*vm
 			ke_width = ke_upper-ke_lower
 
+			e_lower = np.zeros(Ne)
+			e_upper = np.zeros(Ne)
+			for iEG in range(Ne):
+				e_lower[iEG] = eGrid[0] if iEG == 0 else (eGrid[iEG-1] + eGrid[iEG])/2
+				e_upper[iEG] = eGrid[-1] if iEG == Ne-1 else (eGrid[iEG+1] + eGrid[iEG])/2
+
+			eMapFracs[iPC] = scutils.getWeights_ConsArea(ke_center, ke_lower, ke_upper, eGrid, e_lower, e_upper)
+
 			# Iterate over eGrid, grab weights for all overlapping k bins
+			"""
 			for iEG in range(Ne):
 				e_lower = eGrid[0] if iEG == 0 else (eGrid[iEG-1] + eGrid[iEG])/2
 				e_upper = eGrid[-1] if iEG == Ne-1 else (eGrid[iEG+1] + eGrid[iEG])/2
@@ -798,6 +849,7 @@ def getVarWedge(rcmf5, mhdrcmf5, sStart, sEnd, sStride, wedge_deg, species='ions
 						frac_arr.append([k, o_width/ke_width[k]])  # Fraction of k bin that coincides with eGrid bin
 				#print('n: {}  arr:{}'.format(len(frac_arr), frac_arr))
 				eMapFracs[iPC][iEG] = frac_arr
+			"""
 		"""
 		for iPC in range(Npc):
 			print('iPC={}  L={}'.format(iPC, lPointCloud[iPC]))

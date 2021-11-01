@@ -32,7 +32,7 @@ if __name__ == "__main__":
 	fdir = args.d
 	ftag = args.id
 	outid = args.outid
-	sStride = 1
+	sStride = args.sS
 
 	#---------------------
 	#Init data
@@ -60,7 +60,8 @@ if __name__ == "__main__":
 	vIDs = ["D","Vx","Vy","Vz","P","Bx","By","Bz"]#,"Jx","Jy","Jz"]	
 
 	Nv = len(vIDs)
-	for n in range(gamData.s0,gamData.sFin+1,sStride):
+	#for n in range(gamData.s0,gamData.sFin+1,sStride):
+	for n in gamData.sids:
 		nslc = n-gamData.s0
 		#print(n,gamData.T[nslc])
 
@@ -78,7 +79,7 @@ if __name__ == "__main__":
 		gCol.set("CollectionType","Spatial")
 
 		Time = et.SubElement(gCol,"Time")
-		Time.set("Value","%s"%(str(gamData.T[nslc])))
+		Time.set("Value","%s"%(str(gamData.T[np.where(gamData.sids == n)])))
 		
 		Cyc = et.SubElement(gCol,"Cycle")
 		Cyc.set("Value","%d"%(n))

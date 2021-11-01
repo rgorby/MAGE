@@ -58,13 +58,41 @@ def tStep(fname,nStp=0,aID="time",aDef=0.0):
 			t = aDef
 	return t
 	
-def cntSteps(fname):
-	CheckOrDie(fname)
-	with h5py.File(fname,'r') as hf:
-		Steps = [grp for grp in hf.keys() if "Step#" in grp]
-	sIds = np.array([str.split(s,"#")[-1] for s in Steps],dtype=np.int)
-	nSteps = len(Steps)
-	return nSteps,sIds
+def cntSteps(fname,doTryRecover=True,s0=0):
+
+	try:
+		CheckOrDie(fname)
+		with h5py.File(fname,'r') as hf:
+			Steps = [grp for grp in hf.keys() if "Step#" in grp]
+		sIds = np.array([str.split(s,"#")[-1] for s in Steps],dtype=np.int)
+		nSteps = len(Steps)
+		return nSteps,sIds
+	except (ValueError, IndexError) as e:
+		print("!!Warning: h5 file contains unreadable steps")
+
+	if not doTryRecover:
+		print("  Can try again with 'cntSteps(fname,doTryRecover=True)'")
+		raise ValueError("Unreadable steps")
+	else:
+		print("Trying to read again while skipping bad values")
+		with h5py.File(fname,'r') as hf:
+			badCounts = 0
+			s = s0
+			sIds = []
+			while badCounts < 2000:
+				try:
+					sName = 'Step#' + str(s)
+					tryReadGrp = hf[sName]
+					#If still here, step is readable
+					sIds.append(s)
+					print("Read step " + str(s))
+				except ValueError:
+					badCounts += 1
+					print("Bad count on step " + str(s))
+				s+=1
+			nSteps = len(sIds)
+			sIds = np.array(sIds)
+		return nSteps,sIds
 
 #More general version of cntSteps, useful for Step#X/Line#Y
 def cntX(fname,gID=None,StrX="/Step#"):

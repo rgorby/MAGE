@@ -84,6 +84,8 @@ if __name__=="__main__":
 
 	if fcStr == "":
 		fcIDs = []
+	elif "all" in fcStr:
+		fcIDs = pIDs
 	else:
 		fcIDs = fcStr.split(',')
 
@@ -143,16 +145,16 @@ if __name__=="__main__":
 		rcmEGrid = rcmTrack[species]['energies']
 		eMax = np.max([scEGrid.max(), hope_scEGrid.max(), rcmEGrid.max()])
 		eMin = np.min([scEGrid[scEGrid>0].min(), hope_scEGrid[hope_scEGrid>0].min(), rcmEGrid[rcmEGrid>0].min()])
-		eGrid = np.logspace(np.log10(eMin), np.log10(eMax), 150, endpoint=True)
-		consolData = scRCM.consolidateODFs(scData, rcmTrack, eGrid=eGrid)
+		eGrid = np.logspace(np.log10(eMin), np.log10(eMax), 200, endpoint=True)
+		consolData = scRCM.consolidateODFs(scData, rcmTrack, eGrid=eGrid, doPlot=False)
 		hope_consolData = scRCM.consolidateODFs(hope_scData, rcmTrack, eGrid=eGrid)
 	else:
 		eGrid = np.logspace(np.log10(40), np.log10(6E2), 200, endpoint=True)
-		consolData = scRCM.consolidateODFs(scData, rcmTrack)
+		consolData = scRCM.consolidateODFs(scData, rcmTrack, eGrid=eGrid)
 
 	print("\n\nCalculating tkl vars(var wedge)")
 	#tkldata = scRCM.getIntensitiesVsL('msphere.rcm.h5','msphere.mhdrcm.h5',tStart, tEnd, tStride, jdir=jdir, forceCalc=('tkl' in fcIDs))
-	tkldata = scRCM.getVarWedge(rcm_fname, mhdrcm_fname, tStart, tEnd, tStride, 5, jdir=jdir, forceCalc=('tkl' in fcIDs))
+	tkldata = scRCM.getVarWedge(rcm_fname, mhdrcm_fname, tStart, tEnd, tStride, 5, jdir=jdir, eGrid=eGrid*1E3, forceCalc=('tkl' in fcIDs))  # This function expects eGrid to be in eV
 	
 	#Works but very verbose
 	#print("\n\nTesting RCM eqlatlon grab")
@@ -186,9 +188,9 @@ if __name__=="__main__":
 		#Original colorbar only spans eqlatlon plots
 		AxCB_press  = fig.add_subplot(gs[7,12:16])
 
-	odfnorm = kv.genNorm(10E3, 5E6, doLog=True)
+	odfnorm = kv.genNorm(1E4, 5E6, doLog=True)
 	ut_tkl = kT.MJD2UT(tkldata['MJD'])
-	pressnorm = kv.genNorm(1E-2, 25, doLog=False)
+	pressnorm = kv.genNorm(1E-2, 75, doLog=False)
 	parpressnorm = kv.genNorm(1e-3, 5, doLog=True)
 	#Movie time
 	outdir = os.path.join(fdir, vidOut)
