@@ -1,0 +1,193 @@
+#! /usr/bin/env python
+
+import numpy as np
+import os,sys,glob
+from scipy import interpolate
+import time
+import h5py
+import matplotlib.pyplot as plt
+
+import kaipy.gamhelio.wsa2gamera.params as params
+import kaipy.gamhelio.lib.wsa as wsa
+
+#----------- PARSE ARGUMENTS ---------#
+import argparse
+parser = argparse.ArgumentParser()
+parser.add_argument('ConfigFileName',help='The name of the configuration file to use',default='startup.config')
+args = parser.parse_args()
+#----------- PARSE ARGUMENTS ---------#
+
+# Read params from config file
+prm = params.params(args.ConfigFileName)
+Ng=prm.NO2
+gamma = prm.gamma
+# constants
+mp = 1.67e-24
+kb = 1.38e-16
+
+B0 = prm.B0
+n0 = prm.n0
+V0 = B0/np.sqrt(4*np.pi*mp*n0)
+T0 = B0*B0/4/math.pi/n0/kb/2. #in K
+
+print "inner helio units"
+print B0, n0, V0, T0
+
+#normalization in OH
+B0OH = 5.e-5 #Gs
+n0OH = 10 #cm-3
+V0OH = 400 #km/s
+T0OH = #in K
+
+print "outer helio units"
+
+
+
+############### READ GAMERA solution at 1 AU #####################
+f = h5py.File(prm.wsaFile)
+step = 'Step#4'
+
+f[step].attrs.keys()
+Nphi, Nth, Nr = np.shape(f[step]['Vx'])
+
+#coordinates of cell centers
+x = 0.125*(f['X'][:-1,:-1,:-1]+f['X'][:-1,:-1,1:]+f['X'][:-1,1:,:-1]+f['X'][:-1,1:,1:]+
+        f['X'][1:,:-1,:-1]+f['X'][1:,:-1,1:]+f['X'][1:,1:,:-1]+f['X'][1:,1:,1:])
+y = 0.125*(f['Y'][:-1,:-1,:-1]+f['Y'][:-1,:-1,1:]+f['Y'][:-1,1:,:-1]+f['Y'][:-1,1:,1:]+
+        f['Y'][1:,:-1,:-1]+f['Y'][1:,:-1,1:]+f['Y'][1:,1:,:-1]+f['Y'][1:,1:,1:])
+z = 0.125*(f['Z'][:-1,:-1,:-1]+f['Z'][:-1,:-1,1:]+f['Z'][:-1,1:,:-1]+f['Z'][:-1,1:,1:]+
+        f['Z'][1:,:-1,:-1]+f['Z'][1:,:-1,1:]+f['Z'][1:,1:,:-1]+f['Z'][1:,1:,1:])
+
+r = np.sqrt(x[:]**2 + y[:]**2 + z[:]**2)
+rxy = np.sqrt(x[:]**2 + y[:]**2)
+
+#phi and theta of centers
+#check theta_wsa_c and phi_wsa_c
+theta = np.arccos(z[:], r[:])
+phi = np.arctan2(y[:], x[:])
+phi[phi<0]=phi[phi<0]+2*np.pi
+
+theta_wsa_c = theta[0,:,0]
+phi_wsa_c = phi[0,:,0]
+
+print theta_wsa_c.shape, phi_wsa_c.shape
+
+
+#these are normilized according to inner helio normalization
+Vr = (f[step]['Vx'][:]*x[:] + f[step]['Vy'][:]*y[:] + f[step]['Vz'][:]*z[:])/r[:]
+Br = f[step]['Br'][:]
+Rho = f[step]['D'][:]
+T = f[step]['P'][:]/f[step]['D'][:]
+
+#take solution from the last cell in i, already normilized
+#use wsa variable names for now
+bi_wsa = Br[:,:,Nr]
+v_wsa = Vr[:,:,Nr]
+n_wsa = Rho[:,:,Nr]
+T_wsa = T[:,:,Nr]
+
+print bi_wsa.shape, v_wsa.shape, n_wsa.shape, T_wsa.shape
+
+#renormalize 
+bi_wsa = bi_wsa * B0/B0OH
+n_wsa = n_wsa * n0/n0OH
+v_wsa = v_wsa *V0/V0OH
+T_wsa = T_wsa *T0/T0OH
+
+
+############### WSA STUFF #####################
+#jd_c,phi_wsa_v,theta_wsa_v,phi_wsa_c,theta_wsa_c,bi_wsa,v_wsa,n_wsa,T_wsa = wsa.read(prm.wsaFile,prm.densTempInfile,prm.normalized)
+
+# convert the units; remember to use the same units in gamera
+# TODO: probably store units in the h5 file?
+# B0   = 1.e-3 Gs
+# n0   = 200./cc
+
+#bi_wsa /= B0
+#n_wsa  /= (mp*n0)
+#v_wsa /= V0
+#convert julian date from wsa fits into modified julian date
+#mjd_c = jd_c - 2400000.5
+# keep temperature in K
+############### WSA STUFF #####################
+
+############### GAMERA STUFF #####################
+
+# GAMERA GRID
+with h5py.File(os.path.join(prm.GridDir,prm.gameraGridFile),'r') as f:
+    x=f['X'][:]
+    y=f['Y'][:]
+    z=f['Z'][:]
+
+xc = 0.125*(x[:-1,:-1,:-1]+x[:-1,1:,:-1]+x[:-1,:-1,1:]+x[:-1,1:,1:]
+            +x[1:,:-1,:-1]+x[1:,1:,:-1]+x[1:,:-1,1:]+x[1:,1:,1:])
+yc = 0.125*(y[:-1,:-1,:-1]+y[:-1,1:,:-1]+y[:-1,:-1,1:]+y[:-1,1:,1:]
+            +y[1:,:-1,:-1]+y[1:,1:,:-1]+y[1:,:-1,1:]+y[1:,1:,1:])
+zc = 0.125*(z[:-1,:-1,:-1]+z[:-1,1:,:-1]+z[:-1,:-1,1:]+z[:-1,1:,1:]
+            +z[1:,:-1,:-1]+z[1:,1:,:-1]+z[1:,:-1,1:]+z[1:,1:,1:])
+
+# remove the ghosts from angular dimensions
+R0 = np.sqrt(x[0,0,Ng]**2+y[0,0,Ng]**2+z[0,0,Ng]**2)  # radius of the inner boundary
+
+P = np.arctan2(y[Ng:-Ng-1,Ng:-Ng-1,:],x[Ng:-Ng-1,Ng:-Ng-1,:])
+P[P<0]=P[P<0]+2*np.pi
+P = P % (2*np.pi)  # sometimes the very first point may be a very
+                   # small negative number, which the above call sets
+                   # to 2*pi. This takes care of it.
+
+Rc = np.sqrt(xc[Ng:-Ng,Ng:-Ng,:]**2+yc[Ng:-Ng,Ng:-Ng,:]**2+zc[Ng:-Ng,Ng:-Ng,:]**2)
+Pc = np.arctan2(yc[Ng:-Ng,Ng:-Ng,:],xc[Ng:-Ng,Ng:-Ng,:])
+Pc[Pc<0]=Pc[Pc<0]+2*np.pi
+Tc = np.arccos(zc[Ng:-Ng,Ng:-Ng,:]/Rc)
+
+# this is fast and better than griddata in that it nicely extrapolates boundaries:
+fbi      = interpolate.RectBivariateSpline(phi_wsa_c,theta_wsa_c,bi_wsa.T,kx=1,ky=1)  
+br = fbi(Pc[:,0,0],Tc[0,:,0])
+
+############### SMOOTHING #####################
+if not prm.gaussSmoothWidth==0:
+    import astropy
+    from astropy.convolution import convolve,Gaussian2DKernel
+
+    gauss=Gaussian2DKernel(width=prm.gaussSmoothWidth)
+    br   =astropy.convolution.convolve(br,gauss,boundary='extend')
+
+
+############### INTERPOLATE AND DUMP #####################
+fv      = interpolate.RectBivariateSpline(phi_wsa_c,theta_wsa_c,v_wsa.T,kx=1,ky=1)  
+vr = fv(Pc[:,0,0],Tc[0,:,0])
+
+f      = interpolate.RectBivariateSpline(phi_wsa_c,theta_wsa_c,n_wsa.T,kx=1,ky=1)  
+rho = f(Pc[:,0,0],Tc[0,:,0])
+
+f      = interpolate.RectBivariateSpline(phi_wsa_c,theta_wsa_c,T_wsa.T,kx=1,ky=1)  
+temp = f(Pc[:,0,0],Tc[0,:,0])
+#temp =  1.*T0/rho + (1.**2-(br)**2)*V0**2 / 2e8/1.38 * 1.67/rho   # *****  
+#temp_T = temp.T
+
+#pressure =   ((br)**2)*V0**2 /2.*mp*n0 *0.1   + (n0*rho* temp)*1.38e-16 *0.1
+#pressure_therm = (n0*rho* temp)*1.38e-16 * 0.1
+#pressure_B = (br)**2 *V0**2 / 2.*mp*n0 *0.1
+
+
+fbi = interpolate.RectBivariateSpline(Pc[:,0,0],Tc[0,:,0],br,kx=1,ky=1)
+fv  = interpolate.RectBivariateSpline(Pc[:,0,0],Tc[0,:,0],vr,kx=1,ky=1)
+
+br_kface = fbi(P[:,0,0],Tc[0,:,0])
+vr_kface  = fv (P[:,0,0],Tc[0,:,0])
+
+# Scale inside ghost region
+(vr,vr_kface,rho,temp,br,br_kface) = [np.dstack(prm.NO2*[var]) for var in (vr,vr_kface,rho,temp,br,br_kface)]
+rho*=(R0/Rc[0,0,:Ng])**2
+br*=(R0/Rc[0,0,:Ng])**2
+br_kface*=(R0/Rc[0,0,:Ng])**2
+
+with h5py.File(os.path.join(prm.IbcDir,prm.gameraIbcFile),'w') as hf:
+    #hf.attrs["MJD"] = mjd_c
+    hf.create_dataset("vr",data=vr)
+    hf.create_dataset("vr_kface",data=vr_kface)
+    hf.create_dataset("rho",data=rho)
+    hf.create_dataset("temp",data=temp)
+    hf.create_dataset("br",data=br)
+    hf.create_dataset("br_kface",data=br_kface)
+hf.close()
