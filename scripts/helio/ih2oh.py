@@ -28,23 +28,24 @@ kb = 1.38e-16
 B0 = prm.B0
 n0 = prm.n0
 V0 = B0/np.sqrt(4*np.pi*mp*n0)
-T0 = B0*B0/4/math.pi/n0/kb/2. #in K
+T0 = B0*B0/4/np.pi/n0/kb/2. #in K
 
-print "inner helio units"
-print B0, n0, V0, T0
+print ("inner helio units")
+print (B0, n0, V0, T0)
 
 #normalization in OH
 B0OH = 5.e-5 #Gs
 n0OH = 10 #cm-3
-V0OH = 400 #km/s
-T0OH = #in K
+V0OH = B0OH/np.sqrt(4*np.pi*mp*n0OH) #Alfven speed at 1 AU
+#V0OH = 400 #km/s
+T0OH = B0OH*B0OH/4/np.pi/n0OH/kb/2.#in K
 
-print "outer helio units"
-
+print ("outer helio units")
+print (B0OH, n0OH, V0OH, T0OH)
 
 
 ############### READ GAMERA solution at 1 AU #####################
-f = h5py.File(prm.wsaFile)
+f = h5py.File(prm.wsaFile,'r')
 step = 'Step#4'
 
 f[step].attrs.keys()
@@ -62,16 +63,17 @@ r = np.sqrt(x[:]**2 + y[:]**2 + z[:]**2)
 rxy = np.sqrt(x[:]**2 + y[:]**2)
 
 #phi and theta of centers
-#check theta_wsa_c and phi_wsa_c
-theta = np.arccos(z[:], r[:])
+theta = np.arccos(z/r)
 phi = np.arctan2(y[:], x[:])
 phi[phi<0]=phi[phi<0]+2*np.pi
 
 theta_wsa_c = theta[0,:,0]
-phi_wsa_c = phi[0,:,0]
+phi_wsa_c = phi[:,0,0]
 
-print theta_wsa_c.shape, phi_wsa_c.shape
+print ("dimensions of 1AU grid")
+print (theta_wsa_c.shape, phi_wsa_c.shape)
 
+print (theta_wsa_c, phi_wsa_c)
 
 #these are normilized according to inner helio normalization
 Vr = (f[step]['Vx'][:]*x[:] + f[step]['Vy'][:]*y[:] + f[step]['Vz'][:]*z[:])/r[:]
@@ -81,12 +83,13 @@ T = f[step]['P'][:]/f[step]['D'][:]
 
 #take solution from the last cell in i, already normilized
 #use wsa variable names for now
-bi_wsa = Br[:,:,Nr]
-v_wsa = Vr[:,:,Nr]
-n_wsa = Rho[:,:,Nr]
-T_wsa = T[:,:,Nr]
+bi_wsa = Br[:,:,Nr-1]
+v_wsa = Vr[:,:,Nr-1]
+n_wsa = Rho[:,:,Nr-1]
+T_wsa = T[:,:,Nr-1]
 
-print bi_wsa.shape, v_wsa.shape, n_wsa.shape, T_wsa.shape
+print ("1AU arrays")
+print (bi_wsa.shape, v_wsa.shape, n_wsa.shape, T_wsa.shape)
 
 #renormalize 
 bi_wsa = bi_wsa * B0/B0OH
@@ -141,7 +144,7 @@ Pc[Pc<0]=Pc[Pc<0]+2*np.pi
 Tc = np.arccos(zc[Ng:-Ng,Ng:-Ng,:]/Rc)
 
 # this is fast and better than griddata in that it nicely extrapolates boundaries:
-fbi      = interpolate.RectBivariateSpline(phi_wsa_c,theta_wsa_c,bi_wsa.T,kx=1,ky=1)  
+fbi      = interpolate.RectBivariateSpline(phi_wsa_c,theta_wsa_c,bi_wsa,kx=1,ky=1)  
 br = fbi(Pc[:,0,0],Tc[0,:,0])
 
 ############### SMOOTHING #####################
@@ -154,13 +157,13 @@ if not prm.gaussSmoothWidth==0:
 
 
 ############### INTERPOLATE AND DUMP #####################
-fv      = interpolate.RectBivariateSpline(phi_wsa_c,theta_wsa_c,v_wsa.T,kx=1,ky=1)  
+fv      = interpolate.RectBivariateSpline(phi_wsa_c,theta_wsa_c,v_wsa,kx=1,ky=1)  
 vr = fv(Pc[:,0,0],Tc[0,:,0])
 
-f      = interpolate.RectBivariateSpline(phi_wsa_c,theta_wsa_c,n_wsa.T,kx=1,ky=1)  
+f      = interpolate.RectBivariateSpline(phi_wsa_c,theta_wsa_c,n_wsa,kx=1,ky=1)  
 rho = f(Pc[:,0,0],Tc[0,:,0])
 
-f      = interpolate.RectBivariateSpline(phi_wsa_c,theta_wsa_c,T_wsa.T,kx=1,ky=1)  
+f      = interpolate.RectBivariateSpline(phi_wsa_c,theta_wsa_c,T_wsa,kx=1,ky=1)  
 temp = f(Pc[:,0,0],Tc[0,:,0])
 #temp =  1.*T0/rho + (1.**2-(br)**2)*V0**2 / 2e8/1.38 * 1.67/rho   # *****  
 #temp_T = temp.T
