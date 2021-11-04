@@ -70,10 +70,8 @@ phi[phi<0]=phi[phi<0]+2*np.pi
 theta_wsa_c = theta[0,:,0]
 phi_wsa_c = phi[:,0,0]
 
-print ("dimensions of 1AU grid")
+print ("grid dimensions from 1 AU input solution")
 print (theta_wsa_c.shape, phi_wsa_c.shape)
-
-print (theta_wsa_c, phi_wsa_c)
 
 #these are normilized according to inner helio normalization
 Vr = (f[step]['Vx'][:]*x[:] + f[step]['Vy'][:]*y[:] + f[step]['Vz'][:]*z[:])/r[:]
@@ -132,16 +130,29 @@ zc = 0.125*(z[:-1,:-1,:-1]+z[:-1,1:,:-1]+z[:-1,:-1,1:]+z[:-1,1:,1:]
 # remove the ghosts from angular dimensions
 R0 = np.sqrt(x[0,0,Ng]**2+y[0,0,Ng]**2+z[0,0,Ng]**2)  # radius of the inner boundary
 
-P = np.arctan2(y[Ng:-Ng-1,Ng:-Ng-1,:],x[Ng:-Ng-1,Ng:-Ng-1,:])
-P[P<0]=P[P<0]+2*np.pi
-P = P % (2*np.pi)  # sometimes the very first point may be a very
+#cell corners including ghost cells
+r = np.sqrt(x[:]**2+y[:]**2+z[:]**2)
+
+#corners of physical cells
+P = np.arctan2(y[Ng:-Ng,Ng:-Ng,:],x[Ng:-Ng,Ng:-Ng,:])
+P[P<0] += 2*np.pi
+#P = P % (2*np.pi)  # sometimes the very first point may be a very
                    # small negative number, which the above call sets
                    # to 2*pi. This takes care of it.
+T = np.arccos(z[Ng:-Ng,Ng:-Ng,:]/r[Ng:-Ng,Ng:-Ng,:])
 
+#grid (corners) for output into innerbc.h5
+P_out = P[:,:,0:Ng+1]
+T_out = T[:,:,0:Ng+1]
+R_out = r[Ng:-Ng,Ng:-Ng,0:Ng+1]
+print ("shapes of output phi and theta ", P_out.shape, T_out.shape, R_out.shape)
+
+#centers
 Rc = np.sqrt(xc[Ng:-Ng,Ng:-Ng,:]**2+yc[Ng:-Ng,Ng:-Ng,:]**2+zc[Ng:-Ng,Ng:-Ng,:]**2)
 Pc = np.arctan2(yc[Ng:-Ng,Ng:-Ng,:],xc[Ng:-Ng,Ng:-Ng,:])
-Pc[Pc<0]=Pc[Pc<0]+2*np.pi
+Pc[Pc<0] += 2*np.pi
 Tc = np.arccos(zc[Ng:-Ng,Ng:-Ng,:]/Rc)
+
 
 # this is fast and better than griddata in that it nicely extrapolates boundaries:
 fbi      = interpolate.RectBivariateSpline(phi_wsa_c,theta_wsa_c,bi_wsa,kx=1,ky=1)  
@@ -185,8 +196,11 @@ rho*=(R0/Rc[0,0,:Ng])**2
 br*=(R0/Rc[0,0,:Ng])**2
 br_kface*=(R0/Rc[0,0,:Ng])**2
 
+mjd_c = 58005.83415
+
+print ("writing out innerbc.h5...")
 with h5py.File(os.path.join(prm.IbcDir,prm.gameraIbcFile),'w') as hf:
-    #hf.attrs["MJD"] = mjd_c
+    hf.attrs["MJD"] = mjd_c
     hf.create_dataset("vr",data=vr)
     hf.create_dataset("vr_kface",data=vr_kface)
     hf.create_dataset("rho",data=rho)
@@ -194,3 +208,20 @@ with h5py.File(os.path.join(prm.IbcDir,prm.gameraIbcFile),'w') as hf:
     hf.create_dataset("br",data=br)
     hf.create_dataset("br_kface",data=br_kface)
 hf.close()
+
+#innerbc to plot in Paraview
+with h5py.File(os.path.join(prm.IbcDir,'innerbc_OHighostgr.h5'),'w') as hfg:
+    hfg.create_dataset("X", data=P_out)
+    hfg.create_dataset("Y", data=T_out)
+    hfg.create_dataset("Z", data=R_out)
+    grname = "Step#0"
+    grp = hfg.create_group(grname)
+    grp.attrs.create("MJD", mjd_c)
+    #grp.attrs.create("time", time_sec)
+    grp.create_dataset("vr",data=vr)
+    grp.create_dataset("vr_kface",data=vr_kface)
+    grp.create_dataset("rho",data=rho)
+    grp.create_dataset("temp",data=temp)
+    grp.create_dataset("br",data=br)
+    grp.create_dataset("br_kface",data=br_kface)
+hfg.close

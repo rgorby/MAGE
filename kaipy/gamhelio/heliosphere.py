@@ -23,12 +23,18 @@ class GamsphPipe(GameraPipe):
 
 		print("Initializing %s heliosphere"%(uID))
 		
-		#units for helio
-		self.bScl = 100.    #->nT
-		self.vScl = 150.  #-> km/s
-		self.tScl = 4637.    #->seconds
-		self.dScl = 200. #cm-3
-		self.TScl = 1.e-6/4/np.pi/200./1.38e-16/2./1.e6 #in MK
+		#units for inner helio
+		#self.bScl = 100.    #->nT
+		#self.vScl = 150.  #-> km/s
+		#self.tScl = 4637.    #->seconds
+		#self.dScl = 200. #cm-3
+		#self.TScl = 1.e-6/4/np.pi/200./1.38e-16/2./1.e6 #in MK
+
+		self.bScl = 5.    #->nT
+		self.vScl = 34.5  #-> km/s
+		self.tScl = 1.4e8/34.5
+		self.dScl = 10. #cm-3
+		self.TScl = 0.07 #in MK
 
 		#2D equatorial grid
 		self.xxi = [] ; self.yyi = [] #corners
@@ -39,6 +45,7 @@ class GamsphPipe(GameraPipe):
 
 		#inner boundary distance
 		self.R0 = self.xxc[0,0]
+		print (self.R0)
 		
 	def OpenPipe(self,doVerbose=True):
 		GameraPipe.OpenPipe(self,doVerbose)
@@ -198,9 +205,9 @@ class GamsphPipe(GameraPipe):
 		Q = self.GetVar(vID,sID,vScl,doVerb)
 
 		#cell centered values from the last cell
-		Qi = Q[-1,:,:]
+		#Qi = Q[-1,:,:]
                 #cell centered values from the first cell
-		#Qi = Q[0,:,:]
+		Qi = Q[0,:,:]
 		#jd_c = self.MJDs[sID]
 		#print ('jd_c = ', jd_c)
 		return Qi

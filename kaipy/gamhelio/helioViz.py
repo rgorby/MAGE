@@ -47,7 +47,10 @@ def AddSizeArgs(parser):
 #Return domain size from parsed arguments; see msphViz for options
 def GetSizeBds(pic):
 	if (pic == "pic1" or pic == "pic2"):
-		xyBds = [-216.,216.,-216.,216.]
+                #for inner helio
+		#xyBds = [-216.,216.,-216.,216.]
+                #for 1-10 au helio
+                 xyBds = [-10.,10.,-10.,10.]
 	elif (pic == "pic3"):
 		xyBds = [0.,360.,-75.,75.]
 	elif (pic == "pic4"):

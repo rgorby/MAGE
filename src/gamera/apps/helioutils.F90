@@ -36,9 +36,12 @@ module helioutils
         real(rp),intent(out) :: Tsolar ! Solar rotation period
 
         ! normalization
-        gD0=200.         ! [/cc]
-        gB0=1.e-3        ! [Gs], 100 nT
-        gx0=Rsolar*1.e5  ! [cm], solar radius
+        !gD0=200.         ! [/cc]
+        gD0=10.           ! [/cc]
+        !gB0=1.e-3        ! [Gs], 100 nT
+        gB0=5.e-5         ! [Gs], 5 nT
+        !gx0=Rsolar*1.e5  ! [cm], solar radius
+        gx0 = 1.496e13 ! 1 AU in cm        
 
         ! get the necessary units 
         gv0 = gB0/sqrt(4*pi*gD0*mp_cgs) ! [cm/s] ~ 154km/s for gD0=200. and gB0 = 1.e-3
