@@ -4,7 +4,7 @@
 #PBS -j oe
 #PBS -q regular
 #PBS -l walltime=12:00:00
-#PBS -l select=1:ncpus=72:ompthreads=72
+#PBS -l select=2:ncpus=36:mpiprocs=1:ompthreads=72
 
 source ~/.bashrc
 #module restore kaiju
@@ -16,8 +16,8 @@ export OMP_NUM_THREADS=72
 export KMP_STACKSIZE=128M
 export JNUM=${PBS_ARRAY_INDEX:-0}
 
-inspxe-cl -collect=mi3 mpirun -np 2 ./voltron_mpi.x tinyCase.xml
-inspxe-cl -collect=ti3 mpirun -np 2 ./voltron_mpi.x tinyCase.xml
+mpirun -np 2 inspxe-cl -collect=mi3 -r memResults -- ./voltron_mpi.x tinyCase.xml > memTests.out
+mpirun -np 2 inspxe-cl -collect=ti3 -r threadResults -- ./voltron_mpi.x tinyCase.xml > threadTests.out
 
 date
 

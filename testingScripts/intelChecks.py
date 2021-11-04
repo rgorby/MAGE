@@ -82,6 +82,9 @@ subprocess.call(arguments, shell=True)
 os.chdir(home)
 os.chdir('testingScripts')
 subprocess.call("cp tinyCase.xml ../intelChecks/bin", shell=True)
+subprocess.call("cp lfmD.h5 ../intelChecks/bin", shell=True)
+subprocess.call("cp bcwind.h5 ../intelChecks/bin", shell=True)
+subprocess.call("cp rcmconfig.h5 ../intelChecks/bin", shell=True)
 subprocess.call("cp intelCheckSubmit.pbs ../intelChecks/bin", shell=True)
 
 # SUBMIT INTEL CHECK JOBS
