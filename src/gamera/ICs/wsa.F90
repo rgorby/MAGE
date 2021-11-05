@@ -37,7 +37,11 @@ module usergamic
     ! setting it here temporarily. eventually need to read from HDF or something
     ! note also that this is slightly incorrect, since Rbc below is used as the radius
     ! of the center of the first ghost cell.
-    real(rp) :: Rbc = 21.5   
+
+    !for inner heliosphere
+    !real(rp) :: Rbc = 21.5
+    ![OHelio] for 1-10 au simualtion   
+     real(rp) :: Rbc = 1.
 
     real(rp) :: Tsolar ! Solar rotation period, defined in apps/helioutils.F90
     
@@ -95,11 +99,11 @@ module usergamic
         !Rho0  = 1.0    ! 200/cc
         !P0    = 1.0e-4*Rho0*Cs0**2.0/Model%gamma
 
-        !for 1-10 au helio
-        Cs0 = 0.78 !27 km/s
-        B0 = 1. ! 5nT
-        Rho0 = 1. ! 10/cc
-        Vslow = 8.5 !300 km/s 
+        ![OHelio] for 1-10 au helio
+        Cs0 = 0.78    !27 km/s
+        B0 = 1.       ! 5nT
+        Rho0 = 1.     ! 10/cc
+        Vslow = 8.5   !300 km/s 
 
         ! deallocate default BCs
         ! required because defaults are triply-periodic

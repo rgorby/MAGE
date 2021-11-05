@@ -15,22 +15,34 @@ VMax = 800.
 VMin = 300.
 MagVCM = "inferno"
 
-DMax = 150.
-DMin = 2000.
+#inner helio
+#DMax = 150.
+#DMin = 2000.
+#1-10 au helio
+DMax = 25.
+DMin = 5.
 DCM = "copper_r"
 
-D0Max = 15.
-D0Min = 1.
+#limits for iSlice
+#21.5 R_S
 #D0Max = 1000.
 #D0Min = 300.
+#10 au
+#D0Max = 0.2
+#D0Min = 0.002
+#1 au
+D0Max = 1.
+D0Min = 25.
 D0CM = "copper_r"
 
-TMax = 0.12
 TMin = 0.01
+TMax = 0.12
 TCM = "copper"
 
 #BMax = 150.
 #BMin = -150.
+#BMax = 0.05
+#BMin = -0.05
 BMax = 5.
 BMin = -5.
 BCM = "coolwarm"
@@ -148,7 +160,15 @@ def PlotMerBrNorm(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
 	xr, zr, xl, zl, r = gsph.MeridGridHalfs()
 	Ax.pcolormesh(xr,zr,Br_r,cmap=BCM,norm=vB,shading='auto')
 	Ax.pcolormesh(xl,zl,Br_l,cmap=BCM,norm=vB,shading='auto')
-
+	#plot heliospheric current sheet
+	#cell-cent coords first
+	xr_c = 0.25*( xr[:-1,:-1]+xr[:-1,1:]+xr[1:,:-1]+xr[1:,1:] )
+	zr_c = 0.25*( zr[:-1,:-1]+zr[:-1,1:]+zr[1:,:-1]+zr[1:,1:] )
+	xl_c = 0.25*( xl[:-1,:-1]+xl[:-1,1:]+xl[1:,:-1]+xl[1:,1:] )
+	zl_c = 0.25*( zl[:-1,:-1]+zl[:-1,1:]+zl[1:,:-1]+zl[1:,1:] )
+	#plot Br=0
+	Ax.contour(xr_c,zr_c,Br_r,[0.],colors='black')
+	Ax.contour(xl_c,zl_c,Br_l,[0.],colors='black')
 	kv.SetAx(xyBds,Ax)
 
 	if (doDeco):
@@ -296,8 +316,6 @@ def PlotiSlD(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
 
 #Plot Br and current sheet (Br=0) at 1 AU
 def PlotiSlBr(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
-	BMin = -5.
-	BMax = 5.
 	vB = kv.genNorm(BMin, BMax, doLog=False, midP=None)
 	if (AxCB is not None):
 		AxCB.clear()
@@ -381,9 +399,6 @@ def PlotiSlBrRotatingFrame(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True
 
 #Plot Temperature at 1 AU
 def PlotiSlTemp(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
-	#colorbar limits
-	TMin = 0.02
-	TMax = 0.12
 	vT = kv.genNorm(TMin, TMax, doLog=False, midP=None)
 
 	if (AxCB is not None):

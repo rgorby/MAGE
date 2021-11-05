@@ -25,20 +25,20 @@ gamma = prm.gamma
 mp = 1.67e-24
 kb = 1.38e-16
 
+#normalization in IH
 B0 = prm.B0
 n0 = prm.n0
 V0 = B0/np.sqrt(4*np.pi*mp*n0)
-T0 = B0*B0/4/np.pi/n0/kb/2. #in K
+T0 = B0*B0/4/np.pi/n0/kb #in K p = nkT
 
-print ("inner helio units")
+print ("inner helio normalization")
 print (B0, n0, V0, T0)
 
 #normalization in OH
-B0OH = 5.e-5 #Gs
-n0OH = 10 #cm-3
-V0OH = B0OH/np.sqrt(4*np.pi*mp*n0OH) #Alfven speed at 1 AU
-#V0OH = 400 #km/s
-T0OH = B0OH*B0OH/4/np.pi/n0OH/kb/2.#in K
+B0OH = 5.e-5 # [Gs] 5 nT = 5.e-5 Gs
+n0OH = 10 # [cm-3]
+V0OH = B0OH/np.sqrt(4*np.pi*mp*n0OH) #Alfven speed at 1 AU 34.5 [km/s]
+T0OH = B0OH*B0OH/4/np.pi/n0OH/kb #in K p = nkT
 
 print ("outer helio units")
 print (B0OH, n0OH, V0OH, T0OH)
@@ -46,6 +46,7 @@ print (B0OH, n0OH, V0OH, T0OH)
 
 ############### READ GAMERA solution at 1 AU #####################
 f = h5py.File(prm.wsaFile,'r')
+#the latest Step saved in inner helio solution wsa.h5
 step = 'Step#4'
 
 f[step].attrs.keys()
@@ -89,31 +90,14 @@ T_wsa = T[:,:,Nr-1]
 print ("1AU arrays")
 print (bi_wsa.shape, v_wsa.shape, n_wsa.shape, T_wsa.shape)
 
-#renormalize 
+#renormalize inner helio solution
 bi_wsa = bi_wsa * B0/B0OH
 n_wsa = n_wsa * n0/n0OH
-v_wsa = v_wsa *V0/V0OH
-T_wsa = T_wsa *T0/T0OH
-
-
-############### WSA STUFF #####################
-#jd_c,phi_wsa_v,theta_wsa_v,phi_wsa_c,theta_wsa_c,bi_wsa,v_wsa,n_wsa,T_wsa = wsa.read(prm.wsaFile,prm.densTempInfile,prm.normalized)
-
-# convert the units; remember to use the same units in gamera
-# TODO: probably store units in the h5 file?
-# B0   = 1.e-3 Gs
-# n0   = 200./cc
-
-#bi_wsa /= B0
-#n_wsa  /= (mp*n0)
-#v_wsa /= V0
-#convert julian date from wsa fits into modified julian date
-#mjd_c = jd_c - 2400000.5
+v_wsa = v_wsa * V0/V0OH
+T_wsa = T_wsa * T0     
 # keep temperature in K
-############### WSA STUFF #####################
 
-############### GAMERA STUFF #####################
-
+#######Interpolate to GAMERA grid###########
 # GAMERA GRID
 with h5py.File(os.path.join(prm.GridDir,prm.gameraGridFile),'r') as f:
     x=f['X'][:]
@@ -174,15 +158,8 @@ vr = fv(Pc[:,0,0],Tc[0,:,0])
 f      = interpolate.RectBivariateSpline(phi_wsa_c,theta_wsa_c,n_wsa,kx=1,ky=1)  
 rho = f(Pc[:,0,0],Tc[0,:,0])
 
-f      = interpolate.RectBivariateSpline(phi_wsa_c,theta_wsa_c,T_wsa,kx=1,ky=1)  
-temp = f(Pc[:,0,0],Tc[0,:,0])
-#temp =  1.*T0/rho + (1.**2-(br)**2)*V0**2 / 2e8/1.38 * 1.67/rho   # *****  
-#temp_T = temp.T
-
-#pressure =   ((br)**2)*V0**2 /2.*mp*n0 *0.1   + (n0*rho* temp)*1.38e-16 *0.1
-#pressure_therm = (n0*rho* temp)*1.38e-16 * 0.1
-#pressure_B = (br)**2 *V0**2 / 2.*mp*n0 *0.1
-
+fT      = interpolate.RectBivariateSpline(phi_wsa_c,theta_wsa_c,T_wsa,kx=1,ky=1)  
+temp = fT(Pc[:,0,0],Tc[0,:,0])
 
 fbi = interpolate.RectBivariateSpline(Pc[:,0,0],Tc[0,:,0],br,kx=1,ky=1)
 fv  = interpolate.RectBivariateSpline(Pc[:,0,0],Tc[0,:,0],vr,kx=1,ky=1)
@@ -192,10 +169,13 @@ vr_kface  = fv (P[:,0,0],Tc[0,:,0])
 
 # Scale inside ghost region
 (vr,vr_kface,rho,temp,br,br_kface) = [np.dstack(prm.NO2*[var]) for var in (vr,vr_kface,rho,temp,br,br_kface)]
-rho*=(R0/Rc[0,0,:Ng])**2
-br*=(R0/Rc[0,0,:Ng])**2
-br_kface*=(R0/Rc[0,0,:Ng])**2
+rho *= (R0/Rc[0,0,:Ng])**2
+br *= (R0/Rc[0,0,:Ng])**2
+br_kface *= (R0/Rc[0,0,:Ng])**2
 
+#FIX: 
+#For now I use wsa.h5 which do not have mjd inside
+#so hardcoded using WSA fits value + 200*4637/60/60/24 [number of days]
 mjd_c = 58005.83415
 
 print ("writing out innerbc.h5...")
