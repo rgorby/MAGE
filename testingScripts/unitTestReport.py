@@ -86,6 +86,20 @@ for line in bigFile:
 if okCount is not 8:
     okFailure = True
 
+# delete jobs.txt
+os.remove("jobs.txt")
+
+if not okFailure and not myError and not jobKilled:
+    try:
+        response = client.chat_postMessage(
+       channel="#kaijudev",
+       text="Fortran Unit Tests Passed",
+       )
+    except SlackApiError as e:
+       # You will get a SlackApiError if "ok" is False
+       assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
+    exit()
+
 # Write to a file
 file = open('Results.txt', 'w+')
 file.writelines(bigFile)
@@ -118,9 +132,6 @@ if (jobKilled):
 if (okFailure):
     myText = myText + "There were not the correct amount of OKs!\n"
 
-if (myText == ""):
-    exit()
-
 # If not a test, send message to Slack
 # Try to send Slack message
 try:
@@ -132,7 +143,3 @@ except SlackApiError as e:
    # You will get a SlackApiError if "ok" is False
    assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
 
-# Go to unitTests1 and delete jobs.txt
-os.chdir(home)
-os.chdir('unitTest1/bin')
-os.remove("jobs.txt")

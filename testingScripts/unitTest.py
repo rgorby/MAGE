@@ -80,7 +80,7 @@ os.chdir('unitTest1')
 #arguments = arguments + "cd" + home + ";"
 #arguments = arguments + "cd kaiju/unitTest1;"
 # Invoke cmake
-arguments = arguments + "cmake ../ -DALLOW_INVALID_COMPILERS=ON -DENABLE_MPI=ON;"
+arguments = arguments + "cmake ../ -DALLOW_INVALID_COMPILERS=ON -DENABLE_MPI=ON -DENABLE_MKL=ON;"
 # Make gamera, voltron and allTests
 arguments = arguments + "make gamera_mpi; make voltron_mpi; make allTests;"
 print(arguments)
@@ -128,7 +128,11 @@ subprocess.call("cp runCaseTests.pbs ../unitTest1/bin", shell=True)
 os.chdir(home)
 os.chdir('unitTest1/bin')
 
-arguments = "qsub -V runCaseTests.pbs"
+# list all modules with spaces between them, to be loaded in the qsub scripts
+modset = ""
+for line in ModuleList[0]:
+    modset = modset + line + " "
+arguments = 'qsub -v MODULE_SET="' + modset + '" runCaseTests.pbs'
 print(arguments)
 submission = subprocess.Popen(arguments, shell=True, stdout=subprocess.PIPE)
 readString = submission.stdout.read()
@@ -139,7 +143,7 @@ finalString = readString
 firstJob = readString.split('.')[0]
 print(firstJob)
 
-arguments = "qsub -V runNonCaseTests1.pbs"
+arguments = 'qsub -v MODULE_SET="' + modset + '" runNonCaseTests1.pbs'
 print(arguments)
 submission = subprocess.Popen(arguments, shell=True, stdout=subprocess.PIPE)
 readString = submission.stdout.read()
@@ -151,7 +155,7 @@ finalString = finalString + readString
 secondJob = readString.split('.')[0]
 print (secondJob)
 
-arguments = "qsub -V runNonCaseTests2.pbs"
+arguments = 'qsub -v MODULE_SET="' + modset + '" runNonCaseTests2.pbs'
 print(arguments)
 submission = subprocess.Popen(arguments, shell=True, stdout=subprocess.PIPE)
 readString = submission.stdout.read()

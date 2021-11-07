@@ -8,6 +8,24 @@
 
 source ~/.bashrc
 
+if [[ ! -z "$MODULE_LIST" ]]; then
+    # user passed a list of modules to load as the environment variable MODULE_LIST
+    module purge
+    module load $MODULE_LIST
+elif [[ ! -z "$MODULE_SET" ]]; then
+    # user passed a module set name to load as the environment variable MODULE_SET
+    module purge
+    module restore $MODULE_SET
+fi
+
+if [[ ! -z "$MPT_VERSION" ]]; then
+    echo "USING MPIEXEC_MPT"
+    export MPICOMMAND="mpiexec_mpt omplace"
+else
+    echo "USING MPIRUN"
+    export MPICOMMAND="mpirun"
+fi
+
 module list
 hostname
 export OMP_NUM_THREADS=72
@@ -25,7 +43,7 @@ echo | tail -n 2 ./caseTests.out
 echo ""
 echo "Running MPI Cases"
 date
-mpirun ./caseMpiTests > caseMpiTests.out
+${MPICOMMAND} ./caseMpiTests > caseMpiTests.out
 date
 echo "MPI Cases Complete"
 echo | tail -n 2 ./caseMpiTests.out
