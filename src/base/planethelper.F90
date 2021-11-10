@@ -1,0 +1,117 @@
+
+module planethelper
+    use kdefs
+    use gamtypes
+    use helpertypes
+    use strings, only : toUpper
+    implicit none
+    
+    contains
+
+    subroutine getPlanetParams(planet, xmlInp, pStrO)
+        type(planet_T), intent(inout) :: planet
+        type(XML_Input_T), intent(in) :: xmlInp
+        character(len=*), intent(in), optional :: pStrO
+
+        character(len=strLen) :: pID !Planet ID string
+        logical :: doCorot
+        real(rp) :: RIon
+
+        if (present(pStrO)) then
+            pID = pStrO
+        else
+            call xmlInp%Set_Val(pID,"/Kaiju/Gamera/prob/planet","Earth")
+        endif
+
+        planet%name = trim(toUpper(pID))
+
+        select case (trim(toUpper(pID)))
+
+        case("Earth","earth","EARTH")
+            planet%rp_m = REarth
+            planet%ri_m = RionE*1.e6  ! Defined in kdefs in 10000km
+            planet%grav = 9.807
+            call xmlInp%Set_val(planet%magMoment, "/Kaiju/Gamera/prob/M0", EarthM0g)
+            planet%psiCorot = EarthPsi0
+            planet%doGrav = .true.
+        case("Saturn","saturn","SATURN")
+            planet%rp_m = RSaturnXE*REarth
+            planet%ri_m = 1.01*RSaturnXE*REarth
+            planet%grav = 10.43
+            call xmlInp%Set_val(planet%magMoment, "/Kaiju/Gamera/prob/M0", SaturnM0g)
+            planet%psiCorot = 137.83*92 !kV
+            planet%doGrav = .true.
+        case("Jupiter", "jupiter", "JUPITER")
+            planet%rp_m = RJupiterXE*REarth
+            planet%ri_m = 1.01*RJupiterXE*REarth
+            planet%grav = 24.79
+            call xmlInp%Set_val(planet%magMoment, "/Kaiju/Gamera/prob/M0", JupiterM0g)
+            planet%psiCorot = -2.5*1702.9*92.0 !kV
+            planet%doGrav = .true.
+        case("Mercury","mercury","MERCURY")
+            planet%rp_m = RMercuryXE*REarth
+            planet%ri_m = 1.05*RMercuryXE*REarth
+            planet%grav = 0.0
+            call xmlInp%Set_val(planet%magMoment, "/Kaiju/Gamera/prob/M0", MercuryM0g)
+            planet%psiCorot = 0.0
+            planet%doGrav = .false.
+         case("Neptune","NEPTUNE")
+            planet%rp_m = RNeptuneXE*REarth
+            planet%ri_m = 1.01*RNeptuneXE*REarth
+            planet%grav = 11.15
+            call xmlInp%Set_val(planet%magMoment, "/Kaiju/Gamera/prob/M0", NeptuneM0g)
+            planet%psiCorot = 10.024*92.0
+            planet%doGrav = .false.
+        case("Other","other","OTHER") ! Defaults to Earth values
+            call xmlInp%Set_Val(planet%rp_m,"/Kaiju/Gamera/prob/x0",REarth)          ! [m]
+            call xmlInp%Set_Val(Rion,"/Kaiju/Gamera/prob/Rion",RionE*1.e6/REarth)    ! [Rp]
+            planet%ri_m =RIon*planet%rp_m                             ! [m]
+            call xmlInp%Set_Val(planet%grav,"/Kaiju/Gamera/prob/G0",9.807)           ! [m/s2] 
+            call xmlInp%Set_Val(planet%magMoment,"/Kaiju/Gamera/prob/M0",EarthM0g)   ! [gauss]
+            call xmlInp%Set_Val(planet%psiCorot,"/Kaiju/Gamera/prob/Psi0",EarthPsi0) ! [kV]
+            call xmlInp%Set_Val(planet%doGrav,"/Kaiju/Gamera/prob/doGrav",.true.)
+        end select
+
+        call xmlInp%Set_Val(doCorot,"/Kaiju/Gamera/prob/doCorot",.true.)
+        if (.not. doCorot) then
+            !Zero out corotation potential
+            planet%psiCorot = 0.0
+        endif
+
+    end subroutine
+
+    !Use planet params to calculate Gamera's normalization values
+    !Placed here so that Chimp can get them easily as well
+    subroutine getGamNorms(planet, gv0, gT0, gB0, gP0, M0, GM0)
+        type(planet_T), intent(in) :: planet
+        real(rp), intent(in)  :: gv0
+        real(rp), intent(out) :: gT0, gB0, gP0, M0, GM0
+
+        real(rp) :: gD0
+
+        gD0 = 1.67e-21 ! 1 AMU/cc [kg/m3]
+
+        gT0 = planet%rp_m/gv0 !Set time scaling
+        gB0 = sqrt(Mu0*gD0)*gv0*1.0e+9 !T->nT
+        gP0 = gD0*gv0*gv0*1.0e+9 !P->nPa
+        M0  = -planet%magMoment*1.0e+5/gB0 !Magnetic moment
+        GM0 = planet%grav*planet%rp_m/(gv0*gv0)
+
+    end subroutine
+
+    subroutine printPlanetParams(planet)
+        type(planet_T), intent(in) :: planet
+
+        write(*,*) "-------------"
+        write(*,*) "Planet params"
+        write(*,*) "Name             : ",trim(planet%name)
+        write(*,*) "Planet Radius [m]: ",planet%rp_m
+        write(*,*) "Iono Radius   [m]: ",planet%ri_m
+        write(*,*) "Gravity    [m/s2]: ",planet%grav
+        write(*,*) "Use gravity      : ",planet%doGrav
+        write(*,*) "Mag. Moment   [G]: ",planet%magMoment
+        write(*,*) "Corot Pot.   [kV]: ",planet%psiCorot
+        write(*,*) "-------------"
+    end subroutine
+
+end module planethelper

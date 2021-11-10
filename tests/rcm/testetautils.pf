@@ -12,12 +12,12 @@ module testetautils
 	contains
 
 	@before
-	subroutine wakeRCM
-	end subroutine wakeRCM
+	subroutine setup()
+	end subroutine setup
 
 	@after
-	subroutine whatDo
-	end subroutine whatDo
+	subroutine teardown()
+	end subroutine teardown
 
 	!Helpers
 	subroutine initAlams()
@@ -59,7 +59,7 @@ module testetautils
 		Po_rc = 0.5 *1E-9! [nPa -> Pa]
 		vm = 2.262
 
-		call initAlams
+		call initAlams()
 
 		call DP2eta(Do_rc,Po_rc,vm,etas,doRescaleO=.false.,doKapO=.false.)
 		call eta2DP(etas,vm,Df_rc,Df_psph,Pf_rc)

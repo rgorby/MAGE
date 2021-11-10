@@ -226,7 +226,7 @@ module rcmeval
                     if (jp<1)    jp = nLon-1
                     if (jp>nLon) jp = 2
                     IJs(n,:) = [ip,jp]
-                    Ws(n) = wE(di)*wE(dj)
+                    Ws(n) = wE(di)*wZ(dj)
                     isGs(n) = toMHD(ip,jp)
                     n = n + 1
                 enddo

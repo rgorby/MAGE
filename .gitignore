@@ -1,6 +1,6 @@
 # User dependent stuff
 cmake/user.cmake
-build/
+build*/
 kaiju.sublime-workspace
 
 # Related to unit testing

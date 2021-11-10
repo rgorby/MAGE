@@ -15,7 +15,13 @@ import kaipy.kaiTools as kT
 import kaipy.satcomp.scutils as scutils
 import kaipy.satcomp.scRCM as scRCM
 
-
+def fmtTKL(AxTKL):
+	AxTKL.set_yscale('log')
+	AxTKL.tick_params(axis='y', pad=-1)
+	AxTKL.yaxis.labelpad = -1
+	AxTKL.tick_params(axis='x', pad=-1)
+	AxTKL.xaxis.labelpad = -1
+	AxTKL.title.set_text(str(ut_tkl[0]))
 
 if __name__=="__main__":
 	fdir  = os.getcwd()
@@ -51,6 +57,7 @@ if __name__=="__main__":
 	parser.add_argument('-vidOut',type=str,default=vidOut,help="Output directory (relative to -d) for video images (default: %(default)s)")
 	parser.add_argument('-tklv', type=str,choices=tklV_choices,default=tklV_choices[0],help="Variable to plot in Lvsk panel (default: %(default)s)")
 	parser.add_argument('-forceCalc',type=str,metavar=pIDs,default="",help="Comma-separated process IDs to force recalculation for given process")
+	parser.add_argument('-HOPESPICE',action='store_true',help="Combine HOPE and RBSPICE hydrogen data")
 	#Finalize parsing
 	args  = parser.parse_args()
 	fdir  = args.d
@@ -66,6 +73,7 @@ if __name__=="__main__":
 	vidOut = args.vidOut
 	tklv = args.tklv
 	fcStr = args.forceCalc
+	doHopeSpice = args.HOPESPICE
 
 	#Extract RBSP identifier (A or B)
 	scTag = trtag.split('RBSP')[1][:2]
@@ -76,6 +84,8 @@ if __name__=="__main__":
 
 	if fcStr == "":
 		fcIDs = []
+	elif "all" in fcStr:
+		fcIDs = pIDs
 	else:
 		fcIDs = fcStr.split(',')
 
@@ -115,7 +125,11 @@ if __name__=="__main__":
 	t1r = ut[-1].strftime("%Y-%m-%dT%H:%M:%SZ")
 
 	print("Retrieving RBSPICE dataset")
-	ephData, scData = scRCM.getSCOmniDiffFlux(scId, vTag, t0r, t1r, jdir=jdir,forceCalc=('cdas' in fcIDs))
+	if doHopeSpice:
+		ephData, scData = scRCM.getSCOmniDiffFlux(scId, "Hydrogen_omniflux_RBSPICE", t0r, t1r, jdir=jdir,forceCalc=('cdas' in fcIDs))
+		hope_ephData, hope_scData = scRCM.getSCOmniDiffFlux(scId, "Hydrogen_PAFlux_HOPE", t0r, t1r, jdir=jdir,forceCalc=('cdas' in fcIDs))
+	else:
+		ephData, scData = scRCM.getSCOmniDiffFlux(scId, vTag, t0r, t1r, jdir=jdir,forceCalc=('cdas' in fcIDs))
 
 	print("\n\nGrabbing RCM time")
 	rcmTimes = scRCM.getRCMtimes(rcm_fname,mhdrcm_fname,jdir=jdir,forceCalc=('times' in fcIDs))
@@ -124,12 +138,23 @@ if __name__=="__main__":
 	rcmTrack = scRCM.getRCM_scTrack(trackf5, rcm_fname, rcmTimes, jdir=jdir, forceCalc=('track' in fcIDs), scName="RBSP-B")
 
 	print("\n\nConsolidating grids")
-	eGrid = np.logspace(np.log10(40), np.log10(6E2), 200, endpoint=True)
-	consolData = scRCM.consolidateODFs(scData, rcmTrack, eGrid=eGrid)
+	if doHopeSpice:
+		scEGrid = scData['energies']
+		hope_scEGrid = hope_scData['energies']
+		species = scData['species']
+		rcmEGrid = rcmTrack[species]['energies']
+		eMax = np.max([scEGrid.max(), hope_scEGrid.max(), rcmEGrid.max()])
+		eMin = np.min([scEGrid[scEGrid>0].min(), hope_scEGrid[hope_scEGrid>0].min(), rcmEGrid[rcmEGrid>0].min()])
+		eGrid = np.logspace(np.log10(eMin), np.log10(eMax), 200, endpoint=True)
+		consolData = scRCM.consolidateODFs(scData, rcmTrack, eGrid=eGrid, doPlot=False)
+		hope_consolData = scRCM.consolidateODFs(hope_scData, rcmTrack, eGrid=eGrid)
+	else:
+		eGrid = np.logspace(np.log10(40), np.log10(6E2), 200, endpoint=True)
+		consolData = scRCM.consolidateODFs(scData, rcmTrack, eGrid=eGrid)
 
 	print("\n\nCalculating tkl vars(var wedge)")
 	#tkldata = scRCM.getIntensitiesVsL('msphere.rcm.h5','msphere.mhdrcm.h5',tStart, tEnd, tStride, jdir=jdir, forceCalc=('tkl' in fcIDs))
-	tkldata = scRCM.getVarWedge(rcm_fname, mhdrcm_fname, tStart, tEnd, tStride, 5, jdir=jdir, forceCalc=('tkl' in fcIDs))
+	tkldata = scRCM.getVarWedge(rcm_fname, mhdrcm_fname, tStart, tEnd, tStride, 5, jdir=jdir, eGrid=eGrid*1E3, forceCalc=('tkl' in fcIDs))  # This function expects eGrid to be in eV
 	
 	#Works but very verbose
 	#print("\n\nTesting RCM eqlatlon grab")
@@ -163,9 +188,9 @@ if __name__=="__main__":
 		#Original colorbar only spans eqlatlon plots
 		AxCB_press  = fig.add_subplot(gs[7,12:16])
 
-	odfnorm = kv.genNorm(10E3, 5E6, doLog=True)
+	odfnorm = kv.genNorm(1E4, 5E6, doLog=True)
 	ut_tkl = kT.MJD2UT(tkldata['MJD'])
-	pressnorm = kv.genNorm(1E-2, 25, doLog=False)
+	pressnorm = kv.genNorm(1E-2, 75, doLog=False)
 	parpressnorm = kv.genNorm(1e-3, 5, doLog=True)
 	#Movie time
 	outdir = os.path.join(fdir, vidOut)
@@ -175,7 +200,11 @@ if __name__=="__main__":
 
 	#Run first iteration manually
 	pltmjd = tkldata['MJD'][0]
-	scRCM.plt_ODF_Comp(AxSC, AxRCM, AxCB_odf, consolData, mjd=pltmjd, norm=odfnorm, cmapName=cmap_odf)
+	if doHopeSpice:
+		scRCM.plt_ODF_Comp(AxSC, AxRCM, AxCB_odf, hope_consolData, mjd=pltmjd, norm=odfnorm, cmapName=cmap_odf)
+		scRCM.plt_ODF_Comp(AxSC, AxRCM, AxCB_odf, consolData, mjd=pltmjd, norm=odfnorm, cmapName=cmap_odf, forcePop=True)
+	else:
+		scRCM.plt_ODF_Comp(AxSC, AxRCM, AxCB_odf, consolData, mjd=pltmjd, norm=odfnorm, cmapName=cmap_odf)
 	AxSC.title.set_text('RBSP RCM Comparison')
 	AxCB_odf.yaxis.set_ticks_position('left')
 	AxCB_odf.yaxis.set_label_position('left')
@@ -197,12 +226,7 @@ if __name__=="__main__":
 	AxTL.xaxis.set_label_position('top')
 	AxTL.tick_params(axis='y', pad=-1)
 	AxTL.yaxis.labelpad = -1 
-	AxTKL.set_yscale('log')
-	AxTKL.tick_params(axis='y', pad=-1)
-	AxTKL.yaxis.labelpad = -1
-	AxTKL.tick_params(axis='x', pad=-1)
-	AxTKL.xaxis.labelpad = -1
-	AxTKL.title.set_text(str(ut_tkl[0]))
+	fmtTKL(AxTKL)
 	AxCB_press.xaxis.labelpad = -1
 
 	scRCM.plt_rcm_eqlatlon(AxRCMLatLon, AxRCMEq, rcm_eqlatlon, rcmTrack, mjd=pltmjd, norm=pressnorm, cmapName=cmap_press)
@@ -230,6 +254,7 @@ if __name__=="__main__":
 		elif tklv == 'press':
 			#Actually partial pressure
 			scRCM.plt_tkl(AxTKL, tkldata, vName=tklv, AxCB=AxCB_parpress, mjd=pltmjd, norm=parpressnorm, cmapName=cmap_parpress, satTrackData=rcmTrack)
+		fmtTKL(AxTKL)
 		AxTKL.title.set_text(str(ut_tkl[n]))
 
 		scRCM.plt_rcm_eqlatlon(AxRCMLatLon, AxRCMEq, rcm_eqlatlon, rcmTrack, mjd=pltmjd, norm=pressnorm, cmapName=cmap_press)

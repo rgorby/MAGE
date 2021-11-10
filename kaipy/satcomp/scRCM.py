@@ -45,7 +45,7 @@ MHDRCM_TIME_JFNAME = 'mhdrcm_times.json'
 #Spacecraft strings for cdaweb retrieval
 #Probably shouldn't be hard-coded
 supportedSats = ["RBSPA", "RBSPB"]
-supportedDsets = ["Hydrogen_omniflux_RBSPICE", "Electron_omniflux_RBSPICE"]
+supportedDsets = ["Hydrogen_omniflux_RBSPICE", "Electron_omniflux_RBSPICE", "Hydrogen_PAFlux_HOPE"]
 
 
 SC_str = {
@@ -167,7 +167,6 @@ def getSCOmniDiffFlux(scName, dSetName, t0, t1, jdir=None, forceCalc=False):
 	ephemStrs = satStrs['Ephem']
 	dsetStrs = satStrs[dSetName]
 	epochStr = "Epoch" if "EpochStr" not in dsetStrs.keys() else dsetStrs['EpochStr']
-	ofStr = dsetStrs['OmnifluxStr']
 	energyStr = dsetStrs['EnergyStr']
 
 	#First get ephem data
@@ -182,8 +181,15 @@ def getSCOmniDiffFlux(scName, dSetName, t0, t1, jdir=None, forceCalc=False):
 	#Turn each dataset's data into omniflux
 	if dSetName == 'Hydrogen_omniflux_RBSPICE' or dSetName == 'Electron_omniflux_RBSPICE':
 		#Already got omni flux, no problem
+		ofStr = dsetStrs['OmnifluxStr']
 		dataset['OmniDiffFlux'] = data[ofStr]*1E-3  # Diferential flux [1/(MeV-cm^2-s-sr]*[1/MeV -> 1/keV]
 		dataset['energies'] = data[energyStr]*1E3  # [MeV] -> [keV]
+	elif dSetName == "Hydrogen_PAFlux_HOPE":
+		#!!TODO: Properly calc OmniDiffFlux from FPDU. Currently just using pitch angle
+		fluxStr = dsetStrs['PAFluxStr']
+		iPA = np.abs(data['PITCH_ANGLE'] - 90).argmin()
+		dataset['OmniDiffFlux'] = data[fluxStr][:,iPA,:]  # (epoch, energy)
+		dataset['energies'] = data[energyStr]*1E-3  # [eV -> keV]
 
 	#Pause to save to json
 	if dojson:
@@ -197,7 +203,6 @@ def getRCMtimes(rcmf5,mhdrcmf5,jdir=None, forceCalc=False):
 	"""Grab RCM times, sIDs, and MJDs
 		If jdir given, will try to find the files there
 		If not found there, will pull the data from the hdf5's
-		If those aren't provided, we can't do much
 	"""
 	if jdir is not None:
 		dojson = True
@@ -261,7 +266,6 @@ def getRCMtimes(rcmf5,mhdrcmf5,jdir=None, forceCalc=False):
 
 	return rcmTimes
 
-#TODO: Add scName to trackfile attrs so we can pull directly from there
 def getRCM_scTrack(trackf5, rcmf5, rcmTimes, jdir=None, forceCalc=False, scName=""):
 	"""Pull RCM data along a given spacecraft track
 		trackfile: big spacecraft trajectory hdf5, generated from sctrack.x
@@ -270,6 +274,7 @@ def getRCM_scTrack(trackf5, rcmf5, rcmTimes, jdir=None, forceCalc=False, scName=
 
 		returns: dictionary containing along track: time, mjd, mlat, mlon, vm, e and i energy and eetas
 	"""
+	
 	if jdir is not None:
 		dojson = True
 		jfname = genRCMTrack_jfname(jdir, scName)
@@ -315,8 +320,10 @@ def getRCM_scTrack(trackf5, rcmf5, rcmTimes, jdir=None, forceCalc=False, scName=
 	sdata = {}
 	sdata['electrons'] = getSpecieslambdata(rcmS0, 'electrons')
 	sdata['ions'     ] = getSpecieslambdata(rcmS0, 'ions')
-	Nk_e = kIon - kStart
-	Nk_i = len(rcmS0['alamc']) - kIon
+	kStart_e = sdata['electrons']['kStart']
+	kStart_i = sdata['ions']['kStart']
+	Nk_e = len(sdata['electrons']['ilamc'])
+	Nk_i = len(sdata['ions']['ilamc'])
 	
 	#Collect data along spacecraft track
 	vms = np.zeros((Nsc))
@@ -329,6 +336,9 @@ def getRCM_scTrack(trackf5, rcmf5, rcmTimes, jdir=None, forceCalc=False, scName=
 	eeta_i = np.zeros((Nsc, Nk_i))
 	diffFlux_e = np.zeros((Nsc, Nk_e))
 	diffFlux_i = np.zeros((Nsc, Nk_i))
+
+	nearest_i = np.zeros(Nsc)
+	nearest_j = np.zeros(Nsc)
 	
 	if doProgressBar: bar = progressbar.ProgressBar(max_value=Nsc)
 
@@ -350,6 +360,10 @@ def getRCM_scTrack(trackf5, rcmf5, rcmTimes, jdir=None, forceCalc=False, scName=
 		while rcmMLON[ilon+1] < mlon_sc: ilon += 1
 		imjd = 0
 		while rcmMJDs[imjd+1] < mjd_sc: imjd += 1
+
+		#For other things to use for less rigorous mapping
+		nearest_i[n] = ilat if abs(mlat_sc - rcmMLAT[ilat]) < abs(mlat_sc - rcmMLAT[ilat+1]) else ilat+1
+		nearest_j[n] = ilon if abs(mlon_sc - rcmMLON[ilon]) < abs(mlon_sc - rcmMLON[ilon+1]) else ilon+1
 
 		latbnd = [rcmMLAT[ilat], rcmMLAT[ilat+1]]
 		lonbnd = [rcmMLON[ilon], rcmMLON[ilon+1]]
@@ -375,8 +389,8 @@ def getRCM_scTrack(trackf5, rcmf5, rcmTimes, jdir=None, forceCalc=False, scName=
 				eetas[k] = scutils.trilinterp(lonbnd, latbnd, mjdbnd, eetacube, mlon_sc, mlat_sc, mjd_sc)
 			return eetas
 
-		eeta_e[n,:] = getSpecEetas(kStart, Nk_e)
-		eeta_i[n,:] = getSpecEetas(kIon, Nk_i)
+		eeta_e[n,:] = getSpecEetas(kStart_e, Nk_e)
+		eeta_i[n,:] = getSpecEetas(kStart_i, Nk_i)
 		energies_e[n,:] = vms[n]*sdata['electrons']['ilamc']
 		energies_i[n,:] = vms[n]*sdata['ions']['ilamc']
 
@@ -397,6 +411,8 @@ def getRCM_scTrack(trackf5, rcmf5, rcmTimes, jdir=None, forceCalc=False, scName=
 	result['MLAT'     ] = scMLATs
 	result['MLON'     ] = scMLONs
 	result['vm'       ] = vms
+	result['nearest_i'] = nearest_i
+	result['nearest_j'] = nearest_j
 	result['xmin'     ] = xmin
 	result['ymin'     ] = ymin
 	result['zmin'     ] = zmin
@@ -413,7 +429,7 @@ def getRCM_scTrack(trackf5, rcmf5, rcmTimes, jdir=None, forceCalc=False, scName=
 
 #TODO: Energy grid mapping in a nice, jsonizable way
 #      Right now, just need to call this whenever you want it
-def consolidateODFs(scData, rcmTrackData, eGrid=None):
+def consolidateODFs(scData, rcmTrackData, eGrid=None, doPlot=False):
 	"""Prepare the spacecraft and rcm track data for comparison
 		Match up energy grids, save all the needed info in one place
 	"""
@@ -421,16 +437,16 @@ def consolidateODFs(scData, rcmTrackData, eGrid=None):
 	species = scData['species']
 	rcmSpec = rcmTrackData[species]
 
-
 	scEGrid = scData['energies']  # Might be 1D (fixed bins) or 2D (different energies over time)
 	rcmEGrid = rcmSpec['energies']
 
+	Nt_sc = len(scData['epoch'])
 	#Manipulate sc EGrid, if 2D, so that time dimension is first index
 	sce_shape = scEGrid.shape
 	if len(sce_shape) > 1:
 		timeAxis = -1
 		
-		for i in range(len(shape)):
+		for i in range(len(sce_shape)):
 			if sce_shape[i] == Nt_sc:
 				timeAxis = i
 		if timeAxis == -1:
@@ -445,20 +461,64 @@ def consolidateODFs(scData, rcmTrackData, eGrid=None):
 		eMin = np.min([scEGrid[scEGrid>0].min(), rcmEGrid[rcmEGrid>0].min()])
 		numPoints = 150
 		eGrid = np.logspace(np.log10(eMin), np.log10(eMax), numPoints, endpoint=True)
-
-	Nt_sc = len(scData['epoch'])
-	sc_odf = np.zeros((Nt_sc, len(eGrid)))
+	Ne = len(eGrid)
+	e_lower = np.zeros(Ne)
+	e_upper = np.zeros(Ne)
+	for iEG in range(Ne):
+		e_lower[iEG] = eGrid[0] if iEG == 0 else (eGrid[iEG-1] + eGrid[iEG])/2
+		e_upper[iEG] = eGrid[-1] if iEG == Ne-1 else (eGrid[iEG+1] + eGrid[iEG])/2
+	
+	#Map sc odf on given energy grid new new eGrid
+	sc_odf = np.zeros((Nt_sc, Ne))
 	for n in range(Nt_sc):
+		
 		#Might not need this check
 		if len(sce_shape) > 1:
+			#Assume scEGrid's are evenly spaced	
+			scEG_interfaces = (scEGrid[n,1:]+scEGrid[n,:-1])/2
+			scEG_lower = np.append(scEGrid[n,0], scEG_interfaces)
+			scEG_upper = np.append(scEG_interfaces, scEGrid[n,-1])
+			mapWeights = scutils.getWeights_ConsArea(scEGrid[n], scEG_lower, scEG_upper, eGrid, e_lower, e_upper)
+		else:
+			scEG_interfaces = (scEGrid[1:]+scEGrid[:-1])/2
+			scEG_lower = np.append(scEGrid[0], scEG_interfaces)
+			scEG_upper = np.append(scEG_interfaces, scEGrid[-1])
+			mapWeights = scutils.getWeights_ConsArea(scEGrid, scEG_lower, scEG_upper, eGrid, e_lower, e_upper)
+
+		for e in range(Ne):
+			for ik in range(len(mapWeights[e])):
+				k = mapWeights[e][ik][0]
+				weight = mapWeights[e][ik][1]
+				sc_odf[n,e] += weight*scData['OmniDiffFlux'][n,k]
+		"""
 			sc_odf[n,:] = scutils.varMap_1D(scEGrid[n,:], eGrid, scData['OmniDiffFlux'][n,:])
 		else:
 			sc_odf[n,:] = scutils.varMap_1D(scEGrid, eGrid, scData['OmniDiffFlux'][n,:])
+		"""
 
 	Nt_rcm = len(rcmTrackData['T'])
 	rcm_odf = np.zeros((Nt_rcm, len(eGrid)))
 	for n in range(Nt_rcm):
-		rcm_odf[n,:] = scutils.varMap_1D(rcmEGrid[n,:], eGrid, rcmSpec['diffFlux'][n,:])
+		vm = rcmSpec['energies'][n,-1]/rcmSpec['ilamc'][-1]
+		rcme_lower = rcmSpec['ilami'][:-1]*vm
+		rcme_lower[0] = rcmSpec['energies'][n,0]  # Otherwise its zero, and it makes odd lines
+		rcme_upper = rcmSpec['ilami'][1:]*vm
+		mapWeights = scutils.getWeights_ConsArea(rcmSpec['energies'][n,:], rcme_lower, rcme_upper, eGrid, e_lower, e_upper)
+
+		if doPlot:
+			plt.scatter(eGrid, np.zeros(len(eGrid)), c="black")
+			plt.scatter(e_lower, np.zeros(len(eGrid)), c="red")
+			plt.scatter(rcmSpec['energies'][n], np.ones(len(rcme_lower)), c="black")
+			plt.scatter(rcme_lower, np.ones(len(rcme_lower)), c="red")
+			plt.xscale('log')
+			plt.show()
+
+		for e in range(Ne):
+			for ik in range(len(mapWeights[e])):
+				k = mapWeights[e][ik][0]
+				weight = mapWeights[e][ik][1]
+				rcm_odf[n,e] += weight*rcmSpec['diffFlux'][n,k]
+		#rcm_odf[n,:] = scutils.varMap_1D(rcmEGrid[n,:], eGrid, rcmSpec['diffFlux'][n,:])
 
 	result = {}
 	result['energyGrid'] = eGrid
@@ -653,7 +713,6 @@ def getVarWedge(rcmf5, mhdrcmf5, sStart, sEnd, sStride, wedge_deg, species='ions
 		lGrid = np.linspace(lMin, lMax, Nl, endpoint=True)
 	Nl = len(lGrid)
 	
-
 	if eGrid is None:
 		eMin = 1E2  # [eV]
 		eMax = 1E6  # [eV]
@@ -678,7 +737,7 @@ def getVarWedge(rcmf5, mhdrcmf5, sStart, sEnd, sStride, wedge_deg, species='ions
 		xmins = rcmS['rcmxmin'][2:,:]
 		ymins = rcmS['rcmymin'][2:,:]
 		zmins = rcmS['rcmzmin'][2:,:]
-		eetas = rcmS['rcmeeta'][kStart:kEnd,2:,:]
+		eetas = rcmS['rcmeeta'][alamData['kStart']:alamData['kEnd'],2:,:]
 
 		L_arr = scutils.xyz_to_L(xmins, ymins, zmins) # [i,j]
 		theta_arr = np.arctan2(ymins,xmins)*180/np.pi%360
@@ -763,7 +822,16 @@ def getVarWedge(rcmf5, mhdrcmf5, sStart, sEnd, sStride, wedge_deg, species='ions
 			ke_upper = alamData['ilami'][1:]*vm
 			ke_width = ke_upper-ke_lower
 
+			e_lower = np.zeros(Ne)
+			e_upper = np.zeros(Ne)
+			for iEG in range(Ne):
+				e_lower[iEG] = eGrid[0] if iEG == 0 else (eGrid[iEG-1] + eGrid[iEG])/2
+				e_upper[iEG] = eGrid[-1] if iEG == Ne-1 else (eGrid[iEG+1] + eGrid[iEG])/2
+
+			eMapFracs[iPC] = scutils.getWeights_ConsArea(ke_center, ke_lower, ke_upper, eGrid, e_lower, e_upper)
+
 			# Iterate over eGrid, grab weights for all overlapping k bins
+			"""
 			for iEG in range(Ne):
 				e_lower = eGrid[0] if iEG == 0 else (eGrid[iEG-1] + eGrid[iEG])/2
 				e_upper = eGrid[-1] if iEG == Ne-1 else (eGrid[iEG+1] + eGrid[iEG])/2
@@ -781,6 +849,7 @@ def getVarWedge(rcmf5, mhdrcmf5, sStart, sEnd, sStride, wedge_deg, species='ions
 						frac_arr.append([k, o_width/ke_width[k]])  # Fraction of k bin that coincides with eGrid bin
 				#print('n: {}  arr:{}'.format(len(frac_arr), frac_arr))
 				eMapFracs[iPC][iEG] = frac_arr
+			"""
 		"""
 		for iPC in range(Npc):
 			print('iPC={}  L={}'.format(iPC, lPointCloud[iPC]))
@@ -911,7 +980,7 @@ def getRCM_eqlatlon(mhdrcmf5, rcmTimes, sStart, sEnd, sStride, jdir=None, forceC
 	import kaipy.gamera.rcmpp as rcmpp
 	#import kaipy.gamera.msphViz as mviz
 	rcmdata = gampp.GameraPipe('',mhdrcmf5.split('.h5')[0])
-	for t in range(1, len(sIDs)):
+	for t in range(0, len(sIDs)):
 		bmX, bmY = rcmpp.RCMEq(rcmdata, sIDs[t], doMask=True)
 		I = rcmpp.GetMask(rcmdata, sIDs[t])
 		pm = rcmpp.GetVarMask(rcmdata, sIDs[t], 'P', I)
@@ -947,38 +1016,28 @@ def getRCM_eqlatlon(mhdrcmf5, rcmTimes, sStart, sEnd, sStride, jdir=None, forceC
 
 	return result
 
-def getRCM_CumulFrac(rcmf5, rcmTimes, evalMJDs, evalIJs, species='ions', jdir=None,forceCalc=False):
+def getRCM_CumulFrac(rcmf5, rcmTimes, evMJD, evalLatLon, species='ions', jdir=None,forceCalc=False):
 	"""Calculate cumulative fractions of certain vars (ex. pressure) over energy channels, for each list of points for each given MJD
 		rcmf5: rcm hdf5 filename
 		rcmTimes: dict returned from getRCMTimes()
-		evalMJDs: list of MJDs to evaluate cumulative fractions, size Nt
-		evalIJs: list of ij locations to perform calculation for each MJD, size Nt x A x 2 (A is any, whatever given)
+		evMJDs: MJD to evaluate cumulative fractions
+		evalLatLons: [lat,lon] location to perform calculation
 
 	   Result datastructure:
 	   	result: {
-			'Nt': Nt
-			'MJDs': list of MJDs (evalMJDs)
-			'IJs': list of IJs (evalIJs)
-			'alams': list, len Nk, of rcm lambda channels
-			'Data': list, length Nt, of
-				{'MJD': MJD
-				 'Points': [list, len A, of 
-				 	{
-						'i': i
-						'j': j
-						'lat': lat
-						'lon': lon
-						'xmin': xmin
-						'ymin': ymin
-						'vm': vm
-						'energies': list, len Nk, of rcm energies [eV]
-						'Ptot': total pressure
-						'Ppar': list, Nk, of each channel's individual pressure
-						'Pcum': list, Nk, of each channel's cumulative pressure (summing from k=0)
-				 	}
-				 ]
+	   				'MJD': mjd
+					'i': i
+					'j': j
+					'lat': lat
+					'lon': lon
+					'xmin': xmin
+					'ymin': ymin
+					'vm': vm
+					'energies': list, len Nk, of rcm energies [eV]
+					'Ptot': total pressure
+					'Ppar': list, Nk, of each channel's individual pressure
+					'Pcum': list, Nk, of each channel's cumulative pressure (summing from k=0)
 				}
-	   	}
 	"""
 
 	if jdir is not None:
@@ -989,8 +1048,14 @@ def getRCM_CumulFrac(rcmf5, rcmTimes, evalMJDs, evalIJs, species='ions', jdir=No
 
 	if dojson and not forceCalc:
 		if os.path.exists(rcmjfname):
-			print("Grabbing RCM cumulative fraction data from " + rcmjfname)
-			return kj.load(rcmjfname)
+			print("Looking for RCM cumulative fraction data from " + rcmjfname)
+			#In this case, saved variable is a list with all points saved so far in one big heap
+			data = kj.load(rcmjfname)
+			for point in data:
+				if point['MJD'] == evMJD and point['lat'] == evalLatLon[0] and point['lon'] == evalLatLon[1]:
+					return point
+
+			print("Point not found in previous data, calculating")
 
 	#Unpack RCM info
 	sIDs = rcmTimes['sIDs']
@@ -999,72 +1064,75 @@ def getRCM_CumulFrac(rcmf5, rcmTimes, evalMJDs, evalIJs, species='ions', jdir=No
 	rcm5 = h5.File(rcmf5,'r')
 	rcmS0 = rcm5[sIDstrs[0]]
 
+	rcmLats = 90 - rcmS0['colat'][0,:]*180/np.pi
+	rcmLons = rcmS0['aloct'][2:,0]*180/np.pi
+
+	evLat = evalLatLon[0]
+	evLon = evalLatLon[1]
+
 	alamData = getSpecieslambdata(rcmS0, species)
 	Nk = len(alamData['ilamc'])
 
-	Nt = len(evalMJDs)
 	#Variable we're gonna return
 	result = {}
-	result['Nt'] = len(evalMJDs)
-	result['MJDs'] = evalMJDs
-	result['IJs'] = evalIJs
-	result['alams'] = alamData['ilamc']
-	result['Data'] = []
 
-	#Calculate some things
-	for n in range(Nt):
-		#Get RCM step closest to desired MJD
-		ircmStep = np.abs(rcmMJDs-evalMJDs[n]).argmin()
-		stepStr = sIDstrs[ircmStep]
-		rcmS5 = rcm5[stepStr]
+	#TODO: Currently being lazy and getting the closest RCM point. Should implement TSC
+	#Get RCM data closest to desired MJD, lat and lon
+	ircmStep = np.abs(rcmMJDs-evMJD).argmin()
+	i = np.abs(rcmLats-evLat).argmin()
+	j = np.abs(rcmLons-evLon).argmin()
+	stepStr = sIDstrs[ircmStep]
+	rcmS5 = rcm5[stepStr]
 
-		dataDict = {}
-		dataDict['MJD'] = evalMJDs[n]
-		dataDict['Points'] = []
+	point = {}
+	point['MJD'] = evMJD
+	point['i'] = i
+	point['j'] = j
+	point['lat'] = rcmLats[i]
+	point['lon'] = rcmLons[j]
+	point['xmin'] = rcmS5['rcmxmin'][j,i]
+	point['ymin'] = rcmS5['rcmymin'][j,i]
+	vm = rcmS5['rcmvm'][j,i]
+	point['vm'] = rcmS5['rcmvm'][j,i]
+	point['energies'] = alamData['ilamc']*vm  # [eV]
 
-		evalPts = evalIJs[n]
-		for pnt in evalPts:
-			point = {}
-			i = pnt[0]
-			j = pnt[1]
-			point['i'] = i
-			point['j'] = j
-			point['lat'] = 90 - rcmS5['colat'][i,j]
-			point['lon'] = 90 - rcmS5['aloct'][i,j]
-			point['xmin'] = rcmS5['rcmxmin'][i,j]
-			point['ymin'] = rcmS5['rcmymin'][i,j]
-			vm = rcmS5['rcmvm'][i,j]
-			point['vm'] = rcmS5['rcmvm'][i,j]
-			point['energies'] = alamData['ilamc']*vm  # [eV]
+	eetas = rcmS5['rcmeeta'][alamData['kStart']:alamData['kEnd'],j,i]
 
-			eetas = rcmS5['rcmeeta'][alamData['kStart']:alamData['kEnd'],i,j]
+	pTot = 0
+	pPar = np.zeros(Nk)
+	pCum = np.zeros(Nk)
 
-			pTot = 0
-			pPar = np.zeros(Nk)
-			pCum = np.zeros(Nk)
+	pPar = pressure_factor*alamData['ilamc']*eetas*vm**2.5 * 1E9  # [Pa -> nPa], partial pressures for each channel
+	pCum[0] = pPar[0] # First bin's partial press = cumulative pressure
+	for k in range(1,Nk):
+		pCum[k] = pCum[k-1] + pPar[k]  # Get current cumulative pressure by adding this bin's partial onto last bin's cumulative
+	pTot = pCum[-1] # Last bin's cumulative = total pressure
 
-			pPar = pressure_factor*alamData['ilamc']*eetas*vm**2.5 * 1E9  # [Pa -> nPa], partial pressures for each channel
-			pCum[0] = pPar[0] # First bin's partial press = cumulative pressure
-			for k in range(1,Nk):
-				pCum[k] = pCum[k-1] + pPar[k]  # Get current cumulative pressure by adding this bin's partial onto last bin's cumulative
-			pTot = pCum[-1] # Last bin's cumulative = total pressure
+	point['Ptot'] = pTot
+	point['Ppar'] = pPar
+	point['Pcum'] = pCum
 
-			point['Ptot'] = pTot
-			point['Ppar'] = pPar
-			point['Pcum'] = pCum
+	if dojson: 
+		if os.path.exists(rcmjfname):
+			data = kj.load(rcmjfname)
+			for i in len(range(data)):
+				#Remove old point if it exists
+				pnt = data[i]
+				if pnt['MJD'] == evMJD and pnt['lat'] == evalLatLon[0] and pnt['lon'] == evalLatLon[1]:
+					data.remove(i)
+				data.append(point)
 
-			dataDict['Points'].append(point)
+			kj.dump(rcmjfname, data)
+		else:
+			data = [point]
+			kj.dump(rcmjfname, data)
 
-		result['Data'].append(dataDict)
-
-	if dojson: kj.dump(rcmjfname, result)
-
-	return result
+	return point
 #======
 #Plotting
 #======
 
-def plt_ODF_Comp(AxSC, AxRCM, AxCB, odfData, mjd=None, cmapName='CMRmap', norm=None):
+def plt_ODF_Comp(AxSC, AxRCM, AxCB, odfData, mjd=None, cmapName='CMRmap', norm=None, forcePop=False):
 	axIsPopulated = not AxSC.get_ylabel() == ''
 
 	eGrid   = odfData['energyGrid']
@@ -1082,7 +1150,7 @@ def plt_ODF_Comp(AxSC, AxRCM, AxCB, odfData, mjd=None, cmapName='CMRmap', norm=N
 		norm = kv.genNorm(vMin,vMax,doLog=True)
 
 
-	if not axIsPopulated:
+	if not axIsPopulated or forcePop:
 		kv.genCB(AxCB,norm,r'Intensity [$cm^{-2} sr^{-1} s^{-1} keV^{-1}$]',cM=cmapName,doVert=True)
 
 		AxSC.pcolormesh(scTime, eGrid, np.transpose(scODF), norm=norm, shading='nearest', cmap=cmapName)
@@ -1181,6 +1249,12 @@ def plt_tkl(AxTKL, tkldata, AxCB=None, mjd=None, cmapName='CMRmap', vName='odf',
 
 	#L vs. k for a specific mjd
 	if mjd is not None:
+
+		# Full reset
+		AxTKL.cla()
+		while len(AxTKL.lines) > 0:
+			AxTKL.lines.pop(0)
+
 		if mjd < tkldata['MJD'][0] or mjd > tkldata['MJD'][-1]:
 			print(str(mjd) + "not in tkl data, exiting")
 			return
@@ -1193,15 +1267,13 @@ def plt_tkl(AxTKL, tkldata, AxCB=None, mjd=None, cmapName='CMRmap', vName='odf',
 			klslice = tkldata['press_tkl'][iMJD,:,:]
 			AxTKL.pcolormesh(L_arr, k_arr*1E-3, klslice, norm=norm, shading='nearest', cmap=cmapName)
 		
-		# Remove all lines
-		while len(AxTKL.lines) > 0:
-			AxTKL.lines.pop(0)
+		
 		#Dashed lines to mark simulation inner boundary
 		ymin,ymax = AxTKL.get_ylim()
 		AxTKL.plot([-tkl_lInner,-tkl_lInner], [ymin,ymax], 'w--')
 		AxTKL.plot([tkl_lInner,tkl_lInner], [ymin,ymax], 'w--')
 
-		AxTKL.set_xlabel('L shell')
+		AxTKL.set_xlabel('X [$R_E$]')
 		AxTKL.set_ylabel('Energy [keV]')
 
 		if satTrackData is not None:
@@ -1214,7 +1286,7 @@ def plt_tkl(AxTKL, tkldata, AxCB=None, mjd=None, cmapName='CMRmap', vName='odf',
 				yBounds = np.asarray(AxTKL.get_ylim())
 				AxTKL.plot([xmin_sc, xmin_sc], yBounds, 'r-')
 
-def plt_rcm_eqlatlon(AxLatlon, AxEq, rcmData, satTrackData, AxCB=None, mjd=None, norm=None, cmapName='viridis'):
+def plt_rcm_eqlatlon(AxLatlon, AxEq, rcmData, satTrackData=None, AxCB=None, mjd=None, norm=None, cmapName='viridis'):
 	
 	mjd_arr   = rcmData['MJD']
 	xmin_arr  = rcmData['xmin']
@@ -1222,14 +1294,7 @@ def plt_rcm_eqlatlon(AxLatlon, AxEq, rcmData, satTrackData, AxCB=None, mjd=None,
 	mlat_arr  = rcmData['MLAT']
 	mlon_arr  = rcmData['MLON']
 	press_arr = rcmData['press']
-
-	#x_sc  = satTrackData['xmin']
-	#y_sc  = satTrackData['ymin']
-	#z_sc  = satTrackData['zmin']
-	#eq_sc = satTrackData['eqmin']
-	x_sc = satTrackData['xeq']
-	y_sc = satTrackData['yeq']
-	req_sc = satTrackData['Req']
+	
 	#ut = scutils.mjd_to_ut(rcmData['MJD'])
 	ut = kT.MJD2UT(rcmData['MJD'])
 	Nt = len(ut)
@@ -1238,7 +1303,7 @@ def plt_rcm_eqlatlon(AxLatlon, AxEq, rcmData, satTrackData, AxCB=None, mjd=None,
 		norm = genVarNorm(press_arr, doLog=True)
 
 	#Initialize static plots if hasn't been done yet
-	if AxCB is not None and AxCB.get_label == "":
+	if AxCB is not None:
 		AxCB = kv.genCB(AxCB, norm, r'Pressure [$nPa$]', cM=cmapName, doVert=True)
 
 	if mjd is not None:
@@ -1246,7 +1311,6 @@ def plt_rcm_eqlatlon(AxLatlon, AxEq, rcmData, satTrackData, AxCB=None, mjd=None,
 			print(str(mjd) + "not in rcm data, exiting")
 			return
 		iMJD = np.abs(mjd_arr - mjd).argmin()
-		iscMJD = np.abs(satTrackData['MJD'] - mjd).argmin()
 		lineUT = ut[iMJD]
 
 		AxLatlon.clear()
@@ -1259,14 +1323,20 @@ def plt_rcm_eqlatlon(AxLatlon, AxEq, rcmData, satTrackData, AxCB=None, mjd=None,
 		AxLatlon.axis([0, 2*np.pi, 0, 0.7])
 
 		AxEq.pcolor(xmin_arr[iMJD], ymin_arr[iMJD], press_arr[iMJD], norm=norm, shading='auto', cmap=cmapName)
+
 		#Draw satellite location
-		if req_sc[iscMJD] > 1E-8:
-			leadMax = iscMJD
-			while leadMax < min(iscMJD+80, Nt) and req_sc[leadMax] > 1E-8: leadMax += 1 #????
-			AxEq.plot(x_sc[iscMJD:leadMax], y_sc[iscMJD:leadMax], 'k-')
-			
-			satCircle = plt.Circle((x_sc[iscMJD], y_sc[iscMJD]), 0.15, color='black')
-			AxEq.add_patch(satCircle)
+		if satTrackData is not None:
+			x_sc = satTrackData['xeq']
+			y_sc = satTrackData['yeq']
+			req_sc = satTrackData['Req']
+			iscMJD = np.abs(satTrackData['MJD'] - mjd).argmin()
+			if req_sc[iscMJD] > 1E-8:
+				leadMax = iscMJD
+				while leadMax < min(iscMJD+80, Nt) and req_sc[leadMax] > 1E-8: leadMax += 1 #????
+				AxEq.plot(x_sc[iscMJD:leadMax], y_sc[iscMJD:leadMax], 'k-')
+				
+				satCircle = plt.Circle((x_sc[iscMJD], y_sc[iscMJD]), 0.15, color='black')
+				AxEq.add_patch(satCircle)
 		kv.addEarth2D(ax=AxEq)
 
 		#Set bounds
@@ -1282,7 +1352,7 @@ def plt_rcm_eqlatlon(AxLatlon, AxEq, rcmData, satTrackData, AxCB=None, mjd=None,
 
 def plt_CumulFrac(AxCF, cfData, title=None, labels=None):
 	"""Plot cumulative fraction curves given by getRCM_CumulFrac()
-		cfData = dict['Data'][x], i.e. a single MJD, continaing a list of points
+		cfData = a list of points
 		title = optional suptitle
 		labels = optional labels for each curve
 	"""
@@ -1297,8 +1367,8 @@ def plt_CumulFrac(AxCF, cfData, title=None, labels=None):
 
 	AxCF.set_title(title)
 
-	for iPnt in range(len(cfData['Points'])):
-		pnt = cfData['Points'][iPnt]
+	for iPnt in range(len(cfData)):
+		pnt = cfData[iPnt]
 		if labels is not None:
 			lbl = labels[iPnt]
 		else:

@@ -106,6 +106,13 @@
 			"Data" : ["_bad"],
 			"OmnifluxStr" : "FPDU_OmniFlux",
 			"EnergyStr" : "FPDU_Energy"
+		},
+		"Hydrogen_PAFlux_HOPE" : {
+			"Id" : "RBSPB_REL04_ECT-HOPE-PA-L3",
+			"Data" : ["FPDU"],
+			"PAFluxStr" : "FPDU",
+			"EnergyStr" : "HOPE_ENERGY_Ion",
+			"EpochStr"  : "Epoch_Ion"
 		}
 	},
 	"CLUSTER1" : {

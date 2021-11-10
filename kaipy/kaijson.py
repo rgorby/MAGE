@@ -20,9 +20,11 @@ class CustomEncoder(json.JSONEncoder):
 		if isinstance(obj, np.ndarray):
 			return {'shape': obj.shape, 'data': obj.tolist()}
 
-		#Now you don't need to care if you have floats or numpy floats
+		#Handling annoying numpy types
 		if isinstance(obj, np.float32):
 			return "_f32_{:.16f}".format(obj)
+		if isinstance(obj, np.int64):
+			return "_i64_{}".format(obj)
 
 		return json.JSONEncoder.default(self, obj)
 
@@ -47,10 +49,12 @@ def customhook(dct):
 		except:
 			pass
 
-		#Handle floats
+		#Handle numpy base variable types
 		try:
 			if type(dct[key]) == str and '_f32_' in dct[key]:
-				dct[key] = float(dct[key].split('_f32_')[1])
+				dct[key] = np.float32(dct[key].split('_f32_')[1])
+			if type(dct[key]) == str and '_i64_' in dct[key]:
+				dct[key] = np.int64(dct[key].split('_i64_')[1])
 		except:
 			pass
 		
