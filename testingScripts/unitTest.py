@@ -132,7 +132,7 @@ os.chdir('unitTest1/bin')
 modset = ""
 for line in ModuleList[0]:
     modset = modset + line + " "
-arguments = 'qsub -v MODULE_SET="' + modset + '" runCaseTests.pbs'
+arguments = 'qsub -v MODULE_LIST="' + modset + '" runCaseTests.pbs'
 print(arguments)
 submission = subprocess.Popen(arguments, shell=True, stdout=subprocess.PIPE)
 readString = submission.stdout.read()
@@ -143,7 +143,7 @@ finalString = readString
 firstJob = readString.split('.')[0]
 print(firstJob)
 
-arguments = 'qsub -v MODULE_SET="' + modset + '" runNonCaseTests1.pbs'
+arguments = 'qsub -v MODULE_LIST="' + modset + '" runNonCaseTests1.pbs'
 print(arguments)
 submission = subprocess.Popen(arguments, shell=True, stdout=subprocess.PIPE)
 readString = submission.stdout.read()
@@ -155,7 +155,7 @@ finalString = finalString + readString
 secondJob = readString.split('.')[0]
 print (secondJob)
 
-arguments = 'qsub -v MODULE_SET="' + modset + '" runNonCaseTests2.pbs'
+arguments = 'qsub -v MODULE_LIST="' + modset + '" runNonCaseTests2.pbs'
 print(arguments)
 submission = subprocess.Popen(arguments, shell=True, stdout=subprocess.PIPE)
 readString = submission.stdout.read()
