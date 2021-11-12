@@ -38,7 +38,7 @@ date
 ./caseTests > caseTests.out
 date
 echo "Non MPI Cases Complete"
-echo | tail -n 2 ./caseTests.out
+echo | tail -n 3 ./caseTests.out
 
 echo ""
 echo "Running MPI Cases"
@@ -46,5 +46,5 @@ date
 ${MPICOMMAND} ./caseMpiTests > caseMpiTests.out
 date
 echo "MPI Cases Complete"
-echo | tail -n 2 ./caseMpiTests.out
+echo | tail -n 3 ./caseMpiTests.out
 

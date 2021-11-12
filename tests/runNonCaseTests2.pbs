@@ -38,5 +38,5 @@ date
 ${MPICOMMAND} ./voltMpiTests > voltMpiTests.out
 date
 echo "Voltron MPI Tests Complete"
-echo | tail -n 2 ./voltMpiTests.out
+echo | tail -n 3 ./voltMpiTests.out
 
