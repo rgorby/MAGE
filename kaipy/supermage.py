@@ -9,6 +9,8 @@ import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import warnings
 import math
+import datetime
+import json
 
 #### NEED TO POINT TO SUPERMAG API SCRIPT
 #### /glade/p/hao/msphere/gamshare/supermag/supermag_api.py 
@@ -92,7 +94,7 @@ def interp_grid(values, tri, uv, d=2):
 
 #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
 
-def FetchSMData(user, start, numofdays, savefolder, badfrac=0.1, nanflags=True):
+def FetchSMData(user, start, numofdays, savefolder, badfrac=0.1, nanflags=True, doDB=True):
     """Retrieve all available SuperMagnet data for a specified period
     If data has not already been downloaded, fetches data from Supermag
     
@@ -106,6 +108,7 @@ def FetchSMData(user, start, numofdays, savefolder, badfrac=0.1, nanflags=True):
     badfrac = tolerable fraction of data that is 99999.0. Sites with more bad data
         than this fraction will be ignored
     nanflags = will set 99999.0 values to nans if True (True by default)    
+    doDB = Whether to pull the pre-baselined values from supermag
 
     Returns
     -----------
@@ -113,6 +116,12 @@ def FetchSMData(user, start, numofdays, savefolder, badfrac=0.1, nanflags=True):
     {td, sitenames, glon, glat, mlon, mlat, mcolat, 
                 BNm, BEm, BZm, BNg, BEg, BZg, MLT, DECL, SZA}
     """
+
+    if (doDB):
+        smFlags = "all,delta=start,baseline=all"
+    else:
+        smFlags = "all"
+        
     # Look at all saved .jsons
     filenames = [x for x in sorted(os.listdir(savefolder)) if '.json' in x]
     startstr = str(start)[:10]
@@ -136,12 +145,13 @@ def FetchSMData(user, start, numofdays, savefolder, badfrac=0.1, nanflags=True):
         STATUS, master, badindex = [], [], []
 
         #ZZZ
-        status, stations = SuperMAGGetInventory(user, startstr, extent = 86400*numofdays)
+        status, stations = smapi.SuperMAGGetInventory(user, startstr, extent = 86400*numofdays)
         for iii in stations:
             print("Fetching: ", iii)
             #ZZZ
-            status, A = SuperMAGGetData(user, startstr, extent=86400*numofdays, 
-                                           flagstring='all', station = iii, FORMAT = 'list')
+            
+            status, A = smapi.SuperMAGGetData(user, startstr, extent=86400*numofdays, 
+                                           flagstring=smFlags, station = iii, FORMAT = 'list')
             quickvals = np.array([x['N']['nez'] for x in A])
 
             # get rid of data if too many bullshit values
@@ -326,7 +336,7 @@ def FetchSMIndices(user, start, numofdays, wanted = 'ALL'):
     output = dictionary of wanted values as arrays + 'td' array
     """
     #ZZZ
-    status, vals = SuperMAGGetIndices(user, start, 86400*numofdays, 'all', FORMAT='list')
+    status, vals = smapi.SuperMAGGetIndices(user, start, 86400*numofdays, 'all', FORMAT='list')
 
     if (wanted == 'ALL'):
         wanted = list(vals[0].keys())[1:]
