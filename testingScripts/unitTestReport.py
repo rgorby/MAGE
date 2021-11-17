@@ -21,6 +21,21 @@ orig = os.getcwd()
 os.chdir('..')
 home = os.getcwd()
 
+isTest = False
+beLoud = False
+
+# Check argument flags
+if (len(sys.argv) >= 2):
+    for i in range(1,len(sys.argv)):
+        if(str(sys.argv[i]) == '-t'):
+            print("Test Mode: On")
+            isTest = True
+        elif(str(sys.argv[i]) == '-l'):
+            print("Being Loud")
+            beLoud = True
+        else:
+            print("Unrecognized argument: ", sys.argv[i])
+
 # Go to the unit Test directory
 os.chdir(home)
 os.chdir("unitTest1/bin")
@@ -94,14 +109,17 @@ if okCount is not 8:
 os.remove("jobs.txt")
 
 if not okFailure and not myError and not jobKilled:
-    try:
-        response = client.chat_postMessage(
-       channel="#kaijudev",
-       text="Fortran Unit Tests Passed",
-       )
-    except SlackApiError as e:
-       # You will get a SlackApiError if "ok" is False
-       assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
+    if not isTest and beLoud:
+        try:
+            response = client.chat_postMessage(
+           channel="#kaijudev",
+           text="Fortran Unit Tests Passed",
+           )
+        except SlackApiError as e:
+           # You will get a SlackApiError if "ok" is False
+           assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
+    else:
+        print("Fortran Unit Tests Passed")
     exit()
 
 # Write to a file
@@ -110,19 +128,19 @@ file.writelines(bigFile)
 file.close()
 
 # Post the file to slack
-try:
-    response = client.files_upload(
-        file='Results.txt',
-        initial_comment='Unit Test Results:\n\n',
-        channels="#kaijudev",
-        )
-
-    assert response['ok']
-    slack_file = response['file']
-
-except SlackApiError as e:
-    # You will get a SlackApiError if "ok" is False
-    assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
+if not isTest:
+    try:
+        response = client.files_upload(
+            file='Results.txt',
+            initial_comment='Unit Test Results:\n\n',
+            channels="#kaijudev",
+            )
+    
+        assert response['ok']
+        slack_file = response['file']
+    except SlackApiError as e:
+        # You will get a SlackApiError if "ok" is False
+        assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
 
 # If there were any issues, also send a message saying "Uh oh" or something
 myText = ""
@@ -138,12 +156,13 @@ if (okFailure):
 
 # If not a test, send message to Slack
 # Try to send Slack message
-try:
-    response = client.chat_postMessage(
-   channel="#kaijudev",
-   text=myText + "https://tenor.com/Yx4u.gif",
-   )
-except SlackApiError as e:
-   # You will get a SlackApiError if "ok" is False
-   assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
+if not isTest:
+    try:
+        response = client.chat_postMessage(
+       channel="#kaijudev",
+       text=myText + "https://tenor.com/Yx4u.gif",
+       )
+    except SlackApiError as e:
+       # You will get a SlackApiError if "ok" is False
+       assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
 

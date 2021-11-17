@@ -23,6 +23,21 @@ orig = os.getcwd()
 os.chdir('..')
 home = os.getcwd()
 
+isTest = False
+beLoud = False
+
+# Check argument flags
+if (len(sys.argv) >= 2):
+    for i in range(1,len(sys.argv)):
+        if(str(sys.argv[i]) == '-t'):
+            print("Test Mode: On")
+            isTest = True
+        elif(str(sys.argv[i]) == '-l'):
+            print("Being Loud")
+            beLoud = True
+        else:
+            print("Unrecognized argument: ", sys.argv[i])
+
 # Go back to scripts folder
 os.chdir(home)
 os.chdir("testingScripts")
