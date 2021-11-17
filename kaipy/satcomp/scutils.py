@@ -402,7 +402,7 @@ def addGAMERA(data,scDic,h5name):
 	else:
 		toCoordSys = scDic['Velocity']['CoordSys']
 	lfmv_out = convertGameraVec(vx[:],vy[:],vz[:],ut,
-		'SM','car',scDic['MagneticField']['CoordSys'],'car')
+		'SM','car',toCoordSys,'car')
 	data['GAMERA_Velocity'] = dm.dmarray(lfmv_out.data,
 		attrs={'UNITS':vx.attrs['Units'],
 		'CATDESC':'Velocity, cartesian'+toCoordSys,
