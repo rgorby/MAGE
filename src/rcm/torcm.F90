@@ -816,7 +816,7 @@ MODULE torcm_mod
 
       !Now set boundary based on isGood and number of required buffer cells
       !$OMP PARALLEL DO default(shared) &
-      !$OMP private(i,j)
+      !$OMP private(i,j,newi,oldi)
       do j=1,jdim
         do i=idim,1,-1
           !Loop from the top and find first bad cell
