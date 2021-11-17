@@ -43,26 +43,30 @@ job3 = file.readline()
 job3 = job3.strip()
 file.close()
 
-# Take the two output files and slap them together
-extension1 = "o" + job1
-extension2 = "o" + job2
-extension3 = "o" + job3
+# Take the output files and slap them together
+jobFile1 = "caseTests.o" + job1
+jobFile2 = "nonCaseTests1.o" + job2
+jobFile3 = "nonCaseTests2.o" + job3
+
+if (not path.exists(jobFile1) or not path.exists(jobFile2) or not path.exists(jobFile3)):
+    print("One of the jobs isn't complete yet.\n")
+    exit()
 
 # Case Tests
-file = open('caseTests.' + extension1, 'r')
+file = open(jobFile1, 'r')
 bigFile = file.readlines()
 file.close()
 bigFile.append("\n\n\n")
 
 # Non Case Tests 1
-file = open('nonCaseTests1.' + extension2, 'r')
+file = open(jobFile2, 'r')
 nextFile = file.readlines()
 file.close()
 bigFile = bigFile + nextFile
 bigFile.append("\n\n\n")
 
 #Non Case Tests 2
-file = open('nonCaseTests2.' + extension3, 'r')
+file = open(jobFile3, 'r')
 finalFile = file.readlines()
 file.close()
 bigFile = bigFile + finalFile

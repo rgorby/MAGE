@@ -73,7 +73,7 @@ os.chdir('intelChecks')
 #arguments = arguments + "cd" + home + ";"
 #arguments = arguments + "cd kaiju/unitTest1;"
 # Invoke cmake
-arguments = arguments + "cmake ../ -DALLOW_INVALID_COMPILERS=ON -DENABLE_MPI=ON;"
+arguments = arguments + "cmake ../ -DALLOW_INVALID_COMPILERS=ON -DENABLE_MPI=ON -DENABLE_MKL=ON -DCMAKE_BUILD_TYPE=DEBUG;"
 # Make gamera, voltron and allTests
 arguments = arguments + "make gamera_mpi; make voltron_mpi;"
 print(arguments)
@@ -85,12 +85,38 @@ subprocess.call("cp tinyCase.xml ../intelChecks/bin", shell=True)
 subprocess.call("cp lfmD.h5 ../intelChecks/bin", shell=True)
 subprocess.call("cp bcwind.h5 ../intelChecks/bin", shell=True)
 subprocess.call("cp rcmconfig.h5 ../intelChecks/bin", shell=True)
-subprocess.call("cp intelCheckSubmit.pbs ../intelChecks/bin", shell=True)
+subprocess.call("cp intelCheckSubmitMem.pbs ../intelChecks/bin", shell=True)
+subprocess.call("cp intelCheckSubmitThread.pbs ../intelChecks/bin", shell=True)
+subprocess.call("cp memSuppress.sup ../intelChecks/bin", shell=True)
+subprocess.call("cp threadSuppress.sup ../intelChecks/bin", shell=True)
 
 # SUBMIT INTEL CHECK JOBS
 os.chdir(home)
 os.chdir('intelChecks/bin')
-arguments = 'qsub -V intelCheckSubmit.pbs'
+
+# list all modules with spaces between them, to be loaded in the qsub scripts
+modset = ""
+for line in ModuleList[0]:
+    modset = modset + line + " "
+
+# submit memory checker
+arguments = 'qsub -v MODULE_LIST="' + modset + '" intelCheckSubmitMem.pbs'
+print(arguments)
+submission = subprocess.Popen(arguments, shell=True, stdout=subprocess.PIPE)
+readString = submission.stdout.read()
+readString = readString.decode('ascii')
+print(readString)
+
+jobNumber = readString.split('.')[0]
+print(jobNumber)
+
+numberString = str(jobNumber)
+
+file = open("jobs.txt", 'w+')
+file.write(jobNumber)
+
+# submit thread checker
+arguments = 'qsub -v MODULE_LIST="' + modset + '" intelCheckSubmitThread.pbs'
 print(arguments)
 submission = subprocess.Popen(arguments, shell=True, stdout=subprocess.PIPE)
 readString = submission.stdout.read()

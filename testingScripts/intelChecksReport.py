@@ -9,6 +9,7 @@ import logging
 logging.basicConfig(level=logging.DEBUG)
 import time
 from os import path
+import re
 
 # Get Slack API token
 slack_token = os.environ["SLACK_BOT_TOKEN"]
@@ -22,6 +23,46 @@ orig = os.getcwd()
 os.chdir('..')
 home = os.getcwd()
 
+# Go back to scripts folder
+os.chdir(home)
+os.chdir("testingScripts")
+
+# Read in modules.txt and load only the requested modules
+file = open('intelModules.txt', 'r')
+modules = file.readlines()
+#print(modules)
+
+ModuleList = []
+myModules = []
+tempString = ""
+
+# Create List from separate modules
+for line in modules:
+    if (line.strip() == "##NEW ENVIRONMENT##"):
+        # Set aside what we have already
+        ModuleList.append(myModules)
+        # Reset
+        myModules = []
+        iteration += 1
+    else:
+        myModules.append(line.strip())
+
+# Add the last module set
+ModuleList.append(myModules)
+
+for setOfModules in ModuleList:
+    for line in setOfModules:
+        print(line)
+
+# Create the list of arguments for the first set
+arguments = "module purge; module list;"
+
+for line in ModuleList[0]:
+    arguments = arguments + "module load " + line + ";"
+
+print(arguments)
+subprocess.call(arguments, shell=True)
+
 # Go to IntelChecks folder
 os.chdir(home)
 os.chdir('intelChecks/bin')
@@ -31,27 +72,99 @@ jobsExists = path.exists("jobs.txt")
 
 # If not, end. Otherwise, continue
 if (not jobsExists):
+    print("Nothing to Test.\n")
+    exit()
+
+# Read in the jobs.txt file to get the job numbers
+file = open("jobs.txt", 'r')
+job1 = file.readline()
+job1 = job1.strip()
+job2 = file.readline()
+job2 = job2.strip()
+file.close()
+
+# Take the output files and slap them together
+jobFile1 = "memCheck.o" + job1
+jobFile2 = "threadCheck.o" + job2
+
+if (not path.exists(jobFile1) or not path.exists(jobFile2)):
+    print("One of the jobs isn't complete yet.\n")
     exit()
 
 # Go to IntelChecks folder
 os.chdir(home)
-os.chdir('intelChecks/bin/r000mi3')
-process = subprocess.call("ls", shell=True)
+os.chdir('intelChecks/bin')
 
-# Find output files
+# Setup regex for counting problems found
+problemPattern = "(\d+) new problem\(s\) found"
 
 # Memory
-time.sleep(60)
+memErrs = False
+memErrsFile = "combinedMemErrs.txt"
+for root, dirs, files in os.walk("."):
+    for d in dirs:
+        if "memResults" in d:
+            print(d)
+            try:
+                memOut = subprocess.check_output(["inspxe-cl","-report summary","-result-dir " + d,"-s-f memSuppress.sup"], \
+                    stderr=subprocess.STDOUT,universal_newlines=True)
+            except subprocess.CalledProcessError as memProcErr:
+                # we need to handle non-zero error code
+                memOut = memProcErr.output
+            print(memOut)
+            problemMatch = re.search(problemPattern, memOut)
+            if(not problemMatch or int(problemMatch.group(1)) > 0):
+                print(problemMatch.group(1))
+                memErrs = True
+                try:
+                    memOut = subprocess.check_output(["inspxe-cl","-report problems","-result-dir " + d,"-s-f memSuppress.sup","-report-all"], \
+                        stderr=subprocess.STDOUT,universal_newlines=True)
+                except subprocess.CalledProcessError as memProcErr:
+                    # we need to handle non-zero error code
+                    memOut = memProcErr.output
+                with open(memErrsFile, "a") as memFile:
+                    memFile.write(memOut)
+                    memFile.write("\n")
 
-# Open them and record results
-file = open("inspxe-cl.txt", 'r')
-results = file.readlines()
+if(memErrs):
+    print("Memory errors detected")
+else:
+    print("No memory errors detected")
 
-# Turn list into big string
-str1 = ""
+# Thread
+threadErrs = False
+threadErrsFile = "combinedThreadErrs.txt"
+for root, dirs, files in os.walk("."):
+    for d in dirs:
+        if "threadResults" in d:
+            print(d)
+            try:
+                threadOut = subprocess.check_output(["inspxe-cl","-report summary","-result-dir " + d,"-s-f threadSuppress.sup"], \
+                    stderr=subprocess.STDOUT,universal_newlines=True)
+            except subprocess.CalledProcessError as threadProcErr:
+                # we need to handle non-zero error code
+                threadOut = threadProcErr.output
+            print(threadOut)
+            problemMatch = re.search(problemPattern, threadOut)
+            if(not problemMatch or int(problemMatch.group(1)) > 0):
+                print(problemMatch.group(1))
+                threadErrs = True
+                try:
+                    threadOut = subprocess.check_output(["inspxe-cl","-report problems","-result-dir " + d,"-s-f threadSuppress.sup","-report-all"], \
+                        stderr=subprocess.STDOUT,universal_newlines=True)
+                except subprocess.CalledProcessError as threadProcErr:
+                    # we need to handle non-zero error code
+                    threadOut = threadProcErr.output
+                with open(threadErrsFile, "a") as threadFile:
+                    threadFile.write(threadOut)
+                    threadFile.write("\n")
 
-for element in results:
-	str1 = str1 + element
+if(threadErrs):
+    print("Thread errors detected")
+else:
+    print("No thread errors detected")
+
+exit()
 
 # Set it as a message for the slack bot
 myText = "Intel Memory Test:\nLocated at: "
@@ -109,3 +222,4 @@ except SlackApiError as e:
 os.chdir(home)
 os.chdir('intelChecks/bin')
 os.remove("jobs.txt")
+

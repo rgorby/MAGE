@@ -1,0 +1,97 @@
+Suppression = {
+    Stacks = {
+        {
+            mod=libhdf5.so*;
+        }
+    }
+}
+
+Suppression = {
+    Stacks = {
+        {
+            mod=libhdf5_fortran.so*;
+        }
+    }
+}
+
+Suppression = {
+    Stacks = {
+        {
+            !!!;
+            mod=libiomp5.so*;
+        }
+    }
+}
+
+Suppression = {
+    Stacks = {
+        {
+            mod=libiomp5.so*;
+        }
+    }
+}
+
+Suppression = {
+    Stacks = {
+        {
+            mod=libc.so*;
+        }
+    }
+}
+
+Suppression = {
+    Stacks = {
+        {
+            mod=libmpi.so*;
+        }
+    }
+}
+
+Suppression = {
+    Type = { unreachable_memory_leak }
+    Stacks = {
+        {
+            ...;
+        }
+    }
+}
+
+Suppression = {
+    Type = { reachable_memory_leak }
+    Stacks = {
+        {
+            ...;
+        }
+    }
+}
+
+Suppression = {
+    Type = { uninitialized_memory_access }
+    Stacks = {
+        {
+            !!!;
+            mod=voltron_mpi.x;
+        }
+    }
+}
+
+Suppression = {
+    Type = { uninitialized_memory_access_partial }
+    Stacks = {
+        {
+            !!!;
+            mod=voltron_mpi.x;
+        }
+    }
+}
+
+Suppression = {
+    Type = { invalid_memory_access }
+    Stacks = {
+        {
+            !!!;
+            mod=voltron_mpi.x;
+        }
+    }
+}
+
