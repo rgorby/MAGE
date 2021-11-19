@@ -122,13 +122,8 @@ readString = submission.stdout.read()
 readString = readString.decode('ascii')
 print(readString)
 
-jobNumber = readString.split('.')[0]
-print(jobNumber)
-
-numberString = str(jobNumber)
-
-file = open("jobs.txt", 'w+')
-file.write(jobNumber)
+firstJobNumber = readString.split('.')[0]
+print(firstJobNumber)
 
 # submit thread checker
 arguments = 'qsub -v MODULE_LIST="' + modset + '" intelCheckSubmitThread.pbs'
@@ -138,13 +133,12 @@ readString = submission.stdout.read()
 readString = readString.decode('ascii')
 print(readString)
 
-jobNumber = readString.split('.')[0]
-print(jobNumber)
-
-numberString = str(jobNumber)
+secondJobNumber = readString.split('.')[0]
+print(secondJobNumber)
 
 file = open("jobs.txt", 'w+')
-file.write(jobNumber)
+file.write(firstJobNumber + "\n")
+file.write(secondJobNumber)
 
 # SUBMIT FOLLOW-UP JOB FOR SLACK POSTING
 #os.chdir(home)

@@ -42,6 +42,14 @@ Suppression = {
 Suppression = {
     Stacks = {
         {
+            mod=libfabric.so*;
+        }
+    }
+}
+
+Suppression = {
+    Stacks = {
+        {
             mod=libmpi.so*;
         }
     }

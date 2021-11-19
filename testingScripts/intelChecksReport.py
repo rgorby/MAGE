@@ -119,17 +119,14 @@ memErrsFile = "combinedMemErrs.txt"
 for root, dirs, files in os.walk("."):
     for d in dirs:
         if "memResults" in d:
-            print(d)
             try:
                 memOut = subprocess.check_output(["inspxe-cl","-report summary","-result-dir " + d,"-s-f memSuppress.sup"], \
                     stderr=subprocess.STDOUT,universal_newlines=True)
             except subprocess.CalledProcessError as memProcErr:
                 # we need to handle non-zero error code
                 memOut = memProcErr.output
-            print(memOut)
             problemMatch = re.search(problemPattern, memOut)
             if(not problemMatch or int(problemMatch.group(1)) > 0):
-                print(problemMatch.group(1))
                 memErrs = True
                 try:
                     memOut = subprocess.check_output(["inspxe-cl","-report problems","-result-dir " + d,"-s-f memSuppress.sup","-report-all"], \
@@ -141,10 +138,41 @@ for root, dirs, files in os.walk("."):
                     memFile.write(memOut)
                     memFile.write("\n")
 
-if(memErrs):
-    print("Memory errors detected")
+if(not isTest and (isLoud or memErrs)):
+    if(memErrs):
+        try:
+            response = client.files_upload(
+                file=memErrsFile,
+                initial_comment='Memory Access Problems:\n\n',
+                channels="#kaijudev",
+                )
+            assert response['ok']
+            slack_file = response['file']
+        except SlackApiError as e:
+            # You will get a SlackApiError if "ok" is False
+            assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
+        try:
+            response = client.chat_postMessage(
+                channel="#kaijudev",
+                text="Memory Access Problems Detected\nPlease check the errors sent above",
+            )
+        except SlackApiError as e:
+           # You will get a SlackApiError if "ok" is False
+           assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
+    else:
+        try:
+            response = client.chat_postMessage(
+                channel="#kaijudev",
+                text="No Memory Access Problems Detected",
+            )
+        except SlackApiError as e:
+           # You will get a SlackApiError if "ok" is False
+           assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
 else:
-    print("No memory errors detected")
+    if(memErrs):
+        print("*** Memory Access Problems Detected ***\nPlease check the results in " + memErrsFile + "\n")
+    else:
+        print("No Memory Access Problems Detected")
 
 # Thread
 threadErrs = False
@@ -152,17 +180,14 @@ threadErrsFile = "combinedThreadErrs.txt"
 for root, dirs, files in os.walk("."):
     for d in dirs:
         if "threadResults" in d:
-            print(d)
             try:
                 threadOut = subprocess.check_output(["inspxe-cl","-report summary","-result-dir " + d,"-s-f threadSuppress.sup"], \
                     stderr=subprocess.STDOUT,universal_newlines=True)
             except subprocess.CalledProcessError as threadProcErr:
                 # we need to handle non-zero error code
                 threadOut = threadProcErr.output
-            print(threadOut)
             problemMatch = re.search(problemPattern, threadOut)
             if(not problemMatch or int(problemMatch.group(1)) > 0):
-                print(problemMatch.group(1))
                 threadErrs = True
                 try:
                     threadOut = subprocess.check_output(["inspxe-cl","-report problems","-result-dir " + d,"-s-f threadSuppress.sup","-report-all"], \
@@ -174,64 +199,41 @@ for root, dirs, files in os.walk("."):
                     threadFile.write(threadOut)
                     threadFile.write("\n")
 
-if(threadErrs):
-    print("Thread errors detected")
+if(not isTest and (isLoud or threadErrs)):
+    if(threadErrs):
+        try:
+            response = client.files_upload(
+                file=threadErrsFile,
+                initial_comment='Threading Data Race Problems:\n\n',
+                channels="#kaijudev",
+                )
+            assert response['ok']
+            slack_file = response['file']
+        except SlackApiError as e:
+            # You will get a SlackApiError if "ok" is False
+            assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
+        try:
+            response = client.chat_postMessage(
+                channel="#kaijudev",
+                text="Threading Data Race Problems Detected\nPlease check the errors sent above",
+            )
+        except SlackApiError as e:
+           # You will get a SlackApiError if "ok" is False
+           assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
+    else:
+        try:
+            response = client.chat_postMessage(
+                channel="#kaijudev",
+                text="No Threading Data Race Problems Detected",
+            )
+        except SlackApiError as e:
+           # You will get a SlackApiError if "ok" is False
+           assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
 else:
-    print("No thread errors detected")
-
-exit()
-
-# Set it as a message for the slack bot
-myText = "Intel Memory Test:\nLocated at: "
-myText = myText + os.getcwd() + "\n"
-myText = myText + str1
-
-print(myText)
-
-# If not a test, send message to Slack
-# Try to send Slack message
-try:
-    response = client.chat_postMessage(
-    	channel="#kaijudev",
-    	text=myText,
-    )
-except SlackApiError as e:
-   # You will get a SlackApiError if "ok" is False
-   assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
-
-# Threading
-os.chdir(home)
-os.chdir('intelChecks/bin/r001ti3')
-process = subprocess.call("ls", shell=True)
-time.sleep(60)
-
-# Open file and record results
-file = open("inspxe-cl.txt", 'r')
-results = file.readlines()
-
-# Turn list into big string
-str1 = ""
-
-for element in results:
-	str1 = str1 + element
-
-# Set it as a message for the slack bot
-myText = "Intel Thread Checker:\nLocated at: "
-myText = myText + os.getcwd() + "\n"
-myText = myText + str1
-
-print(myText)
-
-# Try to send Slack message
-try:
-    response = client.chat_postMessage(
-    	channel="#kaijudev",
-    	text=myText,
-    )
-except SlackApiError as e:
-   # You will get a SlackApiError if "ok" is False
-   assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
-
+    if(threadErrs):
+        print("*** Threading Data Race Problems Detected ***\nPlease check the results in " + threadErrsFile + "\n")
+    else:
+        print("No Threading Data Race Problems Detected")
 
 # Go to IntelChecks and delete jobs.txt
 os.chdir(home)

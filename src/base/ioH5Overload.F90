@@ -422,9 +422,11 @@ module ioH5Overload
                 !Allocated but wrong size
                 deallocate(IOBuffer)
                 allocate(IOBuffer(N))
+                IOBuffer = 0.0_rp
             endif
         else !Not allocated
             allocate(IOBuffer(N))
+            IOBuffer = 0.0_rp
         endif
 
         !Copy data

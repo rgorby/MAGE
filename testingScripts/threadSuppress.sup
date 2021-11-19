@@ -14,3 +14,11 @@ Suppression = {
     }
 }
 
+Suppression = {
+    Stacks = {
+        {
+            mod=libmkl_core.so*;
+        }
+    }
+}
+
