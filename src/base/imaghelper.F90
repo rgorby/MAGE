@@ -139,6 +139,7 @@ module imaghelper
 
 	!Map xyz coordinates to dusk along Shue MP contours
 	subroutine ShueMP2Dusk(xyz,xyzD)
+        !DEC$ ATTRIBUTES NOINLINE :: ShueMP2Dusk
 		real(rp), intent(in)  :: xyz (NDIM)
 		real(rp), intent(out) :: xyzD(NDIM)
 
