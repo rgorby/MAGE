@@ -300,12 +300,91 @@ module mixconductance
       type(mixState_T), intent(inout) :: St
 
       call conductance_zhang15(conductance,G,St)
-      ! If there is no potential drop OR mono eflux is too low, use RCM precipitation instead.
-      where(conductance%deltaE<=0.0)
-         St%Vars(:,:,AVG_ENG)  = max(St%Vars(:,:,IM_EAVG),1.D-8) ! [keV]
-         St%Vars(:,:,NUM_FLUX) = St%Vars(:,:,IM_EFLUX)/(St%Vars(:,:,AVG_ENG)*kev2erg) ! [ergs/cm^2/s]
-         St%Vars(:,:,Z_NFLUX)  = -1.0 ! for diagnostic purposes since full Z15 does not currently work.
-      end where
+
+      !$OMP PARALLEL DO default(shared) &
+      !$OMP private(i,j,isRCM,isMono,isMHD,rcm_SigP,mhd_SigP) &
+      !$OMP private(rcm_eavg,rcm_nflx,mhd_eavg,mhd_nflx,rcm_eavg_fin,rcm_nflx_fin)
+      do j=1,G%Nt
+         do i=1,G%Np
+            isMono = conductance%deltaE(i,j) > 0.0    !Potential drop
+            isMHD  = conductance%E0(i,j)     > pK     !Have "hot" MHD information, ie worth putting into Robinson
+            !isRCM  = St%Vars(i,j,IM_EAVG)    > 1.0e-8 !Have RCM information
+            isRCM  = St%Vars(i,j,IM_TOPOD) > 0.5! .and. St%Vars(i,j,IM_EAVG)>1.0e-8 ! IM_TOPOD is interpolated from rcm.
+
+            !Cases: isMono/isRCM/isMHD = 8 cases
+            !- No RCM: 
+            if (.not. isRCM) then
+               !*/F/* = 4 cases
+               !If we don't have RCM info then MHD is the only game in town, use Zhang
+               St%Vars(i,j,AVG_ENG ) = St%Vars(i,j,Z_EAVG) ! [keV]
+               St%Vars(i,j,NUM_FLUX) = St%Vars(i,j,Z_NFLUX)! [#/cm^2/s]
+               St%Vars(i,j,AUR_TYPE) = AT_ZHANG
+               cycle
+               !NOTE: Should we handle ~isRCM and ~isMHD case separately?
+            endif
+            
+            !If still here we have RCM information
+            rcm_eavg = St%Vars(i,j,IM_EAVG)
+!            if(St%Vars(i,j,IM_EAVG)>TINY) then
+               rcm_nflx = St%Vars(i,j,IM_EFLUX)/(St%Vars(i,j,IM_EAVG)*kev2erg)
+!            else
+!               rcm_nflx = 0.0
+!            endif
+            mhd_eavg = St%Vars(i,j,Z_EAVG)
+            mhd_nflx = St%Vars(i,j,Z_NFLUX)
+
+            !- No (hot) MHD, but RCM info (ie low-lat plasmasphere)
+            if (.not. isMHD) then !T/T/F & F/T/F
+               !NOTE: Split this case into isMono and apply drop to RCM?
+               !For now just use RCM
+               St%Vars(i,j,AVG_ENG ) = rcm_eavg
+               St%Vars(i,j,NUM_FLUX) = rcm_nflx
+               St%Vars(i,j,Z_NFLUX ) = -1.0 ! for diagnostic purposes since full Z15 does not currently work.
+               cycle               
+            endif
+
+            !Remaining, have both RCM and (hot) MHD. May or may not have pot drop
+            !T/T/T and F/T/T
+
+            if (.not. isMono) then
+               !F/T/T
+               !Have RCM info and no drop, just use RCM
+               St%Vars(i,j,AVG_ENG ) = rcm_eavg
+               St%Vars(i,j,NUM_FLUX) = rcm_nflx
+               !St%Vars(i,j,Z_NFLUX ) = -1.0 ! for diagnostic purposes since full Z15 does not currently work.
+               St%Vars(i,j,AUR_TYPE) = AT_RCM
+               cycle
+            endif
+
+            !If still here, we have both RCM info and a potential drop
+            !Decide between the two by taking one that gives highest Sig-P
+            if (conductance%doMR) then
+               call AugmentMR(rcm_eavg,rcm_nflx,rcm_eavg_fin,rcm_nflx_fin) !Correct for MR
+            else
+               !No corrections
+               rcm_eavg_fin = rcm_eavg 
+               rcm_nflx_fin = rcm_nflx
+            endif
+
+            rcm_SigP = SigmaP_Robinson(rcm_eavg_fin,kev2erg*rcm_eavg_fin*rcm_nflx_fin)
+            mhd_SigP = SigmaP_Robinson(mhd_eavg    ,kev2erg*mhd_eavg    *mhd_nflx    )
+
+            if (mhd_SigP>rcm_SigP) then
+               St%Vars(i,j,AVG_ENG ) = mhd_eavg
+               St%Vars(i,j,NUM_FLUX) = mhd_nflx
+               St%Vars(i,j,AUR_TYPE) = AT_ZHANG
+            else
+               !RCM diffuse is still better than MHD + puny potential drop
+               St%Vars(i,j,AVG_ENG ) = rcm_eavg !Use un-augmented value since MR gets called later
+               St%Vars(i,j,NUM_FLUX) = rcm_nflx
+               conductance%deltaE(i,j) = 0.0 !Wipe out potential drop since it don't matter (otherwise MR won't happen if desired)
+
+               !St%Vars(i,j,Z_NFLUX ) = -1.0
+               St%Vars(i,j,AUR_TYPE) = AT_RCMZ
+            endif
+
+         enddo
+      enddo
 
     end subroutine conductance_rcmono
 

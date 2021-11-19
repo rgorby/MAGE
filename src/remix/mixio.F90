@@ -53,6 +53,14 @@ contains
     mixUnitNames(Z_NFLUX)      = "1/cm^2 s"
     mixVarNames(Z_EAVG)        = "Zhang average energy"
     mixUnitNames(Z_EAVG)       = "keV"
+    mixVarNames(CRPOT)         = "Corotation Potential"
+    mixUnitNames(CRPOT)        = "kV"
+    mixVarNames(TPOT)          = "Total Potential"
+    mixUnitNames(TPOT)         = "kV"
+    mixVarNames(IM_TOPOD)      = "RCM grid type"
+    mixUnitNames(IM_TOPOD)     = "0-1"
+    mixVarNames(AUR_TYPE)      = "Auroral model type"
+    mixUnitNames(AUR_TYPE)     = "Zhang Fedder RCM RCMZ"
   end subroutine initMIXNames
 
   subroutine initMIXIO(I,RunID,isRestart,nRes)
@@ -166,7 +174,15 @@ contains
           case (Z_EAVG)
              doDump = .true.         
           case (NEUTRAL_WIND) 
-             doDump = .false.
+             doDump = .false.         
+          case (CRPOT) 
+             doDump = .true.       
+          case (TPOT) 
+             doDump = .true.
+          case (IM_TOPOD)
+             doDump = .true.
+          case (AUR_TYPE)
+             doDump = .true.
           case (EFIELD)
              ! we never compute it
              doDump = .false.
@@ -539,7 +555,6 @@ contains
     !mixIOobj%Vars = 0 ! and initialize to zero
     I(NORTH)%St%Vars = 0
     I(SOUTH)%St%Vars = 0
-
     do h=1,size(hmsphrs)
        if (h.eq.NORTH) then
           hStr = "NORTH"          
@@ -645,6 +660,10 @@ contains
              doDump = .true.
           case (Z_EAVG)
              doDump = .true.   
+          case (IM_TOPOD)
+             doDump = .true.
+          case (AUR_TYPE)
+             doDump = .true.
           case (NEUTRAL_WIND) 
              doDump = .false.
           case (EFIELD)

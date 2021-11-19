@@ -7,6 +7,7 @@ module rcm_mix_interface
   implicit none
 
   type(mixGrid_T), private :: rcmG, rcmG_mixstyle, rcmGS
+  real(rp), dimension(:,:), allocatable :: rcmTopod
 
 contains
 
@@ -33,7 +34,11 @@ contains
     allocate(imag2mix%lonc (Nt,Np))
     allocate(imag2mix%fac  (Nt,Np))
     allocate(imag2mix%inIMag(Nt,Np))
+    allocate(imag2mix%inIMagActive(Nt,Np))
+    allocate(imag2mix%inIMagBuffer(Nt,Np))
     imag2mix%inIMag(:,:) = .false.
+    imag2mix%inIMagActive(:,:) = .false.
+    imag2mix%inIMagBuffer(:,:) = .false.
     imag2mix%isInit = .true.
 
   !Now do remix mapping
@@ -75,8 +80,8 @@ contains
     type(imag2Mix_T), intent(inout) :: imag2mix
     type(mixApp_T), intent(inout) :: remixApp
     type(Map_T) :: rcmMap, rcmMapS
-    real(rp),dimension(:,:),allocatable :: rcmEflux_mix,rcmEavg_mix
-    real(rp), dimension(:,:), allocatable :: efluxS, eavgS ! for SH mapping. will add ifluxS and iavgS later.
+    real(rp),dimension(:,:),allocatable :: rcmEflux_mix,rcmEavg_mix,rcmTopod_mix
+    real(rp), dimension(:,:), allocatable :: efluxS, eavgS, rcmTopodS ! for SH mapping. will add ifluxS and iavgS later.
     integer :: ii, jj, kk, Nt, Np
     integer :: SHmaptype 
     ! # of steps for mapping RCM SH precipitation (may make it an option in XML later): 
@@ -91,22 +96,36 @@ contains
     ! do mapping here since in geo the RCM grid will be moving
     ! FIXME: if we do RCM in SM, though, this is not necessary (can set map in the init routine above)
 
+    Nt = size(imag2mix%latc,1)
+    Np = size(imag2mix%latc,2) ! imag2mix%latc (Nt,Np)
+    if (.not.allocated(rcmTopod)) allocate(rcmTopod(Nt,Np))
+    rcmTopod = 0.D0
+    where(imag2mix%inIMagActive)
+       rcmTopod = 1.0
+    elsewhere(imag2mix%inIMagBuffer)
+       rcmTopod = 0.5
+    endwhere
+    print *,'ldong_20211105 rcmTopod',minval(rcmTopod),maxval(rcmTopod)
+
     call mix_set_map(rcmG_mixstyle,remixApp%ion(NORTH)%G,rcmMap)
     associate(rcmNt=>rcmG_mixstyle%Nt,rcmNp=>rcmG_mixstyle%Np)
     call mix_map_grids(rcmMap,transpose(imag2mix%eflux(:,1:rcmNp)),rcmEflux_mix)
     call mix_map_grids(rcmMap,transpose(imag2mix%eavg(:,1:rcmNp)),rcmEavg_mix)
+    call mix_map_grids(rcmMap,transpose(rcmTopod),rcmTopod_mix)
     end associate
 
     remixApp%ion(NORTH)%St%Vars(:,:,IM_EAVG)  = rcmEavg_mix*1e-3 ! [eV -> keV]
     remixApp%ion(NORTH)%St%Vars(:,:,IM_EFLUX) = rcmEflux_mix     ! [ergs/cm^2/s]
+    remixApp%ion(NORTH)%St%Vars(:,:,IM_TOPOD) = rcmTopod_mix
 
     ! Southern Hemisphere Mapping
     if(SHmaptype==1) then
-       call mapIMagSToRemix(imag2mix,remixApp,efluxS,eavgS)
-       rcmEavg_mix = transpose(eavgS)
+       call mapIMagSToRemix(imag2mix,remixApp,efluxS,eavgS,rcmTopodS)
+       rcmEavg_mix  = transpose(eavgS)
        rcmEflux_mix = transpose(efluxS)
+       rcmTopod_mix = transpose(rcmTopodS)
     elseif(SHmaptype==2) then
-       call mapIMagSToIMag(imag2mix,efluxS,eavgS)
+       call mapIMagSToIMag(imag2mix,efluxS,eavgS) ! need updates to deal with inIMagActive and inIMagBuffer. But SHmaptype=2 is never used.
        call mix_set_map(rcmGS,remixApp%ion(NORTH)%G,rcmMapS)
        associate(rcmNt=>rcmGS%Nt,rcmNp=>rcmGS%Np)
        call mix_map_grids(rcmMapS,transpose(efluxS(:,1:rcmNp-1)),rcmEflux_mix)
@@ -117,6 +136,7 @@ contains
     associate(Nt=>remixApp%ion(SOUTH)%G%Nt,Np=>remixApp%ion(SOUTH)%G%Np)
     remixApp%ion(SOUTH)%St%Vars(:,:,IM_EAVG)  = rcmEavg_mix(Np:1:-1,:)*1e-3 ! [eV -> keV]
     remixApp%ion(SOUTH)%St%Vars(:,:,IM_EFLUX) = rcmEflux_mix(Np:1:-1,:)
+    remixApp%ion(SOUTH)%St%Vars(:,:,IM_TOPOD) = rcmTopod_mix(Np:1:-1,:)
     end associate
 
 ! For proton precipitation (all zero for now)
@@ -137,11 +157,11 @@ contains
     imag2mix%isFresh = .false.
   end subroutine mapIMagToRemix
 
-  subroutine mapIMagSToRemix(imag2mix,remixApp,efluxS,eavgS)
+  subroutine mapIMagSToRemix(imag2mix,remixApp,efluxS,eavgS,rcmTopodS)
   ! Directly map from irregular RCM SH grid to ReMIX.
     type(imag2Mix_T), intent(in) :: imag2mix
     type(mixApp_T), intent(inout) :: remixApp
-    real(rp), dimension(:,:), allocatable, intent(inout) :: efluxS, eavgS
+    real(rp), dimension(:,:), allocatable, intent(inout) :: efluxS, eavgS, rcmTopodS
     real(rp), dimension(:,:), allocatable :: colatc, glongc, rcmt, rcmp, Ainvdwgt2
     real(rp) :: dlat, delt, delp, invdwgt
     integer :: i, j, Np, Nt, i0, j0, NpS, NtS, jl, ju, il, iu, jp, dj
@@ -169,13 +189,15 @@ contains
     ! Lastly, normalize the contribution by total IDW.
     if (.not.allocated(efluxS)) allocate(efluxS(NtS,NpS))
     if (.not.allocated(eavgS))  allocate(eavgS(NtS,NpS))
+    if (.not.allocated(rcmTopodS))  allocate(rcmTopodS(NtS,NpS))
     if (.not.allocated(Ainvdwgt2))  allocate(Ainvdwgt2(NtS,NpS))
     efluxS = 0.0
     eavgS = 0.0
+    rcmTopodS = 0.0
     Ainvdwgt2 = 0.0
     !$OMP PARALLEL DO default(shared) collapse(2) &
     !$OMP private(i,j,i0,il,iu,j0,jl,ju,jp,delt,delp,invdwgt) &
-    !$OMP reduction(+:efluxS,eavgS,Ainvdwgt2)
+    !$OMP reduction(+:efluxS,eavgS,Ainvdwgt2,rcmTopodS)
     do j=1,Np
        do i=1,Nt
           if(imag2mix%eflux(i,j)>0.0) then
@@ -199,6 +221,7 @@ contains
                        invdwgt = 1./sqrt(delt**2+delp**2)
                        efluxS(i0,j0) = efluxS(i0,j0) + imag2mix%eflux(i,j)*invdwgt
                        eavgS(i0,j0)  = eavgS(i0,j0)  + imag2mix%eavg(i,j)*invdwgt
+                       rcmTopodS(i0,j0)  = rcmTopodS(i0,j0)  + rcmTopod(i,j)*invdwgt
                        Ainvdwgt2(i0,j0)  = Ainvdwgt2(i0,j0)  + invdwgt
                      enddo
                    elseif(jp>NpS-dj) then
@@ -208,6 +231,7 @@ contains
                        invdwgt = 1./sqrt(delt**2+delp**2)
                        efluxS(i0,j0) = efluxS(i0,j0) + imag2mix%eflux(i,j)*invdwgt
                        eavgS(i0,j0)  = eavgS(i0,j0)  + imag2mix%eavg(i,j)*invdwgt
+                       rcmTopodS(i0,j0)  = rcmTopodS(i0,j0)  + rcmTopod(i,j)*invdwgt
                        Ainvdwgt2(i0,j0)  = Ainvdwgt2(i0,j0)  + invdwgt
                      enddo
                    endif
@@ -217,6 +241,7 @@ contains
                       invdwgt = 1./sqrt(delt**2+delp**2)
                       efluxS(i0,j0) = efluxS(i0,j0) + imag2mix%eflux(i,j)*invdwgt
                       eavgS(i0,j0)  = eavgS(i0,j0)  + imag2mix%eavg(i,j)*invdwgt
+                      rcmTopodS(i0,j0)  = rcmTopodS(i0,j0)  + rcmTopod(i,j)*invdwgt
                       Ainvdwgt2(i0,j0)  = Ainvdwgt2(i0,j0)  + invdwgt
                    enddo
                 endif
@@ -231,6 +256,7 @@ contains
           if(Ainvdwgt2(i0,j0)>0.0) then
              efluxS(i0,j0) = efluxS(i0,j0)/Ainvdwgt2(i0,j0)
              eavgS(i0,j0) = eavgS(i0,j0)/Ainvdwgt2(i0,j0)
+             rcmTopodS(i0,j0) = rcmTopodS(i0,j0)/Ainvdwgt2(i0,j0)
           endif
        end do
     end do

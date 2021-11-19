@@ -50,7 +50,7 @@ module volttypes
         real(rp), dimension(:,:), allocatable :: latc,lonc
         real(rp), dimension(:,:), allocatable :: fac
         
-        logical, dimension(:,:), allocatable :: inIMag
+        logical, dimension(:,:), allocatable :: inIMag,inIMagActive,inIMagBuffer
     end type imag2Mix_T
 
     ! data for gamera -> remix conversion

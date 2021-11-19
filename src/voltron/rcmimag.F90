@@ -344,6 +344,11 @@ module rcmimag
         else    
             vApp%imag2mix%inIMag = (RCMApp%iopen == RCMTOPCLOSED)
         endif
+
+        !Pseudocode for redoing remix conductance merge
+        vApp%imag2mix%inIMagActive =(RCMApp%iopen == RCMTOPCLOSED)
+        vApp%imag2mix%inIMagBuffer = (.not. RCMApp%iopen == RCMTOPCLOSED) .and. (.not. RCMApp%iopen == RCMTOPOPEN)
+        
         vApp%imag2mix%latc = RCMApp%latc
         vApp%imag2mix%lonc = RCMApp%lonc
 
