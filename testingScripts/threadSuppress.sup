@@ -1,6 +1,14 @@
 Suppression = {
     Stacks = {
         {
+            mod=libhdf5.so*;
+        }
+    }
+}
+
+Suppression = {
+    Stacks = {
+        {
             mod=libmkl_avx2.so*;
         }
     }
