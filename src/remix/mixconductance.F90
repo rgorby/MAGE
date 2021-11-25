@@ -325,11 +325,11 @@ module mixconductance
             
             !If still here we have RCM information
             rcm_eavg = St%Vars(i,j,IM_EAVG)
-!            if(St%Vars(i,j,IM_EAVG)>TINY) then
+            if(St%Vars(i,j,IM_EAVG)>TINY) then
                rcm_nflx = St%Vars(i,j,IM_EFLUX)/(St%Vars(i,j,IM_EAVG)*kev2erg)
-!            else
-!               rcm_nflx = 0.0
-!            endif
+            else
+               rcm_nflx = 0.0
+            endif
             mhd_eavg = St%Vars(i,j,Z_EAVG)
             mhd_nflx = St%Vars(i,j,Z_NFLUX)
 
