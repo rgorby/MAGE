@@ -138,7 +138,7 @@ for root, dirs, files in os.walk("."):
                     memFile.write(memOut)
                     memFile.write("\n")
 
-if(not isTest and (isLoud or memErrs)):
+if(not isTest and (beLoud or memErrs)):
     if(memErrs):
         try:
             response = client.files_upload(
@@ -199,7 +199,7 @@ for root, dirs, files in os.walk("."):
                     threadFile.write(threadOut)
                     threadFile.write("\n")
 
-if(not isTest and (isLoud or threadErrs)):
+if(not isTest and (beLoud or threadErrs)):
     if(threadErrs):
         try:
             response = client.files_upload(
