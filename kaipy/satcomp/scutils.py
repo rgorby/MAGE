@@ -98,9 +98,9 @@ def getScIds(doPrint=False):
 	if doPrint:
 		print("Retrievable spacecraft data:")
 		for sc in scdict.keys():
-			print('  ' + sc)
+			print('	 ' + sc)
 			for v in scdict[sc].keys():
-				print('    ' + v)
+				print('	   ' + v)
 	return scdict
 
 def getCdasDsetInterval(dsName):
@@ -116,9 +116,9 @@ def pullVar(cdaObsId,cdaDataId,t0,t1,deltaT=60,epochStr="Epoch",doVerbose=False)
 	"""Pulls info from cdaweb
 		cdaObsId  : [str] Dataset name
 		cdaDataId : [str or list of strs] variables from dataset
-		t0        : [str] start time, formatted as '%Y-%m-%dT%H:%M:%S.%f'
-		t1        : [str] end time, formatted as '%Y-%m-%dT%H:%M:%S.%f'
-		deltaT    : [float] time cadence [sec], used when interping through time with no data
+		t0	  : [str] start time, formatted as '%Y-%m-%dT%H:%M:%S.%f'
+		t1	  : [str] end time, formatted as '%Y-%m-%dT%H:%M:%S.%f'
+		deltaT	  : [float] time cadence [sec], used when interping through time with no data
 		epochStr  : [str] name of Epoch var in dataset. Used when needing to build day-by-day
 		doVerbose : [bool] Helpful for debugging/diagnostics
 	"""
@@ -156,13 +156,14 @@ def pullVar(cdaObsId,cdaDataId,t0,t1,deltaT=60,epochStr="Epoch",doVerbose=False)
 		if status['http']['status_code'] != 200:
 			# If it still fails, its some other problem and we'll die
 			if doVerbose: print("Still bad pull. Dying.")
-			return {}
+			return status,data
 		if data is None:
 			if doVerbose: print("Cdas responded with 200 but returned no data")
-			return {}
+			return status,data
 		if numDays > 1 and epochStr not in data:
 			if doVerbose: print(epochStr + " not in dataset, can't build day-by-day")
-			return {}
+			data = None
+			return status,data
 		
 		#Figure out which axes are the epoch axis in each dataset so we can concatenate along it
 		nTime = len(data[epochStr])
@@ -210,7 +211,7 @@ def getSatData(scDic,t0,t1,deltaT):
 	#go no further
 	status,data = pullVar(scDic['Ephem']['Id'],scDic['Ephem']['Data'],
 						  t0,t1,deltaT)
-	if status['http']['status_code'] != 200:
+	if status['http']['status_code'] != 200 or data is None:
 		print('Unable to get data for ', scDic['Ephem']['Id'])
 		return status,data
 	else:

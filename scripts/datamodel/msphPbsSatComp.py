@@ -102,7 +102,7 @@ if __name__ == '__main__':
 			t0.strftime("%Y-%m-%dT%H:%M:%SZ"),
 			t1.strftime("%Y-%m-%dT%H:%M:%SZ"),deltaT)
 
-		if status['http']['status_code'] != 200:
+		if status['http']['status_code'] != 200 or data is None:
 			print('No data available for', scId)
 		else:
 			(scTrackName,xmlFileName) = scutils.createInputFiles(data,
