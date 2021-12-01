@@ -389,7 +389,8 @@ module volthelpers_mpi
             ! master voltron rank is not helping, my block index is reduced by 1
             vApp%ebTrcApp%ebSquish%myFirstBlock = vApp%vHelpRank - 1
         endif
-        vApp%ebTrcApp%ebSquish%curSquishBlock = vApp%ebTrcApp%ebSquish%myFirstBlock
+        
+        call SquishStart(vApp)
 
         do while(SquishBlocksRemain(vApp))
             call DoSquishBlock(vApp)

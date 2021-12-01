@@ -901,8 +901,11 @@ contains
       class(XML_Input_T) :: this
       integer          :: bsz
       character(len=strLen) :: buf
+      character(len=3) :: readFormat
 
-      read (this%fid, '(A)', iostat=this%fst) buf
+      ! do it this way to avoid memory access errors
+      readFormat = "(A)"
+      read (this%fid, readFormat, iostat=this%fst) buf
       this%buf = trim(buf)
       if (this%fst /= 0) then
          Read_Line = .false.

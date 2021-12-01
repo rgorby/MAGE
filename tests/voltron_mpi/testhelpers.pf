@@ -143,7 +143,10 @@ contains
       real(rp), dimension(2) :: posErr
       real(rp) :: sqErr, maxSqErr
       integer :: i,j,k
-      logical :: helperQuit = .false. ! placeholder argument
+      logical :: helperQuit
+
+      ! debugging
+      !type(IOVAR_T), dimension(12) :: IOVars
 
       write (*,'(a,I0)') 'Testing HelpSquish ',this%getNumProcesses()
 
@@ -159,11 +162,16 @@ contains
       if(.not. isGamera) then
           if(.not. voltAppMpi%amHelper) then
               
+              ! call doImag once to update rTrc and nTrc before doing any squishing
+              call PreDeep(voltAppMpi, voltAppMpi%gAppLocal)
+              call DoImag(voltAppMpi)
+
               ! calculate distributed squish from most recent results
               call startDeep(voltAppMpi)
               do while(deepInProgress(voltAppMpi))
                   call doDeepBlock(voltAppMpi)
               enddo
+              call vhReqHelperQuit(voltAppMpi) ! tell the helpers they're done
               allocate(distSquish,  MOLD=voltAppMpi%chmp2mhd%xyzSquish)
               distSquish = voltAppMpi%chmp2mhd%xyzSquish
 
@@ -185,6 +193,13 @@ contains
                   enddo
               enddo
 
+              ! debugging...
+              !call ClearIO(IOVars)
+              !call AddOutVar(IOVars,"distSquish",distSquish)
+              !call AddOutVar(IOVars,"localSquish",voltAppMpi%chmp2mhd%xyzSquish)
+              !call WriteVars(IOVars,.false.,"SquishTestData.h5")
+              ! ...debugging
+
               deallocate(distSquish)
 
               ! Floating point error rounding
@@ -193,8 +208,10 @@ contains
 
           else
               ! helpers
-              call helpVoltron(voltAppMpi, helperQuit) ! start squish
-              call helpVoltron(voltAppMpi, helperQuit) ! end squish
+              helperQuit = .false.
+              do while(.not. helperQuit)
+                  call helpVoltron(voltAppMpi, helperQuit)
+              end do
           endif
       endif
 

@@ -131,9 +131,9 @@ def getScIds(doPrint=False):
 	if doPrint:
 		print("Retrievable spacecraft data:")
 		for sc in scdict.keys():
-			print('  ' + sc)
+			print('	 ' + sc)
 			for v in scdict[sc].keys():
-				print('    ' + v)
+				print('	   ' + v)
 	return scdict
 
 def getCdasDsetInterval(dsName):
@@ -149,9 +149,9 @@ def pullVar(cdaObsId,cdaDataId,t0,t1,deltaT=60,epochStr="Epoch",doVerbose=False)
 	"""Pulls info from cdaweb
 		cdaObsId  : [str] Dataset name
 		cdaDataId : [str or list of strs] variables from dataset
-		t0        : [str] start time, formatted as '%Y-%m-%dT%H:%M:%S.%f'
-		t1        : [str] end time, formatted as '%Y-%m-%dT%H:%M:%S.%f'
-		deltaT    : [float] time cadence [sec], used when interping through time with no data
+		t0	  : [str] start time, formatted as '%Y-%m-%dT%H:%M:%S.%f'
+		t1	  : [str] end time, formatted as '%Y-%m-%dT%H:%M:%S.%f'
+		deltaT	  : [float] time cadence [sec], used when interping through time with no data
 		epochStr  : [str] name of Epoch var in dataset. Used when needing to build day-by-day
 		doVerbose : [bool] Helpful for debugging/diagnostics
 	"""
@@ -191,13 +191,14 @@ def pullVar(cdaObsId,cdaDataId,t0,t1,deltaT=60,epochStr="Epoch",doVerbose=False)
 		if status['http']['status_code'] != 200:
 			# If it still fails, its some other problem and we'll die
 			if doVerbose: print("Still bad pull. Dying.")
-			return {}
+			return status,data
 		if data is None:
 			if doVerbose: print("Cdas responded with 200 but returned no data")
-			return {}
+			return status,data
 		if numDays > 1 and epochStr not in data:
 			if doVerbose: print(epochStr + " not in dataset, can't build day-by-day")
-			return {}
+			data = None
+			return status,data
 		
 		#Figure out which axes are the epoch axis in each dataset so we can concatenate along it
 		nTime = len(data[epochStr])
@@ -231,7 +232,7 @@ def addVar(mydata,scDic,varname,t0,t1,deltaT):
 	if scDic[varname]['Id'] is not None:
 		status,data = pullVar(scDic[varname]['Id'],scDic[varname]['Data'],t0,t1,deltaT)
 		#print(status)
-		if status['http']['status_code'] == 200:
+		if status['http']['status_code'] == 200 and data is not None:
 			mydata[varname] = dm.dmarray(data[scDic[varname]['Data']],
 										 attrs=data[scDic[varname]['Data']].attrs)
 			#mydata.tree(attrs=True)
@@ -245,7 +246,7 @@ def getSatData(scDic,t0,t1,deltaT):
 	#go no further
 	status,data = pullVar(scDic['Ephem']['Id'],scDic['Ephem']['Data'],
 						  t0,t1,deltaT)
-	if status['http']['status_code'] != 200:
+	if status['http']['status_code'] != 200 or data is None:
 		print('Unable to get data for ', scDic['Ephem']['Id'])
 		return status,data
 	else:
@@ -437,7 +438,7 @@ def addGAMERA(data,scDic,h5name):
 	else:
 		toCoordSys = scDic['Velocity']['CoordSys']
 	lfmv_out = convertGameraVec(vx[:],vy[:],vz[:],ut,
-		'SM','car',scDic['MagneticField']['CoordSys'],'car')
+		'SM','car',toCoordSys,'car')
 	data['GAMERA_Velocity'] = dm.dmarray(lfmv_out.data,
 		attrs={'UNITS':vx.attrs['Units'],
 		'CATDESC':'Velocity, cartesian'+toCoordSys,
@@ -578,7 +579,7 @@ def genSatCompPbsScript(scId,fdir,cmd,account='P28100045'):
 #PBS -N %s
 #PBS -j oe
 #PBS -q casper
-#PBS -l walltime=2:00:00
+#PBS -l walltime=1:00:00
 #PBS -l select=1:ncpus=1
 """
 	moduleString = """module purge

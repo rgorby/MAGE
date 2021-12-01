@@ -833,6 +833,7 @@ module voltapp_mpi
 
         if(vApp%useHelpers .and. vApp%doSquishHelp) then
             call Tic("VoltHelpers")
+            call vhReqStep(vApp)
             call vhReqSquishStart(vApp)
             call Toc("VoltHelpers")
         endif

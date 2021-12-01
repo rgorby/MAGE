@@ -51,6 +51,38 @@ MODULE ionosphere_exchange
       rm%gcolat (:) = colat (:,1)
       rm%glong  (:) = aloct (1,jwrap:jsize)
       if (rm%glong(rm%nLon_ion) < pi) rm%glong(rm%nLon_ion) = rm%glong(rm%nLon_ion) + 2*pi
+
+      ! initialize all other variables to 0
+      rm%pot = 0.0
+      rm%eng_avg = 0.0
+      rm%flux = 0.0
+      rm%fac = 0.0
+      rm%Pave = 0.0
+      rm%Nave = 0.0
+      rm%Vol = 0.0
+      rm%Bmin = 0.0
+      rm%X_bmin = 0.0
+      rm%iopen = 0
+      rm%Prcm = 0.0
+      rm%Npsph = 0.0
+      rm%Nrcm = 0.0
+      rm%beta_average = 0.0
+      rm%sigmap = 0.0
+      rm%sigmah = 0.0
+      rm%latc = 0.0
+      rm%lonc = 0.0
+      rm%Lb = 0.0
+      rm%Tb = 0.0
+      rm%toMHD = .False.
+      rm%losscone = 0.0
+      rm%radcurv = 0.0
+      rm%wIMAG = 0.0
+      rm%oxyfrac = 0.0
+      rm%Percm = 0.0
+      rm%errD = 0.0
+      rm%errP = 0.0
+      rm%nTrc = 0
+
     END SUBROUTINE setupIon
 
     !> Deallocate any variables allocated by setupIon.
