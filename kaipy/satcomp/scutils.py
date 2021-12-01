@@ -197,7 +197,7 @@ def addVar(mydata,scDic,varname,t0,t1,deltaT):
 	if scDic[varname]['Id'] is not None:
 		status,data = pullVar(scDic[varname]['Id'],scDic[varname]['Data'],t0,t1,deltaT)
 		#print(status)
-		if status['http']['status_code'] == 200:
+		if status['http']['status_code'] == 200 and data is not None:
 			mydata[varname] = dm.dmarray(data[scDic[varname]['Data']],
 										 attrs=data[scDic[varname]['Data']].attrs)
 			#mydata.tree(attrs=True)
