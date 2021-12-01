@@ -196,6 +196,7 @@ module rcmXimag
         DO i = 1,isize
             DO j = 1,jsize
 
+
                 if (empTpIo(i,j) > (-0.5) .or. empTpBvol(i,j) < 0) then  ! If interpolated point is fairly influenced by an open line, kill it
                     ! Make sure mhd won't ingest this point
                     ! Probably only need to set one of these but idk where we are in RCMEval pipeline so set both to be safe

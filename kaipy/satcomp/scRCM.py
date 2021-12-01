@@ -10,6 +10,8 @@ import kaipy.kaiH5 as kh5
 import kaipy.kaiViz as kv
 import kaipy.kaijson as kj
 import kaipy.kaiTools as kT
+import kaipy.gamera.gampp as gampp
+import kaipy.gamera.rcmpp as rcmpp
 
 import kaipy.satcomp.scutils as scutils
 
@@ -31,6 +33,8 @@ specFlux_factor_i = 1/np.pi/np.sqrt(8)*np.sqrt(ev/massi)*nt/re/1.0e1  # [units/c
 specFlux_factor_e = 1/np.pi/np.sqrt(8)*np.sqrt(ev/masse)*nt/re/1.0e1  # [units/cm^2/keV/str]
 TINY = 1.0e-8
 
+to_center = lambda A: 0.25*(A[:-1,:-1]+A[1:,:-1]+A[:-1,1:]+A[1:,1:])
+
 #Settings that should maybe be elsewhere
 tkl_lInner = 2  # Exclude points within 2 Re
 
@@ -46,27 +50,6 @@ MHDRCM_TIME_JFNAME = 'mhdrcm_times.json'
 #Probably shouldn't be hard-coded
 supportedSats = ["RBSPA", "RBSPB"]
 supportedDsets = ["Hydrogen_omniflux_RBSPICE", "Electron_omniflux_RBSPICE", "Hydrogen_PAFlux_HOPE"]
-
-
-SC_str = {
-	'RBSP': {
-	 'E_HOPE' : {
-	  'DsetName': 'RBSP%s_REL04_ECT-HOPE-PA-L3',
-	  'DsetVar': ["FEDU, MLT_Ele"],
-	  'dfStr': 'FEDU',
-	  'nrgStr': 'HOPE_ENERGY_Ele',
-	  'epochStr': 'Epoch_Ele'},
-	 'H_HOPE': {
-	  'DsetName': 'RBSP%s_REL04_ECT-HOPE-PA-L3',
-	  'DsetVar': ["FPDU, MLT_ION"],
-	  'dfStr': 'FPDU',
-	  'nrgStr': 'HOPE_ENERGY_Ion',
-	  'epochStr': 'Epoch_Ion'},
-	 'EPH': {
-	 'DsetName': "RBSP-%s_MAGNETOMETER_1SEC-GSM_EMFISIS-L3",
-	 'DsetVar': "coordinates"}
-	}
-}
 
 #======
 #Helpers
@@ -256,7 +239,9 @@ def getRCMtimes(rcmf5,mhdrcmf5,jdir=None, forceCalc=False):
 			idx = np.where(mhdrcmT == rcmT[i])[0]
 			rcmMJDs[i] = mhdrcmMJDs[idx]
 
-	rcmTimes = {'Nt' : Nt,
+	rcmTimes = {'rcmf5' : rcmf5,
+				'mhdrcmf5' : mhdrcmf5,
+				'Nt' : Nt,
 				'sIDs' : sIDs,
 				'sIDstrs' : sIDstrs,
 				'T' : rcmT,
@@ -490,14 +475,10 @@ def consolidateODFs(scData, rcmTrackData, eGrid=None, doPlot=False):
 				k = mapWeights[e][ik][0]
 				weight = mapWeights[e][ik][1]
 				sc_odf[n,e] += weight*scData['OmniDiffFlux'][n,k]
-		"""
-			sc_odf[n,:] = scutils.varMap_1D(scEGrid[n,:], eGrid, scData['OmniDiffFlux'][n,:])
-		else:
-			sc_odf[n,:] = scutils.varMap_1D(scEGrid, eGrid, scData['OmniDiffFlux'][n,:])
-		"""
-
+	
 	Nt_rcm = len(rcmTrackData['T'])
 	rcm_odf = np.zeros((Nt_rcm, len(eGrid)))
+	#TODO: For RCM, we should re-map eetas and then recalc diffFlux
 	for n in range(Nt_rcm):
 		vm = rcmSpec['energies'][n,-1]/rcmSpec['ilamc'][-1]
 		rcme_lower = rcmSpec['ilami'][:-1]*vm
@@ -518,7 +499,6 @@ def consolidateODFs(scData, rcmTrackData, eGrid=None, doPlot=False):
 				k = mapWeights[e][ik][0]
 				weight = mapWeights[e][ik][1]
 				rcm_odf[n,e] += weight*rcmSpec['diffFlux'][n,k]
-		#rcm_odf[n,:] = scutils.varMap_1D(rcmEGrid[n,:], eGrid, rcmSpec['diffFlux'][n,:])
 
 	result = {}
 	result['energyGrid'] = eGrid
@@ -976,8 +956,6 @@ def getRCM_eqlatlon(mhdrcmf5, rcmTimes, sStart, sEnd, sStride, jdir=None, forceC
 		Ir = (bmR < rMin) | (bmR > rMax)
 		I_m = Ir | (iopen_t > ioCut) | (pm < pCut)
 	"""
-	import kaipy.gamera.gampp as gampp
-	import kaipy.gamera.rcmpp as rcmpp
 	#import kaipy.gamera.msphViz as mviz
 	rcmdata = gampp.GameraPipe('',mhdrcmf5.split('.h5')[0])
 	for t in range(0, len(sIDs)):
@@ -1175,11 +1153,15 @@ def plt_ODF_Comp(AxSC, AxRCM, AxCB, odfData, mjd=None, cmapName='CMRmap', norm=N
 
 		if len(AxSC.lines) != 0:
 			AxSC.lines.pop(0)  #Remove previous mjd line
+			AxSC.lines.pop(0)  #Remove previous mjd line
+			AxRCM.lines.pop(0)
 			AxRCM.lines.pop(0)
 		yMin, yMax = AxSC.get_ylim()
-		AxSC.plot([lineUT, lineUT], [yMin, yMax], '-k')
+		AxSC.plot([lineUT, lineUT], [yMin, yMax], '-k',linewidth=2)
+		AxSC.plot([lineUT, lineUT], [yMin, yMax], '-w',linewidth=1)
 		yMin, yMax = AxRCM.get_ylim()
-		AxRCM.plot([lineUT, lineUT], [yMin, yMax], '-k')
+		AxRCM.plot([lineUT, lineUT], [yMin, yMax], '-k',linewidth=2)
+		AxRCM.plot([lineUT, lineUT], [yMin, yMax], '-w',linewidth=1)
 		
 
 def plt_tl(AxTL, tkldata, AxCB=None, mjd=None,cmapName='CMRmap',norm=None):
@@ -1304,7 +1286,7 @@ def plt_rcm_eqlatlon(AxLatlon, AxEq, rcmData, satTrackData=None, AxCB=None, mjd=
 
 	#Initialize static plots if hasn't been done yet
 	if AxCB is not None:
-		AxCB = kv.genCB(AxCB, norm, r'Pressure [$nPa$]', cM=cmapName, doVert=True)
+		AxCB = kv.genCB(AxCB, norm, r'Pressure [$nPa$]', cM=cmapName, doVert=False)
 
 	if mjd is not None:
 		if mjd < mjd_arr[0] or mjd > mjd_arr[-1]:
@@ -1319,10 +1301,10 @@ def plt_rcm_eqlatlon(AxLatlon, AxEq, rcmData, satTrackData=None, AxCB=None, mjd=
 		#Prep rcm lat/lons for polar plotting
 		riono = np.cos(mlat_arr*np.pi/180.)
 		tiono = np.concatenate((mlon_arr, [mlon_arr[0]]))*np.pi/180.
-		AxLatlon.pcolor(tiono, riono, np.transpose(press_arr[iMJD]),norm=norm, shading='auto', cmap=cmapName)
+		AxLatlon.pcolor(tiono, riono, to_center(np.transpose(press_arr[iMJD])),norm=norm, shading='auto', cmap=cmapName)
 		AxLatlon.axis([0, 2*np.pi, 0, 0.7])
 
-		AxEq.pcolor(xmin_arr[iMJD], ymin_arr[iMJD], press_arr[iMJD], norm=norm, shading='auto', cmap=cmapName)
+		AxEq.pcolor(xmin_arr[iMJD], ymin_arr[iMJD], to_center(press_arr[iMJD]), norm=norm, shading='auto', cmap=cmapName)
 
 		#Draw satellite location
 		if satTrackData is not None:
@@ -1332,7 +1314,7 @@ def plt_rcm_eqlatlon(AxLatlon, AxEq, rcmData, satTrackData=None, AxCB=None, mjd=
 			iscMJD = np.abs(satTrackData['MJD'] - mjd).argmin()
 			if req_sc[iscMJD] > 1E-8:
 				leadMax = iscMJD
-				while leadMax < min(iscMJD+80, Nt) and req_sc[leadMax] > 1E-8: leadMax += 1 #????
+				while leadMax < min(iscMJD+80, Nt) and req_sc[leadMax] > 1E-8: leadMax += 1 #!!This isn't working as intended for some reason
 				AxEq.plot(x_sc[iscMJD:leadMax], y_sc[iscMJD:leadMax], 'k-')
 				
 				satCircle = plt.Circle((x_sc[iscMJD], y_sc[iscMJD]), 0.15, color='black')
