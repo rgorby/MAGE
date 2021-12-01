@@ -96,6 +96,9 @@ if(CMAKE_Fortran_COMPILER_ID MATCHES Intel)
 	if (HOST MATCHES cheyenne)
 		string(APPEND PROD " -march=corei7 -axCORE-AVX2")
 		string(APPEND PRODWITHDEBUGINFO " -march=corei7 -axCORE-AVX2")
+        elseif(HOST MATCHES pfe)
+                string(APPEND PROD " -march=corei7 -axCORE-AVX2")
+                string(APPEND PRODWITHDEBUGINFO " -march=corei7 -axCORE-AVX2")
 	endif()
 
 	#Check Intel Fortran version
@@ -130,10 +133,14 @@ if(ENABLE_MPI)
 	add_definitions(${MPI_Fortran_COMPILE_DEFINITIONS})
 	include_directories(${MPI_Fortran_INCLUDE_DIRS})
 	link_directories(${MPI_Fortran_LIBRARIES})
+    string(APPEND CMAKE_Fortran_FLAGS " ${MPI_Fortran_LINK_FLAGS}")
 
-    if(CMAKE_Fortran_COMPILER_ID MATCHES Intel)
-        #Using Intel Compiler, use thread safe mpi compiler flag
+    if(CMAKE_Fortran_COMPILER_ID MATCHES Intel AND MPI_Fortran_COMPILER MATCHES mpiifort)
+        #Using Intel Compiler and Intel MPI, use thread safe mpi compiler flag
         string(APPEND CMAKE_Fortran_FLAGS " -mt_mpi")
+    else()
+        #use different MPI link command
+        string(APPEND CMAKE_Fortran_FLAGS " -lmpi")
     endif()
 
 	set(CMAKE_Fortran_COMPILER ${MPI_Fortran_COMPILER})
