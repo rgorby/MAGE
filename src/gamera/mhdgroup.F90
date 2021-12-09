@@ -110,7 +110,10 @@ module mhdgroup
                 do i=Grid%isg,Grid%ieg
                     oState%Gas(i,j,k,:,:) = State%Gas(i,j,k,:,:)
                     oState%Bxyz(i,j,k,:)  = State%Bxyz(i,j,k,:)
-                enddo
+           	    if (Model%doResistive) then
+			oState%Deta(i,j,k,:) = State%Deta(i,j,k,:)
+		    endif
+		enddo
             enddo
         enddo
         !$OMP END DO NOWAIT !Rely on barrier at end of parallel region
@@ -488,6 +491,9 @@ module mhdgroup
                         !Do interface fluxes
                         pState%magFlux(i,j,k,:) = State%magFlux(i,j,k,:) + (pdt/odt)*(State%magFlux(i,j,k,:) - oState%magFlux(i,j,k,:))
                     endif !MHD
+		    if (Model%doResistive) then
+		    	pState%Deta(i,j,k,:) = State%Deta(i,j,k,:) + (pdt/odt)*(State%Deta(i,j,k,:) - oState%Deta(i,j,k,:))
+		    endif
                 enddo !I loop
             enddo
         enddo !K loop (implicit barrier)
