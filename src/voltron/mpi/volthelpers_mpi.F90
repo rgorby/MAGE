@@ -415,7 +415,10 @@ module volthelpers_mpi
         integer :: ierr,length,i,firstBlock,ks,ke, oldSizes(4), newSizes(4), offsets(4)
         type(MPI_Datatype) :: newtype
         character( len = MPI_MAX_ERROR_STRING) :: message
-        real(rp), dimension(:), allocatable, save :: helperTimes
+        real(rp), dimension(:), allocatable, save :: helperTimes, helperLoads
+        real(rp) :: targetTime
+
+        real(rp), parameter :: hAlpha = 0.8 ! rate at which helpers adjust to changing squish loads
 
         call Tic("VHReqSquishE")
         call vhRequestType(vApp, VHSQUISHEND)
@@ -494,11 +497,22 @@ module volthelpers_mpi
             if(.not. allocated(helperTimes)) then
                 ! empty space in front for master
                 allocate(helperTimes(1+vApp%ebTrcApp%ebSquish%numSquishBlocks))
+                allocate(helperLoads(vApp%ebTrcApp%ebSquish%numSquishBlocks))
+                helperLoads = 1000.0_rp ! initially even workload, absolute value does not matter
             endif
             call mpi_gather(MPI_IN_PLACE, 0, MPI_MYFLOAT, helperTimes, 1, MPI_MYFLOAT, 0, vApp%vhelpComm, ierr)
 
+            ! amount of time each helper should take
+            targetTime = sum(helperTimes(2:))/vApp%ebTrcApp%ebSquish%numSquishBlocks
+
+            ! weighted average of previous helper loads and adjusted loads
+            ! if a helper's helperTime is below targetTime, it's multiplier is > 1 and it's load increases
+            ! if a helper's helperTime is above targetTime, it's multiplier is < 1 and it's load decreases
+            ! this should be approximately zero sum
+            helperLoads = helperLoads*(hAlpha + (1.0_rp-hAlpha)*(targetTime/helperTimes(2:)))
+
             ! perform load balancing of squish block sizes
-            call LoadBalanceBlocks(vApp, helperTimes(2:))
+            call LoadBalanceBlocks(vApp, helperLoads)
         endif
         call Toc("VHReqSquishE")
 

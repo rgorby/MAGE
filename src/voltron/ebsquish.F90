@@ -34,7 +34,7 @@ module ebsquish
         real(rp), optional, intent(in) :: balanceVals(vApp%ebTrcApp%ebSquish%numSquishBlocks)
 
         real(rp), dimension(:), allocatable, save :: assignedPercents
-        real(rp) :: totalPercent, remainingPercent, balanceValsSum
+        real(rp) :: totalPercent, balanceValsSum, defaultBalance
         integer :: b
 
         associate(ebSquish=>vApp%ebTrcApp%ebSquish,ebGr=>vApp%ebTrcApp%ebState%ebGr)
@@ -49,29 +49,27 @@ module ebsquish
             print *,"Slowest: ",maxval(balanceVals)
             print *,"Fastest: ",minval(balanceVals)
             print *,""
+            ! use the mean of balances as the default
+            defaultBalance = sum(balanceVals)/size(balanceVals)
             ! calculate the relative size of each block
-            assignedPercents = 0.0_rp
             balanceValsSum = 0.0_rp
             do b=1,ebSquish%numSquishBlocks
                 if(balanceVals(b) <= 0) then
-                    ! this input should not be used, keep this block at its same percentage
-                    if(b < ebSquish%numSquishBlocks) then
-                        assignedPercents(b) = real(ebSquish%blockStartIndices(b+1)-ebSquish%blockStartIndices(b),rp) / &
-                            real(ebGr%ke+1 - ebGr%ks + 1,rp)
-                    else
-                        assignedPercents(b) = real(ebGr%ke+1-ebSquish%blockStartIndices(b),rp) / &
-                            real(ebGr%ke+1 - ebGr%ks + 1,rp)
-                    endif
+                    ! we can't have a block with size zero
+                    balanceValsSum = balanceValsSum + defaultBalance
                 else
                     ! this input is valid
                     balanceValsSum = balanceValsSum + balanceVals(b)
                 endif
             enddo
 
-            remainingPercent = 1.0_rp - sum(assignedPercents) ! percent available to balance after any locked above
+            assignedPercents = 0.0_rp
             do b=1,ebSquish%numSquishBlocks
-                if(balanceVals(b) > 0) then
-                    assignedPercents(b) = remainingPercent * (balanceVals(b) / balanceValsSum)
+                if(balanceVals(b) <= 0) then
+                    ! using default of 1
+                    assignedPercents(b) = defaultBalance / balanceValsSum
+                else
+                    assignedPercents(b) = balanceVals(b) / balanceValsSum
                 endif
             enddo
         endif
