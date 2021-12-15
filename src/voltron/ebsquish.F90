@@ -28,6 +28,65 @@ module ebsquish
     logical , parameter, private :: doDipTest = .false.
     contains
 
+    !Adjust the starting indices of the squish blocks according to the passed in array values
+    subroutine LoadBalanceBlocks(vApp, balanceVals)
+        class(voltApp_T), intent(inout) :: vApp
+        real(rp), optional, intent(in) :: balanceVals(vApp%ebTrcApp%ebSquish%numSquishBlocks)
+
+        real(rp), dimension(:), allocatable, save :: assignedPercents
+        real(rp) :: totalPercent, remainingPercent, balanceValsSum
+        integer :: b
+
+        associate(ebSquish=>vApp%ebTrcApp%ebSquish,ebGr=>vApp%ebTrcApp%ebState%ebGr)
+
+        if(.not. allocated(assignedPercents)) allocate(assignedPercents(ebSquish%numSquishBlocks))
+
+        if(.not. present(balanceVals)) then
+            ! make all blocks equal
+            assignedPercents = 1.0_rp/ebSquish%numSquishBlocks
+        else
+            print *,"Load Balancing Squish Helpers"
+            print *,"Slowest: ",maxval(balanceVals)
+            print *,"Fastest: ",minval(balanceVals)
+            print *,""
+            ! calculate the relative size of each block
+            assignedPercents = 0.0_rp
+            balanceValsSum = 0.0_rp
+            do b=1,ebSquish%numSquishBlocks
+                if(balanceVals(b) <= 0) then
+                    ! this input should not be used, keep this block at its same percentage
+                    if(b < ebSquish%numSquishBlocks) then
+                        assignedPercents(b) = real(ebSquish%blockStartIndices(b+1)-ebSquish%blockStartIndices(b),rp) / &
+                            real(ebGr%ke+1 - ebGr%ks + 1,rp)
+                    else
+                        assignedPercents(b) = real(ebGr%ke+1-ebSquish%blockStartIndices(b),rp) / &
+                            real(ebGr%ke+1 - ebGr%ks + 1,rp)
+                    endif
+                else
+                    ! this input is valid
+                    balanceValsSum = balanceValsSum + balanceVals(b)
+                endif
+            enddo
+
+            remainingPercent = 1.0_rp - sum(assignedPercents) ! percent available to balance after any locked above
+            do b=1,ebSquish%numSquishBlocks
+                if(balanceVals(b) > 0) then
+                    assignedPercents(b) = remainingPercent * (balanceVals(b) / balanceValsSum)
+                endif
+            enddo
+        endif
+
+        ! use the calculated percentage of each block to assign starting indices
+        totalPercent = 0.0_rp
+        do b=1,ebSquish%numSquishBlocks
+            ebSquish%blockStartIndices(b) = GetIndexAtPercent(vApp, totalPercent)
+            totalPercent = totalPercent + assignedPercents(b)
+        enddo
+
+        end associate
+
+    end subroutine
+
     !Find i-index of outer boundary of coupling domain
     function ShellBoundary(gModel,Gr,R) result(iMax)
         type(Model_T), intent(in) :: gModel
@@ -70,7 +129,7 @@ module ebsquish
 
         if(ebSquish%myNumBlocks < 0) then
             ! do all blocks
-            SquishBlocksRemain = ebSquish%curSquishBlock < ebSquish%numSquishBlocks
+            SquishBlocksRemain = ebSquish%curSquishBlock <= ebSquish%numSquishBlocks
         else
             ! do some blocks
             blockCount = ebSquish%curSquishBlock - ebSquish%myFirstBlock ! blocks completed
@@ -84,7 +143,7 @@ module ebsquish
     !Setup squishy data
     subroutine SquishStart(vApp)
         class(voltApp_T), intent(inout) :: vApp
-        
+
         call UpdateTM03(vApp%time)
         call Tic("Squish")
         associate(ebGr=>vApp%ebTrcApp%ebState%ebGr, &                  
@@ -184,16 +243,43 @@ module ebsquish
         call Toc("SQ-Project")
     end subroutine DoSquishBlock
 
+    !Get the k index pct % of the way through the squish data
+    !where this will obey all rules about quick squish stride,
+    !using the correct start index, etc..
+    function GetIndexAtPercent(vApp, pct) result(pctIndex)
+        class(voltApp_T), intent(in) :: vApp
+        real(rp), intent(in) :: pct
+        integer :: pctIndex
+
+        integer :: Nk,nSkp,offset
+        real(rp) :: correctPct
+
+        associate(ebSquish=>vApp%ebTrcApp%ebSquish,ebGr=>vApp%ebTrcApp%ebState%ebGr)
+
+        correctPct = MIN(1.0_rp, MAX(0.0_rp, pct)) ! ensure pct is between 0 and 1
+
+        Nk = ebGr%ke+1 - ebGr%ks + 1
+        if (vApp%doQkSquish) then
+            nSkp = vApp%qkSquishStride !Stride through grid for projections
+        else
+            nSkp = 1
+        endif
+
+        offset = Nk*correctPct
+        offset = offset - MOD(offset,nSkp) ! ensure index is aligned with quick squish
+        pctIndex = ebGr%ks + offset
+        end associate
+
+    end function
+
     !Get squish bounds for block n (out of Nblk)
-    !ksGr and keGr are the start/stop of indices
     !ksB and keB are the bounds of this block
-    !n \in [0,Nblk-1] (because Jeff)
+    !n in [1,Nblk] (now more in line with Fortran indexing)
     subroutine GetSquishBds(vApp,ksB,keB,blockNum)
         class(voltApp_T), intent(in) :: vApp
         integer, intent(out) :: ksB,keB
         integer, optional, intent(in) :: blockNum
 
-        integer :: Nk,dN,nSkp
         integer :: curB
 
         associate(ebSquish=>vApp%ebTrcApp%ebSquish,ebGr=>vApp%ebTrcApp%ebState%ebGr)
@@ -204,19 +290,11 @@ module ebsquish
             curB = ebSquish%curSquishBlock
         endif
 
-        if (vApp%doQkSquish) then
-            nSkp = vApp%qkSquishStride !Stride through grid for projections
+        if(curB<ebSquish%numSquishBlocks) then
+            ksB = ebSquish%blockStartIndices(curB)
+            keB = ebSquish%blockStartIndices(curB+1)
         else
-            nSkp = 1
-        endif
-
-        Nk = ebGr%ke+1 - ebGr%ks + 1
-        dN = Nk/ebSquish%numSquishBlocks !Integer division
-        dN = dN - MOD(dN,nSkp)
-
-        ksB = ebGr%ks + curB*dN
-        keB = ksB+dN
-        if (curB == (ebSquish%numSquishBlocks-1)) then
+            ksB = ebSquish%blockStartIndices(curB)
             keB = ebGr%ke+1 !Make sure last block finishes everything
         endif
 

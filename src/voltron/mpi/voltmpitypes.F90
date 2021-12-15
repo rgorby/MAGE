@@ -15,6 +15,7 @@ module voltmpitypes
         integer, dimension(:), allocatable :: vHelpIdle
         logical :: amHelper = .false., useHelpers = .false.
         logical :: doSquishHelp = .false., masterSquish = .false.
+        logical :: squishLoadBalance = .true.
 
         ! voltron to gamera comms variables
         type(MPI_Comm) :: voltMpiComm

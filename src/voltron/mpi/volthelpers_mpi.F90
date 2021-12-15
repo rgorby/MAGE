@@ -357,44 +357,55 @@ module volthelpers_mpi
         call sendChimpUpdate(vApp)
 
         ! send which sections of squish data to solve
-        call MPI_Comm_Size(vApp%vHelpComm, vApp%ebTrcApp%ebSquish%numSquishBlocks, ierr)
         if(vApp%masterSquish) then
              ! 1 block per volton rank, including master and helpers
             vApp%ebTrcApp%ebSquish%myNumBlocks = 1
         else
             ! 1 block per helper, none for master
-            vApp%ebTrcApp%ebSquish%numSquishBlocks = vApp%ebTrcApp%ebSquish%numSquishBlocks - 1
             vApp%ebTrcApp%ebSquish%myNumBlocks = 0
         endif
         call mpi_bcast(vApp%ebTrcApp%ebSquish%numSquishBlocks, 1, MPI_INT, 0, vApp%vHelpComm, ierr)
-        vApp%ebTrcApp%ebSquish%myFirstBlock = 0 ! master is always the first block, if it has one
+        call mpi_bcast(vApp%ebTrcApp%ebSquish%blockStartIndices, vApp%ebTrcApp%ebSquish%numSquishBlocks, MPI_INT, 0, vApp%vHelpComm, ierr)
+        vApp%ebTrcApp%ebSquish%myFirstBlock = 1 ! master is always the first block, if it has one
         vApp%ebTrcApp%ebSquish%curSquishBlock = vApp%ebTrcApp%ebSquish%myFirstBlock
         call Toc("VHReqSquishS")
 
     end subroutine
 
-    subroutine vhHandleSquishStart(vApp)
+    subroutine vhHandleSquishStart(vApp, squishTime)
         type(voltAppMpi_T), intent(inout) :: vApp
+        real(rp), optional, intent(out) :: squishTime
 
         integer :: ierr
+        integer :: clockStart, clockEnd, clockRate, clockMax
 
         call recvChimpUpdate(vApp)
 
         call mpi_bcast(vApp%ebTrcApp%ebSquish%numSquishBlocks, 1, MPI_INT, 0, vApp%vHelpComm, ierr)
+        call mpi_bcast(vApp%ebTrcApp%ebSquish%blockStartIndices, vApp%ebTrcApp%ebSquish%numSquishBlocks, MPI_INT, 0, vApp%vHelpComm, ierr)
         vApp%ebTrcApp%ebSquish%myNumBlocks = 1 ! helpers always have 1 block
         if(vApp%masterSquish) then
-            ! master voltron rank is helping, work on my own rank block
-            vApp%ebTrcApp%ebSquish%myFirstBlock = vApp%vHelpRank
+            ! master voltron rank is helping, rank 1 works on block 2, etc...
+            vApp%ebTrcApp%ebSquish%myFirstBlock = vApp%vHelpRank + 1
         else
-            ! master voltron rank is not helping, my block index is reduced by 1
-            vApp%ebTrcApp%ebSquish%myFirstBlock = vApp%vHelpRank - 1
+            ! master voltron rank is not helping, rank 1 works on block 1, etc...
+            vApp%ebTrcApp%ebSquish%myFirstBlock = vApp%vHelpRank
         endif
         
         call SquishStart(vApp)
 
+        call system_clock(clockStart,clockRate,clockMax)
         do while(SquishBlocksRemain(vApp))
             call DoSquishBlock(vApp)
         end do
+        call system_clock(count=clockEnd)
+        if(present(squishTime)) then
+            if(clockEnd < clockStart) then ! wrap
+                squishTime = real(clockMax-clockStart+clockEnd, RP)/real(clockRate, RP)
+            else
+                squishTime = real(clockEnd-clockStart, RP)/real(clockRate, RP)
+            endif
+        endif
 
     end subroutine
 
@@ -404,6 +415,7 @@ module volthelpers_mpi
         integer :: ierr,length,i,firstBlock,ks,ke, oldSizes(4), newSizes(4), offsets(4)
         type(MPI_Datatype) :: newtype
         character( len = MPI_MAX_ERROR_STRING) :: message
+        real(rp), dimension(:), allocatable, save :: helperTimes
 
         call Tic("VHReqSquishE")
         call vhRequestType(vApp, VHSQUISHEND)
@@ -477,16 +489,29 @@ module volthelpers_mpi
             end if 
 
         enddo
+
+        if(vApp%squishLoadBalance) then
+            if(.not. allocated(helperTimes)) then
+                ! empty space in front for master
+                allocate(helperTimes(1+vApp%ebTrcApp%ebSquish%numSquishBlocks))
+            endif
+            call mpi_gather(MPI_IN_PLACE, 0, MPI_MYFLOAT, helperTimes, 1, MPI_MYFLOAT, 0, vApp%vhelpComm, ierr)
+
+            ! perform load balancing of squish block sizes
+            call LoadBalanceBlocks(vApp, helperTimes(2:))
+        endif
         call Toc("VHReqSquishE")
 
     end subroutine
 
-    subroutine vhHandleSquishEnd(vApp)
+    subroutine vhHandleSquishEnd(vApp, squishTime)
         type(voltAppMpi_T), intent(inout) :: vApp
+        real(rp), optional, intent(in) :: squishTime
 
         integer :: ierr,length,ks,ke, oldSizes(4), newSizes(4), offsets(4)
         type(MPI_Datatype) :: newtype
         character( len = MPI_MAX_ERROR_STRING) :: message
+        real(rp) :: squishTimeSendVal
 
         oldSizes = shape(vApp%chmp2mhd%xyzSquish)
         newSizes = (/vApp%iDeep+2-vApp%ebTrcApp%ebState%ebGr%is, &
@@ -549,6 +574,15 @@ module volthelpers_mpi
             print *,message(1:length)
             call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
         end if
+
+        if(vApp%squishLoadBalance) then
+            if(present(squishTime)) then
+                squishTimeSendVal = squishTime
+            else
+                squishTimeSendVal = -1.0_rp ! default
+            endif
+            call mpi_gather([squishTimeSendval], 1, MPI_MYFLOAT, [squishTimeSendVal], 1, MPI_MYFLOAT, 0, vApp%vhelpComm, ierr)
+        endif
 
     end subroutine
 
