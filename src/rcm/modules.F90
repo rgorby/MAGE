@@ -27,7 +27,7 @@ MODULE rice_housekeeping_module
   use kronos
   use strings
   use earthhelper, ONLY : SetKp0
-  use rcmdefs, ONLY : DenPP0, ELOSS_FDG, ELOSS_SS, ELOSS_C05, ELOSS_C19
+  use rcmdefs, ONLY : DenPP0, ELOSS_FDG, ELOSS_SS, ELOSS_C05, ELOSS_C19, ELOSS_DW
   
   IMPLICIT NONE
   
@@ -146,6 +146,8 @@ MODULE rice_housekeeping_module
               ELOSSMETHOD = ELOSS_C05
            case ("C19")
               ELOSSMETHOD = ELOSS_C19
+           case ("DW")
+              ELOSSMETHOD = ELOSS_DW
            case default
               stop "The electron loss type entered is not supported (Available options: FDG, SS, C05, C19)."
         end select

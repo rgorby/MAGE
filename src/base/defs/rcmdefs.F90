@@ -36,7 +36,7 @@ module rcmdefs
     REAL(krp), PARAMETER :: machine_tiny = 1.0e-32
 
     enum, bind(C)
-      enumerator :: ELOSS_FDG=1,ELOSS_SS,ELOSS_C05,ELOSS_C19 !Choice of electron loss model
+      enumerator :: ELOSS_FDG=1,ELOSS_SS,ELOSS_C05,ELOSS_C19,ELOSS_DW !Choice of electron loss model
     end enum
 
 end module rcmdefs

@@ -171,7 +171,7 @@ MODULE lossutils
         REAL(rprec), dimension(:), allocatable :: MLTi,Li,Kpi,Eki
         REAL(rprec), dimension(:,:,:), allocatable :: tau3D
         REAL(rprec), dimension(:,:), allocatable :: tau2D
-        REAL(rprec), dimension(:, allocatable :: tau1D
+        REAL(rprec), dimension(:), allocatable :: tau1D
         REAL(rprec) :: tau
         REAL(rprec) :: dM,wM,dL,wL,dE,wE, tauwl,tauwu
         INTEGER :: Nm,Nl,Nk,Ne,l,e
@@ -191,8 +191,8 @@ MODULE lossutils
         if (.not. allocated(tau1D)) allocate(tau1D(Ne))
 
         ! look up in Kp
-        iK = minloc(abs(Kpi-Kpx),dim=1))
-        tau3D = EWMTauInput(:,:,iK,:)
+        iK = minloc(abs(Kpi-Kpx),dim=1)
+        tau3D = EWMTauInput%tau(:,:,iK,:)
 
         ! linear interpolation in mlt
         if (mltx >= maxval(MLTi)) then
@@ -246,7 +246,7 @@ MODULE lossutils
         else
             iE = maxloc(Eki,dim=1,mask=Eki<=Ekx)
             dE = Eki(iE+1)-Eki(iE)
-            wE = (Ex-Ei(iE))/dE
+            wE = (Ekx-Eki(iE))/dE
             ! loop through cells
             do e=1,Ne
                tauwl = tau1D(iE)

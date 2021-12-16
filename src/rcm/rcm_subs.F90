@@ -1230,7 +1230,7 @@
         where(ikflavc==1)alamc = -abs(alamc)
 
         ! Only compatible with tau(MLT,L,Kp,Ek)
-        tauDim = IOVars(4)%Nt
+        tauDim = IOVars(4)%Nr
         if ( tauDim /= 4) then
             write(*,*) 'Currently only support tau model files in the form tau(MLT,L,Kp,Ek)'
             stop
@@ -2964,19 +2964,19 @@ FUNCTION Ratefn (xx,yy,alamx,vmx,beqx,losscx,nex,kpx,fudgxO,sinixO,birxO,xmfactO
          case (ELOSS_C19)
             Ratefn = RatefnC19S(xx,yy,alamx,vmx,beqx,losscx,nex,kpx)
          case (ELOSS_DW)
-            Ratefun = RatefnDW(xx,yy,alamx,vmx,nex,kpx)
+            Ratefn = RatefnDW(xx,yy,alamx,vmx,nex,kpx,beqx,losscx)
          case default
             stop "The electron loss rate model type entered is not supported."
  end select
 
 END FUNCTION Ratefn
 
-FUNCTION RatefnDW(xx,yy,alamx,vmx,nex,kpx)
+FUNCTION RatefnDW(xx,yy,alamx,vmx,nex,kpx,bqx,losscx)
   !Function to calculate diffuse electron precipitation loss rate using Dedong Wang's model
   
-  use lossutils, ONLY: RatefnC_tau_s, RatefnDW_tau_c, RatefnDW_tau_h
+  use lossutils, ONLY: RatefnC_tau_s, RatefnDW_tau_c,RatefnC_tau_h
   IMPLICIT NONE
-  REAL (rprec), INTENT (IN) :: xx,yy,alamx,vmx,nex,kpx, bqx, losscx
+  REAL (rprec), INTENT (IN) :: xx,yy,alamx,vmx,nex,kpx,bqx,losscx
   REAL (rprec), dimension(2) :: RatefnDW
   REAL (rprec) :: nhigh, nlow, L, MLT, K, E, tau, tau_s
 
@@ -2988,7 +2988,7 @@ FUNCTION RatefnDW(xx,yy,alamx,vmx,nex,kpx)
   RatefnDW(1) = 1.D10
   RatefnDW(2) = -2.0
  
-  tau_s = RatefnC_tau_s(alamx,vmx,beqx,losscx)
+  tau_s = RatefnC_tau_s(alamx,vmx,bqx,losscx)
 
   if(nex<nlow) then
     tau = max(tau_s,RatefnDW_tau_c(MLT,L,kpx,E)) ! mltx,engx,kpx,Lshx
@@ -2997,7 +2997,7 @@ FUNCTION RatefnDW(xx,yy,alamx,vmx,nex,kpx)
     tau = tau_s + RatefnC_tau_h(MLT,L,kpx,E) ! mltx,engx,kpx,Lshx
     RatefnDW(2) = 2.0
   else
-    tau = tau_s + (dlog(nhigh/nex)*RatefnDW_tau_c(MLT,L,kpx,E) + dlog(nex/nlow)*RatefnDW_tau_h(MLT,L,kpx,E))/dlog(nhigh/nlow)
+    tau = tau_s + (dlog(nhigh/nex)*RatefnDW_tau_c(MLT,L,kpx,E) + dlog(nex/nlow)*RatefnC_tau_h(MLT,L,kpx,E))/dlog(nhigh/nlow)
     RatefnDW(2) = 3.0
   endif
 
