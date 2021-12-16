@@ -112,6 +112,7 @@
                     lossratep(isize,jsize,kcsize), lossmodel(isize,jsize,kcsize), Dpp(isize,jsize), &
                     last_veff(isize,jsize,ksize)
 
+    type(EWMTauIn_T) :: EWMTauInput 
     INTEGER (iprec) :: ikflavc (kcsize), i_advect, i_eta_bc, i_birk
     LOGICAL :: L_dktime
     INTEGER (iprec), PARAMETER :: irdk=18, inrgdk=13, isodk=2, iondk=2
@@ -119,7 +120,7 @@
     REAL (rprec) :: dtAvg_v,dtMHD
     LOGICAL :: advChannel(kcsize) = .true. !Which channels to advance
 
-     logical :: kill_fudge
+    logical :: kill_fudge
 !
 !
 !   Magnetic field:
@@ -1205,23 +1206,84 @@
         implicit none
         logical :: doSP
         type(IOVAR_T), dimension(RCMIOVARS) :: IOVars !Lazy hard-coding max variables
-        integer :: nvar
+        integer :: nvari, tauDim, Nm, Nl,Nk,Ne
+        integer :: dims(4) ! update when add higher dimensions
 
 
         doSP = .false.
         call ClearIO(IOVars) !Reset IO chain
-        call AddInVar(IOVars,"alamc")
-        call AddInVar(IOVars,"ikflavc")
-        call AddInVar(IOVars,"fudgec")
-
+        call AddInVar(IOVars,"alamc") !1
+        call AddInVar(IOVars,"ikflavc") !2
+        call AddInVar(IOVars,"fudgec") !3
+        call AddInVar(IOVars,"tau") !4
+        call AddInVar(IOVars,"MLTi") !5 
+        call AddInVar(IOVars,"Li")  !6
+        call AddInVar(IOVars,"Kpi") !7
+        call AddInVar(IOVars,"Eki") !8
         call ReadVars(IOVars,doSP,RCMGAMConfig)
 
         !Store data
         alamc(:)   = IOVars(1)%data
         ikflavc(:) = IOVars(2)%data
         fudgec(:)  = IOVars(3)%data
-! reset to make sure species if ikflav ==1 alamc is set to negative, for electrons
+        
+        ! reset to make sure species if ikflav ==1 alamc is set to negative, for electrons
         where(ikflavc==1)alamc = -abs(alamc)
+
+        ! Only compatible with tau(MLT,L,Kp,Ek)
+        tauDim = IOVars(4)%Nt
+        if ( tauDim /= 4) then
+            write(*,*) 'Currently only support tau model files in the form tau(MLT,L,Kp,Ek)'
+            stop
+        endif
+
+        dims = IOVars(4)%dims(1:tauDim)
+        Nm   = IOVars(5)%N
+        Nl   = IOVars(6)%N
+        Nk   = IOVars(7)%N
+        Ne  = IOVars(8)%N
+        if ( Nm /=  dims(1) .or. Nl /= dims(2) .or. Nk /= dims(3) .or. Ne /= dims(4)) then
+            write(*,*) 'Dimensions of tau arrays are not compatible'
+            stop
+        endif
+      
+        EWMTauIn%Nm = Nm
+        EWMTauIn%Nl = Nl
+        EWMTauIn%Nk = Nk
+        EWMTauIn%Ne = Ne
+
+        allocate(EWMTauInput%MLTi(Nm))
+        allocate(EWMTauInput%Li(Nl))
+        allocate(EWMTauInput%Kpi(Nk))
+        allocate(EWMTauInput%Eki(Ne))
+
+        call IOArray1DFill(IOVars,"MLTi",  EWMTauInput%MLTi)
+        call IOArray1DFill(IOVars,"Li",    EWMTauInput%Li)
+        call IOArray1DFill(IOVars,"Kpi", EWMTauInput%Kpi)
+        call IOArray1DFill(IOVars,"Eki",  EWMTauInput%Eki)
+
+        ! Assumes array is in acsending order
+        if(EWMTauInput%MLTi(1) < EWMTauInput%MLTi(Nm)) then
+            write(*,*) "MLT: ",EWMTauInput%MTLi
+            write(*,*) "reorder wave model so MLT is in ascending order"
+            stop
+        end if
+
+        if(EWMTauInput%Li(1) < EWMTauInput%Li(Nl)) then
+            write(*,*) "L: ",EWMTauInput%Li
+            write(*,*) "reorder wave model so L shell is in ascending order"
+            stop
+        end if
+
+        if(EWMTauInput%Eki(1) < EWMTauInput%Eki(Ne)) then
+            write(*,*) "MLT: ",EWMTauInput%Eki
+            write(*,*) "reorder wave model so Ek is in ascending order"
+            stop
+        end if
+        
+        allocate(EWMTauInput%tau(Nm,Nl,Nk,Ne))
+        EWMTauInput%tau(:,:,:,:) = reshape(IOVars(4)%data,dims)
+
 
       END SUBROUTINE Read_plasma_H5
 !

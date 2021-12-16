@@ -76,6 +76,12 @@ MODULE rice_housekeeping_module
       logical  :: isDynamic=.true. !Whether to update parameters  
   end type RCMEllipse_T
 
+  type EWMTauIn_T !electron lifetime wave model input
+      integer(iprec) :: Nm=24, Nl=20, Nk=7 ,Ne=200
+      real(rprec), ALLOCATABLE :: MLTi(:), Li(:), Kpi(:), Eki(:)
+      real(rprec), ALLOCATABLE :: tau(:,:,:,:) ! update when add higher dimensions
+  end type EWMTauIn_T 
+
   type(RCMEllipse_T) :: ellBdry
   type(TimeSeries_T), private :: KpTS
 
