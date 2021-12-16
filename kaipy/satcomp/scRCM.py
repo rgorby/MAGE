@@ -49,7 +49,7 @@ MHDRCM_TIME_JFNAME = 'mhdrcm_times.json'
 #Spacecraft strings for cdaweb retrieval
 #Probably shouldn't be hard-coded
 supportedSats = ["RBSPA", "RBSPB"]
-supportedDsets = ["Hydrogen_omniflux_RBSPICE", "Electron_omniflux_RBSPICE", "Hydrogen_PAFlux_HOPE"]
+supportedDsets = ["Hydrogen_omniflux_RBSPICE", 'Hydrogen_omniflux_RBSPICE_TOFXPHHHELT', "Electron_omniflux_RBSPICE", "Hydrogen_PAFlux_HOPE"]
 
 #======
 #Helpers
@@ -162,11 +162,20 @@ def getSCOmniDiffFlux(scName, dSetName, t0, t1, jdir=None, forceCalc=False):
 	dataset['species'] = species
 	dataset['epoch'] = data[epochStr]
 	#Turn each dataset's data into omniflux
-	if dSetName == 'Hydrogen_omniflux_RBSPICE' or dSetName == 'Electron_omniflux_RBSPICE':
+	if dSetName in ['Hydrogen_omniflux_RBSPICE', 'Hydrogen_omniflux_RBSPICE_TOFXPHHHELT', 'Electron_omniflux_RBSPICE']:
+	#if dSetName == 'Hydrogen_omniflux_RBSPICE' or dSetName == 'Electron_omniflux_RBSPICE':
 		#Already got omni flux, no problem
 		ofStr = dsetStrs['OmnifluxStr']
-		dataset['OmniDiffFlux'] = data[ofStr]*1E-3  # Diferential flux [1/(MeV-cm^2-s-sr]*[1/MeV -> 1/keV]
-		dataset['energies'] = data[energyStr]*1E3  # [MeV] -> [keV]
+		if dSetName == 'Hydrogen_omniflux_RBSPICE':
+			#data[ofStr][:,0] = data[ofStr][:,1]  #!!Hack to get rid of contaminated bottom channel
+			#dataset['OmniDiffFlux'] = data[ofStr][:,1:]*1E-3  # Diferential flux [1/(MeV-cm^2-s-sr]*[1/MeV -> 1/keV]
+			#dataset['energies'] = data[energyStr][1:]*1E3  # [MeV] -> [keV]
+			dataset['OmniDiffFlux'] = data[ofStr]*1E-3  # Diferential flux [1/(MeV-cm^2-s-sr]*[1/MeV -> 1/keV]
+			dataset['energies'] = data[energyStr]*1E3  # [MeV] -> [keV]
+		else:
+			dataset['OmniDiffFlux'] = data[ofStr]*1E-3  # Diferential flux [1/(MeV-cm^2-s-sr]*[1/MeV -> 1/keV]
+			dataset['energies'] = data[energyStr]*1E3  # [MeV] -> [keV]
+		
 	elif dSetName == "Hydrogen_PAFlux_HOPE":
 		#!!TODO: Properly calc OmniDiffFlux from FPDU. Currently just using pitch angle
 		fluxStr = dsetStrs['PAFluxStr']
@@ -450,8 +459,10 @@ def consolidateODFs(scData, rcmTrackData, eGrid=None, doPlot=False):
 	e_lower = np.zeros(Ne)
 	e_upper = np.zeros(Ne)
 	for iEG in range(Ne):
-		e_lower[iEG] = eGrid[0] if iEG == 0 else (eGrid[iEG-1] + eGrid[iEG])/2
-		e_upper[iEG] = eGrid[-1] if iEG == Ne-1 else (eGrid[iEG+1] + eGrid[iEG])/2
+		#e_lower[iEG] = eGrid[0] if iEG == 0 else (eGrid[iEG-1] + eGrid[iEG])/2
+		#e_upper[iEG] = eGrid[-1] if iEG == Ne-1 else (eGrid[iEG+1] + eGrid[iEG])/2
+		e_lower[iEG] = 2*eGrid[0]-eGrid[1] if iEG == 0 else (eGrid[iEG-1] + eGrid[iEG])/2
+		e_upper[iEG] = 2*eGrid[-1]-eGrid[-2] if iEG == Ne-1 else (eGrid[iEG+1] + eGrid[iEG])/2
 	
 	#Map sc odf on given energy grid new new eGrid
 	sc_odf = np.zeros((Nt_sc, Ne))
@@ -463,18 +474,27 @@ def consolidateODFs(scData, rcmTrackData, eGrid=None, doPlot=False):
 			scEG_interfaces = (scEGrid[n,1:]+scEGrid[n,:-1])/2
 			scEG_lower = np.append(scEGrid[n,0], scEG_interfaces)
 			scEG_upper = np.append(scEG_interfaces, scEGrid[n,-1])
+			#scEG_lower = np.append(2*scEGrid[n,0]-scEGrid[n,1], scEG_interfaces)
+			#scEG_upper = np.append(scEG_interfaces, 2*scEGrid[n,-1]-scEGrid[n,-2])
 			mapWeights = scutils.getWeights_ConsArea(scEGrid[n], scEG_lower, scEG_upper, eGrid, e_lower, e_upper)
 		else:
 			scEG_interfaces = (scEGrid[1:]+scEGrid[:-1])/2
 			scEG_lower = np.append(scEGrid[0], scEG_interfaces)
 			scEG_upper = np.append(scEG_interfaces, scEGrid[-1])
+			#scEG_lower = np.append(2*scEGrid[0]-scEGrid[1], scEG_interfaces)
+			#scEG_upper = np.append(scEG_interfaces, 2*scEGrid[-1]-scEGrid[-2])
 			mapWeights = scutils.getWeights_ConsArea(scEGrid, scEG_lower, scEG_upper, eGrid, e_lower, e_upper)
 
 		for e in range(Ne):
+			fillAmt = 0  # Fraction of given energy cell that's been filled with oldGrid stuff
 			for ik in range(len(mapWeights[e])):
 				k = mapWeights[e][ik][0]
 				weight = mapWeights[e][ik][1]
 				sc_odf[n,e] += weight*scData['OmniDiffFlux'][n,k]
+				fillAmt += weight
+			if fillAmt > 0.2 and fillAmt < 1:
+				#print('n={},e={},sc_odf={},fillAmt={}'.format(n,e,sc_odf[n,e],fillAmt))
+				sc_odf[n,e] /= fillAmt  # Fill cell
 	
 	Nt_rcm = len(rcmTrackData['T'])
 	rcm_odf = np.zeros((Nt_rcm, len(eGrid)))
@@ -1130,12 +1150,13 @@ def plt_ODF_Comp(AxSC, AxRCM, AxCB, odfData, mjd=None, cmapName='CMRmap', norm=N
 
 	if not axIsPopulated or forcePop:
 		kv.genCB(AxCB,norm,r'Intensity [$cm^{-2} sr^{-1} s^{-1} keV^{-1}$]',cM=cmapName,doVert=True)
-
+		
 		AxSC.pcolormesh(scTime, eGrid, np.transpose(scODF), norm=norm, shading='nearest', cmap=cmapName)
+		
 		AxSC.set_xlim([ut[0], ut[-1]])
 		AxSC.set_ylabel("%s Energy [keV]"%odfData['sc']['name'])
 		AxSC.set_yscale('log')
-		AxSC.xaxis.set_major_formatter(plt.NullFormatter())
+		#AxSC.xaxis.set_major_formatter(plt.NullFormatter())
 
 		AxRCM.pcolormesh(ut, eGrid, np.transpose(rcmODF), norm=norm, shading='nearest', cmap=cmapName)
 		#for n in range(len(rcmTime)):
@@ -1331,45 +1352,6 @@ def plt_rcm_eqlatlon(AxLatlon, AxEq, rcmData, satTrackData=None, AxCB=None, mjd=
 		ybMax = dy/2
 		AxEq.set_xlim([xbMin, xbMax])
 		AxEq.set_ylim([ybMin, ybMax])
-
-def plt_CumulFrac(AxCF, cfData, title=None, labels=None):
-	"""Plot cumulative fraction curves given by getRCM_CumulFrac()
-		cfData = a list of points
-		title = optional suptitle
-		labels = optional labels for each curve
-	"""
-
-	mjd = cfData['MJD']
-	ut = kT.MJD2UT(mjd)
-
-	AxCF.clear()
-
-	if title is None:
-		title = str(ut)
-
-	AxCF.set_title(title)
-
-	for iPnt in range(len(cfData)):
-		pnt = cfData[iPnt]
-		if labels is not None:
-			lbl = labels[iPnt]
-		else:
-			#Just give the R/L value
-			xmin = pnt['xmin']
-			ymin = pnt['ymin']
-			rmin = np.sqrt(xmin**2+ymin**2)
-			lbl = "{:3.1f}".format(rmin)
-
-		energies = pnt['energies']
-		ptot = pnt['Ptot']
-		pcum = pnt['Pcum']
-		pcumFrac = pcum/ptot
-
-		AxCF.plot(energies*1E-3, pcumFrac, label=lbl)
-		#AxCF.scatter(energies*1E-3, pcumFrac)
-
-	AxCF.legend(loc='upper left')
-	AxCF.grid()
 
 
 
