@@ -329,7 +329,7 @@ MODULE lossutils
         L2 = L*L
         L3 = L2*L
         L4 = L3*L
-        fL = -0.2573*L4 + 4.2781*L3 - 25.9348*L2 + 66.8113*L - 66.1182
+        fL = -0.2573*L4 + 4.2781*L3 - 25.9348*L2 + 66.8113*L - 66.1182 + 3.0  ! Need to add 3 to the equation from Orlova14 which was actually based on GeV.
         if(L>6.0 .or. L<3.0 .or. K>6.0 .or. E>1.0 .or. E<-3.0 .or. E<fL) then ! Both sectors are only valid for Kp<=6, log10(Ek)>=f(L), 1keV<Ek<10MeV, 3<=L<=6.
             return
         endif
