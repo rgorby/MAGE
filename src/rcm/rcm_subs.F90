@@ -2922,7 +2922,7 @@ FUNCTION RatefnC19 (xx,yy,alamx,vmx,beqx,losscx,nex,kpx)
 !    tau = log(nh/ne)/log(nh/nl)*tau_in + log(ne/nl)/log(nh/nl)*tau_out 
 !        = (log(nh/ne)*tau_w+ log(ne/nl)*tau_h)/log(nh/nl) + tau_s, where nh=100; nl=10; 
 
-  use lossutils, ONLY : RatefnC_tau_s,RatefnC_tau_C05,RatefnC_tau_w,RatefnC_tau_h
+  use lossutils, ONLY : RatefnC_tau_s,RatefnC_tau_C05,RatefnC_tau_w,RatefnC_tau_h16
   IMPLICIT NONE
   REAL (rprec), INTENT (IN) :: xx,yy,alamx,vmx,beqx,losscx,nex,kpx
   REAL (rprec), dimension(2) :: RatefnC19
@@ -2945,19 +2945,21 @@ FUNCTION RatefnC19 (xx,yy,alamx,vmx,beqx,losscx,nex,kpx)
     tau = tau_s + RatefnC_tau_w(MLT,K,L,kpx) ! mltx,engx,kpx,Lshx
     RatefnC19(2) = 1.0
   elseif(nex>nhigh) then
-    tau = tau_s + RatefnC_tau_h(MLT,K,L,kpx) ! mltx,engx,kpx,Lshx
+    tau = tau_s + RatefnC_tau_h16(MLT,K,L,kpx) ! mltx,engx,kpx,Lshx
     RatefnC19(2) = 2.0
   else
-    tau = tau_s + (dlog(nhigh/nex)*RatefnC_tau_w(MLT,K,L,kpx) + dlog(nex/nlow)*RatefnC_tau_h(MLT,K,L,kpx))/dlog(nhigh/nlow)
+    tau = tau_s + (dlog(nhigh/nex)*RatefnC_tau_w(MLT,K,L,kpx) + dlog(nex/nlow)*RatefnC_tau_h16(MLT,K,L,kpx))/dlog(nhigh/nlow)
     RatefnC19(2) = 3.0
   endif
 
   ! default MLT dependent scattering rate based on Chen+2005 for non-specified MLTs etc.
 !  if(tau>1.D10) then 
   E = log10(K)
-  fL = -0.2573*L**4 + 4.2781*L**3 - 25.9348*L*L + 66.8113*L - 66.1182
-  if((nex<nlow.and.MLT<=21.0.and.MLT>15.0).or.(nex>nhigh.and.(L>6.0 .or. L<3.0 .or. E>1.0 .or. E<-3.0 .or. E<fL))) then !  .or. kpx>6.0
-!    if(nex>nhigh) write(*,"(6(a,e25.15))") 'C05 triggered: nex=',nex,' L=',L,' Kp=',kpx,' E=',E,' fL=',fL,' RatefnC(2)=',RatefnC(2)
+!  fL = -0.2573*L**4 + 4.2781*L**3 - 25.9348*L*L + 66.8113*L - 66.1182
+!  if((nex<nlow.and.MLT<=21.0.and.MLT>15.0).or.(nex>nhigh.and.(L>6.0 .or. L<3.0 .or. E>1.0 .or. E<-3.0 .or. E<fL))) then !  .or. kpx>6.0
+  fL = 0.1328*L*L - 2.1463*L + 3.7857
+  if((nex<nlow.and.MLT<=21.0.and.MLT>15.0).or.(nex>nhigh.and.(L>5.5 .or. L<1.5 .or. E>1.0 .or. E<-3.0 .or. E<fL))) then
+    if(nex>nhigh) write(*,"(6(a,e25.15))") 'C05 triggered: nex=',nex,' L=',L,' Kp=',kpx,' E=',E,' fL=',fL!,' RatefnC(2)=',RatefnC(2)
     tau = tau_s + RatefnC_tau_C05(MLT,K,L) ! mltx,engx,Lshx
     RatefnC19(2) = 0.0
   endif

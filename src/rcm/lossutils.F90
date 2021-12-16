@@ -365,4 +365,67 @@ MODULE lossutils
         endif
         lambda = 1.D0/tau ! 1/s
     END FUNCTION RatefnC_tau_h
+
+    FUNCTION RatefnC_tau_h16(mltx,engx,Lshx,kpx) result(tau)
+    ! Empirical lifetime against plasmaspheric hiss pitch angle diffusion, based on Orlova et al. 2015JA021878.
+    ! Improvements relative to 2014GL060100: 1. Hiss wave intensity distribution model is based on new data 
+    ! (O14 was based on single-component E field in CRRES data. O16 used Spasojevic+2015 model based on EMFISIS B data on VAP); 
+    ! 2. Wave spectrum is assumed differently (O14 assume Gaussian spectrum based on CRRES data).
+    ! Electron lifetime tau(L,E,MLT,Kp) = tau_av(L,E)/g(MLT)/h(Kp), 
+    ! where 1.5<L<5.5, E=log10(Ek[MeV]) for 1 KeV < Ek < 10 MeV.
+    ! log10(tau_av(L,E)) = a1+a2*L+a3*E+...+a20*E^3, when E >= f(L).
+    ! f(L) = 0.1328*L^2-2.1463*L+3.7857.
+    ! g(MLT) = 10^g0(MLT)/G0
+    ! h(Kp) = 10^h0(Kp)/H0
+    !   G0 = int_0^24(10^g0(MLT))dMLT / 24 = 782.3.
+    !   g0(MLT) = b2*MLT^2 + b1*MLT + b0
+    !   H0 = 1315.
+    !   h0(Kp) = c2*Kp^2 + c1*Kp + c0
+
+        IMPLICIT NONE
+        REAL (rprec), INTENT (IN) :: mltx,engx,kpx,Lshx ! engx in MeV.
+        REAL (rprec) :: lambda, tau, tau_av
+        REAL (rprec) :: MLT, L, E, K, L2, L3, L4, fL, E2, E3, E4, E5, LE
+        REAL (rprec) :: b0, b1, b2, G0, g0_MLT, g_MLT, c0, c1, c2, H0, h0_Kp, h_Kp
+        REAL (rprec), DIMENSION(20) :: a1_20, le_pol
+
+        lambda = 0.D0
+        tau = 1.D10
+        MLT = mltx
+        L = Lshx ! L=3-6
+        E = log10(engx) ! engx is Ek in MeV
+        L2 = L*L
+        fL = 0.1328*L2 - 2.1463*L + 3.7857
+        if(L>5.5 .or. L<1.5 .or. E>1.0 .or. E<-3.0 .or. E<fL) then 
+        ! Both sectors are only valid for log10(Ek)>=f(L), 1keV<Ek<10MeV, 1.5<=L<=5.5.
+            return
+        endif
+        b0 = 2.080
+        b1 = 0.1773
+        b2 = -0.007338
+        G0 = 782.3
+        g0_MLT = b2*MLT*MLT + b1*MLT + b0
+        g_MLT = 10**g0_MLT/G0
+        c0 = 2.598
+        c1 = 0.2321
+        c2 = -0.01414
+        H0 = 1315.0
+        K = min(kpx,5.0) ! 0<Kp<5, 1.2% data in Kp bin of 4.3-7.6
+        h0_Kp = c2*K*K + c1*K + c0
+        h_Kp = 10**h0_Kp/H0
+
+        E2 = E*E
+        E3 = E2*E
+        E4 = E3*E
+        E5 = E4*E
+        L3 = L2*L
+        L4 = L3*L
+        LE = L*E
+        a1_20 = [77.323, -92.641, -55.754, 44.497, 48.981, 8.9067, -10.704, -15.711, -3.3326, 1.5189, &
+                 1.294, 2.2546, 0.31889, -0.85916, -0.22182, 0.034318, 0.097248, -0.12192, -0.062765, 0.0063218]
+        le_pol = (/1.D0,L,E,L2,LE,E2,L3,L2*E,L*E2,E3,L4,L3*E,L2*E2,L*E3,E4,L*E4,L2*E3,L4*E,L2*L3,E5/)
+        tau_av = 10.0**(dot_product(a1_20,le_pol))*86400.D0 ! seconds
+        tau = tau_av/g_MLT/h_KP
+        lambda = 1.D0/tau ! 1/s
+    END FUNCTION RatefnC_tau_h16
 END MODULE lossutils
