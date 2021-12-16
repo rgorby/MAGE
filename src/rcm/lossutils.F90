@@ -4,8 +4,7 @@ MODULE lossutils
     USE kdefs, ONLY : TINY,PI,Mp_cgs,kev2J,Me_cgs,vc_cgs
     USE rcm_precision
     USE rcmdefs
-    use math, ONLY : SmoothOpTSC,SmoothOperator33,ClampValue,LinRampUp
-
+    USE math, ONLY : SmoothOpTSC,SmoothOperator33,ClampValue,LinRampUp
     implicit none
 
     contains
@@ -163,6 +162,101 @@ MODULE lossutils
         V = vc_cgs*sqrt(1.0-1.0/gammar**2)/Re_cgs ! Re/s
         TauSS = 3.D0*2.D0*ftv*bfp/V*gammar        ! Strong scattering lifetime [s], assuming eta=2/3.
     END FUNCTION RatefnC_tau_s
+
+    FUNCTION RatefnDW_tau_c(mltx,Lx,Kpx,Ekx) result(tau)
+    ! linearly interpolate tau from EWMTauInput to current MLT,L,Kp,Ek value
+        USE rice_housekeeping_module, ONLY: EWMTauInput
+        IMPLICIT NONE
+        REAL (rprec), INTENT (IN) :: mltx,Lx,Kpx,Ekx
+        REAL(rprec), dimension(:), allocatable :: MLTi,Li,Kpi,Eki
+        REAL(rprec), dimension(:,:,:), allocatable :: tau3D
+        REAL(rprec), dimension(:,:), allocatable :: tau2D
+        REAL(rprec), dimension(:, allocatable :: tau1D
+        REAL(rprec) :: tau
+        REAL(rprec) :: dM,wM,dL,wL,dE,wE, tauwl,tauwu
+        INTEGER :: Nm,Nl,Nk,Ne,l,e
+        INTEGER :: iK,iM,iL,iE
+
+        Nm = EWMTauInput%Nm
+        Nl = EWMTauInput%Nl
+        Nk = EWMTauInput%Nk
+        Ne = EWMTauInput%Ne
+
+        if (.not. allocated(MLTi)) allocate(MLTi(Nm))
+        if (.not. allocated(Li)) allocate(Li(Nl))
+        if (.not. allocated(Kpi)) allocate(Kpi(Nk))
+        if (.not. allocated(Eki)) allocate(Eki(Ne))
+        if (.not. allocated(tau3D)) allocate(tau3D(Nm,Nl,Ne)) 
+        if (.not. allocated(tau2D)) allocate(tau2D(Nl,Ne))
+        if (.not. allocated(tau1D)) allocate(tau1D(Ne))
+
+        ! look up in Kp
+        iK = minloc(abs(Kpi-Kpx),dim=1))
+        tau3D = EWMTauInput(:,:,iK,:)
+
+        ! linear interpolation in mlt
+        if (mltx >= maxval(MLTi)) then
+            tau2D(:,:) = tau3D(-1,:,:)
+        else if (mltx <= minval(MLTi)) then
+            tau2D(:,:) = tau3D(1,:,:)
+        else
+            iM = maxloc(MLTi,dim=1,mask=MLTi<=mltx)
+            dM = MLTi(iM+1)-MLTi(iM)
+            wM = (mltx-MLTi(iM))/dM
+            ! loop through cells
+            do l=1,Nl
+              do e=1,Ne
+               tauwl = tau3D(iM,l,e)
+               tauwu = tau3D(iM+1,l,e)
+               tau2D(l,e) = tauwl+wM*(tauwu-tauwl)
+              enddo
+            enddo
+        endif
+
+        ! linear interpolation in L shell
+        if (Lx > maxval(Li)) then
+            tau1D(:) = 0.0 ! tau_c is 0, total tau = tau_s
+        else if (Lx < minval(Li)) then
+            tau1D(:) = 1.D10 ! default lifetime is 10^10s ~ 10^3 years.
+        else if (Lx == maxval(Li)) then
+            tau1D(:) = tau2D(-1,:)
+        else if (Lx == minval(Li)) then
+            tau1D(:) = tau2D(1,:)
+        else            
+            iL = maxloc(Li,dim=1,mask=Li<=Lx)
+            dL = Li(iL+1)-Li(iL)
+            wL = (Lx-Li(iL))/dL
+            ! loop through cells
+            do e=1,Ne
+               tauwl = tau2D(iL,e)
+               tauwu = tau2D(iL+1,e)
+               tau1D(e) = tauwl+wL*(tauwu-tauwl)
+            enddo
+        endif
+     
+       ! linear interpolation in Ek
+        if (Ekx > maxval(Eki)) then
+            tau = 0.0 ! tau_c is 0, total tau = tau_s
+        else if (Ekx < minval(Eki)) then
+            tau = 1.D10 ! default lifetime is 10^10s ~ 10^3 years.
+        else if (Ekx == maxval(Eki)) then
+            tau = tau1D(-1)
+        else if (Ekx == minval(Eki)) then
+            tau = tau1D(1)
+        else
+            iE = maxloc(Eki,dim=1,mask=Eki<=Ekx)
+            dE = Eki(iE+1)-Eki(iE)
+            wE = (Ex-Ei(iE))/dE
+            ! loop through cells
+            do e=1,Ne
+               tauwl = tau1D(iE)
+               tauwu = tau1D(iE+1)
+               tau = tauwl+wL*(tauwu-tauwl)
+            enddo
+        endif
+
+    END FUNCTION RatefnDW_tau_c
+
 
     FUNCTION RatefnC_tau_C05(mltx,engx,Lshx) result(tau)
     ! default scattering rate lambda based on Chen et al. 2005.

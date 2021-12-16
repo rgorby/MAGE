@@ -2,7 +2,7 @@
     MODULE Rcm_mod_subs
     use kdefs, ONLY : PI,Mp_cgs,Me_cgs,EarthM0g,eCharge,kev2erg
     use conversion_module, ONLY : almdel
-    use rice_housekeeping_module, ONLY: use_plasmasphere
+    use rice_housekeeping_module, ONLY: use_plasmasphere, EWMTauInput
     use constants, ONLY: nt, radius_earth_m
     use rcmdefs
     use rcm_precision
@@ -112,7 +112,6 @@
                     lossratep(isize,jsize,kcsize), lossmodel(isize,jsize,kcsize), Dpp(isize,jsize), &
                     last_veff(isize,jsize,ksize)
 
-    type(EWMTauIn_T) :: EWMTauInput 
     INTEGER (iprec) :: ikflavc (kcsize), i_advect, i_eta_bc, i_birk
     LOGICAL :: L_dktime
     INTEGER (iprec), PARAMETER :: irdk=18, inrgdk=13, isodk=2, iondk=2
@@ -2964,11 +2963,45 @@ FUNCTION Ratefn (xx,yy,alamx,vmx,beqx,losscx,nex,kpx,fudgxO,sinixO,birxO,xmfactO
             Ratefn(2) = 0.0  
          case (ELOSS_C19)
             Ratefn = RatefnC19S(xx,yy,alamx,vmx,beqx,losscx,nex,kpx)
+         case (ELOSS_DW)
+            Ratefun = RatefnDW(xx,yy,alamx,vmx,nex,kpx)
          case default
             stop "The electron loss rate model type entered is not supported."
  end select
 
 END FUNCTION Ratefn
+
+FUNCTION RatefnDW(xx,yy,alamx,vmx,nex,kpx)
+  !Function to calculate diffuse electron precipitation loss rate using Dedong Wang's model
+  
+  use lossutils, ONLY: RatefnC_tau_s, RatefnDW_tau_c, RatefnDW_tau_h
+  IMPLICIT NONE
+  REAL (rprec), INTENT (IN) :: xx,yy,alamx,vmx,nex,kpx, bqx, losscx
+  REAL (rprec), dimension(2) :: RatefnDW
+  REAL (rprec) :: nhigh, nlow, L, MLT, K, E, tau, tau_s
+
+  nhigh = 100.D0 ! [/cc] ne>nhigh indicates inside plasmasphere.
+  nlow  = 10.D0  ! [/cc] ne<nlow indicates outside plasmasphere.
+  L = sqrt(xx**2+yy**2)
+  MLT = atan2(yy,xx)/pi*12.D0+12.D0
+  E = abs(alamx*vmx*1.0e-6) !Energy [MeV]
+  RatefnDW(1) = 1.D10
+  RatefnDW(2) = -2.0
+ 
+  tau_s = RatefnC_tau_s(alamx,vmx,beqx,losscx)
+
+  if(nex<nlow) then
+    tau = max(tau_s,RatefnDW_tau_c(MLT,L,kpx,E)) ! mltx,engx,kpx,Lshx
+    RatefnDW(2) = 1.0
+  elseif(nex>nhigh) then
+    tau = tau_s + RatefnC_tau_h(MLT,L,kpx,E) ! mltx,engx,kpx,Lshx
+    RatefnDW(2) = 2.0
+  else
+    tau = tau_s + (dlog(nhigh/nex)*RatefnDW_tau_c(MLT,L,kpx,E) + dlog(nex/nlow)*RatefnDW_tau_h(MLT,L,kpx,E))/dlog(nhigh/nlow)
+    RatefnDW(2) = 3.0
+  endif
+
+END FUNCTION RatefnDW
 
 FUNCTION RatefnC19 (xx,yy,alamx,vmx,beqx,losscx,nex,kpx)
 ! Function to calculate diffuse electron precipitation loss rate using eq(10) of MW Chen et al. 2019.
