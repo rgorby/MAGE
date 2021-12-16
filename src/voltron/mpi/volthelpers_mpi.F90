@@ -372,9 +372,8 @@ module volthelpers_mpi
 
     end subroutine
 
-    subroutine vhHandleSquishStart(vApp, squishTime)
+    subroutine vhHandleSquishStart(vApp)
         type(voltAppMpi_T), intent(inout) :: vApp
-        real(rp), optional, intent(out) :: squishTime
 
         integer :: ierr
         integer :: clockStart, clockEnd, clockRate, clockMax
@@ -399,12 +398,10 @@ module volthelpers_mpi
             call DoSquishBlock(vApp)
         end do
         call system_clock(count=clockEnd)
-        if(present(squishTime)) then
-            if(clockEnd < clockStart) then ! wrap
-                squishTime = real(clockMax-clockStart+clockEnd, RP)/real(clockRate, RP)
-            else
-                squishTime = real(clockEnd-clockStart, RP)/real(clockRate, RP)
-            endif
+        if(clockEnd < clockStart) then ! wrap
+            vApp%lastSquishTime = real(clockMax-clockStart+clockEnd, rp)/real(clockRate, rp)
+        else
+            vApp%lastSquishTime = real(clockEnd-clockStart, rp)/real(clockRate, rp)
         endif
 
     end subroutine
@@ -431,11 +428,11 @@ module volthelpers_mpi
 
         ! collect solved squish data
         if(vApp%masterSquish) then
-            firstBlock = 1 ! master rank handles block 0
+            firstBlock = 2 ! master rank handles block 0
         else
-            firstBlock = 0 ! collect all data
+            firstBlock = 1 ! collect all data
         endif
-        do i = firstBlock,vApp%ebTrcApp%ebSquish%numSquishBlocks-1
+        do i = firstBlock,vApp%ebTrcApp%ebSquish%numSquishBlocks
             call GetSquishBds(vApp, ks, ke, i)
             offsets(3) = ks-1
             newSizes(3) = ke+1-ks
@@ -518,14 +515,12 @@ module volthelpers_mpi
 
     end subroutine
 
-    subroutine vhHandleSquishEnd(vApp, squishTime)
+    subroutine vhHandleSquishEnd(vApp)
         type(voltAppMpi_T), intent(inout) :: vApp
-        real(rp), optional, intent(in) :: squishTime
 
         integer :: ierr,length,ks,ke, oldSizes(4), newSizes(4), offsets(4)
         type(MPI_Datatype) :: newtype
         character( len = MPI_MAX_ERROR_STRING) :: message
-        real(rp) :: squishTimeSendVal
 
         oldSizes = shape(vApp%chmp2mhd%xyzSquish)
         newSizes = (/vApp%iDeep+2-vApp%ebTrcApp%ebState%ebGr%is, &
@@ -590,12 +585,7 @@ module volthelpers_mpi
         end if
 
         if(vApp%squishLoadBalance) then
-            if(present(squishTime)) then
-                squishTimeSendVal = squishTime
-            else
-                squishTimeSendVal = -1.0_rp ! default
-            endif
-            call mpi_gather([squishTimeSendval], 1, MPI_MYFLOAT, [squishTimeSendVal], 1, MPI_MYFLOAT, 0, vApp%vhelpComm, ierr)
+            call mpi_gather([vApp%lastSquishTime], 1, MPI_MYFLOAT, [vApp%lastSquishTime], 0, MPI_MYFLOAT, 0, vApp%vhelpComm, ierr)
         endif
 
     end subroutine

@@ -45,10 +45,6 @@ module ebsquish
             ! make all blocks equal
             assignedPercents = 1.0_rp/ebSquish%numSquishBlocks
         else
-            print *,"Load Balancing Squish Helpers"
-            print *,"Slowest: ",maxval(balanceVals)
-            print *,"Fastest: ",minval(balanceVals)
-            print *,""
             ! use the mean of balances as the default
             defaultBalance = sum(balanceVals)/size(balanceVals)
             ! calculate the relative size of each block

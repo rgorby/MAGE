@@ -1332,10 +1332,6 @@ module voltapp_mpi
         integer :: ierr, helpType
         type(MPI_Request) :: helpReq
 
-        ! dynamic load balancing tracking
-        real(rp) :: squishTime
-        squishTime = -1.0_rp
-
         helperQuit = .false. ! don't quit normally
 
         ! assumed to only be in this function if helpers are enabled
@@ -1354,9 +1350,9 @@ module voltapp_mpi
             CASE (VHSTEP)
                 call vhHandleStep(vApp)
             CASE (VHSQUISHSTART)
-                call vhHandleSquishStart(vApp, squishTime)
+                call vhHandleSquishStart(vApp)
             CASE (VHSQUISHEND)
-                call vhHandleSquishEnd(vApp, squishTime)
+                call vhHandleSquishEnd(vApp)
             case (VHQUIT)
                 helperQuit = .true.
             CASE DEFAULT

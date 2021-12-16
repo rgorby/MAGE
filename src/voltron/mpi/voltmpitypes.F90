@@ -11,6 +11,7 @@ module voltmpitypes
         ! voltron to helpers comms variables
         type(MPI_Comm) :: vHelpComm
         integer :: vHelpRank
+        real(rp) :: lastSquishTime
         type(MPI_Win) :: vHelpWin
         integer, dimension(:), allocatable :: vHelpIdle
         logical :: amHelper = .false., useHelpers = .false.
