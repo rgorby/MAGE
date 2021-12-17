@@ -1,46 +1,27 @@
 import paraview.simple as pvs
 
+def pf_calcSpeeds(base):
 
-def pfs_UT(ut0Str):
-	print(ut0Str)
-	retStr = r"""
-import datetime
-isotfmt = '%Y-%m-%dT%H:%M:%S'
-ut0Str = '{}'
-ut0 = datetime.datetime.strptime(ut0Str,isotfmt)
-timeUT = vtk.vtkStringArray()
-timeUT.SetName('UT')
-t = inputs[0].GetInformation().Get(vtk.vtkDataObject.DATA_TIME_STEP())
-t = int(t)  # Remove decimals
-timeAsString = str(ut0+datetime.timedelta(seconds=t))
-timeUT.InsertNextValue(timeAsString)
+	scriptStr = """
+in0 = inputs[0]
 
-self.GetOutput().GetFieldData().AddArray(timeUT)
+bmag = sqrt(in0.CellData['Bx']**2+in0.CellData['By']**2+in0.CellData['Bz']**2)
+vmag = sqrt(in0.CellData['Vx']**2+in0.CellData['Vy']**2+in0.CellData['Vz']**2)
+temp_J = in0.CellData['P']*1E-9/(in0.CellData['D']*1E6)
+temp_kT = temp_J/1.380649E-23
 
-""".format(ut0Str)
-	return retStr
+cs = sqrt(temp_J/1.6726219E-27)
+va = bmag*1E-9 / sqrt(12.566*1E-7 * in0.CellData['D']*1E6 * 1.6726219E-27)
+msmach = vmag*1E3 / sqrt(cs**2 + va**2)
 
-def pf_UT(base, ut0Str):
-	pf = pvs.ProgrammableFilter(Input=base)
-	pf.Script = pfs_UT(ut0Str)
-	pf.RequestInformationScript = ''
-	pf.RequestUpdateExtentScript = ''
-	pf.PythonPath = ''
-	pf.CopyArrays=1
+output.CellData.append(bmag,'Bmag [nT]')
+output.CellData.append(vmag,'Vmag [km/s]')
+output.CellData.append(temp_kT,'Temp [kT]')
+output.CellData.append(cs,'Cs')
+output.CellData.append(va,'Va')
+output.CellData.append(msmach,'Magnetosonic Mach')
 
-	pvs.RenameSource('pf_UT', pf)
-
-def f_calcSpeeds(base):
-	""" Clearly not implemented yet
-		Will eventually calc sound speed, alfven speed, and magnetosonic mach
-		  and add to dataset
-	"""
-
-
-
-	scriptStr = """input0 = inputs[0]
-bby = input0.CellData['By']*2
-output.CellData.append(bby,'Bby')"""
+"""
 
 	pf = pvs.ProgrammableFilter(Input=base)
 	pf.Script = scriptStr
@@ -48,7 +29,7 @@ output.CellData.append(bby,'Bby')"""
 	pf.RequestUpdateExtentScript = ''
 	pf.PythonPath = ''
 	pf.CopyArrays=1
-
+	pvs.RenameSource('pf_calcSpeeds', pf)
 	# Show
 	renderView1 = pvs.GetActiveViewOrCreate('RenderView')
 	programmableFilter2Display = pvs.Show(pf, renderView1, 'GeometryRepresentation')
