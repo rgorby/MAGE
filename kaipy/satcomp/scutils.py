@@ -195,14 +195,14 @@ def pullVar(cdaObsId,cdaDataId,t0,t1,deltaT=60,epochStr="Epoch",doVerbose=False)
 		if data is None:
 			if doVerbose: print("Cdas responded with 200 but returned no data")
 			return status,data
-		if numDays > 1 and epochStr not in data:
+		if epochStr not in data.keys():
 			if doVerbose: print(epochStr + " not in dataset, can't build day-by-day")
 			data = None
 			return status,data
 		
 		#Figure out which axes are the epoch axis in each dataset so we can concatenate along it
-		nTime = len(data[epochStr])
 		dk = list(data.keys())
+		nTime = len(data[epochStr])
 		cataxis = np.array([-1 for i in range(len(dk))])
 		for k in range(len(dk)):
 			shape = np.array(data[dk[k]].shape)
@@ -227,10 +227,10 @@ def pullVar(cdaObsId,cdaDataId,t0,t1,deltaT=60,epochStr="Epoch",doVerbose=False)
 
 	return status,data
 
-def addVar(mydata,scDic,varname,t0,t1,deltaT):
+def addVar(mydata,scDic,varname,t0,t1,deltaT,epochStr='Epoch'):
 	#print(scDic,varname,idname,dataname,scDic[idname])
 	if scDic[varname]['Id'] is not None:
-		status,data = pullVar(scDic[varname]['Id'],scDic[varname]['Data'],t0,t1,deltaT)
+		status,data = pullVar(scDic[varname]['Id'],scDic[varname]['Data'],t0,t1,deltaT,epochStr=epochStr)
 		#print(status)
 		if status['http']['status_code'] == 200 and data is not None:
 			mydata[varname] = dm.dmarray(data[scDic[varname]['Data']],
@@ -255,12 +255,16 @@ def getSatData(scDic,t0,t1,deltaT):
 		if 'Epoch_bin' in data.keys():
 			#print('Using Epoch_bin')
 			mytime = data['Epoch_bin']
+			epochStr = 'Epoch_bin'
 		elif 'Epoch' in data.keys():
 			#print('Using Epoch')
 			mytime = data['Epoch']
+			epochStr = 'Epoch'
 		elif ([key for key in data.keys() if key.endswith('_state_epoch')]):
-			mytime = data[[key for key in data.keys()
-			if key.endswith('_state_epoch')][0]]
+			epochStr = [key for key in data.keys() if key.endswith('_state_epoch')][0]
+			#mytime = data[[key for key in data.keys()
+			#if key.endswith('_state_epoch')][0]]
+			mytime = data[epochStr]
 		else:
 			print('Unable to determine time type')
 			status = {'http': {'status_code': 404}}
@@ -272,7 +276,7 @@ def getSatData(scDic,t0,t1,deltaT):
 		keys = ['MagneticField','Velocity','Density','Pressure']
 		for key in keys:
 			if key in scDic:
-				status1 = addVar(mydata,scDic,key,t0,t1,deltaT)
+				status1 = addVar(mydata,scDic,key,t0,t1,deltaT,epochStr=epochStr)
 
 		#Add any metavar since they might be needed for unit/label determination
 		search_key = 'metavar'
