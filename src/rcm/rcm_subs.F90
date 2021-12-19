@@ -1205,7 +1205,7 @@
         implicit none
         logical :: doSP
         type(IOVAR_T), dimension(RCMIOVARS) :: IOVars !Lazy hard-coding max variables
-        integer :: nvari, tauDim, Nm, Nl,Nk,Ne
+        integer :: nvari, tauDim, Nk, Nm,Nl,Ne
         integer :: dims(4) ! update when add higher dimensions
 
 
@@ -1214,10 +1214,10 @@
         call AddInVar(IOVars,"alamc") !1
         call AddInVar(IOVars,"ikflavc") !2
         call AddInVar(IOVars,"fudgec") !3
-        call AddInVar(IOVars,"tau") !4
-        call AddInVar(IOVars,"MLTi") !5 
-        call AddInVar(IOVars,"Li")  !6
-        call AddInVar(IOVars,"Kpi") !7
+        call AddInVar(IOVars,"Taui") !4
+        call AddInVar(IOVars,"Kpi") !5 
+        call AddInVar(IOVars,"MLTi")  !6
+        call AddInVar(IOVars,"Li") !7
         call AddInVar(IOVars,"Eki") !8
         call ReadVars(IOVars,doSP,RCMGAMConfig)
 
@@ -1237,50 +1237,50 @@
         endif
 
         dims = IOVars(4)%dims(1:tauDim)
-        Nm   = IOVars(5)%N
-        Nl   = IOVars(6)%N
-        Nk   = IOVars(7)%N
+        Nk   = IOVars(5)%N
+        Nm   = IOVars(6)%N
+        Nl   = IOVars(7)%N
         Ne  = IOVars(8)%N
         if ( Nm /=  dims(1) .or. Nl /= dims(2) .or. Nk /= dims(3) .or. Ne /= dims(4)) then
             write(*,*) 'Dimensions of tau arrays are not compatible'
             stop
         endif
       
+        EWMTauIn%Nk = Nk
         EWMTauIn%Nm = Nm
         EWMTauIn%Nl = Nl
-        EWMTauIn%Nk = Nk
         EWMTauIn%Ne = Ne
 
+        allocate(EWMTauInput%Kpi(Nk))
         allocate(EWMTauInput%MLTi(Nm))
         allocate(EWMTauInput%Li(Nl))
-        allocate(EWMTauInput%Kpi(Nk))
         allocate(EWMTauInput%Eki(Ne))
 
-        call IOArray1DFill(IOVars,"MLTi",  EWMTauInput%MLTi)
-        call IOArray1DFill(IOVars,"Li",    EWMTauInput%Li)
-        call IOArray1DFill(IOVars,"Kpi", EWMTauInput%Kpi)
+        call IOArray1DFill(IOVars,"Kpi",  EWMTauInput%Kpi)
+        call IOArray1DFill(IOVars,"MLTi",    EWMTauInput%MLTi)
+        call IOArray1DFill(IOVars,"Li", EWMTauInput%Li)
         call IOArray1DFill(IOVars,"Eki",  EWMTauInput%Eki)
 
         ! Assumes array is in acsending order
-        if(EWMTauInput%MLTi(1) < EWMTauInput%MLTi(Nm)) then
-            write(*,*) "MLT: ",EWMTauInput%MTLi
-            write(*,*) "reorder wave model so MLT is in ascending order"
-            stop
-        end if
-
         if(EWMTauInput%Li(1) < EWMTauInput%Li(Nl)) then
             write(*,*) "L: ",EWMTauInput%Li
             write(*,*) "reorder wave model so L shell is in ascending order"
             stop
         end if
 
+        if(EWMTauInput%MLTi(1) < EWMTauInput%MLTi(Nm)) then
+            write(*,*) "MLT: ",EWMTauInput%MTLi
+            write(*,*) "reorder wave model so MLT is in ascending order"
+            stop
+        end if
+
         if(EWMTauInput%Eki(1) < EWMTauInput%Eki(Ne)) then
-            write(*,*) "MLT: ",EWMTauInput%Eki
+            write(*,*) "Ek: ",EWMTauInput%Eki
             write(*,*) "reorder wave model so Ek is in ascending order"
             stop
         end if
         
-        allocate(EWMTauInput%tau(Nm,Nl,Nk,Ne))
+        allocate(EWMTauInput%tau(Nk,Nm,Nl,Ne))
         EWMTauInput%tau(:,:,:,:) = reshape(IOVars(4)%data,dims)
 
 
