@@ -13,7 +13,7 @@ module ioH5Overload
         module procedure LoadIO_5D,LoadIO_4D,LoadIO_3D,LoadIO_2D,LoadIO_1D,LoadIO_0D
     end interface
 
-	contains
+        contains
 
 !-------------------------------------------
 !Simple helper functions for navigating IOVars_T
@@ -119,6 +119,22 @@ module ioH5Overload
 
     end subroutine IOArray3DFill
 
+    !Fill 4D array
+    subroutine IOArray4DFill(IOVars,vID,Q)
+        type(IOVAR_T), dimension(:), intent(in) :: IOVars
+        character(len=*), intent(in) :: vID
+        real(rp), dimension(:,:,:,:), intent(inout) :: Q
+
+        integer :: nvar
+        integer :: ndims(4)
+
+        nvar = FindIO(IOVars,vID,.true.)
+        if (.not. IOVars(nvar)%isDone) call FailArrayFill(vID)
+
+        ndims = [IOVars(nvar)%dims(1),IOVars(nvar)%dims(2),IOVars(nvar)%dims(3),IOVars(nvar)%dims(4)]
+        Q = reshape(IOVars(nvar)%data,ndims)
+
+    end subroutine IOArray4DFill
 
     subroutine FailArrayFill(vID)
         character(len=*), intent(in) :: vID

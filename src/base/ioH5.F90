@@ -25,7 +25,7 @@ module ioH5
     !TODO: Add more rank/datatype options
     !TODO: Add bounds checking
     interface IOArrayFill
-        module procedure IOArray1DFill,IOArray2DFill,IOArray3DFill
+        module procedure IOArray1DFill,IOArray2DFill,IOArray3DFill,IOArray4DFill
     end interface IOArrayFill
 
 contains

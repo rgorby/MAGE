@@ -1233,7 +1233,9 @@
         ! Only compatible with tau(MLT,L,Kp,Ek)
         tauDim = IOVars(8)%Nr
         if ( tauDim /= 4) then
+            write(*,*) "tauDim:",tauDim
             write(*,*) 'Currently only support tau model files in the form tau(MLT,L,Kp,Ek)'
+            write(*,*)"tau:",IOVars(8)%dims
             stop
         endif
 
