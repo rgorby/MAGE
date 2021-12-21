@@ -163,36 +163,36 @@ MODULE lossutils
         TauSS = 3.D0*2.D0*ftv*bfp/V*gammar        ! Strong scattering lifetime [s], assuming eta=2/3.
     END FUNCTION RatefnC_tau_s
 
-    FUNCTION RatefnDW_tau_c(mltx,Lx,Kpx,Ekx) result(tau)
+    FUNCTION RatefnDW_tau_c(Kpx,mltx,Lx,Ekx) result(tau)
     ! linearly interpolate tau from EWMTauInput to current MLT,L,Kp,Ek value
         USE rice_housekeeping_module, ONLY: EWMTauInput
         IMPLICIT NONE
-        REAL (rprec), INTENT (IN) :: mltx,Lx,Kpx,Ekx
-        REAL(rprec), dimension(:), allocatable :: MLTi,Li,Kpi,Eki
+        REAL (rprec), INTENT (IN) :: Kpx, mltx,Lx,Ekx
+        REAL(rprec), dimension(:), allocatable :: Kpi, MLTi,Li,Eki
         REAL(rprec), dimension(:,:,:), allocatable :: tau3D
         REAL(rprec), dimension(:,:), allocatable :: tau2D
         REAL(rprec), dimension(:), allocatable :: tau1D
         REAL(rprec) :: tau
         REAL(rprec) :: dM,wM,dL,wL,dE,wE, tauwl,tauwu
-        INTEGER :: Nm,Nl,Nk,Ne,l,e
-        INTEGER :: iK,iM,iL,iE
+        INTEGER :: Nk,Nm,Nl,Ne
+        INTEGER :: iK,iM,iL,iE,e,l
 
         Nm = EWMTauInput%Nm
         Nl = EWMTauInput%Nl
         Nk = EWMTauInput%Nk
         Ne = EWMTauInput%Ne
 
+
+        if (.not. allocated(Kpi)) allocate(Kpi(Nk))
         if (.not. allocated(MLTi)) allocate(MLTi(Nm))
         if (.not. allocated(Li)) allocate(Li(Nl))
-        if (.not. allocated(Kpi)) allocate(Kpi(Nk))
-        if (.not. allocated(Eki)) allocate(Eki(Ne))
         if (.not. allocated(tau3D)) allocate(tau3D(Nm,Nl,Ne)) 
         if (.not. allocated(tau2D)) allocate(tau2D(Nl,Ne))
         if (.not. allocated(tau1D)) allocate(tau1D(Ne))
 
         ! look up in Kp
         iK = minloc(abs(Kpi-Kpx),dim=1)
-        tau3D = EWMTauInput%tau(:,:,iK,:)
+        tau3D = EWMTauInput%tau1i(iK,:,:,:)
 
         ! linear interpolation in mlt
         if (mltx >= maxval(MLTi)) then

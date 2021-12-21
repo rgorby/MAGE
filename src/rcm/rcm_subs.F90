@@ -1214,11 +1214,12 @@
         call AddInVar(IOVars,"alamc") !1
         call AddInVar(IOVars,"ikflavc") !2
         call AddInVar(IOVars,"fudgec") !3
-        call AddInVar(IOVars,"Taui") !4
-        call AddInVar(IOVars,"Kpi") !5 
-        call AddInVar(IOVars,"MLTi")  !6
-        call AddInVar(IOVars,"Li") !7
-        call AddInVar(IOVars,"Eki") !8
+        call AddInVar(IOVars,"Kpi") !4 
+        call AddInVar(IOVars,"MLTi") !5
+        call AddInVar(IOVars,"Li") !6
+        call AddInVar(IOVars,"Eki") !7
+        call AddInVar(IOVars,"Taui1") !8
+        call AddInVar(IOVars,"Taui2") !9
         call ReadVars(IOVars,doSP,RCMGAMConfig)
 
         !Store data
@@ -1230,26 +1231,26 @@
         where(ikflavc==1)alamc = -abs(alamc)
 
         ! Only compatible with tau(MLT,L,Kp,Ek)
-        tauDim = IOVars(4)%Nr
+        tauDim = IOVars(8)%Nr
         if ( tauDim /= 4) then
             write(*,*) 'Currently only support tau model files in the form tau(MLT,L,Kp,Ek)'
             stop
         endif
 
-        dims = IOVars(4)%dims(1:tauDim)
-        Nk   = IOVars(5)%N
-        Nm   = IOVars(6)%N
-        Nl   = IOVars(7)%N
-        Ne  = IOVars(8)%N
+        dims = IOVars(8)%dims(1:tauDim)
+        Nk   = IOVars(4)%N
+        Nm   = IOVars(5)%N
+        Nl   = IOVars(6)%N
+        Ne  = IOVars(7)%N
         if ( Nm /=  dims(1) .or. Nl /= dims(2) .or. Nk /= dims(3) .or. Ne /= dims(4)) then
             write(*,*) 'Dimensions of tau arrays are not compatible'
             stop
         endif
       
-        EWMTauIn%Nk = Nk
-        EWMTauIn%Nm = Nm
-        EWMTauIn%Nl = Nl
-        EWMTauIn%Ne = Ne
+        EWMTauInput%Nk = Nk
+        EWMTauInput%Nm = Nm
+        EWMTauInput%Nl = Nl
+        EWMTauInput%Ne = Ne
 
         allocate(EWMTauInput%Kpi(Nk))
         allocate(EWMTauInput%MLTi(Nm))
@@ -1269,7 +1270,7 @@
         end if
 
         if(EWMTauInput%MLTi(1) < EWMTauInput%MLTi(Nm)) then
-            write(*,*) "MLT: ",EWMTauInput%MTLi
+            write(*,*) "MLT: ",EWMTauInput%MLTi
             write(*,*) "reorder wave model so MLT is in ascending order"
             stop
         end if
@@ -1280,9 +1281,10 @@
             stop
         end if
         
-        allocate(EWMTauInput%tau(Nk,Nm,Nl,Ne))
-        EWMTauInput%tau(:,:,:,:) = reshape(IOVars(4)%data,dims)
-
+        allocate(EWMTauInput%tau1i(Nk,Nm,Nl,Ne))
+        allocate(EWMTauInput%tau2i(Nk,Nm,Nl,Ne))
+        EWMTauInput%tau1i(:,:,:,:) = reshape(IOVars(8)%data,dims)
+        EWMTauInput%tau2i(:,:,:,:) = reshape(IOVars(9)%data,dims)
 
       END SUBROUTINE Read_plasma_H5
 !
@@ -2978,7 +2980,7 @@ FUNCTION RatefnDW(xx,yy,alamx,vmx,nex,kpx,bqx,losscx)
   IMPLICIT NONE
   REAL (rprec), INTENT (IN) :: xx,yy,alamx,vmx,nex,kpx,bqx,losscx
   REAL (rprec), dimension(2) :: RatefnDW
-  REAL (rprec) :: nhigh, nlow, L, MLT, K, E, tau, tau_s
+  REAL (rprec) :: nhigh, nlow, L, MLT, E, tau, tau_s
 
   nhigh = 100.D0 ! [/cc] ne>nhigh indicates inside plasmasphere.
   nlow  = 10.D0  ! [/cc] ne<nlow indicates outside plasmasphere.
@@ -2991,14 +2993,18 @@ FUNCTION RatefnDW(xx,yy,alamx,vmx,nex,kpx,bqx,losscx)
   tau_s = RatefnC_tau_s(alamx,vmx,bqx,losscx)
 
   if(nex<nlow) then
-    tau = max(tau_s,RatefnDW_tau_c(MLT,L,kpx,E)) ! mltx,engx,kpx,Lshx
+    tau = max(tau_s,RatefnDW_tau_c(kpx, MLT,L,E)) ! mltx,engx,kpx,Lshx
     RatefnDW(2) = 1.0
   elseif(nex>nhigh) then
-    tau = tau_s + RatefnC_tau_h(MLT,L,kpx,E) ! mltx,engx,kpx,Lshx
-    RatefnDW(2) = 2.0
+    tau = max(tau_s,RatefnDW_tau_c(kpx,MLT,L,E)) ! mltx,engx,kpx,Lshx
+    RatefnDW(2) = 1.0
+    !tau = tau_s + RatefnC_tau_h(MLT,L,kpx,E) ! mltx,engx,kpx,Lshx
+    !RatefnDW(2) = 2.0
   else
-    tau = tau_s + (dlog(nhigh/nex)*RatefnDW_tau_c(MLT,L,kpx,E) + dlog(nex/nlow)*RatefnC_tau_h(MLT,L,kpx,E))/dlog(nhigh/nlow)
-    RatefnDW(2) = 3.0
+    tau = max(tau_s,RatefnDW_tau_c(kpx,MLT,L,E)) ! mltx,engx,kpx,Lshx
+    RatefnDW(2) = 1.0
+    !tau = tau_s + (dlog(nhigh/nex)*RatefnDW_tau_c(MLT,L,kpx,E) + dlog(nex/nlow)*RatefnC_tau_h(MLT,L,kpx,E))/dlog(nhigh/nlow)
+    !RatefnDW(2) = 3.0
   endif
 
 END FUNCTION RatefnDW

@@ -1,10 +1,12 @@
-#!/usr/bin/env python
+#!/usr/bin/env python	
 #Generates RCM config data
 
 import argparse
 from argparse import RawTextHelpFormatter
 import kaipy.rcm.lambdautils.genAlam as genAlam
 from kaipy.rcm.lambdautils.AlamData import AlamParams
+from kaipy.rcm.wmutils.wmData import wmParams
+import kaipy.rcm.wmutils.genWM as genWM
 
 if __name__ == "__main__":
 
@@ -34,9 +36,16 @@ if __name__ == "__main__":
 
 	print("Writing RCM configuration to %s"%(fOut))
 
-	params = AlamParams(num_e=args.ne, num_p=args.np,
+	lamParams = AlamParams(num_e=args.ne, num_p=args.np,
 						alamMin_e=args.amine, alamMin_p=args.aminp,
 						ktMax=args.kt*1E3, L_kt=args.L, tiote=args.tiote,
 						p1=args.p1, p2=args.p2,
 						addPsphere = (not args.nop))
-	genAlam.genh5(fOut, params, doTests=False)
+	genAlam.genh5(fOut, lamParams, doTests=False)
+	tauParams = wmParams(dim = 4, nKp = 7, nMLT = 24, nL = 41, nEk = 155)	
+	genWM.genh5(fOut,tauParams,useWMh5 = False)
+
+
+
+
+
