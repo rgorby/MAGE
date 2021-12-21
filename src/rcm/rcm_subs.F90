@@ -1218,8 +1218,8 @@
         call AddInVar(IOVars,"MLTi") !5
         call AddInVar(IOVars,"Li") !6
         call AddInVar(IOVars,"Eki") !7
-        call AddInVar(IOVars,"Taui1") !8
-        call AddInVar(IOVars,"Taui2") !9
+        call AddInVar(IOVars,"Tau1i") !8
+        call AddInVar(IOVars,"Tau1i") !9
         call ReadVars(IOVars,doSP,RCMGAMConfig)
 
         !Store data
@@ -1234,7 +1234,7 @@
         tauDim = IOVars(8)%Nr
         if ( tauDim /= 4) then
             write(*,*) "tauDim:",tauDim
-            write(*,*) 'Currently only support tau model files in the form tau(MLT,L,Kp,Ek)'
+            write(*,*) 'Currently only support tau model files in the form tau(Kp,MLT,L,Ek)'
             write(*,*)"tau:",IOVars(8)%dims
             stop
         endif
@@ -1244,7 +1244,8 @@
         Nm   = IOVars(5)%N
         Nl   = IOVars(6)%N
         Ne  = IOVars(7)%N
-        if ( Nm /=  dims(1) .or. Nl /= dims(2) .or. Nk /= dims(3) .or. Ne /= dims(4)) then
+        if ( Nk /=  dims(1) .or. Nm /= dims(2) .or. Nl /= dims(3) .or. Ne /= dims(4)) then
+            write(*,*) "dims:",dims,"Nk:",Nk,"Nm:",Nm,"Nl:",Nl,"Ne:",Ne
             write(*,*) 'Dimensions of tau arrays are not compatible'
             stop
         endif

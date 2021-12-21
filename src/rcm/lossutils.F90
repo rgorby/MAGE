@@ -169,92 +169,117 @@ MODULE lossutils
         IMPLICIT NONE
         REAL (rprec), INTENT (IN) :: Kpx, mltx,Lx,Ekx
         REAL(rprec), dimension(:), allocatable :: Kpi, MLTi,Li,Eki
-        REAL(rprec), dimension(:,:,:), allocatable :: tau3D
-        REAL(rprec), dimension(:,:), allocatable :: tau2D
-        REAL(rprec), dimension(:), allocatable :: tau1D
         REAL(rprec) :: tau
-        REAL(rprec) :: dM,wM,dL,wL,dE,wE, tauwl,tauwu
+        REAL(rprec) :: tauMlLlEl,tauMlLlEu,tauMlLuEl,tauMlLuEu,tauMuLlEl,tauMuLlEu,tauMuLuEl,tauMuLuEu
+        REAL(rprec) :: tauLlEl,tauLlEu,tauLuEl,tauLuEu,tauEl,tauEu
+        REAL(rprec) :: dM,wM,dL,wL,dE,wE
         INTEGER :: Nk,Nm,Nl,Ne
-        INTEGER :: iK,iM,iL,iE,e,l
+        INTEGER :: iK,mL,mU,lL,lU,eL,eU
 
         Nm = EWMTauInput%Nm
         Nl = EWMTauInput%Nl
         Nk = EWMTauInput%Nk
         Ne = EWMTauInput%Ne
 
-
         if (.not. allocated(Kpi)) allocate(Kpi(Nk))
         if (.not. allocated(MLTi)) allocate(MLTi(Nm))
         if (.not. allocated(Li)) allocate(Li(Nl))
-        if (.not. allocated(tau3D)) allocate(tau3D(Nm,Nl,Ne)) 
-        if (.not. allocated(tau2D)) allocate(tau2D(Nl,Ne))
-        if (.not. allocated(tau1D)) allocate(tau1D(Ne))
 
         ! look up in Kp
         iK = minloc(abs(Kpi-Kpx),dim=1)
-        tau3D = EWMTauInput%tau1i(iK,:,:,:)
+
+        ! Find the nearest neighbours in MLT
+        if (mltx >= maxval(MLTi) .or. mltx <= minval(MLTi))  then ! maxval of MLT is 24, minval of MLT is 0 
+            mL = 1
+            mU = 1 
+        else
+            mL = maxloc(MLTi,dim=1,mask=MLTi<=mltx)
+            mU = mL+1
+        endif
+
+        ! Find the nearest neighbours in L
+        if (Lx > maxval(Li)) then
+            lL = -1 ! tau_c is 0, total tau = tau_s
+            lU = 0
+        else if (Lx < minval(Li)) then
+            lL = 0 ! default lifetime is 10^10s ~ 10^3 years.
+            lU = -1
+        else if (Lx == maxval(Li)) then
+            lL = Nl
+            lU = Nl 
+        else
+            lL = maxloc(Li,dim=1,mask=Li<=Lx)
+            lU = lL+1
+        endif
+
+         ! Find the nearest neighbours in Ek
+        if (Ekx > maxval(Eki)) then
+            eL = -1 ! tau_c is 0, total tau = tau_s
+            eU = 0
+        else if (Ekx < minval(Eki)) then
+            el = 0 ! default lifetime is 10^10s ~ 10^3 years.
+            eU = -1
+        else if (Ekx == maxval(Eki)) then
+            eL = Ne
+            eU = Ne
+        else
+            eL = maxloc(Eki,dim=1,mask=Eki<=Ekx)
+            eU = eL + 1
+        endif
+
+        !Corner cases
+        if (lL == -1 .or. eL == -1) then 
+            tau = 0.0  
+            return 
+        else if (lU == -1 .or. lU== -1) then
+            tau = 1.D10
+            return
+        end if
 
         ! linear interpolation in mlt
-        if (mltx >= maxval(MLTi)) then
-            tau2D(:,:) = tau3D(-1,:,:)
-        else if (mltx <= minval(MLTi)) then
-            tau2D(:,:) = tau3D(1,:,:)
+        if (mL == mU) then 
+            tauLlEl = EWMTauInput%tau1i(iK,mL,lL,eL)
+            tauLlEu = EWMTauInput%tau1i(iK,mL,lL,eU)
+            tauLuEl = EWMTauInput%tau1i(iK,mL,lU,eL)
+            tauLuEu = EWMTauInput%tau1i(iK,mL,lU,eU)
         else
-            iM = maxloc(MLTi,dim=1,mask=MLTi<=mltx)
-            dM = MLTi(iM+1)-MLTi(iM)
-            wM = (mltx-MLTi(iM))/dM
-            ! loop through cells
-            do l=1,Nl
-              do e=1,Ne
-               tauwl = tau3D(iM,l,e)
-               tauwu = tau3D(iM+1,l,e)
-               tau2D(l,e) = tauwl+wM*(tauwu-tauwl)
-              enddo
-            enddo
-        endif
+            dM = MLTi(mU)-MLTi(mL)
+            wM = (mltx-MLTi(mU))/dM
+            tauMlLlEl =  EWMTauInput%tau1i(iK,mL,lL,eL)
+            tauMuLlEl =  EWMTauInput%tau1i(iK,mU,lL,eL)
+            tauLlEl = tauMlLlEl + wM*(tauMuLlEl+tauMlLlEl)
+            tauMlLlEu =  EWMTauInput%tau1i(iK,mL,lL,eU)
+            tauMuLlEu =  EWMTauInput%tau1i(iK,mU,lL,eU)
+            tauLlEu = tauMlLlEu + wM*(tauMuLlEu+tauMlLlEu)
+            tauMlLuEl =  EWMTauInput%tau1i(iK,mL,lU,eL)
+            tauMuLuEl =  EWMTauInput%tau1i(iK,mU,lU,eL)
+            tauLuEl = tauMlLuEl + wM*(tauMuLuEl+tauMlLuEl)
+            tauMlLuEu =  EWMTauInput%tau1i(iK,mL,lU,eU)
+            tauMuLuEu =  EWMTauInput%tau1i(iK,mU,lU,eU)
+            tauLuEu = tauMlLuEu + wM*(tauMuLuEu+tauMlLuEu)            
+        end if
 
-        ! linear interpolation in L shell
-        if (Lx > maxval(Li)) then
-            tau1D(:) = 0.0 ! tau_c is 0, total tau = tau_s
-        else if (Lx < minval(Li)) then
-            tau1D(:) = 1.D10 ! default lifetime is 10^10s ~ 10^3 years.
-        else if (Lx == maxval(Li)) then
-            tau1D(:) = tau2D(-1,:)
-        else if (Lx == minval(Li)) then
-            tau1D(:) = tau2D(1,:)
-        else            
-            iL = maxloc(Li,dim=1,mask=Li<=Lx)
-            dL = Li(iL+1)-Li(iL)
-            wL = (Lx-Li(iL))/dL
-            ! loop through cells
-            do e=1,Ne
-               tauwl = tau2D(iL,e)
-               tauwu = tau2D(iL+1,e)
-               tau1D(e) = tauwl+wL*(tauwu-tauwl)
-            enddo
-        endif
-     
-       ! linear interpolation in Ek
-        if (Ekx > maxval(Eki)) then
-            tau = 0.0 ! tau_c is 0, total tau = tau_s
-        else if (Ekx < minval(Eki)) then
-            tau = 1.D10 ! default lifetime is 10^10s ~ 10^3 years.
-        else if (Ekx == maxval(Eki)) then
-            tau = tau1D(-1)
-        else if (Ekx == minval(Eki)) then
-            tau = tau1D(1)
+        ! linear interpolation in L
+        if (lL == lU) then 
+            tauEl = tauLuEl
+            tauEu = tauLuEu
         else
-            iE = maxloc(Eki,dim=1,mask=Eki<=Ekx)
-            dE = Eki(iE+1)-Eki(iE)
-            wE = (Ekx-Eki(iE))/dE
-            ! loop through cells
-            do e=1,Ne
-               tauwl = tau1D(iE)
-               tauwu = tau1D(iE+1)
-               tau = tauwl+wL*(tauwu-tauwl)
-            enddo
-        endif
-
+            dL = Li(lL)-Li(lU)
+            wL = (Lx-Li(lL))/dL
+            tauEl = tauLlEl + wL*(tauLuEl-tauLlEl)
+            tauEu = tauLlEu + wL*(tauLuEu-tauLlEu)
+        end if 
+        
+        ! linear interpolation in Ek
+        if (eL == eU) then 
+            tau = tauEl
+            return
+        else
+            dE = Eki(eU)-Eki(eL)
+            wE = (Ekx-Eki(eL))/dE 
+            tau = tauEl + wE*(tauEu-tauEl)    
+        end if
+    
     END FUNCTION RatefnDW_tau_c
 
 

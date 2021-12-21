@@ -62,7 +62,7 @@ def toyWM(params):
                     for ne in range(nEki):
                          tau1i[nk,nm,nl,ne] = kpi[nk]*mlti[nm]*li[nl]*eki[ne] 
                          tau2i[nk,nm,nl,ne] = tau1i[nk,nm,nl,ne]
-      
+        
         return kpi,mlti,li,eki,tau1i,tau2i
       
 
