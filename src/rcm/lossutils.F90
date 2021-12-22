@@ -168,7 +168,6 @@ MODULE lossutils
         USE rice_housekeeping_module, ONLY: EWMTauInput
         IMPLICIT NONE
         REAL (rprec), INTENT (IN) :: Kpx, mltx,Lx,Ekx
-        REAL(rprec), dimension(:), allocatable :: Kpi, MLTi,Li,Eki
         REAL(rprec) :: tau
         REAL(rprec) :: tauMlLlEl,tauMlLlEu,tauMlLuEl,tauMlLuEu,tauMuLlEl,tauMuLlEu,tauMuLuEl,tauMuLuEu
         REAL(rprec) :: tauLlEl,tauLlEu,tauLuEl,tauLuEu,tauEl,tauEu
@@ -176,14 +175,9 @@ MODULE lossutils
         INTEGER :: Nk,Nm,Nl,Ne
         INTEGER :: iK,mL,mU,lL,lU,eL,eU
 
-        Nm = EWMTauInput%Nm
-        Nl = EWMTauInput%Nl
-        Nk = EWMTauInput%Nk
-        Ne = EWMTauInput%Ne
-
-        if (.not. allocated(Kpi)) allocate(Kpi(Nk))
-        if (.not. allocated(MLTi)) allocate(MLTi(Nm))
-        if (.not. allocated(Li)) allocate(Li(Nl))
+        associate(Nm=>EWMTauInput%Nm,Nl=>EWMTauInput%Nl,Nk=>EWMTauInput%Nk,Ne=>EWMTauInput%Ne,&
+                  Kpi=>EWMTauInput%Kpi,MLTi=>EWMTauInput%MLTi,Li=>EWMTauInput%Li,Eki=>EWMTauInput%Eki,&
+                  tau1i=>EWMTauInput%tau1i,tau2i=>EWMTauInput%tau2i)
 
         ! look up in Kp
         iK = minloc(abs(Kpi-Kpx),dim=1)
@@ -238,27 +232,27 @@ MODULE lossutils
 
         ! linear interpolation in mlt
         if (mL == mU) then 
-            tauLlEl = EWMTauInput%tau1i(iK,mL,lL,eL)
-            tauLlEu = EWMTauInput%tau1i(iK,mL,lL,eU)
-            tauLuEl = EWMTauInput%tau1i(iK,mL,lU,eL)
-            tauLuEu = EWMTauInput%tau1i(iK,mL,lU,eU)
+            tauLlEl = tau1i(iK,mL,lL,eL)
+            tauLlEu = tau1i(iK,mL,lL,eU)
+            tauLuEl = tau1i(iK,mL,lU,eL)
+            tauLuEu = tau1i(iK,mL,lU,eU)
         else
             dM = MLTi(mU)-MLTi(mL)
             wM = (mltx-MLTi(mU))/dM
-            tauMlLlEl =  EWMTauInput%tau1i(iK,mL,lL,eL)
-            tauMuLlEl =  EWMTauInput%tau1i(iK,mU,lL,eL)
+            tauMlLlEl =  tau1i(iK,mL,lL,eL)
+            tauMuLlEl =  tau1i(iK,mU,lL,eL)
             tauLlEl = tauMlLlEl + wM*(tauMuLlEl+tauMlLlEl)
-            tauMlLlEu =  EWMTauInput%tau1i(iK,mL,lL,eU)
-            tauMuLlEu =  EWMTauInput%tau1i(iK,mU,lL,eU)
+            tauMlLlEu =  tau1i(iK,mL,lL,eU)
+            tauMuLlEu =  tau1i(iK,mU,lL,eU)
             tauLlEu = tauMlLlEu + wM*(tauMuLlEu+tauMlLlEu)
-            tauMlLuEl =  EWMTauInput%tau1i(iK,mL,lU,eL)
-            tauMuLuEl =  EWMTauInput%tau1i(iK,mU,lU,eL)
+            tauMlLuEl =  tau1i(iK,mL,lU,eL)
+            tauMuLuEl =  tau1i(iK,mU,lU,eL)
             tauLuEl = tauMlLuEl + wM*(tauMuLuEl+tauMlLuEl)
-            tauMlLuEu =  EWMTauInput%tau1i(iK,mL,lU,eU)
-            tauMuLuEu =  EWMTauInput%tau1i(iK,mU,lU,eU)
+            tauMlLuEu =  tau1i(iK,mL,lU,eU)
+            tauMuLuEu =  tau1i(iK,mU,lU,eU)
             tauLuEu = tauMlLuEu + wM*(tauMuLuEu+tauMlLuEu)            
         end if
-
+        
         ! linear interpolation in L
         if (lL == lU) then 
             tauEl = tauLuEl
@@ -279,7 +273,8 @@ MODULE lossutils
             wE = (Ekx-Eki(eL))/dE 
             tau = tauEl + wE*(tauEu-tauEl)    
         end if
-    
+        end associate
+ 
     END FUNCTION RatefnDW_tau_c
 
 

@@ -31,16 +31,25 @@ def genh5(fname, inputParams, useWMh5=True):
 def readWMh5(params,fIn):
 
         f5 = h5.File(fIn, 'r')
-        kpi=f5['Kp_1D']
-        mlti=f5['MLT_1D']
-        li=f5['L_1D']
-        eki=f5['E_1D']
-        tau1i=f5['Tau1_4D']  
-        tau2i=f5['Tau2_4D']
-
-	#check with params
-
-        return kpi,mlti,li,eki,tau1i,tau2i
+        kpi=f5['Kp_1D'][:][0]
+        mlti=np.append(f5['MLT_1D'][:][0],24.)
+        li=f5['L_1D'][:][0]
+        eki=np.exp(f5['E_1D'][:][0]) # in MeV
+        tau1i=f5['Tau1_4D'][:]  
+        tau2i=f5['Tau2_4D'][:]
+        print ("kpi",kpi,"mlti",mlti,"li",li,"eki",eki)
+        nk,nm,nl,ne = tau1i.shape
+        print ("tau1i shape:",tau1i.shape)
+        #expand mlt from 0:23 to 0:24
+        tau1ai = np.array([np.append(tau1i[0,:,:,:],np.array([tau1i[0,0,:,:]]),0)])
+        tau2ai = np.array([np.append(tau2i[0,:,:,:],np.array([tau2i[0,0,:,:]]),0)])
+        for i in range(1,7):
+              tau1ai=np.append(tau1ai,np.array([np.append(tau1i[i,:,:,:],np.array([tau1i[i,0,:,:]]),0)]),0)
+              tau2ai=np.append(tau2ai,np.array([np.append(tau2i[i,:,:,:],np.array([tau2i[i,0,:,:]]),0)]),0)	
+        tau1ai = tau1ai.T
+        tau2ai = tau2ai.T
+        print ("tau1ai shape:",tau1ai.shape)
+        return kpi,mlti,li,eki,tau1ai,tau2ai
 
 
 def toyWM(params):
@@ -50,19 +59,21 @@ def toyWM(params):
         nEki = params.nEk
         
         kpi = np.linspace(1,7,nKpi)
-        mlti = np.linspace(0,23,nMLTi)
+        mlti = np.linspace(0,24,nMLTi) #Note the dimension of MLT is 25
         li = np.linspace(3.,7.,nLi)
-        eki = np.exp(np.linspace(-3,0.1,nEki))*1.e6 #in eV
-        
+        eki = np.exp(np.linspace(-3,0.1,nEki)) #in MeV
+        print ("kpi",kpi,"mlti",mlti,"li",li,"eki",eki) 
         tau1i = np.zeros((nKpi,nMLTi,nLi,nEki))
-        tau2i = np.zeros((nKpi,nMLTi,nLi,nEki))  
+        tau2i = np.zeros((nKpi,nMLTi,nLi,nEki)).T 
         for nk in range(nKpi):
             for nm in range(nMLTi):
                 for nl in range(nLi):
                     for ne in range(nEki):
                          tau1i[nk,nm,nl,ne] = kpi[nk]*mlti[nm]*li[nl]*eki[ne] 
-                         tau2i[nk,nm,nl,ne] = tau1i[nk,nm,nl,ne]
-        
+        tau1i = tau1i.T
+        print ("tau1i shape:", tau1i.shape)     
+        print ("tau2i shape:", tau2i.shape)
+   
         return kpi,mlti,li,eki,tau1i,tau2i
       
 

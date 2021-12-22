@@ -1260,25 +1260,25 @@
         allocate(EWMTauInput%Li(Nl))
         allocate(EWMTauInput%Eki(Ne))
 
-        call IOArray1DFill(IOVars,"Kpi",  EWMTauInput%Kpi)
-        call IOArray1DFill(IOVars,"MLTi",    EWMTauInput%MLTi)
+        call IOArray1DFill(IOVars,"Kpi",EWMTauInput%Kpi)
+        call IOArray1DFill(IOVars,"MLTi",EWMTauInput%MLTi)
         call IOArray1DFill(IOVars,"Li", EWMTauInput%Li)
-        call IOArray1DFill(IOVars,"Eki",  EWMTauInput%Eki)
+        call IOArray1DFill(IOVars,"Eki",EWMTauInput%Eki)
 
         ! Assumes array is in acsending order
-        if(EWMTauInput%Li(1) < EWMTauInput%Li(Nl)) then
+        if(EWMTauInput%Li(1) > EWMTauInput%Li(Nl)) then
             write(*,*) "L: ",EWMTauInput%Li
             write(*,*) "reorder wave model so L shell is in ascending order"
             stop
         end if
 
-        if(EWMTauInput%MLTi(1) < EWMTauInput%MLTi(Nm)) then
+        if(EWMTauInput%MLTi(1) > EWMTauInput%MLTi(Nm)) then
             write(*,*) "MLT: ",EWMTauInput%MLTi
             write(*,*) "reorder wave model so MLT is in ascending order"
             stop
         end if
 
-        if(EWMTauInput%Eki(1) < EWMTauInput%Eki(Ne)) then
+        if(EWMTauInput%Eki(1) > EWMTauInput%Eki(Ne)) then
             write(*,*) "Ek: ",EWMTauInput%Eki
             write(*,*) "reorder wave model so Ek is in ascending order"
             stop
