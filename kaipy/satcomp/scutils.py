@@ -82,7 +82,8 @@ def computeErrors(obs,pred):
 	RMSE = np.sqrt(MSE)
 	MAPE = 1./len(obs) * np.sum(np.abs(obs-pred)/
 		np.where(abs(obs) < TINY,TINY,abs(obs)))
-	RSE = (np.sum((obs-pred)**2)/np.sum((obs-np.mean(obs))**2))
+	RSE = (np.sum((obs-pred)**2)/
+		np.where(np.sum((obs-np.mean(obs))**2)<TINY**2,TINY**2,np.sum((obs-np.mean(obs))**2)))
 	PE = 1-RSE
 	return MAE,MSE,RMSE,MAPE,RSE,PE
 
@@ -112,7 +113,7 @@ def getCdasDsetInterval(dsName):
 	tInt = data[0]['TimeInterval']
 	return tInt['Start'], tInt['End']
 
-def pullVar(cdaObsId,cdaDataId,t0,t1,deltaT=60,epochStr="Epoch",doVerbose=False):
+def pullVar(cdaObsId,cdaDataId,t0,t1,deltaT=60,epochStr="Epoch",doVerbose=True):
 	"""Pulls info from cdaweb
 		cdaObsId  : [str] Dataset name
 		cdaDataId : [str or list of strs] variables from dataset
@@ -146,9 +147,11 @@ def pullVar(cdaObsId,cdaDataId,t0,t1,deltaT=60,epochStr="Epoch",doVerbose=False)
 		if doVerbose: print("numDays: " + str(numDays))
 
 		tstamp_arr = []
+		if numDays == 1: numDays = 2 # Because of the way python indexs need to have 2 day miniumum
 		for i in range(numDays):
 			tstamp_arr.append((t0dt + datetime.timedelta(days=i)).strftime("%Y-%m-%dT%H:%M:%SZ"))
-		
+		if doVerbose: print(tstamp_arr)
+
 		#Get first day
 		status, data = cdas.get_data(cdaObsId, [], tstamp_arr[0], tstamp_arr[1], binData=binData)
 		if doVerbose: print("Pulling " + t0)
@@ -156,13 +159,16 @@ def pullVar(cdaObsId,cdaDataId,t0,t1,deltaT=60,epochStr="Epoch",doVerbose=False)
 		if status['http']['status_code'] != 200:
 			# If it still fails, its some other problem and we'll die
 			if doVerbose: print("Still bad pull. Dying.")
-			return {}
+			status = {'http': {'status_code': 404}}
+			return status,data 
 		if data is None:
 			if doVerbose: print("Cdas responded with 200 but returned no data")
-			return {}
+			status = {'http': {'status_code': 404}}
+			return status,data
 		if numDays > 1 and epochStr not in data:
 			if doVerbose: print(epochStr + " not in dataset, can't build day-by-day")
-			return {}
+			status = {'http': {'status_code': 404}}
+			return status,data
 		
 		#Figure out which axes are the epoch axis in each dataset so we can concatenate along it
 		nTime = len(data[epochStr])
