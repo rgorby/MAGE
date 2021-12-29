@@ -15,9 +15,26 @@ print(slack_token)
 client = WebClient(token=slack_token)
 
 # Get CWD and set kaiju to "home"
+calledFrom = os.path.dirname(os.path.abspath(__file__))
+os.chdir(calledFrom)
 orig = os.getcwd()
 os.chdir('..')
 home = os.getcwd()
+
+isTest = False
+beLoud = False
+
+# Check argument flags
+if (len(sys.argv) >= 2):
+    for i in range(1,len(sys.argv)):
+        if(str(sys.argv[i]) == '-t'):
+            print("Test Mode: On")
+            isTest = True
+        elif(str(sys.argv[i]) == '-l'):
+            print("Being Loud")
+            beLoud = True
+        else:
+            print("Unrecognized argument: ", sys.argv[i])
 
 # Delete everything in the unitTest folder
 os.chdir(home)
@@ -71,7 +88,7 @@ os.chdir('intelChecks')
 #arguments = arguments + "cd" + home + ";"
 #arguments = arguments + "cd kaiju/unitTest1;"
 # Invoke cmake
-arguments = arguments + "cmake ../ -DALLOW_INVALID_COMPILERS=ON -DENABLE_MPI=ON;"
+arguments = arguments + "cmake ../ -DALLOW_INVALID_COMPILERS=ON -DENABLE_MPI=ON -DENABLE_MKL=ON -DCMAKE_BUILD_TYPE=DEBUG;"
 # Make gamera, voltron and allTests
 arguments = arguments + "make gamera_mpi; make voltron_mpi;"
 print(arguments)
@@ -80,25 +97,48 @@ subprocess.call(arguments, shell=True)
 os.chdir(home)
 os.chdir('testingScripts')
 subprocess.call("cp tinyCase.xml ../intelChecks/bin", shell=True)
-subprocess.call("cp intelCheckSubmit.pbs ../intelChecks/bin", shell=True)
+subprocess.call("cp lfmD.h5 ../intelChecks/bin", shell=True)
+subprocess.call("cp bcwind.h5 ../intelChecks/bin", shell=True)
+subprocess.call("cp rcmconfig.h5 ../intelChecks/bin", shell=True)
+subprocess.call("cp intelCheckSubmitMem.pbs ../intelChecks/bin", shell=True)
+subprocess.call("cp intelCheckSubmitThread.pbs ../intelChecks/bin", shell=True)
+subprocess.call("cp memSuppress.sup ../intelChecks/bin", shell=True)
+subprocess.call("cp threadSuppress.sup ../intelChecks/bin", shell=True)
 
 # SUBMIT INTEL CHECK JOBS
 os.chdir(home)
 os.chdir('intelChecks/bin')
-arguments = 'qsub intelCheckSubmit.pbs'
+
+# list all modules with spaces between them, to be loaded in the qsub scripts
+modset = ""
+for line in ModuleList[0]:
+    modset = modset + line + " "
+
+# submit memory checker
+arguments = 'qsub -v MODULE_LIST="' + modset + '" intelCheckSubmitMem.pbs'
 print(arguments)
 submission = subprocess.Popen(arguments, shell=True, stdout=subprocess.PIPE)
 readString = submission.stdout.read()
 readString = readString.decode('ascii')
 print(readString)
 
-jobNumber = readString.split('.')[0]
-print(jobNumber)
+firstJobNumber = readString.split('.')[0]
+print(firstJobNumber)
 
-numberString = str(jobNumber)
+# submit thread checker
+arguments = 'qsub -v MODULE_LIST="' + modset + '" intelCheckSubmitThread.pbs'
+print(arguments)
+submission = subprocess.Popen(arguments, shell=True, stdout=subprocess.PIPE)
+readString = submission.stdout.read()
+readString = readString.decode('ascii')
+print(readString)
+
+secondJobNumber = readString.split('.')[0]
+print(secondJobNumber)
 
 file = open("jobs.txt", 'w+')
-file.write(jobNumber)
+file.write(firstJobNumber + "\n")
+file.write(secondJobNumber)
 
 # SUBMIT FOLLOW-UP JOB FOR SLACK POSTING
 #os.chdir(home)

@@ -28,6 +28,7 @@ if __name__ == "__main__":
 	noMPI = False
 	noRCM = False
 	doJy = False
+	doEphi = False
 	doBz = False
 	doBigRCM = False
 	doSrc = False
@@ -44,6 +45,7 @@ if __name__ == "__main__":
 	parser.add_argument('-bz'   , action='store_true', default=doBz ,help="Show Bz instead of dBz (default: %(default)s)")
 	parser.add_argument('-den'  , action='store_true', default=doDen,help="Show density instead of pressure (default: %(default)s)")
 	parser.add_argument('-jy'   , action='store_true', default=doJy ,help="Show Jy instead of pressure (default: %(default)s)")
+	parser.add_argument('-ephi'   , action='store_true', default=doEphi ,help="Show Ephi instead of pressure (default: %(default)s)")
 	parser.add_argument('-noion', action='store_true', default=noIon,help="Don't show ReMIX data (default: %(default)s)")
 	parser.add_argument('-nompi', action='store_true', default=noMPI,help="Don't show MPI boundaries (default: %(default)s)")
 	parser.add_argument('-norcm', action='store_true', default=noRCM,help="Don't show RCM data (default: %(default)s)")
@@ -62,6 +64,7 @@ if __name__ == "__main__":
 	#noMPI = args.nompi
 	doMPI = (not noMPI)
 	doJy = args.jy
+	doEphi = args.ephi
 	doSrc = args.src
 	doBz = args.bz
 	noRCM = args.norcm
@@ -125,6 +128,8 @@ if __name__ == "__main__":
 
 	if (doJy):
 		mviz.PlotJyXZ(gsph,nStp,xyBds,AxR,AxC3)
+	elif (doEphi):
+		mviz.PlotEqEphi(gsph,nStp,xyBds,AxR,AxC3)
 	else:
 		mviz.PlotMerid(gsph,nStp,xyBds,AxR,doDen,doRCM,AxC3,doSrc=doSrc)
 	

@@ -16,9 +16,26 @@ print(slack_token)
 client = WebClient(token=slack_token, timeout=120)
 
 # Get CWD and set Kaiju to "home"
+calledFrom = os.path.dirname(os.path.abspath(__file__))
+os.chdir(calledFrom)
 orig = os.getcwd()
 os.chdir('..')
 home = os.getcwd()
+
+isTest = False
+beLoud = False
+
+# Check argument flags
+if (len(sys.argv) >= 2):
+    for i in range(1,len(sys.argv)):
+        if(str(sys.argv[i]) == '-t'):
+            print("Test Mode: On")
+            isTest = True
+        elif(str(sys.argv[i]) == '-l'):
+            print("Being Loud")
+            beLoud = True
+        else:
+            print("Unrecognized argument: ", sys.argv[i])
 
 # Go to ICBuilds folder
 os.chdir(home)
@@ -80,24 +97,25 @@ myText = ""
 for element in incorrectList:
     myText = myText + element + "\n"
 
-# Add the module lists, unless there were no errors
-if not incorrectList:
-	print("I quit because there was nothing wrong")
-	exit()
-
 myText = myText + "\nModule Set 1:\n" + moduleList[0]
 myText = myText + "\nModule Set 2:\n" + moduleList[1]
 myText = myText + "\nModule Set 3:\n" + moduleList[2] + "\n"
 
-print(myText)
+hadErrors = True
+if not incorrectList:
+    hadErrors = False
+    myText = "All ICs built OK"
 
 # Try to send Slack message
-try:
-    response = client.chat_postMessage(
-    	channel="#kaijudev",
-    	text=myText,
-    )
-except SlackApiError as e:
-   # You will get a SlackApiError if "ok" is False
-   assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
+if(not isTest and (beLoud or hadErrors)):
+    try:
+        response = client.chat_postMessage(
+        	channel="#kaijudev",
+        	text=myText,
+        )
+    except SlackApiError as e:
+       # You will get a SlackApiError if "ok" is False
+       assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
+else:
+    print(myText)
 

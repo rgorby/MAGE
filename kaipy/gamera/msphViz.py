@@ -5,6 +5,7 @@ from argparse import RawTextHelpFormatter
 import matplotlib as mpl
 import numpy as np
 import kaipy.kaiViz as kv
+import kaipy.kaiTools as kt
 import kaipy.gamera.magsphere as msph
 import kaipy.remix.remix as remix
 import os
@@ -17,6 +18,8 @@ bz0Col = "magenta"
 mpiCol = "deepskyblue"
 
 jMax = 10.0 #Max current for contours
+
+eMax = 5.0  #Max current for contours
 
 #Default pressure colorbar
 vP = kv.genNorm(1.0e-2,10.0,doLog=True)
@@ -143,6 +146,47 @@ def PlotJyXZ(gsph,nStp,xyBds,Ax,AxCB=None,jScl=None,doDeco=True):
 		kv.addEarth2D(ax=Ax)
 		Ax.set_xlabel('SM-X [Re]')
 		Ax.set_ylabel('SM-Z [Re]')
+		Ax.yaxis.tick_right()
+		Ax.yaxis.set_label_position('right')
+
+#Plot equatorial azimuthal electric field
+def PlotEqEphi(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
+	vE = kv.genNorm(eMax)
+	vEMap = "PRGn"
+	if (AxCB is not None):
+		#Add the colorbar to AxCB
+		AxCB.clear()
+		kv.genCB(AxCB,vE,r"E$_{phi}$ [mV/m]",cM=vEMap)
+
+	#Now do main plotting
+	if (doClear):
+		Ax.clear()
+	Bx = gsph.EggSlice("Bx",nStp,doEq=True)
+	By = gsph.EggSlice("By",nStp,doEq=True)
+	Bz = gsph.EggSlice("Bz",nStp,doEq=True)
+	Vx = gsph.EggSlice("Vx",nStp,doEq=True)
+	Vy = gsph.EggSlice("Vy",nStp,doEq=True)
+	Vz = gsph.EggSlice("Vz",nStp,doEq=True)
+
+	# calculating some variables to to plot
+	#E=-VxB
+	Ex = -(Vy*Bz-Vz*By)*0.001 # [mV/m]
+	Ey =  (Vx*Bz-Vz*Bx)*0.001
+	Ez = -(Vx*By-Vy*Bx)*0.001
+
+	# coordinate transform
+	ppc = np.arctan2(gsph.yyc,gsph.xxc)
+	theta = np.pi #eq plane
+	Er,Et,Ep = kt.xyz2rtp(ppc,theta,Ex,Ey,Ez)
+
+	Ax.pcolormesh(gsph.xxi,gsph.yyi,Ep,cmap=vEMap,norm=vE)
+
+	kv.SetAx(xyBds,Ax)
+
+	if (doDeco):
+		kv.addEarth2D(ax=Ax)
+		Ax.set_xlabel('SM-X [Re]')
+		Ax.set_ylabel('SM-Y [Re]')
 		Ax.yaxis.tick_right()
 		Ax.yaxis.set_label_position('right')
 

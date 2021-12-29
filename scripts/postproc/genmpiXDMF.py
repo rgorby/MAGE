@@ -57,11 +57,12 @@ if __name__ == "__main__":
 	topoStr = "3DSMesh"
 	geoStr = "X_Y_Z"	
 
-	vIDs = ["D","Vx","Vy","Vz","P","Bx","By","Bz"]#,"Jx","Jy","Jz"]	
+	vIDs = ["D","Vx","Vy","Vz","P","Bx","By","Bz","Jx","Jy","Jz"]	
 
 	Nv = len(vIDs)
 	#for n in range(gamData.s0,gamData.sFin+1,sStride):
 	for n in gamData.sids:
+		if (n-gamData.s0)%sStride != 0: continue
 		nslc = n-gamData.s0
 		#print(n,gamData.T[nslc])
 
@@ -79,7 +80,8 @@ if __name__ == "__main__":
 		gCol.set("CollectionType","Spatial")
 
 		Time = et.SubElement(gCol,"Time")
-		Time.set("Value","%s"%(str(gamData.T[np.where(gamData.sids == n)])))
+		#Time.set("Value","%s"%(str(gamData.T[np.where(gamData.sids == n)][0])))
+		Time.set("Value","%s"%(gamData.T[nslc]))
 		
 		Cyc = et.SubElement(gCol,"Cycle")
 		Cyc.set("Value","%d"%(n))

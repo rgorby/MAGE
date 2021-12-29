@@ -40,8 +40,8 @@ def getKVsFromFile(fName):
 	return attrs
 
 if __name__=='__main__':
-	idStr_noMPI = ".Res.*.h5"
-	idStrMPI = "_0*_0*_0*_0000_0000_0000.Res.*.h5"
+	idStr_noMPI = ".gam.Res.*.h5"
+	idStrMPI = "_0*_0*_0*_0000_0000_0000.gam.Res.*.h5"
 
 	ftag = "msphere"
 	timeFmt = "m"

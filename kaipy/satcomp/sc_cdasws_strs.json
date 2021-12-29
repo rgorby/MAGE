@@ -107,6 +107,12 @@
 			"OmnifluxStr" : "FPDU_OmniFlux",
 			"EnergyStr" : "FPDU_Energy"
 		},
+		"Hydrogen_omniflux_RBSPICE_TOFXPHHHELT" : {
+			"Id" : "RBSP-B-RBSPICE_LEV-3-PAP_TOFXPHHHELT",
+			"Data" : ["__FPDU_OmniFlux"],
+			"OmnifluxStr" : "FPDU_OmniFlux",
+			"EnergyStr" : "FPDU_Energy"
+		},
 		"Hydrogen_PAFlux_HOPE" : {
 			"Id" : "RBSPB_REL04_ECT-HOPE-PA-L3",
 			"Data" : ["FPDU"],

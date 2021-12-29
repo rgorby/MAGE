@@ -1,0 +1,32 @@
+Suppression = {
+    Stacks = {
+        {
+            mod=libhdf5.so*;
+        }
+    }
+}
+
+Suppression = {
+    Stacks = {
+        {
+            mod=libmkl_avx2.so*;
+        }
+    }
+}
+
+Suppression = {
+    Stacks = {
+        {
+            mod=libmkl_intel_thread.so*;
+        }
+    }
+}
+
+Suppression = {
+    Stacks = {
+        {
+            mod=libmkl_core.so*;
+        }
+    }
+}
+

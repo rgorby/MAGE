@@ -14,9 +14,26 @@ print(slack_token)
 client = WebClient(token=slack_token)
 
 # Get CWD and set main kaiju folder to "home"
+calledFrom = os.path.dirname(os.path.abspath(__file__))
+os.chdir(calledFrom)
 orig = os.getcwd()
 os.chdir('..')
 home = os.getcwd()
+
+isTest = False
+beLoud = False
+
+# Check argument flags
+if (len(sys.argv) >= 2):
+    for i in range(1,len(sys.argv)):
+        if(str(sys.argv[i]) == '-t'):
+            print("Test Mode: On")
+            isTest = True
+        elif(str(sys.argv[i]) == '-l'):
+            print("Being Loud")
+            beLoud = True
+        else:
+            print("Unrecognized argument: ", sys.argv[i])
 
 # Delete everything in the unitTest folder
 os.chdir(home)
@@ -27,10 +44,10 @@ os.system('mkdir unitTest2')
 
 # Copy pFUnit stuff into Kaiju External
 os.chdir(home)
-os.system('cp -r /glade/p/hao/msphere/gamshare/FARGPARSE-0.9 external')
-os.system('cp -r /glade/p/hao/msphere/gamshare/GFTL-1.1 external')
-os.system('cp -r /glade/p/hao/msphere/gamshare/GFTL_SHARED-1.0 external')
-os.system('cp -r /glade/p/hao/msphere/gamshare/PFUNIT-4.1 external')
+os.system('cp -r /glade/p/hao/msphere/gamshare/pFUnit-4.2.0/ifort-21-MPT/FARGPARSE-1.1 external')
+os.system('cp -r /glade/p/hao/msphere/gamshare/pFUnit-4.2.0/ifort-21-MPT/GFTL-1.3 external')
+os.system('cp -r /glade/p/hao/msphere/gamshare/pFUnit-4.2.0/ifort-21-MPT/GFTL_SHARED-1.2 external')
+os.system('cp -r /glade/p/hao/msphere/gamshare/pFUnit-4.2.0/ifort-21-MPT/PFUNIT-4.2 external')
 
 # Go back to scripts folder
 os.chdir(home)
@@ -78,7 +95,7 @@ os.chdir('unitTest1')
 #arguments = arguments + "cd" + home + ";"
 #arguments = arguments + "cd kaiju/unitTest1;"
 # Invoke cmake
-arguments = arguments + "cmake ../ -DALLOW_INVALID_COMPILERS=ON -DENABLE_MPI=ON;"
+arguments = arguments + "cmake ../ -DALLOW_INVALID_COMPILERS=ON -DENABLE_MPI=ON -DENABLE_MKL=ON;"
 # Make gamera, voltron and allTests
 arguments = arguments + "make gamera_mpi; make voltron_mpi; make allTests;"
 print(arguments)
@@ -126,7 +143,11 @@ subprocess.call("cp runCaseTests.pbs ../unitTest1/bin", shell=True)
 os.chdir(home)
 os.chdir('unitTest1/bin')
 
-arguments = "qsub runCaseTests.pbs"
+# list all modules with spaces between them, to be loaded in the qsub scripts
+modset = ""
+for line in ModuleList[0]:
+    modset = modset + line + " "
+arguments = 'qsub -v MODULE_LIST="' + modset + '" runCaseTests.pbs'
 print(arguments)
 submission = subprocess.Popen(arguments, shell=True, stdout=subprocess.PIPE)
 readString = submission.stdout.read()
@@ -137,7 +158,7 @@ finalString = readString
 firstJob = readString.split('.')[0]
 print(firstJob)
 
-arguments = "qsub runNonCaseTests1.pbs"
+arguments = 'qsub -v MODULE_LIST="' + modset + '" runNonCaseTests1.pbs'
 print(arguments)
 submission = subprocess.Popen(arguments, shell=True, stdout=subprocess.PIPE)
 readString = submission.stdout.read()
@@ -149,7 +170,7 @@ finalString = finalString + readString
 secondJob = readString.split('.')[0]
 print (secondJob)
 
-arguments = "qsub runNonCaseTests2.pbs"
+arguments = 'qsub -v MODULE_LIST="' + modset + '" runNonCaseTests2.pbs'
 print(arguments)
 submission = subprocess.Popen(arguments, shell=True, stdout=subprocess.PIPE)
 readString = submission.stdout.read()

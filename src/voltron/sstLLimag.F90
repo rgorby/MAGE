@@ -23,6 +23,8 @@ module sstLLimag
         real(rp) :: rDeep   ! where we're ingesting
         type(mixGrid_T) :: sstG   ! remix-style grid
         real(rp), dimension(:,:), allocatable :: sstP  ! pressure interpolated to sstG
+        real(rp), dimension(:,:), allocatable :: sstBvol  ! ftv interpolated to sstG
+        real(rp), dimension(:,:), allocatable :: Iopen  ! keeps track of which field lines are open (NOTE: its not an integer)
 
         contains
 
@@ -73,7 +75,9 @@ module sstLLimag
         allocate(imag%empW1(1:imag%Np,1:imag%Nt,NVARIMAG))
         allocate(imag%empW2(1:imag%Np,1:imag%Nt,NVARIMAG))
 
-        allocate(imag%sstP(1:imag%Np,1:imag%Nt))        
+        allocate(imag%sstP(1:imag%Np,1:imag%Nt))
+        allocate(imag%sstBvol(1:imag%Np,1:imag%Nt))        
+        allocate(imag%Iopen(1:imag%Np,1:imag%Nt))
 
     !Read grid
         call ClearIO(IOVars)
@@ -108,6 +112,9 @@ module sstLLimag
 
         ! start with the first time slice
         call EvalSST(imag,imag%empT1)
+
+        write(*,*) "SST Init BVOLS:"
+        write(*,*) imag%sstBvol
 
         ! initialize the remix-style grid to interpolate to RCM
         ! note, -1 in both dimensions 
@@ -159,23 +166,29 @@ module sstLLimag
     subroutine EvalSST(empData,t)  
         type(empData_T), intent(inout) :: empData
         real(rp) :: t,w1,w2
-        real(rp), dimension(:,:), allocatable :: P
+        real(rp), dimension(:,:), allocatable :: P, bVol
 
         ! first interpolate in time
         call tWeights(empData,t,w1,w2)
         P = w1*empData%empW1(:,:,1) + w2*empData%empW2(:,:,1)
+        bVol = w1*empData%empW1(:,:,2) + w2*empData%empW2(:,:,2)
 
         ! now interpolate in space (cell-centers to corners)
         ! P is dynamically allocated above (Fortran 2003 standard) to (Np,Nt) size
 
         associate(Np=>empData%Np, Nt=>empData%Nt)
         empData%sstP(2:Np,2:Nt) = 0.25*( P(2:Np,1:Nt-1)+P(2:Np,2:Nt)+P(1:Np-1,1:Nt-1)+P(1:Np-1,2:Nt) )
-            
+        empData%sstBvol(2:Np,2:Nt) = 0.25*( bVol(2:Np,1:Nt-1)+bVol(2:Np,2:Nt)+bVol(1:Np-1,1:Nt-1)+bVol(1:Np-1,2:Nt) )
+
         ! fix periodic
         empData%sstP(1,2:Nt) = 0.25*( P(Np,1:Nt-1)+P(Np,2:Nt)+P(1,1:Nt-1)+P(1,2:Nt) )
+        empData%sstBvol(1,2:Nt) = 0.25*( bVol(Np,1:Nt-1)+bVol(Np,2:Nt)+bVol(1,1:Nt-1)+bVol(1,2:Nt) )
 
         ! fix pole
         empData%sstP(:,1) = empData%sstP(:,2)
+        empData%sstBvol(:,1) = empData%sstBvol(:,2)
+
+        call SetSSTIOpen(empData)
 
         ! now sstP has the size (1:Np,1:Nt)
         end associate
@@ -187,7 +200,7 @@ module sstLLimag
         integer, intent(in) :: n
         real(rp), dimension(:,:,:), intent(inout) :: W
 
-        integer, parameter :: NIOVAR = 2
+        integer, parameter :: NIOVAR = 3
         type(IOVAR_T), dimension(NIOVAR) :: IOVars
         integer :: dims(2)
 
@@ -196,12 +209,28 @@ module sstLLimag
 
         call ClearIO(IOVars)
         call AddInVar(IOVars,"P")
+        call AddInVar(IOVars,"bVol")
 
         call ReadVars(IOVars,.false.,empData%ebTab%bStr,empData%ebTab%gStrs(n))
 
         dims = [empData%Np,empData%Nt]
         W(:,:,1) = reshape(IOVars(1)%data,dims)
+        W(:,:,2) = reshape(IOVars(2)%data,dims)
     end subroutine rdEmpMap
+
+    !Here we determine which grid points will be considered open or closed for the current time value
+    subroutine SetSSTIOpen(empData)
+        type(empData_T), intent(inout) :: empData
+
+        !Simplest implementation, if point in either time slice is open (bVol < 0), call it open
+        
+        where (empData%empW1(:,:,2) .lt. 0 .or. empData%empW2(:,:,2) .lt. 0)
+            empData%Iopen = 1
+        elsewhere
+            empData%Iopen = -1
+        end where
+
+    end subroutine SetSSTIOpen
 
 
     ! Below is the version of the doEval function intended for standalone (without rcm)  use of sst pressures

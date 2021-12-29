@@ -105,6 +105,7 @@
     LOGICAL ::  doVAvgInit         = .TRUE. !Whether we need to initialize v_avg
 
     LOGICAL ::  doNoBndFlow = .FALSE.
+    integer :: nNBFL = 2
 !
 !
 !   Plasma on grid:
@@ -231,14 +232,14 @@
     endif
     CALL Toc("PRECIP")
 
-      IF (ibnd_type == 4) THEN
+!      IF (ibnd_type == 4) THEN
 !        DO NOTHING, VBND IS ALREADY SET
-         DO j = 1, jsize
-            v (1:imin_j(j)-1,j) = vbnd (j)
-         END DO
-      ELSE
-         STOP 'COMPUT: ibnd_type not implemented'
-      END IF
+!         DO j = 1, jsize
+!            v (1:imin_j(j)-1,j) = vbnd (j)
+!         END DO
+!      ELSE
+!         STOP 'COMPUT: ibnd_type not implemented'
+!      END IF
 !
 !
       RETURN 
@@ -1881,6 +1882,7 @@
           call xmlInp%Set_Val(dtAvg_v,"plasmasphere/tAvg",0.0)
 
           call xmlInp%Set_Val(doNoBndFlow,"experimental/doNoBndFlow",.false.)
+          call xmlInp%Set_Val(nNBFL,"experimental/NBFLayers",nNBFL)
 
           !Some values just setting
           tol_gmres = 1.0e-5
@@ -2202,7 +2204,10 @@ SUBROUTINE Move_plasma_grid_MHD (dt,nstep)
             iOCB_j(j) = 0
         endif
     enddo !j loop
-    ocbDist = OCBMap(isOpen)
+
+    if (doNoBndFlow) then
+        ocbDist = OCBMap(isOpen,nNBFL)
+    endif
 
     !---
     !Calculate node-centered IJ gradients for use inside loop (instead of redoing for each channel)
@@ -2330,7 +2335,7 @@ SUBROUTINE Move_plasma_grid_MHD (dt,nstep)
 
         !Halt inflow from buffer cells right next to ocb
         if (doNoBndFlow) then
-            call NoBoundaryFlow(ocbDist,didt(:,:,kc),djdt(:,:,kc))
+            call NoBoundaryFlow(ocbDist,didt(:,:,kc),djdt(:,:,kc),nNBFL)
         endif
 
         call PadClaw(didt(:,:,kc))
@@ -2573,7 +2578,7 @@ SUBROUTINE Move_plasma_grid_MHD (dt,nstep)
         integer, intent(in), optional :: nL0  ! Number of i layers inward of o/c boundary to act upon
         
         integer :: nL
-        integer :: i,j, iL , iF, jF
+        integer :: i,j, jW, jWm1, jWp1
 
         if(present(nL0)) then
             nL = nL0
@@ -2590,24 +2595,28 @@ SUBROUTINE Move_plasma_grid_MHD (dt,nstep)
         !$OMP PARALLEL DO if (L_doOMPClaw) &
         !$OMP schedule(dynamic) &
         !$OMP DEFAULT(SHARED) &
-        !$OMP private(i,j)
+        !$OMP private(i,j,jW,jWm1,jWp1)
         do j=1,jsize-1 !clawpack jdim
-            do i=1,isize
-                if (ocbDist(i,j) .eq. 0) then
+            do i=2,isize
+                jW = WrapJ(j + joff)
+                jWm1 = WrapJ(j + joff - 1)
+                jWp1 = WrapJ(j + joff + 1)
+
+                if (ocbDist(i,jW) .eq. 0) then
                     cycle
-                else if (ocbDist(i,j) .le. nL ) then
+                else if (ocbDist(i,jW) .le. nL ) then
                     ! Zap
-                    if ( (ocbDist(i-1,j) .lt. ocbDist(i,j)) .and. (didt(i-1,WrapJ(j+joff)) .gt. 0) ) then ! lower i
-                        didt(i-1,WrapJ(j+joff)) = 0
-                    else if ( (ocbDist(i+1,j) .lt. ocbDist(i,j)) .and. (didt(i+1,WrapJ(j+joff)) .lt. 0) ) then ! upper i
-                        didt(i+1,WrapJ(j+joff)) = 0
-                    else if ( (ocbDist(i,j-1) .lt. ocbDist(i,j)) .and. (djdt(i,WrapJ(j+joff-1)) .gt. 0) ) then ! lower j
-                        djdt(i,WrapJ(j+joff-1)) = 0
-                    else if ( (ocbDist(i,j+1) .lt. ocbDist(i,j)) .and. (djdt(i,WrapJ(j+joff+1)) .lt. 0) ) then ! upper j
-                        djdt(i,WrapJ(j+joff+1)) = 0
+                    if ( (ocbDist(i-1,jW) .lt. ocbDist(i,jW)) .and. (didt(i-1,j) .gt. 0) ) then ! lower i
+                        didt(i-1,j) = 0
+                    else if ( (ocbDist(i+1,jW) .lt. ocbDist(i,jW)) .and. (didt(i+1,j) .lt. 0) ) then ! upper i
+                        didt(i+1,j) = 0
+                    else if ( (ocbDist(i,jWm1) .lt. ocbDist(i,jW)) .and. (djdt(i,j-1) .gt. 0) ) then ! lower j
+                        djdt(i,j-1) = 0
+                    else if ( (ocbDist(i,jWp1) .lt. ocbDist(i,jW)) .and. (djdt(i,j+1) .lt. 0) ) then ! upper j
+                        djdt(i,j+1) = 0
                     endif
-                else ! If we aren't next to any layers lower than the one we're currently on, we're done
-                    exit
+                !else ! If we aren't next to any layers lower than the one we're currently on, we're done
+                !    exit
                 endif
             enddo !i loop
         enddo !j loop
@@ -2681,7 +2690,7 @@ SUBROUTINE Move_plasma_grid_MHD (dt,nstep)
               do i=2,isize-1
                     if (isOp(i,j)) then
                         cycle
-                    else if (any(ocbDist(i-1:i+1,j-1:j+1) .eq. iL-1) .and. (ocbDist(i,j) .ne. iL-1)) then  ! ignore value of current cell
+                    else if (any(ocbDist(i-1:i+1,j-1:j+1) .eq. iL-1) .and. (ocbDist(i,j) .eq. nL+1)) then  ! ignore value of current cell
                         !write(*,*) "i,j=",i,j
                         !write(*,*) ocbDist(i-1:i+1,j-1:j+1)
                         !write(*,*) any(ocbDist(i-1:i+1,j-1:j+1) .eq. iL-1)

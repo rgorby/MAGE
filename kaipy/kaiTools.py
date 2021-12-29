@@ -52,3 +52,9 @@ def getRunInfo(fdir,ftag):
 			print(ve)
 			sys.exit()
 
+#transform from cartesian to spherical
+def xyz2rtp(phi,theta,Ax,Ay,Az):
+	Ar = Ax*np.cos(phi)*np.sin(theta)+Ay*np.sin(phi)*np.sin(theta)+Az*np.cos(theta)
+	Ap = -Ax*np.sin(phi)+Ay*np.cos(phi)
+	At = Ax*np.cos(phi)*np.cos(theta)+Ay*np.sin(phi)*np.cos(theta)-Az*np.sin(theta)
+	return Ar,At,Ap
