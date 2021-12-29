@@ -183,7 +183,7 @@ def pullVar(cdaObsId,cdaDataId,t0,t1,deltaT=60,epochStr="Epoch",doVerbose=False)
 		for i in range(numDays):
 			tstamp_arr.append((t0dt + datetime.timedelta(days=i)).strftime("%Y-%m-%dT%H:%M:%SZ"))
 			tstamp_deltas.append((t0dt + datetime.timedelta(days=i+1)).strftime("%Y-%m-%dT%H:%M:%SZ"))
-		print(tstamp_arr)
+		if doVerbose: print("Tstamp_arr: " + str(tstamp_arr))
 		#Get first day
 		status, data = cdas.get_data(cdaObsId, [], tstamp_arr[0], tstamp_deltas[0], binData=binData)
 		if doVerbose: print("Pulling " + t0)
