@@ -214,7 +214,7 @@ def pullVar(cdaObsId,cdaDataId,t0,t1,deltaT=60,epochStr="Epoch",doVerbose=False)
 		#Then append rest of data accordingly
 		for i in range(1,numDays):
 			if doVerbose: print("Pulling " + str(tstamp_arr[i]))
-			status, newdata = cdas.get_data(cdaObsId, [], tstamp_arr[i], tstamp_arr[i], binData=binData)
+			status, newdata = cdas.get_data(cdaObsId, [], tstamp_arr[i], tstamp_deltas[i], binData=binData)
 			for k in range(len(dk)):
 				if cataxis[k] == -1:
 					continue

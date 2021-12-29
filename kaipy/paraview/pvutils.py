@@ -1,13 +1,15 @@
 import paraview.simple as pvs
 
 """
-	pf_* = programmable filter
+Notes:
+    It looks like everything in the pipeline is ran for each individual timestep. 
+      Meaning anthing that uses the time value (like addUT below) is getting a single value at a time,
+      not the entire array of times
 
 """
 
 
 def addUT(base, ut0Str):
-
 	scriptStr = r"""
 import datetime
 isotfmt = '%Y-%m-%dT%H:%M:%S'

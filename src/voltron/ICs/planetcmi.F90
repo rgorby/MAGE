@@ -160,11 +160,10 @@ module uservoltic
                 Vy = 0.0
                 Vz = 0.0
 
-                !Spin the drum
-                !v0 = 6*1.25E4_rp  / 1.0E5_rp  ! [m/s / code v0]
-                v0 = 60*1.25E4_rp  / Model%Units%gV0  ! Does Model always stay in scope?
-                Vx = -v0*sin(phi)/r
-                Vy = v0*cos(phi)/r
+                !Spin the drum (Jupiter)
+                !v0 = 60*1.25E4_rp  / Model%Units%gV0  ! Does Model always stay in scope?
+                !Vx = -v0*sin(phi)/r
+                !Vy = v0*cos(phi)/r
             end subroutine GasIC
 
             subroutine PSphereIC(x,y,z,D,Vx,Vy,Vz,P)
