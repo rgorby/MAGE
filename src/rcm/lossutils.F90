@@ -179,8 +179,15 @@ MODULE lossutils
                   Kpi=>EWMTauInput%Kpi,MLTi=>EWMTauInput%MLTi,Li=>EWMTauInput%Li,Eki=>EWMTauInput%Eki,&
                   tau1i=>EWMTauInput%tau1i,tau2i=>EWMTauInput%tau2i)
 
+        write(*,*)"Inside DW_tau_c"
+        !write(*,*)"Kpi:",Kpi
+        !write(*,*)"Li:",Li
+        !write(*,*)"Eki:",Eki
+        !write(*,*)"MLTi:",MLTi
+        
         ! look up in Kp
         iK = minloc(abs(Kpi-Kpx),dim=1)
+        write(*,*)"Kpx,iK:",Kpx,iK
 
         ! Find the nearest neighbours in MLT
         if (mltx >= maxval(MLTi) .or. mltx <= minval(MLTi))  then ! maxval of MLT is 24, minval of MLT is 0 
@@ -190,6 +197,7 @@ MODULE lossutils
             mL = maxloc(MLTi,dim=1,mask=MLTi<=mltx)
             mU = mL+1
         endif
+        write(*,*)"mltx,mL,mU:",mltx,mL,mU
 
         ! Find the nearest neighbours in L
         if (Lx > maxval(Li)) then
@@ -205,7 +213,8 @@ MODULE lossutils
             lL = maxloc(Li,dim=1,mask=Li<=Lx)
             lU = lL+1
         endif
-
+        write(*,*)"Lx,lL,lU:",Lx,lL,lU
+        
          ! Find the nearest neighbours in Ek
         if (Ekx > maxval(Eki)) then
             eL = -1 ! tau_c is 0, total tau = tau_s
@@ -220,13 +229,16 @@ MODULE lossutils
             eL = maxloc(Eki,dim=1,mask=Eki<=Ekx)
             eU = eL + 1
         endif
+        write(*,*)"Ekx,eL,eU:",Ekx,eL,eU
 
         !Corner cases
         if (lL == -1 .or. eL == -1) then 
-            tau = 0.0  
-            return 
-        else if (lU == -1 .or. lU== -1) then
+            tau = 0.0 
+            write(*,*)"Corner case1,tau=0.0" 
+            return
+        else if (lU == -1 .or. eU == -1) then
             tau = 1.D10
+            write(*,*)"Corner case2,tau=1e10"
             return
         end if
 
@@ -238,19 +250,19 @@ MODULE lossutils
             tauLuEu = tau1i(iK,mL,lU,eU)
         else
             dM = MLTi(mU)-MLTi(mL)
-            wM = (mltx-MLTi(mU))/dM
+            wM = (mltx-MLTi(mL))/dM
             tauMlLlEl =  tau1i(iK,mL,lL,eL)
             tauMuLlEl =  tau1i(iK,mU,lL,eL)
-            tauLlEl = tauMlLlEl + wM*(tauMuLlEl+tauMlLlEl)
+            tauLlEl = tauMlLlEl + wM*(tauMuLlEl-tauMlLlEl)
             tauMlLlEu =  tau1i(iK,mL,lL,eU)
             tauMuLlEu =  tau1i(iK,mU,lL,eU)
-            tauLlEu = tauMlLlEu + wM*(tauMuLlEu+tauMlLlEu)
+            tauLlEu = tauMlLlEu + wM*(tauMuLlEu-tauMlLlEu)
             tauMlLuEl =  tau1i(iK,mL,lU,eL)
             tauMuLuEl =  tau1i(iK,mU,lU,eL)
-            tauLuEl = tauMlLuEl + wM*(tauMuLuEl+tauMlLuEl)
+            tauLuEl = tauMlLuEl + wM*(tauMuLuEl-tauMlLuEl)
             tauMlLuEu =  tau1i(iK,mL,lU,eU)
             tauMuLuEu =  tau1i(iK,mU,lU,eU)
-            tauLuEu = tauMlLuEu + wM*(tauMuLuEu+tauMlLuEu)            
+            tauLuEu = tauMlLuEu + wM*(tauMuLuEu-tauMlLuEu)            
         end if
         
         ! linear interpolation in L
@@ -258,7 +270,7 @@ MODULE lossutils
             tauEl = tauLuEl
             tauEu = tauLuEu
         else
-            dL = Li(lL)-Li(lU)
+            dL = Li(lU)-Li(lL)
             wL = (Lx-Li(lL))/dL
             tauEl = tauLlEl + wL*(tauLuEl-tauLlEl)
             tauEu = tauLlEu + wL*(tauLuEu-tauLlEu)
@@ -273,6 +285,7 @@ MODULE lossutils
             wE = (Ekx-Eki(eL))/dE 
             tau = tauEl + wE*(tauEu-tauEl)    
         end if
+        write(*,*)"no corner case, tau =",tau
         end associate
  
     END FUNCTION RatefnDW_tau_c
