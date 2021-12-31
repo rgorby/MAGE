@@ -43,7 +43,7 @@ if __name__ == "__main__":
 						addPsphere = (not args.nop))
 	genAlam.genh5(fOut, lamParams, doTests=False)
 	tauParams = wmParams(dim = 4, nKp = 7, nMLT = 25, nL = 41, nEk = 155)	
-	genWM.genh5(fOut,tauParams,useWMh5 = False)
+	genWM.genh5(fOut,tauParams,useWMh5 = True)
 
 
 

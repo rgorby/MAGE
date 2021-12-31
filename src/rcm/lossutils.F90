@@ -179,12 +179,6 @@ MODULE lossutils
                   Kpi=>EWMTauInput%Kpi,MLTi=>EWMTauInput%MLTi,Li=>EWMTauInput%Li,Eki=>EWMTauInput%Eki,&
                   tau1i=>EWMTauInput%tau1i,tau2i=>EWMTauInput%tau2i)
 
-        write(*,*)"Inside DW_tau_c"
-        !write(*,*)"Kpi:",Kpi
-        !write(*,*)"Li:",Li
-        !write(*,*)"Eki:",Eki
-        !write(*,*)"MLTi:",MLTi
-        
         ! look up in Kp
         iK = minloc(abs(Kpi-Kpx),dim=1)
         write(*,*)"Kpx,iK:",Kpx,iK
@@ -234,11 +228,11 @@ MODULE lossutils
         !Corner cases
         if (lL == -1 .or. eL == -1) then 
             tau = 0.0 
-            write(*,*)"Corner case1,tau=0.0" 
+            !write(*,*)"Corner case1,tau=0.0" 
             return
         else if (lU == -1 .or. eU == -1) then
             tau = 1.D10
-            write(*,*)"Corner case2,tau=1e10"
+            !write(*,*)"Corner case2,tau=1e10"
             return
         end if
 

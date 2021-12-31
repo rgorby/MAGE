@@ -1219,7 +1219,7 @@
         call AddInVar(IOVars,"Li") !6
         call AddInVar(IOVars,"Eki") !7
         call AddInVar(IOVars,"Tau1i") !8
-        call AddInVar(IOVars,"Tau1i") !9
+        call AddInVar(IOVars,"Tau2i") !9
         call ReadVars(IOVars,doSP,RCMGAMConfig)
 
         !Store data
@@ -1288,6 +1288,12 @@
         allocate(EWMTauInput%tau2i(Nk,Nm,Nl,Ne))
         EWMTauInput%tau1i(:,:,:,:) = reshape(IOVars(8)%data,dims)
         EWMTauInput%tau2i(:,:,:,:) = reshape(IOVars(9)%data,dims)
+
+        write(*,*)"Inside read_h5"
+        write(*,*)"Kpi:",EWMTauInput%Kpi
+        write(*,*)"Li:",EWMTauInput%Li
+        write(*,*)"Eki:",EWMTauInput%Eki
+        write(*,*)"MLTi:",EWMTauInput%MLTi
 
       END SUBROUTINE Read_plasma_H5
 !
@@ -2969,6 +2975,7 @@ FUNCTION Ratefn (xx,yy,alamx,vmx,beqx,losscx,nex,kpx,fudgxO,sinixO,birxO,xmfactO
          case (ELOSS_C19)
             Ratefn = RatefnC19S(xx,yy,alamx,vmx,beqx,losscx,nex,kpx)
          case (ELOSS_DW)
+            write(*,*)"Using DW loss"
             Ratefn = RatefnDW(xx,yy,alamx,vmx,nex,kpx,beqx,losscx)
          case default
             stop "The electron loss rate model type entered is not supported."
@@ -2991,24 +2998,25 @@ FUNCTION RatefnDW(xx,yy,alamx,vmx,nex,kpx,bqx,losscx)
   MLT = atan2(yy,xx)/pi*12.D0+12.D0
   E = abs(alamx*vmx*1.0e-6) !Energy [MeV]
   RatefnDW(1) = 1.D10
-  RatefnDW(2) = -2.0
- 
-  tau_s = RatefnC_tau_s(alamx,vmx,bqx,losscx)
-
-  if(nex<nlow) then
-    tau = max(tau_s,RatefnDW_tau_c(kpx, MLT,L,E)) ! mltx,engx,kpx,Lshx
-    RatefnDW(2) = 1.0
-  elseif(nex>nhigh) then
-    tau = max(tau_s,RatefnDW_tau_c(kpx,MLT,L,E)) ! mltx,engx,kpx,Lshx
-    RatefnDW(2) = 1.0
-    !tau = tau_s + RatefnC_tau_h(MLT,L,kpx,E) ! mltx,engx,kpx,Lshx
-    !RatefnDW(2) = 2.0
-  else
-    tau = max(tau_s,RatefnDW_tau_c(kpx,MLT,L,E)) ! mltx,engx,kpx,Lshx
-    RatefnDW(2) = 1.0
-    !tau = tau_s + (dlog(nhigh/nex)*RatefnDW_tau_c(MLT,L,kpx,E) + dlog(nex/nlow)*RatefnC_tau_h(MLT,L,kpx,E))/dlog(nhigh/nlow)
-    !RatefnDW(2) = 3.0
-  endif
+  RatefnDW(2) = 1.0
+  tau = RatefnDW_tau_c(kpx,MLT,L,E)
+  RatefnDW(1) = 1.0/tau
+!  tau_s = RatefnC_tau_s(alamx,vmx,bqx,losscx)
+!
+!  if(nex<nlow) then
+!    tau = max(tau_s,RatefnDW_tau_c(kpx, MLT,L,E)) ! mltx,engx,kpx,Lshx
+!    RatefnDW(2) = 1.0
+!  elseif(nex>nhigh) then
+!    tau = max(tau_s,RatefnDW_tau_c(kpx,MLT,L,E)) ! mltx,engx,kpx,Lshx
+!    RatefnDW(2) = 1.0
+!    !tau = tau_s + RatefnC_tau_h(MLT,L,kpx,E) ! mltx,engx,kpx,Lshx
+!    !RatefnDW(2) = 2.0
+!  else
+!    tau = max(tau_s,RatefnDW_tau_c(kpx,MLT,L,E)) ! mltx,engx,kpx,Lshx
+!    RatefnDW(2) = 1.0
+!    !tau = tau_s + (dlog(nhigh/nex)*RatefnDW_tau_c(MLT,L,kpx,E) + dlog(nex/nlow)*RatefnC_tau_h(MLT,L,kpx,E))/dlog(nhigh/nlow)
+!    !RatefnDW(2) = 3.0
+!  endif
 
 END FUNCTION RatefnDW
 
