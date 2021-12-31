@@ -2986,7 +2986,7 @@ END FUNCTION Ratefn
 FUNCTION RatefnDW(xx,yy,alamx,vmx,nex,kpx,bqx,losscx)
   !Function to calculate diffuse electron precipitation loss rate using Dedong Wang's model
   
-  use lossutils, ONLY: RatefnC_tau_s, RatefnDW_tau_c,RatefnC_tau_h
+  use lossutils, ONLY: RatefnC_tau_s, RatefnDW_tau_c,RatefnC_tau_h16
   IMPLICIT NONE
   REAL (rprec), INTENT (IN) :: xx,yy,alamx,vmx,nex,kpx,bqx,losscx
   REAL (rprec), dimension(2) :: RatefnDW
@@ -2999,24 +2999,21 @@ FUNCTION RatefnDW(xx,yy,alamx,vmx,nex,kpx,bqx,losscx)
   E = abs(alamx*vmx*1.0e-6) !Energy [MeV]
   RatefnDW(1) = 1.D10
   RatefnDW(2) = 1.0
-  tau = RatefnDW_tau_c(kpx,MLT,L,E)
+  !tau = RatefnDW_tau_c(kpx,MLT,L,E)
+  !RatefnDW(1) = 1.0/tau
+  tau_s = RatefnC_tau_s(alamx,vmx,bqx,losscx)
+
+  if(nex<nlow) then
+    tau = max(tau_s,RatefnDW_tau_c(kpx, MLT,L,E)) ! mltx,engx,kpx,Lshx
+    RatefnDW(2) = 1.0
+  elseif(nex>nhigh) then
+    tau = max(tau_s,RatefnC_tau_h16(MLT,L,kpx,E)) ! mltx,engx,kpx,Lshx
+    RatefnDW(2) = 2.0
+  else
+    tau = max(tau_s,(dlog(nhigh/nex)*RatefnDW_tau_c(MLT,L,kpx,E) + dlog(nex/nlow)*RatefnC_tau_h16(MLT,L,kpx,E))/dlog(nhigh/nlow))
+    RatefnDW(2) = 3.0
+  endif
   RatefnDW(1) = 1.0/tau
-!  tau_s = RatefnC_tau_s(alamx,vmx,bqx,losscx)
-!
-!  if(nex<nlow) then
-!    tau = max(tau_s,RatefnDW_tau_c(kpx, MLT,L,E)) ! mltx,engx,kpx,Lshx
-!    RatefnDW(2) = 1.0
-!  elseif(nex>nhigh) then
-!    tau = max(tau_s,RatefnDW_tau_c(kpx,MLT,L,E)) ! mltx,engx,kpx,Lshx
-!    RatefnDW(2) = 1.0
-!    !tau = tau_s + RatefnC_tau_h(MLT,L,kpx,E) ! mltx,engx,kpx,Lshx
-!    !RatefnDW(2) = 2.0
-!  else
-!    tau = max(tau_s,RatefnDW_tau_c(kpx,MLT,L,E)) ! mltx,engx,kpx,Lshx
-!    RatefnDW(2) = 1.0
-!    !tau = tau_s + (dlog(nhigh/nex)*RatefnDW_tau_c(MLT,L,kpx,E) + dlog(nex/nlow)*RatefnC_tau_h(MLT,L,kpx,E))/dlog(nhigh/nlow)
-!    !RatefnDW(2) = 3.0
-!  endif
 
 END FUNCTION RatefnDW
 

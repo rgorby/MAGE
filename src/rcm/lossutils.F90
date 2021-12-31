@@ -181,7 +181,6 @@ MODULE lossutils
 
         ! look up in Kp
         iK = minloc(abs(Kpi-Kpx),dim=1)
-        write(*,*)"Kpx,iK:",Kpx,iK
 
         ! Find the nearest neighbours in MLT
         if (mltx >= maxval(MLTi) .or. mltx <= minval(MLTi))  then ! maxval of MLT is 24, minval of MLT is 0 
@@ -191,7 +190,6 @@ MODULE lossutils
             mL = maxloc(MLTi,dim=1,mask=MLTi<=mltx)
             mU = mL+1
         endif
-        write(*,*)"mltx,mL,mU:",mltx,mL,mU
 
         ! Find the nearest neighbours in L
         if (Lx > maxval(Li)) then
@@ -207,7 +205,6 @@ MODULE lossutils
             lL = maxloc(Li,dim=1,mask=Li<=Lx)
             lU = lL+1
         endif
-        write(*,*)"Lx,lL,lU:",Lx,lL,lU
         
          ! Find the nearest neighbours in Ek
         if (Ekx > maxval(Eki)) then
@@ -223,7 +220,6 @@ MODULE lossutils
             eL = maxloc(Eki,dim=1,mask=Eki<=Ekx)
             eU = eL + 1
         endif
-        write(*,*)"Ekx,eL,eU:",Ekx,eL,eU
 
         !Corner cases
         if (lL == -1 .or. eL == -1) then 
@@ -279,7 +275,6 @@ MODULE lossutils
             wE = (Ekx-Eki(eL))/dE 
             tau = tauEl + wE*(tauEu-tauEl)    
         end if
-        write(*,*)"no corner case, tau =",tau
         end associate
  
     END FUNCTION RatefnDW_tau_c
