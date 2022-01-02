@@ -2975,7 +2975,6 @@ FUNCTION Ratefn (xx,yy,alamx,vmx,beqx,losscx,nex,kpx,fudgxO,sinixO,birxO,xmfactO
          case (ELOSS_C19)
             Ratefn = RatefnC19S(xx,yy,alamx,vmx,beqx,losscx,nex,kpx)
          case (ELOSS_DW)
-            write(*,*)"Using DW loss"
             Ratefn = RatefnDW(xx,yy,alamx,vmx,nex,kpx,beqx,losscx)
          case default
             stop "The electron loss rate model type entered is not supported."
