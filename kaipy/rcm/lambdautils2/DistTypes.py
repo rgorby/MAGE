@@ -12,9 +12,11 @@ def getDistTypeFromKwargs(**kwargs):
     """
     if 'name' in kwargs.keys():    
         if kwargs['name'] == 'Wolf':
-            return DT_Wolf(**kwargs)
+            return DT_Wolf.from_dict(kwargs)
+        elif kwargs['name'] == 'SlopeSpec':
+            return DT_SlopeSpec.from_dict(kwargs)
     else:
-        return DistType(**kwargs)
+        return DistType.from_dict(kwargs)
 
 
 #------
@@ -28,6 +30,7 @@ class DistType:  # Empty class just so we can force the type in dataclasses belo
 #------
 # Specific implementations of DistType
 #------
+
 @dataclass_json
 @dataclass
 class DT_Manual(DistType):  # Also pretty much empty, but can be used to allow user to add anything they want to save 
@@ -80,12 +83,12 @@ class SlopeSpec:
 
 @dataclass_json
 @dataclass
-class DT_SlopeSpec:
+class DT_SlopeSpec(DistType):
     """ Lambda channel spacing based on a series of slope specifications
     """
-    specList: List[SlopeSpec]
+    specList: List[SlopeSpec] = None
 
-    def __post_init(self):
+    def __post_init__(self):
         self.name = "SlopeSpec"
         #Check to see if all slopes are contiguous
         if len(self.specList) > 1:

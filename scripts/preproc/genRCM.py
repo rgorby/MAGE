@@ -78,15 +78,16 @@ if __name__ == "__main__":
 
 	dtWolf = dT.DT_Wolf(p1=3,p2=1)  # Lambda channels will have a (slightly modified) Wolf distribution type
 
-	#slopeSpecs = [dT.SlopeSpec(num_p, alamMin_p, alamMax_p, slopeType='log')]
-	#dtSlopes = dT.DT_SlopeSpec(slopeSpecs)
+	slopeSpecs = [dT.SlopeSpec(num_p, alamMin_p, alamMax_p, slopeType='log')]
+					
+	dtSlopes = dT.DT_SlopeSpec(specList=slopeSpecs)
 
 	sPe = aP.SpecParams(num_e, alamMin_e, alamMax_e, dtWolf, EFLAV, EFUDGE, name='Electrons')  # Parameters to create electron channels
 	sPp = aP.SpecParams(num_p, alamMin_p, alamMax_p, dtSlopes, PFLAV, PFUDGE, name='Protons')  # Parameters to create proton channels
 	alamParams = aP.AlamParams(True,[sPe, sPp])  # (doUsePsphere, List[SpecParams])
 	alamData = genAlam.genAlamDataFromParams(alamParams)  # Use AlamParams to generate all of the lambda distributions
 
-	plotter.plotLambdasBySpec(alamData.specs,vm=vm)
+	plotter.plotLambdasBySpec(alamData.specs,yscale='log',vm=vm)
 
 	print("Writing RCM configuration to %s"%(fOut))
 	fileIO.saveRCMConfig(alamData,params=alamParams,fname=fOut)
