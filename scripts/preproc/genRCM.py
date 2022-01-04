@@ -1,10 +1,38 @@
 #!/usr/bin/env python
 #Generates RCM config data
-
+import numpy as np
 import argparse
 from argparse import RawTextHelpFormatter
-import kaipy.rcm.lambdautils.genAlam as genAlam
+#import kaipy.rcm.lambdautils.genAlam as genAlam
 from kaipy.rcm.lambdautils.AlamData import AlamParams
+
+import kaipy.rcm.lambdautils2.AlamData as aD
+import kaipy.rcm.lambdautils2.AlamParams as aP
+import kaipy.rcm.lambdautils2.DistTypes as dT
+
+import kaipy.rcm.lambdautils2.genAlam as genAlam
+import kaipy.rcm.lambdautils2.fileIO as fileIO
+import kaipy.rcm.lambdautils2.plotter as plotter
+
+
+EFLAV = 1
+PFLAV = 2
+
+EFUDGE = 1./3.
+PFUDGE = 0.0
+
+
+def L_to_bVol(L):  # L shell [Re] to V [Re/nT]
+    bsurf_nT = 3.11E4
+    print(np.sqrt(1.0/L))
+    colat = np.arcsin(np.sqrt(1.0/L))
+
+    cSum = 35*np.cos(colat) - 7*np.cos(3*colat) +(7./5.)*np.cos(5*colat) - (1./7.)*np.cos(7*colat)
+    cSum /= 64.
+    s8 = np.sin(colat)**8
+    V = 2*cSum/s8/bsurf_nT
+    return V
+
 
 if __name__ == "__main__":
 
@@ -31,12 +59,36 @@ if __name__ == "__main__":
 	#Finalize parsing
 	args = parser.parse_args()
 	fOut = args.o
+	num_e = args.ne
+	num_p = args.np
+	aminp = args.aminp
+	amine = args.amine
+	ktMax = args.kt*1E3  # [keV to eV]
+	L_kt = float(args.L)
+	tiote = args.tiote
+
+	#Determine proton channel limits based on resolving a certain (proton) temperature at given L
+	bVol = L_to_bVol(L_kt)
+	vm = bVol**(-2/3)
+	alamMin_p = aminp
+	alamMax_p = 10*(ktMax/vm)
+	#Electron max based on proton channel max and ti/te
+	alamMin_e = -1*np.abs(amine)  # Make sure its negative
+	alamMax_e = -1*alamMax_p/tiote
+
+	dtWolf = dT.DT_Wolf(p1=3,p2=1)  # Lambda channels will have a (slightly modified) Wolf distribution type
+
+	#slopeSpecs = [dT.SlopeSpec(num_p, alamMin_p, alamMax_p, slopeType='log')]
+	#dtSlopes = dT.DT_SlopeSpec(slopeSpecs)
+
+	sPe = aP.SpecParams(num_e, alamMin_e, alamMax_e, dtWolf, EFLAV, EFUDGE, name='Electrons')  # Parameters to create electron channels
+	sPp = aP.SpecParams(num_p, alamMin_p, alamMax_p, dtSlopes, PFLAV, PFUDGE, name='Protons')  # Parameters to create proton channels
+	alamParams = aP.AlamParams(True,[sPe, sPp])  # (doUsePsphere, List[SpecParams])
+	alamData = genAlam.genAlamDataFromParams(alamParams)  # Use AlamParams to generate all of the lambda distributions
+
+	plotter.plotLambdasBySpec(alamData.specs,vm=vm)
 
 	print("Writing RCM configuration to %s"%(fOut))
+	fileIO.saveRCMConfig(alamData,params=alamParams,fname=fOut)
 
-	params = AlamParams(num_e=args.ne, num_p=args.np,
-						alamMin_e=args.amine, alamMin_p=args.aminp,
-						ktMax=args.kt*1E3, L_kt=args.L, tiote=args.tiote,
-						p1=args.p1, p2=args.p2,
-						addPsphere = (not args.nop))
-	genAlam.genh5(fOut, params, doTests=False)
+
