@@ -72,11 +72,12 @@ def plotLambdasBySpec(specDataList, yscale='log',vm=None):
 		else:
 			alams = np.abs(specData.alams)
 			alamDiff = np.diff(alams)
-			AxAlams.step(chNum, alams, label="Values")
-			AxDiffs.step(chNum[:-1], alamDiff, label="Spacing")
-			Ax.set_ylabel(r"$\lambda")
+			Ax.step(chNum, alams, label="Values")
+			Ax.step(chNum[:-1], alamDiff, label="Spacing")
+			Ax.set_ylabel(r"$\lambda$")
 		Ax.set_yscale(yscale)
 		Ax.legend()
+		Ax.grid(True)
 		Ax.set_xlabel('Channel Number')
 		Ax.title.set_text(specData.name)
 

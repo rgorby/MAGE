@@ -29,8 +29,8 @@ def getAlamMinMax(alams):
 def genSpeciesFromParams(specParams):
     """ Takes a SpecParams object and generates a new Species object
     """
-    n = specParams.n
     alams = specParams.genAlams()
+    n = len(alams)  # !!!Bad workaround. Since genAlams might change n, it should set it in its specParams container itself
     amins,amaxs = getAlamMinMax(alams)
     flav = specParams.flav
     fudge = specParams.fudge
@@ -38,6 +38,7 @@ def genSpeciesFromParams(specParams):
     return aD.Species(n, alams, amins, amaxs, flav, fudge, params=specParams, name=name)
 
 def genAlamDataFromParams(alamParams):
+    print(alamParams.specParams)
     doUsePsphere = alamParams.doUsePsphere
     specList = [genSpeciesFromParams(sP) for sP in alamParams.specParams]
     if doUsePsphere:

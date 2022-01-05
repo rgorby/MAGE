@@ -22,7 +22,8 @@ class SpecParams:
 	name: Optional[str] = None
 
 	def genAlams(self):  # This will call the given DistType's 'required' function to generate alams based on its rules
-		return self.distType.genAlamsFromSpecies(self)
+		specData = self.distType.genAlamsFromSpecies(self)
+		return specData
 
 @dataclass_json
 @dataclass
