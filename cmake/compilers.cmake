@@ -68,7 +68,7 @@ elseif(CMAKE_Fortran_COMPILER_ID MATCHES GNU)
 	endif()
 endif()
 
-set(CMAKE_Fortran_FLAGS_DEBUG "-g")
+set(CMAKE_Fortran_FLAGS_DEBUG "-O0 -g")
 set(CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_DEFOPT}")
 set(CMAKE_Fortran_FLAGS_RELWITHDEBINFO "${CMAKE_DEFOPT} -g")
 
@@ -80,8 +80,8 @@ if(CMAKE_Fortran_COMPILER_ID MATCHES Intel)
 	#Production
 	set(PROD "-align array64byte -align rec32byte -no-prec-div -fast-transcendentals")
 	#Debug
-	set(DEBUG "-g -traceback -check bounds -check uninit -debug all -gen-interfaces -warn interfaces -fp-stack-check")
-	set(PRODWITHDEBUGINFO "${CMAKE_DEFOPT} -g -traceback -debug all -align array64byte -align rec32byte -no-prec-div -fast-transcendentals")
+	set(DEBUG "-traceback -check bounds -check uninit -debug all -gen-interfaces -warn interfaces -fp-stack-check")
+	set(PRODWITHDEBUGINFO "-traceback -debug all -align array64byte -align rec32byte -no-prec-div -fast-transcendentals")
 
 	#Now do OS-dep options
 	if (CMAKE_SYSTEM_NAME MATCHES Darwin)
@@ -96,6 +96,9 @@ if(CMAKE_Fortran_COMPILER_ID MATCHES Intel)
 	if (HOST MATCHES cheyenne)
 		string(APPEND PROD " -march=corei7 -axCORE-AVX2")
 		string(APPEND PRODWITHDEBUGINFO " -march=corei7 -axCORE-AVX2")
+        elseif(HOST MATCHES pfe)
+                string(APPEND PROD " -march=corei7 -axCORE-AVX2")
+                string(APPEND PRODWITHDEBUGINFO " -march=corei7 -axCORE-AVX2")
 	endif()
 
 	#Check Intel Fortran version
@@ -130,14 +133,23 @@ if(ENABLE_MPI)
 	add_definitions(${MPI_Fortran_COMPILE_DEFINITIONS})
 	include_directories(${MPI_Fortran_INCLUDE_DIRS})
 	link_directories(${MPI_Fortran_LIBRARIES})
+    string(APPEND CMAKE_Fortran_FLAGS " ${MPI_Fortran_LINK_FLAGS}")
 
-    if(CMAKE_Fortran_COMPILER_ID MATCHES Intel)
-        #Using Intel Compiler, use thread safe mpi compiler flag
+    if(CMAKE_Fortran_COMPILER_ID MATCHES Intel AND MPI_Fortran_COMPILER MATCHES mpiifort)
+        #Using Intel Compiler and Intel MPI, use thread safe mpi compiler flag
         string(APPEND CMAKE_Fortran_FLAGS " -mt_mpi")
+    else()
+        #use different MPI link command
+        string(APPEND CMAKE_Fortran_FLAGS " -lmpi")
     endif()
 
 	set(CMAKE_Fortran_COMPILER ${MPI_Fortran_COMPILER})
 	# we changed compiler, link HDF5 libraries
 	link_libraries(${HDF5_Fortran_LIBRARIES} ${HDF5_Fortran_HL_LIBRARIES})
+endif()
+if(ENABLE_CODECOV)
+    # track code coverage
+    file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/bin/codecov_prof)
+    string(APPEND CMAKE_Fortran_FLAGS " -prof-gen=srcpos -prof-dir=${CMAKE_BINARY_DIR}/bin/codecov_prof")
 endif()
 

@@ -8,10 +8,29 @@
 
 source ~/.bashrc
 
+if [[ ! -z "$MODULE_LIST" ]]; then
+    # user passed a list of modules to load as the environment variable MODULE_LIST
+    module purge
+    module load $MODULE_LIST
+elif [[ ! -z "$MODULE_SET" ]]; then
+    # user passed a module set name to load as the environment variable MODULE_SET
+    module purge
+    module restore $MODULE_SET
+fi
+
+if [[ ! -z "$MPT_VERSION" ]]; then
+    echo "USING MPIEXEC_MPT"
+    export MPICOMMAND="mpiexec_mpt omplace"
+else
+    echo "USING MPIRUN"
+    export MPICOMMAND="mpirun"
+fi
+
 module list
 hostname
 export OMP_NUM_THREADS=72
 export KMP_STACKSIZE=128M
+export MPI_TYPE_DEPTH=32
 
 echo ""
 echo "Running Gamera Tests"
@@ -19,7 +38,7 @@ date
 ./gamTests > gamTests.out
 date
 echo "Gamera Tests Complete"
-echo | tail -n 2 ./gamTests.out
+echo | tail -n 3 ./gamTests.out
 
 echo ""
 echo "Running Remix Tests"
@@ -27,7 +46,7 @@ date
 ./mixTests > mixTests.out
 date
 echo "Remix Tests Complete"
-echo | tail -n 2 ./mixTests.out
+echo | tail -n 3 ./mixTests.out
 
 echo ""
 echo "Running Voltron Tests"
@@ -35,21 +54,21 @@ date
 ./voltTests > voltTests.out
 date
 echo "Voltron Tests Complete"
-echo | tail -n 2 ./voltTests.out
+echo | tail -n 3 ./voltTests.out
 
 echo ""
 echo "Running Base MPI Tests"
 date
-mpirun ./baseMpiTests > baseMpiTests.out
+${MPICOMMAND} ./baseMpiTests > baseMpiTests.out
 date
 echo "Base MPI Tests Complete"
-echo | tail -n 2 ./baseMpiTests.out
+echo | tail -n 3 ./baseMpiTests.out
 
 echo ""
 echo "Running Gamera MPI Tests"
 date
-mpirun ./gamMpiTests > gamMpiTests.out
+${MPICOMMAND} ./gamMpiTests > gamMpiTests.out
 date
 echo "Gamera MPI Tests Complete"
-echo | tail -n 2 ./gamMpiTests.out
+echo | tail -n 3 ./gamMpiTests.out
 

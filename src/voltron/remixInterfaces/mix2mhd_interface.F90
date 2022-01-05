@@ -46,6 +46,7 @@ contains
         allocate(mhdPsiGrid(1:mix2mhd%PsiShells+1, gameraApp%Grid%js:gameraApp%Grid%je+1, gameraApp%Grid%ks:gameraApp%Grid%ke/2+1, 1:3, 1:2))
         allocate(mix2mhd%mixOutput(1:mix2mhd%PsiShells+1, gameraApp%Grid%js:gameraApp%Grid%je+1, gameraApp%Grid%ks:gameraApp%Grid%ke/2+1, 1:mix2mhd_varn, 1:2))
         allocate(mix2mhd%PsiMaps(mix2mhd%PsiShells,size(remixApp%ion)))
+        mix2mhd%gPsi = 0.0
 
         ! get those grid coordinates (corner centers for Psi)
         do k=gameraApp%Grid%ks,gameraApp%Grid%ke+1

@@ -354,11 +354,10 @@ module voltapp
             endif
 
             ! initialize chimp
-            associate(ebTrcApp=>vApp%ebTrcApp)
             if (present(optFilename)) then
-                call init_volt2Chmp(ebTrcApp,gApp,optFilename=optFilename)
+                call init_volt2Chmp(vApp,gApp,optFilename=optFilename)
             else
-                call init_volt2Chmp(ebTrcApp,gApp)
+                call init_volt2Chmp(vApp,gApp)
             endif
 
             !Ensure chimp and voltron restart numbers match
@@ -371,10 +370,9 @@ module voltapp
             !    stop
             !endif
 
-            call init_mhd2Chmp(vApp%mhd2chmp, gApp, ebTrcApp)
-            call init_chmp2Mhd(vApp%chmp2mhd, ebTrcApp, gApp)
+            call init_mhd2Chmp(vApp%mhd2chmp, gApp, vApp%ebTrcApp)
+            call init_chmp2Mhd(vApp%chmp2mhd, vApp%ebTrcApp, gApp)
 
-            end associate
             vApp%iDeep = ShellBoundary(gApp%Model,gApp%Grid,vApp%rTrc)
         endif !doDeep
 
@@ -556,8 +554,8 @@ module voltapp
     end subroutine
 
     !Initialize CHIMP data structure
-    subroutine init_volt2Chmp(ebTrcApp,gApp,optFilename)
-        type(ebTrcApp_T), intent(inout) :: ebTrcApp
+    subroutine init_volt2Chmp(vApp,gApp,optFilename)
+        class(voltApp_T), intent(inout) :: vApp
         type(gamApp_T), intent(in) :: gApp
         character(len=*), intent(in), optional     :: optFilename
 
@@ -574,7 +572,7 @@ module voltapp
         inpXML = New_XML_Input(trim(xmlStr),"Kaiju/Chimp",.true.)
 
     !Initialize model
-        associate(Model=>ebTrcApp%ebModel,ebState=>ebTrcApp%ebState,ebGr=>ebTrcApp%ebState%ebGr,Gr=>gApp%Grid)
+        associate(Model=>vApp%ebTrcApp%ebModel,ebState=>vApp%ebTrcApp%ebState,ebGr=>vApp%ebTrcApp%ebState%ebGr,Gr=>gApp%Grid)
         call setUnits (Model,inpXML)
         Model%T0   = 0.0
         Model%tFin = 0.0
@@ -592,6 +590,10 @@ module voltapp
         ebGr%xyzcc(ebGr%is:ebGr%ie,ebGr%js:ebGr%je,ebGr%ks:ebGr%ke,:) = Gr%xyzcc(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,:)
 
         call InitLoc(Model,ebState%ebGr,inpXML)
+
+    !Initialize squish indices
+        allocate(vApp%ebTrcApp%ebSquish%blockStartIndices(vApp%ebTrcApp%ebSquish%numSquishBlocks))
+        call LoadBalanceBlocks(vApp) ! start off with all blocks equal in size
 
         !Do simple test to make sure locator is reasonable
         xyz0 = Gr%xyz(Gr%is+1,Gr%js,Gr%ks,:)

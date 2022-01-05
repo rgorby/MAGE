@@ -108,7 +108,7 @@ contains
 
   end subroutine runApplication
 
-  @test(npes=[2,5,9])
+  @test(npes=[9])
   subroutine testSerialCoupling(this)
       class (MpiTestMethod), intent(inout) :: this
 
@@ -139,7 +139,7 @@ contains
 
   end subroutine testSerialCoupling
 
-  @test(npes=[2,5,9])
+  @test(npes=[9])
   subroutine testConcCoupling(this)
       class (MpiTestMethod), intent(inout) :: this
 
@@ -168,7 +168,7 @@ contains
 
   end subroutine testConcCoupling
 
-  @test(npes=[2,5,9])
+  @test(npes=[9])
   subroutine testAsyncCoupling(this)
       class (MpiTestMethod), intent(inout) :: this
 
@@ -197,7 +197,7 @@ contains
 
   end subroutine testAsyncCoupling
 
-  @test(npes=[2,5,9])
+  @test(npes=[9])
   subroutine testAdjustShallowCoupling(this)
       class (MpiTestMethod), intent(inout) :: this
 
@@ -251,7 +251,7 @@ contains
 
   end subroutine testAdjustShallowCoupling
 
-  @test(npes=[2,5,9])
+  @test(npes=[9])
   subroutine testAdjustDeepCoupling(this)
       class (MpiTestMethod), intent(inout) :: this
 
@@ -305,7 +305,7 @@ contains
 
   end subroutine testAdjustDeepCoupling
 
-  @test(npes=[2,5,9])
+  @test(npes=[9])
   subroutine testQuickSquish(this)
       class (MpiTestMethod), intent(inout) :: this
 
@@ -348,8 +348,6 @@ contains
       endif
   end subroutine testQuickSquish
 
-  ! this test is too slow right now, only run one of them
-  !@test(npes=[2,5,9])
   @test(npes=[9])
   subroutine testQuickSquishStorm(this)
       class (MpiTestMethod), intent(inout) :: this
