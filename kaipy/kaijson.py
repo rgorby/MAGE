@@ -81,3 +81,13 @@ def load(fname):
 		data = json.load(jfile, object_hook=customhook)
 
 	return data
+
+def dumps(data,noIndent=False):
+	#Returns a string with the given dictionary in json format
+	if noIndent:
+		return json.dumps(data,cls=CustomEncoder)
+	else:
+		return json.dumps(data,indent=4,cls=CustomEncoder)
+def loads(dataString):
+	#Returns a dictionary from the provided string if its contents are proper json format
+	return json.loads(dataString, object_hook=customhook)
