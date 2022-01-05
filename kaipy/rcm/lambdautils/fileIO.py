@@ -4,8 +4,9 @@ import json
 import h5py as h5
 from dataclasses import asdict as dc_asdict
 
-import kaipy.rcm.lambdautils2.AlamParams as aP
-import kaipy.rcm.lambdautils2.DistTypes as dT
+import kaipy.kaijson as kj
+import kaipy.rcm.lambdautils.AlamParams as aP
+import kaipy.rcm.lambdautils.DistTypes as dT
 
 try:
 	import kaipy.rcm.rcminit as rcminit
@@ -25,9 +26,9 @@ def saveRCMConfig(alamData, params=None, fname = 'rcmconfig.h5'):
 
 #These save and load AlamParams so that we can always tell how a lambda distribution was generated
 def saveParams(f5, alamParams):
-	 f5.attrs['AlamParams'] = json.dumps(dc_asdict(alamParams))
+	 f5.attrs['AlamParams'] = kj.dumps(dc_asdict(alamParams),noIndent=True)
 def loadParams(f5):
-	aPDict = json.loads(f5.attrs['AlamParams'])
+	aPDict = kj.loads(f5.attrs['AlamParams'])
 	aPObj = aP.AlamParams.from_dict(aPDict)
 
 	#DistTypes won't load correctly using from_dict because we're using inherited classes, need to instantiate ourselves
@@ -36,7 +37,7 @@ def loadParams(f5):
 	
 	return aPObj
 
-def saveData(f5, alamData):
+def saveData(f5, alamData,doPrint=False):
 	""" Takes an AlamData object, formats it to rcmconfig.h5 style, and saves it
 	"""
 
@@ -48,9 +49,10 @@ def saveData(f5, alamData):
 		lambdas = np.append(lambdas, spec.alams)
 		flavs = np.append(flavs, [spec.flav for f in range(spec.n)])
 		fudges = np.append(fudges, [spec.fudge for f in range(spec.n)])
-	print(lambdas)
-	print(flavs)
-	print(fudges)
+	if doPrint:
+		print(lambdas)
+		print(flavs)
+		print(fudges)
 
 	f5.create_dataset('alamc', data=lambdas)
 	f5.create_dataset('ikflavc', data=flavs)

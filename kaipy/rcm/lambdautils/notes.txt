@@ -1,4 +1,5 @@
 Data classes:
+	DistTypes: Contains different ways of generating lambad distributions
 	AlamParams: Contains all information needed to produce a unique rcmconfig.h5
 	AlamData: Contains the final lambda distributions, their mins/maxes, and a copy of the AlamParams used to generate it
 

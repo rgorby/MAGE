@@ -4,7 +4,7 @@ from dataclasses import asdict as dc_asdict
 from typing import Optional, List
 
 #Import other things from this package space
-import kaipy.rcm.lambdautils2.DistTypes as dT
+import kaipy.rcm.lambdautils.DistTypes as dT
 
 # Defines a single species
 @dataclass

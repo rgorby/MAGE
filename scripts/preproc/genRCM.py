@@ -3,16 +3,14 @@
 import numpy as np
 import argparse
 from argparse import RawTextHelpFormatter
-#import kaipy.rcm.lambdautils.genAlam as genAlam
-from kaipy.rcm.lambdautils.AlamData import AlamParams
 
-import kaipy.rcm.lambdautils2.AlamData as aD
-import kaipy.rcm.lambdautils2.AlamParams as aP
-import kaipy.rcm.lambdautils2.DistTypes as dT
+import kaipy.rcm.lambdautils.AlamData as aD
+import kaipy.rcm.lambdautils.AlamParams as aP
+import kaipy.rcm.lambdautils.DistTypes as dT
 
-import kaipy.rcm.lambdautils2.genAlam as genAlam
-import kaipy.rcm.lambdautils2.fileIO as fileIO
-import kaipy.rcm.lambdautils2.plotter as plotter
+import kaipy.rcm.lambdautils.genAlam as genAlam
+import kaipy.rcm.lambdautils.fileIO as fileIO
+import kaipy.rcm.lambdautils.plotter as plotter
 
 
 EFLAV = 1
@@ -24,7 +22,6 @@ PFUDGE = 0.0
 
 def L_to_bVol(L):  # L shell [Re] to V [Re/nT]
     bsurf_nT = 3.11E4
-    print(np.sqrt(1.0/L))
     colat = np.arcsin(np.sqrt(1.0/L))
 
     cSum = 35*np.cos(colat) - 7*np.cos(3*colat) +(7./5.)*np.cos(5*colat) - (1./7.)*np.cos(7*colat)
@@ -36,25 +33,35 @@ def L_to_bVol(L):  # L shell [Re] to V [Re/nT]
 
 if __name__ == "__main__":
 
-#Arg parsing
+	#Arg parsing
 	fOut = "rcmconfig.h5"
-	apDef = AlamParams()  # Default rcm lambda parameters
+	num_e  = 39
+	num_p  = 120
+	aminp  = 10
+	amine  = -1
+	ktMax  = 15  # [keV]
+	L_kt   = 10
+	tiote  = 4
+	wolfP1 = 3
+	wolfP2 = 1
+	plotChoices = ['none', 'spec', 'vs']
+
 
 	MainS = """Generates RCM configuration data
 	"""
 	parser = argparse.ArgumentParser(description=MainS, formatter_class=RawTextHelpFormatter)
 	parser.add_argument('-o',type=str,default=fOut,metavar="fOut",help="Output file name (default: %(default)s)")
 	parser.add_argument('-nop',action='store_true',default=False,help="Do not add zero loss first channel (default: %(default)s)")
-	parser.add_argument('-ne', type=int,default=apDef.num_e, help="Number of electron channels (default: %(default)s)")
-	parser.add_argument('-np', type=int,default=apDef.num_p, help="Number of proton channels (default: %(default)s)")
-	parser.add_argument('-amine', type=float,default=apDef.aMin_e, help="Min. lambda for electrons (default: %(default)s)")
-	parser.add_argument('-aminp', type=float,default=apDef.aMin_p, help="Min. lambda for protons (default: %(default)s)")
-	parser.add_argument('-kt', type=float,default=apDef.ktMax/1E3, help="Highest thermal energy [keV] RCM should resolve at L_kt (default: %(default)s [keV])")
-	parser.add_argument('-L', type=float,default=apDef.L_kt, help="L shell [R_e] at which kt should be resolved (default: %(default)s [R_e])")
-	parser.add_argument('-tiote', type=float,default=apDef.tiote, help="Ratio between temperatures of ions and electrons (default: %(default)s)")
-	parser.add_argument('-p1', type=float,default=apDef.p1, help="(default: %(default)s)")
-	parser.add_argument('-p2', type=float,default=apDef.p2, help="(default: %(default)s)")
-
+	parser.add_argument('-ne', type=int,default=num_e, help="Number of electron channels (default: %(default)s)")
+	parser.add_argument('-np', type=int,default=num_p, help="Number of proton channels (default: %(default)s)")
+	parser.add_argument('-amine', type=float,default=amine, help="Min. lambda for electrons (default: %(default)s)")
+	parser.add_argument('-aminp', type=float,default=aminp, help="Min. lambda for protons (default: %(default)s)")
+	parser.add_argument('-kt', type=float,default=ktMax, help="Highest thermal energy [keV] RCM should resolve at L_kt (default: %(default)s [keV])")
+	parser.add_argument('-L', type=float,default=L_kt, help="L shell [R_e] at which kt should be resolved (default: %(default)s [R_e])")
+	parser.add_argument('-tiote', type=float,default=tiote, help="Ratio between temperatures of ions and electrons (default: %(default)s)")
+	parser.add_argument('-p1', type=float,default=wolfP1, help="Wolf low-energy  p* (default: %(default)s)")
+	parser.add_argument('-p2', type=float,default=wolfP2, help="Wolf high-energy p* (default: %(default)s)")
+	parser.add_argument('-plotType', choices=plotChoices,default=plotChoices[0], help="Plot mode (default: %(default)s)")
 
 	#Finalize parsing
 	args = parser.parse_args()
@@ -66,6 +73,7 @@ if __name__ == "__main__":
 	ktMax = args.kt*1E3  # [keV to eV]
 	L_kt = float(args.L)
 	tiote = args.tiote
+	plotType = args.plotType
 
 	#Determine proton channel limits based on resolving a certain (proton) temperature at given L
 	bVol = L_to_bVol(L_kt)
@@ -78,18 +86,20 @@ if __name__ == "__main__":
 
 	dtWolf = dT.DT_Wolf(p1=3,p2=1)  # Lambda channels will have a (slightly modified) Wolf distribution type
 
-	valueSpecs = [dT.ValueSpec(num_p, alamMin_p, alamMax_p, scaleType='log')]
-					
-	dtSlopes = dT.DT_ValueSpec(specList=valueSpecs)
-
 	sPe = aP.SpecParams(num_e, alamMin_e, alamMax_e, dtWolf, EFLAV, EFUDGE, name='Electrons')  # Parameters to create electron channels
-	sPp = aP.SpecParams(num_p, alamMin_p, alamMax_p, dtSlopes, PFLAV, PFUDGE, name='Protons')  # Parameters to create proton channels
+	sPp = aP.SpecParams(num_p, alamMin_p, alamMax_p, dtWolf, PFLAV, PFUDGE, name='Protons')  # Parameters to create proton channels
 	alamParams = aP.AlamParams(True,[sPe, sPp])  # (doUsePsphere, List[SpecParams])
+	alamParams.tiote = tiote
+	alamParams.ktMax = ktMax
+	alamParams.L_kt = L_kt
 	alamData = genAlam.genAlamDataFromParams(alamParams)  # Use AlamParams to generate all of the lambda distributions
 
-	plotter.plotLambdasBySpec(alamData.specs,yscale='log',vm=vm)
+	if plotType == 'spec':
+		plotter.plotLambdasBySpec(alamData.specs,yscale='log',L=L_kt)
+	elif plotType == 'vs':
+		plotter.plotLambdas_Val_Spac(alamData.specs,yscale='log',L=L_kt)
 
-	print("Writing RCM configuration to %s"%(fOut))
 	fileIO.saveRCMConfig(alamData,params=alamParams,fname=fOut)
+	print("Wrote RCM configuration to %s"%(fOut))
 
 
