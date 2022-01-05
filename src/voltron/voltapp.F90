@@ -578,6 +578,7 @@ module voltapp
 
     !Initialize model
         associate(Model=>vApp%ebTrcApp%ebModel,ebState=>vApp%ebTrcApp%ebState,ebGr=>vApp%ebTrcApp%ebState%ebGr,Gr=>gApp%Grid)
+        Model%isMAGE = .true. !Let chimp know it's part of mage
         call setChimpUnitsVoltron(Model,vApp%planet,inpXML)
         Model%T0   = 0.0
         Model%tFin = 0.0
