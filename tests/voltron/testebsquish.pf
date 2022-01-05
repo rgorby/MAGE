@@ -1,0 +1,129 @@
+module testebsquish
+    use testHelper
+    use voltapp
+    use gamapp
+    use uservoltic
+
+    implicit none
+
+contains
+
+@before
+  subroutine firstSerial()
+  end subroutine firstSerial
+
+  @after
+  subroutine lastSerial()
+  end subroutine lastSerial
+
+  !helper function which checks to ensure that squish starting index
+  !    array values are valid
+  subroutine checkSquishIndices(voltronApp)
+      type(voltApp_T) :: voltronApp
+
+      integer :: i,ks,ke,kePrior,nSkp
+
+      associate(ebSquish=>voltronApp%ebTrcApp%ebSquish,ebGr=>voltronApp%ebTrcApp%ebState%ebGr)
+
+      !ensure the first block starts at 0, they are in order, and they are all in bounds
+      @assertEqual(ebGr%ks,ebSquish%blockStartIndices(1),"First entry of squish start indices is not ebGr%ks")
+      do i=1,ebSquish%numSquishBlocks-1
+          @assertTrue(ebSquish%blockStartIndices(i-1) <= ebSquish%blockStartIndices(i),"Block start indices are not monotonically increasing")
+          @assertTrue(ebSquish%blockStartIndices(i) <= ebGr%ke+1,"Block start index not less than or equal to ebGr%ke+1")
+      enddo
+      @assertTrue(ebSquish%blockStartIndices(ebSquish%numSquishBlocks)<= ebGr%ke+1,"Block start index not less than or equal to ebGr%ke+1")
+
+      nSkp = 1
+      if(voltronApp%doQkSquish) then
+          nSkp = voltronApp%qkSquishStride
+      endif
+
+      !ensure all indices are offset from ebGr%ks by a multiple of the quick squish value
+      do i=1,ebSquish%numSquishBlocks
+          @assertEqual(0,MOD(ebSquish%blockStartIndices(i)-ebGr%ks,nSkp), "Block start index not offset from ebGr%ks by a multiple of quick squish stride")
+      enddo
+
+      !now use the helper function to get the start and end bounds, and ensure correctness and full coverage of the array
+      call GetSquishBds(voltronApp,ks,ke,1)
+      @assertEqual(ebGr%ks,ks,"First block start index is not ebGr%ks")
+      @assertEqual(0,MOD(ks-ebGr%ks,nSkp), "Block start index not offset from ebGr%ks by a multiple of quick squish stride")
+      @assertEqual(0,MOD(ke-ebGr%ks,nSkp), "Block end index not offset from ebGr%ks by a multiple of quick squish stride")
+      kePrior = ke
+      do i=2,ebSquish%numSquishBlocks-1
+          call GetSquishBds(voltronApp,ks,ke,i)
+          @assertEqual(kePrior,ks,"Previous block does not end where next block begins")
+          @assertEqual(0,MOD(ks-ebGr%ks,nSkp), "Block start index not offset from ebGr%ks by a multiple of quick squish stride")
+          @assertEqual(0,MOD(ke-ebGr%ks,nSkp), "Block end index not offset from ebGr%ks by a multiple of quick squish stride")
+          kePrior = ke
+      enddo
+      call GetSquishBds(voltronApp,ks,ke,ebSquish%numSquishBlocks)
+      @assertEqual(kePrior,ks,"Previous block does not end where next block begins")
+      @assertEqual(ebGr%ke+1,ke,"Last block end index is not ebGr%ke+1")
+      @assertEqual(0,MOD(ks-ebGr%ks,nSkp), "Block start index not offset from ebGr%ks by a multiple of quick squish stride")
+      @assertEqual(0,MOD(ke-ebGr%ks,nSkp), "Block end index not offset from ebGr%ks by a multiple of quick squish stride")
+
+      end associate
+
+  end subroutine
+
+  @test
+  subroutine testSquishLoadBalancing
+    ! testing that the ebsquish load balancing functions work properly
+    type(voltApp_T) :: voltronApp
+
+    real(rp), dimension(:), allocatable :: balanceVals
+    integer :: i
+
+    associate(ebSquish=>voltronApp%ebTrcApp%ebSquish)
+
+    ! set ebGrid values that are needed
+    voltronApp%ebTrcApp%ebState%ebGr%ks = 1
+    voltronApp%ebTrcApp%ebState%ebGr%ke = 128
+
+    ! test with 5 blocks, arbitrarily chosena
+    ! use a quick squish of 2
+    voltronApp%doQkSquish = .true.
+    voltronApp%qkSquishStride = 2
+    ebSquish%numSquishBlocks = 5
+    allocate(balanceVals(ebSquish%numSquishBlocks))
+    allocate(ebSquish%blockStartIndices(ebSquish%numSquishBlocks))
+
+    ! set default load balance and check it
+    call LoadBalanceBlocks(voltronApp)
+    print *,ebSquish%blockStartIndices
+    call checkSquishIndices(voltronApp)
+
+    ! manually set even balance vals, and check it
+    balanceVals = 1.0_rp/ebSquish%numSquishBlocks
+    call LoadBalanceBlocks(voltronApp, balanceVals)
+    print *,ebSquish%blockStartIndices
+    call checkSquishIndices(voltronApp)
+
+    ! set high load in front, and check it
+    balanceVals = 0.05_rp
+    balanceVals(1) = 0.8_rp
+    call LoadBalanceBlocks(voltronApp, balanceVals)
+    print *,ebSquish%blockStartIndices
+    call checkSquishIndices(voltronApp)
+
+    ! set high balance at back, and check it
+    balanceVals = 0.05_rp
+    balanceVals(ubound(balanceVals)) = 0.8_rp
+    call LoadBalanceBlocks(voltronApp, balanceVals)
+    print *,ebSquish%blockStartIndices
+    call checkSquishIndices(voltronApp)
+
+    ! set increasing balance, and check it
+    balanceVals = [(i,i=1,ebSquish%numSquishBlocks)]
+    call LoadBalanceBlocks(voltronApp, balanceVals)
+    print *,ebSquish%blockStartIndices
+    call checkSquishIndices(voltronApp)
+
+    deallocate(balanceVals)
+
+    end associate
+
+  end subroutine
+
+end module testebsquish
+

@@ -23,6 +23,7 @@
 !c = 1, Me (electron mass) = 1, L0 = 1, Qe (electron charge) = 1
 module chmpunits
     use chmpdefs
+    use cmidefs
     use xml_input
     use strings
     use planethelper
@@ -53,11 +54,7 @@ module chmpunits
 
     !Constants
     real(rp), parameter, private :: V2mV = 1.0e+3 !V/m -> mV/m (duh)    
-    !Gamera magnetosphere defaults
-    !These are true as long as density is in #/cc and V is in 100km/s
 
-    real(rp), parameter, private :: gamB0 = 4.58103037171500
-    real(rp), parameter, private :: gamP0 = 1.670000007587940E-002
     contains
 
     !AMS 08052021
@@ -65,16 +62,30 @@ module chmpunits
     !should maybe be moved to another subroutine so that any changes apply to both 
 
     !Set CHIMP units based on planet params
-    subroutine setChimpUnitsVoltron(planet)
+    subroutine setChimpUnitsVoltron(Model, planet, inpXML, uStrO)
+        type(chmpModel_T), intent(inout) :: Model
         type(planet_T), intent(in) :: planet
+        type(XML_Input_T), intent(in)    :: inpXML
+        character(len=*), intent(in), optional :: uStrO
+        
+        real(rp) :: gB0, gP0
+
+        !If not running in MAGE mode, assume planet doesn't exist and kick to setChimpUnits below
+        if (Model%isMAGE .eq. .false.) then
+            call setChimpUnits(Model,inpXML,uStrO)
+        endif
+
+        !Defaults
+        gB0 = defB0
+        gP0 = defP0
 
         !Things we can get directly from planet params
         L0 = planet%rp_m*1.e2  ! m -> cm
         M0g = planet%magMoment  ! [Gauss]
         in2cms = 100*1.0e+5 ! 100 km/s -> cm/s
-        in2G   = gamB0/G2nT
+        in2G   = gB0/G2nT
         in2s   = L0/in2cms
-        inPScl = gamP0
+        inPScl = gP0
 
         !Special treatment for our solar system friends
         select case (trim(toUpper(planet%name)))
@@ -118,11 +129,17 @@ module chmpunits
         type(XML_Input_T), intent(in)    :: inpXML
         character(len=*), intent(in), optional :: uStrO
 
+        real(rp) :: gB0, gP0
+
         if (present(uStrO)) then
             Model%uID = uStrO
         else
             call inpXML%Set_Val(Model%uID,"units/uid","Earth")
         endif
+
+        !Defaults
+        gB0 = defB0
+        gP0 = defP0
 
         select case (trim(toUpper(Model%uID)))
 
@@ -146,10 +163,10 @@ module chmpunits
             !Field : 4.581 nT
             L0 = Re_cgs
             in2cms = 100*1.0e+5 ! 100 km/s -> cm/s
-            in2G   = gamB0/G2nT
+            in2G   = gB0/G2nT
             in2s   = L0/in2cms
             M0g    = EarthM0g
-            inPScl = gamP0 !Gamera pressure -> nPa
+            inPScl = gP0 !Gamera pressure -> nPa
             rClosed = 2.25
         case("JUPITER")
             !Gamera units for Jupiter
@@ -164,10 +181,10 @@ module chmpunits
             !Gamera units for Jupiter
             L0 = RJupiterXE*Re_cgs
             in2cms = 100*1.0e+5 ! 100 km/s -> cm/s
-            in2G   = gamB0/G2nT
+            in2G   = gB0/G2nT
             in2s   = L0/in2cms
             M0g    = JupiterM0g
-            inPScl = gamP0 !Gamera pressure -> nPa
+            inPScl = gP0 !Gamera pressure -> nPa
             rClosed = 10.0
         case("SATURN")
             L0 = RSaturnXE*Re_cgs
@@ -180,10 +197,10 @@ module chmpunits
         case("SATURNCODE")
             L0 = RSaturnXE*Re_cgs
             in2cms = 100*1.0e+5 ! 100 km/s -> cm/s
-            in2G   = gamB0/G2nT
+            in2G   = gB0/G2nT
             in2s   = L0/in2cms
             M0g = SaturnM0g
-            inPScl = gamP0 !Gamera pressure -> nPa
+            inPScl = gP0 !Gamera pressure -> nPa
             rClosed = 5.0 !Inner boundary for Saturn
         case("HELIO")
             !Grid: Rs

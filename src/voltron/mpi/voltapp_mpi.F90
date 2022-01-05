@@ -124,6 +124,7 @@ module voltapp_mpi
             call xmlInp%Set_Val(vApp%useHelpers,"/Kaiju/Voltron/Helpers/useHelpers",.false.)
             call xmlInp%Set_Val(vApp%doSquishHelp,"/Kaiju/Voltron/Helpers/doSquishHelp",.true.)
             call xmlInp%Set_Val(vApp%masterSquish,"/Kaiju/Voltron/Helpers/masterSquish",.false.)
+            call xmlInp%Set_Val(vApp%squishLoadBalance,"/Kaiju/Voltron/Helpers/squishLoadBalance",.true.)
             call xmlInp%Set_Val(nHelpers,"/Kaiju/Voltron/Helpers/numHelpers",0)
             call MPI_Comm_Size(vApp%vHelpComm, commSize, ierr)
             if(ierr /= MPI_Success) then
@@ -281,7 +282,19 @@ module voltapp_mpi
         call xmlInp%Set_Val(vApp%useHelpers,"/Kaiju/Voltron/Helpers/useHelpers",.false.)
         call xmlInp%Set_Val(vApp%doSquishHelp,"/Kaiju/Voltron/Helpers/doSquishHelp",.true.)
         call xmlInp%Set_Val(vApp%masterSquish,"/Kaiju/Voltron/Helpers/masterSquish",.false.)
+        call xmlInp%Set_Val(vApp%squishLoadBalance,"/Kaiju/Voltron/Helpers/squishLoadBalance",.true.)
         call xmlInp%Set_Val(nHelpers,"/Kaiju/Voltron/Helpers/numHelpers",0)
+
+        if(vApp%masterSquish .and. vApp%squishLoadBalance) then
+            print *,"Dynamic load balancing of squish helpers is not supported if the"
+            print *,"     voltron master rank is also calculating squish."
+            print *,"     Please set either:"
+            print *,"        /Kaiju/Voltron/Helpers/masterSquish       to False"
+            print *,"     or"
+            print *,"        /Kaiju/Voltron/Helpers/squishLoadBalance  to False"
+            call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+        endif
+
         call MPI_Comm_Size(vApp%vHelpComm, commSize, ierr)
         if(ierr /= MPI_Success) then
             call MPI_Error_string( ierr, message, length, ierr)
@@ -358,6 +371,15 @@ module voltapp_mpi
         call mpi_bcast(vApp%IO%tsOut, 1, MPI_INT, vApp%myRank, vApp%voltMpiComm, ierr)
 
         if(vApp%useHelpers) then
+            if(vApp%doSquishHelp) then
+                ! over-ride the number of squish blocks
+                if(vApp%masterSquish) then
+                    vApp%ebTrcApp%ebSquish%numSquishBlocks = nHelpers + 1
+                else
+                    vApp%ebTrcApp%ebSquish%numSquishBlocks = nHelpers
+                endif
+            endif
+
             ! send initial timing data to helper voltron ranks
             call mpi_bcast(vApp%tFin, 1, MPI_MYFLOAT, 0, vApp%vHelpComm, ierr)
             call mpi_bcast(vApp%time, 1, MPI_MYFLOAT, 0, vApp%vHelpComm, ierr)

@@ -61,7 +61,7 @@ if (len(sys.argv) >= 2):
 if(forceRun == False):
     # If not forced, check for update
     if (text == 'Already up to date.'):
-        if(isTest == False):
+        if(not isTest and beLoud):
             # Try to send Slack message
             try:
                 response = client.chat_postMessage(

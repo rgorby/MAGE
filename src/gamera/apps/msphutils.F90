@@ -2,6 +2,7 @@
 
 module msphutils
     use kdefs
+    use cmidefs
     use gamtypes
     use gamutils
     use math, magRampDown => PenticRampDown
@@ -67,15 +68,12 @@ module msphutils
 
         character(len=strLen) :: pID !Planet ID string
         real(rp) :: M0g,rScl
-        real(rp) :: gx0,gv0,gD0,gP0,gB0,gT0
+        real(rp) :: gv0,gD0,gP0,gB0,gT0
         logical :: doCorot
         type(planet_T) :: planet
         
         !Set some defaults
-        gD0 = 1.67e-21 ! 1 AMU/cc [kg/m3]
-        Rion = 0.0
-        call xmlInp%Set_Val(gv0,"prob/v0",100.e3)
-
+        Rion = 1.0
 
         if (present(pStrO)) then
             call getPlanetParams(planet, xmlInp, pStrO)
@@ -116,8 +114,12 @@ module msphutils
         Psi0 = planet%psiCorot
         RIon = planet%ri_m/planet%rp_m
 
-        !using planet and gv0, set values for gT0, gB0, gP0, M0, GM0
-        call getGamNorms(planet, gv0, gT0, gB0, gP0, M0, GM0)
+        !using planet, set values for gT0, gB0, gP0, M0, GM0
+        gD0 = defD0
+        gv0 = defV0
+        gB0 = defB0
+        gP0 = defP0
+        call getGamPlanetNorms(planet, gT0, M0, GM0)
         Model%doGrav = planet%doGrav
 
         Model%isMagsphere = .true.

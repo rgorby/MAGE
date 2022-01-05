@@ -15,10 +15,12 @@ module ebtypes
         real(rp) :: Rinner
         ! block tracking for splitting up calculations and dividing work
         integer :: numSquishBlocks = 3 ! total blocks to divide work into
-        integer :: curSquishBlock = 0
+        integer :: curSquishBlock = 1
         ! start and end blocks in case work is divided across multiple ranks
-        integer :: myFirstBlock = 0 ! first block for me to work on
+        integer :: myFirstBlock = 1 ! first block for me to work on
         integer :: myNumBlocks = -1 ! how many blocks I should solve
+        ! dynamic block size adjustment
+        integer, dimension(:), allocatable :: blockStartIndices
     end type ebSquish_T
 
     !Data necessary to update fields, ie time->field data file mapping

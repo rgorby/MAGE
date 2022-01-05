@@ -120,9 +120,9 @@ module voltio
             if (simRate>TINY) then
                 if (vApp%isSeparate) then
                     nTh = NumOMP()
-                    write (*, '(a,1f7.3,a,I0,a)')             '    Running @ ', simRate*100.0, '% of real-time (',nTh,' threads)'  
+                    write (*, '(a,1f8.3,a,I0,a)')             '    Running @ ', simRate*100.0, '% of real-time (',nTh,' threads)'  
                 else
-                    write (*, '(a,1f7.3,a)'     )             '    Running @ ', simRate*100.0, '% of real-time'
+                    write (*, '(a,1f8.3,a)'     )             '    Running @ ', simRate*100.0, '% of real-time'
                 endif
             endif
             

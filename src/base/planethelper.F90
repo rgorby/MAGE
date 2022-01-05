@@ -1,6 +1,7 @@
 
 module planethelper
     use kdefs
+    use cmidefs
     use gamtypes
     use helpertypes
     use strings, only : toUpper
@@ -82,19 +83,16 @@ module planethelper
 
     !Use planet params to calculate Gamera's normalization values
     !Placed here so that Chimp can get them easily as well
-    subroutine getGamNorms(planet, gv0, gT0, gB0, gP0, M0, GM0)
+    subroutine getGamPlanetNorms(planet, gT0, M0, GM0)
         type(planet_T), intent(in) :: planet
-        real(rp), intent(in)  :: gv0
-        real(rp), intent(out) :: gT0, gB0, gP0, M0, GM0
+        real(rp), intent(out) :: gT0, M0, GM0
 
-        real(rp) :: gD0
+        real(rp) :: gv0
 
-        gD0 = 1.67e-21 ! 1 AMU/cc [kg/m3]
+        gv0 = defV0
 
         gT0 = planet%rp_m/gv0 !Set time scaling
-        gB0 = sqrt(Mu0*gD0)*gv0*1.0e+9 !T->nT
-        gP0 = gD0*gv0*gv0*1.0e+9 !P->nPa
-        M0  = -planet%magMoment*1.0e+5/gB0 !Magnetic moment
+        M0  = -planet%magMoment*1.0e+5/defB0 !Magnetic moment
         GM0 = planet%grav*planet%rp_m/(gv0*gv0)
 
     end subroutine
