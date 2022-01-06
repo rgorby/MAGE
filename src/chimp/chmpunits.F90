@@ -68,7 +68,7 @@ module chmpunits
         type(XML_Input_T), intent(in)    :: inpXML
         character(len=*), intent(in), optional :: uStrO
         
-        real(rp) :: gB0, gP0
+        real(rp) :: gv0, gB0, gP0
 
         !If not running in MAGE mode, assume planet doesn't exist and kick to setChimpUnits below
         if (Model%isMAGE .eq. .false.) then
@@ -76,13 +76,12 @@ module chmpunits
         endif
 
         !Defaults
-        gB0 = defB0
-        gP0 = defP0
+        call getGamPlanetNorms(planet, gv0=gv0, gB0=gB0, gP0=gP0)
 
         !Things we can get directly from planet params
         L0 = planet%rp_m*1.e2  ! m -> cm
         M0g = planet%magMoment  ! [Gauss]
-        in2cms = 100*1.0e+5 ! 100 km/s -> cm/s
+        in2cms = 100*gv0 ! 100 km/s -> cm/s
         in2G   = gB0/G2nT
         in2s   = L0/in2cms
         inPScl = gP0
@@ -129,7 +128,7 @@ module chmpunits
         type(XML_Input_T), intent(in)    :: inpXML
         character(len=*), intent(in), optional :: uStrO
 
-        real(rp) :: gB0, gP0
+        real(rp) :: gv0, gB0, gP0
 
         if (present(uStrO)) then
             Model%uID = uStrO
@@ -138,6 +137,7 @@ module chmpunits
         endif
 
         !Defaults
+        gv0 = defV0
         gB0 = defB0
         gP0 = defP0
 
@@ -150,7 +150,7 @@ module chmpunits
             !Velocity : 1 km/s
             !Field : 1 nT
             L0 = Re_cgs
-            in2cms = 1.0e+5 ! km/s -> cm/s
+            in2cms = gv0 ! 1 km/s -> 100 cm/s
             in2G   = 1.0/G2nT
             in2s   = 1.0
             M0g    = EarthM0g
@@ -162,7 +162,7 @@ module chmpunits
             !Velocity : 100 km/s
             !Field : 4.581 nT
             L0 = Re_cgs
-            in2cms = 100*1.0e+5 ! 100 km/s -> cm/s
+            in2cms = 100*gv0 ! 100 km/s -> cm/s
             in2G   = gB0/G2nT
             in2s   = L0/in2cms
             M0g    = EarthM0g
@@ -171,7 +171,7 @@ module chmpunits
         case("JUPITER")
             !Gamera units for Jupiter
             L0 = RJupiterXE*Re_cgs
-            in2cms = 1.0e+5 ! km/s -> cm/s
+            in2cms = gv0 ! 1 km/s -> 100 cm/s
             in2G   = 1.0/G2nT
             in2s   = 1.0
             M0g    = JupiterM0g
@@ -180,7 +180,7 @@ module chmpunits
         case("JUPITERCODE")
             !Gamera units for Jupiter
             L0 = RJupiterXE*Re_cgs
-            in2cms = 100*1.0e+5 ! 100 km/s -> cm/s
+            in2cms = 100*gv0 ! 100 km/s -> cm/s
             in2G   = gB0/G2nT
             in2s   = L0/in2cms
             M0g    = JupiterM0g
@@ -188,7 +188,7 @@ module chmpunits
             rClosed = 10.0
         case("SATURN")
             L0 = RSaturnXE*Re_cgs
-            in2cms = 1.0e+5 ! 100 km/s -> cm/s
+            in2cms = gv0 ! 1 km/s -> 100 cm/s
             in2G   = 1.0/G2nT
             in2s   = 1.0
             M0g = SaturnM0g
@@ -196,7 +196,7 @@ module chmpunits
             rClosed = 5.0 !Inner boundary for Saturn
         case("SATURNCODE")
             L0 = RSaturnXE*Re_cgs
-            in2cms = 100*1.0e+5 ! 100 km/s -> cm/s
+            in2cms = 100*gv0 ! 100 km/s -> cm/s
             in2G   = gB0/G2nT
             in2s   = L0/in2cms
             M0g = SaturnM0g

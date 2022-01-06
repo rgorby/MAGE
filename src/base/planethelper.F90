@@ -83,18 +83,33 @@ module planethelper
 
     !Use planet params to calculate Gamera's normalization values
     !Placed here so that Chimp can get them easily as well
-    subroutine getGamPlanetNorms(planet, gT0, M0, GM0)
+    subroutine getGamPlanetNorms(planet, gv0, gT0, gB0, gP0, M0, GM0)
         type(planet_T), intent(in) :: planet
-        real(rp), intent(out) :: gT0, M0, GM0
+        real(rp), intent(out), optional :: gv0, gT0, gB0, gP0, M0, GM0 !Return whichever values the caller wants
 
-        real(rp) :: gv0
+        real(rp) :: my_gv0, my_gB0  ! For local use
 
-        gv0 = defV0
+        my_gv0 = defV0
+        my_gB0 = defB0
 
-        gT0 = planet%rp_m/gv0 !Set time scaling
-        M0  = -planet%magMoment*1.0e+5/defB0 !Magnetic moment
-        GM0 = planet%grav*planet%rp_m/(gv0*gv0)
-
+        if(present(gv0)) then 
+            gv0 = my_gv0
+        endif
+        if(present(gT0)) then
+            gT0 = planet%rp_m/my_gv0 !Set time scaling
+        endif
+        if(present(gB0)) then
+            gB0 = my_gB0
+        endif
+        if(present(gP0)) then 
+            gP0 = defP0 
+        endif
+        if(present(M0)) then
+            M0  = -planet%magMoment*1.0e+5/my_gB0 !Magnetic moment
+        endif
+        if(present(GM0)) then
+            GM0 = planet%grav*planet%rp_m/(my_gv0*my_gv0)
+        endif
     end subroutine
 
     subroutine printPlanetParams(planet)

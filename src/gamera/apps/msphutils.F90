@@ -114,12 +114,8 @@ module msphutils
         Psi0 = planet%psiCorot
         RIon = planet%ri_m/planet%rp_m
 
-        !using planet, set values for gT0, gB0, gP0, M0, GM0
         gD0 = defD0
-        gv0 = defV0
-        gB0 = defB0
-        gP0 = defP0
-        call getGamPlanetNorms(planet, gT0, M0, GM0)
+        call getGamPlanetNorms(planet, gv0=gv0, gT0=gT0, gB0=gB0, gP0=gP0, M0=M0, GM0=GM0)
         Model%doGrav = planet%doGrav
 
         Model%isMagsphere = .true.

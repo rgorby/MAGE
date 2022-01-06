@@ -14,7 +14,7 @@ module cmidefs
     integer, parameter :: PsiSt = -3 !Starting shell of potential
 
     real(rp), parameter :: defD0 = dalton !kg
-    real(rp), parameter :: defV0 = 100.e3 !m/s
+    real(rp), parameter :: defV0 = 100.e3 ! 100 km/s in m/s
     real(rp), parameter :: defB0 = sqrt(Mu0*defD0)*defV0*1.0e+9 !T->nT
     real(rp), parameter :: defP0 = defD0*defV0*defV0*1.0e+9 !P->nPa
     
