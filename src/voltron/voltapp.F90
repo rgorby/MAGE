@@ -17,6 +17,7 @@ module voltapp
     use msphutils, only : RadIonosphere
     use gcminterp
     use gcmtypes
+    use planethelper
     
     implicit none
 
@@ -73,6 +74,10 @@ module voltapp
 
         ! read number of squish blocks
         call xmlInp%Set_Val(vApp%ebTrcApp%ebSquish%numSquishBlocks,"coupling/numSquishBlocks",4)
+
+    !Initialize planet information
+        call getPlanetParams(vApp%planet, xmlInp)
+        call printPlanetParams(vApp%planet)
 
     !Initialize state information
         !Set file to read from and pass desired variable name to initTS
@@ -318,8 +323,8 @@ module voltapp
         else
             call init_mix(vApp%remixApp%ion,[NORTH, SOUTH],RunID=RunID,isRestart=isRestart,nRes=vApp%IO%nRes,optIO=vApp%writeFiles)
         endif
-        vApp%remixApp%ion%rad_iono_m = RadIonosphere() * gApp%Model%units%gx0 ! [Rp] * [m/Rp]
-
+        !vApp%remixApp%ion%rad_iono_m = RadIonosphere() * gApp%Model%units%gx0 ! [Rp] * [m/Rp]
+        vApp%remixApp%ion%rad_iono_m = vApp%planet%ri_m
         !Ensure remix and voltron restart numbers match
         if (isRestart .and. vApp%IO%nRes /= vApp%remixApp%ion(1)%P%nRes) then
             write(*,*) "Voltron and Remix disagree on restart number, you should sort that out."
@@ -573,7 +578,8 @@ module voltapp
 
     !Initialize model
         associate(Model=>vApp%ebTrcApp%ebModel,ebState=>vApp%ebTrcApp%ebState,ebGr=>vApp%ebTrcApp%ebState%ebGr,Gr=>gApp%Grid)
-        call setUnits (Model,inpXML)
+        Model%isMAGE = .true. !Let chimp know it's part of mage
+        call setChimpUnitsVoltron(Model,vApp%planet,inpXML)
         Model%T0   = 0.0
         Model%tFin = 0.0
         Model%dt   = 0.0

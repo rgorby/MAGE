@@ -24,7 +24,6 @@ module innermagsphere
         !logical, intent(in) :: isRestart
         type(gamApp_T), intent(in) :: gApp
         type(XML_Input_T), intent(inout) :: iXML
-        real(rp) :: rad_planet_m, rad_iono_m, Rion, M0g
         character(len=strLen) :: imStr
 
         if (.not. vApp%doDeep) return !Why are you even here?
@@ -54,12 +53,7 @@ module innermagsphere
             stop
         end select
 
-        rad_planet_m = gApp%Model%Units%gx0
-        !rad_iono_m = 1.01*rad_planet_m !CHANGE to get iono radius from gamera
-        Rion = RadIonosphere() !Units of rp
-        rad_iono_m = Rion*rad_planet_m ! m
-        M0g = -gApp%Model%MagM0*gApp%Model%Units%gB0*1.e-5 ! Convert whatever units MagM0 are back to Gauss
-        call vApp%imagApp%doInit(iXML,gApp%Model%isRestart,rad_planet_m,rad_iono_m,M0g,vApp)
+        call vApp%imagApp%doInit(iXML,gApp%Model%isRestart,vApp)
 
     end subroutine InitInnerMag
 

@@ -103,6 +103,9 @@
     LOGICAL ::  L_doOMPClaw        = .TRUE.
     LOGICAL ::  L_doOMPprecip      = .FALSE.
     LOGICAL ::  doVAvgInit         = .TRUE. !Whether we need to initialize v_avg
+
+    LOGICAL ::  doNoBndFlow = .FALSE.
+    integer :: nNBFL = 2
 !
 !
 !   Plasma on grid:
@@ -110,7 +113,8 @@
                     eeta (isize,jsize,kcsize), eeta_cutoff, cmax, &
                     eeta_avg (isize,jsize,kcsize), deleeta(isize,jsize,kcsize), &
                     lossratep(isize,jsize,kcsize), lossmodel(isize,jsize,kcsize), Dpp(isize,jsize), &
-                    last_veff(isize,jsize,ksize)
+                    last_veff(isize,jsize,ksize), &
+                    last_ocbDist(isize,jsize)
 
     INTEGER (iprec) :: ikflavc (kcsize), i_advect, i_eta_bc, i_birk
     LOGICAL :: L_dktime
@@ -228,14 +232,14 @@
     endif
     CALL Toc("PRECIP")
 
-      IF (ibnd_type == 4) THEN
+!      IF (ibnd_type == 4) THEN
 !        DO NOTHING, VBND IS ALREADY SET
-         DO j = 1, jsize
-            v (1:imin_j(j)-1,j) = vbnd (j)
-         END DO
-      ELSE
-         STOP 'COMPUT: ibnd_type not implemented'
-      END IF
+!         DO j = 1, jsize
+!            v (1:imin_j(j)-1,j) = vbnd (j)
+!         END DO
+!      ELSE
+!         STOP 'COMPUT: ibnd_type not implemented'
+!      END IF
 !
 !
       RETURN 
@@ -1803,6 +1807,7 @@
           if (doRCMVerboseH5) then
             !Good place to store useful but large 3D outputs
             call AddOutVar(IOVars,"rcmveff",last_veff,uStr="Volts")
+            call AddOutVar(IOVars,"rcmocbDist",last_ocbDist)
           endif
           
         !Done staging output, now let er rip
@@ -1875,6 +1880,9 @@
 
           !Averaging timescale for plasmasphere
           call xmlInp%Set_Val(dtAvg_v,"plasmasphere/tAvg",0.0)
+
+          call xmlInp%Set_Val(doNoBndFlow,"experimental/doNoBndFlow",.false.)
+          call xmlInp%Set_Val(nNBFL,"experimental/NBFLayers",nNBFL)
 
           !Some values just setting
           tol_gmres = 1.0e-5
@@ -2135,7 +2143,7 @@ SUBROUTINE Move_plasma_grid_MHD (dt,nstep)
 
     REAL (rprec), dimension( 1:isize  , 1:jsize  ) :: ftv,dftvi,dftvj
 
-    LOGICAL, dimension(1:isize,1:jsize) :: isOpen
+    LOGICAL, dimension(1:isize,1:jsize) :: isOpen, ocbDist
     INTEGER (iprec) :: iOCB_j(1:jsize)
     REAL (rprec) :: mass_factor,r_dist,lossCX,lossFLC
     REAL (rprec), dimension(2) :: lossFT
@@ -2196,6 +2204,10 @@ SUBROUTINE Move_plasma_grid_MHD (dt,nstep)
             iOCB_j(j) = 0
         endif
     enddo !j loop
+
+    if (doNoBndFlow) then
+        ocbDist = OCBMap(isOpen,nNBFL)
+    endif
 
     !---
     !Calculate node-centered IJ gradients for use inside loop (instead of redoing for each channel)
@@ -2320,6 +2332,11 @@ SUBROUTINE Move_plasma_grid_MHD (dt,nstep)
         !Freeze flow into the domain, only move stuff around from MHD buffer
         didt(1:2,:,kc) = 0.0
         djdt(1  ,:,kc) = 0.0
+
+        !Halt inflow from buffer cells right next to ocb
+        if (doNoBndFlow) then
+            call NoBoundaryFlow(ocbDist,didt(:,:,kc),djdt(:,:,kc),nNBFL)
+        endif
 
         call PadClaw(didt(:,:,kc))
         call PadClaw(djdt(:,:,kc))
@@ -2553,6 +2570,59 @@ SUBROUTINE Move_plasma_grid_MHD (dt,nstep)
       qC(:,jsize-joff:jsize-joff+1) = qC(:,1:2)
     end subroutine PadClaw
 
+    subroutine NoBoundaryFlow(ocbDist,didt,djdt,nL0)
+        !Zero flow coming from the direction of the open/closed boundary or cells nL distance from ocb
+        !Flow towards the ocb is left alone
+        logical, dimension(1:isize,1:jsize), intent(in) :: ocbDist
+        real (rp), dimension(-1:isize+2,-1:jsize-1), intent(inout) :: didt,djdt
+        integer, intent(in), optional :: nL0  ! Number of i layers inward of o/c boundary to act upon
+        
+        integer :: nL
+        integer :: i,j, jW, jWm1, jWp1
+
+        if(present(nL0)) then
+            nL = nL0
+        else
+            nL = 2
+        endif
+
+        !Gonna ignore odd dvdti,j indicies and assume PadClaw is gonna work things out later
+
+        !First, populate open/closed boundary dist map
+        ! !! Only strictly a distance for values <= nL, if greater then we don't care
+        
+        !Now kill some velocities
+        !$OMP PARALLEL DO if (L_doOMPClaw) &
+        !$OMP schedule(dynamic) &
+        !$OMP DEFAULT(SHARED) &
+        !$OMP private(i,j,jW,jWm1,jWp1)
+        do j=1,jsize-1 !clawpack jdim
+            do i=2,isize
+                jW = WrapJ(j + joff)
+                jWm1 = WrapJ(j + joff - 1)
+                jWp1 = WrapJ(j + joff + 1)
+
+                if (ocbDist(i,jW) .eq. 0) then
+                    cycle
+                else if (ocbDist(i,jW) .le. nL ) then
+                    ! Zap
+                    if ( (ocbDist(i-1,jW) .lt. ocbDist(i,jW)) .and. (didt(i-1,j) .gt. 0) ) then ! lower i
+                        didt(i-1,j) = 0
+                    else if ( (ocbDist(i+1,jW) .lt. ocbDist(i,jW)) .and. (didt(i+1,j) .lt. 0) ) then ! upper i
+                        didt(i+1,j) = 0
+                    else if ( (ocbDist(i,jWm1) .lt. ocbDist(i,jW)) .and. (djdt(i,j-1) .gt. 0) ) then ! lower j
+                        djdt(i,j-1) = 0
+                    else if ( (ocbDist(i,jWp1) .lt. ocbDist(i,jW)) .and. (djdt(i,j+1) .lt. 0) ) then ! upper j
+                        djdt(i,j+1) = 0
+                    endif
+                !else ! If we aren't next to any layers lower than the one we're currently on, we're done
+                !    exit
+                endif
+            enddo !i loop
+        enddo !j loop
+
+    end subroutine NoBoundaryFlow
+
     function CalcInterface(isOpL,dvL,facL,isOpR,dvR,facR) result(dxdt)
       LOGICAL, intent(IN) :: isOpL,isOpR
       REAL (rprec), intent(IN) :: dvL,dvR,facL,facR
@@ -2592,6 +2662,60 @@ SUBROUTINE Move_plasma_grid_MHD (dt,nstep)
         jp = j
       endif      
     end function WrapJ
+
+    function OCBMap(isOp, nL0) result (ocbDist)
+        !Calculate and label cells within nL cells (including diagonal direction) from the ocb
+        logical, dimension(1:isize,1:jsize), intent(in) :: isOp
+        integer, intent(in), optional :: nL0  ! Number of i layers inward of o/c boundary to act upon
+        
+        integer :: nL
+        integer, dimension(1:isize,1:jsize) :: ocbDist  ! Cell's distance from closest open field cell
+        integer :: i,j,iL
+
+        if(present(nL0)) then
+            nL = nL0
+        else
+            nL = 2
+        endif
+
+        where (isOp)
+            ocbDist = 0
+        elsewhere
+            ocbDist = nL + 1
+        end where
+
+        do iL=1,nL
+            !write(*,*) "il=",iL
+           do j=2,jsize-1 !clawpack jdim
+              do i=2,isize-1
+                    if (isOp(i,j)) then
+                        cycle
+                    else if (any(ocbDist(i-1:i+1,j-1:j+1) .eq. iL-1) .and. (ocbDist(i,j) .eq. nL+1)) then  ! ignore value of current cell
+                        !write(*,*) "i,j=",i,j
+                        !write(*,*) ocbDist(i-1:i+1,j-1:j+1)
+                        !write(*,*) any(ocbDist(i-1:i+1,j-1:j+1) .eq. iL-1)
+                        !write(*,*) (ocbDist(i,j) .ne. iL-1)
+                        ocbDist(i,j) = iL
+                    !!Find a better way to determine when we can quit
+                    !else ! If we aren't next to any layers lower than the one we're currently on, we're done
+                    !    exit  !This doesn't do anything except try to save time
+                            !! Might not want to do this, in case you get some odd open-closed-open lobes
+                    endif
+                enddo !i loop
+            enddo !j loop
+        enddo !layer loop
+
+        if (doRCMVerboseH5) then
+            last_ocbDist = ocbDist
+        endif
+
+        if (.false.) then
+            do j=1,jsize
+                write(*,*) "j=",j
+                write(*,*) ocbDist(:,j)
+            enddo
+        endif
+    end function OCBMap
 
 END SUBROUTINE Move_plasma_grid_MHD
 
