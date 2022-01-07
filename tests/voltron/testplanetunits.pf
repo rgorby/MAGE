@@ -76,7 +76,7 @@ contains
     ebScl = (qe_cgs*vApp%planet%rp_m*1.e2/Me_cgs)/(vc_cgs**2.0)
     associate(pName => vApp%planet%name)
     !These checks should cover every variable CHIMP gets from planethelper in Voltron mode
-    @assertLessThanOrEqual(abs(L0 - vApp%planet%rp_m*1.e2), 1E-8_rp, "CHIMP length scale differs from voltron for "//trim(pName))
+    @assertLessThanOrEqual(abs(L0 - vApp%planet%rp_m*1.e2), 1E-4_rp, "CHIMP length scale differs from voltron for "//trim(pName))
     @assertLessThanOrEqual(abs(M0g - vApp%planet%magMoment), 1E-8_rp, "CHIMP mag moment differs from voltron for "//trim(pName))
     @assertLessThanOrEqual(abs(in2cms - 100*gv0), 1E-8_rp, "CHIMP in2cms calc. differs from calc. via voltron for "//trim(pName))
     @assertLessThanOrEqual(abs(in2G - gB0/G2nT), 1E-8_rp, "CHIMP in2G calc. differs from calc. via voltron for "//trim(pName))
