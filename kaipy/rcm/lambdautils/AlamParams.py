@@ -1,10 +1,27 @@
 from dataclasses import dataclass
-from dataclasses_json import dataclass_json
+#from dataclasses_json import dataclass_json
 from dataclasses import asdict as dc_asdict
 from typing import Optional, List
 
 #Import other things from this package space
 import kaipy.rcm.lambdautils.DistTypes as dT
+
+# dataclasses_json isn't a default package. Since its only used for reading, don't want to make it a requirement for everyone
+try:
+    from dataclasses_json import dataclass_json
+    dataclasses_json_module_imported = True
+except ModuleNotFoundError:
+    dataclass_json = None
+    dataclasses_json_module_imported = False
+
+def conditional_decorator(dec, dataclasses_json_module_imported):
+    def decorator(func):
+        if not dataclasses_json_module_imported:
+            # Return the function unchanged, not decorated.
+            return func
+        return dec(func)
+    return decorator
+
 
 # Defines a single species
 @dataclass
@@ -25,7 +42,8 @@ class SpecParams:
 		specData = self.distType.genAlamsFromSpecies(self)
 		return specData
 
-@dataclass_json
+#@dataclass_json
+@conditional_decorator(dataclass_json, dataclasses_json_module_imported)
 @dataclass
 class AlamParams:
 	doUsePsphere: bool  # Whether or not the resulting dataset will include a zero-energy plasmasphere channel

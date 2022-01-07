@@ -1,9 +1,25 @@
 from dataclasses import dataclass
-from dataclasses_json import dataclass_json
+#from dataclasses_json import dataclass_json
 from dataclasses import asdict as dc_asdict
 from typing import Optional, List
 
 import numpy as np
+
+# dataclasses_json isn't a default package. Since its only used for reading, don't want to make it a requirement for everyone
+try:
+    from dataclasses_json import dataclass_json
+    dataclasses_json_module_imported = True
+except ModuleNotFoundError:
+    dataclass_json = None
+    dataclasses_json_module_imported = False
+
+def conditional_decorator(dec, dataclasses_json_module_imported):
+    def decorator(func):
+        if not dataclasses_json_module_imported:
+            # Return the function unchanged, not decorated.
+            return func
+        return dec(func)
+    return decorator
 
 
 def getDistTypeFromKwargs(**kwargs):
@@ -31,13 +47,15 @@ class DistType:  # Empty class just so we can force the type in dataclasses belo
 # Specific implementations of DistType
 #------
 
-@dataclass_json
+#@dataclass_json
+@conditional_decorator(dataclass_json, dataclasses_json_module_imported)
 @dataclass
 class DT_Manual(DistType):  # Also pretty much empty, but can be used to allow user to add anything they want to save 
     def __post_init__(self):
         if self.name == "Empty": self.name = "Manual"
 
-@dataclass_json
+#@dataclass_json
+@conditional_decorator(dataclass_json, dataclasses_json_module_imported)
 @dataclass
 class DT_Wolf(DistType):
     """ Lambda channel spacing based on Wolf's notes 
@@ -66,7 +84,8 @@ class DT_Wolf(DistType):
         return alams
 
 
-@dataclass_json
+#@dataclass_json
+@conditional_decorator(dataclass_json, dataclasses_json_module_imported)
 @dataclass
 class ValueSpec:
     start: float
@@ -115,7 +134,8 @@ class ValueSpec:
 
         return line
 
-@dataclass_json
+#@dataclass_json
+@conditional_decorator(dataclass_json, dataclasses_json_module_imported)
 @dataclass
 class DT_ValueSpec(DistType):
     """ Lambda channel spacing based on a series of slope specifications

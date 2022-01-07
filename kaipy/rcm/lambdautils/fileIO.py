@@ -29,8 +29,12 @@ def saveParams(f5, alamParams):
 	 f5.attrs['AlamParams'] = kj.dumps(dc_asdict(alamParams),noIndent=True)
 def loadParams(f5):
 	aPDict = kj.loads(f5.attrs['AlamParams'])
-	aPObj = aP.AlamParams.from_dict(aPDict)
-
+	try:
+		aPObj = aP.AlamParams.from_dict(aPDict)
+	except AttributeError: 
+		print("ERROR (loadParams): Can't turn dictionary into object. Please install the dataclasses_json module")
+		print("                     Returning as dictionary instead")
+		return aPDict
 	#DistTypes won't load correctly using from_dict because we're using inherited classes, need to instantiate ourselves
 	for sPDict, sPObj in zip(aPDict['specParams'], aPObj.specParams):
 		sPObj.distType = dT.getDistTypeFromKwargs(**sPDict['distType'])

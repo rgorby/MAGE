@@ -1,10 +1,25 @@
 from dataclasses import dataclass
-from dataclasses_json import dataclass_json
+#from dataclasses_json import dataclass_json
 from dataclasses import asdict as dc_asdict
 from typing import Optional, List
 
 import kaipy.rcm.lambdautils.AlamParams as aP
 
+# dataclasses_json isn't a default package. Since its only used for reading, don't want to make it a requirement for everyone
+try:
+    from dataclasses_json import dataclass_json
+    dataclasses_json_module_imported = True
+except ModuleNotFoundError:
+    dataclass_json = None
+    dataclasses_json_module_imported = False
+
+def conditional_decorator(dec, dataclasses_json_module_imported):
+    def decorator(func):
+        if not dataclasses_json_module_imported:
+            # Return the function unchanged, not decorated.
+            return func
+        return dec(func)
+    return decorator
 
 @dataclass
 class Species:
@@ -18,7 +33,8 @@ class Species:
 	params: Optional[aP.SpecParams] = None  # Parameters used to generate this instance of Species
 	name: Optional[str] = None
 
-@dataclass_json
+#@dataclass_json
+@conditional_decorator(dataclass_json, dataclasses_json_module_imported)
 @dataclass
 class AlamData:
 	""" Main class that most things will interact with
