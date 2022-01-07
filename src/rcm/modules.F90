@@ -200,8 +200,8 @@ MODULE rice_housekeeping_module
           t = t0 + 15.0*60.0*n
           KpMax = max(KpMax,KpTS%evalAt(t))
         enddo
-        !NowKp = nint(KpMax) !Cast to integer
-        NowKp = 3 !set NowKp = 3 to test WM tau
+        NowKp = nint(KpMax) !Cast to integer
+      
       end subroutine UpdateRCMIndices
 
 END MODULE rice_housekeeping_module
