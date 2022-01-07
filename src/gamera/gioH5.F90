@@ -381,20 +381,17 @@ module gioH5
 
                 call bFld2Jxyz(Model,Gr,VecA,VecB)
                 gVec(:,:,:,:) = VecB(iMin:iMax,jMin:jMax,kMin:kMax,XDIR:ZDIR)
-
-                call AddOutVar(IOVars,"Jx",gVec(:,:,:,XDIR))
-                call AddOutVar(IOVars,"Jy",gVec(:,:,:,YDIR))
-                call AddOutVar(IOVars,"Jz",gVec(:,:,:,ZDIR))
             else
                 !Do full current
                 VecA = State%Bxyz
                 call bFld2Jxyz(Model,Gr,VecA,VecB)
                 gVec(:,:,:,:) = VecB(iMin:iMax,jMin:jMax,kMin:kMax,XDIR:ZDIR)
-
-                call AddOutVar(IOVars,"Jx",gVec(:,:,:,XDIR))
-                call AddOutVar(IOVars,"Jy",gVec(:,:,:,YDIR))
-                call AddOutVar(IOVars,"Jz",gVec(:,:,:,ZDIR))
             endif
+
+            !Output current density
+            call GameraOut("Jx",gamOut%jID,gamOut%jScl,gVec(:,:,:,XDIR))
+            call GameraOut("Jy",gamOut%jID,gamOut%jScl,gVec(:,:,:,YDIR))
+            call GameraOut("Jz",gamOut%jID,gamOut%jScl,gVec(:,:,:,ZDIR))
 
             !Calculate/Write xyz electric fields
             if (doFat) then
@@ -416,9 +413,10 @@ module gioH5
                 gVec(:,:,:,:) = VecB(iMin:iMax,jMin:jMax,kMin:kMax,XDIR:ZDIR)
                 call FixRAVec(gVec(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,1:NDIM))
             
-                call AddOutVar(IOVars,"Ex",gVec(:,:,:,XDIR))
-                call AddOutVar(IOVars,"Ey",gVec(:,:,:,YDIR))
-                call AddOutVar(IOVars,"Ez",gVec(:,:,:,ZDIR))
+                call GameraOut("Ex",gamOut%eID,gamOut%eScl,gVec(:,:,:,XDIR))
+                call GameraOut("Ey",gamOut%eID,gamOut%eScl,gVec(:,:,:,YDIR))
+                call GameraOut("Ez",gamOut%eID,gamOut%eScl,gVec(:,:,:,ZDIR))
+
             endif
 
             if (Model%doSource) then
