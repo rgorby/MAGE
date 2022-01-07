@@ -9,7 +9,6 @@ import kaipy.rcm.lambdautils.AlamParams as aP
 import kaipy.rcm.lambdautils.DistTypes as dT
 
 import kaipy.rcm.lambdautils.genAlam as genAlam
-from kaipy.rcm.lambdautils.AlamData import AlamParams
 from kaipy.rcm.wmutils.wmData import wmParams
 import kaipy.rcm.wmutils.genWM as genWM
 import kaipy.rcm.lambdautils.fileIO as fileIO
@@ -103,15 +102,8 @@ if __name__ == "__main__":
 		plotter.plotLambdas_Val_Spac(alamData.specs,yscale='log',L=L_kt)
 
 	fileIO.saveRCMConfig(alamData,params=alamParams,fname=fOut)
-	print("Wrote RCM configuration to %s"%(fOut))
 
-
-	lamParams = AlamParams(num_e=args.ne, num_p=args.np,
-						alamMin_e=args.amine, alamMin_p=args.aminp,
-						ktMax=args.kt*1E3, L_kt=args.L, tiote=args.tiote,
-						p1=args.p1, p2=args.p2,
-						addPsphere = (not args.nop))
-	genAlam.genh5(fOut, lamParams, doTests=False)
 	tauParams = wmParams(dim = 4, nKp = 7, nMLT = 25, nL = 41, nEk = 155)	
 	genWM.genh5(fOut,tauParams,useWMh5 = True)
+	print("Wrote RCM configuration to %s"%(fOut))
 
