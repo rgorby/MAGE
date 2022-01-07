@@ -55,12 +55,15 @@ module gamtypes
 !Scaling for output data
     type gOut_T
         real(rp) :: tScl=1.0,dScl=1.0,vScl=1.0,pScl=1.0,bScl=1.0
+        real(rp) :: eScl=1.0,jScl=1.0
         character(len=strLen) :: uID = "CODE" !Overall units ID
         character(len=strLen) :: tID = "CODE TIME"
         character(len=strLen) :: dID = "CODE DEN"
         character(len=strLen) :: vID = "CODE VEL"
-        character(len=strLen) :: pID = "CODE P"
-        character(len=strLen) :: bID = "CODE B"
+        character(len=strLen) :: pID = "CODE PRESSURE"
+        character(len=strLen) :: bID = "CODE BFIELD"
+        character(len=strLen) :: eID = "CODE EFIELD"
+        character(len=strLen) :: jID = "CODE CURRENT"
     end type gOut_T
 
 !Overall model information

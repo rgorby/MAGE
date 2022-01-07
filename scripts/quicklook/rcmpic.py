@@ -11,7 +11,7 @@ import matplotlib.gridspec as gridspec
 import numpy as np
 import kaipy.gamera.gampp as gampp
 import kaipy.gamera.rcmpp as rcmpp
-import palettable
+#import palettable
 import os
 import numpy.ma as ma
 import kaipy.kaiH5 as kh5

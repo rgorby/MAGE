@@ -76,6 +76,39 @@ def varMap_1D(og, ng, var):
 		varnew[e] = var[idx]*(1-d) + var[idx+1]*d
 	return varnew
 
+def getWeights_ConsArea(og, og_lower, og_upper, ng, ng_lower, ng_upper):
+	"""Calculate overlap (weights) to map values on one grid to another,
+		where total width in grid dimension are conserved
+		(i.e. properly map RCM eetas to uniform grid)
+		og, og_lower, og_upper: old grid and lower/upper bounds of each grid point
+		ng, ng_lower, ng_upper: new grid and lower/upper bounds of each grid point
+	"""
+	"""Example:
+		og: || |  |  |   |   |     |     |
+		ng: |  |  |  |  |  |  |  |  |  |  |
+		For each cell center on ng, calc which og cells overlap and the fraction of overlap
+	"""
+
+	Nog = len(og)
+	Nng = len(ng)
+	weightMap = [[] for e in range(Nng) ]  # Ne x (nx2)
+	for iNG in range(Nng):
+		ng_l = ng_lower[iNG]
+		ng_u = ng_upper[iNG]
+		ng_w = ng_u - ng_l  # cell width
+		frac_arr = []
+		for k in range(Nog):
+			#Do these two cells overlap
+			if ng_l <= og_upper[k] and ng_u >= og_lower[k]:
+				#Get overlap bounds and width
+				ovl_lower = og_lower[k] if og_lower[k] > ng_l else ng_l
+				ovl_upper = og_upper[k] if og_upper[k] < ng_u else ng_u
+				ovl_width = ovl_upper - ovl_lower
+				#og_width = og_upper[k] - og_lower[k]
+				frac_arr.append([k, ovl_width/ng_w])
+		weightMap[iNG] = frac_arr
+	return weightMap
+
 def computeErrors(obs,pred):
 	MAE = 1./len(obs) *np.sum(np.abs(obs-pred))
 	MSE = 1./len(obs) * np.sum((obs-pred)**2)
@@ -146,11 +179,13 @@ def pullVar(cdaObsId,cdaDataId,t0,t1,deltaT=60,epochStr="Epoch",doVerbose=False)
 		if doVerbose: print("numDays: " + str(numDays))
 
 		tstamp_arr = []
+		tstamp_deltas = []
 		for i in range(numDays):
 			tstamp_arr.append((t0dt + datetime.timedelta(days=i)).strftime("%Y-%m-%dT%H:%M:%SZ"))
-		
+			tstamp_deltas.append((t0dt + datetime.timedelta(days=i+1)).strftime("%Y-%m-%dT%H:%M:%SZ"))
+		if doVerbose: print("Tstamp_arr: " + str(tstamp_arr))
 		#Get first day
-		status, data = cdas.get_data(cdaObsId, [], tstamp_arr[0], tstamp_arr[1], binData=binData)
+		status, data = cdas.get_data(cdaObsId, [], tstamp_arr[0], tstamp_deltas[0], binData=binData)
 		if doVerbose: print("Pulling " + t0)
 		
 		if status['http']['status_code'] != 200:
@@ -160,14 +195,14 @@ def pullVar(cdaObsId,cdaDataId,t0,t1,deltaT=60,epochStr="Epoch",doVerbose=False)
 		if data is None:
 			if doVerbose: print("Cdas responded with 200 but returned no data")
 			return status,data
-		if numDays > 1 and epochStr not in data:
+		if epochStr not in data.keys():
 			if doVerbose: print(epochStr + " not in dataset, can't build day-by-day")
 			data = None
 			return status,data
 		
 		#Figure out which axes are the epoch axis in each dataset so we can concatenate along it
-		nTime = len(data[epochStr])
 		dk = list(data.keys())
+		nTime = len(data[epochStr])
 		cataxis = np.array([-1 for i in range(len(dk))])
 		for k in range(len(dk)):
 			shape = np.array(data[dk[k]].shape)
@@ -179,7 +214,7 @@ def pullVar(cdaObsId,cdaDataId,t0,t1,deltaT=60,epochStr="Epoch",doVerbose=False)
 		#Then append rest of data accordingly
 		for i in range(1,numDays):
 			if doVerbose: print("Pulling " + str(tstamp_arr[i]))
-			status, newdata = cdas.get_data(cdaObsId, [], tstamp_arr[i], tstamp_arr[i], binData=binData)
+			status, newdata = cdas.get_data(cdaObsId, [], tstamp_arr[i], tstamp_deltas[i], binData=binData)
 			for k in range(len(dk)):
 				if cataxis[k] == -1:
 					continue
@@ -192,10 +227,10 @@ def pullVar(cdaObsId,cdaDataId,t0,t1,deltaT=60,epochStr="Epoch",doVerbose=False)
 
 	return status,data
 
-def addVar(mydata,scDic,varname,t0,t1,deltaT):
+def addVar(mydata,scDic,varname,t0,t1,deltaT,epochStr='Epoch'):
 	#print(scDic,varname,idname,dataname,scDic[idname])
 	if scDic[varname]['Id'] is not None:
-		status,data = pullVar(scDic[varname]['Id'],scDic[varname]['Data'],t0,t1,deltaT)
+		status,data = pullVar(scDic[varname]['Id'],scDic[varname]['Data'],t0,t1,deltaT,epochStr=epochStr)
 		#print(status)
 		if status['http']['status_code'] == 200 and data is not None:
 			mydata[varname] = dm.dmarray(data[scDic[varname]['Data']],
@@ -220,12 +255,16 @@ def getSatData(scDic,t0,t1,deltaT):
 		if 'Epoch_bin' in data.keys():
 			#print('Using Epoch_bin')
 			mytime = data['Epoch_bin']
+			epochStr = 'Epoch_bin'
 		elif 'Epoch' in data.keys():
 			#print('Using Epoch')
 			mytime = data['Epoch']
+			epochStr = 'Epoch'
 		elif ([key for key in data.keys() if key.endswith('_state_epoch')]):
-			mytime = data[[key for key in data.keys()
-			if key.endswith('_state_epoch')][0]]
+			epochStr = [key for key in data.keys() if key.endswith('_state_epoch')][0]
+			#mytime = data[[key for key in data.keys()
+			#if key.endswith('_state_epoch')][0]]
+			mytime = data[epochStr]
 		else:
 			print('Unable to determine time type')
 			status = {'http': {'status_code': 404}}
@@ -237,7 +276,7 @@ def getSatData(scDic,t0,t1,deltaT):
 		keys = ['MagneticField','Velocity','Density','Pressure']
 		for key in keys:
 			if key in scDic:
-				status1 = addVar(mydata,scDic,key,t0,t1,deltaT)
+				status1 = addVar(mydata,scDic,key,t0,t1,deltaT,epochStr=epochStr)
 
 		#Add any metavar since they might be needed for unit/label determination
 		search_key = 'metavar'
