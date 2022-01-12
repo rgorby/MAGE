@@ -43,7 +43,7 @@ def readWMh5(params,fIn):
         kpi=f5['Kp_1D'][:][0]
         mlti=np.append(f5['MLT_1D'][:][0],24.)
         li=f5['L_1D'][:][0]
-        eki=np.exp(f5['E_1D'][:][0]) # in MeV
+        eki=10.**(f5['E_1D'][:][0]) # in MeV
         tau1i=f5['Tau1_4D'][:]  
         tau2i=f5['Tau2_4D'][:]
         #print ("kpi",kpi,"mlti",mlti,"li",li,"eki",eki)

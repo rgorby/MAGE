@@ -3127,13 +3127,13 @@ FUNCTION RatefnDW(xx,yy,alamx,vmx,nex,kpx,bqx,losscx)
   tau_s = RatefnC_tau_s(alamx,vmx,bqx,losscx)
 
   if(nex<nlow) then
-    tau = max(tau_s,RatefnDW_tau_c(kpx, MLT,L,E)) ! mltx,engx,kpx,Lshx
+    tau = max(tau_s,RatefnDW_tau_c(kpx, MLT,L,E)) ! Kpx,mltx,Lx,Ekx
     RatefnDW(2) = 1.0
   elseif(nex>nhigh) then
-    tau = max(tau_s,RatefnC_tau_h16(MLT,L,kpx,E)) ! mltx,engx,kpx,Lshx
+    tau = max(tau_s,RatefnC_tau_h16(MLT,E,L,kpx)) ! mltx,engx,Lshx,kp
     RatefnDW(2) = 2.0
   else
-    tau = max(tau_s,(dlog(nhigh/nex)*RatefnDW_tau_c(MLT,L,kpx,E) + dlog(nex/nlow)*RatefnC_tau_h16(MLT,L,kpx,E))/dlog(nhigh/nlow))
+    tau = max(tau_s,(dlog(nhigh/nex)*RatefnDW_tau_c(kpx,MLT,L,E) + dlog(nex/nlow)*RatefnC_tau_h16(MLT,E,L,kpx))/dlog(nhigh/nlow))
     RatefnDW(2) = 3.0
   endif
   RatefnDW(1) = 1.0/tau
