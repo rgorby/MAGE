@@ -44,8 +44,8 @@ def readWMh5(params,fIn):
         mlti=np.append(f5['MLT_1D'][:][0],24.)
         li=f5['L_1D'][:][0]
         eki=10.**(f5['E_1D'][:][0]) # in MeV
-        tau1i=f5['Tau1_4D'][:]  
-        tau2i=f5['Tau2_4D'][:]
+        tau1i=(10.**(f5['Tau1_4D'][:]))*24.*3600. # in second 
+        tau2i=(10**(f5['Tau2_4D'][:]))*24.*3600.
         #print ("kpi",kpi,"mlti",mlti,"li",li,"eki",eki)
         nk,nm,nl,ne = tau1i.shape
         #print ("tau1i shape:",tau1i.shape)
