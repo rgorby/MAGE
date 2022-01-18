@@ -13,7 +13,8 @@ Tsolar = 1.e6
 
 VMax = 800.
 VMin = 300.
-MagVCM = "inferno"
+#MagVCM = "inferno"
+MagVCM = "rainbow"
 
 #inner helio
 #DMax = 150.

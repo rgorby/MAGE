@@ -47,7 +47,7 @@ print (B0OH, n0OH, V0OH, T0OH)
 ############### READ GAMERA solution at 1 AU #####################
 f = h5py.File(prm.wsaFile,'r')
 #the latest Step saved in inner helio solution wsa.h5
-step = 'Step#4'
+step = 'Step#2'
 
 f[step].attrs.keys()
 Nphi, Nth, Nr = np.shape(f[step]['Vx'])
@@ -76,7 +76,8 @@ print (theta_wsa_c.shape, phi_wsa_c.shape)
 
 #these are normilized according to inner helio normalization
 Vr = (f[step]['Vx'][:]*x[:] + f[step]['Vy'][:]*y[:] + f[step]['Vz'][:]*z[:])/r[:]
-Br = f[step]['Br'][:]
+#Br = f[step]['Br'][:]
+Br = (f[step]['Bx'][:]*x[:] + f[step]['By'][:]*y[:] + f[step]['Bz'][:]*z[:])/r[:]
 Rho = f[step]['D'][:]
 T = f[step]['P'][:]/f[step]['D'][:]
 

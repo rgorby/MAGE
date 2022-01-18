@@ -121,15 +121,15 @@ if __name__ == "__main__":
 	else:
 		print ("Pic is empty. Choose pic1 or pic2 or pic3")
 	
-	#add time (upper left)
-	if (pic == "pic1" or pic == "pic2"):
-		gsph.AddTime(nStp,AxL0,xy=[0.025,0.875],fs="x-large")
-	elif (pic == "pic3"):	
-		gsph.AddTime(nStp,AxL0,xy=[0.015,0.82],fs="small")
-	elif (pic == "pic4"):
-		gsph.AddTime(nStp,Ax,xy=[0.015,0.92],fs="small")
-	else:
-		print ("Pic is empty. Choose pic1 or pic2 or pic3")
+#	add time (upper left)
+#	if (pic == "pic1" or pic == "pic2"):
+#		gsph.AddTime(nStp,AxL0,xy=[0.025,0.875],fs="x-large")
+#	elif (pic == "pic3"):	
+#		gsph.AddTime(nStp,AxL0,xy=[0.015,0.82],fs="small")
+#	elif (pic == "pic4"):
+#		gsph.AddTime(nStp,Ax,xy=[0.015,0.92],fs="small")
+#	else:
+#		print ("Pic is empty. Choose pic1 or pic2 or pic3")
 
 	#TO DO: Add wsa info (lower left) instead of Solar wind params
 	#gsph.AddSW(nStp,AxL,xy=[0.625,0.025],fs="small")
