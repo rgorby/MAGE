@@ -104,8 +104,11 @@ module ioH5Overload
         if (.not. IOVars(nvar)%isDone) call FailArrayFill(vID)
 
         nerr = sum(abs(shape(Q)-IOVars(nvar)%dims(1:2)))
-        if (nerr>0) call FailArrayFill(vID)
-        
+        if (nerr>0) then
+            write(*,*) "Data : ", IOVars(nvar)%dims(1:2)
+            write(*,*) "Array: ", shape(Q)
+            call FailArrayFill(vID)
+        endif
         Q = reshape(IOVars(nvar)%data,[IOVars(nvar)%dims(1),IOVars(nvar)%dims(2)])
     end subroutine IOArray2DFill
 
@@ -122,7 +125,11 @@ module ioH5Overload
         if (.not. IOVars(nvar)%isDone) call FailArrayFill(vID)
 
         nerr = sum(abs(shape(Q)-IOVars(nvar)%dims(1:3)))
-        if (nerr>0) call FailArrayFill(vID)
+        if (nerr>0) then
+            write(*,*) "Data : ", IOVars(nvar)%dims(1:3)
+            write(*,*) "Array: ", shape(Q)
+            call FailArrayFill(vID)
+        endif
 
         ndims = [IOVars(nvar)%dims(1),IOVars(nvar)%dims(2),IOVars(nvar)%dims(3)]
         Q = reshape(IOVars(nvar)%data,ndims)
@@ -142,7 +149,12 @@ module ioH5Overload
         if (.not. IOVars(nvar)%isDone) call FailArrayFill(vID)
 
         nerr = sum(abs(shape(Q)-IOVars(nvar)%dims(1:4)))
-        if (nerr>0) call FailArrayFill(vID)
+        if (nerr>0) then
+            write(*,*) "Data : ", IOVars(nvar)%dims(1:4)
+            write(*,*) "Array: ", shape(Q)
+            call FailArrayFill(vID)
+        endif
+
 
         ndims = [IOVars(nvar)%dims(1),IOVars(nvar)%dims(2),IOVars(nvar)%dims(3),IOVars(nvar)%dims(4)]
         Q = reshape(IOVars(nvar)%data,ndims)
