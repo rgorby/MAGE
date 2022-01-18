@@ -82,10 +82,14 @@ module ioH5Overload
         character(len=*), intent(in) :: vID
         real(rp), dimension(:), intent(inout) :: Q
 
-        integer :: nvar
+        integer :: nvar,nerr
+
         nvar = FindIO(IOVars,vID,.true.)
         if (.not. IOVars(nvar)%isDone) call FailArrayFill(vID)
-
+        
+        nerr = sum(abs(shape(Q)-IOVars(nvar)%dims(1:1)))
+        if (nerr>0) call FailArrayFill(vID)
+        
         Q = IOVars(nvar)%data
     end subroutine IOArray1DFill
 
@@ -95,10 +99,13 @@ module ioH5Overload
         character(len=*), intent(in) :: vID
         real(rp), dimension(:,:), intent(inout) :: Q
 
-        integer :: nvar
+        integer :: nvar,nerr
         nvar = FindIO(IOVars,vID,.true.)
         if (.not. IOVars(nvar)%isDone) call FailArrayFill(vID)
 
+        nerr = sum(abs(shape(Q)-IOVars(nvar)%dims(1:2)))
+        if (nerr>0) call FailArrayFill(vID)
+        
         Q = reshape(IOVars(nvar)%data,[IOVars(nvar)%dims(1),IOVars(nvar)%dims(2)])
     end subroutine IOArray2DFill
 
@@ -108,22 +115,45 @@ module ioH5Overload
         character(len=*), intent(in) :: vID
         real(rp), dimension(:,:,:), intent(inout) :: Q
 
-        integer :: nvar
+        integer :: nvar,nerr
         integer :: ndims(3)
 
         nvar = FindIO(IOVars,vID,.true.)
         if (.not. IOVars(nvar)%isDone) call FailArrayFill(vID)
+
+        nerr = sum(abs(shape(Q)-IOVars(nvar)%dims(1:3)))
+        if (nerr>0) call FailArrayFill(vID)
 
         ndims = [IOVars(nvar)%dims(1),IOVars(nvar)%dims(2),IOVars(nvar)%dims(3)]
         Q = reshape(IOVars(nvar)%data,ndims)
 
     end subroutine IOArray3DFill
 
+    !Fill 4D array
+    subroutine IOArray4DFill(IOVars,vID,Q)
+        type(IOVAR_T), dimension(:), intent(in) :: IOVars
+        character(len=*), intent(in) :: vID
+        real(rp), dimension(:,:,:,:), intent(inout) :: Q
+
+        integer :: nvar,nerr
+        integer :: ndims(4)
+
+        nvar = FindIO(IOVars,vID,.true.)
+        if (.not. IOVars(nvar)%isDone) call FailArrayFill(vID)
+
+        nerr = sum(abs(shape(Q)-IOVars(nvar)%dims(1:4)))
+        if (nerr>0) call FailArrayFill(vID)
+
+        ndims = [IOVars(nvar)%dims(1),IOVars(nvar)%dims(2),IOVars(nvar)%dims(3),IOVars(nvar)%dims(4)]
+        Q = reshape(IOVars(nvar)%data,ndims)
+
+    end subroutine IOArray4DFill
 
     subroutine FailArrayFill(vID)
         character(len=*), intent(in) :: vID
 
         write(*,*) 'Failed to fill array w/ variable: ', trim(vID)
+        write(*,*) 'Consult https://wompwompwomp.com'
         stop
         
     end subroutine FailArrayFill
