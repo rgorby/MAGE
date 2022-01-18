@@ -9,6 +9,7 @@ import kaipy.kaiViz as kv
 import kaipy.gamhelio.heliosphere as hsph
 import os
 
+#Tsolar = 25.38
 Tsolar = 1.e6
 
 VMax = 800.
@@ -17,20 +18,14 @@ VMin = 300.
 MagVCM = "rainbow"
 
 #inner helio
-#DMax = 150.
-#DMin = 2000.
-#1-10 au helio
-DMax = 25.
-DMin = 5.
+DMax = 150.
+DMin = 2000.
 DCM = "copper_r"
 
 #limits for iSlice
 #21.5 R_S
 #D0Max = 1000.
 #D0Min = 300.
-#10 au
-#D0Max = 0.2
-#D0Min = 0.002
 #1 au
 D0Max = 1.
 D0Min = 25.
@@ -42,8 +37,6 @@ TCM = "copper"
 
 #BMax = 150.
 #BMin = -150.
-#BMax = 0.05
-#BMin = -0.05
 BMax = 5.
 BMin = -5.
 BCM = "coolwarm"
@@ -61,9 +54,9 @@ def AddSizeArgs(parser):
 def GetSizeBds(pic):
 	if (pic == "pic1" or pic == "pic2"):
                 #for inner helio
-		#xyBds = [-216.,216.,-216.,216.]
+		xyBds = [-216.,216.,-216.,216.]
                 #for 1-10 au helio
-                 xyBds = [-10.,10.,-10.,10.]
+                #xyBds = [-10.,10.,-10.,10.]
 	elif (pic == "pic3"):
 		xyBds = [0.,360.,-75.,75.]
 	elif (pic == "pic4"):
@@ -146,7 +139,7 @@ def PlotMerDNorm(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
 		Ax.yaxis.set_label_position('right')
 	return Dr, Dl
 
-#Plot normalized Br Br(r/r0)^2 in meridional plane
+#Plot normalized Br Br(r/r0)^2 in meridional plane Y=0
 def PlotMerBrNorm(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
 	vB = kv.genNorm(BMin, BMax, doLog=False, midP=None)
 
