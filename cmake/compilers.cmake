@@ -68,7 +68,7 @@ elseif(CMAKE_Fortran_COMPILER_ID MATCHES GNU)
 	endif()
 endif()
 
-set(CMAKE_Fortran_FLAGS_DEBUG "-g")
+set(CMAKE_Fortran_FLAGS_DEBUG "-O0 -g")
 set(CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_DEFOPT}")
 set(CMAKE_Fortran_FLAGS_RELWITHDEBINFO "${CMAKE_DEFOPT} -g")
 
@@ -80,8 +80,8 @@ if(CMAKE_Fortran_COMPILER_ID MATCHES Intel)
 	#Production
 	set(PROD "-align array64byte -align rec32byte -no-prec-div -fast-transcendentals")
 	#Debug
-	set(DEBUG "-g -traceback -check bounds -check uninit -debug all -gen-interfaces -warn interfaces -fp-stack-check")
-	set(PRODWITHDEBUGINFO "${CMAKE_DEFOPT} -g -traceback -debug all -align array64byte -align rec32byte -no-prec-div -fast-transcendentals")
+	set(DEBUG "-traceback -check bounds -check uninit -debug all -gen-interfaces -warn interfaces -fp-stack-check")
+	set(PRODWITHDEBUGINFO "-traceback -debug all -align array64byte -align rec32byte -no-prec-div -fast-transcendentals")
 
 	#Now do OS-dep options
 	if (CMAKE_SYSTEM_NAME MATCHES Darwin)

@@ -49,7 +49,7 @@ module starter
     !Get information for model data structure
         write(*,*) '----------------------------'
         write(*,*) 'Initializing model ...'
-        call setUnits (Model,inpXML)
+        call setChimpUnits (Model,inpXML)
         call initModel(Model,inpXML)
         call setBackground(Model,inpXML) !Background field info
 

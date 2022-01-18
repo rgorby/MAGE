@@ -14,6 +14,8 @@ print(slack_token)
 client = WebClient(token=slack_token)
 
 # Get CWD and move to main kaiju folder
+calledFrom = os.path.dirname(os.path.abspath(__file__))
+os.chdir(calledFrom)
 origCWD = os.getcwd()
 print(origCWD)
 os.chdir('..')
@@ -35,15 +37,20 @@ os.system('ls')
 #text = text.rstrip()
 #print(text)
 isTest = False
+beLoud = False
 # print(str(sys.argv[1]))
 
 # Check argument flags
-if (len(sys.argv) < 2):
-    print("No Arguments")
-# Else check for testing flag
-elif(str(sys.argv[1]) == '-t'):
-    print("Test Mode: On")
-    isTest = True
+if (len(sys.argv) >= 2):
+    for i in range(1,len(sys.argv)):
+        if(str(sys.argv[i]) == '-t'):
+            print("Test Mode: On")
+            isTest = True
+        elif(str(sys.argv[i]) == '-l'):
+            print("Being Loud")
+            beLoud = True
+        else:
+            print("Unrecognized argument: ", sys.argv[i])
 
 # Create a test build folder, get the list of executables to be generated and store them
 os.chdir(home)
@@ -175,8 +182,8 @@ if (isPerfect == True):
     myText = ""
     myText = "Everything built properly!"
 
-# If not a test, send message to Slack
-if (not isTest):
+# Don't print if it's a test, otherwise print if force, or there's an error
+if (not isTest and (beLoud or not isPerfect) ):
     # Try to send Slack message
     try:
         response = client.chat_postMessage(
@@ -187,6 +194,7 @@ if (not isTest):
         # You will get a SlackApiError if "ok" is False
         assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
 
-# If it is a test, just print to the command line
+# If not slack, just print to command line
 else:
     print(myText)
+

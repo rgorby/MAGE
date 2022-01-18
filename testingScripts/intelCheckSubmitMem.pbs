@@ -1,0 +1,39 @@
+#!/bin/bash
+#PBS -A UJHB0015
+#PBS -N memCheck
+#PBS -j oe
+#PBS -q regular
+#PBS -l walltime=12:00:00
+#PBS -l select=2:ncpus=36:mpiprocs=1:ompthreads=36
+
+source ~/.bashrc
+
+if [[ ! -z "$MODULE_LIST" ]]; then
+    # user passed a list of modules to load as the environment variable MODULE_LIST
+    module purge
+    module load $MODULE_LIST
+elif [[ ! -z "$MODULE_SET" ]]; then
+    # user passed a module set name to load as the environment variable MODULE_SET
+    module purge
+    module restore $MODULE_SET
+fi
+
+if [[ ! -z "$MPT_VERSION" ]]; then
+    echo "USING MPIEXEC_MPT"
+    export MPICOMMAND="mpiexec_mpt omplace"
+else
+    echo "USING MPIRUN"
+    export MPICOMMAND="mpirun"
+fi
+
+module list
+hostname
+export OMP_NUM_THREADS=36
+export KMP_STACKSIZE=128M
+export MPI_TYPE_DEPTH=32
+date
+
+${MPICOMMAND} inspxe-cl -collect=mi3 -r memResults -- ./voltron_mpi.x tinyCase.xml > memTests.out
+
+date
+

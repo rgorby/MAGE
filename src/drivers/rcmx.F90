@@ -18,7 +18,7 @@ program rcmx
     character(len=strLen) :: XMLStr
     type(XML_Input_T) :: inpXML
     logical :: doRestart
-    integer(iprec) :: i,j,n
+    integer(iprec) :: i,j,n, status
     real(rprec) :: Lvalue
     real(rprec),parameter ::mdipole = 3.0e-5 ! dipole moment in T
     real(rprec) :: mhdtime
@@ -39,7 +39,7 @@ program rcmx
     type(rcm_mhd_T) :: RM
 
     !Always start with fresh directory
-    CALL SYSTEM("rm -rf RCMFiles > /dev/null 2>&1")
+    status = SYSTEM("rm -rf RCMFiles > /dev/null 2>&1")
 
     !Get some XML stuff
     call getIDeckStr(XMLStr)

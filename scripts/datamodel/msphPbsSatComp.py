@@ -102,7 +102,7 @@ if __name__ == '__main__':
 			t0.strftime("%Y-%m-%dT%H:%M:%SZ"),
 			t1.strftime("%Y-%m-%dT%H:%M:%SZ"),deltaT)
 
-		if status['http']['status_code'] != 200:
+		if status['http']['status_code'] != 200 or data is None:
 			print('No data available for', scId)
 		else:
 			(scTrackName,xmlFileName) = scutils.createInputFiles(data,
@@ -122,40 +122,58 @@ if __name__ == '__main__':
 			results = subprocess.run(pbsLockCmd,capture_output=True)
 			lockId = results.stdout.decode('utf-8').split('.')
 			lockFileName = os.path.join(fdir,scId+'.lock')
-			while not os.path.exists(lockFileName):
-				time.sleep(10)
-			h5name = scutils.mergeFiles(scId,fdir,numSegments)
-			scutils.addGAMERA(data,scIds[scId],h5name)
-			scutils.matchUnits(data)
-			cdfname = os.path.join(fdir, scId + '.comp.cdf')
-			if os.path.exists(cdfname):
-				print('Deleting %s' % cdfname)
-				os.system('rm %s' % cdfname)
-			print('Creating CDF file',cdfname,'with',scId,'and GAMERA data')
-			dm.toCDF(cdfname,data)
-			plotname = os.path.join(fdir,scId+'.png')
-			print('Plotting results to',plotname)
-			kv.compPlot(plotname,scId,data)
-			print('Computing Errors')
-			errname = os.path.join(fdir,scId+'-error.txt')
-			scutils.errorReport(errname,scId,data)
-			if not keep:
-				h5parts = glob.glob(os.path.join(fdir,scId)+'.*.sc.h5')
-				for file in h5parts:
-					os.remove(file)
-				jobParts = glob.glob(os.path.join(fdir,scId)+
-					'.o'+jobId[0].split('[')[0]+'.*')
-				for file in jobParts:
-					os.remove(file)
-				pbsScripts = glob.glob(os.path.join(fdir,scId)+'*pbs')
-				for file in pbsScripts:
-					os.remove(file)
-				lockLog = os.path.join(fdir,scId+'.o'+lockId[0])
-				os.remove(lockLog)
-				lockFile = os.path.join(fdir,scId+'.lock')
-				os.remove(lockFile)
-				lockFile = os.path.join(fdir,scId+'.xml')
-				os.remove(lockFile)
+			sucess = False
+			for check in np.arange(65):
+				if os.path.exists(lockFileName):
+					sucess = True 
+					break
+				else:
+					time.sleep(60)
+			if sucess:
+				h5name = scutils.mergeFiles(scId,fdir,numSegments)
+				scutils.addGAMERA(data,scIds[scId],h5name)
+				scutils.matchUnits(data)
+				cdfname = os.path.join(fdir, scId + '.comp.cdf')
+				if os.path.exists(cdfname):
+					print('Deleting %s' % cdfname)
+					os.system('rm %s' % cdfname)
+				print('Creating CDF file',cdfname,'with',scId,'and GAMERA data')
+				dm.toCDF(cdfname,data)
+				plotname = os.path.join(fdir,scId+'.png')
+				print('Plotting results to',plotname)
+				kv.compPlot(plotname,scId,data)
+				print('Computing Errors')
+				errname = os.path.join(fdir,scId+'-error.txt')
+				scutils.errorReport(errname,scId,data)
+				if not keep:
+					h5parts = glob.glob(os.path.join(fdir,scId)+'.*.sc.h5')
+					for file in h5parts:
+						os.remove(file)
+					jobParts = glob.glob(os.path.join(fdir,scId)+
+						'.o'+jobId[0].split('[')[0]+'.*')
+					for file in jobParts:
+						os.remove(file)
+					pbsScripts = glob.glob(os.path.join(fdir,scId)+'*pbs')
+					for file in pbsScripts:
+						os.remove(file)
+					lockLog = os.path.join(fdir,scId+'.o'+lockId[0])
+					os.remove(lockLog)
+					lockFile = os.path.join(fdir,scId+'.lock')
+					os.remove(lockFile)
+					lockFile = os.path.join(fdir,scId+'.xml')
+					os.remove(lockFile)
+			else:
+				failedJobs = []
+				pbsLogFiles = glob.glob(os.path.join(fdir,scId)+
+						'.o'+jobId[0].split('[')[0]+'.*')
+				for logFile in pbsLogFiles:
+				   with open(logFile) as f:
+				    for line in f:
+				        if 'job killed' in line:
+				            jobKilled = True
+				            failedJobs.append(logFile)
+				print('Following jobs failed')
+				print(*failedJobs,sep='\n')
 
 
 

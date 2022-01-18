@@ -47,6 +47,7 @@ module chmpdefs
         logical :: doPP=.false. !Include plasmapaus location calculations
 
         logical :: isRestart=.false.
+        logical :: isMAGE = .false.
 
         !Output info
         type (IOClock_T) :: IO

@@ -17,6 +17,7 @@ module voltapp
     use msphutils, only : RadIonosphere
     use gcminterp
     use gcmtypes
+    use planethelper
     
     implicit none
 
@@ -73,6 +74,10 @@ module voltapp
 
         ! read number of squish blocks
         call xmlInp%Set_Val(vApp%ebTrcApp%ebSquish%numSquishBlocks,"coupling/numSquishBlocks",4)
+
+    !Initialize planet information
+        call getPlanetParams(vApp%planet, xmlInp)
+        call printPlanetParams(vApp%planet)
 
     !Initialize state information
         !Set file to read from and pass desired variable name to initTS
@@ -318,8 +323,8 @@ module voltapp
         else
             call init_mix(vApp%remixApp%ion,[NORTH, SOUTH],RunID=RunID,isRestart=isRestart,nRes=vApp%IO%nRes,optIO=vApp%writeFiles)
         endif
-        vApp%remixApp%ion%rad_iono_m = RadIonosphere() * gApp%Model%units%gx0 ! [Rp] * [m/Rp]
-
+        !vApp%remixApp%ion%rad_iono_m = RadIonosphere() * gApp%Model%units%gx0 ! [Rp] * [m/Rp]
+        vApp%remixApp%ion%rad_iono_m = vApp%planet%ri_m
         !Ensure remix and voltron restart numbers match
         if (isRestart .and. vApp%IO%nRes /= vApp%remixApp%ion(1)%P%nRes) then
             write(*,*) "Voltron and Remix disagree on restart number, you should sort that out."
@@ -354,11 +359,10 @@ module voltapp
             endif
 
             ! initialize chimp
-            associate(ebTrcApp=>vApp%ebTrcApp)
             if (present(optFilename)) then
-                call init_volt2Chmp(ebTrcApp,gApp,optFilename=optFilename)
+                call init_volt2Chmp(vApp,gApp,optFilename=optFilename)
             else
-                call init_volt2Chmp(ebTrcApp,gApp)
+                call init_volt2Chmp(vApp,gApp)
             endif
 
             !Ensure chimp and voltron restart numbers match
@@ -371,10 +375,9 @@ module voltapp
             !    stop
             !endif
 
-            call init_mhd2Chmp(vApp%mhd2chmp, gApp, ebTrcApp)
-            call init_chmp2Mhd(vApp%chmp2mhd, ebTrcApp, gApp)
+            call init_mhd2Chmp(vApp%mhd2chmp, gApp, vApp%ebTrcApp)
+            call init_chmp2Mhd(vApp%chmp2mhd, vApp%ebTrcApp, gApp)
 
-            end associate
             vApp%iDeep = ShellBoundary(gApp%Model,gApp%Grid,vApp%rTrc)
         endif !doDeep
 
@@ -556,8 +559,8 @@ module voltapp
     end subroutine
 
     !Initialize CHIMP data structure
-    subroutine init_volt2Chmp(ebTrcApp,gApp,optFilename)
-        type(ebTrcApp_T), intent(inout) :: ebTrcApp
+    subroutine init_volt2Chmp(vApp,gApp,optFilename)
+        class(voltApp_T), intent(inout) :: vApp
         type(gamApp_T), intent(in) :: gApp
         character(len=*), intent(in), optional     :: optFilename
 
@@ -574,8 +577,9 @@ module voltapp
         inpXML = New_XML_Input(trim(xmlStr),"Kaiju/Chimp",.true.)
 
     !Initialize model
-        associate(Model=>ebTrcApp%ebModel,ebState=>ebTrcApp%ebState,ebGr=>ebTrcApp%ebState%ebGr,Gr=>gApp%Grid)
-        call setUnits (Model,inpXML)
+        associate(Model=>vApp%ebTrcApp%ebModel,ebState=>vApp%ebTrcApp%ebState,ebGr=>vApp%ebTrcApp%ebState%ebGr,Gr=>gApp%Grid)
+        Model%isMAGE = .true. !Let chimp know it's part of mage
+        call setChimpUnitsVoltron(Model,vApp%planet,inpXML)
         Model%T0   = 0.0
         Model%tFin = 0.0
         Model%dt   = 0.0
@@ -592,6 +596,10 @@ module voltapp
         ebGr%xyzcc(ebGr%is:ebGr%ie,ebGr%js:ebGr%je,ebGr%ks:ebGr%ke,:) = Gr%xyzcc(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,:)
 
         call InitLoc(Model,ebState%ebGr,inpXML)
+
+    !Initialize squish indices
+        allocate(vApp%ebTrcApp%ebSquish%blockStartIndices(vApp%ebTrcApp%ebSquish%numSquishBlocks))
+        call LoadBalanceBlocks(vApp) ! start off with all blocks equal in size
 
         !Do simple test to make sure locator is reasonable
         xyz0 = Gr%xyz(Gr%is+1,Gr%js,Gr%ks,:)

@@ -38,6 +38,7 @@ print(text)
 isTest = False
 doAll = False
 forceRun = False
+beLoud = False
 
 # Check argument flags
 if (len(sys.argv) >= 2):
@@ -51,13 +52,16 @@ if (len(sys.argv) >= 2):
         elif(str(sys.argv[i]) == '-a'):
             print("Running All Tests")
             doAll = True
+        elif(str(sys.argv[i]) == '-l'):
+            print("Being Loud")
+            beLoud = True
         else:
             print("Unrecognized argument: ", sys.argv[i])
 
 if(forceRun == False):
     # If not forced, check for update
     if (text == 'Already up to date.'):
-        if(isTest == False):
+        if(not isTest and beLoud):
             # Try to send Slack message
             try:
                 response = client.chat_postMessage(
@@ -75,34 +79,37 @@ os.chdir("testingScripts")
 print("I made it this far!")
 print(os.path.dirname(os.path.abspath(__file__)))
 
-if (isTest == True):
-    buildTest = subprocess.Popen("python3 buildTest.py -t", shell = True)
+subArgString = ""
+if isTest:
+    subArgString = subArgString + " -t"
+if beLoud:
+    subArgString = subArgString + " -l"
 
-elif (doAll == True):
-    buildTest = subprocess.Popen("python3 buildTest.py", shell = True)
+if (doAll == True):
+    buildTest = subprocess.Popen("python3 buildTest.py"+subArgString, shell = True)
     buildTest.wait()
-    unitTest = subprocess.Popen("python3 unitTest.py", shell = True)
+    unitTest = subprocess.Popen("python3 unitTest.py"+subArgString, shell = True)
     unitTest.wait()
-    intelTest = subprocess.Popen("python3 intelChecks.py", shell=True)
+    intelTest = subprocess.Popen("python3 intelChecks.py"+subArgString, shell=True)
     intelTest.wait()
-    ICTest = subprocess.Popen("python3 ICtest.py", shell=True)
+    ICTest = subprocess.Popen("python3 ICtest.py"+subArgString, shell=True)
     ICTest.wait()
-    ICReport = subprocess.Popen("python3 ICtestReport.py", shell=True)
+    ICReport = subprocess.Popen("python3 ICtestReport.py"+subArgString, shell=True)
     ICReport.wait()
-    pyunitTest = subprocess.Popen("python3 pyunitTest.py", shell=True)
+    pyunitTest = subprocess.Popen("python3 pyunitTest.py"+subArgString, shell=True)
     pyunitTest.wait()
 
 else:
-    buildTest = subprocess.Popen("python3 buildTest.py", shell = True)
+    buildTest = subprocess.Popen("python3 buildTest.py"+subArgString, shell = True)
     buildTest.wait()
-    #unitTest = subprocess.Popen("python3 unitTest.py", shell = True)
+    #unitTest = subprocess.Popen("python3 unitTest.py"+subArgString, shell = True)
     #unitTest.wait()
-    #intelTest = subprocess.Popen("python3 intelChecks.py", shell=True)
+    #intelTest = subprocess.Popen("python3 intelChecks.py"+subArgString, shell=True)
     #intelTest.wait()
-    ICTest = subprocess.Popen("python3 ICtest.py", shell=True)
+    ICTest = subprocess.Popen("python3 ICtest.py"+subArgString, shell=True)
     ICTest.wait()
-    ICReport = subprocess.Popen("python3 ICtestReport.py", shell=True)
+    ICReport = subprocess.Popen("python3 ICtestReport.py"+subArgString, shell=True)
     ICReport.wait()
-    pyunitTest = subprocess.Popen("python3 pyunitTest.py", shell=True)
+    pyunitTest = subprocess.Popen("python3 pyunitTest.py"+subArgString, shell=True)
     pyunitTest.wait()
 
