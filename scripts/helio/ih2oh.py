@@ -10,6 +10,8 @@ import matplotlib.pyplot as plt
 import kaipy.gamhelio.wsa2gamera.params as params
 import kaipy.gamhelio.lib.wsa as wsa
 
+import kaipy.gamera.gamGrids as gg
+
 #----------- PARSE ARGUMENTS ---------#
 import argparse
 parser = argparse.ArgumentParser()
@@ -24,6 +26,15 @@ gamma = prm.gamma
 # constants
 mp = 1.67e-24
 kb = 1.38e-16
+
+#grid parameters
+tMin = prm.tMin
+tMax = prm.tMax
+Rin = prm.Rin
+Rout = prm.Rout
+Ni = prm.Ni
+Nj = prm.Nj
+Nk = prm.Nk
 
 #normalization in IH
 B0 = prm.B0
@@ -42,6 +53,20 @@ T0OH = B0OH*B0OH/4/np.pi/n0OH/kb #in K p = nkT
 
 print ("outer helio units")
 print (B0OH, n0OH, V0OH, T0OH)
+
+#----------GENERATE HELIO GRID------
+
+print("Generating gamera-Ohelio grid ...")
+
+X3,Y3,Z3 = gg.GenKSph(Ni=Ni,Nj=Nj,Nk=Nk,Rin=Rin,Rout=Rout,tMin=tMin,tMax=tMax)
+
+#to generate non-uniform grid for GL cme (more fine in region 0.1-0.3 AU) 
+#X3,Y3,Z3 = gg.GenKSphNonUGL(Ni=Ni,Nj=Nj,Nk=Nk,Rin=Rin,Rout=Rout,tMin=tMin,tMax=tMax)
+gg.WriteGrid(X3,Y3,Z3,fOut=os.path.join(prm.GridDir,prm.gameraGridFile))
+
+print("Gamera-Ohelio grid ready!")
+
+#----------GENERATE HELIO GRID------
 
 
 ############### READ GAMERA solution at 1 AU #####################

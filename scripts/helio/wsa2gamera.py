@@ -10,6 +10,8 @@ import matplotlib.pyplot as plt
 import kaipy.gamhelio.wsa2gamera.params as params
 import kaipy.gamhelio.lib.wsa as wsa
 
+import kaipy.gamera.gamGrids as gg
+
 #----------- PARSE ARGUMENTS ---------#
 import argparse
 parser = argparse.ArgumentParser()
@@ -24,9 +26,34 @@ gamma = prm.gamma
 B0 = prm.B0
 n0 = prm.n0
 T0 = 3.44e6  #2.88e6
- 
+
+#grid parameters
+tMin = prm.tMin
+tMax = prm.tMax
+Rin = prm.Rin
+Rout = prm.Rout
+Ni = prm.Ni
+Nj = prm.Nj
+Nk = prm.Nk 
+
 # constants
 mp = 1.67e-24
+
+#----------GENERATE HELIO GRID------
+
+print("Generating gamera-helio grid ...")
+
+X3,Y3,Z3 = gg.GenKSph(Ni=Ni,Nj=Nj,Nk=Nk,Rin=Rin,Rout=Rout,tMin=tMin,tMax=tMax)
+
+#to generate non-uniform grid for GL cme (more fine in region 0.1-0.3 AU) 
+#X3,Y3,Z3 = gg.GenKSphNonUGL(Ni=Ni,Nj=Nj,Nk=Nk,Rin=Rin,Rout=Rout,tMin=tMin,tMax=tMax)
+gg.WriteGrid(X3,Y3,Z3,fOut=os.path.join(prm.GridDir,prm.gameraGridFile))
+
+print("Gamera-helio grid ready!")
+
+#----------GENERATE HELIO GRID------
+
+
 ############### WSA STUFF #####################
 jd_c,phi_wsa_v,theta_wsa_v,phi_wsa_c,theta_wsa_c,bi_wsa,v_wsa,n_wsa,T_wsa = wsa.read(prm.wsaFile,prm.densTempInfile,prm.normalized)
 
@@ -44,6 +71,7 @@ v_wsa /= V0
 mjd_c = jd_c - 2400000.5
 # keep temperature in K
 ############### WSA STUFF #####################
+
 
 ############### GAMERA STUFF #####################
 

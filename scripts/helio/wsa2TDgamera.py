@@ -14,6 +14,7 @@ import time
 import kaipy.gamhelio.wsa2TDgamera.params as params
 import kaipy.gamhelio.lib.wsa as wsa
 import kaipy.gamhelio.lib.poisson as poisson
+import kaipy.gamera.gamGrids as gg
 
 #plotting function for debug
 def plot(wsa_file, var_wsa, var_wsa_rolled):
@@ -92,8 +93,31 @@ args = parser.parse_args()
 
 # Read params from config file
 prm = params.params(args.ConfigFileName)
-(ni,nj,nk) = (prm.ni,prm.nj,prm.nk)
+(ni,nj,nk) = (prm.Ni,prm.Nj,prm.Nk)
 Ng = prm.NO2
+
+#grid parameters
+tMin = prm.tMin
+tMax = prm.tMax
+Rin = prm.Rin
+Rout = prm.Rout
+Ni = prm.Ni
+Nj = prm.Nj
+Nk = prm.Nk
+
+#----------GENERATE HELIO GRID------
+
+print("Generating gamera-helio grid ...")
+
+X3,Y3,Z3 = gg.GenKSph(Ni=Ni,Nj=Nj,Nk=Nk,Rin=Rin,Rout=Rout,tMin=tMin,tMax=tMax)
+
+#to generate non-uniform grid for GL cme (more fine in region 0.1-0.3 AU) 
+#X3,Y3,Z3 = gg.GenKSphNonUGL(Ni=Ni,Nj=Nj,Nk=Nk,Rin=Rin,Rout=Rout,tMin=tMin,tMax=tMax)
+gg.WriteGrid(X3,Y3,Z3,fOut=os.path.join(prm.GridDir,prm.gameraGridFile))
+
+print("Gamera-helio grid ready!")
+
+#----------GENERATE HELIO GRID------
 
 
 # [EP] sorted list of WSA files
@@ -290,8 +314,8 @@ with h5py.File(os.path.join(prm.IbcDir,prm.gameraIbcFile),'w') as hf:
 
             # I do not understand all that business with interpolation of electric fields in time (see adapt2lfm.py)
             # Convert to CGS. FIX ME!!! UNITS HARD CODED
-            et_a*= prm.rmin*prm.scale/prm.adaptCadence/24./3600.
-            ep_a*= prm.rmin*prm.scale/prm.adaptCadence/24./3600.
+            et_a*= prm.Rin*prm.scale/prm.adaptCadence/24./3600.
+            ep_a*= prm.Rin*prm.scale/prm.adaptCadence/24./3600.
 
             et_save = et_a
             ep_save = ep_a
