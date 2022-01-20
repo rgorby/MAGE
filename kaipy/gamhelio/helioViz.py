@@ -14,8 +14,8 @@ Tsolar = 1.e6
 
 VMax = 800.
 VMin = 300.
-#MagVCM = "inferno"
-MagVCM = "rainbow"
+MagVCM = "inferno"
+#MagVCM = "rainbow"
 
 #inner helio
 DMax = 150.
@@ -28,20 +28,24 @@ DCM = "copper_r"
 #D0Min = 300.
 #1 au
 D0Max = 1.
-D0Min = 25.
+D0Min = 15.
 D0CM = "copper_r"
 
-TMin = 0.01
-TMax = 0.12
+TMin = 0.2
+TMax = 2.
 TCM = "copper"
 
-#BMax = 150.
-#BMin = -150.
-BMax = 5.
-BMin = -5.
+T0Min = 0.05
+T0Max = 0.15
+
+BMax = 150.
+BMin = -150.
+#BMax = 5.
+#BMin = -5.
 BCM = "coolwarm"
 
-
+B0Min = -4.
+B0Max = 4.
 #Function to Add different size options to argument
 #not used for helio right now
 def AddSizeArgs(parser):
@@ -310,7 +314,7 @@ def PlotiSlD(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
 
 #Plot Br and current sheet (Br=0) at 1 AU
 def PlotiSlBr(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
-	vB = kv.genNorm(BMin, BMax, doLog=False, midP=None)
+	vB = kv.genNorm(B0Min, B0Max, doLog=False, midP=None)
 	if (AxCB is not None):
 		AxCB.clear()
 		kv.genCB(AxCB,vB,"Radial magnetic field [nT]",cM=BCM,Ntk=7)
@@ -338,8 +342,8 @@ def PlotiSlBr(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
 
 #Plot Br and current sheet (Br=0) at certain distance set in iSliceBr
 def PlotiSlBrRotatingFrame(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
-	BMin = -150.
-	BMax = 150.
+	BMin = -5.
+	BMax = 5.
 	vB = kv.genNorm(BMin, BMax, doLog=False, midP=None)
 	if (AxCB is not None):
 		AxCB.clear()
@@ -393,7 +397,7 @@ def PlotiSlBrRotatingFrame(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True
 
 #Plot Temperature at 1 AU
 def PlotiSlTemp(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
-	vT = kv.genNorm(TMin, TMax, doLog=False, midP=None)
+	vT = kv.genNorm(T0Min, T0Max, doLog=False, midP=None)
 
 	if (AxCB is not None):
 		AxCB.clear()

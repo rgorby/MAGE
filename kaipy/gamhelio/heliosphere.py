@@ -45,7 +45,7 @@ class GamsphPipe(GameraPipe):
 		GameraPipe.__init__(self,fdir,ftag,doFast=doFast)
 
 		#inner boundary distance
-		R0 = self.xxc[0,0]
+		self.R0 = self.xxc[0,0]
 		
 	def OpenPipe(self,doVerbose=True):
 		GameraPipe.OpenPipe(self,doVerbose)
