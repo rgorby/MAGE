@@ -42,6 +42,13 @@ if (len(sys.argv) >= 2):
 os.chdir(home)
 os.chdir("testingScripts")
 
+# get my current branch
+p = subprocess.Popen("git symbolic-ref --short HEAD", shell=True, stdout=subprocess.PIPE)
+gBranch = p.stdout.read()
+gBranch = gBranch.decode('ascii')
+gBranch = gBranch.rstrip()
+print(gBranch)
+
 # Read in modules.txt and load only the requested modules
 file = open('intelModules.txt', 'r')
 modules = file.readlines()
@@ -154,7 +161,7 @@ if(not isTest and (beLoud or memErrs)):
         try:
             response = client.chat_postMessage(
                 channel="#kaijudev",
-                text="Memory Access Problems Detected\nPlease check the errors sent above",
+                text="Memory Access Problems Detected on Branch " + gBranch + "\nPlease check the errors sent above",
             )
         except SlackApiError as e:
            # You will get a SlackApiError if "ok" is False
@@ -163,16 +170,16 @@ if(not isTest and (beLoud or memErrs)):
         try:
             response = client.chat_postMessage(
                 channel="#kaijudev",
-                text="No Memory Access Problems Detected",
+                text="No Memory Access Problems Detected on Branch " + gBranch,
             )
         except SlackApiError as e:
            # You will get a SlackApiError if "ok" is False
            assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
 else:
     if(memErrs):
-        print("*** Memory Access Problems Detected ***\nPlease check the results in " + memErrsFile + "\n")
+        print("*** Memory Access Problems Detected on Branch " + gBranch + "***\nPlease check the results in " + memErrsFile + "\n")
     else:
-        print("No Memory Access Problems Detected")
+        print("No Memory Access Problems Detected on Branch " + gBranch)
 
 # Thread
 threadErrs = False
@@ -215,7 +222,7 @@ if(not isTest and (beLoud or threadErrs)):
         try:
             response = client.chat_postMessage(
                 channel="#kaijudev",
-                text="Threading Data Race Problems Detected\nPlease check the errors sent above",
+                text="Threading Data Race Problems Detected on Branch " + gBranch + "\nPlease check the errors sent above",
             )
         except SlackApiError as e:
            # You will get a SlackApiError if "ok" is False
@@ -224,16 +231,16 @@ if(not isTest and (beLoud or threadErrs)):
         try:
             response = client.chat_postMessage(
                 channel="#kaijudev",
-                text="No Threading Data Race Problems Detected",
+                text="No Threading Data Race Problems Detected on Branch " + gBranch,
             )
         except SlackApiError as e:
            # You will get a SlackApiError if "ok" is False
            assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
 else:
     if(threadErrs):
-        print("*** Threading Data Race Problems Detected ***\nPlease check the results in " + threadErrsFile + "\n")
+        print("*** Threading Data Race Problems Detected on Branch " + gBranch + "***\nPlease check the results in " + threadErrsFile + "\n")
     else:
-        print("No Threading Data Race Problems Detected")
+        print("No Threading Data Race Problems Detected on Branch " + gBranch)
 
 # Go to IntelChecks and delete jobs.txt
 os.chdir(home)

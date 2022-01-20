@@ -35,6 +35,13 @@ text = text.decode('ascii')
 text = text.rstrip()
 print(text)
 
+# get my current branch
+p = subprocess.Popen("git symbolic-ref --short HEAD", shell=True, stdout=subprocess.PIPE)
+gBranch = p.stdout.read()
+gBranch = gBranch.decode('ascii')
+gBranch = gBranch.rstrip()
+print(gBranch)
+
 isTest = False
 doAll = False
 forceRun = False
@@ -66,7 +73,7 @@ if(forceRun == False):
             try:
                 response = client.chat_postMessage(
                     channel="#kaijudev",
-                    text='No test today. It is already up to date!',
+                    text="No test today. Branch " + gBranch + " is already up to date!",
                 )
             except SlackApiError as e:
                 # You will get a SlackApiError if "ok" is False
