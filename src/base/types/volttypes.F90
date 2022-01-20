@@ -134,14 +134,14 @@ module volttypes
         class(innerMagBase_T), allocatable :: imagApp
 
         !Shallow coupling information
-        real(rp) :: ShallowT
-        real(rp) :: ShallowDT
+        real(rp) :: ShallowT ! Time of next shallow coupling
+        real(rp) :: ShallowDT ! Time between shallow couplings
         real(rp) :: TargetShallowDT ! Desired shallow step from Voltron
         logical  :: doGCM = .false.
 
         !Deep coupling information
-        real(rp) :: DeepT
-        real(rp) :: DeepDT
+        real(rp) :: DeepT ! Time of next deep coupling
+        real(rp) :: DeepDT ! Time between deep couplings
         real(rp) :: TargetDeepDT ! Desired deep step from Voltron
         logical  :: doDeep = .false. !Whether to do deep coupling
         real(rp) :: rTrc  !Radius to do tracing (ebSquish) inside of
