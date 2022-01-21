@@ -6,7 +6,6 @@ module calcdbutils
 
 	implicit none
 
-	real(rp) :: dzGG = 30.0 !Default height spacing [km]
     logical, private, parameter :: doAmm   = .true.
 
     integer, private, parameter :: TDIR=1,PDIR=2
@@ -254,6 +253,12 @@ module calcdbutils
     subroutine BSSubInit(xBS,N)
         type(BSGrid_T), intent(inout) :: xBS
         integer, intent(in) :: N
+
+        !Deallocate if necessary
+        if (allocated(xBS%XYZcc)) deallocate(xBS%XYZcc)
+        if (allocated(xBS%Jxyz )) deallocate(xBS%Jxyz )
+        if (allocated(xBS%dV   )) deallocate(xBS%dV   )
+
         xBS%NumP = N
         allocate(xBS%XYZcc(N,NDIM))
         allocate(xBS%Jxyz (N,NDIM))
