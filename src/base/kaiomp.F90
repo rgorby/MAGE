@@ -16,6 +16,8 @@ module kaiomp
     logical, parameter :: isOMP = .false.
 #endif
 
+    integer, parameter :: NTest = 100,NLoop = 10
+
     contains
 
     !Read parameters from xxx/omp block
@@ -70,6 +72,8 @@ module kaiomp
 
         endif
 
+        call CheckStack(doLoud)
+
     end subroutine SetOMP
 
     !Returns current number of threads
@@ -94,5 +98,42 @@ module kaiomp
 #endif
     end function ThreadID
 
+    !Some silly calculations to test the stack size
+    subroutine CheckStack(doLoudO)
+        logical, intent(in), optional :: doLoudO
 
+        logical :: doLoud
+        real(rp), allocatable, dimension(:,:,:) :: Z
+        real(rp), allocatable, dimension(:)     :: ZSums
+
+        integer :: i,j,k,n
+
+        if (present(doLoudO)) then
+            doLoud = doLoudO
+        else
+            doLoud = .true.
+        endif
+
+        if (doLoud) then
+            write(*,*) "Checking stacksize, if the code crashes here fix your stack ..."
+        endif
+
+        allocate(Z(NTest,NTest,NTest))
+        allocate(ZSums(NLoop))
+
+        !$OMP PARALLEL DO default(shared) &
+        !$OMP private(i,j,k,n,Z)
+        do n=1,NLoop
+            do k=1,NTest
+                do j=1,NTest
+                    do i=1,NTest
+                        Z(i,j,k) = 1.0*n*k*j*i
+                    enddo
+                enddo
+            enddo
+            ZSums(n) = sum(Z)
+        enddo
+        !write(*,*) "ZSums = ", ZSums
+
+    end subroutine CheckStack
 end module kaiomp
