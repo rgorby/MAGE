@@ -160,6 +160,32 @@ module ioH5Overload
 
     end subroutine IOArray4DFill
 
+    !Fill 5D array
+    subroutine IOArray5DFill(IOVars,vID,Q)
+        type(IOVAR_T), dimension(:), intent(in) :: IOVars
+        character(len=*), intent(in) :: vID
+        real(rp), dimension(:,:,:,:,:), intent(inout) :: Q
+
+        integer :: nvar,nerr
+        integer :: ndims(5)
+        integer :: nrank
+
+        nrank = 5
+        nvar = FindIO(IOVars,vID,.true.)
+        if (.not. IOVars(nvar)%isDone) call FailArrayFill(vID)
+
+        nerr = sum(abs(shape(Q)-IOVars(nvar)%dims(1:nrank)))
+        if (nerr>0) then
+            write(*,*) "Data : ", IOVars(nvar)%dims(1:nrank)
+            write(*,*) "Array: ", shape(Q)
+            call FailArrayFill(vID)
+        endif
+
+        ndims = IOVars(nvar)%dims(1:nrank)
+        Q = reshape(IOVars(nvar)%data,ndims)
+
+    end subroutine IOArray5DFill
+
     subroutine FailArrayFill(vID)
         character(len=*), intent(in) :: vID
 
