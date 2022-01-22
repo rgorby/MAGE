@@ -15,7 +15,10 @@ module parintime
         character(len=*) , intent(in) :: OutID
         character(len=strLen), intent(out) :: OutF
 
-        real(rp) :: dtB,T0
+        integer :: NumO,n,dn,i0,i1
+        real(rp), dimension(:), allocatable :: dtOuts
+
+        !real(rp) :: dtB,T0
     !Possible // in time
         call inpXML%Set_Val(NumB,'parintime/NumB',NumB)
         if (NumB > 1) then
@@ -28,23 +31,34 @@ module parintime
                 stop
             endif
             !Reset time bounds
-            T0 = Model%T0
-            dtB = (Model%tFin-Model%T0)/NumB
             write(*,*) '------'
             write(*,*) 'Resetting T0/TFin = ',Model%T0*oTScl,Model%tFin*oTScl
-            write(*,*) 'Using block ', Model%Nblk
-            Model%T0 = (Model%Nblk-1)*dtB + T0
-            Model%tFin = Model%T0 + dtB
-            write(*,*) 'To        T0/TFin = ',Model%T0*oTScl,Model%tFin*oTScl
-            if (Model%Nblk < NumB) then
-                !Cut off a bit from TFin to avoid overlap w/ start of next
-                Model%tFin = Model%tFin-0.01*dtB
-            endif
 
-            !Don't bother offsetting, let the concatenating script handle it
+            NumO = floor( (Model%tFin-Model%T0)/Model%dtOut ) + 1
+            !To avoid dumb divisibility things, just make the entire damn array and pick out a chunk
+            allocate(dtOuts(NumO))
+
+            !Create total list of output times
+            do n=1,NumO
+                dtOuts(n) = Model%T0 + (n-1)*Model%dtOut
+            enddo
+
+            !Pick the range that this block is responsible for
+            dn = floor( 1.0*NumO/NumB ) !Size per chunk
+
+            !Bounds for this dude
+            i0 = dn*(Model%Nblk-1) + 1
+            i1 = i0 + dn - 1
+
+            if (Model%Nblk == NumB) i1 = NumO !Make sure last dude picks up the slack
+            Model%T0 = dtOuts(i0)
+            Model%tFin = dtOuts(i1) + 0.01*Model%dtOut !Add a smidge to the end to make sure it gets output
+
+            write(*,*) 'To        T0/TFin = ',Model%T0*oTScl,Model%tFin*oTScl
+
+            !Don't bother offsetting step #, let the concatenating script handle it
             write(OutF,'(a,a,I0.4,a,a,a)') trim(adjustl(Model%RunID)),'.',Model%Nblk,'.',trim(adjustl(OutID)),'.h5'
-            write(*,*) '------'
-            
+            write(*,*) '------'            
         else
             doParInT = .false.
             NumB = 0

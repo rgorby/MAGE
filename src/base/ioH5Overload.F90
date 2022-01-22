@@ -155,7 +155,6 @@ module ioH5Overload
             call FailArrayFill(vID)
         endif
 
-
         ndims = [IOVars(nvar)%dims(1),IOVars(nvar)%dims(2),IOVars(nvar)%dims(3),IOVars(nvar)%dims(4)]
         Q = reshape(IOVars(nvar)%data,ndims)
 
@@ -239,13 +238,15 @@ module ioH5Overload
 
     end subroutine AddOut_4D
 
-    subroutine AddOut_3D(IOVars,idStr,Q,uStr,dStr)
+    subroutine AddOut_3D(IOVars,idStr,Q,uStr,dStr,doSqzO)
         type(IOVAR_T), dimension(:), intent(inout) :: IOVars
         character(len=*), intent(in) :: idStr
         real(rp), intent(in), dimension(:,:,:) :: Q
         character(len=*), intent(in), optional :: uStr,dStr
+        logical, intent(in), optional :: doSqzO
 
         integer :: n
+        logical :: doSqz
 
         !Find first unused
         n = NextIO(IOVars)
@@ -255,11 +256,17 @@ module ioH5Overload
 
         if (present(uStr)) IOVars(n)%unitStr = trim(uStr)
         if (present(dStr)) IOVars(n)%descStr = trim(dStr)
+        !Whether to squeeze out singleton leading dimension
+        if (present(doSqzO)) then
+            doSqz = doSqzO
+        else
+            doSqz = .true.
+        endif
 
         call LoadIO(IOVars(n),Q)
 
         !Catch for fake 3D (ie nk=1)
-        if (IOVars(n)%dims(3) == 1) then
+        if ( (IOVars(n)%dims(3) == 1) .and. doSqz) then
             IOVars(n)%Nr = 2
             IOVars(n)%dims(3) = 0
         endif
