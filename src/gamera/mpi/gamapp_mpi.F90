@@ -508,17 +508,22 @@ module gamapp_mpi
             call ValidateBCs(gamAppMpi%Model, gamAppMpi%Grid)
 
             ! update all ghost values
-            call updateMpiBCs(gamAppMpi)
-
-            !Update the old state
-            gamAppMpi%oState = gamAppMpi%State
+            call updateMpiBCs(gamAppMpi, gamAppMpi%State)
 
             !Ensure all processes have the same starting timestep
             Model%dt = CalcDT(Model,Grid,gamAppMpi%State)
             tmpDT = Model%dt
             call MPI_AllReduce(MPI_IN_PLACE, tmpDT, 1, MPI_MYFLOAT, MPI_MIN, gamAppMpi%gamMpiComm,ierr)
             Model%dt = tmpDT
-            gamAppMpi%oState%time = gamAppMpi%State%time-Model%dt !Initial old state
+
+            if(Model%isRestart) then
+                !Update the ghost cells in the old state
+                call updateMpiBCs(gamAppMpi, gamAppMpi%oState)
+            else
+                !Manufacture an old state
+                gamAppMpi%oState = gamAppMpi%State
+                gamAppMpi%oState%time = gamAppMpi%State%time-Model%dt !Initial old state
+            endif
 
         endif
 
@@ -549,15 +554,16 @@ module gamapp_mpi
 
     end subroutine
 
-    subroutine updateMpiBCs(gamAppMpi)
+    subroutine updateMpiBCs(gamAppMpi, State)
         type(gamAppMpi_T), intent(inout) :: gamAppMpi
+        type(State_T), intent(inout) :: State
 
         integer :: i,ierr
         character(len=strLen) :: BCID
 
         !Enforce BCs
         call Tic("BCs")
-        call EnforceBCs(gamAppMpi%Model,gamAppMpi%Grid,gamAppMpi%State)
+        call EnforceBCs(gamAppMpi%Model,gamAppMpi%Grid,State)
         call Toc("BCs")
 
         !Track timing for all gamera ranks to finish physical BCs
@@ -570,7 +576,7 @@ module gamapp_mpi
 
         !Update ghost cells
         call Tic("Halos")
-        call HaloUpdate(gamAppMpi)
+        call HaloUpdate(gamAppMpi, State)
         call Toc("Halos")
 
         !Track timing for all gamera ranks to finish halo comms
@@ -588,32 +594,32 @@ module gamapp_mpi
                     TYPE IS (periodicInnerIBC_T)
                         write (BCID, '(A,I0)') "BC#", i
                         call Tic(BCID)
-                        call bc%doBC(gamAppMpi%Model,gamAppMpi%Grid,gamAppMpi%State)
+                        call bc%doBC(gamAppMpi%Model,gamAppMpi%Grid,State)
                         call Toc(BCID)
                     TYPE IS (periodicOuterIBC_T)
                         write (BCID, '(A,I0)') "BC#", i
                         call Tic(BCID)
-                        call bc%doBC(gamAppMpi%Model,gamAppMpi%Grid,gamAppMpi%State)
+                        call bc%doBC(gamAppMpi%Model,gamAppMpi%Grid,State)
                         call Toc(BCID)
                     TYPE IS (periodicInnerJBC_T)
                         write (BCID, '(A,I0)') "BC#", i
                         call Tic(BCID)
-                        call bc%doBC(gamAppMpi%Model,gamAppMpi%Grid,gamAppMpi%State)
+                        call bc%doBC(gamAppMpi%Model,gamAppMpi%Grid,State)
                         call Toc(BCID)
                     TYPE IS (periodicOuterJBC_T)
                         write (BCID, '(A,I0)') "BC#", i
                         call Tic(BCID)
-                        call bc%doBC(gamAppMpi%Model,gamAppMpi%Grid,gamAppMpi%State)
+                        call bc%doBC(gamAppMpi%Model,gamAppMpi%Grid,State)
                         call Toc(BCID)
                     TYPE IS (periodicInnerKBC_T)
                         write (BCID, '(A,I0)') "BC#", i
                         call Tic(BCID)
-                        call bc%doBC(gamAppMpi%Model,gamAppMpi%Grid,gamAppMpi%State)
+                        call bc%doBC(gamAppMpi%Model,gamAppMpi%Grid,State)
                         call Toc(BCID)
                     TYPE IS (periodicOuterKBC_T)
                         write (BCID, '(A,I0)') "BC#", i
                         call Tic(BCID)
-                        call bc%doBC(gamAppMpi%Model,gamAppMpi%Grid,gamAppMpi%State)
+                        call bc%doBC(gamAppMpi%Model,gamAppMpi%Grid,State)
                         call Toc(BCID)
                     CLASS DEFAULT
                         ! do nothing, not a periodic BC
@@ -649,7 +655,7 @@ module gamapp_mpi
         endif
 
         !Update BCs MPI style
-        call updateMpiBCs(gamAppMpi)
+        call updateMpiBCs(gamAppMpi, gamAppmpi%State)
 
         !Calculate new timestep
         call Tic("DT")
@@ -668,8 +674,9 @@ module gamapp_mpi
 
     end subroutine stepGamera_mpi
 
-    subroutine haloUpdate(gamAppMpi)
+    subroutine haloUpdate(gamAppMpi, State)
         type(gamAppMpi_T), intent(inout) :: gamAppMpi
+        type(State_T), intent(inout) :: State
 
         integer :: ierr, length
         type(MPI_Request) :: gasReq, mfReq
@@ -686,16 +693,16 @@ module gamapp_mpi
             ! Gas Cell Data
             if(gamAppMpi%blockHalo) then
                 ! synchronous
-                call mpi_neighbor_alltoallw(gamAppMpi%State%Gas, gamAppMpi%sendCountsGas, &
+                call mpi_neighbor_alltoallw(State%Gas, gamAppMpi%sendCountsGas, &
                                             gamAppMpi%sendDisplsGas, gamAppMpi%sendTypesGas, &
-                                            gamAppMpi%State%Gas, gamAppMpi%recvCountsGas, &
+                                            State%Gas, gamAppMpi%recvCountsGas, &
                                             gamAppMpi%recvDisplsGas, gamAppMpi%recvTypesGas, &
                                             gamAppMpi%gamMpiComm, ierr)
             else
                 !asynchronous
-                call mpi_ineighbor_alltoallw(gamAppMpi%State%Gas, gamAppMpi%sendCountsGas, &
+                call mpi_ineighbor_alltoallw(State%Gas, gamAppMpi%sendCountsGas, &
                                             gamAppMpi%sendDisplsGas, gamAppMpi%sendTypesGas, &
-                                            gamAppMpi%State%Gas, gamAppMpi%recvCountsGas, &
+                                            State%Gas, gamAppMpi%recvCountsGas, &
                                             gamAppMpi%recvDisplsGas, gamAppMpi%recvTypesGas, &
                                             gamAppMpi%gamMpiComm, gasReq, ierr)
             endif
@@ -711,24 +718,24 @@ module gamapp_mpi
                     if(.not. allocated(maxI)) allocate(maxI(gamAppMpi%grid%js:gamAppMpi%grid%je,gamAppMpi%grid%ks:gamAppMpi%grid%ke))
                     if(.not. allocated(maxJ)) allocate(maxJ(gamAppMpi%grid%is:gamAppMpi%grid%ie,gamAppMpi%grid%ks:gamAppMpi%grid%ke))
                     if(.not. allocated(maxK)) allocate(maxK(gamAppMpi%grid%is:gamAppMpi%grid%ie,gamAppMpi%grid%js:gamAppMpi%grid%je))
-                    maxI = gamAppMpi%state%magFlux(gamAppMpi%grid%ie+1,gamAppMpi%grid%js:gamAppMpi%grid%je,gamAppMpi%grid%ks:gamAppMpi%grid%ke,IDIR)
-                    maxJ = gamAppMpi%state%magFlux(gamAppMpi%grid%is:gamAppMpi%grid%ie,gamAppMpi%grid%je+1,gamAppMpi%grid%ks:gamAppMpi%grid%ke,JDIR)
-                    maxK = gamAppMpi%state%magFlux(gamAppMpi%grid%is:gamAppMpi%grid%ie,gamAppMpi%grid%js:gamAppMpi%grid%je,gamAppMpi%grid%ke+1,KDIR)
+                    maxI = State%magFlux(gamAppMpi%grid%ie+1,gamAppMpi%grid%js:gamAppMpi%grid%je,gamAppMpi%grid%ks:gamAppMpi%grid%ke,IDIR)
+                    maxJ = State%magFlux(gamAppMpi%grid%is:gamAppMpi%grid%ie,gamAppMpi%grid%je+1,gamAppMpi%grid%ks:gamAppMpi%grid%ke,JDIR)
+                    maxK = State%magFlux(gamAppMpi%grid%is:gamAppMpi%grid%ie,gamAppMpi%grid%js:gamAppMpi%grid%je,gamAppMpi%grid%ke+1,KDIR)
                 endif
 
                 ! Magnetic Face Flux Data
                 if(gamAppMpi%blockHalo) then
                     ! synchronous
-                    call mpi_neighbor_alltoallw(gamAppMpi%State%magFlux, gamAppMpi%sendCountsMagFlux, &
+                    call mpi_neighbor_alltoallw(State%magFlux, gamAppMpi%sendCountsMagFlux, &
                                                 gamAppMpi%sendDisplsMagFlux, gamAppMpi%sendTypesMagFlux, &
-                                                gamAppMpi%State%magFlux, gamAppMpi%recvCountsMagFlux, &
+                                                State%magFlux, gamAppMpi%recvCountsMagFlux, &
                                                 gamAppMpi%recvDisplsMagFlux, gamAppMpi%recvTypesMagFlux, &
                                                 gamAppMpi%gamMpiComm, ierr)
                 else
                     ! asynchronous
-                    call mpi_ineighbor_alltoallw(gamAppMpi%State%magFlux, gamAppMpi%sendCountsMagFlux, &
+                    call mpi_ineighbor_alltoallw(State%magFlux, gamAppMpi%sendCountsMagFlux, &
                                                 gamAppMpi%sendDisplsMagFlux, gamAppMpi%sendTypesMagFlux, &
-                                                gamAppMpi%State%magFlux, gamAppMpi%recvCountsMagFlux, &
+                                                State%magFlux, gamAppMpi%recvCountsMagFlux, &
                                                 gamAppMpi%recvDisplsMagFlux, gamAppMpi%recvTypesMagFlux, &
                                                 gamAppMpi%gamMpiComm, mfReq, ierr)
                 endif
@@ -740,9 +747,9 @@ module gamapp_mpi
                 endif
                 if(gamAppMpi%printMagFluxFaceError) then
                     gamAppMpi%faceError = &
-                      sum(abs(gamAppMpi%state%magFlux(gamAppMpi%grid%ie+1,gamAppMpi%grid%js:gamAppMpi%grid%je,gamAppMpi%grid%ks:gamAppMpi%grid%ke,IDIR) - maxI)) + &
-                      sum(abs(gamAppMpi%state%magFlux(gamAppMpi%grid%is:gamAppMpi%grid%ie,gamAppMpi%grid%je+1,gamAppMpi%grid%ks:gamAppMpi%grid%ke,JDIR) - maxJ)) + &
-                      sum(abs(gamAppMpi%state%magFlux(gamAppMpi%grid%is:gamAppMpi%grid%ie,gamAppMpi%grid%js:gamAppMpi%grid%je,gamAppMpi%grid%ke+1,KDIR) - maxK))
+                      sum(abs(State%magFlux(gamAppMpi%grid%ie+1,gamAppMpi%grid%js:gamAppMpi%grid%je,gamAppMpi%grid%ks:gamAppMpi%grid%ke,IDIR) - maxI)) + &
+                      sum(abs(State%magFlux(gamAppMpi%grid%is:gamAppMpi%grid%ie,gamAppMpi%grid%je+1,gamAppMpi%grid%ks:gamAppMpi%grid%ke,JDIR) - maxJ)) + &
+                      sum(abs(State%magFlux(gamAppMpi%grid%is:gamAppMpi%grid%ie,gamAppMpi%grid%js:gamAppMpi%grid%je,gamAppMpi%grid%ke+1,KDIR) - maxK))
                 endif
 
             endif

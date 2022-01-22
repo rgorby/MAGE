@@ -18,6 +18,8 @@ module calcdbio
     character(len=strLen), private :: dbOutF
     integer, parameter, private :: MAXDBVS = 40
     integer, parameter, private :: RDIR=1,TDIR=2,PDIR=3
+    real(rp), private :: dzGG = 10.0 !Default height spacing [km]
+    real(rp), private :: z0 = 0.0 !Starting height [km]
 
     contains
 
@@ -56,7 +58,12 @@ module calcdbio
             call inpXML%Set_Val(NLat,'Grid/NLat',45) !Number of latitudinal cells
             call inpXML%Set_Val(NLon,'Grid/NLon',90) !Number of longitudinal cells
             call inpXML%Set_Val(Nz  ,'Grid/Nz'  , 2) !Number of longitudinal cells
+            call inpXML%Set_Val(dzGG,'Grid/dzGG',dzGG)
+            call inpXML%Set_Val(z0  ,'Grid/z0'  ,z0)
+
+
         endif
+
 
         !Stuff to read for either grid type
         call inpXML%Set_Val(gGr%rMax,'CalcDB/rMax',gGr%rMax)
@@ -114,7 +121,7 @@ module calcdbio
             write(*,*) "Generating grid ..."
             !Do corners
             do k=1,Nz+1
-            	z = -0.5*dzGG + (k-1)*dzGG !km above ground
+            	z = -0.5*dzGG + (k-1)*dzGG + z0 !km above ground
             	z = (1.0e+5)*z !cm above ground
             	R = 1.0 + z/Re_cgs !Assuming Earth here
 
@@ -132,9 +139,10 @@ module calcdbio
 
             !Do centers
             !Not using 8-pt average due to non-uniform radius
-
+            write(*,*) "Height range [km] : ", z0,(Nz-1)*dzGG+z0
+            
             do k=1,Nz
-                z = (k-1)*dzGG !km above ground
+                z = (k-1)*dzGG + z0 !km above ground
                 z = (1.0e+5)*z !cm above ground
                 R = 1.0 + z/Re_cgs !Assuming Earth here
 
@@ -196,22 +204,23 @@ module calcdbio
         gGr%dBn   = 0.0
         
     !Write grid
+        !Adding argument to cc-variables to make them not get squeezed out
         call ClearIO(IOVars)
         call AddOutVar(IOVars,"X",gGr%GxyzI(:,:,:,XDIR),uStr="Re")
         call AddOutVar(IOVars,"Y",gGr%GxyzI(:,:,:,YDIR),uStr="Re")
         call AddOutVar(IOVars,"Z",gGr%GxyzI(:,:,:,ZDIR),uStr="Re")
 
-        call AddOutVar(IOVars,"Xcc",gGr%GxyzC(:,:,:,XDIR),uStr="Re")
-        call AddOutVar(IOVars,"Ycc",gGr%GxyzC(:,:,:,YDIR),uStr="Re")
-        call AddOutVar(IOVars,"Zcc",gGr%GxyzC(:,:,:,ZDIR),uStr="Re")
+        call AddOutVar(IOVars,"Xcc",gGr%GxyzC(:,:,:,XDIR),uStr="Re",doSqzO=.false.)
+        call AddOutVar(IOVars,"Ycc",gGr%GxyzC(:,:,:,YDIR),uStr="Re",doSqzO=.false.)
+        call AddOutVar(IOVars,"Zcc",gGr%GxyzC(:,:,:,ZDIR),uStr="Re",doSqzO=.false.)
 
         call AddOutVar(IOVars,"Rad"  ,SphI(:,:,:,RDIR),uStr="Re")
         call AddOutVar(IOVars,"Theta",SphI(:,:,:,TDIR),uStr="Re")
         call AddOutVar(IOVars,"Phi"  ,SphI(:,:,:,PDIR),uStr="Re")
 
-        call AddOutVar(IOVars,"Radcc"  ,SphC(:,:,:,RDIR),uStr="Re")
-        call AddOutVar(IOVars,"Thetacc",SphC(:,:,:,TDIR),uStr="Re")
-        call AddOutVar(IOVars,"Phicc"  ,SphC(:,:,:,PDIR),uStr="Re")
+        call AddOutVar(IOVars,"Radcc"  ,SphC(:,:,:,RDIR),uStr="Re",doSqzO=.false.)
+        call AddOutVar(IOVars,"Thetacc",SphC(:,:,:,TDIR),uStr="Re",doSqzO=.false.)
+        call AddOutVar(IOVars,"Phicc"  ,SphC(:,:,:,PDIR),uStr="Re",doSqzO=.false.)
 
         call AddOutVar(IOVars,"CoordinatesID",cID)
         call AddOutVar(IOVars,"Re",Re_km,uStr="km")
@@ -384,6 +393,8 @@ module calcdbio
         real(rp), dimension(:,:,:,:), allocatable :: dbRTP
         real(rp), dimension(:,:,:)  , allocatable :: dbJ
 
+        logical :: doDebugOut = .true.
+
         write(*,*) 'Writing ', trim(gStr)
 
         mjd = MJDAt(ebState%ebTab,Model%t)
@@ -427,37 +438,37 @@ module calcdbio
     !Write out spherical vectors (XDIR:ZDIR = RDIR,TDIR,PDIR)
         if (Model%doFat) then
             !Magnetospheric
-            call AddOutVar(IOVars,"dBrM" ,gGr%dbMAG_rtp(:,:,:,RDIR),uStr="nT")
-            call AddOutVar(IOVars,"dBtM" ,gGr%dbMAG_rtp(:,:,:,TDIR),uStr="nT")
-            call AddOutVar(IOVars,"dBpM" ,gGr%dbMAG_rtp(:,:,:,PDIR),uStr="nT")
+            call AddOutVar(IOVars,"dBrM" ,gGr%dbMAG_rtp(:,:,:,RDIR),uStr="nT",doSqzO=.false.)
+            call AddOutVar(IOVars,"dBtM" ,gGr%dbMAG_rtp(:,:,:,TDIR),uStr="nT",doSqzO=.false.)
+            call AddOutVar(IOVars,"dBpM" ,gGr%dbMAG_rtp(:,:,:,PDIR),uStr="nT",doSqzO=.false.)
             call CalcJdb(gGr,gGr%dbMAG_rtp,dbJ,"MAG")
-            call AddOutVar(IOVars,"dbJM" ,dbJ,uStr="microA/m2")
+            call AddOutVar(IOVars,"dbJM" ,dbJ,uStr="microA/m2",doSqzO=.false.)
             !Ionospheric
-            call AddOutVar(IOVars,"dBrI" ,gGr%dbION_rtp(:,:,:,RDIR),uStr="nT")
-            call AddOutVar(IOVars,"dBtI" ,gGr%dbION_rtp(:,:,:,TDIR),uStr="nT")
-            call AddOutVar(IOVars,"dBpI" ,gGr%dbION_rtp(:,:,:,PDIR),uStr="nT")
+            call AddOutVar(IOVars,"dBrI" ,gGr%dbION_rtp(:,:,:,RDIR),uStr="nT",doSqzO=.false.)
+            call AddOutVar(IOVars,"dBtI" ,gGr%dbION_rtp(:,:,:,TDIR),uStr="nT",doSqzO=.false.)
+            call AddOutVar(IOVars,"dBpI" ,gGr%dbION_rtp(:,:,:,PDIR),uStr="nT",doSqzO=.false.)
             call CalcJdb(gGr,gGr%dbION_rtp,dbJ,"ION")
-            call AddOutVar(IOVars,"dbJI" ,dbJ,uStr="microA/m2")
+            call AddOutVar(IOVars,"dbJI" ,dbJ,uStr="microA/m2",doSqzO=.false.)
             !Field-aligned
-            call AddOutVar(IOVars,"dBrF" ,gGr%dbFAC_rtp(:,:,:,RDIR),uStr="nT")
-            call AddOutVar(IOVars,"dBtF" ,gGr%dbFAC_rtp(:,:,:,TDIR),uStr="nT")
-            call AddOutVar(IOVars,"dBpF" ,gGr%dbFAC_rtp(:,:,:,PDIR),uStr="nT")
+            call AddOutVar(IOVars,"dBrF" ,gGr%dbFAC_rtp(:,:,:,RDIR),uStr="nT",doSqzO=.false.)
+            call AddOutVar(IOVars,"dBtF" ,gGr%dbFAC_rtp(:,:,:,TDIR),uStr="nT",doSqzO=.false.)
+            call AddOutVar(IOVars,"dBpF" ,gGr%dbFAC_rtp(:,:,:,PDIR),uStr="nT",doSqzO=.false.)
             call CalcJdb(gGr,gGr%dbFAC_rtp,dbJ,"FAC")
-            call AddOutVar(IOVars,"dbJF" ,dbJ,uStr="microA/m2")
+            call AddOutVar(IOVars,"dbJF" ,dbJ,uStr="microA/m2",doSqzO=.false.)
 
         endif
         
         if (.not. Model%doSlim) then
-            call AddOutVar(IOVars,"smlat" ,gGr%smlat,uStr="deg")
-            call AddOutVar(IOVars,"smlon" ,gGr%smlon,uStr="deg")
-            call AddOutVar(IOVars,"dBn"   ,gGr%dBn  ,uStr="nT" )
+            call AddOutVar(IOVars,"smlat" ,gGr%smlat,uStr="deg",doSqzO=.false.)
+            call AddOutVar(IOVars,"smlon" ,gGr%smlon,uStr="deg",doSqzO=.false.)
+            call AddOutVar(IOVars,"dBn"   ,gGr%dBn  ,uStr="nT" ,doSqzO=.false.)
         endif
 
-        call AddOutVar(IOVars,"dBr" ,dbRTP(:,:,:,RDIR),uStr="nT")
-        call AddOutVar(IOVars,"dBt" ,dbRTP(:,:,:,TDIR),uStr="nT")
-        call AddOutVar(IOVars,"dBp" ,dbRTP(:,:,:,PDIR),uStr="nT")
+        call AddOutVar(IOVars,"dBr" ,dbRTP(:,:,:,RDIR),uStr="nT",doSqzO=.false.)
+        call AddOutVar(IOVars,"dBt" ,dbRTP(:,:,:,TDIR),uStr="nT",doSqzO=.false.)
+        call AddOutVar(IOVars,"dBp" ,dbRTP(:,:,:,PDIR),uStr="nT",doSqzO=.false.)
         call CalcJdb(gGr,dbRTP,dbJ,"TOT")
-        call AddOutVar(IOVars,"dbJ" ,dbJ,uStr="microA/m2")
+        call AddOutVar(IOVars,"dbJ" ,dbJ,uStr="microA/m2",doSqzO=.false.)
 
         call WriteVars(IOVars,.true.,dbOutF,gStr)
         call ClearIO(IOVars)
