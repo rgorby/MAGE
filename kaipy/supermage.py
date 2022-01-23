@@ -628,7 +628,7 @@ def MakeContourPlots(SM, SMinterp, maxx = 'default', fignumber = 1):
     im = plt.pcolormesh(SMinterp['td'], hourbins, SMLbigsimR, vmin = -1*maxx, vmax = maxx, cmap = cmapp, shading = 'auto')
     plt.xlim([SMinterp['td'][0], SMinterp['td'][-1]])
     plt.grid(True)
-    plt.text(xxx, yyy, "Super-SMU", horizontalalignment='center', verticalalignment='center', transform=ax6.transAxes, fontsize = qqq)
+    plt.text(xxx, yyy, "Super-SML", horizontalalignment='center', verticalalignment='center', transform=ax6.transAxes, fontsize = qqq)
     plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
 
     plt.tight_layout()
