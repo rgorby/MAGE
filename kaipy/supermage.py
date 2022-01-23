@@ -258,9 +258,9 @@ def ReadSimData(filename, quiet = True):
     f = h5py.File(filename, 'r')
 
     # Assume that the XYZ0 shell is the R=1.0 shell
-    X0, X1 = np.array(f['Xcc'])[0], np.array(f['Xcc'])[1]
-    Y0, Y1 = np.array(f['Ycc'])[0], np.array(f['Ycc'])[1]
-    Z0, Z1 = np.array(f['Zcc'])[0], np.array(f['Zcc'])[1]
+#    X0, X1 = np.array(f['Xcc'])[0], np.array(f['Xcc'])[1]
+#    Y0, Y1 = np.array(f['Ycc'])[0], np.array(f['Ycc'])[1]
+#    Z0, Z1 = np.array(f['Zcc'])[0], np.array(f['Zcc'])[1]
 
     # get the timesteps from the simulation
     nSteps,sIds = kh5.cntSteps(filename)
