@@ -40,6 +40,13 @@ if (len(sys.argv) >= 2):
 os.chdir(home)
 os.chdir("unitTest1/bin")
 
+# get my current branch
+p = subprocess.Popen("git symbolic-ref --short HEAD", shell=True, stdout=subprocess.PIPE)
+gBranch = p.stdout.read()
+gBranch = gBranch.decode('ascii')
+gBranch = gBranch.rstrip()
+print(gBranch)
+
 # Check for jobs.txt
 jobsExists = path.exists("jobs.txt")
 
@@ -113,13 +120,13 @@ if not okFailure and not myError and not jobKilled:
         try:
             response = client.chat_postMessage(
            channel="#kaijudev",
-           text="Fortran Unit Tests Passed",
+           text="Fortran Unit Tests Passed on Branch " + gBranch,
            )
         except SlackApiError as e:
            # You will get a SlackApiError if "ok" is False
            assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
     else:
-        print("Fortran Unit Tests Passed")
+        print("Fortran Unit Tests Passed on Branch " + gBranch)
     exit()
 
 # Write to a file
@@ -153,6 +160,8 @@ if (jobKilled):
 
 if (okFailure):
     myText = myText + "There were not the correct amount of OKs!\n"
+
+myText = myText + "On Branch " + gBranch + "\n"
 
 # If not a test, send message to Slack
 # Try to send Slack message
