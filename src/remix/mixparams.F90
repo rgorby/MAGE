@@ -10,6 +10,7 @@ module mixparams
     integer  :: Np=256,Nt=128
     real(rp) :: LowLatBC = 45.0
     real(rp) :: R0 = 0.083567956_rp
+    real(rp) :: Rin = 0.0
   end type MixGrid0_T
 
   type(MixGrid0_T), private :: MixGrid0
@@ -45,8 +46,8 @@ module mixparams
 
       MixGrid0%Np = nint(360.0/dDeg)
       MixGrid0%Nt = nint(MixGrid0%LowLatBC/dDeg)
-
-    end subroutine SetMixgrid0
+      MixGrid0%Rin = Rin
+    end subroutine SetMixGrid0
 
     subroutine initMIXParams(Params, optFilename)
       type(mixParams_T), intent(out) :: Params
@@ -146,7 +147,7 @@ module mixparams
         call xmlInp%Set_Val(Params%Np,"grid/Np",MixGrid0%Np)
         call xmlInp%Set_Val(Params%Nt,"grid/Nt",MixGrid0%Nt)
         call xmlInp%Set_Val(Params%LowLatBoundary,"grid/LowLatBoundary",MixGrid0%LowLatBC)
-
+        Params%RinMHD = MixGrid0%Rin !May be zero if not connected to MHD
         ! =========== GRID PARAMTERS =================== !
 
         ! =========== INIT PARAMTERS =================== !

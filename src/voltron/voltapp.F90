@@ -80,13 +80,24 @@ module voltapp
         call printPlanetParams(vApp%planet)
 
     !Initialize state information
+        !Check for Earth to decide what things need to happen
+        if (trim(gApp%Model%gamOut%uID) == "EARTH") then
+            vApp%isEarth = .true.
+            write(*,*) "Going into geospace mode ..."
+        else
+            vApp%isEarth = .false.
+            write(*,*) "Not using geospace mode ..."
+        endif
+
         !Set file to read from and pass desired variable name to initTS
         call xmlInp%Set_Val(vApp%tilt%wID,"/Kaiju/Gamera/wind/tsfile","NONE")
         call vApp%tilt%initTS("tilt",doLoudO=.false.)
         vApp%symh%wID = vApp%tilt%wID
         call vApp%symh%initTS("symh",doLoudO=.false.)
-        !Initialize TM03 model in case we wanna use it
-        call InitTM03(vApp%tilt%wID,0.0_rp)
+        if (vApp%isEarth) then
+            !Initialize TM03 model in case we wanna use it
+            call InitTM03(vApp%tilt%wID,0.0_rp)
+        endif
 
         gTScl = gApp%Model%Units%gT0
 
@@ -112,6 +123,18 @@ module voltapp
         call xmlInp%Set_Val(vApp%ShallowDT ,"coupling/dt" , 0.1_rp)
         vApp%TargetShallowDT = vApp%ShallowDT
         call xmlInp%Set_Val(vApp%doGCM, "coupling/doGCM",.false.)
+        if (vApp%isEarth) then
+            call xmlInp%Set_Val(vApp%mhd2mix%dtAvg ,"coupling/dtAvgB0",900.0)
+        else
+            call xmlInp%Set_Val(vApp%mhd2mix%dtAvg ,"coupling/dtAvgB0",-1.0)
+        endif
+        !Figure out weighting for exponential moving average (EMA)
+        !Want weighting such that ~95% of the weight comes from the last dtAvg seconds
+        if (vApp%mhd2mix%dtAvg > 0) then
+            vApp%mhd2mix%wAvg = 1.0 - exp(-3*vApp%ShallowDT/max(vApp%mhd2mix%dtAvg,vApp%ShallowDT))
+        else
+            vApp%mhd2mix%wAvg = 0.0 !Ignore any corrections after initial dipole value
+        endif
 
         if (vApp%doGCM) then
             call init_gcm(vApp%gcm,gApp%Model%isRestart)
@@ -158,7 +181,7 @@ module voltapp
                 stop
             endif
             if (doSpin) then
-                call xmlInp%Set_Val(tSpin,"spinup/tSpin",7200.0) !Default two hours
+                call xmlInp%Set_Val(tSpin,"spinup/tSpin",tSpinDef)
                 !Rewind Gamera time to negative tSpin (seconds)
                 gApp%Model%t = -tSpin/gTScl
                 !Reset State/oState
@@ -323,7 +346,7 @@ module voltapp
         else
             call init_mix(vApp%remixApp%ion,[NORTH, SOUTH],RunID=RunID,isRestart=isRestart,nRes=vApp%IO%nRes,optIO=vApp%writeFiles)
         endif
-        !vApp%remixApp%ion%rad_iono_m = RadIonosphere() * gApp%Model%units%gx0 ! [Rp] * [m/Rp]
+        
         vApp%remixApp%ion%rad_iono_m = vApp%planet%ri_m
         !Ensure remix and voltron restart numbers match
         if (isRestart .and. vApp%IO%nRes /= vApp%remixApp%ion(1)%P%nRes) then
@@ -338,10 +361,14 @@ module voltapp
         f107%wID = vApp%tilt%wID
         call f107%initTS("f10.7",doLoudO=.false.)
         maxF107 = f107%getMax()
-        
+
         do n=1,2
-            vApp%remixApp%ion(n)%P%f107 = maxF107
+            !Doing both to make sure the value gets from params to conductance
+            !TODO: Remove unnecessary extra value from remix
+            vApp%remixApp%ion(n)%P%f107           = maxF107
+            vApp%remixApp%ion(n)%conductance%f107 = maxF107
         enddo
+
         write(*,*) 'Using F10.7 = ', maxF107
         write(*,*) 'Using MJD0  = ', gApp%Model%MJD0
 

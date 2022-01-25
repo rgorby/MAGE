@@ -38,7 +38,8 @@ module mixtypes
      ! grid
      real(rp) :: LowLatBoundary
      integer :: Np, Nt
-
+     real(rp) :: RinMHD = 0.0 !MHD Rinner if defined
+     
      ! init
      logical :: init_from_file
 

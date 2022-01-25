@@ -321,6 +321,7 @@ module init
         real(rp) :: C0,MJD0
         integer :: nSeed, icSeed
         integer, dimension(:), allocatable :: vSeed
+        logical :: doFatIO
 
         !Start by shutting up extra ranks
         if (.not. Model%isLoud) call xmlInp%BeQuiet()
@@ -401,8 +402,12 @@ module init
         
     !Output/Restart (IOCLOCK)
         call Model%IO%init(xmlInp,Model%t,Model%ts)
-        call xmlInp%Set_Val(Model%doDivB ,'output/DivB' ,.true. )
-
+        call xmlInp%Set_Val(Model%doDivB ,'output/DivB'    ,.true. )
+        call xmlInp%Set_Val(doFatIO      ,'output/doFatIO' ,.false.)
+        if (doFatIO) then
+            call SetFatIO()
+        endif
+        
         !Whether to read restart
         call xmlInp%Set_Val(Model%isRestart,'restart/doRes',.false.)
 

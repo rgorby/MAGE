@@ -690,25 +690,11 @@ module fields
 
         integer :: i,j,k
         ! Cell centerd values
-        real(rp), dimension(Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,1:NDIM) :: Btot, Jcc
+        real(rp), dimension(Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,1:NDIM) :: Jcc
         real(rp), dimension(NDIM)  :: Jedge, e1,e2
 
-        
-        call TIC("EtaBtot")
-        !$OMP PARALLEL DO default (shared) collapse(2) &
-        !$OMP private(i,j,k)
-        do k=Gr%ksg, Gr%keg
-            do j=Gr%jsg, Gr%jeg
-                do i=Gr%isg, Gr%ieg
-                    Btot(i,j,k,:) = Gr%B0(i,j,k,:) + State%Bxyz(i,j,k,:)
-                end do
-            end do
-        end do
-
-        call TOC("EtaBtot")
-        
         call TIC("Jcell")
-        call bFld2Jxyz(Model,Gr,Btot, Jcc)
+        call getJxyz(Model,Gr,State,Jcc)
         call TOC("Jcell")
         
 

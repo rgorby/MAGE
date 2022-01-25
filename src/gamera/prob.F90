@@ -958,7 +958,7 @@ module prob
         allocate(zeroGradientInnerJBC_T  :: Grid%externalBCs(INJ )%p)
         allocate(zeroGradientOuterJBC_T  :: Grid%externalBCs(OUTJ)%p)
         allocate(zeroExtensionInnerKBC_T :: Grid%externalBCs(INK )%p)
-        allocate(zeroExtensionInnerKBC_T :: Grid%externalBCs(OUTK)%p)
+        allocate(zeroExtensionOuterKBC_T :: Grid%externalBCs(OUTK)%p)
 
         !Local functions for initBW  
         contains
