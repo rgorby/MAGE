@@ -308,8 +308,8 @@ module mixconductance
          do i=1,G%Np
             isMono = conductance%deltaE(i,j) > 0.0    !Potential drop
             isMHD  = conductance%E0(i,j)     > pK     !Have "hot" MHD information, ie worth putting into Robinson
-            !isRCM  = St%Vars(i,j,IM_EAVG)    > 1.0e-8 !Have RCM information
-            isRCM  = St%Vars(i,j,IM_TOPOD) > 0.5! .and. St%Vars(i,j,IM_EAVG)>1.0e-8 ! IM_TOPOD is interpolated from rcm.
+            ! IM_TOPOD>0.5 covers low lat RCM grid. IM_EAVG>1.0e-8 covers buffre region with meaningful RCM precipitation.
+            isRCM  = St%Vars(i,j,IM_TOPOD) > 0.5 .or. St%Vars(i,j,IM_EAVG)>1.0e-8
 
             !Cases: isMono/isRCM/isMHD = 8 cases
             !- No RCM: 
@@ -318,7 +318,7 @@ module mixconductance
                !If we don't have RCM info then MHD is the only game in town, use Zhang
                St%Vars(i,j,AVG_ENG ) = St%Vars(i,j,Z_EAVG) ! [keV]
                St%Vars(i,j,NUM_FLUX) = St%Vars(i,j,Z_NFLUX)! [#/cm^2/s]
-               St%Vars(i,j,AUR_TYPE) = AT_ZHANG
+               St%Vars(i,j,AUR_TYPE) = AT_MHD ! AT_MHD=1,AT_RCM,AT_RMnoE,AT_RMfnE,AT_RMono
                cycle
                !NOTE: Should we handle ~isRCM and ~isMHD case separately?
             endif
@@ -339,7 +339,7 @@ module mixconductance
                !For now just use RCM
                St%Vars(i,j,AVG_ENG ) = rcm_eavg
                St%Vars(i,j,NUM_FLUX) = rcm_nflx
-               St%Vars(i,j,Z_NFLUX ) = -1.0 ! for diagnostic purposes since full Z15 does not currently work.
+               St%Vars(i,j,AUR_TYPE) = AT_RCM
                cycle               
             endif
 
@@ -351,8 +351,7 @@ module mixconductance
                !Have RCM info and no drop, just use RCM
                St%Vars(i,j,AVG_ENG ) = rcm_eavg
                St%Vars(i,j,NUM_FLUX) = rcm_nflx
-               !St%Vars(i,j,Z_NFLUX ) = -1.0 ! for diagnostic purposes since full Z15 does not currently work.
-               St%Vars(i,j,AUR_TYPE) = AT_RCM
+               St%Vars(i,j,AUR_TYPE) = AT_RMnoE
                cycle
             endif
 
@@ -372,15 +371,13 @@ module mixconductance
             if (mhd_SigP>rcm_SigP) then
                St%Vars(i,j,AVG_ENG ) = mhd_eavg
                St%Vars(i,j,NUM_FLUX) = mhd_nflx
-               St%Vars(i,j,AUR_TYPE) = AT_ZHANG
+               St%Vars(i,j,AUR_TYPE) = AT_RMono
             else
                !RCM diffuse is still better than MHD + puny potential drop
                St%Vars(i,j,AVG_ENG ) = rcm_eavg !Use un-augmented value since MR gets called later
                St%Vars(i,j,NUM_FLUX) = rcm_nflx
                conductance%deltaE(i,j) = 0.0 !Wipe out potential drop since it don't matter (otherwise MR won't happen if desired)
-
-               !St%Vars(i,j,Z_NFLUX ) = -1.0
-               St%Vars(i,j,AUR_TYPE) = AT_RCMZ
+               St%Vars(i,j,AUR_TYPE) = AT_RMfnE
             endif
 
          enddo

@@ -35,8 +35,8 @@ module mixdefs
      enumerator :: NONE=1,ADHOC,CMIT
   end enum
 
-  enum, bind(C) ! Zhang15, Fedder95, RCM, RCM but Zhang15 is accelerated.
-     enumerator :: AT_ZHANG=1,AT_FEDDER,AT_RCM,AT_RCMZ
+  enum, bind(C)
+     enumerator :: AT_MHD=1,AT_RCM,AT_RMnoE,AT_RMfnE,AT_RMono
   end enum
 
 end module mixdefs
