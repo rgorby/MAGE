@@ -200,7 +200,7 @@ contains
     !$OMP reduction(+:efluxS,eavgS,Ainvdwgt2,rcmTopodS)
     do j=1,Np
        do i=1,Nt
-          if(imag2mix%eflux(i,j)>0.0) then
+!          if(imag2mix%eflux(i,j)>0.0) then
              i0 = minloc(abs(rcmt(1,:)-colatc(i,j)),1)
              if(rcmt(1,i0)<=colatc(i,j)) then
                 il=i0
@@ -246,7 +246,7 @@ contains
                    enddo
                 endif
              enddo
-          endif
+!          endif
        end do
     end do
     !$OMP PARALLEL DO default(shared) collapse(2) &
