@@ -323,8 +323,8 @@ module gridutils
                             k0 = mod(k+Nk/2-1,Nk) + 1
                             Jxyz(i,Grid%je+1,k0,:) = Jxyz(i,Grid%je,  k,:)
                             Jxyz(i,Grid%je+2,k0,:) = Jxyz(i,Grid%je-1,k,:)
-                            Jxyz(i,Grid%js+3,k0,:) = Jxyz(i,Grid%je-2,k,:)
-                            Jxyz(i,Grid%js+4,k0,:) = Jxyz(i,Grid%je-3,k,:)
+                            Jxyz(i,Grid%je+3,k0,:) = Jxyz(i,Grid%je-2,k,:)
+                            Jxyz(i,Grid%je+4,k0,:) = Jxyz(i,Grid%je-3,k,:)
                         enddo
                         Jxyz(i,Grid%je+1:Grid%jeg,-3:0     ,:) = Jxyz(i,Grid%je+1:Grid%jeg,Nk-3:Nk,:)
                         Jxyz(i,Grid%je+1:Grid%jeg,Nk+1:Nk+4,:) = Jxyz(i,Grid%je+1:Grid%jeg,1:4    ,:)
