@@ -915,7 +915,7 @@ module prob
         type(XML_Input_T), intent(in) :: inpXML
 
         real(rp) :: xc,yc,zc,lam
-        real(rp) :: B0
+        real(rp) :: B0,Lx,Ly,Psi0,n0,n_inf
         logical :: doHarris
         integer :: i,j,k
         procedure(VectorField_T), pointer :: Axyz
@@ -923,12 +923,21 @@ module prob
 
         write(*,*) 'Initializing  GEM ...'
 
+        !Define things up here once
+        Lx = 25.6
+        Ly = 12.8
+        Psi0 = 0.1
+
         lam = 1.
         B0 = 1.
+        n0 = 1.0
+        n_inf = 0.2
 
         !Get problem parameters from input deck
         call inpXML%Set_Val(doHarris,"prob/doHarris",.false.)
         
+        State%magFlux = 0.0
+
         !Initialize State variable analytic function
         Wxyz => GasIC_GEM
         call GasIC2State(Model,Grid,State,Wxyz)
@@ -945,9 +954,7 @@ module prob
                     call cellCenter(Grid,i,j,k,xc,yc,zc)
                     ! here the field should be evaluated at i-face centers, since it's along the i-dir, so yi = yc
                     if (doHarris) then
-                       State%magFlux(i,j,k,IDIR) = B0*tanh(Grid%xfc(i,j,k,YDIR,IDIR)/lam)*Grid%Face(i,j,k,IDIR)
-                       !State%magFlux(i,j,k,IDIR) = B0*tanh(yc/lam)*Grid%Face(i,j,k,IDIR)
-                       State%magFlux(i,j,k,JDIR:KDIR) = 0.0
+                       State%magFlux(i,j,k,IDIR) = Bx_GEM(Grid%xfc(i,j,k,YDIR,IDIR))*Grid%Face(i,j,k,IDIR)
                     else
                        State%magFlux(i,j,k,IDIR) = State%magFlux(i,j,k,IDIR)+tanh(yc/lam)*Grid%Face(i,j,k,IDIR)
                     endif
@@ -968,11 +975,7 @@ module prob
             subroutine VectorPot_GEM(x,y,z,Ax,Ay,Az)
                 real(rp), intent(in) :: x,y,z
                 real(rp), intent(out) :: Ax,Ay,Az
-                real(rp) :: Lx, Ly, Psi0
 
-                Lx = 25.6
-                Ly = 12.8
-                Psi0 = 0.1
 
                 Ax = 0.0
                 Ay = 0.0
@@ -980,18 +983,26 @@ module prob
 
             end subroutine VectorPot_GEM
 
+            function Bx_GEM(y)
+                real(rp), intent(in) :: y
+                real(rp) :: Bx_GEM
+
+                Bx_GEM = B0*tanh(y/lam)
+
+            end function Bx_GEM
+
             subroutine GasIC_GEM(x,y,z,D,Vx,Vy,Vz,P)
                 real(rp), intent(in) :: x,y,z
                 real(rp), intent(out) :: D,Vx,Vy,Vz,P
-                real(rp) :: n0,lam,n_inf
 
-                n0 = 1.0
-                lam = 1.
-                n_inf = 0.2
+                real(rp) :: k0
+
+                k0 = 0.5*(B0*B0)/n0
 
                 D = n_inf+n0/cosh(y/lam)**2.0
                 !P = 0.5*( n_inf+n0/cosh(y/lam)**2.0 )
-                P = 0.5*(n0+n_inf) - tanh(y/lam)**2./2
+                !P = 0.5*(n0+n_inf) - tanh(y/lam)**2./2
+                P = k0*D
                 Vx = 0.0
                 Vy = 0.0
                 Vz = 0.0
