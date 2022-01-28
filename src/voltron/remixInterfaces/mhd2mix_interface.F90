@@ -104,7 +104,7 @@ module mhd2mix_interface
 
         !Now loop over only shells and populate mhdvars to be sent to mix
         !$OMP PARALLEL DO default(shared) &
-        !$OMP private(i,iG,j,k,Bi2m,xc,yc,zc,Con,J11,B0)
+        !$OMP private(i,iG,j,k,Bi2m,xc,yc,zc,Con,J11,B0,Cs)
         do k=gameraApp%Grid%ks,gameraApp%Grid%ke
             do j=gameraApp%Grid%js,gameraApp%Grid%je
                 do i=1,mhd2mix%JShells
