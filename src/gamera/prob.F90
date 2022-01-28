@@ -915,6 +915,7 @@ module prob
         type(XML_Input_T), intent(in) :: inpXML
 
         real(rp) :: xc,yc,zc,lam
+        real(rp) :: B0
         logical :: doHarris
         integer :: i,j,k
         procedure(VectorField_T), pointer :: Axyz
@@ -922,7 +923,8 @@ module prob
 
         write(*,*) 'Initializing  GEM ...'
 
-        lam = 0.5
+        lam = 1.
+        B0 = 1.
 
         !Get problem parameters from input deck
         call inpXML%Set_Val(doHarris,"prob/doHarris",.false.)
@@ -932,18 +934,19 @@ module prob
         call GasIC2State(Model,Grid,State,Wxyz)
 
         !Add B flux - first do vector potential for the perturbation island
-        Axyz => VectorPot_GEM
-        call VectorPot2Flux(Model,Grid,State,Axyz)
+        !Axyz => VectorPot_GEM
+        !call VectorPot2Flux(Model,Grid,State,Axyz)
 
         ! then add the i-face Harris flux to the island
-        do k=Grid%ks,Grid%ke
-            do j=Grid%js,Grid%je
+        do k=Grid%ks,Grid%ke+1
+            do j=Grid%js,Grid%je+1
                 do i=Grid%is,Grid%ie+1
                     !add face magFluxes bi(if_act,:,:) = bi(if_act,:,:)+tanh(yi(if_act,:,:)./lam);
                     call cellCenter(Grid,i,j,k,xc,yc,zc)
                     ! here the field should be evaluated at i-face centers, since it's along the i-dir, so yi = yc
                     if (doHarris) then
-                       State%magFlux(i,j,k,IDIR) = tanh(yc/lam)*Grid%Face(i,j,k,IDIR)
+                       State%magFlux(i,j,k,IDIR) = B0*tanh(Grid%xfc(i,j,k,YDIR,IDIR)/lam)*Grid%Face(i,j,k,IDIR)
+                       !State%magFlux(i,j,k,IDIR) = B0*tanh(yc/lam)*Grid%Face(i,j,k,IDIR)
                        State%magFlux(i,j,k,JDIR:KDIR) = 0.0
                     else
                        State%magFlux(i,j,k,IDIR) = State%magFlux(i,j,k,IDIR)+tanh(yc/lam)*Grid%Face(i,j,k,IDIR)
@@ -958,36 +961,37 @@ module prob
         allocate(zeroGradientInnerJBC_T  :: Grid%externalBCs(INJ )%p)
         allocate(zeroGradientOuterJBC_T  :: Grid%externalBCs(OUTJ)%p)
         allocate(zeroExtensionInnerKBC_T :: Grid%externalBCs(INK )%p)
-        allocate(zeroExtensionInnerKBC_T :: Grid%externalBCs(OUTK)%p)
+        allocate(zeroExtensionOuterKBC_T :: Grid%externalBCs(OUTK)%p)
 
         !Local functions for initBW  
         contains
             subroutine VectorPot_GEM(x,y,z,Ax,Ay,Az)
                 real(rp), intent(in) :: x,y,z
                 real(rp), intent(out) :: Ax,Ay,Az
-                real(rp) :: Lx, Ly
+                real(rp) :: Lx, Ly, Psi0
 
                 Lx = 25.6
                 Ly = 12.8
+                Psi0 = 0.1
 
                 Ax = 0.0
                 Ay = 0.0
-                Az = -0.1*cos(2*pi*x/Lx)*cos(pi*y/Ly);
+                Az = -Psi0*cos(2*pi*x/Lx)*cos(pi*y/Ly);
 
             end subroutine VectorPot_GEM
 
             subroutine GasIC_GEM(x,y,z,D,Vx,Vy,Vz,P)
                 real(rp), intent(in) :: x,y,z
                 real(rp), intent(out) :: D,Vx,Vy,Vz,P
-                real(rp) :: n0,lam,n_inf,Psi0
+                real(rp) :: n0,lam,n_inf
 
                 n0 = 1.0
-                lam = 0.5
-                n_inf = 0.2*n0
-                Psi0 = 0.1
+                lam = 1.
+                n_inf = 0.2
 
                 D = n_inf+n0/cosh(y/lam)**2.0
-                P = 0.5*( n_inf+n0/cosh(y/lam)**2.0 )
+                !P = 0.5*( n_inf+n0/cosh(y/lam)**2.0 )
+                P = 0.5*(n0+n_inf) - tanh(y/lam)**2./2
                 Vx = 0.0
                 Vy = 0.0
                 Vz = 0.0
