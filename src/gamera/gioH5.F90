@@ -308,7 +308,8 @@ module gioH5
 
             !---------------------
             !Calculate Velocities/Pressure
-            !$OMP PARALLEL DO default(shared) collapse(2)
+            !$OMP PARALLEL DO default(shared) collapse(2) &
+            !$OMP private(i,j,k)
             do k=kMin,kMax
                 do j=jMin,jMax
                     do i=iMin,iMax
@@ -439,7 +440,8 @@ module gioH5
             endif
 
             if(Model%doResistive) then
-                !$OMP PARALLEL DO default(shared) collapse(2)
+                !$OMP PARALLEL DO default(shared) collapse(2) &
+                !$OMP private(i,j,k)
                 do k=kMin,kMax
                     do j=jMin,jMax
                         do i=iMin,iMax

@@ -251,7 +251,8 @@ module gridutils
         enddo
 
         ! line integrals of bint to get J*dS on cell faces, the indices are from start to end+1
-        !$OMP PARALLEL DO default(shared) collapse(2)
+        !$OMP PARALLEL DO default(shared) collapse(2) &
+        !$OMP private(i,j,k)
         do k=Grid%ksg, Grid%keg-1
             do j=Grid%jsg, Grid%jeg-1
                 do i=Grid%isg, Grid%ieg-1
@@ -264,7 +265,8 @@ module gridutils
         ! Jds ends up being defined isg+1,ieg-1
 
         ! now from J-flux to J-field using the CellBxyz function
-        !$OMP PARALLEL DO default(shared) collapse(2)
+        !$OMP PARALLEL DO default(shared) collapse(2) &
+        !$OMP private(i,j,k)
         do k=Grid%ksg+1, Grid%keg-1
             do j=Grid%jsg+1, Grid%jeg-1
                 do i=Grid%isg+1, Grid%ieg-1
@@ -715,17 +717,22 @@ module gridutils
         !!! Get the current
         if (Model%isMagsphere) then
             !Subtract dipole before calculating current
-            !$OMP PARALLEL DO default(shared) collapse(2)
+            !$OMP PARALLEL DO default(shared) collapse(2) &
+            !$OMP private(i,j,k)
             do k=Gr%ksg,Gr%keg
                 do j=Gr%jsg,Gr%jeg
                     do i=Gr%isg,Gr%ieg
-                        !!! toDO store dipole correction as new array
-                        VecA(i,j,k,:) = State%Bxyz(i,j,k,:) + Gr%B0(i,j,k,:) - MagsphereDipole(Gr%xyzcc(i,j,k,:),Model%MagM0)
+                        if (Model%doBackground) then
+                            VecA(i,j,k,:) = State%Bxyz(i,j,k,:) + Gr%B0(i,j,k,:) - MagsphereDipole(Gr%xyzcc(i,j,k,:),Model%MagM0)
+                        else
+                            VecA(i,j,k,:) = State%Bxyz(i,j,k,:) - MagsphereDipole(Gr%xyzcc(i,j,k,:),Model%MagM0)
+                        endif
                     enddo
                 enddo
             enddo
         else
-            !$OMP PARALLEL DO default(shared) collapse(2)
+            !$OMP PARALLEL DO default(shared) collapse(2) &
+            !$OMP private(i,j,k)
             do k=Gr%ksg,Gr%keg
                 do j=Gr%jsg,Gr%jeg
                     do i=Gr%isg,Gr%ieg
