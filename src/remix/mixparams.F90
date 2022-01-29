@@ -136,7 +136,7 @@ module mixparams
 
         ! if this is on, Params%F107 read from xml file above will be overwritten
         ! and F107 will be set from the SW file (i.e., from OMNI data)
-        call xmlInp%Set_Val(Params%doSWf107,"conductance/doSWF107",.true.)
+        call xmlInp%Set_Val(Params%doSWF107,"conductance/doSWF107",.true.)
         ! =========== CONDUCTANCE MODEL PARAMETERS =================== !
 
         ! =========== SOLVER PARAMETERS =================== !
