@@ -92,6 +92,18 @@ module mixmain
       
     end subroutine init_mix
 
+    subroutine updateF107(I,F107)
+        implicit none
+        type(mixIon_T),dimension(:),intent(inout) :: I 
+        real, intent(in) :: F107
+        integer :: h
+    
+        do h=1,size(I)
+            I(h)%conductance%f107 = F107
+        enddo
+    end subroutine updateF107
+
+
     subroutine get_potential(I)
       type(mixIon_T),intent(inout) :: I
 

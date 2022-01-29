@@ -40,20 +40,6 @@ module mixconductance
       conductance%apply_cap = Params%apply_cap
       conductance%aurora_model_type = Params%aurora_model_type
 
-      conductance%PI2       = pi/2.0D0
-      conductance%ang65     = pi/180.0D0*65.0D0
-      conductance%ang100    = pi*5.0D0/9.0D0
-      conductance%pref      = 2.0D0*250.0D0**(-0.666666)
-      conductance%href      = 1.0D0/(1.8D0*sqrt(250.0D0))
-      conductance%shall     = 1.8D0*sqrt(conductance%f107)
-      conductance%speder    = 0.5D0*conductance%f107**(0.666666)
-      conductance%pedslope  = 0.24D0*conductance%pref*conductance%speder*rad2deg
-      conductance%pedslope2 = 0.13D0*conductance%pref*conductance%speder*rad2deg
-      conductance%hallslope = 0.27D0*conductance%href*conductance%shall*rad2deg;
-      conductance%sigmap65  = conductance%speder*cos(conductance%ang65)**0.666666
-      conductance%sigmah65  = conductance%shall*cos(conductance%ang65)
-      conductance%sigmap100 = conductance%sigmap65-(conductance%ang100-conductance%ang65)*conductance%pedslope
-
       if (.not. allocated(conductance%zenith)) allocate(conductance%zenith(G%Np,G%Nt))
       if (.not. allocated(conductance%coszen)) allocate(conductance%coszen(G%Np,G%Nt))
       if (.not. allocated(conductance%euvSigmaP)) allocate(conductance%euvSigmaP(G%Np,G%Nt))
@@ -90,22 +76,35 @@ module mixconductance
       type(mixGrid_T), intent(in) :: G
       type(mixState_T), intent(inout) :: St
 
-      conductance%zenith = conductance%PI2 - ( asin(G%x) + St%tilt )
+      conductance%zenith = PI/2 - ( asin(G%x) + St%tilt )
       ! An alternative (correct) definition of the zenith angle (for Moen-Brekke)
       conductance%coszen = G%x*cos(St%tilt)+sqrt(1.-G%x**2-G%y**2)*sin(St%tilt) ! as it should be
       conductance%zenith = acos(conductance%coszen)
 
       select case ( conductance%euv_model_type )
          case (AMIE)
-            where (conductance%zenith <= conductance%ang65) 
-               conductance%euvSigmaP = conductance%speder*cos(conductance%zenith)**0.666666
-               conductance%euvSigmaH = conductance%shall*cos(conductance%zenith)
-            elsewhere (conductance%zenith <= conductance%ang100)
-               conductance%euvSigmaP = conductance%sigmap65 - conductance%pedslope*(conductance%zenith - conductance%ang65)
-               conductance%euvSigmaH = conductance%sigmah65 - conductance%hallslope*(conductance%zenith - conductance%ang65)
-            elsewhere (conductance%zenith > conductance%ang100)
-               conductance%euvSigmaP = conductance%sigmap100 - conductance%pedslope2*(conductance%zenith-conductance%ang100)
-               conductance%euvSigmaH = conductance%sigmah65 - conductance%hallslope*(conductance%zenith-conductance%ang65)
+            ang65     = pi/180.0*65.0
+            ang100    = pi*5.0/9.0
+            pref      = 2.0*250.0**(-0.666666)
+            href      = 1.0/(1.8*sqrt(250.0))
+            shall     = 1.8*sqrt(conductance%f107)
+            speder    = 0.5*conductance%f107**(0.666666)
+            pedslope  = 0.24*pref*speder*rad2deg
+            pedslope2 = 0.13*pref*speder*rad2deg   
+            hallslope = 0.27*href*shall*rad2deg;
+            sigmap65  = speder*cos(ang65)**0.666666
+            sigmah65  = shall*cos(ang65)
+            sigmap100 = sigmap65-(ang100-ang65)*pedslope
+
+            where (conductance%zenith <= ang65) 
+               conductance%euvSigmaP = speder*cos(conductance%zenith)**0.666666
+               conductance%euvSigmaH = shall *cos(conductance%zenith)
+            elsewhere (conductance%zenith <= ang100)
+               conductance%euvSigmaP = sigmap65 - pedslope *(conductance%zenith - ang65)
+               conductance%euvSigmaH = sigmah65 - hallslope*(conductance%zenith - ang65)
+            elsewhere (conductance%zenith > ang100)
+               conductance%euvSigmaP = sigmap100 - pedslope2*(conductance%zenith-ang100)
+               conductance%euvSigmaH = sigmah65  - hallslope*(conductance%zenith-ang65)
             end where
          case (MOEN_BREKKE) !!! Needs testing
             ! This works only for the dayside (zenith <= pi/2)
@@ -442,7 +441,7 @@ module mixconductance
       RRdi = 0.D0
       RRdi = (G%y-0.03*signOfY)**2 + ( G%x/cos(al0) - Rio*cos(alp-al0)*tan(al0) )**2
       where(RRdi < Radi)
-         conductance%AuroraMask = cos((RRdi/Radi)**order*conductance%PI2)+0.D0
+         conductance%AuroraMask = cos((RRdi/Radi)**order*PI/2)+0.D0
       elsewhere
          conductance%AuroraMask = 0.D0
       end where

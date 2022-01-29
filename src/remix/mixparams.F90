@@ -117,7 +117,7 @@ module mixparams
               stop "The aurora model type entered is not supported (Available options: FEDDER, ZHANG, RCMONO, RCMFED)."
         end select
 
-        ! Numerical constants
+        ! =========== CONDUCTANCE MODEL PARAMETERS =================== !
         call xmlInp%Set_Val(Params%alpha,"precipitation/alpha",1.0332467_rp)
         call xmlInp%Set_Val(Params%beta,"precipitation/beta",0.4362323_rp)
         call xmlInp%Set_Val(Params%R,"precipitation/R",MixGrid0%R0)
@@ -133,31 +133,35 @@ module mixparams
         call xmlInp%Set_Val(Params%doStarlight,"conductance/doStarlight",.false.)        
         call xmlInp%Set_Val(Params%doMR,"conductance/doMR",.false.)        
         call xmlInp%Set_Val(Params%apply_cap,"conductance/apply_cap",.true.)
-        ! =========== CONDUCTANCE MODEL PARAMTERS =================== !
 
-        ! =========== SOLVER PARAMTERS =================== !
+        ! if this is on, Params%F107 read from xml file above will be overwritten
+        ! and F107 will be set from the SW file (i.e., from OMNI data)
+        call xmlInp%Set_Val(Params%doSWf107,"conductance/doSWF107",.true.)
+        ! =========== CONDUCTANCE MODEL PARAMETERS =================== !
+
+        ! =========== SOLVER PARAMETERS =================== !
         call xmlInp%Set_Val(Params%maxitr,"solver/maxitr",400)
         call xmlInp%Set_Val(Params%mr,"solver/mr",30)
         call xmlInp%Set_Val(Params%tol_abs,"solver/tol_abs",0.000001_rp)
         call xmlInp%Set_Val(Params%tol_rel,"solver/tol_rel",0.000001_rp)
         call xmlInp%Set_Val(Params%llbc_value,"solver/llbc_value",0.0_rp)
-        ! =========== SOLVER PARAMTERS =================== !
+        ! =========== SOLVER PARAMETERS =================== !
 
-        ! =========== GRID PARAMTERS =================== !
+        ! =========== GRID PARAMETERS =================== !
         call xmlInp%Set_Val(Params%Np,"grid/Np",MixGrid0%Np)
         call xmlInp%Set_Val(Params%Nt,"grid/Nt",MixGrid0%Nt)
         call xmlInp%Set_Val(Params%LowLatBoundary,"grid/LowLatBoundary",MixGrid0%LowLatBC)
         Params%RinMHD = MixGrid0%Rin !May be zero if not connected to MHD
-        ! =========== GRID PARAMTERS =================== !
+        ! =========== GRID PARAMETERS =================== !
 
-        ! =========== INIT PARAMTERS =================== !
+        ! =========== INIT PARAMETERS =================== !
         call xmlInp%Set_Val(Params%init_from_file,"grid/init_from_file",.false.)
-        ! =========== INIT PARAMTERS =================== !
+        ! =========== INIT PARAMETERS =================== !
 
-        ! =========== IO PARAMTERS =================== !
+        ! =========== IO PARAMETERS =================== !
         call xmlInp%Set_Val(Params%dtOut,"output/dtOut",1.0_rp)
         call xmlInp%Set_Val(Params%nRes,"/Kaiju/gamera/restart/nRes",-1)
-        ! =========== IO PARAMTERS =================== !
+        ! =========== IO PARAMETERS =================== !
 
         ! =========== DEBUG PARAMETERS ================ !
         call xmlInp%Set_Val(Params%mklmsglvl,"debug/mklmsglvl", 0)

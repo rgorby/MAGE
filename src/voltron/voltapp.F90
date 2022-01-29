@@ -2,6 +2,7 @@
 
 module voltapp
     use mixtypes
+    use mixdefs
     use ebtypes
     use chmpdefs
     use starter
@@ -357,19 +358,26 @@ module voltapp
             stop
         endif
 
-        !Set F10.7 from time series (using max)
-        f107%wID = vApp%tilt%wID
-        call f107%initTS("f10.7",doLoudO=.false.)
-        maxF107 = f107%getMax()
+        ! read f107 from the SW file and overwrite what's been read from .xml above (in init_mix)
+        ! note, only checking for NORTH, because both hemispheres read the same xml file        
+        if (vApp%remixApp%ion(NORTH)%P%doSWF107) then
 
-        do n=1,2
-            !Doing both to make sure the value gets from params to conductance
-            !TODO: Remove unnecessary extra value from remix
-            vApp%remixApp%ion(n)%P%f107           = maxF107
-            vApp%remixApp%ion(n)%conductance%f107 = maxF107
-        enddo
+            if (App%remixApp%ion(NORTH)%P%doSWF107 /= App%remixApp%ion(SOUTH)%P%doSWF107) then
+                write(*,*) 'Something is wrong. doSWf107 is set differently for the two hemispheres.'
+                write(*,*) 'Exiting ...'
+                stop
+            endif
 
-        write(*,*) 'Using F10.7 = ', maxF107
+            !Set F10.7 from time series (using max)
+            f107%wID = vApp%tilt%wID
+            call f107%initTS("f10.7",doLoudO=.false.)
+            maxF107 = f107%getMax()
+
+            call updateF107(vApp%remixApp%ion,maxF107)
+    
+            write(*,*) 'Using F10.7 = ', maxF107            
+        endif                
+
         write(*,*) 'Using MJD0  = ', gApp%Model%MJD0
 
         call init_mhd2Mix(vApp%mhd2mix, gApp, vApp%remixApp)
