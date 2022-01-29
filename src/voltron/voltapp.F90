@@ -362,7 +362,7 @@ module voltapp
         ! note, only checking for NORTH, because both hemispheres read the same xml file        
         if (vApp%remixApp%ion(NORTH)%P%doSWF107) then
 
-            if (App%remixApp%ion(NORTH)%P%doSWF107 /= App%remixApp%ion(SOUTH)%P%doSWF107) then
+            if (vApp%remixApp%ion(NORTH)%P%doSWF107 /= vApp%remixApp%ion(SOUTH)%P%doSWF107) then
                 write(*,*) 'Something is wrong. doSWf107 is set differently for the two hemispheres.'
                 write(*,*) 'Exiting ...'
                 stop

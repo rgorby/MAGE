@@ -95,7 +95,7 @@ module mixmain
     subroutine updateF107(I,F107)
         implicit none
         type(mixIon_T),dimension(:),intent(inout) :: I 
-        real, intent(in) :: F107
+        real(rp), intent(in) :: F107
         integer :: h
     
         do h=1,size(I)

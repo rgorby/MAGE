@@ -27,7 +27,7 @@ module mixtypes
      logical  :: doMR
      logical  :: doAuroralSmooth
      logical  :: apply_cap
-     logical  :: doSWf107
+     logical  :: doSWF107
 
      ! solver
      integer :: maxitr

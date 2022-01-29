@@ -76,6 +76,9 @@ module mixconductance
       type(mixGrid_T), intent(in) :: G
       type(mixState_T), intent(inout) :: St
 
+      real(rp) :: ang65, ang100, pref, href, shall
+      real(rp) :: speder, pedslope, pedslope2, hallslope,sigmap65, sigmah65, sigmap100
+
       conductance%zenith = PI/2 - ( asin(G%x) + St%tilt )
       ! An alternative (correct) definition of the zenith angle (for Moen-Brekke)
       conductance%coszen = G%x*cos(St%tilt)+sqrt(1.-G%x**2-G%y**2)*sin(St%tilt) ! as it should be
