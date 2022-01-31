@@ -358,16 +358,15 @@ module voltapp
             stop
         endif
 
+        if (vApp%remixApp%ion(NORTH)%P%doSWF107 /= vApp%remixApp%ion(SOUTH)%P%doSWF107) then
+            write(*,*) 'Something is wrong. doSWf107 is set differently for the two hemispheres.'
+            write(*,*) 'Exiting ...'
+            stop
+        endif
+
         ! read f107 from the SW file and overwrite what's been read from .xml above (in init_mix)
         ! note, only checking for NORTH, because both hemispheres read the same xml file        
         if (vApp%remixApp%ion(NORTH)%P%doSWF107) then
-
-            if (vApp%remixApp%ion(NORTH)%P%doSWF107 /= vApp%remixApp%ion(SOUTH)%P%doSWF107) then
-                write(*,*) 'Something is wrong. doSWf107 is set differently for the two hemispheres.'
-                write(*,*) 'Exiting ...'
-                stop
-            endif
-
             !Set F10.7 from time series (using max)
             f107%wID = vApp%tilt%wID
             call f107%initTS("f10.7",doLoudO=.false.)
@@ -375,7 +374,7 @@ module voltapp
 
             call updateF107(vApp%remixApp%ion,maxF107)
     
-            write(*,*) 'Using F10.7 = ', maxF107            
+            write(*,*) 'Using F10.7 = ', maxF107        
         endif                
 
         write(*,*) 'Using MJD0  = ', gApp%Model%MJD0
