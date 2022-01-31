@@ -20,12 +20,29 @@ mkdir -p $TMPDIR
 
 #Optional stuff to load an environment
 source ~/.bashrc
+
+if [[ -z "$KAIJUHOME" ]]; then
+    # $KAIJUHOME environment variable is not set
+    echo "The KAIJUHOME environment variable is not set"
+    echo "You must either pass your environment with the -V option or"
+    echo "  execute the kaiju/scripts/setupEnvironment script in your ~/.bashrc file"
+    exit
+fi
+
 if [[ ! -z "$MODULE_LIST" ]]; then
     # user passed a list of modules to load as the environment variable MODULE_LIST
+    # call this with the flag '-v MODULE_LIST="<modules>"' to use this option
+    # where <modules> is a space-separated list of modules in quotes
+    # Example:
+    #  qsub -v MODULE_LIST="intel/2021.2 ncarenv/1.3 ncarcompilers/0.5.0 mpt/2.22" RunMpi.pbs
     module purge
     module load $MODULE_LIST
 elif [[ ! -z "$MODULE_SET" ]]; then
     # user passed a module set name to load as the environment variable MODULE_SET
+    # call this with the flag '-v MODULE_SET=<set name>' to use this option
+    # where <set_name> is a saved set of modules, as printed by 'module savelist'
+    # Example:
+    # qsub -v MODULE_SET=kaiju21 RunMpi.pbs
     module purge
     module restore $MODULE_SET
 else
