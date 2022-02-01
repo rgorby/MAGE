@@ -390,8 +390,8 @@ contains
           call CheckQuickSquishError(voltAppmpi, voltAppMpi%gAppLocal, x2Err, x4Err)
 
           ! Empirically determined values
-          @assertLessThanOrEqual(x2Err, 6000.0_rp, trim("X2 Quick Squish Error Too Large"))
-          @assertLessThanOrEqual(x4Err, 17000.0_rp, trim("X4 Quick Squish Error Too Large"))
+          @assertLessThanOrEqual(x2Err,  7000.0_rp, trim("X2 Quick Squish Error Too Large"))
+          @assertLessThanOrEqual(x4Err, 23000.0_rp, trim("X4 Quick Squish Error Too Large"))
       endif
   end subroutine testQuickSquishStorm
 
