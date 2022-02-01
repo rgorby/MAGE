@@ -18,35 +18,8 @@ contains
   @before
   subroutine setup(this)
       class (MpiTestMethod), intent(inout) :: this
-      character(len=strLen) :: caseFile
-
-      integer :: ierror
-      type(MPI_Comm) :: gamComm, voltComm
 
       call setMpiReal()
-
-      write(caseFile,'(A,I0,A)') 'cmiD_deep_', this%getNumProcesses()-1, '.xml'
-
-
-      if(this%getProcessRank() < (this%getNumProcesses()-1)) then
-          isGamera = .true.
-          allocate(gamAppMpi)
-          allocate(g2vCommMpi)
-
-          ! make gamera-only mpi communicator
-          call MPI_Comm_Split(getMpiF08Communicator(this), 0, this%getProcessRank(), gamComm, ierror)
-
-          call initGamera_mpi(gamAppMpi, initUser, gamComm, caseFile, .false.)
-          call initGam2Volt(g2vCommMpi, gamAppMpi, getMpiF08Communicator(this), caseFile)
-      else
-          isGamera = .false.
-          allocate(voltAppMpi)
-
-          ! make gamera-only mpi communicator
-          call MPI_Comm_Split(getMpiF08Communicator(this), 1, this%getProcessRank(), voltComm, ierror)
-
-          call initVoltron_mpi(voltAppMpi, initUser, voltComm, getMpiF08Communicator(this), caseFile)
-      endif
 
   end subroutine setup
 
@@ -65,6 +38,35 @@ contains
       if(allocated(gamAppMpi)) deallocate(gamAppMpi)
 
   end subroutine teardown
+
+  subroutine initializeWithCaseXml(this, caseFile)
+      class (MpiTestMethod), intent(inout) :: this
+      character(len=*), intent(in) :: caseFile
+
+      integer :: ierror
+      type(MPI_Comm) :: gamComm, voltComm
+
+      if(this%getProcessRank() < (this%getNumProcesses()-1)) then
+          isGamera = .true.
+          allocate(gamAppMpi)
+          allocate(g2vCommMpi)
+
+          ! make gamera-only mpi communicator
+          call MPI_Comm_Split(getMpiF08Communicator(this), 0, this%getProcessRank(), gamComm, ierror)
+
+          call initGamera_mpi(gamAppMpi, initUser, gamComm, trim(caseFile), .false.)
+          call initGam2Volt(g2vCommMpi, gamAppMpi, getMpiF08Communicator(this), trim(caseFile))
+      else
+          isGamera = .false.
+          allocate(voltAppMpi)
+
+          ! make gamera-only mpi communicator
+          call MPI_Comm_Split(getMpiF08Communicator(this), 1, this%getProcessRank(), voltComm, ierror)
+
+          call initVoltron_mpi(voltAppMpi, initUser, voltComm, getMpiF08Communicator(this), trim(caseFile))
+      endif
+
+  end subroutine
 
   subroutine runApplication(tFin)
       real(rp), intent(in) :: tFin
@@ -112,6 +114,10 @@ contains
   subroutine testSerialCoupling(this)
       class (MpiTestMethod), intent(inout) :: this
 
+      character(len=strLen) :: caseFile
+      write(caseFile,'(A,I0,A)') 'cmiD_deep_', this%getNumProcesses()-1, '_res60_.xml'
+      call initializeWithCaseXml(this, caseFile)
+
       if(isGamera) then
           ! adjust coupling parameters
           call endGam2VoltWaits(g2vCommMpi, gamAppMpi)
@@ -120,8 +126,8 @@ contains
           g2vCommMpi%firstShallowUpdate = .true.
           g2vCommMpi%firstDeepUpdate = .true.
 
-          ! run case for 1 minute of spinup and 1 minute of simulation
-          call runApplication(60.0_rp)
+          ! run case for 20 additional seconds
+          call runApplication(80.0_rp)
       else
           write (*,'(a,I0)') 'Testing Serial ',this%getNumProcesses()
 
@@ -133,8 +139,8 @@ contains
           voltAppMpi%firstDeepUpdate = .true.
           voltAppMpi%firstStepUpdate = .true.
 
-          ! run case for 1 minute of spinup and 1 minute of simulation
-          call runApplication(60.0_rp)
+          ! run case for 20 additional seconds
+          call runApplication(80.0_rp)
       endif
 
   end subroutine testSerialCoupling
@@ -143,6 +149,10 @@ contains
   subroutine testConcCoupling(this)
       class (MpiTestMethod), intent(inout) :: this
 
+      character(len=strLen) :: caseFile
+      write(caseFile,'(A,I0,A)') 'cmiD_deep_', this%getNumProcesses()-1, '_res60_.xml'
+      call initializeWithCaseXml(this, caseFile)
+
       if(isGamera) then
           call endGam2VoltWaits(g2vCommMpi, gamAppMpi)
           g2vCommMpi%doSerialVoltron = .false.
@@ -150,8 +160,8 @@ contains
           g2vCommMpi%firstShallowUpdate = .true.
           g2vCommMpi%firstDeepUpdate = .true.
 
-          ! run case for 1 minute of spinup and 1 minute of simulation
-          call runApplication(60.0_rp)
+          ! run case for 20 additional seconds
+          call runApplication(80.0_rp)
       else
           write (*,'(a,I0)') 'Testing Concurrent ',this%getNumProcesses()
 
@@ -162,8 +172,8 @@ contains
           voltAppMpi%firstDeepUpdate = .true.
           voltAppMpi%firstStepUpdate = .true.
 
-          ! run case for 1 minute of spinup and 1 minute of simulation
-          call runApplication(60.0_rp)
+          ! run case for 20 additional seconds
+          call runApplication(80.0_rp)
       endif
 
   end subroutine testConcCoupling
@@ -172,6 +182,10 @@ contains
   subroutine testAsyncCoupling(this)
       class (MpiTestMethod), intent(inout) :: this
 
+      character(len=strLen) :: caseFile
+      write(caseFile,'(A,I0,A)') 'cmiD_deep_', this%getNumProcesses()-1, '_res60_.xml'
+      call initializeWithCaseXml(this, caseFile)
+
       if(isGamera) then
           call endGam2VoltWaits(g2vCommMpi, gamAppMpi)
           g2vCommMpi%doSerialVoltron = .false.
@@ -179,8 +193,8 @@ contains
           g2vCommMpi%firstShallowUpdate = .true.
           g2vCommMpi%firstDeepUpdate = .true.
 
-          ! run case for 1 minute of spinup and 1 minute of simulation
-          call runApplication(60.0_rp)
+          ! run case for 20 additional seconds
+          call runApplication(80.0_rp)
       else
           write (*,'(a,I0)') 'Testing Async ',this%getNumProcesses()
 
@@ -191,8 +205,8 @@ contains
           voltAppMpi%firstDeepUpdate = .true.
           voltAppMpi%firstStepUpdate = .true.
 
-          ! run case for 1 minute of spinup and 1 minute of simulation
-          call runApplication(60.0_rp)
+          ! run case for 20 additional seconds
+          call runApplication(80.0_rp)
       endif
 
   end subroutine testAsyncCoupling
@@ -201,15 +215,16 @@ contains
   subroutine testAdjustShallowCoupling(this)
       class (MpiTestMethod), intent(inout) :: this
 
+      character(len=strLen) :: caseFile
+      write(caseFile,'(A,I0,A)') 'cmiD_deep_', this%getNumProcesses()-1, '_res0_.xml'
+      call initializeWithCaseXml(this, caseFile)
+
       if(isGamera) then
           call endGam2VoltWaits(g2vCommMpi, gamAppMpi)
           g2vCommMpi%doSerialVoltron = .false.
           g2vCommMpi%doAsyncShallow = .true.
           g2vCommMpi%firstShallowUpdate = .true.
           g2vCommMpi%firstDeepUpdate = .true.
-
-          ! run case for 1 minute of spinup to initialize data
-          call runApplication(0.0_rp)
 
           ! couple three times and check DT
           call performShallowUpdate(g2vCommMpi,gamAppMpi)
@@ -232,9 +247,6 @@ contains
           voltAppMpi%ShallowDT = 5.0
           voltAppMpi%TargetShallowDT = 5.0
 
-          ! run case for 1 minute of spinup to initialize data
-          call runApplication(0.0_rp)
-
           ! couple three times and check DT
           call ShallowUpdate_mpi(voltAppMpi, voltAppMpi%time)
           call ShallowUpdate_mpi(voltAppMpi, voltAppMpi%time)
@@ -255,15 +267,16 @@ contains
   subroutine testAdjustDeepCoupling(this)
       class (MpiTestMethod), intent(inout) :: this
 
+      character(len=strLen) :: caseFile
+      write(caseFile,'(A,I0,A)') 'cmiD_deep_', this%getNumProcesses()-1, '_res0_.xml'
+      call initializeWithCaseXml(this, caseFile)
+
       if(isGamera) then
           call endGam2VoltWaits(g2vCommMpi, gamAppMpi)
           g2vCommMpi%doSerialVoltron = .false.
           g2vCommMpi%doAsyncShallow = .true.
           g2vCommMpi%firstShallowUpdate = .true.
           g2vCommMpi%firstDeepUpdate = .true.
-
-          ! run case for 1 minute of spinup to initialize data
-          call runApplication(0.0_rp)
 
           ! couple three times and check DT
           call performDeepUpdate(g2vCommMpi,gamAppMpi)
@@ -286,9 +299,6 @@ contains
           voltAppMpi%DeepDT = 10.0
           voltAppMpi%TargetDeepDT = 10.0
 
-          ! run case for 1 minute of spinup to initialize data
-          call runApplication(0.0_rp)
-
           ! couple three times and check DT
           call DeepUpdate_mpi(voltAppMpi, voltAppMpi%time)
           call DeepUpdate_mpi(voltAppMpi, voltAppMpi%time)
@@ -310,6 +320,9 @@ contains
       class (MpiTestMethod), intent(inout) :: this
 
       real(rp) :: x2err, x4err
+      character(len=strLen) :: caseFile
+      write(caseFile,'(A,I0,A)') 'cmiD_deep_', this%getNumProcesses()-1, '_res0_.xml'
+      call initializeWithCaseXml(this, caseFile)
 
       if(isGamera) then
           call endGam2VoltWaits(g2vCommMpi, gamAppMpi)
@@ -317,9 +330,6 @@ contains
           g2vCommMpi%doAsyncShallow = .true.
           g2vCommMpi%firstShallowUpdate = .true.
           g2vCommMpi%firstDeepUpdate = .true.
-
-          ! run case for 1 minute of spinup to initialize data
-          call runApplication(0.0_rp)
 
           ! explicitly deeo couple once to update deep data
           call performDeepUpdate(g2vCommMpi,gamAppMpi)
@@ -332,9 +342,6 @@ contains
           voltAppMpi%firstShallowUpdate = .true.
           voltAppMpi%firstDeepUpdate = .true.
           voltAppMpi%firstStepUpdate = .true.
-
-          ! run case for 1 minute of spinup to initialize data
-          call runApplication(0.0_rp)
 
           ! explicitly deep couple once to update deep data
           call DeepUpdate_mpi(voltAppMpi, voltAppMpi%time)
@@ -353,6 +360,9 @@ contains
       class (MpiTestMethod), intent(inout) :: this
 
       real(rp) :: x2err, x4err
+      character(len=strLen) :: caseFile
+      write(caseFile,'(A,I0,A)') 'cmiD_deep_', this%getNumProcesses()-1, '_res600_.xml'
+      call initializeWithCaseXml(this, caseFile)
 
       if(isGamera) then
           call endGam2VoltWaits(g2vCommMpi, gamAppMpi)
@@ -360,9 +370,6 @@ contains
           g2vCommMpi%doAsyncShallow = .true.
           g2vCommMpi%firstShallowUpdate = .true.
           g2vCommMpi%firstDeepUpdate = .true.
-
-          ! run case for 10 minutes to get some storm data
-          call runApplication(600.0_rp)
 
           ! explicitly deeo couple once to update deep data
           call performDeepUpdate(g2vCommMpi,gamAppMpi)
@@ -375,9 +382,6 @@ contains
           voltAppMpi%firstShallowUpdate = .true.
           voltAppMpi%firstDeepUpdate = .true.
           voltAppMpi%firstStepUpdate = .true.
-
-          ! run case for 10 minutes to get some storm data
-          call runApplication(600.0_rp)
 
           ! explicitly deep couple once to update deep data
           call DeepUpdate_mpi(voltAppMpi, voltAppMpi%time)
