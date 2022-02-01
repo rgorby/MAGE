@@ -10,6 +10,11 @@ module usergamic
     use ioH5
     use helioutils
     use iotable
+    ![EP] for TD 
+!    use ebinit
+!    use ebtypes
+!    use volttypes
+!    use chmpfields
 
     implicit none
 
