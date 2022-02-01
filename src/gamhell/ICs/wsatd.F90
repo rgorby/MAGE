@@ -9,11 +9,7 @@ module usergamic
     use bcs
     use ioH5
     use helioutils
-    ![EP] for TD 
-    use ebinit
-    use ebtypes
-    use volttypes
-    use chmpfields
+    use iotable
 
     implicit none
 
@@ -76,7 +72,7 @@ module usergamic
     ![EP] data structure for TD
     type :: wsaData_T 
 
-        type(ebTab_T)   :: ebTab
+        type(ioTab_T)   :: ioTab
         logical :: doStatic = .true.
         integer :: Nr,Nt,Np !dimensions
         !real(rp), dimension(:,:), allocatable :: X,Y
@@ -175,8 +171,8 @@ module usergamic
 !        Model%HackStep => tsHack
 
         !Set user hack functions
-        eHack  => EFix
-        Model%HackE => eHack
+!        eHack
+!        Model%HackE => eHack
 
         ! everybody reads WSA data
         !call readIBC(wsaFile)
@@ -252,41 +248,45 @@ module usergamic
 
       !call inpXML%Set_Val(wsaFile,"prob/wsaFile","innerbc.h5" )
 
-      bc%wsaData%ebTab%bStr = wsaFile
+      bc%wsaData%ioTab%bStr = wsaFile
 
-      ![EP] read times, convert to times to code units, read grid dimensions
-      call rdTab(bc%wsaData%ebTab,xmlInp,wsaFile,doTSclO=.false.)
-      ![EP] ebTab%N is a number of time steps
-      if (bc%wsaData%ebTab%N>1) then
+      ![EP] read times, grid dimensions
+      call InitIOTab(bc%wsaData%ioTab,xmlInp,wsaFile)
+
+      ![EP] ioTab%N is a number of time steps
+      if (bc%wsaData%ioTab%N>1) then
             bc%wsaData%doStatic = .false.
       endif
+
       write(*,*) '[EP in InitwsaBC] doStatic = ', bc%wsaData%doStatic
+
       ![EP] check
-      write(*,*) '[EP in InitwsaBC] rdTab check ', bc%wsaData%ebTab%N, bc%wsaData%ebTab%dNi, bc%wsaData%ebTab%dNj, bc%wsaData%ebTab%dNk
+      write(*,*) '[EP in InitwsaBC] rdTab check ', bc%wsaData%ioTab%N, bc%wsaData%ioTab%dNi, bc%wsaData%ioTab%dNj, bc%wsaData%ioTab%dNk
+
       !!!add a check for steady state and time-dep
-      write(*,*) '[EP in InitwsaBC] times in innerbc ', bc%wsaData%ebTab%times
+      write(*,*) '[EP in InitwsaBC] times in innerbc ', bc%wsaData%ioTab%times
 
       ![EP] dimensions of i-ghost grid
-      bc%wsaData%Nr = bc%wsaData%ebTab%dNi
-      bc%wsaData%Nt = bc%wsaData%ebTab%dNj
-      bc%wsaData%Np = bc%wsaData%ebTab%dNk
+      bc%wsaData%Nr = bc%wsaData%ioTab%dNi
+      bc%wsaData%Nt = bc%wsaData%ioTab%dNj
+      bc%wsaData%Np = bc%wsaData%ioTab%dNk
       write(*,*) '[EP in InitwsaBC] Dimensions ', bc%wsaData%Nr, bc%wsaData%Nt, bc%wsaData%Np
       write(*,*) '[EP in InitwsaBC] State%time ', State%time
 
       !initialization
-      ![EP] TD: find bounding time slices from ebTab file
-      call findSlc(bc%wsaData%ebTab,State%time*Model%Units%gT0,n1,n2)
+      ![EP] TD: find bounding time slices from ioTab file
+      call GetTabSlc(bc%wsaData%ioTab,State%time*Model%Units%gT0,n1,n2)
       write(*,*) '[EP in InitwsaBC] Bounding slices ', n1, n2
 
       !read map from Step#n1
       call rdWSAMap(bc%wsaData,Model,n1,bc%wsaData%ibcMap1)
       bc%wsaData%wsaN1 = n1
-      bc%wsaData%wsaT1 = bc%wsaData%ebTab%times(n1) ! in sec
+      bc%wsaData%wsaT1 = bc%wsaData%ioTab%times(n1) ! in sec
 
       !read map from Step#n2
       call rdWSAMap(bc%wsaData,Model,n2,bc%wsaData%ibcMap2)
       bc%wsaData%wsaN2 = n2
-      bc%wsaData%wsaT2 = bc%wsaData%ebTab%times(n2) !in sec
+      bc%wsaData%wsaT2 = bc%wsaData%ioTab%times(n2) !in sec
       write(*,*)'[EP in InitwsaBC] Bounding times ', bc%wsaData%wsaT1, bc%wsaData%wsaT2
 
       !![EP]interpolation (a) calculate weights (b) interpolate in time 
@@ -307,7 +307,7 @@ module usergamic
         allocate(bc%inEijk(1:bc%wsaData%Nr,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1,1:NDIM))
       ! allocate(bc%inExyz(1:PsiShells  ,Grid%jsg:Grid%jeg  ,Grid%ksg:Grid%keg  ,1:NDIM))
         bc%inEijk = 0.0
-        eHack  => EFix
+        eHack  => Null() !EFix
         Model%HackE => eHack
       endif
 
@@ -341,7 +341,7 @@ module usergamic
   
       if (.not.((State%time*Model%Units%gT0 >= bc%wsaData%wsaT1) .and. (State%time*Model%Units%gT0 <= bc%wsaData%wsaT2))) then
          !find bounding slices
-         call findSlc(bc%wsaData%ebTab,State%time*Model%Units%gT0,n1,n2)
+         call GetTabSlc(bc%wsaData%ioTab,State%time*Model%Units%gT0,n1,n2)
          write(*,*) '[EP in wsaBC] getting in a new time backet', n1, n2
 
         !n1=1
@@ -350,14 +350,14 @@ module usergamic
         call rdWSAMap(bc%wsaData,Model,n1,bc%wsaData%ibcMap1)
         bc%wsaData%wsaN1 = n1
         !time from Step#n1
-        bc%wsaData%wsaT1 = bc%wsaData%ebTab%times(n1)
+        bc%wsaData%wsaT1 = bc%wsaData%ioTab%times(n1)
         
 
         !read a map from Step#2
         call rdWSAMap(bc%wsaData,Model,n2,bc%wsaData%ibcMap2)
         bc%wsaData%wsaN2 = n2
         !time from Step#n2
-        bc%wsaData%wsaT2 = bc%wsaData%ebTab%times(n2)
+        bc%wsaData%wsaT2 = bc%wsaData%ioTab%times(n2)
         
       endif
 
@@ -646,42 +646,42 @@ module usergamic
        integer :: dims(3)
 
 
-       wsaData%ebTab%bStr = wsaFile
+       wsaData%ioTab%bStr = wsaFile
 
        ![EP] read times, convert to times to code units, read grid dimensions
-       call rdTab(wsaData%ebTab,inpXML,wsaFile,doTSclO=.false.)
-       ![EP] ebTab%N is a number of time steps
-        if (wsaData%ebTab%N>1) then
+       call InitIOTab(wsaData%ioTab,inpXML,wsaFile)
+       ![EP] ioTab%N is a number of time steps
+        if (wsaData%ioTab%N>1) then
             wsaData%doStatic = .false.
         endif
         ![EP] debug
         write(*,*) '[EP in initTSlice] doStatic = ', wsaData%doStatic
-        write(*,*) '[EP in initTSlice] rdTab check ', wsaData%ebTab%N, wsaData%ebTab%dNi, wsaData%ebTab%dNj, wsaData%ebTab%dNk
+        write(*,*) '[EP in initTSlice] rdTab check ', wsaData%ioTab%N, wsaData%ioTab%dNi, wsaData%ioTab%dNj, wsaData%ioTab%dNk
         !!!add a check for steady state and time-dep
-        write(*,*) '[EP in initTSlice] times in innerbc ', wsaData%ebTab%times
+        write(*,*) '[EP in initTSlice] times in innerbc ', wsaData%ioTab%times
 
         ![EP] dimensions of i-ghost grid
-        wsaData%Nr = wsaData%ebTab%dNi
-        wsaData%Nt = wsaData%ebTab%dNj
-        wsaData%Np = wsaData%ebTab%dNk
+        wsaData%Nr = wsaData%ioTab%dNi
+        wsaData%Nt = wsaData%ioTab%dNj
+        wsaData%Np = wsaData%ioTab%dNk
         write(*,*) '[EP in initTSlice] Dimensions ', wsaData%Nr, wsaData%Nt, wsaData%Np
         write(*,*) '[EP in initTSlice] State%time ', State%time
         !TODO allocate ibcVars
 
         !initialization
-        ![EP] TD: find bounding time slices from ebTab file
-        call findSlc(wsaData%ebTab,State%time*Model%Units%gT0,n1,n2)
+        ![EP] TD: find bounding time slices from ioTab file
+        call GetTabSlc(wsaData%ioTab,State%time*Model%Units%gT0,n1,n2)
         write(*,*) '[EP in initTSlice] Bounding slices ', n1, n2
 
         !read map from Step#n1
         call rdWSAMap(wsaData,Model,n1,wsaData%ibcMap1)
         wsaData%wsaN1 = n1
-        wsaData%wsaT1 = wsaData%ebTab%times(n1)
+        wsaData%wsaT1 = wsaData%ioTab%times(n1)
 
         !read map from Step#2
         call rdWSAMap(wsaData,Model,n2,wsaData%ibcMap2)
         wsaData%wsaN2 = n2
-        wsaData%wsaT2 = wsaData%ebTab%times(n2)
+        wsaData%wsaT2 = wsaData%ioTab%times(n2)
         
         write(*,*)'[EP in initTSlice] Bounding times ', wsaData%wsaT1, wsaData%wsaT2 
 
@@ -724,7 +724,7 @@ module usergamic
 
         !reading group for this time step n
         write(*,*) 'Reading file/group = ', &
-             trim(wsaData%ebtab%bStr),'/',trim(wsaData%ebTab%gStrs(n))
+             trim(wsaData%ioTab%bStr),'/',trim(wsaData%ioTab%gStrs(n))
 
         !Reset IO chain
         call ClearIO(IOVars)
@@ -741,7 +741,7 @@ module usergamic
         call AddInVar(IOVars,"MJD")
         call AddInVar(IOVars,"time",vSclO=1/Model%Units%gT0)
 
-        call ReadVars(IOVars,.false.,wsaData%ebTab%bStr,wsaData%ebTab%gStrs(n)) 
+        call ReadVars(IOVars,.false.,wsaData%ioTab%bStr,wsaData%ioTab%gStrs(n)) 
 
         !do i=1,10
         !   write(*,*)'[EP in rdWSAMap]  IOVars%dims', IOVars(i)%dims(1:3)
