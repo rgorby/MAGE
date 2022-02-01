@@ -69,6 +69,8 @@ set(TPIC ${TPICDEF} CACHE FILEPATH "CHIMP TP IC file")
 file(GLOB EBICDEF src/chimp/ebICs/ebICstd.F90)
 set(EBIC ${EBICDEF} CACHE FILEPATH "CHIMP EB IC file")
 
+file(GLOB GAMHELICDEF src/gamhell/ICs/wsatd.F90)
+set(GAMHELIC ${GAMHELICDEF} CACHE FILEPATH "Gamera Helio IC file")
 
 #-------------
 #Include user cmake file if present
@@ -215,7 +217,7 @@ if(ENABLE_MPI)
     add_custom_target(gamera_mpi ALL)
     message("\tAdding executable gamera_mpi.x")
     add_executable(gamera_mpi.x src/drivers/gamera_mpix.F90 ${GAMIC})
-    target_link_libraries(gamera_mpi.x baselib gamlib basempilib gammpilib)
+    target_link_libraries(gamera_mpi.x baselib gamlib basempilib gammpilib chimplib)
     add_dependencies(gamera_mpi gamera_mpi.x)
 
     #-------------
@@ -227,6 +229,16 @@ if(ENABLE_MPI)
     add_executable(voltron_mpi.x src/drivers/voltron_mpix.F90)
     target_link_libraries(voltron_mpi.x voltmpilib voltlib gammpilib gamlib remixlib chimplib rcmlib basempilib baselib)
     add_dependencies(voltron_mpi voltron_mpi.x)
+
+    #-------------
+    #Kaiju: Gamera Helio MPI
+    message("Adding Gamera Helio MPI module ...")
+    add_custom_target(gamhell_mpi ALL)
+    message("\tAdding executable gamhell_mpi.x")
+    add_executable(gamhell_mpi.x src/drivers/gamera_mpix.F90 ${GAMHELIC})
+    target_link_libraries(gamhell_mpi.x baselib gamlib basempilib gammpilib chimplib)
+    add_dependencies(gamhell_mpi gamhell_mpi.x)
+
 
 endif()
 

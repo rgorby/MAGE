@@ -9,27 +9,43 @@ import kaipy.kaiViz as kv
 import kaipy.gamhelio.heliosphere as hsph
 import os
 
+#Tsolar = 25.38
+Tsolar = 1.e6
+
 VMax = 800.
 VMin = 300.
 MagVCM = "inferno"
+#MagVCM = "rainbow"
 
+#inner helio
 DMax = 150.
 DMin = 2000.
 DCM = "copper_r"
 
-D0Max = 15.
-D0Min = 1.
+#limits for iSlice
+#21.5 R_S
+#D0Max = 1000.
+#D0Min = 300.
+#1 au
+D0Max = 1.
+D0Min = 15.
 D0CM = "copper_r"
 
-TMax = 1.
-TMin = 0.01
+TMin = 0.2
+TMax = 2.
 TCM = "copper"
+
+T0Min = 0.05
+T0Max = 0.15
 
 BMax = 150.
 BMin = -150.
+#BMax = 5.
+#BMin = -5.
 BCM = "coolwarm"
 
-
+B0Min = -4.
+B0Max = 4.
 #Function to Add different size options to argument
 #not used for helio right now
 def AddSizeArgs(parser):
@@ -41,9 +57,14 @@ def AddSizeArgs(parser):
 #Return domain size from parsed arguments; see msphViz for options
 def GetSizeBds(pic):
 	if (pic == "pic1" or pic == "pic2"):
+                #for inner helio
 		xyBds = [-216.,216.,-216.,216.]
+                #for 1-10 au helio
+                #xyBds = [-10.,10.,-10.,10.]
 	elif (pic == "pic3"):
 		xyBds = [0.,360.,-75.,75.]
+	elif (pic == "pic4"):
+                xyBds = [0.,360.,-90.,90.]
 	else:		
 		print ("No pic type specified.")
 	return xyBds
@@ -122,7 +143,7 @@ def PlotMerDNorm(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
 		Ax.yaxis.set_label_position('right')
 	return Dr, Dl
 
-#Plot normalized Br Br(r/r0)^2 in meridional plane
+#Plot normalized Br Br(r/r0)^2 in meridional plane Y=0
 def PlotMerBrNorm(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
 	vB = kv.genNorm(BMin, BMax, doLog=False, midP=None)
 
@@ -137,7 +158,15 @@ def PlotMerBrNorm(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
 	xr, zr, xl, zl, r = gsph.MeridGridHalfs()
 	Ax.pcolormesh(xr,zr,Br_r,cmap=BCM,norm=vB,shading='auto')
 	Ax.pcolormesh(xl,zl,Br_l,cmap=BCM,norm=vB,shading='auto')
-
+	#plot heliospheric current sheet
+	#cell-cent coords first
+	xr_c = 0.25*( xr[:-1,:-1]+xr[:-1,1:]+xr[1:,:-1]+xr[1:,1:] )
+	zr_c = 0.25*( zr[:-1,:-1]+zr[:-1,1:]+zr[1:,:-1]+zr[1:,1:] )
+	xl_c = 0.25*( xl[:-1,:-1]+xl[:-1,1:]+xl[1:,:-1]+xl[1:,1:] )
+	zl_c = 0.25*( zl[:-1,:-1]+zl[:-1,1:]+zl[1:,:-1]+zl[1:,1:] )
+	#plot Br=0
+	Ax.contour(xr_c,zr_c,Br_r,[0.],colors='black')
+	Ax.contour(xl_c,zl_c,Br_l,[0.],colors='black')
 	kv.SetAx(xyBds,Ax)
 
 	if (doDeco):
@@ -285,9 +314,7 @@ def PlotiSlD(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
 
 #Plot Br and current sheet (Br=0) at 1 AU
 def PlotiSlBr(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
-	BMin = -5.
-	BMax = 5.
-	vB = kv.genNorm(BMin, BMax, doLog=False, midP=None)
+	vB = kv.genNorm(B0Min, B0Max, doLog=False, midP=None)
 	if (AxCB is not None):
 		AxCB.clear()
 		kv.genCB(AxCB,vB,"Radial magnetic field [nT]",cM=BCM,Ntk=7)
@@ -309,14 +336,68 @@ def PlotiSlBr(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
 		Ax.set_ylabel('Latitude')
 		Ax.yaxis.tick_right()
 		Ax.yaxis.set_label_position('right')
+		#for pic4
+		Ax.set_aspect('equal')
 	return Br
+
+#Plot Br and current sheet (Br=0) at certain distance set in iSliceBr
+def PlotiSlBrRotatingFrame(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
+	BMin = -5.
+	BMax = 5.
+	vB = kv.genNorm(BMin, BMax, doLog=False, midP=None)
+	if (AxCB is not None):
+		AxCB.clear()
+		kv.genCB(AxCB,vB,"Radial magnetic field [nT]",cM=BCM,Ntk=7)
+	if (doClear):
+		Ax.clear()
+
+	#Br from the i=0
+	Br = gsph.iSliceBrBound(nStp)
+	lat, lon = gsph.iSliceGrid()
+	
+	#transform into rotating frame
+	#Julian date of the initial map
+	jd0 = gsph.MJDs.min()
+	jd_c = gsph.MJDs[nStp]
+	print (jd0, jd_c)
+	#Julian date of the current solution
+	time_days = (jd_c - jd0)
+	print (time_days)
+	omega=2*180./Tsolar
+
+	#for contour cell-centered lon lat coordinates
+	lon_c = 0.25*( lon[:-1,:-1]+lon[:-1,1:]+lon[1:,:-1]+lon[1:,1:] )
+	lat_c = 0.25*( lat[:-1,:-1]+lat[:-1,1:]+lat[1:,:-1]+lat[1:,1:] )
+
+	phi = lon_c[0,:] 
+	phi_prime = (phi-omega*time_days)%(2*180.)
+
+	if np.where(np.ediff1d(phi_prime)<0)[0].size!=0: #for the first map size =0, for other maps size=1
+		ind0=np.where(np.ediff1d(phi_prime)<0)[0][0]+1
+		#print 'ind = ', ind0
+	else:
+		ind0=0 # this is for the first map
+	print('ind0 = ', ind0)
+
+	Br = np.roll(Br, -ind0, axis = 1)
+
+	Ax.pcolormesh(lon,lat,Br,cmap=BCM,norm=vB)
+	Ax.contour(lon_c, lat_c,Br,[0.],colors='black')
+	kv.SetAx(xyBds,Ax)
+
+	if (doDeco):
+		Ax.set_xlabel('Longitude')
+		Ax.set_ylabel('Latitude')
+		Ax.yaxis.tick_right()
+		Ax.yaxis.set_label_position('right')
+		#for pic4
+		Ax.set_aspect('equal')
+	return Br
+
 
 #Plot Temperature at 1 AU
 def PlotiSlTemp(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
-	#colorbar limits
-	TMin = 0.02
-	TMax = 0.12
-	vT = kv.genNorm(TMin, TMax, doLog=False, midP=None)
+	vT = kv.genNorm(T0Min, T0Max, doLog=False, midP=None)
 
 	if (AxCB is not None):
 		AxCB.clear()

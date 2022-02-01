@@ -21,3 +21,13 @@ class params():
 
         self.B0 = config.getfloat('Normalization','B0')
         self.n0 = config.getfloat('Normalization','n0')
+        
+        self.tMin     = config.getfloat('Grid','tMin')
+        self.tMax     = config.getfloat('Grid','tMax')
+        self.Rin      = config.getfloat('Grid','Rin')
+        self.Rout     = config.getfloat('Grid','Rout')
+        self.Ni       = config.getint('Grid','Ni')
+        self.Nj       = config.getint('Grid','Nj')
+        self.Nk       = config.getint('Grid','Nk')
+
+
