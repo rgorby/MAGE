@@ -552,12 +552,13 @@ module init
         real(rp),optional, intent(in) :: xyzBdsIN(6)
 
     
-        logical :: doWarp, doCyl, doSph
+        logical :: doWarp, doCyl, doSph, doStretch
         real(rp) :: xyzBds(6)
         real(rp) :: dx,dy,dz
         integer :: i,j,k
         !Variables for warp generation
         real(rp) :: Lx,Ly,Lz, xp,yp,zp, Ax,Ay,Az,R,w0, dsp
+        real(rp) :: xW,yW,zW
         real(rp) :: x1,x2,x3,x,y,z
         integer :: Nw
         
@@ -736,6 +737,34 @@ module init
                 enddo
             enddo
 
+        endif
+
+        call xmlInp%Set_Val(doStretch,"grid/doStretch" ,.false.)
+        if (doStretch) then
+            call xmlInp%Set_Val(xW,"grid/xW",1.0_rp)
+            call xmlInp%Set_Val(yW,"grid/yW",1.0_rp)
+            call xmlInp%Set_Val(zW,"grid/zW",1.0_rp)
+            
+            Lx = (xyzBds(2)-xyzBds(1))
+            Ly = (xyzBds(4)-xyzBds(3))
+            Lz = (xyzBds(6)-xyzBds(5))
+            !Recalculate certain corners, for now just doing yp
+
+            do k=Grid%ksg, Grid%keg+1
+                do j=Grid%jsg, Grid%jeg+1
+                    do i=Grid%isg, Grid%ieg+1
+                        
+                        !Remap to be eta = [0,1]
+                        xp = ( Grid%xyz(i,j,k,XDIR) - xyzBds(1) )/Lx
+                        yp = ( Grid%xyz(i,j,k,YDIR) - xyzBds(3) )/Ly
+                        zp = ( Grid%xyz(i,j,k,ZDIR) - xyzBds(5) )/Lz
+
+                        Grid%xyz(i,j,k,XDIR) = 2*Lx*xp + xW*(0.5*Lx - Lx*xp)*(1-xp)*xp - Lx
+                        Grid%xyz(i,j,k,YDIR) = 2*Ly*yp + yW*(0.5*Ly - Ly*yp)*(1-yp)*yp - Ly
+                        Grid%xyz(i,j,k,ZDIR) = 2*Lz*zp + zW*(0.5*Lz - Lz*zp)*(1-zp)*zp - Lz
+                    enddo
+                enddo
+            enddo
         endif
 
     end subroutine genGridXML
