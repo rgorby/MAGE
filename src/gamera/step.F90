@@ -433,9 +433,7 @@ module step
             
             if(Model%doResistive) then
                ! Asume t ~ x^2/(2Diff)
-               Diff = maxval((/State%Deta(i,j,k,XDIR),State%Deta(i+1,j,k,XDIR), &
-                               State%Deta(i,j,k,YDIR),State%Deta(i,j+1,k,YDIR), &
-                               State%Deta(i,j,k,ZDIR),State%Deta(i,j,k+1,ZDIR)/))
+               Diff = EdgeScalar2CC(Model,Gr,State%Deta,i,j,k)
                Vdiff = 2.0d0*Diff/minval((/Gr%di(i,j,k),Gr%dj(i,j,k),Gr%dk(i,j,k)/))
             end if
         endif

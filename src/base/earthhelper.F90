@@ -346,6 +346,25 @@ module earthhelper
 
     end function MagsphereDipole
 
+    !Get mirror ratio at R for a given invariant latitude
+    function MirrorRatio(invlat,rad) result(Rm)
+        real(rp), intent(in) :: invlat,rad
+        real(rp) :: Rm
+        real(rp) :: mlat,mlon,M0
+        real(rp), dimension(NDIM) :: xyzIon,xyzMir
+        M0 = 1.0
+
+        mlat = invlat
+        mlon = 0.0
+
+        xyzIon(XDIR) = cos(mlat)*cos(mlon)
+        xyzIon(YDIR) = cos(mlat)*sin(mlon)
+        xyzIon(ZDIR) = sin(mlat)
+
+        xyzMir = DipoleShift(xyzIon,rad)
+        Rm = norm2(MagsphereDipole(xyzIon,M0))/norm2(MagsphereDipole(xyzMir,M0))
+
+    end function MirrorRatio
 !---------
 !Code for quiet time RC
     !Set parameters based on desired dst, Lpeak and dL

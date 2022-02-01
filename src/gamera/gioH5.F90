@@ -22,6 +22,11 @@ module gioH5
 
     contains
 
+    subroutine SetFatIO()
+
+        doFat = .true.
+    end subroutine SetFatIO
+    
     subroutine readH5Grid(Model,Grid,inH5)
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(inout) :: Grid
@@ -303,7 +308,8 @@ module gioH5
 
             !---------------------
             !Calculate Velocities/Pressure
-            !$OMP PARALLEL DO default(shared) collapse(2)
+            !$OMP PARALLEL DO default(shared) collapse(2) &
+            !$OMP private(i,j,k)
             do k=kMin,kMax
                 do j=jMin,jMax
                     do i=iMin,iMax
@@ -434,10 +440,24 @@ module gioH5
             endif
 
             if(Model%doResistive) then
-                gVec(:,:,:,:) = State%Deta(iMin:iMax,jMin:jMax,kMin:kMax,XDIR:ZDIR)
-                call AddOutVar(IOVars,"Etax",gVec(:,:,:,XDIR))
-                call AddOutVar(IOVars,"Etay",gVec(:,:,:,YDIR))
-                call AddOutVar(IOVars,"Etaz",gVec(:,:,:,ZDIR))
+                !$OMP PARALLEL DO default(shared) collapse(2) &
+                !$OMP private(i,j,k)
+                do k=kMin,kMax
+                    do j=jMin,jMax
+                        do i=iMin,iMax
+                            !Save cell-centered eta
+                            gVar(i,j,k) = EdgeScalar2CC(Model,Gr,State%Deta,i,j,k)
+
+                            !Save cell-centered diffusive velocity
+                            gVar1(i,j,k) = gVar(i,j,k)*2.0/minval([Gr%di(i,j,k),Gr%dj(i,j,k),Gr%dk(i,j,k)])
+                        enddo
+                    enddo
+                enddo
+
+                !Should change this to have more meaningful scaling
+                call GameraOut("Eta","CODE",1.0_rp,gVar(iMin:iMax,jMin:jMax,kMin:kMax))
+                !Output diffusive velocity scaled to proper output velocity units
+                call GameraOut("Vdiff",gamOut%vID,gamOut%vScl,gVar1(iMin:iMax,jMin:jMax,kMin:kMax))
             end if
 
             !Write divergence if necessary

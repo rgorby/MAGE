@@ -19,7 +19,6 @@ module mixdefs
      enumerator :: MHDPSI=1
   end enum
 
-
   enum, bind(C)
      enumerator :: NORTH=1,SOUTH
   end enum

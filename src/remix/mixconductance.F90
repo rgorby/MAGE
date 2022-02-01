@@ -13,46 +13,37 @@ module mixconductance
   real(rp), dimension(:,:), allocatable, private :: tmpE,tmpF ! used for smoothing precipitation avg_eng and num_flux
   real(rp), dimension(:,:), allocatable, private :: Kc ! used for multi-reflection modification
 
+  !Replacing some hard-coded inline values (bad) w/ module private values (slightly less bad)
+  real(rp), parameter, private :: maxDrop = 20.0 !Hard-coded max potential drop [kV]
+  real(rp), private :: RinMHD = 0.0 !Rin of MHD grid (0 if not running w/ MHD)
+  logical , private :: doRobKap = .true. !Use Kaeppler+ 15 correction to SigH/SigP from Robinson
+
   contains
     subroutine conductance_init(conductance,Params,G)
       type(mixConductance_T), intent(inout) :: conductance
-      type(mixParams_T), intent(in) :: Params
-      type(mixGrid_T), intent(in) :: G
+      type(mixParams_T)     , intent(in)    :: Params
+      type(mixGrid_T)       , intent(in)    :: G
 
       ! define these module-wide variables so we don't have to pass the Params object to all the conductance functions
       ! this is similar to how it was done in MIX
-      conductance%euv_model_type = Params%euv_model_type
-      conductance%et_model_type = Params%et_model_type
-      conductance%alpha = Params%alpha
-      conductance%beta = Params%beta
-      conductance%R = Params%R
-      conductance%F107 = Params%F107
-      conductance%pedmin = Params%pedmin
-      conductance%hallmin = Params%hallmin
-      conductance%sigma_ratio = Params%sigma_ratio
-      conductance%ped0 = Params%ped0
-      conductance%const_sigma = Params%const_sigma
-      conductance%doRamp = Params%doRamp
-      conductance%doChill = Params%doChill
-      conductance%doStarlight = Params%doStarlight      
-      conductance%doMR = Params%doMR      
-      conductance%doAuroralSmooth = Params%doAuroralSmooth      
-      conductance%apply_cap = Params%apply_cap
+      conductance%euv_model_type    = Params%euv_model_type
+      conductance%et_model_type     = Params%et_model_type
+      conductance%alpha             = Params%alpha
+      conductance%beta              = Params%beta
+      conductance%R                 = Params%R
+      conductance%F107              = Params%F107
+      conductance%pedmin            = Params%pedmin
+      conductance%hallmin           = Params%hallmin
+      conductance%sigma_ratio       = Params%sigma_ratio
+      conductance%ped0              = Params%ped0
+      conductance%const_sigma       = Params%const_sigma
+      conductance%doRamp            = Params%doRamp
+      conductance%doChill           = Params%doChill
+      conductance%doStarlight       = Params%doStarlight      
+      conductance%doMR              = Params%doMR      
+      conductance%doAuroralSmooth   = Params%doAuroralSmooth      
+      conductance%apply_cap         = Params%apply_cap
       conductance%aurora_model_type = Params%aurora_model_type
-
-      conductance%PI2       = pi/2.0D0
-      conductance%ang65     = pi/180.0D0*65.0D0
-      conductance%ang100    = pi*5.0D0/9.0D0
-      conductance%pref      = 2.0D0*250.0D0**(-0.666666)
-      conductance%href      = 1.0D0/(1.8D0*sqrt(250.0D0))
-      conductance%shall     = 1.8D0*sqrt(conductance%f107)
-      conductance%speder    = 0.5D0*conductance%f107**(0.666666)
-      conductance%pedslope  = 0.24D0*conductance%pref*conductance%speder*rad2deg
-      conductance%pedslope2 = 0.13D0*conductance%pref*conductance%speder*rad2deg
-      conductance%hallslope = 0.27D0*conductance%href*conductance%shall*rad2deg;
-      conductance%sigmap65  = conductance%speder*cos(conductance%ang65)**0.666666
-      conductance%sigmah65  = conductance%shall*cos(conductance%ang65)
-      conductance%sigmap100 = conductance%sigmap65-(conductance%ang100-conductance%ang65)*conductance%pedslope
 
       if (.not. allocated(conductance%zenith)) allocate(conductance%zenith(G%Np,G%Nt))
       if (.not. allocated(conductance%coszen)) allocate(conductance%coszen(G%Np,G%Nt))
@@ -76,12 +67,14 @@ module mixconductance
       if (.not. allocated(tmpD)) allocate(tmpD(G%Np,G%Nt))
       if (.not. allocated(tmpC)) allocate(tmpC(G%Np,G%Nt))  
 
-      if (.not. allocated(JF0)) allocate(JF0(G%Np,G%Nt))      
-      if (.not. allocated(RM)) allocate(RM(G%Np,G%Nt))      
+      if (.not. allocated(JF0))  allocate(JF0 (G%Np,G%Nt))      
+      if (.not. allocated(RM))   allocate(RM  (G%Np,G%Nt))      
       if (.not. allocated(RRdi)) allocate(RRdi(G%Np,G%Nt))      
       if (.not. allocated(tmpE)) allocate(tmpE(G%Np+4,G%Nt+4)) ! for boundary processing.
       if (.not. allocated(tmpF)) allocate(tmpF(G%Np+4,G%Nt+4))
-      if (.not. allocated(Kc)) allocate(Kc(G%Np,G%Nt))
+      if (.not. allocated(Kc))   allocate(Kc  (G%Np,G%Nt))
+
+      RinMHD = Params%RinMHD
 
     end subroutine conductance_init
 
@@ -90,22 +83,38 @@ module mixconductance
       type(mixGrid_T), intent(in) :: G
       type(mixState_T), intent(inout) :: St
 
-      conductance%zenith = conductance%PI2 - ( asin(G%x) + St%tilt )
+      real(rp) :: ang65, ang100, pref, href, shall
+      real(rp) :: speder, pedslope, pedslope2, hallslope,sigmap65, sigmah65, sigmap100
+
+      conductance%zenith = PI/2 - ( asin(G%x) + St%tilt )
       ! An alternative (correct) definition of the zenith angle (for Moen-Brekke)
       conductance%coszen = G%x*cos(St%tilt)+sqrt(1.-G%x**2-G%y**2)*sin(St%tilt) ! as it should be
       conductance%zenith = acos(conductance%coszen)
 
       select case ( conductance%euv_model_type )
          case (AMIE)
-            where (conductance%zenith <= conductance%ang65) 
-               conductance%euvSigmaP = conductance%speder*cos(conductance%zenith)**0.666666
-               conductance%euvSigmaH = conductance%shall*cos(conductance%zenith)
-            elsewhere (conductance%zenith <= conductance%ang100)
-               conductance%euvSigmaP = conductance%sigmap65 - conductance%pedslope*(conductance%zenith - conductance%ang65)
-               conductance%euvSigmaH = conductance%sigmah65 - conductance%hallslope*(conductance%zenith - conductance%ang65)
-            elsewhere (conductance%zenith > conductance%ang100)
-               conductance%euvSigmaP = conductance%sigmap100 - conductance%pedslope2*(conductance%zenith-conductance%ang100)
-               conductance%euvSigmaH = conductance%sigmah65 - conductance%hallslope*(conductance%zenith-conductance%ang65)
+            ang65     = pi/180.0*65.0
+            ang100    = pi*5.0/9.0
+            pref      = 2.0*250.0**(-2.0/3.0)
+            href      = 1.0/(1.8*sqrt(250.0))
+            shall     = 1.8*sqrt(conductance%f107)
+            speder    = 0.5*conductance%f107**(2.0/3.0)
+            pedslope  = 0.24*pref*speder*rad2deg
+            pedslope2 = 0.13*pref*speder*rad2deg   
+            hallslope = 0.27*href*shall*rad2deg;
+            sigmap65  = speder*cos(ang65)**(2.0/3.0)
+            sigmah65  = shall*cos(ang65)
+            sigmap100 = sigmap65-(ang100-ang65)*pedslope
+
+            where (conductance%zenith <= ang65) 
+               conductance%euvSigmaP = speder*cos(conductance%zenith)**(2.0/3.0)
+               conductance%euvSigmaH = shall *cos(conductance%zenith)
+            elsewhere (conductance%zenith <= ang100)
+               conductance%euvSigmaP = sigmap65 - pedslope *(conductance%zenith - ang65)
+               conductance%euvSigmaH = sigmah65 - hallslope*(conductance%zenith - ang65)
+            elsewhere (conductance%zenith > ang100)
+               conductance%euvSigmaP = sigmap100 - pedslope2*(conductance%zenith-ang100)
+               conductance%euvSigmaH = sigmah65  - hallslope*(conductance%zenith-ang65)
             end where
          case (MOEN_BREKKE) !!! Needs testing
             ! This works only for the dayside (zenith <= pi/2)
@@ -203,7 +212,7 @@ module mixconductance
       conductance%deltaE = (heFrac*Mp_cgs)**1.5D0/eCharge*1.D-4*sqrt(erg2kev)*conductance%R*conductance%aRes*signOfJ*(St%Vars(:,:,FAC)*1.e-6)*sqrt(conductance%E0)/tmpD
 
       ! limit the max potential energy drop to 20 [keV]
-      conductance%deltaE = min(20.D0,conductance%deltaE)
+      conductance%deltaE = min(maxDrop,conductance%deltaE)
 
       ! floor on total energy
       St%Vars(:,:,AVG_ENG) = max(conductance%E0 + conductance%deltaE,1.D-8)
@@ -257,12 +266,13 @@ module mixconductance
       conductance%E0 = conductance%alpha*Mp_cgs*heFrac*erg2kev*tmpC**2
       conductance%phi0 = sqrt(kev2erg)/(heFrac*Mp_cgs)**1.5D0*conductance%beta*sqrt(heFrac*1836.152674)*0.39894228*tmpD*sqrt(conductance%E0)
       ! conductance%phi0 = sqrt(kev2erg)/(heFrac*Mp_cgs)**1.5D0*conductance%beta*tmpD*sqrt(conductance%E0)
-      RM = 10.D0
+      
       JF0 = min( 1.D-4*signOfJ*(St%Vars(:,:,FAC)*1.e-6)/eCharge/(conductance%phi0), RM*0.99 )
 
+      !NOTE: conductance%drift should be turned off when using RCM for diffuse
       where ( JF0 > 1. )
       ! limit the max potential energy drop to 20 [keV]
-         conductance%deltaE = min( 0.5*conductance%E0*(RM - 1.D0)*dlog((RM-1.D0)/(RM-JF0)), 20.D0 )
+         conductance%deltaE = min( 0.5*conductance%E0*(RM - 1.D0)*dlog((RM-1.D0)/(RM-JF0)),maxDrop)
          St%Vars(:,:,Z_NFLUX) = JF0*conductance%phi0
       elsewhere
          conductance%deltaE = 0.
@@ -324,8 +334,9 @@ module mixconductance
 
       ! note, this assumes that fedder has been called prior
       conductance%engFlux = kev2erg*St%Vars(:,:,AVG_ENG)*St%Vars(:,:,NUM_FLUX)  ! Energy flux in ergs/cm^2/s
-      conductance%deltaSigmaP = 40.D0*St%Vars(:,:,AVG_ENG)*sqrt(conductance%engFlux)/(16.D0+St%Vars(:,:,AVG_ENG)**2);
-      conductance%deltaSigmaH = 0.45D0*conductance%deltaSigmaP*St%Vars(:,:,AVG_ENG)**0.85D0/(1.D0+0.0025D0*St%Vars(:,:,AVG_ENG)**2)
+      conductance%deltaSigmaP = SigmaP_Robinson(St%Vars(:,:,AVG_ENG),conductance%engFlux)
+      conductance%deltaSigmaH = SigmaH_Robinson(St%Vars(:,:,AVG_ENG),conductance%engFlux)
+
 
     end subroutine conductance_aurora
 
@@ -352,12 +363,60 @@ module mixconductance
 !      conductance%deltaSigmaH = (1.87-0.54*exp(-0.16*St%Vars(:,:,AVG_ENG)))*conductance%deltaSigmaH
     end subroutine conductance_mr
 
+    !Cleaned up routine to calculate MR-augmented eavg and nflx
+    subroutine AugmentMR(eavg,nflx,eavgMR,nflxMR)
+      real(rp), intent(in)  :: eavg  ,nflx
+      real(rp), intent(out) :: eavgMR,nflxMR
+
+      real(rp) :: eflux,Kc
+
+      if ( (eavg<=30.0) .and. (eavg>=0.5) ) then
+         Kc = 3.36 - exp(0.597-0.37*eavg+0.00794*eavg**2)
+         eflux = eavg*nflx
+         eavgMR = 0.073+0.933*eavg-0.0092*eavg**2 ! [keV]
+         nflxMR = Kc*eflux/eavgMR
+      else
+         !Nothing to do
+         eavgMR = eavg
+         nflxMR = nflx
+
+      endif
+    end subroutine AugmentMR
+
+    !Calculate mirror ratio array
+    !NOTE: Leaving this to be done every time at every lat/lon to accomodate improved model later
+   subroutine GenMirrorRatio(G)
+      type(mixGrid_T), intent(in) :: G
+
+      real(rp) :: mlat,mlon
+      integer  :: i,j
+
+      if (RinMHD > 0) then
+         !Calculate actual mirror ratio
+         !NOTE: Should replace this w/ actual inner boundary field strength
+         do j=1,G%Nt
+            do i=1,G%Np
+               mlat = PI/2 - G%t(i,j)
+               mlon = G%p(i,j)
+
+               RM(i,j) = MirrorRatio(mlat,RinMHD)
+            enddo
+         enddo
+      else
+         !Set mirror ratio everywhere no matter the inner boundary to 10
+         !Note: This may have been okay for simulating magnetospheres 40 years ago, but it's 2021 now
+         RM = 10.0
+      endif
+   end subroutine GenMirrorRatio
+
     subroutine conductance_total(conductance,G,St,gcm,h)
       type(mixConductance_T), intent(inout) :: conductance
       type(mixGrid_T), intent(in) :: G
       type(mixState_T), intent(inout) :: St
       type(gcm_T),optional,intent(in) :: gcm
       integer,optional,intent(in) :: h
+
+      call GenMirrorRatio(G)
 
       ! always call fedder to fill in AVG_ENERGY and NUM_FLUX
       ! even if const_sigma, we still have the precip info that way
@@ -411,6 +470,29 @@ module mixconductance
 
     end subroutine conductance_total
 
+    !Returns Robinson's SigP from eavg [kEv] and eflux [ergs/cm^2]
+   elemental function SigmaP_Robinson(eavg,eflux) result(SigP)
+      real(rp), intent(in) :: eavg,eflux
+      real(rp) :: SigP
+      SigP = 40.0*eavg*sqrt(eflux)/(16.0 + eavg**2.0)
+   end function SigmaP_Robinson
+
+   !Returns Robinson's SigH from eavg [kEv] and eflux [ergs/cm^2]
+   !NOTE: Extra correction from Fedder
+   elemental function SigmaH_Robinson(eavg,eflux) result(SigH)
+      real(rp), intent(in) :: eavg,eflux
+      real(rp) :: SigH
+      real(rp) :: SigP
+
+      SigP = SigmaP_Robinson(eavg,eflux)
+      if (doRobKap) then
+         !Kaeppler+ 2015
+         SigH = 0.57*SigP*(eavg**0.53)
+      else
+         SigH = 0.45*SigP*(eavg**0.85)/(1.0 + 0.0025*eavg**2.0) !Includes extra Fedder correction to curb values for high eavg
+      endif
+   end function SigmaH_Robinson
+
     subroutine conductance_ramp(conductance,G,rPolarBound,rEquatBound,rLowLimit)
       type(mixConductance_T), intent(inout) :: conductance
       type(mixGrid_T), intent(in) :: G      
@@ -442,7 +524,7 @@ module mixconductance
       RRdi = 0.D0
       RRdi = (G%y-0.03*signOfY)**2 + ( G%x/cos(al0) - Rio*cos(alp-al0)*tan(al0) )**2
       where(RRdi < Radi)
-         conductance%AuroraMask = cos((RRdi/Radi)**order*conductance%PI2)+0.D0
+         conductance%AuroraMask = cos((RRdi/Radi)**order*PI/2)+0.D0
       elsewhere
          conductance%AuroraMask = 0.D0
       end where
