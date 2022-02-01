@@ -115,7 +115,7 @@ contains
       class (MpiTestMethod), intent(inout) :: this
 
       character(len=strLen) :: caseFile
-      write(caseFile,'(A,I0,A)') 'cmiD_deep_', this%getNumProcesses()-1, '_res60_.xml'
+      write(caseFile,'(A,I0,A)') 'cmiD_deep_', this%getNumProcesses()-1, '_res60.xml'
       call initializeWithCaseXml(this, caseFile)
 
       if(isGamera) then
@@ -150,7 +150,7 @@ contains
       class (MpiTestMethod), intent(inout) :: this
 
       character(len=strLen) :: caseFile
-      write(caseFile,'(A,I0,A)') 'cmiD_deep_', this%getNumProcesses()-1, '_res60_.xml'
+      write(caseFile,'(A,I0,A)') 'cmiD_deep_', this%getNumProcesses()-1, '_res60.xml'
       call initializeWithCaseXml(this, caseFile)
 
       if(isGamera) then
@@ -183,7 +183,7 @@ contains
       class (MpiTestMethod), intent(inout) :: this
 
       character(len=strLen) :: caseFile
-      write(caseFile,'(A,I0,A)') 'cmiD_deep_', this%getNumProcesses()-1, '_res60_.xml'
+      write(caseFile,'(A,I0,A)') 'cmiD_deep_', this%getNumProcesses()-1, '_res60.xml'
       call initializeWithCaseXml(this, caseFile)
 
       if(isGamera) then
@@ -216,7 +216,7 @@ contains
       class (MpiTestMethod), intent(inout) :: this
 
       character(len=strLen) :: caseFile
-      write(caseFile,'(A,I0,A)') 'cmiD_deep_', this%getNumProcesses()-1, '_res0_.xml'
+      write(caseFile,'(A,I0,A)') 'cmiD_deep_', this%getNumProcesses()-1, '_res0.xml'
       call initializeWithCaseXml(this, caseFile)
 
       if(isGamera) then
@@ -268,7 +268,7 @@ contains
       class (MpiTestMethod), intent(inout) :: this
 
       character(len=strLen) :: caseFile
-      write(caseFile,'(A,I0,A)') 'cmiD_deep_', this%getNumProcesses()-1, '_res0_.xml'
+      write(caseFile,'(A,I0,A)') 'cmiD_deep_', this%getNumProcesses()-1, '_res0.xml'
       call initializeWithCaseXml(this, caseFile)
 
       if(isGamera) then
@@ -321,7 +321,7 @@ contains
 
       real(rp) :: x2err, x4err
       character(len=strLen) :: caseFile
-      write(caseFile,'(A,I0,A)') 'cmiD_deep_', this%getNumProcesses()-1, '_res0_.xml'
+      write(caseFile,'(A,I0,A)') 'cmiD_deep_', this%getNumProcesses()-1, '_res0.xml'
       call initializeWithCaseXml(this, caseFile)
 
       if(isGamera) then
@@ -361,7 +361,7 @@ contains
 
       real(rp) :: x2err, x4err
       character(len=strLen) :: caseFile
-      write(caseFile,'(A,I0,A)') 'cmiD_deep_', this%getNumProcesses()-1, '_res600_.xml'
+      write(caseFile,'(A,I0,A)') 'cmiD_deep_', this%getNumProcesses()-1, '_res600.xml'
       call initializeWithCaseXml(this, caseFile)
 
       if(isGamera) then
