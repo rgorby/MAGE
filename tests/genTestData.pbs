@@ -9,11 +9,6 @@
 #PBS -l select=4:ncpus=36:mpiprocs=2:ompthreads=18+1:ncpus=36:mpiprocs=1:ompthreads=36
 
 
-export TAG="cmiD_deep_8_genRes"
-export EXE="./voltron_mpi.x"
-export INPDECK="$TAG.xml"
-export OUTFILE="$TAG.out"
-
 export TMPDIR=/glade/scratch/$USER/temp
 mkdir -p $TMPDIR
 
@@ -71,7 +66,7 @@ module list
 echo "Running on host `hostname` on `date`"
 echo "PWD = $PWD"
 
-$MPICOMMAND $EXE $INPDECK > $OUTFILE
+$MPICOMMAND ./voltron_mpi.x cmiD_deep_8_genRes.xml > cmiD_deep_8_genRes.out
 
 echo "Finished run on `date`"
 
