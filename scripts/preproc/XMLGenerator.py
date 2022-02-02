@@ -1,12 +1,13 @@
 #!/usr/bin/python3
 
-import sys
+import argparse
 import configparser
-import subprocess
 import os
+from string import ascii_letters
+import subprocess
 import xml.etree.ElementTree as ET
 from xml.etree.ElementTree import Element
-from string import ascii_letters
+
 
 def convertUnits(myLine):
 	# Check if delete
@@ -61,66 +62,70 @@ def convertUnits(myLine):
 	# Put the whole thing back together and return
 	return (settingString + "= " + numberString)
 
+
 def initialize(settingsFile):
-	# Set up whitelist for section names (letters only)
-	whiteList = set(ascii_letters)
+    """Initialize using the settings file."""
 
-	# Open up settings file
-	settings = settingsFile # First argument is input file name
+    # Set up whitelist for section names (letters only)
+    whiteList = set(ascii_letters)
 
-	# Create a sub-folder called "Parsed Settings", or something
-	os.system("mkdir .Settings")
+    # Open up settings file
+    settings = settingsFile # First argument is input file name
 
-	# Go through the settings file and check for section flags
-	with open(settings, 'r') as file:
-		content = file.read()
+    # Create a sub-folder called "Parsed Settings", or something
+    os.system("mkdir .Settings")
 
-	# Move to subfilder
-	os.chdir(".Settings")
+    # Go through the settings file and check for section flags
+    with open(settings, 'r') as file:
+        content = file.read()
 
-	# Put everything between section flags in it's own subfile in the created directory.
-	# The name should correspond to the section.
-	contentSplit = content.splitlines()
+    # Move to subfilder
+    os.chdir(".Settings")
 
-	# Create a temporary string to hold the temporary settings files
-	temporary = ""
-	name = ''.join(l for l in contentSplit[0] if l in whiteList)
-	contentSplit.pop(0)
+    # Put everything between section flags in it's own subfile in the created directory.
+    # The name should correspond to the section.
+    contentSplit = content.splitlines()
 
-	pos = -1
+    # Create a temporary string to hold the temporary settings files
+    temporary = ""
+    name = ''.join(l for l in contentSplit[0] if l in whiteList)
+    contentSplit.pop(0)
 
-	# Loop through the split file
-	for line in contentSplit:
-		pos += 1
-		
-		if (len(line) < 1):
-			temporary = temporary + "\n"
-		# If there is a # at the beginning of the string
-		elif (line[0] == '#'):
-			# Then write file, change name, and reset temporary
-			tempFile = open(name + ".ini", "w")
-			tempFile.write(temporary)
-			tempFile.close()
-			name = ''.join(l for l in line if l in whiteList)
-			temporary = ""
-		elif (pos == (len(contentSplit) - 1)):
-			# Last one, add line then write everything out!
-			# Check for converting!
-			if ("#" in line):
-				temporary = temporary + convertUnits(line) + "\n"
+    pos = -1
 
-			else:
-				temporary = temporary + line + "\n"
+    # Loop through the split file
+    for line in contentSplit:
+        pos += 1
+        
+        if (len(line) < 1):
+            temporary = temporary + "\n"
+        # If there is a # at the beginning of the string
+        elif (line[0] == '#'):
+            # Then write file, change name, and reset temporary
+            tempFile = open(name + ".ini", "w")
+            tempFile.write(temporary)
+            tempFile.close()
+            name = ''.join(l for l in line if l in whiteList)
+            temporary = ""
+        elif (pos == (len(contentSplit) - 1)):
+            # Last one, add line then write everything out!
+            # Check for converting!
+            if ("#" in line):
+                temporary = temporary + convertUnits(line) + "\n"
 
-			tempFile = open(name + ".ini", "w")
-			tempFile.write(temporary)
-			tempFile.close()
-		# Check for conversion
-		elif ("#" in line):
-			temporary = temporary + convertUnits(line) + "\n"
-		else:
-			# Add line to temporary
-			temporary = temporary + line + "\n"
+            else:
+                temporary = temporary + line + "\n"
+
+            tempFile = open(name + ".ini", "w")
+            tempFile.write(temporary)
+            tempFile.close()
+        # Check for conversion
+        elif ("#" in line):
+            temporary = temporary + convertUnits(line) + "\n"
+        else:
+            # Add line to temporary
+            temporary = temporary + line + "\n"
+
 
 # Found on Stack Overflow.
 # This indents everything in the elem node properly since apparently etree doesn't do that on it's own...
@@ -139,225 +144,231 @@ def indent(elem, level=0):
         if level and (not elem.tail or not elem.tail.strip()):
             elem.tail = i
 
-def createXML():
-	# Get template file name
-	template = sys.argv[1]
 
-	# Get settings file name
-	settings = sys.argv[2]
+def create_from_xml_template(ini_file, xml_file, template):
+    """Convert the .ini file to a .xml file using a template."""
 
-	# Get output file name
-	output = sys.argv[3]
+    # Get settings file name
+    settings = ini_file
 
-	# Run Initialization for Settings
-	initialize(settings)
+    # Get output file name
+    output = xml_file
 
-	os.chdir('..')
+    # Run Initialization for Settings
+    initialize(settings)
 
-	# Check if initialize failed/didn't produce output
-	settingsFolder = os.listdir(".Settings")
-	if (len(settingsFolder) == 0):
-		print("Initialization failed. Aborting.")
-		# Cleanup Settigns folder
-		subprocess.Popen("rm -rf .Settings/", shell=True)
-		exit(1)
+    os.chdir('..')
 
-	# Read in default settings for this template
-	tree = ET.parse(template)
-	templateRoot = tree.getroot()
+    # Check if initialize failed/didn't produce output
+    settingsFolder = os.listdir(".Settings")
+    if (len(settingsFolder) == 0):
+        print("Initialization failed. Aborting.")
+        # Cleanup Settigns folder
+        subprocess.Popen("rm -rf .Settings/", shell=True)
+        exit(1)
 
-	# Make a Parser
-	user = configparser.RawConfigParser()
+    # Read in default settings for this template
+    tree = ET.parse(template)
+    templateRoot = tree.getroot()
 
-	# Try to turn on case sensitivity
-	user.optionxform = lambda option: option
+    # Make a Parser
+    user = configparser.RawConfigParser()
 
-	os.chdir(".Settings")
+    # Try to turn on case sensitivity
+    user.optionxform = lambda option: option
 
-	inputDicts = {}
+    os.chdir(".Settings")
 
-	# Iterate through each file there and make the root node the key for the resultant tree in a dictionary
-	for filename in os.listdir():
-		user = configparser.RawConfigParser()
-		user.optionxform = lambda option: option
-		user.read(filename)
-		temp = filename.split('.')
-		newFileName = temp[0]
-		inputDicts[newFileName] = user
+    inputDicts = {}
 
-	#print(inputDicts)
+    # Iterate through each file there and make the root node the key for the resultant tree in a dictionary
+    for filename in os.listdir():
+        user = configparser.RawConfigParser()
+        user.optionxform = lambda option: option
+        user.read(filename)
+        temp = filename.split('.')
+        newFileName = temp[0]
+        inputDicts[newFileName] = user
 
-	# Make bigger ETree by adding all roots as sub elements
-	top = Element('Kaiju')
+    #print(inputDicts)
 
-	for key in inputDicts.keys():
-		temp = Element(key)
-		# ET.dump(temp)
-		for section in inputDicts[key].sections():
-			deeperTemp = Element(section)
-			for option in inputDicts[key].options(section):
-				deeperTemp.set(option, inputDicts[key].get(section, option))
-			ET.SubElement(temp, deeperTemp.tag, deeperTemp.attrib)
-		top.append(temp)
+    # Make bigger ETree by adding all roots as sub elements
+    top = Element('Kaiju')
 
-	# ET.dump(top)
+    for key in inputDicts.keys():
+        temp = Element(key)
+        # ET.dump(temp)
+        for section in inputDicts[key].sections():
+            deeperTemp = Element(section)
+            for option in inputDicts[key].options(section):
+                deeperTemp.set(option, inputDicts[key].get(section, option))
+            ET.SubElement(temp, deeperTemp.tag, deeperTemp.attrib)
+        top.append(temp)
 
-	# Go through the new settings and see if they match elements in the default
-	for child in top:
-		#print(child.tag)
-		# Try to find that child tag in the default tree
-		if (templateRoot.find(child.tag) is not None):
-			# If it exists, go one level down and iterate through those nodes
-			firstLevel = templateRoot.find(child.tag)
-			for lower in child:
-				# Find the corresponding tag in the default
-				nextLevel = firstLevel.find(lower.tag)
-				# Check if that tag exists. If not, just add it
-				if  (nextLevel is not None):
-					for item in lower.keys():
-						# Check for the delete flag
-						if ("DEL!" in lower.get(item)):
-							# Check if that option exists.
-							if (nextLevel.get(item) is None):
-								# Just print Debug statements
-								#print(nextLevel)
-								#print(item)
-								#print(lower.get(item))
-								#print(nextLevel.attrib)
-								continue
-							
-							else:
-								del nextLevel.attrib[item]
-						
-						else:
-							nextLevel.set(item, lower.get(item))
-				else:
-					# Check for the delete flag
-					if ("DEL!" in lower.attrib):
-						# print(lower.tag)
-						# print(lower.attrib)
-						# Don't add anything
-						continue
+    # ET.dump(top)
 
-					else:
-						ET.SubElement(firstLevel, lower.tag, lower.attrib)
-		else:
-			# Else, just add that element to the root
-			templateRoot.insert(child)
-	#	for key in child.keys():
-	#		# If tag appears, check sub-entries
-	#		if (templateRoot.find(key) is not None):
-	#			subelement = templateRoot.find(key)
-	#			print("I found " + key + " in the default tree")
-	#			# For each option in element, add that to the ETree element
-	#			for item in key:
-	#				subelement.set(item[0], item[1])
-	#		# If tag does not appear, append new one to ETree
-	#		else:
-	#			print("I did not find " + key + " in the default tree")
-	#			tempElement = ET.Element(key)
-	#			# Go through the options and add them to a new element
-	#			for item in child:
-	#				tempElement.set(item[0],item[1])
-	#		
-	#			# Insert this new element at the end of the current section	
-	#			templateRoot.insert(len(list(templateRoot)),tempElement)
+    # Go through the new settings and see if they match elements in the default
+    for child in top:
+        #print(child.tag)
+        # Try to find that child tag in the default tree
+        if (templateRoot.find(child.tag) is not None):
+            # If it exists, go one level down and iterate through those nodes
+            firstLevel = templateRoot.find(child.tag)
+            for lower in child:
+                # Find the corresponding tag in the default
+                nextLevel = firstLevel.find(lower.tag)
+                # Check if that tag exists. If not, just add it
+                if  (nextLevel is not None):
+                    for item in lower.keys():
+                        # Check for the delete flag
+                        if ("DEL!" in lower.get(item)):
+                            # Check if that option exists.
+                            if (nextLevel.get(item) is None):
+                                # Just print Debug statements
+                                #print(nextLevel)
+                                #print(item)
+                                #print(lower.get(item))
+                                #print(nextLevel.attrib)
+                                continue
+                            
+                            else:
+                                del nextLevel.attrib[item]
+                        
+                        else:
+                            nextLevel.set(item, lower.get(item))
+                else:
+                    # Check for the delete flag
+                    if ("DEL!" in lower.attrib):
+                        # print(lower.tag)
+                        # print(lower.attrib)
+                        # Don't add anything
+                        continue
 
-	# Run root through the indentation function
-	indent(templateRoot)
+                    else:
+                        ET.SubElement(firstLevel, lower.tag, lower.attrib)
+        else:
+            # Else, just add that element to the root
+            templateRoot.insert(0, child)
+    #	for key in child.keys():
+    #		# If tag appears, check sub-entries
+    #		if (templateRoot.find(key) is not None):
+    #			subelement = templateRoot.find(key)
+    #			print("I found " + key + " in the default tree")
+    #			# For each option in element, add that to the ETree element
+    #			for item in key:
+    #				subelement.set(item[0], item[1])
+    #		# If tag does not appear, append new one to ETree
+    #		else:
+    #			print("I did not find " + key + " in the default tree")
+    #			tempElement = ET.Element(key)
+    #			# Go through the options and add them to a new element
+    #			for item in child:
+    #				tempElement.set(item[0],item[1])
+    #		
+    #			# Insert this new element at the end of the current section	
+    #			templateRoot.insert(len(list(templateRoot)),tempElement)
 
-	os.chdir('..')
+    # Run root through the indentation function
+    indent(templateRoot)
 
-	# Write the XML file
-	tree.write(output)
+    os.chdir('..')
 
-	# Cleanup Settigns folder
-	subprocess.Popen("rm -rf .Settings/", shell=True)
+    # Write the XML file
+    tree.write(output)
 
-	print("\n\nXML generation complete!\n\n")
+    # Cleanup Settigns folder
+    subprocess.Popen("rm -rf .Settings/", shell=True)
 
-def createTemplate():
-	# Get settings file name
-	settings = sys.argv[1]
+    print("\n\nXML generation complete!\n\n")
 
-	# Get output file name
-	output = sys.argv[2]
 
-	# Run Initialization for Settings
-	initialize(settings)
+def create_xml_template(ini_file, xml_file):
+    """Convert the .ini file to a template .xml file."""
 
-	# Make a Parser
-	user = configparser.RawConfigParser()
-	
-	# Try to turn on case sensitivity
-	user.optionxform = lambda option: option
-	
-	#print(os.getcwd())
+    # Get settings file name
+    settings = ini_file
 
-	inputDicts = {}
+    # Get output file name
+    output = xml_file
 
-	# Iterate through each file there and make the root node the key for the resultant tree in a dictionary
-	for filename in os.listdir():
-		user = configparser.RawConfigParser()
-		user.optionxform = lambda option: option
-		user.read(filename)
-		temp = filename.split('.')
-		newFileName = temp[0]
-		inputDicts[newFileName] = user
+    # Run Initialization for Settings
+    initialize(settings)
 
-	# Make bigger ETree by adding all roots as sub elements
-	top = Element('Kaiju')
+    # Make a Parser
+    user = configparser.RawConfigParser()
 
-	for key in inputDicts.keys():
-		temp = Element(key)
-		# ET.dump(temp)
-		for section in inputDicts[key].sections():
-			deeperTemp = Element(section)
-			for option in inputDicts[key].options(section):
-				if ("DEL!" in inputDicts[key].get(section, option)):
-					continue
-				else:
-					deeperTemp.set(option, inputDicts[key].get(section, option))
-			ET.SubElement(temp, deeperTemp.tag, deeperTemp.attrib)
-		top.append(temp)
+    # Try to turn on case sensitivity
+    user.optionxform = lambda option: option
 
-	# ET.dump(top)
+    #print(os.getcwd())
 
-	# Run root through the indentation function
-	indent(top)
+    inputDicts = {}
 
-	os.chdir('..')
+    # Iterate through each file there and make the root node the key for the resultant tree in a dictionary
+    for filename in os.listdir():
+        user = configparser.RawConfigParser()
+        user.optionxform = lambda option: option
+        user.read(filename)
+        temp = filename.split('.')
+        newFileName = temp[0]
+        inputDicts[newFileName] = user
 
-	# Create Etree with the root
-	myTree = ET.ElementTree(top)
+    # Make bigger ETree by adding all roots as sub elements
+    top = Element('Kaiju')
 
-	# Write the XML file
-	myTree.write(output)
+    for key in inputDicts.keys():
+        temp = Element(key)
+        # ET.dump(temp)
+        for section in inputDicts[key].sections():
+            deeperTemp = Element(section)
+            for option in inputDicts[key].options(section):
+                if ("DEL!" in inputDicts[key].get(section, option)):
+                    continue
+                else:
+                    deeperTemp.set(option, inputDicts[key].get(section, option))
+            ET.SubElement(temp, deeperTemp.tag, deeperTemp.attrib)
+        top.append(temp)
 
-	# Cleanup Settigns folder
-	subprocess.Popen("rm -rf .Settings/", shell=True)
+    # ET.dump(top)
 
-	print("\n\nTemplate creation complete!\n\n")
+    # Run root through the indentation function
+    indent(top)
 
-# Check number of command line arguments
-if (len(sys.argv) == 1):
-	print('\x1b[0;31;40m' + "\nTo create a NEW .xml template use the following arguments:\n" + '\x1b[0m')
-	print('\x1b[6;30;40m' + "XMLGenerator.py <.ini file> <outputFile.xml>" + '\x1b[0m')
-	print('\x1b[0;31;40m' + "\nTo create a xml file based on a template use the following arguments:\n" + '\x1b[0m')
-	print('\x1b[6;30;40m' + "XMLGenerator.py <templateFile.xml> <.ini file> <outputFile.xml>\n" + '\x1b[0m')
-	exit()
-if (len(sys.argv) < 3):
-	print("ERROR: Too few arguments")
-	exit()
+    os.chdir('..')
 
-if (len(sys.argv) > 4):
-	print("ERROR: Too many arguments")
-	exit()
+    # Create Etree with the root
+    myTree = ET.ElementTree(top)
 
-if (len(sys.argv) == 3):
-	createTemplate()
-	exit()
+    # Write the XML file
+    myTree.write(output)
 
-if (len(sys.argv) == 4):
-	createXML()
-	exit()
+    # Cleanup Settigns folder
+    subprocess.Popen("rm -rf .Settings/", shell=True)
+
+    print("\n\nTemplate creation complete!\n\n")
+
+
+if __name__ == "__main__":
+    """Convert a .ini file to a .xml file."""
+
+    # Create the command-line argument parser.
+    parser = argparse.ArgumentParser(description="Convert Kaiju .ini files to XML configuration or XML configuration template files.")
+    parser.add_argument("ini_file", help="Path to .ini file to convert")
+    parser.add_argument("xml_file", help="Path to .xml file or template to create")
+    parser.add_argument("-d", "--debug", help="Activate debug mode", action="store_true")
+    parser.add_argument("-t", "--template", help="Path to .xml template file to use")
+    parser.add_argument("-v", "--verbose", help="Activate verbose execution mode", action="store_true")
+
+    # Parse the commmand-line arguments.
+    args = parser.parse_args()
+
+    # If a template file was specified, use it. Otherwise, convert directly
+    # from .ini format to .xml format.
+    if args.template:
+        if args.verbose:
+            print("Converting %s to %s using template %s." % (args.ini_file, args.xml_file, args.template))
+        create_from_xml_template(args.ini_file, args.xml_file, args.template)
+    else:
+        if args.verbose:
+            print("Converting %s to XML template %s." % (args.ini_file, args.xml_file))
+        create_xml_template(args.ini_file, args.xml_file)
