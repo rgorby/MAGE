@@ -5,6 +5,7 @@ module mixconductance
   use gcmtypes
   use gcminterp
   use math
+  use euvhelper
   
   implicit none
 
@@ -128,6 +129,10 @@ module mixconductance
                conductance%euvSigmaP = conductance%pedmin
                conductance%euvSigmaH = conductance%hallmin
             end where
+         case (LOMPE) 
+            conductance%euvSigmaP = SigP_EUV_LOMPE(conductance%zenith,conductance%f107)
+            conductance%euvSigmaH = SigH_EUV_LOMPE(conductance%zenith,conductance%f107)
+
          case default
             stop "The EUV model type entered is not supported."
       end select
