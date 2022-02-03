@@ -13,7 +13,7 @@ module sstLLimag
 
     type, extends(innerMagBase_T) :: empData_T ! replace "emp" (specific to equator) with a more descriptive "emp" for "empirical"
 
-        type(ebTab_T)   :: ebTab
+        type(ioTab_T)   :: ebTab
         logical :: doStatic = .true.
         integer :: Nt,Np
         real(rp), dimension(:,:), allocatable :: X,Y
@@ -58,8 +58,8 @@ module sstLLimag
         call CheckFileOrDie(empFile,"Error opening Empirical Map data")
 
         imag%ebTab%bStr = empFile        
-        !Scrape info from file (don't use CHIMP time scaling)
-        call rdTab(imag%ebTab,iXML,empFile,doTSclO=.false.)
+        !Scrape info from file
+        call InitIOTab(imag%ebTab,iXML,empFile)
         if (imag%ebTab%N>1) then
             imag%doStatic = .false.
         endif
@@ -97,7 +97,7 @@ module sstLLimag
         ! if imag%doStatic, it returns n1=n2=1
 
         ! TODO: can we just do AdvanceSST(imag,vApp,vApp%time) here? 
-        call findSlc(imag%ebTab,vApp%time,n1,n2)
+        call GetTabSlc(imag%ebTab,vApp%time,n1,n2)
 
         call rdEmpMap(imag,n1,imag%empW1)
         imag%empN1 = n1
@@ -140,7 +140,7 @@ module sstLLimag
 
         !If tAdv is out of range of loaded slices, need to update
         if (tAdv < imag%empT1 .or. tAdv > imag%empT2) then
-            call findSlc(imag%ebTab,tAdv,n1,n2)
+            call GetTabSlc(imag%ebTab,tAdv,n1,n2)
             if (imag%empN1 /= n1) then
                 !Read slice
                 call rdEmpMap(imag,n1,imag%empW1)
