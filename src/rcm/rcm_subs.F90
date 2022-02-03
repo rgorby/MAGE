@@ -576,7 +576,7 @@
                         cycle
                     endif
                     !Now accumulate, for single hemisphere
-                    dn = 0.5*sini(i,j)*deleeta(i,j,k)*eta2cc*abs(bir(i,j))*(ftv*radius_earth_m*1.0e+2)/dtCpl ! #/cm2/s
+                    dn = 0.5*deleeta(i,j,k)*eta2cc*abs(bir(i,j)/sini(i,j))*(ftv*radius_earth_m*1.0e+2)/dtCpl ! #/cm2/s
                     nflx(ie) = nflx(ie) + dn !Num flux, #/cm2/s
                     eflx(ie) = eflx(ie) + dn*ABS(alamc(k))*vm(i,j) !Energy flux, eV/cm2/s
                 enddo
@@ -3113,7 +3113,7 @@ FUNCTION RatefnDW(xx,yy,alamx,vmx,nex,kpx,bqx,losscx)
   IMPLICIT NONE
   REAL (rprec), INTENT (IN) :: xx,yy,alamx,vmx,nex,kpx,bqx,losscx
   REAL (rprec), dimension(2) :: RatefnDW
-  REAL (rprec) :: nhigh, nlow, L, MLT, E, tau, tau_s
+  REAL (rprec) :: nhigh, nlow, L, MLT, E, tau, tau_s, tau_c, tau_h
 
   nhigh = 100.D0 ! [/cc] ne>nhigh indicates inside plasmasphere.
   nlow  = 10.D0  ! [/cc] ne<nlow indicates outside plasmasphere.
@@ -3128,6 +3128,7 @@ FUNCTION RatefnDW(xx,yy,alamx,vmx,nex,kpx,bqx,losscx)
 
   if(nex<nlow) then
     tau = max(tau_s,RatefnDW_tau_c(kpx, MLT,L,E)) ! Kpx,mltx,Lx,Ekx
+    if tau >
     RatefnDW(2) = 1.0
   elseif(nex>nhigh) then
     tau = max(tau_s,RatefnC_tau_h16(MLT,E,L,kpx)) ! mltx,engx,Lshx,kp
