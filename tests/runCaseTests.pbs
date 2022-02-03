@@ -4,7 +4,7 @@
 #PBS -j oe
 #PBS -q regular
 #PBS -l walltime=12:00:00
-#PBS -l select=1:ncpus=36:mpiprocs=64:ompthreads=72
+#PBS -l select=1:ncpus=36:mpiprocs=8:ompthreads=36
 
 source ~/.bashrc
 
@@ -28,7 +28,7 @@ fi
 
 module list
 hostname
-export OMP_NUM_THREADS=72
+export OMP_NUM_THREADS=36
 export KMP_STACKSIZE=128M
 export MPI_TYPE_DEPTH=32
 
