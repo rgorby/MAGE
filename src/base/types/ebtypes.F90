@@ -3,6 +3,7 @@
 module ebtypes
     use chmpdefs
     use wpitypes
+    use iotable
     
     implicit none
 
@@ -22,21 +23,6 @@ module ebtypes
         ! dynamic block size adjustment
         integer, dimension(:), allocatable :: blockStartIndices
     end type ebSquish_T
-
-    !Data necessary to update fields, ie time->field data file mapping
-    !File: bStr + gStr (base+group)
-    type ebTab_T
-        integer :: N !Number of time slices
-        character(len=strLen) :: bStr
-        character(len=strLen), dimension(:), allocatable :: gStrs
-        real(rp), dimension(:), allocatable :: times
-        real(rp), dimension(:), allocatable :: MJDs
-
-        !Information for decomposed data
-        logical :: isMPI = .false.,hasMJD=.false.
-        integer :: Ri,Rj,Rk
-        integer :: dNi,dNj,dNk
-    end type ebTab_T
 
     !Holds single slice of field data, attached to grid data in ebState
     type ebField_T
@@ -71,7 +57,7 @@ module ebtypes
     type ebState_T
         type(ebGrid_T)  :: ebGr
         type(ebField_T) :: eb1,eb2 !Two slices of field data
-        type(ebTab_T)   :: ebTab
+        type(ioTab_T)   :: ebTab
         type(wave_T)    :: ebWave
         type(wModel_T)  :: ebWmodel
         logical :: doStatic = .false.

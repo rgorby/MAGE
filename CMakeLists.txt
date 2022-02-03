@@ -69,7 +69,7 @@ set(TPIC ${TPICDEF} CACHE FILEPATH "CHIMP TP IC file")
 file(GLOB EBICDEF src/chimp/ebICs/ebICstd.F90)
 set(EBIC ${EBICDEF} CACHE FILEPATH "CHIMP EB IC file")
 
-file(GLOB GAMHELICDEF src/gamhell/ICs/wsatd.F90)
+file(GLOB GAMHELICDEF src/gamera/ICs/helio/wsatd.F90)
 set(GAMHELIC ${GAMHELICDEF} CACHE FILEPATH "Gamera Helio IC file")
 
 #-------------
@@ -233,11 +233,11 @@ if(ENABLE_MPI)
     #-------------
     #Kaiju: Gamera Helio MPI
     message("Adding Gamera Helio MPI module ...")
-    add_custom_target(gamhell_mpi ALL)
-    message("\tAdding executable gamhell_mpi.x")
-    add_executable(gamhell_mpi.x src/drivers/gamera_mpix.F90 ${GAMHELIC})
-    target_link_libraries(gamhell_mpi.x baselib gamlib basempilib gammpilib chimplib)
-    add_dependencies(gamhell_mpi gamhell_mpi.x)
+    add_custom_target(gamhelio_mpi ALL)
+    message("\tAdding executable gamhelio_mpi.x")
+    add_executable(gamhelio_mpi.x src/drivers/gamera_mpix.F90 ${GAMHELIC})
+    target_link_libraries(gamhelio_mpi.x baselib gamlib basempilib gammpilib)
+    add_dependencies(gamhelio_mpi gamhelio_mpi.x)
 
 
 endif()
