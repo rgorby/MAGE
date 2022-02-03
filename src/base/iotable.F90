@@ -20,6 +20,7 @@ module iotable
         character(len=strLen), dimension(:), allocatable :: gStrs
         real(rp), dimension(:), allocatable :: times
         real(rp), dimension(:), allocatable :: MJDs
+        real(rp) :: iTScl, oTScl !Input/output time scaling
 
         !Information for decomposed data
         logical :: isMPI = .false.,hasMJD=.false.
@@ -30,17 +31,30 @@ module iotable
     contains
 
     !Read times for input data slices, convert times to code units
-    !Figure out grid sizes
-    subroutine InitIOTab(ioTab,inpXML,ioFile)
+    !iTSclO/oTSclO are optional input/output time scaling (needed for CHIMP)
+    subroutine InitIOTab(ioTab,inpXML,ioFile,iTSclO,oTSclO)
         type(ioTab_T), intent(inout)      :: ioTab
         type(XML_Input_T), intent(in)     :: inpXML
         character(len=strLen), intent(in) :: ioFile
+        real(rp), intent(in), optional :: iTSclO,oTSclO
 
         integer :: s0,sE,Nstp,i,Nd,dims(NDIM)
         character(len=strLen) :: gStr
         real(rp), allocatable, dimension(:) :: Ts
         type(IOVAR_T), dimension(IOTABVARS) :: inIOs
 
+    !Check for optional scaling values
+        if (present(iTSclO)) then
+            ioTab%iTScl = iTSclO
+        else
+            ioTab%iTScl = 1.0
+        endif
+
+        if (present(oTSclO)) then
+            ioTab%oTScl = oTSclO
+        else
+            ioTab%oTScl = 1.0
+        endif
 
         call StepInfo(ioFile,s0,sE,Nstp)
 
@@ -65,7 +79,7 @@ module iotable
             write(gStr,'(A,I0)') "Step#", s0+i-1
 
             ioTab%gStrs(i) = gStr
-            ioTab%times(i) = Ts(i)
+            ioTab%times(i) = ioTab%iTScl*Ts(i)
         enddo !stp loop
         
         !Get grid size info
@@ -110,4 +124,28 @@ module iotable
         i2 = min(ioTab%N,i2)
         
     end subroutine GetTabSlc
+
+    !Convert time (w/ optional output scaling) to MJD
+    function ioTabMJD(ioTab,t) result(MJDAt)
+        type(ioTab_T), intent(in) :: ioTab
+        real(rp), intent(in) :: t
+        real(rp) :: MJDAt
+
+        real(rp) :: dt
+        integer :: i1,i2
+
+        if (.not. ioTab%hasMJD) then
+            MJDAt = 0.0
+            return
+        endif
+        call GetTabSlc(ioTab,t,i1,i2)
+
+        if (t>=ioTab%times(i1)) then
+            dt = ioTab%oTScl*(t-ioTab%times(i1)) !Seconds
+            MJDAt = ioTab%MJDs(i1) + dt/(60.0*60.0*24.0)
+            
+        else
+            MJDAt = ioTab%MJDs(i1)
+        endif
+    end function ioTabMJD
 end module iotable
