@@ -24,7 +24,7 @@ module mixdefs
   end enum
 
   enum, bind(C)
-     enumerator :: AMIE=1,MOEN_BREKKE
+     enumerator :: AMIE=1,MOEN_BREKKE,LOMPE
   end enum
 
   enum, bind(C)
