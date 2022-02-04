@@ -135,7 +135,7 @@ module ebinit
     subroutine rdGrid(Model,ebGr,ebTab,inpXML)
         type(chmpModel_T), intent(in) :: Model
         type(ebGrid_T), intent(inout) :: ebGr
-        type(ebTab_T), intent(in) :: ebTab
+        type(ioTab_T), intent(in) :: ebTab
         type(XML_Input_T), intent(inout) :: inpXML
 
         integer :: i,j,k,is,ie,js,je,ks,ke
@@ -350,71 +350,5 @@ module ebinit
         ebGr%xyz(:,:,Nkp+1,ZDIR) = 0.0
 
     end subroutine FixCorners
-
-    !Read times for input data slices, convert times to code units
-    !Figure out grid sizes
-    subroutine rdTab(ebTab,inpXML,ebFile,doTSclO)
-        type(ebTab_T), intent(inout)      :: ebTab
-        type(XML_Input_T), intent(in)     :: inpXML
-        character(len=strLen), intent(in) :: ebFile
-        logical, intent(in), optional     :: doTSclO
-
-        integer :: s0,sE,Nstp,i,Nd,dims(NDIM)
-        character(len=strLen) :: gStr
-        real(rp), allocatable, dimension(:) :: Ts
-        logical :: doTScl
-
-        if (present(doTSclO)) then
-            doTScl = doTSclO
-        else
-            doTScl = .true.
-        endif
-
-        call StepInfo(ebFile,s0,sE,Nstp)
-
-        write(*,'(a,a,a,I0,a,I0,a,I0,a)') '<', trim(ebFile), ': Found ',Nstp,' timeslices, ', s0, ' to ', sE,'>'
-
-        ebTab%N = Nstp
-        allocate(ebTab%times(Nstp))
-        allocate(ebTab%MJDs (Nstp))
-        allocate(ebTab%gStrs(Nstp))
-        allocate(Ts(Nstp))
-
-        call StepTimes(ebFile,s0,sE,Ts)
-        call StepMJDs (ebFile,s0,sE,ebTab%MJDs)
-        if (maxval(ebTab%MJDs)>TINY) then
-            ebTab%hasMJD = .true.
-            write(*,*) 'Found MJD data ...'
-        else
-            ebtab%hasMJD = .false.
-        endif
-
-        do i=1,Nstp
-            write(gStr,'(A,I0)') "Step#", s0+i-1
-
-            ebTab%gStrs(i) = gStr
-            if (doTScl) then
-                ebTab%times(i) = Ts(i)*inTScl
-            else
-                ebTab%times(i) = Ts(i)
-            endif
-        enddo !stp loop
-        
-        !Get grid size info
-        call ClearIO(ebIOs)
-        call AddInVar(ebIOs,"X")
-        call ReadVars(ebIOs,.false.,ebFile) !Use IO precision
-        Nd = ebIOs(1)%Nr
-        if ( (Nd < 3) .and. doTScl ) then
-            write(*,*) '2D grids not currently supported'
-            stop
-        endif
-        
-        dims = ebIOs(1)%dims(1:Nd)
-        ebTab%dNi = dims(IDIR)-1
-        ebTab%dNj = dims(JDIR)-1
-        ebTab%dNk = dims(KDIR)-1
-
-    end subroutine rdTab
 
 end module ebinit

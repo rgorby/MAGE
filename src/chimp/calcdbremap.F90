@@ -1,6 +1,5 @@
 !Routines to map native source grids to Bios-Savart (ground system) grids
 module calcdbremap
-    use ebtabutils
     use kdefs
     use chmpdefs
     use ebtypes
@@ -36,7 +35,7 @@ module calcdbremap
             return
         endif
 
-        mjd = MJDAt(ebState%ebTab,Model%t)
+        mjd = ioTabMJD(ebState%ebTab,Model%t)
         call MJDRecalc(mjd) !Setup geopack for this time
 
         !$OMP PARALLEL DO default(shared) &

@@ -6,7 +6,8 @@ program kaitoyx
     use xml_input
     use ioH5
     use files
-
+    use kaiomp
+    
     implicit none
 
     type ToyGr_T
@@ -29,7 +30,8 @@ program kaitoyx
     H5Out = "kaitoy.h5"
 
     call printConfigStamp()
-    
+    call CheckStack(doLoudO=.true.)
+
     !Setup timers
     call initClocks()
     call Tic("OMEGA")

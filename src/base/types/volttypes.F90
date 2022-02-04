@@ -56,9 +56,10 @@ module volttypes
     ! data for gamera -> remix conversion
     type mhd2Mix_T
         real(rp), dimension(:,:,:,:,:), allocatable :: mixInput
-        real(rp), dimension(:,:,:,:), allocatable :: gJ
+        real(rp), dimension(:,:,:,:), allocatable :: gJ,gBAvg
         type(Map_T), allocatable, dimension(:,:) :: Jmaps
         integer :: JStart = JpSt, JShells = JpSh !Coming from cmidefs
+        real(rp) :: dtAvg,wAvg
     end type mhd2mix_T
 
     ! data for chimp -> gamera conversion
@@ -155,6 +156,8 @@ module volttypes
         !Dynamic coupling info
         logical :: doDynCplDT = .false. !Whether to do dynamic coupling cadence
 
+        !Have special flag to indicate this is Earth, which is special
+        logical :: isEarth = .false.
     end type voltApp_T
 
     contains

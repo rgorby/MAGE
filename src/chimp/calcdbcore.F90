@@ -5,7 +5,6 @@ module calcdbcore
     use calcdbutils
     use clocks
     use geopack
-    use ebtabutils
     
 	implicit none
 
@@ -27,7 +26,7 @@ module calcdbcore
         type(BSGrid_T) :: magltBS !Squashed magBS
         real(rp) :: mjd
 
-        mjd = MJDAt(ebState%ebTab,t)
+        mjd = ioTabMJD(ebState%ebTab,t)
         call MJDRecalc(mjd) !Setup geopack for this time
 
         !Remove far away points in magnetospheric grid and make remaining contiguous

@@ -35,7 +35,8 @@ module mhd2mix_interface
         Rion = RadIonosphere()
         
         ! allocate remix arrays
-        allocate(mhd2Mix%gJ(1:mhd2Mix%JShells, gameraApp%Grid%js:gameraApp%Grid%je, gameraApp%Grid%ks:GameraApp%Grid%ke, 1:NDIM))
+        allocate(mhd2Mix%gJ   (1:mhd2Mix%JShells, gameraApp%Grid%js:gameraApp%Grid%je, gameraApp%Grid%ks:GameraApp%Grid%ke, 1:NDIM))
+        allocate(mhd2Mix%gBAvg(1:mhd2Mix%JShells, gameraApp%Grid%js:gameraApp%Grid%je, gameraApp%Grid%ks:GameraApp%Grid%ke, 1:NDIM))
         allocate(mhdJGrid(1:mhd2Mix%JShells, gameraApp%Grid%js:gameraApp%Grid%je, gameraApp%Grid%ks:gameraApp%Grid%ke/2, 1:3, 1:2))
         allocate(mhd2Mix%mixInput(1:mhd2Mix%JShells, gameraApp%Grid%js:gameraApp%Grid%je, gameraApp%Grid%ks:gameraApp%Grid%ke/2, 1:mhd2mix_varn, 1:2))
         allocate(mhd2Mix%JMaps(mhd2Mix%JShells,size(remixApp%ion)))
@@ -46,7 +47,7 @@ module mhd2mix_interface
                 do i=1,mhd2mix%JShells
                     iG = mhd2mix%JStart+i-1
                     call cellCenter(gameraApp%Grid,iG,j,k,xc,yc,zc)
-
+                    mhd2Mix%gBAvg(i,j,k,:) = gameraApp%Grid%B0(iG,j,k,:)
                     ! note conversion to Rion units which are expected on the remix
                     ! side
                     if (k<=gameraApp%Grid%ke/2) then
@@ -85,17 +86,16 @@ module mhd2mix_interface
         type(gamApp_T), intent(in) :: gameraApp
 
         ! convert incoming gamera data to the "remixInputs" variable
-        real(rp) ::  B0mag,Bi2m
-        integer :: i,j,k,iG
+        real(rp) ::  Bi2m
+        integer  :: i,j,k,iG
         real(rp) :: xc,yc,zc
 
         real(rp) :: Con(NVAR)
-        real(rp) :: Cs,gB0,gv0,gx0
+        real(rp) :: Cs,gB0,gv0,gx0,J11,B0(NDIM)
 
         gB0 = gameraApp%Model%Units%gB0
         gv0 = gameraApp%Model%Units%gv0
         gx0 = gameraApp%Model%Units%gx0
-
 
         !Only working on Bxyz from perturbation
         !B0 in inner region (where we care for remix)
@@ -104,12 +104,21 @@ module mhd2mix_interface
 
         !Now loop over only shells and populate mhdvars to be sent to mix
         !$OMP PARALLEL DO default(shared) &
-        !$OMP private(i,iG,j,k,B0mag,Bi2m,xc,yc,zc,Con,Cs)
+        !$OMP private(i,iG,j,k,Bi2m,xc,yc,zc,Con,J11,B0,Cs)
         do k=gameraApp%Grid%ks,gameraApp%Grid%ke
             do j=gameraApp%Grid%js,gameraApp%Grid%je
                 do i=1,mhd2mix%JShells
                     iG = mhd2mix%JStart+i-1
-                    B0mag = sqrt(dot_product(gameraApp%Grid%B0(iG,j,k,:),gameraApp%Grid%B0(iG,j,k,:)))
+
+                    !Get new bAvg
+                    B0 = gameraApp%State%Bxyz(iG,j,k,:) + gameraApp%Grid%B0(iG,j,k,:)
+                    mhd2mix%gBAvg(i,j,k,:) = mhd2mix%wAvg*B0 + (1-mhd2mix%wAvg)*mhd2mix%gBAvg(i,j,k,:)
+
+                    !Get FAC
+                    !B0 = mhd2mix%gBAvg(i,j,k,:)
+                    B0 = gameraApp%Grid%B0(iG,j,k,:)
+                    J11 = dot_product(mhd2mix%gJ(i,j,k,:),normVec(B0))
+
                     ! get cell centers
                     call cellCenter(gameraApp%Grid,iG,j,k,xc,yc,zc)
                     !Get ion2mag scaling factor for field
@@ -119,7 +128,7 @@ module mhd2mix_interface
                         !!! NOTE: assuming gB0 in nT and gx0 in m and gv0 in m/s
 
                         ! note conversion to microA/m^2
-                        mhd2mix%mixInput(i,j,k,MHDJ,NORTH) = dot_product(mhd2mix%gJ(i,j,k,:),gameraApp%Grid%B0(iG,j,k,:)/B0mag)*Bi2m*(gB0/gx0*1.e4/4/PI)
+                        mhd2mix%mixInput(i,j,k,MHDJ,NORTH) = J11*Bi2m*(gB0/gx0*1.e4/4/PI)
                         ! note conversion to g/cm^3
                         mhd2mix%mixInput(i,j,k,MHDD,NORTH) = gameraApp%State%Gas(iG,j,k,DEN,BLK)*(gB0*1.e-7/gv0)**2/4/pi
                         ! get sound speed first
@@ -127,7 +136,7 @@ module mhd2mix_interface
                         call CellPress2Cs(gameraApp%Model,Con,Cs)
                         mhd2mix%mixInput(i,j,k,MHDC,NORTH) = Cs*gv0*1.e2
                     else
-                        mhd2mix%mixInput(i,j,k-gameraApp%Grid%ke/2,MHDJ,SOUTH) = dot_product(mhd2mix%gJ(i,j,k,:),gameraApp%Grid%B0(iG,j,k,:)/B0mag)*Bi2m*(gB0/gx0*1.e4/4/PI)
+                        mhd2mix%mixInput(i,j,k-gameraApp%Grid%ke/2,MHDJ,SOUTH) = J11*Bi2m*(gB0/gx0*1.e4/4/PI)
                         mhd2mix%mixInput(i,j,k-gameraApp%Grid%ke/2,MHDD,SOUTH) = gameraApp%State%Gas(iG,j,k,DEN,BLK)*(gB0*1.e-7/gv0)**2/4/pi
                         ! get sound speed first
                         Con = gameraApp%State%Gas(iG,j,k,:,BLK)

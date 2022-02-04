@@ -5,21 +5,21 @@ class params():
         config = configparser.ConfigParser()
         config.read(ConfigFileName)
         
-        self.ni = config.getint('Dimensions','NI')
-        self.nj = config.getint('Dimensions','NJ')
-        self.nk = config.getint('Dimensions','NK')
 
-        self.initLFMfile = config.get('Output','Prefix')+'_%dx%dx%d_mhd_0000000.hdf'%(self.ni,self.nj,self.nk)
-        #self.dirInitLFMfile = config.get('Output','Dir')
+        #self.initLFMfile = config.get('Output','Prefix')+'_%dx%dx%d_mhd_0000000.hdf'%(self.ni,self.nj,self.nk)
     
-        self.scale = config.getfloat('Normalization','Xscale')
-        self.rmin = config.getfloat('Grid','RMIN')
-        self.rmax = config.getfloat('Grid','RMAX')
-        #self.thetamin = config.getfloat('Grid','THETAMIN')
+        self.scale    = config.getfloat('Normalization','Xscale')
         self.gameraGridFile = config.get('Grid','gameraGridFile')
-        self.GridDir = config.get('Grid','GridDir')
+        self.GridDir  = config.get('Grid','GridDir')
         self.gameraIbcFile = config.get('Grid','gameraIbcFile')
-        self.IbcDir = config.get('Grid','IbcDir')
+        self.IbcDir   = config.get('Grid','IbcDir')
+        self.tMin     = config.getfloat('Grid','tMin')
+        self.tMax     = config.getfloat('Grid','tMax')
+        self.Rin      = config.getfloat('Grid','Rin')
+        self.Rout     = config.getfloat('Grid','Rout')
+        self.Ni       = config.getint('Grid','Ni')
+        self.Nj       = config.getint('Grid','Nj')
+        self.Nk       = config.getint('Grid','Nk')
 
         
         self.gamma = config.getfloat('Constants','gamma')
