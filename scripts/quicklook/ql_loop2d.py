@@ -64,20 +64,16 @@ if __name__ == "__main__":
 
     # Read the magnetic field components for the first step, and compute
     # the corresponding magnetic pressure.
-    Bx = data_pipe.GetVar("Bx", 0, doVerb=False)[...]
-    By = data_pipe.GetVar("By", 0, doVerb=False)[...]
-    Bz = data_pipe.GetVar("Bz", 0, doVerb=False)[...]
+    Bx = data_pipe.GetVar("Bx", data_pipe.s0, doVerb=False)[...]
+    By = data_pipe.GetVar("By", data_pipe.s0, doVerb=False)[...]
+    Bz = data_pipe.GetVar("Bz", data_pipe.s0, doVerb=False)[...]
     Pb_first = (Bx**2 + By**2 + Bz**2)/2
-
-    # Determine the last step.
-    n_steps = data_pipe.Nt
-    last_step = n_steps - 1
 
     # Read the magnetic field components for the last step, and compute
     # the corresponding magnetic pressure.
-    Bx = data_pipe.GetVar("Bx", last_step, doVerb=False)[...]
-    By = data_pipe.GetVar("By", last_step, doVerb=False)[...]
-    Bz = data_pipe.GetVar("Bz", last_step, doVerb=False)[...]
+    Bx = data_pipe.GetVar("Bx", data_pipe.sFin, doVerb=False)[...]
+    By = data_pipe.GetVar("By", data_pipe.sFin, doVerb=False)[...]
+    Bz = data_pipe.GetVar("Bz", data_pipe.sFin, doVerb=False)[...]
     Pb_last = (Bx**2 + By**2 + Bz**2)/2
 
     # Plot parameters
