@@ -19,6 +19,9 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 
+import kaipy.kaiH5 as kaih5
+import kaipy.gamera.gampp as gampp
+
 
 if __name__ == "__main__":
     """Make a quick-look plot for the loop2d example run."""
@@ -30,9 +33,6 @@ if __name__ == "__main__":
 
     # Data tag
     runid = "loop2d"
-
-    # Name of variable to plot.
-    variable_name = "Pb"
 
     # Program description.
     description = "Create a quick-look plot (Pb at start and end) for the loop2d test case."
@@ -55,43 +55,30 @@ if __name__ == "__main__":
     directory = args.directory
     runid = args.runid
 
-    # Open the data file.
-    file_name = runid + ".gam.h5"
-    path = os.path.join(directory, file_name)
-    f = h5py.File(path, "r")
+    # Open a pipe to the data file.
+    data_pipe = gampp.GameraPipe(directory, runid)
 
-    # Load and the top-level datasets.
-    X = f["X"]
-    Y = f["Y"]
+    # Read the grid coordinates.
+    X = data_pipe.X[...]
+    Y = data_pipe.Y[...]
 
-    # Fetch the coordinate limits.
-    X_min = X[:].min()
-    X_max = X[:].max()
-    Y_min = Y[:].min()
-    Y_max = Y[:].max()
+    # Read the magnetic field components for the first step, and compute
+    # the corresponding magnetic pressure.
+    Bx = data_pipe.GetVar("Bx", 0, doVerb=False)[...]
+    By = data_pipe.GetVar("By", 0, doVerb=False)[...]
+    Bz = data_pipe.GetVar("Bz", 0, doVerb=False)[...]
+    Pb_first = (Bx**2 + By**2 + Bz**2)/2
 
-    # Determine the number of time steps in the file.
-    groups = f.keys()
-    n_steps = 0
-    for g in groups:
-        if g.startswith("Step#"):
-            n_steps += 1
+    # Determine the last step.
+    n_steps = data_pipe.Nt
+    last_step = n_steps - 1
 
-    # Compute the name of the first and last steps.
-    step_first = "Step#0"
-    step_last = "Step#%s" % (n_steps - 1)
-
-    # Compute the magnetic pressures.
-    group = f[step_first]
-    Bx = group["Bx"][:]
-    By = group["By"][:]
-    Bz = group["Bz"][:]
-    Pb_first = 0.5*(Bx**2 + By**2 + Bz**2)
-    group = f[step_last]
-    Bx = group["Bx"][:]
-    By = group["By"][:]
-    Bz = group["Bz"][:]
-    Pb_last = 0.5*(Bx**2 + By**2 + Bz**2)
+    # Read the magnetic field components for the last step, and compute
+    # the corresponding magnetic pressure.
+    Bx = data_pipe.GetVar("Bx", last_step, doVerb=False)[...]
+    By = data_pipe.GetVar("By", last_step, doVerb=False)[...]
+    Bz = data_pipe.GetVar("Bz", last_step, doVerb=False)[...]
+    Pb_last = (Bx**2 + By**2 + Bz**2)/2
 
     # Plot parameters
     name = "Magnetic pressure"
@@ -102,33 +89,29 @@ if __name__ == "__main__":
     # Create the figure in a memory buffer.
     matplotlib.use("Agg")
     fig, axes = plt.subplots(2, 1)
-    fig.subplots_adjust(hspace=0.3)
+    # fig.subplots_adjust(hspace=0.3)
 
-    # Pb at start
-    values = axes[0].imshow(
-        Pb_first, extent=(X_min, X_max, Y_min, Y_max),
-        cmap="viridis", vmin=vmin, vmax=vmax)
+    # Plot the magnetic pressure from the first step.
+    axes[0].set_aspect("equal")
     axes[0].set_ylabel("Y")
+    values = axes[0].pcolormesh(X, Y, Pb_first, cmap="viridis", vmin=vmin, vmax=vmax)
     axes[0].text(0.5, 0.4, "Step 0", color="white")
 
-    # Pb at end
-    values = axes[1].imshow(
-        Pb_last, extent=(X_min, X_max, Y_min, Y_max),
-        cmap="viridis", vmin=vmin, vmax=vmax)
+    # Plot the magnetic pressure from the first step.
+    axes[1].set_aspect("equal")
     axes[1].set_xlabel("X")
     axes[1].set_ylabel("Y")
-    axes[1].text(0.5, 0.4, "Step %s" % (n_steps - 1), color="white")
-
-    plt.suptitle("Magnetic pressure at start and end for %s" % (runid))
+    values = axes[1].pcolormesh(X, Y, Pb_last, cmap="viridis", vmin=vmin, vmax=vmax)
+    axes[1].text(0.5, 0.4, "Step %s" % last_step, color="white")
 
     # Show the shared colorbar.
     fig.subplots_adjust(right=0.8)
     cbar_ax = fig.add_axes([0.85, 0.15, 0.05, 0.7])
     fig.colorbar(values, cax=cbar_ax, label="%s [%s]" % ("Magnetic pressure", units))
 
+    # Set the plot title.
+    plt.suptitle("Magnetic pressure at start and end for %s" % (runid))
+
     # Save the quicklook plot.
     figure_file_name = "%s_quicklook.png" % (runid)
     plt.savefig(figure_file_name)
-
-    # Close the data file.
-    f.close()
