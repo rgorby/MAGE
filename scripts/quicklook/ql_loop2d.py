@@ -98,7 +98,7 @@ if __name__ == "__main__":
     axes[1].set_xlabel("X")
     axes[1].set_ylabel("Y")
     values = axes[1].pcolormesh(X, Y, Pb_last, cmap="viridis", vmin=vmin, vmax=vmax)
-    axes[1].text(0.5, 0.4, "Step %s" % last_step, color="white")
+    axes[1].text(0.5, 0.4, "Step %s" % data_pipe.sFin, color="white")
 
     # Show the shared colorbar.
     fig.subplots_adjust(right=0.8)
