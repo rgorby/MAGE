@@ -8,7 +8,7 @@
 #Writes to HDF5 Gamera wind file
 #t,D,V,P,B = [s],[#/cm3],[m/s],[nPa],[nT]
 
-#Utilizes ai.cdas and geopack, make sure to install modules before running. For more info go to https://bitbucket.org/aplkaiju/kaiju/wiki/Gamerasphere
+#Utilizes cdasws and geopack, make sure to install modules before running. For more info go to https://bitbucket.org/aplkaiju/kaiju/wiki/Gamerasphere
 
 Mp = 1.67e-27 #Proton mass [kg]
 gamma = 5/3.0
