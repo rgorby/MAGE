@@ -24,7 +24,7 @@ from  kaipy.solarWind import swBCplots
 from  kaipy.solarWind.OMNI import OMNI
 import datetime
 from astropy.time import Time
-from ai import cdas
+from cdasws import CdasWs
 
 def bxFit(sw, fileType, filename):
     def bxFitPlot(bxFit_array):
@@ -101,38 +101,36 @@ if __name__ == "__main__":
 
         t0 = datetime.datetime.strptime(t0Str,fmt)
         t1 = datetime.datetime.strptime(t1Str,fmt)
+        t0r = t0.strftime("%Y-%m-%dT%H:%M:%SZ")
+        t1r = t1.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+        cdas = CdasWs()
 
         # calculating average F10.7 over specified time period, can be converted into a timeseries
         # pulling data from CDAWeb database
         print('Retrieving f10.7 data from CDAWeb')
-        data = cdas.get_data(
-           'sp_phys',
-           'OMNI2_H0_MRG1HR',
-           t0,
-           t1, 
-           ['F10_INDEX1800','KP1800']
-        )
+        statusf107,data = cdas.get_data('OMNI2_H0_MRG1HR', ['F10_INDEX1800','KP1800'], t0r,t1r)
 
         totalMin = (t1-t0).days*24.0*60.0+(t1-t0).seconds/60
         tmin = np.arange(totalMin)
-        t107 = data.get('TIME_AT_CENTER_OF_HOUR')
+        t107 = data['Epoch']
         t107min = np.zeros(len(t107))
         for i in range(len(t107)):
             t107min[i]=(t107[i]-t0).days*24.0*60.0+(t107[i]-t0).seconds/60
 
-        f107=data.get('DAILY_F10.7')
+        f107=data['F10_INDEX1800']
         f107[f107 == 999.9] = np.nan # removing bad values from mean calculation
-        avgF107 = np.nanmean(f107)
+        avgF107 = np.mean(f107[f107 != 999.9])
         print("Average f10.7: ", avgF107)
 
-        if (f107[0] == np.nan):
+        if (f107[0] == 999.9):
             f107[0] = avgF107
             print('!!!!!!!!!! Warning: f10.7 starts with a bad value, setting to average value: %d !!!!!!!!!!'%(avgF107))
 
-        kp = data.get('3-H_KP*10') 
+        kp = data['KP1800'] 
 
         #Linearly interpolating and converting hourly cadence to minutes
-        f107min = np.interp(tmin, t107min[~np.isnan(f107)], f107[~np.isnan(f107)])
+        f107min = np.interp(tmin, t107min[f107 != 999.9], f107[f107 != 999.9])
 
         if (np.all(kp == 99)):
             kpmin   = np.interp(tmin, t107min, kp) # if no good values, setting all to bad values
@@ -146,14 +144,7 @@ if __name__ == "__main__":
             
             #obtain 1 minute resolution observations from OMNI dataset
             print('Retrieving solar wind data from CDAWeb')
-            fIn = cdas.get_data(
-               'sp_phys',
-               'OMNI_HRO_1MIN',
-               t0,
-               t1,
-               ['BX_GSE,BY_GSE,BZ_GSE,Vx,Vy,Vz,proton_density,T,AE_INDEX,AL_INDEX,AU_INDEX,SYM_H']
-            )
-
+            status,fIn = cdas.get_data('OMNI_HRO_1MIN',['BX_GSE','BY_GSE','BZ_GSE','Vx','Vy','Vz','proton_density','T','AE_INDEX','AL_INDEX','AU_INDEX','SYM_H'],t0r,t1r)
         else:
             raise Exception('Error:  Not able to obtain dataset from spacecraft. Please select another mission.')
 
