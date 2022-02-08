@@ -85,7 +85,6 @@ if __name__ == "__main__":
     # Create the figure in a memory buffer.
     matplotlib.use("Agg")
     fig, axes = plt.subplots(2, 1)
-    # fig.subplots_adjust(hspace=0.3)
 
     # Plot the magnetic pressure from the first step.
     axes[0].set_aspect("equal")
