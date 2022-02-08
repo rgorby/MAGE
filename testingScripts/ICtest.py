@@ -49,43 +49,39 @@ arguments = "module purge; module list;"
 ModuleList = []
 tempString = ""
 
-# Get list of IC files to try (GAMERA ONLY FOR NOW)
+# Get list of IC file sto try, ignoring files in the "deprecated" folfder
+# GAMERA ONLY FOR NOW
 os.chdir(home)
 os.chdir('src/gamera/ICs')
 directory = os.getcwd()
 directory = directory + "/"
-listFiles = subprocess.Popen("ls", shell=True, stdout=subprocess.PIPE)
-fileList = listFiles.stdout.read()
-fileList = fileList.decode('ascii')
-print(fileList)
 print(directory)
+fileList = []
+for root, directories, filenames in os.walk(directory):
+    if "deprecated" not in root:
+        for filename in filenames:
+            fileList.append(os.path.join(root,filename))
+print(fileList)
 
 # Add modules to the list to be loaded
 os.chdir(home)
 os.system('mkdir ICBuilds')
 os.chdir('ICBuilds')
 
-# Split file list into an actual list
-fileList = fileList.splitlines()
-
-# Ignore old IC files in the "deprecated" directory
-fileList.remove('deprecated')
-print(fileList)
-
-
 for line in modules:
     if (line.strip() == "##NEW ENVIRONMENT##"):
         for element in fileList:
+            icName = os.path.basename(element)
             arguments = arguments + " module list;" # List modules for this build
             # Create the build folder
             arguments = arguments + "cd " + home + "; cd ICBuilds/;"
-            arguments = arguments + "mkdir gamera" + element.strip() + str(iteration) + ";"
+            arguments = arguments + "mkdir gamera" + icName + str(iteration) + ";"
             # Move to the build folder
-            arguments = arguments + "cd gamera" + element.strip() + str(iteration) + "; "
+            arguments = arguments + "cd gamera" + icName + str(iteration) + "; "
             # Invoke cmake
             arguments = arguments + "cmake ../../ -DALLOW_INVALID_COMPILERS=ON -DGAMIC:FILEPATH="
             # Add the correct path for GAMIC
-            arguments = arguments + directory + element.strip() + "; "
+            arguments = arguments + element + "; "
             # Create Gamera
             arguments = arguments + " make gamera.x; "
             print(arguments)
@@ -98,16 +94,17 @@ for line in modules:
         arguments = arguments + " module load " + line.strip() + ";" # Strip off newline characters
 
 for element in fileList:
+    icName = os.path.basename(element)
     arguments = arguments + " module list;" # List modules for this build
     # Create the build folder
     arguments = arguments + "cd " + home + "; cd ICBuilds;"
-    arguments = arguments + "mkdir gamera" + element.strip() + str(iteration) + ";"
+    arguments = arguments + "mkdir gamera" + icName + str(iteration) + ";"
     # Move to the build folder
-    arguments = arguments + "cd gamera" + element.strip() + str(iteration) + "; "
+    arguments = arguments + "cd gamera" + icName + str(iteration) + "; "
     # Invoke cmake
     arguments = arguments + "cmake ../../ -DALLOW_INVALID_COMPILERS=ON -DGAMIC:FILEPATH="
     # Add the correct path for GAMIC
-    arguments = arguments + directory + element.strip() + "; "
+    arguments = arguments + element + "; "
     # Create Gamera
     arguments = arguments + " make gamera.x; "
     print(arguments)
