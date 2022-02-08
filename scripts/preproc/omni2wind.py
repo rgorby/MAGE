@@ -54,6 +54,7 @@ if __name__ == "__main__":
         t0Str="2010-01-01T00:00:00"
         t1Str="2010-01-01T02:00:00"
         Ts = 0.0
+        sigma = 3.0
         obs="OMNI"
         MainS = """ This script does several things:
                       1. Fetch OMNI data from CDAWeb between the specified times (must be at least 2 hours in length) 
@@ -74,10 +75,13 @@ if __name__ == "__main__":
         parser.add_argument('-obs',type=str,metavar="OMNI",default=obs,help="Select spacecraft to obtain observations from (default: %(default)s)")
         parser.add_argument('-o',type=str,metavar="wind.h5",default=fOut,help="Output Gamera wind file (default: %(default)s)")
         parser.add_argument('-m',type=str,metavar="LFM",default=mod,help="Format to write.  Options are LFM or TIEGCM (default: %(default)s)")
-        parser.add_argument('-TsG',type=float,metavar="TStart",default=Ts,help="Gamera start time [min] (default: %(default)s)")
-        parser.add_argument('-TsL',type=float,metavar="TStart",default=Ts,help="LFM start time [min] (default: %(default)s)")
+        parser.add_argument('-TsG',type=float,metavar="GAMERA_TStart",default=Ts,help="Gamera start time [min] (default: %(default)s)")
+        parser.add_argument('-TsL',type=float,metavar="LFM_TStart",default=Ts,help="LFM start time [min] (default: %(default)s)")
         parser.add_argument('-bx', action='store_true',default=False,help="Include Bx through ByC and BzC fit coefficients (default: %(default)s)")
         parser.add_argument('-interp', action='store_true',default=False,help="Include shaded region on plots where data is interpolated (default: %(default)s)")
+        parser.add_argument('-filter', action='store_true',default=False,help="Include additional filtering of data to remove outlier points (default: %(default)s)")
+        parser.add_argument('-sig',type=float,metavar="sigma",default=sigma,help="N used in N*sigma used for filtering threshold above which will be thrown out (default: %(default)s)")
+
         #Finalize parsing
         args = parser.parse_args()
 
@@ -87,6 +91,8 @@ if __name__ == "__main__":
         TsL = args.TsL
         includeBx = args.bx
         plotInterped = args.interp
+        doCoarseFilter = args.filter
+        sigma = args.sig
 
         t0Str = args.t0
         t1Str = args.t1
@@ -152,7 +158,8 @@ if __name__ == "__main__":
             raise Exception('Error:  Not able to obtain dataset from spacecraft. Please select another mission.')
 
         # Read the solar wind data into 'sw' object and interpolate over the bad data.
-        sw = eval('kaipy.solarWind.'+fileType+'.'+fileType)(fIn)
+        if (doCoarseFilter): print(f"Using Coarse Filtering, removing values {sigma} sigma from the mean")
+        sw = eval('kaipy.solarWind.'+fileType+'.'+fileType)(fIn,doFilter=doCoarseFilter,sigmaVal=sigma)
 
         # Do output format-specific tasks:
         if (mod == 'TIEGCM'):

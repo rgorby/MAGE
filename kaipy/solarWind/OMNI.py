@@ -15,8 +15,11 @@ class OMNI(SolarWind):
     Data stored in GSE coordinates.
     """
 
-    def __init__(self, filename = None):        
+    def __init__(self, filename = None, doFilter = False, sigmaVal = 3.0):
         SolarWind.__init__(self)
+
+        self.filter = doFilter
+        self.sigma = sigmaVal
 
         self.bad_data = [-999.900, 
                          99999.9, # V
@@ -34,7 +37,8 @@ class OMNI(SolarWind):
         """
         (startDate, dates, data) = self.__readData(filename)
         (dataArray, hasBeenInterpolated) = self.__removeBadData(data)
-        (dataArray, hasBeenInterpolated) = self.__coarseFilter(dataArray, hasBeenInterpolated)
+        if self.filter:
+            (dataArray, hasBeenInterpolated) = self.__coarseFilter(dataArray, hasBeenInterpolated)
         self.__storeDataDict(dates, dataArray, hasBeenInterpolated)
         self.__appendMetaData(startDate, filename)
         self._appendDerivedQuantities()
@@ -161,19 +165,19 @@ class OMNI(SolarWind):
         NOTE: This is remarkably similar to __removeBadData!
           Refactoring to keep it DRY wouldn't be a bad idea. . .
         """
-        
+
         stds = []
         means = []
         for varIdx in range(1,13):
             stds.append( dataArray[:,varIdx].std() )
             means.append( dataArray[:,varIdx].mean() )
             
-            # Linearly interpolate over data that exceeds 3 standard
-            # deviations from the mean
+            # Linearly interpolate over data that exceeds # of standard
+            # deviations from the mean set by self.sigma (default = 3)
             lastValidIndex = -1
             for curIndex,row in enumerate(dataArray):
                 # Are we outside 3 sigma from mean?
-                if abs(means[varIdx-1] - row[varIdx]) > 3*stds[varIdx-1]:
+                if abs(means[varIdx-1] - row[varIdx]) > self.sigma*stds[varIdx-1]:
                     hasBeenInterpolated[curIndex, varIdx-1] = True
                     if (curIndex == len(dataArray)-1):
                         # Clamp last bad data to previous known good data.
