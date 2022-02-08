@@ -538,16 +538,19 @@ module voltapp
         class(voltApp_T), intent(inout) :: vApp
         real(rp), intent(out) :: x2Err, x4Err
 
-        integer :: i,j,k,baseQkSqStr
+        integer :: i,j,k,baseQkSqStr,N
         logical :: baseDoQkSq
         real(rp), dimension(:,:,:,:), allocatable :: baseXyzSquish
         real(rp), dimension(2) :: posErr
+        real(rp) :: dErr
 
         associate(ebGr=>vApp%ebTrcApp%ebState%ebGr)
 
         allocate(baseXyzSquish,  MOLD=vApp%chmp2mhd%xyzSquish)
         baseQkSqStr = vApp%qkSquishStride
         baseDoQkSq = vApp%doQkSquish
+
+        N = (vApp%iDeep+1-ebGr%is+1)*(ebGr%je+1-ebGr%js+1)*(ebGr%ke+1-ebGr%ks+1)
 
         ! squish with no quick squish stride
         vApp%qkSquishStride = 1
@@ -563,9 +566,12 @@ module voltapp
         do i=ebGr%is,vApp%iDeep+1
             do j=ebGr%js,ebGr%je+1
                 do k=ebGr%ks,ebGr%ke+1
-                    posErr = abs(baseXyzSquish(i,j,k,:) - vApp%chmp2mhd%xyzSquish(i,j,k,:))
-                    if(posErr(2) > PI) posErr(2) = 2*PI - posErr(2)
-                    x2Err = x2Err + NORM2(posErr)
+                    dErr = HaverDist(baseXyzSquish(i,j,k,:),vApp%chmp2mhd%xyzSquish(i,j,k,:))
+                    x2Err = x2Err + dErr
+                    !posErr = abs(baseXyzSquish(i,j,k,:) - vApp%chmp2mhd%xyzSquish(i,j,k,:))
+                    !if(posErr(2) > PI) posErr(2) = 2*PI - posErr(2)
+                    !x2Err = x2Err + NORM2(posErr)
+                    !x2Err = x2Err+po
                 enddo
             enddo
         enddo
@@ -577,18 +583,44 @@ module voltapp
         do i=ebGr%is,vApp%iDeep+1
             do j=ebGr%js,ebGr%je+1
                 do k=ebGr%ks,ebGr%ke+1
-                    posErr = abs(baseXyzSquish(i,j,k,:) - vApp%chmp2mhd%xyzSquish(i,j,k,:))
-                    if(posErr(2) > PI) posErr(2) = 2*PI - posErr(2)
-                    x4Err = x4Err + NORM2(posErr)
+                    dErr = HaverDist(baseXyzSquish(i,j,k,:),vApp%chmp2mhd%xyzSquish(i,j,k,:))
+                    x2Err = x2Err + dErr
+
+                    ! posErr = abs(baseXyzSquish(i,j,k,:) - vApp%chmp2mhd%xyzSquish(i,j,k,:))
+                    ! if(posErr(2) > PI) posErr(2) = 2*PI - posErr(2)
+                    ! x4Err = x4Err + NORM2(posErr)
                 enddo
             enddo
         enddo
 
+        !Rescale to err/pt
+        x2Err = x2Err/N
+        x4Err = x4Err/N
+        
         vApp%qkSquishStride = baseQkSqStr
         vApp%doQkSquish = baseDoQkSq
         deallocate(baseXyzSquish)
 
         end associate
+
+        contains
+
+        function HaverDist(latlon1,latlon2) result(D)
+            real(rp), dimension(2) :: latlon1,latlon2
+            real(rp) :: D
+            real(rp) :: lat1,lon1,lat2,lon2,dLat,dLon,hArg
+
+            lat1 = latlon1(1)
+            lon1 = latlon1(2)
+            lat2 = latlon2(1)
+            lon2 = latlon2(2)
+
+            dLat = 0.5*(lat2-lat1)
+            dLon = 0.5*(lon2-lon1)
+
+            hArg = sin(dLat)**2.0 + cos(lat1)*cos(lat2)*sin(dLon)**2.0
+            D = 2*asin(sqrt(hArg))
+        end function HaverDist
 
     end subroutine
 
