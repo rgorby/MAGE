@@ -533,12 +533,13 @@ module voltapp
 
     end subroutine
 
-    subroutine CheckQuickSquishError(vApp, gApp, x2Err, x4Err)
+    subroutine CheckQuickSquishError(vApp, gApp, Nbase, Nx2, Nx4, x2Err, x4Err)
         type(gamApp_T) , intent(inout) :: gApp
         class(voltApp_T), intent(inout) :: vApp
+        integer, intent(out) :: Nbase, Nx2, Nx4
         real(rp), intent(out) :: x2Err, x4Err
 
-        integer :: i,j,k,baseQkSqStr,N
+        integer :: i,j,k,baseQkSqStr
         logical :: baseDoQkSq
         real(rp), dimension(:,:,:,:), allocatable :: baseXyzSquish
         real(rp), dimension(2) :: posErr
@@ -550,28 +551,26 @@ module voltapp
         baseQkSqStr = vApp%qkSquishStride
         baseDoQkSq = vApp%doQkSquish
 
-        N = (vApp%iDeep+1-ebGr%is+1)*(ebGr%je+1-ebGr%js+1)*(ebGr%ke+1-ebGr%ks+1)
-
         ! squish with no quick squish stride
         vApp%qkSquishStride = 1
         vApp%doQkSquish = .false.
         call DeepUpdate(vApp, gApp)
+        Nbase = count(NORM2(vApp%chmp2mhd%xyzSquish(ebGr%is:vApp%iDeep+1,ebGr%js:ebGr%je+1,ebGr%ks:ebGr%ke+1,:),dim=4) > TINY)
         baseXyzSquish = vApp%chmp2mhd%xyzSquish
 
         ! squish with 2x quick squish stride
         vApp%qkSquishStride = 2
         vApp%doQkSquish = .true.
         call DeepUpdate(vApp, gApp)
+        Nx2 = count(NORM2(vApp%chmp2mhd%xyzSquish(ebGr%is:vApp%iDeep+1,ebGr%js:ebGr%je+1,ebGr%ks:ebGr%ke+1,:),dim=4) > TINY)
         x2Err = 0
         do i=ebGr%is,vApp%iDeep+1
             do j=ebGr%js,ebGr%je+1
                 do k=ebGr%ks,ebGr%ke+1
-                    dErr = HaverDist(baseXyzSquish(i,j,k,:),vApp%chmp2mhd%xyzSquish(i,j,k,:))
-                    x2Err = x2Err + dErr
-                    !posErr = abs(baseXyzSquish(i,j,k,:) - vApp%chmp2mhd%xyzSquish(i,j,k,:))
-                    !if(posErr(2) > PI) posErr(2) = 2*PI - posErr(2)
-                    !x2Err = x2Err + NORM2(posErr)
-                    !x2Err = x2Err+po
+                    if(NORM2(baseXyzSquish(i,j,k,:)) > TINY .and. NORM2(vApp%chmp2mhd%xyzSquish(i,j,k,:)) > TINY) then
+                        dErr = HaverDist(baseXyzSquish(i,j,k,:),vApp%chmp2mhd%xyzSquish(i,j,k,:))
+                        x2Err = x2Err + dErr
+                    endif
                 enddo
             enddo
         enddo
@@ -579,23 +578,22 @@ module voltapp
         ! squish with 4x quick squish stride
         vApp%qkSquishStride = 4
         call DeepUpdate(vApp, gApp)
+        Nx4 = count(NORM2(vApp%chmp2mhd%xyzSquish(ebGr%is:vApp%iDeep+1,ebGr%js:ebGr%je+1,ebGr%ks:ebGr%ke+1,:),dim=4) > TINY)
         x4Err = 0
         do i=ebGr%is,vApp%iDeep+1
             do j=ebGr%js,ebGr%je+1
                 do k=ebGr%ks,ebGr%ke+1
-                    dErr = HaverDist(baseXyzSquish(i,j,k,:),vApp%chmp2mhd%xyzSquish(i,j,k,:))
-                    x2Err = x2Err + dErr
-
-                    ! posErr = abs(baseXyzSquish(i,j,k,:) - vApp%chmp2mhd%xyzSquish(i,j,k,:))
-                    ! if(posErr(2) > PI) posErr(2) = 2*PI - posErr(2)
-                    ! x4Err = x4Err + NORM2(posErr)
+                    if(NORM2(baseXyzSquish(i,j,k,:)) > TINY .and. NORM2(vApp%chmp2mhd%xyzSquish(i,j,k,:)) > TINY) then
+                        dErr = HaverDist(baseXyzSquish(i,j,k,:),vApp%chmp2mhd%xyzSquish(i,j,k,:))
+                        x4Err = x4Err + dErr
+                    endif
                 enddo
             enddo
         enddo
 
         !Rescale to err/pt
-        x2Err = x2Err/N
-        x4Err = x4Err/N
+        x2Err = x2Err/Nx2
+        x4Err = x4Err/Nx4
         
         vApp%qkSquishStride = baseQkSqStr
         vApp%doQkSquish = baseDoQkSq

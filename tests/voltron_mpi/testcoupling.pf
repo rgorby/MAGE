@@ -319,7 +319,8 @@ contains
   subroutine testQuickSquish(this)
       class (MpiTestMethod), intent(inout) :: this
 
-      real(rp) :: x2err, x4err
+      integer :: Nbase, Nx2, Nx4
+      real(rp) :: x2err, x4err, Ndiv, approxShells
       character(len=strLen) :: caseFile
       write(caseFile,'(A,I0,A)') 'cmiD_deep_', this%getNumProcesses()-1, '_res0.xml'
       call initializeWithCaseXml(this, caseFile)
@@ -347,11 +348,28 @@ contains
           call DeepUpdate_mpi(voltAppMpi, voltAppMpi%time)
 
           ! now check the quick squish erroers
-          call CheckQuickSquishError(voltAppmpi, voltAppMpi%gAppLocal, x2Err, x4Err)
+          call CheckQuickSquishError(voltAppMpi, voltAppMpi%gAppLocal, Nbase, Nx2, Nx4, x2Err, x4Err)
 
-          ! Empiricially determined values
-          @assertLessThanOrEqual(x2Err, 9000.0_rp, trim("X2 Quick Squish Error Too Large"))
-          @assertLessThanOrEqual(x4Err, 25000.0_rp, trim("X4 Quick Squish Error Too Large"))
+          ! Ensure that the number of valid cells decreases as quick squish interpolation increases
+          @assertTrue(Nx2 <= Nbase, trim("X2 Quick Squish has more valid cells than normal squish. This should not be possible."))
+          @assertTrue(Nx4 <= Nbase, trim("X4 Quick Squish has more valid cells than normal squish. This should not be possible."))
+          @assertTrue(Nx4 <= Nx2,   trim("X4 Quick Squish has more valid cells than X2 Quick Squish. This should not be possible."))
+
+          ! Per cell error metric
+          @assertLessThanOrEqual(x2Err, 5e-3_rp, trim("X2 Quick Squish Error per cell is too large"))
+          @assertLessThanOrEqual(x4Err, 2e-2_rp, trim("X4 Quick Squish Error per cell is too large"))
+
+          ! Approximate how many i layers of actual data there are if the data were spherical
+          approxShells = Nbase
+          approxShells = approxShells / (voltAppMpi%ebTrcApp%ebState%ebGr%ke+2-voltAppMpi%ebTrcApp%ebState%ebGr%ks)
+          approxShells = approxShells / (voltAppMpi%ebTrcApp%ebState%ebGr%je+2-voltAppMpi%ebTrcApp%ebState%ebGr%js)
+          ! If the data were spherical, squish x2 would reduce it by half of a layer on average. It's not spherical, so increase the error margin by 5
+          Ndiv = Nbase-Nx2
+          @assertLessThanOrEqual(Ndiv/Nbase, 2.5_rp/approxShells, trim("X2 Quick Squish has too many cells missing values compared to normal squish."))
+          ! If the data were spherical, squish x4 would reduce it by 1.5 of a layer on average. It's not spherical, so increase the error margin by 5
+          Ndiv = Nbase-Nx4
+          @assertLessThanOrEqual(Ndiv/Nbase, 7.5_rp/approxShells, trim("X4 Quick Squish has too many cells missing values compared to normal squish."))
+
       endif
   end subroutine testQuickSquish
 
@@ -359,7 +377,8 @@ contains
   subroutine testQuickSquishStorm(this)
       class (MpiTestMethod), intent(inout) :: this
 
-      real(rp) :: x2err, x4err
+      integer :: Nbase, Nx2, Nx4
+      real(rp) :: x2err, x4err, Ndiv, approxShells
       character(len=strLen) :: caseFile
       write(caseFile,'(A,I0,A)') 'cmiD_deep_', this%getNumProcesses()-1, '_res600.xml'
       call initializeWithCaseXml(this, caseFile)
@@ -387,11 +406,28 @@ contains
           call DeepUpdate_mpi(voltAppMpi, voltAppMpi%time)
 
           ! now check the quick squish erroers
-          call CheckQuickSquishError(voltAppmpi, voltAppMpi%gAppLocal, x2Err, x4Err)
+          call CheckQuickSquishError(voltAppMpi, voltAppMpi%gAppLocal, Nbase, Nx2, Nx4, x2Err, x4Err)
 
-          ! Empirically determined values
-          @assertLessThanOrEqual(x2Err,  7000.0_rp, trim("X2 Quick Squish Error Too Large"))
-          @assertLessThanOrEqual(x4Err, 23000.0_rp, trim("X4 Quick Squish Error Too Large"))
+          ! Ensure that the number of valid cells decreases as quick squish interpolation increases
+          @assertTrue(Nx2 <= Nbase, trim("X2 Quick Squish has more valid cells than normal squish. This should not be possible."))
+          @assertTrue(Nx4 <= Nbase, trim("X4 Quick Squish has more valid cells than normal squish. This should not be possible."))
+          @assertTrue(Nx4 <= Nx2,   trim("X4 Quick Squish has more valid cells than X2 Quick Squish. This should not be possible."))
+
+          ! Per cell error metric
+          @assertLessThanOrEqual(x2Err, 5e-3_rp, trim("X2 Quick Squish Error per cell is too large"))
+          @assertLessThanOrEqual(x4Err, 2e-2_rp, trim("X4 Quick Squish Error per cell is too large"))
+
+          ! Approximate how many i layers of actual data there are if the data were spherical
+          approxShells = Nbase
+          approxShells = approxShells / (voltAppMpi%ebTrcApp%ebState%ebGr%ke+2-voltAppMpi%ebTrcApp%ebState%ebGr%ks)
+          approxShells = approxShells / (voltAppMpi%ebTrcApp%ebState%ebGr%je+2-voltAppMpi%ebTrcApp%ebState%ebGr%js)
+          ! If the data were spherical, squish x2 would reduce it by half of a layer on average. It's not spherical, so increase the error margin by 5
+          Ndiv = Nbase-Nx2
+          @assertLessThanOrEqual(Ndiv/Nbase, 2.5_rp/approxShells, trim("X2 Quick Squish has too many cells missing values compared to normal squish."))
+          ! If the data were spherical, squish x4 would reduce it by 1.5 of a layer on average. It's not spherical, so increase the error margin by 5
+          Ndiv = Nbase-Nx4
+          @assertLessThanOrEqual(Ndiv/Nbase, 7.5_rp/approxShells, trim("X4 Quick Squish has too many cells missing values compared to normal squish."))
+
       endif
   end subroutine testQuickSquishStorm
 
