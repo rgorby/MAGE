@@ -65,6 +65,7 @@ print(fileList)
 
 # Add modules to the list to be loaded
 os.chdir(home)
+os.system('rm -r ICBuilds')
 os.system('mkdir ICBuilds')
 os.chdir('ICBuilds')
 
