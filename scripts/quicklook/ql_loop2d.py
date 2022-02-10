@@ -92,7 +92,7 @@ if __name__ == "__main__":
     values = axes[0].pcolormesh(X, Y, Pb_first, cmap="viridis", vmin=vmin, vmax=vmax)
     axes[0].text(0.5, 0.4, "Step 0", color="white")
 
-    # Plot the magnetic pressure from the first step.
+    # Plot the magnetic pressure from the last step.
     axes[1].set_aspect("equal")
     axes[1].set_xlabel("X")
     axes[1].set_ylabel("Y")
