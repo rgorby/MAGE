@@ -58,7 +58,7 @@ directory = directory + "/"
 print(directory)
 fileList = []
 for root, directories, filenames in os.walk(directory):
-    if "deprecated" not in root:
+    if "deprecated" not in root and "underdev" not in root:
         for filename in filenames:
             fileList.append(os.path.join(root,filename))
 print(fileList)
