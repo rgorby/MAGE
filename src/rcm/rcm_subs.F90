@@ -3139,7 +3139,7 @@ FUNCTION RatefnDW(xx,yy,alamx,vmx,nex,kpx,bqx,losscx)
     !tau = max(tau_s,RatefnDW_tau_c(kpx, MLT,L,E)) ! Kpx,mltx,Lx,Ekx
     !RatefnDW(2) = 1.0
   elseif(nex>nhigh) then
-    tau_h = RatefnDW_tau_h16(kpx, MLT,L,E)
+    tau_h = RatefnC_tau_h16(kpx, MLT,L,E)
     if (tau_s > tau_h) then
        tau = tau_s
        RatefnDW(2) = 4.0
@@ -3152,7 +3152,7 @@ FUNCTION RatefnDW(xx,yy,alamx,vmx,nex,kpx,bqx,losscx)
     !RatefnDW(2) = 2.0
   else
     tau_c = RatefnDW_tau_c(kpx, MLT,L,E)
-    tau_h = RatefnDW_tau_h16(kpx, MLT,L,E)
+    tau_h = RatefnC_tau_h16(kpx, MLT,L,E)
     if (abs(tau_h - 1.D10)< TINY .and. abs(tau_c - 1.D10)< TINY ) then
        tau = tau_s
        RatefnDW(2) = 4.0
@@ -3178,7 +3178,7 @@ FUNCTION RatefnDW(xx,yy,alamx,vmx,nex,kpx,bqx,losscx)
     else
        if (tau_s > tau_c .and. tau_s > tau_h) then
           tau1 = tau_s
-          tau2 = tua_s
+          tau2 = tau_s
           R1 = 4.0
           R2 = 4.0
        elseif (tau_s > tau_c) then
