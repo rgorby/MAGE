@@ -692,7 +692,8 @@ def getVarWedge(rcmf5, mhdrcmf5, sStart, sEnd, sStride, wedge_deg, species='ions
 		rcmTimes = getRCMtimes(rcmf5,mhdrcmf5,jdir=jdir)
 	iTStart = np.abs(rcmTimes['sIDs']-sStart).argmin()
 	iTEnd = np.abs(rcmTimes['sIDs']-sEnd).argmin()
-
+	print ("iTStart", iTStart)
+	print ("iTEnd", iTEnd)
 	sIDstrs = rcmTimes['sIDstrs'][iTStart:iTEnd+1:sStride]
 	nSteps = len(sIDstrs)
 	rcm5 = h5.File(rcmf5,'r')
@@ -724,6 +725,7 @@ def getVarWedge(rcmf5, mhdrcmf5, sStart, sEnd, sStride, wedge_deg, species='ions
 	press_tkl = np.zeros((nSteps, Ne, Nl))
 
 	if doProgressBar: bar = progressbar.ProgressBar(max_value=nSteps)
+	print ("nSteps", nSteps)
 	for n in range(nSteps):
 		if doProgressBar: bar.update(n)
 
@@ -953,6 +955,7 @@ def getRCM_eqlatlon(mhdrcmf5, rcmTimes, sStart, sEnd, sStride, jdir=None, forceC
 	xmin_arr = np.ma.zeros((Nt, Ni, Nj))
 	ymin_arr = np.ma.zeros((Nt, Ni, Nj))
 	press_arr = np.ma.zeros((Nt, Ni, Nj))
+	pressE_arr = np.ma.zeros((Nt, Ni, Nj))
 	dens_arr = np.zeros((Nt, Ni, Nj))
 	
 	scLoc_eq = np.zeros((Nt, 2))
@@ -982,11 +985,12 @@ def getRCM_eqlatlon(mhdrcmf5, rcmTimes, sStart, sEnd, sStride, jdir=None, forceC
 		bmX, bmY = rcmpp.RCMEq(rcmdata, sIDs[t], doMask=True)
 		I = rcmpp.GetMask(rcmdata, sIDs[t])
 		pm = rcmpp.GetVarMask(rcmdata, sIDs[t], 'P', I)
+		pem = rcmpp.GetVarMask(rcmdata, sIDs[t], 'Pe', I)
 
 		xmin_arr[t,:,:] = np.transpose(bmX)
 		ymin_arr[t,:,:] = np.transpose(bmY)
 		press_arr[t,:,:] = np.transpose(pm)
-
+		pressE_arr[t,:,:] = np.transpose(pem)
 	"""
 	for t in range(tStart, len(sIDstrs)):
 		#Linterp sc location based on time
@@ -1009,6 +1013,7 @@ def getRCM_eqlatlon(mhdrcmf5, rcmTimes, sStart, sEnd, sStride, jdir=None, forceC
 	result['xmin']  = xmin_arr
 	result['ymin']  = ymin_arr
 	result['press'] = press_arr
+	result['pressE'] = pressE_arr
 
 	if dojson: kj.dump(rcmjfname, result)
 
@@ -1297,6 +1302,7 @@ def plt_rcm_eqlatlon(AxLatlon, AxEq, rcmData, satTrackData=None, AxCB=None, mjd=
 	mlat_arr  = rcmData['MLAT']
 	mlon_arr  = rcmData['MLON']
 	press_arr = rcmData['press']
+	#press_arr = rcmData['pressE']
 	
 	#ut = scutils.mjd_to_ut(rcmData['MJD'])
 	ut = kT.MJD2UT(rcmData['MJD'])
@@ -1321,11 +1327,20 @@ def plt_rcm_eqlatlon(AxLatlon, AxEq, rcmData, satTrackData=None, AxCB=None, mjd=
 
 		#Prep rcm lat/lons for polar plotting
 		riono = np.cos(mlat_arr*np.pi/180.)
+		print("riono shape:",riono.shape)
 		tiono = np.concatenate((mlon_arr, [mlon_arr[0]]))*np.pi/180.
-		AxLatlon.pcolor(tiono, riono, to_center(np.transpose(press_arr[iMJD])),norm=norm, shading='auto', cmap=cmapName)
-		AxLatlon.axis([0, 2*np.pi, 0, 0.7])
-
-		AxEq.pcolor(xmin_arr[iMJD], ymin_arr[iMJD], to_center(press_arr[iMJD]), norm=norm, shading='auto', cmap=cmapName)
+		print("tiono shape:",tiono.shape)
+		#AxLatlon.pcolor(tiono, riono, to_center(np.transpose(press_arr[iMJD]).T),norm=norm, shading='auto', cmap=cmapName)
+		#AxLatlon.axis([0, 2*np.pi, 0, 0.7])
+		print("xmin_arr shape:",xmin_arr[iMJD].shape)
+		print ("xmin_arr:",xmin_arr[iMJD])
+		print("ymin_arr shape:",ymin_arr[iMJD].shape)
+		print("press_arr shape:",press_arr[iMJD].shape)
+		print("press_arr:",press_arr[iMJD])
+		press_c = to_center(press_arr[iMJD])
+		print("press_c shape", press_c.shape)
+		AxEq.pcolor(xmin_arr[iMJD], ymin_arr[iMJD], press_c, norm=norm, shading='auto', cmap=cmapName)
+		#AxEq.pcolor(xmin_arr[iMJD], ymin_arr[iMJD], to_center(press_arr[iMJD]), norm=norm, shading='auto', cmap=cmapName)
 
 		#Draw satellite location
 		if satTrackData is not None:

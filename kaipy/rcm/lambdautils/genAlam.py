@@ -51,4 +51,4 @@ def genAlamDataFromParams(alamParams):
 
 def genPsphereSpecies():
     params = dT.DT_Manual(name='Plasmasphere')
-    return aD.Species(1, [0], [0], [0], 0, 0, params=params, name='Plasmasphere')
+    return aD.Species(1, [0], [0], [0], 1, 0, params=params, name='Plasmasphere')
