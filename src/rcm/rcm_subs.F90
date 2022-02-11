@@ -3113,7 +3113,7 @@ FUNCTION RatefnDW(xx,yy,alamx,vmx,nex,kpx,bqx,losscx)
   IMPLICIT NONE
   REAL (rprec), INTENT (IN) :: xx,yy,alamx,vmx,nex,kpx,bqx,losscx
   REAL (rprec), dimension(2) :: RatefnDW
-  REAL (rprec) :: nhigh, nlow, L, MLT, E, tau, tau_s, tau_c, tau_h
+  REAL (rprec) :: nhigh, nlow, L, MLT, E, tau, tau_s, tau_c, tau_h, tau1, tau2, R1, R2
 
   nhigh = 100.D0 ! [/cc] ne>nhigh indicates inside plasmasphere.
   nlow  = 10.D0  ! [/cc] ne<nlow indicates outside plasmasphere.
@@ -3127,17 +3127,80 @@ FUNCTION RatefnDW(xx,yy,alamx,vmx,nex,kpx,bqx,losscx)
   tau_s = RatefnC_tau_s(alamx,vmx,bqx,losscx)
 
   if(nex<nlow) then
-    tau = max(tau_s,RatefnDW_tau_c(kpx, MLT,L,E)) ! Kpx,mltx,Lx,Ekx
-    if tau >
-    RatefnDW(2) = 1.0
+    tau_c = RatefnDW_tau_c(kpx, MLT,L,E)
+    if (tau_s > tau_c) then
+       tau = tau_s
+       RatefnDW(2) = 4.0 
+    else
+       tau = tau_c
+       RatefnDW(2) = 1.0
+    endif
+    RatefnDW(1) = 1.0/tau
+    !tau = max(tau_s,RatefnDW_tau_c(kpx, MLT,L,E)) ! Kpx,mltx,Lx,Ekx
+    !RatefnDW(2) = 1.0
   elseif(nex>nhigh) then
-    tau = max(tau_s,RatefnC_tau_h16(MLT,E,L,kpx)) ! mltx,engx,Lshx,kp
-    RatefnDW(2) = 2.0
+    tau_h = RatefnDW_tau_h16(kpx, MLT,L,E)
+    if (tau_s > tau_h) then
+       tau = tau_s
+       RatefnDW(2) = 4.0
+    else
+       tau = tau_h
+       RatefnDW(2) = 2.0
+    endif
+    RatefnDW(1) = 1.0/tau
+    !tau = max(tau_s,RatefnC_tau_h16(MLT,E,L,kpx)) ! mltx,engx,Lshx,kp
+    !RatefnDW(2) = 2.0
   else
-    tau = max(tau_s,(dlog(nhigh/nex)*RatefnDW_tau_c(kpx,MLT,L,E) + dlog(nex/nlow)*RatefnC_tau_h16(MLT,E,L,kpx))/dlog(nhigh/nlow))
-    RatefnDW(2) = 3.0
+    tau_c = RatefnDW_tau_c(kpx, MLT,L,E)
+    tau_h = RatefnDW_tau_h16(kpx, MLT,L,E)
+    if (abs(tau_h - 1.D10)< TINY .and. abs(tau_c - 1.D10)< TINY ) then
+       tau = tau_s
+       RatefnDW(2) = 4.0
+       RatefnDW(1) = 1.0/tau
+    elseif (abs(tau_h - 1.D10)< TINY) then
+       if (tau_s > tau_c) then
+          tau = tau_s
+          RatefnDW(2) = 4.0
+       else
+          tau = tau_c
+          RatefnDW(2) = 1.0
+       endif 
+       RatefnDW(1) = 1.0/tau
+    elseif (abs(tau_c - 1.D10)< TINY) then
+       if (tau_s > tau_h) then
+          tau = tau_s
+          RatefnDW(2) = 4.0
+       else
+          tau = tau_h
+          RatefnDW(2) = 2.0
+       endif
+       RatefnDW(1) = 1.0/tau 
+    else
+       if (tau_s > tau_c .and. tau_s > tau_h) then
+          tau1 = tau_s
+          tau2 = tua_s
+          R1 = 4.0
+          R2 = 4.0
+       elseif (tau_s > tau_c) then
+          tau1 = tau_s
+          tau2 = tau_h
+          R1 = 4.0
+          R2 = 2.0
+       elseif (tau_s > tau_h) then
+          tau1 = tau_c
+          tau2 = tau_s
+          R1 = 1.0
+          R2 = 4.0
+       else
+          tau1 = tau_c
+          tau2 = tau_h
+          R1 = 1.0
+          R2 = 2.0
+       endif  
+       RatefnDW(1) = (dlog(nhigh/nex)/tau1 + dlog(nex/nlow)/tau2)/dlog(nhigh/nlow) ! use weighted loss rate 
+       RatefnDW(2) = (dlog(nhigh/nex)*R1 + dlog(nex/nlow)*R2)/dlog(nhigh/nlow)
+    endif
   endif
-  RatefnDW(1) = 1.0/tau
 
 END FUNCTION RatefnDW
 
