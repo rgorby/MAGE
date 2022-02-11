@@ -533,6 +533,8 @@ contains
         integer :: Nr,herr, N
         integer :: typeClass
         integer(SIZE_T) :: typeSize
+        character(len=strLen) :: inStr
+        logical :: aExists
 
         !Start by getting rank, dimensions and total size
         call h5ltget_dataset_ndims_f(gId,trim(IOVar%idStr),Nr,herr)
@@ -558,6 +560,26 @@ contains
             write(*,*) 'Unknown HDF data type, bailing ...'
             stop
         end select
+
+    !Check for attribute strings
+        !Unit
+        call h5aexists_by_name_f(gID,trim(IOVar%idStr),"Units",aExists,herr)
+        if (aExists) then
+            call h5ltget_attribute_string_f(gID,trim(IOVar%idStr),"Units",inStr,herr)
+        else
+            inStr = "NULL"
+        endif
+        IOVar%unitStr = inStr
+
+        !Description
+        call h5aexists_by_name_f(gID,trim(IOVar%idStr),"Description",aExists,herr)
+        if (aExists) then
+            call h5ltget_attribute_string_f(gID,trim(IOVar%idStr),"Description",inStr,herr)
+        else
+            inStr = "NULL"
+        endif
+        IOVar%descStr = inStr
+
         IOVar%isDone = .true.
     end subroutine ReadHDFVar
 
