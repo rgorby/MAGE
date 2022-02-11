@@ -206,20 +206,23 @@ module init
             call xmlInp%Set_Val( tReset ,"restart/tReset"   ,0.0_rp)
 
             !Read restart
-            call readH5Restart(Model,Grid,State,inH5,doReset,tReset)
+            call readH5Restart(Model,Grid,State,oState,inH5,doReset,tReset)
         else
             ! set initial dt0 to 0, it will be set once the case settles
             Model%dt0 = 0
-            
         endif
 
         if (Model%doMHD) then
             call bFlux2Fld(Model,Grid,State%magFlux,State%Bxyz)
-            oState%magFlux = State%magFlux
-            oState%Bxyz    = State%Bxyz
+            if (Model%isRestart) then
+                call bFlux2Fld(Model,Grid,oState%magFlux,oState%Bxyz)
+            else
+                oState%magFlux = State%magFlux
+                oState%Bxyz    = State%Bxyz
+            endif
         endif
 
-
+    !Do background stuff
         !Incorporate background field, B0, if necessary
         if (Model%doBackground .and. Grid%doB0Init) then
             call AddB0(Model,Grid,Model%B0)
@@ -229,22 +232,29 @@ module init
             call AddGrav(Model,Grid,Model%Phi)
         endif
 
-        !Finalize setup
+    !Finalize setup
         !Enforce initial BC's
         call Tic("BCs")
         call EnforceBCs(Model,Grid,State)
-        oState = State
+        if (Model%isRestart) then
+            call EnforceBCs(Model,Grid,oState)
+        else
+            oState = State
+        endif
         call Toc("BCs")
 
         !Setup timestep and initial previous state for predictor
         Model%dt = CalcDT(Model,Grid,State)
-        oState%time = State%time-Model%dt !Initial old state
+        if (.not. Model%isRestart) then
+            !If restart then oState%time already set by actual value
+            oState%time = State%time-Model%dt !Initial old state
+        endif
 
         !Initialize solver data
         call initSolver(Solver, Model, Grid)
 
         !Setup output file
-        GamH5File = genName(Model%RunID, Grid%NumRi, Grid%NumRj, Grid%NumRk, Grid%Ri+1, Grid%Rj+1, Grid%Rk+1)
+        GamH5File   = genName (Model%RunID, Grid%NumRi, Grid%NumRj, Grid%NumRk, Grid%Ri+1, Grid%Rj+1, Grid%Rk+1)
         Model%RunID = genRunId(Model%RunID, Grid%NumRi, Grid%NumRj, Grid%NumRk, Grid%Ri+1, Grid%Rj+1, Grid%Rk+1)
 
         if (.not. Model%isRestart) then
@@ -311,6 +321,7 @@ module init
         real(rp) :: C0,MJD0
         integer :: nSeed, icSeed
         integer, dimension(:), allocatable :: vSeed
+        logical :: doFatIO
 
         !Start by shutting up extra ranks
         if (.not. Model%isLoud) call xmlInp%BeQuiet()
@@ -391,8 +402,12 @@ module init
         
     !Output/Restart (IOCLOCK)
         call Model%IO%init(xmlInp,Model%t,Model%ts)
-        call xmlInp%Set_Val(Model%doDivB ,'output/DivB' ,.true. )
-
+        call xmlInp%Set_Val(Model%doDivB ,'output/DivB'    ,.true. )
+        call xmlInp%Set_Val(doFatIO      ,'output/doFatIO' ,.false.)
+        if (doFatIO) then
+            call SetFatIO()
+        endif
+        
         !Whether to read restart
         call xmlInp%Set_Val(Model%isRestart,'restart/doRes',.false.)
 
@@ -552,12 +567,13 @@ module init
         real(rp),optional, intent(in) :: xyzBdsIN(6)
 
     
-        logical :: doWarp, doCyl, doSph
+        logical :: doWarp, doCyl, doSph, doStretch
         real(rp) :: xyzBds(6)
         real(rp) :: dx,dy,dz
         integer :: i,j,k
         !Variables for warp generation
         real(rp) :: Lx,Ly,Lz, xp,yp,zp, Ax,Ay,Az,R,w0, dsp
+        real(rp) :: xW,yW,zW
         real(rp) :: x1,x2,x3,x,y,z
         integer :: Nw
         
@@ -736,6 +752,34 @@ module init
                 enddo
             enddo
 
+        endif
+
+        call xmlInp%Set_Val(doStretch,"grid/doStretch" ,.false.)
+        if (doStretch) then
+            call xmlInp%Set_Val(xW,"grid/xW",1.0_rp)
+            call xmlInp%Set_Val(yW,"grid/yW",1.0_rp)
+            call xmlInp%Set_Val(zW,"grid/zW",1.0_rp)
+            
+            Lx = (xyzBds(2)-xyzBds(1))
+            Ly = (xyzBds(4)-xyzBds(3))
+            Lz = (xyzBds(6)-xyzBds(5))
+            !Recalculate certain corners, for now just doing yp
+
+            do k=Grid%ksg, Grid%keg+1
+                do j=Grid%jsg, Grid%jeg+1
+                    do i=Grid%isg, Grid%ieg+1
+                        
+                        !Remap to be eta = [0,1]
+                        xp = ( Grid%xyz(i,j,k,XDIR) - xyzBds(1) )/Lx
+                        yp = ( Grid%xyz(i,j,k,YDIR) - xyzBds(3) )/Ly
+                        zp = ( Grid%xyz(i,j,k,ZDIR) - xyzBds(5) )/Lz
+
+                        Grid%xyz(i,j,k,XDIR) = 2*Lx*xp + xW*(0.5*Lx - Lx*xp)*(1-xp)*xp - Lx
+                        Grid%xyz(i,j,k,YDIR) = 2*Ly*yp + yW*(0.5*Ly - Ly*yp)*(1-yp)*yp - Ly
+                        Grid%xyz(i,j,k,ZDIR) = 2*Lz*zp + zW*(0.5*Lz - Lz*zp)*(1-zp)*zp - Lz
+                    enddo
+                enddo
+            enddo
         endif
 
     end subroutine genGridXML

@@ -11,7 +11,7 @@ module sstimag
 
     type, extends(innerMagBase_T) :: eqData_T
 
-        type(ebTab_T)   :: ebTab
+        type(ioTab_T)   :: ebTab
         logical :: doStatic = .true.
         integer :: Nr,Np
         real(rp), dimension(:,:), allocatable :: X,Y,xxc,yyc
@@ -53,8 +53,8 @@ module sstimag
         call CheckFileOrDie(eqFile,"Error opening EQ Map data")
 
         eqData%ebTab%bStr = eqFile        
-        !Scrape info from file (don't use CHIMP time scaling)
-        call rdTab(eqData%ebTab,iXML,eqFile,doTSclO=.false.)
+        !Scrape info from file
+        call InitIOTab(eqData%ebTab,iXML,eqFile)
         if (eqData%ebTab%N>1) then
             eqData%doStatic = .false.
         endif
@@ -125,7 +125,7 @@ module sstimag
         endif
 
         !Otherwise we need to update
-        call findSlc(eqData%ebTab,tAdv,n1,n2)
+        call GetTabSlc(eqData%ebTab,tAdv,n1,n2)
         if (eqData%eqN1 /= n1) then
             !Read slice
             call rdEQMap(eqData,n1,eqData%eqW1)

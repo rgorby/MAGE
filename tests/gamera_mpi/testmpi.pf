@@ -443,7 +443,7 @@ contains
       enddo
 
       ! halo update
-      call haloUpdate(gamAppMpi)
+      call haloUpdate(gamAppMpi, gamAppMpi%State)
 
       ! check values in all updated cells
       SELECT CASE(this%getNumProcesses())

@@ -9,6 +9,7 @@ module usergamic
     use bcs
     use ioH5
     use helioutils
+  
 
     implicit none
 
@@ -17,6 +18,7 @@ module usergamic
        ! Br, Vr, Rho, Temperature, Br @ kface, Vr @ kface
        enumerator :: BRIN=1,VRIN,RHOIN,TIN,BRKFIN,VRKFIN
     endenum 
+
 
     integer, private, parameter :: NVARSIN=6 ! SHOULD be the same as the number of vars in the above enumerator
     real(rp), dimension(:,:,:,:), allocatable :: ibcVars
@@ -35,7 +37,9 @@ module usergamic
     ! setting it here temporarily. eventually need to read from HDF or something
     ! note also that this is slightly incorrect, since Rbc below is used as the radius
     ! of the center of the first ghost cell.
-    real(rp) :: Rbc = 21.5   
+
+    !for inner heliosphere
+    real(rp) :: Rbc = 21.5
 
     real(rp) :: Tsolar ! Solar rotation period, defined in apps/helioutils.F90
     
@@ -68,7 +72,8 @@ module usergamic
         procedure(HackStep_T), pointer :: tsHack
         procedure(HackE_T), pointer :: eHack
 
-        integer i,j,k,nvar,nr,d
+        integer :: i,j,k,nvar,nr,d
+        integer :: n1, n2
 
 !        if (.not.allocated(inEijk)) allocate(inEijk(1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1,1:NDIM))
 
@@ -78,6 +83,7 @@ module usergamic
         ! grab inner 
         call inpXML%Set_Val(wsaFile,"prob/wsaFile","innerbc.h5" )
 
+
         ! compute global Nkp
         gNkp = Grid%Nkp*Grid%NumRk
 
@@ -86,9 +92,16 @@ module usergamic
         Cs0   = 0.267  ! 40 km/s
         Vslow = 1.33   ! 200 km/s
         Vfast = 5.33   ! 800 km/s
+        !for inner helio
         B0    = 2.0    ! 200 nT
         Rho0  = 1.0    ! 200/cc
         P0    = 1.0e-4*Rho0*Cs0**2.0/Model%gamma
+
+        ![OHelio] for 1-10 au helio
+        !Cs0 = 0.78    !27 km/s
+        !B0 = 1.       ! 5nT
+        !Rho0 = 1.     ! 10/cc
+        !Vslow = 8.5   !300 km/s 
 
         ! deallocate default BCs
         ! required because defaults are triply-periodic
@@ -194,6 +207,9 @@ module usergamic
       !$OMP PARALLEL DO default(shared) &
       !$OMP private(i,j,k,jg,kg,ke,kb,a,var,xyz,R,Theta,Phi,rHat,phiHat) &
       !$OMP private(ibcVarsStatic,pVar,conVar,xyz0,R_kf,Theta_kf)
+
+
+
       do k=Grid%ksg,Grid%keg+1  ! note, going all the way to last face for mag fluxes
          kg = k+Grid%ijkShift(KDIR)
          ! map rotating to static grid

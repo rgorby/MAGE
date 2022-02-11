@@ -41,6 +41,13 @@ if (len(sys.argv) >= 2):
 os.chdir(home)
 os.chdir('ICBuilds')
 
+# get my current branch
+p = subprocess.Popen("git symbolic-ref --short HEAD", shell=True, stdout=subprocess.PIPE)
+gBranch = p.stdout.read()
+gBranch = gBranch.decode('ascii')
+gBranch = gBranch.rstrip()
+print(gBranch)
+
 # Get List of subdirectories
 directoryList = os.listdir(os.getcwd())
 
@@ -104,7 +111,7 @@ myText = myText + "\nModule Set 3:\n" + moduleList[2] + "\n"
 hadErrors = True
 if not incorrectList:
     hadErrors = False
-    myText = "All ICs built OK"
+    myText = "All ICs built OK on branch " + gBranch
 
 # Try to send Slack message
 if(not isTest and (beLoud or hadErrors)):

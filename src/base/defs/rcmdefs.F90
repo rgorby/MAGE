@@ -33,12 +33,32 @@ module rcmdefs
     LOGICAL, PARAMETER :: doQuietRCM = .TRUE.
     LOGICAL, PARAMETER :: doDiskWrite = .FALSE.
     integer(kip), parameter :: RCMTOPCLOSED=-1,RCMTOPOPEN=+1,RCMTOPNULL=0
-    REAL(krp) :: DenPP0 = 5.0 !Defining plasmasphere density cutoff, [#/cc]
-    REAL(krp) :: PSPHKT = 1.0e-3 !Characteristic temperature for plasmasphere [keV]
+    REAL(krp) :: DenPP0 = 0.0 !Defining plasmasphere density cutoff, [#/cc]
     REAL(krp), PARAMETER :: machine_tiny = 1.0e-32
+    REAL(krp), PARAMETER :: tiote_RCM = 4.0
 
     enum, bind(C)
       enumerator :: ELOSS_FDG=1,ELOSS_SS,ELOSS_C05,ELOSS_C19,ELOSS_DW !Choice of electron loss model
     end enum
 
+    REAL(krp), PARAMETER :: bMin_C_DEF  = 1.0 ![nT], default min allowable field strength
+    !For min-B value see Ohtani+Motoba 17
+    REAL(krp), PARAMETER :: wImag_C_DEF = 0.10 !Default min allowable RCM "weight" (see rcmimag)
+
+    !Dumb clawpack hard-coded values
+    REAL(krp), PARAMETER :: CLAW_MAXCFL = 0.95
+    REAL(krp), PARAMETER :: CLAW_REGCFL = 0.80
+    
+    !Standard config (CTU + Superbee)
+    INTEGER  , PARAMETER :: ICLAW_TRANSORDER = 2 !2 is standard
+    INTEGER  , PARAMETER :: ICLAW_LIMITER   = +2 !Superbee
+    
+    !Toy config (Dim split + MC)
+    !INTEGER  , PARAMETER :: ICLAW_TRANSORDER = -1 !2 is standard, maybe try -1?
+    !INTEGER  , PARAMETER :: ICLAW_LIMITER = +4 !MC Limiter
+
+    !Enumerators for rcm boundary shape
+    enum, bind(C)
+        enumerator :: RCMDOMELLIPSE=1,RCMDOMCONTOUR,RCMDOMNONE
+    endenum     
 end module rcmdefs

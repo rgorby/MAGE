@@ -56,7 +56,7 @@ module userebic
         endif
 
         !Get time series/individual grid data from H5 file
-        call rdTab(ebTab,inpXML,ebFile)
+        call InitIOTab(ebTab,inpXML,ebFile,inTScl,oTScl)
 
         !Start by getting grid from H5 file
         call rdGrid(Model,ebGr,ebTab,inpXML)
@@ -109,7 +109,7 @@ module userebic
         endif
         
         !Initialize eb data, find time slices
-        call findSlc(ebTab,Model%T0,i1,i2)
+        call GetTabSlc(ebTab,Model%T0,i1,i2)
         call readEB(Model,ebState,ebGr,ebTab,eb1,ebTab%gStrs(i1),doCalcLpp)
         call readEB(Model,ebState,ebGr,ebTab,eb2,ebTab%gStrs(i2),doCalcLpp)
         if (ebTab%N == 1) ebState%doStatic = .true.
@@ -160,7 +160,7 @@ module userebic
 
         !Do work if still here
         !Go ahead and reread both (lazy way of avoiding corner cases)
-        call findSlc(ebState%ebTab,t,i1,i2)
+        call GetTabSlc(ebState%ebTab,t,i1,i2)
 
         ! Put in a trap so copies 2 to 1 and doesnt reread step
         if ( trim(eb2%gStr) == trim(ebTab%gStrs(i1)) ) then

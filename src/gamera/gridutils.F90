@@ -5,6 +5,7 @@ module gridutils
     use gamutils
     use quadrature
     use metric
+    use earthhelper
     
     implicit none
 
@@ -202,7 +203,7 @@ module gridutils
         real(rp), intent(in)  :: Bxyz(Grid%isg:Grid%ieg,Grid%jsg:Grid%jeg,Grid%ksg:Grid%keg,1:NDIM)
         real(rp), intent(inout) :: Jxyz(Grid%isg:Grid%ieg,Grid%jsg:Grid%jeg,Grid%ksg:Grid%keg,1:NDIM)
 
-        integer :: i,j,k,Nk
+        integer :: i,j,k,Nk,k0
         real(rp), allocatable, dimension(:,:,:,:) :: bInt, JdS
         real(rp), dimension(NDIM) :: J0,J2,J3
         real(rp), dimension(NDIM) :: bAvg,dxyz
@@ -250,7 +251,8 @@ module gridutils
         enddo
 
         ! line integrals of bint to get J*dS on cell faces, the indices are from start to end+1
-        !$OMP PARALLEL DO default(shared) collapse(2)
+        !$OMP PARALLEL DO default(shared) collapse(2) &
+        !$OMP private(i,j,k)
         do k=Grid%ksg, Grid%keg-1
             do j=Grid%jsg, Grid%jeg-1
                 do i=Grid%isg, Grid%ieg-1
@@ -260,12 +262,14 @@ module gridutils
                 enddo
             enddo
         enddo
-        
+        ! Jds ends up being defined isg+1,ieg-1
+
         ! now from J-flux to J-field using the CellBxyz function
-        !$OMP PARALLEL DO default(shared) collapse(2)
-        do k=Grid%ks-1, Grid%ke+1
-            do j=Grid%js-1, Grid%je+1
-                do i=Grid%is-1, Grid%ie+1
+        !$OMP PARALLEL DO default(shared) collapse(2) &
+        !$OMP private(i,j,k)
+        do k=Grid%ksg+1, Grid%keg-1
+            do j=Grid%jsg+1, Grid%jeg-1
+                do i=Grid%isg+1, Grid%ieg-1
                     Jxyz(i,j,k,:) = CellBxyz(Model,Grid,JdS,i,j,k)
                 enddo
             enddo
@@ -279,8 +283,8 @@ module gridutils
             !Start by cleaning up about axis
                 Nk = Grid%ke-Grid%ks+1
                 !$OMP PARALLEL DO default(shared) &
-                !$OMP private(i,k,J0,J3)
-                do i=Grid%is,Grid%ie
+                !$OMP private(i,k,J0,J3,k0)
+                do i=Grid%isg+1,Grid%ieg-1
                     !Positive axis
                     if (Model%Ring%doS) then
                         !Calculate J @ pole by averaging @ ring 3
@@ -295,7 +299,18 @@ module gridutils
                             Jxyz(i,Grid%js+1,k,:) = 0.4*J0 + 0.6*J3
                         enddo
 
+                        !Now fill in ghosts
+                        do k=Grid%ks,Grid%ke
+                            k0 = mod(k+Nk/2-1,Nk) + 1
+                            Jxyz(i,Grid%js-1,k0,:) = Jxyz(i,Grid%js,  k,:)
+                            Jxyz(i,Grid%js-2,k0,:) = Jxyz(i,Grid%js+1,k,:)
+                            Jxyz(i,Grid%js-3,k0,:) = Jxyz(i,Grid%js+2,k,:)
+                            Jxyz(i,Grid%js-4,k0,:) = Jxyz(i,Grid%js+3,k,:)
+                        enddo
+                        Jxyz(i,Grid%jsg:Grid%js+3,-3:0     ,:) = Jxyz(i,Grid%jsg:Grid%js+3,Nk-3:Nk,:)
+                        Jxyz(i,Grid%jsg:Grid%js+3,Nk+1:Nk+4,:) = Jxyz(i,Grid%jsg:Grid%js+3,1:4    ,:)
                     endif
+
                     !Negative axis
                     if (Model%Ring%doE) then
                         J0 = sum(Jxyz(i,Grid%je-2,Grid%ks:Grid%ke,XDIR:ZDIR),dim=1)/Nk
@@ -305,18 +320,28 @@ module gridutils
                             Jxyz(i,Grid%je  ,k,:) = 0.8*J0 + 0.2*J3
                             Jxyz(i,Grid%je-1,k,:) = 0.4*J0 + 0.6*J3
                         enddo
+
+                        do k=Grid%ks,Grid%ke
+                            k0 = mod(k+Nk/2-1,Nk) + 1
+                            Jxyz(i,Grid%je+1,k0,:) = Jxyz(i,Grid%je,  k,:)
+                            Jxyz(i,Grid%je+2,k0,:) = Jxyz(i,Grid%je-1,k,:)
+                            Jxyz(i,Grid%je+3,k0,:) = Jxyz(i,Grid%je-2,k,:)
+                            Jxyz(i,Grid%je+4,k0,:) = Jxyz(i,Grid%je-3,k,:)
+                        enddo
+                        Jxyz(i,Grid%je+1:Grid%jeg,-3:0     ,:) = Jxyz(i,Grid%je+1:Grid%jeg,Nk-3:Nk,:)
+                        Jxyz(i,Grid%je+1:Grid%jeg,Nk+1:Nk+4,:) = Jxyz(i,Grid%je+1:Grid%jeg,1:4    ,:)
+
                     endif
                 enddo !i loop
 
-
             end select
         endif
-
 
         deallocate(bInt)
         deallocate(JdS)
             
     end subroutine bFld2Jxyz
+
 !Converts edge-centered electric fields to cell-centered XYZ field components
 ! this subroutine computes cell-centered electric field (Ex,Ey,Ez) using edge-centered electric field components (Ei, Ej, Ek)
 ! Here is how the (x,y,z) components of the electric field are recovered from (i,j,k) components:
@@ -603,10 +628,28 @@ module gridutils
                 enddo
             enddo
         enddo
+
         if (present(DivOut)) then
             DivOut = DivBcc
         endif
     end subroutine DivB
+
+    !Calculates cell-centered value of a quantity defined at all cell edges
+    !NOTE: Assuming GridVec size w/ +1 (see allocGridVec)
+    function EdgeScalar2CC(Model,Grid,Qedg,i,j,k) result(Qcc)
+        type(Model_T), intent(in) :: Model
+        type(Grid_T) , intent(in) :: Grid
+        real(rp)  , intent(in) :: Qedg(Grid%isg:Grid%ieg+1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1,1:NDIM)
+        integer   , intent(in) :: i,j,k
+        real(rp) :: Qcc
+
+        !Get 12-pt average for cell-centered value
+        Qcc = Qedg(i  ,j  ,k  ,IDIR) + Qedg(i+1,j  ,k  ,JDIR) + Qedg(i  ,j+1,k  ,IDIR) + Qedg(i  ,j  ,k  ,JDIR)  + & !bottom k face
+              Qedg(i  ,j  ,k+1,IDIR) + Qedg(i+1,j  ,k+1,JDIR) + Qedg(i  ,j+1,k+1,IDIR) + Qedg(i  ,j  ,k+1,JDIR)  + & !top k face
+              Qedg(i  ,j  ,k  ,KDIR) + Qedg(i+1,j  ,k  ,KDIR) + Qedg(i+1,j+1,k  ,KDIR) + Qedg(i  ,j+1,k  ,KDIR)
+        Qcc = Qcc/12.0
+        
+    end function EdgeScalar2CC
 
     subroutine EnergyPartition(Model,Gr,State,gIntE,gKinE,gMagP)
         type(Model_T), intent(in) :: Model
@@ -660,5 +703,57 @@ module gridutils
 
     end subroutine EnergyPartition
 
+    subroutine getJxyz(Model,Gr,State,Jxyz)
+        type(Model_T), intent(in) :: Model
+        type(Grid_T),  intent(in) :: Gr
+        type(State_T), intent(in) :: State
+        real(rp), dimension(Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,NDIM), intent(inout) :: Jxyz
+        
+        real (rp), dimension(:,:,:,:), allocatable :: VecA  !! dummy to hold reduced bfld
+        integer :: i,j,k
+
+        call allocGridVec(Model,Gr,VecA)
+
+        !!! Get the current
+        if (Model%isMagsphere) then
+            !Subtract dipole before calculating current
+            !$OMP PARALLEL DO default(shared) collapse(2) &
+            !$OMP private(i,j,k)
+            do k=Gr%ksg,Gr%keg
+                do j=Gr%jsg,Gr%jeg
+                    do i=Gr%isg,Gr%ieg
+                        if (Model%doBackground) then
+                            VecA(i,j,k,:) = State%Bxyz(i,j,k,:) + Gr%B0(i,j,k,:) - MagsphereDipole(Gr%xyzcc(i,j,k,:),Model%MagM0)
+                        else
+                            VecA(i,j,k,:) = State%Bxyz(i,j,k,:) - MagsphereDipole(Gr%xyzcc(i,j,k,:),Model%MagM0)
+                        endif
+                    enddo
+                enddo
+            enddo
+        else
+            !$OMP PARALLEL DO default(shared) collapse(2) &
+            !$OMP private(i,j,k)
+            do k=Gr%ksg,Gr%keg
+                do j=Gr%jsg,Gr%jeg
+                    do i=Gr%isg,Gr%ieg
+                        if (Model%doBackground) then
+                            VecA(i,j,k,:) = State%Bxyz(i,j,k,:) + Gr%B0(i,j,k,:)
+                        else
+                            VecA(i,j,k,:) = State%Bxyz(i,j,k,:)
+                        endif
+                    enddo
+                enddo
+            enddo
+        endif
+
+        call bFld2Jxyz(Model,Gr,VecA,Jxyz)
+
+        if ( Model%do25d ) then
+            do k=1,4
+                Jxyz(:,:,-4+k,:) = Jxyz(:,:,1,:)
+                JXyz(:,:,k+1 ,:) = Jxyz(:,:,1,:)
+            enddo
+        endif
+    end subroutine getJxyz
 
 end module gridutils

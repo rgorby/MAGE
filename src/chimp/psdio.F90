@@ -8,8 +8,8 @@ module psdio
     use lineio
     use files
     use pdfuns
-    use ebtabutils
     implicit none
+
     character(len=strLen) :: ps4OutF,psOutF,pseqOutF,wgtOutF
 
     integer, parameter :: MAXPSVS = 20
@@ -110,7 +110,7 @@ module psdio
             call AddOutVar(IOVars,"dGx",dGx)
             call AddOutVar(IOVars,"dGp",dGp)
             call AddOutVar(IOVars,"time",oTScl*Model%t)
-            call AddOutVar(IOVars,"MJD",MJDAt(ebState%ebTab,Model%t))
+            call AddOutVar(IOVars,"MJD",ioTabMJD(ebState%ebTab,Model%t))
             call WriteVars(IOVars,.true.,ps4OutF,gStr)
         endif
     !Do 3D variables
@@ -153,7 +153,7 @@ module psdio
         call AddOutVar(IOVars,"jPSD",jP)
         call AddOutVar(IOVars,"dG",dG)
         call AddOutVar(IOVars,"time",oTScl*Model%t)
-        call AddOutVar(IOVars,"MJD",MJDAt(ebState%ebTab,Model%t))
+        call AddOutVar(IOVars,"MJD",ioTabMJD(ebState%ebTab,Model%t))
         call WriteVars(IOVars,.true.,psOutF,gStr)
 
     !Do 2D variables
@@ -208,7 +208,7 @@ module psdio
         call AddOutVar(IOVars,"kT",psGr%kTeq)
         call AddOutVar(IOVars,"Vr",oVScl*psGr%Vreq)
         call AddOutVar(IOVars,"time",oTScl*Model%t)
-        call AddOutVar(IOVars,"MJD",MJDAt(ebState%ebTab,Model%t))
+        call AddOutVar(IOVars,"MJD",ioTabMJD(ebState%ebTab,Model%t))
         call WriteVars(IOVars,.true.,pseqOutF,gStr)
 
         !Write some text to screen

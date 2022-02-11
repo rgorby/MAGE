@@ -105,11 +105,9 @@ module voltio
             write (*, '(a,2f8.3,a)')             '      CPCP = ' , cpcp(NORTH), cpcp(SOUTH), ' [kV, N/S]'
             write (*, '(a, f8.3,a)')             '    Sym-H  = ' , symh  , ' [nT]'
             write (*, '(a, f8.3,a)')             '    BSDst  ~ ' , BSDst , ' [nT]'
-            !write (*, '(a,2f8.3,a)')             '    BSDst  ~ ' , BSDst, AvgDst, ' [nT, ORI/AVG]'
-            write (*, '(a, f8.3,a)')             '   DPSDst  ~ ' , DPSDst, ' [nT]'
 
-
-            if (vApp%doDeep) then
+            if (vApp%doDeep .and. (vApp%time>0.0)) then
+                write (*, '(a, f8.3,a)')             '   DPSDst  ~ ' , DPSDst, ' [nT]'
                 write (*, '(a)'                 )    '    IMag Ingestion'
                 write (*, '(a,1f7.2,a,1f7.2,a)' )    '       D/P = ', 100.0*DelD,'% /',100.0*DelP,'%'
                 write (*, '(a,1f7.2,a)'         )    '        dt = ', dtIM, ' [s]'
@@ -217,7 +215,8 @@ module voltio
         !Coupling info
         call AddOutVar(IOVars,"ShallowT",vApp%ShallowT)
         call AddOutVar(IOVars,"DeepT"   ,vApp%DeepT)
-
+        call AddOutVar(IOVars,"gBAvg", vApp%mhd2Mix%gBAvg)
+        
         call WriteVars(IOVars,.false.,ResF)
         !Create link to latest restart
         write (lnResF, '(A,A,A,A)') trim(gApp%Model%RunID), ".volt.Res.", "XXXXX", ".h5"
@@ -232,10 +231,11 @@ module voltio
         character(len=strLen) :: ResF,resID,nStr
         type(IOVAR_T), dimension(MAXVOLTIOVAR) :: IOVars
         logical :: fExist
-        integer :: nRes
+        integer :: nRes,n0
 
         call xmlInp%Set_Val(resID,"/Kaiju/gamera/restart/resID","msphere")
         call xmlInp%Set_Val(nRes,"/Kaiju/gamera/restart/nRes" ,-1)
+
         !Get number string
         if (nRes == -1) then
             nStr = "XXXXX"
@@ -253,6 +253,7 @@ module voltio
         endif
 
         call ClearIO(IOVars)
+        call AddInVar(IOVars,"gB0")
 
         call AddInVar(IOVars,"nOut"    ,vTypeO=IOINT)
         call AddInVar(IOVars,"nRes"    ,vTypeO=IOINT)
@@ -273,7 +274,15 @@ module voltio
         vApp%ShallowT = GetIOReal(IOVars,"ShallowT")
         vApp%DeepT    = GetIOReal(IOVars,"DeepT")
 
-    end subroutine
+        !Check to see if gB0 is present
+        n0 = FindIO(IOVars,"gBAvg")
+        if (IOVars(n0)%isDone) then
+            write(*,*) "Found gBAvg in Voltron restart ..."
+            call IOArray4DFill(IOVars,"gBAvg",vApp%mhd2Mix%gBAvg)
+        else
+            write(*,*) "gBAvg not found in Voltron restart, assuming dipole ..."
+        endif
+    end subroutine readVoltronRestart
 
     subroutine fOutputV(vApp,gApp)
         class(gamApp_T) , intent(inout) :: gApp

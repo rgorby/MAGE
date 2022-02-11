@@ -13,6 +13,11 @@
 			"folder_exclude_patterns": ["__pycache__"],
 			"file_exclude_patterns": ["__init__.py"],
 		},
+		{
+			"path": "tests",
+			"folder_exclude_patterns": ["__pycache__"],
+			"file_exclude_patterns": ["__init__.py"],
+		},		
 	],
 	"settings":
 	{

@@ -1,6 +1,5 @@
 !Routines to map native source grids to Bios-Savart (ground system) grids
 module calcdbremap
-    use ebtabutils
     use kdefs
     use chmpdefs
     use ebtypes
@@ -8,11 +7,15 @@ module calcdbremap
     use ebinterp
     use chmpfields
     use geopack
+    use calcdbutils
 
     implicit none
 
     integer, parameter, private :: i0 = 2
     logical, parameter, private :: doTest = .false.
+
+    integer, parameter, private :: NxIon = 4
+    logical, parameter, private :: doIonEmbiggen = .true.
 
     contains
 
@@ -32,16 +35,16 @@ module calcdbremap
             return
         endif
 
-        mjd = MJDAt(ebState%ebTab,Model%t)
+        mjd = ioTabMJD(ebState%ebTab,Model%t)
         call MJDRecalc(mjd) !Setup geopack for this time
 
-        !$OMP PARALLEL DO default(shared) collapse(2) &
+        !$OMP PARALLEL DO default(shared) &
         !$OMP private(i,j,k,grXYZ,smXYZ)
         do k=1,gGr%Nz
             do j=1,gGr%NLon
                 do i=1,gGr%NLat
                     grXYZ = gGr%GxyzC(i,j,k,XDIR:ZDIR)
-                    call GEO2SM(grXYZ(XDIR),grXYZ(YDIR),grXYZ(ZDIR),smXYZ(XDIR),smXYZ(YDIR),smXYZ(ZDIR))
+                    call GEO2SM(grXYZ,smXYZ)
                     gGr%SMxyzC(i,j,k,XDIR:ZDIR) = smXYZ
                 enddo
             enddo
@@ -102,24 +105,33 @@ module calcdbremap
 
         end associate
 
+
     !----
     !Ionospheric part
-        !$OMP PARALLEL DO default(shared) collapse(2) &
-        !$OMP private(i,j,k,n)
-        do k=1,2 !Hemisphere
-            do j=1,ionGrid%Nth !Theta
-                do i=1,ionGrid%Np !phi
-                    !Get n-d => 1D index
-                    n = ijk2n(i,j,k,1,ionGrid%Np,1,ionGrid%Nth,1,2)
+        !Possibly embiggen the ionospheric grid
 
-                    ionBS%XYZcc(n,XDIR:ZDIR) = ionGrid%XYZcc(i,j,k,:)
-                    ionBS%Jxyz (n,XDIR:ZDIR) = ionGrid%Jxyz (i,j,k,:)
-                    ionBS%dV   (n)           = ionGrid%dS   (i,j,k)
+        if (doIonEmbiggen) then
+            call EmbiggenBS(Model,t,ionGrid,ionBS)
+        else
+            !$OMP PARALLEL DO default(shared) collapse(2) &
+            !$OMP private(i,j,k,n)
+            do k=1,2 !Hemisphere
+                do j=1,ionGrid%Nth !Theta
+                    do i=1,ionGrid%Np !phi
+                        !Get n-d => 1D index
+                        n = ijk2n(i,j,k,1,ionGrid%Np,1,ionGrid%Nth,1,2)
 
+                        ionBS%XYZcc(n,XDIR:ZDIR) = ionGrid%XYZcc(i,j,k,:)
+                        ionBS%Jxyz (n,XDIR:ZDIR) = ionGrid%Jxyz (i,j,k,:)
+                        ionBS%dV   (n)           = ionGrid%dS   (i,j,k)
+
+                    enddo
                 enddo
             enddo
-        enddo
-
+        endif
+        
+        
+        
     !----
     !FAC part
         !$OMP PARALLEL DO default(shared) collapse(2) &
@@ -140,6 +152,96 @@ module calcdbremap
         enddo !l
 
     end subroutine packBS
+
+    !Upscale ionospheric grid
+    subroutine EmbiggenBS(Model,t,ionGrid,ionBS)
+        type(chmpModel_T), intent(in) :: Model
+        real(rp)         , intent(in) :: t
+        type(ionGrid_T)  , intent(in) :: ionGrid
+        type(BSGrid_T), intent(inout) :: ionBS
+
+        integer :: Nx,N,i,j,k,n1,n2,npp
+        real(rp) :: t0,p0,dp,dt,ddp,ddt,Jt0,Jp0
+        real(rp) :: R0,t12,p12,dS
+        real(rp), dimension(NDIM) :: xyzJ,xCC
+
+        !Reset size of BS grid
+        Nx = NxIon
+        N = 2*ionGrid%Nth*ionGrid%Np*Nx*Nx
+        
+        call BSSubInit(ionBS,N)
+        
+        R0 = (RionE*1.0e+6)/REarth !Ionospheric radius in units of Re, ~1.01880
+        npp = 1
+
+        !$OMP PARALLEL DO default(shared) collapse(2) &
+        !$OMP private(i,j,k,n1,n2,npp) &
+        !$OMP private(t0,p0,dp,dt,ddp,ddt,Jt0,Jp0,t12,p12,dS,xyzJ,xCC)
+        do k=1,2
+            do j=1,ionGrid%Nth
+                do i=1,ionGrid%Np
+                !Split this i,j,k cell into Nx x Nx subcells
+                    t0 = ionGrid%tcc(i,j,k)
+                    p0 = ionGrid%pcc(i,j,k)
+                    dp = ionGrid%dp
+                    dt = ionGrid%dt
+                    ddp = ionGrid%dp/Nx
+                    ddt = ionGrid%dt/Nx
+                    call Vxyz2tp(p0,t0,ionGrid%Jxyz(i,j,k,XDIR:ZDIR),Jt0,Jp0)
+
+                    do n1=1,Nx
+                        do n2=1,Nx
+                            !Get centers of sub-cell
+                            t12 = (t0 - 0.5*dt) + 0.5*ddt + ddt*(n1-1)
+                            p12 = (p0 - 0.5*dp) + 0.5*ddp + ddp*(n2-1)
+                            !Get local cell center
+                            xCC(XDIR) = R0*sin(t12)*cos(p12)
+                            xCC(YDIR) = R0*sin(t12)*sin(p12)
+                            xCC(ZDIR) = R0*cos(t12)
+
+                            !Get local Jxyz from Jt,Jp
+                            xyzJ = Vtp2xyz(p12,t12,Jt0,Jp0)
+                            !Get local dS
+                            dS = (R0**2.0)*sin(t12)*ddp*ddt
+
+                            !Now store
+                            npp = n2 + (n1-1)*Nx + (i-1)*Nx*Nx &
+                                + (j-1)*Nx*Nx*ionGrid%Np + (k-1)*Nx*Nx*ionGrid%Np*ionGrid%Nth
+                            
+                            ionBS%XYZcc(npp,XDIR:ZDIR) = xCC
+                            ionBS%Jxyz (npp,XDIR:ZDIR) = xyzJ
+                            ionBS%   dV(npp)           = dS
+                            
+                        enddo !n2
+                    enddo !n1
+                enddo !i
+            enddo !j
+        enddo !k - hemis
+
+        contains
+
+            subroutine Vxyz2tp(phi,theta,Jxyz,Jt,Jp)
+                real(rp), intent(in)  :: theta,phi,Jxyz(NDIM)
+                real(rp), intent(out) :: Jt,Jp
+
+                real(rp), dimension(NDIM) :: phat,that
+                phat = [-sin(phi),cos(phi),0.0_rp]
+                that = [cos(theta)*cos(phi),cos(theta)*sin(phi),-sin(theta)]
+                Jt = dot_product(Jxyz,that)
+                Jp = dot_product(Jxyz,phat)
+            end subroutine Vxyz2tp
+
+            function Vtp2xyz(phi,theta,Jt,Jp) result(Jxyz)
+                real(rp), intent(in) :: phi,theta,Jt,Jp
+                real(rp), dimension(NDIM) :: Jxyz
+
+                real(rp), dimension(NDIM) :: phat,that
+                phat = [-sin(phi),cos(phi),0.0_rp]
+                that = [cos(theta)*cos(phi),cos(theta)*sin(phi),-sin(theta)]
+                Jxyz = that*Jt + phat*Jp                
+            end function Vtp2xyz
+
+    end subroutine EmbiggenBS
 
     !Some test routines
     subroutine MagJTest(xyz,Jxyz)

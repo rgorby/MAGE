@@ -61,11 +61,20 @@ module geopack
       use dates
       implicit none
       ! COMMON /GEOPACK1/
-      real(rp) :: ST0,CT0,SL0,CL0,CTCL,STCL,CTSL,STSL,SFI,CFI, &
+      real(rp), private :: ST0,CT0,SL0,CL0,CTCL,STCL,CTSL,STSL,SFI,CFI, &
          SPS,CPS,DS3,CGST,SGST,PSI,A11,A21,A31,A12,A22,A32,A13,A23,A33, &
          E11,E21,E31,E12,E22,E32,E13,E23,E33
       ! COMMON /GEOPACK2/
-      real(rp), dimension(105) :: G, H, REC
+      real(rp), private, dimension(105) :: G, H, REC
+
+      !Overloader for sm2geo routines
+      interface SM2GEO
+        module procedure SM2GEO_xyz,SM2GEO_vec
+      end interface
+
+      interface GEO2SM
+        module procedure GEO2SM_xyz,GEO2SM_vec
+      end interface
 
       contains
 
@@ -1174,21 +1183,37 @@ module geopack
           ZSM=XGSW*SPS+ZGSW*CPS
       END SUBROUTINE GSW2SM
 
-      SUBROUTINE GEO2SM (XGEO,YGEO,ZGEO,XSM,YSM,ZSM)
+      SUBROUTINE GEO2SM_xyz (XGEO,YGEO,ZGEO,XSM,YSM,ZSM)
           implicit none
           real(rp), intent(in) :: XGEO,YGEO,ZGEO
           real(rp), intent(out) :: XSM,YSM,ZSM
           real(rp) :: XGSW,YGSW,ZGSW
           call GEO2GSW (XGEO,YGEO,ZGEO,XGSW,YGSW,ZGSW)
           call GSW2SM (XGSW,YGSW,ZGSW,XSM,YSM,ZSM)
-      END SUBROUTINE GEO2SM
+      END SUBROUTINE GEO2SM_xyz
 
-      SUBROUTINE SM2GEO (XSM,YSM,ZSM,XGEO,YGEO,ZGEO)
+      SUBROUTINE GEO2SM_vec(xyzGEO,xyzSM)
+        implicit none
+        real(rp), intent(in)  :: xyzGEO(NDIM)
+        real(rp), intent(out) :: xyzSM (NDIM)
+
+        call GEO2SM_xyz(xyzGEO(XDIR),xyzGEO(YDIR),xyzGEO(ZDIR),xyzSM(XDIR),xyzSM(YDIR),xyzSM(ZDIR))
+      END SUBROUTINE GEO2SM_vec
+
+      SUBROUTINE SM2GEO_xyz (XSM,YSM,ZSM,XGEO,YGEO,ZGEO)
           implicit none
           real(rp), intent(in) :: XSM,YSM,ZSM
           real(rp), intent(out) :: XGEO,YGEO,ZGEO
           real(rp) :: XGSW,YGSW,ZGSW
           call SM2GSW (XSM,YSM,ZSM,XGSW,YGSW,ZGSW)
           call GSW2GEO (XGSW,YGSW,ZGSW,XGEO,YGEO,ZGEO)
-      END SUBROUTINE SM2GEO
+      END SUBROUTINE SM2GEO_xyz
+
+      SUBROUTINE SM2GEO_vec(xyzSM,xyzGEO)
+        implicit none
+        real(rp), intent(in ) :: xyzSM (NDIM)
+        real(rp), intent(out) :: xyzGEO(NDIM)
+        call SM2GEO_xyz(xyzSM(XDIR),xyzSM(YDIR),xyzSM(ZDIR),xyzGEO(XDIR),xyzGEO(YDIR),xyzGEO(ZDIR))
+      END SUBROUTINE SM2GEO_vec
+      
 end module geopack
