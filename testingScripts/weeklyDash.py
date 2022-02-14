@@ -38,27 +38,15 @@ if (len(sys.argv) >= 2):
 
 os.chdir(home)
 # If the weekly dash base folder doesn't exist, need to generate the restart
-os.system('rm -r intelChecks')
-os.system('mkdir intelChecks')
+if( not path.exists("dashRestarts")):
+    os.system('mkdir dashRestarts')
 
 # Build voltron_mpi.x
-
-# Copy the restart data
-
-# Generate supporting files and compare to originals
-grid
-bcwind
-rcmconfig
-omni2wind.py -t0 2016-08-09T02:00:00 -t1 2016-08-09T12:00:00
-
-# Submit the run
-
-# Go back to scripts folder
-os.chdir(home)
-os.chdir("testingScripts")
+os.system('rm -r weeklyDash')
+os.chdir("weeklyDash")
 
 # Read in modules.txt and load only the requested modules
-file = open('dashModules.txt', 'r')
+file = open('../testingScripts/dashModules.txt', 'r')
 modules = file.readlines()
 #print(modules)
 
@@ -78,41 +66,39 @@ arguments = "module purge; module list;"
 for line in myModules:
 	arguments = arguments + "module load " + line + ";"
 
-# BUILD EXECUTABLES AND TESTS
-# Move to the correct test folder
-os.chdir(home)
-os.chdir('intelChecks')
-#arguments = arguments + "cd" + home + ";"
-#arguments = arguments + "cd kaiju/unitTest1;"
+# BUILD EXECUTABLES
 # Invoke cmake
-arguments = arguments + "cmake ../ -DALLOW_INVALID_COMPILERS=ON -DENABLE_MPI=ON -DENABLE_MKL=ON -DCMAKE_BUILD_TYPE=DEBUG;"
-# Make gamera, voltron and allTests
-arguments = arguments + "make gamera_mpi; make voltron_mpi;"
+arguments = arguments + "cmake ../ -DENABLE_MPI=ON -DENABLE_MKL=ON -DCMAKE_BUILD_TYPE=Release;"
+# Make voltron_mpi
+arguments = arguments + "make voltron_mpi;"
 print(arguments)
 subprocess.call(arguments, shell=True)
 
-os.chdir(home)
-os.chdir('testingScripts')
-subprocess.call("cp tinyCase.xml ../intelChecks/bin", shell=True)
-subprocess.call("cp lfmD.h5 ../intelChecks/bin", shell=True)
-subprocess.call("cp bcwind.h5 ../intelChecks/bin", shell=True)
-subprocess.call("cp rcmconfig.h5 ../intelChecks/bin", shell=True)
-subprocess.call("cp intelCheckSubmitMem.pbs ../intelChecks/bin", shell=True)
-subprocess.call("cp intelCheckSubmitThread.pbs ../intelChecks/bin", shell=True)
-subprocess.call("cp memSuppress.sup ../intelChecks/bin", shell=True)
-subprocess.call("cp threadSuppress.sup ../intelChecks/bin", shell=True)
+os.chdir("bin")
 
-# SUBMIT INTEL CHECK JOBS
-os.chdir(home)
-os.chdir('intelChecks/bin')
+# copy supporting files from testing folder
+subprocess.call("cp ../../testingScripts/weeklyDashGo.xml .", shell=True)
+subprocess.call("cp ../../testingScripts/weeklyDashGo.pbs .", shell=True)
+
+# Copy the restart data
+subprocess.call("cp ../../dashRestarts/msphere* .", shell=True)
+
+# Generate supporting files and compare to originals
+subprocess.call("python genGridLFM -o newGrid.h5", shell=True)
+grid
+bcwind
+rcmconfig
+omni2wind.py -t0 2016-08-09T02:00:00 -t1 2016-08-09T12:00:00
+
+# Submit the run
 
 # list all modules with spaces between them, to be loaded in the qsub scripts
 modset = ""
-for line in ModuleList[0]:
+for line in myModules:
     modset = modset + line + " "
 
-# submit memory checker
-arguments = 'qsub -v MODULE_LIST="' + modset + '" intelCheckSubmitMem.pbs'
+# submit weekly dash
+arguments = 'qsub -v MODULE_LIST="' + modset + '" weeklyDashGo.pbs'
 print(arguments)
 submission = subprocess.Popen(arguments, shell=True, stdout=subprocess.PIPE)
 readString = submission.stdout.read()
@@ -122,43 +108,6 @@ print(readString)
 firstJobNumber = readString.split('.')[0]
 print(firstJobNumber)
 
-# submit thread checker
-arguments = 'qsub -v MODULE_LIST="' + modset + '" intelCheckSubmitThread.pbs'
-print(arguments)
-submission = subprocess.Popen(arguments, shell=True, stdout=subprocess.PIPE)
-readString = submission.stdout.read()
-readString = readString.decode('ascii')
-print(readString)
-
-secondJobNumber = readString.split('.')[0]
-print(secondJobNumber)
-
 file = open("jobs.txt", 'w+')
-file.write(firstJobNumber + "\n")
-file.write(secondJobNumber)
+file.write(firstJobNumber)
 
-# SUBMIT FOLLOW-UP JOB FOR SLACK POSTING
-#os.chdir(home)
-#os.chdir('kaiju/testingScripts')
-#arguments = 'qsub intelCheckReportSubmit.pbs -W depend=after:'
-#arguments = arguments + numberString
-#print(arguments)
-
-# WAIT ABOUT 1 MINUTE
-#time.sleep(60)
-
-#report = subprocess.call(arguments, shell=True, stdout=subprocess.PIPE)
-
-# FINISHED
-
-# If not a test, send message to Slack
-#if (not isTest):
-    # Try to send Slack message
-#    try:
-#        response = client.chat_postMessage(
-#            channel="#kaijudev",
-#            text=myText,
-#        )
-#    except SlackApiError as e:
-        # You will get a SlackApiError if "ok" is False
-#        assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'

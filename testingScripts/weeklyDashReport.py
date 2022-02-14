@@ -52,6 +52,7 @@ print(gBranch)
 # Go to weekly dash folder
 os.chdir(home)
 os.chdir('weeklyDash')
+os.chdir('bin')
 
 # Check for jobs.txt
 jobsExists = path.exists("jobs.txt")
