@@ -25,6 +25,10 @@ import kaipy.kaiH5 as kaih5
 import kaipy.gamera.gampp as gampp
 
 
+# Some RGB colors
+light_grey = (0.5, 0.5, 0.5)
+transparent_red = (1.0, 0, 0, 0.5)
+
 def determine_mpi_grid_shape(directory, runid):
     """Determine the shape of the MPI grid."""
 
@@ -104,14 +108,36 @@ if __name__ == "__main__":
     Y_min = Y.min()
     Y_max = Y.max()
 
+    # Compute a modified grid with the coordinates of the cell centers.
+    XT = X.T
+    (n_rows, n_cols) = XT.shape
+    n_rows -= 1
+    n_cols -= 1
+    XTC = np.empty((n_rows, n_cols))
+    for row in range(n_rows):
+        for col in range(n_cols):
+            XTC[row, col] = (XT[row, col] + XT[row, col + 1])/2
+    YT = Y.T
+    (n_rows, n_cols) = YT.shape
+    n_rows -= 1
+    n_cols -= 1
+    YTC = np.empty((n_rows, n_cols))
+    for row in range(n_rows):
+        for col in range(n_cols):
+            YTC[row, col] = (YT[row, col] + YT[row + 1, col])/2
+
     # Compute the MPI tile boundaries assuming they are equally-sized along
     # each dimension.
     mpi_tiles_x = np.linspace(X_min, X_max, n_x + 1)
     mpi_tiles_y = np.linspace(Y_min, Y_max, n_y + 1)
 
-    # Read the pressure at the first and last steps.
+    # Read the pressure and B-field components at the first and last steps.
     P_first = data_pipe.GetVar("P", data_pipe.s0, doVerb=False)[..., kz_0]
+    Bx_first = data_pipe.GetVar("Bx", data_pipe.s0, doVerb=False)[..., kz_0]
+    By_first = data_pipe.GetVar("By", data_pipe.s0, doVerb=False)[..., kz_0]
     P_last = data_pipe.GetVar("P", data_pipe.sFin, doVerb=False)[..., kz_0]
+    Bx_last = data_pipe.GetVar("Bx", data_pipe.sFin, doVerb=False)[..., kz_0]
+    By_last = data_pipe.GetVar("By", data_pipe.sFin, doVerb=False)[..., kz_0]
 
     # Plot parameters
     name = "Pressure at z = %s" % z_0
@@ -123,25 +149,29 @@ if __name__ == "__main__":
     matplotlib.use("Agg")
     fig, axes = plt.subplots(2, 1)
 
-    # Plot the magnetic pressure from the first step, with MPI tiling.
+    # Plot the pressure and XY-plane B-field from the first step,
+    # with MPI tiling.
     axes[0].set_aspect("equal")
     axes[0].set_ylabel("Y")
     values = axes[0].pcolormesh(X, Y, P_first, cmap="viridis", vmin=vmin, vmax=vmax)
+    axes[0].streamplot(XTC, YTC, Bx_first.T, By_first.T, linewidth=0.5, color=transparent_red, density=[0.5, 1])
     for x in mpi_tiles_x[1:-1]:
-        axes[0].axvline(x, linestyle="--", linewidth=0.5, color="0.5")
+        axes[0].axvline(x, linestyle="--", linewidth=0.5, color=light_grey)
     for y in mpi_tiles_y[1:-1]:
-        axes[0].axhline(y, linestyle="--", linewidth=0.5, color="0.5")
+        axes[0].axhline(y, linestyle="--", linewidth=0.5, color=light_grey)
     axes[0].text(0.5, 0.4, "Step 0", color="white")
 
-    # Plot the magnetic pressure from the last step, with MPI tiling.
+    # Plot the pressure and XY-plane B-field from the last step,
+    # with MPI tiling.
     axes[1].set_aspect("equal")
     axes[1].set_xlabel("X")
     axes[1].set_ylabel("Y")
     values = axes[1].pcolormesh(X, Y, P_last, cmap="viridis", vmin=vmin, vmax=vmax)
+    axes[1].streamplot(XTC, YTC, Bx_last.T, By_last.T, linewidth=0.5, color=transparent_red, density=[0.5, 1])
     for x in mpi_tiles_x[1:-1]:
-        axes[1].axvline(x, linestyle="--", linewidth=0.5, color="0.5")
+        axes[1].axvline(x, linestyle="--", linewidth=0.5, color=light_grey)
     for y in mpi_tiles_y[1:-1]:
-        axes[1].axhline(y, linestyle="--", linewidth=0.5, color="0.5")
+        axes[1].axhline(y, linestyle="--", linewidth=0.5, color=light_grey)
     axes[1].text(0.5, 0.4, "Step %s" % data_pipe.sFin, color="white")
 
     # Show the shared colorbar.
