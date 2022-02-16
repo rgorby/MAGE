@@ -131,7 +131,7 @@ os.system('cp qkrcmpic.png ' + wikiPath + gBranch + '_qk_rcm.png')
 os.chdir(wikiPath)
 
 # Make new performance plot. Could make this prettier, gnuplot for now
-subprocess.call('gnuplot perfPlot.plg', shell=True)
+subprocess.call('gnuplot ' + home + '/testingScripts/perfPlot.plg', shell=True)
 
 # Combine quick looks into larger images
 subprocess.call('convert master_qk_msph.png development_qk_msph_old.png development_qk_msph.png +append combined_qk_msph.png', shell=True)
