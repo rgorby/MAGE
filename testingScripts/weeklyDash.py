@@ -37,12 +37,33 @@ if (len(sys.argv) >= 2):
             print("Unrecognized argument: ", sys.argv[i])
 
 os.chdir(home)
+
+# get my current branch
+p = subprocess.Popen("git symbolic-ref --short HEAD", shell=True, stdout=subprocess.PIPE)
+gBranch = p.stdout.read()
+gBranch = gBranch.decode('ascii')
+gBranch = gBranch.rstrip()
+print(gBranch)
+
 # If the weekly dash base folder doesn't exist, need to generate the restart
 if( not path.exists("dashRestarts")):
-    os.system('mkdir dashRestarts')
+    message = "No restart data available for weekly dash on branch " + gBranch + ". Please generate restart data and try again."
+    if(not isTest and beLoud):
+        try:
+            response = client.chat_postMessage(
+                channel="#kaijudev",
+                text=message,
+            )
+        except SlackApiError as e:
+           # You will get a SlackApiError if "ok" is False
+           assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
+    else:
+        print(message)
+    exit()
 
 # Build voltron_mpi.x
 os.system('rm -r weeklyDash')
+os.system('mkdir weeklyDash')
 os.chdir("weeklyDash")
 
 # Read in modules.txt and load only the requested modules
@@ -76,19 +97,70 @@ subprocess.call(arguments, shell=True)
 
 os.chdir("bin")
 
-# copy supporting files from testing folder
+# copy additional files from testing folder
 subprocess.call("cp ../../testingScripts/weeklyDashGo.xml .", shell=True)
 subprocess.call("cp ../../testingScripts/weeklyDashGo.pbs .", shell=True)
+
+# Generate new supporting files
+subprocess.call("genLFM.py -gid Q", shell=True)
+os.system("mv lfmQ.h5 NEWlfmX.h5")
+subprocess.call("omni2wind.py -t0 2016-08-09T02:00:00 -t1 2016-08-09T12:00:00 -o NEWbcwind.h5", shell=True)
+subprocess.call("genRCM.py -o NEWrcmconfig.h5", shell=True)
 
 # Copy the restart data
 subprocess.call("cp ../../dashRestarts/msphere* .", shell=True)
 
-# Generate supporting files and compare to originals
-subprocess.call("python genGridLFM -o newGrid.h5", shell=True)
-grid
-bcwind
-rcmconfig
-omni2wind.py -t0 2016-08-09T02:00:00 -t1 2016-08-09T12:00:00
+# Compare new supporting files to originals
+p = subprocess.Popen("h5diff lfmX.h5 NEWlfmX.h5", shell=True, stdout=subprocess.PIPE)
+gridDiff = p.stdout.read().decode('ascii').rstrip()
+if(gridDiff not ""):
+    if(not isTest):
+        message = "lfm Oct grid for weekly dash has changed on branch " + gBranch + ". Case cannot be run. Please re-generate restart data, and ensure the grid change was intentional."
+            try:
+                response = client.chat_postMessage(
+                    channel="#kaijudev",
+                    text=message,
+                )
+            except SlackApiError as e:
+               # You will get a SlackApiError if "ok" is False
+               assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
+    else:
+        print(message)
+    exit()
+
+p = subprocess.Popen("h5diff bcwind.h5 NEWbcwind.h5", shell=True, stdout=subprocess.PIPE)
+windDiff = p.stdout.read().decode('ascii').rstrip()
+if(windDiff not ""):
+    if(not isTest):
+        message = "solar wind file for weekly dash has changed on branch " + gBranch + ". Case cannot be run. Please re-generate restart data, and ensure the wind data change was intentional."
+            try:
+                response = client.chat_postMessage(
+                    channel="#kaijudev",
+                    text=message,
+                )
+            except SlackApiError as e:
+               # You will get a SlackApiError if "ok" is False
+               assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
+    else:
+        print(message)
+    exit()
+
+p = subprocess.Popen("h5diff rcmconfig.h5 NEWrcmconfig.h5", shell=True, stdout=subprocess.PIPE)
+rcmDiff = p.stdout.read().decode('ascii').rstrip()
+if(rcmDiff not ""):
+    if(not isTest):
+        message = "rcmconfig for weekly dash has changed on branch " + gBranch + ". Case cannot be run. Please re-generate restart data, and ensure the rcmconfig change was intentional."
+            try:
+                response = client.chat_postMessage(
+                    channel="#kaijudev",
+                    text=message,
+                )
+            except SlackApiError as e:
+               # You will get a SlackApiError if "ok" is False
+               assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
+    else:
+        print(message)
+    exit()
 
 # Submit the run
 
@@ -110,4 +182,17 @@ print(firstJobNumber)
 
 file = open("jobs.txt", 'w+')
 file.write(firstJobNumber)
+
+message = "Run started on branch " + gBranch + " as jobid " + firstJobNumber
+if(beLoud):
+    try:
+        response = client.chat_postMessage(
+            channel="#kaijudev",
+            text=message,
+        )
+    except SlackApiError as e:
+        # You will get a SlackApiError if "ok" is False
+        assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
+else:
+    print(message)
 

@@ -1,0 +1,5 @@
+set term png
+set output "perfPlots.png"
+plot "< join master_ut.txt master_rt.txt" using 1:2 title 'master',\
+"< join development_ut_old.txt development_rt_old.txt" using 1:2 title 'development prior',\
+"< join development_ut.txt development_rt.txt" using 1:2 title 'development latest'
