@@ -7,7 +7,7 @@ module mixio
   use files
   implicit none
   
-  integer, parameter :: MAXMIXIOVAR = 50
+  integer, parameter :: MAXMIXIOVAR = 100
   type(IOVAR_T), dimension(MAXMIXIOVAR), private :: IOVars
   character(len=strLen), private :: h5File,h5RunID
   character(len=strLen), dimension(nVars), private :: mixVarNames
@@ -61,6 +61,12 @@ contains
     mixUnitNames(IM_TOPOD)     = "0-1"
     mixVarNames(AUR_TYPE)      = "Auroral model type"
     mixUnitNames(AUR_TYPE)     = "Zhang Fedder RCM RCMZ"
+    mixVarNames(IM_BETA)       = "RCM beta"
+    mixUnitNames(IM_BETA)      = "0-1"
+    mixVarNames(IM_EDEN)       = "RCM electron density"
+    mixUnitNames(IM_EDEN)      = "#/m^3"
+    mixVarNames(IM_EPRE)       = "RCM electron pressure"
+    mixUnitNames(IM_EPRE)      = "Pa"
   end subroutine initMIXNames
 
   subroutine initMIXIO(I,RunID,isRestart,nRes)
@@ -182,6 +188,12 @@ contains
           case (IM_TOPOD)
              doDump = .true.
           case (AUR_TYPE)
+             doDump = .true.
+          case (IM_BETA)
+             doDump = .true.
+          case (IM_EDEN)
+             doDump = .true.
+          case (IM_EPRE)
              doDump = .true.
           case (EFIELD)
              ! we never compute it
@@ -663,6 +675,12 @@ contains
           case (IM_TOPOD)
              doDump = .true.
           case (AUR_TYPE)
+             doDump = .true.
+          case (IM_BETA)
+             doDump = .true.
+          case (IM_EDEN)
+             doDump = .true.
+          case (IM_EPRE)
              doDump = .true.
           case (NEUTRAL_WIND) 
              doDump = .false.

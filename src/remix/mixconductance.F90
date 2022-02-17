@@ -6,6 +6,7 @@ module mixconductance
   use gcminterp
   use math
   use euvhelper
+  use rcmdefs, ONLY : tiote_RCM
   
   implicit none
 
@@ -13,6 +14,7 @@ module mixconductance
   real(rp), dimension(:,:), allocatable, private :: JF0,RM,RRdi ! used for zhang15
   real(rp), dimension(:,:), allocatable, private :: tmpE,tmpF ! used for smoothing precipitation avg_eng and num_flux
   real(rp), dimension(:,:), allocatable, private :: Kc ! used for multi-reflection modification
+  real(rp), dimension(:,:), allocatable, private :: beta_RCM,alpha_RCM,TOPOD_RCM ! two-dimensional beta based on RCM fluxes.
 
   !Replacing some hard-coded inline values (bad) w/ module private values (slightly less bad)
   real(rp), parameter, private :: maxDrop = 20.0 !Hard-coded max potential drop [kV]
@@ -74,8 +76,15 @@ module mixconductance
       if (.not. allocated(tmpE)) allocate(tmpE(G%Np+4,G%Nt+4)) ! for boundary processing.
       if (.not. allocated(tmpF)) allocate(tmpF(G%Np+4,G%Nt+4))
       if (.not. allocated(Kc))   allocate(Kc  (G%Np,G%Nt))
+      if (.not. allocated(beta_RCM)) allocate(beta_RCM(G%Np,G%Nt))
+      if (.not. allocated(alpha_RCM)) allocate(alpha_RCM(G%Np,G%Nt))
+      if (.not. allocated(TOPOD_RCM)) allocate(TOPOD_RCM(G%Np,G%Nt))
 
       RinMHD = Params%RinMHD
+      ! alpha_RCM and alpha_beta replace conductance_alpha/beta in zhang15.
+      ! Use default xml input if not using rcmhd.
+      alpha_RCM = 1.0/(tiote_RCM+1.0)
+      beta_RCM  = conductance%beta
 
     end subroutine conductance_init
 
@@ -268,9 +277,11 @@ module mixconductance
       call conductance_auroralmask(conductance,G,signOfY)
 
 !Flag_up
-      conductance%E0 = conductance%alpha*Mp_cgs*heFrac*erg2kev*tmpC**2
-      conductance%phi0 = sqrt(kev2erg)/(heFrac*Mp_cgs)**1.5D0*conductance%beta*sqrt(heFrac*1836.152674)*0.39894228*tmpD*sqrt(conductance%E0)
-      ! conductance%phi0 = sqrt(kev2erg)/(heFrac*Mp_cgs)**1.5D0*conductance%beta*tmpD*sqrt(conductance%E0)
+      !conductance%E0 = conductance%alpha*Mp_cgs*heFrac*erg2kev*tmpC**2
+      !conductance%phi0 = sqrt(kev2erg)/(heFrac*Mp_cgs)**1.5D0*conductance%beta*sqrt(heFrac*1836.152674)*0.39894228*tmpD*sqrt(conductance%E0)
+      conductance%E0 = alpha_RCM*Mp_cgs*heFrac*erg2kev*tmpC**2
+      conductance%phi0 = sqrt(kev2erg)/(heFrac*Mp_cgs)**1.5D0*beta_RCM*sqrt(heFrac*1836.152674)*0.39894228*tmpD*sqrt(conductance%E0)
+     ! conductance%phi0 = sqrt(kev2erg)/(heFrac*Mp_cgs)**1.5D0*conductance%beta*tmpD*sqrt(conductance%E0)
       
       JF0 = min( 1.D-4*signOfJ*(St%Vars(:,:,FAC)*1.e-6)/eCharge/(conductance%phi0), RM*0.99 )
 
@@ -294,10 +305,156 @@ module mixconductance
       
     end subroutine conductance_zhang15
 
+    subroutine conductance_alpha_beta(conductance,G,St)
+      type(mixConductance_T), intent(inout) :: conductance
+      type(mixGrid_T), intent(in) :: G
+      type(mixState_T), intent(inout) :: St
+      integer :: i,j
+      real(rp) :: rcm_nflx,rcm_fn0
+
+      ! In MHD, use the same alpha/beta with RCM.
+      ! Calculate beta from RCM fluxes.
+      ! Default values are from xml in conductance_init.
+      ! It's still necessary to initialize alpha/beta_RCM here because they may be using an old value at some points
+      ! if IM_EAVG or IM_EPRE or EM_EDEN no longer satisfies the if criteria. Better to use default background beta.
+      alpha_RCM = 1.0/(tiote_RCM+1.0)
+      beta_RCM  = conductance%beta
+
+      !$OMP PARALLEL DO default(shared) &
+      !$OMP private(i,j,rcm_nflx,rcm_fn0)
+      do j=1,G%Nt
+         do i=1,G%Np
+            ! only calc rcm beta where there is meaningful precipitation, Te>0.1 nPa, and Ne>10/cc
+            if(St%Vars(i,j,IM_EAVG)>TINY .and. St%Vars(i,j,IM_EPRE)>1e-10 .and. St%Vars(i,j,IM_EDEN)>1e7) then
+               rcm_fn0 = sqrt(St%Vars(i,j,IM_EPRE)*St%Vars(i,j,IM_EDEN)/(0.91e-30*2*pi))*1.0e-4 ! sqrt([Pa]*[#/m^3]/[kg]) = sqrt([#/m^4/s^2]) = 1e-4*[#/cm^2/s]
+               rcm_nflx = St%Vars(i,j,IM_EFLUX)/(St%Vars(i,j,IM_EAVG)*kev2erg) ! [#/cm^2/s]
+               beta_RCM(i,j) = rcm_nflx/rcm_fn0
+            endif
+         enddo
+      enddo
+      St%Vars(:,:,IM_BETA) = min(beta_RCM,1.0)
+      print *, 'ldong_20220126: rcm_fn0',minval(tmpC),maxval(tmpC)
+      print *, 'ldong_20220126: beta_RCM',minval(beta_RCM),maxval(beta_RCM)
+    end subroutine conductance_alpha_beta
+
+    subroutine conductance_IM_TOPOD(G,St)
+      type(mixGrid_T), intent(in) :: G
+      type(mixState_T), intent(in) :: St
+      real(rp), dimension(3,3) :: A33
+      logical, dimension(3,3) :: isG33 !isG33 = (A3>0.0 .and. A3<1.0)
+      integer :: i,j,it,MaxIter
+      real(rp) :: mad,Ttmp
+
+      MaxIter = 5
+      
+      ! Iterative diffusion algorithm to smooth out IM_TOPOD: 0/1 are boundary cells. Evolve with nine-cell mean. 
+      ! Otherwise it only has three values, 0, 0.5, and 1.0, 
+      ! which causes discontinuities in the merged precipitation.
+      TOPOD_RCM = St%Vars(:,:,IM_TOPOD) ! defined/initialized in the head.
+      do it=1,MaxIter
+         mad = 0.D0 ! max abs difference from last iteration.
+         do j=2,G%Nt-1
+            do i=2,G%Np-1
+               if(St%Vars(i,j,IM_TOPOD)>0.01 .and. St%Vars(i,j,IM_TOPOD)<0.99) then
+                  A33  = TOPOD_RCM(i-1:i+1,j-1:j+1)
+                  Ttmp = sum(A33)/9.0
+                  mad  = max(abs(TOPOD_RCM(i,j)-Ttmp),mad)
+                  TOPOD_RCM(i,j) = Ttmp
+               endif
+            enddo
+         enddo
+         if(mad<0.05) exit
+      enddo
+      TOPOD_RCM = min(TOPOD_RCM,1.0)
+
+    end subroutine conductance_IM_TOPOD
+
+    subroutine conductance_rcmhd(conductance,G,St)
+      type(mixConductance_T), intent(inout) :: conductance
+      type(mixGrid_T), intent(in) :: G
+      type(mixState_T), intent(inout) :: St
+
+      integer :: i,j
+      logical :: isRCM,isMono,isMHD
+      real(rp) :: rcm_eavg,rcm_nflx,mhd_eavg,mhd_nflx,rcm_eavg_fin,rcm_nflx_fin,rcm_SigP,mhd_SigP,rcm_eavg0,rcm_nflx0
+      real(rp) :: pK = 0.5 !Cut-off for "interesting" energy for precipitation [keV]
+
+      call conductance_alpha_beta(conductance,G,St)
+
+      call conductance_IM_TOPOD(G,St)
+
+      call conductance_zhang15(conductance,G,St)
+
+      !$OMP PARALLEL DO default(shared) &
+      !$OMP private(i,j,isRCM,isMono,isMHD,rcm_SigP,mhd_SigP,rcm_eavg0,rcm_nflx0) &
+      !$OMP private(rcm_eavg,rcm_nflx,mhd_eavg,mhd_nflx,rcm_eavg_fin,rcm_nflx_fin)
+      do j=1,G%Nt
+         do i=1,G%Np
+            isMono = conductance%deltaE(i,j) > 0.0    !Potential drop
+
+            rcm_eavg0 = St%Vars(i,j,IM_EAVG)
+            if(St%Vars(i,j,IM_EAVG)>TINY) then
+               rcm_nflx0 = St%Vars(i,j,IM_EFLUX)/(St%Vars(i,j,IM_EAVG)*kev2erg)
+            else
+               rcm_nflx0 = 0.0
+            endif
+            mhd_eavg = St%Vars(i,j,Z_EAVG)
+            mhd_nflx = St%Vars(i,j,Z_NFLUX)
+
+            rcm_eavg = max(rcm_eavg0*TOPOD_RCM(i,j)+mhd_eavg*(1.0-TOPOD_RCM(i,j)),1.0e-8)
+            rcm_nflx = rcm_nflx0*TOPOD_RCM(i,j)+mhd_nflx*(1.0-TOPOD_RCM(i,j))
+            if(rcm_eavg<0.0 .or. rcm_nflx<0.0) then
+               print *,"ldong_20211222 negative ",rcm_eavg,rcm_nflx,TOPOD_RCM(i,j),mhd_eavg,mhd_nflx,rcm_eavg0,rcm_nflx0
+            endif
+
+            if (.not. isMono) then
+               !F/T/T
+               !Have RCM info and no drop, just use RCM
+               St%Vars(i,j,AVG_ENG ) = rcm_eavg
+               St%Vars(i,j,NUM_FLUX) = rcm_nflx
+               St%Vars(i,j,AUR_TYPE) = AT_RMnoE
+               cycle
+            endif
+
+            !If still here, we have both RCM info and a potential drop
+            !Decide between the two by taking one that gives highest Sig-P
+            if (conductance%doMR) then
+               call AugmentMR(rcm_eavg,rcm_nflx,rcm_eavg_fin,rcm_nflx_fin) !Correct for MR
+            else
+               !No corrections
+               rcm_eavg_fin = rcm_eavg 
+               rcm_nflx_fin = rcm_nflx
+            endif
+
+            rcm_SigP = SigmaP_Robinson(rcm_eavg_fin,kev2erg*rcm_eavg_fin*rcm_nflx_fin)
+            mhd_SigP = SigmaP_Robinson(mhd_eavg    ,kev2erg*mhd_eavg    *mhd_nflx    )
+
+            if (mhd_SigP>rcm_SigP) then
+               St%Vars(i,j,AVG_ENG ) = mhd_eavg
+               St%Vars(i,j,NUM_FLUX) = mhd_nflx
+               St%Vars(i,j,AUR_TYPE) = AT_RMono
+            else
+               !RCM diffuse is still better than MHD + puny potential drop
+               St%Vars(i,j,AVG_ENG ) = rcm_eavg !Use un-augmented value since MR gets called later
+               St%Vars(i,j,NUM_FLUX) = rcm_nflx
+               conductance%deltaE(i,j) = 0.0 !Wipe out potential drop since it don't matter (otherwise MR won't happen if desired)
+               St%Vars(i,j,AUR_TYPE) = AT_RMfnE
+            endif
+            
+         enddo
+      enddo
+
+    end subroutine conductance_rcmhd
+
     subroutine conductance_rcmono(conductance,G,St)
       type(mixConductance_T), intent(inout) :: conductance
       type(mixGrid_T), intent(in) :: G
       type(mixState_T), intent(inout) :: St
+
+      integer :: i,j
+      logical :: isRCM,isMono,isMHD
+      real(rp) :: rcm_eavg,rcm_nflx,mhd_eavg,mhd_nflx,rcm_eavg_fin,rcm_nflx_fin,rcm_SigP,mhd_SigP,rcm_eavg0,rcm_nflx0
+      real(rp) :: pK = 0.5 !Cut-off for "interesting" energy for precipitation [keV]
 
       call conductance_zhang15(conductance,G,St)
 
@@ -332,7 +489,7 @@ module mixconductance
             endif
             mhd_eavg = St%Vars(i,j,Z_EAVG)
             mhd_nflx = St%Vars(i,j,Z_NFLUX)
-
+            
             !- No (hot) MHD, but RCM info (ie low-lat plasmasphere)
             if (.not. isMHD) then !T/T/F & F/T/F
                !NOTE: Split this case into isMono and apply drop to RCM?
@@ -511,6 +668,8 @@ module mixconductance
             call conductance_zhang15(conductance,G,St)
          case (RCMONO)
             call conductance_rcmono(conductance,G,St)
+         case (RCMHD)
+            call conductance_rcmhd(conductance,G,St)
          case (RCMFED)
             call conductance_rcmfed(conductance,G,St)
          case default
@@ -548,6 +707,14 @@ module mixconductance
          St%Vars(:,:,SIGMAH) = min(max(conductance%hallmin,St%Vars(:,:,SIGMAH)),&
               St%Vars(:,:,SIGMAP)*conductance%sigma_ratio)
       endif
+      print *, "ldong_20211222 AVG_ENG ",minval(St%Vars(:,:,AVG_ENG)),maxval(St%Vars(:,:,AVG_ENG))
+      print *, "ldong_20211222 NUM_FLUX",minval(St%Vars(:,:,NUM_FLUX)),maxval(St%Vars(:,:,NUM_FLUX))
+      print *, "ldong_20211222 AUR_TYPE",minval(St%Vars(:,:,AUR_TYPE)),maxval(St%Vars(:,:,AUR_TYPE))
+      print *,"ldong_20220104 IM_TOPOD: ",minval(St%Vars(:,:,IM_TOPOD)),maxval(St%Vars(:,:,IM_TOPOD))
+      print *,"ldong_20220104 TOPOD_RCM: ",minval(TOPOD_RCM),maxval(TOPOD_RCM)
+      print *,"ldong_20220104 deltaE: ",minval(conductance%deltaE),maxval(conductance%deltaE)
+      print *,"ldong_20220104 sigmap: ",minval(St%Vars(:,:,SIGMAP)),maxval(St%Vars(:,:,SIGMAP))
+      print *,"ldong_20220104 sigmah: ",minval(St%Vars(:,:,SIGMAH)),maxval(St%Vars(:,:,SIGMAH))
 
     end subroutine conductance_total
 

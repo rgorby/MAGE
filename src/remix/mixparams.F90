@@ -112,12 +112,14 @@ module mixparams
               Params%aurora_model_type = FEDDER
            case ("ZHANG")
               Params%aurora_model_type = ZHANG
+           case ("RCMHD")
+              Params%aurora_model_type = RCMHD
            case ("RCMONO")
               Params%aurora_model_type = RCMONO
            case ("RCMFED")
               Params%aurora_model_type = RCMFED
            case default 
-              stop "The aurora model type entered is not supported (Available options: FEDDER, ZHANG, RCMONO, RCMFED)."
+              stop "The aurora model type entered is not supported (Available options: FEDDER, ZHANG, RCMHD, RCMONO, RCMFED)."
         end select
 
         ! =========== CONDUCTANCE MODEL PARAMETERS =================== !
