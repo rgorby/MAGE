@@ -66,7 +66,7 @@ gBranch = gBranch.rstrip()
 print(gBranch)
 
 if(gBranch != "master" and gBranch != "development"):
-    print("storm dash only reported for master and development branches, but this branch is " + gBranch);
+    print("storm dash only reported for master and development branches, but this branch is " + gBranch)
     exit()
 
 # Go to weekly dash folder
@@ -156,9 +156,27 @@ os.chdir("weeklyDash")
 subprocess.call('gnuplot ' + home + '/testingScripts/perfPlot.plg', shell=True)
 
 # Combine quick looks into larger images
-subprocess.call('convert master_qk_msph.png development_qk_msph_old.png development_qk_msph.png +append combined_qk_msph.png', shell=True)
-subprocess.call('convert master_qk_mix.png  development_qk_mix_old.png  development_qk_mix.png  +append combined_qk_mix.png',  shell=True)
-subprocess.call('convert master_qk_rcm.png  development_qk_rcm_old.png  development_qk_rcm.png  +append combined_qk_rcm.png',  shell=True)
+subprocess.call("convert master_qk_msph.png -gravity NorthWest -pointsize 60 -annotate +0+0 'master' mm.png", shell=True)
+subprocess.call("convert master_qk_mix.png  -gravity NorthWest -pointsize 80 -annotate +0+0 'master' mx.png", shell=True)
+subprocess.call("convert master_qk_rcm.png  -gravity NorthWest -pointsize 80 -annotate +0+0 'master' mr.png", shell=True)
+subprocess.call("convert development_qk_msph_old.png -gravity NorthWest -pointsize 60 -annotate +0+0 'development prior' dmo.png", shell=True)
+subprocess.call("convert development_qk_mix_old.png  -gravity NorthWest -pointsize 80 -annotate +0+0 'development prior' dxo.png", shell=True)
+subprocess.call("convert development_qk_rcm_old.png  -gravity NorthWest -pointsize 80 -annotate +0+0 'development prior' dro.png", shell=True)
+subprocess.call("convert development_qk_msph.png -gravity NorthWest -pointsize 60 -annotate +0+0 'development latest' dm.png", shell=True)
+subprocess.call("convert development_qk_mix.png  -gravity NorthWest -pointsize 80 -annotate +0+0 'development latest' dx.png", shell=True)
+subprocess.call("convert development_qk_rcm.png  -gravity NorthWest -pointsize 80 -annotate +0+0 'development latest' dr.png", shell=True)
+subprocess.call('convert mm.png dmo.png dm.png +append combined_qk_msph.png', shell=True)
+subprocess.call('convert mx.png dxo.png dx.png +append combined_qk_mix.png',  shell=True)
+subprocess.call('convert mr.png dro.png dr.png +append combined_qk_rcm.png',  shell=True)
+if(os.path.exists("mm.png")) : os.remove("mm.png")
+if(os.path.exists("mx.png")) : os.remove("mx.png")
+if(os.path.exists("mr.png")) : os.remove("mr.png")
+if(os.path.exists("dmo.png")) : os.remove("dmo.png")
+if(os.path.exists("dxo.png")) : os.remove("dxo.png")
+if(os.path.exists("dro.png")) : os.remove("dro.png")
+if(os.path.exists("dm.png")) : os.remove("dm.png")
+if(os.path.exists("dx.png")) : os.remove("dx.png")
+if(os.path.exists("dr.png")) : os.remove("dr.png")
 
 # Push the data to the wiki
 p = subprocess.Popen('git commit -a -m "New weekly dash data for branch ' + gBranch + '"', shell=True, stdout=subprocess.PIPE)
