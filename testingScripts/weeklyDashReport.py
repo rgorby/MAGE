@@ -29,7 +29,8 @@ wikiPath = ""
 
 # Check argument flags
 if (len(sys.argv) >= 2):
-    for i in range(1,len(sys.argv)):
+    i=1
+    while(i < len(sys.argv)):
         if(str(sys.argv[i]) == '-t'):
             print("Test Mode: On")
             isTest = True
@@ -38,18 +39,20 @@ if (len(sys.argv) >= 2):
             beLoud = True
         elif(str(sys.argv[i]) == "-w"):
             wikiPath = sys.argv[i+1]
-            i++
+            i=i+1
         else:
             print("Unrecognized argument: ", sys.argv[i])
-
-# ensure wikiPath ends in a slash, for later string manipulation
-if(wikiPath[-1] not '/'):
-    wikiPath = wikiPath + '/'
+        i=i+1
 
 print(wikiPath)
-if(not os.exists(wikiPath)):
+if(not os.path.exists(wikiPath)):
     print("Wiki folder does not exist at " + wikiPath)
     exit()
+
+# ensure wikiPath ends in a slash, for later string manipulation
+if(wikiPath[-1] != '/'):
+    wikiPath = wikiPath + '/'
+print(wikiPath)
 
 # Go back to scripts folder
 os.chdir(home)
@@ -62,12 +65,17 @@ gBranch = gBranch.decode('ascii')
 gBranch = gBranch.rstrip()
 print(gBranch)
 
-if(gBranch not "master" and gBranch not "development"):
+if(gBranch != "master" and gBranch != "development"):
     print("storm dash only reported for master and development branches, but this branch is " + gBranch);
     exit()
 
 # Go to weekly dash folder
 os.chdir(home)
+
+if(not os.path.exists("weeklyDash")):
+    print("dash results folder does not exist")
+    exit()
+
 os.chdir('weeklyDash')
 os.chdir('bin')
 
@@ -116,19 +124,33 @@ os.chdir('weeklyDash')
 os.chdir('bin')
 
 # Get performance data
-subprocess.call('sed --quiet "s/^ \+UT \+= \+2016-08-09 \+\([0-9:]\+\).*$/\1/p" weeklyDashGo.out >> ' + wikiPath + gBranch + '_ut.txt', shell=True)
-subprocess.call('sed --quiet "s/^ \+Running @ *\([0-9]\+\.\?[0-9]*\)% of real-time.*$/\1/p" weeklyDashGo.out >> ' + wikiPath + gBranch + '_rt.txt', shell=True)
+p = subprocess.Popen('sed --quiet "s/^ \\+UT \\+= \\+2016-08-09 \\+\\([0-9:]\\+\\).*$/\\1/p" weeklyDashGo.out', shell=True, stdout=subprocess.PIPE)
+utData = p.stdout.read().decode('ascii')
+p = subprocess.Popen('sed --quiet "s/^ \\+Running @ *\\([0-9]\\+\\.\\?[0-9]*\\)% of real-time.*$/\\1/p" weeklyDashGo.out', shell=True, stdout=subprocess.PIPE)
+rtData = p.stdout.read().decode('ascii')
+
+#There is always one extra line of UT data in the front, strip it, then write the data to files
+utData = ''.join(utData.splitlines(keepends=True)[1:])
+
+utFile = open(wikiPath + "weeklyDash/" + gBranch + '_ut.txt', "w")
+utFile.write(utData)
+utFile.close()
+
+rtFile = open(wikiPath + "weeklyDash/" + gBranch + '_rt.txt', "w")
+rtFile.write(rtData)
+rtFile.close()
 
 # Make quick-look plots
 subprocess.call('msphpic.py', shell=True)
-os.system('cp qkpic.png ' + wikiPath + gBranch + '_qk_msph.png')
+os.system('cp qkpic.png ' + wikiPath + "weeklyDash/" + gBranch + '_qk_msph.png')
 subprocess.call('mixpic.py', shell=True)
-os.system('cp remix_n.png ' + wikiPath + gBranch + '_qk_mix.png')
+os.system('cp remix_n.png ' + wikiPath + "weeklyDash/" + gBranch + '_qk_mix.png')
 subprocess.call('rcmpic.py', shell=True)
-os.system('cp qkrcmpic.png ' + wikiPath + gBranch + '_qk_rcm.png')
+os.system('cp qkrcmpic.png ' + wikiPath + "weeklyDash/" + gBranch + '_qk_rcm.png')
 
 # Move back to wiki
 os.chdir(wikiPath)
+os.chdir("weeklyDash")
 
 # Make new performance plot. Could make this prettier, gnuplot for now
 subprocess.call('gnuplot ' + home + '/testingScripts/perfPlot.plg', shell=True)
@@ -209,5 +231,8 @@ else:
     print("weekly run completed successfully on branch " + gBranch)
 
 # Delete jobs.txt
+os.chdir(home)
+os.chdir('weeklyDash')
+os.chdir('bin')
 os.remove("jobs.txt")
 

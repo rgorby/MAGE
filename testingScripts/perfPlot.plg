@@ -1,5 +1,11 @@
+set xdata time
+set timefmt "%H:%M:%S"
+set xtic "01:00:00"
+set xlabel "UT"
+set ylabel "%Real-Time"
+set key right bottom
 set term png
 set output "perfPlots.png"
-plot "< join master_ut.txt master_rt.txt" using 1:2 title 'master',\
-"< join development_ut_old.txt development_rt_old.txt" using 1:2 title 'development prior',\
-"< join development_ut.txt development_rt.txt" using 1:2 title 'development latest'
+plot "< paste master_ut.txt master_rt.txt" using 1:2 title 'master',\
+"< paste development_ut_old.txt development_rt_old.txt" using 1:2 title 'development prior',\
+"< paste development_ut.txt development_rt.txt" using 1:2 title 'development latest'

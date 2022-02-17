@@ -68,17 +68,7 @@ if (len(sys.argv) >= 2):
 if(forceRun == False):
     # If not forced, check for update
     if (text == 'Already up to date.'):
-        if(not isTest and beLoud):
-            # Try to send Slack message
-            try:
-                response = client.chat_postMessage(
-                    channel="#kaijudev",
-                    text="No test today. Branch " + gBranch + " is already up to date!",
-                )
-            except SlackApiError as e:
-                # You will get a SlackApiError if "ok" is False
-                assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
-        
+        print("No test today. Branch " + gBranch + " is already up to date!")
         exit()
 
 os.chdir("testingScripts")

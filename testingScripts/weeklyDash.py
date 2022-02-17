@@ -46,7 +46,7 @@ gBranch = gBranch.rstrip()
 print(gBranch)
 
 # If the weekly dash base folder doesn't exist, need to generate the restart
-if( not path.exists("dashRestarts")):
+if( not os.path.exists("dashRestarts")):
     message = "No restart data available for weekly dash on branch " + gBranch + ". Please generate restart data and try again."
     if(not isTest and beLoud):
         try:
@@ -108,56 +108,56 @@ subprocess.call("omni2wind.py -t0 2016-08-09T02:00:00 -t1 2016-08-09T12:00:00 -o
 subprocess.call("genRCM.py -o NEWrcmconfig.h5", shell=True)
 
 # Copy the restart data
-subprocess.call("cp ../../dashRestarts/msphere* .", shell=True)
+subprocess.call("cp ../../dashRestarts/* .", shell=True)
 
 # Compare new supporting files to originals
 p = subprocess.Popen("h5diff lfmX.h5 NEWlfmX.h5", shell=True, stdout=subprocess.PIPE)
 gridDiff = p.stdout.read().decode('ascii').rstrip()
-if(gridDiff not ""):
+if(gridDiff != ""):
+    message = "lfm Oct grid for weekly dash has changed on branch " + gBranch + ". Case cannot be run. Please re-generate restart data, and ensure the grid change was intentional."
     if(not isTest):
-        message = "lfm Oct grid for weekly dash has changed on branch " + gBranch + ". Case cannot be run. Please re-generate restart data, and ensure the grid change was intentional."
-            try:
-                response = client.chat_postMessage(
-                    channel="#kaijudev",
-                    text=message,
-                )
-            except SlackApiError as e:
-               # You will get a SlackApiError if "ok" is False
-               assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
+        try:
+            response = client.chat_postMessage(
+                channel="#kaijudev",
+                text=message,
+            )
+        except SlackApiError as e:
+           # You will get a SlackApiError if "ok" is False
+           assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
     else:
         print(message)
     exit()
 
 p = subprocess.Popen("h5diff bcwind.h5 NEWbcwind.h5", shell=True, stdout=subprocess.PIPE)
 windDiff = p.stdout.read().decode('ascii').rstrip()
-if(windDiff not ""):
+if(windDiff != ""):
+    message = "solar wind file for weekly dash has changed on branch " + gBranch + ". Case cannot be run. Please re-generate restart data, and ensure the wind data change was intentional."
     if(not isTest):
-        message = "solar wind file for weekly dash has changed on branch " + gBranch + ". Case cannot be run. Please re-generate restart data, and ensure the wind data change was intentional."
-            try:
-                response = client.chat_postMessage(
-                    channel="#kaijudev",
-                    text=message,
-                )
-            except SlackApiError as e:
-               # You will get a SlackApiError if "ok" is False
-               assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
+        try:
+            response = client.chat_postMessage(
+                channel="#kaijudev",
+                text=message,
+            )
+        except SlackApiError as e:
+           # You will get a SlackApiError if "ok" is False
+           assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
     else:
         print(message)
     exit()
 
 p = subprocess.Popen("h5diff rcmconfig.h5 NEWrcmconfig.h5", shell=True, stdout=subprocess.PIPE)
 rcmDiff = p.stdout.read().decode('ascii').rstrip()
-if(rcmDiff not ""):
+if(rcmDiff != ""):
+    message = "rcmconfig for weekly dash has changed on branch " + gBranch + ". Case cannot be run. Please re-generate restart data, and ensure the rcmconfig change was intentional."
     if(not isTest):
-        message = "rcmconfig for weekly dash has changed on branch " + gBranch + ". Case cannot be run. Please re-generate restart data, and ensure the rcmconfig change was intentional."
-            try:
-                response = client.chat_postMessage(
-                    channel="#kaijudev",
-                    text=message,
-                )
-            except SlackApiError as e:
-               # You will get a SlackApiError if "ok" is False
-               assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
+        try:
+            response = client.chat_postMessage(
+                channel="#kaijudev",
+                text=message,
+            )
+        except SlackApiError as e:
+           # You will get a SlackApiError if "ok" is False
+           assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
     else:
         print(message)
     exit()
