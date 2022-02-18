@@ -152,8 +152,8 @@
                     pwe (isize,jsize), pwn (isize,jsize), &
                     hwe (isize,jsize), hwn (isize,jsize), &
                     sw  (jsize), &
-                    eflux (isize,jsize,iesize), eavg (isize,jsize,iesize), &
-                    efluxk (isize,jsize,kcsize,iesize), eavgk (isize,jsize,kcsize,iesize)
+                    eflux (isize,jsize,iesize), eavg (isize,jsize,iesize), nflux (isize,jsize,iesize), &
+                    efluxk (isize,jsize,kcsize,iesize), eavgk (isize,jsize,kcsize,iesize), nfluxk (isize,jsize,kcsize,iesize)
     INTEGER (iprec) :: icond, nsmthi, nsmthj, iwind
     LOGICAL :: ifloor, icorrect
 !
@@ -560,6 +560,7 @@
         endif
         eavg  (:,:,:) = 0.0
         eflux (:,:,:) = 0.0
+        nflux (:,:,:) = 0.0
         do j=1,jsize
             do i=1,isize
                 if (isOpen(i,j)) CYCLE
@@ -582,6 +583,7 @@
                 enddo
                 eflux(i,j,:) = eflx*ev2erg  ! energy flux in erg/(cm^2 s)
                 eavg (i,j,:) = eflx/nflx ! Average energy in eV
+                nflux(i,j,:) = nflx         ! Num flux in #/cm^2/s
                
                 DO ie = 1, RCMNUMFLAV
                       IF (nflx (ie) > 10.*machine_tiny) THEN  ! zero  sbao 07/2019
@@ -590,6 +592,7 @@
 !                         we want eflux=0 and eavg=0 for no precipitation.
                           eflux (i, j, ie) = zero
                           eavg  (i, j, ie) = zero
+                          nflux (i, j, ie) = zero
 !
                       END IF
                 END DO
@@ -597,8 +600,10 @@
             enddo
         enddo
         
+        CALL Circle (nflux (:, :, ie_el))
         CALL Circle (eflux (:, :, ie_el))
         CALL Circle (eavg  (:, :, ie_el))
+        CALL Circle (nflux (:, :, ie_hd))
         CALL Circle (eflux (:, :, ie_hd))
         CALL Circle (eavg  (:, :, ie_hd))
 
@@ -606,6 +611,7 @@
         !Do both or neither
           eavg  = 0.0
           eflux = 0.0
+          nflux = 0.0
         end where
       end subroutine kdiffPrecip
 

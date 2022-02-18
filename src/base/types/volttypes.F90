@@ -44,8 +44,8 @@ module volttypes
         logical :: isInit = .false.
         !Working on logically Cartesian grid w/ lat, lon 
         real(rp), dimension(:), allocatable :: gcolat,glong
-        real(rp), dimension(:,:), allocatable :: eflux,eavg
-        real(rp), dimension(:,:), allocatable :: iflux,iavg
+        real(rp), dimension(:,:), allocatable :: eflux,eavg,enflx
+        real(rp), dimension(:,:), allocatable :: iflux,iavg,inflx
         !latc/lonc are the mappings to the southern hemisphere
         real(rp), dimension(:,:), allocatable :: latc,lonc
         real(rp), dimension(:,:), allocatable :: fac

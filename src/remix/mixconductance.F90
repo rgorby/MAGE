@@ -377,6 +377,7 @@ module mixconductance
       integer :: i,j
       logical :: isRCM,isMono,isMHD
       real(rp) :: rcm_eavg,rcm_nflx,mhd_eavg,mhd_nflx,rcm_eavg_fin,rcm_nflx_fin,rcm_SigP,mhd_SigP,rcm_eavg0,rcm_nflx0
+      real(rp) :: rcm_eflx,rcm_eflx0,mhd_eflx,mhd_eflx0
       real(rp) :: pK = 0.5 !Cut-off for "interesting" energy for precipitation [keV]
 
       call conductance_alpha_beta(conductance,G,St)
@@ -387,7 +388,8 @@ module mixconductance
 
       !$OMP PARALLEL DO default(shared) &
       !$OMP private(i,j,isRCM,isMono,isMHD,rcm_SigP,mhd_SigP,rcm_eavg0,rcm_nflx0) &
-      !$OMP private(rcm_eavg,rcm_nflx,mhd_eavg,mhd_nflx,rcm_eavg_fin,rcm_nflx_fin)
+      !$OMP private(rcm_eavg,rcm_nflx,mhd_eavg,mhd_nflx,rcm_eavg_fin,rcm_nflx_fin) &
+      !$OMP private(rcm_eflx,rcm_eflx0,mhd_eflx,mhd_eflx0)
       do j=1,G%Nt
          do i=1,G%Np
             isMono = conductance%deltaE(i,j) > 0.0    !Potential drop
@@ -398,14 +400,24 @@ module mixconductance
             else
                rcm_nflx0 = 0.0
             endif
+!            rcm_nflx0 = St%Vars(i,j,IM_ENFLX)
+!            rcm_eflx0 = St%Vars(i,j,IM_EFLUX)
             mhd_eavg = St%Vars(i,j,Z_EAVG)
             mhd_nflx = St%Vars(i,j,Z_NFLUX)
+!            mhd_eflx = St%Vars(i,j,Z_EAVG)*St%Vars(i,j,Z_NFLUX)*kev2erg
 
-            rcm_eavg = max(rcm_eavg0*TOPOD_RCM(i,j)+mhd_eavg*(1.0-TOPOD_RCM(i,j)),1.0e-8)
             rcm_nflx = rcm_nflx0*TOPOD_RCM(i,j)+mhd_nflx*(1.0-TOPOD_RCM(i,j))
-            if(rcm_eavg<0.0 .or. rcm_nflx<0.0) then
-               print *,"ldong_20211222 negative ",rcm_eavg,rcm_nflx,TOPOD_RCM(i,j),mhd_eavg,mhd_nflx,rcm_eavg0,rcm_nflx0
-            endif
+!            rcm_eflx = rcm_eflx0*TOPOD_RCM(i,j)+mhd_eflx*(1.0-TOPOD_RCM(i,j))
+            rcm_eavg = max(rcm_eavg0*TOPOD_RCM(i,j)+mhd_eavg*(1.0-TOPOD_RCM(i,j)),1.0e-8)
+!            if(rcm_nflx>TINY) then
+!               rcm_eavg = max(rcm_eflx/(rcm_nflx)/kev2erg,1.0e-8)
+!            else
+!               rcm_eavg = 0.0
+!            endif
+!            if(rcm_eflx<0.0 .or. rcm_nflx<0.0) then
+!               print *,"ldong_20211222 negative ",rcm_eavg,rcm_nflx,TOPOD_RCM(i,j),mhd_eavg,mhd_nflx,rcm_eavg0,rcm_nflx0
+!               print *,"ldong_20220217 negative ",rcm_eflx,rcm_nflx,TOPOD_RCM(i,j),mhd_eflx,mhd_nflx,rcm_eflx0,rcm_nflx0
+!            endif
 
             if (.not. isMono) then
                !F/T/T
@@ -418,7 +430,7 @@ module mixconductance
 
             !If still here, we have both RCM info and a potential drop
             !Decide between the two by taking one that gives highest Sig-P
-            if (conductance%doMR) then
+            if (conductance%doMR) then ! be careful here is using nflux.
                call AugmentMR(rcm_eavg,rcm_nflx,rcm_eavg_fin,rcm_nflx_fin) !Correct for MR
             else
                !No corrections

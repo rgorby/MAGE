@@ -12,7 +12,7 @@ module voltio
     
     implicit none
 
-    integer , parameter, private :: MAXVOLTIOVAR = 35
+    integer , parameter, private :: MAXVOLTIOVAR = 50
     real(rp), parameter, private :: dtWallMax = 1.0 !How long between timer resets[hr]
     logical , private :: isConInit = .false.
     real(rp), private ::  oMJD = 0.0
@@ -275,7 +275,7 @@ module voltio
         vApp%DeepT    = GetIOReal(IOVars,"DeepT")
 
         !Check to see if gB0 is present
-        n0 = FindIO(IOVars,"gBAvg")
+        n0 = FindIO(IOVars,"gBAvg",.true.)
         if (IOVars(n0)%isDone) then
             write(*,*) "Found gBAvg in Voltron restart ..."
             call IOArray4DFill(IOVars,"gBAvg",vApp%mhd2Mix%gBAvg)

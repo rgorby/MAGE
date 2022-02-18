@@ -67,6 +67,10 @@ contains
     mixUnitNames(IM_EDEN)      = "#/m^3"
     mixVarNames(IM_EPRE)       = "RCM electron pressure"
     mixUnitNames(IM_EPRE)      = "Pa"
+    mixVarNames(IM_ENFLX)      = "IM Number flux"
+    mixUnitNames(IM_ENFLX)     = "1/cm^2 s"
+    mixVarNames(IM_INFLX)      = "IM Number flux proton"
+    mixUnitNames(IM_INFLX)     = "1/cm^2 s"
   end subroutine initMIXNames
 
   subroutine initMIXIO(I,RunID,isRestart,nRes)
@@ -167,6 +171,10 @@ contains
              doDump = .true.             
           case (NUM_FLUX)
              doDump = .true.    
+          case (NEUTRAL_WIND) 
+             doDump = .false.         
+          case (EFIELD) 
+             doDump = .false.         
           case (IM_EFLUX)
              doDump = .true.
           case (IM_EAVG)
@@ -179,8 +187,6 @@ contains
              doDump = .true.
           case (Z_EAVG)
              doDump = .true.         
-          case (NEUTRAL_WIND) 
-             doDump = .false.         
           case (CRPOT) 
              doDump = .true.       
           case (TPOT) 
@@ -195,9 +201,10 @@ contains
              doDump = .true.
           case (IM_EPRE)
              doDump = .true.
-          case (EFIELD)
-             ! we never compute it
-             doDump = .false.
+          case (IM_ENFLX)
+             doDump = .true.
+          case (IM_INFLX)
+             doDump = .true.
           case DEFAULT
              doDump = .false. ! only dump the variables explicitely set to be dumped above
           end select
@@ -681,6 +688,10 @@ contains
           case (IM_EDEN)
              doDump = .true.
           case (IM_EPRE)
+             doDump = .true.
+          case (IM_ENFLX)
+             doDump = .true.
+          case (IM_INFLX)
              doDump = .true.
           case (NEUTRAL_WIND) 
              doDump = .false.

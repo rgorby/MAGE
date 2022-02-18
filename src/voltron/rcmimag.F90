@@ -353,9 +353,11 @@ module rcmimag
         vApp%imag2mix%lonc = RCMApp%lonc
 
     ! electrons precipitation
+        vApp%imag2mix%enflx = RCMApp%nflx   (:,:,RCMELECTRON)
         vApp%imag2mix%eflux = RCMApp%flux   (:,:,RCMELECTRON)
         vApp%imag2mix%eavg  = RCMApp%eng_avg(:,:,RCMELECTRON)
     ! ion precipitation
+        vApp%imag2mix%inflx = RCMApp%nflx   (:,:,RCMPROTON)
         vApp%imag2mix%iflux = RCMApp%flux   (:,:,RCMPROTON)
         vApp%imag2mix%iavg  = RCMApp%eng_avg(:,:,RCMPROTON)
 
