@@ -109,8 +109,8 @@ if (doAll == True):
 else:
     buildTest = subprocess.Popen("python3 buildTest.py"+subArgString, shell = True)
     buildTest.wait()
-    #unitTest = subprocess.Popen("python3 unitTest.py"+subArgString, shell = True)
-    #unitTest.wait()
+    unitTest = subprocess.Popen("python3 unitTest.py"+subArgString, shell = True)
+    unitTest.wait()
     #intelTest = subprocess.Popen("python3 intelChecks.py"+subArgString, shell=True)
     #intelTest.wait()
     ICTest = subprocess.Popen("python3 ICtest.py"+subArgString, shell=True)
