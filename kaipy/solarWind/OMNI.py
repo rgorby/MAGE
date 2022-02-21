@@ -17,14 +17,18 @@ class OMNI(SolarWind):
     Data stored in GSE coordinates.
     """
 
-    def __init__(self, filename = None):        
+    def __init__(self, filename = None, doFilter = False, sigmaVal = 3.0):        
         SolarWind.__init__(self)
+
+        self.filter = doFilter
+        self.sigma = sigmaVal
 
         self.bad_data = [-999.900, 
                          99999.9, # V
                          9999.99, # B
                          999.990, # density
                          1.00000E+07, # Temperature
+                         9999999.0, # Temperature
                          99999 # Activity indices 
                          ]
 
@@ -36,7 +40,8 @@ class OMNI(SolarWind):
         """
         (startDate, dates, data) = self.__readData(filename)
         (dataArray, hasBeenInterpolated) = self.__removeBadData(data)
-        #(dataArray, hasBeenInterpolated) = self.__coarseFilter(dataArray, hasBeenInterpolated)
+        if self.filter:
+            (dataArray, hasBeenInterpolated) = self.__coarseFilter(dataArray, hasBeenInterpolated)
         self.__storeDataDict(dates, dataArray, hasBeenInterpolated)
         self.__appendMetaData(startDate, filename)
         self._appendDerivedQuantities()
@@ -47,22 +52,22 @@ class OMNI(SolarWind):
         return 2d array (of strings) containing data from file
         """
         #pulling variables from file
-        time=fh.get('EPOCH_TIME')
-        bx=fh.get('BX,_GSE')
-        by=fh.get('BY,_GSE')
-        bz=fh.get('BZ,_GSE')
-        vx=fh.get('VX_VELOCITY,_GSE')
-        vy=fh.get('VY_VELOCITY,_GSE')
-        vz=fh.get('VZ_VELOCITY,_GSE')
-        n=fh.get('PROTON_DENSITY')
-        T=fh.get('TEMPERATURE')
-        ae=fh.get('1-M_AE')
-        al=fh.get('1-M_AL-INDEX')
-        au=fh.get('AU-INDEX')
-        symh=fh.get('SYM/H_INDEX')
-        xBow = fh.get('X_(BSN),_GSE')       #RE
-        yBow = fh.get('Y_(BSN),_GSE')       #RE
-        zBow = fh.get('Z_(BSN),_GSE')       #RE
+        time=fh['Epoch']
+        bx=fh['BX_GSE']
+        by=fh['BY_GSE']
+        bz=fh['BZ_GSE']
+        vx=fh['Vx']
+        vy=fh['Vy']
+        vz=fh['Vz']
+        n=fh['proton_density']
+        T=fh['T']
+        ae=fh['AE_INDEX']
+        al=fh['AL_INDEX']
+        au=fh['AU_INDEX']
+        symh=fh['SYM_H']
+        xBow = fh.get('BSN_x')       #RE
+        yBow = fh.get('BSN_y')       #RE
+        zBow = fh.get('BSN_z')       #RE
 
         dates = []
         rows = []
@@ -103,7 +108,7 @@ class OMNI(SolarWind):
 
             lastValidIndex = -1
             for curIndex,row in enumerate(data):
-                if row[varIdx] in self.bad_data:
+                if row[varIdx] in numpy.float32(self.bad_data):
                     # This item has bad data.
                     hasBeenInterpolated[curIndex, varIdx-1] = True
                     if (lastValidIndex == -1) & (curIndex == len(data)-1):
@@ -174,12 +179,12 @@ class OMNI(SolarWind):
             stds.append( dataArray[:,varIdx].std() )
             means.append( dataArray[:,varIdx].mean() )
             
-            # Linearly interpolate over data that exceeds 3 standard
-            # deviations from the mean
+            # Linearly interpolate over data that exceeds # of standard
+            # deviations from the mean set by self.sigma (default = 3)
             lastValidIndex = -1
             for curIndex,row in enumerate(dataArray):
                 # Are we outside 3 sigma from mean?
-                if abs(means[varIdx-1] - row[varIdx]) > 3*stds[varIdx-1]:
+                if abs(means[varIdx-1] - row[varIdx]) > self.sigma*stds[varIdx-1]:
                     hasBeenInterpolated[curIndex, varIdx-1] = True
                     if (curIndex == len(dataArray)-1):
                         # Clamp last bad data to previous known good data.
