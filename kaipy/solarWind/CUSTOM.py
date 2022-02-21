@@ -11,13 +11,13 @@ from ai import cdas
 import datetime
 import re
 
-class OMNI(SolarWind):
+class DSCOVR(SolarWind):
     """
     OMNI Solar Wind file from CDAweb [http://cdaweb.gsfc.nasa.gov/].
     Data stored in GSE coordinates.
     """
 
-    def __init__(self, filename = None):        
+    def __init__(self,t0,filename = None):        
         SolarWind.__init__(self)
 
         self.bad_data = [-999.900, 
@@ -28,56 +28,73 @@ class OMNI(SolarWind):
                          99999 # Activity indices 
                          ]
 
-        self.__read(filename)
+        self.__read(filename,t0)
 
-    def __read(self, filename):
+    def __read(self, filename,t0):
         """
         Read the solar wind file & store results in self.data TimeSeries object.
         """
-        (startDate, dates, data) = self.__readData(filename)
+        (startDate, dates, data) = self.__readData(filename,t0)
         (dataArray, hasBeenInterpolated) = self.__removeBadData(data)
         #(dataArray, hasBeenInterpolated) = self.__coarseFilter(dataArray, hasBeenInterpolated)
         self.__storeDataDict(dates, dataArray, hasBeenInterpolated)
         self.__appendMetaData(startDate, filename)
         self._appendDerivedQuantities()
 
-        
-    def __readData(self, fh):
+    def __readData(self, filename,t0):
         """
         return 2d array (of strings) containing data from file
+        
+        **TODO: read the fmt and figure out which column is which.  This would make things easier
+        and more user friendly.  However, for now, we'll just assume the file is exactly 
+        these quantities in this order
         """
-        #pulling variables from file
-        time=fh.get('EPOCH_TIME')
-        bx=fh.get('BX,_GSE')
-        by=fh.get('BY,_GSE')
-        bz=fh.get('BZ,_GSE')
-        vx=fh.get('VX_VELOCITY,_GSE')
-        vy=fh.get('VY_VELOCITY,_GSE')
-        vz=fh.get('VZ_VELOCITY,_GSE')
-        n=fh.get('PROTON_DENSITY')
-        T=fh.get('TEMPERATURE')
-        ae=fh.get('1-M_AE')
-        al=fh.get('1-M_AL-INDEX')
-        au=fh.get('AU-INDEX')
-        symh=fh.get('SYM/H_INDEX')
-        xBow = fh.get('X_(BSN),_GSE')       #RE
-        yBow = fh.get('Y_(BSN),_GSE')       #RE
-        zBow = fh.get('Z_(BSN),_GSE')       #RE
 
+        filedata = numpy.genfromtxt(filename)
+        ntimes = numpy.shape(filedata)[0]
+        
+        #yrs = filedata[:,0]
+        #doy = filedata[:,1]
+        #hrs = filedata[:,2]
+        #mns = filedata[:,3]
+        n   = filedata[:,0] #n/cc
+        vx  = filedata[:,1] #km/s
+        vy  = filedata[:,2] #km/s
+        vz  = filedata[:,3] #km/s
+        cs  = filedata[:,4] #km/s
+        bx  = filedata[:,5] #nT
+        by  = filedata[:,6] #nT
+        bz  = filedata[:,7] #nT
+        
         dates = []
-        rows = []
-        for i in range(len(time)):
-          
-            startTime = time[0]
+        rows  = []
+
+        timeshift = 46 #minutes
+        startTime = t0 + datetime.timedelta(minutes=timeshift)
+
+        dst = [0 ,-6 ,-10,-10,-8 ,-7 ,-8 ,-10,-9  ,-8 ,-4 ,0  ,2  ,2   ,0  ,-1 ,-3 ,-4 ,-4 ,2  ,28 ,10 ,-14,-9 , 
+               -2,-20,-27,-32,-36,-43,-73,-81,-107,-95,-81,-85,-97,-103,-87,-81,-78,-72,-63,-56,-50,-42,-34,-36,
+               -41,-43,-43,-42,-37,-13, -12, -23,  -35, -38, -38, -36, -32, -28, -25, -38,  -35, -38, -39, -36, -34, -26, -17,  -4]
+
+        print("Starting Time: ",startTime.isoformat())
+
+        for i in range(ntimes):
+            #currentTime = datetime.datetime(int(yrs[i]),1,1,hour=int(hrs[i]),minute=int(mns[i])) + datetime.timedelta(int(doy[i])-1)
+            currentTime = t0 + datetime.timedelta(minutes=i)
             #calculating minutes from the start time
-            nMin = self.__deltaMinutes(time[i],startTime)
+            #nMin = self.__deltaMinutes(currentTime,startTime)
+            nMin = i
 
-            data = [nMin,bx[i],by[i],bz[i],vx[i],vy[i],vz[i],n[i],T[i],ae[i],al[i],au[i],symh[i],xBow[i],yBow[i],zBow[i]]
+            if currentTime < startTime:
+              data = [nMin,bx[0],by[0],bz[0],vx[0],vy[0],vz[0],n[0],cs[0],0.,0.,0.,dst[int(i/60.)]]
+            else:
+              ic = int(i-timeshift)
+              data = [nMin,bx[ic],by[ic],bz[ic],vx[ic],vy[ic],vz[ic],n[ic],cs[ic],0.,0.,0.,dst[int(i/60.)]]
 
-            dates.append( time[i] )
+            dates.append( currentTime )
             rows.append( data )
 
-        return (startTime, dates, rows)
+        return (t0, dates, rows)
 
     def __removeBadData(self, data):
         """
@@ -210,7 +227,7 @@ class OMNI(SolarWind):
         """
         Populate self.data TimeSeries object via the 2d dataArray read from file.
         """
-        self.__gse2gsm(dates, dataArray)
+        #self.__gse2gsm(dates, dataArray)
 
         self.data.append('time_min', 'Time (Minutes since start)', 'min', dataArray[:,0])
 
@@ -238,38 +255,44 @@ class OMNI(SolarWind):
         self.data.append('n', 'Density', r'$\mathrm{1/cm^3}$', dataArray[:,7])
         self.data.append('isNInterped', 'Is index i of N interpolated from bad data?', r'$\mathrm{boolean}$', hasBeenInterpolated[:,6])
 
-        # Temperature
-        self.data.append('t', 'Temperature', r'$\mathrm{kK}$', dataArray[:,8]*1e-3)
-        self.data.append('isTInterped', 'Is index i of T interpolated from bad data?', r'$\mathrm{boolean}$', hasBeenInterpolated[:,7])
+        # Sound Speed (Thermal Speed)
+        self.data.append('cs', 'Sound speed', r'$\mathrm{km/s}$', dataArray[:,8])
+        self.data.append('isCsInterped', 'Is index i of Cs interpolated from bad data?', r'$\mathrm{boolean}$', hasBeenInterpolated[:,7])
 
-        # Activity Indices
-        self.data.append('ae', 'AE-Index', r'$\mathrm{nT}$', dataArray[:,9])
-        self.data.append('isAeInterped', 'Is index i of N interpolated from bad data?', r'$\mathrm{boolean}$', hasBeenInterpolated[:,8])
+        ## Temperature
+        #self.data.append('t', 'Temperature', r'$\mathrm{kK}$', dataArray[:,8]*1e-3)
+        #self.data.append('isTInterped', 'Is index i of T interpolated from bad data?', r'$\mathrm{boolean}$', hasBeenInterpolated[:,7])
 
-        self.data.append('al', 'AL-Index', r'$\mathrm{nT}$', dataArray[:,10])
-        self.data.append('isAlInterped', 'Is index i of N interpolated from bad data?', r'$\mathrm{boolean}$', hasBeenInterpolated[:,9])
+        ## Activity Indices
+        #self.data.append('ae', 'AE-Index', r'$\mathrm{nT}$', dataArray[:,9])
+        #self.data.append('isAeInterped', 'Is index i of N interpolated from bad data?', r'$\mathrm{boolean}$', hasBeenInterpolated[:,8])
 
-        self.data.append('au', 'AU-Index', r'$\mathrm{nT}$', dataArray[:,11])
-        self.data.append('isAuInterped', 'Is index i of N interpolated from bad data?', r'$\mathrm{boolean}$', hasBeenInterpolated[:,10])
+        #self.data.append('al', 'AL-Index', r'$\mathrm{nT}$', dataArray[:,10])
+        #self.data.append('isAlInterped', 'Is index i of N interpolated from bad data?', r'$\mathrm{boolean}$', hasBeenInterpolated[:,9])
 
-        self.data.append('symh', 'SYM/H', r'$\mathrm{nT}$', dataArray[:,12])
-        self.data.append('isSymHInterped', 'Is index i of N interpolated from bad data?', r'$\mathrm{boolean}$', hasBeenInterpolated[:,11])
+        #self.data.append('au', 'AU-Index', r'$\mathrm{nT}$', dataArray[:,11])
+        #self.data.append('isAuInterped', 'Is index i of N interpolated from bad data?', r'$\mathrm{boolean}$', hasBeenInterpolated[:,10])
+
         
         # Bowshock Location
-        self.data.append('xBS', 'BowShockX (gsm)', r'$\mathrm{RE}$', dataArray[:,13])
-        self.data.append('isxBSInterped', 'Is index i of N interpolated from bad data?', r'$\mathrm{boolean}$', hasBeenInterpolated[:,12])
+        self.data.append('xBS', 'BowShockX (gsm)', r'$\mathrm{RE}$', dataArray[:,9])
+        self.data.append('isxBSInterped', 'Is index i of N interpolated from bad data?', r'$\mathrm{boolean}$', hasBeenInterpolated[:,8])
 
-        self.data.append('yBS', 'BowShockY (gsm)', r'$\mathrm{RE}$', dataArray[:,14])
-        self.data.append('isyBSInterped', 'Is index i of N interpolated from bad data?', r'$\mathrm{boolean}$', hasBeenInterpolated[:,13])
+        self.data.append('yBS', 'BowShockY (gsm)', r'$\mathrm{RE}$', dataArray[:,10])
+        self.data.append('isyBSInterped', 'Is index i of N interpolated from bad data?', r'$\mathrm{boolean}$', hasBeenInterpolated[:,9])
 
-        self.data.append('zBS', 'BowShockZ (gsm)', r'$\mathrm{RE}$', dataArray[:,15])
-        self.data.append('iszBSInterped', 'Is index i of N interpolated from bad data?', r'$\mathrm{boolean}$', hasBeenInterpolated[:,14])
+        self.data.append('zBS', 'BowShockZ (gsm)', r'$\mathrm{RE}$', dataArray[:,11])
+        self.data.append('iszBSInterped', 'Is index i of N interpolated from bad data?', r'$\mathrm{boolean}$', hasBeenInterpolated[:,10])
+
+        # DST
+        self.data.append('symh', 'SYM/H', r'$\mathrm{nT}$', dataArray[:,12])
+        self.data.append('isSymHInterped', 'Is index i of N interpolated from bad data?', r'$\mathrm{boolean}$', hasBeenInterpolated[:,11])
 
     def __appendMetaData(self, date, filename):
         """
         Add standard metadata to the data dictionary.
         """
-        metadata = {'Model': 'OMNI',
+        metadata = {'Model': 'CUSTOM',
                     'Source': filename,
                     'Date processed': datetime.datetime.now(),
                     'Start date': date
@@ -315,13 +338,13 @@ class OMNI(SolarWind):
             data[14] = bs_gsm[1]
             data[15] = bs_gsm[2]
 
-class OMNIW(SolarWind):
+class WIND(SolarWind):
     """
     OMNI Solar Wind file from CDAweb [http://cdaweb.gsfc.nasa.gov/].
     Data stored in GSE coordinates.
     """
 
-    def __init__(self, fWIND):        
+    def __init__(self, fSWE,fMFI,fOMNI,xloc,tOffset,t0,t1):        
         SolarWind.__init__(self)
 
         self.bad_data = [-999.900, 
@@ -329,168 +352,153 @@ class OMNIW(SolarWind):
                          9999.99, # B
                          999.990, # density
                          1.00000E+07, # Temperature
-                         9999999.,    # Temperature
                          99999, # Activity indices 
                          9999000, # SWE del_time
-                         -1e31 # SWE & MFI                      
+                         -1e31 # SWE & MFI                         
                          ]
         self.good_quality = [4098,14338]
         #self.bad_times =[   '17-03-2015 17:27:07.488',
         #                    '18-03-2015 21:53:49.140'
         #                ]
         #self.bad_fmt = '%d-%m-%Y %H:%M:%S.f'        
-        #
-        #self.bad_datetime = [   datetime.datetime(2015,3,17,hour=17,minute=27,second=7,microsecond=488*1000),
-        #                        datetime.datetime(2015,3,18,hour=21,minute=53,second=49,microsecond=140*1000)
-        #                    ]
-        #
+
+        self.bad_datetime = [   datetime.datetime(2015,3,17,hour=17,minute=27,second=7,microsecond=488*1000),
+                                datetime.datetime(2015,3,18,hour=21,minute=53,second=49,microsecond=140*1000)
+                            ]
+
         #obtain 1 minute resolution observations from OMNI dataset
         print('Retrieving solar wind data from CDAWeb')
-        self.__read(fWIND)
+        self.__read(fSWE,fMFI,fOMNI,xloc,tOffset,t0,t1)
 
-    def __read(self, fWIND):
+    def __read(self, fSWE,fMFI,fOMNI,xloc,tOffset,t0,t1):
         """
         Read the solar wind file & store results in self.data TimeSeries object.
         """
-        (startDate, endDate, Wdates, Wdata) = self.__readWData(fWIND)
-        (Odates, Odata) = self.__readOData(startDate,endDate)
-        (WdataArray, WhasBeenInterpolated) = self.__removeBadData(Wdata)
-        (OdataArray, OhasBeenInterpolated) = self.__removeBadData(Odata)
-        (dates,dataArray, hasBeenInterpolated, dataOrigin) = self.__combineData(Wdates,WdataArray,WhasBeenInterpolated,Odates,OdataArray,OhasBeenInterpolated)
-        (dataArray, hasBeenInterpolated) = self.__removeBadData(dataArray,hasBeenInterpolated)
-        #(dataArray, hasBeenInterpolated) = self.__coarseFilter(dataArray, hasBeenInterpolated)
+        (SWEstartDate, MFIstartDate, OMNIstartDate, SWEdata, MFIdata, OMNIdata, SWEqf) = self.__readData(fSWE,fMFI,fOMNI,tOffset,t0,xloc)
+
+
+        (SWEdata) = self.__checkGoodData(SWEdata,SWEqf)
+        (SWEdataArray, SWEhasBeenInterpolated)   = self.__removeBadData(SWEdata )
+        (MFIdataArray, MFIhasBeenInterpolated)   = self.__removeBadData(MFIdata )
+        (OMNIdataArray, OMNIhasBeenInterpolated) = self.__removeBadData(OMNIdata)
+
+        (SWEdataArray, SWEhasBeenInterpolated)   = self.__coarseFilter(SWEdataArray , SWEhasBeenInterpolated )
+        (MFIdataArray, MFIhasBeenInterpolated)   = self.__coarseFilter(MFIdataArray , MFIhasBeenInterpolated )
+        (OMNIdataArray, OMNIhasBeenInterpolated) = self.__coarseFilter(OMNIdataArray, OMNIhasBeenInterpolated)
+
+        #(SWEdataArray, SWEhasBeenInterpolated)   = self.__windowedFilter(SWEdataArray , SWEhasBeenInterpolated )
+        #(MFIdataArray, MFIhasBeenInterpolated)   = self.__windowedFilter(MFIdataArray , MFIhasBeenInterpolated )
+        #(OMNIdataArray, OMNIhasBeenInterpolated) = self.__windowedFilter(OMNIdataArray, OMNIhasBeenInterpolated)
+
+        (dates, dataArray, hasBeenInterpolated)  = self.__joinData(SWEdataArray, SWEhasBeenInterpolated, 
+                                                                    MFIdataArray, MFIhasBeenInterpolated, 
+                                                                    OMNIdataArray, OMNIhasBeenInterpolated,
+                                                                    t0,t1)
         self.__storeDataDict(dates, dataArray, hasBeenInterpolated)
-        self.__appendMetaData(startDate, fWIND)
+        self.__appendMetaData(t0, SWEstartDate, fSWE)
         self._appendDerivedQuantities()
 
         
-    def __readWData(self, fWIND):
-        """
-        return 2d array (of strings) containing data from file
-        
-        **TODO: read the fmt and figure out which column is which.  This would make things easier
-        and more user friendly.  However, for now, we'll just assume the file is exactly 
-        these quantities in this order
-        """
-
-        print('Retrieving solar wind data from WIND file')
-        filedata = numpy.genfromtxt(fWIND)
-        ntimes = numpy.shape(filedata)[0]
-        
-        yrs = filedata[:,0]
-        doy = filedata[:,1]
-        hrs = filedata[:,2]
-        mns = filedata[:,3]
-        bx  = filedata[:,4] #nT
-        by  = filedata[:,5] #nT
-        bz  = filedata[:,6] #nT
-        vx  = filedata[:,7] #km/s
-        vy  = filedata[:,8] #km/s
-        vz  = filedata[:,9] #km/s
-        n   = filedata[:,10] #n/cc
-        T   = filedata[:,11] #K
-        xBow   = filedata[:,12] #RE
-        yBow   = filedata[:,13] #RE
-        zBow   = filedata[:,14] #RE
-        
-        t0 = datetime.datetime(int(yrs[0]),1,1,hour=int(hrs[0]),minute=int(mns[0])) + datetime.timedelta(int(doy[0])-1)
-        t1 = datetime.datetime(int(yrs[-1]),1,1,hour=int(hrs[-1]),minute=int(mns[-1])) + datetime.timedelta(int(doy[-1])-1)
-        
-        fOMNI = cdas.get_data(
-               'sp_phys',
-               'OMNI_HRO_1MIN',
-               t0,
-               t1,#+datetime.timedelta(minutes=tBuffer),
-               ['BX_GSE,BY_GSE,BZ_GSE,Vx,Vy,Vz,proton_density,T,AE_INDEX,AL_INDEX,AU_INDEX,SYM_H,BSN_x,BSN_y,BSN_z']
-            )
-            
-        tOMNI= fOMNI.get('EPOCH_TIME')         #datetime
-        ae   = fOMNI.get('1-M_AE')             #nT
-        al   = fOMNI.get('1-M_AL-INDEX')       #nT
-        au   = fOMNI.get('AU-INDEX')           #nT
-        symh = fOMNI.get('SYM/H_INDEX')        #nT
-        ovx  = fOMNI.get('VX_VELOCITY,_GSE')   #kms
-        ovy  = fOMNI.get('VY_VELOCITY,_GSE')   #kms
-        ovz  = fOMNI.get('VZ_VELOCITY,_GSE')   #kms
-        oxBow = fOMNI.get('X_(BSN),_GSE')       #RE
-        oyBow = fOMNI.get('Y_(BSN),_GSE')       #RE
-        ozBow = fOMNI.get('Z_(BSN),_GSE')       #RE
-        
-        #oxBow = oxBow*1e5/Re_cgs #km -> cm -> Re
-        #oyBow = oyBow*1e5/Re_cgs #km -> cm -> Re
-        #ozBow = ozBow*1e5/Re_cgs #km -> cm -> Re
-
-        dates = []
-        rows  = []
-        
-        for i in range(ntimes):
-            currentTime = datetime.datetime(int(yrs[i]),1,1,hour=int(hrs[i]),minute=int(mns[i])) + datetime.timedelta(int(doy[i])-1)
-            #calculating minutes from the start time
-            nMin = self.__deltaMinutes(currentTime,t0)
-
-            if (xBow[i] in self.bad_data) or (yBow[i] in self.bad_data) or (zBow[i] in self.bad_data):
-                data = [nMin,bx[i],by[i],bz[i],vx[i],vy[i],vz[i],n[i],T[i],ae[i],al[i],au[i],symh[i],oxBow[i],oyBow[i],ozBow[i]]
-            else:
-                data = [nMin,bx[i],by[i],bz[i],vx[i],vy[i],vz[i],n[i],T[i],ae[i],al[i],au[i],symh[i],xBow[i],yBow[i],zBow[i]]
-
-            dates.append( currentTime )
-            rows.append( data )
-
-        return (t0, t1, dates, rows)
-
-    def __readOData(self, t0,t1):
+    def __readData(self, fhSWE,fhMFI,fhOMNI,tOffset,t0,xloc):
         """
         return 2d array (of strings) containing data from file
         """
-        
-        #obtain 1 minute resolution observations from OMNI dataset
-        print('Retrieving solar wind data from CDAWeb')
-        fh = cdas.get_data(
-           'sp_phys',
-           'OMNI_HRO_1MIN',
-           t0,
-           t1,
-           ['BX_GSE,BY_GSE,BZ_GSE,Vx,Vy,Vz,proton_density,T,AE_INDEX,AL_INDEX,AU_INDEX,SYM_H,BSN_x,BSN_y,BSN_z']
-        )
-        
+        #print('__readData')
         #pulling variables from file
-        time=fh.get('EPOCH_TIME')
-        bx=fh.get('BX,_GSE')
-        by=fh.get('BY,_GSE')
-        bz=fh.get('BZ,_GSE')
-        vx=fh.get('VX_VELOCITY,_GSE')
-        vy=fh.get('VY_VELOCITY,_GSE')
-        vz=fh.get('VZ_VELOCITY,_GSE')
-        n=fh.get('PROTON_DENSITY')
-        T=fh.get('TEMPERATURE')
-        ae=fh.get('1-M_AE')
-        al=fh.get('1-M_AL-INDEX')
-        au=fh.get('AU-INDEX')
-        symh=fh.get('SYM/H_INDEX')
-        xBow = fh.get('X_(BSN),_GSE')       #RE
-        yBow = fh.get('Y_(BSN),_GSE')       #RE
-        zBow = fh.get('Z_(BSN),_GSE')       #RE
+        tSWE = fhSWE.get('EPOCH')               #datetime
+        vx   = fhSWE.get('VX_(GSE)')            #km/s
+        vy   = fhSWE.get('VY_(GSE)')            #km/s
+        vz   = fhSWE.get('VZ_(GSE)')            #km/s
+        qfv  = fhSWE.get('QF_V')                #
+        qfn  = fhSWE.get('QF_NP')               #
+        n    = fhSWE.get('ION_NP')              ##/cc
+        cs    = fhSWE.get('SW_VTH')              #km/s
 
-        #xBow = xBow*1e5/Re_cgs #km -> cm -> Re
-        #yBow = yBow*1e5/Re_cgs #km -> cm -> Re
-        #zBow = zBow*1e5/Re_cgs #km -> cm -> Re
+        tMFI = fhMFI.get('EPOCH')               #datetime
+        bx   = fhMFI.get('BX_(GSE)')            #nT
+        by   = fhMFI.get('BY_(GSE)')            #nT
+        bz   = fhMFI.get('BZ_(GSE)')            #nT
 
-        dates = []
-        rows = []
-        for i in range(len(time)):
-          
-            startTime = time[0]
+        tOMNI= fhOMNI.get('EPOCH_TIME')         #datetime
+        ovx  = fhOMNI.get('VX_VELOCITY,_GSE')   #kms
+        ae   = fhOMNI.get('1-M_AE')             #nT
+        al   = fhOMNI.get('1-M_AL-INDEX')       #nT
+        au   = fhOMNI.get('AU-INDEX')           #nT
+        symh = fhOMNI.get('SYM/H_INDEX')        #nT
+        xBow = fhOMNI.get('X_(BSN),_GSE')       #km
+
+        tshift = ((0 - xloc) / vx[0])/60. # t = (x - x_0)/Vx where X = 0, x_0 = xloc, and Vx is Vx in first data block in km/s.
+        print('tshift:',tshift,xloc,vx[0])        
+
+        SWEdates = []
+        SWErows = []
+        SWEqf = []
+        SWEstartTime = tSWE[0]
+        #badtimes = []
+        #for i in range(len(self.bad_times)):
+        #    badtimes.append(datetime.datetime.strptime(self.bad_times[i],self.bad_fmt))
+
+        for i in range(len(tSWE)):
+            for itime in range(len(self.bad_datetime)):          
+                if abs(self.__deltaMinutes(tSWE[i],self.bad_datetime[itime])) <= 3./60.:
+                    qfv[i] = 0
+                    qfn[i] = 0
+                
             #calculating minutes from the start time
-            nMin = self.__deltaMinutes(time[i],startTime)
+            nMin = self.__deltaMinutes(tSWE[i],t0)+tOffset+tshift
 
-            data = [nMin,bx[i],by[i],bz[i],vx[i],vy[i],vz[i],n[i],T[i],ae[i],al[i],au[i],symh[i],xBow[i],yBow[i],zBow[i]]
+            data = [nMin,n[i],vx[i],vy[i],vz[i],cs[i]]
 
-            dates.append( time[i] )
-            rows.append( data )
+            qf = [qfv[i],qfn[i]]
 
-        return (dates, rows)
+            SWEdates.append( tSWE[i] )
+            SWErows.append ( data    )
+            SWEqf.append   ( qf      )
 
-    def __removeBadData(self, data, hasBeenInterpolated = None):
+        MFIdates = []
+        MFIrows = []
+        MFIstartTime = tMFI[0]
+        for i in range(len(tMFI)):
+          
+            #calculating minutes from the start time
+            nMin = self.__deltaMinutes(tMFI[i],t0)+tOffset+tshift
+
+            data = [nMin,bx[i],by[i],bz[i]]
+
+            MFIdates.append( tMFI[i] )
+            MFIrows.append( data )
+
+        OMNIdates = []
+        OMNIrows = []
+        for i in range(len(tOMNI)):
+          
+            OMNIstartTime = tOMNI[0]
+            #calculating minutes from the start time
+            nMin = self.__deltaMinutes(tOMNI[i],t0)
+
+            data = [nMin,ae[i],al[i],au[i],symh[i]]
+
+            OMNIdates.append( tOMNI[i] )
+            OMNIrows.append( data )
+
+        return ( SWEstartTime, MFIstartTime, OMNIstartTime, SWErows, MFIrows, OMNIrows, SWEqf )
+
+    def __checkGoodData(self, data, qf):
+        """
+        Check the quality flag and set to bad data if bad data
+        """
+        nvar = len(data[0])
+        nqf = len(qf[0])
+        ntime = len(data)
+        #print(numpy.shape(data),nvar,nqf,ntime)
+        for itime in range(ntime):
+            for iq in range(nqf):
+                if qf[itime][iq] not in self.good_quality:
+                    for ivar in range(1,nvar):
+                        data[itime][ivar] = self.bad_data[-1]
+        return ( data )
+
+    def __removeBadData(self, data):
         """
         Linearly interpolate over bad data (defined by self.bad_data
         list) for each variable in dataStrs.
@@ -507,9 +515,8 @@ class OMNIW(SolarWind):
         """
         #assert( len(data[0]) == 13 )
         nvar = len(data[0])
-        if (hasBeenInterpolated is None):
-            hasBeenInterpolated = numpy.empty((len(data), nvar-1))
-            hasBeenInterpolated.fill(False)
+        hasBeenInterpolated = numpy.empty((len(data), nvar-1))
+        hasBeenInterpolated.fill(False)
 
         for varIdx in range(1,nvar):
 
@@ -554,54 +561,6 @@ class OMNIW(SolarWind):
                 lastValidIndex = curIndex
 
         return (numpy.array(data, numpy.float), hasBeenInterpolated)
-
-    def __combineData(self,Wdates,WdataArray,WhasBeenInterpolated,Odates,OdataArray,OhasBeenInterpolated):
-        """
-        """
-        
-        nvarW = len(WdataArray[0])
-        nvarO = len(OdataArray[0])
-        ntimesW = len(WdataArray[:,0])
-        ntimesO = len(OdataArray[:,0])
-        windowsize = 5 # should be odd.  centered on index
-        
-        if (nvarW != nvarO): raise Exception("Error: W and O have different vars")
-        if (ntimesW != ntimesO): raise Exception("Error: W and O have different times")
-        dates = Wdates
-        hasBeenInterpolated = OhasBeenInterpolated
-        dataArray = OdataArray
-        dataOrigin = numpy.empty(numpy.shape(hasBeenInterpolated)) #0 is interpolated. 1 is OMNI, 2 is WIND
-        
-        halfwindow = int((windowsize-1)/2)
-        for varIdx in range(1,nvarO):
-            for curIndex,row in enumerate(WdataArray):
-                if OhasBeenInterpolated[curIndex,varIdx-1]:
-                    # Replace only if the whole window is missing data
-                    if (OhasBeenInterpolated[curIndex-halfwindow:curIndex+halfwindow,varIdx-1].all() or OhasBeenInterpolated[curIndex:min(curIndex+windowsize,ntimesO),varIdx-1].all() or OhasBeenInterpolated[max(0,curIndex-windowsize+1):curIndex+1,varIdx-1].all()):
-                        #Check if W is interpolated
-                        if not WhasBeenInterpolated[curIndex,varIdx-1]:
-                            dataArray[curIndex,varIdx] = row[varIdx]
-                            dataArray[curIndex,-3:] = row[-3:]
-                            # Use W if W was not interpolated
-                            dataOrigin[curIndex,varIdx-1] = 2
-                            dataOrigin[curIndex,-3:] = 2
-                            hasBeenInterpolated[curIndex,varIdx-1] = False
-                            hasBeenInterpolated[curIndex,-3:] = False
-                        else:
-                            # use the already interpolated value if W was bad
-                            dataOrigin[curIndex,varIdx-1] = 0
-                            # let's set it to a bad value so it reinterpolates
-                            dataArray[curIndex,varIdx] = -1e31
-                    else:
-                        # use original OMNI if no interp
-                        dataOrigin[curIndex,varIdx-1] = 0
-                        # let's set it to a bad value so it reinterpolates
-                        dataArray[curIndex,varIdx] = -1e31
-                else:
-                    # use original OMNI if no interp
-                    dataOrigin[curIndex,varIdx-1] = 1
-        
-        return (dates,dataArray, hasBeenInterpolated, dataOrigin)
 
     def __coarseFilter(self, dataArray, hasBeenInterpolated):
         """
@@ -733,6 +692,49 @@ class OMNIW(SolarWind):
 
         return (dataArray, hasBeenInterpolated)
 
+    def __joinData(self, SWEdataArray, SWEhasBeenInterpolated, MFIdataArray, MFIhasBeenInterpolated, OMNIdataArray, OMNIhasBeenInterpolated,t0,t1):
+        #print('joinData')
+        ntime = self.__deltaMinutes(t1,t0)
+        nMin = range(int(ntime))
+        n  = numpy.interp(nMin,SWEdataArray[:,0],SWEdataArray[:,1])
+        vx = numpy.interp(nMin,SWEdataArray[:,0],SWEdataArray[:,2])
+        vy = numpy.interp(nMin,SWEdataArray[:,0],SWEdataArray[:,3])
+        vz = numpy.interp(nMin,SWEdataArray[:,0],SWEdataArray[:,4])
+        cs = numpy.interp(nMin,SWEdataArray[:,0],SWEdataArray[:,5])
+        bx = numpy.interp(nMin,MFIdataArray[:,0],MFIdataArray[:,1])
+        by = numpy.interp(nMin,MFIdataArray[:,0],MFIdataArray[:,2])
+        bz = numpy.interp(nMin,MFIdataArray[:,0],MFIdataArray[:,3])
+        ae = numpy.interp(nMin,OMNIdataArray[:,0],OMNIdataArray[:,1])
+        al = numpy.interp(nMin,OMNIdataArray[:,0],OMNIdataArray[:,2])
+        au = numpy.interp(nMin,OMNIdataArray[:,0],OMNIdataArray[:,3])
+        symh = numpy.interp(nMin,OMNIdataArray[:,0],OMNIdataArray[:,4])
+        nI  = numpy.interp(nMin,SWEdataArray[:,0],SWEhasBeenInterpolated[:,0])
+        vxI = numpy.interp(nMin,SWEdataArray[:,0],SWEhasBeenInterpolated[:,1])
+        vyI = numpy.interp(nMin,SWEdataArray[:,0],SWEhasBeenInterpolated[:,2])
+        vzI = numpy.interp(nMin,SWEdataArray[:,0],SWEhasBeenInterpolated[:,3])
+        csI = numpy.interp(nMin,SWEdataArray[:,0],SWEhasBeenInterpolated[:,4])
+        bxI = numpy.interp(nMin,MFIdataArray[:,0],MFIhasBeenInterpolated[:,0])
+        byI = numpy.interp(nMin,MFIdataArray[:,0],MFIhasBeenInterpolated[:,1])
+        bzI = numpy.interp(nMin,MFIdataArray[:,0],MFIhasBeenInterpolated[:,2])
+        aeI = numpy.interp(nMin,OMNIdataArray[:,0],OMNIhasBeenInterpolated[:,0])
+        alI = numpy.interp(nMin,OMNIdataArray[:,0],OMNIhasBeenInterpolated[:,1])
+        auI = numpy.interp(nMin,OMNIdataArray[:,0],OMNIhasBeenInterpolated[:,2])
+        symhI = numpy.interp(nMin,OMNIdataArray[:,0],OMNIhasBeenInterpolated[:,3])
+        
+        dates = []
+        dataArray = []
+        interped = []
+        hasBeenInterpolated = []
+        for i in nMin:
+            dates.append(t0+datetime.timedelta(minutes=i))
+
+            arr = [nMin[i],bx[i],by[i],bz[i],vx[i],vy[i],vz[i],n[i],cs[i],ae[i],al[i],au[i],symh[i]]
+            dataArray.append(arr)
+            arr = [bxI[i],byI[i],bzI[i],vxI[i],vyI[i],vzI[i],nI[i],csI[i],aeI[i],alI[i],auI[i],symhI[i]]
+            hasBeenInterpolated.append(arr)
+    
+        return (dates, numpy.array(dataArray,numpy.float), numpy.array(hasBeenInterpolated))
+
     def __storeDataDict(self, dates, dataArray, hasBeenInterpolated):
         """
         Populate self.data TimeSeries object via the 2d dataArray read from file.
@@ -768,13 +770,13 @@ class OMNIW(SolarWind):
         self.data.append('n', 'Density', r'$\mathrm{1/cm^3}$', dataArray[:,7])
         self.data.append('isNInterped', 'Is index i of N interpolated from bad data?', r'$\mathrm{boolean}$', hasBeenInterpolated[:,6])
 
-        # Temperature
-        self.data.append('t', 'Temperature', r'$\mathrm{kK}$', dataArray[:,8]*1e-3)
-        self.data.append('isTInterped', 'Is index i of T interpolated from bad data?', r'$\mathrm{boolean}$', hasBeenInterpolated[:,7])
+        ## Temperature
+        #self.data.append('t', 'Temperature', r'$\mathrm{kK}$', dataArray[:,8]*1e-3)
+        #self.data.append('isTInterped', 'Is index i of T interpolated from bad data?', r'$\mathrm{boolean}$', hasBeenInterpolated[:,7])
 
-        ## Sound Speed (Thermal Speed)
-        #self.data.append('cs', 'Sound speed', r'$\mathrm{km/s}$', dataArray[:,8])
-        #self.data.append('isCsInterped', 'Is index i of Cs interpolated from bad data?', r'$\mathrm{boolean}$', hasBeenInterpolated[:,7])
+        # Sound Speed (Thermal Speed)
+        self.data.append('cs', 'Sound speed', r'$\mathrm{km/s}$', dataArray[:,8])
+        self.data.append('isCsInterped', 'Is index i of Cs interpolated from bad data?', r'$\mathrm{boolean}$', hasBeenInterpolated[:,7])
 
         # Activity Indices
         self.data.append('ae', 'AE-Index', r'$\mathrm{nT}$', dataArray[:,9])
@@ -788,22 +790,12 @@ class OMNIW(SolarWind):
 
         self.data.append('symh', 'SYM/H', r'$\mathrm{nT}$', dataArray[:,12])
         self.data.append('isSymHInterped', 'Is index i of N interpolated from bad data?', r'$\mathrm{boolean}$', hasBeenInterpolated[:,11])
-
-        # Bowshock Location
-        self.data.append('xBS', 'BowShockX (gsm)', r'$\mathrm{RE}$', dataArray[:,13])
-        self.data.append('isxBSInterped', 'Is index i of N interpolated from bad data?', r'$\mathrm{boolean}$', hasBeenInterpolated[:,12])
-
-        self.data.append('yBS', 'BowShockY (gsm)', r'$\mathrm{RE}$', dataArray[:,14])
-        self.data.append('isyBSInterped', 'Is index i of N interpolated from bad data?', r'$\mathrm{boolean}$', hasBeenInterpolated[:,13])
-
-        self.data.append('zBS', 'BowShockZ (gsm)', r'$\mathrm{RE}$', dataArray[:,15])
-        self.data.append('iszBSInterped', 'Is index i of N interpolated from bad data?', r'$\mathrm{boolean}$', hasBeenInterpolated[:,14])
         
-    def __appendMetaData(self, date, filename):
+    def __appendMetaData(self, date, dateshift, filename):
         """
         Add standard metadata to the data dictionary.
         """
-        metadata = {'Model': 'OMNIW',
+        metadata = {'Model': 'WIND',
                     'Source': filename,
                     'Date processed': datetime.datetime.now(),
                     'Start date': date,
@@ -843,12 +835,6 @@ class OMNIW(SolarWind):
             data[5] = v_gsm[1]
             data[6] = v_gsm[2]
 
-            # Update Bowshock Location
-            bs_gsm = kaipy.transform.GSEtoGSM(data[13], data[14], data[15], d)
-            data[13] = bs_gsm[0]
-            data[14] = bs_gsm[1]
-            data[15] = bs_gsm[2]
-        
 if __name__ == '__main__':
     import doctest
     doctest.testmod()
