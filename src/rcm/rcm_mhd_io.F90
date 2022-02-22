@@ -143,8 +143,10 @@ module rcm_mhd_io
 
         call AddOutVar(IOVars,"eeavg" ,RCMApp%eng_avg(:,:,RCMELECTRON)*1.0e-3,uStr="keV") !ev->keV electrons
         call AddOutVar(IOVars,"eeflux",RCMApp%flux   (:,:,RCMELECTRON),uStr="ergs/cm2")
+        call AddOutVar(IOVars,"enflux",RCMApp%nflx   (:,:,RCMELECTRON),uStr="#/cm2/s")
         call AddOutVar(IOVars,"ieavg" ,RCMApp%eng_avg(:,:,RCMPROTON)*1.0e-3,uStr="keV") !ev->keV ions
         call AddOutVar(IOVars,"ieflux",RCMApp%flux   (:,:,RCMPROTON),uStr="ergs/cm2")
+        call AddOutVar(IOVars,"influx",RCMApp%nflx   (:,:,RCMPROTON),uStr="#/cm2/s")
 
         call AddOutVar(IOVars,"birk",RCMApp%fac,uStr="uA/m2",dStr="RCM Vasyliunas FACs")
         call AddOutVar(IOVars,"nTrc",RCMApp%nTrc*1.0_rp,uStr="steps")
@@ -320,6 +322,7 @@ module rcm_mhd_io
         call AddOutVar(IOVars,"pot"         ,RCMApp%pot         )
         call AddOutVar(IOVars,"eng_avg"     ,RCMApp%eng_avg     )    
         call AddOutVar(IOVars,"flux"        ,RCMApp%flux        )  
+        call AddOutVar(IOVars,"nflx"        ,RCMApp%nflx        )  
         call AddOutVar(IOVars,"fac"         ,RCMApp%fac         )  
         call AddOutVar(IOVars,"Pave"        ,RCMApp%Pave        )   
         call AddOutVar(IOVars,"Nave"        ,RCMApp%Nave        ) 
@@ -393,6 +396,7 @@ module rcm_mhd_io
         call AddInVar(IOVars,"pot"         )
         call AddInVar(IOVars,"eng_avg"     )
         call AddInVar(IOVars,"flux"        )
+        call AddInVar(IOVars,"nflx"        )
         call AddInVar(IOVars,"fac"         )
         call AddInVar(IOVars,"Pave"        )
         call AddInVar(IOVars,"Nave"        )
@@ -451,6 +455,7 @@ module rcm_mhd_io
         !3D
         call IOArray3DFill(IOVars,"eng_avg"     ,RCMApp%eng_avg     )    
         call IOArray3DFill(IOVars,"flux"        ,RCMApp%flux        )  
+        call IOArray3DFill(IOVars,"nflx"        ,RCMApp%nflx        )  
         call IOArray3DFill(IOVars,"X_bmin"      ,RCMApp%X_bmin      )
 
         !Weird data

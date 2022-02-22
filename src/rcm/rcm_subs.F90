@@ -1644,6 +1644,7 @@
           call AddInVar(IOVars,"rcmhall"   )
           call AddInVar(IOVars,"rcmeavg"   )
           call AddInVar(IOVars,"rcmeflux"  )
+          call AddInVar(IOVars,"rcmnflux"  )
           call AddInVar(IOVars,"rcmbirk"   )
           call AddInVar(IOVars,"rcmbirkavg")
 
@@ -1726,6 +1727,7 @@
           call IOArray3DFill(IOVars,"rcmeeta",eeta)
           call IOArray3DFill(IOVars,"rcmeetaavg",eeta_avg)
           call IOArray3DFill(IOVars,"rcmeflux",eflux)
+          call IOArray3DFill(IOVars,"rcmnflux",nflux)
           !call IOArray3DFill(IOVars,"rcmlosspre",lossratep)
           !call IOArray3DFill(IOVars,"rcmlossmod",lossmodel) ! uncomment this when done with restarting tests.
           
@@ -1795,6 +1797,7 @@
           call AddOutVar(IOVars,"rcmhall"   ,hall    )
           call AddOutVar(IOVars,"rcmeavg"   ,eavg    )
           call AddOutVar(IOVars,"rcmeflux"  ,eflux   )
+          call AddOutVar(IOVars,"rcmnflux"  ,nflux   )
           call AddOutVar(IOVars,"rcmbirk"   ,birk    )
           call AddOutVar(IOVars,"rcmbirkavg",birk_avg)
 
