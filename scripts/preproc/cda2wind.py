@@ -457,7 +457,7 @@ if __name__ == "__main__":
                 hf.create_dataset("BzC",data=bCoef[2])
                 hf.create_dataset("Va",data=Va)
                 hf.create_dataset("Cs",data=Cs)
-                if doBS:
+                if doBs:
                     hf.create_dataset("xBS",data=xBS)
                     hf.create_dataset("yBS",data=yBS)
                     hf.create_dataset("zBS",data=zBS)
