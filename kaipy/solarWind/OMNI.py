@@ -39,10 +39,10 @@ class OMNI(SolarWind):
         Read the solar wind file & store results in self.data TimeSeries object.
         """
         (startDate, dates, data) = self.__readData(filename)
-        (dataArray, hasBeenInterpolated) = self.__removeBadData(data)
+        (dataArray, hasBeenInterpolated) = self._removeBadData(data)
         if self.filter:
-            (dataArray, hasBeenInterpolated) = self.__coarseFilter(dataArray, hasBeenInterpolated)
-        self.__storeDataDict(dates, dataArray, hasBeenInterpolated)
+            (dataArray, hasBeenInterpolated) = self._coarseFilter(dataArray, hasBeenInterpolated)
+        self._storeDataDict(dates, dataArray, hasBeenInterpolated)
         self.__appendMetaData(startDate, filename)
         self._appendDerivedQuantities()
 
@@ -75,7 +75,7 @@ class OMNI(SolarWind):
           
             startTime = time[0]
             #calculating minutes from the start time
-            nMin = self.__deltaMinutes(time[i],startTime)
+            nMin = self._deltaMinutes(time[i],startTime)
 
             data = [nMin,bx[i],by[i],bz[i],vx[i],vy[i],vz[i],n[i],T[i],ae[i],al[i],au[i],symh[i],xBow[i],yBow[i],zBow[i]]
 
@@ -84,7 +84,22 @@ class OMNI(SolarWind):
 
         return (startTime, dates, rows)
 
-    def __removeBadData(self, data):
+    def __appendMetaData(self, date, filename):
+        """
+        Add standard metadata to the data dictionary.
+        """
+        metadata = {'Model': 'OMNI',
+                    'Source': filename,
+                    'Date processed': datetime.datetime.now(),
+                    'Start date': date
+                    }
+        
+        self.data.append(key='meta',
+                         name='Metadata for OMNI Solar Wind file',
+                         units='n/a',
+                         data=metadata)
+
+    def _removeBadData(self, data, hasBeenInterpolated = None):
         """
         Linearly interpolate over bad data (defined by self.bad_data
         list) for each variable in dataStrs.
@@ -101,8 +116,9 @@ class OMNI(SolarWind):
         """
         #assert( len(data[0]) == 13 )
         nvar = len(data[0])
-        hasBeenInterpolated = numpy.empty((len(data), nvar-1))
-        hasBeenInterpolated.fill(False)
+        if (hasBeenInterpolated is None):
+            hasBeenInterpolated = numpy.empty((len(data), nvar-1))
+            hasBeenInterpolated.fill(False)
 
         for varIdx in range(1,nvar):
 
@@ -148,7 +164,7 @@ class OMNI(SolarWind):
 
         return (numpy.array(data, numpy.float), hasBeenInterpolated)
 
-    def __coarseFilter(self, dataArray, hasBeenInterpolated):
+    def _coarseFilter(self, dataArray, hasBeenInterpolated):
         """
          Use coarse noise filtering to remove values outside 3
          deviations from mean of all values in the plotted time
@@ -168,7 +184,7 @@ class OMNI(SolarWind):
            dataArray:  same structure as input array with bad elements removed
            hasBeenInterpolated: same as input array with interpolated values stored.
 
-        NOTE: This is remarkably similar to __removeBadData!
+        NOTE: This is remarkably similar to _removeBadData!
           Refactoring to keep it DRY wouldn't be a bad idea. . .
         """
         
@@ -211,11 +227,11 @@ class OMNI(SolarWind):
 
         return (dataArray, hasBeenInterpolated)
 
-    def __storeDataDict(self, dates, dataArray, hasBeenInterpolated):
+    def _storeDataDict(self, dates, dataArray, hasBeenInterpolated):
         """
         Populate self.data TimeSeries object via the 2d dataArray read from file.
         """
-        self.__gse2gsm(dates, dataArray)
+        self._gse2gsm(dates, dataArray)
 
         self.data.append('time_min', 'Time (Minutes since start)', 'min', dataArray[:,0])
 
@@ -270,23 +286,7 @@ class OMNI(SolarWind):
         self.data.append('zBS', 'BowShockZ (gsm)', r'$\mathrm{RE}$', dataArray[:,15])
         self.data.append('iszBSInterped', 'Is index i of N interpolated from bad data?', r'$\mathrm{boolean}$', hasBeenInterpolated[:,14])
 
-    def __appendMetaData(self, date, filename):
-        """
-        Add standard metadata to the data dictionary.
-        """
-        metadata = {'Model': 'OMNI',
-                    'Source': filename,
-                    'Date processed': datetime.datetime.now(),
-                    'Start date': date
-                    }
-        
-        self.data.append(key='meta',
-                         name='Metadata for OMNI Solar Wind file',
-                         units='n/a',
-                         data=metadata)
-
-    
-    def __deltaMinutes(self, t1, startDate):
+    def _deltaMinutes(self, t1, startDate):
         """
         Returns: Number of minutes elapsed between t1 and startDate.
         """
@@ -294,7 +294,7 @@ class OMNI(SolarWind):
 
         return (diff.days*24.0*60.0 + diff.seconds/60.0)
 
-    def __gse2gsm(self, dates, dataArray):
+    def _gse2gsm(self, dates, dataArray):
         """
         Transform magnetic field B and velocity V from GSE to GSM
         coordinates.  Store results by overwriting dataArray contents.
@@ -320,36 +320,31 @@ class OMNI(SolarWind):
             data[14] = bs_gsm[1]
             data[15] = bs_gsm[2]
 
-class OMNIW(OMNI,SolarWind):
+class OMNIW(OMNI):
     """
     OMNI Solar Wind file from CDAweb [http://cdaweb.gsfc.nasa.gov/].
     Data stored in GSE coordinates.
     """
 
-    def __init__(self, fWIND = None, doFilter = False, sigmaVal = 3.0):        
+    def __init__(self, fWIND = None, doFilter = False, sigmaVal = 3.0, windowsize = 5):        
         SolarWind.__init__(self)
 
+        self.filter = doFilter
+        self.sigma = sigmaVal
+        self.windowsize = windowsize # should be odd.  centered on index
+        
         self.bad_data = [-999.900, 
                          99999.9, # V
                          9999.99, # B
                          999.990, # density
                          1.00000E+07, # Temperature
-                         9999999.,    # Temperature
+                         9999999.0, # Temperature
                          99999, # Activity indices 
                          9999000, # SWE del_time
                          -1e31 # SWE & MFI                      
                          ]
         self.good_quality = [4098,14338]
-        #self.bad_times =[   '17-03-2015 17:27:07.488',
-        #                    '18-03-2015 21:53:49.140'
-        #                ]
-        #self.bad_fmt = '%d-%m-%Y %H:%M:%S.f'        
-        #
-        #self.bad_datetime = [   datetime.datetime(2015,3,17,hour=17,minute=27,second=7,microsecond=488*1000),
-        #                        datetime.datetime(2015,3,18,hour=21,minute=53,second=49,microsecond=140*1000)
-        #                    ]
-        #
-        #obtain 1 minute resolution observations from OMNI dataset
+        
         print('Retrieving solar wind data from CDAWeb')
         self.__read(fWIND)
 
@@ -359,12 +354,13 @@ class OMNIW(OMNI,SolarWind):
         """
         (startDate, endDate, Wdates, Wdata) = self.__readWData(fWIND)
         (Odates, Odata) = self.__readOData(startDate,endDate)
-        (WdataArray, WhasBeenInterpolated) = self.__removeBadData(Wdata)
-        (OdataArray, OhasBeenInterpolated) = self.__removeBadData(Odata)
+        (WdataArray, WhasBeenInterpolated) = self._removeBadData(Wdata)
+        (OdataArray, OhasBeenInterpolated) = self._removeBadData(Odata)
         (dates,dataArray, hasBeenInterpolated, dataOrigin) = self.__combineData(Wdates,WdataArray,WhasBeenInterpolated,Odates,OdataArray,OhasBeenInterpolated)
-        (dataArray, hasBeenInterpolated) = self.__removeBadData(dataArray,hasBeenInterpolated)
-        #(dataArray, hasBeenInterpolated) = self.__coarseFilter(dataArray, hasBeenInterpolated)
-        self.__storeDataDict(dates, dataArray, hasBeenInterpolated)
+        (dataArray, hasBeenInterpolated) = self._removeBadData(dataArray,hasBeenInterpolated)
+        if self.filter:
+            (dataArray, hasBeenInterpolated) = self._coarseFilter(dataArray, hasBeenInterpolated)
+        self._storeDataDict(dates, dataArray, hasBeenInterpolated)
         self.__appendMetaData(startDate, fWIND)
         self._appendDerivedQuantities()
 
@@ -448,7 +444,7 @@ class OMNIW(OMNI,SolarWind):
 
         return (t0r, t1r, dates, rows)
 
-    def __readOData(self, t0,t1):
+    def __readOData(self, t0r,t1r):
         """
         return 2d array (of strings) containing data from file
         """
@@ -457,7 +453,7 @@ class OMNIW(OMNI,SolarWind):
         
         #obtain 1 minute resolution observations from OMNI dataset
         print('Retrieving solar wind data from CDAWeb')
-        status,fOMNI = cdas.get_data(
+        status,fh = cdas.get_data(
            'OMNI_HRO_1MIN',
             ['BX_GSE','BY_GSE','BZ_GSE',
             'Vx','Vy','Vz',
@@ -490,16 +486,18 @@ class OMNIW(OMNI,SolarWind):
 
         dates = []
         rows = []
+        startTime = time[0]
+        self.startTime = startTime
         for i in range(len(time)):
           
-            startTime = time[0]
             #calculating minutes from the start time
-            nMin = self.__deltaMinutes(time[i],startTime)
+            nMin = self._deltaMinutes(time[i],startTime)
 
             data = [nMin,bx[i],by[i],bz[i],vx[i],vy[i],vz[i],n[i],T[i],ae[i],al[i],au[i],symh[i],xBow[i],yBow[i],zBow[i]]
 
             dates.append( time[i] )
             rows.append( data )
+        
 
         return (dates, rows)
         
@@ -510,14 +508,65 @@ class OMNIW(OMNI,SolarWind):
         metadata = {'Model': 'OMNIW',
                     'Source': filename,
                     'Date processed': datetime.datetime.now(),
-                    'Start date': date,
+                    'Start date': self.startTime,
                     }
         
         self.data.append(key='meta',
                          name='Metadata for WIND Solar Wind file',
                          units='n/a',
                          data=metadata)
+       
+    def __combineData(self,Wdates,WdataArray,WhasBeenInterpolated,Odates,OdataArray,OhasBeenInterpolated):
+        """
+        This combines the W data with the O data.
+        Starting with the OMNI data, if there is windowsize consecutive missing data
+        then use the W data to fill (if W data is good).
+        """
         
+        nvarW = len(WdataArray[0])
+        nvarO = len(OdataArray[0])
+        ntimesW = len(WdataArray[:,0])
+        ntimesO = len(OdataArray[:,0])
+        windowsize = self.windowsize
+        
+        if (nvarW != nvarO): raise Exception("Error: W and O have different vars")
+        if (ntimesW != ntimesO): raise Exception("Error: W and O have different times")
+        dates = Wdates
+        hasBeenInterpolated = OhasBeenInterpolated
+        dataArray = OdataArray
+        dataOrigin = numpy.empty(numpy.shape(hasBeenInterpolated)) #0 is interpolated. 1 is OMNI, 2 is WIND
+        
+        halfwindow = int((windowsize-1)/2)
+        for varIdx in range(1,nvarO):
+            for curIndex,row in enumerate(WdataArray):
+                if OhasBeenInterpolated[curIndex,varIdx-1]:
+                    # Replace only if the whole window is missing data
+                    if (OhasBeenInterpolated[curIndex-halfwindow:curIndex+halfwindow,varIdx-1].all() or OhasBeenInterpolated[curIndex:min(curIndex+windowsize,ntimesO),varIdx-1].all() or OhasBeenInterpolated[max(0,curIndex-windowsize+1):curIndex+1,varIdx-1].all()):
+                        #Check if W is interpolated
+                        if not WhasBeenInterpolated[curIndex,varIdx-1]:
+                            dataArray[curIndex,varIdx] = row[varIdx]
+                            dataArray[curIndex,-3:] = row[-3:]
+                            # Use W if W was not interpolated
+                            dataOrigin[curIndex,varIdx-1] = 2
+                            dataOrigin[curIndex,-3:] = 2
+                            hasBeenInterpolated[curIndex,varIdx-1] = False
+                            hasBeenInterpolated[curIndex,-3:] = False
+                        else:
+                            # use the already interpolated value if W was bad
+                            dataOrigin[curIndex,varIdx-1] = 0
+                            # let's set it to a bad value so it reinterpolates
+                            dataArray[curIndex,varIdx] = -1e31
+                    else:
+                        # use original OMNI if no interp
+                        dataOrigin[curIndex,varIdx-1] = 0
+                        # let's set it to a bad value so it reinterpolates
+                        dataArray[curIndex,varIdx] = -1e31
+                else:
+                    # use original OMNI if no interp
+                    dataOrigin[curIndex,varIdx-1] = 1
+        
+        return (dates,dataArray, hasBeenInterpolated, dataOrigin)
+         
 if __name__ == '__main__':
     import doctest
     doctest.testmod()
