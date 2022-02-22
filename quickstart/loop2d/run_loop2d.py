@@ -89,10 +89,6 @@ def create_pbs_job_script():
         f.writelines(lines)
 
 
-def submit_pbs_job_script():
-    """Submit the PBS job script for execution."""
-
-
 if __name__ == "__main__":
     """Begin main program."""
 
@@ -125,8 +121,3 @@ if __name__ == "__main__":
     if verbose:
         print("Creating PBS job script for run.")
     create_pbs_job_script()
-
-    # Submit the PBS job script.
-    if verbose:
-        print("Submitting PBS job script for run.")
-    submit_pbs_job_script()
