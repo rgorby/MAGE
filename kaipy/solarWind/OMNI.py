@@ -190,7 +190,7 @@ class OMNI(SolarWind):
         
         stds = []
         means = []
-        nvar = len(data[0])
+        nvar = len(dataArray[0])
         for varIdx in range(1,nvar):
             stds.append( dataArray[:,varIdx].std() )
             means.append( dataArray[:,varIdx].mean() )
