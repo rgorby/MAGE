@@ -124,7 +124,7 @@ class OMNI(SolarWind):
 
             lastValidIndex = -1
             for curIndex,row in enumerate(data):
-                if row[varIdx] in numpy.float32(self.bad_data):
+                if row[varIdx] in numpy.float32(self.bad_data) or numpy.isnan(row[varIdx]) or numpy.ma.is_masked(row[varIdx]):
                     # This item has bad data.
                     hasBeenInterpolated[curIndex, varIdx-1] = True
                     if (lastValidIndex == -1) & (curIndex == len(data)-1):

@@ -24,6 +24,7 @@ from  kaipy.solarWind import swBCplots
 from  kaipy.solarWind.OMNI import OMNI
 from  kaipy.solarWind.WIND import WIND
 from  kaipy.solarWind.CUSTOM import DSCOVR
+from  kaipy.solarWind.CUSTOM import DSCOVRNC
 import datetime
 from astropy.time import Time
 from cdasws import CdasWs
@@ -252,6 +253,14 @@ if __name__ == "__main__":
             
             sw = eval('kaipy.solarWind.'+fileType+'.'+fileType2)(t0,filename)
             filename = fileType2+'_'+filename
+
+        elif (obs == 'DSCOVRNC'):
+            fileType = 'CUSTOM'
+            fileType2 = 'DSCOVRNC'
+            doBs = False
+            
+            sw = eval('kaipy.solarWind.'+fileType+'.'+fileType2)(t0,t1)
+            filename = fileType2
         else:
             raise Exception('Error:  Not able to obtain dataset from spacecraft. Please select another mission.')
 
@@ -343,7 +352,10 @@ if __name__ == "__main__":
             mfast = np.sqrt((vx**2+vy**2+vz**2)/(cs**2+va**2))
 
             #initalize matrix to hold solar wind data
-            lfmD = np.zeros((n.shape[0],21))
+            if doBs:
+                lfmD = np.zeros((n.shape[0],21))
+            else:
+                lfmD = np.zeros((n.shape[0],18))
 
             date = sw.data.getData('meta')['Start date']
 
@@ -353,7 +365,8 @@ if __name__ == "__main__":
                 # Convert relevant quantities to SM Coordinates
                 v_sm = sw._gsm2sm(date+datetime.timedelta(minutes=time), vx[i],vy[i],vz[i])
                 b_sm = sw._gsm2sm(date+datetime.timedelta(minutes=time), bx[i],by[i],bz[i])
-                bs_sm = sw._gsm2sm(date+datetime.timedelta(minutes=time), bsx[i],bsy[i],bsz[i])
+                if doBs:
+                    bs_sm = sw._gsm2sm(date+datetime.timedelta(minutes=time), bsx[i],bsy[i],bsz[i])
                 tilt = sw._getTiltAngle(date+datetime.timedelta(minutes=time))
 
                 if doBs:
@@ -415,9 +428,10 @@ if __name__ == "__main__":
             Mfast = lfmD[:,17] 
 
             #Bowshock position
-            xBS  = lfmD[:,18]
-            yBS  = lfmD[:,19]
-            zBS  = lfmD[:,20]
+            if doBs:
+                xBS  = lfmD[:,18]
+                yBS  = lfmD[:,19]
+                zBS  = lfmD[:,20]
 
             # Save a plot of the solar wind data.
             if doEps:
