@@ -46,7 +46,7 @@ add_compile_definitions(MAXTUBESIZE=${MAXTUBESIZE})
 
 #RCM grid size (required to be defined at compile time)
 set(RCMSIZEI 180 CACHE STRING "RCM Grid: Number of Colatitude Cells")
-set(RCMSIZEJ 361 CACHE STRING "RCM Grid: Number of Longitude Cells")
+set(RCMSIZEJ 180 CACHE STRING "RCM Grid: Number of Longitude Cells")
 set(RCMSIZEK 140 CACHE STRING "RCM Grid: Number of Lambda Cells")
 set(RCMWRAPJ 3   CACHE STRING "RCM Grid: Number of periodic wrap cells")
 mark_as_advanced(RCMWRAPJ)

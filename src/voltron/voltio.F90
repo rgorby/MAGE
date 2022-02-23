@@ -253,7 +253,7 @@ module voltio
         endif
 
         call ClearIO(IOVars)
-        call AddInVar(IOVars,"gB0")
+        call AddInVar(IOVars,"gBAvg")
 
         call AddInVar(IOVars,"nOut"    ,vTypeO=IOINT)
         call AddInVar(IOVars,"nRes"    ,vTypeO=IOINT)
