@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+
 """Make a quick-look plot for the loop2d example run.
 
 The quick-look plot displays the magnetic pressure:
@@ -10,50 +11,79 @@ from the first and last steps in the HDF file.
 """
 
 
+# Import standard modules.
 import argparse
-from curses import meta
 import os
 
-import h5py
+# Import 3rd-party modules.
 import matplotlib
 import matplotlib.pyplot as plt
-import numpy as np
+# import numpy as np
 
-import kaipy.kaiH5 as kaih5
+# Import project-specific modules.
+# import kaipy.kaiH5 as kaih5
 import kaipy.gamera.gampp as gampp
 
 
-if __name__ == "__main__":
-    """Make a quick-look plot for the loop2d example run."""
+# Program constants and defaults
 
-    # Defaults for argument parser
+# Program description.
+description = "Create a quick-look plot (Pb at start and end) for the loop2d test case."
 
-    # Directory to read data from.
-    directory = os.getcwd()
 
-    # Data tag
-    runid = "loop2d"
+def create_command_line_parser():
+    """Create the command-line argument parser.
+    
+    Ceate the parser for command-line arguments.
 
-    # Program description.
-    description = "Create a quick-look plot (Pb at start and end) for the loop2d test case."
+    Parameters
+    ----------
+    None
 
-    # Create the argument parser.
+    Returns
+    -------
+    parser : argparse.ArgumentParser
+        Command-line argument parser for this script.
+    """
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument(
-        "-d", "--directory", type=str, metavar="directory",
-        default=directory,
+        "-d", "--debug", action="store_true", default=False,
+        help="Print debugging output (default: %(default)s)."
+    )
+    parser.add_argument(
+        "--directory", type=str, metavar="directory",
+        default=os.getcwd(),
         help="Directory containing data to read (default: %(default)s)"
     )
     parser.add_argument(
-        "-id", "--runid", type=str, metavar="runid",
-        default=runid,
-        help="RunID of data (default: %(default)s)"
+        "--runid", type=str, metavar="runid",
+        default="loop2d",
+        help="Run ID of data (default: %(default)s)"
     )
+    parser.add_argument(
+        "-v", "--verbose", action="store_true", default=False,
+        help="Print verbose output (default: %(default)s)."
+    )
+    return parser
 
-    # Parse the command-line arguments.
-    args = parser.parse_args()
-    directory = args.directory
-    runid = args.runid
+
+def create_quicklook_plot(directory, runid):
+    """Create the quicklook plot for the loop2d run.
+    
+    Create the quicklook plot for the loop2d run.
+    
+    Parameters
+    ----------
+    directory : str
+        Path to directory containing results.
+    runid : str
+        ID string for results to examine.
+
+    Returns
+    -------
+    figure_file_name : str
+        Path to quicklook plot file.
+    """
 
     # Open a pipe to the data file.
     data_pipe = gampp.GameraPipe(directory, runid, doVerbose=False)
@@ -109,4 +139,26 @@ if __name__ == "__main__":
 
     # Save the quicklook plot.
     figure_file_name = "%s_quicklook.png" % (runid)
-    plt.savefig(figure_file_name)
+    fig.savefig(figure_file_name)
+
+    return figure_file_name
+
+
+if __name__ == "__main__":
+    """Make a quick-look plot for the loop2d example run."""
+
+    # Set up the command-line parser.
+    parser = create_command_line_parser()
+
+    # Parse the command-line arguments.
+    args = parser.parse_args()
+    debug = args.debug
+    directory = args.directory
+    runid = args.runid
+    verbose = args.verbose
+
+    if verbose:
+        print("Creating quicklook plot.")
+    quicklook_file = create_quicklook_plot(directory, runid)
+    if verbose:
+        print("The quicklook plot is in %s." % quicklook_file)
