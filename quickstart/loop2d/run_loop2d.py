@@ -9,6 +9,7 @@ Create the PBS script required to submit a gamera loop2d model to PBS.
 
 # Import standard modules.
 import argparse
+import os
 
 # Import 3rd-party modules.
 
@@ -21,15 +22,21 @@ import argparse
 description = "Prepare and run gamera on the loop2d test case."
 
 # Location of template .ini file and .ini file for run.
-ini_template = "loop2d.ini.template"
+ini_template = os.path.join(
+    os.environ["KAIJUHOME"], "quickstart", "loop2d", "loop2d.ini.template"
+)
 ini_file = "loop2d.ini"
 
 # Location of template XML file and XML file for run.
-xml_template = "loop2d.xml.template"
+xml_template = os.path.join(
+    os.environ["KAIJUHOME"], "quickstart", "loop2d", "loop2d.xml.template"
+)
 xml_file = "loop2d.xml"
 
 # Location of template PBS script and PBS script for run.
-pbs_template = "loop2d.pbs.template"
+pbs_template = os.path.join(
+    os.environ["KAIJUHOME"], "quickstart", "loop2d", "loop2d.pbs.template"
+)
 pbs_file = "loop2d.pbs"
 
 
