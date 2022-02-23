@@ -56,7 +56,7 @@ if __name__ == "__main__":
     runid = args.runid
 
     # Open a pipe to the data file.
-    data_pipe = gampp.GameraPipe(directory, runid)
+    data_pipe = gampp.GameraPipe(directory, runid, doVerbose=False)
 
     # Read the grid coordinates.
     X = data_pipe.X[...]
