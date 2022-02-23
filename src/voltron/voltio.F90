@@ -275,7 +275,7 @@ module voltio
         vApp%DeepT    = GetIOReal(IOVars,"DeepT")
 
         !Check to see if gB0 is present
-        n0 = FindIO(IOVars,"gBAvg",.true.)
+        n0 = FindIO(IOVars,"gBAvg")
         if (IOVars(n0)%isDone) then
             write(*,*) "Found gBAvg in Voltron restart ..."
             call IOArray4DFill(IOVars,"gBAvg",vApp%mhd2Mix%gBAvg)

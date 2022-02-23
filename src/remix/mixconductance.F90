@@ -394,26 +394,26 @@ module mixconductance
          do i=1,G%Np
             isMono = conductance%deltaE(i,j) > 0.0    !Potential drop
 
-            rcm_eavg0 = St%Vars(i,j,IM_EAVG)
-            if(St%Vars(i,j,IM_EAVG)>TINY) then
-               rcm_nflx0 = St%Vars(i,j,IM_EFLUX)/(St%Vars(i,j,IM_EAVG)*kev2erg)
-            else
-               rcm_nflx0 = 0.0
-            endif
-!            rcm_nflx0 = St%Vars(i,j,IM_ENFLX)
-!            rcm_eflx0 = St%Vars(i,j,IM_EFLUX)
+!            rcm_eavg0 = St%Vars(i,j,IM_EAVG)
+!            if(St%Vars(i,j,IM_EAVG)>TINY) then
+!               rcm_nflx0 = St%Vars(i,j,IM_EFLUX)/(St%Vars(i,j,IM_EAVG)*kev2erg)
+!            else
+!               rcm_nflx0 = 0.0
+!            endif
+            rcm_nflx0 = St%Vars(i,j,IM_ENFLX)
+            rcm_eflx0 = St%Vars(i,j,IM_EFLUX)
             mhd_eavg = St%Vars(i,j,Z_EAVG)
             mhd_nflx = St%Vars(i,j,Z_NFLUX)
-!            mhd_eflx = St%Vars(i,j,Z_EAVG)*St%Vars(i,j,Z_NFLUX)*kev2erg
+            mhd_eflx = St%Vars(i,j,Z_EAVG)*St%Vars(i,j,Z_NFLUX)*kev2erg
 
             rcm_nflx = rcm_nflx0*TOPOD_RCM(i,j)+mhd_nflx*(1.0-TOPOD_RCM(i,j))
-!            rcm_eflx = rcm_eflx0*TOPOD_RCM(i,j)+mhd_eflx*(1.0-TOPOD_RCM(i,j))
-            rcm_eavg = max(rcm_eavg0*TOPOD_RCM(i,j)+mhd_eavg*(1.0-TOPOD_RCM(i,j)),1.0e-8)
-!            if(rcm_nflx>TINY) then
-!               rcm_eavg = max(rcm_eflx/(rcm_nflx)/kev2erg,1.0e-8)
-!            else
-!               rcm_eavg = 0.0
-!            endif
+            rcm_eflx = rcm_eflx0*TOPOD_RCM(i,j)+mhd_eflx*(1.0-TOPOD_RCM(i,j))
+!            rcm_eavg = max(rcm_eavg0*TOPOD_RCM(i,j)+mhd_eavg*(1.0-TOPOD_RCM(i,j)),1.0e-8)
+            if(rcm_nflx>TINY) then
+               rcm_eavg = max(rcm_eflx/(rcm_nflx*kev2erg),1.0e-8)
+            else
+               rcm_eavg = 0.0
+            endif
 !            if(rcm_eflx<0.0 .or. rcm_nflx<0.0) then
 !               print *,"ldong_20211222 negative ",rcm_eavg,rcm_nflx,TOPOD_RCM(i,j),mhd_eavg,mhd_nflx,rcm_eavg0,rcm_nflx0
 !               print *,"ldong_20220217 negative ",rcm_eflx,rcm_nflx,TOPOD_RCM(i,j),mhd_eflx,mhd_nflx,rcm_eflx0,rcm_nflx0
