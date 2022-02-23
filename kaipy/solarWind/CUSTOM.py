@@ -804,43 +804,6 @@ class DSCOVRNC(OMNI):
             for k in range(len(pds['time'])):
                 ptime.append(jud0 + datetime.timedelta(milliseconds=pds['time'][:][k]))
                 satx.append(pds['sat_x_gse'][:][k])
-            #dat = pds['sat_x_gse'][:]
-            #satx.append(dat)
-            #dat = fds['proton_density'][:]
-            #n.append(dat)
-            #dat = fds['proton_vx_gse'][:]
-            #vx.append(dat)
-            #dat = fds['proton_vy_gse'][:]
-            #vy.append(dat)
-            #dat = fds['proton_vz_gse'][:]
-            #vz.append(dat)
-            #dat = fds['proton_temperature'][:]
-            #temp.append(dat)
-            #dat = mds['bx_gse'][:]
-            #bx.append(dat)
-            #dat = mds['by_gse'][:]
-            #by.append(dat)
-            #dat = mds['bz_gse'][:]
-            #bz.append(dat)
-            
-                
-                
-        
-        #filedata = numpy.genfromtxt(filename)
-        #ntimes = numpy.shape(filedata)[0]
-        
-        #yrs = filedata[:,0]
-        #doy = filedata[:,1]
-        #hrs = filedata[:,2]
-        #mns = filedata[:,3]
-        #n   = filedata[:,0] #n/cc
-        #vx  = filedata[:,1] #km/s
-        #vy  = filedata[:,2] #km/s
-        #vz  = filedata[:,3] #km/s
-        #cs  = filedata[:,4] #km/s
-        #bx  = filedata[:,5] #nT
-        #by  = filedata[:,6] #nT
-        #bz  = filedata[:,7] #nT
         
         dates = []
         rows  = []
@@ -857,7 +820,7 @@ class DSCOVRNC(OMNI):
         ntimes = int(ntimes.total_seconds()/60.0)
 
         print("Starting Time: ",startTime.isoformat())
-        
+        print("We are using a constant timeshift of: ", timeshift ," minutes")
         #itp = 0 #ptime
         itf = 0 #ftime
         itm = 0 #mtime

@@ -8,7 +8,7 @@
 #Writes to HDF5 Gamera wind file
 #t,D,V,P,B = [s],[#/cm3],[m/s],[nPa],[nT]
 
-#Utilizes ai.cdas and geopack, make sure to install modules before running. For more info go to https://bitbucket.org/aplkaiju/kaiju/wiki/Gamerasphere
+#Utilizes cdasws and geopack, make sure to install modules before running. For more info go to https://bitbucket.org/aplkaiju/kaiju/wiki/Gamerasphere
 
 Mp = 1.67e-27 #Proton mass [kg]
 gamma = 5/3.0
@@ -86,7 +86,7 @@ if __name__ == "__main__":
         parser.add_argument('-TsG',type=float,metavar="GAMERA_TStart",default=Ts,help="Gamera start time [min] (default: %(default)s)")
         parser.add_argument('-TsL',type=float,metavar="LFM_TStart",default=Ts,help="LFM start time [min] (default: %(default)s)")
         parser.add_argument('-bx', action='store_true',default=False,help="Include Bx through ByC and BzC fit coefficients (default: %(default)s)")
-        parser.add_argument('-bs', action='store_true',default=True,help="Include Bowshock location (default: %(default)s)")
+        parser.add_argument('-bs', action='store_false',default=True,help="Include Bowshock location (default: %(default)s)")
         parser.add_argument('-interp', action='store_true',default=False,help="Include shaded region on plots where data is interpolated (default: %(default)s)")
         parser.add_argument('-filter', action='store_true',default=False,help="Include additional filtering of data to remove outlier points (default: %(default)s)")
         parser.add_argument('-sig',type=float,metavar="sigma",default=sigma,help="N used in N*sigma used for filtering threshold above which will be thrown out (default: %(default)s)")
@@ -441,9 +441,9 @@ if __name__ == "__main__":
             
             print('Saving "%s"' % swPlotFilename)
             if doBs:
-                kaipy.solarWind.swBCplots.swQuickPlotBS(UT,D,Temp,Vx,Vy,Vz,Bx,By,Bz,SYMH,xBS,yBS,zBS,pltInterp,swPlotFilename,doEps=doEps)
+                kaipy.solarWind.swBCplots.swQuickPlot(UT,D,Temp,Vx,Vy,Vz,Bx,By,Bz,SYMH,pltInterp,swPlotFilename,xBS,yBS,zBS,doEps=doEps)
             else:
-                kaipy.solarWind.swBCplots.swQuickPlot(UT,D,Temp,Vx,Vy,Vz,Bx,By,Bz,SYMH,pltInterp,swPlotFilename)
+                kaipy.solarWind.swBCplots.swQuickPlot(UT,D,Temp,Vx,Vy,Vz,Bx,By,Bz,SYMH,pltInterp,swPlotFilename,doEps=doEps)
 
             print("Writing Gamera solar wind to %s"%(fOut))
             with h5py.File(fOut,'w') as hf:
