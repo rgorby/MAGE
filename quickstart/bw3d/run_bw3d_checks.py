@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 
 
-"""Perform quality checks on the results of running the gamera loop2d case..
+"""Perform quality checks on the results of running the gamera bw3d case.
 
-Examine the results of running the loop2d example through gamera, and
+Examine the results of running the bw3d example through gamera, and
 apply consistency checks.
 """
 
@@ -22,10 +22,10 @@ import kaipy.gamera.gampp as gampp
 # Program constants and defaults
 
 # Program description.
-description = "Perform consistency checks on the gamera loop2d test case."
+description = "Perform consistency checks on the gamera bw3d test case."
 
 # Location of quick-look plots file.
-quicklook_file = "loop2d_quicklook.png"
+quicklook_file = "bw3d_quicklook.png"
 
     
 def create_command_line_parser():
@@ -54,14 +54,13 @@ def create_command_line_parser():
     return parser
 
 
-def compute_volume_integrated_magnetic_pressure():
-    """Compute the volume-integrated magnetic pressure at start and end.
+def compute_symmetry_metric():
+    """Compute the symmetry metric at start and end.
     
-    Compute the volume-integrated magnetic pressre for the first and last
-    steps:
+    Compute the symmetry metric for the first and last steps:
 
     Pb = (Bx**2 + By**2 + Bz**2)/2
-    Pb_integrated = SUM(Pb*dV)
+    symmetry_metric = SUM( (Pb[i,j] - Pb[j,i])*dV)
 
     Parameters
     ----------
@@ -69,13 +68,12 @@ def compute_volume_integrated_magnetic_pressure():
 
     Returns
     -------
-    Pb_integrated_first, Pb_integrated_last : float
-        Volume-integrated magnetic pressure (in code units) for first and
-        last steps.
+    symmetry_metric_first, symmetry_metric_last : float
+        Symmetry metric (in code units) for first and last steps.
     """
 
     # Open a pipe to the data file.
-    data_pipe = gampp.GameraPipe(".", "loop2d", doVerbose=False)
+    data_pipe = gampp.GameraPipe(".", "bw3d", doVerbose=False)
 
     # Load the grid cell volumes.
     dV = data_pipe.GetVar("dV", None, doVerb=False)[...]
@@ -86,7 +84,7 @@ def compute_volume_integrated_magnetic_pressure():
     By = data_pipe.GetVar("By", data_pipe.s0, doVerb=False)[...]
     Bz = data_pipe.GetVar("Bz", data_pipe.s0, doVerb=False)[...]
     Pb_first = (Bx**2 + By**2 + Bz**2)/2
-    Pb_integrated_first = np.sum(Pb_first*dV)
+    symmetry_metric_first = np.sum((Pb_first - Pb_first.T)*dV)
 
     # Load the magnetic field components from the last step, and use
     # to compute the magnetic pressure.
@@ -95,14 +93,15 @@ def compute_volume_integrated_magnetic_pressure():
     Bz = data_pipe.GetVar("Bz", data_pipe.sFin, doVerb=False)[...]
     Pb_last = (Bx**2 + By**2 + Bz**2)/2
     Pb_integrated_last = np.sum(Pb_last*dV)
+    symmetry_metric_last = np.sum((Pb_last - Pb_last.T)*dV)
 
-    return Pb_integrated_first, Pb_integrated_last
+    return symmetry_metric_first, symmetry_metric_last
 
 
 def create_quicklook_plot():
     """Create the quick-look plots in a file.
     
-    Create the quicklook plots summarizing the loop2d run.
+    Create the quicklook plots summarizing the bw3d run.
 
     Parameters
     ----------
@@ -113,7 +112,7 @@ def create_quicklook_plot():
     quicklook_file : str
         Path to the file containing the quick-look plots.
     """
-    cmd = "ql_loop2d.py"
+    cmd = "ql_bw3d.py"
     subprocess.run([cmd])
     return quicklook_file
 
@@ -131,11 +130,11 @@ if __name__ == "__main__":
 
     # Verify the volume-integrated magnetic pressure.
     if verbose:
-        print("Computing volume-integrated magnetic pressure.")
-    Pb_integrated_first, Pb_integrated_last = compute_volume_integrated_magnetic_pressure()
-    print("Volume-integrated magnetic pressure:")
-    print("At start: %s (code units)" % Pb_integrated_first)
-    print("At end: %s (code units)" % Pb_integrated_last)
+        print("Computing symmetry metric.")
+    symmetry_metric_first, symmetry_metric_last = compute_symmetry_metric()
+    print("Symmetry metric (SUM((P - P.T)*dV):")
+    print("At start: %s (code units)" % symmetry_metric_first)
+    print("At end: %s (code units)" % symmetry_metric_last)
 
     # Generate the quick-look plot.
     if verbose:
