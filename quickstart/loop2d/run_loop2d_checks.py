@@ -10,7 +10,7 @@ apply consistency checks.
 
 # Import standard modules.
 import argparse
-import subprocess
+# import os
 
 # Import 3rd-party modules.
 import numpy as np
@@ -24,58 +24,12 @@ import kaipy.gamera.gampp as gampp
 # Program description.
 description = "Perform consistency checks on the gamera loop2d test case."
 
-# Location of quick-look plots file.
-quicklook_file = "loop2d_quicklook.png"
 
-    
-def create_command_line_parser():
-    """Create the command-line argument parser.
-    
-    Ceate the parser for command-line arguments.
-
-    Parameters
-    ----------
-    None
-
-    Returns
-    -------
-    parser : argparse.ArgumentParser
-        Command-line argument parser for this script.
-    """
-    parser = argparse.ArgumentParser(description=description)
-    parser.add_argument(
-        "-d", "--debug", action="store_true", default=False,
-        help="Print debugging output (default: %(default)s)."
-    )
-    parser.add_argument(
-        "-v", "--verbose", action="store_true", default=False,
-        help="Print verbose output (default: %(default)s)."
-    )
-    return parser
-
-
-def compute_volume_integrated_magnetic_pressure():
-    """Compute the volume-integrated magnetic pressure at start and end.
-    
-    Compute the volume-integrated magnetic pressre for the first and last
-    steps:
-
-    Pb = (Bx**2 + By**2 + Bz**2)/2
-    Pb_integrated = SUM(Pb*dV)
-
-    Parameters
-    ----------
-    None
-
-    Returns
-    -------
-    Pb_integrated_first, Pb_integrated_last : float
-        Volume-integrated magnetic pressure (in code units) for first and
-        last steps.
-    """
+def verify_volume_integrated_magnetic_pressure():
+    """Verify the volume-integrated magnetic pressure."""
 
     # Open a pipe to the data file.
-    data_pipe = gampp.GameraPipe(".", "loop2d", doVerbose=False)
+    data_pipe = gampp.GameraPipe(".", "loop2d")
 
     # Load the grid cell volumes.
     dV = data_pipe.GetVar("dV", None, doVerb=False)[...]
@@ -96,26 +50,21 @@ def compute_volume_integrated_magnetic_pressure():
     Pb_last = (Bx**2 + By**2 + Bz**2)/2
     Pb_integrated_last = np.sum(Pb_last*dV)
 
-    return Pb_integrated_first, Pb_integrated_last
+    print(Pb_integrated_first, Pb_integrated_last)
 
-
-def create_quicklook_plot():
-    """Create the quick-look plots in a file.
     
-    Create the quicklook plots summarizing the loop2d run.
-
-    Parameters
-    ----------
-    None
-
-    Returns
-    -------
-    quicklook_file : str
-        Path to the file containing the quick-look plots.
-    """
-    cmd = "ql_loop2d.py"
-    subprocess.run([cmd])
-    return quicklook_file
+def create_command_line_parser():
+    """Create the command-line argument parser."""
+    parser = argparse.ArgumentParser(description=description)
+    parser.add_argument(
+        "-d", "--debug", action="store_true", default=False,
+        help="Print debugging output (default: %(default)s)."
+    )
+    parser.add_argument(
+        "-v", "--verbose", action="store_true", default=False,
+        help="Print verbose output (default: %(default)s)."
+    )
+    return parser
 
 
 if __name__ == "__main__":
@@ -131,14 +80,5 @@ if __name__ == "__main__":
 
     # Verify the volume-integrated magnetic pressure.
     if verbose:
-        print("Computing volume-integrated magnetic pressure.")
-    Pb_integrated_first, Pb_integrated_last = compute_volume_integrated_magnetic_pressure()
-    print("Volume-integrated magnetic pressure:")
-    print("At start: %s (code units)" % Pb_integrated_first)
-    print("At end: %s (code units)" % Pb_integrated_last)
-
-    # Generate the quick-look plot.
-    if verbose:
-        print("Creating quick-look plot.")
-    quicklook_file = create_quicklook_plot()
-    print("The quicklook plot is in %s." % quicklook_file)
+        print("Verifying volume-integrated magnetic pressure.")
+    verify_volume_integrated_magnetic_pressure()
