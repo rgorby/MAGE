@@ -39,6 +39,6 @@ echo "The active environment variables are:"
 printenv
 
 echo "Running $EXE on model $RUNID."
-$EXE $RUNID.xml >& ${EXE}.${RUNID}.out
+mpiexec $EXE $RUNID.xml >& ${EXE}.${RUNID}.out
 
 echo "Job $PBS_JOBID ended at `date` on `hostname`."
