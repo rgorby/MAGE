@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<Kaiju>
+  <Gamera>
+      <sim runid="bw3d" doH5init="F" icType="BW" pdmb="4.0"/>
+      <idir min="-0.5" max="0.5" N="128"/>
+      <jdir min="-0.5" max="0.5" N="128"/>
+      <kdir min="-0.5" max="0.5" N="128"/>
+      <iPdir N="2" bcPeriodic="T"/>
+      <jPdir N="2" bcPeriodic="T"/>
+      <kPdir N="2" bcPeriodic="T"/>
+      <time tFin="1.0"/>
+      <output dtOut="0.05" tsOut="10"/>
+      <physics doMHD="T" do25D="F"/>
+      <prob B0="0.1"/>
+  </Gamera>
+</Kaiju>

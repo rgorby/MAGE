@@ -1,0 +1,44 @@
+#!/bin/bash
+#PBS -N geo
+#PBS -j oe
+#PBS -q normal
+#PBS -l walltime=2:00:00
+#PBS -l select=1:mpiprocs=8:model=bro
+
+# Sample PBS job script to run the MPI gamera code on the geo test case.
+# This script was designed to run on pleiades.
+
+# Example usage
+# qsub -v bw3d.pbs
+
+echo "Job $PBS_JOBID started at `date` on `hostname`."
+
+# Specify the program to run, and the name of the model.
+export EXE=gamera_mpi.x
+export RUNID=bw3d
+
+# Prepare the execution environment.
+module purge
+module load pkgsrc/2021Q2
+module load comp-intel/2020.4.304
+module load mpi-hpe/mpt.2.23
+module load hdf5/1.8.18_mpt
+module load python3
+echo "The following modules are loaded:"
+module list
+
+# Set kaiju-related environment variables.
+# NOTE: Set WORK_ROOT to the location holding your kaiju builds.
+export WORK_ROOT=/nobackup/ewinter
+export KAIJUHOME=$WORK_ROOT/gamera/kaiju_mpi/kaiju
+export KAIJU_SCRIPTS=$KAIJUHOME/scripts
+export PYTHONPATH=$KAIJUHOME:$PYTHONPATH
+export PATH=$KAIJU_SCRIPTS:$KAIJU_SCRIPTS/datamodel:$KAIJU_SCRIPTS/helio:$KAIJU_SCRIPTS/legacy:$KAIJU_SCRIPTS/postproc:$KAIJU_SCRIPTS/preproc:$KAIJU_SCRIPTS/quicklook:$KAIJUHOME/build/bin:$PATH
+export MPI_TYPE_DEPTH=32
+echo "The active environment variables are:"
+printenv
+
+echo "Running $EXE on model $RUNID."
+$EXE $RUNID.xml >& ${EXE}.${RUNID}.out
+
+echo "Job $PBS_JOBID ended at `date` on `hostname`."
