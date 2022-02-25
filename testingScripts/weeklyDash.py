@@ -48,7 +48,7 @@ print(gBranch)
 # If the weekly dash base folder doesn't exist, need to generate the restart
 if( not os.path.exists("dashRestarts")):
     message = "No restart data available for weekly dash on branch " + gBranch + ". Please generate restart data and try again."
-    if(not isTest and beLoud):
+    if(not isTest):
         try:
             response = client.chat_postMessage(
                 channel="#kaijudev",

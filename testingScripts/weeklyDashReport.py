@@ -30,6 +30,7 @@ home = os.getcwd()
 
 isTest = False
 beLoud = False
+debugMode = False
 wikiPath = ""
 
 # Check argument flags
@@ -45,6 +46,9 @@ if (len(sys.argv) >= 2):
         elif(str(sys.argv[i]) == "-w"):
             wikiPath = sys.argv[i+1]
             i=i+1
+        elif(str(sys.argv[i]) == '-d'):
+            print("Debugging Mode: On")
+            debugMode = True
         else:
             print("Unrecognized argument: ", sys.argv[i])
         i=i+1
@@ -72,7 +76,12 @@ print(gBranch)
 
 if(gBranch != "master" and gBranch != "development"):
     print("storm dash only reported for master and development branches, but this branch is " + gBranch)
-    exit()
+    if(debugMode):
+        print("Changing branch to development for testing mode")
+        gBranch = "development"
+    else:
+        print("Exitting")
+        exit()
 
 # Go to weekly dash folder
 os.chdir(home)
@@ -404,12 +413,13 @@ if(os.path.exists("dx.png")) : os.remove("dx.png")
 if(os.path.exists("dr.png")) : os.remove("dr.png")
 
 # Push the data to the wiki
-p = subprocess.Popen('git commit -a -m "New weekly dash data for branch ' + gBranch + '"', shell=True, stdout=subprocess.PIPE)
-text = p.stdout.read().decode('ascii').rstrip()
-print(text)
-p = subprocess.Popen("git push", shell=True, stdout=subprocess.PIPE)
-text = p.stdout.read().decode('ascii').rstrip()
-print(text)
+if(not debugMode):
+    p = subprocess.Popen('git commit -a -m "New weekly dash data for branch ' + gBranch + '"', shell=True, stdout=subprocess.PIPE)
+    text = p.stdout.read().decode('ascii').rstrip()
+    print(text)
+    p = subprocess.Popen("git push", shell=True, stdout=subprocess.PIPE)
+    text = p.stdout.read().decode('ascii').rstrip()
+    print(text)
 
 # Announce results
 if(not isTest and beLoud):
