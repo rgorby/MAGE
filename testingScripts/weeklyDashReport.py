@@ -116,7 +116,7 @@ if('not a git repository' in text):
 os.chdir("weeklyDash")
 
 # Get performance data
-p = subprocess.Popen('sed --quiet "s/^ \\+UT \\+= \\+2016-08-09 \\+\\([0-9:]\\+\\).*$/\\1/p" ' + home + '/weeklyDash/bin/weeklyDashGo.out', shell=True, stdout=subprocess.PIPE)
+p = subprocess.Popen('sed --quiet "s/^ \\+UT \\+= \\+\\([0-9-]\\+ [0-9:]\\+\\).*$/\\1/p" ' + home + '/weeklyDash/bin/weeklyDashGo.out', shell=True, stdout=subprocess.PIPE)
 utData = p.stdout.read().decode('ascii')
 p = subprocess.Popen('sed --quiet "s/^ \\+Running @ *\\([0-9]\\+\\.\\?[0-9]*\\)% of real-time.*$/\\1/p" ' + home + '/weeklyDash/bin/weeklyDashGo.out', shell=True, stdout=subprocess.PIPE)
 rtData = p.stdout.read().decode('ascii')
@@ -229,13 +229,13 @@ elif(gBranch == 'development'):
 
 # Convert date strings into date-time objects
 if masterUT is not None:
-    masterUTdt = [datetime.datetime.strptime(masterUT[n],'%H:%M:%S') for n in range(len(masterUT))]
+    masterUTdt = [datetime.datetime.strptime(masterUT[n],'%Y-%m-%d %H:%M:%S') for n in range(len(masterUT))]
     masterUTsimdt = [datetime.datetime.strptime(masterUTsim[n],'%Y-%m-%dT%H:%M:%S.%f') for n in range(len(masterUTsim))]
 if devpriorUT is not None:
-    devpriorUTdt = [datetime.datetime.strptime(devpriorUT[n],'%H:%M:%S') for n in range(len(devpriorUT))]
+    devpriorUTdt = [datetime.datetime.strptime(devpriorUT[n],'%Y-%m-%d %H:%M:%S') for n in range(len(devpriorUT))]
     devpriorUTsimdt = [datetime.datetime.strptime(devpriorUTsim[n],'%Y-%m-%dT%H:%M:%S.%f') for n in range(len(devpriorUTsim))]
 if devcurrentUT is not None:
-    devcurrentUTdt = [datetime.datetime.strptime(devcurrentUT[n],'%H:%M:%S') for n in range(len(devcurrentUT))]
+    devcurrentUTdt = [datetime.datetime.strptime(devcurrentUT[n],'%Y-%m-%d %H:%M:%S') for n in range(len(devcurrentUT))]
     devcurrentUTsimdt = [datetime.datetime.strptime(devcurrentUTsim[n],'%Y-%m-%dT%H:%M:%S.%f') for n in range(len(devcurrentUTsim))]
 
 # Make Real-Time Performance Plot
@@ -255,7 +255,7 @@ ax.legend(loc='lower right',fontsize="small")
 
 ax.minorticks_on()
 ax.xaxis_date()
-xfmt = mpl.dates.DateFormatter('%H:%M')
+xfmt = mpl.dates.DateFormatter('%H:%M \n%Y-%m-%d')
 ax.set_ylabel("Percent of Real-Time [%]")
 ax.xaxis.set_major_formatter(xfmt)
 ax.xaxis.set_minor_locator(mpl.dates.HourLocator())
