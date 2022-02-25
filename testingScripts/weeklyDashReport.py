@@ -7,9 +7,14 @@ from slack import WebClient
 from slack.errors import SlackApiError
 import logging
 logging.basicConfig(level=logging.DEBUG)
-import time
-from os import path
-import re
+import matplotlib as mpl
+mpl.use('Agg')
+import h5py
+import numpy as np
+import datetime
+import kaipy.kaiH5 as kh5
+import kaipy.kaiViz as kv
+from astropy.time import Time
 
 # Get Slack API token
 slack_token = os.environ["SLACK_BOT_TOKEN"]
@@ -80,7 +85,7 @@ os.chdir('weeklyDash')
 os.chdir('bin')
 
 # Check for jobs.txt
-jobsExists = path.exists("jobs.txt")
+jobsExists = os.path.exists("jobs.txt")
 
 # If not, end. Otherwise, continue
 if (not jobsExists):
@@ -96,7 +101,7 @@ file.close()
 # Find out if the run is done
 jobFile1 = "wDashGo.o" + job1
 
-if (not path.exists(jobFile1)):
+if (not os.path.exists(jobFile1)):
     print("The dash job isn't complete yet.\n")
     exit()
 
@@ -108,12 +113,252 @@ print(text)
 if('not a git repository' in text):
     print("wiki path is not a git repository")
     exit()
-
-# If this is development branch, move the old data
 os.chdir("weeklyDash")
+
+# Get performance data
+p = subprocess.Popen('sed --quiet "s/^ \\+UT \\+= \\+2016-08-09 \\+\\([0-9:]\\+\\).*$/\\1/p" ' + home + '/weeklyDash/bin/weeklyDashGo.out', shell=True, stdout=subprocess.PIPE)
+utData = p.stdout.read().decode('ascii')
+p = subprocess.Popen('sed --quiet "s/^ \\+Running @ *\\([0-9]\\+\\.\\?[0-9]*\\)% of real-time.*$/\\1/p" ' + home + '/weeklyDash/bin/weeklyDashGo.out', shell=True, stdout=subprocess.PIPE)
+rtData = p.stdout.read().decode('ascii')
+
+# Split UT and RT data into lists
+utData = utData.splitlines()
+rtData = rtData.splitlines()
+
+# There is always one extra line of UT data in the front, strip it
+utData = utData[1:]
+
+# Make sure the lists are of equal length now (console output not always reliable)
+if(len(utData) > len(rtData)):
+    utData = utData[:len(rtData)]
+elif(len(rtData) > len(utData)):
+    rtData = rtData[:len(utData)]
+# Convert the rt data to floats
+rtData_f = [float(rtData[n]) for n in range(len(rtData))]
+
+# Get simulation data from voltron output file
+LW = 0.75 # LineWidth
+alpha = 0.25 # Transparency
+gCol = "slategrey" # GridColor
+
+fVolt = home + "/weeklyDash/bin/msphere.volt.h5"
+print(fVolt)
+#Get Dst and CPCP plot info
+print("Scraping")
+nSteps,sIds = kh5.cntSteps(fVolt)
+symh  = kh5.getTs(fVolt,sIds,"SymH")
+MJD   = kh5.getTs(fVolt,sIds,"MJD")
+#BSDst0= kh5.getTs(fVolt,sIds,"BSDst0")
+#BSDst = kh5.getTs(fVolt,sIds,"BSDst") #Average
+DPSDst= kh5.getTs(fVolt,sIds,"DPSDst")
+nCPCP = kh5.getTs(fVolt,sIds,"cpcpN")
+sCPCP = kh5.getTs(fVolt,sIds,"cpcpS")
+N = len(DPSDst)
+DPSDst[0] = DPSDst[1]
+for n in range(1,N-1):
+    if (np.abs(DPSDst[n])<1.0e-8):
+        DPSDst[n] = 0.5*(DPSDst[n-1]+DPSDst[n+1])
+UT = Time(MJD,format='mjd').isot
+ut_datetime = [datetime.datetime.strptime(UT[n],'%Y-%m-%dT%H:%M:%S.%f') for n in range(len(UT))] # needed to plot symh
+
+# load old data from an h5 file
+masterUT = None
+masterRT = None
+masterUTsim = None
+masterDST = None
+masterCPCPn = None
+masterCPCPs = None
+devpriorUT = None
+devpriorRT = None
+devpriorUTsim = None
+devpriorDST = None
+devpriorCPCPn = None
+devpriorCPCPs = None
+devcurrentUT = None
+devcurrentRT = None
+devcurrentUTsim = None
+devcurrentDST = None
+devcurrentCPCPn = None
+devcurrentCPCPs = None
+if(os.path.exists('previousData.h5')):
+    data_object = h5py.File('previousData.h5', 'r')
+    if 'masterUT' in data_object:
+        masterUT    = [x.decode('utf-8') for x in data_object['masterUT']]
+        masterRT    = data_object['masterRT'].value
+        masterUTsim = [x.decode('utf-8') for x in data_object['masterUTsim']]
+        masterDST   = data_object['masterDST'].value
+        masterCPCPn = data_object['masterCPCPn'].value
+        masterCPCPs = data_object['masterCPCPs'].value
+    if 'devpriorUT' in data_object:
+        devpriorUT    = [x.decode('utf-8') for x in data_object['devpriorUT']]
+        devpriorRT    = data_object['devpriorRT'].value
+        devpriorUTsim = [x.decode('utf-8') for x in data_object['devpriorUTsim']]
+        devpriorDST   = data_object['devpriorDST'].value
+        devpriorCPCPn = data_object['devpriorCPCPn'].value
+        devpriorCPCPs = data_object['devpriorCPCPs'].value
+    if 'devcurrentUT' in data_object:
+        devcurrentUT    = [x.decode('utf-8') for x in data_object['devcurrentUT']]
+        devcurrentRT    = data_object['devcurrentRT'].value
+        devcurrentUTsim = [x.decode('utf-8') for x in data_object['devcurrentUTsim']]
+        devcurrentDST   = data_object['devcurrentDST'].value
+        devcurrentCPCPn = data_object['devcurrentCPCPn'].value
+        devcurrentCPCPs = data_object['devcurrentCPCPs'].value
+    data_object.close()
+
+# update appropriate data with new data
+if(gBranch == 'master'):
+    masterUT = utData
+    masterRT = rtData_f
+    masterUTsim = UT
+    masterDST = DPSDst
+    masterCPCPn = nCPCP
+    masterCPCPs = sCPCP
+elif(gBranch == 'development'):
+    devpriorUT = devcurrentUT
+    devpriorRT = devcurrentRT
+    devpriorUTsim = devcurrentUTsim
+    devpriorDST = devcurrentDST
+    devpriorCPCPn = devcurrentCPCPn
+    devpriorCPCPs = devcurrentCPCPs
+    devcurrentUT = utData
+    devcurrentRT = rtData_f
+    devcurrentUTsim = UT
+    devcurrentDST = DPSDst
+    devcurrentCPCPn = nCPCP
+    devcurrentCPCPs = sCPCP
+
+# Convert date strings into date-time objects
+if masterUT is not None:
+    masterUTdt = [datetime.datetime.strptime(masterUT[n],'%H:%M:%S') for n in range(len(masterUT))]
+    masterUTsimdt = [datetime.datetime.strptime(masterUTsim[n],'%Y-%m-%dT%H:%M:%S.%f') for n in range(len(masterUTsim))]
+if devpriorUT is not None:
+    devpriorUTdt = [datetime.datetime.strptime(devpriorUT[n],'%H:%M:%S') for n in range(len(devpriorUT))]
+    devpriorUTsimdt = [datetime.datetime.strptime(devpriorUTsim[n],'%Y-%m-%dT%H:%M:%S.%f') for n in range(len(devpriorUTsim))]
+if devcurrentUT is not None:
+    devcurrentUTdt = [datetime.datetime.strptime(devcurrentUT[n],'%H:%M:%S') for n in range(len(devcurrentUT))]
+    devcurrentUTsimdt = [datetime.datetime.strptime(devcurrentUTsim[n],'%Y-%m-%dT%H:%M:%S.%f') for n in range(len(devcurrentUTsim))]
+
+# Make Real-Time Performance Plot
+fSz = (14,7)
+fig = mpl.pyplot.figure(figsize=fSz)
+gs = mpl.gridspec.GridSpec(1,1,hspace=0.05,wspace=0.05)
+ax=fig.add_subplot(gs[0,0])
+
+if masterRT is not None:
+    ax.plot(masterUTdt,masterRT,label="master",linewidth=LW)
+if devpriorRT is not None:
+    ax.plot(devpriorUTdt,devpriorRT,label="dev prior",linewidth=LW)
+if devcurrentRT is not None:
+    ax.plot(devcurrentUTdt,devcurrentRT,label="dev current",linewidth=LW)
+
+ax.legend(loc='lower right',fontsize="small")
+
+ax.minorticks_on()
+ax.xaxis_date()
+xfmt = mpl.dates.DateFormatter('%H:%M')
+ax.set_ylabel("Percent of Real-Time [%]")
+ax.xaxis.set_major_formatter(xfmt)
+ax.xaxis.set_minor_locator(mpl.dates.HourLocator())
+# mpl.pyplot.grid(True)
+# ax.xaxis.grid(True,which='major',linewidth=LW  ,alpha=alpha,color=gCol)
+# ax.xaxis.grid(True,which='minor',linewidth=LW/4,alpha=alpha,color=gCol)
+# ax.yaxis.grid(True,which='major',linewidth=LW  ,alpha=alpha,color=gCol)
+ax.set_title("Real-Time Performance")
+fOut = "perfPlots.png"
+kv.savePic(fOut)
+mpl.pyplot.close('all')
+
+
+# Make DST Plot
+fSz = (14,7)
+fig = mpl.pyplot.figure(figsize=fSz)
+gs = mpl.gridspec.GridSpec(1,1,hspace=0.05,wspace=0.05)
+ax=fig.add_subplot(gs[0,0])
+
+ax.plot(ut_datetime,symh,label="SYM-H",linewidth=2*LW)
+if masterDST is not None:
+    ax.plot(masterUTsimdt,masterDST,label="master",linewidth=LW)
+if devpriorDST is not None:
+    ax.plot(devpriorUTsimdt,devpriorDST,label="dev prior",linewidth=LW)
+if devcurrentDST is not None:
+    ax.plot(devcurrentUTsimdt,devcurrentDST,label="dev current",linewidth=LW)
+
+ax.legend(loc='upper right',fontsize="small")
+
+ax.minorticks_on()
+ax.xaxis_date()
+xfmt = mpl.dates.DateFormatter('%H:%M \n%Y-%m-%d')
+ax.set_ylabel("Dst [nT]")
+ax.xaxis.set_major_formatter(xfmt)
+ax.xaxis.set_minor_locator(mpl.dates.HourLocator())
+# mpl.pyplot.grid(True)
+# ax.xaxis.grid(True,which='major',linewidth=LW  ,alpha=alpha,color=gCol)
+# ax.xaxis.grid(True,which='minor',linewidth=LW/4,alpha=alpha,color=gCol)
+# ax.yaxis.grid(True,which='major',linewidth=LW  ,alpha=alpha,color=gCol)
+ax.set_title("BSDst")
+fOut = "dstPlots.png"
+kv.savePic(fOut)
+mpl.pyplot.close('all')
+    
+# Make CPCP Plot
+fSz = (14,7)
+fig = mpl.pyplot.figure(figsize=fSz)
+gs = mpl.gridspec.GridSpec(1,1,hspace=0.05,wspace=0.05)
+ax=fig.add_subplot(gs[0,0])
+
+if masterCPCPn is not None:
+    ax.plot(masterUTsimdt,masterCPCPn,label="master-North",linewidth=LW)
+    ax.plot(masterUTsimdt,masterCPCPs,label="master-South",linewidth=LW)
+if devpriorCPCPn is not None:
+    ax.plot(devpriorUTsimdt,devpriorCPCPn,label="dev prior-North",linewidth=LW)
+    ax.plot(devpriorUTsimdt,devpriorCPCPs,label="dev prior-South",linewidth=LW)
+if devcurrentCPCPn is not None:
+    ax.plot(devcurrentUTsimdt,devcurrentCPCPn,label="dev current-North",linewidth=LW)
+    ax.plot(devcurrentUTsimdt,devcurrentCPCPs,label="dev current-South",linewidth=LW)
+
+ax.legend(loc='upper right',fontsize="small")
+
+ax.minorticks_on()
+ax.xaxis_date()
+xfmt = mpl.dates.DateFormatter('%H:%M \n%Y-%m-%d')
+ax.set_ylabel("Dst [nT]")
+ax.xaxis.set_major_formatter(xfmt)
+ax.xaxis.set_minor_locator(mpl.dates.HourLocator())
+# mpl.pyplot.grid(True)
+# ax.xaxis.grid(True,which='major',linewidth=LW  ,alpha=alpha,color=gCol)
+# ax.xaxis.grid(True,which='minor',linewidth=LW/4,alpha=alpha,color=gCol)
+# ax.yaxis.grid(True,which='major',linewidth=LW  ,alpha=alpha,color=gCol)
+ax.set_title("CPCP")
+fOut = "cpcpPlots.png"
+kv.savePic(fOut)
+mpl.pyplot.close('all')
+
+# Save the new data as json
+with h5py.File('previousData.h5', 'w') as data_object:
+    if masterUT is not None:
+        data_object.create_dataset('masterUT',    data=[x.encode('utf-8') for x in masterUT])
+        data_object.create_dataset('masterRT',    data=masterRT)
+        data_object.create_dataset('masterUTsim', data=[x.encode('utf-8') for x in masterUTsim])
+        data_object.create_dataset('masterDST',   data=masterDST)
+        data_object.create_dataset('masterCPCPn', data=masterCPCPn)
+        data_object.create_dataset('masterCPCPs', data=masterCPCPs)
+    if devpriorUT is not None:
+        data_object.create_dataset('devpriorUT',    data=[x.encode('utf-8') for x in devpriorUT])
+        data_object.create_dataset('devpriorRT',    data=devpriorRT)
+        data_object.create_dataset('devpriorUTsim', data=[x.encode('utf-8') for x in devpriorUTsim])
+        data_object.create_dataset('devpriorDST',   data=devpriorDST)
+        data_object.create_dataset('devpriorCPCPn', data=devpriorCPCPn)
+        data_object.create_dataset('devpriorCPCPs', data=devpriorCPCPs)
+    if devcurrentUT is not None:
+        data_object.create_dataset('devcurrentUT',    data=[x.encode('utf-8') for x in devcurrentUT])
+        data_object.create_dataset('devcurrentRT',    data=devcurrentRT)
+        data_object.create_dataset('devcurrentUTsim', data=[x.encode('utf-8') for x in devcurrentUTsim])
+        data_object.create_dataset('devcurrentDST',   data=devcurrentDST)
+        data_object.create_dataset('devcurrentCPCPn', data=devcurrentCPCPn)
+        data_object.create_dataset('devcurrentCPCPs', data=devcurrentCPCPs)
+
+# If I'm on development, copy latest quick look plots over old ones
 if(gBranch == "development"):
-    os.system("mv development_ut.txt      development_ut_old.txt")
-    os.system("mv development_rt.txt      development_rt_old.txt")
     os.system("mv development_qk_msph.png development_qk_msph_old.png")
     os.system("mv development_qk_rcm.png  development_qk_rcm_old.png")
     os.system("mv development_qk_mix.png  development_qk_mix_old.png")
@@ -122,23 +367,6 @@ if(gBranch == "development"):
 os.chdir(home)
 os.chdir('weeklyDash')
 os.chdir('bin')
-
-# Get performance data
-p = subprocess.Popen('sed --quiet "s/^ \\+UT \\+= \\+2016-08-09 \\+\\([0-9:]\\+\\).*$/\\1/p" weeklyDashGo.out', shell=True, stdout=subprocess.PIPE)
-utData = p.stdout.read().decode('ascii')
-p = subprocess.Popen('sed --quiet "s/^ \\+Running @ *\\([0-9]\\+\\.\\?[0-9]*\\)% of real-time.*$/\\1/p" weeklyDashGo.out', shell=True, stdout=subprocess.PIPE)
-rtData = p.stdout.read().decode('ascii')
-
-#There is always one extra line of UT data in the front, strip it, then write the data to files
-utData = ''.join(utData.splitlines(keepends=True)[1:])
-
-utFile = open(wikiPath + "weeklyDash/" + gBranch + '_ut.txt', "w")
-utFile.write(utData)
-utFile.close()
-
-rtFile = open(wikiPath + "weeklyDash/" + gBranch + '_rt.txt', "w")
-rtFile.write(rtData)
-rtFile.close()
 
 # Make quick-look plots
 subprocess.call('msphpic.py', shell=True)
@@ -151,9 +379,6 @@ os.system('cp qkrcmpic.png ' + wikiPath + "weeklyDash/" + gBranch + '_qk_rcm.png
 # Move back to wiki
 os.chdir(wikiPath)
 os.chdir("weeklyDash")
-
-# Make new performance plot. Could make this prettier, gnuplot for now
-subprocess.call('gnuplot ' + home + '/testingScripts/perfPlot.plg', shell=True)
 
 # Combine quick looks into larger images
 subprocess.call("convert master_qk_msph.png -gravity NorthWest -pointsize 60 -annotate +0+0 'master' mm.png", shell=True)
@@ -209,6 +434,31 @@ if(not isTest and beLoud):
         # You will get a SlackApiError if "ok" is False
         assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
 
+    try:
+        response = client.files_upload(
+            file='dstPlots.png',
+            initial_comment='DST Plots\n\n',
+            channels="#kaijudev",
+            )
+        assert response['ok']
+        slack_file = response['file']
+    except SlackApiError as e:
+        # You will get a SlackApiError if "ok" is False
+        assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
+
+    try:
+        response = client.files_upload(
+            file='cpcpPlots.png',
+            initial_comment='CPCP Plots\n\n',
+            channels="#kaijudev",
+            )
+        assert response['ok']
+        slack_file = response['file']
+    except SlackApiError as e:
+        # You will get a SlackApiError if "ok" is False
+        assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
+    
+    
     try:
         response = client.files_upload(
             file='combined_qk_msph.png',
