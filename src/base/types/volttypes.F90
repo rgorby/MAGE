@@ -56,9 +56,10 @@ module volttypes
     ! data for gamera -> remix conversion
     type mhd2Mix_T
         real(rp), dimension(:,:,:,:,:), allocatable :: mixInput
-        real(rp), dimension(:,:,:,:), allocatable :: gJ
+        real(rp), dimension(:,:,:,:), allocatable :: gJ,gBAvg
         type(Map_T), allocatable, dimension(:,:) :: Jmaps
         integer :: JStart = JpSt, JShells = JpSh !Coming from cmidefs
+        real(rp) :: dtAvg,wAvg
     end type mhd2mix_T
 
     ! data for chimp -> gamera conversion
@@ -134,14 +135,14 @@ module volttypes
         class(innerMagBase_T), allocatable :: imagApp
 
         !Shallow coupling information
-        real(rp) :: ShallowT
-        real(rp) :: ShallowDT
+        real(rp) :: ShallowT ! Time of next shallow coupling
+        real(rp) :: ShallowDT ! Time between shallow couplings
         real(rp) :: TargetShallowDT ! Desired shallow step from Voltron
         logical  :: doGCM = .false.
 
         !Deep coupling information
-        real(rp) :: DeepT
-        real(rp) :: DeepDT
+        real(rp) :: DeepT ! Time of next deep coupling
+        real(rp) :: DeepDT ! Time between deep couplings
         real(rp) :: TargetDeepDT ! Desired deep step from Voltron
         logical  :: doDeep = .false. !Whether to do deep coupling
         real(rp) :: rTrc  !Radius to do tracing (ebSquish) inside of
@@ -155,6 +156,8 @@ module volttypes
         !Dynamic coupling info
         logical :: doDynCplDT = .false. !Whether to do dynamic coupling cadence
 
+        !Have special flag to indicate this is Earth, which is special
+        logical :: isEarth = .false.
     end type voltApp_T
 
     contains

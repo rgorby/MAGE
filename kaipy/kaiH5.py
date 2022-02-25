@@ -1,5 +1,6 @@
 import h5py
 import numpy as np
+import sys
 
 #Generate MPI-style name
 def genName(bStr,i,j,k,Ri,Rj,Rk,nRes=None):
@@ -25,9 +26,8 @@ def CheckOrDie(fname):
 	if (not isExist):
 		if (len(fname) == 0):
 			fname = "<EMPTY>"
-		print("Unable to find file: %s"%(fname))
-		print("!!Exiting!!")
-		quit()
+		sys.exit("Unable to find file: %s"%(fname))
+
 #Check directory exists and make it if not
 def CheckDirOrMake(fdir):
 	import os

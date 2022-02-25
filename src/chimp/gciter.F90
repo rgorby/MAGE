@@ -35,6 +35,7 @@ module gciter
     contains
 
     !Direct GC calculation (no iteration)
+    !See Snicker+ 2010 and Parra & Catto 2008
     function DirectGC(xFO,pFO,t,Model,ebState,isConvO,NitO) result(Rgc)
         real(rp), dimension(NDIM), intent(in) :: xFO,pFO
         real(rp), intent(in) :: t

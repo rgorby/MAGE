@@ -405,7 +405,7 @@ contains
 
       call setPreHaloData(.false.,.false.,.false.)
 
-      call haloUpdate(gamAppMpi)
+      call haloUpdate(gamAppMpi, gamAppMpi%State)
       call EnforceBCs(gamAppMpi%Model,gamAppMpi%Grid,gamAppMpi%State)
 
       call checkPostHaloData(this,.false.,.false.,.false.)
@@ -421,7 +421,7 @@ contains
 
       call setPreHaloData(.true.,.false.,.false.)
 
-      call haloUpdate(gamAppMpi)
+      call haloUpdate(gamAppMpi, gamAppMpi%State)
       call EnforceBCs(gamAppMpi%Model,gamAppMpi%Grid,gamAppMpi%State)
 
       call checkPostHaloData(this,.true.,.false.,.false.)
@@ -437,7 +437,7 @@ contains
 
       call setPreHaloData(.true.,.true.,.false.)
 
-      call haloUpdate(gamAppMpi)
+      call haloUpdate(gamAppMpi, gamAppMpi%State)
       call EnforceBCs(gamAppMpi%Model,gamAppMpi%Grid,gamAppMpi%State)
 
       call checkPostHaloData(this,.true.,.true.,.false.)
@@ -453,7 +453,7 @@ contains
       
       call setPreHaloData(.true.,.true.,.true.)
 
-      call haloUpdate(gamAppMpi)
+      call haloUpdate(gamAppMpi, gamAppMpi%State)
       call EnforceBCs(gamAppMpi%Model,gamAppMpi%Grid,gamAppMpi%State)
 
       call checkPostHaloData(this,.true.,.true.,.true.)
@@ -469,7 +469,7 @@ contains
 
       call setPreHaloData(.false.,.false.,.false.)
 
-      call haloUpdate(gamAppMpi)
+      call haloUpdate(gamAppMpi, gamAppMpi%State)
       call EnforceBCs(gamAppMpi%Model,gamAppMpi%Grid,gamAppMpi%State)
 
       call checkPostHaloData(this,.false.,.false.,.false.)
@@ -485,7 +485,7 @@ contains
 
       call setPreHaloData(.true.,.false.,.false.)
 
-      call haloUpdate(gamAppMpi)
+      call haloUpdate(gamAppMpi, gamAppMpi%State)
       call EnforceBCs(gamAppMpi%Model,gamAppMpi%Grid,gamAppMpi%State)
 
       call checkPostHaloData(this,.true.,.false.,.false.)
@@ -501,7 +501,7 @@ contains
 
       call setPreHaloData(.false.,.true.,.false.)
 
-      call haloUpdate(gamAppMpi)
+      call haloUpdate(gamAppMpi, gamAppMpi%State)
       call EnforceBCs(gamAppMpi%Model,gamAppMpi%Grid,gamAppMpi%State)
 
       call checkPostHaloData(this,.false.,.true.,.false.)
@@ -517,7 +517,7 @@ contains
 
       call setPreHaloData(.true.,.true.,.false.)
 
-      call haloUpdate(gamAppMpi)
+      call haloUpdate(gamAppMpi, gamAppMpi%State)
       call EnforceBCs(gamAppMpi%Model,gamAppMpi%Grid,gamAppMpi%State)
 
       call checkPostHaloData(this,.true.,.true.,.false.)
@@ -533,7 +533,7 @@ contains
 
       call setPreHaloData(.false.,.true.,.true.)
 
-      call haloUpdate(gamAppMpi)
+      call haloUpdate(gamAppMpi, gamAppMpi%State)
       call EnforceBCs(gamAppMpi%Model,gamAppMpi%Grid,gamAppMpi%State)
 
       call checkPostHaloData(this,.false.,.true.,.true.)
@@ -549,7 +549,7 @@ contains
 
       call setPreHaloData(.true.,.true.,.true.)
 
-      call haloUpdate(gamAppMpi)
+      call haloUpdate(gamAppMpi, gamAppMpi%State)
       call EnforceBCs(gamAppMpi%Model,gamAppMpi%Grid,gamAppMpi%State)
 
       call checkPostHaloData(this,.true.,.true.,.true.)
@@ -565,7 +565,7 @@ contains
 
       call setPreHaloData(.false.,.false.,.false.)
 
-      call haloUpdate(gamAppMpi)
+      call haloUpdate(gamAppMpi, gamAppMpi%State)
       call EnforceBCs(gamAppMpi%Model,gamAppMpi%Grid,gamAppMpi%State)
 
       call checkPostHaloData(this,.false.,.false.,.false.)
@@ -581,7 +581,7 @@ contains
 
       call setPreHaloData(.true.,.false.,.false.)
 
-      call haloUpdate(gamAppMpi)
+      call haloUpdate(gamAppMpi, gamAppMpi%State)
       call EnforceBCs(gamAppMpi%Model,gamAppMpi%Grid,gamAppMpi%State)
 
       call checkPostHaloData(this,.true.,.false.,.false.)
@@ -597,7 +597,7 @@ contains
 
       call setPreHaloData(.false.,.false.,.true.)
 
-      call haloUpdate(gamAppMpi)
+      call haloUpdate(gamAppMpi, gamAppMpi%State)
       call EnforceBCs(gamAppMpi%Model,gamAppMpi%Grid,gamAppMpi%State)
 
       call checkPostHaloData(this,.false.,.false.,.true.)
@@ -613,7 +613,7 @@ contains
 
       call setPreHaloData(.true.,.true.,.false.)
 
-      call haloUpdate(gamAppMpi)
+      call haloUpdate(gamAppMpi, gamAppMpi%State)
       call EnforceBCs(gamAppMpi%Model,gamAppMpi%Grid,gamAppMpi%State)
 
       call checkPostHaloData(this,.true.,.true.,.false.)
@@ -629,7 +629,7 @@ contains
 
       call setPreHaloData(.true.,.false.,.true.)
 
-      call haloUpdate(gamAppMpi)
+      call haloUpdate(gamAppMpi, gamAppMpi%State)
       call EnforceBCs(gamAppMpi%Model,gamAppMpi%Grid,gamAppMpi%State)
 
       call checkPostHaloData(this,.true.,.false.,.true.)
@@ -645,7 +645,7 @@ contains
 
       call setPreHaloData(.true.,.true.,.true.)
 
-      call haloUpdate(gamAppMpi)
+      call haloUpdate(gamAppMpi, gamAppMpi%State)
       call EnforceBCs(gamAppMpi%Model,gamAppMpi%Grid,gamAppMpi%State)
 
       call checkPostHaloData(this,.true.,.true.,.true.)
@@ -661,7 +661,7 @@ contains
 
       call setPreHaloData(.false.,.false.,.false.)
 
-      call haloUpdate(gamAppMpi)
+      call haloUpdate(gamAppMpi, gamAppMpi%State)
       call EnforceBCs(gamAppMpi%Model,gamAppMpi%Grid,gamAppMpi%State)
 
       call checkPostHaloData(this,.false.,.false.,.false.)
@@ -677,7 +677,7 @@ contains
 
       call setPreHaloData(.true.,.false.,.false.)
 
-      call haloUpdate(gamAppMpi)
+      call haloUpdate(gamAppMpi, gamAppMpi%State)
       call EnforceBCs(gamAppMpi%Model,gamAppMpi%Grid,gamAppMpi%State)
 
       call checkPostHaloData(this,.true.,.false.,.false.)
@@ -693,7 +693,7 @@ contains
 
       call setPreHaloData(.true.,.true.,.false.)
 
-      call haloUpdate(gamAppMpi)
+      call haloUpdate(gamAppMpi, gamAppMpi%State)
       call EnforceBCs(gamAppMpi%Model,gamAppMpi%Grid,gamAppMpi%State)
 
       call checkPostHaloData(this,.true.,.true.,.false.)
@@ -709,7 +709,7 @@ contains
 
       call setPreHaloData(.true.,.true.,.true.)
 
-      call haloUpdate(gamAppMpi)
+      call haloUpdate(gamAppMpi, gamAppMpi%State)
       call EnforceBCs(gamAppMpi%Model,gamAppMpi%Grid,gamAppMpi%State)
 
       call checkPostHaloData(this,.true.,.true.,.true.)

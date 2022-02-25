@@ -35,6 +35,13 @@ text = text.decode('ascii')
 text = text.rstrip()
 print(text)
 
+# get my current branch
+p = subprocess.Popen("git symbolic-ref --short HEAD", shell=True, stdout=subprocess.PIPE)
+gBranch = p.stdout.read()
+gBranch = gBranch.decode('ascii')
+gBranch = gBranch.rstrip()
+print(gBranch)
+
 isTest = False
 doAll = False
 forceRun = False
@@ -61,17 +68,7 @@ if (len(sys.argv) >= 2):
 if(forceRun == False):
     # If not forced, check for update
     if (text == 'Already up to date.'):
-        if(not isTest and beLoud):
-            # Try to send Slack message
-            try:
-                response = client.chat_postMessage(
-                    channel="#kaijudev",
-                    text='No test today. It is already up to date!',
-                )
-            except SlackApiError as e:
-                # You will get a SlackApiError if "ok" is False
-                assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
-        
+        print("No test today. Branch " + gBranch + " is already up to date!")
         exit()
 
 os.chdir("testingScripts")
@@ -102,8 +99,8 @@ if (doAll == True):
 else:
     buildTest = subprocess.Popen("python3 buildTest.py"+subArgString, shell = True)
     buildTest.wait()
-    #unitTest = subprocess.Popen("python3 unitTest.py"+subArgString, shell = True)
-    #unitTest.wait()
+    unitTest = subprocess.Popen("python3 unitTest.py"+subArgString, shell = True)
+    unitTest.wait()
     #intelTest = subprocess.Popen("python3 intelChecks.py"+subArgString, shell=True)
     #intelTest.wait()
     ICTest = subprocess.Popen("python3 ICtest.py"+subArgString, shell=True)

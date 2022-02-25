@@ -22,6 +22,11 @@ module gioH5
 
     contains
 
+    subroutine SetFatIO()
+
+        doFat = .true.
+    end subroutine SetFatIO
+    
     subroutine readH5Grid(Model,Grid,inH5)
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(inout) :: Grid
@@ -303,7 +308,8 @@ module gioH5
 
             !---------------------
             !Calculate Velocities/Pressure
-            !$OMP PARALLEL DO default(shared) collapse(2)
+            !$OMP PARALLEL DO default(shared) collapse(2) &
+            !$OMP private(i,j,k)
             do k=kMin,kMax
                 do j=jMin,jMax
                     do i=iMin,iMax
@@ -434,10 +440,24 @@ module gioH5
             endif
 
             if(Model%doResistive) then
-                gVec(:,:,:,:) = State%Deta(iMin:iMax,jMin:jMax,kMin:kMax,XDIR:ZDIR)
-                call AddOutVar(IOVars,"Etax",gVec(:,:,:,XDIR))
-                call AddOutVar(IOVars,"Etay",gVec(:,:,:,YDIR))
-                call AddOutVar(IOVars,"Etaz",gVec(:,:,:,ZDIR))
+                !$OMP PARALLEL DO default(shared) collapse(2) &
+                !$OMP private(i,j,k)
+                do k=kMin,kMax
+                    do j=jMin,jMax
+                        do i=iMin,iMax
+                            !Save cell-centered eta
+                            gVar(i,j,k) = EdgeScalar2CC(Model,Gr,State%Deta,i,j,k)
+
+                            !Save cell-centered diffusive velocity
+                            gVar1(i,j,k) = gVar(i,j,k)*2.0/minval([Gr%di(i,j,k),Gr%dj(i,j,k),Gr%dk(i,j,k)])
+                        enddo
+                    enddo
+                enddo
+
+                !Should change this to have more meaningful scaling
+                call GameraOut("Eta","CODE",1.0_rp,gVar(iMin:iMax,jMin:jMax,kMin:kMax))
+                !Output diffusive velocity scaled to proper output velocity units
+                call GameraOut("Vdiff",gamOut%vID,gamOut%vScl,gVar1(iMin:iMax,jMin:jMax,kMin:kMax))
             end if
 
             !Write divergence if necessary
@@ -613,17 +633,16 @@ module gioH5
 
     end subroutine writeH5Res
     
-    subroutine readH5Restart(Model,Gr,State,inH5,doResetO,tResetO)
+    subroutine readH5Restart(Model,Gr,State,oState,inH5,doResetO,tResetO)
         type(Model_T), intent(inout) :: Model
         type(Grid_T),  intent(inout) :: Gr
-        type(State_T), intent(inout) :: State
+        type(State_T), intent(inout) :: State,oState
         character(len=*), intent(in) :: inH5
-        logical, intent(in), optional :: doResetO
+        logical , intent(in), optional :: doResetO
         real(rp), intent(in), optional :: tResetO
 
         logical :: doReset,fExist,hasSrc
-        real(rp) :: tReset
-        integer :: wDims(5),bDims(4)
+        real(rp) :: tReset,dt
         integer :: rSpc
 
         !Test for resetting
@@ -647,15 +666,24 @@ module gioH5
             stop
         endif
 
+        !Check for oState info
+        if ( (.not. ioExist(inH5,"oGas")) .or. (.not. ioExist(inH5,"omagFlux")) ) then
+            write(*,*) "Restart file too old, does not include oState!"
+            stop
+        endif
+
         !Reset IO chain
         call ClearIO(IOVars)
 
-        call AddInVar(IOVars,"Gas")    
+        call AddInVar(IOVars,"Gas" )
+        call AddInVar(IOVars,"oGas")
         call AddInVar(IOVars,"magFlux")
+        call AddInVar(IOVars,"omagFlux")
         call AddInVar(IOVars,"nOut",vTypeO=IOINT)
         call AddInVar(IOVars,"nRes",vTypeO=IOINT)
         call AddInVar(IOVars,"ts"  ,vTypeO=IOINT)
         call AddInVar(IOVars,"t"   ,vTypeO=IOREAL)
+        call AddInVar(IOVars,"ot"   ,vTypeO=IOREAL)
 
         !Get data
         call ReadVars(IOVars,.false.,inH5)
@@ -665,18 +693,21 @@ module gioH5
 
         if (Model%nSpc == rSpc) then
             !Restart and State variable agree
-            wDims = [Gr%Nip,Gr%Njp,Gr%Nkp,NVAR,Model%nSpc+1]
-            State%Gas(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,:,:) = reshape(IOVars(1)%data,wDims)
+            call IOArray5DFill(IOVars,"Gas" ,State %Gas(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,:,:))
+            call IOArray5DFill(IOVars,"oGas",oState%Gas(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,:,:))
+
         else if (Model%nSpc > rSpc) then
             !Not enough species in restart, fill as many as possible
-            wDims = [Gr%Nip,Gr%Njp,Gr%Nkp,NVAR,rSpc+1]
-            State%Gas(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,:,0:rSpc) = reshape(IOVars(1)%data,wDims)
+            call IOArray5DFill(IOVars,"Gas" ,State %Gas(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,:,0:rSpc))
+            call IOArray5DFill(IOVars,"oGas",oState%Gas(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,:,0:rSpc))
+
             !Now initialize to empty remaining species
-            State%Gas(:,:,:,DEN,rSpc+1:Model%nSpc) = dFloor
-            State%Gas(:,:,:,MOMX:MOMZ,rSpc+1:Model%nSpc) = 0.0
-            State%Gas(:,:,:,ENERGY,rSpc+1:Model%nSpc) = pFloor/(Model%gamma-1)
+            State %Gas(:,:,:,1:NVAR,rSpc+1:Model%nSpc) = 0.0
+            oState%Gas(:,:,:,1:NVAR,rSpc+1:Model%nSpc) = 0.0
+
             !Now reaccumulate
-            call State2Bulk(Model,Gr,State)
+            call State2Bulk(Model,Gr,State )
+            call State2Bulk(Model,Gr,oState)
         else
             !Too many species in restart, this isn't good
             write(*,*) 'Restart error, more species in restart than room in State!'
@@ -684,18 +715,19 @@ module gioH5
         endif
 
         !Now handle magnetic fields
-        bDims = [Gr%Nip+1,Gr%Njp+1,Gr%Nkp+1,3]
-        !NOTE: For now, lazily assuming order
-        !Should use FindIO routine
-        State%magFlux(Gr%is:Gr%ie+1,Gr%js:Gr%je+1,Gr%ks:Gr%ke+1,:) = reshape(IOVars(2)%data,bDims)
+        if (Model%doMHD) then
+            call IOArray4DFill(IOVars,"magFlux" ,State %magFlux(Gr%is:Gr%ie+1,Gr%js:Gr%je+1,Gr%ks:Gr%ke+1,:))
+            call IOArray4DFill(IOVars,"omagFlux",oState%magFlux(Gr%is:Gr%ie+1,Gr%js:Gr%je+1,Gr%ks:Gr%ke+1,:))
+        endif
 
 
         !Get main attributes
+        dt = GetIOReal(IOVars,"t") - GetIOReal(IOVars,"ot") !Spacing between restart states
         if (doReset) then
             Model%IO%nOut = 0
             Model%IO%nRes = GetIOInt(IOVars,"nRes") + 1
             Model%ts      = 0
-            Model%t       = tReset            
+            Model%t       = tReset      
         else
             Model%IO%nOut = GetIOInt(IOVars,"nOut")
             Model%IO%nRes = GetIOInt(IOVars,"nRes") + 1
@@ -703,6 +735,9 @@ module gioH5
             Model%t       = GetIOReal(IOVars,"t")
         endif
         
+        State %time = Model%t
+        oState%time = State%time - dt !Handles tReset
+
         !Set back to old dt0 if possible
         if (ioExist(inH5,"dt0")) then
             call ClearIO(IOVars)
@@ -737,8 +772,7 @@ module gioH5
             rSpc = IOVars(1)%dims(5)-1
             if (Model%nSpc == rSpc) then
                 !Restart and Gas0 species agree, do stuff
-                wDims = [Gr%Nip,Gr%Njp,Gr%Nkp,NVAR,Model%nSpc+1]
-                Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,:,:) = reshape(IOVars(1)%data,wDims)
+                call IOArray5DFill(IOVars,"Gas0",Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,:,:))
             else
                 if (Model%isLoud) write(*,*) 'Gas0 is wrong size, ignoring ...'
             endif
@@ -747,12 +781,10 @@ module gioH5
         endif !Gas0
 
     !Do touchup to data structures
-        State%time = Model%t
         Model%IO%tOut = floor(Model%t/Model%IO%dtOut)*Model%IO%dtOut
         Model%IO%tRes = Model%t + Model%IO%dtRes
 
     end subroutine readH5Restart
-
 
     !Output black box from crash
     subroutine WriteBlackBox(Model,Gr,State)

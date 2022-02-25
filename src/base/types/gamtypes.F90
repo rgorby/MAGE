@@ -236,7 +236,7 @@ module gamtypes
 !State information
     type State_T
         real(rp) :: time
-        !Size (local grid) Ni,Nj,Nk,NVAR,(nSpc+1)
+        !Size (local grid) Ni,Nj,Nk,NVAR,(nSpc)
         real(rp), dimension(:,:,:,:,:), allocatable :: Gas
         !Size (local grid) Ni+1,Nj+1,Nk+1,nDim
         real(rp), dimension(:,:,:,:), allocatable :: magFlux 

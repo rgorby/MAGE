@@ -57,6 +57,13 @@ os.chdir(home)
 os.system("mkdir testFolder")
 os.chdir("testFolder")
 
+# get my current branch
+p = subprocess.Popen("git symbolic-ref --short HEAD", shell=True, stdout=subprocess.PIPE)
+gBranch = p.stdout.read()
+gBranch = gBranch.decode('ascii')
+gBranch = gBranch.rstrip()
+print(gBranch)
+
 # Set up some MPI modules in order to ask for the correct set of executables
 testModules = "module purge; module load intel/18.0.5; module load impi/2018.4.274; module load ncarenv/1.3;"
 testModules = testModules + "module load ncarcompilers/0.5.0; module load python/2.7.16;" 
@@ -135,7 +142,7 @@ subprocess.call(arguments, shell=True)
 os.chdir(home)
 
 # Check build directories for good executables
-myText = ""
+myText = "Testing builds on branch " + gBranch + "\n"
 i = 1
 isPerfect = True
 while i <= iteration:
@@ -179,8 +186,7 @@ while i <= iteration:
 
 # If nothing was wrong, change myText
 if (isPerfect == True):
-    myText = ""
-    myText = "Everything built properly!"
+    myText = "Everything built properly on branch " + gBranch + "!"
 
 # Don't print if it's a test, otherwise print if force, or there's an error
 if (not isTest and (beLoud or not isPerfect) ):

@@ -18,35 +18,8 @@ contains
   @before
   subroutine setup(this)
       class (MpiTestMethod), intent(inout) :: this
-      character(len=strLen) :: caseFile
-
-      integer :: ierror
-      type(MPI_Comm) :: gamComm, voltComm
 
       call setMpiReal()
-
-      write(caseFile,'(A,I0,A)') 'cmiD_deep_', this%getNumProcesses()-1, '.xml'
-
-
-      if(this%getProcessRank() < (this%getNumProcesses()-1)) then
-          isGamera = .true.
-          allocate(gamAppMpi)
-          allocate(g2vCommMpi)
-
-          ! make gamera-only mpi communicator
-          call MPI_Comm_Split(getMpiF08Communicator(this), 0, this%getProcessRank(), gamComm, ierror)
-
-          call initGamera_mpi(gamAppMpi, initUser, gamComm, caseFile, .false.)
-          call initGam2Volt(g2vCommMpi, gamAppMpi, getMpiF08Communicator(this), caseFile)
-      else
-          isGamera = .false.
-          allocate(voltAppMpi)
-
-          ! make gamera-only mpi communicator
-          call MPI_Comm_Split(getMpiF08Communicator(this), 1, this%getProcessRank(), voltComm, ierror)
-
-          call initVoltron_mpi(voltAppMpi, initUser, voltComm, getMpiF08Communicator(this), caseFile)
-      endif
 
   end subroutine setup
 
@@ -65,6 +38,35 @@ contains
       if(allocated(gamAppMpi)) deallocate(gamAppMpi)
 
   end subroutine teardown
+
+  subroutine initializeWithCaseXml(this, caseFile)
+      class (MpiTestMethod), intent(inout) :: this
+      character(len=*), intent(in) :: caseFile
+
+      integer :: ierror
+      type(MPI_Comm) :: gamComm, voltComm
+
+      if(this%getProcessRank() < (this%getNumProcesses()-1)) then
+          isGamera = .true.
+          allocate(gamAppMpi)
+          allocate(g2vCommMpi)
+
+          ! make gamera-only mpi communicator
+          call MPI_Comm_Split(getMpiF08Communicator(this), 0, this%getProcessRank(), gamComm, ierror)
+
+          call initGamera_mpi(gamAppMpi, initUser, gamComm, trim(caseFile), .false.)
+          call initGam2Volt(g2vCommMpi, gamAppMpi, getMpiF08Communicator(this), trim(caseFile))
+      else
+          isGamera = .false.
+          allocate(voltAppMpi)
+
+          ! make gamera-only mpi communicator
+          call MPI_Comm_Split(getMpiF08Communicator(this), 1, this%getProcessRank(), voltComm, ierror)
+
+          call initVoltron_mpi(voltAppMpi, initUser, voltComm, getMpiF08Communicator(this), trim(caseFile))
+      endif
+
+  end subroutine
 
   subroutine runApplication(tFin)
       real(rp), intent(in) :: tFin
@@ -112,6 +114,10 @@ contains
   subroutine testSerialCoupling(this)
       class (MpiTestMethod), intent(inout) :: this
 
+      character(len=strLen) :: caseFile
+      write(caseFile,'(A,I0,A)') 'cmiD_deep_', this%getNumProcesses()-1, '_res60.xml'
+      call initializeWithCaseXml(this, caseFile)
+
       if(isGamera) then
           ! adjust coupling parameters
           call endGam2VoltWaits(g2vCommMpi, gamAppMpi)
@@ -120,8 +126,8 @@ contains
           g2vCommMpi%firstShallowUpdate = .true.
           g2vCommMpi%firstDeepUpdate = .true.
 
-          ! run case for 1 minute of spinup and 1 minute of simulation
-          call runApplication(60.0_rp)
+          ! run case for 20 additional seconds
+          call runApplication(80.0_rp)
       else
           write (*,'(a,I0)') 'Testing Serial ',this%getNumProcesses()
 
@@ -133,8 +139,8 @@ contains
           voltAppMpi%firstDeepUpdate = .true.
           voltAppMpi%firstStepUpdate = .true.
 
-          ! run case for 1 minute of spinup and 1 minute of simulation
-          call runApplication(60.0_rp)
+          ! run case for 20 additional seconds
+          call runApplication(80.0_rp)
       endif
 
   end subroutine testSerialCoupling
@@ -143,6 +149,10 @@ contains
   subroutine testConcCoupling(this)
       class (MpiTestMethod), intent(inout) :: this
 
+      character(len=strLen) :: caseFile
+      write(caseFile,'(A,I0,A)') 'cmiD_deep_', this%getNumProcesses()-1, '_res60.xml'
+      call initializeWithCaseXml(this, caseFile)
+
       if(isGamera) then
           call endGam2VoltWaits(g2vCommMpi, gamAppMpi)
           g2vCommMpi%doSerialVoltron = .false.
@@ -150,8 +160,8 @@ contains
           g2vCommMpi%firstShallowUpdate = .true.
           g2vCommMpi%firstDeepUpdate = .true.
 
-          ! run case for 1 minute of spinup and 1 minute of simulation
-          call runApplication(60.0_rp)
+          ! run case for 20 additional seconds
+          call runApplication(80.0_rp)
       else
           write (*,'(a,I0)') 'Testing Concurrent ',this%getNumProcesses()
 
@@ -162,8 +172,8 @@ contains
           voltAppMpi%firstDeepUpdate = .true.
           voltAppMpi%firstStepUpdate = .true.
 
-          ! run case for 1 minute of spinup and 1 minute of simulation
-          call runApplication(60.0_rp)
+          ! run case for 20 additional seconds
+          call runApplication(80.0_rp)
       endif
 
   end subroutine testConcCoupling
@@ -172,6 +182,10 @@ contains
   subroutine testAsyncCoupling(this)
       class (MpiTestMethod), intent(inout) :: this
 
+      character(len=strLen) :: caseFile
+      write(caseFile,'(A,I0,A)') 'cmiD_deep_', this%getNumProcesses()-1, '_res60.xml'
+      call initializeWithCaseXml(this, caseFile)
+
       if(isGamera) then
           call endGam2VoltWaits(g2vCommMpi, gamAppMpi)
           g2vCommMpi%doSerialVoltron = .false.
@@ -179,8 +193,8 @@ contains
           g2vCommMpi%firstShallowUpdate = .true.
           g2vCommMpi%firstDeepUpdate = .true.
 
-          ! run case for 1 minute of spinup and 1 minute of simulation
-          call runApplication(60.0_rp)
+          ! run case for 20 additional seconds
+          call runApplication(80.0_rp)
       else
           write (*,'(a,I0)') 'Testing Async ',this%getNumProcesses()
 
@@ -191,8 +205,8 @@ contains
           voltAppMpi%firstDeepUpdate = .true.
           voltAppMpi%firstStepUpdate = .true.
 
-          ! run case for 1 minute of spinup and 1 minute of simulation
-          call runApplication(60.0_rp)
+          ! run case for 20 additional seconds
+          call runApplication(80.0_rp)
       endif
 
   end subroutine testAsyncCoupling
@@ -201,15 +215,16 @@ contains
   subroutine testAdjustShallowCoupling(this)
       class (MpiTestMethod), intent(inout) :: this
 
+      character(len=strLen) :: caseFile
+      write(caseFile,'(A,I0,A)') 'cmiD_deep_', this%getNumProcesses()-1, '_res0.xml'
+      call initializeWithCaseXml(this, caseFile)
+
       if(isGamera) then
           call endGam2VoltWaits(g2vCommMpi, gamAppMpi)
           g2vCommMpi%doSerialVoltron = .false.
           g2vCommMpi%doAsyncShallow = .true.
           g2vCommMpi%firstShallowUpdate = .true.
           g2vCommMpi%firstDeepUpdate = .true.
-
-          ! run case for 1 minute of spinup to initialize data
-          call runApplication(0.0_rp)
 
           ! couple three times and check DT
           call performShallowUpdate(g2vCommMpi,gamAppMpi)
@@ -232,9 +247,6 @@ contains
           voltAppMpi%ShallowDT = 5.0
           voltAppMpi%TargetShallowDT = 5.0
 
-          ! run case for 1 minute of spinup to initialize data
-          call runApplication(0.0_rp)
-
           ! couple three times and check DT
           call ShallowUpdate_mpi(voltAppMpi, voltAppMpi%time)
           call ShallowUpdate_mpi(voltAppMpi, voltAppMpi%time)
@@ -255,15 +267,16 @@ contains
   subroutine testAdjustDeepCoupling(this)
       class (MpiTestMethod), intent(inout) :: this
 
+      character(len=strLen) :: caseFile
+      write(caseFile,'(A,I0,A)') 'cmiD_deep_', this%getNumProcesses()-1, '_res0.xml'
+      call initializeWithCaseXml(this, caseFile)
+
       if(isGamera) then
           call endGam2VoltWaits(g2vCommMpi, gamAppMpi)
           g2vCommMpi%doSerialVoltron = .false.
           g2vCommMpi%doAsyncShallow = .true.
           g2vCommMpi%firstShallowUpdate = .true.
           g2vCommMpi%firstDeepUpdate = .true.
-
-          ! run case for 1 minute of spinup to initialize data
-          call runApplication(0.0_rp)
 
           ! couple three times and check DT
           call performDeepUpdate(g2vCommMpi,gamAppMpi)
@@ -286,9 +299,6 @@ contains
           voltAppMpi%DeepDT = 10.0
           voltAppMpi%TargetDeepDT = 10.0
 
-          ! run case for 1 minute of spinup to initialize data
-          call runApplication(0.0_rp)
-
           ! couple three times and check DT
           call DeepUpdate_mpi(voltAppMpi, voltAppMpi%time)
           call DeepUpdate_mpi(voltAppMpi, voltAppMpi%time)
@@ -309,7 +319,11 @@ contains
   subroutine testQuickSquish(this)
       class (MpiTestMethod), intent(inout) :: this
 
-      real(rp) :: x2err, x4err
+      integer :: Nbase, Nx2, Nx4
+      real(rp) :: x2err, x4err, Ndiv, approxShells
+      character(len=strLen) :: caseFile
+      write(caseFile,'(A,I0,A)') 'cmiD_deep_', this%getNumProcesses()-1, '_res0.xml'
+      call initializeWithCaseXml(this, caseFile)
 
       if(isGamera) then
           call endGam2VoltWaits(g2vCommMpi, gamAppMpi)
@@ -317,9 +331,6 @@ contains
           g2vCommMpi%doAsyncShallow = .true.
           g2vCommMpi%firstShallowUpdate = .true.
           g2vCommMpi%firstDeepUpdate = .true.
-
-          ! run case for 1 minute of spinup to initialize data
-          call runApplication(0.0_rp)
 
           ! explicitly deeo couple once to update deep data
           call performDeepUpdate(g2vCommMpi,gamAppMpi)
@@ -333,18 +344,32 @@ contains
           voltAppMpi%firstDeepUpdate = .true.
           voltAppMpi%firstStepUpdate = .true.
 
-          ! run case for 1 minute of spinup to initialize data
-          call runApplication(0.0_rp)
-
           ! explicitly deep couple once to update deep data
           call DeepUpdate_mpi(voltAppMpi, voltAppMpi%time)
 
           ! now check the quick squish erroers
-          call CheckQuickSquishError(voltAppmpi, voltAppMpi%gAppLocal, x2Err, x4Err)
+          call CheckQuickSquishError(voltAppMpi, voltAppMpi%gAppLocal, Nbase, Nx2, Nx4, x2Err, x4Err)
 
-          ! Empiricially determined values
-          @assertLessThanOrEqual(x2Err, 9000.0_rp, trim("X2 Quick Squish Error Too Large"))
-          @assertLessThanOrEqual(x4Err, 25000.0_rp, trim("X4 Quick Squish Error Too Large"))
+          ! Ensure that the number of valid cells decreases as quick squish interpolation increases
+          @assertTrue(Nx2 <= Nbase, trim("X2 Quick Squish has more valid cells than normal squish. This should not be possible."))
+          @assertTrue(Nx4 <= Nbase, trim("X4 Quick Squish has more valid cells than normal squish. This should not be possible."))
+          @assertTrue(Nx4 <= Nx2,   trim("X4 Quick Squish has more valid cells than X2 Quick Squish. This should not be possible."))
+
+          ! Per cell error metric
+          @assertLessThanOrEqual(x2Err, 5e-3_rp, trim("X2 Quick Squish Error per cell is too large"))
+          @assertLessThanOrEqual(x4Err, 2e-2_rp, trim("X4 Quick Squish Error per cell is too large"))
+
+          ! Approximate how many i layers of actual data there are if the data were spherical
+          approxShells = Nbase
+          approxShells = approxShells / (voltAppMpi%ebTrcApp%ebState%ebGr%ke+2-voltAppMpi%ebTrcApp%ebState%ebGr%ks)
+          approxShells = approxShells / (voltAppMpi%ebTrcApp%ebState%ebGr%je+2-voltAppMpi%ebTrcApp%ebState%ebGr%js)
+          ! If the data were spherical, squish x2 would reduce it by half of a layer on average. It's not spherical, so increase the error margin by 5
+          Ndiv = Nbase-Nx2
+          @assertLessThanOrEqual(Ndiv/Nbase, 2.5_rp/approxShells, trim("X2 Quick Squish has too many cells missing values compared to normal squish."))
+          ! If the data were spherical, squish x4 would reduce it by 1.5 of a layer on average. It's not spherical, so increase the error margin by 5
+          Ndiv = Nbase-Nx4
+          @assertLessThanOrEqual(Ndiv/Nbase, 7.5_rp/approxShells, trim("X4 Quick Squish has too many cells missing values compared to normal squish."))
+
       endif
   end subroutine testQuickSquish
 
@@ -352,7 +377,11 @@ contains
   subroutine testQuickSquishStorm(this)
       class (MpiTestMethod), intent(inout) :: this
 
-      real(rp) :: x2err, x4err
+      integer :: Nbase, Nx2, Nx4
+      real(rp) :: x2err, x4err, Ndiv, approxShells
+      character(len=strLen) :: caseFile
+      write(caseFile,'(A,I0,A)') 'cmiD_deep_', this%getNumProcesses()-1, '_res600.xml'
+      call initializeWithCaseXml(this, caseFile)
 
       if(isGamera) then
           call endGam2VoltWaits(g2vCommMpi, gamAppMpi)
@@ -360,9 +389,6 @@ contains
           g2vCommMpi%doAsyncShallow = .true.
           g2vCommMpi%firstShallowUpdate = .true.
           g2vCommMpi%firstDeepUpdate = .true.
-
-          ! run case for 10 minutes to get some storm data
-          call runApplication(600.0_rp)
 
           ! explicitly deeo couple once to update deep data
           call performDeepUpdate(g2vCommMpi,gamAppMpi)
@@ -376,18 +402,32 @@ contains
           voltAppMpi%firstDeepUpdate = .true.
           voltAppMpi%firstStepUpdate = .true.
 
-          ! run case for 10 minutes to get some storm data
-          call runApplication(600.0_rp)
-
           ! explicitly deep couple once to update deep data
           call DeepUpdate_mpi(voltAppMpi, voltAppMpi%time)
 
           ! now check the quick squish erroers
-          call CheckQuickSquishError(voltAppmpi, voltAppMpi%gAppLocal, x2Err, x4Err)
+          call CheckQuickSquishError(voltAppMpi, voltAppMpi%gAppLocal, Nbase, Nx2, Nx4, x2Err, x4Err)
 
-          ! Empirically determined values
-          @assertLessThanOrEqual(x2Err, 6000.0_rp, trim("X2 Quick Squish Error Too Large"))
-          @assertLessThanOrEqual(x4Err, 17000.0_rp, trim("X4 Quick Squish Error Too Large"))
+          ! Ensure that the number of valid cells decreases as quick squish interpolation increases
+          @assertTrue(Nx2 <= Nbase, trim("X2 Quick Squish has more valid cells than normal squish. This should not be possible."))
+          @assertTrue(Nx4 <= Nbase, trim("X4 Quick Squish has more valid cells than normal squish. This should not be possible."))
+          @assertTrue(Nx4 <= Nx2,   trim("X4 Quick Squish has more valid cells than X2 Quick Squish. This should not be possible."))
+
+          ! Per cell error metric
+          @assertLessThanOrEqual(x2Err, 5e-3_rp, trim("X2 Quick Squish Error per cell is too large"))
+          @assertLessThanOrEqual(x4Err, 2e-2_rp, trim("X4 Quick Squish Error per cell is too large"))
+
+          ! Approximate how many i layers of actual data there are if the data were spherical
+          approxShells = Nbase
+          approxShells = approxShells / (voltAppMpi%ebTrcApp%ebState%ebGr%ke+2-voltAppMpi%ebTrcApp%ebState%ebGr%ks)
+          approxShells = approxShells / (voltAppMpi%ebTrcApp%ebState%ebGr%je+2-voltAppMpi%ebTrcApp%ebState%ebGr%js)
+          ! If the data were spherical, squish x2 would reduce it by half of a layer on average. It's not spherical, so increase the error margin by 5
+          Ndiv = Nbase-Nx2
+          @assertLessThanOrEqual(Ndiv/Nbase, 2.5_rp/approxShells, trim("X2 Quick Squish has too many cells missing values compared to normal squish."))
+          ! If the data were spherical, squish x4 would reduce it by 1.5 of a layer on average. It's not spherical, so increase the error margin by 5
+          Ndiv = Nbase-Nx4
+          @assertLessThanOrEqual(Ndiv/Nbase, 7.5_rp/approxShells, trim("X4 Quick Squish has too many cells missing values compared to normal squish."))
+
       endif
   end subroutine testQuickSquishStorm
 

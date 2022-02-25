@@ -2,6 +2,7 @@
 
 module voltapp
     use mixtypes
+    use mixdefs
     use ebtypes
     use chmpdefs
     use starter
@@ -80,13 +81,24 @@ module voltapp
         call printPlanetParams(vApp%planet)
 
     !Initialize state information
+        !Check for Earth to decide what things need to happen
+        if (trim(gApp%Model%gamOut%uID) == "EARTH") then
+            vApp%isEarth = .true.
+            write(*,*) "Going into geospace mode ..."
+        else
+            vApp%isEarth = .false.
+            write(*,*) "Not using geospace mode ..."
+        endif
+
         !Set file to read from and pass desired variable name to initTS
         call xmlInp%Set_Val(vApp%tilt%wID,"/Kaiju/Gamera/wind/tsfile","NONE")
         call vApp%tilt%initTS("tilt",doLoudO=.false.)
         vApp%symh%wID = vApp%tilt%wID
         call vApp%symh%initTS("symh",doLoudO=.false.)
-        !Initialize TM03 model in case we wanna use it
-        call InitTM03(vApp%tilt%wID,0.0_rp)
+        if (vApp%isEarth) then
+            !Initialize TM03 model in case we wanna use it
+            call InitTM03(vApp%tilt%wID,0.0_rp)
+        endif
 
         gTScl = gApp%Model%Units%gT0
 
@@ -112,6 +124,18 @@ module voltapp
         call xmlInp%Set_Val(vApp%ShallowDT ,"coupling/dt" , 0.1_rp)
         vApp%TargetShallowDT = vApp%ShallowDT
         call xmlInp%Set_Val(vApp%doGCM, "coupling/doGCM",.false.)
+        if (vApp%isEarth) then
+            call xmlInp%Set_Val(vApp%mhd2mix%dtAvg ,"coupling/dtAvgB0",900.0)
+        else
+            call xmlInp%Set_Val(vApp%mhd2mix%dtAvg ,"coupling/dtAvgB0",-1.0)
+        endif
+        !Figure out weighting for exponential moving average (EMA)
+        !Want weighting such that ~95% of the weight comes from the last dtAvg seconds
+        if (vApp%mhd2mix%dtAvg > 0) then
+            vApp%mhd2mix%wAvg = 1.0 - exp(-3*vApp%ShallowDT/max(vApp%mhd2mix%dtAvg,vApp%ShallowDT))
+        else
+            vApp%mhd2mix%wAvg = 0.0 !Ignore any corrections after initial dipole value
+        endif
 
         if (vApp%doGCM) then
             call init_gcm(vApp%gcm,gApp%Model%isRestart)
@@ -158,7 +182,7 @@ module voltapp
                 stop
             endif
             if (doSpin) then
-                call xmlInp%Set_Val(tSpin,"spinup/tSpin",7200.0) !Default two hours
+                call xmlInp%Set_Val(tSpin,"spinup/tSpin",tSpinDef)
                 !Rewind Gamera time to negative tSpin (seconds)
                 gApp%Model%t = -tSpin/gTScl
                 !Reset State/oState
@@ -323,7 +347,7 @@ module voltapp
         else
             call init_mix(vApp%remixApp%ion,[NORTH, SOUTH],RunID=RunID,isRestart=isRestart,nRes=vApp%IO%nRes,optIO=vApp%writeFiles)
         endif
-        !vApp%remixApp%ion%rad_iono_m = RadIonosphere() * gApp%Model%units%gx0 ! [Rp] * [m/Rp]
+        
         vApp%remixApp%ion%rad_iono_m = vApp%planet%ri_m
         !Ensure remix and voltron restart numbers match
         if (isRestart .and. vApp%IO%nRes /= vApp%remixApp%ion(1)%P%nRes) then
@@ -334,15 +358,25 @@ module voltapp
             stop
         endif
 
-        !Set F10.7 from time series (using max)
-        f107%wID = vApp%tilt%wID
-        call f107%initTS("f10.7",doLoudO=.false.)
-        maxF107 = f107%getMax()
-        
-        do n=1,2
-            vApp%remixApp%ion(n)%P%f107 = maxF107
-        enddo
-        write(*,*) 'Using F10.7 = ', maxF107
+        if (vApp%remixApp%ion(NORTH)%P%doSWF107 /= vApp%remixApp%ion(SOUTH)%P%doSWF107) then
+            write(*,*) 'Something is wrong. doSWf107 is set differently for the two hemispheres.'
+            write(*,*) 'Exiting ...'
+            stop
+        endif
+
+        ! read f107 from the SW file and overwrite what's been read from .xml above (in init_mix)
+        ! note, only checking for NORTH, because both hemispheres read the same xml file        
+        if (vApp%remixApp%ion(NORTH)%P%doSWF107) then
+            !Set F10.7 from time series (using max)
+            f107%wID = vApp%tilt%wID
+            call f107%initTS("f10.7",doLoudO=.false.)
+            maxF107 = f107%getMax()
+
+            call updateF107(vApp%remixApp%ion,maxF107)
+    
+            write(*,*) 'Using F10.7 = ', maxF107        
+        endif                
+
         write(*,*) 'Using MJD0  = ', gApp%Model%MJD0
 
         call init_mhd2Mix(vApp%mhd2mix, gApp, vApp%remixApp)
@@ -499,15 +533,17 @@ module voltapp
 
     end subroutine
 
-    subroutine CheckQuickSquishError(vApp, gApp, x2Err, x4Err)
+    subroutine CheckQuickSquishError(vApp, gApp, Nbase, Nx2, Nx4, x2Err, x4Err)
         type(gamApp_T) , intent(inout) :: gApp
         class(voltApp_T), intent(inout) :: vApp
+        integer, intent(out) :: Nbase, Nx2, Nx4
         real(rp), intent(out) :: x2Err, x4Err
 
         integer :: i,j,k,baseQkSqStr
         logical :: baseDoQkSq
         real(rp), dimension(:,:,:,:), allocatable :: baseXyzSquish
         real(rp), dimension(2) :: posErr
+        real(rp) :: dErr
 
         associate(ebGr=>vApp%ebTrcApp%ebState%ebGr)
 
@@ -519,19 +555,22 @@ module voltapp
         vApp%qkSquishStride = 1
         vApp%doQkSquish = .false.
         call DeepUpdate(vApp, gApp)
+        Nbase = count(NORM2(vApp%chmp2mhd%xyzSquish(ebGr%is:vApp%iDeep+1,ebGr%js:ebGr%je+1,ebGr%ks:ebGr%ke+1,:),dim=4) > TINY)
         baseXyzSquish = vApp%chmp2mhd%xyzSquish
 
         ! squish with 2x quick squish stride
         vApp%qkSquishStride = 2
         vApp%doQkSquish = .true.
         call DeepUpdate(vApp, gApp)
+        Nx2 = count(NORM2(vApp%chmp2mhd%xyzSquish(ebGr%is:vApp%iDeep+1,ebGr%js:ebGr%je+1,ebGr%ks:ebGr%ke+1,:),dim=4) > TINY)
         x2Err = 0
         do i=ebGr%is,vApp%iDeep+1
             do j=ebGr%js,ebGr%je+1
                 do k=ebGr%ks,ebGr%ke+1
-                    posErr = abs(baseXyzSquish(i,j,k,:) - vApp%chmp2mhd%xyzSquish(i,j,k,:))
-                    if(posErr(2) > PI) posErr(2) = 2*PI - posErr(2)
-                    x2Err = x2Err + NORM2(posErr)
+                    if(NORM2(baseXyzSquish(i,j,k,:)) > TINY .and. NORM2(vApp%chmp2mhd%xyzSquish(i,j,k,:)) > TINY) then
+                        dErr = HaverDist(baseXyzSquish(i,j,k,:),vApp%chmp2mhd%xyzSquish(i,j,k,:))
+                        x2Err = x2Err + dErr
+                    endif
                 enddo
             enddo
         enddo
@@ -539,22 +578,47 @@ module voltapp
         ! squish with 4x quick squish stride
         vApp%qkSquishStride = 4
         call DeepUpdate(vApp, gApp)
+        Nx4 = count(NORM2(vApp%chmp2mhd%xyzSquish(ebGr%is:vApp%iDeep+1,ebGr%js:ebGr%je+1,ebGr%ks:ebGr%ke+1,:),dim=4) > TINY)
         x4Err = 0
         do i=ebGr%is,vApp%iDeep+1
             do j=ebGr%js,ebGr%je+1
                 do k=ebGr%ks,ebGr%ke+1
-                    posErr = abs(baseXyzSquish(i,j,k,:) - vApp%chmp2mhd%xyzSquish(i,j,k,:))
-                    if(posErr(2) > PI) posErr(2) = 2*PI - posErr(2)
-                    x4Err = x4Err + NORM2(posErr)
+                    if(NORM2(baseXyzSquish(i,j,k,:)) > TINY .and. NORM2(vApp%chmp2mhd%xyzSquish(i,j,k,:)) > TINY) then
+                        dErr = HaverDist(baseXyzSquish(i,j,k,:),vApp%chmp2mhd%xyzSquish(i,j,k,:))
+                        x4Err = x4Err + dErr
+                    endif
                 enddo
             enddo
         enddo
 
+        !Rescale to err/pt
+        x2Err = x2Err/Nx2
+        x4Err = x4Err/Nx4
+        
         vApp%qkSquishStride = baseQkSqStr
         vApp%doQkSquish = baseDoQkSq
         deallocate(baseXyzSquish)
 
         end associate
+
+        contains
+
+        function HaverDist(latlon1,latlon2) result(D)
+            real(rp), dimension(2) :: latlon1,latlon2
+            real(rp) :: D
+            real(rp) :: lat1,lon1,lat2,lon2,dLat,dLon,hArg
+
+            lat1 = latlon1(1)
+            lon1 = latlon1(2)
+            lat2 = latlon2(1)
+            lon2 = latlon2(2)
+
+            dLat = 0.5*(lat2-lat1)
+            dLon = 0.5*(lon2-lon1)
+
+            hArg = sin(dLat)**2.0 + cos(lat1)*cos(lat2)*sin(dLon)**2.0
+            D = 2*asin(sqrt(hArg))
+        end function HaverDist
 
     end subroutine
 
