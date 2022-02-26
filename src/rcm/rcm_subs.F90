@@ -1728,8 +1728,8 @@
           call IOArray3DFill(IOVars,"rcmeetaavg",eeta_avg)
           call IOArray3DFill(IOVars,"rcmeflux",eflux)
           call IOArray3DFill(IOVars,"rcmnflux",nflux)
-          call IOArray3DFill(IOVars,"rcmlosspre",lossratep)
-          call IOArray3DFill(IOVars,"rcmlossmod",lossmodel) ! uncomment this when done with restarting tests.
+!          call IOArray3DFill(IOVars,"rcmlosspre",lossratep)
+!          call IOArray3DFill(IOVars,"rcmlossmod",lossmodel) ! uncomment this when done with restarting tests.
           
         end subroutine ReadRCMRestart
 
