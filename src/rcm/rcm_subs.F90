@@ -3150,14 +3150,14 @@ FUNCTION RatefnDW(xx,yy,alamx,vmx,nex,kpx,bqx,losscx)
     RatefnDW(1) = 1.0/tau
     !tau = max(tau_s,RatefnC_tau_h16(MLT,E,L,kpx)) ! mltx,engx,Lshx,kp
     !RatefnDW(2) = 2.0
-  else
+  else  ! nlow <= nex <= nhigh
     tau_c = RatefnDW_tau_c(kpx, MLT,L,E)
     tau_h = RatefnC_tau_h16(kpx, MLT,L,E)
     if (abs(tau_h - 1.D10)< TINY .and. abs(tau_c - 1.D10)< TINY ) then
-       tau = tau_s
-       RatefnDW(2) = 4.0
+       tau = 1.D10   !both models are undefined
+       RatefnDW(2) = -1.0 ! undefined
        RatefnDW(1) = 1.0/tau
-    elseif (abs(tau_h - 1.D10)< TINY) then
+    elseif (abs(tau_h - 1.D10)< TINY) then ! hiss model is undefined
        if (tau_s > tau_c) then
           tau = tau_s
           RatefnDW(2) = 4.0
@@ -3166,7 +3166,7 @@ FUNCTION RatefnDW(xx,yy,alamx,vmx,nex,kpx,bqx,losscx)
           RatefnDW(2) = 1.0
        endif 
        RatefnDW(1) = 1.0/tau
-    elseif (abs(tau_c - 1.D10)< TINY) then
+    elseif (abs(tau_c - 1.D10)< TINY) then ! chorus model is undefined
        if (tau_s > tau_h) then
           tau = tau_s
           RatefnDW(2) = 4.0
@@ -3175,7 +3175,7 @@ FUNCTION RatefnDW(xx,yy,alamx,vmx,nex,kpx,bqx,losscx)
           RatefnDW(2) = 2.0
        endif
        RatefnDW(1) = 1.0/tau 
-    else
+    else ! both models have defined values
        if (tau_s > tau_c .and. tau_s > tau_h) then
           tau1 = tau_s
           tau2 = tau_s
