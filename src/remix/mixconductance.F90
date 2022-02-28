@@ -333,8 +333,8 @@ module mixconductance
          enddo
       enddo
       St%Vars(:,:,IM_BETA) = min(beta_RCM,1.0)
-      print *, 'ldong_20220126: rcm_fn0',minval(tmpC),maxval(tmpC)
-      print *, 'ldong_20220126: beta_RCM',minval(beta_RCM),maxval(beta_RCM)
+!      print *, 'ldong_20220126: rcm_fn0',minval(tmpC),maxval(tmpC)
+!      print *, 'ldong_20220126: beta_RCM',minval(beta_RCM),maxval(beta_RCM)
     end subroutine conductance_alpha_beta
 
     subroutine conductance_IM_TOPOD(G,St)
@@ -719,14 +719,14 @@ module mixconductance
          St%Vars(:,:,SIGMAH) = min(max(conductance%hallmin,St%Vars(:,:,SIGMAH)),&
               St%Vars(:,:,SIGMAP)*conductance%sigma_ratio)
       endif
-      print *, "ldong_20211222 AVG_ENG ",minval(St%Vars(:,:,AVG_ENG)),maxval(St%Vars(:,:,AVG_ENG))
-      print *, "ldong_20211222 NUM_FLUX",minval(St%Vars(:,:,NUM_FLUX)),maxval(St%Vars(:,:,NUM_FLUX))
-      print *, "ldong_20211222 AUR_TYPE",minval(St%Vars(:,:,AUR_TYPE)),maxval(St%Vars(:,:,AUR_TYPE))
-      print *,"ldong_20220104 IM_TOPOD: ",minval(St%Vars(:,:,IM_TOPOD)),maxval(St%Vars(:,:,IM_TOPOD))
-      print *,"ldong_20220104 TOPOD_RCM: ",minval(TOPOD_RCM),maxval(TOPOD_RCM)
-      print *,"ldong_20220104 deltaE: ",minval(conductance%deltaE),maxval(conductance%deltaE)
-      print *,"ldong_20220104 sigmap: ",minval(St%Vars(:,:,SIGMAP)),maxval(St%Vars(:,:,SIGMAP))
-      print *,"ldong_20220104 sigmah: ",minval(St%Vars(:,:,SIGMAH)),maxval(St%Vars(:,:,SIGMAH))
+!      print *, "ldong_20211222 AVG_ENG ",minval(St%Vars(:,:,AVG_ENG)),maxval(St%Vars(:,:,AVG_ENG))
+!      print *, "ldong_20211222 NUM_FLUX",minval(St%Vars(:,:,NUM_FLUX)),maxval(St%Vars(:,:,NUM_FLUX))
+!      print *, "ldong_20211222 AUR_TYPE",minval(St%Vars(:,:,AUR_TYPE)),maxval(St%Vars(:,:,AUR_TYPE))
+!      print *,"ldong_20220104 IM_TOPOD: ",minval(St%Vars(:,:,IM_TOPOD)),maxval(St%Vars(:,:,IM_TOPOD))
+!      print *,"ldong_20220104 TOPOD_RCM: ",minval(TOPOD_RCM),maxval(TOPOD_RCM)
+!      print *,"ldong_20220104 deltaE: ",minval(conductance%deltaE),maxval(conductance%deltaE)
+!      print *,"ldong_20220104 sigmap: ",minval(St%Vars(:,:,SIGMAP)),maxval(St%Vars(:,:,SIGMAP))
+!      print *,"ldong_20220104 sigmah: ",minval(St%Vars(:,:,SIGMAH)),maxval(St%Vars(:,:,SIGMAH))
 
     end subroutine conductance_total
 
