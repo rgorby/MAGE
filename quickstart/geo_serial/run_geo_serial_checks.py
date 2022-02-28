@@ -1,15 +1,16 @@
 #!/usr/bin/env python
 
 
-"""Perform quality checks on the results of running the gamera bw3d case.
+"""Perform quality checks on the results of running the gamera geo_serial case.
 
-Examine the results of running the bw3d example through gamera, and
-apply consistency checks.
+Perform QA checks on the results of running the geo_serial example
+through gamera.
 """
 
 
 # Import standard modules.
 import argparse
+import os
 import subprocess
 
 # Import 3rd-party modules.
@@ -21,11 +22,13 @@ import kaipy.gamera.gampp as gampp
 
 # Program constants and defaults
 
-# Program description.
-description = "Perform consistency checks on the gamera bw3d test case."
+# Default identifier for model to run,
+default_runid = "geo_serial"
 
-# Location of quick-look plots file.
-quicklook_file = "bw3d_quicklook.png"
+# Program description.
+description = (
+    "Perform consistency checks on the gamera %s test case." % default_runid
+)
 
     
 def create_command_line_parser():
@@ -48,32 +51,41 @@ def create_command_line_parser():
         help="Print debugging output (default: %(default)s)."
     )
     parser.add_argument(
+        "--directory", type=str, metavar="directory", default=os.getcwd(),
+        help="Directory to contain files generated for the run (default: %(default)s)"
+    )
+    parser.add_argument(
+        "--runid", type=str, metavar="runid", default=default_runid,
+        help="ID string of the run (default: %(default)s)"
+    )
+    parser.add_argument(
         "-v", "--verbose", action="store_true", default=False,
         help="Print verbose output (default: %(default)s)."
     )
     return parser
 
 
-def compute_symmetry_metric():
-    """Compute the symmetry metric at start and end.
-    
-    Compute the symmetry metric for the first and last steps:
+def compute_volume_integrated_magnetic_pressure(directory, runid):
+    """Compute the volume-integrated magnetic pressure at start and endxs.
 
-    Pb = (Bx**2 + By**2 + Bz**2)/2
-    symmetry_metric = SUM( (Pb[i,j] - Pb[j,i])*dV)
+    Compute the volume-integrated magnetic pressure for the first and
+    last steps.
 
     Parameters
     ----------
-    None
+    directory : str
+        Path to directory containing model results.
+    runid : str
+        ID string for model to run.
 
     Returns
     -------
-    symmetry_metric_first, symmetry_metric_last : float
-        Symmetry metric (in code units) for first and last steps.
+    Pb_integrated_first, Pb_integrated_last : float
+        Volume-integrated magnetic pressure for first and last steps.
     """
 
     # Open a pipe to the data file.
-    data_pipe = gampp.GameraPipe(".", "bw3d", doVerbose=False)
+    data_pipe = gampp.GameraPipe(directory, runid, doVerbose=False)
 
     # Load the grid cell volumes.
     dV = data_pipe.GetVar("dV", None, doVerb=False)[...]
@@ -84,7 +96,7 @@ def compute_symmetry_metric():
     By = data_pipe.GetVar("By", data_pipe.s0, doVerb=False)[...]
     Bz = data_pipe.GetVar("Bz", data_pipe.s0, doVerb=False)[...]
     Pb_first = (Bx**2 + By**2 + Bz**2)/2
-    symmetry_metric_first = np.sum((Pb_first - Pb_first.T)*dV)
+    Pb_integrated_first = np.sum(Pb_first*dV)
 
     # Load the magnetic field components from the last step, and use
     # to compute the magnetic pressure.
@@ -93,28 +105,8 @@ def compute_symmetry_metric():
     Bz = data_pipe.GetVar("Bz", data_pipe.sFin, doVerb=False)[...]
     Pb_last = (Bx**2 + By**2 + Bz**2)/2
     Pb_integrated_last = np.sum(Pb_last*dV)
-    symmetry_metric_last = np.sum((Pb_last - Pb_last.T)*dV)
 
-    return symmetry_metric_first, symmetry_metric_last
-
-
-def create_quicklook_plot():
-    """Create the quick-look plots in a file.
-    
-    Create the quicklook plots summarizing the bw3d run.
-
-    Parameters
-    ----------
-    None
-
-    Returns
-    -------
-    quicklook_file : str
-        Path to the file containing the quick-look plots.
-    """
-    cmd = "ql_bw3d.py"
-    subprocess.run([cmd])
-    return quicklook_file
+    return Pb_integrated_first, Pb_integrated_last
 
 
 if __name__ == "__main__":
@@ -126,18 +118,15 @@ if __name__ == "__main__":
     # Parse the command-line arguments.
     args = parser.parse_args()
     debug = args.debug
+    directory = args.directory
+    runid = args.runid
     verbose = args.verbose
 
-    # Verify the volume-integrated magnetic pressure.
+    # Compute the volume-integrated magnetic pressure.
     if verbose:
-        print("Computing symmetry metric.")
-    symmetry_metric_first, symmetry_metric_last = compute_symmetry_metric()
-    print("Symmetry metric (SUM((P - P.T)*dV):")
-    print("At start: %s (code units)" % symmetry_metric_first)
-    print("At end: %s (code units)" % symmetry_metric_last)
-
-    # Generate the quick-look plot.
+        print("Computing volume-integrated magnetic pressure.")
+    PbV1, PbV2 = compute_volume_integrated_magnetic_pressure(directory, runid)
     if verbose:
-        print("Creating quick-look plot.")
-    quicklook_file = create_quicklook_plot()
-    print("The quicklook plot is in %s." % quicklook_file)
+        print("Volume-integrated magnetic pressure (SUM(Pb*dV), code units):")
+        print("At start: %s" % PbV1)
+        print("At end: %s" % PbV2)
