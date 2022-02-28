@@ -169,19 +169,33 @@ MODULE lossutils
         IMPLICIT NONE
         REAL (rprec), INTENT (IN) :: Kpx, mltx,Lx,Ekx
         REAL(rprec) :: tau
+        REAL(rprec) :: tauKlMlLlEl,tauKlMlLlEu,tauKlMlLuEl,tauKlMlLuEu,tauKlMuLlEl,tauKlMuLlEu,tauKlMuLuEl,tauKlMuLuEu,&
+                       tauKuMlLlEl,tauKuMlLlEu,tauKuMlLuEl,tauKuMlLuEu,tauKuMuLlEl,tauKuMuLlEu,tauKuMuLuEl,tauKuMuLuEu
         REAL(rprec) :: tauMlLlEl,tauMlLlEu,tauMlLuEl,tauMlLuEu,tauMuLlEl,tauMuLlEu,tauMuLuEl,tauMuLuEu
         REAL(rprec) :: tauLlEl,tauLlEu,tauLuEl,tauLuEu,tauEl,tauEu
-        REAL(rprec) :: dM,wM,dL,wL,dE,wE
-        INTEGER :: Nk,Nm,Nl,Ne
-        INTEGER :: iK,mL,mU,lL,lU,eL,eU
+        REAL(rprec) :: dK,wK,dM,wM,dL,wL,dE,wE
+        INTEGER :: iK,kL,kU,mL,mU,lL,lU,eL,eU
 
         associate(Nm=>EWMTauInput%Nm,Nl=>EWMTauInput%Nl,Nk=>EWMTauInput%Nk,Ne=>EWMTauInput%Ne,&
                   Kpi=>EWMTauInput%Kpi,MLTi=>EWMTauInput%MLTi,Li=>EWMTauInput%Li,Eki=>EWMTauInput%Eki,&
-                  tau1i=>EWMTauInput%tau1i,tau2i=>EWMTauInput%tau2i)
+                  taui=>EWMTauInput%tau2i)
+                  !taui=>EWMTauInput%tau1i)
 
         ! look up in Kp
-        iK = minloc(abs(Kpi-Kpx),dim=1)
+        !iK = minloc(abs(Kpi-Kpx),dim=1)
 
+        ! Find the nearest naighbours in Kp
+        if (Kpx >= maxval(Kpi)) then
+            kL = Nk
+            kU = Nk
+        else if (Kpx <= minval(Kpi)) then
+            kL = 1
+            kU = 1
+        else
+            kL = maxloc(Kpi,dim=1,mask=Kpi<=Kpx)
+            kU = kL+1
+        endif
+           
         ! Find the nearest neighbours in MLT
         if (mltx >= maxval(MLTi) .or. mltx <= minval(MLTi))  then ! maxval of MLT is 24, minval of MLT is 0 
             mL = 1
@@ -232,26 +246,57 @@ MODULE lossutils
             return
         end if
 
+        !linear interpolation in Kp
+        if (kL == kU) then
+            tauMlLlEl = taui(kL,mL,lL,eL)
+            tauMlLlEu = taui(kL,mL,lL,eU)
+            tauMlLuEl = taui(kL,mL,lU,eL)
+            tauMlLuEu = taui(kL,mL,lU,eU)
+            tauMuLlEl = taui(kL,mU,lL,eL)
+            tauMuLlEu = taui(kL,mU,lL,eU)
+            tauMuLuEl = taui(kL,mU,lU,eL)
+            tauMuLuEu = taui(kL,mU,lU,eU)
+        else
+            dK = Kpi(kU)-Kpi(kL)
+            wK = (Kpx-Kpi(kL))/dK
+            tauKlMlLlEl = taui(kL,mL,lL,eL)
+            tauKuMlLlEl = taui(kU,mL,lL,eL)            
+            tauMlLlEl = tauKlMlLlEl + wK*(tauKuMlLlEl-tauKlMlLlEl)
+            tauKlMlLlEu = taui(kL,mL,lL,eU)
+            tauKuMlLlEu = taui(kU,mL,lL,eU)
+            tauMlLlEu = tauKlMlLlEu + wK*(tauKuMlLlEu-tauKlMlLlEu)
+            tauKlMlLuEl = taui(kL,mL,lU,eL)
+            tauKuMlLuEl = taui(kU,mL,lU,eL)
+            tauMlLuEl = tauKlMlLuEl + wK*(tauKuMlLuEl-tauKlMlLuEl)
+            tauKlMlLuEu = taui(kL,mL,lU,eU)
+            tauKuMlLuEu = taui(kU,mL,lU,eU)
+            tauMlLuEu = tauKlMlLuEu + wK*(tauKuMlLuEu-tauKlMlLuEu)
+            tauKlMuLlEl = taui(kL,mU,lL,eL)
+            tauKuMuLlEl = taui(kU,mU,lL,eL)
+            tauMuLlEl = tauKlMuLlEl + wK*(tauKuMuLlEl-tauKlMuLlEl)
+            tauKlMuLlEu = taui(kL,mU,lL,eU)
+            tauKuMuLlEu = taui(kU,mU,lL,eU)
+            tauMuLlEu = tauKlMuLlEu + wK*(tauKuMuLlEu-tauKlMuLlEu)
+            tauKlMuLuEl = taui(kL,mU,lU,eL)
+            tauKuMuLuEl = taui(kU,mU,lU,eL)
+            tauMuLuEl = tauKlMuLuEl + wK*(tauKuMuLuEl-tauKlMuLuEl)
+            tauKlMuLuEu = taui(kL,mU,lU,eU)
+            tauKuMuLuEu = taui(kU,mU,lU,eU)
+            tauMuLuEu = tauKlMuLuEu + wK*(tauKuMuLuEu-tauKlMuLuEu)
+        end if
+
         ! linear interpolation in mlt
         if (mL == mU) then 
-            tauLlEl = tau1i(iK,mL,lL,eL)
-            tauLlEu = tau1i(iK,mL,lL,eU)
-            tauLuEl = tau1i(iK,mL,lU,eL)
-            tauLuEu = tau1i(iK,mL,lU,eU)
+            tauLlEl = tauMuLlEl
+            tauLlEu = tauMuLlEu
+            tauLuEl = tauMuLuEl
+            tauLuEu = tauMuLuEu
         else
             dM = MLTi(mU)-MLTi(mL)
             wM = (mltx-MLTi(mL))/dM
-            tauMlLlEl =  tau1i(iK,mL,lL,eL)
-            tauMuLlEl =  tau1i(iK,mU,lL,eL)
             tauLlEl = tauMlLlEl + wM*(tauMuLlEl-tauMlLlEl)
-            tauMlLlEu =  tau1i(iK,mL,lL,eU)
-            tauMuLlEu =  tau1i(iK,mU,lL,eU)
             tauLlEu = tauMlLlEu + wM*(tauMuLlEu-tauMlLlEu)
-            tauMlLuEl =  tau1i(iK,mL,lU,eL)
-            tauMuLuEl =  tau1i(iK,mU,lU,eL)
             tauLuEl = tauMlLuEl + wM*(tauMuLuEl-tauMlLuEl)
-            tauMlLuEu =  tau1i(iK,mL,lU,eU)
-            tauMuLuEu =  tau1i(iK,mU,lU,eU)
             tauLuEu = tauMlLuEu + wM*(tauMuLuEu-tauMlLuEu)            
         end if
         
