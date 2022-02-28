@@ -1,16 +1,17 @@
 #!/usr/bin/env python
 
 
-"""Perform quality checks on the results of running the gamera loop2d case..
+"""Perform quality checks on the results of running the gamera loop2d case.
 
-Examine the results of running the loop2d example through gamera, and
-apply consistency checks.
+Perform QA checks on the results of running the loop2d example through
+gamera.
 """
 
 
 # Import standard modules.
 import argparse
-# import os
+import os
+import subprocess
 
 # Import 3rd-party modules.
 import numpy as np
@@ -21,15 +22,69 @@ import kaipy.gamera.gampp as gampp
 
 # Program constants and defaults
 
+# Default identifier for model to run,
+default_runid = "loop2d"
+
 # Program description.
-description = "Perform consistency checks on the gamera loop2d test case."
+description = (
+    "Perform consistency checks on the gamera %s test case." % default_runid
+)
 
 
-def verify_volume_integrated_magnetic_pressure():
-    """Verify the volume-integrated magnetic pressure."""
+def create_command_line_parser():
+    """Create the command-line argument parser.
+
+    Prepare the command-line parser.
+
+    Parameters
+    ----------
+    None
+
+    Returns
+    -------
+    None
+    """
+    parser = argparse.ArgumentParser(description=description)
+    parser.add_argument(
+        "-d", "--debug", action="store_true", default=False,
+        help="Print debugging output (default: %(default)s)."
+    )
+    parser.add_argument(
+        "--directory", type=str, metavar="directory", default=os.getcwd(),
+        help="Directory to contain files generated for the run (default: %(default)s)"
+    )
+    parser.add_argument(
+        "--runid", type=str, metavar="runid", default=default_runid,
+        help="ID string of the run (default: %(default)s)"
+    )
+    parser.add_argument(
+        "-v", "--verbose", action="store_true", default=False,
+        help="Print verbose output (default: %(default)s)."
+    )
+    return parser
+
+
+def compute_volume_integrated_magnetic_pressure(directory, runid):
+    """Compute the volume-integrated magnetic pressure at start and endxs.
+
+    Compute the volume-integrated magnetic pressure for the first and
+    last steps.
+
+    Parameters
+    ----------
+    directory : str
+        Path to directory containing model results.
+    runid : str
+        ID string for model to run.
+
+    Returns
+    -------
+    Pb_integrated_first, Pb_integrated_last : float
+        Volume-integrated magnetic pressure for first and last steps.
+    """
 
     # Open a pipe to the data file.
-    data_pipe = gampp.GameraPipe(".", "loop2d")
+    data_pipe = gampp.GameraPipe(directory, runid, doVerbose=False)
 
     # Load the grid cell volumes.
     dV = data_pipe.GetVar("dV", None, doVerb=False)[...]
@@ -50,21 +105,7 @@ def verify_volume_integrated_magnetic_pressure():
     Pb_last = (Bx**2 + By**2 + Bz**2)/2
     Pb_integrated_last = np.sum(Pb_last*dV)
 
-    print(Pb_integrated_first, Pb_integrated_last)
-
-    
-def create_command_line_parser():
-    """Create the command-line argument parser."""
-    parser = argparse.ArgumentParser(description=description)
-    parser.add_argument(
-        "-d", "--debug", action="store_true", default=False,
-        help="Print debugging output (default: %(default)s)."
-    )
-    parser.add_argument(
-        "-v", "--verbose", action="store_true", default=False,
-        help="Print verbose output (default: %(default)s)."
-    )
-    return parser
+    return Pb_integrated_first, Pb_integrated_last
 
 
 if __name__ == "__main__":
@@ -76,9 +117,15 @@ if __name__ == "__main__":
     # Parse the command-line arguments.
     args = parser.parse_args()
     debug = args.debug
+    directory = args.directory
+    runid = args.runid
     verbose = args.verbose
 
-    # Verify the volume-integrated magnetic pressure.
+    # Compute the volume-integrated magnetic pressure.
     if verbose:
-        print("Verifying volume-integrated magnetic pressure.")
-    verify_volume_integrated_magnetic_pressure()
+        print("Computing volume-integrated magnetic pressure.")
+    PbV1, PbV2 = compute_volume_integrated_magnetic_pressure(directory, runid)
+    if verbose:
+        print("Volume-integrated magnetic pressure (SUM(Pb*dV), code units):")
+        print("At start: %s" % PbV1)
+        print("At end: %s" % PbV2)

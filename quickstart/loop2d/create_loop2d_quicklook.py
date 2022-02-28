@@ -18,17 +18,18 @@ import os
 # Import 3rd-party modules.
 import matplotlib
 import matplotlib.pyplot as plt
-# import numpy as np
 
 # Import project-specific modules.
-# import kaipy.kaiH5 as kaih5
 import kaipy.gamera.gampp as gampp
 
 
 # Program constants and defaults
 
+# Default identifier for model to run,
+default_runid = "loop2d"
+
 # Program description.
-description = "Create a quick-look plot (Pb at start and end) for the loop2d test case."
+description = "Create a quick-look plot (Pb at start and end) for the %s test case." % default_runid
 
 
 def create_command_line_parser():
@@ -51,13 +52,11 @@ def create_command_line_parser():
         help="Print debugging output (default: %(default)s)."
     )
     parser.add_argument(
-        "--directory", type=str, metavar="directory",
-        default=os.getcwd(),
+        "--directory", type=str, metavar="directory", default=os.getcwd(),
         help="Directory containing data to read (default: %(default)s)"
     )
     parser.add_argument(
-        "--runid", type=str, metavar="runid",
-        default="loop2d",
+        "--runid", type=str, metavar="runid", default=default_runid,
         help="Run ID of data (default: %(default)s)"
     )
     parser.add_argument(
@@ -92,15 +91,15 @@ def create_quicklook_plot(directory, runid):
     X = data_pipe.X[...]
     Y = data_pipe.Y[...]
 
-    # Read the magnetic field components for the first step, and compute
-    # the corresponding magnetic pressure.
+    # Read the magnetic field components for the first step, and
+    # compute the corresponding magnetic pressure.
     Bx = data_pipe.GetVar("Bx", data_pipe.s0, doVerb=False)[...]
     By = data_pipe.GetVar("By", data_pipe.s0, doVerb=False)[...]
     Bz = data_pipe.GetVar("Bz", data_pipe.s0, doVerb=False)[...]
     Pb_first = (Bx**2 + By**2 + Bz**2)/2
 
-    # Read the magnetic field components for the last step, and compute
-    # the corresponding magnetic pressure.
+    # Read the magnetic field components for the last step, and
+    # compute the corresponding magnetic pressure.
     Bx = data_pipe.GetVar("Bx", data_pipe.sFin, doVerb=False)[...]
     By = data_pipe.GetVar("By", data_pipe.sFin, doVerb=False)[...]
     Bz = data_pipe.GetVar("Bz", data_pipe.sFin, doVerb=False)[...]
@@ -135,10 +134,10 @@ def create_quicklook_plot(directory, runid):
     fig.colorbar(values, cax=cbar_ax, label="%s [%s]" % ("Magnetic pressure", units))
 
     # Set the plot title.
-    plt.suptitle("Magnetic pressure at start and end for %s" % (runid))
+    plt.suptitle("Magnetic pressure at start and end for %s" % runid)
 
     # Save the quicklook plot.
-    figure_file_name = "%s_quicklook.png" % (runid)
+    figure_file_name = "%s_quicklook.png" % runid
     fig.savefig(figure_file_name)
 
     return figure_file_name

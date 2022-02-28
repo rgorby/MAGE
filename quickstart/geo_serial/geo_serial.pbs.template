@@ -1,28 +1,38 @@
 #!/bin/bash
-#PBS -N geo
+#PBS -N geo_serial
 #PBS -j oe
 #PBS -q normal
 #PBS -l walltime=8:00:00
 #PBS -l select=1:ncpus=28:ompthreads=28:model=bro
-##PBS -l select=48:ncpus=28:mpiprocs=2:model=bro:ompthreads=14+9:ncpus=28:mpiprocs=1:model=bro:ompthreads=28
 
-#Example usage
-#qsub -v geo.pbs
+# Example usage
+# qsub -v geo_serial.pbs
 
 echo "Job $PBS_JOBID started at `date` on `hostname`."
 
 # Specify the program to run, and the name of the model.
 export EXE=voltron.x
-export RUNID=geo
+export RUNID=geo_serial
 
-# Prepare the execution environment.
-source $HOME/.bashrc
-source $HOME/bin/use_kaiju_serial
+# Load the required modules.
+module purge
+module load pkgsrc/2021Q2
+module load comp-intel/2020.4.304
+module load hdf5/1.8.18_serial
+module load python3/3.9.5
+echo "The following modules are loaded:"
 module list
 
 # Set the OpenMP stack size to prevent segfaults.
 export OMP_STACKSIZE=100M
 
+# Set kaiju-related environment variables.
+# NOTE: Set WORK_ROOT to the location holding your kaiju builds.
+export WORK_ROOT=/nobackup/ewinter
+export KAIJUHOME=$WORK_ROOT/gamera/kaiju_serial/kaiju/
+export KAIJU_SCRIPTS=$KAIJUHOME/scripts
+export PYTHONPATH=$KAIJUHOME:$PYTHONPATH
+export PATH=$KAIJUHOME/quickstart/geo_serial:$KAIJU_SCRIPTS:$KAIJU_SCRIPTS/datamodel:$KAIJU_SCRIPTS/helio:$KAIJU_SCRIPTS/legacy:$KAIJU_SCRIPTS/postproc:$KAIJU_SCRIPTS/preproc:$KAIJU_SCRIPTS/quicklook:$KAIJUHOME/build/bin:$PATH
 echo "The active environment variables are:"
 printenv
 
