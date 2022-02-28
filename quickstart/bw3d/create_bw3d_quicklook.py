@@ -26,8 +26,13 @@ import numpy as np
 import kaipy.gamera.gampp as gampp
 
 
+# Program constants and defaults
+
+# Default identifier for model to run,
+default_runid = "bw3d"
+
 # Program description.
-description = "Create a quick-look plot (Pb at start and end) for the bw3d test case."
+description = "Create a quick-look plot (Pb at start and end) for the %s test case." % default_runid
 
 # Some RGB colors
 light_grey = (0.5, 0.5, 0.5)
@@ -58,7 +63,7 @@ def create_command_line_parser():
         help="Directory containing data to read (default: %(default)s)"
     )
     parser.add_argument(
-        "--runid", type=str, metavar="runid", default="bw3d",
+        "--runid", type=str, metavar="runid", default=default_runid,
         help="Run ID of data (default: %(default)s)"
     )
     parser.add_argument(
@@ -114,10 +119,10 @@ def determine_mpi_grid_shape(directory, runid):
 
 
 def create_quicklook_plot(directory, runid):
-    """Create the quicklook plot for the loop2d run.
-    
-    Create the quicklook plot for the loop2d run.
-    
+    """Create the quicklook plot for the bw3d run.
+
+    Create the quicklook plot for the bw3d run.
+
     Parameters
     ----------
     directory : str
