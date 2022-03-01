@@ -15,11 +15,13 @@ module mixconductance
   real(rp), dimension(:,:), allocatable, private :: tmpE,tmpF ! used for smoothing precipitation avg_eng and num_flux
   real(rp), dimension(:,:), allocatable, private :: Kc ! used for multi-reflection modification
   real(rp), dimension(:,:), allocatable, private :: beta_RCM,alpha_RCM,TOPOD_RCM ! two-dimensional beta based on RCM fluxes.
+  real(rp), dimension(:,:), allocatable, private :: phi0_rcmz, Pe_MHD, Ne_MHD, Pe_RMD, Ne_RMD
 
   !Replacing some hard-coded inline values (bad) w/ module private values (slightly less bad)
   real(rp), parameter, private :: maxDrop = 20.0 !Hard-coded max potential drop [kV]
   real(rp), private :: RinMHD = 0.0 !Rin of MHD grid (0 if not running w/ MHD)
   logical , private :: doRobKap = .true. !Use Kaeppler+ 15 correction to SigH/SigP from Robinson
+  real(rp) :: gamma = 5./3.
 
   contains
     subroutine conductance_init(conductance,Params,G)
@@ -79,12 +81,18 @@ module mixconductance
       if (.not. allocated(beta_RCM)) allocate(beta_RCM(G%Np,G%Nt))
       if (.not. allocated(alpha_RCM)) allocate(alpha_RCM(G%Np,G%Nt))
       if (.not. allocated(TOPOD_RCM)) allocate(TOPOD_RCM(G%Np,G%Nt))
+      if (.not. allocated(phi0_rcmz)) allocate(phi0_rcmz(G%Np,G%Nt))
+      if (.not. allocated(Pe_MHD)) allocate(Pe_MHD(G%Np,G%Nt))
+      if (.not. allocated(Ne_MHD)) allocate(Ne_MHD(G%Np,G%Nt))
+      if (.not. allocated(Pe_RMD)) allocate(Pe_RMD(G%Np,G%Nt))
+      if (.not. allocated(Ne_RMD)) allocate(Ne_RMD(G%Np,G%Nt))
 
       RinMHD = Params%RinMHD
       ! alpha_RCM and alpha_beta replace conductance_alpha/beta in zhang15.
       ! Use default xml input if not using rcmhd.
       alpha_RCM = 1.0/(tiote_RCM+1.0)
       beta_RCM  = conductance%beta
+      TOPOD_RCM = 0.0 ! if conductance_IM_TOPOD is not called, TOPOD_RCM has all zero, MHD values have a weight of 1.
 
     end subroutine conductance_init
 
@@ -245,6 +253,9 @@ module mixconductance
       type(mixState_T), intent(inout) :: St
       
       real(rp) :: signOfY, signOfJ
+      logical :: dorcm ! use combined mhd and rcm thermal fluxes to derive mono.
+      
+      dorcm = .true.
 
       tmpC = 0.D0
       tmpD = 0.D0
@@ -277,11 +288,20 @@ module mixconductance
       call conductance_auroralmask(conductance,G,signOfY)
 
 !Flag_up
-      !conductance%E0 = conductance%alpha*Mp_cgs*heFrac*erg2kev*tmpC**2
-      !conductance%phi0 = sqrt(kev2erg)/(heFrac*Mp_cgs)**1.5D0*conductance%beta*sqrt(heFrac*1836.152674)*0.39894228*tmpD*sqrt(conductance%E0)
-      conductance%E0 = alpha_RCM*Mp_cgs*heFrac*erg2kev*tmpC**2
-      conductance%phi0 = sqrt(kev2erg)/(heFrac*Mp_cgs)**1.5D0*beta_RCM*sqrt(heFrac*1836.152674)*0.39894228*tmpD*sqrt(conductance%E0)
-     ! conductance%phi0 = sqrt(kev2erg)/(heFrac*Mp_cgs)**1.5D0*conductance%beta*tmpD*sqrt(conductance%E0)
+      if(.not.dorcm) then ! default Zhang15 using MHD thermal flux only.
+         conductance%E0 = alpha_RCM*Mp_cgs*heFrac*erg2kev*tmpC**2
+         conductance%phi0 = sqrt(kev2erg)/(heFrac*Mp_cgs)**1.5D0*beta_RCM*sqrt(heFrac*1836.152674)*0.39894228*tmpD*sqrt(conductance%E0)
+      else
+         ! similarly, E0 is a ratio and should NOT be merged. 
+         ! Derive it from merged pressure and density instead.
+         ! See wiki for derivations of the coefficients.
+         Pe_MHD = 0.1/gamma*alpha_RCM*tmpD*tmpC**2 ! electron pressure from MHD side in [Pa].
+         Pe_RMD = TOPOD_RCM*St%Vars(:,:,IM_EPRE) + (1.0-TOPOD_RCM)*Pe_MHD ! Merged electron pressure in [Pa].
+         Ne_MHD = tmpD/(Mp_cgs*heFrac)*1.0D6      ! electron number density from MHD side in [/m^3].
+         Ne_RMD = TOPOD_RCM*St%Vars(:,:,IM_EDEN) + (1.0-TOPOD_RCM)*Ne_MHD ! Merged electron number density in [/m^3].
+         conductance%E0   = 2.0/kev2J*Pe_RMD/Ne_RMD     ! Mean energy from merged electron fluxes in [keV].
+         conductance%phi0 = beta_RCM*sqrt(Pe_RMD*Ne_RMD/(2.0D-3*pi*Me_cgs))*1.0D-4     ! Thermal number flux from merged electron fluxes in [#/cm^2/s].
+      endif
       
       JF0 = min( 1.D-4*signOfJ*(St%Vars(:,:,FAC)*1.e-6)/eCharge/(conductance%phi0), RM*0.99 )
 
@@ -310,7 +330,6 @@ module mixconductance
       type(mixGrid_T), intent(in) :: G
       type(mixState_T), intent(inout) :: St
       integer :: i,j
-      real(rp) :: rcm_nflx,rcm_fn0
 
       ! In MHD, use the same alpha/beta with RCM.
       ! Calculate beta from RCM fluxes.
@@ -318,23 +337,15 @@ module mixconductance
       ! It's still necessary to initialize alpha/beta_RCM here because they may be using an old value at some points
       ! if IM_EAVG or IM_EPRE or EM_EDEN no longer satisfies the if criteria. Better to use default background beta.
       alpha_RCM = 1.0/(tiote_RCM+1.0)
-      beta_RCM  = conductance%beta
-
-      !$OMP PARALLEL DO default(shared) &
-      !$OMP private(i,j,rcm_nflx,rcm_fn0)
-      do j=1,G%Nt
-         do i=1,G%Np
-            ! only calc rcm beta where there is meaningful precipitation, Te>0.1 nPa, and Ne>10/cc
-            if(St%Vars(i,j,IM_EAVG)>TINY .and. St%Vars(i,j,IM_EPRE)>1e-10 .and. St%Vars(i,j,IM_EDEN)>1e7) then
-               rcm_fn0 = sqrt(St%Vars(i,j,IM_EPRE)*St%Vars(i,j,IM_EDEN)/(0.91e-30*2*pi))*1.0e-4 ! sqrt([Pa]*[#/m^3]/[kg]) = sqrt([#/m^4/s^2]) = 1e-4*[#/cm^2/s]
-               rcm_nflx = St%Vars(i,j,IM_EFLUX)/(St%Vars(i,j,IM_EAVG)*kev2erg) ! [#/cm^2/s]
-               beta_RCM(i,j) = rcm_nflx/rcm_fn0
-            endif
-         enddo
-      enddo
+      phi0_rcmz = sqrt(St%Vars(:,:,IM_EPRE)*St%Vars(:,:,IM_EDEN)/(Me_cgs*1e-3*2*pi))*1.0e-4 ! sqrt([Pa]*[#/m^3]/[kg]) = sqrt([#/m^4/s^2]) = 1e-4*[#/cm^2/s]
+      where(phi0_rcmz>TINY.and.St%Vars(:,:,IM_EPRE)>1e-10 .and. St%Vars(:,:,IM_EDEN)>1e7)
+         beta_RCM = St%Vars(:,:,IM_ENFLX)/phi0_rcmz
+      elsewhere
+         beta_RCM  = conductance%beta
+      end where
+      print *, 'ldong_20220126: beta_RCM',minval(beta_RCM),maxval(beta_RCM)
       St%Vars(:,:,IM_BETA) = min(beta_RCM,1.0)
-!      print *, 'ldong_20220126: rcm_fn0',minval(tmpC),maxval(tmpC)
-!      print *, 'ldong_20220126: beta_RCM',minval(beta_RCM),maxval(beta_RCM)
+
     end subroutine conductance_alpha_beta
 
     subroutine conductance_IM_TOPOD(G,St)
