@@ -30,10 +30,10 @@ module list
 # Set kaiju-related environment variables.
 # NOTE: Set WORK_ROOT to the location holding your kaiju builds.
 export WORK_ROOT=/nobackup/ewinter
-export KAIJUHOME=$WORK_ROOT/gamera/kaiju_mpi/kaiju
+export KAIJUHOME=$WORK_ROOT/kaiju
 export KAIJU_SCRIPTS=$KAIJUHOME/scripts
 export PYTHONPATH=$KAIJUHOME:$PYTHONPATH
-export PATH=$KAIJU_SCRIPTS:$KAIJU_SCRIPTS/datamodel:$KAIJU_SCRIPTS/helio:$KAIJU_SCRIPTS/legacy:$KAIJU_SCRIPTS/postproc:$KAIJU_SCRIPTS/preproc:$KAIJU_SCRIPTS/quicklook:$KAIJUHOME/build/bin:$PATH
+export PATH=$KAIJUHOME/quickstart/bw3d:$KAIJU_SCRIPTS:$KAIJU_SCRIPTS/datamodel:$KAIJU_SCRIPTS/helio:$KAIJU_SCRIPTS/legacy:$KAIJU_SCRIPTS/postproc:$KAIJU_SCRIPTS/preproc:$KAIJU_SCRIPTS/quicklook:$KAIJUHOME/build/bin:$PATH
 export MPI_TYPE_DEPTH=32
 echo "The active environment variables are:"
 printenv
