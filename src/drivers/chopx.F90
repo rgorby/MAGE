@@ -5,6 +5,7 @@ program chopx
     use chmpdefs
     use chopio
     use ebtypes
+    use iotable
     use starter
     use chmpfields
 
@@ -54,7 +55,7 @@ program chopx
         if (modulo(Model%ts,Model%tsOut) ==0) then
             write(*,'(a,f12.3,a)') 'T = ', Model%t*oTScl, ' ' // trim(tStr)
             if (ebState%ebTab%hasMJD) then
-                mjd = MJDAt(ebState%ebTab,Model%t)
+                mjd = iotabMJD(ebState%ebTab,Model%t)
                 call mjd2utstr(mjd,utStr)
                 write (*,'(a,a)')                    '      UT   = ', trim(utStr)
             endif
