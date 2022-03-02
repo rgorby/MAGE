@@ -104,7 +104,7 @@ subprocess.call("cp ../../testingScripts/weeklyDashGo.pbs .", shell=True)
 # Generate new supporting files
 subprocess.call("genLFM.py -gid Q", shell=True)
 os.system("mv lfmQ.h5 NEWlfmX.h5")
-subprocess.call("omni2wind.py -t0 2016-08-09T02:00:00 -t1 2016-08-09T12:00:00 -o NEWbcwind.h5", shell=True)
+subprocess.call("cda2wind.py -t0 2016-08-09T02:00:00 -t1 2016-08-09T12:00:00 -o NEWbcwind.h5", shell=True)
 subprocess.call("genRCM.py -o NEWrcmconfig.h5", shell=True)
 
 # Copy the restart data
