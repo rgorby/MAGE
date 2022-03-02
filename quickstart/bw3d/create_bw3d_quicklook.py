@@ -203,7 +203,7 @@ def create_quicklook_plot(directory, runid):
     axes[0].set_aspect("equal")
     axes[0].set_ylabel("Y")
     values = axes[0].pcolormesh(X, Y, P_first, cmap="viridis", vmin=vmin, vmax=vmax)
-    axes[0].streamplot(XTC, YTC, Bx_first.T, By_first.T, linewidth=0.5, color=transparent_red, density=[0.5, 1])
+    axes[0].streamplot(XTC, YTC, Bx_first.T, By_first.T, linewidth=0.5, color="tab:orange", density=[0.5, 1])
     for x in mpi_tiles_x[1:-1]:
         axes[0].axvline(x, linestyle="--", linewidth=0.5, color=light_grey)
     for y in mpi_tiles_y[1:-1]:
@@ -216,7 +216,7 @@ def create_quicklook_plot(directory, runid):
     axes[1].set_xlabel("X")
     axes[1].set_ylabel("Y")
     values = axes[1].pcolormesh(X, Y, P_last, cmap="viridis", vmin=vmin, vmax=vmax)
-    axes[1].streamplot(XTC, YTC, Bx_last.T, By_last.T, linewidth=0.5, color=transparent_red, density=[0.5, 1])
+    axes[1].streamplot(XTC, YTC, Bx_last.T, By_last.T, linewidth=0.5, color="tab:orange", density=[0.5, 1])
     for x in mpi_tiles_x[1:-1]:
         axes[1].axvline(x, linestyle="--", linewidth=0.5, color=light_grey)
     for y in mpi_tiles_y[1:-1]:
