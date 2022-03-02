@@ -13,11 +13,11 @@ module voltio
     implicit none
 
     integer , parameter, private :: MAXVOLTIOVAR = 35
-    real(rp), parameter, private :: dtWallMax = 1.0 !How long between timer resets[hr]
     logical , private :: isConInit = .false.
-    real(rp), private ::  oMJD = 0.0
-    integer, private :: oTime = 0.0
+    real(rp), private ::  lastMJD = 0.0
+    integer, private :: lastTime = 0.0
     real(rp), private :: gamWait = 0.0
+    real(rp), private :: rtAccum = 0.0
     character(len=strLen), private :: vh5File
 
     contains
@@ -58,27 +58,26 @@ module voltio
 
         if (isConInit) then
             !Console output has been initialized
-            dMJD = cMJD - oMJD !Elapsed MJD since first recorded value
+            dMJD = cMJD - lastMJD !Elapsed MJD since first recorded value
             call system_clock(curCount,clockRate,countMax)
-            dtWall = (curCount - oTime)/clockRate
-            if(dtWall < 0) dtWall = dtWall + countMax / clockRate
+            if(curCount >= lastTime) then
+                dtWall = (curCount - lastTime) / clockRate
+            else
+                dtWall = (curCount - lastTime + countMax) / clockRate
+            endif
             simRate = dMJD*24.0*60.0*60.0/dtWall !Model seconds per wall second
+            rtAccum = 0.8*rtAccum + 0.2*simRate ! Weighted average to self-correct
             gamWait = 0.8*gamWait + 0.2*readClock('GameraSync')/(readClock(1)+TINY) ! Weighted average to self-correct
+            lastMJD = cMJD
+            lastTime = curCount
         else
             simRate = 0.0
-            oMJD = cMJD
-            call system_clock(count=oTime)
+            lastMJD = cMJD
+            call system_clock(count=lastTime)
             isConInit = .true.
             dtWall = 0.0
             gamWait = 0.0
-        endif
-
-        !Add some stupid trapping code to deal with fortran system clock wrapping
-        if ( (simRate<0) .or. (abs(dtWall/3600.0) >= dtWallMax) ) then
-            !Just reset counters, this is just for diagnostics don't need exact value
-            oMJD = cMJD
-            call system_clock(count=oTime)
-            simRate = 0.0
+            rtAccum = 0.0
         endif
 
         !Get MJD info
@@ -118,7 +117,7 @@ module voltio
             if (simRate>TINY) then
                 if (vApp%isSeparate) then
                     nTh = NumOMP()
-                    write (*, '(a,1f8.3,a,I0,a)')             '    Running @ ', simRate*100.0, '% of real-time (',nTh,' threads)'  
+                    write (*, '(a,1f8.3,a,I0,a)')             '    Running @ ', rtAccum*100.0, '% of real-time (',nTh,' threads)'  
                 else
                     write (*, '(a,1f8.3,a)'     )             '    Running @ ', simRate*100.0, '% of real-time'
                 endif
