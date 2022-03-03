@@ -616,11 +616,14 @@ module mixconductance
       type(mixGrid_T), intent(in) :: G
       type(mixState_T), intent(inout) :: St
 
-      ! note, this assumes that fedder has been called prior
+      ! note, this assumes that fedder95/zhang15/rcmhd/rcmono/rcmfed has been called prior
+      ! **********************************************************************************
+      ! ********** Diffuse precipitation from RCM has been divided by 2 in ***************
+      ! ********** rcm_subs.F90/subroutine kdiffPrecip for each hemisphere. **************
+      ! **********************************************************************************
       conductance%engFlux = kev2erg*St%Vars(:,:,AVG_ENG)*St%Vars(:,:,NUM_FLUX)  ! Energy flux in ergs/cm^2/s
       conductance%deltaSigmaP = SigmaP_Robinson(St%Vars(:,:,AVG_ENG),conductance%engFlux)
       conductance%deltaSigmaH = SigmaH_Robinson(St%Vars(:,:,AVG_ENG),conductance%engFlux)
-
 
     end subroutine conductance_aurora
 
