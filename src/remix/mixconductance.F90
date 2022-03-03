@@ -247,15 +247,20 @@ module mixconductance
 
     end subroutine conductance_fedder95
 
-    subroutine conductance_zhang15(conductance,G,St)
+    subroutine conductance_zhang15(conductance,G,St,dorcmO)
       type(mixConductance_T), intent(inout) :: conductance
       type(mixGrid_T), intent(in) :: G
       type(mixState_T), intent(inout) :: St
+      logical, optional, intent(in) :: dorcmO
       
       real(rp) :: signOfY, signOfJ
-      logical :: dorcm ! use combined mhd and rcm thermal fluxes to derive mono.
+      logical :: dorcm
       
-      dorcm = .true.
+      if(present(dorcmO)) then
+         dorcm = dorcmO
+      else ! default is NOT use RCM thermal flux for mono derivation.
+         dorcm = .false. 
+      endif
 
       tmpC = 0.D0
       tmpD = 0.D0
@@ -287,17 +292,18 @@ module mixconductance
 
       call conductance_auroralmask(conductance,G,signOfY)
 
-!Flag_up
+      Pe_MHD = 0.1/gamma*alpha_RCM*tmpD*tmpC**2 ! electron pressure from MHD side in [Pa].
+      Ne_MHD = tmpD/(Mp_cgs*heFrac)*1.0D6      ! electron number density from MHD side in [/m^3].
       if(.not.dorcm) then ! default Zhang15 using MHD thermal flux only.
-         conductance%E0 = alpha_RCM*Mp_cgs*heFrac*erg2kev*tmpC**2
-         conductance%phi0 = sqrt(kev2erg)/(heFrac*Mp_cgs)**1.5D0*beta_RCM*sqrt(heFrac*1836.152674)*0.39894228*tmpD*sqrt(conductance%E0)
-      else
+         ! conductance%E0 = alpha_RCM*Mp_cgs*heFrac*erg2kev*tmpC**2
+         ! conductance%phi0 = sqrt(kev2erg)/(heFrac*Mp_cgs)**1.5D0*beta_RCM*sqrt(heFrac*1836.152674)*0.39894228*tmpD*sqrt(conductance%E0)
+         conductance%E0   = 2.0/kev2J*Pe_MHD/Ne_MHD     ! Mean energy from MHD electron fluxes in [keV].
+         conductance%phi0 = beta_RCM*sqrt(Pe_MHD*Ne_MHD/(2.0D-3*pi*Me_cgs))*1.0D-4     ! Thermal number flux from MHD electron fluxes in [#/cm^2/s].
+      else ! Trigger this part by including dorcm=.true. when calling zhang15.
          ! similarly, E0 is a ratio and should NOT be merged. 
          ! Derive it from merged pressure and density instead.
          ! See wiki for derivations of the coefficients.
-         Pe_MHD = 0.1/gamma*alpha_RCM*tmpD*tmpC**2 ! electron pressure from MHD side in [Pa].
          Pe_RMD = TOPOD_RCM*St%Vars(:,:,IM_EPRE) + (1.0-TOPOD_RCM)*Pe_MHD ! Merged electron pressure in [Pa].
-         Ne_MHD = tmpD/(Mp_cgs*heFrac)*1.0D6      ! electron number density from MHD side in [/m^3].
          Ne_RMD = TOPOD_RCM*St%Vars(:,:,IM_EDEN) + (1.0-TOPOD_RCM)*Ne_MHD ! Merged electron number density in [/m^3].
          conductance%E0   = 2.0/kev2J*Pe_RMD/Ne_RMD     ! Mean energy from merged electron fluxes in [keV].
          conductance%phi0 = beta_RCM*sqrt(Pe_RMD*Ne_RMD/(2.0D-3*pi*Me_cgs))*1.0D-4     ! Thermal number flux from merged electron fluxes in [#/cm^2/s].
@@ -386,55 +392,45 @@ module mixconductance
       type(mixState_T), intent(inout) :: St
 
       integer :: i,j
-      logical :: isRCM,isMono,isMHD
-      real(rp) :: rcm_eavg,rcm_nflx,mhd_eavg,mhd_nflx,rcm_eavg_fin,rcm_nflx_fin,rcm_SigP,mhd_SigP,rcm_eavg0,rcm_nflx0
-      real(rp) :: rcm_eflx,rcm_eflx0,mhd_eflx,mhd_eflx0
-      real(rp) :: pK = 0.5 !Cut-off for "interesting" energy for precipitation [keV]
+      logical :: isMono
+      real(rp) :: mhd_eavg, mhd_nflx, mhd_eflx, rmd_nflx, rmd_eflx, rmd_eavg
+      real(rp) :: rmd_eavg_fin, rmd_nflx_fin, rmd_SigP, mhd_SigP
+      logical :: dorcm = .true.
 
+      ! derive spatially varying beta using RCM precipitation and thermal fluxes.
       call conductance_alpha_beta(conductance,G,St)
 
+      ! derive RCM grid weighting based on that passed from RCM and smooth it with five iterations of numerical diffusion.
       call conductance_IM_TOPOD(G,St)
 
-      call conductance_zhang15(conductance,G,St)
+      ! derive MHD/mono precipitation with zhang15 but include RCM thermal flux to the source by using dorcm=.true.
+      call conductance_zhang15(conductance,G,St,dorcm)
 
       !$OMP PARALLEL DO default(shared) &
-      !$OMP private(i,j,isRCM,isMono,isMHD,rcm_SigP,mhd_SigP,rcm_eavg0,rcm_nflx0) &
-      !$OMP private(rcm_eavg,rcm_nflx,mhd_eavg,mhd_nflx,rcm_eavg_fin,rcm_nflx_fin) &
-      !$OMP private(rcm_eflx,rcm_eflx0,mhd_eflx,mhd_eflx0)
+      !$OMP private(i,j,isMono) &
+      !$OMP private(mhd_eavg, mhd_nflx, mhd_eflx, rmd_nflx, rmd_eflx, rmd_eavg)&
+      !$OMP private(rmd_eavg_fin, rmd_nflx_fin, rmd_SigP, mhd_SigP)
       do j=1,G%Nt
          do i=1,G%Np
             isMono = conductance%deltaE(i,j) > 0.0    !Potential drop
 
-!            rcm_eavg0 = St%Vars(i,j,IM_EAVG)
-!            if(St%Vars(i,j,IM_EAVG)>TINY) then
-!               rcm_nflx0 = St%Vars(i,j,IM_EFLUX)/(St%Vars(i,j,IM_EAVG)*kev2erg)
-!            else
-!               rcm_nflx0 = 0.0
-!            endif
-            rcm_nflx0 = St%Vars(i,j,IM_ENFLX)
-            rcm_eflx0 = St%Vars(i,j,IM_EFLUX)
             mhd_eavg = St%Vars(i,j,Z_EAVG)
             mhd_nflx = St%Vars(i,j,Z_NFLUX)
             mhd_eflx = St%Vars(i,j,Z_EAVG)*St%Vars(i,j,Z_NFLUX)*kev2erg
 
-            rcm_nflx = rcm_nflx0*TOPOD_RCM(i,j)+mhd_nflx*(1.0-TOPOD_RCM(i,j))
-            rcm_eflx = rcm_eflx0*TOPOD_RCM(i,j)+mhd_eflx*(1.0-TOPOD_RCM(i,j))
-!            rcm_eavg = max(rcm_eavg0*TOPOD_RCM(i,j)+mhd_eavg*(1.0-TOPOD_RCM(i,j)),1.0e-8)
-            if(rcm_nflx>TINY) then
-               rcm_eavg = max(rcm_eflx/(rcm_nflx*kev2erg),1.0e-8)
+            rmd_nflx = St%Vars(i,j,IM_ENFLX)*TOPOD_RCM(i,j)+mhd_nflx*(1.0-TOPOD_RCM(i,j))
+            rmd_eflx = St%Vars(i,j,IM_EFLUX)*TOPOD_RCM(i,j)+mhd_eflx*(1.0-TOPOD_RCM(i,j))
+            if(rmd_nflx>TINY) then
+               rmd_eavg = max(rmd_eflx/(rmd_nflx*kev2erg),1.0e-8)
             else
-               rcm_eavg = 0.0
+               rmd_eavg = 0.0
             endif
-!            if(rcm_eflx<0.0 .or. rcm_nflx<0.0) then
-!               print *,"ldong_20211222 negative ",rcm_eavg,rcm_nflx,TOPOD_RCM(i,j),mhd_eavg,mhd_nflx,rcm_eavg0,rcm_nflx0
-!               print *,"ldong_20220217 negative ",rcm_eflx,rcm_nflx,TOPOD_RCM(i,j),mhd_eflx,mhd_nflx,rcm_eflx0,rcm_nflx0
-!            endif
 
             if (.not. isMono) then
                !F/T/T
                !Have RCM info and no drop, just use RCM
-               St%Vars(i,j,AVG_ENG ) = rcm_eavg
-               St%Vars(i,j,NUM_FLUX) = rcm_nflx
+               St%Vars(i,j,AVG_ENG ) = rmd_eavg
+               St%Vars(i,j,NUM_FLUX) = rmd_nflx
                St%Vars(i,j,AUR_TYPE) = AT_RMnoE
                cycle
             endif
@@ -442,24 +438,24 @@ module mixconductance
             !If still here, we have both RCM info and a potential drop
             !Decide between the two by taking one that gives highest Sig-P
             if (conductance%doMR) then ! be careful here is using nflux.
-               call AugmentMR(rcm_eavg,rcm_nflx,rcm_eavg_fin,rcm_nflx_fin) !Correct for MR
+               call AugmentMR(rmd_eavg,rmd_nflx,rmd_eavg_fin,rmd_nflx_fin) !Correct for MR
             else
                !No corrections
-               rcm_eavg_fin = rcm_eavg 
-               rcm_nflx_fin = rcm_nflx
+               rmd_eavg_fin = rmd_eavg
+               rmd_nflx_fin = rmd_nflx
             endif
 
-            rcm_SigP = SigmaP_Robinson(rcm_eavg_fin,kev2erg*rcm_eavg_fin*rcm_nflx_fin)
+            rmd_SigP = SigmaP_Robinson(rmd_eavg_fin,kev2erg*rmd_eavg_fin*rmd_nflx_fin)
             mhd_SigP = SigmaP_Robinson(mhd_eavg    ,kev2erg*mhd_eavg    *mhd_nflx    )
 
-            if (mhd_SigP>rcm_SigP) then
+            if (mhd_SigP>rmd_SigP) then
                St%Vars(i,j,AVG_ENG ) = mhd_eavg
                St%Vars(i,j,NUM_FLUX) = mhd_nflx
                St%Vars(i,j,AUR_TYPE) = AT_RMono
             else
                !RCM diffuse is still better than MHD + puny potential drop
-               St%Vars(i,j,AVG_ENG ) = rcm_eavg !Use un-augmented value since MR gets called later
-               St%Vars(i,j,NUM_FLUX) = rcm_nflx
+               St%Vars(i,j,AVG_ENG ) = rmd_eavg !Use un-augmented value since MR gets called later
+               St%Vars(i,j,NUM_FLUX) = rmd_nflx
                conductance%deltaE(i,j) = 0.0 !Wipe out potential drop since it don't matter (otherwise MR won't happen if desired)
                St%Vars(i,j,AUR_TYPE) = AT_RMfnE
             endif
@@ -479,6 +475,10 @@ module mixconductance
       real(rp) :: rcm_eavg,rcm_nflx,mhd_eavg,mhd_nflx,rcm_eavg_fin,rcm_nflx_fin,rcm_SigP,mhd_SigP,rcm_eavg0,rcm_nflx0
       real(rp) :: pK = 0.5 !Cut-off for "interesting" energy for precipitation [keV]
 
+      ! If using rcmono, beta will be uniform and specified in xml or default.
+      ! RCM thermal flux will NOT be used for mono by setting TOPOD_RCM = 0.0
+      ! to be safe, make beta_RCM=specified beta although conductance_alpha_beta won't be called in rcmono mode.
+      beta_RCM  = conductance%beta
       call conductance_zhang15(conductance,G,St)
 
       !$OMP PARALLEL DO default(shared) &
@@ -504,6 +504,10 @@ module mixconductance
             endif
             
             !If still here we have RCM information
+            ! Rcmono is obsolete here because it assumes rcm passes eflux and eavg,
+            !     and it does not involve any merging based on rcm grid.
+            !     It only chooses whichever is present and whichever gives higher SigP when both are present.
+            !     Keep it here as a historical record. Use rcmhd where nflux is merged.
             rcm_eavg = St%Vars(i,j,IM_EAVG)
             if(St%Vars(i,j,IM_EAVG)>TINY) then
                rcm_nflx = St%Vars(i,j,IM_EFLUX)/(St%Vars(i,j,IM_EAVG)*kev2erg)
