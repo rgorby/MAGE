@@ -465,7 +465,7 @@ module mixconductance
 
     end subroutine conductance_rcmhd
 
-    subroutine conductance_rcmono(conductance,G,St)
+    subroutine conductance_rcmonoK(conductance,G,St)
       type(mixConductance_T), intent(inout) :: conductance
       type(mixGrid_T), intent(in) :: G
       type(mixState_T), intent(inout) :: St
@@ -566,6 +566,25 @@ module mixconductance
 
          enddo
       enddo
+
+    end subroutine conductance_rcmonoK
+
+    subroutine conductance_rcmono(conductance,G,St)
+      ! Keep a record of even older rcmono in master as of 20220303. 
+      ! Slight changes to AUR_TYPE assignment. Note alpha/beta are effectively diff by 2/gamma and 1/sqrt(2).
+      type(mixConductance_T), intent(inout) :: conductance
+      type(mixGrid_T), intent(in) :: G
+      type(mixState_T), intent(inout) :: St
+
+      call conductance_zhang15(conductance,G,St)
+      ! If there is no potential drop OR mono eflux is too low, use RCM precipitation instead.
+      St%Vars(:,:,AUR_TYPE) = AT_MHD
+      where(conductance%deltaE<=0.0)
+         St%Vars(:,:,AVG_ENG)  = max(St%Vars(:,:,IM_EAVG),1.D-8) ! [keV]
+         St%Vars(:,:,NUM_FLUX) = St%Vars(:,:,IM_EFLUX)/(St%Vars(:,:,AVG_ENG)*kev2erg) ! [ergs/cm^2/s]
+         St%Vars(:,:,AUR_TYPE) = AT_RCM
+         !St%Vars(:,:,Z_NFLUX)  = -1.0 ! for diagnostic purposes since full Z15 does not currently work.
+      end where
 
     end subroutine conductance_rcmono
 
