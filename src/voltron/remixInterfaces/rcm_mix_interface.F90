@@ -88,17 +88,11 @@ contains
     real(rp), dimension(:,:), allocatable :: efluxS, eavgS, rcmTopodS, rcmedenS, rcmepreS, enflxS ! for SH mapping. will add ifluxS and iavgS later.
     integer :: ii, jj, kk, Nt, Np
     integer :: SHmaptype 
-    real(rp) :: NHfr, SHfr ! ratio of NH precipition number/energy flux to the total.
     ! # of steps for mapping RCM SH precipitation (may make it an option in XML later): 
     ! 0. direct mirror mapping using NH results; 
     ! 1. map from irregular RCM SH to remix; 
     ! 2. map from irregular RCM SH to a regular equivalent then map to remix as the NH does.
     SHmaptype=1
-
-    ! Start with a simple equal split between NH and SH.
-    ! Try to get more realistic IH asymmetric ratio based on B configuration later.
-    NHfr = 0.5D0
-    SHfr = 1.D0 - NHfr
 
     if ( (.not. imag2mix%isInit) .or. (.not. imag2mix%isFresh) ) return
 
@@ -127,8 +121,8 @@ contains
     end associate
 
     remixApp%ion(NORTH)%St%Vars(:,:,IM_EAVG)  = rcmEavg_mix*1e-3 ! [eV -> keV]
-    remixApp%ion(NORTH)%St%Vars(:,:,IM_ENFLX) = rcmEnflx_mix*NHfr     ! [#/cm^2/s]
-    remixApp%ion(NORTH)%St%Vars(:,:,IM_EFLUX) = rcmEflux_mix*NHfr     ! [ergs/cm^2/s]
+    remixApp%ion(NORTH)%St%Vars(:,:,IM_ENFLX) = rcmEnflx_mix     ! [#/cm^2/s]
+    remixApp%ion(NORTH)%St%Vars(:,:,IM_EFLUX) = rcmEflux_mix     ! [ergs/cm^2/s]
     remixApp%ion(NORTH)%St%Vars(:,:,IM_TOPOD) = rcmTopod_mix
     remixApp%ion(NORTH)%St%Vars(:,:,IM_EDEN)  = rcmeden_mix  ! [#/m^3]
     remixApp%ion(NORTH)%St%Vars(:,:,IM_EPRE)  = rcmepre_mix
@@ -153,8 +147,8 @@ contains
 
     associate(Nt=>remixApp%ion(SOUTH)%G%Nt,Np=>remixApp%ion(SOUTH)%G%Np)
     remixApp%ion(SOUTH)%St%Vars(:,:,IM_EAVG)  = rcmEavg_mix(Np:1:-1,:)*1e-3 ! [eV -> keV]
-    remixApp%ion(SOUTH)%St%Vars(:,:,IM_ENFLX) = rcmEnflx_mix(Np:1:-1,:)*SHfr
-    remixApp%ion(SOUTH)%St%Vars(:,:,IM_EFLUX) = rcmEflux_mix(Np:1:-1,:)*SHfr
+    remixApp%ion(SOUTH)%St%Vars(:,:,IM_ENFLX) = rcmEnflx_mix(Np:1:-1,:)
+    remixApp%ion(SOUTH)%St%Vars(:,:,IM_EFLUX) = rcmEflux_mix(Np:1:-1,:)
     remixApp%ion(SOUTH)%St%Vars(:,:,IM_TOPOD) = rcmTopod_mix(Np:1:-1,:)
     remixApp%ion(SOUTH)%St%Vars(:,:,IM_EDEN)  = rcmeden_mix(Np:1:-1,:)
     remixApp%ion(SOUTH)%St%Vars(:,:,IM_EPRE)  = rcmepre_mix(Np:1:-1,:)
@@ -169,12 +163,12 @@ contains
     call mix_map_grids(rcmMap,transpose(imag2mix%inflx(:,1:rcmNp)),rcmEnflx_mix)
     end associate
     remixApp%ion(NORTH)%St%Vars(:,:,IM_IAVG)  = rcmEavg_mix*1e-3 ! [eV -> keV]
-    remixApp%ion(NORTH)%St%Vars(:,:,IM_IFLUX) = rcmEflux_mix*NHfr
-    remixApp%ion(NORTH)%St%Vars(:,:,IM_INFLX) = rcmEnflx_mix*NHfr
+    remixApp%ion(NORTH)%St%Vars(:,:,IM_IFLUX) = rcmEflux_mix
+    remixApp%ion(NORTH)%St%Vars(:,:,IM_INFLX) = rcmEnflx_mix
     associate(Nt=>remixApp%ion(SOUTH)%G%Nt,Np=>remixApp%ion(SOUTH)%G%Np)
     remixApp%ion(SOUTH)%St%Vars(:,:,IM_IAVG)  = rcmEavg_mix(Np:1:-1,:)*1e-3 ! [eV -> keV]
-    remixApp%ion(SOUTH)%St%Vars(:,:,IM_IFLUX) = rcmEflux_mix(Np:1:-1,:)*SHfr
-    remixApp%ion(SOUTH)%St%Vars(:,:,IM_INFLX) = rcmEnflx_mix(Np:1:-1,:)*SHfr
+    remixApp%ion(SOUTH)%St%Vars(:,:,IM_IFLUX) = rcmEflux_mix(Np:1:-1,:)
+    remixApp%ion(SOUTH)%St%Vars(:,:,IM_INFLX) = rcmEnflx_mix(Np:1:-1,:)
     end associate
 
     !Set toggle and ignore it until isFresh toggled back
