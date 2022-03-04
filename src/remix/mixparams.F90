@@ -138,6 +138,7 @@ module mixparams
         call xmlInp%Set_Val(Params%doStarlight,"conductance/doStarlight",.false.)        
         call xmlInp%Set_Val(Params%doMR,"conductance/doMR",.false.)        
         call xmlInp%Set_Val(Params%apply_cap,"conductance/apply_cap",.true.)
+        call xmlInp%Set_Val(Params%gamma,"precipitation/gamma",5.0/3.0)
 
         ! if this is on, Params%F107 read from xml file above will be overwritten
         ! and F107 will be set from the SW file (i.e., from OMNI data)

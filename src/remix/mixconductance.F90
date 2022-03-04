@@ -21,7 +21,7 @@ module mixconductance
   real(rp), parameter, private :: maxDrop = 20.0 !Hard-coded max potential drop [kV]
   real(rp), private :: RinMHD = 0.0 !Rin of MHD grid (0 if not running w/ MHD)
   logical , private :: doRobKap = .true. !Use Kaeppler+ 15 correction to SigH/SigP from Robinson
-  real(rp) :: gamma = 5./3.
+  real(rp), private :: MIXgamma
 
   contains
     subroutine conductance_init(conductance,Params,G)
@@ -87,6 +87,7 @@ module mixconductance
       if (.not. allocated(Pe_RMD)) allocate(Pe_RMD(G%Np,G%Nt))
       if (.not. allocated(Ne_RMD)) allocate(Ne_RMD(G%Np,G%Nt))
 
+      call SetMIXgamma(Params%gamma)
       RinMHD = Params%RinMHD
       ! alpha_RCM and alpha_beta replace conductance_alpha/beta in zhang15.
       ! Use default xml input if not using rcmhd.
@@ -292,7 +293,7 @@ module mixconductance
 
       call conductance_auroralmask(conductance,G,signOfY)
 
-      Pe_MHD = 0.1/gamma*alpha_RCM*tmpD*tmpC**2 ! electron pressure from MHD side in [Pa].
+      Pe_MHD = 0.1/MIXgamma*alpha_RCM*tmpD*tmpC**2 ! electron pressure from MHD side in [Pa].
       Ne_MHD = tmpD/(Mp_cgs*heFrac)*1.0D6      ! electron number density from MHD side in [/m^3].
       if(.not.dorcm) then ! default Zhang15 using MHD thermal flux only.
          ! conductance%E0 = alpha_RCM*Mp_cgs*heFrac*erg2kev*tmpC**2
@@ -898,5 +899,11 @@ module mixconductance
       arraymar(1:2,:) = arraymar(G%Np+1:G%Np+2,:)
       arraymar(G%Np+3:G%Np+4,:) = arraymar(3:4,:)
     end subroutine conductance_margin
+
+    !Routine to change kp-default on the fly if necessary
+    subroutine SetMIXgamma(gamma)
+      real(rp), intent(in) :: gamma
+      MIXgamma = Params%gamma
+    end subroutine SetMIXgamma
 
   end module mixconductance
