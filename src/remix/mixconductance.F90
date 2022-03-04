@@ -903,7 +903,7 @@ module mixconductance
     !Routine to change kp-default on the fly if necessary
     subroutine SetMIXgamma(gamma)
       real(rp), intent(in) :: gamma
-      MIXgamma = Params%gamma
+      MIXgamma = gamma
     end subroutine SetMIXgamma
 
   end module mixconductance
