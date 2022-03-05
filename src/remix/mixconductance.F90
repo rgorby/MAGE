@@ -6,6 +6,7 @@ module mixconductance
   use gcminterp
   use math
   use euvhelper
+  use auroralhelper
   use rcmdefs, ONLY : tiote_RCM
   
   implicit none
@@ -20,8 +21,9 @@ module mixconductance
   !Replacing some hard-coded inline values (bad) w/ module private values (slightly less bad)
   real(rp), parameter, private :: maxDrop = 20.0 !Hard-coded max potential drop [kV]
   real(rp), private :: RinMHD = 0.0 !Rin of MHD grid (0 if not running w/ MHD)
-  logical , private :: doRobKap = .true. !Use Kaeppler+ 15 correction to SigH/SigP from Robinson
   real(rp), private :: MIXgamma
+  logical , private :: doRobKap = .true. !Use Kaeppler+ 15 correction to SigH/SigP from Robinson
+  logical , private :: doDrift = .false. !Whether to add drift term from Zhang
 
   contains
     subroutine conductance_init(conductance,Params,G)
@@ -313,6 +315,10 @@ module mixconductance
       JF0 = min( 1.D-4*signOfJ*(St%Vars(:,:,FAC)*1.e-6)/eCharge/(conductance%phi0), RM*0.99 )
 
       !NOTE: conductance%drift should be turned off when using RCM for diffuse
+      if (.not. doDrift) then
+         conductance%drift = 1.0 !Remove dep.
+      endif
+
       where ( JF0 > 1. )
       ! limit the max potential energy drop to 20 [keV]
          conductance%deltaE = min( 0.5*conductance%E0*(RM - 1.D0)*dlog((RM-1.D0)/(RM-JF0)),maxDrop)
@@ -714,10 +720,13 @@ module mixconductance
          case (FEDDER)
             call conductance_fedder95(conductance,G,St)
          case (ZHANG)
+            doDrift = .true.
             call conductance_zhang15(conductance,G,St)
          case (RCMONO)
+            doDrift = .false.
             call conductance_rcmono(conductance,G,St)
          case (RCMHD)
+            doDrift = .false.
             call conductance_rcmhd(conductance,G,St)
          case (RCMFED)
             call conductance_rcmfed(conductance,G,St)
@@ -758,29 +767,6 @@ module mixconductance
       endif
 
     end subroutine conductance_total
-
-    !Returns Robinson's SigP from eavg [kEv] and eflux [ergs/cm^2]
-   elemental function SigmaP_Robinson(eavg,eflux) result(SigP)
-      real(rp), intent(in) :: eavg,eflux
-      real(rp) :: SigP
-      SigP = 40.0*eavg*sqrt(eflux)/(16.0 + eavg**2.0)
-   end function SigmaP_Robinson
-
-   !Returns Robinson's SigH from eavg [kEv] and eflux [ergs/cm^2]
-   !NOTE: Extra correction from Fedder
-   elemental function SigmaH_Robinson(eavg,eflux) result(SigH)
-      real(rp), intent(in) :: eavg,eflux
-      real(rp) :: SigH
-      real(rp) :: SigP
-
-      SigP = SigmaP_Robinson(eavg,eflux)
-      if (doRobKap) then
-         !Kaeppler+ 2015
-         SigH = 0.57*SigP*(eavg**0.53)
-      else
-         SigH = 0.45*SigP*(eavg**0.85)/(1.0 + 0.0025*eavg**2.0) !Includes extra Fedder correction to curb values for high eavg
-      endif
-   end function SigmaH_Robinson
 
     subroutine conductance_ramp(conductance,G,rPolarBound,rEquatBound,rLowLimit)
       type(mixConductance_T), intent(inout) :: conductance
@@ -900,7 +886,7 @@ module mixconductance
       arraymar(G%Np+3:G%Np+4,:) = arraymar(3:4,:)
     end subroutine conductance_margin
 
-    !Routine to change kp-default on the fly if necessary
+    !Routine to change MIX-gamma on the fly if necessary
     subroutine SetMIXgamma(gamma)
       real(rp), intent(in) :: gamma
       MIXgamma = gamma
