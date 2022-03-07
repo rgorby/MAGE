@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 
-"""Make a quick-look plot for the geo_serial example run.
+"""Make a quick-look plot for the helio_serial example run.
 
 The quick-look plot is created by the msphpic.py script.
 """
@@ -23,7 +23,7 @@ import kaipy.gamera.gampp as gampp
 # Program constants and defaults
 
 # Default identifier for model to run,
-default_runid = "geo_serial"
+default_runid = "helio_serial"
 
 # Program description.
 description = "Create a quick-look plot (Pb at start and end) for the %s test case." % default_runid
@@ -86,19 +86,20 @@ def create_quicklook_plot(directory, runid):
     # Move to the directory containing the results.
     os.chdir(directory)
 
-    cmd = "msphpic.py"
-    args = []
-    subprocess.run([cmd] + args)
-    figure_file_name = os.path.join(directory, "qkpic.png")
+    # cmd = "msphpic.py"
+    # args = []
+    # subprocess.run([cmd] + args)
+    # figure_file_name = os.path.join(directory, "qkpic.png")
 
-    # Move back to the starting directory.
-    os.chdir(initial_directory)
+    # # Move back to the starting directory.
+    # os.chdir(initial_directory)
 
-    return figure_file_name
+    # return figure_file_name
+    return None
 
 
 if __name__ == "__main__":
-    """Make a quick-look plot for the geo_serial example run."""
+    """Make a quick-look plot for the helio_serial example run."""
 
     # Set up the command-line parser.
     parser = create_command_line_parser()
