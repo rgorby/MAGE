@@ -27,6 +27,7 @@ module mixtypes
      logical  :: doMR
      logical  :: doAuroralSmooth
      logical  :: apply_cap
+     logical  :: doSWF107
 
      ! solver
      integer :: maxitr
@@ -38,7 +39,8 @@ module mixtypes
      ! grid
      real(rp) :: LowLatBoundary
      integer :: Np, Nt
-
+     real(rp) :: RinMHD = 0.0 !MHD Rinner if defined
+     
      ! init
      logical :: init_from_file
 
@@ -100,9 +102,7 @@ module mixtypes
     real(rp) :: alpha, beta, R, F107,pedmin,hallmin,sigma_ratio,ped0, alphaZ, betaZ
     logical :: const_sigma, doRamp, doChill, doStarlight, apply_cap, doMR, doAuroralSmooth
 
-    ! auxilary variables
-    real(rp) :: PI2, ang65, ang100, pref, href, shall
-    real(rp) :: speder, pedslope, pedslope2, hallslope,sigmap65, sigmah65, sigmap100
+    ! arrays on the grid
     real(rp), dimension(:,:), allocatable :: zenith, coszen
     real(rp), dimension(:,:), allocatable :: euvSigmaP, euvSigmaH
     real(rp), dimension(:,:), allocatable :: deltaSigmaP, deltaSigmaH

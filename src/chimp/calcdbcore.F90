@@ -5,7 +5,6 @@ module calcdbcore
     use calcdbutils
     use clocks
     use geopack
-    use ebtabutils
     
 	implicit none
 
@@ -26,6 +25,9 @@ module calcdbcore
 
         type(BSGrid_T) :: magltBS !Squashed magBS
         real(rp) :: mjd
+
+        mjd = ioTabMJD(ebState%ebTab,t)
+        call MJDRecalc(mjd) !Setup geopack for this time
 
         !Remove far away points in magnetospheric grid and make remaining contiguous
         call Tic("Compactify")
@@ -50,9 +52,6 @@ module calcdbcore
 
         !Map dB-XYZ (SM) to dB-XYZ (GEO) if desired
         if (gGr%doGEO) then
-            mjd = MJDAt(ebState%ebTab,t)
-            call MJDRecalc(mjd) !Setup geopack for this time
-            
             call Tic("BSRemap")
             call BSRemap(gGr,gGr%dbMAG_xyz)
             call BSRemap(gGr,gGr%dbION_xyz)
@@ -109,13 +108,13 @@ module calcdbcore
 
         if (.not. gGr%doGEO) return
         
-        !$OMP PARALLEL DO default(shared) collapse(2) &
+        !$OMP PARALLEL DO default(shared) &
         !$OMP private(i,j,k,sm,geo)
         do k=1,gGr%Nz
             do j=1,gGr%NLon
                 do i=1,gGr%NLat
                     sm = dbXYZ(i,j,k,:) !SM ground dB
-                    call SM2GEO(sm(XDIR),sm(YDIR),sm(ZDIR),geo(XDIR),geo(YDIR),geo(ZDIR))
+                    call SM2GEO(sm,geo)
                     dbXYZ(i,j,k,:) = geo
                 enddo
             enddo
@@ -177,13 +176,11 @@ module calcdbcore
 
         integer :: i,j,k
         integer, dimension(2) :: ijC
-        real(rp), dimension(NDIM) :: x0,dBxyz,dBrtp
-        real(rp) :: Bn
+        real(rp), dimension(NDIM) :: x0,dBxyz,nhat
+        real(rp) :: rad,theta,phi
         real(rp), dimension(:,:,:), allocatable :: Bncorr
         real(rp), dimension(:,:), allocatable :: mlatIJ,mlonIJ,BnIJ,BncIJ
         logical , dimension(:,:), allocatable :: I_UL,I_R,I_00,I_06,I_12,I_18,IRLT
-
-        
 
     !Allocate arrays
         allocate(Bncorr(gGr%NLat,gGr%NLon,gGr%Nz))
@@ -203,25 +200,41 @@ module calcdbcore
         allocate(IRLT(gGr%NLat,gGr%NLon))
 
     !Get array values (to easily do minloc/maxloc)
+        !-Start by calculating smlat/lon
+
         !$OMP PARALLEL DO default(shared) collapse(2) &
-        !$OMP private(i,j,k,x0,dBxyz,dBrtp,Bn)
+        !$OMP private(i,j,k,x0,rad)
         do k=1,gGr%Nz
             do j=1,gGr%NLon
                 do i=1,gGr%NLat
-                    x0 = gGr%SMxyzC(i,j,k,:) !Cell center of ground grid
-                    gGr%smlat(i,j,k) = asin(x0(ZDIR)/norm2(x0)) *180.0/PI !geomagnetic latitude
+                    x0 = gGr%SMxyzC(i,j,k,XDIR:ZDIR) !Cell center of ground grid
+                    rad = norm2(x0)
+                    gGr%smlat(i,j,k) = asin(x0(ZDIR)/rad)       *180.0/PI !geomagnetic latitude
                     gGr%smlon(i,j,k) = katan2(x0(YDIR),x0(XDIR))*180.0/PI !geomagnetic longitude
-                    !Get total SM-XYZ deflection
-                    dBxyz = gGr%dbMAG_xyz(i,j,k,:) + gGr%dbION_xyz(i,j,k,:) + gGr%dbFAC_xyz(i,j,k,:)
-                    !Convert to spherical coordinates
-                    dBrtp = xyz2rtp(x0,dBxyz)
-                    !Bn = -dB_theta-SM
-                    Bn = -dBrtp(2) !Deflection in direction of geomagnetic north
-                    gGr%dBn(i,j,k) = Bn
-                    Bncorr(i,j,k)  = Bn/cos(gGr%smlat(i,j,k)*PI/180.0) !Corrected northward
                 enddo
             enddo
         enddo
+
+        !-Now calculate northward deflection (use mag north)
+        !$OMP PARALLEL DO default(shared) collapse(2) &
+        !$OMP private(i,j,k,x0,rad,theta,phi,nhat,dBxyz)
+        do k=1,gGr%Nz
+            do j=1,gGr%NLon
+                do i=1,gGr%NLat
+                    x0 = gGr%SMxyzC(i,j,k,XDIR:ZDIR)
+                    rad   = norm2(x0)
+                    theta = acos (x0(ZDIR)/rad)
+                    phi   = atan2(x0(YDIR),x0(XDIR))
+                    nhat = -[cos(theta)*cos(phi),cos(theta)*sin(phi),-sin(theta)] !- thetahat
+                    dBxyz = gGr%dbMAG_xyz(i,j,k,XDIR:ZDIR) + gGr%dbION_xyz(i,j,k,XDIR:ZDIR) &
+                          + gGr%dbFAC_xyz(i,j,k,XDIR:ZDIR)
+                    gGr%dBn(i,j,k) = dot_product(dBxyz,nhat)
+                enddo
+            enddo
+        enddo
+
+        !-Calculate corrected northward
+        Bncorr = gGr%dBn/cos(gGr%smlat*PI/180.0)
 
     !Slice down to specific level
         k = 1 !Do calculation at lowest level

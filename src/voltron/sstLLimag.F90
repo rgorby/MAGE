@@ -13,7 +13,7 @@ module sstLLimag
 
     type, extends(innerMagBase_T) :: empData_T ! replace "emp" (specific to equator) with a more descriptive "emp" for "empirical"
 
-        type(ebTab_T)   :: ebTab
+        type(ioTab_T)   :: ebTab
         logical :: doStatic = .true.
         integer :: Nt,Np
         real(rp), dimension(:,:), allocatable :: X,Y
@@ -23,6 +23,8 @@ module sstLLimag
         real(rp) :: rDeep   ! where we're ingesting
         type(mixGrid_T) :: sstG   ! remix-style grid
         real(rp), dimension(:,:), allocatable :: sstP  ! pressure interpolated to sstG
+        real(rp), dimension(:,:), allocatable :: sstBvol  ! ftv interpolated to sstG
+        real(rp), dimension(:,:), allocatable :: Iopen  ! keeps track of which field lines are open (NOTE: its not an integer)
 
         contains
 
@@ -37,16 +39,12 @@ module sstLLimag
 
     contains
 
-    ! VGM 06052020
-    ! TODO: planet parameters added for RCM should be packed into a module for compactness
-    ! and probaly made an optional argument
 
     !Initialize Empirical Map data
-    subroutine initSST(imag,iXML,isRestart,rad_planet_m,rad_iono_m,M0g,vApp)
+    subroutine initSST(imag,iXML,isRestart,vApp)
         class(empData_T), intent(inout) :: imag
         type(XML_Input_T), intent(in) :: iXML
         logical, intent(in) :: isRestart !Do you even care? VGM: NO
-        real(rp), intent(in) :: rad_planet_m,rad_iono_m, M0g ! Specific planet parameters        
         type(voltApp_T), intent(inout) :: vApp
 
         character(len=strLen) :: empFile
@@ -60,8 +58,8 @@ module sstLLimag
         call CheckFileOrDie(empFile,"Error opening Empirical Map data")
 
         imag%ebTab%bStr = empFile        
-        !Scrape info from file (don't use CHIMP time scaling)
-        call rdTab(imag%ebTab,iXML,empFile,doTSclO=.false.)
+        !Scrape info from file
+        call InitIOTab(imag%ebTab,iXML,empFile)
         if (imag%ebTab%N>1) then
             imag%doStatic = .false.
         endif
@@ -77,7 +75,9 @@ module sstLLimag
         allocate(imag%empW1(1:imag%Np,1:imag%Nt,NVARIMAG))
         allocate(imag%empW2(1:imag%Np,1:imag%Nt,NVARIMAG))
 
-        allocate(imag%sstP(1:imag%Np,1:imag%Nt))        
+        allocate(imag%sstP(1:imag%Np,1:imag%Nt))
+        allocate(imag%sstBvol(1:imag%Np,1:imag%Nt))        
+        allocate(imag%Iopen(1:imag%Np,1:imag%Nt))
 
     !Read grid
         call ClearIO(IOVars)
@@ -97,7 +97,7 @@ module sstLLimag
         ! if imag%doStatic, it returns n1=n2=1
 
         ! TODO: can we just do AdvanceSST(imag,vApp,vApp%time) here? 
-        call findSlc(imag%ebTab,vApp%time,n1,n2)
+        call GetTabSlc(imag%ebTab,vApp%time,n1,n2)
 
         call rdEmpMap(imag,n1,imag%empW1)
         imag%empN1 = n1
@@ -112,6 +112,9 @@ module sstLLimag
 
         ! start with the first time slice
         call EvalSST(imag,imag%empT1)
+
+        write(*,*) "SST Init BVOLS:"
+        write(*,*) imag%sstBvol
 
         ! initialize the remix-style grid to interpolate to RCM
         ! note, -1 in both dimensions 
@@ -129,27 +132,31 @@ module sstLLimag
 
         integer :: n1,n2
 
-        if ( (tAdv >= imag%empT1) .and. (tAdv <= imag%empT2) ) then
+        !This results in EvalSST not being called, so no time interpolation happens while T1 < tAdv < T2
+        !if ( (tAdv >= imag%empT1) .and. (tAdv <= imag%empT2) ) then
             !Nothing to do here
-            return
+        !    return
+        !endif
+
+        !If tAdv is out of range of loaded slices, need to update
+        if (tAdv < imag%empT1 .or. tAdv > imag%empT2) then
+            call GetTabSlc(imag%ebTab,tAdv,n1,n2)
+            if (imag%empN1 /= n1) then
+                !Read slice
+                call rdEmpMap(imag,n1,imag%empW1)
+                imag%empN1 = n1
+                imag%empT1 = imag%ebTab%times(n1)
+            endif
+
+            if (imag%empN2 /= n2) then
+                !Read slice
+                call rdEmpMap(imag,n2,imag%empW2)
+                imag%empN2 = n2
+                imag%empT2 = imag%ebTab%times(n2)
+            endif
         endif
 
-        !Otherwise we need to update
-        call findSlc(imag%ebTab,tAdv,n1,n2)
-        if (imag%empN1 /= n1) then
-            !Read slice
-            call rdEmpMap(imag,n1,imag%empW1)
-            imag%empN1 = n1
-            imag%empT1 = imag%ebTab%times(n1)
-        endif
-
-        if (imag%empN2 /= n2) then
-            !Read slice
-            call rdEmpMap(imag,n2,imag%empW2)
-            imag%empN2 = n2
-            imag%empT2 = imag%ebTab%times(n2)
-        endif
-
+        !Always want to run this
         call EvalSST(imag,tAdv)
 
     end subroutine AdvanceSST
@@ -159,23 +166,29 @@ module sstLLimag
     subroutine EvalSST(empData,t)  
         type(empData_T), intent(inout) :: empData
         real(rp) :: t,w1,w2
-        real(rp), dimension(:,:), allocatable :: P
+        real(rp), dimension(:,:), allocatable :: P, bVol
 
         ! first interpolate in time
         call tWeights(empData,t,w1,w2)
         P = w1*empData%empW1(:,:,1) + w2*empData%empW2(:,:,1)
+        bVol = w1*empData%empW1(:,:,2) + w2*empData%empW2(:,:,2)
 
         ! now interpolate in space (cell-centers to corners)
         ! P is dynamically allocated above (Fortran 2003 standard) to (Np,Nt) size
 
         associate(Np=>empData%Np, Nt=>empData%Nt)
         empData%sstP(2:Np,2:Nt) = 0.25*( P(2:Np,1:Nt-1)+P(2:Np,2:Nt)+P(1:Np-1,1:Nt-1)+P(1:Np-1,2:Nt) )
-            
+        empData%sstBvol(2:Np,2:Nt) = 0.25*( bVol(2:Np,1:Nt-1)+bVol(2:Np,2:Nt)+bVol(1:Np-1,1:Nt-1)+bVol(1:Np-1,2:Nt) )
+
         ! fix periodic
         empData%sstP(1,2:Nt) = 0.25*( P(Np,1:Nt-1)+P(Np,2:Nt)+P(1,1:Nt-1)+P(1,2:Nt) )
+        empData%sstBvol(1,2:Nt) = 0.25*( bVol(Np,1:Nt-1)+bVol(Np,2:Nt)+bVol(1,1:Nt-1)+bVol(1,2:Nt) )
 
         ! fix pole
         empData%sstP(:,1) = empData%sstP(:,2)
+        empData%sstBvol(:,1) = empData%sstBvol(:,2)
+
+        call SetSSTIOpen(empData)
 
         ! now sstP has the size (1:Np,1:Nt)
         end associate
@@ -187,7 +200,7 @@ module sstLLimag
         integer, intent(in) :: n
         real(rp), dimension(:,:,:), intent(inout) :: W
 
-        integer, parameter :: NIOVAR = 2
+        integer, parameter :: NIOVAR = 3
         type(IOVAR_T), dimension(NIOVAR) :: IOVars
         integer :: dims(2)
 
@@ -196,12 +209,28 @@ module sstLLimag
 
         call ClearIO(IOVars)
         call AddInVar(IOVars,"P")
+        call AddInVar(IOVars,"bVol")
 
         call ReadVars(IOVars,.false.,empData%ebTab%bStr,empData%ebTab%gStrs(n))
 
         dims = [empData%Np,empData%Nt]
         W(:,:,1) = reshape(IOVars(1)%data,dims)
+        W(:,:,2) = reshape(IOVars(2)%data,dims)
     end subroutine rdEmpMap
+
+    !Here we determine which grid points will be considered open or closed for the current time value
+    subroutine SetSSTIOpen(empData)
+        type(empData_T), intent(inout) :: empData
+
+        !Simplest implementation, if point in either time slice is open (bVol < 0), call it open
+        
+        where (empData%empW1(:,:,2) .lt. 0 .or. empData%empW2(:,:,2) .lt. 0)
+            empData%Iopen = 1
+        elsewhere
+            empData%Iopen = -1
+        end where
+
+    end subroutine SetSSTIOpen
 
 
     ! Below is the version of the doEval function intended for standalone (without rcm)  use of sst pressures

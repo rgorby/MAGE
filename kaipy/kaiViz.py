@@ -145,12 +145,15 @@ def reWrap(V):
 
 #Image files
 #Wrapper to save (and trim) figure
-def savePic(fOut,dpiQ=300,doTrim=True,bLenX=20,bLenY=None,doClose=False):
+def savePic(fOut,dpiQ=300,doTrim=True,bLenX=20,bLenY=None,doClose=False,doEps=False):
 	#Start by saving
 	import matplotlib.pyplot as plt
-	plt.savefig(fOut,dpi=dpiQ)
-	if (doTrim):
-		trimFig(fOut,bLenX,bLenY)
+	if (doEps):
+		plt.savefig(fOut,dpi=dpiQ,format='eps')
+	else:
+		plt.savefig(fOut,dpi=dpiQ)
+		if (doTrim):
+			trimFig(fOut,bLenX,bLenY)
 	if (doClose):
 		plt.close('all')
 

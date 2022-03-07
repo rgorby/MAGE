@@ -258,9 +258,9 @@ def ReadSimData(filename, quiet = True):
     f = h5py.File(filename, 'r')
 
     # Assume that the XYZ0 shell is the R=1.0 shell
-    X0, X1 = np.array(f['Xcc'])[0], np.array(f['Xcc'])[1]
-    Y0, Y1 = np.array(f['Ycc'])[0], np.array(f['Ycc'])[1]
-    Z0, Z1 = np.array(f['Zcc'])[0], np.array(f['Zcc'])[1]
+#    X0, X1 = np.array(f['Xcc'])[0], np.array(f['Xcc'])[1]
+#    Y0, Y1 = np.array(f['Ycc'])[0], np.array(f['Ycc'])[1]
+#    Z0, Z1 = np.array(f['Zcc'])[0], np.array(f['Zcc'])[1]
 
     # get the timesteps from the simulation
     nSteps,sIds = kh5.cntSteps(filename)
@@ -628,7 +628,7 @@ def MakeContourPlots(SM, SMinterp, maxx = 'default', fignumber = 1):
     im = plt.pcolormesh(SMinterp['td'], hourbins, SMLbigsimR, vmin = -1*maxx, vmax = maxx, cmap = cmapp, shading = 'auto')
     plt.xlim([SMinterp['td'][0], SMinterp['td'][-1]])
     plt.grid(True)
-    plt.text(xxx, yyy, "Super-SMU", horizontalalignment='center', verticalalignment='center', transform=ax6.transAxes, fontsize = qqq)
+    plt.text(xxx, yyy, "Super-SML", horizontalalignment='center', verticalalignment='center', transform=ax6.transAxes, fontsize = qqq)
     plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
 
     plt.tight_layout()

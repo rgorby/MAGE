@@ -11,7 +11,7 @@ module sstimag
 
     type, extends(innerMagBase_T) :: eqData_T
 
-        type(ebTab_T)   :: ebTab
+        type(ioTab_T)   :: ebTab
         logical :: doStatic = .true.
         integer :: Nr,Np
         real(rp), dimension(:,:), allocatable :: X,Y,xxc,yyc
@@ -34,11 +34,10 @@ module sstimag
     contains
 
     !Initialize EQ Map data
-    subroutine initSST(imag,iXML,isRestart,rad_planet_m,rad_iono_m,M0g,vApp)
+    subroutine initSST(imag,iXML,isRestart,vApp)
         class(eqData_T), intent(inout) :: imag
         type(XML_Input_T), intent(in) :: iXML
         logical, intent(in) :: isRestart !Do you even care?
-        real(rp), intent(in) :: rad_planet_m,rad_iono_m,M0g !Still don't care
         type(voltApp_T), intent(inout) :: vApp
 
         character(len=strLen) :: eqFile
@@ -54,8 +53,8 @@ module sstimag
         call CheckFileOrDie(eqFile,"Error opening EQ Map data")
 
         eqData%ebTab%bStr = eqFile        
-        !Scrape info from file (don't use CHIMP time scaling)
-        call rdTab(eqData%ebTab,iXML,eqFile,doTSclO=.false.)
+        !Scrape info from file
+        call InitIOTab(eqData%ebTab,iXML,eqFile)
         if (eqData%ebTab%N>1) then
             eqData%doStatic = .false.
         endif
@@ -126,7 +125,7 @@ module sstimag
         endif
 
         !Otherwise we need to update
-        call findSlc(eqData%ebTab,tAdv,n1,n2)
+        call GetTabSlc(eqData%ebTab,tAdv,n1,n2)
         if (eqData%eqN1 /= n1) then
             !Read slice
             call rdEQMap(eqData,n1,eqData%eqW1)
@@ -228,11 +227,11 @@ module sstimag
         endif
 
         if (t > eqData%eqT2) then
-            w1 = 1.0
-            w2 = 0.0
-        else if (t < eqData%eqT1) then
             w1 = 0.0
             w2 = 1.0
+        else if (t < eqData%eqT1) then
+            w1 = 1.0
+            w2 = 0.0
         else
             dt = eqData%eqT2-eqData%eqT1
             if (dt>TINY) then

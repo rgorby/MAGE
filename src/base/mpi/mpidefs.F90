@@ -5,8 +5,13 @@ module mpidefs
 
   implicit none
 
+  ! datatype for the floating point used by kaiju, assied below
   type(MPI_Datatype), public :: MPI_MYFLOAT
 
+  ! datatype for address sizes. Adjustable because different mpi
+  !   implementations don't always do it the same way
+  !   address pointer for basic mpi functions, and
+  !   address point for neighborhood mpi functions
 #ifdef MPI_BASE_ADDR_SIZE
   integer, parameter :: MPI_BASE_MYADDR = MPI_BASE_ADDR_SIZE
 #else
@@ -23,6 +28,7 @@ contains
 
   subroutine setMpiReal()
 
+    ! make the mpi float datatype match the precision of the fortran float type being used
     MPI_MYFLOAT = MPI_DOUBLE_PRECISION
     if(rp ==  sp) MPI_MYFLOAT = MPI_REAL
 

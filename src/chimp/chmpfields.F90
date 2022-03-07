@@ -6,7 +6,6 @@ module chmpfields
     use plasmaputils
     use ioH5
     use math
-    use ebtabutils
     
     implicit none
 
@@ -26,9 +25,9 @@ module chmpfields
     !NOTE: Calculating convective electric field to avoid diffusive terms
     subroutine readEB(Model,ebState,ebGr,ebTab,ebF,gStr,doCalcLppO)
         type(chmpModel_T), intent(in)     :: Model
-        type(ebState_T), intent(inout)   :: ebState
+        type(  ebState_T), intent(inout)  :: ebState
         type(   ebGrid_T), intent(in)     :: ebGr
-        type(ebTab_T), intent(in) :: ebTab
+        type(    ioTab_T), intent(in)     :: ebTab
         type(  ebField_T), intent(inout)  :: ebF
         character(len=strLen), intent(in) :: gStr
         logical, optional, intent(in) :: doCalcLppO

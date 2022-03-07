@@ -39,6 +39,7 @@ class GameraPipe(object):
 		self.Nv = 0 ; self.Nt = 0 ; self.Nv0 = 0
 		self.T = [] ; self.vIDs = [] ; self.v0IDs = []
 		self.s0 = 0 ; self.sFin = 0
+		self.sids = np.array([])
 
 		#Grids
 		self.X = [] ; self.Y = [] ; self.Z = []
@@ -110,6 +111,7 @@ class GameraPipe(object):
 		else:
 			self.T = kh5.getTs(f0,sids)
 
+		self.sids = sids
 		self.s0 = sids.min()
 		self.sFin = sids.max()
 		if (doVerbose):

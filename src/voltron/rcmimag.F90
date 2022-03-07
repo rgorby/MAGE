@@ -18,7 +18,7 @@ module rcmimag
     use rcm_mhd_mod, ONLY : rcm_mhd
     use rcm_mhd_io
     use gdefs, only : dFloor,pFloor
-    use rcmdefs, only : DenPP0,PSPHKT
+    use rcmdefs, only : DenPP0
     use rcmeval
     
     implicit none
@@ -61,11 +61,10 @@ module rcmimag
     contains
 
     !Initialize RCM inner magnetosphere model
-    subroutine initRCM(imag,iXML,isRestart,rad_planet_m,rad_iono_m,M0g,vApp)
+    subroutine initRCM(imag,iXML,isRestart,vApp)
         class(rcmIMAG_T), intent(inout) :: imag
         type(XML_Input_T), intent(in) :: iXML
         logical, intent(in) :: isRestart
-        real(rp), intent(in) :: rad_planet_m,rad_iono_m, M0g ! Specific planet parameters
         type(voltApp_T), intent(inout) :: vApp
 
         character(len=strLen) :: RunID
@@ -75,13 +74,22 @@ module rcmimag
                   imag2mix => vApp%imag2mix, &
                   t0 => vApp%time, &
                   dtCpl => vApp%DeepDT)
-        !Set radii in RCMApp
-        RCMApp%planet_radius = rad_planet_m
-        RCMApp%iono_radius = rad_iono_m
-        Rp_m = rad_planet_m ! for local use
-        RIonRCM = rad_iono_m/rad_planet_m
 
-        planetM0g = M0g
+        !Set radii in RCMApp
+        RCMApp%planet_radius = vApp%planet%rp_m
+        RCMApp%iono_radius = vApp%planet%ri_m
+        Rp_m = vApp%planet%rp_m  ! For local use
+        RIonRCM = vApp%planet%ri_m/vApp%planet%rp_m
+
+        planetM0g = vApp%planet%magMoment
+
+        write(*,*) '---------------'
+        write(*,*) 'RCM planet params'
+        write(*,*) 'Rp        [m]  = ', Rp_m
+        write(*,*) 'RIon      [Rp] = ', RIonRCM
+        write(*,*) 'RIon      [m]  = ', RIonRCM*Rp_m
+        write(*,*) 'MagMoment [G]  = ', planetM0g
+        write(*,*) '---------------'
         
         call iXML%Set_Val(RunID,"/Kaiju/gamera/sim/runid","sim")
         RCMApp%rcm_runid = trim(RunID)
@@ -98,7 +106,10 @@ module rcmimag
         call iXML%Set_Val(nBounce   ,"/Kaiju/gamera/source/nBounce"   ,nBounce   )
         call iXML%Set_Val(maxBetaLim,"/Kaiju/gamera/source/betamax"   ,maxBetaLim)
         call iXML%Set_Val(doBigIMag2Ion ,"imag2ion/doBigIMag2Ion",doBigIMag2Ion)
+
         call iXML%Set_Val(imagScl ,"imag/safeScl",imagScl)
+        call iXML%Set_Val(bMin_C  ,"imag/bMin_C" ,bMin_C )
+        call iXML%Set_Val(wImag_C ,"imag/wImag_C",wImag_C)
 
         if (isRestart) then
 
@@ -197,9 +208,15 @@ module rcmimag
 
         real(rp) :: maxRad
         logical :: isLL,doHackIC
-        
-        call UpdateTM03(vApp%time) !Update plasma sheet model for MP finding and such
-        
+
+        if (vApp%isEarth) then
+            call UpdateTM03(vApp%time) !Update plasma sheet model for MP finding and such
+            call MJDRecalc(vApp%MJD)
+        else
+            write(*,*) "You need to do something about RCM for not Earth!"
+            stop
+        endif
+
         associate(RCMApp => imag%rcmCpl)
 
         RCMApp%llBC  = vApp%mhd2chmp%lowlatBC

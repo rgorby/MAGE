@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<!-- Cylindrical force balance -->
+<Kaiju>
+  <Gamera>
+      <sim runid="forcebal" doH5init="F" icType="user"/>
+      <grid doCyl="T"/>
+      <idir min="1.0" max="2.0" N="32"/>
+      <jdir min="0.0" max="1.0" N="64"/>
+      <kdir min="-0.5" max="0.5" N="16"/>
+      <time tFin="5.0"/>
+      <output dtOut="0.1" tsOut="100" doTimer="F" doFatIO="F"/>
+      <physics doMHD="T"/>
+  </Gamera>
+</Kaiju>

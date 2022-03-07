@@ -3,6 +3,7 @@ program calcdbx
     use clocks
     use chmpdefs
     use chmpio
+    use iotable
     use ebtypes
     use starter
     use chmpfields
@@ -54,8 +55,8 @@ program calcdbx
 
     !----------------------------
     !Initialize data structures
-    call initDBio(Model,ebState,gGr,inpXML,NumP)
-    call initRM(Model,ebState,rmState,inpXML)
+    call initDBio(Model,ebState,gGr    ,inpXML,NumP)
+    call initRM  (Model,ebState,rmState,inpXML)
 
     call ionGridInit(Model,ebState,rmState,ionGrid)
     call facGridInit(Model,ebState,rmState,ionGrid,facGrid)
@@ -68,7 +69,7 @@ program calcdbx
     
     !Do main loop
     do while (Model%t<=Model%tFin)
-        cMJD = MJDAt(ebState%ebTab,Model%t)
+        cMJD = ioTabMJD(ebState%ebTab,Model%t)
         call MJDRecalc(cMJD) !Setup geopack for this time
 
         call Tic("Omega")
@@ -114,7 +115,7 @@ program calcdbx
         Model%nOut = Model%nOut + 1
 
         if (modulo(Model%ts,Model%tsOut) ==0) then
-            cMJD = MJDAt(ebState%ebTab,Model%t)
+            cMJD = ioTabMJD(ebState%ebTab,Model%t)
             call mjd2ut(cMJD,iYr,iDoY,iMon,iDay,iHr,iMin,rSec)
             write(utStr,'(I0.4,a,I0.2,a,I0.2,a,I0.2,a,I0.2,a,I0.2)') iYr,'-',iMon,'-',iDay,' ',iHr,':',iMin,':',nint(rSec)
 

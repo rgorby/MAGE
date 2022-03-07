@@ -4,6 +4,7 @@ program sctrackx
     use chmpdefs
     use starter
     use chmpio
+    use iotable
     use ebtypes
     use chmpfields
   
@@ -54,6 +55,12 @@ program sctrackx
     R0 = norm2(ebState%ebGr%xyz(1,1,1,XDIR:ZDIR))
     write(*,*) 'Chopping out values inside of R0 = ', R0
 
+    !Do some knob testing
+    if (.not. Model%doMHD) then
+        write(*,*) "doMHD must be set to T!"
+        stop
+    endif
+
     !Loop over trajectory positions/times
     do n=nS,nE
         !Updates
@@ -81,13 +88,20 @@ program sctrackx
         if ( (R>R0) .and. inDomain(xyz,Model,ebState%ebGr) ) then
             !Inside domain
             SCTrack%inDom(n) = 1.0
+
             call ebFields (xyz,Model%t,Model,ebState,Et,Bt,ijkO=ijkG)
             Qt = mhdInterp(xyz,Model%t,Model,ebState,ijkO=ijkG)
-
-            call getEquatorProjection(Model,ebState,xyz,Model%t,xyzEQ)
-            call getMagEQ(Model,ebState,xyz,Model%t,xyzMin,Beq,topo)
-            call Map2NH(Model,ebState,xyz,Model%t,mlat,mlon)
-
+            if (Model%doTrc) then
+                call getEquatorProjection(Model,ebState,xyz,Model%t,xyzEQ)
+                call getMagEQ(Model,ebState,xyz,Model%t,xyzMin,Beq,topo)
+                call Map2NH(Model,ebState,xyz,Model%t,mlat,mlon)
+            else
+                xyzEQ = 0.0
+                mlat = 0.0; mlon = 0.0
+                xyzMin = 0.0
+                Beq = 0.0
+                topo = 0
+            endif
         else
             !Outside domain
             SCTrack%inDom(n) = 0.0
@@ -101,7 +115,7 @@ program sctrackx
             topo = 0
         endif
 
-        SCTrack%MJDs(n) = MJDAt(ebState%ebTab,Model%t)
+        SCTrack%MJDs(n) = ioTabMJD(ebState%ebTab,Model%t)
 
         !Store values
         SCTrack%Q(n,:) = Qt
@@ -167,8 +181,6 @@ program sctrackx
             call AddOutVar(IOVars,"By",oBScl*SCTrack%B(nS:nE,YDIR),uStr="nT")
             call AddOutVar(IOVars,"Bz",oBScl*SCTrack%B(nS:nE,ZDIR),uStr="nT")
 
-            call AddOutVar(IOVars,"Beq",oBScl*SCTrack%Beq(nS:nE),uStr="nT")
-            call AddOutVar(IOVars,"OCb",oBScl*SCTrack%OCb(nS:nE),uStr="Topo")
 
             call AddOutVar(IOVars,"Ex",oEScl*SCTrack%E(nS:nE,XDIR),uStr="mV/m")
             call AddOutVar(IOVars,"Ey",oEScl*SCTrack%E(nS:nE,YDIR),uStr="mV/m")
@@ -181,11 +193,16 @@ program sctrackx
             call AddOutVar(IOVars,"Vy",oVScl*SCTrack%Q(nS:nE,VELY),uStr="km/s")
             call AddOutVar(IOVars,"Vz",oVScl*SCTrack%Q(nS:nE,VELZ),uStr="km/s")
 
-            !Output projection variables
-            call AddOutVar(IOVars,"xeq" ,SCTrack%xyz2EQ(nS:nE,1),uStr="SM-Re")
-            call AddOutVar(IOVars,"yeq" ,SCTrack%xyz2EQ(nS:nE,2),uStr="SM-Re")
-            call AddOutVar(IOVars,"MLAT",SCTrack%xyz2NH(nS:nE,1),uStr="deg")
-            call AddOutVar(IOVars,"MLON",SCTrack%xyz2NH(nS:nE,2),uStr="deg")
+            if (Model%doTrc) then
+                !Output projection variables
+                call AddOutVar(IOVars,"xeq" ,SCTrack%xyz2EQ(nS:nE,1),uStr="SM-Re")
+                call AddOutVar(IOVars,"yeq" ,SCTrack%xyz2EQ(nS:nE,2),uStr="SM-Re")
+                call AddOutVar(IOVars,"MLAT",SCTrack%xyz2NH(nS:nE,1),uStr="deg")
+                call AddOutVar(IOVars,"MLON",SCTrack%xyz2NH(nS:nE,2),uStr="deg")
+                call AddOutVar(IOVars,"Beq",oBScl*SCTrack%Beq(nS:nE),uStr="nT")
+                call AddOutVar(IOVars,"OCb",oBScl*SCTrack%OCb(nS:nE),uStr="Topo")
+
+            endif
 
             !Let loose (do double precision)
             call WriteVars(IOVars,.false.,H5Out)
