@@ -115,7 +115,8 @@ def computeErrors(obs,pred):
 	RMSE = np.sqrt(MSE)
 	MAPE = 1./len(obs) * np.sum(np.abs(obs-pred)/
 		np.where(abs(obs) < TINY,TINY,abs(obs)))
-	RSE = (np.sum((obs-pred)**2)/np.sum((obs-np.mean(obs))**2))
+	RSE = (np.sum((obs-pred)**2)/
+		np.where(np.sum((obs-np.mean(obs))**2)<TINY,TINY,np.sum((obs-np.mean(obs))**2)))
 	PE = 1-RSE
 	return MAE,MSE,RMSE,MAPE,RSE,PE
 

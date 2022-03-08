@@ -3,7 +3,6 @@ module calcdbio
 	use chmpdefs
 	use chmpunits
     use parintime
-	use ebtabutils
 	use ebtypes
 	use ioH5
 	use xml_input
@@ -321,7 +320,7 @@ module calcdbio
         !TODO: Remove redundant code here
         write(rmF,'(2a)') trim(adjustl(ebState%ebTab%bStr)),'.mix.h5'
         
-        call findSlc(ebState%ebTab,t,i1,i2)
+        call GetTabSlc(ebState%ebTab,t,i1,i2)
 
         !Read 4 hemispheres
         call readHemi(rmState%rmN1,rmF,ebState%ebTab,i1,NORTH)
@@ -341,7 +340,7 @@ module calcdbio
         subroutine readHemi(rmHemi,rmF,ebTab,nStp,nsID)
             type(rmHemi_T), intent(inout) :: rmHemi
             character(len=strLen), intent(in) :: rmF
-            type(ebTab_T), intent(in) :: ebTab
+            type(ioTab_T), intent(in) :: ebTab
             integer, intent(in) :: nStp,nsID
 
             character(len=strLen) :: hID,gStr
@@ -397,7 +396,7 @@ module calcdbio
 
         write(*,*) 'Writing ', trim(gStr)
 
-        mjd = MJDAt(ebState%ebTab,Model%t)
+        mjd = ioTabMJD(ebState%ebTab,Model%t)
         
         !Do conversion to spherical
         call Grxyz2rtp(gGr,gGr%dbMAG_xyz,gGr%dbMAG_rtp)

@@ -18,7 +18,7 @@ module rcmimag
     use rcm_mhd_mod, ONLY : rcm_mhd
     use rcm_mhd_io
     use gdefs, only : dFloor,pFloor
-    use rcmdefs, only : DenPP0,PSPHKT
+    use rcmdefs, only : DenPP0
     use rcmeval
     
     implicit none
@@ -106,7 +106,10 @@ module rcmimag
         call iXML%Set_Val(nBounce   ,"/Kaiju/gamera/source/nBounce"   ,nBounce   )
         call iXML%Set_Val(maxBetaLim,"/Kaiju/gamera/source/betamax"   ,maxBetaLim)
         call iXML%Set_Val(doBigIMag2Ion ,"imag2ion/doBigIMag2Ion",doBigIMag2Ion)
+
         call iXML%Set_Val(imagScl ,"imag/safeScl",imagScl)
+        call iXML%Set_Val(bMin_C  ,"imag/bMin_C" ,bMin_C )
+        call iXML%Set_Val(wImag_C ,"imag/wImag_C",wImag_C)
 
         if (isRestart) then
 
@@ -205,9 +208,15 @@ module rcmimag
 
         real(rp) :: maxRad
         logical :: isLL,doHackIC
-        
-        call UpdateTM03(vApp%time) !Update plasma sheet model for MP finding and such
-        
+
+        if (vApp%isEarth) then
+            call UpdateTM03(vApp%time) !Update plasma sheet model for MP finding and such
+            call MJDRecalc(vApp%MJD)
+        else
+            write(*,*) "You need to do something about RCM for not Earth!"
+            stop
+        endif
+
         associate(RCMApp => imag%rcmCpl)
 
         RCMApp%llBC  = vApp%mhd2chmp%lowlatBC

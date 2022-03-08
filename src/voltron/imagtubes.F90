@@ -6,7 +6,7 @@ module imagtubes
     use streamline
     use chmpdbz, ONLY : DipoleB0
     use imaghelper
-    
+    USE rcmdefs, ONLY : bMin_C_DEF,wImag_C_DEF
 	implicit none
 
     !TODO: Get rid of these ugly globals
@@ -16,9 +16,8 @@ module imagtubes
 
 
     !Some threshold values for poisoning tubes
-    !TODO: Make these XML parameters
-    real(rp), private :: wImag_C = 0.15 ![0,1]
-    real(rp), private :: bMin_C  = 1.0 !nT
+    real(rp) :: wImag_C = wImag_C_DEF
+    real(rp) :: bMin_C  = bMin_C_DEF
 
 !Information taken from MHD flux tubes
     !Pave = Average pressure [Pa]

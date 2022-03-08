@@ -460,7 +460,8 @@ module ebsquish
 
         x1 = 0.0
         x2 = 0.0
-
+        xE = 0.0
+        
         !Do quick short-cut to safe us some effort
         isGood = inShueMP_SM(xyz,ShueScl)
         if (.not. isGood) return

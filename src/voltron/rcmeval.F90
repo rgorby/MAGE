@@ -2,7 +2,7 @@
 module rcmeval
     use volttypes
     use rcm_mhd_interfaces
-    use rcmdefs, only : DenPP0,PSPHKT
+    use rcmdefs, only : DenPP0
     use earthhelper
     use gdefs, only : dFloor,pFloor
 
@@ -24,7 +24,7 @@ module rcmeval
         real(rp), intent(in)  :: nrc,prc,npsph,nmhd,pmhd,beta
         real(rp), intent(out) :: nlim,plim
 
-        real(rp) :: nrcm,prcm,ppsph
+        real(rp) :: nrcm,prcm,ppsph,psphKev
         real(rp) :: alpha,blim,dVoV,wRCM,wMHD
         logical :: doRC,doPP
 
@@ -33,8 +33,12 @@ module rcmeval
         nrcm = 0.0
         prcm = 0.0
 
-        !Get a low but non-zero pressure for plasmasphere
-        ppsph = DkT2P(npsph,PSPHKT) !Using ~eV default plasmasphere temperature
+    !Get a low but non-zero pressure for plasmasphere
+        !Use Genestreti+ 2016 linear fit
+        !T [eV] = B* n^A, n [#/cc], A = -0.15, B = 1.4
+        psphKev = ColdTempKev(npsph)
+        ppsph = DkT2P(npsph,psphKev) 
+
     !Incorporate RC/PP contributions
         !Test RC/PP contribution
         doRC = (prc   >= TINY  )
@@ -85,6 +89,19 @@ module rcmeval
         endif !doWolfNLim
         
     end subroutine WolfLimit
+
+    !Plasmasphere temperature, use Genestreti+ 2016 linear fit
+    !Density [#/cc] => Temperature [keV]
+    function ColdTempKeV(npsph) result(Tkev)
+        real(rp), intent(in) :: npsph
+        real(rp) :: Tkev
+
+        real(rp), parameter :: A = -0.15,B=1.4
+        !T [eV] = B* n^A, n [#/cc], A = -0.15, B = 1.4
+        !Floor at 0.01/cc
+        Tkev = (1.0e-3)*B*(max(npsph,0.01)**A)
+
+    end function ColdTempKev
 
     !Interpolate state at lat/lon
     subroutine InterpRCM(RCMApp,lat,lon,t,imW,isEdible)
@@ -214,7 +231,7 @@ module rcmeval
             call ClampMap(eta)
             call ClampMap(zeta)
             !Calculate weights
-            call weight1D(eta,wE)
+            call weight1D(eta ,wE)
             call weight1D(zeta,wZ)
 
             n = 1
@@ -228,11 +245,16 @@ module rcmeval
                     IJs(n,:) = [ip,jp]
                     Ws(n) = wE(di)*wZ(dj)
                     isGs(n) = toMHD(ip,jp)
+                    if (.not. isGs(n)) Ws(n) = 0.0
+
                     n = n + 1
                 enddo
             enddo !dj
 
-            end associate            
+            !Renormalize
+            Ws = Ws/sum(Ws)
+
+            end associate         
         end subroutine GetInterpTSC
 
         !1D triangular shaped cloud weights
