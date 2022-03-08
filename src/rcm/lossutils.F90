@@ -209,10 +209,10 @@ MODULE lossutils
         if (Lx > maxval(Li)) then
             lL = -1 ! tau_c is 0, total tau = tau_s
             lU = 0
-        else if (Lx < minval(Li)) then
-            lL = 0 ! default lifetime is 10^10s ~ 10^3 years.
-            lU = -1
-        else if (Lx == maxval(Li)) then
+        else if (Lx <= minval(Li)) then
+            lL = 0 ! Lx < min(Li) is treated like min(Li)
+            lU = 0
+        else if (Lx <= maxval(Li)) then
             lL = Nl
             lU = Nl 
         else
@@ -221,14 +221,11 @@ MODULE lossutils
         endif
         
          ! Find the nearest neighbours in Ek
-        if (Ekx > maxval(Eki)) then
-            eL = -1 ! tau_c is 0, total tau = tau_s
-            eU = 0
-        else if (Ekx < minval(Eki)) then
+        if (Ekx < minval(Eki)) then
             el = 0 ! default lifetime is 10^10s ~ 10^3 years.
             eU = -1
-        else if (Ekx == maxval(Eki)) then
-            eL = Ne
+        else if (Ekx >= maxval(Eki)) then
+            eL = Ne ! Ekx > max(Eki) is treated like max(Eki)
             eU = Ne
         else
             eL = maxloc(Eki,dim=1,mask=Eki<=Ekx)
@@ -236,11 +233,11 @@ MODULE lossutils
         endif
 
         !Corner cases
-        if (lL == -1 .or. eL == -1) then 
+        if (lL == -1) then 
             tau = 0.0 
             !write(*,*)"Corner case1,tau=0.0" 
             return
-        else if (lU == -1 .or. eU == -1) then
+        else if (eU == -1) then
             tau = 1.D10
             !write(*,*)"Corner case2,tau=1e10"
             return
