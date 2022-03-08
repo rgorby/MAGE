@@ -36,6 +36,8 @@ Ni = prm.Ni
 Nj = prm.Nj
 Nk = prm.Nk 
 
+ffits = os.path.join(os.getenv('KAIJUDIR'),prm.wsaFile)
+
 # constants
 mp = 1.67e-24
 
@@ -55,7 +57,7 @@ print("Gamera-helio grid ready!")
 
 
 ############### WSA STUFF #####################
-jd_c,phi_wsa_v,theta_wsa_v,phi_wsa_c,theta_wsa_c,bi_wsa,v_wsa,n_wsa,T_wsa = wsa.read(prm.wsaFile,prm.densTempInfile,prm.normalized)
+jd_c,phi_wsa_v,theta_wsa_v,phi_wsa_c,theta_wsa_c,bi_wsa,v_wsa,n_wsa,T_wsa = wsa.read(ffits,prm.densTempInfile,prm.normalized)
 
 # convert the units; remember to use the same units in gamera
 # TODO: probably store units in the h5 file?
