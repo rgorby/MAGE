@@ -153,17 +153,23 @@ def FetchSMData(user, start, numofdays, savefolder, badfrac=0.1, nanflags=True, 
             
             status, A = smapi.SuperMAGGetData(user, startstr, extent=86400*numofdays, 
                                            flagstring=smFlags, station = iii, FORMAT = 'list')
-            quickvals = np.array([x['N']['nez'] for x in A])
+            
+            if status:
+                quickvals = np.array([x['N']['nez'] for x in A])
 
-            # get rid of data if too many bullshit values
-            if np.sum(quickvals>999990.0) >= badfrac*len(quickvals):
-                badindex.append(False)
-                print(iii, "BAD")
+                # get rid of data if too many bad values
+                if np.sum(quickvals>999990.0) >= badfrac*len(quickvals):
+                    badindex.append(False)
+                    print(iii, "BAD")
+                else:
+                    badindex.append(True)
+
+                STATUS.append(status)
+                master.append(A)
             else:
-                badindex.append(True)
-
-            STATUS.append(status)
-            master.append(A)
+                STATUS.append(status)
+                badindex.append(False)
+                master.append(['BAD'])
 
         badindex = np.array(badindex)
         master, stations = np.array(master)[badindex], np.array(stations)[badindex]
