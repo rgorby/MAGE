@@ -154,8 +154,8 @@ if __name__=="__main__":
 
 	print("\n\nCalculating tkl vars(var wedge)")
 	#tkldata = scRCM.getIntensitiesVsL('msphere.rcm.h5','msphere.mhdrcm.h5',tStart, tEnd, tStride, jdir=jdir, forceCalc=('tkl' in fcIDs))
-	tkldata = scRCM.getVarWedge(rcm_fname, mhdrcm_fname, tStart, tEnd, tStride, 5, 'ions', jdir=jdir, eGrid=eGrid*1E3, forceCalc=('tkl' in fcIDs))  # This function expects eGrid to be in eV
-	
+	tkldata = scRCM.getVarWedge(rcm_fname, mhdrcm_fname, tStart, tEnd, tStride, 5, 'electrons', jdir=jdir, eGrid=eGrid*1E3, forceCalc=('tkl' in fcIDs))  # This function expects eGrid to be in eV
+
 	#Works but very verbose
 	#print("\n\nTesting RCM eqlatlon grab")
 	rcm_eqlatlon = scRCM.getRCM_eqlatlon(mhdrcm_fname, rcmTimes, tStart, tEnd, tStride)
@@ -190,7 +190,7 @@ if __name__=="__main__":
 
 	odfnorm = kv.genNorm(1E4, 5E6, doLog=True)
 	ut_tkl = kT.MJD2UT(tkldata['MJD'])
-	pressnorm = kv.genNorm(1E-2, 20, doLog=False)
+	pressnorm = kv.genNorm(1E-2, 10, doLog=False)
 	parpressnorm = kv.genNorm(1e-3, 5, doLog=True)
 	#Movie time
 	outdir = os.path.join(fdir, vidOut)
@@ -241,7 +241,6 @@ if __name__=="__main__":
 	
 	#Now just things that need to update
 	bar = progressbar.ProgressBar(max_value=len(tkldata['MJD']))
-	print ("len of tkldata:",len(tkldata['MJD']))
 	for n in range(1,len(tkldata['MJD'])):
 		bar.update(n)
 		pltmjd = tkldata['MJD'][n]

@@ -692,8 +692,6 @@ def getVarWedge(rcmf5, mhdrcmf5, sStart, sEnd, sStride, wedge_deg, species='ions
 		rcmTimes = getRCMtimes(rcmf5,mhdrcmf5,jdir=jdir)
 	iTStart = np.abs(rcmTimes['sIDs']-sStart).argmin()
 	iTEnd = np.abs(rcmTimes['sIDs']-sEnd).argmin()
-	print ("iTStart", iTStart)
-	print ("iTEnd", iTEnd)
 	sIDstrs = rcmTimes['sIDstrs'][iTStart:iTEnd+1:sStride]
 	nSteps = len(sIDstrs)
 	rcm5 = h5.File(rcmf5,'r')
@@ -725,7 +723,6 @@ def getVarWedge(rcmf5, mhdrcmf5, sStart, sEnd, sStride, wedge_deg, species='ions
 	press_tkl = np.zeros((nSteps, Ne, Nl))
 
 	if doProgressBar: bar = progressbar.ProgressBar(max_value=nSteps)
-	print ("nSteps", nSteps)
 	for n in range(nSteps):
 		if doProgressBar: bar.update(n)
 
@@ -1301,7 +1298,7 @@ def plt_rcm_eqlatlon(AxLatlon, AxEq, rcmData, satTrackData=None, AxCB=None, mjd=
 	ymin_arr  = rcmData['ymin']
 	mlat_arr  = rcmData['MLAT']
 	mlon_arr  = rcmData['MLON']
-	press_arr = rcmData['press']
+	press_arr = rcmData['pressE']
 	#press_arr = rcmData['pressE']
 	
 	#ut = scutils.mjd_to_ut(rcmData['MJD'])
