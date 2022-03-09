@@ -118,7 +118,7 @@ def run_preprocessing_steps(directory, runid, startdate, stopdate):
     subprocess.run([cmd] + args)
 
     # Create the solar wind file.
-    cmd = "omni2wind.py"
+    cmd = "cda2wind.py"
     args = ["-t0", startdate, "-t1", stopdate, "-interp"]
     subprocess.run([cmd] + args)
 
