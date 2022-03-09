@@ -25,36 +25,18 @@ module load python3/3.9.5
 echo "The following modules are loaded:"
 module list
 
-# Set kaiju-related environment variables.
-
 # Define the kaiju installation location.
-export KAIJUHOME=/nobackup/ewinter/kaiju_serial
+export KAIJU_INSTALL_DIR=/nobackup/ewinter/kaiju_serial
 
-# Add the kaiju binaries to the PATH.
-export KAIJU_BIN=$KAIJUHOME/build/bin
-export PATH=$KAIJU_BIN:$PATH
+# Set kaiju-related environment variables.
+source $KAIJU_INSTALL_DIR/scripts/setupEnvironment.sh
 
-# Add the kaiju scripts to the PATH.
-export KAIJU_SCRIPTS_DIR=$KAIJUHOME/scripts
-export PATH=$KAIJU_SCRIPTS_DIR:$PATH
-export PATH=$KAIJU_SCRIPTS_DIR/datamodel:$PATH
-export PATH=$KAIJU_SCRIPTS_DIR/helio:$PATH
-export PATH=$KAIJU_SCRIPTS_DIR/legacy:$PATH
-export PATH=$KAIJU_SCRIPTS_DIR/postproc:$PATH
-export PATH=$KAIJU_SCRIPTS_DIR/preproc:$PATH
-export PATH=$KAIJU_SCRIPTS_DIR/quicklook:$PATH
-
-# Add the kaiju quickstart code to the PATH.
+# Add the kaiju quickstart code for this model to the PATH.
 export KAIJU_QUICKSTART_DIR=$KAIJUHOME/quickstart
 export PATH=$KAIJU_QUICKSTART_DIR/loop2d:$PATH
-export PATH=$KAIJU_QUICKSTART_DIR/bw3d:$PATH
-export PATH=$KAIJU_QUICKSTART_DIR/geo_serial:$PATH
-
-# Add the kaipy directory to the python module path.
-export PYTHONPATH=$KAIJUHOME:$PYTHONPATH
 
 # Add the geopack directory to the python module path.
-export PYTHONPATH=$KAIJUHOME/external/geopack-2008/build/lib.linux-x86_64-3.9:$PYTHONPATH
+#export PYTHONPATH=$KAIJUHOME/external/geopack-2008/build/lib.linux-x86_64-3.9:$PYTHONPATH
 
 # Set the OMP stack size to prevent a crash.
 # If this setting is ignored, the loop2d model will cause gamera.x to crash
