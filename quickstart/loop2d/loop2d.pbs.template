@@ -31,12 +31,12 @@ export KAIJU_INSTALL_DIR=/nobackup/ewinter/kaiju_serial
 # Set kaiju-related environment variables.
 source $KAIJU_INSTALL_DIR/scripts/setupEnvironment.sh
 
+# Add the kaiju binary directoy to the command path.
+export PATH=$KAIJUHOME/build/bin:$PATH
+
 # Add the kaiju quickstart code for this model to the PATH.
 export KAIJU_QUICKSTART_DIR=$KAIJUHOME/quickstart
 export PATH=$KAIJU_QUICKSTART_DIR/loop2d:$PATH
-
-# Add the geopack directory to the python module path.
-#export PYTHONPATH=$KAIJUHOME/external/geopack-2008/build/lib.linux-x86_64-3.9:$PYTHONPATH
 
 # Set the OMP stack size to prevent a crash.
 # If this setting is ignored, the loop2d model will cause gamera.x to crash
