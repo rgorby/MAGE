@@ -22,6 +22,9 @@ import os
 import kaipy.solarWind
 from  kaipy.solarWind import swBCplots
 from  kaipy.solarWind.OMNI import OMNI
+from  kaipy.solarWind.WIND import WIND
+from  kaipy.solarWind.CUSTOM import DSCOVR
+from  kaipy.solarWind.CUSTOM import DSCOVRNC
 import datetime
 from astropy.time import Time
 from cdasws import CdasWs
@@ -55,7 +58,11 @@ if __name__ == "__main__":
         t1Str="2010-01-01T02:00:00"
         Ts = 0.0
         sigma = 3.0
+        tOffset = 0.0
         obs="OMNI"
+        filename=None
+        doBs = True
+        doEps = False
         MainS = """ This script does several things:
                       1. Fetch OMNI data from CDAWeb between the specified times (must be at least 2 hours in length) 
                       2. Generate standard plots of solar wind data
@@ -73,15 +80,20 @@ if __name__ == "__main__":
         parser.add_argument('-t0',type=str,metavar="TStart",default=t0Str,help="Start time in 'YYYY-MM-DDThh:mm:ss' (default: %(default)s)")
         parser.add_argument('-t1',type=str,metavar="TStop",default=t1Str,help="End time in 'YYYY-MM-DDThh:mm:ss' (default: %(default)s)")
         parser.add_argument('-obs',type=str,metavar="OMNI",default=obs,help="Select spacecraft to obtain observations from (default: %(default)s)")
+        parser.add_argument('-offset',type=float,metavar="tOffset",default=tOffset,help="Minutes to offset spacecraft observation and simulation t0 (default: %(default)s)")
         parser.add_argument('-o',type=str,metavar="wind.h5",default=fOut,help="Output Gamera wind file (default: %(default)s)")
         parser.add_argument('-m',type=str,metavar="LFM",default=mod,help="Format to write.  Options are LFM or TIEGCM (default: %(default)s)")
         parser.add_argument('-TsG',type=float,metavar="GAMERA_TStart",default=Ts,help="Gamera start time [min] (default: %(default)s)")
         parser.add_argument('-TsL',type=float,metavar="LFM_TStart",default=Ts,help="LFM start time [min] (default: %(default)s)")
         parser.add_argument('-bx', action='store_true',default=False,help="Include Bx through ByC and BzC fit coefficients (default: %(default)s)")
+        parser.add_argument('-bs', action='store_false',default=True,help="Include Bowshock location (default: %(default)s)")
         parser.add_argument('-interp', action='store_true',default=False,help="Include shaded region on plots where data is interpolated (default: %(default)s)")
         parser.add_argument('-filter', action='store_true',default=False,help="Include additional filtering of data to remove outlier points (default: %(default)s)")
         parser.add_argument('-sig',type=float,metavar="sigma",default=sigma,help="N used in N*sigma used for filtering threshold above which will be thrown out (default: %(default)s)")
-
+        parser.add_argument('-eps', action="store_true",default=False,help="Output eps figure. (default: %(default)s)")
+        parser.add_argument('-fn', type=str,metavar="filename",default=filename,help="Name of Wind file. Only used if obs is WINDF. (default: %(default)s)")
+        parser.add_argument('-f107', type=float,default=None)
+        parser.add_argument('-kp',   type=float,default=None)
         #Finalize parsing
         args = parser.parse_args()
 
@@ -90,12 +102,20 @@ if __name__ == "__main__":
         TsG = args.TsG
         TsL = args.TsL
         includeBx = args.bx
+        doBs = args.bs
         plotInterped = args.interp
         doCoarseFilter = args.filter
         sigma = args.sig
+        doEps = args.eps
+        obs = args.obs
+
+        if (obs == 'WINDF' and args.fn is None): raise Exception('Error: WINDF requires -fn to specify a WIND file')
+        if (obs == 'OMNIW' and args.fn is None): raise Exception('Error: OMNIW requires -fn to specify a WIND file')
 
         t0Str = args.t0
         t1Str = args.t1
+
+        tOffset = args.offset
 
         fmt='%Y-%m-%dT%H:%M:%S'
 
@@ -109,34 +129,52 @@ if __name__ == "__main__":
         # calculating average F10.7 over specified time period, can be converted into a timeseries
         # pulling data from CDAWeb database
         print('Retrieving f10.7 data from CDAWeb')
-        statusf107,data = cdas.get_data('OMNI2_H0_MRG1HR', ['F10_INDEX1800','KP1800'], t0r,t1r)
+        
+        try:
+          statusf107,data = cdas.get_data('OMNI2_H0_MRG1HR', ['F10_INDEX1800','KP1800'], t0r,t1r)
 
-        totalMin = (t1-t0).days*24.0*60.0+(t1-t0).seconds/60
-        tmin = np.arange(totalMin)
-        t107 = data['Epoch']
-        t107min = np.zeros(len(t107))
-        for i in range(len(t107)):
-            t107min[i]=(t107[i]-t0).days*24.0*60.0+(t107[i]-t0).seconds/60
+          totalMin = (t1-t0).days*24.0*60.0+(t1-t0).seconds/60
+          tmin = np.arange(totalMin)
+          t107 = data['Epoch']
+          t107min = np.zeros(len(t107))
+          for i in range(len(t107)):
+              t107min[i]=(t107[i]-t0).days*24.0*60.0+(t107[i]-t0).seconds/60
 
-        f107=data['F10_INDEX1800']
-        f107[f107 == 999.9] = np.nan # removing bad values from mean calculation
-        avgF107 = np.mean(f107[f107 != 999.9])
-        print("Average f10.7: ", avgF107)
-
-        if (f107[0] == 999.9):
-            f107[0] = avgF107
-            print('!!!!!!!!!! Warning: f10.7 starts with a bad value, setting to average value: %d !!!!!!!!!!'%(avgF107))
-
-        kp = data['KP1800'] 
-
-        #Linearly interpolating and converting hourly cadence to minutes
-        f107min = np.interp(tmin, t107min[f107 != 999.9], f107[f107 != 999.9])
-
-        if (np.all(kp == 99)):
-            kpmin   = np.interp(tmin, t107min, kp) # if no good values, setting all to bad values
+          f107=data['F10_INDEX1800']
+          f107[f107 == 999.9] = np.nan # removing bad values from mean calculation
+          avgF107 = np.mean(f107[f107 != 999.9])
+          print("Average f10.7: ", avgF107)
+  
+          if (f107[0] == 999.9):
+              f107[0] = avgF107
+              print('!!!!!!!!!! Warning: f10.7 starts with a bad value, setting to average value: %d !!!!!!!!!!'%(avgF107))
+  
+          kp = data['KP1800'] 
+  
+          #Linearly interpolating and converting hourly cadence to minutes
+          f107min = np.interp(tmin, t107min[f107 != 999.9], f107[f107 != 999.9])
+  
+          if (np.all(kp == 99)):
+              kpmin   = np.interp(tmin, t107min, kp) # if no good values, setting all to bad values
+          else:
+              kpmin   = np.interp(tmin, t107min[kp != 99], kp[kp!=99]/10.0)
+        except:
+          totalMin = (t1-t0).days*24.0*60.0+(t1-t0).seconds/60
+          tmin = np.arange(totalMin)  
+          totalMin = totalMin-1            
+          if args.f107 is None:
+            print('No f107.7 is specified.  Setting to random value: %d !!!!!' %(100.))
+            f107 = 100.
+          else:
+            f107 = args.f107
+          f107min = np.ones(int(totalMin))*f107
+          if args.kp is None:
             print("!!!!!!!!!! Warning: No valid Kp data, setting all values in array to 99 !!!!!!!!!!")
-        else:
-            kpmin   = np.interp(tmin, t107min[kp != 99], kp[kp!=99]/10.0)
+            kp = 99
+          else:
+            kp = args.kp
+          kpmin = np.ones(int(totalMin))*kp
+            
 
         if (obs == 'OMNI'):
             fileType = 'OMNI'
@@ -144,13 +182,89 @@ if __name__ == "__main__":
             
             #obtain 1 minute resolution observations from OMNI dataset
             print('Retrieving solar wind data from CDAWeb')
-            status,fIn = cdas.get_data('OMNI_HRO_1MIN',['BX_GSE','BY_GSE','BZ_GSE','Vx','Vy','Vz','proton_density','T','AE_INDEX','AL_INDEX','AU_INDEX','SYM_H'],t0r,t1r)
+            status,fIn = cdas.get_data(
+               'OMNI_HRO_1MIN',
+                ['BX_GSE','BY_GSE','BZ_GSE',
+                'Vx','Vy','Vz',
+                'proton_density','T',
+                'AE_INDEX','AL_INDEX','AU_INDEX','SYM_H',
+                'BSN_x','BSN_y','BSN_z'],
+                t0r,t1r)
+            # Read the solar wind data into 'sw' object and interpolate over the bad data.
+            if (doCoarseFilter): print(f"Using Coarse Filtering, removing values {sigma} sigma from the mean")
+            sw = eval('kaipy.solarWind.'+fileType+'.'+fileType)(fIn,doFilter=doCoarseFilter,sigmaVal=sigma)
+
+        elif (obs == 'WIND'):
+            # CDAS tips.
+            # use CDAweb to get the name of the spacecraft variables you want, such as "C4_CP_FGM_SPIN"
+            # then use cdas.get_variables('sp_phys','C4_CP_FGM_SPIN') to get a list of variables
+            # variable names do not exactly match the cdaweb outputs so check to make sure variables
+            fileType = 'WIND'
+            filename = 'WIND'
+            tBuffer = 20 # Extra padding for propagation
+            fOMNI = cdas.get_data(
+               'sp_phys',
+               'OMNI_HRO_1MIN',
+               t0-datetime.timedelta(minutes=tBuffer),
+               t1,#+datetime.timedelta(minutes=tBuffer),
+               ['BX_GSE,BY_GSE,BZ_GSE,Vx,Vy,Vz,proton_density,T,AE_INDEX,AL_INDEX,AU_INDEX,SYM_H,BSN_x']
+            )
+            fMFI = cdas.get_data(
+               'sp_phys',
+               'WI_H0_MFI',
+               t0-datetime.timedelta(minutes=tOffset+tBuffer),
+               t1+datetime.timedelta(minutes=tOffset),
+               ['BGSE']
+            )
+            fSWE = cdas.get_data(
+               'sp_phys',
+               'WI_K0_SWE',
+               t0-datetime.timedelta(minutes=tOffset+tBuffer),
+               t1+datetime.timedelta(minutes=tOffset),
+               ['Np,V_GSE,QF_V,QF_Np,THERMAL_SPD']
+            )
+            # What is our X location in km? Approximate C4 location at shock
+            xloc = 98000.
+            sw = eval('kaipy.solarWind.'+fileType+'.'+fileType)(fSWE,fMFI,fOMNI,xloc,tOffset,t0,t1)
+        elif (obs == 'WINDF'):
+            # Using a WIND file instead of CDAweb
+            # We still use cdas to get the other OMNI stuff.  We'll just grab them inside the class
+            # Doing it this way, we can specify t0 and t1 based on file input
+            fileType = 'WIND'
+            fileType2 = 'WINDF'
+            filename = args.fn
+            sw = eval('kaipy.solarWind.'+fileType+'.'+fileType2)(filename)
+        elif (obs == 'OMNIW'):
+            fileType = 'OMNI'
+            fileType2 = 'OMNIW'
+            filename = args.fn
+            doBs = True
+            
+            print("Working with OMNIW algorithm")
+            # Read the solar wind data into 'sw' object and interpolate over the bad data.
+            sw = eval('kaipy.solarWind.'+fileType+'.'+fileType2)(filename)
+            filename = 'OMNIW_'+filename
+            
+        elif (obs == 'CUSTOM'):
+            fileType = 'CUSTOM'
+            fileType2 = 'DSCOVR'
+            filename = args.fn
+            doBs = True
+            
+            sw = eval('kaipy.solarWind.'+fileType+'.'+fileType2)(t0,filename)
+            filename = fileType2+'_'+filename
+
+        elif (obs == 'DSCOVRNC'):
+            fileType = 'CUSTOM'
+            fileType2 = 'DSCOVRNC'
+            doBs = False
+            
+            sw = eval('kaipy.solarWind.'+fileType+'.'+fileType2)(t0,t1)
+            filename = fileType2
         else:
             raise Exception('Error:  Not able to obtain dataset from spacecraft. Please select another mission.')
 
-        # Read the solar wind data into 'sw' object and interpolate over the bad data.
-        if (doCoarseFilter): print(f"Using Coarse Filtering, removing values {sigma} sigma from the mean")
-        sw = eval('kaipy.solarWind.'+fileType+'.'+fileType)(fIn,doFilter=doCoarseFilter,sigmaVal=sigma)
+
 
         # Do output format-specific tasks:
         if (mod == 'TIEGCM'):
@@ -183,13 +297,34 @@ if __name__ == "__main__":
             by   = np.interp(time_1minute, sw.data.getData('time_min'), sw.data.getData('by'))
             bz   = np.interp(time_1minute, sw.data.getData('time_min'), sw.data.getData('bz'))
             b    = np.interp(time_1minute, sw.data.getData('time_min'), sw.data.getData('b'))
-            ae    = np.interp(time_1minute, sw.data.getData('time_min'), sw.data.getData('ae'))
-            al    = np.interp(time_1minute, sw.data.getData('time_min'), sw.data.getData('al'))
-            au    = np.interp(time_1minute, sw.data.getData('time_min'), sw.data.getData('au'))
-            symh    = np.interp(time_1minute, sw.data.getData('time_min'), sw.data.getData('symh'))
+            
+            try:
+              ae    = np.interp(time_1minute, sw.data.getData('time_min'), sw.data.getData('ae'))
+            except:
+              ae    = np.zeros(len(time_1minute))
+            
+            try:
+              al    = np.interp(time_1minute, sw.data.getData('time_min'), sw.data.getData('al'))
+            except:
+              al    = np.zeros(len(time_1minute))
+              
+            try:
+              au    = np.interp(time_1minute, sw.data.getData('time_min'), sw.data.getData('au'))
+            except:
+              au    = np.zeros(len(time_1minute))
+            
+            try:
+              symh  = np.interp(time_1minute, sw.data.getData('time_min'), sw.data.getData('symh'))
+            except:
+              symh  = np.zeros(len(time_1minute))
+              
+            if doBs:
+              bsx   = np.interp(time_1minute, sw.data.getData('time_min'), sw.data.getData('xBS'))
+              bsy   = np.interp(time_1minute, sw.data.getData('time_min'), sw.data.getData('yBS'))
+              bsz   = np.interp(time_1minute, sw.data.getData('time_min'), sw.data.getData('zBS'))
           
             #grab info on where data is interpolated to include on plots if wanted
-            interped = np.zeros((8,len(symh)))
+            interped = np.zeros((11,len(symh)))
             interped[0,:] =np.interp(time_1minute, sw.data.getData('time_min'), sw.data.getData('isBxInterped'))
             interped[1,:] =np.interp(time_1minute, sw.data.getData('time_min'), sw.data.getData('isByInterped'))
             interped[2,:] =np.interp(time_1minute, sw.data.getData('time_min'), sw.data.getData('isBzInterped'))
@@ -197,7 +332,15 @@ if __name__ == "__main__":
             interped[4,:] =np.interp(time_1minute, sw.data.getData('time_min'), sw.data.getData('isVyInterped'))
             interped[5,:] =np.interp(time_1minute, sw.data.getData('time_min'), sw.data.getData('isVzInterped'))
             interped[6,:] =np.interp(time_1minute, sw.data.getData('time_min'), sw.data.getData('isNInterped'))
-            interped[7,:] =np.interp(time_1minute, sw.data.getData('time_min'), sw.data.getData('isTInterped'))
+            try:
+                interped[7,:] =np.interp(time_1minute, sw.data.getData('time_min'), sw.data.getData('isCsInterped'))
+            except:
+                interped[7,:] =np.interp(time_1minute, sw.data.getData('time_min'), sw.data.getData('isTInterped'))
+
+            if doBs:
+              interped[8,:]  =np.interp(time_1minute, sw.data.getData('time_min'), sw.data.getData('isxBSInterped'))
+              interped[9,:]  =np.interp(time_1minute, sw.data.getData('time_min'), sw.data.getData('isyBSInterped'))
+              interped[10,:] =np.interp(time_1minute, sw.data.getData('time_min'), sw.data.getData('iszBSInterped'))
 
             #finding locations where any variable is interpolated
             isInterp=np.any(interped,axis=0)
@@ -209,7 +352,10 @@ if __name__ == "__main__":
             mfast = np.sqrt((vx**2+vy**2+vz**2)/(cs**2+va**2))
 
             #initalize matrix to hold solar wind data
-            lfmD = np.zeros((n.shape[0],18))
+            if doBs:
+                lfmD = np.zeros((n.shape[0],21))
+            else:
+                lfmD = np.zeros((n.shape[0],18))
 
             date = sw.data.getData('meta')['Start date']
 
@@ -219,9 +365,14 @@ if __name__ == "__main__":
                 # Convert relevant quantities to SM Coordinates
                 v_sm = sw._gsm2sm(date+datetime.timedelta(minutes=time), vx[i],vy[i],vz[i])
                 b_sm = sw._gsm2sm(date+datetime.timedelta(minutes=time), bx[i],by[i],bz[i])
+                if doBs:
+                    bs_sm = sw._gsm2sm(date+datetime.timedelta(minutes=time), bsx[i],bsy[i],bsz[i])
                 tilt = sw._getTiltAngle(date+datetime.timedelta(minutes=time))
 
-                lfmD[i] = [time,n[i],v_sm[0],v_sm[1],v_sm[2],cs[i],b_sm[0],b_sm[1],b_sm[2],b[i],tilt,ae[i],al[i],au[i],symh[i],tp[i],va[i],mfast[i]]
+                if doBs:
+                  lfmD[i] = [time,n[i],v_sm[0],v_sm[1],v_sm[2],cs[i],b_sm[0],b_sm[1],b_sm[2],b[i],tilt,ae[i],al[i],au[i],symh[i],tp[i],va[i],mfast[i],bs_sm[0],bs_sm[1],bs_sm[2]]
+                else:
+                  lfmD[i] = [time,n[i],v_sm[0],v_sm[1],v_sm[2],cs[i],b_sm[0],b_sm[1],b_sm[2],b[i],tilt,ae[i],al[i],au[i],symh[i],tp[i],va[i],mfast[i]]
                 
                 if mfast[i] < 2:
                     nSub += 1
@@ -276,10 +427,23 @@ if __name__ == "__main__":
 
             Mfast = lfmD[:,17] 
 
+            #Bowshock position
+            if doBs:
+                xBS  = lfmD[:,18]
+                yBS  = lfmD[:,19]
+                zBS  = lfmD[:,20]
+
             # Save a plot of the solar wind data.
-            swPlotFilename = os.path.basename(filename) + '.png'
+            if doEps:
+                swPlotFilename = os.path.basename(filename) + '.eps'
+            else:
+                swPlotFilename = os.path.basename(filename) + '.png'
+            
             print('Saving "%s"' % swPlotFilename)
-            kaipy.solarWind.swBCplots.swQuickPlot(UT,D,Temp,Vx,Vy,Vz,Bx,By,Bz,SYMH,pltInterp,swPlotFilename)
+            if doBs:
+                kaipy.solarWind.swBCplots.swQuickPlot(UT,D,Temp,Vx,Vy,Vz,Bx,By,Bz,SYMH,pltInterp,swPlotFilename,xBS,yBS,zBS,doEps=doEps)
+            else:
+                kaipy.solarWind.swBCplots.swQuickPlot(UT,D,Temp,Vx,Vy,Vz,Bx,By,Bz,SYMH,pltInterp,swPlotFilename,doEps=doEps)
 
             print("Writing Gamera solar wind to %s"%(fOut))
             with h5py.File(fOut,'w') as hf:
@@ -307,6 +471,10 @@ if __name__ == "__main__":
                 hf.create_dataset("BzC",data=bCoef[2])
                 hf.create_dataset("Va",data=Va)
                 hf.create_dataset("Cs",data=Cs)
+                if doBs:
+                    hf.create_dataset("xBS",data=xBS)
+                    hf.create_dataset("yBS",data=yBS)
+                    hf.create_dataset("zBS",data=zBS)
                 hf.create_dataset("Magnetosonic Mach",data=Mfast)
                 
         else:

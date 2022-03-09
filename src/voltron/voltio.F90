@@ -12,7 +12,7 @@ module voltio
     
     implicit none
 
-    integer , parameter, private :: MAXVOLTIOVAR = 35
+    integer , parameter, private :: MAXVOLTIOVAR = 50
     real(rp), parameter, private :: dtWallMax = 1.0 !How long between timer resets[hr]
     logical , private :: isConInit = .false.
     real(rp), private ::  oMJD = 0.0
@@ -73,12 +73,10 @@ module voltio
             gamWait = 0.0
         endif
 
-        !Add some stupid trapping code to deal with fortran system clock wrapping
         if ( (simRate<0) .or. (abs(dtWall/3600.0) >= dtWallMax) ) then
-            !Just reset counters, this is just for diagnostics don't need exact value
-            oMJD = cMJD
-            call system_clock(count=oTime)
-            simRate = 0.0
+            ! Partially reset counters so that the values don't become so large they don't change
+            oMJD = oMJD + 0.9*dMJD
+            oTime = oTime + 0.9*dtWall*clockRate
         endif
 
         !Get MJD info

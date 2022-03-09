@@ -7,6 +7,7 @@ module rcm_mix_interface
   implicit none
 
   type(mixGrid_T), private :: rcmG, rcmG_mixstyle, rcmGS
+  real(rp), dimension(:,:), allocatable :: rcmTopod
 
 contains
 
@@ -33,7 +34,15 @@ contains
     allocate(imag2mix%lonc (Nt,Np))
     allocate(imag2mix%fac  (Nt,Np))
     allocate(imag2mix%inIMag(Nt,Np))
+    allocate(imag2mix%inIMagActive(Nt,Np))
+    allocate(imag2mix%inIMagBuffer(Nt,Np))
+    allocate(imag2mix%eden (Nt,Np))
+    allocate(imag2mix%epre (Nt,Np))
+    allocate(imag2mix%enflx(Nt,Np))
+    allocate(imag2mix%inflx(Nt,Np))
     imag2mix%inIMag(:,:) = .false.
+    imag2mix%inIMagActive(:,:) = .false.
+    imag2mix%inIMagBuffer(:,:) = .false.
     imag2mix%isInit = .true.
 
   !Now do remix mapping
@@ -75,8 +84,8 @@ contains
     type(imag2Mix_T), intent(inout) :: imag2mix
     type(mixApp_T), intent(inout) :: remixApp
     type(Map_T) :: rcmMap, rcmMapS
-    real(rp),dimension(:,:),allocatable :: rcmEflux_mix,rcmEavg_mix
-    real(rp), dimension(:,:), allocatable :: efluxS, eavgS ! for SH mapping. will add ifluxS and iavgS later.
+    real(rp),dimension(:,:),allocatable :: rcmEflux_mix,rcmEavg_mix,rcmTopod_mix,rcmeden_mix,rcmepre_mix,rcmEnflx_mix
+    real(rp), dimension(:,:), allocatable :: efluxS, eavgS, rcmTopodS, rcmedenS, rcmepreS, enflxS ! for SH mapping. will add ifluxS and iavgS later.
     integer :: ii, jj, kk, Nt, Np
     integer :: SHmaptype 
     ! # of steps for mapping RCM SH precipitation (may make it an option in XML later): 
@@ -91,22 +100,44 @@ contains
     ! do mapping here since in geo the RCM grid will be moving
     ! FIXME: if we do RCM in SM, though, this is not necessary (can set map in the init routine above)
 
+    Nt = size(imag2mix%latc,1)
+    Np = size(imag2mix%latc,2) ! imag2mix%latc (Nt,Np)
+    if (.not.allocated(rcmTopod)) allocate(rcmTopod(Nt,Np))
+    rcmTopod = 0.D0
+    where(imag2mix%inIMagActive)
+       rcmTopod = 1.0
+    elsewhere(imag2mix%inIMagBuffer)
+       rcmTopod = 0.5
+    endwhere
+
     call mix_set_map(rcmG_mixstyle,remixApp%ion(NORTH)%G,rcmMap)
     associate(rcmNt=>rcmG_mixstyle%Nt,rcmNp=>rcmG_mixstyle%Np)
+    call mix_map_grids(rcmMap,transpose(imag2mix%eavg(:,1:rcmNp)), rcmEavg_mix)
+    call mix_map_grids(rcmMap,transpose(imag2mix%enflx(:,1:rcmNp)),rcmEnflx_mix)
     call mix_map_grids(rcmMap,transpose(imag2mix%eflux(:,1:rcmNp)),rcmEflux_mix)
-    call mix_map_grids(rcmMap,transpose(imag2mix%eavg(:,1:rcmNp)),rcmEavg_mix)
+    call mix_map_grids(rcmMap,transpose(rcmTopod),rcmTopod_mix)
+    call mix_map_grids(rcmMap,transpose(imag2mix%eden(:,1:rcmNp)),rcmeden_mix)
+    call mix_map_grids(rcmMap,transpose(imag2mix%epre(:,1:rcmNp)),rcmepre_mix)
     end associate
 
     remixApp%ion(NORTH)%St%Vars(:,:,IM_EAVG)  = rcmEavg_mix*1e-3 ! [eV -> keV]
+    remixApp%ion(NORTH)%St%Vars(:,:,IM_ENFLX) = rcmEnflx_mix     ! [#/cm^2/s]
     remixApp%ion(NORTH)%St%Vars(:,:,IM_EFLUX) = rcmEflux_mix     ! [ergs/cm^2/s]
+    remixApp%ion(NORTH)%St%Vars(:,:,IM_TOPOD) = rcmTopod_mix
+    remixApp%ion(NORTH)%St%Vars(:,:,IM_EDEN)  = rcmeden_mix  ! [#/m^3]
+    remixApp%ion(NORTH)%St%Vars(:,:,IM_EPRE)  = rcmepre_mix
 
     ! Southern Hemisphere Mapping
     if(SHmaptype==1) then
-       call mapIMagSToRemix(imag2mix,remixApp,efluxS,eavgS)
-       rcmEavg_mix = transpose(eavgS)
+       call mapIMagSToRemix(imag2mix,remixApp,efluxS,eavgS,rcmTopodS,rcmedenS,rcmepreS,enflxS)
+       rcmEavg_mix  = transpose(eavgS)
+       rcmEnflx_mix = transpose(enflxS)
        rcmEflux_mix = transpose(efluxS)
+       rcmTopod_mix = transpose(rcmTopodS)
+       rcmeden_mix  = transpose(rcmedenS)
+       rcmepre_mix  = transpose(rcmepreS)
     elseif(SHmaptype==2) then
-       call mapIMagSToIMag(imag2mix,efluxS,eavgS)
+       call mapIMagSToIMag(imag2mix,efluxS,eavgS) ! need updates to deal with inIMagActive and inIMagBuffer. But SHmaptype=2 is never used.
        call mix_set_map(rcmGS,remixApp%ion(NORTH)%G,rcmMapS)
        associate(rcmNt=>rcmGS%Nt,rcmNp=>rcmGS%Np)
        call mix_map_grids(rcmMapS,transpose(efluxS(:,1:rcmNp-1)),rcmEflux_mix)
@@ -116,7 +147,11 @@ contains
 
     associate(Nt=>remixApp%ion(SOUTH)%G%Nt,Np=>remixApp%ion(SOUTH)%G%Np)
     remixApp%ion(SOUTH)%St%Vars(:,:,IM_EAVG)  = rcmEavg_mix(Np:1:-1,:)*1e-3 ! [eV -> keV]
+    remixApp%ion(SOUTH)%St%Vars(:,:,IM_ENFLX) = rcmEnflx_mix(Np:1:-1,:)
     remixApp%ion(SOUTH)%St%Vars(:,:,IM_EFLUX) = rcmEflux_mix(Np:1:-1,:)
+    remixApp%ion(SOUTH)%St%Vars(:,:,IM_TOPOD) = rcmTopod_mix(Np:1:-1,:)
+    remixApp%ion(SOUTH)%St%Vars(:,:,IM_EDEN)  = rcmeden_mix(Np:1:-1,:)
+    remixApp%ion(SOUTH)%St%Vars(:,:,IM_EPRE)  = rcmepre_mix(Np:1:-1,:)
     end associate
 
 ! For proton precipitation (all zero for now)
@@ -125,23 +160,26 @@ contains
     associate(rcmNt=>rcmG_mixstyle%Nt,rcmNp=>rcmG_mixstyle%Np)
     call mix_map_grids(rcmMap,transpose(imag2mix%iflux(:,1:rcmNp)),rcmEflux_mix)
     call mix_map_grids(rcmMap,transpose(imag2mix%iavg(:,1:rcmNp)),rcmEavg_mix)
+    call mix_map_grids(rcmMap,transpose(imag2mix%inflx(:,1:rcmNp)),rcmEnflx_mix)
     end associate
     remixApp%ion(NORTH)%St%Vars(:,:,IM_IAVG)  = rcmEavg_mix*1e-3 ! [eV -> keV]
     remixApp%ion(NORTH)%St%Vars(:,:,IM_IFLUX) = rcmEflux_mix
+    remixApp%ion(NORTH)%St%Vars(:,:,IM_INFLX) = rcmEnflx_mix
     associate(Nt=>remixApp%ion(SOUTH)%G%Nt,Np=>remixApp%ion(SOUTH)%G%Np)
     remixApp%ion(SOUTH)%St%Vars(:,:,IM_IAVG)  = rcmEavg_mix(Np:1:-1,:)*1e-3 ! [eV -> keV]
     remixApp%ion(SOUTH)%St%Vars(:,:,IM_IFLUX) = rcmEflux_mix(Np:1:-1,:)
+    remixApp%ion(SOUTH)%St%Vars(:,:,IM_INFLX) = rcmEnflx_mix(Np:1:-1,:)
     end associate
 
     !Set toggle and ignore it until isFresh toggled back
     imag2mix%isFresh = .false.
   end subroutine mapIMagToRemix
 
-  subroutine mapIMagSToRemix(imag2mix,remixApp,efluxS,eavgS)
+  subroutine mapIMagSToRemix(imag2mix,remixApp,efluxS,eavgS,rcmTopodS,rcmedenS,rcmepreS,enflxS)
   ! Directly map from irregular RCM SH grid to ReMIX.
     type(imag2Mix_T), intent(in) :: imag2mix
     type(mixApp_T), intent(inout) :: remixApp
-    real(rp), dimension(:,:), allocatable, intent(inout) :: efluxS, eavgS
+    real(rp), dimension(:,:), allocatable, intent(inout) :: efluxS, eavgS, rcmTopodS, rcmedenS, rcmepreS, enflxS
     real(rp), dimension(:,:), allocatable :: colatc, glongc, rcmt, rcmp, Ainvdwgt2
     real(rp) :: dlat, delt, delp, invdwgt
     integer :: i, j, Np, Nt, i0, j0, NpS, NtS, jl, ju, il, iu, jp, dj
@@ -169,47 +207,64 @@ contains
     ! Lastly, normalize the contribution by total IDW.
     if (.not.allocated(efluxS)) allocate(efluxS(NtS,NpS))
     if (.not.allocated(eavgS))  allocate(eavgS(NtS,NpS))
+    if (.not.allocated(rcmTopodS))  allocate(rcmTopodS(NtS,NpS))
+    if (.not.allocated(rcmedenS))  allocate(rcmedenS(NtS,NpS))
+    if (.not.allocated(rcmepreS))  allocate(rcmepreS(NtS,NpS))
+    if (.not.allocated(enflxS)) allocate(enflxS(NtS,NpS))
     if (.not.allocated(Ainvdwgt2))  allocate(Ainvdwgt2(NtS,NpS))
-    efluxS = 0.0
-    eavgS = 0.0
+    efluxS    = 0.0
+    eavgS     = 0.0
+    rcmTopodS = 0.0
+    rcmedenS  = 0.0
+    rcmepreS  = 0.0
+    enflxS    = 0.0
     Ainvdwgt2 = 0.0
     !$OMP PARALLEL DO default(shared) collapse(2) &
     !$OMP private(i,j,i0,il,iu,j0,jl,ju,jp,delt,delp,invdwgt) &
-    !$OMP reduction(+:efluxS,eavgS,Ainvdwgt2)
+    !$OMP reduction(+:efluxS,eavgS,Ainvdwgt2,rcmTopodS,rcmedenS,rcmepreS,enflxS)
     do j=1,Np
        do i=1,Nt
-          if(imag2mix%eflux(i,j)>0.0) then
-             i0 = minloc(abs(rcmt(1,:)-colatc(i,j)),1)
-             if(rcmt(1,i0)<=colatc(i,j)) then
+!          if(imag2mix%eflux(i,j)>0.0) then
+             i0 = minloc(abs(rcmt(1,:)-colatc(i,j)),1) ! Find the nearest remix colat index for rcm colatc(i,j)
+             if(rcmt(1,i0)<=colatc(i,j)) then ! If the nearest remix colat is < rcm colatc, only collect rcm to this colat and its next grid.
                 il=i0
                 iu=min(i0+1,NtS)
-             else
+             else ! Otherwise, collect from this point and its neighbor lat.
                 il=max(i0-1,1)
                 iu=i0
              endif
              do i0=il,iu 
-                if(abs(rcmt(1,i0)-colatc(i,j))<dlat) then
+                ! For any remix grid, interpolate if rcm lat is within dlat away
+                if(abs(rcmt(1,i0)-colatc(i,j))<dlat) then 
                    jp = minloc(abs(rcmp(:,1)-glongc(i,j)),1)
                    jl = max(jp-dj,1) ! dj used to 2.
                    ju = min(jp+dj,NpS)
                    if(jp<=dj) then  ! The code here may be optimized to be more concise.
-                     do j0=NpS-(dj-jp),NpS
-                       delt = abs(rcmt(j0,i0)-colatc(i,j))
-                       delp = abs((rcmp(j0,i0)-glongc(i,j)))*sin(rcmt(j0,i0))
-                       invdwgt = 1./sqrt(delt**2+delp**2)
-                       efluxS(i0,j0) = efluxS(i0,j0) + imag2mix%eflux(i,j)*invdwgt
-                       eavgS(i0,j0)  = eavgS(i0,j0)  + imag2mix%eavg(i,j)*invdwgt
-                       Ainvdwgt2(i0,j0)  = Ainvdwgt2(i0,j0)  + invdwgt
-                     enddo
+                      do j0=NpS-(dj-jp),NpS
+                        delt = abs(rcmt(j0,i0)-colatc(i,j))
+                        delp = abs((rcmp(j0,i0)-glongc(i,j)))*sin(rcmt(j0,i0))
+                        invdwgt = 1./sqrt(delt**2+delp**2)
+                        efluxS(i0,j0) = efluxS(i0,j0) + imag2mix%eflux(i,j)*invdwgt
+                        eavgS(i0,j0)  = eavgS(i0,j0)  + imag2mix%eavg(i,j)*invdwgt
+                        rcmTopodS(i0,j0)  = rcmTopodS(i0,j0)  + rcmTopod(i,j)*invdwgt
+                        rcmedenS(i0,j0)   = rcmedenS(i0,j0)   + imag2mix%eden(i,j)*invdwgt
+                        rcmepreS(i0,j0)   = rcmepreS(i0,j0)   + imag2mix%epre(i,j)*invdwgt
+                        enflxS(i0,j0)     = enflxS(i0,j0) + imag2mix%enflx(i,j)*invdwgt
+                        Ainvdwgt2(i0,j0)  = Ainvdwgt2(i0,j0)  + invdwgt
+                      enddo
                    elseif(jp>NpS-dj) then
-                     do j0=1,dj-(NpS-jp)
-                       delt = abs(rcmt(j0,i0)-colatc(i,j))
-                       delp = abs((rcmp(j0,i0)-glongc(i,j)))*sin(rcmt(j0,i0))
-                       invdwgt = 1./sqrt(delt**2+delp**2)
-                       efluxS(i0,j0) = efluxS(i0,j0) + imag2mix%eflux(i,j)*invdwgt
-                       eavgS(i0,j0)  = eavgS(i0,j0)  + imag2mix%eavg(i,j)*invdwgt
-                       Ainvdwgt2(i0,j0)  = Ainvdwgt2(i0,j0)  + invdwgt
-                     enddo
+                      do j0=1,dj-(NpS-jp)
+                        delt = abs(rcmt(j0,i0)-colatc(i,j))
+                        delp = abs((rcmp(j0,i0)-glongc(i,j)))*sin(rcmt(j0,i0))
+                        invdwgt = 1./sqrt(delt**2+delp**2)
+                        efluxS(i0,j0) = efluxS(i0,j0) + imag2mix%eflux(i,j)*invdwgt
+                        eavgS(i0,j0)  = eavgS(i0,j0)  + imag2mix%eavg(i,j)*invdwgt
+                        rcmTopodS(i0,j0)  = rcmTopodS(i0,j0)  + rcmTopod(i,j)*invdwgt
+                        rcmedenS(i0,j0)   = rcmedenS(i0,j0)   + imag2mix%eden(i,j)*invdwgt
+                        rcmepreS(i0,j0)   = rcmepreS(i0,j0)   + imag2mix%epre(i,j)*invdwgt
+                        enflxS(i0,j0)     = enflxS(i0,j0) + imag2mix%enflx(i,j)*invdwgt
+                        Ainvdwgt2(i0,j0)  = Ainvdwgt2(i0,j0)  + invdwgt
+                      enddo
                    endif
                    do j0=jl,ju
                       delt = abs(rcmt(j0,i0)-colatc(i,j))
@@ -217,11 +272,15 @@ contains
                       invdwgt = 1./sqrt(delt**2+delp**2)
                       efluxS(i0,j0) = efluxS(i0,j0) + imag2mix%eflux(i,j)*invdwgt
                       eavgS(i0,j0)  = eavgS(i0,j0)  + imag2mix%eavg(i,j)*invdwgt
+                      rcmTopodS(i0,j0)  = rcmTopodS(i0,j0)  + rcmTopod(i,j)*invdwgt
+                      rcmedenS(i0,j0)   = rcmedenS(i0,j0)   + imag2mix%eden(i,j)*invdwgt
+                      rcmepreS(i0,j0)   = rcmepreS(i0,j0)   + imag2mix%epre(i,j)*invdwgt
+                      enflxS(i0,j0)     = enflxS(i0,j0) + imag2mix%enflx(i,j)*invdwgt
                       Ainvdwgt2(i0,j0)  = Ainvdwgt2(i0,j0)  + invdwgt
                    enddo
                 endif
              enddo
-          endif
+!          endif
        end do
     end do
     !$OMP PARALLEL DO default(shared) collapse(2) &
@@ -231,6 +290,10 @@ contains
           if(Ainvdwgt2(i0,j0)>0.0) then
              efluxS(i0,j0) = efluxS(i0,j0)/Ainvdwgt2(i0,j0)
              eavgS(i0,j0) = eavgS(i0,j0)/Ainvdwgt2(i0,j0)
+             rcmTopodS(i0,j0) = rcmTopodS(i0,j0)/Ainvdwgt2(i0,j0)
+             rcmedenS(i0,j0)  = rcmedenS(i0,j0)/Ainvdwgt2(i0,j0)
+             rcmepreS(i0,j0)  = rcmepreS(i0,j0)/Ainvdwgt2(i0,j0)
+             enflxS(i0,j0)    = enflxS(i0,j0)/Ainvdwgt2(i0,j0)
           endif
        end do
     end do

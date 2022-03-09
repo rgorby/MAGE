@@ -152,8 +152,8 @@
                     pwe (isize,jsize), pwn (isize,jsize), &
                     hwe (isize,jsize), hwn (isize,jsize), &
                     sw  (jsize), &
-                    eflux (isize,jsize,iesize), eavg (isize,jsize,iesize), &
-                    efluxk (isize,jsize,kcsize,iesize), eavgk (isize,jsize,kcsize,iesize)
+                    eflux (isize,jsize,iesize), eavg (isize,jsize,iesize), nflux (isize,jsize,iesize), &
+                    efluxk (isize,jsize,kcsize,iesize), eavgk (isize,jsize,kcsize,iesize), nfluxk (isize,jsize,kcsize,iesize)
     INTEGER (iprec) :: icond, nsmthi, nsmthj, iwind
     LOGICAL :: ifloor, icorrect
 !
@@ -560,6 +560,7 @@
         endif
         eavg  (:,:,:) = 0.0
         eflux (:,:,:) = 0.0
+        nflux (:,:,:) = 0.0
         do j=1,jsize
             do i=1,isize
                 if (isOpen(i,j)) CYCLE
@@ -582,6 +583,7 @@
                 enddo
                 eflux(i,j,:) = eflx*ev2erg  ! energy flux in erg/(cm^2 s)
                 eavg (i,j,:) = eflx/nflx ! Average energy in eV
+                nflux(i,j,:) = nflx         ! Num flux in #/cm^2/s
                
                 DO ie = 1, RCMNUMFLAV
                       IF (nflx (ie) > 10.*machine_tiny) THEN  ! zero  sbao 07/2019
@@ -590,6 +592,7 @@
 !                         we want eflux=0 and eavg=0 for no precipitation.
                           eflux (i, j, ie) = zero
                           eavg  (i, j, ie) = zero
+                          nflux (i, j, ie) = zero
 !
                       END IF
                 END DO
@@ -597,8 +600,10 @@
             enddo
         enddo
         
+        CALL Circle (nflux (:, :, ie_el))
         CALL Circle (eflux (:, :, ie_el))
         CALL Circle (eavg  (:, :, ie_el))
+        CALL Circle (nflux (:, :, ie_hd))
         CALL Circle (eflux (:, :, ie_hd))
         CALL Circle (eavg  (:, :, ie_hd))
 
@@ -606,6 +611,7 @@
         !Do both or neither
           eavg  = 0.0
           eflux = 0.0
+          nflux = 0.0
         end where
       end subroutine kdiffPrecip
 
@@ -1710,6 +1716,7 @@
           call AddInVar(IOVars,"rcmhall"   )
           call AddInVar(IOVars,"rcmeavg"   )
           call AddInVar(IOVars,"rcmeflux"  )
+          call AddInVar(IOVars,"rcmnflux"  )
           call AddInVar(IOVars,"rcmbirk"   )
           call AddInVar(IOVars,"rcmbirkavg")
 
@@ -1792,8 +1799,9 @@
           call IOArray3DFill(IOVars,"rcmeeta",eeta)
           call IOArray3DFill(IOVars,"rcmeetaavg",eeta_avg)
           call IOArray3DFill(IOVars,"rcmeflux",eflux)
-          !call IOArray3DFill(IOVars,"rcmlosspre",lossratep)
-          !call IOArray3DFill(IOVars,"rcmlossmod",lossmodel) ! uncomment this when done with restarting tests.
+          call IOArray3DFill(IOVars,"rcmnflux",nflux)
+!          call IOArray3DFill(IOVars,"rcmlosspre",lossratep)
+!          call IOArray3DFill(IOVars,"rcmlossmod",lossmodel) ! uncomment this when done with restarting tests.
           
         end subroutine ReadRCMRestart
 
@@ -1861,6 +1869,7 @@
           call AddOutVar(IOVars,"rcmhall"   ,hall    )
           call AddOutVar(IOVars,"rcmeavg"   ,eavg    )
           call AddOutVar(IOVars,"rcmeflux"  ,eflux   )
+          call AddOutVar(IOVars,"rcmnflux"  ,nflux   )
           call AddOutVar(IOVars,"rcmbirk"   ,birk    )
           call AddOutVar(IOVars,"rcmbirkavg",birk_avg)
 

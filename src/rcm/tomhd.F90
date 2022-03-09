@@ -38,7 +38,7 @@ MODULE tomhd_mod
 !==============================================================
 
       USE Rcm_mod_subs, ONLY : bmin,birk,xmin,ymin,zmin,vm,eeta,eeta_avg, &
-                               bndloc,pressrcm,densrcm,denspsph,imin_j,eflux,eavg
+                               bndloc,pressrcm,densrcm,denspsph,imin_j,eflux,eavg,nflux
 
 
       IMPLICIT NONE
@@ -71,6 +71,7 @@ MODULE tomhd_mod
       call Unbiggen(denspsph,RM%Npsph)
       call Unbiggen(birk    ,RM%fac  )
       do n=1,2
+        call Unbiggen(nflux(:,:,n),RM%nflx   (:,:,n))
         call Unbiggen(eflux(:,:,n),RM%flux   (:,:,n))
         call Unbiggen(eavg (:,:,n),RM%eng_avg(:,:,n))
       enddo
