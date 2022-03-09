@@ -124,12 +124,13 @@ def FetchSMData(user, start, numofdays, savefolder, badfrac=0.1, nanflags=True, 
         
     # Look at all saved .jsons
     filenames = [x for x in sorted(os.listdir(savefolder)) if '.json' in x]
-    startstr = str(start)[:10]
+    startstr = start.strftime('%Y-%m-%d')
 
     exists = False
     for filename in filenames:
         if startstr in filename:
-            daystring = filename[:-5].split("_")[-1]
+            # first split grads numberOfDays.json and second returns the numberOfDays
+            daystring = filename.split('_')[-1].split('.')[0] 
 
             if int(daystring) >= numofdays:
                 print("Supermag data already exists locally")
@@ -172,14 +173,14 @@ def FetchSMData(user, start, numofdays, savefolder, badfrac=0.1, nanflags=True, 
         for i in master:
             output[i[0]['iaga']] = list(i)
 
-        filename = "SM_DATA_" + str(start)[:10] + '_%1d.json' % (numofdays)
-        with open(savefolder + filename, mode='w') as f:
+        filename = "SM_DATA_" + startstr + '_%1d.json' % (numofdays)
+        with open(os.path.join(savefolder,filename), mode='w') as f:
             #print(savefolder + filename)
             json.dump(output, f)
         f.close()
 
     # Now read in the data
-    with open(savefolder + filename,) as r:
+    with open(os.path.join(savefolder,filename),mode='r') as r:
         #print(savefolder + filename)
         rr = json.load(r)
 
