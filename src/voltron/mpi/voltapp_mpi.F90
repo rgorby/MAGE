@@ -194,7 +194,7 @@ module voltapp_mpi
         allocate(vApp%zeroArrayTypes(1:commSize-1))
         allocate(vAPp%zeroArrayDispls(1:commSize-1))
         vApp%zeroArrayCounts(:) = 0
-        vApp%zeroArrayTypes(:) = MPI_INT ! MPI_DATATYPE_NULL
+        vApp%zeroArrayTypes(:) = MPI_INTEGER ! MPI_DATATYPE_NULL
         vApp%zeroArrayDispls(:) = 0
 
         ! doing a very very rough approximation of data transferred to help MPI reorder
@@ -202,12 +202,12 @@ module voltapp_mpi
         ! for shallow updates, i=0 ranks send that much data again
 
         ! get i/j/k ranks from each Gamera mpi rank
-        call mpi_gather(-1, 1, MPI_INT, iRanks, 1, MPI_INT, commSize-1, voltComm, ierr)
-        call mpi_gather(-1, 1, MPI_INT, jRanks, 1, MPI_INT, commSize-1, voltComm, ierr)
-        call mpi_gather(-1, 1, MPI_INT, kRanks, 1, MPI_INT, commSize-1, voltComm, ierr)
+        call mpi_gather(-1, 1, MPI_INTEGER, iRanks, 1, MPI_INTEGER, commSize-1, voltComm, ierr)
+        call mpi_gather(-1, 1, MPI_INTEGER, jRanks, 1, MPI_INTEGER, commSize-1, voltComm, ierr)
+        call mpi_gather(-1, 1, MPI_INTEGER, kRanks, 1, MPI_INTEGER, commSize-1, voltComm, ierr)
 
         ! get the number of physical cells from rank 0
-        call mpi_recv(numCells, 1, MPI_INT, 0, 97500, voltComm, MPI_STATUS_IGNORE, ierr)
+        call mpi_recv(numCells, 1, MPI_INTEGER, 0, 97500, voltComm, MPI_STATUS_IGNORE, ierr)
 
         do ic=1,commSize-1
             neighborRanks(ic) = ic-1
@@ -261,9 +261,9 @@ module voltapp_mpi
         end if
 
         ! get i/j/k ranks again in case MPI ranks were reordered in the new communicator
-        call mpi_gather(-1, 1, MPI_INT, iRanks, 1, MPI_INT, vApp%myRank, vApp%voltMpiComm, ierr)
-        call mpi_gather(-1, 1, MPI_INT, jRanks, 1, MPI_INT, vApp%myRank, vApp%voltMpiComm, ierr)
-        call mpi_gather(-1, 1, MPI_INT, kRanks, 1, MPI_INT, vApp%myRank, vApp%voltMpiComm, ierr)
+        call mpi_gather(-1, 1, MPI_INTEGER, iRanks, 1, MPI_INTEGER, vApp%myRank, vApp%voltMpiComm, ierr)
+        call mpi_gather(-1, 1, MPI_INTEGER, jRanks, 1, MPI_INTEGER, vApp%myRank, vApp%voltMpiComm, ierr)
+        call mpi_gather(-1, 1, MPI_INTEGER, kRanks, 1, MPI_INTEGER, vApp%myRank, vApp%voltMpiComm, ierr)
 
         ! use standard voltron with local gamApp object
         if(present(optFilename)) then
@@ -328,7 +328,7 @@ module voltapp_mpi
         endif
 
         ! Receive Gamera's restart number and ensure Voltron has the same restart number
-        call mpi_recv(gamNRES, 1, MPI_INT, MPI_ANY_SOURCE, 97520, vApp%voltMpiComm, MPI_STATUS_IGNORE, ierr)
+        call mpi_recv(gamNRES, 1, MPI_INTEGER, MPI_ANY_SOURCE, 97520, vApp%voltMpiComm, MPI_STATUS_IGNORE, ierr)
         if (vApp%gAppLocal%Model%isRestart .and. vApp%IO%nRes /= gamNRES) then
             write(*,*) "Gamera and Voltron disagree on restart number, you should sort that out."
             write(*,*) "Error code: A house divided cannot stand"
@@ -343,12 +343,12 @@ module voltapp_mpi
         call mpi_bcast(vApp%DeepT, 1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
         call mpi_bcast(vApp%ShallowT, 1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
         call mpi_bcast(vApp%MJD, 1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
-        call mpi_bcast(vApp%ts, 1, MPI_INT, vApp%myRank, vApp%voltMpiComm, ierr)
+        call mpi_bcast(vApp%ts, 1, MPI_INTEGER, vApp%myRank, vApp%voltMpiComm, ierr)
         call mpi_bcast(vApp%doDeep, 1, MPI_LOGICAL, vApp%myRank, vApp%voltMpiComm, ierr)
-        call mpi_bcast(vApp%mhd2mix%JStart, 1, MPI_INT, vApp%myRank, vApp%voltMpiComm, ierr)
-        call mpi_bcast(vApp%mhd2mix%JShells, 1, MPI_INT, vApp%myRank, vApp%voltMpiComm, ierr)
-        call mpi_bcast(vApp%mix2mhd%PsiStart, 1, MPI_INT, vApp%myRank, vApp%voltMpiComm, ierr)
-        call mpi_bcast(vApp%mix2mhd%PsiShells, 1, MPI_INT, vApp%myRank, vApp%voltMpiComm, ierr)
+        call mpi_bcast(vApp%mhd2mix%JStart, 1, MPI_INTEGER, vApp%myRank, vApp%voltMpiComm, ierr)
+        call mpi_bcast(vApp%mhd2mix%JShells, 1, MPI_INTEGER, vApp%myRank, vApp%voltMpiComm, ierr)
+        call mpi_bcast(vApp%mix2mhd%PsiStart, 1, MPI_INTEGER, vApp%myRank, vApp%voltMpiComm, ierr)
+        call mpi_bcast(vApp%mix2mhd%PsiShells, 1, MPI_INTEGER, vApp%myRank, vApp%voltMpiComm, ierr)
 
         ! send updated Gamera parameters to the gamera ranks
         call mpi_bcast(vApp%gAppLocal%Model%t, 1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
@@ -368,7 +368,7 @@ module voltapp_mpi
                        1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
         call mpi_bcast(vApp%IO%dtRes/vApp%gAppLocal%Model%Units%gT0, &
                        1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
-        call mpi_bcast(vApp%IO%tsOut, 1, MPI_INT, vApp%myRank, vApp%voltMpiComm, ierr)
+        call mpi_bcast(vApp%IO%tsOut, 1, MPI_INTEGER, vApp%myRank, vApp%voltMpiComm, ierr)
 
         if(vApp%useHelpers) then
             if(vApp%doSquishHelp) then
@@ -454,7 +454,7 @@ module voltapp_mpi
         if(vApp%doSerialVoltron .or. vApp%firstStepUpdate) then
             call mpi_recv(vApp%timeBuffer, 1, MPI_MYFLOAT, MPI_ANY_SOURCE, 97600, vApp%voltMpiComm, MPI_STATUS_IGNORE, ierr)
 
-            call mpi_recv(vApp%timeStepBuffer, 1, MPI_INT, MPI_ANY_SOURCE, 97700, vApp%voltMpiComm, MPI_STATUS_IGNORE, ierr)
+            call mpi_recv(vApp%timeStepBuffer, 1, MPI_INTEGER, MPI_ANY_SOURCE, 97700, vApp%voltMpiComm, MPI_STATUS_IGNORE, ierr)
             vApp%firstStepUpdate = .false.
         else
             call mpi_wait(vApp%timeReq, MPI_STATUS_IGNORE, ierr)
@@ -469,7 +469,7 @@ module voltapp_mpi
         if(.not. vApp%doSerialVoltron) then
             call mpi_Irecv(vApp%timeBuffer, 1, MPI_MYFLOAT, MPI_ANY_SOURCE, 97600, vApp%voltMpiComm, vApp%timeReq, ierr)
 
-            call mpi_Irecv(vApp%timeStepBuffer, 1, MPI_INT, MPI_ANY_SOURCE, 97700, vApp%voltMpiComm, vApp%timeStepReq, ierr)
+            call mpi_Irecv(vApp%timeStepBuffer, 1, MPI_INTEGER, MPI_ANY_SOURCE, 97700, vApp%voltMpiComm, vApp%timeStepReq, ierr)
         endif
 
     end subroutine stepVoltron_mpi
@@ -1219,8 +1219,8 @@ module voltapp_mpi
                 vApp%recvCountsGasShallow(r) = 0
                 vApp%recvCountsBxyzShallow(r) = 0
                 ! set these types to non null because MPI complains
-                vApp%recvTypesGasShallow(r) = MPI_INT
-                vApp%recvTypesBxyzShallow(r) = MPI_INT
+                vApp%recvTypesGasShallow(r) = MPI_INTEGER
+                vApp%recvTypesBxyzShallow(r) = MPI_INTEGER
             else
                 ! calculate the byte offset to the start of the data
 
@@ -1278,8 +1278,8 @@ module voltapp_mpi
                 vApp%sendCountsInexyzShallow(r) = 0
                 vApp%sendCountsIneijkShallow(r) = 0
                 ! set these types to non null because MPI complains
-                vApp%sendTypesInexyzShallow(r) = MPI_INT
-                vApp%sendTypesIneijkShallow(r) = MPI_INT
+                vApp%sendTypesInexyzShallow(r) = MPI_INTEGER
+                vApp%sendTypesIneijkShallow(r) = MPI_INTEGER
             else
                 ! calculate the byte offset to the start of the data
 
@@ -1337,7 +1337,7 @@ module voltapp_mpi
         ! assumed to only be in this function if helpers are enabled
 
         ! async wait for command type
-        call mpi_Ibcast(helpType, 1, MPI_INT, 0, vApp%vHelpComm, helpReq, ierr)
+        call mpi_Ibcast(helpType, 1, MPI_INTEGER, 0, vApp%vHelpComm, helpReq, ierr)
         call mpi_wait(helpReq, MPI_STATUS_IGNORE, ierr)
 
         !write (*,*) 'Helper got request type: ', helpType
