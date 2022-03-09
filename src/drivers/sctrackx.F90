@@ -4,6 +4,7 @@ program sctrackx
     use chmpdefs
     use starter
     use chmpio
+    use iotable
     use ebtypes
     use chmpfields
   
@@ -114,7 +115,7 @@ program sctrackx
             topo = 0
         endif
 
-        SCTrack%MJDs(n) = MJDAt(ebState%ebTab,Model%t)
+        SCTrack%MJDs(n) = ioTabMJD(ebState%ebTab,Model%t)
 
         !Store values
         SCTrack%Q(n,:) = Qt
