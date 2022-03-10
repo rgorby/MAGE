@@ -21,7 +21,6 @@ module purge
 module load pkgsrc/2021Q2
 module load comp-intel/2020.4.304
 module load hdf5/1.8.18_serial
-module load python3/3.9.5
 echo "The following modules are loaded:"
 module list
 
@@ -49,12 +48,6 @@ export KAIJU_QUICKSTART_DIR=$KAIJUHOME/quickstart
 export PATH=$KAIJU_QUICKSTART_DIR/loop2d:$PATH
 export PATH=$KAIJU_QUICKSTART_DIR/bw3d:$PATH
 export PATH=$KAIJU_QUICKSTART_DIR/geo_serial:$PATH
-
-# Add the kaipy directory to the python module path.
-export PYTHONPATH=$KAIJUHOME:$PYTHONPATH
-
-# Add the geopack directory to the python module path.
-export PYTHONPATH=$KAIJUHOME/external/geopack-2008/build/lib.linux-x86_64-3.9:$PYTHONPATH
 
 # Set the OMP stack size to prevent a crash.
 # If this setting is ignored, the loop2d model will cause gamera.x to crash

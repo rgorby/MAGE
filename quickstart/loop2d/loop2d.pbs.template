@@ -21,7 +21,6 @@ module purge
 module load pkgsrc/2021Q2
 module load comp-intel/2020.4.304
 module load hdf5/1.8.18_serial
-module load python3/3.9.5
 echo "The following modules are loaded:"
 module list
 
