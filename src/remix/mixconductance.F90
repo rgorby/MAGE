@@ -22,7 +22,6 @@ module mixconductance
   real(rp), parameter, private :: maxDrop = 20.0 !Hard-coded max potential drop [kV]
   real(rp), private :: RinMHD = 0.0 !Rin of MHD grid (0 if not running w/ MHD)
   real(rp), private :: MIXgamma
-  logical , private :: doRobKap = .true. !Use Kaeppler+ 15 correction to SigH/SigP from Robinson
   logical , private :: doDrift = .false. !Whether to add drift term from Zhang
 
   contains
