@@ -358,7 +358,7 @@ module voltapp
             stop
         endif
 
-        if (vApp%remixApp%ion(NORTH)%P%doSWF107 /= vApp%remixApp%ion(SOUTH)%P%doSWF107) then
+        if (vApp%remixApp%ion(NORTH)%P%doSWF107 .neqv. vApp%remixApp%ion(SOUTH)%P%doSWF107) then
             write(*,*) 'Something is wrong. doSWf107 is set differently for the two hemispheres.'
             write(*,*) 'Exiting ...'
             stop
