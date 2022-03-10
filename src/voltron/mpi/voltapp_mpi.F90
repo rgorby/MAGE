@@ -338,23 +338,23 @@ module voltapp_mpi
         endif
 
         ! send all of the initial voltron parameters to the gamera ranks
-        call mpi_bcast(vApp%time, 1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
-        call mpi_bcast(vApp%tFin, 1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
-        call mpi_bcast(vApp%DeepT, 1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
+        call mpi_bcast(vApp%time,     1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
+        call mpi_bcast(vApp%tFin,     1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
+        call mpi_bcast(vApp%DeepT,    1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
         call mpi_bcast(vApp%ShallowT, 1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
-        call mpi_bcast(vApp%MJD, 1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
-        call mpi_bcast(vApp%ts, 1, MPI_INTEGER, vApp%myRank, vApp%voltMpiComm, ierr)
-        call mpi_bcast(vApp%doDeep, 1, MPI_LOGICAL, vApp%myRank, vApp%voltMpiComm, ierr)
-        call mpi_bcast(vApp%mhd2mix%JStart, 1, MPI_INTEGER, vApp%myRank, vApp%voltMpiComm, ierr)
-        call mpi_bcast(vApp%mhd2mix%JShells, 1, MPI_INTEGER, vApp%myRank, vApp%voltMpiComm, ierr)
-        call mpi_bcast(vApp%mix2mhd%PsiStart, 1, MPI_INTEGER, vApp%myRank, vApp%voltMpiComm, ierr)
+        call mpi_bcast(vApp%MJD,      1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
+        call mpi_bcast(vApp%ts,       1, MPI_INTEGER, vApp%myRank, vApp%voltMpiComm, ierr)
+        call mpi_bcast(vApp%doDeep,   1, MPI_LOGICAL, vApp%myRank, vApp%voltMpiComm, ierr)
+        call mpi_bcast(vApp%mhd2mix%JStart,    1, MPI_INTEGER, vApp%myRank, vApp%voltMpiComm, ierr)
+        call mpi_bcast(vApp%mhd2mix%JShells,   1, MPI_INTEGER, vApp%myRank, vApp%voltMpiComm, ierr)
+        call mpi_bcast(vApp%mix2mhd%PsiStart,  1, MPI_INTEGER, vApp%myRank, vApp%voltMpiComm, ierr)
         call mpi_bcast(vApp%mix2mhd%PsiShells, 1, MPI_INTEGER, vApp%myRank, vApp%voltMpiComm, ierr)
 
         ! send updated Gamera parameters to the gamera ranks
-        call mpi_bcast(vApp%gAppLocal%Model%t, 1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
+        call mpi_bcast(vApp%gAppLocal%Model%t,    1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
         call mpi_bcast(vApp%gAppLocal%Model%MJD0, 1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
         call mpi_bcast(vApp%gAppLocal%Model%tFin, 1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
-        call mpi_bcast(vApp%gAppLocal%Model%dt, 1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
+        call mpi_bcast(vApp%gAppLocal%Model%dt,   1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
 
         ! receive updated gamera parameters from gamera rank
         call mpi_recv(vApp%gAppLocal%Model%dt0, 1, MPI_MYFLOAT, MPI_ANY_SOURCE, 97510, vApp%voltMpiComm, MPI_STATUS_IGNORE, ierr)
