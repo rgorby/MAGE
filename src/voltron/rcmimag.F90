@@ -345,9 +345,15 @@ module rcmimag
             vApp%imag2mix%inIMag = (RCMApp%iopen == RCMTOPCLOSED)
         endif
 
-        !Pseudocode for redoing remix conductance merge
-        vApp%imag2mix%inIMagActive =(RCMApp%iopen == RCMTOPCLOSED)
-        vApp%imag2mix%inIMagBuffer = (.not. RCMApp%iopen == RCMTOPCLOSED) .and. (.not. RCMApp%iopen == RCMTOPOPEN)
+        ! Pass RCM grid type info for remix conductance merge.
+        ! Need to update weight assignment in rcm_mix_interface if more types are introduced.
+        where(RCMApp%iopen == RCMTOPCLOSED)
+            vApp%imag2mix%gtype = IMactive
+        elsewhere((.not. RCMApp%iopen == RCMTOPCLOSED) .and. (.not. RCMApp%iopen == RCMTOPOPEN))
+            vApp%imag2mix%gtype = IMbuffer
+        elsewhere
+            vApp%imag2mix%gtype = IMoutside
+        endwhere
         
         vApp%imag2mix%latc = RCMApp%latc
         vApp%imag2mix%lonc = RCMApp%lonc

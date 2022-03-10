@@ -57,8 +57,8 @@ contains
     mixUnitNames(CRPOT)        = "kV"
     mixVarNames(TPOT)          = "Total Potential"
     mixUnitNames(TPOT)         = "kV"
-    mixVarNames(IM_TOPOD)      = "RCM grid type"
-    mixUnitNames(IM_TOPOD)     = "0-1"
+    mixVarNames(IM_GTYPE)      = "RCM grid type"
+    mixUnitNames(IM_GTYPE)     = "0-1"
     mixVarNames(AUR_TYPE)      = "Auroral model type"
     mixUnitNames(AUR_TYPE)     = "Zhang Fedder RCM RCMZ"
     mixVarNames(IM_BETA)       = "RCM beta"
@@ -191,7 +191,7 @@ contains
              doDump = .true.       
           case (TPOT) 
              doDump = .true.
-          case (IM_TOPOD)
+          case (IM_GTYPE)
              doDump = .true.
           case (AUR_TYPE)
              doDump = .true.
@@ -679,7 +679,7 @@ contains
              doDump = .true.
           case (Z_EAVG)
              doDump = .true.   
-          case (IM_TOPOD)
+          case (IM_GTYPE)
              doDump = .true.
           case (AUR_TYPE)
              doDump = .true.

@@ -15,7 +15,7 @@ module mixconductance
   real(rp), dimension(:,:), allocatable, private :: JF0,RM,RRdi ! used for zhang15
   real(rp), dimension(:,:), allocatable, private :: tmpE,tmpF ! used for smoothing precipitation avg_eng and num_flux
   real(rp), dimension(:,:), allocatable, private :: Kc ! used for multi-reflection modification
-  real(rp), dimension(:,:), allocatable, private :: beta_RCM,alpha_RCM,TOPOD_RCM ! two-dimensional beta based on RCM fluxes.
+  real(rp), dimension(:,:), allocatable, private :: beta_RCM,alpha_RCM,gtype_RCM ! two-dimensional beta based on RCM fluxes.
   real(rp), dimension(:,:), allocatable, private :: phi0_rcmz, Pe_MHD, Ne_MHD, Pe_RMD, Ne_RMD
 
   !Replacing some hard-coded inline values (bad) w/ module private values (slightly less bad)
@@ -82,7 +82,7 @@ module mixconductance
       if (.not. allocated(Kc))   allocate(Kc  (G%Np,G%Nt))
       if (.not. allocated(beta_RCM)) allocate(beta_RCM(G%Np,G%Nt))
       if (.not. allocated(alpha_RCM)) allocate(alpha_RCM(G%Np,G%Nt))
-      if (.not. allocated(TOPOD_RCM)) allocate(TOPOD_RCM(G%Np,G%Nt))
+      if (.not. allocated(gtype_RCM)) allocate(gtype_RCM(G%Np,G%Nt))
       if (.not. allocated(phi0_rcmz)) allocate(phi0_rcmz(G%Np,G%Nt))
       if (.not. allocated(Pe_MHD)) allocate(Pe_MHD(G%Np,G%Nt))
       if (.not. allocated(Ne_MHD)) allocate(Ne_MHD(G%Np,G%Nt))
@@ -95,7 +95,7 @@ module mixconductance
       ! Use default xml input if not using rcmhd.
       alpha_RCM = 1.0/(tiote_RCM+1.0)
       beta_RCM  = conductance%beta
-      TOPOD_RCM = 0.0 ! if conductance_IM_TOPOD is not called, TOPOD_RCM has all zero, MHD values have a weight of 1.
+      gtype_RCM = 0.0 ! if conductance_IM_GTYPE is not called, gtype_RCM has all zero, MHD values have a weight of 1.
 
     end subroutine conductance_init
 
@@ -306,8 +306,8 @@ module mixconductance
          ! similarly, E0 is a ratio and should NOT be merged. 
          ! Derive it from merged pressure and density instead.
          ! See wiki for derivations of the coefficients.
-         Pe_RMD = TOPOD_RCM*St%Vars(:,:,IM_EPRE) + (1.0-TOPOD_RCM)*Pe_MHD ! Merged electron pressure in [Pa].
-         Ne_RMD = TOPOD_RCM*St%Vars(:,:,IM_EDEN) + (1.0-TOPOD_RCM)*Ne_MHD ! Merged electron number density in [/m^3].
+         Pe_RMD = gtype_RCM*St%Vars(:,:,IM_EPRE) + (1.0-gtype_RCM)*Pe_MHD ! Merged electron pressure in [Pa].
+         Ne_RMD = gtype_RCM*St%Vars(:,:,IM_EDEN) + (1.0-gtype_RCM)*Ne_MHD ! Merged electron number density in [/m^3].
          conductance%E0   = 2.0/kev2J*Pe_RMD/Ne_RMD     ! Mean energy from merged electron fluxes in [keV].
          conductance%phi0 = beta_RCM*sqrt(Pe_RMD*Ne_RMD/(2.0D-3*pi*Me_cgs))*1.0D-4     ! Thermal number flux from merged electron fluxes in [#/cm^2/s].
       endif
@@ -360,7 +360,7 @@ module mixconductance
 
     end subroutine conductance_alpha_beta
 
-    subroutine conductance_IM_TOPOD(G,St)
+    subroutine conductance_IM_GTYPE(G,St)
       type(mixGrid_T), intent(in) :: G
       type(mixState_T), intent(in) :: St
       real(rp), dimension(3,3) :: A33
@@ -370,27 +370,27 @@ module mixconductance
 
       MaxIter = 5
       
-      ! Iterative diffusion algorithm to smooth out IM_TOPOD: 0/1 are boundary cells. Evolve with nine-cell mean. 
+      ! Iterative diffusion algorithm to smooth out IM_GTYPE: 0/1 are boundary cells. Evolve with nine-cell mean. 
       ! Otherwise it only has three values, 0, 0.5, and 1.0, 
       ! which causes discontinuities in the merged precipitation.
-      TOPOD_RCM = St%Vars(:,:,IM_TOPOD) ! defined/initialized in the head.
+      gtype_RCM = St%Vars(:,:,IM_GTYPE) ! supposed to be between 0 and 1.
       do it=1,MaxIter
          mad = 0.D0 ! max abs difference from last iteration.
          do j=2,G%Nt-1
             do i=2,G%Np-1
-               if(St%Vars(i,j,IM_TOPOD)>0.01 .and. St%Vars(i,j,IM_TOPOD)<0.99) then
-                  A33  = TOPOD_RCM(i-1:i+1,j-1:j+1)
+               if(St%Vars(i,j,IM_GTYPE)>0.01 .and. St%Vars(i,j,IM_GTYPE)<0.99) then
+                  A33  = gtype_RCM(i-1:i+1,j-1:j+1)
                   Ttmp = sum(A33)/9.0
-                  mad  = max(abs(TOPOD_RCM(i,j)-Ttmp),mad)
-                  TOPOD_RCM(i,j) = Ttmp
+                  mad  = max(abs(gtype_RCM(i,j)-Ttmp),mad)
+                  gtype_RCM(i,j) = Ttmp
                endif
             enddo
          enddo
          if(mad<0.05) exit
       enddo
-      TOPOD_RCM = min(TOPOD_RCM,1.0)
+      gtype_RCM = min(gtype_RCM,1.0)
 
-    end subroutine conductance_IM_TOPOD
+    end subroutine conductance_IM_GTYPE
 
     subroutine conductance_rcmhd(conductance,G,St)
       type(mixConductance_T), intent(inout) :: conductance
@@ -407,7 +407,7 @@ module mixconductance
       call conductance_alpha_beta(conductance,G,St)
 
       ! derive RCM grid weighting based on that passed from RCM and smooth it with five iterations of numerical diffusion.
-      call conductance_IM_TOPOD(G,St)
+      call conductance_IM_GTYPE(G,St)
 
       ! derive MHD/mono precipitation with zhang15 but include RCM thermal flux to the source by using dorcm=.true.
       call conductance_zhang15(conductance,G,St,dorcm)
@@ -424,8 +424,8 @@ module mixconductance
             mhd_nflx = St%Vars(i,j,Z_NFLUX)
             mhd_eflx = St%Vars(i,j,Z_EAVG)*St%Vars(i,j,Z_NFLUX)*kev2erg
 
-            rmd_nflx = St%Vars(i,j,IM_ENFLX)*TOPOD_RCM(i,j)+mhd_nflx*(1.0-TOPOD_RCM(i,j))
-            rmd_eflx = St%Vars(i,j,IM_EFLUX)*TOPOD_RCM(i,j)+mhd_eflx*(1.0-TOPOD_RCM(i,j))
+            rmd_nflx = St%Vars(i,j,IM_ENFLX)*gtype_RCM(i,j)+mhd_nflx*(1.0-gtype_RCM(i,j))
+            rmd_eflx = St%Vars(i,j,IM_EFLUX)*gtype_RCM(i,j)+mhd_eflx*(1.0-gtype_RCM(i,j))
             if(rmd_nflx>TINY) then
                rmd_eavg = max(rmd_eflx/(rmd_nflx*kev2erg),1.0e-8)
             else
@@ -482,7 +482,7 @@ module mixconductance
       real(rp) :: pK = 0.5 !Cut-off for "interesting" energy for precipitation [keV]
 
       ! If using rcmono, beta will be uniform and specified in xml or default.
-      ! RCM thermal flux will NOT be used for mono by setting TOPOD_RCM = 0.0
+      ! RCM thermal flux will NOT be used for mono by setting gtype_RCM = 0.0
       ! to be safe, make beta_RCM=specified beta although conductance_alpha_beta won't be called in rcmono mode.
       beta_RCM  = conductance%beta
       call conductance_zhang15(conductance,G,St)
@@ -494,8 +494,8 @@ module mixconductance
          do i=1,G%Np
             isMono = conductance%deltaE(i,j) > 0.0    !Potential drop
             isMHD  = conductance%E0(i,j)     > pK     !Have "hot" MHD information, ie worth putting into Robinson
-            ! IM_TOPOD>0.5 covers low lat RCM grid. IM_EAVG>1.0e-8 covers buffre region with meaningful RCM precipitation.
-            isRCM  = St%Vars(i,j,IM_TOPOD) > 0.5 .or. St%Vars(i,j,IM_EAVG)>1.0e-8
+            ! IM_GTYPE>0.5 covers low lat RCM grid. IM_EAVG>1.0e-8 covers buffre region with meaningful RCM precipitation.
+            isRCM  = St%Vars(i,j,IM_GTYPE) > 0.5 .or. St%Vars(i,j,IM_EAVG)>1.0e-8
 
             !Cases: isMono/isRCM/isMHD = 8 cases
             !- No RCM: 
