@@ -170,7 +170,7 @@ for line in myModules:
     modset = modset + line + " "
 
 # submit weekly dash
-arguments = 'qsub -v MODULE_LIST="' + modset + '" weeklyDashGo.pbs'
+arguments = 'qsub -v MODULE_LIST="' + modset + '" -v KAIJUROOTDIR=' + home + ' weeklyDashGo.pbs'
 print(arguments)
 submission = subprocess.Popen(arguments, shell=True, stdout=subprocess.PIPE)
 readString = submission.stdout.read()
