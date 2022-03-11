@@ -346,7 +346,7 @@ module rcmimag
         endif
 
         ! Pass RCM grid type info for remix conductance merge.
-        ! Need to update weight assignment in rcm_mix_interface if more types are introduced.
+        ! Gtype is integer and will be converted to numbers for interpolation in rcm_mix_interface.
         where(RCMApp%iopen == RCMTOPCLOSED)
             vApp%imag2mix%gtype = IMactive
         elsewhere((.not. RCMApp%iopen == RCMTOPCLOSED) .and. (.not. RCMApp%iopen == RCMTOPOPEN))

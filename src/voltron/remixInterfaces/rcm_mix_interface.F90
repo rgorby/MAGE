@@ -3,6 +3,7 @@ module rcm_mix_interface
   use mixgeom
   use volttypes
   use rcm_mhd_interfaces
+  use rcmdefs
   
   implicit none
 
@@ -23,22 +24,22 @@ contains
     !Note, imag2mix objects are in RCM order (gcolat,lon)
     allocate(imag2mix%gcolat(Nt))
     allocate(imag2mix%glong (Np))
-    allocate(imag2mix%eflux(Nt,Np))
-    allocate(imag2mix%iflux(Nt,Np))
-    allocate(imag2mix%eavg (Nt,Np))
-    allocate(imag2mix%iavg (Nt,Np))
-    allocate(imag2mix%latc (Nt,Np))
-    allocate(imag2mix%lonc (Nt,Np))
-    allocate(imag2mix%fac  (Nt,Np))
+    allocate(imag2mix%eflux (Nt,Np))
+    allocate(imag2mix%iflux (Nt,Np))
+    allocate(imag2mix%eavg  (Nt,Np))
+    allocate(imag2mix%iavg  (Nt,Np))
+    allocate(imag2mix%latc  (Nt,Np))
+    allocate(imag2mix%lonc  (Nt,Np))
+    allocate(imag2mix%fac   (Nt,Np))
     allocate(imag2mix%inIMag(Nt,Np))
-    allocate(imag2mix%eden (Nt,Np))
-    allocate(imag2mix%epre (Nt,Np))
-    allocate(imag2mix%enflx(Nt,Np))
-    allocate(imag2mix%inflx(Nt,Np))
-    allocate(imag2mix%gtype(Nt,Np))
+    allocate(imag2mix%eden  (Nt,Np))
+    allocate(imag2mix%epre  (Nt,Np))
+    allocate(imag2mix%enflx (Nt,Np))
+    allocate(imag2mix%inflx (Nt,Np))
+    allocate(imag2mix%gtype (Nt,Np))
     imag2mix%gcolat = rcmApp%gcolat
     imag2mix%glong  = rcmApp%glong
-    imag2mix%inIMag(:,:) = .false.
+    imag2mix%inIMag = .false.
     imag2mix%isInit = .true.
 
   !Now do remix mapping
@@ -53,8 +54,6 @@ contains
     do i=1,Nt
        rcmp(:,i) = rcmApp%glong
     enddo
-
-    !write(*,*) "===================================",rcmApp%glong(1:3),rcmApp%glong(Np-2:Np),rcmApp%gcolat(1:3),rcmApp%gcolat(Nt-2:Nt)
 
     ! call remix grid constructor
     call init_grid_fromTP(rcmG,rcmt,rcmp,isSolverGrid=.false.)
@@ -80,6 +79,7 @@ contains
     type(imag2Mix_T), intent(inout) :: imag2mix
     type(mixApp_T), intent(inout) :: remixApp
     type(Map_T) :: rcmMap, rcmMapS
+    real(rp),dimension(:,:),allocatable :: rcmGtype ! to convert integer imag2mix%gtype into real numbers for interpolation.
     real(rp),dimension(:,:),allocatable :: rcmEflux_mix,rcmEavg_mix,rcmEden_mix,rcmEpre_mix,rcmEnflx_mix, rcmGtype_mix
     real(rp), dimension(:,:), allocatable :: efluxS, eavgS, edenS, epreS, enflxS, gtypeS ! for SH mapping. will add ifluxS and iavgS later.
     integer :: ii, jj, kk, Nt, Np
@@ -99,26 +99,27 @@ contains
     Nt = size(imag2mix%latc,1)
     Np = size(imag2mix%latc,2) ! imag2mix%latc (Nt,Np)
 
+    call mapIMagToRemix_gtype(imag2mix,rcmGtype)
     call mix_set_map(rcmG_mixstyle,remixApp%ion(NORTH)%G,rcmMap)
     associate(rcmNt=>rcmG_mixstyle%Nt,rcmNp=>rcmG_mixstyle%Np)
-    call mix_map_grids(rcmMap,transpose(imag2mix%eavg(:,1:rcmNp)),  rcmEavg_mix)
+    call mix_map_grids(rcmMap,transpose(imag2mix%eavg (:,1:rcmNp)), rcmEavg_mix )
     call mix_map_grids(rcmMap,transpose(imag2mix%enflx(:,1:rcmNp)), rcmEnflx_mix)
     call mix_map_grids(rcmMap,transpose(imag2mix%eflux(:,1:rcmNp)), rcmEflux_mix)
-    call mix_map_grids(rcmMap,transpose(imag2mix%gtype(:,1:rcmNp)), rcmGtype_mix)
-    call mix_map_grids(rcmMap,transpose(imag2mix%eden(:,1:rcmNp)),  rcmEden_mix)
-    call mix_map_grids(rcmMap,transpose(imag2mix%epre(:,1:rcmNp)),  rcmEpre_mix)
+    call mix_map_grids(rcmMap,transpose(imag2mix%eden (:,1:rcmNp)), rcmEden_mix )
+    call mix_map_grids(rcmMap,transpose(imag2mix%epre (:,1:rcmNp)), rcmEpre_mix )
+    call mix_map_grids(rcmMap,transpose(rcmGtype      (:,1:rcmNp)), rcmGtype_mix)
     end associate
 
-    remixApp%ion(NORTH)%St%Vars(:,:,IM_EAVG)  = rcmEavg_mix*1e-3 ! [eV -> keV]
+    remixApp%ion(NORTH)%St%Vars(:,:,IM_EAVG ) = rcmEavg_mix*1e-3 ! [eV -> keV]
     remixApp%ion(NORTH)%St%Vars(:,:,IM_ENFLX) = rcmEnflx_mix     ! [#/cm^2/s]
     remixApp%ion(NORTH)%St%Vars(:,:,IM_EFLUX) = rcmEflux_mix     ! [ergs/cm^2/s]
-    remixApp%ion(NORTH)%St%Vars(:,:,IM_GTYPE) = rcmGtype_mix*0.5 ! normalize since gtype is from 0 to 2.
-    remixApp%ion(NORTH)%St%Vars(:,:,IM_EDEN)  = rcmEden_mix      ! [#/m^3]
-    remixApp%ion(NORTH)%St%Vars(:,:,IM_EPRE)  = rcmEpre_mix      ! [Pa]
+    remixApp%ion(NORTH)%St%Vars(:,:,IM_GTYPE) = rcmGtype_mix     ! normalize since gtype is from 0 to 2.
+    remixApp%ion(NORTH)%St%Vars(:,:,IM_EDEN ) = rcmEden_mix      ! [#/m^3]
+    remixApp%ion(NORTH)%St%Vars(:,:,IM_EPRE ) = rcmEpre_mix      ! [Pa]
 
     ! Southern Hemisphere Mapping
     if(SHmaptype==1) then
-       call mapIMagSToRemix(imag2mix,remixApp,efluxS,eavgS,gtypeS,edenS,epreS,enflxS)
+       call mapIMagSToRemix(imag2mix,remixApp,rcmGtype,efluxS,eavgS,gtypeS,edenS,epreS,enflxS)
        rcmEavg_mix  = transpose(eavgS)
        rcmEnflx_mix = transpose(enflxS)
        rcmEflux_mix = transpose(efluxS)
@@ -135,12 +136,12 @@ contains
     endif
 
     associate(Nt=>remixApp%ion(SOUTH)%G%Nt,Np=>remixApp%ion(SOUTH)%G%Np)
-    remixApp%ion(SOUTH)%St%Vars(:,:,IM_EAVG)  = rcmEavg_mix(Np:1:-1,:)*1e-3 ! [eV -> keV]
+    remixApp%ion(SOUTH)%St%Vars(:,:,IM_EAVG ) = rcmEavg_mix (Np:1:-1,:)*1e-3 ! [eV -> keV]
     remixApp%ion(SOUTH)%St%Vars(:,:,IM_ENFLX) = rcmEnflx_mix(Np:1:-1,:)
     remixApp%ion(SOUTH)%St%Vars(:,:,IM_EFLUX) = rcmEflux_mix(Np:1:-1,:)
-    remixApp%ion(SOUTH)%St%Vars(:,:,IM_GTYPE) = rcmGtype_mix(Np:1:-1,:)*0.5
-    remixApp%ion(SOUTH)%St%Vars(:,:,IM_EDEN)  = rcmEden_mix(Np:1:-1,:)
-    remixApp%ion(SOUTH)%St%Vars(:,:,IM_EPRE)  = rcmEpre_mix(Np:1:-1,:)
+    remixApp%ion(SOUTH)%St%Vars(:,:,IM_GTYPE) = rcmGtype_mix(Np:1:-1,:)
+    remixApp%ion(SOUTH)%St%Vars(:,:,IM_EDEN ) = rcmEden_mix (Np:1:-1,:)
+    remixApp%ion(SOUTH)%St%Vars(:,:,IM_EPRE ) = rcmEpre_mix (Np:1:-1,:)
     end associate
 
 ! For proton precipitation (all zero for now)
@@ -148,14 +149,14 @@ contains
     rcmEavg_mix=0.0
     associate(rcmNt=>rcmG_mixstyle%Nt,rcmNp=>rcmG_mixstyle%Np)
     call mix_map_grids(rcmMap,transpose(imag2mix%iflux(:,1:rcmNp)),rcmEflux_mix)
-    call mix_map_grids(rcmMap,transpose(imag2mix%iavg(:,1:rcmNp)) ,rcmEavg_mix)
+    call mix_map_grids(rcmMap,transpose(imag2mix%iavg (:,1:rcmNp)),rcmEavg_mix )
     call mix_map_grids(rcmMap,transpose(imag2mix%inflx(:,1:rcmNp)),rcmEnflx_mix)
     end associate
-    remixApp%ion(NORTH)%St%Vars(:,:,IM_IAVG)  = rcmEavg_mix*1e-3 ! [eV -> keV]
+    remixApp%ion(NORTH)%St%Vars(:,:,IM_IAVG ) = rcmEavg_mix*1e-3 ! [eV -> keV]
     remixApp%ion(NORTH)%St%Vars(:,:,IM_IFLUX) = rcmEflux_mix
     remixApp%ion(NORTH)%St%Vars(:,:,IM_INFLX) = rcmEnflx_mix
     associate(Nt=>remixApp%ion(SOUTH)%G%Nt,Np=>remixApp%ion(SOUTH)%G%Np)
-    remixApp%ion(SOUTH)%St%Vars(:,:,IM_IAVG)  = rcmEavg_mix(Np:1:-1,:)*1e-3 ! [eV -> keV]
+    remixApp%ion(SOUTH)%St%Vars(:,:,IM_IAVG ) = rcmEavg_mix (Np:1:-1,:)*1e-3 ! [eV -> keV]
     remixApp%ion(SOUTH)%St%Vars(:,:,IM_IFLUX) = rcmEflux_mix(Np:1:-1,:)
     remixApp%ion(SOUTH)%St%Vars(:,:,IM_INFLX) = rcmEnflx_mix(Np:1:-1,:)
     end associate
@@ -164,10 +165,33 @@ contains
     imag2mix%isFresh = .false.
   end subroutine mapIMagToRemix
 
-  subroutine mapIMagSToRemix(imag2mix,remixApp,efluxS,eavgS,gtypeS,edenS,epreS,enflxS)
+  subroutine mapIMagToRemix_gtype(imag2mix,rcmGtype)
+  ! Convert imag2mix%gtype integer numbers to real numbers for interpolation.
+  ! Allow more enumerators of gtype in the future.
+    type(imag2Mix_T), intent(in) :: imag2mix
+    real(rp),dimension(:,:), allocatable, intent(out) :: rcmGtype
+    integer :: Nt, Np
+
+    Nt = size(imag2mix%gtype,1)
+    Np = size(imag2mix%gtype,2)
+    if (.not.allocated(rcmGtype)) allocate(rcmGtype(Nt,Np))
+    rcmGtype = 0.0D0
+    
+    where(imag2mix%gtype == IMactive)
+      rcmGtype = 1.0D0
+    elsewhere(imag2mix%gtype == IMbuffer)
+      rcmGtype = 0.5D0
+    elsewhere(imag2mix%gtype == IMoutside)
+      rcmGtype = 0.0D0
+    endwhere
+    
+  end subroutine mapIMagToRemix_gtype
+
+  subroutine mapIMagSToRemix(imag2mix,remixApp,rcmGtype,efluxS,eavgS,gtypeS,edenS,epreS,enflxS)
   ! Directly map from irregular RCM SH grid to ReMIX.
     type(imag2Mix_T), intent(in) :: imag2mix
     type(mixApp_T), intent(inout) :: remixApp
+    real(rp), dimension(:,:), allocatable, intent(in) :: rcmGtype
     real(rp), dimension(:,:), allocatable, intent(inout) :: efluxS, eavgS, gtypeS, edenS, epreS, enflxS
     real(rp), dimension(:,:), allocatable :: colatc, glongc, rcmt, rcmp, Ainvdwgt2
     real(rp) :: dlat, delt, delp, invdwgt
@@ -175,6 +199,7 @@ contains
 
     Nt = size(imag2mix%latc,1)
     Np = size(imag2mix%latc,2) ! imag2mix%latc (Nt,Np)
+    if (.not.allocated(rcmGtype)) allocate(rcmGtype(Nt,Np))
     if (.not.allocated(colatc)) allocate(colatc(Nt,Np))
     if (.not.allocated(glongc)) allocate(glongc(Nt,Np))
     ! Source grid: latc is negative. colatc is positive from ~15 to 75 deg. Note latc=0 for open field lines.
@@ -235,7 +260,8 @@ contains
                       invdwgt = 1./sqrt(delt**2+delp**2)
                       efluxS(i0,j0) = efluxS(i0,j0) + imag2mix%eflux(i,j)*invdwgt
                       eavgS(i0,j0)  = eavgS(i0,j0)  + imag2mix%eavg(i,j) *invdwgt
-                      gtypeS(i0,j0) = gtypeS(i0,j0) + imag2mix%gtype(i,j)*invdwgt
+                      !gtypeS(i0,j0) = gtypeS(i0,j0) + imag2mix%gtype(i,j)*invdwgt
+                      gtypeS(i0,j0) = gtypeS(i0,j0) + rcmGtype(i,j)*invdwgt
                       edenS(i0,j0)  = edenS(i0,j0)  + imag2mix%eden(i,j) *invdwgt
                       epreS(i0,j0)  = epreS(i0,j0)  + imag2mix%epre(i,j) *invdwgt
                       enflxS(i0,j0) = enflxS(i0,j0) + imag2mix%enflx(i,j)*invdwgt
@@ -248,7 +274,7 @@ contains
                       invdwgt = 1./sqrt(delt**2+delp**2)
                       efluxS(i0,j0) = efluxS(i0,j0) + imag2mix%eflux(i,j)*invdwgt
                       eavgS(i0,j0)  = eavgS(i0,j0)  + imag2mix%eavg(i,j) *invdwgt
-                      gtypeS(i0,j0) = gtypeS(i0,j0) + imag2mix%gtype(i,j)*invdwgt
+                      gtypeS(i0,j0) = gtypeS(i0,j0) + rcmGtype(i,j)*invdwgt
                       edenS(i0,j0)  = edenS(i0,j0)  + imag2mix%eden(i,j) *invdwgt
                       epreS(i0,j0)  = epreS(i0,j0)  + imag2mix%epre(i,j) *invdwgt
                       enflxS(i0,j0) = enflxS(i0,j0) + imag2mix%enflx(i,j)*invdwgt
@@ -261,7 +287,7 @@ contains
                    invdwgt = 1./sqrt(delt**2+delp**2)
                    efluxS(i0,j0) = efluxS(i0,j0) + imag2mix%eflux(i,j)*invdwgt
                    eavgS(i0,j0)  = eavgS(i0,j0)  + imag2mix%eavg(i,j) *invdwgt
-                   gtypeS(i0,j0) = gtypeS(i0,j0) + imag2mix%gtype(i,j)*invdwgt
+                   gtypeS(i0,j0) = gtypeS(i0,j0) + rcmGtype(i,j)*invdwgt
                    edenS(i0,j0)  = edenS(i0,j0)  + imag2mix%eden(i,j) *invdwgt
                    epreS(i0,j0)  = epreS(i0,j0)  + imag2mix%epre(i,j) *invdwgt
                    enflxS(i0,j0) = enflxS(i0,j0) + imag2mix%enflx(i,j)*invdwgt
