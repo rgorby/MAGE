@@ -71,7 +71,7 @@ module chmpunits
         real(rp) :: gv0, gB0, gP0
 
         !If not running in MAGE mode, assume planet doesn't exist and kick to setChimpUnits below
-        if (Model%isMAGE .eq. .false.) then
+        if (.not. Model%isMAGE) then
             call setChimpUnits(Model,inpXML,uStrO)
         endif
 

@@ -370,7 +370,7 @@ module gamapp_mpi
             if(Grid%Ri==0 .and. Grid%Rj==0 .and. Grid%Rk==0) then
                 ! master rank receives data
                 allocate(gamRestartNumbers(commSize))
-                call mpi_gather(gamAppMpi%Model%IO%nRes, 1, MPI_INT, gamRestartNumbers, 1, MPI_INT, 0, gamAppMpi%gamMpiComm, ierr)
+                call mpi_gather(gamAppMpi%Model%IO%nRes, 1, MPI_INTEGER, gamRestartNumbers, 1, MPI_INTEGER, 0, gamAppMpi%gamMpiComm, ierr)
                 if(.not. all(gamRestartNumbers .eq. minval(gamRestartNumbers))) then
                     write(*,*) "Gamera ranks did not all agree on restart numbers, you should sort that out."
                     write(*,*) "Error code: A house divided cannot stand"
@@ -381,7 +381,7 @@ module gamapp_mpi
                 deallocate(gamRestartNumbers)
             else
                 ! all other ranks only send data
-                call mpi_gather(gamAppMpi%Model%IO%nRes, 1, MPI_INT, 0, 0, MPI_INT, 0, gamAppMpi%gamMpiComm, ierr)
+                call mpi_gather(gamAppMpi%Model%IO%nRes, 1, MPI_INTEGER, 0, 0, MPI_INTEGER, 0, gamAppMpi%gamMpiComm, ierr)
             endif
         endif
 
@@ -881,7 +881,7 @@ module gamapp_mpi
                 ! no comms between these ranks
                 gamAppMpi%sendCountsGas(rankIndex) = 0
                 gamAppMpi%sendDisplsGas(rankIndex) = 0
-                gamAppMpi%sendTypesGas(rankIndex) = MPI_INT ! NULL causes crash
+                gamAppMpi%sendTypesGas(rankIndex) = MPI_INTEGER ! NULL causes crash
             else
                 ! there are comms between these ranks
                 call mpi_type_commit(gamAppMpi%sendTypesGas(rankIndex), ierr)
@@ -889,7 +889,7 @@ module gamapp_mpi
             if(gamAppMpi%recvTypesGas(rankIndex) == MPI_DATATYPE_NULL) then
                 gamAppMpi%recvCountsGas(rankIndex) = 0
                 gamAppMpi%recvDisplsGas(rankIndex) = 0
-                gamAppMpi%recvTypesGas(rankIndex) = MPI_INT
+                gamAppMpi%recvTypesGas(rankIndex) = MPI_INTEGER
             else
                 call mpi_type_commit(gamAppMpi%recvTypesGas(rankIndex), ierr)
             endif
@@ -897,14 +897,14 @@ module gamapp_mpi
                 if(gamAppMpi%sendTypesMagFlux(rankIndex) == MPI_DATATYPE_NULL) then
                     gamAppMpi%sendCountsMagFlux(rankIndex) = 0
                     gamAppMpi%sendDisplsMagFlux(rankIndex) = 0
-                    gamAppMpi%sendTypesMagFlux(rankIndex) = MPI_INT
+                    gamAppMpi%sendTypesMagFlux(rankIndex) = MPI_INTEGER
                 else
                     call mpi_type_commit(gamAppMpi%sendTypesMagFlux(rankIndex), ierr)
                 endif
                 if(gamAppMpi%recvTypesMagFlux(rankIndex) == MPI_DATATYPE_NULL) then
                     gamAppMpi%recvCountsMagFlux(rankIndex) = 0
                     gamAppMpi%recvDisplsMagFlux(rankIndex) = 0
-                    gamAppMpi%recvTypesMagFlux(rankIndex) = MPI_INT
+                    gamAppMpi%recvTypesMagFlux(rankIndex) = MPI_INTEGER
                 else
                     call mpi_type_commit(gamAppMpi%recvTypesMagFlux(rankIndex), ierr)
                 endif
