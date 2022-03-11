@@ -191,7 +191,7 @@ contains
   ! Directly map from irregular RCM SH grid to ReMIX.
     type(imag2Mix_T), intent(in) :: imag2mix
     type(mixApp_T), intent(inout) :: remixApp
-    real(rp), dimension(:,:), allocatable, intent(in) :: rcmGtype
+    real(rp), dimension(:,:), intent(in) :: rcmGtype ! How to check size for the input here?
     real(rp), dimension(:,:), allocatable, intent(inout) :: efluxS, eavgS, gtypeS, edenS, epreS, enflxS
     real(rp), dimension(:,:), allocatable :: colatc, glongc, rcmt, rcmp, Ainvdwgt2
     real(rp) :: dlat, delt, delp, invdwgt
@@ -199,7 +199,11 @@ contains
 
     Nt = size(imag2mix%latc,1)
     Np = size(imag2mix%latc,2) ! imag2mix%latc (Nt,Np)
-    if (.not.allocated(rcmGtype)) allocate(rcmGtype(Nt,Np))
+
+    if(size(rcmGtype,1)/=Nt .or. size(rcmGtype,2)/=Np) then
+      print *,'rcmGtype size error in mapIMagSToRemix.'
+    endif
+
     if (.not.allocated(colatc)) allocate(colatc(Nt,Np))
     if (.not.allocated(glongc)) allocate(glongc(Nt,Np))
     ! Source grid: latc is negative. colatc is positive from ~15 to 75 deg. Note latc=0 for open field lines.
