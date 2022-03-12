@@ -82,7 +82,6 @@ contains
     real(rp),dimension(:,:),allocatable :: rcmGtype ! to convert integer imag2mix%gtype into real numbers for interpolation.
     real(rp),dimension(:,:),allocatable :: rcmEflux_mix,rcmEavg_mix,rcmEden_mix,rcmEpre_mix,rcmEnflx_mix, rcmGtype_mix
     real(rp), dimension(:,:), allocatable :: efluxS, eavgS, edenS, epreS, enflxS, gtypeS ! for SH mapping. will add ifluxS and iavgS later.
-    integer :: ii, jj, kk, Nt, Np
     integer :: SHmaptype 
     ! # of steps for mapping RCM SH precipitation (may make it an option in XML later): 
     ! 0. direct mirror mapping using NH results; 
@@ -95,9 +94,6 @@ contains
     !Pull info and do cool stuff here
     ! do mapping here since in geo the RCM grid will be moving
     ! FIXME: if we do RCM in SM, though, this is not necessary (can set map in the init routine above)
-
-    Nt = size(imag2mix%latc,1)
-    Np = size(imag2mix%latc,2) ! imag2mix%latc (Nt,Np)
 
     call mapIMagToRemix_gtype(imag2mix,rcmGtype)
     call mix_set_map(rcmG_mixstyle,remixApp%ion(NORTH)%G,rcmMap)
@@ -169,12 +165,13 @@ contains
   ! Convert imag2mix%gtype integer numbers to real numbers for interpolation.
   ! Allow more enumerators of gtype in the future.
     type(imag2Mix_T), intent(in) :: imag2mix
-    real(rp),dimension(:,:), allocatable, intent(out) :: rcmGtype
-    integer :: Nt, Np
+    real(rp),dimension(:,:), allocatable, intent(inout) :: rcmGtype
 
-    Nt = size(imag2mix%gtype,1)
-    Np = size(imag2mix%gtype,2)
-    if (.not.allocated(rcmGtype)) allocate(rcmGtype(Nt,Np))
+    if (.not.allocated(rcmGtype)) then
+      associate(Nt=>size(imag2mix%gtype,1),Np=>size(imag2mix%gtype,2))
+      allocate(rcmGtype(Nt,Np))
+      end associate
+    endif
     rcmGtype = 0.0D0
     
     where(imag2mix%gtype == IMactive)
@@ -190,46 +187,42 @@ contains
   subroutine mapIMagSToRemix(imag2mix,remixApp,rcmGtype,efluxS,eavgS,gtypeS,edenS,epreS,enflxS)
   ! Directly map from irregular RCM SH grid to ReMIX.
     type(imag2Mix_T), intent(in) :: imag2mix
-    type(mixApp_T), intent(inout) :: remixApp
-    real(rp), dimension(:,:), intent(in) :: rcmGtype ! How to check size for the input here?
+    type(mixApp_T), intent(in) :: remixApp
+    real(rp), intent(in) :: rcmGtype(size(imag2mix%gtype,1),size(imag2mix%gtype,2))
     real(rp), dimension(:,:), allocatable, intent(inout) :: efluxS, eavgS, gtypeS, edenS, epreS, enflxS
-    real(rp), dimension(:,:), allocatable :: colatc, glongc, rcmt, rcmp, Ainvdwgt2
+    real(rp), dimension(:,:), allocatable :: colatc, glongc, mixt, mixp, Ainvdwgt2
     real(rp) :: dlat, delt, delp, invdwgt
-    integer :: i, j, Np, Nt, i0, j0, NpS, NtS, jl, ju, il, iu, jp, dj
+    integer :: Np_rcm, Nt_rcm, Np_mix, Nt_mix, i, j, i0, j0, jl, ju, il, iu, jp, dj
 
-    Nt = size(imag2mix%latc,1)
-    Np = size(imag2mix%latc,2) ! imag2mix%latc (Nt,Np)
+    Nt_rcm = size(imag2mix%latc,1)
+    Np_rcm = size(imag2mix%latc,2) ! imag2mix%latc (Nt_rcm,Np_rcm)
 
-    if(size(rcmGtype,1)/=Nt .or. size(rcmGtype,2)/=Np) then
-      print *,'rcmGtype size error in mapIMagSToRemix.'
-    endif
-
-    if (.not.allocated(colatc)) allocate(colatc(Nt,Np))
-    if (.not.allocated(glongc)) allocate(glongc(Nt,Np))
+    if (.not.allocated(colatc)) allocate(colatc(Nt_rcm,Np_rcm))
+    if (.not.allocated(glongc)) allocate(glongc(Nt_rcm,Np_rcm))
     ! Source grid: latc is negative. colatc is positive from ~15 to 75 deg. Note latc=0 for open field lines.
     colatc = PI/2 + imag2mix%latc 
     glongc = imag2mix%lonc
 
     ! Destination grid: remix Grid.
-    rcmt = remixApp%ion(NORTH)%G%t
-    rcmp = remixApp%ion(NORTH)%G%p
-    NpS  = size(rcmt,1)
-    NtS  = size(rcmt,2)
-    dlat = rcmt(1,2)-rcmt(1,1)
-    dj = nint(dble(NpS)/dble(Np)) ! ratio of rcm dlon to remix dlon.
+    mixt = remixApp%ion(NORTH)%G%t
+    mixp = remixApp%ion(NORTH)%G%p
+    Np_mix = size(mixt,1)
+    Nt_mix = size(mixt,2)
+    dlat = mixt(1,2)-mixt(1,1)
+    dj = nint(dble(Np_mix)/dble(Np_rcm)) ! ratio of rcm dlon to remix dlon.
 
     ! Mapping: remix dlat is ~10x of rcm, dlon is ~1/3.6 of rcm. Remix lat is from 0-45 deg. RCM is from 15-75 deg.
     ! For each rcm SH point, find the nearest remix lat. If it's not too far away (within dlat) then
     ! find the nearest remix lon. Assign rcm contribution to the nearest lat shell within 2 rcm dlon.
     ! The difference is due to remix dlat is larger while dlon is smaller. Need to make sure all remix grids have some contribution from rcm.
     ! Lastly, normalize the contribution by total IDW.
-    if (.not.allocated(efluxS)) allocate(efluxS(NtS,NpS))
-    if (.not.allocated(eavgS))  allocate(eavgS(NtS,NpS))
-    if (.not.allocated(gtypeS)) allocate(gtypeS(NtS,NpS))
-    if (.not.allocated(edenS))  allocate(edenS(NtS,NpS))
-    if (.not.allocated(epreS))  allocate(epreS(NtS,NpS))
-    if (.not.allocated(enflxS)) allocate(enflxS(NtS,NpS))
-    if (.not.allocated(Ainvdwgt2))  allocate(Ainvdwgt2(NtS,NpS))
+    if (.not.allocated(efluxS)) allocate(efluxS(Nt_mix,Np_mix))
+    if (.not.allocated(eavgS))  allocate(eavgS (Nt_mix,Np_mix))
+    if (.not.allocated(gtypeS)) allocate(gtypeS(Nt_mix,Np_mix))
+    if (.not.allocated(edenS))  allocate(edenS (Nt_mix,Np_mix))
+    if (.not.allocated(epreS))  allocate(epreS (Nt_mix,Np_mix))
+    if (.not.allocated(enflxS)) allocate(enflxS(Nt_mix,Np_mix))
+    if (.not.allocated(Ainvdwgt2))  allocate(Ainvdwgt2(Nt_mix,Np_mix))
     efluxS = 0.0
     eavgS  = 0.0
     gtypeS = 0.0
@@ -240,41 +233,40 @@ contains
     !$OMP PARALLEL DO default(shared) collapse(2) &
     !$OMP private(i,j,i0,il,iu,j0,jl,ju,jp,delt,delp,invdwgt) &
     !$OMP reduction(+:efluxS,eavgS,Ainvdwgt2,gtypeS,edenS,epreS,enflxS)
-    do j=1,Np
-       do i=1,Nt
+    do j=1,Np_rcm
+       do i=1,Nt_rcm
 !          if(imag2mix%eflux(i,j)>0.0) then
-          i0 = minloc(abs(rcmt(1,:)-colatc(i,j)),1) ! Find the nearest remix colat index for rcm colatc(i,j)
-          if(rcmt(1,i0)<=colatc(i,j)) then ! If the nearest remix colat is < rcm colatc, only collect rcm to this colat and its next grid.
+          i0 = minloc(abs(mixt(1,:)-colatc(i,j)),1) ! Find the nearest remix colat index for rcm colatc(i,j)
+          if(mixt(1,i0)<=colatc(i,j)) then ! If the nearest remix colat is < rcm colatc, only collect rcm to this colat and its next grid.
              il=i0
-             iu=min(i0+1,NtS)
+             iu=min(i0+1,Nt_mix)
           else ! Otherwise, collect from this point and its neighbor lat.
              il=max(i0-1,1)
              iu=i0
           endif
           do i0=il,iu 
              ! For any remix grid, interpolate if rcm lat is within dlat away
-             if(abs(rcmt(1,i0)-colatc(i,j))<dlat) then 
-                jp = minloc(abs(rcmp(:,1)-glongc(i,j)),1)
+             if(abs(mixt(1,i0)-colatc(i,j))<dlat) then 
+                jp = minloc(abs(mixp(:,1)-glongc(i,j)),1)
                 jl = max(jp-dj,1) ! dj used to 2.
-                ju = min(jp+dj,NpS)
+                ju = min(jp+dj,Np_mix)
                 if(jp<=dj) then  ! The code here may be optimized to be more concise.
-                   do j0=NpS-(dj-jp),NpS
-                      delt = abs(rcmt(j0,i0)-colatc(i,j))
-                      delp = abs((rcmp(j0,i0)-glongc(i,j)))*sin(rcmt(j0,i0))
+                   do j0=Np_mix-(dj-jp),Np_mix
+                      delt = abs(mixt(j0,i0)-colatc(i,j))
+                      delp = abs((mixp(j0,i0)-glongc(i,j)))*sin(mixt(j0,i0))
                       invdwgt = 1./sqrt(delt**2+delp**2)
                       efluxS(i0,j0) = efluxS(i0,j0) + imag2mix%eflux(i,j)*invdwgt
                       eavgS(i0,j0)  = eavgS(i0,j0)  + imag2mix%eavg(i,j) *invdwgt
-                      !gtypeS(i0,j0) = gtypeS(i0,j0) + imag2mix%gtype(i,j)*invdwgt
                       gtypeS(i0,j0) = gtypeS(i0,j0) + rcmGtype(i,j)*invdwgt
                       edenS(i0,j0)  = edenS(i0,j0)  + imag2mix%eden(i,j) *invdwgt
                       epreS(i0,j0)  = epreS(i0,j0)  + imag2mix%epre(i,j) *invdwgt
                       enflxS(i0,j0) = enflxS(i0,j0) + imag2mix%enflx(i,j)*invdwgt
                       Ainvdwgt2(i0,j0) = Ainvdwgt2(i0,j0) + invdwgt
                    enddo
-                elseif(jp>NpS-dj) then
-                   do j0=1,dj-(NpS-jp)
-                      delt = abs(rcmt(j0,i0)-colatc(i,j))
-                      delp = abs((rcmp(j0,i0)-glongc(i,j)))*sin(rcmt(j0,i0))
+                elseif(jp>Np_mix-dj) then
+                   do j0=1,dj-(Np_mix-jp)
+                      delt = abs(mixt(j0,i0)-colatc(i,j))
+                      delp = abs((mixp(j0,i0)-glongc(i,j)))*sin(mixt(j0,i0))
                       invdwgt = 1./sqrt(delt**2+delp**2)
                       efluxS(i0,j0) = efluxS(i0,j0) + imag2mix%eflux(i,j)*invdwgt
                       eavgS(i0,j0)  = eavgS(i0,j0)  + imag2mix%eavg(i,j) *invdwgt
@@ -286,8 +278,8 @@ contains
                    enddo
                 endif
                 do j0=jl,ju
-                   delt = abs(rcmt(j0,i0)-colatc(i,j))
-                   delp = abs((rcmp(j0,i0)-glongc(i,j)))*sin(rcmt(j0,i0))
+                   delt = abs(mixt(j0,i0)-colatc(i,j))
+                   delp = abs((mixp(j0,i0)-glongc(i,j)))*sin(mixt(j0,i0))
                    invdwgt = 1./sqrt(delt**2+delp**2)
                    efluxS(i0,j0) = efluxS(i0,j0) + imag2mix%eflux(i,j)*invdwgt
                    eavgS(i0,j0)  = eavgS(i0,j0)  + imag2mix%eavg(i,j) *invdwgt
@@ -304,8 +296,8 @@ contains
     enddo
     !$OMP PARALLEL DO default(shared) collapse(2) &
     !$OMP private(i0,j0)
-    do j0=1,NpS
-       do i0=1,NtS
+    do j0=1,Np_mix
+       do i0=1,Nt_mix
           if(Ainvdwgt2(i0,j0)>0.0) then
              efluxS(i0,j0) = efluxS(i0,j0)/Ainvdwgt2(i0,j0)
              eavgS(i0,j0)  = eavgS(i0,j0) /Ainvdwgt2(i0,j0)
