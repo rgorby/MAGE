@@ -554,10 +554,25 @@ MODULE lossutils
         E = log10(engx) ! engx is Ek in MeV
         L2 = L*L
         fL = 0.1328*L2 - 2.1463*L + 3.7857
-        if(L>5.5 .or. L<1.5 .or. E>1.0 .or. E<-3.0 .or. E<fL) then 
-        ! Both sectors are only valid for log10(Ek)>=f(L), 1keV<Ek<10MeV, 1.5<=L<=5.5.
-            return
+        !if(L>5.5 .or. L<1.5 .or. E>1.0 .or. E<-3.0 .or. E<fL) then 
+        !! Both sectors are only valid for log10(Ek)>=f(L), 1keV<Ek<10MeV, 1.5<=L<=5.5.
+        !    return
+        !endif
+
+        if (L>5.5) then
+           L = 5.5
+        elseif (L<1.5) then
+           L = 1.5
         endif
+      
+        if (E>1.0) then
+           E = 1.0
+        elseif (E<-3.0) then
+           E = -3.0
+        elseif (E<fL) then
+           E = fL
+        endif
+
         b0 = 2.080
         b1 = 0.1773
         b2 = -0.007338
