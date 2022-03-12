@@ -114,3 +114,7 @@ if __name__ == '__main__':
 			print('Computing Errors')
 			errname = os.path.join(fdir,scId+'-error.txt')
 			scutils.errorReport(errname,scId,data)
+			plotname = os.path.join(fdir,scId+'-traj.png')
+			print('Plotting trajectory to',plotname)
+			kv.trajPlot(plotname,scId,data)
+			
