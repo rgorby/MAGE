@@ -170,7 +170,7 @@ for line in myModules:
     modset = modset + line + " "
 
 # submit weekly dash
-arguments = 'qsub -v MODULE_LIST="' + modset + '" weeklyDashGo.pbs'
+arguments = 'qsub -v MODULE_LIST="' + modset + '",KAIJUROOTDIR=' + home + ' weeklyDashGo.pbs'
 print(arguments)
 submission = subprocess.Popen(arguments, shell=True, stdout=subprocess.PIPE)
 readString = submission.stdout.read()
@@ -184,15 +184,5 @@ file = open("jobs.txt", 'w+')
 file.write(firstJobNumber)
 
 message = "Run started on branch " + gBranch + " as jobid " + firstJobNumber
-if(beLoud):
-    try:
-        response = client.chat_postMessage(
-            channel="#kaijudev",
-            text=message,
-        )
-    except SlackApiError as e:
-        # You will get a SlackApiError if "ok" is False
-        assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
-else:
-    print(message)
+print(message)
 

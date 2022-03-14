@@ -322,7 +322,7 @@ module volthelpers_mpi
         type(MPI_Request) :: helpReq
 
         ! async to match waiting helper nodes
-        call mpi_Ibcast(rType, 1, MPI_INT, 0, vApp%vHelpComm, helpReq, ierr)
+        call mpi_Ibcast(rType, 1, MPI_INTEGER, 0, vApp%vHelpComm, helpReq, ierr)
         call mpi_wait(helpReq, MPI_STATUS_IGNORE, ierr)
 
     end subroutine
@@ -364,8 +364,8 @@ module volthelpers_mpi
             ! 1 block per helper, none for master
             vApp%ebTrcApp%ebSquish%myNumBlocks = 0
         endif
-        call mpi_bcast(vApp%ebTrcApp%ebSquish%numSquishBlocks, 1, MPI_INT, 0, vApp%vHelpComm, ierr)
-        call mpi_bcast(vApp%ebTrcApp%ebSquish%blockStartIndices, vApp%ebTrcApp%ebSquish%numSquishBlocks, MPI_INT, 0, vApp%vHelpComm, ierr)
+        call mpi_bcast(vApp%ebTrcApp%ebSquish%numSquishBlocks, 1, MPI_INTEGER, 0, vApp%vHelpComm, ierr)
+        call mpi_bcast(vApp%ebTrcApp%ebSquish%blockStartIndices, vApp%ebTrcApp%ebSquish%numSquishBlocks, MPI_INTEGER, 0, vApp%vHelpComm, ierr)
         vApp%ebTrcApp%ebSquish%myFirstBlock = 1 ! master is always the first block, if it has one
         vApp%ebTrcApp%ebSquish%curSquishBlock = vApp%ebTrcApp%ebSquish%myFirstBlock
         call Toc("VHReqSquishS")
@@ -380,8 +380,8 @@ module volthelpers_mpi
 
         call recvChimpUpdate(vApp)
 
-        call mpi_bcast(vApp%ebTrcApp%ebSquish%numSquishBlocks, 1, MPI_INT, 0, vApp%vHelpComm, ierr)
-        call mpi_bcast(vApp%ebTrcApp%ebSquish%blockStartIndices, vApp%ebTrcApp%ebSquish%numSquishBlocks, MPI_INT, 0, vApp%vHelpComm, ierr)
+        call mpi_bcast(vApp%ebTrcApp%ebSquish%numSquishBlocks, 1, MPI_INTEGER, 0, vApp%vHelpComm, ierr)
+        call mpi_bcast(vApp%ebTrcApp%ebSquish%blockStartIndices, vApp%ebTrcApp%ebSquish%numSquishBlocks, MPI_INTEGER, 0, vApp%vHelpComm, ierr)
         vApp%ebTrcApp%ebSquish%myNumBlocks = 1 ! helpers always have 1 block
         if(vApp%masterSquish) then
             ! master voltron rank is helping, rank 1 works on block 2, etc...

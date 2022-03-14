@@ -124,14 +124,14 @@ module gam2VoltComm_mpi
         call MPI_Comm_rank(voltComm, g2vComm%myRank, ierr)
 
         ! send my i/j/k ranks to the voltron rank
-        call mpi_gather(gApp%Grid%Ri, 1, MPI_INT, 0, 0, MPI_DATATYPE_NULL, commSize-1, voltComm, ierr)
-        call mpi_gather(gApp%Grid%Rj, 1, MPI_INT, 0, 0, MPI_DATATYPE_NULL, commSize-1, voltComm, ierr)
-        call mpi_gather(gApp%Grid%Rk, 1, MPI_INT, 0, 0, MPI_DATATYPE_NULL, commSize-1, voltComm, ierr)
+        call mpi_gather(gApp%Grid%Ri, 1, MPI_INTEGER, 0, 0, MPI_DATATYPE_NULL, commSize-1, voltComm, ierr)
+        call mpi_gather(gApp%Grid%Rj, 1, MPI_INTEGER, 0, 0, MPI_DATATYPE_NULL, commSize-1, voltComm, ierr)
+        call mpi_gather(gApp%Grid%Rk, 1, MPI_INTEGER, 0, 0, MPI_DATATYPE_NULL, commSize-1, voltComm, ierr)
 
         numCells = gApp%Grid%Nip*gApp%Grid%Njp*gApp%Grid%Nkp
         ! rank 0 send the number of physical cells to voltron rank
         if(g2vComm%myRank == 0) then
-            call mpi_send(numCells, 1, MPI_INT, commSize-1, 97500, voltComm, ierr)
+            call mpi_send(numCells, 1, MPI_INTEGER, commSize-1, 97500, voltComm, ierr)
         endif
 
         ! each gamera rank only talks to the voltron rank on this new communicator
@@ -170,14 +170,14 @@ module gam2VoltComm_mpi
         g2vComm%voltRank = rankArray(1)
 
         ! send i/j/k ranks again since my rank may have changed in the new communicator
-        call mpi_gather(gApp%Grid%Ri, 1, MPI_INT, 0, 0, MPI_DATATYPE_NULL, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
-        call mpi_gather(gApp%Grid%Rj, 1, MPI_INT, 0, 0, MPI_DATATYPE_NULL, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
-        call mpi_gather(gApp%Grid%Rk, 1, MPI_INT, 0, 0, MPI_DATATYPE_NULL, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
+        call mpi_gather(gApp%Grid%Ri, 1, MPI_INTEGER, 0, 0, MPI_DATATYPE_NULL, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
+        call mpi_gather(gApp%Grid%Rj, 1, MPI_INTEGER, 0, 0, MPI_DATATYPE_NULL, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
+        call mpi_gather(gApp%Grid%Rk, 1, MPI_INTEGER, 0, 0, MPI_DATATYPE_NULL, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
 
         ! Send restart number so that voltron can ensure they have the same number
         ! only the rank with Ri/Rj/Rk==0 should send the value to voltron
         if(gApp%Grid%Ri==0 .and. gApp%Grid%Rj==0 .and. gApp%Grid%Rk==0) then
-            call mpi_send(gApp%Model%IO%nRes, 1, MPI_INT, g2vComm%voltRank, 97520, g2vComm%voltMpiComm, ierr)
+            call mpi_send(gApp%Model%IO%nRes, 1, MPI_INTEGER, g2vComm%voltRank, 97520, g2vComm%voltMpiComm, ierr)
         endif
 
         ! initialize all of the starting parameters from the voltron rank
@@ -186,12 +186,12 @@ module gam2VoltComm_mpi
         call mpi_bcast(g2vComm%DeepT, 1, MPI_MYFLOAT, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
         call mpi_bcast(g2vComm%ShallowT, 1, MPI_MYFLOAT, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
         call mpi_bcast(g2vComm%MJD, 1, MPI_MYFLOAT, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
-        call mpi_bcast(g2vComm%ts, 1, MPI_INT, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
+        call mpi_bcast(g2vComm%ts, 1, MPI_INTEGER, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
         call mpi_bcast(g2vComm%doDeep, 1, MPI_LOGICAL, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
-        call mpi_bcast(g2vComm%JpSt, 1, MPI_INT, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
-        call mpi_bcast(g2vComm%JpSh, 1, MPI_INT, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
-        call mpi_bcast(g2vComm%PsiSt, 1, MPI_INT, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
-        call mpi_bcast(g2vComm%PsiSh, 1, MPI_INT, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
+        call mpi_bcast(g2vComm%JpSt, 1, MPI_INTEGER, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
+        call mpi_bcast(g2vComm%JpSh, 1, MPI_INTEGER, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
+        call mpi_bcast(g2vComm%PsiSt, 1, MPI_INTEGER, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
+        call mpi_bcast(g2vComm%PsiSh, 1, MPI_INTEGER, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
 
         ! get updated Gamera parameters from the voltron rank
         call mpi_bcast(gApp%Model%t, 1, MPI_MYFLOAT, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
@@ -210,7 +210,7 @@ module gam2VoltComm_mpi
         call mpi_bcast(gApp%Model%IO%tRes,  1, MPI_MYFLOAT, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
         call mpi_bcast(gApp%Model%IO%dtOut, 1, MPI_MYFLOAT, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
         call mpi_bcast(gApp%Model%IO%dtRes, 1, MPI_MYFLOAT, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
-        call mpi_bcast(gApp%Model%IO%tsOut, 1, MPI_INT,     g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
+        call mpi_bcast(gApp%Model%IO%tsOut, 1, MPI_INTEGER,     g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
 
         ! create the MPI datatypes for communicating state data with voltron
         call createG2VDataTypes(g2vComm, gApp)
@@ -297,7 +297,7 @@ module gam2VoltComm_mpi
                 call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
             end if
 
-            call mpi_send(gApp%Model%ts, 1, MPI_INT, g2vComm%voltRank, 97700, g2vComm%voltMpiComm, ierr)
+            call mpi_send(gApp%Model%ts, 1, MPI_INTEGER, g2vComm%voltRank, 97700, g2vComm%voltMpiComm, ierr)
             if(ierr /= MPI_Success) then
                 call MPI_Error_string( ierr, message, length, ierr)
                 print *,message(1:length)
@@ -774,10 +774,10 @@ module gam2VoltComm_mpi
             g2vComm%recvCountsInexyzShallow = 0
             g2vComm%recvCountsIneijkShallow = 0
             ! set these types to non null because MPI complains
-            g2vComm%sendTypesGasShallow = MPI_INT
-            g2vComm%sendTypesBxyzShallow = MPI_INT
-            g2vComm%recvTypesInexyzShallow = MPI_INT
-            g2vComm%recvTypesIneijkShallow = MPI_INT
+            g2vComm%sendTypesGasShallow = MPI_INTEGER
+            g2vComm%sendTypesBxyzShallow = MPI_INTEGER
+            g2vComm%recvTypesInexyzShallow = MPI_INTEGER
+            g2vComm%recvTypesIneijkShallow = MPI_INTEGER
         else
             ! Gas
             sendDataOffset = Model%nG*Grid%Nj*Grid%Ni + &

@@ -115,7 +115,7 @@ for line in ModuleList[0]:
     modset = modset + line + " "
 
 # submit memory checker
-arguments = 'qsub -v MODULE_LIST="' + modset + '" intelCheckSubmitMem.pbs'
+arguments = 'qsub -v MODULE_LIST="' + modset + '",KAIJUROOTDIR=' + home + ' intelCheckSubmitMem.pbs'
 print(arguments)
 submission = subprocess.Popen(arguments, shell=True, stdout=subprocess.PIPE)
 readString = submission.stdout.read()
@@ -126,7 +126,7 @@ firstJobNumber = readString.split('.')[0]
 print(firstJobNumber)
 
 # submit thread checker
-arguments = 'qsub -v MODULE_LIST="' + modset + '" intelCheckSubmitThread.pbs'
+arguments = 'qsub -v MODULE_LIST="' + modset + '",KAIJUROOTDIR=' + home + ' intelCheckSubmitThread.pbs'
 print(arguments)
 submission = subprocess.Popen(arguments, shell=True, stdout=subprocess.PIPE)
 readString = submission.stdout.read()

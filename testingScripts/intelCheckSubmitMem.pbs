@@ -8,6 +8,11 @@
 
 source ~/.bashrc
 
+if [[ ! -z "$KAIJUROOTDIR" ]]; then
+    #If the root folder of a kaiju repo was passed in, souce the environment setup script
+    source $KAIJUROOTDIR/scripts/setupEnvironment.sh
+fi
+
 if [[ ! -z "$MODULE_LIST" ]]; then
     # user passed a list of modules to load as the environment variable MODULE_LIST
     module purge
