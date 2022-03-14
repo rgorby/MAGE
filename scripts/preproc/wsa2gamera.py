@@ -36,7 +36,7 @@ Ni = prm.Ni
 Nj = prm.Nj
 Nk = prm.Nk 
 
-ffits = os.path.join(os.getenv('KAIJUDIR'),prm.wsaFile)
+ffits = os.path.join(os.getenv('KAIJUHOME'),prm.wsaFile)
 
 # constants
 mp = 1.67e-24
