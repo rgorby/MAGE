@@ -216,9 +216,10 @@ class MidpointNormalize(Normalize):
 		return np.ma.masked_array(np.interp(value, x, y))
 
 #Create norm object for MPL
-def genNorm(vMin,vMax=None,doLog=False,midP=None):
+def genNorm(vMin,vMax=None,doLog=False,doSymLog=False,midP=None,linP=1.0):
 	from matplotlib.colors import LogNorm
 	from matplotlib.colors import Normalize
+	from matplotlib.colors import SymLogNorm
 	if (vMax is None):
 		vMin = -np.abs(vMin)
 		vMax = np.abs(vMin)
@@ -231,6 +232,8 @@ def genNorm(vMin,vMax=None,doLog=False,midP=None):
 		vN = MidpointNormalize(vmin=vMin,vmax=vMax,midpoint=midP)
 	elif (doLog):
 		vN = LogNorm(vmin=vMin,vmax=vMax)
+	elif (doSymLog):
+		vN = SymLogNorm(linthresh=linP,vmin=vMin,vmax=vMax,base=10)
 	else:
 		vN = Normalize(vmin=vMin,vmax=vMax)
 
@@ -364,23 +367,3 @@ def compPlot(plotname,scId,data):
 	plt.subplots_adjust(hspace=0)
 
 	savePic(plotname)
-
-def trajPlot(plotname,scId,data):
-    Re = 6380.0
-    toRe = 1.0/Re
-    figsize = (15,5)
-    fig = plt.figure(figsize=figsize)
-    gs = fig.add_gridspec(1,3)
-    Ax1 = fig.add_subplot(gs[0,0])
-    Ax2 = fig.add_subplot(gs[0,1])
-    Ax3 = fig.add_subplot(gs[0,2])
-    Ax1.plot(data['Ephemeris'][:,0]*toRe,data['Ephemeris'][:,1]*toRe)
-    Ax2.plot(data['Ephemeris'][:,0]*toRe,data['Ephemeris'][:,2]*toRe)
-    Ax3.plot(data['Ephemeris'][:,1]*toRe,data['Ephemeris'][:,2]*toRe)
-    Ax1.set_title('XY SM')
-    Ax2.set_title('XZ SM')
-    Ax3.set_title('YZ SM')
-    titlestr = (scId + ' - ' + data['Epoch_bin'][0].strftime('%m/%d/%Y - %H:%M:%S') + ' to ' +  
-                data['Epoch_bin'][-1].strftime('%m/%d/%Y - %H:%M:%S'))
-    fig.suptitle(titlestr)
-    savePic(plotname)

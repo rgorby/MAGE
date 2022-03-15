@@ -120,13 +120,8 @@ def PlotMerid(gsph,nStp,xyBds,Ax,doDen=False,doRCM=False,AxCB=None,doClear=True,
 
 def PlotJyXZ(gsph,nStp,xyBds,Ax,AxCB=None,jScl=None,doDeco=True):
 	if (jScl is None):
-		#VERY LAZY scaling for current
-		#Scale current to nA/m^2
-		#Current is curl(B) = mag field / Re
-		# mu0 J = curl(B)
-		jScl = 4.58/( (6.371*1.0e+6)*(4.0*np.pi*1.0e+2) )  # Convert field to nT/m
-		#jScl => A/m2
-		jScl = jScl*1.0e+9
+		#Just assuming current scaling is nA/m2
+		jScl = 1.0
 	vJ = kv.genNorm(jMax)
 	jCMap = "PRGn"
 	Nc = 15

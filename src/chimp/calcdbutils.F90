@@ -220,32 +220,37 @@ module calcdbutils
     end subroutine ionGridInit
 
     !Initialize holders for Bios-Savart contributions
-    subroutine BSGridInit(Model,ebState,rmState,magBS,ionBS,facBS)
+    subroutine BSGridInit(Model,ebState,rmState,magBS,ionBS,facBS,inpXML)
         type(chmpModel_T), intent(in) :: Model
         type(ebState_T)  , intent(in) :: ebState
         type(rmState_T)  , intent(in) :: rmState
         type(BSGrid_T), intent(inout) :: magBS,ionBS,facBS
+        type(XML_Input_T), intent(in) :: inpXML
 
         integer :: NMag,NIon,NFac
-        real(rp) :: B0
     !Mag BS grid
-        B0 = bScale()
         !Number of cells
         NMag = (ebState%ebGr%Nip)*(ebState%ebGr%Njp)*(ebState%ebGr%Nkp)
         call BSSubInit(magBS,NMag)
-        magBS%jScl = B0/(4.0*PI) !Scaling factor
+        !NOTE: Changing scaling factor for magnetospheric currents to account for output scaling
+        !mage output, J [nA/m2]
+        !chimp input reading, [A/m2] (to be standard SI)
+        magBS%jScl = (1.0e+9)*Mu0/(4.0*PI) !Ensure final db is nT
+        call inpXML%Set_Val(magBS%isActive,'CalcDB/doMAG',.true.)
 
     !Ion BS grid
         !Number of cells
         NIon = (rmState%Np)*(rmState%Nth)*(2) !Include N/S hemispheres
         call BSSubInit(ionBS,NIon)
         ionBS%jScl = (1.0e+9)*Mu0/(4.0*PI) !Ensure final db is nT
+        call inpXML%Set_Val(ionBS%isActive,'CalcDB/doION',.true.)
 
     !FAC BS grid
         !Number of cells
         NFac = NIon*rSegs
         call BSSubInit(facBS,NFac)
         facBS%jScl = (1.0e+9)*REarth*Mu0/(4.0*PI) !Ensure final db is nT & needs extra factor of Re
+        call inpXML%Set_Val(facBS%isActive,'CalcDB/doFAC',.true.)
 
     end subroutine BSGridInit
 
@@ -373,7 +378,11 @@ module calcdbutils
         real(rp) :: R0,dth,dph,thnh,thsh,phnh,phsh
         real(rp) :: nhcdip,shcdip,nJt,sJt,nJp,sJp
 
+        real(rp) :: pJ,mJ,jScl
         real(rp), dimension(NDIM) :: nJ,sJ
+        logical :: doVerbose
+
+        doVerbose = .true.
 
         !Need to calculate E field from potential in both N/S hemispheres
         !Then get J from E and SigP/SigH
@@ -382,14 +391,6 @@ module calcdbutils
         R0 = (RionE*1.0e+6)/REarth !Ionospheric radius in units of Re, ~1.01880
         dth = ionGrid%dt
         dph = ionGrid%dp
-
-        if (rmState%doCorot) then
-            !Add corotation potential before taking gradient
-            !ReMix potential is in kV
-            !vcorot = -Psi0 *(Re / Ri)*SIN(colat)**2            
-            rmState%nPot = rmState%nPot - EarthPsi0*R0*( sin(ionGrid%tcc(:,:,NORTH))**2.0 )
-            rmState%sPot = rmState%sPot - EarthPsi0*R0*( sin(ionGrid%tcc(:,:,SOUTH))**2.0 )
-        endif
 
         !$OMP PARALLEL DO default(shared) &
         !$OMP private(i,j,nJ,sJ) &
@@ -466,7 +467,6 @@ module calcdbutils
                     sJp = sJp + ionGrid%pJ(i,j,SOUTH,PDIR)
                 endif
 
-
             !Now have currents (theta/phi) [A/m], convert to XYZ and store
                 nJ = tp2xyz(phnh,thnh,nJt,nJp)
                 sJ = tp2xyz(phsh,thsh,sJt,sJp)
@@ -477,17 +477,41 @@ module calcdbutils
 
         enddo !j,Nth
 
-        ! ! write(*,*) "North hJ-Theta"
-        ! ! write(*,*) ionGrid%hJ(:,ionGrid%Nth,NORTH,TDIR)
+    !Do some diagnostics
+        if (doVerbose) then
+            !Get up/down currents
+            j = ionGrid%Nth
+            thnh = ionGrid%tcc(1,j,NORTH)
+            thsh = ionGrid%tcc(1,j,SOUTH)
+            !FAC is microA/m^2, dS = Re^2
+            jScl = (REarth**2.0)*1.0e-6
+            write(*,*) "Ionospheric diagnostics ..."
+            write(*,*) "---------------------------"
+            pJ = (1.0e-6)*jScl*sum(rmState%nFac*ionGrid%dS(:,:,NORTH),mask=rmState%nFac>0)
+            mJ = (1.0e-6)*jScl*sum(rmState%nFac*ionGrid%dS(:,:,NORTH),mask=rmState%nFac<0)
+            write(*,*) "Northern hemisphere:"
+            write(*,*) "Net J11 (Up/Down) [MA] :", pJ,mJ
+            write(*,*) "   Imbalance [MA] :", pJ+mJ
+            
+            dph = REarth*ionGrid%dp*sin(thnh)
+            
+            write(*,*) "Hall Leakage [MA] = ", (1.0e-6)*dph*sum(ionGrid%hJ(:,j,NORTH,TDIR))
+            write(*,*) "Ped  Leakage [MA] = ", (1.0e-6)*dph*sum(ionGrid%pJ(:,j,NORTH,TDIR))
 
-        ! write(*,*) "North pJ-Theta"
-        ! write(*,*) minval(ionGrid%pJ(:,ionGrid%Nth,NORTH,TDIR)),maxval(ionGrid%pJ(:,ionGrid%Nth,NORTH,TDIR))
+            write(*,*) ""
+            pJ = (1.0e-6)*jScl*sum(rmState%sFac*ionGrid%dS(:,:,SOUTH),mask=rmState%sFac>0)
+            mJ = (1.0e-6)*jScl*sum(rmState%sFac*ionGrid%dS(:,:,SOUTH),mask=rmState%sFac<0)
+            write(*,*) "Southern hemisphere:"
+            write(*,*) "Net J11 (Up/Down) [MA] :", pJ,mJ
+            write(*,*) "   Imbalance [MA] :", pJ+mJ
 
-        ! ! write(*,*) "South hJ-Theta"
-        ! ! write(*,*) ionGrid%hJ(:,ionGrid%Nth,SOUTH,TDIR)
+            dph = REarth*ionGrid%dp*sin(thsh)
+            write(*,*) "Hall Leakage [MA] = ", (1.0e-6)*dph*sum(ionGrid%hJ(:,j,SOUTH,TDIR))
+            write(*,*) "Ped  Leakage [MA] = ", (1.0e-6)*dph*sum(ionGrid%pJ(:,j,SOUTH,TDIR))
 
-        ! write(*,*) "South pJ-Theta"
-        ! write(*,*) minval(ionGrid%pJ(:,ionGrid%Nth,SOUTH,TDIR)),maxval(ionGrid%pJ(:,ionGrid%Nth,SOUTH,TDIR))
+            
+            write(*,*) "---------------------------"
+        endif
 
         contains
             function GradTheta(Q,i0,Ni) result(Qp)
@@ -607,20 +631,6 @@ module calcdbutils
         rmState%sSigH = w1*rmState%rmS1%xSigH + w2*rmState%rmS2%xSigH
 
     end subroutine hemi2rm
-
-    !Lazy function to return scaling, should be replaced
-    function bScale() result(B0)
-        real(rp) :: B0
-        real(rp) :: mu0,Mp,x0,u0,t0,d0,p0
-        mu0 = 4*PI*1e-7
-        Mp = 1.67e-27 ![kg]
-        x0 = 1*6.38e6 ![m]   - RE
-        u0 = 100e3    ![m/s] - 100 km/s
-        t0 = x0/u0 ![s]   -
-        d0 = Mp*1e6 ! [kg/m^3] - 1 particle/cc
-        p0 = d0*u0*u0 ![N/m^2]
-        B0 = sqrt(mu0*d0*u0*u0)*1e9 ! [nT]
-    end function bScale
 
     function xyz2lat(xyz) result(lat)
         real(rp), dimension(NDIM), intent(in) :: xyz

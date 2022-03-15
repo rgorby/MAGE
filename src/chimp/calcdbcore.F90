@@ -30,27 +30,43 @@ module calcdbcore
         call MJDRecalc(mjd) !Setup geopack for this time
 
         !Remove far away points in magnetospheric grid and make remaining contiguous
-        call Tic("Compactify")
-        call Compactify(magBS,gGr%rMax,magltBS)
-        call Toc("Compactify")
+        if (magBS%isActive) then
+            call Tic("Compactify")
+            call Compactify(magBS,gGr%rMax,magltBS)
+            call Toc("Compactify")
 
-        call Tic("BSMag")
-        call BSIntegral(magltBS,gGr,gGr%dbMAG_xyz)
-        call Toc("BSMag")
+            call Tic("BSMag")
+            call BSIntegral(magltBS,gGr,gGr%dbMAG_xyz)
+            call Toc("BSMag")
+        else
+            gGr%dbMAG_xyz = 0.0
+        endif
 
-        call Tic("BSIon")
-        call BSIntegral(ionBS,gGr,gGr%dbION_xyz)
-        call Toc("BSIon")
+        if (ionBS%isActive) then
+            call Tic("BSIon")
+            call BSIntegral(ionBS,gGr,gGr%dbION_xyz)
+            call Toc("BSIon")
+        else
+            gGr%dbION_xyz = 0.0
+        endif
 
-        call Tic("BSFac")
-        call BSIntegral(facBS,gGr,gGr%dbFAC_xyz)
-        call Toc("BSFac")
+        if (facBS%isActive) then
+            call Tic("BSFac")
+            call BSIntegral(facBS,gGr,gGr%dbFAC_xyz)
+            call Toc("BSFac")
+        else
+            gGr%dbFAC_xyz = 0.0
+        endif
 
-        !We've done all the work to get dB-XYZ (SM)
-        !Before doing anything else calculate auroral indices
+    !We've done all the work to get dB-XYZ (SM), now get some SM coordinates/indices
+
+        !Calculate magnetic coordinates/northward deflection
+        call CalcMagCoordinates(Model,t,gGr)
+
+        !Calculate synthetic supermag indices
         call CalcSuperMAGIndices(Model,t,gGr)
 
-        !Map dB-XYZ (SM) to dB-XYZ (GEO) if desired
+    !Map dB-XYZ (SM) to dB-XYZ (GEO) if desired
         if (gGr%doGEO) then
             call Tic("BSRemap")
             call BSRemap(gGr,gGr%dbMAG_xyz)
@@ -60,6 +76,38 @@ module calcdbcore
             call Toc("BSRemap")
         endif
     end subroutine BS2Gr
+
+!------
+    subroutine CalcMagCoordinates(Model,t,gGr)
+        type(chmpModel_T), intent(in) :: Model
+        real(rp)         , intent(in) :: t
+        type(grGrid_T), intent(inout) :: gGr
+
+        real(rp), dimension(NDIM) :: x0,nhat,dbXYZ
+        real(rp) :: rad,theta,phi
+        integer  :: i,j,k
+
+        !Calculate smlat/lon and dBn
+
+        !$OMP PARALLEL DO default(shared) collapse(2) &
+        !$OMP private(i,j,k,x0,rad,theta,phi,nhat,dbXYZ)
+        do k=1,gGr%Nz
+            do j=1,gGr%NLon
+                do i=1,gGr%NLat
+                    x0 = gGr%SMxyzC(i,j,k,XDIR:ZDIR) !Cell center of ground grid
+                    rad = norm2(x0)
+                    gGr%smlat(i,j,k) = asin(x0(ZDIR)/rad)       *180.0/PI !geomagnetic latitude
+                    gGr%smlon(i,j,k) = katan2(x0(YDIR),x0(XDIR))*180.0/PI !geomagnetic longitude
+                    theta = acos (x0(ZDIR)/rad)
+                    phi   = atan2(x0(YDIR),x0(XDIR))
+                    nhat = -[cos(theta)*cos(phi),cos(theta)*sin(phi),-sin(theta)] !- thetahat from SM
+                    dbXYZ = gGr%dbMAG_xyz(i,j,k,:) + gGr%dbION_xyz(i,j,k,:) + gGr%dbFAC_xyz(i,j,k,:)
+                    gGr%dBn(i,j,k) = dot_product(dBxyz,nhat)
+                enddo
+            enddo
+        enddo
+
+    end subroutine CalcMagCoordinates
 
     !Remove far away points and make contiguous
     subroutine Compactify(xBS,rMax,xsBS)
@@ -176,11 +224,10 @@ module calcdbcore
 
         integer :: i,j,k
         integer, dimension(2) :: ijC
-        real(rp), dimension(NDIM) :: x0,dBxyz,nhat
-        real(rp) :: rad,theta,phi
         real(rp), dimension(:,:,:), allocatable :: Bncorr
         real(rp), dimension(:,:), allocatable :: mlatIJ,mlonIJ,BnIJ,BncIJ
-        logical , dimension(:,:), allocatable :: I_UL,I_R,I_00,I_06,I_12,I_18,IRLT
+        logical , dimension(:,:), allocatable :: I_00,I_06,I_12,I_18
+        logical , dimension(:,:), allocatable :: I_UL,I_R,IRLT
 
     !Allocate arrays
         allocate(Bncorr(gGr%NLat,gGr%NLon,gGr%Nz))
@@ -190,48 +237,15 @@ module calcdbcore
         allocate(BnIJ    (gGr%NLat,gGr%NLon))
         allocate(BncIJ   (gGr%NLat,gGr%NLon))
 
-        !Logical masks for different regions
+        !Logical masks for different regions (lazy, but meh)
         allocate(I_UL(gGr%NLat,gGr%NLon))
         allocate(I_R (gGr%NLat,gGr%NLon))
         allocate(I_00(gGr%NLat,gGr%NLon))
         allocate(I_06(gGr%NLat,gGr%NLon))
         allocate(I_12(gGr%NLat,gGr%NLon))
         allocate(I_18(gGr%NLat,gGr%NLon))
+
         allocate(IRLT(gGr%NLat,gGr%NLon))
-
-    !Get array values (to easily do minloc/maxloc)
-        !-Start by calculating smlat/lon
-
-        !$OMP PARALLEL DO default(shared) collapse(2) &
-        !$OMP private(i,j,k,x0,rad)
-        do k=1,gGr%Nz
-            do j=1,gGr%NLon
-                do i=1,gGr%NLat
-                    x0 = gGr%SMxyzC(i,j,k,XDIR:ZDIR) !Cell center of ground grid
-                    rad = norm2(x0)
-                    gGr%smlat(i,j,k) = asin(x0(ZDIR)/rad)       *180.0/PI !geomagnetic latitude
-                    gGr%smlon(i,j,k) = katan2(x0(YDIR),x0(XDIR))*180.0/PI !geomagnetic longitude
-                enddo
-            enddo
-        enddo
-
-        !-Now calculate northward deflection (use mag north)
-        !$OMP PARALLEL DO default(shared) collapse(2) &
-        !$OMP private(i,j,k,x0,rad,theta,phi,nhat,dBxyz)
-        do k=1,gGr%Nz
-            do j=1,gGr%NLon
-                do i=1,gGr%NLat
-                    x0 = gGr%SMxyzC(i,j,k,XDIR:ZDIR)
-                    rad   = norm2(x0)
-                    theta = acos (x0(ZDIR)/rad)
-                    phi   = atan2(x0(YDIR),x0(XDIR))
-                    nhat = -[cos(theta)*cos(phi),cos(theta)*sin(phi),-sin(theta)] !- thetahat
-                    dBxyz = gGr%dbMAG_xyz(i,j,k,XDIR:ZDIR) + gGr%dbION_xyz(i,j,k,XDIR:ZDIR) &
-                          + gGr%dbFAC_xyz(i,j,k,XDIR:ZDIR)
-                    gGr%dBn(i,j,k) = dot_product(dBxyz,nhat)
-                enddo
-            enddo
-        enddo
 
         !-Calculate corrected northward
         Bncorr = gGr%dBn/cos(gGr%smlat*PI/180.0)
@@ -245,7 +259,7 @@ module calcdbcore
         BncIJ  = Bncorr   (:,:,k)
 
         !Create mask arrays
-        I_UL = (mlatIJ <= SMHiLat) .and. (mlatIJ >= SMLowLat)
+        I_UL = (mlatIJ <= SMHiLat) .and. (mlatIJ >= SMLowLat) !Treat the southern hemisphere like garbage
         I_R  = (mlatIJ <= +SMRLat) .and. (mlatIJ >=  -SMRLat)
 
         I_00 = (mlonIJ >= 135) .and. (mlonIJ <= 225)
@@ -254,18 +268,36 @@ module calcdbcore
         I_18 = (mlonIJ >=  45) .and. (mlonIJ <= 135)
 
     !Get indices
-        !AL
+    !AL/AU
         ijC = minloc(BnIJ,mask=I_UL)
         gGr%SML      = BnIJ  (ijC(1),ijC(2))
         gGr%SML_MLat = mlatIJ(ijC(1),ijC(2))
         gGr%SML_MLon = mlonIJ(ijC(1),ijC(2))
-        !AU
+        
         ijC = maxloc(BnIJ,mask=I_UL)
         gGr%SMU      = BnIJ  (ijC(1),ijC(2))
         gGr%SMU_MLat = mlatIJ(ijC(1),ijC(2))
         gGr%SMU_MLon = mlonIJ(ijC(1),ijC(2))
 
-        !SMR-LTs
+    !AL/U-LTs (use min/max of raw Bn)
+        !NOTE: These are technically quadrant values so not precisely the supermag octant SML/SMU-LTs
+        IRLT = I_UL .and. I_00
+        gGr%SML_00 = minval(BnIJ,mask=IRLT)
+        gGr%SMU_00 = maxval(BnIJ,mask=IRLT)
+
+        IRLT = I_UL .and. I_06
+        gGr%SML_06 = minval(BnIJ,mask=IRLT)
+        gGr%SMU_06 = maxval(BnIJ,mask=IRLT)
+
+        IRLT = I_UL .and. I_12
+        gGr%SML_12 = minval(BnIJ,mask=IRLT)
+        gGr%SMU_12 = maxval(BnIJ,mask=IRLT)
+
+        IRLT = I_UL .and. I_18
+        gGr%SML_18 = minval(BnIJ,mask=IRLT)
+        gGr%SMU_18 = maxval(BnIJ,mask=IRLT)
+
+    !SMR-LTs (use avg lat-corrected Bn)
         IRLT = I_R .and. I_00
         gGr%SMR_00 = sum(BncIJ,mask=IRLT)/count(IRLT)
 

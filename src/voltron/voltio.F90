@@ -16,7 +16,7 @@ module voltio
     real(rp), parameter, private :: dtWallMax = 1.0 !How long between timer resets[hr]
     logical , private :: isConInit = .false.
     real(rp), private ::  oMJD = 0.0
-    integer, private :: oTime = 0.0
+    integer , private :: oTime = 0.0
     real(rp), private :: gamWait = 0.0
     character(len=strLen), private :: vh5File
 
@@ -46,7 +46,7 @@ module voltio
         integer :: iYr,iDoY,iMon,iDay,iHr,iMin,nTh,curCount,countMax
         real(rp) :: rSec,clockRate
         character(len=strLen) :: utStr
-        real(rp) :: DelD,DelP,dtIM,BSDst,AvgDst,DPSDst,symh
+        real(rp) :: DelD,DelP,dtIM,BSDst0,AvgBSDst,DPSDst,symh,BSSMRs(4)
 
         !Augment Gamera console output w/ Voltron stuff
         call getCPCP(vApp%mix2mhd%mixOutput,cpcp)
@@ -73,19 +73,22 @@ module voltio
             gamWait = 0.0
         endif
 
+        !Add some stupid trapping code to deal with fortran system clock wrapping
         if ( (simRate<0) .or. (abs(dtWall/3600.0) >= dtWallMax) ) then
-            ! Partially reset counters so that the values don't become so large they don't change
-            oMJD = oMJD + 0.9*dMJD
-            oTime = oTime + 0.9*dtWall*clockRate
+            !Just reset counters, this is just for diagnostics don't need exact value
+            oMJD = cMJD
+            call system_clock(count=oTime)
+            simRate = 0.0
         endif
 
         !Get MJD info
         call mjd2ut(cMJD,iYr,iDoY,iMon,iDay,iHr,iMin,rSec)
         write(utStr,'(I0.4,a,I0.2,a,I0.2,a,I0.2,a,I0.2,a,I0.2)') iYr,'-',iMon,'-',iDay,' ',iHr,':',iMin,':',nint(rSec)
 
-        !Get Dst estimate
-        call EstDST(gApp%Model,gApp%Grid,gApp%State,BSDst,AvgDst,DPSDst)
-        vApp%BSDst = BSDst
+        !Get Dst estimate: DPS, center of earth, MLT avg of equatorial stations
+        call EstDST(gApp%Model,gApp%Grid,gApp%State,BSDst0,AvgBSDst,BSSMRs,DPSDst)
+
+        vApp%BSDst = AvgBSDst
         
         !Get symh from input time series
         symh = vApp%symh%evalAt(vApp%time)
@@ -102,17 +105,19 @@ module voltio
             write (*, '(a,1f8.3,a)')             '      tilt = ' , dpT, ' [deg]'
             write (*, '(a,2f8.3,a)')             '      CPCP = ' , cpcp(NORTH), cpcp(SOUTH), ' [kV, N/S]'
             write (*, '(a, f8.3,a)')             '    Sym-H  = ' , symh  , ' [nT]'
-            write (*, '(a, f8.3,a)')             '    BSDst  ~ ' , BSDst , ' [nT]'
+            write (*, '(a, f8.3,a)')             '    BSDst  ~ ' , AvgBSDst , ' [nT]'
+            write (*, '(a,4f8.2,a)')             '           dSMRs  ~ ' , BSSMRs-AvgBSDst, ' [nT, 12/18/00/06]'
+            !write (*, '(a,4f8.2,a)')             '   BSSMRs  ~ ' , BSSMRs, ' [nT, 12/18/00/06]'
 
             if (vApp%doDeep .and. (vApp%time>0.0)) then
                 write (*, '(a, f8.3,a)')             '   DPSDst  ~ ' , DPSDst, ' [nT]'
-                write (*, '(a)'                 )    '    IMag Ingestion'
+                write (*, '(a)'                 )    '   IMag Ingestion'
                 write (*, '(a,1f7.2,a,1f7.2,a)' )    '       D/P = ', 100.0*DelD,'% /',100.0*DelP,'%'
                 write (*, '(a,1f7.2,a)'         )    '        dt = ', dtIM, ' [s]'
                 
                 !write (*,'(a,1f8.3,I6,a)')           '      xTrc = ', vApp%rTrc,vApp%nTrc, ' [r/n]'
             endif
-            write (*, '(a,1f7.1,a)' ) '    Spent ', gamWait*100.0, '% of time waiting for Gamera'
+            write (*, '(a,1f7.1,a)' ) '   Spent ', gamWait*100.0, '% of time waiting for Gamera'
             if (simRate>TINY) then
                 if (vApp%isSeparate) then
                     nTh = NumOMP()
@@ -251,7 +256,7 @@ module voltio
         endif
 
         call ClearIO(IOVars)
-        call AddInVar(IOVars,"gB0")
+        call AddInVar(IOVars,"gBAvg")
 
         call AddInVar(IOVars,"nOut"    ,vTypeO=IOINT)
         call AddInVar(IOVars,"nRes"    ,vTypeO=IOINT)
@@ -260,6 +265,7 @@ module voltio
         call AddInVar(IOVars,"time"    ,vTypeO=IOREAL)
         call AddInVar(IOVars,"ShallowT",vTypeO=IOREAL)
         call AddInVar(IOVars,"DeepT"   ,vTypeO=IOREAL)
+
 
         !Get data
         call ReadVars(IOVars,.false.,ResF)
@@ -275,12 +281,17 @@ module voltio
         !Check to see if gB0 is present
         n0 = FindIO(IOVars,"gBAvg")
         if (IOVars(n0)%isDone) then
-            write(*,*) "Found gBAvg in Voltron restart ..."
+            if (.not. allocated(vApp%mhd2Mix%gBAvg)) then
+                !Allocate this if necessary
+                allocate( vApp%mhd2Mix%gBAvg(IOVars(n0)%dims(1),IOVars(n0)%dims(2),IOVars(n0)%dims(3),IOVars(n0)%dims(4)) )
+            endif
             call IOArray4DFill(IOVars,"gBAvg",vApp%mhd2Mix%gBAvg)
         else
             write(*,*) "gBAvg not found in Voltron restart, assuming dipole ..."
         endif
+
     end subroutine readVoltronRestart
+
 
     subroutine fOutputV(vApp,gApp)
         class(gamApp_T) , intent(inout) :: gApp
@@ -339,7 +350,7 @@ module voltio
         real(rp), dimension(:,:,:), allocatable :: psi,D,Cs
         real(rp), dimension(NDIM) :: Exyz,Bdip,xcc
         real(rp) :: Csijk,Con(NVAR)
-        real(rp) :: BSDst,DPSDst,AvgDst
+        real(rp) :: BSDst0,AvgBSDst,DPSDst,BSSMRs(4)
 
         !Get data
         call getCPCP(vApp%mix2mhd%mixOutput,cpcp)
@@ -397,11 +408,12 @@ module voltio
             enddo
         enddo
 
-        !Refresh Dst
-        call EstDST(gApp%Model,gApp%Grid,gApp%State,BSDst,AvgDst,DPSDst)
-        vApp%BSDst = BSDst
+        !Get Dst estimate: DPS, center of earth, MLT avg of equatorial stations
+        call EstDST(gApp%Model,gApp%Grid,gApp%State,BSDst0,AvgBSDst,BSSMRs,DPSDst)
+        vApp%BSDst = AvgBSDst
 
         write(gStr,'(A,I0)') "Step#", nOut
+
         !Reset IO chain
         call ClearIO(IOVars)
 
@@ -437,9 +449,13 @@ module voltio
         call AddOutVar(IOVars,"cpcpN",cpcp(1))
         call AddOutVar(IOVars,"cpcpS",cpcp(2))
 
-        call AddOutVar(IOVars,"BSDst" ,BSDst )
-        call AddOutVar(IOVars,"AvgDst",AvgDst)
+        call AddOutVar(IOVars,"BSDst" ,AvgBSDst)
+        call AddOutVar(IOVars,"BSDst0",BSDst0)
         call AddOutVar(IOVars,"DPSDst",DPSDst)
+        call AddOutVar(IOVars,"BSSMR12",BSSMRs(1))
+        call AddOutVar(IOVars,"BSSMR18",BSSMRs(2))
+        call AddOutVar(IOVars,"BSSMR00",BSSMRs(3))
+        call AddOutVar(IOVars,"BSSMR06",BSSMRs(4))
 
         call AddOutVar(IOVars,"SymH",symh)
 

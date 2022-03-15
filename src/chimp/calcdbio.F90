@@ -241,7 +241,6 @@ module calcdbio
         write(rmF,'(2a)') trim(adjustl(ebState%ebTab%bStr)),'.mix.h5'
 
         !Decide whether to add corotation potential
-        call inpXML%Set_Val(rmState%doCorot,'CalcDB/doCorot',.false.)
         call inpXML%Set_Val(rmState%doHall ,'CalcDB/doHall' ,.true. ) 
         call inpXML%Set_Val(rmState%doPed  ,'CalcDB/doPed'  ,.true. )
 
@@ -434,6 +433,16 @@ module calcdbio
         call AddOutVar(IOVars,"SMR_12",gGr%SMR_12,uStr="nT")
         call AddOutVar(IOVars,"SMR_18",gGr%SMR_18,uStr="nT")
 
+        call AddOutVar(IOVars,"SML_00",gGr%SML_00,uStr="nT")
+        call AddOutVar(IOVars,"SML_06",gGr%SML_06,uStr="nT")
+        call AddOutVar(IOVars,"SML_12",gGr%SML_12,uStr="nT")
+        call AddOutVar(IOVars,"SML_18",gGr%SML_18,uStr="nT")
+
+        call AddOutVar(IOVars,"SMU_00",gGr%SMU_00,uStr="nT")
+        call AddOutVar(IOVars,"SMU_06",gGr%SMU_06,uStr="nT")
+        call AddOutVar(IOVars,"SMU_12",gGr%SMU_12,uStr="nT")
+        call AddOutVar(IOVars,"SMU_18",gGr%SMU_18,uStr="nT")
+
     !Write out spherical vectors (XDIR:ZDIR = RDIR,TDIR,PDIR)
         if (Model%doFat) then
             !Magnetospheric
@@ -513,13 +522,14 @@ module calcdbio
         real(rp), intent(out) :: dbJ  (gGr%NLat,gGr%NLon,gGr%Nz)
         character(len=*),intent(in) :: jID
 
+        real(rp), dimension(gGr%NLat,gGr%NLon) :: dS !Surface area at k0 [m2]
         integer :: i,j,k,jP,jM,k0
         real(rp) :: rad,theta,thP,thM,dth,dphi,DelA,DelB
-        real(rp) :: jScl,jMin,jMax,jRMS
+        real(rp) :: jScl,jMin,jMax,jRMS,jNet,jTot
 
         dbJ = 0.0
         k0 = 1
-
+        
         !$OMP PARALLEL DO default(shared) collapse(2) &
         !$OMP private(i,j,k,jP,jM,rad,theta,thP,thM,dth,dphi,DelA,DelB)
         do k=1,gGr%Nz
@@ -546,6 +556,11 @@ module calcdbio
                     endif
                     DelB = ( dbRTP(i,jP,k,TDIR) - dbRTP(i,jM,k,TDIR) )/dphi
                     dbJ(i,j,k) = (DelA-DelB)/(rad*sin(theta))
+
+                    if (k == k0) then
+                        !Calculate dS for this patch [m2]
+                        dS(i,j) = (rad**2.0)*(REarth**2.0)*sin(theta)*dphi*dth
+                    endif
                 enddo
             enddo
         enddo
@@ -557,10 +572,12 @@ module calcdbio
 
         jMin = minval(dbJ(:,:,k0))
         jMax = maxval(dbJ(:,:,k0))
-        jRMS = norm2(dbJ(:,:,k0))/sqrt(1.0*size(dbJ(:,:,k0)))
+        jRMS = norm2 (dbJ(:,:,k0))/sqrt(1.0*size(dbJ(:,:,k0)))
 
+        jNet = sum(dbJ(:,:,k0)     *dS)*(1.0e-6)*(1.0e-6)
+        jTot = sum(abs(dbJ(:,:,k0))*dS)*(1.0e-6)*(1.0e-6)
         write(*,'(a,a,f8.3,f8.3,f8.3,a)') trim(jID),' anomalous current [microA/m2]: ',jMin,jMax,jRMS,' (Min/Max/RMS)'
-
+        write(*,*) "   Tot/Net anomalous [MA] = ",jTot,jNet 
     end subroutine CalcJdb
 
 end module calcdbio
