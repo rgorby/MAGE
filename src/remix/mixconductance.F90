@@ -629,6 +629,7 @@ module mixconductance
     ! George Khazanov's multiple reflection(MR) corrections
     subroutine conductance_mr(conductance,G,St)
       type(mixConductance_T), intent(in) :: conductance
+      type(mixGrid_T), intent(in) :: G
       type(mixState_T), intent(inout) :: St
       real(rp), dimension(G%Np,G%Nt) :: Kc
 
