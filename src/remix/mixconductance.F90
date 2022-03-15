@@ -14,9 +14,7 @@ module mixconductance
   real(rp), dimension(:,:), allocatable, private :: tmpD,tmpC ! used for chilling in Fedder95. Declare it here so we can allocate in init.
   real(rp), dimension(:,:), allocatable, private :: JF0,RM,RRdi ! used for zhang15
   real(rp), dimension(:,:), allocatable, private :: tmpE,tmpF ! used for smoothing precipitation avg_eng and num_flux
-  real(rp), dimension(:,:), allocatable, private :: Kc ! used for multi-reflection modification
   real(rp), dimension(:,:), allocatable, private :: beta_RCM,alpha_RCM,gtype_RCM ! two-dimensional beta based on RCM fluxes.
-  real(rp), dimension(:,:), allocatable, private :: phi0_rcmz, Pe_MHD, Ne_MHD, Pe_RMD, Ne_RMD
 
   !Replacing some hard-coded inline values (bad) w/ module private values (slightly less bad)
   real(rp), parameter, private :: maxDrop = 20.0 !Hard-coded max potential drop [kV]
@@ -78,15 +76,9 @@ module mixconductance
       if (.not. allocated(RRdi)) allocate(RRdi(G%Np,G%Nt))      
       if (.not. allocated(tmpE)) allocate(tmpE(G%Np+4,G%Nt+4)) ! for boundary processing.
       if (.not. allocated(tmpF)) allocate(tmpF(G%Np+4,G%Nt+4))
-      if (.not. allocated(Kc))   allocate(Kc  (G%Np,G%Nt))
       if (.not. allocated(beta_RCM)) allocate(beta_RCM(G%Np,G%Nt))
       if (.not. allocated(alpha_RCM)) allocate(alpha_RCM(G%Np,G%Nt))
       if (.not. allocated(gtype_RCM)) allocate(gtype_RCM(G%Np,G%Nt))
-      if (.not. allocated(phi0_rcmz)) allocate(phi0_rcmz(G%Np,G%Nt))
-      if (.not. allocated(Pe_MHD)) allocate(Pe_MHD(G%Np,G%Nt))
-      if (.not. allocated(Ne_MHD)) allocate(Ne_MHD(G%Np,G%Nt))
-      if (.not. allocated(Pe_RMD)) allocate(Pe_RMD(G%Np,G%Nt))
-      if (.not. allocated(Ne_RMD)) allocate(Ne_RMD(G%Np,G%Nt))
 
       call SetMIXgamma(Params%gamma)
       RinMHD = Params%RinMHD
@@ -257,6 +249,7 @@ module mixconductance
       
       real(rp) :: signOfY, signOfJ
       logical :: dorcm
+      real(rp), dimension(G%Np,G%Nt) :: Pe_MHD, Ne_MHD, Pe_RMD, Ne_RMD
       
       if(present(dorcmO)) then
          dorcm = dorcmO
@@ -341,6 +334,7 @@ module mixconductance
       type(mixConductance_T), intent(inout) :: conductance
       type(mixGrid_T), intent(in) :: G
       type(mixState_T), intent(inout) :: St
+      real(rp), dimension(G%Np,G%Nt) :: phi0_rcmz
       integer :: i,j
 
       ! In MHD, use the same alpha/beta with RCM.
@@ -633,9 +627,10 @@ module mixconductance
     end subroutine conductance_aurora
 
     ! George Khazanov's multiple reflection(MR) corrections
-    subroutine conductance_mr(conductance,St)
+    subroutine conductance_mr(conductance,G,St)
       type(mixConductance_T), intent(in) :: conductance
       type(mixState_T), intent(inout) :: St
+      real(rp), dimension(G%Np,G%Nt) :: Kc
 
       ! Modify the diffuse precipitation energy and mean energy based on equation (5) in Khazanov et al. [2019JA026589]
       ! Kc = 3.36-exp(0.597-0.37*Eavg+0.00794*Eavg^2)
@@ -734,7 +729,7 @@ module mixconductance
       end select
 
       ! correct for multiple reflections if you're so inclined
-      if (conductance%doMR) call conductance_mr(conductance,St)
+      if (conductance%doMR) call conductance_mr(conductance,G,St)
 
       ! Smooth precipitation energy and flux before calculating conductance.
       if (conductance%doAuroralSmooth) call conductance_auroralsmooth(St,G,conductance)
