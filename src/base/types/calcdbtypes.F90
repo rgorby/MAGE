@@ -71,7 +71,7 @@ module calcdbtypes
     end type ionGrid_T
 
 !--------
-!Bios-Savart grid
+!Biot-Savart grid
 !1D collection of points, currents, geometric factors to do discrete BS integral
 !Coordinate system (points and vectors) matches that of the ground grid, likely GEO
 	type BSGrid_T

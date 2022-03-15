@@ -219,7 +219,7 @@ module calcdbutils
 
     end subroutine ionGridInit
 
-    !Initialize holders for Bios-Savart contributions
+    !Initialize holders for Biot-Savart contributions
     subroutine BSGridInit(Model,ebState,rmState,magBS,ionBS,facBS,inpXML)
         type(chmpModel_T), intent(in) :: Model
         type(ebState_T)  , intent(in) :: ebState
@@ -235,7 +235,7 @@ module calcdbutils
         !NOTE: Changing scaling factor for magnetospheric currents to account for output scaling
         !mage output, J [nA/m2]
         !chimp input reading, [A/m2] (to be standard SI)
-        magBS%jScl = (1.0e+9)*Mu0/(4.0*PI) !Ensure final db is nT
+        magBS%jScl = (1.0e+9)*REarth*Mu0/(4.0*PI) !Ensure final db is nT & needs extra factor of Re (compared to ionosphere)
         call inpXML%Set_Val(magBS%isActive,'CalcDB/doMAG',.true.)
 
     !Ion BS grid

@@ -110,3 +110,11 @@ def newellcoupling(vx,vy,vz,bx,by,bz):
 	thetac = np.abs(np.arctan2(by,bz))
 	newcoup = np.power(v,4.0/3.0)*np.power(b,2.0/3.0)*np.power(np.sin(thetac/2.0),8.0/3.0)
 	return newcoup
+
+#Read SymH from bcwind file
+def GetSymH(fBC):
+	with h5py.File(fBC,'r') as hf:
+		tData   = hf['T'][()]
+		dstData = hf['symh'][()]
+		utData  = hf['UT'][()]
+	return utData,tData,dstData		

@@ -10,7 +10,6 @@ module dstutils
     implicit none
 
     integer, parameter, private :: i0 = 1 !What shell to start at (i0+1) for BS-Dst    
-    real(rp), private :: B0 = 1.0 !Scaling factor for Jxyz=>Dst
     real(rp), parameter, private :: BSMaxR = 40.0 !Sphere to do quick BS integral over
 
     !Some lazy hard-coded stations (SM lat/lon [deg])
@@ -38,22 +37,17 @@ module dstutils
         integer :: i,j,k,n
         real (rp), dimension(:,:,:,:), allocatable :: dB,Jxyz !Full-sized arrays
         real(rp), dimension(NDIM) :: xyz0
-        real(rp) :: d0,u0,phi,lat
+        real(rp) :: phi,lat,jScl
         real(rp), dimension(NumStat) :: StatDSTs
 
         BSDst0   = 0.0
         DPSDst   = 0.0
         AvgBSDst = 0.0
 
-        !Very lazy scaling (TODO: Pull from Model%xxx)
-        d0 = (1.67e-27)*1.0e+6
-        u0 = 1.0e+5
-        B0 = sqrt(Mu0*d0*u0*u0)*1.0e+9 !nT
-
         call allocGridVec(Model,Gr,dB  )
         call allocGridVec(Model,Gr,Jxyz)
 
-    !Calculate current
+    !Calculate current [A/m2]
         !Subtract dipole before calculating current
         !$OMP PARALLEL DO default(shared) collapse(2)
         do k=Gr%ksg,Gr%keg
@@ -66,7 +60,10 @@ module dstutils
                 enddo
             enddo
         enddo
-        call bFld2Jxyz(Model,Gr,dB,Jxyz)
+        !Get scaling to make current A/m2
+        jScl = (Model%gamOut%jScl)*(1.0e-9) !Using nA/m2 standard Voltron current density scaling
+
+        call bFld2Jxyz(Model,Gr,dB,Jxyz,jSclO=jScl)
 
     !Get Dst's
         !DPS Dst from ring current energy density
@@ -95,44 +92,55 @@ module dstutils
         endif
     end subroutine EstDST
 
-    !Calculate Bios-Savart Dst at given point
-    function BSDstAt(Model,Gr,Jxyz,xyz0) result(BSDst)
+    !Calculate Biot-Savart Dst at given point, assume Jxyz is A/m2
+    function BSDstAt(Model,Gr,ijkJ,xyzDest) result(BSDst)
         type(Model_T), intent(in)  :: Model
         type(Grid_T) , intent(in)  :: Gr
-        real(rp)     , intent(in) :: Jxyz(Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,1:NDIM)
-        real(rp)     , intent(in) :: xyz0(NDIM)
+        real(rp)     , intent(in) :: ijkJ(Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,1:NDIM)
+        real(rp)     , intent(in) :: xyzDest(NDIM)
         real(rp) :: BSDst
 
         integer :: i,j,k
-        real(rp) :: dV,r,bs1,bs2,bScl,dBz
-        real(rp), dimension(NDIM) :: xyz
+        real(rp) :: dV,r3,bsScl
+        real(rp), dimension(NDIM) :: xSrc,R,Jxyz,ddB
 
-        BSDst  = 0.0 !Bios-Savart
+        BSDst  = 0.0 !Biot-Savart
 
         !$OMP PARALLEL DO default(shared) collapse(2) &
-        !$OMP private(i,j,k,xyz,dV,r,bs1,bs2,bScl,dBz) &
+        !$OMP private(i,j,k,dV,r3,xSrc,R,Jxyz,ddB) &
         !$OMP reduction(+:BSDst)
         do k=Gr%ks,Gr%ke
             do j=Gr%js,Gr%je
                 do i=Gr%is+i0,Gr%ie
-                    xyz = Gr%xyzcc (i,j,k,:)
-                    dV  = Gr%volume(i,j,k)
-                    r = norm2(xyz-xyz0)
-                    if (r <= BSMaxR) then
-                        bs1 = Jxyz(i,j,k,XDIR)*(xyz(YDIR)-xyz0(YDIR))
-                        bs2 = Jxyz(i,j,k,YDIR)*(xyz(XDIR)-xyz0(XDIR))
-                        bScl = B0*dV/(4*PI)
+                    !Calculate BT integral @ xyz0 (destination)
+                    xSrc = Gr%xyzcc(i,j,k,:) !Source point
+                    R = xyzDest - xSrc !Vector pointing from source to destination/station
 
-                        dBz = -(bs1 - bs2)/(r**3.0)
+                    if ( norm2(R) <= BSMaxR ) then
+
+                        r3 = norm2(R)**3.0
+                        dV  = Gr%volume(i,j,k)
+                        Jxyz = ijkJ(i,j,k,:) !xyz current density [A/m2]
+
+                        !Avoid array temporary
+                        ddB(XDIR) = ( Jxyz(YDIR)*R(ZDIR) - Jxyz(ZDIR)*R(YDIR) )/r3
+                        ddB(YDIR) = ( Jxyz(ZDIR)*R(XDIR) - Jxyz(XDIR)*R(ZDIR) )/r3
+                        ddB(ZDIR) = ( Jxyz(XDIR)*R(YDIR) - Jxyz(YDIR)*R(XDIR) )/r3
                     else
-                        dBz = 0.0
+                        ddB = 0.0
                     endif
-
-                    !Bios-Savart Dst
-                    BSDst = BSDst + bScl*dBz
+                    !For now just using Z component b/c we're in equator
+                    BSDst = BSDst + ddB(ZDIR)
                 enddo ! i loop
             enddo
         enddo !k loop
+
+        !Calculate scaling so that final dB is in nT (assuming magnetosphere scaling)
+        bsScl = (1.0e+9)*(Model%Units%gx0)*Mu0/(4.0*PI)
+
+        !Do scaling factor here just once
+        BSDst = bsScl*BSDst
+
 
     end function BSDstAt
 

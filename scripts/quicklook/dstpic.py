@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 import kaipy.gamera.magsphere as msph
 import kaipy.kaiViz as kv
 import numpy as np
-import kaipy.gamera.dstutils as dstutils
+import kaipy.kaiTools as kt
 import datetime
 from matplotlib import dates
 import matplotlib.gridspec as gridspec
@@ -43,8 +43,8 @@ if __name__ == "__main__":
 
 	#UT formats for plotting
 	isotfmt = '%Y-%m-%dT%H:%M:%S.%f'
-	t0fmt = '%Y-%m-%d %H:%M:%S'
-	utfmt='%H:%M \n%Y-%m-%d'
+	t0fmt   = '%Y-%m-%d %H:%M:%S'
+	utfmt   = '%H:%M \n%Y-%m-%d'
 
 	iS = [0,1,3,5,7]
 	X0 = 0.0
@@ -54,13 +54,14 @@ if __name__ == "__main__":
 	NumI = len(iS)
 
 	fBC = os.path.join(fdir, swfname)
-	utD,tD,dstD = dstutils.GetSymH(fBC)
+	kaiH5.CheckOrDie(fBC)
+	utD,tD,dstD = kt.GetSymH(fBC)
 	ut_symh=[]
 	[ut_symh.append(datetime.datetime.strptime(utD[n].decode('utf-8'),t0fmt)) for n in range(len(utD))]
 
 	fvolt = os.path.join(fdir,ftag+".volt.h5")
 	BSDst = kaiH5.getTs(fvolt,sIds=None,aID="BSDst")
-	MJD = kaiH5.getTs(fvolt,sIds=None,aID="MJD")
+	MJD   = kaiH5.getTs(fvolt,sIds=None,aID="MJD")
 	I = np.isinf(MJD)
 	MJD0 = MJD[~I].min()-1
 	MJD[I] = MJD0

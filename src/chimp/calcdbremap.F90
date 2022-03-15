@@ -1,4 +1,4 @@
-!Routines to map native source grids to Bios-Savart (ground system) grids
+!Routines to map native source grids to Biot-Savart (ground system) grids
 module calcdbremap
     use kdefs
     use chmpdefs
@@ -52,7 +52,8 @@ module calcdbremap
 
     end subroutine remapGR
 
-    !Load Bios Savart grids
+    !Load Biot Savart grids
+    !TODO: Avoid re-packing geometric factors
     subroutine packBS(Model,t,ebState,ionGrid,facGrid,magBS,ionBS,facBS)
         type(chmpModel_T), intent(in) :: Model
         real(rp)         , intent(in) :: t

@@ -29,7 +29,7 @@ program calcdbx
     type(facGrid_T) :: facGrid !FAC grid
     type(ionGrid_T) :: ionGrid !Ionospheric grid
 
-    !Bios-Savart data, source terms in GEO
+    !Biot-Savart data, source terms in GEO
     type(BSGrid_T) :: facBS,ionBS,magBS
 
     !Destination (GEO) data
