@@ -32,13 +32,11 @@ if __name__ == "__main__":
 	parser.add_argument('-d',type=str,metavar="directory",default=fdir,help="Directory to read from (default: %(default)s)")
 	parser.add_argument('-id',type=str,metavar="runid",default=ftag,help="RunID of data (default: %(default)s)")
 	parser.add_argument('-tpad',type=float,metavar="time padding",default=tpad,help="Time beyond MHD data (in hours) to plot (default: %(default)s)")
-	parser.add_argument('-imax',type=int,metavar="index",default=iMax,help="Maximum i index (default: No limit)")
 	parser.add_argument('-swfile',type=str,metavar='filename',default=swfname,help="Solar wind file name (default: %(default)s)")
 	#Finalizing parsing
 	args = parser.parse_args()
 	fdir = args.d
 	tpad = args.tpad
-	iMax = args.imax
 	swfname = args.swfile
 
 	#UT formats for plotting
@@ -46,18 +44,10 @@ if __name__ == "__main__":
 	t0fmt   = '%Y-%m-%d %H:%M:%S'
 	utfmt   = '%H:%M \n%Y-%m-%d'
 
-	iS = [0,1,3,5,7]
-	X0 = 0.0
-	Y0 = 0.0
-	Z0 = 0.0
-
-	NumI = len(iS)
 
 	fBC = os.path.join(fdir, swfname)
 	kaiH5.CheckOrDie(fBC)
-	utD,tD,dstD = kt.GetSymH(fBC)
-	ut_symh=[]
-	[ut_symh.append(datetime.datetime.strptime(utD[n].decode('utf-8'),t0fmt)) for n in range(len(utD))]
+	ut_symh,tD,dstD = kt.GetSymH(fBC)
 
 	fvolt = os.path.join(fdir,ftag+".volt.h5")
 	BSDst = kaiH5.getTs(fvolt,sIds=None,aID="BSDst")

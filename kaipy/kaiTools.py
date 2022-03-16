@@ -113,8 +113,11 @@ def newellcoupling(vx,vy,vz,bx,by,bz):
 
 #Read SymH from bcwind file
 def GetSymH(fBC):
+	from astropy.time import Time
 	with h5py.File(fBC,'r') as hf:
+		mjdData = hf['MJD'][()]
 		tData   = hf['T'][()]
 		dstData = hf['symh'][()]
-		utData  = hf['UT'][()]
+	
+	utData = MJD2UT(mjdData)
 	return utData,tData,dstData		
