@@ -152,7 +152,6 @@ module chmpfields
                 !nA/m2 current density, standard for mspheres
                 !Convert to typical SI A/m2
                 jScl = (1.0e-9)
-                !write(*,*) "Rescaling nA/m2 => A/m2"
             case default
                 !Not (yet) supported units
                 write(*,*) "------------------------"

@@ -367,3 +367,23 @@ def compPlot(plotname,scId,data):
 	plt.subplots_adjust(hspace=0)
 
 	savePic(plotname)
+
+def trajPlot(plotname,scId,data):
+    Re = 6380.0
+    toRe = 1.0/Re
+    figsize = (15,5)
+    fig = plt.figure(figsize=figsize)
+    gs = fig.add_gridspec(1,3)
+    Ax1 = fig.add_subplot(gs[0,0])
+    Ax2 = fig.add_subplot(gs[0,1])
+    Ax3 = fig.add_subplot(gs[0,2])
+    Ax1.plot(data['Ephemeris'][:,0]*toRe,data['Ephemeris'][:,1]*toRe)
+    Ax2.plot(data['Ephemeris'][:,0]*toRe,data['Ephemeris'][:,2]*toRe)
+    Ax3.plot(data['Ephemeris'][:,1]*toRe,data['Ephemeris'][:,2]*toRe)
+    Ax1.set_title('XY SM')
+    Ax2.set_title('XZ SM')
+    Ax3.set_title('YZ SM')
+    titlestr = (scId + ' - ' + data['Epoch_bin'][0].strftime('%m/%d/%Y - %H:%M:%S') + ' to ' +  
+                data['Epoch_bin'][-1].strftime('%m/%d/%Y - %H:%M:%S'))
+    fig.suptitle(titlestr)
+    savePic(plotname)
