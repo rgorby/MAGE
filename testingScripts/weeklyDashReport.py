@@ -426,84 +426,94 @@ if(not isTest and beLoud):
     try:
         response = client.chat_postMessage(
             channel="#kaijudev",
-            text="Weekly simulation complete on branch " + gBranch + ". Updated results follow."
+            text="Weekly results complete on branch " + gBranch + ". Latest comparative results attached as replies to this message."
         )
     except SlackApiError as e:
        # You will get a SlackApiError if "ok" is False
        assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
 
-    try:
-        response = client.files_upload(
-            file='perfPlots.png',
-            initial_comment='Real-Time Performance\n\n',
-            channels="#kaijudev",
-            )
-        assert response['ok']
-        slack_file = response['file']
-    except SlackApiError as e:
-        # You will get a SlackApiError if "ok" is False
-        assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
-
-    try:
-        response = client.files_upload(
-            file='dstPlots.png',
-            initial_comment='DST Plots\n\n',
-            channels="#kaijudev",
-            )
-        assert response['ok']
-        slack_file = response['file']
-    except SlackApiError as e:
-        # You will get a SlackApiError if "ok" is False
-        assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
-
-    try:
-        response = client.files_upload(
-            file='cpcpPlots.png',
-            initial_comment='CPCP Plots\n\n',
-            channels="#kaijudev",
-            )
-        assert response['ok']
-        slack_file = response['file']
-    except SlackApiError as e:
-        # You will get a SlackApiError if "ok" is False
-        assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
+    if response["ok"]:
+        parent_ts = response["ts"]
+        try:
+            response = client.files_upload(
+                file='perfPlots.png',
+                initial_comment='Real-Time Performance\n\n',
+                channels="#kaijudev",
+                thread_ts=parent_ts,
+                )
+            assert response['ok']
+            slack_file = response['file']
+        except SlackApiError as e:
+            # You will get a SlackApiError if "ok" is False
+            assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
     
+        try:
+            response = client.files_upload(
+                file='dstPlots.png',
+                initial_comment='DST Plots\n\n',
+                channels="#kaijudev",
+                thread_ts=parent_ts,
+                )
+            assert response['ok']
+            slack_file = response['file']
+        except SlackApiError as e:
+            # You will get a SlackApiError if "ok" is False
+            assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
     
-    try:
-        response = client.files_upload(
-            file='combined_qk_msph.png',
-            initial_comment='Quick-Looks Magnetosphere\n\n',
-            channels="#kaijudev",
-            )
-        assert response['ok']
-        slack_file = response['file']
-    except SlackApiError as e:
-        # You will get a SlackApiError if "ok" is False
-        assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
-
-    try:
-        response = client.files_upload(
-            file='combined_qk_mix.png',
-            initial_comment='Quick-Looks Remix\n\n',
-            channels="#kaijudev",
-            )
-        assert response['ok']
-        slack_file = response['file']
-    except SlackApiError as e:
-        # You will get a SlackApiError if "ok" is False
-        assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
-
-    try:
-        response = client.files_upload(
-            file='combined_qk_rcm.png',
-            initial_comment='Quick-Looks RCM\n\n',
-            channels="#kaijudev",
-            )
-        assert response['ok']
-        slack_file = response['file']
-    except SlackApiError as e:
-        # You will get a SlackApiError if "ok" is False
-        assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
+        try:
+            response = client.files_upload(
+                file='cpcpPlots.png',
+                initial_comment='CPCP Plots\n\n',
+                channels="#kaijudev",
+                thread_ts=parent_ts,
+                )
+            assert response['ok']
+            slack_file = response['file']
+        except SlackApiError as e:
+            # You will get a SlackApiError if "ok" is False
+            assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
+        
+        
+        try:
+            response = client.files_upload(
+                file='combined_qk_msph.png',
+                initial_comment='Quick-Looks Magnetosphere\n\n',
+                channels="#kaijudev",
+                thread_ts=parent_ts,
+                )
+            assert response['ok']
+            slack_file = response['file']
+        except SlackApiError as e:
+            # You will get a SlackApiError if "ok" is False
+            assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
+    
+        try:
+            response = client.files_upload(
+                file='combined_qk_mix.png',
+                initial_comment='Quick-Looks Remix\n\n',
+                channels="#kaijudev",
+                thread_ts=parent_ts,
+                )
+            assert response['ok']
+            slack_file = response['file']
+        except SlackApiError as e:
+            # You will get a SlackApiError if "ok" is False
+            assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
+    
+        try:
+            response = client.files_upload(
+                file='combined_qk_rcm.png',
+                initial_comment='Quick-Looks RCM\n\n',
+                channels="#kaijudev",
+                thread_ts=parent_ts,
+                )
+            assert response['ok']
+            slack_file = response['file']
+        except SlackApiError as e:
+            # You will get a SlackApiError if "ok" is False
+            assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
+    else:
+        print("Failed to post parent message to slack, could not attach replies either.")
 
 else:
     print("weekly run completed successfully on branch " + gBranch)

@@ -102,7 +102,7 @@ if(CMAKE_Fortran_COMPILER_ID MATCHES Intel)
 	endif()
 
 	#Check Intel Fortran version
-	if(NOT ALLOW_INVALID_COMPILERS AND CMAKE_Fortran_COMPILER_VERSION VERSION_GREATER "22")
+	if(NOT ALLOW_INVALID_COMPILERS AND CMAKE_Fortran_COMPILER_VERSION VERSION_GREATER "23")
 		message(FATAL_ERROR "Intel Fortran compilers newer than 21 are not supported. Set the ALLOW_INVALID_COMPILERS variable to ON to force compilation at your own risk.")
 	endif()
 

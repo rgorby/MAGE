@@ -2152,7 +2152,8 @@ SUBROUTINE Move_plasma_grid_MHD (dt,nstep)
 
     REAL (rprec), dimension( 1:isize  , 1:jsize  ) :: ftv,dftvi,dftvj
 
-    LOGICAL, dimension(1:isize,1:jsize) :: isOpen, ocbDist
+    LOGICAL, dimension(1:isize,1:jsize) :: isOpen
+    INTEGER, dimension(1:isize,1:jsize) :: ocbDist
     INTEGER (iprec) :: iOCB_j(1:jsize)
     REAL (rprec) :: mass_factor,r_dist,lossCX,lossFLC
     REAL (rprec), dimension(2) :: lossFT
@@ -2582,7 +2583,7 @@ SUBROUTINE Move_plasma_grid_MHD (dt,nstep)
     subroutine NoBoundaryFlow(ocbDist,didt,djdt,nL0)
         !Zero flow coming from the direction of the open/closed boundary or cells nL distance from ocb
         !Flow towards the ocb is left alone
-        logical, dimension(1:isize,1:jsize), intent(in) :: ocbDist
+        integer, dimension(1:isize,1:jsize), intent(in) :: ocbDist
         real (rp), dimension(-1:isize+2,-1:jsize-1), intent(inout) :: didt,djdt
         integer, intent(in), optional :: nL0  ! Number of i layers inward of o/c boundary to act upon
         

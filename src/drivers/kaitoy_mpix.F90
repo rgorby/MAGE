@@ -130,7 +130,7 @@ program kaitoy_mpix
     endif
     zeroCounts(:) = 0
     zeroDispls(:) = 0
-    zeroTypes(:) = MPI_INT
+    zeroTypes(:) = MPI_INTEGER
 
     call mpi_dist_graph_create_adjacent(MPI_COMM_WORLD, &
             size(otherRanks),otherRanks,adjacency, &
