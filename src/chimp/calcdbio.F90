@@ -475,8 +475,11 @@ module calcdbio
         call AddOutVar(IOVars,"dBr" ,dbRTP(:,:,:,RDIR),uStr="nT",doSqzO=.false.)
         call AddOutVar(IOVars,"dBt" ,dbRTP(:,:,:,TDIR),uStr="nT",doSqzO=.false.)
         call AddOutVar(IOVars,"dBp" ,dbRTP(:,:,:,PDIR),uStr="nT",doSqzO=.false.)
-        call CalcJdb(gGr,dbRTP,dbJ,"TOT")
-        call AddOutVar(IOVars,"dbJ" ,dbJ,uStr="microA/m2",doSqzO=.false.)
+        
+        if (Model%doFat) then
+            call CalcJdb(gGr,dbRTP,dbJ,"TOT")
+            call AddOutVar(IOVars,"dbJ" ,dbJ,uStr="microA/m2",doSqzO=.false.)
+        endif
 
         call WriteVars(IOVars,.true.,dbOutF,gStr)
         call ClearIO(IOVars)

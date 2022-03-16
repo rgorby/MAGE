@@ -382,7 +382,7 @@ module calcdbutils
         real(rp), dimension(NDIM) :: nJ,sJ
         logical :: doVerbose
 
-        doVerbose = .true.
+        doVerbose = .false.
 
         !Need to calculate E field from potential in both N/S hemispheres
         !Then get J from E and SigP/SigH
