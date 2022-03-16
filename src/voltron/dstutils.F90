@@ -60,11 +60,11 @@ module dstutils
                 enddo
             enddo
         enddo
+
         !Get scaling to make current A/m2
         jScl = (Model%gamOut%jScl)*(1.0e-9) !Using nA/m2 standard Voltron current density scaling
-
         call bFld2Jxyz(Model,Gr,dB,Jxyz,jSclO=jScl)
-
+        
     !Get Dst's
         !DPS Dst from ring current energy density
         DPSDst = CalcDPSDst(Model,Gr)
@@ -130,7 +130,7 @@ module dstutils
                         ddB = 0.0
                     endif
                     !For now just using Z component b/c we're in equator
-                    BSDst = BSDst + ddB(ZDIR)
+                    BSDst = BSDst + dV*ddB(ZDIR)
                 enddo ! i loop
             enddo
         enddo !k loop
