@@ -1,0 +1,40 @@
+<?xml version="1.0"?>
+<!-- DASH -->
+<Kaiju>
+  <VOLTRON>
+    <time tFin="3600.0"/>
+    <spinup doSpin="T" tSpin="3600.0"/>
+    <output dtOut="900.0" tsOut="100">
+    <coupling dt="5.0" dtDeep="10.0" rTrc="40.0" imType="RCM" doQkSquish="T" qkSquishStride="2"/>
+    <restart dtRes="1800.0"/>
+    <imag doInit="T"/>
+    <ebsquish epsSquish="0.05"/>
+  </VOLTRON>
+  <Gamera>
+    <sim runid="msphere" doH5g="T" H5Grid="lfmD.h5" icType="user" pdmb="1.0" rmeth="7UP"/>
+    <floors dFloor="1.0e-4" pFloor="1.0e-6"/>
+    <timestep doCPR="T" limCPR="0.25"/>
+    <restart doRes="F" resID="msphere" nRes="-1"/>
+    <physics doMHD="T" doBoris="T" Ca="10.0"/>
+    <ring gid="lfm" doRing="T"/>
+    <ringknobs doVClean="T"/>
+    <wind tsfile="bcwind.h5"/>
+    <source doSource="T" doWolfLim="T" doBounceDT="T" nBounce="1.0"/>
+  </Gamera>
+  <CHIMP>
+    <units uid="EARTHCODE"/>
+    <fields grType="LFM"/>
+    <domain dtype="MAGE"/>
+    <tracer epsds="0.05"/>
+  </CHIMP>
+  <REMIX>
+    <conductance doStarlight="T" doRamp="F"/>
+    <precipitation aurora_model_type="RCMONO" alpha="0.2" beta="0.4"/>
+  </REMIX>
+  <RCM>
+    <rcmdomain domType="ELLIPSE"/>
+    <ellipse xSun="12.5" yDD="15.0" xTail="-20.0" isDynamic="T"/>
+    <grid LowLat="30.0" HiLat="75.0" doLatStretch="F"/>
+    <plasmasphere isDynamic="T" initKp="2" doRefill="T" DenPP0="1.0e-2" tAvg="600.0"/>
+  </RCM>
+</Kaiju>

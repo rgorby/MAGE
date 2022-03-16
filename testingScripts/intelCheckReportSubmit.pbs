@@ -9,6 +9,11 @@
 source ~/.bashrc
 #module restore kaiju
 
+if [[ ! -z "$KAIJUROOTDIR" ]]; then
+    #If the root folder of a kaiju repo was passed in, souce the environment setup script
+    source $KAIJUROOTDIR/scripts/setupEnvironment.sh
+fi
+
 module list
 hostname
 date

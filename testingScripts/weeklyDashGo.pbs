@@ -15,6 +15,11 @@ mkdir -p $TMPDIR
 #Optional stuff to load an environment
 source ~/.bashrc
 
+if [[ ! -z "$KAIJUROOTDIR" ]]; then
+    #If the root folder of a kaiju repo was passed in, souce the environment setup script
+    source $KAIJUROOTDIR/scripts/setupEnvironment.sh
+fi
+
 if [[ -z "$KAIJUHOME" ]]; then
     # $KAIJUHOME environment variable is not set
     echo "The KAIJUHOME environment variable is not set"
