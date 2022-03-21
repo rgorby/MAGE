@@ -22,7 +22,7 @@ jMax = 10.0 #Max current for contours
 eMax = 5.0  #Max current for contours
 
 #Default pressure colorbar
-vP = kv.genNorm(1.0e-2,10.0,doLog=True)
+vP = kv.genNorm(vMin=1.0e-2,vMax=10.0,doLog=True)
 szStrs = ['small','std','big','dm']
 szBds = {}
 szBds["std"]      = [-40.0 ,20.0,2.0]
@@ -84,7 +84,7 @@ def PlotMerid(gsph,nStp,xyBds,Ax,doDen=False,doRCM=False,AxCB=None,doClear=True,
 	if (doDen):
 		
 		if (doRCM):
-			vN = kv.genNorm(1.0,1.0e+3,doLog=True)
+			vN = kv.genNorm(vMin=1.0,vMax=1.0e+3,doLog=True)
 		else:
 			vN = kv.genNorm(0,25)
 		if (doSrc):
@@ -232,7 +232,7 @@ def plotPlane(gsph,data,xyBds,Ax,AxCB,var='D',vMin=None,vMax=None,doDeco=True,cm
 			vMax = np.max(np.abs([np.min(data),np.max(data)]))
 			vMin = -1.0*vMax
 
-	vNorm = kv.genNorm(vMin,vMax,doLog,midp)
+	vNorm = kv.genNorm(vMin,vMax=vMax,doLog=doLog,midP=midp)
 	kv.genCB(AxCB,vNorm,cbT=var,cM=cmap,Ntk=7)
 	Ax.pcolormesh(gsph.xxi,gsph.yyi,data,cmap=cmap,norm=vNorm)
 	kv.SetAx(xyBds,Ax)
