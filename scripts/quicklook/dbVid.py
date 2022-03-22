@@ -55,6 +55,9 @@ if __name__ == "__main__":
 	nE = args.nE
 	k0   = args.k0
 	oSub = args.o
+	Nblk = args.Nblk
+	nID = args.nID
+
 	#======
 	#Init data
 	fname = fdir + "/" + ftag + ".h5"
@@ -127,7 +130,7 @@ if __name__ == "__main__":
 	for i in range(i0,i1):
 		nStp = vO[i]
 		AxM.clear()
-		print(i)
+		
 		Q = dbdata.GetVar("dBn",nStp,doVerb=False)[:,:,k0]
 
 		#Get MJD to UT
