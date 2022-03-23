@@ -1,3 +1,4 @@
+#Colorbar for MLT line plots matching color palette of SuperMAG SMRhh
 255 194 1
 255 191 1
 255 188 1

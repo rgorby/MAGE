@@ -1,3 +1,4 @@
+#High contrast red-orange-white-cyan-blue colorbar for dBn quick look plots
 255 0 1
 255 3 2
 255 6 3
