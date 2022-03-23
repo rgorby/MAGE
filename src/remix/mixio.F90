@@ -188,9 +188,9 @@ contains
           case (Z_EAVG)
              doDump = .true.         
           case (CRPOT) 
-             doDump = .true.       
+             doDump = .false.       
           case (TPOT) 
-             doDump = .true.
+             doDump = .false.
           case (IM_GTYPE)
              doDump = .true.
           case (AUR_TYPE)
