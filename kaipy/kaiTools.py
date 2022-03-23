@@ -5,9 +5,7 @@ import glob
 import sys
 import subprocess
 from xml.dom import minidom
-
 from astropy.time import Time
-
 import h5py
 
 isotfmt = '%Y-%m-%dT%H:%M:%S.%f'
@@ -113,7 +111,6 @@ def newellcoupling(vx,vy,vz,bx,by,bz):
 
 #Read SymH from bcwind file
 def GetSymH(fBC):
-	from astropy.time import Time
 	with h5py.File(fBC,'r') as hf:
 		mjdData = hf['MJD'][()]
 		tData   = hf['T'][()]
