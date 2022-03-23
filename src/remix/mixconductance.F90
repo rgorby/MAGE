@@ -358,7 +358,7 @@ module mixconductance
       type(mixState_T), intent(in) :: St
       real(rp), dimension(3,3) :: A33
       logical, dimension(3,3) :: isG33 !isG33 = (A3>0.0 .and. A3<1.0)
-      integer :: i,j,it,MaxIter
+      integer :: i,j,it,MaxIter,im1,ip1,jm1,jp1
       real(rp) :: mad,Ttmp
 
       MaxIter = 5
@@ -369,11 +369,32 @@ module mixconductance
       gtype_RCM = St%Vars(:,:,IM_GTYPE) ! supposed to be between 0 and 1.
       do it=1,MaxIter
          mad = 0.D0 ! max abs difference from last iteration.
-         do j=2,G%Nt-1
-            do i=2,G%Np-1
+         do j=1,G%Nt ! use open BC for lat.
+            if(j==1) then
+               jm1 = 1
+            else
+               jm1 = j-1
+            endif
+            if(j==G%Nt) then
+               jp1 = G%Nt
+            else
+               jp1 = j+1
+            endif
+            do i=1,G%Np ! use periodic BC for lon.
+               if(i==1) then
+                  im1 = G%Np
+               else
+                  im1 = i-1
+               endif
+               if(i==G%Np) then
+                  ip1 = 1
+               else
+                  ip1 = i+1
+               endif
                if(St%Vars(i,j,IM_GTYPE)>0.01 .and. St%Vars(i,j,IM_GTYPE)<0.99) then
-                  A33  = gtype_RCM(i-1:i+1,j-1:j+1)
-                  Ttmp = sum(A33)/9.0
+                  Ttmp = gtype_RCM(im1,jm1)+gtype_RCM(im1,j)+gtype_RCM(im1,jp1) &
+                       + gtype_RCM(i  ,jm1)+gtype_RCM(i  ,j)+gtype_RCM(i  ,jp1) &
+                       + gtype_RCM(ip1,jm1)+gtype_RCM(ip1,j)+gtype_RCM(ip1,jp1)
                   mad  = max(abs(gtype_RCM(i,j)-Ttmp),mad)
                   gtype_RCM(i,j) = Ttmp
                endif
