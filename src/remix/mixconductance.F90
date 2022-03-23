@@ -290,14 +290,13 @@ module mixconductance
       Pe_MHD = 0.1/MIXgamma*alpha_RCM*tmpD*tmpC**2 ! electron pressure from MHD side in [Pa].
       Ne_MHD = tmpD/(Mp_cgs*heFrac)*1.0D6      ! electron number density from MHD side in [/m^3].
       if(.not.dorcm) then ! default Zhang15 using MHD thermal flux only.
-         ! conductance%E0 = alpha_RCM*Mp_cgs*heFrac*erg2kev*tmpC**2
-         ! conductance%phi0 = sqrt(kev2erg)/(heFrac*Mp_cgs)**1.5D0*beta_RCM*sqrt(heFrac*1836.152674)*0.39894228*tmpD*sqrt(conductance%E0)
-         conductance%E0   = 2.0/kev2J*Pe_MHD/Ne_MHD     ! Mean energy from MHD electron fluxes in [keV].
+         conductance%E0   = 2.0/kev2J*Pe_MHD/Ne_MHD     ! Mean energy from MHD electron fluxes in [keV]. E_avg = 2*kT for Maxwellian.
          conductance%phi0 = beta_RCM*sqrt(Pe_MHD*Ne_MHD/(2.0D-3*pi*Me_cgs))*1.0D-4     ! Thermal number flux from MHD electron fluxes in [#/cm^2/s].
       else ! Trigger this part by including dorcm=.true. when calling zhang15.
          ! similarly, E0 is a ratio and should NOT be merged. 
          ! Derive it from merged pressure and density instead.
-         ! See wiki for derivations of the coefficients.
+         ! See kaiju wiki for derivations of the coefficients.
+         ! https://bitbucket.org/aplkaiju/kaiju/wiki/userGuide/derivation_of_precipitation
          Pe_RMD = gtype_RCM*St%Vars(:,:,IM_EPRE) + (1.0-gtype_RCM)*Pe_MHD ! Merged electron pressure in [Pa].
          Ne_RMD = gtype_RCM*St%Vars(:,:,IM_EDEN) + (1.0-gtype_RCM)*Ne_MHD ! Merged electron number density in [/m^3].
          conductance%E0   = 2.0/kev2J*Pe_RMD/Ne_RMD     ! Mean energy from merged electron fluxes in [keV].
@@ -345,6 +344,7 @@ module mixconductance
       alpha_RCM = 1.0/(tiote_RCM+1.0)
       phi0_rcmz = sqrt(St%Vars(:,:,IM_EPRE)*St%Vars(:,:,IM_EDEN)/(Me_cgs*1e-3*2*pi))*1.0e-4 ! sqrt([Pa]*[#/m^3]/[kg]) = sqrt([#/m^4/s^2]) = 1e-4*[#/cm^2/s]
       where(phi0_rcmz>TINY.and.St%Vars(:,:,IM_EPRE)>1e-10 .and. St%Vars(:,:,IM_EDEN)>1e7)
+      ! The thresholds of IM_EPRE and IM_EDEN are empirically added to exclude outliers of beta_RCM.
          beta_RCM = St%Vars(:,:,IM_ENFLX)/phi0_rcmz
       elsewhere
          beta_RCM  = conductance%beta
@@ -426,15 +426,14 @@ module mixconductance
             endif
 
             if (.not. isMono) then
-               !F/T/T
-               !Have RCM info and no drop, just use RCM
+               !No potential drop, just use merged precipitation.
                St%Vars(i,j,AVG_ENG ) = rmd_eavg
                St%Vars(i,j,NUM_FLUX) = rmd_nflx
                St%Vars(i,j,AUR_TYPE) = AT_RMnoE
                cycle
             endif
 
-            !If still here, we have both RCM info and a potential drop
+            !If still here, we have a potential drop
             !Decide between the two by taking one that gives highest Sig-P
             if (conductance%doMR) then ! be careful here is using nflux.
                call AugmentMR(rmd_eavg,rmd_nflx,rmd_eavg_fin,rmd_nflx_fin) !Correct for MR
@@ -452,7 +451,7 @@ module mixconductance
                St%Vars(i,j,NUM_FLUX) = mhd_nflx
                St%Vars(i,j,AUR_TYPE) = AT_RMono
             else
-               !RCM diffuse is still better than MHD + puny potential drop
+               !RMD diffuse is still better than MHD + puny potential drop
                St%Vars(i,j,AVG_ENG ) = rmd_eavg !Use un-augmented value since MR gets called later
                St%Vars(i,j,NUM_FLUX) = rmd_nflx
                conductance%deltaE(i,j) = 0.0 !Wipe out potential drop since it don't matter (otherwise MR won't happen if desired)
