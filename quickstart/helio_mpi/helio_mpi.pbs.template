@@ -3,7 +3,7 @@
 #PBS -j oe
 #PBS -q normal
 #PBS -l walltime=8:00:00
-#PBS -l select=1:ncpus=28:ompthreads=28:model=bro
+#PBS -l select=1:mpiprocs=32:model=bro
 
 # Sample PBS job script to run the mpi gamera code on the helio test case.
 # This script was designed to run on pleiades.
@@ -20,12 +20,13 @@ export RUNID=helio_mpi
 module purge
 module load pkgsrc/2021Q2
 module load comp-intel/2020.4.304
-module load hdf5/1.8.18_mpi
+module load mpi-hpe/mpt.2.23
+module load hdf5/1.8.18_mpt
 echo "The following modules are loaded:"
 module list
 
 # Define the kaiju installation location.
-export KAIJU_INSTALL_DIR=/nobackup/ewinter/kaiju_mpi
+export KAIJU_INSTALL_DIR=$HOME/kaiju_helio
 
 # Set kaiju-related environment variables.
 source $KAIJU_INSTALL_DIR/scripts/setupEnvironment.sh
@@ -53,8 +54,8 @@ cd $PBS_O_WORKDIR
 echo "The current directory is `pwd`."
 
 # Run the model.
-EXE=voltron.x
+EXE=gamera_mpi.x
 echo "Running $EXE on model $RUNID."
-$EXE $RUNID.xml >& ${EXE}.${RUNID}.out
+mpiexec $EXE $RUNID.xml >& ${EXE}.${RUNID}.out
 
 echo "Job $PBS_JOBID ended at `date` on `hostname`."

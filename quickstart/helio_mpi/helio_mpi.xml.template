@@ -1,14 +1,14 @@
 <?xml version="1.0"?>
-<!-- DASH -->
 <Kaiju>
-  <VOLTRON>
-  </VOLTRON>
-  <Gamera>
-  </Gamera>
-  <CHIMP>
-  </CHIMP>
-  <REMIX>
-  </REMIX>
-  <RCM>
-  </RCM>
+<Gamera>
+    <sim runid="wsa" doH5g="T" H5Grid="heliogrid.h5" icType="user"/>
+    <time tFin="200."/>
+    <output dtOut="10" tsOut="50.0" timer="F"/>
+    <physics doMHD="T" gamma="1.5"/>
+    <prob Tsolar = "25.38"/>
+    <restart resFile = "wsa.Res.00008.h5" dtRes="1000." doRes="F"/>
+    <iPdir N="4" bcPeriodic="F"/>
+    <jPdir N="2" bcPeriodic="F"/>
+    <kPdir N="4" bcPeriodic="T"/>
+</Gamera>
 </Kaiju>

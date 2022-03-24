@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 
 
-"""Perform quality checks on the results of running the gamera helio_serial case.
+"""Perform quality checks on the results of running the gamera helio_mpi case.
 
-Perform QA checks on the results of running the helio_serial example
+Perform QA checks on the results of running the helio_mpi example
 through gamera.
 """
 
@@ -23,7 +23,7 @@ import kaipy.gamera.gampp as gampp
 # Program constants and defaults
 
 # Default identifier for model to run,
-default_runid = "helio_serial"
+default_runid = "helio_mpi"
 
 # Program description.
 description = (
@@ -66,7 +66,7 @@ def create_command_line_parser():
 
 
 def compute_volume_integrated_magnetic_pressure(directory, runid):
-    """Compute the volume-integrated magnetic pressure at start and endxs.
+    """Compute the volume-integrated magnetic pressure at start and ends.
 
     Compute the volume-integrated magnetic pressure for the first and
     last steps.
@@ -84,30 +84,29 @@ def compute_volume_integrated_magnetic_pressure(directory, runid):
         Volume-integrated magnetic pressure for first and last steps.
     """
 
-    # # Open a pipe to the data file.
-    # data_pipe = gampp.GameraPipe(directory, runid, doVerbose=False)
+    # Open a pipe to the data file.
+    data_pipe = gampp.GameraPipe(directory, runid, doVerbose=False)
 
-    # # Load the grid cell volumes.
-    # dV = data_pipe.GetVar("dV", None, doVerb=False)[...]
+    # Load the grid cell volumes.
+    dV = data_pipe.GetVar("dV", None, doVerb=False)[...]
 
-    # # Load the magnetic field components from the first step, and use
-    # # to compute the magnetic pressure.
-    # Bx = data_pipe.GetVar("Bx", data_pipe.s0, doVerb=False)[...]
-    # By = data_pipe.GetVar("By", data_pipe.s0, doVerb=False)[...]
-    # Bz = data_pipe.GetVar("Bz", data_pipe.s0, doVerb=False)[...]
-    # Pb_first = (Bx**2 + By**2 + Bz**2)/2
-    # Pb_integrated_first = np.sum(Pb_first*dV)
+    # Load the magnetic field components from the first step, and use
+    # to compute the magnetic pressure.
+    Bx = data_pipe.GetVar("Bx", data_pipe.s0, doVerb=False)[...]
+    By = data_pipe.GetVar("By", data_pipe.s0, doVerb=False)[...]
+    Bz = data_pipe.GetVar("Bz", data_pipe.s0, doVerb=False)[...]
+    Pb_first = (Bx**2 + By**2 + Bz**2)/2
+    Pb_integrated_first = np.sum(Pb_first*dV)
 
-    # # Load the magnetic field components from the last step, and use
-    # # to compute the magnetic pressure.
-    # Bx = data_pipe.GetVar("Bx", data_pipe.sFin, doVerb=False)[...]
-    # By = data_pipe.GetVar("By", data_pipe.sFin, doVerb=False)[...]
-    # Bz = data_pipe.GetVar("Bz", data_pipe.sFin, doVerb=False)[...]
-    # Pb_last = (Bx**2 + By**2 + Bz**2)/2
-    # Pb_integrated_last = np.sum(Pb_last*dV)
+    # Load the magnetic field components from the last step, and use
+    # to compute the magnetic pressure.
+    Bx = data_pipe.GetVar("Bx", data_pipe.sFin, doVerb=False)[...]
+    By = data_pipe.GetVar("By", data_pipe.sFin, doVerb=False)[...]
+    Bz = data_pipe.GetVar("Bz", data_pipe.sFin, doVerb=False)[...]
+    Pb_last = (Bx**2 + By**2 + Bz**2)/2
+    Pb_integrated_last = np.sum(Pb_last*dV)
 
-    # return Pb_integrated_first, Pb_integrated_last
-    return None, None
+    return Pb_integrated_first, Pb_integrated_last
 
 
 if __name__ == "__main__":
