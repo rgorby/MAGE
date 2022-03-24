@@ -40,9 +40,10 @@ module chmpfields
         integer :: dN(NDIM)
         integer :: nioD,nioP,nioJx,nioJy,nioJz
         real(rp), dimension(NDIM) :: B0xyz, Vxyz,Bxyz,Exyz,xcc,Jxyz
-
+        real(rp) :: jScl
         logical :: doCalcLpp
 
+        jScl = 1.0
         if (present(doCalcLppO)) then
             doCalcLpp = doCalcLppO
         else
@@ -73,6 +74,7 @@ module chmpfields
             allocate(Jx(Nip,Njp,Nkp))
             allocate(Jy(Nip,Njp,Nkp))
             allocate(Jz(Nip,Njp,Nkp))
+
         endif
 
         !------------
@@ -138,6 +140,31 @@ module chmpfields
                 enddo
             enddo
         enddo
+
+        !Do any rescaling (that needs info from file) necessary
+        if (Model%doJ) then
+            !Guarantee that Jxyz is SI current density [A/m2]
+            nioJx = FindIO(ebIOs,"Jx")
+
+            jScl = 1.0
+            select case (trim(toUpper(ebIOs(nioJx)%unitStr)))
+            case("NA/M2")
+                !nA/m2 current density, standard for mspheres
+                !Convert to typical SI A/m2
+                jScl = (1.0e-9)
+            case default
+                !Not (yet) supported units
+                write(*,*) "------------------------"
+                write(*,*) "Error, units of current density are not [nA/m2] !"
+                write(*,*) "Units: ", trim(toUpper(ebIOs(nioJx)%unitStr))
+                write(*,*) "This is likely because the GAMERA simulation is too old."
+                write(*,*) "Either regenerate the MHD data or add the proper unit scaling."
+                write(*,*) "Womp womp womp ..."
+                write(*,*) "------------------------"
+                stop
+            end select
+        endif
+
         !Get time data from last file
         i = FindIO(ebIOs,"time")
         ebF%time = inTScl*ebIOs(i)%data(1)
@@ -178,7 +205,7 @@ module chmpfields
                     endif
                     if (Model%doJ) then
                         Jxyz = [Jx(i,j,k),Jy(i,j,k),Jz(i,j,k)]
-                        ebF%Jxyz(i,j,k,:) = Jxyz
+                        ebF%Jxyz(i,j,k,:) = jScl*Jxyz
                     endif
                     
                 enddo
