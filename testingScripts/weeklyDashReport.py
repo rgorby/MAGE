@@ -157,16 +157,9 @@ print("Scraping")
 nSteps,sIds = kh5.cntSteps(fVolt)
 symh  = kh5.getTs(fVolt,sIds,"SymH")
 MJD   = kh5.getTs(fVolt,sIds,"MJD")
-#BSDst0= kh5.getTs(fVolt,sIds,"BSDst0")
-#BSDst = kh5.getTs(fVolt,sIds,"BSDst") #Average
-DPSDst= kh5.getTs(fVolt,sIds,"DPSDst")
+BSDst = kh5.getTs(fVolt,sIds,"BSDst")
 nCPCP = kh5.getTs(fVolt,sIds,"cpcpN")
 sCPCP = kh5.getTs(fVolt,sIds,"cpcpS")
-N = len(DPSDst)
-DPSDst[0] = DPSDst[1]
-for n in range(1,N-1):
-    if (np.abs(DPSDst[n])<1.0e-8):
-        DPSDst[n] = 0.5*(DPSDst[n-1]+DPSDst[n+1])
 UT = Time(MJD,format='mjd').isot
 ut_datetime = [datetime.datetime.strptime(UT[n],'%Y-%m-%dT%H:%M:%S.%f') for n in range(len(UT))] # needed to plot symh
 
@@ -219,7 +212,7 @@ if(gBranch == 'master'):
     masterUT = utData
     masterRT = rtData_f
     masterUTsim = UT
-    masterDST = DPSDst
+    masterDST = BSDst
     masterCPCPn = nCPCP
     masterCPCPs = sCPCP
 elif(gBranch == 'development'):
@@ -232,7 +225,7 @@ elif(gBranch == 'development'):
     devcurrentUT = utData
     devcurrentRT = rtData_f
     devcurrentUTsim = UT
-    devcurrentDST = DPSDst
+    devcurrentDST = BSDst
     devcurrentCPCPn = nCPCP
     devcurrentCPCPs = sCPCP
 
