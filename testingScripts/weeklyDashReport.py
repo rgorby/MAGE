@@ -316,14 +316,14 @@ gs = mpl.gridspec.GridSpec(1,1,hspace=0.05,wspace=0.05)
 ax=fig.add_subplot(gs[0,0])
 
 if masterCPCPn is not None:
-    ax.plot(masterUTsimdt,masterCPCPn,label="master-North",linewidth=LW)
-    ax.plot(masterUTsimdt,masterCPCPs,label="master-South",linewidth=LW)
+    ax.plot(masterUTsimdt,masterCPCPn,color='orange',linestyle='dotted',label="master-North",linewidth=LW)
+    ax.plot(masterUTsimdt,masterCPCPs,color='blue',linestyle='dotted',,label="master-South",linewidth=LW)
 if devpriorCPCPn is not None:
-    ax.plot(devpriorUTsimdt,devpriorCPCPn,label="dev prior-North",linewidth=LW)
-    ax.plot(devpriorUTsimdt,devpriorCPCPs,label="dev prior-South",linewidth=LW)
+    ax.plot(devpriorUTsimdt,devpriorCPCPn,color='orange',linestyle='dashed',label="dev prior-North",linewidth=LW)
+    ax.plot(devpriorUTsimdt,devpriorCPCPs,color='blue',linestyle='dashed',label="dev prior-South",linewidth=LW)
 if devcurrentCPCPn is not None:
-    ax.plot(devcurrentUTsimdt,devcurrentCPCPn,label="dev current-North",linewidth=LW)
-    ax.plot(devcurrentUTsimdt,devcurrentCPCPs,label="dev current-South",linewidth=LW)
+    ax.plot(devcurrentUTsimdt,devcurrentCPCPn,color='orange',linestyle='solid',label="dev current-North",linewidth=LW)
+    ax.plot(devcurrentUTsimdt,devcurrentCPCPs,color='blue',linestyle='solid',label="dev current-South",linewidth=LW)
 
 ax.legend(loc='upper right',fontsize="small")
 
@@ -399,9 +399,9 @@ subprocess.call("convert development_qk_rcm_old.png  -gravity NorthWest -pointsi
 subprocess.call("convert development_qk_msph.png -gravity NorthWest -pointsize 60 -annotate +0+0 'development latest' dm.png", shell=True)
 subprocess.call("convert development_qk_mix.png  -gravity NorthWest -pointsize 80 -annotate +0+0 'development latest' dx.png", shell=True)
 subprocess.call("convert development_qk_rcm.png  -gravity NorthWest -pointsize 80 -annotate +0+0 'development latest' dr.png", shell=True)
-subprocess.call('convert mm.png dmo.png dm.png +append combined_qk_msph.png', shell=True)
-subprocess.call('convert mx.png dxo.png dx.png +append combined_qk_mix.png',  shell=True)
-subprocess.call('convert mr.png dro.png dr.png +append combined_qk_rcm.png',  shell=True)
+subprocess.call('convert mm.png dmo.png dm.png -append combined_qk_msph.png', shell=True)
+subprocess.call('convert mx.png dxo.png dx.png -append combined_qk_mix.png',  shell=True)
+subprocess.call('convert mr.png dro.png dr.png -append combined_qk_rcm.png',  shell=True)
 if(os.path.exists("mm.png")) : os.remove("mm.png")
 if(os.path.exists("mx.png")) : os.remove("mx.png")
 if(os.path.exists("mr.png")) : os.remove("mr.png")
@@ -426,7 +426,7 @@ if(not isTest and beLoud):
     try:
         response = client.chat_postMessage(
             channel="#kaijudev",
-            text="Weekly results complete on branch " + gBranch + ". Latest comparative results attached as replies to this message."
+            text="Weekly results complete on branch " + gBranch + ". Latest comparative results attached as replies to this message.\nOr up-to-date results can be viewed on the wiki at https://bitbucket.org/aplkaiju/kaiju/wiki/weeklyDash/dashStatus"
         )
     except SlackApiError as e:
        # You will get a SlackApiError if "ok" is False
@@ -434,6 +434,16 @@ if(not isTest and beLoud):
 
     if response["ok"]:
         parent_ts = response["ts"]
+        try:
+            response = client.chat_postMessage(
+                channel="#kaijudev",
+                text="This was a 4x4x1 (IxJxK) decomposed Quad Resolution Run using 8 nodes for Gamera, 1 for Voltron, and 3 Squish Helper nodes (12 nodes total)",
+                thread_ts=parent_ts,
+            )
+        except SlackApiError as e:
+            # You will get a SlackApiError if "ok" is False
+            assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
+    
         try:
             response = client.files_upload(
                 file='perfPlots.png',
