@@ -310,7 +310,7 @@ ax=fig.add_subplot(gs[0,0])
 
 if masterCPCPn is not None:
     ax.plot(masterUTsimdt,masterCPCPn,color='orange',linestyle='dotted',label="master-North",linewidth=LW)
-    ax.plot(masterUTsimdt,masterCPCPs,color='blue',linestyle='dotted',,label="master-South",linewidth=LW)
+    ax.plot(masterUTsimdt,masterCPCPs,color='blue',linestyle='dotted',label="master-South",linewidth=LW)
 if devpriorCPCPn is not None:
     ax.plot(devpriorUTsimdt,devpriorCPCPn,color='orange',linestyle='dashed',label="dev prior-North",linewidth=LW)
     ax.plot(devpriorUTsimdt,devpriorCPCPs,color='blue',linestyle='dashed',label="dev prior-South",linewidth=LW)
