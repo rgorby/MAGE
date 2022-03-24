@@ -15,7 +15,7 @@ module msphutils
     use planethelper
 
     implicit none
-
+!NOTE: Following comments are deprecated, see updated planet scaling datatypes
 !Set planet scalings here
 !gx0 [m]
 !gv0 [m/s]
@@ -161,6 +161,8 @@ module msphutils
         Model%gamOut%vScl = gv0*1.0e-3 !km/s
         Model%gamOut%pScl = gP0
         Model%gamOut%bScl = gB0
+        Model%gamOut%jScl = gB0/(Model%Units%gx0*Mu0) ! => nA/m2, cancelation of T=>nT and A=>nA
+        Model%gamOut%eScl = gB0*gV0*1.e-6 ! V/m -> mV/m 
 
         Model%gamOut%uID = trim(toUpper(pID))
         Model%gamOut%tID = 's'
@@ -168,6 +170,8 @@ module msphutils
         Model%gamOut%vID = 'km/s'
         Model%gamOut%pID = 'nPa'
         Model%gamOut%bID = 'nT'
+        Model%gamOut%jID = 'nA/m2'
+        Model%gamOut%eID = 'mV/m'
 
         !Reinterpret pressure floor as nPa
         pFloor = pFloor/gP0
