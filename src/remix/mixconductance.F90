@@ -392,9 +392,9 @@ module mixconductance
                   ip1 = i+1
                endif
                if(St%Vars(i,j,IM_GTYPE)>0.01 .and. St%Vars(i,j,IM_GTYPE)<0.99) then
-                  Ttmp = gtype_RCM(im1,jm1)+gtype_RCM(im1,j)+gtype_RCM(im1,jp1) &
+                  Ttmp = (gtype_RCM(im1,jm1)+gtype_RCM(im1,j)+gtype_RCM(im1,jp1) &
                        + gtype_RCM(i  ,jm1)+gtype_RCM(i  ,j)+gtype_RCM(i  ,jp1) &
-                       + gtype_RCM(ip1,jm1)+gtype_RCM(ip1,j)+gtype_RCM(ip1,jp1)
+                       + gtype_RCM(ip1,jm1)+gtype_RCM(ip1,j)+gtype_RCM(ip1,jp1))/9.D0
                   mad  = max(abs(gtype_RCM(i,j)-Ttmp),mad)
                   gtype_RCM(i,j) = Ttmp
                endif
