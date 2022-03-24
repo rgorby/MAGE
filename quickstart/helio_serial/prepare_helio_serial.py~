@@ -25,7 +25,7 @@ import subprocess
 default_runid = "helio_mpi"
 
 # Program description.
-description = "Prepare to run mpi gamera on the %s test case." % default_runid
+description = "Prepare to run mpi voltron on the %s test case." % default_runid
 
 # Location of template .ini file.
 ini_template = os.path.join(

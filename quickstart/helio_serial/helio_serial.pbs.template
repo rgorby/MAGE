@@ -1,22 +1,22 @@
 #!/bin/bash
-#PBS -N loop2d
+#PBS -N helio_serial
 #PBS -j oe
 #PBS -q normal
-#PBS -l walltime=1:00:00
+#PBS -l walltime=8:00:00
 #PBS -l select=1:ncpus=28:ompthreads=28:model=bro
 
-# Sample PBS job script to run the gamera code on the loop2d test case.
+# Sample PBS job script to run the serial gamera code on the helio test case.
 # This script was designed to run on pleiades.
 
 # Example usage
-# qsub -v loop2d.pbs
+# qsub -v helio_serial.pbs
 
 echo "Job $PBS_JOBID started at `date` on `hostname`."
 
 # Specify the ID string for the run.
-export RUNID=loop2d
+export RUNID=helio_serial
 
-# Load the required modules for serial kaiju.
+# Load the required modules for mpi kaiju.
 module purge
 module load pkgsrc/2021Q2
 module load comp-intel/2020.4.304
