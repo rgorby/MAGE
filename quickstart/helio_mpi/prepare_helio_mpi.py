@@ -80,6 +80,41 @@ def create_command_line_parser():
     return parser
 
 
+def run_preprocessing_steps(directory, runid):
+    """Run any preprocessing steps needed for the helio_mpi run.
+
+    Run any required preprocessing steps to prepare for the helio_mpi run.
+
+    Parameters
+    ----------
+    directory : str
+        Path to directory to receive preprocessing results.
+    runid : str
+        ID string for the model to run.
+
+    Returns
+    -------
+    None
+    """
+    # Save the current directory.
+    original_directory = os.getcwd()
+
+    # Move to the output directory.
+    os.chdir(directory)
+
+    # Create the grid and inner boundary conditions files.
+    cmd = "wsa2gamera.py"
+    ini_path = os.path.join(
+        os.environ["KAIJUHOME"], "kaipy", "gamhelio", "ConfigScripts",
+        "startup.config"
+    )
+    args = [ini_path]
+    subprocess.run([cmd] + args)
+
+    # Move back to the originaldirectory.
+    os.chdir(original_directory)
+
+
 def create_ini_file(directory, runid):
     """Create the .ini file from a template.
 
@@ -107,37 +142,6 @@ def create_ini_file(directory, runid):
     with open(ini_file, "w") as f:
         f.writelines(lines)
     return ini_file
-
-
-def run_preprocessing_steps(directory, runid):
-    """Run any preprocessing steps needed for the helio_mpi run.
-
-    Run any required preprocessing steps to prepare for the helio_mpi run.
-
-    Parameters
-    ----------
-    directory : str
-        Path to directory to receive preprocessing results.
-    runid : str
-        ID string for the model to run.
-
-    Returns
-    -------
-    None
-    """
-    # Save the current directory.
-    original_directory = os.getcwd()
-
-    # Move to the output directory.
-    os.chdir(directory)
-
-    # Create the grid and inner boundary conditions files.
-    cmd = "wsa2gamera.py"
-    args = ["helio_mpi.ini"]
-    subprocess.run([cmd] + args)
-
-    # Move back to the originaldirectory.
-    os.chdir(original_directory)
 
 
 def convert_ini_to_xml(ini_file, xml_file):
@@ -208,15 +212,15 @@ if __name__ == "__main__":
     runid = args.runid
     verbose = args.verbose
 
-    # Create the .ini file.
-    if verbose:
-        print("Creating .ini file for run.")
-    ini_file = create_ini_file(directory, runid)
-
     # Run the preprocessing steps.
     if verbose:
         print("Running preprocessing steps.")
     run_preprocessing_steps(directory, runid)
+
+    # Create the .ini file.
+    if verbose:
+        print("Creating .ini file for run.")
+    ini_file = create_ini_file(directory, runid)
 
     # Convert the .ini file to a .xml file.
     if verbose:
