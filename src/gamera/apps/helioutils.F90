@@ -46,7 +46,7 @@ module helioutils
         ! get the necessary units 
         gv0 = gB0/sqrt(4*pi*gD0*mp_cgs) ! [cm/s] ~ 154km/s for gD0=200. and gB0 = 1.e-3
         gT0 = gx0/gv0                   ! [s] ~ 1.25 hour for above values
-        gP0 = gB0**2/(4*pi)               ! [erg/cm3]   
+        gP0 = gB0**2/(4*pi)             ! [erg/cm3]   
 
         ! Use gamma=1.5 for SW calculations (set in xml, but defaults to 1.5 here)
         call inpXML%Set_Val(Model%gamma,"physics/gamma",1.5_rp)
@@ -56,12 +56,11 @@ module helioutils
         Tsolar = Tsolar*24.*3600./gt0
       
         !Add gravity if required
-        ! TODO: turn gravity on later
-        Model%doGrav = .false.
+        Model%doGrav = .true.
         if (Model%doGrav) then
             !Force spherical gravity (zap non-radial components)
-!            Model%doSphGrav = .true.
-!            Model%Phi => PhiGrav
+            Model%doSphGrav = .true.
+            Model%Phi => PhiGrav
         endif
 
         !Change console output pointer
@@ -112,6 +111,19 @@ module helioutils
         write(tStr,'(f9.3,a)' ) T*gT0/3600.0, ' [hr]'
       end subroutine helioTime
 
+      ! slightly different version of PhiGrav in msphutils.F90
+      ! TODO: make this generic (use gravitational constant rather than little g for planets)
+      subroutine PhiGrav(x,y,z,pot)
+        real(rp), intent(in) :: x,y,z
+        real(rp), intent(out) :: pot
+
+        real(rp) :: rad
+        rad = sqrt(x**2.0 + y**2.0 + z**2.0)
+        ! (Msolar*1.D3) converts Msolar into g
+        ! G*M has the units of length * speed^2, thus the gx0*gv0**2 conversion
+        ! the result is the gravitational potential in code units
+        pot = - G_cgs*(Msolar*1.D3)*gx0*gv0**2/rad   
+      end subroutine PhiGrav
 
       subroutine helio_ibcJ(bc,Model,Grid,State)
         ! improved versions of Kareems zeroGrad_(i,o)bcJ
