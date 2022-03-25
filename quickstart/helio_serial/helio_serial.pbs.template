@@ -16,7 +16,7 @@ echo "Job $PBS_JOBID started at `date` on `hostname`."
 # Specify the ID string for the run.
 export RUNID=helio_serial
 
-# Load the required modules for mpi kaiju.
+# Load the required modules for serial helio kaiju.
 module purge
 module load pkgsrc/2021Q2
 module load comp-intel/2020.4.304
@@ -25,7 +25,7 @@ echo "The following modules are loaded:"
 module list
 
 # Define the kaiju installation location.
-export KAIJU_INSTALL_DIR=$HOME/kaiju_serial
+export KAIJU_INSTALL_DIR=$HOME/kaiju_helio_serial
 
 # Set kaiju-related environment variables.
 source $KAIJU_INSTALL_DIR/scripts/setupEnvironment.sh
