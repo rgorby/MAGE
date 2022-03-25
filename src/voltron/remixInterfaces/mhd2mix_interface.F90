@@ -129,8 +129,8 @@ module mhd2mix_interface
                     mhd2mix%gBAvg(i,j,k,:) = mhd2mix%wAvg*B0 + (1-mhd2mix%wAvg)*mhd2mix%gBAvg(i,j,k,:)
 
                     !Get FAC
-                    !B0 = mhd2mix%gBAvg(i,j,k,:)
-                    B0 = gameraApp%Grid%B0(iG,j,k,:)
+                    B0 = mhd2mix%gBAvg(i,j,k,:)
+                    !B0 = gameraApp%Grid%B0(iG,j,k,:)
                     J11 = dot_product(mhd2mix%gJ(i,j,k,:),normVec(B0))
 
                     ! get cell centers

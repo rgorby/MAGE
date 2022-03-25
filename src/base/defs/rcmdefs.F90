@@ -59,4 +59,8 @@ module rcmdefs
     enum, bind(C)
         enumerator :: RCMDOMELLIPSE=1,RCMDOMCONTOUR,RCMDOMNONE
     endenum     
+    !Enumerators for rcm grid type
+    enum, bind(C)
+        enumerator :: IMoutside=0,IMbuffer,IMactive
+    endenum
 end module rcmdefs
