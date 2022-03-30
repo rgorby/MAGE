@@ -233,14 +233,16 @@ module sliceio
 
         type(IOVAR_T), dimension(MAXEBVS) :: IOVars
         real(rp), dimension(:,:,:), allocatable :: dB2D,E2D,Q,J2D
-        real(rp), dimension(:,:), allocatable :: Vr,Lb,LbXY,dLpp
+        real(rp), dimension(:,:), allocatable :: Vr,Lb,LbXY,dLpp,rCurv
 
         integer :: i,j
         real(rp), dimension(NDIM) :: xp,xm,dB,Ep,Em,Bp,Bm
         real(rp) :: MagB,MagJ,oVGScl
         real(rp), dimension(NVARMHD) :: Qij
         type(gcFields_T) :: gcFieldsP,gcFieldsM
-        real(rp), dimension(NDIM,NDIM) :: jB
+        real(rp), dimension(NDIM,NDIM) :: jB, Jacbhat
+        real(rp), dimension(NDIM) :: bhat, B, gMagB
+        real(rp) :: invrad
 
         !Data for tracing
         type(ebTrc_T), dimension(:,:), allocatable :: ebTrcIJ
@@ -253,6 +255,7 @@ module sliceio
         allocate(Vr  (Nx1,Nx2))
         allocate(Lb  (Nx1,Nx2))
         allocate(LbXY(Nx1,Nx2))
+        allocate(rCurv(Nx1,Nx2))
 
 
         if (Model%doTrc) then
@@ -300,8 +303,26 @@ module sliceio
                 db = oBScl*0.5*(Bp+Bm)-B02D(i,j,:)
                 dB2D(i,j,:) = db
                 E2D (i,j,:) = oEScl*0.5*(Em+Ep)
-                MagB = norm2(db+B02D(i,j,:))
+                B = db+B02D(i,j,:)
+                MagB = norm2(B)
                 MagJ = oBScl*sqrt(sum(jB**2.0))
+
+                ! radius of curvature
+                bhat = normVec(B)
+
+                !Start getting derivative terms
+                !gMagB = gradient(|B|), vector
+                !      = bhat \cdot \grad \vec{B}
+                gMagB = VdT(bhat,jB)
+
+                Jacbhat = ( MagB*jB - Dyad(gMagB,B) )/(MagB*MagB)
+
+                invrad = norm2(VdT(bhat,Jacbhat))
+                if (invrad>TINY) then
+                   rCurv(i,j) = 1.0/invrad
+                else
+                   rCurv(i,j) = -TINY
+                endif
 
                 !Get MHD vars if requested
                 if (Model%doMHD) then
@@ -350,6 +371,7 @@ module sliceio
         call AddOutVar(IOVars,"dBz" ,db2D(:,:,ZDIR))
         call AddOutVar(IOVars,"Lb"  ,Lb  (:,:)     )
         call AddOutVar(IOVars,"LbXY",LbXY(:,:)     )
+        call AddOutVar(IOVars,"RCurvature",rCurv(:,:)    )
 
         if (Model%doPP) then
             call AddOutVar(IOVars,"dLppeq",dLpp(:,:))
@@ -399,7 +421,7 @@ module sliceio
 
         call WriteVars(IOVars,.true.,ebOutF,gStr)
         call ClearIO(IOVars)
-        deallocate(dB2D,E2D)
+        deallocate(dB2D,E2D,rCurv)
 
         end associate
     end subroutine writeEB
