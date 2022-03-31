@@ -281,7 +281,7 @@ module sliceio
         endif
         !$OMP PARALLEL DO default(shared) collapse(2) &
         !$OMP schedule(dynamic) &
-        !$OMP private(i,j,xp,xm,Bp,Bm,Ep,Em,dB,Qij,gcFieldsP,gcFieldsM,jB,MagB,MagJ)
+        !$OMP private(i,j,xp,xm,Bp,Bm,Ep,Em,dB,Qij,gcFieldsP,gcFieldsM,jB,MagB,MagJ,Jacbhat,bhat,B,gMagB,invrad)
         do j=1,Nx2
             do i=1,Nx1
                 !Straddle slice plane
@@ -315,7 +315,7 @@ module sliceio
                 !      = bhat \cdot \grad \vec{B}
                 gMagB = VdT(bhat,jB)
 
-                Jacbhat = ( MagB*jB - Dyad(gMagB,B) )/(MagB*MagB)
+                Jacbhat = oBScl*( MagB*jB - Dyad(gMagB,B) )/(MagB*MagB) ! note conversion of jB and gMagB to nT/[code unit of length]; MagB & B are already in those units
 
                 invrad = norm2(VdT(bhat,Jacbhat))
                 if (invrad>TINY) then
