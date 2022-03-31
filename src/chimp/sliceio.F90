@@ -236,13 +236,11 @@ module sliceio
         real(rp), dimension(:,:), allocatable :: Vr,Lb,LbXY,dLpp,rCurv
 
         integer :: i,j
-        real(rp), dimension(NDIM) :: xp,xm,dB,Ep,Em,Bp,Bm
+        real(rp), dimension(NDIM) :: xp,xm,dB,Ep,Em,Bp,Bm,B
         real(rp) :: MagB,MagJ,oVGScl
         real(rp), dimension(NVARMHD) :: Qij
         type(gcFields_T) :: gcFieldsP,gcFieldsM
-        real(rp), dimension(NDIM,NDIM) :: jB, Jacbhat
-        real(rp), dimension(NDIM) :: bhat, B, gMagB
-        real(rp) :: invrad
+        real(rp), dimension(NDIM,NDIM) :: jB
 
         !Data for tracing
         type(ebTrc_T), dimension(:,:), allocatable :: ebTrcIJ
@@ -281,7 +279,7 @@ module sliceio
         endif
         !$OMP PARALLEL DO default(shared) collapse(2) &
         !$OMP schedule(dynamic) &
-        !$OMP private(i,j,xp,xm,Bp,Bm,Ep,Em,dB,Qij,gcFieldsP,gcFieldsM,jB,MagB,MagJ,Jacbhat,bhat,B,gMagB,invrad)
+        !$OMP private(i,j,xp,xm,Bp,Bm,Ep,Em,dB,Qij,gcFieldsP,gcFieldsM,jB,MagB,MagJ,B)
         do j=1,Nx2
             do i=1,Nx1
                 !Straddle slice plane
@@ -308,21 +306,7 @@ module sliceio
                 MagJ = oBScl*sqrt(sum(jB**2.0))
 
                 ! radius of curvature
-                bhat = normVec(B)
-
-                !Start getting derivative terms
-                !gMagB = gradient(|B|), vector
-                !      = bhat \cdot \grad \vec{B}
-                gMagB = VdT(bhat,jB)
-
-                Jacbhat = oBScl*( MagB*jB - Dyad(gMagB,B) )/(MagB*MagB) ! note conversion of jB and gMagB to nT/[code unit of length]; MagB & B are already in those units
-
-                invrad = norm2(VdT(bhat,Jacbhat))
-                if (invrad>TINY) then
-                   rCurv(i,j) = 1.0/invrad
-                else
-                   rCurv(i,j) = -TINY
-                endif
+                rCurv(i,j) = getRCurv(B,jB)
 
                 !Get MHD vars if requested
                 if (Model%doMHD) then
@@ -425,6 +409,33 @@ module sliceio
 
         end associate
     end subroutine writeEB
+
+    function getRCurv(B,jB) result(rcurv)
+        real(rp), intent(in), dimension(NDIM)      :: B
+        real(rp), intent(in), dimension(NDIM,NDIM) :: jB
+
+        real(rp) :: MagB, invrad, rcurv
+        real(rp), dimension(NDIM,NDIM) :: Jacbhat
+        real(rp), dimension(NDIM) :: bhat, gMagB
+
+        bhat = normVec(B)
+        MagB = norm2(B)
+
+        !Start getting derivative terms
+        !gMagB = gradient(|B|), vector
+        !      = bhat \cdot \grad \vec{B}
+        gMagB = VdT(bhat,jB)
+
+        Jacbhat = oBScl*( MagB*jB - Dyad(gMagB,B) )/(MagB*MagB) ! note conversion of jB and gMagB to nT/[code unit of length]; MagB & B are already in those units
+
+        invrad = norm2(VdT(bhat,Jacbhat))
+        if (invrad>TINY) then
+           rcurv = 1.0/invrad
+        else
+           rcurv = -TINY
+        endif
+    end function getRCurv
+
 
     !Double grid from corners
     subroutine Embiggen(xxi,yyi,Nx1,Nx2)
