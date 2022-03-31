@@ -122,7 +122,7 @@ module helioutils
         ! (Msolar*1.D3) converts Msolar into g
         ! G*M has the units of length * speed^2, thus the gx0*gv0**2 conversion
         ! the result is the gravitational potential in code units
-        pot = - G_cgs*(Msolar*1.D3)*gx0*gv0**2/rad   
+        pot = - G_cgs*(Msolar*1.D3)/(gx0*gv0**2)/rad   
       end subroutine PhiGrav
 
       subroutine helio_ibcJ(bc,Model,Grid,State)
