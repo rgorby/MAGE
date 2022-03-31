@@ -28,7 +28,7 @@ module ebtypes
     type ebField_T
         real(rp), dimension(:,:,:,:), allocatable :: dB,E !Fields
         real(rp), dimension(:,:,:,:), allocatable :: W !Primitive MHD variables
-        real(rp), dimension(:,:,:,:), allocatable :: Jxyz !Currents
+        real(rp), dimension(:,:,:,:), allocatable :: Jxyz !Current density, must be [A/m2]
         real(rp), dimension(:), allocatable :: Lpp !Plasmapause location,Lpp(MLT)
         real(rp) :: time !Time in code units for this slice
         character(len=strLen) :: gStr ! holds step in 'Step#N'

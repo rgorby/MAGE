@@ -197,16 +197,25 @@ module gridutils
 !   3. Use the CellBxyz function to convert J dot dS to J at cell centers - put in the curnt(i,j,k,DIR) array
 !   4. Enforce periodicity, smoothing if needed
 
-    subroutine bFld2Jxyz(Model,Grid,Bxyz,Jxyz)
+    !jSclO = optional current scaling
+    subroutine bFld2Jxyz(Model,Grid,Bxyz,Jxyz,jSclO)
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
         real(rp), intent(in)  :: Bxyz(Grid%isg:Grid%ieg,Grid%jsg:Grid%jeg,Grid%ksg:Grid%keg,1:NDIM)
         real(rp), intent(inout) :: Jxyz(Grid%isg:Grid%ieg,Grid%jsg:Grid%jeg,Grid%ksg:Grid%keg,1:NDIM)
+        real(rp), intent(in), optional :: jSclO
 
         integer :: i,j,k,Nk,k0
         real(rp), allocatable, dimension(:,:,:,:) :: bInt, JdS
         real(rp), dimension(NDIM) :: J0,J2,J3
         real(rp), dimension(NDIM) :: bAvg,dxyz
+        real(rp) :: jScl
+
+        if (present(jSclO)) then
+            jScl = jSclO
+        else
+            jScl = 1.0
+        endif
 
         call allocGridVec(Model,Grid,bInt,.false.,NDIM)
         call allocGridVec(Model,Grid,JdS ,.true. ,NDIM) !Treat like flux-sized to use CellBxyz routine
@@ -264,13 +273,13 @@ module gridutils
         enddo
         ! Jds ends up being defined isg+1,ieg-1
 
-        ! now from J-flux to J-field using the CellBxyz function
+        ! now from J-flux to J-field using the CellBxyz function (and include scaling)
         !$OMP PARALLEL DO default(shared) collapse(2) &
         !$OMP private(i,j,k)
         do k=Grid%ksg+1, Grid%keg-1
             do j=Grid%jsg+1, Grid%jeg-1
                 do i=Grid%isg+1, Grid%ieg-1
-                    Jxyz(i,j,k,:) = CellBxyz(Model,Grid,JdS,i,j,k)
+                    Jxyz(i,j,k,:) = jScl*CellBxyz(Model,Grid,JdS,i,j,k)
                 enddo
             enddo
         enddo

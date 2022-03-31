@@ -216,9 +216,10 @@ class MidpointNormalize(Normalize):
 		return np.ma.masked_array(np.interp(value, x, y))
 
 #Create norm object for MPL
-def genNorm(vMin,vMax=None,doLog=False,midP=None):
+def genNorm(vMin,vMax=None,doLog=False,doSymLog=False,midP=None,linP=1.0):
 	from matplotlib.colors import LogNorm
 	from matplotlib.colors import Normalize
+	from matplotlib.colors import SymLogNorm
 	if (vMax is None):
 		vMin = -np.abs(vMin)
 		vMax = np.abs(vMin)
@@ -231,6 +232,8 @@ def genNorm(vMin,vMax=None,doLog=False,midP=None):
 		vN = MidpointNormalize(vmin=vMin,vmax=vMax,midpoint=midP)
 	elif (doLog):
 		vN = LogNorm(vmin=vMin,vmax=vMax)
+	elif (doSymLog):
+		vN = SymLogNorm(linthresh=linP,vmin=vMin,vmax=vMax,base=10)
 	else:
 		vN = Normalize(vmin=vMin,vmax=vMax)
 

@@ -282,7 +282,7 @@ class GameraPipe(object):
 	#Wrappers for root variables (or just set sID to "None")
 	def GetRootVar(self,vID,vScl=None,doVerb=True):
 		V = self.GetVar(vID,sID=None,vScl=vScl,doVerb=doVerb)
-
+		return V
 	def GetRootSlice(self,vID,ijkdir='idir',n=1,vScl=None,doVerb=True):
 		Vs = self.GetSlice(vID,sID=None,ijkdir=ijkdir,n=n,vScl=vScl,doVerb=doVerb)
 		return Vs
