@@ -34,7 +34,7 @@ module sliceio
         type(XML_Input_T), intent(in) :: inpXML
 
         type(IOVAR_T), dimension(MAXEBVS) :: IOVars
-        real(rp) :: dx1,dx2,Rin,Rout,Pin,Pout,x1,x2
+        real(rp) :: dx1,dx2,Rin,Rout,Pin,Pout,x1,x2,xMax
         integer :: i,j,ijk(NDIM)
         integer :: iS,iE,n,Npow
         real(rp) :: xcc(NDIM)
@@ -91,6 +91,11 @@ module sliceio
             case("LFM2D")
                 !Create 2D LFM slice (w/ full 2pi)
                 call inpXML%Set_Val(xSun,'slice/xSun',xSun)
+                
+                !Make sure xSun doesn't run over the grid
+                xMax = ebGr%xyz(ebGr%ie,ebGr%js,ebGr%ks,XDIR) - TINY
+                xSun = min(xSun,xMax)
+
                 !Find first cell that's "in" according to set locator
                 i = ebGr%is
                 xcc = ebGr%xyz(i,ebGr%js,ebGr%ks,:)
@@ -98,7 +103,7 @@ module sliceio
                     i = i+1
                     xcc = ebGr%xyz(i,ebGr%js,ebGr%ks,:)
                 enddo
-                iS = i
+                iS = min(i,ebGr%ie)
                 iE = minloc(abs(ebGr%xyz(:,ebGr%js,ebGr%ks,XDIR)-xSun),dim=1)
                 write(*,*) 'i-Start/End/Total = ',iS,iE,ebGr%Nip
                 
