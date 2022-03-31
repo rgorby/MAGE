@@ -120,11 +120,11 @@ rho = f(Pc[:,0,0],Tc[0,:,0])
 # Not interpolating temperature, but calculating from the total pressure balance
 # AFTER interpolating br and rho to the gamera grid
 # n_max*k*T0 = n*k*T + Br^2/8pi  
-Temp = (nCS*kblts*TCS - (br*B0)**2/8./np.pi)/(rho*n0)/kblts
+temp = (nCS*kblts*TCS - (br*B0)**2/8./np.pi)/(rho*n0)/kblts
 # note, keep temperature in K (pressure is normalized in wsa.F90)
 
-print ("Max and min of temperature in K")
-print (np.amax(Temp), np.amin(Temp))
+print ("Max and min of temperature in MK")
+print (np.amax(temp)*1.e-6, np.amin(temp)*1.e-6)
 
 # note, redefining interpolation functions we could also
 # interpolate from bi_wsa as above, but then we would have to
@@ -138,7 +138,7 @@ br_kface = fbi(P[:,0,0],Tc[0,:,0])
 vr_kface  = fv (P[:,0,0],Tc[0,:,0])
 
 # Scale inside ghost region
-(vr,vr_kface,rho,temp,br,br_kface) = [np.dstack(prm.NO2*[var]) for var in (vr,vr_kface,rho,temp,br,br_kface)]
+(vr,vr_kface,rho,temp,br,br_kface) = [np.dstack(Ng*[var]) for var in (vr,vr_kface,rho,temp,br,br_kface)]
 rho*=(R0/Rc[0,0,:Ng])**2
 br*=(R0/Rc[0,0,:Ng])**2
 br_kface*=(R0/Rc[0,0,:Ng])**2
@@ -146,9 +146,10 @@ br_kface*=(R0/Rc[0,0,:Ng])**2
 # Calculating electric field component on k_edges 
 # E_theta = B_phi*Vr = - Omega*R*sin(theta)/Vr*Br * Vr = - Omega*R*sin(theta)*Br 
 omega=2*np.pi/Tsolar
-et_kedge = - omega*R0*np.sin(Tc[:,:,Ng-1])*br_kface
+et_kedge = - omega*R0*np.sin(Tc[:,:,Ng-1])*br_kface[:,:,-1]
 
-print ("E theta ", et.shape())
+print ("Br kface ", br_kface.shape)
+print ("E theta ", et_kedge.shape)
 
 # Save to file
 with h5py.File(os.path.join(prm.IbcDir,prm.gameraIbcFile),'w') as hf:
