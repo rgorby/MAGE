@@ -43,6 +43,35 @@ module ebutils
 
     end subroutine MagTriad
 
+    !Return radius of curvature in code length based on B and JacB
+    !Assuming B and jB are both in code units
+    function getRCurv(B,jB) result(rcurv)
+        real(rp), intent(in), dimension(NDIM)      :: B
+        real(rp), intent(in), dimension(NDIM,NDIM) :: jB
+
+        real(rp) :: MagB, invrad, rcurv
+        real(rp), dimension(NDIM,NDIM) :: Jacbhat
+        real(rp), dimension(NDIM) :: bhat, gMagB
+
+        bhat = normVec(B)
+        MagB = norm2(B)
+
+        !Start getting derivative terms
+        !gMagB = gradient(|B|), vector
+        !      = bhat \cdot \grad \vec{B}
+        gMagB = VdT(bhat,jB)
+
+        Jacbhat = ( MagB*jB - Dyad(gMagB,B) )/(MagB*MagB)
+
+        invrad = norm2(VdT(bhat,Jacbhat))
+        if (invrad>TINY) then
+           rcurv = 1.0/invrad
+        else
+           rcurv = -TINY
+        endif
+    end function getRCurv
+
+
 !Split momentum into 3 components: p11,pPerp,pExB
     subroutine SplitP(Model,p,E,B,vExB,p11,pPerp)
         type(chmpModel_T), intent(in) :: Model

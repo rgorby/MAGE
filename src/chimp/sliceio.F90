@@ -311,7 +311,7 @@ module sliceio
                 MagJ = oBScl*sqrt(sum(jB**2.0))
 
                 ! radius of curvature
-                rCurv(i,j) = getRCurv(B,jB)
+                rCurv(i,j) = getRCurv(B/oBScl,jB)
 
                 !Get MHD vars if requested
                 if (Model%doMHD) then
@@ -414,33 +414,6 @@ module sliceio
 
         end associate
     end subroutine writeEB
-
-    function getRCurv(B,jB) result(rcurv)
-        real(rp), intent(in), dimension(NDIM)      :: B
-        real(rp), intent(in), dimension(NDIM,NDIM) :: jB
-
-        real(rp) :: MagB, invrad, rcurv
-        real(rp), dimension(NDIM,NDIM) :: Jacbhat
-        real(rp), dimension(NDIM) :: bhat, gMagB
-
-        bhat = normVec(B)
-        MagB = norm2(B)
-
-        !Start getting derivative terms
-        !gMagB = gradient(|B|), vector
-        !      = bhat \cdot \grad \vec{B}
-        gMagB = VdT(bhat,jB)
-
-        Jacbhat = oBScl*( MagB*jB - Dyad(gMagB,B) )/(MagB*MagB) ! note conversion of jB and gMagB to nT/[code unit of length]; MagB & B are already in those units
-
-        invrad = norm2(VdT(bhat,Jacbhat))
-        if (invrad>TINY) then
-           rcurv = 1.0/invrad
-        else
-           rcurv = -TINY
-        endif
-    end function getRCurv
-
 
     !Double grid from corners
     subroutine Embiggen(xxi,yyi,Nx1,Nx2)
