@@ -7,6 +7,7 @@ module helioutils
     use math
     use gridutils
     use output
+    use ioclock
 
     implicit none
 
@@ -34,6 +35,8 @@ module helioutils
         type(Model_T), intent(inout) :: Model
         type(XML_Input_T), intent(in) :: inpXML
         real(rp),intent(out) :: Tsolar ! Solar rotation period
+
+        type(IOClock_T) :: clockScl
 
         ! normalization
         gD0=200.         ! [/cc]
@@ -65,7 +68,7 @@ module helioutils
 
         !Change console output pointer
         ! don't use for now
-!        timeString => helioTime 
+        timeString => helioTime
         
         if (Model%isLoud) then
             write(*,*) '---------------'
@@ -89,19 +92,26 @@ module helioutils
 
         ! without setting the scaling below, it defaults to 1. 
         !Add normalization/labels to output slicing
-        ! Model%gamOut%tScl = gT0   !/3600. 
-        ! Model%gamOut%dScl = gD0
-        ! Model%gamOut%vScl = gv0   !*1.0e-5 !km/s
-        ! Model%gamOut%pScl = gP0
-        ! Model%gamOut%bScl = gB0   !*1.e5
+        Model%gamOut%tScl = gT0   !/3600.
+        Model%gamOut%dScl = gD0
+        Model%gamOut%vScl = gv0   !*1.0e-5 !km/s
+        Model%gamOut%pScl = gP0
+        Model%gamOut%bScl = gB0   !*1.e5
 
-        ! Model%gamOut%tID = 'Helio'
-        ! Model%gamOut%tID = 's'  !'hr'
-        ! Model%gamOut%dID = '#/cc'
-        ! Model%gamOut%vID = 'km/s'
-        ! Model%gamOut%pID = 'erg/cm3'
-        ! Model%gamOut%bID = 'nT'
+        Model%gamOut%uID = 'Helio'
+        Model%gamOut%tID = 's'  !'hr'
+        Model%gamOut%dID = '#/cc'
+        Model%gamOut%vID = 'km/s'
+        Model%gamOut%pID = 'erg/cm3'
+        Model%gamOut%bID = 'nT'
 
+        ! finally rescale the relevant time constants
+        ! note, assume xml file specifies them in [hr]
+        Model%tFin = Model%tFin*3600./gT0
+        
+        ! using IOSync from base/ioclock.F90 to sync the other time contants
+        clockScl = Model%IO
+        call IOSync(clockScl,Model%IO,3600./gT0)
       end subroutine setHeliosphere
 
       subroutine helioTime(T,tStr)
