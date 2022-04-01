@@ -30,7 +30,7 @@ class GamsphPipe(GameraPipe):
 		self.dScl = 200. #cm-3
 		self.TScl = 1.e-6/4/np.pi/200./1.38e-16/1.e6 #in MK
     
-                # [OHelio]
+        # units for OHelio
 		#self.bScl = 5.    #->nT
 		#self.vScl = 34.5  #-> km/s
 		#self.tScl = 1.4e8/34.5
@@ -51,18 +51,16 @@ class GamsphPipe(GameraPipe):
 		GameraPipe.OpenPipe(self,doVerbose)
 		
 		if (self.UnitsID != "CODE"):
-			self.bScl   = 1.0  #->nT
-			self.vScl   = 1.0  #-> km/s
-			self.tScl   = 1.0 #->Seconds
-			# [EP] added
-			self.dScl = 1.0
-			self.TScl = 1.0 
+			self.bScl   = 1.0  #->Gs
+			self.vScl   = 1.0  #-> cm/s
+			self.tScl   = 1.0  #-> Seconds
+			self.dScl   = 1.0  #-> cm-3
+			self.TScl   = 1.0  # ?
 
 		#Rescale time
 		self.T = self.tScl*self.T
 
 		Neq_a = self.Nj//2 #cell above eq plane
-		print (Neq_a)
 
 		Nr = self.Ni
 		Np = self.Nk
