@@ -34,13 +34,27 @@ module mhd2mix_interface
 
         Rion = RadIonosphere()
         
-        ! allocate remix arrays
-        allocate(mhd2Mix%gJ   (1:mhd2Mix%JShells, gameraApp%Grid%js:gameraApp%Grid%je, gameraApp%Grid%ks:GameraApp%Grid%ke, 1:NDIM))
-        allocate(mhd2Mix%gBAvg(1:mhd2Mix%JShells, gameraApp%Grid%js:gameraApp%Grid%je, gameraApp%Grid%ks:GameraApp%Grid%ke, 1:NDIM))
-        allocate(mhdJGrid(1:mhd2Mix%JShells, gameraApp%Grid%js:gameraApp%Grid%je, gameraApp%Grid%ks:gameraApp%Grid%ke/2, 1:3, 1:2))
-        allocate(mhd2Mix%mixInput(1:mhd2Mix%JShells, gameraApp%Grid%js:gameraApp%Grid%je, gameraApp%Grid%ks:gameraApp%Grid%ke/2, 1:mhd2mix_varn, 1:2))
-        allocate(mhd2Mix%JMaps(mhd2Mix%JShells,size(remixApp%ion)))
-
+        ! allocate remix arrays (adding allocation checks as some of these are now coming from restart file)
+        if (.not. allocated(mhd2Mix%gJ)) then
+            allocate(mhd2Mix%gJ   (1:mhd2Mix%JShells, gameraApp%Grid%js:gameraApp%Grid%je, gameraApp%Grid%ks:GameraApp%Grid%ke, 1:NDIM))
+        endif
+        
+        if (.not. allocated(mhd2Mix%gBAvg)) then
+            allocate(mhd2Mix%gBAvg(1:mhd2Mix%JShells, gameraApp%Grid%js:gameraApp%Grid%je, gameraApp%Grid%ks:GameraApp%Grid%ke, 1:NDIM))
+        endif
+        
+        if (.not. allocated(mhdJGrid)) then
+            allocate(mhdJGrid(1:mhd2Mix%JShells, gameraApp%Grid%js:gameraApp%Grid%je, gameraApp%Grid%ks:gameraApp%Grid%ke/2, 1:3, 1:2))
+        endif
+        
+        if (.not. allocated(mhd2Mix%mixInput)) then
+            allocate(mhd2Mix%mixInput(1:mhd2Mix%JShells, gameraApp%Grid%js:gameraApp%Grid%je, gameraApp%Grid%ks:gameraApp%Grid%ke/2, 1:mhd2mix_varn, 1:2))
+        endif
+        
+        if (.not. allocated(mhd2Mix%JMaps)) then
+            allocate(mhd2Mix%JMaps(mhd2Mix%JShells,size(remixApp%ion)))
+        endif
+        
         ! get those grid coordinates (cell centers for Jp)
         do k=gameraApp%Grid%ks,gameraApp%Grid%ke
             do j=gameraApp%Grid%js,gameraApp%Grid%je

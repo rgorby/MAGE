@@ -22,7 +22,7 @@ jMax = 10.0 #Max current for contours
 eMax = 5.0  #Max current for contours
 
 #Default pressure colorbar
-vP = kv.genNorm(1.0e-2,10.0,doLog=True)
+vP = kv.genNorm(vMin=1.0e-2,vMax=10.0,doLog=True)
 szStrs = ['small','std','big','dm']
 szBds = {}
 szBds["std"]      = [-40.0 ,20.0,2.0]
@@ -84,7 +84,7 @@ def PlotMerid(gsph,nStp,xyBds,Ax,doDen=False,doRCM=False,AxCB=None,doClear=True,
 	if (doDen):
 		
 		if (doRCM):
-			vN = kv.genNorm(1.0,1.0e+3,doLog=True)
+			vN = kv.genNorm(vMin=1.0,vMax=1.0e+3,doLog=True)
 		else:
 			vN = kv.genNorm(0,25)
 		if (doSrc):
@@ -120,13 +120,8 @@ def PlotMerid(gsph,nStp,xyBds,Ax,doDen=False,doRCM=False,AxCB=None,doClear=True,
 
 def PlotJyXZ(gsph,nStp,xyBds,Ax,AxCB=None,jScl=None,doDeco=True):
 	if (jScl is None):
-		#VERY LAZY scaling for current
-		#Scale current to nA/m^2
-		#Current is curl(B) = mag field / Re
-		# mu0 J = curl(B)
-		jScl = 4.58/( (6.371*1.0e+6)*(4.0*np.pi*1.0e+2) )  # Convert field to nT/m
-		#jScl => A/m2
-		jScl = jScl*1.0e+9
+		#Just assuming current scaling is nA/m2
+		jScl = 1.0
 	vJ = kv.genNorm(jMax)
 	jCMap = "PRGn"
 	Nc = 15
@@ -237,7 +232,7 @@ def plotPlane(gsph,data,xyBds,Ax,AxCB,var='D',vMin=None,vMax=None,doDeco=True,cm
 			vMax = np.max(np.abs([np.min(data),np.max(data)]))
 			vMin = -1.0*vMax
 
-	vNorm = kv.genNorm(vMin,vMax,doLog,midp)
+	vNorm = kv.genNorm(vMin,vMax=vMax,doLog=doLog,midP=midp)
 	kv.genCB(AxCB,vNorm,cbT=var,cM=cmap,Ntk=7)
 	Ax.pcolormesh(gsph.xxi,gsph.yyi,data,cmap=cmap,norm=vNorm)
 	kv.SetAx(xyBds,Ax)

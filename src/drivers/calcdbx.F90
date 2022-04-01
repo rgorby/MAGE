@@ -29,7 +29,7 @@ program calcdbx
     type(facGrid_T) :: facGrid !FAC grid
     type(ionGrid_T) :: ionGrid !Ionospheric grid
 
-    !Bios-Savart data, source terms in GEO
+    !Biot-Savart data, source terms in GEO
     type(BSGrid_T) :: facBS,ionBS,magBS
 
     !Destination (GEO) data
@@ -61,7 +61,7 @@ program calcdbx
     call ionGridInit(Model,ebState,rmState,ionGrid)
     call facGridInit(Model,ebState,rmState,ionGrid,facGrid)
 
-    call BSGridInit(Model,ebState,rmState,magBS,ionBS,facBS)
+    call BSGridInit(Model,ebState,rmState,magBS,ionBS,facBS,inpXML)
 
     write(*,*) "Initialization complete, let's do this thing!"
     !Loop from T0 -> tFin
@@ -142,7 +142,7 @@ program calcdbx
         endif
 
         !Update time
-        Model%t = Model%t + Model%dt
+        Model%t  = Model%t + Model%dt
         Model%ts = Model%ts+1
 
     enddo

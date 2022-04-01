@@ -114,7 +114,7 @@ subprocess.call("cp ../../dashRestarts/* .", shell=True)
 p = subprocess.Popen("h5diff lfmX.h5 NEWlfmX.h5", shell=True, stdout=subprocess.PIPE)
 gridDiff = p.stdout.read().decode('ascii').rstrip()
 if(gridDiff != ""):
-    message = "lfm Oct grid for weekly dash has changed on branch " + gBranch + ". Case cannot be run. Please re-generate restart data, and ensure the grid change was intentional."
+    message = "Quad grid for weekly dash has changed on branch " + gBranch + ". Case cannot be run. Please re-generate restart data, and ensure the grid change was intentional."
     if(not isTest):
         try:
             response = client.chat_postMessage(
