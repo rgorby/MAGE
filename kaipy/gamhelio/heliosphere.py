@@ -51,11 +51,11 @@ class GamsphPipe(GameraPipe):
 		GameraPipe.OpenPipe(self,doVerbose)
 		
 		if (self.UnitsID != "CODE"):
-			self.bScl   = 1.0  #->Gs
-			self.vScl   = 1.0  #-> cm/s
+			self.bScl   = 1.0  #->nT
+			self.vScl   = 1.0  #-> km/s
 			self.tScl   = 1.0  #-> Seconds
 			self.dScl   = 1.0  #-> cm-3
-			self.TScl   = 1.0  # ?
+			self.TScl   = 1.0/1.38e-16/1.e6  # 1/kb/MK
 
 		#Rescale time
 		self.T = self.tScl*self.T

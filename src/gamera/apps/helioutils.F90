@@ -76,6 +76,7 @@ module helioutils
             write(*,*) 'Heliosphere normalization'
             write(*,*) 'T0   [hr]       = ', gT0/3600.
             write(*,*) 'x0   [Rsolar]   = ', gx0
+            write(*,*) 'D0   [cm-3]   = '  , gD0
             write(*,*) 'v0   [km/s]  = '   , gv0*1.e-5
             write(*,*) 'P0   [erg/cm3]  = ', gP0
             write(*,*) 'B0   [nT]   = '    , gB0*1.e5
@@ -95,12 +96,12 @@ module helioutils
         !Add normalization/labels to output slicing
         Model%gamOut%tScl = gT0   !/3600.
         Model%gamOut%dScl = gD0
-        Model%gamOut%vScl = gv0   !*1.0e-5 !km/s
+        Model%gamOut%vScl = gv0*1.0e-5 !km/s
         Model%gamOut%pScl = gP0
-        Model%gamOut%bScl = gB0   !*1.e5
+        Model%gamOut%bScl = gB0*1.e5 !nT
 
         Model%gamOut%uID = 'Helio'
-        Model%gamOut%tID = 's'  !'hr'
+        Model%gamOut%tID = 's'  
         Model%gamOut%dID = '#/cc'
         Model%gamOut%vID = 'km/s'
         Model%gamOut%pID = 'erg/cm3'
