@@ -18,6 +18,7 @@ MODULE ionosphere_exchange
       ALLOCATE( rm%glong(rm%nLon_ion) )
 
       ALLOCATE( rm%pot(rm%nLat_ion, rm%nLon_ion) )
+      ALLOCATE( rm%nflx(rm%nLat_ion, rm%nLon_ion, 2) )
       ALLOCATE( rm%eng_avg(rm%nLat_ion, rm%nLon_ion, 2) )
       ALLOCATE( rm%flux(rm%nLat_ion, rm%nLon_ion, 2) )
       ALLOCATE( rm%fac(rm%nLat_ion, rm%nLon_ion) )
@@ -54,6 +55,7 @@ MODULE ionosphere_exchange
 
       ! initialize all other variables to 0
       rm%pot = 0.0
+      rm%nflx = 0.0
       rm%eng_avg = 0.0
       rm%flux = 0.0
       rm%fac = 0.0

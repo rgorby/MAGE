@@ -12,7 +12,7 @@ module voltio
     
     implicit none
 
-    integer , parameter, private :: MAXVOLTIOVAR = 35
+    integer , parameter, private :: MAXVOLTIOVAR = 50
     real(rp), parameter, private :: dtWallMax = 1.0 !How long between timer resets[hr]
     logical , private :: isConInit = .false.
     real(rp), private ::  oMJD = 0.0
