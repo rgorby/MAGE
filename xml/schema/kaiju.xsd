@@ -14,6 +14,7 @@
     <xs:restriction base="xs:string">
       <xs:enumeration value="LOOP2D"/>
       <xs:enumeration value="BW"/>
+      <xs:enumeration value="user"/>
     </xs:restriction>
   </xs:simpleType>
 
@@ -32,6 +33,26 @@
     <xs:attribute name="bcPeriodic" type="TorF"/>
   </xs:complexType>
 
+  <!-- rmeth type (what is a rmeth?)-->
+  <xs:simpleType name="rmeth_type">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="7UP"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- grid type -->
+  <xs:simpleType name="grid_type">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="lfm"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- Configuration data for Voltron -->
+  <!-- <xs:complexType name="VOLTRON_config_type">
+    <xs:all>
+    </xs:all>
+  </xs:complexType> -->
+
   <!-- Configuration data for gamera -->
   <xs:complexType name="Gamera_config_type">
     <xs:all>
@@ -40,22 +61,25 @@
         <xs:complexType>
           <xs:attribute name="runid" type="xs:string"/>
           <xs:attribute name="doH5init" type="TorF"/>
+          <xs:attribute name="doH5g" type="TorF"/>
+          <xs:attribute name="H5Grid" type="xs:string"/>
           <xs:attribute name="icType" type="initial_condition_type"/>
           <xs:attribute name="pdmb" type="xs:decimal"/>
+          <xs:attribute name="rmeth" type="rmeth_type"/>
         </xs:complexType>
       </xs:element>
 
-      <xs:element name="idir" type="grid_axis_spec_type"/>
-      <xs:element name="jdir" type="grid_axis_spec_type"/>
-      <xs:element name="kdir" type="grid_axis_spec_type"/>
+      <xs:element name="idir" type="grid_axis_spec_type" minOccurs="0"/>
+      <xs:element name="jdir" type="grid_axis_spec_type" minOccurs="0"/>
+      <xs:element name="kdir" type="grid_axis_spec_type" minOccurs="0"/>
 
-      <xs:element name="time">
+      <xs:element name="time" minOccurs="0">
         <xs:complexType>
           <xs:attribute name="tFin" type="xs:decimal"/>
         </xs:complexType>
       </xs:element>
 
-      <xs:element name="output">
+      <xs:element name="output" minOccurs="0">
         <xs:complexType>
           <xs:attribute name="dtOut" type="xs:decimal"/>
           <xs:attribute name="tsOut" type="xs:decimal"/>
@@ -66,10 +90,12 @@
         <xs:complexType>
           <xs:attribute name="doMHD" type="TorF"/>
           <xs:attribute name="do25D" type="TorF"/>
+          <xs:attribute name="doBoris" type="TorF"/>
+          <xs:attribute name="Ca" type="xs:decimal"/>
         </xs:complexType>
       </xs:element>
 
-      <xs:element name="prob">
+      <xs:element name="prob" minOccurs="0">
         <xs:complexType>
           <xs:attribute name="alpha" type="xs:integer"/>
           <xs:attribute name="B0" type="xs:decimal"/>
@@ -79,6 +105,57 @@
       <xs:element name="iPdir" type="Pdir_type" minOccurs="0"/>
       <xs:element name="jPdir" type="Pdir_type" minOccurs="0"/>
       <xs:element name="kPdir" type="Pdir_type" minOccurs="0"/>
+
+      <xs:element name="floors" minOccurs="0">
+        <xs:complexType>
+          <!-- These are strings to allow for scientific notation. -->
+          <xs:attribute name="dFloor" type="xs:string"/>
+          <xs:attribute name="pFloor" type="xs:string"/>
+        </xs:complexType>
+      </xs:element>
+
+      <xs:element name="restart" minOccurs="0">
+        <xs:complexType>
+          <xs:attribute name="doRes" type="TorF"/>
+          <xs:attribute name="resID" type="xs:string"/>
+          <xs:attribute name="nRes" type="xs:integer"/>
+        </xs:complexType>
+      </xs:element>
+
+      <xs:element name="ring" minOccurs="0">
+        <xs:complexType>
+          <xs:attribute name="gid" type="grid_type"/>
+          <xs:attribute name="doRing" type="TorF"/>
+        </xs:complexType>
+      </xs:element>
+
+      <xs:element name="ringknobs" minOccurs="0">
+        <xs:complexType>
+          <xs:attribute name="doVClean" type="TorF"/>
+        </xs:complexType>
+      </xs:element>
+
+      <xs:element name="source" minOccurs="0">
+        <xs:complexType>
+          <xs:attribute name="doSource" type="TorF"/>
+          <xs:attribute name="doWolfLim" type="TorF"/>
+          <xs:attribute name="doBounceDT" type="TorF"/>
+          <xs:attribute name="nBounce" type="xs:decimal"/>
+        </xs:complexType>
+      </xs:element>
+
+      <xs:element name="timestep" minOccurs="0">
+        <xs:complexType>
+          <xs:attribute name="doCPR" type="TorF"/>
+          <xs:attribute name="limCPR" type="xs:decimal"/>
+        </xs:complexType>
+      </xs:element>
+
+      <xs:element name="wind" minOccurs="0">
+        <xs:complexType>
+          <xs:attribute name="tsfile" type="xs:string"/>
+        </xs:complexType>
+      </xs:element>
 
     </xs:all>
   </xs:complexType>
