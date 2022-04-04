@@ -21,12 +21,13 @@
     <xs:attribute name="min" type="xs:decimal"/>
     <xs:attribute name="max" type="xs:decimal"/>
     <xs:attribute name="N" type="xs:positiveInteger"/>
-<!--     <xs:assert test="@min lt @max"/> -->
+    <!-- Uncomment the assertion if using a XML schema 1.1 parser. -->
+    <!--     <xs:assert test="@min lt @max"/> -->
   </xs:complexType>
 
   <!-- Configuration data for gamera -->
   <xs:complexType name="Gamera_config_type">
-    <xs:sequence>
+    <xs:all>
 
       <xs:element name="sim">
         <xs:complexType>
@@ -65,7 +66,7 @@
         </xs:complexType>
       </xs:element>
 
-    </xs:sequence>
+    </xs:all>
   </xs:complexType>
 
   <!-- Top-level kaiju configuration element -->
