@@ -85,9 +85,9 @@
 
   <!-- Top-level kaiju configuration element -->
   <xs:complexType name="Kaiju_config_type">
-    <xs:sequence>
+    <xs:all>
       <xs:element name="Gamera" type="Gamera_config_type"/>
-    </xs:sequence>
+    </xs:all>
   </xs:complexType>
 
   <xs:element name="Kaiju" type="Kaiju_config_type"/>
