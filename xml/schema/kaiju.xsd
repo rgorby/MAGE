@@ -13,6 +13,7 @@
   <xs:simpleType name="initial_condition_type">
     <xs:restriction base="xs:string">
       <xs:enumeration value="LOOP2D"/>
+      <xs:enumeration value="BW"/>
     </xs:restriction>
   </xs:simpleType>
 
@@ -25,6 +26,12 @@
     <!--     <xs:assert test="@min lt @max"/> -->
   </xs:complexType>
 
+  <!-- Pdir type (what is a Pdir?)-->
+  <xs:complexType name="Pdir_type">
+    <xs:attribute name="N" type="xs:integer"/>
+    <xs:attribute name="bcPeriodic" type="TorF"/>
+  </xs:complexType>
+
   <!-- Configuration data for gamera -->
   <xs:complexType name="Gamera_config_type">
     <xs:all>
@@ -34,6 +41,7 @@
           <xs:attribute name="runid" type="xs:string"/>
           <xs:attribute name="doH5init" type="TorF"/>
           <xs:attribute name="icType" type="initial_condition_type"/>
+          <xs:attribute name="pdmb" type="xs:decimal"/>
         </xs:complexType>
       </xs:element>
 
@@ -57,14 +65,20 @@
       <xs:element name="physics">
         <xs:complexType>
           <xs:attribute name="doMHD" type="TorF"/>
+          <xs:attribute name="do25D" type="TorF"/>
         </xs:complexType>
       </xs:element>
 
       <xs:element name="prob">
         <xs:complexType>
           <xs:attribute name="alpha" type="xs:integer"/>
+          <xs:attribute name="B0" type="xs:decimal"/>
         </xs:complexType>
       </xs:element>
+
+      <xs:element name="iPdir" type="Pdir_type" minOccurs="0"/>
+      <xs:element name="jPdir" type="Pdir_type" minOccurs="0"/>
+      <xs:element name="kPdir" type="Pdir_type" minOccurs="0"/>
 
     </xs:all>
   </xs:complexType>
