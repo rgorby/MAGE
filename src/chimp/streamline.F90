@@ -482,8 +482,8 @@ module streamline
 
         type(gcFields_T) :: gcFields
         real(rp), dimension(NDIM,NDIM) :: Jacbhat
-        real(rp), dimension(NDIM) :: xeq,E,B,bhat,gMagB,vExB
-        real(rp) :: t,MagB,invrad,Beq
+        real(rp), dimension(NDIM) :: xeq,E,B,vExB
+        real(rp) :: t,Beq
 
         rCurv = 0.0
         if (.not. bTrc%isGood) return
@@ -494,22 +494,8 @@ module streamline
         !Now get field information there
         t = ebState%eb1%time
         call ebFields(xeq,t,Model,ebState,E,B,vExB=vExB,gcFields=gcFields)
-        MagB = norm2(B)
-        bhat = normVec(B)
 
-        !Start getting derivative terms
-        !gMagB = gradient(|B|), vector
-        !      = bhat \cdot \grad \vec{B}
-        gMagB = VdT(bhat,gcFields%JacB)
-
-        Jacbhat = ( MagB*gcFields%JacB - Dyad(gMagB,B) )/(MagB*MagB)
-
-        invrad = norm2(VdT(bhat,Jacbhat))
-        if (invrad>TINY) then
-            rCurv = 1.0/invrad
-        else
-            rCurv = -TINY
-        endif
+        rCurv = getRCurv(B,gcFields%JacB)
         vEB = norm2(vExB)*oVScl
     end subroutine FLCurvRadius
 !---------------------------------
