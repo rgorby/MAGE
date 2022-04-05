@@ -50,8 +50,9 @@ module volttypes
         real(rp), dimension(:,:), allocatable :: latc,lonc
         real(rp), dimension(:,:), allocatable :: fac
         real(rp), dimension(:,:), allocatable :: eden,epre ! add electron density and pressure channels to REMIX.
+        integer , dimension(:,:), allocatable :: gtype ! RCM grid info: active, buffer, or outside
         
-        logical, dimension(:,:), allocatable :: inIMag,inIMagActive,inIMagBuffer
+        logical, dimension(:,:), allocatable :: inIMag
     end type imag2Mix_T
 
     ! data for gamera -> remix conversion

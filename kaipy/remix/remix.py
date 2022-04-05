@@ -354,7 +354,8 @@ class remix:
 		# 	lines, labels = plt.rgrids(circles,lbls,fontsize=8,color=latlblclr)
 
 		ax.grid(True,linewidth=LW)
-		ax.axis([0,2*np.pi,0,r.max()],'tight')
+		# ax.axis([0,2*np.pi,0,r.max()],'tight')
+		ax.axis([0,2*np.pi,0,r.max()])
 		if (not doInset):
 			ax.text(-75.*np.pi/180.,1.2*r.max(),('min: '+format_str+'\nmax: ' +format_str) % 
 				  (variable.min() ,variable.max()))
