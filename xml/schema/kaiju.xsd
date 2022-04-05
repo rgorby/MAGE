@@ -125,21 +125,21 @@
   <xs:complexType name="Gamera_config_type">
     <xs:all>
 
-      <xs:element name="sim">
+      <xs:element name="floors" minOccurs="0">
         <xs:complexType>
-          <xs:attribute name="runid" type="xs:string"/>
-          <xs:attribute name="doH5init" type="TorF"/>
-          <xs:attribute name="doH5g" type="TorF"/>
-          <xs:attribute name="H5Grid" type="xs:string"/>
-          <xs:attribute name="icType" type="initial_condition_type"/>
-          <xs:attribute name="pdmb" type="xs:decimal"/>
-          <xs:attribute name="rmeth" type="rmeth_type"/>
+          <!-- These are strings to allow for scientific notation. -->
+          <xs:attribute name="dFloor" type="xs:string"/>
+          <xs:attribute name="pFloor" type="xs:string"/>
         </xs:complexType>
       </xs:element>
 
       <xs:element name="idir" type="grid_axis_spec_type" minOccurs="0"/>
       <xs:element name="jdir" type="grid_axis_spec_type" minOccurs="0"/>
       <xs:element name="kdir" type="grid_axis_spec_type" minOccurs="0"/>
+
+      <xs:element name="iPdir" type="Pdir_type" minOccurs="0"/>
+      <xs:element name="jPdir" type="Pdir_type" minOccurs="0"/>
+      <xs:element name="kPdir" type="Pdir_type" minOccurs="0"/>
 
       <xs:element name="output" minOccurs="0">
         <xs:complexType>
@@ -167,18 +167,6 @@
         </xs:complexType>
       </xs:element>
 
-      <xs:element name="iPdir" type="Pdir_type" minOccurs="0"/>
-      <xs:element name="jPdir" type="Pdir_type" minOccurs="0"/>
-      <xs:element name="kPdir" type="Pdir_type" minOccurs="0"/>
-
-      <xs:element name="floors" minOccurs="0">
-        <xs:complexType>
-          <!-- These are strings to allow for scientific notation. -->
-          <xs:attribute name="dFloor" type="xs:string"/>
-          <xs:attribute name="pFloor" type="xs:string"/>
-        </xs:complexType>
-      </xs:element>
-
       <xs:element name="restart" minOccurs="0">
         <xs:complexType>
           <xs:attribute name="doRes" type="TorF"/>
@@ -199,6 +187,18 @@
       <xs:element name="ringknobs" minOccurs="0">
         <xs:complexType>
           <xs:attribute name="doVClean" type="TorF"/>
+        </xs:complexType>
+      </xs:element>
+
+      <xs:element name="sim">
+        <xs:complexType>
+          <xs:attribute name="runid" type="xs:string"/>
+          <xs:attribute name="doH5init" type="TorF"/>
+          <xs:attribute name="doH5g" type="TorF"/>
+          <xs:attribute name="H5Grid" type="xs:string"/>
+          <xs:attribute name="icType" type="initial_condition_type"/>
+          <xs:attribute name="pdmb" type="xs:decimal"/>
+          <xs:attribute name="rmeth" type="rmeth_type"/>
         </xs:complexType>
       </xs:element>
 
