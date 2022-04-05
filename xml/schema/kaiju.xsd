@@ -2,10 +2,12 @@
 
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
 
-  <!-- Single-character boolean ((T)rue or (F)alse) -->
-  <xs:simpleType name="TorF">
+  <!-- Simple types -->
+
+  <!-- grid type -->
+  <xs:simpleType name="grid_type">
     <xs:restriction base="xs:string">
-      <xs:pattern value="T|F"/>
+      <xs:enumeration value="lfm"/>
     </xs:restriction>
   </xs:simpleType>
 
@@ -25,6 +27,23 @@
     </xs:restriction>
   </xs:simpleType>
 
+  <!-- rmeth type (what is a rmeth?)-->
+  <xs:simpleType name="rmeth_type">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="7UP"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- Single-character boolean ((T)rue or (F)alse) -->
+  <xs:simpleType name="TorF">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="T|F"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+
+  <!-- Complex types -->
+
   <!-- Grid axis specification -->
   <xs:complexType name="grid_axis_spec_type">
     <xs:attribute name="min" type="xs:decimal"/>
@@ -40,75 +59,8 @@
     <xs:attribute name="bcPeriodic" type="TorF"/>
   </xs:complexType>
 
-  <!-- rmeth type (what is a rmeth?)-->
-  <xs:simpleType name="rmeth_type">
-    <xs:restriction base="xs:string">
-      <xs:enumeration value="7UP"/>
-    </xs:restriction>
-  </xs:simpleType>
 
-  <!-- grid type -->
-  <xs:simpleType name="grid_type">
-    <xs:restriction base="xs:string">
-      <xs:enumeration value="lfm"/>
-    </xs:restriction>
-  </xs:simpleType>
-
-  <!-- Configuration data for Voltron -->
-  <xs:complexType name="VOLTRON_config_type">
-    <xs:all>
-
-      <xs:element name="coupling" minOccurs="0">
-        <xs:complexType>
-          <xs:attribute name="doQkSquish" type="TorF"/>
-          <xs:attribute name="dt" type="xs:decimal"/>
-          <xs:attribute name="dtDeep" type="xs:decimal"/>
-          <xs:attribute name="imType" type="imType_type"/>
-          <xs:attribute name="qkSquishStride" type="xs:integer"/>
-          <xs:attribute name="rTrc" type="xs:decimal"/>
-        </xs:complexType>
-      </xs:element>
-
-      <xs:element name="ebsquish" minOccurs="0">
-        <xs:complexType>
-          <xs:attribute name="epsSquish" type="xs:decimal"/>
-        </xs:complexType>
-      </xs:element>
-
-      <xs:element name="imag" minOccurs="0">
-        <xs:complexType>
-          <xs:attribute name="doInit" type="TorF"/>
-        </xs:complexType>
-      </xs:element>
-
-      <xs:element name="output" minOccurs="0">
-        <xs:complexType>
-          <xs:attribute name="dtOut" type="xs:decimal"/>
-          <xs:attribute name="tsOut" type="xs:integer"/>
-        </xs:complexType>
-      </xs:element>
-
-      <xs:element name="restart" minOccurs="0">
-        <xs:complexType>
-          <xs:attribute name="dtRes" type="xs:decimal"/>
-        </xs:complexType>
-      </xs:element>
-
-      <xs:element name="spinup" minOccurs="0">
-        <xs:complexType>
-          <xs:attribute name="doSpin" type="TorF"/>
-          <xs:attribute name="tSpin" type="xs:decimal"/>
-        </xs:complexType>
-      </xs:element>
-
-      <xs:element name="time" minOccurs="0">
-        <xs:complexType>
-          <xs:attribute name="tFin" type="xs:decimal"/>
-        </xs:complexType>
-      </xs:element>
-
-    </xs:all>
-  </xs:complexType>
+  <!-- Program configuration types -->
 
   <!-- Configuration data for gamera -->
   <xs:complexType name="Gamera_config_type">
@@ -216,6 +168,63 @@
 
     </xs:all>
   </xs:complexType>
+
+  <!-- Configuration data for Voltron -->
+  <xs:complexType name="VOLTRON_config_type">
+    <xs:all>
+
+      <xs:element name="coupling" minOccurs="0">
+        <xs:complexType>
+          <xs:attribute name="doQkSquish" type="TorF"/>
+          <xs:attribute name="dt" type="xs:decimal"/>
+          <xs:attribute name="dtDeep" type="xs:decimal"/>
+          <xs:attribute name="imType" type="imType_type"/>
+          <xs:attribute name="qkSquishStride" type="xs:integer"/>
+          <xs:attribute name="rTrc" type="xs:decimal"/>
+        </xs:complexType>
+      </xs:element>
+
+      <xs:element name="ebsquish" minOccurs="0">
+        <xs:complexType>
+          <xs:attribute name="epsSquish" type="xs:decimal"/>
+        </xs:complexType>
+      </xs:element>
+
+      <xs:element name="imag" minOccurs="0">
+        <xs:complexType>
+          <xs:attribute name="doInit" type="TorF"/>
+        </xs:complexType>
+      </xs:element>
+
+      <xs:element name="output" minOccurs="0">
+        <xs:complexType>
+          <xs:attribute name="dtOut" type="xs:decimal"/>
+          <xs:attribute name="tsOut" type="xs:integer"/>
+        </xs:complexType>
+      </xs:element>
+
+      <xs:element name="restart" minOccurs="0">
+        <xs:complexType>
+          <xs:attribute name="dtRes" type="xs:decimal"/>
+        </xs:complexType>
+      </xs:element>
+
+      <xs:element name="spinup" minOccurs="0">
+        <xs:complexType>
+          <xs:attribute name="doSpin" type="TorF"/>
+          <xs:attribute name="tSpin" type="xs:decimal"/>
+        </xs:complexType>
+      </xs:element>
+
+      <xs:element name="time" minOccurs="0">
+        <xs:complexType>
+          <xs:attribute name="tFin" type="xs:decimal"/>
+        </xs:complexType>
+      </xs:element>
+
+    </xs:all>
+  </xs:complexType>
+
 
   <!-- Top-level kaiju configuration element -->
   <xs:complexType name="Kaiju_config_type">
