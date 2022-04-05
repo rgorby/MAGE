@@ -32,6 +32,13 @@
     </xs:restriction>
   </xs:simpleType>
 
+  <!-- Valid imeth types (what is imeth?) -->
+  <xs:simpleType name="imeth_type">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="FO"/>
+    </xs:restriction>
+  </xs:simpleType>
+
   <!-- Valid imType types (what is imType?) -->
   <xs:simpleType name="imType_type">
     <xs:restriction base="xs:string">
@@ -62,10 +69,25 @@
     </xs:restriction>
   </xs:simpleType>
 
+  <!-- species type (what is a species?)-->
+  <xs:simpleType name="species_type">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="Op"/>
+    </xs:restriction>
+  </xs:simpleType>
+
   <!-- Single-character boolean ((T)rue or (F)alse) -->
   <xs:simpleType name="TorF">
     <xs:restriction base="xs:string">
       <xs:pattern value="T|F"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- Units type -->
+  <xs:simpleType name="units_type">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="EARTHCODE"/>
+      <xs:enumeration value="LFM"/>
     </xs:restriction>
   </xs:simpleType>
 
@@ -94,27 +116,139 @@
   <xs:complexType name="CHIMP_config_type">
     <xs:all>
 
+      <xs:element name="alpha" minOccurs="0">
+        <xs:complexType>
+          <xs:attribute name="max" type="xs:decimal"/>
+          <xs:attribute name="min" type="xs:decimal"/>
+          <!-- Uncomment the assertion if using a XML schema 1.1 parser. -->
+          <!-- <xs:assert test="@min lt @max"/> -->
+        </xs:complexType>
+      </xs:element>
+
       <xs:element name="domain" minOccurs="0">
         <xs:complexType>
           <xs:attribute name="dtype" type="domain_type"/>
+          <xs:attribute name="rmax" type="xs:decimal"/>
+          <xs:attribute name="rmin" type="xs:decimal"/>
+          <!-- Uncomment the assertion if using a XML schema 1.1 parser. -->
+          <!-- <xs:assert test="@rmin lt @rmax"/> -->
+        </xs:complexType>
+      </xs:element>
+
+      <xs:element name="energy" minOccurs="0">
+        <xs:complexType>
+          <xs:attribute name="doEBInit" type="TorF"/>
+          <xs:attribute name="doLog" type="TorF"/>
+          <xs:attribute name="max" type="xs:decimal"/>
+          <xs:attribute name="min" type="xs:decimal"/>
+          <!-- Uncomment the assertion if using a XML schema 1.1 parser. -->
+          <!-- <xs:assert test="@min lt @max"/> -->
         </xs:complexType>
       </xs:element>
 
       <xs:element name="fields" minOccurs="0">
         <xs:complexType>
+          <xs:attribute name="doMHD" type="TorF"/>
+          <xs:attribute name="ebfile" type="xs:string"/>
           <xs:attribute name="grType" type="grType_type"/>
+          <xs:attribute name="isMPI" type="TorF"/>
+        </xs:complexType>
+      </xs:element>
+
+      <xs:element name="height" minOccurs="0">
+        <xs:complexType>
+          <xs:attribute name="doOutflow" type="TorF"/>
+          <xs:attribute name="max" type="xs:decimal"/>
+          <xs:attribute name="min" type="xs:decimal"/>
+          <!-- Uncomment the assertion if using a XML schema 1.1 parser. -->
+          <!-- <xs:assert test="@min lt @max"/> -->
+        </xs:complexType>
+      </xs:element>
+
+      <xs:element name="output" minOccurs="0">
+        <xs:complexType>
+          <xs:attribute name="doEQProj" type="TorF"/>
+          <xs:attribute name="dtOut" type="xs:decimal"/>
+          <xs:attribute name="tsOut" type="xs:decimal"/>
+        </xs:complexType>
+      </xs:element>
+
+      <xs:element name="parallel" minOccurs="0">
+        <xs:complexType>
+          <xs:attribute name="Ri" type="xs:integer"/>
+          <xs:attribute name="Rj" type="xs:integer"/>
+          <xs:attribute name="Rk" type="xs:integer"/>
+        </xs:complexType>
+      </xs:element>
+
+      <xs:element name="phi" minOccurs="0">
+        <xs:complexType>
+          <xs:attribute name="max" type="xs:decimal"/>
+          <xs:attribute name="min" type="xs:decimal"/>
+          <!-- Uncomment the assertion if using a XML schema 1.1 parser. -->
+          <!-- <xs:assert test="@min lt @max"/> -->
+        </xs:complexType>
+      </xs:element>
+
+      <xs:element name="pusher" minOccurs="0">
+        <xs:complexType>
+          <xs:attribute name="epsht" type="xs:decimal"/>
+          <xs:attribute name="imeth" type="imeth_type"/>
+        </xs:complexType>
+      </xs:element>
+
+      <xs:element name="radius" minOccurs="0">
+        <xs:complexType>
+          <xs:attribute name="max" type="xs:decimal"/>
+          <xs:attribute name="min" type="xs:decimal"/>
+          <!-- Uncomment the assertion if using a XML schema 1.1 parser. -->
+          <!-- <xs:assert test="@min lt @max"/> -->
+        </xs:complexType>
+      </xs:element>
+
+      <xs:element name="sim" minOccurs="0">
+        <xs:complexType>
+          <xs:attribute name="grType" type="grType_type"/>
+          <xs:attribute name="runid" type="xs:string"/>
+        </xs:complexType>
+      </xs:element>
+
+      <xs:element name="stream" minOccurs="0">
+        <xs:complexType>
+          <xs:attribute name="doStream" type="TorF"/>
+          <xs:attribute name="max" type="xs:decimal"/>
+          <xs:attribute name="min" type="xs:decimal"/>
+          <!-- Uncomment the assertion if using a XML schema 1.1 parser. -->
+          <!-- <xs:assert test="@min lt @max"/> -->
+          <xs:attribute name="runid" type="xs:string"/>
+        </xs:complexType>
+      </xs:element>
+
+      <xs:element name="time" minOccurs="0">
+        <xs:complexType>
+          <xs:attribute name="dt" type="xs:decimal"/>
+          <xs:attribute name="T0" type="xs:decimal"/>
+          <xs:attribute name="tFin" type="xs:decimal"/>
+        </xs:complexType>
+      </xs:element>
+
+      <xs:element name="tps" minOccurs="0">
+        <xs:complexType>
+          <xs:attribute name="Np" type="xs:integer"/>
+          <xs:attribute name="species" type="species_type"/>
         </xs:complexType>
       </xs:element>
 
       <xs:element name="tracer" minOccurs="0">
         <xs:complexType>
           <xs:attribute name="epsds" type="xs:decimal"/>
+          <xs:attribute name="runid" type="xs:string"/>
         </xs:complexType>
       </xs:element>
 
       <xs:element name="units" minOccurs="0">
         <xs:complexType>
-          <xs:attribute name="uid" type="xs:string"/>
+          <xs:attribute name="uid" type="units_type"/>
         </xs:complexType>
       </xs:element>
 
@@ -325,6 +459,7 @@
 
       <xs:element name="output" minOccurs="0">
         <xs:complexType>
+          <xs:attribute name="doTimer" type="TorF"/>
           <xs:attribute name="dtOut" type="xs:decimal"/>
           <xs:attribute name="tsOut" type="xs:integer"/>
         </xs:complexType>
