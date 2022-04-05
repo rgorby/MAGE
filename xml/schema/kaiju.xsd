@@ -41,6 +41,13 @@
     </xs:restriction>
   </xs:simpleType>
 
+  <!-- RCM domain type -->
+  <xs:simpleType name="RCM_domain_type">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="ELLIPSE"/>
+    </xs:restriction>
+  </xs:simpleType>
+
   <!-- rmeth type (what is a rmeth?)-->
   <xs:simpleType name="rmeth_type">
     <xs:restriction base="xs:string">
@@ -214,6 +221,47 @@
     </xs:all>
   </xs:complexType>
 
+  <!-- Configuration data for RCM -->
+  <xs:complexType name="RCM_config_type">
+    <xs:all>
+
+      <xs:element name="ellipse" minOccurs="0">
+        <xs:complexType>
+          <xs:attribute name="isDynamic" type="TorF"/>
+          <xs:attribute name="xSun" type="xs:decimal"/>
+          <xs:attribute name="xTail" type="xs:decimal"/>
+          <xs:attribute name="yDD" type="xs:decimal"/>
+        </xs:complexType>
+      </xs:element>
+
+      <xs:element name="grid" minOccurs="0">
+        <xs:complexType>
+          <xs:attribute name="doLatStretch" type="TorF"/>
+          <xs:attribute name="HiLat" type="xs:decimal"/>
+          <xs:attribute name="LowLat" type="xs:decimal"/>
+        </xs:complexType>
+      </xs:element>
+
+      <xs:element name="plasmasphere" minOccurs="0">
+        <xs:complexType>
+          <!-- DenPP0 is a string to allow for scientific notation. -->
+          <xs:attribute name="DenPP0" type="xs:string"/>
+          <xs:attribute name="doRefill" type="TorF"/>
+          <xs:attribute name="initKp" type="xs:integer"/>
+          <xs:attribute name="isDynamic" type="TorF"/>
+          <xs:attribute name="tAvg" type="xs:decimal"/>
+        </xs:complexType>
+      </xs:element>
+
+      <xs:element name="rcmdomain" minOccurs="0">
+        <xs:complexType>
+          <xs:attribute name="domType" type="RCM_domain_type"/>
+        </xs:complexType>
+      </xs:element>
+
+    </xs:all>
+  </xs:complexType>
+
   <!-- Configuration data for Voltron -->
   <xs:complexType name="VOLTRON_config_type">
     <xs:all>
@@ -275,7 +323,8 @@
   <xs:complexType name="Kaiju_config_type">
     <xs:all>
       <xs:element name="CHIMP" type="CHIMP_config_type" minOccurs="0"/>
-      <xs:element name="Gamera" type="Gamera_config_type"/>
+      <xs:element name="Gamera" type="Gamera_config_type" minOccurs="0"/>
+      <xs:element name="RCM" type="RCM_config_type" minOccurs="0"/>
       <xs:element name="VOLTRON" type="VOLTRON_config_type" minOccurs="0"/>
     </xs:all>
   </xs:complexType>
