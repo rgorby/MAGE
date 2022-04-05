@@ -35,6 +35,7 @@
   <!-- Valid imeth types (what is imeth?) -->
   <xs:simpleType name="imeth_type">
     <xs:restriction base="xs:string">
+      <xs:enumeration value="DYN"/>
       <xs:enumeration value="FO"/>
     </xs:restriction>
   </xs:simpleType>
@@ -72,6 +73,7 @@
   <!-- species type (what is a species?)-->
   <xs:simpleType name="species_type">
     <xs:restriction base="xs:string">
+      <xs:enumeration value="e"/>
       <xs:enumeration value="Op"/>
     </xs:restriction>
   </xs:simpleType>
@@ -86,6 +88,7 @@
   <!-- Units type -->
   <xs:simpleType name="units_type">
     <xs:restriction base="xs:string">
+      <xs:enumeration value="EARTH"/>
       <xs:enumeration value="EARTHCODE"/>
       <xs:enumeration value="LFM"/>
     </xs:restriction>
@@ -169,6 +172,7 @@
         <xs:complexType>
           <xs:attribute name="doEQProj" type="TorF"/>
           <xs:attribute name="dtOut" type="xs:decimal"/>
+          <xs:attribute name="T0Out" type="xs:decimal"/>
           <xs:attribute name="tsOut" type="xs:decimal"/>
         </xs:complexType>
       </xs:element>
