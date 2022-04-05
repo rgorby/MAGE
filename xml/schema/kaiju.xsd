@@ -4,10 +4,24 @@
 
   <!-- Simple types -->
 
+  <!-- domain type -->
+  <xs:simpleType name="domain_type">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="MAGE"/>
+    </xs:restriction>
+  </xs:simpleType>
+
   <!-- grid type -->
   <xs:simpleType name="grid_type">
     <xs:restriction base="xs:string">
       <xs:enumeration value="lfm"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- grid type (as grType)-->
+  <xs:simpleType name="grType_type">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="LFM"/>
     </xs:restriction>
   </xs:simpleType>
 
@@ -61,6 +75,37 @@
 
 
   <!-- Program configuration types -->
+
+  <!-- Configuration data for CHIMP -->
+  <xs:complexType name="CHIMP_config_type">
+    <xs:all>
+
+      <xs:element name="domain" minOccurs="0">
+        <xs:complexType>
+          <xs:attribute name="dtype" type="domain_type"/>
+        </xs:complexType>
+      </xs:element>
+
+      <xs:element name="fields" minOccurs="0">
+        <xs:complexType>
+          <xs:attribute name="grType" type="grType_type"/>
+        </xs:complexType>
+      </xs:element>
+
+      <xs:element name="tracer" minOccurs="0">
+        <xs:complexType>
+          <xs:attribute name="epsds" type="xs:decimal"/>
+        </xs:complexType>
+      </xs:element>
+
+      <xs:element name="units" minOccurs="0">
+        <xs:complexType>
+          <xs:attribute name="uid" type="xs:string"/>
+        </xs:complexType>
+      </xs:element>
+
+    </xs:all>
+  </xs:complexType>
 
   <!-- Configuration data for gamera -->
   <xs:complexType name="Gamera_config_type">
@@ -229,8 +274,9 @@
   <!-- Top-level kaiju configuration element -->
   <xs:complexType name="Kaiju_config_type">
     <xs:all>
-      <xs:element name="VOLTRON" type="VOLTRON_config_type" minOccurs="0"/>
+      <xs:element name="CHIMP" type="CHIMP_config_type" minOccurs="0"/>
       <xs:element name="Gamera" type="Gamera_config_type"/>
+      <xs:element name="VOLTRON" type="VOLTRON_config_type" minOccurs="0"/>
     </xs:all>
   </xs:complexType>
 
