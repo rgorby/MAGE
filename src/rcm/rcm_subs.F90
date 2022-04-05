@@ -1232,7 +1232,7 @@
         call AddInVar(IOVars,"Tau2i") !9
         call ReadVars(IOVars,doSP,RCMGAMConfig)
 
-        !Store data
+        !Store data for energy channels
         alamc(:)   = IOVars(1)%data
         ikflavc(:) = IOVars(2)%data
         fudgec(:)  = IOVars(3)%data
@@ -1240,7 +1240,8 @@
         ! reset to make sure species if ikflav ==1 alamc is set to negative, for electrons
         where(ikflavc==1)alamc = -abs(alamc)
 
-        ! Only compatible with tau(MLT,L,Kp,Ek)
+        !Store data for wave models
+        !Dimension check: only compatible with tau(MLT,L,Kp,Ek)
         tauDim = IOVars(8)%Nr
         if ( tauDim /= 4) then
             write(*,*) "tauDim:",tauDim
@@ -1259,7 +1260,8 @@
             write(*,*) 'Dimensions of tau arrays are not compatible'
             stop
         endif
-      
+
+        !Store arrays      
         EWMTauInput%Nk = Nk
         EWMTauInput%Nm = Nm
         EWMTauInput%Nl = Nl
@@ -1269,13 +1271,23 @@
         allocate(EWMTauInput%MLTi(Nm))
         allocate(EWMTauInput%Li(Nl))
         allocate(EWMTauInput%Eki(Ne))
+        allocate(EWMTauInput%tau1i(Nk,Nm,Nl,Ne))
+        allocate(EWMTauInput%tau2i(Nk,Nm,Nl,Ne))
 
         call IOArray1DFill(IOVars,"Kpi",EWMTauInput%Kpi)
         call IOArray1DFill(IOVars,"MLTi",EWMTauInput%MLTi)
         call IOArray1DFill(IOVars,"Li", EWMTauInput%Li)
         call IOArray1DFill(IOVars,"Eki",EWMTauInput%Eki)
+        EWMTauInput%tau1i(:,:,:,:) = reshape(IOVars(8)%data,dims)
+        EWMTauInput%tau2i(:,:,:,:) = reshape(IOVars(9)%data,dims)
 
-        ! Assumes array is in acsending order
+        !Array order check: array is in acsending order
+        if(EWMTauInput%Kpi(1) > EWMTauInput%Kpi(Nk)) then
+            write(*,*) "Kp: ",EWMTauInput%Kpi
+            write(*,*) "reorder wave model so Kp is in ascending order"
+            stop
+        end if
+
         if(EWMTauInput%Li(1) > EWMTauInput%Li(Nl)) then
             write(*,*) "L: ",EWMTauInput%Li
             write(*,*) "reorder wave model so L shell is in ascending order"
@@ -1294,16 +1306,6 @@
             stop
         end if
         
-        allocate(EWMTauInput%tau1i(Nk,Nm,Nl,Ne))
-        allocate(EWMTauInput%tau2i(Nk,Nm,Nl,Ne))
-        EWMTauInput%tau1i(:,:,:,:) = reshape(IOVars(8)%data,dims)
-        EWMTauInput%tau2i(:,:,:,:) = reshape(IOVars(9)%data,dims)
-
-        write(*,*)"Inside read_h5"
-        write(*,*)"Kpi:",EWMTauInput%Kpi
-        write(*,*)"Li:",EWMTauInput%Li
-        write(*,*)"Eki:",EWMTauInput%Eki
-        write(*,*)"MLTi:",EWMTauInput%MLTi
 
       END SUBROUTINE Read_plasma_H5
 !
