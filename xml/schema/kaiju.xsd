@@ -9,6 +9,13 @@
     </xs:restriction>
   </xs:simpleType>
 
+  <!-- Valid imType types (what is imType?) -->
+  <xs:simpleType name="imType_type">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="RCM"/>
+    </xs:restriction>
+  </xs:simpleType>
+
   <!-- Valid initial condition types in gamera -->
   <xs:simpleType name="initial_condition_type">
     <xs:restriction base="xs:string">
@@ -48,10 +55,60 @@
   </xs:simpleType>
 
   <!-- Configuration data for Voltron -->
-  <!-- <xs:complexType name="VOLTRON_config_type">
+  <xs:complexType name="VOLTRON_config_type">
     <xs:all>
+
+      <xs:element name="coupling" minOccurs="0">
+        <xs:complexType>
+          <xs:attribute name="doQkSquish" type="TorF"/>
+          <xs:attribute name="dt" type="xs:decimal"/>
+          <xs:attribute name="dtDeep" type="xs:decimal"/>
+          <xs:attribute name="imType" type="imType_type"/>
+          <xs:attribute name="qkSquishStride" type="xs:integer"/>
+          <xs:attribute name="rTrc" type="xs:decimal"/>
+        </xs:complexType>
+      </xs:element>
+
+      <xs:element name="ebsquish" minOccurs="0">
+        <xs:complexType>
+          <xs:attribute name="epsSquish" type="xs:decimal"/>
+        </xs:complexType>
+      </xs:element>
+
+      <xs:element name="imag" minOccurs="0">
+        <xs:complexType>
+          <xs:attribute name="doInit" type="TorF"/>
+        </xs:complexType>
+      </xs:element>
+
+      <xs:element name="output" minOccurs="0">
+        <xs:complexType>
+          <xs:attribute name="dtOut" type="xs:decimal"/>
+          <xs:attribute name="tsOut" type="xs:integer"/>
+        </xs:complexType>
+      </xs:element>
+
+      <xs:element name="restart" minOccurs="0">
+        <xs:complexType>
+          <xs:attribute name="dtRes" type="xs:decimal"/>
+        </xs:complexType>
+      </xs:element>
+
+      <xs:element name="spinup" minOccurs="0">
+        <xs:complexType>
+          <xs:attribute name="doSpin" type="TorF"/>
+          <xs:attribute name="tSpin" type="xs:decimal"/>
+        </xs:complexType>
+      </xs:element>
+
+      <xs:element name="time" minOccurs="0">
+        <xs:complexType>
+          <xs:attribute name="tFin" type="xs:decimal"/>
+        </xs:complexType>
+      </xs:element>
+
     </xs:all>
-  </xs:complexType> -->
+  </xs:complexType>
 
   <!-- Configuration data for gamera -->
   <xs:complexType name="Gamera_config_type">
@@ -163,6 +220,7 @@
   <!-- Top-level kaiju configuration element -->
   <xs:complexType name="Kaiju_config_type">
     <xs:all>
+      <xs:element name="VOLTRON" type="VOLTRON_config_type" minOccurs="0"/>
       <xs:element name="Gamera" type="Gamera_config_type"/>
     </xs:all>
   </xs:complexType>
