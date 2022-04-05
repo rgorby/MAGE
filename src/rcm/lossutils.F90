@@ -178,7 +178,7 @@ MODULE lossutils
 
         associate(Nm=>EWMTauInput%Nm,Nl=>EWMTauInput%Nl,Nk=>EWMTauInput%Nk,Ne=>EWMTauInput%Ne,&
                   Kpi=>EWMTauInput%Kpi,MLTi=>EWMTauInput%MLTi,Li=>EWMTauInput%Li,Eki=>EWMTauInput%Eki,&
-                  taui=>EWMTauInput%tau2i)
+                  taui=>EWMTauInput%tau2i) ! using method 2
                   !taui=>EWMTauInput%tau1i)
 
         ! look up in Kp
