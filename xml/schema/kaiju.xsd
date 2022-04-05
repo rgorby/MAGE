@@ -31,6 +31,7 @@
     <xs:restriction base="xs:string">
       <xs:enumeration value="LFM"/>
       <xs:enumeration value="LFM2D"/>
+      <xs:enumeration value="SPHERICAL"/>
     </xs:restriction>
   </xs:simpleType>
 
@@ -93,6 +94,13 @@
       <xs:enumeration value="EARTH"/>
       <xs:enumeration value="EARTHCODE"/>
       <xs:enumeration value="LFM"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- wgt type (assume this is a weight?) -->
+  <xs:simpleType name="wgt_type">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="TSC"/>
     </xs:restriction>
   </xs:simpleType>
 
@@ -170,6 +178,12 @@
         </xs:complexType>
       </xs:element>
 
+      <xs:element name="interp" minOccurs="0">
+        <xs:complexType>
+          <xs:attribute name="wgt" type="wgt_type"/>
+        </xs:complexType>
+      </xs:element>
+
       <xs:element name="output" minOccurs="0">
         <xs:complexType>
           <xs:attribute name="doEQProj" type="TorF"/>
@@ -195,6 +209,15 @@
           <xs:attribute name="min" type="xs:decimal"/>
           <!-- Uncomment the assertion if using a XML schema 1.1 parser. -->
           <!-- <xs:assert test="@min lt @max"/> -->
+        </xs:complexType>
+      </xs:element>
+
+      <xs:element name="points" minOccurs="0">
+        <xs:complexType>
+          <xs:attribute name="grType" type="grType_type"/>
+          <xs:attribute name="Nx1" type="xs:integer"/>
+          <xs:attribute name="Nx2" type="xs:integer"/>
+          <xs:attribute name="Nx3" type="xs:integer"/>
         </xs:complexType>
       </xs:element>
 
@@ -238,6 +261,15 @@
           <!-- Uncomment the assertion if using a XML schema 1.1 parser. -->
           <!-- <xs:assert test="@min lt @max"/> -->
           <xs:attribute name="runid" type="xs:string"/>
+        </xs:complexType>
+      </xs:element>
+
+      <xs:element name="theta" minOccurs="0">
+        <xs:complexType>
+          <xs:attribute name="max" type="xs:decimal"/>
+          <xs:attribute name="min" type="xs:decimal"/>
+          <!-- Uncomment the assertion if using a XML schema 1.1 parser. -->
+          <!-- <xs:assert test="@min lt @max"/> -->
         </xs:complexType>
       </xs:element>
 
