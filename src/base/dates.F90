@@ -48,7 +48,7 @@ module dates
     !   rSec REAL  Second of Minute for MJD
     !NOTE: mjd is inout only b/c of annoying dependencies, should be fixed
     subroutine mjd2ut(mjd,iyr,idoy,imon,iday,ihr,imin,rsec)
-        real(rp), intent(in) :: mjd
+        real(rp), intent(inout) :: mjd
         real(rp), intent(inout) :: rSec
         integer,  intent(inout) :: iyr,idoy,imon,iday,ihr,imin
 
@@ -71,7 +71,7 @@ module dates
     end subroutine mjd2ut
 
     subroutine mjd2utstr(mjd,utStr)
-        real(rp), intent(in) :: mjd
+        real(rp), intent(inout) :: mjd
         character(len=*), intent(inout) :: utStr
 
         integer :: iYr,iDoY,iMon,iDay,iHr,iMin
