@@ -14,6 +14,7 @@
   <!-- domain type -->
   <xs:simpleType name="domain_type">
     <xs:restriction base="xs:string">
+      <xs:enumeration value="LFMCYL"/>
       <xs:enumeration value="MAGE"/>
     </xs:restriction>
   </xs:simpleType>
@@ -29,6 +30,7 @@
   <xs:simpleType name="grType_type">
     <xs:restriction base="xs:string">
       <xs:enumeration value="LFM"/>
+      <xs:enumeration value="LFM2D"/>
     </xs:restriction>
   </xs:simpleType>
 
@@ -171,6 +173,8 @@
       <xs:element name="output" minOccurs="0">
         <xs:complexType>
           <xs:attribute name="doEQProj" type="TorF"/>
+          <xs:attribute name="doSlim" type="TorF"/>
+          <xs:attribute name="doTrc" type="TorF"/>
           <xs:attribute name="dtOut" type="xs:decimal"/>
           <xs:attribute name="T0Out" type="xs:decimal"/>
           <xs:attribute name="tsOut" type="xs:decimal"/>
@@ -214,6 +218,15 @@
         <xs:complexType>
           <xs:attribute name="grType" type="grType_type"/>
           <xs:attribute name="runid" type="xs:string"/>
+        </xs:complexType>
+      </xs:element>
+
+      <xs:element name="slice" minOccurs="0">
+        <xs:complexType>
+          <xs:attribute name="doXY" type="TorF"/>
+          <xs:attribute name="grType" type="grType_type"/>
+          <xs:attribute name="Npow" type="xs:integer"/>
+          <xs:attribute name="xSun" type="xs:decimal"/>
         </xs:complexType>
       </xs:element>
 
