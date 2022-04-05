@@ -7,6 +7,7 @@
   <!-- aurora model type -->
   <xs:simpleType name="aurora_model_type_type">
     <xs:restriction base="xs:string">
+      <xs:enumeration value="FEDDER"/>
       <xs:enumeration value="RCMONO"/>
     </xs:restriction>
   </xs:simpleType>
@@ -373,7 +374,7 @@
         </xs:complexType>
       </xs:element>
 
-      <xs:element name="sim">
+      <xs:element name="sim" minOccurs="0">
         <xs:complexType>
           <xs:attribute name="runid" type="xs:string"/>
           <xs:attribute name="doH5init" type="TorF"/>
@@ -391,6 +392,12 @@
           <xs:attribute name="doWolfLim" type="TorF"/>
           <xs:attribute name="doBounceDT" type="TorF"/>
           <xs:attribute name="nBounce" type="xs:decimal"/>
+        </xs:complexType>
+      </xs:element>
+
+      <xs:element name="threading" minOccurs="0">
+        <xs:complexType>
+          <xs:attribute name="NumTh" type="xs:integer"/>
         </xs:complexType>
       </xs:element>
 
@@ -468,11 +475,21 @@
         </xs:complexType>
       </xs:element>
 
+      <xs:element name="grid" minOccurs="0">
+        <xs:complexType>
+          <xs:attribute name="LowLatBoundary" type="xs:decimal"/>
+          <xs:attribute name="Np" type="xs:integer"/>
+          <xs:attribute name="Nt" type="xs:integer"/>
+        </xs:complexType>
+      </xs:element>
+
       <xs:element name="precipitation" minOccurs="0">
         <xs:complexType>
           <xs:attribute name="aurora_model_type" type="aurora_model_type_type"/>
           <xs:attribute name="alpha" type="xs:decimal"/>
           <xs:attribute name="beta" type="xs:decimal"/>
+          <xs:attribute name="doAuroralSmooth" type="TorF"/>
+          <xs:attribute name="R" type="xs:decimal"/>
         </xs:complexType>
       </xs:element>
 
@@ -524,6 +541,13 @@
         <xs:complexType>
           <xs:attribute name="doSpin" type="TorF"/>
           <xs:attribute name="tSpin" type="xs:decimal"/>
+          <xs:attribute name="tIO" type="xs:decimal"/>
+        </xs:complexType>
+      </xs:element>
+
+      <xs:element name="threading" minOccurs="0">
+        <xs:complexType>
+          <xs:attribute name="NumTh" type="xs:integer"/>
         </xs:complexType>
       </xs:element>
 
