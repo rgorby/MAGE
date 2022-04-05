@@ -4,6 +4,13 @@
 
   <!-- Simple types -->
 
+  <!-- aurora model type -->
+  <xs:simpleType name="aurora_model_type_type">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="RCMONO"/>
+    </xs:restriction>
+  </xs:simpleType>
+
   <!-- domain type -->
   <xs:simpleType name="domain_type">
     <xs:restriction base="xs:string">
@@ -262,7 +269,29 @@
     </xs:all>
   </xs:complexType>
 
-  <!-- Configuration data for Voltron -->
+  <!-- Configuration data for REMIX -->
+  <xs:complexType name="REMIX_config_type">
+    <xs:all>
+
+      <xs:element name="conductance" minOccurs="0">
+        <xs:complexType>
+          <xs:attribute name="doStarlight" type="TorF"/>
+          <xs:attribute name="doRamp" type="TorF"/>
+        </xs:complexType>
+      </xs:element>
+
+      <xs:element name="precipitation" minOccurs="0">
+        <xs:complexType>
+          <xs:attribute name="aurora_model_type" type="aurora_model_type_type"/>
+          <xs:attribute name="alpha" type="xs:decimal"/>
+          <xs:attribute name="beta" type="xs:decimal"/>
+        </xs:complexType>
+      </xs:element>
+
+    </xs:all>
+  </xs:complexType>
+
+  <!-- Configuration data for VOLTRON -->
   <xs:complexType name="VOLTRON_config_type">
     <xs:all>
 
@@ -325,6 +354,7 @@
       <xs:element name="CHIMP" type="CHIMP_config_type" minOccurs="0"/>
       <xs:element name="Gamera" type="Gamera_config_type" minOccurs="0"/>
       <xs:element name="RCM" type="RCM_config_type" minOccurs="0"/>
+      <xs:element name="REMIX" type="REMIX_config_type" minOccurs="0"/>
       <xs:element name="VOLTRON" type="VOLTRON_config_type" minOccurs="0"/>
     </xs:all>
   </xs:complexType>
