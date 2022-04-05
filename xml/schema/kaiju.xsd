@@ -141,25 +141,21 @@
       <xs:element name="jdir" type="grid_axis_spec_type" minOccurs="0"/>
       <xs:element name="kdir" type="grid_axis_spec_type" minOccurs="0"/>
 
-      <xs:element name="time" minOccurs="0">
-        <xs:complexType>
-          <xs:attribute name="tFin" type="xs:decimal"/>
-        </xs:complexType>
-      </xs:element>
-
       <xs:element name="output" minOccurs="0">
         <xs:complexType>
           <xs:attribute name="dtOut" type="xs:decimal"/>
+          <xs:attribute name="timer" type="TorF"/>
           <xs:attribute name="tsOut" type="xs:decimal"/>
         </xs:complexType>
       </xs:element>
 
-      <xs:element name="physics">
+      <xs:element name="physics" minOccurs="0">
         <xs:complexType>
+          <xs:attribute name="Ca" type="xs:decimal"/>
           <xs:attribute name="doMHD" type="TorF"/>
           <xs:attribute name="do25D" type="TorF"/>
           <xs:attribute name="doBoris" type="TorF"/>
-          <xs:attribute name="Ca" type="xs:decimal"/>
+          <xs:attribute name="gamma" type="xs:decimal"/>
         </xs:complexType>
       </xs:element>
 
@@ -167,6 +163,7 @@
         <xs:complexType>
           <xs:attribute name="alpha" type="xs:integer"/>
           <xs:attribute name="B0" type="xs:decimal"/>
+          <xs:attribute name="Tsolar" type="xs:decimal"/>
         </xs:complexType>
       </xs:element>
 
@@ -185,6 +182,8 @@
       <xs:element name="restart" minOccurs="0">
         <xs:complexType>
           <xs:attribute name="doRes" type="TorF"/>
+          <xs:attribute name="dtRes" type="xs:decimal"/>
+          <xs:attribute name="resFile" type="xs:string"/>
           <xs:attribute name="resID" type="xs:string"/>
           <xs:attribute name="nRes" type="xs:integer"/>
         </xs:complexType>
@@ -209,6 +208,12 @@
           <xs:attribute name="doWolfLim" type="TorF"/>
           <xs:attribute name="doBounceDT" type="TorF"/>
           <xs:attribute name="nBounce" type="xs:decimal"/>
+        </xs:complexType>
+      </xs:element>
+
+      <xs:element name="time" minOccurs="0">
+        <xs:complexType>
+          <xs:attribute name="tFin" type="xs:decimal"/>
         </xs:complexType>
       </xs:element>
 
