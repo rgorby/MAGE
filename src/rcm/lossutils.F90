@@ -178,7 +178,11 @@ MODULE lossutils
 
         associate(Nm=>EWMTauInput%Nm,Nl=>EWMTauInput%Nl,Nk=>EWMTauInput%Nk,Ne=>EWMTauInput%Ne,&
                   Kpi=>EWMTauInput%Kpi,MLTi=>EWMTauInput%MLTi,Li=>EWMTauInput%Li,Eki=>EWMTauInput%Eki,&
+<<<<<<< HEAD
                   taui=>EWMTauInput%tau2i) ! using method 2
+=======
+                  taui=>EWMTauInput%tau2i)
+>>>>>>> parent of de13dd15... merge development
                   !taui=>EWMTauInput%tau1i)
 
         ! look up in Kp
@@ -564,7 +568,12 @@ MODULE lossutils
         elseif (L<1.5) then
            L = 1.5
         endif
+<<<<<<< HEAD
       
+=======
+        L2 = L*L !renew L2
+        
+>>>>>>> parent of de13dd15... merge development
         if (E>1.0) then
            E = 1.0
         elseif (E<-3.0) then

@@ -3117,9 +3117,13 @@ FUNCTION Ratefn (xx,yy,alamx,vmx,beqx,losscx,nex,kpx,fudgxO,sinixO,birxO,xmfactO
 END FUNCTION Ratefn
 
 FUNCTION RatefnDW(xx,yy,alamx,vmx,nex,kpx,bqx,losscx)
+<<<<<<< HEAD
   !Function to calculate diffuse electron precipitation loss rate using 
   ! 1. Dedong Wang's chorus wave model
   ! 2. Orlova16 hiss wave model
+=======
+  !Function to calculate diffuse electron precipitation loss rate using Dedong Wang's model
+>>>>>>> parent of de13dd15... merge development
   
   use lossutils, ONLY: RatefnC_tau_s, RatefnDW_tau_c,RatefnC_tau_h16
   IMPLICIT NONE
@@ -3134,6 +3138,11 @@ FUNCTION RatefnDW(xx,yy,alamx,vmx,nex,kpx,bqx,losscx)
   E = abs(alamx*vmx*1.0e-6) !Energy [MeV]
   RatefnDW(1) = 1.D10
   RatefnDW(2) = 1.0
+<<<<<<< HEAD
+=======
+  !tau = RatefnDW_tau_c(kpx,MLT,L,E)
+  !RatefnDW(1) = 1.0/tau
+>>>>>>> parent of de13dd15... merge development
   tau_s = RatefnC_tau_s(alamx,vmx,bqx,losscx)
 
   if(nex<nlow) then
@@ -3146,6 +3155,11 @@ FUNCTION RatefnDW(xx,yy,alamx,vmx,nex,kpx,bqx,losscx)
        RatefnDW(2) = 1.0
     endif
     RatefnDW(1) = 1.0/tau
+<<<<<<< HEAD
+=======
+    !tau = max(tau_s,RatefnDW_tau_c(kpx, MLT,L,E)) ! Kpx,mltx,Lx,Ekx
+    !RatefnDW(2) = 1.0
+>>>>>>> parent of de13dd15... merge development
   elseif(nex>nhigh) then
     tau_h = RatefnC_tau_h16(MLT,E,L,kpx)
     if (tau_s > tau_h) then
@@ -3156,6 +3170,11 @@ FUNCTION RatefnDW(xx,yy,alamx,vmx,nex,kpx,bqx,losscx)
        RatefnDW(2) = 2.0
     endif
     RatefnDW(1) = 1.0/tau
+<<<<<<< HEAD
+=======
+    !tau = max(tau_s,RatefnC_tau_h16(MLT,E,L,kpx)) ! mltx,engx,Lshx,kp
+    !RatefnDW(2) = 2.0
+>>>>>>> parent of de13dd15... merge development
   else  ! nlow <= nex <= nhigh
     tau_c = RatefnDW_tau_c(kpx, MLT,L,E)
     tau_h = RatefnC_tau_h16(MLT,E,L,kpx)
