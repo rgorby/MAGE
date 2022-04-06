@@ -361,7 +361,7 @@ module prob
         type(State_T), intent(inout) :: State
         type(XML_Input_T), intent(in) :: inpXML
 
-        real(rp) :: xc,yc,zc, Rho,Vx,Vy,P,KinE,B,Theta
+        real(rp) :: xc,yc,zc, Rho,Vx,Vy,KinE,Theta
         real(rp) :: yCrit, B0, P0, Amp, D0,D1,V0,V1
 
         integer :: i,j,k
@@ -390,8 +390,6 @@ module prob
                     !Find centers
                     call cellCenter(Grid,i,j,k,xc,yc,zc)
 
-                    P = P0
-                    B = B0
                     if (abs(yc) <= yCrit) then
                         Rho = D1
                         Vx  = V1
@@ -415,12 +413,12 @@ module prob
 
                     KinE = 0.5*Rho*(Vx**2.0+Vy**2.0)
 
-                    State%Gas(i,j,k,ENERGY,BLK) = KinE + P/(Model%gamma-1)
+                    State%Gas(i,j,k,ENERGY,BLK) = KinE + P0/(Model%gamma-1)
 
                     !Initialize fields
-                    State%magFlux(i,j,k,IDIR) = B*cos(Theta*pi/180.0)*Grid%Face(i,j,k,IDIR)
+                    State%magFlux(i,j,k,IDIR) = B0*cos(Theta*pi/180.0)*Grid%Face(i,j,k,IDIR)
                     State%magFlux(i,j,k,JDIR) = 0.0
-                    State%magFlux(i,j,k,KDIR) = B*sin(Theta*pi/180.0)*Grid%Face(i,j,k,KDIR)
+                    State%magFlux(i,j,k,KDIR) = B0*sin(Theta*pi/180.0)*Grid%Face(i,j,k,KDIR)
                 enddo
             enddo
         enddo        
@@ -510,7 +508,7 @@ module prob
         type(State_T), intent(inout) :: State
         type(XML_Input_T), intent(in) :: inpXML
 
-        real (rp) :: xc,yc,zc, Rho,Vx,Vy,P,KinE,B,Theta
+        real (rp) :: xc,yc,zc, Rho,Vx,Vy,KinE,Theta
         real (rp) :: yCrit, B0, P0, Amp, rho1, rho2, rhom, u1, u2, um, L
 
         integer :: i,j,k
@@ -544,9 +542,6 @@ module prob
                     !Find centers
                     call cellCenter(Grid,i,j,k,xc,yc,zc)
 
-                    P = P0
-                    B = B0
-
                     if (yc < 1.0/4.0) then
                         Rho = rho1 - rhom*exp((yc-1.0/4.0)/L)                        
                         Vx  = u1   -   um*exp((yc-1.0/4.0)/L)
@@ -577,12 +572,12 @@ module prob
 
                     KinE = 0.5*Rho*(Vx**2.0+Vy**2.0)
 
-                    State%Gas(i,j,k,ENERGY,BLK) = KinE + P/(Model%gamma-1)
+                    State%Gas(i,j,k,ENERGY,BLK) = KinE + P0/(Model%gamma-1)
 
                     !Initialize fields
-                    State%magFlux(i,j,k,IDIR) = B*cos(Theta*pi/180.0)*Grid%Face(i,j,k,IDIR)
+                    State%magFlux(i,j,k,IDIR) = B0*cos(Theta*pi/180.0)*Grid%Face(i,j,k,IDIR)
                     State%magFlux(i,j,k,JDIR) = 0.0
-                    State%magFlux(i,j,k,KDIR) = B*sin(Theta*pi/180.0)*Grid%Face(i,j,k,KDIR)
+                    State%magFlux(i,j,k,KDIR) = B0*sin(Theta*pi/180.0)*Grid%Face(i,j,k,KDIR)
                 enddo
             enddo
         enddo        
