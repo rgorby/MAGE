@@ -36,9 +36,8 @@ program calcdbx
     type(grGrid_T) :: gGr !Ground grid
     
     integer :: NumP
-    real(rp) :: wT,cMJD,rSec
+    real(rp) :: wT,cMJD
     character(len=strLen) :: gStr,utStr
-    integer :: iYr,iDoY,iMon,iDay,iHr,iMin
 
     !write(*,*) "Num threads=",omp_get_max_threads()
     !------------
@@ -116,8 +115,7 @@ program calcdbx
 
         if (modulo(Model%ts,Model%tsOut) ==0) then
             cMJD = ioTabMJD(ebState%ebTab,Model%t)
-            call mjd2ut(cMJD,iYr,iDoY,iMon,iDay,iHr,iMin,rSec)
-            write(utStr,'(I0.4,a,I0.2,a,I0.2,a,I0.2,a,I0.2,a,I0.2)') iYr,'-',iMon,'-',iDay,' ',iHr,':',iMin,':',nint(rSec)
+            call mjd2utstr(cMJD,utStr)
 
             wT = readClock("MagDB")
             write(*,'(a,a)')       'UT = ', trim(utStr)
