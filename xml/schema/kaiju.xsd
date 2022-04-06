@@ -12,6 +12,15 @@
     </xs:restriction>
   </xs:simpleType>
 
+  <!-- Valid bc types in gamera (boundary conditions?) -->
+  <xs:simpleType name="bc_type">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="user"/>
+      <xs:enumeration value="periodic"/>
+      <xs:enumeration value="user"/>
+    </xs:restriction>
+  </xs:simpleType>
+
   <!-- domain type -->
   <xs:simpleType name="domain_type">
     <xs:restriction base="xs:string">
@@ -317,6 +326,30 @@
         </xs:complexType>
       </xs:element>
 
+      <xs:element name="ibc" minOccurs="0">
+        <xs:complexType>
+          <xs:attribute name="bc" type="bc_type"/>
+          <xs:attribute name="jperiod" type="TorF"/>
+          <xs:attribute name="kperiod" type="TorF"/>
+        </xs:complexType>
+      </xs:element>
+
+      <xs:element name="jbc" minOccurs="0">
+        <xs:complexType>
+          <xs:attribute name="bc" type="bc_type"/>
+          <xs:attribute name="iperiod" type="TorF"/>
+          <xs:attribute name="kperiod" type="TorF"/>
+        </xs:complexType>
+      </xs:element>
+
+      <xs:element name="kbc" minOccurs="0">
+        <xs:complexType>
+          <xs:attribute name="bc" type="bc_type"/>
+          <xs:attribute name="iperiod" type="TorF"/>
+          <xs:attribute name="jperiod" type="TorF"/>
+        </xs:complexType>
+      </xs:element>
+
       <xs:element name="idir" type="grid_axis_spec_type" minOccurs="0"/>
       <xs:element name="jdir" type="grid_axis_spec_type" minOccurs="0"/>
       <xs:element name="kdir" type="grid_axis_spec_type" minOccurs="0"/>
@@ -347,7 +380,9 @@
         <xs:complexType>
           <xs:attribute name="alpha" type="xs:integer"/>
           <xs:attribute name="B0" type="xs:decimal"/>
+          <xs:attribute name="lCut" type="xs:decimal"/>
           <xs:attribute name="P0" type="xs:decimal"/>
+          <xs:attribute name="rCut" type="xs:decimal"/>
           <xs:attribute name="Rho0" type="xs:decimal"/>
           <xs:attribute name="Tsolar" type="xs:decimal"/>
         </xs:complexType>
@@ -496,8 +531,10 @@
 
       <xs:element name="conductance" minOccurs="0">
         <xs:complexType>
+          <xs:attribute name="const_sigma" type="TorF"/>
           <xs:attribute name="doStarlight" type="TorF"/>
           <xs:attribute name="doRamp" type="TorF"/>
+          <xs:attribute name="ped0" type="xs:decimal"/>
         </xs:complexType>
       </xs:element>
 
@@ -560,6 +597,12 @@
       <xs:element name="restart" minOccurs="0">
         <xs:complexType>
           <xs:attribute name="dtRes" type="xs:decimal"/>
+        </xs:complexType>
+      </xs:element>
+
+      <xs:element name="sim" minOccurs="0">
+        <xs:complexType>
+          <xs:attribute name="tFin" type="xs:decimal"/>
         </xs:complexType>
       </xs:element>
 
