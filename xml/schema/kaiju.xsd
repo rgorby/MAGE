@@ -4,7 +4,7 @@
 
   <!-- Simple types -->
 
-  <!-- aurora model type -->
+  <!-- Aurora model types -->
   <xs:simpleType name="aurora_model_type_type">
     <xs:restriction base="xs:string">
       <xs:enumeration value="FEDDER"/>
@@ -12,16 +12,15 @@
     </xs:restriction>
   </xs:simpleType>
 
-  <!-- Valid bc types in gamera (boundary conditions?) -->
+  <!-- bc types (boundary conditions?) -->
   <xs:simpleType name="bc_type">
     <xs:restriction base="xs:string">
-      <xs:enumeration value="user"/>
       <xs:enumeration value="periodic"/>
       <xs:enumeration value="user"/>
     </xs:restriction>
   </xs:simpleType>
 
-  <!-- domain type -->
+  <!-- Domain types -->
   <xs:simpleType name="domain_type">
     <xs:restriction base="xs:string">
       <xs:enumeration value="LFMCYL"/>
@@ -30,14 +29,14 @@
     </xs:restriction>
   </xs:simpleType>
 
-  <!-- grid type -->
+  <!-- Grid types -->
   <xs:simpleType name="grid_type">
     <xs:restriction base="xs:string">
       <xs:enumeration value="lfm"/>
     </xs:restriction>
   </xs:simpleType>
 
-  <!-- grid type (as grType)-->
+  <!-- Grid types (as grType) -->
   <xs:simpleType name="grType_type">
     <xs:restriction base="xs:string">
       <xs:enumeration value="LFM"/>
@@ -46,7 +45,7 @@
     </xs:restriction>
   </xs:simpleType>
 
-  <!-- Valid imeth types (what is imeth?) -->
+  <!-- imeth types (what is imeth?) -->
   <xs:simpleType name="imeth_type">
     <xs:restriction base="xs:string">
       <xs:enumeration value="DYN"/>
@@ -54,37 +53,37 @@
     </xs:restriction>
   </xs:simpleType>
 
-  <!-- Valid imType types (what is imType?) -->
+  <!-- imType types (what is imType?) -->
   <xs:simpleType name="imType_type">
     <xs:restriction base="xs:string">
       <xs:enumeration value="RCM"/>
     </xs:restriction>
   </xs:simpleType>
 
-  <!-- Valid initial condition types in gamera -->
+  <!-- Initial condition types -->
   <xs:simpleType name="initial_condition_type">
     <xs:restriction base="xs:string">
-      <xs:enumeration value="LOOP2D"/>
       <xs:enumeration value="BW"/>
+      <xs:enumeration value="LOOP2D"/>
       <xs:enumeration value="user"/>
     </xs:restriction>
   </xs:simpleType>
 
-  <!-- RCM domain type -->
+  <!-- RCM domain types -->
   <xs:simpleType name="RCM_domain_type">
     <xs:restriction base="xs:string">
       <xs:enumeration value="ELLIPSE"/>
     </xs:restriction>
   </xs:simpleType>
 
-  <!-- rmeth type (what is a rmeth?)-->
+  <!-- rmeth types (what is rmeth?) -->
   <xs:simpleType name="rmeth_type">
     <xs:restriction base="xs:string">
       <xs:enumeration value="7UP"/>
     </xs:restriction>
   </xs:simpleType>
 
-  <!-- species type (what is a species?)-->
+  <!-- Species types (particle species?) -->
   <xs:simpleType name="species_type">
     <xs:restriction base="xs:string">
       <xs:enumeration value="e"/>
@@ -95,22 +94,14 @@
   <!-- Single or multi-character boolean ((T)rue or (F)alse) -->
   <xs:simpleType name="TorF">
     <xs:restriction base="xs:string">
-      <xs:enumeration value="True"/>
+      <xs:enumeration value="F"/>
       <xs:enumeration value="False"/>
       <xs:enumeration value="T"/>
-      <xs:enumeration value="F"/>
-    </xs:restriction>
-  </xs:simpleType>
-
-  <!-- Boolean -->
-  <xs:simpleType name="TrueorFalse">
-    <xs:restriction base="xs:string">
       <xs:enumeration value="True"/>
-      <xs:enumeration value="False"/>
     </xs:restriction>
   </xs:simpleType>
 
-  <!-- Units type -->
+  <!-- Units types -->
   <xs:simpleType name="units_type">
     <xs:restriction base="xs:string">
       <xs:enumeration value="EARTH"/>
@@ -131,17 +122,17 @@
 
   <!-- Grid axis specification -->
   <xs:complexType name="grid_axis_spec_type">
-    <xs:attribute name="min" type="xs:decimal"/>
     <xs:attribute name="max" type="xs:decimal"/>
+    <xs:attribute name="min" type="xs:decimal"/>
     <xs:attribute name="N" type="xs:positiveInteger"/>
     <!-- Uncomment the assertion if using a XML schema 1.1 parser. -->
     <!--     <xs:assert test="@min lt @max"/> -->
   </xs:complexType>
 
-  <!-- Pdir type (what is a Pdir?)-->
+  <!-- Pdir type (what is Pdir?)-->
   <xs:complexType name="Pdir_type">
-    <xs:attribute name="N" type="xs:integer"/>
     <xs:attribute name="bcPeriodic" type="TorF"/>
+    <xs:attribute name="N" type="xs:integer"/>
   </xs:complexType>
 
 
@@ -193,11 +184,11 @@
 
       <xs:element name="grid" minOccurs="0">
         <xs:complexType>
+          <xs:attribute name="doGEO" type="TorF"/>
+          <xs:attribute name="dzGG" type="xs:decimal"/>
           <xs:attribute name="NLat" type="xs:integer"/>
           <xs:attribute name="NLon" type="xs:integer"/>
           <xs:attribute name="Nz" type="xs:integer"/>
-          <xs:attribute name="doGEO" type="TorF"/>
-          <xs:attribute name="dzGG" type="xs:decimal"/>
           <xs:attribute name="z0" type="xs:decimal"/>
         </xs:complexType>
       </xs:element>
@@ -366,6 +357,9 @@
         </xs:complexType>
       </xs:element>
 
+      <xs:element name="idir" type="grid_axis_spec_type" minOccurs="0"/>
+      <xs:element name="iPdir" type="Pdir_type" minOccurs="0"/>
+
       <xs:element name="jbc" minOccurs="0">
         <xs:complexType>
           <xs:attribute name="bc" type="bc_type"/>
@@ -373,6 +367,9 @@
           <xs:attribute name="kperiod" type="TorF"/>
         </xs:complexType>
       </xs:element>
+
+      <xs:element name="jdir" type="grid_axis_spec_type" minOccurs="0"/>
+      <xs:element name="jPdir" type="Pdir_type" minOccurs="0"/>
 
       <xs:element name="kbc" minOccurs="0">
         <xs:complexType>
@@ -382,12 +379,7 @@
         </xs:complexType>
       </xs:element>
 
-      <xs:element name="idir" type="grid_axis_spec_type" minOccurs="0"/>
-      <xs:element name="jdir" type="grid_axis_spec_type" minOccurs="0"/>
       <xs:element name="kdir" type="grid_axis_spec_type" minOccurs="0"/>
-
-      <xs:element name="iPdir" type="Pdir_type" minOccurs="0"/>
-      <xs:element name="jPdir" type="Pdir_type" minOccurs="0"/>
       <xs:element name="kPdir" type="Pdir_type" minOccurs="0"/>
 
       <xs:element name="output" minOccurs="0">
@@ -401,9 +393,9 @@
       <xs:element name="physics" minOccurs="0">
         <xs:complexType>
           <xs:attribute name="Ca" type="xs:decimal"/>
-          <xs:attribute name="doMHD" type="TorF"/>
           <xs:attribute name="do25D" type="TorF"/>
           <xs:attribute name="doBoris" type="TorF"/>
+          <xs:attribute name="doMHD" type="TorF"/>
           <xs:attribute name="gamma" type="xs:decimal"/>
         </xs:complexType>
       </xs:element>
@@ -454,8 +446,8 @@
         <xs:complexType>
           <!-- These are strings to allow for scientific notation. -->
           <xs:attribute name="dFloor" type="xs:string"/>
-          <xs:attribute name="doH5init" type="TorF"/>
           <xs:attribute name="doH5g" type="TorF"/>
+          <xs:attribute name="doH5init" type="TorF"/>
           <xs:attribute name="H5Grid" type="xs:string"/>
           <xs:attribute name="icType" type="initial_condition_type"/>
           <xs:attribute name="pdmb" type="xs:decimal"/>
@@ -468,9 +460,9 @@
 
       <xs:element name="source" minOccurs="0">
         <xs:complexType>
+          <xs:attribute name="doBounceDT" type="TorF"/>
           <xs:attribute name="doSource" type="TorF"/>
           <xs:attribute name="doWolfLim" type="TorF"/>
-          <xs:attribute name="doBounceDT" type="TorF"/>
           <xs:attribute name="nBounce" type="xs:decimal"/>
         </xs:complexType>
       </xs:element>
@@ -528,8 +520,8 @@
 
       <xs:element name="ellipse" minOccurs="0">
         <xs:complexType>
-          <xs:attribute name="isDynamic" type="TorF"/>
           <xs:attribute name="dRadMHD" type="xs:decimal"/>
+          <xs:attribute name="isDynamic" type="TorF"/>
           <xs:attribute name="xSun" type="xs:decimal"/>
           <xs:attribute name="xTail" type="xs:decimal"/>
           <xs:attribute name="yDD" type="xs:decimal"/>
@@ -579,8 +571,8 @@
       <xs:element name="conductance" minOccurs="0">
         <xs:complexType>
           <xs:attribute name="const_sigma" type="TorF"/>
-          <xs:attribute name="doStarlight" type="TorF"/>
           <xs:attribute name="doRamp" type="TorF"/>
+          <xs:attribute name="doStarlight" type="TorF"/>
           <xs:attribute name="F107" type="xs:decimal"/>
           <xs:attribute name="hallmin" type="xs:decimal"/>
           <xs:attribute name="ped0" type="xs:decimal"/>
@@ -599,8 +591,8 @@
 
       <xs:element name="precipitation" minOccurs="0">
         <xs:complexType>
-          <xs:attribute name="aurora_model_type" type="aurora_model_type_type"/>
           <xs:attribute name="alpha" type="xs:decimal"/>
+          <xs:attribute name="aurora_model_type" type="aurora_model_type_type"/>
           <xs:attribute name="beta" type="xs:decimal"/>
           <xs:attribute name="doAuroralSmooth" type="TorF"/>
           <xs:attribute name="R" type="xs:decimal"/>
@@ -662,8 +654,8 @@
       <xs:element name="spinup" minOccurs="0">
         <xs:complexType>
           <xs:attribute name="doSpin" type="TorF"/>
-          <xs:attribute name="tSpin" type="xs:decimal"/>
           <xs:attribute name="tIO" type="xs:decimal"/>
+          <xs:attribute name="tSpin" type="xs:decimal"/>
         </xs:complexType>
       </xs:element>
 
@@ -686,15 +678,28 @@
   <!-- Top-level kaiju configuration element -->
   <xs:complexType name="Kaiju_config_type">
     <xs:all>
+      <xs:element name="chimp" type="CHIMP_config_type" minOccurs="0"/>
+      <xs:element name="Chimp" type="CHIMP_config_type" minOccurs="0"/>
       <xs:element name="CHIMP" type="CHIMP_config_type" minOccurs="0"/>
+      <xs:element name="gamera" type="Gamera_config_type" minOccurs="0"/>
       <xs:element name="Gamera" type="Gamera_config_type" minOccurs="0"/>
-      <xs:element name="RCM" type="RCM_config_type" minOccurs="0"/>
+      <xs:element name="GAMERA" type="Gamera_config_type" minOccurs="0"/>
+      <xs:element name="omega" type="OMEGA_config_type" minOccurs="0"/>
+      <xs:element name="Omega" type="OMEGA_config_type" minOccurs="0"/>
       <xs:element name="OMEGA" type="OMEGA_config_type" minOccurs="0"/>
+      <xs:element name="rcm" type="RCM_config_type" minOccurs="0"/>
+      <xs:element name="Rcm" type="RCM_config_type" minOccurs="0"/>
+      <xs:element name="RCM" type="RCM_config_type" minOccurs="0"/>
+      <xs:element name="remix" type="REMIX_config_type" minOccurs="0"/>
+      <xs:element name="Remix" type="REMIX_config_type" minOccurs="0"/>
       <xs:element name="REMIX" type="REMIX_config_type" minOccurs="0"/>
+      <xs:element name="voltron" type="VOLTRON_config_type" minOccurs="0"/>
+      <xs:element name="Voltron" type="VOLTRON_config_type" minOccurs="0"/>
       <xs:element name="VOLTRON" type="VOLTRON_config_type" minOccurs="0"/>
     </xs:all>
   </xs:complexType>
 
+  <!-- The top-level element -->
   <xs:element name="Kaiju" type="Kaiju_config_type"/>
 
 </xs:schema>
