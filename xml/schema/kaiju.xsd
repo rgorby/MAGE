@@ -171,10 +171,22 @@
 
       <xs:element name="fields" minOccurs="0">
         <xs:complexType>
+          <xs:attribute name="doJ" type="TorF"/>
           <xs:attribute name="doMHD" type="TorF"/>
           <xs:attribute name="ebfile" type="xs:string"/>
           <xs:attribute name="grType" type="grType_type"/>
           <xs:attribute name="isMPI" type="TorF"/>
+        </xs:complexType>
+      </xs:element>
+
+      <xs:element name="grid" minOccurs="0">
+        <xs:complexType>
+          <xs:attribute name="NLat" type="xs:integer"/>
+          <xs:attribute name="NLon" type="xs:integer"/>
+          <xs:attribute name="Nz" type="xs:integer"/>
+          <xs:attribute name="doGEO" type="TorF"/>
+          <xs:attribute name="dzGG" type="xs:decimal"/>
+          <xs:attribute name="z0" type="xs:decimal"/>
         </xs:complexType>
       </xs:element>
 
@@ -197,10 +209,12 @@
       <xs:element name="output" minOccurs="0">
         <xs:complexType>
           <xs:attribute name="doEQProj" type="TorF"/>
+          <xs:attribute name="doFat" type="TorF"/>
           <xs:attribute name="doSlim" type="TorF"/>
           <xs:attribute name="doTrc" type="TorF"/>
           <xs:attribute name="dtOut" type="xs:decimal"/>
           <xs:attribute name="T0Out" type="xs:decimal"/>
+          <xs:attribute name="timer" type="TorF"/>
           <xs:attribute name="tsOut" type="xs:decimal"/>
         </xs:complexType>
       </xs:element>
@@ -210,6 +224,12 @@
           <xs:attribute name="Ri" type="xs:integer"/>
           <xs:attribute name="Rj" type="xs:integer"/>
           <xs:attribute name="Rk" type="xs:integer"/>
+        </xs:complexType>
+      </xs:element>
+
+      <xs:element name="parintime" minOccurs="0">
+        <xs:complexType>
+          <xs:attribute name="NumB" type="xs:integer"/>
         </xs:complexType>
       </xs:element>
 
