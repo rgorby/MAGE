@@ -25,7 +25,7 @@ echo "The following modules are loaded:"
 module list
 
 # Define the kaiju installation location.
-export KAIJU_INSTALL_DIR=$HOME/kaiju_serial
+export KAIJU_INSTALL_DIR=$HOME/kaiju
 
 # Set kaiju-related environment variables.
 source $KAIJU_INSTALL_DIR/scripts/setupEnvironment.sh
@@ -34,7 +34,7 @@ source $KAIJU_INSTALL_DIR/scripts/setupEnvironment.sh
 export PATH=$KAIJUHOME/build/bin:$PATH
 
 # Set the OMP stack size to prevent a crash.
-# If this setting is ignored, the loop2d model will cause gamera.x to crash
+# If this setting is ignored, the model may cause gamera.x to crash
 # with a segmentation fault and core dump.
 # The value of "100M" was chosen ~arbitrarily; experimentation may allow a
 # smaller value to be used.

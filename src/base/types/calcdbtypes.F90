@@ -28,11 +28,11 @@ module calcdbtypes
         
         !Holds N/S hemisphere at i1/i2
         type(rmHemi_T) :: rmN1,rmN2,rmS1,rmS2
-        logical :: doCorot,doPed,doHall
+        logical :: doPed,doHall
     end type rmState_T
 
 	INTEGER, parameter :: NORTH=1,SOUTH=2
-	INTEGER, parameter :: rSegs=20
+	INTEGER, parameter :: rSegs=30
 
 !--------
 !Native source grids (SM coords)
@@ -71,7 +71,7 @@ module calcdbtypes
     end type ionGrid_T
 
 !--------
-!Bios-Savart grid
+!Biot-Savart grid
 !1D collection of points, currents, geometric factors to do discrete BS integral
 !Coordinate system (points and vectors) matches that of the ground grid, likely GEO
 	type BSGrid_T
@@ -83,6 +83,7 @@ module calcdbtypes
 		real(rp), dimension(:)  , allocatable :: dV !Volume element
         real(rp) :: jScl = 1.0 !Scaling term for current contribution to get nT from BS
 
+        logical :: isActive = .true. !Whether this grid should be used
 	end type BSGrid_T
 
 !--------
@@ -103,10 +104,13 @@ module calcdbtypes
         !Some parameters for calculation
         real(rp) :: rMax=30.0 !Radius of magnetospheric ball to integrate over [Re]
 
-        !Auroral indices
+        !Indices
         real(rp) :: SML,SML_MLat,SML_MLon
         real(rp) :: SMU,SMU_MLat,SMU_MLon
         real(rp) :: SMR_00,SMR_06,SMR_12,SMR_18
+        real(rp) :: SML_00,SML_06,SML_12,SML_18
+        real(rp) :: SMU_00,SMU_06,SMU_12,SMU_18
+
         !Derived indices
         real(rp) :: SMR,SME,SMO
 

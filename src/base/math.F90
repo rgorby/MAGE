@@ -427,8 +427,12 @@ module math
         Ay = Axyz(YDIR)
         Az = Axyz(ZDIR)
 
-
         rad = norm2(xyz)
+        if (rad < TINY) then
+            Artp = 0.0
+            return
+        endif
+
         theta = acos(xyz(ZDIR)/rad)
         phi = atan2(xyz(YDIR),xyz(XDIR))
 
@@ -438,6 +442,30 @@ module math
         Artp = [Ar,At,Ap]
     end function xyz2rtp
     
+    !Convert RTP spherical to XYZ vector at given point
+    function rtp2xyz(xyz,Artp) result(Axyz)
+        real(rp), dimension(NDIM), intent(in) :: xyz,Artp
+        real(rp), dimension(NDIM) :: Axyz
+
+        real(rp) :: Ax,Ay,Az,Ar,At,Ap,rad,theta,phi
+        Ar = Artp(1)
+        At = Artp(2)
+        Ap = Artp(3)
+
+        rad = norm2(xyz)
+        if (rad < TINY) then
+            Axyz = 0.0
+            return
+        endif
+        theta = acos(xyz(ZDIR)/rad)
+        phi = atan2(xyz(YDIR),xyz(XDIR))
+
+        Ax = Ar*sin(theta)*cos(phi) + At*cos(theta)*cos(phi) - Ap*sin(phi)
+        Ay = Ar*sin(theta)*sin(phi) + At*cos(theta)*sin(phi) + Ap*cos(phi)
+        Az = Ar*cos(theta)          - At*sin(theta)          !No phi contribution
+
+        Axyz = [Ax,Ay,Az]
+    end function rtp2xyz
 !--------------------------------------
 !Linear algebra stuff
     !Calculate determinant of 3X3 matrix
