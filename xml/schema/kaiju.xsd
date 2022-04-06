@@ -26,6 +26,7 @@
     <xs:restriction base="xs:string">
       <xs:enumeration value="LFMCYL"/>
       <xs:enumeration value="MAGE"/>
+      <xs:enumeration value="SPH"/>
     </xs:restriction>
   </xs:simpleType>
 
@@ -91,10 +92,21 @@
     </xs:restriction>
   </xs:simpleType>
 
-  <!-- Single-character boolean ((T)rue or (F)alse) -->
+  <!-- Single or multi-character boolean ((T)rue or (F)alse) -->
   <xs:simpleType name="TorF">
     <xs:restriction base="xs:string">
-      <xs:pattern value="T|F"/>
+      <xs:enumeration value="True"/>
+      <xs:enumeration value="False"/>
+      <xs:enumeration value="T"/>
+      <xs:enumeration value="F"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- Boolean -->
+  <xs:simpleType name="TrueorFalse">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="True"/>
+      <xs:enumeration value="False"/>
     </xs:restriction>
   </xs:simpleType>
 
@@ -508,9 +520,16 @@
   <xs:complexType name="RCM_config_type">
     <xs:all>
 
+      <xs:element name="clawpack" minOccurs="0">
+        <xs:complexType>
+          <xs:attribute name="doKaiClaw" type="TorF"/>
+        </xs:complexType>
+      </xs:element>
+
       <xs:element name="ellipse" minOccurs="0">
         <xs:complexType>
           <xs:attribute name="isDynamic" type="TorF"/>
+          <xs:attribute name="dRadMHD" type="xs:decimal"/>
           <xs:attribute name="xSun" type="xs:decimal"/>
           <xs:attribute name="xTail" type="xs:decimal"/>
           <xs:attribute name="yDD" type="xs:decimal"/>
@@ -522,6 +541,14 @@
           <xs:attribute name="doLatStretch" type="TorF"/>
           <xs:attribute name="HiLat" type="xs:decimal"/>
           <xs:attribute name="LowLat" type="xs:decimal"/>
+        </xs:complexType>
+      </xs:element>
+
+      <xs:element name="output" minOccurs="0">
+        <xs:complexType>
+          <xs:attribute name="debug" type="TorF"/>
+          <xs:attribute name="toMHD" type="TorF"/>
+          <xs:attribute name="toRCM" type="TorF"/>
         </xs:complexType>
       </xs:element>
 
@@ -554,7 +581,11 @@
           <xs:attribute name="const_sigma" type="TorF"/>
           <xs:attribute name="doStarlight" type="TorF"/>
           <xs:attribute name="doRamp" type="TorF"/>
+          <xs:attribute name="F107" type="xs:decimal"/>
+          <xs:attribute name="hallmin" type="xs:decimal"/>
           <xs:attribute name="ped0" type="xs:decimal"/>
+          <xs:attribute name="pedmin" type="xs:decimal"/>
+          <xs:attribute name="sigma_ratio" type="xs:decimal"/>
         </xs:complexType>
       </xs:element>
 
@@ -585,11 +616,13 @@
 
       <xs:element name="coupling" minOccurs="0">
         <xs:complexType>
+          <xs:attribute name="doGCM" type="TorF"/>
           <xs:attribute name="doQkSquish" type="TorF"/>
           <xs:attribute name="dt" type="xs:decimal"/>
           <xs:attribute name="dtDeep" type="xs:decimal"/>
           <xs:attribute name="imType" type="imType_type"/>
           <xs:attribute name="qkSquishStride" type="xs:integer"/>
+          <xs:attribute name="rDeep" type="xs:decimal"/>
           <xs:attribute name="rTrc" type="xs:decimal"/>
         </xs:complexType>
       </xs:element>
