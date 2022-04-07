@@ -1278,8 +1278,8 @@
         call IOArray1DFill(IOVars,"MLTi",EWMTauInput%MLTi)
         call IOArray1DFill(IOVars,"Li", EWMTauInput%Li)
         call IOArray1DFill(IOVars,"Eki",EWMTauInput%Eki)
-        EWMTauInput%tau1i(:,:,:,:) = reshape(IOVars(8)%data,dims)
-        EWMTauInput%tau2i(:,:,:,:) = reshape(IOVars(9)%data,dims)
+        call IOArray4DFill(IOVars,"tau1i",EWMTauInput%tau1i)
+        call IOArray4DFill(IOVars,"tau2i",EWMTauInput%tau2i)
 
         !Array order check: array is in acsending order
         if(EWMTauInput%Kpi(1) > EWMTauInput%Kpi(Nk)) then
