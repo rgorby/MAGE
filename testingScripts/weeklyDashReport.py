@@ -84,6 +84,13 @@ if(gBranch != "master" and gBranch != "development"):
         print("Exitting")
         exit()
 
+# get my short hostname
+p = subprocess.Popen("hostname -s", shell=True, stdout=subprocess.PIPE)
+shortHost = p.stdout.read()
+shortHost = shortHort.decode('ascii')
+shortHost = shortHost.rstrip()
+print(shortHost)
+
 # Go to weekly dash folder
 os.chdir(home)
 
@@ -444,7 +451,7 @@ if(not isTest and beLoud):
     try:
         response = client.chat_postMessage(
             channel="#kaijudev",
-            text="Weekly results complete on branch " + gBranch + ". Latest comparative results attached as replies to this message.\nOr up-to-date results can be viewed on the wiki at https://bitbucket.org/aplkaiju/kaiju/wiki/weeklyDash/dashStatus"
+            text="Weekly results complete on branch " + gBranch + ", run on host " + shortHost + ". Latest comparative results attached as replies to this message.\nOr up-to-date results can be viewed on the wiki at https://bitbucket.org/aplkaiju/kaiju/wiki/weeklyDash/dashStatus"
         )
     except SlackApiError as e:
        # You will get a SlackApiError if "ok" is False
