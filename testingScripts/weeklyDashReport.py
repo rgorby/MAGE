@@ -87,7 +87,7 @@ if(gBranch != "master" and gBranch != "development"):
 # get my short hostname
 p = subprocess.Popen("hostname -s", shell=True, stdout=subprocess.PIPE)
 shortHost = p.stdout.read()
-shortHost = shortHort.decode('ascii')
+shortHost = shortHost.decode('ascii')
 shortHost = shortHost.rstrip()
 print(shortHost)
 
@@ -140,7 +140,7 @@ with open(home + '/weeklyDash/bin/weeklyDashGo.out') as runOutput:
         gitHashMatch = re.search(gitHashPattern, line)
         if gitHashMatch:
            gitHash = gitHashMatch.group(1)
-            break # end reading file
+           break # end reading file
 print("git hash = " + gitHash)
 
 # Get performance data
@@ -213,7 +213,7 @@ if(os.path.exists('previousData.h5')):
         masterDST   = data_object['masterDST'].value
         masterCPCPn = data_object['masterCPCPn'].value
         masterCPCPs = data_object['masterCPCPs'].value
-        masterGitHash = data_object['masterGitHash'].decode('utf-8')
+        masterGitHash = data_object['masterGitHash'].value.decode('utf-8')
     if 'devpriorUT' in data_object:
         devpriorUT    = [x.decode('utf-8') for x in data_object['devpriorUT']]
         devpriorRT    = data_object['devpriorRT'].value
@@ -221,7 +221,7 @@ if(os.path.exists('previousData.h5')):
         devpriorDST   = data_object['devpriorDST'].value
         devpriorCPCPn = data_object['devpriorCPCPn'].value
         devpriorCPCPs = data_object['devpriorCPCPs'].value
-        devpriorGitHash = data_object['devpriorGitHash'].decode('utf-8')
+        devpriorGitHash = data_object['devpriorGitHash'].value.decode('utf-8')
     if 'devcurrentUT' in data_object:
         devcurrentUT    = [x.decode('utf-8') for x in data_object['devcurrentUT']]
         devcurrentRT    = data_object['devcurrentRT'].value
@@ -229,7 +229,7 @@ if(os.path.exists('previousData.h5')):
         devcurrentDST   = data_object['devcurrentDST'].value
         devcurrentCPCPn = data_object['devcurrentCPCPn'].value
         devcurrentCPCPs = data_object['devcurrentCPCPs'].value
-        devcurrentGitHash = data_object['devcurrentGitHash'].decode('utf-8')
+        devcurrentGitHash = data_object['devcurrentGitHash'].value.decode('utf-8')
     data_object.close()
 
 # update appropriate data with new data
