@@ -18,7 +18,7 @@ program gremixx
     end do
 
     do i=1,Nt
-       p(i) = 2*pi/Nt*(i-1)+pi
+       p(i) = 2*pi/Nt*(i-1)
     end do
 
     call GenShellGrid(shGr,t,p)

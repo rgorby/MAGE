@@ -16,15 +16,15 @@ module shellGrid
         real(rp) :: minTheta, maxTheta, minPhi, maxPhi
 
         ! Local indices, active region
-        integer :: is,ie,js,je
+        integer :: is=1,ie,js=1,je
         ! Local indices, including ghosts
         integer :: isg,ieg,jsg,jeg
 
         ! Ghosts for north, south, east, and west boundaries. East=>larger phi. West => smaller phi.
         ! default to 0
-        integer :: Ngn, Ngs, Nge, Ngw
+        integer :: Ngn=0, Ngs=0, Nge=0, Ngw=0
 
-        logical ::  isPeriodic   ! Whether the low/high phi boundary is periodic
+        logical ::  isPeriodic=.True.   ! Whether the low/high phi boundary is periodic
     end type ShellGrid_T
 
     contains
@@ -32,12 +32,20 @@ module shellGrid
     ! Create a shell grid data structure
     ! Takes Theta and Phi 1D arrays (uniform or not)
     ! Default the number of ghosts to 0
-    subroutine GenShellGrid(shGr,Theta,Phi,Ngn=0,Ngs=0,Nge=0,Ngw=0,isPeriodic=.True.)
+    subroutine GenShellGrid(shGr,Theta,Phi,Ngn,Ngs,Nge,Ngw,isPeriodic)
         type(ShellGrid_T), intent(inout) :: shGr
         real(rp), dimension(:), intent(in) :: Theta, Phi
-        integer, intent (in) :: Ngn, Ngs, Nge, Ngw  ! how many ghosts on each side
+        integer, optional, intent(in) :: Ngn, Ngs, Nge, Ngw  ! how many ghosts on each side
+        logical, optional, intent(in) :: isPeriodic
 
         integer :: Np, Nt
+
+        ! Parse optional parameters
+        if (present(isPeriodic)) shGr%isPeriodic = isPeriodic   ! otherwise, always periodic as set in ShellGrid type
+        if (present(Ngn)) shGr%Ngn = Ngn ! otherwise, always 0 as set in ShellGrid type
+        if (present(Ngs)) shGr%Ngs = Ngs ! otherwise, always 0 as set in ShellGrid type
+        if (present(Ngw)) shGr%Ngw = Ngw ! otherwise, always 0 as set in ShellGrid type
+        if (present(Nge)) shGr%Nge = Nge ! otherwise, always 0 as set in ShellGrid type
 
         ! do some checks first
         if (.not.(isAscending(Theta))) then 
@@ -64,7 +72,7 @@ module shellGrid
            stop
         end if
 
-        if ( (isPeriodic).and.(Nge<>Ngw) ) then
+        if ( (shGr%isPeriodic).and.(shGr%Nge/=shGr%Ngw) ) then
            write(*,*) "Inside shell grid generator (GenShellGrid)."
            write(*,*) "Periodic grid must have the same number of ghosts on low/high phi boundaries. Quitting..."
            stop
@@ -76,9 +84,6 @@ module shellGrid
 
         shGr%is = 1; shGr%ie = shGr%Nt
         shGr%js = 1; shGr%je = shGr%Np
-
-        shGr%Ngn = Ngn; shGr%Ngs = Ngs
-        shGr%Nge = Nge; shGr%Ngw = Ngw
 
         shGr%isg = shGr%is - shGr%Ngn
         shGr%ieg = shGr%ie + shGr%Ngs
@@ -94,12 +99,12 @@ module shellGrid
         if (allocated(shGr%latc)) deallocate(shGr%latc)
 
         ! Create new arrays
-        allocate(shGr%th  (shGr%Nt+Ngn+Ngs+1))
-        allocate(shGr%ph  (shGr%Np+Ngw+Nge+1))
-        allocate(shGr%thc (shGr%Nt+Ngn+Ngs))
-        allocate(shGr%phc (shGr%Np+Ngw+Nge))
-        allocate(shGr%lat (shGr%Nt+Ngn+Ngs+1))
-        allocate(shGr%latc(shGr%Nt+Ngn+Ngs))
+        allocate(shGr%th  (shGr%Nt+shGr%Ngn+shGr%Ngs+1))
+        allocate(shGr%ph  (shGr%Np+shGr%Ngw+shGr%Nge+1))
+        allocate(shGr%thc (shGr%Nt+shGr%Ngn+shGr%Ngs))
+        allocate(shGr%phc (shGr%Np+shGr%Ngw+shGr%Nge))
+        allocate(shGr%lat (shGr%Nt+shGr%Ngn+shGr%Ngs+1))
+        allocate(shGr%latc(shGr%Nt+shGr%Ngn+shGr%Ngs))
 
 
         ! !Set edges
