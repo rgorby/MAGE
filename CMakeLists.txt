@@ -180,12 +180,10 @@ add_dependencies(remix remix.x remix2remix.x remix2rcm.x baselib)
 #Kaiju: G-ReMIX
 message("Adding G-ReMIX module ...")
 #Add source
-#add_subdirectory(src/base)
-#add_custom_target(base ALL)
 message("\tAdding executable gremix.x")
 add_executable(gremix.x src/drivers/gremix.F90)
-target_link_libraries(gremix.x baselib)
-add_dependencies(gremix.x baselib)
+target_link_libraries(gremix.x shellutilslib baselib)
+add_dependencies(gremix.x shellutilslib  baselib)
 
 #-------------
 #Kaiju: RCM
