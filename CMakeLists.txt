@@ -182,8 +182,8 @@ message("Adding G-ReMIX module ...")
 #Add source
 message("\tAdding executable gremix.x")
 add_executable(gremix.x src/drivers/gremix.F90)
-target_link_libraries(gremix.x shellutilslib baselib)
-add_dependencies(gremix.x shellutilslib  baselib)
+target_link_libraries(gremix.x baselib)
+add_dependencies(gremix.x baselib)
 
 #-------------
 #Kaiju: RCM
