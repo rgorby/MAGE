@@ -1209,7 +1209,7 @@
 
 !
 !
-      SUBROUTINE Read_plasma_H5
+     SUBROUTINE Read_plasma_H5
         use ioh5
         use files
         implicit none
@@ -1224,12 +1224,6 @@
         call AddInVar(IOVars,"alamc") !1
         call AddInVar(IOVars,"ikflavc") !2
         call AddInVar(IOVars,"fudgec") !3
-        call AddInVar(IOVars,"Kpi") !4 
-        call AddInVar(IOVars,"MLTi") !5
-        call AddInVar(IOVars,"Li") !6
-        call AddInVar(IOVars,"Eki") !7
-        call AddInVar(IOVars,"Tau1i") !8
-        call AddInVar(IOVars,"Tau2i") !9
         call ReadVars(IOVars,doSP,RCMGAMConfig)
 
         !Store data for energy channels
@@ -1242,70 +1236,79 @@
 
         !Store data for wave models
         !Dimension check: only compatible with tau(MLT,L,Kp,Ek)
-        tauDim = IOVars(8)%Nr
-        if ( tauDim /= 4) then
-            write(*,*) "tauDim:",tauDim
-            write(*,*) 'Currently only support tau model files in the form tau(Kp,MLT,L,Ek)'
-            write(*,*)"tau:",IOVars(8)%dims
-            stop
+        if (ioExist(RCMGAMConfig,"Tau1i")) then
+            EWMTauInput%useWM = .true.
+            call AddInVar(IOVars,"Kpi") !4 
+            call AddInVar(IOVars,"MLTi") !5
+            call AddInVar(IOVars,"Li") !6
+            call AddInVar(IOVars,"Eki") !7
+            call AddInVar(IOVars,"Tau1i") !8
+            call AddInVar(IOVars,"Tau2i") !9
+            call ReadVars(IOVars,doSP,RCMGAMConfig)
+            tauDim = IOVars(8)%Nr
+            if (tauDim /= 4) then
+                write(*,*) "tauDim:",tauDim
+                write(*,*) 'Currently only support tau model files in the form tau(Kp,MLT,L,Ek)'
+                write(*,*)"tau:",IOVars(8)%dims
+                stop
+            endif
+
+            dims = IOVars(8)%dims(1:tauDim)
+            Nk   = IOVars(4)%N
+            Nm   = IOVars(5)%N
+            Nl   = IOVars(6)%N
+            Ne  = IOVars(7)%N
+            if (Nk /=  dims(1) .or. Nm /= dims(2) .or. Nl /= dims(3) .or. Ne /= dims(4)) then
+                write(*,*) "dims:",dims,"Nk:",Nk,"Nm:",Nm,"Nl:",Nl,"Ne:",Ne
+                write(*,*) 'Dimensions of tau arrays are not compatible'
+                stop
+            endif
+
+           !Store arrays
+           EWMTauInput%Nk = Nk
+           EWMTauInput%Nm = Nm
+           EWMTauInput%Nl = Nl
+           EWMTauInput%Ne = Ne
+
+           allocate(EWMTauInput%Kpi(Nk))
+           allocate(EWMTauInput%MLTi(Nm))
+           allocate(EWMTauInput%Li(Nl))
+           allocate(EWMTauInput%Eki(Ne))
+           allocate(EWMTauInput%tau1i(Nk,Nm,Nl,Ne))
+           allocate(EWMTauInput%tau2i(Nk,Nm,Nl,Ne))
+
+           call IOArray1DFill(IOVars,"Kpi",EWMTauInput%Kpi)
+           call IOArray1DFill(IOVars,"MLTi",EWMTauInput%MLTi)
+           call IOArray1DFill(IOVars,"Li", EWMTauInput%Li)
+           call IOArray1DFill(IOVars,"Eki",EWMTauInput%Eki)
+           call IOArray4DFill(IOVars,"tau1i",EWMTauInput%tau1i)
+           call IOArray4DFill(IOVars,"tau2i",EWMTauInput%tau2i)
+
+           !Array order check: array is in acsending order
+           if(EWMTauInput%Kpi(1) > EWMTauInput%Kpi(Nk)) then
+              write(*,*) "Kp: ",EWMTauInput%Kpi
+              write(*,*) "reorder wave model so Kp is in ascending order"
+              stop
+           end if
+
+           if(EWMTauInput%Li(1) > EWMTauInput%Li(Nl)) then
+              write(*,*) "L: ",EWMTauInput%Li
+              write(*,*) "reorder wave model so L shell is in ascending order"
+              stop
+           end if
+
+           if(EWMTauInput%MLTi(1) > EWMTauInput%MLTi(Nm)) then
+              write(*,*) "MLT: ",EWMTauInput%MLTi
+              write(*,*) "reorder wave model so MLT is in ascending order"
+              stop
+           end if
+
+           if(EWMTauInput%Eki(1) > EWMTauInput%Eki(Ne)) then
+              write(*,*) "Ek: ",EWMTauInput%Eki
+              write(*,*) "reorder wave model so Ek is in ascending order"
+              stop
+           end if
         endif
-
-        dims = IOVars(8)%dims(1:tauDim)
-        Nk   = IOVars(4)%N
-        Nm   = IOVars(5)%N
-        Nl   = IOVars(6)%N
-        Ne  = IOVars(7)%N
-        if ( Nk /=  dims(1) .or. Nm /= dims(2) .or. Nl /= dims(3) .or. Ne /= dims(4)) then
-            write(*,*) "dims:",dims,"Nk:",Nk,"Nm:",Nm,"Nl:",Nl,"Ne:",Ne
-            write(*,*) 'Dimensions of tau arrays are not compatible'
-            stop
-        endif
-
-        !Store arrays      
-        EWMTauInput%Nk = Nk
-        EWMTauInput%Nm = Nm
-        EWMTauInput%Nl = Nl
-        EWMTauInput%Ne = Ne
-
-        allocate(EWMTauInput%Kpi(Nk))
-        allocate(EWMTauInput%MLTi(Nm))
-        allocate(EWMTauInput%Li(Nl))
-        allocate(EWMTauInput%Eki(Ne))
-        allocate(EWMTauInput%tau1i(Nk,Nm,Nl,Ne))
-        allocate(EWMTauInput%tau2i(Nk,Nm,Nl,Ne))
-
-        call IOArray1DFill(IOVars,"Kpi",EWMTauInput%Kpi)
-        call IOArray1DFill(IOVars,"MLTi",EWMTauInput%MLTi)
-        call IOArray1DFill(IOVars,"Li", EWMTauInput%Li)
-        call IOArray1DFill(IOVars,"Eki",EWMTauInput%Eki)
-        call IOArray4DFill(IOVars,"tau1i",EWMTauInput%tau1i)
-        call IOArray4DFill(IOVars,"tau2i",EWMTauInput%tau2i)
-
-        !Array order check: array is in acsending order
-        if(EWMTauInput%Kpi(1) > EWMTauInput%Kpi(Nk)) then
-            write(*,*) "Kp: ",EWMTauInput%Kpi
-            write(*,*) "reorder wave model so Kp is in ascending order"
-            stop
-        end if
-
-        if(EWMTauInput%Li(1) > EWMTauInput%Li(Nl)) then
-            write(*,*) "L: ",EWMTauInput%Li
-            write(*,*) "reorder wave model so L shell is in ascending order"
-            stop
-        end if
-
-        if(EWMTauInput%MLTi(1) > EWMTauInput%MLTi(Nm)) then
-            write(*,*) "MLT: ",EWMTauInput%MLTi
-            write(*,*) "reorder wave model so MLT is in ascending order"
-            stop
-        end if
-
-        if(EWMTauInput%Eki(1) > EWMTauInput%Eki(Ne)) then
-            write(*,*) "Ek: ",EWMTauInput%Eki
-            write(*,*) "reorder wave model so Ek is in ascending order"
-            stop
-        end if
-        
 
       END SUBROUTINE Read_plasma_H5
 !
@@ -3111,7 +3114,11 @@ FUNCTION Ratefn (xx,yy,alamx,vmx,beqx,losscx,nex,kpx,fudgxO,sinixO,birxO,xmfactO
          case (ELOSS_C19)
             Ratefn = RatefnC19S(xx,yy,alamx,vmx,beqx,losscx,nex,kpx)
          case (ELOSS_DW)
-            Ratefn = RatefnDW(xx,yy,alamx,vmx,nex,kpx,beqx,losscx)
+            if (EWMTauInput%useWM) then
+                Ratefn = RatefnDW(xx,yy,alamx,vmx,nex,kpx,beqx,losscx)
+            else
+                stop "Wave model is missing in rcmconfig.h5"
+            endif
          case default
             stop "The electron loss rate model type entered is not supported."
  end select

@@ -77,6 +77,7 @@ MODULE rice_housekeeping_module
   end type RCMEllipse_T
 
   type EWMTauIn_T !electron lifetime wave model input
+      logical :: useWM = .false.
       integer(iprec) :: Nm=24, Nl=20, Nk=7 ,Ne=100
       real(rprec), ALLOCATABLE :: MLTi(:), Li(:), Kpi(:), Eki(:)
       real(rprec), ALLOCATABLE :: tau1i(:,:,:,:), tau2i(:,:,:,:)
