@@ -13,7 +13,6 @@ module shellGrid
         ! note, th/ph are colatitude/longitude; also, defining lat/latc for latitude
         real(rp), dimension(:), allocatable :: th, ph, thc, phc, lat, latc  ! Radians
         logical :: doSP = .false., doNP = .false. ! Whether grid contains south/north pole
-        real(rp) :: minTheta, maxTheta, minPhi, maxPhi
 
         ! Local indices, active region
         integer :: is=1,ie,js=1,je
@@ -22,9 +21,9 @@ module shellGrid
 
         ! Ghosts for north, south, east, and west boundaries. East=>larger phi. West => smaller phi.
         ! default to 0
-        integer :: Ngn=0, Ngs=0, Nge=0, Ngw=0
+        integer :: Ngn=0, Ngs=0, Nge=1, Ngw=1
 
-        logical ::  isPeriodic=.True.   ! Whether the low/high phi boundary is periodic
+        logical :: isPeriodic   ! Whether the low/high phi boundary is periodic
     end type ShellGrid_T
 
     contains
@@ -32,20 +31,20 @@ module shellGrid
     ! Create a shell grid data structure
     ! Takes Theta and Phi 1D arrays (uniform or not)
     ! Default the number of ghosts to 0
-    subroutine GenShellGrid(shGr,Theta,Phi,Ngn,Ngs,Nge,Ngw,isPeriodic)
+    subroutine GenShellGrid(shGr,Theta,Phi,Ngn,Ngs,Nge,Ngw)
         type(ShellGrid_T), intent(inout) :: shGr
         real(rp), dimension(:), intent(in) :: Theta, Phi
         integer, optional, intent(in) :: Ngn, Ngs, Nge, Ngw  ! how many ghosts on each side
-        logical, optional, intent(in) :: isPeriodic
 
+        integer :: i,j
         integer :: Np, Nt
+        real(rp) :: delta
 
         ! Parse optional parameters
-        if (present(isPeriodic)) shGr%isPeriodic = isPeriodic   ! otherwise, always periodic as set in ShellGrid type
         if (present(Ngn)) shGr%Ngn = Ngn ! otherwise, always 0 as set in ShellGrid type
         if (present(Ngs)) shGr%Ngs = Ngs ! otherwise, always 0 as set in ShellGrid type
-        if (present(Ngw)) shGr%Ngw = Ngw ! otherwise, always 0 as set in ShellGrid type
-        if (present(Nge)) shGr%Nge = Nge ! otherwise, always 0 as set in ShellGrid type
+        if (present(Ngw)) shGr%Ngw = Ngw ! otherwise, always 1 as set in ShellGrid type
+        if (present(Nge)) shGr%Nge = Nge ! otherwise, always 1 as set in ShellGrid type
 
         ! do some checks first
         if (.not.(isAscending(Theta))) then 
@@ -60,9 +59,9 @@ module shellGrid
            stop
         end if
 
-        if (any(Theta<0.).or.(any(Theta>PI/2))) then
+        if (any(Theta<0.).or.(any(Theta>PI))) then
            write(*,*) "Inside shell grid generator (GenShellGrid)."
-           write(*,*) "Theta array should be in the range [0,PI/2]. Quitting..."
+           write(*,*) "Theta array should be in the range [0,PI]. Quitting..."
            stop
         end if
 
@@ -72,9 +71,45 @@ module shellGrid
            stop
         end if
 
+        ! decide if the grid is periodic
+        if ( ( minval(Phi) <= TINY ).and.( maxval(Phi) >= 2*PI - TINY) ) then
+           shGr%isPeriodic = .True.
+        else
+           shGr%isPeriodic = .False.
+        end if
+        
         if ( (shGr%isPeriodic).and.(shGr%Nge/=shGr%Ngw) ) then
            write(*,*) "Inside shell grid generator (GenShellGrid)."
            write(*,*) "Periodic grid must have the same number of ghosts on low/high phi boundaries. Quitting..."
+           stop
+        end if
+
+        if ( (.not.(shGr%isPeriodic)).and.(shGr%Nge/=shGr%Ngw) ) then
+           write(*,*) "Inside shell grid generator (GenShellGrid)."
+           write(*,*) "Grids with Nge/=Ngw have not been implemented. Quitting..."
+           stop
+        end if
+
+        ! Decide if this has north/south pole
+        shGr%doNP = .false.
+        shGr%doSP = .false.
+        if ( maxval(Theta) >= (PI - TINY) ) then
+            shGr%doSP = .true.
+        endif
+
+        if ( minval(Theta) <= (TINY) ) then
+            shGr%doNP = .true.
+        endif
+
+        if ( (shGr%doNP).and.(shGr%Ngn/=0) ) then
+           write(*,*) "Inside shell grid generator (GenShellGrid)."
+           write(*,*) "Grid containing the north pole can't have Ngn/=0. Quitting..."
+           stop
+        end if
+
+        if ( (shGr%doSP).and.(shGr%Ngs/=0) ) then
+           write(*,*) "Inside shell grid generator (GenShellGrid)."
+           write(*,*) "Grid containing the south pole can't have Ngs/=0. Quitting..."
            stop
         end if
 
@@ -90,6 +125,9 @@ module shellGrid
         shGr%jsg = shGr%js - shGr%Ngw
         shGr%jeg = shGr%je + shGr%Nge
 
+        associate(is=>shGr%is, ie=>shGr%ie, js=>shGr%js, je=>shGr%je, &
+             isg=>shGr%isg, ieg=>shGr%ieg, jsg=>shGr%jsg, jeg=>shGr%jeg)
+
         ! Nuke arrays if already allocated
         if (allocated(shGr%th))   deallocate(shGr%th)
         if (allocated(shGr%ph))   deallocate(shGr%ph)
@@ -99,44 +137,78 @@ module shellGrid
         if (allocated(shGr%latc)) deallocate(shGr%latc)
 
         ! Create new arrays
-        allocate(shGr%th  (shGr%Nt+shGr%Ngn+shGr%Ngs+1))
-        allocate(shGr%ph  (shGr%Np+shGr%Ngw+shGr%Nge+1))
-        allocate(shGr%thc (shGr%Nt+shGr%Ngn+shGr%Ngs))
-        allocate(shGr%phc (shGr%Np+shGr%Ngw+shGr%Nge))
-        allocate(shGr%lat (shGr%Nt+shGr%Ngn+shGr%Ngs+1))
-        allocate(shGr%latc(shGr%Nt+shGr%Ngn+shGr%Ngs))
+        allocate(shGr%th  (isg:ieg+1))
+        allocate(shGr%thc (isg:ieg  ))
+        allocate(shGr%lat (isg:ieg+1))
+        allocate(shGr%latc(isg:ieg  ))
+        allocate(shGr%ph  (jsg:jeg+1))
+        allocate(shGr%phc (jsg:jeg  ))
 
+        ! Set grid coordinates
+        shGr%th(is:ie+1) = Theta  ! note the arrays are conformable because of the index definitions above
+        shGr%ph(js:je+1) = Phi
 
-        ! !Set edges
-        ! shGr%LatI(:) = iLats
-        ! dphi = 2*PI/shGr%NLon
-        ! do n=1,shGr%NLon+1
-        !     shGr%LonI(n) = (n-1)*dphi
-        ! enddo
+        ! Define ghost coordinates
 
-        ! !Set centers
-        ! shGr%LatC = ( shGr%LatI(2:shGr%NLat+1) + shGr%LatI(1:shGr%NLat) )/2.0
-        ! shGr%LonC = ( shGr%LonI(2:shGr%NLon+1) + shGr%LonI(1:shGr%NLon) )/2.0
+        ! Do north, unless it's the pole (no ghosts for poles)
+        if ( (.not.shGr%doNP).and.(shGr%Ngn/=0) ) then
+           ! linearly extrapolate
+           do i=1,shGr%Ngn
+              shGr%th(is-i) = 2*shGr%th(is) - shGr%th(is+i)
+           end do
 
-        ! !Decide if this has north/south pole
-        ! shGr%doNP = .false.
-        ! shGr%doSP = .false.
-        ! if ( maxval(shGr%LatI) >= (PI/2.0 - TINY) ) then
-        !     shGr%doNP = .true.
-        ! endif
+           ! check if we got into negative thetas
+           ! then just fill the space with same size cells down to theta=0
+           if ( shGr%th(is-shGr%Ngn) < 0 ) then
+              delta = shGr%th(is)/shGr%Ngn
 
-        ! if ( minval(shGr%LatI) <= (-PI/2.0 + TINY) ) then
-        !     shGr%doSP = .true.
-        ! endif
+              do i=1,shGr%Ngn
+                 shGr%th(is-i) = shGr%th(is) - delta*i
+              end do
+           end if
+        end if
 
-        ! if (shGr%doSP .or. shGr%doNP) then
-        !     !Die for now
-        !     write(*,*) "This routine does not yet support handling north/south pole"
-        !     stop
-        ! endif
-        
-        ! shGr%minLat = minval(shGr%LatI)
-        ! shGr%maxLat = maxval(shGr%LatI)
+        ! Do south, unless it's the pole (no ghosts for poles)
+        if ( (.not.shGr%doSP).and.(shGr%Ngs/=0) ) then
+           ! linearly extrapolate
+           do i=1,shGr%Ngs
+              shGr%th(ie+1+i) = 2*shGr%th(ie+1) - shGr%th(ie+1-i)
+           end do
 
+           ! check if we got into thetas > pi
+           ! then just fill the space with same size cells up to theta=pi
+           if ( shGr%th(ie+1+shGr%Ngs) > PI ) then
+              delta = (PI - shGr%th(ie+1))/shGr%Ngs
+              do i=1,shGr%Ngs
+                 shGr%th(ie+1+i) = shGr%th(ie+1) + delta*i
+              end do
+           end if
+        end if
+
+        ! if non-periodic grid is needed, can implement ghosts on E/W ends similarly to N/S above
+        ! but we assume the grid is always periodic
+        if ( (.not.shGr%isPeriodic) )  then
+           write(*,*) "Inside shell grid generator (GenShellGrid)."
+           write(*,*) "Non-periodic grids are not implemented. Quitting..."
+           stop
+        endif
+
+        ! Note, we already made sure that for a periodic grid Nge=Ngw, phi(js)=0 and phi(je+1)=pi
+        do j=1,shGr%Nge
+           shGr%ph(js-j)   = shGr%ph(je+1-j) - 2*PI
+           shGr%ph(je+1+j) = shGr%ph(js+j) + 2*PI
+        end do
+
+        !Set centers
+        shGr%thc = ( shGr%th(isg+1:ieg+1) + shGr%th(isg:ieg) )/2.
+        shGr%phc = ( shGr%ph(jsg+1:jeg+1) + shGr%ph(jsg:jeg) )/2.
+
+        ! Define latitudes just in case
+        shGr%lat  = PI/2 - shGr%th
+        shGr%latc = PI/2 - shGr%thc
+
+        end associate
+
+        ! TODO: define isPhiUniform
     end subroutine GenShellGrid
 end module shellGrid

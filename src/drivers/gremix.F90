@@ -10,7 +10,7 @@ program gremixx
     integer :: i, Nt=100
     type(ShellGrid_T) :: shGr
 
-    LowLatBoundary = 90.*deg2rad
+    LowLatBoundary = PI !180.*deg2rad
     HighLatBoundary = 0.
 
     do i=1,Nt
@@ -18,7 +18,7 @@ program gremixx
     end do
 
     do i=1,Nt
-       p(i) = 2*pi/Nt*(i-1)
+       p(i) = 2*pi/(Nt-1)*(i-1)
     end do
 
     call GenShellGrid(shGr,t,p)
