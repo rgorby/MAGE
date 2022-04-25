@@ -12,9 +12,9 @@ module shellInterp
     contains
 
     ! Interpolate on grid shGr a cell-centered variable (Q) at point t(heta),p(hi)
-    ! Result is Qp
+    ! Result is Qinterp
     ! Optional : isGood (Nt,Np), a mask for good/bad data
-    ! Optional : isGoodP, whether Qp is a good value
+    ! Optional : isGoodP, whether Qinterp is a good value
     subroutine InterpShell(shGr,Q,t,pin,Qinterp,isGoodP,isGood)
         type(ShellGrid_T), intent(in) :: shGr
         real(rp), intent(in)  :: Q(shGr%Nt,shGr%Np)
@@ -56,13 +56,13 @@ module shellInterp
         end if
 
         ! Trap for near-pole cases
-        if (shGr%doSP .and. (i0==1)) then
+        if (shGr%doSP .and. (i0==shGr%Nt)) then
             ! Handle south pole and return
             write(*,*) "Not implemented!"
             stop
         endif
 
-        if (shGr%doNP .and. (i0==shGr%Nt)) then
+        if (shGr%doNP .and. (i0==1)) then
             ! Handle north pole and return
             write(*,*) "Not implemented!"
             stop
