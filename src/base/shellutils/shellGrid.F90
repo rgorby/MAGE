@@ -14,6 +14,8 @@ module shellGrid
         real(rp), dimension(:), allocatable :: th, ph, thc, phc, lat, latc  ! Radians
         logical :: doSP = .false., doNP = .false. ! Whether grid contains south/north pole
 
+        real(rp) :: minTheta, maxTheta, minPhi, maxPhi
+
         ! Local indices, active region
         integer :: is=1,ie,js=1,je
         ! Local indices, including ghosts
@@ -24,13 +26,14 @@ module shellGrid
         integer :: Ngn=0, Ngs=0, Nge=1, Ngw=1
 
         logical :: isPeriodic   ! Whether the low/high phi boundary is periodic
+        logical :: isPhiUniform ! Define this to speed up search for interpolation
     end type ShellGrid_T
 
     contains
 
     ! Create a shell grid data structure
     ! Takes Theta and Phi 1D arrays (uniform or not)
-    ! Default the number of ghosts to 0
+    ! Decides if isPeriodic and isPhiUniform based on the Phi array passed in
     subroutine GenShellGrid(shGr,Theta,Phi,Ngn,Ngs,Nge,Ngw)
         type(ShellGrid_T), intent(inout) :: shGr
         real(rp), dimension(:), intent(in) :: Theta, Phi
@@ -39,6 +42,7 @@ module shellGrid
         integer :: i,j
         integer :: Np, Nt
         real(rp) :: delta
+        real(rp), dimension(:), allocatable :: dphi
 
         ! Parse optional parameters
         if (present(Ngn)) shGr%Ngn = Ngn ! otherwise, always 0 as set in ShellGrid type
@@ -125,6 +129,18 @@ module shellGrid
         shGr%jsg = shGr%js - shGr%Ngw
         shGr%jeg = shGr%je + shGr%Nge
 
+        ! decide if the grid is uniform in Phi
+        ! helps to speed up interpolation search
+        if (allocated(dphi)) deallocate(dphi)
+        allocate(dphi(shGr%Np))   ! helper
+        dphi = Phi(2:shGr%Np+1) - Phi(1:shGr%Np)
+        if ( all( dphi - dphi(1) <= TINY ) ) then
+           shGr%isPhiUniform = .True.
+        else 
+           shGr%isPhiUniform = .False.
+        end if
+        deallocate(dphi)
+
         associate(is=>shGr%is, ie=>shGr%ie, js=>shGr%js, je=>shGr%je, &
              isg=>shGr%isg, ieg=>shGr%ieg, jsg=>shGr%jsg, jeg=>shGr%jeg)
 
@@ -133,14 +149,10 @@ module shellGrid
         if (allocated(shGr%ph))   deallocate(shGr%ph)
         if (allocated(shGr%thc))  deallocate(shGr%thc)
         if (allocated(shGr%phc))  deallocate(shGr%phc)
-        if (allocated(shGr%lat))  deallocate(shGr%lat)
-        if (allocated(shGr%latc)) deallocate(shGr%latc)
 
         ! Create new arrays
         allocate(shGr%th  (isg:ieg+1))
         allocate(shGr%thc (isg:ieg  ))
-        allocate(shGr%lat (isg:ieg+1))
-        allocate(shGr%latc(isg:ieg  ))
         allocate(shGr%ph  (jsg:jeg+1))
         allocate(shGr%phc (jsg:jeg  ))
 
@@ -203,12 +215,12 @@ module shellGrid
         shGr%thc = ( shGr%th(isg+1:ieg+1) + shGr%th(isg:ieg) )/2.
         shGr%phc = ( shGr%ph(jsg+1:jeg+1) + shGr%ph(jsg:jeg) )/2.
 
-        ! Define latitudes just in case
-        shGr%lat  = PI/2 - shGr%th
-        shGr%latc = PI/2 - shGr%thc
+        shGr%minTheta = minval(shGr%th)
+        shGr%maxTheta = maxval(shGr%th)
+        shGr%minPhi   = minval(shGr%ph)
+        shGr%maxPhi   = maxval(shGr%ph)
 
         end associate
 
-        ! TODO: define isPhiUniform
     end subroutine GenShellGrid
 end module shellGrid
