@@ -112,12 +112,14 @@ module mixparams
               Params%aurora_model_type = FEDDER
            case ("ZHANG")
               Params%aurora_model_type = ZHANG
+           case ("RCMHD")
+              Params%aurora_model_type = RCMHD
            case ("RCMONO")
               Params%aurora_model_type = RCMONO
            case ("RCMFED")
               Params%aurora_model_type = RCMFED
            case default 
-              stop "The aurora model type entered is not supported (Available options: FEDDER, ZHANG, RCMONO, RCMFED)."
+              stop "The aurora model type entered is not supported (Available options: FEDDER, ZHANG, RCMHD, RCMONO, RCMFED)."
         end select
 
         ! =========== CONDUCTANCE MODEL PARAMETERS =================== !
@@ -136,6 +138,7 @@ module mixparams
         call xmlInp%Set_Val(Params%doStarlight,"conductance/doStarlight",.false.)        
         call xmlInp%Set_Val(Params%doMR,"conductance/doMR",.false.)        
         call xmlInp%Set_Val(Params%apply_cap,"conductance/apply_cap",.true.)
+        call xmlInp%Set_Val(Params%gamma,"precipitation/gamma",5.0/3.0)
 
         ! if this is on, Params%F107 read from xml file above will be overwritten
         ! and F107 will be set from the SW file (i.e., from OMNI data)
