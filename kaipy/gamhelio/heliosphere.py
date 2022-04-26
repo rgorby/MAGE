@@ -15,6 +15,8 @@ dLabFS = "medium" #Default label size
 dBoxC = "lightgrey" #Default box color
 TINY = 1.0e-8
 rmStr = "mixtest"
+kbltz = 1.38e-16
+MK = 1.e6
 
 #Adapted to helio grid
 class GamsphPipe(GameraPipe):
@@ -28,7 +30,7 @@ class GamsphPipe(GameraPipe):
 		self.vScl = 150.  #-> km/s
 		self.tScl = 4637.    #->seconds
 		self.dScl = 200. #cm-3
-		self.TScl = 1.e-6/4/np.pi/200./1.38e-16/1.e6 #in MK
+		self.TScl = 1.e-6/4/np.pi/200./kbltz/MK #in MK
     
         # units for OHelio
 		#self.bScl = 5.    #->nT
@@ -62,7 +64,7 @@ class GamsphPipe(GameraPipe):
 			self.vScl   = 1.0  #-> km/s
 			self.tScl   = 1.0  #-> Seconds
 			self.dScl   = 1.0  #-> cm-3
-			self.TScl   = 1.0/1.38e-16/1.e6  # 1/kb/MK
+			self.TScl   = 1.0/kbltz/MK  # 1/kb/MK
 
 		#Rescale time
 		self.T = self.tScl*self.T
