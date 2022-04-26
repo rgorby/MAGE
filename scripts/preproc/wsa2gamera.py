@@ -20,10 +20,9 @@ args = parser.parse_args()
 
 # constants
 # TODO: move to kaipy/kdefs.py
-# TODO: add Boltzmann constant and remove from pressure calc
 mp = 1.67e-24
 kblts = 1.38e-16
-nCS = 1100. #for Temp calculation
+nCS = 1100. #for T calculation from pressure balance
 
 # Read params from config file
 prm = params.params(args.ConfigFileName)
@@ -35,8 +34,9 @@ Tsolar = prm.Tsolar
 # remember to use the same units in gamera
 B0 = prm.B0
 n0 = prm.n0
-TCS = prm.T0
 V0 = B0/np.sqrt(4*np.pi*mp*n0)
+#Temperature in the Current Sheet (for T calculation from pressure balance)
+TCS = prm.T0
 
 # Grid parameters
 tMin = prm.tMin
@@ -119,12 +119,13 @@ rho = f(Pc[:,0,0],Tc[0,:,0])
 
 # Not interpolating temperature, but calculating from the total pressure balance
 # AFTER interpolating br and rho to the gamera grid
-# n_max*k*T0 = n*k*T + Br^2/8pi  
+# n_CS*k*T_CS = n*k*T + Br^2/8pi  
 temp = (nCS*kblts*TCS - (br*B0)**2/8./np.pi)/(rho*n0)/kblts
 # note, keep temperature in K (pressure is normalized in wsa.F90)
 
-print ("Max and min of temperature in MK")
-print (np.amax(temp)*1.e-6, np.amin(temp)*1.e-6)
+#check
+#print ("Max and min of temperature in MK")
+#print (np.amax(temp)*1.e-6, np.amin(temp)*1.e-6)
 
 # note, redefining interpolation functions we could also
 # interpolate from bi_wsa as above, but then we would have to
@@ -148,10 +149,12 @@ br_kface*=(R0/Rc[0,0,:Ng])**2
 omega=2*np.pi/Tsolar
 et_kedge = - omega*R0*np.sin(Tc[:,:,Ng-1])*br_kface[:,:,-1]
 
-print ("Br kface ", br_kface.shape)
-print ("E theta ", et_kedge.shape)
+#check
+#print ("Br kface ", br_kface.shape)
+#print ("E theta ", et_kedge.shape)
 
 # Save to file
+# v, rho, br are normalized, temp is in [K]
 with h5py.File(os.path.join(prm.IbcDir,prm.gameraIbcFile),'w') as hf:
     hf.attrs["MJD"] = mjd_c
     hf.create_dataset("vr",data=vr)
@@ -160,5 +163,5 @@ with h5py.File(os.path.join(prm.IbcDir,prm.gameraIbcFile),'w') as hf:
     hf.create_dataset("temp",data=temp)
     hf.create_dataset("br",data=br)
     hf.create_dataset("br_kface",data=br_kface)
-    hf.create_dataset("et_kedge",data=et_kedge)
+    #hf.create_dataset("et_kedge",data=et_kedge)
 hf.close()
