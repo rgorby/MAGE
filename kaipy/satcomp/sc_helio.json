@@ -94,7 +94,7 @@
 		},
 		"Speed" : {
 			"Id" : "STA_COHO1HR_MERGED_MAG_PLASMA",
-			"Data" : "plasmaSpeed",
+			"Data" : "plasmaSpeed"
 		},
 		"Temperature" : {
 			"Id" : "STA_COHO1HR_MERGED_MAG_PLASMA",
@@ -115,11 +115,11 @@
 		},
 		"Density" : {
 			"Id" : "STB_COHO1HR_MERGED_MAG_PLASMA",
-			"Data" : "plasmaDensity",
+			"Data" : "plasmaDensity"
 		},
 		"Speed" : {
 			"Id" : "STB_COHO1HR_MERGED_MAG_PLASMA",
-			"Data" : "plasmaSpeed",
+			"Data" : "plasmaSpeed"
 		},
 		"Temperature" : {
 			"Id" : "STB_COHO1HR_MERGED_MAG_PLASMA",
