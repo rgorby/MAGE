@@ -124,10 +124,10 @@ def computeErrors(obs,pred):
 #Cdaweb-related
 #======
 
-def getScIds(doPrint=False):
+def getScIds(spacecraft_data_file=scstrs_fname, doPrint=False):
 	"""Load info from stored file containing strings needed to get certain spacefract datasets from cdaweb
 	"""
-	scdict = kj.load(scstrs_fname)
+	scdict = kj.load(spacecraft_data_file)
 
 	if doPrint:
 		print("Retrievable spacecraft data:")
@@ -366,6 +366,54 @@ def genSCXML(fdir,ftag,
 	return root
 
 
+def genHelioSCXML(fdir,ftag,
+	scid="sctrack_A",h5traj="sctrack_A.h5",numSegments=1):
+	"""Generate XML input file for heliosphere spacecraft."""
+
+	(fname,isMPI,Ri,Rj,Rk) = kaiTools.getRunInfo(fdir,ftag)
+	root = minidom.Document()
+	xml = root.createElement('Kaiju')
+	root.appendChild(xml)
+	chimpChild = root.createElement('Chimp')
+	scChild = root.createElement("sim")
+	scChild.setAttribute("runid",scid)
+	chimpChild.appendChild(scChild)
+	fieldsChild = root.createElement("fields")
+	fieldsChild.setAttribute("doMHD","T")
+	fieldsChild.setAttribute("grType","SPH")
+	fieldsChild.setAttribute("ebfile",ftag)
+	if isMPI:
+		fieldsChild.setAttribute("isMPI","T")
+	chimpChild.appendChild(fieldsChild)
+	if isMPI:
+		parallelChild = root.createElement("parallel")
+		parallelChild.setAttribute("Ri","%d"%Ri)
+		parallelChild.setAttribute("Rj","%d"%Rj)
+		parallelChild.setAttribute("Rk","%d"%Rk)
+		chimpChild.appendChild(parallelChild)
+	unitsChild = root.createElement("units")
+	unitsChild.setAttribute("uid","HELIO")
+	chimpChild.appendChild(unitsChild)
+	trajChild = root.createElement("trajectory")
+	trajChild.setAttribute("H5Traj",h5traj)
+	trajChild.setAttribute("doSmooth","F")
+	chimpChild.appendChild(trajChild)
+	# <domain>
+	domain_child = root.createElement("domain")
+	domain_child.setAttribute("dtype", "SPH")
+	domain_child.setAttribute("rmin", "1.0")
+	domain_child.setAttribute("rmax", "215.0")
+	chimpChild.appendChild(domain_child)
+	# <parintime>
+	# <HACK>
+	parInTimeChild = root.createElement("parintime")
+	parInTimeChild.setAttribute("NumB","%d"%numSegments)
+	chimpChild.appendChild(parInTimeChild)
+	# </HACK>
+	xml.appendChild(chimpChild)
+	return root
+
+
 #======
 #SCTrack
 #======
@@ -409,8 +457,14 @@ def createInputFiles(data,scDic,scId,mjd0,sec0,fdir,ftag,numSegments):
 		hf.create_dataset("X" ,data=smpos.x)
 		hf.create_dataset("Y" ,data=smpos.y)
 		hf.create_dataset("Z" ,data=smpos.z)
-	chimpxml = genSCXML(fdir,ftag,
-		scid=scId,h5traj=os.path.basename(scTrackName),numSegments=numSegments)
+	# <HACK>
+	if scId in ["ACE"]:
+		chimpxml = genHelioSCXML(fdir,ftag,
+			scid=scId,h5traj=os.path.basename(scTrackName),numSegments=0)
+	# </HACK>
+	else:
+		chimpxml = genSCXML(fdir,ftag,
+			scid=scId,h5traj=os.path.basename(scTrackName),numSegments=numSegments)
 	xmlFileName = os.path.join(fdir,scId+'.xml')
 	with open(xmlFileName,"w") as f:
 		f.write(chimpxml.toprettyxml())
@@ -514,6 +568,46 @@ def extractGAMERA(data,scDic,scId,mjd0,sec0,fdir,ftag,cmd,numSegments,keep):
 		sctrack = subprocess.run([cmd, xmlFileName], cwd=fdir,
 							stdout=subprocess.PIPE, stderr=subprocess.PIPE,
 							text=True)
+
+		#print(sctrack)
+		h5name = os.path.join(fdir, scId + '.sc.h5')
+
+	else:
+		process = []
+		for seg in range(1,numSegments+1):
+			process.append(subprocess.Popen([cmd, xmlFileName,str(seg)],
+							cwd=fdir,
+							stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+							text=True))
+		for proc in process:
+			proc.communicate()
+		h5name = mergeFiles(scId,fdir,numSegments)
+
+
+	addGAMERA(data,scDic,h5name)
+
+	if not keep:
+		subprocess.run(['rm',h5name])
+		subprocess.run(['rm',xmlFileName])
+		subprocess.run(['rm',scTrackName])
+		if numSegments > 1:
+			h5parts = os.path.join(fdir,scId+'.*.sc.h5')
+			subprocess.run(['rm',h5parts])
+	return
+
+def extractGAMHELIO(
+    data, scDic, scId, mjd0, sec0, fdir, ftag, cmd, numSegments, keep
+):
+	(scTrackName,xmlFileName) = createInputFiles(data,scDic,scId,
+		mjd0,sec0,fdir,ftag,numSegments)
+
+	if 1 == numSegments:
+		sctrack = subprocess.run([cmd, xmlFileName], cwd=fdir, capture_output=True,
+							# stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+							text=True)
+		with open("sctrack.out", "w") as f:
+			f.write(sctrack.stdout)
+
 		#print(sctrack)
 		h5name = os.path.join(fdir, scId + '.sc.h5')
 
