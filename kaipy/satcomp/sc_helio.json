@@ -7,7 +7,7 @@
 		},
 		"MagneticField" : {
 			"Id" : "AC_H2_MFI",
-			"Data" : ["Magnitude", "BGSEc"], 
+			"Data" : "BGSEc",
 			"CoordSys" : "GSE"	
 		},
 		"Density" : {
