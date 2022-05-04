@@ -1,8 +1,8 @@
 {
 	"ACE" : {
 		"Ephem" : {
-			"Id" : "AC_OR_DEF",
-			"Data" : "GSE_ATT",
+			"Id" : "AC_OR_SSC",
+			"Data" : "XYZ_GSE",
 			"CoordSys" : "GSE"
 		},
 		"MagneticField" : {
