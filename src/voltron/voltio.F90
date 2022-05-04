@@ -43,8 +43,8 @@ module voltio
 
         real(rp) :: dpT,dtWall,cMJD,dMJD,simRate
 
-        integer :: iYr,iDoY,iMon,iDay,iHr,iMin,nTh,curCount,countMax
-        real(rp) :: rSec,clockRate
+        integer :: nTh,curCount,countMax
+        real(rp) :: clockRate
         character(len=strLen) :: utStr
         real(rp) :: DelD,DelP,dtIM,BSDst0,AvgBSDst,DPSDst,symh,BSSMRs(4)
 
@@ -80,8 +80,7 @@ module voltio
         endif
         
         !Get MJD info
-        call mjd2ut(cMJD,iYr,iDoY,iMon,iDay,iHr,iMin,rSec)
-        write(utStr,'(I0.4,a,I0.2,a,I0.2,a,I0.2,a,I0.2,a,I0.2)') iYr,'-',iMon,'-',iDay,' ',iHr,':',iMin,':',nint(rSec)
+        call mjd2utstr(cMJD,utStr)
 
         !Get Dst estimate: DPS, center of earth, MLT avg of equatorial stations
         call EstDST(gApp%Model,gApp%Grid,gApp%State,BSDst0,AvgBSDst,BSSMRs,DPSDst)

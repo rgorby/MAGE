@@ -93,10 +93,14 @@ module chmpunits
         case("JUPITER")
             rClosed = 10.0
         case("SATURN")
-            rClosed = 5.0
+            rClosed = 6.25
         case DEFAULT
             rClosed = 2.25
         end select
+
+        !Now replace with user input if present
+        call inpXML%Set_Val(rClosed,"domain/rClosed",rClosed)
+
 
         !Set main scaling values
         ebScl = (qe_cgs*L0/Me_cgs)/(vc_cgs**2.0)
@@ -193,7 +197,7 @@ module chmpunits
             in2s   = 1.0
             M0g = SaturnM0g
             inPScl = 1.0 !Converted to nPa on output
-            rClosed = 5.0 !Inner boundary for Saturn
+            rClosed = 6.25 !Inner boundary for Saturn
         case("SATURNCODE")
             L0 = RSaturnXE*Re_cgs
             in2cms = 100*gv0 ! 100 km/s -> cm/s
@@ -201,7 +205,7 @@ module chmpunits
             in2s   = L0/in2cms
             M0g = SaturnM0g
             inPScl = gP0 !Gamera pressure -> nPa
-            rClosed = 5.0 !Inner boundary for Saturn
+            rClosed = 6.25 !Inner boundary for Saturn
         case("HELIO")
             !Grid: Rs
             !Velocity : 150 km/s
@@ -240,6 +244,9 @@ module chmpunits
             M0g = 0.0
 
         end select
+
+        !Now replace with user input if present
+        call inpXML%Set_Val(rClosed,"domain/rClosed",rClosed)
 
         !Set main scaling values
         ebScl = (qe_cgs*L0/Me_cgs)/(vc_cgs**2.0)

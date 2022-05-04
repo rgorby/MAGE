@@ -70,7 +70,7 @@ module kdefs
     real(rp), parameter :: SaturnM0g = 0.21 !Gauss
     real(rp), parameter :: RSaturnXE = 9.5  !Rx = X*Re
     !Jupiter
-    real(rp), parameter :: JupiterM0g = -4.8 !Gauss
+    real(rp), parameter :: JupiterM0g = 4.8 !Gauss
     real(rp), parameter :: RJupiterXE = 11.0 !Rx = X*Re
     !Mercury
     real(rp), parameter :: MercuryM0g = 0.00345  !Gauss

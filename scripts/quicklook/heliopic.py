@@ -70,7 +70,7 @@ if __name__ == "__main__":
 	gsph = hsph.GamsphPipe(fdir,ftag,doFast=doFast)
 
 	if (nStp<0):
-		nStp = hsph.sFin
+		nStp = gsph.sFin
 		print("Using Step %d"%(nStp))
 
 	#======
