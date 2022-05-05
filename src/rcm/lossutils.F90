@@ -545,8 +545,11 @@ MODULE lossutils
         REAL (rprec) :: lambda, tau, tau_av
         REAL (rprec) :: MLT, L, E, K, L2, L3, L4, fL, E2, E3, E4, E5, LE
         REAL (rprec) :: b0, b1, b2, G0, g0_MLT, g_MLT, c0, c1, c2, H0, h0_Kp, h_Kp
-        REAL (rprec), DIMENSION(20) :: a1_20, le_pol
-
+        REAL (rprec), DIMENSION(20) :: le_pol
+        REAL(rprec), dimension(20), parameter :: a1_20 = [77.323, -92.641, -55.754, 44.497, 48.981, 8.9067, -10.704, &
+                                                         -15.711, -3.3326, 1.5189, 1.294, 2.2546, 0.31889, -0.85916, & 
+                                                         -0.22182, 0.034318, 0.097248, -0.12192, -0.062765, 0.0063218]
+     
         lambda = 0.D0
         tau = 1.D10
         MLT = mltx
@@ -596,8 +599,6 @@ MODULE lossutils
         L3 = L2*L
         L4 = L3*L
         LE = L*E
-        a1_20 = [77.323, -92.641, -55.754, 44.497, 48.981, 8.9067, -10.704, -15.711, -3.3326, 1.5189, &
-                 1.294, 2.2546, 0.31889, -0.85916, -0.22182, 0.034318, 0.097248, -0.12192, -0.062765, 0.0063218]
         le_pol = (/1.D0,L,E,L2,LE,E2,L3,L2*E,L*E2,E3,L4,L3*E,L2*E2,L*E3,E4,L*E4,L2*E3,L4*E,L2*L3,E5/)
         tau_av = 10.0**(dot_product(a1_20,le_pol))*86400.D0 ! seconds
         tau = tau_av/g_MLT/h_KP
