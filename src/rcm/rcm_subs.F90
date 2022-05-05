@@ -3117,10 +3117,12 @@ FUNCTION Ratefn (xx,yy,alamx,vmx,beqx,losscx,nex,kpx,fudgxO,sinixO,birxO,xmfactO
             if (EWMTauInput%useWM) then
                 Ratefn = RatefnDW(xx,yy,alamx,vmx,nex,kpx,beqx,losscx)
             else
-                stop "Wave model is missing in rcmconfig.h5"
+                write(*,*) "Wave model is missing in rcmconfig.h5"
+                stop
             endif
          case default
-            stop "The electron loss rate model type entered is not supported."
+            write(*,*) "The electron loss rate model type entered is not supported."
+            stop
  end select
 
 END FUNCTION Ratefn
