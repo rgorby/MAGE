@@ -3272,7 +3272,6 @@ FUNCTION RatefnC19 (xx,yy,alamx,vmx,beqx,losscx,nex,kpx)
 !  if((nex<nlow.and.MLT<=21.0.and.MLT>15.0).or.(nex>nhigh.and.(L>6.0 .or. L<3.0 .or. E>1.0 .or. E<-3.0 .or. E<fL))) then !  .or. kpx>6.0
   fL = 0.1328*L*L - 2.1463*L + 3.7857
   if((nex<nlow.and.MLT<=21.0.and.MLT>15.0).or.(nex>nhigh.and.(L>5.5 .or. L<1.5 .or. E>1.0 .or. E<-3.0 .or. E<fL))) then
-    if(nex>nhigh) write(*,"(6(a,e25.15))") 'C05 triggered: nex=',nex,' L=',L,' Kp=',kpx,' E=',E,' fL=',fL!,' RatefnC(2)=',RatefnC(2)
     tau = tau_s + RatefnC_tau_C05(MLT,K,L) ! mltx,engx,Lshx
     RatefnC19(2) = 0.0
   endif
