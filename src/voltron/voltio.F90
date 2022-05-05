@@ -75,8 +75,9 @@ module voltio
 
         if ( (simRate<0) .or. (abs(dtWall/3600.0) >= dtWallMax) ) then
             ! Partially reset counters so that the values don't become so large they don't change
-            oMJD = oMJD + 0.9*dMJD
-            oTime = oTime + 0.9*dtWall*clockRate
+            oMJD = cMJD - 0.1*dMJD
+            oTime = curCount - 0.1*dtWall*clockRate
+            if(oTime < 0) oTime = oTime + countMax
         endif
         
         !Get MJD info
