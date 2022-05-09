@@ -14,10 +14,10 @@ ev2J  = 1.602176634E-19  # keV->J
 #Physical Constants
 #------
 Mu0     = 4E-7*np.pi             # [Tm/A]
-Me_cgs  = 9.1093837015E-28       # [g] Electron mass
-Mp_cgs  = 1.67262192369E-24      # [g] Proton mass
-eCharge = 1.602E-19              # Charge of electron
-dalton  = 1.66053906660*1.0E-27  # Mass unit [kg]
+Me_cgs  = 9.1093837015E-28       # [g]  Electron mass
+Mp_cgs  = 1.67262192369E-24      # [g]  Proton mass
+eCharge = 1.602E-19              # [J]  Charge of electron
+dalton  = 1.66053906660*1.0E-27  # [kg] Mass unit
 
 
 
