@@ -1,16 +1,17 @@
 import numpy as np
-
 import h5py as h5
+
+import kaipy.kdefs as kd
 
 
 #------
 # Factors
 #------
-massi = 1.67e-27 # mass of ions in kg
-masse = 9.11e-31 # mass of lectrons in kg
+massi = kd.Mp_cgs*1e-3 # mass of ions in kg
+masse = kd.Me_cgs*1e-3 # mass of lectrons in kg
 ev = 1.607e-19 # 1ev in J
 nt = 1.0e-9 # nt
-rx = 6.380e6 # radius of earth in m
+rx = kd.Re_cgs*1e-2 # radius of earth in m
 
 pressure_factor   = 2./3.*ev/rx*nt
 specFlux_factor_i = 1/np.pi/np.sqrt(8)*np.sqrt(ev/massi)*nt/rx/1.0e1  # [units/cm^2/keV/str]

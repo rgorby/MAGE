@@ -1,4 +1,47 @@
 #Main constants
 import numpy as np
 
-EarthM0g = 0.31 #Gauss
+#------
+#Helpful conversions
+#------
+G2nT  = 1E5              # Gauss->nanoTesla
+kev2J = 1.602176634E-16  # keV->J
+ev2J  = 1.602176634E-19  # keV->J
+
+
+
+#------
+#Physical Constants
+#------
+Mu0     = 4E-7*np.pi             # [Tm/A]
+Me_cgs  = 9.1093837015E-28       # [g] Electron mass
+Mp_cgs  = 1.67262192369E-24      # [g] Proton mass
+eCharge = 1.602E-19              # Charge of electron
+dalton  = 1.66053906660*1.0E-27  # Mass unit [kg]
+
+
+
+#------
+#Planetary Constants
+#------
+Re_cgs = 6.3781E8       # [cm]  Earth's radius
+EarthM0g = 0.31         # [Gauss]
+REarth = Re_cgs*1.0e-2  # m
+RionE  = 6.5            # Earth Ionosphere radius in 1000 km
+EarthPsi0 = 92.4        # Corotation potential [kV]
+#Saturn
+SaturnM0g = 0.21        # Gauss
+RSaturnXE = 9.5         # Rx = X*Re
+#Jupiter
+JupiterM0g = 4.8        # Gauss
+RJupiterXE = 11.0       # !Rx = X*Re
+#Mercury
+MercuryM0g = 0.00345    # Gauss
+RMercuryXE = 0.31397    # Rx = X*Re
+#Neptune
+NeptuneM0g = 0.142      # Gauss
+RNeptuneXE = 3.860      # Rx = X*Re
+
+
+#Helio
+Rsolar = 6.956E5 # [km] Solar radius
