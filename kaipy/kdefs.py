@@ -25,7 +25,7 @@ dalton  = 1.66053906660*1.0E-27  # Mass unit [kg]
 #Planetary Constants
 #------
 Re_cgs = 6.3781E8       # [cm]  Earth's radius
-EarthM0g = 0.31         # [Gauss]
+EarthM0g = 0.2961737    # Gauss, Olsen++ 2000
 REarth = Re_cgs*1.0e-2  # m
 RionE  = 6.5            # Earth Ionosphere radius in 1000 km
 EarthPsi0 = 92.4        # Corotation potential [kV]
