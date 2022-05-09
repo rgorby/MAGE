@@ -9,14 +9,13 @@ import timeit
 
 #Object to pull from MPI/Serial heliosphere runs (H5 data), extends base
 
-ffam =  "monospace"
-dLabC = "black" #Default label color
+ffam   =  "monospace"
+dLabC  = "black" #Default label color
 dLabFS = "medium" #Default label size
-dBoxC = "lightgrey" #Default box color
-TINY = 1.0e-8
-rmStr = "mixtest"
-kbltz = 1.38e-16
-MK = 1.e6
+dBoxC  = "lightgrey" #Default box color
+TINY   = 1.0e-8
+rmStr  = "mixtest"
+MK     = 1.e6 #MegaKelvin
 
 #Adapted to helio grid
 class GamsphPipe(GameraPipe):
@@ -50,9 +49,6 @@ class GamsphPipe(GameraPipe):
 		self.R0 = self.xxc[0,0]
 
 		#j and k for radial profile
-		#self.jRad = self.Nj//2
-		#self.kRad = self.Nk//2
-		
 		self.jRad = self.Nj//2
 		self.kRad = self.Nk//4
 
@@ -60,11 +56,11 @@ class GamsphPipe(GameraPipe):
 		GameraPipe.OpenPipe(self,doVerbose)
 		
 		if (self.UnitsID != "CODE"):
-			self.bScl   = 1.0  #->nT
-			self.vScl   = 1.0  #-> km/s
-			self.tScl   = 1.0  #-> Seconds
-			self.dScl   = 1.0  #-> cm-3
-			self.TScl   = 1.0/kbltz/MK  # 1/kb/MK
+			self.bScl   = 1.0          #->nT
+			self.vScl   = 1.0          #-> km/s
+			self.tScl   = 1.0          #-> Seconds
+			self.dScl   = 1.0          #-> cm-3
+			self.TScl   = 1.0/kbltz/MK #-> MKelvin
 
 		#Rescale time
 		self.T = self.tScl*self.T
