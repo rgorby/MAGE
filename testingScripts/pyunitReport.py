@@ -93,21 +93,8 @@ if __name__ == '__main__':
         hasError = True
     if 'passed' in last_line:
         hasPass = True
-    if(not isTest and (beLoud or hasError or hasFail or hasPass)):
 
-        if hasError:
-            postWithSlackBot(client,'Python Unit Tests did not run succesfully\n\n')
-            
-        if hasFail:
-            postWithSlackBot(client,'Unexpected error occured during python unit tests\n\n')
-            
-        if (hasPass and not hasError and not hasFail):
-            postWithSlackBot(client,'Python Unit Tests Pass')
-            
-        if (not hasPass and not hasError and not hasFail):
-            postWithSlackBot(client,'Unexpected error occured during python unit tests\n\n')
-            
-    else:
+    if (isTest): # if isTest do not use slack
         if hasError:
             print("Python Unit Tests did not run sucessfully")
         if hasFail:
@@ -116,4 +103,20 @@ if __name__ == '__main__':
             print("Python Unit Tests Passed")
         if (not hasPass and not hasError and not hasFail):
             print('Unexpected error occured during python unit tests\n\n')
+    elif (beLoud): # if beLoud send all messages to Slack    
+        if hasError:
+            postWithSlackBot(client,'Python Unit Tests did not run succesfully\n\n')            
+        if hasFail:
+            postWithSlackBot(client,'Python Unit Tests Failed\n\n')            
+        if (hasPass and not hasError and not hasFail):
+            postWithSlackBot(client,'Python Unit Tests Pass')            
+        if (not hasPass and not hasError and not hasFail):
+            postWithSlackBot(client,'Unexpected error occured during python unit tests\n\n')            
+    else: #only report errors to Slack
+        if hasError:
+            postWithSlackBot(client,'Python Unit Tests did not run succesfully\n\n')            
+        if hasFail:
+            postWithSlackBot(client,'Python Unit Tests Failed\n\n')           
+        if (not hasPass and not hasError and not hasFail):
+            postWithSlackBot(client,'Unexpected error occured during python unit tests\n\n')
 
