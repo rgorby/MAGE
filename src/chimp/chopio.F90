@@ -36,6 +36,7 @@ module chopio
         integer :: i,j,k
         integer :: iS,iE
         real(rp) :: xcc(NDIM)
+        logical :: doLogR
 
     !Check for time parallelism
         call InitParInTime(Model,inpXML,"eb3",eb3DOutF)
@@ -109,8 +110,14 @@ module chopio
             enddo
         !---------
         ! Spherical
-        case("RTP")            
-            dx1 = ( log10(x1Max)-log10(x1Min) )/Nx1
+        case("RTP")
+            !Check for log spacing in r
+            call inpXML%Set_Val(doLogR,'chop/doLogR',.false.)
+            if (doLogR) then
+                dx1 = ( log10(x1Max)-log10(x1Min) )/Nx1
+            else
+                dx1 = (x1Max - x1Min)/Nx1
+            endif
             dx2 = (x2Max-x2Min)*deg2rad/Nx2
             dx3 = (x3Max-x3Min)*deg2rad/Nx3
             !$OMP PARALLEL DO
@@ -118,12 +125,18 @@ module chopio
                 do j=1,Nx2+1    
                     do i=1,Nx1+1
                         !x1 = Rin + (i-1)*dx1
-                        x1 = 10**( log10(x1Min) + (i-1)*dx1 )
-                        x2 = x2Min*deg2rad + (j-1)*dx2
-                        x3 = x3Min*deg2rad + (k-1)*dx3
-                        xxi(i,j,k) = x1*cos(x2)*sin(x3)
-                        yyi(i,j,k) = x1*sin(x2)*sin(x3)
-                        zzi(i,j,k) = x1*cos(x3)
+                        if (doLogR) then
+                            x1 = 10**( log10(x1Min) + (i-1)*dx1 )
+                        else
+                            x1 = x1Min + (i-1)*dx1
+                        endif
+                        x2 = x2Min*deg2rad + (j-1)*dx2 !Theta
+                        x3 = x3Min*deg2rad + (k-1)*dx3 !Phi
+
+                        xxi(i,j,k) = x1*cos(x3)*sin(x2)
+                        yyi(i,j,k) = x1*sin(x3)*sin(x2)
+                        zzi(i,j,k) = x1*cos(x2)
+
                     enddo
                 enddo
             enddo
