@@ -59,7 +59,7 @@ def AddSizeArgs(parser):
 def GetSizeBds(pic):
 	if (pic == "pic1" or pic == "pic2"):
                 #for inner helio
-		xyBds = [-216.,216.,-216.,216.]
+		xyBds = [-220.,220.,-220.,220.]
                 #for 1-10 au helio
                 #xyBds = [-10.,10.,-10.,10.]
 	elif (pic == "pic3"):
