@@ -160,16 +160,16 @@ if __name__ == "__main__":
     # Use the first (non zero?) time as the inital MJD.
     # N.B. THIS SKIPS THE FIRST SIMULATION STEP SINCE IT TYPICALLY HAS
     # gamT[0] = 0.
-    # loc = np.argwhere(gamT > 0.0)[0][0]
-    # t0 = gamUT[loc]  # First non-0 time
-    t0 = gamUT[0]
+    loc = np.argwhere(gamT > 0.0)[0][0]
+    t0 = gamUT[loc]  # First non-0 time
+    # t0 = gamUT[0]
     t1 = gamUT[-1]
     if debug:
         print("t0 = %s" % t0)
         print("t1 = %s" % t1)
 
     # Compute the time interval (in integer code units) between step 1 and step 2.
-    # deltaT = np.round(gamT[loc + 1] - gamT[loc])
+    deltaT = np.round(gamT[loc + 1] - gamT[loc])
     # if debug:
     #     print("deltaT = %s" % deltaT)
     # <HACK>
@@ -177,14 +177,14 @@ if __name__ == "__main__":
     # </HACK>
 
     # Save the (float) MJD of the first step.
-    # mjdFileStart = gamMJD[loc]
-    mjdFileStart = gamMJD[0]
+    mjdFileStart = gamMJD[loc]
+    # mjdFileStart = gamMJD[0]
     if debug:
         print("mjdFileStart = %s" % mjdFileStart)
 
     # Save the elapsed simulation time in code units of the first step.
-    # secFileStart = gamT[loc]
-    secFileStart = gamT[0]
+    secFileStart = gamT[loc]
+    # secFileStart = gamT[0]
     if debug:
         print("secFileStart = %s" % secFileStart)
 

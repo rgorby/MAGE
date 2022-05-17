@@ -9,12 +9,13 @@ import timeit
 
 #Object to pull from MPI/Serial heliosphere runs (H5 data), extends base
 
-ffam =  "monospace"
-dLabC = "black" #Default label color
+ffam   =  "monospace"
+dLabC  = "black" #Default label color
 dLabFS = "medium" #Default label size
-dBoxC = "lightgrey" #Default box color
-TINY = 1.0e-8
-rmStr = "mixtest"
+dBoxC  = "lightgrey" #Default box color
+TINY   = 1.0e-8
+rmStr  = "mixtest"
+MK     = 1.e6 #MegaKelvin
 
 #Adapted to helio grid
 class GamsphPipe(GameraPipe):
@@ -28,9 +29,9 @@ class GamsphPipe(GameraPipe):
 		self.vScl = 150.  #-> km/s
 		self.tScl = 4637.    #->seconds
 		self.dScl = 200. #cm-3
-		self.TScl = 1.e-6/4/np.pi/200./1.38e-16/1.e6 #in MK
+		self.TScl = 1.e-6/4/np.pi/200./kbltz/MK #in MK
     
-                # [OHelio]
+        # units for OHelio
 		#self.bScl = 5.    #->nT
 		#self.vScl = 34.5  #-> km/s
 		#self.tScl = 1.4e8/34.5
@@ -46,23 +47,25 @@ class GamsphPipe(GameraPipe):
 
 		#inner boundary distance
 		self.R0 = self.xxc[0,0]
-		
+
+		#j and k for radial profile
+		self.jRad = self.Nj//2
+		self.kRad = self.Nk//4
+
 	def OpenPipe(self,doVerbose=True):
 		GameraPipe.OpenPipe(self,doVerbose)
 		
 		if (self.UnitsID != "CODE"):
-			self.bScl   = 1.0  #->nT
-			self.vScl   = 1.0  #-> km/s
-			self.tScl   = 1.0 #->Seconds
-			# [EP] added
-			self.dScl = 1.0
-			self.TScl = 1.0 
+			self.bScl   = 1.0          #->nT
+			self.vScl   = 1.0          #-> km/s
+			self.tScl   = 1.0          #-> Seconds
+			self.dScl   = 1.0          #-> cm-3
+			self.TScl   = 1.0/kbltz/MK #-> MKelvin
 
 		#Rescale time
 		self.T = self.tScl*self.T
 
 		Neq_a = self.Nj//2 #cell above eq plane
-		print (Neq_a)
 
 		Nr = self.Ni
 		Np = self.Nk
@@ -108,6 +111,30 @@ class GamsphPipe(GameraPipe):
 		#taking average above/below eq plane
 		Qj[:,:] = 0.5*( Q[:,ja,:] + Q[:,jb,:] )
 		return Qj
+
+
+	def RadialProfileGrid(self):
+		self.GetGrid(doVerbose=True)
+		#set j and k for a radial direction
+		#Nk2 = self.Nk//2
+		#Nj2 = self.Nj//2
+		#cell corners
+		x = self.X [:,:,:]
+		y = self.Y [:,:,:]
+		z = self.Z [:,:,:]
+		#cell centers
+		x_c = 0.125*(x[:-1,:-1,:-1]+x[:-1,:-1,1:]+x[:-1,1:,:-1]+x[:-1,1:,1:]+
+		x[1:,:-1,:-1]+x[1:,:-1,1:]+x[1:,1:,:-1]+x[1:,1:,1:])
+		y_c = 0.125*(y[:-1,:-1,:-1]+y[:-1,:-1,1:]+y[:-1,1:,:-1]+y[:-1,1:,1:]+
+		y[1:,:-1,:-1]+y[1:,:-1,1:]+y[1:,1:,:-1]+y[1:,1:,1:])
+		z_c = 0.125*(z[:-1,:-1,:-1]+z[:-1,:-1,1:]+z[:-1,1:,:-1]+z[:-1,1:,1:]+
+		z[1:,:-1,:-1]+z[1:,:-1,1:]+z[1:,1:,:-1]+z[1:,1:,1:])
+		#radius of cell centers
+		jR = self.jRad
+		kR = self.kRad
+		r = np.sqrt(x_c[:,jR,kR]**2.0 + y_c[:,jR,kR]**2.0 + z_c[:,jR,kR]**2.)
+
+		return r	
 
 	#NOT USED merid plane Y=0
 	def MeridGrid(self):
@@ -211,6 +238,83 @@ class GamsphPipe(GameraPipe):
 		#jd_c = self.MJDs[sID]
 		#print ('jd_c = ', jd_c)
 		return Qi
+
+	#Var along 1D radial line
+	def RadialProfileVar(self,vID,sID=None,vScl=None,doVerb=True):
+		#Get full 3D variable first
+		Q = self.GetVar(vID,sID,vScl,doVerb)
+
+		#set j and k for a radial profile
+		jR = self.jRad
+		kR = self.kRad
+		Nr = self.Ni
+              
+		Qi = np.zeros(Nr)
+                #variable in a cell center
+		Qi[:] = Q[:,jR,kR] 
+	
+		return Qi
+
+	#Radial Profile: Normalized Density
+	def RadProfDen(self,s0=0):
+		D = self.RadialProfileVar("D", s0)
+
+		self.GetGrid(doVerbose=True)
+		jR = self.jRad
+		kR = self.kRad
+		x = self.X [:,:,:]
+		y = self.Y [:,:,:]
+		z = self.Z [:,:,:]
+
+		x_c = 0.125*(x[:-1,:-1,:-1]+x[:-1,:-1,1:]+x[:-1,1:,:-1]+x[:-1,1:,1:]+
+			x[1:,:-1,:-1]+x[1:,:-1,1:]+x[1:,1:,:-1]+x[1:,1:,1:])
+		y_c = 0.125*(y[:-1,:-1,:-1]+y[:-1,:-1,1:]+y[:-1,1:,:-1]+y[:-1,1:,1:]+
+			y[1:,:-1,:-1]+y[1:,:-1,1:]+y[1:,1:,:-1]+y[1:,1:,1:])
+		z_c = 0.125*(z[:-1,:-1,:-1]+z[:-1,:-1,1:]+z[:-1,1:,:-1]+z[:-1,1:,1:]+
+			z[1:,:-1,:-1]+z[1:,:-1,1:]+z[1:,1:,:-1]+z[1:,1:,1:])
+
+		r = np.sqrt(x_c[:,jR,kR]**2.0 + y_c[:,jR,kR]**2.0+z_c[:,jR,kR]**2.)
+		Norm = r**2./r[0]/r[0]
+		
+		D = D*Norm*self.dScl
+		return D
+
+	#Radial Profile: Speed
+	def RadProfSpeed(self,s0=0):
+		Vx = self.RadialProfileVar("Vx", s0)
+		Vy = self.RadialProfileVar("Vy", s0)
+		Vz = self.RadialProfileVar("Vz", s0)
+
+		MagV = self.vScl*np.sqrt(Vx**2.0+Vy**2.0+Vz**2.0)
+		return MagV
+
+	#Radial Profile: Normalized Flux rho*V*r^2
+	def RadProfFlux(self,s0=0):
+		D = self.RadialProfileVar("D", s0)
+		Vx = self.RadialProfileVar("Vx", s0)
+		Vy = self.RadialProfileVar("Vy", s0)
+		Vz = self.RadialProfileVar("Vz", s0)
+		
+		self.GetGrid(doVerbose=True)
+		jR = self.jRad
+		kR = self.kRad
+		x = self.X [:,:,:]
+		y = self.Y [:,:,:]
+		z = self.Z [:,:,:]
+
+		x_c = 0.125*(x[:-1,:-1,:-1]+x[:-1,:-1,1:]+x[:-1,1:,:-1]+x[:-1,1:,1:]+
+			x[1:,:-1,:-1]+x[1:,:-1,1:]+x[1:,1:,:-1]+x[1:,1:,1:])
+		y_c = 0.125*(y[:-1,:-1,:-1]+y[:-1,:-1,1:]+y[:-1,1:,:-1]+y[:-1,1:,1:]+
+			y[1:,:-1,:-1]+y[1:,:-1,1:]+y[1:,1:,:-1]+y[1:,1:,1:])
+		z_c = 0.125*(z[:-1,:-1,:-1]+z[:-1,:-1,1:]+z[:-1,1:,:-1]+z[:-1,1:,1:]+
+			z[1:,:-1,:-1]+z[1:,:-1,1:]+z[1:,1:,:-1]+z[1:,1:,1:])
+
+		r = np.sqrt(x_c[:,jR,kR]**2.0 + y_c[:,jR,kR]**2.0+z_c[:,jR,kR]**2.)
+		
+		Norm = r[:]**2./r[0]/r[0]
+
+		Flux = D*Norm*self.dScl*self.vScl*np.sqrt(Vx**2.0+Vy**2.0+Vz**2.0)
+		return Flux
 
 	#Speed at 1 AU
 	def iSliceMagV(self,s0=0):

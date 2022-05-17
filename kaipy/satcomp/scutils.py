@@ -495,13 +495,21 @@ def createHelioInputFiles(data,scDic,scId,mjd0,sec0,fdir,ftag,numSegments):
     else:
         print('Coordinate system transformation failed')
         return
-    elapsedSecs = [(tt - t[0]).seconds for tt in t]
+    # <HACK>
+    from math import sqrt, pi
+    L0 = 6.955e10
+    Mp = 1.67e-24
+    in2cms = 1e-3/sqrt(4*pi*200*Mp)
+    in2s = L0/in2cms
+    elapsed = [(tt - t[0]).seconds/in2s for tt in t]
+    # </HACK>
     scTrackName = os.path.join(fdir,scId+".sc.h5")
     with h5py.File(scTrackName,'w') as hf:
-        hf.create_dataset("T" ,data=elapsedSecs)
-        hf.create_dataset("X" ,data=x)
-        hf.create_dataset("Y" ,data=y)
-        hf.create_dataset("Z" ,data=z)
+        hf.create_dataset("T" ,data=elapsed)
+        # Reverse x for gamhelio frame.
+        hf.create_dataset("X" ,data=-c.cartesian.x)
+        hf.create_dataset("Y" ,data=c.cartesian.y)
+        hf.create_dataset("Z" ,data=c.cartesian.z)
     if scId in ["ACE"]:
         chimpxml = genHelioSCXML(fdir,ftag,
             scid=scId,h5traj=os.path.basename(scTrackName),numSegments=0)
