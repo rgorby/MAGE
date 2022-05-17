@@ -127,6 +127,8 @@ module usergamic
         ! Add gravity
 !        eHack  => EFix
 !        Model%HackE => eHack
+!        tsHack => PerStep
+!        Model%HackStep => tsHack
 
         ! everybody reads WSA data
         call readIBC(wsaFile)
@@ -205,6 +207,9 @@ module usergamic
       !$OMP PARALLEL DO default(shared) &
       !$OMP private(i,j,k,jg,kg,ke,kb,a,var,xyz,R,Theta,Phi,rHat,phiHat) &
       !$OMP private(ibcVarsStatic,pVar,conVar,xyz0,R_kf,Theta_kf)
+
+
+
       do k=Grid%ksg,Grid%keg+1  ! note, going all the way to last face for mag fluxes
          kg = k+Grid%ijkShift(KDIR)
          ! map rotating to static grid
@@ -295,6 +300,51 @@ module usergamic
       end subroutine mapK
 
     end subroutine wsaBC
+
+
+    ! !Do per timestep, includes lazy gravitational force term
+    ! subroutine PerStep(Model,Gr,State)
+    !     type(Model_T), intent(in) :: Model
+    !     type(Grid_T), intent(inout) :: Gr
+    !     type(State_T), intent(inout) :: State
+
+    !     integer :: i,j,k
+
+    !     real(rp), dimension(NDIM) :: xyz, Vxyz, rHat
+    !     real(rp), dimension(NVAR) :: pW,pCon
+    !     real(rp) :: D,IntE,r
+    !     real(rp) :: GM0
+
+    !     !Scaling for gravitational force
+    !     GM0 = UN/(UL**3*UB**2)*6.67408*1.99*4*pi*1.67/6.955/10  ! 2.74e4cm/s^2
+
+    !     !Add grav force
+    !     !$OMP PARALLEL DO default(shared) &
+    !     !$OMP private(i,j,k,xyz,rHat,Vxyz,pW,pCon,r,D,IntE)
+    !     do k=Gr%ksg,Gr%keg
+    !         do j=Gr%jsg,Gr%jeg
+    !             do i=Gr%isg,Gr%ieg
+    !                 xyz = Gr%xyzcc(i,j,k,:)
+    !                 r = norm2(xyz)
+    !                 rHat = xyz/r
+
+    !                 pCon = State%Gas(i,j,k,:,BLK)
+    !                 call CellC2P(Model,pCon,pW)
+
+    !                 D = pW(DEN)
+    !                 IntE = pW(PRESSURE)/(Model%gamma-1)
+    !                 Vxyz = pW(VELX:VELZ)
+    !                 Vxyz = Vxyz - Model%dt*GM0*rHat/(r*r)
+
+    !                 !Reset conserved State
+    !                 pCon(DEN) = D
+    !                 pCon(MOMX:MOMZ) = D*Vxyz
+   !                 pCon(ENERGY) = IntE + 0.5*D*dot_product(Vxyz,Vxyz)
+    !                 State%Gas(i,j,k,:,BLK) = pCon
+    !             enddo
+    !         enddo
+    !     enddo
+    ! end subroutine PerStep
 
     subroutine eFix(Model,Gr,State)
       type(Model_T), intent(in) :: Model
