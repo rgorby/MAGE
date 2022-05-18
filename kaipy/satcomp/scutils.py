@@ -480,8 +480,7 @@ def createHelioInputFiles(data, scDic, scId, mjd0, sec0, fdir, ftag, numSegments
         from astropy.coordinates import SkyCoord
         from sunpy.coordinates import frames
         Rsun_km = u.Quantity(1*u.Rsun, u.km).value
-        AU_km = u.Quantity(1*u.AU, u.km).value  # Should be instantaneous distance
-        x = -(AU_km - data["Ephemeris"][:, 0])/Rsun_km
+        x = data["Ephemeris"][:, 0]/Rsun_km
         y = data["Ephemeris"][:, 1]/Rsun_km
         z = data["Ephemeris"][:, 2]/Rsun_km
         t = data["Epoch_bin"]
@@ -495,14 +494,7 @@ def createHelioInputFiles(data, scDic, scId, mjd0, sec0, fdir, ftag, numSegments
     else:
         print('Coordinate system transformation failed')
         return
-    # <HACK>
-    from math import sqrt, pi
-    L0 = 6.955e10
-    Mp = 1.67e-24
-    in2cms = 1e-3/sqrt(4*pi*200*Mp)
-    in2s = L0/in2cms
-    elapsed = [(tt - t[0]).seconds/in2s for tt in t]
-    # </HACK>
+    elapsed = [(tt - t[0]).seconds for tt in t]
     scTrackName = os.path.join(fdir,scId+".sc.h5")
     with h5py.File(scTrackName,'w') as hf:
         hf.create_dataset("T" ,data=elapsed)
