@@ -367,7 +367,7 @@ def genSCXML(fdir,ftag,
 
 
 def genHelioSCXML(fdir,ftag,
-    scid="sctrack_A",h5traj="sctrack_A.h5",numSegments=1):
+    scid,h5traj, Rin, Rout,numSegments=1):
     """Generate XML input file for heliosphere spacecraft."""
 
     (fname,isMPI,Ri,Rj,Rk) = kaiTools.getRunInfo(fdir,ftag)
@@ -401,8 +401,8 @@ def genHelioSCXML(fdir,ftag,
     # <domain>
     domain_child = root.createElement("domain")
     domain_child.setAttribute("dtype", "SPH")
-    domain_child.setAttribute("rmin", "1.0")
-    domain_child.setAttribute("rmax", "215.0")
+    domain_child.setAttribute("rmin", "%s" % Rin)
+    domain_child.setAttribute("rmax", "%s" % Rout)
     chimpChild.appendChild(domain_child)
     # <parintime>
     # <HACK>
@@ -471,7 +471,7 @@ def createInputFiles(data,scDic,scId,mjd0,sec0,fdir,ftag,numSegments):
 
     return (scTrackName,xmlFileName)
 
-def createHelioInputFiles(data,scDic,scId,mjd0,sec0,fdir,ftag,numSegments):
+def createHelioInputFiles(data, scDic, scId, mjd0, sec0, fdir, ftag, numSegments, Rin, Rout):
     if scDic['Ephem']['CoordSys'] == "GSE":
         # Convert the individual GSE ephemeris locations to the modified HGS
         # (HelioGraphic Stonyhurst) frame at the start of the
@@ -510,9 +510,10 @@ def createHelioInputFiles(data,scDic,scId,mjd0,sec0,fdir,ftag,numSegments):
         hf.create_dataset("X" ,data=-c.cartesian.x)
         hf.create_dataset("Y" ,data=c.cartesian.y)
         hf.create_dataset("Z" ,data=c.cartesian.z)
+    h5traj=os.path.basename(scTrackName)
     if scId in ["ACE"]:
         chimpxml = genHelioSCXML(fdir,ftag,
-            scid=scId,h5traj=os.path.basename(scTrackName),numSegments=0)
+            scId,h5traj, Rin, Rout, numSegments=0)
     else:
         raise Exception
     xmlFileName = os.path.join(fdir,scId+'.xml')
@@ -646,10 +647,10 @@ def extractGAMERA(data,scDic,scId,mjd0,sec0,fdir,ftag,cmd,numSegments,keep):
     return
 
 def extractGAMHELIO(
-    data, scDic, scId, mjd0, sec0, fdir, ftag, cmd, numSegments, keep
+    data, scDic, scId, mjd0, sec0, fdir, ftag, cmd, numSegments, keep, Rin, Rout
 ):
     (scTrackName,xmlFileName) = createHelioInputFiles(data,scDic,scId,
-        mjd0,sec0,fdir,ftag,numSegments)
+        mjd0,sec0,fdir,ftag,numSegments, Rin, Rout)
 
     if 1 == numSegments:
         sctrack = subprocess.run([cmd, xmlFileName], cwd=fdir, capture_output=True,
