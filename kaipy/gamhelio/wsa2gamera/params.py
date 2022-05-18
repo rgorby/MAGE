@@ -19,10 +19,12 @@ class params():
         self.gamma = config.getfloat('Constants','gamma')
         self.Nghost   = config.getint('Constants','Nghost')
         self.Tsolar = config.getfloat('Constants','Tsolar')
+        self.TCS = config.getfloat('Constants','TCS')
+        self.nCS = config.getfloat('Constants','nCS')
 
         self.B0 = config.getfloat('Normalization','B0')
         self.n0 = config.getfloat('Normalization','n0')
-        self.T0 = config.getfloat('Normalization','T0')
+        
         
         self.tMin     = config.getfloat('Grid','tMin')
         self.tMax     = config.getfloat('Grid','tMax')

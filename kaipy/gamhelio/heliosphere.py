@@ -112,12 +112,9 @@ class GamsphPipe(GameraPipe):
 		Qj[:,:] = 0.5*( Q[:,ja,:] + Q[:,jb,:] )
 		return Qj
 
-
+	#Radial profile thru cell centers
 	def RadialProfileGrid(self):
 		self.GetGrid(doVerbose=True)
-		#set j and k for a radial direction
-		#Nk2 = self.Nk//2
-		#Nj2 = self.Nj//2
 		#cell corners
 		x = self.X [:,:,:]
 		y = self.Y [:,:,:]
@@ -250,30 +247,15 @@ class GamsphPipe(GameraPipe):
 		Nr = self.Ni
               
 		Qi = np.zeros(Nr)
-                #variable in a cell center
-		Qi[:] = Q[:,jR,kR] 
+        #variable in a cell center
+		Qi = Q[:,jR,kR] 
 	
 		return Qi
 
 	#Radial Profile: Normalized Density
 	def RadProfDen(self,s0=0):
 		D = self.RadialProfileVar("D", s0)
-
-		self.GetGrid(doVerbose=True)
-		jR = self.jRad
-		kR = self.kRad
-		x = self.X [:,:,:]
-		y = self.Y [:,:,:]
-		z = self.Z [:,:,:]
-
-		x_c = 0.125*(x[:-1,:-1,:-1]+x[:-1,:-1,1:]+x[:-1,1:,:-1]+x[:-1,1:,1:]+
-			x[1:,:-1,:-1]+x[1:,:-1,1:]+x[1:,1:,:-1]+x[1:,1:,1:])
-		y_c = 0.125*(y[:-1,:-1,:-1]+y[:-1,:-1,1:]+y[:-1,1:,:-1]+y[:-1,1:,1:]+
-			y[1:,:-1,:-1]+y[1:,:-1,1:]+y[1:,1:,:-1]+y[1:,1:,1:])
-		z_c = 0.125*(z[:-1,:-1,:-1]+z[:-1,:-1,1:]+z[:-1,1:,:-1]+z[:-1,1:,1:]+
-			z[1:,:-1,:-1]+z[1:,:-1,1:]+z[1:,1:,:-1]+z[1:,1:,1:])
-
-		r = np.sqrt(x_c[:,jR,kR]**2.0 + y_c[:,jR,kR]**2.0+z_c[:,jR,kR]**2.)
+		r = self.RadialProfileGrid(self)
 		Norm = r**2./r[0]/r[0]
 		
 		D = D*Norm*self.dScl
@@ -294,22 +276,7 @@ class GamsphPipe(GameraPipe):
 		Vx = self.RadialProfileVar("Vx", s0)
 		Vy = self.RadialProfileVar("Vy", s0)
 		Vz = self.RadialProfileVar("Vz", s0)
-		
-		self.GetGrid(doVerbose=True)
-		jR = self.jRad
-		kR = self.kRad
-		x = self.X [:,:,:]
-		y = self.Y [:,:,:]
-		z = self.Z [:,:,:]
-
-		x_c = 0.125*(x[:-1,:-1,:-1]+x[:-1,:-1,1:]+x[:-1,1:,:-1]+x[:-1,1:,1:]+
-			x[1:,:-1,:-1]+x[1:,:-1,1:]+x[1:,1:,:-1]+x[1:,1:,1:])
-		y_c = 0.125*(y[:-1,:-1,:-1]+y[:-1,:-1,1:]+y[:-1,1:,:-1]+y[:-1,1:,1:]+
-			y[1:,:-1,:-1]+y[1:,:-1,1:]+y[1:,1:,:-1]+y[1:,1:,1:])
-		z_c = 0.125*(z[:-1,:-1,:-1]+z[:-1,:-1,1:]+z[:-1,1:,:-1]+z[:-1,1:,1:]+
-			z[1:,:-1,:-1]+z[1:,:-1,1:]+z[1:,1:,:-1]+z[1:,1:,1:])
-
-		r = np.sqrt(x_c[:,jR,kR]**2.0 + y_c[:,jR,kR]**2.0+z_c[:,jR,kR]**2.)
+		r = self.RadialProfileGrid(self)
 		
 		Norm = r[:]**2./r[0]/r[0]
 

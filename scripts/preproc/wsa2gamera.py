@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 
 import kaipy.gamhelio.wsa2gamera.params as params
 import kaipy.gamhelio.lib.wsa as wsa
+from kaipy.kdefs import *
 
 import kaipy.gamera.gamGrids as gg
 
@@ -18,34 +19,28 @@ parser = argparse.ArgumentParser()
 parser.add_argument('ConfigFileName',help='The name of the configuration file to use',default='startup.config')
 args = parser.parse_args()
 
-# constants
-# TODO: move to kaipy/kdefs.py
-mp = 1.67e-24
-kblts = 1.38e-16
-nCS = 1100. #for T calculation from pressure balance
 
 # Read params from config file
-prm = params.params(args.ConfigFileName)
-Ng=prm.Nghost
+prm   = params.params(args.ConfigFileName)
+Ng    = prm.Nghost
 gamma = prm.gamma
-Tsolar = prm.Tsolar
 
 # Normalization parameters
 # remember to use the same units in gamera
 B0 = prm.B0
 n0 = prm.n0
 V0 = B0/np.sqrt(4*np.pi*mp*n0)
-#Temperature in the Current Sheet (for T calculation from pressure balance)
-TCS = prm.T0
+TCS = prm.TCS #Temperature in the current sheet for pressure balance calculation 
+nCS = prm.nCS #Density in the current sheet for pressure balance calculation 
 
 # Grid parameters
 tMin = prm.tMin
 tMax = prm.tMax
-Rin = prm.Rin
+Rin  = prm.Rin
 Rout = prm.Rout
-Ni = prm.Ni
-Nj = prm.Nj
-Nk = prm.Nk 
+Ni   = prm.Ni
+Nj   = prm.Nj
+Nk   = prm.Nk 
 
 ffits = os.path.join(os.getenv('KAIJUHOME'),prm.wsaFile)
 
@@ -120,7 +115,7 @@ rho = f(Pc[:,0,0],Tc[0,:,0])
 # Not interpolating temperature, but calculating from the total pressure balance
 # AFTER interpolating br and rho to the gamera grid
 # n_CS*k*T_CS = n*k*T + Br^2/8pi  
-temp = (nCS*kblts*TCS - (br*B0)**2/8./np.pi)/(rho*n0)/kblts
+temp = (nCS*kbltz*TCS - (br*B0)**2/8./np.pi)/(rho*n0)/kbltz
 # note, keep temperature in K (pressure is normalized in wsa.F90)
 
 #check
@@ -149,11 +144,6 @@ br_kface*=(R0/Rc[0,0,:Ng])**2
 omega=2*np.pi/Tsolar
 et_kedge = - omega*R0*np.sin(Tc[:,:,Ng-1])*br_kface[:,:,-1]
 
-#check
-#print ("Br kface ", br_kface.shape)
-#print ("E theta ", et_kedge.shape)
-
-# Save to file
 # v, rho, br are normalized, temp is in [K]
 with h5py.File(os.path.join(prm.IbcDir,prm.gameraIbcFile),'w') as hf:
     hf.attrs["MJD"] = mjd_c

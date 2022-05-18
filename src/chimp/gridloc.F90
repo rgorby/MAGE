@@ -159,7 +159,7 @@ module gridloc
         case(SPHGRID)
             !Take Rin/Rout
             DomR(1) = norm2(ebGr%xyz(ebGr%is,ebGr%js,ebGr%ks,XDIR:ZDIR))
-            DomR(2) = norm2(ebGr%xyz(ebGr%ie+1,ebGr%js,ebGr%ks,XDIR:ZDIR))
+            DomR(2) = norm2(ebGr%xyz(ebGr%ie-1,ebGr%js,ebGr%ks,XDIR:ZDIR))
             write(*,*) 'Initializing SPH locator'
             locate=>Loc_SPH
             locAux%isInit = .true.
