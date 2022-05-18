@@ -40,6 +40,9 @@ default_cmd = os.path.join(
     os.environ["KAIJUHOME"], "build", "bin", "sctrack.x"
 )
 
+# Default time interval for ephemeris data returned from CDAWeb (seconds).s
+default_deltaT = 3600.00  # 1 hour
+
 # Default run ID string.
 default_runid = "hsphere"
 
@@ -80,6 +83,10 @@ def create_command_line_parser():
         help="Print debugging output (default: %(default)s)."
     )
     parser.add_argument(
+        "--deltaT", type=float, metavar="deltaT", default=default_deltaT,
+        help="Time interval (seconds) for ephemeris points from CDAWeb (default: %(default)s)."
+    )
+    parser.add_argument(
         "-i", "--id", type=str, metavar="runid", default=default_runid,
         help="ID string of the run (default: %(default)s)"
     )
@@ -114,12 +121,15 @@ if __name__ == "__main__":
     args = parser.parse_args()
     cmd = args.cmd
     debug = args.debug
+    deltaT = args.deltaT
     ftag = args.id
     keep = args.keep
     numSegments = args.numSeg
     fdir = args.path
     scRequested = args.satId
     verbose = args.verbose
+    if debug:
+        print("args = %s" % args)
 
     # Read the list of available spacecraft from the YAML configuration file.
     scIds = scutils.getScIds(spacecraft_data_file, doPrint=verbose)
@@ -130,6 +140,8 @@ if __name__ == "__main__":
     (fname, isMPI, Ri, Rj, Rk) = kaiTools.getRunInfo(fdir, ftag)
     if debug:
         print("fname = %s" % fname)
+        print("isMPI = %s" % isMPI)
+        print("(Ri, Rj, Rk) = (%s, %s, %s)" % (Ri, Rj, Rk))
 
     # Determine the number of steps in the gamhelio output file, and get a
     # list of the step indices.
@@ -145,9 +157,8 @@ if __name__ == "__main__":
     if debug:
         print("gamMJD = %s" % gamMJD)
 
-    # Now get the "time" attribute from each step. This represents the time
-    # in "code units" since the simulation start time, and so are normalized
-    # values, not seconds, or days, or other standard units.
+    # Now get the "time" attribute from each step. For gamhelio, these elapsed
+    # times are in seconds since the start of the simulation.
     gamT = kaiH5.getTs(fname, sIds, aID="time")
     if debug:
         print("gamT = %s" % gamT)
@@ -160,56 +171,43 @@ if __name__ == "__main__":
     # Use the first (non zero?) time as the inital MJD.
     # N.B. THIS SKIPS THE FIRST SIMULATION STEP SINCE IT TYPICALLY HAS
     # gamT[0] = 0.
+    # Use the last time as the last MJD.
     loc = np.argwhere(gamT > 0.0)[0][0]
     t0 = gamUT[loc]  # First non-0 time
-    # t0 = gamUT[0]
     t1 = gamUT[-1]
     if debug:
         print("t0 = %s" % t0)
         print("t1 = %s" % t1)
 
-    # Compute the time interval (in integer code units) between step 1 and step 2.
-    deltaT = np.round(gamT[loc + 1] - gamT[loc])
-    # if debug:
-    #     print("deltaT = %s" % deltaT)
-    # <HACK>
-    deltaT = 3600.0  # 1 hour
-    # </HACK>
-
-    # Save the (float) MJD of the first step.
+    # Save the (float) MJD of the first used step.
     mjdFileStart = gamMJD[loc]
-    # mjdFileStart = gamMJD[0]
     if debug:
         print("mjdFileStart = %s" % mjdFileStart)
 
-    # Save the elapsed simulation time in code units of the first step.
+    # Save the elapsed simulation time (seconds) of the first step.
     secFileStart = gamT[loc]
-    # secFileStart = gamT[0]
     if debug:
         print("secFileStart = %s" % secFileStart)
 
-    # Determine the list of spacecraft to fetch data from.
-    if scRequested is None:
-        # This is a list of dictionaries read from the JSON heliospheric
-        # spacecraft file. The keys are the spacecraft ID strings.
-        scToDo = scIds
-    else:
-        # This is a list of spacecraft ID strings from the command line. 
+    # Determine the list of IDs of spacecraft to fetch data from.
+    if scRequested:
         scToDo = [scRequested]
+    else:
+        scToDo = list(scIds.keys())
     if debug:
         print("scToDo = %s" % scToDo)
 
     # Fetch the ephemeris and observed data for each spacecraft in the list.
     for scId in scToDo:
-        if verbose:
-            print("Getting spacecraft data from CDAWeb for %s." % scId)
 
         # Fetch the ephemeris and observed data for the current spacecraft.
+        if verbose:
+            print("Getting ephemeris and instrument data from CDAWeb for %s." % scId)
         status, data = scutils.getSatData(
-            scIds[scId],
-            t0.strftime("%Y-%m-%dT%H:%M:%SZ"),
-            t1.strftime("%Y-%m-%dT%H:%M:%SZ"),
-            deltaT
+            scIds[scId],  # ID string of spacecraft
+            t0.strftime("%Y-%m-%dT%H:%M:%SZ"),  # Start time for gamhelio results
+            t1.strftime("%Y-%m-%dT%H:%M:%SZ"),  # Stop time for gamhelio results
+            deltaT  # Time interval (seconds) for data returned from CDAWeb
         )
         if debug:
             print("status = %s" % status)
