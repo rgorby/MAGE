@@ -7,9 +7,9 @@ import numpy as np
 
 import kaipy.kaiViz as kv
 import kaipy.gamhelio.heliosphere as hsph
+from kaipy.kdefs import *
 import os
 
-Tsolar = 25.38
 
 VMax = 800.
 VMin = 300.

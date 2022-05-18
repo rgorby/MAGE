@@ -14,7 +14,6 @@ dLabC  = "black" #Default label color
 dLabFS = "medium" #Default label size
 dBoxC  = "lightgrey" #Default box color
 TINY   = 1.0e-8
-rmStr  = "mixtest"
 MK     = 1.e6 #MegaKelvin
 
 #Adapted to helio grid
