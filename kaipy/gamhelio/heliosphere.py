@@ -254,7 +254,7 @@ class GamsphPipe(GameraPipe):
 	#Radial Profile: Normalized Density
 	def RadProfDen(self,s0=0):
 		D = self.RadialProfileVar("D", s0)
-		r = self.RadialProfileGrid(self)
+		r = self.RadialProfileGrid()
 		Norm = r**2./r[0]/r[0]
 		
 		D = D*Norm*self.dScl
@@ -275,7 +275,7 @@ class GamsphPipe(GameraPipe):
 		Vx = self.RadialProfileVar("Vx", s0)
 		Vy = self.RadialProfileVar("Vy", s0)
 		Vz = self.RadialProfileVar("Vz", s0)
-		r = self.RadialProfileGrid(self)
+		r = self.RadialProfileGrid()
 		
 		Norm = r[:]**2./r[0]/r[0]
 
