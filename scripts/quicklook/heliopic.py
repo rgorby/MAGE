@@ -63,8 +63,10 @@ if __name__ == "__main__":
 		figSz = (10,12.5)
 	elif (pic == "pic3"):
 		figSz = (10,6.5)
-	else:
+	elif (pic == "pic4"):
 		figSz = (10,6.)
+	elif (pic == "pic5"):
+		figSz = (12.,12.)
 	#======
 	#Init data
 	gsph = hsph.GamsphPipe(fdir,ftag,doFast=doFast)
@@ -77,7 +79,7 @@ if __name__ == "__main__":
 	#Setup figure
 	fig = plt.figure(figsize=figSz)
 
-	if (pic != "pic4"):	
+	if (pic == "pic1" or pic == "pic2" or pic == "pic3"):	
 		gs = gridspec.GridSpec(4,6,height_ratios=[20,1,20,1])
 		#plots. Two rows of two plots
 		AxL0 = fig.add_subplot(gs[0,0:3])
@@ -92,11 +94,15 @@ if __name__ == "__main__":
 
 		AxC1_1 = fig.add_subplot(gs[3,0:3])
 		AxC2_1 = fig.add_subplot(gs[3,3:])
-	else:
+	elif (pic == "pic4"):
 		gs = gridspec.GridSpec(2,1,height_ratios=[20,1])
 		Ax = fig.add_subplot(gs[0,0])
 		AxC = fig.add_subplot(gs[1,0])
-
+	elif (pic == "pic5"):
+		gs = gridspec.GridSpec(2,2)
+		Ax = fig.add_subplot(gs[0,0])
+		AxC = fig.add_subplot(gs[0,1])
+		AxC1 = fig.add_subplot(gs[1,0])
 
 	if (pic == "pic1"):
 		hviz.PlotEqMagV(gsph,nStp,xyBds,AxL0,AxC1_0)
@@ -118,6 +124,10 @@ if __name__ == "__main__":
 		hviz.PlotiSlBr(gsph,nStp,xyBds,AxR1,AxC2_1)
 	elif (pic == "pic4"):
 		hviz.PlotiSlBrRotatingFrame(gsph,nStp,xyBds,Ax,AxC)
+	elif (pic == "pic5"):
+		hviz.PlotDensityProf(gsph,nStp,xyBds,Ax)
+		hviz.PlotSpeedProf(gsph,nStp,xyBds,AxC)
+		hviz.PlotFluxProf(gsph,nStp,xyBds,AxC1)
 	else:
 		print ("Pic is empty. Choose pic1 or pic2 or pic3")
 	
@@ -126,7 +136,7 @@ if __name__ == "__main__":
 		gsph.AddTime(nStp,AxL0,xy=[0.025,0.875],fs="x-large")
 	elif (pic == "pic3"):	
 		gsph.AddTime(nStp,AxL0,xy=[0.015,0.82],fs="small")
-	elif (pic == "pic4"):
+	elif (pic == "pic4" or pic == "pic5"):
 		gsph.AddTime(nStp,Ax,xy=[0.015,0.92],fs="small")
 	else:
 		print ("Pic is empty. Choose pic1 or pic2 or pic3")
