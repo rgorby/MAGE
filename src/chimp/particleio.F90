@@ -30,6 +30,7 @@ module particleio
 
         !Add root info for h5p output file
         call CheckAndKill(tpOutF)
+
         call ClearIO(IOVars)
         call AddOutVar(IOVars,"Np",tpState%Np)
         call AddOutVar(IOVars,"NpT",tpState%NpT)
@@ -223,8 +224,6 @@ module particleio
 
         minID = minval(TPs(:)%id)
         maxID = maxval(TPs(:)%id)
-
-        call StampIO(ResF)
 
         !Reset IO chain
         call ClearIO(IOVars)
