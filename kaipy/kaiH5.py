@@ -46,6 +46,17 @@ def GetHash(fname):
 		hStr = rStr
 	return hStr
 
+#Get git branch from file if it exists
+def GetBranch(fname):
+	CheckOrDie(fname)
+	with h5py.File(fname,'r') as hf:
+		rStr = hf.attrs.get("GITBRANCH","NONE")
+	try:
+		hStr = rStr.decode('utf-8')
+	except (UnicodeDecodeError, AttributeError):
+		hStr = rStr
+	return hStr
+
 #Return time at step n
 def tStep(fname,nStp=0,aID="time",aDef=0.0):
 	CheckOrDie(fname)
