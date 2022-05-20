@@ -43,5 +43,11 @@ NeptuneM0g = 0.142      # Gauss
 RNeptuneXE = 3.860      # Rx = X*Re
 
 
+
+#------
 #Helio
-Rsolar = 6.956E5 # [km] Solar radius
+#------
+Rsolar = 6.956E5  #[km] Solar radius
+kbltz  = 1.38e-16 #Boltzmann constant [erg/K]
+mp     = 1.67e-24 #Proton mass in grams
+Tsolar = 25.38    #Siderial solar rotation period

@@ -270,6 +270,7 @@ with h5py.File(os.path.join(prm.IbcDir,prm.gameraIbcFile),'w') as hf:
         #not interpolating temperature, calculating sound speed cs
         #assuming uniform total pressure Rho_max*k*T0 = p+Br^2/8pi
 
+        #TODO: Check Temp calculation
         T0 = 0.9e6 
         Rho0 = 1100.*mp       #density in the HCS
         #cs = np.sqrt(prm.gamma/rho*(rho.max()*1.38e-16*T0/1.67e-24-br**2/8/np.pi))

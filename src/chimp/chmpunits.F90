@@ -212,11 +212,11 @@ module chmpunits
             !Field: 100 nT
             !Gamera units for heliosphere runs
             L0 = 6.955e+10 !Rs in cm 
-            in2cms = 1.0e-3/sqrt(4*PI*200*Mp_cgs) !150e+5 cm/s
-            in2G   = 1.0e-3 !in [G]
-            in2s   = L0/in2cms ! time in s 
-            M0g = 0.0 
-            inPScl = 1.0e-6*1.0e+8/4/pi  !Pressure  unit B[G]^2/4pi *1.e8 in [nPa]
+            in2cms = 1.0e+5  ! km/s -> cm/s
+            in2G   = 1.0e-5 ! nT -> Gs
+            in2s   = 1.0 ! already in s
+            M0g    = 0.0 
+            inPScl = 1.0e+8  !erg/cm3 -> [nPa]
             rClosed = 21.5 !Radius of inner boundary in units of grid length
         case("LFM")
             L0 = Re_cgs !Using scaled grid

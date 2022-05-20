@@ -7,10 +7,9 @@ import numpy as np
 
 import kaipy.kaiViz as kv
 import kaipy.gamhelio.heliosphere as hsph
+from kaipy.kdefs import *
 import os
 
-#Tsolar = 25.38
-Tsolar = 1.e6
 
 VMax = 800.
 VMin = 300.
@@ -35,8 +34,8 @@ TMin = 0.2
 TMax = 2.
 TCM = "copper"
 
-T0Min = 0.05
-T0Max = 0.15
+T0Min = 0.01
+T0Max = 0.25
 
 BMax = 150.
 BMin = -150.
@@ -46,6 +45,8 @@ BCM = "coolwarm"
 
 B0Min = -4.
 B0Max = 4.
+
+colorProf = "tab:orange"
 #Function to Add different size options to argument
 #not used for helio right now
 def AddSizeArgs(parser):
@@ -58,13 +59,15 @@ def AddSizeArgs(parser):
 def GetSizeBds(pic):
 	if (pic == "pic1" or pic == "pic2"):
                 #for inner helio
-		xyBds = [-216.,216.,-216.,216.]
+		xyBds = [-220.,220.,-220.,220.]
                 #for 1-10 au helio
                 #xyBds = [-10.,10.,-10.,10.]
 	elif (pic == "pic3"):
 		xyBds = [0.,360.,-75.,75.]
 	elif (pic == "pic4"):
                 xyBds = [0.,360.,-90.,90.]
+	elif (pic == "pic5"):
+		xyBds = [20.,220.,1.,2000.]
 	else:		
 		print ("No pic type specified.")
 	return xyBds
@@ -416,6 +419,53 @@ def PlotiSlTemp(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
 		Ax.set_ylabel('Latitude')
 	return Temp
 
+#Plot Density as a function of distance
+def PlotDensityProf(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
+	if (doClear):
+		Ax.clear()
+
+	D = gsph.RadProfDen(nStp)
+	rad  = gsph.RadialProfileGrid()
+
+	Ax.plot(rad,D,colorProf)
+
+	if (doDeco):
+		Ax.set_xlabel('Radial distance [R_sun]')
+		Ax.set_ylabel('Density [cm-3]')
+		Ax.set_ylim(250.,450.)
+		Ax.set_xlim(20.,220.)
+                #Ax.yaxis.tick_right()
+                #Ax.yaxis.set_label_position('right')
+	return D
+
+#Plot speed as a function of distance
+def PlotSpeedProf(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
+	if (doClear):
+		Ax.clear()
+	V = gsph.RadProfSpeed(nStp)
+	rad  = gsph.RadialProfileGrid()
+	Ax.plot(rad,V,colorProf)
+
+	if (doDeco):
+		Ax.set_xlabel('Radial distance [R_sun]')
+		Ax.set_ylabel('Speed [km/s]')
+		Ax.set_ylim(600.,750.)
+		Ax.set_xlim(20.,220.)
+	return V
+
+def PlotFluxProf(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
+	if (doClear):
+		Ax.clear()
+	F = gsph.RadProfFlux(nStp)
+	rad  = gsph.RadialProfileGrid()
+	Ax.plot(rad,F,colorProf)
+	
+	if (doDeco):
+		Ax.set_xlabel('Radial distance [R_sun]')
+		Ax.set_ylabel('RhoVr^2')
+		Ax.set_ylim(180000.,280000.)
+		Ax.set_xlim(20.,220.)
+	return F
 
 #Adds MPI contours
 #this function is from magnetosphere Viz script. PlotMPI is not used for helio as of now 
