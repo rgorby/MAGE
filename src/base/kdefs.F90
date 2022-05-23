@@ -34,9 +34,11 @@ module kdefs
     real(rp), parameter :: Re_cgs = 6.3781D8     ![cm]    Earth's radius
     real(rp), parameter :: Me_cgs = 9.1093837015D-28 ![g] Electron mass
     real(rp), parameter :: Mp_cgs = 1.67262192369D-24 ![g] Proton mass
+    real(rp), parameter :: G_cgs  = 6.6726D-8     ![cm^3/g/s^2], Gravitational constant (per NRL plasma formulary'21)
 
     !MKS Constants
     real(rp), parameter :: vc_mks = vc_cgs*(1.0e-2) ![m/s], Speed of light
+    real(rp), parameter :: G_mks  = 6.6726D-11     ![m^3/kg/s^2], Gravitational constant (per NRL plasma formulary'21)
 
     !Helper conversions
     real(rp), parameter :: G2nT = 1.0E+5 !Gauss->nT
@@ -80,7 +82,8 @@ module kdefs
     real(rp), parameter :: RNeptuneXE = 3.860  !Rx = X*Re
 
 !Helio constants
-    real(rp), parameter :: Rsolar = 6.956D5 ! [km] Solar radius
+    real(rp), parameter :: Rsolar = 6.956D5    ! [km] Solar radius
+    real(rp), parameter :: Msolar = 1.98847D30 ! [kg] Solar mass
 
 !Numbered accessors
     !Directions
