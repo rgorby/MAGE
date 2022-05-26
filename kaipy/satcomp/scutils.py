@@ -495,6 +495,31 @@ def createHelioInputFiles(data, scDic, scId, mjd0, sec0, fdir, ftag, numSegments
         print('Coordinate system transformation failed')
         return
     elapsed = [(tt - t[0]).total_seconds() for tt in t]
+    # <HACK>
+    # Convert MagneticField components from GSE to gamhelio frame.
+    B = np.empty_like(data["MagneticField"])
+    for (i, cc) in enumerate(c):
+        lon = np.radians(cc.lon.value)
+        lat = np.radians(cc.lat.value)
+        Rz = np.array([
+            [np.cos(-lon), -np.sin(-lon), 0],
+            [np.sin(-lon), np.cos(-lon), 0],
+            [0, 0, 1]
+        ])
+        Ry = np.array([
+            [np.cos(-lat), 0, np.sin(-lat)],
+            [0, 1, 0],
+            [-np.sin(-lat), 0, np.cos(-lat)]
+        ])
+        R = Rz.dot(Ry)
+        B_GSE = data["MagneticField"][i, :]
+        B_HGS = R.dot(B_GSE)
+        B_GH = B_HGS
+        B_GH[0] = -B_GH[0]  # Negate x for HGS->gamhelio frame.
+        B[i, ...] = B_GH
+        # Add the transformed field components to the data structure.
+        data["MagneticField_GAMHELIO_FRAME"] = B
+    # </HACK>
     scTrackName = os.path.join(fdir,scId+".sc.h5")
     with h5py.File(scTrackName,'w') as hf:
         hf.create_dataset("T" , data=elapsed)

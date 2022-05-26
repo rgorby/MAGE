@@ -282,6 +282,8 @@ def itemPlot(Ax,data,key,plotNum,numPlots,vecComp=-1):
 		maskedData = np.ma.masked_where(data['GAMERA_inDom'][:]==0.0,
 			data[key][:,vecComp])
 		Ax.plot(data['Epoch_bin'],maskedData)
+		if key == "MagneticField_GAMHELIO_FRAME":
+			key = "MagneticField"
 		maskedGamera = np.ma.masked_where(data['GAMERA_inDom'][:]==0.0,
 			data['GAMERA_'+key][:,vecComp])
 		Ax.plot(data['Epoch_bin'],maskedGamera)
@@ -314,7 +316,10 @@ def compPlot(plotname,scId,data):
 		keysToPlot.append('Temperature')
 	if 'MagneticField' in keys:
 		numPlots = numPlots + 3
-		keysToPlot.append('MagneticField')
+		if scId == "ACE":
+			keysToPlot.append('MagneticField_GAMHELIO_FRAME')
+		else:
+			keysToPlot.append('MagneticField')
 	if 'Velocity' in keys:
 		numPlots = numPlots + 3
 		keysToPlot.append('Velocity')
@@ -325,7 +330,7 @@ def compPlot(plotname,scId,data):
 	plotNum = 0
 	for key in keysToPlot:
 		#print('Plotting',key)
-		if 'MagneticField' == key or 'Velocity' == key:
+		if 'MagneticField' == key or 'Velocity' == key or key == "MagneticField_GAMHELIO_FRAME":
 			doVecPlot = True
 		else:
 			doVecPlot = False
