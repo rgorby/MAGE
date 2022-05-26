@@ -202,8 +202,6 @@ module voltio
         write (ResF, '(A,A,I0.5,A)') trim(gApp%Model%RunID), ".volt.Res.", vApp%IO%nRes, ".h5"
         call CheckAndKill(ResF)
 
-        call StampIO(ResF)
-
         call ClearIO(IOVars)
 
         !Main attributes
@@ -489,8 +487,6 @@ module voltio
             !Not a restart or it is a restart and no file
             call CheckAndKill(vh5File) !For non-restart but file exists
 
-            call StampIO(vh5File)
-            
             !Reset IO chain
             call ClearIO(IOVars)
 

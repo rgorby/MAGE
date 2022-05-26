@@ -35,6 +35,14 @@ contains
         character(len=strLen) :: gStr,dtStr,bStr
         type(IOVAR_T), dimension(10) :: IOVars
 
+        !Check if this file has already been stamped (has githash)
+        !NOTE: This creates ambiguity when doing restarts using binaries w/ different hashes
+        !But what're you gonna do?
+        if ( ioExist(fIn,"GITHASH") ) then
+            !Already stamped, let's get outta here
+            return
+        endif
+
         call GitHash(gStr)
         call GitBranch(bStr)
         call DateTimeStr(dtStr)
@@ -50,7 +58,7 @@ contains
         call AddOutVar(IOVars,"COMPILEROPTS",compiler_options())
 #endif   
         call AddOutVar(IOVars,"DATETIME",dtStr)
-        call WriteVars(IOVars,.true.,fIn)
+        call WriteVars(IOVars,.true.,fIn,doStampCheckO=.false.)
 
     end subroutine StampIO
 !-------------------------------------------   
@@ -399,13 +407,14 @@ contains
     !Write array of IOVar to file fOut (from baseStr), under (optional) group gStrO
     !If gStrO unspecified, written to root of HDF5
     !doIOp is whether to use IOP (ie output slice) or rp (ie restart)
-    subroutine WriteVars(IOVars,doIOp,baseStr,gStrO,gStrOO)
+    subroutine WriteVars(IOVars,doIOp,baseStr,gStrO,gStrOO,doStampCheckO)
         type(IOVAR_T), dimension(:), intent(inout) :: IOVars
         logical, intent(in) :: doIOp
         character(len=*), intent(in) :: baseStr
         character(len=*), intent(in), optional :: gStrO,gStrOO
+        logical         , intent(in), optional :: doStampCheckO
 
-        logical :: fExist,gExist
+        logical :: fExist,gExist,doStampCheck
         integer :: herr
         integer(HID_T) :: h5fId, gId, ggId,outId
         character(len=strLen) :: h5File
@@ -413,6 +422,17 @@ contains
         !Set filename to baseStr
         !FIXME: Correct to add .h5 to baseStr
         h5File = baseStr
+
+        if (present(doStampCheckO)) then
+            doStampCheck = doStampCheckO
+        else
+            doStampCheck = .true.
+        endif
+
+        !If we're writing to root of this file, then stamp (will ignore if already stamped)
+        if (.not. present(gStrO) .and. doStampCheck) then
+            call StampIO(h5File)
+        endif      
 
         call h5open_f(herr) !Setup Fortran interface
 
