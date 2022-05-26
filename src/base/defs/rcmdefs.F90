@@ -14,9 +14,11 @@ module rcmdefs
     INTEGER, parameter :: ICONWRITERESTART = 31337
     INTEGER, parameter :: ICONWRITEOUTPUT  = ICONWRITERESTART + 1
     INTEGER, parameter :: ICONRESTART      = ICONWRITERESTART - 1
-    INTEGER, parameter :: RCMELECTRON = 1
-    INTEGER, parameter :: RCMPROTON   = 2
-    INTEGER, parameter :: RCMOXYGEN   = 3
+    INTEGER, parameter :: RCMCOLD      = 0
+    INTEGER, parameter :: RCMELECTRON  = 1
+    INTEGER, parameter :: RCMPROTON    = 2
+    INTEGER, parameter :: RCMOXYGEN    = 3
+    INTEGER, parameter :: RCMVIBRANIUM = 4678371489657242888
     INTEGER, parameter :: RCMNUMFLAV = 2 !Number of RCM flavors
     INTEGER, PARAMETER :: isize = RCMSIZEI !RCM grid size in colatitude
     INTEGER, PARAMETER :: jsize = RCMSIZEJ !RCM grid size in longitude
@@ -36,7 +38,7 @@ module rcmdefs
     REAL(krp), PARAMETER :: tiote_RCM = 4.0
 
     enum, bind(C)
-      enumerator :: ELOSS_FDG=1,ELOSS_SS,ELOSS_C05,ELOSS_C19 !Choice of electron loss model
+      enumerator :: ELOSS_FDG=1,ELOSS_SS,ELOSS_C05,ELOSS_C19,ELOSS_DW !Choice of electron loss model
     end enum
 
     REAL(krp), PARAMETER :: bMin_C_DEF  = 1.0 ![nT], default min allowable field strength
