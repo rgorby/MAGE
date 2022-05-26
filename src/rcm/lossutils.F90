@@ -169,10 +169,7 @@ MODULE lossutils
         IMPLICIT NONE
         REAL (rprec), INTENT (IN) :: Kpx, mltx,Lx,Ekx
         REAL(rprec) :: tau
-        REAL(rprec) :: tauKlMlLlEl,tauKlMlLlEu,tauKlMlLuEl,tauKlMlLuEu,tauKlMuLlEl,tauKlMuLlEu,tauKlMuLuEl,tauKlMuLuEu,&
-                       tauKuMlLlEl,tauKuMlLlEu,tauKuMlLuEl,tauKuMlLuEu,tauKuMuLlEl,tauKuMuLlEu,tauKuMuLuEl,tauKuMuLuEu
-        REAL(rprec) :: tauMlLlEl,tauMlLlEu,tauMlLuEl,tauMlLuEu,tauMuLlEl,tauMuLlEu,tauMuLuEl,tauMuLuEu
-        REAL(rprec) :: tauLlEl,tauLlEu,tauLuEl,tauLuEu,tauEl,tauEu
+        REAL(rprec) :: tauKMLE(2,2,2,2),tauMLE(2,2,2),tauLE(2,2),tauE(2)! tauKMLE(1,2,2,2) means tauKlMuLuEu, l:lower bound, u: upper bound in the NN methond  
         REAL(rprec) :: dK,wK,dM,wM,dL,wL,dE,wE
         INTEGER :: iK,kL,kU,mL,mU,lL,lU,eL,eU
 
@@ -184,7 +181,7 @@ MODULE lossutils
         ! look up in Kp
         !iK = minloc(abs(Kpi-Kpx),dim=1)
 
-        ! Find the nearest naighbours in Kp
+        ! Find the nearest neighbors in Kp
         if (Kpx >= maxval(Kpi)) then
             kL = Nk
             kU = Nk
@@ -192,16 +189,16 @@ MODULE lossutils
             kL = 1
             kU = 1
         else
-            kL = maxloc(Kpi,dim=1,mask=Kpi<=Kpx)
+            kL = maxloc(Kpi,dim=1,mask=(Kpi<=Kpx))
             kU = kL+1
         endif
            
         ! Find the nearest neighbours in MLT
-        if (mltx >= maxval(MLTi) .or. mltx <= minval(MLTi))  then ! maxval of MLT is 24, minval of MLT is 0 
+        if ((mltx >= maxval(MLTi)) .or. (mltx <= minval(MLTi)))  then ! maxval of MLT is 24, minval of MLT is 0 
             mL = 1
             mU = 1 
         else
-            mL = maxloc(MLTi,dim=1,mask=MLTi<=mltx)
+            mL = maxloc(MLTi,dim=1,mask=(MLTi<=mltx))
             mU = mL+1
         endif
 
@@ -216,19 +213,19 @@ MODULE lossutils
             lL = Nl
             lU = Nl 
         else
-            lL = maxloc(Li,dim=1,mask=Li<=Lx)
+            lL = maxloc(Li,dim=1,mask=(Li<=Lx))
             lU = lL+1
         endif
         
          ! Find the nearest neighbours in Ek
         if (Ekx < minval(Eki)) then
-            el = 0 ! default lifetime is 10^10s ~ 10^3 years.
+            eL = 0 ! default lifetime is 10^10s ~ 10^3 years.
             eU = -1
         else if (Ekx >= maxval(Eki)) then
             eL = Ne ! Ekx > max(Eki) is treated like max(Eki)
             eU = Ne
         else
-            eL = maxloc(Eki,dim=1,mask=Eki<=Ekx)
+            eL = maxloc(Eki,dim=1,mask=(Eki<=Ekx))
             eU = eL + 1
         endif
 
@@ -245,77 +242,77 @@ MODULE lossutils
 
         !linear interpolation in Kp
         if (kL == kU) then
-            tauMlLlEl = taui(kL,mL,lL,eL)
-            tauMlLlEu = taui(kL,mL,lL,eU)
-            tauMlLuEl = taui(kL,mL,lU,eL)
-            tauMlLuEu = taui(kL,mL,lU,eU)
-            tauMuLlEl = taui(kL,mU,lL,eL)
-            tauMuLlEu = taui(kL,mU,lL,eU)
-            tauMuLuEl = taui(kL,mU,lU,eL)
-            tauMuLuEu = taui(kL,mU,lU,eU)
+            tauMLE(1,1,1) = taui(kL,mL,lL,eL)
+            tauMLE(1,1,2) = taui(kL,mL,lL,eU)
+            tauMLE(1,2,1) = taui(kL,mL,lU,eL)
+            tauMLE(1,2,2) = taui(kL,mL,lU,eU)
+            tauMLE(2,1,1) = taui(kL,mU,lL,eL)
+            tauMLE(2,1,2) = taui(kL,mU,lL,eU)
+            tauMLE(2,2,1) = taui(kL,mU,lU,eL)
+            tauMLE(2,2,2) = taui(kL,mU,lU,eU)
         else
             dK = Kpi(kU)-Kpi(kL)
             wK = (Kpx-Kpi(kL))/dK
-            tauKlMlLlEl = taui(kL,mL,lL,eL)
-            tauKuMlLlEl = taui(kU,mL,lL,eL)            
-            tauMlLlEl = tauKlMlLlEl + wK*(tauKuMlLlEl-tauKlMlLlEl)
-            tauKlMlLlEu = taui(kL,mL,lL,eU)
-            tauKuMlLlEu = taui(kU,mL,lL,eU)
-            tauMlLlEu = tauKlMlLlEu + wK*(tauKuMlLlEu-tauKlMlLlEu)
-            tauKlMlLuEl = taui(kL,mL,lU,eL)
-            tauKuMlLuEl = taui(kU,mL,lU,eL)
-            tauMlLuEl = tauKlMlLuEl + wK*(tauKuMlLuEl-tauKlMlLuEl)
-            tauKlMlLuEu = taui(kL,mL,lU,eU)
-            tauKuMlLuEu = taui(kU,mL,lU,eU)
-            tauMlLuEu = tauKlMlLuEu + wK*(tauKuMlLuEu-tauKlMlLuEu)
-            tauKlMuLlEl = taui(kL,mU,lL,eL)
-            tauKuMuLlEl = taui(kU,mU,lL,eL)
-            tauMuLlEl = tauKlMuLlEl + wK*(tauKuMuLlEl-tauKlMuLlEl)
-            tauKlMuLlEu = taui(kL,mU,lL,eU)
-            tauKuMuLlEu = taui(kU,mU,lL,eU)
-            tauMuLlEu = tauKlMuLlEu + wK*(tauKuMuLlEu-tauKlMuLlEu)
-            tauKlMuLuEl = taui(kL,mU,lU,eL)
-            tauKuMuLuEl = taui(kU,mU,lU,eL)
-            tauMuLuEl = tauKlMuLuEl + wK*(tauKuMuLuEl-tauKlMuLuEl)
-            tauKlMuLuEu = taui(kL,mU,lU,eU)
-            tauKuMuLuEu = taui(kU,mU,lU,eU)
-            tauMuLuEu = tauKlMuLuEu + wK*(tauKuMuLuEu-tauKlMuLuEu)
+            tauKMLE(1,1,1,1) = taui(kL,mL,lL,eL)
+            tauKMLE(2,1,1,1) = taui(kU,mL,lL,eL)            
+            tauMLE(1,1,1) = tauKMLE(1,1,1,1) + wK*(tauKMLE(2,1,1,1)-tauKMLE(1,1,1,1))
+            tauKMLE(1,1,1,2) = taui(kL,mL,lL,eU)
+            tauKMLE(2,1,1,2) = taui(kU,mL,lL,eU)
+            tauMLE(1,1,2) = tauKMLE(1,1,1,2) + wK*(tauKMLE(2,1,1,2)-tauKMLE(1,1,1,2))
+            tauKMLE(1,1,2,1) = taui(kL,mL,lU,eL)
+            tauKMLE(2,1,2,1) = taui(kU,mL,lU,eL)
+            tauMLE(1,2,1) = tauKMLE(1,1,2,1) + wK*(tauKMLE(2,1,2,1)-tauKMLE(1,1,2,1))
+            tauKMLE(1,1,2,2) = taui(kL,mL,lU,eU)
+            tauKMLE(2,1,2,2) = taui(kU,mL,lU,eU)
+            tauMLE(1,2,2) = tauKMLE(1,1,2,2) + wK*(tauKMLE(2,1,2,2)-tauKMLE(1,1,2,2))
+            tauKMLE(1,2,1,1) = taui(kL,mU,lL,eL)
+            tauKMLE(2,2,1,1) = taui(kU,mU,lL,eL)
+            tauMLE(2,1,1) = tauKMLE(1,2,1,1) + wK*(tauKMLE(2,2,1,1)-tauKMLE(1,2,1,1))
+            tauKMLE(1,2,1,2) = taui(kL,mU,lL,eU)
+            tauKMLE(2,2,1,2) = taui(kU,mU,lL,eU)
+            tauMLE(2,1,2) = tauKMLE(1,2,1,2) + wK*(tauKMLE(2,2,1,2)-tauKMLE(1,2,1,2))
+            tauKMLE(1,2,2,1) = taui(kL,mU,lU,eL)
+            tauKMLE(2,2,2,1) = taui(kU,mU,lU,eL)
+            tauMLE(2,2,1) = tauKMLE(1,2,2,1) + wK*(tauKMLE(2,2,2,1)-tauKMLE(1,2,2,1))
+            tauKMLE(1,2,2,2) = taui(kL,mU,lU,eU)
+            tauKMLE(2,2,2,2) = taui(kU,mU,lU,eU)
+            tauMLE(2,2,2) = tauKMLE(1,2,2,2) + wK*(tauKMLE(2,2,2,2)-tauKMLE(1,2,2,2))
         end if
 
         ! linear interpolation in mlt
         if (mL == mU) then 
-            tauLlEl = tauMuLlEl
-            tauLlEu = tauMuLlEu
-            tauLuEl = tauMuLuEl
-            tauLuEu = tauMuLuEu
+            tauLE(1,1) = tauMLE(2,1,1)
+            tauLE(1,2) = tauMLE(2,1,2)
+            tauLE(2,1) = tauMLE(2,2,1)
+            tauLE(2,2) = tauMLE(2,2,2)
         else
             dM = MLTi(mU)-MLTi(mL)
             wM = (mltx-MLTi(mL))/dM
-            tauLlEl = tauMlLlEl + wM*(tauMuLlEl-tauMlLlEl)
-            tauLlEu = tauMlLlEu + wM*(tauMuLlEu-tauMlLlEu)
-            tauLuEl = tauMlLuEl + wM*(tauMuLuEl-tauMlLuEl)
-            tauLuEu = tauMlLuEu + wM*(tauMuLuEu-tauMlLuEu)            
+            tauLE(1,1) = tauMLE(1,1,1) + wM*(tauMLE(2,1,1)-tauMLE(1,1,1))
+            tauLE(1,2) = tauMLE(1,1,2) + wM*(tauMLE(2,1,2)-tauMLE(1,1,2))
+            tauLE(2,1) = tauMLE(1,2,1) + wM*(tauMLE(2,2,1)-tauMLE(1,2,1))
+            tauLE(2,2) = tauMLE(1,2,2) + wM*(tauMLE(2,2,2)-tauMLE(1,2,2))            
         end if
         
         ! linear interpolation in L
         if (lL == lU) then 
-            tauEl = tauLuEl
-            tauEu = tauLuEu
+            tauE(1) = tauLE(2,1)
+            tauE(2) = tauLE(2,2)
         else
             dL = Li(lU)-Li(lL)
             wL = (Lx-Li(lL))/dL
-            tauEl = tauLlEl + wL*(tauLuEl-tauLlEl)
-            tauEu = tauLlEu + wL*(tauLuEu-tauLlEu)
+            tauE(1) = tauLE(1,1)+ wL*(tauLE(2,1)-tauLE(1,1))
+            tauE(2) = tauLE(1,2)+ wL*(tauLE(2,2)-tauLE(1,2))
         end if 
         
         ! linear interpolation in Ek
         if (eL == eU) then 
-            tau = tauEl
+            tau = tauE(1)
             return
         else
             dE = Eki(eU)-Eki(eL)
             wE = (Ekx-Eki(eL))/dE 
-            tau = tauEl + wE*(tauEu-tauEl)    
+            tau = tauE(1) + wE*(tauE(2)-tauE(1))    
         end if
         end associate
  
@@ -562,21 +559,11 @@ MODULE lossutils
         !    return
         !endif
 
-        if (L>5.5) then
-           L = 5.5
-        elseif (L<1.5) then
-           L = 1.5
-        endif
+        call ClampValue(L,1.5_rprec,5.5_rprec)
       
         L2 = L*L !renew L2
         
-        if (E>1.0) then
-           E = 1.0
-        elseif (E<-3.0) then
-           E = -3.0
-        elseif (E<fL) then
-           E = fL
-        endif
+        call ClampValue(E,max(-3.0_rprec,fL),1.0_rprec) 
 
         b0 = 2.080
         b1 = 0.1773

@@ -576,7 +576,7 @@
                     else
                         cycle
                     endif
-                    !Now accumulate, for single hemisphere
+                    !Now accumulate, 0.5 for single hemisphere, see detailed deriviation of the diffuse precipitation on kaiju wiki    
                     dn = 0.5*deleeta(i,j,k)*eta2cc*abs(bir(i,j)/sini(i,j))*(ftv*radius_earth_m*1.0e+2)/dtCpl ! #/cm2/s
                     nflx(ie) = nflx(ie) + dn !Num flux, #/cm2/s
                     eflx(ie) = eflx(ie) + dn*ABS(alamc(k))*vm(i,j) !Energy flux, eV/cm2/s
@@ -3170,11 +3170,11 @@ FUNCTION RatefnDW(xx,yy,alamx,vmx,nex,kpx,bqx,losscx)
   else  ! nlow <= nex <= nhigh
     tau_c = RatefnDW_tau_c(kpx, MLT,L,E)
     tau_h = RatefnC_tau_h16(MLT,E,L,kpx)
-    if (abs(tau_h - 1.D10)< TINY .and. abs(tau_c - 1.D10)< TINY ) then
-       tau = 1.D10   !both models are undefined
+    if ((tau_h > 1.D9) .and. (tau_c > 1.D9)) then ! which means tau_h and tau_c are 1.D10
+       tau = 1.D10   ! both models are undefined
        RatefnDW(2) = -1.0 ! undefined
        RatefnDW(1) = 1.0/tau
-    elseif (abs(tau_h - 1.D10)< TINY) then ! hiss model is undefined
+    elseif (tau_h > 1.D9) then ! which means tau_h is 1.D10, hiss model is undefined
        if (tau_s > tau_c) then
           tau = tau_s
           RatefnDW(2) = 4.0
@@ -3183,7 +3183,7 @@ FUNCTION RatefnDW(xx,yy,alamx,vmx,nex,kpx,bqx,losscx)
           RatefnDW(2) = 1.0
        endif 
        RatefnDW(1) = 1.0/tau
-    elseif (abs(tau_c - 1.D10)< TINY) then ! chorus model is undefined
+    elseif (tau_c > 1.D9) then ! which means tau_c is 1.D10, chorus model is undefined
        if (tau_s > tau_h) then
           tau = tau_s
           RatefnDW(2) = 4.0
@@ -3193,7 +3193,7 @@ FUNCTION RatefnDW(xx,yy,alamx,vmx,nex,kpx,bqx,losscx)
        endif
        RatefnDW(1) = 1.0/tau 
     else ! both models have defined values
-       if (tau_s > tau_c .and. tau_s > tau_h) then
+       if ((tau_s > tau_c) .and. (tau_s > tau_h)) then
           tau1 = tau_s
           tau2 = tau_s
           R1 = 4.0
@@ -3271,7 +3271,7 @@ FUNCTION RatefnC19 (xx,yy,alamx,vmx,beqx,losscx,nex,kpx)
 !  fL = -0.2573*L**4 + 4.2781*L**3 - 25.9348*L*L + 66.8113*L - 66.1182
 !  if((nex<nlow.and.MLT<=21.0.and.MLT>15.0).or.(nex>nhigh.and.(L>6.0 .or. L<3.0 .or. E>1.0 .or. E<-3.0 .or. E<fL))) then !  .or. kpx>6.0
   fL = 0.1328*L*L - 2.1463*L + 3.7857
-  if((nex<nlow.and.MLT<=21.0.and.MLT>15.0).or.(nex>nhigh.and.(L>5.5 .or. L<1.5 .or. E>1.0 .or. E<-3.0 .or. E<fL))) then
+  if(((nex<nlow) .and. (MLT<=21.0) .and. (MLT>15.0)).or.((nex>nhigh) .and. ((L>5.5) .or. (L<1.5) .or. (E>1.0) .or. (E<-3.0) .or. (E<fL)))) then
     tau = tau_s + RatefnC_tau_C05(MLT,K,L) ! mltx,engx,Lshx
     RatefnC19(2) = 0.0
   endif

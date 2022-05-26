@@ -48,7 +48,6 @@ def readWMh5(params,fIn):
         tau2i=(10.**(f5['Tau2_4D'][:]))*24.*3600.
         #print ("kpi",kpi,"mlti",mlti,"li",li,"eki",eki)
         nk,nm,nl,ne = tau1i.shape
-        #print ("tau1i shape:",tau1i.shape)
         #expand mlt from 0:23 to 0:24
         tau1ai = np.array([np.append(tau1i[0,:,:,:],np.array([tau1i[0,0,:,:]]),0)])
         tau2ai = np.array([np.append(tau2i[0,:,:,:],np.array([tau2i[0,0,:,:]]),0)])
@@ -57,7 +56,6 @@ def readWMh5(params,fIn):
               tau2ai=np.append(tau2ai,np.array([np.append(tau2i[i,:,:,:],np.array([tau2i[i,0,:,:]]),0)]),0)	
         tau1ai = tau1ai.T
         tau2ai = tau2ai.T
-        #print ("tau1ai shape:",tau1ai.shape)
         return kpi,mlti,li,eki,tau1ai,tau2ai
 
 
@@ -74,14 +72,8 @@ def toyWM(params):
         #print ("kpi",kpi,"mlti",mlti,"li",li,"eki",eki) 
         tau1i = np.zeros((nKpi,nMLTi,nLi,nEki))
         tau2i = np.zeros((nKpi,nMLTi,nLi,nEki)).T 
-        for nk in range(nKpi):
-            for nm in range(nMLTi):
-                for nl in range(nLi):
-                    for ne in range(nEki):
-                         tau1i[nk,nm,nl,ne] = kpi[nk]*mlti[nm]*li[nl]*eki[ne] 
+        tau1i = kpi[:,None,None,None]*mlti[None,:,None,None]*li[None,None,:,None]*eki[None,None,None,:]
         tau1i = tau1i.T
-        #print ("tau1i shape:", tau1i.shape)     
-        #print ("tau2i shape:", tau2i.shape)
    
         return kpi,mlti,li,eki,tau1i,tau2i
       
