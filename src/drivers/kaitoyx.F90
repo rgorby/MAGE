@@ -76,8 +76,6 @@ program kaitoyx
     call Tic("IOData")
     call CheckAndKill(H5Out)
 
-    call StampIO(H5Out)
-
     call ClearIO(IOVars)
     call AddOutVar(IOVars,"X",X)
     call AddOutVar(IOVars,"Z",Z)

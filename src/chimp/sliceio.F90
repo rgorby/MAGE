@@ -48,7 +48,6 @@ module sliceio
 
         call CheckAndKill(ebOutF)
 
-
         !Figure out grid slice type
         call inpXML%Set_Val(doXY,'slice/doXY',.true.)
         call inpXML%Set_Val(idStr,'slice/grType',"XY")
