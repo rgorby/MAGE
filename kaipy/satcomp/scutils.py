@@ -1,27 +1,25 @@
-import numpy as np
 import datetime
 import os
-import glob
-import sys
 import subprocess
 from xml.dom import minidom
 
-from astropy.time import Time
+import numpy as np
 
+from astropy.coordinates import SkyCoord
+import astropy.units as u
 
 from cdasws import CdasWs
-from cdasws import TimeInterval
 
-import kaipy.kaijson as kj
-import kaipy.kaiTools as kaiTools
+import h5py
 
-import spacepy
 from spacepy.coordinates import Coords
 from spacepy.time import Ticktock
 import spacepy.datamodel as dm
+from sunpy.coordinates import frames
 
-#import hdf5
-import h5py
+import kaipy.kaijson as kj
+import kaipy.kaiTools as kaiTools
+import kaipy.kdefs
 
 TINY = 1.0e-8
 
@@ -274,7 +272,7 @@ def getSatData(scDic,t0,t1,deltaT):
                                          attrs=mytime.attrs)
         mydata['Ephemeris'] = dm.dmarray(data[scDic['Ephem']['Data']],
                                          attrs= data[scDic['Ephem']['Data']].attrs)
-        keys = ['MagneticField','Velocity','Density','Pressure']
+        keys = ['MagneticField','Velocity','Density','Pressure', "Speed", "Temperature"]
         for key in keys:
             if key in scDic:
                 status1 = addVar(mydata,scDic,key,t0,t1,deltaT,epochStr=epochStr)
@@ -473,71 +471,68 @@ def createInputFiles(data,scDic,scId,mjd0,sec0,fdir,ftag,numSegments):
 
 def createHelioInputFiles(data, scDic, scId, mjd0, sec0, fdir, ftag, numSegments, Rin, Rout):
     if scDic['Ephem']['CoordSys'] == "GSE":
-        # Convert the individual GSE ephemeris locations to the modified HGS
-        # (HelioGraphic Stonyhurst) frame at the start of the
-        # simulation. In this version of HGS, the +x axis is *anti*-Earthward.
-        import astropy.units as u
-        from astropy.coordinates import SkyCoord
-        from sunpy.coordinates import frames
+
+        # Convert the instantaneous GSE(t) ephemeris locations to the GH(t0)
+        # frame so that sctrack.x can interpolate gamhelio model data in the
+        # GH(t0) frame to the spacecraft ephemeris locations.
         Rsun_km = u.Quantity(1*u.Rsun, u.km).value
+
+        # Create the GSE(t) position vectors and times.
         x = data["Ephemeris"][:, 0]/Rsun_km
         y = data["Ephemeris"][:, 1]/Rsun_km
         z = data["Ephemeris"][:, 2]/Rsun_km
         t = data["Epoch_bin"]
+
+        # Create SkyCoord objects for each GSE(t) position/time.
         c = SkyCoord(
             x*u.Rsun, y*u.Rsun, z*u.Rsun,
             frame=frames.GeocentricSolarEcliptic, obstime=t,
             representation_type="cartesian"
         )
+
+        # Create the HGS(t0) coordinate frame.
         t0_frame = frames.HeliographicStonyhurst(obstime=kaiTools.MJD2UT(mjd0))
+
+        # Convert the GSE(t) Cartesian positions to HGS(t0) (lon, lat, radius).
         c = c.transform_to(t0_frame)
+
     else:
         print('Coordinate system transformation failed')
         return
+
+    # For the ephemeris locations, compute the elapsed time in seconds since
+    # the start of the gamhelio simulation. sctrack.x needs this value in
+    # order to perform the interpolation of gamhelio model output to the
+    # ephemeris points.
     elapsed = [(tt - t[0]).total_seconds() for tt in t]
-    # <HACK>
-    # Convert MagneticField components from GSE to gamhelio frame.
-    B = np.empty_like(data["MagneticField"])
-    for (i, cc) in enumerate(c):
-        lon = np.radians(cc.lon.value)
-        lat = np.radians(cc.lat.value)
-        Rz = np.array([
-            [np.cos(-lon), -np.sin(-lon), 0],
-            [np.sin(-lon), np.cos(-lon), 0],
-            [0, 0, 1]
-        ])
-        Ry = np.array([
-            [np.cos(-lat), 0, np.sin(-lat)],
-            [0, 1, 0],
-            [-np.sin(-lat), 0, np.cos(-lat)]
-        ])
-        R = Rz.dot(Ry)
-        B_GSE = data["MagneticField"][i, :]
-        B_HGS = R.dot(B_GSE)
-        B_GH = B_HGS
-        B_GH[0] = -B_GH[0]  # Negate x for HGS->gamhelio frame.
-        B[i, ...] = B_GH
-        # Add the transformed field components to the data structure.
-        data["MagneticField_GAMHELIO_FRAME"] = B
-    # </HACK>
+
+    # Create the HDF5 file containing the spacecraft data transformed to the
+    # gamhelio frame and elapsed time.
     scTrackName = os.path.join(fdir,scId+".sc.h5")
     with h5py.File(scTrackName,'w') as hf:
+        # Elapsed time in seconds since start of gamhelio results.
         hf.create_dataset("T" , data=elapsed)
+        # GH(t0) Cartesian coordinates in units of Rsun.
         # Reverse x for gamhelio frame.
         hf.create_dataset("X" , data=-c.cartesian.x)
         hf.create_dataset("Y" , data=c.cartesian.y)
         hf.create_dataset("Z" , data=c.cartesian.z)
     h5traj=os.path.basename(scTrackName)
+
+    # Create the XML describing the required interpolations.
     if scId in ["ACE"]:
         chimpxml = genHelioSCXML(fdir,ftag,
             scId,h5traj, Rin, Rout, numSegments=0)
     else:
         raise Exception
+
+    # Write the XML to a file.
     xmlFileName = os.path.join(fdir,scId+'.xml')
     with open(xmlFileName,"w") as f:
         f.write(chimpxml.toprettyxml())
 
     return (scTrackName,xmlFileName)
+
 
 def addGAMERA(data,scDic,h5name):
     h5file = h5py.File(h5name, 'r')
@@ -570,6 +565,10 @@ def addGAMERA(data,scDic,h5name):
         attrs={'UNITS':vx.attrs['Units'],
         'CATDESC':'Velocity, cartesian'+toCoordSys,
                'FIELDNAM':"Velocity",'AXISLABEL':'V'})
+    speed = h5file["Vx"]
+    data['GAMERA_Speed'] = dm.dmarray(-speed[:],
+        attrs={'UNITS':speed.attrs['Units'],
+        'CATDESC':'Speed','FIELDNAM':"Speed",'AXISLABEL':'vr'})
     den = h5file['D']
     data['GAMERA_Density'] = dm.dmarray(den[:],
         attrs={'UNITS':den.attrs['Units'],
@@ -578,17 +577,198 @@ def addGAMERA(data,scDic,h5name):
     data['GAMERA_Pressure'] = dm.dmarray(pres[:],
         attrs={'UNITS':pres.attrs['Units'],
         'CATDESC':'Pressure','FIELDNAM':"Pressure",'AXISLABEL':'P'})
-    temp = h5file['T']
-    data['GAMERA_Temperature'] = dm.dmarray(temp[:],
-        attrs={'UNITS':pres.attrs['Units'],
-        'CATDESC':'Temperature','FIELDNAM':"Temperature",
-        'AXISLABEL':'T'})
     inDom = h5file['inDom']
     data['GAMERA_inDom'] = dm.dmarray(inDom[:],
         attrs={'UNITS':inDom.attrs['Units'],
         'CATDESC':'In GAMERA Domain','FIELDNAM':"InDom",
         'AXISLABEL':'In Domain'})
     return
+
+
+def addGAMHELIO(data, scDic, h5name):
+    """Copy the interpolated model results and transform as needed.
+
+    Copy the variables in the input HDF5 file into new variables in the HDF5
+    file with GAMERA_-prefixed descriptive names, and more metadata.
+
+    Convert vector values from the gamhelio frame (GH(t0)) to the frame of
+    the spacecraft.
+
+    Parameters
+    ----------
+    data : spacepy.datamodel.SpaceData
+        All of the spacecraft and interpolated model results so far.
+    scDic : dict
+        Spacecraft descriptive information.
+    h5name : str
+        Path to HDF5 file containing gamhelio model results interpolated to the
+        spacecraft positions, all in the GH(t0) frame.
+
+    Returns
+    -------
+    None
+
+    Raises
+    ------
+    TypeError
+        If target frame is not GSE.
+    """
+
+    # Open the HDF5 file containing the gamhelio model results interpolated
+    # to the spacecraft positions.
+    h5file = h5py.File(h5name, "r")
+
+    # Read the UTC MJD values from the HDF5 file.
+    ut = kaiTools.MJD2UT(h5file["MJDs"][:])  # NOT USED
+
+    # Determine the number of positions.
+    n = len(ut)
+
+    # Fetch the Cartesian components of the spacecraft position in the GH(t0)
+    # frame used by the gamhelio model. Each is shape (n,)
+    X = h5file["X"]
+    Y = h5file["Y"]
+    Z = h5file["Z"]
+
+    # Create an array of the positions as a shape (n, 3) array.
+    R = np.vstack([X, Y, Z]).T
+
+    # Compute the GH(t0) radius for each position. Shape is (n,)
+    radius = np.sqrt(X[:]**2 + Y[:]**2 + Z[:]**2)
+
+    # Fetch the Cartesian components of the interpolated model magnetic field
+    # in the GH(t0) frame.
+    Bx = h5file["Bx"]
+    By = h5file["By"]
+    Bz = h5file["Bz"]
+
+    # Create an array of the interpolated model magnetic field components as
+    # a shape (n, 3) array.
+    B = np.vstack([Bx, By, Bz]).T
+
+    # Determine the spacecraft coordinate frame for magnetic field components.
+    toCoordSys = scDic["MagneticField"]["CoordSys"]
+    if toCoordSys != "GSE":
+        raise TypeError
+
+    # Compute the radial component of the interpolated model magnetic field.
+    Br = np.empty(n)
+    for i in range(n):
+        Br[i] = B[i].dot(R[i])/radius[i]
+
+    # Add the radial component of the interpolated model magnetic field as a
+    # new variable.
+    data["GAMERA_Br"] = dm.dmarray(
+        Br,
+        attrs = {
+            "UNITS":Bx.attrs["Units"],
+            "CATDESC":"Radial magnetic field",
+            "FIELDNAM":"Radial magnetic field",
+            "AXISLABEL":"Br"
+        }
+    )
+
+    # Fetch the Cartesian components of the interpolated model solar wind
+    # velocity in the GH(t0) frame.
+    Vx = h5file["Vx"]
+    Vy = h5file["Vy"]
+    Vz = h5file["Vz"]
+
+    # Create an array of the interpolated model solar wind velocity as a
+    # shape (n, 3) array.
+    V = np.vstack([Vx, Vy, Vz]).T
+
+    # Compute the radial component of the interpolated model solar wind
+    # velocity.
+    Vr = np.empty(n)
+    for i in range(n):
+        Vr[i] = V[i].dot(R[i])/radius[i]
+
+    # Add the interpolated model solar wind radial velocity as a new variable.
+    data["GAMERA_Speed"] = dm.dmarray(
+        Vr,
+        attrs = {
+            "UNITS":Vx.attrs["Units"],
+            "CATDESC":"Radial velocity",
+            "FIELDNAM":"Radial velocity",
+            "AXISLABEL":"Vr"
+        }
+    )
+
+    # Add the interpolated model density as a new variable.
+    density = h5file["D"]
+    data["GAMERA_Density"] = dm.dmarray(
+        density[:],
+        attrs={
+            "UNITS":density.attrs["Units"],
+            "CATDESC":"Density",
+            "FIELDNAM":"Density",
+            "AXISLABEL":"n"
+        }
+    )
+
+    # Add the interpolated model pressure as a new variable.
+    pressure = h5file["P"]
+    data["GAMERA_Pressure"] = dm.dmarray(
+        pressure[:],
+        attrs={
+            "UNITS":pressure.attrs["Units"],
+            "CATDESC":"Pressure",
+            "FIELDNAM":"Pressure",
+            "AXISLABEL":"P"
+        }
+    )
+
+    # Compute the gamhelio temperature from interpolated model pressure
+    # and interpolated model density using the ideal gas law, and add as a
+    # new variable.
+    # Pressure is in cgs units (erg/cm**3).
+    # Density is in 1/cm**3.
+    # The CGS Boltzmann constant kbltz is erg/K.
+    # The factor of 2 is needed since we have a neutral 2-component plasma.
+    # The factor of 1e-8 converts nPa to erg/cm**3.
+    temperature = pressure[:]*1e-8/(2*kaipy.kdefs.kbltz*density[:])
+    data["GAMERA_Temperature"] = dm.dmarray(
+        temperature[:],
+        attrs={
+            "UNITS":b"K",  # WHY IS THIS A BYTE STRING?
+            "CATDESC":"Temperature",
+            "FIELDNAM":"Temperature",
+            "AXISLABEL":"T"
+        }
+    )
+
+    # Add the in-domain flag as a new variable.
+    inDom = h5file["inDom"]
+    data["GAMERA_inDom"] = dm.dmarray(
+        inDom[:],
+        attrs={
+            "UNITS":inDom.attrs["Units"],
+            "CATDESC":"In GAMERA Domain",
+            "FIELDNAM":"InDom",
+            "AXISLABEL":"In Domain"
+        }
+    )
+
+    # <HACK>
+    # Add the radial component of the *spacecraft* magnetic field as a
+    # new variable.
+    data["Br"] = dm.dmarray(
+        data["MagneticField"][:, 0],
+        attrs = {
+            "UNITS":Bx.attrs["Units"],
+            "CATDESC":"Radial magnetic field",
+            "FIELDNAM":"Radial magnetic field",
+            "AXISLABEL":"Br"
+        }
+    )
+    # </HACK>
+
+    # At this point, we have added *copies* of the interpolated model values to
+    # the data object, along with extra metadata needed for comparison
+    # plotting.
+    return
+
 
 def matchUnits(data):
     vars = ['Density','Pressure','Temperature','Velocity','MagneticField']
@@ -691,7 +871,7 @@ def extractGAMHELIO(
         h5name = mergeFiles(scId,fdir,numSegments)
 
 
-    addGAMERA(data,scDic,h5name)
+    addGAMHELIO(data,scDic,h5name)
 
     if not keep:
         subprocess.run(['rm',h5name])

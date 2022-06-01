@@ -189,8 +189,11 @@ if __name__ == "__main__":
     # gamT[0] = 0.
     # Use the last time as the last MJD.
     loc = np.argwhere(gamT > 0.0)[0][0]
+    # <HACK>
+    # loc = 0
+    # </HACK>
     t0 = gamUT[loc]  # First non-0 time
-    t1 = gamUT[-1]
+    t1 = gamUT[-1] 
     if debug:
         print("t0 = %s" % t0)
         print("t1 = %s" % t1)
@@ -252,13 +255,13 @@ if __name__ == "__main__":
             plotname = os.path.join(fdir, scId + ".png")
             if verbose:
                 print("Plotting results to %s." % plotname)
-            kv.compPlot(plotname, scId, data)
-            if verbose:
-                print("Computing errors.")
-            errname = os.path.join(fdir, scId + "-error.txt")
-            if verbose:
-                print("Writing errors to %s." % errname)
-            scutils.errorReport(errname, scId, data)
+            kv.helioCompPlot(plotname, scId, data)
+            # if verbose:
+            #     print("Computing errors.")
+            # errname = os.path.join(fdir, scId + "-error.txt")
+            # if verbose:
+            #     print("Writing errors to %s." % errname)
+            # scutils.errorReport(errname, scId, data)
             plotname = os.path.join(fdir, scId + "-traj.png")
             if verbose:
                 print("Plotting trajectory to %s." % plotname)

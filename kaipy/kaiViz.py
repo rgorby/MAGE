@@ -299,74 +299,27 @@ def itemPlot(Ax,data,key,plotNum,numPlots,vecComp=-1):
         SetAxLabs(Ax,None,label,doLeft=left)
     return
 
-def compPlot(plotname,scId,data):
+def helioCompPlot(plotname,scId,data):
 
     numPlots = 0
     keysToPlot = []
-    keys = data.keys()
-    #print(keys)
-    if 'Density' in keys:
-        numPlots = numPlots + 1
-        keysToPlot.append('Density')
-    if 'Pressue' in keys:
-        numPlots = numPlots + 1
-        keysToPlot.append('Pressue')
-    if 'Temperature' in keys:
-        numPlots = numPlots + 1
-        keysToPlot.append('Temperature')
-    if 'MagneticField' in keys:
-        numPlots = numPlots + 3
-        if scId == "ACE":
-            keysToPlot.append('MagneticField_GAMHELIO_FRAME')
-        else:
-            keysToPlot.append('MagneticField')
-    if 'Velocity' in keys:
-        numPlots = numPlots + 3
-        keysToPlot.append('Velocity')
+    keys = ["Density", "Temperature", "Speed", "Br"]
+    keysToPlot = keys[:]
+    numPlots = len(keysToPlot)
 
     figsize = (10,10)
     fig = plt.figure(figsize=figsize)
     gs = fig.add_gridspec(numPlots,1)
     plotNum = 0
     for key in keysToPlot:
-        #print('Plotting',key)
-        if 'MagneticField' == key or 'Velocity' == key or key == "MagneticField_GAMHELIO_FRAME":
-            doVecPlot = True
-        else:
-            doVecPlot = False
         if 0 == plotNum:
             Ax1 = fig.add_subplot(gs[plotNum,0])
-            if doVecPlot:
-                #print('key',key,'plotNum',plotNum)
-                itemPlot(Ax1,data,key,plotNum,numPlots,vecComp=0)
-                plotNum = plotNum + 1
-                Ax = fig.add_subplot(gs[plotNum,0],sharex=Ax1)
-                itemPlot(Ax,data,key,plotNum,numPlots,vecComp=1)
-                plotNum = plotNum + 1
-                Ax = fig.add_subplot(gs[plotNum,0],sharex=Ax1)
-                itemPlot(Ax,data,key,plotNum,numPlots,vecComp=2)
-                plotNum = plotNum + 1
-            else:
-                #print('key',key,'plotNum',plotNum)
-                itemPlot(Ax1,data,key,plotNum,numPlots)
-                plotNum = plotNum + 1
+            itemPlot(Ax1,data,key,plotNum,numPlots)
+            plotNum = plotNum + 1
         else:
             Ax = fig.add_subplot(gs[plotNum,0],sharex=Ax1)
-            if doVecPlot:
-                #print('key',key,'plotNum',plotNum)
-                itemPlot(Ax,data,key,plotNum,numPlots,vecComp=0)
-                plotNum = plotNum + 1
-                Ax = fig.add_subplot(gs[plotNum,0],sharex=Ax1)
-                itemPlot(Ax,data,key,plotNum,numPlots,vecComp=1)
-                plotNum = plotNum + 1
-                Ax = fig.add_subplot(gs[plotNum,0],sharex=Ax1)
-                itemPlot(Ax,data,key,plotNum,numPlots,vecComp=2)
-                plotNum = plotNum + 1
-            else:
-                #print('key',key,'plotNum',plotNum)
-                itemPlot(Ax,data,key,plotNum,numPlots)
-                plotNum = plotNum + 1
-
+            itemPlot(Ax,data,key,plotNum,numPlots)
+            plotNum = plotNum + 1
     Ax1.legend([scId,'GAMERA'],loc='best')
     Ax1.set_title(plotname)
     plt.subplots_adjust(hspace=0)
