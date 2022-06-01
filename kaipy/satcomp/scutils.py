@@ -657,14 +657,15 @@ def addGAMHELIO(data, scDic, h5name):
         Br[i] = B[i].dot(R[i])/radius[i]
 
     # Add the radial component of the interpolated model magnetic field as a
-    # new variable.
+    # new variable. The negative of Br is needed to reverse the x-axis from
+    # GH(t0) to GSE(t).
     data["GAMERA_Br"] = dm.dmarray(
-        Br,
+        -Br,
         attrs = {
             "UNITS":Bx.attrs["Units"],
             "CATDESC":"Radial magnetic field",
             "FIELDNAM":"Radial magnetic field",
-            "AXISLABEL":"Br"
+            "AXISLABEL":"Bx"
         }
     )
 
