@@ -1028,7 +1028,7 @@ def errorReport(errorName,scId,data):
 def helioErrorReport(errorName, scId, data):
     """Save an error report for the current data.
 
-    Compute and save an error report for the current data/
+    Compute and save an error report for the current data.
 
     Parameters
     ----------

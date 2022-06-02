@@ -301,32 +301,62 @@ def itemPlot(Ax,data,key,plotNum,numPlots,vecComp=-1):
         SetAxLabs(Ax,None,label,doLeft=left)
     return
 
-def helioCompPlot(plotname,scId,data):
+def helioCompPlot(plotname, scId, data):
+    """Create comparison plots for heliospheric results.
 
+    Create comparison plots for heliospheric results and save the plots to a
+    file.
+
+    Parameters
+    ----------
+    plotname : str
+        Path to file to hold plot image.
+    scId : str
+        ID string for spacecraft.
+    data : spacepy.datamodel.SpaceData
+        The current spacecraft and model data
+
+    Returns
+    -------
+    None
+    """
+    # Determine which data are available to plot.
     numPlots = 0
     keysToPlot = []
-    keys = ["Density", "Temperature", "Speed", "Br"]
-    keysToPlot = keys[:]
+    keys = data.keys()
+    if "Density" in keys:
+        keysToPlot.append("Density")
+    if "Temperature" in keys:
+        keysToPlot.append("Temperature")
+    if "Speed" in keys:
+        keysToPlot.append("Speed")
+    if "Br" in keys:
+        keysToPlot.append("Br")
     numPlots = len(keysToPlot)
 
-    figsize = (10,10)
+    # Create the figure to hold the plots.
+    figsize = (10, 10)
     fig = plt.figure(figsize=figsize)
-    gs = fig.add_gridspec(numPlots,1)
+    gs = fig.add_gridspec(numPlots, 1)
+
+    # Plot each variabble in its own subplot.
     plotNum = 0
     for key in keysToPlot:
-        if 0 == plotNum:
-            Ax1 = fig.add_subplot(gs[plotNum,0])
-            itemPlot(Ax1,data,key,plotNum,numPlots)
-            plotNum = plotNum + 1
+        if plotNum == 0:
+            ax1 = fig.add_subplot(gs[plotNum, 0])
+            itemPlot(ax1, data, key, plotNum, numPlots)
+            plotNum += 1
         else:
-            Ax = fig.add_subplot(gs[plotNum,0],sharex=Ax1)
-            itemPlot(Ax,data,key,plotNum,numPlots)
-            plotNum = plotNum + 1
-    Ax1.legend([scId,'GAMERA'],loc='best')
-    Ax1.set_title(plotname)
+            ax = fig.add_subplot(gs[plotNum, 0], sharex=ax1)
+            itemPlot(ax, data, key, plotNum, numPlots)
+            plotNum += 1
+    ax1.legend([scId, "GAMERA"], loc="best")
+    ax1.set_title(plotname)
     plt.subplots_adjust(hspace=0)
 
+    # Save the figure.
     savePic(plotname)
+
 
 def trajPlot(plotname,scId,data):
     Re = 6380.0
