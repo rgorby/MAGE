@@ -1037,7 +1037,11 @@ def helioErrorReport(errorName, scId, data):
     scId : str
         ID string for spacecraft.
     data : spacepy.datamodel.SpaceData
-        The current spacecraft and model data/
+        The current spacecraft and model data
+
+    Returns
+    -------
+    None
     """
     # Determine which data are available for error computations.
     keysToCompute = []
@@ -1052,21 +1056,21 @@ def helioErrorReport(errorName, scId, data):
         keysToCompute.append("Br")
 
     # Compute and save the error report for each variable.
-    f = open(errorName, "w")
-    for key in keysToCompute:
-        maskedData = np.ma.masked_where(
-            data["GAMERA_inDom"][:] == 0.0, data[key][:]
-        )
-        maskedGamera = np.ma.masked_where(
-            data["GAMERA_inDom"][:] == 0.0, data["GAMERA_" + key][:]
-        )
-        MAE, MSE, RMSE, MAPE, RSE, PE = computeErrors(maskedData, maskedGamera)
-        f.write(f"Errors for: {key}\n")
-        f.write(f"MAE: {MAE}\n")
-        f.write(f"MSE: {MSE}\n")
-        f.write(f"RMSE: {RMSE}\n")
-        f.write(f"MAPE: {MAPE}\n")
-        f.write(f"RSE: {RSE}\n")
-        f.write(f"PE: {PE}\n")
-    f.close()
-    return
+    with open(errorName, "w") as f:
+        for key in keysToCompute:
+            maskedData = np.ma.masked_where(
+                data["GAMERA_inDom"][:] == 0.0, data[key][:]
+            )
+            maskedGamera = np.ma.masked_where(
+                data["GAMERA_inDom"][:] == 0.0, data["GAMERA_" + key][:]
+            )
+            MAE, MSE, RMSE, MAPE, RSE, PE = computeErrors(
+                maskedData, maskedGamera
+            )
+            f.write(f"Errors for: {key}\n")
+            f.write(f"MAE: {MAE}\n")
+            f.write(f"MSE: {MSE}\n")
+            f.write(f"RMSE: {RMSE}\n")
+            f.write(f"MAPE: {MAPE}\n")
+            f.write(f"RSE: {RSE}\n")
+            f.write(f"PE: {PE}\n")
