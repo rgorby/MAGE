@@ -5,8 +5,9 @@ import numpy as np
 #Helpful conversions
 #------
 G2nT  = 1E5              # Gauss->nanoTesla
-kev2J = 1.602176634E-16  # keV->J
-ev2J  = 1.602176634E-19  # keV->J
+kev2J = 1.602176634E-16  # keV -> J
+ev2J  = 1.602176634E-19  # eV  -> J
+erg2J = 1e-7             # erg -> J
 
 
 
