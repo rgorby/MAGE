@@ -256,12 +256,12 @@ if __name__ == "__main__":
             if verbose:
                 print("Plotting results to %s." % plotname)
             kv.helioCompPlot(plotname, scId, data)
-            # if verbose:
-            #     print("Computing errors.")
-            # errname = os.path.join(fdir, scId + "-error.txt")
-            # if verbose:
-            #     print("Writing errors to %s." % errname)
-            # scutils.errorReport(errname, scId, data)
+            if verbose:
+                print("Computing errors.")
+            errname = os.path.join(fdir, scId + "-error.txt")
+            if verbose:
+                print("Writing errors to %s." % errname)
+            scutils.helioErrorReport(errname, scId, data)
             plotname = os.path.join(fdir, scId + "-traj.png")
             if verbose:
                 print("Plotting trajectory to %s." % plotname)

@@ -1023,3 +1023,50 @@ def errorReport(errorName,scId,data):
                 f.write(f'PE: {PE}\n')
     f.close()
     return
+
+
+def helioErrorReport(errorName, scId, data):
+    """Save an error report for the current data.
+
+    Compute and save an error report for the current data/
+
+    Parameters
+    ----------
+    errorName : str
+        Path to file to hold error report.
+    scId : str
+        ID string for spacecraft.
+    data : spacepy.datamodel.SpaceData
+        The current spacecraft and model data/
+    """
+    # Determine which data are available for error computations.
+    keysToCompute = []
+    keys = data.keys()
+    if "Density" in keys:
+        keysToCompute.append("Density")
+    if "Temperature" in keys:
+        keysToCompute.append("Temperature")
+    if "Speed" in keys:
+        keysToCompute.append("Speed")
+    if "Br" in keys:
+        keysToCompute.append("Br")
+
+    # Compute and save the error report for each variable.
+    f = open(errorName, "w")
+    for key in keysToCompute:
+        maskedData = np.ma.masked_where(
+            data["GAMERA_inDom"][:] == 0.0, data[key][:]
+        )
+        maskedGamera = np.ma.masked_where(
+            data["GAMERA_inDom"][:] == 0.0, data["GAMERA_" + key][:]
+        )
+        MAE, MSE, RMSE, MAPE, RSE, PE = computeErrors(maskedData, maskedGamera)
+        f.write(f"Errors for: {key}\n")
+        f.write(f"MAE: {MAE}\n")
+        f.write(f"MSE: {MSE}\n")
+        f.write(f"RMSE: {RMSE}\n")
+        f.write(f"MAPE: {MAPE}\n")
+        f.write(f"RSE: {RSE}\n")
+        f.write(f"PE: {PE}\n")
+    f.close()
+    return
