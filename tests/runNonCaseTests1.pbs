@@ -34,7 +34,7 @@ fi
 module list
 hostname
 export OMP_NUM_THREADS=36
-export KMP_STACKSIZE=128M
+export OMP_STACKSIZE=128M
 export MPI_TYPE_DEPTH=32
 
 echo ""
