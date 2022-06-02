@@ -665,7 +665,7 @@ def addGAMHELIO(data, scDic, h5name):
             "UNITS":Bx.attrs["Units"],
             "CATDESC":"Radial magnetic field",
             "FIELDNAM":"Radial magnetic field",
-            "AXISLABEL":"Bx"
+            "AXISLABEL":"Br"
         }
     )
 
