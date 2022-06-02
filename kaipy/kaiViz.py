@@ -282,8 +282,6 @@ def itemPlot(Ax,data,key,plotNum,numPlots,vecComp=-1):
         maskedData = np.ma.masked_where(data['GAMERA_inDom'][:]==0.0,
             data[key][:,vecComp])
         Ax.plot(data['Epoch_bin'],maskedData)
-        if key == "MagneticField_GAMHELIO_FRAME":
-            key = "MagneticField"
         maskedGamera = np.ma.masked_where(data['GAMERA_inDom'][:]==0.0,
             data['GAMERA_'+key][:,vecComp])
         Ax.plot(data['Epoch_bin'],maskedGamera)
