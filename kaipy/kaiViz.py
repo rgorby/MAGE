@@ -273,7 +273,8 @@ def itemPlot(Ax,data,key,plotNum,numPlots,vecComp=-1):
     #print(key,vecComp)
     if -1 == vecComp:
         if key == "Br":
-            # Plot a horizontal line at Br=0.
+            # Plot a horizontal line at Br=0. This indicates passage of the
+            # heliospheric current sheet.
             Ax.axhline([0], linestyle="--", color="black")
         maskedData = np.ma.masked_where(data['GAMERA_inDom'][:]==0.0,
             data[key][:])
