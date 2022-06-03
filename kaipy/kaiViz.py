@@ -324,14 +324,14 @@ def helioCompPlot(plotname, scId, data):
     numPlots = 0
     keysToPlot = []
     keys = data.keys()
-    if "Density" in keys:
-        keysToPlot.append("Density")
-    if "Temperature" in keys:
-        keysToPlot.append("Temperature")
     if "Speed" in keys:
         keysToPlot.append("Speed")
     if "Br" in keys:
         keysToPlot.append("Br")
+    if "Density" in keys:
+        keysToPlot.append("Density")
+    if "Temperature" in keys:
+        keysToPlot.append("Temperature")
     numPlots = len(keysToPlot)
 
     # Create the figure to hold the plots.

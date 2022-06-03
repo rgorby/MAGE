@@ -660,7 +660,7 @@ def addGAMHELIO(data, scDic, h5name):
     # new variable. The negative of Br is needed to reverse the x-axis from
     # GH(t0) to GSE(t).
     data["GAMERA_Br"] = dm.dmarray(
-        -Br,
+        Br,
         attrs = {
             "UNITS":Bx.attrs["Units"],
             "CATDESC":"Radial magnetic field",
