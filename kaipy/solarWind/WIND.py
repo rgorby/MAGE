@@ -4,7 +4,6 @@ from kaipy.solarWind.SolarWind import SolarWind
 
 # 3rd party
 import numpy
-#from ai import cdas
 import cdasws as cdas
 
 # Standard
