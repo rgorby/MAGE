@@ -753,9 +753,10 @@ def addGAMHELIO(data, scDic, h5name):
 
     # <HACK>
     # Add the radial component of the *spacecraft* magnetic field as a
-    # new variable.
+    # new variable. The negative sign is needed because the +x axis
+    # for GSE is sunward, and we want the +r direction to be anti-sunward.
     data["Br"] = dm.dmarray(
-        data["MagneticField"][:, 0],
+        -data["MagneticField"][:, 0],
         attrs = {
             "UNITS":Bx.attrs["Units"],
             "CATDESC":"Radial magnetic field",
