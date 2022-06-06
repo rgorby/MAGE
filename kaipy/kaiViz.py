@@ -276,6 +276,11 @@ def itemPlot(Ax,data,key,plotNum,numPlots,vecComp=-1):
             # Plot a horizontal line at Br=0. This indicates passage of the
             # heliospheric current sheet.
             Ax.axhline([0], linestyle="--", color="black")
+        # <HACK>
+        if key == "Density":
+            # Reduce the density vertical scale.
+            Ax.set_ylim(0, 50)  # cm**-3
+        # </HACK>
         maskedData = np.ma.masked_where(data['GAMERA_inDom'][:]==0.0,
             data[key][:])
         Ax.plot(data['Epoch_bin'],maskedData)
