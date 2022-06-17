@@ -52,7 +52,7 @@ module shellInterp
 
         ! Have central cell and know that it's good
         if (present(isGoodP)) then
-           isGoodP = .true.
+            isGoodP = .true.
         end if
 
         ! Trap for near-pole cases
@@ -124,9 +124,9 @@ module shellInterp
     
         ! Clamps mapping in [-0.5,0.5]
         subroutine ClampMapVar(ez)
-          REAL(rp), intent(inout) :: ez
-          if (ez<-0.5) ez = -0.5
-          if (ez>+0.5) ez = +0.5
+            REAL(rp), intent(inout) :: ez
+            if (ez<-0.5) ez = -0.5
+            if (ez>+0.5) ez = +0.5
         end subroutine ClampMapVar
 
         ! 1D triangular shaped cloud weights
@@ -181,12 +181,12 @@ module shellInterp
 
         ! Now get lon part, assume uniform phi spacing
         if (shGr%isPhiUniform) then
-           ! note this is faster, thus preferred
-           dp = shGr%phc(2)-shGr%phc(1)
-           dJ = p/dp
-           jX = floor(dJ) + 1
+            ! note this is faster, thus preferred
+            dp = shGr%phc(2)-shGr%phc(1)
+            dJ = p/dp
+            jX = floor(dJ) + 1
         else
-           jX = minloc( abs(shGr%phc-p),dim=1 ) ! Find closest lat cell center
+            jX = minloc( abs(shGr%phc-p),dim=1 ) ! Find closest lat cell center
         end if
 
         ! Impose bounds just in case
