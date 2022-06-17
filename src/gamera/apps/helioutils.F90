@@ -7,6 +7,7 @@ module helioutils
     use math
     use gridutils
     use output
+    use ioclock
 
     implicit none
 
@@ -35,18 +36,21 @@ module helioutils
         type(XML_Input_T), intent(in) :: inpXML
         real(rp),intent(out) :: Tsolar ! Solar rotation period
 
+        type(IOClock_T) :: clockScl
+
         ! normalization
         gD0=200.         ! [/cc]
-        !gD0=10.           ! [/cc] Ohelio
         gB0=1.e-3        ! [Gs], 100 nT
-        !gB0=5.e-5         ! [Gs], 5 nT Ohelio
         gx0=Rsolar*1.e5  ! [cm], solar radius
-        !gx0 = 1.496e13 ! 1 AU in cm Ohelio        
+        ! for Ohelio case 
+        !gD0=10.           ! [/cc] 
+        !gB0=5.e-5         ! [Gs], 5 nT 
+        !gx0 = 1.496e13    ! [cm], 1 AU     
 
         ! get the necessary units 
         gv0 = gB0/sqrt(4*pi*gD0*mp_cgs) ! [cm/s] ~ 154km/s for gD0=200. and gB0 = 1.e-3
         gT0 = gx0/gv0                   ! [s] ~ 1.25 hour for above values
-        gP0 = gB0**2/(4*pi)               ! [erg/cm3]   
+        gP0 = gB0**2/(4*pi)             ! [erg/cm3]   
 
         ! Use gamma=1.5 for SW calculations (set in xml, but defaults to 1.5 here)
         call inpXML%Set_Val(Model%gamma,"physics/gamma",1.5_rp)
@@ -56,23 +60,23 @@ module helioutils
         Tsolar = Tsolar*24.*3600./gt0
       
         !Add gravity if required
-        ! TODO: turn gravity on later
-        Model%doGrav = .false.
+        Model%doGrav = .true.
         if (Model%doGrav) then
             !Force spherical gravity (zap non-radial components)
-!            Model%doSphGrav = .true.
-!            Model%Phi => PhiGrav
+            Model%doSphGrav = .true.
+            Model%Phi => PhiGrav
         endif
 
         !Change console output pointer
         ! don't use for now
-!        timeString => helioTime 
+        timeString => helioTime
         
         if (Model%isLoud) then
             write(*,*) '---------------'
             write(*,*) 'Heliosphere normalization'
             write(*,*) 'T0   [hr]       = ', gT0/3600.
             write(*,*) 'x0   [Rsolar]   = ', gx0
+            write(*,*) 'D0   [cm-3]   = '  , gD0
             write(*,*) 'v0   [km/s]  = '   , gv0*1.e-5
             write(*,*) 'P0   [erg/cm3]  = ', gP0
             write(*,*) 'B0   [nT]   = '    , gB0*1.e5
@@ -90,19 +94,26 @@ module helioutils
 
         ! without setting the scaling below, it defaults to 1. 
         !Add normalization/labels to output slicing
-        ! Model%gamOut%tScl = gT0   !/3600. 
-        ! Model%gamOut%dScl = gD0
-        ! Model%gamOut%vScl = gv0   !*1.0e-5 !km/s
-        ! Model%gamOut%pScl = gP0
-        ! Model%gamOut%bScl = gB0   !*1.e5
+        Model%gamOut%tScl = gT0   !/3600.
+        Model%gamOut%dScl = gD0
+        Model%gamOut%vScl = gv0*1.0e-5 !km/s
+        Model%gamOut%pScl = gP0
+        Model%gamOut%bScl = gB0*1.e5 !nT
 
-        ! Model%gamOut%tID = 'Helio'
-        ! Model%gamOut%tID = 's'  !'hr'
-        ! Model%gamOut%dID = '#/cc'
-        ! Model%gamOut%vID = 'km/s'
-        ! Model%gamOut%pID = 'erg/cm3'
-        ! Model%gamOut%bID = 'nT'
+        Model%gamOut%uID = 'Helio'
+        Model%gamOut%tID = 's'  
+        Model%gamOut%dID = '#/cc'
+        Model%gamOut%vID = 'km/s'
+        Model%gamOut%pID = 'erg/cm3'
+        Model%gamOut%bID = 'nT'
 
+        ! finally rescale the relevant time constants
+        ! note, assume xml file specifies them in [hr]
+        Model%tFin = Model%tFin*3600./gT0
+        
+        ! using IOSync from base/ioclock.F90 to sync the other time contants
+        clockScl = Model%IO
+        call IOSync(clockScl,Model%IO,3600./gT0)
       end subroutine setHeliosphere
 
       subroutine helioTime(T,tStr)
@@ -112,6 +123,19 @@ module helioutils
         write(tStr,'(f9.3,a)' ) T*gT0/3600.0, ' [hr]'
       end subroutine helioTime
 
+      ! slightly different version of PhiGrav in msphutils.F90
+      ! TODO: make this generic (use gravitational constant rather than little g for planets)
+      subroutine PhiGrav(x,y,z,pot)
+        real(rp), intent(in) :: x,y,z
+        real(rp), intent(out) :: pot
+
+        real(rp) :: rad
+        rad = sqrt(x**2.0 + y**2.0 + z**2.0)
+        ! (Msolar*1.D3) converts Msolar into g
+        ! G*M has the units of length * speed^2, thus the gx0*gv0**2 conversion
+        ! the result is the gravitational potential in code units
+        pot = - G_cgs*(Msolar*1.D3)/(gx0*gv0**2)/rad   
+      end subroutine PhiGrav
 
       subroutine helio_ibcJ(bc,Model,Grid,State)
         ! improved versions of Kareems zeroGrad_(i,o)bcJ

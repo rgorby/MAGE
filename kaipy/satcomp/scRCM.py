@@ -3,6 +3,7 @@ import numpy as np
 import os
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
+import matplotlib.dates as mdates
 from astropy.time import Time
 import datetime
 
@@ -351,7 +352,8 @@ def getRCM_scTrack(trackf5, rcmf5, rcmTimes, jdir=None, forceCalc=False, scName=
 		ilat = len(rcmMLAT)-1  # mlat_rcm goes from high to low
 		while rcmMLAT[ilat] < mlat_sc: ilat -= 1
 		ilon = 2
-		while rcmMLON[ilon+1] < mlon_sc: ilon += 1
+		while ilon < len(rcmMLON)-2 and rcmMLON[ilon+1] < mlon_sc: ilon += 1
+		#while rcmMLON[ilon+1] < mlon_sc: ilon += 1
 		imjd = 0
 		while rcmMJDs[imjd+1] < mjd_sc: imjd += 1
 
@@ -1163,6 +1165,9 @@ def plt_ODF_Comp(AxSC, AxRCM, AxCB, odfData, mjd=None, cmapName='CMRmap', norm=N
 		#	AxRCM.plot(odfData['rcm']['origEGrid'][n,:], odfData['rcm']['origODF'][n,:])
 		AxRCM.set_ylabel("RCM Energy [keV]")
 		AxRCM.set_yscale('log')
+
+		#xlblFmt = mdates.DateFormatter('%H:%M')
+		#AxRCM.xaxis.set_major_formatter(xlblFmt)
 
 
 	if mjd is not None:

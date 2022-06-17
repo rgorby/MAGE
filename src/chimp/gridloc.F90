@@ -157,6 +157,9 @@ module gridloc
             write(*,*) 'Cartesian not implemented'
             stop
         case(SPHGRID)
+            !Take Rin/Rout
+            DomR(1) = norm2(ebGr%xyz(ebGr%is,ebGr%js,ebGr%ks,XDIR:ZDIR))
+            DomR(2) = norm2(ebGr%xyz(ebGr%ie-1,ebGr%js,ebGr%ks,XDIR:ZDIR))
             write(*,*) 'Initializing SPH locator'
             locate=>Loc_SPH
             locAux%isInit = .true.
@@ -381,7 +384,7 @@ module gridloc
         real(rp) :: dphi,dtheta,dr, thetaMin, rMin
         integer :: i0,j0,k0
 
-        !E: Add localization routine here
+        !Add localization routine here
         ijk = 0
         isInO = .false.
   
@@ -406,9 +409,6 @@ module gridloc
         
         thetaMin = acos(ebGr%xyz(ebGr%is,ebGr%js,ebGr%ks,ZDIR)/norm2(ebGr%xyz(ebGr%is,ebGr%js,ebGr%ks,:)))
         rMin = norm2(ebGr%xyz(ebGr%is,ebGr%js,ebGr%ks,:)) 
-
-        !write(*,*) 'dr, dtheta, dphi', dr, dtheta, dphi
-        !write(*,*) 'thetaMin, rMin', thetaMin, rMin
  
         ! pick the closest one
         i0 = min(floor((helioC(IDIR)-rMin)/dr) + 1,ebGr%Nip) !Evenly spaced i

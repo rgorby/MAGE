@@ -40,7 +40,7 @@ module planethelper
             planet%ri_m = 1.01*RSaturnXE*REarth
             planet%grav = 10.43
             call xmlInp%Set_val(planet%magMoment, "/Kaiju/Gamera/prob/M0", SaturnM0g)
-            planet%psiCorot = 137.83*92 !kV
+            planet%psiCorot = -137.83*92 !kV
             planet%doGrav = .true.
         case("Jupiter", "jupiter", "JUPITER")
             planet%rp_m = RJupiterXE*REarth
