@@ -455,7 +455,7 @@ module rcm_mhd_io
         !3D
         call IOArray3DFill(IOVars,"eng_avg"     ,RCMApp%eng_avg     )    
         call IOArray3DFill(IOVars,"flux"        ,RCMApp%flux        )  
-        call IOArray3DFill(IOVars,"nflx"        ,RCMApp%nflx        )  ! uncomment when res tests are done.
+!        call IOArray3DFill(IOVars,"nflx"        ,RCMApp%nflx        )  ! uncomment when res tests are done.
         call IOArray3DFill(IOVars,"X_bmin"      ,RCMApp%X_bmin      )
 
         !Weird data

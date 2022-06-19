@@ -343,11 +343,13 @@ module mixconductance
       ! if IM_EAVG or IM_EPRE or EM_EDEN no longer satisfies the if criteria. Better to use default background beta.
       alpha_RCM = 1.0/(tiote_RCM+1.0)
       phi0_rcmz = sqrt(St%Vars(:,:,IM_EPRE)*St%Vars(:,:,IM_EDEN)/(Me_cgs*1e-3*2*pi))*1.0e-4 ! sqrt([Pa]*[#/m^3]/[kg]) = sqrt([#/m^4/s^2]) = 1e-4*[#/cm^2/s]
-      where(phi0_rcmz>TINY.and.St%Vars(:,:,IM_EPRE)>1e-10 .and. St%Vars(:,:,IM_EDEN)>1e7)
+      where(phi0_rcmz>TINY)!.and.St%Vars(:,:,IM_EPRE)>1e-10 .and. St%Vars(:,:,IM_EDEN)>1e7)
       ! The thresholds of IM_EPRE and IM_EDEN are empirically added to exclude outliers of beta_RCM.
          beta_RCM = St%Vars(:,:,IM_ENFLX)/phi0_rcmz
-      elsewhere
-         beta_RCM  = conductance%beta
+       elsewhere(St%Vars(:,:,IM_GTYPE) > 0.5) ! low lat part of RCM
+         beta_RCM = 0.0
+!      elsewhere
+!         beta_RCM  = conductance%beta
       end where
       St%Vars(:,:,IM_BETA) = min(beta_RCM,1.0)
 
@@ -419,11 +421,11 @@ module mixconductance
       real(rp) :: rmd_eavg_fin, rmd_nflx_fin, rmd_SigP, mhd_SigP
       logical :: dorcm = .true.
 
-      ! derive spatially varying beta using RCM precipitation and thermal fluxes.
-      call conductance_alpha_beta(conductance,G,St)
-
       ! derive RCM grid weighting based on that passed from RCM and smooth it with five iterations of numerical diffusion.
       call conductance_IM_GTYPE(G,St)
+
+      ! derive spatially varying beta using RCM precipitation and thermal fluxes. Need IM_GTYPE.
+      call conductance_alpha_beta(conductance,G,St)
 
       ! derive MHD/mono precipitation with zhang15 but include RCM thermal flux to the source by using dorcm=.true.
       call conductance_zhang15(conductance,G,St,dorcm)
