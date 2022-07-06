@@ -3,7 +3,8 @@
 <Kaiju>
 <Gamera>
     <sim runid="wsa" doH5g="T" H5Grid="heliogrid.h5" icType="user"/>
-    <time tFin="200."/>
+    <time tFin="650."/>
+    <spinup doSpin="T" tSpin="150.0"/>
     <output dtOut="50." tsOut="50.0" timer="F"/>
     <physics doMHD="T" doArmor="T" gamma="1.5"/>
     <prob Tsolar = "25.38"/>
