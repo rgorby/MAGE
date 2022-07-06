@@ -79,6 +79,7 @@ module usergamic
 
         ! set units and other thins, like Tsolar
         call setHeliosphere(Model,inpXML,Tsolar)
+        State%time  = Model%t
 
         ! grab inner 
         call inpXML%Set_Val(wsaFile,"prob/wsaFile","innerbc.h5" )

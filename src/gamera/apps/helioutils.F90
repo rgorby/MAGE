@@ -37,6 +37,8 @@ module helioutils
         real(rp),intent(out) :: Tsolar ! Solar rotation period
 
         type(IOClock_T) :: clockScl
+        real(rp) :: tSpin, tIO
+        logical :: doSpin
 
         ! normalization
         gD0=200.         ! [/cc]
@@ -55,6 +57,19 @@ module helioutils
         ! Use gamma=1.5 for SW calculations (set in xml, but defaults to 1.5 here)
         call inpXML%Set_Val(Model%gamma,"physics/gamma",1.5_rp)
         call inpXML%Set_Val(Tsolar,"prob/Tsolar",25.38_rp)    ! in days
+       
+        !Check for spinup info
+        call inpXML%Set_Val(doSpin,"spinup/doSpin",.true.)
+        if (doSpin) then
+           call inpXML%Set_Val(tSpin,"spinup/tSpin",150.0_rp)
+           !Rewind Gamera time to negative tSpin (seconds). tSpin is set in [hr] in xml
+           Model%t = -tSpin*3600./gT0 
+           !State%time  = Model%t
+           !oState%time  = Model%t-Model%dt
+           call inpXML%Set_Val(tIO,"spinup/tIO",0.0) !Time of first restart and output
+           Model%IO%tRes = tIO/gT0
+           Model%IO%tOut = tIO/gT0
+        endif
 
         ! convert Tsolar to code units
         Tsolar = Tsolar*24.*3600./gt0
