@@ -61,7 +61,7 @@ if __name__ == "__main__":
 	parser.add_argument('-kt', type=float,default=ktMax, help="Highest thermal energy [keV] RCM should resolve at L_kt (default: %(default)s [keV])")
 	parser.add_argument('-L', type=float,default=L_kt, help="L shell [R_e] at which kt should be resolved (default: %(default)s [R_e])")
 	parser.add_argument('-tiote', type=float,default=tiote, help="Ratio between temperatures of ions and electrons (default: %(default)s)")
-	parser.add_argument('-addWM', type=bool,default=False, help="Add wave models to existing rcmconfig file (default: %(default)s)")
+	parser.add_argument('-addWM', type=bool,default=False, help="Add wave models to an existing rcmconfig file, input file needed to be presented (default: %(default)s)")
 	parser.add_argument('-i', type=str,default=fOut,metavar="fIn", help="Input file name when addWM is true (default: %(default)s)")
 	parser.add_argument('-waveModel', type=bool,default=False, help="Use wave models in the electron/ion loss (default: %(default)s)")
 	parser.add_argument('-p1', type=float,default=wolfP1, help="Wolf low-energy  p* (default: %(default)s)")
