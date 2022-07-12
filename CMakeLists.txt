@@ -69,7 +69,7 @@ set(TPIC ${TPICDEF} CACHE FILEPATH "CHIMP TP IC file")
 file(GLOB EBICDEF src/chimp/ebICs/ebICstd.F90)
 set(EBIC ${EBICDEF} CACHE FILEPATH "CHIMP EB IC file")
 
-file(GLOB GAMHELICDEF src/gamera/ICs/helio/wsatd.F90)
+file(GLOB GAMHELICDEF src/gamera/ICs/helio/wsa.F90)
 set(GAMHELIC ${GAMHELICDEF} CACHE FILEPATH "Gamera Helio IC file")
 
 #-------------
