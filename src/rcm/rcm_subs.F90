@@ -1711,8 +1711,8 @@
           call AddInVar(IOVars,"rcmetac"   )
           call AddInVar(IOVars,"rcmeeta"   )
           call AddInVar(IOVars,"rcmeetaavg")
-          !call AddInVar(IOVars,"rcmlosspre")
-          !call AddInVar(IOVars,"rcmlossmod")
+          call AddInVar(IOVars,"rcmlosspre")
+          call AddInVar(IOVars,"rcmlossmod")
           !call AddInVar(IOVars,"rcmDpp")
 
 
@@ -1805,8 +1805,12 @@
           call IOArray3DFill(IOVars,"rcmeetaavg",eeta_avg)
           call IOArray3DFill(IOVars,"rcmeflux",eflux)
           call IOArray3DFill(IOVars,"rcmnflux",nflux)
-!          call IOArray3DFill(IOVars,"rcmlosspre",lossratep)
-!          call IOArray3DFill(IOVars,"rcmlossmod",lossmodel) ! uncomment this when done with restarting tests.
+          if(ioExist(H5File,"rcmlosspre")) then
+            call IOArray3DFill(IOVars,"rcmlosspre",lossratep)
+          endif
+          if(ioExist(H5File,"rcmlossmod")) then
+            call IOArray3DFill(IOVars,"rcmlossmod",lossmodel)
+          endif
           
         end subroutine ReadRCMRestart
 
