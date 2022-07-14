@@ -4,8 +4,7 @@ MODULE lossutils
     USE kdefs, ONLY : TINY,PI,Mp_cgs,kev2J,Me_cgs,vc_cgs
     USE rcm_precision
     USE rcmdefs
-    use math, ONLY : SmoothOpTSC,SmoothOperator33,ClampValue,LinRampUp
-
+    USE math, ONLY : SmoothOpTSC,SmoothOperator33,ClampValue,LinRampUp
     implicit none
 
     contains
@@ -163,6 +162,162 @@ MODULE lossutils
         V = vc_cgs*sqrt(1.0-1.0/gammar**2)/Re_cgs ! Re/s
         TauSS = 3.D0*2.D0*ftv*bfp/V*gammar        ! Strong scattering lifetime [s], assuming eta=2/3.
     END FUNCTION RatefnC_tau_s
+
+    FUNCTION RatefnDW_tau_c(Kpx,mltx,Lx,Ekx) result(tau)
+    ! linearly interpolate tau from EWMTauInput to current MLT,L,Kp,Ek value
+        USE rice_housekeeping_module, ONLY: EWMTauInput
+        IMPLICIT NONE
+        REAL (rprec), INTENT (IN) :: Kpx, mltx,Lx,Ekx
+        REAL(rprec) :: tau
+        REAL(rprec) :: tauKMLE(2,2,2,2),tauMLE(2,2,2),tauLE(2,2),tauE(2)! tauKMLE(1,2,2,2) means tauKlMuLuEu, l:lower bound, u: upper bound in the NN methond  
+        REAL(rprec) :: dK,wK,dM,wM,dL,wL,dE,wE
+        INTEGER :: iK,kL,kU,mL,mU,lL,lU,eL,eU
+
+        associate(Nm=>EWMTauInput%Nm,Nl=>EWMTauInput%Nl,Nk=>EWMTauInput%Nk,Ne=>EWMTauInput%Ne,&
+                  Kpi=>EWMTauInput%Kpi,MLTi=>EWMTauInput%MLTi,Li=>EWMTauInput%Li,Eki=>EWMTauInput%Eki,&
+                  taui=>EWMTauInput%tau2i) ! using method 2
+                 !taui=>EWMTauInput%tau1i)
+
+        ! look up in Kp
+        !iK = minloc(abs(Kpi-Kpx),dim=1)
+
+        ! Find the nearest neighbors in Kp
+        if (Kpx >= maxval(Kpi)) then
+            kL = Nk
+            kU = Nk
+        else if (Kpx <= minval(Kpi)) then
+            kL = 1
+            kU = 1
+        else
+            kL = maxloc(Kpi,dim=1,mask=(Kpi<=Kpx))
+            kU = kL+1
+        endif
+           
+        ! Find the nearest neighbours in MLT
+        if ((mltx >= maxval(MLTi)) .or. (mltx <= minval(MLTi)))  then ! maxval of MLT is 24, minval of MLT is 0 
+            mL = 1
+            mU = 1 
+        else
+            mL = maxloc(MLTi,dim=1,mask=(MLTi<=mltx))
+            mU = mL+1
+        endif
+
+        ! Find the nearest neighbours in L
+        if (Lx > maxval(Li)) then
+            lL = -1 ! tau_c is 0, total tau = tau_s
+            lU = 0
+        else if (Lx <= minval(Li)) then
+            lL = 0 ! Lx < min(Li) is treated like min(Li)
+            lU = 0
+        else if (Lx <= maxval(Li)) then
+            lL = Nl
+            lU = Nl 
+        else
+            lL = maxloc(Li,dim=1,mask=(Li<=Lx))
+            lU = lL+1
+        endif
+        
+         ! Find the nearest neighbours in Ek
+        if (Ekx < minval(Eki)) then
+            eL = 0 ! default lifetime is 10^10s ~ 10^3 years.
+            eU = -1
+        else if (Ekx >= maxval(Eki)) then
+            eL = Ne ! Ekx > max(Eki) is treated like max(Eki)
+            eU = Ne
+        else
+            eL = maxloc(Eki,dim=1,mask=(Eki<=Ekx))
+            eU = eL + 1
+        endif
+
+        !Corner cases
+        if (lL == -1) then 
+            tau = 0.0 
+            !write(*,*)"Corner case1,tau=0.0" 
+            return
+        else if (eU == -1) then
+            tau = 1.D10
+            !write(*,*)"Corner case2,tau=1e10"
+            return
+        end if
+
+        !linear interpolation in Kp
+        if (kL == kU) then
+            tauMLE(1,1,1) = taui(kL,mL,lL,eL)
+            tauMLE(1,1,2) = taui(kL,mL,lL,eU)
+            tauMLE(1,2,1) = taui(kL,mL,lU,eL)
+            tauMLE(1,2,2) = taui(kL,mL,lU,eU)
+            tauMLE(2,1,1) = taui(kL,mU,lL,eL)
+            tauMLE(2,1,2) = taui(kL,mU,lL,eU)
+            tauMLE(2,2,1) = taui(kL,mU,lU,eL)
+            tauMLE(2,2,2) = taui(kL,mU,lU,eU)
+        else
+            dK = Kpi(kU)-Kpi(kL)
+            wK = (Kpx-Kpi(kL))/dK
+            tauKMLE(1,1,1,1) = taui(kL,mL,lL,eL)
+            tauKMLE(2,1,1,1) = taui(kU,mL,lL,eL)            
+            tauMLE(1,1,1) = tauKMLE(1,1,1,1) + wK*(tauKMLE(2,1,1,1)-tauKMLE(1,1,1,1))
+            tauKMLE(1,1,1,2) = taui(kL,mL,lL,eU)
+            tauKMLE(2,1,1,2) = taui(kU,mL,lL,eU)
+            tauMLE(1,1,2) = tauKMLE(1,1,1,2) + wK*(tauKMLE(2,1,1,2)-tauKMLE(1,1,1,2))
+            tauKMLE(1,1,2,1) = taui(kL,mL,lU,eL)
+            tauKMLE(2,1,2,1) = taui(kU,mL,lU,eL)
+            tauMLE(1,2,1) = tauKMLE(1,1,2,1) + wK*(tauKMLE(2,1,2,1)-tauKMLE(1,1,2,1))
+            tauKMLE(1,1,2,2) = taui(kL,mL,lU,eU)
+            tauKMLE(2,1,2,2) = taui(kU,mL,lU,eU)
+            tauMLE(1,2,2) = tauKMLE(1,1,2,2) + wK*(tauKMLE(2,1,2,2)-tauKMLE(1,1,2,2))
+            tauKMLE(1,2,1,1) = taui(kL,mU,lL,eL)
+            tauKMLE(2,2,1,1) = taui(kU,mU,lL,eL)
+            tauMLE(2,1,1) = tauKMLE(1,2,1,1) + wK*(tauKMLE(2,2,1,1)-tauKMLE(1,2,1,1))
+            tauKMLE(1,2,1,2) = taui(kL,mU,lL,eU)
+            tauKMLE(2,2,1,2) = taui(kU,mU,lL,eU)
+            tauMLE(2,1,2) = tauKMLE(1,2,1,2) + wK*(tauKMLE(2,2,1,2)-tauKMLE(1,2,1,2))
+            tauKMLE(1,2,2,1) = taui(kL,mU,lU,eL)
+            tauKMLE(2,2,2,1) = taui(kU,mU,lU,eL)
+            tauMLE(2,2,1) = tauKMLE(1,2,2,1) + wK*(tauKMLE(2,2,2,1)-tauKMLE(1,2,2,1))
+            tauKMLE(1,2,2,2) = taui(kL,mU,lU,eU)
+            tauKMLE(2,2,2,2) = taui(kU,mU,lU,eU)
+            tauMLE(2,2,2) = tauKMLE(1,2,2,2) + wK*(tauKMLE(2,2,2,2)-tauKMLE(1,2,2,2))
+        end if
+
+        ! linear interpolation in mlt
+        if (mL == mU) then 
+            tauLE(1,1) = tauMLE(2,1,1)
+            tauLE(1,2) = tauMLE(2,1,2)
+            tauLE(2,1) = tauMLE(2,2,1)
+            tauLE(2,2) = tauMLE(2,2,2)
+        else
+            dM = MLTi(mU)-MLTi(mL)
+            wM = (mltx-MLTi(mL))/dM
+            tauLE(1,1) = tauMLE(1,1,1) + wM*(tauMLE(2,1,1)-tauMLE(1,1,1))
+            tauLE(1,2) = tauMLE(1,1,2) + wM*(tauMLE(2,1,2)-tauMLE(1,1,2))
+            tauLE(2,1) = tauMLE(1,2,1) + wM*(tauMLE(2,2,1)-tauMLE(1,2,1))
+            tauLE(2,2) = tauMLE(1,2,2) + wM*(tauMLE(2,2,2)-tauMLE(1,2,2))            
+        end if
+        
+        ! linear interpolation in L
+        if (lL == lU) then 
+            tauE(1) = tauLE(2,1)
+            tauE(2) = tauLE(2,2)
+        else
+            dL = Li(lU)-Li(lL)
+            wL = (Lx-Li(lL))/dL
+            tauE(1) = tauLE(1,1)+ wL*(tauLE(2,1)-tauLE(1,1))
+            tauE(2) = tauLE(1,2)+ wL*(tauLE(2,2)-tauLE(1,2))
+        end if 
+        
+        ! linear interpolation in Ek
+        if (eL == eU) then 
+            tau = tauE(1)
+            return
+        else
+            dE = Eki(eU)-Eki(eL)
+            wE = (Ekx-Eki(eL))/dE 
+            tau = tauE(1) + wE*(tauE(2)-tauE(1))    
+        end if
+        end associate
+ 
+    END FUNCTION RatefnDW_tau_c
+
 
     FUNCTION RatefnC_tau_C05(mltx,engx,Lshx) result(tau)
     ! default scattering rate lambda based on Chen et al. 2005.
@@ -329,7 +484,7 @@ MODULE lossutils
         L2 = L*L
         L3 = L2*L
         L4 = L3*L
-        fL = -0.2573*L4 + 4.2781*L3 - 25.9348*L2 + 66.8113*L - 66.1182
+        fL = -0.2573*L4 + 4.2781*L3 - 25.9348*L2 + 66.8113*L - 66.1182 + 3.0  ! Need to add 3 to the equation from Orlova14 which was actually based on GeV.
         if(L>6.0 .or. L<3.0 .or. K>6.0 .or. E>1.0 .or. E<-3.0 .or. E<fL) then ! Both sectors are only valid for Kp<=6, log10(Ek)>=f(L), 1keV<Ek<10MeV, 3<=L<=6.
             return
         endif
@@ -365,4 +520,75 @@ MODULE lossutils
         endif
         lambda = 1.D0/tau ! 1/s
     END FUNCTION RatefnC_tau_h
+
+    FUNCTION RatefnC_tau_h16(mltx,engx,Lshx,kpx) result(tau)
+    ! Empirical lifetime against plasmaspheric hiss pitch angle diffusion, based on Orlova et al. 2015JA021878.
+    ! Improvements relative to 2014GL060100: 1. Hiss wave intensity distribution model is based on new data 
+    ! (O14 was based on single-component E field in CRRES data. O16 used Spasojevic+2015 model based on EMFISIS B data on VAP); 
+    ! 2. Wave spectrum is assumed differently (O14 assume Gaussian spectrum based on CRRES data).
+    ! Electron lifetime tau(L,E,MLT,Kp) = tau_av(L,E)/g(MLT)/h(Kp), 
+    ! where 1.5<L<5.5, E=log10(Ek[MeV]) for 1 KeV < Ek < 10 MeV.
+    ! log10(tau_av(L,E)) = a1+a2*L+a3*E+...+a20*E^3, when E >= f(L).
+    ! f(L) = 0.1328*L^2-2.1463*L+3.7857.
+    ! g(MLT) = 10^g0(MLT)/G0
+    ! h(Kp) = 10^h0(Kp)/H0
+    !   G0 = int_0^24(10^g0(MLT))dMLT / 24 = 782.3.
+    !   g0(MLT) = b2*MLT^2 + b1*MLT + b0
+    !   H0 = 1315.
+    !   h0(Kp) = c2*Kp^2 + c1*Kp + c0
+
+        IMPLICIT NONE
+        REAL (rprec), INTENT (IN) :: mltx,engx,kpx,Lshx ! engx in MeV.
+        REAL (rprec) :: lambda, tau, tau_av
+        REAL (rprec) :: MLT, L, E, K, L2, L3, L4, fL, E2, E3, E4, E5, LE
+        REAL (rprec) :: b0, b1, b2, G0, g0_MLT, g_MLT, c0, c1, c2, H0, h0_Kp, h_Kp
+        REAL (rprec), DIMENSION(20) :: le_pol
+        REAL(rprec), dimension(20), parameter :: a1_20 = [77.323, -92.641, -55.754, 44.497, 48.981, 8.9067, -10.704, &
+                                                         -15.711, -3.3326, 1.5189, 1.294, 2.2546, 0.31889, -0.85916, & 
+                                                         -0.22182, 0.034318, 0.097248, -0.12192, -0.062765, 0.0063218]
+     
+        lambda = 0.D0
+        tau = 1.D10
+        MLT = mltx
+        L = Lshx ! L=3-6
+        E = log10(engx) ! engx is Ek in MeV
+        L2 = L*L
+        fL = 0.1328*L2 - 2.1463*L + 3.7857
+        !if(L>5.5 .or. L<1.5 .or. E>1.0 .or. E<-3.0 .or. E<fL) then 
+        !! Both sectors are only valid for log10(Ek)>=f(L), 1keV<Ek<10MeV, 1.5<=L<=5.5.
+        !    return
+        !endif
+
+        call ClampValue(L,1.5_rprec,5.5_rprec)
+      
+        L2 = L*L !renew L2
+        
+        call ClampValue(E,max(-3.0_rprec,fL),1.0_rprec) 
+
+        b0 = 2.080
+        b1 = 0.1773
+        b2 = -0.007338
+        G0 = 782.3
+        g0_MLT = b2*MLT*MLT + b1*MLT + b0
+        g_MLT = 10**g0_MLT/G0
+        c0 = 2.598
+        c1 = 0.2321
+        c2 = -0.01414
+        H0 = 1315.0
+        K = min(kpx,5.0) ! 0<Kp<5, 1.2% data in Kp bin of 4.3-7.6
+        h0_Kp = c2*K*K + c1*K + c0
+        h_Kp = 10**h0_Kp/H0
+
+        E2 = E*E
+        E3 = E2*E
+        E4 = E3*E
+        E5 = E4*E
+        L3 = L2*L
+        L4 = L3*L
+        LE = L*E
+        le_pol = (/1.D0,L,E,L2,LE,E2,L3,L2*E,L*E2,E3,L4,L3*E,L2*E2,L*E3,E4,L*E4,L2*E3,L4*E,L2*L3,E5/)
+        tau_av = 10.0**(dot_product(a1_20,le_pol))*86400.D0 ! seconds
+        tau = tau_av/g_MLT/h_KP
+        lambda = 1.D0/tau ! 1/s
+    END FUNCTION RatefnC_tau_h16
 END MODULE lossutils

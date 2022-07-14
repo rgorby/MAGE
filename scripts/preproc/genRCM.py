@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python	
 #Generates RCM config data
 import numpy as np
 import argparse
@@ -9,6 +9,8 @@ import kaipy.rcm.lambdautils.AlamParams as aP
 import kaipy.rcm.lambdautils.DistTypes as dT
 
 import kaipy.rcm.lambdautils.genAlam as genAlam
+from kaipy.rcm.wmutils.wmData import wmParams
+import kaipy.rcm.wmutils.genWM as genWM
 import kaipy.rcm.lambdautils.fileIO as fileIO
 import kaipy.rcm.lambdautils.plotter as plotter
 
@@ -59,6 +61,7 @@ if __name__ == "__main__":
 	parser.add_argument('-kt', type=float,default=ktMax, help="Highest thermal energy [keV] RCM should resolve at L_kt (default: %(default)s [keV])")
 	parser.add_argument('-L', type=float,default=L_kt, help="L shell [R_e] at which kt should be resolved (default: %(default)s [R_e])")
 	parser.add_argument('-tiote', type=float,default=tiote, help="Ratio between temperatures of ions and electrons (default: %(default)s)")
+	parser.add_argument('-waveModel', type=bool,default=False, help="Use wave models in the electron/ion loss (default: %(default)s)")
 	parser.add_argument('-p1', type=float,default=wolfP1, help="Wolf low-energy  p* (default: %(default)s)")
 	parser.add_argument('-p2', type=float,default=wolfP2, help="Wolf high-energy p* (default: %(default)s)")
 	parser.add_argument('-plotType', choices=plotChoices,default=plotChoices[0], help="Plot mode (default: %(default)s)")
@@ -73,6 +76,7 @@ if __name__ == "__main__":
 	ktMax = args.kt*1E3  # [keV to eV]
 	L_kt = float(args.L)
 	tiote = args.tiote
+	waveModel = args.waveModel
 	plotType = args.plotType
 
 	#Determine proton channel limits based on resolving a certain (proton) temperature at given L
@@ -100,6 +104,8 @@ if __name__ == "__main__":
 		plotter.plotLambdas_Val_Spac(alamData.specs,yscale='log',L=L_kt)
 
 	fileIO.saveRCMConfig(alamData,params=alamParams,fname=fOut)
+	if waveModel == True:
+		tauParams = wmParams(dim = 4, nKp = 7, nMLT = 25, nL = 41, nEk = 155)	
+		genWM.genh5(fOut,tauParams,useWMh5 = True)
 	print("Wrote RCM configuration to %s"%(fOut))
-
 

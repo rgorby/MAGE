@@ -79,7 +79,7 @@ module list
 hostname
 date
 export OMP_NUM_THREADS=%d
-export KMP_STACKSIZE=%dM
+export OMP_STACKSIZE=%dM
 export JNUM=${PBS_ARRAY_INDEX:-0}
 %s
 date

@@ -152,16 +152,22 @@ module chmpfields
                 !nA/m2 current density, standard for mspheres
                 !Convert to typical SI A/m2
                 jScl = (1.0e-9)
-            case default
-                !Not (yet) supported units
-                write(*,*) "------------------------"
-                write(*,*) "Error, units of current density are not [nA/m2] !"
-                write(*,*) "Units: ", trim(toUpper(ebIOs(nioJx)%unitStr))
-                write(*,*) "This is likely because the GAMERA simulation is too old."
-                write(*,*) "Either regenerate the MHD data or add the proper unit scaling."
-                write(*,*) "Womp womp womp ..."
-                write(*,*) "------------------------"
-                stop
+            case("CODE")
+               if ( trim(toUpper(Model%uID))=="EARTH") then
+                  ! note, using an ugly way to access B and L scaling by using in2G and L0 (globals from chmpunits)
+                  ! FIXME: make chimp unit treatment more elegant, like gamera
+                  jScl = in2G*1.e-5/(L0*Mu0)*1.0e-9   ! 1.e-5 to convert from G to nT and 1.e-9 to convert the result from nA to A
+               else
+                  !Not (yet) supported units
+                  write(*,*) "------------------------"
+                  write(*,*) "Error, units of current density are not [nA/m2] !"
+                  write(*,*) "Units: ", trim(toUpper(ebIOs(nioJx)%unitStr))
+                  write(*,*) "This is likely because the GAMERA simulation is too old."
+                  write(*,*) "Either regenerate the MHD data or add the proper unit scaling."
+                  write(*,*) "Womp womp womp ..."
+                  write(*,*) "------------------------"
+                  stop
+             end if
             end select
         endif
 
