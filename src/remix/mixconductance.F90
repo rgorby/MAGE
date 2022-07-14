@@ -343,14 +343,26 @@ module mixconductance
       ! if IM_EAVG or IM_EPRE or EM_EDEN no longer satisfies the if criteria. Better to use default background beta.
       alpha_RCM = 1.0/(tiote_RCM+1.0)
       phi0_rcmz = sqrt(St%Vars(:,:,IM_EPRE)*St%Vars(:,:,IM_EDEN)/(Me_cgs*1e-3*2*pi))*1.0e-4 ! sqrt([Pa]*[#/m^3]/[kg]) = sqrt([#/m^4/s^2]) = 1e-4*[#/cm^2/s]
-      where(phi0_rcmz>TINY)!.and.St%Vars(:,:,IM_EPRE)>1e-10 .and. St%Vars(:,:,IM_EDEN)>1e7)
-      ! The thresholds of IM_EPRE and IM_EDEN are empirically added to exclude outliers of beta_RCM.
-         beta_RCM = St%Vars(:,:,IM_ENFLX)/phi0_rcmz
-       elsewhere(St%Vars(:,:,IM_GTYPE) > 0.5) ! low lat part of RCM
-         beta_RCM = 0.0
-!      elsewhere
-!         beta_RCM  = conductance%beta
-      end where
+!      where(phi0_rcmz>TINY.and.St%Vars(:,:,IM_EFLUX)>1e-2)!.and.St%Vars(:,:,IM_EPRE)>1e-10 .and. St%Vars(:,:,IM_EDEN)>1e7)
+!      ! The thresholds of IM_EPRE and IM_EDEN are empirically added to exclude outliers of beta_RCM.
+!         beta_RCM = St%Vars(:,:,IM_ENFLX)/phi0_rcmz
+!       elsewhere(St%Vars(:,:,IM_GTYPE) > 0.5) ! low lat part of RCM
+!         beta_RCM = 0.0
+!!      elsewhere
+!!         beta_RCM  = conductance%beta
+!      end where
+      beta_RCM = conductance%beta
+      !$OMP PARALLEL DO default(shared) &
+      !$OMP private(i,j)
+      do j=1,G%Nt
+         do i=1,G%Np
+            if(phi0_rcmz(i,j)>TINY.and.St%Vars(i,j,IM_EFLUX)>1e-2) then
+               beta_RCM(i,j) = St%Vars(i,j,IM_ENFLX)/phi0_rcmz(i,j)
+            elseif(St%Vars(i,j,IM_GTYPE) > 0.5) then
+               beta_RCM(i,j) = 0.0
+            endif
+         enddo
+      enddo
       St%Vars(:,:,IM_BETA) = min(beta_RCM,1.0)
 
     end subroutine conductance_alpha_beta
@@ -697,11 +709,19 @@ module mixconductance
 
     !Calculate mirror ratio array
     !NOTE: Leaving this to be done every time at every lat/lon to accomodate improved model later
-   subroutine GenMirrorRatio(G)
-      type(mixGrid_T), intent(in) :: G
-
+   subroutine GenMirrorRatio(G,St,doIGRFO)
+      type(mixGrid_T) , intent(in) :: G
+      type(mixState_T), intent(in) :: St
+      logical,optional,intent(in) :: doIGRFO
       real(rp) :: mlat,mlon
       integer  :: i,j
+      logical  :: doIGRF
+      
+      if(present(doIGRFO)) then
+         doIGRF = doIGRFO
+      else ! default is using IGRF, i.e, default is unequal split.
+         doIGRF = .true. 
+      endif
 
       if (RinMHD > 0) then
          !Calculate actual mirror ratio
@@ -711,7 +731,14 @@ module mixconductance
                mlat = PI/2 - G%t(i,j)
                mlon = G%p(i,j)
 
-               RM(i,j) = MirrorRatio(mlat,RinMHD)
+               if(.not.doIGRF) then
+                  RM(i,j) = MirrorRatio(mlat,RinMHD)
+               elseif (St%hemisphere==NORTH) then
+                  RM(i,j) = IGRFMirrorRatio(+mlat,mlon,RinMHD)
+               else
+                  !Southern
+                  RM(i,j) = IGRFMirrorRatio(-mlat,mlon,RinMHD)
+               endif
             enddo
          enddo
       else
