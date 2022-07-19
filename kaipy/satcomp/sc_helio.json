@@ -1,13 +1,13 @@
 {
 	"ACE" : {
 		"Ephem" : {
-			"Id" : "AC_AT_DEF",
-			"Data" : "GSE_ATT",
+			"Id" : "AC_OR_SSC",
+			"Data" : "XYZ_GSE",
 			"CoordSys" : "GSE"
 		},
 		"MagneticField" : {
 			"Id" : "AC_H2_MFI",
-			"Data" : ["Magnitude", "BGSEc"], 
+			"Data" : "BGSEc",
 			"CoordSys" : "GSE"	
 		},
 		"Density" : {
@@ -94,7 +94,7 @@
 		},
 		"Speed" : {
 			"Id" : "STA_COHO1HR_MERGED_MAG_PLASMA",
-			"Data" : "plasmaSpeed",
+			"Data" : "plasmaSpeed"
 		},
 		"Temperature" : {
 			"Id" : "STA_COHO1HR_MERGED_MAG_PLASMA",
@@ -115,11 +115,11 @@
 		},
 		"Density" : {
 			"Id" : "STB_COHO1HR_MERGED_MAG_PLASMA",
-			"Data" : "plasmaDensity",
+			"Data" : "plasmaDensity"
 		},
 		"Speed" : {
 			"Id" : "STB_COHO1HR_MERGED_MAG_PLASMA",
-			"Data" : "plasmaSpeed",
+			"Data" : "plasmaSpeed"
 		},
 		"Temperature" : {
 			"Id" : "STB_COHO1HR_MERGED_MAG_PLASMA",

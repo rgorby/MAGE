@@ -18,7 +18,7 @@ module rcmdefs
     INTEGER, parameter :: RCMELECTRON  = 1
     INTEGER, parameter :: RCMPROTON    = 2
     INTEGER, parameter :: RCMOXYGEN    = 3
-    INTEGER, parameter :: RCMVIBRANIUM = 4678371489657242888
+    INTEGER, parameter :: RCMVIBRANIUM = 196
     INTEGER, parameter :: RCMNUMFLAV = 2 !Number of RCM flavors
     INTEGER, PARAMETER :: isize = RCMSIZEI !RCM grid size in colatitude
     INTEGER, PARAMETER :: jsize = RCMSIZEJ !RCM grid size in longitude

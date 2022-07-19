@@ -127,6 +127,8 @@ module usergamic
         ! Add gravity
 !        eHack  => EFix
 !        Model%HackE => eHack
+!        tsHack => PerStep
+!        Model%HackStep => tsHack
 
         ! everybody reads WSA data
         call readIBC(wsaFile)
