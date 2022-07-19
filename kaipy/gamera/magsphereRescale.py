@@ -15,7 +15,9 @@ KDIR = 2
 
 #Push restart data to an MPI tiling
 #fInA is a restart file to pull attributes from
-def PushRestartMPI(outid,nRes,Ri,Rj,Rk,X,Y,Z,G,M,fInA,G0=None):
+# add oG and oM for one step older for reproducible restart.
+# These variables are used by mhd predictor/corrector.
+def PushRestartMPI(outid,nRes,Ri,Rj,Rk,X,Y,Z,G,M,oG,oM,fInA,G0=None):
 	if (G0 is not None):
 		doGas0 = True
 
@@ -66,11 +68,15 @@ def PushRestartMPI(outid,nRes,Ri,Rj,Rk,X,Y,Z,G,M,fInA,G0=None):
 				#Slice pieces out of gas and magflux
 				ijkG  = G [:,:,kS:kE  ,jS:jE  ,iS:iE  ]
 				ijkM  = M [  :,kS:kE+1,jS:jE+1,iS:iE+1]
+				ijkoG = oG [:,:,kS:kE  ,jS:jE  ,iS:iE  ]
+				ijkoM = oM [  :,kS:kE+1,jS:jE+1,iS:iE+1]
 				if (doGas0):
 					ijkG0 = G0[:,:,kS:kE  ,jS:jE  ,iS:iE  ]
 				#Write heavy variables
 				oH5.create_dataset("Gas",data=ijkG)
 				oH5.create_dataset("magFlux",data=ijkM)
+				oH5.create_dataset("oGas",data=ijkoG)
+				oH5.create_dataset("omagFlux",data=ijkoM)
 				if (doGas0):
 					oH5.create_dataset("Gas0",data=ijkG0)
 
@@ -103,6 +109,7 @@ def PullRestartMPI(bStr,nRes,Ri,Rj,Rk,dIn=None,oH5=None):
 					fIn = dIn  + "/" + fID
 				else:
 					fIn = fID
+				print, fIn
 				iH5 = h5py.File(fIn,'r')
 
 				if (doInit):
@@ -113,11 +120,13 @@ def PullRestartMPI(bStr,nRes,Ri,Rj,Rk,dIn=None,oH5=None):
 					Nj = Rj*Njp
 					Ni = Ri*Nip
 					G  = np.zeros((Ns,Nv,Nk,Nj,Ni))
+					oG = np.zeros((Ns,Nv,Nk,Nj,Ni))
 					if (doGas0):
 						G0 = np.zeros((Ns,Nv,Nk,Nj,Ni))
 					else:
 						G0 = None
 					M = np.zeros((3,Nk+1,Nj+1,Ni+1))
+					oM= np.zeros((3,Nk+1,Nj+1,Ni+1))
 					if (oH5 is not None):
 						for ka in iH5.attrs.keys():
 							aStr = str(ka)
@@ -134,10 +143,12 @@ def PullRestartMPI(bStr,nRes,Ri,Rj,Rk,dIn=None,oH5=None):
 				#print("MPI (%d,%d,%d) = [%d,%d]x[%d,%d]x[%d,%d]"%(i,j,k,iS,iE,jS,jE,kS,kE))
 				
 				G[:,:,kS:kE  ,jS:jE  ,iS:iE  ] = iH5['Gas'][:]
+				oG[:,:,kS:kE  ,jS:jE  ,iS:iE  ] = iH5['oGas'][:]
 				if (doGas0):
 					G0[:,:,kS:kE  ,jS:jE  ,iS:iE  ] = iH5['Gas0'][:]
 
 				M[  :,kS:kE+1,jS:jE+1,iS:iE+1] = iH5['magFlux'][:]
+				oM[  :,kS:kE+1,jS:jE+1,iS:iE+1] = iH5['omagFlux'][:]
 
 				#Close up
 				iH5.close()
@@ -145,7 +156,7 @@ def PullRestartMPI(bStr,nRes,Ri,Rj,Rk,dIn=None,oH5=None):
 	if (not doGas0):
 		G0 = None
 	
-	return G,M,G0
+	return G,M,G0,oG,oM
 
 #Downscale a grid (with ghosts, k-j-i order)
 def downGrid(X,Y,Z):
