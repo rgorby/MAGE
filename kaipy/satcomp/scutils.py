@@ -145,86 +145,101 @@ def getCdasDsetInterval(dsName):
     return tInt['Start'], tInt['End']
 
 def pullVar(cdaObsId,cdaDataId,t0,t1,deltaT=60,epochStr="Epoch",doVerbose=False):
-    """Pulls info from cdaweb
-        cdaObsId  : [str] Dataset name
-        cdaDataId : [str or list of strs] variables from dataset
-        t0	  : [str] start time, formatted as '%Y-%m-%dT%H:%M:%S.%f'
-        t1	  : [str] end time, formatted as '%Y-%m-%dT%H:%M:%S.%f'
-        deltaT	  : [float] time cadence [sec], used when interping through time with no data
-        epochStr  : [str] name of Epoch var in dataset. Used when needing to build day-by-day
-        doVerbose : [bool] Helpful for debugging/diagnostics
-    """
+	"""Pulls info from cdaweb
+		cdaObsId  : [str] Dataset name
+		cdaDataId : [str or list of strs] variables from dataset
+		t0	  : [str] start time, formatted as '%Y-%m-%dT%H:%M:%S.%f'
+		t1	  : [str] end time, formatted as '%Y-%m-%dT%H:%M:%S.%f'
+		deltaT	  : [float] time cadence [sec], used when interping through time with no data
+		epochStr  : [str] name of Epoch var in dataset. Used when needing to build day-by-day
+		doVerbose : [bool] Helpful for debugging/diagnostics
+	"""
 
-    binData={'interval' : deltaT, 
-             'interpolateMissingValues' : True,
-             'sigmaMultipler' : 4}
+	binData={'interval' : deltaT, 
+			 'interpolateMissingValues' : True,
+			 'sigmaMultipler' : 4}
 
-    cdas = CdasWs()
-    status,data =  cdas.get_data(cdaObsId,cdaDataId,t0,t1,binData=binData)
+	cdas = CdasWs()
+	status,data =  cdas.get_data(cdaObsId,cdaDataId,t0,t1,binData=binData)
 
-    if status['http']['status_code'] != 200 or data is None:
-        # Handle the case where CdasWs just doesn't work if you give it variables in arg 2
-        # If given empty var list instead, it'll return the full day on day in t0, and that's it
-        # So, call for as many days as we need data for and build one big data object
-        if doVerbose: print("Bad pull, trying to build day-by-day")
+	if status['http']['status_code'] != 200 or data is None:
+		# Handle the case where CdasWs just doesn't work if you give it variables in arg 2
+		# If given empty var list instead, it'll return the full day on day in t0, and that's it
+		# So, call for as many days as we need data for and build one big data object
+		if doVerbose: print("Bad pull, trying to build day-by-day")
 
-        if '.' in t0:
-            t0dt = datetime.datetime.strptime(t0, "%Y-%m-%dT%H:%M:%S.%fZ")
-            t1dt = datetime.datetime.strptime(t1, "%Y-%m-%dT%H:%M:%S.%fZ")
-        else:
-            t0dt = datetime.datetime.strptime(t0, "%Y-%m-%dT%H:%M:%SZ")
-            t1dt = datetime.datetime.strptime(t1, "%Y-%m-%dT%H:%M:%SZ")
-        numDays = t1dt.day-t0dt.day + 1 #Number of days we want data from
-        if doVerbose: print("numDays: " + str(numDays))
+		if '.' in t0:
+			t0dt = datetime.datetime.strptime(t0, "%Y-%m-%dT%H:%M:%S.%fZ")
+			t1dt = datetime.datetime.strptime(t1, "%Y-%m-%dT%H:%M:%S.%fZ")
+		else:
+			t0dt = datetime.datetime.strptime(t0, "%Y-%m-%dT%H:%M:%SZ")
+			t1dt = datetime.datetime.strptime(t1, "%Y-%m-%dT%H:%M:%SZ")
+		numDays = t1dt.day-t0dt.day + 1 #Number of days we want data from
+		if doVerbose: print("numDays: " + str(numDays))
 
-        tstamp_arr = []
-        tstamp_deltas = []
-        for i in range(numDays):
-            tstamp_arr.append((t0dt + datetime.timedelta(days=i)).strftime("%Y-%m-%dT%H:%M:%SZ"))
-            tstamp_deltas.append((t0dt + datetime.timedelta(days=i+1)).strftime("%Y-%m-%dT%H:%M:%SZ"))
-        if doVerbose: print("Tstamp_arr: " + str(tstamp_arr))
-        #Get first day
-        status, data = cdas.get_data(cdaObsId, [], tstamp_arr[0], tstamp_deltas[0], binData=binData)
-        if doVerbose: print("Pulling " + t0)
-        
-        if status['http']['status_code'] != 200:
-            # If it still fails, its some other problem and we'll die
-            if doVerbose: print("Still bad pull. Dying.")
-            return status,data
-        if data is None:
-            if doVerbose: print("Cdas responded with 200 but returned no data")
-            return status,data
-        if epochStr not in data.keys():
-            if doVerbose: print(epochStr + " not in dataset, can't build day-by-day")
-            data = None
-            return status,data
-        
-        #Figure out which axes are the epoch axis in each dataset so we can concatenate along it
-        dk = list(data.keys())
-        nTime = len(data[epochStr])
-        cataxis = np.array([-1 for i in range(len(dk))])
-        for k in range(len(dk)):
-            shape = np.array(data[dk[k]].shape)
-            for i in range(len(shape)):
-                if shape[i] == nTime:
-                    cataxis[k] = i
-                    continue
+		tstamp_arr = []
+		tstamp_deltas = []
+		for i in range(numDays):
+			tstamp_arr.append((t0dt + datetime.timedelta(days=i)).strftime("%Y-%m-%dT%H:%M:%SZ"))
+			tstamp_deltas.append((t0dt + datetime.timedelta(days=i+1)).strftime("%Y-%m-%dT%H:%M:%SZ"))
+		if doVerbose: print("Tstamp_arr: " + str(tstamp_arr))
+		#Get first day
+		status, data = cdas.get_data(cdaObsId, [], tstamp_arr[0], tstamp_deltas[0], binData=binData)
+		if doVerbose: print("Pulling " + t0)
+		
+		if status['http']['status_code'] != 200:
+			# If it still fails, its some other problem and we'll die
+			if doVerbose: print("Still bad pull. Dying.")
+			return status,data
+		if data is None:
+			if doVerbose: print("Cdas responded with 200 but returned no data")
+			return status,data
+		if epochStr not in data.keys():
+			if doVerbose: print(epochStr + " not in dataset, can't build day-by-day")
+			data = None
+			return status,data
+		if isinstance(cdaDataId,str):
+			if doVerbose: print(cdaDataId + " not in dataset, can't build day-by-day")
+            # Mimic the cdasws return code for case when id isn't provided
+			if not (cdaDataId in data.keys()):
+				status = {'http': {'status_code': 404}}
+				data = None
+				return status,data
+		if isinstance(cdaDataId,list):
+			for item in cdaDataId:
+				print(item + " not in dataset, can't build day-by-day")
+				if not (item in data.keys()):
+					# Mimic the cdasws return code for case when id isn't provided
+					status = {'http': {'status_code': 404}}
+					data = None
+					return status,data
+		
+		#Figure out which axes are the epoch axis in each dataset so we can concatenate along it
+		dk = list(data.keys())
+		nTime = len(data[epochStr])
+		cataxis = np.array([-1 for i in range(len(dk))])
+		for k in range(len(dk)):
+			shape = np.array(data[dk[k]].shape)
+			for i in range(len(shape)):
+				if shape[i] == nTime:
+					cataxis[k] = i
+					continue
 
-        #Then append rest of data accordingly
-        for i in range(1,numDays):
-            if doVerbose: print("Pulling " + str(tstamp_arr[i]))
-            status, newdata = cdas.get_data(cdaObsId, [], tstamp_arr[i], tstamp_deltas[i], binData=binData)
-            for k in range(len(dk)):
-                if cataxis[k] == -1:
-                    continue
-                else:
-                    key = dk[k]
-                    data[key] = np.concatenate((data[key], newdata[key]), axis=cataxis[k])
-    else:
-        if doVerbose: print("Got data in one pull")
+		#Then append rest of data accordingly
+		for i in range(1,numDays):
+			if doVerbose: print("Pulling " + str(tstamp_arr[i]))
+			status, newdata = cdas.get_data(cdaObsId, [], tstamp_arr[i], tstamp_deltas[i], binData=binData)
+			for k in range(len(dk)):
+				if cataxis[k] == -1:
+					continue
+				else:
+					key = dk[k]
+					data[key] = np.concatenate((data[key], newdata[key]), axis=cataxis[k])
+	else:
+		if doVerbose: print("Got data in one pull")
 
 
-    return status,data
+	return status,data
 
 def addVar(mydata,scDic,varname,t0,t1,deltaT,epochStr='Epoch'):
     #print(scDic,varname,idname,dataname,scDic[idname])

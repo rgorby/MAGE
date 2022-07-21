@@ -75,7 +75,7 @@
 		},
 		"Hydrogen_omniflux_RBSPICE" : {
 			"Id" : "RBSP-A-RBSPICE_LEV-3-PAP_TOFXEH",
-			"Data" : ["_bad_"],
+			"Data" : ["FPDU_OmniFlux"],
 			"OmnifluxStr" : "FPDU_OmniFlux",
 			"EnergyStr" : "FPDU_Energy"
 		}
@@ -103,13 +103,7 @@
 		},
 		"Hydrogen_omniflux_RBSPICE" : {
 			"Id" : "RBSP-B-RBSPICE_LEV-3-PAP_TOFXEH",
-			"Data" : ["_bad"],
-			"OmnifluxStr" : "FPDU_OmniFlux",
-			"EnergyStr" : "FPDU_Energy"
-		},
-		"Hydrogen_omniflux_RBSPICE_TOFXPHHHELT" : {
-			"Id" : "RBSP-B-RBSPICE_LEV-3-PAP_TOFXPHHHELT",
-			"Data" : ["__FPDU_OmniFlux"],
+			"Data" : ["FPDU_OmniFlux"],
 			"OmnifluxStr" : "FPDU_OmniFlux",
 			"EnergyStr" : "FPDU_Energy"
 		},
@@ -359,7 +353,7 @@
 		},
 		"Pressure" : {
 			"Id" : "MMS1_FPI_FAST_L2_DIS-MOMS",
-			"Data" : "mms1_dis_pres_gse_fast"
+			"Data" : "mms1_dis_pres_bg_fast"
 		},
 		"Velocity" : {
 			"Id" : "MMS1_FPI_FAST_L2_DIS-MOMS",
@@ -384,7 +378,7 @@
 		},
 		"Pressure" : {
 			"Id" : "MMS2_FPI_FAST_L2_DIS-MOMS",
-			"Data" : "mms2_dis_pres_gse_fast"
+			"Data" : "mms2_dis_pres_bg_fast"
 		},
 		"Velocity" : {
 			"Id" : "MMS2_FPI_FAST_L2_DIS-MOMS",
@@ -409,7 +403,7 @@
 		},
 		"Pressure" : {
 			"Id" : "MMS3_FPI_FAST_L2_DIS-MOMS",
-			"Data" : "mms3_dis_pres_gse_fast"
+			"Data" : "mms3_dis_pres_bg_fast"
 		},
 		"Velocity" : {
 			"Id" : "MMS3_FPI_FAST_L2_DIS-MOMS",
@@ -434,7 +428,7 @@
 		},
 		"Pressure" : {
 			"Id" : "MMS4_FPI_FAST_L2_DIS-MOMS",
-			"Data" : "mms4_dis_pres_gse_fast"
+			"Data" : "mms4_dis_pres_bg_fast"
 		},
 		"Velocity" : {
 			"Id" : "MMS4_FPI_FAST_L2_DIS-MOMS",

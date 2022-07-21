@@ -44,6 +44,16 @@ def test_pullVar(key):
                       t0,t1,60.0)
             assert status['http']['status_code'] == 200, \
                 "pullVar failed to return for {},{}".format(key,var)
+            if isinstance(scIdDict[key][var]['Data'],str):
+                assert scIdDict[key][var]['Data'] in data.keys(), \
+                    "pullVar error - data does not contain {} for {},{}".format(scIdDict[key][var]['Data'],key,var)
+            if isinstance(scIdDict[key][var]['Data'],list):
+                for item in scIdDict[key][var]['Data']:
+                    assert item in data.keys(), \
+                        "pullVar error - data does not contain {} for {},{}".format(item,key,var)
+
+                    
+            
 
 @pytest.fixture
 def exampleObs():
