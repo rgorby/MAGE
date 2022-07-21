@@ -19,23 +19,32 @@ def genWM(params, useWMh5=True):
                 return toyWM(params)
 
 
-# Add wpi-induced electron loss to rcmconfig.h5
+# Add wpi-induced electron lifetime model to input file and create an output file
 # Writes arrays to file in rcmconfig.h5 format
-def genh5(fname, inputParams, useWMh5=True):
+def genh5(fIn, fOut, inputParams, useWMh5=True):
 
-        kpi, mlti, li, eki, tau1i, tau2i = genWM(inputParams, useWMh5 = useWMh5)
-        attrs = inputParams.getAttrs()
+        if fIn != fOut: 
+               oH5 = h5.File(fOut, 'w')
+               iH5 = h5.File(fIn,'r') 
+               for Q in iH5.keys():
+                     sQ = str(Q)
+                     oH5.create_dataset(sQ, data=iH5[sQ])
+        else:
+               oH5 = h5.File(fOut, 'r+')
+        
+        if not ('Tau1i' in oH5.keys()):
+               kpi, mlti, li, eki, tau1i, tau2i = genWM(inputParams, useWMh5 = useWMh5)
+               attrs = inputParams.getAttrs()
 
-        f5 = h5.File(fname, 'r+')
-        f5.create_dataset('Kpi', data=kpi)
-        f5.create_dataset('MLTi', data=mlti)
-        f5.create_dataset('Li', data=li)
-        f5.create_dataset('Eki', data=eki)
-        f5.create_dataset('Tau1i', data=tau1i)
-        f5.create_dataset('Tau2i', data=tau2i)
-        for key in attrs.keys():
-                f5.attrs[key] = attrs[key]
-        f5.close()
+               oH5.create_dataset('Kpi', data=kpi)
+               oH5.create_dataset('MLTi', data=mlti)
+               oH5.create_dataset('Li', data=li)
+               oH5.create_dataset('Eki', data=eki)
+               oH5.create_dataset('Tau1i', data=tau1i)
+               oH5.create_dataset('Tau2i', data=tau2i)
+               for key in attrs.keys():
+                       oH5.attrs[key] = attrs[key]
+        oH5.close()
 
 def readWMh5(params,fIn):
 
