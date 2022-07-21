@@ -200,17 +200,19 @@ def pullVar(cdaObsId,cdaDataId,t0,t1,deltaT=60,epochStr="Epoch",doVerbose=False)
 			return status,data
 		if isinstance(cdaDataId,str):
 			if doVerbose: print(cdaDataId + " not in dataset, can't build day-by-day")
-			# Mimic the cdasws return code for case when id isn't provided
-			status = {'http': {'status_code': 404}}
-			data = None
-			return status,data
+            # Mimic the cdasws return code for case when id isn't provided
+			if not (cdaDataId in data.keys()):
+				status = {'http': {'status_code': 404}}
+				data = None
+				return status,data
 		if isinstance(cdaDataId,list):
 			for item in cdaDataId:
 				print(item + " not in dataset, can't build day-by-day")
-				# Mimic the cdasws return code for case when id isn't provided
-				#status = {'http': {'status_code': 404}}
-				data = None
-				return status,data
+				if not (item in data.keys()):
+					# Mimic the cdasws return code for case when id isn't provided
+					status = {'http': {'status_code': 404}}
+					data = None
+					return status,data
 		
 		#Figure out which axes are the epoch axis in each dataset so we can concatenate along it
 		dk = list(data.keys())
