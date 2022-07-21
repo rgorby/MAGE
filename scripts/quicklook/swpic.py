@@ -2,20 +2,11 @@
 #Creates a time vs distance plot from a 2D slice created by slice.x
 import argparse
 from argparse import RawTextHelpFormatter
-import matplotlib as mpl
-mpl.use('Agg')
-import matplotlib.pyplot as plt
-from matplotlib import dates
-import kaipy.kaiViz as kv
 import kaipy.kaiH5 as kh5
 import kaipy.solarWind.swBCplots as swBCplots
-import matplotlib.gridspec as gridspec
-import numpy as np
-import h5py
 import os
-import errno
 import datetime
-import matplotlib.dates as mdates
+import sys
 
 
 if __name__ == "__main__":
@@ -39,6 +30,16 @@ if __name__ == "__main__":
 	swtag = args.id
 	imgtype = args.type
 
+	allowTypes = ['pdf','png','jpeg','jpg']
+	if not (imgtype in allowTypes):
+		print('Image type not supported please try',*allowTypes)
+		sys.exit()
+
+	if (imgtype == 'pdf'):
+		#For some reason trimming PDF files doesn't work
+		doTrim = False
+	else:
+		doTrim = True
 
 	swIn = fdir+'/'+swtag
 	kh5.CheckOrDie(swIn)
@@ -57,6 +58,7 @@ if __name__ == "__main__":
 		utall.append(datetime.datetime.strptime(UTall[n].decode('utf-8'),t0Fmt))
 
 	# pulling the solar wind values from the table
+	varlist = kh5.getRootVars(swIn)
 	D = kh5.PullVar(swIn,"D")
 	Vx = kh5.PullVar(swIn,"Vx")
 	Vy = kh5.PullVar(swIn,"Vy")
@@ -67,9 +69,11 @@ if __name__ == "__main__":
 	Temp = kh5.PullVar(swIn,"Temp")
 	Tsec = kh5.PullVar(swIn,"T")
 	SYMH = kh5.PullVar(swIn,"symh")
-
-	pltInterp = 0*D
+	if ('Interped' in varlist):
+		pltInterp = kh5.PullVar(swIn,"Interped")
+	else:
+		pltInterp = 0*D
 	doEps = False
-	swBCplots.swQuickPlot(UTall,D,Temp,Vx,Vy,Vz,Bx,By,Bz,SYMH,pltInterp,fOut,doEps=doEps)
+	swBCplots.swQuickPlot(UTall,D,Temp,Vx,Vy,Vz,Bx,By,Bz,SYMH,pltInterp,fOut,doEps=doEps,doTrim=doTrim)
 
 
