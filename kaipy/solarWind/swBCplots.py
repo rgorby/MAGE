@@ -272,6 +272,6 @@ def swQuickPlot(UT,D,Temp,Vx,Vy,Vz,Bx,By,Bz,SYMH,interped,fname,xBS=None,yBS=Non
     xfmt = dates.DateFormatter(utfmt)
     ax32.xaxis.set_major_formatter(xfmt)
     kv.SetAxLabs(ax32,"UT","SYM/H [nT]",doBot=True,doLeft=True)
-    kv.savePic(fname,doEps=doEps)
+    kv.savePic(fname,doEps=doEps,doTrim=False)
     plt.close('all')
 
