@@ -95,7 +95,7 @@ os.chdir('unitTest1')
 #arguments = arguments + "cd" + home + ";"
 #arguments = arguments + "cd kaiju/unitTest1;"
 # Invoke cmake
-arguments = arguments + "cmake ../ -DALLOW_INVALID_COMPILERS=ON -DENABLE_MPI=ON -DENABLE_MKL=ON;"
+arguments = arguments + "cmake ../ -DCMAKE_BUILD_TYPE=RELWITHDEBINFO -DALLOW_INVALID_COMPILERS=ON -DENABLE_MPI=ON;"
 # Make gamera, voltron and allTests
 arguments = arguments + "make gamera_mpi; make voltron_mpi; make allTests;"
 print(arguments)
