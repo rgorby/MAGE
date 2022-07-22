@@ -382,3 +382,21 @@ def trajPlot(plotname,scId,data):
                 data['Epoch_bin'][-1].strftime('%m/%d/%Y - %H:%M:%S'))
     fig.suptitle(titlestr)
     savePic(plotname)
+
+
+def get_aspect(ax):
+    """Get current aspect ratio of ax
+    """
+    from operator import sub
+    # Total figure size
+    figW, figH = ax.get_figure().get_size_inches()
+    # Axis size on figure
+    _, _, w, h = ax.get_position().bounds
+    # Ratio of display units
+    disp_ratio = (figH * h) / (figW * w)
+    # Ratio of data units
+    # Negative over negative because of the order of subtraction
+    data_ratio = sub(*ax.get_ylim()) / sub(*ax.get_xlim())
+
+    return disp_ratio #/ data_ratio
+
