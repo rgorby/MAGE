@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 
 
-"""Prepare the PBS script for a helio_mpi job.
+"""Prepare the PBS script for a helio_serial job.
 
-Perform the preprocessing required to run the mpi gamera code on
-the helio_mpi example. Create any required data files, and create
+Perform the preprocessing required to run the serial gamera code on
+the helio_serial example. Create any required data files, and create
 the PBS script to run the code.
 """
 
@@ -22,10 +22,10 @@ import subprocess
 # Program constants and defaults
 
 # Default identifier for model to run.
-default_runid = "helio_mpi"
+default_runid = "helio_serial"
 
 # Program description.
-description = "Prepare to run mpi gamera on the %s test case." % default_runid
+description = "Prepare to run serial gamera on the %s test case." % default_runid
 
 # Location of template .ini file.
 ini_template = os.path.join(
@@ -81,9 +81,9 @@ def create_command_line_parser():
 
 
 def run_preprocessing_steps(directory, runid):
-    """Run any preprocessing steps needed for the helio_mpi run.
+    """Run any preprocessing steps needed for the helio_serial run.
 
-    Run any required preprocessing steps to prepare for the helio_mpi run.
+    Run any required preprocessing steps to prepare for the helio_serial run.
 
     Parameters
     ----------
@@ -118,7 +118,7 @@ def run_preprocessing_steps(directory, runid):
 def create_ini_file(directory, runid):
     """Create the .ini file from a template.
 
-    Create the .ini file describing the helio_mpi model run.
+    Create the .ini file describing the helio_serial model run.
 
     For now, we simply make a copy of the .ini template.
 
@@ -132,7 +132,7 @@ def create_ini_file(directory, runid):
     Returns
     -------
     ini_file : str
-        Path to the .ini file for the helio_mpi model run.
+        Path to the .ini file for the helio_serial model run.
     """
     # Just use the template for now.
     with open(ini_template) as t:
@@ -147,7 +147,7 @@ def create_ini_file(directory, runid):
 def convert_ini_to_xml(ini_file, xml_file):
     """Convert the .ini file to XML.
     
-    Convert the .ini file describing the helio_mpi run to the corresponding
+    Convert the .ini file describing the helio_serial run to the corresponding
     XML file.
 
     Parameters

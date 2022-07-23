@@ -304,7 +304,6 @@ module rcm_mhd_io
 
         write (ResF, '(A,A,I0.5,A)') trim(RCMApp%rcm_runid), ".mhd2imag.Res.", nRes, ".h5"
         call CheckAndKill(ResF)
-        call StampIO(ResF)
         call ClearIO(IOVars)
 
         !Main attributes

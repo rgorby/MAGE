@@ -2,7 +2,7 @@
     MODULE Rcm_mod_subs
     use kdefs, ONLY : PI,Mp_cgs,Me_cgs,EarthM0g,eCharge,kev2erg
     use conversion_module, ONLY : almdel
-    use rice_housekeeping_module, ONLY: use_plasmasphere
+    use rice_housekeeping_module, ONLY: use_plasmasphere, EWMTauInput
     use constants, ONLY: nt, radius_earth_m
     use rcmdefs
     use rcm_precision
@@ -123,7 +123,7 @@
     REAL (rprec) :: dtAvg_v,dtMHD
     LOGICAL :: advChannel(kcsize) = .true. !Which channels to advance
 
-     logical :: kill_fudge
+    logical :: kill_fudge
 !
 !
 !   Magnetic field:
@@ -576,8 +576,8 @@
                     else
                         cycle
                     endif
-                    !Now accumulate, for single hemisphere
-                    dn = 0.5*sini(i,j)*deleeta(i,j,k)*eta2cc*abs(bir(i,j))*(ftv*radius_earth_m*1.0e+2)/dtCpl ! #/cm2/s
+                    !Now accumulate, 0.5 for single hemisphere, see detailed deriviation of the diffuse precipitation on kaiju wiki    
+                    dn = 0.5*deleeta(i,j,k)*eta2cc*abs(bir(i,j)/sini(i,j))*(ftv*radius_earth_m*1.0e+2)/dtCpl ! #/cm2/s
                     nflx(ie) = nflx(ie) + dn !Num flux, #/cm2/s
                     eflx(ie) = eflx(ie) + dn*ABS(alamc(k))*vm(i,j) !Energy flux, eV/cm2/s
                 enddo
@@ -1209,29 +1209,106 @@
 
 !
 !
-      SUBROUTINE Read_plasma_H5
+     SUBROUTINE Read_plasma_H5
         use ioh5
         use files
         implicit none
         logical :: doSP
         type(IOVAR_T), dimension(RCMIOVARS) :: IOVars !Lazy hard-coding max variables
-        integer :: nvar
+        integer :: nvari, tauDim, Nk, Nm,Nl,Ne
+        integer :: dims(4) ! update when add higher dimensions
 
 
         doSP = .false.
         call ClearIO(IOVars) !Reset IO chain
-        call AddInVar(IOVars,"alamc")
-        call AddInVar(IOVars,"ikflavc")
-        call AddInVar(IOVars,"fudgec")
-
+        call AddInVar(IOVars,"alamc") !1
+        call AddInVar(IOVars,"ikflavc") !2
+        call AddInVar(IOVars,"fudgec") !3
         call ReadVars(IOVars,doSP,RCMGAMConfig)
 
-        !Store data
+        !Store data for energy channels
         alamc(:)   = IOVars(1)%data
         ikflavc(:) = IOVars(2)%data
         fudgec(:)  = IOVars(3)%data
-! reset to make sure species if ikflav ==1 alamc is set to negative, for electrons
+        
+        ! reset to make sure species if ikflav ==1 alamc is set to negative, for electrons
         where(ikflavc==1)alamc = -abs(alamc)
+
+        !Store data for wave models
+        !Dimension check: only compatible with tau(MLT,L,Kp,Ek)
+        if (ioExist(RCMGAMConfig,"Tau1i")) then
+            EWMTauInput%useWM = .true.
+            call AddInVar(IOVars,"Kpi") !4 
+            call AddInVar(IOVars,"MLTi") !5
+            call AddInVar(IOVars,"Li") !6
+            call AddInVar(IOVars,"Eki") !7
+            call AddInVar(IOVars,"Tau1i") !8
+            call AddInVar(IOVars,"Tau2i") !9
+            call ReadVars(IOVars,doSP,RCMGAMConfig)
+            tauDim = IOVars(8)%Nr
+            if (tauDim /= 4) then
+                write(*,*) "tauDim:",tauDim
+                write(*,*) 'Currently only support tau model files in the form tau(Kp,MLT,L,Ek)'
+                write(*,*)"tau:",IOVars(8)%dims
+                stop
+            endif
+
+            dims = IOVars(8)%dims(1:tauDim)
+            Nk   = IOVars(4)%N
+            Nm   = IOVars(5)%N
+            Nl   = IOVars(6)%N
+            Ne  = IOVars(7)%N
+            if (Nk /=  dims(1) .or. Nm /= dims(2) .or. Nl /= dims(3) .or. Ne /= dims(4)) then
+                write(*,*) "dims:",dims,"Nk:",Nk,"Nm:",Nm,"Nl:",Nl,"Ne:",Ne
+                write(*,*) 'Dimensions of tau arrays are not compatible'
+                stop
+            endif
+
+           !Store arrays
+           EWMTauInput%Nk = Nk
+           EWMTauInput%Nm = Nm
+           EWMTauInput%Nl = Nl
+           EWMTauInput%Ne = Ne
+
+           allocate(EWMTauInput%Kpi(Nk))
+           allocate(EWMTauInput%MLTi(Nm))
+           allocate(EWMTauInput%Li(Nl))
+           allocate(EWMTauInput%Eki(Ne))
+           allocate(EWMTauInput%tau1i(Nk,Nm,Nl,Ne))
+           allocate(EWMTauInput%tau2i(Nk,Nm,Nl,Ne))
+
+           call IOArray1DFill(IOVars,"Kpi",EWMTauInput%Kpi)
+           call IOArray1DFill(IOVars,"MLTi",EWMTauInput%MLTi)
+           call IOArray1DFill(IOVars,"Li", EWMTauInput%Li)
+           call IOArray1DFill(IOVars,"Eki",EWMTauInput%Eki)
+           call IOArray4DFill(IOVars,"tau1i",EWMTauInput%tau1i)
+           call IOArray4DFill(IOVars,"tau2i",EWMTauInput%tau2i)
+
+           !Array order check: array is in acsending order
+           if(EWMTauInput%Kpi(1) > EWMTauInput%Kpi(Nk)) then
+              write(*,*) "Kp: ",EWMTauInput%Kpi
+              write(*,*) "reorder wave model so Kp is in ascending order"
+              stop
+           end if
+
+           if(EWMTauInput%Li(1) > EWMTauInput%Li(Nl)) then
+              write(*,*) "L: ",EWMTauInput%Li
+              write(*,*) "reorder wave model so L shell is in ascending order"
+              stop
+           end if
+
+           if(EWMTauInput%MLTi(1) > EWMTauInput%MLTi(Nm)) then
+              write(*,*) "MLT: ",EWMTauInput%MLTi
+              write(*,*) "reorder wave model so MLT is in ascending order"
+              stop
+           end if
+
+           if(EWMTauInput%Eki(1) > EWMTauInput%Eki(Ne)) then
+              write(*,*) "Ek: ",EWMTauInput%Eki
+              write(*,*) "reorder wave model so Ek is in ascending order"
+              stop
+           end if
+        endif
 
       END SUBROUTINE Read_plasma_H5
 !
@@ -3042,11 +3119,113 @@ FUNCTION Ratefn (xx,yy,alamx,vmx,beqx,losscx,nex,kpx,fudgxO,sinixO,birxO,xmfactO
             Ratefn(2) = 0.0  
          case (ELOSS_C19)
             Ratefn = RatefnC19S(xx,yy,alamx,vmx,beqx,losscx,nex,kpx)
+         case (ELOSS_DW)
+            if (EWMTauInput%useWM) then
+                Ratefn = RatefnDW(xx,yy,alamx,vmx,nex,kpx,beqx,losscx)
+            else
+                write(*,*) "Wave model is missing in rcmconfig.h5"
+                stop
+            endif
          case default
-            stop "The electron loss rate model type entered is not supported."
+            write(*,*) "The electron loss rate model type entered is not supported."
+            stop
  end select
 
 END FUNCTION Ratefn
+
+FUNCTION RatefnDW(xx,yy,alamx,vmx,nex,kpx,bqx,losscx)
+  !Function to calculate diffuse electron precipitation loss rate using 
+  ! 1. Dedong Wang's chorus wave model
+  ! 2. Orlova16 hiss wave model
+  
+  use lossutils, ONLY: RatefnC_tau_s, RatefnDW_tau_c,RatefnC_tau_h16
+  IMPLICIT NONE
+  REAL (rprec), INTENT (IN) :: xx,yy,alamx,vmx,nex,kpx,bqx,losscx
+  REAL (rprec), dimension(2) :: RatefnDW
+  REAL (rprec) :: nhigh, nlow, L, MLT, E, tau, tau_s, tau_c, tau_h, tau1, tau2, R1, R2
+
+  nhigh = 100.D0 ! [/cc] ne>nhigh indicates inside plasmasphere.
+  nlow  = 10.D0  ! [/cc] ne<nlow indicates outside plasmasphere.
+  L = sqrt(xx**2+yy**2)
+  MLT = atan2(yy,xx)/pi*12.D0+12.D0
+  E = abs(alamx*vmx*1.0e-6) !Energy [MeV]
+  RatefnDW(1) = 1.D10
+  RatefnDW(2) = 1.0
+  tau_s = RatefnC_tau_s(alamx,vmx,bqx,losscx)
+
+  if(nex<nlow) then
+    tau_c = RatefnDW_tau_c(kpx, MLT,L,E)
+    if (tau_s > tau_c) then
+       tau = tau_s
+       RatefnDW(2) = 4.0 
+    else
+       tau = tau_c
+       RatefnDW(2) = 1.0
+    endif
+    RatefnDW(1) = 1.0/tau
+  elseif(nex>nhigh) then
+    tau_h = RatefnC_tau_h16(MLT,E,L,kpx)
+    if (tau_s > tau_h) then
+       tau = tau_s
+       RatefnDW(2) = 4.0
+    else
+       tau = tau_h
+       RatefnDW(2) = 2.0
+    endif
+    RatefnDW(1) = 1.0/tau
+  else  ! nlow <= nex <= nhigh
+    tau_c = RatefnDW_tau_c(kpx, MLT,L,E)
+    tau_h = RatefnC_tau_h16(MLT,E,L,kpx)
+    if ((tau_h > 1.D9) .and. (tau_c > 1.D9)) then ! which means tau_h and tau_c are 1.D10
+       tau = 1.D10   ! both models are undefined
+       RatefnDW(2) = -1.0 ! undefined
+       RatefnDW(1) = 1.0/tau
+    elseif (tau_h > 1.D9) then ! which means tau_h is 1.D10, hiss model is undefined
+       if (tau_s > tau_c) then
+          tau = tau_s
+          RatefnDW(2) = 4.0
+       else
+          tau = tau_c
+          RatefnDW(2) = 1.0
+       endif 
+       RatefnDW(1) = 1.0/tau
+    elseif (tau_c > 1.D9) then ! which means tau_c is 1.D10, chorus model is undefined
+       if (tau_s > tau_h) then
+          tau = tau_s
+          RatefnDW(2) = 4.0
+       else
+          tau = tau_h
+          RatefnDW(2) = 2.0
+       endif
+       RatefnDW(1) = 1.0/tau 
+    else ! both models have defined values
+       if ((tau_s > tau_c) .and. (tau_s > tau_h)) then
+          tau1 = tau_s
+          tau2 = tau_s
+          R1 = 4.0
+          R2 = 4.0
+       elseif (tau_s > tau_c) then
+          tau1 = tau_s
+          tau2 = tau_h
+          R1 = 4.0
+          R2 = 2.0
+       elseif (tau_s > tau_h) then
+          tau1 = tau_c
+          tau2 = tau_s
+          R1 = 1.0
+          R2 = 4.0
+       else
+          tau1 = tau_c
+          tau2 = tau_h
+          R1 = 1.0
+          R2 = 2.0
+       endif  
+       RatefnDW(1) = (dlog(nhigh/nex)/tau1 + dlog(nex/nlow)/tau2)/dlog(nhigh/nlow) ! use weighted loss rate 
+       RatefnDW(2) = (dlog(nhigh/nex)*R1 + dlog(nex/nlow)*R2)/dlog(nhigh/nlow)
+    endif
+  endif
+
+END FUNCTION RatefnDW
 
 FUNCTION RatefnC19 (xx,yy,alamx,vmx,beqx,losscx,nex,kpx)
 ! Function to calculate diffuse electron precipitation loss rate using eq(10) of MW Chen et al. 2019.
@@ -3062,7 +3241,7 @@ FUNCTION RatefnC19 (xx,yy,alamx,vmx,beqx,losscx,nex,kpx)
 !    tau = log(nh/ne)/log(nh/nl)*tau_in + log(ne/nl)/log(nh/nl)*tau_out 
 !        = (log(nh/ne)*tau_w+ log(ne/nl)*tau_h)/log(nh/nl) + tau_s, where nh=100; nl=10; 
 
-  use lossutils, ONLY : RatefnC_tau_s,RatefnC_tau_C05,RatefnC_tau_w,RatefnC_tau_h
+  use lossutils, ONLY : RatefnC_tau_s,RatefnC_tau_C05,RatefnC_tau_w,RatefnC_tau_h16
   IMPLICIT NONE
   REAL (rprec), INTENT (IN) :: xx,yy,alamx,vmx,beqx,losscx,nex,kpx
   REAL (rprec), dimension(2) :: RatefnC19
@@ -3085,19 +3264,20 @@ FUNCTION RatefnC19 (xx,yy,alamx,vmx,beqx,losscx,nex,kpx)
     tau = tau_s + RatefnC_tau_w(MLT,K,L,kpx) ! mltx,engx,kpx,Lshx
     RatefnC19(2) = 1.0
   elseif(nex>nhigh) then
-    tau = tau_s + RatefnC_tau_h(MLT,K,L,kpx) ! mltx,engx,kpx,Lshx
+    tau = tau_s + RatefnC_tau_h16(MLT,K,L,kpx) ! mltx,engx,kpx,Lshx
     RatefnC19(2) = 2.0
   else
-    tau = tau_s + (dlog(nhigh/nex)*RatefnC_tau_w(MLT,K,L,kpx) + dlog(nex/nlow)*RatefnC_tau_h(MLT,K,L,kpx))/dlog(nhigh/nlow)
+    tau = tau_s + (dlog(nhigh/nex)*RatefnC_tau_w(MLT,K,L,kpx) + dlog(nex/nlow)*RatefnC_tau_h16(MLT,K,L,kpx))/dlog(nhigh/nlow)
     RatefnC19(2) = 3.0
   endif
 
   ! default MLT dependent scattering rate based on Chen+2005 for non-specified MLTs etc.
 !  if(tau>1.D10) then 
   E = log10(K)
-  fL = -0.2573*L**4 + 4.2781*L**3 - 25.9348*L*L + 66.8113*L - 66.1182
-  if((nex<nlow.and.MLT<=21.0.and.MLT>15.0).or.(nex>nhigh.and.(L>6.0 .or. L<3.0 .or. E>1.0 .or. E<-3.0 .or. E<fL))) then !  .or. kpx>6.0
-!    if(nex>nhigh) write(*,"(6(a,e25.15))") 'C05 triggered: nex=',nex,' L=',L,' Kp=',kpx,' E=',E,' fL=',fL,' RatefnC(2)=',RatefnC(2)
+!  fL = -0.2573*L**4 + 4.2781*L**3 - 25.9348*L*L + 66.8113*L - 66.1182
+!  if((nex<nlow.and.MLT<=21.0.and.MLT>15.0).or.(nex>nhigh.and.(L>6.0 .or. L<3.0 .or. E>1.0 .or. E<-3.0 .or. E<fL))) then !  .or. kpx>6.0
+  fL = 0.1328*L*L - 2.1463*L + 3.7857
+  if(((nex<nlow) .and. (MLT<=21.0) .and. (MLT>15.0)).or.((nex>nhigh) .and. ((L>5.5) .or. (L<1.5) .or. (E>1.0) .or. (E<-3.0) .or. (E<fL)))) then
     tau = tau_s + RatefnC_tau_C05(MLT,K,L) ! mltx,engx,Lshx
     RatefnC19(2) = 0.0
   endif

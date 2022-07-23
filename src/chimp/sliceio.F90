@@ -34,7 +34,7 @@ module sliceio
         type(XML_Input_T), intent(in) :: inpXML
 
         type(IOVAR_T), dimension(MAXEBVS) :: IOVars
-        real(rp) :: dx1,dx2,Rin,Rout,Pin,Pout,x1,x2
+        real(rp) :: dx1,dx2,Rin,Rout,Pin,Pout,x1,x2,xMax
         integer :: i,j,ijk(NDIM)
         integer :: iS,iE,n,Npow
         real(rp) :: xcc(NDIM)
@@ -47,7 +47,6 @@ module sliceio
         associate( ebGr=>ebState%ebGr )
 
         call CheckAndKill(ebOutF)
-
 
         !Figure out grid slice type
         call inpXML%Set_Val(doXY,'slice/doXY',.true.)
@@ -91,6 +90,11 @@ module sliceio
             case("LFM2D")
                 !Create 2D LFM slice (w/ full 2pi)
                 call inpXML%Set_Val(xSun,'slice/xSun',xSun)
+                
+                !Make sure xSun doesn't run over the grid
+                xMax = ebGr%xyz(ebGr%ie,ebGr%js,ebGr%ks,XDIR) - TINY
+                xSun = min(xSun,xMax)
+
                 !Find first cell that's "in" according to set locator
                 i = ebGr%is
                 xcc = ebGr%xyz(i,ebGr%js,ebGr%ks,:)
@@ -98,7 +102,7 @@ module sliceio
                     i = i+1
                     xcc = ebGr%xyz(i,ebGr%js,ebGr%ks,:)
                 enddo
-                iS = i
+                iS = min(i,ebGr%ie)
                 iE = minloc(abs(ebGr%xyz(:,ebGr%js,ebGr%ks,XDIR)-xSun),dim=1)
                 write(*,*) 'i-Start/End/Total = ',iS,iE,ebGr%Nip
                 
@@ -233,10 +237,10 @@ module sliceio
 
         type(IOVAR_T), dimension(MAXEBVS) :: IOVars
         real(rp), dimension(:,:,:), allocatable :: dB2D,E2D,Q,J2D
-        real(rp), dimension(:,:), allocatable :: Vr,Lb,LbXY,dLpp
+        real(rp), dimension(:,:), allocatable :: Vr,Lb,LbXY,dLpp,rCurv
 
         integer :: i,j
-        real(rp), dimension(NDIM) :: xp,xm,dB,Ep,Em,Bp,Bm
+        real(rp), dimension(NDIM) :: xp,xm,dB,Ep,Em,Bp,Bm,B
         real(rp) :: MagB,MagJ,oVGScl
         real(rp), dimension(NVARMHD) :: Qij
         type(gcFields_T) :: gcFieldsP,gcFieldsM
@@ -253,6 +257,7 @@ module sliceio
         allocate(Vr  (Nx1,Nx2))
         allocate(Lb  (Nx1,Nx2))
         allocate(LbXY(Nx1,Nx2))
+        allocate(rCurv(Nx1,Nx2))
 
 
         if (Model%doTrc) then
@@ -278,7 +283,7 @@ module sliceio
         endif
         !$OMP PARALLEL DO default(shared) collapse(2) &
         !$OMP schedule(dynamic) &
-        !$OMP private(i,j,xp,xm,Bp,Bm,Ep,Em,dB,Qij,gcFieldsP,gcFieldsM,jB,MagB,MagJ)
+        !$OMP private(i,j,xp,xm,Bp,Bm,Ep,Em,dB,Qij,gcFieldsP,gcFieldsM,jB,MagB,MagJ,B)
         do j=1,Nx2
             do i=1,Nx1
                 !Straddle slice plane
@@ -300,8 +305,12 @@ module sliceio
                 db = oBScl*0.5*(Bp+Bm)-B02D(i,j,:)
                 dB2D(i,j,:) = db
                 E2D (i,j,:) = oEScl*0.5*(Em+Ep)
-                MagB = norm2(db+B02D(i,j,:))
+                B = db+B02D(i,j,:)
+                MagB = norm2(B)
                 MagJ = oBScl*sqrt(sum(jB**2.0))
+
+                ! radius of curvature
+                rCurv(i,j) = getRCurv(B/oBScl,jB)
 
                 !Get MHD vars if requested
                 if (Model%doMHD) then
@@ -350,6 +359,7 @@ module sliceio
         call AddOutVar(IOVars,"dBz" ,db2D(:,:,ZDIR))
         call AddOutVar(IOVars,"Lb"  ,Lb  (:,:)     )
         call AddOutVar(IOVars,"LbXY",LbXY(:,:)     )
+        call AddOutVar(IOVars,"RCurvature",rCurv(:,:)    )
 
         if (Model%doPP) then
             call AddOutVar(IOVars,"dLppeq",dLpp(:,:))
@@ -399,7 +409,7 @@ module sliceio
 
         call WriteVars(IOVars,.true.,ebOutF,gStr)
         call ClearIO(IOVars)
-        deallocate(dB2D,E2D)
+        deallocate(dB2D,E2D,rCurv)
 
         end associate
     end subroutine writeEB

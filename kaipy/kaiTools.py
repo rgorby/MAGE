@@ -8,7 +8,28 @@ from xml.dom import minidom
 from astropy.time import Time
 import h5py
 
+import kaipy.kdefs as kd
+
 isotfmt = '%Y-%m-%dT%H:%M:%S.%f'
+
+to_center1D = lambda A: 0.5*(A[:-1]+A[1:])
+to_center2D = lambda A: 0.25*(A[:-1,:-1]+A[1:,:-1]+A[:-1,1:]+A[1:,1:])
+to_center3D = lambda A: 0.125*(A[:-1,:-1,:-1]+A[-1:,-1:,1:]+A[-1:,1:,-1:]+A[-1:,1:,1:]
+				+A[1:,:-1,:-1]+A[1:,-1:,1:]+A[1:,1:,-1:]+A[1:,1:,1:])
+
+
+def L_to_bVol(L, bsurf_nT=kd.EarthM0g*kd.G2nT):  # L shell [Re] to V [Re/nT]
+	"""Calculates the flux tube volume [Rp/nT] from the given L shell [Rp]
+		L : L shell [Rp]
+		bsurf_nT : Surface field [nT] (Default: Earth)
+	"""
+	colat = np.arcsin(np.sqrt(1.0/L))
+
+	cSum = 35*np.cos(colat) - 7*np.cos(3*colat) +(7./5.)*np.cos(5*colat) - (1./7.)*np.cos(7*colat)
+	cSum /= 64.
+	s8 = np.sin(colat)**8
+	V = 2*cSum/s8/bsurf_nT
+	return V  # [Rp/nT]
 
 def MJD2UT(mjd):
 	""" If given single value, will return single datetime.datetime
@@ -117,4 +138,51 @@ def GetSymH(fBC):
 		dstData = hf['symh'][()]
 	
 	utData = MJD2UT(mjdData)
-	return utData,tData,dstData		
+	return utData,tData,dstData
+
+def interpTSC(gridX, gridY, x, y, var):
+	""" gridX/gridY: 3-element x & y grid vals (center value is closest grid point to desired interpolation point)
+		x: dim1 of point of interest
+		y: dim2 of point of interest
+		var: 3x3 values of desired variable
+	"""
+
+	weights = interpTSCWeights(gridX, gridY, x, y)
+
+	result = 0
+	for i in range(3):
+		for j in range(3):
+			result += weights[i,j]*var[i,j]
+
+	return result
+
+def interpTSCWeights(gridX, gridY, x, y):
+	""" gridX/gridY: 3-element x & y grid vals (center value is closest grid point to desired interpolation point)
+		x: dim1 of point of interest
+		y: dim2 of point of interest
+	"""
+
+	dx = np.abs(gridX[0]-gridX[1])
+	dy = np.abs(gridY[0]-gridY[1])
+
+	eta  = (x - gridX[1])/dx
+	zeta = (y - gridY[1])/dy
+	#print('eta : ' + str(eta))
+	#print('zeta: ' + str(zeta))
+
+	def weight1D(eta):
+		return np.array([
+				0.5*(0.5-eta)**2,
+				0.75 - eta**2,
+				0.5*(0.5+eta)**2
+			])
+
+	wX = weight1D(eta)
+	wY = weight1D(zeta)
+
+	w2D = np.zeros((3,3))
+	for i in range(3):
+		for j in range(3):
+			w2D[i,j] = wX[i]*wY[j]
+
+	return w2D

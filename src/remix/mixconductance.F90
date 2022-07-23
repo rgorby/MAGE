@@ -7,6 +7,7 @@ module mixconductance
   use math
   use euvhelper
   use auroralhelper
+  use kai2geo
   use rcmdefs, ONLY : tiote_RCM
   
   implicit none
@@ -726,6 +727,9 @@ module mixconductance
       if (RinMHD > 0) then
          !Calculate actual mirror ratio
          !NOTE: Should replace this w/ actual inner boundary field strength
+
+         !$OMP PARALLEL DO default(shared) &
+         !$OMP private(i,j,mlat,mlon)
          do j=1,G%Nt
             do i=1,G%Np
                mlat = PI/2 - G%t(i,j)
@@ -740,7 +744,7 @@ module mixconductance
                   RM(i,j) = IGRFMirrorRatio(-mlat,mlon,RinMHD)
                endif
             enddo
-         enddo
+         enddo !j loop
       else
          !Set mirror ratio everywhere no matter the inner boundary to 10
          !Note: This may have been okay for simulating magnetospheres 40 years ago, but it's 2021 now
@@ -748,14 +752,14 @@ module mixconductance
       endif
    end subroutine GenMirrorRatio
 
-    subroutine conductance_total(conductance,G,St,gcm,h)
+   subroutine conductance_total(conductance,G,St,gcm,h)
       type(mixConductance_T), intent(inout) :: conductance
       type(mixGrid_T), intent(in) :: G
       type(mixState_T), intent(inout) :: St
       type(gcm_T),optional,intent(in) :: gcm
       integer,optional,intent(in) :: h
 
-      call GenMirrorRatio(G)
+      call GenMirrorRatio(G,St)
 
       ! always call fedder to fill in AVG_ENERGY and NUM_FLUX
       ! even if const_sigma, we still have the precip info that way
@@ -812,9 +816,9 @@ module mixconductance
               St%Vars(:,:,SIGMAP)*conductance%sigma_ratio)
       endif
 
-    end subroutine conductance_total
+   end subroutine conductance_total
 
-    subroutine conductance_ramp(conductance,G,rPolarBound,rEquatBound,rLowLimit)
+   subroutine conductance_ramp(conductance,G,rPolarBound,rEquatBound,rLowLimit)
       type(mixConductance_T), intent(inout) :: conductance
       type(mixGrid_T), intent(in) :: G      
       real(rp), intent(in) :: rPolarBound,rEquatBound,rLowLimit
@@ -826,7 +830,7 @@ module mixconductance
       elsewhere ! G%r > rEquatBound
          conductance%rampFactor = rLowLimit
       end where
-    end subroutine conductance_ramp
+   end subroutine conductance_ramp
 
     subroutine conductance_auroralmask(conductance,G,signOfY)
       type(mixConductance_T), intent(inout) :: conductance

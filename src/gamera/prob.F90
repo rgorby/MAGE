@@ -361,7 +361,7 @@ module prob
         type(State_T), intent(inout) :: State
         type(XML_Input_T), intent(in) :: inpXML
 
-        real(rp) :: xc,yc,zc, Rho,Vx,Vy,P,KinE
+        real(rp) :: xc,yc,zc, Rho,Vx,Vy,KinE,Theta
         real(rp) :: yCrit, B0, P0, Amp, D0,D1,V0,V1
 
         integer :: i,j,k
@@ -377,6 +377,7 @@ module prob
         call inpXML%Set_Val(V0 ,"prob/V0" ,-0.5_rp)
         call inpXML%Set_Val(V1 ,"prob/V1" , 0.5_rp)
         call inpXML%Set_Val(B0,"prob/B0",0.2_rp)
+        call inpXML%Set_Val(Theta,"prob/theta",0.0_rp)
         B0 = emScl*B0
 
         if (.not. Model%doMHD) then
@@ -389,7 +390,6 @@ module prob
                     !Find centers
                     call cellCenter(Grid,i,j,k,xc,yc,zc)
 
-                    P = P0
                     if (abs(yc) <= yCrit) then
                         Rho = D1
                         Vx  = V1
@@ -413,15 +413,23 @@ module prob
 
                     KinE = 0.5*Rho*(Vx**2.0+Vy**2.0)
 
-                    State%Gas(i,j,k,ENERGY,BLK) = KinE + P/(Model%gamma-1)
+                    State%Gas(i,j,k,ENERGY,BLK) = KinE + P0/(Model%gamma-1)
 
                     !Initialize fields
-                    State%magFlux(i,j,k,IDIR) = B0*Grid%Face(i,j,k,IDIR)
+                    State%magFlux(i,j,k,IDIR) = B0*cos(Theta*pi/180.0)*Grid%Face(i,j,k,IDIR)
                     State%magFlux(i,j,k,JDIR) = 0.0
-                    State%magFlux(i,j,k,KDIR) = 0.0
+                    State%magFlux(i,j,k,KDIR) = B0*sin(Theta*pi/180.0)*Grid%Face(i,j,k,KDIR)
                 enddo
             enddo
         enddo        
+
+        call WipeBCs(Model,Grid)
+        allocate(periodicInnerIBC_T      :: Grid%externalBCs(INI )%p)
+        allocate(periodicOuterIBC_T      :: Grid%externalBCs(OUTI)%p)
+        allocate(periodicInnerJBC_T      :: Grid%externalBCs(INJ )%p)
+        allocate(periodicOuterJBC_T      :: Grid%externalBCs(OUTJ)%p)
+        allocate(periodicInnerKBC_T      :: Grid%externalBCs(INK )%p)
+        allocate(periodicOuterKBC_T      :: Grid%externalBCs(OUTK)%p)
 
     end subroutine initKH
 
@@ -500,7 +508,7 @@ module prob
         type(State_T), intent(inout) :: State
         type(XML_Input_T), intent(in) :: inpXML
 
-        real (rp) :: xc,yc,zc, Rho,Vx,Vy,P,KinE
+        real (rp) :: xc,yc,zc, Rho,Vx,Vy,KinE,Theta
         real (rp) :: yCrit, B0, P0, Amp, rho1, rho2, rhom, u1, u2, um, L
 
         integer :: i,j,k
@@ -518,6 +526,7 @@ module prob
         call inpXML%Set_Val(L,"prob/L",0.025_rp)
 
         call inpXML%Set_Val(B0,"prob/B0",0.2_rp)
+        call inpXML%Set_Val(Theta,"prob/theta",0.0_rp)
         B0 = emScl*B0
 
         rhom = (rho1-rho2)/2
@@ -532,8 +541,6 @@ module prob
                 do i=Grid%is,Grid%ie+1
                     !Find centers
                     call cellCenter(Grid,i,j,k,xc,yc,zc)
-
-                    P = P0
 
                     if (yc < 1.0/4.0) then
                         Rho = rho1 - rhom*exp((yc-1.0/4.0)/L)                        
@@ -565,15 +572,23 @@ module prob
 
                     KinE = 0.5*Rho*(Vx**2.0+Vy**2.0)
 
-                    State%Gas(i,j,k,ENERGY,BLK) = KinE + P/(Model%gamma-1)
+                    State%Gas(i,j,k,ENERGY,BLK) = KinE + P0/(Model%gamma-1)
 
                     !Initialize fields
-                    State%magFlux(i,j,k,IDIR) = B0*Grid%Face(i,j,k,IDIR)
+                    State%magFlux(i,j,k,IDIR) = B0*cos(Theta*pi/180.0)*Grid%Face(i,j,k,IDIR)
                     State%magFlux(i,j,k,JDIR) = 0.0
-                    State%magFlux(i,j,k,KDIR) = 0.0
+                    State%magFlux(i,j,k,KDIR) = B0*sin(Theta*pi/180.0)*Grid%Face(i,j,k,KDIR)
                 enddo
             enddo
         enddo        
+
+        call WipeBCs(Model,Grid)
+        allocate(periodicInnerIBC_T      :: Grid%externalBCs(INI )%p)
+        allocate(periodicOuterIBC_T      :: Grid%externalBCs(OUTI)%p)
+        allocate(periodicInnerJBC_T      :: Grid%externalBCs(INJ )%p)
+        allocate(periodicOuterJBC_T      :: Grid%externalBCs(OUTJ)%p)
+        allocate(periodicInnerKBC_T      :: Grid%externalBCs(INK )%p)
+        allocate(periodicOuterKBC_T      :: Grid%externalBCs(OUTK)%p)
 
     end subroutine initKH_McNally
 
