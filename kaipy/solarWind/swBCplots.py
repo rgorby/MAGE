@@ -161,7 +161,7 @@ def MultiPlotN(varDicts, Xname, variables, colors = [], legendLabels=[]):
     if legendLabels:
         plt.legend(legendLabels, loc='best')
 
-def swQuickPlot(UT,D,Temp,Vx,Vy,Vz,Bx,By,Bz,SYMH,interped,fname,xBS=None,yBS=None,zBS=None,doEps=False):
+def swQuickPlot(UT,D,Temp,Vx,Vy,Vz,Bx,By,Bz,SYMH,interped,fname,xBS=None,yBS=None,zBS=None,doEps=False,doTrim=True):
     """
     Plot solar wind n,T, dyn p, V, B and sym/h over time period specified by the user.
 
@@ -272,6 +272,6 @@ def swQuickPlot(UT,D,Temp,Vx,Vy,Vz,Bx,By,Bz,SYMH,interped,fname,xBS=None,yBS=Non
     xfmt = dates.DateFormatter(utfmt)
     ax32.xaxis.set_major_formatter(xfmt)
     kv.SetAxLabs(ax32,"UT","SYM/H [nT]",doBot=True,doLeft=True)
-    kv.savePic(fname,doEps=doEps)
+    kv.savePic(fname,doEps=doEps,doTrim=doTrim)
     plt.close('all')
 

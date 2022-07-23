@@ -61,10 +61,13 @@ if __name__ == "__main__":
 	parser.add_argument('-kt', type=float,default=ktMax, help="Highest thermal energy [keV] RCM should resolve at L_kt (default: %(default)s [keV])")
 	parser.add_argument('-L', type=float,default=L_kt, help="L shell [R_e] at which kt should be resolved (default: %(default)s [R_e])")
 	parser.add_argument('-tiote', type=float,default=tiote, help="Ratio between temperatures of ions and electrons (default: %(default)s)")
+	parser.add_argument('-addWM', type=bool,default=False, help="Add wave models to an existing rcmconfig file, input file needed to be presented (default: %(default)s)")
+	parser.add_argument('-i', type=str,default=fOut,metavar="fIn", help="Input file name when addWM is true (default: %(default)s)")
 	parser.add_argument('-waveModel', type=bool,default=False, help="Use wave models in the electron/ion loss (default: %(default)s)")
 	parser.add_argument('-p1', type=float,default=wolfP1, help="Wolf low-energy  p* (default: %(default)s)")
 	parser.add_argument('-p2', type=float,default=wolfP2, help="Wolf high-energy p* (default: %(default)s)")
 	parser.add_argument('-plotType', choices=plotChoices,default=plotChoices[0], help="Plot mode (default: %(default)s)")
+
 
 	#Finalize parsing
 	args = parser.parse_args()
@@ -76,36 +79,44 @@ if __name__ == "__main__":
 	ktMax = args.kt*1E3  # [keV to eV]
 	L_kt = float(args.L)
 	tiote = args.tiote
+	addWM = args.addWM
 	waveModel = args.waveModel
+	fIn = args.i	
 	plotType = args.plotType
 
-	#Determine proton channel limits based on resolving a certain (proton) temperature at given L
-	bVol = L_to_bVol(L_kt)
-	vm = bVol**(-2/3)
-	alamMin_p = aminp
-	alamMax_p = 10*(ktMax/vm)
-	#Electron max based on proton channel max and ti/te
-	alamMin_e = -1*np.abs(amine)  # Make sure its negative
-	alamMax_e = -1*alamMax_p/tiote
+	if addWM:
+		tauParams = wmParams(dim = 4, nKp = 7, nMLT = 25, nL = 41, nEk = 155)
+		genWM.genh5(fIn,fOut,tauParams,useWMh5 = True)
+	else:
+		#Determine proton channel limits based on resolving a certain (proton) temperature at given L
+		bVol = L_to_bVol(L_kt)
+		vm = bVol**(-2/3)
+		alamMin_p = aminp
+		alamMax_p = 10*(ktMax/vm)
+		#Electron max based on proton channel max and ti/te
+		alamMin_e = -1*np.abs(amine)  # Make sure its negative
+		alamMax_e = -1*alamMax_p/tiote
 
-	dtWolf = dT.DT_Wolf(p1=3,p2=1)  # Lambda channels will have a (slightly modified) Wolf distribution type
+		dtWolf = dT.DT_Wolf(p1=3,p2=1)  # Lambda channels will have a (slightly modified) Wolf distribution type
 
-	sPe = aP.SpecParams(num_e, alamMin_e, alamMax_e, dtWolf, EFLAV, EFUDGE, name='Electrons')  # Parameters to create electron channels
-	sPp = aP.SpecParams(num_p, alamMin_p, alamMax_p, dtWolf, PFLAV, PFUDGE, name='Protons')  # Parameters to create proton channels
-	alamParams = aP.AlamParams(True,[sPe, sPp])  # (doUsePsphere, List[SpecParams])
-	alamParams.tiote = tiote
-	alamParams.ktMax = ktMax
-	alamParams.L_kt = L_kt
-	alamData = genAlam.genAlamDataFromParams(alamParams)  # Use AlamParams to generate all of the lambda distributions
+		sPe = aP.SpecParams(num_e, alamMin_e, alamMax_e, dtWolf, EFLAV, EFUDGE, name='Electrons')  # Parameters to create electron channels
+		sPp = aP.SpecParams(num_p, alamMin_p, alamMax_p, dtWolf, PFLAV, PFUDGE, name='Protons')  # Parameters to create proton channels
+		alamParams = aP.AlamParams(True,[sPe, sPp])  # (doUsePsphere, List[SpecParams])
+		alamParams.tiote = tiote
+		alamParams.ktMax = ktMax
+		alamParams.L_kt = L_kt
+		alamData = genAlam.genAlamDataFromParams(alamParams)  # Use AlamParams to generate all of the lambda distributions
 
-	if plotType == 'spec':
-		plotter.plotLambdasBySpec(alamData.specs,yscale='log',L=L_kt)
-	elif plotType == 'vs':
-		plotter.plotLambdas_Val_Spac(alamData.specs,yscale='log',L=L_kt)
+		if plotType == 'spec':
+			plotter.plotLambdasBySpec(alamData.specs,yscale='log',L=L_kt)
+		elif plotType == 'vs':
+			plotter.plotLambdas_Val_Spac(alamData.specs,yscale='log',L=L_kt)
 
-	fileIO.saveRCMConfig(alamData,params=alamParams,fname=fOut)
-	if waveModel == True:
-		tauParams = wmParams(dim = 4, nKp = 7, nMLT = 25, nL = 41, nEk = 155)	
-		genWM.genh5(fOut,tauParams,useWMh5 = True)
+		fileIO.saveRCMConfig(alamData,params=alamParams,fname=fOut)
+	
+		if waveModel == True:
+			tauParams = wmParams(dim = 4, nKp = 7, nMLT = 25, nL = 41, nEk = 155)	
+			genWM.genh5(fOut,fOut,tauParams,useWMh5 = True)
+	
 	print("Wrote RCM configuration to %s"%(fOut))
 
