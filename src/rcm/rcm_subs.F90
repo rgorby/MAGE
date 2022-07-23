@@ -549,7 +549,7 @@
         LOGICAL, dimension(1:isize,1:jsize) :: isOpen
         real(rprec), dimension(RCMNUMFLAV) :: nflx,eflx
         integer(iprec) :: klow,i,j,k,ie
-        real(rprec) :: eta2cc,ftv,dn
+        real(rprec) :: dn
         !Try to do calculation everywhere possible including MHD buffer region
         isOpen = (vm < 0)
         !Set lowest RC channel
@@ -566,8 +566,6 @@
                 if (isOpen(i,j)) CYCLE
                 nflx = 0.0
                 eflx = 0.0
-                eta2cc = (1.0e-6)*dfactor*vm(i,j)**1.5
-                ftv = (1.0/vm(i,j))**(3.0/2.0) !flux-tube volume Re/nT
                 do k=klow,kcsize
                     IF (alamc (k) < -TINY) THEN
                         ie = RCMELECTRON
@@ -577,16 +575,16 @@
                         cycle
                     endif
                     !Now accumulate, 0.5 for single hemisphere, see detailed deriviation of the diffuse precipitation on kaiju wiki    
-                    dn = 0.5*deleeta(i,j,k)*eta2cc*abs(bir(i,j)/sini(i,j))*(ftv*radius_earth_m*1.0e+2)/dtCpl ! #/cm2/s
+                    dn = 0.5*deleeta(i,j,k)*abs(bir(i,j)/sini(i,j))*nT2T/(m2cm**2)/dtCpl ! #/cm^2/s
                     nflx(ie) = nflx(ie) + dn !Num flux, #/cm2/s
-                    eflx(ie) = eflx(ie) + dn*ABS(alamc(k))*vm(i,j) !Energy flux, eV/cm2/s
+                    eflx(ie) = eflx(ie) + dn*ABS(alamc(k))*vm(i,j) !Energy flux, eV/cm^2/s
                 enddo
                 eflux(i,j,:) = eflx*ev2erg  ! energy flux in erg/(cm^2 s)
-                eavg (i,j,:) = eflx/nflx ! Average energy in eV
+                eavg (i,j,:) = eflx/nflx    ! Average energy in eV
                 nflux(i,j,:) = nflx         ! Num flux in #/cm^2/s
                
                 DO ie = 1, RCMNUMFLAV
-                      IF (nflx (ie) > 10.*machine_tiny) THEN  ! zero  sbao 07/2019
+                      IF (nflx (ie) > 10.*machine_tiny) THEN 
                           eavg (i,j,ie) = eflx(ie)/nflx(ie) ! Average energy in eV
                       ELSE
 !                         we want eflux=0 and eavg=0 for no precipitation.
