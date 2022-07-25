@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 
 
-"""Prepare the PBS script for a geo_serial job.
+"""Prepare the PBS script for a geo_mpi job.
 
-Perform the preprocessing required to run the serial voltron code on
-the geo_serial example. Create any required data files, and create the
+Perform the preprocessing required to run the MPI voltron code on
+the geo_mpi example. Create any required data files, and create the
 PBS script to run the code.
 """
 
@@ -22,10 +22,10 @@ import subprocess
 # Program constants and defaults
 
 # Default identifier for model to run.
-default_runid = "geo_serial"
+default_runid = "geo_mpi"
 
 # Program description.
-description = "Prepare to run serial voltron on the %s test case." % default_runid
+description = "Prepare to run MPI voltron on the %s test case." % default_runid
 
 # Location of template .ini file.
 ini_template = os.path.join(
@@ -89,9 +89,9 @@ def create_command_line_parser():
 
 
 def run_preprocessing_steps(directory, runid, startdate, stopdate):
-    """Run any preprocessing steps needed for the geo_serial run.
+    """Run any preprocessing steps needed for the geo_mpi run.
 
-    Run any required preprocessing steps to prepare for the geo_serial run.
+    Run any required preprocessing steps to prepare for the geo_mpi run.
 
     Parameters
     ----------
@@ -127,14 +127,14 @@ def run_preprocessing_steps(directory, runid, startdate, stopdate):
     args = []
     subprocess.run([cmd] + args)
 
-    # Move back to the originaldirectory.
+    # Move back to the original directory.
     os.chdir(original_directory)
 
 
 def create_ini_file(directory, runid):
     """Create the .ini file from a template.
 
-    Create the .ini file describing the geo_serial model run.
+    Create the .ini file describing the geo_mpi model run.
 
     For now, we simply make a copy of the .ini template.
 
@@ -148,7 +148,7 @@ def create_ini_file(directory, runid):
     Returns
     -------
     ini_file : str
-        Path to the .ini file for the geo_serial model run.
+        Path to the .ini file for the geo_mpi model run.
     """
     # Just use the template for now.
     with open(ini_template) as t:
@@ -163,7 +163,7 @@ def create_ini_file(directory, runid):
 def convert_ini_to_xml(ini_file, xml_file):
     """Convert the .ini file to XML.
     
-    Convert the .ini file describing the geo_serial run to the corresponding
+    Convert the .ini file describing the geo_mpi run to the corresponding
     XML file.
 
     Parameters
