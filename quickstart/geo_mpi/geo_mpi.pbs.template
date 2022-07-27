@@ -3,7 +3,7 @@
 #PBS -j oe
 #PBS -q normal
 #PBS -l walltime=4:00:00
-#PBS -l select=5:ncpus=28:mpiprocs=1:ompthreads=28:model=bro
+#PBS -l select=2:ncpus=28:mpiprocs=2:ompthreads=28:model=bro+1:ncpus=28:mpiprocs=1:ompthreads=28:model=bro
 
 # Sample PBS job script to run the MPI gamera code on the
 # geo_mpi test case.  This script was designed to run on pleiades.
@@ -28,7 +28,7 @@ module list
 # Set kaiju-related environment variables.
 
 # Define the kaiju installation location.
-export KAIJU_INSTALL_DIR=/nobackup/ewinter/kaiju/geo_mpi/kaiju
+export KAIJU_INSTALL_DIR=/home3/ewinter/kaiju/geo_mpi/kaiju
 
 # Set kaiju-related environment variables.
 source $KAIJU_INSTALL_DIR/scripts/setupEnvironment.sh
@@ -47,6 +47,13 @@ export PATH=$KAIJU_QUICKSTART_DIR/geo_mpi:$PATH
 # depth 15, but the maximum allowed depth is 14. You can increase
 export MPI_TYPE_DEPTH=32
 
+# Set the OMP stack size to prevent a crash.
+# If this setting is ignored, the model could cause gamera.x to crash
+# with a segmentation fault and core dump.
+# The value of "100M" was chosen ~arbitrarily; experimentation may allow a
+# smaller value to be used.
+export OMP_STACKSIZE=1000M
+
 echo "The active environment variables are:"
 printenv
 
@@ -58,6 +65,6 @@ echo "The current directory is `pwd`."
 # Run the model.
 EXE=voltron_mpi.x
 echo "Running $EXE on model $RUNID."
-mpiexec $EXE $RUNID.xml >& ${EXE}.${RUNID}.out
+mpiexec omplace $EXE $RUNID.xml >& ${EXE}.${RUNID}.out
 
 echo "Job $PBS_JOBID ended at `date` on `hostname`."
