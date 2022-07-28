@@ -343,16 +343,8 @@ module mixconductance
       ! It's still necessary to initialize alpha/beta_RCM here because they may be using an old value at some points
       ! if IM_EAVG or IM_EPRE or EM_EDEN no longer satisfies the if criteria. Better to use default background beta.
       alpha_RCM = 1.0/(tiote_RCM+1.0)
-      phi0_rcmz = sqrt(St%Vars(:,:,IM_EPRE)*St%Vars(:,:,IM_EDEN)/(Me_cgs*1e-3*2*pi))*1.0e-4 ! sqrt([Pa]*[#/m^3]/[kg]) = sqrt([#/m^4/s^2]) = 1e-4*[#/cm^2/s]
-!      where(phi0_rcmz>TINY.and.St%Vars(:,:,IM_EFLUX)>1e-2)!.and.St%Vars(:,:,IM_EPRE)>1e-10 .and. St%Vars(:,:,IM_EDEN)>1e7)
-!      ! The thresholds of IM_EPRE and IM_EDEN are empirically added to exclude outliers of beta_RCM.
-!         beta_RCM = St%Vars(:,:,IM_ENFLX)/phi0_rcmz
-!       elsewhere(St%Vars(:,:,IM_GTYPE) > 0.5) ! low lat part of RCM
-!         beta_RCM = 0.0
-!!      elsewhere
-!!         beta_RCM  = conductance%beta
-!      end where
       beta_RCM = conductance%beta
+      phi0_rcmz = sqrt(St%Vars(:,:,IM_EPRE)*St%Vars(:,:,IM_EDEN)/(Me_cgs*1e-3*2*pi))*1.0e-4 ! sqrt([Pa]*[#/m^3]/[kg]) = sqrt([#/m^4/s^2]) = 1e-4*[#/cm^2/s]
       !$OMP PARALLEL DO default(shared) &
       !$OMP private(i,j)
       do j=1,G%Nt

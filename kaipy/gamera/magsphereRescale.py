@@ -109,7 +109,6 @@ def PullRestartMPI(bStr,nRes,Ri,Rj,Rk,dIn=None,oH5=None):
 					fIn = dIn  + "/" + fID
 				else:
 					fIn = fID
-				print, fIn
 				iH5 = h5py.File(fIn,'r')
 
 				if (doInit):
