@@ -732,10 +732,11 @@ module mixconductance
                if(.not.doIGRF) then
                   RM(i,j) = MirrorRatio(mlat,RinMHD)
                elseif (St%hemisphere==NORTH) then
-                  RM(i,j) = IGRFMirrorRatio(+mlat,mlon,RinMHD)
+                  RM(i,j) = IGRFMirrorRatio(+mlat,+mlon,RinMHD)
                else
-                  !Southern
-                  RM(i,j) = IGRFMirrorRatio(-mlat,mlon,RinMHD)
+                  !Southern, always a right-hand system based on the local pole.
+                  !SM phi (mlon) goes in clock-wise as opposed to counter-clockwise if looking down on the southern pole from above.
+                  RM(i,j) = IGRFMirrorRatio(-mlat,-mlon,RinMHD)
                endif
             enddo
          enddo !j loop
