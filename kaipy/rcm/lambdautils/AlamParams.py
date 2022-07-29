@@ -50,8 +50,12 @@ class AlamParams:
 	specParams: List[SpecParams]  # List of all specParams to be included in dataset
 
 	# These can help to determine some things for higher-level lambda generators
-	tiote: Optional[float] = None  # Ratio of ion temperature to electron temperature
-	ktMax: Optional[float] = None  # Energy in eV
-	L_kt : Optional[float] = None  # L value for given ktMax
+	#tiote: Optional[float] = None  # Ratio of ion temperature to electron temperature
+	#ktMax: Optional[float] = None  # Energy in eV
+	emine: Optional[float] = None  # Electron min energy in eV
+	eminp: Optional[float] = None  # Proton min energy in eV
+	emaxe: Optional[float] = None  # Electron max energy in eV
+	emaxp: Optional[float] = None  # Proton max energy in eV
+	L_kt : Optional[float] = None  # L value that e/p min/maxes correspond to
 
 

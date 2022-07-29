@@ -34,9 +34,7 @@ if __name__ == "__main__":
 	emine = 1  # [eV]
 	emaxp = 100 # [keV]
 	emaxe = 25  # [keV] , 1/4 of 100 keV
-	ktMax  = 15  # [keV]
 	L_kt   = 10
-	tiote  = 4
 	wolfP1 = 3
 	wolfP2 = 1
 	plotChoices = ['none', 'spec', 'vs']
@@ -96,8 +94,10 @@ if __name__ == "__main__":
 		sPe = aP.SpecParams(num_e, alamMin_e, alamMax_e, dtWolf, EFLAV, EFUDGE, name='Electrons')  # Parameters to create electron channels
 		sPp = aP.SpecParams(num_p, alamMin_p, alamMax_p, dtWolf, PFLAV, PFUDGE, name='Protons'  )  # Parameters to create proton channels
 		alamParams = aP.AlamParams(True,[sPe, sPp])  # (doUsePsphere, List[SpecParams])
-		alamParams.tiote = tiote
-		alamParams.ktMax = ktMax
+		alamParams.emine = emine
+		alamParams.eminp = eminp
+		alamParams.emaxe = emaxe
+		alamParams.emaxp = emaxp
 		alamParams.L_kt = L_kt
 		alamData = genAlam.genAlamDataFromParams(alamParams)  # Use AlamParams to generate all of the lambda distributions
 
