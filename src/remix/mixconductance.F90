@@ -349,7 +349,7 @@ module mixconductance
       !$OMP private(i,j)
       do j=1,G%Nt
          do i=1,G%Np
-            if(phi0_rcmz(i,j)>TINY.and.St%Vars(i,j,IM_EFLUX)>1e-2) then
+            if(phi0_rcmz(i,j)>TINY) then
                beta_RCM(i,j) = St%Vars(i,j,IM_ENFLX)/phi0_rcmz(i,j)
             elseif(St%Vars(i,j,IM_GTYPE) > 0.5) then
                beta_RCM(i,j) = 0.0
@@ -401,6 +401,8 @@ module mixconductance
                   ip1 = i+1
                endif
                if(St%Vars(i,j,IM_GTYPE)>0.01 .and. St%Vars(i,j,IM_GTYPE)<0.99) then
+               ! Use 0.01/0.99 as the boundary for this numerical diffusion because 
+               ! the interpolation from RCM to REMIX would slightly modify the 0/1 boundary.
                   Ttmp =(temp(im1,jm1)+temp(im1,j)+temp(im1,jp1) &
                        + temp(i  ,jm1)+temp(i  ,j)+temp(i  ,jp1) &
                        + temp(ip1,jm1)+temp(ip1,j)+temp(ip1,jp1))/9.D0
