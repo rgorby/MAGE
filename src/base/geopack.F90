@@ -67,13 +67,21 @@ module geopack
       ! COMMON /GEOPACK2/
       real(rp), private, dimension(105) :: G, H, REC
 
-      !Overloader for sm2geo routines
+      !Overloader for conversion routines
       interface SM2GEO
         module procedure SM2GEO_xyz,SM2GEO_vec
       end interface
 
       interface GEO2SM
         module procedure GEO2SM_xyz,GEO2SM_vec
+      end interface
+
+      interface SM2GSE
+        module procedure SM2GSE_xyz,SM2GSE_vec
+      end interface
+
+      interface GSE2SM
+        module procedure GSE2SM_xyz,GSE2SM_vec
       end interface
 
       contains
@@ -1103,6 +1111,78 @@ module geopack
           RETURN
       END SUBROUTINE SMGSW_08
 
+
+!==========================================================================================
+
+      SUBROUTINE GSWGSE_08 (XGSW,YGSW,ZGSW,XGSE,YGSE,ZGSE,J)
+         implicit none
+         real(rp), intent(inout) :: XGSW,YGSW,ZGSW,XGSE,YGSE,ZGSE
+         integer , intent(in)    :: J
+
+!
+!  THIS SUBROUTINE TRANSFORMS COMPONENTS OF ANY VECTOR BETWEEN THE STANDARD GSE
+!  COORDINATE SYSTEM AND THE GEOCENTRIC SOLAR-WIND (GSW, aka GSWM), DEFINED AS FOLLOWS
+!  (HONES ET AL., PLANET.SPACE SCI., V.34, P.889, 1986; TSYGANENKO ET AL., JGRA,
+!  V.103(A4), P.6827, 1998):
+!
+!  IN THE GSW SYSTEM, X AXIS IS ANTIPARALLEL TO THE OBSERVED DIRECTION OF THE SOLAR WIND FLOW.
+!  TWO OTHER AXES, Y AND Z, ARE DEFINED IN THE SAME WAY AS FOR THE STANDARD GSM, THAT IS,
+!  Z AXIS ORTHOGONAL TO X AXIS, POINTS NORTHWARD, AND LIES IN THE PLANE DEFINED BY THE X-
+!  AND GEODIPOLE AXIS. THE Y AXIS COMPLETES THE RIGHT-HANDED SYSTEM.
+!
+!  THE GSW SYSTEM BECOMES IDENTICAL TO THE STANDARD GSM IN THE CASE OF
+!   A STRICTLY RADIAL SOLAR WIND FLOW.
+!
+!  AUTHOR:  N. A. TSYGANENKO
+!  ADDED TO 2008 VERSION OF GEOPACK: JAN 27, 2008.
+!
+!                    J>0                       J<0
+!-----INPUT:   J,XGSW,YGSW,ZGSW          J,XGSE,YGSE,ZGSE
+!-----OUTPUT:    XGSE,YGSE,ZGSE            XGSW,YGSW,ZGSW
+!
+!  IMPORTANT THINGS TO REMEMBER:
+!
+!   (1) BEFORE CALLING GSWGSE_08, BE SURE TO INVOKE SUBROUTINE RECALC_08, IN ORDER
+!       TO DEFINE ALL NECESSARY ELEMENTS OF TRANSFORMATION MATRICES
+!
+!   (2) IN THE ABSENCE OF INFORMATION ON THE SOLAR WIND DIRECTION, E.G., WITH ONLY SCALAR
+!       SPEED V KNOWN, THIS SUBROUTINE CAN BE USED TO CONVERT VECTORS TO ABERRATED
+!       COORDINATE SYSTEM, TAKING INTO ACCOUNT EARTH'S ORBITAL SPEED OF 29 KM/S.
+!       TO DO THAT, SPECIFY THE LAST 3 PARAMETERS IN RECALC_08 AS FOLLOWS:
+!       VGSEX=-V, VGSEY=29.0, VGSEZ=0.0.
+!
+!       IT SHOULD ALSO BE KEPT IN MIND THAT IN SOME SOLAR WIND DATABASES THE ABERRATION
+!       EFFECT HAS ALREADY BEEN TAKEN INTO ACCOUNT BY SUBTRACTING 29 KM/S FROM VYGSE;
+!       IN THAT CASE, THE ORIGINAL VYGSE VALUES SHOULD BE RESTORED BY ADDING BACK THE
+!       29 KM/S CORRECTION. WHETHER OR NOT TO DO THAT, MUST BE VERIFIED WITH THE DATA
+!       ORIGINATOR (OR CAN BE DETERMINED BY CALCULATING THE AVERAGE VGSEY OVER
+!       A SUFFICIENTLY LONG TIME INTERVAL)
+!
+!   (3) IF NO INFORMATION IS AVAILABLE ON THE SOLAR WIND SPEED, THEN SET VGSEX=-400.0
+!       AND  VGSEY=VGSEZ=0. IN THAT CASE, THE GSW COORDINATE SYSTEM BECOMES
+!       IDENTICAL TO THE STANDARD ONE.
+!
+!     COMMON /GEOPACK1/ AAA(25),E11,E21,E31,E12,E22,E32,E13,E23,E33
+!
+!  DIRECT TRANSFORMATION:
+!
+      IF (J.GT.0) THEN
+        XGSE=XGSW*E11+YGSW*E12+ZGSW*E13
+        YGSE=XGSW*E21+YGSW*E22+ZGSW*E23
+        ZGSE=XGSW*E31+YGSW*E32+ZGSW*E33
+      ENDIF
+!
+!   INVERSE TRANSFORMATION: CARRIED OUT USING THE TRANSPOSED MATRIX:
+!
+      IF (J.LT.0) THEN
+        XGSW=XGSE*E11+YGSE*E21+ZGSE*E31
+        YGSW=XGSE*E12+YGSE*E22+ZGSE*E32
+        ZGSW=XGSE*E13+YGSE*E23+ZGSE*E33
+      ENDIF
+
+      RETURN
+      END
+
 !==========================================================================================
 
       SUBROUTINE GEOGSW_08 (XGEO,YGEO,ZGEO,XGSW,YGSW,ZGSW,J)
@@ -1147,6 +1227,7 @@ module geopack
           RETURN
       END SUBROUTINE GEOGSW_08
 
+!==========================================================================================
       SUBROUTINE GEO2GSW (XGEO,YGEO,ZGEO,XGSW,YGSW,ZGSW)
           implicit none
           real(rp), intent(in) :: XGEO,YGEO,ZGEO
@@ -1215,5 +1296,210 @@ module geopack
         real(rp), intent(out) :: xyzGEO(NDIM)
         call SM2GEO_xyz(xyzSM(XDIR),xyzSM(YDIR),xyzSM(ZDIR),xyzGEO(XDIR),xyzGEO(YDIR),xyzGEO(ZDIR))
       END SUBROUTINE SM2GEO_vec
+
+      !SM=>GSE
+      SUBROUTINE SM2GSE_xyz (XSM,YSM,ZSM,XGSE,YGSE,ZGSE)
+          implicit none
+          real(rp), intent(in) :: XSM,YSM,ZSM
+          real(rp), intent(out) :: XGSE,YGSE,ZGSE
+
+          real(rp) :: XGSW,YGSW,ZGSW
+
+          call SM2GSW(XSM,YSM,ZSM,XGSW,YGSW,ZGSW)
+          XGSE=XGSW*E11+YGSW*E12+ZGSW*E13
+          YGSE=XGSW*E21+YGSW*E22+ZGSW*E23
+          ZGSE=XGSW*E31+YGSW*E32+ZGSW*E33
+      END SUBROUTINE SM2GSE_xyz
       
+      SUBROUTINE SM2GSE_vec(xyzSM,xyzGSE)
+        implicit none
+        real(rp), intent(in ) :: xyzSM (NDIM)
+        real(rp), intent(out) :: xyzGSE(NDIM)
+        call SM2GSE_xyz(xyzSM(XDIR),xyzSM(YDIR),xyzSM(ZDIR),xyzGSE(XDIR),xyzGSE(YDIR),xyzGSE(ZDIR))
+      END SUBROUTINE SM2GSE_vec
+
+      !GSE=>SM
+      SUBROUTINE GSE2SM_xyz (XGSE,YGSE,ZGSE,XSM,YSM,ZSM)
+          implicit none
+          real(rp), intent(in ) :: XGSE,YGSE,ZGSE
+          real(rp), intent(out) :: XSM,YSM,ZSM
+
+          real(rp) :: XGSW,YGSW,ZGSW
+          XGSW=XGSE*E11+YGSE*E21+ZGSE*E31
+          YGSW=XGSE*E12+YGSE*E22+ZGSE*E32
+          ZGSW=XGSE*E13+YGSE*E23+ZGSE*E33
+
+          call GSW2SM(XGSW,YGSW,ZGSW,XSM,YSM,ZSM)
+      END SUBROUTINE GSE2SM_xyz
+
+      SUBROUTINE GSE2SM_vec(xyzGSE,xyzSM)
+        implicit none
+        real(rp), intent(in ) :: xyzGSE(NDIM)
+        real(rp), intent(out) :: xyzSM (NDIM)
+        
+        call GSE2SM_xyz(xyzGSE(XDIR),xyzGSE(YDIR),xyzGSE(ZDIR),xyzSM(XDIR),xyzSM(YDIR),xyzSM(ZDIR))
+      END SUBROUTINE GSE2SM_vec
+
+    !--------------------
+    !IGRF stuff
+
+      !Takes xyz (SM) and returns IGRF Bxyz (SM) in nT
+      FUNCTION IGRF_SM(xyzSM) result(BxyzIGRF_SM)
+        real(rp), intent(in ) :: xyzSM(NDIM)
+        real(rp) :: BxyzIGRF_SM(NDIM)
+
+        real(rp) :: XGSW,YGSW,ZGSW,HXGSW,HYGSW,HZGSW
+        call SM2GSW(xyzSM(XDIR),xyzSM(YDIR),xyzSM(ZDIR),XGSW,YGSW,ZGSW)
+        call IGRF_GSW_08(XGSW,YGSW,ZGSW,HXGSW,HYGSW,HZGSW)
+        call GSW2SM(HXGSW,HYGSW,HZGSW,BxyzIGRF_SM(XDIR),BxyzIGRF_SM(YDIR),BxyzIGRF_SM(ZDIR))
+        
+      END FUNCTION IGRF_SM
+      
+      SUBROUTINE IGRF_GSW_08 (XGSWi,YGSWi,ZGSWi,HXGSW,HYGSW,HZGSW)
+          !Using XGSWi to maintain intent(in) and call geopack routines
+          implicit none
+          real(rp), intent(in ) :: XGSWi,YGSWi,ZGSWi
+          real(rp), intent(out) :: HXGSW,HYGSW,HZGSW
+
+!
+!  CALCULATES COMPONENTS OF THE MAIN (INTERNAL) GEOMAGNETIC FIELD IN THE GEOCENTRIC SOLAR-WIND
+!  (GSW) COORDINATE SYSTEM, USING IAGA INTERNATIONAL GEOMAGNETIC REFERENCE MODEL COEFFICIENTS
+!  (e.g., https://www.ngdc.noaa.gov/IAGA/vmod/coeffs/igrf13coeffs.txt, revised 01 January, 2020)
+!
+!  THE GSW SYSTEM IS ESSENTIALLY SIMILAR TO THE STANDARD GSM (THE TWO SYSTEMS BECOME IDENTICAL
+!  TO EACH OTHER IN THE CASE OF STRICTLY ANTI-SUNWARD SOLAR WIND FLOW). FOR A DETAILED
+!  DEFINITION, SEE INTRODUCTORY COMMENTS FOR THE SUBROUTINE GSWGSE_08 .
+!
+!  BEFORE THE FIRST CALL OF THIS SUBROUTINE, OR, IF THE DATE/TIME (IYEAR,IDAY,IHOUR,MIN,ISEC),
+!  OR THE SOLAR WIND VELOCITY COMPONENTS (VGSEX,VGSEY,VGSEZ) HAVE CHANGED, THE MODEL COEFFICIENTS
+!  AND GEO-GSW ROTATION MATRIX ELEMENTS SHOULD BE UPDATED BY CALLING THE SUBROUTINE RECALC_08.
+!
+!-----INPUT PARAMETERS:
+!
+!     XGSW,YGSW,ZGSW - CARTESIAN GEOCENTRIC SOLAR-WIND COORDINATES (IN UNITS RE=6371.2 KM)
+!
+!-----OUTPUT PARAMETERS:
+!
+!     HXGSW,HYGSW,HZGSW - CARTESIAN GEOCENTRIC SOLAR-WIND COMPONENTS OF THE MAIN GEOMAGNETIC
+!                           FIELD IN NANOTESLA
+!
+!     LAST MODIFICATION:  FEB 07, 2008.
+!     THIS VERSION OF THE CODE ACCEPTS DATES FROM 1965 THROUGH 2025.
+!
+!     AUTHOR: N. A. TSYGANENKO
+!
+!
+      
+        real(rp), dimension(14) :: A,B
+
+        real(rp) :: XGEO,YGEO,ZGEO,XGSW,YGSW,ZGSW
+        real(rp) :: RHO,RHO2,R,S,CF,SF,PP,P,IRP3
+        real(rp) :: C,D,BBR,BBT,BBF,X,Y,Q,Z,W
+        real(rp) :: BI,P2,D2,AN,E,HH,QQ,XK,DP,PM,BR,BT,BF
+        real(rp) :: HE,HXGEO,HYGEO,HZGEO
+        integer  :: N,NM,K,M,MM,MN
+        XGSW = XGSWi
+        YGSW = YGSWi
+        ZGSW = ZGSWi
+
+        CALL GEOGSW_08 (XGEO,YGEO,ZGEO,XGSW,YGSW,ZGSW,-1)
+        RHO2=XGEO**2+YGEO**2
+        R=SQRT(RHO2+ZGEO**2)
+        C=ZGEO/R
+        RHO=SQRT(RHO2)
+        S=RHO/R
+        IF (S.LT.1.E-5) THEN
+          CF=1.
+          SF=0.
+        ELSE
+          CF=XGEO/RHO
+          SF=YGEO/RHO
+        ENDIF
+
+        PP=1./R
+        P=PP
+!
+!  IN THIS VERSION, THE OPTIMAL VALUE OF THE PARAMETER NM (MAXIMAL ORDER OF THE SPHERICAL
+!    HARMONIC EXPANSION) IS NOT USER-PRESCRIBED, BUT CALCULATED INSIDE THE SUBROUTINE, BASED
+!      ON THE VALUE OF THE RADIAL DISTANCE R:
+!
+        IRP3=R+2
+        NM=3+30/IRP3
+        IF (NM.GT.13) NM=13
+
+        K=NM+1
+        DO N=1,K
+           P=P*PP
+           A(N)=P
+          B(N)=P*N
+        ENDDO
+
+        P=1.
+        D=0.
+        BBR=0.
+        BBT=0.
+        BBF=0.
+
+      DO M=1,K
+         IF(M.EQ.1) THEN
+            X=0.
+            Y=1.
+         ELSE
+            MM=M-1
+            W=X
+            X=W*CF+Y*SF
+            Y=Y*CF-W*SF
+         ENDIF
+         Q=P
+         Z=D
+         BI=0.
+         P2=0.
+         D2=0.
+         DO N=M,K
+            AN=A(N)
+            MN=N*(N-1)/2+M
+            E=G(MN)
+            HH=H(MN)
+            W=E*Y+HH*X                                                                                  
+            BBR=BBR+B(N)*W*Q
+            BBT=BBT-AN*W*Z
+            IF(M.NE.1) THEN ! GOTO 180
+               QQ=Q
+               IF(S.LT.1.E-5) QQ=Z
+               BI=BI+AN*(E*X-HH*Y)*QQ
+            ENDIF
+            XK=REC(MN)
+            DP=C*Z-S*Q-XK*D2
+            PM=C*Q-XK*P2
+            D2=Z
+            P2=Q
+            Z=DP
+            Q=PM
+         ENDDO
+         D=S*D+C*P
+         P=S*P
+         IF(M.NE.1) THEN !GOTO 200
+            BI=BI*MM
+            BBF=BBF+BI
+         ENDIF
+      ENDDO
+
+      BR=BBR
+      BT=BBT
+      IF(S.GE.1.E-5) THEN !GOTO 210
+         BF=BBF/S
+      ELSE
+         IF(C.LT.0.) BBF=-BBF
+         BF=BBF
+      ENDIF
+
+      HE=BR*S+BT*C
+      HXGEO=HE*CF-BF*SF
+      HYGEO=HE*SF+BF*CF
+      HZGEO=BR*C-BT*S
+
+      CALL GEOGSW_08 (HXGEO,HYGEO,HZGEO,HXGSW,HYGSW,HZGSW,1)
+
+      RETURN
+    END SUBROUTINE IGRF_GSW_08 
 end module geopack
