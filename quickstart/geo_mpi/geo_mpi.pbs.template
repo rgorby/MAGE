@@ -62,9 +62,13 @@ printenv
 cd $PBS_O_WORKDIR
 echo "The current directory is `pwd`."
 
+# Make a local copy of the nodefile.
+export NODEFILE=nodefile.$PBS_JOBID
+cp $PBS_NODEFILE $NODEFILE
+
 # Run the model.
 EXE=voltron_mpi.x
 echo "Running $EXE on model $RUNID."
-mpiexec omplace $EXE $RUNID.xml >& ${EXE}.${RUNID}.out
+mpiexec ${KAIJUHOME}/scripts/preproc/correctOMPenvironment.sh ${NODEFILE} omplace $EXE $RUNID.xml >& ${EXE}.${RUNID}.out
 
 echo "Job $PBS_JOBID ended at `date` on `hostname`."
