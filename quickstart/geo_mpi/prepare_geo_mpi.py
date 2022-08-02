@@ -12,6 +12,7 @@ PBS script to run the code.
 # Import standard modules.
 import argparse
 import os
+import shutil
 import subprocess
 
 # Import 3rd-party modules.
@@ -44,6 +45,8 @@ pbs_template = os.path.join(
     os.environ["KAIJUHOME"], "quickstart", default_runid, "%s.pbs.template"
     % default_runid
 )
+# Name of HDF5 file containing solar wind data for initial conditions.
+sw_file_name = "bcwind.h5"
 
 
 def create_command_line_parser():
@@ -82,13 +85,19 @@ def create_command_line_parser():
         help="Specify the stop date in ISO 8601 format (default: %(default)s)."
     )
     parser.add_argument(
+        "--swfile", type=str,
+        help="Specify an existing file of solar wind data for initialization. "
+            "If used, --startdate and --stopdate must be set to the time "
+            "limits of this file."
+    )
+    parser.add_argument(
         "-v", "--verbose", action="store_true", default=False,
         help="Print verbose output (default: %(default)s)."
     )
     return parser
 
 
-def run_preprocessing_steps(directory, runid, startdate, stopdate):
+def run_preprocessing_steps(directory, runid, startdate, stopdate, swfile=None):
     """Run any preprocessing steps needed for the geo_mpi run.
 
     Run any required preprocessing steps to prepare for the geo_mpi run.
@@ -101,6 +110,10 @@ def run_preprocessing_steps(directory, runid, startdate, stopdate):
         ID string for the model to run.
     startdate, stopdate : str
         Start and stop date & time for run in ISO 8601 format.
+    swfile : str, default None
+        Path to optional file of solar wind data for initial conditions. If
+        provided, data will not be fetched from CDAWeb for the specified
+        time range.
 
     Returns
     -------
@@ -117,9 +130,16 @@ def run_preprocessing_steps(directory, runid, startdate, stopdate):
     args = ["-gid", "D"]
     subprocess.run([cmd] + args)
 
-    # Create the solar wind file.
-    cmd = "cda2wind.py"
-    args = ["-t0", startdate, "-t1", stopdate, "-interp"]
+    # Create or copy the solar wind file.
+    print("swfile =", swfile)
+    if swfile is not None:
+        # Use an existing solar wind data file.
+        shutil.copyfile(swfile, sw_file_name)
+    else:
+        # Fetch data from CDAWeb.
+        cmd = "cda2wind.py"
+        args = ["-t0", startdate, "-t1", stopdate, "-interp"]
+        subprocess.run([cmd] + args)
     subprocess.run([cmd] + args)
 
     # Create the RCM configuration file.
@@ -228,12 +248,13 @@ if __name__ == "__main__":
     runid = args.runid
     startdate = args.startdate
     stopdate = args.stopdate
+    swfile = args.swfile
     verbose = args.verbose
 
     # Run the preprocessing steps.
     if verbose:
         print("Running preprocessing steps.")
-    run_preprocessing_steps(directory, runid, startdate, stopdate)
+    run_preprocessing_steps(directory, runid, startdate, stopdate, swfile)
 
     # Create the .ini file.
     if verbose:
