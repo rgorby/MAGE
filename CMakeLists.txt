@@ -162,6 +162,22 @@ target_link_libraries(gamera.x gamlib baselib)
 add_dependencies(gamera gamera.x)
 
 #-------------
+#Kaiju: Gamera helio
+message("Adding Gamera Helio module ...")
+
+#Add source
+#add_subdirectory(src/gamera)
+
+#Print gamera helio info
+#message("\tBricksize is ${bricksize}")
+message("\tIC file is ${GAMHELIC}")
+add_custom_target(gamhelio ALL)
+message("\tAdding executable gamhelio.x")
+add_executable(gamhelio.x src/drivers/gamerax.F90 ${GAMHELIC})
+target_link_libraries(gamhelio.x gamlib baselib)
+add_dependencies(gamera gamhelio.x)
+
+#-------------
 #Kaiju: ReMIX
 message("Adding ReMIX module ...")
 #Add source

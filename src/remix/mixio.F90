@@ -7,7 +7,7 @@ module mixio
   use files
   implicit none
   
-  integer, parameter :: MAXMIXIOVAR = 50
+  integer, parameter :: MAXMIXIOVAR = 100
   type(IOVAR_T), dimension(MAXMIXIOVAR), private :: IOVars
   character(len=strLen), private :: h5File,h5RunID
   character(len=strLen), dimension(nVars), private :: mixVarNames
@@ -53,6 +53,24 @@ contains
     mixUnitNames(Z_NFLUX)      = "1/cm^2 s"
     mixVarNames(Z_EAVG)        = "Zhang average energy"
     mixUnitNames(Z_EAVG)       = "keV"
+    mixVarNames(CRPOT)         = "Corotation Potential"
+    mixUnitNames(CRPOT)        = "kV"
+    mixVarNames(TPOT)          = "Total Potential"
+    mixUnitNames(TPOT)         = "kV"
+    mixVarNames(IM_GTYPE)      = "RCM grid type"
+    mixUnitNames(IM_GTYPE)     = "0-1"
+    mixVarNames(AUR_TYPE)      = "Auroral model type"
+    mixUnitNames(AUR_TYPE)     = "Zhang Fedder RCM RCMZ"
+    mixVarNames(IM_BETA)       = "RCM beta"
+    mixUnitNames(IM_BETA)      = "0-1"
+    mixVarNames(IM_EDEN)       = "RCM electron density"
+    mixUnitNames(IM_EDEN)      = "#/m^3"
+    mixVarNames(IM_EPRE)       = "RCM electron pressure"
+    mixUnitNames(IM_EPRE)      = "Pa"
+    mixVarNames(IM_ENFLX)      = "IM Number flux"
+    mixUnitNames(IM_ENFLX)     = "1/cm^2 s"
+    mixVarNames(IM_INFLX)      = "IM Number flux proton"
+    mixUnitNames(IM_INFLX)     = "1/cm^2 s"
   end subroutine initMIXNames
 
   subroutine initMIXIO(I,RunID,isRestart,nRes)
@@ -153,6 +171,10 @@ contains
              doDump = .true.             
           case (NUM_FLUX)
              doDump = .true.    
+          case (NEUTRAL_WIND) 
+             doDump = .false.         
+          case (EFIELD) 
+             doDump = .false.         
           case (IM_EFLUX)
              doDump = .true.
           case (IM_EAVG)
@@ -165,11 +187,24 @@ contains
              doDump = .true.
           case (Z_EAVG)
              doDump = .true.         
-          case (NEUTRAL_WIND) 
+          case (CRPOT) 
+             doDump = .false.       
+          case (TPOT) 
              doDump = .false.
-          case (EFIELD)
-             ! we never compute it
-             doDump = .false.
+          case (IM_GTYPE)
+             doDump = .true.
+          case (AUR_TYPE)
+             doDump = .true.
+          case (IM_BETA)
+             doDump = .true.
+          case (IM_EDEN)
+             doDump = .true.
+          case (IM_EPRE)
+             doDump = .true.
+          case (IM_ENFLX)
+             doDump = .true.
+          case (IM_INFLX)
+             doDump = .true.
           case DEFAULT
              doDump = .false. ! only dump the variables explicitely set to be dumped above
           end select
@@ -539,7 +574,6 @@ contains
     !mixIOobj%Vars = 0 ! and initialize to zero
     I(NORTH)%St%Vars = 0
     I(SOUTH)%St%Vars = 0
-
     do h=1,size(hmsphrs)
        if (h.eq.NORTH) then
           hStr = "NORTH"          
@@ -645,6 +679,20 @@ contains
              doDump = .true.
           case (Z_EAVG)
              doDump = .true.   
+          case (IM_GTYPE)
+             doDump = .true.
+          case (AUR_TYPE)
+             doDump = .true.
+          case (IM_BETA)
+             doDump = .true.
+          case (IM_EDEN)
+             doDump = .true.
+          case (IM_EPRE)
+             doDump = .true.
+          case (IM_ENFLX)
+             doDump = .true.
+          case (IM_INFLX)
+             doDump = .true.
           case (NEUTRAL_WIND) 
              doDump = .false.
           case (EFIELD)

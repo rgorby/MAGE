@@ -95,6 +95,8 @@ if (doAll == True):
     ICReport.wait()
     pyunitTest = subprocess.Popen("python3 pyunitTest.py"+subArgString, shell=True)
     pyunitTest.wait()
+    weeklyDash = subprocess.Popen("python3 weeklyDash.py"+subArgString, shell=True)
+    weeklyDash.wait()
 
 else:
     buildTest = subprocess.Popen("python3 buildTest.py"+subArgString, shell = True)
@@ -109,4 +111,6 @@ else:
     ICReport.wait()
     pyunitTest = subprocess.Popen("python3 pyunitTest.py"+subArgString, shell=True)
     pyunitTest.wait()
+    #weeklyDash = subprocess.Popen("python3 weeklyDash.py"+subArgString, shell=True)
+    #weeklyDash.wait()
 

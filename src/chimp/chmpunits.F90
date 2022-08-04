@@ -71,7 +71,7 @@ module chmpunits
         real(rp) :: gv0, gB0, gP0
 
         !If not running in MAGE mode, assume planet doesn't exist and kick to setChimpUnits below
-        if (Model%isMAGE .eq. .false.) then
+        if (.not. Model%isMAGE) then
             call setChimpUnits(Model,inpXML,uStrO)
         endif
 
@@ -93,10 +93,14 @@ module chmpunits
         case("JUPITER")
             rClosed = 10.0
         case("SATURN")
-            rClosed = 5.0
+            rClosed = 6.25
         case DEFAULT
             rClosed = 2.25
         end select
+
+        !Now replace with user input if present
+        call inpXML%Set_Val(rClosed,"domain/rClosed",rClosed)
+
 
         !Set main scaling values
         ebScl = (qe_cgs*L0/Me_cgs)/(vc_cgs**2.0)
@@ -193,7 +197,7 @@ module chmpunits
             in2s   = 1.0
             M0g = SaturnM0g
             inPScl = 1.0 !Converted to nPa on output
-            rClosed = 5.0 !Inner boundary for Saturn
+            rClosed = 6.25 !Inner boundary for Saturn
         case("SATURNCODE")
             L0 = RSaturnXE*Re_cgs
             in2cms = 100*gv0 ! 100 km/s -> cm/s
@@ -201,18 +205,18 @@ module chmpunits
             in2s   = L0/in2cms
             M0g = SaturnM0g
             inPScl = gP0 !Gamera pressure -> nPa
-            rClosed = 5.0 !Inner boundary for Saturn
+            rClosed = 6.25 !Inner boundary for Saturn
         case("HELIO")
             !Grid: Rs
             !Velocity : 150 km/s
             !Field: 100 nT
             !Gamera units for heliosphere runs
             L0 = 6.955e+10 !Rs in cm 
-            in2cms = 1.0e-3/sqrt(4*PI*200*Mp_cgs) !150e+5 cm/s
-            in2G   = 1.0e-3 !in [G]
-            in2s   = L0/in2cms ! time in s 
-            M0g = 0.0 
-            inPScl = 1.0e-6*1.0e+8/4/pi  !Pressure  unit B[G]^2/4pi *1.e8 in [nPa]
+            in2cms = 1.0e+5  ! km/s -> cm/s
+            in2G   = 1.0e-5 ! nT -> Gs
+            in2s   = 1.0 ! already in s
+            M0g    = 0.0 
+            inPScl = 1.0e+8  !erg/cm3 -> [nPa]
             rClosed = 21.5 !Radius of inner boundary in units of grid length
         case("LFM")
             L0 = Re_cgs !Using scaled grid
@@ -240,6 +244,9 @@ module chmpunits
             M0g = 0.0
 
         end select
+
+        !Now replace with user input if present
+        call inpXML%Set_Val(rClosed,"domain/rClosed",rClosed)
 
         !Set main scaling values
         ebScl = (qe_cgs*L0/Me_cgs)/(vc_cgs**2.0)

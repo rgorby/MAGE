@@ -104,7 +104,7 @@ subprocess.call("cp ../../testingScripts/weeklyDashGo.pbs .", shell=True)
 # Generate new supporting files
 subprocess.call("genLFM.py -gid Q", shell=True)
 os.system("mv lfmQ.h5 NEWlfmX.h5")
-subprocess.call("omni2wind.py -t0 2016-08-09T02:00:00 -t1 2016-08-09T12:00:00 -o NEWbcwind.h5", shell=True)
+subprocess.call("cda2wind.py -t0 2016-08-09T02:00:00 -t1 2016-08-09T12:00:00 -o NEWbcwind.h5", shell=True)
 subprocess.call("genRCM.py -o NEWrcmconfig.h5", shell=True)
 
 # Copy the restart data
@@ -114,7 +114,7 @@ subprocess.call("cp ../../dashRestarts/* .", shell=True)
 p = subprocess.Popen("h5diff lfmX.h5 NEWlfmX.h5", shell=True, stdout=subprocess.PIPE)
 gridDiff = p.stdout.read().decode('ascii').rstrip()
 if(gridDiff != ""):
-    message = "lfm Oct grid for weekly dash has changed on branch " + gBranch + ". Case cannot be run. Please re-generate restart data, and ensure the grid change was intentional."
+    message = "Quad grid for weekly dash has changed on branch " + gBranch + ". Case cannot be run. Please re-generate restart data, and ensure the grid change was intentional."
     if(not isTest):
         try:
             response = client.chat_postMessage(
@@ -170,7 +170,7 @@ for line in myModules:
     modset = modset + line + " "
 
 # submit weekly dash
-arguments = 'qsub -v MODULE_LIST="' + modset + '" weeklyDashGo.pbs'
+arguments = 'qsub -v MODULE_LIST="' + modset + '",KAIJUROOTDIR=' + home + ' weeklyDashGo.pbs'
 print(arguments)
 submission = subprocess.Popen(arguments, shell=True, stdout=subprocess.PIPE)
 readString = submission.stdout.read()
@@ -184,15 +184,5 @@ file = open("jobs.txt", 'w+')
 file.write(firstJobNumber)
 
 message = "Run started on branch " + gBranch + " as jobid " + firstJobNumber
-if(beLoud):
-    try:
-        response = client.chat_postMessage(
-            channel="#kaijudev",
-            text=message,
-        )
-    except SlackApiError as e:
-        # You will get a SlackApiError if "ok" is False
-        assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
-else:
-    print(message)
+print(message)
 

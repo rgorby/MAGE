@@ -95,7 +95,7 @@ os.chdir('unitTest1')
 #arguments = arguments + "cd" + home + ";"
 #arguments = arguments + "cd kaiju/unitTest1;"
 # Invoke cmake
-arguments = arguments + "cmake ../ -DALLOW_INVALID_COMPILERS=ON -DENABLE_MPI=ON -DENABLE_MKL=ON;"
+arguments = arguments + "cmake ../ -DCMAKE_BUILD_TYPE=RELWITHDEBINFO -DALLOW_INVALID_COMPILERS=ON -DENABLE_MPI=ON;"
 # Make gamera, voltron and allTests
 arguments = arguments + "make gamera_mpi; make voltron_mpi; make allTests;"
 print(arguments)
@@ -149,7 +149,7 @@ for line in ModuleList[0]:
     modset = modset + line + " "
 
 # submit job to generate data needed for automated tests
-arguments = 'qsub -v MODULE_LIST="' + modset + '" genTestData.pbs'
+arguments = 'qsub -v MODULE_LIST="' + modset + '",KAIJUROOTDIR=' + home + ' genTestData.pbs'
 print(arguments)
 submission = subprocess.Popen(arguments, shell=True, stdout=subprocess.PIPE)
 readString = submission.stdout.read()
@@ -159,7 +159,7 @@ dataGenJob = readString.split('.')[0]
 print(dataGenJob)
 
 # now submit the three automated testing jobs, all contingent on the data gen job
-arguments = 'qsub -v MODULE_LIST="' + modset + '" -W depend=afterok:' + dataGenJob + ' runCaseTests.pbs'
+arguments = 'qsub -v MODULE_LIST="' + modset + '",KAIJUROOTDIR=' + home + ' -W depend=afterok:' + dataGenJob + ' runCaseTests.pbs'
 print(arguments)
 submission = subprocess.Popen(arguments, shell=True, stdout=subprocess.PIPE)
 readString = submission.stdout.read()
@@ -170,7 +170,7 @@ finalString = readString
 firstJob = readString.split('.')[0]
 print(firstJob)
 
-arguments = 'qsub -v MODULE_LIST="' + modset + '" -W depend=afterok:' + dataGenJob + ' runNonCaseTests1.pbs'
+arguments = 'qsub -v MODULE_LIST="' + modset + '",KAIJUROOTDIR=' + home + ' -W depend=afterok:' + dataGenJob + ' runNonCaseTests1.pbs'
 print(arguments)
 submission = subprocess.Popen(arguments, shell=True, stdout=subprocess.PIPE)
 readString = submission.stdout.read()
@@ -182,7 +182,7 @@ finalString = finalString + readString
 secondJob = readString.split('.')[0]
 print (secondJob)
 
-arguments = 'qsub -v MODULE_LIST="' + modset + '" -W depend=afterok:' + dataGenJob + ' runNonCaseTests2.pbs'
+arguments = 'qsub -v MODULE_LIST="' + modset + '",KAIJUROOTDIR=' + home + ' -W depend=afterok:' + dataGenJob + ' runNonCaseTests2.pbs'
 print(arguments)
 submission = subprocess.Popen(arguments, shell=True, stdout=subprocess.PIPE)
 readString = submission.stdout.read()

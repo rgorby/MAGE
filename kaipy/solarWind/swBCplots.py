@@ -161,7 +161,7 @@ def MultiPlotN(varDicts, Xname, variables, colors = [], legendLabels=[]):
     if legendLabels:
         plt.legend(legendLabels, loc='best')
 
-def swQuickPlot(UT,D,Temp,Vx,Vy,Vz,Bx,By,Bz,SYMH,interped,fname):
+def swQuickPlot(UT,D,Temp,Vx,Vy,Vz,Bx,By,Bz,SYMH,interped,fname,xBS=None,yBS=None,zBS=None,doEps=False,doTrim=True):
     """
     Plot solar wind n,T, dyn p, V, B and sym/h over time period specified by the user.
 
@@ -176,7 +176,7 @@ def swQuickPlot(UT,D,Temp,Vx,Vy,Vz,Bx,By,Bz,SYMH,interped,fname):
 
     # constants
     gamma = 5/3.0
-    mp = 1.67e-27 #Proton mass [kg]
+    mp = 1.67e-27 #Proton mass [kg]w
     
     # calculating the solar wind dynamic pressure 
     Vmag = np.sqrt(Vx**2+Vy**2+Vz**2)
@@ -184,7 +184,10 @@ def swQuickPlot(UT,D,Temp,Vx,Vy,Vz,Bx,By,Bz,SYMH,interped,fname):
 
     #Setup figure
     fSz = (10,14)
-    Nr = 6
+    if xBS is None:
+        Nr = 6
+    else:
+        Nr = 7
     Nc = 1
     clrs = ['#7570b3','#1b9e77','#d95f02','black'] # from colorbrewer2.org for colorblind safe
 
@@ -197,7 +200,11 @@ def swQuickPlot(UT,D,Temp,Vx,Vy,Vz,Bx,By,Bz,SYMH,interped,fname):
     ax21 = fig.add_subplot(gs[1,0])
     ax22 = fig.add_subplot(gs[4,0])
     ax31 = fig.add_subplot(gs[2,0])
-    ax32 = fig.add_subplot(gs[5,0])
+    if xBS is None:
+        ax32 = fig.add_subplot(gs[5,0])
+    else:
+        ax32 = fig.add_subplot(gs[6,0])
+        ax41 = fig.add_subplot(gs[5,0])
     
     smlabel = ['SM-X','SM-Y','SM-Z']
     xvec = np.zeros((len(D),3))+1e9
@@ -248,6 +255,16 @@ def swQuickPlot(UT,D,Temp,Vx,Vy,Vz,Bx,By,Bz,SYMH,interped,fname):
     ax22.fill_between(utall, 0, 1, where=interped, alpha=0.4, transform=ax22.get_xaxis_transform())
     plt.setp(ax22.get_xticklabels(),visible=False)
     
+    if xBS is not None:
+        ax41.plot(utall,xBS,color=clrs[0],linewidth=0.95)
+        ax41.plot(utall,yBS,color=clrs[1],linewidth=0.95)
+        ax41.plot(utall,zBS,color=clrs[2],linewidth=0.95)
+        ax41.axhline(y=0.0, color='black', linestyle='--',alpha=0.6,linewidth=0.9)
+        kv.SetAxLabs(ax41,"","BowS [RE]",doBot=True,doLeft=False)
+        ax41.tick_params(axis="x",direction="in")
+        ax41.fill_between(utall, 0, 1, where=interped, alpha=0.4, transform=ax41.get_xaxis_transform())
+        plt.setp(ax41.get_xticklabels(),visible=False)
+
     ax32.plot(utall,SYMH,color=clrs[3])
     ax32.axhline(y=0.0, color='black', linestyle='--',alpha=0.6,linewidth=0.9)
     ax32.fill_between(utall, 0, 1, where=interped, alpha=0.4, transform=ax32.get_xaxis_transform())
@@ -255,6 +272,6 @@ def swQuickPlot(UT,D,Temp,Vx,Vy,Vz,Bx,By,Bz,SYMH,interped,fname):
     xfmt = dates.DateFormatter(utfmt)
     ax32.xaxis.set_major_formatter(xfmt)
     kv.SetAxLabs(ax32,"UT","SYM/H [nT]",doBot=True,doLeft=True)
-    kv.savePic(fname)
+    kv.savePic(fname,doEps=doEps,doTrim=doTrim)
     plt.close('all')
 

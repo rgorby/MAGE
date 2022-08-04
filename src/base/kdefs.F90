@@ -34,9 +34,11 @@ module kdefs
     real(rp), parameter :: Re_cgs = 6.3781D8     ![cm]    Earth's radius
     real(rp), parameter :: Me_cgs = 9.1093837015D-28 ![g] Electron mass
     real(rp), parameter :: Mp_cgs = 1.67262192369D-24 ![g] Proton mass
+    real(rp), parameter :: G_cgs  = 6.6726D-8     ![cm^3/g/s^2], Gravitational constant (per NRL plasma formulary'21)
 
     !MKS Constants
     real(rp), parameter :: vc_mks = vc_cgs*(1.0e-2) ![m/s], Speed of light
+    real(rp), parameter :: G_mks  = 6.6726D-11     ![m^3/kg/s^2], Gravitational constant (per NRL plasma formulary'21)
 
     !Helper conversions
     real(rp), parameter :: G2nT = 1.0E+5 !Gauss->nT
@@ -48,12 +50,13 @@ module kdefs
     real(rp), parameter :: Re_km = Re_cgs*(1.0e-2)*(1.0e-3) !km
 
     !Misc
-    real(rp), parameter :: Mu0 = 4*PI*1.0e-7 ! Tm/A
-    real(rp), parameter :: Kbltz = 1.380649D-16      ![cm^2 g /s^2/K=erg/K] Boltzmann constant
-    real(rp), parameter :: mec2 = (Me_cgs*vc_cgs**2.0)*1.0E-3/kev2erg ! [MeV] electron rest mass
-    real(rp), parameter :: heFrac= 1.16D0       ! Accounts for 4% helium
-    real(rp), parameter :: eCharge= 1.602D-19  ! Charge of electron
-    real(rp), parameter :: dalton = 1.66053906660*1.0E-27  ! Mass unit [kg]
+    real(rp), parameter :: Mu0     = 4*PI*1.0e-7 ! Tm/A
+    real(rp), parameter :: Kbltz   = 1.380649D-16      ![cm^2 g /s^2/K=erg/K] Boltzmann constant
+    real(rp), parameter :: mec2    = (Me_cgs*vc_cgs**2.0)*1.0E-3/kev2erg ! [MeV] electron rest mass
+    real(rp), parameter :: heFrac  = 1.16D0       ! Accounts for 4% helium
+    real(rp), parameter :: eCharge = 1.602D-19  ! Charge of electron
+    !NOTE: dalton isn't precisely Mp b/c carbon binding energy business
+    real(rp), parameter :: dalton  = 1.66053906660*1.0E-27  ! Mass unit [kg]
 
 !Planetary constants
     !Earth
@@ -69,7 +72,7 @@ module kdefs
     real(rp), parameter :: SaturnM0g = 0.21 !Gauss
     real(rp), parameter :: RSaturnXE = 9.5  !Rx = X*Re
     !Jupiter
-    real(rp), parameter :: JupiterM0g = -4.8 !Gauss
+    real(rp), parameter :: JupiterM0g = 4.8 !Gauss
     real(rp), parameter :: RJupiterXE = 11.0 !Rx = X*Re
     !Mercury
     real(rp), parameter :: MercuryM0g = 0.00345  !Gauss
@@ -79,7 +82,8 @@ module kdefs
     real(rp), parameter :: RNeptuneXE = 3.860  !Rx = X*Re
 
 !Helio constants
-    real(rp), parameter :: Rsolar = 6.956D5 ! [km] Solar radius
+    real(rp), parameter :: Rsolar = 6.956D5    ! [km] Solar radius
+    real(rp), parameter :: Msolar = 1.98847D30 ! [kg] Solar mass
 
 !Numbered accessors
     !Directions

@@ -9,11 +9,16 @@
 source ~/.bashrc
 #module restore kaiju
 
+if [[ ! -z "$KAIJUROOTDIR" ]]; then
+    #If the root folder of a kaiju repo was passed in, souce the environment setup script
+    source $KAIJUROOTDIR/scripts/setupEnvironment.sh
+fi
+
 module list
 hostname
 date
 export OMP_NUM_THREADS=72
-export KMP_STACKSIZE=128M
+export OMP_STACKSIZE=128M
 export JNUM=${PBS_ARRAY_INDEX:-0}
 
 python3 intelChecksReport.py

@@ -15,6 +15,7 @@ import datetime
 import kaipy.kaiH5 as kh5
 import kaipy.kaiViz as kv
 from astropy.time import Time
+import re
 
 # Get Slack API token
 slack_token = os.environ["SLACK_BOT_TOKEN"]
@@ -83,6 +84,13 @@ if(gBranch != "master" and gBranch != "development"):
         print("Exitting")
         exit()
 
+# get my short hostname
+p = subprocess.Popen("hostname -s", shell=True, stdout=subprocess.PIPE)
+shortHost = p.stdout.read()
+shortHost = shortHost.decode('ascii')
+shortHost = shortHost.rstrip()
+print(shortHost)
+
 # Go to weekly dash folder
 os.chdir(home)
 
@@ -124,6 +132,17 @@ if('not a git repository' in text):
     exit()
 os.chdir("weeklyDash")
 
+# Read in the git hash from the output file
+gitHashPattern = "Git hash   = (.{8})"
+gitHash = "XXXXXXXX"
+with open(home + '/weeklyDash/bin/weeklyDashGo.out') as runOutput:
+    for line in runOutput:
+        gitHashMatch = re.search(gitHashPattern, line)
+        if gitHashMatch:
+           gitHash = gitHashMatch.group(1)
+           break # end reading file
+print("git hash = " + gitHash)
+
 # Get performance data
 p = subprocess.Popen('sed --quiet "s/^ \\+UT \\+= \\+\\([0-9-]\\+ [0-9:]\\+\\).*$/\\1/p" ' + home + '/weeklyDash/bin/weeklyDashGo.out', shell=True, stdout=subprocess.PIPE)
 utData = p.stdout.read().decode('ascii')
@@ -157,16 +176,9 @@ print("Scraping")
 nSteps,sIds = kh5.cntSteps(fVolt)
 symh  = kh5.getTs(fVolt,sIds,"SymH")
 MJD   = kh5.getTs(fVolt,sIds,"MJD")
-#BSDst0= kh5.getTs(fVolt,sIds,"BSDst0")
-#BSDst = kh5.getTs(fVolt,sIds,"BSDst") #Average
-DPSDst= kh5.getTs(fVolt,sIds,"DPSDst")
+BSDst = kh5.getTs(fVolt,sIds,"BSDst")
 nCPCP = kh5.getTs(fVolt,sIds,"cpcpN")
 sCPCP = kh5.getTs(fVolt,sIds,"cpcpS")
-N = len(DPSDst)
-DPSDst[0] = DPSDst[1]
-for n in range(1,N-1):
-    if (np.abs(DPSDst[n])<1.0e-8):
-        DPSDst[n] = 0.5*(DPSDst[n-1]+DPSDst[n+1])
 UT = Time(MJD,format='mjd').isot
 ut_datetime = [datetime.datetime.strptime(UT[n],'%Y-%m-%dT%H:%M:%S.%f') for n in range(len(UT))] # needed to plot symh
 
@@ -177,18 +189,21 @@ masterUTsim = None
 masterDST = None
 masterCPCPn = None
 masterCPCPs = None
+masterGitHash = None
 devpriorUT = None
 devpriorRT = None
 devpriorUTsim = None
 devpriorDST = None
 devpriorCPCPn = None
 devpriorCPCPs = None
+devpriorGitHash = None
 devcurrentUT = None
 devcurrentRT = None
 devcurrentUTsim = None
 devcurrentDST = None
 devcurrentCPCPn = None
 devcurrentCPCPs = None
+devcurrentGitHash = None
 if(os.path.exists('previousData.h5')):
     data_object = h5py.File('previousData.h5', 'r')
     if 'masterUT' in data_object:
@@ -198,6 +213,7 @@ if(os.path.exists('previousData.h5')):
         masterDST   = data_object['masterDST'].value
         masterCPCPn = data_object['masterCPCPn'].value
         masterCPCPs = data_object['masterCPCPs'].value
+        masterGitHash = data_object['masterGitHash'].value.decode('utf-8')
     if 'devpriorUT' in data_object:
         devpriorUT    = [x.decode('utf-8') for x in data_object['devpriorUT']]
         devpriorRT    = data_object['devpriorRT'].value
@@ -205,6 +221,7 @@ if(os.path.exists('previousData.h5')):
         devpriorDST   = data_object['devpriorDST'].value
         devpriorCPCPn = data_object['devpriorCPCPn'].value
         devpriorCPCPs = data_object['devpriorCPCPs'].value
+        devpriorGitHash = data_object['devpriorGitHash'].value.decode('utf-8')
     if 'devcurrentUT' in data_object:
         devcurrentUT    = [x.decode('utf-8') for x in data_object['devcurrentUT']]
         devcurrentRT    = data_object['devcurrentRT'].value
@@ -212,6 +229,7 @@ if(os.path.exists('previousData.h5')):
         devcurrentDST   = data_object['devcurrentDST'].value
         devcurrentCPCPn = data_object['devcurrentCPCPn'].value
         devcurrentCPCPs = data_object['devcurrentCPCPs'].value
+        devcurrentGitHash = data_object['devcurrentGitHash'].value.decode('utf-8')
     data_object.close()
 
 # update appropriate data with new data
@@ -219,9 +237,10 @@ if(gBranch == 'master'):
     masterUT = utData
     masterRT = rtData_f
     masterUTsim = UT
-    masterDST = DPSDst
+    masterDST = BSDst
     masterCPCPn = nCPCP
     masterCPCPs = sCPCP
+    masterGitHash = gitHash
 elif(gBranch == 'development'):
     devpriorUT = devcurrentUT
     devpriorRT = devcurrentRT
@@ -229,12 +248,14 @@ elif(gBranch == 'development'):
     devpriorDST = devcurrentDST
     devpriorCPCPn = devcurrentCPCPn
     devpriorCPCPs = devcurrentCPCPs
+    devpriorGitHash = devcurrentGitHash
     devcurrentUT = utData
     devcurrentRT = rtData_f
     devcurrentUTsim = UT
-    devcurrentDST = DPSDst
+    devcurrentDST = BSDst
     devcurrentCPCPn = nCPCP
     devcurrentCPCPs = sCPCP
+    devcurrentGitHash = gitHash
 
 # Convert date strings into date-time objects
 if masterUT is not None:
@@ -254,11 +275,11 @@ gs = mpl.gridspec.GridSpec(1,1,hspace=0.05,wspace=0.05)
 ax=fig.add_subplot(gs[0,0])
 
 if masterRT is not None:
-    ax.plot(masterUTdt,masterRT,label="master",linewidth=LW)
+    ax.plot(masterUTdt,masterRT,label="master ("+masterGitHash+")",linewidth=LW)
 if devpriorRT is not None:
-    ax.plot(devpriorUTdt,devpriorRT,label="dev prior",linewidth=LW)
+    ax.plot(devpriorUTdt,devpriorRT,label="dev prior ("+devpriorGitHash+")",linewidth=LW)
 if devcurrentRT is not None:
-    ax.plot(devcurrentUTdt,devcurrentRT,label="dev current",linewidth=LW)
+    ax.plot(devcurrentUTdt,devcurrentRT,label="dev current ("+devcurrentGitHash+")",linewidth=LW)
 
 ax.legend(loc='lower right',fontsize="small")
 
@@ -286,11 +307,11 @@ ax=fig.add_subplot(gs[0,0])
 
 ax.plot(ut_datetime,symh,label="SYM-H",linewidth=2*LW)
 if masterDST is not None:
-    ax.plot(masterUTsimdt,masterDST,label="master",linewidth=LW)
+    ax.plot(masterUTsimdt,masterDST,label="master ("+masterGitHash+")",linewidth=LW)
 if devpriorDST is not None:
-    ax.plot(devpriorUTsimdt,devpriorDST,label="dev prior",linewidth=LW)
+    ax.plot(devpriorUTsimdt,devpriorDST,label="dev prior ("+devpriorGitHash+")",linewidth=LW)
 if devcurrentDST is not None:
-    ax.plot(devcurrentUTsimdt,devcurrentDST,label="dev current",linewidth=LW)
+    ax.plot(devcurrentUTsimdt,devcurrentDST,label="dev current ("+devcurrentGitHash+")",linewidth=LW)
 
 ax.legend(loc='upper right',fontsize="small")
 
@@ -316,21 +337,21 @@ gs = mpl.gridspec.GridSpec(1,1,hspace=0.05,wspace=0.05)
 ax=fig.add_subplot(gs[0,0])
 
 if masterCPCPn is not None:
-    ax.plot(masterUTsimdt,masterCPCPn,label="master-North",linewidth=LW)
-    ax.plot(masterUTsimdt,masterCPCPs,label="master-South",linewidth=LW)
+    ax.plot(masterUTsimdt,masterCPCPn,color='orange',linestyle='dotted',label="master-N ("+masterGitHash+")",linewidth=LW)
+    ax.plot(masterUTsimdt,masterCPCPs,color='blue',linestyle='dotted',label="master-S ("+masterGitHash+")",linewidth=LW)
 if devpriorCPCPn is not None:
-    ax.plot(devpriorUTsimdt,devpriorCPCPn,label="dev prior-North",linewidth=LW)
-    ax.plot(devpriorUTsimdt,devpriorCPCPs,label="dev prior-South",linewidth=LW)
+    ax.plot(devpriorUTsimdt,devpriorCPCPn,color='orange',linestyle='dashed',label="dev prior-N ("+devpriorGitHash+")",linewidth=LW)
+    ax.plot(devpriorUTsimdt,devpriorCPCPs,color='blue',linestyle='dashed',label="dev prior-S ("+devpriorGitHash+")",linewidth=LW)
 if devcurrentCPCPn is not None:
-    ax.plot(devcurrentUTsimdt,devcurrentCPCPn,label="dev current-North",linewidth=LW)
-    ax.plot(devcurrentUTsimdt,devcurrentCPCPs,label="dev current-South",linewidth=LW)
+    ax.plot(devcurrentUTsimdt,devcurrentCPCPn,color='orange',linestyle='solid',label="dev current-N ("+devcurrentGitHash+")",linewidth=LW)
+    ax.plot(devcurrentUTsimdt,devcurrentCPCPs,color='blue',linestyle='solid',label="dev current-S ("+devcurrentGitHash+")",linewidth=LW)
 
 ax.legend(loc='upper right',fontsize="small")
 
 ax.minorticks_on()
 ax.xaxis_date()
 xfmt = mpl.dates.DateFormatter('%H:%M \n%Y-%m-%d')
-ax.set_ylabel("Dst [nT]")
+ax.set_ylabel("CPCP [kV]")
 ax.xaxis.set_major_formatter(xfmt)
 ax.xaxis.set_minor_locator(mpl.dates.HourLocator())
 # mpl.pyplot.grid(True)
@@ -351,6 +372,7 @@ with h5py.File('previousData.h5', 'w') as data_object:
         data_object.create_dataset('masterDST',   data=masterDST)
         data_object.create_dataset('masterCPCPn', data=masterCPCPn)
         data_object.create_dataset('masterCPCPs', data=masterCPCPs)
+        data_object.create_dataset('masterGitHash', data=masterGitHash.encode('utf-8'))
     if devpriorUT is not None:
         data_object.create_dataset('devpriorUT',    data=[x.encode('utf-8') for x in devpriorUT])
         data_object.create_dataset('devpriorRT',    data=devpriorRT)
@@ -358,6 +380,7 @@ with h5py.File('previousData.h5', 'w') as data_object:
         data_object.create_dataset('devpriorDST',   data=devpriorDST)
         data_object.create_dataset('devpriorCPCPn', data=devpriorCPCPn)
         data_object.create_dataset('devpriorCPCPs', data=devpriorCPCPs)
+        data_object.create_dataset('devpriorGitHash', data=devpriorGitHash.encode('utf-8'))
     if devcurrentUT is not None:
         data_object.create_dataset('devcurrentUT',    data=[x.encode('utf-8') for x in devcurrentUT])
         data_object.create_dataset('devcurrentRT',    data=devcurrentRT)
@@ -365,6 +388,8 @@ with h5py.File('previousData.h5', 'w') as data_object:
         data_object.create_dataset('devcurrentDST',   data=devcurrentDST)
         data_object.create_dataset('devcurrentCPCPn', data=devcurrentCPCPn)
         data_object.create_dataset('devcurrentCPCPs', data=devcurrentCPCPs)
+        data_object.create_dataset('devcurrentGitHash', data=devcurrentGitHash.encode('utf-8'))
+
 
 # If I'm on development, copy latest quick look plots over old ones
 if(gBranch == "development"):
@@ -390,18 +415,18 @@ os.chdir(wikiPath)
 os.chdir("weeklyDash")
 
 # Combine quick looks into larger images
-subprocess.call("convert master_qk_msph.png -gravity NorthWest -pointsize 60 -annotate +0+0 'master' mm.png", shell=True)
-subprocess.call("convert master_qk_mix.png  -gravity NorthWest -pointsize 80 -annotate +0+0 'master' mx.png", shell=True)
-subprocess.call("convert master_qk_rcm.png  -gravity NorthWest -pointsize 80 -annotate +0+0 'master' mr.png", shell=True)
-subprocess.call("convert development_qk_msph_old.png -gravity NorthWest -pointsize 60 -annotate +0+0 'development prior' dmo.png", shell=True)
-subprocess.call("convert development_qk_mix_old.png  -gravity NorthWest -pointsize 80 -annotate +0+0 'development prior' dxo.png", shell=True)
-subprocess.call("convert development_qk_rcm_old.png  -gravity NorthWest -pointsize 80 -annotate +0+0 'development prior' dro.png", shell=True)
-subprocess.call("convert development_qk_msph.png -gravity NorthWest -pointsize 60 -annotate +0+0 'development latest' dm.png", shell=True)
-subprocess.call("convert development_qk_mix.png  -gravity NorthWest -pointsize 80 -annotate +0+0 'development latest' dx.png", shell=True)
-subprocess.call("convert development_qk_rcm.png  -gravity NorthWest -pointsize 80 -annotate +0+0 'development latest' dr.png", shell=True)
-subprocess.call('convert mm.png dmo.png dm.png +append combined_qk_msph.png', shell=True)
-subprocess.call('convert mx.png dxo.png dx.png +append combined_qk_mix.png',  shell=True)
-subprocess.call('convert mr.png dro.png dr.png +append combined_qk_rcm.png',  shell=True)
+subprocess.call("convert master_qk_msph.png -gravity NorthWest -pointsize 60 -annotate +0+0 'master ("+masterGitHash+")' mm.png", shell=True)
+subprocess.call("convert master_qk_mix.png  -gravity NorthWest -pointsize 80 -annotate +0+0 'master ("+masterGitHash+")' mx.png", shell=True)
+subprocess.call("convert master_qk_rcm.png  -gravity NorthWest -pointsize 80 -annotate +0+0 'master ("+masterGitHash+")' mr.png", shell=True)
+subprocess.call("convert development_qk_msph_old.png -gravity NorthWest -pointsize 60 -annotate +0+0 'dev prior ("+devpriorGitHash+")' dmo.png", shell=True)
+subprocess.call("convert development_qk_mix_old.png  -gravity NorthWest -pointsize 80 -annotate +0+0 'dev prior ("+devpriorGitHash+")' dxo.png", shell=True)
+subprocess.call("convert development_qk_rcm_old.png  -gravity NorthWest -pointsize 80 -annotate +0+0 'dev prior ("+devpriorGitHash+")' dro.png", shell=True)
+subprocess.call("convert development_qk_msph.png -gravity NorthWest -pointsize 60 -annotate +0+0 'dev current ("+devcurrentGitHash+")' dm.png", shell=True)
+subprocess.call("convert development_qk_mix.png  -gravity NorthWest -pointsize 80 -annotate +0+0 'dev current ("+devcurrentGitHash+")' dx.png", shell=True)
+subprocess.call("convert development_qk_rcm.png  -gravity NorthWest -pointsize 80 -annotate +0+0 'dev current ("+devcurrentGitHash+")' dr.png", shell=True)
+subprocess.call('convert mm.png dmo.png dm.png -append combined_qk_msph.png', shell=True)
+subprocess.call('convert mx.png dxo.png dx.png -append combined_qk_mix.png',  shell=True)
+subprocess.call('convert mr.png dro.png dr.png -append combined_qk_rcm.png',  shell=True)
 if(os.path.exists("mm.png")) : os.remove("mm.png")
 if(os.path.exists("mx.png")) : os.remove("mx.png")
 if(os.path.exists("mr.png")) : os.remove("mr.png")
@@ -426,84 +451,104 @@ if(not isTest and beLoud):
     try:
         response = client.chat_postMessage(
             channel="#kaijudev",
-            text="Weekly simulation complete on branch " + gBranch + ". Updated results follow."
+            text="Weekly results complete on branch " + gBranch + ", run on host " + shortHost + ". Latest comparative results attached as replies to this message.\nOr up-to-date results can be viewed on the wiki at https://bitbucket.org/aplkaiju/kaiju/wiki/weeklyDash/dashStatus"
         )
     except SlackApiError as e:
        # You will get a SlackApiError if "ok" is False
        assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
 
-    try:
-        response = client.files_upload(
-            file='perfPlots.png',
-            initial_comment='Real-Time Performance\n\n',
-            channels="#kaijudev",
+    if response["ok"]:
+        parent_ts = response["ts"]
+        try:
+            response = client.chat_postMessage(
+                channel="#kaijudev",
+                text="This was a 4x4x1 (IxJxK) decomposed Quad Resolution Run using 8 nodes for Gamera, 1 for Voltron, and 3 Squish Helper nodes (12 nodes total)",
+                thread_ts=parent_ts,
             )
-        assert response['ok']
-        slack_file = response['file']
-    except SlackApiError as e:
-        # You will get a SlackApiError if "ok" is False
-        assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
-
-    try:
-        response = client.files_upload(
-            file='dstPlots.png',
-            initial_comment='DST Plots\n\n',
-            channels="#kaijudev",
-            )
-        assert response['ok']
-        slack_file = response['file']
-    except SlackApiError as e:
-        # You will get a SlackApiError if "ok" is False
-        assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
-
-    try:
-        response = client.files_upload(
-            file='cpcpPlots.png',
-            initial_comment='CPCP Plots\n\n',
-            channels="#kaijudev",
-            )
-        assert response['ok']
-        slack_file = response['file']
-    except SlackApiError as e:
-        # You will get a SlackApiError if "ok" is False
-        assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
+        except SlackApiError as e:
+            # You will get a SlackApiError if "ok" is False
+            assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
     
+        try:
+            response = client.files_upload(
+                file='perfPlots.png',
+                initial_comment='Real-Time Performance\n\n',
+                channels="#kaijudev",
+                thread_ts=parent_ts,
+                )
+            assert response['ok']
+            slack_file = response['file']
+        except SlackApiError as e:
+            # You will get a SlackApiError if "ok" is False
+            assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
     
-    try:
-        response = client.files_upload(
-            file='combined_qk_msph.png',
-            initial_comment='Quick-Looks Magnetosphere\n\n',
-            channels="#kaijudev",
-            )
-        assert response['ok']
-        slack_file = response['file']
-    except SlackApiError as e:
-        # You will get a SlackApiError if "ok" is False
-        assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
-
-    try:
-        response = client.files_upload(
-            file='combined_qk_mix.png',
-            initial_comment='Quick-Looks Remix\n\n',
-            channels="#kaijudev",
-            )
-        assert response['ok']
-        slack_file = response['file']
-    except SlackApiError as e:
-        # You will get a SlackApiError if "ok" is False
-        assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
-
-    try:
-        response = client.files_upload(
-            file='combined_qk_rcm.png',
-            initial_comment='Quick-Looks RCM\n\n',
-            channels="#kaijudev",
-            )
-        assert response['ok']
-        slack_file = response['file']
-    except SlackApiError as e:
-        # You will get a SlackApiError if "ok" is False
-        assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
+        try:
+            response = client.files_upload(
+                file='dstPlots.png',
+                initial_comment='DST Plots\n\n',
+                channels="#kaijudev",
+                thread_ts=parent_ts,
+                )
+            assert response['ok']
+            slack_file = response['file']
+        except SlackApiError as e:
+            # You will get a SlackApiError if "ok" is False
+            assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
+    
+        try:
+            response = client.files_upload(
+                file='cpcpPlots.png',
+                initial_comment='CPCP Plots\n\n',
+                channels="#kaijudev",
+                thread_ts=parent_ts,
+                )
+            assert response['ok']
+            slack_file = response['file']
+        except SlackApiError as e:
+            # You will get a SlackApiError if "ok" is False
+            assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
+        
+        
+        try:
+            response = client.files_upload(
+                file='combined_qk_msph.png',
+                initial_comment='Quick-Looks Magnetosphere\n\n',
+                channels="#kaijudev",
+                thread_ts=parent_ts,
+                )
+            assert response['ok']
+            slack_file = response['file']
+        except SlackApiError as e:
+            # You will get a SlackApiError if "ok" is False
+            assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
+    
+        try:
+            response = client.files_upload(
+                file='combined_qk_mix.png',
+                initial_comment='Quick-Looks Remix\n\n',
+                channels="#kaijudev",
+                thread_ts=parent_ts,
+                )
+            assert response['ok']
+            slack_file = response['file']
+        except SlackApiError as e:
+            # You will get a SlackApiError if "ok" is False
+            assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
+    
+        try:
+            response = client.files_upload(
+                file='combined_qk_rcm.png',
+                initial_comment='Quick-Looks RCM\n\n',
+                channels="#kaijudev",
+                thread_ts=parent_ts,
+                )
+            assert response['ok']
+            slack_file = response['file']
+        except SlackApiError as e:
+            # You will get a SlackApiError if "ok" is False
+            assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
+    else:
+        print("Failed to post parent message to slack, could not attach replies either.")
 
 else:
     print("weekly run completed successfully on branch " + gBranch)
