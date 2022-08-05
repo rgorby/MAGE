@@ -46,17 +46,14 @@ module usergamic
     real(rp) :: Rbc = 21.5
 
     real(rp) :: Tsolar ! Solar rotation period, defined in apps/helioutils.F90
-    !DeltaT sets a rotation of the wsa map at simulation time t=0 
-    !DeltaT=0 then the map joint is at +X at t=0
+
+    !DeltaT sets a rotation of the wsa map relative to +X at simulation time t=0 
+    !DeltaT = 0 then the map joint is at +X at t=0
     !DeltaT = Tsolar/2 then the map joint is at -X at t=0 (facing Earth)
     real(rp) :: DeltaT 
-    real(rp) :: tSpinNorm    
 
     character(len=strLen) :: wsaFile
  
-    !Necessary for IO routines
-    !character(len=strLen) ,public:: GamH5File
-
     ! use this to fix the Efield at the inner boundary
 !    real(rp), allocatable :: inEijk(:,:,:,:)
 
@@ -90,20 +87,17 @@ module usergamic
         integer :: n1, n2
         integer :: kg, ke, kb, jg
         real(rp) :: a
+        real(rp) :: Tsolar_synodic
 
         real(rp) :: ibcVarsStatic !For br only
-
-        character(len=strLen) :: vID
-        logical :: isExist
 
 !        if (.not.allocated(inEijk)) allocate(inEijk(1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1,1:NDIM))
 
         ! set units and other thins, like Tsolar
-        call setHeliosphere(Model,inpXML,Tsolar,tSpinNorm)
+        call setHeliosphere(Model,inpXML,Tsolar)
 
         ! grab inner 
         call inpXML%Set_Val(wsaFile,"prob/wsaFile","innerbc.h5" )
-
 
         ! compute global Nkp
         gNkp = Grid%Nkp*Grid%NumRk
@@ -118,7 +112,7 @@ module usergamic
         Rho0  = 1.0    ! 200/cc
         P0    = 1.0e-4*Rho0*Cs0**2.0/Model%gamma
 
-        !TO DO Elena: Move to config
+        !TO DO Elena: Move to wsa.xml
         DeltaT = Tsolar/2.
 
 
@@ -155,7 +149,7 @@ module usergamic
 !        tsHack => PerStep
 !        Model%HackStep => tsHack
    
-        
+         !Write MJD_center_of_WSA_map to the root of H5 output 
          Model%HackIO_0 => writeMJDcH5Root
 
         ! everybody reads WSA data
@@ -163,9 +157,10 @@ module usergamic
 
         !MJD0 is MJD_center_of_WSA_map - Tsolar_synodic/2; Tsolar_synodic = 27.28
         ![EP] TO DO: add synodic Tsolar to constants
-        Model%MJD0 = MJD_c - 27.28/2.
+        Tsolar_synodic = 27.28
+        Model%MJD0 = MJD_c - Tsolar_synodic/2.
 
-        ! if not restart set State%time according the tSpin
+        !if not restart set State%time according the tSpin
         State%time  = Model%t
 
         !Map IC to grid
@@ -270,8 +265,6 @@ module usergamic
       real(rp) :: R, Theta, Phi
       real(rp) :: Theta_kf, R_kf ! kface
       real(rp), dimension(NVAR) :: conVar, pVar
-
-      write(*,*) 'State%time = ',State%time
 
       !i-boundaries (IN)
       !$OMP PARALLEL DO default(shared) &
@@ -438,13 +431,10 @@ module usergamic
     end subroutine readIBC
 
       subroutine writeMJDcH5Root(Model,Grid,IOVars)
-            
             type(Model_T), intent(in)    :: Model
             type(Grid_T) , intent(in)    :: Grid
             type(IOVAR_T), dimension(:), intent(inout) :: IOVars
 
-            !Just do some stuff where you add out vars until you're done
-            write(*,*) "[EP] MJDc ", MJD_c
             call AddOutVar(IOVars,"MJDc", MJD_c)
 
       end subroutine writeMJDcH5Root
