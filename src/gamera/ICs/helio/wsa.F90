@@ -129,6 +129,9 @@ module usergamic
 !        Model%HackE => eHack
 !        tsHack => PerStep
 !        Model%HackStep => tsHack
+   
+         !EK:
+         Model%HackIO_0 => someroutineelenawillwrite
 
         ! everybody reads WSA data
         call readIBC(wsaFile)
@@ -366,4 +369,17 @@ module usergamic
          MJD_c = GetIOReal(IOVars,"MJD")
    
     end subroutine readIBC
+
+      !EK:
+      subroutine elenasioinitroutine(Model,Grid,IOVars)
+            
+            type(Model_T), intent(in)    :: Model
+            type(Grid_T) , intent(in)    :: Grid
+            type(IOVAR_T), dimension(:), intent(inout) :: IOVars
+
+            !Just do some stuff where you add out vars until you're done
+            call AddOutVar(IOVars,"tScl"   ,Model%gamOut%tScl)
+
+        end subroutine elenasioinitroutine
+
 end module usergamic
