@@ -9,13 +9,8 @@ module usergamic
     use bcs
     use ioH5
     use helioutils
-    use dates
-    use files
 
     implicit none
-
-    integer, parameter, private :: MAXIOVAR = 50
-    type(IOVAR_T), dimension(MAXIOVAR), private :: IOVars
 
     enum, bind(C)
        ! variables passed via innerbc file
@@ -69,8 +64,6 @@ module usergamic
           ! TODO: this shoudl be made generic (wsa, mas, etc.) How
         procedure :: doBC => wsaBC
     end type SWInnerBC_T
-
-    
 
     contains
 
