@@ -60,7 +60,7 @@ bi_wsa /= B0
 n_wsa  /= (mp*n0)
 v_wsa /= V0
 #convert julian date in the center of the WSA map into modified julian date
-mjd_c = jd_c - 2400000.5
+mjd_c = jd_c - JD2MJD
 
 
 # Get GAMERA grid for further interpolation

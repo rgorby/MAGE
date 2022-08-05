@@ -73,6 +73,8 @@ module usergamic
         procedure :: doBC => wsaBC
     end type SWInnerBC_T
 
+    
+
     contains
 
     subroutine initUser(Model,Grid,State,inpXML)
@@ -153,8 +155,8 @@ module usergamic
 !        tsHack => PerStep
 !        Model%HackStep => tsHack
    
-         !EK:
-         Model%HackIO_0 => someroutineelenawillwrite
+        
+         Model%HackIO_0 => writeMJDcH5Root
 
         ! everybody reads WSA data
         call readIBC(wsaFile)
@@ -162,18 +164,6 @@ module usergamic
         !MJD0 is MJD_center_of_WSA_map - Tsolar_synodic/2; Tsolar_synodic = 27.28
         ![EP] TO DO: add synodic Tsolar to constants
         Model%MJD0 = MJD_c - 27.28/2.
-
-        !Test if root variables (grid/force info is already there)
-        vID = "MJDc" !Value to test for
-        isExist = ioExist(GamH5File,vID)
-        write (*,*) "[EP] isExist = ", isExist
-
-        if (.not.isExist) then
-            call ClearIO(IOVars)
-            call AddOutVar(IOVars,"MJDc"   ,MJD_c)
-            write (*,*) " [EP] GamH5File = ", GamH5File
-            call WriteVars(IOVars,.true.,GamH5File)
-        endif
 
         ! if not restart set State%time according the tSpin
         State%time  = Model%t
@@ -447,16 +437,16 @@ module usergamic
    
     end subroutine readIBC
 
-      !EK:
-      subroutine elenasioinitroutine(Model,Grid,IOVars)
+      subroutine writeMJDcH5Root(Model,Grid,IOVars)
             
             type(Model_T), intent(in)    :: Model
             type(Grid_T) , intent(in)    :: Grid
             type(IOVAR_T), dimension(:), intent(inout) :: IOVars
 
             !Just do some stuff where you add out vars until you're done
-            call AddOutVar(IOVars,"tScl"   ,Model%gamOut%tScl)
+            write(*,*) "[EP] MJDc ", MJD_c
+            call AddOutVar(IOVars,"MJDc", MJD_c)
 
-        end subroutine elenasioinitroutine
+      end subroutine writeMJDcH5Root
 
 end module usergamic
