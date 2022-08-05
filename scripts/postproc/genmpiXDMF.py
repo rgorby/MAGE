@@ -5,6 +5,7 @@ import argparse
 from argparse import RawTextHelpFormatter
 import numpy as np
 import kaipy.gamera.gampp as gampp
+import kaipy.kaixdmf as kxmf
 import xml.etree.ElementTree as et
 import xml.dom.minidom
 import kaipy.kaiH5 as kh5
@@ -57,9 +58,6 @@ if __name__ == "__main__":
 	topoStr = "3DSMesh"
 	geoStr = "X_Y_Z"	
 
-	vIDs = ["D","Vx","Vy","Vz","P","Bx","By","Bz","Jx","Jy","Jz"]	
-
-	Nv = len(vIDs)
 	#for n in range(gamData.s0,gamData.sFin+1,sStride):
 	for n in gamData.sids:
 		if (n-gamData.s0)%sStride != 0: continue
@@ -92,6 +90,15 @@ if __name__ == "__main__":
 				for k in range(Rk):
 					nMPI = j + i*Rj + k*Ri*Rj
 					h5F = kh5.genName(ftag,i,j,k,Ri,Rj,Rk)
+
+					#Get variable info
+					gDims = np.array([gamData.dNk+1,gamData.dNj+1,gamData.dNi+1])
+					vDims = np.array([gamData.dNk,gamData.dNj,gamData.dNi])
+					vDimStr = ' '.join([str(v) for v in vDims])
+					if nMPI == 0 and tOut == 0:  # Only do this the first time
+						vIds ,vLocs  = kxmf.getVars(h5F,n,gDims)
+						rvIds,rvLocs = kxmf.getRootVars(h5F,gDims)
+						Nv = len(vIds)
 
 					#Create new subgrid
 					gName = "gMesh%d"%(nMPI)
@@ -131,6 +138,7 @@ if __name__ == "__main__":
 					zC.text = "%s:/Z"%(h5F)
 
 					#Create variables
+					"""
 					for v in range(Nv):
 						vID = vIDs[v]
 						vAtt = et.SubElement(Grid,"Attribute")
@@ -143,6 +151,9 @@ if __name__ == "__main__":
 						aDI.set("Precision","4")
 						aDI.set("Format","HDF")
 						aDI.text = "%s:/Step#%d/%s"%(h5F,n,vID)
+					"""
+					for v in range(Nv):
+						kxmf.AddData(Grid,h5F,vIds[v],vLocs[v],vDimStr,n)
 
 		#Write output
 		fOut = "%s/%s.%06d.xmf"%(fdir,outid,tOut)

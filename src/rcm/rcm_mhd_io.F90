@@ -304,7 +304,6 @@ module rcm_mhd_io
 
         write (ResF, '(A,A,I0.5,A)') trim(RCMApp%rcm_runid), ".mhd2imag.Res.", nRes, ".h5"
         call CheckAndKill(ResF)
-        call StampIO(ResF)
         call ClearIO(IOVars)
 
         !Main attributes
@@ -455,7 +454,9 @@ module rcm_mhd_io
         !3D
         call IOArray3DFill(IOVars,"eng_avg"     ,RCMApp%eng_avg     )    
         call IOArray3DFill(IOVars,"flux"        ,RCMApp%flux        )  
-        call IOArray3DFill(IOVars,"nflx"        ,RCMApp%nflx        )  ! uncomment when res tests are done.
+        if(ioExist(ResF,"nflx")) then
+            call IOArray3DFill(IOVars,"nflx"        ,RCMApp%nflx        )
+        endif
         call IOArray3DFill(IOVars,"X_bmin"      ,RCMApp%X_bmin      )
 
         !Weird data

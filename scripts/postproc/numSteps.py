@@ -44,5 +44,7 @@ if __name__ == "__main__":
 			print("\t\tStop : %s"%(tS2))
 
 		hStr = kh5.GetHash(h5F)
-		print("\tGit Hash = %s"%(hStr))
+		bStr = kh5.GetBranch(h5F)
+
+		print("\tGit: Hash = %s / Branch = %s"%(hStr,bStr))
 	#---------------------

@@ -27,7 +27,7 @@ MODULE rice_housekeeping_module
   use kronos
   use strings
   use earthhelper, ONLY : SetKp0
-  use rcmdefs, ONLY : DenPP0, ELOSS_FDG, ELOSS_SS, ELOSS_C05, ELOSS_C19
+  use rcmdefs, ONLY : DenPP0, ELOSS_FDG, ELOSS_SS, ELOSS_C05, ELOSS_C19, ELOSS_DW
   
   IMPLICIT NONE
   
@@ -76,6 +76,14 @@ MODULE rice_housekeeping_module
       logical  :: isDynamic=.true. !Whether to update parameters  
   end type RCMEllipse_T
 
+  type EWMTauIn_T !electron lifetime wave model input
+      logical :: useWM = .false.
+      integer(iprec) :: Nm=24, Nl=20, Nk=7 ,Ne=100
+      real(rprec), ALLOCATABLE :: MLTi(:), Li(:), Kpi(:), Eki(:)
+      real(rprec), ALLOCATABLE :: tau1i(:,:,:,:), tau2i(:,:,:,:)
+  end type EWMTauIn_T 
+
+  type(EWMTauIn_T) :: EWMTauInput
   type(RCMEllipse_T) :: ellBdry
   type(TimeSeries_T), private :: KpTS
 
@@ -139,6 +147,8 @@ MODULE rice_housekeeping_module
               ELOSSMETHOD = ELOSS_C05
            case ("C19")
               ELOSSMETHOD = ELOSS_C19
+           case ("DW")
+              ELOSSMETHOD = ELOSS_DW
            case default
               stop "The electron loss type entered is not supported (Available options: FDG, SS, C05, C19)."
         end select
@@ -192,7 +202,7 @@ MODULE rice_housekeeping_module
           KpMax = max(KpMax,KpTS%evalAt(t))
         enddo
         NowKp = nint(KpMax) !Cast to integer
-
+      
       end subroutine UpdateRCMIndices
 
 END MODULE rice_housekeeping_module
