@@ -31,10 +31,11 @@ module helioutils
 
     contains
 
-      subroutine setHeliosphere(Model,inpXML,Tsolar)
+      subroutine setHeliosphere(Model,inpXML,Tsolar,tSpinNorm)
         type(Model_T), intent(inout) :: Model
         type(XML_Input_T), intent(in) :: inpXML
         real(rp),intent(out) :: Tsolar ! Solar rotation period
+        real(rp),intent(out) :: tSpinNorm
 
         type(IOClock_T) :: clockScl
         real(rp) :: tSpin, tIO
@@ -57,19 +58,22 @@ module helioutils
         ! Use gamma=1.5 for SW calculations (set in xml, but defaults to 1.5 here)
         call inpXML%Set_Val(Model%gamma,"physics/gamma",1.5_rp)
         call inpXML%Set_Val(Tsolar,"prob/Tsolar",25.38_rp)    ! in days
-       
-        !Check for spinup info
+      
+        if (.not. Model%isRestart) then    
+            !Check for spinup info
         call inpXML%Set_Val(doSpin,"spinup/doSpin",.true.)
-        if (doSpin) then
-           call inpXML%Set_Val(tSpin,"spinup/tSpin",150.0_rp)
-           !Rewind Gamera time to negative tSpin (seconds). tSpin is set in [hr] in xml
-           Model%t = -tSpin*3600./gT0 
-           !State%time  = Model%t
-           !oState%time  = Model%t-Model%dt
-           call inpXML%Set_Val(tIO,"spinup/tIO",0.0) !Time of first restart and output
-           Model%IO%tRes = tIO/gT0
-           Model%IO%tOut = tIO/gT0
-        endif
+            if (doSpin) then
+                call inpXML%Set_Val(tSpin,"spinup/tSpin",200.0_rp)
+                tSpinNorm = tSpin*3600./gT0
+                !Rewind Gamera time to negative tSpin. tSpin is set in [hr] in xml
+                if (.not. Model%isRestart) then
+                    Model%t = -tSpinNorm
+                    call inpXML%Set_Val(tIO,"spinup/tIO",0.0_rp) !Time of first restart and output
+                    Model%IO%tRes = tIO
+                    Model%IO%tOut = tIO
+                endif
+            endif
+         endif
 
         ! convert Tsolar to code units
         Tsolar = Tsolar*24.*3600./gt0

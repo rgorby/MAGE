@@ -228,9 +228,9 @@ class GamsphPipe(GameraPipe):
 		Q = self.GetVar(vID,sID,vScl,doVerb)
 
 		#cell centered values from the last cell
-		Qi = Q[-1,:,:]
+		#Qi = Q[-1,:,:]
                 #cell centered values from the first cell
-		#Qi = Q[0,:,:]
+		Qi = Q[0,:,:]
 		#jd_c = self.MJDs[sID]
 		#print ('jd_c = ', jd_c)
 		return Qi
