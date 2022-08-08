@@ -341,7 +341,7 @@ def getJScl(Bmag,Beq,en=2.0):
     return It
 
 def genSCXML(fdir,ftag,
-    scid="sctrack_A",h5traj="sctrack_A.h5",numSegments=1):
+    scid="sctrack_A",h5traj="sctrack_A.h5",numSegments=1,doTrc=False):
 
     (fname,isMPI,Ri,Rj,Rk) = kaiTools.getRunInfo(fdir,ftag)
     root = minidom.Document()
@@ -371,6 +371,10 @@ def genSCXML(fdir,ftag,
     trajChild.setAttribute("H5Traj",h5traj)
     trajChild.setAttribute("doSmooth","F")
     chimpChild.appendChild(trajChild)
+    if doTrc:
+        outChild = root.createElement('output')
+        outChild.setAttribute('doTrc', "T")
+        chimpChild.appendChild(outChild)
     if numSegments > 1:
         parInTimeChild = root.createElement("parintime")
         parInTimeChild.setAttribute("NumB","%d"%numSegments)
@@ -380,7 +384,7 @@ def genSCXML(fdir,ftag,
 
 
 def genHelioSCXML(fdir,ftag,
-    scid,h5traj, Rin, Rout,numSegments=1):
+    scid,h5traj, Rin, Rout,numSegments=1,doTrc=False):
     """Generate XML input file for heliosphere spacecraft."""
 
     (fname,isMPI,Ri,Rj,Rk) = kaiTools.getRunInfo(fdir,ftag)
@@ -417,6 +421,10 @@ def genHelioSCXML(fdir,ftag,
     domain_child.setAttribute("rmin", "%s" % Rin)
     domain_child.setAttribute("rmax", "%s" % Rout)
     chimpChild.appendChild(domain_child)
+    if doTrc:
+        outChild = root.createElement('output')
+        outChild.setAttribute('doTrc', "T")
+        chimpChild.appendChild(outChild)
     # <parintime>
     # <HACK>
     parInTimeChild = root.createElement("parintime")
@@ -437,7 +445,7 @@ def convertGameraVec(x,y,z,ut,fromSys,fromType,toSys,toType):
     outvec = invec.convert(toSys,toType)
     return outvec
 
-def createInputFiles(data,scDic,scId,mjd0,sec0,fdir,ftag,numSegments):
+def createInputFiles(data,scDic,scId,mjd0,sec0,fdir,ftag,numSegments,doTrc):
     Re = 6380.0
     toRe = 1.0
     if 'UNITS' in data['Ephemeris'].attrs:
@@ -473,11 +481,11 @@ def createInputFiles(data,scDic,scId,mjd0,sec0,fdir,ftag,numSegments):
     # <HACK>
     if scId in ["ACE"]:
         chimpxml = genHelioSCXML(fdir,ftag,
-            scid=scId,h5traj=os.path.basename(scTrackName),numSegments=0)
+            scid=scId,h5traj=os.path.basename(scTrackName),numSegments=0,doTrc=doTrc)
     # </HACK>
     else:
         chimpxml = genSCXML(fdir,ftag,
-            scid=scId,h5traj=os.path.basename(scTrackName),numSegments=numSegments)
+            scid=scId,h5traj=os.path.basename(scTrackName),numSegments=numSegments,doTrc=doTrc)
     xmlFileName = os.path.join(fdir,scId+'.xml')
     with open(xmlFileName,"w") as f:
         f.write(chimpxml.toprettyxml())
