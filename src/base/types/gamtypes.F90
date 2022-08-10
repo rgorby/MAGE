@@ -3,6 +3,7 @@
 module gamtypes
     use gdefs
     use ioclock
+    use ioH5
 
     implicit none
     
@@ -125,10 +126,12 @@ module gamtypes
         procedure(ScalarFun_T), pointer, nopass :: Phi => NULL()
 
         !User hack function pointers
-        procedure(HackFlux_T)     , pointer, nopass :: HackFlux => NULL()
-        procedure(HackE_T)        , pointer, nopass :: HackE    => NULL()
-        procedure(HackStep_T)     , pointer, nopass :: HackStep => NULL()
+        procedure(HackFlux_T)     , pointer, nopass :: HackFlux      => NULL()
+        procedure(HackE_T)        , pointer, nopass :: HackE         => NULL()
+        procedure(HackStep_T)     , pointer, nopass :: HackStep      => NULL()
         procedure(HackPredictor_T), pointer, nopass :: HackPredictor => NULL()
+        procedure(HackIO_0_T)     , pointer, nopass :: HackIO_0      => NULL()
+        procedure(HackIO_T)       , pointer, nopass :: HackIO        => NULL()
 
     end type Model_T
 
@@ -380,6 +383,33 @@ module gamtypes
             type(State_T), intent(inout) :: State
 
         end subroutine HackPredictor_T
+    end interface
+
+    !HackIO_0_T
+    !User-defined function to be called when writing a new gamera h5 output
+    !Called after the standard gamera stuff is added to IOChain
+    abstract interface
+        subroutine HackIO_0_T(Model,Grid,IOVars)
+            Import :: Model_T, Grid_T, IOVAR_T
+            type(Model_T), intent(in)    :: Model
+            type(Grid_T) , intent(in)    :: Grid
+            type(IOVAR_T), dimension(:), intent(inout) :: IOVars
+
+        end subroutine HackIO_0_T
+    end interface
+
+    !HackIO_T
+    !User-defined function to be called when writing a new gamera h5 output slice
+    !Called after the standard gamera stuff is added to IOChain
+    abstract interface
+        subroutine HackIO_T(Model,Grid,State,IOVars)
+            Import :: Model_T, Grid_T, State_T, IOVAR_T
+            type(Model_T), intent(in)    :: Model
+            type(Grid_T) , intent(in)    :: Grid
+            type(State_T), intent(in)    :: State
+            type(IOVAR_T), dimension(:), intent(inout) :: IOVars
+
+        end subroutine HackIO_T
     end interface
 
     contains
