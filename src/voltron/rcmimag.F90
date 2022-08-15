@@ -344,15 +344,32 @@ module rcmimag
         else    
             vApp%imag2mix%inIMag = (RCMApp%iopen == RCMTOPCLOSED)
         endif
+
+        ! Pass RCM grid type info for remix conductance merge.
+        ! Gtype is integer and will be converted to numbers for interpolation in rcm_mix_interface.
+        where(RCMApp%iopen == RCMTOPCLOSED)
+            vApp%imag2mix%gtype = IMactive
+        elsewhere((.not. RCMApp%iopen == RCMTOPCLOSED) .and. (.not. RCMApp%iopen == RCMTOPOPEN))
+            vApp%imag2mix%gtype = IMbuffer
+        elsewhere
+            vApp%imag2mix%gtype = IMoutside
+        endwhere
+        
         vApp%imag2mix%latc = RCMApp%latc
         vApp%imag2mix%lonc = RCMApp%lonc
 
     ! electrons precipitation
+        vApp%imag2mix%enflx = RCMApp%nflx   (:,:,RCMELECTRON)
         vApp%imag2mix%eflux = RCMApp%flux   (:,:,RCMELECTRON)
         vApp%imag2mix%eavg  = RCMApp%eng_avg(:,:,RCMELECTRON)
     ! ion precipitation
+        vApp%imag2mix%inflx = RCMApp%nflx   (:,:,RCMPROTON)
         vApp%imag2mix%iflux = RCMApp%flux   (:,:,RCMPROTON)
         vApp%imag2mix%iavg  = RCMApp%eng_avg(:,:,RCMPROTON)
+
+    ! Pass RCM hot electron density and pressure to REMIX.
+        vApp%imag2mix%eden  = RCMApp%Nrcm
+        vApp%imag2mix%epre  = RCMApp%Percm
 
         vApp%imag2mix%isFresh = .true.
 

@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 
 
-"""Prepare the PBS script for a helio_serial job.
+"""Prepare the PBS script for a helio_mpi job.
 
-Perform the preprocessing required to run the serial voltron code on
-the helio_serial example. Create any required data files, and create
+Perform the preprocessing required to run the mpi gamera code on
+the helio_mpi example. Create any required data files, and create
 the PBS script to run the code.
 """
 
@@ -22,10 +22,10 @@ import subprocess
 # Program constants and defaults
 
 # Default identifier for model to run.
-default_runid = "helio_serial"
+default_runid = "helio_mpi"
 
 # Program description.
-description = "Prepare to run serial voltron on the %s test case." % default_runid
+description = "Prepare to run mpi gamera on the %s test case." % default_runid
 
 # Location of template .ini file.
 ini_template = os.path.join(
@@ -74,24 +74,16 @@ def create_command_line_parser():
         help="ID string of the run (default: %(default)s)"
     )
     parser.add_argument(
-        "--startdate", type=str, default="2016-08-09T09:00:00",
-        help="Specify the start date in ISO 8601 format (default: %(default)s)."
-    )
-    parser.add_argument(
-        "--stopdate", type=str, default="2016-08-09T10:00:00",
-        help="Specify the stop date in ISO 8601 format (default: %(default)s)."
-    )
-    parser.add_argument(
         "-v", "--verbose", action="store_true", default=False,
         help="Print verbose output (default: %(default)s)."
     )
     return parser
 
 
-def run_preprocessing_steps(directory, runid, startdate, stopdate):
-    """Run any preprocessing steps needed for the helio_serial run.
+def run_preprocessing_steps(directory, runid):
+    """Run any preprocessing steps needed for the helio_mpi run.
 
-    Run any required preprocessing steps to prepare for the helio_serial run.
+    Run any required preprocessing steps to prepare for the helio_mpi run.
 
     Parameters
     ----------
@@ -99,8 +91,6 @@ def run_preprocessing_steps(directory, runid, startdate, stopdate):
         Path to directory to receive preprocessing results.
     runid : str
         ID string for the model to run.
-    startdate, stopdate : str
-        Start and stop date & time for run in ISO 8601 format.
 
     Returns
     -------
@@ -112,20 +102,14 @@ def run_preprocessing_steps(directory, runid, startdate, stopdate):
     # Move to the output directory.
     os.chdir(directory)
 
-    # Create the grid file.
-    # cmd = "genLFM.py"
-    # args = ["-gid", "D"]
-    # subprocess.run([cmd] + args)
-
-    # Create the solar wind file.
-    # cmd = "omni2wind.py"
-    # args = ["-t0", startdate, "-t1", stopdate, "-interp"]
-    # subprocess.run([cmd] + args)
-
-    # Create the RCM configuration file.
-    # cmd = "genRCM.py"
-    # args = []
-    # subprocess.run([cmd] + args)
+    # Create the grid and inner boundary conditions files.
+    cmd = "wsa2gamera.py"
+    ini_path = os.path.join(
+        os.environ["KAIJUHOME"], "kaipy", "gamhelio", "ConfigScripts",
+        "startup.config"
+    )
+    args = [ini_path]
+    subprocess.run([cmd] + args)
 
     # Move back to the originaldirectory.
     os.chdir(original_directory)
@@ -134,7 +118,7 @@ def run_preprocessing_steps(directory, runid, startdate, stopdate):
 def create_ini_file(directory, runid):
     """Create the .ini file from a template.
 
-    Create the .ini file describing the helio_serial model run.
+    Create the .ini file describing the helio_mpi model run.
 
     For now, we simply make a copy of the .ini template.
 
@@ -148,7 +132,7 @@ def create_ini_file(directory, runid):
     Returns
     -------
     ini_file : str
-        Path to the .ini file for the helio_serial model run.
+        Path to the .ini file for the helio_mpi model run.
     """
     # Just use the template for now.
     with open(ini_template) as t:
@@ -163,7 +147,7 @@ def create_ini_file(directory, runid):
 def convert_ini_to_xml(ini_file, xml_file):
     """Convert the .ini file to XML.
     
-    Convert the .ini file describing the helio_serial run to the corresponding
+    Convert the .ini file describing the helio_mpi run to the corresponding
     XML file.
 
     Parameters
@@ -226,14 +210,12 @@ if __name__ == "__main__":
     debug = args.debug
     directory = args.directory
     runid = args.runid
-    startdate = args.startdate
-    stopdate = args.stopdate
     verbose = args.verbose
 
     # Run the preprocessing steps.
     if verbose:
         print("Running preprocessing steps.")
-    run_preprocessing_steps(directory, runid, startdate, stopdate)
+    run_preprocessing_steps(directory, runid)
 
     # Create the .ini file.
     if verbose:

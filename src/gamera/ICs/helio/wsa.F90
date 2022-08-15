@@ -9,7 +9,6 @@ module usergamic
     use bcs
     use ioH5
     use helioutils
-  
 
     implicit none
 
@@ -42,9 +41,14 @@ module usergamic
     real(rp) :: Rbc = 21.5
 
     real(rp) :: Tsolar ! Solar rotation period, defined in apps/helioutils.F90
-    
-    character(len=strLen) :: wsaFile
 
+    !DeltaT sets a rotation of the wsa map relative to +X at simulation time t=0 
+    !DeltaT = 0 then the map joint is at +X at t=0
+    !DeltaT = Tsolar/2 then the map joint is at -X at t=0 (facing Earth)
+    real(rp) :: DeltaT 
+
+    character(len=strLen) :: wsaFile
+ 
     ! use this to fix the Efield at the inner boundary
 !    real(rp), allocatable :: inEijk(:,:,:,:)
 
@@ -74,6 +78,11 @@ module usergamic
 
         integer :: i,j,k,nvar,nr,d
         integer :: n1, n2
+        integer :: kg, ke, kb, jg
+        real(rp) :: a
+        real(rp) :: Tsolar_synodic
+
+        real(rp) :: ibcVarsStatic !For br only
 
 !        if (.not.allocated(inEijk)) allocate(inEijk(1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1,1:NDIM))
 
@@ -82,7 +91,6 @@ module usergamic
 
         ! grab inner 
         call inpXML%Set_Val(wsaFile,"prob/wsaFile","innerbc.h5" )
-
 
         ! compute global Nkp
         gNkp = Grid%Nkp*Grid%NumRk
@@ -96,6 +104,10 @@ module usergamic
         B0    = 2.0    ! 200 nT
         Rho0  = 1.0    ! 200/cc
         P0    = 1.0e-4*Rho0*Cs0**2.0/Model%gamma
+
+        !TO DO Elena: Move to wsa.xml
+        DeltaT = Tsolar/2.
+
 
         ![OHelio] for 1-10 au helio
         !Cs0 = 0.78    !27 km/s
@@ -125,15 +137,24 @@ module usergamic
         Grid%keDT = Grid%ke
 
         ! Add gravity
-!        tsHack => PerStep
-!        Model%HackStep => tsHack
 !        eHack  => EFix
 !        Model%HackE => eHack
+!        tsHack => PerStep
+!        Model%HackStep => tsHack
+   
+         !Write MJD_center_of_WSA_map to the root of H5 output 
+         Model%HackIO_0 => writeMJDcH5Root
 
         ! everybody reads WSA data
         call readIBC(wsaFile)
 
-        Model%MJD0 = MJD_c
+        !MJD0 is MJD_center_of_WSA_map - Tsolar_synodic/2; Tsolar_synodic = 27.28
+        ![EP] TO DO: add synodic Tsolar to constants
+        Tsolar_synodic = 27.28
+        Model%MJD0 = MJD_c - Tsolar_synodic/2.
+
+        !if not restart set State%time according the tSpin
+        State%time  = Model%t
 
         !Map IC to grid
         Wxyz => GasIC
@@ -145,8 +166,21 @@ module usergamic
         State%magFlux = 0.0
 
         do k=Grid%ks,Grid%ke
+           kg = k+Grid%ijkShift(KDIR)
+           ! map rotating to static grid
+           call mapKinit(kg,ke,kb,a)
+
            do j=Grid%js,Grid%je
+              jg = j+Grid%ijkShift(JDIR)
               do i=Grid%isg,Grid%ieg+1
+
+                 ibcVarsStatic = 1._rp
+
+                 if ( (jg>=Grid%js).and.(jg<=size(ibcVars,2)) ) then
+                 ! interpolate BRIN linearly from rotating to inertial frame
+                    ibcVarsStatic = a*ibcVars(Model%Ng,jg,kb,BRIN)+(1-a)*ibcVars(Model%Ng,jg,ke,BRIN)
+                 endif
+
                  ! FIXME: calc Rbc appropriately above!
                  Rfactor = Rbc/norm2(Grid%xfc(Grid%is,j,k,:,IDIR))
                  ! note scaling br to the first active face
@@ -154,7 +188,8 @@ module usergamic
                  ! not elegant, but otherwise we'd have to store both br and br_iface in teh innerbc.h5 file
                  !
                  ! note also that ibcVars(Model%Ng,:,:,:) corresponds to the center of the first ghost cell (just below the boundary)
-                 State%magFlux(i,j,k,IDIR) = ibcVars(Model%Ng,j+Grid%ijkShift(JDIR),k+Grid%ijkShift(KDIR),BRIN)*Rfactor**2*Grid%face(Grid%is,j,k,IDIR)
+                 !State%magFlux(i,j,k,IDIR) = ibcVars(Model%Ng,j+Grid%ijkShift(JDIR),k+Grid%ijkShift(KDIR),BRIN)*Rfactor**2*Grid%face(Grid%is,j,k,IDIR)
+                  State%magFlux(i,j,k,IDIR) = ibcVarsStatic*Rfactor**2*Grid%face(Grid%is,j,k,IDIR)
               enddo
            enddo
         enddo
@@ -184,6 +219,27 @@ module usergamic
                 Vz = r_unit(ZDIR)*Vslow
             end subroutine GasIC
 
+            subroutine mapKinit(k,ke,kb,a)
+                ! find the lower and upper k-index of the rotating cell on the static grid
+                integer, intent(in) :: k
+                integer, intent(out) :: ke,kb  ! upper (ke) and lower (kb) indices
+                real(rp), intent(out):: a      ! interp coefficient
+
+                real(rp) :: kprime
+
+                kprime = modulo(k-gNkp*(State%time+DeltaT)/Tsolar,real(gNkp,kind=rp))
+
+                if ((kprime.ge.0).and.(kprime.lt.1)) then
+                    kb=gNkp
+                    ke=1
+                else
+                    kb=floor(kprime)
+                    ke=ceiling(kprime)
+                endif
+                a = ke-kprime
+
+            end subroutine mapKinit
+
     end subroutine initUser
 
     !Inner-I BC for WSA-Gamera
@@ -207,9 +263,6 @@ module usergamic
       !$OMP PARALLEL DO default(shared) &
       !$OMP private(i,j,k,jg,kg,ke,kb,a,var,xyz,R,Theta,Phi,rHat,phiHat) &
       !$OMP private(ibcVarsStatic,pVar,conVar,xyz0,R_kf,Theta_kf)
-
-
-
       do k=Grid%ksg,Grid%keg+1  ! note, going all the way to last face for mag fluxes
          kg = k+Grid%ijkShift(KDIR)
          ! map rotating to static grid
@@ -286,7 +339,7 @@ module usergamic
 
         real(rp) :: kprime
 
-        kprime = modulo(k-gNkp*State%time/Tsolar,real(gNkp,kind=rp)) 
+        kprime = modulo(k-gNkp*(State%time+DeltaT)/Tsolar,real(gNkp,kind=rp)) 
 
         if ((kprime.ge.0).and.(kprime.lt.1)) then
            kb=gNkp 
@@ -300,51 +353,6 @@ module usergamic
       end subroutine mapK
 
     end subroutine wsaBC
-
-
-    ! !Do per timestep, includes lazy gravitational force term
-    ! subroutine PerStep(Model,Gr,State)
-    !     type(Model_T), intent(in) :: Model
-    !     type(Grid_T), intent(inout) :: Gr
-    !     type(State_T), intent(inout) :: State
-
-    !     integer :: i,j,k
-
-    !     real(rp), dimension(NDIM) :: xyz, Vxyz, rHat
-    !     real(rp), dimension(NVAR) :: pW,pCon
-    !     real(rp) :: D,IntE,r
-    !     real(rp) :: GM0
-
-    !     !Scaling for gravitational force
-    !     GM0 = UN/(UL**3*UB**2)*6.67408*1.99*4*pi*1.67/6.955/10  ! 2.74e4cm/s^2
-
-    !     !Add grav force
-    !     !$OMP PARALLEL DO default(shared) &
-    !     !$OMP private(i,j,k,xyz,rHat,Vxyz,pW,pCon,r,D,IntE)
-    !     do k=Gr%ksg,Gr%keg
-    !         do j=Gr%jsg,Gr%jeg
-    !             do i=Gr%isg,Gr%ieg
-    !                 xyz = Gr%xyzcc(i,j,k,:)
-    !                 r = norm2(xyz)
-    !                 rHat = xyz/r
-
-    !                 pCon = State%Gas(i,j,k,:,BLK)
-    !                 call CellC2P(Model,pCon,pW)
-
-    !                 D = pW(DEN)
-    !                 IntE = pW(PRESSURE)/(Model%gamma-1)
-    !                 Vxyz = pW(VELX:VELZ)
-    !                 Vxyz = Vxyz - Model%dt*GM0*rHat/(r*r)
-
-    !                 !Reset conserved State
-    !                 pCon(DEN) = D
-    !                 pCon(MOMX:MOMZ) = D*Vxyz
-    !                 pCon(ENERGY) = IntE + 0.5*D*dot_product(Vxyz,Vxyz)
-    !                 State%Gas(i,j,k,:,BLK) = pCon
-    !             enddo
-    !         enddo
-    !     enddo
-    ! end subroutine PerStep
 
     subroutine eFix(Model,Gr,State)
       type(Model_T), intent(in) :: Model
@@ -414,4 +422,14 @@ module usergamic
          MJD_c = GetIOReal(IOVars,"MJD")
    
     end subroutine readIBC
+
+      subroutine writeMJDcH5Root(Model,Grid,IOVars)
+            type(Model_T), intent(in)    :: Model
+            type(Grid_T) , intent(in)    :: Grid
+            type(IOVAR_T), dimension(:), intent(inout) :: IOVars
+
+            call AddOutVar(IOVars,"MJDc", MJD_c)
+
+      end subroutine writeMJDcH5Root
+
 end module usergamic

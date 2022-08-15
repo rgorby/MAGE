@@ -7,7 +7,6 @@ module kai2geo
 
     implicit none
 
-    ! logical, parameter, private :: doNH = .false.
     logical, parameter, private :: doSpyro = .false. !Whether to sneak spyro
 
     contains
@@ -132,4 +131,21 @@ module kai2geo
 
     end subroutine geoTP2smTP
 
+    !Take the signed invariant latitude and calculated the mirror ratio between R=1 and R=rad
+    !Using dipole mapping across the gap
+    function IGRFMirrorRatio(mlat,mlon,rad) result(RM)
+        real(rp), intent(in) :: mlat,mlon,rad
+        real(rp) :: RM
+
+        real(rp) :: rIon
+        real(rp), dimension(NDIM) :: xyzIon,xyzMir
+
+        rIon = 1.0
+        xyzIon(XDIR) = rIon*cos(mlat)*cos(mlon)
+        xyzIon(YDIR) = rIon*cos(mlat)*sin(mlon)
+        xyzIon(ZDIR) = rIon*sin(mlat)
+
+        xyzMir = DipoleShift(xyzIon,rad)
+        RM = norm2( IGRF_SM(xyzIon) )/norm2( IGRF_SM (xyzMir) )
+    end function IGRFMirrorRatio
 end module kai2geo

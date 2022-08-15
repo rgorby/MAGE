@@ -14,6 +14,7 @@ module mixtypes
      real(rp) :: betaZ
      real(rp) :: alpha
      real(rp) :: beta
+     real(rp) :: gamma
      real(rp) :: r
      real(rp) :: f107
      real(rp) :: pedmin 

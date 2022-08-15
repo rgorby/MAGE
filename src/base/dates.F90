@@ -78,7 +78,7 @@ module dates
         real(rp) :: rSec
 
         call mjd2ut(mjd,iYr,iDoY,iMon,iDay,iHr,iMin,rSec)
-        write(utStr,'(I0.4,a,I0.2,a,I0.2,a,I0.2,a,I0.2,a,I0.2)') iYr,'-',iMon,'-',iDay,' ',iHr,':',iMin,':',nint(rSec)
+        write(utStr,'(I0.4,a,I0.2,a,I0.2,a,I0.2,a,I0.2,a,I0.2)') iYr,'-',iMon,'-',iDay,' ',iHr,':',iMin,':',min(59,nint(rSec))
 
     end subroutine mjd2utstr
     !------

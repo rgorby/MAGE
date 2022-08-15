@@ -2,11 +2,11 @@
 #PBS -N geo_serial
 #PBS -j oe
 #PBS -q normal
-#PBS -l walltime=8:00:00
+#PBS -l walltime=4:00:00
 #PBS -l select=1:ncpus=28:ompthreads=28:model=bro
 
-# Sample PBS job script to run the serial gamera code on the geo test case.
-# This script was designed to run on pleiades.
+# Sample PBS job script to run the serial gamera code on the
+# geo_serial test case.  This script was designed to run on pleiades.
 
 # Example usage
 # qsub -v geo_serial.pbs
@@ -27,7 +27,7 @@ module list
 # Set kaiju-related environment variables.
 
 # Define the kaiju installation location.
-export KAIJU_INSTALL_DIR=/nobackup/ewinter/kaiju_serial
+export KAIJU_INSTALL_DIR=$HOME/kaiju
 
 # Set kaiju-related environment variables.
 source $KAIJU_INSTALL_DIR/scripts/setupEnvironment.sh
@@ -40,7 +40,7 @@ export KAIJU_QUICKSTART_DIR=$KAIJUHOME/quickstart
 export PATH=$KAIJU_QUICKSTART_DIR/geo_serial:$PATH
 
 # Set the OMP stack size to prevent a crash.
-# If this setting is ignored, the loop2d model will cause gamera.x to crash
+# If this setting is ignored, the model could cause gamera.x to crash
 # with a segmentation fault and core dump.
 # The value of "100M" was chosen ~arbitrarily; experimentation may allow a
 # smaller value to be used.

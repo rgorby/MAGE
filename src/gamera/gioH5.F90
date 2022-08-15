@@ -141,8 +141,6 @@ module gioH5
             return
         endif
         
-        call StampIO(GamH5File)
-
         !Calculate grid quality
         call allocGridVar(Model,Gr,gQ)
         call GridQuality(Model,Gr,gQ) 
@@ -232,6 +230,12 @@ module gioH5
         call AddOutVar(IOVars,"tScl"   ,Model%gamOut%tScl)
         call AddOutVar(IOVars,"timeID" ,Model%gamOut%tID)
         call AddOutVar(IOVars,"UnitsID",Model%gamOut%uID)
+
+        !Call user routine if defined
+        if (associated(Model%HackIO_0)) then
+            call Model%HackIO_0(Model,Gr,IOVars)
+        endif
+
         !Write out the chain
         call WriteVars(IOVars,.true.,GamH5File)
         
@@ -493,8 +497,11 @@ module gioH5
         call AddOutVar(IOVars,"nSpc",Model%nSpc)
 
         !---------------------
-        !Call user routine
-        !FIXME: Add this
+
+        !Call user routine if defined
+        if (associated(Model%HackIO)) then
+            call Model%HackIO(Model,Gr,State,IOVars)
+        endif
 
         !------------------
         !Finalize
@@ -588,8 +595,6 @@ module gioH5
         type(State_T), intent(in) :: State,oState
         character(len=*), intent(in) :: ResF
 
-        call StampIO(ResF)
-        
         !Reset IO chain
         call ClearIO(IOVars)
 

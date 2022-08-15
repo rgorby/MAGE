@@ -29,16 +29,15 @@ program calcdbx
     type(facGrid_T) :: facGrid !FAC grid
     type(ionGrid_T) :: ionGrid !Ionospheric grid
 
-    !Bios-Savart data, source terms in GEO
+    !Biot-Savart data, source terms in GEO
     type(BSGrid_T) :: facBS,ionBS,magBS
 
     !Destination (GEO) data
     type(grGrid_T) :: gGr !Ground grid
     
     integer :: NumP
-    real(rp) :: wT,cMJD,rSec
+    real(rp) :: wT,cMJD
     character(len=strLen) :: gStr,utStr
-    integer :: iYr,iDoY,iMon,iDay,iHr,iMin
 
     !write(*,*) "Num threads=",omp_get_max_threads()
     !------------
@@ -61,7 +60,7 @@ program calcdbx
     call ionGridInit(Model,ebState,rmState,ionGrid)
     call facGridInit(Model,ebState,rmState,ionGrid,facGrid)
 
-    call BSGridInit(Model,ebState,rmState,magBS,ionBS,facBS)
+    call BSGridInit(Model,ebState,rmState,magBS,ionBS,facBS,inpXML)
 
     write(*,*) "Initialization complete, let's do this thing!"
     !Loop from T0 -> tFin
@@ -116,8 +115,7 @@ program calcdbx
 
         if (modulo(Model%ts,Model%tsOut) ==0) then
             cMJD = ioTabMJD(ebState%ebTab,Model%t)
-            call mjd2ut(cMJD,iYr,iDoY,iMon,iDay,iHr,iMin,rSec)
-            write(utStr,'(I0.4,a,I0.2,a,I0.2,a,I0.2,a,I0.2,a,I0.2)') iYr,'-',iMon,'-',iDay,' ',iHr,':',iMin,':',nint(rSec)
+            call mjd2utstr(cMJD,utStr)
 
             wT = readClock("MagDB")
             write(*,'(a,a)')       'UT = ', trim(utStr)
@@ -142,7 +140,7 @@ program calcdbx
         endif
 
         !Update time
-        Model%t = Model%t + Model%dt
+        Model%t  = Model%t + Model%dt
         Model%ts = Model%ts+1
 
     enddo
