@@ -1,0 +1,205 @@
+
+!> Gibson-Low Model Types
+!>
+module gltypes
+    use gldefs
+    use ioclock
+
+    implicit none
+
+    !Unit information
+    !Holds information about Gamera MHD scaling & how to scale input values
+    type glUnits_T
+        real(rp) :: glx0 = 1.0 ! [m]
+        real(rp) :: glv0 = 1.0 ! [m/s]
+        real(rp) :: glD0 = 1.0 ! [kg/m3]
+        real(rp) :: glP0 = 1.0 ! [Pa]
+        real(rp) :: glB0 = 1.0 ! [T]
+        real(rp) :: glT0 = 1.0 ! [s]
+    end type glUnits_T
+
+    !Scaling for output data
+    type glOut_T
+        real(rp) :: tScl=1.0,dScl=1.0,vScl=1.0,pScl=1.0,bScl=1.0
+        real(rp) :: eScl=1.0,jScl=1.0
+        character(len=strLen) :: uID = "CODE" !Overall units ID
+        character(len=strLen) :: tID = "CODE TIME"
+        character(len=strLen) :: dID = "CODE DEN"
+        character(len=strLen) :: vID = "CODE VEL"
+        character(len=strLen) :: pID = "CODE PRESSURE"
+        character(len=strLen) :: bID = "CODE BFIELD"
+        character(len=strLen) :: eID = "CODE EFIELD"
+        character(len=strLen) :: jID = "CODE CURRENT"
+    end type glOut_T
+
+    !> TODO: Complete Model Information for GibLow
+    !> Overall model information
+    !> Algorithmic/Run options
+    type glModel_T
+        character(len=strLen) :: RunID
+        real(rp) :: alnotrbubuse
+        real(rp) :: gfunot1
+        real(rp) :: alnotrbub_abs  !to preserve sign of alnotrbub
+        real(rp) :: alnotrbubsign
+        real(rp) :: alnotrbub
+        real(rp) :: latitude
+        real(rp) :: longitude
+        real(rp) :: sigma
+        ! Morphology/position
+        real(rp) :: frontheight
+        real(rp) :: legsang
+        real(rp) :: topmorph
+        real(rp) :: Bpar
+        real(rp) :: orientation
+        real(rp) :: cmeV
+        real(rp) :: vel_fh
+        real(rp) :: bmax
+        real(rp) :: frontvolume
+        real(rp) :: k 
+        real(rp) :: apar 
+        real(rp) :: r0
+        real(rp) :: x0
+        real(rp) :: ao
+        real(rp) :: bmagmax
+        real(rp) :: alnot
+        real(rp) :: muse
+        real(rp) :: outScale
+        !intermediate parameters
+        real(rp) :: xo
+        real(rp) :: rbub
+        real(rp) :: anot
+        real(rp) :: eta
+        real(rp) :: phiss
+        real(rp) :: pio
+        ! Physical Properties
+        real(rp) :: aa
+        real(rp) :: bb
+        real(rp) :: cc
+        real(rp) :: dd
+        real(rp) :: ee
+        real(rp) :: ff
+        real(rp) :: bonly
+        real(rp) :: c1bonly
+        real(rp) :: c2bonly
+        real(rp) :: isothermal
+        real(rp) :: bubbleonly
+        !temporal properties
+        real(rp) :: alpha
+        real(rp) :: velmult
+        real(rp) :: time
+        real(rp) :: tFin
+        real(rp) :: dt
+        real(rp) :: velimpose
+        real(rp) :: s_eta0
+        real(rp) :: s_eta
+        real(rp) :: ma1
+        !real(rp), dimension(:, :), allocatable :: dang1, dang2 ! to calculate volume
+        !real(rp), dimension(:, :), allocatable :: sin_th, cos_th, sin_ph, cos_ph
+        !real(rp), dimension(:), allocatable :: timearr, zetaarr ! to make even steps in space but uneven in time
+        !real(rp), dimension(5) :: tmp1, tmp2 ! to calculate emergence times
+        !integer :: i, ii, nt
+        !> Number of species, dimensions, ghosts
+        !integer :: nSpc, nDim, nG 
+        !real(rp) :: CFL, gamma
+        !> Coefficient for diffusive electric field, generally 0.5
+        !real(rp) :: Vd0=0.5 
+        !real(rp) :: t, tFin, dt
+        !real(rp) :: dt0 = 0.0
+        !logical :: fixedTimestep
+        !integer :: ts
+        character(len=strLen)  :: CoordName
+        !> Whether you can write to console
+        logical :: isLoud = .true. 
+        !> Whether you can write to debug to console
+        logical :: isDebug = .false. 
+        !> Whether precheck should run to calculate parameters
+        logical :: isPrecheck = .false.
+        !> Number of threads per node/group
+        integer :: nTh=-1 
+        !> Timer for Clocks
+        integer :: ts
+
+        !Output info
+        type (IOClock_T) :: IO
+        !Unit information
+        type (glUnits_T) :: Units
+        type (glOut_T)   :: glOut
+        !Unit information
+    end type glModel_T
+
+    type :: glSolution_T
+        ! TODO: Convert to single array in order to reduce allocations? Use ENUMs to reference solution values?
+        ! Final Solution values on r 2D sphereical shells
+        ! inside_mask specifies which radii locations are inside
+        ! solution bubble r(i) < rbub = Model%frontheight - Model%xo + Model%apar
+        integer :: CoordSystem
+        real(rp), dimension(:, :, :), allocatable :: pres, dens, temp, inside_mask
+        real(rp), dimension(:, :, :, :), allocatable :: b, v, j
+        !DIR$ attributes align : ALIGN :: pres, dens, temp
+        !DIR$ attributes align: ALIGN :: b, v, j
+    end type glSolution_T
+
+    !> State information
+    type glState_T
+        ! Used for standalone Gibson-Low Model run
+        ! to definte user specified 3D grid dimensions to supply r,theta,phi to state
+        ! and to define size of solution
+        integer :: Ni,Nj,Nk
+        real(rp) :: latitude = 0.
+        real(rp) :: longitude = 0.
+
+        ! Solution Radii index (r(i))
+        integer :: ri
+        ! Count of inside/outside bubble locations 
+        real(rp) :: outside_count, inside_count
+        ! Coordinate values
+        real(rp), dimension(:, :, :, :), allocatable :: xyz ! For Standalone Grid Output
+        real(rp), dimension(:), allocatable :: r ! radii of spherical shells to pass to GL - copied to rpb for GL solution
+        real(rp), dimension(:, :), allocatable :: rpb, thpb, phpb ! input to giblow_coords
+        real(rp), dimension(:, :), allocatable :: rout, thout, phout, mu, st, ct
+        real(rp), dimension(:, :), allocatable :: rcap, thcap, phcap
+        real(rp), dimension(:, :), allocatable :: rsquig, rlam, xtr, ytr, ztr, F
+        real(rp), dimension(:, :), allocatable :: xtilde, ytilde, ztilde, rat
+        real(rp), dimension(:, :), allocatable :: rtilde, thtilde, phtilde
+        ! Field Values
+        real(rp), dimension(:, :), allocatable :: glpi
+        ! Inside Solution Values
+        real(rp), dimension(:, :), allocatable :: bpresin, presin, presin_0 
+        real(rp), dimension(:, :), allocatable :: pbackin
+        real(rp), dimension(:, :), allocatable :: dbackin, densin
+        ! Background and Total Values
+        real(rp), dimension(:, :), allocatable :: densback, DensbackHEonly
+        real(rp), dimension(:, :), allocatable :: ptot, presback
+        real(rp), dimension(:, :), allocatable :: bmag
+        ! Outside Solution Values
+        real(rp), dimension(:, :), allocatable :: streamout, densout, presout
+        real(rp), dimension(:, :), allocatable :: brlambout, bthlambout, bphlambout
+        real(rp), dimension(:, :), allocatable :: tderivout, tderivR, tderivmu, tderiv
+        real(rp), dimension(:, :), allocatable :: jrlambout, jthlambout, jphlambout
+        logical, dimension(:, :), allocatable :: cavinside
+        ! Physical Solution Values
+        real(rp), dimension(:, :), allocatable :: blittlerlamb, blittlethlamb, blittlephlamb
+        real(rp), dimension(:, :), allocatable :: jlittlerlamb, jlittlethlamb, jlittlephlamb
+        real(rp), dimension(:, :), allocatable :: stream
+        real(rp), dimension(:, :), allocatable :: bstrengthphys
+    end type glState_T
+
+    type glApp_T
+        type(glModel_T) :: Model
+        type(glState_T) :: State
+        type(glSolution_T) :: Solution
+    end type glApp_T
+ 
+    !StateIC_T
+    !Generic initialization routine: ICs, Grid, Model
+    ! abstract interface
+    !     subroutine StateIC_T(Model,Grid,State,inpXML)
+    !         Import :: Model_T, Grid_T, State_T, strLen, XML_Input_T
+    !         type(Model_T) , intent(inout) :: Model
+    !         type(Grid_T)  , intent(inout) :: Grid
+    !         type(State_T) , intent(inout) :: State
+    !         type(XML_Input_T), intent(in) :: inpXML
+    !     end subroutine StateIC_T
+    ! end interface
+
+end module gltypes

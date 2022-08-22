@@ -215,6 +215,17 @@ add_executable(voltron.x src/drivers/voltronx.F90)
 target_link_libraries(voltron.x voltlib gamlib remixlib chimplib rcmlib baselib)
 add_dependencies(voltron voltron.x)
 
+#-------------
+#Kaiju: Gibson-Low
+message("Adding Gibson-Low module ...")
+#Add source
+add_subdirectory(src/gl)
+add_custom_target(gl ALL)
+message("\tAdding executable gl.x")
+add_executable(gl.x src/drivers/glx.F90)
+target_link_libraries(gl.x gllib baselib)
+add_dependencies(gl gl.x baselib)
+
 if(ENABLE_MPI)
     #-------------
     #Kaiju: Base MPI
