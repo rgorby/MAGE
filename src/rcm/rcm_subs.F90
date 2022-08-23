@@ -3136,7 +3136,7 @@ FUNCTION RatefnDW(xx,yy,alamx,vmx,nex,kpx,bqx,losscx)
   ! 1. Dedong Wang's chorus wave model
   ! 2. Orlova16 hiss wave model
   
-  use lossutils, ONLY: RatefnC_tau_s, RatefnDW_tau_c,RatefnC_tau_h16
+  use lossutils, ONLY: RatefnC_tau_s, RatefnDW_tau_c,RatefnC_tau_h16,Ratefn_sub_1keV
   IMPLICIT NONE
   REAL (rprec), INTENT (IN) :: xx,yy,alamx,vmx,nex,kpx,bqx,losscx
   REAL (rprec), dimension(2) :: RatefnDW
@@ -3150,15 +3150,26 @@ FUNCTION RatefnDW(xx,yy,alamx,vmx,nex,kpx,bqx,losscx)
   RatefnDW(1) = 1.D10
   RatefnDW(2) = 1.0
   tau_s = RatefnC_tau_s(alamx,vmx,bqx,losscx)
-
+  
   if(nex<nlow) then
-    tau_c = RatefnDW_tau_c(kpx, MLT,L,E)
-    if (tau_s > tau_c) then
-       tau = tau_s
-       RatefnDW(2) = 4.0 
-    else
-       tau = tau_c
-       RatefnDW(2) = 1.0
+    if (E < 1.0e-3) then !the energy lower bound for chorus wave is 1keV (1e-3MeV)
+       tau_c = Ratefn_sub_1keV(kpx,MLT,L,E,vmx,bqx,losscx,tau_s)
+       if (abs(tau_s-tau_c)<Tiny) then
+          tau = tau_s
+          RatefnDW(2) = 4.0
+       else
+          tau = tau_c
+          RatefnDW(2) = 1.0
+       endif
+    else ! E >= 1keV
+       tau_c = RatefnDW_tau_c(kpx,MLT,L,E)
+       if (tau_s >= tau_c) then !When E>=1keV, the lower bound of tau_c is tau_s
+          tau = tau_s
+          RatefnDW(2) = 4.0 
+       else
+          tau = tau_c
+          RatefnDW(2) = 1.0
+       endif
     endif
     RatefnDW(1) = 1.0/tau
   elseif(nex>nhigh) then
@@ -3172,58 +3183,96 @@ FUNCTION RatefnDW(xx,yy,alamx,vmx,nex,kpx,bqx,losscx)
     endif
     RatefnDW(1) = 1.0/tau
   else  ! nlow <= nex <= nhigh
-    tau_c = RatefnDW_tau_c(kpx, MLT,L,E)
-    tau_h = RatefnC_tau_h16(MLT,E,L,kpx)
-    if ((tau_h > 1.D9) .and. (tau_c > 1.D9)) then ! which means tau_h and tau_c are 1.D10
-       tau = 1.D10   ! both models are undefined
-       RatefnDW(2) = -1.0 ! undefined
-       RatefnDW(1) = 1.0/tau
-    elseif (tau_h > 1.D9) then ! which means tau_h is 1.D10, hiss model is undefined
-       if (tau_s > tau_c) then
-          tau = tau_s
-          RatefnDW(2) = 4.0
+    if (E < 1.0e-3) then !the energy lower bound for chorus wave is 1keV (1e-3MeV)
+       tau_c = Ratefn_sub_1keV(kpx,MLT,L,E,vmx,bqx,losscx,tau_s)
+       if (abs(tau_s-tau_c)<Tiny) then
+          tau1 = tau_s
+          R1 = 4.0
        else
-          tau = tau_c
-          RatefnDW(2) = 1.0
-       endif 
-       RatefnDW(1) = 1.0/tau
-    elseif (tau_c > 1.D9) then ! which means tau_c is 1.D10, chorus model is undefined
-       if (tau_s > tau_h) then
-          tau = tau_s
-          RatefnDW(2) = 4.0
-       else
-          tau = tau_h
-          RatefnDW(2) = 2.0
+          tau1 = tau_c
+          R1 = 1.0
        endif
-       RatefnDW(1) = 1.0/tau 
-    else ! both models have defined values
-       if ((tau_s > tau_c) .and. (tau_s > tau_h)) then
+    else !E >= 1keV
+       tau_c = RatefnDW_tau_c(kpx,MLT,L,E)
+       if (tau_s >= tau_c) then
           tau1 = tau_s
-          tau2 = tau_s
           R1 = 4.0
-          R2 = 4.0
-       elseif (tau_s > tau_c) then
-          tau1 = tau_s
-          tau2 = tau_h
-          R1 = 4.0
-          R2 = 2.0
-       elseif (tau_s > tau_h) then
-          tau1 = tau_c
-          tau2 = tau_s
-          R1 = 1.0
-          R2 = 4.0
        else
           tau1 = tau_c
-          tau2 = tau_h
           R1 = 1.0
-          R2 = 2.0
-       endif  
-       RatefnDW(1) = (dlog(nhigh/nex)/tau1 + dlog(nex/nlow)/tau2)/dlog(nhigh/nlow) ! use weighted loss rate 
-       RatefnDW(2) = (dlog(nhigh/nex)*R1 + dlog(nex/nlow)*R2)/dlog(nhigh/nlow)
+       endif
     endif
+
+    tau_h = RatefnC_tau_h16(MLT,E,L,kpx)
+    if (tau_s >= tau_h) then
+        tau2 = tau_s
+        R2 = 4.0
+    else
+        tau2 = tau_h
+        R2 = 2.0
+    endif
+    
+    if ((tau_h > 1.D9) .or. (tau_c > 1.D9)) then ! which means tau_h and tau_c are 1.D10
+       write (*,*)"Hiss or chorus is undefined, tau_h, tau_c =",tau_h,tau_c
+       stop
+    endif
+
+    RatefnDW(1) = (dlog(nhigh/nex)/tau1 + dlog(nex/nlow)/tau2)/dlog(nhigh/nlow) ! use weighted loss rate 
+    RatefnDW(2) = (dlog(nhigh/nex)*R1 + dlog(nex/nlow)*R2)/dlog(nhigh/nlow)
+  
   endif
+!    if ((tau_h > 1.D9) .or. (tau_c > 1.D9)) then
+!       RatefnDW(2) = -1.0 ! undefined
+!       RatefnDW(1) = 1.0/tau
+!       !tau = 1.D10   ! both models are undefined
+!       !RatefnDW(2) = -1.0 ! undefined
+!       !RatefnDW(1) = 1.0/tau
+!    elseif (tau_h > 1.D9) then ! which means tau_h is 1.D10, hiss model is undefined
+!       !if (tau_s >= tau_c) then
+!       !   tau = tau_s
+!       !   RatefnDW(2) = 4.0
+!       !else
+!          tau = tau_c
+!          RatefnDW(2) = 1.0
+!       !endif 
+!       RatefnDW(1) = 1.0/tau
+!    elseif (tau_c > 1.D9) then ! which means tau_c is 1.D10, chorus model is undefined
+!       !if (tau_s > tau_h) then
+!       !   tau = tau_s
+!       !   RatefnDW(2) = 4.0
+!       !else
+!          tau = tau_h
+!          RatefnDW(2) = 2.0
+!       !endif
+!       RatefnDW(1) = 1.0/tau 
+!    else ! both models have defined values
+!       !if ((tau_s >= tau_c) .and. (tau_s > tau_h)) then
+!       !   tau1 = tau_s
+!       !   tau2 = tau_s
+!          R1 = 4.0
+!          R2 = 4.0
+!       elseif (tau_s >= tau_c) then
+!          tau1 = tau_s
+!          tau2 = tau_h
+!          R1 = 4.0
+!          R2 = 2.0
+!       elseif (tau_s > tau_h) then
+!          tau1 = tau_c
+!          tau2 = tau_s
+!          R1 = 1.0
+!          R2 = 4.0
+!       else
+!          tau1 = tau_c
+!          tau2 = tau_h
+!          R1 = 1.0
+!          R2 = 2.0
+!       endif  
+!       RatefnDW(1) = (dlog(nhigh/nex)/tau1 + dlog(nex/nlow)/tau2)/dlog(nhigh/nlow) ! use weighted loss rate 
+!       RatefnDW(2) = (dlog(nhigh/nex)*R1 + dlog(nex/nlow)*R2)/dlog(nhigh/nlow)
+!    endif
 
 END FUNCTION RatefnDW
+
 
 FUNCTION RatefnC19 (xx,yy,alamx,vmx,beqx,losscx,nex,kpx)
 ! Function to calculate diffuse electron precipitation loss rate using eq(10) of MW Chen et al. 2019.

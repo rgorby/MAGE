@@ -163,12 +163,39 @@ MODULE lossutils
         TauSS = 3.D0*2.D0*ftv*bfp/V*gammar        ! Strong scattering lifetime [s], assuming eta=2/3.
     END FUNCTION RatefnC_tau_s
 
+    FUNCTION Ratefn_sub_1keV (kpx,MLT,L,Ek,vm,beq,lossc,tau_ss) result(tau)
+    !Function return electron lifetime in sub-1keV energy range 
+
+    IMPLICIT NONE
+    REAL (rprec), INTENT (IN) :: kpx,MLT,L,Ek,vm,beq,lossc,tau_ss
+    REAL (rprec) :: tau, tau_E_thres_ss, tau_c_1keV !in MeV
+    REAL (rprec) :: E_thres = 0.8e-3, E_1keV = 1.0e-3 !in MeV, strong scattering energy limit 0.8keV, if E < 0.8keV, strong scattering only
+                                  ! if E_thres < E < 1keV, use linear ramping in log10(tau) between E_thres and 1keV
+    
+    tau_c_1keV = RatefnDW_tau_c(kpx, MLT,L,E_1keV) ! 1keV = 1e-3MeV
+    if (tau_c_1keV < Tiny) then !L > max(Li)in DW model,replace 0 by strong scattering
+       tau_c_1keV = RatefnC_tau_s(E_1keV*1.0e6/vm,vm,beq,lossc)
+    endif
+    tau_E_thres_ss = RatefnC_tau_s(E_thres*1.0e6/vm,vm,beq,lossc) ! strong scattering lifetime at E_thres
+    if (tau_ss <= tau_c_1keV) then 
+       tau = tau_c_1keV  ! use tau_c_1keV as the lower bound of strong scattering lifetime
+    else ! tau_ss > tau_c_1keV
+      if (Ek < E_thres) then
+         tau = tau_ss
+      else ! E_thres <= Ek < 1keV
+         tau = EXP(log(tau_E_thres_ss)+(Ek-E_thres)*log(tau_c_1keV/tau_E_thres_ss)/(E_1keV-E_thres))  ! linear ramping algorithm
+      endif
+    endif
+
+    END FUNCTION Ratefn_sub_1keV
+
+
     FUNCTION RatefnDW_tau_c(Kpx,mltx,Lx,Ekx) result(tau)
     ! linearly interpolate tau from EWMTauInput to current MLT,L,Kp,Ek value
         USE rice_housekeeping_module, ONLY: EWMTauInput
         IMPLICIT NONE
         REAL (rprec), INTENT (IN) :: Kpx, mltx,Lx,Ekx
-        REAL(rprec) :: tau
+        REAL(rprec) :: taui,tau
         REAL(rprec) :: tauKMLE(2,2,2,2),tauMLE(2,2,2),tauLE(2,2),tauE(2)! tauKMLE(1,2,2,2) means tauKlMuLuEu, l:lower bound, u: upper bound in the NN methond  
         REAL(rprec) :: dK,wK,dM,wM,dL,wL,dE,wE
         INTEGER :: iK,kL,kU,mL,mU,lL,lU,eL,eU
@@ -231,8 +258,8 @@ MODULE lossutils
 
         !Corner cases
         if (lL == -1) then 
-            tau = 0.0 
-            !write(*,*)"Corner case1,tau=0.0" 
+            tau = 0.0 ! When Lx > max(Li), assign 0 for now and replace it by strong scattering later 
+            !write(*,*)"Corner case1,tau=tau_ss" 
             return
         else if (eU == -1) then
             tau = 1.D10
