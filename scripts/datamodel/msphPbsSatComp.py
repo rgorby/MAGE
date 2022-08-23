@@ -42,6 +42,8 @@ if __name__ == '__main__':
 		help='Account number to use in pbs script')
 	parser.add_argument('--keep',action='store_true',
 		help='Keep intermediate files')
+	parser.add_argument('--doTrc',action='store_true',
+		help='Turn on field line tracing')
 
 	args = parser.parse_args()
 
@@ -51,6 +53,7 @@ if __name__ == '__main__':
 	scRequested = args.satId
 	keep = args.keep
 	acct = args.acct
+	doTrc = args.doTrc
 
 	if None == acct:
 		acct = os.getenv('DAV_PROJECT')
@@ -107,7 +110,7 @@ if __name__ == '__main__':
 		else:
 			(scTrackName,xmlFileName) = scutils.createInputFiles(data,
 				scIds[scId],scId,mjdFileStart,secFileStart,
-				fdir,ftag,numSegments)
+				fdir,ftag,numSegments,doTrc)
 			lockCmdName = os.path.join(fdir,'makeLock.sh')
 			fLock = open(lockCmdName,'w')
 			fLock.write("#!/bin/bash\ntouch $1")

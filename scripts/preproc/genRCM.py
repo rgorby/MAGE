@@ -55,7 +55,7 @@ if __name__ == "__main__":
 	parser.add_argument('-p2', type=float,default=wolfP2, help="Wolf high-energy p* (default: %(default)s)")
 	parser.add_argument('-plotType', choices=plotChoices,default=plotChoices[0], help="Plot mode (default: %(default)s)")
 	parser.add_argument('--nop',action='store_true',default=False,help="Do not add zero loss first channel (default: %(default)s)")
-	parser.add_argument('--waveModel',action='store_true',default=False, help="Use wave models in the electron/ion loss (default: %(default)s)")
+	parser.add_argument('--noWaveModel',action='store_true',default=False, help="Don't use wave models in the electron/ion loss (default: %(default)s)")
 	parser.add_argument('--addWM', action='store_true',default=False, help="Add wave models to an existing rcmconfig file, input file needed to be presented (default: %(default)s)")
 	parser.add_argument('-i', type=str,default=fOut,metavar="fIn", help="Input file name when addWM is true (default: %(default)s)")
 
@@ -73,7 +73,7 @@ if __name__ == "__main__":
 	wolfP1 = args.p1
 	wolfP2 = args.p2
 	addWM = args.addWM
-	waveModel = args.waveModel
+	noWaveModel = args.noWaveModel
 	fIn = args.i	
 	plotType = args.plotType
 
@@ -105,7 +105,7 @@ if __name__ == "__main__":
 		# Save
 		fileIO.saveRCMConfig(alamData,params=alamParams,fname=fOut)
 		# Add data needed for wavemodel
-		if waveModel == True:
+		if not noWaveModel:
 			tauParams = wmParams(dim = 4, nKp = 7, nMLT = 25, nL = 41, nEk = 155)	
 			genWM.genh5(fOut,fOut,tauParams,useWMh5 = True)
 
