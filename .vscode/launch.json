@@ -1,0 +1,17 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python: Current File",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": ["-i", "wsa", "-c", "/Users/winteel1/cgs/kaiju/development/kaiju/build_serial/bin/sctrack.x", "-s", "ACE", "--path", "/Users/winteel1/taming/runs/20220822/helio_mpi/double-res"]
+        }
+    ]
+}
