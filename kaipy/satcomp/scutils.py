@@ -492,7 +492,7 @@ def createInputFiles(data,scDic,scId,mjd0,sec0,fdir,ftag,numSegments,doTrc):
 
     return (scTrackName,xmlFileName)
 
-def createHelioInputFiles(data, scDic, scId, mjd0, sec0, fdir, ftag, numSegments, Rin, Rout):
+def createHelioInputFiles(data, scDic, scId, mjd0, sec0, fdir, ftag, numSegments, Rin, Rout, mjdc):
     if scDic['Ephem']['CoordSys'] == "GSE":
 
         # Convert the instantaneous GSE(t) ephemeris locations to the GH(t0)
@@ -514,7 +514,7 @@ def createHelioInputFiles(data, scDic, scId, mjd0, sec0, fdir, ftag, numSegments
         )
 
         # Create the HGS(t0) coordinate frame.
-        t0_frame = frames.HeliographicStonyhurst(obstime=kaiTools.MJD2UT(mjd0))
+        t0_frame = frames.HeliographicStonyhurst(obstime=kaiTools.MJD2UT(mjdc))
 
         # Convert the GSE(t) Cartesian positions to HGS(t0) (lon, lat, radius).
         c = c.transform_to(t0_frame)
@@ -869,10 +869,10 @@ def extractGAMERA(data,scDic,scId,mjd0,sec0,fdir,ftag,cmd,numSegments,keep):
     return
 
 def extractGAMHELIO(
-    data, scDic, scId, mjd0, sec0, fdir, ftag, cmd, numSegments, keep, Rin, Rout
+    data, scDic, scId, mjd0, sec0, fdir, ftag, cmd, numSegments, keep, Rin, Rout, mjdc
 ):
     (scTrackName,xmlFileName) = createHelioInputFiles(data,scDic,scId,
-        mjd0,sec0,fdir,ftag,numSegments, Rin, Rout)
+        mjd0,sec0,fdir,ftag,numSegments, Rin, Rout, mjdc)
 
     if 1 == numSegments:
         sctrack = subprocess.run([cmd, xmlFileName], cwd=fdir, capture_output=True,

@@ -49,6 +49,9 @@ default_Rin = 21.5
 # Default outer radius for gamhelio grid (in units of Rsun).
 default_Rout = 220.0
 
+# Default MJD of center of WSA map.
+default_mjdc = 57967.86416599993
+
 # Default run ID string.
 default_runid = "hsphere"
 
@@ -100,6 +103,10 @@ def create_command_line_parser():
         "-k", "--keep", action="store_true", default=False,
         help="Keep intermediate files (default: %(default)s).")
     parser.add_argument(
+        "--mjdc", type=float, metavar="mjdc", default=default_mjdc,
+        help="MJD of center of WSA map used for input (default: %(default)s)."
+    )
+    parser.add_argument(
         "-n", "--numSeg", type=int, metavar="number_segments",default=default_numSeg,
         help="Number of segments to simultaneously process (default: %(default)s).")
     parser.add_argument(
@@ -142,6 +149,7 @@ if __name__ == "__main__":
     fdir = args.path
     Rin = args.Rin
     Rout = args.Rout
+    mjdc = args.mjdc
     scRequested = args.satId
     verbose = args.verbose
     if debug:
@@ -242,7 +250,7 @@ if __name__ == "__main__":
                 print("Interpolating simulated observations along trajectory.")
             scutils.extractGAMHELIO(
                 data, scIds[scId], scId, mjdFileStart, secFileStart, fdir, ftag,
-                cmd, numSegments, keep, Rin, Rout
+                cmd, numSegments, keep, Rin, Rout, mjdc
             )
             cdfname = os.path.join(fdir, scId + ".comp.cdf")
             if os.path.exists(cdfname):
