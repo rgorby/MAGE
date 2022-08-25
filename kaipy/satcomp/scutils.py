@@ -162,7 +162,10 @@ def pullVar(cdaObsId,cdaDataId,t0,t1,deltaT=60,epochStr="Epoch",doVerbose=False)
     cdas = CdasWs()
     status,data =  cdas.get_data(cdaObsId,cdaDataId,t0,t1,binData=binData)
 
-    if status['http']['status_code'] != 200 or data is None:
+    if status["http"]["status_code"] == 404:
+        # No data found.
+        pass
+    elif status['http']['status_code'] != 200 or data is None:
         # Handle the case where CdasWs just doesn't work if you give it variables in arg 2
         # If given empty var list instead, it'll return the full day on day in t0, and that's it
         # So, call for as many days as we need data for and build one big data object
