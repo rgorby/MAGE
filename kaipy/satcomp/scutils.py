@@ -371,10 +371,10 @@ def genSCXML(fdir,ftag,
     trajChild.setAttribute("H5Traj",h5traj)
     trajChild.setAttribute("doSmooth","F")
     chimpChild.appendChild(trajChild)
-    if numSegments > 1:
-        parInTimeChild = root.createElement("parintime")
-        parInTimeChild.setAttribute("NumB","%d"%numSegments)
-        chimpChild.appendChild(parInTimeChild)
+    # if numSegments > 1:
+    parInTimeChild = root.createElement("parintime")
+    parInTimeChild.setAttribute("NumB","%d"%numSegments)
+    chimpChild.appendChild(parInTimeChild)
     xml.appendChild(chimpChild)
     return root
 
@@ -457,7 +457,7 @@ def createInputFiles(data,scDic,scId,mjd0,sec0,fdir,ftag,numSegments):
         scpos.ticks = Ticktock(data['Epoch_bin'])
         smpos = scpos.convert('SM','car')
     elif 'GSE'== scDic['Ephem']['CoordSys']:
-        scpos = Coords(data['Ephemeris'][:,0:3]*toRe,'GSE','car')
+        scpos = Coords(data['Ephemeris'][:,0:3]*toRe,'GSE','car', use_irbem=False)
         scpos.ticks = Ticktock(data['Epoch_bin'])
         smpos = scpos.convert('SM','car')
     else:
