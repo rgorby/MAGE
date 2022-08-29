@@ -22,8 +22,6 @@ module init
       
         !> Assume reasonable defaults if not overidden by user 
         !> for Gibson-Low model
-
-
         subroutine setModelDefaults(Model)
             type(glModel_T), intent(inout) :: Model
 
@@ -98,7 +96,7 @@ module init
             call xmlInp%Set_Val(Model%frontheight, "prob/frontheight", 1.35)
             call xmlInp%Set_Val(Model%legsang, "prob/legsang", 25.)
             call xmlInp%Set_Val(Model%topmorph, "prob/topmorph", 2.5)
-            call xmlInp%Set_Val(Model%Bpar, "prob/Bmax", 1.75)
+            call xmlInp%Set_Val(Model%Bmax, "prob/Bmax", 1.75)
             call xmlInp%Set_Val(Model%alpha, "prob/alpha", 0.)
             call xmlInp%Set_Val(Model%sigma, "prob/orientation", 1.5708)
             call xmlInp%Set_Val(Model%alnotrbubsign, "prob/chiral", 1.0) 
@@ -114,14 +112,14 @@ module init
                 Model%apar = Model%frontheight*(1 - 0.5*Model%k*(Model%topmorph - 2))/(0.5*Model%k*Model%topmorph)
                 Model%r0 = 2*Model%frontheight/Model%topmorph
                 Model%x0 = Model%r0/Model%k
+                Model%s_eta0 = sqrt(eta0)
+                ! from v_fh = frontheight*sqrt(eta)*Rsun_km*velmult; sqrt(eta)*Rsun_km=258.55
+                ! can get velmult=Model%vel_fh/(Model%frontheight*s_eta0*Rsun*1d-5)
+                Model%s_eta = Model%vel_fh/(Model%frontheight*Rsun*1d-5) ! sqrt(eta0)*velmult
+                Model%velmult = Model%s_eta/Model%s_eta0
+                ! (this is simply to rewrite the sequence
+                !  s_eta0=sqrt(eta0); velmult=Model%vel_fh/(Model%frontheight*Rsun*1d-5*s_eta0); s_eta=s_eta0*velmult)    
             end if
-            Model%s_eta0 = sqrt(eta0)
-            ! from v_fh = frontheight*sqrt(eta)*Rsun_km*velmult; sqrt(eta)*Rsun_km=258.55
-            ! can get velmult=Model%vel_fh/(Model%frontheight*s_eta0*Rsun*1d-5)
-            Model%s_eta = Model%vel_fh/(Model%frontheight*Rsun*1d-5) ! sqrt(eta0)*velmult
-            Model%velmult = Model%s_eta/Model%s_eta0
-            ! (this is simply to rewrite the sequence
-            !  s_eta0=sqrt(eta0); velmult=Model%vel_fh/(Model%frontheight*Rsun*1d-5*s_eta0); s_eta=s_eta0*velmult)
 
             Model%alnotrbub_abs = abs(Model%alnotrbub)
     
@@ -145,7 +143,7 @@ module init
             Model%alpha = Model%alpha*Model%velmult*Model%velmult
             Model%eta = eta0*Model%velmult*Model%velmult
 
-            if (Model%isDebug) then
+            if (Model%isLoud) then
                 write(*,"(1X,A14,2X,F)") "frontheight: ", Model%frontheight
                 write(*,"(1X,A14,2X,F)") "xo: ", Model%xo
                 write(*,"(1X,A14,2X,F)") "apar: ", Model%apar
@@ -162,6 +160,7 @@ module init
                 write(*,"(1X,A14,2X,F)") "eta: ", Model%eta
                 write(*,"(1X,A14,2X,F)") "velmult: ", Model%velmult
                 write(*,"(1X,A14,2X,F)") "s_eta: ", Model%s_eta 
+                write(*,"(1X,A14,2X,F)") "phiss: ", Model%phiss 
             end if
 
             !Output/Restart (IOCLOCK)
@@ -192,7 +191,11 @@ module init
             type(glModel_T), intent(inout) :: Model
             type(glSolution_T), intent(inout) :: Solution
             type(glState_T), intent(inout) :: State
-
+            
+            State%Ni = State%Nip + 1
+            State%Nj = State%Njp + 1
+            State%Nk = State%Nkp + 1
+            
             call allocState(State)
             call allocSolution(State, Solution)
 
@@ -222,9 +225,9 @@ module init
             real(rp) :: rtpBds(6)
             integer :: i, j, k
             ! Set up State grid dimensions       
-            call xmlInp%Set_Val(State%Ni,"idir/N",Nc)
-            call xmlInp%Set_Val(State%Nj,"jdir/N",Nc)
-            call xmlInp%Set_Val(State%Nk,"kdir/N",Nc)
+            call xmlInp%Set_Val(State%Nip,"idir/N",Nc)
+            call xmlInp%Set_Val(State%Njp,"jdir/N",Nc)
+            call xmlInp%Set_Val(State%Nkp,"kdir/N",Nc)
             call xmlInp%Set_Val(rtpBds(1),"idir/min",xMin)
             call xmlInp%Set_Val(rtpBds(2),"idir/max",xMax)
             call xmlInp%Set_Val(rtpBds(3),"jdir/min",xMin)
@@ -235,30 +238,31 @@ module init
             call initSolutionState(Model, State, Solution)
             ! Set up State
             ! Set dx's (uniform for now)
-            dr = (rtpBds(2)-rtpBds(1))/State%Ni
-            dth = (rtpBds(4)-rtpBds(3))/State%Nj
-            dphi = (rtpBds(6)-rtpBds(5))/State%Nk
+            dr = (rtpBds(2)-rtpBds(1))/State%Nip
+            dth = (rtpBds(4)-rtpBds(3))/State%Njp
+            dphi = (rtpBds(6)-rtpBds(5))/State%Nkp
 
             ! Create r(Ni), theta(Nj,Nk), phipb(Nj,Nk) arrays
               
             do k=1, State%Nk
-                do j=1, State%Nj
-                    ! Theta
-                    x2 = rtpBds(3)+(j-1)*pi*dth + Model%latitude
+                do j=1, State%Nj       
                     ! Phi
-                    x3 = rtpBds(5)+(k-1)*2*pi*dphi - Model%longitude
-                    State%thpb(j,k) = x2
-                    State%phpb(j,k) = x3
+                    x3 = rtpBds(5)+(k-1)*dphi
+                    State%phpb(j,k) = x3*2*pi        
+                    ! Theta
+                    x2 = rtpBds(3)+(j-1)*dth
+                    State%thpb(j,k) = x2*pi                        
                     do i=1, State%Ni
-                        x1 = rtpBds(1) + (i-1)*dr
+                        ! Rho
+                        x1 = rtpBds(1) + (i-1)*dr                      
                         State%r(i) = x1
-                        
-                        x = x1*sin(x2)*cos(x3)
-                        y = x1*sin(x2)*sin(x3)
-                        z = x1*cos(x2)
+                        ! construct xyz cartesian locations
+                        x = x1*sin(x2*pi)*cos(x3*2*pi)
+                        y = x1*sin(x2*pi)*sin(x3*2*pi)
+                        z = x1*cos(x2*pi)
                         ! This grid is for external processing to set up cartesian coordinates 
                         ! for analyzing in visualization routines e.g. Paraview
-                        State%xyz(i,j,k,:) = [x,y,z]
+                        State%xyz(i,j,k,XDIR:ZDIR) = [x,y,z]
                     end do 
                 end do
             end do
@@ -288,7 +292,7 @@ module init
                     write(*,*) 'You must specify a valid StateCoord, "Sphere" or "Cart3D"'
                     stop
             end select
-            GLH5File   = genName(Model%RunID, State%Ni, State%Nj, State%Nk, State%Ni+1, State%Nj+1, State%Nk+1)
+            GLH5File   = genName(Model%RunID, State%Nip, State%Njp, State%Nkp, 1, 1, 1)
         end subroutine initGLStandalone
 
         !> Expectation is that this interface is to be used by Gamera etc. 
