@@ -49,11 +49,10 @@ module gltypes
         real(rp) :: frontheight
         real(rp) :: legsang
         real(rp) :: topmorph
-        real(rp) :: Bpar
+        real(rp) :: Bmax
         real(rp) :: orientation
         real(rp) :: cmeV
         real(rp) :: vel_fh
-        real(rp) :: bmax
         real(rp) :: frontvolume
         real(rp) :: k 
         real(rp) :: apar 
@@ -144,7 +143,7 @@ module gltypes
         ! Used for standalone Gibson-Low Model run
         ! to definte user specified 3D grid dimensions to supply r,theta,phi to state
         ! and to define size of solution
-        integer :: Ni,Nj,Nk
+        integer :: Ni,Nj,Nk,Nip,Njp,Nkp
         real(rp) :: latitude = 0.
         real(rp) :: longitude = 0.
 
