@@ -26,7 +26,7 @@ module gldefs
         mp = 1.6696e-24, & !TODO: where is this from? different from kdefs
         gas_R = 1./6.07e-9, &
         kboltz = 1.3807e-16, & !TODO: remove, already in kdefs, Kbltz
-        bigtiny = 1e-4, &  !TODO: big TINY, smol? 
+        BIGTINY = 1e-4, &
         eta0 = 1.38d-7
 
 end module
