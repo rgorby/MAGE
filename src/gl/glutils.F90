@@ -21,7 +21,7 @@ module glutils
             tmparr = 1.0
 
             where (arr .lt. 0) tmparr = -1.0
-            where (abs(arr) .lt. TINY*1.0D8) arr = TINY*1.0D8*tmparr
+            where (abs(arr) .lt. BIGTINY) arr = BIGTINY*tmparr
 
             deallocate (tmparr)
         end subroutine zero2tiny2d
