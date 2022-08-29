@@ -23,7 +23,7 @@ module solution
             real(rp), dimension(:,:), allocatable :: sPbig
             real(rp), dimension(:,:), allocatable :: cPbig
             real(rp), dimension(:, :), allocatable :: gfun, gfunot
-            real(rp), dimension(:, :), allocatable :: Stream, dSdT, dgfundr
+            real(rp), dimension(:, :), allocatable :: dSdT, dgfundr
             real(rp), dimension(:, :), allocatable :: dSdR, dbPdt, dbPdR, d2gfundr2
             real(rp), dimension(:, :), allocatable :: d2SdR2, d2SdT2, dbTdR, dbRdT
             real(rp), dimension(:, :), allocatable :: dTdmu, dTdR, dRdmu, dPidmu, dmudlam
@@ -40,7 +40,6 @@ module solution
             allocate (sPbig(dim1, dim2))
             allocate (cPbig(dim1, dim2))
             allocate (gfunot(dim1, dim2))
-            allocate (stream(dim1, dim2))
             allocate (gfun(dim1, dim2))
             allocate (dSdT(dim1, dim2))
             allocate (dgfundr(dim1, dim2))
@@ -61,6 +60,12 @@ module solution
             allocate (dmudlam(dim1, dim2))
             allocate (d2SdTdR(dim1, dim2))
             
+
+            ! ;  See eq A19
+            ! ; 
+            ! ;  first need to calculate tderiv = dT/drlam, where T = Pi + Bstrength (squared)
+            ! ;  in the Rcap,Thcap system
+            ! ;
             State%st = sin(State%thpB)
             State%ct = cos(State%thpB)
             sph = sin(State%phpB)
@@ -78,16 +83,16 @@ module solution
 
             State%mu = State%rcap*sTbig
             gfunot = sin(Model%alnot*Model%rbub)/Model%alnot/Model%rbub - cos(Model%alnot*Model%rbub)
-            dSdT = Stream*2*cTbig/sTbig
+            dSdT = State%stream*2*cTbig/sTbig
             dgfundr = cos(Model%alnot*State%rcap)/State%rcap - sin(Model%alnot*State%rcap)/State%rcap/State%rcap/Model%alnot + &
                     Model%alnot*sin(Model%alnot*State%rcap)
-            dSdR = (4.d0*Model%ao*pi/Model%alnot/Model%alnot)*(dgfundr*Model%rbub**2/gfunot - 2*State%rcap)*sTbig**2
-            d2SdTdR = dSdR*2.d0*cTbig/sTbig
+            dSdR = (4.*Model%ao*pi/Model%alnot/Model%alnot)*(dgfundr*Model%rbub**2/gfunot - 2*State%rcap)*sTbig**2
+            d2SdTdR = dSdR*2.*cTbig/sTbig
             d2gfundr2 = (-State%rcap*State%rcap*Model%alnot*sin(Model%alnot*State%rcap) - State%rcap*cos(Model%alnot*State%rcap) + &
-                        Model%alnot*State%rcap*State%rcap*State%rcap*Model%alnot*cos(Model%alnot*State%rcap) - &
-                        cos(Model%alnot*State%rcap)*State%rcap + 2*sin(Model%alnot*State%rcap)/Model%alnot)/State%rcap/State%rcap/State%rcap
-            d2SdR2 = (4.d0*Model%ao*pi/Model%alnot/Model%alnot)*(d2gfundr2*Model%rbub**2/gfunot - 2)*sTbig**2
-            d2SdT2 = Stream*2*(cTbig**2 - sTbig**2)/(sTbig**2)
+                        Model%alnot*State%rcap**3.*Model%alnot*cos(Model%alnot*State%rcap) - &
+                        cos(Model%alnot*State%rcap)*State%rcap + 2*sin(Model%alnot*State%rcap)/Model%alnot)/State%rcap**3.
+            d2SdR2 = (4.*Model%ao*pi/Model%alnot/Model%alnot)*(d2gfundr2*Model%rbub**2/gfunot - 2)*sTbig**2
+            d2SdT2 = State%stream*2*(cTbig**2 - sTbig**2)/(sTbig**2)
             dRdmu = sTbig
             dthetadmu = cTbig/State%rcap
             dPidR = Model%ao*dSdR
@@ -98,10 +103,10 @@ module solution
             dTdR = dTdR - 2*(dSdR**2)/(State%rcap**3)/(sTbig**2)
             dTdR = dTdR + 2*dSdR*d2SdR2/(State%rcap**2)/(sTbig**2)
 
-            dTdR = dTdR - 2*Model%alnot*Model%alnot*(Stream**2)/(State%rcap**3)/(sTbig**2)
-            dTdR = dTdR + 2*Model%alnot*Model%alnot*Stream*dSdR/(State%rcap**2)/(sTbig**2)
+            dTdR = dTdR - 2*Model%alnot*Model%alnot*(State%stream**2)/(State%rcap**3)/(sTbig**2)
+            dTdR = dTdR + 2*Model%alnot*Model%alnot*State%stream*dSdR/(State%rcap**2)/(sTbig**2)
 
-            dTdR = dTdR/8.d0/pi
+            dTdR = dTdR/8./pi
             dTdR = dTdR + dPidR
 
             dTdmu = -2*((dSdT/State%rcap)**2)/(State%mu**3)
@@ -109,9 +114,9 @@ module solution
                                                 d2SdTdR/State%rcap) + dthetadmu*d2SdT2/State%rcap)/(State%mu**2)
             dTdmu = dTdmu - 2*(dSdR**2)/(State%mu**3)
             dTdmu = dTdmu + 2*dSdR*(dRdmu*d2SdR2 + dthetadmu*d2SdTdR)/(State%mu**2)
-            dTdmu = dTdmu - 2*Model%alnot*Model%alnot*(Stream**2)/(State%mu**3)
-            dTdmu = dTdmu + 2*Model%alnot*Model%alnot*Stream*(dRdmu*dSdR + dthetadmu*dSdT)/(State%mu**2)
-            dTdmu = dTdmu/8.d0/pi
+            dTdmu = dTdmu - 2*Model%alnot*Model%alnot*(State%stream**2)/(State%mu**3)
+            dTdmu = dTdmu + 2*Model%alnot*Model%alnot*State%stream*(dRdmu*dSdR + dthetadmu*dSdT)/(State%mu**2)
+            dTdmu = dTdmu/8./pi
             dTdmu = dTdmu + dPidmu
 
             dRdlam = (State%rlam - Model%xo*State%st*cph)/State%rcap
@@ -119,11 +124,12 @@ module solution
             cs = cos(Model%sigma)
             ss = sin(Model%sigma)
             dmudlam = (State%rlam*(State%st**2*(cph**2 + sph**2*cs**2) + &
-                            State%ct**2*ss**2 - 2*State%st*State%ct*sph*ss*cs) - Model%xo*State%st*cph)/State%mu
+                        State%ct**2*ss**2 - 2*State%st*State%ct*sph*ss*cs) - &
+                        Model%xo*State%st*cph)/State%mu
             State%tderivR = dTdR*dRdlam
             State%tderivmu = dTdmu*dmudlam
             State%tderiv = State%tderivR + State%tderivmu
-            if (State%outside_count .gt. 0) where (Solution%inside_mask(State%ri, :, :) .eq. 0) State%tderiv = Model%outScale*Model%outScale*State%tderivout
+            if (State%outside_count .gt. 0) where (Solution%inside_mask(State%ri, :, :) .lt. 1.) State%tderiv = Model%outScale**2.*State%tderivout
 
         end subroutine calcDerivs
 
@@ -134,8 +140,14 @@ module solution
             type(glState_T), intent(inout) :: State
             type(glSolution_T), intent(inout) :: Solution
             real(rp), dimension(:, :), allocatable :: d1, d2, d3, d4
+            
+            ! ;  the force F could include the effects of the self-similar
+            ! ;  acceleration (alpha ne 0) - otherwise its just gravity.
+            ! ; Note that to properly include alpha ne 0, however, phiss needs
+            ! ; to be defined as a differential equation
+            ! ;
+            State%F = GMm/(State%rsquig**2)/(Rsun**2) + Model%alpha*State%rsquig*Rsun*mprot
 
-            !for debugging purposes:
             d1 = -((State%rlam/State%rsquig)**2)*(1 - ((State%rlam/State%rsquig)**2))*State%tderiv
             d2 = 2*(State%rlam/State%rsquig)*(Model%apar/(State%rsquig**2))*State%glpi
             d3 = (State%rlam/State%rsquig)*(Model%apar/(State%rsquig**2))* &
@@ -144,23 +156,55 @@ module solution
                                     2*(Model%apar/State%rsquig))*(State%blittlethlamb**2 + State%blittlephlamb**2)/4./pi/State%rlam
             Solution%dens(State%ri,:,:)  = d1 + d2 + d3 + d4
 
-            State%F = GMm/(State%rsquig**2)/(Rsun**2) + Model%alpha*State%rsquig*Rsun*mprot
-
             Solution%dens(State%ri,:,:)  = Solution%dens(State%ri,:,:) / State%F / Rsun
+            
 
+            if ((State%rcap(1,1) .gt. Model%rbub) .and. (Model%isLoud))  then
+                write(*,"(1X,A20,2X,E13.6)") "Max d1: ", maxval(d1)
+                write(*,"(1X,A20,2X,E13.6)") "Min d1: ",  minval(d1)
+                write(*,"(1X,A20,2X,E13.6)") "Max d2: ",  maxval(d2)
+                write(*,"(1X,A20,2X,E13.6)") "Min d2: ", minval(d2)
+                write(*,"(1X,A20,2X,E13.6)") "Max d3: ",  maxval(d3)
+                write(*,"(1X,A20,2X,E13.6)") "Min d3: ", minval(d3)
+                write(*,"(1X,A20,2X,E13.6)") "Max d4: ",  maxval(d4)
+                write(*,"(1X,A20,2X,E13.6)") "Min d4: ", minval(d4)
+                write(*,"(1X,A20,2X,E13.6)") "Max densnoback: ",  maxval(Solution%dens(State%ri,:,:))
+                write(*,"(1X,A20,2X,E13.6)") "Min densnoback: ", minval(Solution%dens(State%ri,:,:))
+                write(*,"(1X,A20,2X,E13.6)") "Max F: ",  maxval(State%F)
+                write(*,"(1X,A20,2X,E13.6)") "Min F: ", minval(State%F)
+            end if
+            ! ;  put in background density
+            ! ;  first radial power law HE
+            ! ; see Gibson et al 1998, eq 3 
+            ! ;
             State%densin = (Model%aa + Model%cc + Model%ee)*State%rsquig**(-3.)
             State%densout = (Model%aa*State%rsquig**(-Model%bb) + Model%cc*State%rsquig**(-Model%dd) + Model%ee*State%rsquig**(-Model%ff))
             State%densback = 0.0
 
-            if (State%inside_count .gt. 0) where (Solution%inside_mask(State%ri, :, :) .eq. 1) State%densback = State%densin
-            if (State%outside_count .ne. 0) where (Solution%inside_mask(State%ri, :, :) .eq. 0) State%densback = State%densout
+            if (State%inside_count .gt. 0) where (Solution%inside_mask(State%ri, :, :) .gt. 0.) State%densback = State%densin
+            if (State%outside_count .gt. 0) where (Solution%inside_mask(State%ri, :, :) .lt. 1.) State%densback = State%densout
             State%DensbackHEonly = State%densback
-
-            if (State%inside_count .gt. 0) where (Solution%inside_mask(State%ri, :, :) .eq. 1) State%densback = State%densback + State%dbackin*(Model%phiss**3)
-
+            ! ; 
+            ! ; now add total pressure continuity part
+            ! ;
+            if (State%inside_count .gt. 0) where (Solution%inside_mask(State%ri, :, :) .gt. 0.) State%densback = State%densback + State%dbackin*(Model%phiss**3)
             Solution%dens(State%ri,:,:) = Solution%dens(State%ri,:,:) + State%Densback
+            ! ;
+            ! ;  put dens in ss coords
+            ! ;
             Solution%dens(State%ri,:,:) = Solution%dens(State%ri,:,:)/(Model%phiss**3)
             State%Densback = State%Densback/(Model%phiss**3)
+            if ((State%rcap(1,1) .gt. Model%rbub) .and. (Model%isLoud)) then
+                write(*,*) "r: ", State%rcap(1,1)
+                write(*,"(1X,A20,2X,E13.6)") "max densin: ", maxval(State%densin)
+                write(*,"(1X,A20,2X,E13.6)") "min densin: ", minval(State%densin)
+                write(*,"(1X,A20,2X,E13.6)") "max densout: ", maxval(State%densout)
+                write(*,"(1X,A20,2X,E13.6)") "min densout: ", minval(State%densout)
+                write(*,"(1X,A20,2X,E13.6)") "max densback: ", maxval(State%densback)
+                write(*,"(1X,A20,2X,E13.6)") "min densback: ", minval(State%densback)
+                write(*,"(1X,A20,2X,E13.6)") "max dens: ", maxval(Solution%dens(State%ri,:,:))
+                write(*,"(1X,A20,2X,E13.6)") "min dens: ", minval(Solution%dens(State%ri,:,:))
+            end if
         end subroutine calcDensity
 
         !> Calculate Gibson-Low Solution Pressure
@@ -170,11 +214,21 @@ module solution
             type(glModel_T), intent(in) :: Model
             type(glState_T), intent(inout) :: State
             type(glSolution_T), intent(inout) :: Solution
-
+            ! ;
+            ! ; calculate pressure from Gibson and Low eq. A18
+            ! ;
             Solution%Pres(State%ri, :, :) = (State%rlam**2/State%rsquig**2) & 
                                             * (1 - (State%rlam**2/State%rsquig**2)) &
                                             * (State%blittlerlamb**2)/(8*pi) &
                                             + (State%rlam**2/State%rsquig**2)*State%glpi
+            ! ; now we have to match total pressure Pmag+Pgas at the bubble interface
+            ! ;  note that the INNER bubble solution is defined so that Pmag and Pgas are zero there
+            ! ;  so, we calculate for each rlam, at the theta of the bubble boundary, the OUTER
+            ! ;  solution total pressure, and add it to the INNER gas pressure 
+            ! ;  (for all theta within the bubble at that rlam).  Then we must also
+            ! ;  add a similar density increment to the INNER density, because the OUTER solution
+            ! ; is potential and so has density and pressure in HE balance 
+            ! ;
             State%presback = Solution%Pres(State%ri, :, :) * 0.
 
             if (State%inside_count .gt. 0) then
@@ -182,26 +236,43 @@ module solution
                 call calcInside(Model, State, Solution)
                 where (Solution%inside_mask(State%ri, :, :) .eq. 1) State%presback = State%Pbackin*(Model%phiss**4)
             end if
-
+            ! ;  now we put in additional hydrostatic background pressure to keep
+            ! ;  things positive
             State%presout = (Model%aa/(Model%bb + 1.))*State%rsquig**(-Model%bb - 1.) &
                             + (Model%cc/(Model%dd + 1.))*State%rsquig**(-Model%dd - 1.) &
                             + (Model%ee/(Model%ff + 1.))*State%rsquig**(-Model%ff - 1.)
 
             State%presout = State%presout*GMm/Rsun
-
-            State%presin = (1.d0/4.d0)*(Model%aa + Model%cc + Model%ee)*State%rsquig**(-4.)
-            State%presin_0 = -(1.d0/4.d0)*(Model%aa + Model%cc + Model%ee)
+            ! ;
+            ! ; see Gibson et al 1998, eqs 3 and 4 - note we are assuming alpha (He) = 0
+            ! ;
+            
+            ! ; presin and densin only matter for CME solution
+            ! ; and are put in as a means of stopping the background density
+            ! ; from blowing up as the structure self-similarly expands
+            ! ; since density scales as phiss^-3 and pressure as phiss^-4
+            ! ; and rsquig = rpB/phiss
+            ! ; however, note this means that for rsquig less than 1, the
+            ! ; background density won't fall off as defined by aa,bb,cc,dd,ee,f
+            ! ; but rather by an r^3 power law.  Thus, if fitting a magnetostatic
+            ! ; solution it is best to set phiss=1
+            ! ;
+            State%presin = (1./4.)*(Model%aa + Model%cc + Model%ee)*State%rsquig**(-4.)
+            State%presin_0 = -(1./4.)*(Model%aa + Model%cc + Model%ee)
             State%presin_0 = State%presin_0 + (Model%aa/(Model%bb + 1.)) &
                         + (Model%cc/(Model%dd + 1.)) &
                         + (Model%ee/(Model%ff + 1.))
             State%presin = State%presin + State%presin_0
             State%presin = State%presin*GMm/Rsun
-
+            ! ; thus presin and presout will match smoothly at rsquig = 1
+            ! ;  
             where (State%rsquig .lt. 1) State%presback = State%presback + State%presin
             where (State%rsquig .ge. 1) State%presback = State%presback + State%presout
 
             Solution%Pres(State%ri, :, :) = Solution%Pres(State%ri, :, :) + State%presback
-            Solution%Pres(State%ri, :, :) = Solution%Pres(State%ri, :, :)/(Model%phiss**4)
+            
+            !; self-similar transform
+            Solution%Pres(State%ri, :, :) = Solution%Pres(State%ri, :, :)/Model%phiss**4
 
         end subroutine calcPresssure
 
@@ -229,7 +300,7 @@ module solution
             real(rp), dimension(:, :), allocatable :: dAdrdth, dAdr2, dAdth2, brlambout1
             real(rp), dimension(:, :), allocatable :: bthlambout1, bphlambout1, dbth1dr, dbr1dth
             real(rp), dimension(:, :), allocatable :: jrlambout1, jthlambout1, jphlambout1
-            real(rp), dimension(:, :), allocatable :: shp, cph, blittleX1, blittleY1
+            real(rp), dimension(:, :), allocatable :: sph, cph, blittleX1, blittleY1
             real(rp), dimension(:, :), allocatable :: blittleZ1, jlittleX1, jlittleY1, jlittleZ1
             real(rp), dimension(:, :), allocatable :: blittleY2, blittleZ, jlittleY2, jlittleZ
             real(rp), dimension(:, :), allocatable :: blittleX, blittleY, jlittleX, jlittleY
@@ -253,7 +324,7 @@ module solution
             allocate (dAdrdth(dim1, dim2), dAdr2(dim1, dim2), dAdth2(dim1, dim2), brlambout1(dim1, dim2))
             allocate (bthlambout1(dim1, dim2), bphlambout1(dim1, dim2), dbth1dr(dim1, dim2), dbr1dth(dim1, dim2))
             allocate (jrlambout1(dim1, dim2), jthlambout1(dim1, dim2), jphlambout1(dim1, dim2))
-            allocate (shp(dim1, dim2), cph(dim1, dim2), blittleX1(dim1, dim2), blittleY1(dim1, dim2))
+            allocate (sph(dim1, dim2), cph(dim1, dim2), blittleX1(dim1, dim2), blittleY1(dim1, dim2))
             allocate (blittleZ1(dim1, dim2), jlittleX1(dim1, dim2), jlittleY1(dim1, dim2), jlittleZ1(dim1, dim2))
             allocate (blittleY2(dim1, dim2), blittleZ(dim1, dim2), jlittleY2(dim1, dim2), jlittleZ(dim1, dim2))
             allocate (blittleX(dim1, dim2), blittleY(dim1, dim2), jlittleX(dim1, dim2), jlittleY(dim1, dim2))
@@ -272,11 +343,13 @@ module solution
             ! ;  consistent with right-hand coordinate system
             ! ;
             ! ;
-            State%xtr = State%rpb*State%st*cos(State%phpb)
-            State%ytr = State%rpb*State%st*sin(State%phpb)
+            State%xtr = State%rpb*sin(State%thpb)*cos(State%phpb)
+            State%ytr = State%rpb*sin(State%thpb)*sin(State%phpb)
             State%ztr = State%rpb*cos(State%thpb)
+
             !; now transform to spherical coords (radius is unchanged)
             State%rout = State%rlam
+
             ! ;
             ! ; the tilde coords are the new x and z with up defined as above
             ! ; rotated 90 about z, and then 90 about y
@@ -289,8 +362,8 @@ module solution
             ! ; first rotate about z
             State%xtilde = -State%ytr
             yt2 = State%xtr
-            !; now about xtilde
 
+            !; now about xtilde
             State%ytilde = -State%ztr
             State%ztilde = yt2
 
@@ -303,17 +376,16 @@ module solution
 
             ! ;
             ! ;
-            ! ; make sure phout is betweeen 0. and 2.d0*!dpi
+            ! ; make sure phout is betweeen 0. and 2.*!dpi
             ! ;
-            where (State%phout .lt. 0.) State%phout = 2.d0*pi + State%phout
-            where (State%phout .gt. 2.d0*pi) State%phout = State%phout - 2.d0*pi
+            where (State%phout .lt. 0.) State%phout = 2.*pi + State%phout
+            where (State%phout .gt. 2.*pi) State%phout = State%phout - 2.*pi
 
             r1 = sqrt(Model%xo*Model%xo)
 
             State%st = sin(State%thout)
             State%mu = cos(State%thout)
 
-  
             call zero2tiny2d(State%st)
             call zero2tiny2d(State%mu)
 
@@ -333,7 +405,7 @@ module solution
             psi1 = (-1/Model%rbub)*f*h
             ! ;
             ! ; eq. B4
-            i = State%rout*State%rout + State%rout*State%rout - 2*State%rout*State%rout*State%mu
+            i = State%rout*State%rout + r1*r1 - 2*State%rout*r1*State%mu
             psi3 = (1/Model%rbub)*sqrt(i)
             ! ;
             ! ; eq. B5
@@ -347,24 +419,24 @@ module solution
             dpsi0dr2 = 0.
             dpsi0drdth = 0.
 
-            dfdr = 2*State%rout*State%rout - State%mu*al2
+            dfdr = 2*r1*State%rout - State%mu*al2
             dfdmu = -State%rout*al2
             dfdrdmu = -al2
             dfdr2 = 2*r1
 
-            dgdr = 2*State%rout*r1*r1 - 2*State%rout*al1*State%mu
+            dgdr = 2*State%rout*r1*r1 - 2*r1*al1*State%mu
             dgdmu = -2*State%rout*r1*al1
-            dgdrdmu = -2*State%rout*al1
-            dgdr2 = 2*State%rout*r1
+            dgdrdmu = -2*r1*al1
+            dgdr2 = 2*r1*r1
 
-            dhdr = -dgdr/2/(g**1.5)
-            dhdmu = -dgdmu/2/(g**1.5)
-            d2hdmu2 = 3.*dgdmu/4/(g**2.5)
-            dhdrdmu = -dgdrdmu/2/(g**1.5) + 3*dgdmu*dgdr/4/(g**2.5)
-            dhdr2 = -dgdr2/2/(g**1.5) + 3*dgdr*dgdr/4/(g**2.5)
+            dhdr = -dgdr/2./(g**1.5)
+            dhdmu = -dgdmu/2./(g**1.5)
+            d2hdmu2 = 3.*dgdmu/4./(g**2.5)
+            dhdrdmu = -dgdrdmu/2./(g**1.5) + 3.*dgdmu*dgdr/4./(g**2.5)
+            dhdr2 = -dgdr2/2/(g**1.5) + 3*dgdr*dgdr/4./(g**2.5)
 
             dpsi1dr = (-1/Model%rbub)*(dfdr*h + f*dhdr)
-            dpsi1dr2 = (-1/Model%rbub)*(2*dfdr*dhdr + dfdr2*h + f*dhdr2)
+            dpsi1dr2 = (-1/Model%rbub)*(2.*dfdr*dhdr + dfdr2*h + f*dhdr2)
 
             dpsi1dmu = (-1/Model%rbub)*(dfdmu*h + f*dhdmu)
             d2psi1dmu2 = (-1/Model%rbub)*(2.*dfdmu*dhdmu + f*d2hdmu2)
@@ -379,11 +451,11 @@ module solution
             didrdmu = -2*r1
             didr2 = 2.
 
-            dpsi3dr = (1/Model%rbub)*didr/2/sqrt(i)
-            dpsi3dmu = (1/Model%rbub)*didmu/2/sqrt(i)
-            d2psi3dmu2 = -(1/Model%rbub)*didmu/4/(i**(1.5))
-            dpsi3drdmu = (1/Model%rbub)*(didrdmu/2/sqrt(i) - didmu*didr/4/(i**1.5))
-            dpsi3dr2 = (1/Model%rbub)*(didr2/2/sqrt(i) - (didr)**2/4/(i**1.5))
+            dpsi3dr = (1/Model%rbub)*didr/2./sqrt(i)
+            dpsi3dmu = (1/Model%rbub)*didmu/2./sqrt(i)
+            d2psi3dmu2 = -(1/Model%rbub)*didmu/4./(i**(1.5))
+            dpsi3drdmu = (1/Model%rbub)*(didrdmu/2./sqrt(i) - didmu*didr/4./(i**1.5))
+            dpsi3dr2 = (1/Model%rbub)*(didr2/2./sqrt(i) - (didr)**2./4./(i**1.5))
 
             dpsi3dth = -State%st*dpsi3dmu
             dpsi3drdth = -State%st*dpsi3drdmu
@@ -417,16 +489,16 @@ module solution
             ! ;  We do so by going through the cartesian coordinates.
             ! ;
 
-            shp = sin(State%phout)
+            sph = sin(State%phout)
             cph = cos(State%phout)
-            call zero2tiny2d(shp)
+            call zero2tiny2d(sph)
             call zero2tiny2d(cph)
 
             blittleX1 = brlambout1*State%st*cph + bthlambout1*State%mu*cph
-            blittleY1 = brlambout1*State%st*shp + bthlambout1*State%mu*shp
-            blittleZ1 = brlambout1*State%mu - bthlambout1*State%st!
+            blittleY1 = brlambout1*State%st*sph + bthlambout1*State%mu*sph
+            blittleZ1 = brlambout1*State%mu - bthlambout1*State%st
             jlittleX1 = jrlambout1*State%st*cph + jthlambout1*State%mu*cph
-            jlittleY1 = jrlambout1*State%st*shp + jthlambout1*State%mu*shp
+            jlittleY1 = jrlambout1*State%st*sph + jthlambout1*State%mu*sph
             jlittleZ1 = jrlambout1*State%mu - jthlambout1*State%st
 
             jphlambout1 = 0.
@@ -469,13 +541,13 @@ module solution
             ! ;  now calculated tderivout (needed for density  A19)
             ! ;
             dbr1dr = (-2.*dAdth/State%rout + dAdrdth)/State%rout/State%rout/State%st
-            State%tderivout = (brlambout1*dbr1dr + bthlambout1*dbth1dr)/4/pi
+            State%tderivout = (brlambout1*dbr1dr + bthlambout1*dbth1dr)/4./pi
 
             ! ;
             ! ;   and finally flip the sign about the equator
             ! ;
-            ! ;	south = where(phout gt 0.d0  and phout lt double(!dpi))
-            where ((State%phout .gt. pi) .and. (State%phout .lt. 2.d0*pi))
+            ! ;	south = where(phout gt 0.  and phout lt double(!dpi))
+            where ((State%phout .gt. pi) .and. (State%phout .lt. 2.*pi))
                 State%brlambout = -1*State%brlambout
                 State%bthlambout = -1*State%bthlambout
                 State%bphlambout = -1*State%bphlambout
@@ -504,7 +576,7 @@ module solution
             deallocate (dAdrdth, dAdr2, dAdth2, brlambout1)
             deallocate (bthlambout1, bphlambout1, dbth1dr, dbr1dth)
             deallocate (jrlambout1, jthlambout1, jphlambout1)
-            deallocate (shp, cph, blittleX1, blittleY1)
+            deallocate (sph, cph, blittleX1, blittleY1)
             deallocate (blittleZ1, jlittleX1, jlittleY1, jlittleZ1)
             deallocate (blittleY2, blittleZ, jlittleY2, jlittleZ)
             deallocate (blittleX, blittleY, jlittleX, jlittleY)
@@ -520,8 +592,8 @@ module solution
             type(glModel_T), intent(in) :: Model
             type(glState_T), intent(inout) :: State
             type(glSolution_T), intent(inout) :: Solution
-            real(rp), dimension(:, :), allocatable :: shp, cph, gfun, gfunot
-            real(rp), dimension(:, :), allocatable :: stream, dSdT, dgfundr
+            real(rp), dimension(:, :), allocatable :: sph, cph, gfun, gfunot
+            real(rp), dimension(:, :), allocatable :: dSdT, dgfundr
             real(rp), dimension(:, :), allocatable :: dSdR, Q
             real(rp), dimension(:, :), allocatable :: dbPdt, dbPdR, d2gfundr2
             real(rp), dimension(:, :), allocatable :: d2SdR2, d2SdT2, dbTdR, dbRdT
@@ -541,8 +613,8 @@ module solution
             dim1 = State%Nj
             dim2 = State%Nk
 
-            allocate (shp(dim1, dim2), cph(dim1, dim2), gfun(dim1, dim2), gfunot(dim1, dim2))
-            allocate (stream(dim1,dim2), dSdT(dim1, dim2), dgfundr(dim1, dim2))
+            allocate (sph(dim1, dim2), cph(dim1, dim2), gfun(dim1, dim2), gfunot(dim1, dim2))
+            allocate (dSdT(dim1, dim2), dgfundr(dim1, dim2))
             allocate (dSdR(dim1, dim2), blittleR(dim1, dim2), blittleT(dim1, dim2), Q(dim1, dim2), blittleP(dim1, dim2))
             allocate (dbPdt(dim1, dim2), dbPdR(dim1, dim2), d2gfundr2(dim1, dim2))
             allocate (d2SdR2(dim1, dim2), d2SdT2(dim1, dim2), dbTdR(dim1, dim2), dbRdT(dim1, dim2), jlittleR(dim1, dim2))
@@ -551,7 +623,7 @@ module solution
             allocate (ctreal(dim1, dim2), streal(dim1, dim2), cpreal(dim1, dim2), spreal(dim1, dim2))
             allocate (blittley(dim1, dim2), blittlez(dim1, dim2), jlittley(dim1, dim2), jlittlez(dim1, dim2))
 
-            ! shp = 0.0; cph = 0.0; gfun = 0.0; gfunot = 0.0
+            ! sph = 0.0; cph = 0.0; gfun = 0.0; gfunot = 0.0
             ! dSdT = 0.0; dgfundr = 0.0
             ! dSdR = 0.0; blittleR = 0.0; blittleT = 0.0; Q = 0.0; blittleP = 0.0
             ! dbPdt = 0.0; dbPdR = 0.0; d2gfundr2 = 0.0
@@ -567,25 +639,25 @@ module solution
 
             State%st = sin(State%thcap)
             State%ct = cos(State%thcap)
-            shp = sin(State%phcap)
+            sph = sin(State%phcap)
             cph = cos(State%phcap)
 
             !debug
-            !write(555,*) '[EP] in giblow_model: State%st,State%ct,shp,cph before zero2tiny2d'
+            !write(555,*) '[EP] in giblow_model: State%st,State%ct,sph,cph before zero2tiny2d'
             !write(555,*) dim1, dim2
             !write(555,*) minval(State%st), maxval(State%st)
             !write(555,*) minval(State%ct), maxval(State%ct)
-            !write(555,*) minval(shp), maxval(shp)
+            !write(555,*) minval(sph), maxval(sph)
             !write(555,*) minval(cph), maxval(cph)
             call zero2tiny2d(State%st) ! where (abs(State%st) .lt. tiny) State%st=tiny*sign(State%st)
             call zero2tiny2d(State%ct) ! where (abs(State%ct) .lt. tiny) State%ct=tiny*sign(State%ct)
-            call zero2tiny2d(shp) ! where (abs(shp) .lt. tiny) shp=tiny*sign(shp)
+            call zero2tiny2d(sph) ! where (abs(sph) .lt. tiny) sph=tiny*sign(sph)
             call zero2tiny2d(cph) ! where (abs(cph) .lt. tiny) cph=tiny*sign(cph)
 
-            !write(555,*) '[EP] in giblow_model: State%st,State%ct,shp,cph after zero2tiny2d'
+            !write(555,*) '[EP] in giblow_model: State%st,State%ct,sph,cph after zero2tiny2d'
             !write(555,*) minval(State%st), maxval(State%st)
             !write(555,*) minval(State%ct), maxval(State%ct)
-            !write(555,*) minval(shp), maxval(shp)
+            !write(555,*) minval(sph), maxval(sph)
             !write(555,*) minval(cph), maxval(cph)
 
             ! eq. B8
@@ -593,7 +665,7 @@ module solution
             gfunot = sin(Model%alnot*Model%rbub)/Model%alnot/Model%rbub - cos(Model%alnot*Model%rbub)
 
             ! eq. B7
-            stream = (4.d0*Model%ao*pi/Model%alnot/Model%alnot)*(gfun*Model%rbub**2/gfunot - State%rcap**2)*State%st**2
+            State%stream = (4.*Model%ao*pi/Model%alnot/Model%alnot)*(gfun*Model%rbub**2/gfunot - State%rcap**2)*State%st**2
 
             ! if (Model%isDebug) then
             !     write(*,*) "gfun: ", gfun
@@ -609,28 +681,48 @@ module solution
                 if (Model%isDebug) write(*,*) 'giblow_fieldcalc: calling calcOutside'
                 call calcOutside(Model, State, Solution)
 
-                where (Solution%inside_mask(State%ri, :, :) .eq. 0) stream = Model%outScale*State%streamout
+                where (Solution%inside_mask(State%ri, :, :) .lt. 1.) State%stream = Model%outScale*State%streamout
             end if
-
-            State%glpi = Model%ao*stream + Model%Pio
-            if (State%outside_count .ne. 0) where (Solution%inside_mask(State%ri, :, :) .eq. 0) State%glpi = Model%Pio
-
-            dSdT = stream*2*State%ct/State%st
+            
+            ! ;
+            ! ;  define pressure
+            ! ;
+            State%glpi = Model%ao*State%stream + Model%Pio
+            if (State%outside_count .ne. 0) where (Solution%inside_mask(State%ri, :, :) .lt. 1.) State%glpi = Model%Pio
+            
+            ! ;
+            ! ; now calculate little b (blittle), that goes with this Stream function
+            ! ; and pressure in these bubble coordinates
+            ! ; To do this, we need to use the derivatives of Stream with respect
+            ! ; to the cap coords.
+            ! ;
+            dSdT = State%stream*2*State%ct/State%st
             dgfundr = cos(Model%alnot*State%rcap)/State%rcap &
                         - sin(Model%alnot*State%rcap)/State%rcap/State%rcap/Model%alnot &
                         + Model%alnot*sin(Model%alnot*State%rcap)
-            dSdR = (4.d0*Model%ao*pi/Model%alnot/Model%alnot)*(dgfundr*Model%rbub**2/gfunot - 2.d0*State%rcap)*State%st**2
+            dSdR = (4.*Model%ao*pi/Model%alnot/Model%alnot)*(dgfundr*Model%rbub**2/gfunot - 2.*State%rcap)*State%st**2
+            
+            !;  eq. B6
             blittleR = (1/State%rcap/State%st)*((1/State%rcap)*dSdT)
             blittleT = -(1/State%rcap/State%st)*dSdR
-            Q = Model%alnot*Stream
+            
+            ! ;  ADD THE PHI FIELD!!!!!
+            ! ; 
+            ! ; NOTE! negative sign on BlittleP is to make a left-handed wind
+            ! ;  about the apple core
+            Q = Model%alnot*State%stream
             blittleP = -(1/State%rcap/State%st)*Q
+
+            ! ;
+            ! ; also calculate currents by taking curl
+            ! ;
             dbPdt = -(1./State%rcap/State%st)*Model%alnot*dSdT
             dbPdt = dbPdt + (State%ct/State%rcap/State%st/State%st)*Q
             dbPdR = -(1./State%rcap/State%st)*Model%alnot*dSdR
             dbPdR = dbPdR + (1./State%rcap/State%rcap/State%st)*Q
             d2gfundr2 = 2.*gfun/State%rcap/State%rcap - Model%alnot*Model%alnot*gfun
-            d2SdR2 = ((((Model%rbub**2)/gfunot)*d2gfundr2 - 2.)/(((Model%rbub**2)/gfunot)*gfun - State%rcap*State%rcap))*Stream
-            d2SdT2 = (4.*((State%ct/State%st)**2) - 2./State%st/State%st)*Stream
+            d2SdR2 = ((((Model%rbub**2)/gfunot)*d2gfundr2 - 2.)/(((Model%rbub**2)/gfunot)*gfun - State%rcap*State%rcap))*State%stream
+            d2SdT2 = (4.*((State%ct/State%st)**2) - 2./State%st/State%st)*State%stream
             dbTdR = (1/State%rcap/State%rcap/State%st)*dSdR - (1/State%rcap/State%st)*d2SdR2
             dbRdT = -(State%ct/State%rcap/State%rcap/State%st/State%st)*dSdT + (1/State%rcap/State%rcap/State%st)*d2SdT2
 
@@ -651,12 +743,18 @@ module solution
             jlittleR = (1./State%rcap/State%st)*(State%ct*blittleP + State%st*dbPdt)
             jlittleT = -(1./State%rcap)*(blittleP + State%rcap*dbPdR)
             jlittleP = (1./State%rcap)*(blittleT + State%rcap*dbTdR - dbRdT)
-
-            blittleX = blittleR*State%st*cph + blittleT*State%ct*cph - blittleP*shp
-            blittleY1 = blittleR*State%st*shp + blittleT*State%ct*shp + blittleP*cph
+            ! ;
+            ! ; But now we need to transform to blittle coordinates with respect to
+            ! ; the physical coord r, which we need for density and pressure (eq. A19)
+            ! ; (note the derivative calculation for this interior field happens in giblow - tderiv)
+            ! ;  We do so by going through the cartesian coordinates.
+            ! ;  note this has also now been rewritten in right-hand coordinates
+            ! ;
+            blittleX = blittleR*State%st*cph + blittleT*State%ct*cph - blittleP*sph
+            blittleY1 = blittleR*State%st*sph + blittleT*State%ct*sph + blittleP*cph
             blittleZ1 = blittleR*State%ct - blittleT*State%st
-            jlittleX = jlittleR*State%st*cph + jlittleT*State%ct*cph - jlittleP*shp
-            jlittleY1 = jlittleR*State%st*shp + jlittleT*State%ct*shp + jlittleP*cph
+            jlittleX = jlittleR*State%st*cph + jlittleT*State%ct*cph - jlittleP*sph
+            jlittleY1 = jlittleR*State%st*sph + jlittleT*State%ct*sph + jlittleP*cph
             jlittleZ1 = jlittleR*State%ct - jlittleT*State%st
 
             !debug
@@ -664,7 +762,10 @@ module solution
             !write(555,*) minval(blittleR), maxval(blittleR)
             !write(555,*) minval(blittleT), maxval(blittleT)
             !write(555,*) minval(blittleP), maxval(blittleP)
-
+            ! ;
+            ! ; but now we have to translate to the sigma rotated (about x axis) frame for y and z
+            ! ;  note clockwise rotation-- moves back into physical coordinates
+            ! ;
             associate(sigma=>Model%sigma)
 
             blittleY = cos(sigma)*blittleY1 + sin(sigma)*blittleZ1
@@ -684,7 +785,11 @@ module solution
             streal = sin(State%thpb)
             cpreal = cos(State%phpb)
             spreal = sin(State%phpb)
-
+            
+            ! ;
+            ! ;  these are the "little b" magnetic field components- the little b r
+            ! ;  is needed in calculating pressure and density in the pB coords
+            ! ;  see Appendix A, esp. eqs. A18-A19
             State%blittlerlamb = blittleY*streal*spreal + blittleX*streal*cpreal + blittleZ*ctreal
             State%blittlethlamb = blittleY*ctreal*spreal + blittleX*ctreal*cpreal - blittleZ*streal
             State%blittlephlamb = -blittleX*spreal + blittleY*cpreal
@@ -692,8 +797,9 @@ module solution
             State%jlittlethlamb = jlittleY*ctreal*spreal + jlittleX*ctreal*cpreal - jlittleZ*streal
             State%jlittlephlamb = -jlittleX*spreal + jlittleY*cpreal
 
+            !;   we need to put in the proper values for the outside field
             if (State%outside_count .ne. 0) then
-                where (Solution%inside_mask(State%ri, :, :) .eq. 0)
+                where (Solution%inside_mask(State%ri, :, :) .lt. 1.)
                     State%blittlerlamb = Model%outScale*State%brlambout
                     State%blittlethlamb = Model%outScale*State%bthlambout
                     State%blittlephlamb = Model%outScale*State%bphlambout
@@ -711,6 +817,12 @@ module solution
             !write(555,*) minval(State%rsquig), maxval(State%rsquig)
             !write(555,*) phiss
 
+            ! ;  and finally, here are the magnetic field coordinates in the rpB,thetapB
+            ! ;  phipB coordinate systems !  we have to also get rid of selfsim stuff
+            ! ;
+            ! ;  eqs.  A2-A4
+            
+            ! ;  dlamdr is one, because rlam = rsquig - apar.
             Solution%b(State%ri, :, :, 1) = (State%blittlerlamb*(State%rlam/State%rsquig)**2)/(Model%phiss**2)
             Solution%b(State%ri, :, :, 2) = State%blittlethlamb*(State%rlam/State%rsquig)*dlamdr/(Model%phiss**2)
             Solution%b(State%ri, :, :, 3) = State%blittlephlamb*(State%rlam/State%rsquig)*dlamdr/(Model%phiss**2)
@@ -718,7 +830,7 @@ module solution
             Solution%j(State%ri, :, :, 2) = State%jlittlethlamb*(State%rlam/State%rsquig)*dlamdr/(Model%phiss**2)
             Solution%j(State%ri, :, :, 3) = State%jlittlephlamb*(State%rlam/State%rsquig)*dlamdr/(Model%phiss**2)
 
-            deallocate (shp, cph, gfun, gfunot)
+            deallocate (sph, cph, gfun, gfunot)
             deallocate (dSdT, dgfundr)
             deallocate (dSdR, blittleR, blittleT, Q, blittleP)
             deallocate (dbPdt, dbPdR, d2gfundr2)
@@ -798,10 +910,13 @@ module solution
             ! rat = 0.0
 
             r1 = Model%xo
+
             ! where(inside) State%rout = rpb
             ! State%rout = rpb
             State%rout = State%rlam
 
+            ! ; calculte theta along the boundary, and rotate so that the
+            ! ; bubble is at the equator
             State%rat = ((r1*r1 + State%rout*State%rout - Model%rbub*Model%rbub)/(2*State%rout*r1))
             where (State%rat .gt. 1.) State%rat = 1
             where (State%rat .lt. -1.) State%rat = -1
@@ -815,103 +930,129 @@ module solution
 
             al1 = r1*r1 - Model%rbub*Model%rbub
             al2 = 2*r1*r1 - Model%rbub*Model%rbub
-
+           
+            ! ;
+            ! ;  eq. B2
             psi0 = State%mu
-            f = r1*(State%rout*State%rout + al1) - State%rout*State%mu*al2
-            g = al1*al1 + r1*r1*State%rout*State%rout - 2*State%rout*r1*al1*State%mu
-            h = 1.d0/(sqrt(g))
-            psi1 = (-1.d0/Model%rbub)*f*h
 
-            i = State%rout*State%rout + r1*r1 - 2.d0*State%rout*r1*State%mu
+            ! ;
+            ! ;  eq. B3
+            f = r1*(State%rout*State%rout + al1) - State%rout*State%mu*al2
+            g = al1*al1 + r1*r1*State%rout*State%rout - 2.*State%rout*r1*al1*State%mu
+            h = 1./(sqrt(g))
+            psi1 = (-1./Model%rbub)*f*h
+
+            ! ;
+            ! ;  eq. B4
+            i = State%rout*State%rout + r1*r1 - 2.*State%rout*r1*State%mu
             psi3 = (1/Model%rbub)*sqrt(i)
 
+            ! ;
+            ! ;  eq. B5
             State%streamout = psi0 + psi1 + psi3
 
-            dpsi0dr = 0.d0
+            ! ;
+            ! ;  now take derivatives for magnetic fields, etc.
+            ! ;
+            dpsi0dr = 0.
             dpsi0dth = -State%st
-            dpsi0dr2 = 0.d0
-            dpsi0drdth = 0.d0
-            dpsi0dth2 = -1.d0*State%mu
+            dpsi0dr2 = 0.
+            dpsi0drdth = 0.
+            dpsi0dth2 = -1.*State%mu
 
-            dfdr = 2.d0*r1*State%rout - State%mu*al2
+            dfdr = 2.*r1*State%rout - State%mu*al2
             dfdmu = -State%rout*al2
             dfdrdmu = -al2
-            dfdr2 = 2.d0*r1
-            dfdmu2 = 0.d0
+            dfdr2 = 2.*r1
+            dfdmu2 = 0.
 
-            dgdr = 2.d0*State%rout*r1*r1 - 2.d0*r1*al1*State%mu
-            dgdmu = -2.d0*State%rout*r1*al1
-            dgdrdmu = -2.d0*r1*al1
-            dgdr2 = 2.d0*r1*r1
-            dgdmu2 = 0.d0
+            dgdr = 2.*State%rout*r1*r1 - 2.*r1*al1*State%mu
+            dgdmu = -2.*State%rout*r1*al1
+            dgdrdmu = -2.*r1*al1
+            dgdr2 = 2.*r1*r1
+            dgdmu2 = 0.
 
-            dhdr = -dgdr/2.d0/(g**1.5)
-            dhdmu = -dgdmu/2.d0/(g**1.5)
-            dhdrdmu = -dgdrdmu/2.d0/(g**1.5) + 3.d0*dgdmu*dgdr/4.d0/(g**2.5d0)
-            dhdr2 = -dgdr2/2.d0/(g**1.5d0) + 3.d0*dgdr*dgdr/4.d0/(g**2.5d0)
-            dhdmu2 = 1.5d0*(dgdmu**2)/2.d0/(g**2.5d0)
+            dhdr = -dgdr/2./(g**1.5)
+            dhdmu = -dgdmu/2./(g**1.5)
+            dhdrdmu = -dgdrdmu/2./(g**1.5) + 3.*dgdmu*dgdr/4./(g**2.5)
+            dhdr2 = -dgdr2/2./(g**1.5) + 3.*dgdr*dgdr/4./(g**2.5)
+            dhdmu2 = 1.5*(dgdmu**2)/2./(g**2.5)
 
-            dpsi1dr = (-1.d0/Model%rbub)*(dfdr*h + f*dhdr)
-            dpsi1dr2 = (-1.d0/Model%rbub)*(2.d0*dfdr*dhdr + dfdr2*h + f*dhdr2)
+            dpsi1dr = (-1./Model%rbub)*(dfdr*h + f*dhdr)
+            dpsi1dr2 = (-1./Model%rbub)*(2.*dfdr*dhdr + dfdr2*h + f*dhdr2)
 
-            dpsi1dmu = (-1.d0/Model%rbub)*(dfdmu*h + f*dhdmu)
-            dpsi1drdmu = (-1.d0/Model%rbub)*(dfdmu*dhdr + dfdr*dhdmu + dfdrdmu*h + f*dhdrdmu)
-            dpsi1dmu2 = (-1.d0/Model%rbub)*(dfdmu2*h + 2.d0*dfdmu*dhdmu + f*dhdmu2)
+            dpsi1dmu = (-1./Model%rbub)*(dfdmu*h + f*dhdmu)
+            dpsi1drdmu = (-1./Model%rbub)*(dfdmu*dhdr + dfdr*dhdmu + dfdrdmu*h + f*dhdrdmu)
+            dpsi1dmu2 = (-1./Model%rbub)*(dfdmu2*h + 2.*dfdmu*dhdmu + f*dhdmu2)
 
             dpsi1dth = -State%st*dpsi1dmu
             dpsi1drdth = -State%st*dpsi1drdmu
-            dpsi1dth2 = -State%mu*dpsi1dmu + (State%st)**2*dpsi1dmu2
+            dpsi1dth2 = -State%mu*dpsi1dmu + State%st**2*dpsi1dmu2
 
-            didr = 2.d0*State%rout - 2.d0*r1*State%mu
-            didmu = -2.d0*State%rout*r1
-            didrdmu = -2.d0*r1
-            didr2 = 2.d0
-            didmu2 = 0.d0
+            didr = 2.*State%rout - 2.*r1*State%mu
+            didmu = -2.*State%rout*r1
+            didrdmu = -2.*r1
+            didr2 = 2.
+            didmu2 = 0.
 
-            dpsi3dr = (1/Model%rbub)*didr/2/sqrt(i)
-            dpsi3dmu = (1/Model%rbub)*didmu/2/sqrt(i)
-            dpsi3drdmu = (1/Model%rbub)*(didrdmu/2/sqrt(i) - didmu*didr/4/(i**1.5))
-            dpsi3dr2 = (1/Model%rbub)*(didr2/2/sqrt(i) - (didr)**2/4/(i**1.5))
-            dpsi3dmu2 = (1/Model%rbub)*didmu2/2/sqrt(i) - (1/Model%rbub)*(didmu**2)/4/(i**1.5)
+            dpsi3dr = (1./Model%rbub)*didr/2./sqrt(i)
+            dpsi3dmu = (1./Model%rbub)*didmu/2./sqrt(i)
+            dpsi3drdmu = (1./Model%rbub)*(didrdmu/2./sqrt(i) - didmu*didr/4./(i**1.5))
+            dpsi3dr2 = (1./Model%rbub)*(didr2/2./sqrt(i) - (didr)**2./4./(i**1.5))
+            dpsi3dmu2 = (1./Model%rbub)*didmu2/2./sqrt(i) - (1./Model%rbub)*(didmu**2.)/4./(i**1.5)
 
             dpsi3dth = -State%st*dpsi3dmu
             dpsi3drdth = -State%st*dpsi3drdmu
-            dpsi3dth2 = -State%mu*dpsi3dmu + (State%st)**2*dpsi3dmu2
+            dpsi3dth2 = -State%mu*dpsi3dmu + State%st**2.*dpsi3dmu2
 
             dAdr = dpsi0dr + dpsi1dr + dpsi3dr
             dAdth = dpsi0dth + dpsi1dth + dpsi3dth
             dAdrdth = dpsi0drdth + dpsi1drdth + dpsi3drdth
             dAdr2 = dpsi0dr2 + dpsi1dr2 + dpsi3dr2
             dAdth2 = dpsi0dth2 + dpsi1dth2 + dpsi3dth2
-
-            State%brlambout = dAdth/State%rout/State%rout/State%st
+            ! ;
+            ! ;  now calculate field
+            ! ;
+            ! ;  eq. B1
+            State%brlambout = dAdth/State%rout**2/State%st
             State%bthlambout = -dAdr/State%rout/State%st
             State%bphlambout = 0.
-
-            dbrdr = (-2.d0*dAdth/State%rout + dAdrdth)/State%rout/State%rout/State%st
+            ! ;
+            ! ;  now calculate field derivatives
+            ! ;
+            dbrdr = (-2.*dAdth/State%rout + dAdrdth)/State%rout/State%rout/State%st
             dbthdr = (dAdr/State%rout - dAdr2)/State%rout/State%st
+
             dbrdth = -State%mu*dAdth/State%rout/State%rout/(State%st)**2
             dbrdth = dbrdth + dAdth2/State%rout/State%rout/State%st
             dbthdth = State%mu*dAdr/State%rout/(State%st)**2
             dbthdth = dbthdth - dAdrdth/State%rout/State%st
-            rnolam = State%rout - Model%apar
-            State%presin = (State%rout**2/rnolam**2)*(1 - (State%rout**2/rnolam**2))*(State%brlambout**2)/8.d0/pi
-            State%presin = State%presin/(Model%phiss**4)
 
-            dlamdr = 1
+            rnolam = State%rout - Model%apar
+            State%presin = (State%rout**2/rnolam**2)*(1 - (State%rout**2/rnolam**2))*(State%brlambout**2)/8./pi
+            State%presin = State%presin/(Model%phiss**4)
+            ! ;  here are the magnetic pressure in the rpB,thetapB
+            ! ;  phipB coordinate systems !  we have to also get rid of selfsim stuff
+            ! ;
+            ! ;  dlamdr is one, because rlam = rsquig + apar.
+            dlamdr = 1.
             State%Bpresin = (( State%brlambout*(State%rout**2/rnolam**2)/(Model%phiss**2))**2 &
-                            + (State%bthlambout*(State%rout/rnolam)*dlamdr/(Model%phiss**2))**2)/8.d0/pi
+                            + (State%bthlambout*(State%rout/rnolam)*dlamdr/(Model%phiss**2))**2)/8./pi
             State%Pbackin = State%presin +  State%Bpresin
             State%Pbackin =  State%Pbackin*Model%outScale*Model%outScale
-
+            ! ;
+            ! ;  now calculate the background density
+            ! ;
             dldr = -Model%apar/rnolam/rnolam
             lr = (Model%apar + rnolam)/rnolam
+
             ufunc = (r1*r1 + State%rout*State%rout - Model%rbub*Model%rbub)/(2*State%rout*r1)
-            dufdr = (1/r1) - ufunc/State%rout
-            dthdr = -(1/sqrt(1 - ufunc*ufunc))*dufdr
+            dufdr = (1./r1) - ufunc/State%rout
+
+            dthdr = -(1./sqrt(1. - ufunc*ufunc))*dufdr
             dstuffdr = -(lr*dldr*State%brlambout*State%brlambout + lr*lr*State%brlambout*dbrdr + &
-                            .5*dldr*State%bthlambout*State%bthlambout + lr*State%bthlambout*dbthdr)/4.d0/pi
-            dstuffdth = -(lr*lr*State%brlambout*dbrdth + lr*State%bthlambout*dbthdth)/4.d0/pi
+                            .5*dldr*State%bthlambout*State%bthlambout + lr*State%bthlambout*dbthdr)/4./pi
+            dstuffdth = -(lr*lr*State%brlambout*dbrdth + lr*State%bthlambout*dbthdth)/4./pi
             dpdr = dstuffdr + dstuffdth*dthdr
 
             F = GMm/((State%rout - Model%apar)**2)/(Rsun**2) + Model%alpha*(State%rout - Model%apar)*Rsun*mprot
@@ -948,8 +1089,11 @@ module solution
 
             allocate(dphidt(State%Nj, State%Nk))
 
-            dphidt = sqrt((Model%eta*Model%phiss - 2.d0*Model%alpha)/Model%phiss)
-            Solution%v(State%ri, :, :, 1)= (State%rpB*6.96d5*dphidt)/Model%phiss
+            ! ; also velocity (in km/sec)
+            ! ; note this is radial
+
+            dphidt = sqrt((Model%eta*Model%phiss - 2.*Model%alpha)/Model%phiss)
+            Solution%v(State%ri, :, :, XDIR)= (State%rpb*6.96d5*dphidt)/Model%phiss
     
             where (Solution%dens(State%ri, :, :) .gt. 0) Solution%Temp(State%ri, :, :) = Solution%Pres(State%ri, :, :) / 2./kboltz/Solution%dens(State%ri, :, :)
             ! if ((gl_verbose.eq.1).and.(maxval(temp).eq.0)) then
@@ -957,7 +1101,7 @@ module solution
             ! end if
             ! ;Temp = 6.02d-9*Pres/dens/1.6696d-24
     
-            if ((Model%bonly .eq. 0) .eqv. .false.) then
+            if (Model%bonly .gt. 0) then
                 Solution%Temp(State%ri, :, :) = Solution%Temp(State%ri, :, :)*0. + Model%Isothermal
                 Solution%dens(State%ri, :, :) = State%DensbackHEonly
                 Solution%Pres(State%ri, :, :) = gas_R*Solution%Temp(State%ri, :, :)*mprot*Solution%dens(State%ri, :, :)
@@ -1016,24 +1160,49 @@ module solution
                 State%inside_count = sum(Solution%inside_mask(State%ri,:,:))
                 State%outside_count = sum(1. - Solution%inside_mask(State%ri,:,:))   
     
-                if (Model%isDebug) then
-                    write(*,"(1X,A14,2X,F)") "current r: ", State%r(i)
-                    write(*,"(1X,A14,2X,F)") "bubble r: ",  Model%rbub
-                    write(*,"(1X,A14,2X,F)") "Max rlam: ",  maxval(State%rlam)
-                    write(*,"(1X,A14,2X,F)") "Min rlam: ",  minval(State%rlam)
-                    write(*,"(1X,A14,2X,F)") "Max rcap: ",  maxval(State%rcap)
-                    write(*,"(1X,A14,2X,F)") "Min rcap: ",  minval(State%rcap)
-                    write(*,"(1X,A14,2X,F)") "inside_count: ", State%inside_count
-                   !write(*,*) "rcap: ", char(9), State%rcap
-                    write(*,"(1X,A14,2X,F)") "outside_count: ", State%outside_count
-                end if
-
                 call calcFields(Model, State, Solution)
-                call calcDerivs(Model, State, Solution)
-                call calcDensity( Model, State, Solution)
                 call calcPresssure(Model, State, Solution)
+                call calcDerivs(Model, State, Solution)
+                call calcDensity(Model, State, Solution)
                 call finishSolution(Model, State, Solution)
+
+                ! if (Model%isDebug) then
+                !     write(*,"(1X,A20,2X,E13.6)") "current r: ", State%r(i)
+                !     write(*,"(1X,A20,2X,E13.6)") "bubble r: ",  Model%rbub
+                !     write(*,"(1X,A20,2X,E13.6)") "Max rlam: ",  maxval(State%rlam)
+                !     write(*,"(1X,A20,2X,E13.6)") "Min rlam: ",  minval(State%rlam)
+                !     write(*,"(1X,A20,2X,E13.6)") "Max rcap: ",  maxval(State%rcap)
+                !     write(*,"(1X,A20,2X,E13.6)") "Min rcap: ",  minval(State%rcap)
+                !     write(*,"(1X,A20,2X,E13.6)") "Max rsquig: ",  maxval(State%rsquig)
+                !     write(*,"(1X,A20,2X,E13.6)") "Min rsquig: ",  minval(State%rsquig)
+                !     write(*,"(1X,A20,2X,E13.6)") "Max densback: ",  maxval(State%densback)
+                !     write(*,"(1X,A20,2X,E13.6)") "Min densback: ",  minval(State%densback)
+                !     write(*,"(1X,A20,2X,E13.6)") "Max densin: ",  maxval(State%densin)
+                !     write(*,"(1X,A20,2X,E13.6)") "Min densin: ",  minval(State%densin)
+                !     write(*,"(1X,A20,2X,E13.6)") "Max densout: ",  maxval(State%densout)
+                !     write(*,"(1X,A20,2X,E13.6)") "Min densout: ",  minval(State%densout)
+                !     write(*,"(1X,A20,2X,E13.6)") "Max solDens: ",  maxval(Solution%dens(i,:,:))
+                !     write(*,"(1X,A20,2X,E13.6)") "Min solDens: ",  minval(Solution%dens(i,:,:))
+                !     write(*,"(1X,A20,2X,F13.1)") "inside_count: ", State%inside_count
+                !     write(*,"(1X,A20,2X,F13.1)") "outside_count: ", State%outside_count
+                ! end if
             end do
+            if (Model%isLoud) then
+                write(*,"(1X,A20,2X,E13.6)") "max br phi=0.0: ", maxval(Solution%b(:,:,1,XDIR))
+                write(*,"(1X,A20,2X,E13.6)") "min br phi=0.0: ", minval(Solution%b(:,:,1,XDIR))
+                write(*,"(1X,A20,2X,E13.6)") "max btheta phi=0.0: ", maxval(Solution%b(:,:,1,YDIR))
+                write(*,"(1X,A20,2X,E13.6)") "min btheta phi=0.0: ", minval(Solution%b(:,:,1,YDIR))
+                write(*,"(1X,A20,2X,E13.6)") "max bphi phi=0.0: ", maxval(Solution%b(:,:,1,ZDIR))
+                write(*,"(1X,A20,2X,E13.6)") "min bphi phi=0.0: ", minval(Solution%b(:,:,1,ZDIR))
+                write(*,"(1X,A20,2X,E13.6)") "max dens phi=0.0: ", maxval(Solution%dens(:,:,1))
+                write(*,"(1X,A20,2X,E13.6)") "min dens phi=0.0: ", minval(Solution%dens(:,:,1))
+                write(*,*) "inside bubble"
+                write(*,"(1X,A20,2X,E13.6)") "max dens: ", maxval(Solution%dens*merge(1,0,Solution%inside_mask > 0.0))
+                write(*,"(1X,A20,2X,E13.6)") "min dens: ", minval(Solution%dens*merge(1,0,Solution%inside_mask > 0.0))
+                write(*,*) "outside bubble"
+                write(*,"(1X,A20,2X,E13.6)") "max dens: ", maxval(Solution%dens*merge(1,0,Solution%inside_mask < 1.0))
+                write(*,"(1X,A20,2X,E13.6)") "min dens: ", minval(Solution%dens*merge(1,0,Solution%inside_mask < 1.0))
+            end if
             if(Model%isDebug) write(*,*) "GL Solution Complete"
         end subroutine generateGLSolution 
 end module
