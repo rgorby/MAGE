@@ -128,13 +128,11 @@ def getTs(fname,sIds=None,aID="time",aDef=0.0):
 		nSteps,sIds = cntSteps(fname)
 	Nt = len(sIds)
 	T = np.zeros(Nt)
-	count = 0
 	CheckOrDie(fname)
 	with h5py.File(fname,'r') as hf:
-		for n in sIds:
+		for idx, n in enumerate(sIds):
 			gId = "/Step#%d"%(n)
-			T[count] = hf[gId].attrs.get(aID,aDef)
-			count = count+1
+			T[idx] = hf[gId].attrs.get(aID,aDef)
 	return T
 
 #Get shape/dimension of grid
