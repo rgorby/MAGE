@@ -173,6 +173,11 @@ if __name__ == "__main__":
     if debug:
         print("gamMJD = %s" % gamMJD)
 
+    # Get the MJDc value for use in computing the gamhelio frame.
+    mjdc = scutils.read_MJDc(fname)
+    if debug:
+        print("mjdc = %s" % mjdc)
+
     # Now get the "time" attribute from each step. For gamhelio, these elapsed
     # times are in seconds since the start of the simulation.
     gamT = kaiH5.getTs(fname, sIds, aID="time")
@@ -242,7 +247,7 @@ if __name__ == "__main__":
                 print("Interpolating simulated observations along trajectory.")
             scutils.extractGAMHELIO(
                 data, scIds[scId], scId, mjdFileStart, secFileStart, fdir, ftag,
-                cmd, numSegments, keep, Rin, Rout
+                cmd, numSegments, keep, Rin, Rout, mjdc
             )
             cdfname = os.path.join(fdir, scId + ".comp.cdf")
             if os.path.exists(cdfname):
