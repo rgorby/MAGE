@@ -70,13 +70,14 @@ def tStep(fname,nStp=0,aID="time",aDef=0.0):
 	return t
 	
 def cntSteps(fname,doTryRecover=True,s0=0):
-
 	try:
 		CheckOrDie(fname)
 		with h5py.File(fname,'r') as hf:
 			Steps = [grp for grp in hf.keys() if "Step#" in grp]
 		sIds = np.array([str.split(s,"#")[-1] for s in Steps],dtype=np.int)
+		sIds.sort()
 		nSteps = len(Steps)
+		
 		return nSteps,sIds
 	except (ValueError, IndexError) as e:
 		print("!!Warning: h5 file contains unreadable steps")
@@ -103,6 +104,7 @@ def cntSteps(fname,doTryRecover=True,s0=0):
 				s+=1
 			nSteps = len(sIds)
 			sIds = np.array(sIds)
+			sIds.sort()
 		return nSteps,sIds
 
 #More general version of cntSteps, useful for Step#X/Line#Y
@@ -118,6 +120,7 @@ def cntX(fname,gID=None,StrX="/Step#"):
 		nSteps = len(Steps)
 
 		sIds = np.array([str.split(s,"#")[-1] for s in Steps],dtype=np.int)
+		sIds.sort()
 		return nSteps,sIds
 
 def getTs(fname,sIds=None,aID="time",aDef=0.0):
@@ -125,13 +128,11 @@ def getTs(fname,sIds=None,aID="time",aDef=0.0):
 		nSteps,sIds = cntSteps(fname)
 	Nt = len(sIds)
 	T = np.zeros(Nt)
-	i0 = sIds.min()
-	i1 = sIds.max()
 	CheckOrDie(fname)
 	with h5py.File(fname,'r') as hf:
-		for n in range(i0,i1+1):
+		for idx, n in enumerate(sIds):
 			gId = "/Step#%d"%(n)
-			T[n-i0] = hf[gId].attrs.get(aID,aDef)
+			T[idx] = hf[gId].attrs.get(aID,aDef)
 	return T
 
 #Get shape/dimension of grid
