@@ -31,6 +31,8 @@ program gamerax
             !Timing info
             if (gApp%Model%IO%doTimerOut) call printClocks()
             call cleanClocks()
+        elseif (gApp%Model%IO%doTimer(gApp%Model%ts)) then
+            call cleanClocks()
         endif
 
         if (gApp%Model%IO%doOutput(gApp%Model%t)) then

@@ -61,11 +61,13 @@ program gamera_mpix
             call consoleOutput_mpi(gameraAppMpi)
 
             !Do timing info if needed
-            if ( (gameraAppMpi%Model%IO%doTimer(gameraAppMpi%Model%ts))    .and. &
+            if ( (gameraAppMpi%Model%IO%doTimerOut) .and. &
                  (gameraAppMpi%Grid%Ri==0) .and. (gameraAppMpi%Grid%Rj==0) .and. &
                  (gameraAppMpi%Grid%Rk==0) ) then
                 call printClocks()
             endif
+            call cleanClocks() !Always clean clocks
+        elseif (gameraAppMpi%Model%IO%doTimer(gameraAppMpi%Model%ts)) then
             call cleanClocks() !Always clean clocks
         endif
 

@@ -56,7 +56,10 @@ program voltronx
             !Timing info
             if (vApp%IO%doTimerOut) call printClocks()
             call cleanClocks()
+        elseif (vApp%IO%doTimer(vApp%ts)) then
+            call cleanClocks()
         endif
+        
         !Restart output
         if (vApp%IO%doRestart(vApp%time)) then
             call resOutputV(vApp,gApp)

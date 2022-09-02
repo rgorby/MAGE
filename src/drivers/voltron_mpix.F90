@@ -154,16 +154,21 @@ program voltron_mpix
 
             !IO checks
             call Tic("IO")
+            !NOTE: Does this need to be duplicated from gamera_mpix or can both be done w/ a single subroutine?
+            
             !Console output
             if (gApp%Model%IO%doConsole(g2vComm%ts)) then
                 !Using console output from Gamera
                 call consoleOutput_mpi(gApp)
                 if (gApp%Model%IO%doTimerOut .and. &
-                  gApp%Grid%Ri==0 .and. gApp%Grid%Rj==0 .and. gApp%Grid%Rk==0) then
+                    gApp%Grid%Ri==0 .and. gApp%Grid%Rj==0 .and. gApp%Grid%Rk==0) then
                     call printClocks()
                 endif
                 call cleanClocks()
+            elseif (gApp%Model%IO%doTimer(g2vComm%ts)) then
+                call cleanClocks()
             endif
+
             !Restart output
             if (gApp%Model%IO%doRestart(gApp%Model%t)) then
                 call resOutput(gApp%Model, gApp%Grid, gApp%oState, gApp%State)
