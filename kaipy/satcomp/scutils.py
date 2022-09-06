@@ -447,7 +447,7 @@ def createInputFiles(data,scDic,scId,mjd0,sec0,fdir,ftag,numSegments):
         if data[data['Ephemeris'].attrs['UNIT_PTR']][0]:
             toRe = 1.0/Re
     if 'SM' == scDic['Ephem']['CoordSys']:
-        smpos = Coords(data['Ephemeris'][:,0:3]*toRe,'SM','car')
+        smpos = Coords(data['Ephemeris'][:,0:3]*toRe,'SM','car', use_irbem=False)
         smpos.ticks = Ticktock(data['Epoch_bin'])
     elif 'GSM' == scDic['Ephem']['CoordSys'] :
         scpos = Coords(data['Ephemeris'][:,0:3]*toRe,'GSM','car')
