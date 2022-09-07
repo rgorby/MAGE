@@ -1,11 +1,11 @@
 <?xml version="1.0"?>
 <Kaiju>
   <GL>
-    <sim runid="sphere64" doH5init="F" isLoud="T" isDebug="T"/>
+    <sim runid="sphere64" doH5init="F" isLoud="T" isDebug="T" isPrecheck="T"/>
     <idir min="1" max="30" N="64"/>
     <jdir min="0.1" max="0.9" N="64"/>
     <kdir min="0.0" max="1.0" N="64"/>
     <output writeH5="T" timer="T" dtOut="1"/>
-    <prob StateCoord="Sphere" orientation="0.0" alpha="0.0" tfin="20.0" dt="10" lat="0.5236" lon="4.7124" frontheight="21.5" legsang="30.0" topmorph="2.5" Bmax="0.001" vel_fh="900.0" />
+    <prob StateCoord="Sphere" orientation="0.0" alpha="0.0" tfin="20.0" dt="10" frontheight="21.5" legsang="30.0" topmorph="2.5" Bmax="0.001" vel_fh="900.0" />
   </GL>
 </Kaiju>

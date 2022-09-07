@@ -1,0 +1,11 @@
+<?xml version="1.0"?>
+<Kaiju>
+  <GL>
+    <sim runid="tether64" doH5init="F" isLoud="T" isDebug="F" isPrecheck="T"/>
+    <idir min="1" max="30" N="64"/>
+    <jdir min="0.1" max="0.9" N="64"/>
+    <kdir min="0.0" max="1.0" N="64"/>
+    <output writeH5="T" doTimer="T" dtOut="1"/>
+    <prob StateCoord="Sphere" orientation="0.0" lat="0.5236" lon="4.7124" alpha="0.0" tfin="14400" dt="3600" frontheight="21.5" legsang="30.0" topmorph="2.5" Bmax="0.001" vel_fh="900.0" />
+  </GL>
+</Kaiju>
