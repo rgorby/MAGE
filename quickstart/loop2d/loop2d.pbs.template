@@ -2,11 +2,51 @@
 #PBS -N loop2d
 #PBS -j oe
 #PBS -q normal
-#PBS -l walltime=1:00:00
+#PBS -l walltime=00:05:00
 #PBS -l select=1:ncpus=28:ompthreads=28:model=bro
 
-# Sample PBS job script to run the gamera code on the loop2d test case.
-# This script was designed to run on pleiades.
+# This script was designed to run on the pleiades (or electra)
+# supercomputer at NASA Ames. Modify this job script as needed for
+# other HPC systems, such as cheyenne.ucar.edu. Typically, the only
+# changes needed are the queue name, and removal of the "model"
+# specification. You may also need to add an account using the -A
+# option, especially on cheyenne.
+
+# Explanation of PBS lines:
+
+# -N loop2d -> The PBS job is named "loop2d".
+
+# -j oe -> Combine job script stdout and stderr into stdout. This
+# combined output will be saved in the file loop2d.oJOB_NUM, where
+# JOB_NUM is the PBS job number assigned when the job is
+# submitted. Note that the output from the kaiju software itself is
+# captured in a separate file (see below).
+
+# -q normal -> Submit the job to the PBS queue called "normal".
+
+# -l walltime=00:05:00 -> Request 5 minutes of compute time on the
+# requested compute node(s). On pleiades, this job typically takes a
+# minute or less to run to completion, but request a longer period to
+# account for variable system conditions.
+
+# For the components of the last -l resource request line:
+
+# select=1 -> Request 1 compute node. It will run 1 copy of gamera.x.
+
+# ncpus=28 -> Each compute node should have at least 28 cores.
+
+# ompthreads=28 -> Each compute node will run 28 OMP threads for the
+# single copy of gamera.x on that node. Note that this will also force
+# the OMP_THREADS environment variable to be set to 28.
+
+# model=bro -> Each compute node must contain Broadwell
+# chips. Specifying "model" is a HECC-specific PBS requirement. The
+# node(s) may be on pleiades OR electra (not both), using whichever
+# system is available first. The Broadwell chips were chosen because
+# they have the highest core count per socket.
+
+# This PBS job script will run the serial version of gamera (gamera.x)
+# on the loop2d quickstart case.
 
 # Example usage
 # qsub -v loop2d.pbs
@@ -25,13 +65,16 @@ echo "The following modules are loaded:"
 module list
 
 # Define the kaiju installation location.
-export KAIJU_INSTALL_DIR=$HOME/kaiju
+# NOTE: You should set this variable to the path to your kaiju directory.
+export KAIJU_INSTALL_DIR=$HOME/kaiju/development/kaiju
 
 # Set kaiju-related environment variables.
+# This scrtip sets KAIJUHOME and other environment variables.
 source $KAIJU_INSTALL_DIR/scripts/setupEnvironment.sh
 
 # Add the kaiju binary directory to the command path.
-export PATH=$KAIJUHOME/build/bin:$PATH
+# NOTE: You should set this variable to the path to your build directory.
+export PATH=$KAIJUHOME/build_serial/bin:$PATH
 
 # Set the OMP stack size to prevent a crash.
 # If this setting is ignored, the model may cause gamera.x to crash
@@ -43,12 +86,11 @@ export OMP_STACKSIZE=100M
 echo "The active environment variables are:"
 printenv
 
-# Move to the job directory (this was not required before about 2022-03-01).
-# If this is not done, the current working directory is $HOME.
+# Move to the job directory (by default, the job directory is $HOME.
 cd $PBS_O_WORKDIR
 echo "The current directory is `pwd`."
 
-# Run the model.
+# Run the model. Direct output from the program is saved in a text file.
 EXE=gamera.x
 echo "Running $EXE on model $RUNID."
 $EXE $RUNID.xml >& ${EXE}.${RUNID}.out
