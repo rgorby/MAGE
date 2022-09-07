@@ -95,7 +95,9 @@ module giblowapp
 
         !Initialize Grid/State/Model (Hatch Gamera)
         !Will enforce 1st BCs, caculate 1st timestep, set oldState
+        call Tic("Init")
         call initGLStandalone(glApp%Model, glApp%State, glApp%Solution, xmlInp)
+        call Toc("Init")
         call cleanClocks()
 
         ! TODO: Output
@@ -111,8 +113,5 @@ module giblowapp
         call Tic("Solution")
         call generateGLSolution(glApp%Model,glApp%State,glApp%Solution)
         call Toc("Solution")
-        ! TODO: Increment time here?
-        glApp%Model%ts = glApp%Model%ts + 1
-        glApp%Model%time = glApp%Model%time + glApp%Model%dt
     end subroutine step
 end module

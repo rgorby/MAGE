@@ -17,6 +17,8 @@ module glio5
 
     contains
 
+        !> Initialize h5 file and write standalone model grid
+        !> 
         subroutine writeH5GridInit(Model, State)
             type(glModel_T), intent(in) :: Model
             type(glState_T),  intent(in) :: State
@@ -46,6 +48,8 @@ module glio5
             call WriteVars(IOVars,.true.,GLH5File)
         end subroutine writeH5GridInit
 
+        !> Write solution variables to h5 file
+        !>
         subroutine writeSolution(Model, State, Solution, gStr)
             type(glModel_T), intent(in) :: Model
             type(glState_T),  intent(in) :: State
@@ -68,7 +72,7 @@ module glio5
             call AddOutVar(IOVars,"temp",Solution%temp)
             call AddOutVar(IOVars,"Br",Solution%b(:,:,:,XDIR))
             call AddOutVar(IOVars,"Bt",Solution%b(:,:,:,YDIR))
-            call AddOutVar(IOVars,"Bp",Solution%b(:,:,:,ZDIR))
+            call AddOutVar(IOVars,"Bp",Solution%b(:,:,:,ZDIR))           
             call AddOutVar(IOVars,"Jr",Solution%j(:,:,:,XDIR))
             call AddOutVar(IOVars,"Jt",Solution%j(:,:,:,YDIR))
             call AddOutVar(IOVars,"Jp",Solution%j(:,:,:,ZDIR))            

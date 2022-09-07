@@ -6,7 +6,7 @@ module glutils
     contains
 
         !> Ensures close to zero numbers are large enough 
-        !> for trigonometric functions
+        !> from trigonometric functions
         !> 
         subroutine zero2tiny2d(arr)
             real(rp), dimension(:, :), intent(inout) :: arr
@@ -26,15 +26,19 @@ module glutils
             deallocate (tmparr)
         end subroutine zero2tiny2d
 
-        !> 
+        !> Calculate coordinate transformation for "Cap"
+        !> model coordinates
         !> 
         subroutine calcCoords(Model, State)
             type(glModel_T), intent(inout) :: Model
             type(glState_T), intent(inout) :: State
-
+            
+            !;  the self-similar transformation:
             State%rsquig = State%rpb/Model%phiss
-            State%rlam = State%rsquig + Model%apar
 
+            ! ;  the radial coordinate is now transformed introducing expansion of
+            ! ;  the field
+            State%rlam = State%rsquig + Model%apar
 
             ! ;  The force balance equations will actually
             ! ;  be solved in yet another system, this one with a shifted center,
@@ -51,15 +55,16 @@ module glutils
             State%ztr = State%rlam*cos(State%thpb)
             
             ! now transform to spherical coords
-
+            ! rcap used for inside bubble stream function 
             State%rcap = sqrt(State%xtr*State%xtr + State%ytr*State%ytr + State%ztr*State%ztr)
             
+            ! ; we want to rotate the coordinates in the bubble 
+            ! ;  about the x-axis by an angle sigma (parameter)
             ! ;
             ! ; note the counterclockwise rotation
             ! ; this is necessary to move into the bubble coordinates
             ! ; which are rotated sigma clockwise from the physical coordinates
             ! ;
-
             State%ytilde = State%ytr*cos(Model%sigma) - State%ztr*sin(Model%sigma)
             State%ztilde = State%ztr*cos(Model%sigma) + State%ytr*sin(Model%sigma)
 
@@ -69,6 +74,11 @@ module glutils
 
             State%Thcap = acos(State%rat)
             State%Phcap = atan2(State%ytilde, State%xtr)
+
+            where (State%Thcap /= State%Thcap) State%Thcap = 0.
+            where (State%Phcap /= State%Phcap) State%Phcap = 0.
+            where (State%rcap /= State%rcap) State%rcap = 0.
+
         end subroutine calcCoords
 
         !> emergence times:
@@ -138,19 +148,19 @@ module glutils
             end if
         end function solutionSphereToCartesian
 
-        !>
+        !> Allocate and Intialize Solution Variables
         !>
         subroutine allocSolution(State, Solution)
             type(glState_T), intent(in) :: State
             type(glSolution_T), intent(inout) :: Solution
 
-            allocate(Solution%dens(State%Ni, State%Nj, State%Nk))
-            allocate(Solution%pres(State%Ni,State%Nj, State%Nj))
-            allocate(Solution%temp(State%Ni, State%Nj, State%Nj))
-            allocate(Solution%b(State%Ni, State%Nj, State%Nj, NDIM))
-            allocate(Solution%v(State%Ni, State%Nj, State%Nj, NDIM))
-            allocate(Solution%j(State%Ni, State%Nj, State%Nj, NDIM))
-            allocate(Solution%inside_mask(State%Ni, State%Nj, State%Nj)) 
+            if (.not. allocated(Solution%dens)) allocate(Solution%dens(State%Ni, State%Nj, State%Nk))
+            if (.not. allocated(Solution%pres)) allocate(Solution%pres(State%Ni,State%Nj, State%Nk))
+            if (.not. allocated(Solution%temp)) allocate(Solution%temp(State%Ni, State%Nj, State%Nk))
+            if (.not. allocated(Solution%b)) allocate(Solution%b(State%Ni, State%Nj, State%Nk, NDIM))
+            if (.not. allocated(Solution%v)) allocate(Solution%v(State%Ni, State%Nj, State%Nk, NDIM))
+            if (.not. allocated(Solution%j)) allocate(Solution%j(State%Ni, State%Nj, State%Nk, NDIM))
+            if (.not. allocated(Solution%inside_mask)) allocate(Solution%inside_mask(State%Ni, State%Nj, State%Nk)) 
 
             Solution%dens = 0.
             Solution%pres = 0.
@@ -161,10 +171,11 @@ module glutils
             Solution%inside_mask = 0
         end subroutine allocSolution
 
-        !> 
+        !> Allocate and Initalize State Variables
         !> 
         subroutine allocState(State)
             type(glState_T),  intent(inout) :: State
+
             if (.not. allocated(State%xyz)) allocate (State%xyz(State%Ni,State%Nj,State%Nk,NDIM))
             if (.not. allocated(State%r)) allocate (State%r(State%Ni))
             if (.not. allocated(State%rpb)) allocate (State%rpb(State%Nj, State%Nk))
@@ -173,9 +184,6 @@ module glutils
             if (.not. allocated(State%rout)) allocate (State%rout(State%Nj, State%Nk))
             if (.not. allocated(State%thout)) allocate (State%thout(State%Nj, State%Nk))
             if (.not. allocated(State%phout)) allocate (State%phout(State%Nj, State%Nk))
-            if (.not. allocated(State%mu)) allocate (State%mu(State%Nj, State%Nk))
-            if (.not. allocated(State%st)) allocate (State%st(State%Nj, State%Nk))
-            if (.not. allocated(State%ct)) allocate (State%ct(State%Nj, State%Nk))
             if (.not. allocated(State%rcap)) allocate (State%rcap(State%Nj, State%Nk))
             if (.not. allocated(State%thcap)) allocate (State%thcap(State%Nj, State%Nk))
             if (.not. allocated(State%phcap)) allocate (State%phcap(State%Nj, State%Nk))
@@ -189,9 +197,6 @@ module glutils
             if (.not. allocated(State%ytilde)) allocate (State%ytilde(State%Nj, State%Nk))
             if (.not. allocated(State%ztilde)) allocate (State%ztilde(State%Nj, State%Nk))
             if (.not. allocated(State%rtilde)) allocate (State%rtilde(State%Nj, State%Nk))
-            if (.not. allocated(State%thtilde)) allocate (State%thtilde(State%Nj, State%Nk))
-            if (.not. allocated(State%phtilde)) allocate (State%phtilde(State%Nj, State%Nk))
-
             if (.not. allocated(State%glpi)) allocate (State%glpi(State%Nj, State%Nk))
             if (.not. allocated(State%bpresin)) allocate (State%bpresin(State%Nj, State%Nk))
             if (.not. allocated(State%presin)) allocate (State%presin(State%Nj, State%Nk))
@@ -201,7 +206,7 @@ module glutils
             if (.not. allocated(State%densin)) allocate (State%densin(State%Nj, State%Nk))
             if (.not. allocated(State%densback)) allocate (State%densback(State%Nj, State%Nk))
             if (.not. allocated(State%DensbackHEonly)) allocate (State%DensbackHEonly(State%Nj, State%Nk))
-            if (.not. allocated(State%ptot)) allocate (State%presback(State%Nj, State%Nk))
+            if (.not. allocated(State%ptot)) allocate (State%ptot(State%Nj, State%Nk))
             if (.not. allocated(State%presback)) allocate (State%presback(State%Nj, State%Nk))
             if (.not. allocated(State%bmag)) allocate (State%bmag(State%Nj, State%Nk))
             if (.not. allocated(State%streamout)) allocate (State%streamout(State%Nj, State%Nk))
@@ -235,9 +240,6 @@ module glutils
             State%rout = 0.
             State%thout = 0.
             State%phout = 0.
-            State%mu = 0.
-            State%st = 0.
-            State%ct = 0.
             State%rcap = 0.
             State%thcap = 0.
             State%phcap = 0.
@@ -251,22 +253,20 @@ module glutils
             State%ytilde = 0.
             State%ztilde = 0.
             State%rtilde = 0.
-            State%thtilde = 0.
-            State%phtilde = 0.
             State%glpi = 0.
+            State%densin = 0.
+            State%densback = 0.
+            State%DensbackHEonly = 0.
+            State%densout = 0.
             State%bpresin = 0.
             State%presin = 0.
             State%presin_0 = 0.
             State%pbackin = 0.
             State%dbackin = 0.
-            State%densin = 0.
-            State%densback = 0.
-            State%DensbackHEonly = 0.
             State%ptot = 0.
             State%presback  = 0.
             State%bmag = 0.
             State%streamout = 0.
-            State%densout = 0.
             State%presout = 0.
             State%brlambout = 0.
             State%bthlambout = 0.
@@ -289,7 +289,7 @@ module glutils
             State%bstrengthphys = 0.
         end subroutine allocState
 
-        !> 
+        !> Deallocate State Variables
         !> 
         subroutine deallocState(State)
             type(glState_T),  intent(inout) :: State
@@ -300,8 +300,6 @@ module glutils
             if (allocated(State%rout)) deallocate (State%rout)
             if (allocated(State%thout)) deallocate (State%thout)
             if (allocated(State%phout)) deallocate (State%phout)
-            if (allocated(State%mu)) deallocate (State%mu)
-            if (allocated(State%st)) deallocate (State%st)
             if (allocated(State%rcap)) deallocate (State%rcap)
             if (allocated(State%Thcap)) deallocate (State%Thcap)
             if (allocated(State%Phcap)) deallocate (State%Phcap)

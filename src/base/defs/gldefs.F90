@@ -20,13 +20,13 @@ module gldefs
                                             (/5.763459, 9.095011, 12.322941, 15.514603, 18.689036, 21.853874/)
     real(rp), parameter :: &
         mdtor = pi/180, & ! TODO: remove, already in kdefs
-        Rsun = 6.96e10, & ! TODO: remove, already in kdefs as KM
-        GMm = 221.3, &
-        mprot = 1.674e-24, & !TODO: remove, already in kdefs Mp_cgs
-        mp = 1.6696e-24, & !TODO: where is this from? different from kdefs
-        gas_R = 1./6.07e-9, &
-        kboltz = 1.3807e-16, & !TODO: remove, already in kdefs, Kbltz
-        BIGTINY = 1e-4, &
+        Rsolar_cgs = 6.96d10, & ! TODO: remove, already in kdefs in KM
+        Msolar_cgs = Msolar*1.0d3, &
+        mprot = 1.674d-24, & !TODO: remove, already in kdefs Mp_cgs
+        mp = 1.6696d-24, & !TODO: where is this from? different from kdefs
+        GMm = G_cgs*Msolar_cgs*Mp_cgs, &
+        gas_R = 1./6.07d-9, &
+        kboltz = 1.3807d-16, & !TODO: remove, already in kdefs, Kbltz
+        BIGTINY = 1.0d-10, &
         eta0 = 1.38d-7
-
 end module

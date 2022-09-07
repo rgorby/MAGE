@@ -13,11 +13,16 @@ module init
     integer, private :: Nc = 64
     real(rp) :: xMin = -1.0, xMax = 1.0
 
-    !----------------
+    !----------------------------------------------
     ! Notes: 
+    !   Standalone model constructs a psuedo-grid in which to calculate the 
+    !   Gibson-Low solution
     !
+    !   Interface initialization assumes the construction of state
+    !   from external source specifying the r(Ni), theta(Nj, Nk), phi(Nj, Nk)
+    !   values. Radius and angles are independent of eachother. 
     !
-    !----------------
+    !----------------------------------------------
     contains
       
         !> Assume reasonable defaults if not overidden by user 
@@ -39,17 +44,18 @@ module init
                                         ! BESSEL FUNCTION"; DEFAULT ALNOTRBUB=1 corresponds to smallest eigenvalue -- 5.763854
 
             Model%sigma = PI/2.         ! the rotation about the [?] surface normal, as in, like a tilt of an AR, default is pi/2
+            Model%cmer = -PI/2.         ! Central meridian longitude
             Model%outScale = 0.1        ! "a parameter which scales the outer field solution since there is a discontinuity around bubble for field"
             Model%pio = 0.              ! constant for the background pressure
                                         ! for 1d8 see last lines, within outarray in giblowprams.pro
                                         ! this is a block of atmosphere parameters outside of the bubble (we probably won't ever use these)
                                         ! as in, Pout=(aa/(bb+1.))*r^(-bb-1.)+(cc/(dd+1.))*r^(-dd-1.)+(ee/(ff+1.))*r^(-ff-1.)
-                                        ! Schmit & Gibson 2011
-            Model%aa = 1.27*1d8         
+                                        ! Schmit & Gibson 2011 - Isothermal Model 1.55MK
+            Model%aa = 1.27*1.0d8         
             Model%bb = 22.8
-            Model%cc = 5.97*1d8
+            Model%cc = 5.97*1.0d8
             Model%dd = 16.0
-            Model%ee = 1.57*1d8
+            Model%ee = 1.57*1.0d8
             Model%ff = 3.87
 
             Model%bonly = 0.            ! a flag to not calculate plasma parameters (dens, pres, etc), only the magnetic field
@@ -68,16 +74,16 @@ module init
             Model%tfin = 100.           ! defaults to 100 seconds
             Model%alnotrbubsign = 1.0   ! Chirality
 
-            ! Alternate defauult GLpars, keeping here for reference AJM        
+            ! Alternate default GLpars, keeping here for reference AJM - This removes background pressure        
             ! GLpars = (/1.35, 25., 0.05, 1.75, 1.0, 1.57080, 0.0, 0.0, 0.0, 22.8, &
             !         5.97, 16.0, 0.0, 3.87, 0.0, 0.5, 0.9, 1.55e6, 0.0, 0.0, &
             !         1.0, 1.0, 0.0, 1.0/)
-            !real(rp) :: alnotsign  !introduced to change direction of winding TODO: not sure if this is diff from chiral?
     
         end subroutine setModelDefaults
 
-        !>
-        !>
+        !> Allocate and Initalize Model parameters
+        !> Calulates necessary geometric and scalar parameters
+        !> for Gibson Low model from XML input
         subroutine initModel(Model, xmlInp)
             type(glModel_T), intent(inout) :: Model
             type(XML_Input_T), intent(inout) :: xmlInp
@@ -99,9 +105,9 @@ module init
             call xmlInp%Set_Val(Model%Bmax, "prob/Bmax", 1.75)
             call xmlInp%Set_Val(Model%alpha, "prob/alpha", 0.)
             call xmlInp%Set_Val(Model%sigma, "prob/orientation", 1.5708)
+            call xmlInp%Set_Val(Model%cmer, "prob/cmer", -1.5708)
             call xmlInp%Set_Val(Model%alnotrbubsign, "prob/chiral", 1.0) 
             call xmlInp%Set_Val(Model%vel_fh, "prob/vel_fh", 1.)  !V_CME_statdraw
-            call xmlInp%Set_Val(Model%IO%doTimerOut,'output/timer',.false.)
             call xmlInp%Set_Val(Model%isLoud,'sim/isLoud',.true.)
             call xmlInp%Set_Val(Model%isDebug,'sim/isDebug',.true.)
             call xmlInp%Set_Val(Model%isPrecheck,'sim/isPrecheck',.false.)
@@ -115,7 +121,7 @@ module init
                 Model%s_eta0 = sqrt(eta0)
                 ! from v_fh = frontheight*sqrt(eta)*Rsun_km*velmult; sqrt(eta)*Rsun_km=258.55
                 ! can get velmult=Model%vel_fh/(Model%frontheight*s_eta0*Rsun*1d-5)
-                Model%s_eta = Model%vel_fh/(Model%frontheight*Rsun*1d-5) ! sqrt(eta0)*velmult
+                Model%s_eta = Model%vel_fh/(Model%frontheight*Rsolar) ! sqrt(eta0)*velmult
                 Model%velmult = Model%s_eta/Model%s_eta0
                 ! (this is simply to rewrite the sequence
                 !  s_eta0=sqrt(eta0); velmult=Model%vel_fh/(Model%frontheight*Rsun*1d-5*s_eta0); s_eta=s_eta0*velmult)    
@@ -185,7 +191,7 @@ module init
             ! endif
         end subroutine initModel
 
-        !> Initialize Solution and State
+        !>  Allocate and Initialize Solution and State
         !>
         subroutine initSolutionState(Model, State, Solution)
             type(glModel_T), intent(inout) :: Model
@@ -199,20 +205,12 @@ module init
             call allocState(State)
             call allocSolution(State, Solution)
 
-            ! Initalize Solution
-            Solution%dens = 0.
-            Solution%pres = 0.
-            Solution%temp = 0.
-            Solution%b = 0.
-            Solution%v = 0.
-            Solution%j = 0.
-            Solution%inside_mask = 0.
             State%ri = 1
  
         end subroutine initSolutionState
 
-        !>
-        !>
+        !> Initialize Standalone Solution and State 
+        !> grid, bounds, etc. 
         !>
         subroutine initStandaloneSolutionState(Model, State, Solution, xmlInp)
             type(glModel_T), intent(inout) :: Model
@@ -248,7 +246,7 @@ module init
                 do j=1, State%Nj       
                     ! Phi
                     x3 = rtpBds(5)+(k-1)*dphi
-                    State%phpb(j,k) = x3*2*pi        
+                    State%phpb(j,k) = x3*2.*pi + Model%cmer       
                     ! Theta
                     x2 = rtpBds(3)+(j-1)*dth
                     State%thpb(j,k) = x2*pi                        
@@ -257,8 +255,8 @@ module init
                         x1 = rtpBds(1) + (i-1)*dr                      
                         State%r(i) = x1
                         ! construct xyz cartesian locations
-                        x = x1*sin(x2*pi)*cos(x3*2*pi)
-                        y = x1*sin(x2*pi)*sin(x3*2*pi)
+                        x = x1*sin(x2*pi)*cos(x3*2.*pi)
+                        y = x1*sin(x2*pi)*sin(x3*2.*pi)
                         z = x1*cos(x2*pi)
                         ! This grid is for external processing to set up cartesian coordinates 
                         ! for analyzing in visualization routines e.g. Paraview
@@ -292,7 +290,7 @@ module init
                     write(*,*) 'You must specify a valid StateCoord, "Sphere" or "Cart3D"'
                     stop
             end select
-            GLH5File   = genName(Model%RunID, State%Nip, State%Njp, State%Nkp, 1, 1, 1)
+            GLH5File = genName(Model%RunID, State%Nip, State%Njp, State%Nkp, 1, 1, 1)
         end subroutine initGLStandalone
 
         !> Expectation is that this interface is to be used by Gamera etc. 

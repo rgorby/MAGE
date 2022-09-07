@@ -32,7 +32,6 @@ module gltypes
         character(len=strLen) :: jID = "CODE CURRENT"
     end type glOut_T
 
-    !> TODO: Complete Model Information for GibLow
     !> Overall model information
     !> Algorithmic/Run options
     type glModel_T
@@ -42,15 +41,15 @@ module gltypes
         real(rp) :: alnotrbub_abs  !to preserve sign of alnotrbub
         real(rp) :: alnotrbubsign
         real(rp) :: alnotrbub
-        real(rp) :: latitude
-        real(rp) :: longitude
-        real(rp) :: sigma
         ! Morphology/position
         real(rp) :: frontheight
         real(rp) :: legsang
         real(rp) :: topmorph
+        real(rp) :: latitude
+        real(rp) :: longitude
+        real(rp) :: sigma
+        real(rp) :: cmer
         real(rp) :: Bmax
-        real(rp) :: orientation
         real(rp) :: cmeV
         real(rp) :: vel_fh
         real(rp) :: frontvolume
@@ -155,7 +154,7 @@ module gltypes
         real(rp), dimension(:, :, :, :), allocatable :: xyz ! For Standalone Grid Output
         real(rp), dimension(:), allocatable :: r ! radii of spherical shells to pass to GL - copied to rpb for GL solution
         real(rp), dimension(:, :), allocatable :: rpb, thpb, phpb ! input to giblow_coords
-        real(rp), dimension(:, :), allocatable :: rout, thout, phout, mu, st, ct
+        real(rp), dimension(:, :), allocatable :: rout, thout, phout
         real(rp), dimension(:, :), allocatable :: rcap, thcap, phcap
         real(rp), dimension(:, :), allocatable :: rsquig, rlam, xtr, ytr, ztr, F
         real(rp), dimension(:, :), allocatable :: xtilde, ytilde, ztilde, rat
