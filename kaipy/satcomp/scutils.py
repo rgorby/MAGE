@@ -435,12 +435,12 @@ def genHelioSCXML(fdir,ftag,
 #======
 
 def convertGameraVec(x,y,z,ut,fromSys,fromType,toSys,toType):
-    invec = Coords(np.column_stack((x,y,z)),fromSys,fromType)
+    invec = Coords(np.column_stack((x,y,z)),fromSys,fromType, use_irbem=False)
     invec.ticks = Ticktock(ut)
     outvec = invec.convert(toSys,toType)
     return outvec
 
-def createInputFiles(data,scDic,scId,mjd0,sec0,fdir,ftag,numSegments):
+def createInputFiles(data,scDic,scId,mjd0,sec0,fdir,ftag,numSegments, doTrc=False):
     Re = 6380.0
     toRe = 1.0
     if 'UNITS' in data['Ephemeris'].attrs:
@@ -453,10 +453,10 @@ def createInputFiles(data,scDic,scId,mjd0,sec0,fdir,ftag,numSegments):
         smpos = Coords(data['Ephemeris'][:,0:3]*toRe,'SM','car', use_irbem=False)
         smpos.ticks = Ticktock(data['Epoch_bin'])
     elif 'GSM' == scDic['Ephem']['CoordSys'] :
-        scpos = Coords(data['Ephemeris'][:,0:3]*toRe,'GSM','car')
+        scpos = Coords(data['Ephemeris'][:,0:3]*toRe,'GSM','car', use_irbem=False)
         scpos.ticks = Ticktock(data['Epoch_bin'])
         smpos = scpos.convert('GSE','car')
-        scpos = Coords(data['Ephemeris'][:,0:3]*toRe,'GSM','car')
+        scpos = Coords(data['Ephemeris'][:,0:3]*toRe,'GSM','car', use_irbem=False)
         scpos.ticks = Ticktock(data['Epoch_bin'])
         smpos = scpos.convert('SM','car')
     elif 'GSE'== scDic['Ephem']['CoordSys']:
