@@ -360,7 +360,7 @@ def helioCompPlot(plotname, scId, data):
     plt.subplots_adjust(hspace=0)
 
     # Save the figure.
-    savePic(plotname)
+    savePic(plotname, doClose=True)
 
 
 def compPlot(plotname,scId,data):
@@ -432,7 +432,7 @@ def compPlot(plotname,scId,data):
     Ax1.set_title(plotname)
     plt.subplots_adjust(hspace=0)
 
-    savePic(plotname)
+    savePic(plotname, doClose=True)
 
 
 def trajPlot(plotname,scId,data):
@@ -453,7 +453,7 @@ def trajPlot(plotname,scId,data):
     titlestr = (scId + ' - ' + data['Epoch_bin'][0].strftime('%m/%d/%Y - %H:%M:%S') + ' to ' +  
                 data['Epoch_bin'][-1].strftime('%m/%d/%Y - %H:%M:%S'))
     fig.suptitle(titlestr)
-    savePic(plotname)
+    savePic(plotname, doClose=True)
 
 
 def get_aspect(ax):
