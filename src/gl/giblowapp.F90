@@ -4,7 +4,7 @@ module giblowapp
     use gltypes
     use init
     use clocks
-    use solution
+    use glsolution
 
     implicit none
 

@@ -1,5 +1,4 @@
 module glio5
-    use gltypes
     use glutils
     use ioH5
     use dates

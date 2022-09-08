@@ -1,4 +1,4 @@
-module solution
+module glsolution
     use gltypes
     use glutils
     implicit none
