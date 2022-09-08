@@ -440,7 +440,7 @@ def convertGameraVec(x,y,z,ut,fromSys,fromType,toSys,toType):
     outvec = invec.convert(toSys,toType)
     return outvec
 
-def createInputFiles(data,scDic,scId,mjd0,sec0,fdir,ftag,numSegments, doTrc=False):
+def createInputFiles(data,scDic,scId,mjd0,sec0,fdir,ftag,numSegments):
     Re = 6380.0
     toRe = 1.0
     if 'UNITS' in data['Ephemeris'].attrs:
