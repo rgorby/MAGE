@@ -1,9 +1,9 @@
 ! Main data objects and functions to perform a Gibson-Low CME simulation
 
 module giblowapp
-    use gltypes
-    use init
     use clocks
+    use gltypes
+    use glinit
     use glsolution
 
     implicit none

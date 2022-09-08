@@ -1,4 +1,4 @@
-module init
+module glinit
     use gltypes
     use math
     use xml_input
