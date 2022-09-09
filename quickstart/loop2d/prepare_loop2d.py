@@ -27,19 +27,19 @@ default_runid = "loop2d"
 # Program description.
 description = "Prepare to run serial gamera on the %s model." % default_runid
 
-# Location of template .ini file and .ini file for run.
+# Location of template .ini file file for run.
 ini_template = os.path.join(
     os.environ["KAIJUHOME"], "quickstart", default_runid, "%s.ini.template"
     % default_runid
 )
 
-# Location of template XML file and XML file for run.
+# Location of template XML file file for run.
 xml_template = os.path.join(
     os.environ["KAIJUHOME"], "quickstart", default_runid, "%s.xml.template"
     % default_runid
 )
 
-# Location of template PBS script and PBS script for run.
+# Location of template PBS script script for run.
 pbs_template = os.path.join(
     os.environ["KAIJUHOME"], "quickstart", default_runid, "%s.pbs.template"
     % default_runid
@@ -80,7 +80,7 @@ def create_command_line_parser():
     return parser
 
 
-def run_preprocessing_steps(directory, runid):
+def run_preprocessing_steps(directory:str, runid:str):
     """Run any preprocessing steps needed for the run.
 
     Perform required preprocessing steps.
@@ -99,10 +99,13 @@ def run_preprocessing_steps(directory, runid):
     # The loop2d example does not require any preprocessing steps.
 
 
-def create_ini_file(directory, runid):
+def create_ini_file(directory:str, runid:str):
     """Create the .ini file from a template.
 
     Create the .ini file from a template.
+
+    NOTE: Conversion of .ini to .xml does not work yet, so just copy
+    the template.
 
     Parameters
     ----------
@@ -115,23 +118,28 @@ def create_ini_file(directory, runid):
     -------
     ini_file : str
         Path to .ini file.
+
     """
-    # Just use the template for now.
+    # Read the file template.
     with open(ini_template) as t:
         lines = t.readlines()
+
     # Process the template here.
+
+    # Write the processed .ini file to the run directory.
     ini_file = os.path.join(directory, "%s.ini" % runid)
     with open(ini_file, "w") as f:
         f.writelines(lines)
     return ini_file
 
 
-def convert_ini_to_xml(ini_file, xml_file):
+def convert_ini_to_xml(ini_file:str, xml_file:str):
     """Convert the .ini file to XML.
 
     Convert the .ini file to a .xml file.
 
-    NOTE: This conversion does not work yet, so just copy the template.
+    NOTE: Conversion of .ini to .xml does not work yet, so just copy
+    the template.
 
     Parameters
     ----------
@@ -151,12 +159,15 @@ def convert_ini_to_xml(ini_file, xml_file):
     # No conversion is performed yet. Just process the XML template.
     with open(xml_template) as t:
         lines = t.readlines()
+
     # Process the template here.
+
+    # Write out the processed XML file.
     with open(xml_file, "w") as f:
         f.writelines(lines)
 
 
-def create_pbs_job_script(directory, runid):
+def create_pbs_job_script(directory:str, runid:str):
     """Create the PBS job script for the run.
 
     Create the PBS job script from a template.
@@ -173,10 +184,14 @@ def create_pbs_job_script(directory, runid):
     pbs_file : str
         Path to PBS job script.
     """
+    # Read the template.
     with open(pbs_template) as t:
         lines = t.readlines()
+
     # Process the template here.
     pbs_file = os.path.join(directory, "%s.pbs" % runid)
+
+    # Write out the processed file.
     with open(pbs_file, "w") as f:
         f.writelines(lines)
     return pbs_file
