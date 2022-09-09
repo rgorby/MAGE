@@ -18,7 +18,7 @@ to_center3D = lambda A: 0.125*(A[:-1,:-1,:-1]+A[-1:,-1:,1:]+A[-1:,1:,-1:]+A[-1:,
 				+A[1:,:-1,:-1]+A[1:,-1:,1:]+A[1:,1:,-1:]+A[1:,1:,1:])
 
 
-def L_to_bVol(L, bsurf_nT=kd.EarthM0g*kd.G2nT):  # L shell [Re] to V [Re/nT]
+def L_to_bVol(L, bsurf_nT=kd.EarthM0g*kd.G2nT):  # L shell [Rp] to V [Rp/nT]
 	"""Calculates the flux tube volume [Rp/nT] from the given L shell [Rp]
 		L : L shell [Rp]
 		bsurf_nT : Surface field [nT] (Default: Earth)

@@ -24,6 +24,7 @@ class params():
 
         self.B0 = config.getfloat('Normalization','B0')
         self.n0 = config.getfloat('Normalization','n0')
+        # self.T0 = config.getfloat('Normalization','T0')
         
         
         self.tMin     = config.getfloat('Grid','tMin')

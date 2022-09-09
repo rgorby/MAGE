@@ -7,6 +7,7 @@ module mixconductance
   use math
   use euvhelper
   use auroralhelper
+  use kai2geo
   use rcmdefs, ONLY : tiote_RCM
   
   implicit none
@@ -342,13 +343,19 @@ module mixconductance
       ! It's still necessary to initialize alpha/beta_RCM here because they may be using an old value at some points
       ! if IM_EAVG or IM_EPRE or EM_EDEN no longer satisfies the if criteria. Better to use default background beta.
       alpha_RCM = 1.0/(tiote_RCM+1.0)
+      beta_RCM = conductance%beta
       phi0_rcmz = sqrt(St%Vars(:,:,IM_EPRE)*St%Vars(:,:,IM_EDEN)/(Me_cgs*1e-3*2*pi))*1.0e-4 ! sqrt([Pa]*[#/m^3]/[kg]) = sqrt([#/m^4/s^2]) = 1e-4*[#/cm^2/s]
-      where(phi0_rcmz>TINY.and.St%Vars(:,:,IM_EPRE)>1e-10 .and. St%Vars(:,:,IM_EDEN)>1e7)
-      ! The thresholds of IM_EPRE and IM_EDEN are empirically added to exclude outliers of beta_RCM.
-         beta_RCM = St%Vars(:,:,IM_ENFLX)/phi0_rcmz
-      elsewhere
-         beta_RCM  = conductance%beta
-      end where
+      !$OMP PARALLEL DO default(shared) &
+      !$OMP private(i,j)
+      do j=1,G%Nt
+         do i=1,G%Np
+            if(phi0_rcmz(i,j)>TINY) then
+               beta_RCM(i,j) = St%Vars(i,j,IM_ENFLX)/phi0_rcmz(i,j)
+            elseif(St%Vars(i,j,IM_GTYPE) > 0.5) then
+               beta_RCM(i,j) = 0.0
+            endif
+         enddo
+      enddo
       St%Vars(:,:,IM_BETA) = min(beta_RCM,1.0)
 
     end subroutine conductance_alpha_beta
@@ -360,6 +367,7 @@ module mixconductance
       logical, dimension(3,3) :: isG33 !isG33 = (A3>0.0 .and. A3<1.0)
       integer :: i,j,it,MaxIter,im1,ip1,jm1,jp1
       real(rp) :: mad,Ttmp
+      real(rp) :: temp(G%Np,G%Nt)
 
       MaxIter = 5
       
@@ -369,6 +377,7 @@ module mixconductance
       gtype_RCM = St%Vars(:,:,IM_GTYPE) ! supposed to be between 0 and 1.
       do it=1,MaxIter
          mad = 0.D0 ! max abs difference from last iteration.
+         temp = gtype_RCM
          do j=1,G%Nt ! use open BC for lat.
             if(j==1) then
                jm1 = 1
@@ -392,9 +401,11 @@ module mixconductance
                   ip1 = i+1
                endif
                if(St%Vars(i,j,IM_GTYPE)>0.01 .and. St%Vars(i,j,IM_GTYPE)<0.99) then
-                  Ttmp = (gtype_RCM(im1,jm1)+gtype_RCM(im1,j)+gtype_RCM(im1,jp1) &
-                       + gtype_RCM(i  ,jm1)+gtype_RCM(i  ,j)+gtype_RCM(i  ,jp1) &
-                       + gtype_RCM(ip1,jm1)+gtype_RCM(ip1,j)+gtype_RCM(ip1,jp1))/9.D0
+               ! Use 0.01/0.99 as the boundary for this numerical diffusion because 
+               ! the interpolation from RCM to REMIX would slightly modify the 0/1 boundary.
+                  Ttmp =(temp(im1,jm1)+temp(im1,j)+temp(im1,jp1) &
+                       + temp(i  ,jm1)+temp(i  ,j)+temp(i  ,jp1) &
+                       + temp(ip1,jm1)+temp(ip1,j)+temp(ip1,jp1))/9.D0
                   mad  = max(abs(gtype_RCM(i,j)-Ttmp),mad)
                   gtype_RCM(i,j) = Ttmp
                endif
@@ -417,11 +428,11 @@ module mixconductance
       real(rp) :: rmd_eavg_fin, rmd_nflx_fin, rmd_SigP, mhd_SigP
       logical :: dorcm = .true.
 
-      ! derive spatially varying beta using RCM precipitation and thermal fluxes.
-      call conductance_alpha_beta(conductance,G,St)
-
       ! derive RCM grid weighting based on that passed from RCM and smooth it with five iterations of numerical diffusion.
       call conductance_IM_GTYPE(G,St)
+
+      ! derive spatially varying beta using RCM precipitation and thermal fluxes. Need IM_GTYPE.
+      call conductance_alpha_beta(conductance,G,St)
 
       ! derive MHD/mono precipitation with zhang15 but include RCM thermal flux to the source by using dorcm=.true.
       call conductance_zhang15(conductance,G,St,dorcm)
@@ -693,23 +704,42 @@ module mixconductance
 
     !Calculate mirror ratio array
     !NOTE: Leaving this to be done every time at every lat/lon to accomodate improved model later
-   subroutine GenMirrorRatio(G)
-      type(mixGrid_T), intent(in) :: G
-
+   subroutine GenMirrorRatio(G,St,doIGRFO)
+      type(mixGrid_T) , intent(in) :: G
+      type(mixState_T), intent(in) :: St
+      logical,optional,intent(in) :: doIGRFO
       real(rp) :: mlat,mlon
       integer  :: i,j
+      logical  :: doIGRF
+      
+      if(present(doIGRFO)) then
+         doIGRF = doIGRFO
+      else ! default is using IGRF, i.e, default is unequal split.
+         doIGRF = .true. 
+      endif
 
       if (RinMHD > 0) then
          !Calculate actual mirror ratio
          !NOTE: Should replace this w/ actual inner boundary field strength
+
+         !$OMP PARALLEL DO default(shared) &
+         !$OMP private(i,j,mlat,mlon)
          do j=1,G%Nt
             do i=1,G%Np
                mlat = PI/2 - G%t(i,j)
                mlon = G%p(i,j)
 
-               RM(i,j) = MirrorRatio(mlat,RinMHD)
+               if(.not.doIGRF) then
+                  RM(i,j) = MirrorRatio(mlat,RinMHD)
+               elseif (St%hemisphere==NORTH) then
+                  RM(i,j) = IGRFMirrorRatio(+mlat,+mlon,RinMHD)
+               else
+                  !Southern, always a right-hand system based on the local pole.
+                  !SM phi (mlon) goes in clock-wise as opposed to counter-clockwise if looking down on the southern pole from above.
+                  RM(i,j) = IGRFMirrorRatio(-mlat,-mlon,RinMHD)
+               endif
             enddo
-         enddo
+         enddo !j loop
       else
          !Set mirror ratio everywhere no matter the inner boundary to 10
          !Note: This may have been okay for simulating magnetospheres 40 years ago, but it's 2021 now
@@ -717,14 +747,14 @@ module mixconductance
       endif
    end subroutine GenMirrorRatio
 
-    subroutine conductance_total(conductance,G,St,gcm,h)
+   subroutine conductance_total(conductance,G,St,gcm,h)
       type(mixConductance_T), intent(inout) :: conductance
       type(mixGrid_T), intent(in) :: G
       type(mixState_T), intent(inout) :: St
       type(gcm_T),optional,intent(in) :: gcm
       integer,optional,intent(in) :: h
 
-      call GenMirrorRatio(G)
+      call GenMirrorRatio(G,St)
 
       ! always call fedder to fill in AVG_ENERGY and NUM_FLUX
       ! even if const_sigma, we still have the precip info that way
@@ -781,9 +811,9 @@ module mixconductance
               St%Vars(:,:,SIGMAP)*conductance%sigma_ratio)
       endif
 
-    end subroutine conductance_total
+   end subroutine conductance_total
 
-    subroutine conductance_ramp(conductance,G,rPolarBound,rEquatBound,rLowLimit)
+   subroutine conductance_ramp(conductance,G,rPolarBound,rEquatBound,rLowLimit)
       type(mixConductance_T), intent(inout) :: conductance
       type(mixGrid_T), intent(in) :: G      
       real(rp), intent(in) :: rPolarBound,rEquatBound,rLowLimit
@@ -795,7 +825,7 @@ module mixconductance
       elsewhere ! G%r > rEquatBound
          conductance%rampFactor = rLowLimit
       end where
-    end subroutine conductance_ramp
+   end subroutine conductance_ramp
 
     subroutine conductance_auroralmask(conductance,G,signOfY)
       type(mixConductance_T), intent(inout) :: conductance

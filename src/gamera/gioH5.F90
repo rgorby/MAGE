@@ -230,6 +230,12 @@ module gioH5
         call AddOutVar(IOVars,"tScl"   ,Model%gamOut%tScl)
         call AddOutVar(IOVars,"timeID" ,Model%gamOut%tID)
         call AddOutVar(IOVars,"UnitsID",Model%gamOut%uID)
+
+        !Call user routine if defined
+        if (associated(Model%HackIO_0)) then
+            call Model%HackIO_0(Model,Gr,IOVars)
+        endif
+
         !Write out the chain
         call WriteVars(IOVars,.true.,GamH5File)
         
@@ -491,8 +497,11 @@ module gioH5
         call AddOutVar(IOVars,"nSpc",Model%nSpc)
 
         !---------------------
-        !Call user routine
-        !FIXME: Add this
+
+        !Call user routine if defined
+        if (associated(Model%HackIO)) then
+            call Model%HackIO(Model,Gr,State,IOVars)
+        endif
 
         !------------------
         !Finalize
