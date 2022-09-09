@@ -358,4 +358,4 @@ module glinit
             end associate
         end subroutine initGLInterfaceRTP
         
-end module init
+end module glinit
