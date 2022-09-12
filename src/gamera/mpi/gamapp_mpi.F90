@@ -536,11 +536,6 @@ module gamapp_mpi
         integer :: ierr
 
         !Always call console output (for certain performance metrics) but only be loud if root
-        if(gamAppMpi%Grid%Ri==0 .and. gamAppMpi%Grid%Rj==0 .and. gamAppMpi%Grid%Rk==0) then
-            gamAppMpi%Model%isLoud = .true.
-        else
-            gamAppMpi%Model%isLoud = .false.
-        endif
         call consoleOutput(gamAppMpi%Model,gamAppMpi%Grid,gamAppMpi%State)
 
         ! gamera mpi specific output
@@ -549,7 +544,6 @@ module gamapp_mpi
             if (gamAppMpi%Model%isLoud) then
                 write(*,*) ANSICYAN
                 write(*,*) 'GAMERA MPI'
-                call MPI_AllReduce(gamAppMpi%faceError, totalFaceError, 1, MPI_MYFLOAT, MPI_SUM, gamAppMpi%gamMpiComm, ierr)
                 write(*,'(a,f8.3)') 'Total MF Face Error = ', totalFaceError
                 write(*,'(a)',advance="no") ANSIRESET!, ''
             endif
