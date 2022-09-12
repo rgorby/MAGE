@@ -72,10 +72,10 @@ contains
             ZCs_gam = 0.0
             ZCs_tot = 0.0
             voltWait = 0
-
-            Model%kzcsMHD = ZCs_gam*1.0e-3
-            Model%kzcsTOT = ZCs_tot*1.0e-3
         endif
+        
+        Model%kzcsMHD = ZCs_gam*1.0e-3
+        Model%kzcsTOT = ZCs_tot*1.0e-3
 
         if (Model%isLoud) then
             nTh = NumOMP()

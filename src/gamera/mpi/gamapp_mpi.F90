@@ -535,24 +535,27 @@ module gamapp_mpi
         real(rp) :: totalFaceError = 0.0_rp
         integer :: ierr
 
+        !Always call console output (for certain performance metrics) but only be loud if root
         if(gamAppMpi%Grid%Ri==0 .and. gamAppMpi%Grid%Rj==0 .and. gamAppMpi%Grid%Rk==0) then
-            call consoleOutput(gamAppMpi%Model,gamAppMpi%Grid,gamAppMpi%State)
+            gamAppMpi%Model%doLoud = .true.
+        else
+            gamAppMpi%Model%doLoud = .false.
+        endif
+        call consoleOutput(gamAppMpi%Model,gamAppMpi%Grid,gamAppMpi%State)
 
-            ! gamera mpi specific output
-            if(gamAppMpi%printMagFluxFaceError) then
+        ! gamera mpi specific output
+        if(gamAppMpi%printMagFluxFaceError) then
+            call MPI_AllReduce(gamAppMpi%faceError, totalFaceError, 1, MPI_MYFLOAT, MPI_SUM, gamAppMpi%gamMpiComm, ierr)
+            if (gamAppMpi%Model%doLoud) then
                 write(*,*) ANSICYAN
                 write(*,*) 'GAMERA MPI'
                 call MPI_AllReduce(gamAppMpi%faceError, totalFaceError, 1, MPI_MYFLOAT, MPI_SUM, gamAppMpi%gamMpiComm, ierr)
                 write(*,'(a,f8.3)') 'Total MF Face Error = ', totalFaceError
                 write(*,'(a)',advance="no") ANSIRESET!, ''
             endif
-        else
-            if(gamAppMpi%printMagFluxFaceError) then
-                call MPI_AllReduce(gamAppMpi%faceError, totalFaceError, 1, MPI_MYFLOAT, MPI_SUM, gamAppMpi%gamMpiComm, ierr)
-            endif
         endif
 
-    end subroutine
+    end subroutine consoleOutput_mpi
 
     subroutine updateMpiBCs(gamAppMpi, State)
         type(gamAppMpi_T), intent(inout) :: gamAppMpi

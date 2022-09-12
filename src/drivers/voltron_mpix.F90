@@ -236,7 +236,13 @@ program voltron_mpix
                             call printClocks()
                         endif
                         call cleanClocks()
+                    elseif (vApp%IO%doTimer(vApp%ts)) then
+                        if (vApp%IO%doTimerOut) then
+                            call printClocks()
+                        endif
+                        call cleanClocks()
                     endif
+                    
                     !Restart output
                     if (vApp%IO%doRestart(vApp%time)) then
                         call resOutputVOnly(vApp,vApp%gAppLocal)
