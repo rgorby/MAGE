@@ -198,7 +198,7 @@ if __name__ == "__main__":
     # loc = 0
     # </HACK>
     t0 = gamUT[loc]  # First non-0 time
-    t1 = gamUT[-1] 
+    t1 = gamUT[-1]
     if debug:
         print("t0 = %s" % t0)
         print("t1 = %s" % t1)

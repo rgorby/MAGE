@@ -33,7 +33,7 @@ def SMtoGSM(x,y,z,ut):
     toSys    = 'GSM'
     toType   = 'car'
 
-    invec = Coords(np.column_stack((x,y,z)),fromSys,fromType)
+    invec = Coords(np.column_stack((x,y,z)),fromSys,fromType, use_irbem=False)
     invec.ticks = Ticktock(ut)
     outvec = invec.convert(toSys,toType)
 
@@ -51,7 +51,7 @@ def GSMtoSM(x,y,z,ut):
     toSys    = 'SM'
     toType   = 'car'
 
-    invec = Coords(np.column_stack((x,y,z)),fromSys,fromType)
+    invec = Coords(np.column_stack((x,y,z)),fromSys,fromType, use_irbem=False)
     invec.ticks = Ticktock(ut)
     outvec = invec.convert(toSys,toType)
 
@@ -69,7 +69,7 @@ def GSEtoGSM(x,y,z,ut):
     toSys    = 'GSM'
     toType   = 'car'
 
-    invec = Coords(np.column_stack((x,y,z)),fromSys,fromType)
+    invec = Coords(np.column_stack((x,y,z)),fromSys,fromType, use_irbem=False)
     invec.ticks = Ticktock(ut)
     outvec = invec.convert(toSys,toType)
 

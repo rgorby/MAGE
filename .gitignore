@@ -55,3 +55,7 @@ tests/*/*.F90
 
 #Notebook checkpoints
 analysis/notebooks/Tutorial/.ipynb_checkpoints
+
+# Visual Studio Code configuration directory
+.vscode/
+
