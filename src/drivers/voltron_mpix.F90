@@ -166,6 +166,10 @@ program voltron_mpix
                 endif
                 call cleanClocks()
             elseif (gApp%Model%IO%doTimer(g2vComm%ts)) then
+                if (gApp%Model%IO%doTimerOut .and. &
+                    gApp%Grid%Ri==0 .and. gApp%Grid%Rj==0 .and. gApp%Grid%Rk==0) then
+                    call printClocks()
+                endif
                 call cleanClocks()
             endif
 

@@ -57,6 +57,7 @@ program voltronx
             if (vApp%IO%doTimerOut) call printClocks()
             call cleanClocks()
         elseif (vApp%IO%doTimer(vApp%ts)) then
+            if (vApp%IO%doTimerOut) call printClocks()
             call cleanClocks()
         endif
         
