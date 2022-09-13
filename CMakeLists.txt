@@ -174,7 +174,7 @@ message("\tIC file is ${GAMHELIC}")
 add_custom_target(gamhelio ALL)
 message("\tAdding executable gamhelio.x")
 add_executable(gamhelio.x src/drivers/gamerax.F90 ${GAMHELIC})
-target_link_libraries(gamhelio.x gamlib baselib)
+target_link_libraries(gamhelio.x gamlib gllib baselib)
 add_dependencies(gamera gamhelio.x)
 
 #-------------
@@ -263,7 +263,7 @@ if(ENABLE_MPI)
     add_custom_target(gamhelio_mpi ALL)
     message("\tAdding executable gamhelio_mpi.x")
     add_executable(gamhelio_mpi.x src/drivers/gamera_mpix.F90 ${GAMHELIC})
-    target_link_libraries(gamhelio_mpi.x baselib gamlib basempilib gammpilib)
+    target_link_libraries(gamhelio_mpi.x baselib gamlib gllib basempilib gammpilib)
     add_dependencies(gamhelio_mpi gamhelio_mpi.x)
 
 
@@ -275,7 +275,7 @@ if(PFUNIT_FOUND)
 	message("Adding tests module ...")
 	#Add source
 	add_subdirectory(tests)
-	add_dependencies(allTests baselib gamlib remixlib chimplib voltlib)
+	add_dependencies(allTests baselib gamlib gllib remixlib chimplib voltlib)
 endif()
 
 # copy git hook scripts into .git/hooks

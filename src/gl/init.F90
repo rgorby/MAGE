@@ -1,5 +1,6 @@
 module glinit
     use gltypes
+    use glsolution
     use math
     use xml_input
     use glutils
@@ -84,33 +85,33 @@ module glinit
         !> Allocate and Initalize Model parameters
         !> Calulates necessary geometric and scalar parameters
         !> for Gibson Low model from XML input
-        subroutine initModel(Model, xmlInp)
+        subroutine initModel(Model, inpXML)
             type(glModel_T), intent(inout) :: Model
-            type(XML_Input_T), intent(inout) :: xmlInp
+            type(XML_Input_T), intent(in) :: inpXML
 
             !Get RunID
-            call xmlInp%Set_Val(Model%RunID,'sim/runid',"Sim")
+            call inpXML%Set_Val(Model%RunID,'sim/runid',"Sim")
             call setModelDefaults(Model)
 
             ! Check State Type "Sphere" or 
-            call xmlInp%Set_Val(Model%CoordName, "prob/StateCoord", "Sphere")
+            call inpXML%Set_Val(Model%CoordName, "prob/StateCoord", "Sphere")
             !read in GL parameters to override defaults
-            call xmlInp%Set_Val(Model%tfin, "prob/tfin", 100.)
-            call xmlInp%Set_Val(Model%dt, "prob/dt", 1.)
-            call xmlInp%Set_Val(Model%latitude, "prob/lat", 0.)
-            call xmlInp%Set_Val(Model%longitude, "prob/lon", 0.)
-            call xmlInp%Set_Val(Model%frontheight, "prob/frontheight", 1.35)
-            call xmlInp%Set_Val(Model%legsang, "prob/legsang", 25.)
-            call xmlInp%Set_Val(Model%topmorph, "prob/topmorph", 2.5)
-            call xmlInp%Set_Val(Model%Bmax, "prob/Bmax", 1.75)
-            call xmlInp%Set_Val(Model%alpha, "prob/alpha", 0.)
-            call xmlInp%Set_Val(Model%sigma, "prob/orientation", 1.5708)
-            call xmlInp%Set_Val(Model%cmer, "prob/cmer", -1.5708)
-            call xmlInp%Set_Val(Model%alnotrbubsign, "prob/chiral", 1.0) 
-            call xmlInp%Set_Val(Model%vel_fh, "prob/vel_fh", 1.)  !V_CME_statdraw
-            call xmlInp%Set_Val(Model%isLoud,'sim/isLoud',.true.)
-            call xmlInp%Set_Val(Model%isDebug,'sim/isDebug',.true.)
-            call xmlInp%Set_Val(Model%isPrecheck,'sim/isPrecheck',.false.)
+            call inpXML%Set_Val(Model%tfin, "prob/tfin", 100.)
+            call inpXML%Set_Val(Model%dt, "prob/dt", 1.)
+            call inpXML%Set_Val(Model%latitude, "prob/lat", 0.)
+            call inpXML%Set_Val(Model%longitude, "prob/lon", 0.)
+            call inpXML%Set_Val(Model%frontheight, "prob/frontheight", 1.35)
+            call inpXML%Set_Val(Model%legsang, "prob/legsang", 25.)
+            call inpXML%Set_Val(Model%topmorph, "prob/topmorph", 2.5)
+            call inpXML%Set_Val(Model%Bmax, "prob/Bmax", 1.75)
+            call inpXML%Set_Val(Model%alpha, "prob/alpha", 0.)
+            call inpXML%Set_Val(Model%sigma, "prob/orientation", 1.5708)
+            call inpXML%Set_Val(Model%cmer, "prob/cmer", -1.5708)
+            call inpXML%Set_Val(Model%alnotrbubsign, "prob/chiral", 1.0) 
+            call inpXML%Set_Val(Model%vel_fh, "prob/vel_fh", 1.)  !V_CME_statdraw
+            call inpXML%Set_Val(Model%isLoud,'sim/isLoud',.true.)
+            call inpXML%Set_Val(Model%isDebug,'sim/isDebug',.true.)
+            call inpXML%Set_Val(Model%isPrecheck,'sim/isPrecheck',.false.)
 
             ! From precheck
             if (Model%isPrecheck) then
@@ -169,8 +170,6 @@ module glinit
                 write(*,"(1X,A14,2X,F)") "phiss: ", Model%phiss 
             end if
 
-            !Output/Restart (IOCLOCK)
-            call Model%IO%init(xmlInp,Model%time,Model%ts)
             ! TODO: Implement solution for acceleration
             if ( (Model%alpha .gt. 0) .or. (Model%alpha .lt. 0)) then
                 if (Model%isLoud) write(*,*) 'Currently not supported, defaulting to constant velocity: alpha = 0.0'
@@ -205,33 +204,32 @@ module glinit
             call allocState(State)
             call allocSolution(State, Solution)
 
-            State%ri = 1
- 
+            State%ri = 1 
         end subroutine initSolutionState
 
         !> Initialize Standalone Solution and State 
         !> grid, bounds, etc. 
         !>
-        subroutine initStandaloneSolutionState(Model, State, Solution, xmlInp)
+        subroutine initStandaloneSolutionState(Model, State, Solution, inpXML)
             type(glModel_T), intent(inout) :: Model
             type(glSolution_T), intent(inout) :: Solution
             type(glState_T), intent(inout) :: State
-            type(XML_Input_T), intent(inout) :: xmlInp
+            type(XML_Input_T), intent(in) :: inpXML
 
             real(rp) :: dr, dth, dphi
             real(rp) :: x, y, z, x1, x2, x3
             real(rp) :: rtpBds(6)
             integer :: i, j, k
             ! Set up State grid dimensions       
-            call xmlInp%Set_Val(State%Nip,"idir/N",Nc)
-            call xmlInp%Set_Val(State%Njp,"jdir/N",Nc)
-            call xmlInp%Set_Val(State%Nkp,"kdir/N",Nc)
-            call xmlInp%Set_Val(rtpBds(1),"idir/min",xMin)
-            call xmlInp%Set_Val(rtpBds(2),"idir/max",xMax)
-            call xmlInp%Set_Val(rtpBds(3),"jdir/min",xMin)
-            call xmlInp%Set_Val(rtpBds(4),"jdir/max",xMax)
-            call xmlInp%Set_Val(rtpBds(5),"kdir/min",xMin)
-            call xmlInp%Set_Val(rtpBds(6),"kdir/max",xMax)
+            call inpXML%Set_Val(State%Nip,"idir/N",Nc)
+            call inpXML%Set_Val(State%Njp,"jdir/N",Nc)
+            call inpXML%Set_Val(State%Nkp,"kdir/N",Nc)
+            call inpXML%Set_Val(rtpBds(1),"idir/min",xMin)
+            call inpXML%Set_Val(rtpBds(2),"idir/max",xMax)
+            call inpXML%Set_Val(rtpBds(3),"jdir/min",xMin)
+            call inpXML%Set_Val(rtpBds(4),"jdir/max",xMax)
+            call inpXML%Set_Val(rtpBds(5),"kdir/min",xMin)
+            call inpXML%Set_Val(rtpBds(6),"kdir/max",xMax)
 
             call initSolutionState(Model, State, Solution)
             ! Set up State
@@ -270,14 +268,19 @@ module glinit
         !> on a State. Used mainly for testing purposes and to export h5 file of the 
         !> GL soluiton on a State for additional analysis or reading into an external 
         !> program. 
-        subroutine initGLStandalone(Model, State, Solution, xmlInp)
+        subroutine initGLStandalone(Model, State, Solution, inpXML)
             type(glModel_T), intent(inout) :: Model
             type(glState_T), intent(inout) :: State
             type(glSolution_T), intent(inout) :: Solution
-            type(XML_Input_T), intent(inout) :: xmlInp
+            type(XML_Input_T), intent(in) :: inpXML
 
-            call initModel(Model, xmlInp)
-            call initStandaloneSolutionState(Model, State, Solution, xmlInp)
+            generateCMESolution => generateGLSolution
+
+            call initModel(Model, inpXML)
+            !Output/Restart (IOCLOCK)
+            call Model%IO%init(inpXML,Model%time,Model%ts)
+
+            call initStandaloneSolutionState(Model, State, Solution, inpXML)
             ! State Type dicates output coordinate system
             select case (Model%CoordName)
                 case ("Sphere")
@@ -293,19 +296,37 @@ module glinit
             GLH5File = genName(Model%RunID, State%Nip, State%Njp, State%Nkp, 1, 1, 1)
         end subroutine initGLStandalone
 
+        !> Initialize GL Types for use in external code 
+        !> e.g. Gamera Helio
+        !>
+        !>
+        !>
+        subroutine initGLInterface(Model, State, Solution, inpXML)
+            class(glModel_T), intent(inout) :: Model
+            class(glState_T), intent(inout) :: State
+            class(glSolution_T), intent(inout) :: Solution
+            type(XML_Input_T), intent(in) :: inpXML
+
+            call inpXML%Set_Val(State%Nip,"idir/N",Nc)
+            call inpXML%Set_Val(State%Njp,"jdir/N",Nc)
+            call inpXML%Set_Val(State%Nkp,"kdir/N",Nc)
+            
+            call initModel(Model, inpXML)
+            call initSolutionState(Model, State, Solution)
+        end subroutine
+        
         !> Expectation is that this interface is to be used by Gamera etc. 
         !> User must initalize the glApp components -> Model, State, State, Solution
-        !> Model is initialized from xmlInp
+        !> Model is initialized from inpXML
         !> Parameters:
         !>  xyz: the (i,j,k,xyz) locations over which to solve the Gibson Low Model
         !>  glApp: instance of the Gibson Low model app
-        !>  xmlInp: the xmlInp for this model
+        !>  inpXML: the inpXML for this model
         !> 
-        subroutine initGLInterfaceXYZ(xyz, glApp,  xmlInp)
-            type(glApp_T), intent(inout) :: glApp
-            type(XML_Input_T), intent(inout) :: xmlInp
+        subroutine setGLStateXYZ(xyz, Model,  State)
+            type(glModel_T), intent(inout)  :: Model
+            type(glState_T), intent(inout)  :: State
             real(rp), dimension(:,:,:,:), intent(in) :: xyz
-
             real(rp), dimension(:), allocatable :: r
             real(rp), dimension(:,:), allocatable :: theta, phi
             integer, dimension(2) :: adims
@@ -323,18 +344,18 @@ module glinit
             theta = acos(xyz(1,:,:,ZDIR)/norm2(xyz(1,1,1,:)))
             phi = atan2(xyz(1,:,:,YDIR),xyz(1,:,:,XDIR))
 
-            call initGLInterfaceRTP(r, theta, phi, glApp, xmlInp)
+            call setGLStateRTP(r, theta, phi, Model, State)
 
-        end subroutine initGLInterfaceXYZ
+        end subroutine setGLStateXYZ
 
         !> Expectation is that this interface is to be used by Gamera etc. 
         !> User must initalize the glApp components -> Model, State, State, Solution
-        !> Model is initialized from xmlInp
+        !> Model is initialized from inpXML
         !> State must minimally be defined by r(i), theta(j,k), phi(j,k) 
         !> 
-        subroutine initGLInterfaceRTP(r, theta, phi, glApp,  xmlInp)
-            type(glApp_T), intent(inout) :: glApp
-            type(XML_Input_T), intent(inout) :: xmlInp
+        subroutine setGLStateRTP(r, theta, phi, Model, State)
+            type(glModel_T), intent(inout) :: Model
+            type(glState_T), intent(inout)  :: State
             real(rp), dimension(:), intent(in) :: r
             real(rp), dimension(:,:), intent(in) :: theta, phi
             integer :: rdim
@@ -343,19 +364,12 @@ module glinit
             rdim = size(r)
             adims = shape(theta)
 
-            associate(State=>glApp%State, Model=>glApp%Model, Solution=>glApp%Solution)
-
-                call initModel(glApp%Model, xmlInp)
-
-                call initSolutionState(Model, State, Solution)
-
-                State%Ni = rdim
-                State%Nj = adims(1)
-                State%Nk = adims(2)
-                State%r = r
-                State%thpb = theta + Model%latitude
-                State%phpb = phi - Model%longitude
-            end associate
-        end subroutine initGLInterfaceRTP
+            State%Ni = rdim
+            State%Nj = adims(1)
+            State%Nk = adims(2)
+            State%r = r
+            State%thpb = theta + Model%latitude
+            State%phpb = phi - Model%longitude
+        end subroutine setGLStateRTP
         
 end module glinit

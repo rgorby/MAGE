@@ -8,6 +8,9 @@ module usergamic
     use xml_input
     use bcs
     use ioH5
+    use cmetypes
+    use glutils
+    use glsolution
     use helioutils
 
     implicit none
@@ -18,9 +21,17 @@ module usergamic
        enumerator :: BRIN=1,VRIN,RHOIN,TIN,BRKFIN,VRKFIN
     endenum 
 
+    enum, bind(C)
+        ! variables passed via innerbc file
+        ! Br, Bt, Bp, Vr, Inside_Mask
+        enumerator :: CMEBR = 1, CMEBT, CMEBP, CMEVR, CMEMASK
+    endenum 
 
     integer, private, parameter :: NVARSIN=6 ! SHOULD be the same as the number of vars in the above enumerator
     real(rp), dimension(:,:,:,:), allocatable :: ibcVars
+    ! Br, Bt, Bp, Vr, Inside_Mask
+    integer, private, parameter :: NCMEVARS=5
+    real(rp) :: Den_CME, T_CME, Pres_CME
 
     !Various global would go here
     real (rp) :: Rho0, P0, Vslow,Vfast, wScl, Cs0, B0, MJD_c
@@ -48,20 +59,27 @@ module usergamic
     real(rp) :: DeltaT 
 
     character(len=strLen) :: wsaFile
- 
+
+    ! CME Models
+    class(baseCMEModel_T), allocatable :: cccmeModel, kfcmeModel, jfcmeModel
+    class(baseCMEState_t), allocatable :: cccmeState, kfcmeState, jfcmeState
+    class(baseCMESolution_T), allocatable :: cccmeSolution, kfCMESolution, jfCMESolution
+    real(rp) :: emerge_lastP, t_smooth
+    real(rp) :: emergence_times(5)
+
     ! use this to fix the Efield at the inner boundary
-!    real(rp), allocatable :: inEijk(:,:,:,:)
+    !    real(rp), allocatable :: inEijk(:,:,:,:)
 
     ! type for solar wind BC
     type, extends(innerIBC_T) :: SWInnerBC_T
 
         !Main electric field structures
         real(rp), allocatable, dimension(:,:,:,:) :: inEijk,inExyz
-
+        ! CME Model
         contains
 
-!        procedure :: doInit => InitIonInner
-          ! TODO: this shoudl be made generic (wsa, mas, etc.) How
+        !        procedure :: doInit => InitIonInner
+        ! TODO: this shoudl be made generic (wsa, mas, etc.) How
         procedure :: doBC => wsaBC
     end type SWInnerBC_T
 
@@ -84,7 +102,7 @@ module usergamic
 
         real(rp) :: ibcVarsStatic !For br only
 
-!        if (.not.allocated(inEijk)) allocate(inEijk(1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1,1:NDIM))
+        ! if (.not.allocated(inEijk)) allocate(inEijk(1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1,1:NDIM))
 
         ! set units and other thins, like Tsolar
         call setHeliosphere(Model,inpXML,Tsolar)
@@ -128,6 +146,58 @@ module usergamic
         allocate(periodicInnerKBC_T :: Grid%externalBCs(5)%p)
         allocate(periodicOuterKBC_T :: Grid%externalBCs(6)%p)
 
+        ! Use CME Model
+        if(Model%doCME) then
+            select case (Model%cmeType) 
+                case ("GL")
+                    allocate(glModel_T :: cccmeModel)
+                    allocate(glState_T :: cccmeState)
+                    allocate(glSolution_T :: ccCMESolution)
+                    allocate(glModel_T :: jfcmeModel)
+                    allocate(glState_T :: jfcmeState)
+                    allocate(glSolution_T :: jfCMESolution)
+                    allocate(glModel_T :: kfcmeModel)
+                    allocate(glState_T :: kfcmeState)
+                    allocate(glSolution_T :: kfCMESolution)
+                    select type (ccCMESolution)
+                        type is (glSolution_T)
+                            select type (cccmeState)
+                                type is(glState_T)
+                                    select type (cccmeModel)
+                                        type is(glModel_T)
+                                            call initGLInterface(cccmeModel, cccmeState, ccCMESolution, inpXML)
+                                            emergence_times = calcEmergenceTimes(cccmeModel,cccmeState)*3600./Model%Units%gT0
+                                            emerge_lastP = maxval(emergence_times)
+                                    end select
+                            end select
+                    end select
+                    select type (jfCMESolution)
+                        type is (glSolution_T)
+                            select type (jfcmeState)
+                                type is(glState_T)
+                                    select type (jfcmeModel)
+                                        type is(glModel_T)
+                                        call initGLInterface(jfcmeModel, jfcmeState, jfCMESolution, inpXML)
+                                    end select
+                            end select
+                    end select
+                    select type (kfCMESolution)
+                        type is (glSolution_T)
+                            select type (kfcmeState)
+                                type is(glState_T)
+                                    select type (kfcmeModel)
+                                        type is(glModel_T)
+                                        call initGLInterface(kfcmeModel, kfcmeState, kfCMESolution, inpXML)
+                                    end select
+                            end select
+                    end select            
+            end select
+            call inpXML%Set_Val(Den_CME,"CME/prob/Den_CME",0. )
+            call inpXML%Set_Val(T_CME,"CME/prob/T_CME",0. )
+            t_smooth = emerge_lastP + 3600./Model%Units%gT0
+            Pres_CME = Den_CME*Kbltz*T_CME/Model%Units%gB0
+        end if
+
         !Set DT bounds
         Grid%isDT = Grid%is
         Grid%ieDT = Grid%ie
@@ -137,10 +207,10 @@ module usergamic
         Grid%keDT = Grid%ke
 
         ! Add gravity
-!        eHack  => EFix
-!        Model%HackE => eHack
-!        tsHack => PerStep
-!        Model%HackStep => tsHack
+        !        eHack  => EFix
+        !        Model%HackE => eHack
+        !        tsHack => PerStep
+        !        Model%HackStep => tsHack
    
          !Write MJD_center_of_WSA_map to the root of H5 output 
          Model%HackIO_0 => writeMJDcH5Root
@@ -250,19 +320,38 @@ module usergamic
       type(State_T), intent(inout) :: State
 
       ! local variables
-      integer :: i,j,k, kb, ke
+      integer :: i,j,k, kb, ke, knew
       integer :: kg, jg, ig ! global indices (in preparation for MPI)
       integer :: var ! ibcVar variable number
       real(rp) :: a
       real(rp) :: ibcVarsStatic(NVARSIN)
+      real(rp) :: ccCMEVarsStatic(NCMEVARS)
+      real(rp) :: jfCMEVarsStatic(NCMEVARS)
+      real(rp) :: kfCMEVarsStatic(NCMEVARS)
       real(rp) :: R, Theta, Phi
       real(rp) :: Theta_kf, R_kf ! kface
       real(rp), dimension(NVAR) :: conVar, pVar
 
+      ! After Initial transient passage, generate CME solution
+      if (Model%doCME .and. (Model%t >= cccmeModel%Tstart_transient)) then
+        ! cell-center
+        cccmeModel%time = Model%t - cccmeModel%Tstart_transient
+        call setCMEStateXYZ(Grid%xyzcc(Grid%isg:Grid%ieg, Grid%jsg:Grid%jeg, Grid%ksg:Grid%keg, :), cccmeModel, cccmeState)
+        call generateCMESolution(ccCMESolution, cccmeModel, cccmeState)
+        ! J-Faces
+        jfcmeModel%time = Model%t - jfcmeModel%Tstart_transient
+        call setCMEStateXYZ(Grid%xfc(Grid%isg:Grid%ieg, Grid%jsg:Grid%jeg, Grid%ksg:Grid%keg, :, JDIR), jfcmeModel, jfcmeState)
+        call generateCMESolution(jfCMESolution, jfcmeModel, jfcmeState)
+        ! K-Faces
+        kfcmeModel%time = Model%t - kfcmeModel%Tstart_transient
+        call setCMEStateXYZ(Grid%xfc(Grid%isg:Grid%ieg, Grid%jsg:Grid%jeg, Grid%ksg:Grid%keg, :, KDIR), kfcmeModel, kfcmeState)
+        call generateCMESolution(kfCMESolution, kfcmeModel, kfcmeState)
+      end if
+
       !i-boundaries (IN)
       !$OMP PARALLEL DO default(shared) &
-      !$OMP private(i,j,k,jg,kg,ke,kb,a,var,xyz,R,Theta,Phi,rHat,phiHat) &
-      !$OMP private(ibcVarsStatic,pVar,conVar,xyz0,R_kf,Theta_kf)
+      !$OMP private(i,j,k,jg,kg,ke,kb,knew,a,var,xyz,R,Theta,Phi,rHat,phiHat) &
+      !$OMP private(ibcVarsStatic,ccCMEVarsStatic,jfCMEVarsStaticp,kfCMEVarsStatic,Var,conVar,xyz0,R_kf,Theta_kf)
       do k=Grid%ksg,Grid%keg+1  ! note, going all the way to last face for mag fluxes
          kg = k+Grid%ijkShift(KDIR)
          ! map rotating to static grid
@@ -272,60 +361,110 @@ module usergamic
             jg = j+Grid%ijkShift(JDIR)
 
             do ig=1,Model%Ng
-               i=ig-Model%Ng
-               ! note, ibcVars are not defined in the global j-corners or k-corners
-               ! access to k-corners is fine because mapK function will always map into active domain (FIXME: check for k=nk+1 face!)
-               ! access to j-corners gets into unallocated space for ibcVars. Use this trick instead:
-               ! set everything arbitrarily to 1. in the global corners (on low and high j boundaries)
-               ! we then apply the j-boundary after i boundary anyway, so the corners will be overwritten
-               ibcVarsStatic = 1._rp  
+                i=ig-Model%Ng
+                ! note, ibcVars are not defined in the global j-corners or k-corners
+                ! access to k-corners is fine because mapK function will always map into active domain (FIXME: check for k=nk+1 face!)
+                ! access to j-corners gets into unallocated space for ibcVars. Use this trick instead:
+                ! set everything arbitrarily to 1. in the global corners (on low and high j boundaries)
+                ! we then apply the j-boundary after i boundary anyway, so the corners will be overwritten
+                ibcVarsStatic = 1._rp  
 
-               ! otherwise
-               ! interpolate linearly from rotating to inertial frame 
-               if ( (jg>=Grid%js).and.(jg<=size(ibcVars,2)) ) then
-                  do var=1,NVARSIN
-                     ibcVarsStatic(var) = a*ibcVars(ig,jg,kb,var)+(1-a)*ibcVars(ig,jg,ke,var)
-                  end do
-               end if
+                !filling ghost cells in k with for CME Solution
+                if(Model%doCME) then
+                    if (k .gt. Grid%ke) then
+                        knew = modulo(k, Grid%ke)
+                        jfCMESolution%b(ig, j, k, :) = jfCMESolution%b(ig, j, knew, :)
+                        jfCMESolution%v(ig, j, k, :) = jfCMESolution%v(ig, j, knew, :)
+                    end if
+                    if (k .lt. Grid%ks) then
+                        knew = Grid%ke + k
+                        jfCMESolution%b(ig, j, k, :) = jfCMESolution%b(ig, j, knew, :)
+                        jfCMESolution%v(ig, j, k, :) = jfCMESolution%v(ig, j, knew, :)
+                    end if
+                end if
+                ! otherwise
+                ! interpolate linearly from rotating to inertial frame 
+                if ( (jg>=Grid%js).and.(jg<=size(ibcVars,2)) ) then
+                    do var=1,NVARSIN
+                        ibcVarsStatic(var) = a*ibcVars(ig,jg,kb,var)+(1-a)*ibcVars(ig,jg,ke,var)
+                    end do
+                    cccmeVarsStatic(1) = a*ccCMESolution%b(ig,jg,kb,XDIR)+(1.-a)*ccCMESolution%b(ig,jg,ke,XDIR)
+                    cccmeVarsStatic(2) = a*ccCMESolution%b(ig,jg,kb,YDIR)+(1.-a)*ccCMESolution%b(ig,jg,ke,YDIR)
+                    cccmeVarsStatic(3) = a*ccCMESolution%b(ig,jg,kb,ZDIR)+(1.-a)*ccCMESolution%b(ig,jg,ke,ZDIR)
+                    cccmeVarsStatic(4) = a*ccCMESolution%v(ig,jg,kb,XDIR)+(1.-a)*ccCMESolution%v(ig,jg,ke,XDIR)
+                    cccmeVarsStatic(5) = a*ccCMESolution%inside_mask(ig,jg,kb)+(1.-a)*ccCMESolution%inside_mask(ig,jg,ke)
+                    jfcmeVarsStatic(1) = a*jfCMESolution%b(ig,jg,kb,XDIR)+(1.-a)*jfCMESolution%b(ig,jg,ke,XDIR)
+                    jfcmeVarsStatic(2) = a*jfCMESolution%b(ig,jg,kb,YDIR)+(1.-a)*jfCMESolution%b(ig,jg,ke,YDIR)
+                    jfcmeVarsStatic(3) = a*jfCMESolution%b(ig,jg,kb,ZDIR)+(1.-a)*jfCMESolution%b(ig,jg,ke,ZDIR)
+                    jfcmeVarsStatic(4) = a*jfCMESolution%v(ig,jg,kb,XDIR)+(1.-a)*jfCMESolution%v(ig,jg,ke,XDIR)
+                    jfcmeVarsStatic(5) = a*jfCMESolution%inside_mask(ig,jg,kb)+(1.-a)*jfCMESolution%inside_mask(ig,jg,ke)
+                    kfcmeVarsStatic(1) = a*kfCMESolution%b(ig,jg,kb,XDIR)+(1.-a)*kfCMESolution%b(ig,jg,ke,XDIR)
+                    kfcmeVarsStatic(2) = a*kfCMESolution%b(ig,jg,kb,YDIR)+(1.-a)*kfCMESolution%b(ig,jg,ke,YDIR)
+                    kfcmeVarsStatic(3) = a*kfCMESolution%b(ig,jg,kb,ZDIR)+(1.-a)*kfCMESolution%b(ig,jg,ke,ZDIR)
+                    kfcmeVarsStatic(4) = a*kfCMESolution%v(ig,jg,kb,XDIR)+(1.-a)*kfCMESolution%v(ig,jg,ke,XDIR)
+                    kfcmeVarsStatic(5) = a*kfCMESolution%inside_mask(ig,jg,kb)+(1.-a)*kfCMESolution%inside_mask(ig,jg,ke)
+                end if
 
-               ! do cell centered things for cell-centers only
-               if ( (j/=Grid%jeg+1).and.(k/=Grid%keg+1) ) then
-                  ! various geometrical quantities for the cell center
-                  xyz  = Grid%xyzcc(i,j,k,:)
-                  R    = norm2(xyz)
-                  Theta = acos(xyz(3)/R)
-                  Phi = atan2(xyz(2),xyz(1))
-                  rHat = xyz/R
-                  phiHat = [-sin(phi),cos(phi),0._rp]
+                ! do cell centered things for cell-centers only
+                if ( (j/=Grid%jeg+1).and.(k/=Grid%keg+1) ) then
+                    ! various geometrical quantities for the cell center
+                    xyz  = Grid%xyzcc(i,j,k,:)
+                    R    = norm2(xyz)
+                    Theta = acos(xyz(3)/R)
+                    Phi = atan2(xyz(2),xyz(1))
+                    rHat = xyz/R
+                    phiHat = [-sin(phi),cos(phi),0._rp]
 
-                  ! NOTE, WSA data were already scaled appropriately in the python code
-                  ! TODO: save them in the innerbc hdf file and set in helioutils appropriately
+                    ! NOTE, WSA data were already scaled appropriately in the python code
+                    ! TODO: save them in the innerbc hdf file and set in helioutils appropriately
+                    if (Model%doCME .and. (ccCMEVarsStatic(CMEMASK) .gt. 0.5)) then !inside the bubble mask is 1
+                        if (Model%t <= emerge_lastP) then
+                            pVar(DEN) = Den_CME/Model%Units%gD0
+                            pVar(PRESSURE) = Pres_CME
+                            pVar(VELX:VELZ) = rHat*max(ccCMEVarsStatic(CMEVR)/(Model%Units%gv0*1e-5), ibcVarsStatic(VRIN))
+                        else if ((Model%t > emerge_lastP) .and. (Model%t <= t_smooth)) then !last point passed -- smoothly transition to WSA via linear changing from CME values to WSA over 1 hour
+                            pVar(DEN) = Den_CME/Model%Units%gD0 + &
+                                            (Model%t - emerge_lastP)/(3600./Model%Units%gt0)*(ibcVarsStatic(RHOIN) - Den_CME/Model%Units%gD0)
+                            pVar(PRESSURE)  = Pres_CME + &
+                                                (Model%t - emerge_lastP)/(3600./Model%Units%gt0)*(ibcVarsStatic(RHOIN)*Model%Units%gD0*Kbltz*ibcVarsStatic(TIN)/(Model%Units%gP0) - Pres_CME)
+                            pVar(VELX:VELZ) = rHat*max(ccCMEVarsStatic(CMEVR)/Model%Units%gv0, ibcVarsStatic(VRIN))
+                        else ! when Model%t is larger than t_smooth use WSA
+                            pVar(VELX:VELZ) = rHat*max(ccCMEVarsStatic(CMEVR)/Model%Units%gv0, ibcVarsStatic(VRIN))
+                            pVar(DEN) = ibcVarsStatic(RHOIN)
+                            pVar(PRESSURE) = ibcVarsStatic(RHOIN)*Model%Units%gD0*Kbltz*ibcVarsStatic(TIN)/(Model%Units%gP0)
+                        end if
+                    else
+                        !Set primitives
+                        pVar(VELX:VELZ) = rHat*ibcVarsStatic(VRIN)
+                        ! note conversion to my units with B0^2/4pi in the denominator
+                        pVar(PRESSURE)  = ibcVarsStatic(RHOIN)*Model%Units%gD0*Kbltz*ibcVarsStatic(TIN)/(Model%Units%gP0)
+                        pVar(DEN)       = ibcVarsStatic(RHOIN)
+                    end if
+                    !Swap prim->con in ghost variables
+                    call CellP2C(Model,pVar,conVar)
+                    State%Gas(i,j,k,:,BLK) = conVar
 
-                  !Set primitives
-                  pVar(VELX:VELZ) = rHat*ibcVarsStatic(VRIN)
-                  ! note conversion to my units with B0^2/4pi in the denominator
-                  pVar(PRESSURE)  = ibcVarsStatic(RHOIN)*Model%Units%gD0*Kbltz*ibcVarsStatic(TIN)/(Model%Units%gP0)
-                  pVar(DEN)       = ibcVarsStatic(RHOIN)
+                    ! note, don't need cc Bxyz because we run flux2field through ghosts
+                end if
 
-                  !Swap prim->con in ghost variables
-                  call CellP2C(Model,pVar,conVar)
-                  State%Gas(i,j,k,:,BLK) = conVar
+                ! also need theta at k-face for k-flux
+                ! although we're assuming theta and R don't change from cell to k-face center,
+                ! xyzcc used under if statement above is only defined for cell centers so need to define it here
+                xyz0 = Grid%xfc(i,j,k,:,KDIR) !just reusing a temp var here.
+                R_kf = norm2(xyz0)
+                Theta_kf = acos(xyz0(ZDIR)/R_kf)
 
-                  ! note, don't need cc Bxyz because we run flux2field through ghosts
-               end if
-
-               ! also need theta at k-face for k-flux
-               ! although we're assuming theta and R don't change from cell to k-face center,
-               ! xyzcc used under if statement above is only defined for cell centers so need to define it here
-               xyz0 = Grid%xfc(i,j,k,:,KDIR) !just reusing a temp var here.
-               R_kf = norm2(xyz0)
-               Theta_kf = acos(xyz0(ZDIR)/R_kf)
-
-               ! note scaling for Bi. See note above in InitUser
-               Rfactor = Rbc/norm2(Grid%xfc(Grid%is,j,k,:,IDIR))
-               State%magFlux(i,j,k,IDIR) = ibcVarsStatic(BRIN)*Rfactor**2*Grid%face(Grid%is,j,k,IDIR)
-               State%magFlux(i,j,k,JDIR) = 0.0
-               State%magFlux(i,j,k,KDIR) = - 2*PI/Tsolar*R_kf*sin(Theta_kf)/ibcVarsStatic(VRKFIN)*ibcVarsStatic(BRKFIN)*Grid%face(i,j,k,KDIR)
+                ! note scaling for Bi. See note above in InitUser
+                Rfactor = Rbc/norm2(Grid%xfc(Grid%is,j,k,:,IDIR))
+                if (Model%doCME) then
+                    State%magFlux(i,j,k,IDIR) = ibcVarsStatic(BRIN)*Rfactor**2*Grid%face(Grid%is,j,k,IDIR)
+                    State%magFlux(i,j,k,JDIR) = 0.0
+                    State%magFlux(i,j,k,KDIR) = - 2*PI/Tsolar*R_kf*sin(Theta_kf)/ibcVarsStatic(VRKFIN)*ibcVarsStatic(BRKFIN)*Grid%face(i,j,k,KDIR)
+                else
+                    State%magFlux(i,j,k,IDIR) = ibcVarsStatic(BRIN)*Rfactor**2*Grid%face(Grid%is,j,k,IDIR)
+                    State%magFlux(i,j,k,JDIR) = 0.0
+                    State%magFlux(i,j,k,KDIR) = - 2*PI/Tsolar*R_kf*sin(Theta_kf)/ibcVarsStatic(VRKFIN)*ibcVarsStatic(BRKFIN)*Grid%face(i,j,k,KDIR)
+                end if
             end do
          end do
       end do

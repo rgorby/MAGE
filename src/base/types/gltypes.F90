@@ -3,12 +3,13 @@
 !>
 module gltypes
     use gldefs
-    use ioclock
+    use cmetypes
 
     implicit none
 
     !Unit information
-    !Holds information about Gamera MHD scaling & how to scale input values
+    !Holds information about GL MHD scaling & how to scale input values
+    ! Not currently used, model is in cgs by default
     type glUnits_T
         real(rp) :: glx0 = 1.0 ! [m]
         real(rp) :: glv0 = 1.0 ! [m/s]
@@ -34,8 +35,7 @@ module gltypes
 
     !> Overall model information
     !> Algorithmic/Run options
-    type glModel_T
-        character(len=strLen) :: RunID
+    type, extends(baseCMEModel_T) :: glModel_T
         real(rp) :: alnotrbubuse
         real(rp) :: gfunot1
         real(rp) :: alnotrbub_abs  !to preserve sign of alnotrbub
@@ -84,69 +84,31 @@ module gltypes
         !temporal properties
         real(rp) :: alpha
         real(rp) :: velmult
-        real(rp) :: time
         real(rp) :: tFin
         real(rp) :: dt
         real(rp) :: velimpose
         real(rp) :: s_eta0
         real(rp) :: s_eta
         real(rp) :: ma1
-        !real(rp), dimension(:, :), allocatable :: dang1, dang2 ! to calculate volume
-        !real(rp), dimension(:, :), allocatable :: sin_th, cos_th, sin_ph, cos_ph
-        !real(rp), dimension(:), allocatable :: timearr, zetaarr ! to make even steps in space but uneven in time
-        !real(rp), dimension(5) :: tmp1, tmp2 ! to calculate emergence times
-        !integer :: i, ii, nt
-        !> Number of species, dimensions, ghosts
-        !integer :: nSpc, nDim, nG 
-        !real(rp) :: CFL, gamma
-        !> Coefficient for diffusive electric field, generally 0.5
-        !real(rp) :: Vd0=0.5 
-        !real(rp) :: t, tFin, dt
-        !real(rp) :: dt0 = 0.0
-        !logical :: fixedTimestep
-        !integer :: ts
         character(len=strLen)  :: CoordName
-        !> Whether you can write to console
-        logical :: isLoud = .true. 
-        !> Whether you can write to debug to console
-        logical :: isDebug = .false. 
-        !> Whether precheck should run to calculate parameters
+        !> Whether precheck logic should run to calculate parameters
         logical :: isPrecheck = .false.
-        !> Number of threads per node/group
-        integer :: nTh=-1 
-        !> Timer for Clocks
-        integer :: ts
-
-        !Output info
-        type (IOClock_T) :: IO
         !Unit information
         type (glUnits_T) :: Units
         type (glOut_T)   :: glOut
         !Unit information
     end type glModel_T
 
-    type :: glSolution_T
-        ! TODO: Convert to single array in order to reduce allocations? Use ENUMs to reference solution values?
-        ! Final Solution values on r 2D sphereical shells
-        ! inside_mask specifies which radii locations are inside
-        ! solution bubble r(i) < rbub = Model%frontheight - Model%xo + Model%apar
-        integer :: CoordSystem
-        real(rp), dimension(:, :, :), allocatable :: pres, dens, temp, inside_mask
-        real(rp), dimension(:, :, :, :), allocatable :: b, v, j
-        !DIR$ attributes align : ALIGN :: pres, dens, temp
-        !DIR$ attributes align: ALIGN :: b, v, j
-    end type glSolution_T
-
     !> State information
-    type glState_T
+    type, extends(baseCMEState_t) :: glState_T
         ! Used for standalone Gibson-Low Model run
-        ! to definte user specified 3D grid dimensions to supply r,theta,phi to state
-        ! and to define size of solution
+        ! to define user specified 3D grid dimensions to supply r,theta,phi to 
+        ! construct state and to define size of solution ranks
         integer :: Ni,Nj,Nk,Nip,Njp,Nkp
         real(rp) :: latitude = 0.
         real(rp) :: longitude = 0.
 
-        ! Solution Radii index (r(i))
+        ! Solution State Radii index (r(i))
         integer :: ri
         ! Count of inside/outside bubble locations 
         real(rp) :: outside_count, inside_count
@@ -182,22 +144,10 @@ module gltypes
         real(rp), dimension(:, :), allocatable :: bstrengthphys
     end type glState_T
 
-    type glApp_T
-        type(glModel_T) :: Model
-        type(glState_T) :: State
-        type(glSolution_T) :: Solution
-    end type glApp_T
- 
-    !StateIC_T
-    !Generic initialization routine: ICs, Grid, Model
-    ! abstract interface
-    !     subroutine StateIC_T(Model,Grid,State,inpXML)
-    !         Import :: Model_T, Grid_T, State_T, strLen, XML_Input_T
-    !         type(Model_T) , intent(inout) :: Model
-    !         type(Grid_T)  , intent(inout) :: Grid
-    !         type(State_T) , intent(inout) :: State
-    !         type(XML_Input_T), intent(in) :: inpXML
-    !     end subroutine StateIC_T
-    ! end interface
+    !> Solution information
+    type, extends(baseCMESolution_T) :: glSolution_T
+        ! solution bubble r(i) < rbub = Model%frontheight - Model%xo + Model%apar
+        integer :: CoordSystem
+    end type glSolution_T
 
 end module gltypes

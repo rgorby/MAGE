@@ -8,44 +8,16 @@ module giblowapp
 
     implicit none
 
+    type :: glApp_T
+        type(glSolution_T) :: Solution
+        type(glModel_T) :: Model
+        type(glState_T) :: State
+    end type glApp_T
+
     contains
-
-    !------------------------------------------------------------------------------------
-    ! Outline: coordchange -> fieldcalc -> getoutside -> getinside -> add background pressure
-    ! Accept array (x,y,z) position from Gamera i.e. Grid%xyzcc(i,j,k,:) -> xyz(3)
-    !  or stand-alone xyz(Nx,Ny,Nz) vector
-    ! run through giblow model function for position at time t
-    !   construct r,theta,phi location for xyz(3) position x -> xyz(1),  y -> xyz(2), z -> xyz(3)
-    !   TODO:  solve eqn. 6 in gibson low 1998 > alpha/eta = 0.49 case for accelrating
-    !           Need to implement accelerating, decelerating case -> not in IDL
-    !           for now just do the alpha = 0 case, or alpha = alpha = 6.762d-8*velmult*velmult?
-    !   calculate fields for r,theta,phi 
-    !   calculate outside solution
-    !   calculate inside solution
-    !   return values of solution at xyz position for time
-    !       Dens(3,nt)
-    ! Init 
-    !     
-    !        Vals: Pressure, Dens, Temp, BR, BTH, BPH, VR, VTH, VPH, JR, JTH, JPH
-    !        From IDL/OLDF - dens, vr, 0, 0, pres, brphys, bthphys, bphphys, inside_mask
-    !    Set Defaults? Expect XML to define all parameters?
-    !       Giblow precheck - which components necessary? Just defining params or actually
-    !           additional information, i.e. volume, velocity? 
-    ! Define coords
-    ! ! Calc model: accepts shell tile for Gamera-Helio, or full 3D grid for standalone?
-    !   Calc fields
-    !   Calc outside Bc
-    !   Calc inside Bc
-    ! Convert (r,theta,phi) -> Gamera/Helio (x,y,z) h5? 
-    ! Utilities:
-    !   GL accept tile/export tile
-    !   Rotate tile/grid from Gamera to r,theta,phi
-    !------------------------------------------------------------------------------------
-
 
     subroutine initGL(glApp, optFilename, doIO)
         type(glApp_T), intent(inout) :: glApp
-        !procedure(StateIC_T), pointer, intent(in) :: userInitFunc
         character(len=*), optional, intent(in) :: optFilename
         logical, optional, intent(in) :: doIO
 
@@ -89,12 +61,7 @@ module giblowapp
             stop
         endif
 
-        ! read debug flags
-        !call xmlInp%Set_Val(writeGhosts,"debug/writeGhosts",.false.)
-        !call xmlInp%Set_Val(writeMagFlux,"debug/writeMagFlux",.false.)
-
-        !Initialize Grid/State/Model (Hatch Gamera)
-        !Will enforce 1st BCs, caculate 1st timestep, set oldState
+        !Initialize Model, State, Solution
         call Tic("Init")
         call initGLStandalone(glApp%Model, glApp%State, glApp%Solution, xmlInp)
         call Toc("Init")
@@ -111,7 +78,7 @@ module giblowapp
         type(glApp_T), intent(inout) :: glApp
         !Calculate new timestep
         call Tic("Solution")
-        call generateGLSolution(glApp%Model,glApp%State,glApp%Solution)
+        call generateCMESolution(glApp%Solution,glApp%Model,glApp%State)
         call Toc("Solution")
     end subroutine step
 end module

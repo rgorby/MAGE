@@ -40,8 +40,13 @@ module testsolution
     end subroutine verifyvalues
 
     @test
-    subroutine testFields()
+    subroutine testSolutionFields()
 
     end subroutine testFields
+
+    @test
+    subroutine testSolutionScalars()
+
+    end subroutine testScalars
 
 end module testsolution

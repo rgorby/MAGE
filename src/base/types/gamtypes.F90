@@ -113,6 +113,10 @@ module gamtypes
         !Some specific info for magsphere runs
         logical :: isMagsphere = .false.
         real(rp) :: MagM0 = 0.0
+
+        ! CME Models
+        logical :: doCME = .false.
+        character(strLen) :: cmeType
         
         !Timestep stuff
         real(rp) :: limDT0 = 1.0e-3  !Ratio of dt0 to die

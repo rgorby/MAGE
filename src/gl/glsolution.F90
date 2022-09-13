@@ -3,6 +3,7 @@ module glsolution
     use glutils
     implicit none
 
+
     !---------------------------------------------
     ! Routines to Calculate the Gibson-Low CME Model
     ! B, j, v and density, pressure, temperature
@@ -1141,10 +1142,10 @@ module glsolution
         !> and calculate the Gibson-Low solution and populate
         !> Solution to be used in other boundary condition code
         !> or ingested into LOS code
-        subroutine generateGLSolution(Model, State, Solution)
-            type(glModel_T), intent(inout) :: Model
-            type(glState_T), intent(inout)  :: State
-            type(glSolution_T), intent(inout)  :: Solution
+        subroutine generateGLSolution(Solution, Model, State)
+            class(glSolution_T), intent(inout)  :: Solution
+            class(glModel_T), intent(inout) :: Model
+            class(glState_T), intent(inout)  :: State
             integer :: i, rdim
 
             rdim = size(State%r)

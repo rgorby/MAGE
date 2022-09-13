@@ -4,6 +4,9 @@ module helioutils
     use gamtypes
     use gambctypes
     use gamutils
+    use cmetypes
+    use glsolution
+    use glinit
     use math
     use gridutils
     use output
@@ -57,7 +60,10 @@ module helioutils
         ! Use gamma=1.5 for SW calculations (set in xml, but defaults to 1.5 here)
         call inpXML%Set_Val(Model%gamma,"physics/gamma",1.5_rp)
         call inpXML%Set_Val(Tsolar,"prob/Tsolar",25.38_rp)    ! siderial solar rotation in days
-      
+        
+        call inpXML%Set_Val(Model%doCME,"prob/doCME",.false.) 
+        call inpXML%Set_Val(Model%cmeType,"prob/cmeType","GL") 
+
         if (.not. Model%isRestart) then    
             !Check for spinup info
             call inpXML%Set_Val(doSpin,"spinup/doSpin",.true.)
@@ -107,10 +113,10 @@ module helioutils
         Model%Units%gD0 = gD0
         Model%Units%gP0 = gP0
         Model%Units%gB0 = gB0
-!         Model%Units%gG0 = gG0   ! unused for helio, defaults to 0.
+        ! Model%Units%gG0 = gG0   ! unused for helio, defaults to 0.
 
         ! without setting the scaling below, it defaults to 1. 
-        !Add normalization/labels to output slicing
+        ! Add normalization/labels to output slicing
         Model%gamOut%tScl = gT0   !/3600.
         Model%gamOut%dScl = gD0
         Model%gamOut%vScl = gv0*1.0e-5 !km/s
@@ -124,6 +130,7 @@ module helioutils
         Model%gamOut%pID = 'erg/cm3'
         Model%gamOut%bID = 'nT'
 
+   
         ! finally rescale the relevant time constants
         ! note, assume xml file specifies them in [hr]
         Model%tFin = Model%tFin*3600./gT0
@@ -132,6 +139,21 @@ module helioutils
         clockScl = Model%IO
         call IOSync(clockScl,Model%IO,3600./gT0)
       end subroutine setHeliosphere
+
+      ! Set up grid for CME Model
+      subroutine setCMEStateXYZ(xyz, cmeModel, cmeState)        
+        class(baseCMEModel_T), intent(inout) :: cmeModel
+        class(baseCMEState_t), intent(inout) :: cmeState
+        real(rp), dimension(:,:,:,:), intent(in) :: xyz
+
+        select type (cmeModel)
+            type is (glModel_T)
+                select type (cmeState)
+                    type is(glState_T)
+                        call setGLStateXYZ(xyz, cmeModel, cmeState)
+                end select
+        end select      
+      end subroutine setCMEStateXYZ
 
       subroutine helioTime(T,tStr)
         real(rp), intent(in) :: T
