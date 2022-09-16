@@ -161,7 +161,7 @@ program voltron_mpix
                 !Using console output from Gamera
                 call consoleOutput_mpi(gApp)
                 if (gApp%Model%IO%doTimerOut .and. debugPrintingRank(gApp)) then
-                    write (*,*) "Rank (I,J,K) (", &
+                    write (*,'(a,I3,a,I3,a,I3,a)') "Rank (I,J,K) (", &
                         gApp%Grid%Ri,",", &
                         gApp%Grid%Rj,",", &
                         gApp%Grid%Rk,") is printing debug clock info"
@@ -170,7 +170,7 @@ program voltron_mpix
                 call cleanClocks()
             elseif (gApp%Model%IO%doTimer(g2vComm%ts)) then
                 if (gApp%Model%IO%doTimerOut .and. debugPrintingRank(gApp)) then
-                    write (*,*) "Rank (I,J,K) (", &
+                    write (*,'(a,I3,a,I3,a,I3,a)') "Rank (I,J,K) (", &
                         gApp%Grid%Ri,",", &
                         gApp%Grid%Rj,",", &
                         gApp%Grid%Rk,") is printing debug clock info"
