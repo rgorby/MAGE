@@ -61,16 +61,20 @@ program gamera_mpix
             call consoleOutput_mpi(gameraAppMpi)
 
             !Do timing info if needed
-            if ( (gameraAppMpi%Model%IO%doTimerOut) .and. &
-                 (gameraAppMpi%Grid%Ri==0) .and. (gameraAppMpi%Grid%Rj==0) .and. &
-                 (gameraAppMpi%Grid%Rk==0) ) then
+            if ( (gameraAppMpi%Model%IO%doTimerOut) .and. debugPrintingRank(gameraAppMpi)) then
+                write (*,*) "Rank (I,J,K) (", &
+                    gameraAppMpi%Grid%Ri,",", &
+                    gameraAppMpi%Grid%Rj,",", &
+                    gameraAppMpi%Grid%Rk,") is printing debug clock info"
                 call printClocks()
             endif
             call cleanClocks() !Always clean clocks
         elseif (gameraAppMpi%Model%IO%doTimer(gameraAppMpi%Model%ts)) then
-            if ( (gameraAppMpi%Model%IO%doTimerOut) .and. &
-                 (gameraAppMpi%Grid%Ri==0) .and. (gameraAppMpi%Grid%Rj==0) .and. &
-                 (gameraAppMpi%Grid%Rk==0) ) then
+            if ( (gameraAppMpi%Model%IO%doTimerOut) .and. debugPrintingRank(gameraAppMpi)) then
+                write (*,*) "Rank (I,J,K) (", &
+                    gameraAppMpi%Grid%Ri,",", &
+                    gameraAppMpi%Grid%Rj,",", &
+                    gameraAppMpi%Grid%Rk,") is printing debug clock info"
                 call printClocks()
             endif            
             call cleanClocks() !Always clean clocks

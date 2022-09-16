@@ -160,14 +160,20 @@ program voltron_mpix
             if (gApp%Model%IO%doConsole(g2vComm%ts)) then
                 !Using console output from Gamera
                 call consoleOutput_mpi(gApp)
-                if (gApp%Model%IO%doTimerOut .and. &
-                    gApp%Grid%Ri==0 .and. gApp%Grid%Rj==0 .and. gApp%Grid%Rk==0) then
+                if (gApp%Model%IO%doTimerOut .and. debugPrintingRank(gApp)) then
+                    write (*,*) "Rank (I,J,K) (", &
+                        gApp%Grid%Ri,",", &
+                        gApp%Grid%Rj,",", &
+                        gApp%Grid%Rk,") is printing debug clock info"
                     call printClocks()
                 endif
                 call cleanClocks()
             elseif (gApp%Model%IO%doTimer(g2vComm%ts)) then
-                if (gApp%Model%IO%doTimerOut .and. &
-                    gApp%Grid%Ri==0 .and. gApp%Grid%Rj==0 .and. gApp%Grid%Rk==0) then
+                if (gApp%Model%IO%doTimerOut .and. debugPrintingRank(gApp)) then
+                    write (*,*) "Rank (I,J,K) (", &
+                        gApp%Grid%Ri,",", &
+                        gApp%Grid%Rj,",", &
+                        gApp%Grid%Rk,") is printing debug clock info"
                     call printClocks()
                 endif
                 call cleanClocks()
