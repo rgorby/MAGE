@@ -383,7 +383,7 @@ def genSCXML(fdir,ftag,
 
 
 def genHelioSCXML(fdir,ftag,
-    scid,h5traj, Rin, Rout,numSegments=1):
+    scid,h5traj, numSegments=1):
     """Generate XML input file for heliosphere spacecraft."""
 
     (fname,isMPI,Ri,Rj,Rk) = kaiTools.getRunInfo(fdir,ftag)
@@ -417,8 +417,8 @@ def genHelioSCXML(fdir,ftag,
     # <domain>
     domain_child = root.createElement("domain")
     domain_child.setAttribute("dtype", "SPH")
-    domain_child.setAttribute("rmin", "%s" % Rin)
-    domain_child.setAttribute("rmax", "%s" % Rout)
+    domain_child.setAttribute("rmin", "%s" % 21.5)
+    domain_child.setAttribute("rmax", "%s" % 220)
     chimpChild.appendChild(domain_child)
     # <parintime>
     # <HACK>
@@ -487,7 +487,7 @@ def createInputFiles(data,scDic,scId,mjd0,sec0,fdir,ftag,numSegments):
 
     return (scTrackName,xmlFileName)
 
-def createHelioInputFiles(data, scDic, scId, mjd0, sec0, fdir, ftag, numSegments, Rin, Rout, mjdc):
+def createHelioInputFiles(data, scDic, scId, mjd0, sec0, fdir, ftag, numSegments, mjdc):
     if scDic['Ephem']['CoordSys'] == "GSE":
 
         # Convert the instantaneous GSE(t) ephemeris locations to the GH(t0)
@@ -540,7 +540,7 @@ def createHelioInputFiles(data, scDic, scId, mjd0, sec0, fdir, ftag, numSegments
     # Create the XML describing the required interpolations.
     if scId in ["ACE"]:
         chimpxml = genHelioSCXML(fdir,ftag,
-            scId,h5traj, Rin, Rout, numSegments=0)
+            scId,h5traj, numSegments=0)
     else:
         raise Exception
 
@@ -864,10 +864,10 @@ def extractGAMERA(data,scDic,scId,mjd0,sec0,fdir,ftag,cmd,numSegments,keep):
     return
 
 def extractGAMHELIO(
-    data, scDic, scId, mjd0, sec0, fdir, ftag, cmd, numSegments, keep, Rin, Rout, mjdc
+    data, scDic, scId, mjd0, sec0, fdir, ftag, cmd, numSegments, keep, mjdc
 ):
     (scTrackName,xmlFileName) = createHelioInputFiles(data,scDic,scId,
-        mjd0,sec0,fdir,ftag,numSegments, Rin, Rout, mjdc)
+        mjd0,sec0,fdir,ftag,numSegments, mjdc)
 
     if 1 == numSegments:
         sctrack = subprocess.run([cmd, xmlFileName], cwd=fdir, capture_output=True,

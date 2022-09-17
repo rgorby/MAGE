@@ -43,12 +43,6 @@ default_cmd = os.path.join(
 # Default time interval for ephemeris data returned from CDAWeb (seconds).s
 default_deltaT = 3600.00  # 1 hour
 
-# Default inner radius for gamhelio grid (in units of Rsun).
-default_Rin = 21.5
-
-# Default outer radius for gamhelio grid (in units of Rsun).
-default_Rout = 220.0
-
 # Default run ID string.
 default_runid = "hsphere"
 
@@ -107,14 +101,6 @@ def create_command_line_parser():
         help="Path to directory containing gamhelio results (default: %(default)s)"
     )
     parser.add_argument(
-        "--Rin", type=float, metavar="Rin", default=default_Rin,
-        help="Inner boundary (Rsun) of gamhelio grid (default: %(default)s)."
-    )
-    parser.add_argument(
-        "--Rout", type=float, metavar="Rout", default=default_Rout,
-        help="Outer boundary (Rsun) of gamhelio grid (default: %(default)s)."
-    )
-    parser.add_argument(
         "-s", "--satId", type=str, metavar="satellite_id", default=None,
         help="Name of Satellite to compare"
     )
@@ -140,8 +126,6 @@ if __name__ == "__main__":
     keep = args.keep
     numSegments = args.numSeg
     fdir = args.path
-    Rin = args.Rin
-    Rout = args.Rout
     scRequested = args.satId
     verbose = args.verbose
     if debug:
@@ -247,7 +231,7 @@ if __name__ == "__main__":
                 print("Interpolating simulated observations along trajectory.")
             scutils.extractGAMHELIO(
                 data, scIds[scId], scId, mjdFileStart, secFileStart, fdir, ftag,
-                cmd, numSegments, keep, Rin, Rout, mjdc
+                cmd, numSegments, keep, mjdc
             )
             cdfname = os.path.join(fdir, scId + ".comp.cdf")
             if os.path.exists(cdfname):
