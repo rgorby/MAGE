@@ -632,7 +632,8 @@ def createHelioInputFiles(data, scDic, scId, mjd0, sec0, fdir, ftag, numSegments
         # Create the HGS(t0) coordinate frame.
         mjdc_frame = frames.HeliographicStonyhurst(obstime=kaiTools.MJD2UT(mjdc))
 
-        # Convert the HGI(t)/HCI(t) spherical positions to HGS(t0) (lon, lat, radius).
+        # Convert the HGI(t)/HCI(t) spherical (lon, lat, radius) positions to
+        # HGS(mjdc) used by gamhelio.
         c = c.transform_to(mjdc_frame)
 
     else:
