@@ -283,15 +283,26 @@ def itemPlot(Ax,data,key,plotNum,numPlots,vecComp=-1):
         #     # heliospheric current sheet.
         #     Ax.axhline([0], linestyle="--", color="black")
         # <HACK>
-        if key == "Density":
-            # Reduce the density vertical scale.
-            Ax.set_ylim(0, 50)  # cm**-3
+        # if key == "Density":
+        #     # Reduce the density vertical scale.
+        #     Ax.set_ylim(0, 50)  # cm**-3
         # </HACK>
-        maskedData = np.ma.masked_where(data['GAMERA_inDom'][:]==0.0,
-            data[key][:])
+        if key == "Velocity":
+            maskedData = np.ma.masked_where(
+                data['GAMERA_inDom'][:]==0.0,
+                data[key].flatten()[0]["VR"][:]
+            )
+            maskedGamera = np.ma.masked_where(
+                data['GAMERA_inDom'][:]==0.0, data['GAMERA_Speed'][:]
+            )
+        else:
+            maskedData = np.ma.masked_where(
+                data['GAMERA_inDom'][:]==0.0, data[key][:]
+            )
+            maskedGamera = np.ma.masked_where(
+                data['GAMERA_inDom'][:]==0.0, data['GAMERA_' + key][:]
+            )
         Ax.plot(data['Epoch_bin'],maskedData)
-        maskedGamera = np.ma.masked_where(data['GAMERA_inDom'][:]==0.0,
-            data['GAMERA_'+key][:])
         Ax.plot(data['Epoch_bin'],maskedGamera)
     else:
         maskedData = np.ma.masked_where(data['GAMERA_inDom'][:]==0.0,
@@ -337,6 +348,8 @@ def helioCompPlot(plotname, scId, data):
     keys = data.keys()
     if "Speed" in keys:
         keysToPlot.append("Speed")
+    if "Velocity" in keys:
+        keysToPlot.append("Velocity")
     if "Br" in keys:
         keysToPlot.append("Br")
     if "Density" in keys:
@@ -345,7 +358,8 @@ def helioCompPlot(plotname, scId, data):
         keysToPlot.append("Temperature")
     numPlots = len(keysToPlot)
 
-    # Create the figure to hold the plots.
+    # Create the figure in memory to hold the plots.
+    mpl.use("AGG")
     figsize = (10, 10)
     fig = plt.figure(figsize=figsize)
     gs = fig.add_gridspec(numPlots, 1)
@@ -445,6 +459,8 @@ def trajPlot(plotname,scId,data):
     Re = 6380.0
     toRe = 1.0/Re
     figsize = (15,5)
+    # Create the figure in-memory.
+    mpl.use("AGG")
     fig = plt.figure(figsize=figsize)
     gs = fig.add_gridspec(1,3)
     Ax1 = fig.add_subplot(gs[0,0])
