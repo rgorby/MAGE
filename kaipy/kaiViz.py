@@ -258,24 +258,30 @@ def genCB(AxCB,vN,cbT="Title",cM="viridis",doVert=False,cbSz="medium",Ntk=None):
     return cb
 
 def labelStr(data, key, vecComp):
-    vecLabel=[ 'x', 'y', 'z' ]
-    if (vecComp < 3) and (vecComp > -1):
-        label=(data['GAMERA_'+key].attrs['AXISLABEL']+
-        vecLabel[vecComp]+' ['+
-        data['GAMERA_'+key].attrs['UNITS'].decode()+']')
+    vecLabel = ['x', 'y', 'z']
+    if key == "Velocity":
+        key = "Speed"
+    if vecComp < 3 and vecComp > -1:
+        label = (
+            data['GAMERA_' + key].attrs['AXISLABEL'] +
+            vecLabel[vecComp] + ' [' +
+            data['GAMERA_' + key].attrs['UNITS'].decode() + ']'
+        )
     else:
-        label=(data['GAMERA_'+key].attrs['AXISLABEL']+
-        ' ['+data['GAMERA_'+key].attrs['UNITS'].decode()+']')
+        label = (
+            data['GAMERA_' + key].attrs['AXISLABEL'] +
+            ' [' + data['GAMERA_' + key].attrs['UNITS'].decode() + ']'
+        )
     return label
 
 
 def itemPlot(Ax,data,key,plotNum,numPlots,vecComp=-1):
     #print(key,vecComp)
     if -1 == vecComp:
-        if key == "Br":
-            # Plot a horizontal line at Br=0. This indicates passage of the
-            # heliospheric current sheet.
-            Ax.axhline([0], linestyle="--", color="black")
+        # if key == "Br":
+        #     # Plot a horizontal line at Br=0. This indicates passage of the
+        #     # heliospheric current sheet.
+        #     Ax.axhline([0], linestyle="--", color="black")
         # <HACK>
         if key == "Density":
             # Reduce the density vertical scale.
