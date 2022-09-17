@@ -459,10 +459,14 @@ def genSCXML(fdir,ftag,
     trajChild.setAttribute("H5Traj",h5traj)
     trajChild.setAttribute("doSmooth","F")
     chimpChild.appendChild(trajChild)
-    # if numSegments > 1:
-    parInTimeChild = root.createElement("parintime")
-    parInTimeChild.setAttribute("NumB","%d"%numSegments)
-    chimpChild.appendChild(parInTimeChild)
+    # if doTrc:
+    #     outChild = root.createElement('output')
+    #     outChild.setAttribute('doTrc', "T")
+    #     chimpChild.appendChild(outChild)
+    if numSegments > 1:
+        parInTimeChild = root.createElement("parintime")
+        parInTimeChild.setAttribute("NumB","%d"%numSegments)
+        chimpChild.appendChild(parInTimeChild)
     xml.appendChild(chimpChild)
     return root
 
@@ -505,12 +509,15 @@ def genHelioSCXML(fdir,ftag,
     domain_child.setAttribute("rmin", "%s" % 21.5)
     domain_child.setAttribute("rmax", "%s" % 220)
     chimpChild.appendChild(domain_child)
+    # if doTrc:
+    #     outChild = root.createElement('output')
+    #     outChild.setAttribute('doTrc', "T")
+    #     chimpChild.appendChild(outChild)
     # <parintime>
-    # <HACK>
-    parInTimeChild = root.createElement("parintime")
-    parInTimeChild.setAttribute("NumB","%d"%numSegments)
-    chimpChild.appendChild(parInTimeChild)
-    # </HACK>
+    if numSegments > 1:
+        parInTimeChild = root.createElement("parintime")
+        parInTimeChild.setAttribute("NumB","%d"%numSegments)
+        chimpChild.appendChild(parInTimeChild)
     xml.appendChild(chimpChild)
     return root
 
