@@ -233,14 +233,14 @@ if __name__ == "__main__":
                 data, scIds[scId], scId, mjdFileStart, secFileStart, fdir, ftag,
                 cmd, numSegments, keep, mjdc
             )
-            cdfname = os.path.join(fdir, scId + ".comp.cdf")
-            if os.path.exists(cdfname):
-                if verbose:
-                    print("Deleting existing CDF comparison file %s" % cdfname)
-                os.system("rm %s" % cdfname)
-            if verbose:
-                print("Creating CDF file %s with %s and GAMERA data" % (cdfname, scId))
-            dm.toCDF(cdfname, data)
+            # cdfname = os.path.join(fdir, scId + ".comp.cdf")
+            # if os.path.exists(cdfname):
+            #     if verbose:
+            #         print("Deleting existing CDF comparison file %s" % cdfname)
+            #     os.system("rm %s" % cdfname)
+            # if verbose:
+            #     print("Creating CDF file %s with %s and GAMERA data" % (cdfname, scId))
+            # dm.toCDF(cdfname, data)
             plotname = os.path.join(fdir, scId + ".png")
             if verbose:
                 print("Plotting results to %s." % plotname)
@@ -251,7 +251,7 @@ if __name__ == "__main__":
             if verbose:
                 print("Writing errors to %s." % errname)
             scutils.helioErrorReport(errname, scId, data)
-            plotname = os.path.join(fdir, scId + "-traj.png")
-            if verbose:
-                print("Plotting trajectory to %s." % plotname)
-            kv.trajPlot(plotname, scId, data)
+            # plotname = os.path.join(fdir, scId + "-traj.png")
+            # if verbose:
+            #     print("Plotting trajectory to %s." % plotname)
+            # kv.trajPlot(plotname, scId, data)
