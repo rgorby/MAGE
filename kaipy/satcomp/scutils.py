@@ -930,7 +930,7 @@ def createHelioInputFiles(data, scDic, scId, mjd0, sec0, fdir, ftag, numSegments
     if scId in ["ACE", "Parker_Solar_Probe"]:
         chimpxml = genHelioSCXML(fdir,ftag, scId,h5traj, numSegments=0)
     else:
-        raise Exception
+        raise TypeError
 
     # Write the XML to a file.
     xmlFileName = os.path.join(fdir,scId+'.xml')
