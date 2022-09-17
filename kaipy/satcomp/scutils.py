@@ -514,14 +514,8 @@ def createInputFiles(data,scDic,scId,mjd0,sec0,fdir,ftag,numSegments):
         hf.create_dataset("X" ,data=smpos.x)
         hf.create_dataset("Y" ,data=smpos.y)
         hf.create_dataset("Z" ,data=smpos.z)
-    # <HACK>
-    if scId in ["ACE"]:
-        chimpxml = genHelioSCXML(fdir,ftag,
-            scid=scId,h5traj=os.path.basename(scTrackName),numSegments=0)
-    # </HACK>
-    else:
-        chimpxml = genSCXML(fdir,ftag,
-            scid=scId,h5traj=os.path.basename(scTrackName),numSegments=numSegments)
+    chimpxml = genSCXML(fdir,ftag,
+        scid=scId,h5traj=os.path.basename(scTrackName),numSegments=numSegments)
     xmlFileName = os.path.join(fdir,scId+'.xml')
     with open(xmlFileName,"w") as f:
         f.write(chimpxml.toprettyxml())
