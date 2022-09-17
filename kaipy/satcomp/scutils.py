@@ -786,7 +786,7 @@ def addGAMHELIO(data, scDic, h5name):
 
     # Determine the spacecraft coordinate frame for magnetic field components.
     toCoordSys = scDic["MagneticField"]["CoordSys"]
-    if toCoordSys != "GSE":
+    if toCoordSys not in ("GSE", "RTN"):
         raise TypeError
 
     # Compute the radial component of the interpolated model magnetic field.
@@ -893,15 +893,28 @@ def addGAMHELIO(data, scDic, h5name):
     # Add the radial component of the *spacecraft* magnetic field as a
     # new variable. The negative sign is needed because the +x axis
     # for GSE is sunward, and we want the +r direction to be anti-sunward.
-    data["Br"] = dm.dmarray(
-        -data["MagneticField"][:, 0],
-        attrs = {
-            "UNITS":Bx.attrs["Units"],
-            "CATDESC":"Radial magnetic field",
-            "FIELDNAM":"Radial magnetic field",
-            "AXISLABEL":"Br"
-        }
-    )
+    if toCoordSys == "GSE":
+        data["Br"] = dm.dmarray(
+            -data["MagneticField"][:, 0],
+            attrs = {
+                "UNITS":Bx.attrs["Units"],
+                "CATDESC":"Radial magnetic field",
+                "FIELDNAM":"Radial magnetic field",
+                "AXISLABEL":"Br"
+            }
+        )
+    elif toCoordSys == "RTN":
+        data["Br"] = dm.dmarray(
+            -data["MagneticField"].flatten()[0]["BR"][:],
+            attrs = {
+                "UNITS":Bx.attrs["Units"],
+                "CATDESC":"Radial magnetic field",
+                "FIELDNAM":"Radial magnetic field",
+                "AXISLABEL":"Br"
+            }
+        )
+    else:
+        raise TypeError
     # </HACK>
 
     # At this point, we have added *copies* of the interpolated model values to
@@ -953,9 +966,11 @@ def extractGAMERA(data,scDic,scId,mjd0,sec0,fdir,ftag,cmd,numSegments,keep):
         mjd0,sec0,fdir,ftag,numSegments)
 
     if 1 == numSegments:
-        sctrack = subprocess.run([cmd, xmlFileName], cwd=fdir,
-                            stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        sctrack = subprocess.run([cmd, xmlFileName], cwd=fdir, capture_output=True,
+                            # stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                             text=True)
+        with open(os.path.join(fdir, "sctrack.out"), "w") as f:
+            f.write(sctrack.stdout)
 
         #print(sctrack)
         h5name = os.path.join(fdir, scId + '.sc.h5')
@@ -986,14 +1001,15 @@ def extractGAMERA(data,scDic,scId,mjd0,sec0,fdir,ftag,cmd,numSegments,keep):
 def extractGAMHELIO(
     data, scDic, scId, mjd0, sec0, fdir, ftag, cmd, numSegments, keep, mjdc
 ):
-    (scTrackName,xmlFileName) = createHelioInputFiles(data,scDic,scId,
-        mjd0,sec0,fdir,ftag,numSegments, mjdc)
+    (scTrackName, xmlFileName) = createHelioInputFiles(
+        data, scDic, scId, mjd0, sec0, fdir, ftag, numSegments, mjdc
+    )
 
     if 1 == numSegments:
         sctrack = subprocess.run([cmd, xmlFileName], cwd=fdir, capture_output=True,
                             # stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                             text=True)
-        with open("sctrack.out", "w") as f:
+        with open(os.path.join(fdir, "sctrack.out"), "w") as f:
             f.write(sctrack.stdout)
 
         #print(sctrack)
