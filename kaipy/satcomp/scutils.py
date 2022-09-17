@@ -122,18 +122,39 @@ def computeErrors(obs,pred):
 #Cdaweb-related
 #======
 
-def getScIds(spacecraft_data_file=scstrs_fname, doPrint=False):
-    """Load info from stored file containing strings needed to get certain spacefract datasets from cdaweb
+
+def getScIds(spacecraft_data_file:str=scstrs_fname, doPrint:bool=False):
+    """Fetch spacecraft descriptions from the database file.
+
+    Load the spacecraft descriptions (a file) containing information needed
+    to get spacecraft data from CDAWeb.
+
+    Parameters
+    ----------
+    spacecraft_data_file : str, default "sc_cdasws_strs.json"
+        Name of file containing spacecraft descriptions.
+    doPrint : bool, default False
+        If True, print a summary of the spacecraft descriptions.
+
+    Returns
+    -------
+    scdict : dict
+        Dictionary of spacecraft descriptions.
     """
+    # Read the spacecraft database.
     scdict = kj.load(spacecraft_data_file)
 
+    # Print a summary, if requested.
     if doPrint:
         print("Retrievable spacecraft data:")
-        for sc in scdict.keys():
+        for sc in scdict:
             print('	 ' + sc)
-            for v in scdict[sc].keys():
+            for v in scdict[sc]:
                 print('	   ' + v)
+
+    # Return the dictionary of spacraft descriptions.
     return scdict
+
 
 def getCdasDsetInterval(dsName):
     cdas = CdasWs()
@@ -144,27 +165,57 @@ def getCdasDsetInterval(dsName):
     tInt = data[0]['TimeInterval']
     return tInt['Start'], tInt['End']
 
-def pullVar(cdaObsId,cdaDataId,t0,t1,deltaT=60,epochStr="Epoch",doVerbose=False):
-    """Pulls info from cdaweb
-        cdaObsId  : [str] Dataset name
-        cdaDataId : [str or list of strs] variables from dataset
-        t0	  : [str] start time, formatted as '%Y-%m-%dT%H:%M:%S.%f'
-        t1	  : [str] end time, formatted as '%Y-%m-%dT%H:%M:%S.%f'
-        deltaT	  : [float] time cadence [sec], used when interping through time with no data
-        epochStr  : [str] name of Epoch var in dataset. Used when needing to build day-by-day
-        doVerbose : [bool] Helpful for debugging/diagnostics
+def pullVar(cdaObsId:str, cdaDataId, t0:str, t1:str, deltaT:float=60,
+            epochStr:str="Epoch", doVerbose:bool=False):
+    """Pull spacecraft data from CDAWeb.
+
+    Pull spacecraft data from CDAWeb.
+
+    Parameters
+    ----------
+    cdaObsId: str
+        Dataset name.
+    cdaDataId : str or list of str
+        Desired variable(s) from dataset.
+    t0 : str
+        Data start time, formatted as '%Y-%m-%dT%H:%M:%S.%f'.
+    t1 : str
+        Data end time, formatted as '%Y-%m-%dT%H:%M:%S.%f'.
+    deltaT : float, default 60
+        Time cadence (seconds), used when interpolating through time with
+        no data.
+    epochStr : str, default "Epoch"
+        Name of time variable in dataset.
+    doVerbose : bool, default False
+        Helpful for debugging/diagnostics.
+
+    Returns
+    -------
+    status : dict
+        Status information returned for the query.
+    data : spacepy.pycdf.CDFCopy
+        Object containing data returned by the query, None if no results.
     """
 
-    binData={'interval' : deltaT, 
-             'interpolateMissingValues' : True,
-             'sigmaMultipler' : 4}
+    # Specify how CDAWeb should bin the data.
+    binData = {
+        'interval' : deltaT, 
+        'interpolateMissingValues' : True,
+        'sigmaMultipler' : 4
+    }
 
+    # Create the CDAWeb query object.
     cdas = CdasWs()
-    status,data =  cdas.get_data(cdaObsId,cdaDataId,t0,t1,binData=binData)
 
-    if status["http"]["status_code"] == 404:
-        # No data found.
-        pass
+    # Perform the query.
+    status, data = cdas.get_data(cdaObsId, cdaDataId, t0, t1, binData=binData)
+
+    # Process the query status.
+    if status["http"]["status_code"] in (204, 404):
+        # 204 = No Content
+        # 404 = Not Found
+        if doVerbose:
+            print("No data found.")
     elif status['http']['status_code'] != 200 or data is None:
         # Handle the case where CdasWs just doesn't work if you give it variables in arg 2
         # If given empty var list instead, it'll return the full day on day in t0, and that's it
@@ -216,7 +267,7 @@ def pullVar(cdaObsId,cdaDataId,t0,t1,deltaT=60,epochStr="Epoch",doVerbose=False)
                     status = {'http': {'status_code': 404}}
                     data = None
                     return status,data
-        
+
         #Figure out which axes are the epoch axis in each dataset so we can concatenate along it
         dk = list(data.keys())
         nTime = len(data[epochStr])
@@ -239,10 +290,11 @@ def pullVar(cdaObsId,cdaDataId,t0,t1,deltaT=60,epochStr="Epoch",doVerbose=False)
                     key = dk[k]
                     data[key] = np.concatenate((data[key], newdata[key]), axis=cataxis[k])
     else:
-        if doVerbose: print("Got data in one pull")
+        if doVerbose:
+            print("Got data in one pull.")
 
-
-    return status,data
+    # Return the query status and results.
+    return status, data
 
 def addVar(mydata,scDic,varname,t0,t1,deltaT,epochStr='Epoch'):
     #print(scDic,varname,idname,dataname,scDic[idname])
