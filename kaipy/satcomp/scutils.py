@@ -606,6 +606,35 @@ def createHelioInputFiles(data, scDic, scId, mjd0, sec0, fdir, ftag, numSegments
         # Convert the GSE(t) Cartesian positions to HGS(t0) (lon, lat, radius).
         c = c.transform_to(mjdc_frame)
 
+    elif scDic['Ephem']['CoordSys'] == "HGI":
+
+        # Fetch the value of 1 AU in kilometers.
+        AU_km = u.Quantity(1*u.astrophys.AU, u.km).value
+
+        # Fetch the value of 1 Rsun in kilometers.
+        Rsun_km = u.Quantity(1*u.Rsun, u.km).value
+
+        # Compute the conversion factor from AU to Rsun.
+        Rsun_per_AU = AU_km/Rsun_km
+
+        # Create SkyCoord objects for each HGI(t)/HCI(t) position/time.
+        lon = data["Ephemeris"].flatten()[0]["heliographicLongitude"]
+        lat = data["Ephemeris"].flatten()[0]["heliographicLatitude"]
+        # Convert radius to Rsun.
+        rad = data["Ephemeris"].flatten()[0]["radialDistance"]*Rsun_per_AU
+        t = data["Epoch_bin"]
+        c = SkyCoord(
+            lon*u.deg, lat*u.deg, rad*u.Rsun,
+            frame=frames.HeliocentricInertial, obstime=t,
+            representation_type="spherical"
+        )
+
+        # Create the HGS(t0) coordinate frame.
+        mjdc_frame = frames.HeliographicStonyhurst(obstime=kaiTools.MJD2UT(mjdc))
+
+        # Convert the HGI(t)/HCI(t) spherical positions to HGS(t0) (lon, lat, radius).
+        c = c.transform_to(mjdc_frame)
+
     else:
         print('Coordinate system transformation failed')
         return
@@ -630,9 +659,8 @@ def createHelioInputFiles(data, scDic, scId, mjd0, sec0, fdir, ftag, numSegments
     h5traj=os.path.basename(scTrackName)
 
     # Create the XML describing the required interpolations.
-    if scId in ["ACE"]:
-        chimpxml = genHelioSCXML(fdir,ftag,
-            scId,h5traj, numSegments=0)
+    if scId in ["ACE", "Parker_Solar_Probe"]:
+        chimpxml = genHelioSCXML(fdir,ftag, scId,h5traj, numSegments=0)
     else:
         raise Exception
 
