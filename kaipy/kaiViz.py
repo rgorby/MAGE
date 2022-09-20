@@ -323,65 +323,6 @@ def itemPlot(Ax,data,key,plotNum,numPlots,vecComp=-1):
         SetAxLabs(Ax,None,label,doLeft=left)
     return
 
-def helioCompPlot(plotname, scId, data):
-    """Create comparison plots for heliospheric results.
-
-    Create comparison plots for heliospheric results and save the plots to a
-    file.
-
-    Parameters
-    ----------
-    plotname : str
-        Path to file to hold plot image.
-    scId : str
-        ID string for spacecraft.
-    data : spacepy.datamodel.SpaceData
-        The current spacecraft and model data
-
-    Returns
-    -------
-    None
-    """
-    # Determine which data are available to plot.
-    numPlots = 0
-    keysToPlot = []
-    keys = data.keys()
-    if "Speed" in keys:
-        keysToPlot.append("Speed")
-    if "Velocity" in keys:
-        keysToPlot.append("Velocity")
-    if "Br" in keys:
-        keysToPlot.append("Br")
-    if "Density" in keys:
-        keysToPlot.append("Density")
-    if "Temperature" in keys:
-        keysToPlot.append("Temperature")
-    numPlots = len(keysToPlot)
-
-    # Create the figure in memory to hold the plots.
-    mpl.use("AGG")
-    figsize = (10, 10)
-    fig = plt.figure(figsize=figsize)
-    gs = fig.add_gridspec(numPlots, 1)
-
-    # Plot each variabble in its own subplot.
-    plotNum = 0
-    for key in keysToPlot:
-        if plotNum == 0:
-            ax1 = fig.add_subplot(gs[plotNum, 0])
-            itemPlot(ax1, data, key, plotNum, numPlots)
-            plotNum += 1
-        else:
-            ax = fig.add_subplot(gs[plotNum, 0], sharex=ax1)
-            itemPlot(ax, data, key, plotNum, numPlots)
-            plotNum += 1
-    ax1.legend([scId, "GAMERA"], loc="best")
-    ax1.set_title(plotname)
-    plt.subplots_adjust(hspace=0)
-
-    # Save the figure.
-    savePic(plotname, doClose=True)
-
 
 def compPlot(plotname,scId,data):
 
@@ -494,3 +435,66 @@ def get_aspect(ax):
 
     return disp_ratio #/ data_ratio
 
+
+# Methods specific for comparing gamhelio output to data from heliospheric
+# spacecraft.
+
+
+def helioCompPlot(plotname, scId, data):
+    """Create comparison plots for heliospheric results.
+
+    Create comparison plots for heliospheric results and save the plots to a
+    file.
+
+    Parameters
+    ----------
+    plotname : str
+        Path to file to hold plot image.
+    scId : str
+        ID string for spacecraft.
+    data : spacepy.datamodel.SpaceData
+        The current spacecraft and model data
+
+    Returns
+    -------
+    None
+    """
+    # Determine which data are available to plot.
+    numPlots = 0
+    keysToPlot = []
+    keys = data.keys()
+    if "Speed" in keys:
+        keysToPlot.append("Speed")
+    if "Velocity" in keys:
+        keysToPlot.append("Velocity")
+    if "Br" in keys:
+        keysToPlot.append("Br")
+    if "Density" in keys:
+        keysToPlot.append("Density")
+    if "Temperature" in keys:
+        keysToPlot.append("Temperature")
+    numPlots = len(keysToPlot)
+
+    # Create the figure in memory to hold the plots.
+    mpl.use("AGG")
+    figsize = (10, 10)
+    fig = plt.figure(figsize=figsize)
+    gs = fig.add_gridspec(numPlots, 1)
+
+    # Plot each variabble in its own subplot.
+    plotNum = 0
+    for key in keysToPlot:
+        if plotNum == 0:
+            ax1 = fig.add_subplot(gs[plotNum, 0])
+            itemPlot(ax1, data, key, plotNum, numPlots)
+            plotNum += 1
+        else:
+            ax = fig.add_subplot(gs[plotNum, 0], sharex=ax1)
+            itemPlot(ax, data, key, plotNum, numPlots)
+            plotNum += 1
+    ax1.legend([scId, "GAMERA"], loc="best")
+    ax1.set_title(plotname)
+    plt.subplots_adjust(hspace=0)
+
+    # Save the figure.
+    savePic(plotname, doClose=True)
