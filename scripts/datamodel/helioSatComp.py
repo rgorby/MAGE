@@ -40,7 +40,7 @@ default_cmd = os.path.join(
     os.environ["KAIJUHOME"], "build", "bin", "sctrack.x"
 )
 
-# Default time interval for ephemeris data returned from CDAWeb (seconds).s
+# Default time interval for ephemeris data returned from CDAWeb (seconds).
 default_deltaT = 3600.00  # 1 hour
 
 # Default run ID string.
@@ -50,7 +50,7 @@ default_runid = "hsphere"
 default_numSeg = 1
 
 # Default path to model results directory.
-default_path=os.getcwd()
+default_path = os.getcwd()
 
 # Path to file of heliospheric spacecraft data.
 spacecraft_data_file = os.path.join(
@@ -61,7 +61,7 @@ spacecraft_data_file = os.path.join(
 def create_command_line_parser():
     """Create the command-line argument parser.
 
-    Prepare the command-line parser.
+    Create the command-line parser.
 
     Parameters
     ----------
@@ -69,11 +69,12 @@ def create_command_line_parser():
 
     Returns
     -------
-    parse : argparse.ArgumentParser
+    parser : argparse.ArgumentParser
         Parser for command-line arguments.
     """
-    parser = argparse.ArgumentParser(description=description,
-                                     formatter_class=RawTextHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description=description, formatter_class=RawTextHelpFormatter
+    )
     parser.add_argument(
         "-c", "--cmd", type=str, metavar="command", default=default_cmd,
         help="Full path to sctrack.x command (default: %(default)s)."
@@ -84,7 +85,8 @@ def create_command_line_parser():
     )
     parser.add_argument(
         "--deltaT", type=float, metavar="deltaT", default=default_deltaT,
-        help="Time interval (seconds) for ephemeris points from CDAWeb (default: %(default)s)."
+        help="Time interval (seconds) for ephemeris points from CDAWeb " +
+             "(default: %(default)s)."
     )
     parser.add_argument(
         "-i", "--id", type=str, metavar="runid", default=default_runid,
@@ -122,7 +124,7 @@ if __name__ == "__main__":
     cmd = args.cmd
     debug = args.debug
     deltaT = args.deltaT
-    ftag = args.id
+    run_id = args.id
     keep = args.keep
     numSegments = args.numSeg
     fdir = args.path
@@ -137,7 +139,7 @@ if __name__ == "__main__":
         print("scIds = %s" % scIds)
 
     # Compute the path to the gamhelio output file to examine.
-    (fname, isMPI, Ri, Rj, Rk) = kaiTools.getRunInfo(fdir, ftag)
+    (fname, isMPI, Ri, Rj, Rk) = kaiTools.getRunInfo(fdir, run_id)
     if debug:
         print("fname = %s" % fname)
         print("isMPI = %s" % isMPI)
@@ -173,7 +175,7 @@ if __name__ == "__main__":
     if debug:
         print("gamUT = %s" % gamUT)
 
-    # Use the first (non zero?) time as the inital MJD.
+    # Use the first (positive) time as the inital MJD.
     # N.B. THIS SKIPS THE FIRST SIMULATION STEP SINCE IT TYPICALLY HAS
     # gamT[0] = 0.
     # Use the last time as the last MJD.
@@ -181,7 +183,7 @@ if __name__ == "__main__":
     # <HACK>
     # loc = 0
     # </HACK>
-    t0 = gamUT[loc]  # First non-0 time
+    t0 = gamUT[loc]  # First positive time
     t1 = gamUT[-1]
     if debug:
         print("t0 = %s" % t0)
@@ -224,34 +226,35 @@ if __name__ == "__main__":
         # If no data was found for the spacecraft, go to the next.
         if status["http"]["status_code"] != 200 or data is None:
             print("No data available for %s." % scId)
-        else:
-            # Use the spacecraft trajectory to interpolate simulated
-            # observations from the gamhelio output.
-            if verbose:
-                print("Interpolating simulated observations along trajectory.")
-            scutils.extractGAMHELIO(
-                data, scIds[scId], scId, mjdFileStart, secFileStart, fdir, ftag,
-                cmd, numSegments, keep, mjdc
-            )
-            # cdfname = os.path.join(fdir, scId + ".comp.cdf")
-            # if os.path.exists(cdfname):
-            #     if verbose:
-            #         print("Deleting existing CDF comparison file %s" % cdfname)
-            #     os.system("rm %s" % cdfname)
-            # if verbose:
-            #     print("Creating CDF file %s with %s and GAMERA data" % (cdfname, scId))
-            # dm.toCDF(cdfname, data)
-            plotname = os.path.join(fdir, scId + ".png")
-            if verbose:
-                print("Plotting results to %s." % plotname)
-            kv.helioCompPlot(plotname, scId, data)
-            if verbose:
-                print("Computing errors.")
-            errname = os.path.join(fdir, scId + "-error.txt")
-            if verbose:
-                print("Writing errors to %s." % errname)
-            scutils.helioErrorReport(errname, scId, data)
-            # plotname = os.path.join(fdir, scId + "-traj.png")
-            # if verbose:
-            #     print("Plotting trajectory to %s." % plotname)
-            # kv.trajPlot(plotname, scId, data)
+            continue
+
+        # Use the spacecraft trajectory to interpolate simulated
+        # observations from the gamhelio output.
+        if verbose:
+            print("Interpolating simulated observations along trajectory.")
+        scutils.extractGAMHELIO(
+            data, scIds[scId], scId, mjdFileStart, secFileStart, fdir, run_id,
+            cmd, numSegments, keep, mjdc
+        )
+        # cdfname = os.path.join(fdir, scId + ".comp.cdf")
+        # if os.path.exists(cdfname):
+        #     if verbose:
+        #         print("Deleting existing CDF comparison file %s" % cdfname)
+        #     os.system("rm %s" % cdfname)
+        # if verbose:
+        #     print("Creating CDF file %s with %s and GAMERA data" % (cdfname, scId))
+        # dm.toCDF(cdfname, data)
+        plotname = os.path.join(fdir, scId + ".png")
+        if verbose:
+            print("Plotting results to %s." % plotname)
+        kv.helioCompPlot(plotname, scId, data)
+        if verbose:
+            print("Computing errors.")
+        errname = os.path.join(fdir, scId + "-error.txt")
+        if verbose:
+            print("Writing errors to %s." % errname)
+        scutils.helioErrorReport(errname, scId, data)
+        # plotname = os.path.join(fdir, scId + "-traj.png")
+        # if verbose:
+        #     print("Plotting trajectory to %s." % plotname)
+        # kv.trajPlot(plotname, scId, data)
