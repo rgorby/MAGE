@@ -131,14 +131,14 @@ def getScIds(spacecraft_data_file:str=scstrs_fname, doPrint:bool=False):
 
     Parameters
     ----------
-    spacecraft_data_file : str, default "sc_cdasws_strs.json"
+    spacecraft_data_file: str, default "sc_cdasws_strs.json"
         Name of file containing spacecraft descriptions.
-    doPrint : bool, default False
+    doPrint: bool, default False
         If True, print a summary of the spacecraft descriptions.
 
     Returns
     -------
-    scdict : dict
+    scdict: dict
         Dictionary of spacecraft descriptions.
     """
     # Read the spacecraft database.
@@ -175,33 +175,33 @@ def pullVar(cdaObsId:str, cdaDataId, t0:str, t1:str, deltaT:float=60,
     ----------
     cdaObsId: str
         Dataset name.
-    cdaDataId : str or list of str
+    cdaDataId: str or list of str
         Desired variable(s) from dataset.
-    t0 : str
+    t0: str
         Data start time, formatted as '%Y-%m-%dT%H:%M:%S.%f'.
-    t1 : str
+    t1: str
         Data end time, formatted as '%Y-%m-%dT%H:%M:%S.%f'.
-    deltaT : float, default 60
+    deltaT: float, default 60
         Time cadence (seconds), used when interpolating through time with
         no data.
-    epochStr : str, default "Epoch"
+    epochStr: str, default "Epoch"
         Name of time variable in dataset.
-    doVerbose : bool, default False
+    doVerbose: bool, default False
         Helpful for debugging/diagnostics.
 
     Returns
     -------
-    status : dict
+    status: dict
         Status information returned for the query.
-    data : spacepy.pycdf.CDFCopy
+    data: spacepy.pycdf.CDFCopy
         Object containing data returned by the query, None if no results.
     """
 
     # Specify how CDAWeb should bin the data.
     binData = {
-        'interval' : deltaT, 
-        'interpolateMissingValues' : True,
-        'sigmaMultipler' : 4
+        'interval': deltaT, 
+        'interpolateMissingValues': True,
+        'sigmaMultipler': 4
     }
 
     # Create the CDAWeb query object.
@@ -318,20 +318,20 @@ def getSatData(scDic:dict, t0:str, t1:str, deltaT:float):
 
     Parameters
     ----------
-    scDic : dict
+    scDic: dict
         Spacecraft descriptive information.
-    t0 : str
+    t0: str
         Start time for data, in format "%Y-%m-%dT%H:%M:%SZ".
-    t1 : str
+    t1: str
         Stop time for data, in format "%Y-%m-%dT%H:%M:%SZ".
-    deltaT : float
+    deltaT: float
         Cadence for requested spacecraft data (seconds).
 
     Returns
     -------
-    status : dict
+    status: dict
         Query status returned by CDAWeb.
-    mydata : spacepy.datamodel.SpaceData
+    mydata: spacepy.datamodel.SpaceData
         All of the spacecraft for the specified time range and cadence.
     """
     # Fetch the empheris data. If not found, abort this query.
@@ -493,7 +493,7 @@ def createInputFiles(data,scDic,scId,mjd0,sec0,fdir,ftag,numSegments):
     if 'SM' == scDic['Ephem']['CoordSys']:
         smpos = Coords(data['Ephemeris'][:,0:3]*toRe,'SM','car', use_irbem=False)
         smpos.ticks = Ticktock(data['Epoch_bin'])
-    elif 'GSM' == scDic['Ephem']['CoordSys'] :
+    elif 'GSM' == scDic['Ephem']['CoordSys']:
         scpos = Coords(data['Ephemeris'][:,0:3]*toRe,'GSM','car', use_irbem=False)
         scpos.ticks = Ticktock(data['Epoch_bin'])
         smpos = scpos.convert('GSE','car')
@@ -795,55 +795,106 @@ def errorReport(errorName,scId,data):
 # spacecraft.
 
 
-def genHelioSCXML(fdir,ftag,
-    scid,h5traj, numSegments=1):
-    """Generate XML input file for heliosphere spacecraft."""
+# Minimum and maximum radius of heliospheric results grid, in units of
+# solar radii.
+R_MIN = 21.5
+R_MAX = 220.0
 
-    (fname,isMPI,Ri,Rj,Rk) = kaiTools.getRunInfo(fdir,ftag)
-    root = minidom.Document()
-    xml = root.createElement('Kaiju')
-    root.appendChild(xml)
-    chimpChild = root.createElement('Chimp')
-    scChild = root.createElement("sim")
-    scChild.setAttribute("runid",scid)
-    chimpChild.appendChild(scChild)
-    fieldsChild = root.createElement("fields")
-    fieldsChild.setAttribute("doMHD","T")
-    fieldsChild.setAttribute("grType","SPH")
-    fieldsChild.setAttribute("ebfile",ftag)
+
+def genHelioSCXML(output_path:str, run_id:str, spacecraft_id:str,
+                  trajectory_file:str, num_parallel_segments:int=1):
+    """Generate heliosphere XML input file for sctrack.x.
+
+    Generate heliosphere XML input file for sctrack.x. This file provides
+    the information required by sctrack.x to interpolate gamhelio model
+    results to the times and locations of the spacecraft data.
+
+    Parameters
+    ----------
+    output_path: str
+        Path to directory containing gamhelio model output.
+    run_id: str
+        Identifying tag used in gamhelio result filenames.
+    spacecraft_id: str
+        Name string (no spaces allowed) for spacecraft used in trajectory.
+    trajectory_file: str
+        Name of file containing spacecraft trajectory.
+    num_parallel_segments: int, default 1
+        Number of threads for sctrack.x to use.
+
+    Returns
+    -------
+    root: minidom.Document
+        Root document object for XML.
+    """
+
+    # Determine if the gamhelio results were generated by an MPI run, and
+    # the organization of the MPI ranks.
+    (file_name, isMPI, Ri, Rj, Rk) = kaiTools.getRunInfo(output_path, run_id)
+
+    # Create the XML Document.
+    xml_doc = minidom.Document()
+
+    # Create the <Kaiju> element and append to the XML document.
+    kaiju_el = xml_doc.createElement("Kaiju")
+    xml_doc.appendChild(kaiju_el)
+
+    # Create and the <Chimp> element.
+    chimp_el = xml_doc.createElement("Chimp")
+
+    # Create the <sim> element and append to the <Chimp> element.
+    sim_el = xml_doc.createElement("sim")
+    sim_el.setAttribute("runid", spacecraft_id)
+    chimp_el.appendChild(sim_el)
+
+    # Create the <fields> element and append to the <Chimp> element.
+    fields_el = xml_doc.createElement("fields")
+    fields_el.setAttribute("doMHD", "T")
+    fields_el.setAttribute("grType", "SPH")
+    fields_el.setAttribute("ebfile", run_id)
     if isMPI:
-        fieldsChild.setAttribute("isMPI","T")
-    chimpChild.appendChild(fieldsChild)
+        fields_el.setAttribute("isMPI", "T")
+    chimp_el.appendChild(fields_el)
+
+    # If the results were created by an MPI run, create the <parallel>
+    # element and append to the <Chimp> element.
     if isMPI:
-        parallelChild = root.createElement("parallel")
-        parallelChild.setAttribute("Ri","%d"%Ri)
-        parallelChild.setAttribute("Rj","%d"%Rj)
-        parallelChild.setAttribute("Rk","%d"%Rk)
-        chimpChild.appendChild(parallelChild)
-    unitsChild = root.createElement("units")
-    unitsChild.setAttribute("uid","HELIO")
-    chimpChild.appendChild(unitsChild)
-    trajChild = root.createElement("trajectory")
-    trajChild.setAttribute("H5Traj",h5traj)
-    trajChild.setAttribute("doSmooth","F")
-    chimpChild.appendChild(trajChild)
-    # <domain>
-    domain_child = root.createElement("domain")
-    domain_child.setAttribute("dtype", "SPH")
-    domain_child.setAttribute("rmin", "%s" % 21.5)
-    domain_child.setAttribute("rmax", "%s" % 220)
-    chimpChild.appendChild(domain_child)
-    # if doTrc:
-    #     outChild = root.createElement('output')
-    #     outChild.setAttribute('doTrc', "T")
-    #     chimpChild.appendChild(outChild)
-    # <parintime>
-    if numSegments > 1:
-        parInTimeChild = root.createElement("parintime")
-        parInTimeChild.setAttribute("NumB","%d"%numSegments)
-        chimpChild.appendChild(parInTimeChild)
-    xml.appendChild(chimpChild)
-    return root
+        parallel_el = xml_doc.createElement("parallel")
+        parallel_el.setAttribute("Ri", "%d" % Ri)
+        parallel_el.setAttribute("Rj", "%d" % Rj)
+        parallel_el.setAttribute("Rk", "%d" % Rk)
+        chimp_el.appendChild(parallel_el)
+
+    # Create the <units> element and append to the <Chimp> element.
+    units_el = xml_doc.createElement("units")
+    units_el.setAttribute("uid", "HELIO")
+    chimp_el.appendChild(units_el)
+
+    # Create the <trajectory> element and append to the <Chimp> element.
+    trajectory_el = xml_doc.createElement("trajectory")
+    trajectory_el.setAttribute("H5Traj", trajectory_file)
+    trajectory_el.setAttribute("doSmooth", "F")
+    chimp_el.appendChild(trajectory_el)
+
+    # Create the <domain> element and append to the <Chimp> element.
+    domain_el = xml_doc.createElement("domain")
+    domain_el.setAttribute("dtype", "SPH")
+    domain_el.setAttribute("rmin", "%s" % R_MIN)
+    domain_el.setAttribute("rmax", "%s" % R_MAX)
+    chimp_el.appendChild(domain_el)
+
+    # If data interpolation will be run in parallel, create the <parintime>
+    # element and append to the <Chimp> element.
+    if num_parallel_segments > 1:
+        parintime_el = xml_doc.createElement("parintime")
+        parintime_el.setAttribute("NumB", "%d" % num_parallel_segments)
+        chimp_el.appendChild(parintime_el)
+
+    # Append the <Chimp> element to the <Kaiju>.
+    kaiju_el.appendChild(chimp_el)
+
+    # Return the entire XML document object.
+    return xml_doc
 
 
 def createHelioInputFiles(data, scDic, scId, mjd0, sec0, fdir, ftag, numSegments, mjdc):
@@ -928,7 +979,7 @@ def createHelioInputFiles(data, scDic, scId, mjd0, sec0, fdir, ftag, numSegments
 
     # Create the XML describing the required interpolations.
     if scId in ["ACE", "Parker_Solar_Probe"]:
-        chimpxml = genHelioSCXML(fdir,ftag, scId,h5traj, numSegments=0)
+        chimpxml = genHelioSCXML(fdir,ftag, scId,h5traj, num_parallel_segments=0)
     else:
         raise TypeError
 
@@ -951,11 +1002,11 @@ def addGAMHELIO(data, scDic, h5name):
 
     Parameters
     ----------
-    data : spacepy.datamodel.SpaceData
+    data: spacepy.datamodel.SpaceData
         All of the spacecraft and interpolated model results so far.
-    scDic : dict
+    scDic: dict
         Spacecraft descriptive information.
-    h5name : str
+    h5name: str
         Path to HDF5 file containing gamhelio model results interpolated to the
         spacecraft positions, all in the GH(t0) frame.
 
@@ -1188,11 +1239,11 @@ def helioErrorReport(errorName, scId, data):
 
     Parameters
     ----------
-    errorName : str
+    errorName: str
         Path to file to hold error report.
-    scId : str
+    scId: str
         ID string for spacecraft.
-    data : spacepy.datamodel.SpaceData
+    data: spacepy.datamodel.SpaceData
         The current spacecraft and model data
 
     Returns
@@ -1245,12 +1296,12 @@ def read_MJDc(path):
 
     Parameters
     ----------
-    path : str
+    path: str
         Path to HDF5 results file from gamhelio.
 
     Returns
     -------
-    mjdc : float
+    mjdc: float
         Value of mjdc global attribute.
     """
     with h5py.File(path, "r") as hf:
