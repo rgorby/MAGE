@@ -7,6 +7,7 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
 from matplotlib.colors import Normalize
+import spacepy
 
 
 #Create 2D equatorial grid (Ni,Nj*2+1) from lfm/egg-style
@@ -440,60 +441,58 @@ def get_aspect(ax):
 # spacecraft.
 
 
-def helioItemPlot(Ax,data,key,plotNum,numPlots,vecComp=-1):
-    #print(key,vecComp)
-    if -1 == vecComp:
-        # if key == "Br":
-        #     # Plot a horizontal line at Br=0. This indicates passage of the
-        #     # heliospheric current sheet.
-        #     Ax.axhline([0], linestyle="--", color="black")
-        # <HACK>
-        # if key == "Density":
-        #     # Reduce the density vertical scale.
-        #     Ax.set_ylim(0, 50)  # cm**-3
-        # </HACK>
-        if key == "Velocity":
-            maskedData = np.ma.masked_where(
-                data['GAMERA_inDom'][:]==0.0,
-                data[key].flatten()[0]["VR"][:]
-            )
-            maskedGamera = np.ma.masked_where(
-                data['GAMERA_inDom'][:]==0.0, data['GAMERA_Speed'][:]
-            )
-        elif key == "Density":
-            maskedData = np.ma.masked_where(
-                data['GAMERA_inDom'][:]==0.0,
-                data[key][:]
-            )
-            maskedGamera = np.ma.masked_where(
-                data['GAMERA_inDom'][:]==0.0, data['GAMERA_Density'][:]
-            )
-        else:
-            maskedData = np.ma.masked_where(
-                data['GAMERA_inDom'][:]==0.0, data[key][:]
-            )
-            maskedGamera = np.ma.masked_where(
-                data['GAMERA_inDom'][:]==0.0, data['GAMERA_' + key][:]
-            )
-        Ax.plot(data['Epoch_bin'],maskedData)
-        Ax.plot(data['Epoch_bin'],maskedGamera)
+def helioItemPlot(Ax,
+                  data:spacepy.datamodel.SpaceData,
+                  key:str, plotNum:int, numPlots:int, vecComp:int=-1):
+    """Plot a single variable for the comparison plot.
+
+    Plot a single variable for the comparison plot.
+
+    Parameters
+    ----------
+    Ax: matplotlib.axes._subplots.AxesSubplot
+        Matplotlib axis for plot.
+    data: spacepy.datamodel.SpaceData
+        Object containing the measured spacecraft data.
+    key: str
+        Name of variable to plot.
+    plotNum: int
+        Position of plot in sequence of plots.
+    numPlots: int
+        Number of plots in sequence.
+    vecComp: int, default -1
+        Not used.
+
+    Returns
+    -------
+    None
+    """
+    if key == "Velocity":
+        observed = np.ma.masked_where(
+            data['GAMERA_inDom'][:] == 0.0, data[key].flatten()[0]["VR"][:]
+        )
+        predicted = np.ma.masked_where(
+            data['GAMERA_inDom'][:]==0.0, data['GAMERA_Speed'][:]
+        )
     else:
-        maskedData = np.ma.masked_where(data['GAMERA_inDom'][:]==0.0,
-            data[key][:,vecComp])
-        Ax.plot(data['Epoch_bin'],maskedData)
-        maskedGamera = np.ma.masked_where(data['GAMERA_inDom'][:]==0.0,
-            data['GAMERA_'+key][:,vecComp])
-        Ax.plot(data['Epoch_bin'],maskedGamera)
+        observed = np.ma.masked_where(
+            data['GAMERA_inDom'][:] == 0.0, data[key][:]
+        )
+        predicted = np.ma.masked_where(
+            data['GAMERA_inDom'][:] == 0.0, data['GAMERA_' + key][:]
+        )
+    Ax.plot(data['Epoch_bin'], observed)
+    Ax.plot(data['Epoch_bin'], predicted)
     if (plotNum % 2) == 0:
         left = True
     else:
         left = False
-    label = labelStr(data, key,vecComp)
-    if plotNum == (numPlots-1):
-        SetAxLabs(Ax,'UT',label,doLeft=left)
+    label = labelStr(data, key, vecComp)
+    if plotNum == numPlots - 1:
+        SetAxLabs(Ax, 'UT', label, doLeft=left)
         SetAxDate(Ax)
     else:
-        SetAxLabs(Ax,None,label,doLeft=left)
+        SetAxLabs(Ax, None, label, doLeft=left)
     return
 
 
