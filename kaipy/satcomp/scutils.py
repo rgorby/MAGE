@@ -1173,7 +1173,7 @@ def addGAMHELIO(data, scDic, h5name):
         )
     elif toCoordSys == "RTN":
         data["Br"] = dm.dmarray(
-            -data["MagneticField"].flatten()[0]["BR"][:],
+            data["MagneticField"].flatten()[0]["BR"][:],
             attrs = {
                 "UNITS":Bx.attrs["Units"],
                 "CATDESC":"Radial magnetic field",
