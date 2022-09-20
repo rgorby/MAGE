@@ -440,6 +440,63 @@ def get_aspect(ax):
 # spacecraft.
 
 
+def helioItemPlot(Ax,data,key,plotNum,numPlots,vecComp=-1):
+    #print(key,vecComp)
+    if -1 == vecComp:
+        # if key == "Br":
+        #     # Plot a horizontal line at Br=0. This indicates passage of the
+        #     # heliospheric current sheet.
+        #     Ax.axhline([0], linestyle="--", color="black")
+        # <HACK>
+        # if key == "Density":
+        #     # Reduce the density vertical scale.
+        #     Ax.set_ylim(0, 50)  # cm**-3
+        # </HACK>
+        if key == "Velocity":
+            maskedData = np.ma.masked_where(
+                data['GAMERA_inDom'][:]==0.0,
+                data[key].flatten()[0]["VR"][:]
+            )
+            maskedGamera = np.ma.masked_where(
+                data['GAMERA_inDom'][:]==0.0, data['GAMERA_Speed'][:]
+            )
+        elif key == "Density":
+            maskedData = np.ma.masked_where(
+                data['GAMERA_inDom'][:]==0.0,
+                data[key][:]
+            )
+            maskedGamera = np.ma.masked_where(
+                data['GAMERA_inDom'][:]==0.0, data['GAMERA_Density'][:]
+            )
+        else:
+            maskedData = np.ma.masked_where(
+                data['GAMERA_inDom'][:]==0.0, data[key][:]
+            )
+            maskedGamera = np.ma.masked_where(
+                data['GAMERA_inDom'][:]==0.0, data['GAMERA_' + key][:]
+            )
+        Ax.plot(data['Epoch_bin'],maskedData)
+        Ax.plot(data['Epoch_bin'],maskedGamera)
+    else:
+        maskedData = np.ma.masked_where(data['GAMERA_inDom'][:]==0.0,
+            data[key][:,vecComp])
+        Ax.plot(data['Epoch_bin'],maskedData)
+        maskedGamera = np.ma.masked_where(data['GAMERA_inDom'][:]==0.0,
+            data['GAMERA_'+key][:,vecComp])
+        Ax.plot(data['Epoch_bin'],maskedGamera)
+    if (plotNum % 2) == 0:
+        left = True
+    else:
+        left = False
+    label = labelStr(data, key,vecComp)
+    if plotNum == (numPlots-1):
+        SetAxLabs(Ax,'UT',label,doLeft=left)
+        SetAxDate(Ax)
+    else:
+        SetAxLabs(Ax,None,label,doLeft=left)
+    return
+
+
 def helioCompPlot(plotname, scId, data):
     """Create comparison plots for heliospheric results.
 
@@ -486,11 +543,11 @@ def helioCompPlot(plotname, scId, data):
     for key in keysToPlot:
         if plotNum == 0:
             ax1 = fig.add_subplot(gs[plotNum, 0])
-            itemPlot(ax1, data, key, plotNum, numPlots)
+            helioItemPlot(ax1, data, key, plotNum, numPlots)
             plotNum += 1
         else:
             ax = fig.add_subplot(gs[plotNum, 0], sharex=ax1)
-            itemPlot(ax, data, key, plotNum, numPlots)
+            helioItemPlot(ax, data, key, plotNum, numPlots)
             plotNum += 1
     ax1.legend([scId, "GAMERA"], loc="best")
     ax1.set_title(plotname)
