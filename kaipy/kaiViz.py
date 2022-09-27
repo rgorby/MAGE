@@ -7,7 +7,6 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
 from matplotlib.colors import Normalize
-import spacepy
 
 
 #Create 2D equatorial grid (Ni,Nj*2+1) from lfm/egg-style
@@ -442,7 +441,7 @@ def get_aspect(ax):
 
 
 def helioItemPlot(Ax,
-                  data:spacepy.datamodel.SpaceData,
+                  data,
                   key:str, plotNum:int, numPlots:int, vecComp:int=-1):
     """Plot a single variable for the comparison plot.
 
@@ -556,7 +555,7 @@ def helioCompPlot(plotname, scId, data):
     savePic(plotname, doClose=True)
 
 
-def helioTrajPlot(plot_name:str, scId:str, data:spacepy.datamodel.SpaceData):
+def helioTrajPlot(plot_name:str, scId:str, data):
     """Create a set of trajectory plots for a heliospgeric spacecraft.
 
     Create a set of trajectory plots for a heliospgeric spacecraft.
