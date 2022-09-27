@@ -34,6 +34,7 @@ module gamapp_mpi
         ! Debugging flags
         logical :: printMagFluxFaceError = .false.
         real(rp) :: faceError = 0.0_rp
+        logical :: slowestRankPrints = .true.
 
     end type gamAppMpi_T
 
@@ -110,6 +111,7 @@ module gamapp_mpi
         call xmlInp%Set_Val(writeGhosts,"debug/writeGhosts",.false.)
         call xmlInp%Set_Val(writeMagFlux,"debug/writeMagFlux",.false.)
         call xmlInp%Set_Val(gamAppMpi%printMagFluxFaceError,"debug/printMagFluxError",.false.)
+        call xmlInp%Set_Val(gamAppMpi%slowestRankPrints,"debug/slowestRankPrints",.true.)
 
         !Initialize Grid/State/Model (Hatch Gamera)
         !Will enforce 1st BCs, caculate 1st timestep, set oldState
@@ -529,6 +531,37 @@ module gamapp_mpi
 
         end associate
     end subroutine Hatch_mpi
+
+    ! this function checks logic to determine which rank should print debug timing
+    ! returns true for the rank that should, and false for all others
+    function debugPrintingRank(gamAppMpi) result(amPrintingRank)
+        type(gamAppMpi_T), intent(in) :: gamAppMpi
+        logical :: amPrintingRank
+        real(rp) :: inData(2), outData(2)
+        integer :: myRank, slowRank, ierr
+
+        amPrintingRank = .false.
+
+        if(gamappMpi%slowestRankPrints) then
+            ! only the slowest rank prints
+
+            myRank = gamAppMpi%Grid%Ri*gamAppMpi%Grid%NumRj*gamAppMpi%Grid%NumRk + &
+                     gamAppMpi%Grid%Rj*gamAppMpi%Grid%NumRk + &
+                     gamAppMpi%Grid%Rk
+
+            inData(1) = gamAppMpi%Model%kzcsMHD
+            inData(2) = myRank
+            call MPI_ALLREDUCE(inData, outData, 1, MPI_2MYFLOAT, MPI_MINLOC, gamAppMpi%gamMpiComm, ierr)
+            slowRank = outData(2) ! convert rank back to an integer
+            if(myRank == slowRank) then
+                amPrintingRank = .true.
+            endif
+        else
+            ! only rank 0 prints
+            amPrintingRank = gamAppMpi%Grid%Ri==0 .and. gamAppMpi%Grid%Rj==0 .and. gamAppMpi%Grid%Rk==0
+        endif
+
+    end function debugPrintingRank
 
     subroutine consoleOutput_mpi(gamAppMpi)
         type(gamAppMpi_T), intent(inout) :: gamAppMpi
