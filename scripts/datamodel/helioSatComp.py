@@ -298,7 +298,7 @@ if __name__ == "__main__":
         if verbose:
             print("Writing errors to %s." % errname)
         scutils.helioErrorReport(errname, scId, data)
-        # plotname = os.path.join(fdir, scId + "-traj.png")
-        # if verbose:
-        #     print("Plotting trajectory to %s." % plotname)
-        # kv.trajPlot(plotname, scId, data)
+        plotname = os.path.join(fdir, scId + "-traj.png")
+        if verbose:
+            print("Plotting trajectory to %s." % plotname)
+        kv.helioTrajPlot(plotname, scId, data)

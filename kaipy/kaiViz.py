@@ -554,3 +554,55 @@ def helioCompPlot(plotname, scId, data):
 
     # Save the figure.
     savePic(plotname, doClose=True)
+
+
+def helioTrajPlot(plot_name:str, scId:str, data:spacepy.datamodel.SpaceData):
+    """Create a set of trajectory plots for a heliospgeric spacecraft.
+
+    Create a set of trajectory plots for a heliospgeric spacecraft.
+
+    Parameters
+    ----------
+    plot_name: str
+        Path to plot file.
+    scId: str
+        Name of spacecraft.
+    data: spacepy.datamodel.SpaceData
+        Object containing spacecraft data.
+
+    Returns
+    -------
+    None
+    """
+    # Set the figure size (inches)
+    figsize = (15, 5)
+
+    # Create the figure in-memory.
+    mpl.use("AGG")
+    fig = plt.figure(figsize=figsize)
+
+    # Create a grid for the sin-plots.
+    gs = fig.add_gridspec(1, 3)
+    ax1 = fig.add_subplot(gs[0, 0])
+    ax2 = fig.add_subplot(gs[0, 1])
+    ax3 = fig.add_subplot(gs[0, 2])
+
+    # Plot the components against each other.
+    ax1.plot(data["heliographicLatitude"][:], data["radialDistance"][:])
+    ax2.plot(data["heliographicLongitude"][:], data["radialDistance"][:])
+    ax3.plot(data["heliographicLongitude"][:], data["heliographicLatitude"][:])
+    ax1.set_title("Latitude (deg) - radius (AU)")
+    ax2.set_title("Longitude (deg) - radius (AU)")
+    ax3.set_title("Longitude (deg) - latitude (deg)")
+
+    # Apply the overall title.
+    title = (
+        scId + " - " +
+        data["Epoch_bin"][0].strftime("%m/%d/%Y - %H:%M:%S") +
+        " to " +
+        data["Epoch_bin"][-1].strftime("%m/%d/%Y - %H:%M:%S")
+    )
+    fig.suptitle(title)
+
+    # Save the figure to a file.
+    savePic(plot_name, doClose=True)
