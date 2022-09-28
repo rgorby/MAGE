@@ -66,6 +66,8 @@ module usergamic
     class(baseCMESolution_T), allocatable :: cccmeSolution, kfCMESolution, jfCMESolution
     real(rp) :: emerge_lastP, t_smooth
     real(rp) :: emergence_times(5)
+    type(XML_Input_T) :: inpXMLCME
+    character(len=strLen) :: inpXMLStr
 
     ! use this to fix the Efield at the inner boundary
     !    real(rp), allocatable :: inEijk(:,:,:,:)
@@ -85,6 +87,10 @@ module usergamic
 
     contains
 
+    !>
+    !>
+    !>
+    !>
     subroutine initUser(Model,Grid,State,inpXML)
         type(Model_T), intent(inout) :: Model
         type(Grid_T), intent(inout) :: Grid
@@ -97,6 +103,7 @@ module usergamic
         integer :: i,j,k,nvar,nr,d
         integer :: n1, n2
         integer :: kg, ke, kb, jg
+        integer, dimension(6) :: bounds
         real(rp) :: a
         real(rp) :: Tsolar_synodic
 
@@ -148,7 +155,17 @@ module usergamic
 
         ! Use CME Model
         if(Model%doCME) then
-            select case (Model%cmeType) 
+            ! Grid%isg,Grid%is-1, Grid%js:Grid%je, Grid%ks:Grid%ke
+            bounds(1) = 1
+            bounds(2) = Model%Ng
+            bounds(3) = Grid%js
+            bounds(4) = Grid%je + 1
+            bounds(5) = Grid%ks
+            bounds(6) = Grid%ke + 1
+            call getIDeckStr(inpXMLStr)
+            inpXMLCME = New_XML_Input(trim(inpXMLStr),'Kaiju/CME',.false.)
+            call inpXMLCME%Set_Val(Model%cmeModel,"sim/model","GL") 
+            select case (Model%cmeModel) 
                 case ("GL")
                     allocate(glModel_T :: cccmeModel)
                     allocate(glState_T :: cccmeState)
@@ -165,9 +182,10 @@ module usergamic
                                 type is(glState_T)
                                     select type (cccmeModel)
                                         type is(glModel_T)
-                                            call initGLInterface(cccmeModel, cccmeState, ccCMESolution, inpXML)
-                                            emergence_times = calcEmergenceTimes(cccmeModel,cccmeState)*3600./Model%Units%gT0
+                                            call initGLInterface(cccmeModel, cccmeState, ccCMESolution, inpXMLCME, bounds)
+                                            emergence_times = calcEmergenceTimes(cccmeModel,cccmeState, Model%Units%gT0)
                                             emerge_lastP = maxval(emergence_times)
+                                            if(cccmeModel%isDebug) write(*,*) "Emergence times: ",  emergence_times, emerge_lastP
                                     end select
                             end select
                     end select
@@ -177,7 +195,7 @@ module usergamic
                                 type is(glState_T)
                                     select type (jfcmeModel)
                                         type is(glModel_T)
-                                        call initGLInterface(jfcmeModel, jfcmeState, jfCMESolution, inpXML)
+                                        call initGLInterface(jfcmeModel, jfcmeState, jfCMESolution, inpXMLCME, bounds)
                                     end select
                             end select
                     end select
@@ -187,15 +205,15 @@ module usergamic
                                 type is(glState_T)
                                     select type (kfcmeModel)
                                         type is(glModel_T)
-                                        call initGLInterface(kfcmeModel, kfcmeState, kfCMESolution, inpXML)
+                                        call initGLInterface(kfcmeModel, kfcmeState, kfCMESolution, inpXMLCME, bounds)
                                     end select
                             end select
                     end select            
             end select
-            call inpXML%Set_Val(Den_CME,"CME/prob/Den_CME",0. )
-            call inpXML%Set_Val(T_CME,"CME/prob/T_CME",0. )
+            call inpXMLCME%Set_Val(Den_CME,"prob/Den_CME",0. )
+            call inpXMLCME%Set_Val(T_CME,"prob/T_CME",0. )
             t_smooth = emerge_lastP + 3600./Model%Units%gT0
-            Pres_CME = Den_CME*Kbltz*T_CME/Model%Units%gB0
+            Pres_CME = (Den_CME/Model%Units%gD0)*Kbltz*T_CME/Model%Units%gP0
         end if
 
         !Set DT bounds
@@ -312,7 +330,9 @@ module usergamic
 
     end subroutine initUser
 
-    !Inner-I BC for WSA-Gamera
+    !> Inner-I BC for WSA-Gamera
+    !>
+    !>
     subroutine wsaBC(bc,Model,Grid,State)
       class(SWInnerBC_T), intent(inout) :: bc
       type(Model_T), intent(in) :: Model
@@ -325,6 +345,12 @@ module usergamic
       integer :: var ! ibcVar variable number
       real(rp) :: a
       real(rp) :: ibcVarsStatic(NVARSIN)
+
+      !including ghost cells in k
+      real(rp) :: ccCMEVars(Model%Ng, Grid%js:Grid%je + 1, Grid%ksg:Grid%keg + 1, NCMEVARS)
+      real(rp) :: jfCMEVars(Model%Ng, Grid%js:Grid%je + 1, Grid%ksg:Grid%keg + 1, NCMEVARS)  ! j-face
+      real(rp) :: kfCMEVars(Model%Ng, Grid%js:Grid%je + 1, Grid%ksg:Grid%keg + 1, NCMEVARS)  ! k-face
+
       real(rp) :: ccCMEVarsStatic(NCMEVARS)
       real(rp) :: jfCMEVarsStatic(NCMEVARS)
       real(rp) :: kfCMEVarsStatic(NCMEVARS)
@@ -332,26 +358,54 @@ module usergamic
       real(rp) :: Theta_kf, R_kf ! kface
       real(rp), dimension(NVAR) :: conVar, pVar
 
+      ! Set cme vars to zero initially
+      ccCMEVars = 0.
+      jfCMEVars = 0.
+      kfCMEVars = 0.
+      ccCMEVarsStatic = 0.
+      jfCMEVarsStatic = 0.
+      kfCMEVarsStatic = 0.
       ! After Initial transient passage, generate CME solution
-      if (Model%doCME .and. (Model%t >= cccmeModel%Tstart_transient)) then
-        ! cell-center
-        cccmeModel%time = Model%t - cccmeModel%Tstart_transient
-        call setCMEStateXYZ(Grid%xyzcc(Grid%isg:Grid%ieg, Grid%jsg:Grid%jeg, Grid%ksg:Grid%keg, :), cccmeModel, cccmeState)
-        call generateCMESolution(ccCMESolution, cccmeModel, cccmeState)
-        ! J-Faces
-        jfcmeModel%time = Model%t - jfcmeModel%Tstart_transient
-        call setCMEStateXYZ(Grid%xfc(Grid%isg:Grid%ieg, Grid%jsg:Grid%jeg, Grid%ksg:Grid%keg, :, JDIR), jfcmeModel, jfcmeState)
-        call generateCMESolution(jfCMESolution, jfcmeModel, jfcmeState)
-        ! K-Faces
-        kfcmeModel%time = Model%t - kfcmeModel%Tstart_transient
-        call setCMEStateXYZ(Grid%xfc(Grid%isg:Grid%ieg, Grid%jsg:Grid%jeg, Grid%ksg:Grid%keg, :, KDIR), kfcmeModel, kfcmeState)
-        call generateCMESolution(kfCMESolution, kfcmeModel, kfcmeState)
+      if (Model%doCME .and. (Model%t >= cccmeModel%Tstart_transient/Model%Units%gT0)) then
+          ! cell-center
+          !call cccmeModel%updateModelTime(Model%t, Model%Units%gT0)
+          cccmeModel%time = (Model%t - cccmeModel%Tstart_transient/Model%Units%gT0)*Model%Units%gT0
+          if (cccmeModel%isDebug) then
+              write(*,"(1X,A14,2X,F)") "Sim time: ", Model%t 
+              write(*,"(1X,A14,2X,F)") "Updated CME time: ", cccmeModel%time 
+          end if
+          call setCMEStateXYZ(Grid%xyzcc(Grid%isg:Grid%is-1, Grid%js:Grid%je + 1, Grid%ks:Grid%ke + 1, :), cccmeModel, cccmeState)
+          call generateCMESolution(ccCMESolution, cccmeModel, cccmeState)
+          ! J-Faces
+          !call jfcmeModel%updateModelTime(Model%t, Model%Units%gT0)
+          jfcmeModel%time = (Model%t - jfcmeModel%Tstart_transient/Model%Units%gT0)*Model%Units%gT0
+          call setCMEStateXYZ(Grid%xfc(Grid%isg:Grid%is-1, Grid%js:Grid%je + 1, Grid%ks:Grid%ke + 1, :, JDIR), jfcmeModel, jfcmeState)
+          call generateCMESolution(jfCMESolution, jfcmeModel, jfcmeState)
+          ! K-Faces
+          !call kfcmeModel%updateModelTime(Model%t, Model%Units%gT0)
+          kfcmeModel%time = (Model%t - kfcmeModel%Tstart_transient/Model%Units%gT0)*Model%Units%gT0
+          call setCMEStateXYZ(Grid%xfc(Grid%isg:Grid%is-1, Grid%js:Grid%je + 1, Grid%ks:Grid%ke + 1, :, KDIR), kfcmeModel, kfcmeState)
+          call generateCMESolution(kfCMESolution, kfcmeModel, kfcmeState)
+          if (cccmeModel%isDebug) then
+            write(*,"(1X,A14,2X,3F)") "Max Vr: ", maxval(ccCMESolution%v(:,:,:,XDIR)), maxval(jfCMESolution%v(:,:,:,XDIR)), maxval(kfCMESolution%v(:,:,:,XDIR))
+            write(*,"(1X,A14,2X,3F)") "Max Br: ", maxval(ccCMESolution%b(:,:,:,XDIR)), maxval(jfCMESolution%b(:,:,:,XDIR)), maxval(kfCMESolution%b(:,:,:,XDIR))
+          end if
+          ccCMEVars(:, :, Grid%ks:Grid%ke + 1, CMEBR:CMEBP) = ccCMESolution%b
+          ccCMEVars(:, :, Grid%ks:Grid%ke + 1, CMEVR) = ccCMESolution%v(:, :, :, XDIR)
+          ccCMEVars(:, :, Grid%ks:Grid%ke + 1, CMEMASK) = ccCMESolution%inside_mask
+          jfCMEVars(:, :, Grid%ks:Grid%ke + 1, CMEBR:CMEBP) = jfCMESolution%b
+          jfCMEVars(:, :, Grid%ks:Grid%ke + 1, CMEVR) = jfCMESolution%v(:, :, :, XDIR)
+          jfCMEVars(:, :, Grid%ks:Grid%ke + 1, CMEMASK) = jfCMESolution%inside_mask
+          kfCMEVars(:, :, Grid%ks:Grid%ke + 1, CMEBR:CMEBP) = kfCMESolution%b
+          kfCMEVars(:, :, Grid%ks:Grid%ke + 1, CMEVR) = kfCMESolution%v(:, :, :, XDIR)
+          kfCMEVars(:, :, Grid%ks:Grid%ke + 1, CMEMASK) = kfCMESolution%inside_mask
       end if
 
       !i-boundaries (IN)
       !$OMP PARALLEL DO default(shared) &
       !$OMP private(i,j,k,jg,kg,ke,kb,knew,a,var,xyz,R,Theta,Phi,rHat,phiHat) &
-      !$OMP private(ibcVarsStatic,ccCMEVarsStatic,jfCMEVarsStaticp,kfCMEVarsStatic,Var,conVar,xyz0,R_kf,Theta_kf)
+      !$OMP private(ibcVarsStatic,ccCMEVarsStatic,jfCMEVarsStatic,kfCMEVarsStatic) &
+      !$OMP private(pVar,conVar,xyz0,R_kf,Theta_kf)
       do k=Grid%ksg,Grid%keg+1  ! note, going all the way to last face for mag fluxes
          kg = k+Grid%ijkShift(KDIR)
          ! map rotating to static grid
@@ -368,43 +422,55 @@ module usergamic
                 ! set everything arbitrarily to 1. in the global corners (on low and high j boundaries)
                 ! we then apply the j-boundary after i boundary anyway, so the corners will be overwritten
                 ibcVarsStatic = 1._rp  
+                 ! otherwise
+                ! interpolate linearly from rotating to inertial frame 
+                if ((jg>=Grid%js) .and. (jg<=size(ibcVars,2))) then
+                    do var=1,NVARSIN
+                        ibcVarsStatic(var) = a*ibcVars(ig,jg,kb,var) + (1-a)*ibcVars(ig,jg,ke,var)
+                    end do
+                end if
 
-                !filling ghost cells in k with for CME Solution
-                if(Model%doCME) then
+                ! Set CME local values
+                if(Model%doCME .and. (Model%t >= cccmeModel%Tstart_transient/Model%Units%gT0)) then
+                    !filling ghost cells in k with for CME Solution
                     if (k .gt. Grid%ke) then
                         knew = modulo(k, Grid%ke)
-                        jfCMESolution%b(ig, j, k, :) = jfCMESolution%b(ig, j, knew, :)
-                        jfCMESolution%v(ig, j, k, :) = jfCMESolution%v(ig, j, knew, :)
+                        ccCMEVars(ig, j, k, CMEBR:CMEBP) = ccCMESolution%b(ig, j, knew, :)
+                        ccCMEVars(ig, j, k, CMEVR) = ccCMESolution%v(ig, j, knew, XDIR)
+                        ccCMEVars(ig, j, k, CMEMASK) = ccCMESolution%inside_mask(ig, j, knew)
+                        jfCMEVars(ig, j, k, CMEBR:CMEBP) = jfCMESolution%b(ig, j, knew, :)
+                        jfCMEVars(ig, j, k, CMEVR) = jfCMESolution%v(ig, j, knew, XDIR)
+                        jfCMEVars(ig, j, k, CMEMASK) = jfCMESolution%inside_mask(ig, j, knew)
+                        kfCMEVars(ig, j, k, CMEBR:CMEBP) = kfCMESolution%b(ig, j, knew, :)
+                        kfCMEVars(ig, j, k, CMEVR) = kfCMESolution%v(ig, j, knew, 1)
+                        kfCMEVars(ig, j, k, CMEMASK) = kfCMESolution%inside_mask(ig, j, knew)
                     end if
                     if (k .lt. Grid%ks) then
                         knew = Grid%ke + k
-                        jfCMESolution%b(ig, j, k, :) = jfCMESolution%b(ig, j, knew, :)
-                        jfCMESolution%v(ig, j, k, :) = jfCMESolution%v(ig, j, knew, :)
+                        ccCMEVars(ig, j, k, CMEBR:CMEBP) = ccCMESolution%b(ig, j, knew, :)
+                        ccCMEVars(ig, j, k, CMEVR) = ccCMESolution%v(ig, j, knew, XDIR)
+                        ccCMEVars(ig, j, k, CMEMASK) = ccCMESolution%inside_mask(ig, j, knew)
+                        jfCMEVars(ig, j, k, CMEBR:CMEBP) = jfCMESolution%b(ig, j, knew, :)
+                        jfCMEVars(ig, j, k, CMEVR) = jfCMESolution%v(ig, j, knew, XDIR)
+                        jfCMEVars(ig, j, k, CMEMASK) = jfCMESolution%inside_mask(ig, j, knew)
+                        kfCMEVars(ig, j, k, CMEBR:CMEBP) = kfCMESolution%b(ig, j, knew, :)
+                        kfCMEVars(ig, j, k, CMEVR) = kfCMESolution%v(ig, j, knew, XDIR)
+                        kfCMEVars(ig, j, k, CMEMASK) = kfCMESolution%inside_mask(ig, j, knew)
+                    end if
+                    if(Model%rotateCME) then
+                        ! interpolate linearly from rotating to inertial frame for CME Values
+                        if ((jg>=Grid%js) .and. (jg<=Grid%je + 1) .and. (kb <= Grid%keg + 1) .and. (ke <= Grid%keg + 1)) then
+                            cccmeVarsStatic = a*ccCMEVars(ig, jg, kb, :) + (1.-a)*ccCMEVars(ig, jg, ke, :)
+                            jfcmeVarsStatic = a*jfCMEVars(ig, jg, kb, :) + (1.-a)*jfCMEVars(ig, jg, ke, :)
+                            kfcmeVarsStatic = a*kfCMEVars(ig, jg, kb, :) + (1.-a)*kfCMEVars(ig, jg, ke, :)
+                        end if
+                    else
+                        cccmeVarsStatic = ccCMEVars(ig, j, k, :)
+                        jfcmeVarsStatic = jfCMEVars(ig, j, k, :)
+                        kfcmeVarsStatic = kfCMEVars(ig, j, k, :)
                     end if
                 end if
-                ! otherwise
-                ! interpolate linearly from rotating to inertial frame 
-                if ( (jg>=Grid%js).and.(jg<=size(ibcVars,2)) ) then
-                    do var=1,NVARSIN
-                        ibcVarsStatic(var) = a*ibcVars(ig,jg,kb,var)+(1-a)*ibcVars(ig,jg,ke,var)
-                    end do
-                    cccmeVarsStatic(1) = a*ccCMESolution%b(ig,jg,kb,XDIR)+(1.-a)*ccCMESolution%b(ig,jg,ke,XDIR)
-                    cccmeVarsStatic(2) = a*ccCMESolution%b(ig,jg,kb,YDIR)+(1.-a)*ccCMESolution%b(ig,jg,ke,YDIR)
-                    cccmeVarsStatic(3) = a*ccCMESolution%b(ig,jg,kb,ZDIR)+(1.-a)*ccCMESolution%b(ig,jg,ke,ZDIR)
-                    cccmeVarsStatic(4) = a*ccCMESolution%v(ig,jg,kb,XDIR)+(1.-a)*ccCMESolution%v(ig,jg,ke,XDIR)
-                    cccmeVarsStatic(5) = a*ccCMESolution%inside_mask(ig,jg,kb)+(1.-a)*ccCMESolution%inside_mask(ig,jg,ke)
-                    jfcmeVarsStatic(1) = a*jfCMESolution%b(ig,jg,kb,XDIR)+(1.-a)*jfCMESolution%b(ig,jg,ke,XDIR)
-                    jfcmeVarsStatic(2) = a*jfCMESolution%b(ig,jg,kb,YDIR)+(1.-a)*jfCMESolution%b(ig,jg,ke,YDIR)
-                    jfcmeVarsStatic(3) = a*jfCMESolution%b(ig,jg,kb,ZDIR)+(1.-a)*jfCMESolution%b(ig,jg,ke,ZDIR)
-                    jfcmeVarsStatic(4) = a*jfCMESolution%v(ig,jg,kb,XDIR)+(1.-a)*jfCMESolution%v(ig,jg,ke,XDIR)
-                    jfcmeVarsStatic(5) = a*jfCMESolution%inside_mask(ig,jg,kb)+(1.-a)*jfCMESolution%inside_mask(ig,jg,ke)
-                    kfcmeVarsStatic(1) = a*kfCMESolution%b(ig,jg,kb,XDIR)+(1.-a)*kfCMESolution%b(ig,jg,ke,XDIR)
-                    kfcmeVarsStatic(2) = a*kfCMESolution%b(ig,jg,kb,YDIR)+(1.-a)*kfCMESolution%b(ig,jg,ke,YDIR)
-                    kfcmeVarsStatic(3) = a*kfCMESolution%b(ig,jg,kb,ZDIR)+(1.-a)*kfCMESolution%b(ig,jg,ke,ZDIR)
-                    kfcmeVarsStatic(4) = a*kfCMESolution%v(ig,jg,kb,XDIR)+(1.-a)*kfCMESolution%v(ig,jg,ke,XDIR)
-                    kfcmeVarsStatic(5) = a*kfCMESolution%inside_mask(ig,jg,kb)+(1.-a)*kfCMESolution%inside_mask(ig,jg,ke)
-                end if
-
+                
                 ! do cell centered things for cell-centers only
                 if ( (j/=Grid%jeg+1).and.(k/=Grid%keg+1) ) then
                     ! various geometrical quantities for the cell center
@@ -417,29 +483,37 @@ module usergamic
 
                     ! NOTE, WSA data were already scaled appropriately in the python code
                     ! TODO: save them in the innerbc hdf file and set in helioutils appropriately
-                    if (Model%doCME .and. (ccCMEVarsStatic(CMEMASK) .gt. 0.5)) then !inside the bubble mask is 1
-                        if (Model%t <= emerge_lastP) then
+                    if (Model%doCME .and. (ccCMEVarsStatic(CMEMASK) .gt. 0.1) .and. (Model%t >= cccmeModel%Tstart_transient/Model%Units%gT0)) then !inside the bubble mask is 1
+                        if(cccmeModel%isDebug) write(*,"(1X,A14,2X,1F,2X,A14,2X,3I)") "Inside bubble at time: ", Model%t, "i,j,k = ", i, j, k
+			            if (Model%t <= emerge_lastP) then
+                            if(ccCMEModel%isDebug) write(*,"(1X,A14,2X,4F)") "CME VR Before emerge_lastP: time, unscaled VR, scaled VR, WSA VRIN", Model%t, ccCMEVarsStatic(CMEVR), ccCMEVarsStatic(CMEVR)/(1.d-5*Model%Units%gv0), ibcVarsStatic(VRIN)
                             pVar(DEN) = Den_CME/Model%Units%gD0
                             pVar(PRESSURE) = Pres_CME
-                            pVar(VELX:VELZ) = rHat*max(ccCMEVarsStatic(CMEVR)/(Model%Units%gv0*1e-5), ibcVarsStatic(VRIN))
+                            pVar(VELX:VELZ) = rHat*max(ccCMEVarsStatic(CMEVR)/(1.d-5*Model%Units%gv0), ibcVarsStatic(VRIN))
                         else if ((Model%t > emerge_lastP) .and. (Model%t <= t_smooth)) then !last point passed -- smoothly transition to WSA via linear changing from CME values to WSA over 1 hour
+                            if(ccCMEModel%isDebug) write(*,"(1X,A14,2X,4F)") "CME VR After emerge_lastP: time, unscaled VR, scaled VR, WSA VRIN:", Model%t, ccCMEVarsStatic(CMEVR), ccCMEVarsStatic(CMEVR)/(1.d-5*Model%Units%gv0), ibcVarsStatic(VRIN)
                             pVar(DEN) = Den_CME/Model%Units%gD0 + &
                                             (Model%t - emerge_lastP)/(3600./Model%Units%gt0)*(ibcVarsStatic(RHOIN) - Den_CME/Model%Units%gD0)
                             pVar(PRESSURE)  = Pres_CME + &
                                                 (Model%t - emerge_lastP)/(3600./Model%Units%gt0)*(ibcVarsStatic(RHOIN)*Model%Units%gD0*Kbltz*ibcVarsStatic(TIN)/(Model%Units%gP0) - Pres_CME)
-                            pVar(VELX:VELZ) = rHat*max(ccCMEVarsStatic(CMEVR)/Model%Units%gv0, ibcVarsStatic(VRIN))
+                            pVar(VELX:VELZ) = rHat*max(ccCMEVarsStatic(CMEVR)/(1.d-5*Model%Units%gv0), ibcVarsStatic(VRIN))
                         else ! when Model%t is larger than t_smooth use WSA
-                            pVar(VELX:VELZ) = rHat*max(ccCMEVarsStatic(CMEVR)/Model%Units%gv0, ibcVarsStatic(VRIN))
-                            pVar(DEN) = ibcVarsStatic(RHOIN)
+                            if(cccmeModel%isDebug) write(*,"(1X,A14,2X,2F)") "Time is greater then t_smooth: ", Model%t, t_smooth
+			                pVar(DEN) = ibcVarsStatic(RHOIN)
                             pVar(PRESSURE) = ibcVarsStatic(RHOIN)*Model%Units%gD0*Kbltz*ibcVarsStatic(TIN)/(Model%Units%gP0)
+                            pVar(VELX:VELZ) = rHat*ibcVarsStatic(VRIN)
                         end if
-                    else
+                        if(cccmeModel%isDebug) write(*,"(1X,A34,2X,5F)") "Inside pVar(Dens, Pres, VELX:VELZ): ", pVar(DEN), pVar(PRESSURE), pVar(VELX:VELZ)
+                    else !Outside of CME Bubble mask is 0.
                         !Set primitives
-                        pVar(VELX:VELZ) = rHat*ibcVarsStatic(VRIN)
+                        pVar(DEN)       = ibcVarsStatic(RHOIN)
                         ! note conversion to my units with B0^2/4pi in the denominator
                         pVar(PRESSURE)  = ibcVarsStatic(RHOIN)*Model%Units%gD0*Kbltz*ibcVarsStatic(TIN)/(Model%Units%gP0)
-                        pVar(DEN)       = ibcVarsStatic(RHOIN)
+                        pVar(VELX:VELZ) = rHat*ibcVarsStatic(VRIN)
+                        if(cccmeModel%isDebug) write(*,"(1X,A36,2X,5F)") "Outside pVar(Dens, Pres, VELX:VELZ): ", pVar(DEN), pVar(PRESSURE), pVar(VELX:VELZ)
                     end if
+                    !if(cccmeModel%isDebug) write(*,"(1X,A14,2X,1F)") "Current Time: ", Model%t
+                    !if(cccmeModel%isDebug) write(*,"(1X,A36,2X,5F)") "pVar(Dens, Pres, VELX:VELZ): ", pVar(DEN), pVar(PRESSURE), pVar(VELX:VELZ)
                     !Swap prim->con in ghost variables
                     call CellP2C(Model,pVar,conVar)
                     State%Gas(i,j,k,:,BLK) = conVar
@@ -456,15 +530,19 @@ module usergamic
 
                 ! note scaling for Bi. See note above in InitUser
                 Rfactor = Rbc/norm2(Grid%xfc(Grid%is,j,k,:,IDIR))
-                if (Model%doCME) then
-                    State%magFlux(i,j,k,IDIR) = ibcVarsStatic(BRIN)*Rfactor**2*Grid%face(Grid%is,j,k,IDIR)
-                    State%magFlux(i,j,k,JDIR) = 0.0
-                    State%magFlux(i,j,k,KDIR) = - 2*PI/Tsolar*R_kf*sin(Theta_kf)/ibcVarsStatic(VRKFIN)*ibcVarsStatic(BRKFIN)*Grid%face(i,j,k,KDIR)
+                if (Model%doCME .and. (ccCMEVarsStatic(CMEMASK) .gt. 0.1) .and. (Model%t >= cccmeModel%Tstart_transient/Model%Units%gT0)) then
+                    State%magFlux(i,j,k,IDIR) = ibcVarsStatic(BRIN)*Rfactor**2*Grid%face(Grid%is,j,k,IDIR) + &
+                                                ccCMEVarsStatic(CMEBR)*Grid%face(i,j,k,IDIR) !/Model%Units%gB0
+                    State%magFlux(i,j,k,JDIR) = jfCMEVarsStatic(CMEBT)*Grid%face(i,j,k,JDIR) !/Model%Units%gB0
+                    State%magFlux(i,j,k,KDIR) = - 2*PI/Tsolar*R_kf*sin(Theta_kf)/ibcVarsStatic(VRKFIN)*ibcVarsStatic(BRKFIN)*Grid%face(i,j,k,KDIR) + &
+                                                kfCMEVarsStatic(CMEBP)*Grid%face(i,j,k,KDIR) !/Model%Units%gB0
+                    if(cccmeModel%isDebug) write(*,"(1X,A20,2X,3F)") "Inside Mag Flux: ", State%magFlux(i,j,k,XDIR),State%magFlux(i,j,k,YDIR),State%magFlux(i,j,k,ZDIR)
                 else
                     State%magFlux(i,j,k,IDIR) = ibcVarsStatic(BRIN)*Rfactor**2*Grid%face(Grid%is,j,k,IDIR)
                     State%magFlux(i,j,k,JDIR) = 0.0
                     State%magFlux(i,j,k,KDIR) = - 2*PI/Tsolar*R_kf*sin(Theta_kf)/ibcVarsStatic(VRKFIN)*ibcVarsStatic(BRKFIN)*Grid%face(i,j,k,KDIR)
-                end if
+                    if(cccmeModel%isDebug) write(*,"(1X,A20,2X,3F)") "Outside Mag Flux: ", State%magFlux(i,j,k,XDIR),State%magFlux(i,j,k,YDIR),State%magFlux(i,j,k,ZDIR) 
+               end if
             end do
          end do
       end do

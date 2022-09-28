@@ -60,9 +60,9 @@ module helioutils
         ! Use gamma=1.5 for SW calculations (set in xml, but defaults to 1.5 here)
         call inpXML%Set_Val(Model%gamma,"physics/gamma",1.5_rp)
         call inpXML%Set_Val(Tsolar,"prob/Tsolar",25.38_rp)    ! siderial solar rotation in days
-        
+        ! Set Flag for using CME Model
         call inpXML%Set_Val(Model%doCME,"prob/doCME",.false.) 
-        call inpXML%Set_Val(Model%cmeType,"prob/cmeType","GL") 
+        call inpXML%Set_Val(Model%rotateCME,"prob/rotateCME",.true.) 
 
         if (.not. Model%isRestart) then    
             !Check for spinup info

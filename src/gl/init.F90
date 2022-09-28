@@ -74,7 +74,8 @@ module glinit
             Model%ts = 0
             Model%tfin = 100.           ! defaults to 100 seconds
             Model%alnotrbubsign = 1.0   ! Chirality
-
+            
+            Model%updateModelTime => updateGLTime
             ! Alternate default GLpars, keeping here for reference AJM - This removes background pressure        
             ! GLpars = (/1.35, 25., 0.05, 1.75, 1.0, 1.57080, 0.0, 0.0, 0.0, 22.8, &
             !         5.97, 16.0, 0.0, 3.87, 0.0, 0.5, 0.9, 1.55e6, 0.0, 0.0, &
@@ -111,10 +112,12 @@ module glinit
             call inpXML%Set_Val(Model%vel_fh, "prob/vel_fh", 1.)  !V_CME_statdraw
             call inpXML%Set_Val(Model%isLoud,'sim/isLoud',.true.)
             call inpXML%Set_Val(Model%isDebug,'sim/isDebug',.true.)
-            call inpXML%Set_Val(Model%isPrecheck,'sim/isPrecheck',.false.)
+            call inpXML%Set_Val(Model%isTopomorph,'sim/isTopomorph',.false.)
+            call inpXML%Set_Val(Model%Tstart_transient,'time/Tstart_transient',0.0)
 
+            Model%Tstart_transient = Model%Tstart_transient*3600. ! change from [hr] to [s]
             ! From precheck
-            if (Model%isPrecheck) then
+            if (Model%isTopomorph) then
                 Model%k = tan(0.5*Model%legsang*mdtor)
                 Model%apar = Model%frontheight*(1 - 0.5*Model%k*(Model%topmorph - 2))/(0.5*Model%k*Model%topmorph)
                 Model%r0 = 2*Model%frontheight/Model%topmorph
@@ -168,6 +171,7 @@ module glinit
                 write(*,"(1X,A14,2X,F)") "velmult: ", Model%velmult
                 write(*,"(1X,A14,2X,F)") "s_eta: ", Model%s_eta 
                 write(*,"(1X,A14,2X,F)") "phiss: ", Model%phiss 
+                write(*,"(1X,A14,2X,F)") "Tstart_transient: ", Model%Tstart_transient 
             end if
 
             ! TODO: Implement solution for acceleration
@@ -192,14 +196,27 @@ module glinit
 
         !>  Allocate and Initialize Solution and State
         !>
-        subroutine initSolutionState(Model, State, Solution)
+        subroutine initSolutionState(Model, State, Solution, bounds)
             type(glModel_T), intent(inout) :: Model
             type(glSolution_T), intent(inout) :: Solution
             type(glState_T), intent(inout) :: State
-            
-            State%Ni = State%Nip + 1
-            State%Nj = State%Njp + 1
-            State%Nk = State%Nkp + 1
+            integer, optional, dimension(6), intent(in) :: bounds
+
+            if(present(bounds)) then
+                State%is = bounds(1)
+                State%ie = bounds(2)
+                State%js = bounds(3)
+                State%je = bounds(4)
+                State%ks = bounds(5)
+                State%ke = bounds(6)
+            else
+                State%is = 1
+                State%ie = State%Nip + 1
+                State%js = 1
+                State%je = State%Njp + 1
+                State%ks = 1
+                State%ke = State%Nkp + 1
+            end if
             
             call allocState(State)
             call allocSolution(State, Solution)
@@ -240,15 +257,15 @@ module glinit
 
             ! Create r(Ni), theta(Nj,Nk), phipb(Nj,Nk) arrays
               
-            do k=1, State%Nk
-                do j=1, State%Nj       
+            do k=State%is, State%ie
+                do j=State%js, State%je    
                     ! Phi
                     x3 = rtpBds(5)+(k-1)*dphi
                     State%phpb(j,k) = x3*2.*pi + Model%cmer       
                     ! Theta
                     x2 = rtpBds(3)+(j-1)*dth
                     State%thpb(j,k) = x2*pi                        
-                    do i=1, State%Ni
+                    do i=State%ks, State%ke    
                         ! Rho
                         x1 = rtpBds(1) + (i-1)*dr                      
                         State%r(i) = x1
@@ -301,18 +318,17 @@ module glinit
         !>
         !>
         !>
-        subroutine initGLInterface(Model, State, Solution, inpXML)
+        subroutine initGLInterface(Model, State, Solution, inpXML, bounds)
             class(glModel_T), intent(inout) :: Model
             class(glState_T), intent(inout) :: State
             class(glSolution_T), intent(inout) :: Solution
             type(XML_Input_T), intent(in) :: inpXML
+            integer, dimension(6), intent(in) :: bounds
 
-            call inpXML%Set_Val(State%Nip,"idir/N",Nc)
-            call inpXML%Set_Val(State%Njp,"jdir/N",Nc)
-            call inpXML%Set_Val(State%Nkp,"kdir/N",Nc)
-            
+            generateCMESolution => generateGLSolution
+
             call initModel(Model, inpXML)
-            call initSolutionState(Model, State, Solution)
+            call initSolutionState(Model, State, Solution, bounds)
         end subroutine
         
         !> Expectation is that this interface is to be used by Gamera etc. 
@@ -329,16 +345,12 @@ module glinit
             real(rp), dimension(:,:,:,:), intent(in) :: xyz
             real(rp), dimension(:), allocatable :: r
             real(rp), dimension(:,:), allocatable :: theta, phi
-            integer, dimension(2) :: adims
-            integer :: rdim, i
+            integer :: i
 
-            rdim = size(xyz(:,1,1,1))
-            adims = shape(xyz(1,:,:,ZDIR))
-
-            allocate(r(rdim))
-            allocate(theta(adims(1), adims(2)))
-            allocate(phi(adims(1), adims(2)))
-            do i=1, rdim
+            allocate(r(State%is:State%ie))
+            allocate(theta(State%js, State%je))
+            allocate(phi(State%ks, State%ke))
+            do i=State%is, State%ie
                 r(i) = norm2(xyz(i,1,1,:))
             end do
             theta = acos(xyz(1,:,:,ZDIR)/norm2(xyz(1,1,1,:)))
@@ -358,15 +370,15 @@ module glinit
             type(glState_T), intent(inout)  :: State
             real(rp), dimension(:), intent(in) :: r
             real(rp), dimension(:,:), intent(in) :: theta, phi
-            integer :: rdim
-            integer, dimension(2) :: adims
+            ! integer :: rdim
+            ! integer, dimension(2) :: adims
 
-            rdim = size(r)
-            adims = shape(theta)
+            ! rdim = size(r)
+            ! adims = shape(theta)
 
-            State%Ni = rdim
-            State%Nj = adims(1)
-            State%Nk = adims(2)
+            ! State%Ni = rdim
+            ! State%Nj = adims(1)
+            ! State%Nk = adims(2)
             State%r = r
             State%thpb = theta + Model%latitude
             State%phpb = phi - Model%longitude

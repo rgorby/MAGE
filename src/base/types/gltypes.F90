@@ -92,11 +92,10 @@ module gltypes
         real(rp) :: ma1
         character(len=strLen)  :: CoordName
         !> Whether precheck logic should run to calculate parameters
-        logical :: isPrecheck = .false.
+        logical :: isTopomorph = .false.
         !Unit information
         type (glUnits_T) :: Units
         type (glOut_T)   :: glOut
-        !Unit information
     end type glModel_T
 
     !> State information
@@ -104,7 +103,7 @@ module gltypes
         ! Used for standalone Gibson-Low Model run
         ! to define user specified 3D grid dimensions to supply r,theta,phi to 
         ! construct state and to define size of solution ranks
-        integer :: Ni,Nj,Nk,Nip,Njp,Nkp
+        integer :: Nip,Njp,Nkp,is,js,ks,ie,je,ke
         real(rp) :: latitude = 0.
         real(rp) :: longitude = 0.
 
@@ -149,5 +148,18 @@ module gltypes
         ! solution bubble r(i) < rbub = Model%frontheight - Model%xo + Model%apar
         integer :: CoordSystem
     end type glSolution_T
+
+    contains
+        !>
+        !>
+        subroutine updateGLTime(Model, time, gT0)
+            type(glModel_T) :: Model       
+            real(rp), intent(in) :: time, gT0
+            Model%time = (time - Model%Tstart_transient)*gT0
+            if (Model%isLoud .and. (Model%isDebug)) then
+                write(*,"(1X,A14,2X,F)") "Sim time: ", Model%time 
+                write(*,"(1X,A14,2X,F)") "Updated time: ", Model%time 
+            end if
+        end subroutine updateGLTime
 
 end module gltypes

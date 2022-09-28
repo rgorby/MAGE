@@ -95,21 +95,22 @@ module glutils
         !>  =[4, 3, 2, 1, 0]*rbub/2
         !>
         !>  convention: emergence_time=0 means a collapsed critical point
-        function calcEmergenceTimes(Model, State) result(etimes)
+        !> etimes is returned in seconds, offset by Tstart_transient
+        function calcEmergenceTimes(Model, State, gT0) result(etimes)
             type(glModel_T), intent(in) :: Model
             type(glState_T), intent(in) :: State
-
+            real(rp), intent(in) :: gT0
             real(rp), dimension(5) :: etimes,  tmp1, tmp2 ! to calculate emergence times
             integer :: i
 
-            tmp1 = [4, 3, 2, 1, 0]*Model%r0/2 ! distance to travel
-            tmp2 = sqrt(eta0)*Model%velmult*(Model%frontheight + tmp1)*3600 ! velocity in [solar radii]/hr
+            tmp1 = [4, 3, 2, 1, 0]*Model%r0/2 ! distance to travel in [solar radii]
+            tmp2 = sqrt(eta0)*Model%velmult*(Model%frontheight + tmp1)*3600 ! velocity in [solar radii]/s
     
             do i = 1, 5
                 if (tmp1(i) .ge. Model%frontheight) then ! collapsed, r le 0, or tmp1(i) ge frontheight
-                    etimes(i) = 0
+                    etimes(i) = 0.
                 else
-                    etimes(i) = tmp1(i)/tmp2(i)
+                    etimes(i) = (tmp1(i)/tmp2(i)*3600. +  Model%Tstart_transient)/gT0
                 end if
             end do
 
@@ -129,9 +130,9 @@ module glutils
             call allocSolution(State, SolutionCartesian)
 
             if (SolutionSphere%CoordSystem .eq. SPHERICAL) then
-                do i = 1, State%Ni
-                    do j = 1, State%Nj
-                        do k = 1, State%Nk                        
+                do i = State%is, State%ie
+                    do j = State%js, State%je
+                        do k = State%ks, State%ke                  
                             SolutionCartesian%b(i,j,k,:) = rtp2xyz(xyz(i,j,k,:), SolutionSphere%b(i,j,k,:))
                             SolutionCartesian%v(i,j,k,:) = rtp2xyz(xyz(i,j,k,:), SolutionSphere%v(i,j,k,:))
                             SolutionCartesian%j(i,j,k,:) = rtp2xyz(xyz(i,j,k,:), SolutionSphere%j(i,j,k,:))
@@ -154,13 +155,13 @@ module glutils
             type(glState_T), intent(in) :: State
             type(glSolution_T), intent(inout) :: Solution
 
-            if (.not. allocated(Solution%dens)) allocate(Solution%dens(State%Ni, State%Nj, State%Nk))
-            if (.not. allocated(Solution%pres)) allocate(Solution%pres(State%Ni,State%Nj, State%Nk))
-            if (.not. allocated(Solution%temp)) allocate(Solution%temp(State%Ni, State%Nj, State%Nk))
-            if (.not. allocated(Solution%b)) allocate(Solution%b(State%Ni, State%Nj, State%Nk, NDIM))
-            if (.not. allocated(Solution%v)) allocate(Solution%v(State%Ni, State%Nj, State%Nk, NDIM))
-            if (.not. allocated(Solution%j)) allocate(Solution%j(State%Ni, State%Nj, State%Nk, NDIM))
-            if (.not. allocated(Solution%inside_mask)) allocate(Solution%inside_mask(State%Ni, State%Nj, State%Nk)) 
+            if (.not. allocated(Solution%dens)) allocate(Solution%dens(State%is:State%ie, State%js:State%je, State%ks:State%ke))
+            if (.not. allocated(Solution%pres)) allocate(Solution%pres(State%is:State%ie, State%js:State%je, State%ks:State%ke))
+            if (.not. allocated(Solution%temp)) allocate(Solution%temp(State%is:State%ie, State%js:State%je, State%ks:State%ke))
+            if (.not. allocated(Solution%b)) allocate(Solution%b(State%is:State%ie, State%js:State%je, State%ks:State%ke, NDIM))
+            if (.not. allocated(Solution%v)) allocate(Solution%v(State%is:State%ie, State%js:State%je, State%ks:State%ke, NDIM))
+            if (.not. allocated(Solution%j)) allocate(Solution%j(State%is:State%ie, State%js:State%je, State%ks:State%ke, NDIM))
+            if (.not. allocated(Solution%inside_mask)) allocate(Solution%inside_mask(State%is:State%ie, State%js:State%je, State%ks:State%ke)) 
 
             Solution%dens = 0.
             Solution%pres = 0.
@@ -176,61 +177,61 @@ module glutils
         subroutine allocState(State)
             type(glState_T),  intent(inout) :: State
 
-            if (.not. allocated(State%xyz)) allocate (State%xyz(State%Ni,State%Nj,State%Nk,NDIM))
-            if (.not. allocated(State%r)) allocate (State%r(State%Ni))
-            if (.not. allocated(State%rpb)) allocate (State%rpb(State%Nj, State%Nk))
-            if (.not. allocated(State%thpb)) allocate (State%thpb(State%Nj, State%Nk))
-            if (.not. allocated(State%phpb)) allocate (State%phpb(State%Nj, State%Nk))
-            if (.not. allocated(State%rout)) allocate (State%rout(State%Nj, State%Nk))
-            if (.not. allocated(State%thout)) allocate (State%thout(State%Nj, State%Nk))
-            if (.not. allocated(State%phout)) allocate (State%phout(State%Nj, State%Nk))
-            if (.not. allocated(State%rcap)) allocate (State%rcap(State%Nj, State%Nk))
-            if (.not. allocated(State%thcap)) allocate (State%thcap(State%Nj, State%Nk))
-            if (.not. allocated(State%phcap)) allocate (State%phcap(State%Nj, State%Nk))
-            if (.not. allocated(State%rsquig)) allocate (State%rsquig(State%Nj, State%Nk))
-            if (.not. allocated(State%rlam)) allocate (State%rlam(State%Nj, State%Nk))
-            if (.not. allocated(State%xtr)) allocate (State%xtr(State%Nj, State%Nk))
-            if (.not. allocated(State%ytr)) allocate (State%ytr(State%Nj, State%Nk))
-            if (.not. allocated(State%ztr)) allocate (State%ztr(State%Nj, State%Nk))
-            if (.not. allocated(State%F)) allocate (State%F(State%Nj, State%Nk))
-            if (.not. allocated(State%xtilde)) allocate (State%xtilde(State%Nj, State%Nk))
-            if (.not. allocated(State%ytilde)) allocate (State%ytilde(State%Nj, State%Nk))
-            if (.not. allocated(State%ztilde)) allocate (State%ztilde(State%Nj, State%Nk))
-            if (.not. allocated(State%rtilde)) allocate (State%rtilde(State%Nj, State%Nk))
-            if (.not. allocated(State%glpi)) allocate (State%glpi(State%Nj, State%Nk))
-            if (.not. allocated(State%bpresin)) allocate (State%bpresin(State%Nj, State%Nk))
-            if (.not. allocated(State%presin)) allocate (State%presin(State%Nj, State%Nk))
-            if (.not. allocated(State%presin_0)) allocate (State%presin_0(State%Nj, State%Nk))
-            if (.not. allocated(State%pbackin)) allocate (State%pbackin(State%Nj, State%Nk))
-            if (.not. allocated(State%dbackin)) allocate (State%dbackin(State%Nj, State%Nk))
-            if (.not. allocated(State%densin)) allocate (State%densin(State%Nj, State%Nk))
-            if (.not. allocated(State%densback)) allocate (State%densback(State%Nj, State%Nk))
-            if (.not. allocated(State%DensbackHEonly)) allocate (State%DensbackHEonly(State%Nj, State%Nk))
-            if (.not. allocated(State%ptot)) allocate (State%ptot(State%Nj, State%Nk))
-            if (.not. allocated(State%presback)) allocate (State%presback(State%Nj, State%Nk))
-            if (.not. allocated(State%bmag)) allocate (State%bmag(State%Nj, State%Nk))
-            if (.not. allocated(State%streamout)) allocate (State%streamout(State%Nj, State%Nk))
-            if (.not. allocated(State%densout)) allocate (State%densout(State%Nj, State%Nk))
-            if (.not. allocated(State%presout)) allocate (State%presout(State%Nj, State%Nk))
-            if (.not. allocated(State%brlambout)) allocate (State%brlambout(State%Nj, State%Nk))
-            if (.not. allocated(State%bthlambout)) allocate (State%bthlambout(State%Nj, State%Nk))
-            if (.not. allocated(State%bphlambout)) allocate (State%bphlambout(State%Nj, State%Nk))
-            if (.not. allocated(State%tderivout)) allocate (State%tderivout(State%Nj, State%Nk))
-            if (.not. allocated(State%tderivR)) allocate (State%tderivR(State%Nj, State%Nk))
-            if (.not. allocated(State%tderivmu)) allocate (State%tderivmu(State%Nj, State%Nk))
-            if (.not. allocated(State%tderiv)) allocate (State%tderiv(State%Nj, State%Nk))
-            if (.not. allocated(State%jrlambout)) allocate (State%jrlambout(State%Nj, State%Nk))
-            if (.not. allocated(State%jthlambout)) allocate (State%jthlambout(State%Nj, State%Nk))
-            if (.not. allocated(State%jphlambout)) allocate (State%jphlambout(State%Nj, State%Nk))
-            if (.not. allocated(State%cavinside)) allocate (State%cavinside(State%Nj, State%Nk))
-            if (.not. allocated(State%blittlerlamb)) allocate (State%blittlerlamb(State%Nj, State%Nk))
-            if (.not. allocated(State%blittlethlamb)) allocate (State%blittlethlamb(State%Nj, State%Nk))
-            if (.not. allocated(State%blittlephlamb)) allocate (State%blittlephlamb(State%Nj, State%Nk))
-            if (.not. allocated(State%jlittlerlamb)) allocate (State%jlittlerlamb(State%Nj, State%Nk))
-            if (.not. allocated(State%jlittlethlamb)) allocate (State%jlittlethlamb(State%Nj, State%Nk))
-            if (.not. allocated(State%jlittlephlamb)) allocate (State%jlittlephlamb(State%Nj, State%Nk))
-            if (.not. allocated(State%stream)) allocate (State%stream(State%Nj, State%Nk))
-            if (.not. allocated(State%bstrengthphys)) allocate (State%bstrengthphys(State%Nj, State%Nk))
+            if (.not. allocated(State%xyz)) allocate (State%xyz(State%is:State%ie,State%js:State%je,State%ks:State%ke,NDIM))
+            if (.not. allocated(State%r)) allocate (State%r(State%is:State%ie))
+            if (.not. allocated(State%rpb)) allocate (State%rpb(State%js:State%je, State%ks:State%ke))
+            if (.not. allocated(State%thpb)) allocate (State%thpb(State%js:State%je, State%ks:State%ke))
+            if (.not. allocated(State%phpb)) allocate (State%phpb(State%js:State%je, State%ks:State%ke))
+            if (.not. allocated(State%rout)) allocate (State%rout(State%js:State%je, State%ks:State%ke))
+            if (.not. allocated(State%thout)) allocate (State%thout(State%js:State%je, State%ks:State%ke))
+            if (.not. allocated(State%phout)) allocate (State%phout(State%js:State%je, State%ks:State%ke))
+            if (.not. allocated(State%rcap)) allocate (State%rcap(State%js:State%je, State%ks:State%ke))
+            if (.not. allocated(State%thcap)) allocate (State%thcap(State%js:State%je, State%ks:State%ke))
+            if (.not. allocated(State%phcap)) allocate (State%phcap(State%js:State%je, State%ks:State%ke))
+            if (.not. allocated(State%rsquig)) allocate (State%rsquig(State%js:State%je, State%ks:State%ke))
+            if (.not. allocated(State%rlam)) allocate (State%rlam(State%js:State%je, State%ks:State%ke))
+            if (.not. allocated(State%xtr)) allocate (State%xtr(State%js:State%je, State%ks:State%ke))
+            if (.not. allocated(State%ytr)) allocate (State%ytr(State%js:State%je, State%ks:State%ke))
+            if (.not. allocated(State%ztr)) allocate (State%ztr(State%js:State%je, State%ks:State%ke))
+            if (.not. allocated(State%F)) allocate (State%F(State%js:State%je, State%ks:State%ke))
+            if (.not. allocated(State%xtilde)) allocate (State%xtilde(State%js:State%je, State%ks:State%ke))
+            if (.not. allocated(State%ytilde)) allocate (State%ytilde(State%js:State%je, State%ks:State%ke))
+            if (.not. allocated(State%ztilde)) allocate (State%ztilde(State%js:State%je, State%ks:State%ke))
+            if (.not. allocated(State%rtilde)) allocate (State%rtilde(State%js:State%je, State%ks:State%ke))
+            if (.not. allocated(State%glpi)) allocate (State%glpi(State%js:State%je, State%ks:State%ke))
+            if (.not. allocated(State%bpresin)) allocate (State%bpresin(State%js:State%je, State%ks:State%ke))
+            if (.not. allocated(State%presin)) allocate (State%presin(State%js:State%je, State%ks:State%ke))
+            if (.not. allocated(State%presin_0)) allocate (State%presin_0(State%js:State%je, State%ks:State%ke))
+            if (.not. allocated(State%pbackin)) allocate (State%pbackin(State%js:State%je, State%ks:State%ke))
+            if (.not. allocated(State%dbackin)) allocate (State%dbackin(State%js:State%je, State%ks:State%ke))
+            if (.not. allocated(State%densin)) allocate (State%densin(State%js:State%je, State%ks:State%ke))
+            if (.not. allocated(State%densback)) allocate (State%densback(State%js:State%je, State%ks:State%ke))
+            if (.not. allocated(State%DensbackHEonly)) allocate (State%DensbackHEonly(State%js:State%je, State%ks:State%ke))
+            if (.not. allocated(State%ptot)) allocate (State%ptot(State%js:State%je, State%ks:State%ke))
+            if (.not. allocated(State%presback)) allocate (State%presback(State%js:State%je, State%ks:State%ke))
+            if (.not. allocated(State%bmag)) allocate (State%bmag(State%js:State%je, State%ks:State%ke))
+            if (.not. allocated(State%streamout)) allocate (State%streamout(State%js:State%je, State%ks:State%ke))
+            if (.not. allocated(State%densout)) allocate (State%densout(State%js:State%je, State%ks:State%ke))
+            if (.not. allocated(State%presout)) allocate (State%presout(State%js:State%je, State%ks:State%ke))
+            if (.not. allocated(State%brlambout)) allocate (State%brlambout(State%js:State%je, State%ks:State%ke))
+            if (.not. allocated(State%bthlambout)) allocate (State%bthlambout(State%js:State%je, State%ks:State%ke))
+            if (.not. allocated(State%bphlambout)) allocate (State%bphlambout(State%js:State%je, State%ks:State%ke))
+            if (.not. allocated(State%tderivout)) allocate (State%tderivout(State%js:State%je, State%ks:State%ke))
+            if (.not. allocated(State%tderivR)) allocate (State%tderivR(State%js:State%je, State%ks:State%ke))
+            if (.not. allocated(State%tderivmu)) allocate (State%tderivmu(State%js:State%je, State%ks:State%ke))
+            if (.not. allocated(State%tderiv)) allocate (State%tderiv(State%js:State%je, State%ks:State%ke))
+            if (.not. allocated(State%jrlambout)) allocate (State%jrlambout(State%js:State%je, State%ks:State%ke))
+            if (.not. allocated(State%jthlambout)) allocate (State%jthlambout(State%js:State%je, State%ks:State%ke))
+            if (.not. allocated(State%jphlambout)) allocate (State%jphlambout(State%js:State%je, State%ks:State%ke))
+            if (.not. allocated(State%cavinside)) allocate (State%cavinside(State%js:State%je, State%ks:State%ke))
+            if (.not. allocated(State%blittlerlamb)) allocate (State%blittlerlamb(State%js:State%je, State%ks:State%ke))
+            if (.not. allocated(State%blittlethlamb)) allocate (State%blittlethlamb(State%js:State%je, State%ks:State%ke))
+            if (.not. allocated(State%blittlephlamb)) allocate (State%blittlephlamb(State%js:State%je, State%ks:State%ke))
+            if (.not. allocated(State%jlittlerlamb)) allocate (State%jlittlerlamb(State%js:State%je, State%ks:State%ke))
+            if (.not. allocated(State%jlittlethlamb)) allocate (State%jlittlethlamb(State%js:State%je, State%ks:State%ke))
+            if (.not. allocated(State%jlittlephlamb)) allocate (State%jlittlephlamb(State%js:State%je, State%ks:State%ke))
+            if (.not. allocated(State%stream)) allocate (State%stream(State%js:State%je, State%ks:State%ke))
+            if (.not. allocated(State%bstrengthphys)) allocate (State%bstrengthphys(State%js:State%je, State%ks:State%ke))
 
             State%xyz = 0.
             State%r = 0.            

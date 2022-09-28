@@ -18,6 +18,7 @@ module cmetypes
         real(rp) :: time
         !> Output info
         type (IOClock_T) :: IO
+        procedure(), pointer, nopass :: updateModelTime
     end type
 
     type, abstract :: baseCMEState_t

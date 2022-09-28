@@ -42,11 +42,11 @@ module giblowapp
 
         !Create XML reader
         write(*,*) 'Reading input deck from ', trim(inpXML)
-        xmlInp = New_XML_Input(trim(inpXML),'Kaiju/GL',.true.)
+        xmlInp = New_XML_Input(trim(inpXML),'Kaiju/CME',.true.)
 
            ! try to verify that the XML file has "Kaiju" as a root element
         kaijuRoot = ""
-        call xmlInp%Get_Key_Val("/GL/sim/H5Grid",kaijuRoot,.false.)
+        call xmlInp%Get_Key_Val("/CME/sim/model",kaijuRoot,.false.)
         if(len(trim(kaijuRoot)) /= 0) then
             write(*,*) "The input XML appears to be of an old style."
             write(*,*) "As of June 12th, 2021 it needs a root element of <Kaiju>."

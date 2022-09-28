@@ -116,7 +116,8 @@ module gamtypes
 
         ! CME Models
         logical :: doCME = .false.
-        character(strLen) :: cmeType
+        logical :: rotateCME = .true.
+        character(strLen) :: cmeModel
         
         !Timestep stuff
         real(rp) :: limDT0 = 1.0e-3  !Ratio of dt0 to die

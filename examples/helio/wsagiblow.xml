@@ -1,20 +1,20 @@
 <?xml version="1.0"?>
-<!-- Helio CME Template -->
 <Kaiju>
 <Gamera>
-    <sim runid="wsa" doH5g="T" H5Grid="heliogrid.h5" icType="user"/>
-    <time tFin="200."/>
-    <output dtOut="10" tsOut="50.0" timer="F"/>
+    <sim runid="wsa" doH5g="T" H5Grid="heliogrid.h5" icType="user" pdmb="1.0" rmeth="7UP"/>
+    <time tFin="48"/>
+    <spinup doSpin="T" tSpin="200." tIO="0.0"/>
+    <output dtOut="0.5" tsOut="100" timer="F"/>
     <physics doMHD="T" gamma="1.5"/>
-    <prob Tsolar = "25.38"/>
-    <restart resFile = "wsa.Res.00008.h5" dtRes="1000." doRes="F"/>
-    <iPdir N="4" bcPeriodic="F"/>
+    <prob Tsolar = "25.38" doCME="T" rotateCME="F"/>
+    <restart resId = "wsa" nRes = "00008" dtRes="100." doRes="F"/>
+    <iPdir N="2" bcPeriodic="F"/>
     <jPdir N="2" bcPeriodic="F"/>
-    <kPdir N="4" bcPeriodic="T"/>
+    <kPdir N="2" bcPeriodic="T"/>
 </Gamera>
 <CME>
-    <sim isLoud="F" isDebug="F" isPrecheck="F" isStandalone="F" model="GL"/>
-    <time Tstart_transient="201.0" />
-    <prob Den_CME = "1000.0" T_CME = "500000.0" lat="0.5236" lon="4.7124" alpha="0.0" frontheight="21.5" legsang="30.0" topmorph="2.5" Bmax="0.001" vel_fh="900.0"/>
+    <sim runid="giblow" isLoud="F" isDebug="F" isTopomorph="T" isStandalone="F" model="GL"/>
+    <time Tstart_transient="0.0" />
+    <prob Den_CME = "800.0" T_CME = "500000.0" lat="0.0" lon="0.0" alpha="0.0" frontheight="21.5" legsang="30.0" topmorph="2.5" vel_fh="800.0"/>
 </CME>
 </Kaiju>

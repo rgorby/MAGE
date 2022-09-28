@@ -33,40 +33,37 @@ module glsolution
             real(rp), dimension(:, :), allocatable :: dTdmu, dTdR, dRdmu, dPidmu, dmudlam
             real(rp), dimension(:, :), allocatable :: dthetadmu, dPidR, dRdlam, d2SdTdR
 
-            integer :: dim1, dim2
             real(rp) :: cs, ss 
 
-            dim1 = State%Nj
-            dim2 = State%Nk
-            allocate (st(dim1, dim2))
-            allocate (ct(dim1, dim2))
-            allocate (mu(dim1, dim2))
-            allocate (sph(dim1, dim2))
-            allocate (cph(dim1, dim2))
-            allocate (sTbig(dim1, dim2))
-            allocate (cTbig(dim1, dim2))
-            allocate (sPbig(dim1, dim2))
-            allocate (cPbig(dim1, dim2))
-            allocate (gfunot(dim1, dim2))
-            allocate (gfun(dim1, dim2))
-            allocate (dSdT(dim1, dim2))
-            allocate (dgfundr(dim1, dim2))
-            allocate (dSdR(dim1, dim2))
-            allocate (dbPdt(dim1, dim2))
-            allocate (dbPdR(dim1, dim2))
-            allocate (d2gfundr2(dim1, dim2))
-            allocate (d2SdT2(dim1, dim2))
-            allocate (dbTdR(dim1, dim2))
-            allocate (dbRdT(dim1, dim2))
-            allocate (dTdmu(dim1, dim2))
-            allocate (dTdR(dim1, dim2))
-            allocate (dRdmu(dim1, dim2))
-            allocate (dPidmu(dim1, dim2))
-            allocate (dthetadmu(dim1, dim2))
-            allocate (dPidR(dim1, dim2))
-            allocate (dRdlam(dim1, dim2))
-            allocate (dmudlam(dim1, dim2))
-            allocate (d2SdTdR(dim1, dim2))
+            allocate (st(State%js:State%je, State%ks:State%ke))
+            allocate (ct(State%js:State%je, State%ks:State%ke))
+            allocate (mu(State%js:State%je, State%ks:State%ke))
+            allocate (sph(State%js:State%je, State%ks:State%ke))
+            allocate (cph(State%js:State%je, State%ks:State%ke))
+            allocate (sTbig(State%js:State%je, State%ks:State%ke))
+            allocate (cTbig(State%js:State%je, State%ks:State%ke))
+            allocate (sPbig(State%js:State%je, State%ks:State%ke))
+            allocate (cPbig(State%js:State%je, State%ks:State%ke))
+            allocate (gfunot(State%js:State%je, State%ks:State%ke))
+            allocate (gfun(State%js:State%je, State%ks:State%ke))
+            allocate (dSdT(State%js:State%je, State%ks:State%ke))
+            allocate (dgfundr(State%js:State%je, State%ks:State%ke))
+            allocate (dSdR(State%js:State%je, State%ks:State%ke))
+            allocate (dbPdt(State%js:State%je, State%ks:State%ke))
+            allocate (dbPdR(State%js:State%je, State%ks:State%ke))
+            allocate (d2gfundr2(State%js:State%je, State%ks:State%ke))
+            allocate (d2SdT2(State%js:State%je, State%ks:State%ke))
+            allocate (dbTdR(State%js:State%je, State%ks:State%ke))
+            allocate (dbRdT(State%js:State%je, State%ks:State%ke))
+            allocate (dTdmu(State%js:State%je, State%ks:State%ke))
+            allocate (dTdR(State%js:State%je, State%ks:State%ke))
+            allocate (dRdmu(State%js:State%je, State%ks:State%ke))
+            allocate (dPidmu(State%js:State%je, State%ks:State%ke))
+            allocate (dthetadmu(State%js:State%je, State%ks:State%ke))
+            allocate (dPidR(State%js:State%je, State%ks:State%ke))
+            allocate (dRdlam(State%js:State%je, State%ks:State%ke))
+            allocate (dmudlam(State%js:State%je, State%ks:State%ke))
+            allocate (d2SdTdR(State%js:State%je, State%ks:State%ke))
             
             ! ;  See eq A19
             ! ; 
@@ -159,12 +156,11 @@ module glsolution
             type(glModel_T), intent(in) :: Model
             type(glState_T), intent(inout) :: State
             type(glSolution_T), intent(inout) :: Solution
-            real(rp), dimension(:, :), allocatable :: d1, d2, d3, d4
-            integer :: dim1, dim2
 
-            dim1 = State%Nj
-            dim2 = State%Nk
-            allocate (d1(dim1, dim2), d2(dim1, dim2), d3(dim1, dim2), d4(dim1, dim2))
+            real(rp), dimension(:,:), allocatable :: d1, d2, d3, d4
+
+            allocate(d1(State%js:State%je, State%ks:State%ke), d2(State%js:State%je, State%ks:State%ke))
+            allocate(d3(State%js:State%je, State%ks:State%ke), d4(State%js:State%je, State%ks:State%ke))
 
             call calcDerivs(Model, State, Solution)
 
@@ -253,7 +249,7 @@ module glsolution
             State%presout = 0.
 
             if (State%inside_count .gt. 0) then
-                if (Model%isDebug) write(*,*) 'calling calcInside'
+                if (Model%isLoud .and. Model%isDebug) write(*,*) 'calling calcInside'
                 call calcInside(Model, State, Solution)
                 where (Solution%inside_mask(State%ri, :, :) .gt. 0.1) State%presback = State%Pbackin*Model%phiss**4.
             end if
@@ -305,7 +301,6 @@ module glsolution
             type(glSolution_T), intent(inout) :: Solution
 
             real(rp) :: r1
-            integer :: dim1, dim2
             real(rp), dimension(:, :), allocatable :: al1, al2, psi0, f, g, h
             real(rp), dimension(:, :), allocatable :: st, mu, sph, cph
             real(rp), dimension(:, :), allocatable :: psi1, i, psi3, dpsi0dr, dpsi0dth
@@ -329,31 +324,29 @@ module glsolution
             real(rp), dimension(:, :), allocatable :: dbrdr
             real(rp), dimension(:, :), allocatable :: yt2
 
-            dim1 = State%Nj
-            dim2 = State%Nk
 
-            allocate (st(dim1, dim2), mu(dim1, dim2), sph(dim1, dim2),  cph(dim1, dim2))
-            allocate (al1(dim1, dim2), al2(dim1, dim2), psi0(dim1, dim2), f(dim1, dim2), g(dim1, dim2), h(dim1, dim2))
-            allocate (psi1(dim1, dim2), i(dim1, dim2), psi3(dim1, dim2), dpsi0dr(dim1, dim2), dpsi0dth(dim1, dim2))
-            allocate (d2psi0dth2(dim1, dim2), dpsi0dr2(dim1, dim2), dpsi0drdth(dim1, dim2), dfdr(dim1, dim2))
-            allocate (dfdmu(dim1, dim2), dfdrdmu(dim1, dim2), dfdr2(dim1, dim2), dgdr(dim1, dim2), dgdmu(dim1, dim2))
-            allocate (dgdrdmu(dim1, dim2), dgdr2(dim1, dim2), dhdr(dim1, dim2), dhdmu(dim1, dim2), d2hdmu2(dim1, dim2))
-            allocate (dhdrdmu(dim1, dim2), dhdr2(dim1, dim2), dpsi1dr(dim1, dim2), dpsi1dr2(dim1, dim2))
-            allocate (dpsi1dmu(dim1, dim2), d2psi1dmu2(dim1, dim2), dpsi1drdmu(dim1, dim2), dpsi1dth(dim1, dim2))
-            allocate (dpsi1drdth(dim1, dim2), d2psi1dth2(dim1, dim2), didr(dim1, dim2), didmu(dim1, dim2))
-            allocate (didrdmu(dim1, dim2), didr2(dim1, dim2), dpsi3dr(dim1, dim2), dpsi3dmu(dim1, dim2))
-            allocate (d2psi3dmu2(dim1, dim2), dpsi3drdmu(dim1, dim2), dpsi3dr2(dim1, dim2), dpsi3dth(dim1, dim2))
-            allocate (dpsi3drdth(dim1, dim2), d2psi3dth2(dim1, dim2), dAdr(dim1, dim2), dAdth(dim1, dim2))
-            allocate (dAdrdth(dim1, dim2), dAdr2(dim1, dim2), dAdth2(dim1, dim2), brlambout1(dim1, dim2))
-            allocate (bthlambout1(dim1, dim2), bphlambout1(dim1, dim2), dbth1dr(dim1, dim2), dbr1dth(dim1, dim2))
-            allocate (jrlambout1(dim1, dim2), jthlambout1(dim1, dim2), jphlambout1(dim1, dim2))
-            allocate (blittleX1(dim1, dim2), blittleY1(dim1, dim2))
-            allocate (blittleZ1(dim1, dim2), jlittleX1(dim1, dim2), jlittleY1(dim1, dim2), jlittleZ1(dim1, dim2))
-            allocate (blittleY2(dim1, dim2), blittleZ(dim1, dim2), jlittleY2(dim1, dim2), jlittleZ(dim1, dim2))
-            allocate (blittleX(dim1, dim2), blittleY(dim1, dim2), jlittleX(dim1, dim2), jlittleY(dim1, dim2))
-            allocate (streal(dim1, dim2), ctreal(dim1, dim2), spreal(dim1, dim2), cpreal(dim1, dim2), dbr1dr(dim1, dim2))
-            allocate (dbrdr(dim1, dim2))
-            allocate (yt2(dim1, dim2))
+            allocate (st(State%js:State%je, State%ks:State%ke), mu(State%js:State%je, State%ks:State%ke), sph(State%js:State%je, State%ks:State%ke),  cph(State%js:State%je, State%ks:State%ke))
+            allocate (al1(State%js:State%je, State%ks:State%ke), al2(State%js:State%je, State%ks:State%ke), psi0(State%js:State%je, State%ks:State%ke), f(State%js:State%je, State%ks:State%ke), g(State%js:State%je, State%ks:State%ke), h(State%js:State%je, State%ks:State%ke))
+            allocate (psi1(State%js:State%je, State%ks:State%ke), i(State%js:State%je, State%ks:State%ke), psi3(State%js:State%je, State%ks:State%ke), dpsi0dr(State%js:State%je, State%ks:State%ke), dpsi0dth(State%js:State%je, State%ks:State%ke))
+            allocate (d2psi0dth2(State%js:State%je, State%ks:State%ke), dpsi0dr2(State%js:State%je, State%ks:State%ke), dpsi0drdth(State%js:State%je, State%ks:State%ke), dfdr(State%js:State%je, State%ks:State%ke))
+            allocate (dfdmu(State%js:State%je, State%ks:State%ke), dfdrdmu(State%js:State%je, State%ks:State%ke), dfdr2(State%js:State%je, State%ks:State%ke), dgdr(State%js:State%je, State%ks:State%ke), dgdmu(State%js:State%je, State%ks:State%ke))
+            allocate (dgdrdmu(State%js:State%je, State%ks:State%ke), dgdr2(State%js:State%je, State%ks:State%ke), dhdr(State%js:State%je, State%ks:State%ke), dhdmu(State%js:State%je, State%ks:State%ke), d2hdmu2(State%js:State%je, State%ks:State%ke))
+            allocate (dhdrdmu(State%js:State%je, State%ks:State%ke), dhdr2(State%js:State%je, State%ks:State%ke), dpsi1dr(State%js:State%je, State%ks:State%ke), dpsi1dr2(State%js:State%je, State%ks:State%ke))
+            allocate (dpsi1dmu(State%js:State%je, State%ks:State%ke), d2psi1dmu2(State%js:State%je, State%ks:State%ke), dpsi1drdmu(State%js:State%je, State%ks:State%ke), dpsi1dth(State%js:State%je, State%ks:State%ke))
+            allocate (dpsi1drdth(State%js:State%je, State%ks:State%ke), d2psi1dth2(State%js:State%je, State%ks:State%ke), didr(State%js:State%je, State%ks:State%ke), didmu(State%js:State%je, State%ks:State%ke))
+            allocate (didrdmu(State%js:State%je, State%ks:State%ke), didr2(State%js:State%je, State%ks:State%ke), dpsi3dr(State%js:State%je, State%ks:State%ke), dpsi3dmu(State%js:State%je, State%ks:State%ke))
+            allocate (d2psi3dmu2(State%js:State%je, State%ks:State%ke), dpsi3drdmu(State%js:State%je, State%ks:State%ke), dpsi3dr2(State%js:State%je, State%ks:State%ke), dpsi3dth(State%js:State%je, State%ks:State%ke))
+            allocate (dpsi3drdth(State%js:State%je, State%ks:State%ke), d2psi3dth2(State%js:State%je, State%ks:State%ke), dAdr(State%js:State%je, State%ks:State%ke), dAdth(State%js:State%je, State%ks:State%ke))
+            allocate (dAdrdth(State%js:State%je, State%ks:State%ke), dAdr2(State%js:State%je, State%ks:State%ke), dAdth2(State%js:State%je, State%ks:State%ke), brlambout1(State%js:State%je, State%ks:State%ke))
+            allocate (bthlambout1(State%js:State%je, State%ks:State%ke), bphlambout1(State%js:State%je, State%ks:State%ke), dbth1dr(State%js:State%je, State%ks:State%ke), dbr1dth(State%js:State%je, State%ks:State%ke))
+            allocate (jrlambout1(State%js:State%je, State%ks:State%ke), jthlambout1(State%js:State%je, State%ks:State%ke), jphlambout1(State%js:State%je, State%ks:State%ke))
+            allocate (blittleX1(State%js:State%je, State%ks:State%ke), blittleY1(State%js:State%je, State%ks:State%ke))
+            allocate (blittleZ1(State%js:State%je, State%ks:State%ke), jlittleX1(State%js:State%je, State%ks:State%ke), jlittleY1(State%js:State%je, State%ks:State%ke), jlittleZ1(State%js:State%je, State%ks:State%ke))
+            allocate (blittleY2(State%js:State%je, State%ks:State%ke), blittleZ(State%js:State%je, State%ks:State%ke), jlittleY2(State%js:State%je, State%ks:State%ke), jlittleZ(State%js:State%je, State%ks:State%ke))
+            allocate (blittleX(State%js:State%je, State%ks:State%ke), blittleY(State%js:State%je, State%ks:State%ke), jlittleX(State%js:State%je, State%ks:State%ke), jlittleY(State%js:State%je, State%ks:State%ke))
+            allocate (streal(State%js:State%je, State%ks:State%ke), ctreal(State%js:State%je, State%ks:State%ke), spreal(State%js:State%je, State%ks:State%ke), cpreal(State%js:State%je, State%ks:State%ke), dbr1dr(State%js:State%je, State%ks:State%ke))
+            allocate (dbrdr(State%js:State%je, State%ks:State%ke))
+            allocate (yt2(State%js:State%je, State%ks:State%ke))
 
             ! ;
             ! ;  Calculate the external (to bubble) field, Appendix B1
@@ -639,20 +632,27 @@ module glsolution
             real(rp), dimension(:, :), allocatable :: jlittley, jlittlez
             real(rp), dimension(:, :), allocatable :: jlittlerlamb, jlittlethlamb, jlittlephlamb
             real(rp) :: dlamdr
-            integer :: dim1, dim2
-
-            dim1 = State%Nj
-            dim2 = State%Nk
-
-            allocate (st(dim1, dim2), ct(dim1, dim2), sph(dim1, dim2), cph(dim1, dim2), gfun(dim1, dim2), gfunot(dim1, dim2))
-            allocate (dSdT(dim1, dim2), dgfundr(dim1, dim2))
-            allocate (dSdR(dim1, dim2), blittleR(dim1, dim2), blittleT(dim1, dim2), Q(dim1, dim2), blittleP(dim1, dim2))
-            allocate (dbPdt(dim1, dim2), dbPdR(dim1, dim2), d2gfundr2(dim1, dim2))
-            allocate (d2SdR2(dim1, dim2), d2SdT2(dim1, dim2), dbTdR(dim1, dim2), dbRdT(dim1, dim2), jlittleR(dim1, dim2))
-            allocate (jlittleT(dim1, dim2), jlittleP(dim1, dim2), blittleX(dim1, dim2), blittleY1(dim1, dim2))
-            allocate (blittleZ1(dim1, dim2), jlittleX(dim1, dim2), jlittleY1(dim1, dim2), jlittleZ1(dim1, dim2))
-            allocate (ctreal(dim1, dim2), streal(dim1, dim2), cpreal(dim1, dim2), spreal(dim1, dim2))
-            allocate (blittley(dim1, dim2), blittlez(dim1, dim2), jlittley(dim1, dim2), jlittlez(dim1, dim2))
+ 
+            allocate (st(State%js:State%je, State%ks:State%ke), ct(State%js:State%je, State%ks:State%ke))
+            allocate (sph(State%js:State%je, State%ks:State%ke), cph(State%js:State%je, State%ks:State%ke))
+            allocate (gfun(State%js:State%je, State%ks:State%ke), gfunot(State%js:State%je, State%ks:State%ke))
+            allocate (dSdT(State%js:State%je, State%ks:State%ke), dgfundr(State%js:State%je, State%ks:State%ke))
+            allocate (dSdR(State%js:State%je, State%ks:State%ke), blittleR(State%js:State%je, State%ks:State%ke))
+            allocate (blittleT(State%js:State%je, State%ks:State%ke), Q(State%js:State%je, State%ks:State%ke))
+            allocate (blittleP(State%js:State%je, State%ks:State%ke))
+            allocate (dbPdt(State%js:State%je, State%ks:State%ke), dbPdR(State%js:State%je, State%ks:State%ke))
+            allocate (d2gfundr2(State%js:State%je, State%ks:State%ke))
+            allocate (d2SdR2(State%js:State%je, State%ks:State%ke), d2SdT2(State%js:State%je, State%ks:State%ke))
+            allocate (dbTdR(State%js:State%je, State%ks:State%ke), dbRdT(State%js:State%je, State%ks:State%ke))
+            allocate (jlittleR(State%js:State%je, State%ks:State%ke))
+            allocate (jlittleT(State%js:State%je, State%ks:State%ke), jlittleP(State%js:State%je, State%ks:State%ke))
+            allocate (blittleX(State%js:State%je, State%ks:State%ke), blittleY1(State%js:State%je, State%ks:State%ke))
+            allocate (blittleZ1(State%js:State%je, State%ks:State%ke), jlittleX(State%js:State%je, State%ks:State%ke))
+            allocate (jlittleY1(State%js:State%je, State%ks:State%ke), jlittleZ1(State%js:State%je, State%ks:State%ke))
+            allocate (ctreal(State%js:State%je, State%ks:State%ke), streal(State%js:State%je, State%ks:State%ke))
+            allocate (cpreal(State%js:State%je, State%ks:State%ke), spreal(State%js:State%je, State%ks:State%ke))
+            allocate (blittley(State%js:State%je, State%ks:State%ke), blittlez(State%js:State%je, State%ks:State%ke))
+            allocate (jlittley(State%js:State%je, State%ks:State%ke), jlittlez(State%js:State%je, State%ks:State%ke))
 
             st = 0.0; ct = 0.0; sph = 0.0; cph = 0.0; gfun = 0.0; gfunot = 0.0
             dSdT = 0.0; dgfundr = 0.0
@@ -863,28 +863,24 @@ module glsolution
             real(rp), dimension(:, :), allocatable :: dldr, lr, ufunc, dufdr
             real(rp), dimension(:, :), allocatable :: dthdr, dstuffdr, dstuffdth, dpdr
             real(rp) :: dlamdr
-            integer :: dim1, dim2
 
-            dim1 = State%Nj
-            dim2 = State%Nk
-
-            allocate (al1(dim1, dim2), st(dim1, dim2), mu(dim1, dim2))
-            allocate (al2(dim1, dim2), psi0(dim1, dim2), f(dim1, dim2), g(dim1, dim2), h(dim1, dim2), psi1(dim1, dim2))
-            allocate (i(dim1, dim2), psi3(dim1, dim2), dpsi0dr(dim1, dim2), dpsi0dth(dim1, dim2), dpsi0dr2(dim1, dim2))
-            allocate (dpsi0drdth(dim1, dim2), dpsi0dth2(dim1, dim2), dfdr(dim1, dim2), dfdmu(dim1, dim2))
-            allocate (dfdrdmu(dim1, dim2), dfdr2(dim1, dim2), dfdmu2(dim1, dim2), dgdr(dim1, dim2), dgdmu(dim1, dim2))
-            allocate (dgdrdmu(dim1, dim2), dgdr2(dim1, dim2), dgdmu2(dim1, dim2), dhdr(dim1, dim2), dhdmu(dim1, dim2))
-            allocate (dhdrdmu(dim1, dim2), dhdr2(dim1, dim2), dhdmu2(dim1, dim2), dpsi1dr(dim1, dim2))
-            allocate (dpsi1dr2(dim1, dim2), dpsi1dmu(dim1, dim2), dpsi1drdmu(dim1, dim2), dpsi1dmu2(dim1, dim2))
-            allocate (dpsi1dth(dim1, dim2), dpsi1drdth(dim1, dim2), dpsi1dth2(dim1, dim2), didr(dim1, dim2))
-            allocate (didmu(dim1, dim2), didrdmu(dim1, dim2), didr2(dim1, dim2), didmu2(dim1, dim2))
-            allocate (dpsi3dr(dim1, dim2), dpsi3dmu(dim1, dim2), dpsi3drdmu(dim1, dim2), dpsi3dr2(dim1, dim2))
-            allocate (dpsi3dmu2(dim1, dim2), dpsi3dth(dim1, dim2), dpsi3drdth(dim1, dim2), dpsi3dth2(dim1, dim2))
-            allocate (dAdr(dim1, dim2), dAdth(dim1, dim2), dAdrdth(dim1, dim2), dAdr2(dim1, dim2), dAdth2(dim1, dim2))
-            allocate (dbrdr(dim1, dim2), dbthdr(dim1, dim2), dbrdth(dim1, dim2), dbthdth(dim1, dim2))
-            allocate (rnolam(dim1, dim2), Bpresin(dim1, dim2))
-            allocate (dldr(dim1, dim2), lr(dim1, dim2), ufunc(dim1, dim2), dufdr(dim1, dim2))
-            allocate (dthdr(dim1, dim2), dstuffdr(dim1, dim2), dstuffdth(dim1, dim2), dpdr(dim1, dim2))
+            allocate (al1(State%js:State%je, State%ks:State%ke), st(State%js:State%je, State%ks:State%ke), mu(State%js:State%je, State%ks:State%ke))
+            allocate (al2(State%js:State%je, State%ks:State%ke), psi0(State%js:State%je, State%ks:State%ke), f(State%js:State%je, State%ks:State%ke), g(State%js:State%je, State%ks:State%ke), h(State%js:State%je, State%ks:State%ke), psi1(State%js:State%je, State%ks:State%ke))
+            allocate (i(State%js:State%je, State%ks:State%ke), psi3(State%js:State%je, State%ks:State%ke), dpsi0dr(State%js:State%je, State%ks:State%ke), dpsi0dth(State%js:State%je, State%ks:State%ke), dpsi0dr2(State%js:State%je, State%ks:State%ke))
+            allocate (dpsi0drdth(State%js:State%je, State%ks:State%ke), dpsi0dth2(State%js:State%je, State%ks:State%ke), dfdr(State%js:State%je, State%ks:State%ke), dfdmu(State%js:State%je, State%ks:State%ke))
+            allocate (dfdrdmu(State%js:State%je, State%ks:State%ke), dfdr2(State%js:State%je, State%ks:State%ke), dfdmu2(State%js:State%je, State%ks:State%ke), dgdr(State%js:State%je, State%ks:State%ke), dgdmu(State%js:State%je, State%ks:State%ke))
+            allocate (dgdrdmu(State%js:State%je, State%ks:State%ke), dgdr2(State%js:State%je, State%ks:State%ke), dgdmu2(State%js:State%je, State%ks:State%ke), dhdr(State%js:State%je, State%ks:State%ke), dhdmu(State%js:State%je, State%ks:State%ke))
+            allocate (dhdrdmu(State%js:State%je, State%ks:State%ke), dhdr2(State%js:State%je, State%ks:State%ke), dhdmu2(State%js:State%je, State%ks:State%ke), dpsi1dr(State%js:State%je, State%ks:State%ke))
+            allocate (dpsi1dr2(State%js:State%je, State%ks:State%ke), dpsi1dmu(State%js:State%je, State%ks:State%ke), dpsi1drdmu(State%js:State%je, State%ks:State%ke), dpsi1dmu2(State%js:State%je, State%ks:State%ke))
+            allocate (dpsi1dth(State%js:State%je, State%ks:State%ke), dpsi1drdth(State%js:State%je, State%ks:State%ke), dpsi1dth2(State%js:State%je, State%ks:State%ke), didr(State%js:State%je, State%ks:State%ke))
+            allocate (didmu(State%js:State%je, State%ks:State%ke), didrdmu(State%js:State%je, State%ks:State%ke), didr2(State%js:State%je, State%ks:State%ke), didmu2(State%js:State%je, State%ks:State%ke))
+            allocate (dpsi3dr(State%js:State%je, State%ks:State%ke), dpsi3dmu(State%js:State%je, State%ks:State%ke), dpsi3drdmu(State%js:State%je, State%ks:State%ke), dpsi3dr2(State%js:State%je, State%ks:State%ke))
+            allocate (dpsi3dmu2(State%js:State%je, State%ks:State%ke), dpsi3dth(State%js:State%je, State%ks:State%ke), dpsi3drdth(State%js:State%je, State%ks:State%ke), dpsi3dth2(State%js:State%je, State%ks:State%ke))
+            allocate (dAdr(State%js:State%je, State%ks:State%ke), dAdth(State%js:State%je, State%ks:State%ke), dAdrdth(State%js:State%je, State%ks:State%ke), dAdr2(State%js:State%je, State%ks:State%ke), dAdth2(State%js:State%je, State%ks:State%ke))
+            allocate (dbrdr(State%js:State%je, State%ks:State%ke), dbthdr(State%js:State%je, State%ks:State%ke), dbrdth(State%js:State%je, State%ks:State%ke), dbthdth(State%js:State%je, State%ks:State%ke))
+            allocate (rnolam(State%js:State%je, State%ks:State%ke), Bpresin(State%js:State%je, State%ks:State%ke))
+            allocate (dldr(State%js:State%je, State%ks:State%ke), lr(State%js:State%je, State%ks:State%ke), ufunc(State%js:State%je, State%ks:State%ke), dufdr(State%js:State%je, State%ks:State%ke))
+            allocate (dthdr(State%js:State%je, State%ks:State%ke), dstuffdr(State%js:State%je, State%ks:State%ke), dstuffdth(State%js:State%je, State%ks:State%ke), dpdr(State%js:State%je, State%ks:State%ke))
 
             al1 = 0.0; st = 0.0; mu = 0.0
             al2 = 0.0; psi0 = 0.0; f = 0.0; g = 0.0; h = 0.0; psi1 = 0.0
@@ -1082,7 +1078,7 @@ module glsolution
             type(glSolution_T), intent(inout) :: Solution
             real(rp), dimension(:, :), allocatable :: dphidt
 
-            allocate(dphidt(State%Nj, State%Nk))
+            allocate(dphidt(State%js:State%je, State%ks:State%ke))
             ! ; also velocity (in km/sec)
             ! ; note this is radial
 
@@ -1182,6 +1178,7 @@ module glsolution
                 call finishSolution(Model, State, Solution)
             end do
 
-            if(Model%isDebug) write(*,*) "GL Solution Complete"
+            if(Model%isLoud .and. Model%isDebug) write(*,*) "GL Solution Complete"
+            if(Model%isLoud .and. Model%isDebug) write(*,*) "inside_count: ", sum(Solution%inside_mask)
         end subroutine generateGLSolution 
 end module
