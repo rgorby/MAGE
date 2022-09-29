@@ -258,34 +258,51 @@ def genCB(AxCB,vN,cbT="Title",cM="viridis",doVert=False,cbSz="medium",Ntk=None):
     return cb
 
 def labelStr(data, key, vecComp):
-    vecLabel=[ 'x', 'y', 'z' ]
-    if (vecComp < 3) and (vecComp > -1):
-        label=(data['GAMERA_'+key].attrs['AXISLABEL']+
-        vecLabel[vecComp]+' ['+
-        data['GAMERA_'+key].attrs['UNITS'].decode()+']')
+    vecLabel = ['x', 'y', 'z']
+    if key == "Velocity":
+        key = "Speed"
+    if vecComp < 3 and vecComp > -1:
+        label = (
+            data['GAMERA_' + key].attrs['AXISLABEL'] +
+            vecLabel[vecComp] + ' [' +
+            data['GAMERA_' + key].attrs['UNITS'].decode() + ']'
+        )
     else:
-        label=(data['GAMERA_'+key].attrs['AXISLABEL']+
-        ' ['+data['GAMERA_'+key].attrs['UNITS'].decode()+']')
+        label = (
+            data['GAMERA_' + key].attrs['AXISLABEL'] +
+            ' [' + data['GAMERA_' + key].attrs['UNITS'].decode() + ']'
+        )
     return label
 
 
 def itemPlot(Ax,data,key,plotNum,numPlots,vecComp=-1):
     #print(key,vecComp)
     if -1 == vecComp:
-        if key == "Br":
-            # Plot a horizontal line at Br=0. This indicates passage of the
-            # heliospheric current sheet.
-            Ax.axhline([0], linestyle="--", color="black")
+        # if key == "Br":
+        #     # Plot a horizontal line at Br=0. This indicates passage of the
+        #     # heliospheric current sheet.
+        #     Ax.axhline([0], linestyle="--", color="black")
         # <HACK>
-        if key == "Density":
-            # Reduce the density vertical scale.
-            Ax.set_ylim(0, 50)  # cm**-3
+        # if key == "Density":
+        #     # Reduce the density vertical scale.
+        #     Ax.set_ylim(0, 50)  # cm**-3
         # </HACK>
-        maskedData = np.ma.masked_where(data['GAMERA_inDom'][:]==0.0,
-            data[key][:])
+        if key == "Velocity":
+            maskedData = np.ma.masked_where(
+                data['GAMERA_inDom'][:]==0.0,
+                data[key].flatten()[0]["VR"][:]
+            )
+            maskedGamera = np.ma.masked_where(
+                data['GAMERA_inDom'][:]==0.0, data['GAMERA_Speed'][:]
+            )
+        else:
+            maskedData = np.ma.masked_where(
+                data['GAMERA_inDom'][:]==0.0, data[key][:]
+            )
+            maskedGamera = np.ma.masked_where(
+                data['GAMERA_inDom'][:]==0.0, data['GAMERA_' + key][:]
+            )
         Ax.plot(data['Epoch_bin'],maskedData)
-        maskedGamera = np.ma.masked_where(data['GAMERA_inDom'][:]==0.0,
-            data['GAMERA_'+key][:])
         Ax.plot(data['Epoch_bin'],maskedGamera)
     else:
         maskedData = np.ma.masked_where(data['GAMERA_inDom'][:]==0.0,
@@ -305,62 +322,6 @@ def itemPlot(Ax,data,key,plotNum,numPlots,vecComp=-1):
     else:
         SetAxLabs(Ax,None,label,doLeft=left)
     return
-
-def helioCompPlot(plotname, scId, data):
-    """Create comparison plots for heliospheric results.
-
-    Create comparison plots for heliospheric results and save the plots to a
-    file.
-
-    Parameters
-    ----------
-    plotname : str
-        Path to file to hold plot image.
-    scId : str
-        ID string for spacecraft.
-    data : spacepy.datamodel.SpaceData
-        The current spacecraft and model data
-
-    Returns
-    -------
-    None
-    """
-    # Determine which data are available to plot.
-    numPlots = 0
-    keysToPlot = []
-    keys = data.keys()
-    if "Speed" in keys:
-        keysToPlot.append("Speed")
-    if "Br" in keys:
-        keysToPlot.append("Br")
-    if "Density" in keys:
-        keysToPlot.append("Density")
-    if "Temperature" in keys:
-        keysToPlot.append("Temperature")
-    numPlots = len(keysToPlot)
-
-    # Create the figure to hold the plots.
-    figsize = (10, 10)
-    fig = plt.figure(figsize=figsize)
-    gs = fig.add_gridspec(numPlots, 1)
-
-    # Plot each variabble in its own subplot.
-    plotNum = 0
-    for key in keysToPlot:
-        if plotNum == 0:
-            ax1 = fig.add_subplot(gs[plotNum, 0])
-            itemPlot(ax1, data, key, plotNum, numPlots)
-            plotNum += 1
-        else:
-            ax = fig.add_subplot(gs[plotNum, 0], sharex=ax1)
-            itemPlot(ax, data, key, plotNum, numPlots)
-            plotNum += 1
-    ax1.legend([scId, "GAMERA"], loc="best")
-    ax1.set_title(plotname)
-    plt.subplots_adjust(hspace=0)
-
-    # Save the figure.
-    savePic(plotname, doClose=True)
 
 
 def compPlot(plotname,scId,data):
@@ -439,6 +400,8 @@ def trajPlot(plotname,scId,data):
     Re = 6380.0
     toRe = 1.0/Re
     figsize = (15,5)
+    # Create the figure in-memory.
+    mpl.use("AGG")
     fig = plt.figure(figsize=figsize)
     gs = fig.add_gridspec(1,3)
     Ax1 = fig.add_subplot(gs[0,0])
@@ -472,3 +435,173 @@ def get_aspect(ax):
 
     return disp_ratio #/ data_ratio
 
+
+# Methods specific for comparing gamhelio output to data from heliospheric
+# spacecraft.
+
+
+def helioItemPlot(Ax,
+                  data,
+                  key:str, plotNum:int, numPlots:int, vecComp:int=-1):
+    """Plot a single variable for the comparison plot.
+
+    Plot a single variable for the comparison plot.
+
+    Parameters
+    ----------
+    Ax: matplotlib.axes._subplots.AxesSubplot
+        Matplotlib axis for plot.
+    data: spacepy.datamodel.SpaceData
+        Object containing the measured spacecraft data.
+    key: str
+        Name of variable to plot.
+    plotNum: int
+        Position of plot in sequence of plots.
+    numPlots: int
+        Number of plots in sequence.
+    vecComp: int, default -1
+        Not used.
+
+    Returns
+    -------
+    None
+    """
+    if key == "Velocity":
+        observed = np.ma.masked_where(
+            data['GAMERA_inDom'][:] == 0.0, data[key].flatten()[0]["VR"][:]
+        )
+        predicted = np.ma.masked_where(
+            data['GAMERA_inDom'][:]==0.0, data['GAMERA_Speed'][:]
+        )
+    else:
+        observed = np.ma.masked_where(
+            data['GAMERA_inDom'][:] == 0.0, data[key][:]
+        )
+        predicted = np.ma.masked_where(
+            data['GAMERA_inDom'][:] == 0.0, data['GAMERA_' + key][:]
+        )
+    Ax.plot(data['Epoch_bin'], observed)
+    Ax.plot(data['Epoch_bin'], predicted)
+    if (plotNum % 2) == 0:
+        left = True
+    else:
+        left = False
+    label = labelStr(data, key, vecComp)
+    if plotNum == numPlots - 1:
+        SetAxLabs(Ax, 'UT', label, doLeft=left)
+        SetAxDate(Ax)
+    else:
+        SetAxLabs(Ax, None, label, doLeft=left)
+    return
+
+
+def helioCompPlot(plotname, scId, data):
+    """Create comparison plots for heliospheric results.
+
+    Create comparison plots for heliospheric results and save the plots to a
+    file.
+
+    Parameters
+    ----------
+    plotname : str
+        Path to file to hold plot image.
+    scId : str
+        ID string for spacecraft.
+    data : spacepy.datamodel.SpaceData
+        The current spacecraft and model data
+
+    Returns
+    -------
+    None
+    """
+    # Determine which data are available to plot.
+    numPlots = 0
+    keysToPlot = []
+    keys = data.keys()
+    if "Speed" in keys:
+        keysToPlot.append("Speed")
+    if "Velocity" in keys:
+        keysToPlot.append("Velocity")
+    if "Br" in keys:
+        keysToPlot.append("Br")
+    if "Density" in keys:
+        keysToPlot.append("Density")
+    if "Temperature" in keys:
+        keysToPlot.append("Temperature")
+    numPlots = len(keysToPlot)
+
+    # Create the figure in memory to hold the plots.
+    mpl.use("AGG")
+    figsize = (10, 10)
+    fig = plt.figure(figsize=figsize)
+    gs = fig.add_gridspec(numPlots, 1)
+
+    # Plot each variabble in its own subplot.
+    plotNum = 0
+    for key in keysToPlot:
+        if plotNum == 0:
+            ax1 = fig.add_subplot(gs[plotNum, 0])
+            helioItemPlot(ax1, data, key, plotNum, numPlots)
+            plotNum += 1
+        else:
+            ax = fig.add_subplot(gs[plotNum, 0], sharex=ax1)
+            helioItemPlot(ax, data, key, plotNum, numPlots)
+            plotNum += 1
+    ax1.legend([scId, "GAMERA"], loc="best")
+    ax1.set_title(plotname)
+    plt.subplots_adjust(hspace=0)
+
+    # Save the figure.
+    savePic(plotname, doClose=True)
+
+
+def helioTrajPlot(plot_name:str, scId:str, data):
+    """Create a set of trajectory plots for a heliospgeric spacecraft.
+
+    Create a set of trajectory plots for a heliospgeric spacecraft.
+
+    Parameters
+    ----------
+    plot_name: str
+        Path to plot file.
+    scId: str
+        Name of spacecraft.
+    data: spacepy.datamodel.SpaceData
+        Object containing spacecraft data.
+
+    Returns
+    -------
+    None
+    """
+    # Set the figure size (inches)
+    figsize = (15, 5)
+
+    # Create the figure in-memory.
+    mpl.use("AGG")
+    fig = plt.figure(figsize=figsize)
+
+    # Create a grid for the sin-plots.
+    gs = fig.add_gridspec(1, 3)
+    ax1 = fig.add_subplot(gs[0, 0])
+    ax2 = fig.add_subplot(gs[0, 1])
+    ax3 = fig.add_subplot(gs[0, 2])
+
+    # Plot the components against each other.
+    ax1.plot(data["heliographicLatitude"][:], data["radialDistance"][:])
+    ax2.plot(data["heliographicLongitude"][:], data["radialDistance"][:])
+    ax3.plot(data["heliographicLongitude"][:], data["heliographicLatitude"][:])
+    ax1.set_title("Latitude (deg) - radius (AU)")
+    ax2.set_title("Longitude (deg) - radius (AU)")
+    ax3.set_title("Longitude (deg) - latitude (deg)")
+
+    # Apply the overall title.
+    title = (
+        scId + " - " +
+        data["Epoch_bin"][0].strftime("%m/%d/%Y - %H:%M:%S") +
+        " to " +
+        data["Epoch_bin"][-1].strftime("%m/%d/%Y - %H:%M:%S")
+    )
+    fig.suptitle(title)
+
+    # Save the figure to a file.
+    savePic(plot_name, doClose=True)
