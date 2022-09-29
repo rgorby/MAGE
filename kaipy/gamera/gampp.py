@@ -235,7 +235,7 @@ class GameraPipe(object):
 
 		NrX = max(self.Nr,1)
 		
-		with alive_bar(NrX,title=titStr) as bar:
+		with alive_bar(NrX,title=titStr.ljust(30),length=30) as bar:
 			for (i,j,k) in itertools.product(range(self.Ri),range(self.Rj),range(self.Rk)):
 
 				iS = i*self.dNi
