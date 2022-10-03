@@ -587,12 +587,32 @@ def helioTrajPlot(plot_name:str, scId:str, data):
     ax3 = fig.add_subplot(gs[0, 2])
 
     # Plot the components against each other.
-    ax1.plot(data["heliographicLatitude"][:], data["radialDistance"][:])
-    ax2.plot(data["heliographicLongitude"][:], data["radialDistance"][:])
-    ax3.plot(data["heliographicLongitude"][:], data["heliographicLatitude"][:])
-    ax1.set_title("Latitude (deg) - radius (AU)")
-    ax2.set_title("Longitude (deg) - radius (AU)")
-    ax3.set_title("Longitude (deg) - latitude (deg)")
+    if scId == "ACE":
+        X = data["Ephemeris"][:, 0]
+        Y = data["Ephemeris"][:, 1]
+        Z = data["Ephemeris"][:, 2]
+        ax1.plot(X, Y)
+        ax1.set_xlabel("GSE X (km)")
+        ax1.set_ylabel("GSE Y (km)")
+        ax2.plot(X, Z)
+        ax2.set_xlabel("GSE X (km)")
+        ax2.set_ylabel("GSE Z (km)")
+        ax3.plot(Y, Z)
+        ax3.set_xlabel("GSE Y (km)")
+        ax3.set_ylabel("GSE Z (km)")
+        fig.subplots_adjust(wspace=0.25)
+    elif scId == "Parker_Solar_Probe":
+        ax1.plot(data["heliographicLongitude"][:], data["radialDistance"][:])
+        ax1.set_xlabel("HGI longitude (deg)")
+        ax1.set_ylabel("HGI radius ($R_{sun})$")
+        ax2.plot(data["heliographicLatitude"][:], data["radialDistance"][:])
+        ax2.set_xlabel("HGI latitude (deg)")
+        ax2.set_ylabel("HGI radius ($R_{sun})$")
+        ax3.plot(data["heliographicLongitude"][:], data["heliographicLatitude"][:])
+        ax3.set_xlabel("HGI longitude (deg)")
+        ax3.set_ylabel("HGI latitude (deg)$")
+    else:
+        raise TypeError
 
     # Apply the overall title.
     title = (
