@@ -4,6 +4,7 @@ import glob
 import numpy as np
 from kaipy.kaiTools import MJD2UT
 import itertools
+import kaipy.kdefs as kdefs
 
 #Object to use to pull data from HDF5 structure (serial or mpi)
 
@@ -194,11 +195,11 @@ class GameraPipe(object):
 		else:
 			titStr = None
 		NrX = max(self.Nr,1)
-		with alive_bar(NrX,title=titStr) as bar:
+		with alive_bar(NrX,title=titStr,length=kdefs.barLen) as bar:
 			for (i,j,k) in itertools.product(range(self.Ri),range(self.Rj),range(self.Rk)):
-				iS = i*self.dNi
-				jS = j*self.dNj
-				kS = k*self.dNk
+				iS = i *self.dNi
+				jS = j *self.dNj
+				kS = k *self.dNk
 				iE = iS+self.dNi
 				jE = jS+self.dNj
 				kE = kS+self.dNk
@@ -235,7 +236,7 @@ class GameraPipe(object):
 
 		NrX = max(self.Nr,1)
 		
-		with alive_bar(NrX,title=titStr.ljust(30),length=30) as bar:
+		with alive_bar(NrX,title=titStr.ljust(kdefs.barLab),length=kdefs.barLen) as bar:
 			for (i,j,k) in itertools.product(range(self.Ri),range(self.Rj),range(self.Rk)):
 
 				iS = i*self.dNi

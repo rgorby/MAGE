@@ -1,6 +1,7 @@
 import h5py
 import numpy as np
 import sys
+import kaipy.kdefs as kdefs
 
 #Generate MPI-style name
 def genName(bStr,i,j,k,Ri,Rj,Rk,nRes=None):
@@ -75,7 +76,7 @@ def cntSteps(fname,doTryRecover=True,s0=0):
 	try:
 		CheckOrDie(fname)
 		with h5py.File(fname,'r') as hf:
-			Steps = [grp for grp in alive_it(hf.keys(),title="#-Steps") if "Step#" in grp]
+			Steps = [grp for grp in alive_it(hf.keys(),title="#-Steps".ljust(kdefs.barLab),length=kdefs.barLen) if "Step#" in grp]
 		sIds = np.array([str.split(s,"#")[-1] for s in Steps],dtype=np.int)
 		sIds.sort()
 		nSteps = len(Steps)
@@ -135,7 +136,7 @@ def getTs(fname,sIds=None,aID="time",aDef=0.0):
 	CheckOrDie(fname)
 	titStr = "Time series: %s"%(aID)
 
-	with h5py.File(fname,'r') as hf, alive_bar(Nt,title=titStr) as bar:
+	with h5py.File(fname,'r') as hf, alive_bar(Nt,title=titStr.ljust(kdefs.barLab),length=kdefs.barLen) as bar:
 		for idx, n in enumerate(sIds):
 			gId = "/Step#%d"%(n)
 			T[idx] = hf[gId].attrs.get(aID,aDef)
