@@ -95,7 +95,7 @@ module glutils
         !>  =[4, 3, 2, 1, 0]*rbub/2
         !>
         !>  convention: emergence_time=0 means a collapsed critical point
-        !> etimes is returned in seconds, offset by Tstart_transient
+        !> etimes is returned in [s], offset by Tstart_transient [s]
         function calcEmergenceTimes(Model, State, gT0) result(etimes)
             type(glModel_T), intent(in) :: Model
             type(glState_T), intent(in) :: State
@@ -104,17 +104,18 @@ module glutils
             integer :: i
 
             tmp1 = [4, 3, 2, 1, 0]*Model%r0/2 ! distance to travel in [solar radii]
-            tmp2 = sqrt(eta0)*Model%velmult*(Model%frontheight + tmp1)*3600 ! velocity in [solar radii]/s
+            tmp2 = sqrt(eta0)*Model%velmult*(Model%frontheight + tmp1) ! velocity in [solar radii]/h
     
             do i = 1, 5
                 if (tmp1(i) .ge. Model%frontheight) then ! collapsed, r le 0, or tmp1(i) ge frontheight
                     etimes(i) = 0.
                 else
-                    etimes(i) = (tmp1(i)/tmp2(i)*3600. +  Model%Tstart_transient)/gT0
+                    etimes(i) = ((tmp1(i)/tmp2(i))*3600. +  Model%Tstart_transient)/gT0
                 end if
             end do
 
             etimes(5) = 0 ! in DOICMEM, frontheight is at 0.1AU always -- in the future for other tasks, we might need to change this
+            if(Model%isLoud) write(*,"(1x,A40,2x,7F)") "Emergence times, lastP, eta0*velmult: ",  etimes, maxval(etimes), sqrt(eta0)*Model%velmult
         end function
 
         !> 
@@ -148,6 +149,51 @@ module glutils
                 if (Model%isLoud) write(*,*) "Solution is not curently in Spherical Coordinates, please check your coodinate system choice"
             end if
         end function solutionSphereToCartesian
+
+        !> Utility function to print model parameters
+        !>
+        !> 
+        subroutine printModelParameters(Model, str)
+            type(glModel_T), intent(in) :: Model
+            character(*), optional, intent(in) :: str
+            if(present(str)) write(*,"(1x,A24,A24)"), "Model Parameters ", str
+            write(*,"(1x,A40)"), "----------------------------------------"
+            write(*,"(1x,A24,2x,1F)") "frontheight: ", Model%frontheight
+            write(*,"(1x,A24,2x,1F)") "legsang: ", Model%legsang
+            write(*,"(1x,A24,2x,1F)") "topmorph: ", Model%topmorph
+            write(*,"(1x,A24,2x,1F)") "latitude: ", Model%latitude
+            write(*,"(1x,A24,2x,1F)") "longitude: ", Model%longitude
+            write(*,"(1x,A24,2x,1F)") "sigma: ", Model%sigma
+            write(*,"(1x,A24,2x,1F)") "cmer: ", Model%cmer
+            write(*,"(1x,A24,2x,1F)") "Bmax: ", Model%Bmax
+            write(*,"(1x,A24,2x,1F)") "cmeV: ", Model%cmeV
+            write(*,"(1x,A24,2x,1F)") "vel_fh: ", Model%vel_fh
+            write(*,"(1x,A24,2x,1F)") "apar: ", Model%apar
+            write(*,"(1x,A24,2x,1F)") "r0: ", Model%r0
+            write(*,"(1x,A24,2x,1F)") "x0: ", Model%x0
+            write(*,"(1x,A24,2x,1F)") "ao: ", Model%ao
+            write(*,"(1x,A24,2x,1F)") "bmagmax: ", Model%bmagmax
+            write(*,"(1x,A24,2x,1F)") "alnot: ", Model%alnot
+            write(*,"(1x,A24,2x,1F)") "alnotrbubuse: ", Model%alnotrbubuse
+            write(*,"(1x,A24,2x,1F)") "alnotrbub: ", Model%alnotrbub
+            write(*,"(1x,A24,2x,1F)") "muse: ", Model%muse
+            write(*,"(1x,A24,2x,1F)") "xo: ", Model%xo
+            write(*,"(1x,A24,2x,1F)") "rbub: ", Model%rbub
+            write(*,"(1x,A24,2x,1F)") "anot: ", Model%anot
+            write(*,"(1x,A24,2x,1F)") "eta: ", Model%eta
+            write(*,"(1x,A24,2x,1F)") "phiss: ", Model%phiss
+            write(*,"(1x,A24,2x,1F)") "aa: ", Model%aa
+            write(*,"(1x,A24,2x,1F)") "bb: ", Model%bb
+            write(*,"(1x,A24,2x,1F)") "cc: ", Model%cc
+            write(*,"(1x,A24,2x,1F)") "dd: ", Model%dd
+            write(*,"(1x,A24,2x,1F)") "ee: ", Model%ee
+            write(*,"(1x,A24,2x,1F)") "ff: ", Model%ff
+            write(*,"(1x,A24,2x,1F)") "velmult: ", Model%velmult
+            write(*,"(1x,A24,2x,1F)") "alpha: ", Model%alpha
+            write(*,"(1x,A24,2x,1F)") "s_eta0: ", Model%s_eta0
+            write(*,"(1x,A24,2x,1F)") "s_eta: ", Model%s_eta
+            write(*,"(1x,A40)"), "----------------------------------------"
+        end subroutine printModelParameters
 
         !> Allocate and Intialize Solution Variables
         !>

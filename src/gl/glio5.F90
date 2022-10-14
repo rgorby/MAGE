@@ -12,7 +12,7 @@ module glio5
     logical, private :: doFat = .false. !Whether to output lots of extra data
 
     !Necessary for IO routines
-    character(len=strLen) ,public:: GLH5File
+    character(len=strLen), public:: GLH5File
 
     contains
 
@@ -93,5 +93,12 @@ module glio5
             call WriteVars(IOVars,.true.,GLH5File,trim(gStr))
 
         end subroutine writeSolution
+
+        !>
+        !>
+        subroutine setH5File(filename)
+            character(len=strLen), intent(in) :: filename
+            GLH5File = filename
+        end subroutine setH5File
 
 end module glio5

@@ -34,6 +34,8 @@ module helioutils
 
     contains
 
+      !> Set heliosphere parameters and units
+      !>
       subroutine setHeliosphere(Model,inpXML,Tsolar)
         type(Model_T), intent(inout) :: Model
         type(XML_Input_T), intent(in) :: inpXML
@@ -59,7 +61,7 @@ module helioutils
 
         ! Use gamma=1.5 for SW calculations (set in xml, but defaults to 1.5 here)
         call inpXML%Set_Val(Model%gamma,"physics/gamma",1.5_rp)
-        call inpXML%Set_Val(Tsolar,"prob/Tsolar",25.38_rp)    ! siderial solar rotation in days
+        call inpXML%Set_Val(Tsolar,"helio/Tsolar",25.38_rp)    ! siderial solar rotation in days
         ! Set Flag for using CME Model
         call inpXML%Set_Val(Model%doCME,"prob/doCME",.false.) 
         call inpXML%Set_Val(Model%rotateCME,"prob/rotateCME",.true.) 
@@ -140,21 +142,24 @@ module helioutils
         call IOSync(clockScl,Model%IO,3600./gT0)
       end subroutine setHeliosphere
 
-      ! Set up grid for CME Model
-      subroutine setCMEStateXYZ(xyz, cmeModel, cmeState)        
-        class(baseCMEModel_T), intent(inout) :: cmeModel
-        class(baseCMEState_t), intent(inout) :: cmeState
-        real(rp), dimension(:,:,:,:), intent(in) :: xyz
+      !> Set up grid for CME Model
+      !> 
+    !   subroutine setCMEStateXYZ(xyz, cmeModel, cmeState)        
+    !     class(baseCMEModel_T), intent(inout) :: cmeModel
+    !     class(baseCMEState_t), intent(inout) :: cmeState
+    !     real(rp), dimension(:,:,:,:), intent(in) :: xyz
 
-        select type (cmeModel)
-            type is (glModel_T)
-                select type (cmeState)
-                    type is(glState_T)
-                        call setGLStateXYZ(xyz, cmeModel, cmeState)
-                end select
-        end select      
-      end subroutine setCMEStateXYZ
-
+    !     select type (cmeModel)
+    !         type is (glModel_T)
+    !             select type (cmeState)
+    !                 type is(glState_T)
+    !                     call setGLStateXYZ(xyz, cmeModel, cmeState)
+    !             end select
+    !     end select      
+    !   end subroutine setCMEStateXYZ
+      
+      !>
+      !>
       subroutine helioTime(T,tStr)
         real(rp), intent(in) :: T
         character(len=strLen), intent(out) :: tStr

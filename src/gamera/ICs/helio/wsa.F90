@@ -108,7 +108,7 @@ module usergamic
         real(rp) :: Tsolar_synodic
 
         real(rp) :: ibcVarsStatic !For br only
-
+        logical :: isSpSymSW
         ! if (.not.allocated(inEijk)) allocate(inEijk(1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1,1:NDIM))
 
         ! set units and other thins, like Tsolar
@@ -116,7 +116,7 @@ module usergamic
 
         ! grab inner 
         call inpXML%Set_Val(wsaFile,"prob/wsaFile","innerbc.h5" )
-
+        call inpXML%Set_Val(isSpSymSW, "prob/isSpSymSW", .false.)
         ! compute global Nkp
         gNkp = Grid%Nkp*Grid%NumRk
 
@@ -163,7 +163,7 @@ module usergamic
             bounds(5) = Grid%ks
             bounds(6) = Grid%ke + 1
             call getIDeckStr(inpXMLStr)
-            inpXMLCME = New_XML_Input(trim(inpXMLStr),'Kaiju/CME',.false.)
+            inpXMLCME = New_XML_Input(trim(inpXMLStr),'Kaiju/CME',.true.)
             call inpXMLCME%Set_Val(Model%cmeModel,"sim/model","GL") 
             select case (Model%cmeModel) 
                 case ("GL")
@@ -182,10 +182,9 @@ module usergamic
                                 type is(glState_T)
                                     select type (cccmeModel)
                                         type is(glModel_T)
-                                            call initGLInterface(cccmeModel, cccmeState, ccCMESolution, inpXMLCME, bounds)
+                                            call initGLInterface(Grid%xyzcc(Grid%isg:Grid%is-1, Grid%js:Grid%je + 1, Grid%ks:Grid%ke + 1, :),cccmeModel, cccmeState, ccCMESolution, inpXMLCME, bounds)
                                             emergence_times = calcEmergenceTimes(cccmeModel,cccmeState, Model%Units%gT0)
                                             emerge_lastP = maxval(emergence_times)
-                                            if(cccmeModel%isDebug) write(*,*) "Emergence times: ",  emergence_times, emerge_lastP
                                     end select
                             end select
                     end select
@@ -195,7 +194,7 @@ module usergamic
                                 type is(glState_T)
                                     select type (jfcmeModel)
                                         type is(glModel_T)
-                                        call initGLInterface(jfcmeModel, jfcmeState, jfCMESolution, inpXMLCME, bounds)
+                                        call initGLInterface(Grid%xfc(Grid%isg:Grid%is-1, Grid%js:Grid%je + 1, Grid%ks:Grid%ke + 1, :, JDIR), jfcmeModel, jfcmeState, jfCMESolution, inpXMLCME, bounds)
                                     end select
                             end select
                     end select
@@ -205,7 +204,7 @@ module usergamic
                                 type is(glState_T)
                                     select type (kfcmeModel)
                                         type is(glModel_T)
-                                        call initGLInterface(kfcmeModel, kfcmeState, kfCMESolution, inpXMLCME, bounds)
+                                        call initGLInterface(Grid%xfc(Grid%isg:Grid%is-1, Grid%js:Grid%je + 1, Grid%ks:Grid%ke + 1, :, KDIR), kfcmeModel, kfcmeState, kfCMESolution, inpXMLCME, bounds)
                                     end select
                             end select
                     end select            
@@ -233,9 +232,13 @@ module usergamic
          !Write MJD_center_of_WSA_map to the root of H5 output 
          Model%HackIO_0 => writeMJDcH5Root
 
-        ! everybody reads WSA data
-        call readIBC(wsaFile)
-
+         if (isSpSymSW) then
+            ! spherically symmetric solar wind
+            call sphereSymSW(Model, Grid, inpXML)
+        else
+            ! everybody reads WSA data
+            call readIBC(wsaFile)
+        end if
         !MJD0 is MJD_center_of_WSA_map - Tsolar_synodic/2; Tsolar_synodic = 27.28
         ![EP] TO DO: add synodic Tsolar to constants
         Tsolar_synodic = 27.28
@@ -374,17 +377,14 @@ module usergamic
               write(*,"(1X,A14,2X,F)") "Sim time: ", Model%t 
               write(*,"(1X,A14,2X,F)") "Updated CME time: ", cccmeModel%time 
           end if
-          call setCMEStateXYZ(Grid%xyzcc(Grid%isg:Grid%is-1, Grid%js:Grid%je + 1, Grid%ks:Grid%ke + 1, :), cccmeModel, cccmeState)
           call generateCMESolution(ccCMESolution, cccmeModel, cccmeState)
           ! J-Faces
           !call jfcmeModel%updateModelTime(Model%t, Model%Units%gT0)
           jfcmeModel%time = (Model%t - jfcmeModel%Tstart_transient/Model%Units%gT0)*Model%Units%gT0
-          call setCMEStateXYZ(Grid%xfc(Grid%isg:Grid%is-1, Grid%js:Grid%je + 1, Grid%ks:Grid%ke + 1, :, JDIR), jfcmeModel, jfcmeState)
           call generateCMESolution(jfCMESolution, jfcmeModel, jfcmeState)
           ! K-Faces
           !call kfcmeModel%updateModelTime(Model%t, Model%Units%gT0)
           kfcmeModel%time = (Model%t - kfcmeModel%Tstart_transient/Model%Units%gT0)*Model%Units%gT0
-          call setCMEStateXYZ(Grid%xfc(Grid%isg:Grid%is-1, Grid%js:Grid%je + 1, Grid%ks:Grid%ke + 1, :, KDIR), kfcmeModel, kfcmeState)
           call generateCMESolution(kfCMESolution, kfcmeModel, kfcmeState)
           if (cccmeModel%isDebug) then
             write(*,"(1X,A14,2X,3F)") "Max Vr: ", maxval(ccCMESolution%v(:,:,:,XDIR)), maxval(jfCMESolution%v(:,:,:,XDIR)), maxval(kfCMESolution%v(:,:,:,XDIR))
@@ -459,7 +459,7 @@ module usergamic
                     end if
                     if(Model%rotateCME) then
                         ! interpolate linearly from rotating to inertial frame for CME Values
-                        if ((jg>=Grid%js) .and. (jg<=Grid%je + 1) .and. (kb <= Grid%keg + 1) .and. (ke <= Grid%keg + 1)) then
+                        if ((jg>=Grid%js) .and. (jg<=Grid%je + 1)) then
                             cccmeVarsStatic = a*ccCMEVars(ig, jg, kb, :) + (1.-a)*ccCMEVars(ig, jg, ke, :)
                             jfcmeVarsStatic = a*jfCMEVars(ig, jg, kb, :) + (1.-a)*jfCMEVars(ig, jg, ke, :)
                             kfcmeVarsStatic = a*kfCMEVars(ig, jg, kb, :) + (1.-a)*kfCMEVars(ig, jg, ke, :)
@@ -503,14 +503,14 @@ module usergamic
                             pVar(PRESSURE) = ibcVarsStatic(RHOIN)*Model%Units%gD0*Kbltz*ibcVarsStatic(TIN)/(Model%Units%gP0)
                             pVar(VELX:VELZ) = rHat*ibcVarsStatic(VRIN)
                         end if
-                        if(cccmeModel%isDebug) write(*,"(1X,A34,2X,5F)") "Inside pVar(Dens, Pres, VELX:VELZ): ", pVar(DEN), pVar(PRESSURE), pVar(VELX:VELZ)
+                        if(cccmeModel%isDebug) write(*,"(1X,A34,2X,5F,3I)") "Inside pVar(Dens, Pres, VELX:VELZ): ", pVar(DEN), pVar(PRESSURE), pVar(VELX:VELZ), i, j, k
                     else !Outside of CME Bubble mask is 0.
                         !Set primitives
                         pVar(DEN)       = ibcVarsStatic(RHOIN)
                         ! note conversion to my units with B0^2/4pi in the denominator
                         pVar(PRESSURE)  = ibcVarsStatic(RHOIN)*Model%Units%gD0*Kbltz*ibcVarsStatic(TIN)/(Model%Units%gP0)
                         pVar(VELX:VELZ) = rHat*ibcVarsStatic(VRIN)
-                        if(cccmeModel%isDebug) write(*,"(1X,A36,2X,5F)") "Outside pVar(Dens, Pres, VELX:VELZ): ", pVar(DEN), pVar(PRESSURE), pVar(VELX:VELZ)
+                        !if(cccmeModel%isDebug) write(*,"(1X,A36,2X,5F,3I)") "Outside pVar(Dens, Pres, VELX:VELZ): ", pVar(DEN), pVar(PRESSURE), pVar(VELX:VELZ), i, j, k
                     end if
                     !if(cccmeModel%isDebug) write(*,"(1X,A14,2X,1F)") "Current Time: ", Model%t
                     !if(cccmeModel%isDebug) write(*,"(1X,A36,2X,5F)") "pVar(Dens, Pres, VELX:VELZ): ", pVar(DEN), pVar(PRESSURE), pVar(VELX:VELZ)
@@ -529,19 +529,20 @@ module usergamic
                 Theta_kf = acos(xyz0(ZDIR)/R_kf)
 
                 ! note scaling for Bi. See note above in InitUser
+                !if(norm2(Grid%xfc(Grid%is,j,k,:,IDIR)) == 0.0) write(*,"(1X,A20,2X,3I,3F)") "Grid xfc zero!: ", Grid%is, j, k, Grid%xfc(Grid%is,j,k,:,IDIR)
                 Rfactor = Rbc/norm2(Grid%xfc(Grid%is,j,k,:,IDIR))
                 if (Model%doCME .and. (ccCMEVarsStatic(CMEMASK) .gt. 0.1) .and. (Model%t >= cccmeModel%Tstart_transient/Model%Units%gT0)) then
                     State%magFlux(i,j,k,IDIR) = ibcVarsStatic(BRIN)*Rfactor**2*Grid%face(Grid%is,j,k,IDIR) + &
-                                                ccCMEVarsStatic(CMEBR)*Grid%face(i,j,k,IDIR) !/Model%Units%gB0
-                    State%magFlux(i,j,k,JDIR) = jfCMEVarsStatic(CMEBT)*Grid%face(i,j,k,JDIR) !/Model%Units%gB0
+                                                ccCMEVarsStatic(CMEBR)*Grid%face(i,j,k,IDIR)/Model%Units%gB0
+                    State%magFlux(i,j,k,JDIR) = jfCMEVarsStatic(CMEBT)*Grid%face(i,j,k,JDIR)/Model%Units%gB0
                     State%magFlux(i,j,k,KDIR) = - 2*PI/Tsolar*R_kf*sin(Theta_kf)/ibcVarsStatic(VRKFIN)*ibcVarsStatic(BRKFIN)*Grid%face(i,j,k,KDIR) + &
-                                                kfCMEVarsStatic(CMEBP)*Grid%face(i,j,k,KDIR) !/Model%Units%gB0
-                    if(cccmeModel%isDebug) write(*,"(1X,A20,2X,3F)") "Inside Mag Flux: ", State%magFlux(i,j,k,XDIR),State%magFlux(i,j,k,YDIR),State%magFlux(i,j,k,ZDIR)
+                                                kfCMEVarsStatic(CMEBP)*Grid%face(i,j,k,KDIR)/Model%Units%gB0
+                    if(cccmeModel%isDebug) write(*,"(1X,A20,2X,3F,3I)") "Inside Mag Flux: ", State%magFlux(i,j,k,XDIR),State%magFlux(i,j,k,YDIR),State%magFlux(i,j,k,ZDIR), i, j, k
                 else
                     State%magFlux(i,j,k,IDIR) = ibcVarsStatic(BRIN)*Rfactor**2*Grid%face(Grid%is,j,k,IDIR)
                     State%magFlux(i,j,k,JDIR) = 0.0
                     State%magFlux(i,j,k,KDIR) = - 2*PI/Tsolar*R_kf*sin(Theta_kf)/ibcVarsStatic(VRKFIN)*ibcVarsStatic(BRKFIN)*Grid%face(i,j,k,KDIR)
-                    if(cccmeModel%isDebug) write(*,"(1X,A20,2X,3F)") "Outside Mag Flux: ", State%magFlux(i,j,k,XDIR),State%magFlux(i,j,k,YDIR),State%magFlux(i,j,k,ZDIR) 
+                    !if(cccmeModel%isDebug) write(*,"(1X,A20,2X,3F,3I)") "Outside Mag Flux: ", State%magFlux(i,j,k,XDIR),State%magFlux(i,j,k,YDIR),State%magFlux(i,j,k,ZDIR), i, j, k
                end if
             end do
          end do
@@ -583,70 +584,148 @@ module usergamic
 
     end subroutine eFix
 
+    !> Read in innerbc file for helio background
+    !>
+    !>
     subroutine readIBC(ibcH5)
-      character(len=*), intent(in) :: ibcH5
-      logical :: fExist
-      integer :: i,nvar,dims(3)
-      integer, parameter :: MAXIOVAR = 50
-      type(IOVAR_T), dimension(MAXIOVAR) :: IOVars
-    
+        character(len=*), intent(in) :: ibcH5
+        logical :: fExist
+        integer :: i,nvar,dims(3)
+        integer, parameter :: MAXIOVAR = 50
+        type(IOVAR_T), dimension(MAXIOVAR) :: IOVars
 
-      !Reset IO chain
-      call ClearIO(IOVars)
 
-      inquire(file=ibcH5,exist=fExist)
-      if (.not. fExist) then
-         !Error out and leave
-         write(*,*) 'Unable to open innerbc file, exiting'
-         stop
-      endif
+        !Reset IO chain
+        call ClearIO(IOVars)
 
-      !Setup input chain
-      call AddInVar(IOVars,"vr")
-      call AddInVar(IOVars,"vr_kface")
-      call AddInVar(IOVars,"rho")
-      call AddInVar(IOVars,"temp")
-      call AddInVar(IOVars,"br")
-      call AddInVar(IOVars,"br_kface")
-      call AddInVar(IOVars,"MJD")
+        inquire(file=ibcH5,exist=fExist)
+        if (.not. fExist) then
+            !Error out and leave
+            write(*,*) 'Unable to open innerbc file, exiting'
+            stop
+        endif
 
-      call ReadVars(IOVars,.false.,ibcH5) !Don't use io precision
+        !Setup input chain
+        call AddInVar(IOVars,"vr")
+        call AddInVar(IOVars,"vr_kface")
+        call AddInVar(IOVars,"rho")
+        call AddInVar(IOVars,"temp")
+        call AddInVar(IOVars,"br")
+        call AddInVar(IOVars,"br_kface")
+        call AddInVar(IOVars,"MJD")
 
-      ! NOTE, assuming they all have the same dimesnions here (NO2,NJ,NK)
-      ! see wsa2gamera
-      dims=IOVars(1)%dims(1:3) ! i,j,k
-      if (.not.allocated(ibcVars)) allocate(ibcVars(dims(1),dims(2),dims(3),NVARSIN))
+        call ReadVars(IOVars,.false.,ibcH5) !Don't use io precision
 
-      do i=1,NVARSIN
-         select case (i)
-         case (BRIN)
+        ! NOTE, assuming they all have the same dimesnions here (NO2,NJ,NK)
+        ! see wsa2gamera
+        dims=IOVars(1)%dims(1:3) ! i,j,k
+        write(*,"(1x,A16,2x,3I)") "innerbc dims: ", dims
+        if (.not.allocated(ibcVars)) allocate(ibcVars(dims(1),dims(2),dims(3),NVARSIN))
+
+        do i=1,NVARSIN
+            select case (i)
+            case (BRIN)
             nvar= FindIO(IOVars,"br")
-         case (VRIN)
+            case (VRIN)
             nvar= FindIO(IOVars,"vr")
-         case (RHOIN)
+            case (RHOIN)
             nvar= FindIO(IOVars,"rho")
-         case (TIN)
+            case (TIN)
             nvar= FindIO(IOVars,"temp")
-         case (BRKFIN)
+            case (BRKFIN)
             nvar= FindIO(IOVars,"br_kface")
-         case (VRKFIN)
+            case (VRKFIN)
             nvar= FindIO(IOVars,"vr_kface")
-         end select
+            end select
 
-         ibcVars(:,:,:,i) = reshape(IOVars(nvar)%data,dims)
-      end do
-         !reading modified julian date from innerbc
-         MJD_c = GetIOReal(IOVars,"MJD")
+            ibcVars(:,:,:,i) = reshape(IOVars(nvar)%data,dims)
+        end do
+        !reading modified julian date from innerbc
+        MJD_c = GetIOReal(IOVars,"MJD")
    
     end subroutine readIBC
 
-      subroutine writeMJDcH5Root(Model,Grid,IOVars)
-            type(Model_T), intent(in)    :: Model
-            type(Grid_T) , intent(in)    :: Grid
-            type(IOVAR_T), dimension(:), intent(inout) :: IOVars
+    !> Set IBC vars to spherically symmetric solar wind
+    !>
+    !>
+    subroutine sphereSymSW(Model, Grid, inpXML)
+        type(Model_T), intent(in) :: Model
+        type(Grid_T), intent(in) :: Grid
+        type(XML_Input_T), intent(in) :: inpXML
+        real(rp), dimension(:), allocatable :: R_gc
+        real(rp), dimension(NVARSIN) :: helioVarsIn
+        real(rp) :: R, Theta, ratio_sq
+        integer :: i, j, k, ig, jg, kg
+        character(len=strLen) :: swmodel
 
-            call AddOutVar(IOVars,"MJDc", MJD_c)
+        !write(*,"(1x,A16,2x,3I)") "innerbc dims: ", Model%Ng, Grid%Njp*Grid%NumRj, Grid%Nkp*Grid%NumRk
+        write(*,"(1x,A16,2x,6I)") "innerbc dims: ", Grid%isg, Grid%is-1, Grid%js, Grid%je + 1, Grid%ks, Grid%ke + 1
+        if (.not. allocated(ibcVars)) allocate (ibcVars(Model%Ng, Grid%js:Grid%je + 1, Grid%ks:Grid%ke + 1, NVARSIN))
+        allocate (R_gc(Grid%isg:Grid%is - 1))
+        ibcVars = 0.0
+        call inpXML%Set_Val(helioVarsIn(TIN), "helio/tin", 3.d5 )
+        call inpXML%Set_Val(helioVarsIn(BRIN), "helio/brin", 0.001)
+        call inpXML%Set_Val(helioVarsIn(BRKFIN), "helio/brkfin", 0.001)
+        call inpXML%Set_Val(helioVarsIn(RHOIN), "helio/rhoin", 800.)
+        call inpXML%Set_Val(helioVarsIn(VRIN), "helio/vrin", 400. )
+        call inpXML%Set_Val(helioVarsIn(VRKFIN), "helio/vrkin", 400. )
+        call inpXML%Set_Val(swmodel, "prob/swmodel", "monopole" )
+        write(*,"(1x,A14,6F)") "Helio Vars: ", helioVarsIn
+        ! R_gc(-3:0); Grid%is = 1; Grid%isg = -3
+        ! calculate radii of ghost cells
+        !do i = -3, 0
+        do i = Grid%isg, Grid%is - 1
+            R_gc(i) = norm2(Grid%xyzcc(i, 1, 1, :))
+        end do
+        write(*,"(1x,A14,4F)") "Rgc: ", R_gc
 
-      end subroutine writeMJDcH5Root
+        ! ibcVars(1:4, ....)
+        do k = Grid%ks, Grid%ke + 1
+            !kg = k+Grid%ijkShift(KDIR)
+            do j = Grid%js, Grid%je + 1
+                !jg = j+Grid%ijkShift(JDIR)
+                do ig = 1, Model%Ng
+                    i = ig - Model%Ng
+
+                    xyz = Grid%xyzcc(i, j, k, :)
+                    R = norm2(xyz)
+                    Theta = acos(xyz(ZDIR)/R)
+                    !calculate ratio to set 1/r^2 fall of density and br
+                    ratio_sq = R_gc(Grid%is-1)*R_gc(Grid%is-1)/R_gc(i)/R_gc(i)
+
+                    if( swmodel == "dipole") then
+                        ibcVars(ig, j, k, BRIN) = helioVarsIn(BRIN)/Model%Units%gB0*ratio_sq*cos(Theta)/abs(cos(Theta))
+                        ibcVars(ig, j, k, BRKFIN) = helioVarsIn(BRKFIN)/Model%Units%gB0*ratio_sq*cos(Theta)/abs(cos(Theta))
+                        ibcVars(ig, j, k, RHOIN) = helioVarsIn(RHOIN)/Model%Units%gD0*ratio_sq
+                    elseif ( swmodel == "monopole") then                    
+                        ibcVars(ig, j, k, BRIN) = helioVarsIn(BRIN)/Model%Units%gB0*ratio_sq
+                        ibcVars(ig, j, k, BRKFIN) = helioVarsIn(BRKFIN)/Model%Units%gB0*ratio_sq
+                        ibcVars(ig, j, k, RHOIN) = helioVarsIn(RHOIN)/Model%Units%gD0*ratio_sq
+                    else 
+                        write(*,*) "Please specify a valid solar wind model, stoppin..."
+                        stop
+                    end if
+                    ibcVars(ig, j, k, VRIN) = helioVarsIn(VRIN)/(1.d-5*Model%Units%gv0)
+                    ibcVars(ig, j, k, VRKFIN) = helioVarsIn(VRKFIN)/(1.d-5*Model%Units%gv0)
+                    ibcVars(ig, j, k, TIN) = helioVarsIn(TIN)
+                end do
+            end do
+        end do
+
+        MJD_c = 0.0
+
+    end subroutine sphereSymSW
+
+    !>
+    !>
+    !>
+    subroutine writeMJDcH5Root(Model,Grid,IOVars)
+        type(Model_T), intent(in)    :: Model
+        type(Grid_T) , intent(in)    :: Grid
+        type(IOVAR_T), dimension(:), intent(inout) :: IOVars
+
+        call AddOutVar(IOVars,"MJDc", MJD_c)
+
+    end subroutine writeMJDcH5Root
 
 end module usergamic

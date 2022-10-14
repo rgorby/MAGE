@@ -89,10 +89,13 @@ module gltypes
         real(rp) :: velimpose
         real(rp) :: s_eta0
         real(rp) :: s_eta
-        real(rp) :: ma1
         character(len=strLen)  :: CoordName
         !> Whether precheck logic should run to calculate parameters
-        logical :: isTopomorph = .false.
+        logical :: isTopomorph
+        ! Whether an atmosphere exists outside the bubble
+        logical :: isAtmosphere
+        ! Scale Bmax - whether a preconditioning is run to find Bmax
+        logical :: scaleBmax
         !Unit information
         type (glUnits_T) :: Units
         type (glOut_T)   :: glOut

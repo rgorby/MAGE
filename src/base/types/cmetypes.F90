@@ -15,7 +15,7 @@ module cmetypes
         !> 
         real(rp) :: Tstart_transient
         !> 
-        real(rp) :: time
+        real(rp) :: time = 0.0
         !> Output info
         type (IOClock_T) :: IO
         procedure(), pointer, nopass :: updateModelTime

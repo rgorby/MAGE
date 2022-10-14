@@ -1134,6 +1134,54 @@ module glsolution
             end where
         end subroutine finishSolution
 
+        !> Precondition model magnetic field based on CME geometry 
+        !> this normalizes the bubble field by the user input Bmax and 
+        !> the geometry max bmag value (field monotonically increases, 
+        !> peaks at t0, depending on geometry parameters then exp decay
+        !> over time.)
+        !> 
+        function calcModelBmax(Model, State, Solution, nt) result(ao)
+            type(glModel_T), intent(inout) :: Model
+            type(glState_T), intent(inout) :: State
+            type(glSolution_T), intent(inout) :: Solution
+            integer, intent(in) :: nt
+            integer :: i
+            real(rp) :: ao, bmagmax, zeta, time, val
+            real(rp), allocatable, dimension(:,:) :: bmag, st, ct, sph, cph
+            
+            bmagmax = 0.0
+            if(Model%isLoud) write(*,"(1X,A24,2X,1F)") "velmult scaled:", Model%velmult
+            State%r = Model%frontheight
+            ! do while bmag is monotonically increasing, save max, exit if bmagmax decreases from previous
+            if(Model%isLoud) write(*,"(1X,A24)") "Find bmagmax:"
+            if(Model%isLoud) write(*,"(1X,A24)") "------------------------"
+            do i=1, nt
+                zeta = Model%x0 - Model%r0 - Model%apar + (nt - i - 1.)*2.*Model%r0/nt
+                if(Model%isLoud) write(*,"(1X,A14,2X,1F,1I)") "zeta, nt:", zeta, i
+                if (zeta > 0.01) then
+                    Model%time = (Model%frontheight/zeta - 1.)/Model%s_eta
+                    call generateGLSolution(Solution, Model, State)
+                    st = sin(State%thpb)                    
+                    ct = cos(State%thpb)
+                    sph = sin(State%phpb)
+                    cph = cos(State%phpb)
+                    bmag = sqrt((Solution%b(1,:,:,XDIR)*st*cph + Solution%b(1,:,:,YDIR)*ct*cph - Solution%b(1,:,:,ZDIR)*sph)**2. + &
+                                (Solution%b(1,:,:,XDIR)*st*sph + Solution%b(1,:,:,YDIR)*ct*sph + Solution%b(1,:,:,ZDIR)*cph)**2. + &
+                                (Solution%b(1,:,:,XDIR)*ct - Solution%b(1,:,:,YDIR)*st)**2.)
+                    val = maxval(bmag)
+                    if (bmagmax < val) then 
+                        bmagmax = val
+                    else 
+                        if(Model%isLoud) write(*,"(1X,A36,2X,2F)") "bmagmax (1) < val (2), exit loop:", bmagmax, val
+                        exit
+                    end if
+                end if
+            end do
+            if(Model%isLoud) write(*,"(1X,A24,2X,1F,1I,1F)") "bmagmax, nt, time:", bmagmax, i, Model%time
+            if(Model%isLoud) write(*,"(1X,A24)") "------------------------"
+            ao = Model%bmax / bmagmax 
+        end function calcModelBmax
+
         !> For a previously initialized take Model
         !> and calculate the Gibson-Low solution and populate
         !> Solution to be used in other boundary condition code
