@@ -1,4 +1,4 @@
-module kmagtypes
+module siftypes
 
     use helpertypes
 
@@ -11,7 +11,7 @@ module kmagtypes
         real(rp) :: Pot0 = 1.0  ! [Volts]
     end type kmUnits_T
     
-    type kmModel_T
+    type sifModel_T
         character(len=strLen) :: RunID
         integer :: nSpc, nG, nB  ! Number of species, # ghosts, # coupling boundary cells
         real(rp) :: t0, tFin, dt
@@ -34,10 +34,10 @@ module kmagtypes
         !type(precip_T) :: precip  ! Precipitation model info 
         !type(waveModel_T) :: wModel  ! Wave model info (Shanshan)
 
-    end type kmModel_T
+    end type sifModel_T
 
 
-    type kmGrid_T
+    type sifGrid_T
         integer :: Nip, Njp, Nkp ! Number of physical cells, Ni = Nip+2*Ng
         integer :: Ni,Nj,Nk  ! Number of total cells
 
@@ -68,10 +68,10 @@ module kmagtypes
         ! Cell-centered cell-centered lamba channel values
         real(rp), dimension(:), allocatable :: lamc
 
-    end type kmGrid_T
+    end type sifGrid_T
 
 
-    type kmState_T
+    type sifState_T
         real(rp) :: time, MJD, dt
 
         ! (Ni, Nj, Nk) etas
@@ -108,10 +108,10 @@ module kmagtypes
         real(rp), dimension(:,:,:), allocatable :: Press  ! Pressure [!!units]
 
 
-    end type kmState_T
+    end type sifState_T
 
 
-end module kmagtypes
+end module siftypes
 
 
 

@@ -1,18 +1,18 @@
 ! kaimag definitions/constants
 
-module kmagdefs
+module sifdefs
 	use kdefs
 
 	implicit none
 
 	! Topology
 	enum, bind(C)
-		enumerator :: KMOPEN, KMCLOSED
+		enumerator :: SIFOPEN, SIFCLOSED
 	endenum
 
 	! Active/buffer/inactive cells
 	enum, bind(C)
-		enumerator :: KMACTIVE, KMBUFFER, KMINACTIVE
+		enumerator :: SIFACTIVE, SIFBUFFER, SIFINACTIVE
 	endenum
 
-end module kmagdefs
+end module sifdefs

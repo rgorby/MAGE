@@ -1,8 +1,9 @@
 ! Initialize kaimag
-module kmStarter
-	use kmagdefs
-	use kmagtypes
+module sifStarter
+	use sifdefs
+	use siftypes
 	use xml_input
+	use planethelper
 
 	implicit none
 
@@ -20,14 +21,14 @@ module kmStarter
 	! Sets up Model, but Grid and State must be set up separately
 	! Its up to a higher being to determine how we get our grid
 	! After we have a grid, we can initialize our first state
-	subroutine kmInitModel(Model, planet, iXML, optFilename)
-		type(kmModel_T), intent(inout) :: Model
+	subroutine sifInitModel(Model, planet, iXML, optFilename)
+		type(sifModel_T), intent(inout) :: Model
 		type(planet_T), intent(in)  :: planet
 		type(XML_Input_T), intent(out), optional :: iXML
         character(len=*) , intent(in) , optional :: optFilename
  
         character(len=strLen) :: xmlStr
-        type(XML_Input_T) :: inpXML
+        type(XML_Input_T) :: xmlInp
         write(*,*) "kmInitModel is starting"
 
         !Create input XML object
@@ -37,7 +38,7 @@ module kmStarter
             call getIDeckStr(xmlStr)  ! Returns string based on what's listed in command-line arguments
         endif
         
-        inpXML = New_XML_Input(trim(xmlStr),"Kaiju/Kaimag",.true.)
+        xmlInp = New_XML_Input(trim(xmlStr),"Kaiju/SIF",.true.)
         ! In Chimp/starter.F90/goApe: Why send it back if optional arg present
 
 
@@ -64,8 +65,8 @@ module kmStarter
 
 	end subroutine
 
-	subroutine kmGenLLGrid(Grid, latBndL, latBndU, Ni, Nj, Ng)
-		type(kmGrid_T), intent(inout) :: Grid
+	subroutine sifGenLLGrid(Grid, latBndL, latBndU, Ni, Nj, Ng)
+		type(sifGrid_T), intent(inout) :: Grid
 		real(rp), intent(in) :: latBndL, latBndU
 		integer, intent(in) :: Ni,Nj,Ng
 		!! TODO
@@ -80,11 +81,11 @@ module kmStarter
 !------
 
 	! This will make a simple Maxwellian distribution in a dipole field
-	subroutine kmInitStateDefault(State, D, T, r)
-		type(kmState_T), intent(inout) :: State
+	subroutine sifInitStateDefault(State, D, T, r)
+		type(sifState_T), intent(inout) :: State
 		real(rp), intent(in) :: D, T, r  ! density, temperature, r value
 		!! TODO
 	end subroutine
 
 
-end module kmStarter
+end module sifStarter
