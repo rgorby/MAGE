@@ -281,7 +281,7 @@ module glinit
 
             ! Create r(Ni), theta(Nj,Nk), phipb(Nj,Nk) arrays
               
-            do k=State%is, State%ie
+            do k=State%ks, State%ke
                 do j=State%js, State%je    
                     ! Phi
                     x3 = rtpBds(5)+(k-1)*dphi
@@ -289,7 +289,7 @@ module glinit
                     ! Theta
                     x2 = rtpBds(3)+(j-1)*dth
                     State%thpb(j,k) = x2*pi                        
-                    do i=State%ks, State%ke    
+                    do i=State%is, State%ie    
                         ! Rho
                         x1 = rtpBds(1) + (i-1)*dr                      
                         State%r(i) = x1
