@@ -1,20 +1,11 @@
 <?xml version="1.0"?>
 <Kaiju>
-<Gamera>
-    <sim runid="wsa" doH5g="T" H5Grid="heliogrid.h5" icType="user" pdmb="1.0" rmeth="7UP"/>
-    <time tFin="48"/>
-    <spinup doSpin="T" tSpin="200." tIO="0.0"/>
-    <output dtOut="0.5" tsOut="100" timer="F"/>
-    <physics doMHD="T" gamma="1.5"/>
-    <prob Tsolar = "25.38" doCME="T" rotateCME="F"/>
-    <restart resId = "wsa" nRes = "00008" dtRes="100." doRes="F"/>
+<CME>
+    <sim runid="giblow" isLoud="F" isDebug="F" isTopomorph="F" isStandalone="T" isAtmosphere="T" model="GL"/>
+    <time Tstart_transient="0.0" />
+    <prob StateCoord="Sphere" orientation="1.57079" cmer="-1.57079" alpha="0.0" tfin="7200.0" dt="3600.0" frontheight="1.35" legsang="25.0" vel_fh="700"/>
     <idir min="1.0" max="3.0" N="64"/>
     <jdir min="0.01" max="0.99" N="64"/>
     <kdir min="0.0" max="1.0" N="64"/>
-</Gamera>
-<CME>
-    <sim runid="giblow" isLoud="F" isDebug="F" isTopomorph="F" isStandalone="T" model="GL"/>
-    <time Tstart_transient="0.0" />
-    <prob StateCoord="Sphere" orientation="1.57079" cmer="-1.57079" alpha="0.0" tfin="7200.0" dt="3600.0" frontheight="1.35" legsang="25.0"/>
 </CME>
 </Kaiju>
