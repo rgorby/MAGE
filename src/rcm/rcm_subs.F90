@@ -3212,10 +3212,10 @@ FUNCTION RatefnDW(xx,yy,alamx,vmx,nex,kpx,bqx,losscx)
         R2 = 2.0
     endif
     
-    if ((tau_h > 1.D9) .or. (tau_c > 1.D9)) then ! which means tau_h and tau_c are 1.D10
-       write (*,*)"Hiss or chorus is undefined, tau_h, tau_c =",tau_h,tau_c
-       stop
-    endif
+    !if ((tau_h > 1.D9) .or. (tau_c > 1.D9)) then ! which means tau_h and tau_c are 1.D10
+    !   write (*,*)"Hiss or chorus is undefined, tau_h, tau_c =",tau_h,tau_c
+    !   stop
+    !endif
 
     RatefnDW(1) = (dlog(nhigh/nex)/tau1 + dlog(nex/nlow)/tau2)/dlog(nhigh/nlow) ! use weighted loss rate 
     RatefnDW(2) = (dlog(nhigh/nex)*R1 + dlog(nex/nlow)*R2)/dlog(nhigh/nlow)

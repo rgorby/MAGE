@@ -2,26 +2,32 @@ import numpy as np
 import h5py as h5
 from kaipy.rcm.wmutils.wmData import wmParams
 # 
-def genWM(params, useWMh5=True):
+def genWM(params, useWM=True):
 
         import os
       
-        fIn = 'DWang_chorus_lifetime.h5'
+        fInChorus = 'DWang_chorus_lifetime.h5'
         __location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
 
-        fIn = os.path.join(__location__,fIn)
+        fInChorus = os.path.join(__location__,fInChorus)
 
-        print("Reading %s"%(fIn))
+        fInTDS = 'tauTDS.txt'
+        __location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
+
+        fInTDS = os.path.join(__location__,fInTDS)
+
+        print("Reading %s and %s"%(fInChorus,fInTDS))
 	
-        if useWMh5:
-                return readWMh5(params,fIn)
+        if useWM:
+                return readWM(params,fInChorus,fInTDS)
         else:
                 return toyWM(params)
+      
 
 
 # Add wpi-induced electron lifetime model to input file and create an output file
 # Writes arrays to file in rcmconfig.h5 format
-def genh5(fIn, fOut, inputParams, useWMh5=True):
+def genh5(fIn, fOut, inputParams, useWM=True):
 
         if fIn != fOut: 
                oH5 = h5.File(fOut, 'w')
@@ -33,7 +39,7 @@ def genh5(fIn, fOut, inputParams, useWMh5=True):
                oH5 = h5.File(fOut, 'r+')
         
         if not ('Tau1i' in oH5.keys()):
-               kpi, mlti, li, eki, tau1i, tau2i = genWM(inputParams, useWMh5 = useWMh5)
+               kpi, mlti, li, eki, tau1i, tau2i, ekTDSi, tauTDSi = genWM(inputParams, useWM = useWM)
                attrs = inputParams.getAttrs()
 
                oH5.create_dataset('Kpi', data=kpi)
@@ -42,17 +48,21 @@ def genh5(fIn, fOut, inputParams, useWMh5=True):
                oH5.create_dataset('Eki', data=eki)
                oH5.create_dataset('Tau1i', data=tau1i)
                oH5.create_dataset('Tau2i', data=tau2i)
+               oH5.create_dataset('EkTDSi', data=ekTDSi)
+               oH5.create_dataset('TauTDSi', data=tauTDSi)
                for key in attrs.keys():
                        oH5.attrs[key] = attrs[key]
         oH5.close()
 
-def readWMh5(params,fIn):
-
-        f5 = h5.File(fIn, 'r')
+def readWM(params,fInChorus,fInTDS):
+        
+        # add electron lifetime for the chorus wave loss
+        f5 = h5.File(fInChorus, 'r')
         kpi=f5['Kp_1D'][:][0]
         mlti=np.append(f5['MLT_1D'][:][0],24.)
         li=f5['L_1D'][:][0]
         eki=10.**(f5['E_1D'][:][0]) # in MeV
+        print('shape of eki:',eki.shape)
         tau1i=(10.**(f5['Tau1_4D'][:]))*24.*3600. # in second 
         tau2i=(10.**(f5['Tau2_4D'][:]))*24.*3600.
         #print ("kpi",kpi,"mlti",mlti,"li",li,"eki",eki)
@@ -65,7 +75,17 @@ def readWMh5(params,fIn):
               tau2ai=np.append(tau2ai,np.array([np.append(tau2i[i,:,:,:],np.array([tau2i[i,0,:,:]]),0)]),0)	
         tau1ai = tau1ai.T
         tau2ai = tau2ai.T
-        return kpi,mlti,li,eki,tau1ai,tau2ai
+        f5.close()
+
+        #add electron lifetime for the Time Domain Structure loss
+        tdmArrays=np.loadtxt(fInTDS)
+        #print(tdm_arrays)
+        ekTDSi = tdmArrays[:,0].T/1.e6 #in MeV
+        print ('shape of ekiTDS',ekTDSi.shape)
+        tauTDSi = tdmArrays[:,2].T #read in the electron lifetime against TDS with Ew= 4mV/m
+           
+        return kpi,mlti,li,eki,tau1ai,tau2ai,ekTDSi,tauTDSi
+
 
 
 def toyWM(params):
