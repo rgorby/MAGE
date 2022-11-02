@@ -1210,6 +1210,7 @@ module glsolution
                 ! Calculate cap coordinate transformation
                 call calcCoords(Model, State)
                 ! Determine the bubble mask
+                Solution%inside_mask(State%ri,:,:) = 0.0
                 where (State%rcap .lt. Model%rbub) Solution%inside_mask(State%ri,:,:) = 1.              
                 State%inside_count = sum(Solution%inside_mask(State%ri,:,:))
                 State%outside_count = sum(1. - Solution%inside_mask(State%ri,:,:))   
