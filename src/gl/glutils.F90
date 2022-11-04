@@ -118,7 +118,6 @@ module glutils
             if(Model%isLoud) write(*,"(1x,A40,2x,7F)") "Emergence times, lastP, eta0*velmult: ",  etimes, maxval(etimes), sqrt(eta0)*Model%velmult
         end function
 
-        !> 
         !> xyz must have dimensions of xyz(Model%Ni, Model%Nj, Model%Nk, NDIM)
         function solutionSphereToCartesian(xyz, Model, State, SolutionSphere) result(SolutionCartesian)
             type(glState_T) :: State
@@ -131,9 +130,9 @@ module glutils
             call allocSolution(State, SolutionCartesian)
 
             if (SolutionSphere%CoordSystem .eq. SPHERICAL) then
-                do i = State%is, State%ie
+                do k = State%ks, State%ke 
                     do j = State%js, State%je
-                        do k = State%ks, State%ke                  
+                        do i = State%is, State%ie              
                             SolutionCartesian%b(i,j,k,:) = rtp2xyz(xyz(i,j,k,:), SolutionSphere%b(i,j,k,:))
                             SolutionCartesian%v(i,j,k,:) = rtp2xyz(xyz(i,j,k,:), SolutionSphere%v(i,j,k,:))
                             SolutionCartesian%j(i,j,k,:) = rtp2xyz(xyz(i,j,k,:), SolutionSphere%j(i,j,k,:))
