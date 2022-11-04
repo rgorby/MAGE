@@ -360,12 +360,12 @@ module glsolution
             ! ;
             ! ;
 
-            State%xtr = State%rpb*sin(State%thpb)*cos(State%phpb)
-            State%ytr = State%rpb*sin(State%thpb)*sin(State%phpb)
-            State%ztr = State%rpb*cos(State%thpb)
+            State%xtr = State%rlam*sin(State%thpb)*cos(State%phpb)
+            State%ytr = State%rlam*sin(State%thpb)*sin(State%phpb)
+            State%ztr = State%rlam*cos(State%thpb)
 
             !; now transform to spherical coords (radius is unchanged)
-            State%rout = State%rpb
+            State%rout = State%rlam
 
             ! ;
             ! ; the tilde coords are the new x and z with up defined as above
