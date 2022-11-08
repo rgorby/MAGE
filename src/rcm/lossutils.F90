@@ -215,7 +215,6 @@ MODULE lossutils
     IMPLICIT NONE
     REAL (rprec), INTENT (IN) :: mltx,Lx,Ekx ! use 1D model with Ekx for simplicity
     REAL(rprec) :: taui,tau
-    REAL(rprec) :: ! l:lower bound, u: upper bound in the NN methond  
     REAL(rprec) :: dE,wE
     INTEGER :: eL,eU
      
@@ -373,9 +372,9 @@ MODULE lossutils
         if (lL == lU) then 
             tauE(1) = tauLE(2,1)
             tauE(2) = tauLE(2,2)
-            if Lflag then ! use gaussian decay for L > maxval(Li) (7Re)
-               tauE(1)*=exp(-(Lx-maxval(Li))**2)
-               tauE(2)*=exp(-(Lx-maxval(Li))**2)
+            if (Lflag) then ! use gaussian decay for L > maxval(Li) (7Re)
+               tauE(1)=tauE(1)*exp(-(Lx-maxval(Li))**2)
+               tauE(2)=tauE(2)*exp(-(Lx-maxval(Li))**2)
             endif  
         else
             dL = Li(lU)-Li(lL)

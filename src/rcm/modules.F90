@@ -161,7 +161,7 @@ MODULE rice_housekeeping_module
            case ("WM")
               ELOSSMETHOD = ELOSS_WM
            case default
-              stop "The electron loss type entered is not supported (Available options: FDG, SS, C05, C19)."
+              stop "The electron loss type entered is not supported (Available options: WM, FDG, SS, C05, C19)."
         end select
 
         call xmlInp%Set_Val(doNewCX  ,"loss/doNewCX"  ,doNewCX  )

@@ -3165,7 +3165,7 @@ FUNCTION RatefnWM(xx,yy,alamx,vmx,nex,kpx,bqx,losscx)
   IMPLICIT NONE
   REAL (rprec), INTENT (IN) :: xx,yy,alamx,vmx,nex,kpx,bqx,losscx
   REAL (rprec), dimension(2) :: RatefnWM
-  REAL (rprec) :: nhigh, nlow, L, MLT, E, tau, tau_s, tau_c, tau_h, tua_TDS, tau1, tau2, R1, R2
+  REAL (rprec) :: nhigh, nlow, L, MLT, E, tau, tau_s, tau_c, tau_h, tau_TDS, tau1, tau2, R1, R2
 
   nhigh = 100.D0 ! [/cc] ne>nhigh indicates inside plasmasphere.
   nlow  = 10.D0  ! [/cc] ne<nlow indicates outside plasmasphere.
