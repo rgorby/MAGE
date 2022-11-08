@@ -87,6 +87,7 @@ module glio5
             call AddOutVar(IOVars,"Vz",SolutionCartesian%v(:,:,:,XDIR))
             call AddOutVar(IOVars,"insideMask",Solution%inside_mask)
             call AddOutVar(IOVars,"time",Model%time)
+            call AddOutVar(IOVars,"phiss",Model%phiss)
             call AddOutVar(IOVars,"timestep",Model%ts)
             !------------------
             !Finalize
