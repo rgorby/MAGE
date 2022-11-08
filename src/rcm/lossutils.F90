@@ -168,6 +168,26 @@ MODULE lossutils
 
     IMPLICIT NONE
     REAL (rprec), INTENT (IN) :: kpx,MLT,L,Ek,vm,beq,lossc,tau_ss
+    REAL (rprec) :: tau, tau_c_1keV,tau_ss_1keV,ratio_c2s
+    REAL (rprec) :: E_1keV = 1.0e-3 !in MeV
+ 
+    tau_c_1keV = RatefnDW_tau_c(kpx, MLT,L,E_1keV) ! 1keV = 1e-3MeV
+    tau_ss_1keV = RatefnC_tau_s(E_1keV*1.0e6/vm,vm,beq,lossc)
+    if (tau_c_1keV < Tiny) then !L > max(Li)in DW model,replace 0 by strong scattering
+       tau_c_1keV = tau_ss_1keV
+    endif
+   
+    ratio_c2s = tau_c_1keV/tau_ss_1keV !ratio between chorus wave model and strong scattering at 1keV
+ 
+    tau = tau_ss*ratio_c2s !use scaled strong scattering lifetime to ensure smooth transition at 1keV
+
+    END FUNCTION Ratefn_sub_1keV
+
+    FUNCTION Ratefn_sub_1keV_linear (kpx,MLT,L,Ek,vm,beq,lossc,tau_ss) result(tau)
+    !Function return electron lifetime in sub-1keV energy range 
+
+    IMPLICIT NONE
+    REAL (rprec), INTENT (IN) :: kpx,MLT,L,Ek,vm,beq,lossc,tau_ss
     REAL (rprec) :: tau, tau_E_thres_ss, tau_c_1keV !in MeV
     REAL (rprec) :: E_thres = 0.8e-3, E_1keV = 1.0e-3 !in MeV, strong scattering energy limit 0.8keV, if E < 0.8keV, strong scattering only
                                   ! if E_thres < E < 1keV, use linear ramping in log10(tau) between E_thres and 1keV
@@ -187,8 +207,36 @@ MODULE lossutils
       endif
     endif
 
-    END FUNCTION Ratefn_sub_1keV
+    END FUNCTION Ratefn_sub_1keV_linear
 
+    FUNCTION Ratefn_tau_TDS(mltx,Lx,Ekx) result(tau)
+    ! linearly interpolate tau from EWMTauInput to current MLT,L,Ek value
+    USE rice_housekeeping_module, ONLY: EWMTauInput
+    IMPLICIT NONE
+    REAL (rprec), INTENT (IN) :: mltx,Lx,Ekx ! use 1D model with Ekx for simplicity
+    REAL(rprec) :: taui,tau
+    REAL(rprec) :: ! l:lower bound, u: upper bound in the NN methond  
+    REAL(rprec) :: dE,wE
+    INTEGER :: eL,eU
+     
+    associate(Ne=>EWMTauInput%TDSTauInput%NeTDS,&
+              Eki=>EWMTauInput%TDSTauInput%EkTDSi,&
+              taui=>EWMTauInput%TDSTauInput%tauTDSi)
+
+    if (Ekx < minval(Eki)) then
+       tau = taui(1)
+    else if (Ekx > maxval(Eki)) then ! default lifetime is 10^10s ~ 10^3 years.
+       tau = 1.D10 
+    else
+       eL = maxloc(Eki,dim=1,mask=(Eki<Ekx))
+       eU = eL + 1
+       dE = Eki(eU)-Eki(eL)
+       wE = (Ekx-Eki(eL))/dE
+       tau = taui(eL) + wE*(taui(eU)-taui(eL))
+    endif
+    end associate
+
+    END FUNCTION Ratefn_tau_TDS
 
     FUNCTION RatefnDW_tau_c(Kpx,mltx,Lx,Ekx) result(tau)
     ! linearly interpolate tau from EWMTauInput to current MLT,L,Kp,Ek value
@@ -199,11 +247,13 @@ MODULE lossutils
         REAL(rprec) :: tauKMLE(2,2,2,2),tauMLE(2,2,2),tauLE(2,2),tauE(2)! tauKMLE(1,2,2,2) means tauKlMuLuEu, l:lower bound, u: upper bound in the NN methond  
         REAL(rprec) :: dK,wK,dM,wM,dL,wL,dE,wE
         INTEGER :: iK,kL,kU,mL,mU,lL,lU,eL,eU
+        LOGICAL :: Lflag = .false.
 
-        associate(Nm=>EWMTauInput%Nm,Nl=>EWMTauInput%Nl,Nk=>EWMTauInput%Nk,Ne=>EWMTauInput%Ne,&
-                  Kpi=>EWMTauInput%Kpi,MLTi=>EWMTauInput%MLTi,Li=>EWMTauInput%Li,Eki=>EWMTauInput%Eki,&
-                  taui=>EWMTauInput%tau2i) ! using method 2
-                 !taui=>EWMTauInput%tau1i)
+
+        associate(Nm=>EWMTauInput%ChorusTauInput%Nm,Nl=>EWMTauInput%ChorusTauInput%Nl,Nk=>EWMTauInput%ChorusTauInput%Nk,Ne=>EWMTauInput%ChorusTauInput%Ne,&
+                  Kpi=>EWMTauInput%ChorusTauInput%Kpi,MLTi=>EWMTauInput%ChorusTauInput%MLTi,Li=>EWMTauInput%ChorusTauInput%Li,Eki=>EWMTauInput%ChorusTauInput%Eki,&
+                  taui=>EWMTauInput%ChorusTauInput%tau2i) ! using method 2
+                 !taui=>EWMTauInput%ChorusTauInput%tau1i)
 
         ! look up in Kp
         !iK = minloc(abs(Kpi-Kpx),dim=1)
@@ -216,7 +266,7 @@ MODULE lossutils
             kL = 1
             kU = 1
         else
-            kL = maxloc(Kpi,dim=1,mask=(Kpi<=Kpx))
+            kL = maxloc(Kpi,dim=1,mask=(Kpi<Kpx))
             kU = kL+1
         endif
            
@@ -225,22 +275,20 @@ MODULE lossutils
             mL = 1
             mU = 1 
         else
-            mL = maxloc(MLTi,dim=1,mask=(MLTi<=mltx))
+            mL = maxloc(MLTi,dim=1,mask=(MLTi<mltx))
             mU = mL+1
         endif
 
         ! Find the nearest neighbours in L
-        if (Lx > maxval(Li)) then
-            lL = -1 ! tau_c is 0, total tau = tau_s
-            lU = 0
+        if (Lx >= maxval(Li)) then
+            lL = Nl ! tau_c is 0, total tau = tau_s
+            lU = Nl
+            Lflag = .true.
         else if (Lx <= minval(Li)) then
             lL = 0 ! Lx < min(Li) is treated like min(Li)
             lU = 0
-        else if (Lx <= maxval(Li)) then
-            lL = Nl
-            lU = Nl 
         else
-            lL = maxloc(Li,dim=1,mask=(Li<=Lx))
+            lL = maxloc(Li,dim=1,mask=(Li<Lx))
             lU = lL+1
         endif
         
@@ -252,16 +300,16 @@ MODULE lossutils
             eL = Ne ! Ekx > max(Eki) is treated like max(Eki)
             eU = Ne
         else
-            eL = maxloc(Eki,dim=1,mask=(Eki<=Ekx))
+            eL = maxloc(Eki,dim=1,mask=(Eki<Ekx))
             eU = eL + 1
         endif
 
         !Corner cases
-        if (lL == -1) then 
-            tau = 0.0 ! When Lx > max(Li), assign 0 for now and replace it by strong scattering later 
-            !write(*,*)"Corner case1,tau=tau_ss" 
-            return
-        else if (eU == -1) then
+        !if (lL == -1) then 
+        !    tau = 0.0 ! When Lx > max(Li), assign 0 for now and replace it by strong scattering later 
+        !    !write(*,*)"Corner case1,tau=tau_ss" 
+        !    return
+        if (eU == -1) then
             tau = 1.D10
             !write(*,*)"Corner case2,tau=1e10"
             return
@@ -325,6 +373,10 @@ MODULE lossutils
         if (lL == lU) then 
             tauE(1) = tauLE(2,1)
             tauE(2) = tauLE(2,2)
+            if Lflag then ! use gaussian decay for L > maxval(Li) (7Re)
+               tauE(1)*=exp(-(Lx-maxval(Li))**2)
+               tauE(2)*=exp(-(Lx-maxval(Li))**2)
+            endif  
         else
             dL = Li(lU)-Li(lL)
             wL = (Lx-Li(lL))/dL
@@ -335,12 +387,11 @@ MODULE lossutils
         ! linear interpolation in Ek
         if (eL == eU) then 
             tau = tauE(1)
-            return
         else
             dE = Eki(eU)-Eki(eL)
             wE = (Ekx-Eki(eL))/dE 
             tau = tauE(1) + wE*(tauE(2)-tauE(1))    
-        end if
+        end if 
         end associate
  
     END FUNCTION RatefnDW_tau_c
