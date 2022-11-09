@@ -82,8 +82,8 @@ def readWM(params,fInChorus,fInTDS):
         #print(tdm_arrays)
         ekTDSi = tdmArrays[:,0].T/1.e6 #in MeV
         print ('shape of ekiTDS',ekTDSi.shape)
-        tauTDSi = tdmArrays[:,2].T #read in the electron lifetime against TDS with Ew= 4mV/m
-           
+        tauTDSi = tdmArrays[:,2].T*24.*3600. #in second, read in the electron lifetime against TDS with Ew= 4mV/m
+        print ('tauTDSi[0]',tauTDSi[0])           
         return kpi,mlti,li,eki,tau1ai,tau2ai,ekTDSi,tauTDSi
 
 
