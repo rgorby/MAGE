@@ -157,7 +157,7 @@ module glinit
             else ! Spheromak
                 Model%xo = (Model%frontheight + Model%apar)/(1.+tan(Model%legsang/2.*mdtor))
                 Model%rbub = Model%frontheight - Model%xo + Model%apar
-                Model%r0 = Model%frontheight - Model%rbub
+                Model%r0 =  Model%xo - Model%apar
             end if
 
             Model%x0 = Model%r0/Model%k
