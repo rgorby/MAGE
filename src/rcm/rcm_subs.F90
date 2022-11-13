@@ -2237,7 +2237,7 @@
 !Advance eeta by dt nstep times, dtcpl=dt x nstep
 
 SUBROUTINE Move_plasma_grid_MHD (dt,nstep)
-    use rice_housekeeping_module, ONLY : LowLatMHD,doNewCX,ELOSSMETHOD,doFLCLoss,dp_on,doPPRefill,doSmoothDDV,staticR,NowKp
+    use rice_housekeeping_module, ONLY : LowLatMHD,doNewCX,ELOSSMETHOD,doTDSLoss,doFLCLoss,dp_on,doPPRefill,doSmoothDDV,staticR,NowKp
     use math, ONLY : SmoothOpTSC,SmoothOperator33
     use lossutils, ONLY : CXKaiju,FLCRat
     use earthhelper, ONLY : DipFTV_colat,DerivDipFTV
@@ -2476,7 +2476,7 @@ SUBROUTINE Move_plasma_grid_MHD (dt,nstep)
                 !Calculate losses and keep track of total losses/precip losses
                 if ( (ie == RCMELECTRON) .and. (kc /= 1) ) then
                     !Do electron losses
-                    lossFT = Ratefn(xmin(i,j),ymin(i,j),alamc(kc),vm(i,j),bmin(i,j),losscone(i,j),Dpp(i,j),dble(NowKp),fudgec(kc),sini(i,j),bir(i,j),mass_factor,ELOSSMETHOD)
+                    lossFT = Ratefn(xmin(i,j),ymin(i,j),alamc(kc),vm(i,j),bmin(i,j),losscone(i,j),Dpp(i,j),dble(NowKp),fudgec(kc),sini(i,j),bir(i,j),mass_factor,ELOSSMETHOD,doTDSLoss)
                     lossratep(i,j,kc) = lossratep(i,j,kc) + lossFT(1)
                     lossmodel(i,j,kc) = lossFT(2)
                     rate(i,j) = rate(i,j) + lossFT(1)
@@ -3091,11 +3091,12 @@ FUNCTION RatefnFDG (fudgx, alamx, sinix, birx, vmx, xmfact)
   RETURN
 END FUNCTION RatefnFDG
 
-FUNCTION Ratefn (xx,yy,alamx,vmx,beqx,losscx,nex,kpx,fudgxO,sinixO,birxO,xmfactO,ELOSSMETHOD)
+FUNCTION Ratefn (xx,yy,alamx,vmx,beqx,losscx,nex,kpx,fudgxO,sinixO,birxO,xmfactO,ELOSSMETHOD,doTDSLoss)
 
  use lossutils, ONLY : RatefnC_tau_s,RatefnC_tau_C05
  IMPLICIT NONE
  INTEGER (iprec), INTENT (IN) :: ELOSSMETHOD
+ LOGICAL,INTENT (IN) :: doTDSLoss !Use TDS losses
  REAL (rprec), INTENT (IN) :: xx,yy,alamx,vmx,beqx,losscx,nex,kpx
  REAL (rprec), INTENT (IN), OPTIONAL :: fudgxO,sinixO,birxO,xmfactO
  REAL (rprec) :: fudgx,sinix,birx,xmfact
@@ -3142,7 +3143,7 @@ FUNCTION Ratefn (xx,yy,alamx,vmx,beqx,losscx,nex,kpx,fudgxO,sinixO,birxO,xmfactO
             Ratefn = RatefnC19S(xx,yy,alamx,vmx,beqx,losscx,nex,kpx)
          case (ELOSS_WM)
             if (EWMTauInput%useWM) then
-                Ratefn = RatefnWM(xx,yy,alamx,vmx,nex,kpx,beqx,losscx)
+                Ratefn = RatefnWM(xx,yy,alamx,vmx,nex,kpx,beqx,losscx,doTDSLoss)
             else
                 write(*,*) "Wave model is missing in rcmconfig.h5"
                 stop
@@ -3154,7 +3155,7 @@ FUNCTION Ratefn (xx,yy,alamx,vmx,beqx,losscx,nex,kpx,fudgxO,sinixO,birxO,xmfactO
 
 END FUNCTION Ratefn
 
-FUNCTION RatefnWM(xx,yy,alamx,vmx,nex,kpx,bqx,losscx)
+FUNCTION RatefnWM(xx,yy,alamx,vmx,nex,kpx,bqx,losscx,doTDSLoss)
   !Function to calculate diffuse electron precipitation loss rate using 
   ! 1. Dedong Wang's chorus wave model
   ! 2. Orlova16 hiss wave model
@@ -3164,6 +3165,7 @@ FUNCTION RatefnWM(xx,yy,alamx,vmx,nex,kpx,bqx,losscx)
   !Wave type in RatefnWM(2) - Hiss: 1.0; Chorus: 2.0; TDS: 3.0; strong scattering: 6.0; tau > 1.e10: -10.0   
   IMPLICIT NONE
   REAL (rprec), INTENT (IN) :: xx,yy,alamx,vmx,nex,kpx,bqx,losscx
+  LOGICAL,INTENT (IN) :: doTDSLoss !Use TDS losses
   REAL (rprec), dimension(2) :: RatefnWM
   REAL (rprec) :: nhigh, nlow, L, MLT, E, tau, tau_s, tau_c, tau_h, tau_TDS, tau1, tau2, R1, R2
 
@@ -3178,7 +3180,12 @@ FUNCTION RatefnWM(xx,yy,alamx,vmx,nex,kpx,bqx,losscx)
 
   if(nex<nlow) then ! Assumption: TDSs only occur at larger L shell(e.g., L > 3), outside the plasmasphere  
     tau_c = RatefnDW_tau_c(kpx,MLT,L,E)  
-    tau_TDS = Ratefn_tau_TDS(MLT,L,E)
+    if (doTDSLoss) then
+       tau_TDS = Ratefn_tau_TDS(MLT,L,E)
+    else
+       tau_TDS = 1.D10
+    endif
+    
     if ((tau_c < 1.e10) .and. (tau_TDS < 1.e10)) then
        tau1 = tau_c
        R1 = 2.0
@@ -3194,11 +3201,11 @@ FUNCTION RatefnWM(xx,yy,alamx,vmx,nex,kpx,bqx,losscx)
        tau = tau_TDS
        RatefnWM(1) = 1./tau
        RatefnWM(2) = 3.0
-    else ! this case should not happen, but just in case 
+    else ! The local electrons do not trigger the chorus wave and the TDS losses 
        tau = 1.e10 
        RatefnWM(1) = 1./tau
        RatefnWM(2) = -10.0
-    end if
+    end if       
   elseif(nex>nhigh) then 
     tau_h = RatefnC_tau_h16(MLT,E,L,kpx)
     if (tau_h < 1.e10) then

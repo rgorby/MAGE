@@ -40,6 +40,7 @@ MODULE rice_housekeeping_module
   INTEGER(iprec) :: rcm_record
   REAL(rprec) :: HighLatBD,LowLatBD
   LOGICAL :: doLatStretch = .false.
+  LOGICAL :: doTDSLoss = .true. !Use TDS losses
   LOGICAL :: doFLCLoss = .true. !Use FLC losses
   LOGICAL :: doNewCX = .true. !Use newer CX loss estimate
   LOGICAL :: doSmoothDDV = .true. !Whether to smooth ij deriv of residual FTV
@@ -164,6 +165,7 @@ MODULE rice_housekeeping_module
               stop "The electron loss type entered is not supported (Available options: WM, FDG, SS, C05, C19)."
         end select
 
+        call xmlInp%Set_Val(doTDSLoss,"loss/doTDSLoss",doTDSLoss)
         call xmlInp%Set_Val(doNewCX  ,"loss/doNewCX"  ,doNewCX  )
         call xmlInp%Set_Val(doRelax  ,"loss/doRelax"  ,doRelax  )
 
