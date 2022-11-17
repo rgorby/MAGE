@@ -209,6 +209,11 @@ add_dependencies(rcm rcm.x baselib)
 message("Adding SIF module ...")
 # Add source
 add_subdirectory(src/sif)
+add_custom_target(sif ALL)
+message("\tAdding executable sif.x")
+add_executable(sif.x src/drivers/sifx.F90)
+target_link_libraries(sif.x siflib baselib)
+add_dependencies(sif sif.x baselib)
 
 #-------------
 #Kaiju: Voltron

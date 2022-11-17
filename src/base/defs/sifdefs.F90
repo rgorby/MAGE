@@ -5,6 +5,15 @@ module sifdefs
 
 	implicit none
 
+	!------
+	! Enumerators
+	!------
+
+	! Grid settings
+	enum, bind(C)
+		enumerator :: G_UNISPH, G_VOLTRON
+	endenum
+
 	! Topology
 	enum, bind(C)
 		enumerator :: SIFOPEN, SIFCLOSED
@@ -14,5 +23,10 @@ module sifdefs
 	enum, bind(C)
 		enumerator :: SIFACTIVE, SIFBUFFER, SIFINACTIVE
 	endenum
+
+	!------
+	! Defaults
+	!------
+
 
 end module sifdefs
