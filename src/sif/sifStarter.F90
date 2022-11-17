@@ -29,7 +29,7 @@ module sifStarter
  
         character(len=strLen) :: xmlStr
         type(XML_Input_T) :: xmlInp
-        write(*,*) "kmInitModel is starting"
+        write(*,*) "sifInitModel is starting"
 
         !Create input XML object
         if (present(optFilename)) then
