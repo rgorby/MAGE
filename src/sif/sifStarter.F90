@@ -8,12 +8,8 @@ module sifstarter
 
     implicit none
 
-
-
-
-
-
     contains
+
 
 !------
 ! Main Initialization Routines
@@ -23,10 +19,10 @@ module sifstarter
     ! Its up to a higher being to determine how we get our grid
     ! After we have a grid, we can initialize our first state
     subroutine sifInitModel(Model, Grid, planet, iXML)
-        type(sifModel_T), intent(inout) :: Model
-        type(sifGrid_T) , intent(inout) :: Grid
-        type(planet_T), intent(in)  :: planet
-        type(XML_Input_T), intent(in) :: iXML
+        type(sifModel_T) , intent(inout) :: Model
+        type(sifGrid_T)  , intent(inout) :: Grid
+        type(planet_T)   , intent(in)    :: planet
+        type(XML_Input_T), intent(in)    :: iXML
  
         character(len=strLen) :: xmlStr
         type(XML_Input_T) :: xmlInp
@@ -69,10 +65,8 @@ module sifstarter
 
     subroutine sifInitGrid(Grid, iXML)
         !type(sifModel_T), intent(inout) :: Model
-        type(sifGrid_T), intent(inout) :: Grid
-
-
-        type(XML_Input_T) :: iXML
+        type(sifGrid_T)  , intent(inout) :: Grid
+        type(XML_Input_T), intent(in)   :: iXML
 
 
         ! Set grid params
