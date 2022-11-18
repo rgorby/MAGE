@@ -1,6 +1,7 @@
 module siftypes
 
     use helpertypes
+    use shellgrid
 
     implicit none
 
@@ -31,11 +32,6 @@ module siftypes
         ! Lambda bounds controls
         logical :: doDynamicLambdaRanges  ! Dynamic lambda ranges so we only evolve certain energies at certain L shells
 
-        ! Grid settings
-        integer  :: gType  ! Enum of grid type
-        integer  :: Np, Nt, Nl ! # grid cells in phi, theta, and lambda channels
-        real(rp) :: latBndL, latBndU  ! Upper and lower latitue boundaries
-
         ! Detailed information
         type(planet_T) :: planet  ! Planet info like radius, mag. moment, etc.
         !type(precip_T) :: precip  ! Precipitation model info 
@@ -47,26 +43,18 @@ module siftypes
     type sifGrid_T
         integer :: gType  ! Enum of grid type
 
-        integer :: Nip, Njp, Nkp ! Number of physical cells, Ni = Nip+2*Ng
-        integer :: Ni,Nj,Nk  ! Number of total cells
-        integer :: Ng  ! Number of ghost cells
+        type(ShellGrid_T) :: shGrid
 
-        integer :: is,ie,js,je,ks,ke  ! Active region indices
-        integer :: isg,ieg,jsg,jeg,ksg,keg  ! Region including ghosts
+        integer :: ks=1,ke
+        integer :: ksg,keg
 
-        ! Bounds
-        real(rp) :: latBndL, latBndU  ! Lower/upper latitude bound
 
         ! MPI things
         integer :: NumRk  ! Number of ranks in energy space
         integer :: Rk=0  ! Number of this rank
 
-        ! Corner-centered lat/lon-coordinates (isg:ieg+1,jsg:jeg+1, 2)
-        real(rp), dimension(:,:,:)  , allocatable :: latlon
-        ! Volume-centered lat/lon-coordinates (isg:ieg,jsg:jeg, 2)
-        real(rp), dimension(:,:,:)  , allocatable :: latloncc 
         ! Face-centered coordinates
-        ! (Ni,Nj,2,2)  i, j, lat/lon, upper/lower
+        ! (Np,Nt,2,2)  i, j, lon/lat, upper/lower
         ! llfc(i,j,k,XDIR,IDIR) = x-coord of I-Face
         real(rp), dimension(:,:,:,:), allocatable :: llfc
 

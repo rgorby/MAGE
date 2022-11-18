@@ -11,7 +11,7 @@ module sifdefs
 
 	! Grid settings
 	enum, bind(C)
-		enumerator :: G_UNISPH, G_VOLTRON
+		enumerator :: G_UNISPH, G_SHGRID
 	endenum
 
 	! Topology

@@ -3,6 +3,7 @@ module sifstarter
     use sifdefs
     use siftypes
     use sifgrids
+    use shellgrid
     use xml_input
     use planethelper
 
@@ -18,11 +19,13 @@ module sifstarter
     ! Sets up Model, but Grid and State must be set up separately
     ! Its up to a higher being to determine how we get our grid
     ! After we have a grid, we can initialize our first state
-    subroutine sifInitModel(Model, Grid, planet, iXML)
+    subroutine sifInitModel(Model, Grid, planet, iXML, shGridO)
         type(sifModel_T) , intent(inout) :: Model
         type(sifGrid_T)  , intent(inout) :: Grid
         type(planet_T)   , intent(in)    :: planet
         type(XML_Input_T), intent(in)    :: iXML
+
+        type(ShellGrid_T), optional, intent(in)    :: shGridO
  
         character(len=strLen) :: xmlStr
         type(XML_Input_T) :: xmlInp
@@ -57,54 +60,56 @@ module sifstarter
         Model%planet = planet
 
         ! Generate grid
-        call sifInitGrid(Grid, iXML)
+        if(present(shGridO)) then
+            call sifInitGrid(Grid, iXML, shGridO)
+        else
+            call sifInitGrid(Grid, iXML)
+        endif
+        
 
     end subroutine sifInitModel
 
     
 
-    subroutine sifInitGrid(Grid, iXML)
-        !type(sifModel_T), intent(inout) :: Model
+    subroutine sifInitGrid(Grid, iXML, shGridO)
         type(sifGrid_T)  , intent(inout) :: Grid
         type(XML_Input_T), intent(in)   :: iXML
+        type(ShellGrid_T), optional, intent(in)    :: shGridO
 
+        character(len=strLen) :: tmpStr
+        type(ShellGrid_T) :: shGrid
 
         ! Set grid params
         ! Grid settings
-        call iXML%Set_Val(Grid%gType, "grid/gType",G_UNISPH)
-        call iXML%Set_Val(Grid%Ng , "grid/Ng", 4  )  ! Ghost cells
-        call iXML%Set_Val(Grid%Nip, "grid/Np", 90 )  ! Phi
-        !! Ignoring lambda grid for now, add in later
-        call iXML%Set_Val(Grid%Njp, "grid/Nt", 360)  ! Theta
-        call iXML%Set_Val(Grid%Nkp, "grid/Nl", 140)  ! Lambda
-        call iXML%Set_Val(Grid%latBndL, "grid/LatL", 50.0) ! Lat boundary, lower
-        call iXML%Set_Val(Grid%latBndU, "grid/LatU", 80.0) ! Lat boundary, upper
+        call iXML%Set_Val(tmpStr, "grid/gType","UNISPH")
 
-        ! Finalize grid definition
-        Grid%Ni = Grid%Nip + 2*Grid%Ng
-        Grid%Nj = Grid%Njp + 2*Grid%Ng
 
-        Grid%is = 1; Grid%ie = Grid%Nip
-        Grid%js = 1; Grid%je = Grid%Njp
-
-        Grid%isg = Grid%is-Grid%Ng
-        Grid%ieg = Grid%ie+Grid%Ng
-        Grid%jsg = Grid%js-Grid%Ng
-        Grid%jeg = Grid%je+Grid%Ng
-
-        call allocGrid(Grid)
-
-        ! Now fill in out coordinates depending on specification
-        select case(Grid%gType)
-            case(G_UNISPH)
-                ! pass
-            case(G_VOLTRON)
-                ! pass
+        ! Fill out Grid object depending on chosen method
+        select case(tmpStr)
+            case("UNISPH")
+                Grid%gType = G_UNISPH
+                ! Generate our own grid from scratch
+                call sifGenUniSphGrid(Grid, iXML)
+            case("SHGRID")
+                Grid%gType = G_SHGRID
+                ! Then we should be receiving a predefined ShellGrid that Voltron is set up
+                if(present(shGridO)) then
+                    shGrid = shGridO
+                    !call sifGenGridFromShGrid(Grid, shGrid)
+                else
+                    write(*,*) "SIF expecting a ShellGrid_T but didn't receive one. Dying."
+                endif
             case DEFAULT
                 write(*,*) "SIF Received invalid grid definition: ",Grid%gType
                 write(*,*) " Dying."
                 stop
         end select
+
+        ! Finalize the spatial part of the grid
+        call finalizeLLGrid(Grid)
+
+        ! Now handle lambda grid
+        !!!TODO
 
     end subroutine sifInitGrid
 
