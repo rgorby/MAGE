@@ -209,23 +209,33 @@ module mixgeom
       if (isSolverGrid) call set_grid(G)
     end subroutine init_grid_fromXY_oldMIX
 
+    !Simple MIX allocation routine to try to avoid memchecker flags
+    subroutine AllocMIX(Q,Np,Nt)
+        real(rp), dimension(:,:), intent(inout) :: Q
+        integer, intent(in) :: Np,Nt
+
+        if (.not. allocated(Q)) allocate(Q(Np,Nt))
+        Q(:,:) = 0.0
+    end subroutine AllocMIX
+    
     subroutine set_grid(G)
       type(mixGrid_T),intent(inout) :: G
       integer :: i,j
 
-      if (.not.allocated(G%r)) allocate(G%r(G%Np,G%Nt))
+      call AllocMIX(G%r,G%Np,G%Nt)
 
       ! note allocating everything with the same size
       ! careful with unused points
-      if (.not.allocated(G%dp)) allocate(G%dp(G%Np,G%Nt))    ! True size (Np-1,Nt)
-      if (.not.allocated(G%dt)) allocate(G%dt(G%Np,G%Nt))    ! True size (Np,Nt-1)
+      call AllocMIX(G%dp,G%Np,G%Nt) ! True size (Np-1,Nt)
+      call AllocMIX(G%dt,G%Np,G%Nt) ! True size (Np,Nt-1)
+
 
       ! things needed for the solver and dependent only on the grid, not conductances
       ! same caveats about the sizes
-      if (.not.allocated(G%ft)) allocate(G%ft(G%Np,G%Nt))
-      if (.not.allocated(G%fp)) allocate(G%fp(G%Np,G%Nt))
-      if (.not.allocated(G%dtdt)) allocate(G%dtdt(G%Np,G%Nt))
-      if (.not.allocated(G%dpdp)) allocate(G%dpdp(G%Np,G%Nt))
+      call AllocMIX(G%ft  ,G%Np,G%Nt)
+      call AllocMIX(G%fp  ,G%Np,G%Nt)
+      call AllocMIX(G%dtdt,G%Np,G%Nt)
+      call AllocMIX(G%dpdp,G%Np,G%Nt)
 
       ! cyllindrical radius
       G%r = sqrt(G%x**2+G%y**2)
@@ -251,7 +261,8 @@ module mixgeom
       G%dpdp(1,:) = G%dp(1,:)/G%dp(G%Np,:)-G%dp(G%Np,:)/G%dp(1,:) ! fix up periodic
 
       ! dip angle: compute and store for access later
-      if (.not.allocated(G%cosd)) allocate(G%cosd(G%Np,G%Nt))    
+      call AllocMIX(G%cosd,G%Np,G%Nt)
+
       do i=1,G%Nt
          do j=1,G%Np
             G%cosd(j,i) = cosDipAngle(G%t(j,i))
