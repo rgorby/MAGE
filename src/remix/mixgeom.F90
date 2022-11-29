@@ -211,7 +211,7 @@ module mixgeom
 
     !Simple MIX allocation routine to try to avoid memchecker flags
     subroutine AllocMIX(Q,Np,Nt)
-        real(rp), dimension(:,:), intent(inout) :: Q
+        real(rp), dimension(:,:), allocatable, intent(inout) :: Q
         integer, intent(in) :: Np,Nt
 
         if (.not. allocated(Q)) allocate(Q(Np,Nt))
