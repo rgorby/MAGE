@@ -75,22 +75,37 @@ def getRootVars(fname,gDims):
 	return vIds,vLocs
 
 #Get variables in initial Step
-def getVars(fname,s0,gDims):
+def getVars(fname,gId,gDims,recursive=False):
+
+	def getVarName(gId, k, recursive):
+		if recursive:
+				# Want to keep the group name, since all vars need to be at the same level in xdmf
+				spl = gId.split('/')
+				vID = '/'.join(spl[1:]) + '/' + str(k)
+			else:
+				vID = str(k)
 
 	with h5py.File(fname,'r') as hf:
-		gId = "/Step#%d"%(s0)
 		stp0 = hf[gId]
 		vIds = []
 		vLocs = []
 		for k in stp0.keys():
-			vID = str(k)
-			Nv = stp0[k].shape
-			vLoc = getLoc(gDims,Nv)
-			if (vLoc != "Other"):
-				vIds.append(vID)
-				vLocs.append(vLoc)
+			vID = getVarName(gId,k,recursive)
+			
+			# If its a group, recursively call this function to get to the vars and add them to the list
+			if type(stp0[k]) == h5py._hl.group.Group:
+				vIdR, vLR = getVars(fname, gId+'/'+k, gDims, recursive=True)
+				for vi, vl in zip(vIdR, vLR):
+					vIds.append(vi)
+					vLocs.append(vl)
 			else:
-				print("Excluding %s"%(vID))
+				Nv = stp0[k].shape
+				vLoc = getLoc(gDims,Nv)
+				if (vLoc != "Other"):
+					vIds.append(vID)
+					vLocs.append(vLoc)
+				else:
+					print("Excluding %s"%(vID))
 	return vIds,vLocs
 
 def AddVectors(Grid,fname,vIds,cDims,vDims,Nd,nStp):

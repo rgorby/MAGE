@@ -208,7 +208,7 @@ if __name__ == "__main__":
 				T = np.append(T, int(sIDstr.split("#")[1]))
 		#steps = np.array([k for k in f5.keys() if "Step" in k])
 	Nt = len(T)
-	vIds ,vLocs  = kxmf.getVars(h5fname,s0,gDims)
+	vIds ,vLocs  = kxmf.getVars(h5fname,s0str,gDims)
 	rvIds,rvLocs = kxmf.getRootVars(h5fname,gDims)
 
 	Nv = len(vIds)
