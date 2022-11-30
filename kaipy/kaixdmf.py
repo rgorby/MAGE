@@ -79,11 +79,12 @@ def getVars(fname,gId,gDims,recursive=False):
 
 	def getVarName(gId, k, recursive):
 		if recursive:
-				# Want to keep the group name, since all vars need to be at the same level in xdmf
-				spl = gId.split('/')
-				vID = '/'.join(spl[1:]) + '/' + str(k)
-			else:
-				vID = str(k)
+			# Want to keep the group name, since all vars need to be at the same level in xdmf
+			spl = gId.split('/')
+			return '/'.join(spl[1:]) + '/' + str(k)
+		else:
+			return str(k)
+
 
 	with h5py.File(fname,'r') as hf:
 		stp0 = hf[gId]
