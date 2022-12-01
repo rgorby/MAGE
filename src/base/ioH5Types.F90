@@ -25,16 +25,16 @@ module ioH5types
 
     type IOVAR_T
         character(len=strLen) :: idStr="NONE",unitStr="CODE",descStr="DESCRIPTION"
-        integer(HSIZE_T) :: dims(MAXIODIM) = 0 !Dimension information
+        integer(HSIZE_T) :: dims   (MAXIODIM) = 0 !Dimension information
         integer(HSIZE_T) :: offsets(MAXIODIM) = 0 !Offset for reading/writing a hyperslab, optional
         logical :: useHyperslab=.false.
         integer :: Nr = 0 !Number of ranks
-        integer :: N = 0 !Total number of elements
+        integer :: N  = 0 !Total number of elements
         real(rp), dimension(:), allocatable :: data !1D holder for data
         real(rp) :: scale=1.0, renorm=0.0
         logical :: toWrite=.false.,toRead=.false. !Read or write this variable
-        logical :: isDone=.false. !Whether or not variable has been successfully read/written
-        integer :: vType
+        logical :: isDone =.false. !Whether or not variable has been successfully read/written
+        integer :: vType=IONULL
         character(len=strLen) :: dStr !Optional string data
     end type IOVAR_T
 
