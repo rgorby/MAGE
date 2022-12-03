@@ -3192,7 +3192,7 @@ FUNCTION RatefnWM(xx,yy,alamx,vmx,nex,kpx,bqx,losscx,doTDSLoss)
        tau2 = tau_TDS
        R2 = 3.0
        RatefnWM(1) = 1./tau1 + 1./tau2
-       RatefnWM(2) = R1 + R2 
+       RatefnWM(2) = 1./tau1/RatefnWM(1)*R1 + 1./tau2/RatefnWM(1)*R2 
     elseif (tau_c < 1.e10) then
        tau = tau_c
        RatefnWM(1) = 1./tau
