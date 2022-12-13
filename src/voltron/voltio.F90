@@ -212,7 +212,6 @@ module voltio
         call AddOutVar(IOVars,"time",vApp%time)
 
         !Coupling info
-        call AddOutVar(IOVars,"ShallowT",vApp%ShallowT)
         call AddOutVar(IOVars,"DeepT"   ,vApp%DeepT)
         call AddOutVar(IOVars,"gBAvg", vApp%mhd2Mix%gBAvg)
         
@@ -259,7 +258,6 @@ module voltio
         call AddInVar(IOVars,"ts"      ,vTypeO=IOINT)
         call AddInVar(IOVars,"MJD"     ,vTypeO=IOREAL)
         call AddInVar(IOVars,"time"    ,vTypeO=IOREAL)
-        call AddInVar(IOVars,"ShallowT",vTypeO=IOREAL)
         call AddInVar(IOVars,"DeepT"   ,vTypeO=IOREAL)
 
 
@@ -271,7 +269,6 @@ module voltio
         vApp%ts       = GetIOInt(IOVars,"ts")
         vApp%MJD      = GetIOReal(IOVars,"MJD")
         vApp%time     = GetIOReal(IOVars,"time")
-        vApp%ShallowT = GetIOReal(IOVars,"ShallowT")
         vApp%DeepT    = GetIOReal(IOVars,"DeepT")
 
         !Check to see if gB0 is present

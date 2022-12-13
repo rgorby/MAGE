@@ -22,7 +22,7 @@ module voltmpitypes
         type(MPI_Comm) :: voltMpiComm
         integer :: myRank
         type(gamApp_T) :: gAppLocal
-        logical :: doSerialVoltron = .false.
+        logical :: doSerialVoltron = .false., doAsyncCoupling = .true.
         logical :: firstDeepUpdate = .true., firstStepUpdate = .true.
 
         ! array of all zeroes to simplify various send/receive calls
@@ -37,6 +37,16 @@ module voltmpitypes
         type(MPI_Request) :: timeReq, timeStepReq
         real(rp) :: timeBuffer
         integer :: timeStepBuffer
+
+        ! SHALLOW COUPLING VARIABLES
+        integer, dimension(:), allocatable :: sendCountsIneijkShallow
+        type(MPI_Datatype), dimension(:), allocatable :: sendTypesIneijkShallow
+        integer(kind=MPI_AN_MYADDR), dimension(:), allocatable :: sendDisplsIneijkShallow
+        integer, dimension(:), allocatable :: sendCountsInexyzShallow
+        type(MPI_Datatype), dimension(:), allocatable :: sendTypesInexyzShallow
+        integer(kind=MPI_AN_MYADDR), dimension(:), allocatable :: sendDisplsInexyzShallow
+        ! SHALLOW ASYNCHRONOUS VARIABLES
+        type(MPI_Request) :: shallowIneijkSendReq, shallowInexyzSendReq
 
         ! DEEP COUPLING VARIABLES
         integer, dimension(:), allocatable :: recvCountsGasDeep

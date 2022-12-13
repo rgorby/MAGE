@@ -123,11 +123,10 @@ program voltron_mpix
             call localStepVoltronTime(g2vComm, gApp)
 
             !Tell gamera to synchronize with voltron (and wait for it if necessary)
-            ! If it needs to do shallow or deep coupling, file io, restart io, or
+            ! If it needs to do deep coupling, file io, restart io, or
             ! Terminate the simulation
             ! Don't synchronize for console or timing output, not worth it (?)
             if( (g2vComm%time >= g2vComm%DeepT .and. g2vComm%doDeep) .or. &
-                (g2vComm%time >= g2vComm%ShallowT) .or. &
                 gApp%Model%IO%doRestart(gApp%Model%t) .or. &
                 gApp%Model%IO%doOutput(gApp%Model%t) .or. &
                 (g2vComm%time >= g2vComm%tFin)) then
@@ -137,17 +136,9 @@ program voltron_mpix
                 call Toc("StepVoltron")
         
                 !Coupling
-                if(g2vComm%doDeep .and. g2vComm%time >= g2vComm%DeepT .and. g2vComm%time >= g2vComm%ShallowT) then ! both shallow and deep coupling
-                    call Tic("Coupling")
-                    call performShallowAndDeepUpdate(g2vComm, gApp)
-                    call Toc("Coupling")
-                elseif ( g2vComm%time >= g2vComm%DeepT .and. g2vComm%doDeep ) then
+                if ( g2vComm%time >= g2vComm%DeepT .and. g2vComm%doDeep ) then
                     call Tic("Coupling")
                     call performDeepUpdate(g2vComm, gApp)
-                    call Toc("Coupling")
-                elseif (g2vComm%time >= g2vComm%ShallowT) then
-                    call Tic("Coupling")
-                    call performShallowUpdate(g2vComm, gApp)
                     call Toc("Coupling")
                 endif
             endif
@@ -224,12 +215,8 @@ program voltron_mpix
 
                     !Coupling
                     call Tic("Coupling")
-                    if(vApp%doDeep .and. vApp%time >= vApp%DeepT .and. vApp%time >= vApp%ShallowT) then ! both
-                        call shallowAndDeepUpdate_Mpi(vApp, vApp%time)
-                    elseif (vApp%time >= vApp%DeepT .and. vApp%doDeep ) then
+                    if (vApp%time >= vApp%DeepT .and. vApp%doDeep ) then
                         call DeepUpdate_mpi(vApp, vApp%time)
-                    elseif (vApp%time >= vApp%ShallowT) then
-                        call ShallowUpdate_mpi(vApp, vApp%time)
                     endif
                     call Toc("Coupling")
 
