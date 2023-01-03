@@ -1190,9 +1190,9 @@ module glsolution
             type(glSolution_T), intent(inout)  :: Solution
             type(glModel_T), intent(inout) :: Model
             type(glState_T), intent(inout)  :: State
-            integer :: i, rdim
+            integer :: i !rdim
 
-            rdim = size(State%r)
+            !rdim = ubound(State%r, 1)
             if(Model%isLoud .and. (Model%isDebug)) write(*,*) "Generating GL Solution"
 
             ! time assumed in seconds
@@ -1203,7 +1203,7 @@ module glsolution
                 write(*,"(1X,A14,2X,F13.4)") "phiss: ", Model%phiss 
             end if
             
-            do i = 1, rdim
+            do i = State%is, State%ie
                 State%rpb = State%r(i)
                 State%ri = i
 

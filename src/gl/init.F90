@@ -409,15 +409,7 @@ module glinit
             type(glState_T), intent(inout)  :: State
             real(rp), dimension(:), intent(in) :: r
             real(rp), dimension(:,:), intent(in) :: theta, phi
-            ! integer :: rdim
-            ! integer, dimension(2) :: adims
 
-            ! rdim = size(r)
-            ! adims = shape(theta)
-
-            ! State%Ni = rdim
-            ! State%Nj = adims(1)
-            ! State%Nk = adims(2)
             State%r = r
             State%thpb = theta + Model%latitude
             State%phpb = phi - Model%longitude
