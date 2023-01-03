@@ -9,9 +9,9 @@ module giblowapp
     implicit none
 
     type :: glApp_T
-        type(glSolution_T) :: Solution
-        type(glModel_T) :: Model
-        type(glState_T) :: State
+        class(glSolution_T), allocatable :: Solution
+        class(glModel_T), allocatable :: Model
+        class(glState_T), allocatable :: State
     end type glApp_T
 
     contains
@@ -63,6 +63,9 @@ module giblowapp
 
         !Initialize Model, State, Solution
         call Tic("Init")
+        allocate(glApp%Model)
+        allocate(glApp%State)
+        allocate(glApp%Solution)
         call initGLStandalone(glApp%Model, glApp%State, glApp%Solution, xmlInp)
         call Toc("Init")
         call cleanClocks()
@@ -78,7 +81,7 @@ module giblowapp
         type(glApp_T), intent(inout) :: glApp
         !Calculate new timestep
         call Tic("Solution")
-        call generateCMESolution(glApp%Solution,glApp%Model,glApp%State)
+        call glApp%Solution%generateSolution(glApp%Solution,glApp%Model,glApp%State)
         call Toc("Solution")
     end subroutine step
 end module

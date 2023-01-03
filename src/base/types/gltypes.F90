@@ -102,7 +102,7 @@ module gltypes
     end type glModel_T
 
     !> State information
-    type, extends(baseCMEState_t) :: glState_T
+    type, extends(baseCMEState_T) :: glState_T
         ! Used for standalone Gibson-Low Model run
         ! to define user specified 3D grid dimensions to supply r,theta,phi to 
         ! construct state and to define size of solution ranks
@@ -146,12 +146,13 @@ module gltypes
         real(rp), dimension(:, :), allocatable :: bstrengthphys
     end type glState_T
 
+
     !> Solution information
     type, extends(baseCMESolution_T) :: glSolution_T
         ! solution bubble r(i) < rbub = Model%frontheight - Model%xo + Model%apar
         integer :: CoordSystem
     end type glSolution_T
-
+    
     contains
         !>
         !>
@@ -160,8 +161,8 @@ module gltypes
             real(rp), intent(in) :: time, gT0
             Model%time = (time - Model%Tstart_transient)*gT0
             if (Model%isLoud .and. (Model%isDebug)) then
-                write(*,"(1X,A14,2X,F)") "Sim time: ", Model%time 
-                write(*,"(1X,A14,2X,F)") "Updated time: ", Model%time 
+                write(*,"(1X,A14,2X,F13.2)") "Sim time: ", Model%time 
+                write(*,"(1X,A14,2X,F13.2)") "Updated time: ", Model%time 
             end if
         end subroutine updateGLTime
 

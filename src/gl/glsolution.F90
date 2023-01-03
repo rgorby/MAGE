@@ -11,6 +11,7 @@ module glsolution
     ! and Anna Malanushenko (HAO UCAR) modifications 
     ! comments and structure modified by AJM
     !---------------------------------------------
+
     contains
 
         !> Calculate Gibson-Low Solution Derivatives 
@@ -630,7 +631,6 @@ module glsolution
             real(rp), dimension(:, :), allocatable :: jlittleR, jlittleT, jlittleP
             real(rp), dimension(:, :), allocatable :: jlittleX, jlittleY1, jlittleZ1
             real(rp), dimension(:, :), allocatable :: jlittley, jlittlez
-            real(rp), dimension(:, :), allocatable :: jlittlerlamb, jlittlethlamb, jlittlephlamb
             real(rp) :: dlamdr
  
             allocate (st(State%js:State%je, State%ks:State%ke), ct(State%js:State%je, State%ks:State%ke))
@@ -1150,14 +1150,14 @@ module glsolution
             real(rp), allocatable, dimension(:,:) :: bmag, st, ct, sph, cph
             
             bmagmax = 0.0
-            if(Model%isLoud) write(*,"(1X,A24,2X,1F)") "velmult scaled:", Model%velmult
+            if(Model%isLoud) write(*,"(1X,A24,2X,1F13.4)") "velmult scaled:", Model%velmult
             State%r = Model%frontheight
             ! do while bmag is monotonically increasing, save max, exit if bmagmax decreases from previous
             if(Model%isLoud) write(*,"(1X,A24)") "Find bmagmax:"
             if(Model%isLoud) write(*,"(1X,A24)") "------------------------"
             do i=1, nt
                 zeta = Model%x0 - Model%r0 - Model%apar + (nt - i - 1.)*2.*Model%r0/nt
-                if(Model%isLoud) write(*,"(1X,A14,2X,1F,1I)") "zeta, nt:", zeta, i
+                if(Model%isLoud) write(*,"(1X,A14,2X,1F13.4,1I8)") "zeta, nt:", zeta, i
                 if (zeta > 0.01) then
                     Model%time = (Model%frontheight/zeta - 1.)/Model%s_eta
                     call generateGLSolution(Solution, Model, State)
@@ -1172,12 +1172,12 @@ module glsolution
                     if (bmagmax < val) then 
                         bmagmax = val
                     else 
-                        if(Model%isLoud) write(*,"(1X,A36,2X,2F)") "bmagmax (1) < val (2), exit loop:", bmagmax, val
+                        if(Model%isLoud) write(*,"(1X,A36,2X,2F13.4)") "bmagmax (1) < val (2), exit loop:", bmagmax, val
                         exit
                     end if
                 end if
             end do
-            if(Model%isLoud) write(*,"(1X,A24,2X,1F,1I,1F)") "bmagmax, nt, time:", bmagmax, i, Model%time
+            if(Model%isLoud) write(*,"(1X,A24,2X,1F13.4,1I8,1F13.4)") "bmagmax, nt, time:", bmagmax, i, Model%time
             if(Model%isLoud) write(*,"(1X,A24)") "------------------------"
             ao = Model%bmax / bmagmax 
         end function calcModelBmax
@@ -1187,9 +1187,9 @@ module glsolution
         !> Solution to be used in other boundary condition code
         !> or ingested into LOS code
         subroutine generateGLSolution(Solution, Model, State)
-            class(glSolution_T), intent(inout)  :: Solution
-            class(glModel_T), intent(inout) :: Model
-            class(glState_T), intent(inout)  :: State
+            type(glSolution_T), intent(inout)  :: Solution
+            type(glModel_T), intent(inout) :: Model
+            type(glState_T), intent(inout)  :: State
             integer :: i, rdim
 
             rdim = size(State%r)
@@ -1198,9 +1198,9 @@ module glsolution
             ! time assumed in seconds
             Model%phiss = sqrt(Model%eta)*Model%time + 1.0 
             if (Model%isLoud .and. (Model%isDebug)) then
-                write(*,"(1X,A14,2X,F)") "eta: ", Model%eta 
-                write(*,"(1X,A14,2X,F)") "time: ", Model%time 
-                write(*,"(1X,A14,2X,F)") "phiss: ", Model%phiss 
+                write(*,"(1X,A14,2X,F13.4)") "eta: ", Model%eta 
+                write(*,"(1X,A14,2X,F13.4)") "time: ", Model%time 
+                write(*,"(1X,A14,2X,F13.4)") "phiss: ", Model%phiss 
             end if
             
             do i = 1, rdim

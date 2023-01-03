@@ -2,7 +2,7 @@ module cmetypes
     use gdefs
     use ioclock
 
-    procedure(cmeSolution_I), pointer :: generateCMESolution => NULL()
+    !procedure(cmeSolution_I), pointer :: generateCMESolution => NULL()
 
     type, abstract :: baseCMEModel_T
         character(len=strLen) :: RunID
@@ -21,23 +21,24 @@ module cmetypes
         procedure(), pointer, nopass :: updateModelTime
     end type
 
-    type, abstract :: baseCMEState_t
+    type, abstract :: baseCMEState_T
       
     end type
 
     type, abstract :: baseCMESolution_T 
         real(rp), dimension(:, :, :), allocatable :: pres, dens, temp, inside_mask
         real(rp), dimension(:, :, :, :), allocatable :: b, v, j
-        !DIR$ attributes align : ALIGN :: pres, dens, temp
+        !DIR$ attributes align : ALIGN :: pres, dens, temp, inside_mask
         !DIR$ attributes align: ALIGN :: b, v, j
+        procedure(), pointer, nopass :: generateSolution
     end type
 
     abstract interface
         subroutine cmeSolution_I(Solution, Model, State)
-            Import baseCMESolution_T
-            class(*), intent(inout) :: Solution
-            class(*), intent(inout) :: Model
-            class(*), intent(inout) :: State
+            Import baseCMESolution_T, baseCMEModel_T, baseCMEState_T
+            class(baseCMESolution_T), intent(inout) :: Solution
+            class(baseCMEModel_T), intent(inout) :: Model
+            class(baseCMEState_T), intent(inout) :: State
         end subroutine
     end interface
 

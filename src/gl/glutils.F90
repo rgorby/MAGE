@@ -115,7 +115,7 @@ module glutils
             end do
 
             etimes(5) = 0 ! in DOICMEM, frontheight is at 0.1AU always -- in the future for other tasks, we might need to change this
-            if(Model%isLoud) write(*,"(1x,A40,2x,7F)") "Emergence times, lastP, eta0*velmult: ",  etimes, maxval(etimes), sqrt(eta0)*Model%velmult
+            if(Model%isLoud) write(*,"(1x,A40,2x,7F13.4)") "Emergence times, lastP, eta0*velmult: ",  etimes, maxval(etimes), sqrt(eta0)*Model%velmult
         end function
 
         !> xyz must have dimensions of xyz(Model%Ni, Model%Nj, Model%Nk, NDIM)
@@ -155,43 +155,43 @@ module glutils
         subroutine printModelParameters(Model, str)
             type(glModel_T), intent(in) :: Model
             character(*), optional, intent(in) :: str
-            if(present(str)) write(*,"(1x,A24,A24)"), "Model Parameters ", str
-            write(*,"(1x,A40)"), "----------------------------------------"
-            write(*,"(1x,A24,2x,1F)") "frontheight: ", Model%frontheight
-            write(*,"(1x,A24,2x,1F)") "legsang: ", Model%legsang
-            write(*,"(1x,A24,2x,1F)") "topmorph: ", Model%topmorph
-            write(*,"(1x,A24,2x,1F)") "latitude: ", Model%latitude
-            write(*,"(1x,A24,2x,1F)") "longitude: ", Model%longitude
-            write(*,"(1x,A24,2x,1F)") "sigma: ", Model%sigma
-            write(*,"(1x,A24,2x,1F)") "cmer: ", Model%cmer
-            write(*,"(1x,A24,2x,1F)") "Bmax: ", Model%Bmax
-            write(*,"(1x,A24,2x,1F)") "cmeV: ", Model%cmeV
-            write(*,"(1x,A24,2x,1F)") "vel_fh: ", Model%vel_fh
-            write(*,"(1x,A24,2x,1F)") "apar: ", Model%apar
-            write(*,"(1x,A24,2x,1F)") "r0: ", Model%r0
-            write(*,"(1x,A24,2x,1F)") "x0: ", Model%x0
-            write(*,"(1x,A24,2x,1F)") "ao: ", Model%ao
-            write(*,"(1x,A24,2x,1F)") "bmagmax: ", Model%bmagmax
-            write(*,"(1x,A24,2x,1F)") "alnot: ", Model%alnot
-            write(*,"(1x,A24,2x,1F)") "alnotrbubuse: ", Model%alnotrbubuse
-            write(*,"(1x,A24,2x,1F)") "alnotrbub: ", Model%alnotrbub
-            write(*,"(1x,A24,2x,1F)") "muse: ", Model%muse
-            write(*,"(1x,A24,2x,1F)") "xo: ", Model%xo
-            write(*,"(1x,A24,2x,1F)") "rbub: ", Model%rbub
-            write(*,"(1x,A24,2x,1F)") "anot: ", Model%anot
-            write(*,"(1x,A24,2x,1F)") "eta: ", Model%eta
-            write(*,"(1x,A24,2x,1F)") "phiss: ", Model%phiss
-            write(*,"(1x,A24,2x,1F)") "aa: ", Model%aa
-            write(*,"(1x,A24,2x,1F)") "bb: ", Model%bb
-            write(*,"(1x,A24,2x,1F)") "cc: ", Model%cc
-            write(*,"(1x,A24,2x,1F)") "dd: ", Model%dd
-            write(*,"(1x,A24,2x,1F)") "ee: ", Model%ee
-            write(*,"(1x,A24,2x,1F)") "ff: ", Model%ff
-            write(*,"(1x,A24,2x,1F)") "velmult: ", Model%velmult
-            write(*,"(1x,A24,2x,1F)") "alpha: ", Model%alpha
-            write(*,"(1x,A24,2x,1F)") "s_eta0: ", Model%s_eta0
-            write(*,"(1x,A24,2x,1F)") "s_eta: ", Model%s_eta
-            write(*,"(1x,A40)"), "----------------------------------------"
+            if(present(str)) write(*,"(1x,A24,A24)") "Model Parameters ", str
+            write(*,"(1x,A40)") "----------------------------------------"
+            write(*,"(1x,A24,2x,1F13.4)") "frontheight: ", Model%frontheight
+            write(*,"(1x,A24,2x,1F13.4)") "legsang: ", Model%legsang
+            write(*,"(1x,A24,2x,1F13.4)") "topmorph: ", Model%topmorph
+            write(*,"(1x,A24,2x,1F13.4)") "latitude: ", Model%latitude
+            write(*,"(1x,A24,2x,1F13.4)") "longitude: ", Model%longitude
+            write(*,"(1x,A24,2x,1F13.4)") "sigma: ", Model%sigma
+            write(*,"(1x,A24,2x,1F13.4)") "cmer: ", Model%cmer
+            write(*,"(1x,A24,2x,1F13.4)") "Bmax: ", Model%Bmax
+            write(*,"(1x,A24,2x,1F13.4)") "cmeV: ", Model%cmeV
+            write(*,"(1x,A24,2x,1F13.4)") "vel_fh: ", Model%vel_fh
+            write(*,"(1x,A24,2x,1F13.4)") "apar: ", Model%apar
+            write(*,"(1x,A24,2x,1F13.4)") "r0: ", Model%r0
+            write(*,"(1x,A24,2x,1F13.4)") "x0: ", Model%x0
+            write(*,"(1x,A24,2x,1F13.4)") "ao: ", Model%ao
+            write(*,"(1x,A24,2x,1F13.4)") "bmagmax: ", Model%bmagmax
+            write(*,"(1x,A24,2x,1F13.4)") "alnot: ", Model%alnot
+            write(*,"(1x,A24,2x,1F13.4)") "alnotrbubuse: ", Model%alnotrbubuse
+            write(*,"(1x,A24,2x,1F13.4)") "alnotrbub: ", Model%alnotrbub
+            write(*,"(1x,A24,2x,1F13.4)") "muse: ", Model%muse
+            write(*,"(1x,A24,2x,1F13.4)") "xo: ", Model%xo
+            write(*,"(1x,A24,2x,1F13.4)") "rbub: ", Model%rbub
+            write(*,"(1x,A24,2x,1F13.4)") "anot: ", Model%anot
+            write(*,"(1x,A24,2x,1F13.4)") "eta: ", Model%eta
+            write(*,"(1x,A24,2x,1F13.4)") "phiss: ", Model%phiss
+            write(*,"(1x,A24,2x,1F13.4)") "aa: ", Model%aa
+            write(*,"(1x,A24,2x,1F13.4)") "bb: ", Model%bb
+            write(*,"(1x,A24,2x,1F13.4)") "cc: ", Model%cc
+            write(*,"(1x,A24,2x,1F13.4)") "dd: ", Model%dd
+            write(*,"(1x,A24,2x,1F13.4)") "ee: ", Model%ee
+            write(*,"(1x,A24,2x,1F13.4)") "ff: ", Model%ff
+            write(*,"(1x,A24,2x,1F13.4)") "velmult: ", Model%velmult
+            write(*,"(1x,A24,2x,1F13.4)") "alpha: ", Model%alpha
+            write(*,"(1x,A24,2x,1F13.4)") "s_eta0: ", Model%s_eta0
+            write(*,"(1x,A24,2x,1F13.4)") "s_eta: ", Model%s_eta
+            write(*,"(1x,A40)") "----------------------------------------"
         end subroutine printModelParameters
 
         !> Allocate and Intialize Solution Variables
@@ -324,7 +324,7 @@ module glutils
             State%jrlambout = 0.
             State%jthlambout = 0.
             State%jphlambout = 0.
-            State%cavinside = 0.
+            State%cavinside = .false.
             State%blittlerlamb = 0.
             State%blittlethlamb = 0.
             State%blittlephlamb = 0.

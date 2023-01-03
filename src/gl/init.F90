@@ -213,8 +213,8 @@ module glinit
             type(glSolution_T), intent(inout) :: Solution
             real(rp) :: ao 
             ao = calcModelBmax(Model, State, Solution, 100)
-            if (Model%isLoud) write(*,"(1X,A14,2X,F)") "ao rescaled: ", ao
-            if (Model%isLoud) write(*,"(1X,A14,2X,F)") "ao pre-scaling: ", -Model%ao*Model%Muse
+            if (Model%isLoud) write(*,"(1X,A14,2X,1F13.4)") "ao rescaled: ", ao
+            if (Model%isLoud) write(*,"(1X,A14,2X,1F13.4)") "ao pre-scaling: ", -Model%ao*Model%Muse
             Model%ao = -ao/Model%Muse
         end subroutine
 
@@ -315,7 +315,7 @@ module glinit
             type(glSolution_T), intent(inout) :: Solution
             type(XML_Input_T), intent(in) :: inpXML
 
-            generateCMESolution => generateGLSolution
+            Solution%generateSolution => generateGLSolution
 
             call initModel(Model, inpXML)
             !Output/Restart (IOCLOCK)
@@ -355,7 +355,7 @@ module glinit
             type(XML_Input_T), intent(in) :: inpXML
             integer, dimension(6), intent(in) :: bounds
 
-            generateCMESolution => generateGLSolution
+            Solution%generateSolution => generateGLSolution
 
             call initModel(Model, inpXML)
             call initSolutionState(Model, State, Solution, bounds)

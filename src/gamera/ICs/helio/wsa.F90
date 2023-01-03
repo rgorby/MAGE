@@ -377,15 +377,15 @@ module usergamic
               write(*,"(1X,A14,2X,F)") "Sim time: ", Model%t 
               write(*,"(1X,A14,2X,F)") "Updated CME time: ", cccmeModel%time 
           end if
-          call generateCMESolution(ccCMESolution, cccmeModel, cccmeState)
+          call ccCMESolution%generateSolution(ccCMESolution, cccmeModel, cccmeState)
           ! J-Faces
           !call jfcmeModel%updateModelTime(Model%t, Model%Units%gT0)
           jfcmeModel%time = (Model%t - jfcmeModel%Tstart_transient/Model%Units%gT0)*Model%Units%gT0
-          call generateCMESolution(jfCMESolution, jfcmeModel, jfcmeState)
+          call jfCMESolution%generateSolution(jfCMESolution, jfcmeModel, jfcmeState)
           ! K-Faces
           !call kfcmeModel%updateModelTime(Model%t, Model%Units%gT0)
           kfcmeModel%time = (Model%t - kfcmeModel%Tstart_transient/Model%Units%gT0)*Model%Units%gT0
-          call generateCMESolution(kfCMESolution, kfcmeModel, kfcmeState)
+          call kfCMESolution%generateSolution(kfCMESolution, kfcmeModel, kfcmeState)
           if (cccmeModel%isDebug) then
             write(*,"(1X,A14,2X,3F)") "Max Vr: ", maxval(ccCMESolution%v(:,:,:,XDIR)), maxval(jfCMESolution%v(:,:,:,XDIR)), maxval(kfCMESolution%v(:,:,:,XDIR))
             write(*,"(1X,A14,2X,3F)") "Max Br: ", maxval(ccCMESolution%b(:,:,:,XDIR)), maxval(jfCMESolution%b(:,:,:,XDIR)), maxval(kfCMESolution%b(:,:,:,XDIR))

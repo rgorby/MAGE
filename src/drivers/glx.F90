@@ -11,11 +11,11 @@ program glx
 
     !call printConfigStamp()
     call initClocks()
-
-    glApp%Model%isLoud = .true.
     
     call initGL(glApp)
-    
+
+    glApp%Model%isLoud = .true.
+
     if(glApp%Model%isLoud) write(*,*) "Model tFin = ", glApp%Model%tFin
 
     do while (glApp%Model%time <= glApp%Model%tFin)

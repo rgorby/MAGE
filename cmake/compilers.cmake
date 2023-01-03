@@ -85,7 +85,7 @@ if(CMAKE_Fortran_COMPILER_ID MATCHES Intel)
 
 	#Now do OS-dep options
 	if (CMAKE_SYSTEM_NAME MATCHES Darwin)
-		string(APPEND CMAKE_Fortran_FLAGS " -Wl,-stack_size,0x40000000,-stack_addr,0xf0000000 -xHost")
+		string(APPEND CMAKE_Fortran_FLAGS " -Wl,-stack_size,0x20000000,-stack_addr,0xf0000000 -xHost")
 	else()
 		#If we're not doing Mac, then add IPO
 		string(APPEND PROD " -ipo")
@@ -103,7 +103,7 @@ if(CMAKE_Fortran_COMPILER_ID MATCHES Intel)
 
 	#Check Intel Fortran version
 	if(NOT ALLOW_INVALID_COMPILERS AND CMAKE_Fortran_COMPILER_VERSION VERSION_GREATER "23")
-		message(FATAL_ERROR "Intel Fortran compilers newer than 21 are not supported. Set the ALLOW_INVALID_COMPILERS variable to ON to force compilation at your own risk.")
+		message(FATAL_ERROR "Intel Fortran compilers newer than 23 are not supported. Set the ALLOW_INVALID_COMPILERS variable to ON to force compilation at your own risk.")
 	endif()
 
 elseif(CMAKE_Fortran_COMPILER_ID MATCHES GNU)
@@ -116,7 +116,7 @@ elseif(CMAKE_Fortran_COMPILER_ID MATCHES GNU)
 	set(DEBUG "-fbacktrace -g -Warray-temporaries -Wall -Wfatal-errors  -finit-local-zero")
 	#Now do machine-dep options
 	if (CMAKE_SYSTEM_NAME MATCHES Darwin)
-		string(APPEND CMAKE_Fortran_FLAGS " -Wl,-stack_size,0x40000000,-stack_addr,0xf0000000")
+		string(APPEND CMAKE_Fortran_FLAGS " -Wl,-stack_size,0x20000000,-stack_addr,0xf0000000")
 	endif()
 endif()
 
