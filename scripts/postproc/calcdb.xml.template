@@ -1,0 +1,8 @@
+<?xml version="1.0"?>
+<Kaiju>
+    <Chimp>
+        <sim runid="RUNID"/>
+        <time T0="0.0" dt="60.0" tFin="3600.0"/>
+        <fields ebfile="EBFILE" grType="LFM" doJ="T"/>
+    </Chimp>
+</Kaiju>
