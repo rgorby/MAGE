@@ -3,7 +3,6 @@ module glsolution
     use glutils
     implicit none
 
-
     !---------------------------------------------
     ! Routines to Calculate the Gibson-Low CME Model
     ! B, j, v and density, pressure, temperature
@@ -1230,4 +1229,5 @@ module glsolution
             if(Model%isLoud .and. Model%isDebug) write(*,*) "GL Solution Complete"
             if(Model%isLoud .and. Model%isDebug) write(*,*) "inside_count: ", sum(Solution%inside_mask)
         end subroutine generateGLSolution 
+
 end module

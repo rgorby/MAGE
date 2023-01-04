@@ -2,6 +2,7 @@ module cmetypes
     use gdefs
     use ioclock
 
+    implicit none
     !procedure(cmeSolution_I), pointer :: generateCMESolution => NULL()
 
     type, abstract :: baseCMEModel_T

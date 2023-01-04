@@ -285,7 +285,7 @@ module glinit
                 do j=State%js, State%je    
                     ! Phi
                     x3 = rtpBds(5)+(k-1)*dphi
-                    State%phpb(j,k) = x3*2.*pi + Model%cmer       
+                    State%phpb(j,k) = x3*2.*pi + Model%cmer  
                     ! Theta
                     x2 = rtpBds(3)+(j-1)*dth
                     State%thpb(j,k) = x2*pi                        
