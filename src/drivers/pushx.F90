@@ -21,6 +21,7 @@ program pushx
     !Variables for main loop
     logical :: doPush = .true.
     integer :: n
+    real(rp):: dtNext
 
     !Setup timers
     call initClocks()
@@ -34,7 +35,7 @@ program pushx
 
     call Tic("Output")
     call cOutput(Model,ebState,tpState)
-    if (Model%t >= Model%tOut) call fOutput(Model,ebState,tpState)
+    if (Model%t >= Model%tOut .and. (.not. Model%isRestart)) call fOutput(Model,ebState,tpState)
     call Toc("Output")
     
     !Use association for syntax brevity
@@ -47,12 +48,15 @@ program pushx
         !------------------
         !Advance system (could be array of tpStates)
         call Tic("Chimp")
+
+        dtNext = min(Model%dt,Model%IO%tOut-Model%t)
+
         !$OMP PARALLEL DO default(shared) &
         !$OMP& schedule(dynamic)
         do n=1,tpState%Np
             !Integrate individual particles, advance by dt
             if (TPs(n)%isIn) then
-                call PushTP(TPs(n),Model%t,Model%dt,Model,ebState)
+                call PushTP(TPs(n),Model%t,dtNext,Model,ebState)
             endif
         enddo
         call Toc("Chimp")
@@ -60,7 +64,7 @@ program pushx
         !------------------
         !Update heartbeat/do per-step diagnostics
         call Tic("Step")
-        Model%t = Model%t+Model%dt
+        Model%t = Model%t+dtNext
         Model%ts = Model%ts+1
         tpState%NpT = count(tpState%TPs(:)%isIn)
         
@@ -75,11 +79,11 @@ program pushx
         if (modulo(Model%ts,Model%tsOut) ==0) then
             call cOutput(Model,ebState,tpState)
         endif
-        if (Model%IO%doRestart(Model%t)) then
-            call resOutput(Model,ebState,tpState)
-        endif
         if (Model%IO%doOutput(Model%t)) then
             call fOutput(Model,ebState,tpState)
+        endif
+        if (Model%IO%doRestart(Model%t)) then
+            call resOutput(Model,ebState,tpState)
         endif
         call Toc("Output")
 
