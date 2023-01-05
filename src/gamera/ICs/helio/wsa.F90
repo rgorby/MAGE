@@ -489,19 +489,23 @@ module usergamic
                             if(ccCMEModel%isDebug) write(*,"(1X,A14,2X,4F)") "CME VR Before emerge_lastP: time, unscaled VR, scaled VR, WSA VRIN", Model%t, ccCMEVarsStatic(CMEVR), ccCMEVarsStatic(CMEVR)/(1.d-5*Model%Units%gv0), ibcVarsStatic(VRIN)
                             pVar(DEN) = Den_CME/Model%Units%gD0
                             pVar(PRESSURE) = Pres_CME
-                            pVar(VELX:VELZ) = rHat*max(ccCMEVarsStatic(CMEVR)/(1.d-5*Model%Units%gv0), ibcVarsStatic(VRIN))
+                            !pVar(VELX:VELZ) = rHat*max(ccCMEVarsStatic(CMEVR)/(1.d-5*Model%Units%gv0), ibcVarsStatic(VRIN))
+                            pVar(VELX:VELZ) = rHat*ccCMEVarsStatic(CMEVR)/(1.d-5*Model%Units%gv0)
+
                         else if ((Model%t > emerge_lastP) .and. (Model%t <= t_smooth)) then !last point passed -- smoothly transition to WSA via linear changing from CME values to WSA over 1 hour
                             if(ccCMEModel%isDebug) write(*,"(1X,A14,2X,4F)") "CME VR After emerge_lastP: time, unscaled VR, scaled VR, WSA VRIN:", Model%t, ccCMEVarsStatic(CMEVR), ccCMEVarsStatic(CMEVR)/(1.d-5*Model%Units%gv0), ibcVarsStatic(VRIN)
                             pVar(DEN) = Den_CME/Model%Units%gD0 + &
                                             (Model%t - emerge_lastP)/(3600./Model%Units%gt0)*(ibcVarsStatic(RHOIN) - Den_CME/Model%Units%gD0)
                             pVar(PRESSURE)  = Pres_CME + &
                                                 (Model%t - emerge_lastP)/(3600./Model%Units%gt0)*(ibcVarsStatic(RHOIN)*Model%Units%gD0*Kbltz*ibcVarsStatic(TIN)/(Model%Units%gP0) - Pres_CME)
-                            pVar(VELX:VELZ) = rHat*max(ccCMEVarsStatic(CMEVR)/(1.d-5*Model%Units%gv0), ibcVarsStatic(VRIN))
+                            !pVar(VELX:VELZ) = rHat*max(ccCMEVarsStatic(CMEVR)/(1.d-5*Model%Units%gv0), ibcVarsStatic(VRIN))
+                            pVar(VELX:VELZ) = rHat*ccCMEVarsStatic(CMEVR)/(1.d-5*Model%Units%gv0)
                         else ! when Model%t is larger than t_smooth use WSA
                             if(cccmeModel%isDebug) write(*,"(1X,A14,2X,2F)") "Time is greater then t_smooth: ", Model%t, t_smooth
 			                pVar(DEN) = ibcVarsStatic(RHOIN)
                             pVar(PRESSURE) = ibcVarsStatic(RHOIN)*Model%Units%gD0*Kbltz*ibcVarsStatic(TIN)/(Model%Units%gP0)
-                            pVar(VELX:VELZ) = rHat*ibcVarsStatic(VRIN)
+                            !pVar(VELX:VELZ) = rHat*ibcVarsStatic(VRIN)
+                            pVar(VELX:VELZ) = rHat*ccCMEVarsStatic(CMEVR)/(1.d-5*Model%Units%gv0)
                         end if
                         if(cccmeModel%isDebug) write(*,"(1X,A34,2X,5F,3I)") "Inside pVar(Dens, Pres, VELX:VELZ): ", pVar(DEN), pVar(PRESSURE), pVar(VELX:VELZ), i, j, k
                     else !Outside of CME Bubble mask is 0.
@@ -509,7 +513,9 @@ module usergamic
                         pVar(DEN)       = ibcVarsStatic(RHOIN)
                         ! note conversion to my units with B0^2/4pi in the denominator
                         pVar(PRESSURE)  = ibcVarsStatic(RHOIN)*Model%Units%gD0*Kbltz*ibcVarsStatic(TIN)/(Model%Units%gP0)
-                        pVar(VELX:VELZ) = rHat*ibcVarsStatic(VRIN)
+                        !pVar(VELX:VELZ) = rHat*ibcVarsStatic(VRIN)
+                        pVar(VELX:VELZ) = rHat*ccCMEVarsStatic(CMEVR)/(1.d-5*Model%Units%gv0)
+
                         !if(cccmeModel%isDebug) write(*,"(1X,A36,2X,5F,3I)") "Outside pVar(Dens, Pres, VELX:VELZ): ", pVar(DEN), pVar(PRESSURE), pVar(VELX:VELZ), i, j, k
                     end if
                     !if(cccmeModel%isDebug) write(*,"(1X,A14,2X,1F)") "Current Time: ", Model%t
