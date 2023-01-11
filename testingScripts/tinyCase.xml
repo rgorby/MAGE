@@ -4,7 +4,7 @@
   <voltron>
     <time tFin="20.0"/>
     <spinup doSpin="T" tSpin="10.0" tIO="0.0"/>
-    <coupling dt="5.0" dtDeep="10.0" rTrc="40.0" imType="RCM" doQkSquish="T" doDynDT="F" doAsyncShallow="T"/>
+    <coupling dt="5.0" dtDeep="10.0" rTrc="40.0" imType="RCM" doQkSquish="T" doDynDT="F" doAsyncCoupling="T"/>
     <restart dtRes="1800.0"/>
     <imag doInit="T"/>
     <ebsquish epsSquish="0.05"/>
