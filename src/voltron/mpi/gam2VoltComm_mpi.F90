@@ -220,7 +220,9 @@ module gam2VoltComm_mpi
 
         if(g2vComm%doAsyncCoupling) then
             ! voltron sent shallow data which can't be cancelled
-            call recvShallowData(g2vComm, gApp)
+            !call recvShallowData(g2vComm, gApp)
+
+            ! voltron sends all data at once now, so it won't send async shallow past the end time
         endif
 
     end subroutine endGam2VoltWaits
