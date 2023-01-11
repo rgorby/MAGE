@@ -209,11 +209,11 @@ MODULE lossutils
 
     END FUNCTION Ratefn_sub_1keV_linear
 
-    FUNCTION Ratefn_tau_TDS(mltx,Lx,Ekx) result(tau)
-    ! linearly interpolate tau from EWMTauInput to current MLT,L,Ek value
+    FUNCTION Ratefn_tau_TDS(Ekx) result(tau)
+    ! linearly interpolate tau from EWMTauInput to Ekx value
     USE rice_housekeeping_module, ONLY: EWMTauInput
     IMPLICIT NONE
-    REAL (rprec), INTENT (IN) :: mltx,Lx,Ekx ! use 1D model with Ekx for simplicity
+    REAL (rprec), INTENT (IN) :: Ekx
     REAL(rprec) :: taui,tau
     REAL(rprec) :: dE,wE
     INTEGER :: eL,eU

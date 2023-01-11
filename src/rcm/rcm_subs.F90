@@ -3145,7 +3145,7 @@ FUNCTION Ratefn (xx,yy,alamx,vmx,beqx,losscx,nex,kpx,fudgxO,sinixO,birxO,xmfactO
             if (EWMTauInput%useWM) then
                 Ratefn = RatefnWM(xx,yy,alamx,vmx,nex,kpx,beqx,losscx,doTDSLoss)
             else
-                write(*,*) "Wave model is missing in rcmconfig.h5"
+                write(*,*) "Wave models are missing in rcmconfig.h5"
                 stop
             endif
          case default
@@ -3178,14 +3178,14 @@ FUNCTION RatefnWM(xx,yy,alamx,vmx,nex,kpx,bqx,losscx,doTDSLoss)
   RatefnWM(2) = 1.0
   !tau_s = RatefnC_tau_s(alamx,vmx,bqx,losscx)
 
-  if(nex<nlow) then ! Assumption: TDSs only occur at larger L shell(e.g., L > 3), outside the plasmasphere  
+  if(nex<nlow) then  
+    ! Region outside the plasmasphere or the plume, wave candidates: Chorus and TDS 
     tau_c = RatefnDW_tau_c(kpx,MLT,L,E)  
     if (doTDSLoss) then
        tau_TDS = Ratefn_tau_TDS(MLT,L,E)
     else
        tau_TDS = 1.D10
     endif
-    
     if ((tau_c < 1.e10) .and. (tau_TDS < 1.e10)) then
        tau1 = tau_c
        R1 = 2.0
@@ -3201,23 +3201,23 @@ FUNCTION RatefnWM(xx,yy,alamx,vmx,nex,kpx,bqx,losscx,doTDSLoss)
        tau = tau_TDS
        RatefnWM(1) = 1./tau
        RatefnWM(2) = 3.0
-    else ! The local electrons do not trigger the chorus wave and the TDS losses 
+    else ! No wave mode triggered 
        tau = 1.e10 
        RatefnWM(1) = 1./tau
        RatefnWM(2) = -10.0
     end if       
-  elseif(nex>nhigh) then 
+  elseif(nex>nhigh) then ! Region inside the plasmasphere, wave candidates: Hiss
     tau_h = RatefnC_tau_h16(MLT,E,L,kpx)
     if (tau_h < 1.e10) then
        tau = tau_h
        RatefnWM(1) = 1./tau
        RatefnWM(2) = 1.0
-    else
+    else ! No wave mode triggered
        tau = 1.e10
        RatefnWM(1) = 1./tau
        RatefnWM(2) = -10.0
     endif 
-  else  ! nlow <= nex <= nhigh
+  else  ! nlow <= nex <= nhigh, at the plume region, wave candidates: Chorus and Hiss
     tau_c = RatefnDW_tau_c(kpx,MLT,L,E) 
     tau_h = RatefnC_tau_h16(MLT,E,L,kpx)
     if ((tau_c < 1.e10) .and. (tau_h < 1.e10)) then
@@ -3225,7 +3225,7 @@ FUNCTION RatefnWM(xx,yy,alamx,vmx,nex,kpx,bqx,losscx,doTDSLoss)
        R1 = 2.0
        tau2 = tau_h
        R2 = 1.0
-       RatefnWM(1) = (dlog(nhigh/nex)/tau1 + dlog(nex/nlow)/tau2)/dlog(nhigh/nlow) ! use weighted loss rate 
+       RatefnWM(1) = (dlog(nhigh/nex)/tau1 + dlog(nex/nlow)/tau2)/dlog(nhigh/nlow) ! use density-weighted loss rate 
        RatefnWM(2) = (dlog(nhigh/nex)*R1 + dlog(nex/nlow)*R2)/dlog(nhigh/nlow)
     elseif (tau_c < 1.e10) then
        tau = tau_c
@@ -3235,136 +3235,12 @@ FUNCTION RatefnWM(xx,yy,alamx,vmx,nex,kpx,bqx,losscx,doTDSLoss)
        tau = tau_h
        RatefnWM(1) = 1./tau
        RatefnWM(2) = 1.0
-    else  
+    else ! No wave mode triggered 
        tau = 1.e10
        RatefnWM(1) = 1./tau
        RatefnWM(2) = -10.0
     endif
   endif
-
-!!!!!!!!!!!!!!!!
-
-!  if(nex<nlow) then
-!    if (E < 1.0e-3) then !the energy lower bound for chorus wave is 1keV (1e-3MeV)
-!       tau_c = Ratefn_sub_1keV(kpx,MLT,L,E,vmx,bqx,losscx,tau_s)
-!       if (abs(tau_s-tau_c)<Tiny) then
-!          tau = tau_s
-!          RatefnWM(2) = 4.0
-!       else
-!          tau = tau_c
-!          RatefnWM(2) = 1.0
-!       endif
-!    else ! E >= 1keV
-!       tau_c = RatefnDW_tau_c(kpx,MLT,L,E)
-!       if (tau_s >= tau_c) then !When E>=1keV, the lower bound of tau_c is tau_s
-!          tau = tau_s
-!          RatefnWM(2) = 4.0 
-!       else
-!          tau = tau_c
-!          RatefnWM(2) = 1.0
-!       endif
-!    endif
-!    RatefnWM(1) = 1.0/tau
-!  elseif(nex>nhigh) then
-!    tau_h = RatefnC_tau_h16(MLT,E,L,kpx)
-!    if (tau_s > tau_h) then
-!       tau = tau_s
-!       RatefnWM(2) = 4.0
-!    else
-!       tau = tau_h
-!       RatefnWM(2) = 2.0
-!    endif
-!    RatefnWM(1) = 1.0/tau
-!  else  ! nlow <= nex <= nhigh
-!    if (E < 1.0e-3) then !the energy lower bound for chorus wave is 1keV (1e-3MeV)
-!       tau_c = Ratefn_sub_1keV(kpx,MLT,L,E,vmx,bqx,losscx,tau_s)
-!       if (abs(tau_s-tau_c)<Tiny) then
-!          tau1 = tau_s
-!          R1 = 4.0
-!       else
-!          tau1 = tau_c
-!          R1 = 1.0
-!       endif
-!    else !E >= 1keV
-!       tau_c = RatefnDW_tau_c(kpx,MLT,L,E)
-!       if (tau_s >= tau_c) then
-!          tau1 = tau_s
-!          R1 = 4.0
-!       else
-!          tau1 = tau_c
-!          R1 = 1.0
-!       endif
-!    endif
-
-!    tau_h = RatefnC_tau_h16(MLT,E,L,kpx)
-!    if (tau_s >= tau_h) then
-!        tau2 = tau_s
-!        R2 = 4.0
-!    else
-!        tau2 = tau_h
-!        R2 = 2.0
-!    endif
-    
-    !if ((tau_h > 1.D9) .or. (tau_c > 1.D9)) then ! which means tau_h and tau_c are 1.D10
-    !   write (*,*)"Hiss or chorus is undefined, tau_h, tau_c =",tau_h,tau_c
-    !   stop
-    !endif
-
-!    RatefnWM(1) = (dlog(nhigh/nex)/tau1 + dlog(nex/nlow)/tau2)/dlog(nhigh/nlow) ! use weighted loss rate 
-!    RatefnWM(2) = (dlog(nhigh/nex)*R1 + dlog(nex/nlow)*R2)/dlog(nhigh/nlow)
-  
-!  endif
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!    if ((tau_h > 1.D9) .or. (tau_c > 1.D9)) then
-!       RatefnDW(2) = -1.0 ! undefined
-!       RatefnDW(1) = 1.0/tau
-!       !tau = 1.D10   ! both models are undefined
-!       !RatefnDW(2) = -1.0 ! undefined
-!       !RatefnDW(1) = 1.0/tau
-!    elseif (tau_h > 1.D9) then ! which means tau_h is 1.D10, hiss model is undefined
-!       !if (tau_s >= tau_c) then
-!       !   tau = tau_s
-!       !   RatefnDW(2) = 4.0
-!       !else
-!          tau = tau_c
-!          RatefnDW(2) = 1.0
-!       !endif 
-!       RatefnDW(1) = 1.0/tau
-!    elseif (tau_c > 1.D9) then ! which means tau_c is 1.D10, chorus model is undefined
-!       !if (tau_s > tau_h) then
-!       !   tau = tau_s
-!       !   RatefnDW(2) = 4.0
-!       !else
-!          tau = tau_h
-!          RatefnDW(2) = 2.0
-!       !endif
-!       RatefnDW(1) = 1.0/tau 
-!    else ! both models have defined values
-!       !if ((tau_s >= tau_c) .and. (tau_s > tau_h)) then
-!       !   tau1 = tau_s
-!       !   tau2 = tau_s
-!          R1 = 4.0
-!          R2 = 4.0
-!       elseif (tau_s >= tau_c) then
-!          tau1 = tau_s
-!          tau2 = tau_h
-!          R1 = 4.0
-!          R2 = 2.0
-!       elseif (tau_s > tau_h) then
-!          tau1 = tau_c
-!          tau2 = tau_s
-!          R1 = 1.0
-!          R2 = 4.0
-!       else
-!          tau1 = tau_c
-!          tau2 = tau_h
-!          R1 = 1.0
-!          R2 = 2.0
-!       endif  
-!       RatefnDW(1) = (dlog(nhigh/nex)/tau1 + dlog(nex/nlow)/tau2)/dlog(nhigh/nlow) ! use weighted loss rate 
-!       RatefnDW(2) = (dlog(nhigh/nex)*R1 + dlog(nex/nlow)*R2)/dlog(nhigh/nlow)
-!    endif
 
 END FUNCTION RatefnWM
 
