@@ -96,7 +96,7 @@ if __name__ == "__main__":
 					vDims = np.array([gamData.dNk,gamData.dNj,gamData.dNi])
 					vDimStr = ' '.join([str(v) for v in vDims])
 					if nMPI == 0 and tOut == 0:  # Only do this the first time
-						vIds ,vLocs  = kxmf.getVars(h5F,n,gDims)
+						vIds ,vLocs  = kxmf.getVars(h5F,'Step#'+str(n),gDims)
 						rvIds,rvLocs = kxmf.getRootVars(h5F,gDims)
 						Nv = len(vIds)
 

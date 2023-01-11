@@ -78,7 +78,7 @@ module gamtypes
         real(rp) :: dt0 = 0.0
         logical :: fixedTimestep
         integer :: ts
-
+        real(rp) :: kzcsMHD = 0.0, kzcsTOT = 0.0 !Performance information: MHD and total, kilo zone-cycles per second
         logical :: doHall=.false., doMultiF=.false., &
                    doBackground=.false. , doMHD=.false.
         logical :: do25D =.false., doGrav = .false., doSphGrav = .false.

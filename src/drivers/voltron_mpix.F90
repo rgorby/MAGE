@@ -154,16 +154,31 @@ program voltron_mpix
 
             !IO checks
             call Tic("IO")
+            !NOTE: Does this need to be duplicated from gamera_mpix or can both be done w/ a single subroutine?
+            
             !Console output
             if (gApp%Model%IO%doConsole(g2vComm%ts)) then
                 !Using console output from Gamera
                 call consoleOutput_mpi(gApp)
-                if (gApp%Model%IO%doTimerOut .and. &
-                  gApp%Grid%Ri==0 .and. gApp%Grid%Rj==0 .and. gApp%Grid%Rk==0) then
+                if (gApp%Model%IO%doTimerOut .and. debugPrintingRank(gApp)) then
+                    write (*,'(a,I3,a,I3,a,I3,a)') "Rank (I,J,K) (", &
+                        gApp%Grid%Ri,",", &
+                        gApp%Grid%Rj,",", &
+                        gApp%Grid%Rk,") is printing debug clock info"
+                    call printClocks()
+                endif
+                call cleanClocks()
+            elseif (gApp%Model%IO%doTimer(g2vComm%ts)) then
+                if (gApp%Model%IO%doTimerOut .and. debugPrintingRank(gApp)) then
+                    write (*,'(a,I3,a,I3,a,I3,a)') "Rank (I,J,K) (", &
+                        gApp%Grid%Ri,",", &
+                        gApp%Grid%Rj,",", &
+                        gApp%Grid%Rk,") is printing debug clock info"
                     call printClocks()
                 endif
                 call cleanClocks()
             endif
+
             !Restart output
             if (gApp%Model%IO%doRestart(gApp%Model%t)) then
                 call resOutput(gApp%Model, gApp%Grid, gApp%oState, gApp%State)
@@ -227,7 +242,13 @@ program voltron_mpix
                             call printClocks()
                         endif
                         call cleanClocks()
+                    elseif (vApp%IO%doTimer(vApp%ts)) then
+                        if (vApp%IO%doTimerOut) then
+                            call printClocks()
+                        endif
+                        call cleanClocks()
                     endif
+                    
                     !Restart output
                     if (vApp%IO%doRestart(vApp%time)) then
                         call resOutputVOnly(vApp,vApp%gAppLocal)

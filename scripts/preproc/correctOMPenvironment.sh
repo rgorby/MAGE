@@ -3,11 +3,11 @@
 
 # get my host and figure out how many other jobs are on this node
 myHost=`hostname -f`  # Used on cheyenne
-numJobsOnMyNode=`grep -c $myHost $1`
+numJobsOnMyNode=`grep -c "^$myHost\$" $1`
 if [ $numJobsOnMyNode -eq 0 ]
 then
    myHost=`hostname`  # Used on pleiades.
-   numJobsOnMyNode=`grep -c $myHost $1`
+   numJobsOnMyNode=`grep -c "^$myHost\$" $1`
 fi
 if [ $numJobsOnMyNode -eq 0 ]
 then

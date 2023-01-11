@@ -122,18 +122,39 @@ def computeErrors(obs,pred):
 #Cdaweb-related
 #======
 
-def getScIds(spacecraft_data_file=scstrs_fname, doPrint=False):
-    """Load info from stored file containing strings needed to get certain spacefract datasets from cdaweb
+
+def getScIds(spacecraft_data_file:str=scstrs_fname, doPrint:bool=False):
+    """Fetch spacecraft descriptions from the database file.
+
+    Load the spacecraft descriptions (a file) containing information needed
+    to get spacecraft data from CDAWeb.
+
+    Parameters
+    ----------
+    spacecraft_data_file: str, default "sc_cdasws_strs.json"
+        Name of file containing spacecraft descriptions.
+    doPrint: bool, default False
+        If True, print a summary of the spacecraft descriptions.
+
+    Returns
+    -------
+    scdict: dict
+        Dictionary of spacecraft descriptions.
     """
+    # Read the spacecraft database.
     scdict = kj.load(spacecraft_data_file)
 
+    # Print a summary, if requested.
     if doPrint:
         print("Retrievable spacecraft data:")
-        for sc in scdict.keys():
+        for sc in scdict:
             print('	 ' + sc)
-            for v in scdict[sc].keys():
+            for v in scdict[sc]:
                 print('	   ' + v)
+
+    # Return the dictionary of spacraft descriptions.
     return scdict
+
 
 def getCdasDsetInterval(dsName):
     cdas = CdasWs()
@@ -144,102 +165,136 @@ def getCdasDsetInterval(dsName):
     tInt = data[0]['TimeInterval']
     return tInt['Start'], tInt['End']
 
-def pullVar(cdaObsId,cdaDataId,t0,t1,deltaT=60,epochStr="Epoch",doVerbose=False):
-	"""Pulls info from cdaweb
-		cdaObsId  : [str] Dataset name
-		cdaDataId : [str or list of strs] variables from dataset
-		t0	  : [str] start time, formatted as '%Y-%m-%dT%H:%M:%S.%f'
-		t1	  : [str] end time, formatted as '%Y-%m-%dT%H:%M:%S.%f'
-		deltaT	  : [float] time cadence [sec], used when interping through time with no data
-		epochStr  : [str] name of Epoch var in dataset. Used when needing to build day-by-day
-		doVerbose : [bool] Helpful for debugging/diagnostics
-	"""
+def pullVar(cdaObsId:str, cdaDataId, t0:str, t1:str, deltaT:float=60,
+            epochStr:str="Epoch", doVerbose:bool=False):
+    """Pull spacecraft data from CDAWeb.
 
-	binData={'interval' : deltaT, 
-			 'interpolateMissingValues' : True,
-			 'sigmaMultipler' : 4}
+    Pull spacecraft data from CDAWeb.
 
-	cdas = CdasWs()
-	status,data =  cdas.get_data(cdaObsId,cdaDataId,t0,t1,binData=binData)
+    Parameters
+    ----------
+    cdaObsId: str
+        Dataset name.
+    cdaDataId: str or list of str
+        Desired variable(s) from dataset.
+    t0: str
+        Data start time, formatted as '%Y-%m-%dT%H:%M:%S.%f'.
+    t1: str
+        Data end time, formatted as '%Y-%m-%dT%H:%M:%S.%f'.
+    deltaT: float, default 60
+        Time cadence (seconds), used when interpolating through time with
+        no data.
+    epochStr: str, default "Epoch"
+        Name of time variable in dataset.
+    doVerbose: bool, default False
+        Helpful for debugging/diagnostics.
 
-	if status['http']['status_code'] != 200 or data is None:
-		# Handle the case where CdasWs just doesn't work if you give it variables in arg 2
-		# If given empty var list instead, it'll return the full day on day in t0, and that's it
-		# So, call for as many days as we need data for and build one big data object
-		if doVerbose: print("Bad pull, trying to build day-by-day")
+    Returns
+    -------
+    status: dict
+        Status information returned for the query.
+    data: spacepy.pycdf.CDFCopy
+        Object containing data returned by the query, None if no results.
+    """
 
-		if '.' in t0:
-			t0dt = datetime.datetime.strptime(t0, "%Y-%m-%dT%H:%M:%S.%fZ")
-			t1dt = datetime.datetime.strptime(t1, "%Y-%m-%dT%H:%M:%S.%fZ")
-		else:
-			t0dt = datetime.datetime.strptime(t0, "%Y-%m-%dT%H:%M:%SZ")
-			t1dt = datetime.datetime.strptime(t1, "%Y-%m-%dT%H:%M:%SZ")
-		numDays = t1dt.day-t0dt.day + 1 #Number of days we want data from
-		if doVerbose: print("numDays: " + str(numDays))
+    # Specify how CDAWeb should bin the data.
+    binData = {
+        'interval': deltaT, 
+        'interpolateMissingValues': True,
+        'sigmaMultipler': 4
+    }
 
-		tstamp_arr = []
-		tstamp_deltas = []
-		for i in range(numDays):
-			tstamp_arr.append((t0dt + datetime.timedelta(days=i)).strftime("%Y-%m-%dT%H:%M:%SZ"))
-			tstamp_deltas.append((t0dt + datetime.timedelta(days=i+1)).strftime("%Y-%m-%dT%H:%M:%SZ"))
-		if doVerbose: print("Tstamp_arr: " + str(tstamp_arr))
-		#Get first day
-		status, data = cdas.get_data(cdaObsId, [], tstamp_arr[0], tstamp_deltas[0], binData=binData)
-		if doVerbose: print("Pulling " + t0)
-		
-		if status['http']['status_code'] != 200:
-			# If it still fails, its some other problem and we'll die
-			if doVerbose: print("Still bad pull. Dying.")
-			return status,data
-		if data is None:
-			if doVerbose: print("Cdas responded with 200 but returned no data")
-			return status,data
-		if epochStr not in data.keys():
-			if doVerbose: print(epochStr + " not in dataset, can't build day-by-day")
-			data = None
-			return status,data
-		if isinstance(cdaDataId,str):
-			if doVerbose: print(cdaDataId + " not in dataset, can't build day-by-day")
+    # Create the CDAWeb query object.
+    cdas = CdasWs()
+
+    # Perform the query.
+    status, data = cdas.get_data(cdaObsId, cdaDataId, t0, t1, binData=binData)
+
+    # Process the query status.
+    if status["http"]["status_code"] in (204, 404):
+        # 204 = No Content
+        # 404 = Not Found
+        if doVerbose:
+            print("No data found.")
+    elif status['http']['status_code'] != 200 or data is None:
+        # Handle the case where CdasWs just doesn't work if you give it variables in arg 2
+        # If given empty var list instead, it'll return the full day on day in t0, and that's it
+        # So, call for as many days as we need data for and build one big data object
+        if doVerbose: print("Bad pull, trying to build day-by-day")
+
+        if '.' in t0:
+            t0dt = datetime.datetime.strptime(t0, "%Y-%m-%dT%H:%M:%S.%fZ")
+            t1dt = datetime.datetime.strptime(t1, "%Y-%m-%dT%H:%M:%S.%fZ")
+        else:
+            t0dt = datetime.datetime.strptime(t0, "%Y-%m-%dT%H:%M:%SZ")
+            t1dt = datetime.datetime.strptime(t1, "%Y-%m-%dT%H:%M:%SZ")
+        numDays = t1dt.day-t0dt.day + 1 #Number of days we want data from
+        if doVerbose: print("numDays: " + str(numDays))
+
+        tstamp_arr = []
+        tstamp_deltas = []
+        for i in range(numDays):
+            tstamp_arr.append((t0dt + datetime.timedelta(days=i)).strftime("%Y-%m-%dT%H:%M:%SZ"))
+            tstamp_deltas.append((t0dt + datetime.timedelta(days=i+1)).strftime("%Y-%m-%dT%H:%M:%SZ"))
+        if doVerbose: print("Tstamp_arr: " + str(tstamp_arr))
+        #Get first day
+        status, data = cdas.get_data(cdaObsId, [], tstamp_arr[0], tstamp_deltas[0], binData=binData)
+        if doVerbose: print("Pulling " + t0)
+        
+        if status['http']['status_code'] != 200:
+            # If it still fails, its some other problem and we'll die
+            if doVerbose: print("Still bad pull. Dying.")
+            return status,data
+        if data is None:
+            if doVerbose: print("Cdas responded with 200 but returned no data")
+            return status,data
+        if epochStr not in data.keys():
+            if doVerbose: print(epochStr + " not in dataset, can't build day-by-day")
+            data = None
+            return status,data
+        if isinstance(cdaDataId,str):
+            if doVerbose: print(cdaDataId + " not in dataset, can't build day-by-day")
             # Mimic the cdasws return code for case when id isn't provided
-			if not (cdaDataId in data.keys()):
-				status = {'http': {'status_code': 404}}
-				data = None
-				return status,data
-		if isinstance(cdaDataId,list):
-			for item in cdaDataId:
-				print(item + " not in dataset, can't build day-by-day")
-				if not (item in data.keys()):
-					# Mimic the cdasws return code for case when id isn't provided
-					status = {'http': {'status_code': 404}}
-					data = None
-					return status,data
-		
-		#Figure out which axes are the epoch axis in each dataset so we can concatenate along it
-		dk = list(data.keys())
-		nTime = len(data[epochStr])
-		cataxis = np.array([-1 for i in range(len(dk))])
-		for k in range(len(dk)):
-			shape = np.array(data[dk[k]].shape)
-			for i in range(len(shape)):
-				if shape[i] == nTime:
-					cataxis[k] = i
-					continue
+            if not (cdaDataId in data.keys()):
+                status = {'http': {'status_code': 404}}
+                data = None
+                return status,data
+        if isinstance(cdaDataId,list):
+            for item in cdaDataId:
+                print(item + " not in dataset, can't build day-by-day")
+                if not (item in data.keys()):
+                    # Mimic the cdasws return code for case when id isn't provided
+                    status = {'http': {'status_code': 404}}
+                    data = None
+                    return status,data
 
-		#Then append rest of data accordingly
-		for i in range(1,numDays):
-			if doVerbose: print("Pulling " + str(tstamp_arr[i]))
-			status, newdata = cdas.get_data(cdaObsId, [], tstamp_arr[i], tstamp_deltas[i], binData=binData)
-			for k in range(len(dk)):
-				if cataxis[k] == -1:
-					continue
-				else:
-					key = dk[k]
-					data[key] = np.concatenate((data[key], newdata[key]), axis=cataxis[k])
-	else:
-		if doVerbose: print("Got data in one pull")
+        #Figure out which axes are the epoch axis in each dataset so we can concatenate along it
+        dk = list(data.keys())
+        nTime = len(data[epochStr])
+        cataxis = np.array([-1 for i in range(len(dk))])
+        for k in range(len(dk)):
+            shape = np.array(data[dk[k]].shape)
+            for i in range(len(shape)):
+                if shape[i] == nTime:
+                    cataxis[k] = i
+                    continue
 
+        #Then append rest of data accordingly
+        for i in range(1,numDays):
+            if doVerbose: print("Pulling " + str(tstamp_arr[i]))
+            status, newdata = cdas.get_data(cdaObsId, [], tstamp_arr[i], tstamp_deltas[i], binData=binData)
+            for k in range(len(dk)):
+                if cataxis[k] == -1:
+                    continue
+                else:
+                    key = dk[k]
+                    data[key] = np.concatenate((data[key], newdata[key]), axis=cataxis[k])
+    else:
+        if doVerbose:
+            print("Got data in one pull.")
 
-	return status,data
+    # Return the query status and results.
+    return status, data
 
 def addVar(mydata,scDic,varname,t0,t1,deltaT,epochStr='Epoch'):
     #print(scDic,varname,idname,dataname,scDic[idname])
@@ -255,53 +310,86 @@ def addVar(mydata,scDic,varname,t0,t1,deltaT,epochStr='Epoch'):
         status = {'http': {'status_code': 404}}
     return status
 
-def getSatData(scDic,t0,t1,deltaT):
-    #First get the empheris data if it doesn't exist return the failed status code and
-    #go no further
-    status,data = pullVar(scDic['Ephem']['Id'],scDic['Ephem']['Data'],
-                          t0,t1,deltaT)
+
+def getSatData(scDic:dict, t0:str, t1:str, deltaT:float):
+    """Fetch spacecraft data in the specified time range.
+
+    Fetch spacecraft data for the specified time range, at the specified cadence.
+
+    Parameters
+    ----------
+    scDic: dict
+        Spacecraft descriptive information.
+    t0: str
+        Start time for data, in format "%Y-%m-%dT%H:%M:%SZ".
+    t1: str
+        Stop time for data, in format "%Y-%m-%dT%H:%M:%SZ".
+    deltaT: float
+        Cadence for requested spacecraft data (seconds).
+
+    Returns
+    -------
+    status: dict
+        Query status returned by CDAWeb.
+    mydata: spacepy.datamodel.SpaceData
+        All of the spacecraft for the specified time range and cadence.
+    """
+    # Fetch the empheris data. If not found, abort this query.
+    status, data = pullVar(
+        scDic['Ephem']['Id'], scDic['Ephem']['Data'], t0, t1, deltaT
+    )
     if status['http']['status_code'] != 200 or data is None:
         print('Unable to get data for ', scDic['Ephem']['Id'])
-        return status,data
-    else:
-        #data.tree(attrs=True)
-        mydata = dm.SpaceData(attrs={'Satellite':data.attrs['Source_name']})
-        if 'Epoch_bin' in data.keys():
-            #print('Using Epoch_bin')
-            mytime = data['Epoch_bin']
-            epochStr = 'Epoch_bin'
-        elif 'Epoch' in data.keys():
-            #print('Using Epoch')
-            mytime = data['Epoch']
-            epochStr = 'Epoch'
-        elif ([key for key in data.keys() if key.endswith('_state_epoch')]):
-            epochStr = [key for key in data.keys() if key.endswith('_state_epoch')][0]
-            #mytime = data[[key for key in data.keys()
-            #if key.endswith('_state_epoch')][0]]
-            mytime = data[epochStr]
-        else:
-            print('Unable to determine time type')
-            status = {'http': {'status_code': 404}}
-            return status,data
-        mydata['Epoch_bin'] = dm.dmarray(mytime,
-                                         attrs=mytime.attrs)
-        mydata['Ephemeris'] = dm.dmarray(data[scDic['Ephem']['Data']],
-                                         attrs= data[scDic['Ephem']['Data']].attrs)
-        keys = ['MagneticField','Velocity','Density','Pressure', "Speed", "Temperature"]
-        for key in keys:
-            if key in scDic:
-                status1 = addVar(mydata,scDic,key,t0,t1,deltaT,epochStr=epochStr)
+        return status, data
 
-        #Add any metavar since they might be needed for unit/label determination
-        search_key = 'metavar'
-        res = [key for key,val in data.items() if search_key in key]
-        for name in res:
-            try:
-                len(mydata[name])
-            except:
-                mydata[name] = dm.dmarray([data[name]],attrs=data[name].attrs)
-            else:
-                mydata[name] = dm.dmarray(data[name],attrs=data[name].attrs)
+    # Create a new SpaceData object to hold the results of the query.
+    mydata = dm.SpaceData(attrs={'Satellite':data.attrs['Source_name']})
+
+    # Determine which of the returned data should be used for the time of the
+    # ephemeris positions.
+    if 'Epoch_bin' in data.keys():
+        mytime = data['Epoch_bin']
+        epochStr = 'Epoch_bin'
+    elif 'Epoch' in data.keys():
+        mytime = data['Epoch']
+        epochStr = 'Epoch'
+    elif ([key for key in data.keys() if key.endswith('_state_epoch')]):
+        epochStr = [key for key in data.keys() if key.endswith('_state_epoch')][0]
+        #mytime = data[[key for key in data.keys()
+        #if key.endswith('_state_epoch')][0]]
+        mytime = data[epochStr]
+    else:
+        print('Unable to determine time type')
+        status = {'http':{'status_code':404}}
+        return status, data
+
+    # Extract the times assigned to the ephemeris positions.
+    mydata['Epoch_bin'] = dm.dmarray(mytime, attrs=mytime.attrs)
+
+    # Extract the ephemeris positions.
+    mydata['Ephemeris'] = dm.dmarray(
+        data[scDic['Ephem']['Data']],
+        attrs=data[scDic['Ephem']['Data']].attrs
+    )
+
+    # Now fetch the data measured by the spacecraft.
+    keys = ['MagneticField', 'Velocity', 'Density', 'Pressure', "Speed", "Temperature"]
+    for key in keys:
+        if key in scDic:
+            status1 = addVar(
+                mydata, scDic, key, t0, t1, deltaT, epochStr=epochStr
+            )
+
+    #Add any metavar since they might be needed for unit/label determination
+    search_key = 'metavar'
+    res = [key for key,val in data.items() if search_key in key]
+    for name in res:
+        try:
+            len(mydata[name])
+        except:
+            mydata[name] = dm.dmarray([data[name]],attrs=data[name].attrs)
+        else:
+            mydata[name] = dm.dmarray(data[name],attrs=data[name].attrs)
 
     return status,mydata
 
@@ -341,7 +429,7 @@ def getJScl(Bmag,Beq,en=2.0):
     return It
 
 def genSCXML(fdir,ftag,
-    scid="sctrack_A",h5traj="sctrack_A.h5",numSegments=1,doTrc=False):
+    scid="sctrack_A",h5traj="sctrack_A.h5",numSegments=1):
 
     (fname,isMPI,Ri,Rj,Rk) = kaiTools.getRunInfo(fdir,ftag)
     root = minidom.Document()
@@ -371,66 +459,14 @@ def genSCXML(fdir,ftag,
     trajChild.setAttribute("H5Traj",h5traj)
     trajChild.setAttribute("doSmooth","F")
     chimpChild.appendChild(trajChild)
-    if doTrc:
-        outChild = root.createElement('output')
-        outChild.setAttribute('doTrc', "T")
-        chimpChild.appendChild(outChild)
+    # if doTrc:
+    #     outChild = root.createElement('output')
+    #     outChild.setAttribute('doTrc', "T")
+    #     chimpChild.appendChild(outChild)
     if numSegments > 1:
         parInTimeChild = root.createElement("parintime")
         parInTimeChild.setAttribute("NumB","%d"%numSegments)
         chimpChild.appendChild(parInTimeChild)
-    xml.appendChild(chimpChild)
-    return root
-
-
-def genHelioSCXML(fdir,ftag,
-    scid,h5traj, Rin, Rout,numSegments=1,doTrc=False):
-    """Generate XML input file for heliosphere spacecraft."""
-
-    (fname,isMPI,Ri,Rj,Rk) = kaiTools.getRunInfo(fdir,ftag)
-    root = minidom.Document()
-    xml = root.createElement('Kaiju')
-    root.appendChild(xml)
-    chimpChild = root.createElement('Chimp')
-    scChild = root.createElement("sim")
-    scChild.setAttribute("runid",scid)
-    chimpChild.appendChild(scChild)
-    fieldsChild = root.createElement("fields")
-    fieldsChild.setAttribute("doMHD","T")
-    fieldsChild.setAttribute("grType","SPH")
-    fieldsChild.setAttribute("ebfile",ftag)
-    if isMPI:
-        fieldsChild.setAttribute("isMPI","T")
-    chimpChild.appendChild(fieldsChild)
-    if isMPI:
-        parallelChild = root.createElement("parallel")
-        parallelChild.setAttribute("Ri","%d"%Ri)
-        parallelChild.setAttribute("Rj","%d"%Rj)
-        parallelChild.setAttribute("Rk","%d"%Rk)
-        chimpChild.appendChild(parallelChild)
-    unitsChild = root.createElement("units")
-    unitsChild.setAttribute("uid","HELIO")
-    chimpChild.appendChild(unitsChild)
-    trajChild = root.createElement("trajectory")
-    trajChild.setAttribute("H5Traj",h5traj)
-    trajChild.setAttribute("doSmooth","F")
-    chimpChild.appendChild(trajChild)
-    # <domain>
-    domain_child = root.createElement("domain")
-    domain_child.setAttribute("dtype", "SPH")
-    domain_child.setAttribute("rmin", "%s" % Rin)
-    domain_child.setAttribute("rmax", "%s" % Rout)
-    chimpChild.appendChild(domain_child)
-    if doTrc:
-        outChild = root.createElement('output')
-        outChild.setAttribute('doTrc', "T")
-        chimpChild.appendChild(outChild)
-    # <parintime>
-    # <HACK>
-    parInTimeChild = root.createElement("parintime")
-    parInTimeChild.setAttribute("NumB","%d"%numSegments)
-    chimpChild.appendChild(parInTimeChild)
-    # </HACK>
     xml.appendChild(chimpChild)
     return root
 
@@ -440,12 +476,12 @@ def genHelioSCXML(fdir,ftag,
 #======
 
 def convertGameraVec(x,y,z,ut,fromSys,fromType,toSys,toType):
-    invec = Coords(np.column_stack((x,y,z)),fromSys,fromType)
+    invec = Coords(np.column_stack((x,y,z)),fromSys,fromType, use_irbem=False)
     invec.ticks = Ticktock(ut)
     outvec = invec.convert(toSys,toType)
     return outvec
 
-def createInputFiles(data,scDic,scId,mjd0,sec0,fdir,ftag,numSegments,doTrc):
+def createInputFiles(data,scDic,scId,mjd0,sec0,fdir,ftag,numSegments):
     Re = 6380.0
     toRe = 1.0
     if 'UNITS' in data['Ephemeris'].attrs:
@@ -455,17 +491,17 @@ def createInputFiles(data,scDic,scId,mjd0,sec0,fdir,ftag,numSegments,doTrc):
         if data[data['Ephemeris'].attrs['UNIT_PTR']][0]:
             toRe = 1.0/Re
     if 'SM' == scDic['Ephem']['CoordSys']:
-        smpos = Coords(data['Ephemeris'][:,0:3]*toRe,'SM','car')
+        smpos = Coords(data['Ephemeris'][:,0:3]*toRe,'SM','car', use_irbem=False)
         smpos.ticks = Ticktock(data['Epoch_bin'])
-    elif 'GSM' == scDic['Ephem']['CoordSys'] :
-        scpos = Coords(data['Ephemeris'][:,0:3]*toRe,'GSM','car')
+    elif 'GSM' == scDic['Ephem']['CoordSys']:
+        scpos = Coords(data['Ephemeris'][:,0:3]*toRe,'GSM','car', use_irbem=False)
         scpos.ticks = Ticktock(data['Epoch_bin'])
         smpos = scpos.convert('GSE','car')
-        scpos = Coords(data['Ephemeris'][:,0:3]*toRe,'GSM','car')
+        scpos = Coords(data['Ephemeris'][:,0:3]*toRe,'GSM','car', use_irbem=False)
         scpos.ticks = Ticktock(data['Epoch_bin'])
         smpos = scpos.convert('SM','car')
     elif 'GSE'== scDic['Ephem']['CoordSys']:
-        scpos = Coords(data['Ephemeris'][:,0:3]*toRe,'GSE','car')
+        scpos = Coords(data['Ephemeris'][:,0:3]*toRe,'GSE','car', use_irbem=False)
         scpos.ticks = Ticktock(data['Epoch_bin'])
         smpos = scpos.convert('SM','car')
     else:
@@ -478,78 +514,8 @@ def createInputFiles(data,scDic,scId,mjd0,sec0,fdir,ftag,numSegments,doTrc):
         hf.create_dataset("X" ,data=smpos.x)
         hf.create_dataset("Y" ,data=smpos.y)
         hf.create_dataset("Z" ,data=smpos.z)
-    # <HACK>
-    if scId in ["ACE"]:
-        chimpxml = genHelioSCXML(fdir,ftag,
-            scid=scId,h5traj=os.path.basename(scTrackName),numSegments=0,doTrc=doTrc)
-    # </HACK>
-    else:
-        chimpxml = genSCXML(fdir,ftag,
-            scid=scId,h5traj=os.path.basename(scTrackName),numSegments=numSegments,doTrc=doTrc)
-    xmlFileName = os.path.join(fdir,scId+'.xml')
-    with open(xmlFileName,"w") as f:
-        f.write(chimpxml.toprettyxml())
-
-    return (scTrackName,xmlFileName)
-
-def createHelioInputFiles(data, scDic, scId, mjd0, sec0, fdir, ftag, numSegments, Rin, Rout):
-    if scDic['Ephem']['CoordSys'] == "GSE":
-
-        # Convert the instantaneous GSE(t) ephemeris locations to the GH(t0)
-        # frame so that sctrack.x can interpolate gamhelio model data in the
-        # GH(t0) frame to the spacecraft ephemeris locations.
-        Rsun_km = u.Quantity(1*u.Rsun, u.km).value
-
-        # Create the GSE(t) position vectors and times.
-        x = data["Ephemeris"][:, 0]/Rsun_km
-        y = data["Ephemeris"][:, 1]/Rsun_km
-        z = data["Ephemeris"][:, 2]/Rsun_km
-        t = data["Epoch_bin"]
-
-        # Create SkyCoord objects for each GSE(t) position/time.
-        c = SkyCoord(
-            x*u.Rsun, y*u.Rsun, z*u.Rsun,
-            frame=frames.GeocentricSolarEcliptic, obstime=t,
-            representation_type="cartesian"
-        )
-
-        # Create the HGS(t0) coordinate frame.
-        t0_frame = frames.HeliographicStonyhurst(obstime=kaiTools.MJD2UT(mjd0))
-
-        # Convert the GSE(t) Cartesian positions to HGS(t0) (lon, lat, radius).
-        c = c.transform_to(t0_frame)
-
-    else:
-        print('Coordinate system transformation failed')
-        return
-
-    # For the ephemeris locations, compute the elapsed time in seconds since
-    # the start of the gamhelio simulation. sctrack.x needs this value in
-    # order to perform the interpolation of gamhelio model output to the
-    # ephemeris points.
-    elapsed = [(tt - t[0]).total_seconds() for tt in t]
-
-    # Create the HDF5 file containing the spacecraft data transformed to the
-    # gamhelio frame and elapsed time.
-    scTrackName = os.path.join(fdir,scId+".sc.h5")
-    with h5py.File(scTrackName,'w') as hf:
-        # Elapsed time in seconds since start of gamhelio results.
-        hf.create_dataset("T" , data=elapsed)
-        # GH(t0) Cartesian coordinates in units of Rsun.
-        # Reverse x for gamhelio frame.
-        hf.create_dataset("X" , data=-c.cartesian.x)
-        hf.create_dataset("Y" , data=c.cartesian.y)
-        hf.create_dataset("Z" , data=c.cartesian.z)
-    h5traj=os.path.basename(scTrackName)
-
-    # Create the XML describing the required interpolations.
-    if scId in ["ACE"]:
-        chimpxml = genHelioSCXML(fdir,ftag,
-            scId,h5traj, Rin, Rout, numSegments=0)
-    else:
-        raise Exception
-
-    # Write the XML to a file.
+    chimpxml = genSCXML(fdir,ftag,
+        scid=scId,h5traj=os.path.basename(scTrackName),numSegments=numSegments)
     xmlFileName = os.path.join(fdir,scId+'.xml')
     with open(xmlFileName,"w") as f:
         f.write(chimpxml.toprettyxml())
@@ -608,193 +574,6 @@ def addGAMERA(data,scDic,h5name):
     return
 
 
-def addGAMHELIO(data, scDic, h5name):
-    """Copy the interpolated model results and transform as needed.
-
-    Copy the variables in the input HDF5 file into new variables in the HDF5
-    file with GAMERA_-prefixed descriptive names, and more metadata.
-
-    Convert vector values from the gamhelio frame (GH(t0)) to the frame of
-    the spacecraft.
-
-    Parameters
-    ----------
-    data : spacepy.datamodel.SpaceData
-        All of the spacecraft and interpolated model results so far.
-    scDic : dict
-        Spacecraft descriptive information.
-    h5name : str
-        Path to HDF5 file containing gamhelio model results interpolated to the
-        spacecraft positions, all in the GH(t0) frame.
-
-    Returns
-    -------
-    None
-
-    Raises
-    ------
-    TypeError
-        If target frame is not GSE.
-    """
-
-    # Open the HDF5 file containing the gamhelio model results interpolated
-    # to the spacecraft positions.
-    h5file = h5py.File(h5name, "r")
-
-    # Read the UTC MJD values from the HDF5 file.
-    ut = kaiTools.MJD2UT(h5file["MJDs"][:])  # NOT USED
-
-    # Determine the number of positions.
-    n = len(ut)
-
-    # Fetch the Cartesian components of the spacecraft position in the GH(t0)
-    # frame used by the gamhelio model. Each is shape (n,)
-    X = h5file["X"]
-    Y = h5file["Y"]
-    Z = h5file["Z"]
-
-    # Create an array of the positions as a shape (n, 3) array.
-    R = np.vstack([X, Y, Z]).T
-
-    # Compute the GH(t0) radius for each position. Shape is (n,)
-    radius = np.sqrt(X[:]**2 + Y[:]**2 + Z[:]**2)
-
-    # Fetch the Cartesian components of the interpolated model magnetic field
-    # in the GH(t0) frame.
-    Bx = h5file["Bx"]
-    By = h5file["By"]
-    Bz = h5file["Bz"]
-
-    # Create an array of the interpolated model magnetic field components as
-    # a shape (n, 3) array.
-    B = np.vstack([Bx, By, Bz]).T
-
-    # Determine the spacecraft coordinate frame for magnetic field components.
-    toCoordSys = scDic["MagneticField"]["CoordSys"]
-    if toCoordSys != "GSE":
-        raise TypeError
-
-    # Compute the radial component of the interpolated model magnetic field.
-    Br = np.empty(n)
-    for i in range(n):
-        Br[i] = B[i].dot(R[i])/radius[i]
-
-    # Add the radial component of the interpolated model magnetic field as a
-    # new variable. The negative of Br is needed to reverse the x-axis from
-    # GH(t0) to GSE(t).
-    data["GAMERA_Br"] = dm.dmarray(
-        Br,
-        attrs = {
-            "UNITS":Bx.attrs["Units"],
-            "CATDESC":"Radial magnetic field",
-            "FIELDNAM":"Radial magnetic field",
-            "AXISLABEL":"Br"
-        }
-    )
-
-    # Fetch the Cartesian components of the interpolated model solar wind
-    # velocity in the GH(t0) frame.
-    Vx = h5file["Vx"]
-    Vy = h5file["Vy"]
-    Vz = h5file["Vz"]
-
-    # Create an array of the interpolated model solar wind velocity as a
-    # shape (n, 3) array.
-    V = np.vstack([Vx, Vy, Vz]).T
-
-    # Compute the radial component of the interpolated model solar wind
-    # velocity.
-    Vr = np.empty(n)
-    for i in range(n):
-        Vr[i] = V[i].dot(R[i])/radius[i]
-
-    # Add the interpolated model solar wind radial velocity as a new variable.
-    data["GAMERA_Speed"] = dm.dmarray(
-        Vr,
-        attrs = {
-            "UNITS":Vx.attrs["Units"],
-            "CATDESC":"Radial velocity",
-            "FIELDNAM":"Radial velocity",
-            "AXISLABEL":"Vr"
-        }
-    )
-
-    # Add the interpolated model density as a new variable.
-    density = h5file["D"]
-    data["GAMERA_Density"] = dm.dmarray(
-        density[:],
-        attrs={
-            "UNITS":density.attrs["Units"],
-            "CATDESC":"Density",
-            "FIELDNAM":"Density",
-            "AXISLABEL":"n"
-        }
-    )
-
-    # Add the interpolated model pressure as a new variable.
-    pressure = h5file["P"]
-    data["GAMERA_Pressure"] = dm.dmarray(
-        pressure[:],
-        attrs={
-            "UNITS":pressure.attrs["Units"],
-            "CATDESC":"Pressure",
-            "FIELDNAM":"Pressure",
-            "AXISLABEL":"P"
-        }
-    )
-
-    # Compute the gamhelio temperature from interpolated model pressure
-    # and interpolated model density using the ideal gas law, and add as a
-    # new variable.
-    # Pressure is in cgs units (erg/cm**3).
-    # Density is in 1/cm**3.
-    # The CGS Boltzmann constant kbltz is erg/K.
-    # The factor of 2 is needed since we have a neutral 2-component plasma.
-    # The factor of 1e-8 converts nPa to erg/cm**3.
-    temperature = pressure[:]*1e-8/(2*kaipy.kdefs.kbltz*density[:])
-    data["GAMERA_Temperature"] = dm.dmarray(
-        temperature[:],
-        attrs={
-            "UNITS":b"K",  # WHY IS THIS A BYTE STRING?
-            "CATDESC":"Temperature",
-            "FIELDNAM":"Temperature",
-            "AXISLABEL":"T"
-        }
-    )
-
-    # Add the in-domain flag as a new variable.
-    inDom = h5file["inDom"]
-    data["GAMERA_inDom"] = dm.dmarray(
-        inDom[:],
-        attrs={
-            "UNITS":inDom.attrs["Units"],
-            "CATDESC":"In GAMERA Domain",
-            "FIELDNAM":"InDom",
-            "AXISLABEL":"In Domain"
-        }
-    )
-
-    # <HACK>
-    # Add the radial component of the *spacecraft* magnetic field as a
-    # new variable. The negative sign is needed because the +x axis
-    # for GSE is sunward, and we want the +r direction to be anti-sunward.
-    data["Br"] = dm.dmarray(
-        -data["MagneticField"][:, 0],
-        attrs = {
-            "UNITS":Bx.attrs["Units"],
-            "CATDESC":"Radial magnetic field",
-            "FIELDNAM":"Radial magnetic field",
-            "AXISLABEL":"Br"
-        }
-    )
-    # </HACK>
-
-    # At this point, we have added *copies* of the interpolated model values to
-    # the data object, along with extra metadata needed for comparison
-    # plotting.
-    return
-
-
 def matchUnits(data):
     vars = ['Density','Pressure','Temperature','Velocity','MagneticField']
     for var in vars:
@@ -838,47 +617,10 @@ def extractGAMERA(data,scDic,scId,mjd0,sec0,fdir,ftag,cmd,numSegments,keep):
         mjd0,sec0,fdir,ftag,numSegments)
 
     if 1 == numSegments:
-        sctrack = subprocess.run([cmd, xmlFileName], cwd=fdir,
-                            stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                            text=True)
-
-        #print(sctrack)
-        h5name = os.path.join(fdir, scId + '.sc.h5')
-
-    else:
-        process = []
-        for seg in range(1,numSegments+1):
-            process.append(subprocess.Popen([cmd, xmlFileName,str(seg)],
-                            cwd=fdir,
-                            stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                            text=True))
-        for proc in process:
-            proc.communicate()
-        h5name = mergeFiles(scId,fdir,numSegments)
-
-
-    addGAMERA(data,scDic,h5name)
-
-    if not keep:
-        subprocess.run(['rm',h5name])
-        subprocess.run(['rm',xmlFileName])
-        subprocess.run(['rm',scTrackName])
-        if numSegments > 1:
-            h5parts = os.path.join(fdir,scId+'.*.sc.h5')
-            subprocess.run(['rm',h5parts])
-    return
-
-def extractGAMHELIO(
-    data, scDic, scId, mjd0, sec0, fdir, ftag, cmd, numSegments, keep, Rin, Rout
-):
-    (scTrackName,xmlFileName) = createHelioInputFiles(data,scDic,scId,
-        mjd0,sec0,fdir,ftag,numSegments, Rin, Rout)
-
-    if 1 == numSegments:
         sctrack = subprocess.run([cmd, xmlFileName], cwd=fdir, capture_output=True,
                             # stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                             text=True)
-        with open("sctrack.out", "w") as f:
+        with open(os.path.join(fdir, "sctrack.out"), "w") as f:
             f.write(sctrack.stdout)
 
         #print(sctrack)
@@ -896,7 +638,7 @@ def extractGAMHELIO(
         h5name = mergeFiles(scId,fdir,numSegments)
 
 
-    addGAMHELIO(data,scDic,h5name)
+    addGAMERA(data,scDic,h5name)
 
     if not keep:
         subprocess.run(['rm',h5name])
@@ -1049,6 +791,447 @@ def errorReport(errorName,scId,data):
     return
 
 
+# Methods specific for comparing gamhelio output to data from heliospheric
+# spacecraft.
+
+
+# Minimum and maximum radius of heliospheric results grid, in units of
+# solar radii.
+R_MIN = 21.5
+R_MAX = 220.0
+
+
+def genHelioSCXML(output_path:str, run_id:str, spacecraft_id:str,
+                  trajectory_file:str, num_parallel_segments:int=1):
+    """Generate heliosphere XML input file for sctrack.x.
+
+    Generate heliosphere XML input file for sctrack.x. This file provides
+    the information required by sctrack.x to interpolate gamhelio model
+    results to the times and locations of the spacecraft data.
+
+    Parameters
+    ----------
+    output_path: str
+        Path to directory containing gamhelio model output.
+    run_id: str
+        Identifying tag used in gamhelio result filenames.
+    spacecraft_id: str
+        Name string (no spaces allowed) for spacecraft used in trajectory.
+    trajectory_file: str
+        Name of file containing spacecraft trajectory.
+    num_parallel_segments: int, default 1
+        Number of threads for sctrack.x to use.
+
+    Returns
+    -------
+    root: minidom.Document
+        Root document object for XML.
+    """
+
+    # Determine if the gamhelio results were generated by an MPI run, and
+    # the organization of the MPI ranks.
+    (file_name, isMPI, Ri, Rj, Rk) = kaiTools.getRunInfo(output_path, run_id)
+
+    # Create the XML Document.
+    xml_doc = minidom.Document()
+
+    # Create the <Kaiju> element and append to the XML document.
+    kaiju_el = xml_doc.createElement("Kaiju")
+    xml_doc.appendChild(kaiju_el)
+
+    # Create and the <Chimp> element.
+    chimp_el = xml_doc.createElement("Chimp")
+
+    # Create the <sim> element and append to the <Chimp> element.
+    sim_el = xml_doc.createElement("sim")
+    sim_el.setAttribute("runid", spacecraft_id)
+    chimp_el.appendChild(sim_el)
+
+    # Create the <fields> element and append to the <Chimp> element.
+    fields_el = xml_doc.createElement("fields")
+    fields_el.setAttribute("doMHD", "T")
+    fields_el.setAttribute("grType", "SPH")
+    fields_el.setAttribute("ebfile", run_id)
+    if isMPI:
+        fields_el.setAttribute("isMPI", "T")
+    chimp_el.appendChild(fields_el)
+
+    # If the results were created by an MPI run, create the <parallel>
+    # element and append to the <Chimp> element.
+    if isMPI:
+        parallel_el = xml_doc.createElement("parallel")
+        parallel_el.setAttribute("Ri", "%d" % Ri)
+        parallel_el.setAttribute("Rj", "%d" % Rj)
+        parallel_el.setAttribute("Rk", "%d" % Rk)
+        chimp_el.appendChild(parallel_el)
+
+    # Create the <units> element and append to the <Chimp> element.
+    units_el = xml_doc.createElement("units")
+    units_el.setAttribute("uid", "HELIO")
+    chimp_el.appendChild(units_el)
+
+    # Create the <trajectory> element and append to the <Chimp> element.
+    trajectory_el = xml_doc.createElement("trajectory")
+    trajectory_el.setAttribute("H5Traj", trajectory_file)
+    trajectory_el.setAttribute("doSmooth", "F")
+    chimp_el.appendChild(trajectory_el)
+
+    # Create the <domain> element and append to the <Chimp> element.
+    domain_el = xml_doc.createElement("domain")
+    domain_el.setAttribute("dtype", "SPH")
+    domain_el.setAttribute("rmin", "%s" % R_MIN)
+    domain_el.setAttribute("rmax", "%s" % R_MAX)
+    chimp_el.appendChild(domain_el)
+
+    # If data interpolation will be run in parallel, create the <parintime>
+    # element and append to the <Chimp> element.
+    if num_parallel_segments > 1:
+        parintime_el = xml_doc.createElement("parintime")
+        parintime_el.setAttribute("NumB", "%d" % num_parallel_segments)
+        chimp_el.appendChild(parintime_el)
+
+    # Append the <Chimp> element to the <Kaiju>.
+    kaiju_el.appendChild(chimp_el)
+
+    # Return the entire XML document object.
+    return xml_doc
+
+
+def createHelioInputFiles(data, scDic, scId, mjd0, sec0, fdir, ftag, numSegments, mjdc):
+    if scDic['Ephem']['CoordSys'] == "GSE":
+
+        # Convert the instantaneous GSE(t) ephemeris locations to the GH(t0)
+        # frame so that sctrack.x can interpolate gamhelio model data in the
+        # GH(t0) frame to the spacecraft ephemeris locations.
+        Rsun_km = u.Quantity(1*u.Rsun, u.km).value
+
+        # Create the GSE(t) position vectors and times.
+        x = data["Ephemeris"][:, 0]/Rsun_km
+        y = data["Ephemeris"][:, 1]/Rsun_km
+        z = data["Ephemeris"][:, 2]/Rsun_km
+        t = data["Epoch_bin"]
+
+        # Create SkyCoord objects for each GSE(t) position/time.
+        c = SkyCoord(
+            x*u.Rsun, y*u.Rsun, z*u.Rsun,
+            frame=frames.GeocentricSolarEcliptic, obstime=t,
+            representation_type="cartesian"
+        )
+
+        # Create the HGS(t0) coordinate frame.
+        mjdc_frame = frames.HeliographicStonyhurst(obstime=kaiTools.MJD2UT(mjdc))
+
+        # Convert the GSE(t) Cartesian positions to HGS(t0) (lon, lat, radius).
+        c = c.transform_to(mjdc_frame)
+
+    elif scDic['Ephem']['CoordSys'] == "HGI":
+
+        # Fetch the value of 1 AU in kilometers.
+        AU_km = u.Quantity(1*u.astrophys.AU, u.km).value
+
+        # Fetch the value of 1 Rsun in kilometers.
+        Rsun_km = u.Quantity(1*u.Rsun, u.km).value
+
+        # Compute the conversion factor from AU to Rsun.
+        Rsun_per_AU = AU_km/Rsun_km
+
+        # Create SkyCoord objects for each HGI(t)/HCI(t) position/time.
+        lon = data["Ephemeris"].flatten()[0]["heliographicLongitude"]
+        lat = data["Ephemeris"].flatten()[0]["heliographicLatitude"]
+        # Convert radius to Rsun.
+        rad = data["Ephemeris"].flatten()[0]["radialDistance"]*Rsun_per_AU
+        t = data["Epoch_bin"]
+        c = SkyCoord(
+            lon*u.deg, lat*u.deg, rad*u.Rsun,
+            frame=frames.HeliocentricInertial, obstime=t,
+            representation_type="spherical"
+        )
+
+        # Create the HGS(t0) coordinate frame.
+        mjdc_frame = frames.HeliographicStonyhurst(obstime=kaiTools.MJD2UT(mjdc))
+
+        # Convert the HGI(t)/HCI(t) spherical (lon, lat, radius) positions to
+        # HGS(mjdc) used by gamhelio.
+        c = c.transform_to(mjdc_frame)
+
+    else:
+        print('Coordinate system transformation failed')
+        return
+
+    # For the ephemeris locations, compute the elapsed time in seconds since
+    # the start of the gamhelio simulation. sctrack.x needs this value in
+    # order to perform the interpolation of gamhelio model output to the
+    # ephemeris points.
+    elapsed = [(tt - t[0]).total_seconds() for tt in t]
+
+    # Create the HDF5 file containing the spacecraft data transformed to the
+    # gamhelio frame and elapsed time.
+    scTrackName = os.path.join(fdir,scId+".sc.h5")
+    with h5py.File(scTrackName,'w') as hf:
+        # Elapsed time in seconds since start of gamhelio results.
+        hf.create_dataset("T" , data=elapsed)
+        # GH(t0) Cartesian coordinates in units of Rsun.
+        # Reverse x for gamhelio frame.
+        hf.create_dataset("X" , data=-c.cartesian.x)
+        hf.create_dataset("Y" , data=c.cartesian.y)
+        hf.create_dataset("Z" , data=c.cartesian.z)
+    h5traj=os.path.basename(scTrackName)
+
+    # Create the XML describing the required interpolations.
+    if scId in ["ACE", "Parker_Solar_Probe"]:
+        chimpxml = genHelioSCXML(fdir,ftag, scId,h5traj, num_parallel_segments=0)
+    else:
+        raise TypeError
+
+    # Write the XML to a file.
+    xmlFileName = os.path.join(fdir,scId+'.xml')
+    with open(xmlFileName,"w") as f:
+        f.write(chimpxml.toprettyxml())
+
+    return (scTrackName,xmlFileName)
+
+
+def addGAMHELIO(data, scDic, h5name):
+    """Copy the interpolated model results and transform as needed.
+
+    Copy the variables in the input HDF5 file into new variables in the HDF5
+    file with GAMERA_-prefixed descriptive names, and more metadata.
+
+    Convert vector values from the gamhelio frame (GH(t0)) to the frame of
+    the spacecraft.
+
+    Parameters
+    ----------
+    data: spacepy.datamodel.SpaceData
+        All of the spacecraft and interpolated model results so far.
+    scDic: dict
+        Spacecraft descriptive information.
+    h5name: str
+        Path to HDF5 file containing gamhelio model results interpolated to the
+        spacecraft positions, all in the GH(t0) frame.
+
+    Returns
+    -------
+    None
+
+    Raises
+    ------
+    TypeError
+        If target frame is not GSE.
+    """
+
+    # Open the HDF5 file containing the gamhelio model results interpolated
+    # to the spacecraft positions.
+    h5file = h5py.File(h5name, "r")
+
+    # Read the UTC MJD values from the HDF5 file.
+    ut = kaiTools.MJD2UT(h5file["MJDs"][:])  # NOT USED
+
+    # Determine the number of positions.
+    n = len(ut)
+
+    # Fetch the Cartesian components of the spacecraft position in the GH(t0)
+    # frame used by the gamhelio model. Each is shape (n,)
+    X = h5file["X"]
+    Y = h5file["Y"]
+    Z = h5file["Z"]
+
+    # Create an array of the positions as a shape (n, 3) array.
+    R = np.vstack([X, Y, Z]).T
+
+    # Compute the GH(t0) radius for each position. Shape is (n,)
+    radius = np.sqrt(X[:]**2 + Y[:]**2 + Z[:]**2)
+
+    # Fetch the Cartesian components of the interpolated model magnetic field
+    # in the GH(t0) frame.
+    Bx = h5file["Bx"]
+    By = h5file["By"]
+    Bz = h5file["Bz"]
+
+    # Create an array of the interpolated model magnetic field components as
+    # a shape (n, 3) array.
+    B = np.vstack([Bx, By, Bz]).T
+
+    # Determine the spacecraft coordinate frame for magnetic field components.
+    toCoordSys = scDic["MagneticField"]["CoordSys"]
+    if toCoordSys not in ("GSE", "RTN"):
+        raise TypeError
+
+    # Compute the radial component of the interpolated model magnetic field.
+    Br = np.empty(n)
+    for i in range(n):
+        Br[i] = B[i].dot(R[i])/radius[i]
+
+    # Add the radial component of the interpolated model magnetic field as a
+    # new variable. The negative of Br is needed to reverse the x-axis from
+    # GH(t0) to GSE(t).
+    data["GAMERA_Br"] = dm.dmarray(
+        Br,
+        attrs = {
+            "UNITS":Bx.attrs["Units"],
+            "CATDESC":"Radial magnetic field",
+            "FIELDNAM":"Radial magnetic field",
+            "AXISLABEL":"Br"
+        }
+    )
+
+    # Fetch the Cartesian components of the interpolated model solar wind
+    # velocity in the GH(t0) frame.
+    Vx = h5file["Vx"]
+    Vy = h5file["Vy"]
+    Vz = h5file["Vz"]
+
+    # Create an array of the interpolated model solar wind velocity as a
+    # shape (n, 3) array.
+    V = np.vstack([Vx, Vy, Vz]).T
+
+    # Compute the radial component of the interpolated model solar wind
+    # velocity.
+    Vr = np.empty(n)
+    for i in range(n):
+        Vr[i] = V[i].dot(R[i])/radius[i]
+
+    # Add the interpolated model solar wind radial velocity as a new variable.
+    data["GAMERA_Speed"] = dm.dmarray(
+        Vr,
+        attrs = {
+            "UNITS":Vx.attrs["Units"],
+            "CATDESC":"Radial velocity",
+            "FIELDNAM":"Radial velocity",
+            "AXISLABEL":"Vr"
+        }
+    )
+
+    # Add the interpolated model density as a new variable.
+    density = h5file["D"]
+    data["GAMERA_Density"] = dm.dmarray(
+        density[:],
+        attrs={
+            "UNITS":density.attrs["Units"],
+            "CATDESC":"Density",
+            "FIELDNAM":"Density",
+            "AXISLABEL":"n"
+        }
+    )
+
+    # Add the interpolated model pressure as a new variable.
+    pressure = h5file["P"]
+    data["GAMERA_Pressure"] = dm.dmarray(
+        pressure[:],
+        attrs={
+            "UNITS":pressure.attrs["Units"],
+            "CATDESC":"Pressure",
+            "FIELDNAM":"Pressure",
+            "AXISLABEL":"P"
+        }
+    )
+
+    # Compute the gamhelio temperature from interpolated model pressure
+    # and interpolated model density using the ideal gas law, and add as a
+    # new variable.
+    # Pressure is in cgs units (erg/cm**3).
+    # Density is in 1/cm**3.
+    # The CGS Boltzmann constant kbltz is erg/K.
+    # The factor of 2 is needed since we have a neutral 2-component plasma.
+    # The factor of 1e-8 converts nPa to erg/cm**3.
+    temperature = pressure[:]*1e-8/(2*kaipy.kdefs.kbltz*density[:])
+    data["GAMERA_Temperature"] = dm.dmarray(
+        temperature[:],
+        attrs={
+            "UNITS":b"K",  # WHY IS THIS A BYTE STRING?
+            "CATDESC":"Temperature",
+            "FIELDNAM":"Temperature",
+            "AXISLABEL":"T"
+        }
+    )
+
+    # Add the in-domain flag as a new variable.
+    inDom = h5file["inDom"]
+    data["GAMERA_inDom"] = dm.dmarray(
+        inDom[:],
+        attrs={
+            "UNITS":inDom.attrs["Units"],
+            "CATDESC":"In GAMERA Domain",
+            "FIELDNAM":"InDom",
+            "AXISLABEL":"In Domain"
+        }
+    )
+
+    # <HACK>
+    # Add the radial component of the *spacecraft* magnetic field as a
+    # new variable. The negative sign is needed because the +x axis
+    # for GSE is sunward, and we want the +r direction to be anti-sunward.
+    if toCoordSys == "GSE":
+        data["Br"] = dm.dmarray(
+            -data["MagneticField"][:, 0],
+            attrs = {
+                "UNITS":Bx.attrs["Units"],
+                "CATDESC":"Radial magnetic field",
+                "FIELDNAM":"Radial magnetic field",
+                "AXISLABEL":"Br"
+            }
+        )
+    elif toCoordSys == "RTN":
+        data["Br"] = dm.dmarray(
+            data["MagneticField"].flatten()[0]["BR"][:],
+            attrs = {
+                "UNITS":Bx.attrs["Units"],
+                "CATDESC":"Radial magnetic field",
+                "FIELDNAM":"Radial magnetic field",
+                "AXISLABEL":"Br"
+            }
+        )
+    else:
+        raise TypeError
+    # </HACK>
+
+    # At this point, we have added *copies* of the interpolated model values to
+    # the data object, along with extra metadata needed for comparison
+    # plotting.
+    return
+
+
+def extractGAMHELIO(
+    data, scDic, scId, mjd0, sec0, fdir, ftag, cmd, numSegments, keep, mjdc
+):
+    (scTrackName, xmlFileName) = createHelioInputFiles(
+        data, scDic, scId, mjd0, sec0, fdir, ftag, numSegments, mjdc
+    )
+
+    if 1 == numSegments:
+        sctrack = subprocess.run([cmd, xmlFileName], cwd=fdir, capture_output=True,
+                            # stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                            text=True)
+        with open(os.path.join(fdir, "sctrack.out"), "w") as f:
+            f.write(sctrack.stdout)
+
+        #print(sctrack)
+        h5name = os.path.join(fdir, scId + '.sc.h5')
+
+    else:
+        process = []
+        for seg in range(1,numSegments+1):
+            process.append(subprocess.Popen([cmd, xmlFileName,str(seg)],
+                            cwd=fdir,
+                            stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                            text=True))
+        for proc in process:
+            proc.communicate()
+        h5name = mergeFiles(scId,fdir,numSegments)
+
+
+    addGAMHELIO(data,scDic,h5name)
+
+    if not keep:
+        subprocess.run(['rm',h5name])
+        subprocess.run(['rm',xmlFileName])
+        subprocess.run(['rm',scTrackName])
+        if numSegments > 1:
+            h5parts = os.path.join(fdir,scId+'.*.sc.h5')
+            subprocess.run(['rm',h5parts])
+    return
+
+
 def helioErrorReport(errorName, scId, data):
     """Save an error report for the current data.
 
@@ -1056,11 +1239,11 @@ def helioErrorReport(errorName, scId, data):
 
     Parameters
     ----------
-    errorName : str
+    errorName: str
         Path to file to hold error report.
-    scId : str
+    scId: str
         ID string for spacecraft.
-    data : spacepy.datamodel.SpaceData
+    data: spacepy.datamodel.SpaceData
         The current spacecraft and model data
 
     Returns
@@ -1098,3 +1281,29 @@ def helioErrorReport(errorName, scId, data):
             f.write(f"MAPE: {MAPE}\n")
             f.write(f"RSE: {RSE}\n")
             f.write(f"PE: {PE}\n")
+
+
+def read_MJDc(path):
+    """Read the MJD of the center of the WSA input map.
+
+    Read the MJD of the center of the WSA input map. This value was originally
+    read from the FITS file used to provide the WSA initial conditions for a
+    gamhelio run. It is now stored as a global attribute in all of the HDF5-
+    format files generated by gamhelio. The MJDC value is the MJD that
+    corresponds to the center of the WSA map. This MJD value should be used as
+    the date for constructing the gamhelio coordinate frame, needed to convert
+    values from CDAWeb to gamhelio coordinates. 
+
+    Parameters
+    ----------
+    path: str
+        Path to HDF5 results file from gamhelio.
+
+    Returns
+    -------
+    mjdc: float
+        Value of mjdc global attribute.
+    """
+    with h5py.File(path, "r") as hf:
+        mjdc = hf.attrs["MJDc"]
+    return mjdc
