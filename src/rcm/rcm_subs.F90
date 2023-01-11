@@ -3182,7 +3182,7 @@ FUNCTION RatefnWM(xx,yy,alamx,vmx,nex,kpx,bqx,losscx,doTDSLoss)
     ! Region outside the plasmasphere or the plume, wave candidates: Chorus and TDS 
     tau_c = RatefnDW_tau_c(kpx,MLT,L,E)  
     if (doTDSLoss) then
-       tau_TDS = Ratefn_tau_TDS(MLT,L,E)
+       tau_TDS = Ratefn_tau_TDS(E)
     else
        tau_TDS = 1.D10
     endif
