@@ -19,16 +19,11 @@ module sifstarter
     ! Sets up Model, but Grid and State must be set up separately
     ! Its up to a higher being to determine how we get our grid
     ! After we have a grid, we can initialize our first state
-    subroutine sifInitModel(Model, Grid, planet, iXML, shGridO)
+    subroutine sifInitModel(Model, planet, iXML)
         type(sifModel_T) , intent(inout) :: Model
-        type(sifGrid_T)  , intent(inout) :: Grid
         type(planet_T)   , intent(in)    :: planet
         type(XML_Input_T), intent(in)    :: iXML
-
-        type(ShellGrid_T), optional, intent(in)    :: shGridO
  
-        character(len=strLen) :: xmlStr
-        type(XML_Input_T) :: xmlInp
         write(*,*) "sifInitModel is starting"
 
 
@@ -37,6 +32,8 @@ module sifstarter
         ! nG, nB, t0, tFin, dt, fixedTimestep
 
         ! Set some settings
+        call iXML%Set_Val(Model%configFName, "sim/config","sifconfig.h5")
+
         call iXML%Set_Val(Model%isMPI, "mpi/isMPI",.false.)
         if (Model%isMPI) then
             write(*,*) "MPI not implemented for SIF yet, dying."
@@ -59,19 +56,19 @@ module sifstarter
         !! In this current case, there should be a full copy to our own planet params
         Model%planet = planet
 
-        ! Generate grid
-        if(present(shGridO)) then
-            call sifInitGrid(Grid, iXML, shGridO)
-        else
-            call sifInitGrid(Grid, iXML)
-        endif
+        ! Set up timing
+        !!TODO
+        ! If we are running stand-alone, look for timing info inside SIF XML block
+        ! If voltron is present, look for timing information there
+
         
 
     end subroutine sifInitModel
 
     
 
-    subroutine sifInitGrid(Grid, iXML, shGridO)
+    subroutine sifInitGrid(Model, Grid, iXML, shGridO)
+        type(sifModel_T)  , intent(inout) :: Model
         type(sifGrid_T)  , intent(inout) :: Grid
         type(XML_Input_T), intent(in)   :: iXML
         type(ShellGrid_T), optional, intent(in)    :: shGridO
@@ -92,10 +89,10 @@ module sifstarter
                 call sifGenUniSphGrid(Grid, iXML)
             case("SHGRID")
                 Grid%gType = G_SHGRID
-                ! Then we should be receiving a predefined ShellGrid that Voltron is set up
+                ! Then we should be receiving a predefined ShellGrid that Voltron has set up
                 if(present(shGridO)) then
                     shGrid = shGridO
-                    !call sifGenGridFromShGrid(Grid, shGrid)
+                    call sifGenGridFromShGrid(Grid, shGrid)
                 else
                     write(*,*) "SIF expecting a ShellGrid_T but didn't receive one. Dying."
                 endif
@@ -110,6 +107,7 @@ module sifstarter
 
         ! Now handle lambda grid
         !!!TODO
+        call initLambdaGrid(Grid, Model%configFName)
 
     end subroutine sifInitGrid
 
@@ -122,7 +120,9 @@ module sifstarter
 !------
 
     ! This will make a simple Maxwellian distribution in a dipole field
-    subroutine sifInitStateDefault(State, D, T, r)
+    subroutine sifInitStateDefault(Model, Grid, State, D, T, r)
+        type(sifModel_T), intent(inout) :: Model
+        type(sifGrid_T) , intent(inout) :: Grid
         type(sifState_T), intent(inout) :: State
         real(rp), intent(in) :: D, T, r  ! density, temperature, r value
         !! TODO

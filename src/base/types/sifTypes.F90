@@ -12,14 +12,22 @@ module siftypes
         real(rp) :: Eta0 = 1.0  ! [N/bVol]
         real(rp) :: Pot0 = 1.0  ! [Volts]
     end type kmUnits_T
-    
-    type sifModel_T
-        character(len=strLen) :: RunID
-        integer :: nSpc, nG, nB  ! Number of species, # ghosts, # coupling boundary cells
-        real(rp) :: t0, tFin, dt
-        logical  :: fixedTimestep  ! fixed or dynamic timestep
 
-        ! Misc flags
+    type sifModel_T
+
+        ! Misc. bookkeeping stuff
+        character(len=strLen) :: configFName
+            !! Filename of the .h5 config that holds lambda grid, wavemodel values, etc.
+
+        character(len=strLen) :: RunID
+        integer :: nSpc, nG, nB
+            !! Number of species, # ghosts, # coupling boundary cells
+        real(rp) :: t0, tFin, dt
+            !! Start and end time, delta coupling time (may be replaced/ignored later by voltron setting a dynamic coupling time)
+        logical  :: fixedTimestep
+            !! Fixed or dynamic timestep
+
+        ! https://media0.giphy.com/media/XfDPdSRhYFUhIU7EPw/giphy.gif
         logical :: isMPI
         logical :: isRestart
         logical :: isLoud       ! For debug
@@ -27,14 +35,14 @@ module siftypes
 
         ! Plasmasphere settings
         logical :: doPlasmasphere
-        ! Extra paramrs for efilling rate, determining initial profile, etc.
+        ! Extra paramr for efilling rate, determining initial profile, etc.
 
         ! Lambda bounds controls
         logical :: doDynamicLambdaRanges  ! Dynamic lambda ranges so we only evolve certain energies at certain L shells
 
         ! Detailed information
         type(planet_T) :: planet  ! Planet info like radius, mag. moment, etc.
-        !type(precip_T) :: precip  ! Precipitation model info 
+        !type(precip_T) :: precip  ! Precipitation model info
         !type(waveModel_T) :: wModel  ! Wave model info (Shanshan)
 
     end type sifModel_T
@@ -54,12 +62,14 @@ module siftypes
         integer :: Rk=0  ! Number of this rank
 
         ! Face-centered coordinates
-        ! (Np,Nt,2,2)  i, j, lon/lat, upper/lower
-        ! llfc(i,j,k,XDIR,IDIR) = x-coord of I-Face
-        real(rp), dimension(:,:,:,:), allocatable :: llfc
+        !!! Maybe don't need because shGrid has centers in lat and lon directions already
+        ! (Np/Nt,2,2)  i/j, lon/lat dir, upper/lower
+        ! llfc(i,j,XDIR,IDIR) = x-coord of I-Face
+        !real(rp), dimension(:,:,:,:), allocatable :: latfc
+        !real(rp), dimension(:,:,:,:), allocatable :: lonfc
 
-        ! (Nj) I of last active cell for each j slice 
-        real(rp), dimension(:), allocatable :: iBnd
+        ! (Nj) I of last active cell for each j slice
+        integer, dimension(:), allocatable :: iBnd
 
         ! Corner-centered lambda channel values
         real(rp), dimension(:), allocatable :: lami

@@ -17,13 +17,13 @@ module sifapp
 
         contains
 
-        ! over-ride the base functions with RCM versions
+        ! over-ride the base functions with SIF versions
         procedure :: doInit => initSIF
-        procedure :: doAdvance => advanceSIF
-        procedure :: doEval => EvalSIF
-        procedure :: doIO => doSIFIO
-        procedure :: doConIO => doSIFConIO
-        procedure :: doRestart => doSIFRestart
+        !procedure :: doAdvance => advanceSIF
+        !procedure :: doEval => EvalSIF
+        !procedure :: doIO => doSIFIO
+        !procedure :: doConIO => doSIFConIO
+        !procedure :: doRestart => doSIFRestart
 
     end type
 
@@ -40,14 +40,11 @@ module sifapp
         !character(len=strLen) :: RunID
         !real(rp) :: t0
 
-        call iXML%Set_Val(tmpStr, "grid/gType","UNISPH")
-
         ! Start init
-        if (tmpStr .eq. "SHGRID") then
-        	call sifInitModel(imag%Model, imag%Grid, vApp%planet, iXML, vApp%shGrid)
-        else
-        	call sifInitModel(imag%Model, imag%Grid, vApp%planet, iXML)
-        endif
+        ! Model
+        call sifInitModel(imag%Model, vApp%planet, iXML)
+        ! Grid and config info
+        call iXML%Set_Val(tmpStr, "grid/gType","UNISPH")
 
     end subroutine initSIF
 
