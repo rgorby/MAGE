@@ -97,7 +97,8 @@ module sifgrids
 ! Lambda grid stuff
 !------
 
-
+!! Maybe should leave just spatial grid stuff in sifGrids and move lambda stuff to a lambdaUtils
+    
     subroutine initLambdaGrid(Grid, configfname)
         type(sifGrid_T)  , intent(inout) :: Grid
         character(len=strLen), intent(in) :: configfname
