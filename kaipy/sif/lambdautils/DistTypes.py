@@ -89,7 +89,7 @@ class DT_Wolf(DistType):
 
         # Do math
         alams = []
-        for k in range(sP.n):
+        for k in range(sP.n+1):
             kfrac = (k-kmin)/(kmax-kmin)  # How far through the channel range are we
             pstar = (1-kfrac)*self.p1 + kfrac*self.p2
             lammax = amax-amin

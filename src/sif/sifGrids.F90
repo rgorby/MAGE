@@ -98,32 +98,114 @@ module sifgrids
 !------
 
 !! Maybe should leave just spatial grid stuff in sifGrids and move lambda stuff to a lambdaUtils
-    
-    subroutine initLambdaGrid(Grid, configfname)
+
+    subroutine initLambdaGrid(Grid, configfname, nSpc)
         type(sifGrid_T)  , intent(inout) :: Grid
         character(len=strLen), intent(in) :: configfname
+        integer, intent(in) :: nSpc
 
+        integer(HID_T) :: h5fId
+        integer :: herr, i, flav
+        character(len=strLen) :: gStr
+        integer(HID_T) :: gId
+        logical :: gExist, isEnd
         type(IOVAR_T), dimension(2) :: IOVars ! Just grabbing lami and we're done
-        !integer :: iIO
-            !! Index for IOVars
-        integer :: Nk
-            !! Number of lambda channels
+        type(IOVAR_T) :: IOV
 
+
+        call CheckFileOrDie(configfname,"Unable to open file")
+        call h5open_f(herr) !Setup Fortran interface
+        ! Open file
+        call h5fopen_f(trim(configfname), H5F_ACC_RDONLY_F, h5fId, herr)
+        
+        ! Make sure Species group is there
+        gStr = "Species"
+        call h5lexists_f(h5fId, gStr, gExist, herr)
+        if (.not. gExist) then
+            write(*,*) "This config file not structured for SIF, use genSIF.py. Good day."
+            stop
+        endif
+        
+        ! If still here, start populating Grid%spc
+        allocate(Grid%spc(nSpc))
+
+        associate(spc=>Grid%spc)
+        
+        ! TODO: Think through edge cases that will cause errors
+
+        isEnd = .false.
+        i = 0
+        do while (.not. isEnd)
+            write(gStr, '(A,I0)') "Species/",i
+            call h5lexists_f(h5fId,gStr,gExist,herr)
+            if (.not. gExist) then
+                isEnd = .true.
+            else
+                write(*,*)"Found spc group ",trim(gStr)
+                
+                call h5gopen_f(h5fId,trim(gStr),gId,herr)
+                ! TODO: Figure out how to get Name string from attrs
+                spc(i+1)%N = readIntHDF(gId, "N")
+                spc(i+1)%flav = readIntHDF(gId, "flav")
+                spc(i+1)%fudge = readRealHDF(gId, "fudge")
+                
+                !write(*,*)spc(i+1)%N
+                !write(*,*)spc(i+1)%flav
+                !write(*,*)spc(i+1)%fudge
+
+                ! Now get our alami values
+                allocate(spc(i+1)%alami(spc(i+1)%N+1))
+                
+                ! Do this manually, can't use IOVARS/ReadVars cause we already have the group open
+                ! TODO: Abstract this away a little bit
+                IOV%toRead = .true.
+                IOV%idStr = "alami"
+                IOV%vType = IONULL
+                IOV%scale = 1.0
+                call ReadHDFVar(IOV, gId)
+                spc(i+1)%alami = IOV%data
+                write(*,*)spc(i+1)%alami
+
+                call h5gclose_f(gId,herr)
+
+                !call ClearIO(IOVars) !Reset IO chain
+                !call AddInVar(IOVars,"alami")
+                !write(*,*)"a"
+                !call ReadVars(IOVars,.false.,configfname, gStr)
+                !write(*,*)"b"
+                !write(*,*)IOVars(1)%idStr
+                !write(*,*)IOVars(1)%data
+                !call IOArray1DFill(IOVars, "alami", spc(i+1)%alami)
+                !write(*,*)"c"
+!
+                !write(*,*)spc(i+1)%alami
+
+                
+            endif
+            i = i+1
+        enddo
+
+
+        
+        end associate
 
         ! Read lambda interfaces from file
-        call ClearIO(IOVars) !Reset IO chain
-        call AddInVar(IOVars,"alamc")
-        call ReadVars(IOVars,.false.,configfname)
+        !call ClearIO(IOVars) !Reset IO chain
+        !call AddInVar(IOVars,"alamc")
+        !call ReadVars(IOVars,.false.,configfname)
 
         !! TODO: sifconfig.h5 should have lami(Nk+1), flav(Nk), etc...
         !! We get Nk as IOVars(lami)%N-1, then allocate and initialize accordingly
-        Nk = IOVars(FindIO(IOVars, "alamc"))%N
+        !Nk = IOVars(FindIO(IOVars, "alamc"))%N
 
-        allocate(Grid%lamc(Nk))
+        !allocate(Grid%lamc(Nk))
 
-        call IOArray1DFill(IOVars, "alamc", Grid%lamc)
+        !call IOArray1DFill(IOVars, "alamc", Grid%lamc)
 
-        write(*,*)Grid%lamc
+        !write(*,*)Grid%lamc
+
+        call h5fclose_f(h5fId,herr)
+        call h5close_f(herr) !Close intereface
 
     end subroutine initLambdaGrid
 

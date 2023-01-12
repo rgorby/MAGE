@@ -46,6 +46,14 @@ module sifstarter
 
         ! Plasmasphere settings
         call iXML%Set_Val(Model%doPlasmasphere, "plasmasphere/doPsphere",.false.)
+        ! Determine number of species. First set default, then read from xml to overwrite if present
+        if (Model%doPlasmasphere) then
+            Model%nSpc = 3
+        else
+            Model%nSpc = 2
+        endif
+        call iXML%Set_Val(Model%nSpc, "sim/nSpc",Model%nSpc)
+
 
         ! Lambda channel settings
         call iXML%Set_Val(Model%doDynamicLambdaRanges, "lambdas/dynamicRanges",.false.)
@@ -107,7 +115,7 @@ module sifstarter
 
         ! Now handle lambda grid
         !!!TODO
-        call initLambdaGrid(Grid, Model%configFName)
+        call initLambdaGrid(Grid, Model%configFName, Model%nSpc)
 
     end subroutine sifInitGrid
 

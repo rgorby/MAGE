@@ -3,6 +3,8 @@ module siftypes
     use helpertypes
     use shellgrid
 
+    use sifdefs
+
     implicit none
 
     type kmUnits_T
@@ -12,6 +14,19 @@ module siftypes
         real(rp) :: Eta0 = 1.0  ! [N/bVol]
         real(rp) :: Pot0 = 1.0  ! [Volts]
     end type kmUnits_T
+
+
+    type SIFSpecies_T
+        !! Container for all info related to a specific species
+        
+        character(len=strLen) :: name
+        integer :: N
+        integer :: flav
+        real(rp) :: fudge
+        real(rp), dimension(:), allocatable :: alami
+
+    end type SIFSpecies_T
+
 
     type sifModel_T
 
@@ -71,10 +86,14 @@ module siftypes
         ! (Nj) I of last active cell for each j slice
         integer, dimension(:), allocatable :: iBnd
 
-        ! Corner-centered lambda channel values
-        real(rp), dimension(:), allocatable :: lami
-        ! Cell-centered cell-centered lamba channel values
-        real(rp), dimension(:), allocatable :: lamc
+        ! Species / lambda stuff
+        logical, dimension(:), allocatable :: isSpcActive
+            !! List of which supported species are actually active in this run
+            !! (Maybe this should be in Model)
+        type(SIFSpecies_T), dimension(:), allocatable :: spc
+            !! Collection of SIFSpecies that contain all relevant species info, including alami
+        real(rp), dimension(:), allocatable :: alamc
+            !! Cell-centered lamba channel values
 
     end type sifGrid_T
 

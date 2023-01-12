@@ -14,6 +14,12 @@ module sifdefs
 		enumerator :: G_UNISPH, G_SHGRID
 	endenum
 
+	! Species
+	integer :: nTotSpc = 3
+    enum, bind(c)
+        enumerator :: PSPH=0,HOTE,HOTP
+    endenum
+
 	! Topology
 	enum, bind(C)
 		enumerator :: SIFOPEN, SIFCLOSED

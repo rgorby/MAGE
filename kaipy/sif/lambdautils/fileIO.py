@@ -29,16 +29,26 @@ def saveAlamData(f5name, alamData, doPrint=False):
 
     with h5.File(f5name, 'a') as f5:
 
-        for spec in alamData.species:
-            lambdas = np.append(lambdas, spec.alami)
-            flavs  = np.append(flavs , [spec.params.flav  for f in range(spec.params.n)])
-            fudges = np.append(fudges, [spec.params.fudge for f in range(spec.params.n)])
+        gSpec = f5.create_group("Species")
 
+        for i, spec in enumerate(alamData.species):
+            gFlav = gSpec.create_group(str(i))
+
+            gFlav.create_dataset('alami', data=spec.alami)
+            gFlav.attrs['Name' ] = spec.params.name
+            gFlav.attrs['N'   ] = spec.params.n
+            gFlav.attrs['flav' ] = spec.params.flav
+            gFlav.attrs['fudge'] = spec.params.fudge
+            #lambdas = np.append(lambdas, spec.alami)
+            #flavs  = np.append(flavs , [spec.params.flav  for f in range(spec.params.n)])
+            #fudges = np.append(fudges, [spec.params.fudge for f in range(spec.params.n)])
+        """
         if doPrint:
             print(lambdas)
             print(flavs)
             print(fudges)
 
-        f5.create_dataset('alami', data=lambdas)
+        f5.create_dataset('Species/alami', data=lambdas)
         f5.create_dataset('ikflavc', data=flavs)
         f5.create_dataset('fudgec', data=fudges)
+        """

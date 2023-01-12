@@ -115,7 +115,6 @@ if __name__ == "__main__":
         fileIO.GitStamp(fOut)
         f5.attrs['ScriptArgs'] = kj.dumps(vars(args),noIndent=True)
     
-    
     # Save parameter info to file so we can recover later if needed
     fileIO.saveAlamParams(fOut, alamData)
     # Save main data to file
