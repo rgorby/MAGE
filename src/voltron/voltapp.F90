@@ -194,8 +194,8 @@ module voltapp
             vApp%time = gApp%Model%t*gTScl !Time in seconds
             vApp%ts   = gApp%Model%ts !Timestep
             vApp%MJD = T2MJD(vApp%time,gApp%Model%MJD0)
-            !Set first deep coupling (defaulting to 0)
-            call xmlInp%Set_Val(vApp%DeepT, "coupling/tDeep", 0.0_rp)
+            !Set first deep coupling (defaulting to coupling right away since shallow is part of deep now)
+            call xmlInp%Set_Val(vApp%DeepT, "coupling/tDeep", vApp%time)
         endif
 
         if (vApp%doDeep) then
@@ -468,6 +468,9 @@ module voltapp
         call convertRemixToGamera(vApp%mix2mhd, vApp%remixApp, gApp)
         call Toc("R2G")
 
+        !Update coupling time now so that voltron knows what to expect
+        vApp%DeepT = vApp%DeepT + vApp%DeepDT
+
         ! only do imag after spinup
         if(vApp%time >= 0) then
             call PreDeep(vApp, gApp)
@@ -485,9 +488,6 @@ module voltapp
     subroutine PreDeep(vApp, gApp)
         type(gamApp_T) , intent(inout) :: gApp
         class(voltApp_T), intent(inout) :: vApp
-
-        !Update coupling time now so that voltron knows what to expect
-        vApp%DeepT = vApp%DeepT + vApp%DeepDT
 
         !Update i-shell to trace within in case rTrc has changed
         vApp%iDeep = ShellBoundary(gApp%Model,gApp%Grid,vApp%rTrc)

@@ -477,6 +477,9 @@ module voltapp_mpi
         call convertRemixToGamera(vApp%mix2mhd, vApp%remixApp, vApp%gAppLocal)
         call Toc("R2G")
 
+        !Update coupling time now so that voltron knows what to expect
+        vApp%DeepT = vApp%DeepT + vApp%DeepDT
+
         ! only do imag after spinup
         if(vApp%time > 0) then
             call Tic("DeepUpdate")
@@ -504,18 +507,22 @@ module voltapp_mpi
     subroutine endDeep(vApp)
         type(voltAppMpi_T), intent(inout) :: vApp
 
-        call Tic("DeepUpdate")
         vApp%deepProcessingInProgress = .false.
 
-        if(vApp%useHelpers .and. vApp%doSquishHelp) then
-            call Tic("VoltHelpers")
-            call vhReqSquishEnd(vApp)
-            call Toc("VoltHelpers")
-        endif
+        ! only do imag after spinup
+        if(vApp%time >= 0) then
+            call Tic("DeepUpdate")
 
-        call SquishEnd(vApp)
-        call PostDeep(vApp, vApp%gAppLocal)
-        call Toc("DeepUpdate")
+            if(vApp%useHelpers .and. vApp%doSquishHelp) then
+                call Tic("VoltHelpers")
+                call vhReqSquishEnd(vApp)
+                call Toc("VoltHelpers")
+            endif
+
+            call SquishEnd(vApp)
+            call PostDeep(vApp, vApp%gAppLocal)
+            call Toc("DeepUpdate")
+        endif
 
     end subroutine endDeep
 
