@@ -1,38 +1,38 @@
 ! kaimag definitions/constants
 
 module sifdefs
-	use kdefs
+    use kdefs
 
-	implicit none
+    implicit none
 
-	!------
-	! Enumerators
-	!------
+    !------
+    ! Enumerators
+    !------
 
-	! Grid settings
-	enum, bind(C)
-		enumerator :: G_UNISPH, G_SHGRID
-	endenum
-
-	! Species
-	integer :: nTotSpc = 3
-    enum, bind(c)
-        enumerator :: PSPH=0,HOTE,HOTP
+    ! Grid settings
+    enum, bind(C)
+        enumerator :: G_UNISPH, G_SHGRID
     endenum
 
-	! Topology
-	enum, bind(C)
-		enumerator :: SIFOPEN, SIFCLOSED
-	endenum
+    ! Species
+    enum, bind(c)
+        enumerator :: PSPH=0,HOTE,HOTP
+            !! These flavors have reserved numbers
+    endenum
 
-	! Active/buffer/inactive cells
-	enum, bind(C)
-		enumerator :: SIFACTIVE, SIFBUFFER, SIFINACTIVE
-	endenum
+    ! Topology
+    enum, bind(C)
+        enumerator :: SIFOPEN, SIFCLOSED
+    endenum
 
-	!------
-	! Defaults
-	!------
+    ! Active/buffer/inactive cells
+    enum, bind(C)
+        enumerator :: SIFACTIVE, SIFBUFFER, SIFINACTIVE
+    endenum
+
+    !------
+    ! Defaults
+    !------
 
 
 end module sifdefs

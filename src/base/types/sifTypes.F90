@@ -71,6 +71,10 @@ module siftypes
         integer :: ks=1,ke
         integer :: ksg,keg
 
+        ! Flags
+        logical :: ignoreConfigMismatch
+            !! In the case that the config file has more species than Model%nSpc,
+            !! SIF will complain and die if this is false, but will carry on if true
 
         ! MPI things
         integer :: NumRk  ! Number of ranks in energy space
@@ -87,9 +91,7 @@ module siftypes
         integer, dimension(:), allocatable :: iBnd
 
         ! Species / lambda stuff
-        logical, dimension(:), allocatable :: isSpcActive
-            !! List of which supported species are actually active in this run
-            !! (Maybe this should be in Model)
+        integer :: nSpc  ! Model has the main copy of this, but helpful to keep here too
         type(SIFSpecies_T), dimension(:), allocatable :: spc
             !! Collection of SIFSpecies that contain all relevant species info, including alami
         real(rp), dimension(:), allocatable :: alamc

@@ -32,7 +32,7 @@ module sifstarter
         ! nG, nB, t0, tFin, dt, fixedTimestep
 
         ! Set some settings
-        call iXML%Set_Val(Model%configFName, "sim/config","sifconfig.h5")
+        call iXML%Set_Val(Model%configFName, "config/fname","sifconfig.h5")
 
         call iXML%Set_Val(Model%isMPI, "mpi/isMPI",.false.)
         if (Model%isMPI) then
@@ -114,8 +114,9 @@ module sifstarter
         call finalizeLLGrid(Grid)
 
         ! Now handle lambda grid
-        !!!TODO
-        call initLambdaGrid(Grid, Model%configFName, Model%nSpc)
+        Grid%nSpc = Model%nSpc  ! Make a copy of nSpc
+        call iXML%Set_Val(Grid%ignoreConfigMismatch, "config/ignoreMismatch",.false.)
+        call initLambdaGrid(Model, Grid, Model%configFName)
 
     end subroutine sifInitGrid
 

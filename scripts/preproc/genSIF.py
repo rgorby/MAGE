@@ -55,7 +55,7 @@ if __name__ == "__main__":
     parser.add_argument('-p1', type=float,default=wolfP1, help="Wolf low-energy  p* (default: %(default)s)")
     parser.add_argument('-p2', type=float,default=wolfP2, help="Wolf high-energy p* (default: %(default)s)")
     parser.add_argument('-plotType', choices=plotChoices,default=plotChoices[0], help="Plot mode (default: %(default)s)")
-    parser.add_argument('--nop',action='store_true',default=False,help="Do not add zero loss first channel (default: %(default)s)")
+    parser.add_argument('--nop',action='store_true',default=False,help="Do not add zero energy first channel (default: %(default)s)")
     parser.add_argument('--noWaveModel',action='store_true',default=False, help="Don't use wave models in the electron/ion loss (default: %(default)s)")
     parser.add_argument('--addWM', action='store_true',default=False, help="Add wave models to an existing rcmconfig file, input file needed to be presented (default: %(default)s)")
     parser.add_argument('-i', type=str,default=fOut,metavar="fIn", help="Input file name when addWM is true (default: %(default)s)")
@@ -73,6 +73,7 @@ if __name__ == "__main__":
     L_kt = float(args.L)
     wolfP1 = args.p1
     wolfP2 = args.p2
+    noPsph = args.nop
     addWM = args.addWM
     noWaveModel = args.noWaveModel
     fIn = args.i	
@@ -100,13 +101,13 @@ if __name__ == "__main__":
 
     # For reference: SpecParams(n, amin, amax, distType, flav, fudge, name)
 
-    sPsphere = aP.SpecParams(1, 0, 0, dtManual, 0, 0, name="0_Plasmasphere") # Zero-energy plasmasphere channel
-    sPe = aP.SpecParams(num_e, alamMin_e, alamMax_e, dtWolf, EFLAV, EFUDGE, name='Electrons')  # Parameters to create electron channels
-    sPp = aP.SpecParams(num_p, alamMin_p, alamMax_p, dtWolf, PFLAV, PFUDGE, name='Protons'  )  # Parameters to create proton channels
+    if not noPsph: sPsphere = aP.SpecParams(1, 0, 0, dtManual, 0, 0, name="0_Plasmasphere") # Zero-energy plasmasphere channel
+    sPe = aP.SpecParams(num_e, alamMin_e, alamMax_e, dtWolf, EFLAV, EFUDGE, name='Hot Electrons')  # Parameters to create electron channels
+    sPp = aP.SpecParams(num_p, alamMin_p, alamMax_p, dtWolf, PFLAV, PFUDGE, name='Hot Protons'  )  # Parameters to create proton channels
 
     # Stuff into an AlamData object, which will automatically generate the fully realized species distribution for us
     # NOTE: ORDER MATTERS. They will show up in the 1D lami, flav, fudge in this order
-    alamData = aD.AlamData([sPsphere, sPe, sPp])
+    alamData = aD.AlamData([sPe, sPp]) if noPsph else aD.AlamData([sPsphere, sPe, sPp])
 
 
     # Tag a brand new output file
