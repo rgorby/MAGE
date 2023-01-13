@@ -7,6 +7,7 @@ from argparse import RawTextHelpFormatter
 
 import kaipy.kaiTools as kT
 import kaipy.kaijson as kj
+import kaipy.kaiH5 as kh5
 
 import kaipy.sif.lambdautils.AlamData as aD
 import kaipy.sif.lambdautils.AlamParams as aP
@@ -112,7 +113,8 @@ if __name__ == "__main__":
 
     # Tag a brand new output file
     with h5.File(fOut, 'w') as f5:
-        fileIO.GitStamp(fOut)
+        kh5.StampHash(fOut)
+        kh5.StampBranch(fOut)
         f5.attrs['ScriptArgs'] = kj.dumps(vars(args),noIndent=True)
     
     # Save parameter info to file so we can recover later if needed

@@ -9,12 +9,6 @@ import kaipy.kaijson as kj
 import kaipy.sif.lambdautils.AlamParams as aP
 import kaipy.sif.lambdautils.DistTypes as dT
 
-def GitStamp(f5name):
-    with h5.File(f5name, 'a') as f5:
-        cwd = os.path.dirname(os.path.realpath(__file__))
-        gh = subprocess.check_output(['git', '-C', cwd, 'rev-parse', 'HEAD']).decode('ascii').strip()
-        f5.attrs['GitHash'] = gh
-
 def saveAlamParams(f5name, alamData):
     with h5.File(f5name, 'a') as f5:
         f5.attrs['AlamParams'] = [kj.dumps(dc_asdict(p),noIndent=True) for p in alamData.params]

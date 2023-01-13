@@ -33,6 +33,7 @@ module sifstarter
 
         ! Set some settings
         call iXML%Set_Val(Model%configFName, "config/fname","sifconfig.h5")
+        call CheckFileOrDie(configfname,"Unable to open file")
 
         call iXML%Set_Val(Model%isMPI, "mpi/isMPI",.false.)
         if (Model%isMPI) then
@@ -112,6 +113,7 @@ module sifstarter
 
         ! Finalize the spatial part of the grid
         call finalizeLLGrid(Grid)
+        
 
         ! Now handle lambda grid
         Grid%nSpc = Model%nSpc  ! Make a copy of nSpc
@@ -129,6 +131,7 @@ module sifstarter
 !------
 
     ! This will make a simple Maxwellian distribution in a dipole field
+    ! TODO: This should be in an IC file
     subroutine sifInitStateDefault(Model, Grid, State, D, T, r)
         type(sifModel_T), intent(inout) :: Model
         type(sifGrid_T) , intent(inout) :: Grid

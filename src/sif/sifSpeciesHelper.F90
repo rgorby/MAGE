@@ -44,24 +44,13 @@ module sifSpeciesHelper
         type(sifGrid_T), intent(inout) :: Grid
         character(len=strLen), intent(in) :: configfname
 
-        integer(HID_T) :: h5fId
-        integer :: herr, i
-        character(len=strLen) :: gStr, tmpStr
-        integer(HID_T) :: gId
-        logical :: gExist, isEnd
-        type(IOVAR_T), dimension(2) :: IOVars ! Just grabbing lami and we're done
-        type(IOVAR_T) :: IOV
+        integer :: i
+        character(len=strLen) :: gStr
+        type(IOVAR_T), dimension(5) :: IOVars ! Just grabbing lami and we're done
 
 
-        call CheckFileOrDie(configfname,"Unable to open file")
-        call h5open_f(herr) !Setup Fortran interface
-        ! Open file
-        call h5fopen_f(trim(configfname), H5F_ACC_RDONLY_F, h5fId, herr)
-        
-        ! Make sure Species group is there
-        gStr = "Species"
-        call h5lexists_f(h5fId, gStr, gExist, herr)
-        if (.not. gExist) then
+        ! Make sure Species group exists with at least 1 entry
+        if(.not. ioExist(configfname, "0", "Species")) then
             write(*,*) "This config file not structured for SIF, use genSIF.py. Good day."
             stop
         endif
@@ -70,57 +59,51 @@ module sifSpeciesHelper
         allocate(Grid%spc(Grid%nSpc))
 
         
-        associate(spc=>Grid%spc)
-        
         ! TODO: Think through edge cases that will cause errors
-
-        isEnd = .false.
+        associate(spc=>Grid%spc)
         do i=1,Grid%nSpc 
             ! We do an extra iteration to see if there are more species in the config than what SIF expected
             ! If so, we can warn the user
             write(gStr, '(A,I0)') "Species/",i-1  ! Species indexing in config starts at 0
-            call h5lexists_f(h5fId,gStr,gExist,herr)
-            if (.not. gExist) then
+            !call h5lexists_f(h5fId,gStr,gExist,herr)
+            if(.not. ioExist(configfname, gStr)) then
                 write(*,*) "ERROR in sifGrids.F90:populateSpeciesFromConfig"
                 write(*,'(A,I0,A,I0)') "  Expected ",Grid%nSpc," species but only found ",i-1
                 stop
             else
-                !write(*,*)"Found spc group ",trim(gStr)
+                write(*,*)"Found spc group ",trim(gStr)
                 
-                call h5gopen_f(h5fId,trim(gStr),gId,herr)
-                ! TODO: Figure out how to get Name string from attrs
-                spc(i)%N = readIntHDF(gId, "N")
-                spc(i)%flav = readIntHDF(gId, "flav")
-                spc(i)%fudge = readRealHDF(gId, "fudge")
-                
-                !write(*,*)spc(i)%N
-                !write(*,*)spc(i)%flav
-                !write(*,*)spc(i)%fudge
+                ! Read
+                call ClearIO(IOVars)
+                call AddInVar(IOVars, "flav" )  ! Attr
+                call AddInVar(IOVars, "N"    )  ! Attr
+                call AddInVar(IOVars, "fudge")  ! Attr
+                call AddInVar(IOVars, "alami")  ! Dataset
+                call ReadVars(IOVars, .false., configfname, gStr)
 
-                ! Now get our alami values
+                ! Assign
+                spc(i)%flav  = IOVars(FindIO(IOVars, "flav" ))%data(1)
+                spc(i)%N     = IOVars(FindIO(IOVars, "N"    ))%data(1)
+                spc(i)%fudge = IOVars(FindIO(IOVars, "fudge"))%data(1)
+
+
                 allocate(spc(i)%alami(spc(i)%N+1))
-                
-                ! Do this manually, can't use IOVARS/ReadVars cause we already have the group open
-                IOV%toRead = .true.
-                IOV%idStr = "alami"
-                IOV%vType = IONULL
-                IOV%scale = 1.0
-                call ReadHDFVar(IOV, gId)
-                spc(i)%alami = IOV%data
-                !write(*,*)spc(i)%alami
+                call IOArray1DFill(IOVars,"alami",spc(i)%alami)
 
-                call h5gclose_f(gId,herr)
+                !write(*,*)" Flav: ", spc(i)%flav
+                !write(*,*)" N:    ",spc(i)%N
+                !write(*,*)" Fudge:",spc(i)%fudge
+                !write(*,*) IOVars(FindIO(IOVars, "alami"))%data
+
                 
             endif
         enddo
-
         end associate
 
 
         ! Check if there are more species in the file than what we read
         write(gStr, '(A,I0)') "Species/",Grid%nSpc  ! Species indexing in config starts at 0
-        call h5lexists_f(h5fId,gStr,gExist,herr)
-        if(gExist) then
+        if(ioExist(configfname, gStr)) then
             if (.not. Grid%ignoreConfigMismatch) then
                 write(*,*) "SIF ERROR: More species defined in ",trim(configfname)," than SIF expected."
                 write(*,*) " If you want to ignore this, set config/ignoreMismatch=T. But for now, we die."
@@ -137,11 +120,6 @@ module sifSpeciesHelper
         call assertSpcExist(HOTE)  ! Hot electrons
         call assertSpcExist(HOTP)  ! Hot protons
 
-        
-        
-
-        call h5fclose_f(h5fId,herr)
-        call h5close_f(herr) !Close intereface
 
         contains
 
@@ -155,6 +133,7 @@ module sifSpeciesHelper
             endif
 
         end subroutine assertSpcExist
+
 
     end subroutine populateSpeciesFromConfig
 
