@@ -1,6 +1,6 @@
 import h5py
 import numpy as np
-import sys
+import os, sys, subprocess
 import kaipy.kdefs as kdefs
 
 #Generate MPI-style name
@@ -36,6 +36,29 @@ def CheckDirOrMake(fdir):
 	if (not isDir):
 		print("Creating %s"%(fdir))
 		os.makedirs(fdir)
+
+# Stamp file with git hash (using this script's location)
+def StampHash(fname):
+	with h5py.File(fname, 'a') as f5:
+		cwd = os.path.dirname(os.path.realpath(__file__))
+		try:
+			gh = subprocess.check_output(['git', '-C', cwd, 'rev-parse', 'HEAD']).decode('ascii').strip()
+		except:
+			print("ERROR: Couldn't grab git hash")
+			return
+		f5.attrs['GITHASH'] = gh
+
+# Stamp file with git branch (using this script's location)
+def StampBranch(fname):
+	with h5py.File(fname, 'a') as f5:
+		cwd = os.path.dirname(os.path.realpath(__file__))
+		try:
+			gb = subprocess.check_output(['git', '-C', cwd, 'rev-parse', '--abbrev-ref', 'HEAD']).decode('ascii').strip()
+		except:
+			print("ERROR: Couldn't grab git branch")
+			return
+		f5.attrs['GITBRANCH'] = gb
+
 #Get git hash from file if it exists
 def GetHash(fname):
 	CheckOrDie(fname)
