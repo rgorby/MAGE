@@ -275,9 +275,9 @@ module glinit
             call initSolutionState(Model, State, Solution)
             ! Set up State
             ! Set dx's (uniform for now)
-            dr = (rtpBds(2)-rtpBds(1))/State%Nip
-            dth = (rtpBds(4)-rtpBds(3))/State%Njp
-            dphi = (rtpBds(6)-rtpBds(5))/State%Nkp
+            dr = (rtpBds(2)-rtpBds(1))/(State%Nip + 1)
+            dth = (rtpBds(4)-rtpBds(3))/(State%Njp + 1)
+            dphi = (rtpBds(6)-rtpBds(5))/(State%Nkp + 1)
 
             ! Create r(Ni), theta(Nj,Nk), phipb(Nj,Nk) arrays
               
