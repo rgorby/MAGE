@@ -33,7 +33,7 @@ module sifstarter
 
         ! Set some settings
         call iXML%Set_Val(Model%configFName, "config/fname","sifconfig.h5")
-        call CheckFileOrDie(configfname,"Unable to open file")
+        call CheckFileOrDie(Model%configFName,"Unable to open file")
 
         call iXML%Set_Val(Model%isMPI, "mpi/isMPI",.false.)
         if (Model%isMPI) then

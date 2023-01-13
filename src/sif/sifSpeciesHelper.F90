@@ -15,7 +15,7 @@ module sifSpeciesHelper
     ! Helper helpers
     !------
 
-    function spcExist(Grid, flav) result(fExist)
+    function spcExists(Grid, flav) result(fExist)
         type(SIFGrid_T), intent(in) :: Grid
         integer, intent(in) :: flav
         
@@ -30,7 +30,7 @@ module sifSpeciesHelper
                 exit
             endif
         enddo
-    end function spcExist
+    end function spcExists
 
 
     !------
@@ -86,7 +86,6 @@ module sifSpeciesHelper
                 spc(i)%N     = IOVars(FindIO(IOVars, "N"    ))%data(1)
                 spc(i)%fudge = IOVars(FindIO(IOVars, "fudge"))%data(1)
 
-
                 allocate(spc(i)%alami(spc(i)%N+1))
                 call IOArray1DFill(IOVars,"alami",spc(i)%alami)
 
@@ -115,24 +114,24 @@ module sifSpeciesHelper
 
         ! Ensure that we have the core species we expect to have
         if (Model%doPlasmasphere) then
-            call assertSpcExist(PSPH) ! Plasmasphere
+            call assertSpcExists(PSPH) ! Plasmasphere
         endif
-        call assertSpcExist(HOTE)  ! Hot electrons
-        call assertSpcExist(HOTP)  ! Hot protons
+        call assertSpcExists(HOTE)  ! Hot electrons
+        call assertSpcExists(HOTP)  ! Hot protons
 
 
         contains
 
-        subroutine assertSpcExist(flav)
+        subroutine assertSpcExists(flav)
             integer, intent(in) :: flav
 
             ! TODO: Make this say the name of the missing species, e.g. plasmasphere, hot protons/electrons
-            if(.not. spcExist(Grid, flav)) then
+            if(.not. spcExists(Grid, flav)) then
                 write(*,'(A,I0,A,A)')" SIF ERROR: Expected a species with flav ",flav,", but ",trim(configfname)," did not contain one"
                 stop
             endif
 
-        end subroutine assertSpcExist
+        end subroutine assertSpcExists
 
 
     end subroutine populateSpeciesFromConfig
