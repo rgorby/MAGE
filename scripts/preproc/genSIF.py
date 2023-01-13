@@ -100,8 +100,7 @@ if __name__ == "__main__":
 
     # For reference: SpecParams(n, amin, amax, distType, flav, fudge, name)
 
-    # Zero-energy plasmasphere channel
-    sPsphere = aP.SpecParams(1, 0, 0, dtManual, 0, 0, name="0_Plasmasphere")
+    sPsphere = aP.SpecParams(1, 0, 0, dtManual, 0, 0, name="0_Plasmasphere") # Zero-energy plasmasphere channel
     sPe = aP.SpecParams(num_e, alamMin_e, alamMax_e, dtWolf, EFLAV, EFUDGE, name='Electrons')  # Parameters to create electron channels
     sPp = aP.SpecParams(num_p, alamMin_p, alamMax_p, dtWolf, PFLAV, PFUDGE, name='Protons'  )  # Parameters to create proton channels
 

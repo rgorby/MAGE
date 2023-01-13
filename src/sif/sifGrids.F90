@@ -16,6 +16,7 @@ module sifgrids
 ! Spatial grid stuff
 !------
 
+
     subroutine sifGenUniSphGrid(Grid, iXML)
         type(sifGrid_T)  , intent(inout) :: Grid
         type(XML_Input_T), intent(in)    :: iXML
@@ -99,8 +100,8 @@ module sifgrids
 
 !! Maybe should leave just spatial grid stuff in sifGrids and move lambda stuff to a lambdaUtils
 
-    subroutine initLambdaGrid(Grid, configfname, nSpc)
-        type(sifGrid_T)  , intent(inout) :: Grid
+    subroutine populateSpeciesFromConfig(Grid, configfname, nSpc)
+        type(sifGrid_T), intent(inout) :: Grid
         character(len=strLen), intent(in) :: configfname
         integer, intent(in) :: nSpc
 
@@ -134,78 +135,63 @@ module sifgrids
         ! TODO: Think through edge cases that will cause errors
 
         isEnd = .false.
-        i = 0
-        do while (.not. isEnd)
-            write(gStr, '(A,I0)') "Species/",i
+        do i=1,nSpc
+            write(gStr, '(A,I0)') "Species/",i-1  ! Species indexing in config starts at 0
             call h5lexists_f(h5fId,gStr,gExist,herr)
             if (.not. gExist) then
-                isEnd = .true.
+                write(*,*) "ERROR in sifGrids.F90:populateSpeciesFromConfig"
+                write(*,'(A,I0,A,I0)') "  Expected ",nSpc," species but only found ",i-1
             else
                 write(*,*)"Found spc group ",trim(gStr)
                 
                 call h5gopen_f(h5fId,trim(gStr),gId,herr)
                 ! TODO: Figure out how to get Name string from attrs
-                spc(i+1)%N = readIntHDF(gId, "N")
-                spc(i+1)%flav = readIntHDF(gId, "flav")
-                spc(i+1)%fudge = readRealHDF(gId, "fudge")
+                spc(i)%N = readIntHDF(gId, "N")
+                spc(i)%flav = readIntHDF(gId, "flav")
+                spc(i)%fudge = readRealHDF(gId, "fudge")
                 
-                !write(*,*)spc(i+1)%N
-                !write(*,*)spc(i+1)%flav
-                !write(*,*)spc(i+1)%fudge
+                write(*,*)spc(i)%N
+                write(*,*)spc(i)%flav
+                write(*,*)spc(i)%fudge
 
                 ! Now get our alami values
-                allocate(spc(i+1)%alami(spc(i+1)%N+1))
+                allocate(spc(i)%alami(spc(i)%N+1))
                 
                 ! Do this manually, can't use IOVARS/ReadVars cause we already have the group open
-                ! TODO: Abstract this away a little bit
                 IOV%toRead = .true.
                 IOV%idStr = "alami"
                 IOV%vType = IONULL
                 IOV%scale = 1.0
                 call ReadHDFVar(IOV, gId)
-                spc(i+1)%alami = IOV%data
-                write(*,*)spc(i+1)%alami
+                spc(i)%alami = IOV%data
+                write(*,*)spc(i)%alami
 
                 call h5gclose_f(gId,herr)
-
-                !call ClearIO(IOVars) !Reset IO chain
-                !call AddInVar(IOVars,"alami")
-                !write(*,*)"a"
-                !call ReadVars(IOVars,.false.,configfname, gStr)
-                !write(*,*)"b"
-                !write(*,*)IOVars(1)%idStr
-                !write(*,*)IOVars(1)%data
-                !call IOArray1DFill(IOVars, "alami", spc(i+1)%alami)
-                !write(*,*)"c"
-!
-                !write(*,*)spc(i+1)%alami
-
                 
             endif
-            i = i+1
         enddo
 
+        ! TODO: Put in a check for if there are more species in the file than what we read
+        !       Warn user if so, list the ones we are using
+        !       Maybe stop if certain override XML parameter isn't set
+        ! TODO: Once we establish 0=psph, 1=ele, 2=proton, etc, use this info to ignore psphere in config if doPsphere=F
 
-        
         end associate
-
-        ! Read lambda interfaces from file
-        !call ClearIO(IOVars) !Reset IO chain
-        !call AddInVar(IOVars,"alamc")
-        !call ReadVars(IOVars,.false.,configfname)
-
-        !! TODO: sifconfig.h5 should have lami(Nk+1), flav(Nk), etc...
-        !! We get Nk as IOVars(lami)%N-1, then allocate and initialize accordingly
-        !Nk = IOVars(FindIO(IOVars, "alamc"))%N
-
-        !allocate(Grid%lamc(Nk))
-
-        !call IOArray1DFill(IOVars, "alamc", Grid%lamc)
-
-        !write(*,*)Grid%lamc
 
         call h5fclose_f(h5fId,herr)
         call h5close_f(herr) !Close intereface
+
+    end subroutine populateSpeciesFromConfig
+
+    subroutine initLambdaGrid(Grid, configfname, nSpc)
+        type(sifGrid_T)  , intent(inout) :: Grid
+        character(len=strLen), intent(in) :: configfname
+        integer, intent(in) :: nSpc
+
+        ! First read in speies information from config file
+        call populateSpeciesFromConfig(Grid, configfname, nSpc)
+
+        ! Now prepare our alamc grid, tell each Species what its range is in alamc dimension
 
     end subroutine initLambdaGrid
 
