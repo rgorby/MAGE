@@ -22,6 +22,7 @@ module siftypes
         character(len=strLen) :: name
         integer :: N
         integer :: flav
+        integer :: kStart, kEnd
         real(rp) :: fudge
         real(rp), dimension(:), allocatable :: alami
 
@@ -68,9 +69,6 @@ module siftypes
 
         type(ShellGrid_T) :: shGrid
 
-        integer :: ks=1,ke
-        integer :: ksg,keg
-
         ! Flags
         logical :: ignoreConfigMismatch
             !! In the case that the config file has more species than Model%nSpc,
@@ -91,6 +89,7 @@ module siftypes
         integer, dimension(:), allocatable :: iBnd
 
         ! Species / lambda stuff
+        integer :: Nk  ! Total number of channels for all species
         integer :: nSpc  ! Model has the main copy of this, but helpful to keep here too
         type(SIFSpecies_T), dimension(:), allocatable :: spc
             !! Collection of SIFSpecies that contain all relevant species info, including alami

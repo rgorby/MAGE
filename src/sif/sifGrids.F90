@@ -112,7 +112,7 @@ module sifgrids
         call populateSpeciesFromConfig(Model, Grid, configfname)
 
         ! Now prepare our alamc grid, tell each Species what its range is in alamc dimension
-        !! TODO
+        call initAlamc(Grid)
     end subroutine initLambdaGrid
 
 end module sifgrids
