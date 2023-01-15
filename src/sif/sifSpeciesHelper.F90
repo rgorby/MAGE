@@ -69,37 +69,38 @@ module sifSpeciesHelper
                 write(*,*) "ERROR in sifGrids.F90:populateSpeciesFromConfig"
                 write(*,'(A,I0,A,I0)') "  Expected ",Grid%nSpc," species but only found ",i-1
                 stop
-            else
-                write(*,*)"Found spc group ",trim(gStr)
-                
-                ! Read
-                call ClearIO(IOVars)
-                call AddInVar(IOVars, "flav" )  ! Attr
-                call AddInVar(IOVars, "N"    )  ! Attr
-                call AddInVar(IOVars, "fudge")  ! Attr
-                call AddInVar(IOVars, "alami")  ! Dataset
-                call ReadVars(IOVars, .false., configfname, gStr)
-
-                ! Assign
-                spc%flav  = IOVars(FindIO(IOVars, "flav" ))%data(1)
-                spc%N     = IOVars(FindIO(IOVars, "N"    ))%data(1)
-                spc%fudge = IOVars(FindIO(IOVars, "fudge"))%data(1)
-
-                allocate(spc%alami(spc%N+1))
-                call IOArray1DFill(IOVars,"alami",spc%alami)
-
-                write(*,*)" Flav: ", spc%flav
-                write(*,*)" N:    ", spc%N
-                write(*,*)" Fudge:", spc%fudge
-               !write(*,*) spc%alami
-
-                
             endif
+            
+            ! If still here, continue with reading and assigning
+            
+            write(*,*)"Found spc group ",trim(gStr)
+                
+            ! Read
+            call ClearIO(IOVars)
+            call AddInVar(IOVars, "flav" )  ! Attr
+            call AddInVar(IOVars, "N"    )  ! Attr
+            call AddInVar(IOVars, "fudge")  ! Attr
+            call AddInVar(IOVars, "alami")  ! Dataset
+            call ReadVars(IOVars, .false., configfname, gStr)
+
+            ! Assign
+            spc%flav  = IOVars(FindIO(IOVars, "flav" ))%data(1)
+            spc%N     = IOVars(FindIO(IOVars, "N"    ))%data(1)
+            spc%fudge = IOVars(FindIO(IOVars, "fudge"))%data(1)
+
+            allocate(spc%alami(spc%N+1))
+            call IOArray1DFill(IOVars,"alami",spc%alami)
+
+            write(*,*)" Flav: ", spc%flav
+            write(*,*)" N:    ", spc%N
+            write(*,*)" Fudge:", spc%fudge
+            !write(*,*) spc%alami
+
+                
 
             end associate
         enddo
         
-
 
         ! Check if there are more species in the file than what we read
         write(gStr, '(A,I0)') "Species/",Grid%nSpc  ! Species indexing in config starts at 0

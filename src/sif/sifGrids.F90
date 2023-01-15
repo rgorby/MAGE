@@ -33,8 +33,8 @@ module sifgrids
             !! Lower lat boundary [deg]
         call iXML%Set_Val(thetaU , "grid/ThetaU", 80.0)
             !! Upper lat boundary [deg]
-        call iXML%Set_Val(Nt, "grid/Nt", 30 )  ! 1 deg resolution
-        call iXML%Set_Val(Np, "grid/Np", 360)  ! 1 deg resolution
+        call iXML%Set_Val(Nt, "grid/Nt", 61 )  ! 1 deg resolution
+        call iXML%Set_Val(Np, "grid/Np", 361)  ! 1 deg resolution
         call iXML%Set_Val(Ng, "grid/Ng", 4  )  ! Number of ghosts, in every direction for now
 
         ! Turn degrees into radians
@@ -111,8 +111,9 @@ module sifgrids
         ! First read in speies information from config file
         call populateSpeciesFromConfig(Model, Grid, configfname)
 
-        ! Now prepare our alamc grid, tell each Species what its range is in alamc dimension
+        ! Now prepare our alamc grid, tell each Species what its range is in alamc array
         call initAlamc(Grid)
+        
     end subroutine initLambdaGrid
 
 end module sifgrids

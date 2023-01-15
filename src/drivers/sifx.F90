@@ -6,6 +6,7 @@ program sifx
 
     use sifdefs
     use sifstarter
+    use sifio
 
     use shellgrid
 
@@ -32,6 +33,9 @@ program sifx
     ! Init model, grid, state
     call sifInitModel(Model, planet, inpXML)
     call sifInitGrid(Model, Grid, inpXML)
+
+    ! Init output file
+    call sifInitIO(Model, Grid)
 
     !associate(sh=>Grid%shGrid)
     !write(*,*)"Grid:"

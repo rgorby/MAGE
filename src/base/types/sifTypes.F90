@@ -28,14 +28,19 @@ module siftypes
 
     end type SIFSpecies_T
 
+    type SIFIO_T
+        character(len=strLen) :: SIFH5
+    end type SIFIO_T
+
 
     type sifModel_T
 
         ! Misc. bookkeeping stuff
+        character(len=strLen) :: RunID = ""    
         character(len=strLen) :: configFName
             !! Filename of the .h5 config that holds lambda grid, wavemodel values, etc.
-
-        character(len=strLen) :: RunID
+        type(SIFIO_T) :: SIFIO
+        
         integer :: nSpc, nG, nB
             !! Number of species, # ghosts, # coupling boundary cells
         real(rp) :: t0, tFin, dt

@@ -31,7 +31,12 @@ module sifstarter
         !! NOT SET HERE:
         ! nG, nB, t0, tFin, dt, fixedTimestep
 
-        ! Set some settings
+        if (trim(Model%RunID) .eq. "") then
+            write(*,*) "Setting RunID to be SIFTest"
+            call iXML%Set_Val(Model%RunID, "sim/RunID","sifSA")  ! sif stand-alone
+        endif
+
+        ! Config file
         call iXML%Set_Val(Model%configFName, "config/fname","sifconfig.h5")
         call CheckFileOrDie(Model%configFName,"Unable to open file")
 
@@ -42,6 +47,7 @@ module sifstarter
         endif
 
         call iXML%Set_Val(Model%isRestart, "Kaiju/Gamera/restart/doRes",.false.)
+            ! TODO: Is this the right place to look for restart? Could be given as an extra arg
         call iXML%Set_Val(Model%isLoud, "debug/isLoud",.false.)
         call iXML%Set_Val(Model%writeGhosts, "debug/writeGhosts",.false.)
 
