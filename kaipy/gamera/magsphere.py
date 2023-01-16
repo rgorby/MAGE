@@ -137,8 +137,8 @@ class GamsphPipe(GameraPipe):
 			self.hasRemix = True
 			print("Found ReMIX data, reading ...")
 			self.mixPipe = GameraPipe(self.fdir,mixtag,doVerbose=False)
-			self.nCPCP = kh5.getTs(rmOStr,sIds=None,aID="nCPCP")
-			self.sCPCP = kh5.getTs(rmOStr,sIds=None,aID="sCPCP")
+			self.nCPCP = kh5.getTs(rmOStr,sIds=self.sids,aID="nCPCP")
+			self.sCPCP = kh5.getTs(rmOStr,sIds=self.sids,aID="sCPCP")
 	#Get magnetic moment from file
 	def GetM0(self):
 		import h5py
