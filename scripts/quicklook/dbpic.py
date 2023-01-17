@@ -15,15 +15,12 @@ Eric Winter (eric.winter@jhuapl.edu)
 # Import standard modules.
 import argparse
 import os
-# from pathlib import Path
-# import re
 
 # Import 3rd-party modules.
 import cartopy.crs as ccrs
 import matplotlib as mpl
 import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
-# import numpy as np
 
 # Import project-specific modules.
 import kaipy.cmaps.kaimaps as kmaps
