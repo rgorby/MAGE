@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setuptools.setup(
     name="kaipy",
-    version="0.0.1",
+    version="0.0.2",
     author="Center for Geospace Storms",
     author_email="eric.winter@jhuapl.edu",
     description="Postprocessing code for models in the kaiju software system",
