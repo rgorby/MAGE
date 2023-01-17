@@ -1,114 +1,237 @@
 #!/usr/bin/env python
-#Make a quick figure showing ground dB
 
+
+"""Plot the ground magnetic field perturbations from a magnetosphere run.
+
+Plot the ground magnetic field perturbations from a magnetosphere run.
+
+Author
+------
+Kareem Sorathia (kareem.sorathia@jhuapl.edu)
+Eric Winter (eric.winter@jhuapl.edu)
+"""
+
+
+# Import standard modules.
 import argparse
-from argparse import RawTextHelpFormatter
+import os
+# from pathlib import Path
+# import re
+
+# Import 3rd-party modules.
+import cartopy.crs as ccrs
 import matplotlib as mpl
-mpl.use('Agg')
-import matplotlib.pyplot as plt
-import kaipy.kaiViz as kv
-import kaipy.kaiTools as ktools
 import matplotlib.gridspec as gridspec
-import numpy as np
-import kaipy.gamera.gampp as gampp
-import kaipy.kaiH5 as kh5
+import matplotlib.pyplot as plt
+# import numpy as np
+
+# Import project-specific modules.
 import kaipy.cmaps.kaimaps as kmaps
 import kaipy.gamera.deltabViz as dbViz
-import sys
-import os
-import cartopy.crs as ccrs
+import kaipy.gamera.gampp as gampp
+import kaipy.kaiH5 as kh5
+import kaipy.kaiTools as ktools
+import kaipy.kaiViz as kv
+
+
+# Program constants and defaults
+
+# Program description.
+description = "Plot the ground magnetic field perturbations for a MAGE magnetosphere run."
+
+# Default identifier for results to read.
+default_runid = "msphere"
+
+# Plot the last step by default.
+default_step = -1
+
+# Default vertical layer to plot.
+default_k0 = 0
+
+# Do not show anomalous currents by default.
+default_Jr = False
+
+# Default output filename.
+default_output_filename = "qkdbpic.png"
+
+# Size of figure in inches (width x height).
+figSz = (12, 6)
+
+
+def create_command_line_parser():
+    """Create the command-line argument parser.
+    
+    Create the parser for command-line arguments.
+
+    Parameters
+    ----------
+    None
+
+    Returns
+    -------
+    parser : argparse.ArgumentParser
+        Command-line argument parser for this script.
+    """
+    parser = argparse.ArgumentParser(description=description)
+    parser.add_argument(
+        "--debug", action="store_true", default=False,
+        help="Print debugging output (default: %(default)s)."
+    )
+    parser.add_argument(
+        "-d", type=str, metavar="directory", default=os.getcwd(),
+        help="Directory containing data to read (default: %(default)s)"
+    )
+    parser.add_argument(
+        "-n", type=int, metavar="step", default=default_step,
+        help="Time slice to plot (default: %(default)s)"
+    )
+    parser.add_argument(
+        "-id", type=str, metavar="runid", default=default_runid,
+        help="Run ID of data (default: %(default)s)"
+    )
+    parser.add_argument(
+        "-Jr", action="store_true", default=default_Jr,
+        help="Show radial component of anomalous current (default: %(default)s)."
+    )
+    parser.add_argument(
+        '-k0', type=int, metavar="layer", default=default_k0,
+        help="Vertical layer to plot (default: %(default)s)")
+    parser.add_argument(
+        "-v", "--verbose", action="store_true", default=False,
+        help="Print verbose output (default: %(default)s)."
+    )
+    return parser
+
 
 if __name__ == "__main__":
-	rad2deg = 180.0/np.pi
-	bMag = dbViz.dbMag
-	bLin = dbViz.dbLin
-	jMag = dbViz.jMag
+    """Plot the ground magnetic field perturbations."""
 
-	#Defaults
-	fdir = os.getcwd()
-	ftag = "msphere"
-	nStp = -1
-	fOut = "qkdbpic.png"
-	doJr = False
+    # Set up the command-line parser.
+    parser = create_command_line_parser()
 
-	k0 = 0 #Vertical slice to use
-	MainS = """Creates visualization of ground dB
-	NOTE: Assumes ground dB has been calculated using calcdb.x on simulation data.
-	"""
+    # Parse the command-line arguments.
+    args = parser.parse_args()
+    debug = args.debug
+    fdir = args.d
+    runid = args.id
+    nStp = args.n
+    k0 = args.k0
+    doJr = args.Jr
+    verbose = args.verbose
+    if debug:
+        print("args = %s" % args)
 
-	parser = argparse.ArgumentParser(description=MainS, formatter_class=RawTextHelpFormatter)
-	parser.add_argument('-d',type=str,metavar="directory",default=fdir,help="Directory to read from (default: %(default)s)")
-	parser.add_argument('-id',type=str,metavar="runid",default=ftag,help="RunID of data (default: %(default)s)")
-	parser.add_argument('-n' ,type=int,metavar="step" ,default=nStp,help="Time slice to plot (default: %(default)s)")
-	parser.add_argument('-k0',type=int,metavar="layer" ,default=k0,help="Vertical layer to plot (default: %(default)s)")
-	parser.add_argument('-Jr', action='store_true', default=doJr ,help="Show radial component of anomalous current (default: %(default)s)")
+    # Fetch constants.
+    bLin = dbViz.dbLin
+    bMag = dbViz.dbMag
+    jMag = dbViz.jMag
 
+    # Compute the name of the file containing the ground magnetic field perturbations.
+    ftag = runid + ".deltab"
+    if debug:
+        print("ftag = %s" % ftag)
 
-	#Finalize parsing
-	args = parser.parse_args()
-	fdir = args.d
-	ftag = args.id + ".deltab"
-	nStp = args.n
-	k0   = args.k0
-	doJr = args.Jr
+    # Read the ground magnetic field perturbations.
+    fname = os.path.join(fdir, ftag + ".h5")
+    if debug:
+        print("fname = %s" % fname)
+    dbdata = gampp.GameraPipe(fdir, ftag)
+    if debug:
+        print("dbdata = %s" % dbdata)
+    print("---")
 
-	#======
-	#Init data
-	fname = fdir + "/" + ftag + ".h5"
-	dbdata = gampp.GameraPipe(fdir,ftag)
-	print("---")
-	#Get coordinates
-	CoordID,Re = dbViz.GetCoords(fname)
-	print("Found %s coordinate data ..."%(CoordID))
+    # Get the ID of the coordinate system, and the Earth radius.
+    CoordID, Re = dbViz.GetCoords(fname)
+    print("Found %s coordinate data ..." % CoordID)
+    if debug:
+        print("CoordID = %s" % CoordID)
+        print("Re = %s" % Re)
 
-	if (nStp<0):
-		nStp = dbdata.sFin
-		print("Using Step %d"%(nStp))
+    # If the last simulation step was requested, get the step number.
+    if nStp < 0:
+        nStp = dbdata.sFin
+        print("Using Step %d" % nStp)
 
-	#Check vertical level
-	Z0 = dbViz.CheckLevel(dbdata,k0,Re)
+    # Check the vertical level.
+    Z0 = dbViz.CheckLevel(dbdata, k0, Re)
+    if debug:
+        print("Z0 = %s" % Z0)
 
-	#Pull data
-	if (doJr):
-		print("Reading Jr ...")
-		Jr = dbdata.GetVar("dbJ",nStp,doVerb=False)[:,:,k0]
-		Q = Jr
-	else:
-		dBn = dbdata.GetVar("dBn",nStp,doVerb=False)[:,:,k0]
-		Q = dBn
+    # If currents were requested, read them. Otherwise, read the ground
+    # magnetic field perturbations.
+    if (doJr):
+        print("Reading Jr ...")
+        Jr = dbdata.GetVar("dbJ", nStp, doVerb=False)[:, :, k0]
+        Q = Jr
+    else:
+        dBn = dbdata.GetVar("dBn", nStp, doVerb=True)[:, :, k0]
+        Q = dBn
 
-	#Get MJD to UT
-	MJD = kh5.tStep(fname,nStp,aID="MJD")
-	utS = ktools.MJD2UT([MJD])
-	utDT= utS[0]
-	
-	#=====
-	#Do cartopy stuff
-	crs = ccrs.PlateCarree()
-	LatI,LonI,LatC,LonC = dbViz.GenUniformLL(dbdata,k0)
+    # Convert MJD to UT.
+    MJD = kh5.tStep(fname, nStp, aID="MJD")
+    if debug:
+        print("MJD = %s" % MJD)
+    utS = ktools.MJD2UT([MJD])
+    if debug:
+        print("utS = %s" % utS)
+    utDT= utS[0]
+    if debug:
+        print("utDT = %s" % utDT)
 
-	#=====
-	#Do figure stuff
-	cmap = kmaps.cmDiv
-	if (doJr):
-		vQ = kv.genNorm(jMag)
-		cbStr = "Anomalous current"
-	else:
-		vQ = kv.genNorm(bMag,doSymLog=True,linP=bLin)
-		cbStr = r"$\Delta B_N$ [nT]"
-	figSz = (12,6)
-	fig = plt.figure(figsize=figSz)
-	gs = gridspec.GridSpec(3,1,height_ratios=[20,1.0,1.0],hspace=0.025)
+    # Create the mapping grid.
+    crs = ccrs.PlateCarree()
+    if debug:
+        print("ccrs = %s" % ccrs)
+    LatI, LonI, LatC, LonC = dbViz.GenUniformLL(dbdata, k0)
+    if debug:
+        print("LatI = %s" % LatI)
+        print("LonI = %s" % LonI)
+        print("LatC = %s" % LatC)
+        print("LonC = %s" % LonC)
 
-	AxM  = fig.add_subplot(gs [0,0],projection=crs)
-	AxCB = fig.add_subplot(gs[-1,0])
+    # Fetch the color map.
+    cmap = kmaps.cmDiv
+    if debug:
+        print("cmap = %s" % cmap)
 
-	#Make plots
-	AxM.pcolormesh(LonI,LatI,Q,norm=vQ,cmap=cmap)
-	kv.genCB(AxCB,vQ,cbStr,cM=cmap)
+    # Determine color bar settings.
+    if (doJr):
+        vQ = kv.genNorm(jMag)
+        cbStr = "Anomalous current"
+    else:
+        vQ = kv.genNorm(bMag, doSymLog=True, linP=bLin)
+        cbStr = r"$\Delta B_N$ [nT]"
+    if debug:
+        print("vQ = %s" % vQ)
+        print("cbStr = %s" % cbStr)
 
-	#Add decoration
-	tStr = dbViz.GenTStr(AxM,fname,nStp)
-	dbViz.DecorateDBAxis(AxM,crs,utDT)
-	kv.savePic(fOut)
-	
+    # Create plot in memory.
+    mpl.use("Agg")
+
+    # Create the figure to hold the plot.
+    fig = plt.figure(figsize=figSz)
+
+    # Specify the grid for the subplots.
+    gs = gridspec.GridSpec(3, 1, height_ratios=[20, 1.0, 1.0], hspace=0.025)
+
+    # Create the subplots.
+    AxM = fig.add_subplot(gs[0, 0], projection=crs)
+    AxCB = fig.add_subplot(gs[-1, 0])
+
+    # Make the plot.
+    AxM.pcolormesh(LonI, LatI, Q, norm=vQ, cmap=cmap)
+
+    # Make the colorbar.
+    kv.genCB(AxCB, vQ, cbStr, cM=cmap)
+
+    # Add labels and other decorations.
+    tStr = dbViz.GenTStr(AxM, fname, nStp)
+    if debug:
+        print("tStr = %s" % tStr)
+    dbViz.DecorateDBAxis(AxM, crs, utDT)
+
+    # Save the figure.
+    fOut = default_output_filename
+    if debug:
+        print("fOut = %s" % fOut)
+    kv.savePic(fOut)
