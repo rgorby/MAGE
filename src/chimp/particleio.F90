@@ -344,14 +344,14 @@ module particleio
 
         ! set variables
         Model%IO%nOut = GetIOInt(IOVars,"nOut")
-        Model%IO%nRes = GetIOInt(IOVars,"nRes")
+        Model%IO%nRes = GetIOInt(IOVars,"nRes") + 1
         Model%nOut    = Model%IO%nOut ! to allow backward compatability
         Model%ts      = GetIOInt(IOVars,"ts")
         Model%t       = GetIOReal(IOVars,"t")
         ! updating output times
-        Model%tOut    = Model%t
-        Model%IO%tOut = Model%t
-        Model%IO%tRes = Model%t
+        Model%tOut    = Model%t+Model%dtOut
+        Model%IO%tOut = Model%t+Model%IO%dtOut
+        Model%IO%tRes = Model%t+Model%IO%dtRes
 
         !species info
         Model%m0      = GetIOReal(IOVars,"m0")

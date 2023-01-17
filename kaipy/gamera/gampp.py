@@ -3,6 +3,8 @@
 import glob
 import numpy as np
 from kaipy.kaiTools import MJD2UT
+import itertools
+import kaipy.kdefs as kdefs
 
 #Object to use to pull data from HDF5 structure (serial or mpi)
 
@@ -166,7 +168,7 @@ class GameraPipe(object):
 		self.SetUnits(f0)
 		if (doVerbose):
 			print("Units Type = %s"%(self.UnitsID))
-			print("Pulling grid ...")
+			#print("Pulling grid ...")
 		self.GetGrid(doVerbose)
 		self.f0 = f0
 
@@ -179,6 +181,7 @@ class GameraPipe(object):
 
 	def GetGrid(self,doVerbose):
 		import kaipy.kaiH5 as kh5
+		from alive_progress import alive_bar
 		if (self.is2D):
 			self.X = np.zeros((self.Ni+1,self.Nj+1))
 			self.Y = np.zeros((self.Ni+1,self.Nj+1))
@@ -187,63 +190,73 @@ class GameraPipe(object):
 			self.Y = np.zeros((self.Ni+1,self.Nj+1,self.Nk+1))
 			self.Z = np.zeros((self.Ni+1,self.Nj+1,self.Nk+1))
 		if (doVerbose):
-			print("Del = (%d,%d,%d)"%(self.dNi,self.dNj,self.dNk))
-		for i in range(self.Ri):
-			for j in range(self.Rj):
-				for k in range(self.Rk):
-					iS = i*self.dNi
-					jS = j*self.dNj
-					kS = k*self.dNk
-					iE = iS+self.dNi
-					jE = jS+self.dNj
-					kE = kS+self.dNk
-					#print("Bounds = (%d,%d,%d,%d,%d,%d)"%(iS,iE,jS,jE,kS,kE))
-					if (self.isMPI):
-						fIn = self.fdir + "/" + kh5.genName(self.ftag,i,j,k,self.Ri,self.Rj,self.Rk)
-					else:
-						fIn = self.fdir + "/" + self.ftag + ".h5"
-					if (self.is2D):
-						self.X[iS:iE+1,jS:jE+1] = kh5.PullVar(fIn,"X")
-						self.Y[iS:iE+1,jS:jE+1] = kh5.PullVar(fIn,"Y")
-					else:
-						self.X[iS:iE+1,jS:jE+1,kS:kE+1] = kh5.PullVar(fIn,"X")
-						self.Y[iS:iE+1,jS:jE+1,kS:kE+1] = kh5.PullVar(fIn,"Y")
-						self.Z[iS:iE+1,jS:jE+1,kS:kE+1] = kh5.PullVar(fIn,"Z")
+			#print("Del = (%d,%d,%d)"%(self.dNi,self.dNj,self.dNk))
+			titStr = "%s/Grid"%(self.ftag)
+		else:
+			titStr = None
+		NrX = max(self.Nr,1)
+		with alive_bar(NrX,title=titStr,length=kdefs.barLen) as bar:
+			for (i,j,k) in itertools.product(range(self.Ri),range(self.Rj),range(self.Rk)):
+				iS = i *self.dNi
+				jS = j *self.dNj
+				kS = k *self.dNk
+				iE = iS+self.dNi
+				jE = jS+self.dNj
+				kE = kS+self.dNk
+				#print("Bounds = (%d,%d,%d,%d,%d,%d)"%(iS,iE,jS,jE,kS,kE))
+				if (self.isMPI):
+					fIn = self.fdir + "/" + kh5.genName(self.ftag,i,j,k,self.Ri,self.Rj,self.Rk)
+				else:
+					fIn = self.fdir + "/" + self.ftag + ".h5"
+				if (self.is2D):
+					self.X[iS:iE+1,jS:jE+1] = kh5.PullVar(fIn,"X")
+					self.Y[iS:iE+1,jS:jE+1] = kh5.PullVar(fIn,"Y")
+				else:
+					self.X[iS:iE+1,jS:jE+1,kS:kE+1] = kh5.PullVar(fIn,"X")
+					self.Y[iS:iE+1,jS:jE+1,kS:kE+1] = kh5.PullVar(fIn,"Y")
+					self.Z[iS:iE+1,jS:jE+1,kS:kE+1] = kh5.PullVar(fIn,"Z")
+				bar()
 	#Get 3D variable "vID" from Step# sID
 	def GetVar(self,vID,sID=None,vScl=None,doVerb=True):
 		import kaipy.kaiH5 as kh5
-
+		from alive_progress import alive_bar
 		if (doVerb):
 			if (sID is None):
-				print("Reading %s/%s"%(self.ftag,vID))
+				titStr = "%s/%s"%(self.ftag,vID)
+				
 			else:
-				print("Reading %s/Step#%d/%s"%(self.ftag,sID,vID))
+				titStr = "%s/Step#%d/%s"%(self.ftag,sID,vID)
+		else:
+			titStr = None
 
 		if (self.is2D):
 			V = np.zeros((self.Ni,self.Nj))
 		else:
 			V = np.zeros((self.Ni,self.Nj,self.Nk))
 
-		for i in range(self.Ri):
-			for j in range(self.Rj):
-				for k in range(self.Rk):
-					iS = i*self.dNi
-					jS = j*self.dNj
-					kS = k*self.dNk
-					iE = iS+self.dNi
-					jE = jS+self.dNj
-					kE = kS+self.dNk
-					#print("Bounds = (%d,%d,%d,%d,%d,%d)"%(iS,iE,jS,jE,kS,kE))
-					if (self.isMPI):
-						fIn = self.fdir + "/" + kh5.genName(self.ftag,i,j,k,self.Ri,self.Rj,self.Rk)
-					else:
-						fIn = self.fdir + "/" + self.ftag + ".h5"
+		NrX = max(self.Nr,1)
+		
+		with alive_bar(NrX,title=titStr.ljust(kdefs.barLab),length=kdefs.barLen) as bar:
+			for (i,j,k) in itertools.product(range(self.Ri),range(self.Rj),range(self.Rk)):
 
-					if (self.is2D):
-						V[iS:iE,jS:jE] = kh5.PullVar(fIn,vID,sID)
+				iS = i*self.dNi
+				jS = j*self.dNj
+				kS = k*self.dNk
+				iE = iS+self.dNi
+				jE = jS+self.dNj
+				kE = kS+self.dNk
+				#print("Bounds = (%d,%d,%d,%d,%d,%d)"%(iS,iE,jS,jE,kS,kE))
+				if (self.isMPI):
+					fIn = self.fdir + "/" + kh5.genName(self.ftag,i,j,k,self.Ri,self.Rj,self.Rk)
+				else:
+					fIn = self.fdir + "/" + self.ftag + ".h5"
 
-					else:
-						V[iS:iE,jS:jE,kS:kE] = kh5.PullVar(fIn,vID,sID)
+				if (self.is2D):
+					V[iS:iE,jS:jE] = kh5.PullVar(fIn,vID,sID)
+
+				else:
+					V[iS:iE,jS:jE,kS:kE] = kh5.PullVar(fIn,vID,sID)
+				bar()
 		if (vScl is not None):
 			V = vScl*V
 		return V
