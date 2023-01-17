@@ -14,13 +14,17 @@ Eric Winter (eric.winter@jhuapl.edu)
 
 # Import standard modules.
 import argparse
+import datetime
 import os
 
 # Import 3rd-party modules.
 import cartopy.crs as ccrs
+from cdasws import CdasWs
 import matplotlib as mpl
 import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
+from spacepy.coordinates import Coords
+from spacepy.time import Ticktock
 
 # Import project-specific modules.
 import kaipy.cmaps.kaimaps as kmaps
@@ -29,6 +33,7 @@ import kaipy.gamera.gampp as gampp
 import kaipy.kaiH5 as kh5
 import kaipy.kaiTools as ktools
 import kaipy.kaiViz as kv
+import kaipy.satcomp.scutils as scutils
 
 
 # Program constants and defaults
@@ -53,6 +58,9 @@ default_output_filename = "qkdbpic.png"
 
 # Size of figure in inches (width x height).
 figSz = (12, 6)
+
+# Valid spacecraft for position plotting.
+valid_spacecraft = ('ACE')
 
 
 def create_command_line_parser():
@@ -94,10 +102,71 @@ def create_command_line_parser():
         '-k0', type=int, metavar="layer", default=default_k0,
         help="Vertical layer to plot (default: %(default)s)")
     parser.add_argument(
+        "--spacecraft", type=str, metavar="spacecraft", default=None,
+        help="Name of spacecraft to plot (default: %(default)s)"
+    )
+    parser.add_argument(
         "-v", "--verbose", action="store_true", default=False,
         help="Print verbose output (default: %(default)s)."
     )
     return parser
+
+
+def datetime_to_float(d):
+    epoch = datetime.datetime.utcfromtimestamp(0)
+    total_seconds =  (d - epoch).total_seconds()
+    # total_seconds will be in decimals (millisecond precision)
+    return total_seconds
+
+
+def float_to_datetime(fl):
+    return datetime.datetime.fromtimestamp(fl)
+
+
+def fetch_satellite_position(spacecraft, when):
+    """Fetch the position of a satellite at a specified time.
+
+    Fetch the position of a satellite at a specified time.
+    Data is fetched from CDAWeb
+
+    Parameters
+    ----------
+    spacecraft : str
+        CDAWeb-compliant spacecraft ID.
+    when : datetime.datetime
+        datetime for position fetch.
+
+    Returns
+    -------
+    sc_lon, sc_lat : float
+        Geographic longitude and latitude of spacecraft (degrees)
+    """
+    # <TEST>
+    sc_lon, sc_lat = 90.0, 45.0
+    # </TEST>
+
+    # Create the CDAWeb connection.
+    cdas = CdasWs()
+
+    # Fetch the satellite position from CDAWeb.
+    # Use the specified time as the start time, and nudge it by adding 1 hour
+    # to get the end time.
+    t0 = when.strftime("%Y-%m-%dT%H:%M:%SZ")
+    t_end = when + datetime.timedelta(0, 3600)
+    t1 = t_end.strftime("%Y-%m-%dT%H:%M:%SZ")
+    status, data = cdas.get_data("GE_K0_MGF", "POS", t0, t1)
+
+    # The ephemeris is in GSE X, Y, Z (km), so convert to geographic
+    # longitude and latitude.
+    xyz = data["POS"][0]
+    scpos = Coords(xyz, "GSE", "car", use_irbem=False)
+    scpos.ticks = Ticktock(t0)
+    smpos = scpos.convert('GEO', 'sph')
+    sc_lon = smpos.data[0][2]
+    sc_lat = smpos.data[0][1]
+
+    # Return the spacecraft position.
+    return sc_lon, sc_lat
 
 
 if __name__ == "__main__":
@@ -114,6 +183,7 @@ if __name__ == "__main__":
     nStp = args.n
     k0 = args.k0
     doJr = args.Jr
+    spacecraft = args.spacecraft
     verbose = args.verbose
     if debug:
         print("args = %s" % args)
@@ -217,6 +287,20 @@ if __name__ == "__main__":
 
     # Make the plot.
     AxM.pcolormesh(LonI, LatI, Q, norm=vQ, cmap=cmap)
+
+    # If requested, overlay the spacecraft position.
+    if spacecraft:
+        print("Overplotting position of %s." % spacecraft)
+        # Fetch the spacecraft position from CDAWeb.
+        sc_lon, sc_lat = fetch_satellite_position(spacecraft, utS[0])
+        if debug:
+            print("sc_lon, sc_lat = %s, %s" % (sc_lon, sc_lat))
+
+        # Plot a labelled dot at the location of the spacecraft position.
+        AxM.plot(sc_lon, sc_lat, 'o')
+        lon_nudge = 2.0
+        lat_nudge = 2.0
+        AxM.text(sc_lon + lon_nudge, sc_lat + lat_nudge, spacecraft)
 
     # Make the colorbar.
     kv.genCB(AxCB, vQ, cbStr, cM=cmap)
