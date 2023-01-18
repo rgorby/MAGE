@@ -117,6 +117,7 @@ module usergamic
         ! grab inner 
         call inpXML%Set_Val(wsaFile,"prob/wsaFile","innerbc.h5" )
         call inpXML%Set_Val(isSpSymSW, "prob/isSpSymSW", .false.)
+        call inpXML%Set_Val(DeltaT, "prob/DeltaT", 0.0)
         ! compute global Nkp
         gNkp = Grid%Nkp*Grid%NumRk
 
@@ -129,10 +130,6 @@ module usergamic
         B0    = 2.0    ! 200 nT
         Rho0  = 1.0    ! 200/cc
         P0    = 1.0e-4*Rho0*Cs0**2.0/Model%gamma
-
-        !TO DO Elena: Move to wsa.xml
-        DeltaT = Tsolar/2.
-
 
         ![OHelio] for 1-10 au helio
         !Cs0 = 0.78    !27 km/s
