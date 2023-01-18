@@ -19,21 +19,18 @@ import os
 
 # Import 3rd-party modules.
 import cartopy.crs as ccrs
-from cdasws import CdasWs
 import matplotlib as mpl
 import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
-from spacepy.coordinates import Coords
-from spacepy.time import Ticktock
 
 # Import project-specific modules.
+import kaipy.cdaweb_utils as cdaweb_utils
 import kaipy.cmaps.kaimaps as kmaps
 import kaipy.gamera.deltabViz as dbViz
 import kaipy.gamera.gampp as gampp
 import kaipy.kaiH5 as kh5
 import kaipy.kaiTools as ktools
 import kaipy.kaiViz as kv
-import kaipy.satcomp.scutils as scutils
 
 
 # Program constants and defaults
@@ -58,9 +55,6 @@ default_output_filename = "qkdbpic.png"
 
 # Size of figure in inches (width x height).
 figSz = (12, 6)
-
-# Valid spacecraft for position plotting.
-valid_spacecraft = ('ACE')
 
 
 def create_command_line_parser():
@@ -110,78 +104,6 @@ def create_command_line_parser():
         help="Print verbose output (default: %(default)s)."
     )
     return parser
-
-
-def fetch_satellite_position(spacecraft, when):
-    """Fetch the position of a satellite at a specified time.
-
-    Fetch the position of a satellite at a specified time.
-    Data is fetched from CDAWeb
-
-    Parameters
-    ----------
-    spacecraft : str
-        CDAWeb-compliant spacecraft ID.
-    when : datetime.datetime
-        datetime for position fetch.
-
-    Returns
-    -------
-    sc_lon, sc_lat : float
-        Geographic longitude and latitude of spacecraft (degrees)
-    """
-    # Initialize spacecraft position in geographic coordinates.
-    sc_lon = None
-    sc_lat = None
-
-    # Read the CDAWeb spacecraft database.
-    sc_info = scutils.getScIds()
-
-    # Create the CDAWeb connection.
-    cdas = CdasWs()
-
-    # Fetch the satellite position from CDAWeb.
-    t0 = when.strftime("%Y-%m-%dT%H:%M:%SZ")
-    # <HACK>
-    # Use the specified time as the start time, and nudge it by adding 1 minute
-    # (in seconds) to get the end time.
-    one_minute = 60
-    t_end = when + datetime.timedelta(0, one_minute)
-    # </HACK>
-    t1 = t_end.strftime("%Y-%m-%dT%H:%M:%SZ")
-    status, data = cdas.get_data(
-        sc_info[spacecraft]['Ephem']['Id'],
-        sc_info[spacecraft]['Ephem']['Data'],
-        t0, t1
-    )
-
-    # Return if no data found.
-    if data is None:
-        return None, None
-
-    # The ephemeris is in Cartesian coordinates.
-    if data[sc_info[spacecraft]['Ephem']['Data']].shape == (3,):  # Only 1 position returned
-        xyz = data[sc_info[spacecraft]['Ephem']['Data']][:3]
-    else:
-        xyz = data[sc_info[spacecraft]['Ephem']['Data']][0, :3]  # >1 position returned
-
-    # Create a Coords object for the position in the coordinate system used by
-    # the spacecraft, at the start time. This code assumes the first returned
-    # position is close to the start time.
-    scpos = Coords(
-        xyz,
-        sc_info[spacecraft]['Ephem']['CoordSys'],
-        'car', use_irbem=False
-    )
-    scpos.ticks = Ticktock(t0)
-
-    # Convert the spacecraft coordinates to geographic spherical coordinates.
-    smpos = scpos.convert('GEO', 'sph')
-    sc_lon = smpos.data[0][2]
-    sc_lat = smpos.data[0][1]
-
-    # Return the spacecraft longitude and latitude.
-    return sc_lon, sc_lat
 
 
 if __name__ == "__main__":
@@ -306,10 +228,14 @@ if __name__ == "__main__":
     # If requested, overlay the spacecraft position.
     if spacecraft:
         print("Overplotting position of %s." % spacecraft)
+
         # Fetch the spacecraft position from CDAWeb.
-        sc_lon, sc_lat = fetch_satellite_position(spacecraft, utS[0])
+        sc_rad, sc_lat, sc_lon = cdaweb_utils.fetch_satellite_geographic_position(
+            spacecraft, utS[0]
+        )
         if debug:
-            print("sc_lon, sc_lat = %s, %s" % (sc_lon, sc_lat))
+            print("sc_rad, sc_lat, sc_lon = %s, %s, %s" %
+                  (sc_rad, sc_lat, sc_lon))
 
         # Plot a labelled dot at the location of the spacecraft position.
         # Skip if no spacecraft position found.
