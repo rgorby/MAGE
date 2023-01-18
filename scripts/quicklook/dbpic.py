@@ -141,31 +141,57 @@ def fetch_satellite_position(spacecraft, when):
     sc_lon, sc_lat : float
         Geographic longitude and latitude of spacecraft (degrees)
     """
-    # <TEST>
-    sc_lon, sc_lat = 90.0, 45.0
-    # </TEST>
+    # Initialize spacecraft position in geographic coordinates.
+    sc_lon = None
+    sc_lat = None
+
+    # Read the CDAWeb spacecraft database.
+    sc_info = scutils.getScIds()
 
     # Create the CDAWeb connection.
     cdas = CdasWs()
 
     # Fetch the satellite position from CDAWeb.
-    # Use the specified time as the start time, and nudge it by adding 1 hour
-    # to get the end time.
     t0 = when.strftime("%Y-%m-%dT%H:%M:%SZ")
-    t_end = when + datetime.timedelta(0, 3600)
+    # <HACK>
+    # Use the specified time as the start time, and nudge it by adding 1 minute
+    # (in seconds) to get the end time.
+    one_minute = 60
+    t_end = when + datetime.timedelta(0, one_minute)
+    # </HACK>
     t1 = t_end.strftime("%Y-%m-%dT%H:%M:%SZ")
-    status, data = cdas.get_data("GE_K0_MGF", "POS", t0, t1)
+    status, data = cdas.get_data(
+        sc_info[spacecraft]['Ephem']['Id'],
+        sc_info[spacecraft]['Ephem']['Data'],
+        t0, t1
+    )
 
-    # The ephemeris is in GSE X, Y, Z (km), so convert to geographic
-    # longitude and latitude.
-    xyz = data["POS"][0]
-    scpos = Coords(xyz, "GSE", "car", use_irbem=False)
+    # Return if no data found.
+    if data is None:
+        return None, None
+
+    # The ephemeris is in Cartesian coordinates.
+    if data[sc_info[spacecraft]['Ephem']['Data']].shape == (3,):  # Only 1 position returned
+        xyz = data[sc_info[spacecraft]['Ephem']['Data']][:3]
+    else:
+        xyz = data[sc_info[spacecraft]['Ephem']['Data']][0, :3]  # >1 position returned
+
+    # Create a Coords object for the position in the coordinate system used by
+    # the spacecraft, at the start time. This code assumes the first returned
+    # position is close to the start time.
+    scpos = Coords(
+        xyz,
+        sc_info[spacecraft]['Ephem']['CoordSys'],
+        'car', use_irbem=False
+    )
     scpos.ticks = Ticktock(t0)
+
+    # Convert the spacecraft coordinates to geographic spherical coordinates.
     smpos = scpos.convert('GEO', 'sph')
     sc_lon = smpos.data[0][2]
     sc_lat = smpos.data[0][1]
 
-    # Return the spacecraft position.
+    # Return the spacecraft longitude and latitude.
     return sc_lon, sc_lat
 
 
@@ -297,10 +323,14 @@ if __name__ == "__main__":
             print("sc_lon, sc_lat = %s, %s" % (sc_lon, sc_lat))
 
         # Plot a labelled dot at the location of the spacecraft position.
-        AxM.plot(sc_lon, sc_lat, 'o')
-        lon_nudge = 2.0
-        lat_nudge = 2.0
-        AxM.text(sc_lon + lon_nudge, sc_lat + lat_nudge, spacecraft)
+        # Skip if no spacecraft position found.
+        if sc_lon is not None:
+            AxM.plot(sc_lon, sc_lat, 'o')
+            lon_nudge = 2.0
+            lat_nudge = 2.0
+            AxM.text(sc_lon + lon_nudge, sc_lat + lat_nudge, spacecraft)
+        else:
+            print("No position found for spacecraft %s." % spacecraft)
 
     # Make the colorbar.
     kv.genCB(AxCB, vQ, cbStr, cM=cmap)
