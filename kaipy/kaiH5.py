@@ -45,7 +45,7 @@ def StampHash(fname):
 			gh = subprocess.check_output(['git', '-C', cwd, 'rev-parse', 'HEAD']).decode('ascii').strip()
 		except:
 			print("ERROR: Couldn't grab git hash")
-			return
+			gh = "XXXXX"
 		f5.attrs['GITHASH'] = gh
 
 # Stamp file with git branch (using this script's location)
@@ -56,7 +56,7 @@ def StampBranch(fname):
 			gb = subprocess.check_output(['git', '-C', cwd, 'rev-parse', '--abbrev-ref', 'HEAD']).decode('ascii').strip()
 		except:
 			print("ERROR: Couldn't grab git branch")
-			return
+			gb = "XXXXX"
 		f5.attrs['GITBRANCH'] = gb
 
 #Get git hash from file if it exists
