@@ -112,17 +112,6 @@ def create_command_line_parser():
     return parser
 
 
-def datetime_to_float(d):
-    epoch = datetime.datetime.utcfromtimestamp(0)
-    total_seconds =  (d - epoch).total_seconds()
-    # total_seconds will be in decimals (millisecond precision)
-    return total_seconds
-
-
-def float_to_datetime(fl):
-    return datetime.datetime.fromtimestamp(fl)
-
-
 def fetch_satellite_position(spacecraft, when):
     """Fetch the position of a satellite at a specified time.
 
