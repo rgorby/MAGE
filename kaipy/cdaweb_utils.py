@@ -74,7 +74,7 @@ def fetch_satellite_geographic_position(spacecraft, when):
 
     # Return if no data found.
     if data is None:
-        return None, None
+        return None, None, None
 
     # The ephemeris is in Cartesian coordinates.
     # Assume the first/only position returned is closest position at t0.

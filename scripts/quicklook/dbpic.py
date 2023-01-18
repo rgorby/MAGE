@@ -97,7 +97,7 @@ def create_command_line_parser():
         help="Vertical layer to plot (default: %(default)s)")
     parser.add_argument(
         "--spacecraft", type=str, metavar="spacecraft", default=None,
-        help="Name of spacecraft to plot (default: %(default)s)"
+        help="Names of spacecraft to plot magnetic footprints, separated by commas (default: %(default)s)"
     )
     parser.add_argument(
         "-v", "--verbose", action="store_true", default=False,
@@ -225,27 +225,33 @@ if __name__ == "__main__":
     # Make the plot.
     AxM.pcolormesh(LonI, LatI, Q, norm=vQ, cmap=cmap)
 
-    # If requested, overlay the spacecraft position.
+    # If requested, overlay the spacecraft positions.
     if spacecraft:
-        print("Overplotting position of %s." % spacecraft)
+        print("Overplotting positions of %s." % spacecraft)
 
-        # Fetch the spacecraft position from CDAWeb.
-        sc_rad, sc_lat, sc_lon = cdaweb_utils.fetch_satellite_geographic_position(
-            spacecraft, utS[0]
-        )
-        if debug:
-            print("sc_rad, sc_lat, sc_lon = %s, %s, %s" %
-                  (sc_rad, sc_lat, sc_lon))
+        # Split the list into individual spacecraft names.
+        spacecraft = spacecraft.split(',')
 
-        # Plot a labelled dot at the location of the spacecraft position.
-        # Skip if no spacecraft position found.
-        if sc_lon is not None:
-            AxM.plot(sc_lon, sc_lat, 'o')
-            lon_nudge = 2.0
-            lat_nudge = 2.0
-            AxM.text(sc_lon + lon_nudge, sc_lat + lat_nudge, spacecraft)
-        else:
-            print("No position found for spacecraft %s." % spacecraft)
+        # Fetch the position of each spacecraft from CDAWeb.
+        for sc in spacecraft:
+
+            # Fetch the current spacecraft position.
+            sc_rad, sc_lat, sc_lon = cdaweb_utils.fetch_satellite_geographic_position(
+                sc, utS[0]
+            )
+            if debug:
+                print("sc_rad, sc_lat, sc_lon = %s, %s, %s" %
+                    (sc_rad, sc_lat, sc_lon))
+
+            # Plot a labelled dot at the location of the spacecraft position.
+            # Skip if no spacecraft position found.
+            if sc_lon is not None:
+                AxM.plot(sc_lon, sc_lat, 'o')
+                lon_nudge = 2.0
+                lat_nudge = 2.0
+                AxM.text(sc_lon + lon_nudge, sc_lat + lat_nudge, sc)
+            else:
+                print("No position found for spacecraft %s." % sc)
 
     # Make the colorbar.
     kv.genCB(AxCB, vQ, cbStr, cM=cmap)
