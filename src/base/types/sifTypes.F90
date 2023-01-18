@@ -25,6 +25,7 @@ module siftypes
         integer :: kStart, kEnd
         real(rp) :: fudge
         real(rp), dimension(:), allocatable :: alami
+            !! Lambda channel cell interfaces/edges
 
     end type SIFSpecies_T
 

@@ -14,7 +14,7 @@ program sifx
 
     ! Could use sifApp, but that depends on voltlib which is annoying to build
     type(sifModel_T) :: Model
-    type(sifGrid_T) :: Grid
+    type(sifGrid_T ) :: Grid
     type(sifState_T) :: State
 
     type(planet_T) :: planet

@@ -72,7 +72,7 @@ module sifgrids
 
     subroutine sifGenGridFromShGrid(Grid, shGrid)
         type(sifGrid_T)  , intent(inout) :: Grid
-        type(ShellGrid_T), intent(inout) :: shGrid
+        type(ShellGrid_T), intent(in) :: shGrid
 
         !!TODO
     end subroutine sifGenGridFromShGrid

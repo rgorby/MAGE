@@ -17,8 +17,6 @@ module sifstarter
 !------
 
     ! Sets up Model, but Grid and State must be set up separately
-    ! Its up to a higher being to determine how we get our grid
-    ! After we have a grid, we can initialize our first state
     subroutine sifInitModel(Model, planet, iXML)
         type(sifModel_T) , intent(inout) :: Model
         type(planet_T)   , intent(in)    :: planet
@@ -31,8 +29,11 @@ module sifstarter
         !! NOT SET HERE:
         ! nG, nB, t0, tFin, dt, fixedTimestep
 
+        ! Assuming that if being controlled by e.g. Voltron, SIFApp will set RunID accordingly
+        ! If getting here without RunID being set, assume we're running in stand-alone
+        ! (Currently no decisions are made based on being SA, just means we set the RunID ourselves)
         if (trim(Model%RunID) .eq. "") then
-            write(*,*) "Setting RunID to be SIFTest"
+            write(*,*) "Setting RunID to be sifSA"
             call iXML%Set_Val(Model%RunID, "sim/RunID","sifSA")  ! sif stand-alone
         endif
 
@@ -76,7 +77,6 @@ module sifstarter
         ! If we are running stand-alone, look for timing info inside SIF XML block
         ! If voltron is present, look for timing information there
 
-        
 
     end subroutine sifInitModel
 

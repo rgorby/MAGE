@@ -14,7 +14,7 @@ module sifIO
         integer :: i
         logical :: fExist
         real(rp), dimension(:,:), allocatable :: lat2D, lon2D
-        type(IOVAR_T), dimension(5) :: IOVars
+        type(IOVAR_T), dimension(6) :: IOVars
         character(len=strLen) :: gStr
 
         associate(SIO => Model%SIFIO, sh => Grid%shGrid, spc=>Grid%spc)
@@ -52,10 +52,9 @@ module sifIO
         !! TODO: Stamp with git hash and branch
         call ClearIO(IOVars)
 
-        call AddOutVar(IOVars,"X",lat2D)
-        call AddOutVar(IOVars,"Y",lon2D)
-        call AddOutVar(IOVars,"alamc",Grid%alamc)
-        call AddOutVar(IOVars,"UnitsID","Rad")  ! Attribute
+        call AddOutVar(IOVars,"X",lat2D,uStr="radians")
+        call AddOutVar(IOVars,"Y",lon2D,uStr="radians")
+        call AddOutVar(IOVars,"alamc",Grid%alamc)  ! TODO: Units
         call WriteVars(IOVars,.true.,SIO%SIFH5)
 
         ! Output detailed lambda grid info
@@ -64,7 +63,7 @@ module sifIO
             call AddOutVar(IOVars,"flav" ,spc(i)%flav )
             call AddOutVar(IOVars,"N"    ,spc(i)%N    )
             call AddOutVar(IOVars,"fudge",spc(i)%fudge)
-            call AddOutVar(IOVars,"alami",spc(i)%alami)
+            call AddOutVar(IOVars,"alami",spc(i)%alami)  ! TODO: Units
             write(gStr,'(I0)') spc(i)%flav  ! Idk if this is the easiest way to format ints as strings
             call WriteVars(IOVars,.true.,SIO%SIFH5,"Species",gStr)
 
