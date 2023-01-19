@@ -45,7 +45,7 @@ def fetch_satellite_geographic_position(spacecraft, when):
 
     Returns
     -------
-    sc_lon, sc_lat, sc_rad : float
+    sc_rad, sc_lat, sc_lon : float
         Geographic longitude and latitude of spacecraft (degrees) and
         radius (km).
     """
@@ -66,11 +66,9 @@ def fetch_satellite_geographic_position(spacecraft, when):
     t1 = t_end.strftime(CDAWEB_DATETIME_FORMAT)
 
     # Fetch the satellite position from CDAWeb.
-    status, data = cdas.get_data(
-        sc_info[spacecraft]['Ephem']['Id'],
-        sc_info[spacecraft]['Ephem']['Data'],
-        t0, t1
-    )
+    dataset = sc_info[spacecraft]['Ephem']['Id']
+    variable = sc_info[spacecraft]['Ephem']['Data']
+    status, data = cdas.get_data(dataset, variable, t0, t1)
 
     # Return if no data found.
     if data is None:
@@ -106,3 +104,159 @@ def fetch_satellite_geographic_position(spacecraft, when):
 
     # Return the spacecraft longitude and latitude.
     return sc_rad, sc_lat, sc_lon
+
+
+def fetch_satellite_magnetic_northern_footprint_position(spacecraft, when):
+    """Fetch the position of the northern magnetic footprint.
+
+    Fetch the positions of the northern magnetic footprint for a spacecraft
+    at a specified time. Data is fetched from CDAWeb. The first returned
+    positions are assumed to correspond to the requested value of "when".
+
+    Parameters
+    ----------
+    spacecraft : str
+        CDAWeb-compliant spacecraft ID.
+    when : datetime.datetime
+        datetime for position fetch.
+
+    Returns
+    -------
+    fp_lon, fp_lat : float
+        Geographic longitude and latitude (degrees) of northern magnetic
+        footprint.
+    """
+    # Initialize the footprint position.
+    fp_lat = None
+    fp_lon = None
+
+    # Read the CDAWeb spacecraft database.
+    sc_info = scutils.getScIds()
+
+    # Create the CDAWeb connection.
+    cdas = CdasWs()
+
+    # Format the start and end time strings.
+    t0 = when.strftime(CDAWEB_DATETIME_FORMAT)
+    # <HACK>
+    # Use the specified time as the start time, and nudge it by adding 1 minute
+    # (in seconds) to get the end time.
+    one_minute = 60
+    t_end = when + datetime.timedelta(0, 3600)
+    # </HACK>
+    t1 = t_end.strftime(CDAWEB_DATETIME_FORMAT)
+
+    # Fetch the footprint position from CDAWeb.
+    dataset = sc_info[spacecraft]['MagneticFootprintNorth']['Id']
+    variable = sc_info[spacecraft]['MagneticFootprintNorth']['Data']
+    status, data = cdas.get_data(dataset, variable, t0, t1)
+    print("data = %s" % data)
+
+    # Return if no data found.
+    if data is None:
+        return fp_lat, fp_lon
+
+    # The position is in cartesian GSM coordinates (kilometers).
+    if data[variable].shape == (3,):
+        # Only 1 position was returned, so copy its first 3 elements.
+        xyz = data[variable][:3]
+    else:
+        # More than 1 position was returned, so copy the first 3 elements of
+        # the first position.
+        xyz = data[variable][0, :3]  # >1 position returned
+
+    # Create a Coords object for the Cartesian position in the coordinate system used by
+    # the spacecraft, at the start time.
+    fp_pos_orig = Coords(
+        xyz,
+        sc_info[spacecraft]['MagneticFootprintNorth']['CoordSys'],
+        'car', use_irbem=False
+    )
+    fp_pos_orig.ticks = Ticktock(t0)
+
+    # Convert the footprint coordinates to geographic spherical coordinates.
+    fp_pos_sph = fp_pos_orig.convert('GEO', 'sph')
+    fp_rad = fp_pos_sph.data[0][0]
+    fp_lat = fp_pos_sph.data[0][1]
+    fp_lon = fp_pos_sph.data[0][2]
+
+    # Return the spacecraft longitude and latitude.
+    return fp_lat, fp_lon
+
+
+def fetch_satellite_magnetic_southern_footprint_position(spacecraft, when):
+    """Fetch the position of the southern magnetic footprint.
+
+    Fetch the positions of the southern magnetic footprint for a spacecraft
+    at a specified time. Data is fetched from CDAWeb. The first returned
+    positions are assumed to correspond to the requested value of "when".
+
+    Parameters
+    ----------
+    spacecraft : str
+        CDAWeb-compliant spacecraft ID.
+    when : datetime.datetime
+        datetime for position fetch.
+
+    Returns
+    -------
+    fp_lon, fp_lat : float
+        Geographic longitude and latitude (degrees) of southern magnetic
+        footprint.
+    """
+    # Initialize the footprint position.
+    fp_lat = None
+    fp_lon = None
+
+    # Read the CDAWeb spacecraft database.
+    sc_info = scutils.getScIds()
+
+    # Create the CDAWeb connection.
+    cdas = CdasWs()
+
+    # Format the start and end time strings.
+    t0 = when.strftime(CDAWEB_DATETIME_FORMAT)
+    # <HACK>
+    # Use the specified time as the start time, and nudge it by adding 1 minute
+    # (in seconds) to get the end time.
+    one_minute = 60
+    t_end = when + datetime.timedelta(0, 3600)
+    # </HACK>
+    t1 = t_end.strftime(CDAWEB_DATETIME_FORMAT)
+
+    # Fetch the footprint position from CDAWeb.
+    dataset = sc_info[spacecraft]['MagneticFootprintSouth']['Id']
+    variable = sc_info[spacecraft]['MagneticFootprintSouth']['Data']
+    status, data = cdas.get_data(dataset, variable, t0, t1)
+    print("data = %s" % data)
+
+    # Return if no data found.
+    if data is None:
+        return fp_lat, fp_lon
+
+    # The position is in cartesian GSM coordinates (kilometers).
+    if data[variable].shape == (3,):
+        # Only 1 position was returned, so copy its first 3 elements.
+        xyz = data[variable][:3]
+    else:
+        # More than 1 position was returned, so copy the first 3 elements of
+        # the first position.
+        xyz = data[variable][0, :3]  # >1 position returned
+
+    # Create a Coords object for the Cartesian position in the coordinate system used by
+    # the spacecraft, at the start time.
+    fp_pos_orig = Coords(
+        xyz,
+        sc_info[spacecraft]['MagneticFootprintSouth']['CoordSys'],
+        'car', use_irbem=False
+    )
+    fp_pos_orig.ticks = Ticktock(t0)
+
+    # Convert the footprint coordinates to geographic spherical coordinates.
+    fp_pos_sph = fp_pos_orig.convert('GEO', 'sph')
+    fp_rad = fp_pos_sph.data[0][0]
+    fp_lat = fp_pos_sph.data[0][1]
+    fp_lon = fp_pos_sph.data[0][2]
+
+    # Return the spacecraft longitude and latitude.
+    return fp_lat, fp_lon

@@ -56,6 +56,9 @@ default_output_filename = "qkdbpic.png"
 # Size of figure in inches (width x height).
 figSz = (12, 6)
 
+# Color to use for magnetic footprint positions.
+FOOTPRINT_COLOR = 'red'
+
 
 def create_command_line_parser():
     """Create the command-line argument parser.
@@ -96,8 +99,12 @@ def create_command_line_parser():
         '-k0', type=int, metavar="layer", default=default_k0,
         help="Vertical layer to plot (default: %(default)s)")
     parser.add_argument(
-        "--spacecraft", type=str, metavar="spacecraft", default=None,
+        "--magspacecraft", type=str, metavar="magspacecraft", default=None,
         help="Names of spacecraft to plot magnetic footprints, separated by commas (default: %(default)s)"
+    )
+    parser.add_argument(
+        "--spacecraft", type=str, metavar="spacecraft", default=None,
+        help="Names of spacecraft to plot subsatellite positions, separated by commas (default: %(default)s)"
     )
     parser.add_argument(
         "-v", "--verbose", action="store_true", default=False,
@@ -120,6 +127,7 @@ if __name__ == "__main__":
     nStp = args.n
     k0 = args.k0
     doJr = args.Jr
+    magspacecraft = args.magspacecraft
     spacecraft = args.spacecraft
     verbose = args.verbose
     if debug:
@@ -252,6 +260,47 @@ if __name__ == "__main__":
                 AxM.text(sc_lon + lon_nudge, sc_lat + lat_nudge, sc)
             else:
                 print("No position found for spacecraft %s." % sc)
+
+    # If requested, overlay the spacecraft magnetic footprints.
+    if magspacecraft:
+        print("Overplotting magnetic footprints of %s." % magspacecraft)
+
+        # Split the list into individual spacecraft names.
+        magspacecraft = magspacecraft.split(',')
+
+        # Fetch the position of each footprint pair from CDAWeb.
+        for sc in magspacecraft:
+
+            # Fetch the northern footprint position.
+            fp_nlat, fp_nlon = cdaweb_utils.fetch_satellite_magnetic_northern_footprint_position(
+                sc, utS[0]
+            )
+            if debug:
+                print("fp_nlat, fp_nlon = %s, %s" % (fp_nlat, fp_nlon))
+
+            # Fetch the southern footprint position.
+            fp_slat, fp_slon = cdaweb_utils.fetch_satellite_magnetic_southern_footprint_position(
+                sc, utS[0]
+            )
+            if debug:
+                print("fp_slat, fp_slon = %s, %s" % (fp_slat, fp_slon))
+
+            # Plot a labelled dot at the location of each footprint.
+            # Skip if no footprint position found.
+            if fp_nlon is not None:
+                AxM.plot(fp_nlon, fp_nlat, 'o', c=FOOTPRINT_COLOR)
+                lon_nudge = 2.0
+                lat_nudge = 2.0
+                AxM.text(fp_nlon + lon_nudge, fp_nlat + lat_nudge, sc + ' (N)')
+            else:
+                print("No northern footprint found for spacecraft %s." % sc)
+            if fp_slon is not None:
+                AxM.plot(fp_slon, fp_slat, 'o', c=FOOTPRINT_COLOR)
+                lon_nudge = 2.0
+                lat_nudge = 2.0
+                AxM.text(fp_slon + lon_nudge, fp_slat + lat_nudge, sc + ' (S)')
+            else:
+                print("No southern footprint found for spacecraft %s." % sc)
 
     # Make the colorbar.
     kv.genCB(AxCB, vQ, cbStr, cM=cmap)
