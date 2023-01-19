@@ -44,7 +44,7 @@ module giblowapp
         write(*,*) 'Reading input deck from ', trim(inpXML)
         xmlInp = New_XML_Input(trim(inpXML),'Kaiju/CME',.true.)
 
-           ! try to verify that the XML file has "Kaiju" as a root element
+        ! try to verify that the XML file has "Kaiju" as a root element
         kaijuRoot = ""
         call xmlInp%Get_Key_Val("/CME/sim/model",kaijuRoot,.false.)
         if(len(trim(kaijuRoot)) /= 0) then
@@ -70,11 +70,6 @@ module giblowapp
         call Toc("Init")
         call cleanClocks()
 
-        ! TODO: Output
-        ! if (doIOX) then
-        !     call output(glApp%Model,glApp%State,glApp%Solution)
-        !     call consoleOutput(glApp%Model,glApp%Grid,glApp%State)
-        ! endif
     end subroutine initGL
 
     subroutine step(glApp)

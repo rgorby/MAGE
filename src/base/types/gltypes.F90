@@ -45,8 +45,6 @@ module gltypes
         real(rp) :: frontheight
         real(rp) :: legsang
         real(rp) :: topmorph
-        real(rp) :: latitude
-        real(rp) :: longitude
         real(rp) :: sigma
         real(rp) :: cmer
         real(rp) :: Bmax
@@ -144,15 +142,17 @@ module gltypes
         real(rp), dimension(:, :), allocatable :: jlittlerlamb, jlittlethlamb, jlittlephlamb
         real(rp), dimension(:, :), allocatable :: stream
         real(rp), dimension(:, :), allocatable :: bstrengthphys
-    end type glState_T
 
+        contains
+            procedure :: updateGrid => setGLStateXYZ
+    end type glState_T
 
     !> Solution information
     type, extends(baseCMESolution_T) :: glSolution_T
         ! solution bubble r(i) < rbub = Model%frontheight - Model%xo + Model%apar
         integer :: CoordSystem
     end type glSolution_T
-    
+
     contains
         !>
         !>
@@ -165,5 +165,56 @@ module gltypes
                 write(*,"(1X,A14,2X,F13.2)") "Updated time: ", Model%time 
             end if
         end subroutine updateGLTime
+
+
+        !> Expectation is that this interface is to be used by Gamera etc. 
+        !> User must initalize the glApp components -> Model, State, State, Solution
+        !> Model is initialized from inpXML
+        !> State must minimally be defined by r(i), theta(j,k), phi(j,k) 
+        !> 
+        subroutine setGLStateRTP(r, theta, phi, Model, State)
+            real(rp), dimension(:), intent(in) :: r
+            real(rp), dimension(:,:), intent(in) :: theta, phi
+            class(*), intent(inout) :: Model
+            class(glState_T), intent(inout)  :: State
+
+            select type (Model)
+                type is (glModel_T)
+                    State%r = r
+                    State%thpb = theta + Model%latitude
+                    State%phpb = phi - Model%longitude
+            end select
+
+        end subroutine setGLStateRTP
+
+        !> Expectation is that this interface is to be used by Gamera etc. 
+        !> User must initalize the glApp components -> Model, State, State, Solution
+        !> Model is initialized from inpXML
+        !> Parameters:
+        !>  State: this instance of the CME State
+        !>  xyz: the (i,j,k,xyz) locations over which to solve the Gibson Low Model
+        !>  Model: the CME model object
+        !> 
+        subroutine setGLStateXYZ(State, xyz, Model)
+            class(glState_T), intent(inout)  :: State
+            real(rp), dimension(:,:,:,:), intent(in) :: xyz
+            class(*), intent(inout)  :: Model
+
+            real(rp), dimension(:), allocatable :: r
+            real(rp), dimension(:,:), allocatable :: theta, phi
+            integer :: i
+
+            allocate(r(State%is:State%ie))
+            allocate(theta(State%js:State%je, State%ks:State%ke))
+            allocate(phi(State%js:State%je, State%ks:State%ke))
+            do i=State%is, State%ie
+                r(i) = norm2(xyz(i,1,1,:))
+            end do
+            theta = acos(xyz(1,:,:,ZDIR)/norm2(xyz(1,1,1,:)))
+            phi = atan2(xyz(1,:,:,YDIR),xyz(1,:,:,XDIR))
+
+            call setGLStateRTP(r, theta, phi, Model, State)
+
+        end subroutine setGLStateXYZ
 
 end module gltypes

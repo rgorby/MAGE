@@ -343,7 +343,7 @@ module usergamic
       integer :: i,j,k, kb, ke, knew
       integer :: kg, jg, ig ! global indices (in preparation for MPI)
       integer :: var ! ibcVar variable number
-      real(rp) :: a
+      real(rp) :: a, dphi
       real(rp) :: ibcVarsStatic(NVARSIN)
 
       !including ghost cells in k
@@ -367,35 +367,46 @@ module usergamic
       kfCMEVarsStatic = 0.
       ! After Initial transient passage, generate CME solution
       if (Model%doCME .and. (Model%t >= cccmeModel%Tstart_transient/Model%Units%gT0)) then
-          ! cell-center
-          !call cccmeModel%updateModelTime(Model%t, Model%Units%gT0)
-          cccmeModel%time = (Model%t - cccmeModel%Tstart_transient/Model%Units%gT0)*Model%Units%gT0
-          if (cccmeModel%isDebug) then
-              write(*,"(1X,A14,2X,F)") "Sim time: ", Model%t 
-              write(*,"(1X,A14,2X,F)") "Updated CME time: ", cccmeModel%time 
-          end if
-          call ccCMESolution%generateSolution(ccCMESolution, cccmeModel, cccmeState)
-          ! J-Faces
-          !call jfcmeModel%updateModelTime(Model%t, Model%Units%gT0)
-          jfcmeModel%time = (Model%t - jfcmeModel%Tstart_transient/Model%Units%gT0)*Model%Units%gT0
-          call jfCMESolution%generateSolution(jfCMESolution, jfcmeModel, jfcmeState)
-          ! K-Faces
-          !call kfcmeModel%updateModelTime(Model%t, Model%Units%gT0)
-          kfcmeModel%time = (Model%t - kfcmeModel%Tstart_transient/Model%Units%gT0)*Model%Units%gT0
-          call kfCMESolution%generateSolution(kfCMESolution, kfcmeModel, kfcmeState)
-          if (cccmeModel%isDebug) then
+            ! cell-center
+            !call cccmeModel%updateModelTime(Model%t, Model%Units%gT0)
+            if(Model%rotateCME) then 
+                ! Set new longitude in this rank for model based on solar rotation
+                dphi = 2.*PI*(State%time+DeltaT)/Tsolar
+                cccmeModel%longitude = dphi
+                jfcmeModel%longitude = dphi
+                kfcmeModel%longitude = dphi
+                ! Update model grid based on the above longitude update
+                call cccmeState%updateGrid(Grid%xyzcc(Grid%isg:Grid%is-1, Grid%js:Grid%je + 1, Grid%ks:Grid%ke + 1, :), cccmeModel)
+                call jfcmeState%updateGrid(Grid%xfc(Grid%isg:Grid%is-1, Grid%js:Grid%je + 1, Grid%ks:Grid%ke + 1, :, JDIR), jfcmeModel)
+                call kfcmeState%updateGrid(Grid%xfc(Grid%isg:Grid%is-1, Grid%js:Grid%je + 1, Grid%ks:Grid%ke + 1, :, KDIR), kfcmeModel)                               
+            end if
+            cccmeModel%time = (Model%t - cccmeModel%Tstart_transient/Model%Units%gT0)*Model%Units%gT0
+            if (cccmeModel%isDebug) then
+                write(*,"(1X,A14,2X,F)") "Sim time: ", Model%t 
+                write(*,"(1X,A14,2X,F)") "Updated CME time: ", cccmeModel%time 
+            end if
+            call ccCMESolution%generateSolution(ccCMESolution, cccmeModel, cccmeState)
+            ! J-Faces
+            !call jfcmeModel%updateModelTime(Model%t, Model%Units%gT0)
+            jfcmeModel%time = (Model%t - jfcmeModel%Tstart_transient/Model%Units%gT0)*Model%Units%gT0
+            call jfCMESolution%generateSolution(jfCMESolution, jfcmeModel, jfcmeState)
+            ! K-Faces
+            !call kfcmeModel%updateModelTime(Model%t, Model%Units%gT0)
+            kfcmeModel%time = (Model%t - kfcmeModel%Tstart_transient/Model%Units%gT0)*Model%Units%gT0
+            call kfCMESolution%generateSolution(kfCMESolution, kfcmeModel, kfcmeState)
+            if (cccmeModel%isDebug) then
             write(*,"(1X,A14,2X,3F)") "Max Vr: ", maxval(ccCMESolution%v(:,:,:,XDIR)), maxval(jfCMESolution%v(:,:,:,XDIR)), maxval(kfCMESolution%v(:,:,:,XDIR))
             write(*,"(1X,A14,2X,3F)") "Max Br: ", maxval(ccCMESolution%b(:,:,:,XDIR)), maxval(jfCMESolution%b(:,:,:,XDIR)), maxval(kfCMESolution%b(:,:,:,XDIR))
-          end if
-          ccCMEVars(:, :, Grid%ks:Grid%ke + 1, CMEBR:CMEBP) = ccCMESolution%b
-          ccCMEVars(:, :, Grid%ks:Grid%ke + 1, CMEVR) = ccCMESolution%v(:, :, :, XDIR)
-          ccCMEVars(:, :, Grid%ks:Grid%ke + 1, CMEMASK) = ccCMESolution%inside_mask
-          jfCMEVars(:, :, Grid%ks:Grid%ke + 1, CMEBR:CMEBP) = jfCMESolution%b
-          jfCMEVars(:, :, Grid%ks:Grid%ke + 1, CMEVR) = jfCMESolution%v(:, :, :, XDIR)
-          jfCMEVars(:, :, Grid%ks:Grid%ke + 1, CMEMASK) = jfCMESolution%inside_mask
-          kfCMEVars(:, :, Grid%ks:Grid%ke + 1, CMEBR:CMEBP) = kfCMESolution%b
-          kfCMEVars(:, :, Grid%ks:Grid%ke + 1, CMEVR) = kfCMESolution%v(:, :, :, XDIR)
-          kfCMEVars(:, :, Grid%ks:Grid%ke + 1, CMEMASK) = kfCMESolution%inside_mask
+            end if
+            ccCMEVars(:, :, Grid%ks:Grid%ke + 1, CMEBR:CMEBP) = ccCMESolution%b
+            ccCMEVars(:, :, Grid%ks:Grid%ke + 1, CMEVR) = ccCMESolution%v(:, :, :, XDIR)
+            ccCMEVars(:, :, Grid%ks:Grid%ke + 1, CMEMASK) = ccCMESolution%inside_mask
+            jfCMEVars(:, :, Grid%ks:Grid%ke + 1, CMEBR:CMEBP) = jfCMESolution%b
+            jfCMEVars(:, :, Grid%ks:Grid%ke + 1, CMEVR) = jfCMESolution%v(:, :, :, XDIR)
+            jfCMEVars(:, :, Grid%ks:Grid%ke + 1, CMEMASK) = jfCMESolution%inside_mask
+            kfCMEVars(:, :, Grid%ks:Grid%ke + 1, CMEBR:CMEBP) = kfCMESolution%b
+            kfCMEVars(:, :, Grid%ks:Grid%ke + 1, CMEVR) = kfCMESolution%v(:, :, :, XDIR)
+            kfCMEVars(:, :, Grid%ks:Grid%ke + 1, CMEMASK) = kfCMESolution%inside_mask
       end if
 
       !i-boundaries (IN)
@@ -454,18 +465,9 @@ module usergamic
                         kfCMEVars(ig, j, k, CMEVR) = kfCMESolution%v(ig, j, knew, XDIR)
                         kfCMEVars(ig, j, k, CMEMASK) = kfCMESolution%inside_mask(ig, j, knew)
                     end if
-                    if(Model%rotateCME) then
-                        ! interpolate linearly from rotating to inertial frame for CME Values
-                        if ((jg>=Grid%js) .and. (jg<=Grid%je + 1)) then
-                            cccmeVarsStatic = a*ccCMEVars(ig, jg, kb, :) + (1.-a)*ccCMEVars(ig, jg, ke, :)
-                            jfcmeVarsStatic = a*jfCMEVars(ig, jg, kb, :) + (1.-a)*jfCMEVars(ig, jg, ke, :)
-                            kfcmeVarsStatic = a*kfCMEVars(ig, jg, kb, :) + (1.-a)*kfCMEVars(ig, jg, ke, :)
-                        end if
-                    else
-                        cccmeVarsStatic = ccCMEVars(ig, j, k, :)
-                        jfcmeVarsStatic = jfCMEVars(ig, j, k, :)
-                        kfcmeVarsStatic = kfCMEVars(ig, j, k, :)
-                    end if
+                    cccmeVarsStatic = ccCMEVars(ig, j, k, :)
+                    jfcmeVarsStatic = jfCMEVars(ig, j, k, :)
+                    kfcmeVarsStatic = kfCMEVars(ig, j, k, :)
                 end if
                 
                 ! do cell centered things for cell-centers only
@@ -499,7 +501,7 @@ module usergamic
                             pVar(VELX:VELZ) = rHat*ccCMEVarsStatic(CMEVR)/(1.d-5*Model%Units%gv0)
                         else ! when Model%t is larger than t_smooth use WSA
                             if(cccmeModel%isDebug) write(*,"(1X,A14,2X,2F)") "Time is greater then t_smooth: ", Model%t, t_smooth
-			    pVar(DEN) = ibcVarsStatic(RHOIN)
+			                pVar(DEN) = ibcVarsStatic(RHOIN)
                             pVar(PRESSURE) = ibcVarsStatic(RHOIN)*Model%Units%gD0*Kbltz*ibcVarsStatic(TIN)/(Model%Units%gP0)
                             pVar(VELX:VELZ) = rHat*ibcVarsStatic(VRIN)
                             !pVar(VELX:VELZ) = rHat*ccCMEVarsStatic(CMEVR)/(1.d-5*Model%Units%gv0)

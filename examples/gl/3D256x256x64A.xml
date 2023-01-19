@@ -1,0 +1,11 @@
+<?xml version="1.0"?>
+<Kaiju>
+<CME>
+    <sim runid="giblowA681" isLoud="T" isDebug="F" isTopomorph="T" isStandalone="T" scaleBmax="T" isAtmosphere="T" model="GL" />
+    <time Tstart_transient="0.0" />
+    <prob StateCoord="Sphere" orientation="1.57079" alpha="0.0" lat="0.0" lon="1.57079" tfin="72000.0" dt="1800.0" topmorph="6.81" Bmax="0.001" frontheight="21.5" legsang="45.0" vel_fh="500."/>
+    <idir min="21.5" max="200.0" N="256"/>
+    <jdir min="0.01" max="0.99" N="256"/>
+    <kdir min="0.0" max="1.0" N="64"/>
+</CME>
+</Kaiju>

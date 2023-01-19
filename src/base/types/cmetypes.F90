@@ -17,13 +17,16 @@ module cmetypes
         real(rp) :: Tstart_transient
         !> 
         real(rp) :: time = 0.0
+        real(rp) :: latitude
+        real(rp) :: longitude
         !> Output info
         type (IOClock_T) :: IO
         procedure(), pointer, nopass :: updateModelTime
     end type
 
     type, abstract :: baseCMEState_T
-      
+        contains
+            procedure(updateGrid_I), deferred :: updateGrid
     end type
 
     type, abstract :: baseCMESolution_T 
@@ -31,15 +34,24 @@ module cmetypes
         real(rp), dimension(:, :, :, :), allocatable :: b, v, j
         !DIR$ attributes align : ALIGN :: pres, dens, temp, inside_mask
         !DIR$ attributes align: ALIGN :: b, v, j
-        procedure(), pointer, nopass :: generateSolution
+        procedure(), pointer, nopass :: generateSolution 
     end type
 
     abstract interface
-        subroutine cmeSolution_I(Solution, Model, State)
+        subroutine generateCMSolution_I(Solution, Model, State)
             Import baseCMESolution_T, baseCMEModel_T, baseCMEState_T
             class(baseCMESolution_T), intent(inout) :: Solution
             class(baseCMEModel_T), intent(inout) :: Model
             class(baseCMEState_T), intent(inout) :: State
+        end subroutine
+    end interface
+
+    abstract interface
+        subroutine updateGrid_I(State, xyz, Model)
+            Import rp, baseCMEModel_T, baseCMEState_T
+            class(baseCMEState_T), intent(inout) :: State
+            real(rp), dimension(:,:,:,:), intent(in) :: xyz
+            class(*), intent(inout) :: Model
         end subroutine
     end interface
 

@@ -282,14 +282,14 @@ module glinit
             ! Create r(Ni), theta(Nj,Nk), phipb(Nj,Nk) arrays
               
             do k=State%ks, State%ke
-                do j=State%js, State%je    
+                do j=State%js, State%je
                     ! Phi
                     x3 = rtpBds(5)+(k-1)*dphi
                     State%phpb(j,k) = x3*2.*pi + Model%cmer  
                     ! Theta
                     x2 = rtpBds(3)+(j-1)*dth
                     State%thpb(j,k) = x2*pi                        
-                    do i=State%is, State%ie    
+                    do i=State%is, State%ie  
                         ! Rho
                         x1 = rtpBds(1) + (i-1)*dr                      
                         State%r(i) = x1
@@ -359,7 +359,7 @@ module glinit
 
             call initModel(Model, inpXML)
             call initSolutionState(Model, State, Solution, bounds)
-            call setGLStateXYZ(xyz, Model, State)
+            call setGLStateXYZ(State, xyz, Model)
             if (Model%scaleBmax) then 
                 call reInitModelScale(Model, State, Solution)
             else
@@ -369,50 +369,5 @@ module glinit
                 call printModelParameters(Model, "after interface init finished.")
             end if
         end subroutine
-        
-        !> Expectation is that this interface is to be used by Gamera etc. 
-        !> User must initalize the glApp components -> Model, State, State, Solution
-        !> Model is initialized from inpXML
-        !> Parameters:
-        !>  xyz: the (i,j,k,xyz) locations over which to solve the Gibson Low Model
-        !>  glApp: instance of the Gibson Low model app
-        !>  inpXML: the inpXML for this model
-        !> 
-        subroutine setGLStateXYZ(xyz, Model,  State)
-            type(glModel_T), intent(inout)  :: Model
-            type(glState_T), intent(inout)  :: State
-            real(rp), dimension(:,:,:,:), intent(in) :: xyz
-            real(rp), dimension(:), allocatable :: r
-            real(rp), dimension(:,:), allocatable :: theta, phi
-            integer :: i
-
-            allocate(r(State%is:State%ie))
-            allocate(theta(State%js, State%je))
-            allocate(phi(State%ks, State%ke))
-            do i=State%is, State%ie
-                r(i) = norm2(xyz(i,1,1,:))
-            end do
-            theta = acos(xyz(1,:,:,ZDIR)/norm2(xyz(1,1,1,:)))
-            phi = atan2(xyz(1,:,:,YDIR),xyz(1,:,:,XDIR))
-
-            call setGLStateRTP(r, theta, phi, Model, State)
-
-        end subroutine setGLStateXYZ
-
-        !> Expectation is that this interface is to be used by Gamera etc. 
-        !> User must initalize the glApp components -> Model, State, State, Solution
-        !> Model is initialized from inpXML
-        !> State must minimally be defined by r(i), theta(j,k), phi(j,k) 
-        !> 
-        subroutine setGLStateRTP(r, theta, phi, Model, State)
-            type(glModel_T), intent(inout) :: Model
-            type(glState_T), intent(inout)  :: State
-            real(rp), dimension(:), intent(in) :: r
-            real(rp), dimension(:,:), intent(in) :: theta, phi
-
-            State%r = r
-            State%thpb = theta + Model%latitude
-            State%phpb = phi - Model%longitude
-        end subroutine setGLStateRTP
         
 end module glinit

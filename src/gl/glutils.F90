@@ -362,4 +362,5 @@ module glutils
             if (allocated(State%thtilde)) deallocate (State%thtilde)
             if (allocated(State%phtilde)) deallocate (State%phtilde)
         end subroutine deallocState
+
 end module glutils
